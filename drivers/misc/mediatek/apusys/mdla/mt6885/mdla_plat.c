@@ -339,22 +339,22 @@ void mdla_multi_core_sync_rst_done(void)
 
 int mdla_zero_skip_detect(unsigned int core_id)
 {
-	u32 dde_debug_if_0, dde_debug_if_2, dde_it_front_c_invalid;
+	u32 debug_if_0, debug_if_2, it_front_c_invalid;
 
-	dde_debug_if_0 =
-		mdla_reg_read_with_mdlaid(core_id, MREG_DDE_DEBUG_IF_0);
-	dde_debug_if_2 =
-		mdla_reg_read_with_mdlaid(core_id, MREG_DDE_DEBUG_IF_2);
-	dde_it_front_c_invalid =
-		mdla_reg_read_with_mdlaid(core_id, MREG_DDE_IT_FRONT_C_INVALID);
+	debug_if_0 =
+		mdla_reg_read_with_mdlaid(core_id, MREG_DEBUG_IF_0);
+	debug_if_2 =
+		mdla_reg_read_with_mdlaid(core_id, MREG_DEBUG_IF_2);
+	it_front_c_invalid =
+		mdla_reg_read_with_mdlaid(core_id, MREG_IT_FRONT_C_INVALID);
 
-	if (dde_debug_if_0 == 0x6) {
-		if ((dde_debug_if_2 == dde_it_front_c_invalid) ||
-			(dde_debug_if_2 == (dde_it_front_c_invalid/2))) {
+	if (debug_if_0 == 0x6) {
+		if ((debug_if_2 == it_front_c_invalid) ||
+			(debug_if_2 == (it_front_c_invalid/2))) {
 			mdla_timeout_debug("core:%d, %s: match zero skip issue\n",
 				core_id,
 				__func__);
-			mdla_devices[core_id].mdla_dde_zero_skip_count++;
+			mdla_devices[core_id].mdla_zero_skip_count++;
 			return -1;
 		}
 	}
@@ -1398,24 +1398,7 @@ end:
 
 void dump_timeout_debug_info(int core_id)
 {
-	u32 mreg_top_g_idle, c2r_exe_st, ste_debug_if_1;
 	int i;
-
-	mreg_top_g_idle = mdla_reg_read_with_mdlaid(core_id, MREG_TOP_G_IDLE);
-	c2r_exe_st = mdla_reg_read_with_mdlaid(core_id, 0x0000);
-	ste_debug_if_1 =
-		mdla_reg_read_with_mdlaid(core_id, MREG_STE_DEBUG_IF_1);
-	if (((ste_debug_if_1&0x1C0) != 0x0 && (ste_debug_if_1&0x3) == 0x3)) {
-		mdla_timeout_debug(
-				"Matched, %s, mdla_timeout:%d, mreg_top_g_idle: %08x, c2r_exe_st: %08x, ste_debug_if_1: %08x\n",
-				__func__, mdla_timeout,
-				mreg_top_g_idle, c2r_exe_st, ste_debug_if_1);
-	} else {
-		mdla_timeout_debug(
-				"Not match, %s, mdla_timeout:%d, mreg_top_g_idle: %08x, c2r_exe_st: %08x, ste_debug_if_1: %08x\n",
-				__func__, mdla_timeout,
-				mreg_top_g_idle, c2r_exe_st, ste_debug_if_1);
-	}
 
 	for (i = 0x0000; i < 0x1000; i += 4)
 		mdla_timeout_all_debug("apu_mdla_config_top+%04X: %08X\n",
