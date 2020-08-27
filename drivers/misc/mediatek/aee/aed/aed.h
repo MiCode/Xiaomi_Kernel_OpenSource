@@ -260,14 +260,14 @@ struct aee_siginfo {
 
 
 #define AED_FILE_OPS(entry) \
-	static const struct file_operations proc_##entry##_fops = { \
-		.read = proc_##entry##_read, \
-		.write = proc_##entry##_write, \
+	static const struct proc_ops proc_##entry##_fops = { \
+		.proc_read = proc_##entry##_read, \
+		.proc_write = proc_##entry##_write, \
 	}
 
 #define AED_FILE_OPS_RO(entry) \
-	static const struct file_operations proc_##entry##_fops = { \
-		.read = proc_##entry##_read, \
+	static const struct proc_ops proc_##entry##_fops = { \
+		.proc_read = proc_##entry##_read, \
 	}
 
 #define  AED_PROC_ENTRY(name, entry, mode)\

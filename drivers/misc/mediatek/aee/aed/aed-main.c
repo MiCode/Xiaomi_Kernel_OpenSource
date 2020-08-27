@@ -621,7 +621,7 @@ static int ke_log_avail(void)
 	return 0;
 }
 
-static void aee_kapi_tasklet_handler(unsigned long data)
+static void aee_kapi_tasklet_handler(struct tasklet_struct *data)
 {
 	int ret;
 
@@ -629,7 +629,7 @@ static void aee_kapi_tasklet_handler(unsigned long data)
 	if (!ret)
 		pr_info("%s: ke work was already on a queue\n", __func__);
 }
-DECLARE_TASKLET(aee_kapi_tasklet, aee_kapi_tasklet_handler, 0);
+DECLARE_TASKLET(aee_kapi_tasklet, aee_kapi_tasklet_handler);
 
 static void ke_queue_request(struct aee_oops *oops)
 {
@@ -1208,11 +1208,11 @@ static int current_ke_##ENTRY##_open(struct inode *inode, struct file *file) \
 }
 
 #define AED_PROC_CURRENT_KE_FOPS(ENTRY) \
-static const struct file_operations proc_current_ke_##ENTRY##_fops = { \
-	.open		= current_ke_##ENTRY##_open, \
-	.read		= seq_read, \
-	.llseek		= seq_lseek, \
-	.release	= seq_release_private, \
+static const struct proc_ops proc_current_ke_##ENTRY##_fops = { \
+	.proc_open		= current_ke_##ENTRY##_open, \
+	.proc_read		= seq_read, \
+	.proc_lseek		= seq_lseek, \
+	.proc_release	= seq_release_private, \
 }
 
 
@@ -1347,7 +1347,7 @@ static void print_vma_name(unsigned char *Userthread_maps,
 		long pages_pinned;
 		struct page *page = NULL;
 
-		pages_pinned = get_user_pages_remote(current, mm,
+		pages_pinned = get_user_pages_remote(mm,
 				page_start_vaddr, 1, 0, &page, NULL, NULL);
 		if (pages_pinned < 1)
 			return;
@@ -1719,7 +1719,7 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		rcu_read_unlock();
 
 		start = stack_raw.sp;
-		down_read(&task->mm->mmap_sem);
+		down_read(&task->mm->mmap_lock);
 		vma = task->mm->mmap;
 		while (vma) {
 			if (vma->vm_start <= start &&
@@ -1731,7 +1731,7 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			if (vma == task->mm->mmap)
 				break;
 		}
-		up_read(&task->mm->mmap_sem);
+		up_read(&task->mm->mmap_lock);
 
 		if (end == 0) {
 			pr_info("Dump native stack failed:\n");
@@ -1832,7 +1832,7 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 				goto EXIT;
 			}
 			memset(maps, 0, MaxMapsSize);
-			down_read(&task->mm->mmap_sem);
+			down_read(&task->mm->mmap_lock);
 			vma = task->mm->mmap;
 			while (vma && (mapcount < task->mm->map_count)) {
 				show_map_vma(maps, &mapsLength, vma);
@@ -1870,7 +1870,7 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 					break;
 			}
 
-			up_read(&task->mm->mmap_sem);
+			up_read(&task->mm->mmap_lock);
 			if (end == 0) {
 				pr_info("Dump native stack failed:\n");
 				ret = -EFAULT;
@@ -2116,7 +2116,7 @@ int DumpThreadNativeInfo(struct aee_oops *oops)
 	if (!current_task->mm)
 		return 0;
 
-	down_read(&current_task->mm->mmap_sem);
+	down_read(&current_task->mm->mmap_lock);
 	vma = current_task->mm->mmap;
 	while (vma && (mapcount < current_task->mm->map_count)) {
 		file = vma->vm_file;
@@ -2160,7 +2160,7 @@ int DumpThreadNativeInfo(struct aee_oops *oops)
 		mapcount++;
 
 	}
-	up_read(&current_task->mm->mmap_sem);
+	up_read(&current_task->mm->mmap_lock);
 
 #ifndef __aarch64__ /* 32bit */
 	userstack_start = (unsigned long)user_ret->ARM_sp;
@@ -2264,7 +2264,7 @@ static void kernel_reportAPI(const enum AE_DEFECT_ATTR attr, const int db_opt,
 		n += snprintf(oops->backtrace, AEE_BACKTRACE_LENGTH, msg);
 #ifdef CONFIG_RTC_LIB
 		ktime_get_real_ts64(&tv);
-		rtc_time_to_tm(tv.tv_sec - sys_tz.tz_minuteswest * 60, &tm);
+		rtc_time64_to_tm(tv.tv_sec - sys_tz.tz_minuteswest * 60, &tm);
 		n += snprintf(oops->backtrace + n, AEE_BACKTRACE_LENGTH - n,
 			"\nTrigger time:[%d-%02d-%02d %02d:%02d:%02d.%03d]\n",
 			tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
@@ -2358,7 +2358,7 @@ static void external_exception(const char *assert_type, const int *log,
 	memset(eerec->exp_filename, 0, sizeof(eerec->exp_filename));
 #ifdef CONFIG_RTC_LIB
 	ktime_get_real_ts64(&tv);
-	rtc_time_to_tm(tv.tv_sec - sys_tz.tz_minuteswest * 60, &tm);
+	rtc_time64_to_tm(tv.tv_sec - sys_tz.tz_minuteswest * 60, &tm);
 	n = snprintf(trigger_time, sizeof(trigger_time),
 			"Trigger time:[%d-%02d-%02d %02d:%02d:%02d.%03d]\n",
 			tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
@@ -2634,9 +2634,9 @@ static enum hrtimer_restart aed_timer_fn(struct hrtimer *hrtimer)
 
 	ktime_get_real_ts64(&tv);
 	tv_android = tv;
-	rtc_time_to_tm(tv.tv_sec, &tm);
+	rtc_time64_to_tm(tv.tv_sec, &tm);
 	tv_android.tv_sec -= sys_tz.tz_minuteswest * 60;
-	rtc_time_to_tm(tv_android.tv_sec, &tm_android);
+	rtc_time64_to_tm(tv_android.tv_sec, &tm_android);
 	pr_info("[thread:%d] %d-%02d-%02d %02d:%02d:%02d.%u UTC;"
 		"android time %d-%02d-%02d %02d:%02d:%02d.%03d\n",
 		current->pid, tm.tm_year + 1900, tm.tm_mon + 1,
