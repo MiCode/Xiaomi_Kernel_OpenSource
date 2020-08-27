@@ -18,6 +18,11 @@
 #include "apusys_device.h"
 #include "mdw_cmd.h"
 
+struct mdw_usr_mgr {
+	struct list_head list;
+	struct mutex mtx;
+};
+
 struct mdw_usr {
 	uint64_t id;
 	pid_t pid;

@@ -32,13 +32,10 @@
 #include "mdw_sched.h"
 #include "mdw_trace.h"
 #include "mdw_mem_aee.h"
+#include "mdw_fence.h"
 
 #define MDW_CMD_DEFAULT_TIMEOUT (30*1000) //30s
 
-struct mdw_usr_mgr {
-	struct list_head list;
-	struct mutex mtx;
-};
 
 struct mdw_usr_stat {
 	struct list_head list;
@@ -51,7 +48,7 @@ static uint32_t ws_cnt;
 static struct mutex ws_mtx;
 #endif
 
-static struct mdw_usr_mgr u_mgr;
+struct mdw_usr_mgr u_mgr;
 static struct mdw_cmd_parser *cmd_parser;
 static struct mdw_usr_stat u_stat;
 static struct mdw_usr_mem_aee u_mem_aee;
@@ -806,6 +803,7 @@ static int mdw_usr_par_apu_cmd(struct mdw_apu_cmd *c)
 	int ret = 0;
 
 	mdw_trace_begin("cmd parse|cmd(0x%llx)", c->kid);
+
 	while (1) {
 		ret = cmd_parser->parse_cmd(c, &sc);
 		/* check return value */
@@ -834,7 +832,7 @@ int mdw_usr_run_cmd_async(struct mdw_usr *u, struct apusys_ioctl_cmd *in)
 	int ret = 0;
 	struct mdw_apu_cmd *c = NULL;
 
-	c = cmd_parser->create_cmd(in->mem_fd, in->size, in->offset);
+	c = cmd_parser->create_cmd(in->mem_fd, in->size, in->offset, u);
 	if (!c) {
 		ret = -EINVAL;
 		goto create_cmd_fail;
