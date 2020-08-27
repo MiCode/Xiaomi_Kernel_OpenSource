@@ -111,14 +111,11 @@ static void thermal_trace_work(struct work_struct *work)
 {
 	struct thermal_trace *trace_data =
 		container_of(work, struct thermal_trace, work);
-	struct timespec64 time_spec64;
-	struct timeval cur_time;
+	struct timespec64 cur_time;
 	unsigned long pre_time = trace_data->last_update_time;
 	int i;
 
-	ktime_get_ts64(&time_spec64);
-	cur_time.tv_sec = time_spec64.tv_sec;
-	cur_time.tv_usec = time_spec64.tv_nsec / NSEC_PER_USEC;
+	ktime_get_ts64(&cur_time);
 
 	if (pre_time != 0 && cur_time.tv_sec > pre_time) {
 		unsigned long diff;
