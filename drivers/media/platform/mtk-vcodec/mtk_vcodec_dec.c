@@ -2188,7 +2188,6 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 
 	if (ctx->dec_param_change & MTK_DEC_PARAM_DECODE_MODE) {
 		vdec_if_set_param(ctx, SET_PARAM_DECODE_MODE, &ctx->dec_params.decode_mode);
-		ctx->dec_param_change &= (~MTK_DEC_PARAM_DECODE_MODE);
 	}
 	ret = vdec_if_decode(ctx, src_mem, NULL, &src_chg);
 	mtk_vdec_set_param(ctx);
