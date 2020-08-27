@@ -70,7 +70,7 @@
  * Debug print
  ************************************************/
 
-#define FLL_DEBUG
+/* #define FLL_DEBUG */
 #define FLL_TAG	 "[FLL]"
 
 #define fll_err(fmt, args...)	\
@@ -139,10 +139,10 @@ int fll_reserve_memory_dump(char *buf, unsigned long long ptp3_mem_size,
 
 	/* check free page valid or not */
 	if (!aee_log_buf) {
-		fll_msg("unable to get free page!\n");
+		fll_err("unable to get free page!\n");
 		return -1;
 	}
-	fll_msg("buf: 0x%llx, aee_log_buf: 0x%llx\n",
+	fll_debug("buf: 0x%llx, aee_log_buf: 0x%llx\n",
 		(unsigned long long)buf, (unsigned long long)aee_log_buf);
 
 	/* show trigger stage */
