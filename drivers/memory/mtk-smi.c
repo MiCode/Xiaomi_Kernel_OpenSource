@@ -230,11 +230,13 @@ static void mtk_smi_larb_config_port_gen2_general(struct device *dev)
 	if (BIT(larb->larbid) & larb->larb_gen->larb_direct_to_common_mask)
 		return;
 
-	for_each_set_bit(i, (unsigned long *)larb->mmu, 32) {
-		reg = readl_relaxed(larb->base + SMI_LARB_NONSEC_CON(i));
-		reg |= F_MMU_EN;
-		reg |= BANK_SEL(larb->bank[i]);
-		writel(reg, larb->base + SMI_LARB_NONSEC_CON(i));
+	if (larb->mmu) {
+		for_each_set_bit(i, (unsigned long *)larb->mmu, 32) {
+			reg = readl_relaxed(larb->base + SMI_LARB_NONSEC_CON(i));
+			reg |= F_MMU_EN;
+			reg |= BANK_SEL(larb->bank[i]);
+			writel(reg, larb->base + SMI_LARB_NONSEC_CON(i));
+		}
 	}
 	if (!larb->larb_gen->has_bwl)
 		return;
@@ -453,6 +455,7 @@ static int mtk_smi_larb_probe(struct platform_device *pdev)
 	struct device_node *smi_node;
 	struct platform_device *smi_pdev;
 	struct device_link *link;
+	int ret;
 
 	larb = devm_kzalloc(dev, sizeof(*larb), GFP_KERNEL);
 	if (!larb)
@@ -505,7 +508,12 @@ static int mtk_smi_larb_probe(struct platform_device *pdev)
 
 	pm_runtime_enable(dev);
 	platform_set_drvdata(pdev, larb);
-	return component_add(dev, &mtk_smi_larb_component_ops);
+	ret = component_add(dev, &mtk_smi_larb_component_ops);
+
+	if (of_property_read_bool(dev->of_node, "init-power-on"))
+		pm_runtime_get_sync(dev);
+
+	return ret;
 }
 
 static int mtk_smi_larb_remove(struct platform_device *pdev)
