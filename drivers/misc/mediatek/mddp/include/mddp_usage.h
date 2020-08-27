@@ -14,11 +14,11 @@
 // Struct definition.
 // -----------------------------------------------------------------------------
 enum mddp_data_usage_cmd_e {
-	MSG_ID_MDT_SET_GLOBAL_ALERT_REQ,
-	MSG_ID_MDT_ALERT_GLOBAL_ALERT_IND,
-	MSG_ID_MDT_SET_IQUOTA_REQ,
-	MSG_ID_MDT_ALERT_IQUOTA_IND,
-	MSG_ID_MDT_DEL_IQUOTA_REQ,
+	MSG_ID_DPFM_SET_GLOBAL_ALERT_REQ,
+	MSG_ID_DPFM_ALERT_GLOBAL_ALERT_IND,
+	MSG_ID_DPFM_SET_IQUOTA_REQ,
+	MSG_ID_DPFM_ALERT_IQUOTA_IND,
+	MSG_ID_DPFM_DEL_IQUOTA_REQ,
 };
 
 struct mddp_u_data_limit_t {

@@ -21,7 +21,6 @@
 #define MDDP_DEV_MINOR_CNT              16
 #define MDDP_CLASS_NAME                 "md_direct"
 #define MDDP_DEV_NAME                   "mddp"
-#define MAX_GET_BUF_SZ                  256
 
 struct mddp_dev_rb_t {
 	struct mddp_dev_rb_t           *next;
@@ -322,6 +321,8 @@ static void mddp_dev_rb_queue_tail(struct mddp_dev_rb_head_t *list,
 	__mddp_dev_insert(new, list->prev, (struct mddp_dev_rb_t *) list, list);
 
 	MDDP_DEV_RB_UNLOCK(list->locker);
+
+	wake_up_all(&list->read_wq);
 }
 
 static struct mddp_dev_rb_t *mddp_dev_rb_peek(
@@ -506,7 +507,7 @@ void mddp_dev_response(enum mddp_app_type_e type,
 		return;
 	}
 
-	entry->len = sizeof(dev_rsp) + data_len;
+	entry->len = sizeof(struct mddp_dev_rsp_common_t) + data_len;
 	entry->dev_rsp = dev_rsp;
 	mddp_dev_rb_queue_tail(list, entry);
 }
@@ -563,7 +564,7 @@ ssize_t mddp_dev_read(struct file *file, char *buf, size_t count, loff_t *ppos)
 		}
 	}
 
-	pr_info("%s: IOCTL dev read, count(%zu).\n", __func__, count);
+	//pr_info("%s: IOCTL dev read, count(%zu).\n", __func__, count);
 	entry = mddp_dev_rb_peek(list);
 
 	if (!entry) {
@@ -614,10 +615,11 @@ long mddp_dev_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	struct mddp_dev_rsp_common_t           *dev_rsp;
 	long                                    ret = 0;
 	uint32_t                                data_len;
-	uint8_t                                 buf[MAX_GET_BUF_SZ] = { 0 };
-	uint32_t                                buf_len = MAX_GET_BUF_SZ;
+	uint8_t                                 buf[MDDP_MAX_GET_BUF_SZ] = {0};
+	uint32_t                                buf_len = MDDP_MAX_GET_BUF_SZ;
 	struct mddp_dev_req_act_t              *act;
 	struct mddp_dev_req_set_data_limit_t   *limit;
+	struct mddp_dev_req_set_ct_value_t     *ct_req;
 
 	/*
 	 * NG. copy_from_user fail!
@@ -689,7 +691,7 @@ long mddp_dev_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	case MDDP_CMCMD_GET_OFFLOAD_STATS_REQ:
 		ret = mddp_on_get_offload_stats(dev_req.app_type,
 				buf, &buf_len);
-		pr_info("%s: ret(%ld), type(%d), buf(%p), len(%d)\n",
+		pr_info("%s: ret(%ld), type(%d), buf(%p), len(%u)\n",
 			__func__, ret, dev_req.app_type, buf, buf_len);
 		pr_info("%s: get_offload_stats, rx(%llu), tx(%llu).\n",
 			__func__,
@@ -731,6 +733,30 @@ long mddp_dev_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 		break;
 
+	case MDDP_CMCMD_SET_CT_VALUE_REQ:
+		if (dev_req.data_len !=
+			sizeof(struct mddp_dev_req_set_ct_value_t)) {
+			pr_notice("%s: arg_len(%u) of command(%u) is not expected!\n",
+				__func__, dev_req.data_len, dev_req.msg);
+			ret = -EINVAL;
+			break;
+		}
+
+
+		ct_req = (struct mddp_dev_req_set_ct_value_t *)
+			&(((struct mddp_dev_req_common_t *)arg)->data);
+		buf_len = sizeof(struct mddp_dev_req_set_ct_value_t);
+		ret = copy_from_user((char *)&buf, (char *)ct_req, buf_len);
+
+		if (ret == 0)
+			ret = mddp_on_set_ct_value(dev_req.app_type,
+					buf, buf_len);
+		else
+			pr_notice("%s: failed to copy_from_user, buf_len(%u), ret(%ld)!\n",
+					__func__, buf_len, ret);
+
+		break;
+
 	default:
 		pr_notice("%s: Invalid command(%d)!\n",
 				__func__, dev_req.msg);
@@ -739,7 +765,7 @@ long mddp_dev_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	}
 
 ioctl_error:
-	pr_notice("%s: cmd(%d) app_type(%d), ret (%ld).\n",
+	pr_info("%s: cmd(%d) app_type(%d), ret (%ld).\n",
 				__func__, dev_req.msg, dev_req.app_type, ret);
 	return ret;
 }

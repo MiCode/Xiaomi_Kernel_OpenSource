@@ -26,9 +26,12 @@
 #include "mddp_f_hw.c"
 
 #include "mddp_ctrl.h"
+#include "mddp_dev.h"
+#include "mddp_filter.h"
 
 #if defined MDDP_TETHERING_SUPPORT
 #include "mddp_ipc.h"
+#include "mtk_ccci_common.h"
 #endif
 
 #define MAX_IFACE_NUM 32
@@ -1926,6 +1929,48 @@ out:
 	return NF_ACCEPT;
 }
 
+int32_t mddp_ct_update(void *buf, uint32_t buf_len)
+{
+	struct mddp_ct_timeout_ind_t   *ct_ind;
+	struct mddp_ct_nat_table_t     *entry;
+	uint32_t                        read_cnt = 0;
+	uint32_t                        i;
+
+	ct_ind = (struct mddp_ct_timeout_ind_t *)buf;
+	read_cnt = sizeof(ct_ind->entry_num);
+
+	for (i = 0; i < ct_ind->entry_num; i++) {
+		entry = &(ct_ind->nat_table[i]);
+		read_cnt += sizeof(struct mddp_ct_nat_table_t);
+		if (read_cnt > buf_len) {
+			pr_notice("%s: Invalid buf_len(%u), i(%u), read_cnt(%u)!\n",
+					__func__, buf_len, i, read_cnt);
+			break;
+		}
+
+		pr_info("%s: Update conntrack private(%u.%u.%u.%u:%u), target(%u.%u.%u.%u:%u), public(%u.%u.%u.%u:%u)\n",
+				__func__,
+				entry->private_ip[0], entry->private_ip[1],
+				entry->private_ip[2], entry->private_ip[3],
+				entry->private_port,
+				entry->target_ip[0], entry->target_ip[1],
+				entry->target_ip[2], entry->target_ip[3],
+				entry->target_port,
+				entry->public_ip[0], entry->public_ip[1],
+				entry->public_ip[2], entry->public_ip[3],
+				entry->public_port);
+
+		// Send IND to upper module.
+		mddp_dev_response(MDDP_APP_TYPE_ALL,
+			MDDP_CMCMD_CT_IND,
+			true,
+			(uint8_t *)entry,
+			sizeof(struct mddp_ct_nat_table_t));
+	}
+
+	return 0;
+}
+
 //------------------------------------------------------------------------------
 // Public functions.
 //------------------------------------------------------------------------------
@@ -1977,6 +2022,70 @@ int32_t mddp_f_resume_tag(void)
 
 	return 0;
 }
+
+int32_t mddp_f_msg_hdlr(uint32_t msg_id, void *buf, uint32_t buf_len)
+{
+	int32_t                                 ret = 0;
+
+	switch (msg_id) {
+	case IPC_MSG_ID_DPFM_CT_TIMEOUT_IND:
+		mddp_ct_update(buf, buf_len);
+		ret = 0;
+		break;
+
+	case IPC_MSG_ID_DPFM_SET_CT_TIMEOUT_VALUE_RSP:
+		ret = 0;
+		break;
+
+	default:
+		pr_notice("%s: Unaccepted msg_id(%d)!\n", __func__, msg_id);
+		ret = -EINVAL;
+		break;
+	}
+
+	return ret;
+}
+
+int32_t mddp_f_set_ct_value(uint8_t *buf, uint32_t buf_len)
+{
+	uint32_t                                md_status;
+	struct mddp_md_msg_t                   *md_msg;
+	struct mddp_dev_req_set_ct_value_t     *in_req;
+	struct mddp_f_set_ct_timeout_req_t      ct_req;
+
+	if (buf_len != sizeof(struct mddp_dev_req_set_ct_value_t)) {
+		pr_notice("%s: Invalid parameter, buf_len(%d)!\n",
+				__func__, buf_len);
+		return -EINVAL;
+	}
+
+	md_status = exec_ccci_kern_func_by_md_id(0, ID_GET_MD_STATE, NULL, 0);
+
+	if (md_status != MD_STATE_READY) {
+		pr_notice("%s: Invalid state, md_status(%d)!\n",
+				__func__, md_status);
+		return -ENODEV;
+	}
+
+	md_msg = kzalloc(sizeof(struct mddp_md_msg_t) + sizeof(ct_req),
+			GFP_ATOMIC);
+	if (unlikely(!md_msg))
+		return -EAGAIN;
+
+	in_req = (struct mddp_dev_req_set_ct_value_t *)buf;
+
+	memset(&ct_req, 0, sizeof(ct_req));
+	ct_req.tcp_ct_timeout = in_req->tcp_ct_timeout;
+	ct_req.udp_ct_timeout = in_req->udp_ct_timeout;
+
+	md_msg->msg_id = IPC_MSG_ID_DPFM_SET_CT_TIMEOUT_VALUE_REQ;
+	md_msg->data_len = sizeof(ct_req);
+	memcpy(md_msg->data, &ct_req, sizeof(ct_req));
+	mddp_ipc_send_md(NULL, md_msg, MDFPM_USER_ID_DPFM);
+
+	return 0;
+}
+
 #endif
 
 //------------------------------------------------------------------------------
