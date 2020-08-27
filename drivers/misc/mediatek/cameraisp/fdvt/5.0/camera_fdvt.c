@@ -338,17 +338,17 @@ struct FDVT_REQUEST_STRUCT {
 	unsigned int callerID; /* caller thread ID */
 	/* to judge it belongs to which frame package */
 	unsigned int enqueReqNum;
-	signed int FrameWRIdx; /* Frame write Index */
-	signed int RrameRDIdx; /* Frame read Index */
+	unsigned int FrameWRIdx; /* Frame write Index */
+	unsigned int RrameRDIdx; /* Frame read Index */
 	enum FDVT_FRAME_STATUS_ENUM
 	  FdvtFrameStatus[_SUPPORT_MAX_FDVT_FRAME_REQUEST_];
 	FDVT_Config FdvtFrameConfig[_SUPPORT_MAX_FDVT_FRAME_REQUEST_];
 };
 
 struct FDVT_REQUEST_RING_STRUCT {
-	signed int WriteIdx;	/* enque how many request  */
-	signed int ReadIdx;		/* read which request index */
-	signed int HWProcessIdx;	/* HWWriteIdx */
+	unsigned int WriteIdx;	/* enque how many request  */
+	unsigned int ReadIdx;		/* read which request index */
+	unsigned int HWProcessIdx;	/* HWWriteIdx */
 	struct FDVT_REQUEST_STRUCT
 	  FDVTReq_Struct[_SUPPORT_MAX_FDVT_REQUEST_RING_SIZE_];
 };
@@ -543,8 +543,8 @@ pr_debug(IRQTag fmt,  ##args)
 	struct SV_LOG_STR *pSrc = &gSvLog[irq];\
 	char *ptr;\
 	unsigned int i;\
-	signed int ppb = 0;\
-	signed int logT = 0;\
+	unsigned int ppb = 0;\
+	unsigned int logT = 0;\
 	if (ppb_in > 1) {\
 		ppb = 1;\
 	} else{\
