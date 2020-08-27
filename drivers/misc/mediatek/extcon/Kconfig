@@ -1,0 +1,7 @@
+config EXTCON_MTK_USB
+	tristate "MediaTek EXTCON USB Support"
+	select EXTCON
+	select USB_ROLE_SWITCH
+	help
+	  Say Y here to enable extcon support for USB cable detection
+	  on the Mediatek PMIC.
