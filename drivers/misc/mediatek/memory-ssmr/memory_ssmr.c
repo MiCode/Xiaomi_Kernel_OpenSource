@@ -1179,8 +1179,8 @@ static ssize_t ssmr_store(struct kobject *kobj, struct kobj_attribute *attr,
 	int buf_size;
 	int feat = 0, ret;
 
-	ret = sscanf(cmd, "%s", buf);
-	if (ret) {
+	ret = snprintf(buf, sizeof(buf), "%s", cmd);
+	if (ret && ret < sizeof(buf)) {
 
 		buf_size = min(count - 1, (sizeof(buf) - 1));
 		if (buf_size < 0)
