@@ -49,6 +49,7 @@ uint8_t esd_retry;
 #endif				/* #if NVT_TOUCH_ESD_PROTECT */
 
 struct nvt_ts_data *ts;
+char novatek_firmware[25];
 /* For SPI mode */
 static struct pinctrl *nt36672_pinctrl;
 static struct pinctrl_state *nt36672_spi_mode_default;
@@ -1454,9 +1455,23 @@ Description:
 return:
 	Executive outcomes. 0---succeed. negative---failed
 *******************************************************/
+struct tag_videolfb {
+	u64 fb_base;
+	u32 islcmfound;
+	u32 fps;
+	u32 vram;
+	char lcmname[1];
+};
+
 static int32_t nvt_ts_probe(struct spi_device *client)
 {
 	int32_t ret = 0;
+	struct device_node *lcm_name;
+	struct tag_videolfb *videolfb_tag = NULL;
+	unsigned long size = 0;
+	char firmware_name_jdi[] = "novatek_ts_fw_jdi.bin";
+	char firmware_name_tm[] = "novatek_ts_fw_tm.bin";
+	char firmware_name[] = "novatek_ts_fw.bin";
 #if ((TOUCH_KEY_NUM > 0) || WAKEUP_GESTURE)
 	int32_t retry = 0;
 #endif
@@ -1655,6 +1670,35 @@ static int32_t nvt_ts_probe(struct spi_device *client)
 #endif
 
 #if BOOT_UPDATE_FIRMWARE
+	NVT_LOG("start to parse lcm name\n");
+	lcm_name = of_find_node_by_path("/chosen");
+	if (lcm_name) {
+		videolfb_tag = (struct tag_videolfb *)
+			of_get_property(lcm_name,
+			"atag,videolfb",
+			(int *)&size);
+		if (!videolfb_tag)
+			NVT_ERR("Invalid lcm name\n");
+			NVT_LOG("read lcm name : %s\n", videolfb_tag->lcmname);
+		if (strcmp("nt36672c_fhdp_dsi_vdo_auo_cphy_90hz_jdi_lcm_drv",
+			videolfb_tag->lcmname) == 0 ||
+			strcmp("nt36672c_fhdp_dsi_vdo_auo_cphy_90hz_jdi_hfp_lcm_drv",
+			videolfb_tag->lcmname) == 0)
+			strncpy(novatek_firmware,
+				firmware_name_jdi, sizeof(firmware_name_jdi));
+		else if (strcmp("nt36672c_fhdp_dsi_vdo_auo_cphy_90hz_jdi_lcm_drv",
+			videolfb_tag->lcmname) == 0 ||
+			strcmp("nt36672c_fhdp_dsi_vdo_auo_cphy_90hz_jdi_hfp_lcm_drv",
+			videolfb_tag->lcmname) == 0)
+			strncpy(novatek_firmware,
+				firmware_name_tm, sizeof(firmware_name_tm));
+		else
+			strncpy(novatek_firmware,
+				firmware_name, sizeof(firmware_name_tm));
+		NVT_LOG("nt36672c touch fw name : %s",
+				BOOT_UPDATE_FIRMWARE_NAME);
+	} else
+		NVT_ERR("Can't find node: chose in dts");
 	nvt_fwu_wq = alloc_workqueue("nvt_fwu_wq", WQ_UNBOUND | WQ_MEM_RECLAIM, 1);
 	if (!nvt_fwu_wq) {
 		NVT_ERR("nvt_fwu_wq create workqueue failed\n");
