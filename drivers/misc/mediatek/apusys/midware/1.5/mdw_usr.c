@@ -786,9 +786,6 @@ struct mdw_usr *mdw_usr_create(void)
 {
 	struct mdw_usr *u = NULL;
 
-	/* setup thread group */
-	mdw_rsc_set_thd_group();
-
 	u = vzalloc(sizeof(struct mdw_usr));
 	if (!u)
 		return NULL;

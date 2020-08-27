@@ -38,7 +38,6 @@ struct mdw_rsc_mgr {
 	struct mutex mtx;
 };
 
-static atomic_t sthd_group = ATOMIC_INIT(0);
 static struct mdw_rsc_mgr rsc_mgr;
 
 static char * const rsc_dev_name[] = {
@@ -994,52 +993,6 @@ int mdw_rsc_get_dev_num(int type)
 		return 0;
 
 	return tab->dev_num;
-}
-
-void mdw_rsc_set_thd_group(void)
-{
-	struct file *fd;
-	char buf[16];
-	mm_segment_t oldfs;
-	struct mdw_dev_info *d = NULL;
-	int type = 0, idx = 0;
-
-	if (atomic_read(&sthd_group))
-		return;
-
-	mdw_sched_set_thd_group();
-
-	oldfs = get_fs();
-	set_fs(KERNEL_DS);
-
-	fd = filp_open(APUSYS_THD_TASK_FILE_PATH, O_WRONLY, 0);
-	if (IS_ERR(fd)) {
-		mdw_drv_debug("don't support low latency group\n");
-		goto out;
-	}
-
-	mutex_lock(&rsc_mgr.mtx);
-	for (type = 0; type < APUSYS_DEVICE_MAX; type++) {
-		for (idx = 0; idx < mdw_rsc_get_dev_num(type); idx++) {
-			d = mdw_rsc_get_dinfo(type, idx);
-			if (!d)
-				continue;
-			memset(buf, 0, sizeof(buf));
-			if (snprintf(buf, sizeof(buf)-1, "%d", d->thd->pid) < 0)
-				goto fail_set_name;
-
-			kernel_write(fd, (__force const char __user *)buf,
-				sizeof(buf), &fd->f_pos);
-			mdw_drv_debug("dev(%s%d) set thd(%d/%s)\n",
-				d->name, d->idx, d->thd->pid, buf);
-		}
-	}
-fail_set_name:
-	mutex_unlock(&rsc_mgr.mtx);
-	filp_close(fd, NULL);
-out:
-	set_fs(oldfs);
-	atomic_inc(&sthd_group);
 }
 
 int mdw_rsc_init(void)
