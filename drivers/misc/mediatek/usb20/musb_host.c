@@ -2879,7 +2879,7 @@ static int
 
 #ifdef CONFIG_MTK_MUSB_QMU_SUPPORT
 	if (urb->dev->devnum)
-		musb_host_active_dev_add(urb->dev->devnum);
+		musb_host_active_dev_add((unsigned int)urb->dev->devnum);
 #endif
 
 
