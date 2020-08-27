@@ -7547,6 +7547,10 @@ page_owner=on loop.max_part=7";
 		drcc5_Code = <255>;
 		drcc6_Code = <255>;
 		drcc7_Code = <255>;
+		drcc4_EdgeSel = <255>;
+		drcc5_EdgeSel = <255>;
+		drcc6_EdgeSel = <255>;
+		drcc7_EdgeSel = <255>;
 
 		/* pdp */
 		pdp_state = <242>;
