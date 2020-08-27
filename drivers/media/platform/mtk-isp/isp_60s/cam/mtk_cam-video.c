@@ -793,8 +793,11 @@ int mtk_cam_vidioc_s_fmt(struct file *file, void *fh,
 	struct mtk_cam_video_device *node = file_to_mtk_cam_node(file);
 
 	if (vb2_is_busy(node->vdev.queue)) {
-		if (get_format_request_fd(&f->fmt.pix_mp) > 0) {
+		s32 fd = get_format_request_fd(&f->fmt.pix_mp);
+
+		if (fd > 0) {
 			node->pending_fmt = *f;
+			set_format_request_fd(&node->pending_fmt.fmt.pix_mp, fd);
 			return 0;
 		}
 
@@ -814,8 +817,9 @@ int video_try_fmt(struct mtk_cam_video_device *node, struct v4l2_format *f)
 	struct mtk_cam_device *cam = node->ctx->cam;
 	const struct v4l2_format *dev_fmt;
 	struct v4l2_format try_fmt;
-	s32 request_fd = get_format_request_fd(&f->fmt.pix_mp);
+	s32 request_fd;
 
+	request_fd = get_format_request_fd(&f->fmt.pix_mp);
 	memset(&try_fmt, 0, sizeof(try_fmt));
 	try_fmt.type = f->type;
 
@@ -851,7 +855,6 @@ int video_try_fmt(struct mtk_cam_video_device *node, struct v4l2_format *f)
 
 	*f = try_fmt;
 	set_format_request_fd(&f->fmt.pix_mp, request_fd);
-
 	return 0;
 }
 
