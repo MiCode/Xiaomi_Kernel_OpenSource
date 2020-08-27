@@ -24,6 +24,7 @@
 #endif
 
 #include <linux/interrupt.h>
+#include <linux/ratelimit.h>
 
 #define CONNADP_LOG_LOUD    4
 #define CONNADP_LOG_DBG     3
