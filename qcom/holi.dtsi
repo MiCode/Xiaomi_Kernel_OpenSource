@@ -960,6 +960,7 @@
 		reg = <0x01899000 0x6000>;
 		compatible = "qcom,holi-mmnrt_virt";
 		#interconnect-cells = <1>;
+		qcom,util-factor = <142>;
 		clock-names = "bus", "bus_a";
 		clocks = <&rpmcc RPM_SMD_MMNRT_CLK>,
 			<&rpmcc RPM_SMD_MMNRT_A_CLK>;
@@ -969,6 +970,7 @@
 		reg = <0x0189f000 0x1000>;
 		compatible = "qcom,holi-mmrt_virt";
 		#interconnect-cells = <1>;
+		qcom,util-factor = <142>;
 		clock-names = "bus", "bus_a";
 		clocks = <&rpmcc RPM_SMD_MMRT_CLK>,
 			<&rpmcc RPM_SMD_MMRT_A_CLK>;
@@ -987,6 +989,7 @@
 		reg = <0x04480000 0x80000>;
 		compatible = "qcom,holi-bimc";
 		#interconnect-cells = <1>;
+		qcom,util-factor = <151>;
 		clock-names = "bus", "bus_a";
 		clocks = <&rpmcc RPM_SMD_BIMC_CLK>,
 			<&rpmcc RPM_SMD_BIMC_A_CLK>;
