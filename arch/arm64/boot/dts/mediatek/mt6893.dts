@@ -7572,6 +7572,10 @@ page_owner=on loop.max_part=7";
 		cinst_doe_vx_low_period = <255>;
 		cinst_doe_ls_const_en = <0>;
 		cinst_doe_vx_const_en = <0>;
+
+		/* iglre */
+		igBitEn = <240>;
+		lreBitEn = <240>;
 	};
 
 #ifdef CONFIG_MTK_SCHED_MONITOR
