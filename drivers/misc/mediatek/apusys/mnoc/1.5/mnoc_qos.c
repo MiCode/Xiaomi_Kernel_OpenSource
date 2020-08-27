@@ -18,6 +18,7 @@
 #include <linux/workqueue.h>
 #include <linux/platform_device.h>
 #include <linux/interconnect.h>
+#include <linux/seq_file.h>
 
 #include "mnoc_drv.h"
 #include "mnoc_hw.h"
@@ -159,25 +160,24 @@ static inline void enque_qos_wq(struct work_struct *work)
 
 static int add_qos_request(struct pm_qos_request *req)
 {
-	pm_qos_add_request(req, PM_QOS_APU_MEMORY_BANDWIDTH,
-		PM_QOS_DEFAULT_VALUE);
+	cpu_latency_qos_add_request(req, PM_QOS_DEFAULT_VALUE);
 	return 0;
 }
 
 static void update_qos_request(struct pm_qos_request *req, uint32_t val)
 {
 	LOG_DEBUG("bw = %d\n", val);
-	pm_qos_update_request(req, val);
+	cpu_latency_qos_update_request(req, val);
 }
 
 static int destroy_qos_request(struct pm_qos_request *req)
 {
-	pm_qos_update_request(req, PM_QOS_APU_MEMORY_BANDWIDTH_DEFAULT_VALUE);
-	pm_qos_remove_request(req);
+	cpu_latency_qos_update_request(req, PM_QOS_DEFAULT_VALUE);
+	cpu_latency_qos_remove_request(req);
 	return 0;
 }
 
-static void qos_timer_func(unsigned long arg)
+static void qos_timer_func(struct timer_list *timer)
 {
 	struct qos_counter *counter = &qos_counter;
 
@@ -217,14 +217,10 @@ static void apu_qos_timer_start(void)
 	}
 
 	/* setup timer */
-	init_timer(&counter->qos_timer);
-	counter->qos_timer.function = &qos_timer_func;
-	counter->qos_timer.data = 0;
-	counter->qos_timer.expires =
-		jiffies + msecs_to_jiffies(DEFAUTL_QOS_POLLING_TIME);
-	/* record wait time in counter */
-	counter->wait_ms = DEFAUTL_QOS_POLLING_TIME;
-	add_timer(&counter->qos_timer);
+	timer_setup(&counter->qos_timer, qos_timer_func, jiffies +
+			msecs_to_jiffies(DEFAUTL_QOS_POLLING_TIME));
+	mod_timer(&counter->qos_timer, jiffies +
+			msecs_to_jiffies(DEFAUTL_QOS_POLLING_TIME));
 
 	qos_timer_exist = true;
 
@@ -286,7 +282,7 @@ void apu_qos_off(void)
 	cancel_work_sync(&qos_work);
 	for (i = 0; i < NR_APU_QOS_ENGINE; i++) {
 		update_qos_request(&(engine_pm_qos_counter[i].qos_req),
-			PM_QOS_APU_MEMORY_BANDWIDTH_DEFAULT_VALUE);
+			PM_QOS_DEFAULT_VALUE);
 	}
 #endif
 #if MNOC_QOS_BOOST_ENABLE
@@ -982,10 +978,10 @@ void apu_qos_boost_start(void)
 /* 6885: ~16G, 6873/6853: ~8G */
 	if (apu_qos_boost_flag == true && apusys_on_flag == true &&
 		apu_qos_boost_ddr_opp ==
-		PM_QOS_DDR_OPP_DEFAULT_VALUE) {
+		PM_QOS_DEFAULT_VALUE) {
 		apu_qos_boost_ddr_opp = 0;
-		pm_qos_update_request(&apu_qos_ddr_req, 1);
-		pm_qos_update_request(&apu_qos_cpu_dma_req, 2);
+		cpu_latency_qos_update_request(&apu_qos_ddr_req, 1);
+		cpu_latency_qos_update_request(&apu_qos_cpu_dma_req, 2);
 #ifdef APU_QOS_IPUIF_ADJUST
 		apu_bw_vcore_opp = 2;
 		apu_qos_set_vcore(vcore_opp_map[apu_bw_vcore_opp]);
@@ -1005,11 +1001,11 @@ void apu_qos_boost_end(void)
 		apu_qos_set_vcore(vcore_opp_map[apu_bw_vcore_opp]);
 #endif
 		apu_qos_boost_ddr_opp =
-			PM_QOS_DDR_OPP_DEFAULT_VALUE;
-		pm_qos_update_request(&apu_qos_ddr_req,
-			PM_QOS_DDR_OPP_DEFAULT_VALUE);
-		pm_qos_update_request(&apu_qos_cpu_dma_req,
-			PM_QOS_CPU_DMA_LAT_DEFAULT_VALUE);
+			PM_QOS_DEFAULT_VALUE;
+		cpu_latency_qos_update_request(&apu_qos_ddr_req,
+			PM_QOS_DEFAULT_VALUE);
+		cpu_latency_qos_update_request(&apu_qos_cpu_dma_req,
+			PM_QOS_DEFAULT_VALUE);
 	}
 #endif
 	LOG_DEBUG("-\n");
@@ -1025,7 +1021,6 @@ void apu_qos_counter_init(struct device *dev)
 	struct engine_pm_qos_counter *counter = NULL;
 	struct apu_mnoc *p_mnoc = dev_get_drvdata(dev);
 	struct icc_path *apu_icc = of_icc_get(dev, "apu-bw");
-	int i = 0;
 
 	if (!p_mnoc) {
 		dev_info(dev, "%s not get struct apu_mnoc\n", __func__);
@@ -1072,11 +1067,9 @@ void apu_qos_counter_init(struct device *dev)
 	apu_qos_boost_flag = false;
 	apusys_on_flag = false;
 	mutex_init(&apu_qos_boost_mtx);
-	pm_qos_add_request(&apu_qos_ddr_req, PM_QOS_DDR_OPP,
-		PM_QOS_DDR_OPP_DEFAULT_VALUE);
-	pm_qos_add_request(&apu_qos_cpu_dma_req, PM_QOS_CPU_DMA_LATENCY,
-		PM_QOS_CPU_DMA_LAT_DEFAULT_VALUE);
-	apu_qos_boost_ddr_opp = PM_QOS_DDR_OPP_DEFAULT_VALUE;
+	cpu_latency_qos_add_request(&apu_qos_ddr_req, PM_QOS_DEFAULT_VALUE);
+	cpu_latency_qos_add_request(&apu_qos_cpu_dma_req, PM_QOS_DEFAULT_VALUE);
+	apu_qos_boost_ddr_opp = PM_QOS_DEFAULT_VALUE;
 #endif
 
 #ifdef APU_QOS_IPUIF_ADJUST
@@ -1133,12 +1126,12 @@ void apu_qos_counter_destroy(struct device *dev)
 		//destroy_qos_request(&counter->qos_req);
 	}
 #if MNOC_QOS_BOOST_ENABLE
-	pm_qos_update_request(&apu_qos_ddr_req,
-		PM_QOS_DDR_OPP_DEFAULT_VALUE);
-	pm_qos_remove_request(&apu_qos_ddr_req);
-	pm_qos_update_request(&apu_qos_cpu_dma_req,
-		PM_QOS_CPU_DMA_LAT_DEFAULT_VALUE);
-	pm_qos_remove_request(&apu_qos_cpu_dma_req);
+	cpu_latency_qos_update_request(&apu_qos_ddr_req,
+		PM_QOS_DEFAULT_VALUE);
+	cpu_latency_qos_remove_request(&apu_qos_ddr_req);
+	cpu_latency_qos_update_request(&apu_qos_cpu_dma_req,
+		PM_QOS_DEFAULT_VALUE);
+	cpu_latency_qos_remove_request(&apu_qos_cpu_dma_req);
 #endif
 
 	LOG_DEBUG("-\n");
