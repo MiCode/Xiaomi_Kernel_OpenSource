@@ -589,6 +589,7 @@ static const struct mtk_pin_soc mt6739_data = {
 	.nfuncs = 8,
 	.eint_hw = &mt6739_eint_hw,
 	.gpio_m = 0,
+	.race_free_access = true,
 	.bias_set_combo = mtk_pinconf_bias_set_combo,
 	.bias_get_combo = mtk_pinconf_bias_get_combo,
 	.drive_set = mtk_pinconf_drive_set_direct_val,
