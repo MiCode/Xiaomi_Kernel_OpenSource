@@ -736,9 +736,9 @@ unsigned int mtk_dfs_get_cur_freq(void)
 	LOG_NOTICE("mtk_dfs_add is not supported\n")
 
 #define mtk_dfs_remove()	\
-	pm_qos_remove_request(&isp_qos)
+	cpu_latency_qos_remove_request(&isp_qos)
 #define mtk_dfs_clr()		\
-	pm_qos_update_request(&isp_qos, 0)
+	cpu_latency_qos_update_request(&isp_qos, 0)
 
 #define mtk_dfs_set()
 
