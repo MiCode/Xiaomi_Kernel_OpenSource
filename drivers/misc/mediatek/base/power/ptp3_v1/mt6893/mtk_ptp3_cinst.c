@@ -111,7 +111,6 @@
 #ifndef CONFIG_FPGA_EARLY_PORTING
 #ifdef CONFIG_OF
 
-static unsigned int cinst_doe_init;
 static unsigned int cinst_doe_ls_enable;
 static unsigned int cinst_doe_ls_period;
 static unsigned int cinst_doe_ls_credit;
@@ -942,21 +941,6 @@ int cinst_probe(struct platform_device *pdev)
 	if (!node) {
 		cinst_err("get cinst device node err\n");
 		return -ENODEV;
-	}
-
-	rc = of_property_read_u32(node,
-		"cinst_doe_enable", &cinst_doe_init);
-
-	if (!rc) {
-		cinst_msg(
-			"cinst_doe_init from DTree; rc(%d) cinst_doe_init(0x%x)\n",
-			rc,
-			cinst_doe_init);
-
-		for (cinst_n = CINST_CPU_START_ID; cinst_n <= CINST_CPU_END_ID; cinst_n++) {
-			cinst_smc_handle(CINST_GROUP_INIT,
-				(cinst_doe_init >> cinst_n) & 0x01, cinst_n);
-		}
 	}
 
 	/* ls enable control */
