@@ -435,9 +435,11 @@ static struct mdw_mem *mdw_usr_mem_create(struct apusys_mem *um, int mem_op)
 	}
 
 	if (ret) {
-		mdw_usr_print_mem_usage();
-		//TODO Change to Tag
-		apusys_aee_print("mem fail");
+		if (ret == -ENOMEM) {
+			mdw_usr_print_mem_usage();
+			//TODO Change to Tag
+			apusys_aee_print("mem fail");
+		}
 		vfree(mm);
 		mm = NULL;
 	} else {
