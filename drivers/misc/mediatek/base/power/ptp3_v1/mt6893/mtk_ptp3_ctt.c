@@ -275,10 +275,10 @@ static int ctt_cfg_proc_show(struct seq_file *m, void *v)
 
 	for (ctt_n = 0; ctt_n < CTT_NUM; ctt_n++) {
 		value = ctt_smc_handle(ctt_key,	0, ctt_n);
-		status = status | ((value & 0x01) << ctt_n);
+		status = status | ((value & 0x01) << (ctt_n * 4));
 	}
 
-	seq_printf(m, "0x%x\n", status << 4);
+	seq_printf(m, "%08x\n", status << 16);
 
 	return 0;
 }
@@ -564,7 +564,7 @@ static int ctt_dump_proc_show(struct seq_file *m, void *v)
 						ctt_n);
 		}
 
-		seq_printf(m, "[CTT][CPU%d]", ctt_n);
+		seq_printf(m, "[CTT][CPU%d]", ctt_n + 4);
 		seq_printf(m, " SafeFreqReqOverride:%d,",
 			ctt.safeFreqReqOverride);
 		seq_printf(m, " GlobalEventEn:%d,",
