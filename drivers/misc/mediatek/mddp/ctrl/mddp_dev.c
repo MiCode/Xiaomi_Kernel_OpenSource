@@ -223,7 +223,7 @@ em_test_store(struct device *dev,
 
 	str_len = strlen(buf);
 
-	snprintf(em_cmd_buf, EM_CMD_BUF_SZ, "%.%s",
+	snprintf(em_cmd_buf, EM_CMD_BUF_SZ, "%.*s",
 			(int)min(count, sizeof(em_cmd_buf) - 1), buf);
 	strsep_buf_p = em_cmd_buf;
 	MDDP_SET_BUF_TERMIN(em_cmd_buf, str_len);
@@ -245,7 +245,7 @@ em_test_store(struct device *dev,
 	app = mddp_get_app_inst(em_cmd_app);
 	if (app->sysfs_callback) {
 		// OK.
-		snprintf(em_cmd_buf, EM_CMD_BUF_SZ, "%.%s",
+		snprintf(em_cmd_buf, EM_CMD_BUF_SZ, "%.*s",
 				(int)min(count, sizeof(em_cmd_buf) - 1), buf);
 		MDDP_SET_BUF_TERMIN(em_cmd_buf, str_len);
 		em_cmd_status = app->sysfs_callback(app,
@@ -256,14 +256,14 @@ em_test_store(struct device *dev,
 
 	// NG. Failed to configure!
 	em_cmd_status = -ERANGE;
-	snprintf(em_cmd_buf, EM_CMD_BUF_SZ, "%.%s",
+	snprintf(em_cmd_buf, EM_CMD_BUF_SZ, "%.*s",
 			(int)min(count, sizeof(em_cmd_buf) - 1), buf);
 	return count;
 
 input_param_error:
 not_support_error:
 	EM_CMD_RESET();
-	snprintf(em_cmd_buf, EM_CMD_BUF_SZ, "%.%s",
+	snprintf(em_cmd_buf, EM_CMD_BUF_SZ, "%.*s",
 			(int)min(count, sizeof(em_cmd_buf) - 1), buf);
 	return count;
 }
