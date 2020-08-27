@@ -1992,12 +1992,11 @@
 
 	epss_l3_cpu: l3_cpu@18590000 {
 		reg = <0x18590000 0x4000>;
-		compatible = "qcom,shima-epss-l3-cpu";
+		compatible = "qcom,lahaina-epss-l3-cpu";
 		#interconnect-cells = <1>;
 		clock-names = "xo", "alternate";
 		clocks = <&rpmhcc RPMH_CXO_CLK>,
 			<&gcc GCC_GPLL0>;
-		status = "disabled";
 	};
 
 	llcc_pmu: llcc-pmu@9095000 {
