@@ -1571,7 +1571,6 @@ static s32 cmdq_instr_encoder(struct cmdqRecStruct *handle,
 	cmdq_inst->arg_b = arg_b;
 	cmdq_inst->arg_c = arg_c;
 
-	cmd_buf->cmd_buf_size += CMDQ_INST_SIZE;
 	cmd_buf->avail_buf_size -= CMDQ_INST_SIZE;
 	return 0;
 }

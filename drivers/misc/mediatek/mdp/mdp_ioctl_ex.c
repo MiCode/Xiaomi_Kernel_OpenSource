@@ -398,13 +398,13 @@ static s32 translate_meta(struct op_meta *meta,
 			return -EINVAL;
 		status = cmdq_op_write_reg_ex(handle, cmd_buf, reg_addr,
 					meta->value, ~0);
+		/* use total buffer size count in translation */
 		if (!status) {
-			u32 cnt = cmdq_mdp_handle_get_instr_count(handle) - 1;
-
-			/* also add temp buffer instructions */
-			cnt += cmd_buf->cmd_buf_size / CMDQ_INST_SIZE;
+			/* flush to make sure count is correct */
+			cmdq_handle_flush_cmd_buf(handle, cmd_buf);
 			status = cmdq_mdp_update_sec_addr_index(handle,
-				meta->sec_handle, meta->sec_index, cnt);
+				meta->sec_handle, meta->sec_index,
+				cmdq_mdp_handle_get_instr_count(handle) - 1);
 		}
 		break;
 	}
@@ -605,7 +605,6 @@ s32 mdp_ioctl_async_exec(struct file *pf, unsigned long param)
 		kfree(mapping_job);
 		return -ENOMEM;
 	}
-	cmd_buf.cmd_buf_size = 0;
 	cmd_buf.avail_buf_size = PAGE_SIZE;
 
 	status = cmdq_mdp_handle_create(&handle);

@@ -278,7 +278,6 @@ s32 cmdqRecWriteFromDataRegister(struct cmdqRecStruct *handle,
 
 struct cmdq_command_buffer {
 	void *va_base;
-	u32 cmd_buf_size;
 	u32 avail_buf_size;
 };
 s32 cmdq_op_poll_ex(struct cmdqRecStruct *handle,
