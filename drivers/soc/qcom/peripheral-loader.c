@@ -498,22 +498,13 @@ int pil_do_ramdump(struct pil_desc *desc,
 
 	s = ramdump_segs;
 	list_for_each_entry(seg, &priv->segs, list) {
-		s->v_address = ioremap_wc(seg->paddr, seg->sz);
-		if (!s->v_address)
-			goto ioremap_err;
-
+		s->address = seg->paddr;
 		s->size = seg->sz;
 		s++;
 		map_cnt++;
 	}
 
 	ret = do_elf_ramdump(ramdump_dev, ramdump_segs, count);
-
-	s = ramdump_segs;
-	list_for_each_entry(seg, &priv->segs, list) {
-		iounmap(s->v_address);
-		s++;
-	}
 
 	kfree(ramdump_segs);
 
@@ -526,17 +517,6 @@ int pil_do_ramdump(struct pil_desc *desc,
 				(priv->region_end - priv->region_start));
 
 	return ret;
-
-ioremap_err:
-	/* Undo all the previous mappings */
-	s = ramdump_segs;
-	while (map_cnt--) {
-		iounmap(s->v_address);
-		s++;
-	}
-
-	kfree(ramdump_segs);
-	return -ENOMEM;
 }
 EXPORT_SYMBOL(pil_do_ramdump);
 
