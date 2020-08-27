@@ -810,10 +810,18 @@ static bool cmdq_mdp_check_engine_conflict(
 			 */
 			conflict = true;
 			thread = CMDQ_INVALID_THREAD;
-			CMDQ_MSG(
-				"engine conflict handle:0x%p engine:0x%llx conflict engine idx:%u thd:0x%x free:0x%08x owner:%d\n",
-				handle, handle->engineFlag, i,
-				thread, free, engine_list[i].currOwner);
+			if (sched_clock() - handle->submit > 200000000) {
+				CMDQ_LOG(
+					"engine conflict handle:0x%p engine:0x%llx conflict engine idx:%u thd:0x%x free:0x%08x owner:%d\n",
+					handle, handle->engineFlag, i,
+					thread, free, engine_list[i].currOwner);
+				cmdq_mdp_dump_thread_usage();
+			} else {
+				CMDQ_MSG(
+					"engine conflict handle:0x%p engine:0x%llx conflict engine idx:%u thd:0x%x free:0x%08x owner:%d\n",
+					handle, handle->engineFlag, i,
+					thread, free, engine_list[i].currOwner);
+			}
 			break;
 		}
 
