@@ -26,7 +26,6 @@ struct vpu_iova {
 	struct vpu_mem m;
 	/* allocated iova */
 	struct sg_table sgt;
-	struct page **pages;
 	uint64_t time;  /* allocated time */
 	uint64_t iova;  /* allocated iova */
 	/* link in vpu driver */
