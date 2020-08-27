@@ -7,6 +7,7 @@
 #ifndef __MTK_CAM_META_H__
 #define __MTK_CAM_META_H__
 
+
 /**
  * Common stuff for all statistics
  */
@@ -46,7 +47,7 @@ struct mtk_cam_uapi_meta_rect {
 };
 
 /**
- * struct mtk_cam_uapi_meta_area - area info
+ * struct mtk_cam_uapi_meta_size - area info
  *
  * @width:	The width of the area
  * @height:	The height of the area
@@ -54,7 +55,7 @@ struct mtk_cam_uapi_meta_rect {
  * area containing the width and height fields.
  *
  */
-struct mtk_cam_uapi_meta_area {
+struct mtk_cam_uapi_meta_size {
 	__u32   width;
 	__u32   height;
 };
@@ -105,7 +106,7 @@ struct mtk_cam_uapi_ae_hist_cfg {
  *			    default non-HDR scenario ratio=100
  */
 struct mtk_cam_uapi_ae_param {
-	struct	mtk_cam_uapi_meta_area stats_src;
+	struct	mtk_cam_uapi_meta_size stats_src;
 	struct	mtk_cam_uapi_ae_hist_cfg pixel_hist_win_cfg_le[6];
 	struct	mtk_cam_uapi_ae_hist_cfg pixel_hist_win_cfg_se[6];
 	__u16	hdr_ratio; /* base 1 x= 100 */
@@ -151,15 +152,8 @@ struct mtk_cam_uapi_ae_param {
  *  @valid_datawidth:	       valid bits of statistic data
  *  @hdr_support_en:	       support HDR mode
  *  @stat_mode:		       Output format select <1>sum mode <0>average mode
- *  @error_threshold:	       error pixel threshold for the allowed total
- *  @mo_error_threshold:       motion error pixel threshold for the allowed
- *			       total
- *  @error_shift_bits:	       Programmable error count shift bits: 0 ~ 7. AWB
- *			       statistics provide 4-bits error count output only
  *  @error_ratio:	       Programmable error pixel count by AWB window size
  *			       (base : 256)
- *  @mo_error_ratio:	       Programmable motion error pixel count by AWB
- *			       window size (base : 256)
  *  @awbxv_win_r:	       light area of right bound, the size is defined in
  *			       MTK_CAM_UAPI_AWB_MAX_LIGHT_AREA_NUM
  *  @awbxv_win_l:	       light area of left bound the size is defined in
@@ -196,15 +190,11 @@ struct mtk_cam_uapi_awb_param {
 	__u32 valid_datawidth;
 	__u32 hdr_support_en;
 	__u32 stat_mode;
-	__u32 error_threshold;
-	__u32 mo_error_threshold;
-	__u32 error_shift_bits;
 	__u32 error_ratio;
-	__u32 mo_error_ratio;
-	__u32 awbxv_win_r[MTK_CAM_UAPI_AWB_MAX_LIGHT_AREA_NUM];
-	__u32 awbxv_win_l[MTK_CAM_UAPI_AWB_MAX_LIGHT_AREA_NUM];
-	__u32 awbxv_win_d[MTK_CAM_UAPI_AWB_MAX_LIGHT_AREA_NUM];
-	__u32 awbxv_win_u[MTK_CAM_UAPI_AWB_MAX_LIGHT_AREA_NUM];
+	__s32 awbxv_win_r[MTK_CAM_UAPI_AWB_MAX_LIGHT_AREA_NUM];
+	__s32 awbxv_win_l[MTK_CAM_UAPI_AWB_MAX_LIGHT_AREA_NUM];
+	__s32 awbxv_win_d[MTK_CAM_UAPI_AWB_MAX_LIGHT_AREA_NUM];
+	__s32 awbxv_win_u[MTK_CAM_UAPI_AWB_MAX_LIGHT_AREA_NUM];
 	__u32 pregain2_r;
 	__u32 pregain2_g;
 	__u32 pregain2_b;
@@ -243,7 +233,7 @@ struct mtk_cam_uapi_awb_param {
  * a struct to retutn them.
  */
 struct mtk_cam_uapi_ae_awb_stats {
-	struct	mtk_cam_uapi_meta_area stats_src;
+	struct	mtk_cam_uapi_meta_size stats_src;
 	struct	mtk_cam_uapi_meta_hw_buf aao_buf;
 	struct	mtk_cam_uapi_meta_hw_buf aaho_buf;
 };
@@ -302,8 +292,8 @@ struct mtk_cam_uapi_af_param {
 /**
  * struct mtk_cam_uapi_af_stats - af statistics
  *
- * @blk_xnum: block number of horizontal direction
- * @blk_ynum: block number of vertical direction
+ * @blk_num_x:	 block number of horizontal direction
+ * @blk_num_y:	 block number of vertical direction
  * @buf:	 the buffer for AAHO statistic hardware output. The maximum
  *		 size of the buffer is defined with
  *		 MTK_CAM_UAPI_AFO_MAX_BUF_SIZE.
@@ -412,11 +402,15 @@ struct mtk_cam_uapi_tsf_stats {
  *
  * @ltmso_buf:	The buffer for ltm statistic hardware output. The buffer size
  *		is defined in MTK_CAM_UAPI_LTMSO_SIZE.
+ * @blk_num_x:	block number of horizontal direction
+ * @blk_num_y:	block number of vertical direction
  *
  * For Mediatek proprietary algorithm
  */
 struct mtk_cam_uapi_ltm_stats {
 	struct mtk_cam_uapi_meta_hw_buf ltmso_buf;
+	__u8	blk_num_x;
+	__u8	blk_num_y;
 };
 
 /**
@@ -430,20 +424,20 @@ struct mtk_cam_uapi_ltm_stats {
  * For Mediatek proprietary algorithm
  */
 struct mtk_cam_uapi_lce_stats {
-	struct mtk_cam_uapi_meta_area stats_out;
+	struct mtk_cam_uapi_meta_size stats_out;
 	__u32  stride;
 	struct mtk_cam_uapi_meta_hw_buf lceso_buf;
 };
 
 /**
- * struct mtk_cam_uapi_lceh_stats - Tone3 statistic data
+ * struct mtk_cam_uapi_lcesh_stats - Tone3 statistic data
  *
- * @lcesho_buf:	The buffer for lceho statistic hardware output. The buffer size
+ * @lcesho_buf:	The buffer for lcesho statistic hardware output. The buffer size
  *		is defined in MTK_CAM_UAPI_LCESHO_SIZE.
  *
  * For Mediatek proprietary algorithm
  */
-struct mtk_cam_uapi_lceh_stats {
+struct mtk_cam_uapi_lcesh_stats {
 	struct mtk_cam_uapi_meta_hw_buf lcesho_buf;
 };
 
@@ -509,6 +503,7 @@ struct mtk_cam_uapi_meta_raw_stats_cfg {
 	struct mtk_cam_uapi_wb_param  wb_param;
 
 	__u8 bytes[1024 * 40];
+
 };
 
 /**
@@ -557,13 +552,13 @@ struct mtk_cam_uapi_meta_raw_stats_1 {
  * struct mtk_cam_uapi_meta_raw_stats_2 - shared statistics buffer
  *
  * @lce_stats_enabled:	indicate that lce_stats is ready or not in this buffer
- * @lceh_stats_enabled:	indicate that the lceh_stats is ready or not in this
+ * @lcesh_stats_enabled:	indicate that the lcesh_stats is ready or not in this
  *			buffer
  * @lmv_stats_enabled:	indicate that the lmv_stats is ready or not in this
  *			buffer
- * @lcs_stats:	lcs statistics
- * @lceh_stats:	lceh statistics
- * @lmv_stats:	lmv statistics
+ * @lcs_stats:		lcs statistics
+ * @lcesh_stats:	lcesh statistics
+ * @lmv_stats:		lmv statistics
  *
  * The statistic output in this structure may be pushed to the other
  * driver such as dip.
@@ -571,12 +566,16 @@ struct mtk_cam_uapi_meta_raw_stats_1 {
  */
 struct mtk_cam_uapi_meta_raw_stats_2 {
 	__u8 lce_stats_enabled;
-	__u8 lceh_stats_enabled;
+	__u8 lcesh_stats_enabled;
 	__u8 lmv_stats_enabled;
 
 	struct mtk_cam_uapi_lce_stats lce_stats;
-	struct mtk_cam_uapi_lceh_stats lceh_stats;
+	struct mtk_cam_uapi_lcesh_stats lcesh_stats;
 	struct mtk_cam_uapi_lmv_stats lmv_stats;
 };
+
+#define MTK_CAM_META_VERSION_MAJOR 3
+#define MTK_CAM_META_VERSION_MINOR 2
+
 
 #endif /* __MTK_CAM_META_H__ */
