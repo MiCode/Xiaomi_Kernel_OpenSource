@@ -106,6 +106,27 @@ static unsigned long long ctt_pTime_us, ctt_cTime_us, ctt_diff_us;
  ************************************************/
 
 /************************************************
+ * SMC between kernel and atf
+ ************************************************/
+static unsigned int ctt_smc_handle(unsigned int key,
+	unsigned int val, unsigned int cpu)
+{
+	unsigned int ret;
+
+	ctt_info("[%s]:key(%d) val(%d) cpu(%d)\n",
+		__func__, key, val, cpu);
+
+	/* update atf via smc */
+	ret = ptp3_smc_handle(
+		PTP3_FEATURE_CTT,
+		key,
+		val,
+		cpu);
+
+	return ret;
+}
+
+/************************************************
  * log dump into reserved memory for AEE
  ************************************************/
 #ifndef CONFIG_FPGA_EARLY_PORTING
@@ -122,6 +143,11 @@ int ctt_reserve_memory_dump(char *buf, unsigned long long ptp3_mem_size,
 	enum CTT_TRIGGER_STAGE ctt_tri_stage)
 {
 	int str_len = 0;
+	struct ctt_class ctt;
+	unsigned int *value = (unsigned int *)&ctt;
+	unsigned int i, ctt_n = 0;
+	const unsigned int ctt_key = CTT_R;
+
 	char *aee_log_buf = (char *) __get_free_page(GFP_USER);
 
 	/* check free page valid or not */
@@ -154,9 +180,248 @@ int ctt_reserve_memory_dump(char *buf, unsigned long long ptp3_mem_size,
 		break;
 	}
 	/* collect dump info */
+	for (ctt_n = 0; ctt_n < CTT_NUM; ctt_n++) {
+		value[0] = ctt_smc_handle(ctt_key, CTT_V101, ctt_n);
+		for (i = 1; i < 11; i++) {
+			value[i] = ctt_smc_handle(ctt_key,
+						CTT_V127 + (i * 4),
+						ctt_n);
+		}
 
-	/* I-Chang need to fix */
+		str_len += snprintf(aee_log_buf + str_len,
+			ptp3_mem_size - str_len,
+			"[CTT][CPU%d]", ctt_n + 4);
 
+		str_len += snprintf(aee_log_buf + str_len,
+			ptp3_mem_size - str_len,
+			" SafeFreqReqOverride:%d,",
+			ctt.safeFreqReqOverride);
+
+		str_len += snprintf(aee_log_buf + str_len,
+			ptp3_mem_size - str_len,
+			" GlobalEventEn:%d,",
+			ctt.globalEventEn);
+
+		str_len += snprintf(aee_log_buf + str_len,
+			ptp3_mem_size - str_len,
+			" TestMode:%d,",
+			ctt.testMode);
+
+		str_len += snprintf(aee_log_buf + str_len,
+			ptp3_mem_size - str_len,
+			" CttEn:%d,",
+			ctt.cttEn);
+
+		str_len += snprintf(aee_log_buf + str_len,
+			ptp3_mem_size - str_len,
+			" FllSlowReqGateEn:%d,",
+			ctt.fllSlowReqGateEn);
+
+		str_len += snprintf(aee_log_buf + str_len,
+			ptp3_mem_size - str_len,
+			" FllSlowReqEn:%d,",
+			ctt.fllSlowReqEn);
+
+		str_len += snprintf(aee_log_buf + str_len,
+			ptp3_mem_size - str_len,
+			" FllClkOutSelect:%d,",
+			ctt.fllClkOutSelect);
+
+		str_len += snprintf(aee_log_buf + str_len,
+			ptp3_mem_size - str_len,
+			" FllEn:%d,",
+			ctt.fllEn);
+
+		str_len += snprintf(aee_log_buf + str_len,
+			ptp3_mem_size - str_len,
+			" ConfigComplete:%d,",
+			ctt.configComplete);
+
+		str_len += snprintf(aee_log_buf + str_len,
+			ptp3_mem_size - str_len,
+			" DrccGateEn:%d,",
+			ctt.drccGateEn);
+
+		str_len += snprintf(aee_log_buf + str_len,
+			ptp3_mem_size - str_len,
+			" SamplerEn:%d,",
+			ctt.samplerEn);
+
+		str_len += snprintf(aee_log_buf + str_len,
+			ptp3_mem_size - str_len,
+			" CttTmax:%d,",
+			ctt.CttTmax);
+
+		str_len += snprintf(aee_log_buf + str_len,
+			ptp3_mem_size - str_len,
+			" CttImax:%d,",
+			ctt.CttImax);
+
+		str_len += snprintf(aee_log_buf + str_len,
+			ptp3_mem_size - str_len,
+			" CttVoltage:%d,",
+			ctt.CttVoltage);
+
+		str_len += snprintf(aee_log_buf + str_len,
+			ptp3_mem_size - str_len,
+			" CttDynScale:%d,",
+			ctt.CttDynScale);
+
+		str_len += snprintf(aee_log_buf + str_len,
+			ptp3_mem_size - str_len,
+			" CttLkgScale:%d,",
+			ctt.CttLkgScale);
+
+		str_len += snprintf(aee_log_buf + str_len,
+			ptp3_mem_size - str_len,
+			" CttVcoef:%d,",
+			ctt.CttVcoef);
+
+		str_len += snprintf(aee_log_buf + str_len,
+			ptp3_mem_size - str_len,
+			" CttTcoef2:%d,",
+			ctt.CttTcoef2);
+
+		str_len += snprintf(aee_log_buf + str_len,
+			ptp3_mem_size - str_len,
+			" CttTcoef1:%d,",
+			ctt.CttTcoef1);
+
+		str_len += snprintf(aee_log_buf + str_len,
+			ptp3_mem_size - str_len,
+			" CttLkgIrefTrim:%d,",
+			ctt.CttLkgIrefTrim);
+
+		str_len += snprintf(aee_log_buf + str_len,
+			ptp3_mem_size - str_len,
+			" CttTcal:%d,",
+			ctt.CttTcal);
+
+		str_len += snprintf(aee_log_buf + str_len,
+			ptp3_mem_size - str_len,
+			" CttVcal:%d,",
+			ctt.CttVcal);
+
+		str_len += snprintf(aee_log_buf + str_len,
+			ptp3_mem_size - str_len,
+			" CttLcal:%d,",
+			ctt.CttLcal);
+
+		str_len += snprintf(aee_log_buf + str_len,
+			ptp3_mem_size - str_len,
+			" CttFllNR:%d,",
+			ctt.CttFllNR);
+
+		str_len += snprintf(aee_log_buf + str_len,
+			ptp3_mem_size - str_len,
+			" CttMpmmEn:%d,",
+			ctt.CttMpmmEn);
+
+		str_len += snprintf(aee_log_buf + str_len,
+			ptp3_mem_size - str_len,
+			" CttImaxDisableEn:%d,",
+			ctt.CttImaxDisableEn);
+
+		str_len += snprintf(aee_log_buf + str_len,
+			ptp3_mem_size - str_len,
+			" CttIRQStatus:%d,",
+			ctt.CttIRQStatus);
+
+		str_len += snprintf(aee_log_buf + str_len,
+			ptp3_mem_size - str_len,
+			" CttIRQClear:%d,",
+			ctt.CttIRQClear);
+
+		str_len += snprintf(aee_log_buf + str_len,
+			ptp3_mem_size - str_len,
+			" CttIRQEn:%d,",
+			ctt.CttIRQEn);
+
+		str_len += snprintf(aee_log_buf + str_len,
+			ptp3_mem_size - str_len,
+			" CttVoltageMin:%d,",
+			ctt.CttVoltageMin);
+
+		str_len += snprintf(aee_log_buf + str_len,
+			ptp3_mem_size - str_len,
+			" CttTargetScaleMin:%d,",
+			ctt.CttTargetScaleMin);
+
+		str_len += snprintf(aee_log_buf + str_len,
+			ptp3_mem_size - str_len,
+			" CttTmaxIncPwr2:%d,",
+			ctt.CttTmaxIncPwr2);
+
+		str_len += snprintf(aee_log_buf + str_len,
+			ptp3_mem_size - str_len,
+			" CttImaxIncPwr2:%d,",
+			ctt.CttImaxIncPwr2);
+
+		str_len += snprintf(aee_log_buf + str_len,
+			ptp3_mem_size - str_len,
+			" CttTmaxDelta:%d,",
+			ctt.CttTmaxDelta);
+
+		str_len += snprintf(aee_log_buf + str_len,
+			ptp3_mem_size - str_len,
+			" CttImaxDelta:%d,",
+			ctt.CttImaxDelta);
+
+		str_len += snprintf(aee_log_buf + str_len,
+			ptp3_mem_size - str_len,
+			" CttState:%d,",
+			ctt.CttState);
+
+		str_len += snprintf(aee_log_buf + str_len,
+			ptp3_mem_size - str_len,
+			" CttLkgCode_r:%d,",
+			ctt.CttLkgCode_r);
+
+		str_len += snprintf(aee_log_buf + str_len,
+			ptp3_mem_size - str_len,
+			" LKG_INCR:%d,",
+			ctt.LKG_INCR);
+
+		str_len += snprintf(aee_log_buf + str_len,
+			ptp3_mem_size - str_len,
+			" CttStartupDone:%d,",
+			ctt.CttStartupDone);
+
+		str_len += snprintf(aee_log_buf + str_len,
+			ptp3_mem_size - str_len,
+			" CttTargetScaleOut:%d,",
+			ctt.CttTargetScaleOut);
+
+		str_len += snprintf(aee_log_buf + str_len,
+			ptp3_mem_size - str_len,
+			" CttLcode:%d,",
+			ctt.CttLcode);
+
+		str_len += snprintf(aee_log_buf + str_len,
+			ptp3_mem_size - str_len,
+			" CttTemp:%d,",
+			ctt.CttTemp);
+
+		str_len += snprintf(aee_log_buf + str_len,
+			ptp3_mem_size - str_len,
+			" CttCurrent:%d,",
+			ctt.CttCurrent);
+
+		str_len += snprintf(aee_log_buf + str_len,
+			ptp3_mem_size - str_len,
+			" CttMpmmGear1:%d,",
+			ctt.CttMpmmGear1);
+
+		str_len += snprintf(aee_log_buf + str_len,
+			ptp3_mem_size - str_len,
+			" CttMpmmGear0:%d,",
+			ctt.CttMpmmGear0);
+
+		str_len += snprintf(aee_log_buf + str_len,
+			ptp3_mem_size - str_len,
+			" CttMpmmGear2:%d,",
+			ctt.CttMpmmGear2);
+	}
 
 	if (str_len > 0)
 		memcpy(buf, aee_log_buf, str_len+1);
@@ -170,27 +435,6 @@ int ctt_reserve_memory_dump(char *buf, unsigned long long ptp3_mem_size,
 }
 #endif
 #endif
-
-/************************************************
- * SMC between kernel and atf
- ************************************************/
-static unsigned int ctt_smc_handle(unsigned int key,
-	unsigned int val, unsigned int cpu)
-{
-	unsigned int ret;
-
-	ctt_info("[%s]:key(%d) val(%d) cpu(%d)\n",
-		__func__, key, val, cpu);
-
-	/* update atf via smc */
-	ret = ptp3_smc_handle(
-		PTP3_FEATURE_CTT,
-		key,
-		val,
-		cpu);
-
-	return ret;
-}
 
 /************************************************
  * static function
