@@ -58,7 +58,6 @@ static int fakeres = FAKE_DEFAULT_RES;
 static int fakebpc = DP_COLOR_DEPTH_8BIT;
 struct mutex dp_lock;
 static bool g_hdcp_on = 1;
-static BYTE g_c0 = 32, g_cp1;
 
 static const struct drm_display_mode dptx_est_modes[] = {
 	/* 2160x3840@60Hz */
@@ -334,6 +333,8 @@ bool mdrv_DPTx_AuxRead_DPCD(struct mtk_dp *mtk_dp, u8 ubCmd,
 	size_t remain = 0;
 	size_t loop = 0;
 
+	memset(pRxBuf, 0, ubLength);
+
 	if (ubLength > DP_AUX_MAX_PAYLOAD_BYTES) {
 		times = ubLength / DP_AUX_MAX_PAYLOAD_BYTES;
 		remain = ubLength % DP_AUX_MAX_PAYLOAD_BYTES;
@@ -418,7 +419,6 @@ void mdrv_DPTx_InitVariable(struct mtk_dp *mtk_dp)
 	memset(&mtk_dp->info.DPTX_OUTBL, 0,
 		sizeof(struct DPTX_TIMING_PARAMETER));
 	mtk_dp->info.DPTX_OUTBL.FrameRate = 60;
-
 	mtk_dp->bPowerOn = false;
 	mtk_dp->video_enable = false;
 	mtk_dp->dp_ready = false;
@@ -426,7 +426,8 @@ void mdrv_DPTx_InitVariable(struct mtk_dp *mtk_dp)
 	mtk_dp->has_fec = false;
 	mtk_dp->dsc_enable = false;
 
-	mdrv_DPTx_CheckMaxLinkRate(mtk_dp);
+	if (!mtk_dp->training_info.set_max_linkrate)
+		mdrv_DPTx_CheckMaxLinkRate(mtk_dp);
 }
 
 void mdrv_DPTx_SetSDP_DownCntinit(struct mtk_dp *mtk_dp,
@@ -1374,6 +1375,12 @@ void mdrv_DPTx_PatternSet(bool enable, int resolution)
 {
 	g_mtk_dp->info.bPatternGen = enable;
 	g_mtk_dp->info.resolution = resolution;
+}
+
+void mdrv_DPTx_set_maxlinkrate(bool enable, int maxlinkrate)
+{
+	g_mtk_dp->training_info.set_max_linkrate = enable;
+	g_mtk_dp->training_info.ubSysMaxLinkRate = maxlinkrate;
 }
 
 void mdrv_DPTx_PatternGenTypeSel(struct mtk_dp *mtk_dp, int patternType,
@@ -2468,6 +2475,7 @@ void mdrv_DPTx_InitPort(struct mtk_dp *mtk_dp)
 	mhal_DPTx_InitialSetting(mtk_dp);
 	mhal_DPTx_AuxSetting(mtk_dp);
 	mhal_DPTx_DigitalSetting(mtk_dp);
+	mhal_DPTx_AnalogPowerOnOff(mtk_dp, true);
 	mhal_DPTx_PHYSetting(mtk_dp);
 	mhal_DPTx_HPDDetectSetting(mtk_dp);
 
@@ -3185,12 +3193,34 @@ irqreturn_t mtk_dp_hpd_event(int hpd, void *dev)
 	return IRQ_HANDLED;
 }
 
+void mtk_dp_phy_param_init(struct mtk_dp *mtk_dp, uint32_t *buffer, int size)
+{
+	int i = 0;
+	uint8_t mask = 0x3F;
+
+	if (buffer == NULL || size != DPTX_PHY_REG_COUNT) {
+		DPTXERR("invalid param\n");
+		return;
+	}
+
+	for (i = 0; i < DPTX_PHY_LEVEL_COUNT; i++) {
+		mtk_dp->phy_params[i].C0 = (buffer[i/4] >> (8*(i%4))) & mask;
+		mtk_dp->phy_params[i].CP1
+			= (buffer[i/4 + 3] >> (8*(i%4))) & mask;
+	}
+}
+
 static int mtk_dp_dt_parse_pdata(struct mtk_dp *mtk_dp,
 		struct platform_device *pdev)
 {
 	struct resource regs;
 	struct device *dev = &pdev->dev;
 	int ret = 0;
+	uint32_t phy_params_int[DPTX_PHY_REG_COUNT] = {
+		0x20181410, 0x20241e18, 0x00003028,
+		0x10080400, 0x000c0600, 0x00000008
+	};
+	uint32_t phy_params_dts[DPTX_PHY_REG_COUNT];
 
 	if (of_address_to_resource(dev->of_node, 0, &regs) != 0)
 		dev_err(dev, "Missing reg in %s node\n",
@@ -3203,6 +3233,16 @@ static int mtk_dp_dt_parse_pdata(struct mtk_dp *mtk_dp,
 		dev_err(dev, "Failed to get dptx clock: %d\n", ret);
 		goto error;
 	}
+
+	ret = of_property_read_u32_array(dev->of_node, "dptx,phy_params",
+		phy_params_dts, ARRAY_SIZE(phy_params_dts));
+	if (ret) {
+		DPTXMSG("get phy_params fail, use default val, ret %d\n", ret);
+		mtk_dp_phy_param_init(mtk_dp,
+			phy_params_int, ARRAY_SIZE(phy_params_int));
+	} else
+		mtk_dp_phy_param_init(mtk_dp,
+			phy_params_dts, ARRAY_SIZE(phy_params_dts));
 
 	DPTXMSG("reg and clock get success!\n");
 error:
@@ -3531,10 +3571,35 @@ int mtk_dp_hdcp_getInfo(char *buffer, int size)
 	return ret;
 }
 
-void mtk_dp_set_adjust_phy(uint8_t c0, uint8_t cp1)
+int mtk_dp_phy_getInfo(char *buffer, int size)
 {
-	g_c0 = c0;
-	g_cp1 = cp1;
+	int len = 0;
+	int i = 0;
+	char *phy_names[10] = {
+		"L0P0", "L0P1", "L0P2", "L0P3", "L1P0",
+		"L1P1", "L1P2", "L2P0", "L2P1", "L3P0"};
+
+	len = snprintf(buffer, size, "PHY INFO:\n");
+	for (i = 0; i < DPTX_PHY_LEVEL_COUNT; i++)
+		len += snprintf(buffer + len, size - len,
+			"#%d(%s):C0 = %#04X(%2d), CP1 = %#04X(%2d)\n", i,
+			phy_names[i],
+			g_mtk_dp->phy_params[i].C0, g_mtk_dp->phy_params[i].C0,
+			g_mtk_dp->phy_params[i].CP1,
+			g_mtk_dp->phy_params[i].CP1);
+
+	return len;
+}
+
+void mtk_dp_set_adjust_phy(uint8_t index, uint8_t c0, uint8_t cp1)
+{
+	if (index >= 10) {
+		DPTXERR("index(%d) must < 10!", index);
+		return;
+	}
+
+	g_mtk_dp->phy_params[index].C0 = c0;
+	g_mtk_dp->phy_params[index].CP1 = cp1;
 }
 
 void mtk_dp_hotplug_uevent(unsigned int event)
@@ -3546,7 +3611,7 @@ void mtk_dp_hotplug_uevent(unsigned int event)
 	notify_uevent_user(&dptx_notify_data,
 		event > 0 ? DPTX_STATE_ACTIVE : DPTX_STATE_NO_DEVICE);
 
-	if (!g_mtk_dp->info.bSetAudioMute)
+	if (g_mtk_dp->info.audio_caps != 0)
 		extcon_set_state_sync(dptx_extcon, EXTCON_DISP_HDMI,
 			event > 0 ? true : false);
 }
@@ -3620,7 +3685,6 @@ void mtk_dp_HPDInterruptSet(int bstatus)
 				DPTXERR("Fail to enable dptx clock: %d\n", ret);
 
 			mdrv_DPTx_InitPort(g_mtk_dp);
-			mhal_DPTx_AnalogPowerOnOff(g_mtk_dp, true);
 			mhal_DPTx_USBC_HPD(g_mtk_dp, true);
 			g_mtk_dp->bPowerOn = true;
 		} else if (bstatus == HPD_DISCONNECT)
@@ -3849,9 +3913,6 @@ error:
 static int mtk_drm_dp_remove(struct platform_device *pdev)
 {
 	struct mtk_dp *mtk_dp = platform_get_drvdata(pdev);
-
-	mdrv_DPTx_VideoMute(mtk_dp, true);
-	mdrv_DPTx_AudioMute(mtk_dp, true);
 
 	if (mtk_dp->dptx_wq)
 		destroy_workqueue(mtk_dp->dptx_wq);

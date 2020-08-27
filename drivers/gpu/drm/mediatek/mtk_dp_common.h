@@ -51,6 +51,8 @@
 #define ENABLE_DPTX_FIX_TPS2		0
 #define AUX_WRITE_READ_WAIT_TIME        20 //us
 #define DPTX_SUPPORT_DSC                1
+#define DPTX_PHY_LEVEL_COUNT            10
+#define DPTX_PHY_REG_COUNT              6
 
 #define DPTX_AutoTest_ENABLE		0x1
 #if DPTX_AutoTest_ENABLE
@@ -198,6 +200,7 @@ struct DPTX_TRAINING_INFO {
 	bool bDWN_STRM_PORT_PRESENT : 1;
 	bool cr_done : 1;
 	bool eq_done : 1;
+	bool set_max_linkrate;
 
 	BYTE ubDPSysVersion;
 	BYTE ubSysMaxLinkRate;
@@ -232,6 +235,11 @@ struct DPTX_INFO {
 	struct HDCP2_INFO hdcp2_info;
 #endif
 
+};
+
+struct DPTX_PHY_PARAMETER {
+	unsigned char C0;
+	unsigned char CP1;
 };
 
 struct mtk_dp {
@@ -276,6 +284,8 @@ struct mtk_dp {
 	bool has_fec;
 	bool dsc_enable;
 	struct mtk_drm_private *priv;
+	//phy_params[10] = {L0P0,L0P1,L0P2,L0P3,L1P0,L1P1,L1P2,L2P0,L2P1,L3P0};
+	struct DPTX_PHY_PARAMETER phy_params[DPTX_PHY_LEVEL_COUNT];
 };
 
 #endif /*__DRTX_TYPE_H__*/
