@@ -431,7 +431,8 @@ dtb-$(CONFIG_ARCH_SDXPRAIRIE) += sdxprairie-rumi.dtb \
 	sa515m-v2-ccard.dtb \
 	sa515m-v2-ccard-pcie-ep.dtb \
 	sa515m-v2-ccard-usb-ep.dtb \
-	sa515m-v2-ccard-eth-ep.dtb
+	sa515m-v2-ccard-eth-ep.dtb \
+	sa515m-v2-ccard-eth-phy-ep.dtb
 
 dtb-$(CONFIG_ARCH_MDM9607) += mdm9607-cdp.dtb \
         mdm9607-mtp.dtb \
