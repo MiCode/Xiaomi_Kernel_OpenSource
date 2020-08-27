@@ -31,6 +31,8 @@ enum {
 	QOS_IPI_SMI_MET_MON,
 	QOS_IPI_SETUP_GPU_INFO,
 	QOS_IPI_SWPM_SET_UPDATE_CNT,
+	QOS_IPI_QOS_PREFETCH,
+	QOS_IPI_QOS_PREFETCH_ENABLE,
 
 	NR_QOS_IPI,
 };
@@ -80,14 +82,23 @@ struct qos_ipi_data {
 			unsigned int enable;
 		} qos_bound_stress_enable;
 		struct {
-			unsigned int ena;
-			unsigned int enc[4];
+			uint16_t ena;
+			uint16_t enc[4];
 		} smi_met_mon;
 		struct {
 			unsigned int addr;
 			unsigned int addr_hi;
 			unsigned int size;
 		} gpu_info;
+		struct {
+			unsigned int state;
+		} qos_prefetch;
+		struct {
+			unsigned int enable;
+		} qos_prefetch_enable;
+		struct {
+			unsigned int arg[5];
+		} max;
 	} u;
 };
 
