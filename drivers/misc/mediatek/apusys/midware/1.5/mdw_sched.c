@@ -18,7 +18,7 @@
 #include "mdw_cmd.h"
 #include "mdw_sched.h"
 #include "mdw_dispr.h"
-#include "midware_trace.h"
+#include "mdw_trace.h"
 #include "mdw_import.h"
 #include "mdw_tag.h"
 #ifdef APUSYS_MDW_TAG_SUPPORT
@@ -42,7 +42,7 @@ static struct mdw_sched_mgr ms_mgr;
 
 #define MDW_EXEC_PRINT " pid(%d/%d) cmd(0x%llx/0x%llx-#%d/%u)"\
 	" dev(%d/%s-#%d) mp(0x%x/%u/%u/0x%llx) sched(%d/%u/%u/%u/%u/%d)"\
-	" mem(%lu/%d/0x%x/0x%x) boost(%u) time(%u/%u)"
+	" mem(%lu/%d/0x%x/0x%x) boost(%u) bw(%u) time(%u/%u)"
 
 static void mdw_sched_met_start(struct mdw_apu_sc *sc, struct mdw_dev_info *d)
 {
@@ -61,10 +61,16 @@ static void mdw_sched_met_end(struct mdw_apu_sc *sc, struct mdw_dev_info *d,
 		sc->parent->kid, ret);
 }
 
+static inline uint64_t mdw_sched_shift(uint64_t val, int start, int end)
+{
+	return val << (63 - (end - start)) >> (63 - end);
+}
+
 static void mdw_sched_trace(struct mdw_apu_sc *sc,
 	struct mdw_dev_info *d, struct apusys_cmd_hnd *h, int ret, int done)
 {
 	char state[16];
+	uint64_t sc_info = 0, multi_info = 0, exec_info = 0, tcm_info = 0;
 
 	/* prefix */
 	memset(state, 0, sizeof(state));
@@ -111,6 +117,7 @@ static void mdw_sched_trace(struct mdw_apu_sc *sc,
 			sc->hdr->tcm_usage,
 			sc->real_tcm_usage,
 			h->boost_val,
+			sc->bw,
 			h->ip_time,
 			sc->driver_time,
 			ret);
@@ -141,36 +148,40 @@ static void mdw_sched_trace(struct mdw_apu_sc *sc,
 			sc->hdr->tcm_usage,
 			sc->real_tcm_usage,
 			h->boost_val,
+			sc->bw,
 			h->ip_time,
 			sc->driver_time,
 			ret);
 	}
+
+	/* encode info for 12 args limitation */
+	sc_info = mdw_sched_shift((uint64_t)sc->idx, 32, 63) |
+	mdw_sched_shift((uint64_t)sc->parent->hdr->num_sc, 0, 31);
+	multi_info = mdw_sched_shift((uint64_t)sc->hdr->pack_id, 48, 63) |
+		mdw_sched_shift((uint64_t)h->multicore_idx, 32, 47) |
+		mdw_sched_shift((uint64_t)sc->multi_total, 16, 31) |
+		mdw_sched_shift((uint64_t)sc->multi_bmp, 0, 15);
+	exec_info = mdw_sched_shift((uint64_t)sc->parent->hdr->priority,
+		48, 63) |
+		mdw_sched_shift((uint64_t)sc->parent->hdr->soft_limit, 32, 47) |
+		mdw_sched_shift((uint64_t)sc->parent->hdr->hard_limit, 16, 31) |
+		mdw_sched_shift((uint64_t)sc->hdr->suggest_time, 0, 15);
+	tcm_info = mdw_sched_shift((uint64_t)sc->ctx, 48, 63) |
+		mdw_sched_shift((uint64_t)sc->hdr->tcm_force, 32, 47) |
+		mdw_sched_shift((uint64_t)sc->hdr->tcm_usage, 16, 31) |
+		mdw_sched_shift((uint64_t)sc->real_tcm_usage, 0, 15);
+
 #ifdef APUSYS_MDW_TAG_SUPPORT
 	/* trace cmd end */
 	trace_mdw_cmd(done,
 		sc->parent->pid,
 		sc->parent->tgid,
-		sc->parent->hdr->uid,
 		sc->parent->kid,
-		sc->idx,
-		sc->parent->hdr->num_sc,
-		d->type,
+		sc_info,
 		d->name,
-		d->idx,
-		sc->hdr->pack_id,
-		h->multicore_idx,
-		sc->multi_total,
-		sc->multi_bmp,
-		sc->parent->hdr->priority,
-		sc->parent->hdr->soft_limit,
-		sc->parent->hdr->hard_limit,
-		sc->hdr->ip_time,
-		sc->hdr->suggest_time,
-		0,//sc->par_cmd->power_save,
-		sc->ctx,
-		sc->hdr->tcm_force,
-		sc->hdr->tcm_usage,
-		sc->real_tcm_usage,
+		multi_info,
+		exec_info,
+		tcm_info,
 		h->boost_val,
 		h->ip_time,
 		ret);
@@ -185,6 +196,7 @@ static int mdw_sched_sc_done(void)
 	int ret = 0;
 
 	mdw_flw_debug("\n");
+	mdw_trace_begin("check done list|%s", __func__);
 
 	/* get done sc from done sc list */
 	mutex_lock(&ms_mgr.mtx);
@@ -193,9 +205,10 @@ static int mdw_sched_sc_done(void)
 	if (s)
 		list_del(&s->ds_item);
 	mutex_unlock(&ms_mgr.mtx);
-	if (!s)
-		return -ENODATA;
-
+	if (!s) {
+		ret = -ENODATA;
+		goto out;
+	}
 	/* recv finished subcmd */
 	while (1) {
 		c = s->parent;
@@ -223,6 +236,8 @@ static int mdw_sched_sc_done(void)
 		}
 	};
 
+out:
+	mdw_trace_end("check done list|%s", __func__);
 	return ret;
 }
 
@@ -236,8 +251,9 @@ static void mdw_sched_enque_done_sc(struct kref *ref)
 
 	mutex_lock(&ms_mgr.mtx);
 	list_add_tail(&sc->ds_item, &ms_mgr.ds_list);
-	mdw_sched(NULL);
 	mutex_unlock(&ms_mgr.mtx);
+
+	mdw_sched(NULL);
 }
 
 int mdw_sched_dev_routine(void *arg)
@@ -252,13 +268,17 @@ int mdw_sched_dev_routine(void *arg)
 		mdw_flw_debug("\n");
 		ret = wait_for_completion_interruptible(&d->cmplt);
 		if (ret)
-			goto next;
+			goto direc_next;
 
 		sc = (struct mdw_apu_sc *)d->sc;
 		if (!sc) {
 			mdw_drv_warn("no sc to exec\n");
-			goto next;
+			goto direc_next;
 		}
+
+		mdw_trace_begin("dev(%s-%d) exec|sc(0x%llx-%d) boost(%d/%u)",
+			d->name, d->idx, sc->parent->kid, sc->idx,
+			h.boost_val, sc->boost);
 
 		/* get mem ctx */
 		if (cmd_parser->get_ctx(sc)) {
@@ -294,7 +314,6 @@ int mdw_sched_dev_routine(void *arg)
 		ktime_get_ts64(&sc->ts_end);
 		sc->driver_time = mdw_cmn_get_time_diff(&sc->ts_start,
 			&sc->ts_end);
-		mdw_sched_trace(sc, d, &h, ret, 1);
 
 		/* count qos end */
 		mutex_lock(&sc->mtx);
@@ -306,6 +325,8 @@ int mdw_sched_dev_routine(void *arg)
 		mdw_flw_debug("multi bmp(0x%llx)\n", sc->multi_bmp);
 		mutex_unlock(&sc->mtx);
 
+		mdw_sched_trace(sc, d, &h, ret, 1);
+
 		/* put device */
 		if (mdw_rsc_put_dev(d))
 			mdw_drv_err("put dev(%d-#%d) fail\n",
@@ -315,6 +336,10 @@ int mdw_sched_dev_routine(void *arg)
 			sc->idx, kref_read(&sc->multi_ref));
 		kref_put(&sc->multi_ref, mdw_sched_enque_done_sc);
 next:
+		mdw_trace_end("dev(%s-%d) exec|sc(0x%llx-%d) boost(%d/%u)",
+			d->name, d->idx, sc->parent->kid, sc->idx,
+			h.boost_val, sc->boost);
+direc_next:
 		mdw_flw_debug("done\n");
 		continue;
 	}
@@ -338,6 +363,9 @@ static int mdw_sched_dispatch(struct mdw_apu_sc *sc)
 {
 	int ret = 0, dev_num = 0, exec_num = 0;
 
+	mdw_trace_begin("dispatch|sc(0x%llx-%d) pack(%d) multi(%d)",
+		sc->parent->kid, sc->idx, sc->hdr->pack_id, sc->parent->multi);
+
 	/* get dev num */
 	dev_num =  mdw_rsc_get_dev_num(sc->type);
 
@@ -353,6 +381,9 @@ static int mdw_sched_dispatch(struct mdw_apu_sc *sc)
 		ret = mdw_dispr_multi(sc);
 	else
 		ret = mdw_dispr_norm(sc);
+
+	mdw_trace_end("dispatch|sc(0x%llx-%d)",
+		sc->parent->kid, sc->idx);
 
 	return ret;
 }
@@ -394,7 +425,6 @@ static int mdw_sched_routine(void *arg)
 			mdw_drv_err("pop sc(%d) fail\n", t);
 			goto fail_pop_sc;
 		}
-		ktime_get_ts64(&sc->ts_deque);
 		mdw_flw_debug("pop sc(0x%llx-#%d/%d/%llu)\n",
 			sc->parent->kid, sc->idx, sc->type, sc->period);
 

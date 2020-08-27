@@ -185,7 +185,7 @@ static int mdw_queue_norm_insert(struct mdw_apu_sc *sc, void *q, int is_front)
 	prio = (int)sc->parent->hdr->priority;
 
 	/* find mdw_pid struct from nq's pid list */
-	p = mdw_queue_norm_pid_get(nq, prio);
+	p = mdw_queue_norm_pid_get(nq, sc->parent->hdr->pid);
 	if (!p) {
 		ret = -EINVAL;
 		goto fail_get_pid;

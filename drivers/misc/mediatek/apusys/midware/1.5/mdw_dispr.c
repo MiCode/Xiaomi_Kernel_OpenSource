@@ -262,7 +262,9 @@ void mdw_dispr_check(void)
 		di = list_entry(list_ptr, struct mdw_disp_item, p_item);
 
 		list_del(&di->p_item);
+		mutex_unlock(&d_mgr.mtx);
 		di->exec(di);
+		mutex_lock(&d_mgr.mtx);
 	}
 	mutex_unlock(&d_mgr.mtx);
 
