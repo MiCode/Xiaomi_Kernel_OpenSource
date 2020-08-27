@@ -835,7 +835,7 @@ void scp_crash_log_move_to_buf(enum scp_core_id scp_id)
 	unsigned int log_start_idx;  /* SCP log start pointer */
 	unsigned int log_end_idx;    /* SCP log end pointer */
 	unsigned int w_pos;          /* buf write pointer */
-	char *pre_scp_logger_buf;
+	char *pre_scp_logger_buf = NULL;
 	char *dram_logger_buf;       /* dram buffer */
 	int scp_awake_flag;
 
@@ -980,7 +980,8 @@ exit:
 	}
 
 	mutex_unlock(&scp_logger_mutex);
-	vfree(pre_scp_logger_buf);
+	if (pre_scp_logger_buf != NULL)
+		vfree(pre_scp_logger_buf);
 }
 
 
