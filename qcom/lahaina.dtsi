@@ -2179,7 +2179,6 @@
 		reg = <0x7040000 0x1000>;
 		reg-names = "etm-base";
 
-		status = "disabled";
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "core_clk";
 
@@ -2191,7 +2190,6 @@
 		reg = <0x7140000 0x1000>;
 		reg-names = "etm-base";
 
-		status = "disabled";
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "core_clk";
 
@@ -2203,7 +2201,6 @@
 		reg = <0x7240000 0x1000>;
 		reg-names = "etm-base";
 
-		status = "disabled";
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "core_clk";
 
@@ -2215,7 +2212,6 @@
 		reg = <0x7340000 0x1000>;
 		reg-names = "etm-base";
 
-		status = "disabled";
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "core_clk";
 
@@ -2227,7 +2223,6 @@
 		reg = <0x7440000 0x1000>;
 		reg-names = "etm-base";
 
-		status = "disabled";
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "core_clk";
 
@@ -2239,7 +2234,6 @@
 		reg = <0x7540000 0x1000>;
 		reg-names = "etm-base";
 
-		status = "disabled";
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "core_clk";
 
@@ -2251,7 +2245,6 @@
 		reg = <0x7640000 0x1000>;
 		reg-names = "etm-base";
 
-		status = "disabled";
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "core_clk";
 
@@ -2263,7 +2256,6 @@
 		reg = <0x7740000 0x1000>;
 		reg-names = "etm-base";
 
-		status = "disabled";
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "core_clk";
 
