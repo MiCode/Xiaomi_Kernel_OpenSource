@@ -349,6 +349,10 @@ static s32 translate_meta(struct op_meta *meta,
 		dram_addr = translate_read_id_ex(meta->readback_id, &offset);
 		if (!dram_addr)
 			return -EINVAL;
+
+		/* flush first since readback add commands to pkt */
+		cmdq_handle_flush_cmd_buf(handle, cmd_buf);
+
 		cmdq_mdp_op_readback(handle, meta->engine,
 			dram_addr + offset * sizeof(u32), meta->mask);
 		break;
