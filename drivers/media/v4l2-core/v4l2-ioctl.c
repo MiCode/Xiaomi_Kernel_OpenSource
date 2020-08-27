@@ -1742,6 +1742,22 @@ static int v4l_g_fmt(const struct v4l2_ioctl_ops *ops,
 	return -EINVAL;
 }
 
+static void store_mplane_request(__u8 *req, struct v4l2_pix_format_mplane *p)
+{
+	req[0] = p->reserved[0];
+	req[1] = p->reserved[1];
+	req[2] = p->reserved[2];
+	req[3] = p->reserved[3];
+}
+
+static void restore_mplane_request(__u8 *req, struct v4l2_pix_format_mplane *p)
+{
+	p->reserved[0] = req[0];
+	p->reserved[1] = req[1];
+	p->reserved[2] = req[2];
+	p->reserved[3] = req[3];
+}
+
 static int v4l_s_fmt(const struct v4l2_ioctl_ops *ops,
 				struct file *file, void *fh, void *arg)
 {
@@ -1769,14 +1785,20 @@ static int v4l_s_fmt(const struct v4l2_ioctl_ops *ops,
 		if (vfd->vfl_type == VFL_TYPE_TOUCH)
 			v4l_pix_format_touch(&p->fmt.pix);
 		return ret;
-	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
+	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE: {
+		__u8 req[4];
+
+		store_mplane_request(req, &p->fmt.pix_mp);
 		if (unlikely(!ops->vidioc_s_fmt_vid_cap_mplane))
 			break;
 		CLEAR_AFTER_FIELD(p, fmt.pix_mp.xfer_func);
 		for (i = 0; i < p->fmt.pix_mp.num_planes; i++)
 			CLEAR_AFTER_FIELD(&p->fmt.pix_mp.plane_fmt[i],
 					  bytesperline);
-		return ops->vidioc_s_fmt_vid_cap_mplane(file, fh, arg);
+		restore_mplane_request(req, &p->fmt.pix_mp);
+		ret = ops->vidioc_s_fmt_vid_cap_mplane(file, fh, arg);
+		return ret;
+	}
 	case V4L2_BUF_TYPE_VIDEO_OVERLAY:
 		if (unlikely(!ops->vidioc_s_fmt_vid_overlay))
 			break;
@@ -1857,6 +1879,8 @@ static int v4l_try_fmt(const struct v4l2_ioctl_ops *ops,
 
 	if (ret)
 		return ret;
+	if (p->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
+		pr_info("1request fd: %d\n", p->fmt.pix_mp.reserved[0]);
 
 	v4l_sanitize_format(p);
 
@@ -1871,14 +1895,20 @@ static int v4l_try_fmt(const struct v4l2_ioctl_ops *ops,
 		if (vfd->vfl_type == VFL_TYPE_TOUCH)
 			v4l_pix_format_touch(&p->fmt.pix);
 		return ret;
-	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
+	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE: {
+		__u8 req[4];
+
+		store_mplane_request(req, &p->fmt.pix_mp);
 		if (unlikely(!ops->vidioc_try_fmt_vid_cap_mplane))
 			break;
 		CLEAR_AFTER_FIELD(p, fmt.pix_mp.xfer_func);
 		for (i = 0; i < p->fmt.pix_mp.num_planes; i++)
 			CLEAR_AFTER_FIELD(&p->fmt.pix_mp.plane_fmt[i],
 					  bytesperline);
-		return ops->vidioc_try_fmt_vid_cap_mplane(file, fh, arg);
+		restore_mplane_request(req, &p->fmt.pix_mp);
+		ret = ops->vidioc_try_fmt_vid_cap_mplane(file, fh, arg);
+		return ret;
+	}
 	case V4L2_BUF_TYPE_VIDEO_OVERLAY:
 		if (unlikely(!ops->vidioc_try_fmt_vid_overlay))
 			break;
