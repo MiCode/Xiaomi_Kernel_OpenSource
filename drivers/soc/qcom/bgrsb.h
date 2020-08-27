@@ -83,4 +83,5 @@ struct bgrsb_msg {
 
 void bgrsb_send_input(struct event *evnt);
 void bgrsb_notify_glink_channel_state(bool state);
+void bgrsb_rx_msg(void *data, int len);
 #endif /* BGCOM_H */

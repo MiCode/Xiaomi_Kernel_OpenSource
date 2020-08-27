@@ -21,6 +21,7 @@ struct bgrsb_priv {
 	struct mutex rsb_state_mutex;
 	enum bgrsb_state bgrsb_current_state;
 	void *lhndl;
+	char rx_buf[BGRSB_GLINK_INTENT_SIZE];
 	struct work_struct bg_up_work;
 	struct work_struct bg_down_work;
 	struct work_struct rsb_up_work;
@@ -31,7 +32,6 @@ struct bgrsb_priv {
 	struct bgrsb_regulator rgltr;
 	enum ldo_task ldo_action;
 	void *bgwear_subsys_handle;
-	struct completion bg_resp_cmplt;
 	struct completion wrk_cmplt;
 	struct completion bg_lnikup_cmplt;
 	struct completion tx_done;
@@ -42,6 +42,7 @@ struct bgrsb_priv {
 	uint32_t calbrtion_cpi;
 	uint8_t bttn_configs;
 	int msmrsb_gpio;
+	bool bg_resp_cmplt;
 	bool rsb_rpmsg;
 	bool rsb_use_msm_gpio;
 	bool is_in_twm;
@@ -264,6 +265,7 @@ static void bgrsb_bgdown_work(struct work_struct *work)
 static int bgrsb_tx_msg(struct bgrsb_priv *dev, void  *msg, size_t len)
 {
 	int rc = 0;
+	uint8_t resp = 0;
 
 	__pm_stay_awake(&dev->bgrsb_ws);
 	mutex_lock(&dev->glink_mutex);
@@ -272,8 +274,32 @@ static int bgrsb_tx_msg(struct bgrsb_priv *dev, void  *msg, size_t len)
 		goto err_ret;
 	}
 	rc = bgrsb_rpmsg_tx_msg(msg, len);
-	if (rc != 0)
-		pr_err("bgrsb_rpmsg_tx_msg failed %d\n", rc);
+
+	/* wait for sending command to BG */
+	rc = wait_event_timeout(dev->link_state_wait,
+			(rc == 0), msecs_to_jiffies(TIMEOUT_MS));
+	if (rc == 0) {
+		pr_err("failed to send command to BG %d\n", rc);
+		goto err_ret;
+	}
+
+	/* wait for getting response from BG */
+	rc = wait_event_timeout(dev->link_state_wait,
+			(dev->bg_resp_cmplt == true),
+				 msecs_to_jiffies(TIMEOUT_MS));
+	if (rc == 0) {
+		pr_err("failed to get BG response %d\n", rc);
+		goto err_ret;
+	}
+	dev->bg_resp_cmplt = false;
+	/* check BG response */
+	resp = *(uint8_t *)dev->rx_buf;
+	if (!(resp == 0x01)) {
+		pr_err("Bad BG response\n");
+		rc = -EINVAL;
+		goto err_ret;
+	}
+	rc = 0;
 
 err_ret:
 	mutex_unlock(&dev->glink_mutex);
@@ -310,6 +336,16 @@ void bgrsb_notify_glink_channel_state(bool state)
 	dev->rsb_rpmsg = state;
 }
 EXPORT_SYMBOL(bgrsb_notify_glink_channel_state);
+
+void bgrsb_rx_msg(void *data, int len)
+{
+	struct bgrsb_priv *dev =
+		container_of(bgrsb_drv, struct bgrsb_priv, lhndl);
+
+	dev->bg_resp_cmplt = true;
+	memcpy(dev->rx_buf, data, len);
+}
+EXPORT_SYMBOL(bgrsb_rx_msg);
 
 static void bgrsb_bgup_work(struct work_struct *work)
 {
