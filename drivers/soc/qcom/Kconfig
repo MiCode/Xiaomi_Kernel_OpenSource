@@ -635,6 +635,14 @@ config QTI_ALTMODE_GLINK
 	  as Pin Assignment Notifications from the Type-C stack running on a
 	  remote subsystem (e.g. DSP) via the PMIC GLINK interface.
 
+config QTI_PMIC_PON_LOG
+	tristate "PMIC PON log parser driver"
+	help
+	  The PMIC PON log driver parses PMIC power-on, power-off, and fault
+	  information out of a binary log stored in the SDAM memory found on
+	  some Qualcomm Technologies, Inc. PMIC devices.  This driver is useful
+	  when debugging unexpected power-off scenarios.
+
 config MSM_CDSP_LOADER
 	tristate "CDSP loader support"
 	help
