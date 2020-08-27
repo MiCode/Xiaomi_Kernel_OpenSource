@@ -112,6 +112,10 @@ enum DISP_PMQOS_SLOT {
 #define DISP_SLOT_CUR_USER_CMD_IDX (DISP_SLOT_READ_DDIC_BASE_END + 0x4)
 #define DISP_SLOT_CUR_BL_IDX (DISP_SLOT_CUR_USER_CMD_IDX + 0x4)
 
+/* For Dynamic OVL feature */
+#define DISP_OVL_ROI_SIZE 0x20
+#define DISP_OVL_DATAPATH_CON 0x24
+
 /* TODO: figure out Display pipe which need report PMQOS BW */
 #define DISP_SLOT_SIZE (DISP_SLOT_CUR_BL_IDX + 0x4)
 #if DISP_SLOT_SIZE > CMDQ_BUF_ALLOC_SIZE
@@ -679,6 +683,7 @@ int mtk_drm_crtc_getfence_ioctl(struct drm_device *dev, void *data,
 long mtk_crtc_wait_status(struct drm_crtc *crtc, bool status, long timeout);
 int mtk_crtc_path_switch(struct drm_crtc *crtc, unsigned int path_sel,
 			 int need_lock);
+void mtk_need_vds_path_switch(struct drm_crtc *crtc);
 
 void mtk_drm_crtc_first_enable(struct drm_crtc *crtc);
 void mtk_drm_crtc_enable(struct drm_crtc *crtc);

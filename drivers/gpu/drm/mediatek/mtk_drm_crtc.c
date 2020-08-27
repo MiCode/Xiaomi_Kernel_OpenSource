@@ -22,6 +22,8 @@
 #include <linux/pm_runtime.h>
 #include <linux/soc/mediatek/mtk-cmdq.h>
 #include <linux/mailbox_controller.h>
+#include <linux/of_address.h>
+#include <linux/of_platform.h>
 #include <soc/mediatek/smi.h>
 #include <linux/kthread.h>
 #include <linux/sched.h>
@@ -1405,6 +1407,7 @@ static void mtk_crtc_atmoic_ddp_config(struct drm_crtc *crtc,
 	struct drm_device *dev = crtc->dev;
 	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc->state);
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
 
 	if (lyeblob_ids->ddp_blob_id) {
 		blob = drm_property_lookup_blob(dev, lyeblob_ids->ddp_blob_id);
@@ -1416,10 +1419,14 @@ static void mtk_crtc_atmoic_ddp_config(struct drm_crtc *crtc,
 							mtk_crtc->ddp_mode,
 							old_lye_state,
 							cmdq_handle);
-		_mtk_crtc_atmoic_addon_module_connect(crtc,
-							mtk_crtc->ddp_mode,
-							lye_state,
-							cmdq_handle);
+		/* When open VDS path switch feature, Don't need RSZ */
+		if (!(mtk_drm_helper_get_opt(priv->helper_opt,
+			MTK_DRM_OPT_VDS_PATH_SWITCH) &&
+			priv->need_vds_path_switch))
+			_mtk_crtc_atmoic_addon_module_connect(crtc,
+				mtk_crtc->ddp_mode,
+				lye_state,
+				cmdq_handle);
 
 		state->lye_state = *lye_state;
 	}
@@ -3886,6 +3893,17 @@ void mtk_drm_crtc_atomic_resume(struct drm_crtc *crtc,
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	int index = drm_crtc_index(crtc);
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
+
+	/* When open VDS path switch feature, After VDS created,
+	 * VDS will call setcrtc, So atomic commit will be called,
+	 * but OVL0_2L is in use by main disp, So we need to skip
+	 * this action.
+	 */
+	if (mtk_drm_helper_get_opt(priv->helper_opt,
+		MTK_DRM_OPT_VDS_PATH_SWITCH) && (index == 2))
+		if (!priv->vds_path_switch_done)
+			return;
 
 	CRTC_MMP_EVENT_START(index, resume,
 			mtk_crtc->enabled, index);
@@ -4378,6 +4396,20 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 	struct mtk_ddp_comp *comp;
 	int i, j;
 	int crtc_idx = drm_crtc_index(crtc);
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
+
+	/* When open VDS path switch feature, we will resume VDS crtc
+	 * in it's second atomic commit, and the crtc will be resumed
+	 * one time.
+	 */
+	if (mtk_drm_helper_get_opt(priv->helper_opt,
+		MTK_DRM_OPT_VDS_PATH_SWITCH) && (crtc_idx == 2))
+		if (priv->vds_path_switch_done &&
+			!priv->vds_path_enable) {
+			DDPINFO("CRTC2 vds enable\n");
+			mtk_drm_crtc_atomic_resume(crtc, NULL);
+			priv->vds_path_enable = 1;
+		}
 
 	CRTC_MMP_EVENT_START(index, atomic_begin,
 			(unsigned long)mtk_crtc->event,
@@ -5135,6 +5167,15 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 		mtk_drm_fence_update(state->prop_val[CRTC_PROP_PRES_FENCE_IDX],
 		index);
 #endif
+
+	/* When open VDS path switch feature, After VDS created
+	 * we need take away the OVL0_2L from main display.
+	 */
+	if (mtk_drm_helper_get_opt(priv->helper_opt,
+		MTK_DRM_OPT_VDS_PATH_SWITCH) &&
+		priv->vds_path_switch_dirty &&
+		!priv->vds_path_switch_done && (index == 0))
+		mtk_need_vds_path_switch(crtc);
 
 end:
 	CRTC_MMP_EVENT_END(index, atomic_flush, (unsigned long)crtc_state,
@@ -6442,6 +6483,181 @@ void mtk_crtc_path_switch_update_ddp_status(struct drm_crtc *crtc,
 
 	mtk_crtc_attach_ddp_comp(crtc, mtk_crtc->ddp_mode, false);
 	mtk_crtc_attach_ddp_comp(crtc, ddp_mode, true);
+}
+
+void mtk_need_vds_path_switch(struct drm_crtc *crtc)
+{
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	int index = drm_crtc_index(crtc);
+	int i = 0;
+	int comp_nr = 0;
+	int old_comp_nr = 0;
+
+	/* In order to confirm it will be called one time,
+	 * when switch to or switch back, So need some flags
+	 * to control it.
+	 */
+	if (priv->vds_path_switch_dirty &&
+		!priv->vds_path_switch_done && (index == 0)) {
+
+		/* kick idle */
+		mtk_drm_idlemgr_kick(__func__, crtc, 0);
+		CRTC_MMP_EVENT_START(index, path_switch, mtk_crtc->ddp_mode, 0);
+
+		/* Switch main display path, take away ovl0_2l from main display */
+		if (priv->need_vds_path_switch) {
+			struct mtk_ddp_comp *comp_ovl0;
+			struct mtk_ddp_comp *comp_ovl0_2l;
+			struct cmdq_pkt *cmdq_handle;
+			struct mtk_crtc_state *crtc_state = to_mtk_crtc_state(crtc->state);
+
+			cmdq_handle =
+				cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_CFG]);
+
+			mtk_crtc_wait_frame_done(mtk_crtc,
+					cmdq_handle, DDP_FIRST_PATH, 0);
+			/* Disconnect current path and remove component mutexs */
+			_mtk_crtc_atmoic_addon_module_disconnect(
+				crtc, mtk_crtc->ddp_mode,
+				&crtc_state->lye_state, cmdq_handle);
+			comp_ovl0_2l = priv->ddp_comp[DDP_COMPONENT_OVL0_2L];
+			mtk_ddp_comp_stop(comp_ovl0_2l, cmdq_handle);
+			/* Change ovl0 bg mode frmoe DL mode to const mode */
+			comp_ovl0 = priv->ddp_comp[DDP_COMPONENT_OVL0];
+			cmdq_pkt_write(cmdq_handle, comp_ovl0->cmdq_base,
+				comp_ovl0->regs_pa + DISP_OVL_DATAPATH_CON, 0x0, 0x4);
+			mtk_ddp_remove_comp_from_path_with_cmdq(
+				mtk_crtc, DDP_COMPONENT_OVL0_2L,
+				DDP_COMPONENT_OVL0, cmdq_handle);
+			mtk_disp_mutex_remove_comp_with_cmdq(
+					mtk_crtc, DDP_COMPONENT_OVL0_2L, cmdq_handle, 0);
+
+			cmdq_pkt_flush(cmdq_handle);
+			cmdq_pkt_destroy(cmdq_handle);
+
+			CRTC_MMP_MARK(index, path_switch, 0xFFFF, 1);
+			DDPINFO("Switch ovl0_2l to vds\n");
+
+			mtk_crtc->ddp_ctx[DDP_MAJOR].ddp_comp_nr[DDP_FIRST_PATH]
+				= mtk_crtc->path_data->path_len[
+				DDP_MAJOR][DDP_FIRST_PATH] - 1;
+			comp_nr = mtk_crtc->ddp_ctx[
+				DDP_MAJOR].ddp_comp_nr[DDP_FIRST_PATH];
+			old_comp_nr = mtk_crtc->path_data->path_len[
+				DDP_MAJOR][DDP_FIRST_PATH];
+			priv->vds_path_switch_done = 1;
+		/* Switch main display path, take back ovl0_2l to main display */
+		} else {
+			struct mtk_ddp_comp *comp_ovl0;
+			struct mtk_ddp_comp *comp_ovl0_2l;
+			int width = crtc->state->adjusted_mode.hdisplay;
+			int height = crtc->state->adjusted_mode.vdisplay;
+			struct cmdq_pkt *cmdq_handle;
+
+			cmdq_handle =
+				cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_CFG]);
+			mtk_crtc_wait_frame_done(mtk_crtc,
+					cmdq_handle, DDP_FIRST_PATH, 0);
+
+			/* Change ovl0 bg mode frmoe const mode to DL mode */
+			comp_ovl0 = priv->ddp_comp[DDP_COMPONENT_OVL0];
+			cmdq_pkt_write(cmdq_handle, comp_ovl0->cmdq_base,
+				comp_ovl0->regs_pa + DISP_OVL_DATAPATH_CON, 0x4, 0x4);
+
+			/* Change ovl0 ROI size */
+			comp_ovl0_2l = priv->ddp_comp[DDP_COMPONENT_OVL0_2L];
+			cmdq_pkt_write(cmdq_handle, comp_ovl0_2l->cmdq_base,
+				comp_ovl0_2l->regs_pa + DISP_OVL_ROI_SIZE,
+				height << 16 | width, ~0);
+
+			/* Connect cur path components */
+			mtk_ddp_add_comp_to_path_with_cmdq(
+				mtk_crtc, DDP_COMPONENT_OVL0_2L,
+				DDP_COMPONENT_OVL0, cmdq_handle);
+			mtk_disp_mutex_add_comp_with_cmdq(
+				mtk_crtc, DDP_COMPONENT_OVL0_2L,
+				mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base),
+				cmdq_handle, 0);
+
+			mtk_ddp_comp_prepare(comp_ovl0_2l);
+			mtk_ddp_comp_start(comp_ovl0_2l, cmdq_handle);
+
+			cmdq_pkt_flush(cmdq_handle);
+			cmdq_pkt_destroy(cmdq_handle);
+
+			CRTC_MMP_MARK(index, path_switch, 0xFFFF, 2);
+			DDPINFO("Switch ovl0_2l to main disp\n");
+
+			mtk_crtc->ddp_ctx[DDP_MAJOR].ddp_comp_nr[DDP_FIRST_PATH]
+				= mtk_crtc->path_data->path_len[
+				DDP_MAJOR][DDP_FIRST_PATH];
+			comp_nr = mtk_crtc->ddp_ctx[
+				DDP_MAJOR].ddp_comp_nr[DDP_FIRST_PATH];
+			old_comp_nr = mtk_crtc->path_data->path_len[
+				DDP_MAJOR][DDP_FIRST_PATH] - 1;
+
+			priv->vds_path_switch_dirty = 0;
+		}
+
+		CRTC_MMP_MARK(index, path_switch, 0xFFFF, comp_nr);
+
+		/* Free old path ctx and reload new path ctx */
+		for (i = 0; i < old_comp_nr; i++) {
+			enum mtk_ddp_comp_id comp_id;
+			struct mtk_ddp_comp *comp;
+
+			comp = mtk_crtc->ddp_ctx[DDP_MAJOR].ddp_comp[
+					DDP_FIRST_PATH][i];
+			comp_id = comp->id;
+
+			if (mtk_ddp_comp_get_type(comp_id) ==
+				MTK_DISP_VIRTUAL) {
+				kfree(comp);
+				continue;
+			}
+		}
+		devm_kfree(crtc->dev->dev,
+			mtk_crtc->ddp_ctx[DDP_MAJOR].ddp_comp[DDP_FIRST_PATH]);
+		mtk_crtc->ddp_ctx[DDP_MAJOR].ddp_comp[DDP_FIRST_PATH] =
+			devm_kmalloc_array(crtc->dev->dev, comp_nr,
+				sizeof(struct mtk_ddp_comp *), GFP_KERNEL);
+
+		for (i = 0; i < comp_nr; i++) {
+			struct mtk_ddp_comp *comp;
+			struct device_node *node;
+			enum mtk_ddp_comp_id comp_id;
+
+			if (priv->need_vds_path_switch)
+				comp_id = mtk_crtc->path_data->path[
+					DDP_MAJOR][DDP_FIRST_PATH][i+1];
+			else
+				comp_id = mtk_crtc->path_data->path[
+					DDP_MAJOR][DDP_FIRST_PATH][i];
+
+			CRTC_MMP_MARK(index, path_switch, i, comp_id);
+
+			if (mtk_ddp_comp_get_type(comp_id) ==
+				MTK_DISP_VIRTUAL) {
+				struct mtk_ddp_comp *comp;
+
+				comp = kzalloc(sizeof(*comp), GFP_KERNEL);
+				comp->id = comp_id;
+				mtk_crtc->ddp_ctx[DDP_MAJOR].ddp_comp[
+					DDP_FIRST_PATH][i] = comp;
+				continue;
+			}
+
+			node = priv->comp_node[comp_id];
+			comp = priv->ddp_comp[comp_id];
+
+			mtk_crtc->ddp_ctx[
+				DDP_MAJOR].ddp_comp[DDP_FIRST_PATH][i] = comp;
+			comp->mtk_crtc = mtk_crtc;
+		}
+
+		CRTC_MMP_EVENT_END(index, path_switch, crtc->enabled, 0);
+	}
 }
 
 int mtk_crtc_path_switch(struct drm_crtc *crtc, unsigned int ddp_mode,

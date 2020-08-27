@@ -1499,7 +1499,7 @@ const struct mtk_session_mode_tb mt6853_mode_tb[MTK_DRM_SESSION_NUM] = {
 			},
 		[MTK_DRM_SESSION_DOUBLE_DL] = {
 
-				.en = 0,
+				.en = 1,
 				.ddp_mode = {DDP_MAJOR, DDP_MAJOR, DDP_MAJOR},
 			},
 		[MTK_DRM_SESSION_DC_MIRROR] = {

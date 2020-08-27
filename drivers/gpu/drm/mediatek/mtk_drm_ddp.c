@@ -4024,6 +4024,10 @@ static int mtk_ddp_sel_in_MT6853(const struct mtk_mmsys_reg_data *data,
 		next == DDP_COMPONENT_WDMA0) {
 		*addr = MT6853_DISP_REG_CONFIG_DISP_WDMA0_SEL_IN;
 		value = WDMA0_SEL_IN_FROM_DISP_OVL0;
+	} else if (cur == DDP_COMPONENT_OVL0_2L &&
+		next == DDP_COMPONENT_WDMA0) {
+		*addr = MT6853_DISP_REG_CONFIG_DISP_WDMA0_SEL_IN;
+		value = WDMA0_SEL_IN_FROM_DISP_OVL0_2L;
 	/*DISP_RSZ0_SEL*/
 	} else if (cur == DDP_COMPONENT_OVL0_2L &&
 		next == DDP_COMPONENT_RSZ0) {
