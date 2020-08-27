@@ -3042,18 +3042,11 @@ static int ISP_WaitIrq(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 	unsigned int irqStatus;
 
 	int idx = my_get_pow_idx(WaitIrq->EventInfo.Status);
-	struct timeval time_getrequest;
-	struct timeval time_ready2return;
+	struct timespec64 time_getrequest;
+	struct timespec64 time_ready2return;
 	bool freeze_passbysigcnt = false;
-	unsigned long long sec = 0;
-	unsigned long usec = 0;
 
-	/* do_gettimeofday(&time_getrequest); */
-	sec = cpu_clock(0);	  /* ns */
-	do_div(sec, 1000);	   /* usec */
-	usec = do_div(sec, 1000000); /* sec and usec */
-	time_getrequest.tv_usec = usec;
-	time_getrequest.tv_sec = sec;
+	ktime_get_ts64(&time_getrequest);
 
 	if (WaitIrq->Type >= ISP_IRQ_TYPE_AMOUNT) {
 		LOG_NOTICE("WaitIrq: type error(%d)", WaitIrq->Type);
@@ -3338,12 +3331,7 @@ static int ISP_WaitIrq(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 NON_CLEAR_WAIT:
 	/* 3. get interrupt and update time related information */
 	/*    that would be return to user */
-	/* do_gettimeofday(&time_ready2return); */
-	sec = cpu_clock(0);	  /* ns */
-	do_div(sec, 1000);	   /* usec */
-	usec = do_div(sec, 1000000); /* sec and usec */
-	time_ready2return.tv_usec = usec;
-	time_ready2return.tv_sec = sec;
+	ktime_get_ts64(&time_ready2return);
 
 	spin_lock_irqsave(&(IspInfo.SpinLockIrq[WaitIrq->Type]), flags);
 
@@ -7354,12 +7342,14 @@ static ssize_t CAMIO_RegDebug(struct file *pFile, const char *pBuffer,
 /*******************************************************************************
  *
  ******************************************************************************/
-static const struct file_operations fcameraisp_proc_fops = {
-	.read = ISP_DumpRegToProc, .write = ISP_RegDebug,
+static const struct proc_ops fcameraisp_proc_fops = {
+	.proc_read = ISP_DumpRegToProc,
+	.proc_write = ISP_RegDebug,
 };
 
-static const struct file_operations fcameraio_proc_fops = {
-	.read = CAMIO_DumpRegToProc, .write = CAMIO_RegDebug,
+static const struct proc_ops fcameraio_proc_fops = {
+	.proc_read = CAMIO_DumpRegToProc,
+	.proc_write = CAMIO_RegDebug,
 };
 
 void dumpAllRegs(enum ISP_DEV_NODE_ENUM module)
@@ -9021,7 +9011,7 @@ irqreturn_t ISP_Irq_CAMSV(enum ISP_IRQ_TYPE_ENUM irq_module,
 	/* */
 	union FBC_CTRL_2 fbc_ctrl2[2];
 
-	struct timeval time_frmb;
+	struct timespec64 time_frmb;
 	unsigned long long sec = 0;
 	unsigned long usec = 0;
 	ktime_t time;
@@ -9032,11 +9022,7 @@ irqreturn_t ISP_Irq_CAMSV(enum ISP_IRQ_TYPE_ENUM irq_module,
 		return IRQ_HANDLED;
 
 	/*  */
-	sec = cpu_clock(0);	  /* ns */
-	do_div(sec, 1000);	   /* usec */
-	usec = do_div(sec, 1000000); /* sec and usec */
-	time_frmb.tv_usec = usec;
-	time_frmb.tv_sec = sec;
+	ktime_get_ts64(&time_frmb);
 
 #if (ISP_BOTTOMHALF_WORKQ == 1)
 	gSvLog[module]._lastIrqTime.sec = sec;
@@ -9218,7 +9204,8 @@ irqreturn_t ISP_Irq_CAMSV(enum ISP_IRQ_TYPE_ENUM irq_module,
 					IspInfo.IrqInfo
 						.LastestSigTime_usec[module]
 								    [cnt] =
-						(unsigned int)time_frmb.tv_usec;
+						(unsigned int)time_frmb.tv_nsec
+						/ 1000;
 
 					IspInfo.IrqInfo
 						.LastestSigTime_sec[module]
@@ -10469,7 +10456,7 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 	union FBC_CTRL_1 fbc_ctrl1[2];
 	union FBC_CTRL_2 fbc_ctrl2[2];
 
-	struct timeval time_frmb;
+	struct timespec64 time_frmb;
 	unsigned long long sec = 0;
 	unsigned long usec = 0;
 	static unsigned int sec_sof[ISP_IRQ_TYPE_INT_CAMSV_0_ST] = {0};
@@ -10482,12 +10469,7 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 	if (G_u4EnableClockCount == 0)
 		return IRQ_HANDLED;
 
-	/*      */
-	sec = cpu_clock(0);	  /* ns */
-	do_div(sec, 1000);	   /* usec */
-	usec = do_div(sec, 1000000); /* sec and usec */
-	time_frmb.tv_usec = usec;
-	time_frmb.tv_sec = sec;
+	ktime_get_ts64(&time_frmb);
 
 #if (ISP_BOTTOMHALF_WORKQ == 1)
 	gSvLog[module]._lastIrqTime.sec = sec;
@@ -11399,7 +11381,8 @@ LB_CAM_SOF_IGNORE:
 					IspInfo.IrqInfo
 						.LastestSigTime_usec[module]
 								    [cnt] =
-						(unsigned int)time_frmb.tv_usec;
+						(unsigned int)time_frmb.tv_nsec
+						/ 1000;
 
 					IspInfo.IrqInfo
 						.LastestSigTime_sec[module]
