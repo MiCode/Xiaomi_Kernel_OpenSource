@@ -564,7 +564,7 @@ int adcc_create_procfs(const char *proc_name, struct proc_dir_entry *dir)
 
 	for (i = 0; i < ARRAY_SIZE(adcc_entries); i++) {
 		if (!proc_create(adcc_entries[i].name,
-			0664,
+			0660,
 			adcc_dir,
 			adcc_entries[i].fops)) {
 			adcc_debug("[%s]: create /proc/%s/adcc/%s failed\n",

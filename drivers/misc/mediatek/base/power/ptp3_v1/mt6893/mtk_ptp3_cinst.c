@@ -915,7 +915,7 @@ int cinst_create_procfs(const char *proc_name, struct proc_dir_entry *dir)
 
 	for (i = 0; i < ARRAY_SIZE(cinst_entries); i++) {
 		if (!proc_create(cinst_entries[i].name,
-			0664,
+			0660,
 			cinst_dir,
 			cinst_entries[i].fops)) {
 			cinst_err(
