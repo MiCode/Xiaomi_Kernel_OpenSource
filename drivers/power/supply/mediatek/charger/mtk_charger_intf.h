@@ -31,12 +31,14 @@
 #include <mt-plat/charger_class.h>
 
 struct charger_manager;
+struct charger_data;
 #include "mtk_pe_intf.h"
 #include "mtk_pe20_intf.h"
 #include "mtk_pe40_intf.h"
 #include "mtk_pe50_intf.h"
 #include "mtk_pdc_intf.h"
 #include "adapter_class.h"
+#include "mtk_smartcharging.h"
 
 #define CHARGING_INTERVAL 10
 #define CHARGING_FULL_INTERVAL 20
@@ -419,6 +421,15 @@ struct charger_manager {
 
 	/* dynamic mivr */
 	bool enable_dynamic_mivr;
+
+	struct smartcharging sc;
+
+
+	/*daemon related*/
+	struct sock *daemo_nl_sk;
+	u_int g_scd_pid;
+	struct scd_cmd_param_t_1 sc_data;
+
 };
 
 /* charger related module interface */
