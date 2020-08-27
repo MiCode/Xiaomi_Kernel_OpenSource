@@ -418,56 +418,74 @@ int pdp_probe(struct platform_device *pdev)
 {
 #ifndef CONFIG_FPGA_EARLY_PORTING
 #ifdef CONFIG_OF
-		struct device_node *node = NULL;
-		int rc = 0;
-		unsigned int pdp_n = 0;
+	struct device_node *node = NULL;
+	int rc = 0;
+	unsigned int pdp_n = 0;
 
-		node = pdev->dev.of_node;
-		if (!node) {
-			pdp_err("get pdp device node err\n");
-			return -ENODEV;
-		}
+	node = pdev->dev.of_node;
+	if (!node) {
+		pdp_err("get pdp device node err\n");
+		return -ENODEV;
+	}
 
-		rc = of_property_read_u32(node, "pdp_state", &pdp_state);
-		if (!rc) {
-			pdp_debug("[xxxxpdp] state from DTree; rc(%d) pdp_state(0x%x)\n",
-				rc,
-				pdp_state);
+	rc = of_property_read_u32(node, "pdp_state", &pdp_state);
+	if (!rc) {
+		pdp_debug("[xxxxpdp] state from DTree; rc(%d) pdp_state(0x%x)\n",
+			rc,
+			pdp_state);
 
-			for (pdp_n = 0; pdp_n < PDP_NUM; pdp_n++)
-				ptp3_smc_handle(PTP3_FEATURE_PDP, PDP_RW_WRITE,
-				(pdp_state >> pdp_n) & 0x1, pdp_n);
-		}
-		rc = of_property_read_u32(node, "pdp_state_pinctl", &pdp_state_pinctl);
-		if (!rc) {
-			pdp_debug("[xxxxpdp] state from DTree; rc(%d) pdp_state_pinctl(0x%x)\n",
-				rc,
-				pdp_state_pinctl);
+		for (pdp_n = 0; pdp_n < PDP_NUM; pdp_n++)
+			ptp3_smc_handle(PTP3_FEATURE_PDP, PDP_RW_WRITE,
+			(pdp_state >> pdp_n) & 0x1, pdp_n);
+	}
 
-			for (pdp_n = 0; pdp_n < PDP_NUM; pdp_n++)
-				ptp3_smc_handle(PTP3_FEATURE_PDP, PDP_RW_PINCTL_WRITE,
-				(pdp_state_pinctl >> pdp_n) & 0x1, pdp_n);
-		}
-/* TO BE FIXED: avoid system reboot */
-#if 0
-		/* dump reg status into PICACHU dram for DB */
-			pdp_reserve_memory_dump(pdp_buf, pdp_mem_size,
+	rc = of_property_read_u32(node, "pdp_state_pinctl", &pdp_state_pinctl);
+	if (!rc) {
+		pdp_debug("[xxxxpdp] state from DTree; rc(%d) pdp_state_pinctl(0x%x)\n",
+			rc,
+			pdp_state_pinctl);
+
+		for (pdp_n = 0; pdp_n < PDP_NUM; pdp_n++)
+			ptp3_smc_handle(PTP3_FEATURE_PDP, PDP_RW_PINCTL_WRITE,
+			(pdp_state_pinctl >> pdp_n) & 0x1, pdp_n);
+	}
+#endif /* CONFIG_OF */
+#ifdef CONFIG_OF_RESERVED_MEM
+	/* dump reg status into PICACHU dram for DB */
+	if (pdp_buf != NULL) {
+		pdp_reserve_memory_dump(pdp_buf, pdp_mem_size,
 				PDP_TRIGGER_STAGE_PROBE);
-#endif
-			pdp_msg("pdp probe ok!!\n");
-#endif
-#endif
-			return 0;
-
+	}
+#endif /* CONFIG_OF_RESERVED_MEM */
+#endif /* CONFIG_FPGA_EARLY_PORTING */
+	return 0;
 
 }
 int pdp_suspend(struct platform_device *pdev, pm_message_t state)
 {
+#ifndef CONFIG_FPGA_EARLY_PORTING
+#ifdef CONFIG_OF_RESERVED_MEM
+	/* dump reg status into PICACHU dram for DB */
+	if (pdp_buf != NULL) {
+		pdp_reserve_memory_dump(pdp_buf+0x1000, pdp_mem_size,
+				PDP_TRIGGER_STAGE_SUSPEND);
+	}
+#endif /* CONFIG_OF_RESERVED_MEM */
+#endif /* CONFIG_FPGA_EARLY_PORTING */
 	return 0;
 }
 
 int pdp_resume(struct platform_device *pdev)
 {
+#ifndef CONFIG_FPGA_EARLY_PORTING
+#ifdef CONFIG_OF_RESERVED_MEM
+	/* dump reg status into PICACHU dram for DB */
+	if (pdp_buf != NULL) {
+		pdp_reserve_memory_dump(pdp_buf+0x2000, pdp_mem_size,
+				PDP_TRIGGER_STAGE_RESUME);
+	}
+#endif /* CONFIG_OF_RESERVED_MEM */
+#endif /* CONFIG_FPGA_EARLY_PORTING */
 	return 0;
 }
 

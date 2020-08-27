@@ -113,18 +113,17 @@
 #define ptp3_read(addr)		__raw_readl((void __iomem *)(addr))
 #define ptp3_write(addr, val)	mt_reg_sync_writel(val, addr)
 #define EEM_TEMPSPARE0		0x11278F20
-#define PTP3_MEM_SIZE 0x80000
-#define PTP3_FLL_MEM_OFFSET 0x0
-#define PTP3_CINST_MEM_OFFSET 0x10000
-#define PTP3_DRCC_MEM_OFFSET 0x20000
-#define PTP3_CTT_MEM_OFFSET 0x30000
-#define PTP3_PDP_MEM_OFFSET 0x35000
-#define PTP3_DT_MEM_OFFSET  0x40000
-#define PTP3_ADCC_MEM_OFFSET 0x50000
-#define PTP3_IGLRE_MEM_OFFSET 0x60000
+#define PTP3_MEM_SIZE 0x40000
+#define PTP3_BRISKET2_MEM_OFFSET (0x4000 * 0)
+#define PTP3_FLL_MEM_OFFSET (0x4000 * 1)
+#define PTP3_CINST_MEM_OFFSET (0x4000 * 2)
+#define PTP3_DRCC_MEM_OFFSET (0x4000 * 3)
+#define PTP3_CTT_MEM_OFFSET (0x4000 * 4)
+#define PTP3_PDP_MEM_OFFSET (0x4000 * 5)
+#define PTP3_DT_MEM_OFFSET  (0x4000 * 6)
+#define PTP3_ADCC_MEM_OFFSET (0x4000 * 7)
+#define PTP3_IGLRE_MEM_OFFSET (0x4000 * 8)
 
-/* TO BE FIXED: avoid system reboot */
-#if 0
 static unsigned long long ptp3_reserve_memory_init(void)
 {
 	/* GAT log use */
@@ -139,7 +138,7 @@ static unsigned long long ptp3_reserve_memory_init(void)
 			ptp3_mem_size);
 	}
 
-	ptp3_msg("[PTP3] phys:0x%llx, size:0x%llx, virt:0x%llx\n",
+	ptp3_msg("phys:0x%llx, size:0x%llx, virt:0x%llx\n",
 		(unsigned long long)ptp3_mem_base_phys,
 		(unsigned long long)ptp3_mem_size,
 		(unsigned long long)ptp3_mem_base_virt);
@@ -147,7 +146,6 @@ static unsigned long long ptp3_reserve_memory_init(void)
 	return (unsigned long long)ptp3_mem_base_virt;
 
 }
-#endif
 
 #endif /* CONFIG_OF_RESERVED_MEM */
 #endif /* CONFIG_FPGA_EARLY_PORTING */
@@ -239,15 +237,21 @@ static int create_procfs(void)
 static int ptp3_probe(struct platform_device *pdev)
 {
 
-/* TO BE FIXED: avoid system reboot */
-#if 0
+#ifndef CONFIG_FPGA_EARLY_PORTING
+#ifdef CONFIG_OF_RESERVED_MEM
 	/* GAT log use */
 	unsigned long long ptp3_mem_size = PTP3_MEM_SIZE;
 	unsigned long long ptp3_mem_base_virt;
 
 	/* init for DRAM memory request */
 	ptp3_mem_base_virt = ptp3_reserve_memory_init();
+
 	if ((char *)ptp3_mem_base_virt != NULL) {
+		/* BRISKET2: save register status for reserved memory */
+		brisket2_save_memory_info(
+			(char *)(uintptr_t)
+			(ptp3_mem_base_virt+PTP3_BRISKET2_MEM_OFFSET),
+			ptp3_mem_size);
 		/* FLL: save register status for reserved memory */
 		fll_save_memory_info(
 			(char *)(uintptr_t)
@@ -289,8 +293,9 @@ static int ptp3_probe(struct platform_device *pdev)
 			(ptp3_mem_base_virt+PTP3_IGLRE_MEM_OFFSET),
 			ptp3_mem_size);
 	} else
-		ptp3_err("ptp3_mem_base_virt is null !\n");
-#endif
+		ptp3_err("ptp3_mem_base_virt is NULL\n");
+#endif /* CONFIG_OF_RESERVED_MEM */
+#endif /* CONFIG_FPGA_EARLY_PORTING */
 
 	/* probe trigger for ptp3 features */
 	brisket2_probe(pdev);

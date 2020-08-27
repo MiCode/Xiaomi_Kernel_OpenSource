@@ -373,26 +373,43 @@ int iglre_probe(struct platform_device *pdev)
 		for (iglre_n = 0; iglre_n < IGLRE_NUM; iglre_n++)
 			mtk_lre_cfg((lreBitEn >> iglre_n) & 0x01, iglre_n);
 	}
-
-/* TO BE FIXED: avoid system reboot */
-#if 0
+#endif /* CONFIG_OF */
+#ifdef CONFIG_OF_RESERVED_MEM
 	/* dump reg status into PICACHU dram for DB */
-	iglre_reserve_memory_dump(iglre_buf, iglre_mem_size,
-		iglre_TRIGGER_STAGE_PROBE);
-#endif
-	iglre_info("iglre probe ok!!\n");
-#endif
-#endif
+	if (iglre_buf != NULL) {
+		iglre_reserve_memory_dump(iglre_buf, iglre_mem_size,
+		IGLRE_TRIGGER_STAGE_PROBE);
+	}
+#endif /* CONFIG_OF_RESERVED_MEM */
+#endif /* CONFIG_FPGA_EARLY_PORTING */
 	return 0;
 }
 
 int iglre_suspend(struct platform_device *pdev, pm_message_t state)
 {
+#ifndef CONFIG_FPGA_EARLY_PORTING
+#ifdef CONFIG_OF_RESERVED_MEM
+	/* dump reg status into PICACHU dram for DB */
+	if (iglre_buf != NULL) {
+		iglre_reserve_memory_dump(iglre_buf+0x1000, iglre_mem_size,
+		IGLRE_TRIGGER_STAGE_SUSPEND);
+	}
+#endif /* CONFIG_OF_RESERVED_MEM */
+#endif /* CONFIG_FPGA_EARLY_PORTING */
 	return 0;
 }
 
 int iglre_resume(struct platform_device *pdev)
 {
+#ifndef CONFIG_FPGA_EARLY_PORTING
+#ifdef CONFIG_OF_RESERVED_MEM
+	/* dump reg status into PICACHU dram for DB */
+	if (iglre_buf != NULL) {
+		iglre_reserve_memory_dump(iglre_buf+0x2000, iglre_mem_size,
+		IGLRE_TRIGGER_STAGE_RESUME);
+	}
+#endif /* CONFIG_OF_RESERVED_MEM */
+#endif /* CONFIG_FPGA_EARLY_PORTING */
 	return 0;
 }
 
