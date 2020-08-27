@@ -695,11 +695,6 @@ static int mtk_dsi_set_LFR(struct mtk_dsi *dsi, struct mtk_ddp_comp *comp,
 	if (mtk_dsi_is_cmd_mode(&dsi->ddp_comp))
 		return -1;
 
-	if (comp == NULL)
-		DDPPR_ERR("%s mtk_ddp_comp is null\n", __func__);
-
-	if (handle == NULL)
-		DDPPR_ERR("%s cmdq handle is null\n", __func__);
 	//Settings lfr settings to LFR_CON_REG
 	if (dsi->ext && dsi->ext->params &&
 		dsi->ext->params->dyn_fps.lfr_minimum_fps != 0 &&
