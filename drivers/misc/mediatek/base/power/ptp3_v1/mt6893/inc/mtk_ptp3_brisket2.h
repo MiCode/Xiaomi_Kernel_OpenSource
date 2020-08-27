@@ -79,6 +79,7 @@ enum BRISKET2_LIST {
 	BRISKET2_LIST_GlobalEventEn,
 	BRISKET2_LIST_SafeFreqReqOverride,
 	BRISKET2_LIST_Cfg,
+	BRISKET2_LIST_PollingEn,
 
 	NR_BRISKET2_LIST,
 };
@@ -89,6 +90,12 @@ enum BRISKET2_TRIGGER_STAGE {
 	BRISKET2_TRIGGER_STAGE_RESUME,
 
 	NR_BRISKET2_TRIGGER_STAGE,
+};
+
+enum BRISKET2_IPI_CFG {
+	BRISKET2_IPI_CFG_POLLING,
+
+	NR_BRISKET2_IPI_CFG,
 };
 
 /************************************************

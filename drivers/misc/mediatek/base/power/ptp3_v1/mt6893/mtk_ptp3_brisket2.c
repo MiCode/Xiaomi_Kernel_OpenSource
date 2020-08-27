@@ -191,17 +191,16 @@ int brisket2_reserve_memory_dump(char *buf, unsigned long long ptp3_mem_size,
  * IPI between kernel and mcupm/cpu_eb
  ************************************************/
 #ifdef CONFIG_MTK_TINYSYS_MCUPM_SUPPORT
-static void brisket2_ipi_handle(unsigned int cpu, unsigned int group,
-	unsigned int bits, unsigned int shift, unsigned int val)
+static void brisket2_ipi_handle(unsigned int cfg, unsigned int val)
 {
 	struct ptp3_ipi_data brisket2_data;
 
 	brisket2_data.cmd = PTP3_IPI_BRISKET2;
-	brisket2_data.u.brisket2.cfg = (cpu << 24) | (group << 16) | (shift << 8) | bits;
+	brisket2_data.u.brisket2.cfg = cfg;
 	brisket2_data.u.brisket2.val = val;
 
-	brisket2_msg("[%s]:cpu(%d) group(%d) shift(%d) bits(%d) val(%d)\n",
-		__func__, cpu, group, shift, bits, val);
+	brisket2_msg("[%s]:cfg(%d) val(%d)\n",
+		__func__, cfg, val);
 
 	/* update mcupm or cpueb via ipi */
 	while (ptp3_ipi_handle(&brisket2_data) != 0)
@@ -277,9 +276,6 @@ static ssize_t brisket2_ctrl_proc_write(struct file *file,
 		brisket2_err("ret(%d). access atf fail\n", ret);
 		return ret;
 	}
-
-	/* update via mcupm or cpu_eb */
-	brisket2_ipi_handle(0, 0, 0, 0, 0);
 
 out:
 	free_page((unsigned long)buf);
@@ -384,9 +380,6 @@ static ssize_t brisket2_reg_proc_write(struct file *file,
 		brisket2_err("ret(%d). access atf fail\n", ret);
 		goto out;
 	}
-
-	/* update via mcupm or cpu_eb */
-	brisket2_ipi_handle(0, 0, 0, 0, 0);
 
 out:
 	free_page((unsigned long)buf);
@@ -582,9 +575,6 @@ static ssize_t brisket2_GlobalEventEn_proc_write(struct file *file,
 		return ret;
 	}
 
-	/* update via mcupm or cpu_eb */
-	brisket2_ipi_handle(0, 0, 0, 0, 0);
-
 out:
 	free_page((unsigned long)buf);
 	return count;
@@ -596,11 +586,109 @@ static int brisket2_GlobalEventEn_proc_show(struct seq_file *m, void *v)
 	return 0;
 }
 
+static ssize_t brisket2_pollingEn_proc_write(struct file *file,
+	const char __user *buffer, size_t count, loff_t *pos)
+{
+	/* parameter input */
+	unsigned int cfg = 0;
+	unsigned int pollingEn;
+	int ret = 0;
+
+	/* proc template for check */
+	char *buf = (char *) __get_free_page(GFP_USER);
+
+	if (!buf) {
+		brisket2_err("buf is illegal\n");
+		goto out;
+	}
+
+	if (count >= PAGE_SIZE) {
+		brisket2_err("count(%u) >= PAGE_SIZE\n", (unsigned int)count);
+		goto out;
+	}
+
+	if (copy_from_user(buf, buffer, count)) {
+		brisket2_err("buffer copy fail\n");
+		goto out;
+	}
+
+	buf[count] = '\0';
+
+	/* parameter check */
+	if (kstrtou32((const char *)buf, 0, &pollingEn)) {
+		brisket2_err("bad argument!! Should input 1 arguments.\n");
+		goto out;
+	}
+
+	/* encode cfg */
+	/*
+	 *	cfg[15:8] option
+	 *	cfg[31:28] cpu
+	 */
+	cfg = (BRISKET2_LIST_PollingEn << BRISKET2_CFG_OFFSET_OPTION)
+		& BRISKET2_CFG_BITMASK_OPTION;
+	/* use a fake-cpuId=4 here, take one value to represent cfg of all cores */
+	cfg |= (4 << BRISKET2_CFG_OFFSET_CPU) & BRISKET2_CFG_BITMASK_CPU;
+
+	/* update via atf */
+	ret = ptp3_smc_handle(
+		PTP3_FEATURE_BRISKET2,
+		BRISKET2_NODE_LIST_WRITE,
+		cfg,
+		pollingEn);
+
+	if (ret < 0) {
+		brisket2_err("ret(%d). access atf fail\n", ret);
+		return ret;
+	}
+
+	/* update via mcupm or cpu_eb */
+	brisket2_ipi_handle(BRISKET2_IPI_CFG_POLLING, pollingEn);
+
+out:
+	free_page((unsigned long)buf);
+	return count;
+
+}
+
+static int brisket2_pollingEn_proc_show(struct seq_file *m, void *v)
+{
+	unsigned int cfg = 0;
+	unsigned int value;
+
+	/* encode cfg */
+	/*
+	 *	cfg[15:8] option
+	 *	cfg[31:28] cpu
+	 */
+	cfg = (BRISKET2_LIST_PollingEn << BRISKET2_CFG_OFFSET_OPTION)
+		& BRISKET2_CFG_BITMASK_OPTION;
+	/* use a fake-cpuId=4 here, take one value to represent cfg of all cores */
+	cfg |= (4 << BRISKET2_CFG_OFFSET_CPU) & BRISKET2_CFG_BITMASK_CPU;
+
+	/* update via atf */
+	value = ptp3_smc_handle(
+		PTP3_FEATURE_BRISKET2,
+		BRISKET2_NODE_LIST_READ,
+		cfg,
+		0);
+
+	/* output Brisket2_PollingEn result */
+	if (value)
+		seq_printf(m, "Brisket2 Polling Status: %s\n", "Running");
+	else
+		seq_printf(m, "Brisket2 Polling Status: %s\n", "Stop");
+
+	return 0;
+}
+
+
 PROC_FOPS_RW(brisket2_ctrl);
 PROC_FOPS_RO(brisket2_dump);
 PROC_FOPS_RW(brisket2_reg);
 PROC_FOPS_RW(brisket2_cfg);
 PROC_FOPS_RW(brisket2_GlobalEventEn);
+PROC_FOPS_RW(brisket2_pollingEn);
 
 int brisket2_create_procfs(const char *proc_name, struct proc_dir_entry *dir)
 {
@@ -618,6 +706,7 @@ int brisket2_create_procfs(const char *proc_name, struct proc_dir_entry *dir)
 		PROC_ENTRY(brisket2_reg),
 		PROC_ENTRY(brisket2_cfg),
 		PROC_ENTRY(brisket2_GlobalEventEn),
+		PROC_ENTRY(brisket2_pollingEn),
 	};
 
 	brisket2_dir = proc_mkdir("brisket2", dir);
