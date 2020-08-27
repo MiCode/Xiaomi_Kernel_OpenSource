@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -91,6 +91,44 @@ static int mdm4x_do_first_power_on(struct mdm_ctrl *mdm)
 	mdm_toggle_soft_reset(mdm, false);
 	/* Add a delay to allow PON sequence to complete*/
 	msleep(150);
+	esoc_mdm_log("Setting AP2MDM_STATUS = 1\n");
+	gpio_direction_output(MDM_GPIO(mdm, AP2MDM_STATUS), 1);
+	if (gpio_is_valid(MDM_GPIO(mdm, MDM2AP_PBLRDY))) {
+		for (i = 0; i  < MDM_PBLRDY_CNT; i++) {
+			pblrdy = gpio_get_value(MDM_GPIO(mdm, MDM2AP_PBLRDY));
+			if (pblrdy)
+				break;
+			usleep_range(5000, 6000);
+		}
+		dev_dbg(dev, "pblrdy i:%d\n", i);
+		msleep(200);
+	}
+	/*
+	 * No PBLRDY gpio associated with this modem
+	 * Send request for image. Let userspace confirm establishment of
+	 * link to external modem.
+	 */
+	else {
+		esoc_mdm_log("Queueing the request: ESOC_REQ_IMG\n");
+		esoc_clink_queue_request(ESOC_REQ_IMG, mdm->esoc);
+	}
+	return 0;
+}
+
+static int sdxmarmot_do_first_power_on(struct mdm_ctrl *mdm)
+{
+	int i;
+	int pblrdy;
+	struct device *dev = mdm->dev;
+
+	esoc_mdm_log("Powering on modem for the first time\n");
+	dev_dbg(dev, "Powering on modem for the first time\n");
+	if (mdm->esoc->auto_boot)
+		return 0;
+
+	mdm_toggle_soft_reset(mdm, false);
+	/* Add a delay to allow PON sequence to complete*/
+	msleep(325);
 	esoc_mdm_log("Setting AP2MDM_STATUS = 1\n");
 	gpio_direction_output(MDM_GPIO(mdm, AP2MDM_STATUS), 1);
 	if (gpio_is_valid(MDM_GPIO(mdm, MDM2AP_PBLRDY))) {
@@ -264,6 +302,15 @@ struct mdm_pon_ops mdm9x55_pon_ops = {
 
 struct mdm_pon_ops sdx50m_pon_ops = {
 	.pon = mdm4x_do_first_power_on,
+	.soft_reset = sdx50m_toggle_soft_reset,
+	.poff_force = sdx50m_power_down,
+	.cold_reset = sdx50m_cold_reset,
+	.dt_init = mdm4x_pon_dt_init,
+	.setup = mdm4x_pon_setup,
+};
+
+struct mdm_pon_ops sdxmarmot_pon_ops = {
+	.pon = sdxmarmot_do_first_power_on,
 	.soft_reset = sdx50m_toggle_soft_reset,
 	.poff_force = sdx50m_power_down,
 	.cold_reset = sdx50m_cold_reset,

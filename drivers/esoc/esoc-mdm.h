@@ -155,4 +155,5 @@ static inline int mdm_pon_setup(struct mdm_ctrl *mdm)
 
 extern struct mdm_pon_ops mdm9x55_pon_ops;
 extern struct mdm_pon_ops sdx50m_pon_ops;
+extern struct mdm_pon_ops sdxmarmot_pon_ops;
 #endif
