@@ -794,6 +794,13 @@
 		ac_charger_input_current = <3200000>;
 		charging_host_charger_current = <1500000>;
 	};
+
+	extcon_usb: extcon_usb {
+		compatible = "mediatek,extcon-usb";
+		dev-conn = <&ssusb>;
+		vbus-supply = <&otg_vbus>;
+		vbus-volt = <5000000>;
+	};
 };
 
 &i2c5 {
