@@ -46,15 +46,15 @@
  * Global variable or extern global variabls/functions
  *****************************************************************************/
 u8 fw_file[] = {
-#include FTS_UPGRADE_FW_FILE
+	0
 };
 
 u8 fw_file2[] = {
-#include FTS_UPGRADE_FW2_FILE
+	0
 };
 
 u8 fw_file3[] = {
-#include FTS_UPGRADE_FW3_FILE
+	0
 };
 
 struct upgrade_module module_list[] = {
@@ -64,7 +64,7 @@ struct upgrade_module module_list[] = {
 };
 
 struct upgrade_func *upgrade_func_list[] = {
-	&upgrade_func_ft8006m,
+	0
 };
 
 struct fts_upgrade *fwupgrade;
