@@ -309,7 +309,7 @@ static int adcc_cfg_proc_show(struct seq_file *m, void *v)
 	unsigned int status = 0;
 
 	for (core = ADCC_CPU_START_ID; core <= ADCC_CPU_END_ID; core++) {
-		dump_set = adcc_smc_handle(ADCC_DUMP_INFO, core, 0);
+		dump_set = adcc_smc_handle(ADCC_DUMP_INFO, core, 8);
 		status = status | ((GET_BITS_VAL(20:17, dump_set) & 0xF) << (core * 4));
 	}
 	seq_printf(m, "%08x\n", status);
