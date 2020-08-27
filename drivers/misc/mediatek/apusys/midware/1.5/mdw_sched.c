@@ -523,35 +523,6 @@ void mdw_sched_restart(void)
 	mdw_sched(NULL);
 }
 
-void mdw_sched_set_thd_group(void)
-{
-	struct file *fd;
-	char buf[8];
-	mm_segment_t oldfs;
-
-	oldfs = get_fs();
-	set_fs(KERNEL_DS);
-
-	fd = filp_open(APUSYS_THD_TASK_FILE_PATH, O_WRONLY, 0);
-	if (IS_ERR(fd)) {
-		mdw_drv_debug("don't support low latency group\n");
-		goto out;
-	}
-
-	memset(buf, 0, sizeof(buf));
-	if (snprintf(buf, sizeof(buf)-1, "%d", ms_mgr.task->pid) < 0)
-		goto fail_set_name;
-	kernel_write(fd, (__force const char __user *)buf,
-		sizeof(buf), &fd->f_pos);
-	mdw_drv_debug("setup worker(%d/%s) to group\n",
-		ms_mgr.task->pid, buf);
-
-fail_set_name:
-	filp_close(fd, NULL);
-out:
-	set_fs(oldfs);
-}
-
 int mdw_sched_init(void)
 {
 	memset(&ms_mgr, 0, sizeof(ms_mgr));

@@ -16,8 +16,6 @@
 #define MDW_RSC_SET_PWR_TIMEOUT (3*1000)
 #define MDW_RSC_SET_PWR_ALLON (0)
 
-#define APUSYS_THD_TASK_FILE_PATH "/dev/stune/low_latency/tasks"
-
 enum MDW_DEV_INFO_GET_POLICY {
 	MDW_DEV_INFO_GET_POLICY_SEQ,
 	MDW_DEV_INFO_GET_POLICY_RR,
@@ -128,8 +126,6 @@ void mdw_rsc_exit(void);
 
 uint64_t mdw_rsc_get_dev_bmp(void);
 int mdw_rsc_get_dev_num(int type);
-
-void mdw_rsc_set_thd_group(void);
 
 #ifdef CONFIG_MTK_GZ_SUPPORT_SDSP
 extern int mtee_sdsp_enable(u32 on);

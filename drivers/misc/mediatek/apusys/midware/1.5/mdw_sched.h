@@ -14,7 +14,6 @@
 
 int mdw_sched_dev_routine(void *arg);
 int mdw_sched(struct mdw_apu_sc *sc);
-void mdw_sched_set_thd_group(void);
 int mdw_sched_init(void);
 void mdw_sched_exit(void);
 
