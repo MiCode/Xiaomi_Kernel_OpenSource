@@ -298,12 +298,12 @@ static ssize_t fll_ctrl_proc_write(struct file *file,
 	char *buf = (char *) __get_free_page(GFP_USER);
 
 	if (!buf) {
-		fll_err("buf(%d) is illegal\n");
+		fll_err("buf is illegal\n");
 		goto out;
 	}
 
 	if (count >= PAGE_SIZE) {
-		fll_err("count(%d) >= PAGE_SIZE\n");
+		fll_err("count(%u) >= PAGE_SIZE\n", (unsigned int)count);
 		goto out;
 	}
 
@@ -477,12 +477,12 @@ static ssize_t fll_reg_proc_write(struct file *file,
 	char *buf = (char *) __get_free_page(GFP_USER);
 
 	if (!buf) {
-		fll_err("buf(%d) is illegal\n");
+		fll_err("buf is illegal\n");
 		goto out;
 	}
 
 	if (count >= PAGE_SIZE) {
-		fll_err("count(%d) >= PAGE_SIZE\n");
+		fll_err("count(%u) >= PAGE_SIZE\n", (unsigned int)count);
 		goto out;
 	}
 
@@ -609,12 +609,12 @@ static ssize_t fll_eventCount_proc_write(struct file *file,
 	char *buf = (char *) __get_free_page(GFP_USER);
 
 	if (!buf) {
-		fll_err("buf(%d) is illegal\n");
+		fll_err("buf is illegal\n");
 		goto out;
 	}
 
 	if (count >= PAGE_SIZE) {
-		fll_err("count(%d) >= PAGE_SIZE\n");
+		fll_err("count(%u) >= PAGE_SIZE\n", (unsigned int)count);
 		goto out;
 	}
 
@@ -786,12 +786,12 @@ static ssize_t fll_cfg_proc_write(struct file *file,
 	char *buf = (char *) __get_free_page(GFP_USER);
 
 	if (!buf) {
-		fll_err("buf(%d) is illegal\n");
+		fll_err("buf is illegal\n");
 		goto out;
 	}
 
 	if (count >= PAGE_SIZE) {
-		fll_err("count(%d) >= PAGE_SIZE\n");
+		fll_err("count(%u) >= PAGE_SIZE\n", (unsigned int)count);
 		goto out;
 	}
 
@@ -876,12 +876,12 @@ static ssize_t fll_eventFreeze_proc_write(struct file *file,
 	char *buf = (char *) __get_free_page(GFP_USER);
 
 	if (!buf) {
-		fll_err("buf(%d) is illegal\n");
+		fll_err("buf is illegal\n");
 		goto out;
 	}
 
 	if (count >= PAGE_SIZE) {
-		fll_err("count(%d) >= PAGE_SIZE\n");
+		fll_err("count(%u) >= PAGE_SIZE\n", (unsigned int)count);
 		goto out;
 	}
 
