@@ -333,7 +333,6 @@
 	};
 
 	kgsl_iommu_coherent_test_device {
-		status = "disabled";
 		compatible = "iommu-debug-test";
 		iommus = <&kgsl_smmu 0x407 0>;
 		qcom,iommu-dma = "disabled";
