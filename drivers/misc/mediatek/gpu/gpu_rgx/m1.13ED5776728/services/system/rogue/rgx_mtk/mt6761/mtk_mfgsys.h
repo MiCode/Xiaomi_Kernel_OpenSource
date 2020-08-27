@@ -18,8 +18,7 @@
 #define MTK_PM_SUPPORT 0
 #endif
 
-
-
+void mtk_fdvfs_update_cur_freq(int ui32GPUFreq);
 PVRSRV_ERROR MTKMFGSystemInit(void);
 void MTKMFGSystemDeInit(void);
 void MTKFWDump(void);

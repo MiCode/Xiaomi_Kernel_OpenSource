@@ -367,16 +367,18 @@ PVRSRV_ERROR RGXSetupFwAllocation(PVRSRV_RGXDEV_INFO*  psDevInfo,
 		{
 			OSDeviceMemSet(pvTempCpuPtr, 0, ui32Size);
 		}
-#endif
 		if (ppvCpuPtr)
+#endif
 		{
 			*ppvCpuPtr = pvTempCpuPtr;
 		}
+#if defined(SUPPORT_AUTOVZ)
 		else
 		{
 			DevmemReleaseCpuVirtAddr(*ppsMemDesc);
 			pvTempCpuPtr = NULL;
 		}
+#endif
 	}
 
 	PVR_DPF((PVR_DBG_MESSAGE, "%s: %s set up at Fw VA 0x%x and CPU VA 0x%p",
