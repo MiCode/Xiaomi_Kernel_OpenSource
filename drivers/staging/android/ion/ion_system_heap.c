@@ -397,6 +397,8 @@ static int ion_system_contig_heap_allocate(struct ion_heap *heap,
 	len = PAGE_ALIGN(len);
 	for (i = len >> PAGE_SHIFT; i < (1 << order); i++)
 		__free_page(page + i);
+	for (i = 0; i < (len >> PAGE_SHIFT); i++)
+		SetPageIommu(&page[i]);
 	atomic64_add_return((len >> PAGE_SHIFT), &page_sz_cnt);
 	table = kmalloc(sizeof(*table), GFP_KERNEL);
 	if (!table) {
