@@ -306,7 +306,7 @@ out:
 static int adcc_cfg_proc_show(struct seq_file *m, void *v)
 {
 	unsigned int core, dump_set;
-	unsigned int status;
+	unsigned int status = 0;
 
 	for (core = ADCC_CPU_START_ID; core <= ADCC_CPU_END_ID; core++) {
 		dump_set = adcc_smc_handle(ADCC_DUMP_INFO, core, 0);
