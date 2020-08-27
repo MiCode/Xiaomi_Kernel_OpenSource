@@ -53,6 +53,8 @@ static unsigned int bl_div = CLK_DIV1;
 struct mt65xx_led_data *g_leds_data[TYPE_TOTAL];
 
 #ifdef CONFIG_BACKLIGHT_SUPPORT_LP8557
+#define FALSE (0)
+#define TRUE  (1)
 static unsigned int last_level1 = 102;
 static struct i2c_client *g_client;
 static int I2C_SET_FOR_BACKLIGHT  = 350;
