@@ -4474,7 +4474,8 @@ int save_modules(char *mbuf, int mbufsize)
 			if (!search_nm)
 				break;
 		}
-		sz += snprintf(mbuf + sz, mbufsize - sz, " %s %px %px %d %d %s",
+		sz += snprintf(mbuf + sz, mbufsize - sz,
+				" %s 0x%lx 0x%lx %d %d %s",
 				mod->name,
 				text_addr,
 				init_addr,
