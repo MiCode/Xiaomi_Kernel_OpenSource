@@ -1637,6 +1637,7 @@ page_owner=on loop.max_part=7";
 		reg = <0 0x10219000 0 0x1000>,
 		      <0 0x1021d000 0 0x1000>;
 		mediatek,emi-reg = <&emichn>;
+		a2d_disph = <14>;
 	};
 
 	emiisu {
