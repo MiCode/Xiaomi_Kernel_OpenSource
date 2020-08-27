@@ -716,12 +716,7 @@ unsigned int mdla_process_ce_2_1(unsigned int core_id)
 		return ret;
 
 	spin_lock_irqsave(&mdla_devices[core_id].hw_lock, flags);
-	mdla_reg_write_with_mdlaid(core_id, 1, MREG_TOP_G_CDMA4);
 	fin_cid = mdla_reg_read_with_mdlaid(core_id, MREG_TOP_G_FIN3);
-#ifdef __APUSYS_MDLA_PMU_SUPPORT__
-	/* handle PMU */
-	pmu_reg_save(core_id, (u16)sched->pro_ce->priority);
-#endif
 	spin_unlock_irqrestore(&mdla_devices[core_id].hw_lock, flags);
 
 	ce = sched->pro_ce;
@@ -734,6 +729,15 @@ unsigned int mdla_process_ce_2_1(unsigned int core_id)
 		ce_func_trace(ce, F_CMDDONE_CE_FIN3ERROR);
 		return ret;
 	}
+
+	/* clear event id after this event is done */
+	spin_lock_irqsave(&mdla_devices[core_id].hw_lock, flags);
+#ifdef __APUSYS_MDLA_PMU_SUPPORT__
+	/* handle PMU */
+	pmu_reg_save(core_id, (u16)sched->pro_ce->priority);
+#endif
+	mdla_reg_write_with_mdlaid(core_id, 1, MREG_TOP_G_CDMA4);
+	spin_unlock_irqrestore(&mdla_devices[core_id].hw_lock, flags);
 
 	if (ce->batch_list_head != NULL) {
 		if (likely(!list_empty(ce->batch_list_head))) {
