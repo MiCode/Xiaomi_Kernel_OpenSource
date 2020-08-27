@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2019, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved. */
 
 #ifndef __DRIVERS_CLK_QCOM_VDD_LEVEL_H
 #define __DRIVERS_CLK_QCOM_VDD_LEVEL_H
@@ -10,6 +10,7 @@
 enum vdd_levels {
 	VDD_NONE,
 	VDD_MIN,		/* MIN_SVS */
+	VDD_LOWER_D1,		/* LOW_SVS_D1 */
 	VDD_LOWER,		/* LOW_SVS / SVS2 */
 	VDD_LOW,		/* SVS */
 	VDD_LOW_L1,		/* SVS_L1 */
@@ -19,13 +20,14 @@ enum vdd_levels {
 };
 
 static int vdd_corner[] = {
-	[VDD_NONE]    = 0,
-	[VDD_MIN]     = RPMH_REGULATOR_LEVEL_MIN_SVS,
-	[VDD_LOWER]   = RPMH_REGULATOR_LEVEL_LOW_SVS,
-	[VDD_LOW]     = RPMH_REGULATOR_LEVEL_SVS,
-	[VDD_LOW_L1]  = RPMH_REGULATOR_LEVEL_SVS_L1,
-	[VDD_NOMINAL] = RPMH_REGULATOR_LEVEL_NOM,
-	[VDD_HIGH]    = RPMH_REGULATOR_LEVEL_TURBO,
+	[VDD_NONE]	= 0,
+	[VDD_MIN]	= RPMH_REGULATOR_LEVEL_MIN_SVS,
+	[VDD_LOWER_D1]	= RPMH_REGULATOR_LEVEL_LOW_SVS,
+	[VDD_LOWER]	= RPMH_REGULATOR_LEVEL_LOW_SVS,
+	[VDD_LOW]	= RPMH_REGULATOR_LEVEL_SVS,
+	[VDD_LOW_L1]	= RPMH_REGULATOR_LEVEL_SVS_L1,
+	[VDD_NOMINAL]	= RPMH_REGULATOR_LEVEL_NOM,
+	[VDD_HIGH]	= RPMH_REGULATOR_LEVEL_TURBO,
 };
 
 #endif
