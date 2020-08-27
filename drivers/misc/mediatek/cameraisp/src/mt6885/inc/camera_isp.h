@@ -406,6 +406,7 @@ struct ISP_DEV_ION_NODE_STRUCT {
 	unsigned int       devNode;
 	enum ISP_WRDMA_ENUM     dmaPort;
 	int                memID;
+	unsigned long long dma_pa;
 };
 
 struct ISP_LARB_MMU_STRUCT {
@@ -683,7 +684,14 @@ enum ISP_CMD_ENUM {
 	SV_CMD_GET_SUPPORTED_ISP_CLOCKS,
 	ISP_CMD_SET_SEC_DAPC_REG,
 	ISP_CMD_GET_CUR_HWP1DONE,
-	ISP_CMD_NOTE_CQTHR0_BASE
+	ISP_CMD_NOTE_CQTHR0_BASE,
+	ISP_CMD_ION_MAP_PA, /* AOSP ION: map physical address from fd */
+	ISP_CMD_ION_UNMAP_PA, /* AOSP ION: unmap physical address from fd */
+	/* AOSP ION: map physical address from fd and check the ion table. */
+	ISP_CMD_ION_MAP_PA_CHK_ION_TBL,
+	/* AOSP ION: unmap physical address from fd and check the ion table. */
+	ISP_CMD_ION_UNMAP_PA_CHK_ION_TBL,
+	ISP_CMD_ION_UNMAP_PA_BY_MODULE
 };
 
 enum ISP_HALT_DMA_ENUM {
@@ -815,6 +823,21 @@ enum ISP_HALT_DMA_ENUM {
 
 #define ISP_ION_FREE_BY_HWMODULE                 \
 	_IOW(ISP_MAGIC, ISP_CMD_ION_FREE_BY_HWMODULE, unsigned int)
+
+#define ISP_ION_MAP_PA                      \
+	_IOWR(ISP_MAGIC, ISP_CMD_ION_MAP_PA, struct ISP_DEV_ION_NODE_STRUCT)
+
+#define ISP_ION_UNMAP_PA                      \
+	_IOWR(ISP_MAGIC, ISP_CMD_ION_UNMAP_PA, struct ISP_DEV_ION_NODE_STRUCT)
+
+#define ISP_ION_MAP_PA_CHK_ION_TBL               \
+	_IOW(ISP_MAGIC, ISP_CMD_ION_MAP_PA_CHK_ION_TBL, struct ISP_DEV_ION_NODE_STRUCT)
+
+#define ISP_ION_UNMAP_PA_CHK_ION_TBL             \
+	_IOW(ISP_MAGIC, ISP_CMD_ION_UNMAP_PA_CHK_ION_TBL, struct ISP_DEV_ION_NODE_STRUCT)
+
+#define ISP_ION_UNMAP_PA_BY_HWMODULE             \
+	_IOW(ISP_MAGIC, ISP_CMD_ION_UNMAP_PA_BY_MODULE, struct ISP_DEV_ION_NODE_STRUCT)
 
 #define ISP_CQ_SW_PATCH                          \
 	_IOW(ISP_MAGIC, ISP_CMD_CQ_SW_PATCH, struct ISP_MULTI_RAW_CONFIG)
