@@ -24,6 +24,15 @@ config CPU_IDLE_GOV_LADDER
 config CPU_IDLE_GOV_MENU
 	bool "Menu governor (for tickless system)"
 
+config QGKI_MENU_GOV_DEBUG
+	bool "Trace menu governor decisions"
+	depends on QGKI && CPU_IDLE_GOV_MENU && FTRACE
+	help
+	  Trace menu governor decisions to help understand the system
+	  state. The predicted sleep time, latency requirement for the
+	  CPU and the idle state chosen based on the parameters are all
+	  logged in the trace.
+
 config CPU_IDLE_GOV_TEO
 	bool "Timer events oriented (TEO) governor (for tickless systems)"
 	help
