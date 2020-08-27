@@ -1042,6 +1042,9 @@ static int mt6370_set_polarity(struct tcpc_device *tcpc, int polarity)
 {
 	int data;
 
+	if (polarity < 0 || polarity > 1)
+		return -EOVERFLOW;
+
 	data = mt6370_init_cc_params(tcpc,
 		tcpc->typec_remote_cc[polarity]);
 	if (data)
