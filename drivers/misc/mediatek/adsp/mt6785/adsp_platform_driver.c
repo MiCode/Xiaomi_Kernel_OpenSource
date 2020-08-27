@@ -361,15 +361,12 @@ static int adsp_core_drv_probe(struct platform_device *pdev)
 
 	/* create private data */
 	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
-	if (!pdata) {
-		ret = -ENOMEM;
-		goto ERROR;
-	}
+	if (!pdata)
+		return -ENOMEM;
+
 	match = of_match_node(adsp_of_ids, dev->of_node);
-	if (!match) {
-		ret = -ENODEV;
-		goto ERROR;
-	}
+	if (!match)
+		return -ENODEV;
 
 	desc = (struct adsp_description *)match->data;
 

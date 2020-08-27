@@ -82,7 +82,7 @@ void adsp_ipi_handler(int irq, void *data, int cid)
 	ipi_id = recv_obj->id;
 	len = recv_obj->len;
 
-	if (ipi_id >= ADSP_NR_IPI)
+	if (ipi_id >= ADSP_NR_IPI || ipi_id < 0)
 		pr_debug("[ADSP] A ipi handler id abnormal, id=%d", ipi_id);
 	else if (adsp_ipi_desc[ipi_id].handler) {
 		memcpy_fromio(share_buf,
