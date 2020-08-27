@@ -4611,7 +4611,7 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 
 		mode = (struct drm_display_mode **)params;
 		list_for_each_entry(tmp, &dsi->conn.modes, head) {
-			if (tmp->vrefresh > vrefresh) {
+			if (tmp && tmp->vrefresh > vrefresh) {
 				vrefresh = tmp->vrefresh;
 				*mode = tmp;
 			}
