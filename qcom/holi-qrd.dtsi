@@ -5,6 +5,7 @@
 #include "holi-thermal-overlay.dtsi"
 #include "camera/holi-camera-sensor-qrd.dtsi"
 #include "display/holi-sde-display-qrd.dtsi"
+#include <dt-bindings/iio/qti_power_supply_iio.h>
 
 &sdhc_1 {
 	status = "ok";
@@ -220,8 +221,110 @@
 			linux,can-disable;
 		};
 	};
+
+	qrd_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+		#include "qg-batterydata-atl436186020H_3780mAh.dtsi"
+		#include "qg-batterydata-atl466271_3300mAh.dtsi"
+	};
 };
 
 &pm6150a_amoled {
 	status = "ok";
+};
+
+&pm7250b_charger {
+	status = "ok";
+	#io-channel-cells = <1>;
+	io-channels = <&pm7250b_vadc ADC5_USB_IN_V_16>,
+		      <&pm7250b_vadc ADC5_USB_IN_I>,
+		      <&pm7250b_vadc ADC5_CHG_TEMP>,
+		      <&pm7250b_vadc ADC5_DIE_TEMP>,
+		      <&pm7250b_vadc ADC5_AMUX_THM3_100K_PU>,
+		      <&pm7250b_vadc ADC5_SBUx>,
+		      <&pm7250b_vadc ADC5_VPH_PWR>,
+		      <&pm7250b_vadc ADC5_AMUX_THM1_100K_PU>,
+		      <&pm7250b_qg PSY_IIO_RESISTANCE_ID>,
+		      <&pm7250b_qg PSY_IIO_VOLTAGE_NOW>,
+		      <&pm7250b_qg PSY_IIO_TEMP>,
+		      <&pm7250b_qg PSY_IIO_CAPACITY>,
+		      <&pm7250b_qg PSY_IIO_VOLTAGE_OCV>,
+		      <&pm7250b_qg PSY_IIO_VOLTAGE_AVG>,
+		      <&pm7250b_qg PSY_IIO_DEBUG_BATTERY>,
+		      <&pm7250b_qg PSY_IIO_REAL_CAPACITY>,
+		      <&pm7250b_qg PSY_IIO_CC_SOC>,
+		      <&pm7250b_qg PSY_IIO_CURRENT_NOW>,
+		      <&pm7250b_qg PSY_IIO_VOLTAGE_MAX>,
+		      <&pm7250b_qg PSY_IIO_CHARGE_FULL>,
+		      <&pm7250b_qg PSY_IIO_CHARGE_COUNTER>,
+		      <&pm7250b_qg PSY_IIO_CYCLE_COUNT>,
+		      <&pm7250b_qg PSY_IIO_CHARGE_FULL_DESIGN>,
+		      <&pm7250b_qg PSY_IIO_TIME_TO_FULL_NOW>;
+	io-channel-names = "usb_in_voltage",
+			   "usb_in_current",
+			   "chg_temp",
+			   "die_temp",
+			   "conn_temp",
+			   "sbux_res",
+			   "vph_voltage",
+			   "skin_temp",
+			   "resistance_id",
+			   "voltage_now",
+			   "temp",
+			   "capacity",
+			   "voltage_ocv",
+			   "voltage_avg",
+			   "debug_battery",
+			   "real_capacity",
+			   "cc_soc",
+			   "current_now",
+			   "voltage_max",
+			   "charge_full",
+			   "charge_counter",
+			   "cycle_count",
+			   "charge_full_design",
+			   "time_to_full_now";
+	qcom,battery-data = <&qrd_batterydata>;
+	qcom,sec-charger-config = <1>;
+	qcom,auto-recharge-soc = <98>;
+	qcom,step-charging-enable;
+	qcom,sw-jeita-enable;
+	qcom,charger-temp-max = <800>;
+	qcom,smb-temp-max = <800>;
+	qcom,suspend-input-on-debug-batt;
+	qcom,fcc-stepping-enable;
+	qcom,fcc-step-delay-ms = <100>;
+	qcom,fcc-step-size-ua = <100000>;
+	qcom,smb-internal-pull-kohm = <0>;
+	qcom,en-skin-therm-mitigation;
+	qcom,thermal-mitigation = <10000000 9500000 9000000 8500000 8000000
+				7500000 7000000 6500000 6000000 5500000 5000000 4500000
+				4000000 3500000 3000000 2500000 2000000 1500000 1000000
+				500000>;
+};
+
+&pm7250b_qg {
+	status = "ok";
+	#io-channel-cells = <1>;
+	io-channels = <&pm7250b_vadc ADC5_BAT_THERM_100K_PU>,
+		      <&pm7250b_vadc ADC5_BAT_ID_100K_PU>,
+		      <&pm7250b_charger PSY_IIO_INPUT_CURRENT_LIMITED>,
+		      <&pm7250b_charger PSY_IIO_RECHARGE_SOC>,
+		      <&pm7250b_charger PSY_IIO_FORCE_RECHARGE>,
+		      <&pm7250b_charger PSY_IIO_CHARGE_DONE>;
+	io-channel-names = "batt-therm",
+			   "batt-id",
+			   "input_current_limited",
+			   "recharge_soc",
+			   "force_recharge",
+			   "charge_done";
+	qcom,qg-iterm-ma = <150>;
+	qcom,hold-soc-while-full;
+	qcom,linearize-soc;
+	qcom,cl-feedback-on;
+	qcom,tcss-enable;
+	qcom,fvss-enable;
+	qcom,fvss-vbatt-mv = <3300>;
+	qcom,bass-enable;
+	qcom,use-cp-iin-sns;
 };
