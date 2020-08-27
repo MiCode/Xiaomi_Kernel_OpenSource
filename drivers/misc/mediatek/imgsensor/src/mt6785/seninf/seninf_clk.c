@@ -80,7 +80,7 @@ int imgsensor_dfs_ctrl(enum DFS_OPTION option, void *pbuff)
 	case DFS_SUPPORTED_ISP_CLOCKS:
 	{
 		int result = 0;
-		uint64_t freq_steps[ISP_CLK_LEVEL_CNT];
+		uint64_t freq_steps[ISP_CLK_LEVEL_CNT] = {0};
 		struct IMAGESENSOR_GET_SUPPORTED_ISP_CLK *pIspclks;
 		unsigned int lv = 0;
 
