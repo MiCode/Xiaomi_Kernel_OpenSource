@@ -121,7 +121,7 @@
 
 		qcom,actlr =
 			/* For rt TBU camera +3 deep PF */
-			<0x800 0x1f 0x103>,
+			<0x800 0x3ff 0x103>,
 			/* For nrt TBU +3 deep PF */
 			<0xc00 0x3ff 0x103>,
 			/* For anoc_1 TBU disable PF */
