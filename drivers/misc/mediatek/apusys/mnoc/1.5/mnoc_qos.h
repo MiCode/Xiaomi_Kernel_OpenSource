@@ -29,7 +29,7 @@ extern bool apu_qos_boost_flag;
 extern struct mutex apu_qos_boost_mtx;
 #endif
 
-#ifdef CONFIG_MTK_QOS_FRAMEWORK
+#if IS_ENABLED(CONFIG_MTK_QOS_FRAMEWORK)
 void apu_qos_on(void);
 void apu_qos_off(void);
 
