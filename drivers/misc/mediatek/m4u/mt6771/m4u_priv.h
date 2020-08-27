@@ -326,7 +326,7 @@ extern int gM4U_log_to_uart;
 	do {\
 		if (level > gM4U_log_level) {\
 			if (level > gM4U_log_to_uart)\
-				pr_notice(string, ##args);\
+				pr_info("[M4U] "string, ##args);\
 			else\
 				pr_debug("[M4U] "string, ##args);\
 		} \
@@ -337,17 +337,22 @@ extern int gM4U_log_to_uart;
 #define M4ULOG_HIGH(string, args...) _M4ULOG(M4U_LOG_LEVEL_HIGH, string, ##args)
 
 #define M4UERR(string, args...) do {\
-	pr_notice("[M4U][ERR]:"string, ##args);  \
+		pr_notice("[M4U] error:"string, ##args);  \
 		aee_kernel_exception("M4U", "[M4U] error:"string, ##args);  \
 	} while (0)
 
-#define m4u_aee_print(string, args...) do {\
-		char m4u_name[100];\
-		snprintf(m4u_name, 100, "[M4U]"string, ##args); \
-	aee_kernel_warning_api(__FILE__, __LINE__, \
-		DB_OPT_MMPROFILE_BUFFER | DB_OPT_DUMP_DISPLAY, \
-		m4u_name, "[M4U] error"string, ##args); \
-	pr_notice("[M4U] error:"string, ##args);  \
+#define m4u_aee_print(string, args...) do {                             \
+		char m4u_name[100];                                     \
+		int ret;                                                \
+		ret = snprintf(m4u_name, 100, "[M4U]"string, ##args);   \
+		if (ret < 0)                                            \
+			m4u_name[0] = '\0';                             \
+		aee_kernel_warning_api(__FILE__, __LINE__,              \
+					DB_OPT_MMPROFILE_BUFFER |       \
+					DB_OPT_DUMP_DISPLAY,            \
+					m4u_name,                       \
+					"[M4U] error"string, ##args);   \
+		pr_info("[M4U] error:"string, ##args);                  \
 	} while (0)
 
 /*aee_kernel_warning(m4u_name, "[M4U] error:"string,##args); */
@@ -357,7 +362,7 @@ extern int gM4U_log_to_uart;
 		if (seq_file)\
 			seq_printf(seq_file, fmt, ##args);\
 		else\
-			pr_debug(fmt, ##args);\
+			pr_info(fmt, ##args);\
 	} while (0)
 
 /* ======================================= */
