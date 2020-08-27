@@ -83,7 +83,7 @@ static int _MTKGPUQoS_initDebugFS(void)
 		return -ENOMEM;
 	}
 
-	if (!proc_create("job_status", 0664, dir, &_mgq_proc_fops))
+	if (!proc_create("job_status", 0644, dir, &_mgq_proc_fops))
 		pr_debug("@%s: create /proc/mgq/job_status failed\n", __func__);
 
 	return 0;
