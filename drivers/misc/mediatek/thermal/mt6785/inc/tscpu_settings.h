@@ -315,7 +315,7 @@ struct lvts_thermal_controller_speed {
 
 struct lvts_thermal_controller {
 	enum lvts_sensor_enum ts[4]; /* sensor point 0 ~ 3 */
-	int ts_number;
+	unsigned int ts_number;
 	int dominator_ts_idx; /* hw protection ref TS (index of the ts array) */
 	int tc_offset;
 	struct lvts_thermal_controller_speed tc_speed;

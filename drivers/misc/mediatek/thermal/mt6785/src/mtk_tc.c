@@ -604,7 +604,7 @@ static __s32 raw_to_temperature_roomt(__u32 ret, enum tsmcu_sensor_enum ts_name)
 	/* tscpu_dprintk("raw_to_temperature_room,t_current=%d\n",t_current); */
 	return t_current;
 }
-static void thermal_dump_debug_logs(int tc_num)
+static void thermal_dump_debug_logs(unsigned int tc_num)
 {
 	int offset;
 	unsigned int auxadc_data11, ts_con0, ts_con1;
@@ -627,7 +627,7 @@ static void thermal_dump_debug_logs(int tc_num)
 	tscpu_printk("TEMPMSR2_%d = 0x%x, TEMPMSR3_%d = 0x%x\n",
 		tc_num, tempmsr2, tc_num, tempmsr3);
 }
-static void thermal_interrupt_handler(int tc_num)
+static void thermal_interrupt_handler(unsigned int tc_num)
 {
 	unsigned int  ret = 0;
 	int offset;
