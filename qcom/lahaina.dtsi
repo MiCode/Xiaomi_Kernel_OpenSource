@@ -489,7 +489,7 @@
 			compatible = "shared-dma-pool";
 			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
 			reusable;
-			size = <0 0x2c00000>;
+			size = <0 0x3000000>;
 		};
 
 		sp_mem: sp_region {  /* SPSS-HLOS ION shared mem */
@@ -5025,6 +5025,21 @@
 		LLCC_1: llcc_1_dcache {
 			qcom,dump-size = <0x1141c0>;
 			qcom,dump-id = <0x140>;
+		};
+
+		LLCC_2: llcc_2_dcache {
+			qcom,dump-size = <0x1141c0>;
+			qcom,dump-id = <0x141>;
+		};
+
+		LLCC_3: llcc_3_dcache {
+			qcom,dump-size = <0x1141c0>;
+			qcom,dump-id = <0x142>;
+		};
+
+		LLCC_4: llcc_4_dcache {
+			qcom,dump-size = <0x1141c0>;
+			qcom,dump-id = <0x143>;
 		};
 	};
 
