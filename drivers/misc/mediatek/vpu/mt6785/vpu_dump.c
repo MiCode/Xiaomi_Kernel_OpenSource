@@ -294,11 +294,19 @@ int vpu_dmp_create_locked(int c, struct vpu_request *req,
 	}
 
 	d = vpu_dmp_get(c);
+	if (!d) {
+		pr_info("%s: vpu%d: vpu_dmp_get: %d\n", __func__, c, d);
+		goto out;
+	}
 	d->time = sched_clock();
 
 	va_start(args, fmt);
-	vsnprintf(d->info, VPU_DMP_INFO_SZ, fmt, args);
+	ret = vsnprintf(d->info, VPU_DMP_INFO_SZ, fmt, args);
 	va_end(args);
+	if (ret) {
+		pr_info("%s: vsnprintf: %d\n", __func__, ret);
+		goto out;
+	}
 
 #define VPU_DMP_STATE(a) \
 	pr_info("%s: vpu%d: %s done. pc: 0x%x\n", \
@@ -483,8 +491,9 @@ static void vpu_dmp_seq_req(struct seq_file *s, int c)
 	}
 }
 
-void vpu_dmp_seq_core(struct seq_file *s, int c)
+void vpu_dmp_seq_core(struct seq_file *s, int c_s)
 {
+	unsigned int c = (unsigned int)c_s;
 	struct vpu_dmp *d = vpu_dmp_get(c);
 
 	if (!d)

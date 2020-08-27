@@ -45,7 +45,9 @@ TRACE_EVENT(__MET_PACKET__,
 		__entry->core = core;
 		__entry->pid = pid;
 		__entry->sessid = sessid;
-		snprintf(__entry->str_desc, MX_LEN_STR_DESC, "%s", str_desc);
+		if (snprintf(__entry->str_desc, MX_LEN_STR_DESC,
+			"%s", str_desc) <= 0)
+			__entry->str_desc[0] = '\0';
 		__entry->val = val;
 	),
 	TP_printk("WCLK=%llu,ACTION=%c,TASK=VPU.internal.core%d,PID=%d,SESS=%d,DESC=%s,VAL=%d,",
