@@ -436,15 +436,20 @@ struct ion_handle *mtk_gem_ion_import_dma_fd(struct ion_client *client,
 		   line);
 	DRM_MMP_EVENT_START(ion_import_fd, (unsigned long)client, line);
 	handle = ion_import_dma_buf_fd(client, fd);
+	if (IS_ERR(handle)) {
+		DDPPR_ERR("%s:%d dma_buf_get fail fd=%d ret=0x%p\n",
+		       __func__, __LINE__, fd, handle);
+		return ERR_CAST(handle);
+	}
 
 	dmabuf = dma_buf_get(fd);
-	DRM_MMP_MARK(dma_get, (unsigned long)handle->buffer,
-			(unsigned long)dmabuf);
 	if (IS_ERR(dmabuf)) {
 		DDPPR_ERR("%s:%d dma_buf_get fail fd=%d ret=0x%p\n",
 		       __func__, __LINE__, fd, dmabuf);
 		return ERR_CAST(dmabuf);
 	}
+	DRM_MMP_MARK(dma_get, (unsigned long)handle->buffer,
+			(unsigned long)dmabuf);
 
 	DRM_MMP_EVENT_END(ion_import_fd, (unsigned long)handle->buffer,
 			(unsigned long)dmabuf);

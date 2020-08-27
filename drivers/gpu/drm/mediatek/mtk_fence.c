@@ -758,6 +758,10 @@ struct mtk_fence_buf_info *mtk_fence_prepare_buf(struct drm_device *dev,
 	if (buf->ion_fd >= 0)
 		buf_info->hnd = mtk_drm_gem_ion_import_handle(buf_info->client,
 				buf->ion_fd);
+	if (buf_info->hnd == NULL) {
+		DDPPR_ERR("import ION handle fail\n");
+		return NULL;
+	}
 #endif
 
 	buf_info->mva_offset = 0;
