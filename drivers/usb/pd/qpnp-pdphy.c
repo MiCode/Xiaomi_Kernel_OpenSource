@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, 2020 The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -601,6 +601,15 @@ void pd_phy_close(void)
 }
 EXPORT_SYMBOL(pd_phy_close);
 
+struct pd_phy_ops pdphy_ops = {
+	.open			= pd_phy_open,
+	.write			= pd_phy_write,
+	.close			= pd_phy_close,
+	.signal			= pd_phy_signal,
+	.update_roles		= pd_phy_update_roles,
+	.update_frame_filter	= pd_phy_update_frame_filter,
+};
+
 static irqreturn_t pdphy_msg_tx_irq(int irq, void *data)
 {
 	struct usb_pdphy *pdphy = data;
@@ -867,7 +876,7 @@ static int pdphy_probe(struct platform_device *pdev)
 	/* usbpd_create() could call back to us, so have __pdphy ready */
 	__pdphy = pdphy;
 
-	pdphy->usbpd = usbpd_create(&pdev->dev);
+	pdphy->usbpd = usbpd_create(&pdev->dev, &pdphy_ops);
 	if (IS_ERR(pdphy->usbpd)) {
 		dev_err(&pdev->dev, "usbpd_create failed: %ld\n",
 				PTR_ERR(pdphy->usbpd));

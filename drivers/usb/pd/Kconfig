@@ -11,6 +11,7 @@ config USB_PD_POLICY
 	tristate "USB Power Delivery Protocol and Policy Engine"
 	depends on EXTCON
 	depends on TYPEC
+	depends on IIO
 	select USB_PD
 	help
           Say Y here to enable USB PD protocol and policy engine.

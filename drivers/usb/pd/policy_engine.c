@@ -504,6 +504,8 @@ struct usbpd {
 	u8			get_battery_status_db;
 	bool			send_get_battery_status;
 	u32			battery_sts_dobj;
+
+	struct pd_phy_ops	*pdphy_ops;
 };
 
 static LIST_HEAD(_usbpd);	/* useful for debugging */
@@ -772,7 +774,8 @@ static int pd_send_msg(struct usbpd *pd, u8 msg_type, const u32 *data,
 	}
 	spin_unlock_irqrestore(&pd->rx_lock, flags);
 
-	ret = pd_phy_write(hdr, (u8 *)data, num_data * sizeof(u32), sop);
+	ret = pd->pdphy_ops->write(hdr, (u8 *)data,
+						num_data * sizeof(u32), sop);
 	if (ret) {
 		if (pd->pd_connected)
 			usbpd_err(&pd->dev, "Error sending %s: %d\n",
@@ -818,7 +821,7 @@ static int pd_send_ext_msg(struct usbpd *pd, u8 msg_type,
 		hdr = PD_MSG_HDR(msg_type, pd->current_dr, pd->current_pr,
 				pd->tx_msgid[sop], num_objs, pd->spec_rev) |
 			PD_MSG_HDR_EXTENDED;
-		ret = pd_phy_write(hdr, chunked_payload,
+		ret = pd->pdphy_ops->write(hdr, chunked_payload,
 				num_objs * sizeof(u32), sop);
 		if (ret) {
 			usbpd_err(&pd->dev, "Error sending %s: %d\n",
@@ -945,7 +948,7 @@ static void pd_send_hard_reset(struct usbpd *pd)
 	usbpd_dbg(&pd->dev, "send hard reset");
 
 	pd->hard_reset_count++;
-	pd_phy_signal(HARD_RESET_SIG);
+	pd->pdphy_ops->signal(HARD_RESET_SIG);
 	pd->in_pr_swap = false;
 	pd->pd_connected = false;
 	usbpd_set_psy_iio_property(pd, POWER_SUPPLY_PROP_PR_SWAP, &val);
@@ -1006,7 +1009,7 @@ static void pd_request_chunk_work(struct work_struct *w)
 
 	*(u16 *)payload = PD_MSG_EXT_HDR(1, req->chunk_num, 1, 0);
 
-	ret = pd_phy_write(hdr, payload, sizeof(payload), req->sop);
+	ret = pd->pdphy_ops->write(hdr, payload, sizeof(payload), req->sop);
 	if (!ret) {
 		pd->tx_msgid[req->sop] =
 			(pd->tx_msgid[req->sop] + 1) & PD_MAX_MSG_ID;
@@ -1915,7 +1918,7 @@ static void dr_swap(struct usbpd *pd)
 
 	if (pd->current_dr == DR_DFP) {
 		pd->current_dr = DR_UFP;
-		pd_phy_update_roles(pd->current_dr, pd->current_pr);
+		pd->pdphy_ops->update_roles(pd->current_dr, pd->current_pr);
 
 		stop_usb_host(pd);
 		if (pd->peer_usb_comm)
@@ -1923,7 +1926,7 @@ static void dr_swap(struct usbpd *pd)
 		typec_set_data_role(pd->typec_port, TYPEC_DEVICE);
 	} else if (pd->current_dr == DR_UFP) {
 		pd->current_dr = DR_DFP;
-		pd_phy_update_roles(pd->current_dr, pd->current_pr);
+		pd->pdphy_ops->update_roles(pd->current_dr, pd->current_pr);
 
 		stop_usb_peripheral(pd);
 		if (pd->peer_usb_comm)
@@ -1942,7 +1945,7 @@ static void vconn_swap(struct usbpd *pd)
 	int ret;
 
 	if (pd->vconn_enabled) {
-		pd_phy_update_frame_filter(FRAME_FILTER_EN_SOP |
+		pd->pdphy_ops->update_frame_filter(FRAME_FILTER_EN_SOP |
 					   FRAME_FILTER_EN_HARD_RESET);
 
 		pd->current_state = PE_VCS_WAIT_FOR_VCONN;
@@ -1963,7 +1966,7 @@ static void vconn_swap(struct usbpd *pd)
 
 		pd->vconn_enabled = true;
 
-		pd_phy_update_frame_filter(FRAME_FILTER_EN_SOP |
+		pd->pdphy_ops->update_frame_filter(FRAME_FILTER_EN_SOP |
 					   FRAME_FILTER_EN_SOPI |
 					   FRAME_FILTER_EN_HARD_RESET);
 
@@ -2126,7 +2129,7 @@ static int usbpd_startup_common(struct usbpd *pd,
 		pd->spec_rev = USBPD_REV_30;
 
 		if (pd->pd_phy_opened) {
-			pd_phy_close();
+			pd->pdphy_ops->close();
 			pd->pd_phy_opened = false;
 		}
 
@@ -2136,7 +2139,10 @@ static int usbpd_startup_common(struct usbpd *pd,
 		if (pd->vconn_enabled)
 			phy_params->frame_filter_val |= FRAME_FILTER_EN_SOPI;
 
-		ret = pd_phy_open(phy_params);
+		if (!pd->pdphy_ops->open)
+			return -ENODEV;
+
+		ret = pd->pdphy_ops->open(phy_params);
 		if (ret) {
 			WARN_ON_ONCE(1);
 			usbpd_err(&pd->dev, "error opening PD PHY %d\n",
@@ -2576,7 +2582,7 @@ static void handle_state_src_transition_to_default(struct usbpd *pd,
 	if (pd->current_dr != DR_DFP) {
 		extcon_set_state_sync(pd->extcon, EXTCON_USB, 0);
 		pd->current_dr = DR_DFP;
-		pd_phy_update_roles(pd->current_dr, pd->current_pr);
+		pd->pdphy_ops->update_roles(pd->current_dr, pd->current_pr);
 	}
 
 	/* PE_UNKNOWN will turn on VBUS and go back to PE_SRC_STARTUP */
@@ -3144,7 +3150,7 @@ static void enter_state_snk_transition_to_default(struct usbpd *pd)
 		stop_usb_host(pd);
 		start_usb_peripheral(pd);
 		pd->current_dr = DR_UFP;
-		pd_phy_update_roles(pd->current_dr, pd->current_pr);
+		pd->pdphy_ops->update_roles(pd->current_dr, pd->current_pr);
 	}
 	if (pd->vconn_enabled) {
 		regulator_disable(pd->vconn);
@@ -3203,7 +3209,7 @@ static void enter_state_prs_snk_src_transition_to_off(struct usbpd *pd)
 	 * need to update PR bit in message header so that
 	 * proper GoodCRC is sent when receiving next PS_RDY
 	 */
-	pd_phy_update_roles(pd->current_dr, PR_SRC);
+	pd->pdphy_ops->update_roles(pd->current_dr, PR_SRC);
 
 	/* wait for PS_RDY */
 	kick_sm(pd, PS_SOURCE_OFF);
@@ -3280,7 +3286,7 @@ static void handle_state_prs_src_snk_transition_to_off(struct usbpd *pd,
 	/* PE_PRS_SRC_SNK_Assert_Rd */
 	pd->current_pr = PR_SINK;
 	set_power_role(pd, pd->current_pr);
-	pd_phy_update_roles(pd->current_dr, pd->current_pr);
+	pd->pdphy_ops->update_roles(pd->current_dr, pd->current_pr);
 
 	/* allow time for Vbus discharge, must be < tSrcSwapStdby */
 	msleep(500);
@@ -3442,7 +3448,7 @@ static void handle_disconnect(struct usbpd *pd)
 	usbpd_info(&pd->dev, "USB Type-C disconnect\n");
 
 	if (pd->pd_phy_opened) {
-		pd_phy_close();
+		pd->pdphy_ops->close();
 		pd->pd_phy_opened = false;
 	}
 
@@ -4634,7 +4640,8 @@ const struct typec_operations typec_ops = {
  *
  * Return: struct usbpd pointer, or an ERR_PTR value
  */
-struct usbpd *usbpd_create(struct device *parent)
+struct usbpd *usbpd_create(struct device *parent,
+					struct pd_phy_ops *pdphy_ops)
 {
 	int ret;
 	struct usbpd *pd;
@@ -4797,6 +4804,7 @@ struct usbpd *usbpd_create(struct device *parent)
 		}
 	}
 
+	pd->pdphy_ops = pdphy_ops;
 	pd->current_pr = PR_NONE;
 	pd->current_dr = DR_NONE;
 	list_add_tail(&pd->instance, &_usbpd);
