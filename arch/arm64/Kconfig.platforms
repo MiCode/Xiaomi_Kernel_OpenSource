@@ -417,7 +417,10 @@ config MACH_MT8168
 	select MTK_DRAMC
 	select OVERLAY_FS
 	select MTK_EMI
-	help
+	select MTK_DEBUG_LATCH
+	select MTK_PLAT_SRAM_FLAG
+	select MTK_L2C_PARITY_CHECK
+        help
           This enables support for MediaTek MT8168
           Support for aarch64 Architecture
           Support for fpga_64_mt8168 related projects
