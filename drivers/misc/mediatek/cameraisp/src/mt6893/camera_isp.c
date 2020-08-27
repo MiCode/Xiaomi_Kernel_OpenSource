@@ -115,7 +115,7 @@
 /*#define ENABLE_WAITIRQ_LOG*/ /* wait irq debug logs */
 /*#define ENABLE_STT_IRQ_LOG*/ /*show STT irq debug logs */
 
-#define Lafi_WAM_CQ_ERR (1)
+#define Lafi_WAM_CQ_ERR (0)
 /* Queue timestamp for deque. Update when non-drop frame @SOF */
 #define TIMESTAMP_QUEUE_EN (0)
 #if (TIMESTAMP_QUEUE_EN == 1)
@@ -10988,6 +10988,10 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 	ktime_t time;
 	unsigned int IrqEnableOrig, IrqEnableNew;
 	union CAMCTL_TWIN_STATUS_ twinStatus;
+	unsigned int isStagger = 0;
+
+	isStagger = ((ISP_RD32(CAM_REG_TG_SEN_MODE(reg_module)) &
+				0x00400000)) >> 22;
 
 	/* Avoid touch hwmodule when clock is disable. */
 	/* DEVAPC will moniter this kind of err */
@@ -11057,7 +11061,7 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 			ErrStatus |= CQ_VS_ERR_ST;
 		}
 	}
-
+#endif
 	twinStatus.Raw = ISP_RD32(CAM_REG_CTL_TWIN_STATUS(reg_module));
 
 	if ((IrqStatus & SOF_INT_ST) &&
@@ -11105,7 +11109,7 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 			}
 		}
 	}
-#endif
+
 	WarnStatus_2 =
 		IrqStatus & IspInfo.IrqInfo.Warn2Mask[module][SIGNAL_INT];
 
@@ -11393,7 +11397,12 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 		}
 	}
 
-	if (IrqStatus & SOF_INT_ST) {
+	if ((IrqStatus & SOF_INT_ST) && isStagger == 1)
+		IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_ERR, "DCIF_SOF");
+
+	if (((IrqStatus & SOF_INT_ST) && isStagger == 0) ||
+		((IrqStatus & VS_INT_ST) && isStagger == 1 &&
+		(ISP_RD32(CAMX_REG_TG_VF_CON(reg_module)) == 0x1))) {
 		unsigned int frmPeriod =
 			((ISP_RD32(CAM_REG_TG_SUB_PERIOD(reg_module)) >> 8) &
 			 0x1F) +
@@ -11406,6 +11415,7 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 		do_div(sec, 1000);	   /* usec */
 		usec = do_div(sec, 1000000); /* sec and usec */
 
+		cur_v_cnt = ISP_RD32_TG_CAMX_FRM_CNT(module, reg_module);
 #if (Lafi_WAM_CQ_ERR == 1)
 		if (!(ErrStatus & CQ_VS_ERR_ST))
 			ISP_RecordCQAddr(reg_module);
