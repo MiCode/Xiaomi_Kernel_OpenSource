@@ -1220,18 +1220,20 @@ static ssize_t ssmr_show(struct kobject *kobj, struct kobj_attribute *attr,
 	phys_addr_t cma_base = cma_get_base(cma);
 	phys_addr_t cma_end = cma_base + cma_get_size(cma);
 
-	ret += sprintf(buf + ret, "cma info: [%pa-%pa] (0x%lx)\n",
+	ret += snprintf(buf + ret, PAGE_SIZE - ret,
+		"cma info: [%pa-%pa] (0x%lx)\n",
 		&cma_base, &cma_end,
 		cma_get_size(cma));
 
-	ret += sprintf(buf + ret,
+	ret += snprintf(buf + ret, PAGE_SIZE - ret,
 		"cma info: base %pa pfn [%lu-%lu] count %lu\n",
 		&cma_base,
 		__phys_to_pfn(cma_base), __phys_to_pfn(cma_end),
 		cma_get_size(cma) >> PAGE_SHIFT);
 
 	if (__MAX_NR_SSMR_FEATURES <= 0) {
-		ret += sprintf(buf + ret, "no SSMR user enable\n");
+		ret += snprintf(buf + ret, PAGE_SIZE - ret,
+			"no SSMR user enable\n");
 		return ret;
 	}
 
@@ -1240,22 +1242,26 @@ static ssize_t ssmr_show(struct kobject *kobj, struct kobj_attribute *attr,
 
 		region_pa = (unsigned long) page_to_phys(_ssmr_feats[i].page);
 
-		ret += sprintf(buf + ret, "%s base:0x%lx, count %lu, ",
+		ret += snprintf(buf + ret, PAGE_SIZE - ret,
+			"%s base:0x%lx, count %lu, ",
 			_ssmr_feats[i].feat_name,
 			_ssmr_feats[i].page == NULL ? 0 : region_pa,
 			_ssmr_feats[i].count);
-		ret += sprintf(buf + ret, "alloc_pages %lu, state %s.%s\n",
+		ret += snprintf(buf + ret, PAGE_SIZE - ret,
+			"alloc_pages %lu, state %s.%s\n",
 			_ssmr_feats[i].alloc_pages,
 			ssmr_state_text[_ssmr_feats[i].state],
 			_ssmr_feats[i].use_cache_memory ?
 					 " (cache memory)" : "");
 	}
 
-	ret += sprintf(buf + ret, "cma usage: %lu pages\n", ssmr_usage_count);
+	ret += snprintf(buf + ret, PAGE_SIZE - ret,
+		"cma usage: %lu pages\n", ssmr_usage_count);
 
-	ret += sprintf(buf + ret, "[CONFIG]:\n");
-	ret += sprintf(buf + ret, "ssmr_upper_limit: 0x%llx\n",
-						ssmr_upper_limit);
+	ret += snprintf(buf + ret, PAGE_SIZE - ret, "[CONFIG]:\n");
+	ret += snprintf(buf + ret, PAGE_SIZE - ret,
+		"ssmr_upper_limit: 0x%llx\n",
+		ssmr_upper_limit);
 
 	return ret;
 }
