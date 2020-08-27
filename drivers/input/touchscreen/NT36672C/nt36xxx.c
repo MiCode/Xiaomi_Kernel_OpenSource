@@ -1684,19 +1684,16 @@ static int32_t nvt_ts_probe(struct spi_device *client)
 			videolfb_tag->lcmname) == 0 ||
 			strcmp("nt36672c_fhdp_dsi_vdo_auo_cphy_90hz_jdi_hfp_lcm_drv",
 			videolfb_tag->lcmname) == 0)
-			strncpy(novatek_firmware,
-				firmware_name_jdi, sizeof(firmware_name_jdi));
-		else if (strcmp("nt36672c_fhdp_dsi_vdo_auo_cphy_90hz_jdi_lcm_drv",
-			videolfb_tag->lcmname) == 0 ||
-			strcmp("nt36672c_fhdp_dsi_vdo_auo_cphy_90hz_jdi_hfp_lcm_drv",
+			strncpy(novatek_firmware, firmware_name_jdi, sizeof(firmware_name_jdi));
+		else if (strcmp("nt36672c_fhdp_dsi_vdo_auo_cphy_90hz_tianma_lcm_drv",
 			videolfb_tag->lcmname) == 0)
-			strncpy(novatek_firmware,
-				firmware_name_tm, sizeof(firmware_name_tm));
+			strncpy(novatek_firmware, firmware_name_tm, sizeof(firmware_name_tm));
+		else if (strcmp("td4330_fhdp_dsi_vdo_auo_rt5081_lcm_drv",
+			videolfb_tag->lcmname) == 0)
+			strncpy(novatek_firmware, firmware_name, sizeof(firmware_name));
 		else
-			strncpy(novatek_firmware,
-				firmware_name, sizeof(firmware_name_tm));
-		NVT_LOG("nt36672c touch fw name : %s",
-				BOOT_UPDATE_FIRMWARE_NAME);
+			strncpy(novatek_firmware, firmware_name, sizeof(firmware_name));
+		NVT_LOG("nt36672c touch fw name : %s", BOOT_UPDATE_FIRMWARE_NAME);
 	} else
 		NVT_ERR("Can't find node: chose in dts");
 	nvt_fwu_wq = alloc_workqueue("nvt_fwu_wq", WQ_UNBOUND | WQ_MEM_RECLAIM, 1);
