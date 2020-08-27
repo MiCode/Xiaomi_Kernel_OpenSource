@@ -398,10 +398,14 @@ static s32 translate_meta(struct op_meta *meta,
 			return -EINVAL;
 		status = cmdq_op_write_reg_ex(handle, cmd_buf, reg_addr,
 					meta->value, ~0);
-		if (!status)
+		if (!status) {
+			u32 cnt = cmdq_mdp_handle_get_instr_count(handle) - 1;
+
+			/* also add temp buffer instructions */
+			cnt += cmd_buf->cmd_buf_size / CMDQ_INST_SIZE;
 			status = cmdq_mdp_update_sec_addr_index(handle,
-				meta->sec_handle, meta->sec_index,
-				cmdq_mdp_handle_get_instr_count(handle) - 1);
+				meta->sec_handle, meta->sec_index, cnt);
+		}
 		break;
 	}
 	case CMDQ_MOP_NOP:
