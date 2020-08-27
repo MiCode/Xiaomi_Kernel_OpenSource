@@ -2660,6 +2660,9 @@ int m4u_domain_init(struct m4u_device *m4u_dev,
 {
 	M4UINFO("%s, domain=%d\n", __func__, m4u_id);
 
+	if (unlikely((unsigned int)m4u_id >= TOTAL_M4U_NUM))
+		return -EINVAL;
+
 	memset(&gM4uDomain[m4u_id], 0, sizeof(gM4uDomain[m4u_id]));
 		gM4uDomain[m4u_id].pgsize_bitmap = M4U_PGSIZES;
 	mutex_init(&gM4uDomain[m4u_id].pgtable_mutex);
