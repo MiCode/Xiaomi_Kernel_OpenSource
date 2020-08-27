@@ -431,7 +431,7 @@ void mddpw_ack_md_reset(struct work_struct *mddp_work)
 	}
 }
 
-void mddpw_reset_work(struct timer_list *t)
+void mddpw_reset_work(unsigned long data)
 {
 	schedule_work(&(mddpw_reset_workq));
 }
@@ -868,7 +868,7 @@ int32_t mddpwh_sm_init(struct mddp_app_t *app)
 	memcpy(&app->md_cfg, &mddpw_md_cfg_s, sizeof(struct mddp_md_cfg_t));
 	app->is_config = 1;
 
-	timer_setup(&mddpw_timer, mddpw_reset_work, 0);
+	setup_timer(&mddpw_timer, mddpw_reset_work, 0);
 	INIT_WORK(&(mddpw_reset_workq), mddpw_ack_md_reset);
 	return 0;
 }
