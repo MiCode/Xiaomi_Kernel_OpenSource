@@ -223,6 +223,7 @@ static void vpu_mesg_init(struct vpu_device *vd)
 		return;
 	memset(msg, 0, vd->wb_log_data);
 	msg->level_mask = (1 << VPU_DBG_MSG_LEVEL_CTRL);
+	vpu_iova_sync_for_device(vd->dev, &vd->iova_work);
 }
 
 static void vpu_mesg_clr(struct vpu_device *vd)
@@ -241,6 +242,7 @@ static void vpu_mesg_clr(struct vpu_device *vd)
 	if (data)
 		memset(data, 0,
 		       vd->wb_log_data - sizeof(struct vpu_message_ctrl));
+	vpu_iova_sync_for_device(vd->dev, &vd->iova_work);
 }
 
 static int vpu_mesg_level_set(void *data, u64 val)
@@ -270,6 +272,7 @@ static int vpu_mesg_level_set(void *data, u64 val)
 		msg->level_mask ^= (1 << level);
 	else
 		msg->level_mask = 0;
+	vpu_iova_sync_for_device(vd->dev, &vd->iova_work);
 	return 0;
 }
 
