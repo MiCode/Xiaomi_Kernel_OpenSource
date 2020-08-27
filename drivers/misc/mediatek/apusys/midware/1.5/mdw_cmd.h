@@ -54,6 +54,7 @@ struct mdw_apu_cmd {
 
 	/* perf info */
 	struct timespec64 ts_create;
+	struct timespec64 ts_delete;
 };
 
 struct mdw_apu_sc {
@@ -106,10 +107,12 @@ struct mdw_apu_sc {
 	struct timespec64 ts_deque;
 	struct timespec64 ts_start;
 	struct timespec64 ts_end;
+	struct timespec64 ts_delete;
 };
 
 struct mdw_cmd_parser {
-	struct mdw_apu_cmd *(*create_cmd)(int fd, uint32_t size, uint32_t ofs);
+	struct mdw_apu_cmd *(*create_cmd)(int fd, uint32_t size, uint32_t ofs,
+			struct mdw_usr *c);
 	int (*delete_cmd)(struct mdw_apu_cmd *c);
 	int (*abort_cmd)(struct mdw_apu_cmd *c);
 	int (*parse_cmd)(struct mdw_apu_cmd *c, struct mdw_apu_sc **out);

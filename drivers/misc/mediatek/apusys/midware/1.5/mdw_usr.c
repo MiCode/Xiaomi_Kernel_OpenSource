@@ -22,13 +22,10 @@
 #include "mdw_usr.h"
 #include "mdw_rsc.h"
 #include "mdw_sched.h"
+#include "mdw_trace.h"
+#include "mdw_fence.h"
 
 #define MDW_CMD_DEFAULT_TIMEOUT (30*1000) //30s
-
-struct mdw_usr_mgr {
-	struct list_head list;
-	struct mutex mtx;
-};
 
 #ifdef CONFIG_PM_SLEEP
 static struct wakeup_source *mdw_usr_ws;
@@ -36,7 +33,7 @@ static uint32_t ws_cnt;
 static struct mutex ws_mtx;
 #endif
 
-static struct mdw_usr_mgr u_mgr;
+struct mdw_usr_mgr u_mgr;
 static struct mdw_cmd_parser *cmd_parser;
 
 #define LINEBAR \
@@ -624,6 +621,8 @@ static int mdw_usr_par_apu_cmd(struct mdw_apu_cmd *c)
 	struct mdw_apu_sc *sc;
 	int ret = 0;
 
+	mdw_trace_begin("cmd parse|cmd(0x%llx)", c->kid);
+
 	while (1) {
 		ret = cmd_parser->parse_cmd(c, &sc);
 		/* check return value */
@@ -642,6 +641,7 @@ static int mdw_usr_par_apu_cmd(struct mdw_apu_cmd *c)
 			break;
 		}
 	}
+	mdw_trace_end("cmd parse|cmd(0x%llx)", c->kid);
 
 	return ret;
 }
@@ -651,7 +651,7 @@ int mdw_usr_run_cmd_async(struct mdw_usr *u, struct apusys_ioctl_cmd *in)
 	int ret = 0;
 	struct mdw_apu_cmd *c = NULL;
 
-	c = cmd_parser->create_cmd(in->mem_fd, in->size, in->offset);
+	c = cmd_parser->create_cmd(in->mem_fd, in->size, in->offset, u);
 	if (!c) {
 		ret = -EINVAL;
 		goto create_cmd_fail;
@@ -659,7 +659,6 @@ int mdw_usr_run_cmd_async(struct mdw_usr *u, struct apusys_ioctl_cmd *in)
 	c->pid = u->pid;
 	c->tgid = u->tgid;
 	c->usr = u;
-
 
 	in->cmd_id = c->kid;
 
@@ -797,6 +796,7 @@ struct mdw_usr *mdw_usr_create(void)
 	get_task_comm(u->comm, current);
 	u->pid = current->pid;
 	u->tgid = current->tgid;
+	u->id = (uint64_t)u;
 
 	mutex_lock(&u_mgr.mtx);
 	list_add_tail(&u->m_item, &u_mgr.list);

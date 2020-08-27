@@ -16,7 +16,7 @@
 #include "mdw_rsc.h"
 #include "mdw_dbg.h"
 #include "mdw_mem.h"
-#include "midware_trace.h"
+#include "mdw_trace.h"
 #include "mdw_usr.h"
 #include "mdw_sched.h"
 #if defined CONFIG_MTK_AEE_FEATURE

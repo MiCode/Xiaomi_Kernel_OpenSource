@@ -6,10 +6,10 @@
 #ifndef __APUSYS_MDW_IMPORT_H__
 #define __APUSYS_MDW_IMPORT_H__
 
-//#define APUSYS_MDW_MNOC_SUPPORT
+#define APUSYS_MDW_MNOC_SUPPORT
 #define APUSYS_MDW_REVISER_SUPPORT
-//#define APUSYS_MDW_TAG_SUPPORT
-//#define APUSYS_MDW_POWER_SUPPORT
+#define APUSYS_MDW_TAG_SUPPORT
+#define APUSYS_MDW_POWER_SUPPORT
 
 bool mdw_pwr_check(void);
 int mdw_rvs_set_ctx(int type, int idx, uint8_t ctx);

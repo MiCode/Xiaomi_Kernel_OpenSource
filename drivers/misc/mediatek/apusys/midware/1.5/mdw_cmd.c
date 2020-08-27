@@ -18,6 +18,7 @@
 #include "mdw_dbg.h"
 #include "mdw_sched.h"
 #include "mdw_rsc.h"
+#include "mdw_trace.h"
 #include "mdw_import.h"
 #include "mdw_fence.h"
 
@@ -81,8 +82,23 @@ static void mdw_cmd_show_sc_perf(struct mdw_apu_sc *sc)
 		mdw_cmn_get_time_diff(&sc->ts_create, &sc->ts_enque));
 	mdw_pef_debug(" sched time      = %u\n",
 		mdw_cmn_get_time_diff(&sc->ts_enque, &sc->ts_deque));
+	mdw_pef_debug(" preset time     = %u\n",
+		mdw_cmn_get_time_diff(&sc->ts_deque, &sc->ts_start));
 	mdw_pef_debug(" exec time       = %u\n",
 		mdw_cmn_get_time_diff(&sc->ts_start, &sc->ts_end));
+	mdw_pef_debug(" post time       = %u\n",
+		mdw_cmn_get_time_diff(&sc->ts_end, &sc->ts_delete));
+	mdw_pef_debug(" life time       = %u\n",
+		mdw_cmn_get_time_diff(&sc->ts_create, &sc->ts_delete));
+	mdw_pef_debug("-------------------------\n");
+}
+
+static void mdw_cmd_show_cmd_perf(struct mdw_apu_cmd *c)
+{
+	mdw_pef_debug("-------------------------\n");
+	mdw_pef_debug(" apusys cmd(0x%llx)\n", c->kid);
+	mdw_pef_debug(" life time       = %u\n",
+		mdw_cmn_get_time_diff(&c->ts_create, &c->ts_delete));
 	mdw_pef_debug("-------------------------\n");
 }
 
@@ -151,6 +167,7 @@ static int mdw_cmd_parse_flags(struct mdw_apu_cmd *c)
 	if (c->multi > HDR_FLAG_MULTI_MULTI)
 		return -EINVAL;
 
+	/* Create Fence FD */
 	if (c->hdr->flags & HDR_FLAG_MASK_FENCE_EXEC) {
 		c->uf_hdr = (struct apu_fence_hdr *)(
 			(uint64_t)c->u_hdr + sizeof(struct apu_cmd_hdr) +
@@ -159,7 +176,6 @@ static int mdw_cmd_parse_flags(struct mdw_apu_cmd *c)
 		if (apu_sync_file_create(c) < 0)
 			return -EINVAL;
 	}
-
 	return 0;
 }
 
@@ -336,7 +352,7 @@ static bool mdw_cmd_is_deadline(struct mdw_apu_sc *sc)
 }
 
 static struct mdw_apu_cmd *mdw_cmd_create_cmd(int fd,
-	uint32_t size, uint32_t ofs)
+	uint32_t size, uint32_t ofs, struct mdw_usr *u)
 {
 	struct mdw_apu_cmd *c;
 
@@ -371,6 +387,7 @@ static struct mdw_apu_cmd *mdw_cmd_create_cmd(int fd,
 	c->size = size;
 	c->kid = (uint64_t)c;
 	refcount_set(&c->ref.refcount, c->hdr->num_sc);
+	c->usr = u;
 
 	/* init cmd completion */
 	init_completion(&c->cmplt);
@@ -423,8 +440,11 @@ static int mdw_cmd_delete_cmd(struct mdw_apu_cmd *c)
 			c->hdr->uid, c->kid);
 		return -EBUSY;
 	}
-
 	mdw_drv_debug("cmd(0x%llx/0x%llx) destroy\n", c->hdr->uid, c->kid);
+
+	ktime_get_ts64(&c->ts_delete);
+	mdw_cmd_show_cmd_perf(c);
+
 	mdw_mem_unmap_kva(c->cmdbuf);
 	vfree(c->cmdbuf);
 	vfree(c->hdr);
@@ -502,6 +522,7 @@ static void mdw_cmd_delete_sc(struct mdw_apu_sc *sc)
 
 	mdw_queue_task_end(sc);
 
+	ktime_get_ts64(&sc->ts_delete);
 	mdw_cmd_show_sc_perf(sc);
 
 	mutex_lock(&sc->mtx);
@@ -715,6 +736,9 @@ int mdw_cmd_get_ctx(struct mdw_apu_sc *sc)
 	uint32_t tcm_usage = 0;
 	struct mdw_apu_cmd *c = sc->parent;
 
+	mdw_trace_begin("get ctx|sc(0x%llx-%d)",
+		sc->parent->kid, sc->idx);
+
 	mutex_lock(&c->mtx);
 	if (c->ctx_repo[sc->hdr->mem_ctx] != MDW_CMD_EMPTY_NUM) {
 		sc->ctx = (uint32_t)c->ctx_repo[sc->hdr->mem_ctx];
@@ -733,12 +757,18 @@ int mdw_cmd_get_ctx(struct mdw_apu_sc *sc)
 
 out:
 	mutex_unlock(&c->mtx);
+	mdw_trace_end("get ctx|sc(0x%llx-%d) ctx(%lu)",
+		sc->parent->kid, sc->idx, sc->ctx);
+
 	return ret;
 }
 
 void mdw_cmd_put_ctx(struct mdw_apu_sc *sc)
 {
 	struct mdw_apu_cmd *c = sc->parent;
+
+	mdw_trace_begin("put ctx|sc(0x%llx-%d) ctx(%lu)",
+		sc->parent->kid, sc->idx, sc->ctx);
 
 	mutex_lock(&c->mtx);
 	if (sc->hdr->mem_ctx == VALUE_SUBGRAPH_CTX_ID_NONE) {
@@ -757,6 +787,8 @@ void mdw_cmd_put_ctx(struct mdw_apu_sc *sc)
 	}
 out:
 	mutex_unlock(&c->mtx);
+	mdw_trace_end("put ctx|sc(0x%llx-%d) ctx(%lu)",
+		sc->parent->kid, sc->idx, sc->ctx);
 }
 
 static int mdw_cmd_sc_exec_num(struct mdw_apu_sc *sc)
@@ -802,7 +834,8 @@ static void mdw_cmd_sc_set_hnd(struct mdw_apu_sc *sc, int d_idx, void *hnd)
 	h->kva = sc->kva;
 	h->cluster_size = sc->cluster_size;
 
-	if (sc->type != APUSYS_DEVICE_MDLA)
+	if (sc->type != APUSYS_DEVICE_MDLA &&
+		sc->type != APUSYS_DEVICE_MDLA_RT)
 		goto out;
 
 	/* for mdla pmu */
