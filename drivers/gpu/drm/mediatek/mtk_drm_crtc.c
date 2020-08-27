@@ -2940,6 +2940,7 @@ void mtk_crtc_stop_sodi_loop(struct drm_crtc *crtc)
 	priv = mtk_crtc->base.dev->dev_private;
 	cmdq_mbox_stop(mtk_crtc->gce_obj.client[CLIENT_SODI_LOOP]);
 	cmdq_pkt_destroy(mtk_crtc->sodi_loop_cmdq_handle);
+	mtk_crtc->sodi_loop_cmdq_handle = NULL;
 }
 #endif
 
