@@ -252,10 +252,9 @@ int mdla_run_command_sync(
 error_handle:
 	ce->wait_t = sched_clock();
 
+	spin_lock_irqsave(&sched->lock, flags);
 	if (ce->priority == MDLA_LOW_PRIORITY && ce->batch_list_head != NULL)
 		mdla_del_free_command_batch(ce);
-
-	spin_lock_irqsave(&sched->lock, flags);
 	kfree(sched->ce[priority]);
 	sched->ce[priority] = NULL;
 	spin_unlock_irqrestore(&sched->lock, flags);
