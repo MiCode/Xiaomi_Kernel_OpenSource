@@ -1425,6 +1425,14 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 	unsigned long long temp_bw;
 	unsigned int dim_color;
 
+	/* handle dim layer for compression flag & color dim*/
+	if (fmt == DRM_FORMAT_C8) {
+		pending->prop_val[PLANE_PROP_COMPRESS] = 0;
+		dim_color = pending->prop_val[PLANE_PROP_DIM_COLOR];
+	} else {
+		dim_color = 0xff000000;
+	}
+
 	/* handle buffer de-compression */
 	if (ovl->data->compr_info && ovl->data->compr_info->l_config) {
 		if (ovl->data->compr_info->l_config(comp,
@@ -1480,12 +1488,6 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 		__func__, comp->id, idx, pending->enable, pending->format);
 	DDPINFO("addr 0x%lx, compr %d, con 0x%x\n",
 		pending->addr, pending->prop_val[PLANE_PROP_COMPRESS], con);
-
-	/* add for color dim */
-	if (fmt == DRM_FORMAT_C8)
-		dim_color = pending->prop_val[PLANE_PROP_DIM_COLOR];
-	else
-		dim_color = 0xff000000;
 
 	if (rotate) {
 		unsigned int bg_w = 0, bg_h = 0;
