@@ -13,6 +13,8 @@
 export PTP3_ROOT_DIR ?= $(srctree)/drivers/misc/mediatek/base/power/ptp3_v1
 ifeq ($(CONFIG_MACH_MT6893),y)
 obj-y += mt6893/
+else ifeq ($(CONFIG_MACH_MT6833),y)
+obj-y += mt6833/
 else
 obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 endif
