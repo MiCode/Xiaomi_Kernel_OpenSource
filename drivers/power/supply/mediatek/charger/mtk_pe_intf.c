@@ -20,7 +20,6 @@
 #include <upmu_common.h>
 #include "mtk_charger_intf.h"
 #include "mtk_charger_init.h"
-#include "mtk_intf.h"
 
 /* Unit of the following functions are uV, uA */
 static inline u32 pe_get_vbus(void)
@@ -198,13 +197,19 @@ static int pe_increase_ta_vchr(struct charger_manager *pinfo, u32 vchr_target)
 		}
 
 		vchr_before = pe_get_vbus();
-		charger_get_ibus(&ibus_before);
+		ret = charger_dev_get_ibus(pinfo->chg1_dev, &ibus_before);
+		if (ret < 0)
+			chr_err("%s: get ibus fail\n", __func__);
+
 		__pe_increase_ta_vchr(pinfo);
 		vchr_after = pe_get_vbus();
-		charger_get_ibus(&ibus_after);
+		ret = charger_dev_get_ibus(pinfo->chg1_dev, &ibus_after);
+		if (ret < 0)
+			chr_err("%s: get ibus fail\n", __func__);
 
 		if (abs(vchr_after - vchr_target) <= 1000000) {
 			chr_info("%s: OK\n", __func__);
+			ret = 0;
 			return ret;
 		}
 
