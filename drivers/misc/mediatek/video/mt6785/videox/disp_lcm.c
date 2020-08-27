@@ -1724,5 +1724,176 @@ int disp_lcm_is_arr_support(struct disp_lcm_handle *plcm)
 	DISPDBG("%s,lcm support arr\n", __func__);
 	return 1;
 }
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+/*-------------------DynFPS start-----------------------------*/
+int disp_lcm_is_dynfps_support(struct disp_lcm_handle *plcm)
+{
+	struct LCM_PARAMS *lcm_param = NULL;
+	unsigned int dfps_enable = 0;
+	unsigned int dfps_num = 0;
+
+	/*DISPFUNC();*/
+	if (_is_lcm_inited(plcm))
+		lcm_param = plcm->params;
+	else
+		return 0;
+
+	if (lcm_param->type != LCM_TYPE_DSI ||
+		lcm_param->dsi.mode == CMD_MODE) {
+		return 0;
+	}
+
+	dfps_enable = lcm_param->dsi.dfps_enable;
+	dfps_num = lcm_param->dsi.dfps_num;
+	if (dfps_enable == 0 ||
+		dfps_num < 2) {
+		return 0;
+	}
+	/*DynFPS:ToDo*/
+	DISPDBG("%s,lcm support arr\n", __func__);
+	return 1;
+}
+
+unsigned int disp_lcm_dynfps_get_def_fps(
+		struct disp_lcm_handle *plcm)
+{
+	struct LCM_PARAMS *lcm_param = NULL;
+
+	/*DISPFUNC();*/
+	if (_is_lcm_inited(plcm))
+		lcm_param = plcm->params;
+	else
+		return 0;
+
+	return lcm_param->dsi.dfps_default_fps;
+}
+unsigned int disp_lcm_dynfps_get_dfps_num(
+		struct disp_lcm_handle *plcm)
+{
+	struct LCM_PARAMS *lcm_param = NULL;
+
+	/*DISPFUNC();*/
+	if (_is_lcm_inited(plcm))
+		lcm_param = plcm->params;
+	else
+		return 0;
+
+	return lcm_param->dsi.dfps_num;
+}
+unsigned int disp_lcm_dynfps_get_def_timing_fps(
+	struct disp_lcm_handle *plcm)
+{
+	struct LCM_PARAMS *lcm_param = NULL;
+
+	/*DISPFUNC();*/
+	if (_is_lcm_inited(plcm))
+		lcm_param = plcm->params;
+	else
+		return 0;
+
+	return lcm_param->dsi.dfps_def_vact_tim_fps;
+}
+bool disp_lcm_need_send_cmd(
+	struct disp_lcm_handle *plcm,
+	unsigned int last_dynfps, unsigned int new_dynfps)
+{
+	struct LCM_DRIVER *lcm_drv = NULL;
+	struct LCM_PARAMS *lcm_param = NULL;
+	struct LCM_DSI_PARAMS *dsi_params = NULL;
+	int from_level = -1;
+	int to_level = -1;
+	struct dfps_info *dfps_params = NULL;
+	unsigned int j = 0;
+//	enum LCM_Send_Cmd_Mode sendmode = 0;
+
+	DISPFUNC();
+	if (_is_lcm_inited(plcm)) {
+		lcm_drv = plcm->drv;
+		lcm_param = plcm->params;
+		if (lcm_param)
+			dsi_params = &(lcm_param->dsi);
+	} else {
+		DISPCHECK("%s, lcm not inited!\n", __func__);
+		return false;
+	}
+
+	if (!lcm_drv ||
+		!lcm_drv->dfps_send_lcm_cmd ||
+		!lcm_drv->dfps_need_send_cmd) {
+		DISPCHECK("%s, no lcm drv or no dfps func !!!\n", __func__);
+		return false;
+	}
+
+	if (!dsi_params ||
+		!dsi_params->dfps_enable) {
+		DISPCHECK("%s,not support dfps !!!\n", __func__);
+		return false;
+	}
+	dfps_params = dsi_params->dfps_params;
+
+	for (j = 0; j < dsi_params->dfps_num; j++) {
+		if ((dfps_params[j]).fps == last_dynfps)
+			from_level = (dfps_params[j]).level;
+		if ((dfps_params[j]).fps == new_dynfps)
+			to_level = (dfps_params[j]).level;
+	}
+	if (from_level < 0 ||
+		to_level < 0)
+		return false;
+
+	//sendmode = lcm_param->sendmode;
+
+	return	lcm_drv->dfps_need_send_cmd(from_level, to_level, lcm_param);
+}
+
+void disp_lcm_dynfps_send_cmd(
+	struct disp_lcm_handle *plcm, void *cmdq_handle,
+	unsigned int from_fps, unsigned int to_fps)
+
+{
+	struct LCM_DRIVER *lcm_drv = NULL;
+	struct LCM_PARAMS *lcm_param = NULL;
+	struct LCM_DSI_PARAMS *dsi_params = NULL;
+	unsigned int from_level = 0;
+	unsigned int to_level = 0;
+	struct dfps_info *dfps_params = NULL;
+	unsigned int j = 0;
+
+	/*DISPFUNC();*/
+	if (_is_lcm_inited(plcm)) {
+		lcm_drv = plcm->drv;
+		lcm_param = plcm->params;
+		if (lcm_param)
+			dsi_params = &(lcm_param->dsi);
+	}
+
+	if (!lcm_drv || !lcm_drv->dfps_send_lcm_cmd) {
+		DISPCHECK("%s, no lcm drv or no dfps func !!!\n", __func__);
+		goto done;
+	}
+
+	if (!dsi_params ||
+		!dsi_params->dfps_enable) {
+		DISPCHECK("%s,not support dfps !!!\n", __func__);
+		goto done;
+	}
+
+	dfps_params = dsi_params->dfps_params;
+
+	for (j = 0; j < dsi_params->dfps_num; j++) {
+		if ((dfps_params[j]).fps == from_fps)
+			from_level = (dfps_params[j]).level;
+		if ((dfps_params[j]).fps == to_fps)
+			to_level = (dfps_params[j]).level;
+	}
+
+	lcm_drv->dfps_send_lcm_cmd(cmdq_handle,
+		from_level, to_level, lcm_param);
+done:
+	DISPCHECK("%s,add done\n", __func__);
+}
+
+/*-------------------DynFPS end-----------------------------*/
+#endif
 
 

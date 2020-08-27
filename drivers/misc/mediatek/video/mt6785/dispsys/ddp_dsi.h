@@ -235,6 +235,22 @@ int ddp_dsi_write_lcm_cmdq(enum DISP_MODULE_ENUM module,
 			unsigned char cmd, unsigned char count,
 			unsigned char *para_list);
 
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+/*-------------------------------DynFPS start------------------------------*/
+unsigned int ddp_dsi_fps_change_index(
+	unsigned int last_dynfps, unsigned int new_dynfps);
+void ddp_dsi_dynfps_chg_fps(
+	enum DISP_MODULE_ENUM module, void *handle,
+	unsigned int last_fps, unsigned int new_fps, unsigned int chg_index);
+void ddp_dsi_dynfps_get_vfp_info(unsigned int disp_fps,
+	unsigned int *vfp, unsigned int *vfp_for_lp);
+void DSI_dynfps_send_cmd(
+	void *cmdq, unsigned int cmd,
+	unsigned char count, unsigned char *para_list,
+	unsigned char force_update, enum LCM_Send_Cmd_Mode sendmode);
+
+/*-------------------------------DynFPS end------------------------------*/
+#endif
 #ifdef __cplusplus
 }
 #endif

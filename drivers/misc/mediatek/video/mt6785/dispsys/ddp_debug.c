@@ -347,7 +347,7 @@ static void process_dbg_opt(const char *opt)
 			backup_vfp_for_lp_cust(vfp);
 	} else if (strncmp(opt, "irq_log:", 8) == 0) {
 		char *p = (char *)opt + 8;
-		unsigned int enable;
+		unsigned int enable = 0;
 
 		ret = kstrtouint(p, 0, &enable);
 		if (ret) {
@@ -568,7 +568,7 @@ static void process_dbg_opt(const char *opt)
 		}
 	} else if (strncmp(opt, "debug:", 6) == 0) {
 		char *p = (char *)opt + 6;
-		unsigned int enable;
+		unsigned int enable = 0;
 
 		ret = kstrtouint(p, 0, &enable);
 		if (ret) {

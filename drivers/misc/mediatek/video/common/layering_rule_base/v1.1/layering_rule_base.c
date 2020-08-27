@@ -1566,6 +1566,9 @@ static int dispatch_ovl_id(struct disp_layer_info *disp_info)
 		disp_info->hrt_num = get_hrt_level(
 			l_rule_ops->get_hrt_bound(0, HRT_LEVEL_NUM - 1) *
 				HRT_UINT_BOUND_BPP, 0);
+
+		if (l_rule_ops->adjust_hrt_scen)
+			l_rule_ops->adjust_hrt_scen(disp_info);
 	}
 
 	/* Dispatch OVL id */

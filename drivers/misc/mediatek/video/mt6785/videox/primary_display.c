@@ -226,6 +226,10 @@ struct wakeup_source pri_wk_lock;
 
 static atomic_t primary_display_fps_chg_trigger = ATOMIC_INIT(0);
 
+/*DynFPS for debug*/
+bool g_force_cfg;
+unsigned int g_force_cfg_id;
+
 void lock_primary_wake_lock(bool lock)
 {
 	static bool is_locked;
@@ -263,6 +267,9 @@ struct display_primary_path_context *_get_context(void)
 					struct display_primary_path_context));
 		init_waitqueue_head(&g_context.fps_chg_wait_queue);
 		is_context_inited = 1;
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+		g_context.first_cfg = 1;
+#endif
 	}
 
 	return &g_context;
@@ -1122,7 +1129,7 @@ int lcm_fps_ctx_init(struct lcm_fps_ctx_t *fps_ctx)
 	else
 		fps_ctx->dsi_mode = 0;
 
-	DISPINFO("%s done", __func__);
+	DISPINFO("%s done\n", __func__);
 
 	return 0;
 }
@@ -1137,7 +1144,7 @@ int lcm_fps_ctx_reset(struct lcm_fps_ctx_t *fps_ctx)
 	else
 		fps_ctx->dsi_mode = 0;
 
-	DISPINFO("%s done", __func__);
+	DISPINFO("%s done\n", __func__);
 
 	return 0;
 }
@@ -1157,7 +1164,7 @@ int lcm_fps_ctx_update(struct lcm_fps_ctx_t *fps_ctx, unsigned long long cur_ns)
 	}
 
 	if (mutex_trylock(&fps_ctx->lock) == 0) {
-		DISPMSG("%s try lock fail", __func__);
+		DISPMSG("%s try lock fail\n", __func__);
 		fps_ctx->last_ns = cur_ns;
 		return 0;
 	}
@@ -1174,7 +1181,7 @@ int lcm_fps_ctx_update(struct lcm_fps_ctx_t *fps_ctx, unsigned long long cur_ns)
 
 	mutex_unlock(&fps_ctx->lock);
 
-	DISPINFO("%s update %lld to index %d", __func__, delta, idx);
+	DISPINFO("%s update %lld to index %d\n", __func__, delta, idx);
 
 	return 0;
 }
@@ -1212,11 +1219,11 @@ unsigned int lcm_fps_ctx_get(struct lcm_fps_ctx_t *fps_ctx)
 	duration_avg = duration_sum / (fps_ctx->num - 2);
 	do_div(fps, duration_avg);
 
-	DISPINFO("%s remove max = %lld, min = %lld, sum = %lld, num = %d",
+	DISPINFO("%s remove max = %lld, min = %lld, sum = %lld, num = %d\n",
 		__func__,
 		duration_max, duration_min, duration_sum, fps_ctx->num);
 
-	DISPINFO("%s fps = %d", __func__, fps);
+	DISPINFO("%s fps = %d\n", __func__, (unsigned int)fps);
 
 	mutex_unlock(&fps_ctx->lock);
 	return (unsigned int)fps;
@@ -1233,6 +1240,7 @@ int primary_display_get_debug_state(char *stringbuf, int buf_len)
 	struct LCM_PARAMS *lcm_param = disp_lcm_get_params(pgc->plcm);
 	struct LCM_DRIVER *lcm_drv = pgc->plcm->drv;
 	int hrt_table[HRT_LEVEL_NUM];
+	int active_cfg = 0;
 
 	len += scnprintf(stringbuf + len, buf_len - len,
 		"|------------------------------------------------------------------|\n");
@@ -1277,8 +1285,11 @@ int primary_display_get_debug_state(char *stringbuf, int buf_len)
 		primary_display_is_video_mode() ? "video mode" : "cmd mode",
 		primary_display_cmdq_enabled() ? "CMDQ On" : "CMDQ Off");
 
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	active_cfg = primary_display_get_current_cfg_id();
+#endif
 	/* print HRT table */
-	copy_hrt_bound_table(0, hrt_table);
+	copy_hrt_bound_table(0, hrt_table, active_cfg);
 	len += scnprintf(stringbuf + len, buf_len - len, "|HRT table=[");
 	for (i = 0; i < HRT_LEVEL_NUM-1; i++)
 		len += scnprintf(stringbuf + len, buf_len - len, "%d, ",
@@ -1289,6 +1300,12 @@ int primary_display_get_debug_state(char *stringbuf, int buf_len)
 	/*ARR info*/
 	len += scnprintf(stringbuf + len, buf_len - len,
 		"|arr=%d\n", primary_display_is_support_ARR());
+
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	/*DynFPS info*/
+	len += scnprintf(stringbuf + len, buf_len - len,
+		"|DynFPS=%d\n", primary_display_is_support_DynFPS());
+#endif
 	return len;
 }
 
@@ -2045,6 +2062,7 @@ static void directlink_path_add_memory(struct WDMA_CONFIG_STRUCT *p_wdma,
 	struct cmdqRecStruct *cmdq_handle = NULL;
 	struct cmdqRecStruct *cmdq_wait_handle = NULL;
 	struct disp_ddp_path_config *pconfig = NULL;
+	int active_cfg = 0;
 
 	/* create config thread */
 	ret = cmdqRecCreate(CMDQ_SCENARIO_PRIMARY_DISP, &cmdq_handle);
@@ -2065,9 +2083,13 @@ static void directlink_path_add_memory(struct WDMA_CONFIG_STRUCT *p_wdma,
 		goto out;
 	}
 	cmdqRecReset(cmdq_wait_handle);
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	active_cfg = primary_display_get_current_cfg_id();
+#endif
+
 #ifdef MTK_FB_MMDVFS_SUPPORT
 	prim_disp_request_hrt_bw(dvfs_last_ovl_req,
-		DDP_SCENARIO_PRIMARY_ALL, __func__);
+		DDP_SCENARIO_PRIMARY_ALL, __func__, active_cfg);
 #endif
 	/* configure config thread */
 	_cmdq_insert_wait_frame_done_token_mira(cmdq_handle);
@@ -2234,6 +2256,7 @@ static int _DL_switch_to_DC_fast(int block)
 	struct disp_ddp_path_config *data_config_dc = NULL;
 	unsigned int mva = 0;
 	struct ddp_io_golden_setting_arg io_gs;
+	int active_cfg = 0;
 
 	if (primary_is_sec() == 1) {
 		init_sec_buf();
@@ -2320,10 +2343,14 @@ static int _DL_switch_to_DC_fast(int block)
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_switch_mode,
 			 MMPROFILE_FLAG_PULSE, 2, 0);
 
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	active_cfg = primary_display_get_current_cfg_id();
+#endif
 	/* switch to lower gear */
 #ifdef MTK_FB_MMDVFS_SUPPORT
 	prim_disp_request_hrt_bw(2,
-		DDP_SCENARIO_PRIMARY_RDMA0_COLOR0_DISP, __func__);
+		DDP_SCENARIO_PRIMARY_RDMA0_COLOR0_DISP,
+		__func__, active_cfg);
 #endif
 	/* ddp_mmp_rdma_layer(&rdma_config, 0, 20, 20); */
 
@@ -2446,6 +2473,7 @@ static int _DC_switch_to_DL_fast(int block)
 	struct disp_ddp_path_config *data_config_dc = NULL;
 	enum DDP_SCENARIO_ENUM old_scenario, new_scenario;
 	struct ddp_io_golden_setting_arg io_gs;
+	int active_cfg = 0;
 
 	/* 3.destroy ovl->mem path. */
 	data_config_dc = dpmgr_path_get_last_config(pgc->ovl2mem_path_handle);
@@ -2486,10 +2514,13 @@ static int _DC_switch_to_DL_fast(int block)
 	cmdqRecReset(pgc->cmdq_handle_ovl1to2_config);
 	pgc->ovl2mem_path_handle = NULL;
 
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	active_cfg = primary_display_get_current_cfg_id();
+#endif
 #ifdef MTK_FB_MMDVFS_SUPPORT
 	/* switch back to last request gear */
 	prim_disp_request_hrt_bw(dvfs_last_ovl_req,
-			DDP_SCENARIO_PRIMARY_DISP, __func__);
+			DDP_SCENARIO_PRIMARY_DISP, __func__, active_cfg);
 #endif
 
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_switch_mode,
@@ -3658,6 +3689,13 @@ static int _ovl_fence_release_callback(unsigned long userdata)
 	unsigned int new_idle_inteval = 50;/*ms*/
 	unsigned int old_idle_inteval = 50;/*ms*/
 
+	/*DynFPS*/
+	unsigned int config_id = 0;
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	unsigned int _vsyncFPS = 6000;/*real fps * 100*/
+#endif
+
+
 	mmprofile_log_ex(ddp_mmp_get_events()->session_release,
 			 MMPROFILE_FLAG_START, 1, userdata);
 
@@ -3665,11 +3703,25 @@ static int _ovl_fence_release_callback(unsigned long userdata)
 	cmdqBackupReadSlot(pgc->subtractor_when_free, 0, &real_hrt_level);
 	real_hrt_level >>= 16;
 	_primary_path_lock(__func__);
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	/*for HRT*/
+	cmdqBackupReadSlot(pgc->config_id_slot, 0, &config_id);
+	/*for SRT*/
+	if (primary_display_is_support_DynFPS()) {
+		/*SRT use average fps not active timing fps*/
+		primary_display_get_cfg_fps(config_id, &_vsyncFPS, NULL);
+		out_fps = _vsyncFPS / 100;
+	} else {
+		out_fps = primary_display_get_default_disp_fps(0) / 100;
+	}
+#endif
+
 #ifdef MTK_FB_MMDVFS_SUPPORT
 	if ((real_hrt_level >= dvfs_last_ovl_req) &&
 			(!primary_display_is_decouple_mode()))
 			prim_disp_request_hrt_bw(dvfs_last_ovl_req,
-				DDP_SCENARIO_PRIMARY_DISP, __func__);
+				DDP_SCENARIO_PRIMARY_DISP,
+				__func__, config_id);
 #endif
 	_primary_path_unlock(__func__);
 
@@ -4183,7 +4235,10 @@ int primary_display_init(char *lcm_name, unsigned int lcm_fps,
 	init_cmdq_slots(&(pgc->hrt_idx_id), 1, 0);
 	init_cmdq_slots(&(pgc->ovl_sbch_info), OVL_NUM, 0);
 	init_cmdq_slots(&(pgc->trigger_record_slot), 1, 0);
-
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	/*DynFPS*/
+	init_cmdq_slots(&(pgc->config_id_slot), 1, 0);
+#endif
 
 	/* init night light params */
 	mem_config.m_ccorr_config.is_dirty = 1;
@@ -4199,6 +4254,9 @@ int primary_display_init(char *lcm_name, unsigned int lcm_fps,
 	mutex_init(&(pgc->capture_lock));
 	mutex_init(&(pgc->lock));
 	mutex_init(&(pgc->switch_dst_lock));
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	mutex_init(&(pgc->dynfps_lock));
+#endif
 
 	pgc->prev_pm = MTKFB_POWER_MODE_UNKNOWN;
 
@@ -4596,6 +4654,10 @@ int primary_display_init(char *lcm_name, unsigned int lcm_fps,
 	ret = switch_dev_register(&disp_switch_data);
 #endif
 
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	/*DynFPS*/
+	primary_display_init_multi_cfg_info();
+#endif
 	DISPCHECK("%s: done\n", __func__);
 
 done:
@@ -4845,10 +4907,20 @@ int _display_set_lcm_refresh_rate(int fps)
 
 int primary_display_get_lcm_max_refresh_rate(void)
 {
+	unsigned int max_fps = 60;
 	if (disp_lcm_is_support_adjust_fps(pgc->plcm) != 0)
 		return 120;
 
-	return 60;
+	/*ToDo, no use*/
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	if (primary_display_is_support_DynFPS()) {
+		/*ToDo, get max rate from lcm driver*/
+		max_fps = primary_display_get_default_disp_fps(0);
+	} else {
+		max_fps = primary_display_get_default_disp_fps(0);
+	}
+#endif
+	return max_fps;
 }
 
 int primary_display_deinit(void)
@@ -5055,6 +5127,7 @@ int primary_display_suspend(void)
 #ifdef MTK_FB_MMDVFS_SUPPORT
 	unsigned long long bandwidth;
 #endif
+	int active_cfg = 0;
 
 	DISPCHECK("%s begin\n", __func__);
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_suspend,
@@ -5207,6 +5280,14 @@ int primary_display_suspend(void)
 			 MMPROFILE_FLAG_PULSE, 0, 8);
 
 	pgc->lcm_refresh_rate = 60;
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	/*DynFPS*/
+	pgc->lcm_refresh_rate =
+		primary_display_get_default_disp_fps(0) / 100;
+	pgc->lcm_fps = primary_display_get_default_disp_fps(0);
+	pgc->active_cfg = 0;
+	active_cfg = pgc->active_cfg;
+#endif
 	/* pgc->state = DISP_SLEPT; */
 
 done:
@@ -5216,7 +5297,7 @@ done:
 	 * Request DVFS before slept state in case of invalid request
 	 */
 	prim_disp_request_hrt_bw(HRT_BW_UNREQ,
-			DDP_SCENARIO_PRIMARY_DISP, __func__);
+			DDP_SCENARIO_PRIMARY_DISP, __func__, active_cfg);
 #endif
 	primary_set_state(DISP_SLEPT);
 
@@ -5390,7 +5471,17 @@ int primary_display_resume(void)
 		primary_display_init_arr_fps();
 		dynamic_fps_changed = 0;
 	}
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	/*DynFPS*/
+	/* whether need init cfg*/
+	primary_display_init_multi_cfg_info();
+	in_fps = out_fps = primary_display_get_default_disp_fps(0);
+	pgc->first_cfg = 1;
 
+	DISPMSG("%s,g_force_cfg=%d,g_force_cfg_id=%d\n",
+		__func__, g_force_cfg, g_force_cfg_id);
+
+#endif
 
 	DISPDBG("dpmanager path power on[begin]\n");
 	dpmgr_path_power_on(pgc->dpmgr_handle, CMDQ_DISABLE);
@@ -7012,11 +7103,12 @@ static int _config_ovl_input(struct disp_frame_cfg_t *cfg,
 	if (primary_display_is_decouple_mode())
 		prim_disp_request_hrt_bw(2,
 			DDP_SCENARIO_PRIMARY_RDMA0_COLOR0_DISP,
-			__func__);
+			__func__, cfg->active_config);
 	else {
 		if ((overlap_num - dvfs_last_ovl_req) > 0)
 			prim_disp_request_hrt_bw(overlap_num,
-				DDP_SCENARIO_PRIMARY_DISP, __func__);
+				DDP_SCENARIO_PRIMARY_DISP,
+				__func__, cfg->active_config);
 		dvfs_last_ovl_req = overlap_num;
 	}
 
@@ -7217,6 +7309,12 @@ static int primary_frame_cfg_input(struct disp_frame_cfg_t *cfg)
 	disp_path_handle disp_handle;
 	struct cmdqRecStruct *cmdq_handle;
 	struct disp_ccorr_config m_ccorr_config = cfg->ccorr_config;
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	unsigned int _timing_fps = 6000;/*real vact timing fps * 100*/
+	int last_cfg_id = 0;
+	struct disp_ddp_path_config *pconfig = NULL;
+	struct disp_ddp_path_config *ovl2mem_pconfig = NULL;
+#endif
 
 	if (gTriggerDispMode > 0)
 		return 0;
@@ -7258,6 +7356,57 @@ static int primary_frame_cfg_input(struct disp_frame_cfg_t *cfg)
 		cfg->hrt_idx);
 
 	_config_ovl_input(cfg, disp_handle, cmdq_handle);
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	pconfig =
+		dpmgr_path_get_last_config(pgc->dpmgr_handle);
+	if (primary_display_is_decouple_mode())
+		ovl2mem_pconfig =
+		dpmgr_path_get_last_config(pgc->ovl2mem_path_handle);
+
+	last_cfg_id = primary_display_get_current_cfg_id();
+	if (last_cfg_id != cfg->active_config) {
+		/*update golden setting fps for rdma and wdma*/
+		primary_display_get_cfg_fps(
+			cfg->active_config, NULL, &_timing_fps);
+		(pconfig->p_golden_setting_context)->fps =
+			_timing_fps / 100;
+		DISPMSG("%s,update rdma gs fps %d\n",
+			__func__, _timing_fps / 100);
+		if (primary_display_is_decouple_mode()) {
+			/*if dc/dc mirror, wdma should be actual fps
+			 * but dl-mirror, wdma need set to timing fps
+			 * it's ok wdma also set to timing fps when dc/dc mirror
+			 * because only pre-ultra allowed when dc/dc mirror
+			 * wdma will not influence system even more aggressive
+			 */
+			DISPMSG("%s,update wdma gs fps %d\n",
+				__func__, _timing_fps / 100);
+			(ovl2mem_pconfig->p_golden_setting_context)->fps =
+				_timing_fps / 100;
+		}
+		/*if dc, rdma golden setting will be update
+		 *when decouple_update_rdma_config
+		 * for dc, we should not update rdma golden setting here
+		 */
+		if (primary_display_is_directlink_mode() &&
+			disp_helper_get_option(
+			DISP_OPT_DYNAMIC_RDMA_GOLDEN_SETTING)) {
+			DISPMSG("%s,add update rdma gs cmd\n", __func__);
+			/*update rdma golden setting*/
+			dpmgr_path_ioctl(disp_handle, cmdq_handle,
+				 DDP_RDMA_GOLDEN_SETTING,
+				 pconfig);
+		}
+		/*if dc, each config will update wdma and rdma
+		 *golden fps will be update when config wdma &rdma
+		 *no need call wdma & rdma ioctl separately
+		 */
+
+	}
+	/*use for HRT requirement when release fence*/
+	cmdqRecBackupUpdateSlot(cmdq_handle, pgc->config_id_slot,
+						0, cfg->active_config);
+#endif
 
 	/* disp mode may be changed */
 	primary_get_path_handles(&disp_handle, &cmdq_handle);
@@ -7363,6 +7512,9 @@ out:
 int primary_display_frame_cfg(struct disp_frame_cfg_t *cfg)
 {
 	int ret = 0;
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	unsigned int default_fps = 60;
+#endif
 	struct disp_session_sync_info *s_info = NULL;
 	struct dprec_logger_event *input_event, *output_event, *trigger_event;
 
@@ -7380,6 +7532,25 @@ int primary_display_frame_cfg(struct disp_frame_cfg_t *cfg)
 #ifdef CONFIG_MTK_DISPLAY_120HZ_SUPPORT
 	if (pgc->request_fps && HRT_FPS(cfg->overlap_layer_num) == 120)
 		_display_set_lcm_refresh_rate(pgc->request_fps);
+#endif
+
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	/*DynFPS
+	 * inform fpsgo default fps first
+	 */
+	if (pgc->first_cfg) {
+		default_fps = disp_lcm_dynfps_get_def_fps(pgc->plcm);
+		default_fps = default_fps ? default_fps : 6000;
+		DISPMSG("%s,first cfg, fps=%d\n", __func__, default_fps);
+		if (default_fps != 6000) {
+			disp_invoke_fps_chg_callbacks(default_fps / 100);
+			DISPMSG("inform fpsgo fps changed\n");
+		}
+		pgc->first_cfg = 0;
+	}
+	/*DynFPS debug*/
+	if (g_force_cfg)
+		cfg->active_config = g_force_cfg_id;
 #endif
 
 	/* set input */
@@ -7410,6 +7581,12 @@ int primary_display_frame_cfg(struct disp_frame_cfg_t *cfg)
 	if (cfg->present_fence_idx != (unsigned int)-1)
 		primary_display_update_present_fence(cfg->present_fence_idx);
 
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	/*DynFPS*/
+	/*check whether need change fps according cfg*/
+	if (primary_display_is_support_DynFPS())
+		primary_display_dynfps_chg_fps(cfg->active_config);
+#endif
 	dprec_done(trigger_event, 0, 0);
 
 	_primary_path_unlock(__func__);
@@ -8149,6 +8326,7 @@ int primary_display_force_set_fps(unsigned int keep, unsigned int skip)
 
 unsigned int primary_display_force_get_vsync_fps(void/*int need_lock*/)
 {
+	unsigned int _vsync_fps = 60;
 #if 0
 	if (primary_display_is_idle()) {
 		DISPMSG("%s=50, currently it is idle\n", __func__);
@@ -8168,8 +8346,11 @@ unsigned int primary_display_force_get_vsync_fps(void/*int need_lock*/)
 		return pgc->dynamic_fps;
 	}
 
-	DISPMSG("%s=%d, not support ARR\n", __func__, 60);
-	return 60;
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	_vsync_fps = primary_display_get_default_disp_fps(0);
+#endif
+	DISPMSG("%s=%d, not support ARR\n", __func__, _vsync_fps);
+	return _vsync_fps;
 }
 
 int primary_display_force_set_vsync_fps(unsigned int fps, unsigned int scenario)
@@ -8594,8 +8775,10 @@ int primary_display_ccci_mipi_callback(int en, unsigned int usrdata)
 		return 0;
 
 	lcm_param = disp_lcm_get_params(pgc->plcm);
-	if (lcm_param->dsi.dynamic_switch_mipi == 0)
+	if (lcm_param->dsi.dynamic_switch_mipi == 0) {
+		DISPMSG("%s,lcm not support hopping\n", __func__);
 		return 0;
+	}
 
 	DISPMSG("%s,userdata=%d,en=%d\n", __func__, usrdata, en);
 
@@ -10187,7 +10370,7 @@ unsigned int primary_display_get_vfp(unsigned int fps)
 	return vfp;
 
 }
-/*ToDO: ARR, get params, whether need lock*/
+/*ToDO: ARR & DynFPS, get params, whether need lock*/
 unsigned int primary_display_get_idle_interval(unsigned int fps)
 {
 
@@ -10404,5 +10587,538 @@ unsigned int primary_display_current_fps(enum arr_fps_type fps_type,
 	return fps;
 }
 /*---------------- function for fps change end ------------------*/
+
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+/*-----------------DynFPS start-------------------------------*/
+unsigned int primary_display_is_support_DynFPS(void)
+{
+
+	if (disp_helper_get_option(DISP_OPT_DYNAMIC_FPS) &&
+		primary_display_is_video_mode() &&
+		disp_lcm_is_dynfps_support(pgc->plcm)) {
+		DISPDBG("%s,support DynFPS\n", __func__);
+		return 1;
+	}
+	DISPDBG("%s,not support DynFPS\n", __func__);
+	return 0;
+}
+
+int primary_display_get_multi_configs(
+	struct multi_configs *p_cfgs)
+{
+
+	int ret = 0;
+#if 0
+	struct LCM_PARAMS *params;
+	struct LCM_DSI_PARAMS *dsi;
+	struct dfps_info *dfps_info;
+
+	unsigned int tmp_fps_levl = 0;
+
+	unsigned int def_width = 0;
+	unsigned int def_height = 0;
+	unsigned int def_disp_fps = 0;
+	unsigned int multi_cfg_num = 1;
+	unsigned int i = 0;
+#endif
+
+	if (p_cfgs == NULL)
+		return -1;
+
+	/*copy pgc to p_cfgs directly*/
+	memcpy(p_cfgs, &(pgc->multi_cfg_table), sizeof(pgc->multi_cfg_table));
+
+#if 0
+	def_width = primary_display_get_width();
+	def_height = primary_display_get_height();
+	def_disp_fps = primary_display_get_default_disp_fps(0);
+
+	if (!primary_display_is_support_DynFPS()) {
+		DISPCHECK("%s,not support dfps!\n", __func__);
+		p_cfgs->config_num = 1;
+		p_cfgs->dyn_cfgs[0].vsyncFPS = def_disp_fps;
+		p_cfgs->dyn_cfgs[0].vact_timing_fps = def_disp_fps;
+		p_cfgs->dyn_cfgs[0].width = def_width;
+		p_cfgs->dyn_cfgs[0].height = def_height;
+
+		/*resolution switch add here*/
+	} else {
+		params = pgc->plcm->params;
+		dfps_info = params->dsi.dfps_params;
+
+		multi_cfg_num = params->dsi.dfps_num;
+		if (multi_cfg_num > MULTI_CONFIG_NUM)
+			multi_cfg_num = MULTI_CONFIG_NUM;
+
+		for (i = 0; i < multi_cfg_num; i++) {
+			p_cfgs->dyn_cfgs[i].vsyncFPS = dfps_info[i].fps;
+			p_cfgs->dyn_cfgs[i].vact_timing_fps =
+				dfps_info[i].vact_timing_fps;
+			p_cfgs->dyn_cfgs[i].width = def_width;
+			p_cfgs->dyn_cfgs[i].height = def_height;
+			DISPMSG("%s,fps:%d\n", __func__, dfps_info[i].fps);
+
+		}
+		p_cfgs->config_num = multi_cfg_num;
+
+	}
+
+	DISPMSG("%s, num :%d\n", __func__, multi_cfg_num);
+#endif
+	return ret;
+
+}
+
+void primary_display_init_multi_cfg_info(void)
+{
+	unsigned int def_vsync_fps = 6000;
+	unsigned int def_width = 0, def_height = 0;
+
+	struct LCM_PARAMS *params = NULL;
+	struct dfps_info *dfps_info;
+	unsigned int multi_cfg_num = 1;
+	unsigned int i = 0;
+
+	/*get default  fps info*/
+	def_vsync_fps = disp_lcm_dynfps_get_def_fps(pgc->plcm);
+	def_vsync_fps = def_vsync_fps ? def_vsync_fps : 6000;
+
+	/*get default width height*/
+	def_width = primary_display_get_width();
+	def_height = primary_display_get_height();
+
+	if (primary_display_is_support_DynFPS() &&
+		disp_lcm_dynfps_get_dfps_num(pgc->plcm) > 0) {
+
+		params = pgc->plcm->params;
+		dfps_info = params->dsi.dfps_params;
+
+		multi_cfg_num = params->dsi.dfps_num;
+		if (multi_cfg_num > MULTI_CONFIG_NUM)
+			multi_cfg_num = MULTI_CONFIG_NUM;
+
+		for (i = 0; i < multi_cfg_num; i++) {
+			pgc->multi_cfg_table.dyn_cfgs[i].vsyncFPS =
+				dfps_info[i].fps;
+			pgc->multi_cfg_table.dyn_cfgs[i].vact_timing_fps =
+				dfps_info[i].vact_timing_fps;
+			pgc->multi_cfg_table.dyn_cfgs[i].width = def_width;
+			pgc->multi_cfg_table.dyn_cfgs[i].height = def_height;
+			DISPMSG("%s,L[%d]fps:%d\n",
+				__func__, i, dfps_info[i].fps);
+		}
+		pgc->multi_cfg_table.config_num = multi_cfg_num;
+
+	} else {
+		pgc->multi_cfg_table.config_num = 1;
+		pgc->multi_cfg_table.dyn_cfgs[0].vsyncFPS =
+			def_vsync_fps;
+		pgc->multi_cfg_table.dyn_cfgs[0].vact_timing_fps =
+			def_vsync_fps;
+		pgc->multi_cfg_table.dyn_cfgs[0].width = def_width;
+		pgc->multi_cfg_table.dyn_cfgs[0].height = def_height;
+
+		/*resolution switch info add here*/
+	}
+
+	pgc->lcm_refresh_rate = def_vsync_fps / 100;
+	pgc->lcm_fps = def_vsync_fps;
+	pgc->active_cfg = 0;
+
+}
+
+#if 0
+unsigned int primary_display_get_req_disp_fps(int need_lock)
+{
+	unsigned int _req_disp_fps = 60;
+	unsigned int _default_disp_fps = 60;
+
+	if (need_lock)
+		_primary_path_lock(__func__);
+
+	if (primary_display_is_support_DynFPS()) {
+		_req_disp_fps = pgc->req_new_disp_fps;
+	} else {
+		_default_disp_fps = disp_lcm_dynfps_get_def_fps(pgc->plcm);
+		_default_disp_fps = _default_disp_fps ? _default_disp_fps : 60;
+
+		_req_disp_fps = _default_disp_fps;
+	}
+	DISPDBG("%s,fps=%d\n", __func__, _req_disp_fps);
+
+	if (need_lock)
+		_primary_path_unlock(__func__);
+
+	return _req_disp_fps;
+
+	/*ToDo*/
+	/*return pgc->req_disp_fps directly*/
+
+}
+#endif
+unsigned int primary_display_get_default_disp_fps(int need_lock)
+{
+	unsigned int _default_disp_fps = 6000;
+
+	if (need_lock)
+		_primary_path_lock(__func__);
+
+	_default_disp_fps = disp_lcm_dynfps_get_def_fps(pgc->plcm);
+	_default_disp_fps = _default_disp_fps ? _default_disp_fps : 6000;
+
+	if (need_lock)
+		_primary_path_unlock(__func__);
+
+	return _default_disp_fps;
+}
+unsigned int primary_display_get_def_timing_fps(int need_lock)
+{
+	unsigned int _def_timing_fps = 6000;
+	unsigned int _def_disp_fps = 6000;
+
+	if (need_lock)
+		_primary_path_lock(__func__);
+
+	_def_disp_fps = primary_display_get_default_disp_fps(0);
+
+	_def_timing_fps = disp_lcm_dynfps_get_def_timing_fps(pgc->plcm);
+	_def_timing_fps = _def_timing_fps ? _def_timing_fps : _def_disp_fps;
+
+	if (need_lock)
+		_primary_path_unlock(__func__);
+
+	return _def_timing_fps;
+}
+
+
+int primary_display_get_cfg_fps(
+	int config_id, unsigned int *fps, unsigned int *vact_timing_fps)
+{
+	int ret = 0;
+	unsigned int _vsyncFPS = 6000;
+	unsigned int _timing_fps = 6000;
+	struct multi_configs *p_cfgs = NULL;
+	struct dyn_config_info *dyn_cfgs = NULL;
+
+
+	_vsyncFPS = primary_display_get_default_disp_fps(0);
+	_timing_fps = primary_display_get_def_timing_fps(0);
+
+	if (primary_display_is_support_DynFPS()) {
+		p_cfgs = &(pgc->multi_cfg_table);
+
+		if (p_cfgs->config_num > 0 &&
+			config_id < p_cfgs->config_num) {
+			dyn_cfgs = p_cfgs->dyn_cfgs;
+
+			_vsyncFPS = dyn_cfgs[config_id].vsyncFPS;
+			_timing_fps = dyn_cfgs[config_id].vact_timing_fps;
+		}
+	}
+	if (fps)
+		*fps = _vsyncFPS;
+	if (vact_timing_fps)
+		*vact_timing_fps = _timing_fps;
+
+	DISPINFO("%s,[DynFPS]cfg:%d,fps[%d:t-%d]\n",
+		__func__, config_id, _vsyncFPS, _timing_fps);
+	return ret;
+}
+
+#if 0
+bool primary_display_need_update_golden_fps(
+	unsigned int last_fps, unsigned int new_fps)
+{
+	unsigned int fps_change_index;
+
+	DISPINFO("%s,%d - %d\n", __func__, last_fps, new_fps);
+	if (last_fps == new_fps)
+		return false;
+
+	fps_change_index = disp_lcm_get_fps_change_index(
+							last_fps, new_fps);
+	if (fps_change_index == DYNFPS_NOT_DEFINED) {
+		DISPCHECK("%s,not support!\n", __func__);
+		return false;
+	}
+	if (fps_change_index == DYNFPS_DSI_VFP)
+		return false;
+	if (fps_change_index == DYNFPS_DSI_HFP ||
+		fps_change_index == DYNFPS_DSI_MIPI_CLK)
+		return true;
+	return false;
+}
+
+
+bool primary_display_need_update_hrt_fps(
+	unsigned int last_fps, unsigned int new_fps)
+{
+	unsigned int fps_change_index;
+
+	DISPINFO("%s,%d - %d\n", __func__, last_fps, new_fps);
+	if (last_fps == new_fps)
+		return false;
+
+	fps_change_index = disp_lcm_get_fps_change_index(
+							last_fps, new_fps);
+	if (fps_change_index == DYNFPS_NOT_DEFINED) {
+		DISPCHECK("%s,not support!\n", __func__);
+		return false;
+	}
+	if (fps_change_index == DYNFPS_DSI_VFP)
+		return false;
+	if (fps_change_index == DYNFPS_DSI_HFP ||
+		fps_change_index == DYNFPS_DSI_MIPI_CLK)
+		return true;
+	return false;
+}
+
+
+int primary_display_get_multi_configs(
+	struct multi_configs *p_cfgs)
+{
+
+	int ret = 0;
+	struct LCM_PARAMS *params;
+	struct LCM_DSI_PARAMS *dsi;
+	struct dfps_info *dfps_info;
+
+	unsigned int tmp_fps_levl = 0;
+
+	unsigned int def_width = 0;
+	unsigned int def_height = 0;
+	unsigned int def_disp_fps = 0;
+	unsigned int multi_cfg_num = 1;
+	unsigned int i = 0;
+
+	if (p_cfgs == NULL)
+		return -1;
+
+	def_width = primary_display_get_width();
+	def_height = primary_display_get_height();
+	def_disp_fps = primary_display_get_default_disp_fps(0);
+
+	if (!primary_display_is_support_DynFPS()) {
+		DISPCHECK("%s,not support dfps!\n", __func__);
+		p_cfgs->config_num = 1;
+		p_cfgs->dyn_cfgs[0].vsyncFPS = def_disp_fps;
+		p_cfgs->dyn_cfgs[0].width = def_width;
+		p_cfgs->dyn_cfgs[0].height = def_height;
+
+		/*resolution switch add here*/
+	} else {
+		params = pgc->plcm->params;
+		dfps_info = params->dsi.dfps_params;
+
+		multi_cfg_num = params->dsi.dfps_num;
+		for (i = 0; i < multi_cfg_num; i++) {
+			p_cfgs->dyn_cfgs[i].vsyncFPS = dfps_info[i].fps;
+			p_cfgs->dyn_cfgs[i].width = def_width;
+			p_cfgs->dyn_cfgs[i].height = def_height;
+			DISPMSG("%s,dfps[%d] fps:%d\n",
+				__func__, i, p_cfgs->dyn_cfgs[i].vsyncFPS);
+
+		}
+		p_cfgs->config_num = multi_cfg_num;
+
+	}
+
+	DISPMSG("%s, num :%d\n", __func__, multi_cfg_num);
+
+	return ret;
+
+}
+#endif
+
+unsigned int primary_display_get_current_cfg_id(void)
+{
+	unsigned int active_cfg = 0;
+
+	mutex_lock(&(pgc->dynfps_lock));
+	active_cfg = pgc->active_cfg;
+	mutex_unlock(&(pgc->dynfps_lock));
+
+	return active_cfg;
+}
+void primary_display_update_cfg_id(int cfg_id)
+{
+	mutex_lock(&(pgc->dynfps_lock));
+	pgc->active_cfg = cfg_id;
+	mutex_unlock(&(pgc->dynfps_lock));
+}
+
+void primary_display_dynfps_chg_fps(int cfg_id)
+{
+	int last_cfg_id;
+	unsigned int new_dynfps;
+	unsigned int last_dynfps;
+	unsigned int fps_change_index;
+	bool need_send_cmd = false;
+	enum LCM_Send_Cmd_Mode sendmode;
+	struct cmdqRecStruct *qhandle = NULL;
+	int ret = 0;
+	unsigned int _idle_timeout = 50;/*ms*/
+	struct LCM_PARAMS *params;
+
+	/*1,check whether fps changed*/
+	/*last_cfg_id = pgc->active_cfg;*/
+	last_cfg_id = primary_display_get_current_cfg_id();
+
+	DISPDBG("%s,g_force_cfg=%d,g_force_cfg_id=%d\n",
+		__func__, g_force_cfg, g_force_cfg_id);
+	if (cfg_id == last_cfg_id) {
+		DISPDBG("%s,cfg_id no change:%d\n",
+			__func__, last_cfg_id);
+		return;
+	}
+
+	primary_display_get_cfg_fps(last_cfg_id, &last_dynfps, NULL);
+	primary_display_get_cfg_fps(cfg_id, &new_dynfps, NULL);
+
+	if (new_dynfps == last_dynfps)
+		return;
+
+	DISPMSG("%s,cfg_id:%d -> %d\n", __func__, last_cfg_id, cfg_id);
+	DISPMSG("%s,fps:%d -> %d\n", __func__, last_dynfps, new_dynfps);
+	/*2, do fps change*/
+	fps_change_index = ddp_dsi_fps_change_index(
+						last_dynfps, new_dynfps);
+
+	if (pgc->plcm == NULL) {
+		DISPMSG("lcm handle is null\n");
+		ASSERT(0);
+	}
+	params = pgc->plcm->params;
+	need_send_cmd = disp_lcm_need_send_cmd(
+				pgc->plcm, last_dynfps, new_dynfps);
+	sendmode = params->sendmode;
+	DISPMSG("%s,need_send_cmd:%b in %s\n", __func__, need_send_cmd, sendmode);
+
+	if (fps_change_index & DYNFPS_DSI_MIPI_CLK ||
+		fps_change_index & DYNFPS_DSI_HFP) {
+
+		DISPMSG("%s,1H timing may changed\n", __func__);
+
+		/* choose esd check GCE thread and
+		 * keep mipi hopping also use esd check GCE thread
+		 * can avoid competition between esd check,mipi hopping
+		 * and dynfps
+		 */
+		ret = cmdqRecCreate(
+			CMDQ_SCENARIO_DISP_ESD_CHECK, &qhandle);
+		if (ret) {
+			DISPCHECK("%s,cmdq create fail!\n", __func__);
+			return;
+		}
+
+		cmdqRecReset(qhandle);
+		/*wait and clear EOF
+		 * avoid other display related task break fps change task
+		 * because fps change need stop & re-start vdo mode
+		 */
+		cmdqRecWait(qhandle, CMDQ_EVENT_MUTEX0_STREAM_EOF);
+
+		if (need_send_cmd ||
+			(fps_change_index & DYNFPS_DSI_MIPI_CLK)) {
+			DISPMSG("%s,stop vdo mode\n", __func__);
+			dpmgr_path_build_cmdq(pgc->dpmgr_handle, qhandle,
+					CMDQ_STOP_VDO_MODE, 0);
+		}
+		if (need_send_cmd) {
+			DISPMSG("%s,send cmd to lcm\n", __func__);
+			disp_lcm_dynfps_send_cmd(pgc->plcm, qhandle,
+				last_dynfps, new_dynfps);
+		}
+
+		ddp_dsi_dynfps_chg_fps(DISP_MODULE_DSI0, qhandle,
+			last_dynfps, new_dynfps, fps_change_index);
+
+		if (need_send_cmd ||
+			(fps_change_index & DYNFPS_DSI_MIPI_CLK)) {
+			DISPMSG("%s,start vdo mode\n", __func__);
+			dpmgr_path_build_cmdq(pgc->dpmgr_handle, qhandle,
+		    CMDQ_START_VDO_MODE, 0);
+			/*clear EOF
+			 *avoid config continue after we trigger vdo mode
+			 */
+			cmdqRecClearEventToken(qhandle,
+				CMDQ_EVENT_MUTEX0_STREAM_EOF);
+
+			/* trigger path */
+			DISPMSG("%s,trigger path\n", __func__);
+			dpmgr_path_trigger(primary_get_dpmgr_handle(),
+				qhandle, CMDQ_ENABLE);
+		}
+
+		cmdqRecFlushAsync(qhandle);
+		/*cmdqRecFlush(qhandle);*/
+
+	} else if (fps_change_index & DYNFPS_DSI_VFP) {
+
+		ret = cmdqRecCreate(
+		CMDQ_SCENARIO_DISP_ESD_CHECK, &qhandle);
+		if (ret) {
+			DISPCHECK("%s,cmdq create fail!\n", __func__);
+			return;
+		}
+		cmdqRecReset(qhandle);
+
+		if (need_send_cmd) {
+			cmdqRecWait(qhandle, CMDQ_EVENT_MUTEX0_STREAM_EOF);
+			DISPMSG("%s,send cmd to lcm in VFP solution\n", __func__);
+			disp_lcm_dynfps_send_cmd(pgc->plcm, qhandle,
+				last_dynfps, new_dynfps);
+		}
+
+		cmdqRecClearEventToken(qhandle,
+				CMDQ_EVENT_DISP_RDMA0_SOF);
+		cmdqRecWaitNoClear(
+			qhandle, CMDQ_EVENT_DISP_RDMA0_SOF);
+		/*now only primary display support*/
+		ddp_dsi_dynfps_chg_fps(DISP_MODULE_DSI0, qhandle,
+			last_dynfps, new_dynfps, fps_change_index);
+
+		cmdqRecFlushAsync(qhandle);
+
+	}
+	cmdqRecDestroy(qhandle);
+	/*3, inform fps go directly*/
+	disp_invoke_fps_chg_callbacks(new_dynfps / 100);
+
+	/*4, update idle timeout*/
+	_idle_timeout =	primary_display_get_idle_interval(new_dynfps / 100);
+	disp_lp_set_idle_check_interval(_idle_timeout);
+
+	/*5, update active_cfg*/
+	primary_display_update_cfg_id(cfg_id);
+	pgc->lcm_refresh_rate = new_dynfps / 100;
+	pgc->lcm_fps = new_dynfps;
+
+	DISPMSG("%s,done\n", __func__);
+
+}
+
+void primary_display_dynfps_get_vfp_info(
+	unsigned int *vfp, unsigned int *vfp_for_lp)
+{
+	unsigned int cfg_id;
+	unsigned int fps;
+
+	cfg_id = primary_display_get_current_cfg_id();
+	primary_display_get_cfg_fps(cfg_id, &fps, NULL);
+
+	ddp_dsi_dynfps_get_vfp_info(fps, vfp, vfp_for_lp);
+}
+
+#if 0
+void _primary_display_fps_change_callback(void)
+{
+	/*inform to fpsgo*/
+
+	/*update pgc related parameters*/
+}
+#endif
+/*-----------------DynFPS end-------------------------------*/
+#endif
 
 

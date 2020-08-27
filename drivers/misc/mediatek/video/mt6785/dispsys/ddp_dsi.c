@@ -178,6 +178,9 @@ struct t_dsi_context {
 	//high frame rate
 	unsigned int data_phy_cycle;
 	unsigned int HS_TRAIL;
+	/*DynFPS*/
+	unsigned int disp_fps;
+	unsigned int dynfps_chg_index;
 };
 
 struct t_dsi_context _dsi_context[DSI_INTERFACE_NUM];
@@ -675,11 +678,27 @@ void DSI_exit_ULPS(enum DISP_MODULE_ENUM module)
 	int i = 0;
 	int ret = 0;
 	unsigned int lane_num_bitvalue = 0;
+	int wake_up_prd = 0;
+	struct t_condition_wq *waitq;
 	unsigned int data_rate = _dsi_context[i].dsi_params.data_rate != 0 ?
 			_dsi_context[i].dsi_params.data_rate :
 			_dsi_context[i].dsi_params.PLL_CLOCK * 2;
-	int wake_up_prd = (data_rate * 1000) / (1024 * 8) + 0x1;
-	struct t_condition_wq *waitq;
+
+	/*for mipi hopping*/
+	if (mipi_clk_change_sta) {
+		data_rate = _dsi_context[i].dsi_params.data_rate_dyn != 0 ?
+			_dsi_context[i].dsi_params.data_rate_dyn :
+			_dsi_context[i].dsi_params.PLL_CLOCK_dyn * 2;
+
+	}
+	/*DynFPS*/
+	/*exit ulps only happen when power on
+	 * and power on need use the default fps,
+	 * because init sequence using default fps
+	 * no need check dynfps value
+	 */
+
+	wake_up_prd = (data_rate * 1000) / (1024 * 8) + 0x1;
 
 	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
 		DSI_OUTREGBIT(NULL, struct DSI_PHY_LD0CON_REG,
@@ -797,7 +816,21 @@ static void _dsi_wait_not_busy_(enum DISP_MODULE_ENUM module,
 		return;
 
 	if (cmdq) {
+#if 0
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+		cmdqRecWait(cmdq,
+		(i == 0) ?
+		CMDQ_EVENT_DSI0_DONE_EVENT :
+		CMDQ_EVENT_DSI1_DONE_EVENT);
+		/*avoid influence the stability already achieved
+		 * only change to wait for DynFPS
+		 */
+#else
 		DSI_POLLREG32(cmdq, &DSI_REG[i]->DSI_INTSTA, 0x80000000, 0x0);
+#endif
+#endif
+		DSI_POLLREG32(cmdq, &DSI_REG[i]->DSI_INTSTA, 0x80000000, 0x0);
+
 		return;
 	}
 
@@ -962,38 +995,140 @@ void DSI_CPHY_Calc_VDO_Timing(enum DISP_MODULE_ENUM module,
 	unsigned int t_hbllp;
 	unsigned int lane_num = 0;
 	unsigned int data_phy_cycle;
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	unsigned int j = 0;
+	struct dfps_info *dfps_params = NULL;
+#endif
+	unsigned int _vfp, _vbp, _vsa;
+	unsigned int _vfp_dyn, _vbp_dyn, _vsa_dyn;
+	unsigned int _hfp, _hbp, _hsa;
+	unsigned int _hfp_dyn, _hbp_dyn, _hsa_dyn;
+
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	/*DynFPS get current fps info*/
+	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
+		/*if not power on scenario
+		 * if disp_fps !=0 means dynfps happen
+		 */
+		DDPMSG("%s, _dsi_context[i].disp_fps=%d\n",
+		__func__, _dsi_context[i].disp_fps);
+
+		if (_dsi_context[i].disp_fps) {
+			for (j = 0; j < dsi_params->dfps_num; j++) {
+				if ((dsi_params->dfps_params)[j].fps ==
+					_dsi_context[i].disp_fps) {
+					dfps_params =
+						&((dsi_params->dfps_params)[j]);
+					DDPMSG("%s,_dsi_context fps:%d\n",
+					__func__, _dsi_context[i].disp_fps);
+					break;
+				}
+			}
+		}
+	}
+#endif
+	/****t_vfp****/
+	_vfp =  dsi_params->vertical_frontporch;
+	_vfp_dyn = dsi_params->vertical_frontporch_dyn;
+
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	if (dfps_params) {
+		if (dfps_params->vertical_frontporch)
+			_vfp = dfps_params->vertical_frontporch;
+		if (dfps_params->vertical_frontporch_dyn)
+			_vfp_dyn = dfps_params->vertical_frontporch_dyn;
+	}
+#endif
 
 	t_vfp = (mipi_clk_change_sta) ?
-		(dsi_params->vertical_frontporch_dyn == 0 ?
-		 dsi_params->vertical_frontporch :
-		 dsi_params->vertical_frontporch_dyn) :
-		dsi_params->vertical_frontporch;
-	t_vbp = (mipi_clk_change_sta) ?
-		(dsi_params->vertical_backporch_dyn == 0 ?
-		 dsi_params->vertical_backporch :
-		 dsi_params->vertical_backporch_dyn) :
-		dsi_params->vertical_backporch;
-	t_vsa = (mipi_clk_change_sta) ?
-		(dsi_params->vertical_sync_active_dyn == 0 ?
-		 dsi_params->vertical_sync_active :
-		 dsi_params->vertical_sync_active_dyn) :
-		dsi_params->vertical_sync_active;
+		(_vfp_dyn == 0 ? _vfp : _vfp_dyn) :
+		_vfp;
 
+	/****t_vbp****/
+	_vbp =  dsi_params->vertical_backporch;
+	_vbp_dyn = dsi_params->vertical_backporch_dyn;
+
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	if (dfps_params) {
+		if (dfps_params->vertical_backporch)
+			_vbp = dfps_params->vertical_backporch;
+		if (dfps_params->vertical_backporch_dyn)
+			_vbp_dyn = dfps_params->vertical_backporch_dyn;
+	}
+#endif
+	t_vbp = (mipi_clk_change_sta) ?
+		(_vbp_dyn == 0 ? _vbp : _vbp_dyn) :
+		_vbp;
+
+
+	/****t_vsa****/
+	_vsa =  dsi_params->vertical_sync_active;
+	_vsa_dyn = dsi_params->vertical_sync_active_dyn;
+
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	if (dfps_params) {
+		if (dfps_params->vertical_sync_active)
+			_vsa = dfps_params->vertical_sync_active;
+		if (dfps_params->vertical_sync_active_dyn)
+			_vsa_dyn = dfps_params->vertical_sync_active_dyn;
+	}
+#endif
+	t_vsa = (mipi_clk_change_sta) ?
+		(_vsa_dyn == 0 ? _vsa : _vsa_dyn) :
+		_vsa;
+
+	/****t_hbp****/
+	_hbp =  dsi_params->horizontal_backporch;
+	_hbp_dyn = dsi_params->horizontal_backporch_dyn;
+
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	if (dfps_params) {
+		if (dfps_params->horizontal_backporch)
+			_hbp = dfps_params->horizontal_backporch;
+		if (dfps_params->horizontal_backporch_dyn)
+			_hbp_dyn = dfps_params->horizontal_backporch_dyn;
+	}
+#endif
 	t_hbp = (mipi_clk_change_sta) ?
-		(dsi_params->horizontal_backporch_dyn == 0 ?
-		 dsi_params->horizontal_backporch :
-		 dsi_params->horizontal_backporch_dyn) :
-		dsi_params->horizontal_backporch;
+		(_hbp_dyn == 0 ? _hbp : _hbp_dyn) :
+		_hbp;
+
+	/****t_hfp****/
+	_hfp =  dsi_params->horizontal_frontporch;
+	_hfp_dyn = dsi_params->horizontal_frontporch_dyn;
+
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	if (dfps_params) {
+		if (dfps_params->horizontal_frontporch)
+			_hfp = dfps_params->horizontal_frontporch;
+		if (dfps_params->horizontal_frontporch_dyn)
+			_hfp_dyn = dfps_params->horizontal_frontporch_dyn;
+	}
+#endif
 	t_hfp = (mipi_clk_change_sta) ?
-		(dsi_params->horizontal_frontporch_dyn == 0 ?
-		 dsi_params->horizontal_frontporch :
-		 dsi_params->horizontal_frontporch_dyn) :
-		dsi_params->horizontal_frontporch;
+		(_hfp_dyn == 0 ? _hfp : _hfp_dyn) :
+		_hfp;
+
+	/****t_hsa****/
+	_hsa =  dsi_params->horizontal_sync_active;
+	_hsa_dyn = dsi_params->horizontal_sync_active_dyn;
+
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	if (dfps_params) {
+		if (dfps_params->horizontal_sync_active)
+			_hfp = dfps_params->horizontal_sync_active;
+		if (dfps_params->horizontal_sync_active_dyn)
+			_hfp_dyn = dfps_params->horizontal_sync_active_dyn;
+	}
+#endif
 	t_hsa = (mipi_clk_change_sta) ?
-		(dsi_params->horizontal_sync_active_dyn == 0 ?
-		 dsi_params->horizontal_sync_active :
-		 dsi_params->horizontal_sync_active_dyn) :
-		dsi_params->horizontal_sync_active;
+		(_hsa_dyn == 0 ? _hsa : _hsa_dyn) :
+		_hsa;
+
+	DDPMSG("%s,t_vfp=%d, t_vbp=%d, t_vsa=%d\n",
+		__func__, t_vfp, t_vbp, t_vsa);
+	DDPMSG("%s,t_hbp=%d, t_hfp=%d, t_hsa=%d\n",
+		__func__, t_hbp, t_hfp, t_hsa);
 
 	if (dsi_params->data_format.format == LCM_DSI_FORMAT_RGB565)
 		dsiTmpBufBpp = 2;
@@ -1070,6 +1205,15 @@ void DSI_CPHY_Calc_VDO_Timing(enum DISP_MODULE_ENUM module,
 		_dsi_context[i].hbp_byte = t_hbp;
 		_dsi_context[i].hfp_byte = t_hfp;
 		_dsi_context[i].hbllp_byte = t_hbllp;
+
+		DISPMSG("%s,update _dsi_context[%d]\n",
+			__func__, i);
+		DISPMSG("%s,ctx[vsa=%d,vbp=%d,vfp=%d]\n",
+			__func__, t_vsa, t_vbp, t_vfp);
+		DISPMSG("%s,ctx[hsa_byte=%d,hbp_byte=%d]\n",
+			__func__, t_hsa, t_hbp);
+		DISPMSG("%s,ctx[hfp_byte=%d,hbllp_byte=%d]\n",
+			__func__, t_hfp, t_hbllp);
 	}
 }
 
@@ -1465,9 +1609,64 @@ void DSI_CPHY_clk_setting(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cm
 	unsigned int pcw = 0;
 	unsigned int posdiv = 0;
 	unsigned int prediv = 0;
-	unsigned int data_Rate = dsi_params->PLL_CLOCK*2;
+	unsigned int data_Rate = 0;
+	unsigned int data_Rate_dyn = 0;
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	unsigned int j = 0;
+	struct dfps_info *dfps_params = NULL;
+#endif
 
+	/*for mipi hopping*/
+	data_Rate = dsi_params->data_rate != 0 ?
+					dsi_params->data_rate :
+					dsi_params->PLL_CLOCK * 2;
 
+	if (mipi_clk_change_sta) {
+		data_Rate_dyn = dsi_params->data_rate_dyn != 0 ?
+						dsi_params->data_rate_dyn :
+						dsi_params->PLL_CLOCK_dyn * 2;
+		if (!data_Rate_dyn)
+			data_Rate = data_Rate_dyn;
+	}
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	/*ToDo, move to a function, dphy also add this function*/
+	/*for DynFPS*/
+	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
+		/*if not power on scenario
+		 * if disp_fps !=0 means dynfps happen
+		 */
+		if (_dsi_context[i].disp_fps &&
+			(_dsi_context[i].dynfps_chg_index &
+			DYNFPS_DSI_MIPI_CLK)) {
+			for (j = 0; j < dsi_params->dfps_num; j++) {
+				if ((dsi_params->dfps_params)[j].fps ==
+					_dsi_context[i].disp_fps) {
+					dfps_params =
+						&((dsi_params->dfps_params)[j]);
+					DDPMSG("%s,_dsi_context fps:%d\n",
+					__func__, _dsi_context[i].disp_fps);
+					break;
+				}
+			}
+			if (!mipi_clk_change_sta) {
+				if (dfps_params->data_rate != 0 ||
+					dfps_params->PLL_CLOCK != 0)
+					data_Rate =
+						dfps_params->data_rate != 0 ?
+						dfps_params->data_rate :
+						dfps_params->PLL_CLOCK * 2;
+			} else {
+				if (dfps_params->data_rate_dyn != 0 ||
+					dfps_params->PLL_CLOCK_dyn != 0)
+					data_Rate =
+					dfps_params->data_rate_dyn != 0 ?
+					dfps_params->data_rate_dyn :
+					dfps_params->PLL_CLOCK_dyn * 2;
+
+			}
+		}
+	}
+#endif
 	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
 		//MIPITX_OUTREG32(DSI_PHY_REG[i]+MIPITX_IMPENDANCE_2, 0x00001010);
 
@@ -2205,6 +2404,8 @@ void DSI_MIPI_clk_change(enum DISP_MODULE_ENUM module, void *cmdq, int clk)
 		}
 	}
 }
+void DSI_PHY_TIMCONFIG(enum DISP_MODULE_ENUM module,
+	struct cmdqRecStruct *cmdq, struct LCM_DSI_PARAMS *dsi_params);
 
 int mipi_clk_change(enum DISP_MODULE_ENUM module, int en)
 {
@@ -2214,41 +2415,190 @@ int mipi_clk_change(enum DISP_MODULE_ENUM module, int en)
 	bool mod_vfp, mod_vbp, mod_vsa;
 	bool mod_hfp, mod_hbp, mod_hsa;
 	unsigned int data_rate;
+	unsigned int _vfp, _vbp, _vsa;
+	unsigned int _hfp, _hbp, _hsa;
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	unsigned int j = 0;
+	/*not consider dual pipe in*/
+	struct dfps_info *dfps_params = NULL;
+#endif
 
 	i = DSI_MODULE_BEGIN(module);
 	dsi_params = &_dsi_context[i].dsi_params;
-	mod_vfp = !!dsi_params->vertical_frontporch_dyn;
-	mod_vbp = !!dsi_params->vertical_backporch_dyn;
-	mod_vsa = !!dsi_params->vertical_sync_active_dyn;
-	mod_hfp = !!dsi_params->horizontal_frontporch_dyn;
-	mod_hbp = !!dsi_params->horizontal_backporch_dyn;
-	mod_hsa = !!dsi_params->horizontal_sync_active_dyn;
+
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	/*DynFPS get current fps info*/
+	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
+		/*if not power on scenario
+		 * if disp_fps !=0 means dynfps happen
+		 */
+		if (_dsi_context[i].disp_fps) {
+			for (j = 0; j < dsi_params->dfps_num; j++) {
+				if ((dsi_params->dfps_params)[j].fps ==
+					_dsi_context[i].disp_fps) {
+					dfps_params =
+					&((dsi_params->dfps_params)[j]);
+					DISPMSG("%s,disp_fps=%d\n",
+					__func__, _dsi_context[i].disp_fps);
+					break;
+				}
+			}
+		}
+	}
+	if (dfps_params &&
+		dfps_params->dynamic_switch_mipi == 0) {
+		DISPMSG("%s,not support mipi hopping for %d\n",
+			__func__, _dsi_context[i].disp_fps);
+		return 0;
+	}
+#endif
+	_vfp = dsi_params->vertical_frontporch_dyn;
+
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	if (dfps_params) {
+		if (dfps_params->vertical_frontporch_dyn)
+			_vfp = dfps_params->vertical_frontporch_dyn;
+	}
+#endif
+	_vbp = dsi_params->vertical_backporch_dyn;
+
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	if (dfps_params) {
+		if (dfps_params->vertical_backporch_dyn)
+			_vbp = dfps_params->vertical_backporch_dyn;
+	}
+#endif
+	_vsa = dsi_params->vertical_sync_active_dyn;
+
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	if (dfps_params) {
+		if (dfps_params->vertical_sync_active_dyn)
+			_vsa = dfps_params->vertical_sync_active_dyn;
+	}
+#endif
+	_hfp = dsi_params->horizontal_frontporch_dyn;
+
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	if (dfps_params) {
+		if (dfps_params->horizontal_frontporch_dyn)
+			_hfp = dfps_params->horizontal_frontporch_dyn;
+	}
+#endif
+	_hbp = dsi_params->horizontal_backporch_dyn;
+
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	if (dfps_params) {
+		if (dfps_params->horizontal_backporch_dyn)
+			_hbp = dfps_params->horizontal_backporch_dyn;
+	}
+#endif
+	_hsa = dsi_params->horizontal_sync_active_dyn;
+
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	if (dfps_params) {
+		if (dfps_params->horizontal_sync_active_dyn)
+			_hsa = dfps_params->horizontal_sync_active_dyn;
+	}
+#endif
+
+	mod_vfp = !!_vfp;
+	mod_vbp = !!_vbp;
+	mod_vsa = !!_vsa;
+	mod_hfp = !!_hfp;
+	mod_hbp = !!_hbp;
+	mod_hsa = !!_hsa;
 
 	if (en) {
 		data_rate = dsi_params->data_rate_dyn != 0 ?
 			dsi_params->data_rate_dyn :
 			dsi_params->PLL_CLOCK_dyn * 2;
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+		if (dfps_params) {
+			if (dfps_params->data_rate_dyn ||
+				dfps_params->PLL_CLOCK_dyn)
+				data_rate =
+				dfps_params->data_rate_dyn != 0 ?
+				dfps_params->data_rate_dyn :
+				dfps_params->PLL_CLOCK_dyn * 2;
+		}
+#endif
 		mipi_clk_change_sta = 1;
 	} else {
 		data_rate = dsi_params->data_rate != 0 ?
 			dsi_params->data_rate : dsi_params->PLL_CLOCK * 2;
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+		if (dfps_params) {
+			if (dfps_params->data_rate ||
+				dfps_params->PLL_CLOCK)
+				data_rate =
+				dfps_params->data_rate != 0 ?
+				dfps_params->data_rate :
+				dfps_params->PLL_CLOCK * 2;
+		}
+#endif
 		mipi_clk_change_sta = 0;
 	}
 
-	if (DSI_REG[i]->DSI_MODE_CTRL.MODE)
-		DSI_Calc_VDO_Timing(module, dsi_params);
+	if (_is_power_on_status(module) == 0) {
+		DISPMSG("%s,suspend,skip hopping\n", __func__);
+		return 0;
+	}
 
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	DISPMSG("%s,mipi_clk_change_sta=%d\n",
+		__func__, mipi_clk_change_sta);
+	DISPMSG("%s,_vfp:%d,_vbp:%d,_vsa:%d\n",
+		__func__, _vfp, _vbp, _vsa);
+	DISPMSG("%s,_hfp=%d,_hbp:%d,_hsa:%d\n",
+		__func__, _hfp, _hbp, _hsa);
+
+	/*keep mipi hopping use the same GCE  thread as dynfps
+	 * can avoid competition between mipi hopping and dynfps in GCE
+	 * keep GCE use the same cmd params as CPU calcuated params
+	 */
+	ret = cmdqRecCreate(CMDQ_SCENARIO_DISP_ESD_CHECK, &handle);
+	if (ret) {
+		DISP_PR_INFO("%s:Fail to create cmdq handle\n", __func__);
+		return -1;
+	}
+	cmdqRecReset(handle);
+	i = DSI_MODULE_BEGIN(module);
+
+	/*for keep mipi hopping run after dynfps in GCE,
+	 * same as CPU sequence
+	 */
+	cmdqRecWaitNoClear(handle,
+				CMDQ_EVENT_MUTEX0_STREAM_EOF);
+#endif
+
+	if (DSI_REG[i]->DSI_MODE_CTRL.MODE) {
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+		/*mipi clock changed, cycle time & ui are also changed
+		 * need re-calculate the phy timing
+		 * can not change without  stop vdo mode
+		 * but for mipi hopping we shouldn't stop vdo mode
+		 * so skip this step now
+		 */
+		/*DSI_PHY_TIMCONFIG(module, handle, dsi_params);*/
+#endif
+		DISP_PR_INFO("%s,re-calc vdo timing\n", __func__);
+		DSI_Calc_VDO_Timing(module, dsi_params);
+}
 	if (_is_power_on_status(module) == 0)
 		return 0;
 
+#ifndef CONFIG_MTK_HIGH_FRAME_RATE
 	ret = cmdqRecCreate(CMDQ_SCENARIO_PRIMARY_DISP, &handle);
 	if (ret) {
 		DISP_PR_ERR("%s:Fail to create cmdq handle\n", __func__);
 		return -1;
 	}
 	cmdqRecReset(handle);
+#endif
 
 	if (DSI_REG[i]->DSI_MODE_CTRL.MODE) {
+
+#if 0 /*v blanking params can be changed anytime for DSI hw*/
 		if (mod_vfp || mod_vbp || mod_vsa) {
 			/* make sure token rdma_sof is clear */
 			cmdqRecClearEventToken(handle,
@@ -2257,6 +2607,7 @@ int mipi_clk_change(enum DISP_MODULE_ENUM module, int en)
 			cmdqRecWaitNoClear(handle, CMDQ_EVENT_DISP_RDMA0_SOF);
 			/* 2.wait mutex0_stream_eof: only used for video mode */
 		}
+#endif
 		if (mod_vfp)
 			ddp_dsi_porch_setting(module, handle, DSI_VFP,
 					_dsi_context[i].vfp);
@@ -2268,10 +2619,11 @@ int mipi_clk_change(enum DISP_MODULE_ENUM module, int en)
 		if (mod_vsa)
 			ddp_dsi_porch_setting(module, handle, DSI_VSA,
 					_dsi_context[i].vsa);
-
+#if 0 /*H blanking params can be changed anytime for DSI hw*/
 		if (mod_hbp || mod_hfp || mod_hsa)
 			cmdqRecWaitNoClear(handle,
 					CMDQ_EVENT_MUTEX0_STREAM_EOF);
+#endif
 
 		if (mod_hbp)
 			ddp_dsi_porch_setting(module, handle, DSI_HBP,
@@ -2290,6 +2642,9 @@ int mipi_clk_change(enum DISP_MODULE_ENUM module, int en)
 
 	cmdqRecFlush(handle);
 	cmdqRecDestroy(handle);
+
+	DISPMSG("%s,mipi_clk_change_sta=%d done\n",
+			__func__, mipi_clk_change_sta);
 
 	return 0;
 }
@@ -2521,6 +2876,12 @@ void DSI_CPHY_TIMCONFIG(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cmdq
 	unsigned int cycle_time = 0;
 	unsigned int ui = 0;
 	unsigned int hs_trail;
+	unsigned int _PLL_CLOCK = 0;
+	unsigned int _data_rate = 0;
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	unsigned int j = 0;
+	struct dfps_info *dfps_params = NULL;
+#endif
 
 #ifdef CONFIG_FPGA_EARLY_PORTING
 	/* sync from cmm */
@@ -2538,19 +2899,70 @@ void DSI_CPHY_TIMCONFIG(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cmdq
 	}
 	return;
 #endif
-
+	/*Dynfps, should use data_rate_dyn?
+	 *dsi params can be chagned?
+	 */
 	lane_no = dsi_params->LANE_NUM;
-	if (dsi_params->data_rate != 0) {
-		ui = 1000 / dsi_params->data_rate + 0x01;
-		cycle_time = 8000 / dsi_params->data_rate + 0x01;
+	/*for mipi hopping*/
+	if (!mipi_clk_change_sta) {
+		_data_rate = dsi_params->data_rate;
+		_PLL_CLOCK = dsi_params->PLL_CLOCK;
+	} else {
+		_data_rate = dsi_params->data_rate_dyn;
+		_PLL_CLOCK = dsi_params->PLL_CLOCK_dyn;
+	}
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	/*DynFPS, ToDo move to a function */
+	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
+		/*if not power on scenario
+		 * if disp_fps !=0 means dynfps already happened
+		 * for example path switch or esd check recovery after dynfps
+		 */
+		if (_dsi_context[i].disp_fps &&
+			(_dsi_context[i].dynfps_chg_index &
+				DYNFPS_DSI_MIPI_CLK)) {
+			for (j = 0; j < dsi_params->dfps_num; j++) {
+				if ((dsi_params->dfps_params)[j].fps ==
+					_dsi_context[i].disp_fps) {
+					dfps_params =
+					&((dsi_params->dfps_params)[j]);
+					DISPMSG("%s,disp_fps=%d\n",
+					__func__, _dsi_context[i].disp_fps);
+					break;
+				}
+			}
+			if (dfps_params) {
+				if (!mipi_clk_change_sta) {
+					if (dfps_params->data_rate != 0 ||
+						dfps_params->PLL_CLOCK != 0){
+						_data_rate =
+							dfps_params->data_rate;
+						_PLL_CLOCK =
+							dfps_params->PLL_CLOCK; }
+				} else {
+					if (dfps_params->data_rate_dyn != 0 ||
+						dfps_params->PLL_CLOCK_dyn != 0){
+						_data_rate =
+						dfps_params->data_rate_dyn;
+						_PLL_CLOCK =
+						dfps_params->PLL_CLOCK_dyn; }
+
+				}
+			}
+		}
+	}
+#endif
+	if (_data_rate != 0) {
+		ui = 1000 / _data_rate + 0x01;
+		cycle_time = 8000 / _data_rate + 0x01;
 		DISP_LOG_PRINT(ANDROID_LOG_INFO, "DSI",
 			"%s, Cycle Time = %d, interval = %d, lane# = %d\n",
 			__func__, cycle_time, ui, lane_no);
-	} else if (dsi_params->PLL_CLOCK) {
-		ui = 1000 / (dsi_params->PLL_CLOCK * 2) + 0x01;
-		cycle_time = 8000 / (dsi_params->PLL_CLOCK * 2) + 0x01;
+	} else if (_PLL_CLOCK) {
+		ui = 1000 / (_PLL_CLOCK * 2) + 0x01;
+		cycle_time = 8000 / (_PLL_CLOCK * 2) + 0x01;
 		DISP_LOG_PRINT(ANDROID_LOG_INFO, "DSI",
-			"[DISP] - kernel - %s, Cycle Time = %d(ns), Unit Interval = %d(ns)., lane# = %d\n",
+			"[DISP]%s, cycle = %d(ns),ui= %d(ns)., lane# = %d\n",
 			__func__, cycle_time, ui, lane_no);
 	} else {
 		DISPCHECK("[dsi_dsi.c] PLL clock should not be 0!\n");
@@ -2566,14 +2978,14 @@ void DSI_CPHY_TIMCONFIG(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cmdq
 	timcon0.HS_TRAIL = hs_trail;
 	//HS_PRPR=DATA_RATE*50.5/7000+1
 	timcon0.HS_PRPR = (dsi_params->HS_PRPR == 0) ?
-		(NS_TO_CYCLE(dsi_params->PLL_CLOCK * 101, 7000) + 1) :
+		(NS_TO_CYCLE(_PLL_CLOCK * 101, 7000) + 1) :
 		dsi_params->HS_PRPR;
 
 	timcon0.HS_ZERO = (dsi_params->HS_ZERO == 0) ?
 		48 : dsi_params->HS_ZERO;
 
 	timcon0.LPX = (dsi_params->LPX == 0) ?
-		(NS_TO_CYCLE(dsi_params->PLL_CLOCK * 2 * 75, 7000)
+		(NS_TO_CYCLE(_PLL_CLOCK * 2 * 75, 7000)
 		+ 0x01) : dsi_params->LPX;
 
 	timcon1.TA_GET = (dsi_params->TA_GET == 0) ?
@@ -2589,7 +3001,7 @@ void DSI_CPHY_TIMCONFIG(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cmdq
 	 * --------------------------------------------------------------
 	 */
 	timcon1.DA_HS_EXIT  = (dsi_params->DA_HS_EXIT == 0) ?
-		(NS_TO_CYCLE(dsi_params->PLL_CLOCK * 225, 7000) + 1) :
+		(NS_TO_CYCLE(_PLL_CLOCK * 225, 7000) + 1) :
 		dsi_params->DA_HS_EXIT;
 
 	timcon2.CLK_TRAIL = ((dsi_params->CLK_TRAIL == 0) ?
@@ -4047,6 +4459,9 @@ int ddp_dsi_set_lcm_utils(enum DISP_MODULE_ENUM module,
 #else
 	utils->set_gpio_lcd_enp_bias = lcd_enp_bias_setting;
 #endif
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	utils->dsi_dynfps_send_cmd = DSI_dynfps_send_cmd;
+#endif
 
 	lcm_drv->set_util_funcs(utils);
 
@@ -4566,6 +4981,12 @@ int ddp_dsi_start(enum DISP_MODULE_ENUM module, void *cmdq)
 	else
 		return 0;
 
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	/* disable shadow */
+	DSI_OUTREGBIT(cmdq, struct DSI_SHADOW_DEBUG_REG,
+				  DSI_REG[i]->DSI_SHADOW_DEBUG,
+				  BYPASS_SHADOW, 1);
+#endif
 	if (disp_helper_get_option(DISP_OPT_SHADOW_REGISTER)) {
 		if (disp_helper_get_option(DISP_OPT_SHADOW_MODE) == 1) {
 			/* force commit */
@@ -5218,6 +5639,10 @@ int ddp_dsi_power_on(enum DISP_MODULE_ENUM module, void *cmdq_handle)
  */
 int ddp_dsi_power_off(enum DISP_MODULE_ENUM module, void *cmdq_handle)
 {
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	unsigned int i = 0;
+#endif
+
 	DISPFUNC();
 	if (!_is_power_on_status(module))
 		return DSI_STATUS_OK;
@@ -5234,7 +5659,13 @@ int ddp_dsi_power_off(enum DISP_MODULE_ENUM module, void *cmdq_handle)
 	DSI_PHY_clk_switch(module, NULL, false);
 
 	ddp_clk_set_mipi26m(module, 0);
-
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	/*DynFPS*/
+	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
+		_dsi_context[i].disp_fps = 0;
+		_dsi_context[i].dynfps_chg_index = 0;
+	}
+#endif
 	_set_power_on_status(module, 0);
 	return DSI_STATUS_OK;
 }
@@ -6678,3 +7109,235 @@ void DSI_ForceConfig(int forceconfig)
 		_dsi_context[0].dsi_params.PLL_CLOCK =
 					_dsi_context[0].dsi_params.PLL_CK_VDO;
 }
+
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+/*-------------------------------DynFPS start------------------------------*/
+unsigned int ddp_dsi_fps_change_index(
+	unsigned int last_dynfps, unsigned int new_dynfps)
+{
+	struct LCM_DSI_PARAMS *dsi = NULL;
+	struct dfps_info *dfps_params_last = NULL;
+	struct dfps_info *dfps_params_new = NULL;
+	unsigned int i = 0;
+	unsigned int fps_chg_index = 0;
+
+	dsi = &_dsi_context[0].dsi_params;
+
+	for (i = 0; i < dsi->dfps_num; i++) {
+		if ((dsi->dfps_params)[i].fps == last_dynfps)
+			dfps_params_last = &((dsi->dfps_params)[i]);
+		if ((dsi->dfps_params)[i].fps == new_dynfps)
+			dfps_params_new = &((dsi->dfps_params)[i]);
+	}
+
+	if (dfps_params_last == NULL ||
+		dfps_params_new == NULL)
+		return 0;
+
+	if (!mipi_clk_change_sta) {
+		if (dfps_params_last->vertical_frontporch !=
+			dfps_params_new->vertical_frontporch) {
+			fps_chg_index |= DYNFPS_DSI_VFP;
+		}
+		if (dfps_params_last->horizontal_frontporch !=
+			dfps_params_new->horizontal_frontporch) {
+			fps_chg_index |= DYNFPS_DSI_HFP;
+		}
+		if (dfps_params_last->PLL_CLOCK !=
+			dfps_params_new->PLL_CLOCK) {
+			fps_chg_index |= DYNFPS_DSI_MIPI_CLK;
+		}
+		if (dfps_params_last->data_rate !=
+			dfps_params_new->data_rate) {
+			fps_chg_index |= DYNFPS_DSI_MIPI_CLK;
+		}
+	} else {
+		if (dfps_params_last->vertical_frontporch_dyn !=
+			dfps_params_new->vertical_frontporch_dyn) {
+			fps_chg_index |= DYNFPS_DSI_VFP;
+		}
+		if (dfps_params_last->horizontal_frontporch_dyn !=
+			dfps_params_new->horizontal_frontporch_dyn) {
+			fps_chg_index |= DYNFPS_DSI_HFP;
+		}
+		if (dfps_params_last->PLL_CLOCK_dyn !=
+			dfps_params_new->PLL_CLOCK_dyn) {
+			fps_chg_index |= DYNFPS_DSI_MIPI_CLK;
+		}
+		if (dfps_params_last->data_rate_dyn !=
+			dfps_params_new->data_rate_dyn) {
+			fps_chg_index |= DYNFPS_DSI_MIPI_CLK;
+		}
+	}
+	DDPMSG("%s,chg %d->%d\n", __func__, last_dynfps, new_dynfps);
+	DDPMSG("%s,chg solution:0x%x\n", __func__, fps_chg_index);
+	return fps_chg_index;
+}
+
+void ddp_dsi_dynfps_chg_fps(
+	enum DISP_MODULE_ENUM module, void *handle,
+	unsigned int last_fps, unsigned int new_fps, unsigned int chg_index)
+{
+	struct LCM_DSI_PARAMS *dsi = NULL;
+	struct dfps_info *dfps_params_last = NULL;
+	struct dfps_info *dfps_params_new = NULL;
+	unsigned int i = 0;
+
+	dsi = &_dsi_context[0].dsi_params;
+
+	for (i = 0; i < dsi->dfps_num; i++) {
+		if ((dsi->dfps_params)[i].fps == last_fps)
+			dfps_params_last = &((dsi->dfps_params)[i]);
+		if ((dsi->dfps_params)[i].fps == new_fps)
+			dfps_params_new = &((dsi->dfps_params)[i]);
+	}
+	if (dfps_params_last == NULL ||
+		dfps_params_new == NULL)
+		return;
+
+	DDPMSG("%s,fps %d->%d\n", __func__, last_fps, new_fps);
+	DDPMSG("%s,chg_index=0x%x\n", __func__, chg_index);
+	/*we will not change dsi_params
+	 *will use this disp_fps to choose right params
+	 */
+	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
+		_dsi_context[i].disp_fps = new_fps;
+		_dsi_context[i].dynfps_chg_index = chg_index;
+	}
+
+	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
+		if (chg_index & DYNFPS_DSI_MIPI_CLK) {
+			DDPMSG("%s, change MIPI Clock\n", __func__);
+			/*ToDo, may be not only mipi clock chaged
+			 * need also check other parameters
+			 * apply all related parameters
+			 */
+			DSI_PHY_TIMCONFIG(module, handle, dsi);
+			DSI_Calc_VDO_Timing(module, dsi);
+			DSI_Config_VDO_Timing(module, handle, dsi);
+
+			/*pll off -> on*/
+			dsi_phy_clk_switch_gce(module, handle, false);
+			dsi_phy_clk_switch_gce(module, handle, true);
+
+		} else if (chg_index & DYNFPS_DSI_HFP) {
+			DDPMSG("%s, change HFP\n", __func__);
+			/*DynFPS ToDo whether need change PHY timing */
+			/*DSI_PHY_TIMCONFIG(module, handle, dsi);*/
+			DSI_Calc_VDO_Timing(module, dsi);
+#if 0		/*maybe not only HFP changed, update all parameters*/
+			ddp_dsi_porch_setting(module, handle, DSI_HFP,
+					_dsi_context[i].hfp_byte);
+#endif
+			DSI_Config_VDO_Timing(module, handle, dsi);
+
+		} else if (chg_index & DYNFPS_DSI_VFP) {
+			DDPMSG("%s, change VFP\n", __func__);
+			if (!mipi_clk_change_sta)
+				_dsi_context[i].vfp =
+				dfps_params_new->vertical_frontporch;
+			else
+				_dsi_context[i].vfp =
+				dfps_params_new->vertical_frontporch_dyn;
+
+			ddp_dsi_porch_setting(module, handle, DSI_VFP,
+						_dsi_context[i].vfp);
+		}
+
+	}
+
+}
+void ddp_dsi_dynfps_get_vfp_info(unsigned int disp_fps,
+	unsigned int *vfp, unsigned int *vfp_for_lp)
+{
+	struct LCM_DSI_PARAMS *dsi = NULL;
+	struct dfps_info *dfps_params = NULL;
+	unsigned int i = 0;
+	unsigned int _vfp = 0;
+	unsigned int _vfp_for_lp = 0;
+
+	dsi = &_dsi_context[0].dsi_params;
+	_vfp = dsi->vertical_frontporch;
+	_vfp_for_lp = dsi->vertical_frontporch_for_low_power;
+
+	for (i = 0; i < dsi->dfps_num; i++) {
+		if ((dsi->dfps_params)[i].fps == disp_fps)
+			dfps_params =
+			&((dsi->dfps_params)[i]);
+	}
+
+	if (dfps_params == NULL) {
+		if (vfp)
+			*vfp = _vfp;
+		if (vfp_for_lp)
+			*vfp_for_lp = _vfp_for_lp;
+		return;
+	}
+
+	if (!mipi_clk_change_sta) {
+		_vfp = dfps_params->vertical_frontporch ?
+				dfps_params->vertical_frontporch :
+				dsi->vertical_frontporch;
+		/*add support use different fps when enter idle*/
+#if 0
+		_vfp_for_lp =
+			dfps_params->vertical_frontporch_for_low_power ?
+			dfps_params->vertical_frontporch_for_low_power :
+			dsi->vertical_frontporch_for_low_power;
+#endif
+		_vfp_for_lp =
+			dfps_params->vertical_frontporch_for_low_power;
+
+
+	} else {
+		_vfp = dfps_params->vertical_frontporch_dyn ?
+				dfps_params->vertical_frontporch_dyn :
+				dsi->vertical_frontporch_dyn;
+#if 0
+		_vfp_for_lp =
+			dfps_params->vertical_frontporch_for_low_power_dyn ?
+			dfps_params->vertical_frontporch_for_low_power_dyn :
+			dsi->vertical_frontporch_for_low_power;
+#endif
+		_vfp_for_lp =
+			dfps_params->vertical_frontporch_for_low_power_dyn ?
+			dfps_params->vertical_frontporch_for_low_power_dyn :
+			dfps_params->vertical_frontporch_for_low_power;
+
+		/*ToDo, default mipi hopping
+		 *whether need add vfp_for_lp_dyn param
+		 */
+	}
+	DDPMSG("%s,fps=%d,vfp:%d,vfp_for_lp:%d]\n",
+		__func__, disp_fps, _vfp, _vfp_for_lp);
+
+	if (vfp)
+		*vfp = _vfp;
+	if (vfp_for_lp)
+		*vfp_for_lp = _vfp_for_lp;
+
+	return;
+
+}
+
+void DSI_dynfps_send_cmd(
+	void *cmdq, unsigned int cmd,
+	unsigned char count, unsigned char *para_list,
+	unsigned char force_update, enum LCM_Send_Cmd_Mode sendmode)
+{
+	DDPMSG("%s,cmd=0x%x,count=%d,para[0]=0x%x,sendcmd in %s mode\n",
+		__func__, cmd, count, para_list[0], sendmode?"VDO":"CMD");
+
+	if (sendmode == LCM_SEND_IN_VDO) {
+		DSI_send_vm_cmd(cmdq, DISP_MODULE_DSI0, REGFLAG_ESCAPE_ID,
+		cmd, count, para_list, force_update);
+	} else{
+		DSI_send_cmd_cmd(cmdq, DISP_MODULE_DSI0, false, REGFLAG_ESCAPE_ID,
+		cmd, count, para_list, force_update);
+	}
+}
+
+/*-------------------------------DynFPS end------------------------------*/
+#endif
+
+
