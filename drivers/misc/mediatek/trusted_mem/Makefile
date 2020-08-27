@@ -49,6 +49,10 @@ trusted_mem-y += tests/ut_server.o
 trusted_mem-y += tests/ut_cases.o
 endif # !TCORE_UT_TESTS_SUPPORT
 
+ifeq ($(CONFIG_MTK_GZ_KREE),y)
+trusted_mem-y += mpu_vio_checker.o
+endif
+
 #==========================================================================
 # TEE Seecure Memory Devices & Trustzone Peer Driver
 #==========================================================================
@@ -87,6 +91,7 @@ ifeq ($(CONFIG_MTK_GZ_KREE),y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/geniezone/public
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/gz/
 endif # !CONFIG_MTK_GZ_KREE
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
 
 ifeq ($(CONFIG_MTK_SVP),y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/memory-ssvp/
