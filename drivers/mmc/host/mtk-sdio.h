@@ -614,8 +614,8 @@ static const struct mtk_mmc_compatible mt8167_compat = {
 	.data_tune = true,
 	.busy_check = true,
 	.stop_clk_fix = true,
-	.enhance_rx = true,
-	.support_64g = true,
+	.enhance_rx = false,
+	.support_64g = false,
 	.tune_resp_data_together = true,
 	.v3_plus = false,
 };
