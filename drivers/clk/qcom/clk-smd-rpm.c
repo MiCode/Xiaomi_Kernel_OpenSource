@@ -863,6 +863,10 @@ DEFINE_CLK_SMD_RPM_XO_BUFFER(scuba, rf_clk3, rf_clk3_a, 6);
 DEFINE_CLK_SMD_RPM(scuba, qpic_clk, qpic_a_clk, QCOM_SMD_RPM_QPIC_CLK, 0);
 DEFINE_CLK_SMD_RPM(scuba, hwkm_clk, hwkm_a_clk, QCOM_SMD_RPM_HWKM_CLK, 0);
 DEFINE_CLK_SMD_RPM(scuba, pka_clk, pka_a_clk, QCOM_SMD_RPM_PKA_CLK, 0);
+DEFINE_CLK_SMD_RPM(scuba, cpuss_gnoc_clk, cpuss_gnoc_a_clk,
+						QCOM_SMD_RPM_MEM_CLK, 1);
+DEFINE_CLK_SMD_RPM(scuba, bimc_gpu_clk, bimc_gpu_a_clk,
+						QCOM_SMD_RPM_MEM_CLK, 2);
 
 /* Scuba */
 static struct clk_hw *scuba_clks[] = {
@@ -952,11 +956,15 @@ static struct clk_hw *scuba_clks[] = {
 	[RPM_SMD_HWKM_A_CLK] = &scuba_hwkm_a_clk.hw,
 	[RPM_SMD_PKA_CLK] = &scuba_pka_clk.hw,
 	[RPM_SMD_PKA_A_CLK] = &scuba_pka_a_clk.hw,
+	[RPM_SMD_BIMC_GPU_CLK] = &scuba_bimc_gpu_clk.hw,
+	[RPM_SMD_BIMC_GPU_A_CLK] = &scuba_bimc_gpu_a_clk.hw,
+	[RPM_SMD_CPUSS_GNOC_CLK] = &scuba_cpuss_gnoc_clk.hw,
+	[RPM_SMD_CPUSS_GNOC_A_CLK] = &scuba_cpuss_gnoc_a_clk.hw,
 };
 
 static const struct rpm_smd_clk_desc rpm_clk_scuba = {
 	.clks = scuba_clks,
-	.num_rpm_clks = RPM_SMD_PKA_A_CLK,
+	.num_rpm_clks = RPM_SMD_CPUSS_GNOC_A_CLK,
 	.num_clks = ARRAY_SIZE(scuba_clks),
 };
 

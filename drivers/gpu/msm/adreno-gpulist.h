@@ -1460,7 +1460,8 @@ static const struct adreno_a6xx_core adreno_gpu_core_a702 = {
 	.base = {
 		DEFINE_ADRENO_REV(ADRENO_REV_A702, 7, 0, 2, ANY_ID),
 		.features = ADRENO_64BIT | ADRENO_CONTENT_PROTECTION |
-			ADRENO_APRIV | ADRENO_PREEMPTION,
+			ADRENO_APRIV | ADRENO_PREEMPTION |
+			ADRENO_PROCESS_RECLAIM,
 		.gpudev = &adreno_a6xx_gpudev,
 		.gmem_size = SZ_128K,
 		.busy_mask = 0xfffffffe,

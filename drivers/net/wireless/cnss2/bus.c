@@ -267,6 +267,21 @@ void cnss_bus_collect_dump_info(struct cnss_plat_data *plat_priv, bool in_panic)
 	}
 }
 
+void cnss_bus_device_crashed(struct cnss_plat_data *plat_priv)
+{
+	if (!plat_priv)
+		return;
+
+	switch (plat_priv->bus_type) {
+	case CNSS_BUS_PCI:
+		return cnss_pci_device_crashed(plat_priv->bus_priv);
+	default:
+		cnss_pr_err("Unsupported bus type: %d\n",
+			    plat_priv->bus_type);
+		return;
+	}
+}
+
 int cnss_bus_call_driver_probe(struct cnss_plat_data *plat_priv)
 {
 	if (!plat_priv)
@@ -447,6 +462,21 @@ int cnss_bus_check_link_status(struct cnss_plat_data *plat_priv)
 		cnss_pr_dbg("Unsupported bus type: %d\n",
 			    plat_priv->bus_type);
 		return 0;
+	}
+}
+
+int cnss_bus_recover_link_down(struct cnss_plat_data *plat_priv)
+{
+	if (!plat_priv)
+		return -ENODEV;
+
+	switch (plat_priv->bus_type) {
+	case CNSS_BUS_PCI:
+		return cnss_pci_recover_link_down(plat_priv->bus_priv);
+	default:
+		cnss_pr_dbg("Unsupported bus type: %d\n",
+			    plat_priv->bus_type);
+		return -EINVAL;
 	}
 }
 

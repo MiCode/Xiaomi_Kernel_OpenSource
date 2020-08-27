@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2002,2007-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2002,2007-2018,2020 The Linux Foundation. All rights reserved.
  */
 #ifndef __ADRENO_PM4TYPES_H
 #define __ADRENO_PM4TYPES_H
@@ -94,6 +94,8 @@
 
 /* A5XX Enable yield in RB only */
 #define CP_YIELD_ENABLE 0x1C
+
+#define CP_WHERE_AM_I 0x62
 
 /* Enable/Disable/Defer A5x global preemption model */
 #define CP_PREEMPT_ENABLE_GLOBAL    0x69

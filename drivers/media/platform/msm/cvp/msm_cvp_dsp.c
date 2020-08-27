@@ -235,14 +235,14 @@ static void cvp_dsp_rpmsg_remove(struct rpmsg_device *rpdev)
 	struct cvp_dsp_apps *me = &gfa_cv;
 
 	cancel_work_sync(&me->ssr_work);
-	mutex_lock(&me->smd_mutex);
-	me->chan = NULL;
-	me->cdsp_state = STATUS_SSR;
 	if (me->device) {
 		mutex_lock(&me->device->lock);
 		me->device->dsp_flags &= ~DSP_INIT;
 		mutex_unlock(&me->device->lock);
 	}
+	mutex_lock(&me->smd_mutex);
+	me->chan = NULL;
+	me->cdsp_state = STATUS_SSR;
 	mutex_unlock(&me->smd_mutex);
 	dprintk(CVP_INFO,
 		"%s: CDSP SSR triggered\n", __func__);

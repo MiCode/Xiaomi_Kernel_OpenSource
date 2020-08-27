@@ -2329,8 +2329,12 @@ int wlfw_host_cap_send_sync(struct icnss_priv *priv)
 		req->ddr_range_valid = 1;
 		req->ddr_range[0].start = iova_start;
 		req->ddr_range[0].size = iova_size + iova_ipa_size;
+		req->ddr_range[1].start = priv->msa_pa;
+		req->ddr_range[1].size = priv->msa_mem_size;
 		icnss_pr_dbg("Sending iova starting 0x%llx with size 0x%llx\n",
 			    req->ddr_range[0].start, req->ddr_range[0].size);
+		icnss_pr_dbg("Sending msa starting 0x%llx with size 0x%llx\n",
+			    req->ddr_range[1].start, req->ddr_range[1].size);
 	}
 
 	req->host_build_type_valid = 1;

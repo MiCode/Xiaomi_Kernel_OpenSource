@@ -27,6 +27,8 @@
 static DEFINE_VDD_REGULATORS(vdd_cx, VDD_NUM, 1, vdd_corner);
 static DEFINE_VDD_REGULATORS(vdd_mx, VDD_NUM, 1, vdd_corner);
 
+#define F_SLEW(f, s, h, m, n, sf) { (f), (s), (2 * (h) - 1), (m), (n), (sf) }
+
 enum {
 	P_BI_TCXO,
 	P_CORE_BI_PLL_TEST_SE,
@@ -1018,10 +1020,10 @@ static struct clk_rcg2 gcc_camss_ope_ahb_clk_src = {
 
 static const struct freq_tbl ftbl_gcc_camss_ope_clk_src[] = {
 	F(19200000, P_BI_TCXO, 1, 0, 0),
-	F(200000000, P_GPLL8_OUT_MAIN, 2, 0, 0),
-	F(266600000, P_GPLL8_OUT_MAIN, 1, 0, 0),
-	F(465000000, P_GPLL8_OUT_MAIN, 1, 0, 0),
-	F(580000000, P_GPLL8_OUT_EARLY, 1, 0, 0),
+	F_SLEW(200000000, P_GPLL8_OUT_MAIN, 2, 0, 0, 800000000),
+	F_SLEW(266600000, P_GPLL8_OUT_MAIN, 1, 0, 0, 533200000),
+	F_SLEW(465000000, P_GPLL8_OUT_MAIN, 1, 0, 0, 930000000),
+	F_SLEW(580000000, P_GPLL8_OUT_EARLY, 1, 0, 0, 580000000),
 	{ }
 };
 
@@ -1032,6 +1034,7 @@ static struct clk_rcg2 gcc_camss_ope_clk_src = {
 	.parent_map = gcc_parent_map_6,
 	.freq_tbl = ftbl_gcc_camss_ope_clk_src,
 	.enable_safe_config = true,
+	.flags = RCG_UPDATE_BEFORE_PLL,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "gcc_camss_ope_clk_src",
 		.parent_names = gcc_parent_names_6,
