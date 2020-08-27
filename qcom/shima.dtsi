@@ -40,6 +40,8 @@
 			swr0 = &swr0;
 			swr1 = &swr1;
 			swr2 = &swr2;
+			serial0 = &qupv3_se13_2uart;
+			hsuart0 = &qupv3_se15_4uart;
 		};
 
 	cpus {
