@@ -66,7 +66,9 @@ enum eem_phase {
 	EEM_PHASE_INIT020,
 	EEM_PHASE_INIT021,
 	EEM_PHASE_INIT022,
+#if SUPPORT_BL_ULV
 	EEM_PHASE_INIT023,
+#endif
 	EEM_PHASE_MON,
 
 	NR_EEM_PHASE,
@@ -76,7 +78,9 @@ enum eem_features {
 	FEA_INIT020	= BIT(EEM_PHASE_INIT020),
 	FEA_INIT021	= BIT(EEM_PHASE_INIT021),
 	FEA_INIT022	= BIT(EEM_PHASE_INIT022),
+#if SUPPORT_BL_ULV
 	FEA_INIT023	= BIT(EEM_PHASE_INIT023),
+#endif
 	FEA_MON		= BIT(EEM_PHASE_MON),
 };
 
@@ -114,8 +118,8 @@ extern const unsigned int reg_dump_addr_off[DUMP_LEN];
 #ifdef CONFIG_EEM_AEE_RR_REC
 enum eem_state {
 	EEM_CPU_2_LITTLE_IS_SET_VOLT = 0,	/* 2L */
-	EEM_CPU_LITTLE_IS_SET_VOLT = 1,		/* L */
-	EEM_CPU_B_IS_SET_VOLT = 2,			/* BL */
+	EEM_CPU_LITTLE_IS_SET_VOLT = 1,		/* BL */
+	EEM_CPU_B_IS_SET_VOLT = 2,			/* B */
 	EEM_CPU_CCI_IS_SET_VOLT = 3,		/* CCI */
 };
 

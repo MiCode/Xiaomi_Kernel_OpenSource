@@ -196,13 +196,13 @@ static void get_picachu_efuse(void)
 	phys_addr_t picachu_mem_base_phys;
 	phys_addr_t picachu_mem_size;
 	phys_addr_t picachu_mem_base_virt = 0;
-	unsigned int i, cnt, sig;
-	void __iomem *addr_ptr;
+	unsigned int i = 1, cnt, sig;
+	void __iomem *addr_ptr = 0;
 
 	val = (int *)&eem_devinfo;
 
 	picachu_mem_size = 0x80000;
-	picachu_mem_base_phys = eem_read(EEM_TEMPSPARE0);
+	picachu_mem_base_phys = eem_read(EEMSPARE0);
 	if ((void __iomem *)picachu_mem_base_phys != NULL)
 		picachu_mem_base_virt =
 			(phys_addr_t)(uintptr_t)ioremap_wc(
@@ -291,6 +291,7 @@ static int get_devinfo(void)
 	val[10] = get_devinfo_with_index(DEVINFO_IDX_10);
 	val[11] = get_devinfo_with_index(DEVINFO_IDX_11);
 	val[12] = get_devinfo_with_index(DEVINFO_IDX_12);
+	val[13] = get_devinfo_with_index(DEVINFO_IDX_13);
 
 
 #if 0
@@ -320,6 +321,7 @@ static int get_devinfo(void)
 	val[10] = DEVINFO_10;
 	val[11] = DEVINFO_11;
 	val[12] = DEVINFO_12;
+	val[13] = DEVINFO_13;
 
 #endif
 
@@ -341,8 +343,8 @@ static int get_devinfo(void)
 	aee_rr_rec_ptp_e10((unsigned int)val[10]);
 	aee_rr_rec_ptp_e11((unsigned int)val[11]);
 	aee_rr_rec_ptp_devinfo_0((unsigned int)val[12]);
-#if 0
 	aee_rr_rec_ptp_devinfo_1((unsigned int)val[13]);
+#if 0
 	aee_rr_rec_ptp_devinfo_2((unsigned int)val[14]);
 	aee_rr_rec_ptp_devinfo_3((unsigned int)val[15]);
 	aee_rr_rec_ptp_devinfo_4((unsigned int)val[16]);
@@ -378,6 +380,7 @@ static int get_devinfo(void)
 		val[10] = DEVINFO_10;
 		val[11] = DEVINFO_11;
 		val[12] = DEVINFO_12;
+		val[13] = DEVINFO_13;
 	}
 
 
@@ -619,6 +622,8 @@ int base_ops_mon_mode(struct eem_det *det)
 		ts_bank = THERMAL_BANK2;
 	else if (det_to_id(det) == EEM_DET_B)
 		ts_bank = THERMAL_BANK0;
+	else if (det_to_id(det) == EEM_DET_BL)
+		ts_bank = THERMAL_BANK1;
 	else if (det_to_id(det) == EEM_DET_CCI)
 		ts_bank = THERMAL_BANK2;
 	else
@@ -888,6 +893,8 @@ int base_ops_get_temp(struct eem_det *det)
 
 	if (det_to_id(det) == EEM_DET_L)
 		ts_bank = THERMAL_BANK2;
+	else if (det_to_id(det) == EEM_DET_BL)
+		ts_bank = THERMAL_BANK1;
 	else if (det_to_id(det) == EEM_DET_B)
 		ts_bank = THERMAL_BANK0;
 	else if (det_to_id(det) == EEM_DET_CCI)
@@ -1290,7 +1297,7 @@ static void get_volt_table_in_thread(struct eem_det *det)
 	if (!tscpu_is_temp_valid())
 		ndet->isTempInv = EEM_LOW_T;
 #endif
-
+	eem_debug("ndet->temp:%d, isTempInv:%d\n", ndet->temp, ndet->isTempInv);
 
 	/* scale of det->volt_offset must equal 10uV */
 	/* if has record table, min with record table of each cpu */
@@ -1316,6 +1323,12 @@ static void get_volt_table_in_thread(struct eem_det *det)
 			final_clamp_val = ndet->volt_tbl_orig[i] +
 			ndet->volt_clamp;
 
+#if !SUPPORT_BL_ULV
+		if ((ndet->ctrl_id == EEM_CTRL_BL) &&
+			(i == 15))
+			ndet->volt_tbl[15] =
+				ndet->volt_tbl[14];
+#endif
 		ndet->volt_tbl_pmic[i] = min(
 		(unsigned int)(clamp(
 			ndet->ops->eem_2_pmic(ndet,
@@ -1575,6 +1588,7 @@ static void eem_init_det(struct eem_det *det, struct eem_devinfo *devinfo)
 		det->phase_ef[EEM_PHASE_INIT022].MTDES =
 			devinfo->CPU_BL_LO_MTDES;
 
+#if SUPPORT_BL_ULV
 		det->phase_ef[EEM_PHASE_INIT023].MDES =
 			devinfo->CPU_BL_ULV_MDES;
 		det->phase_ef[EEM_PHASE_INIT023].BDES =
@@ -1585,7 +1599,7 @@ static void eem_init_det(struct eem_det *det, struct eem_devinfo *devinfo)
 			devinfo->CPU_L_HI_DCBDET;
 		det->phase_ef[EEM_PHASE_INIT023].MTDES =
 			devinfo->CPU_BL_ULV_MTDES;
-
+#endif
 		break;
 
 	case EEM_DET_B:
@@ -1667,6 +1681,17 @@ static void eem_init_det(struct eem_det *det, struct eem_devinfo *devinfo)
 			devinfo->CPU_L_HI_DCBDET;
 		det->phase_ef[EEM_PHASE_INIT021].MTDES =
 			devinfo->CCI_MID_MTDES;
+
+		det->phase_ef[EEM_PHASE_INIT022].MDES =
+			devinfo->CCI_LO_MDES;
+		det->phase_ef[EEM_PHASE_INIT022].BDES =
+			devinfo->CCI_LO_BDES;
+		det->phase_ef[EEM_PHASE_INIT022].DCMDET =
+			devinfo->CPU_L_HI_DCMDET;
+		det->phase_ef[EEM_PHASE_INIT022].DCBDET =
+			devinfo->CPU_L_HI_DCBDET;
+		det->phase_ef[EEM_PHASE_INIT022].MTDES =
+			devinfo->CCI_LO_MTDES;
 
 		break;
 
@@ -1863,6 +1888,7 @@ static void eem_fill_freq_table(struct eem_det *det,
 		0x3264;
 
 	eem_write(EEM_FREQPCT30, tmpfreq30);
+	eem_write(EEM_FREQPCT74, 0x20);
 }
 
 static void read_volt_from_VOP(struct eem_det *det)
@@ -2092,11 +2118,11 @@ static inline void handle_mon_mode_isr(struct eem_det *det)
 #ifdef CONFIG_THERMAL
 #if defined(__LP64__) || defined(_LP64)
 		temp_long =
-		(unsigned long long)tscpu_get_temp_by_bank(THERMAL_BANK0)/1000;
+		(unsigned long long)tscpu_get_temp_by_bank(THERMAL_BANK1)/1000;
 #else
 		temp_long = div_u64
 		((unsigned long long)
-		 tscpu_get_temp_by_bank(THERMAL_BANK0), 1000);
+		 tscpu_get_temp_by_bank(THERMAL_BANK1), 1000);
 #endif
 		if (temp_long != 0) {
 			aee_rr_rec_ptp_temp(temp_long <<
@@ -2363,12 +2389,13 @@ void eem_init02(const char *str)
 
 void eem_init01(void)
 {
-#if 0
 	struct eem_det *det;
+
+	FUNC_ENTER(FUNC_LV_LOCAL);
+#if 0
 	struct eem_ctrl *ctrl;
 	unsigned int out = 0, timeout = 0;
 
-	FUNC_ENTER(FUNC_LV_LOCAL);
 
 	for_each_det_ctrl(det, ctrl) {
 		unsigned long flag;
@@ -2464,6 +2491,9 @@ __func__, __LINE__, det->name, det->real_vboot, det->VBOOT);
 			timeout, out, final_init01_flag);
 	}
 #endif
+	for_each_det(det)
+		det->init2_phase = det->total2_phase;
+
 	eem_init02(__func__);
 	FUNC_EXIT(FUNC_LV_LOCAL);
 }
@@ -2487,6 +2517,16 @@ static void eem_dconfig_set_det(struct eem_det *det, struct device_node *node)
 		rc3 = of_property_read_u32(node, "eem-offset-little",
 			&doe_offset);
 		break;
+	case EEM_DET_BL:
+#if 0
+		rc1 = of_property_read_u32(node, "eem-initmon-bl",
+			&doe_initmon);
+		rc2 = of_property_read_u32(node, "eem-clamp-bl",
+			&doe_clamp);
+		rc3 = of_property_read_u32(node, "eem-offset-bl",
+			&doe_offset);
+			break;
+#endif
 	case EEM_DET_B:
 		rc1 = of_property_read_u32(node, "eem-initmon-big",
 			&doe_initmon);
@@ -2807,6 +2847,8 @@ void mt_eem_opp_status(enum eem_det_id id, unsigned int *temp,
 #ifdef CONFIG_THERMAL
 	if (id == EEM_DET_L)
 		*temp = tscpu_get_temp_by_bank(THERMAL_BANK2);
+	else if (id == EEM_DET_BL)
+		*temp = tscpu_get_temp_by_bank(THERMAL_BANK1);
 	else if (id == EEM_DET_B)
 		*temp = tscpu_get_temp_by_bank(THERMAL_BANK0);
 	else if (id == EEM_DET_CCI)

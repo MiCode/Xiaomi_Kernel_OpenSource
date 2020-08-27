@@ -144,6 +144,15 @@ void get_freq_table_gpu(struct eemg_det *det)
 	}
 
 	det->num_freq_tbl = i;
+	gpu_vb_turn_pt = 0;
+	for (i = 0; i < det->num_freq_tbl; i++) {
+		curfreq = mt_gpufreq_get_freq_by_real_idx
+			(mt_gpufreq_get_ori_opp_idx(i));
+		if (curfreq <= GPU_FREQ_BASE) {
+			gpu_vb_turn_pt = i;
+			break;
+		}
+	}
 #if ENABLE_LOO_G
 	/* Find 2line turn point */
 	for (i = 0; i < det->num_freq_tbl; i++) {

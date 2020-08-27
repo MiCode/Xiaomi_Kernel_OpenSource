@@ -111,6 +111,7 @@ int set_volt_cpu(struct eem_det *det)
 	if (record_tbl_locked[0] < det->volt_tbl_orig[15])
 		errcheck = 1;
 
+
 	if (errcheck == 0) {
 		cpudvfsindex = detid_to_dvfsid(det);
 #if SET_PMIC_VOLT_TO_DVFS
@@ -119,11 +120,8 @@ int set_volt_cpu(struct eem_det *det)
 #endif
 	} else
 		WARN_ON(errcheck);
-#if 0
-	cpudvfsindex = detid_to_dvfsid(det);
-	value = mt_cpufreq_update_volt(cpudvfsindex,
-			record_tbl_locked, det->num_freq_tbl);
-#endif
+
+
 #if 0
 	/*
 	 *eem_debug("[set_volt_cpu %s].volt_tbl[0] = 0x%X
@@ -191,7 +189,7 @@ void restore_default_volt_cpu(struct eem_det *det)
 void get_freq_table_cpu(struct eem_det *det)
 {
 	int i = 0;
-	unsigned int cbase_i, freq_base;
+	unsigned int cbase_i, freq_base = 1;
 	enum mt_cpu_dvfs_id cpudvfsindex;
 #if !DVT
 	int curfreq = 0;
@@ -200,6 +198,7 @@ void get_freq_table_cpu(struct eem_det *det)
 	FUNC_ENTER(FUNC_LV_HELP);
 
 	cpudvfsindex = detid_to_dvfsid(det);
+	freq_base = det->max_freq_khz;
 
 	for (i = 0; i < NR_FREQ_CPU; i++) {
 #if DVT
@@ -208,14 +207,15 @@ void get_freq_table_cpu(struct eem_det *det)
 		curfreq = mt_cpufreq_get_freq_by_idx
 			(cpudvfsindex, i) / 1000;
 
-		for (cbase_i = 0; (det->max_freq_khz[cbase_i] != 0);
+		for (cbase_i = 0; ((cbase_i < EEM_PHASE_MON) &&
+			(HAS_FEATURE(det, BIT(cbase_i))) &&
+			(det->turn_freq_khz[cbase_i] != 0));
 			cbase_i++) {
 			/* Search this freq is locate @ which reigon */
-			if ((curfreq > det->max_freq_khz[cbase_i]) ||
-				((curfreq > det->max_freq_khz[cbase_i + 1])
+			if ((curfreq > det->turn_freq_khz[cbase_i]) ||
+				((curfreq > det->turn_freq_khz[cbase_i + 1])
 				&&
-				(curfreq <= det->max_freq_khz[cbase_i]))) {
-				freq_base = det->max_freq_khz[cbase_i];
+				(curfreq <= det->turn_freq_khz[cbase_i]))) {
 
 				if (det->phase_ef[cbase_i].is_str_fnd ==
 					0) {
@@ -252,7 +252,7 @@ void get_freq_table_cpu(struct eem_det *det)
 	det->num_freq_tbl = i;
 	det->phase_ef[cbase_i].end_pt = det->num_freq_tbl - 1;
 
-	for (cbase_i = 0; (det->max_freq_khz[cbase_i] != 0);
+	for (cbase_i = 0; (det->turn_freq_khz[cbase_i] != 0);
 		cbase_i++) {
 		eem_debug(
 		"-[get_freq_] id:%d, cbase_i:%d, str_pt:%d, end_pt:%d\n",
