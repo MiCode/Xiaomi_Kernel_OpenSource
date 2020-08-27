@@ -1217,9 +1217,6 @@ static const char *mt6853_bus_id_to_master(uint32_t bus_id, uint32_t vio_addr,
 		"slave_type", slave_type,
 		"shift_sta_bit", shift_sta_bit);
 
-	if (bus_id == 0x0 && vio_addr == 0x0)
-		return NULL;
-
 	h_1byte = (vio_addr >> 24) & 0xFF;
 
 	if ((vio_addr >= TINYSYS_START_ADDR && vio_addr <= TINYSYS_END_ADDR) ||
