@@ -351,6 +351,7 @@ static ssize_t bus_tracer_dump_to_buf_store(struct device_driver *driver,
 static DRIVER_ATTR(dump_to_buf, 0664, bus_tracer_dump_to_buf_show,
 		bus_tracer_dump_to_buf_store);
 
+#if 0
 /*
  * interface: /proc/bus_trcaer/dump_db
  * AEE read this seq_file to get the content of internal buffer and generate db
@@ -374,14 +375,16 @@ static int bus_tracer_dump_db_release(struct inode *inode, struct file *file)
 
 	return single_release(inode, file);
 }
+#endif
 
+#if 0
 static const struct file_operations bus_tracer_dump_db_proc_fops = {
 	.open		= bus_tracer_dump_db_open,
 	.read		= seq_read,
 	.llseek		= seq_lseek,
 	.release	= bus_tracer_dump_db_release,
 };
-
+#endif
 
 /*
  * interface: /sys/bus/platform/drivers/bus_tracer/tracer_enable
@@ -814,7 +817,9 @@ static int bus_tracer_start(void)
 static int __init bus_tracer_init(void)
 {
 	int ret;
+#if 0
 	static struct proc_dir_entry *root_dir;
+#endif
 
 	ret = bus_tracer_start();
 	if (ret) {
@@ -874,13 +879,15 @@ static int __init bus_tracer_init(void)
 	if (ret)
 		pr_notice("%s: driver_create_file failed.\n", __func__);
 #endif
+#if 0
 	/* create /proc/bus_tracer */
 	root_dir = proc_mkdir("bus_tracer", NULL);
 	if (!root_dir)
 		return -EINVAL;
 
 	/* create /proc/bus_tracer/dump_db */
-	proc_create("dump_db", 0644, root_dir, &bus_tracer_dump_db_proc_fops);
+	proc_create("dump_db", 0640, root_dir, &bus_tracer_dump_db_proc_fops);
+#endif
 
 	bus_tracer_dump_buf = kzalloc(bus_tracer_drv.cur_plt->min_buf_len,
 			GFP_KERNEL);
