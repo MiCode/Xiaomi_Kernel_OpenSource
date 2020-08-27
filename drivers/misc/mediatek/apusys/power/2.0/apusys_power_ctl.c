@@ -45,13 +45,13 @@ int32_t apusys_thermal_en_throttle_cb(enum DVFS_USER user,
 	// need to check constraint voltage, fixed me
 
 	switch (user) {
-#ifdef CONFIG_MTK_APUSYS_VPU
+#if IS_ENABLED(CONFIG_MTK_APUSYS_VPU)
 	case VPU0:
 		for (user = VPU0; user < VPU0 + APUSYS_VPU_NUM; user++)
 			apusys_opps.thermal_opp[user] = opp;
 		break;
 #endif
-#ifdef CONFIG_MTK_APUSYS_MDLA_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_APUSYS_MDLA_SUPPORT)
 	case MDLA0:
 		for (user = MDLA0; user < MDLA0 + APUSYS_MDLA_NUM; user++)
 			apusys_opps.thermal_opp[user] = opp;
@@ -72,13 +72,13 @@ int32_t apusys_thermal_en_throttle_cb(enum DVFS_USER user,
 int32_t apusys_thermal_dis_throttle_cb(enum DVFS_USER user)
 {
 	switch (user) {
-#ifdef CONFIG_MTK_APUSYS_VPU
+#if IS_ENABLED(CONFIG_MTK_APUSYS_VPU)
 	case VPU0:
 		for (user = VPU0; user < VPU0 + APUSYS_VPU_NUM; user++)
 			apusys_opps.thermal_opp[user] = 0;
 		break;
 #endif
-#ifdef CONFIG_MTK_APUSYS_MDLA_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_APUSYS_MDLA_SUPPORT)
 	case MDLA0:
 		for (user = MDLA0; user < MDLA0 + APUSYS_MDLA_NUM; user++)
 			apusys_opps.thermal_opp[user] = 0;

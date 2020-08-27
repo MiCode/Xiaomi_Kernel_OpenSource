@@ -9,8 +9,8 @@
 #ifdef BUILD_POLICY_TEST
 #include "test.h"
 #else
-#ifdef CONFIG_MTK_AEE_FEATURE
-#include <aee.h>
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+#include <mt-plat/aee.h>
 #endif
 
 extern int g_pwr_log_level;
@@ -68,7 +68,7 @@ enum {
 			pr_info(PWR_TAG " " format, ##args); \
 	} while (0)
 
-#ifdef CONFIG_MTK_AEE_FEATURE
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #define apu_aee_warn(key, format, args...) \
 	do { \
 		pr_info(format, ##args); \

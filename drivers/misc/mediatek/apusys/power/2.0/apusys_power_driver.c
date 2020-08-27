@@ -32,6 +32,7 @@
 // APUSYS_POWER_BRINGUP
 //#include "pmic_api_buck.h"
 #include "apusys_power_rule_check.h"
+#include "apusys_debug_api.h"
 #include "apusys_power.h"
 #ifdef APUPWR_TAG_TP
 #include "apu_power_tag.h"
@@ -389,6 +390,7 @@ int apu_device_power_suspend(enum DVFS_USER user, int is_suspend)
 
 	if (ret) {
 		hal_config_power(PWR_CMD_DUMP_FAIL_STATE, VPU0, NULL);
+		apusys_reg_dump("apusys-power", false);
 
 		apu_aee_warn("APUPWR_OFF_FAIL", "user:%d, is_suspend:%d\n",
 							user, is_suspend);
@@ -484,6 +486,7 @@ int apu_device_power_on(enum DVFS_USER user)
 
 	if (ret) {
 		hal_config_power(PWR_CMD_DUMP_FAIL_STATE, VPU0, NULL);
+		apusys_reg_dump("apusys-power", false);
 
 		apu_aee_warn("APUPWR_ON_FAIL", "user:%d\n", user);
 		return -ENODEV;

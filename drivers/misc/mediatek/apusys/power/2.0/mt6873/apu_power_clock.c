@@ -13,9 +13,6 @@
 #include "power_clock.h"
 #include "apu_log.h"
 #include "apusys_power_ctl.h"
-#ifdef CONFIG_MTK_FREQ_HOPPING
-#include "mtk_freqhopping_drv.h"
-#endif
 
 /************** IMPORTANT !! *******************
  * The following name of each clock struct
