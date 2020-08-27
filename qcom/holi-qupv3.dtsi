@@ -318,6 +318,7 @@
 		dmas = <&gpi_dma1 0 4 3 64 0>,
 			<&gpi_dma1 1 4 3 64 0>;
 		dma-names = "tx", "rx";
+		qcom,shared;
 		qcom,wrapper-core = <&qupv3_1>;
 		status = "disabled";
 	};
