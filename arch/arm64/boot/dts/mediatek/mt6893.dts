@@ -4429,7 +4429,7 @@ page_owner=on loop.max_part=7";
 		ccu_step3 = <312 1 9 12>;
 		/* fmeter_mux_ids: Mapping to mux sequence in clocks */
 		fmeter_mux_ids = <5 6 11 7 8 56 57 10 9>;
-		vopp_steps = <0 1 2 3>;
+		vopp_steps = <1 2 3 4>;
 		disp_freq = "disp_step0", "disp_step1",
 				"disp_step2", "disp_step3";
 		mdp_freq = "mdp_step0", "mdp_step1",
