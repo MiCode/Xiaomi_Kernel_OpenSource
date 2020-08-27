@@ -114,6 +114,10 @@ static unsigned int drcc4_Code;
 static unsigned int drcc5_Code;
 static unsigned int drcc6_Code;
 static unsigned int drcc7_Code;
+static unsigned int drcc4_EdgeSel;
+static unsigned int drcc5_EdgeSel;
+static unsigned int drcc6_EdgeSel;
+static unsigned int drcc7_EdgeSel;
 
 #endif
 #endif
@@ -1345,6 +1349,46 @@ int drcc_probe(struct platform_device *pdev)
 
 		if (drcc7_Code <= 63)
 			mtk_drcc_DrccCode(drcc7_Code, 7);
+	}
+
+	rc = of_property_read_u32(node, "drcc4_EdgeSel", &drcc4_EdgeSel);
+	if (!rc) {
+		drcc_debug("[xxxxdrcc] drcc4_EdgeSel from DTree; rc(%d) drcc4_EdgeSel(0x%x)\n",
+			rc,
+			drcc4_EdgeSel);
+
+		if (drcc4_EdgeSel <= 1)
+			mtk_drcc_DrccClockEdgeSel(drcc4_EdgeSel, 4);
+	}
+
+	rc = of_property_read_u32(node, "drcc5_EdgeSel", &drcc5_EdgeSel);
+	if (!rc) {
+		drcc_debug("[xxxxdrcc] drcc5_EdgeSel from DTree; rc(%d) drcc5_EdgeSel(0x%x)\n",
+			rc,
+			drcc5_EdgeSel);
+
+		if (drcc5_EdgeSel <= 1)
+			mtk_drcc_DrccClockEdgeSel(drcc5_EdgeSel, 5);
+	}
+
+	rc = of_property_read_u32(node, "drcc6_EdgeSel", &drcc6_EdgeSel);
+	if (!rc) {
+		drcc_debug("[xxxxdrcc] drcc6_EdgeSel from DTree; rc(%d) drcc6_EdgeSel(0x%x)\n",
+			rc,
+			drcc6_EdgeSel);
+
+		if (drcc6_EdgeSel <= 1)
+			mtk_drcc_DrccClockEdgeSel(drcc6_EdgeSel, 6);
+	}
+
+	rc = of_property_read_u32(node, "drcc7_EdgeSel", &drcc7_EdgeSel);
+	if (!rc) {
+		drcc_debug("[xxxxdrcc] drcc7_EdgeSel from DTree; rc(%d) drcc7_EdgeSel(0x%x)\n",
+			rc,
+			drcc7_EdgeSel);
+
+		if (drcc7_EdgeSel <= 1)
+			mtk_drcc_DrccClockEdgeSel(drcc7_EdgeSel, 7);
 	}
 #endif /* CONFIG_OF */
 
