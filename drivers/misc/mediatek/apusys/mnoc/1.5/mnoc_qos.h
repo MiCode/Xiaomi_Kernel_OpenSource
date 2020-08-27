@@ -11,6 +11,7 @@
 #include <linux/pm_qos.h>
 
 struct engine_pm_qos_counter {
+	struct pm_qos_request qos_req;
 	struct icc_path *emi_icc_path;
 
 	int32_t last_report_bw;
