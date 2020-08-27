@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/dma-direction.h>
@@ -367,14 +367,39 @@ EXPORT_SYMBOL(msm_cvp_open);
 
 static void msm_cvp_cleanup_instance(struct msm_cvp_inst *inst)
 {
+	bool empty;
+	int max_retries;
+
 	if (!inst) {
 		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
 		return;
 	}
 
+	max_retries =  inst->core->resources.msm_cvp_hw_rsp_timeout >> 1;
+
+wait:
+	mutex_lock(&inst->cvpdspbufs.lock);
+	empty = list_empty(&inst->cvpdspbufs.list);
+	if (!empty && max_retries > 0) {
+		mutex_unlock(&inst->cvpdspbufs.lock);
+		usleep_range(1000, 2000);
+		max_retries--;
+		goto wait;
+	}
+	mutex_unlock(&inst->cvpdspbufs.lock);
+
+	dprintk(CVP_DBG, "empty %d, retry %d\n", (int)empty,
+	(inst->core->resources.msm_cvp_hw_rsp_timeout >> 1) - max_retries);
+	if (!empty) {
+		dprintk(CVP_WARN,
+			"Failed to process frames before session close\n");
+	}
+
 	if (cvp_comm_release_persist_buffers(inst))
 		dprintk(CVP_ERR,
 			"Failed to release persist buffers\n");
+
+	dprintk(CVP_DBG, "Done cvp cleanup instance\n");
 }
 
 int msm_cvp_destroy(struct msm_cvp_inst *inst)
