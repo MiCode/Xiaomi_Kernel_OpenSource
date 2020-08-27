@@ -112,11 +112,6 @@
 		};
 	};
 
-	rpmh-master-stats@b221200 {
-		compatible = "qcom,rpmh-master-stats-v1";
-		reg = <0xb221200 0x60>;
-	};
-
 	soc-sleep-stats@c3f0000 {
 		compatible = "qcom,rpmh-sleep-stats";
 		reg = <0xc3f0000 0x400>;

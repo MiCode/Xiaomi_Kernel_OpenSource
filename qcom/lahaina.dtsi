@@ -2695,11 +2695,6 @@
 			compatible = "qcom,bcm-voter";
 		};
 
-		system_pm {
-			status = "disabled";
-			compatible = "qcom,system-pm";
-		};
-
 		clock_rpmh: qcom,rpmhclk {
 			compatible = "qcom,lahaina-rpmh-clk";
 			#clock-cells = <1>;
