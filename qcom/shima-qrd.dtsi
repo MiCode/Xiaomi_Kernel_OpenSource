@@ -24,6 +24,27 @@
 	};
 };
 
+&qupv3_se9_i2c {
+	status = "ok";
+	qcom,clk-freq-out = <1000000>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+	nq@28 {
+		compatible = "qcom,sn-nci";
+		reg = <0x28>;
+		qcom,sn-irq = <&tlmm 87 0x00>;
+		qcom,sn-ven = <&tlmm 62 0x00>;
+		qcom,sn-firm = <&tlmm 86 0x00>;
+		qcom,sn-clkreq = <&tlmm 63 0x00>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <87 0>;
+		interrupt-names = "nfc_irq";
+		pinctrl-names = "nfc_active", "nfc_suspend";
+		pinctrl-0 = <&nfc_int_active &nfc_enable_active>;
+		pinctrl-1 = <&nfc_int_suspend &nfc_enable_suspend>;
+	};
+};
+
 &sdhc_1 {
 	status = "ok";
 
