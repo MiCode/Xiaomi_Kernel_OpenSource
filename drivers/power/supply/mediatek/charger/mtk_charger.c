@@ -1020,7 +1020,7 @@ static ssize_t store_sw_jeita(struct device *dev, struct device_attribute *attr,
 	return size;
 }
 
-static DEVICE_ATTR(sw_jeita, 0664, show_sw_jeita,
+static DEVICE_ATTR(sw_jeita, 0644, show_sw_jeita,
 		   store_sw_jeita);
 /* sw jeita end*/
 
@@ -1060,7 +1060,7 @@ static ssize_t store_pe20(struct device *dev, struct device_attribute *attr,
 	return size;
 }
 
-static DEVICE_ATTR(pe20, 0664, show_pe20, store_pe20);
+static DEVICE_ATTR(pe20, 0644, show_pe20, store_pe20);
 
 static ssize_t show_pe40(struct device *dev, struct device_attribute *attr,
 					       char *buf)
@@ -1089,7 +1089,7 @@ static ssize_t store_pe40(struct device *dev, struct device_attribute *attr,
 	return size;
 }
 
-static DEVICE_ATTR(pe40, 0664, show_pe40, store_pe40);
+static DEVICE_ATTR(pe40, 0644, show_pe40, store_pe40);
 
 /* pump express series end*/
 
@@ -1124,7 +1124,7 @@ static ssize_t store_charger_log_level(struct device *dev,
 	}
 	return size;
 }
-static DEVICE_ATTR(charger_log_level, 0664, show_charger_log_level,
+static DEVICE_ATTR(charger_log_level, 0644, show_charger_log_level,
 		store_charger_log_level);
 
 static ssize_t show_pdc_max_watt_level(struct device *dev,
@@ -1149,7 +1149,7 @@ static ssize_t store_pdc_max_watt_level(struct device *dev,
 
 	return size;
 }
-static DEVICE_ATTR(pdc_max_watt, 0664, show_pdc_max_watt_level,
+static DEVICE_ATTR(pdc_max_watt, 0644, show_pdc_max_watt_level,
 		store_pdc_max_watt_level);
 
 int mtk_get_dynamic_cv(struct charger_manager *info, unsigned int *cv)
@@ -2650,7 +2650,7 @@ static ssize_t store_input_current(struct device *dev,
 	}
 	return size;
 }
-static DEVICE_ATTR(input_current, 0664, show_input_current,
+static DEVICE_ATTR(input_current, 0644, show_input_current,
 		store_input_current);
 
 static ssize_t show_chg1_current(struct device *dev,
@@ -2681,7 +2681,7 @@ static ssize_t store_chg1_current(struct device *dev,
 	}
 	return size;
 }
-static DEVICE_ATTR(chg1_current, 0664, show_chg1_current, store_chg1_current);
+static DEVICE_ATTR(chg1_current, 0644, show_chg1_current, store_chg1_current);
 
 static ssize_t show_chg2_current(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -2711,7 +2711,7 @@ static ssize_t store_chg2_current(struct device *dev,
 	}
 	return size;
 }
-static DEVICE_ATTR(chg2_current, 0664, show_chg2_current, store_chg2_current);
+static DEVICE_ATTR(chg2_current, 0644, show_chg2_current, store_chg2_current);
 
 static ssize_t show_BatNotify(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -2741,7 +2741,7 @@ static ssize_t store_BatNotify(struct device *dev,
 	return size;
 }
 
-static DEVICE_ATTR(BatteryNotify, 0664, show_BatNotify, store_BatNotify);
+static DEVICE_ATTR(BatteryNotify, 0644, show_BatNotify, store_BatNotify);
 
 static ssize_t show_BN_TestMode(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -2768,7 +2768,7 @@ static ssize_t store_BN_TestMode(struct device *dev,
 	}
 	return size;
 }
-static DEVICE_ATTR(BN_TestMode, 0664, show_BN_TestMode, store_BN_TestMode);
+static DEVICE_ATTR(BN_TestMode, 0644, show_BN_TestMode, store_BN_TestMode);
 
 static ssize_t show_ADC_Charger_Voltage(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -2995,11 +2995,11 @@ static int mtk_charger_setup_files(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	proc_create_data("current_cmd", 0644, battery_dir,
+	proc_create_data("current_cmd", 0640, battery_dir,
 			&mtk_chg_current_cmd_fops, info);
-	proc_create_data("en_power_path", 0644, battery_dir,
+	proc_create_data("en_power_path", 0640, battery_dir,
 			&mtk_chg_en_power_path_fops, info);
-	proc_create_data("en_safety_timer", 0644, battery_dir,
+	proc_create_data("en_safety_timer", 0640, battery_dir,
 			&mtk_chg_en_safety_timer_fops, info);
 
 _out:
@@ -3159,7 +3159,7 @@ void charger_debug_init(void)
 		return;
 	}
 
-	proc_create("dump_log", 0644,
+	proc_create("dump_log", 0640,
 		charger_dir, &charger_dump_log_proc_fops);
 }
 
