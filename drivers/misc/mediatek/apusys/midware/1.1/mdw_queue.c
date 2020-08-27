@@ -122,6 +122,9 @@ struct mdw_apu_sc *mdw_queue_pop(int type)
 	else
 		sc = mq->norm.ops.pop(&mq->norm);
 
+	if (sc)
+		getnstimeofday(&sc->ts_deque);
+
 	return sc;
 }
 
@@ -130,6 +133,7 @@ int mdw_queue_insert(struct mdw_apu_sc *sc, int is_front)
 	struct mdw_queue *mq = NULL;
 
 	mdw_flw_debug("\n");
+	getnstimeofday(&sc->ts_enque);
 
 	/* get queue */
 	mq = mdw_rsc_get_queue(sc->type);

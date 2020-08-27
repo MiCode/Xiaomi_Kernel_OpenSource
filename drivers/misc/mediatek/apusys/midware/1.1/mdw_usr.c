@@ -30,6 +30,7 @@
 #include "mdw_usr.h"
 #include "mdw_rsc.h"
 #include "mdw_sched.h"
+#include "mdw_trace.h"
 #include "mdw_mem_aee.h"
 
 #define MDW_CMD_DEFAULT_TIMEOUT (30*1000) //30s
@@ -802,6 +803,7 @@ static int mdw_usr_par_apu_cmd(struct mdw_apu_cmd *c)
 	struct mdw_apu_sc *sc;
 	int ret = 0;
 
+	mdw_trace_begin("cmd parse|cmd(0x%llx)", c->kid);
 	while (1) {
 		ret = cmd_parser->parse_cmd(c, &sc);
 		/* check return value */
@@ -820,6 +822,7 @@ static int mdw_usr_par_apu_cmd(struct mdw_apu_cmd *c)
 			break;
 		}
 	}
+	mdw_trace_end("cmd parse|cmd(0x%llx)", c->kid);
 
 	return ret;
 }
@@ -837,7 +840,6 @@ int mdw_usr_run_cmd_async(struct mdw_usr *u, struct apusys_ioctl_cmd *in)
 	c->pid = u->pid;
 	c->tgid = u->tgid;
 	c->usr = u;
-
 
 	in->cmd_id = c->kid;
 

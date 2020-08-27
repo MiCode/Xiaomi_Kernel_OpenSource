@@ -25,7 +25,7 @@
 #include "mdw_dbg.h"
 #include "apusys_dbg.h"
 #include "mdw_mem.h"
-#include "midware_trace.h"
+#include "mdw_trace.h"
 #include "mdw_usr.h"
 #include "mdw_sched.h"
 

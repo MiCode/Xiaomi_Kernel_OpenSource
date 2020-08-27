@@ -24,6 +24,7 @@
 #include "mdw_dbg.h"
 #include "mdw_sched.h"
 #include "mdw_rsc.h"
+#include "mdw_trace.h"
 #include "reviser_export.h"
 #include "mdw_fence.h"
 
@@ -87,8 +88,23 @@ static void mdw_cmd_show_sc_perf(struct mdw_apu_sc *sc)
 		mdw_cmn_get_time_diff(&sc->ts_create, &sc->ts_enque));
 	mdw_pef_debug(" sched time      = %u\n",
 		mdw_cmn_get_time_diff(&sc->ts_enque, &sc->ts_deque));
+	mdw_pef_debug(" preset time     = %u\n",
+		mdw_cmn_get_time_diff(&sc->ts_deque, &sc->ts_start));
 	mdw_pef_debug(" exec time       = %u\n",
 		mdw_cmn_get_time_diff(&sc->ts_start, &sc->ts_end));
+	mdw_pef_debug(" post time       = %u\n",
+		mdw_cmn_get_time_diff(&sc->ts_end, &sc->ts_delete));
+	mdw_pef_debug(" life time       = %u\n",
+		mdw_cmn_get_time_diff(&sc->ts_create, &sc->ts_delete));
+	mdw_pef_debug("-------------------------\n");
+}
+
+static void mdw_cmd_show_cmd_perf(struct mdw_apu_cmd *c)
+{
+	mdw_pef_debug("-------------------------\n");
+	mdw_pef_debug(" apusys cmd(0x%llx)\n", c->kid);
+	mdw_pef_debug(" life time       = %u\n",
+		mdw_cmn_get_time_diff(&c->ts_create, &c->ts_delete));
 	mdw_pef_debug("-------------------------\n");
 }
 
@@ -429,8 +445,11 @@ static int mdw_cmd_delete_cmd(struct mdw_apu_cmd *c)
 			c->hdr->uid, c->kid);
 		return -EBUSY;
 	}
-
 	mdw_drv_debug("cmd(0x%llx/0x%llx) destroy\n", c->hdr->uid, c->kid);
+
+	getnstimeofday(&c->ts_delete);
+	mdw_cmd_show_cmd_perf(c);
+
 	mdw_mem_unmap_kva(c->cmdbuf);
 	vfree(c->cmdbuf);
 	vfree(c->hdr);
@@ -508,6 +527,7 @@ static void mdw_cmd_delete_sc(struct mdw_apu_sc *sc)
 
 	mdw_queue_task_end(sc);
 
+	getnstimeofday(&sc->ts_delete);
 	mdw_cmd_show_sc_perf(sc);
 
 	mutex_lock(&sc->mtx);
@@ -721,6 +741,9 @@ int mdw_cmd_get_ctx(struct mdw_apu_sc *sc)
 	uint32_t tcm_usage = 0;
 	struct mdw_apu_cmd *c = sc->parent;
 
+	mdw_trace_begin("get ctx|sc(0x%llx-%d)",
+		sc->parent->kid, sc->idx);
+
 	mutex_lock(&c->mtx);
 	if (c->ctx_repo[sc->hdr->mem_ctx] != MDW_CMD_EMPTY_NUM) {
 		sc->ctx = (uint32_t)c->ctx_repo[sc->hdr->mem_ctx];
@@ -739,12 +762,18 @@ int mdw_cmd_get_ctx(struct mdw_apu_sc *sc)
 
 out:
 	mutex_unlock(&c->mtx);
+	mdw_trace_end("get ctx|sc(0x%llx-%d) ctx(%lu)",
+		sc->parent->kid, sc->idx, sc->ctx);
+
 	return ret;
 }
 
 void mdw_cmd_put_ctx(struct mdw_apu_sc *sc)
 {
 	struct mdw_apu_cmd *c = sc->parent;
+
+	mdw_trace_begin("put ctx|sc(0x%llx-%d) ctx(%lu)",
+		sc->parent->kid, sc->idx, sc->ctx);
 
 	mutex_lock(&c->mtx);
 	if (sc->hdr->mem_ctx == VALUE_SUBGRAPH_CTX_ID_NONE) {
@@ -763,6 +792,8 @@ void mdw_cmd_put_ctx(struct mdw_apu_sc *sc)
 	}
 out:
 	mutex_unlock(&c->mtx);
+	mdw_trace_end("put ctx|sc(0x%llx-%d) ctx(%lu)",
+		sc->parent->kid, sc->idx, sc->ctx);
 }
 
 static int mdw_cmd_sc_exec_num(struct mdw_apu_sc *sc)
