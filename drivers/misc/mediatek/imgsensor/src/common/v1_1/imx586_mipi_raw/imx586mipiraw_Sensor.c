@@ -120,7 +120,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 	.cap = { /*reg_A 12M@30fps*/
 		.pclk = 752000000,
 		.linelength = 7872,
-		.framelength = 3068,
+		.framelength = 3184,
 		.startx = 0,
 		.starty = 0,
 		.grabwindow_width = 4000,
@@ -1490,6 +1490,13 @@ static kal_uint16 imx586_capture_setting[] = {
 	0x3E3B, 0x01,
 	0x4434, 0x01,
 	0x4435, 0xF0,
+	/*cphy global timing*/
+	0x0808, 0x02,
+	0x084f, 0x08,
+	0x0851, 0x07,
+	0x0853, 0x0e,
+	0x0855, 0x14,
+	0x0859, 0x1c
 #endif
 };
 
@@ -1691,6 +1698,12 @@ static kal_uint16 imx586_preview_setting[] = {
 	0x3E3B, 0x01,
 	0x4434, 0x01,
 	0x4435, 0xF0,
+	0x0808, 0x02,
+	0x084f, 0x12,
+	0x0851, 0x0f,
+	0x0853, 0x1e,
+	0x0855, 0x14,
+	0x0859, 0x1c
 #endif
 };
 
