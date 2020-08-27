@@ -23,3 +23,4 @@ ccflags-y  += -I$(MTK_TOP)/base/power/include/
 ccflags-y  += -I$(MTK_TOP)/base/power/$(MTK_PLATFORM)/
 ccflags-y  += -I$(MTK_TOP)/performance/fpsgo_v3/base/include
 ccflags-y  += -I$(MTK_TOP)/performance/fpsgo_v3/eara_job/include
+ccflags-y  += -I$(MTK_TOP)/performance/include
