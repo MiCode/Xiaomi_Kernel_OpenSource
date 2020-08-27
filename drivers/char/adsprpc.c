@@ -189,6 +189,9 @@
 /* Max no. of persistent headers pre-allocated per process */
 #define MAX_PERSISTENT_HEADERS    (25)
 
+/* Length of glink transaction history to store */
+#define GLINK_MSG_HISTORY_LEN (128)
+
 /* Fastrpc remote process attributes */
 enum fastrpc_proc_attr {
 	FASTRPC_MODE_UNSIGNED_MODULE = (1 << 3),
@@ -313,6 +316,29 @@ struct fastrpc_buf {
 
 struct fastrpc_ctx_lst;
 
+struct fastrpc_tx_msg {
+	struct smq_msg msg; /* Msg sent to remote subsystem */
+	int rpmsg_send_err; /* rpmsg error */
+	int64_t ns;         /* Timestamp (in ns) of msg */
+};
+
+struct fastrpc_rx_msg {
+	struct smq_invoke_rspv2 rsp;  /* Response from remote subsystem */
+	int64_t ns;   /* Timestamp (in ns) of response */
+};
+
+struct fastrpc_rpmsg_log {
+	unsigned int tx_index;  /* Current index of 'tx_msgs' array */
+	unsigned int rx_index;  /* Current index of 'rx_msgs' array */
+
+	/* Rolling history of messages sent to remote subsystem */
+	struct fastrpc_tx_msg tx_msgs[GLINK_MSG_HISTORY_LEN];
+
+	/* Rolling history of responses from remote subsystem */
+	struct fastrpc_rx_msg rx_msgs[GLINK_MSG_HISTORY_LEN];
+	spinlock_t lock;
+};
+
 struct overlap {
 	uintptr_t start;
 	uintptr_t end;
@@ -434,6 +460,7 @@ struct fastrpc_channel_ctx {
 	bool cpuinfo_status;
 	struct smq_invoke_ctx *ctxtable[FASTRPC_CTX_MAX];
 	spinlock_t ctxlock;
+	struct fastrpc_rpmsg_log gmsg_log;
 };
 
 struct fastrpc_apps {
@@ -660,6 +687,21 @@ static inline int64_t getnstimediff(struct timespec64 *start)
 	return ns;
 }
 
+/**
+ * get_timestamp_in_ns - Gets time of day in nanoseconds
+ *
+ * Returns: Timestamp in nanoseconds
+ */
+static inline int64_t get_timestamp_in_ns(void)
+{
+	int64_t ns = 0;
+	struct timespec64 ts;
+
+	ktime_get_real_ts64(&ts);
+	ns = timespec64_to_ns(&ts);
+	return ns;
+}
+
 static inline int64_t *getperfcounter(struct fastrpc_file *fl, int key)
 {
 	int err = 0;
@@ -741,6 +783,79 @@ static inline int poll_on_early_response(struct smq_invoke_ctx *ctx)
 	}
 	preempt_enable();
 	return err;
+}
+
+/**
+ * fastrpc_update_txmsg_buf - Update history of sent glink messages
+ * @chan           : Channel context
+ * @msg            : Pointer to RPC message to remote subsystem
+ * @rpmsg_send_err : Error from rpmsg
+ * @ns             : Timestamp (in ns) of sent message
+ *
+ * Returns none
+ */
+static inline void fastrpc_update_txmsg_buf(struct fastrpc_channel_ctx *chan,
+	struct smq_msg *msg, int rpmsg_send_err, int64_t ns)
+{
+	unsigned long flags = 0;
+	unsigned int tx_index = 0;
+	struct fastrpc_tx_msg *tx_msg = NULL;
+
+	spin_lock_irqsave(&chan->gmsg_log.lock, flags);
+
+	tx_index = chan->gmsg_log.tx_index;
+	tx_msg = &chan->gmsg_log.tx_msgs[tx_index];
+
+	memcpy(&tx_msg->msg, msg, sizeof(struct smq_msg));
+	tx_msg->rpmsg_send_err = rpmsg_send_err;
+	tx_msg->ns = ns;
+
+	tx_index++;
+	chan->gmsg_log.tx_index =
+		(tx_index > (GLINK_MSG_HISTORY_LEN - 1)) ? 0 : tx_index;
+
+	spin_unlock_irqrestore(&chan->gmsg_log.lock, flags);
+}
+
+/**
+ * fastrpc_update_rxmsg_buf - Update history of received glink responses
+ * @chan            : Channel context
+ * @ctx             : Context of received response from DSP
+ * @retval          : Return value for RPC call
+ * @rsp_flags       : Response type
+ * @early_wake_time : Poll time for early wakeup
+ * @ver             : Version of response
+ * @ns              : Timestamp (in ns) of response
+ *
+ * Returns none
+ */
+static inline void fastrpc_update_rxmsg_buf(struct fastrpc_channel_ctx *chan,
+	uint64_t ctx, int retval, uint32_t rsp_flags,
+	uint32_t early_wake_time, uint32_t ver, int64_t ns)
+{
+	unsigned long flags = 0;
+	unsigned int rx_index = 0;
+	struct fastrpc_rx_msg *rx_msg = NULL;
+	struct smq_invoke_rspv2 *rsp = NULL;
+
+	spin_lock_irqsave(&chan->gmsg_log.lock, flags);
+
+	rx_index = chan->gmsg_log.rx_index;
+	rx_msg = &chan->gmsg_log.rx_msgs[rx_index];
+	rsp = &rx_msg->rsp;
+
+	rsp->ctx = ctx;
+	rsp->retval = retval;
+	rsp->flags = rsp_flags;
+	rsp->early_wake_time = early_wake_time;
+	rsp->version = ver;
+	rx_msg->ns = ns;
+
+	rx_index++;
+	chan->gmsg_log.rx_index =
+		(rx_index > (GLINK_MSG_HISTORY_LEN - 1)) ? 0 : rx_index;
+
+	spin_unlock_irqrestore(&chan->gmsg_log.lock, flags);
 }
 
 static void fastrpc_buf_free(struct fastrpc_buf *buf, int cache)
@@ -2555,6 +2670,8 @@ static int fastrpc_invoke_send(struct smq_invoke_ctx *ctx,
 	struct fastrpc_file *fl = ctx->fl;
 	struct fastrpc_channel_ctx *channel_ctx = NULL;
 	int err = 0, cid = -1;
+	uint32_t sc = ctx->sc;
+	int64_t ns = 0;
 
 	cid = fl->cid;
 	VERIFY(err, cid >= ADSP_DOMAIN_ID && cid < NUM_CHANNELS);
@@ -2573,7 +2690,7 @@ static int fastrpc_invoke_send(struct smq_invoke_ctx *ctx,
 		msg->pid = 0;
 	msg->invoke.header.ctx = ctx->ctxid | fl->pd;
 	msg->invoke.header.handle = handle;
-	msg->invoke.header.sc = ctx->sc;
+	msg->invoke.header.sc = sc;
 	msg->invoke.page.addr = ctx->buf ? ctx->buf->phys : 0;
 	msg->invoke.page.size = buf_page_size(ctx->used);
 
@@ -2592,11 +2709,15 @@ static int fastrpc_invoke_send(struct smq_invoke_ctx *ctx,
 		goto bail;
 	}
 	err = rpmsg_send(channel_ctx->rpdev->ept, (void *)msg, sizeof(*msg));
-	trace_fastrpc_rpmsg_send(fl->cid, (uint64_t)ctx, msg->invoke.header.ctx,
-		handle, msg->invoke.header.sc, msg->invoke.page.addr,
-		msg->invoke.page.size);
 	mutex_unlock(&channel_ctx->rpmsg_mutex);
+	trace_fastrpc_rpmsg_send(fl->cid, (uint64_t)ctx, msg->invoke.header.ctx,
+		handle, sc, msg->invoke.page.addr, msg->invoke.page.size);
+	ns = get_timestamp_in_ns();
+	fastrpc_update_txmsg_buf(channel_ctx, msg, err, ns);
  bail:
+	if (err)
+		ADSPRPC_ERR("failed with err %d, dom %d (hndl 0x%x, sc 0x%x)\n",
+			err, cid, handle, sc);
 	return err;
 }
 
@@ -2618,6 +2739,7 @@ static void fastrpc_init(struct fastrpc_apps *me)
 		mutex_init(&me->channel[i].smd_mutex);
 		mutex_init(&me->channel[i].rpmsg_mutex);
 		spin_lock_init(&me->channel[i].ctxlock);
+		spin_lock_init(&me->channel[i].gmsg_log.lock);
 	}
 	/* Set CDSP channel to non secure */
 	me->channel[CDSP_DOMAIN_ID].secure = NON_SECURE_CHANNEL;
@@ -4597,10 +4719,11 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 	struct smq_invoke_rspv2 *rspv2 = NULL;
 	struct smq_invoke_ctx *ctx = NULL;
 	struct fastrpc_apps *me = &gfa;
-	uint32_t index, rsp_flags = 0, early_wake_time = 0;
+	uint32_t index, rsp_flags = 0, early_wake_time = 0, ver = 0;
 	int err = 0, cid = -1, ignore_rpmsg_err = 0;
 	struct fastrpc_channel_ctx *chan = NULL;
 	unsigned long irq_flags = 0;
+	int64_t ns = 0;
 
 	cid = get_cid_from_rpdev(rpdev);
 	VERIFY(err, (cid >= ADSP_DOMAIN_ID && cid <= NUM_CHANNELS));
@@ -4620,9 +4743,13 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 	if (rspv2) {
 		early_wake_time = rspv2->early_wake_time;
 		rsp_flags = rspv2->flags;
+		ver = rspv2->version;
 	}
 	trace_fastrpc_rpmsg_response(cid, rsp->ctx,
 		rsp->retval, rsp_flags, early_wake_time);
+	ns = get_timestamp_in_ns();
+	fastrpc_update_rxmsg_buf(chan, rsp->ctx, rsp->retval,
+		rsp_flags, early_wake_time, ver, ns);
 
 	index = (uint32_t)GET_TABLE_IDX_FROM_CTXID(rsp->ctx);
 	VERIFY(err, index < FASTRPC_CTX_MAX);
