@@ -73,8 +73,8 @@ struct pcharger_data {
 	unsigned int cc_charging_time;
 	unsigned int topoff_charging_time;
 	unsigned int full_charging_time;
-	struct timespec topoff_begin_time;
-	struct timespec charging_begin_time;
+	struct timespec64 topoff_begin_time;
+	struct timespec64 charging_begin_time;
 
 	int recharge_offset; /* uv */
 	int topoff_voltage; /* uv */
@@ -271,7 +271,7 @@ static void linear_chg_turn_on_charging(struct mtk_charger *info)
 static int mtk_linear_chr_cc(struct mtk_charger *info)
 {
 	ktime_t ktime_now, ktime_diff;
-	struct timespec time_now, charging_time;
+	struct timespec64 time_now, charging_time;
 	u32 vbat;
 	struct pcharger_data *algo_data;
 
@@ -283,8 +283,8 @@ static int mtk_linear_chr_cc(struct mtk_charger *info)
 		algo_data->full_charging_time);
 
 	ktime_now = ktime_get_boottime();
-	ktime_diff = ktime_sub(ktime_now, timespec_to_ktime(algo_data->charging_begin_time));
-	charging_time = ktime_to_timespec(ktime_diff);
+	ktime_diff = ktime_sub(ktime_now, timespec64_to_ktime(algo_data->charging_begin_time));
+	charging_time = ktime_to_timespec64(ktime_diff);
 
 
 	algo_data->cc_charging_time = charging_time.tv_sec;
@@ -299,7 +299,7 @@ static int mtk_linear_chr_cc(struct mtk_charger *info)
 	if (vbat > algo_data->topoff_voltage) {
 		algo_data->state = CHR_TOPOFF;
 		ktime_now = ktime_get_boottime();
-		algo_data->topoff_begin_time = ktime_to_timespec(ktime_now);
+		algo_data->topoff_begin_time = ktime_to_timespec64(ktime_now);
 		pr_notice("%s: enter TOPOFF mode on vbat = %d uV\n",
 			__func__, vbat);
 	}
@@ -333,7 +333,7 @@ static int mtk_linear_chr_topoff(struct mtk_charger *info)
 {
 	ktime_t ktime_now, ktime_diff;
 	struct pcharger_data *algo_data = info->algo.algo_data;
-	struct timespec time_now, charging_time, topoff_time;
+	struct timespec64 time_now, charging_time, topoff_time;
 
 
 	pr_notice("%s time:%d %d %d %d\n", __func__,
@@ -342,11 +342,11 @@ static int mtk_linear_chr_topoff(struct mtk_charger *info)
 		algo_data->topoff_charging_time,
 		algo_data->full_charging_time);
 	ktime_now = ktime_get_boottime();
-	ktime_diff = ktime_sub(ktime_now, timespec_to_ktime(algo_data->charging_begin_time));
-	charging_time = ktime_to_timespec(ktime_diff);
+	ktime_diff = ktime_sub(ktime_now, timespec64_to_ktime(algo_data->charging_begin_time));
+	charging_time = ktime_to_timespec64(ktime_diff);
 
-	ktime_diff = ktime_sub(ktime_now, timespec_to_ktime(algo_data->topoff_begin_time));
-	charging_time = ktime_to_timespec(ktime_diff);
+	ktime_diff = ktime_sub(ktime_now, timespec64_to_ktime(algo_data->topoff_begin_time));
+	charging_time = ktime_to_timespec64(ktime_diff);
 
 	algo_data->cc_charging_time = 0;
 	algo_data->topoff_charging_time = topoff_time.tv_sec;
@@ -402,7 +402,7 @@ static int mtk_linear_chr_full(struct mtk_charger *info)
 	if (is_recharging) {
 		algo_data->state = CHR_CC;
 		ktime_now = ktime_get_boottime();
-		algo_data->charging_begin_time = ktime_to_timespec(ktime_now);
+		algo_data->charging_begin_time = ktime_to_timespec64(ktime_now);
 		pr_notice("battery recharging on vbat = %d uV\n", vbat);
 		info->polling_interval = CHARGING_INTERVAL;
 	}
@@ -439,7 +439,7 @@ static int mtk_linear_chr_err(struct mtk_charger *info)
 			info->sw_jeita.error_recovery_flag = true;
 			algo_data->state = CHR_CC;
 			ktime_now = ktime_get_boottime();
-			algo_data->charging_begin_time = ktime_to_timespec(ktime_now);
+			algo_data->charging_begin_time = ktime_to_timespec64(ktime_now);
 		}
 	}
 
@@ -537,7 +537,7 @@ static int mtk_linear_charging_do_charging(struct mtk_charger *info,
 		algo_data->disable_charging = false;
 		algo_data->state = CHR_CC;
 		ktime_now = ktime_get_boottime();
-		algo_data->charging_begin_time = ktime_to_timespec(ktime_now);
+		algo_data->charging_begin_time = ktime_to_timespec64(ktime_now);
 
 	} else {
 		algo_data->disable_charging = true;

@@ -259,7 +259,7 @@ struct mtk_charger {
 
 	/* alarm timer */
 	struct alarm charger_timer;
-	struct timespec endtime;
+	struct timespec64 endtime;
 	bool is_suspend;
 	struct notifier_block pm_notifier;
 
@@ -292,7 +292,7 @@ struct mtk_charger {
 	/* sw safety timer */
 	bool enable_sw_safety_timer;
 	bool sw_safety_timer_setting;
-	struct timespec charging_begin_time;
+	struct timespec64 charging_begin_time;
 
 	/* sw jeita */
 	bool enable_sw_jeita;

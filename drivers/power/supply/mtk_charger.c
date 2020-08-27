@@ -469,7 +469,7 @@ static void mtk_charger_parse_dt(struct mtk_charger *info,
 
 static void mtk_charger_start_timer(struct mtk_charger *info)
 {
-	struct timespec end_time, time_now;
+	struct timespec64 end_time, time_now;
 	ktime_t ktime, ktime_now;
 	int ret = 0;
 
@@ -481,7 +481,7 @@ static void mtk_charger_start_timer(struct mtk_charger *info)
 	}
 
 	ktime_now = ktime_get_boottime();
-	time_now = ktime_to_timespec(ktime_now);
+	time_now = ktime_to_timespec64(ktime_now);
 	end_time.tv_sec = time_now.tv_sec + info->polling_interval;
 	end_time.tv_nsec = time_now.tv_nsec + 0;
 	info->endtime = end_time;
@@ -895,13 +895,12 @@ static ssize_t mtk_chg_current_cmd_write(struct file *file,
 	return count;
 }
 
-static const struct file_operations mtk_chg_current_cmd_fops = {
-	.owner = THIS_MODULE,
-	.open = mtk_chg_current_cmd_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = single_release,
-	.write = mtk_chg_current_cmd_write,
+static const struct proc_ops mtk_chg_current_cmd_fops = {
+	.proc_open = mtk_chg_current_cmd_open,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
+	.proc_write = mtk_chg_current_cmd_write,
 };
 
 static int mtk_chg_en_power_path_show(struct seq_file *m, void *data)
@@ -950,13 +949,12 @@ static ssize_t mtk_chg_en_power_path_write(struct file *file,
 	return count;
 }
 
-static const struct file_operations mtk_chg_en_power_path_fops = {
-	.owner = THIS_MODULE,
-	.open = mtk_chg_en_power_path_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = single_release,
-	.write = mtk_chg_en_power_path_write,
+static const struct proc_ops mtk_chg_en_power_path_fops = {
+	.proc_open = mtk_chg_en_power_path_open,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
+	.proc_write = mtk_chg_en_power_path_write,
 };
 
 static int mtk_chg_en_safety_timer_show(struct seq_file *m, void *data)
@@ -1014,13 +1012,12 @@ static ssize_t mtk_chg_en_safety_timer_write(struct file *file,
 	return count;
 }
 
-static const struct file_operations mtk_chg_en_safety_timer_fops = {
-	.owner = THIS_MODULE,
-	.open = mtk_chg_en_safety_timer_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = single_release,
-	.write = mtk_chg_en_safety_timer_write,
+static const struct proc_ops mtk_chg_en_safety_timer_fops = {
+	.proc_open = mtk_chg_en_safety_timer_open,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
+	.proc_write = mtk_chg_en_safety_timer_write,
 };
 
 int mtk_chg_enable_vbus_ovp(bool enable)
@@ -1541,7 +1538,7 @@ static int charger_pm_event(struct notifier_block *notifier,
 			unsigned long pm_event, void *unused)
 {
 	ktime_t ktime_now;
-	struct timespec now;
+	struct timespec64 now;
 	struct mtk_charger *info;
 
 	info = container_of(notifier,
@@ -1556,9 +1553,9 @@ static int charger_pm_event(struct notifier_block *notifier,
 		info->is_suspend = false;
 		chr_debug("%s: enter PM_POST_SUSPEND\n", __func__);
 		ktime_now = ktime_get_boottime();
-		now = ktime_to_timespec(ktime_now);
+		now = ktime_to_timespec64(ktime_now);
 
-		if (timespec_compare(&now, &info->endtime) >= 0 &&
+		if (timespec64_compare(&now, &info->endtime) >= 0 &&
 			info->endtime.tv_sec != 0 &&
 			info->endtime.tv_nsec != 0) {
 			chr_err("%s: alarm timeout, wake up charger\n",
