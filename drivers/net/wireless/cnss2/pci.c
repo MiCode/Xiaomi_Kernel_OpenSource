@@ -710,6 +710,7 @@ static int cnss_set_pci_link(struct cnss_pci_data *pci_priv, bool link_up)
 	struct pci_dev *pci_dev = pci_priv->pci_dev;
 	enum msm_pcie_pm_opt pm_ops;
 	int retry = 0;
+	u32 pm_options = PM_OPTIONS_DEFAULT;
 
 	cnss_pr_vdbg("%s PCI link\n", link_up ? "Resuming" : "Suspending");
 
@@ -719,6 +720,7 @@ static int cnss_set_pci_link(struct cnss_pci_data *pci_priv, bool link_up)
 		if (pci_priv->drv_connected_last) {
 			cnss_pr_vdbg("Use PCIe DRV suspend\n");
 			pm_ops = MSM_PCIE_DRV_SUSPEND;
+			pm_options |= MSM_PCIE_CONFIG_NO_DRV_PC;
 			cnss_set_pci_link_status(pci_priv, PCI_GEN1);
 		} else {
 			pm_ops = MSM_PCIE_SUSPEND;
@@ -727,7 +729,7 @@ static int cnss_set_pci_link(struct cnss_pci_data *pci_priv, bool link_up)
 
 retry:
 	ret = msm_pcie_pm_control(pm_ops, pci_dev->bus->number, pci_dev,
-				  NULL, PM_OPTIONS_DEFAULT);
+				  NULL, pm_options);
 	if (ret) {
 		cnss_pr_err("Failed to %s PCI link with default option, err = %d\n",
 			    link_up ? "resume" : "suspend", ret);
