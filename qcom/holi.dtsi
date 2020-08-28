@@ -666,72 +666,72 @@
 		};
 
 		l1_icache0 {
-			qcom,dump-size = <0x9040>;
+			qcom,dump-size = <0x10800>;
 			qcom,dump-id = <0x60>;
 		};
 
 		l1_icache1 {
-			qcom,dump-size = <0x9040>;
+			qcom,dump-size = <0x10800>;
 			qcom,dump-id = <0x61>;
 		};
 
 		l1_icache2 {
-			qcom,dump-size = <0x9040>;
+			qcom,dump-size = <0x10800>;
 			qcom,dump-id = <0x62>;
 		};
 
 		l1_icache3 {
-			qcom,dump-size = <0x9040>;
+			qcom,dump-size = <0x10800>;
 			qcom,dump-id = <0x63>;
 		};
 
 		l1_icache100 {
-			qcom,dump-size = <0x12000>;
+			qcom,dump-size = <0x10800>;
 			qcom,dump-id = <0x64>;
 		};
 
 		l1_icache101 {
-			qcom,dump-size = <0x12000>;
+			qcom,dump-size = <0x10800>;
 			qcom,dump-id = <0x65>;
 		};
 
 		l1_icache102 {
-			qcom,dump-size = <0x12000>;
+			qcom,dump-size = <0x21000>;
 			qcom,dump-id = <0x66>;
 		};
 
 		l1_icache103 {
-			qcom,dump-size = <0x12000>;
+			qcom,dump-size = <0x21000>;
 			qcom,dump-id = <0x67>;
 		};
 
 		l1_dcache0 {
-			qcom,dump-size = <0x9040>;
+			qcom,dump-size = <0x9000>;
 			qcom,dump-id = <0x80>;
 		};
 
 		l1_dcache1 {
-			qcom,dump-size = <0x9040>;
+			qcom,dump-size = <0x9000>;
 			qcom,dump-id = <0x81>;
 		};
 
 		l1_dcache2 {
-			qcom,dump-size = <0x9040>;
+			qcom,dump-size = <0x9000>;
 			qcom,dump-id = <0x82>;
 		};
 
 		l1_dcache3 {
-			qcom,dump-size = <0x9040>;
+			qcom,dump-size = <0x9000>;
 			qcom,dump-id = <0x83>;
 		};
 
 		l1_dcache100 {
-			qcom,dump-size = <0x12000>;
+			qcom,dump-size = <0x9000>;
 			qcom,dump-id = <0x84>;
 		};
 
 		l1_dcache101 {
-			qcom,dump-size = <0x12000>;
+			qcom,dump-size = <0x9000>;
 			qcom,dump-id = <0x85>;
 		};
 
@@ -746,42 +746,42 @@
 		};
 
 		l2_tlb0 {
-			qcom,dump-size = <0x2000>;
+			qcom,dump-size = <0x5a00>;
 			qcom,dump-id = <0x120>;
 		};
 
 		l2_tlb1 {
-			qcom,dump-size = <0x2000>;
+			qcom,dump-size = <0x5a00>;
 			qcom,dump-id = <0x121>;
 		};
 
 		l2_tlb2 {
-			qcom,dump-size = <0x2000>;
+			qcom,dump-size = <0x5a00>;
 			qcom,dump-id = <0x122>;
 		};
 
 		l2_tlb3 {
-			qcom,dump-size = <0x2000>;
+			qcom,dump-size = <0x5a00>;
 			qcom,dump-id = <0x123>;
 		};
 
 		l2_tlb100 {
-			qcom,dump-size = <0x4800>;
+			qcom,dump-size = <0x5a00>;
 			qcom,dump-id = <0x124>;
 		};
 
 		l2_tlb101 {
-			qcom,dump-size = <0x4800>;
+			qcom,dump-size = <0x5a00>;
 			qcom,dump-id = <0x125>;
 		};
 
 		l2_tlb102 {
-			qcom,dump-size = <0x4800>;
+			qcom,dump-size = <0x7800>;
 			qcom,dump-id = <0x126>;
 		};
 
 		l2_tlb103 {
-			qcom,dump-size = <0x4800>;
+			qcom,dump-size = <0x7800>;
 			qcom,dump-id = <0x127>;
 		};
 
