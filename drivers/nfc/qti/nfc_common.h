@@ -62,7 +62,12 @@
 #define COLD_RESET_OID			0x1E
 
 #define MAX_NCI_PAYLOAD_LEN		(255)
-#define MAX_BUFFER_SIZE			(NCI_HDR_LEN + MAX_NCI_PAYLOAD_LEN)
+/*
+ * From MW 11.04 buffer size increased to support
+ * frame size of 554 in FW download mode
+ * Frame len(2) + Frame Header(6) + DATA(512) + HASH(32) + CRC(2) + RFU(4)
+ */
+#define MAX_BUFFER_SIZE			(558)
 
 // Maximum retry count for standby writes
 #define MAX_RETRY_COUNT			(3)
