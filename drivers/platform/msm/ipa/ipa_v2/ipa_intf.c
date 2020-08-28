@@ -5,6 +5,7 @@
 
 #include <linux/fs.h>
 #include <linux/sched.h>
+#include <linux/sched/signal.h>
 #include "ipa_i.h"
 #include <linux/msm_ipa.h>
 
