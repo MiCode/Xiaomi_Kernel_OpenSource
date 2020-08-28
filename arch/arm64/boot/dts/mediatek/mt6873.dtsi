@@ -5050,6 +5050,7 @@
 
 		consys: consys@18002000 {
 			compatible = "mediatek,mt6873-consys";
+			#thermal-sensor-cells = <0>;
 			#address-cells = <2>;
 			#size-cells = <2>;
 				/*CONN_MCU_CONFIG_BASE */
