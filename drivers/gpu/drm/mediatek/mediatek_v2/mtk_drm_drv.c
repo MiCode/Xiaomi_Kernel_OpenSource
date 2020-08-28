@@ -2708,6 +2708,24 @@ struct disp_iommu_device *disp_get_iommu_dev(void)
 }
 #endif
 
+static struct device *mtk_drm_get_larb(struct device *dev)
+{
+	struct device_node *larb_node = NULL;
+	struct platform_device *larb_pdev = NULL;
+	struct device *larb_dev = NULL;
+
+	larb_node = of_parse_phandle(dev->of_node, "mediatek,larb", 0);
+
+	if (larb_node) {
+		larb_pdev = of_find_device_by_node(larb_node);
+		if (larb_pdev)
+			larb_dev = &larb_pdev->dev;
+		of_node_put(larb_node);
+	}
+
+	return larb_dev;
+}
+
 static int mtk_drm_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -2717,6 +2735,7 @@ static int mtk_drm_probe(struct platform_device *pdev)
 	struct component_match *match = NULL;
 	int ret;
 	int i;
+	struct device *larb_dev = NULL;
 
 	disp_dbg_probe();
 	PanelMaster_probe();
@@ -2855,6 +2874,15 @@ static int mtk_drm_probe(struct platform_device *pdev)
 
 	disp_dts_gpio_init(dev, private);
 	memcpy(&mydev, pdev, sizeof(mydev));
+
+	/*
+	 * When kernel init, SMI larb will get once for keeping
+	 * MTCMOS on. Then, this keeping will be released after
+	 * display keep MTCMOS by itself.
+	 */
+	larb_dev = mtk_drm_get_larb(dev);
+	if (larb_dev)
+		mtk_smi_larb_put(larb_dev);
 
 	return 0;
 
