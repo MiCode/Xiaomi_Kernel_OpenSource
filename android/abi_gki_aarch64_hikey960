@@ -195,7 +195,6 @@
   ida_alloc_range
   ida_destroy
   ida_free
-  ieee80211_channel_to_frequency
   ieee80211_connection_loss
   ieee80211_find_sta
   ieee80211_get_hdrlen_from_skb
@@ -804,7 +803,6 @@
   ieee80211_csa_finish
   ieee80211_free_hw
   ieee80211_free_txskb
-  ieee80211_frequency_to_channel
   ieee80211_hdrlen
   ieee80211_iterate_active_interfaces_atomic
   ieee80211_iterate_interfaces
