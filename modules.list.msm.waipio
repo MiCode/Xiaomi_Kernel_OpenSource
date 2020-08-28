@@ -23,3 +23,4 @@ usb_f_diag.ko
 usb_f_mass_storage.ko
 msm-geni-se.ko
 msm_geni_serial.ko
+msm_ion_heaps.ko
