@@ -589,7 +589,8 @@ int rndis_ipa_init(struct ipa_usb_init_params *params)
 	}
 	RNDIS_IPA_DEBUG("Device Ethernet address set %pM\n", net->dev_addr);
 
-	if (ipa_is_vlan_mode(IPA_VLAN_IF_RNDIS,
+	if ((ipa_get_hw_type() >= IPA_HW_v3_0) &&
+		ipa_is_vlan_mode(IPA_VLAN_IF_RNDIS,
 		&rndis_ipa_ctx->is_vlan_mode)) {
 		RNDIS_IPA_ERROR("couldn't acquire vlan mode, is ipa ready?\n");
 		goto fail_get_vlan_mode;
