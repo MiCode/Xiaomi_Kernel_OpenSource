@@ -1300,8 +1300,11 @@ static void a6xx_gmu_register_config(struct adreno_device *adreno_dev)
 	u32 gmu_log_info, chipid = 0;
 
 	/* Vote veto for FAL10 feature if supported*/
-	if (a6xx_core->veto_fal10)
+	if (a6xx_core->veto_fal10) {
 		gmu_core_regwrite(device, A6XX_GPU_GMU_CX_GMU_CX_FAL_INTF, 0x1);
+		gmu_core_regwrite(device,
+			A6XX_GPU_GMU_CX_GMU_CX_FALNEXT_INTF, 0x1);
+	}
 
 	/* Turn on TCM retention */
 	gmu_core_regwrite(device, A6XX_GMU_GENERAL_7, 1);
