@@ -786,7 +786,7 @@
 		};
 
 		rpm_sw {
-			qcom,dump-size = <0x28000>;
+			qcom,dump-size = <0x2c000>;
 			qcom,dump-id = <0xea>;
 		};
 
