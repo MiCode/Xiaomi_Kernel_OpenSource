@@ -340,6 +340,11 @@
 			label = "cont_splash_region";
 		};
 
+		dfps_data_memory: dfps_data_region@85e00000 {
+			reg = <0x0 0x85e00000 0x0 0x00100000>;
+			label = "dfps_data_region";
+		};
+
 		/* global autoconfigured region for contiguous allocations */
 		linux,cma {
 			compatible = "shared-dma-pool";
