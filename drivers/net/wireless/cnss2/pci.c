@@ -529,10 +529,6 @@ static int cnss_setup_bus_bandwidth(struct cnss_plat_data *plat_priv,
 	}
 
 	list_for_each_entry(bus_bw_info, &plat_priv->icc.list_head, list) {
-		cnss_pr_info("Set BW Cfg: %d ICC Path: %s Val: %d %d\n",
-			     bw, bus_bw_info->icc_name,
-			     bus_bw_info->cfg_table[bw].avg_bw,
-			     bus_bw_info->cfg_table[bw].peak_bw);
 		ret = icc_set_bw(bus_bw_info->icc_path,
 				 bus_bw_info->cfg_table[bw].avg_bw,
 				 bus_bw_info->cfg_table[bw].peak_bw);
