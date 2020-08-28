@@ -335,7 +335,7 @@ u8 *ipa_pad_to_32(u8 *dest)
 		return dest;
 	}
 
-	i = (long)dest & 0x7;
+	i = (long)dest & 0x3;
 
 	if (i)
 		for (j = 0; j < (4 - i); j++)
