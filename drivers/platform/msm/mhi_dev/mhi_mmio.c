@@ -605,12 +605,18 @@ int mhi_dev_restore_mmio(struct mhi_dev *dev)
 	}
 
 	mhi_dev_mmio_clear_interrupts(dev);
+
+	/* Mask and enable control interrupt */
 	mhi_dev_mmio_enable_ctrl_interrupt(dev);
 
 	/*Enable chdb interrupt*/
 	mhi_dev_mmio_enable_chdb_interrupts(dev);
 
-	/* Mask and enable control interrupt */
+	/*Enable cmdb interrupt*/
+	mhi_dev_mmio_enable_cmdb_interrupt(dev);
+
+	/*Enable erdb interrupt*/
+	mhi_dev_mmio_enable_erdb_interrupts(dev);
 	mb();
 
 	return 0;
