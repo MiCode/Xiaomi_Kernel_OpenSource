@@ -1922,7 +1922,6 @@ static struct platform_driver rpm_vreg_device_driver = {
 	.driver = {
 		.name = "qcom,rpm-smd-regulator",
 		.of_match_table = rpm_vreg_match_table_device,
-		.sync_state = regulator_proxy_consumer_sync_state,
 	},
 };
 
@@ -1932,6 +1931,7 @@ static struct platform_driver rpm_vreg_resource_driver = {
 	.driver = {
 		.name = "qcom,rpm-smd-regulator-resource",
 		.of_match_table = rpm_vreg_match_table_resource,
+		.sync_state = regulator_proxy_consumer_sync_state,
 	},
 };
 
