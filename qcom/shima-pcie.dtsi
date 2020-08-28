@@ -62,6 +62,7 @@
 		interconnects = <&aggre2_noc MASTER_PCIE_0 &mc_virt SLAVE_EBI1>;
 
 		clocks = <&gcc GCC_PCIE_0_PIPE_CLK>,
+			<&rpmhcc RPMH_CXO_CLK>,
 			<&gcc GCC_PCIE_0_AUX_CLK>,
 			<&gcc GCC_PCIE_0_CFG_AHB_CLK>,
 			<&gcc GCC_PCIE_0_MSTR_AXI_CLK>,
@@ -73,7 +74,7 @@
 			<&gcc GCC_AGGRE_NOC_PCIE_1_AXI_CLK>,
 			<&gcc GCC_PCIE_0_PIPE_CLK_SRC>,
 			<&pcie_0_pipe_clk>;
-		clock-names = "pcie_0_pipe_clk",
+		clock-names = "pcie_0_pipe_clk", "pcie_0_ref_clk_src",
 				"pcie_0_aux_clk", "pcie_0_cfg_ahb_clk",
 				"pcie_0_mstr_axi_clk", "pcie_0_slv_axi_clk",
 				"pcie_0_ldo", "pcie_0_slv_q2a_axi_clk",
