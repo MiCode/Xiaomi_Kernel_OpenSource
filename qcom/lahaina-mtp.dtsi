@@ -182,13 +182,19 @@
 	status = "ok";
 };
 
-&dai_mi2s2 {
-	qcom,msm-mi2s-tx-lines = <1>;
-	pinctrl-names = "default", "sleep";
-	pinctrl-0 = <&tert_mi2s_sck_active &tert_mi2s_ws_active
-			&tert_mi2s_sd0_active>;
-	pinctrl-1 = <&tert_mi2s_sck_sleep &tert_mi2s_ws_sleep
-			&tert_mi2s_sd0_sleep>;
+&q6core {
+	cdc_tert_mi2s_gpios: msm_cdc_pinctrl_tert {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&tert_mi2s_sck_active &tert_mi2s_ws_active
+				&tert_mi2s_sd0_active>;
+		pinctrl-1 = <&tert_mi2s_sck_sleep &tert_mi2s_ws_sleep
+				&tert_mi2s_sd0_sleep>;
+	};
+};
+
+&lahaina_snd {
+	qcom,tert-mi2s-gpios = <&cdc_tert_mi2s_gpios>;
 };
 
 &usb1 {
