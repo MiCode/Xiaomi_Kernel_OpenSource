@@ -2329,6 +2329,7 @@ static irqreturn_t ep_pcie_handle_perst_irq(int irq, void *data)
 		EP_PCIE_DBG(dev,
 			"PCIe V%d: PCIe is not enumerated yet; PERST is %sasserted\n",
 			dev->rev, perst ? "de" : "");
+		atomic_set(&dev->perst_deast, perst ? 1 : 0);
 		if (perst) {
 			/*
 			 * Hold a wakelock to avoid delay during
