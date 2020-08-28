@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "shima-vm.dtsi"
+#include "shima-vm-qrd.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Shima VM QRD";
+	compatible = "qcom,shima-qrd", "qcom,shima", "qcom,qrd";
+	qcom,board-id = <0x1000B 0>;
+};

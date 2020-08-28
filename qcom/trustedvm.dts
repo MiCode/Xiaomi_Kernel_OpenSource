@@ -1,7 +1,0 @@
-/dts-v1/;
-
-#include "trustedvm.dtsi"
-
-/ {
-	model = "Qualcomm Technologies, Inc. Secondary Virtual Machine";
-};
