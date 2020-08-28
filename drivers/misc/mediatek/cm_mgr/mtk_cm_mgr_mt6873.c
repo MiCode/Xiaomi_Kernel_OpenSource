@@ -110,14 +110,14 @@ static void cm_mgr_perf_timeout_timer_fn(struct timer_list *timer)
 	}
 }
 
-#define PERF_TIME 3000
+#define PERF_TIME 100
 
 static ktime_t perf_now;
 void cm_mgr_perf_platform_set_status(int enable)
 {
 	unsigned long expires;
 
-	if (pm_qos_update_request_status) {
+	if (enable || pm_qos_update_request_status) {
 		expires = jiffies + CM_MGR_PERF_TIMEOUT_MS;
 		mod_timer(&cm_mgr_perf_timeout_timer, expires);
 	}
@@ -188,7 +188,7 @@ void cm_mgr_perf_platform_set_force_status(int enable)
 {
 	unsigned long expires;
 
-	if (pm_qos_update_request_status) {
+	if (enable || pm_qos_update_request_status) {
 		expires = jiffies + CM_MGR_PERF_TIMEOUT_MS;
 		mod_timer(&cm_mgr_perf_timeout_timer, expires);
 	}
@@ -377,7 +377,7 @@ static int platform_cm_mgr_probe(struct platform_device *pdev)
 #endif /* CONFIG_MTK_CPU_FREQ */
 
 	timer_setup(&cm_mgr_perf_timeout_timer, cm_mgr_perf_timeout_timer_fn,
-			TIMER_DEFERRABLE);
+			NULL);
 
 	if (cm_mgr_use_cpu_to_dram_map) {
 		cm_mgr_add_cpu_opp_to_ddr_req();
