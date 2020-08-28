@@ -1240,6 +1240,10 @@ static int qnoc_probe(struct platform_device *pdev)
 	qp->init = true;
 	qp->keepalive = of_property_read_bool(dev->of_node, "qcom,keepalive");
 
+	if (of_property_read_u32(dev->of_node, "qcom,util-factor",
+				 &qp->util_factor))
+		qp->util_factor = DEFAULT_UTIL_FACTOR;
+
 	qp->regmap = qcom_icc_map(pdev, desc);
 	if (IS_ERR(qp->regmap))
 		return PTR_ERR(qp->regmap);
