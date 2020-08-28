@@ -858,8 +858,7 @@ static void dispatcher_handle_jobs_list(struct adreno_device *adreno_dev,
 	llist_for_each_entry_safe(job, next, list, node) {
 		int ret;
 
-		if (adreno_gpu_stopped(adreno_dev) ||
-			adreno_drawctxt_bad(job->drawctxt)) {
+		if (adreno_drawctxt_bad(job->drawctxt)) {
 			kgsl_context_put(&job->drawctxt->base);
 			kmem_cache_free(jobs_cache, job);
 			continue;
@@ -876,6 +875,16 @@ static void dispatcher_handle_jobs_list(struct adreno_device *adreno_dev,
 		if (test_and_set_bit(job->drawctxt->base.id, map)) {
 			kgsl_context_put(&job->drawctxt->base);
 			kmem_cache_free(jobs_cache, job);
+			continue;
+		}
+
+		/*
+		 * If gpu is in fault or dispatcher is halted, add back the jobs
+		 * so that they are processed after recovery or when dispatcher
+		 * is resumed.
+		 */
+		if (adreno_gpu_stopped(adreno_dev)) {
+			llist_add(&job->node, &dispatcher->jobs[id]);
 			continue;
 		}
 
