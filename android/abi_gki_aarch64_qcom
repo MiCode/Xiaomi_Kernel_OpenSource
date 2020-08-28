@@ -2682,6 +2682,7 @@
   vb2_reqbufs
   vb2_streamoff
   vb2_streamon
+  vb2_vmalloc_memops
   vchan_dma_desc_free_list
   vchan_init
   vchan_tx_desc_free
