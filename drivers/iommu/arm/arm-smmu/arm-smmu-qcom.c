@@ -1045,7 +1045,8 @@ static int qsmmuv500_def_domain_type(struct device *dev)
 	if (of_property_read_string(np, "qcom,iommu-dma", &str))
 		str = "default";
 
-	if (!strcmp(str, "fastmap"))
+	if (!strcmp(str, "fastmap") &&
+	     IS_ENABLED(CONFIG_IOMMU_IO_PGTABLE_FAST))
 		return IOMMU_DOMAIN_UNMANAGED;
 	if (!strcmp(str, "bypass"))
 		return IOMMU_DOMAIN_UNMANAGED;
