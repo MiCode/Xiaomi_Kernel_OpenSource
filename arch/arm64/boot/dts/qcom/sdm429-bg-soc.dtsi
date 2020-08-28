@@ -50,6 +50,41 @@
 	qcom,glink-bgcom-xprt-bg {
 		compatible = "qcom,glink-bgcom-xprt";
 		label = "bg";
+
+		qcom,glink-bg-rsb {
+			qcom,glink-channels = "RSB_CTRL";
+			qcom,intents = <0x0C 1>;
+		};
+
+		qcom,glink-bg-daemon {
+			qcom,glink-channels = "bg-daemon";
+			qcom,intents = <0x14 1>;
+		};
+
+		qcom,glink-bg-daemon-ctrl  {
+			qcom,glink-channels = "bg-daemon-ctl";
+			qcom,intents = <0x08 1>;
+		};
+
+		qcom,glink-bg-display-ctrl {
+			qcom,glink-channels = "display-ctrl";
+			qcom,intents = <0x38 1>;
+		};
+
+		qcom,glink-bg-display-data  {
+			qcom,glink-channels = "display-data";
+			qcom,intents = <0x10 1>;
+		};
+
+		qcom,glink-bg-sso-ctrl  {
+			qcom,glink-channels = "sso-ctrl";
+			qcom,intents = <0x2C 1>;
+		};
+
+		qcom,glink-bg-buzzer-ctrl  {
+			qcom,glink-channels = "buzzer-ctrl";
+			qcom,intents = <0x14 1>;
+		};
 	};
 
 	qcom,glink_pkt {
