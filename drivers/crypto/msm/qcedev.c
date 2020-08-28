@@ -1988,7 +1988,7 @@ long qcedev_ioctl(struct file *file,
 
 exit_free_qcedev_areq:
 	if (cmd != QCEDEV_IOCTL_MAP_BUF_REQ &&
-		cmd != QCEDEV_IOCTL_UNMAP_BUF_REQ)
+		cmd != QCEDEV_IOCTL_UNMAP_BUF_REQ && podev != NULL)
 		qcedev_ce_high_bw_req(podev, false);
 	kfree(qcedev_areq);
 	return err;
