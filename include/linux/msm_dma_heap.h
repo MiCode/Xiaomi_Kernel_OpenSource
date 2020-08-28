@@ -7,6 +7,7 @@
 
 #include <linux/bits.h>
 #include <linux/msm_dma_heap_names.h>
+#include <linux/err.h>
 
 /* Heap flags */
 #define MSM_DMA_HEAP_FLAG_CACHED	BIT(1)
@@ -29,5 +30,40 @@
 #define MSM_DMA_HEAP_FLAG_CP_SPSS_HLOS_SHARED	BIT(30)
 
 #define MSM_DMA_HEAP_FLAGS_CP_MASK	GENMASK(30, 15)
+
+/**
+ * dma_buf_heap_hyp_assign - wrapper function that hyp-assigns a dma_buf away from HLOS
+ * @buf:		dma_buf to hyp-assign away from HLOS
+ * @dest_vmids:		array of MSM_DMA_HEAP_FLAG VMIDs (as defined above)
+ * @dest_perms:		array of PERM_READ/PERM_WRITE/PERM_EXEC permission bits (as
+ *			defined in include/soc/qcom/secure_buffer.sh), such that
+ *			dest_perms[i] specifies the permissions for VMID dest_vmids[i]
+ * @dest_nelems:	number of elements in dest_vmids and dest_perms
+ *
+ * Return: Temporarily return -EINVAL whilst the functon isn't present. Otherwise, return
+ * 0 on success, or the negative value returned by hyp_assign_table() on failure.
+ */
+static inline int dma_buf_heap_hyp_assign(struct dma_buf *buf, int *dest_vmids, int *dest_perms,
+				   int dest_nelems)
+{
+	return -EINVAL;
+}
+
+/**
+ * dma_buf_heap_hyp_unassign - wrapper function that hyp-assigns a dma_buf back to HLOS
+ * @buf:	dma_buf to hyp-assign back to HLOS
+ *
+ * This function takes a dma_buf, and re-assigns it to HLOS with RWX permissions (at the
+ * S2 level). The end-points to which the buffer was assigned to are tracked by the flags
+ * kept in the msm_heap_helper_buffer->flags field (the helper_buffer is accesed through
+ * dma_buf->priv), so the corresponding VMIDs don't need to be supplied as arguments.
+ *
+ * Return: Temporarily return -EINVAL whilst the functon isn't present. Otherwise, return
+ * 0 on success, or the negative value returned by hyp_assign_table() on failure.
+ */
+static inline int dma_buf_heap_hyp_unassign(struct dma_buf *buf)
+{
+	return -EINVAL;
+}
 
 #endif /* _MSM_DMA_HEAP_H */
