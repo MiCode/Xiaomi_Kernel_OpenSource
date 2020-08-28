@@ -1630,7 +1630,20 @@ void ieee80211_send_deauth_disassoc(struct ieee80211_sub_if_data *sdata,
 	}
 }
 
-static int ieee80211_build_preq_ies_band(struct ieee80211_local *local,
+static u8 *ieee80211_write_he_6ghz_cap(u8 *pos, __le16 cap, u8 *end)
+{
+	if ((end - pos) < 5)
+		return pos;
+
+	*pos++ = WLAN_EID_EXTENSION;
+	*pos++ = 1 + sizeof(cap);
+	*pos++ = WLAN_EID_EXT_HE_6GHZ_CAPA;
+	memcpy(pos, &cap, sizeof(cap));
+
+	return pos + 2;
+}
+
+static int ieee80211_build_preq_ies_band(struct ieee80211_sub_if_data *sdata,
 					 u8 *buffer, size_t buffer_len,
 					 const u8 *ie, size_t ie_len,
 					 enum nl80211_band band,
@@ -1638,6 +1651,7 @@ static int ieee80211_build_preq_ies_band(struct ieee80211_local *local,
 					 struct cfg80211_chan_def *chandef,
 					 size_t *offset, u32 flags)
 {
+	struct ieee80211_local *local = sdata->local;
 	struct ieee80211_supported_band *sband;
 	const struct ieee80211_sta_he_cap *he_cap;
 	u8 *pos = buffer, *end = buffer + buffer_len;
@@ -1815,6 +1829,14 @@ static int ieee80211_build_preq_ies_band(struct ieee80211_local *local,
 		pos = ieee80211_ie_build_he_cap(pos, he_cap, end);
 		if (!pos)
 			goto out_err;
+
+		if (sband->band == NL80211_BAND_6GHZ) {
+			enum nl80211_iftype iftype =
+				ieee80211_vif_type_p2p(&sdata->vif);
+			__le16 cap = ieee80211_get_he_6ghz_capa(sband, iftype);
+
+			pos = ieee80211_write_he_6ghz_cap(pos, cap, end);
+		}
 	}
 
 	/*
@@ -1829,7 +1851,7 @@ static int ieee80211_build_preq_ies_band(struct ieee80211_local *local,
 	return pos - buffer;
 }
 
-int ieee80211_build_preq_ies(struct ieee80211_local *local, u8 *buffer,
+int ieee80211_build_preq_ies(struct ieee80211_sub_if_data *sdata, u8 *buffer,
 			     size_t buffer_len,
 			     struct ieee80211_scan_ies *ie_desc,
 			     const u8 *ie, size_t ie_len,
@@ -1844,7 +1866,7 @@ int ieee80211_build_preq_ies(struct ieee80211_local *local, u8 *buffer,
 
 	for (i = 0; i < NUM_NL80211_BANDS; i++) {
 		if (bands_used & BIT(i)) {
-			pos += ieee80211_build_preq_ies_band(local,
+			pos += ieee80211_build_preq_ies_band(sdata,
 							     buffer + pos,
 							     buffer_len - pos,
 							     ie, ie_len, i,
@@ -1906,7 +1928,7 @@ struct sk_buff *ieee80211_build_probe_req(struct ieee80211_sub_if_data *sdata,
 		return NULL;
 
 	rate_masks[chan->band] = ratemask;
-	ies_len = ieee80211_build_preq_ies(local, skb_tail_pointer(skb),
+	ies_len = ieee80211_build_preq_ies(sdata, skb_tail_pointer(skb),
 					   skb_tailroom(skb), &dummy_ie_desc,
 					   ie, ie_len, BIT(chan->band),
 					   rate_masks, &chandef, flags);
@@ -2804,6 +2826,50 @@ u8 *ieee80211_ie_build_he_cap(u8 *pos,
 end:
 	orig_pos[1] = (pos - orig_pos) - 2;
 	return pos;
+}
+
+void ieee80211_ie_build_he_6ghz_cap(struct ieee80211_sub_if_data *sdata,
+				    struct sk_buff *skb)
+{
+	struct ieee80211_supported_band *sband;
+	const struct ieee80211_sband_iftype_data *iftd;
+	enum nl80211_iftype iftype = ieee80211_vif_type_p2p(&sdata->vif);
+	u8 *pos;
+	u16 cap;
+
+	sband = ieee80211_get_sband(sdata);
+	if (!sband)
+		return;
+
+	iftd = ieee80211_get_sband_iftype_data(sband, iftype);
+	if (WARN_ON(!iftd))
+		return;
+
+	cap = le16_to_cpu(iftd->he_6ghz_capa.capa);
+	cap &= ~IEEE80211_HE_6GHZ_CAP_SM_PS;
+
+	switch (sdata->smps_mode) {
+	case IEEE80211_SMPS_AUTOMATIC:
+	case IEEE80211_SMPS_NUM_MODES:
+		WARN_ON(1);
+		/* fall through */
+	case IEEE80211_SMPS_OFF:
+		cap |= u16_encode_bits(WLAN_HT_CAP_SM_PS_DISABLED,
+				       IEEE80211_HE_6GHZ_CAP_SM_PS);
+		break;
+	case IEEE80211_SMPS_STATIC:
+		cap |= u16_encode_bits(WLAN_HT_CAP_SM_PS_STATIC,
+				       IEEE80211_HE_6GHZ_CAP_SM_PS);
+		break;
+	case IEEE80211_SMPS_DYNAMIC:
+		cap |= u16_encode_bits(WLAN_HT_CAP_SM_PS_DYNAMIC,
+				       IEEE80211_HE_6GHZ_CAP_SM_PS);
+		break;
+	}
+
+	pos = skb_put(skb, 2 + 1 + sizeof(cap));
+	ieee80211_write_he_6ghz_cap(pos, cpu_to_le16(cap),
+				    pos + 2 + 1 + sizeof(cap));
 }
 
 u8 *ieee80211_ie_build_ht_oper(u8 *pos, struct ieee80211_sta_ht_cap *ht_cap,
