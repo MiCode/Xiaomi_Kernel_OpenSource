@@ -6163,9 +6163,6 @@ static int ufshcd_slave_alloc(struct scsi_device *sdev)
 	/* WRITE_SAME command is not supported*/
 	sdev->no_write_same = 1;
 
-	/* WRITE_SAME command is not supported */
-	sdev->no_write_same = 1;
-
 	ufshcd_set_queue_depth(sdev);
 
 	ufshcd_get_lu_power_on_wp_status(hba, sdev);
