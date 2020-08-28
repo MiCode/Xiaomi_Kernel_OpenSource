@@ -311,6 +311,11 @@
 			reg = <0x0 0x80860000 0x0 0x20000>;
 		};
 
+		reserved_xbl_uefi_log: res_xbl_uefi_log_region@80880000 {
+			no-map;
+			reg = <0x0 0x80880000 0x0 0x14000>;
+		};
+
 		smem_mem: smem_region@80900000 {
 			no-map;
 			reg = <0x0 0x80900000 0x0 0x200000>;
