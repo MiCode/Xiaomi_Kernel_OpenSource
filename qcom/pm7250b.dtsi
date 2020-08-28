@@ -423,7 +423,7 @@
 };
 
 &thermal_zones {
-	pm7250b-tz {
+	pm7250b_tz {
 		polling-delay-passive = <100>;
 		polling-delay = <0>;
 		thermal-governor = "step_wise";
