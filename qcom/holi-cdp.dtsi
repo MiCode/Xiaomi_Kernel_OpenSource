@@ -235,3 +235,53 @@
 };
 
 #include "camera/holi-camera-sensor-cdp.dtsi"
+
+&pm7250b_charger {
+	smb5_vbus: qcom,smb5-vbus {
+		regulator-name = "smb5-vbus";
+	};
+
+	smb5_vconn: qcom,smb5-vconn {
+		regulator-name = "smb5-vconn";
+	};
+};
+
+&pm7250b_pdphy {
+	vdd-pdphy-supply = <&L3A>;
+	vbus-supply = <&smb5_vbus>;
+	vconn-supply = <&smb5_vconn>;
+
+	#io-channel-cells = <1>;
+	io-channels = <&pm7250b_charger PSY_IIO_PD_ACTIVE>,
+		      <&pm7250b_charger PSY_IIO_TYPEC_CC_ORIENTATION>,
+		      <&pm7250b_charger PSY_IIO_CONNECTOR_TYPE>,
+		      <&pm7250b_charger PSY_IIO_TYPEC_POWER_ROLE>,
+		      <&pm7250b_charger PSY_IIO_PD_USB_SUSPEND_SUPPORTED>,
+		      <&pm7250b_charger PSY_IIO_TYPEC_SRC_RP>,
+		      <&pm7250b_charger PSY_IIO_PD_IN_HARD_RESET>,
+		      <&pm7250b_charger PSY_IIO_PD_CURRENT_MAX>,
+		      <&pm7250b_charger PSY_IIO_PR_SWAP>,
+		      <&pm7250b_charger PSY_IIO_PD_VOLTAGE_MIN>,
+		      <&pm7250b_charger PSY_IIO_PD_VOLTAGE_MAX>,
+		      <&pm7250b_charger PSY_IIO_USB_REAL_TYPE>,
+		      <&pm7250b_charger PSY_IIO_TYPEC_MODE>,
+		      <&pm7250b_charger PSY_IIO_PE_START>;
+	io-channel-names = "pd_active",
+			   "typec_cc_orientation",
+			   "connector_type",
+			   "typec_power_role",
+			   "pd_usb_suspend_supported",
+			   "typec_src_rp",
+			   "pd_in_hard_reset",
+			   "pr_current_max",
+			   "pr_swap",
+			   "pd_voltage_min",
+			   "pd_voltage_max",
+			   "real_type",
+			   "typec_mode",
+			   "pe_start";
+};
+
+&usb0 {
+	extcon = <&pm7250b_pdphy>, <&eud>;
+};
