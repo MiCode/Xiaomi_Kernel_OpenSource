@@ -185,6 +185,8 @@
 #define L1SS_TIMEOUT_US_TO_TICKS(x) (x * 192 / 10)
 #define L1SS_TIMEOUT_US (100000)
 
+#define L23_READY_POLL_TIMEOUT (100000)
+
 #ifdef CONFIG_PHYS_ADDR_T_64BIT
 #define PCIE_UPPER_ADDR(addr) ((u32)((addr) >> 32))
 #else
@@ -699,6 +701,7 @@ struct msm_pcie_dev_t {
 	ulong ep_corr_counter;
 	ulong ep_non_fatal_counter;
 	ulong ep_fatal_counter;
+	uint64_t l23_rdy_poll_timeout;
 	bool suspending;
 	ulong wake_counter;
 	u32 num_active_ep;
@@ -1313,6 +1316,8 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->link_turned_on_counter);
 	PCIE_DBG_FS(dev, "link_turned_off_counter: %lu\n",
 		dev->link_turned_off_counter);
+	PCIE_DBG_FS(dev, "l23_rdy_poll_timeout: %llu\n",
+		dev->l23_rdy_poll_timeout);
 }
 
 static void msm_pcie_shadow_dump(struct msm_pcie_dev_t *dev, bool rc)
@@ -1763,9 +1768,41 @@ static ssize_t enumerate_store(struct device *dev,
 }
 static DEVICE_ATTR_WO(enumerate);
 
+static ssize_t l23_rdy_poll_timeout_show(struct device *dev,
+					struct device_attribute *attr,
+					char *buf)
+{
+	struct msm_pcie_dev_t *pcie_dev = (struct msm_pcie_dev_t *)
+						dev_get_drvdata(dev);
+
+	return scnprintf(buf, PAGE_SIZE, "%llu\n",
+			pcie_dev->l23_rdy_poll_timeout);
+}
+
+static ssize_t l23_rdy_poll_timeout_store(struct device *dev,
+					struct device_attribute *attr,
+					const char *buf, size_t count)
+{
+	struct msm_pcie_dev_t *pcie_dev = (struct msm_pcie_dev_t *)
+						dev_get_drvdata(dev);
+	u64 val;
+
+	if (kstrtou64(buf, 0, &val))
+		return -EINVAL;
+
+	pcie_dev->l23_rdy_poll_timeout = val;
+
+	PCIE_DBG(pcie_dev, "PCIe: RC%d: L23_Ready poll timeout: %llu\n",
+		pcie_dev->rc_idx, pcie_dev->l23_rdy_poll_timeout);
+
+	return count;
+}
+static DEVICE_ATTR_RW(l23_rdy_poll_timeout);
+
 static struct attribute *msm_pcie_debug_attrs[] = {
 	&dev_attr_link_check_max_count.attr,
 	&dev_attr_enumerate.attr,
+	&dev_attr_l23_rdy_poll_timeout.attr,
 	NULL,
 };
 
@@ -6265,6 +6302,7 @@ static int __init pcie_init(void)
 		spin_lock_init(&msm_pcie_dev[i].wakeup_lock);
 		spin_lock_init(&msm_pcie_dev[i].irq_lock);
 		msm_pcie_dev[i].drv_ready = false;
+		msm_pcie_dev[i].l23_rdy_poll_timeout = L23_READY_POLL_TIMEOUT;
 	}
 	for (i = 0; i < MAX_RC_NUM * MAX_DEVICE_NUM; i++) {
 		msm_pcie_dev_tbl[i].bdf = 0;
@@ -6411,7 +6449,8 @@ static int msm_pcie_pm_suspend(struct pci_dev *dev,
 		pcie_dev->rc_idx);
 
 	ret_l23 = readl_poll_timeout((pcie_dev->parf
-		+ PCIE20_PARF_PM_STTS), val, (val & BIT(5)), 10000, 100000);
+		+ PCIE20_PARF_PM_STTS), val, (val & BIT(5)), 10000,
+		pcie_dev->l23_rdy_poll_timeout);
 
 	/* check L23_Ready */
 	PCIE_DBG(pcie_dev, "RC%d: PCIE20_PARF_PM_STTS is 0x%x.\n",
