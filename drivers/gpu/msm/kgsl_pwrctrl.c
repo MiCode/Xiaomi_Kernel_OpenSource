@@ -1007,23 +1007,27 @@ static ssize_t freq_table_mhz_show(struct device *dev,
 static ssize_t _gpu_tmu_show(struct kgsl_device *device,
 					char *buf)
 {
-	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	struct device *dev;
 	struct thermal_zone_device *thermal_dev;
-	int ret, temperature = 0;
+	int temperature = 0, max_temp = 0;
+	const char *name;
+	struct property *prop;
 
-	if (!pwr->tzone_name)
-		return 0;
+	dev = &device->pdev->dev;
 
-	thermal_dev = thermal_zone_get_zone_by_name((char *)pwr->tzone_name);
-	if (thermal_dev == NULL)
-		return 0;
+	of_property_for_each_string(dev->of_node, "qcom,tzone-names", prop, name) {
+		thermal_dev = thermal_zone_get_zone_by_name(name);
+		if (IS_ERR(thermal_dev))
+			continue;
 
-	ret = thermal_zone_get_temp(thermal_dev, &temperature);
-	if (ret)
-		return 0;
+		if (thermal_zone_get_temp(thermal_dev, &temperature))
+			continue;
+
+		max_temp = max(temperature, max_temp);
+	}
 
 	return scnprintf(buf, PAGE_SIZE, "%d\n",
-			temperature);
+			max_temp);
 }
 
 static ssize_t temp_show(struct device *dev,
@@ -1573,10 +1577,6 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 	pm_runtime_enable(&pdev->dev);
 
 	timer_setup(&pwr->minbw_timer, kgsl_minbw_timer, 0);
-
-	/* temperature sensor name */
-	of_property_read_string(pdev->dev.of_node, "qcom,tzone-name",
-		&pwr->tzone_name);
 
 	return 0;
 }

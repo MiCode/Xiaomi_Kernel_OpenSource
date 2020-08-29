@@ -110,7 +110,6 @@ struct kgsl_pwrlevel {
  * higher priority thread
  * isense_clk_indx - index of isense clock, 0 if no isense
  * isense_clk_on_level - isense clock rate is XO rate below this level.
- * tzone_name - pointer to thermal zone name of GPU temperature sensor
  */
 
 struct kgsl_pwrctrl {
@@ -158,7 +157,6 @@ struct kgsl_pwrctrl {
 	bool superfast;
 	unsigned int gpu_bimc_int_clk_freq;
 	bool gpu_bimc_interface_enabled;
-	const char *tzone_name;
 	/** @icc_path: Interconnect path for the GPU (if applicable) */
 	struct icc_path *icc_path;
 	/** cur_ab: The last ab voted by the driver */
