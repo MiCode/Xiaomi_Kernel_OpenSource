@@ -310,10 +310,12 @@ static void *__arm_lpae_alloc_pages(size_t size, gfp_t gfp,
 				    struct io_pgtable_cfg *cfg, void *cookie)
 {
 	struct device *dev = cfg->iommu_dev;
+	int order = get_order(size);
 	dma_addr_t dma;
-	void *pages = io_pgtable_alloc_pages_exact(cfg, cookie, size,
-						   gfp | __GFP_ZERO);
+	void *pages;
 
+	VM_BUG_ON((gfp & __GFP_HIGHMEM));
+	pages = io_pgtable_alloc_pages(cfg, cookie, order, gfp | __GFP_ZERO);
 	if (!pages)
 		return NULL;
 
@@ -336,7 +338,7 @@ out_unmap:
 	dev_err(dev, "Cannot accommodate DMA translation for IOMMU page tables\n");
 	dma_unmap_single(dev, dma, size, DMA_TO_DEVICE);
 out_free:
-	io_pgtable_free_pages_exact(cfg, cookie, pages, size);
+	io_pgtable_free_pages(cfg, cookie, pages, order);
 	return NULL;
 }
 
@@ -346,7 +348,7 @@ static void __arm_lpae_free_pages(void *pages, size_t size,
 	if (!cfg->coherent_walk)
 		dma_unmap_single(cfg->iommu_dev, __arm_lpae_dma_addr(pages),
 				 size, DMA_TO_DEVICE);
-	io_pgtable_free_pages_exact(cfg, cookie, pages, size);
+	io_pgtable_free_pages(cfg, cookie, pages, get_order(size));
 }
 
 static void __arm_lpae_sync_pte(arm_lpae_iopte *ptep,
@@ -1219,8 +1221,8 @@ arm_64_lpae_alloc_pgtable_s1(struct io_pgtable_cfg *cfg, void *cookie)
 	cfg->arm_lpae_s1_cfg.mair[1] = reg;
 
 	/* Looking good; allocate a pgd */
-	data->pgd = __arm_lpae_alloc_pages(data->pgd_size, GFP_KERNEL,
-					   cfg, cookie);
+	data->pgd = __arm_lpae_alloc_pages(data->pgd_size, GFP_KERNEL, cfg,
+					   cookie);
 	if (!data->pgd)
 		goto out_free_data;
 
@@ -1322,8 +1324,8 @@ arm_64_lpae_alloc_pgtable_s2(struct io_pgtable_cfg *cfg, void *cookie)
 	cfg->arm_lpae_s2_cfg.vtcr = reg;
 
 	/* Allocate pgd pages */
-	data->pgd = __arm_lpae_alloc_pages(data->pgd_size, GFP_KERNEL,
-					   cfg, cookie);
+	data->pgd = __arm_lpae_alloc_pages(data->pgd_size, GFP_KERNEL, cfg,
+					   cookie);
 	if (!data->pgd)
 		goto out_free_data;
 
@@ -1411,8 +1413,8 @@ arm_mali_lpae_alloc_pgtable(struct io_pgtable_cfg *cfg, void *cookie)
 		(ARM_MALI_LPAE_MEMATTR_IMP_DEF
 		 << ARM_LPAE_MAIR_ATTR_SHIFT(ARM_LPAE_MAIR_ATTR_IDX_DEV));
 
-	data->pgd = __arm_lpae_alloc_pages(data->pgd_size, GFP_KERNEL,
-						cfg, cookie);
+	data->pgd = __arm_lpae_alloc_pages(data->pgd_size, GFP_KERNEL, cfg,
+					   cookie);
 	if (!data->pgd)
 		goto out_free_data;
 
