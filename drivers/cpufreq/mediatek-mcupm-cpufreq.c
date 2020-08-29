@@ -72,6 +72,19 @@ static struct mtk_cpu_dvfs_info *mtk_cpu_dvfs_info_lookup(int cpu)
 	return NULL;
 }
 
+static struct mtk_cpu_dvfs_info *mtk_cpu_dvfs_info_lookup_by_dev(struct device *cpu_dev)
+{
+	struct mtk_cpu_dvfs_info *info;
+	struct list_head *list;
+
+	list_for_each(list, &dvfs_info_list) {
+		info = list_entry(list, struct mtk_cpu_dvfs_info, list_head);
+		if (info->cpu_dev == cpu_dev)
+			return info;
+	}
+	return NULL;
+}
+
 static int mtk_cpufreq_set_target(struct cpufreq_policy *policy,
 				  unsigned int index)
 {
@@ -123,8 +136,8 @@ static void mtk_cpu_dvfs_info_release(struct mtk_cpu_dvfs_info *info)
 int mcupm_get_cpu_power(unsigned long *power, unsigned long *KHz,
 		struct device *cpu_dev)
 {
-	struct mtk_cpu_dvfs_info *info = 
-		container_of(cpu_dev, struct mtk_cpu_dvfs_info, cpu_dev);
+	struct mtk_cpu_dvfs_info *info =
+		mtk_cpu_dvfs_info_lookup_by_dev(cpu_dev);
 	unsigned long Hz;
 	int ret;
 	struct dev_pm_opp *opp;
