@@ -1043,6 +1043,13 @@
 				qcom,net-id = <1>;
 				qcom,low-latency;
 			};
+
+			qcom,diag {
+				qcom,smd-channels = "APPS_RIVA_DATA";
+			};
+			qcom,diag_cntl {
+				qcom,smd-channels = "APPS_RIVA_CTRL";
+			};
 		};
 
 		adsp {
