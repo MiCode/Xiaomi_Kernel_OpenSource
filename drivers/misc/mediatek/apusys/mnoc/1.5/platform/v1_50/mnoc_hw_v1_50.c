@@ -510,7 +510,7 @@ int mnoc_alloc_iommu_tfrp(void)
 
 	LOG_DEBUG("+\n");
 
-	infra_ao_base = ioremap_nocache(INFRA_AO_BASE, INFRA_AO_REG_SIZE);
+	infra_ao_base = ioremap(INFRA_AO_BASE, INFRA_AO_REG_SIZE);
 	hash_rule = mnoc_read(infra_ao_base + EMI_HASH_RULE_OFFSET);
 	iounmap(infra_ao_base);
 
