@@ -1013,7 +1013,7 @@ static ssize_t qdss_enable_debug_inface_store(struct config_item *item,
 		return len;
 	}
 
-	if (kstrtou8(page, 0, &stats) != 0 && (stats != 0 || stats != 1)) {
+	if (kstrtou8(page, 0, &stats) != 0 && !(stats == 0 || stats == 1)) {
 		pr_err("(%u)Wrong value. enter 0 to disable or 1 to enable.\n",
 			stats);
 		return len;
