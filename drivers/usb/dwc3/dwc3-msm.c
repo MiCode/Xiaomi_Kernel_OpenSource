@@ -779,6 +779,7 @@ int msm_data_fifo_config(struct usb_ep *ep, unsigned long addr,
 
 	return 0;
 }
+EXPORT_SYMBOL(msm_data_fifo_config);
 
 static int dbm_ep_unconfig(struct dwc3_msm *mdwc, u8 usb_ep);
 
