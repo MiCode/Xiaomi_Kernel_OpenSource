@@ -63,8 +63,7 @@ static int dma_buf_invoke_dtor(struct dma_buf *dmabuf)
 		ret = dmabuf->dtor(dmabuf, dmabuf->dtor_data);
 		if (ret < 0)
 			pr_warn_ratelimited("Leaking dmabuf ino: %ld because destructor failed error: %d\n",
-					    file_inode(dmabuf->file)->i_ino,
-					    ret);
+					    to_msm_dma_buf(dmabuf)->i_ino, ret);
 	}
 
 	return ret;
@@ -587,6 +586,7 @@ struct dma_buf *dma_buf_export(const struct dma_buf_export_info *exp_info)
 		ret = PTR_ERR(file);
 		goto err_dmabuf;
 	}
+	msm_dma_buf->i_ino = file_inode(file)->i_ino;
 
 	file->f_mode |= FMODE_LSEEK;
 	dmabuf->file = file;
@@ -1288,7 +1288,7 @@ static int dma_buf_debug_show(struct seq_file *s, void *unused)
 				buf_obj->file->f_flags, buf_obj->file->f_mode,
 				file_count(buf_obj->file),
 				buf_obj->exp_name,
-				file_inode(buf_obj->file)->i_ino,
+				to_msm_dma_buf(buf_obj)->i_ino,
 				buf_obj->name ?: "");
 
 		robj = buf_obj->resv;

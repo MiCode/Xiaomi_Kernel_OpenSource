@@ -427,10 +427,12 @@ struct dma_buf {
  * struct msm_dma_buf - Holds the meta data associated with a shared buffer
  * object, as well as the buffer object.
  * @refs: list entry for dma-buf reference tracking
+ * @i_ino: inode number
  * @dma_buf: the shared buffer object
  */
 struct msm_dma_buf {
 	struct list_head refs;
+	unsigned long i_ino;
 	struct dma_buf dma_buf;
 };
 
