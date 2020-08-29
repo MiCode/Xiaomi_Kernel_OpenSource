@@ -80,7 +80,7 @@ static const char * const mt6360_adc_chan_list[] = {
 
 struct mt6360_chg_info {
 	struct device *dev;
-	struct mt6360_pmu_info *mpi;
+	struct mt6360_pmu_data *mpd;
 	struct regmap *regmap;
 	struct iio_channel *channels[MT6360_ADC_MAX];
 	struct power_supply *psy;
@@ -440,7 +440,7 @@ static int DPDM_Switch_TO_CHG_upstream(struct mt6360_chg_info *mci,
 	if (ret)
 		dev_info(mci->dev, "phy_set_mode_ext fail\n");
 
-	phy_put(phy);
+	phy_put(mci->dev, phy);
 
 	return 0;
 }
@@ -878,13 +878,13 @@ static int mt6360_get_cv(struct charger_device *chg_dev, u32 *uV)
 
 static int mt6360_toggle_aicc(struct mt6360_chg_info *mci)
 {
-	struct mt6360_pmu_info *mpi = mci->mpi;
+	struct mt6360_pmu_data *mpd = mci->mpd;
 	int ret = 0;
 	u8 data = 0;
 
-	mutex_lock(&mpi->io_lock);
+	mutex_lock(&mpd->io_lock);
 	/* read aicc */
-	ret = i2c_smbus_read_i2c_block_data(mpi->i2c[MT6360_SLAVE_PMU],
+	ret = i2c_smbus_read_i2c_block_data(mpd->i2c[MT6360_SLAVE_PMU],
 					       MT6360_PMU_CHG_CTRL14, 1, &data);
 	if (ret < 0) {
 		dev_err(mci->dev, "%s: read aicc fail\n", __func__);
@@ -892,7 +892,7 @@ static int mt6360_toggle_aicc(struct mt6360_chg_info *mci)
 	}
 	/* aicc off */
 	data &= ~MT6360_MASK_RG_EN_AICC;
-	ret = i2c_smbus_read_i2c_block_data(mpi->i2c[MT6360_SLAVE_PMU],
+	ret = i2c_smbus_read_i2c_block_data(mpd->i2c[MT6360_SLAVE_PMU],
 					       MT6360_PMU_CHG_CTRL14, 1, &data);
 	if (ret < 0) {
 		dev_err(mci->dev, "%s: aicc off fail\n", __func__);
@@ -900,12 +900,12 @@ static int mt6360_toggle_aicc(struct mt6360_chg_info *mci)
 	}
 	/* aicc on */
 	data |= MT6360_MASK_RG_EN_AICC;
-	ret = i2c_smbus_read_i2c_block_data(mpi->i2c[MT6360_SLAVE_PMU],
+	ret = i2c_smbus_read_i2c_block_data(mpd->i2c[MT6360_SLAVE_PMU],
 					       MT6360_PMU_CHG_CTRL14, 1, &data);
 	if (ret < 0)
 		dev_err(mci->dev, "%s: aicc on fail\n", __func__);
 out:
-	mutex_unlock(&mpi->io_lock);
+	mutex_unlock(&mpd->io_lock);
 	return ret;
 }
 
@@ -2284,7 +2284,7 @@ static irqreturn_t mt6360_pmu_chrdet_ext_evt_handler(int irq, void *data)
 		mutex_unlock(&mci->chgdet_lock);
 	}
 	if (atomic_read(&mci->pe_complete) && pwr_rdy == true &&
-	    mci->mpi->chip_rev <= 0x02) {
+	    mci->mpd->chip_rev <= 0x02) {
 		dev_info(mci->dev, "%s: re-trigger pe20 pattern\n", __func__);
 		queue_work(mci->pe_wq, &mci->pe_work);
 	}
@@ -2363,13 +2363,13 @@ static void mt6360_pmu_chg_irq_register(struct platform_device *pdev)
 
 static int mt6360_toggle_cfo(struct mt6360_chg_info *mci)
 {
-	struct mt6360_pmu_info *mpi = mci->mpi;
+	struct mt6360_pmu_data *mpd = mci->mpd;
 	int ret = 0;
 	u8 data = 0;
 
-	mutex_lock(&mpi->io_lock);
+	mutex_lock(&mpd->io_lock);
 	/* check if strobe mode */
-	ret = i2c_smbus_read_i2c_block_data(mpi->i2c[MT6360_SLAVE_PMU],
+	ret = i2c_smbus_read_i2c_block_data(mpd->i2c[MT6360_SLAVE_PMU],
 						  MT6360_PMU_FLED_EN, 1, &data);
 	if (ret < 0) {
 		dev_err(mci->dev, "%s: read cfo fail\n", __func__);
@@ -2380,7 +2380,7 @@ static int mt6360_toggle_cfo(struct mt6360_chg_info *mci)
 		goto out;
 	}
 	/* read data */
-	ret = i2c_smbus_read_i2c_block_data(mpi->i2c[MT6360_SLAVE_PMU],
+	ret = i2c_smbus_read_i2c_block_data(mpd->i2c[MT6360_SLAVE_PMU],
 						MT6360_PMU_CHG_CTRL2, 1, &data);
 	if (ret < 0) {
 		dev_err(mci->dev, "%s: read cfo fail\n", __func__);
@@ -2388,7 +2388,7 @@ static int mt6360_toggle_cfo(struct mt6360_chg_info *mci)
 	}
 	/* cfo off */
 	data &= ~MT6360_MASK_CFO_EN;
-	ret = i2c_smbus_write_i2c_block_data(mpi->i2c[MT6360_SLAVE_PMU],
+	ret = i2c_smbus_write_i2c_block_data(mpd->i2c[MT6360_SLAVE_PMU],
 						MT6360_PMU_CHG_CTRL2, 1, &data);
 	if (ret < 0) {
 		dev_err(mci->dev, "%s: clear cfo fail\n", __func__);
@@ -2396,12 +2396,12 @@ static int mt6360_toggle_cfo(struct mt6360_chg_info *mci)
 	}
 	/* cfo on */
 	data |= MT6360_MASK_CFO_EN;
-	ret = i2c_smbus_write_i2c_block_data(mpi->i2c[MT6360_SLAVE_PMU],
+	ret = i2c_smbus_write_i2c_block_data(mpd->i2c[MT6360_SLAVE_PMU],
 						MT6360_PMU_CHG_CTRL2, 1, &data);
 	if (ret < 0)
 		dev_err(mci->dev, "%s: set cfo fail\n", __func__);
 out:
-	mutex_unlock(&mpi->io_lock);
+	mutex_unlock(&mpd->io_lock);
 	return ret;
 }
 
@@ -3167,7 +3167,7 @@ static int mt6360_pmu_chg_probe(struct platform_device *pdev)
 	if (!mci)
 		return -ENOMEM;
 	mci->dev = &pdev->dev;
-	mci->mpi = dev_get_drvdata(pdev->dev.parent);
+	mci->mpd = dev_get_drvdata(pdev->dev.parent);
 	mci->hidden_mode_cnt = 0;
 	mutex_init(&mci->hidden_mode_lock);
 	mutex_init(&mci->pe_lock);
