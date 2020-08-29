@@ -12,12 +12,33 @@
 #include "inc/tcpci.h"
 #include "inc/tcpci_typec.h"
 
-static int tcpc_dual_role_set_prop_pr(const struct typec_capability *cap,
+struct typec_port {
+	unsigned int			id;
+	struct device			dev;
+	struct ida			mode_ids;
+
+	int				prefer_role;
+	enum typec_data_role		data_role;
+	enum typec_role			pwr_role;
+	enum typec_role			vconn_role;
+	enum typec_pwr_opmode		pwr_opmode;
+	enum typec_port_type		port_type;
+	struct mutex			port_type_lock;
+
+	enum typec_orientation		orientation;
+	struct typec_switch		*sw;
+	struct typec_mux		*mux;
+
+	const struct typec_capability	*cap;
+	const struct typec_operations   *ops;
+};
+
+static int tcpc_dual_role_set_prop_pr(struct typec_port *port,
 				      enum typec_role trole)
 {
 	int ret;
 	uint8_t val, role;
-	struct tcpc_device *tcpc = container_of(cap,
+	struct tcpc_device *tcpc = container_of(port->cap,
 						struct tcpc_device, typec_caps);
 
 	switch (trole) {
@@ -52,12 +73,12 @@ static int tcpc_dual_role_set_prop_pr(const struct typec_capability *cap,
 	return ret;
 }
 
-static int tcpc_dual_role_set_prop_dr(const struct typec_capability *cap,
+static int tcpc_dual_role_set_prop_dr(struct typec_port *port,
 				      enum typec_data_role data)
 {
 	int ret;
 	uint8_t val, role;
-	struct tcpc_device *tcpc = container_of(cap,
+	struct tcpc_device *tcpc = container_of(port->cap,
 						struct tcpc_device, typec_caps);
 
 	switch (data) {
@@ -86,12 +107,12 @@ static int tcpc_dual_role_set_prop_dr(const struct typec_capability *cap,
 	return ret;
 }
 
-static int tcpc_dual_role_set_prop_vconn(const struct typec_capability *cap,
+static int tcpc_dual_role_set_prop_vconn(struct typec_port *port,
 					 enum typec_role trole)
 {
 	int ret;
 	uint8_t val, role;
-	struct tcpc_device *tcpc = container_of(cap,
+	struct tcpc_device *tcpc = container_of(port->cap,
 						struct tcpc_device, typec_caps);
 
 	switch (trole) {
@@ -120,11 +141,11 @@ static int tcpc_dual_role_set_prop_vconn(const struct typec_capability *cap,
 	return ret;
 }
 
-static int tcpm_port_type_set(const struct typec_capability *cap,
+static int tcpm_port_type_set(struct typec_port *port,
 			      enum typec_port_type type)
 {
 	uint8_t role;
-	struct tcpc_device *tcpc = container_of(cap,
+	struct tcpc_device *tcpc = container_of(port->cap,
 						struct tcpc_device, typec_caps);
 
 	switch (type) {
@@ -144,9 +165,9 @@ static int tcpm_port_type_set(const struct typec_capability *cap,
 	return tcpm_typec_change_role(tcpc, role);
 }
 
-static int tcpm_try_role(const struct typec_capability *cap, int role)
+static int tcpm_try_role(struct typec_port *port, int role)
 {
-	struct tcpc_device *tcpc = container_of(cap,
+	struct tcpc_device *tcpc = container_of(port->cap,
 						struct tcpc_device, typec_caps);
 
 	if (role != TYPEC_ROLE_TRY_SRC && role != TYPEC_ROLE_TRY_SNK)
@@ -155,15 +176,19 @@ static int tcpm_try_role(const struct typec_capability *cap, int role)
 	return tcpm_typec_change_role(tcpc, role);
 }
 
+static const struct typec_operations mtk_ops = {
+	.dr_set = tcpc_dual_role_set_prop_dr,
+	.pr_set = tcpc_dual_role_set_prop_pr,
+	.vconn_set = tcpc_dual_role_set_prop_vconn,
+	.try_role = tcpm_try_role,
+	.port_type_set = tcpm_port_type_set,
+};
+
 int tcpc_dual_role_phy_init(struct tcpc_device *tcpc)
 {
 	tcpc->typec_caps.revision = 0x0120;	/* Type-C spec release 1.2 */
 	tcpc->typec_caps.pd_revision = 0x0300;	/* USB-PD spec release 3.0 */
-	tcpc->typec_caps.dr_set = tcpc_dual_role_set_prop_dr;
-	tcpc->typec_caps.pr_set = tcpc_dual_role_set_prop_pr;
-	tcpc->typec_caps.vconn_set = tcpc_dual_role_set_prop_vconn;
-	tcpc->typec_caps.try_role = tcpm_try_role;
-	tcpc->typec_caps.port_type_set = tcpm_port_type_set;
+	tcpc->typec_caps.ops = &mtk_ops;
 	tcpc->typec_caps.type = TYPEC_PORT_DRP;
 	tcpc->typec_caps.data = TYPEC_PORT_DRD;
 	tcpc->typec_caps.prefer_role = TYPEC_SINK;
