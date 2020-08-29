@@ -177,7 +177,7 @@ static int debug_probe(struct platform_device *pdev)
 	debugfs_create_bool("force_dump", 0644,
 			apusys_dump_root, &apusys_dump_force);
 #endif
-	apu_top = ioremap_nocache(debug_drv.apusys_base,
+	apu_top = ioremap(debug_drv.apusys_base,
 					debug_drv.apusys_reg_size);
 	if (apu_top == NULL) {
 		LOG_ERR("could not allocate iomem base(0x%x) size(0x%x)\n",
