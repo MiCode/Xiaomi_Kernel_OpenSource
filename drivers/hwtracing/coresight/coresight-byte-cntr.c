@@ -213,6 +213,7 @@ static int usb_bypass_start(struct byte_cntr *byte_cntr_data)
 	if (offset < 0) {
 		dev_err(&tmcdrvdata->csdev->dev,
 			"%s: invalid rwp offset value\n", __func__);
+		mutex_unlock(&byte_cntr_data->usb_bypass_lock);
 		return offset;
 	}
 	byte_cntr_data->offset = offset;
