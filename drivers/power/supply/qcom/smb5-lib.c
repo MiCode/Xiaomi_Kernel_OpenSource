@@ -13,6 +13,7 @@
 #include <dt-bindings/iio/qti_power_supply_iio.h>
 #include <linux/pmic-voter.h>
 #include <linux/ktime.h>
+#include <linux/usb/typec.h>
 #include "smb5-lib.h"
 #include "smb5-reg.h"
 #include "schgm-flash.h"
@@ -2224,7 +2225,7 @@ int smblib_get_prop_batt_charge_type(struct smb_charger *chg,
 		val->intval = POWER_SUPPLY_CHARGE_TYPE_FAST;
 		break;
 	case TAPER_CHARGE:
-		val->intval = QTI_POWER_SUPPLY_CHARGE_TYPE_TAPER;
+		val->intval = POWER_SUPPLY_CHARGE_TYPE_ADAPTIVE;
 		break;
 	default:
 		val->intval = POWER_SUPPLY_CHARGE_TYPE_NONE;
@@ -3087,8 +3088,10 @@ int smblib_get_prop_voltage_wls_output(struct smb_charger *chg,
 
 	if (!chg->wls_psy) {
 		chg->wls_psy = power_supply_get_by_name("wireless");
-		if (!chg->wls_psy)
-			return -ENODEV;
+		if (!chg->wls_psy) {
+			val->intval = -EINVAL;
+			return 0;
+		}
 	}
 
 	rc = power_supply_get_property(chg->wls_psy,
@@ -3193,8 +3196,10 @@ int smblib_get_prop_dc_voltage_now(struct smb_charger *chg,
 
 	if (!chg->wls_psy) {
 		chg->wls_psy = power_supply_get_by_name("wireless");
-		if (!chg->wls_psy)
-			return -ENODEV;
+		if (!chg->wls_psy) {
+			val->intval = -EINVAL;
+			return 0;
+		}
 	}
 
 	rc = power_supply_get_property(chg->wls_psy,
@@ -3838,6 +3843,31 @@ inline int smblib_get_usb_prop_typec_mode(struct smb_charger *chg,
 	return 0;
 }
 
+inline int smblib_get_usb_prop_typec_accessory_mode(struct smb_charger *chg,
+				int *val)
+{
+	if (chg->connector_type == QTI_POWER_SUPPLY_CONNECTOR_MICRO_USB) {
+		*val = TYPEC_ACCESSORY_NONE;
+		return 0;
+	}
+
+	switch (chg->typec_mode) {
+	case QTI_POWER_SUPPLY_TYPEC_NONE:
+		*val = TYPEC_ACCESSORY_NONE;
+		break;
+	case QTI_POWER_SUPPLY_TYPEC_SINK_AUDIO_ADAPTER:
+		*val = TYPEC_ACCESSORY_AUDIO;
+		break;
+	case QTI_POWER_SUPPLY_TYPEC_SINK_DEBUG_ACCESSORY:
+		*val = TYPEC_ACCESSORY_DEBUG;
+		break;
+	default:
+		*val = -EINVAL;
+	}
+
+	return 0;
+}
+
 int smblib_get_prop_typec_power_role(struct smb_charger *chg, int *val)
 {
 	int rc = 0;
@@ -3895,8 +3925,10 @@ int smblib_get_prop_typec_select_rp(struct smb_charger *chg,
 	int rc, rp;
 	u8 stat;
 
-	if (!typec_in_src_mode(chg))
-		return -ENODATA;
+	if (!typec_in_src_mode(chg)) {
+		*val = -EINVAL;
+		return 0;
+	}
 
 	rc = smblib_read(chg, TYPE_C_CURRSRC_CFG_REG, &stat);
 	if (rc < 0) {

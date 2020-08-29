@@ -1213,7 +1213,7 @@ static int get_time_to_full_locked(struct ttf *ttf, int *val)
 	pr_debug("TTF: i_cc2cv=%d\n", i_cc2cv);
 
 	/* if we are already in CV state then we can skip estimating CC */
-	if (charge_type == QTI_POWER_SUPPLY_CHARGE_TYPE_TAPER)
+	if (charge_type == POWER_SUPPLY_CHARGE_TYPE_ADAPTIVE)
 		goto cv_estimate;
 
 	/* estimated SOC at the CC to CV transition */
@@ -1343,14 +1343,14 @@ static int get_time_to_full_locked(struct ttf *ttf, int *val)
 cv_estimate:
 	pr_debug("TTF: t_predicted_cc=%d\n", t_predicted);
 
-	if (charge_type == QTI_POWER_SUPPLY_CHARGE_TYPE_TAPER)
+	if (charge_type == POWER_SUPPLY_CHARGE_TYPE_ADAPTIVE)
 		iterm = max(100, abs(iterm));
 	else
 		iterm = max(100, abs(iterm) + ttf->iterm_delta);
 
 	pr_debug("TTF: iterm=%d\n", iterm);
 
-	if (charge_type == QTI_POWER_SUPPLY_CHARGE_TYPE_TAPER)
+	if (charge_type == POWER_SUPPLY_CHARGE_TYPE_ADAPTIVE)
 		tau = max(MILLI_UNIT, ibatt_avg * MILLI_UNIT / iterm);
 	else
 		tau = max(MILLI_UNIT, i_cc2cv * MILLI_UNIT / iterm);

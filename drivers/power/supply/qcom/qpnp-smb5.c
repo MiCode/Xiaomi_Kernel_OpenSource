@@ -869,6 +869,7 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 		rc = smblib_get_prop_scope(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
+		/* USB uses this to set SDP current */
 		val->intval = get_client_vote(chg->usb_icl_votable,
 					      USB_PSY_VOTER);
 		break;
@@ -1072,6 +1073,7 @@ static int smb5_dc_get_prop(struct power_supply *psy,
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
+		/* For DC, INPUT_CURRENT_LIMIT equates to INPUT_SUSPEND */
 		val->intval = get_effective_result(chg->dc_suspend_votable);
 		break;
 	case POWER_SUPPLY_PROP_PRESENT:
@@ -1209,6 +1211,7 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 		rc = smblib_get_prop_batt_present(chg, pval);
 		break;
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
+		/* For battery, INPUT_CURRENT_LIMIT equates to INPUT_SUSPEND */
 		rc = smblib_get_prop_input_current_limit_usb(chg, pval);
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_TYPE:
