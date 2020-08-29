@@ -1070,19 +1070,23 @@ static const struct regmap_config icc_regmap_config = {
 	.val_bits       = 32,
 };
 
-int qcom_icc_aggregate_stub(struct icc_node *node, u32 tag, u32 avg_bw,
-				u32 peak_bw, u32 *agg_avg, u32 *agg_peak)
+static struct regmap *
+qcom_icc_map(struct platform_device *pdev, const struct qcom_icc_desc *desc)
 {
-	return 0;
-}
+	void __iomem *base;
+	struct resource *res;
+	struct device *dev = &pdev->dev;
 
-int qcom_icc_set_stub(struct icc_node *src, struct icc_node *dst)
-{
-	return 0;
-}
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!res)
+		return NULL;
 
-void qcom_icc_pre_aggregate_stub(struct icc_node *node)
-{ }
+	base = devm_ioremap_resource(dev, res);
+	if (IS_ERR(base))
+		return ERR_CAST(base);
+
+	return devm_regmap_init_mmio(dev, base, &icc_regmap_config);
+}
 
 static int qnoc_probe(struct platform_device *pdev)
 {
@@ -1112,9 +1116,9 @@ static int qnoc_probe(struct platform_device *pdev)
 
 	provider = &qp->provider;
 	provider->dev = &pdev->dev;
-	provider->set = qcom_icc_set_stub;
-	provider->pre_aggregate = qcom_icc_pre_aggregate_stub;
-	provider->aggregate = qcom_icc_aggregate_stub;
+	provider->set = qcom_icc_set;
+	provider->pre_aggregate = qcom_icc_pre_aggregate;
+	provider->aggregate = qcom_icc_aggregate;
 	provider->xlate = of_icc_xlate_onecell;
 	INIT_LIST_HEAD(&provider->nodes);
 	provider->data = data;
@@ -1123,11 +1127,32 @@ static int qnoc_probe(struct platform_device *pdev)
 	qp->bcms = desc->bcms;
 	qp->num_bcms = desc->num_bcms;
 
+	qp->num_voters = desc->num_voters;
+	qp->voters = devm_kcalloc(&pdev->dev, qp->num_voters,
+			      sizeof(*qp->voters), GFP_KERNEL);
+
+	if (!qp->voters)
+		return -ENOMEM;
+
+	for (i = 0; i < qp->num_voters; i++) {
+		qp->voters[i] = of_bcm_voter_get(qp->dev, desc->voters[i]);
+		if (IS_ERR(qp->voters[i]))
+			return PTR_ERR(qp->voters[i]);
+	}
+
+	qp->regmap = qcom_icc_map(pdev, desc);
+	if (IS_ERR(qp->regmap))
+		return PTR_ERR(qp->regmap);
+
 	ret = icc_provider_add(provider);
 	if (ret) {
 		dev_err(&pdev->dev, "error adding interconnect provider\n");
 		return ret;
 	}
+
+	qp->num_clks = devm_clk_bulk_get_all(qp->dev, &qp->clks);
+	if (qp->num_clks < 0)
+		return qp->num_clks;
 
 	for (i = 0; i < num_nodes; i++) {
 		size_t j;
@@ -1158,9 +1183,16 @@ static int qnoc_probe(struct platform_device *pdev)
 	}
 	data->num_nodes = num_nodes;
 
+	for (i = 0; i < qp->num_bcms; i++)
+		qcom_icc_bcm_init(qp->bcms[i], &pdev->dev);
+
 	platform_set_drvdata(pdev, qp);
 
 	dev_dbg(&pdev->dev, "Registered sdxlemur ICC\n");
+
+	mutex_lock(&probe_list_lock);
+	list_add_tail(&qp->probe_list, &qnoc_probe_list);
+	mutex_unlock(&probe_list_lock);
 
 	return ret;
 err:
@@ -1168,6 +1200,8 @@ err:
 		icc_node_del(node);
 		icc_node_destroy(node->id);
 	}
+
+	clk_bulk_put_all(qp->num_clks, qp->clks);
 
 	icc_provider_del(provider);
 	return ret;
