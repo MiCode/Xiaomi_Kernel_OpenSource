@@ -355,6 +355,16 @@ static struct syscore_ops atf_time_sync_syscore_ops = {
 	.resume = atf_time_sync_resume,
 };
 
+static const struct proc_ops atf_log_proc_fops = {
+	.proc_ioctl = atf_log_ioctl,
+	.proc_compat_ioctl = atf_log_ioctl,
+	.proc_poll       = atf_log_poll,
+	.proc_open       = atf_log_open,
+	.proc_release    = atf_log_release,
+	.proc_read       = atf_log_read,
+	.proc_write      = atf_log_write,
+};
+
 static const struct file_operations atf_log_fops = {
 	.owner      = THIS_MODULE,
 	.unlocked_ioctl = atf_log_ioctl,
@@ -365,7 +375,6 @@ static const struct file_operations atf_log_fops = {
 	.read       = atf_log_read,
 	.write      = atf_log_write,
 };
-
 static struct miscdevice atf_log_dev = {
 	.minor      = MISC_DYNAMIC_MINOR,
 	.name       = "atf_log",
@@ -445,6 +454,13 @@ static unsigned int atf_raw_buf_poll(struct file *file, poll_table *wait)
 	return ret;
 }
 
+static const struct proc_ops atf_raw_buf_proc_fops = {
+	.proc_poll       = atf_raw_buf_poll,
+	.proc_open       = atf_raw_buf_open,
+	.proc_release    = atf_log_release,
+	.proc_read       = atf_raw_buf_read,
+};
+
 static const struct file_operations atf_raw_buf_fops = {
 	.owner      = THIS_MODULE,
 	.poll       = atf_raw_buf_poll,
@@ -522,7 +538,7 @@ static int __init atf_logger_probe(struct platform_device *pdev)
 	}
 	/* create /proc/atf_log/atf_log */
 	atf_log_proc_file = proc_create("atf_log", 0444,
-		atf_log_proc_dir, &atf_log_fops);
+		atf_log_proc_dir, &atf_log_proc_fops);
 	if (atf_log_proc_file == NULL) {
 		pr_info("atf_log proc_create failed at atf_log\n");
 		return -ENOMEM;
@@ -530,7 +546,7 @@ static int __init atf_logger_probe(struct platform_device *pdev)
 
 	/* create /proc/atf_log/atf_raw_buf */
 	atf_raw_buf_proc_file = proc_create("atf_raw_buf", 0444,
-		atf_log_proc_dir, &atf_raw_buf_fops);
+		atf_log_proc_dir, &atf_raw_buf_proc_fops);
 	if (atf_raw_buf_proc_file == NULL) {
 		pr_info("atf_raw_buf proc_create failed at atf_log\n");
 		return -ENOMEM;
