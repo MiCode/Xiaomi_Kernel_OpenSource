@@ -15,6 +15,7 @@
 #include <linux/iommu.h>
 #include <linux/ioport.h>
 #include <linux/clk.h>
+#include <linux/clk/qcom.h>
 #include <linux/io.h>
 #include <linux/module.h>
 #include <linux/types.h>
@@ -2187,6 +2188,7 @@ static int dwc3_msm_config_gdsc(struct dwc3_msm *mdwc, int on)
 			return ret;
 		}
 
+		qcom_clk_set_flags(mdwc->core_clk, CLKFLAG_RETAIN_MEM);
 		ret = clk_prepare_enable(mdwc->core_csr_clk);
 		if (ret) {
 			regulator_disable(mdwc->dwc3_gdsc);
@@ -2194,6 +2196,7 @@ static int dwc3_msm_config_gdsc(struct dwc3_msm *mdwc, int on)
 			return ret;
 		}
 	} else {
+		qcom_clk_set_flags(mdwc->core_clk, CLKFLAG_NORETAIN_MEM);
 		clk_disable_unprepare(mdwc->core_csr_clk);
 		ret = regulator_disable(mdwc->dwc3_gdsc);
 		if (ret) {
