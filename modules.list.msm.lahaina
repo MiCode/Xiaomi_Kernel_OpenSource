@@ -57,6 +57,9 @@ usb_f_mass_storage.ko
 usb_f_diag.ko
 usb_f_ccid.ko
 usb_f_cdev.ko
+usb_f_qdss.ko
+sps_drv.ko
+usb_bam.ko
 typec.ko
 soc_sleep_stats.ko
 sys_pm_vx.ko

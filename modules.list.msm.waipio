@@ -52,6 +52,9 @@ ufs_qcom.ko
 usb_f_cdev.ko
 usb_f_diag.ko
 usb_f_mass_storage.ko
+usb_f_qdss.ko
+sps_drv.ko
+usb_bam.ko
 dcc_v2.ko
 msm-geni-se.ko
 msm_geni_serial.ko
