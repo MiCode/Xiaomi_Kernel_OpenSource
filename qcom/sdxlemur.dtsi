@@ -407,6 +407,10 @@
 				  <WAKE_TCS    2>,
 				  <CONTROL_TCS 1>;
 
+		apps_bcm_voter: bcm_voter {
+			compatible = "qcom,bcm-voter";
+		};
+
 		system_pm {
 			compatible = "qcom,system-pm";
 		};
@@ -436,17 +440,25 @@
 
 	system_noc: interconnect@1620000 {
 		compatible = "qcom,sdxlemur-system_noc";
+		reg = <0x1620000 0x31200>;
 		#interconnect-cells = <1>;
+		qcom,bcm-voter-names = "hlos";
+		qcom,bcm-voters = <&apps_bcm_voter>;
 	};
 
 	mem_noc: interconnect@9680000 {
 		compatible = "qcom,sdxlemur-mem_noc";
+		reg = <0x9680000 0x27200>;
 		#interconnect-cells = <1>;
+		qcom,bcm-voter-names = "hlos";
+		qcom,bcm-voters = <&apps_bcm_voter>;
 	};
 
 	mc_virt: interconnect {
 		compatible = "qcom,sdxlemur-mc_virt";
 		#interconnect-cells = <1>;
+		qcom,bcm-voter-names = "hlos"
+		qcom,bcm-voters = <&apps_bcm_voter>;
 	};
 
 	tcsr_mutex_block: syscon@1f40000 {
