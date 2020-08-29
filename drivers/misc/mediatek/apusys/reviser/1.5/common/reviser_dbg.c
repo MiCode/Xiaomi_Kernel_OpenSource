@@ -30,20 +30,15 @@ static struct dentry *reviser_dbg_iova;
 //table
 static struct dentry *reviser_dbg_table;
 static struct dentry *reviser_dbg_table_vlm;
-static struct dentry *reviser_dbg_table_vlm_ctx;
 static struct dentry *reviser_dbg_table_ctx;
 static struct dentry *reviser_dbg_table_tcm;
 //mem
 static struct dentry *reviser_dbg_mem;
 static struct dentry *reviser_dbg_mem_tcm;
-static struct dentry *reviser_dbg_mem_tcm_bank;
 
 static struct dentry *reviser_dbg_mem_vlm;
 
 static struct dentry *reviser_dbg_mem_dram;
-static struct dentry *reviser_dbg_mem_dram_bank;
-static struct dentry *reviser_dbg_mem_dram_ctx;
-static struct dentry *reviser_dbg_log;
 
 static struct dentry *reviser_dbg_err;
 static struct dentry *reviser_dbg_err_info;
@@ -589,15 +584,9 @@ int reviser_dbg_init(struct reviser_dev_info *rdv)
 		goto out;
 	}
 
-	reviser_dbg_table_vlm_ctx = debugfs_create_u32("vlm_select", 0644,
+	debugfs_create_u32("vlm_select", 0644,
 			reviser_dbg_table,
 			&g_reviser_vlm_ctx);
-
-	ret = IS_ERR_OR_NULL(reviser_dbg_table_vlm_ctx);
-	if (ret) {
-		LOG_ERR("failed to create debug node(vlm_select).\n");
-		goto out;
-	}
 
 	reviser_dbg_table_ctx = debugfs_create_file("ctx", 0644,
 			reviser_dbg_table, rdv,
@@ -619,14 +608,9 @@ int reviser_dbg_init(struct reviser_dev_info *rdv)
 		goto out;
 	}
 	/*  dump tcm */
-	reviser_dbg_mem_tcm_bank = debugfs_create_u32("tcm_bank", 0644,
+	debugfs_create_u32("tcm_bank", 0644,
 			reviser_dbg_mem, &g_reviser_mem_tcm_bank);
 
-	ret = IS_ERR_OR_NULL(reviser_dbg_mem_tcm_bank);
-	if (ret) {
-		LOG_ERR("failed to create debug node(tcm_bank).\n");
-		goto out;
-	}
 	reviser_dbg_mem_tcm = debugfs_create_file("tcm", 0644,
 			reviser_dbg_mem, rdv,
 			&reviser_dbg_fops_mem_tcm);
@@ -638,25 +622,13 @@ int reviser_dbg_init(struct reviser_dev_info *rdv)
 	}
 
 	/*  dump dram */
-	reviser_dbg_mem_dram_bank = debugfs_create_u32("dram_bank", 0644,
+	debugfs_create_u32("dram_bank", 0644,
 			reviser_dbg_mem,
 			&g_reviser_mem_dram_bank);
 
-	ret = IS_ERR_OR_NULL(reviser_dbg_mem_dram_bank);
-	if (ret) {
-		LOG_ERR("failed to create debug node(dram_bank).\n");
-		goto out;
-	}
-
-	reviser_dbg_mem_dram_ctx = debugfs_create_u32("dram_ctx", 0644,
+	debugfs_create_u32("dram_ctx", 0644,
 			reviser_dbg_mem,
 			&g_reviser_mem_dram_ctx);
-
-	ret = IS_ERR_OR_NULL(reviser_dbg_mem_dram_ctx);
-	if (ret) {
-		LOG_ERR("failed to create debug node(dram_ctx).\n");
-		goto out;
-	}
 
 	reviser_dbg_mem_dram = debugfs_create_file("dram", 0644,
 			reviser_dbg_mem, rdv,
@@ -669,7 +641,7 @@ int reviser_dbg_init(struct reviser_dev_info *rdv)
 	}
 
 	/* create log level */
-	reviser_dbg_log = debugfs_create_u8("log_level", 0644,
+	debugfs_create_u8("log_level", 0644,
 			reviser_dbg_root, &g_reviser_log_level);
 
 

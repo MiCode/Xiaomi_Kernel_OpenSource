@@ -188,7 +188,7 @@ static int reviser_get_addr(struct platform_device *pdev, void **reg, int num,
 		return -ENODEV;
 	}
 
-	*reg = ioremap_nocache(res->start, res->end - res->start + 1);
+	*reg = ioremap(res->start, res->end - res->start + 1);
 	if (*reg == 0) {
 		dev_info(&pdev->dev,
 			"could not allocate iomem (num = %d)\n", num);
