@@ -22,6 +22,10 @@
 #include <linux/crypto-qti-common.h>
 #include <linux/pm_runtime.h>
 #include <linux/atomic.h>
+#if IS_ENABLED(CONFIG_CRYPTO_DEV_QCOM_ICE)
+#include <crypto/ice.h>
+#include <linux/blkdev.h>
+#endif
 
 #define RAW_SECRET_SIZE 32
 #define MINIMUM_DUN_SIZE 512
@@ -321,12 +325,34 @@ int cqhci_crypto_qti_prep_desc(struct cqhci_host *host, struct mmc_request *mrq,
 	struct mmc_queue_req *mqrq = container_of(mrq, struct mmc_queue_req,
 						  brq.mrq);
 	struct request *req = mmc_queue_req_to_req(mqrq);
-	int ret;
+	int ret = 0;
 	int val = 0;
+#if IS_ENABLED(CONFIG_CRYPTO_DEV_QCOM_ICE)
+	struct ice_data_setting setting;
+	bool bypass = true;
+	short key_index = 0;
+#endif
 
-	if (!req->bio || !bio_crypt_should_process(req)) {
-		*ice_ctx = 0;
-		return 0;
+	*ice_ctx = 0;
+	if (!req || !req->bio)
+		return ret;
+
+	if (!bio_crypt_should_process(req)) {
+#if IS_ENABLED(CONFIG_CRYPTO_DEV_QCOM_ICE)
+		ret = qcom_ice_config_start(req, &setting);
+		if (!ret) {
+			key_index = setting.crypto_data.key_index;
+			bypass = (rq_data_dir(req) == WRITE) ?
+				setting.encr_bypass : setting.decr_bypass;
+			*ice_ctx = DATA_UNIT_NUM(req->__sector) |
+				CRYPTO_CONFIG_INDEX(key_index) |
+				CRYPTO_ENABLE(!bypass);
+		} else {
+			pr_err("%s crypto config failed err = %d\n", __func__,
+					ret);
+		}
+#endif
+		return ret;
 	}
 	if (WARN_ON(!cqhci_is_crypto_enabled(host))) {
 		/*
@@ -340,6 +366,7 @@ int cqhci_crypto_qti_prep_desc(struct cqhci_host *host, struct mmc_request *mrq,
 
 	if (!cqhci_keyslot_valid(host, bc->bc_keyslot))
 		return -EINVAL;
+
 	if (!(atomic_read(&keycache) & (1 << bc->bc_keyslot))) {
 		if (bc->is_ext4)
 			cmdq_use_default_du_size = true;
