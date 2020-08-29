@@ -333,12 +333,12 @@ static int ssusb_role_sw_set(struct usb_role_switch *sw, enum usb_role role)
 	u32 sw_state = otg_sx->sw_state;
 	bool vbus_event, id_event;
 
-	dev_info(dev, "role_sw_set role %d\n", role);
+	dev_info(ssusb->dev, "role_sw_set role %d\n", role);
 
 	otg_sx->latest_role = role;
 
 	if (otg_sx->op_mode != MTU3_DR_OPERATION_DUAL) {
-		dev_info(dev, "op_mode %d, skip set role\n", otg_sx->op_mode);
+		dev_info(ssusb->dev, "op_mode %d, skip set role\n", otg_sx->op_mode);
 		return 0;
 	}
 
@@ -441,7 +441,7 @@ static ssize_t mode_store(struct device *dev,
 		/* switch operation mode to normal temporarily */
 		otg_sx->op_mode = MTU3_DR_OPERATION_DUAL;
 		/* switch usb role */
-		ssusb_role_sw_set(ssusb->dev, otg_sx->latest_role);
+		ssusb_role_sw_set(otg_sx->role_sw, otg_sx->latest_role);
 		/* update operation mode */
 		otg_sx->op_mode = mode;
 		/* restore role */
