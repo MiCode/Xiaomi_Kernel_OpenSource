@@ -352,10 +352,10 @@
 	};
 
 	aopcc: clock-controller@0 {
-		compatible = "qcom,dummycc";
-		clock-output-names = "aopcc_clocks";
+		compatible = "qcom,aop-qmp-clk";
+		mboxes = <&qmp_aop 0>;
+		mbox-names = "qdss_clk";
 		#clock-cells = <1>;
-		#reset-cells = <1>;
 	};
 
 	rpmhcc: clock-controller@1 {
