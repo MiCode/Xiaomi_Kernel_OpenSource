@@ -16,7 +16,9 @@
 	qcom,msm-id = <458 0x10000>;
 	interrupt-parent = <&intc>;
 
-	aliases { };
+	aliases {
+		pci-domain0 = &pcie0; /* PCIe0 domain */
+	};
 
 	chosen { };
 
@@ -652,3 +654,4 @@
 #include "sdxlemur-ion.dtsi"
 #include "sdxlemur-usb.dtsi"
 #include "sdxlemur-pm.dtsi"
+#include "sdxlemur-pcie.dtsi"
