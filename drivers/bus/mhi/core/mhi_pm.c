@@ -481,12 +481,15 @@ static int mhi_pm_mission_mode_transition(struct mhi_controller *mhi_cntrl)
 	write_lock_irq(&mhi_cntrl->pm_lock);
 	if (MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state))
 		ee = mhi_get_exec_env(mhi_cntrl);
-	write_unlock_irq(&mhi_cntrl->pm_lock);
 
 	if (!MHI_IN_MISSION_MODE(ee)) {
 		MHI_CNTRL_ERR("Invalid EE:%s\n", TO_MHI_EXEC_STR(ee));
+		mhi_cntrl->pm_state = MHI_PM_FW_DL_ERR;
+		wake_up_all(&mhi_cntrl->state_event);
+		write_unlock_irq(&mhi_cntrl->pm_lock);
 		return -EIO;
 	}
+	write_unlock_irq(&mhi_cntrl->pm_lock);
 
 	mhi_cntrl->status_cb(mhi_cntrl, mhi_cntrl->priv_data,
 			     MHI_CB_EE_MISSION_MODE);
