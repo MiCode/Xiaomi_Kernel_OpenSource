@@ -371,7 +371,7 @@ static inline int ipa3_qmi_add_offload_request_send(
 }
 
 static inline int ipa3_qmi_rmv_offload_request_send(
-	struct ipa_rmv_offload_connection_req_msg_v01 *req)
+	struct ipa_remove_offload_connection_req_msg_v01 *req)
 {
 	return -EPERM;
 }

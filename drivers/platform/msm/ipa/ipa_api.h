@@ -350,6 +350,8 @@ struct ipa_api_controller {
 
 	enum ipa_client_type (*ipa_get_client_mapping)(int pipe_idx);
 
+	enum ipa_rm_resource_name (*ipa_get_rm_resource_from_ep)(int pipe_idx);
+
 	bool (*ipa_get_modem_cfg_emb_pipe_flt)(void);
 
 	enum ipa_transport_type (*ipa_get_transport_type)(void);
@@ -442,6 +444,7 @@ struct ipa_api_controller {
 		struct ipa_smmu_out_params *out);
 	int (*ipa_is_vlan_mode)(enum ipa_vlan_ifaces iface, bool *res);
 
+	bool (*ipa_pm_is_used)(void);
 	int (*ipa_wigig_internal_init)(
 		struct ipa_wdi_uc_ready_params *inout,
 		ipa_wigig_misc_int_cb int_notify,
