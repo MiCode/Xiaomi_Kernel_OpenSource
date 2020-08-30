@@ -1638,10 +1638,10 @@ static int dpmaif_send_skb_to_net(struct dpmaif_rx_queue *rxq,
 
 #if MD_GENERATION >= 6297
 END:
+#endif
 	cur_skb->skb = NULL;
 #ifdef MT6297
 	rxq->bat_req.bid_btable[skb_idx] = 0;
-#endif
 #endif
 	return ret;
 }
