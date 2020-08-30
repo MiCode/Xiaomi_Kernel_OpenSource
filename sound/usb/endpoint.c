@@ -567,7 +567,7 @@ __exit_unlock:
  */
 static int wait_clear_urbs(struct snd_usb_endpoint *ep)
 {
-	unsigned long end_time = jiffies + msecs_to_jiffies(1000);
+	unsigned long end_time = jiffies + msecs_to_jiffies(1500);
 	int alive;
 
 	do {
