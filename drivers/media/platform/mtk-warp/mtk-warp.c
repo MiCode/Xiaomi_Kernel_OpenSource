@@ -477,6 +477,7 @@ static const struct v4l2_ctrl_config ctrl_map_width = {
 	.max = 640,
 	.step = 1,
 	.def = 2,
+	.flags = V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
 };
 
 static const struct v4l2_ctrl_config ctrl_map_height = {
@@ -488,6 +489,7 @@ static const struct v4l2_ctrl_config ctrl_map_height = {
 	.max = 480,
 	.step = 1,
 	.def = 2,
+	.flags = V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
 };
 
 static const struct v4l2_ctrl_config ctrl_map_x = {
@@ -499,6 +501,7 @@ static const struct v4l2_ctrl_config ctrl_map_x = {
 	.max = S64_MAX,
 	.step = 4,
 	.def = 0,
+	.flags = V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
 };
 
 static const struct v4l2_ctrl_config ctrl_map_y = {
@@ -510,6 +513,7 @@ static const struct v4l2_ctrl_config ctrl_map_y = {
 	.max = S64_MAX,
 	.step = 4,
 	.def = 0,
+	.flags = V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
 };
 
 static const struct v4l2_ctrl_config ctrl_map_commit = {
@@ -521,6 +525,7 @@ static const struct v4l2_ctrl_config ctrl_map_commit = {
 	.max = 1,
 	.step = 1,
 	.def = 0,
+	.flags = V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
 };
 
 static int mtk_warp_open(struct file *file)
