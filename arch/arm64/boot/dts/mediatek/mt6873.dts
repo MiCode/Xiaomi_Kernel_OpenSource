@@ -849,6 +849,11 @@
 		vbus-supply = <&otg_vbus>;
 		vbus-volt = <5000000>;
 	};
+
+	pd_adapter: pd_adapter {
+		compatible = "mediatek,pd_adapter";
+		adapter_name = "pd_adapter";
+	};
 };
 
 &i2c5 {
