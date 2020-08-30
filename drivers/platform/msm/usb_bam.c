@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -14,6 +14,7 @@
 #include <linux/workqueue.h>
 #include <linux/dma-mapping.h>
 #include <linux/pm_runtime.h>
+#include <linux/delay.h>
 
 #define USB_THRESHOLD 512
 #define USB_BAM_MAX_STR_LEN 50
@@ -216,6 +217,17 @@ struct usb_bam_ctx_type {
 	spinlock_t		usb_bam_lock;
 };
 
+static char *bam_enable_strings[MAX_BAMS] = {
+	[DWC3_CTRL] = "ssusb",
+};
+
+struct usb_bam_host_info {
+	struct device *dev;
+	bool in_lpm;
+};
+
+static struct usb_bam_host_info host_info[MAX_BAMS];
+
 /*
  * CI_CTRL & DWC3_CTRL shouldn't be used simultaneously
  * since both share the same prod & cons rm resourses
@@ -257,7 +269,7 @@ struct usb_bam_ipa_handshake_info {
 	bool in_lpm;
 	u8 prod_pipes_enabled_per_bam;
 
-	int (*wake_cb);
+	int (*wake_cb)(void *wcb);
 	void *wake_param;
 
 	u32 suspend_src_idx[USB_BAM_NR_PORTS];
@@ -314,7 +326,13 @@ static void __maybe_unused put_timestamp(char *tbuf)
 
 static inline enum usb_ctrl get_bam_type_from_core_name(const char *name)
 {
-	return USB_CTRL_UNUSED;
+	if (strnstr(name, bam_enable_strings[DWC3_CTRL],
+				USB_BAM_MAX_STR_LEN) ||
+			strnstr(name, "dwc3", USB_BAM_MAX_STR_LEN))
+		return DWC3_CTRL;
+
+	log_event_err("%s: invalid BAM name(%s)\n", __func__, name);
+	return -EINVAL;
 }
 
 static void usb_bam_set_inactivity_timer(enum usb_ctrl bam)
@@ -2641,7 +2659,7 @@ static struct msm_usb_bam_data *usb_bam_dt_to_data(
 	struct device_node *node = pdev->dev.of_node;
 	int rc = 0;
 	u8 i = 0;
-	u32 bam = USB_CTRL_UNUSED;
+	u32 bam;
 	u32 addr = 0;
 	u32 threshold, max_connections = 0;
 	static struct usb_bam_pipe_connect *usb_bam_connections;

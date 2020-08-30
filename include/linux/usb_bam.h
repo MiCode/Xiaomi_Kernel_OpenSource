@@ -17,12 +17,20 @@
 
 /* Supported USB controllers*/
 enum usb_ctrl {
-	USB_CTRL_UNUSED = 0,
+	DWC3_CTRL = 0,  /* DWC3 controller */
+	CI_CTRL,        /* ChipIdea controller */
+	HSIC_CTRL,      /* HSIC controller */
 	NUM_CTRL,
+};
+
+enum usb_bam_mode {
+	USB_BAM_DEVICE = 0,
+	USB_BAM_HOST,
 };
 
 enum peer_bam {
 	QDSS_P_BAM = 0,
+	IPA_P_BAM,
 	MAX_PEER_BAMS,
 };
 
@@ -413,5 +421,11 @@ static inline int get_pm_runtime_counter(struct device *dev)
 /* !CONFIG_PM */
 static inline int get_pm_runtime_counter(struct device *dev)
 { return -EOPNOTSUPP; }
+#endif
+#ifdef CONFIG_USB_CI13XXX_MSM
+void msm_hw_bam_disable(bool bam_disable);
+#else
+static inline void msm_hw_bam_disable(bool bam_disable)
+{}
 #endif
 #endif				/* _USB_BAM_H_ */
