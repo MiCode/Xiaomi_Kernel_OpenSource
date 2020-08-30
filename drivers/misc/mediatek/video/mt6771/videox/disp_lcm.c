@@ -950,7 +950,8 @@ int check_lcm_node_from_DT(void)
 	char lcm_node[128] = { 0 };
 	struct device_node *np = NULL;
 
-	sprintf(lcm_node, "mediatek,lcm_params-%s", lcm_name_list[0]);
+	scnprintf(lcm_node, sizeof(lcm_node),
+		"mediatek,lcm_params-%s", lcm_name_list[0]);
 	DISPMSG("LCM PARAMS DT compatible: %s\n", lcm_node);
 
 	/* Load LCM parameters from DT */
@@ -960,7 +961,8 @@ int check_lcm_node_from_DT(void)
 		return -1;
 	}
 
-	sprintf(lcm_node, "mediatek,lcm_ops-%s", lcm_name_list[0]);
+	scnprintf(lcm_node, sizeof(lcm_node),
+		"mediatek,lcm_ops-%s", lcm_name_list[0]);
 	DISPMSG("LCM OPS DT compatible: %s\n", lcm_node);
 
 	/* Load LCM parameters from DT */
@@ -988,7 +990,8 @@ void load_lcm_resources_from_DT(struct LCM_DRIVER *lcm_drv)
 
 	memset((unsigned char *)parse_dts, 0x0, sizeof(struct LCM_DTS));
 
-	sprintf(lcm_node, "mediatek,lcm_params-%s", lcm_name_list[0]);
+	scnprintf(lcm_node, sizeof(lcm_node),
+		"mediatek,lcm_params-%s", lcm_name_list[0]);
 	DISPMSG("LCM PARAMS DT compatible: %s\n", lcm_node);
 
 	/* Load LCM parameters from DT */
@@ -998,7 +1001,8 @@ void load_lcm_resources_from_DT(struct LCM_DRIVER *lcm_drv)
 	else
 		parse_lcm_params_dt_node(np, &(parse_dts->params));
 
-	sprintf(lcm_node, "mediatek,lcm_ops-%s", lcm_name_list[0]);
+	scnprintf(lcm_node, sizeof(lcm_node),
+		"mediatek,lcm_ops-%s", lcm_name_list[0]);
 	DISPMSG("LCM OPS DT compatible: %s\n", lcm_node);
 
 	/* Load LCM parameters from DT */

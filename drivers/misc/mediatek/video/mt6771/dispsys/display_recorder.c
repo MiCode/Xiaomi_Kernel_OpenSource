@@ -1545,7 +1545,7 @@ int dprec_logger_pr(unsigned int type, char *fmt, ...)
 		va_list args;
 
 		rem_nsec = do_div(time, 1000000000);
-		n += snprintf(buf + n, len - n, "[%5lu.%06lu]",
+		n += scnprintf(buf + n, len - n, "[%5lu.%06lu]",
 			      (unsigned long)time, rem_nsec / 1000);
 
 		va_start(args, fmt);
@@ -1569,7 +1569,7 @@ char *get_dprec_status_ptr(int buffer_idx)
 
 static char *_logger_pr_type_spy(enum DPREC_LOGGER_PR_TYPE type)
 {
-	if (type < DPREC_LOGGER_PR_NUM)
+	if ((unsigned int)type < DPREC_LOGGER_PR_NUM)
 		return dprec_logger_buffer[type].name;
 
 	return "unknown";

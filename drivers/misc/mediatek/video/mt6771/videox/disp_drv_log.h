@@ -103,7 +103,7 @@
 #define disp_aee_print(string, args...)					\
 	do {								\
 		char disp_name[100];					\
-		snprintf(disp_name, 100, "[DISP]"string, ##args);	\
+		scnprintf(disp_name, 99, "[DISP]"string, ##args);	\
 		aee_kernel_warning_api(__FILE__, __LINE__,		\
 				DB_OPT_DEFAULT | DB_OPT_MMPROFILE_BUFFER | \
 				DB_OPT_DISPLAY_HANG_DUMP | DB_OPT_DUMP_DISPLAY,\

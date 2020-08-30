@@ -294,7 +294,7 @@ enum DAL_STATUS DAL_Printf(const char *fmt, ...)
 	}
 
 	va_start(args, fmt);
-	i = vsprintf(dal_print_buffer, fmt, args);
+	i = vscnprintf(dal_print_buffer, sizeof(dal_print_buffer), fmt, args);
 	va_end(args);
 
 	if (i >= ARRAY_SIZE(dal_print_buffer)) {

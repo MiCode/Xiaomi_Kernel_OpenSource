@@ -187,9 +187,10 @@ unsigned int ovl_to_index(enum DISP_MODULE_ENUM module)
 
 static inline enum DISP_MODULE_ENUM ovl_index_to_module(int index)
 {
-	if (index >= OVL_NUM) {
+	if (unlikely((unsigned int)index >= OVL_NUM)) {
 		DDPPR_ERR("invalid ovl index=%d\n", index);
 		ASSERT(0);
+		return -EINVAL;
 	}
 
 	return ovl_index_module[index];
