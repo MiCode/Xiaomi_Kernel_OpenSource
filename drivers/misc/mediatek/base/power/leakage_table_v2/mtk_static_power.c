@@ -238,7 +238,10 @@ int mtk_spower_make_table(struct sptab_s *spt, int voltage, int degree,
 		/** occupy the free container**/
 		tspt = tab[spower_raw->table_size - 3];
 #else  /* #if defined(EXTER_POLATION) */
-		tspt = tab1 = tab2 = tab[spower_raw->table_size - 1];
+		if (spower_raw->table_size - 1 >= 0)
+			tspt = tab1 = tab2 = tab[spower_raw->table_size - 1];
+		else
+			tspt = tab1 = tab2 = tab[1];
 #endif /* #if defined(EXTER_POLATION) */
 
 		SPOWER_INFO("sptab max tab:%d/%d\n", wat, c[i]);
