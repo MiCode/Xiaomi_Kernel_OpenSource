@@ -5400,12 +5400,115 @@ irqreturn_t icl_change_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static int smblib_role_switch_failure(struct smb_charger *chg)
+{
+	int rc = 0;
+	union power_supply_propval pval = {0, };
+
+	if (!chg->use_extcon)
+		return 0;
+
+	rc = smblib_get_prop_usb_present(chg, &pval);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't get usb presence status rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	/*
+	 * When role switch fails notify the
+	 * current charger state to usb driver.
+	 */
+	if (pval.intval) {
+		smblib_dbg(chg, PR_MISC, " Role reversal failed, notifying device mode to usb driver.\n");
+		smblib_notify_device_mode(chg, true);
+	}
+
+	return rc;
+}
+
+static int typec_partner_register(struct smb_charger *chg)
+{
+	int typec_mode, rc = 0;
+
+	mutex_lock(&chg->typec_lock);
+
+	if (!chg->typec_port || chg->pr_swap_in_progress)
+		goto unlock;
+
+	if (!chg->typec_partner) {
+		if (chg->sink_src_mode == AUDIO_ACCESS_MODE)
+			chg->typec_partner_desc.accessory =
+					TYPEC_ACCESSORY_AUDIO;
+		else
+			chg->typec_partner_desc.accessory =
+					TYPEC_ACCESSORY_NONE;
+
+		chg->typec_partner = typec_register_partner(chg->typec_port,
+				&chg->typec_partner_desc);
+		if (IS_ERR(chg->typec_partner)) {
+			rc = PTR_ERR(chg->typec_partner);
+			pr_err("failed to register typec_partner rc=%d\n", rc);
+			goto unlock;
+		}
+	}
+
+	typec_mode = smblib_get_prop_typec_mode(chg);
+
+	if (typec_mode >= QTI_POWER_SUPPLY_TYPEC_SOURCE_DEFAULT
+			|| typec_mode == QTI_POWER_SUPPLY_TYPEC_NONE) {
+
+		if (chg->typec_role_swap_failed) {
+			rc = smblib_role_switch_failure(chg);
+			if (rc < 0)
+				smblib_err(chg, "Failed to role switch rc=%d\n",
+					rc);
+			chg->typec_role_swap_failed = false;
+		}
+
+		typec_set_data_role(chg->typec_port, TYPEC_DEVICE);
+		typec_set_pwr_role(chg->typec_port, TYPEC_SINK);
+	} else {
+		typec_set_data_role(chg->typec_port, TYPEC_HOST);
+		typec_set_pwr_role(chg->typec_port, TYPEC_SOURCE);
+	}
+
+unlock:
+	mutex_unlock(&chg->typec_lock);
+	return rc;
+}
+
+static void typec_partner_unregister(struct smb_charger *chg)
+{
+	mutex_lock(&chg->typec_lock);
+
+	if (!chg->typec_port)
+		goto unlock;
+
+	if (chg->typec_partner && !chg->pr_swap_in_progress) {
+		smblib_dbg(chg, PR_MISC, "Un-registering typeC partner\n");
+		typec_unregister_partner(chg->typec_partner);
+		chg->typec_partner = NULL;
+	}
+
+unlock:
+	mutex_unlock(&chg->typec_lock);
+}
+
 static void smblib_micro_usb_plugin(struct smb_charger *chg, bool vbus_rising)
 {
+	int rc = 0;
+
 	if (!vbus_rising) {
 		smblib_update_usb_type(chg);
 		smblib_notify_device_mode(chg, false);
 		smblib_uusb_removal(chg);
+		typec_partner_unregister(chg);
+	} else {
+		rc = typec_partner_register(chg);
+		if (rc < 0)
+			smblib_err(chg, "Couldn't register partner rc =%d\n",
+					rc);
 	}
 }
 
@@ -5986,97 +6089,6 @@ static void typec_ra_ra_insertion(struct smb_charger *chg)
 	vote(chg->usb_icl_votable, USB_PSY_VOTER, false, 0);
 	chg->ok_to_pd = false;
 	smblib_hvdcp_detect_enable(chg, true);
-}
-
-static int smblib_role_switch_failure(struct smb_charger *chg)
-{
-	int rc = 0;
-	union power_supply_propval pval = {0, };
-
-	if (!chg->use_extcon)
-		return 0;
-
-	rc = smblib_get_prop_usb_present(chg, &pval);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't get usb presence status rc=%d\n",
-				rc);
-		return rc;
-	}
-
-	/*
-	 * When role switch fails notify the
-	 * current charger state to usb driver.
-	 */
-	if (pval.intval) {
-		smblib_dbg(chg, PR_MISC, " Role reversal failed, notifying device mode to usb driver.\n");
-		smblib_notify_device_mode(chg, true);
-	}
-
-	return rc;
-}
-
-static int typec_partner_register(struct smb_charger *chg)
-{
-	int typec_mode, rc = 0;
-
-	mutex_lock(&chg->typec_lock);
-
-	if (!chg->typec_port || chg->pr_swap_in_progress)
-		goto unlock;
-
-	if (!chg->typec_partner) {
-		if (chg->sink_src_mode == AUDIO_ACCESS_MODE)
-			chg->typec_partner_desc.accessory =
-					TYPEC_ACCESSORY_AUDIO;
-		else
-			chg->typec_partner_desc.accessory =
-					TYPEC_ACCESSORY_NONE;
-
-		chg->typec_partner = typec_register_partner(chg->typec_port,
-				&chg->typec_partner_desc);
-		if (IS_ERR(chg->typec_partner)) {
-			rc = PTR_ERR(chg->typec_partner);
-			pr_err("failed to register typec_partner rc=%d\n", rc);
-			goto unlock;
-		}
-	}
-
-	typec_mode = smblib_get_prop_typec_mode(chg);
-
-	if (typec_mode >= QTI_POWER_SUPPLY_TYPEC_SOURCE_DEFAULT
-			|| typec_mode == QTI_POWER_SUPPLY_TYPEC_NONE) {
-
-		if (chg->typec_role_swap_failed) {
-			rc = smblib_role_switch_failure(chg);
-			if (rc < 0)
-				smblib_err(chg, "Failed to role switch rc=%d\n",
-					rc);
-			chg->typec_role_swap_failed = false;
-		}
-
-		typec_set_data_role(chg->typec_port, TYPEC_DEVICE);
-		typec_set_pwr_role(chg->typec_port, TYPEC_SINK);
-	} else {
-		typec_set_data_role(chg->typec_port, TYPEC_HOST);
-		typec_set_pwr_role(chg->typec_port, TYPEC_SOURCE);
-	}
-
-unlock:
-	mutex_unlock(&chg->typec_lock);
-	return rc;
-}
-
-static void typec_partner_unregister(struct smb_charger *chg)
-{
-	mutex_lock(&chg->typec_lock);
-
-	if (chg->typec_partner && !chg->pr_swap_in_progress) {
-		smblib_dbg(chg, PR_MISC, "Un-registering typeC partner\n");
-		typec_unregister_partner(chg->typec_partner);
-		chg->typec_partner = NULL;
-	}
-
-	mutex_unlock(&chg->typec_lock);
 }
 
 static const char * const dr_mode_text[] = {
