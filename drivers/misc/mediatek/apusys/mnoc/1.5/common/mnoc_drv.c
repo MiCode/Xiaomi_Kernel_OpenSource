@@ -255,7 +255,7 @@ static int mnoc_probe(struct platform_device *pdev)
 	/* set mnoc IRQ(GIC SPI pin shared with axi-reviser/devapc) */
 	ret = request_irq(mnoc_irq_number, mnoc_isr,
 			//IRQF_TRIGGER_HIGH | IRQF_SHARED,
-			irq_get_trigger_type(mnoc_irq_number),
+			irq_get_trigger_type(mnoc_irq_number) | IRQF_SHARED,
 			APUSYS_MNOC_DEV_NAME, &pdev->dev);
 	if (ret)
 		LOG_ERR("IRQ register failed (%d)\n", ret);
