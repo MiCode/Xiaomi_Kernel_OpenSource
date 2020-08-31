@@ -1870,6 +1870,7 @@
   regmap_field_update_bits_base
   __regmap_init
   regmap_irq_get_virq
+  regmap_mmio_detach_clk
   regmap_raw_read
   regmap_read
   regmap_register_patch
