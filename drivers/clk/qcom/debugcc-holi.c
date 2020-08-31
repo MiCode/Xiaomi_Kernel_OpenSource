@@ -142,10 +142,12 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"gcc_camss_csi0phytimer_clk",
 	"gcc_camss_csi1phytimer_clk",
 	"gcc_camss_csi2phytimer_clk",
+	"gcc_camss_csi3phytimer_clk",
 	"gcc_camss_mclk0_clk",
 	"gcc_camss_mclk1_clk",
 	"gcc_camss_mclk2_clk",
 	"gcc_camss_mclk3_clk",
+	"gcc_camss_mclk4_clk",
 	"gcc_camss_nrt_axi_clk",
 	"gcc_camss_ope_ahb_clk",
 	"gcc_camss_ope_clk",
@@ -269,10 +271,12 @@ static int gcc_debug_mux_sels[] = {
 	0x12B,		/* gcc_camss_csi0phytimer_clk */
 	0x12C,		/* gcc_camss_csi1phytimer_clk */
 	0x12D,		/* gcc_camss_csi2phytimer_clk */
+	0x12E,		/* gcc_camss_csi3phytimer_clk */
 	0x12F,		/* gcc_camss_mclk0_clk */
 	0x130,		/* gcc_camss_mclk1_clk */
 	0x131,		/* gcc_camss_mclk2_clk */
 	0x132,		/* gcc_camss_mclk3_clk */
+	0x133,		/* gcc_camss_mclk4_clk */
 	0x153,		/* gcc_camss_nrt_axi_clk */
 	0x14B,		/* gcc_camss_ope_ahb_clk */
 	0x149,		/* gcc_camss_ope_clk */
