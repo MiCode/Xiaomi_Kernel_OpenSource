@@ -2083,9 +2083,9 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 	mdata->enable_gate = true;
 	mdata->pixel_ram_size = 0;
 	mem_protect_sd_ctrl_id = MEM_PROTECT_SD_CTRL_FLAT;
-
+#ifdef CONFIG_DEBUG_FS
 	mdss_mdp_hw_rev_debug_caps_init(mdata);
-
+#endif
 	switch (mdata->mdp_rev) {
 	case MDSS_MDP_HW_REV_107:
 		mdss_set_quirk(mdata, MDSS_QUIRK_ROTCDP);

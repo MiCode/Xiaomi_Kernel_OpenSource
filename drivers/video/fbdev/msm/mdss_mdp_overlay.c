@@ -4072,9 +4072,9 @@ static ssize_t msm_misr_en_show(struct device *dev,
 		pr_err("Invalid ctl structure\n");
 		return -EINVAL;
 	}
-
+#ifdef CONFIG_DEBUG_FS
 	ret = mdss_dump_misr_data(&buf, PAGE_SIZE);
-
+#endif
 	return ret;
 }
 
