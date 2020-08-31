@@ -544,10 +544,12 @@ struct ION_BUFFER_LIST {
 	struct dma_buf_attachment *attach;
 	struct sg_table *sgt;
 	dma_addr_t dmaAddr; /* physical addr */
+	unsigned long long va;
 	int memID; /* ion fd */
 	enum ISP_DEV_NODE_ENUM devNode;
 	enum ISP_WRDMA_ENUM dmaPort;
-	char *username; /* userspace user name */
+	unsigned int size;
+	char username[64]; /* userspace user name */
 };
 static struct ION_BUFFER_LIST g_ion_buf_list;
 
@@ -3579,11 +3581,49 @@ static void isp_mmu_put_dma_buffer(struct ION_BUFFER *mmu)
 		LOG_NOTICE("mmu->dmaBuf is NULL\n");
 #endif
 }
-#endif
 
 /*******************************************************************************
  *
  ******************************************************************************/
+void dumpIonBufferList(unsigned int entry_num, bool TurnOn)
+{
+
+	struct ION_BUFFER_LIST *entry;
+	struct list_head *pos;
+	int i = 0;
+	unsigned int list_length = 0;
+
+	if (TurnOn == false)
+		return;
+
+	if (list_empty(&g_ion_buf_list.list))
+		return;
+
+	list_for_each(pos, &g_ion_buf_list.list) {
+		list_length++;
+	}
+
+	LOG_NOTICE("## ion buf list length(%d); show %d newer entry ##\n",
+		list_length, entry_num);
+	list_for_each(pos, &g_ion_buf_list.list) {
+		if (i < entry_num) {
+			entry = list_entry(pos, struct ION_BUFFER_LIST, list);
+			LOG_NOTICE("#%3d: dump: memID(%3d); dev/Port(%2d,%2d);"
+				" va/pa(0x%lx/0x%lx); size(%d); user(%s)\n", i,
+				entry->memID, entry->devNode, entry->dmaPort,
+				entry->va,
+				entry->dmaAddr, entry->size, entry->username);
+			i++;
+		} else
+			break;
+	}
+	LOG_NOTICE("##################\n");
+}
+/*******************************************************************************
+ *
+ ******************************************************************************/
+#endif
+
 static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 {
 	int Ret = 0;
@@ -4803,10 +4843,10 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 		if (copy_from_user(&IonNode, (void *)Param,
 			sizeof(struct ISP_DEV_ION_NODE_STRUCT)) == 0) {
 			dma_addr_t dmaPa;
-			struct ION_BUFFER_LIST *entry;
 			struct list_head *pos;
 			/* tmp ION_BUFFER_LIST node to add into the list. */
 			struct ION_BUFFER_LIST *tmp;
+			struct ION_BUFFER_LIST *entry;
 			struct ION_BUFFER mmu = {NULL, NULL, NULL, 0};
 			bool bMapped = false;
 
@@ -4819,25 +4859,24 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			}
 			LOG_NOTICE("ISP_ION_MAP_PA: IonNode.memID=%d\n", IonNode.memID);
 			mutex_lock(&aosp_ion_mutex);
-			/* Check if memID has been mapped.
+
+			/* Check if the pair "memID, VA" has been mapped.
 			 * If Yes, don't map it again. Just add a node in the list.
-			 * If No, map it and add a node in the list.
+			 * If No, error return.
 			 */
-			if (!list_empty(&g_ion_buf_list.list)) {
-				list_for_each(pos, &g_ion_buf_list.list) {
-					entry = list_entry(pos, struct ION_BUFFER_LIST, list);
-					if (entry->memID == IonNode.memID) {
-						LOG_NOTICE("memID(%d) has been mapped.PA=0x%x\n",
-							IonNode.memID, entry->dmaAddr);
-						bMapped = true;
-						IonNode.dma_pa = entry->dmaAddr;
-						break;
-					}
+			list_for_each(pos, &g_ion_buf_list.list) {
+				entry = list_entry(pos, struct ION_BUFFER_LIST, list);
+				if ((entry->memID == IonNode.memID) &&
+					(entry->va == IonNode.va)) {
+					bMapped = true;
+					IonNode.dma_pa = entry->dmaAddr;
+					break;
 				}
 			}
 
 			if (!bMapped) {
-				/* Map physical add. */
+				/* Map physical addr. */
+				LOG_NOTICE("ISP_ION_MAP_PA: do map. memID(%d)\n", IonNode.memID);
 				if (isp_mmu_get_dma_buffer(&mmu,
 					IonNode.memID) == false) {
 					LOG_NOTICE(
@@ -4880,29 +4919,34 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				tmp->dmaBuf = mmu.dmaBuf;
 				tmp->sgt = mmu.sgt;
 			}
-
+			tmp->va = IonNode.va;
 			tmp->dmaAddr = IonNode.dma_pa;
 			tmp->memID = IonNode.memID;
 			tmp->devNode = IonNode.devNode;
 			tmp->dmaPort = IonNode.dmaPort;
-			tmp->username = IonNode.username;
+			tmp->size = IonNode.size;
+
 			strncpy(tmp->username, IonNode.username, strlen(IonNode.username));
 			tmp->username[strlen(IonNode.username)] = '\0';
-			LOG_NOTICE("ISP_ION_MAP_PA: tmp->username=%s; IonNode.username=%s\n",
-				tmp->username, IonNode.username);
+
 			list_add(&(tmp->list), &(g_ion_buf_list.list));
-			LOG_NOTICE("ISP_ION_MAP_PA: add: memID=%d, tmp->dmaAddr=0x%x\n",
-				IonNode.memID, tmp->dmaAddr);
+			LOG_NOTICE("Add: memID=%d, dev/Port(%d,%d); va/pa=(0x%lx/0x%lx);"
+				" size(%d); user(%s)\n",
+				tmp->memID, IonNode.devNode, IonNode.dmaPort,
+				tmp->va, tmp->dmaAddr, tmp->size,
+				tmp->username);
+
+			dumpIonBufferList(10, true);
 
 			if (copy_to_user((void *)Param, &IonNode,
 				sizeof(struct ISP_DEV_ION_NODE_STRUCT)) != 0) {
-				LOG_NOTICE("copy to user fail\n");
+				LOG_NOTICE("ISP_ION_MAP_PA: copy to user fail\n");
 				Ret = -EFAULT;
 			}
 			mutex_unlock(&aosp_ion_mutex);
 		} else {
 			LOG_NOTICE(
-				"[ISP_ION_MAP_PA]copy_from_user failed\n");
+				"ISP_ION_MAP_PA: copy_from_user failed\n");
 			Ret = -EFAULT;
 		}
 		break;
@@ -4915,15 +4959,24 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			struct ION_BUFFER pIonBuf = {NULL, NULL, NULL, 0};
 			bool foundPA = false;
 
+			struct dma_buf_attachment *delete_attach = NULL;
+			struct dma_buf *delete_dmaBuf = NULL;
+			struct sg_table *delete_sgt = NULL;
+
+			LOG_NOTICE("unmap: try memID(%d); VA/PA(0x%lx/0x%lx); (%d,%d,%s)\n",
+				IonNode.memID, IonNode.va, IonNode.dma_pa, IonNode.devNode,
+				IonNode.dmaPort, IonNode.username);
+
 			if (IonNode.memID <= 0) {
-				LOG_NOTICE("ISP_ION_UNMAP_PA: invalid ion fd(%d)\n",
+				LOG_NOTICE("ISP_ION_UNMAP_PA: invalid memID(%d)\n",
 					IonNode.memID);
 				Ret = -EFAULT;
 				break;
 			}
 			mutex_lock(&aosp_ion_mutex);
 			if (list_empty(&g_ion_buf_list.list)) {
-				LOG_NOTICE("ISP_ION_UNMAP_PA: no mapped addr.\n");
+				LOG_NOTICE("ISP_ION_UNMAP_PA: fail. list is empty. memID(%d)\n",
+					IonNode.memID);
 				Ret = -EFAULT;
 				mutex_unlock(&aosp_ion_mutex);
 				break;
@@ -4938,6 +4991,16 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 					(tmp->dmaAddr == IonNode.dma_pa) &&
 					(tmp->devNode == IonNode.devNode) &&
 					(tmp->dmaPort == IonNode.dmaPort)) {
+					LOG_NOTICE(
+						"Del memID(%d): va/pa=(0x%lx/0x%lx); (%d,%d,%s)\n",
+						tmp->memID, tmp->va, tmp->dmaAddr,
+						tmp->devNode, tmp->dmaPort,
+						tmp->username);
+
+					delete_attach = tmp->attach;
+					delete_dmaBuf = tmp->dmaBuf;
+					delete_sgt = tmp->sgt;
+
 					/* delete a mapped node in the list. */
 					list_del(pos);
 					kfree(tmp);
@@ -4947,12 +5010,17 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			}
 
 			if (!foundPA) {
-				LOG_NOTICE("Error: No PA(0x%lx) is found. memID=%d\n",
-					IonNode.dma_pa, IonNode.memID);
+				LOG_NOTICE("Err: unmap: memID(%d); VA/PA(0x%lx/0x%lx);"
+					"(%d,%d,%s) not found.\n",
+					IonNode.memID, IonNode.va, IonNode.dma_pa,
+					IonNode.devNode,
+					IonNode.dmaPort, IonNode.username);
 				Ret = -EFAULT;
 				mutex_unlock(&aosp_ion_mutex);
 				break;
 			}
+
+			dumpIonBufferList(10, true);
 
 			/* After deleting the node, traverse again to check if
 			 * there's still a node with mapped addr.
@@ -4970,17 +5038,17 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				}
 			}
 			if (!foundPA) {
-				pIonBuf.dmaBuf = tmp->dmaBuf;
-				pIonBuf.attach = tmp->attach;
-				pIonBuf.sgt = tmp->sgt;
-
+				pIonBuf.dmaBuf = delete_dmaBuf;
+				pIonBuf.attach = delete_attach;
+				pIonBuf.sgt = delete_sgt;
+				LOG_NOTICE("ISP_ION_UNMAP_PA: do unmap. memID(%d) pa(0x%lx)\n",
+					IonNode.memID, IonNode.dma_pa);
 				isp_mmu_put_dma_buffer(&pIonBuf);
 				IonNode.dma_pa = 0;
 			}
-
 			mutex_unlock(&aosp_ion_mutex);
 		} else {
-			LOG_NOTICE("[ISP_ION_UNMAP_PA]copy_from_user failed\n");
+			LOG_NOTICE("ISP_ION_UNMAP_PA: copy_from_user failed\n");
 			Ret = -EFAULT;
 		}
 		break;
@@ -5027,6 +5095,10 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 						mapped_attach = tmp->attach;
 						mapped_dmaBuf = tmp->dmaBuf;
 						mapped_sgt = tmp->sgt;
+						LOG_NOTICE("by hwmodule: Del memID(%d): pa=0x%lx;"
+							" (%d,%d,%s)\n",
+							tmp->memID, tmp->dmaAddr,
+							tmp->devNode, tmp->dmaPort, tmp->username);
 						/* delete a mapped node in the list. */
 						list_del(pos);
 						kfree(tmp);
@@ -5063,7 +5135,8 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 					pIonBuf.dmaBuf = mapped_dmaBuf;
 					pIonBuf.attach = mapped_attach;
 					pIonBuf.sgt = mapped_sgt;
-
+					LOG_NOTICE("by hwmodule(%d): unmap pa=0x%lx\n", module,
+						mapped_PA);
 					isp_mmu_put_dma_buffer(&pIonBuf);
 				}
 			}
@@ -5089,7 +5162,8 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				Ret = -EFAULT;
 				break;
 			}
-			LOG_NOTICE("ISP_ION_GET_PA: IonNode.memID=%d\n", IonNode.memID);
+			LOG_NOTICE("ISP_ION_GET_PA: IonNode.memID=%d; IonNode.va=0x%lx\n",
+				IonNode.memID, IonNode.va);
 			mutex_lock(&aosp_ion_mutex);
 
 			if (list_empty(&g_ion_buf_list.list)) {
@@ -5103,6 +5177,10 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			list_for_each(pos, &g_ion_buf_list.list) {
 				entry = list_entry(pos, struct ION_BUFFER_LIST, list);
 				if (entry->memID == IonNode.memID) {
+					if (entry->va != IonNode.va)
+						LOG_NOTICE("GET_PA: different va: (0x%lx,0x%lx)\n",
+							entry->va, IonNode.va);
+
 					IonNode.dma_pa = entry->dmaAddr;
 					bMapped = true;
 					break;
@@ -5111,9 +5189,11 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 
 			if (!bMapped) {
 				IonNode.dma_pa = 0;
-				LOG_NOTICE("ISP_ION_GET_PA: never mapped for memID(%d)\n",
-					IonNode.memID);
-			}
+				LOG_NOTICE("ISP_ION_GET_PA: never mapped for memID(%d),name(%s)\n",
+					IonNode.memID, IonNode.username);
+			} else
+				LOG_NOTICE("ISP_ION_GET_PA: memID(%d) get pa(0x%lx), name(%s)\n",
+					IonNode.memID, IonNode.dma_pa, IonNode.username);
 
 			if (copy_to_user((void *)Param, &IonNode,
 				sizeof(struct ISP_DEV_ION_NODE_STRUCT)) != 0) {
