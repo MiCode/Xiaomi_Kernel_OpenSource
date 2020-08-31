@@ -69,7 +69,7 @@ const char *mrdump_get_cmd(void)
 		set_fs(fs);
 		return aee_cmdline;
 	}
-	vfs_read(fd, (void *)aee_cmdline, COMMAND_LINE_SIZE, &pos);
+	kernel_read(fd, (void *)aee_cmdline, COMMAND_LINE_SIZE, &pos);
 	filp_close(fd, NULL);
 	fd = NULL;
 	set_fs(fs);
