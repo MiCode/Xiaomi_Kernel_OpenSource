@@ -496,7 +496,7 @@
 	#address-cells = <1>;
 	#size-cells = <0>;
 
-	sensor0 {
+	sensor0:sensor0 {
 		compatible = "mediatek,imgsensor";
 		#thermal-sensor-cells = <0>;
 		reg = <0x1a>;
@@ -551,7 +551,7 @@
 	#address-cells = <1>;
 	#size-cells = <0>;
 
-	sensor1 {
+	sensor1:sensor1 {
 		compatible = "mediatek,imgsensor";
 		#thermal-sensor-cells = <0>;
 		reg = <0x1a>;
@@ -613,7 +613,7 @@
 	#address-cells = <1>;
 	#size-cells = <0>;
 
-	sensor2 {
+	sensor2:sensor2 {
 		compatible = "mediatek,imgsensor";
 		#thermal-sensor-cells = <0>;
 		reg = <0x10>;
@@ -669,7 +669,7 @@
 	#address-cells = <1>;
 	#size-cells = <0>;
 
-	sensor4 {
+	sensor4:sensor4 {
 		compatible = "mediatek,imgsensor";
 		#thermal-sensor-cells = <0>;
 		reg = <0x10>;
