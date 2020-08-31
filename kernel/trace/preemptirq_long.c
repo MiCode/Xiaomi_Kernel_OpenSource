@@ -9,11 +9,9 @@
 #include <linux/sysctl.h>
 #include <linux/printk.h>
 #include <linux/sched/clock.h>
-
-#include <trace/events/preemptirq.h>
 #include <trace/events/sched.h>
-
 #define CREATE_TRACE_POINTS
+#include <trace/hooks/restricted_preemptirq.h>
 #include <trace/events/preemptirq_long.h>
 
 #define IRQSOFF_SENTINEL 0x0fffDEAD
@@ -151,13 +149,13 @@ static int preemptirq_long_init(void)
 		return -EPERM;
 	}
 
-	register_trace_irq_disable(note_irq_disable, NULL);
-	register_trace_irq_enable(test_irq_disable_long, NULL);
-
-	register_trace_preempt_disable(note_preempt_disable, NULL);
-	register_trace_preempt_enable(test_preempt_disable_long, NULL);
-
+	register_trace_restricted_irq_disable(note_irq_disable, NULL);
+	register_trace_restricted_irq_enable(test_irq_disable_long, NULL);
+	register_trace_restricted_preempt_disable(note_preempt_disable, NULL);
+	register_trace_restricted_preempt_enable(test_preempt_disable_long,
+						 NULL);
 	register_trace_sched_switch(note_context_switch, NULL);
+
 	return 0;
 }
 
