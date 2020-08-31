@@ -520,6 +520,7 @@ struct sdhci_msm_host {
 	bool vqmmc_enabled;
 	void *sdhci_msm_ipc_log_ctx;
 	bool dbg_en;
+	bool err_occurred;
 };
 
 static struct sdhci_msm_host *sdhci_slot[2];
@@ -3845,6 +3846,8 @@ static void sdhci_msm_dump_vendor_regs(struct sdhci_host *host)
 	u32 test_bus_val = 0;
 	u32 debug_reg[MAX_TEST_BUS] = {0};
 
+	msm_host->err_occurred = true;
+
 	SDHCI_MSM_DUMP("----------- VENDOR REGISTER DUMP -----------\n");
 
 	if (msm_host->cq_host)
@@ -4503,8 +4506,24 @@ static ssize_t dbg_state_show(struct device *dev,
 
 static DEVICE_ATTR_RW(dbg_state);
 
+static ssize_t err_state_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
+
+	if (!host || !host->mmc)
+		return -EINVAL;
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n", !!msm_host->err_occurred);
+}
+
+static DEVICE_ATTR_RO(err_state);
+
 static struct attribute *sdhci_msm_sysfs_attrs[] = {
 	&dev_attr_dbg_state.attr,
+	&dev_attr_err_state.attr,
 	NULL
 };
 
