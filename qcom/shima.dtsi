@@ -428,6 +428,14 @@
 			size = <0 0x2c00000>;
 		};
 
+		audio_cma_mem: audio_cma_region {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+			reusable;
+			alignment = <0x0 0x400000>;
+			size = <0x0 0x1C00000>;
+		};
+
 	};
 
 	chosen {

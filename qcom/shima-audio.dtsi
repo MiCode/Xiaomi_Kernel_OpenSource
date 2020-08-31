@@ -7,6 +7,10 @@
 };
 
 &audio_apr {
+	msm_audio_ion_cma: qcom,msm-audio-ion-cma {
+		compatible = "qcom,msm-audio-ion-cma";
+	};
+
 	q6core: qcom,q6core-audio {
 		compatible = "qcom,q6core-audio";
 		#address-cells = <1>;
@@ -47,8 +51,10 @@
 						   <0x00000000>, <0x00000000>,
 						   <0x00000006>;
 
-			clock-names = "lpass_core_hw_vote";
-			clocks = <&lpass_core_hw_vote 0>;
+			clock-names = "lpass_core_hw_vote",
+					"lpass_audio_hw_vote";
+			clocks = <&lpass_core_hw_vote 0>,
+					<&lpass_audio_hw_vote 0>;
 		};
 
 		bolero: bolero-cdc {
