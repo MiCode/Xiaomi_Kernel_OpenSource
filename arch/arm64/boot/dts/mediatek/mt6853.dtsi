@@ -2780,6 +2780,16 @@
 		mdpsys_config: mdpsys_config@1f000000 {
 			compatible = "mediatek,mdpsys_config", "syscon";
 			reg = <0 0x1f000000 0 0x1000>;
+			clocks = <&mdpsys_config_clk CLK_MDP_IMG_DL_ASYNC0>,
+				<&mdpsys_config_clk CLK_MDP_IMG_DL_ASYNC1>,
+				<&mdpsys_config_clk CLK_MDP_IMG_DL_RELAY0_ASYNC0>,
+				<&mdpsys_config_clk CLK_MDP_IMG_DL_RELAY1_ASYNC1>,
+				<&mdpsys_config_clk CLK_MDP_APB_BUS>;
+			clock-names = "MDP_IMG_DL_ASYNC0",
+					"MDP_IMG_DL_ASYNC1",
+					"MDP_IMG0_IMG_DL_ASYNC0",
+					"MDP_IMG0_IMG_DL_ASYNC1",
+					"MDP_APB_BUS";
 			dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
 			iommus = <&iommu0 M4U_PORT_L2_MDP_RDMA0>,
 				<&iommu0 M4U_PORT_L2_MDP_RDMA1>,
@@ -2951,31 +2961,43 @@
 		mdp_mutex: mdp_mutex@1f001000 {
 			compatible = "mediatek,mdp_mutex";
 			reg = <0 0x1f001000 0 0x1000>;
+			clocks = <&mdpsys_config_clk CLK_MDP_MUTEX0>;
+			clock-names = "MDP_MUTEX0";
 		};
 
 		mdp_rdma0: mdp_rdma0@1f003000 {
 			compatible = "mediatek,mdp_rdma0";
 			reg = <0 0x1f003000 0 0x1000>;
+			clocks = <&mdpsys_config_clk CLK_MDP_RDMA0>;
+			clock-names = "MDP_RDMA0";
 		};
 
 		mdp_rdma1: mdp_rdma1@1f004000 {
 			compatible = "mediatek,mdp_rdma1";
 			reg = <0 0x1f004000 0 0x1000>;
+			clocks = <&mdpsys_config_clk CLK_MDP_RDMA1>;
+			clock-names = "MDP_RDMA1";
 		};
 
 		mdp_aal0: mdp_aal0@1f005000 {
 			compatible = "mediatek,mdp_aal0";
 			reg = <0 0x1f005000 0 0x1000>;
+			clocks = <&mdpsys_config_clk CLK_MDP_AAL0>;
+			clock-names = "MDP_AAL0";
 		};
 
 		mdp_aal1: mdp_aal1@1f006000 {
 			compatible = "mediatek,mdp_aal1";
 			reg = <0 0x1f006000 0 0x1000>;
+			clocks = <&mdpsys_config_clk CLK_MDP_AAL1>;
+			clock-names = "MDP_AAL1";
 		};
 
 		mdp_hdr0: mdp_hdr0@1f007000 {
 			compatible = "mediatek,mdp_hdr0";
 			reg = <0 0x1f007000 0 0x1000>;
+			clocks = <&mdpsys_config_clk CLK_MDP_HDR0>;
+			clock-names = "MDP_HDR0";
 		};
 
 		mdp_hdr1: mdp_hdr1@1f008000 {
@@ -2986,36 +3008,50 @@
 		mdp_rsz0: mdp_rsz0@1f009000 {
 			compatible = "mediatek,mdp_rsz0";
 			reg = <0 0x1f009000 0 0x1000>;
+			clocks = <&mdpsys_config_clk CLK_MDP_RSZ0>;
+			clock-names = "MDP_RSZ0";
 		};
 
 		mdp_rsz1: mdp_rsz1@1f00a000 {
 			compatible = "mediatek,mdp_rsz1";
 			reg = <0 0x1f00a000 0 0x1000>;
+			clocks = <&mdpsys_config_clk CLK_MDP_RSZ1>;
+			clock-names = "MDP_RSZ1";
 		};
 
 		mdp_wrot0: mdp_wrot0@1f00b000 {
 			compatible = "mediatek,mdp_wrot0";
 			reg = <0 0x1f00b000 0 0x1000>;
+			clocks = <&mdpsys_config_clk CLK_MDP_WROT0>;
+			clock-names = "MDP_WROT0";
 		};
 
 		mdp_wrot1: mdp_wrot1@1f00c000 {
 			compatible = "mediatek,mdp_wrot1";
 			reg = <0 0x1f00c000 0 0x1000>;
+			clocks = <&mdpsys_config_clk CLK_MDP_WROT1>;
+			clock-names = "MDP_WROT1";
 		};
 
 		mdp_tdshp0: mdp_tdshp0@1f00d000 {
 			compatible = "mediatek,mdp_tdshp0";
 			reg = <0 0x1f00d000 0 0x1000>;
+			clocks = <&mdpsys_config_clk CLK_MDP_TDSHP0>;
+			clock-names = "MDP_TDSHP0";
 		};
 
 		mdp_tdshp1: mdp_tdshp1@1f00e000 {
 			compatible = "mediatek,mdp_tdshp1";
 			reg = <0 0x1f00e000 0 0x1000>;
+			clocks = <&mdpsys_config_clk CLK_MDP_TDSHP1>;
+			clock-names = "MDP_TDSHP1";
 		};
 
 		mdp_color0: mdp_color0@1f00f000 {
 			compatible = "mediatek,mdp_color0";
 			reg = <0 0x1f00f000 0 0x1000>;
+			clocks = <&mdpsys_config_clk CLK_MDP_COLOR0>;
+			clock-names = "MDP_COLOR0";
 		};
 
 		mdp_color1: mdp_color1@1f010000 {
