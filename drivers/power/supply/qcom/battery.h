@@ -11,6 +11,7 @@ struct charger_param {
 	u32 smb_version;
 	u32 hvdcp2_max_icl_ua;
 	u32 hvdcp3_max_icl_ua;
+	u32 qc4_max_icl_ua;
 	u32 forced_main_fcc;
 	int (*iio_read)(struct device *dev, int iio_chan, int *val);
 	int (*iio_write)(struct device *dev, int iio_chan, int val);
