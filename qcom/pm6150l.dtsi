@@ -283,7 +283,7 @@
 
 		pm6150l_lpg: qcom,pwms@b100 {
 			compatible = "qcom,pwm-lpg";
-			reg = <0xb100 0x300>, <0xb000 0x100>;
+			reg = <0xb100>, <0xb000>;
 			reg-names = "lpg-base", "lut-base";
 			#pwm-cells = <2>;
 			qcom,num-lpg-channels = <3>;
