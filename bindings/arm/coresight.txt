@@ -137,9 +137,10 @@ its hardware characteristcs.
 	* arm,scatter-gather: boolean. Indicates that the TMC-ETR can safely
 	  use the SG mode on this system.
 
-* Optional property for CATU :
+* Optional property for CATU and APSS :
 	* interrupts : Exactly one SPI may be listed for reporting the address
-	  error
+	  error for CATU and four interrupts for TGU to get trigger from four
+	  type of events.
 
 * Required property for TPDAs:
 
@@ -480,6 +481,10 @@ Example:
 		tgu-conditions = <4>;
 		tgu-regs = <4>;
 		tgu-timer-counters = <8>;
+		interrupts = <GIC_SPI 23 IRQ_TYPE_TRIGGER_HIGH>,
+			     <GIC_SPI 24 IRQ_TYPE_TRIGGER_HIGH>,
+			     <GIC_SPI 25 IRQ_TYPE_TRIGGER_HIGH>,
+			     <GIC_SPI 26 IRQ_TYPE_TRIGGER_HIGH>;
 
 		coresight-name = "coresight-tgu-ipcb";
 

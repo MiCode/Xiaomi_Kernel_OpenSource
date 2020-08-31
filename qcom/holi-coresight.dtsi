@@ -45,9 +45,9 @@
 		reg-names = "tgu-base";
 		tgu-steps = <3>;
 		tgu-conditions = <4>;
-		tgu-regs = <4>;
+		tgu-regs = <8>;
 		tgu-timer-counters = <8>;
-
+		interrupts = <0 23 1>, <0 24 1>, <0 25 1>, <0 26 1>;
 		coresight-name = "coresight-tgu-apss";
 
 		clocks = <&rpmcc RPM_SMD_QDSS_CLK>;
