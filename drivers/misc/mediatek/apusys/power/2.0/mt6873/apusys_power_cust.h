@@ -35,7 +35,7 @@
 #define SUPPORT_HW_CONTROL_PMIC	(0)
 #define TIME_PROFILING		(0)
 #define APUSYS_SETTLE_TIME_TEST (0)
-#define SUPPORT_VCORE_TO_IPUIF	(1)
+#define SUPPORT_VCORE_TO_IPUIF	(0)
 
 // FIXME: disable this feature temporarily for bring up
 #define DISABLE_DEVFREQ_COOLING
