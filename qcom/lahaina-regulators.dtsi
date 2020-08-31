@@ -826,7 +826,7 @@
 		S2E: pmr735a_s2: regulator-pmr735a-s2 {
 			regulator-name = "pmr735a_s2";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
-			regulator-min-microvolt = <800000>;
+			regulator-min-microvolt = <500000>;
 			regulator-max-microvolt = <976000>;
 			qcom,init-voltage = <852000>;
 		};
