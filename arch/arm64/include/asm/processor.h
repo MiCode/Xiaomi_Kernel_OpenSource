@@ -26,6 +26,7 @@
 #include <linux/init.h>
 #include <linux/stddef.h>
 #include <linux/string.h>
+#include <linux/android_vendor.h>
 
 #include <vdso/processor.h>
 
@@ -137,6 +138,8 @@ struct thread_struct {
 		unsigned long	tp2_value;
 		struct user_fpsimd_state fpsimd_state;
 	} uw;
+
+	ANDROID_VENDOR_DATA(1);
 
 	unsigned int		fpsimd_cpu;
 	void			*sve_state;	/* SVE registers, if any */
