@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, 2020 The Linux Foundation. All rights reserved.
  */
 
 #ifndef _USBPD_H
@@ -9,17 +9,6 @@
 #include <linux/device.h>
 
 struct usbpd;
-
-#if IS_ENABLED(CONFIG_USB_PD_POLICY)
-struct usbpd *usbpd_create(struct device *parent);
-void usbpd_destroy(struct usbpd *pd);
-#else
-static inline struct usbpd *usbpd_create(struct device *parent)
-{
-	return ERR_PTR(-ENODEV);
-}
-static inline void usbpd_destroy(struct usbpd *pd) { }
-#endif
 
 enum data_role {
 	DR_NONE = -1,
@@ -64,43 +53,27 @@ struct pd_phy_params {
 	u8		frame_filter_val;
 };
 
-#if IS_ENABLED(CONFIG_QPNP_USB_PDPHY)
-int pd_phy_open(struct pd_phy_params *params);
-int pd_phy_signal(enum pd_sig_type sig);
-int pd_phy_write(u16 hdr, const u8 *data, size_t data_len,
-		enum pd_sop_type sop);
-int pd_phy_update_roles(enum data_role dr, enum power_role pr);
-int pd_phy_update_frame_filter(u8 frame_filter_val);
-void pd_phy_close(void);
+struct pd_phy_ops {
+	int (*open)(struct pd_phy_params *params);
+	int (*signal)(enum pd_sig_type sig);
+	int (*write)(u16 hdr, const u8 *data, size_t data_len,
+						enum pd_sop_type sop);
+	int (*update_roles)(enum data_role dr, enum power_role pr);
+	int (*update_frame_filter)(u8 frame_filter_val);
+	void (*close)(void);
+};
+
+#if IS_ENABLED(CONFIG_USB_PD_POLICY)
+struct usbpd *usbpd_create(struct device *parent,
+					struct pd_phy_ops *pdphy_ops);
+void usbpd_destroy(struct usbpd *pd);
 #else
-static inline int pd_phy_open(struct pd_phy_params *params)
+static inline struct usbpd *usbpd_create(struct device *parent,
+					struct pd_phy_ops *pdphy_ops)
 {
-	return -ENODEV;
+	return ERR_PTR(-ENODEV);
 }
-
-static inline int pd_phy_signal(enum pd_sig_type type)
-{
-	return -ENODEV;
-}
-
-static inline int pd_phy_write(u16 hdr, const u8 *data, size_t data_len,
-		enum pd_sop_type sop)
-{
-	return -ENODEV;
-}
-
-static inline int pd_phy_update_roles(enum data_role dr, enum power_role pr)
-{
-	return -ENODEV;
-}
-
-static inline int pd_phy_update_frame_filter(u8 frame_filter_val)
-{
-	return -ENODEV;
-}
-
-static inline void pd_phy_close(void)
-{
-}
+static inline void usbpd_destroy(struct usbpd *pd) { }
 #endif
+
 #endif /* _USBPD_H */
