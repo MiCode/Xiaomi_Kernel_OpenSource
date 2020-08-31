@@ -108,6 +108,7 @@ enum qg_ext_iio_channels {
 	FORCE_RECHARGE,
 	CHARGE_DONE,
 	PARALLEL_CHARGING_ENABLED,
+	CP_CHARGING_ENABLED,
 };
 
 static const char * const qg_ext_iio_chan_name[] = {
@@ -116,6 +117,7 @@ static const char * const qg_ext_iio_chan_name[] = {
 	[FORCE_RECHARGE]		= "force_recharge",
 	[CHARGE_DONE]			= "charge_done",
 	[PARALLEL_CHARGING_ENABLED]	= "parallel_charging_enabled",
+	[CP_CHARGING_ENABLED]		= "cp_charging_enabled",
 };
 
 #endif
