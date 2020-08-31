@@ -152,7 +152,7 @@
 &q6core {
 	shima_snd: sound {
 		compatible = "qcom,lahaina-asoc-snd";
-		qcom,mi2s-audio-intf = <0>;
+		qcom,mi2s-audio-intf = <1>;
 		qcom,auxpcm-audio-intf = <1>;
 		qcom,wcn-bt = <0>;
 		qcom,ext-disp-audio-rx = <0>;
