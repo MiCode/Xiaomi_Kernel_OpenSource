@@ -1215,6 +1215,8 @@
 			      <0 0x10030000 0 0x1000>,
 			      <0 0x1020e000 0 0x1000>;
 			interrupts = <GIC_SPI 187 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&infracfg_ao_clk CLK_IFRAO_DEVICE_APC>;
+			clock-names = "devapc-infra-clock";
 		};
 
 		ccifdriver:ccifdriver@10209000 {
