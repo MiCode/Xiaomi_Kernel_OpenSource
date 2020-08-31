@@ -7,6 +7,7 @@
 #include <asm/suspend.h>
 #include <linux/cpu_pm.h>
 #include <linux/cpuidle.h>
+#include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -14,6 +15,7 @@
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
+#include <linux/syscalls.h>
 #include <linux/suspend.h>
 #include <linux/syscore_ops.h>
 
@@ -27,6 +29,8 @@
 #define MTK_LPM_CPUIDLE_DRIVER		0xD0
 #define MTK_LPM_MODLE			0xD1
 #define MTK_LPM_SYS_ISSUER		0xD2
+
+DEFINE_SPINLOCK(__lpm_sys_sync_lock);
 
 typedef int (*state_enter)(struct cpuidle_device *dev,
 			   struct cpuidle_driver *drv, int idx);
@@ -455,8 +459,129 @@ EXPORT_SYMBOL(mtk_lpm_suspend_type_get);
 
 static struct wakeup_source *mtk_lpm_lock;
 
+#define SYS_SYNC_TIMEOUT 2000
+#define SYS_SYNC_ONGOING 1
+#define SYS_SYNC_DONE 0
+
+static int sys_sync_ongoing;
+
+static void suspend_sys_sync(struct work_struct *work);
+static struct workqueue_struct *suspend_sys_sync_work_queue;
+DECLARE_WORK(suspend_sys_sync_work, suspend_sys_sync);
+
+static void suspend_sys_sync(struct work_struct *work)
+{
+	unsigned long flags;
+
+	pr_debug("++\n");
+	ksys_sync_helper();
+	spin_lock_irqsave(&__lpm_sys_sync_lock, flags);
+	sys_sync_ongoing = SYS_SYNC_DONE;
+	spin_unlock_irqrestore(&__lpm_sys_sync_lock, flags);
+	pr_debug("--\n");
+}
+
+int suspend_syssync_enqueue(void)
+{
+	unsigned long flags;
+
+	if (sys_sync_ongoing != SYS_SYNC_DONE)
+		return -EBUSY;
+	if (suspend_sys_sync_work_queue == NULL) {
+		suspend_sys_sync_work_queue =
+			create_singlethread_workqueue("fs_suspend_syssync");
+		if (suspend_sys_sync_work_queue == NULL) {
+			pr_debug("fs_suspend_syssync workqueue create failed\n");
+			return -EBUSY;
+		}
+	}
+	spin_lock_irqsave(&__lpm_sys_sync_lock, flags);
+	sys_sync_ongoing = SYS_SYNC_ONGOING;
+	spin_unlock_irqrestore(&__lpm_sys_sync_lock, flags);
+	pr_debug("PM: Syncing filesystems ... ");
+	queue_work(suspend_sys_sync_work_queue, &suspend_sys_sync_work);
+
+	return 0;
+}
+
+int suspend_syssync_check(void)
+{
+	int timeout = 10;
+	int acc = 0;
+
+	while (sys_sync_ongoing != SYS_SYNC_DONE) {
+		msleep(timeout);
+		if ((acc + 10) > SYS_SYNC_TIMEOUT) {
+			pr_debug("Sync filesystems timeout");
+			return -EBUSY;
+		}
+		acc += 10;
+	}
+	pr_debug("done.\n");
+	return 0;
+}
+
+static int lpm_pm_early_event(struct notifier_block *notifier, unsigned long pm_event,
+			void *unused)
+{
+	int ret;
+
+	switch (pm_event) {
+	case PM_HIBERNATION_PREPARE:
+		return NOTIFY_DONE;
+	case PM_RESTORE_PREPARE:
+		return NOTIFY_DONE;
+	case PM_POST_HIBERNATION:
+		return NOTIFY_DONE;
+	case PM_SUSPEND_PREPARE:
+		ret = suspend_syssync_enqueue();
+		if (ret < 0)
+			return NOTIFY_BAD;
+		return NOTIFY_DONE;
+	case PM_POST_SUSPEND:
+		return NOTIFY_DONE;
+	}
+	return NOTIFY_OK;
+}
+
+static struct notifier_block lpm_pm_early_notifier_func = {
+	.notifier_call = lpm_pm_early_event,
+	.priority = 255,
+};
+
+static int lpm_pm_event(struct notifier_block *notifier, unsigned long pm_event,
+			void *unused)
+{
+	int ret;
+
+	switch (pm_event) {
+	case PM_HIBERNATION_PREPARE:
+		return NOTIFY_DONE;
+	case PM_RESTORE_PREPARE:
+		return NOTIFY_DONE;
+	case PM_POST_HIBERNATION:
+		return NOTIFY_DONE;
+	case PM_SUSPEND_PREPARE:
+		ret = suspend_syssync_check();
+		if (ret < 0)
+			return NOTIFY_BAD;
+	/* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
+		return NOTIFY_DONE;
+	case PM_POST_SUSPEND:
+		return NOTIFY_DONE;
+	}
+	return NOTIFY_OK;
+}
+
+static struct notifier_block lpm_pm_notifier_func = {
+	.notifier_call = lpm_pm_event,
+	.priority = 0,
+};
+
+
 static int __init mtk_lpm_init(void)
 {
+	int ret;
 	unsigned long flags;
 	struct device_node *mtk_lpm;
 	struct mtk_lpm_module_reg reg = {
@@ -517,6 +642,20 @@ static int __init mtk_lpm_init(void)
 	if (!(mtk_lpm_system.suspend.flag &
 		MTK_LP_REQ_NOSYSCORE_CB))
 		register_syscore_ops(&mtk_lpm_suspend);
+
+	sys_sync_ongoing = SYS_SYNC_DONE;
+	ret = register_pm_notifier(&lpm_pm_early_notifier_func);
+	if (ret) {
+		pr_debug("Failed to register PM early notifier.\n");
+		return ret;
+	}
+	ret = 0;
+
+	ret = register_pm_notifier(&lpm_pm_notifier_func);
+	if (ret) {
+		pr_debug("Failed to register PM notifier.\n");
+		return ret;
+	}
 
 	mtk_lpm_platform_init();
 	return 0;
