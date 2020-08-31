@@ -672,11 +672,19 @@ int mmc_send_tuning(struct mmc_host *host, u32 opcode, int *cmd_error)
 
 	if (cmd.error) {
 		err = cmd.error;
+#if defined(CONFIG_SDC_QTI)
+		/* Ignore crc errors occurred during tuning */
+		if (host->err_stats[MMC_ERR_CMD_CRC])
+			host->err_stats[MMC_ERR_CMD_CRC]--;
+#endif
 		goto out;
 	}
 
 	if (data.error) {
 		err = data.error;
+#if defined(CONFIG_SDC_QTI)
+		 host->err_stats[MMC_ERR_DAT_CRC]--;
+#endif
 		goto out;
 	}
 

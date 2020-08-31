@@ -3586,6 +3586,106 @@ static int sdhci_msm_setup_ice_clk(struct sdhci_msm_host *msm_host,
 	return ret;
 }
 
+#if defined(CONFIG_SDC_QTI)
+static ssize_t err_state_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+
+	if (!host || !host->mmc)
+		return -EINVAL;
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n", !!host->mmc->err_occurred);
+}
+
+static ssize_t err_state_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+	unsigned int val;
+
+	if (kstrtouint(buf, 0, &val))
+		return -EINVAL;
+	if (!host || !host->mmc)
+		return -EINVAL;
+
+	host->mmc->err_occurred = !!val;
+	if (!val)
+		memset(host->mmc->err_stats, 0, sizeof(host->mmc->err_stats));
+
+	return count;
+}
+static DEVICE_ATTR_RW(err_state);
+
+static ssize_t err_stats_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+	char tmp[100];
+
+	if (!host || !host->mmc)
+		return -EINVAL;
+
+	scnprintf(tmp, sizeof(tmp), "# Command Timeout Error: %d\n",
+		host->mmc->err_stats[MMC_ERR_CMD_TIMEOUT]);
+	strlcpy(buf, tmp, PAGE_SIZE);
+
+	scnprintf(tmp, sizeof(tmp), "# Command CRC Error: %d\n",
+		host->mmc->err_stats[MMC_ERR_CMD_CRC]);
+	strlcat(buf, tmp, PAGE_SIZE);
+
+	scnprintf(tmp, sizeof(tmp), "# Data Timeout Error: %d\n",
+		host->mmc->err_stats[MMC_ERR_DAT_TIMEOUT]);
+	strlcat(buf, tmp, PAGE_SIZE);
+
+	scnprintf(tmp, sizeof(tmp), "# Data CRC Error: %d\n",
+		host->mmc->err_stats[MMC_ERR_DAT_CRC]);
+	strlcat(buf, tmp, PAGE_SIZE);
+
+	scnprintf(tmp, sizeof(tmp), "# Auto-Cmd Error: %d\n",
+		host->mmc->err_stats[MMC_ERR_ADMA]);
+	strlcat(buf, tmp, PAGE_SIZE);
+
+	scnprintf(tmp, sizeof(tmp), "# ADMA Error: %d\n",
+		host->mmc->err_stats[MMC_ERR_ADMA]);
+	strlcat(buf, tmp, PAGE_SIZE);
+
+	scnprintf(tmp, sizeof(tmp), "# Tuning Error: %d\n",
+		host->mmc->err_stats[MMC_ERR_TUNING]);
+	strlcat(buf, tmp, PAGE_SIZE);
+
+	scnprintf(tmp, sizeof(tmp), "# Request Timedout Error: %d\n",
+		host->mmc->err_stats[MMC_ERR_REQ_TIMEOUT]);
+	strlcat(buf, tmp, PAGE_SIZE);
+
+	return strlen(buf);
+}
+static DEVICE_ATTR_RO(err_stats);
+
+static struct attribute *sdhci_msm_sysfs_attrs[] = {
+	&dev_attr_err_state.attr,
+	&dev_attr_err_stats.attr,
+	NULL
+};
+
+static const struct attribute_group sdhci_msm_sysfs_group = {
+	.name = "qcom",
+	.attrs = sdhci_msm_sysfs_attrs,
+};
+
+static int sdhci_msm_init_sysfs(struct platform_device *pdev)
+{
+	int ret;
+
+	ret = sysfs_create_group(&pdev->dev.kobj, &sdhci_msm_sysfs_group);
+	if (ret)
+		dev_err(&pdev->dev, "%s: Failed sdhci_msm sysfs group err=%d\n",
+			__func__, ret);
+	return ret;
+}
+#endif
+
 static int sdhci_msm_probe(struct platform_device *pdev)
 {
 	struct sdhci_host *host;
@@ -3860,7 +3960,9 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	 * value won't be over-written.
 	 */
 	host->mmc->max_busy_timeout = 0;
-
+#if defined(CONFIG_SDC_QTI)
+	sdhci_msm_init_sysfs(pdev);
+#endif
 	/*
 	 * Set platfm_init_done only after sdhci_add_host().
 	 * So that we don't turn off vqmmc while we reset sdhc as
