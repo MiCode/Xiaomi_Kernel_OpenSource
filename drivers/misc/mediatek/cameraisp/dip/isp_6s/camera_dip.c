@@ -6423,6 +6423,24 @@ static long DIP_ioctl_compat(
 
 #endif
 
+static inline void DIP_Load_InitialSettings(void)
+{
+	unsigned int i = 0;
+
+	LOG_DBG("- E.\n");
+
+	for (i = 0 ; i < DIP_INIT_ARRAY_COUNT ; i++) {
+		//ofset = DIP_A_BASE + DIP_INIT_ARY[i].ofset;
+		DIP_WR32(DIP_A_BASE + DIP_INIT_ARY[i].ofset,
+				DIP_INIT_ARY[i].val);
+#if (MTK_DIP_COUNT == 2)
+		DIP_WR32(DIP_B_BASE + DIP_INIT_ARY[i].ofset,
+				DIP_INIT_ARY[i].val);
+#endif
+	}
+
+}
+
 /**************************************************************
  *
  **************************************************************/
@@ -6637,6 +6655,8 @@ static signed int DIP_open(
 #endif
 	DIP_EnableClock(MTRUE);
 	g_u4DipCnt = 0;
+	if (G_u4DipEnClkCnt == 1)
+		DIP_Load_InitialSettings();
 #ifdef CONFIG_PM_WAKELOCKS
 	__pm_relax(dip_wake_lock);
 #else
@@ -7334,13 +7354,9 @@ static signed int DIP_resume(struct platform_device *pDev)
 	//unsigned int ofset = 0;
 	if (g_u4DipCnt > 0) {
 		DIP_EnableClock(MTRUE);
-		if (G_u4DipEnClkCnt == 1) {
-			for (i = 0 ; i < DIP_INIT_ARRAY_COUNT ; i++) {
-				//ofset = DIP_A_BASE + DIP_INIT_ARY[i].ofset;
-				DIP_WR32(DIP_A_BASE + DIP_INIT_ARY[i].ofset,
-						DIP_INIT_ARY[i].val);
-			}
-		}
+		if (G_u4DipEnClkCnt == 1)
+			DIP_Load_InitialSettings();
+
 		g_u4DipCnt--;
 	}
 	if (g_DIP_PMState == 1) {
