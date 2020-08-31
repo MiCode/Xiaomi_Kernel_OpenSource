@@ -538,6 +538,9 @@ int config_vcore(enum DVFS_USER user, int vcore_opp)
 	int ret = 0;
 	static unsigned int vpu0_vcore_opp, mdla0_vcore_opp;
 
+	//[Fix me] block at regulator_set_voltage
+	return 0;
+
 	if ((user != VPU0) && (user != MDLA0))
 		return 0;
 
