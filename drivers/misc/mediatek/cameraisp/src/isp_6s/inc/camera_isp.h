@@ -334,61 +334,61 @@ enum ISP_WRDMA_ENUM {
 	_dma_cq24i_,       /*25*/ /* reserve           */
 
 	/* dmai */
-	_dma_rawi_r2_,     /*30*/
+	_dma_rawi_r2_,
 	_dma_bpci_,
 	_dma_lsci_,
 	_dma_bpci_r2_,
-	_dma_pdi_,
-	_dma_ufdi_r2_,     /*35*/
+	_dma_pdi_,         /*30*/
+	_dma_ufdi_r2_,
 	/* dmao_1 */
 	_dma_imgo_,
 	_dma_ltmso_,
 	_dma_rrzo_,
-	_dma_lcso_,        /* _dma_lceso_ */
+	_dma_lcso_,        /*35*/ /* _dma_lceso_ */
 	_dma_lcesho_,
-	_dma_aao_,         /*40*/
+	_dma_aao_,
 	_dma_flko_,
 	_dma_ufeo_,
-	_dma_afo_,
+	_dma_afo_,         /*40*/
 	_dma_ufgo_,
-	_dma_rsso_,        /*45*/
+	_dma_rsso_,
 	_dma_eiso_,        /* _dma_lmvo_ */
 	_dma_yuvbo_,
-	_dma_tsfso_,
+	_dma_tsfso_,       /*45*/
 	_dma_pdo_,
-	_dma_crzo_,        /*50*/
+	_dma_crzo_,
 	_dma_crzbo_,
 	_dma_yuvco_,
 	/* dmao_2 */
-	_dma_crzo_r2_,
-	_dma_rsso_r2_,     /*55*/
+	_dma_crzo_r2_,     /*50*/
+	_dma_rsso_r2_,
 	_dma_yuvo_,
 	/* dmao_1_fh */
 	_dma_imgo_fh_,
 	_dma_ltmso_fh_,
-	_dma_rrzo_fh_,
-	_dma_lcso_fh_,     /*60*/
+	_dma_rrzo_fh_,     /*55*/
+	_dma_lcso_fh_,
 	_dma_lcesho_fh_,
 	_dma_aao_fh_,
 	_dma_flko_fh_,
-	_dma_ufeo_fh_,
+	_dma_ufeo_fh_,     /*60*/
 	_dma_afo_fh_,
-	_dma_ufgo_fh_,     /*65*/
+	_dma_ufgo_fh_,
 	_dma_rsso_fh_,
 	_dma_eiso_fh_,     /* _dma_lmvo_fh_ */
-	_dma_yuvbo_fh_,
+	_dma_yuvbo_fh_,    /*65*/
 	_dma_tsfso_fh_,
-	_dma_pdo_fh_,      /*70*/
+	_dma_pdo_fh_,
 	_dma_crzo_fh_,
 	_dma_crzbo_fh_,
-	_dma_yuvco_fh_,
+	_dma_yuvco_fh_,    /*70*/
 	_dma_aaho_,
-	_dma_aaho_fh_,	   /*75*/
+	_dma_aaho_fh_,
 	_dma_bpci_r3_,
 
 	/* dmao_2 */
 	_dma_crzo_r2_fh_,
-	_dma_rsso_r2_fh_,
+	_dma_rsso_r2_fh_,  /*75*/
 	_dma_yuvo_fh_,
 	_dma_max_wr_
 };
@@ -398,6 +398,8 @@ struct ISP_DEV_ION_NODE_STRUCT {
 	enum ISP_WRDMA_ENUM     dmaPort;
 	int                memID;
 	unsigned long long dma_pa;
+	unsigned long long va;
+	unsigned int size;
 	char username[64];
 };
 
