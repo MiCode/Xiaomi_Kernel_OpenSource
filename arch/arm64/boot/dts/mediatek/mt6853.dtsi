@@ -1817,16 +1817,18 @@
 			compatible = "mediatek,mt8183-ufshci";
 			reg = <0 0x11270000 0 0x2300>;
 			interrupts = <GIC_SPI 105 IRQ_TYPE_LEVEL_HIGH 0>;
-			phys = <&ufsphy>;
+
+			clocks = <&infracfg_ao_clk CLK_IFRAO_UFS>,
+				 <&infracfg_ao_clk CLK_IFRAO_UNIPRO_SYSCLK>,
+				 <&infracfg_ao_clk CLK_IFRAO_UFS_MP_SAP_BCLK>,
+				 <&infracfg_ao_clk CLK_IFRAO_UFS_AES>;
+			clock-names = "ufs", "unipro_sysclk", "ufs_mp_sap_bclk",
+				      "aes";
 
 			freq-table-hz = <0 0>, <0 0>, <0 0>,
-					<0 0>, <0 0>;
+					<0 0>;
 
 			vcc-supply = <&mt6359p_vemc_reg>;
-
-			/* Reference clock control mode */
-			/* SW mode: 0, Half-HW mode: 1, HW mode: 2 */
-			mediatek,refclk_ctrl = <1>;
 		};
 
 		efuse: efuse@11c10000 {
@@ -2005,12 +2007,6 @@
 		msdc: msdc@11f60000 {
 			compatible = "mediatek,mt6853-msdc";
 			reg = <0 0x11f60000 0 0x1000>;
-		};
-
-		ufsphy: phy@11fa0000 {
-			compatible = "mediatek,mt8183-ufsphy";
-			reg = <0 0x11fa0000 0 0xc000>;
-			#phy-cells = <0>;
 		};
 
 		mali: mali@13000000 {
