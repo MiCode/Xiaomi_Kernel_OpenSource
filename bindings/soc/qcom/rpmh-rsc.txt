@@ -78,6 +78,11 @@ Properties:
 	            CONTROL_TCS
 	- Cell #2 (Number of TCS): <u32>
 
+- power-domains:
+	Usage: optional
+	Value type: <proc-encoded-power-domains>
+	Definition: Phandle pointing to the corresponding PM domain node.
+
 - label:
 	Usage: optional
 	Value type: <string>
@@ -112,6 +117,7 @@ TCS-OFFSET: 0xD00
 				  <SLEEP_TCS   3>,
 				  <WAKE_TCS    3>,
 				  <CONTROL_TCS 1>;
+		power-domains = <&CLUSTER_PD>;
 	};
 
 Example 2:
