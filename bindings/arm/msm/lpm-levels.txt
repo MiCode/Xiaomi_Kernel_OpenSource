@@ -29,6 +29,7 @@ Required properties:
 
 Optional properties:
 	- reg: The address range
+	- reg-names: Specifies the address field names.
 	- qcom,disable-prediction: This property is used to indicate the LPM
 	governor will not use LPM prediction for this cluster.
 	- qcom,clstr-tmr-add: This property is used as correction timer for
@@ -86,6 +87,8 @@ that share the parameters.It contains the following properties.
 Optional properties:
 	- qcom,disable-prediction: This property is used to indicate the
 	LPM governor is to disable sleep prediction to this cpu.
+	- label: Identifies the cluster name. The name is used when parsing the
+	RIMPS addresses.
 	- qcom,ref-stddev: This property is used as reference standard deviation
 	in lpm prediction algorithm. This value should be between 100 to 1000.
 	Higher value would result in more predictions and thereby resulting in
