@@ -2013,6 +2013,8 @@
 		reg = <0x9200000 0xd0000> , <0x9600000 0x50000>;
 		reg-names = "llcc_base", "llcc_broadcast_base";
 		cap-based-alloc-and-pwr-collapse;
+		clocks = <&aopcc QDSS_CLK>;
+		clock-names = "qdss_clk";
 	};
 
 	clk_virt: interconnect {
