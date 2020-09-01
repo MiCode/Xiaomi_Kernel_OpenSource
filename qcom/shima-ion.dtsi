@@ -39,5 +39,10 @@
 			memory-region = <&qseecom_mem>;
 			qcom,ion-heap-type = "DMA";
 		};
+		qcom,ion-heap@5 { /* AUDIO ML HEAP */
+			reg = <ION_AUDIO_ML_HEAP_ID>;
+			memory-region = <&audio_cma_mem>;
+			qcom,ion-heap-type = "DMA";
+		};
 	};
 };
