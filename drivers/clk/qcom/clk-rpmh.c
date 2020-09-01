@@ -154,16 +154,12 @@ static inline bool has_state_changed(struct clk_rpmh *c, u32 state)
 }
 
 static int clk_rpmh_send(struct clk_rpmh *c, enum rpmh_state state,
-		struct tcs_cmd *cmd, bool wait_for_completion)
+			 struct tcs_cmd *cmd, bool wait)
 {
-	int ret;
+	if (wait)
+		return rpmh_write(c->dev, state, cmd, 1);
 
-	if (wait_for_completion)
-		ret = rpmh_write(c->dev, state, cmd, 1);
-	else
-		ret = rpmh_write_async(c->dev, state, cmd, 1);
-
-	return ret;
+	return rpmh_write_async(c->dev, state, cmd, 1);
 }
 
 static int clk_rpmh_send_aggregate_command(struct clk_rpmh *c)
@@ -172,6 +168,7 @@ static int clk_rpmh_send_aggregate_command(struct clk_rpmh *c)
 	u32 cmd_state, on_val;
 	enum rpmh_state state = RPMH_SLEEP_STATE;
 	int ret;
+	bool wait;
 
 	cmd.addr = c->res_addr;
 	cmd_state = c->aggr_state;
@@ -182,8 +179,8 @@ static int clk_rpmh_send_aggregate_command(struct clk_rpmh *c)
 			if (cmd_state & BIT(state))
 				cmd.data = on_val;
 
-			ret = clk_rpmh_send(c, state, &cmd,
-				cmd_state && state == RPMH_ACTIVE_ONLY_STATE);
+			wait = cmd_state && state == RPMH_ACTIVE_ONLY_STATE;
+			ret = clk_rpmh_send(c, state, &cmd, wait);
 			if (ret) {
 				dev_err(c->dev, "set %s state of %s failed: (%d)\n",
 					!state ? "sleep" :
