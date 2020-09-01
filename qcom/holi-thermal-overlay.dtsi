@@ -4,6 +4,10 @@
 	#cooling-cells = <2>;
 };
 
+&pm7250b_charger {
+	#cooling-cells = <2>;
+};
+
 &thermal_zones {
 	socd {
 		cooling-maps {
@@ -15,6 +19,24 @@
 			socd_cpu7 {
 				trip = <&socd_trip>;
 				cooling-device = <&cpu7_isolate 1 1>;
+			};
+		};
+	};
+
+	pm7250b_tz {
+		cooling-maps {
+			battery_cdev0 {
+				trip = <&pm7250b_trip0>;
+				cooling-device =
+					<&pm7250b_charger (THERMAL_MAX_LIMIT-1)
+							(THERMAL_MAX_LIMIT-1)>;
+			};
+
+			battery_cdev1 {
+				trip = <&pm7250b_trip1>;
+				cooling-device =
+					<&pm7250b_charger THERMAL_MAX_LIMIT
+							THERMAL_MAX_LIMIT>;
 			};
 		};
 	};
