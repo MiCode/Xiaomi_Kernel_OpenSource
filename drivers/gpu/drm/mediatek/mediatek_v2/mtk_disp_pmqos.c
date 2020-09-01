@@ -306,7 +306,7 @@ void mtk_drm_set_mmclk_by_pixclk(struct drm_crtc *crtc,
 			break;
 		}
 		if (i == 0)
-			mtk_drm_set_mmclk(crtc, -1, caller);
+			mtk_drm_set_mmclk(crtc, 0, caller);
 	}
 }
 #endif
