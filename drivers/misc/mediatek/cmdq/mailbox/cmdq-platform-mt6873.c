@@ -90,7 +90,7 @@ const char *cmdq_util_hw_name(void *chan)
 }
 EXPORT_SYMBOL(cmdq_util_hw_name);
 
-bool cmdq_thread_ddr_user_check(const s32 thread)
+bool cmdq_thread_ddr_module(const s32 thread)
 {
 	switch (thread) {
 	case 0 ... 6:
@@ -101,13 +101,12 @@ bool cmdq_thread_ddr_user_check(const s32 thread)
 		return true;
 	}
 }
-EXPORT_SYMBOL(cmdq_thread_ddr_user_check);
+EXPORT_SYMBOL(cmdq_thread_ddr_module);
 
 static int __init cmdq_platform_init(void)
 {
 	return 0;
 }
-
 module_init(cmdq_platform_init);
 
 MODULE_LICENSE("GPL v2");

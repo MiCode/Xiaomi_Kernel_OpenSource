@@ -14,9 +14,11 @@
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 typedef void (*util_dump_dbg_reg)(void *chan);
 typedef u8 (*util_track_ctrl)(void *cmdq, phys_addr_t base, bool sec);
+typedef bool (*util_thread_ddr_module)(const s32 thread);
 struct cmdq_util_controller_fp {
 	util_dump_dbg_reg dump_dbg_reg;
 	util_track_ctrl track_ctrl;
+	util_thread_ddr_module thread_ddr_module;
 };
 
 void cmdq_controller_set_fp(struct cmdq_util_controller_fp *cust_cmdq_util);

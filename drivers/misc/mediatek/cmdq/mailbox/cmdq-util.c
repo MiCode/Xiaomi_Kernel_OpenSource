@@ -490,6 +490,7 @@ EXPORT_SYMBOL(cmdq_util_get_first_err_mod);
 struct cmdq_util_controller_fp controller_fp = {
 	.dump_dbg_reg = cmdq_util_dump_dbg_reg,
 	.track_ctrl = cmdq_util_track_ctrl,
+	.thread_ddr_module = cmdq_thread_ddr_module,
 };
 
 struct cmdq_util_helper_fp helper_fp = {
