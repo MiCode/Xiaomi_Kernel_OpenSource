@@ -1679,6 +1679,9 @@
 			phy-cells = <1>;
 			phys = <&u2port0 PHY_TYPE_USB2>,
 				 <&u3port0 PHY_TYPE_USB3>;
+			clocks = <&infracfg_ao_clk CLK_IFRAO_SSUSB>,
+				<&infracfg_ao_clk CLK_IFRAO_SSUSB_XHCI>;
+			clock-names = "sys_ck","ref_ck";
 			#address-cells = <2>;
 			#size-cells = <2>;
 			ranges;
