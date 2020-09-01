@@ -523,6 +523,19 @@
 			label = "dfps_data_region";
 		};
 
+		memshare_mem: memshare_region {
+			compatible = "shared-dma-pool";
+			no-map;
+			/*
+			 * Memory shared with modem needs to be outside of
+			 * the CLADE address space, which begins at
+			 * 0xE0000000 and spans 512 MB.
+			 */
+			alloc-ranges = <0x0 0x00000000 0x0 0xdfffffff>;
+			alignment = <0x0 0x100000>;
+			size = <0x0 0x800000>;
+		};
+
 		non_secure_display_memory: non_secure_display_region {
 			compatible = "shared-dma-pool";
 			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
@@ -2288,6 +2301,7 @@
 		qcom,client_3 {
 			compatible = "qcom,memshare-peripheral";
 			qcom,peripheral-size = <0x500000>;
+			memory-region = <&memshare_mem>;
 			qcom,client-id = <1>;
 			qcom,allocate-on-request;
 			label = "modem";
