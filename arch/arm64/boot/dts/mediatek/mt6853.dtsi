@@ -1558,6 +1558,10 @@
 			mediatek,pad-select = <0>;
 			reg = <0 0x1100a000 0 0x100>;
 			interrupts = <GIC_SPI 159 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&topckgen_clk CLK_TOP_MAINPLL_D5_D4>,
+				<&topckgen_clk CLK_TOP_SPI_SEL>,
+				<&infracfg_ao_clk CLK_IFRAO_SPI0>;
+			clock-names = "parent-clk", "sel-clk", "spi-clk";
 		};
 
 		lvts: lvts@1100b000 {
@@ -1604,6 +1608,10 @@
 			mediatek,pad-select = <0>;
 			reg = <0 0x11010000 0 0x100>;
 			interrupts = <GIC_SPI 160 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&topckgen_clk CLK_TOP_MAINPLL_D5_D4>,
+				<&topckgen_clk CLK_TOP_SPI_SEL>,
+				<&infracfg_ao_clk CLK_IFRAO_SPI1>;
+			clock-names = "parent-clk", "sel-clk", "spi-clk";
 		};
 
 		spi2: spi@11012000 {
@@ -1611,6 +1619,10 @@
 			mediatek,pad-select = <0>;
 			reg = <0 0x11012000 0 0x100>;
 			interrupts = <GIC_SPI 161 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&topckgen_clk CLK_TOP_MAINPLL_D5_D4>,
+				<&topckgen_clk CLK_TOP_SPI_SEL>,
+				<&infracfg_ao_clk CLK_IFRAO_SPI2>;
+			clock-names = "parent-clk", "sel-clk", "spi-clk";
 		};
 
 		spi3: spi@11013000 {
@@ -1618,6 +1630,10 @@
 			mediatek,pad-select = <0>;
 			reg = <0 0x11013000 0 0x100>;
 			interrupts = <GIC_SPI 162 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&topckgen_clk CLK_TOP_MAINPLL_D5_D4>,
+				<&topckgen_clk CLK_TOP_SPI_SEL>,
+				<&infracfg_ao_clk CLK_IFRAO_SPI3>;
+			clock-names = "parent-clk", "sel-clk", "spi-clk";
 		};
 
 		pwm_leds {
@@ -1656,6 +1672,10 @@
 			mediatek,pad-select = <0>;
 			reg = <0 0x11018000 0 0x100>;
 			interrupts = <GIC_SPI 163 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&topckgen_clk CLK_TOP_MAINPLL_D5_D4>,
+				<&topckgen_clk CLK_TOP_SPI_SEL>,
+				<&infracfg_ao_clk CLK_IFRAO_SPI4>;
+			clock-names = "parent-clk", "sel-clk", "spi-clk";
 		};
 
 		spi5: spi@11019000 {
@@ -1663,6 +1683,10 @@
 			mediatek,pad-select = <0>;
 			reg = <0 0x11019000 0 0x100>;
 			interrupts = <GIC_SPI 164 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&topckgen_clk CLK_TOP_MAINPLL_D5_D4>,
+				<&topckgen_clk CLK_TOP_SPI_SEL>,
+				<&infracfg_ao_clk CLK_IFRAO_SPI5>;
+			clock-names = "parent-clk", "sel-clk", "spi-clk";
 		};
 
 		spi6: spi@1101d000 {
@@ -1670,6 +1694,10 @@
 			mediatek,pad-select = <0>;
 			reg = <0 0x1101d000 0 0x100>;
 			interrupts = <GIC_SPI 165 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&topckgen_clk CLK_TOP_MAINPLL_D5_D4>,
+				<&topckgen_clk CLK_TOP_SPI_SEL>,
+				<&infracfg_ao_clk CLK_IFRAO_SPI6_CK>;
+			clock-names = "parent-clk", "sel-clk", "spi-clk";
 		};
 
 		spi7: spi@1101e000 {
@@ -1677,6 +1705,10 @@
 			mediatek,pad-select = <0>;
 			reg = <0 0x1101e000 0 0x100>;
 			interrupts = <GIC_SPI 166 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&topckgen_clk CLK_TOP_MAINPLL_D5_D4>,
+				<&topckgen_clk CLK_TOP_SPI_SEL>,
+				<&infracfg_ao_clk CLK_IFRAO_SPI7_CK>;
+			clock-names = "parent-clk", "sel-clk", "spi-clk";
 		};
 
 		ssusb: usb0@11201000 {
