@@ -110,6 +110,11 @@
 	#size-cells = <1>;
 	ranges;
 
+	psci {
+		compatible = "arm,psci-1.0";
+		method = "smc";
+	};
+
 	intc: interrupt-controller@17800000 {
 		compatible = "qcom,msm-qgic2";
 		interrupt-controller;
