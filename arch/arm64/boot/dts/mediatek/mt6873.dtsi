@@ -2816,6 +2816,7 @@
 			mediatek,smi = <&smi_common>;
 			reg = <0 0x14004000 0 0x1000>;
 			mediatek,larb-id = <1>;
+			init-power-on;
 			power-domains = <&scpsys MT6873_POWER_DOMAIN_DISP>;
 			clocks = <&mmsys CLK_MM_SMI_INFRA>,
 				 <&mmsys CLK_MM_SMI_COMMON>,
