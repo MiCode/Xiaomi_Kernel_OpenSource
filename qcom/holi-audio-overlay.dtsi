@@ -33,6 +33,7 @@
 		qcom,va-swr-gpios = <&va_swr_gpios>;
 		swr0: va_swr_master {
 			compatible = "qcom,swr-mstr";
+			qcom,is_wcd937x = <1>;
 			#address-cells = <2>;
 			#size-cells = <0>;
 			clock-names = "lpass_audio_hw_vote";
