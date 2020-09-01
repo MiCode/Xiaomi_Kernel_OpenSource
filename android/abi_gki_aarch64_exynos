@@ -165,6 +165,7 @@
   cpu_up
   crypto_alloc_shash
   crypto_destroy_tfm
+  crypto_shash_digest
   crypto_shash_final
   crypto_shash_update
   _ctype
@@ -182,6 +183,7 @@
   _dev_err
   devfreq_add_device
   devfreq_add_governor
+  devfreq_get_devfreq_by_phandle
   devfreq_recommended_opp
   devfreq_register_opp_notifier
   devfreq_remove_device
@@ -227,6 +229,7 @@
   devm_clk_get
   devm_clk_get_optional
   devm_clk_put
+  devm_devfreq_register_notifier
   devm_extcon_dev_allocate
   devm_extcon_dev_register
   devm_extcon_dev_unregister
@@ -305,6 +308,7 @@
   dma_buf_begin_cpu_access
   dma_buf_detach
   dma_buf_end_cpu_access
+  dma_buf_end_cpu_access_partial
   dma_buf_export
   dma_buf_fd
   dma_buf_get
@@ -317,6 +321,11 @@
   dma_buf_unmap_attachment
   dma_buf_vmap
   dma_buf_vunmap
+  dma_common_get_sgtable
+  dma_common_mmap
+  dma_direct_alloc
+  dma_direct_free
+  dma_direct_get_required_mask
   dma_direct_map_page
   dma_direct_map_resource
   dma_direct_map_sg
@@ -357,6 +366,7 @@
   down_read
   down_trylock
   down_write
+  d_path
   driver_find
   driver_find_device
   driver_register
@@ -594,6 +604,7 @@
   jiffies
   jiffies_64
   jiffies_64_to_clock_t
+  jiffies64_to_msecs
   jiffies_to_msecs
   jiffies_to_usecs
   kasprintf
@@ -639,6 +650,7 @@
   kstrtou16
   kstrtou8
   kstrtouint
+  kstrtouint_from_user
   kstrtoull
   kstrtoull_from_user
   kthread_bind
@@ -658,6 +670,7 @@
   kthread_worker_fn
   ktime_get
   ktime_get_mono_fast_ns
+  ktime_get_raw
   ktime_get_raw_ts64
   ktime_get_real_ts64
   ktime_get_ts64
@@ -672,6 +685,7 @@
   llist_add_batch
   __lock_buffer
   loops_per_jiffy
+  map_vm_area
   match_string
   media_create_intf_link
   media_create_pad_link
@@ -725,6 +739,7 @@
   mutex_lock_interruptible
   mutex_trylock
   mutex_unlock
+  names_cachep
   __napi_alloc_skb
   napi_complete_done
   napi_disable
@@ -1313,6 +1328,7 @@
   trace_event_reg
   trace_handle_return
   trace_output_call
+  __tracepoint_android_vh_is_fpsimd_save
   __tracepoint_device_pm_callback_end
   __tracepoint_device_pm_callback_start
   __tracepoint_pelt_cfs_tp
@@ -1367,6 +1383,7 @@
   ufshcd_shutdown
   ufshcd_system_resume
   ufshcd_system_suspend
+  ufshcd_wb_ctrl
   unmap_mapping_range
   __unregister_chrdev
   unregister_chrdev_region
