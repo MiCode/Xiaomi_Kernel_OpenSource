@@ -15,6 +15,7 @@
 #include <dt-bindings/interconnect/mtk,mt6873-emi.h>
 #include <dt-bindings/gce/mt6873-gce.h>
 #include <dt-bindings/reset/ti-syscon.h>
+#include <dt-bindings/soc/mediatek,boot-mode.h>
 
 / {
 	compatible = "mediatek,mt6873";
@@ -1023,9 +1024,24 @@
 		};
 
 		watchdog: watchdog@10007000 {
-			compatible = "mediatek,mt6873-wdt",
-				     "mediatek,mt6589-wdt";
+			compatible = "mediatek,mt6853-wdt",
+				     "mediatek,mt6589-wdt",
+				     "syscon", "simple-mfd";
+			mediatek,rg_dfd_timeout = <0xea60>;
 			reg = <0 0x10007000 0 0x100>;
+			reboot-mode {
+				compatible = "syscon-reboot-mode";
+				offset = <0x24>;
+				mask = <0xf>;
+				mode-charger = <BOOT_CHARGER>;
+				mode-recovery = <BOOT_RECOVERY>;
+				mode-bootloader = <BOOT_BOOTLOADER>;
+				mode-dm-verity-dev-corrupt = <BOOT_DM_VERITY>;
+				mode-kpoc = <BOOT_KPOC>;
+				mode-ddr-reserve = <BOOT_DDR_RSVD>;
+				mode-meta = <BOOT_META>;
+				mode-rpmbpk = <BOOT_RPMBPK>;
+			};
 		};
 
 		apmixedsys_clk: syscon@1000c000 {
