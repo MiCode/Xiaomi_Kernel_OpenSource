@@ -150,7 +150,7 @@
 		pm8350_s9: regulator-pm8350-s9 {
 			regulator-name = "pm8350_s9";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
-			regulator-min-microvolt = <950000>;
+			regulator-min-microvolt = <450000>;
 			regulator-max-microvolt = <1500000>;
 			qcom,init-voltage = <952000>;
 		};
