@@ -1634,6 +1634,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a660_shima = {
 	.vbif = a650_gbif_regs,
 	.vbif_count = ARRAY_SIZE(a650_gbif_regs),
 	.hang_detect_cycles = 0x3ffff,
+	.veto_fal10 = true,
 	.protected_regs = a660_protected_regs,
 	.disable_tseskip = true,
 	.highest_bank_bit = 15,
