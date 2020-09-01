@@ -183,6 +183,9 @@ static const struct mfd_cell mt6359p_devs[] = {
 		.num_resources = ARRAY_SIZE(mt6359p_battery_oc_resources),
 		.resources = mt6359p_battery_oc_resources,
 	}, {
+		.name = "mtk-dynamic-loading-throttling",
+		.of_compatible = "mediatek,mt6359p-dynamic_loading_throttling",
+	}, {
 		.name = "mtk-lbat_service",
 		.of_compatible = "mediatek,mt6359p-lbat_service",
 		.num_resources = ARRAY_SIZE(mt6359p_lbat_service_resources),
