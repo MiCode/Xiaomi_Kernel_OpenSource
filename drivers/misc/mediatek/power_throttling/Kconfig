@@ -46,6 +46,16 @@ config MTK_BATTERY_PERCENT_THROTTLING_DEBUG
 	  feature
 	  Select "n" if unsure.
 
+config MTK_DYNAMIC_LOADING_POWER_THROTTLING
+	tristate "MTK dynamic loading throttle"
+	select MTK_POWER_THROTTLING_COMMON
+	help
+	  For MediaTek dynamic loading power throttling.
+	  Dynamic loading Imix calculation for power budget management.
+	  Select "y" if you want to enable dynamic loading power throttling
+	  feature.
+	  Select "n" if unsure.
+
 config MTK_LOW_BATTERY_POWER_THROTTLING
 	tristate "MTK low battery throttle"
 	select MTK_POWER_THROTTLING_COMMON
