@@ -452,6 +452,7 @@
 				reg = <0x3e 10>;
 			};
 		};
+
 		mtk_gauge: mtk_gauge {
 			compatible = "mediatek,mt6359p-gauge";
 			io-channels = <&pmic_auxadc AUXADC_BAT_TEMP>,
@@ -493,6 +494,20 @@
 			pmic-auxout-xo = <6 6 6 6 0xffff 6 6>;
 			pmic-auxout-bblpm-en = <27>;
 			pmic-auxout-bblpm-o = <39>;
+		};
+
+		mtk_dynamic_loading_throttling {
+			compatible = "mediatek,mt6359p-dynamic_loading_throttling";
+			/*charger: mtk_charger_thread*/
+			/*mediatek,charger = <&charger>;*/
+			/*2600~2900mv ,one gear per 50mv*/
+			uvlo-level = <2600>;
+			io-channels = <&pmic_auxadc AUXADC_IMP>,
+				      <&pmic_auxadc AUXADC_IMIX_R>,
+				      <&pmic_auxadc AUXADC_BATADC>;
+			io-channel-names = "pmic_ptim",
+					   "pmic_imix_r",
+					   "pmic_batadc";
 		};
 
 		pmic_lbat_service {
