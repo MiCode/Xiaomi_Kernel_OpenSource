@@ -142,12 +142,9 @@ EXPORT_SYMBOL(dvfsrc_get_required_opp_peak_bw);
 #ifdef DVFSRC_DEBUG_ENHANCE
 #define DVFSRC_DEBUG_DUMP 0
 #define DVFSRC_DEBUG_AEE 1
-#define DVFSRC_DEBUG_VCORE_CHK 2
 
 #define DVFSRC_AEE_LEVEL_ERROR 0
 #define DVFSRC_AEE_FORCE_ERROR 1
-#define DVFSRC_AEE_VCORE_CHK_ERROR 2
-
 
 static BLOCKING_NOTIFIER_HEAD(dvfsrc_debug_notifier);
 int register_dvfsrc_debug_notifier(struct notifier_block *nb)
@@ -174,24 +171,6 @@ static void mtk_dvfsrc_aee_notify(struct mtk_dvfsrc *dvfsrc, u32 aee_type)
 			DVFSRC_DEBUG_AEE, (void *) &aee_type);
 
 }
-static void mtk_dvfsrc_vcore_check(struct mtk_dvfsrc *dvfsrc, u32 vcore_level)
-{
-	int ret;
-
-	ret = blocking_notifier_call_chain(&dvfsrc_debug_notifier,
-		DVFSRC_DEBUG_VCORE_CHK, (void *) &vcore_level);
-
-	if (ret == NOTIFY_BAD) {
-		dev_info(dvfsrc->dev,
-			"VCORE_ERROR= %d, %d 0x%08x\n",
-			vcore_level,
-			dvfsrc->dvd->get_current_level(dvfsrc),
-			dvfsrc->dvd->get_target_level(dvfsrc));
-		mtk_dvfsrc_dump_notify(dvfsrc, 0);
-		mtk_dvfsrc_aee_notify(dvfsrc, DVFSRC_AEE_VCORE_CHK_ERROR);
-	}
-}
-
 #endif
 
 static u32 dvfsrc_read(struct mtk_dvfsrc *dvfs, u32 offset)
@@ -552,9 +531,6 @@ void mtk_dvfsrc_send_request(const struct device *dev, u32 cmd, u64 data)
 	case MTK_DVFSRC_CMD_VCORE_REQUEST:
 	case MTK_DVFSRC_CMD_VSCP_REQUEST:
 		ret = dvfsrc->dvd->wait_for_vcore_level(dvfsrc, data);
-#ifdef DVFSRC_DEBUG_ENHANCE
-		mtk_dvfsrc_vcore_check(dvfsrc, data);
-#endif
 		break;
 	case MTK_DVFSRC_CMD_DRAM_REQUEST:
 		ret = dvfsrc->dvd->wait_for_dram_level(dvfsrc, data);
