@@ -179,25 +179,6 @@
 	qcom,tert-mi2s-gpios = <&cdc_tert_mi2s_gpios>;
 };
 
-&usb1 {
-	status = "disabled";
-};
-
-&usb2_phy1 {
-	status = "disabled";
-};
-
-&usb_qmp_phy {
-	status = "disabled";
-};
-
-&usb2_phy0 {
-	qcom,param-override-seq =
-		<0xe6 0x6c
-		0x0f 0x70
-		0x17 0x74>;
-};
-
 &qupv3_se4_i2c {
 	#address-cells = <1>;
 	#size-cells = <0>;
@@ -237,48 +218,6 @@
 
 &wil6210 {
 	status = "ok";
-};
-
-&usb_qmp_dp_phy {
-	pinctrl-names = "portselect";
-};
-
-&usb0 {
-	ssusb_redriver = <&redriver>;
-};
-
-&qupv3_se13_i2c {
-	status = "ok";
-
-	redriver: redriver@1c {
-		compatible = "onnn,redriver";
-		reg = <0x1c>;
-
-		pinctrl-names = "enable_gpio";
-		pinctrl-0 = <&usb3phy_portselect_gpio>;
-		orientation_gpio = <&tlmm 81 0>;
-
-		eq = /bits/ 8 <
-				/* Parameters for USB */
-				0x4 0x4 0x4 0x4
-				/* Parameters for DP */
-				0x6 0x4 0x4 0x6>;
-		flat-gain = /bits/ 8 <
-				/* Parameters for USB */
-				0x3 0x1 0x1 0x3
-				/* Parameters for DP */
-				0x2 0x1 0x1 0x2>;
-		output-comp = /bits/ 8 <
-				/* Parameters for USB */
-				0x3 0x3 0x3 0x3
-				/* Parameters for DP */
-				0x3 0x3 0x3 0x3>;
-		loss-match = /bits/ 8 <
-				/* Parameters for USB */
-				0x1 0x3 0x3 0x1
-				/* Parameters for DP */
-				0x3 0x3 0x3 0x3>;
-	};
 };
 
 &qupv3_se15_i2c {
