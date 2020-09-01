@@ -588,7 +588,7 @@ int kgsl_busmon_target(struct device *dev, unsigned long *freq, u32 flags)
 	if ((pwr->bus_mod != b) || (pwr->bus_ab_mbytes != ab_mbytes)) {
 		pwr->bus_percent_ab = device->pwrscale.bus_profile.percent_ab;
 		pwr->bus_ab_mbytes = ab_mbytes;
-		kgsl_bus_update(device, true);
+		kgsl_bus_update(device, KGSL_BUS_VOTE_ON);
 	}
 
 	mutex_unlock(&device->mutex);

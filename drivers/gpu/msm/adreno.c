@@ -1077,6 +1077,8 @@ static int adreno_of_get_power(struct adreno_device *adreno_dev,
 	/* Default timeout is 80 ms across all targets */
 	device->pwrctrl.interval_timeout = msecs_to_jiffies(80);
 
+	device->pwrctrl.minbw_timeout = 10;
+
 	/* Set default bus control to true on all targets */
 	device->pwrctrl.bus_control = true;
 

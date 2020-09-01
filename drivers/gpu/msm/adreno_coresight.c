@@ -60,7 +60,7 @@ ssize_t adreno_coresight_show_register(struct device *dev,
 		 */
 
 		if (device->state == KGSL_STATE_ACTIVE ||
-			device->state == KGSL_STATE_NAP) {
+				kgsl_state_is_nap_or_minbw(device)) {
 			if (!adreno_active_count_get(adreno_dev)) {
 				if (!is_cx)
 					kgsl_regread(device, cattr->reg->offset,
@@ -115,7 +115,7 @@ ssize_t adreno_coresight_store_register(struct device *dev,
 
 	/* Program the hardware if it is not power collapsed */
 	if (device->state == KGSL_STATE_ACTIVE ||
-		device->state == KGSL_STATE_NAP) {
+			kgsl_state_is_nap_or_minbw(device)) {
 		if (!adreno_active_count_get(adreno_dev)) {
 			if (!is_cx)
 				kgsl_regwrite(device, cattr->reg->offset,
