@@ -241,7 +241,7 @@
 	gmu: qcom,gmu@3d69000 {
 		compatible = "qcom,gpu-gmu";
 
-		reg = <0x3d6a000 0x30000>,
+		reg = <0x3d6a000 0x34000>,
 			<0xb290000 0x10000>;
 
 		reg-names = "kgsl_gmu_reg",
