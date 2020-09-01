@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, 2020, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "I2C PMIC: %s: " fmt, __func__
@@ -61,6 +61,7 @@ struct i2c_pmic {
 	int			summary_irq;
 	bool			resume_completed;
 	bool			irq_waiting;
+	bool			toggle_stat;
 };
 
 static void i2c_pmic_irq_bus_lock(struct irq_data *d)
@@ -473,6 +474,9 @@ static int i2c_pmic_parse_dt(struct i2c_pmic *chip)
 
 	of_property_read_string(node, "pinctrl-names", &chip->pinctrl_name);
 
+	chip->toggle_stat = of_property_read_bool(node,
+				"qcom,enable-toggle-stat");
+
 	return rc;
 }
 
@@ -511,6 +515,69 @@ static int i2c_pmic_determine_initial_status(struct i2c_pmic *chip)
 	}
 
 	return 0;
+}
+
+#define INT_TEST_OFFSET			0xE0
+#define INT_TEST_MODE_EN_BIT		BIT(7)
+#define INT_TEST_VAL_OFFSET		0xE1
+#define INT_0_BIT			BIT(0)
+static int i2c_pmic_toggle_stat(struct i2c_pmic *chip)
+{
+	int rc = 0, i;
+
+	if (!chip->toggle_stat || !chip->num_periphs)
+		return 0;
+
+	rc = regmap_write(chip->regmap,
+				chip->periph[0].addr | INT_EN_SET_OFFSET,
+				INT_0_BIT);
+	if (rc < 0) {
+		pr_err("Couldn't write to int_en_set rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = regmap_write(chip->regmap, chip->periph[0].addr | INT_TEST_OFFSET,
+				INT_TEST_MODE_EN_BIT);
+	if (rc < 0) {
+		pr_err("Couldn't write to int_test rc=%d\n", rc);
+		return rc;
+	}
+
+	for (i = 0; i < 5; i++) {
+		rc = regmap_write(chip->regmap,
+				chip->periph[0].addr | INT_TEST_VAL_OFFSET,
+				INT_0_BIT);
+		if (rc < 0) {
+			pr_err("Couldn't write to int_test_val rc=%d\n", rc);
+			goto exit;
+		}
+
+		usleep_range(5000, 5500);
+
+		rc = regmap_write(chip->regmap,
+				chip->periph[0].addr | INT_TEST_VAL_OFFSET,
+				0);
+		if (rc < 0) {
+			pr_err("Couldn't write to int_test_val rc=%d\n", rc);
+			goto exit;
+		}
+
+		rc = regmap_write(chip->regmap,
+				chip->periph[0].addr | INT_LATCHED_CLR_OFFSET,
+				INT_0_BIT);
+		if (rc < 0) {
+			pr_err("Couldn't write to int_latched_clr rc=%d\n", rc);
+			goto exit;
+		}
+
+		usleep_range(5000, 5500);
+	}
+exit:
+	regmap_write(chip->regmap, chip->periph[0].addr | INT_TEST_OFFSET, 0);
+	regmap_write(chip->regmap, chip->periph[0].addr | INT_EN_CLR_OFFSET,
+							INT_0_BIT);
+
+	return rc;
 }
 
 static struct regmap_config i2c_pmic_regmap_config = {
@@ -570,6 +637,12 @@ static int i2c_pmic_probe(struct i2c_client *client,
 
 	chip->resume_completed = true;
 	mutex_init(&chip->irq_complete);
+
+	rc = i2c_pmic_toggle_stat(chip);
+	if (rc < 0) {
+		pr_err("Couldn't toggle stat rc=%d\n", rc);
+		goto cleanup;
+	}
 
 	rc = devm_request_threaded_irq(&client->dev, client->irq, NULL,
 				       i2c_pmic_irq_handler,
