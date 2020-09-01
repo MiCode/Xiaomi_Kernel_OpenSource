@@ -93,7 +93,7 @@ fi
 
 if [ "$mode" == "p" ]
 then
-target_commit=16ada3b #ACK5.4.27
+target_commit=62b6e96e16b2359ba2f3afff5d32205d9ae9e5c1 #ACK5.4.61->latest
 echo src_commit=$src_commit
 echo target_commit=$target_commit
 fi
