@@ -8,6 +8,20 @@
 
 #include <linux/types.h>
 #include <linux/module.h>
+#include <linux/cpufreq.h>
+
+/* get OPP table */
+struct ppm_cluster_info {
+	struct cpufreq_frequency_table *dvfs_tbl;
+};
+
+struct ppm_data {
+	struct ppm_cluster_info *cluster_info;
+};
+
+extern void __iomem *csram_base;
+extern struct ppm_data ppm_main_info;
+extern int cluster_nr;
 
 #if IS_ENABLED(CONFIG_MTK_PERF_TRACKER)
 #if IS_ENABLED(CONFIG_MTK_BLOCK_TAG)

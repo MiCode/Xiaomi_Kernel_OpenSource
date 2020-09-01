@@ -48,6 +48,19 @@ int __attribute__((weak)) mtk_btag_mictx_get_data(
 }
 #endif
 
+#define OFFS_CUR_FREQ_S	0x0354
+unsigned int cpudvfs_get_cur_dvfs_freq_idx(int cluster_id)
+{
+	int idx = 0;
+	struct ppm_data *p = &ppm_main_info;
+
+	if (IS_ERR_OR_NULL((void *)csram_base))
+		return 0;
+
+	idx = __raw_readl(csram_base + (OFFS_CUR_FREQ_S + (cluster_id * 4)));
+	return p->cluster_info[cluster_id].dvfs_tbl[idx].frequency + idx;
+}
+
 int perf_tracer_enable(int on)
 {
 	mutex_lock(&perf_ctl_mutex);
@@ -79,6 +92,7 @@ void perf_tracker(u64 wallclock,
 	int i;
 	int stall[max_cpus] = {0};
 	unsigned int sched_freq[3] = {0};
+	int cid;
 
 	if (!perf_tracker_on)
 		return;
@@ -95,7 +109,10 @@ void perf_tracker(u64 wallclock,
 	bw_mm = qos_sram_read(QOS_DEBUG_3);
 	bw_total = qos_sram_read(QOS_DEBUG_0);
 #endif
-	/* TODO: cpu freq */
+	/*sched: cpu freq */
+	for (cid = 0; cid < cluster_nr; cid++)
+		sched_freq[cid] = cpudvfs_get_cur_dvfs_freq_idx(cid);
+
 	/* trace for short msg */
 	trace_perf_index_s(
 			sched_freq[0], sched_freq[1], sched_freq[2],
