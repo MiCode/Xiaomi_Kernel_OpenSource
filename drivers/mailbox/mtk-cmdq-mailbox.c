@@ -147,6 +147,7 @@ struct cmdq {
 	u16			*tokens;
 	void			*init_cmds_base;
 	dma_addr_t		init_cmds;
+	bool			sw_ddr_en;
 };
 
 struct gce_plat {
@@ -265,11 +266,10 @@ static s32 cmdq_clk_enable(struct cmdq *cmdq)
 			writel(cmdq->prefetch,
 				cmdq->base + CMDQ_PREFETCH_GSIZE);
 		writel(CMDQ_TPR_EN, cmdq->base + CMDQ_TPR_MASK);
-#if IS_ENABLED(CONFIG_MACH_MT6873) || \
-	IS_ENABLED(CONFIG_MACH_MT6853)
-		writel((0x7 << 16) + 0x7, cmdq->base + GCE_GCTL_VALUE);
-		writel(0, cmdq->base + GCE_DEBUG_START_ADDR);
-#endif
+		if (cmdq->sw_ddr_en) {
+			writel((0x7 << 16) + 0x7, cmdq->base + GCE_GCTL_VALUE);
+			writel(0, cmdq->base + GCE_DEBUG_START_ADDR);
+		}
 		/* make sure pm not suspend */
 		cmdq_lock_wake_lock(cmdq, true);
 		cmdq_init(cmdq);
@@ -305,10 +305,8 @@ static void cmdq_clk_disable(struct cmdq *cmdq)
 		cmdq_log("cmdq shutdown mbox");
 		/* clear tpr mask */
 		writel(0, cmdq->base + CMDQ_TPR_MASK);
-#if IS_ENABLED(CONFIG_MACH_MT6873) || \
-	IS_ENABLED(CONFIG_MACH_MT6853)
-		writel(0x7, cmdq->base + GCE_GCTL_VALUE);
-#endif
+		if (cmdq->sw_ddr_en)
+			writel(0x7, cmdq->base + GCE_GCTL_VALUE);
 		/* now allow pm suspend */
 		cmdq_lock_wake_lock(cmdq, false);
 	}
@@ -447,9 +445,8 @@ static void cmdq_thread_disable(struct cmdq *cmdq, struct cmdq_thread *thread)
 #endif
 	cmdq_thread_reset(cmdq, thread);
 	writel(CMDQ_THR_DISABLED, thread->base + CMDQ_THR_ENABLE_TASK);
-#if IS_ENABLED(CONFIG_MACH_MT6873) || \
-	IS_ENABLED(CONFIG_MACH_MT6853)
-	if (cmdq_thread_ddr_user_check(thread->idx)) {
+#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
+	if (cmdq->sw_ddr_en && cmdq_util->thread_ddr_module(thread->idx)) {
 		unsigned long flags;
 
 		spin_lock_irqsave(&cmdq->lock, flags);
@@ -659,9 +656,9 @@ static void cmdq_task_exec(struct cmdq_pkt *pkt, struct cmdq_thread *thread)
 			&task->pa_base, pkt->cmd_buf_size, thread->base,
 			thread->idx);
 
-#if IS_ENABLED(CONFIG_MACH_MT6873) || \
-	IS_ENABLED(CONFIG_MACH_MT6853)
-		if (cmdq_thread_ddr_user_check(thread->idx)) {
+#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
+		if (cmdq->sw_ddr_en &&
+			cmdq_util->thread_ddr_module(thread->idx)) {
 			unsigned long flags;
 
 			spin_lock_irqsave(&cmdq->lock, flags);
@@ -672,6 +669,7 @@ static void cmdq_task_exec(struct cmdq_pkt *pkt, struct cmdq_thread *thread)
 			spin_unlock_irqrestore(&cmdq->lock, flags);
 		}
 #endif
+
 		writel(CMDQ_INST_CYCLE_TIMEOUT,
 			thread->base + CMDQ_THR_INST_CYCLES);
 		writel(thread->priority & CMDQ_THR_PRIORITY,
@@ -1848,9 +1846,10 @@ static int cmdq_probe(struct platform_device *pdev)
 	spin_lock_init(&cmdq->lock);
 	clk_enable(cmdq->clock);
 	cmdq_init(cmdq);
-#if IS_ENABLED(CONFIG_MACH_MT6853)
-	writel(0x7, cmdq->base + GCE_GCTL_VALUE);
-#endif
+
+	cmdq->sw_ddr_en = of_property_read_bool(dev->of_node, "gce-gctl-sw");
+	if (cmdq->sw_ddr_en)
+		writel(0x7, cmdq->base + GCE_GCTL_VALUE);
 	clk_disable(cmdq->clock);
 
 	cmdq_mmp_init();
