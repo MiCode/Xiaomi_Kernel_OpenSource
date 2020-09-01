@@ -8,6 +8,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/mutex.h>
 #include <linux/of_device.h>
+#include <linux/of_reserved_mem.h>
 #include <linux/platform_device.h>
 #include <linux/notifier.h>
 #include <linux/soc/qcom/qmi.h>
@@ -40,10 +41,11 @@ struct memshare_driver {
 
 struct memshare_child {
 	struct device *dev;
+	int client_id;
 };
 
 static struct memshare_driver *memsh_drv;
-static struct memshare_child *memsh_child;
+static struct memshare_child *memsh_child[MAX_CLIENTS];
 static struct mem_blocks memblock[MAX_CLIENTS];
 static uint32_t num_clients;
 
@@ -299,6 +301,7 @@ static int modem_notifier_cb(struct notifier_block *this, unsigned long code,
 	int dest_vmids[1] = {VMID_HLOS};
 	int dest_perms[1] = {PERM_READ|PERM_WRITE|PERM_EXEC};
 	struct notif_data *notifdata = NULL;
+	struct memshare_child *client_node = NULL;
 
 	mutex_lock(&memsh_drv->mem_share);
 
@@ -345,6 +348,7 @@ static int modem_notifier_cb(struct notifier_block *this, unsigned long code,
 	case SUBSYS_AFTER_POWERUP:
 		dev_info(memsh_drv->dev, "memshare: SUBSYS_AFTER_POWERUP: Modem has booted up\n");
 		for (i = 0; i < MAX_CLIENTS; i++) {
+			client_node = memsh_child[i];
 			size = memblock[i].size;
 			if (memblock[i].free_memory > 0 &&
 					bootup_request >= 2) {
@@ -394,7 +398,7 @@ static int modem_notifier_cb(struct notifier_block *this, unsigned long code,
 				 */
 					size += MEMSHARE_GUARD_BYTES;
 				}
-				dma_free_attrs(memsh_drv->dev,
+				dma_free_attrs(client_node->dev,
 					size, memblock[i].virtual_addr,
 					memblock[i].phy_addr,
 					attrs);
@@ -448,7 +452,8 @@ static void handle_alloc_generic_req(struct qmi_handle *handle,
 {
 	struct mem_alloc_generic_req_msg_v01 *alloc_req;
 	struct mem_alloc_generic_resp_msg_v01 *alloc_resp;
-	int rc, resp = 0;
+	struct memshare_child *client_node = NULL;
+	int rc, resp = 0, i;
 	int client_id;
 	uint32_t size = 0;
 
@@ -468,6 +473,13 @@ static void handle_alloc_generic_req(struct qmi_handle *handle,
 	client_id = check_client(alloc_req->client_id, alloc_req->proc_id,
 								CHECK);
 
+	for (i = 0; i < MAX_CLIENTS; i++) {
+		if (memsh_child[i]->client_id == client_id) {
+			client_node = memsh_child[i];
+			break;
+		}
+	}
+
 	if (client_id >= MAX_CLIENTS) {
 		dev_err(memsh_drv->dev,
 			"memshare_alloc: client not found, requested client: %d, proc_id: %d\n",
@@ -483,7 +495,7 @@ static void handle_alloc_generic_req(struct qmi_handle *handle,
 			size = alloc_req->num_bytes + MEMSHARE_GUARD_BYTES;
 		else
 			size = alloc_req->num_bytes;
-		rc = memshare_alloc(memsh_drv->dev, size,
+		rc = memshare_alloc(client_node->dev, size,
 					&memblock[client_id]);
 		if (rc) {
 			dev_err(memsh_drv->dev,
@@ -538,7 +550,8 @@ static void handle_free_generic_req(struct qmi_handle *handle,
 {
 	struct mem_free_generic_req_msg_v01 *free_req;
 	struct mem_free_generic_resp_msg_v01 free_resp;
-	int rc, flag = 0, ret = 0, size = 0;
+	struct memshare_child *client_node = NULL;
+	int rc, flag = 0, ret = 0, size = 0, i;
 	uint32_t client_id;
 	u32 source_vmlist[1] = {VMID_MSS_MSA};
 	int dest_vmids[1] = {VMID_HLOS};
@@ -552,7 +565,16 @@ static void handle_free_generic_req(struct qmi_handle *handle,
 	dev_info(memsh_drv->dev,
 		"memshare_free: handling memory free request with client id: %d, proc_id: %d\n",
 		free_req->client_id, free_req->proc_id);
+
 	client_id = check_client(free_req->client_id, free_req->proc_id, FREE);
+
+	for (i = 0; i < MAX_CLIENTS; i++) {
+		if (memsh_child[i]->client_id == client_id) {
+			client_node = memsh_child[i];
+			break;
+		}
+	}
+
 	if (client_id == DHMS_MEM_CLIENT_INVALID) {
 		dev_err(memsh_drv->dev, "memshare_free: invalid client request to free memory\n");
 		flag = 1;
@@ -583,7 +605,7 @@ static void handle_free_generic_req(struct qmi_handle *handle,
 		 */
 			size += MEMSHARE_GUARD_BYTES;
 		}
-		dma_free_attrs(memsh_drv->dev, size,
+		dma_free_attrs(client_node->dev, size,
 			memblock[client_id].virtual_addr,
 			memblock[client_id].phy_addr,
 			attrs);
@@ -771,6 +793,7 @@ static int memshare_child_probe(struct platform_device *pdev)
 	uint32_t size, client_id;
 	const char *name;
 	struct memshare_child *drv;
+	struct device_node *mem_node;
 
 	drv = devm_kzalloc(&pdev->dev, sizeof(struct memshare_child),
 							GFP_KERNEL);
@@ -779,13 +802,12 @@ static int memshare_child_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	drv->dev = &pdev->dev;
-	memsh_child = drv;
-	platform_set_drvdata(pdev, memsh_child);
+	platform_set_drvdata(pdev, drv);
 
 	rc = of_property_read_u32(pdev->dev.of_node, "qcom,peripheral-size",
 						&size);
 	if (rc) {
-		dev_err(memsh_child->dev, "memshare: Error reading size of clients, rc: %d\n",
+		dev_err(drv->dev, "memshare: Error reading size of clients, rc: %d\n",
 				rc);
 		return rc;
 	}
@@ -827,6 +849,21 @@ static int memshare_child_probe(struct platform_device *pdev)
 
 	memblock[num_clients].init_size = size;
 	memblock[num_clients].client_id = client_id;
+	drv->client_id = client_id;
+
+	mem_node = of_parse_phandle(pdev->dev.of_node, "memory-region", 0);
+	of_node_put(mem_node);
+	if (mem_node) {
+		rc = of_reserved_mem_device_init(&pdev->dev);
+		if (rc) {
+			dev_err(&pdev->dev, "memshare: Failed to initialize memory region rc: %d\n",
+				rc);
+			return rc;
+		}
+		dev_info(&pdev->dev, "memshare: Memory allocation from shared DMA pool\n");
+	} else {
+		dev_info(&pdev->dev, "memshare: Continuing with allocation from CMA\n");
+	}
 
   /*
    *	Memshare allocation for guaranteed clients
@@ -834,13 +871,18 @@ static int memshare_child_probe(struct platform_device *pdev)
 	if (memblock[num_clients].guarantee && size > 0) {
 		if (memblock[num_clients].guard_band)
 			size += MEMSHARE_GUARD_BYTES;
-		rc = memshare_alloc(memsh_child->dev,
+		rc = memshare_alloc(drv->dev,
 				size,
 				&memblock[num_clients]);
 		if (rc) {
 			dev_err(memsh_drv->dev,
 				"memshare_child: Unable to allocate memory for guaranteed clients, rc: %d\n",
 				rc);
+			mem_node = of_parse_phandle(pdev->dev.of_node,
+						    "memory-region", 0);
+			of_node_put(mem_node);
+			if (mem_node)
+				of_reserved_mem_device_release(&pdev->dev);
 			return rc;
 		}
 		memblock[num_clients].size = size;
@@ -865,6 +907,7 @@ static int memshare_child_probe(struct platform_device *pdev)
 			memblock[num_clients].file_created = 1;
 	}
 
+	memsh_child[num_clients] = drv;
 	num_clients++;
 
 	return 0;
