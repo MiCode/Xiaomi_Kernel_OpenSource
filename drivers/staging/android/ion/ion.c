@@ -386,6 +386,8 @@ int __ion_device_add_heap(struct ion_heap *heap, struct module *owner)
 
 	up_write(&dev->lock);
 
+	pr_info("[ION] %s name:%s, id:%u, cnt:%d\n",
+		__func__, heap->name, heap->id, dev->heap_cnt);
 	return 0;
 
 out_debugfs_cleanup:

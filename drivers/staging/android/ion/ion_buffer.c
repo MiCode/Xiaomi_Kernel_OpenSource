@@ -136,6 +136,7 @@ struct ion_buffer *ion_buffer_alloc(struct ion_device *dev, size_t len,
 	struct ion_heap *heap;
 
 	if (!dev || !len) {
+		pr_info("[ION] %s failed!! len:0x%zx\n", __func__, len);
 		return ERR_PTR(-EINVAL);
 	}
 
@@ -146,8 +147,10 @@ struct ion_buffer *ion_buffer_alloc(struct ion_device *dev, size_t len,
 	 * succeeded or all heaps have been tried
 	 */
 	len = PAGE_ALIGN(len);
-	if (!len)
+	if (!len) {
+		pr_info("[ION] size is error! len:0x%zx\n", len);
 		return ERR_PTR(-EINVAL);
+	}
 
 	down_read(&dev->lock);
 	plist_for_each_entry(heap, &dev->heaps, node) {
@@ -160,11 +163,15 @@ struct ion_buffer *ion_buffer_alloc(struct ion_device *dev, size_t len,
 	}
 	up_read(&dev->lock);
 
-	if (!buffer)
+	if (!buffer) {
+		pr_info("[ION] buffer is NULL! mask:0x%x\n", heap_id_mask);
 		return ERR_PTR(-ENODEV);
+	}
 
-	if (IS_ERR(buffer))
+	if (IS_ERR(buffer)) {
+		pr_info("[ION] buffer is error! mask:0x%x\n", heap_id_mask);
 		return ERR_CAST(buffer);
+	}
 
 	return buffer;
 }
