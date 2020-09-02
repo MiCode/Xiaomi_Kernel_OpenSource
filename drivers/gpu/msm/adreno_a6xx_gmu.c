@@ -19,6 +19,7 @@
 #include "adreno.h"
 #include "adreno_a6xx.h"
 #include "adreno_hwsched.h"
+#include "adreno_trace.h"
 #include "kgsl_bus.h"
 #include "kgsl_device.h"
 #include "kgsl_trace.h"
@@ -415,12 +416,30 @@ static void a6xx_gmu_power_config(struct adreno_device *adreno_dev)
 				RPMH_ENABLE_MASK);
 }
 
+static void gmu_ao_sync_event(struct adreno_device *adreno_dev)
+{
+	unsigned long flags;
+	u64 ticks;
+
+	local_irq_save(flags);
+
+	/* Read GMU always on register */
+	ticks = a6xx_read_alwayson(adreno_dev);
+
+	/* Trace the GMU time to create a mapping to ftrace time */
+	trace_gmu_ao_sync(ticks);
+
+	local_irq_restore(flags);
+}
+
 int a6xx_gmu_device_start(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
 	u32 val = 0x00000100;
 	u32 mask = 0x000001FF;
+
+	gmu_ao_sync_event(adreno_dev);
 
 	/* Check for 0xBABEFACE on legacy targets */
 	if (gmu->ver.core <= 0x20010004) {
