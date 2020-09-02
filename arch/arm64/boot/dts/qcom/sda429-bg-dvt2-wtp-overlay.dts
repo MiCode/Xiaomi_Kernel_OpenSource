@@ -19,6 +19,10 @@
 #include "sdm429-mdss-panels.dtsi"
 #include "sdm429-spyro-qrd-evt-audio.dtsi"
 
+&int_codec {
+	qcom,wcn-bt-slim = <1>;
+};
+
 / {
 	model = "Qualcomm Technologies, Inc. SDA429 QRD BG WTP Overlay";
 	compatible = "qcom,sdm429w-qrd", "qcom,sdm429w", "qcom,qrd";
