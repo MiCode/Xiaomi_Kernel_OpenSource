@@ -3575,8 +3575,12 @@ static int mxt_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	init_completion(&data->reset_completion);
 	init_completion(&data->crc_completion);
 
+#if defined(CONFIG_OF) && defined(CONFIG_DRM)
+	data->suspend_mode = MXT_SUSPEND_T9_CTRL;
+#else
 	data->suspend_mode = dmi_check_system(chromebook_T9_suspend_dmi) ?
 		MXT_SUSPEND_T9_CTRL : MXT_SUSPEND_DEEP_SLEEP;
+#endif
 
 	error = mxt_parse_device_properties(data);
 	if (error)
