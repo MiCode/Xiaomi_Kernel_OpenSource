@@ -2,6 +2,7 @@
 	qcom,lpm-levels {
 		compatible = "qcom,lpm-levels";
 		reg = <0xfd91060 0x20>, <0xfd92060 0x20>;
+		reg-names = "pwr", "perf";
 		#address-cells = <1>;
 		#size-cells = <0>;
 
@@ -45,6 +46,7 @@
 				#size-cells = <0>;
 				qcom,psci-mode-shift = <0>;
 				qcom,psci-mode-mask = <0xf>;
+				label = "pwr";
 				qcom,ref-stddev = <500>;
 				qcom,tmr-add = <1000>;
 				qcom,ref-premature-cnt = <1>;
@@ -98,6 +100,7 @@
 				#size-cells = <0>;
 				qcom,psci-mode-shift = <0>;
 				qcom,psci-mode-mask = <0xf>;
+				label = "perf";
 				qcom,ref-stddev = <100>;
 				qcom,tmr-add = <100>;
 				qcom,ref-premature-cnt = <3>;
