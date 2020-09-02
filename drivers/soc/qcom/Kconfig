@@ -745,6 +745,17 @@ config QTI_HW_MEMLAT_SCMI_CLIENT
 	  driver, and interface driver will use this handle to communicate with
 	  memlat HW.
 
+config QTI_HW_MEMLAT_LOG
+	tristate "Qualcomm Technologies Inc. HW MEMLAT Logging"
+	depends on IPC_LOGGING && QCOM_RIMPS
+	default n
+	help
+	  Memlat hw logging driver, this driver has the infra to collect logs
+	  generated in MEMLAT HW and log the buffers.
+
+	  This driver register with IPC_Logging framework, to have dedicated
+	  buffer for memlat hw device.
+
 if MSM_PM
 menuconfig MSM_IDLE_STATS
 	bool "Collect idle statistics"

@@ -95,4 +95,4 @@ obj-$(CONFIG_QTI_SYS_PM_VX) += sys_pm_vx.o
 obj-$(CONFIG_ICNSS2) += icnss2/
 obj-$(CONFIG_QTI_HW_MEMLAT_SCMI_CLIENT)	+= memlat_scmi.o
 obj-$(CONFIG_QTI_HW_MEMLAT) += rimps_memlat.o
-
+obj-$(CONFIG_QTI_HW_MEMLAT_LOG)	+= rimps_log.o
