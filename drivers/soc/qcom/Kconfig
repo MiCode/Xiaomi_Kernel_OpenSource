@@ -720,6 +720,18 @@ config QTI_SYSTEM_PM
 config QTI_SYSTEM_PM_RPM
 	bool
 
+config QTI_HW_MEMLAT
+	tristate "Qualcomm Technologies Inc. RIMPS memlat interface driver"
+	depends on PERF_EVENTS
+	default n
+	help
+	  Interface driver between RIMPS memlat and userspace.
+
+	  This driver is responsible for handling the communication with
+	  RIMPS memlat such as setting up PMU events, passing tunables, frequency
+	  table, PMU counters and saving the values of PMU counters during LPM and
+	  hotplug.
+
 config QTI_HW_MEMLAT_SCMI_CLIENT
 	tristate "Qualcomm Technologies Inc. SCMI client driver for HW MEMLAT"
 	depends on QTI_HW_MEMLAT
