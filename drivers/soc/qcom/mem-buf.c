@@ -1458,12 +1458,17 @@ void *mem_buf_alloc(struct mem_buf_allocation_data *alloc_data)
 	return membuf;
 
 err_get_file:
-	if (mem_buf_remove_mem(membuf) < 0)
+	if (mem_buf_remove_mem(membuf) < 0) {
+		kfree(membuf->sgl_desc);
 		goto err_mem_req;
+	}
 err_add_mem:
-	if (mem_buf_unmap_mem_s1(membuf->sgl_desc) < 0)
+	if (mem_buf_unmap_mem_s1(membuf->sgl_desc) < 0) {
+		kfree(membuf->sgl_desc);
 		goto err_mem_req;
+	}
 err_map_mem_s1:
+	kfree(membuf->sgl_desc);
 	if (mem_buf_unmap_mem_s2(membuf->memparcel_hdl) < 0)
 		goto err_mem_req;
 err_map_mem_s2:
