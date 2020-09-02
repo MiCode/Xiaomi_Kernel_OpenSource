@@ -29,6 +29,7 @@ extern unsigned int sysctl_sched_latency;
 extern unsigned int sysctl_sched_min_granularity;
 extern unsigned int sysctl_sched_wakeup_granularity;
 extern unsigned int sysctl_sched_child_runs_first;
+extern unsigned int sysctl_sched_force_lb_enable;
 #ifdef CONFIG_SCHED_WALT
 extern unsigned int __weak sysctl_sched_capacity_margin_up[MAX_MARGIN_LEVELS];
 extern unsigned int __weak sysctl_sched_capacity_margin_down[MAX_MARGIN_LEVELS];
