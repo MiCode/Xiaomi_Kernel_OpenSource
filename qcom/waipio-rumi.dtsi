@@ -54,7 +54,7 @@
 	limit-rx-hs-gear = <1>;
 	limit-rate = <2>; /* HS Rate-B */
 
-	/*vdd-hba-supply = <&gcc_ufs_phy_gdsc>;*/
+	vdd-hba-supply = <&gcc_ufs_phy_gdsc>;
 	vdd-hba-fixed-regulator;
 
 	vcc-supply = <&pm8350_l7>;
