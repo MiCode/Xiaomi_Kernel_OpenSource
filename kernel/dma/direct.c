@@ -85,7 +85,8 @@ again:
 			page = NULL;
 		}
 	}
-	if (!page)
+	if (!page && !(attrs & (DMA_ATTR_STRONGLY_ORDERED |
+				DMA_ATTR_NO_KERNEL_MAPPING)))
 		page = alloc_pages_node(dev_to_node(dev), gfp, page_order);
 
 	if (page && !dma_coherent_ok(dev, page_to_phys(page), size)) {
