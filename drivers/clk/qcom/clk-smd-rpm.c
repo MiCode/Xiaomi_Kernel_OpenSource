@@ -831,8 +831,6 @@ DEFINE_CLK_SMD_RPM(holi, pka_clk, pka_a_clk, QCOM_SMD_RPM_PKA_CLK, 0);
 /* SMD_XO_BUFFER */
 DEFINE_CLK_SMD_RPM_XO_BUFFER(holi, ln_bb_clk2, ln_bb_clk2_a,
 				QCOM_SMD_RPM_CLK_BUF_G, 8);
-DEFINE_CLK_SMD_RPM_XO_BUFFER(holi, ln_bb_clk3, ln_bb_clk3_a,
-				QCOM_SMD_RPM_CLK_BUF_G, 9);
 DEFINE_CLK_SMD_RPM_XO_BUFFER(holi, rf_clk5, rf_clk5_a,
 				QCOM_SMD_RPM_CLK_BUF_G, 6);
 
@@ -848,8 +846,6 @@ static struct clk_hw *holi_clks[] = {
 	[RPM_SMD_QDSS_A_CLK] = &holi_qdss_a_clk.hw,
 	[RPM_SMD_LN_BB_CLK2] = &holi_ln_bb_clk2.hw,
 	[RPM_SMD_LN_BB_CLK2_A] = &holi_ln_bb_clk2_a.hw,
-	[RPM_SMD_LN_BB_CLK3] = &holi_ln_bb_clk3.hw,
-	[RPM_SMD_LN_BB_CLK3_A] = &holi_ln_bb_clk3_a.hw,
 	[RPM_SMD_RF_CLK5] = &holi_rf_clk5.hw,
 	[RPM_SMD_RF_CLK5_A] = &holi_rf_clk5_a.hw,
 	[RPM_SMD_CNOC_CLK] = &holi_cnoc_clk.hw,
