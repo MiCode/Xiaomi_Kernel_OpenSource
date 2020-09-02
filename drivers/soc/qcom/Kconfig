@@ -831,6 +831,15 @@ config QCOM_IRQ_STAT
 	  This provides additional debug information
 	  for irq counts on cpu and ipi counts.
 
+config QCOM_INITIAL_LOGBUF
+	bool "QCOM save initial log_buf"
+	depends on QGKI && QCOM_WDT_CORE
+	help
+	  This enables to keep copy of initial log_buf
+	  of minimum 512KB from bootup. It can help in
+	  debugging issues which are manifestation
+	  of failure during initial bootup.
+
 config QCOM_FORCE_WDOG_BITE_ON_PANIC
 	bool "QCOM force watchdog bite on panic"
 	depends on QCOM_WDT_CORE

@@ -24,11 +24,19 @@
 #include <linux/sort.h>
 #include <linux/kernel_stat.h>
 #include <linux/irq_cpustat.h>
+#include <linux/kallsyms.h>
 
 #define MASK_SIZE        32
 #define COMPARE_RET      -1
 
 typedef int (*compare_t) (const void *lhs, const void *rhs);
+
+#ifdef CONFIG_QCOM_INITIAL_LOGBUF
+#define BOOT_LOG_SIZE    SZ_512K
+char *boot_log_buf;
+unsigned int boot_log_buf_size;
+bool copy_early_boot_log = true;
+#endif
 
 static struct msm_watchdog_data *wdog_data;
 
@@ -229,6 +237,63 @@ static void queue_irq_counts_work(struct work_struct *irq_counts_work)
 #else
 static void queue_irq_counts_work(struct work_struct *irq_counts_work) { }
 static void compute_irq_stat(struct work_struct *work) { }
+#endif
+
+#ifdef CONFIG_QCOM_INITIAL_LOGBUF
+static void boot_log_init(void)
+{
+	void *start;
+	unsigned int size;
+	struct md_region md_entry;
+	unsigned int *log_buf_size;
+
+	log_buf_size = (unsigned int *)kallsyms_lookup_name("log_buf_len");
+	if (!log_buf_size) {
+		dev_err(wdog_data->dev, "log_buf_len symbol not found\n");
+		goto out;
+	}
+
+	if (*log_buf_size >= BOOT_LOG_SIZE)
+		size = *log_buf_size;
+	else
+		size = BOOT_LOG_SIZE;
+
+	start = kmalloc(size, GFP_KERNEL);
+	if (!start)
+		goto out;
+
+	strlcpy(md_entry.name, "KBOOT_LOG", sizeof(md_entry.name));
+	md_entry.virt_addr = (uintptr_t)start;
+	md_entry.phys_addr = virt_to_phys(start);
+	md_entry.size = size;
+	if (msm_minidump_add_region(&md_entry) < 0) {
+		dev_err(wdog_data->dev, "Failed to add boot log entry\n");
+		kfree(start);
+		goto out;
+	}
+
+	boot_log_buf_size = size;
+	boot_log_buf = (char *)start;
+
+	/* Ensure boot_log_buf and boot_log_buf initialization
+	 * is visible to other CPU's
+	 */
+	smp_mb();
+
+out:
+	return;
+}
+
+static void release_boot_log_buf(void)
+{
+	if (!boot_log_buf)
+		return;
+
+	kfree(boot_log_buf);
+}
+#else
+static void boot_log_init(void) { }
+static void release_boot_log_buf(void) { }
 #endif
 
 #ifdef CONFIG_PM_SLEEP
@@ -638,6 +703,7 @@ int qcom_wdt_remove(struct platform_device *pdev)
 	wdog_dd->user_pet_complete = true;
 	kthread_stop(wdog_dd->watchdog_task);
 	flush_work(&wdog_dd->irq_counts_work);
+	release_boot_log_buf();
 	return 0;
 }
 EXPORT_SYMBOL(qcom_wdt_remove);
@@ -824,6 +890,8 @@ int qcom_wdt_register(struct platform_device *pdev,
 	ret = qcom_wdt_init(wdog_dd, pdev);
 	if (ret)
 		goto err;
+
+	boot_log_init();
 
 	/* Add wdog info to minidump table */
 	strlcpy(md_entry.name, "KWDOGDATA", sizeof(md_entry.name));
