@@ -2204,7 +2204,20 @@
 		non-removable;
 		supports-cqe;
 
+		qcom,devfreq,freq-table = <50000000 200000000>;
+		qcom,scaling-lower-bus-speed-mode = "DDR52";
+
 		status = "disabled";
+
+		qos0 {
+			mask = <0x3f>;
+			vote = <61>;
+		};
+
+		qos1 {
+			mask = <0xc0>;
+			vote = <67>;
+		};
 	};
 
 	sdhc_2: sdhci@4784000 {
@@ -2251,7 +2264,19 @@
 		iommus = <&apps_smmu 0x40 0x0>;
 		qcom,iommu-dma = "bypass";
 
+		qcom,devfreq,freq-table = <50000000 202000000>;
+
 		status = "disabled";
+
+		qos0 {
+			mask = <0x3f>;
+			vote = <61>;
+		};
+
+		qos1 {
+			mask = <0xc0>;
+			vote = <67>;
+		};
 	};
 
 	qcom,lpass@a400000 {
