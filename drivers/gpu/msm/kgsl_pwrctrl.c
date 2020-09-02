@@ -1603,8 +1603,9 @@ void kgsl_idle_check(struct work_struct *work)
 
 	requested_state = device->requested_state;
 
-	if (device->state == KGSL_STATE_ACTIVE
-		   || kgsl_state_is_nap_or_minbw(device)) {
+	if (requested_state != KGSL_STATE_NONE &&
+		(device->state == KGSL_STATE_ACTIVE ||
+		kgsl_state_is_nap_or_minbw(device))) {
 
 		if (!atomic_read(&device->active_cnt)) {
 			spin_lock(&device->submit_lock);
