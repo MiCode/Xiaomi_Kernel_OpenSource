@@ -436,6 +436,10 @@
 			size = <0x0 0x1C00000>;
 		};
 
+		splash_memory: splash_region {
+			reg = <0x0 0xe1000000 0x0 0x02300000>;
+			label = "cont_splash_region";
+		};
 	};
 
 	chosen {
