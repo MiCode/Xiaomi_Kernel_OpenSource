@@ -2040,6 +2040,10 @@ void sdhci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 			host->timeout_clk = host->mmc->actual_clock ?
 						host->mmc->actual_clock / 1000 :
 						host->clock / 1000;
+
+#if defined(CONFIG_SDC_QTI)
+			host->timeout_clk /= host->timeout_clk_div;
+#endif
 			host->mmc->max_busy_timeout =
 				host->ops->get_max_timeout_count ?
 				host->ops->get_max_timeout_count(host) :
@@ -3891,6 +3895,11 @@ int sdhci_setup_host(struct sdhci_host *host)
 
 	override_timeout_clk = host->timeout_clk;
 
+#if defined(CONFIG_SDC_QTI)
+	if (!host->timeout_clk_div)
+		host->timeout_clk_div = 1;
+#endif
+
 	if (host->version > SDHCI_SPEC_420) {
 		pr_err("%s: Unknown controller version (%d). You may experience problems.\n",
 		       mmc_hostname(mmc), host->version);
@@ -4087,6 +4096,10 @@ int sdhci_setup_host(struct sdhci_host *host)
 
 		if (override_timeout_clk)
 			host->timeout_clk = override_timeout_clk;
+
+#if defined(CONFIG_SDC_QTI)
+		host->timeout_clk /= host->timeout_clk_div;
+#endif
 
 		mmc->max_busy_timeout = host->ops->get_max_timeout_count ?
 			host->ops->get_max_timeout_count(host) : 1 << 27;
