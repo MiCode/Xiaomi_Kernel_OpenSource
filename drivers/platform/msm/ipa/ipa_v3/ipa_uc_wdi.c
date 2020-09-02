@@ -641,6 +641,17 @@ static int ipa_create_ap_smmu_mapping_sgt(struct sg_table *sgt,
 		start_iova = va;
 	}
 
+	/*
+	 * In IPA4.5, GSI HW has such requirement:
+	 * Lower 16_bits of Ring base + ring length can’t exceed 16 bits
+	 */
+	if (ipa3_ctx->ipa_hw_type == IPA_HW_v4_5 &&
+		((u32)(va & IPA_LOW_16_BIT_MASK) + len) >=
+		IPA4_5_GSI_RING_SIZE_ALIGN) {
+		va = roundup(cb->next_addr, IPA4_5_GSI_RING_SIZE_ALIGN);
+		start_iova = va;
+	}
+
 	for_each_sg(sgt->sgl, sg, sgt->nents, i) {
 		/* directly get sg_tbl PA from wlan-driver */
 		phys = sg->dma_address;
