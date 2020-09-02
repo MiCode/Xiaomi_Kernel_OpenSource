@@ -56,6 +56,7 @@ struct lpm_cpu {
 	struct cpumask related_cpus;
 	struct lpm_cpu_level levels[NR_LPM_LEVELS];
 	int nlevels;
+	const char *domain_name;
 	unsigned int psci_mode_shift;
 	unsigned int psci_mode_mask;
 	uint32_t ref_stddev;
