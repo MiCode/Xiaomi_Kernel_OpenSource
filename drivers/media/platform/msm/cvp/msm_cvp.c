@@ -761,7 +761,7 @@ static void aggregate_power_update(struct msm_cvp_core *core,
 			inst->state == MSM_CVP_CORE_UNINIT ||
 			!is_subblock_profile_existed(inst))
 			continue;
-		if (inst->prop.priority <= CVP_RT_PRIO_THRESHOLD) {
+		if (inst->prop.priority < CVP_RT_PRIO_THRESHOLD) {
 			/* Non-realtime session use index 0 */
 			i = 0;
 		} else {
