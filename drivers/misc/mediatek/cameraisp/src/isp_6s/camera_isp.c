@@ -3609,7 +3609,7 @@ void dumpIonBufferList(unsigned int entry_num, bool TurnOn)
 		if (i < entry_num) {
 			entry = list_entry(pos, struct ION_BUFFER_LIST, list);
 			LOG_NOTICE("#%3d: dump: memID(%3d); dev/Port(%2d,%2d);"
-				" va/pa(0x%lx/0x%lx); size(%d); user(%s)\n", i,
+				" va/pa(0x%lx/0x%lx); size(0x%x); user(%s)\n", i,
 				entry->memID, entry->devNode, entry->dmaPort,
 				entry->va,
 				entry->dmaAddr, entry->size, entry->username);
@@ -4962,10 +4962,11 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			struct dma_buf_attachment *delete_attach = NULL;
 			struct dma_buf *delete_dmaBuf = NULL;
 			struct sg_table *delete_sgt = NULL;
+			bool bSubset = false;
 
-			LOG_NOTICE("unmap: try memID(%d); VA/PA(0x%lx/0x%lx); (%d,%d,%s)\n",
+			LOG_NOTICE("unmap: try memID(%d); VA/PA(0x%lx/0x%lx); (%d,%d,%s,0x%x)\n",
 				IonNode.memID, IonNode.va, IonNode.dma_pa, IonNode.devNode,
-				IonNode.dmaPort, IonNode.username);
+				IonNode.dmaPort, IonNode.username, IonNode.size);
 
 			if (IonNode.memID <= 0) {
 				LOG_NOTICE("ISP_ION_UNMAP_PA: invalid memID(%d)\n",
@@ -4990,12 +4991,14 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				if ((tmp->memID == IonNode.memID) &&
 					(tmp->dmaAddr == IonNode.dma_pa) &&
 					(tmp->devNode == IonNode.devNode) &&
-					(tmp->dmaPort == IonNode.dmaPort)) {
+					(tmp->dmaPort == IonNode.dmaPort) &&
+					(tmp->size == IonNode.size)) {
 					LOG_NOTICE(
-						"Del memID(%d): va/pa=(0x%lx/0x%lx); (%d,%d,%s)\n",
+						"Del: memID(%d): va/pa=(0x%lx/0x%lx);"
+						" (%d,%d,%s); size(0x%x)\n",
 						tmp->memID, tmp->va, tmp->dmaAddr,
 						tmp->devNode, tmp->dmaPort,
-						tmp->username);
+						tmp->username, tmp->size);
 
 					delete_attach = tmp->attach;
 					delete_dmaBuf = tmp->dmaBuf;
@@ -5007,9 +5010,36 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 					foundPA = true;
 					break;
 				}
+
+				/* Check if the target PA is a subset of a mapped addr or
+				 * not.
+				 */
+				if ((tmp->memID == IonNode.memID) &&
+					(tmp->dmaAddr <= IonNode.dma_pa) &&
+					(tmp->dmaAddr >=
+						IonNode.dma_pa + IonNode.size - tmp->size) &&
+					(tmp->size > IonNode.size)) {
+					/* The PA which we try to unmap is a subset of the ion
+					 * list node.
+					 */
+					bSubset = true;
+					LOG_NOTICE("unmap: (%d,%d,%d); pa/size(0x%lx/0x%x);"
+						"username(%s) is a subset of (0x%lx/0x%x)\n",
+						IonNode.memID, IonNode.devNode, IonNode.dmaPort,
+						IonNode.dma_pa, IonNode.size, IonNode.username,
+						tmp->dmaAddr, tmp->size);
+				}
 			}
 
 			if (!foundPA) {
+				if (bSubset) {
+					/* The PA which we would like to unmap
+					 * is a subset. Don't unmap.
+					 */
+					mutex_unlock(&aosp_ion_mutex);
+					break;
+				}
+
 				LOG_NOTICE("Err: unmap: memID(%d); VA/PA(0x%lx/0x%lx);"
 					"(%d,%d,%s) not found.\n",
 					IonNode.memID, IonNode.va, IonNode.dma_pa,
