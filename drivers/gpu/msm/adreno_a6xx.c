@@ -845,7 +845,7 @@ static int a6xx_post_start(struct adreno_device *adreno_dev)
 
 	rb->_wptr = rb->_wptr - (42 - (cmds - start));
 
-	ret = adreno_ringbuffer_submit_spin(rb, NULL, 2000);
+	ret = adreno_ringbuffer_submit_spin_nosync(rb, NULL, 2000);
 	if (ret)
 		adreno_spin_idle_debug(adreno_dev,
 			"hw preemption initialization failed to idle\n");
@@ -860,6 +860,8 @@ static int a6xx_post_start(struct adreno_device *adreno_dev)
 static int a6xx_rb_start(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	u32 cp_rb_cntl = A6XX_CP_RB_CNTL_DEFAULT |
+		(ADRENO_FEATURE(adreno_dev, ADRENO_APRIV) ? 0 : (1 << 27));
 	struct adreno_ringbuffer *rb;
 	uint64_t addr;
 	int ret, i;
@@ -888,8 +890,7 @@ static int a6xx_rb_start(struct adreno_device *adreno_dev)
 	 * The size of the ringbuffer in the hardware is the log2
 	 * representation of the size in quadwords (sizedwords / 2).
 	 */
-	kgsl_regwrite(device, A6XX_CP_RB_CNTL,
-					A6XX_CP_RB_CNTL_DEFAULT);
+	kgsl_regwrite(device, A6XX_CP_RB_CNTL, cp_rb_cntl);
 
 	kgsl_regwrite(device, A6XX_CP_RB_BASE,
 		lower_32_bits(rb->buffer_desc->gpuaddr));
