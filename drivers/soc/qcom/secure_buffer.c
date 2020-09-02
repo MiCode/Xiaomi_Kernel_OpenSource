@@ -23,6 +23,7 @@
 #define BATCH_MAX_SECTIONS 32
 
 static struct device *qcom_secure_buffer_dev;
+static bool vmid_cp_camera_preview_ro;
 
 static struct qcom_scm_current_perm_info *
 populate_dest_info(int *dest_vmids, int nelements, int *dest_perms,
@@ -296,7 +297,8 @@ EXPORT_SYMBOL(msm_secure_vmid_to_string);
 
 u32 msm_secure_get_vmid_perms(u32 vmid)
 {
-	if (vmid == VMID_CP_SEC_DISPLAY)
+	if (vmid == VMID_CP_SEC_DISPLAY || (vmid == VMID_CP_CAMERA_PREVIEW &&
+					    vmid_cp_camera_preview_ro))
 		return PERM_READ;
 	else if (vmid == VMID_CP_CDSP)
 		return PERM_READ | PERM_WRITE | PERM_EXEC;
@@ -307,17 +309,19 @@ EXPORT_SYMBOL(msm_secure_get_vmid_perms);
 
 static int qcom_secure_buffer_probe(struct platform_device *pdev)
 {
+	struct device *dev = &pdev->dev;
 	int ret;
 
-#ifdef CONFIG_ARM64
-	ret = dma_set_mask(&pdev->dev, DMA_BIT_MASK(64));
-#else
-	ret = dma_set_mask(&pdev->dev, DMA_BIT_MASK(32));
-#endif
-	if (!ret)
-		qcom_secure_buffer_dev = &pdev->dev;
+	if (IS_ENABLED(CONFIG_ARM64)) {
+		ret = dma_set_mask(dev, DMA_BIT_MASK(64));
+		if (ret)
+			return ret;
+	}
 
-	return ret;
+	qcom_secure_buffer_dev = dev;
+	vmid_cp_camera_preview_ro = of_property_read_bool(dev->of_node,
+					"qcom,vmid-cp-camera-preview-ro");
+	return 0;
 }
 
 static const struct of_device_id qcom_secure_buffer_of_match[] = {
