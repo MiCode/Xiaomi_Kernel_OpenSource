@@ -167,4 +167,11 @@ struct ufs_dev_fix {
 #define UFS_DEVICE_QUIRK_PA_HIBER8TIME		(1 << 15)
 #endif
 
+/*
+ * Some UFS devices require delay after VCC power rail is turned-off.
+ * Enable this quirk to introduce 5ms delays after VCC power-off during
+ * suspend flow.
+ */
+#define UFS_DEVICE_QUIRK_DELAY_AFTER_LPM        (1 << 11)
+
 #endif /* UFS_QUIRKS_H_ */

@@ -15,13 +15,16 @@
 
 # required by sunxi_pinctrl.ko
   handle_fasteoi_irq
+  pinctrl_gpio_direction_output
+  pinctrl_gpio_direction_input
+  gpiochip_generic_config
 
 # required by sunxi_uart.ko
   uart_get_divisor
   uart_handle_cts_change
   uart_handle_dcd_change
   unregister_console
-  uart_insert_char 
+  uart_insert_char
 
 # required by timer-sunxi.ko
   clockevents_config_and_register
@@ -88,6 +91,7 @@
   snd_soc_register_card
   snd_soc_dai_set_clkdiv
   snd_soc_dai_set_pll
+  snd_dmaengine_pcm_open
 
 # required by xr829.ko
   bridge_tunnel_header
@@ -114,6 +118,7 @@
   round_jiffies_relative
   sdio_align_size
   __sw_hweight16
+  device_move
 
 # required by arc4.ko
   arc4_crypt
@@ -158,6 +163,9 @@
   vb2_ioctl_streamon
   vb2_ops_wait_finish
   vb2_ops_wait_prepare
+  vb2_dma_contig_clear_max_seg_size
+  vb2_dma_contig_memops
+  vb2_dma_contig_set_max_seg_size
 
 # required by videobuf2-memops.ko
   frame_vector_create
@@ -192,3 +200,105 @@
   __wait_on_buffer
   io_schedule
   is_bad_inode
+
+# required by sunxi-keyboard.ko
+  iio_map_array_register
+  iio_map_array_unregister
+
+# required by sunxi*.ko
+  __irq_alloc_domain_generic_chips
+  clk_unregister_fixed_factor
+  clk_unregister_fixed_rate
+  clk_unregister_gate
+  cpufreq_dbs_governor_exit
+  cpufreq_dbs_governor_init
+  cpufreq_dbs_governor_limits
+  cpufreq_dbs_governor_start
+  cpufreq_dbs_governor_stop
+  dbs_update
+  filp_close
+  get_cpu_idle_time_us
+  gov_update_cpu_data
+  irq_gc_ack_set_bit
+  irq_gc_mask_clr_bit
+  irq_gc_mask_set_bit
+  irq_generic_chip_ops
+  irq_get_domain_generic_chip
+  irq_setup_alt_chip
+  rfkill_set_states
+  store_sampling_rate
+  usb_hcds_loaded
+
+# required by smsc95xx.ko
+  crc16
+  device_set_wakeup_enable
+  of_get_mac_address
+  usbnet_defer_kevent
+
+
+# required by microchip.ko
+  __genphy_config_aneg
+  genphy_suspend
+  __mdiobus_read
+  mdiobus_read
+  __mdiobus_write
+  mdiobus_write
+  phy_drivers_register
+  phy_drivers_unregister
+  phy_read_mmd
+  phy_restore_page
+  phy_save_page
+  phy_write_mmd
+
+
+# required by smsc75xx.ko
+  crc16
+  device_set_wakeup_enable
+  of_get_mac_address
+  usbnet_defer_kevent
+
+# required by rtl8150.ko
+  ethtool_convert_legacy_u32_to_link_mode
+
+# required by lan78xx.ko
+  __bitmap_or
+  device_set_wakeup_enable
+  fixed_phy_register
+  fixed_phy_unregister
+  __genphy_config_aneg
+  genphy_read_status
+  irq_domain_add_simple
+  mdiobus_read
+  mdiobus_write
+  of_mdiobus_register
+  phy_connect_direct
+  phy_ethtool_get_eee
+  phy_ethtool_ksettings_get
+  phy_ethtool_ksettings_set
+  phy_ethtool_set_eee
+  phy_ethtool_set_wol
+  phy_find_first
+  phy_read_mmd
+  phy_register_fixup_for_uid
+  phy_remove_link_mode
+  phy_unregister_fixup_for_uid
+  phy_write_mmd
+  usb_scuttle_anchored_urbs
+
+# required by uas.ko
+  usb_wait_anchor_empty_timeout
+  usb_free_streams
+  usb_alloc_streams
+
+# required by echi-pci.ko
+  ehci_init_driver
+  ehci_resume
+  ehci_setup
+  ehci_suspend
+
+# required by xradio_btlpm.ko
+  bt_err
+  bt_info
+
+# required by sun6i-dma.ko
+  dma_get_any_slave_channel
