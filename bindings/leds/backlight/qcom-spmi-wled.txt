@@ -138,17 +138,24 @@ platforms. The PMIC is connected to the host processor via SPMI bus.
 		    3 - External signal (e.g. LPG) is used for dimming
 		    This property is applicable only to WLED5 peripheral.
 
-- qcom,pmic-revid
-	Usage:      optional
-	Value type: <phandle>
-	Definition: If specified, can be used to get PMIC revision information.
-
 - qcom,leds-per-string
 	Usage:      optional
 	Value type: <u32>
 	Definition: If specified, can be used to calculate available current
 		    during selfie flash operation. If not specified, available
 		    current calculated is simply the configured threshold.
+
+- io-channels
+	Usage:      optional
+	Value type: <phandle-array>
+	Definition: IIO channel specifiers for each name in io-channel-names.
+
+- io-channel-names
+	Usage:      optional
+	Value type: <string-array>
+	Definition: Names of the IIO channels that are used by WLED.
+		        For details about IIO bindings see:
+			    Documentation/devicetree/bindings/iio/iio-bindings.txt
 
 Following properties are for child subnodes that are needed for WLED preflash
 (or torch), flash and switch. These child subnodes can be specified only for
@@ -270,6 +277,14 @@ qcom-wled@d800 {
 	interrupts = <0x5 0xd8 0x1 IRQ_TYPE_EDGE_RISING>;
 	interrupt-names = "ovp-irq";
 	qcom,string-cfg = <7>;
+
+	io-channels = <&pm7250b_qg PSY_IIO_RESISTANCE>,
+		<&pm7250b_qg PSY_IIO_VOLTAGE_OCV>,
+		<&pm7250b_qg PSY_IIO_CURRENT_NOW>;
+
+	io-channel-names = "rbatt",
+		"voltage_ocv",
+		"current_now";
 
 	wled_torch: qcom,wled-torch {
 		label = "torch";
