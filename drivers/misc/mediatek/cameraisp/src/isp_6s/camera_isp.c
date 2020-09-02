@@ -370,6 +370,7 @@ struct isp_device {
 	int irq;
 #ifdef USE_MTK_SMI_LARB_API
 	struct device *larb;
+	struct device *larb_2nd;
 #endif
 };
 
@@ -1870,6 +1871,20 @@ static inline void Prepare_Enable_ccf_clock(void)
 			LOG_NOTICE("mtk_smi_larb_get cam c larb fail %d\n", ret);
 	} else
 		LOG_NOTICE("No larb device for cam c\n");
+
+	if (isp_devs[ISP_CAMSYS_CONFIG_IDX].larb) {
+		ret = mtk_smi_larb_get(isp_devs[ISP_CAMSYS_CONFIG_IDX].larb);
+		if (ret)
+			LOG_NOTICE("mtk_smi_larb_get CAMSYS larb fail %d\n", ret);
+	} else
+		LOG_NOTICE("No larb device for camsys\n");
+
+	if (isp_devs[ISP_CAMSYS_CONFIG_IDX].larb_2nd) {
+		ret = mtk_smi_larb_get(isp_devs[ISP_CAMSYS_CONFIG_IDX].larb_2nd);
+		if (ret)
+			LOG_NOTICE("mtk_smi_larb_get CAMSYS larb_2nd fail %d\n", ret);
+	} else
+		LOG_NOTICE("No 2nd larb device for camsys\n");
 #endif
 	ret = pm_runtime_get_sync(isp_devs[ISP_CAMSYS_CONFIG_IDX].dev);
 	if (ret < 0)
@@ -2018,6 +2033,15 @@ static inline void Disable_Unprepare_ccf_clock(void)
 		mtk_smi_larb_put(isp_devs[ISP_CAM_A_IDX].larb);
 	else
 		LOG_NOTICE("isp_devs[ISP_CAM_A_IDX].larb is NULL!\n");
+
+	if (isp_devs[ISP_CAMSYS_CONFIG_IDX].larb_2nd)
+		mtk_smi_larb_put(isp_devs[ISP_CAMSYS_CONFIG_IDX].larb_2nd);
+	else
+		LOG_NOTICE("isp_devs[ISP_CAMSYS_CONFIG_IDX].larb_2nd is NULL!\n");
+	if (isp_devs[ISP_CAMSYS_CONFIG_IDX].larb)
+		mtk_smi_larb_put(isp_devs[ISP_CAMSYS_CONFIG_IDX].larb);
+	else
+		LOG_NOTICE("isp_devs[ISP_CAMSYS_CONFIG_IDX].larb is NULL!\n");
 #endif
 }
 
@@ -6645,46 +6669,97 @@ static unsigned int NodeName_to_DevIdx(const char *name)
 	 * The following compared string should be the same as the node name
 	 * defined in dts.
 	 */
-	if (strncmp(name, "camisp_legacy", 13) == 0)
+	if (strncmp(name, "camisp_legacy", strlen("camisp_legacy")) == 0)
 		return ISP_CAMSYS_CONFIG_IDX;
-	else if (strncmp(name, "camsys_rawa_legacy", 18) == 0)
+	else if (strncmp(name, "camsys_rawa_legacy", strlen("camsys_rawa_legacy")) == 0)
 		return ISP_CAMSYS_RAWA_CONFIG_IDX;
-	else if (strncmp(name, "camsys_rawb_legacy", 18) == 0)
+	else if (strncmp(name, "camsys_rawb_legacy", strlen("camsys_rawb_legacy")) == 0)
 		return ISP_CAMSYS_RAWB_CONFIG_IDX;
-	else if (strncmp(name, "camsys_rawc_legacy", 18) == 0)
+	else if (strncmp(name, "camsys_rawc_legacy", strlen("camsys_rawc_legacy")) == 0)
 		return ISP_CAMSYS_RAWC_CONFIG_IDX;
-	else if (strncmp(name, "cam1_inner_legacy", 17) == 0)
+	else if (strncmp(name, "cam1_inner_legacy", strlen("cam1_inner_legacy")) == 0)
 		return ISP_CAM_A_INNER_IDX;
-	else if (strncmp(name, "cam2_inner_legacy", 17) == 0)
+	else if (strncmp(name, "cam2_inner_legacy", strlen("cam2_inner_legacy")) == 0)
 		return ISP_CAM_B_INNER_IDX;
-	else if (strncmp(name, "cam3_inner_legacy", 17) == 0)
+	else if (strncmp(name, "cam3_inner_legacy", strlen("cam3_inner_legacy")) == 0)
 		return ISP_CAM_C_INNER_IDX;
-	else if (strncmp(name, "cam1_legacy", 11) == 0)
+	else if (strncmp(name, "cam1_legacy", strlen("cam1_legacy")) == 0)
 		return ISP_CAM_A_IDX;
-	else if (strncmp(name, "cam2_legacy", 11) == 0)
+	else if (strncmp(name, "cam2_legacy", strlen("cam2_legacy")) == 0)
 		return ISP_CAM_B_IDX;
-	else if (strncmp(name, "cam3_legacy", 11) == 0)
+	else if (strncmp(name, "cam3_legacy", strlen("cam3_legacy")) == 0)
 		return ISP_CAM_C_IDX;
-	else if (strncmp(name, "camsv1_legacy", 13) == 0)
+	else if (strncmp(name, "camsv1_legacy", strlen("camsv1_legacy")) == 0)
 		return ISP_CAMSV0_IDX;
-	else if (strncmp(name, "camsv2_legacy", 13) == 0)
+	else if (strncmp(name, "camsv2_legacy", strlen("camsv2_legacy")) == 0)
 		return ISP_CAMSV1_IDX;
-	else if (strncmp(name, "camsv3_legacy", 13) == 0)
+	else if (strncmp(name, "camsv3_legacy", strlen("camsv3_legacy")) == 0)
 		return ISP_CAMSV2_IDX;
-	else if (strncmp(name, "camsv4_legacy", 13) == 0)
+	else if (strncmp(name, "camsv4_legacy", strlen("camsv4_legacy")) == 0)
 		return ISP_CAMSV3_IDX;
-	else if (strncmp(name, "camsv5_legacy", 13) == 0)
+	else if (strncmp(name, "camsv5_legacy", strlen("camsv5_legacy")) == 0)
 		return ISP_CAMSV4_IDX;
-	else if (strncmp(name, "camsv6_legacy", 13) == 0)
+	else if (strncmp(name, "camsv6_legacy", strlen("camsv6_legacy")) == 0)
 		return ISP_CAMSV5_IDX;
-	else if (strncmp(name, "camsv7_legacy", 13) == 0)
+	else if (strncmp(name, "camsv7_legacy", strlen("camsv7_legacy")) == 0)
 		return ISP_CAMSV6_IDX;
-	else if (strncmp(name, "camsv8_legacy", 13) == 0)
+	else if (strncmp(name, "camsv8_legacy", strlen("camsv8_legacy")) == 0)
 		return ISP_CAMSV7_IDX;
 	else
 		return ISP_DEV_NODE_NUM;
-}
 
+}
+#ifdef USE_MTK_SMI_LARB_API
+/*******************************************************************************
+ *
+ ******************************************************************************/
+/*
+ * Before common kernel 5.4 iommu's device link ready.
+ * we need to use SMI API to power on bus directly.
+ */
+void ISP_get_larb(struct platform_device *pDev, unsigned int dev_idx, int larb_num)
+{
+	struct device_node *node;
+	struct platform_device *larb_pdev;
+	unsigned int larb_id = 0;
+	int i = 0;
+
+	if ((larb_num > 2) || (larb_num < 1)) {
+		LOG_NOTICE("larb num is invalid. Not ot get larb.\n");
+		return;
+	}
+
+	for (i = 0; i < larb_num; i++) {
+		node = of_parse_phandle(pDev->dev.of_node, "mediatek,larb", i);
+		if (!node) {
+			LOG_NOTICE("%s: no mediatek,larb found\n",
+				pDev->dev.of_node->name);
+			return;
+		}
+		larb_pdev = of_find_device_by_node(node);
+
+		if (of_property_read_u32(node, "mediatek,larb-id", &larb_id))
+			LOG_NOTICE("Error: get larb id from DTS fail!!\n");
+		else
+			LOG_NOTICE("%s gets larb_id=%d\n",
+				pDev->dev.of_node->name, larb_id);
+
+		of_node_put(node);
+		if (!larb_pdev) {
+			LOG_NOTICE("%s: no mediatek,larb device found\n",
+				pDev->dev.of_node->name);
+			return;
+		}
+		if (i == 0)
+			isp_devs[dev_idx].larb = &larb_pdev->dev;
+		else
+			isp_devs[dev_idx].larb_2nd = &larb_pdev->dev;
+
+		LOG_NOTICE("%s: get %s\n", pDev->dev.of_node->name,
+			larb_pdev->dev.of_node->name);
+	}
+}
+#endif
 /*******************************************************************************
  *
  ******************************************************************************/
@@ -6748,10 +6823,10 @@ static int ISP_probe(struct platform_device *pDev)
 		pDev->dev.of_node->name,
 		(unsigned long)isp_devs[dev_idx].regs);
 #ifndef EP_NO_CLKMGR /* MTCMOS */
-	if ((strncmp(pDev->dev.of_node->name, "cam1_legacy", 11) == 0) ||
-		(strncmp(pDev->dev.of_node->name, "cam2_legacy", 11) == 0) ||
-		(strncmp(pDev->dev.of_node->name, "cam3_legacy", 11) == 0) ||
-		(strncmp(pDev->dev.of_node->name, "camisp_legacy", 13) == 0))
+	if ((strncmp(pDev->dev.of_node->name, "cam1_legacy", strlen("cam1_legacy")) == 0) ||
+		(strncmp(pDev->dev.of_node->name, "cam2_legacy", strlen("cam2_legacy")) == 0) ||
+		(strncmp(pDev->dev.of_node->name, "cam3_legacy", strlen("cam3_legacy")) == 0) ||
+		(strncmp(pDev->dev.of_node->name, "camisp_legacy", strlen("camisp_legacy")) == 0))
 		pm_runtime_enable(&pDev->dev);
 #endif
 	/* get IRQ ID and request IRQ */
@@ -6813,40 +6888,13 @@ static int ISP_probe(struct platform_device *pDev)
 	}
 
 #ifdef USE_MTK_SMI_LARB_API
-	if ((strncmp(pDev->dev.of_node->name, "cam1_legacy", 11) == 0) ||
-		(strncmp(pDev->dev.of_node->name, "cam2_legacy", 11) == 0) ||
-		(strncmp(pDev->dev.of_node->name, "cam3_legacy", 11) == 0)) {
-		/**
-		 * Before common kernel 5.4 iommu's device link ready.
-		 * we need to use SMI API to power on bus directly.
-		 */
-		struct device_node *node;
-		struct platform_device *larb_pdev;
-		unsigned int larb_id = 0;
-
-		node = of_parse_phandle(pDev->dev.of_node, "mediatek,larb", 0);
-		if (!node) {
-			LOG_NOTICE("%s: no mediatek,larb found\n",
-				pDev->dev.of_node->name);
-			return -EINVAL;
-		}
-		larb_pdev = of_find_device_by_node(node);
-
-		if (of_property_read_u32(node, "mediatek,larb-id", &larb_id))
-			LOG_NOTICE("Error: get larb id from DTS fail!!\n");
-		else
-			LOG_NOTICE("%s gets larb_id=%d\n", pDev->dev.of_node->name, larb_id);
-
-		of_node_put(node);
-		if (!larb_pdev) {
-			LOG_NOTICE("%s: no mediatek,larb device found\n",
-				pDev->dev.of_node->name);
-			return -ENODEV;
-		}
-		isp_devs[dev_idx].larb = &larb_pdev->dev;
-
-		LOG_NOTICE("%s: get %s\n", pDev->dev.of_node->name, larb_pdev->dev.of_node->name);
-	}
+	if ((strncmp(pDev->dev.of_node->name, "cam1_legacy", strlen("cam1_legacy")) == 0) ||
+		(strncmp(pDev->dev.of_node->name, "cam2_legacy", strlen("cam2_legacy")) == 0) ||
+		(strncmp(pDev->dev.of_node->name, "cam3_legacy", strlen("cam3_legacy")) == 0))
+		ISP_get_larb(pDev, dev_idx, 1);
+	else if (strncmp(pDev->dev.of_node->name, "camisp_legacy",
+		strlen("camisp_legacy")) == 0)
+		ISP_get_larb(pDev, dev_idx, 2);
 #endif
 
 	if (dma_set_mask_and_coherent(&pDev->dev, DMA_BIT_MASK(34)))
@@ -7221,10 +7269,10 @@ static int ISP_remove(struct platform_device *pDev)
 	/*  */
 	LOG_DBG("- E.");
 #ifndef EP_NO_CLKMGR /* CCF */
-	if ((strncmp(pDev->dev.of_node->name, "cam1_legacy", 11) == 0) ||
-		(strncmp(pDev->dev.of_node->name, "cam2_legacy", 11) == 0) ||
-		(strncmp(pDev->dev.of_node->name, "cam3_legacy", 11) == 0) ||
-		(strncmp(pDev->dev.of_node->name, "camisp_legacy", 13) == 0))
+	if ((strncmp(pDev->dev.of_node->name, "cam1_legacy", strlen("cam1_legacy")) == 0) ||
+		(strncmp(pDev->dev.of_node->name, "cam2_legacy", strlen("cam2_legacy")) == 0) ||
+		(strncmp(pDev->dev.of_node->name, "cam3_legacy", strlen("cam3_legacy")) == 0) ||
+		(strncmp(pDev->dev.of_node->name, "camisp_legacy", strlen("camisp_legacy")) == 0))
 		pm_runtime_disable(&pDev->dev);
 #endif
 	/* unregister char driver. */
