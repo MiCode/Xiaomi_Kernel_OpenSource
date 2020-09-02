@@ -219,10 +219,10 @@ static int generic_debugfs_init(struct dbg_info *di)
 	d->ic_root = debugfs_create_dir(di->dirname, d->rt_root);
 	if (!d->ic_root)
 		goto err_cleanup_rt;
-	if (!debugfs_create_u16("reg", 0644, d->ic_root, &d->reg))
-		goto err_cleanup_ic;
-	if (!debugfs_create_u16("size", 0644, d->ic_root, &d->size))
-		goto err_cleanup_ic;
+
+	debugfs_create_u16("reg", 0644, d->ic_root, &d->reg);
+	debugfs_create_u16("size", 0644, d->ic_root, &d->size);
+
 	if (!debugfs_create_file("data", 0644,
 				 d->ic_root, di, &data_debug_fops))
 		goto err_cleanup_ic;
@@ -294,7 +294,7 @@ static int mt6360_dbg_slave_register(struct device *parent,
 
 static int mt6360_dbg_probe(struct platform_device *pdev)
 {
-	struct mt6360_pmu_info *mpi = dev_get_drvdata(pdev->dev.parent);
+	struct mt6360_pmu_data *mpd = dev_get_drvdata(pdev->dev.parent);
 	struct mt6360_dbg_info *mdi;
 	int i, ret;
 
@@ -306,7 +306,7 @@ static int mt6360_dbg_probe(struct platform_device *pdev)
 
 	for (i = 0; i < MT6360_SLAVE_MAX; i++) {
 		ret = mt6360_dbg_slave_register(&pdev->dev,
-						mpi->i2c[i], &mdi->dbg_info[i]);
+						mpd->i2c[i], &mdi->dbg_info[i]);
 		if (ret < 0) {
 			dev_err(&pdev->dev, "Failed to register [%d] dbg\n", i);
 			return ret;
