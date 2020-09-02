@@ -61,3 +61,4 @@ obj-$(CONFIG_MSM_RPM_SMD)   +=  rpm-smd-debug.o
 endif
 obj-$(CONFIG_QCOM_CPU_VENDOR_HOOKS) += qcom_cpu_vendor_hooks.o
 obj-$(CONFIG_QCOM_DCVS) += dcvs/
+obj-$(CONFIG_QTI_HW_MEMLAT_LOG)	+= rimps_log.o
