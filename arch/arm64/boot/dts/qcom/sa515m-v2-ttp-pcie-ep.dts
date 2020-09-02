@@ -38,3 +38,9 @@
 	qcom,use-xbl-boot;
 	qcom,mhi-event-ring-id-limits = <7 11>; /* start and end */
 };
+
+&ethqos_hw {
+	ethqos_emb_smmu: ethqos_emb_smmu {
+		qcom,smmu-s1-bypass;
+	};
+};

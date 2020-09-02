@@ -57,6 +57,12 @@
 	qcom,pcie-perst-enum;
 };
 
+&ethqos_hw {
+	ethqos_emb_smmu: ethqos_emb_smmu {
+		qcom,smmu-s1-bypass;
+	};
+};
+
 &mhi_device {
 	status = "ok";
 };
