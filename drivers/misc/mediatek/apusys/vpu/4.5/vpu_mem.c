@@ -226,7 +226,6 @@ vpu_map_kva_to_sgt(const char *buf, size_t len, struct sg_table *sgt)
 		else
 			pages[index] = kmap_to_page((void *)p);
 		if (!pages[index]) {
-			kfree(pages);
 			pr_info("%s: map failed\n", __func__);
 			ret = -EFAULT;
 			goto out;
