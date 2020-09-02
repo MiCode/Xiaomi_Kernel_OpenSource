@@ -1397,76 +1397,83 @@ nxt_clnt_cons:
 static ssize_t ipa3_read_ntn(struct file *file, char __user *ubuf,
 		size_t count, loff_t *ppos)
 {
-#define TX_STATS(y) \
-	ipa3_ctx->uc_ntn_ctx.ntn_uc_stats_mmio->tx_ch_stats[0].y
-#define RX_STATS(y) \
-	ipa3_ctx->uc_ntn_ctx.ntn_uc_stats_mmio->rx_ch_stats[0].y
+#define TX_STATS(x, y) \
+	stats.tx_ch_stats[x].y
+#define RX_STATS(x, y) \
+	stats.rx_ch_stats[x].y
 
 	struct Ipa3HwStatsNTNInfoData_t stats;
 	int nbytes;
-	int cnt = 0;
+	int cnt = 0, i = 0;
 
 	if (!ipa3_get_ntn_stats(&stats)) {
-		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
-			"TX num_pkts_processed=%u\n"
-			"TX ringFull=%u\n"
-			"TX ringEmpty=%u\n"
-			"TX ringUsageHigh=%u\n"
-			"TX ringUsageLow=%u\n"
-			"TX RingUtilCount=%u\n"
-			"TX bamFifoFull=%u\n"
-			"TX bamFifoEmpty=%u\n"
-			"TX bamFifoUsageHigh=%u\n"
-			"TX bamFifoUsageLow=%u\n"
-			"TX bamUtilCount=%u\n"
-			"TX num_db=%u\n"
-			"TX num_qmb_int_handled=%u\n"
-			"TX ipa_pipe_number=%u\n",
-			TX_STATS(num_pkts_processed),
-			TX_STATS(ring_stats.ringFull),
-			TX_STATS(ring_stats.ringEmpty),
-			TX_STATS(ring_stats.ringUsageHigh),
-			TX_STATS(ring_stats.ringUsageLow),
-			TX_STATS(ring_stats.RingUtilCount),
-			TX_STATS(gsi_stats.bamFifoFull),
-			TX_STATS(gsi_stats.bamFifoEmpty),
-			TX_STATS(gsi_stats.bamFifoUsageHigh),
-			TX_STATS(gsi_stats.bamFifoUsageLow),
-			TX_STATS(gsi_stats.bamUtilCount),
-			TX_STATS(num_db),
-			TX_STATS(num_qmb_int_handled),
-			TX_STATS(ipa_pipe_number));
-		cnt += nbytes;
-		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
-			"RX num_pkts_processed=%u\n"
-			"RX ringFull=%u\n"
-			"RX ringEmpty=%u\n"
-			"RX ringUsageHigh=%u\n"
-			"RX ringUsageLow=%u\n"
-			"RX RingUtilCount=%u\n"
-			"RX bamFifoFull=%u\n"
-			"RX bamFifoEmpty=%u\n"
-			"RX bamFifoUsageHigh=%u\n"
-			"RX bamFifoUsageLow=%u\n"
-			"RX bamUtilCount=%u\n"
-			"RX num_db=%u\n"
-			"RX num_qmb_int_handled=%u\n"
-			"RX ipa_pipe_number=%u\n",
-			RX_STATS(num_pkts_processed),
-			RX_STATS(ring_stats.ringFull),
-			RX_STATS(ring_stats.ringEmpty),
-			RX_STATS(ring_stats.ringUsageHigh),
-			RX_STATS(ring_stats.ringUsageLow),
-			RX_STATS(ring_stats.RingUtilCount),
-			RX_STATS(gsi_stats.bamFifoFull),
-			RX_STATS(gsi_stats.bamFifoEmpty),
-			RX_STATS(gsi_stats.bamFifoUsageHigh),
-			RX_STATS(gsi_stats.bamFifoUsageLow),
-			RX_STATS(gsi_stats.bamUtilCount),
-			RX_STATS(num_db),
-			RX_STATS(num_qmb_int_handled),
-			RX_STATS(ipa_pipe_number));
-		cnt += nbytes;
+		for (i = 0; i < IPA_UC_MAX_NTN_TX_CHANNELS; i++) {
+			nbytes = scnprintf(dbg_buff + cnt,
+				IPA_MAX_MSG_LEN - cnt,
+				"TX%d num_pkts_psr=%u\n"
+				"TX%d ringFull=%u\n"
+				"TX%d ringEmpty=%u\n"
+				"TX%d ringUsageHigh=%u\n"
+				"TX%d ringUsageLow=%u\n"
+				"TX%d RingUtilCount=%u\n"
+				"TX%d bamFifoFull=%u\n"
+				"TX%d bamFifoEmpty=%u\n"
+				"TX%d bamFifoUsageHigh=%u\n"
+				"TX%d bamFifoUsageLow=%u\n"
+				"TX%d bamUtilCount=%u\n"
+				"TX%d num_db=%u\n"
+				"TX%d num_qmb_int_handled=%u\n"
+				"TX%d ipa_pipe_number=%u\n",
+				i, TX_STATS(i, num_pkts_processed),
+				i, TX_STATS(i, ring_stats.ringFull),
+				i, TX_STATS(i, ring_stats.ringEmpty),
+				i, TX_STATS(i, ring_stats.ringUsageHigh),
+				i, TX_STATS(i, ring_stats.ringUsageLow),
+				i, TX_STATS(i, ring_stats.RingUtilCount),
+				i, TX_STATS(i, gsi_stats.bamFifoFull),
+				i, TX_STATS(i, gsi_stats.bamFifoEmpty),
+				i, TX_STATS(i, gsi_stats.bamFifoUsageHigh),
+				i, TX_STATS(i, gsi_stats.bamFifoUsageLow),
+				i, TX_STATS(i, gsi_stats.bamUtilCount),
+				i, TX_STATS(i, num_db),
+				i, TX_STATS(i, num_qmb_int_handled),
+				i, TX_STATS(i, ipa_pipe_number));
+			cnt += nbytes;
+		}
+
+		for (i = 0; i < IPA_UC_MAX_NTN_RX_CHANNELS; i++) {
+			nbytes = scnprintf(dbg_buff + cnt,
+				IPA_MAX_MSG_LEN - cnt,
+				"RX%d num_pkts_psr=%u\n"
+				"RX%d ringFull=%u\n"
+				"RX%d ringEmpty=%u\n"
+				"RX%d ringUsageHigh=%u\n"
+				"RX%d ringUsageLow=%u\n"
+				"RX%d RingUtilCount=%u\n"
+				"RX%d bamFifoFull=%u\n"
+				"RX%d bamFifoEmpty=%u\n"
+				"RX%d bamFifoUsageHigh=%u\n"
+				"RX%d bamFifoUsageLow=%u\n"
+				"RX%d bamUtilCount=%u\n"
+				"RX%d num_db=%u\n"
+				"RX%d num_qmb_int_handled=%u\n"
+				"RX%d ipa_pipe_number=%u\n",
+				i, RX_STATS(i, num_pkts_processed),
+				i, RX_STATS(i, ring_stats.ringFull),
+				i, RX_STATS(i, ring_stats.ringEmpty),
+				i, RX_STATS(i, ring_stats.ringUsageHigh),
+				i, RX_STATS(i, ring_stats.ringUsageLow),
+				i, RX_STATS(i, ring_stats.RingUtilCount),
+				i, RX_STATS(i, gsi_stats.bamFifoFull),
+				i, RX_STATS(i, gsi_stats.bamFifoEmpty),
+				i, RX_STATS(i, gsi_stats.bamFifoUsageHigh),
+				i, RX_STATS(i, gsi_stats.bamFifoUsageLow),
+				i, RX_STATS(i, gsi_stats.bamUtilCount),
+				i, RX_STATS(i, num_db),
+				i, RX_STATS(i, num_qmb_int_handled),
+				i, RX_STATS(i, ipa_pipe_number));
+			cnt += nbytes;
+		}
 	} else {
 		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
 				"Fail to read NTN stats\n");
