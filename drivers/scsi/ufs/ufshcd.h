@@ -313,8 +313,6 @@ struct ufs_pwr_mode_info {
 	struct ufs_pa_layer_attr info;
 };
 
-union ufs_crypto_cfg_entry;
-
 /**
  * struct ufs_hba_variant_ops - variant specific callbacks
  * @name: variant name
@@ -342,7 +340,7 @@ union ufs_crypto_cfg_entry;
  * @dbg_register_dump: used to dump controller debug information
  * @phy_initialization: used to initialize phys
  * @device_reset: called to issue a reset pulse on the UFS device
- * @program_key: program an inline encryption key into a keyslot
+ * @program_key: program or evict an inline encryption key
  */
 struct ufs_hba_variant_ops {
 	const char *name;
@@ -378,27 +376,6 @@ struct ufs_hba_variant_ops {
 					void *data);
 	int	(*program_key)(struct ufs_hba *hba,
 			       const union ufs_crypto_cfg_entry *cfg, int slot);
-};
-
-struct blk_ksm_ll_ops;
-struct ufs_hba_crypto_variant_ops {
-	void (*setup_rq_keyslot_manager)(struct ufs_hba *hba,
-					 struct request_queue *q);
-	void (*destroy_keyslot_manager)(struct ufs_hba *hba);
-	int (*hba_init_crypto)(struct ufs_hba *hba,
-			       const struct blk_ksm_ll_ops *ksm_ops);
-	bool (*enable)(struct ufs_hba *hba);
-	int (*suspend)(struct ufs_hba *hba, enum ufs_pm_op pm_op);
-	int (*resume)(struct ufs_hba *hba, enum ufs_pm_op pm_op);
-	int (*debug)(struct ufs_hba *hba);
-	void (*prepare_lrbp_crypto)(struct ufs_hba *hba,
-				    struct scsi_cmnd *cmd,
-				    struct ufshcd_lrb *lrbp);
-	int (*map_sg_crypto)(struct ufs_hba *hba, struct ufshcd_lrb *lrbp);
-	int (*complete_lrbp_crypto)(struct ufs_hba *hba,
-				    struct scsi_cmnd *cmd,
-				    struct ufshcd_lrb *lrbp);
-	void *priv;
 };
 
 /* clock gating state  */
@@ -878,7 +855,6 @@ struct ufs_hba {
 	const struct ufs_hba_variant_ops *vops;
 	struct ufs_hba_variant_params *vps;
 	void *priv;
-	const struct ufs_hba_crypto_variant_ops *crypto_vops;
 	size_t sg_entry_size;
 	unsigned int irq;
 	bool is_irq_enabled;

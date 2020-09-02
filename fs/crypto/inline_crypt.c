@@ -79,7 +79,7 @@ int fscrypt_select_encryption_impl(struct fscrypt_info *ci,
 	if (!fscrypt_needs_contents_encryption(inode))
 		return 0;
 
-	/* The crypto mode must be valid */
+	/* The crypto mode must have a blk-crypto counterpart */
 	if (ci->ci_mode->blk_crypto_mode == BLK_ENCRYPTION_MODE_INVALID)
 		return 0;
 
@@ -88,8 +88,21 @@ int fscrypt_select_encryption_impl(struct fscrypt_info *ci,
 		return 0;
 
 	/*
-	 * blk-crypto must support the crypto configuration we'll use for the
-	 * inode on all devices in the sb
+	 * When a page contains multiple logically contiguous filesystem blocks,
+	 * some filesystem code only calls fscrypt_mergeable_bio() for the first
+	 * block in the page. This is fine for most of fscrypt's IV generation
+	 * strategies, where contiguous blocks imply contiguous IVs. But it
+	 * doesn't work with IV_INO_LBLK_32. For now, simply exclude
+	 * IV_INO_LBLK_32 with blocksize != PAGE_SIZE from inline encryption.
+	 */
+	if ((fscrypt_policy_flags(&ci->ci_policy) &
+	     FSCRYPT_POLICY_FLAG_IV_INO_LBLK_32) &&
+	    sb->s_blocksize != PAGE_SIZE)
+		return 0;
+
+	/*
+	 * On all the filesystem's devices, blk-crypto must support the crypto
+	 * configuration that the file would use.
 	 */
 	crypto_cfg.crypto_mode = ci->ci_mode->blk_crypto_mode;
 	crypto_cfg.data_unit_size = sb->s_blocksize;
@@ -109,6 +122,7 @@ int fscrypt_select_encryption_impl(struct fscrypt_info *ci,
 	ci->ci_inlinecrypt = true;
 out_free_devs:
 	kfree(devs);
+
 	return 0;
 }
 
@@ -172,8 +186,10 @@ int fscrypt_prepare_inline_crypt_key(struct fscrypt_prepared_key *prep_key,
 		}
 	}
 	/*
-	 * Pairs with READ_ONCE() in fscrypt_is_key_prepared().  (Only matters
-	 * for the per-mode keys, which are shared by multiple inodes.)
+	 * Pairs with the smp_load_acquire() in fscrypt_is_key_prepared().
+	 * I.e., here we publish ->blk_key with a RELEASE barrier so that
+	 * concurrent tasks can ACQUIRE it.  Note that this concurrency is only
+	 * possible for per-mode keys, not for per-file keys.
 	 */
 	smp_store_release(&prep_key->blk_key, blk_key);
 	return 0;
@@ -255,7 +271,7 @@ static void fscrypt_generate_dun(const struct fscrypt_info *ci, u64 lblk_num,
 void fscrypt_set_bio_crypt_ctx(struct bio *bio, const struct inode *inode,
 			       u64 first_lblk, gfp_t gfp_mask)
 {
-	const struct fscrypt_info *ci = inode->i_crypt_info;
+	const struct fscrypt_info *ci;
 	u64 dun[BLK_CRYPTO_DUN_ARRAY_SIZE];
 
 	if (fscrypt_inode_should_skip_dm_default_key(inode))
@@ -263,6 +279,7 @@ void fscrypt_set_bio_crypt_ctx(struct bio *bio, const struct inode *inode,
 
 	if (!fscrypt_inode_uses_inline_crypto(inode))
 		return;
+	ci = inode->i_crypt_info;
 
 	fscrypt_generate_dun(ci, first_lblk, dun);
 	bio_crypt_set_ctx(bio, &ci->ci_enc_key.blk_key->base, dun, gfp_mask);
@@ -323,7 +340,7 @@ EXPORT_SYMBOL_GPL(fscrypt_set_bio_crypt_ctx_bh);
  *
  * When building a bio which may contain data which should undergo inline
  * encryption (or decryption) via fscrypt, filesystems should call this function
- * to ensure that the resulting bio contains only logically contiguous data.
+ * to ensure that the resulting bio contains only contiguous data unit numbers.
  * This will return false if the next part of the I/O cannot be merged with the
  * bio because either the encryption key would be different or the encryption
  * data unit numbers would be discontiguous.
@@ -397,7 +414,6 @@ EXPORT_SYMBOL_GPL(fscrypt_mergeable_bio_bh);
 bool fscrypt_dio_supported(struct kiocb *iocb, struct iov_iter *iter)
 {
 	const struct inode *inode = file_inode(iocb->ki_filp);
-	const struct fscrypt_info *ci = inode->i_crypt_info;
 	const unsigned int blocksize = i_blocksize(inode);
 
 	/* If the file is unencrypted, no veto from us. */
@@ -413,15 +429,6 @@ bool fscrypt_dio_supported(struct kiocb *iocb, struct iov_iter *iter)
 	 * must be block aligned -- not just disk sector aligned.
 	 */
 	if (!IS_ALIGNED(iocb->ki_pos | iov_iter_alignment(iter), blocksize))
-		return false;
-
-	/*
-	 * With IV_INO_LBLK_32 and sub-page blocks, the DUN can wrap around in
-	 * the middle of a page.  This isn't handled by the direct I/O code yet.
-	 */
-	if (blocksize != PAGE_SIZE &&
-	    (fscrypt_policy_flags(&ci->ci_policy) &
-	     FSCRYPT_POLICY_FLAG_IV_INO_LBLK_32))
 		return false;
 
 	return true;

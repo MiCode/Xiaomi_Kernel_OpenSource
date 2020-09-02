@@ -144,13 +144,6 @@ SECTIONS
 		*(.text.__x86.indirect_thunk)
 		__indirect_thunk_end = .;
 #endif
-
-#ifdef CONFIG_CFI_CLANG
-		. = ALIGN(PAGE_SIZE);
-		__cfi_jt_start = .;
-		*(.text..L.cfi.jumptable .text..L.cfi.jumptable.*)
-		__cfi_jt_end = .;
-#endif
 	} :text =0xcccc
 
 	/* End of text section, which should occupy whole number of pages */
@@ -365,6 +358,7 @@ SECTIONS
 	.bss : AT(ADDR(.bss) - LOAD_OFFSET) {
 		__bss_start = .;
 		*(.bss..page_aligned)
+		. = ALIGN(PAGE_SIZE);
 		*(BSS_MAIN)
 		BSS_DECRYPTED
 		. = ALIGN(PAGE_SIZE);
@@ -458,7 +452,3 @@ INIT_PER_CPU(irq_stack_backing_store);
            "kexec control code size is too big");
 #endif
 
-#ifdef CONFIG_CFI_CLANG
-. = ASSERT((__cfi_jt_end - __cfi_jt_start > 0),
-	   "CFI jump table is empty");
-#endif
