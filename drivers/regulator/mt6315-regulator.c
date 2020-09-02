@@ -72,7 +72,7 @@ struct mt6315_chip {
 	.modeset_mask = _modeset_mask,			\
 }
 
-static const struct regulator_linear_range mt_volt_range1[] = {
+static const struct linear_range mt_volt_range1[] = {
 	REGULATOR_LINEAR_RANGE(0, 0, 0xbf, 6250),
 };
 
