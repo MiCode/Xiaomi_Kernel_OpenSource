@@ -7,8 +7,6 @@
 
 #include <linux/scatterlist.h>
 
-#define to_msm_iommu_flush_ops(_tlb_ops) \
-	container_of(_tlb_ops, struct msm_iommu_flush_ops, tlb_ops)
 #define to_msm_io_pgtable_info(_cfg) \
 	container_of(_cfg, struct msm_io_pgtable_info, pgtbl_cfg)
 
@@ -54,21 +52,6 @@ struct iommu_flush_ops {
 			       void *cookie);
 	void (*tlb_add_page)(struct iommu_iotlb_gather *gather,
 			     unsigned long iova, size_t granule, void *cookie);
-};
-
-/**
- * struct msm_iommu_flush_ops - MSM and standard IOMMU callbacks for TLB and
- * page table management.
- *
- * @alloc_pages_exact: Allocate page table memory (optional, defaults to
- *                     alloc_pages_exact)
- * @free_pages_exact:  Free page table memory (optional, defaults to
- *                     free_pages_exact)
- */
-struct msm_iommu_flush_ops {
-	void *(*alloc_pages_exact)(void *cookie, size_t size, gfp_t gfp_mask);
-	void (*free_pages_exact)(void *cookie, void *virt, size_t size);
-	const struct iommu_flush_ops tlb_ops;
 };
 
 /**

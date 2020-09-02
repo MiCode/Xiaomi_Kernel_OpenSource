@@ -114,36 +114,6 @@ static void mod_pages_allocated(int nr_pages)
 }
 #endif
 
-void *io_pgtable_alloc_pages_exact(struct io_pgtable_cfg *cfg, void *cookie,
-				   size_t size, gfp_t gfp_mask)
-{
-	void *ret;
-	struct msm_iommu_flush_ops *ops = to_msm_iommu_flush_ops(cfg->tlb);
-
-	if (ops->alloc_pages_exact)
-		ret = ops->alloc_pages_exact(cookie, size, gfp_mask);
-	else
-		ret = alloc_pages_exact(size, gfp_mask);
-
-	if (likely(ret))
-		mod_pages_allocated(1 << get_order(size));
-
-	return ret;
-}
-
-void io_pgtable_free_pages_exact(struct io_pgtable_cfg *cfg, void *cookie,
-				 void *virt, size_t size)
-{
-	struct msm_iommu_flush_ops *ops = to_msm_iommu_flush_ops(cfg->tlb);
-
-	if (ops->free_pages_exact)
-		ops->free_pages_exact(cookie, virt, size);
-	else
-		free_pages_exact(virt, size);
-
-	mod_pages_allocated(-(1 << get_order(size)));
-}
-
 void *io_pgtable_alloc_pages(struct io_pgtable_cfg *cfg, void *cookie,
 			     int order, gfp_t gfp_mask)
 {
