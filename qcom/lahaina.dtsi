@@ -4007,9 +4007,10 @@
 
 		cpu7_l3_computemon: qcom,cpu7-l3-computemon {
 			compatible = "qcom,arm-compute-mon";
+			qcom,cpulist = <&CPU7>;
 			qcom,target-dev = <&cpu7_cpu_l3_latfloor>;
 			qcom,core-dev-table =
-				< 2304000  300000000 >,
+				< 1996800  300000000 >,
 				< 2400000 1516800000 >;
 		};
 
