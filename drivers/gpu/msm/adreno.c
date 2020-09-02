@@ -2305,12 +2305,8 @@ static int adreno_prop_device_shadow(struct kgsl_device *device,
 	struct kgsl_shadowprop shadowprop = { 0 };
 
 	if (device->memstore->hostptr) {
-		/*
-		 * NOTE: with mmu enabled, gpuaddr doesn't mean
-		 * anything to mmap().
-		 */
-
-		shadowprop.gpuaddr =  (unsigned long)device->memstore->gpuaddr;
+		/* Pass a dummy address to identify memstore */
+		shadowprop.gpuaddr =  KGSL_MEMSTORE_TOKEN_ADDRESS;
 		shadowprop.size = device->memstore->size;
 
 		shadowprop.flags = KGSL_FLAGS_INITIALIZED |

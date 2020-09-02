@@ -4553,7 +4553,7 @@ kgsl_get_unmapped_area(struct file *file, unsigned long addr,
 	struct kgsl_device *device = dev_priv->device;
 	struct kgsl_mem_entry *entry = NULL;
 
-	if (vma_offset == (unsigned long) device->memstore->gpuaddr)
+	if (vma_offset == (unsigned long) KGSL_MEMSTORE_TOKEN_ADDRESS)
 		return get_unmapped_area(NULL, addr, len, pgoff, flags);
 
 	val = get_mmap_entry(private, &entry, pgoff, len);
@@ -4597,7 +4597,7 @@ static int kgsl_mmap(struct file *file, struct vm_area_struct *vma)
 
 	/* Handle leagacy behavior for memstore */
 
-	if (vma_offset == (unsigned long) device->memstore->gpuaddr)
+	if (vma_offset == (unsigned long) KGSL_MEMSTORE_TOKEN_ADDRESS)
 		return kgsl_mmap_memstore(file, device, vma);
 
 	/*
