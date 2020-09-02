@@ -410,6 +410,15 @@ config QCOM_SOCINFO
 	 Say yes here to support the Qualcomm socinfo driver, providing
 	 information about the SoC to user space.
 
+config QCOM_SOC_SLEEP_STATS
+	tristate "Qualcomm Technologies, Inc. (QTI) SoC sleep stats driver"
+	depends on ARCH_QCOM && DEBUG_FS || COMPILE_TEST
+	help
+	  Qualcomm Technologies, Inc. (QTI) SoC sleep stats driver to read
+	  the shared memory exported by the remote processor related to
+	  various SoC level low power modes statistics and export to debugfs
+	  interface.
+
 config QCOM_WCNSS_CTRL
 	tristate "Qualcomm WCNSS control driver"
 	depends on ARCH_QCOM || COMPILE_TEST
@@ -604,10 +613,6 @@ config QGKI
 config MSM_PM
 	bool
 	select MSM_IDLE_STATS if DEBUG_FS
-	select QTI_SYSTEM_PM if QCOM_RPMH
-
-config QTI_SYSTEM_PM
-	bool
 
 if MSM_PM
 menuconfig MSM_IDLE_STATS
@@ -644,16 +649,6 @@ config MSM_SUSPEND_STATS_FIRST_BUCKET
 endif # MSM_IDLE_STATS
 endif # MSM_PM
 
-config QTI_RPM_STATS_LOG
-	tristate "Qualcomm Technologies RPM Stats Driver"
-	depends on QCOM_RPMH
-	help
-	  This option enables a driver which reads RPM messages from a shared
-	  memory location. These messages provide statistical information about
-	  the low power modes that RPM enters. The drivers outputs the message
-	  via a sysfs node.
-
-
 config QTI_DDR_STATS_LOG
 	tristate "Qualcomm Technologies Inc (QTI) DDR Stats Driver"
 	depends on QCOM_RPMH
@@ -686,15 +681,6 @@ config QCOM_FSA4480_I2C
 	  using I2C. This driver provides common support
 	  for accessing the device, switching between USB and Audio
 	  modes, changing orientation.
-
-config QCOM_SOC_SLEEP_STATS
-	tristate "Qualcomm Technologies, Inc. (QTI) SoC sleep stats driver"
-	depends on QGKI
-	help
-	  Qualcomm Technologies Inc (QTI) SoC sleep stats driver to read
-	  the shared memory exported by the remote processor related to
-	  various SoC level low power modes statistics and export to sysfs
-	  interface.
 
 config QCOM_CDSP_RM
 	tristate "CDSP request manager"
