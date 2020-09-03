@@ -349,6 +349,7 @@ void register_all_oc_interrupts(void)
 static void vio18_oc_int_handler(void)
 {
 	static unsigned int times;
+	int len = 0;
 #if defined(CONFIG_MTK_AEE_FEATURE)
 	char oc_str[30] = "";
 #endif
@@ -378,7 +379,10 @@ static void vio18_oc_int_handler(void)
 	pr_notice("XO_FPM_ISEL_M=0x%x\n",
 		pmic_get_register_value(PMIC_XO_FPM_ISEL_M));
 #if defined(CONFIG_MTK_AEE_FEATURE)
-	snprintf(oc_str, 30, "PMIC OC:%s", "INT_VIO18_OC");
+	len = snprintf(oc_str, 30, "PMIC OC:%s", "INT_VIO18_OC");
+	if (len < 0)
+		pr_err("[%s] error: snprintf return len < 0\n", __func__);
+
 	aee_kernel_warning(oc_str,
 			   "\nCRDISPATCH_KEY:PMIC OC\nOC Interrupt: %s",
 			   "INT_VIO18_OC");
