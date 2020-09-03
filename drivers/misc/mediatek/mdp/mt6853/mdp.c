@@ -432,6 +432,13 @@ struct CmdqMdpModuleBaseVA {
 };
 static struct CmdqMdpModuleBaseVA gCmdqMdpModuleBaseVA;
 
+struct mdp_base_pa {
+	u32 aal0;
+	u32 aal1;
+	u32 hdr0;
+};
+static struct mdp_base_pa mdp_module_pa;
+
 struct CmdqMdpModuleClock {
 	struct clk *clk_APB;
 	struct clk *clk_MDP_MUTEX0;
@@ -927,13 +934,16 @@ void cmdq_mdp_init_module_base_VA(void)
 	gCmdqMdpModuleBaseVA.MDP_TDSHP1 =
 		cmdq_dev_alloc_reference_VA_by_name("mdp_tdshp1");
 	gCmdqMdpModuleBaseVA.MDP_AAL0 =
-		cmdq_dev_alloc_reference_VA_by_name("mdp_aal0");
+		cmdq_dev_alloc_reference_by_name("mdp_aal0",
+		&mdp_module_pa.aal0);
 	gCmdqMdpModuleBaseVA.MDP_AAL1 =
-		cmdq_dev_alloc_reference_VA_by_name("mdp_aal1");
+		cmdq_dev_alloc_reference_by_name("mdp_aal1",
+		&mdp_module_pa.aal1);
 	gCmdqMdpModuleBaseVA.MDP_COLOR0 =
 		cmdq_dev_alloc_reference_VA_by_name("mdp_color0");
 	gCmdqMdpModuleBaseVA.MDP_HDR0 =
-		cmdq_dev_alloc_reference_VA_by_name("mdp_hdr0");
+		cmdq_dev_alloc_reference_by_name("mdp_hdr0",
+		&mdp_module_pa.hdr0);
 	gCmdqMdpModuleBaseVA.VENC =
 		cmdq_dev_alloc_reference_VA_by_name("venc");
 	gCmdqMdpModuleBaseVA.MM_MUTEX =
@@ -1290,6 +1300,7 @@ void cmdq_mdp_dump_tdshp(const unsigned long base, const char *label)
 void cmdq_mdp_dump_aal(const unsigned long base, const char *label)
 {
 	uint32_t value[9] = { 0 };
+	u32 sram_cfg, sram_addr, sram_status;
 
 	value[0] = CMDQ_REG_GET32(base + 0x00C);    /* MDP_AAL_INTSTA       */
 	value[1] = CMDQ_REG_GET32(base + 0x010);    /* MDP_AAL_STATUS       */
@@ -1300,6 +1311,11 @@ void cmdq_mdp_dump_aal(const unsigned long base, const char *label)
 	value[6] = CMDQ_REG_GET32(base + 0x038);    /* MDP_AAL_OUTPUT_OFFSET*/
 	value[7] = CMDQ_REG_GET32(base + 0x4EC);    /* MDP_AAL_TILE_00      */
 	value[8] = CMDQ_REG_GET32(base + 0x4F0);    /* MDP_AAL_TILE_01      */
+
+	sram_cfg = CMDQ_REG_GET32(base + 0x0C4);
+	sram_addr = CMDQ_REG_GET32(base + 0x0D4);
+	sram_status = CMDQ_REG_GET32(base + 0x0C8);
+
 	CMDQ_ERR(
 		"=============== [CMDQ] %s Status ====================================\n",
 		label);
@@ -1312,6 +1328,9 @@ void cmdq_mdp_dump_aal(const unsigned long base, const char *label)
 		value[5], value[6]);
 	CMDQ_ERR("AAL_TILE_00: 0x%08x, AAL_TILE_01: 0x%08x\n",
 		value[7], value[8]);
+	CMDQ_ERR(
+		"MDP_AAL_SRAM_CFG:%#x MDP_AAL_SRAM_RW_IF_2:%#x MDP_AAL_SRAM_STATUS:%#x\n",
+		sram_cfg, sram_addr, sram_status);
 }
 void cmdq_mdp_dump_hdr(const unsigned long base, const char *label)
 {
@@ -1997,6 +2016,60 @@ u64 cmdq_mdp_get_secure_engine(u64 engine_flags)
 }
 #endif
 
+static void mdp_readback_aal_by_engine(struct cmdqRecStruct *handle,
+	u16 engine, dma_addr_t pa, u32 param)
+{
+	phys_addr_t base;
+
+	switch (engine) {
+	case CMDQ_ENG_MDP_AAL0:
+		base = mdp_module_pa.aal0;
+		break;
+	case CMDQ_ENG_MDP_AAL1:
+		base = mdp_module_pa.aal1;
+		break;
+	default:
+		CMDQ_ERR("%s not support\n", __func__);
+		return;
+	}
+
+	cmdq_mdp_get_func()->mdpReadbackAal(handle, engine, base, pa, param);
+}
+
+static void mdp_readback_hdr_by_engine(struct cmdqRecStruct *handle,
+	u16 engine, dma_addr_t pa, u32 param)
+{
+	phys_addr_t base;
+
+	switch (engine) {
+	case CMDQ_ENG_MDP_HDR0:
+		base = mdp_module_pa.hdr0;
+		break;
+	default:
+		CMDQ_ERR("%s not support\n", __func__);
+		return;
+	}
+
+	cmdq_mdp_get_func()->mdpReadbackHdr(handle, engine, base, pa, param);
+}
+
+void cmdq_mdp_compose_readback(struct cmdqRecStruct *handle,
+	u16 engine, dma_addr_t addr, u32 param)
+{
+	switch (engine) {
+	case CMDQ_ENG_MDP_AAL0:
+	case CMDQ_ENG_MDP_AAL1:
+		mdp_readback_aal_by_engine(handle, engine, addr, param);
+		break;
+	case CMDQ_ENG_MDP_HDR0:
+		mdp_readback_hdr_by_engine(handle, engine, addr, param);
+		break;
+	default:
+		CMDQ_ERR("%s engine not support:%hu\n", __func__, engine);
+		break;
+	}
+}
+
 void cmdq_mdp_platform_function_setting(void)
 {
 	struct cmdqMDPFuncStruct *pFunc = cmdq_mdp_get_func();
@@ -2037,4 +2110,5 @@ void cmdq_mdp_platform_function_setting(void)
 #ifdef CMDQ_SECURE_PATH_SUPPORT
 	pFunc->mdpGetSecEngine = cmdq_mdp_get_secure_engine;
 #endif
+	pFunc->mdpComposeReadback = cmdq_mdp_compose_readback;
 }
