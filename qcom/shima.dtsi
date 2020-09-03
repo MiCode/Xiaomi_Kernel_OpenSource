@@ -3353,6 +3353,10 @@
 		feat_conf_m7: feat_conf_m7@6020 {
 			reg = <0x6020 0x4>;
 		};
+
+		feat_conf_qc_spare_20_lsb: feat_conf_qc_spare_20_lsb@4700 {
+			reg = <0x4700 0x4>;
+		};
 	};
 
 	wlan: qcom,cnss-qca6490@b0000000 {
