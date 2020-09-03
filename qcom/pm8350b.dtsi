@@ -21,6 +21,11 @@
 			#thermal-sensor-cells = <0>;
 		};
 
+		pm8350b_pbs2: qcom,pbs@1900 {
+			compatible = "qcom,qpnp-pbs";
+			reg = <0x1900>;
+		};
+
 		pm8350b_gpios: pinctrl@8800 {
 			compatible = "qcom,pm8350b-gpio";
 			reg = <0x8800>;

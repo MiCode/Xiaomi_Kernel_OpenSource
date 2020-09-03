@@ -112,6 +112,13 @@ Properties:
   Definition:	Phandle of the nvmem device used for haptics configuration.
 		Please refer to nvmem bindings as described in bindings/nvmem/nvmem.txt.
 
+- qcom,pbs-client:
+  Usage:	optional
+  Value type:	<phandle>
+  Definition:	Phandle of the PBS client used for triggering PBS to configure
+		haptics ISC (short circuit current) config during LRA impedance
+		detection.
+
 The following properties are only required when LRA actuator is used:
 
 - qcom,lra-period-us:
@@ -262,6 +269,7 @@ Example:
 		nvmem-cells = <&hap_cl_brake>;
 		nvmem-names = "hap_cfg_sdam";
 		nvmem = <&pmk8350_sdam_46>;
+		qcom,pbs-client = <&pm8350b_pbs2>;
 		qcom,vmax-mv = <900>;
 		qcom,brake-mode = <BRAKE_CLOSE_LOOP>;
 		qcom,brake-pattern = /bits/ 8 <0xff 0x3f 0x1f>;

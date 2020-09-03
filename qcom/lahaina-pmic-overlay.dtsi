@@ -354,6 +354,7 @@
 	nvmem-cells = <&hap_cl_brake>;
 	nvmem-names = "hap_cfg_sdam";
 	nvmem = <&pmk8350_sdam_46>;
+	qcom,pbs-client = <&pm8350b_pbs2>;
 };
 
 &pmr735a_tz {
