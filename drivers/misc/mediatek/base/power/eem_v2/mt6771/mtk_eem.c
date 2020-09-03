@@ -282,7 +282,9 @@ static int get_devinfo(void)
 
 		if (det == NULL)
 			return 0;
-		idx = i % det->pi_efuse_count;
+
+		if (det->pi_efuse_count)
+			idx = i % det->pi_efuse_count;
 
 		if (!det->pi_efuse[idx])
 			continue;
