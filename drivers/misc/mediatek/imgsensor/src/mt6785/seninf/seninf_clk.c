@@ -176,6 +176,7 @@ int seninf_clk_set(struct SENINF_CLK *pclk,
 					struct ACDK_SENSOR_MCLK_STRUCT *pmclk)
 {
 	int i, ret = 0;
+	unsigned int idx_tg, idx_freq;
 
 	if (pmclk->TG >= SENINF_CLK_TG_MAX_NUM ||
 	    pmclk->freq > SENINF_CLK_MCLK_FREQ_MAX ||
@@ -194,6 +195,9 @@ int seninf_clk_set(struct SENINF_CLK *pclk,
 	for (i = 0; pmclk->freq != gseninf_clk_freq[i]; i++)
 		;
 
+	idx_tg = pmclk->TG + SENINF_CLK_IDX_TG_MIN_NUM;
+	idx_freq = i + SENINF_CLK_IDX_FREQ_MIN_NUM;
+
 	if (pmclk->on) {
 		/* Workaround for timestamp: TG1 always ON */
 		if (clk_prepare_enable(
@@ -204,40 +208,27 @@ int seninf_clk_set(struct SENINF_CLK *pclk,
 			atomic_inc(
 			&pclk->enable_cnt[SENINF_CLK_IDX_TG_TOP_MUX_CAMTG]);
 
-		if (clk_prepare_enable(
-			pclk->mclk_sel[pmclk->TG + SENINF_CLK_IDX_TG_MIN_NUM]))
+		if (clk_prepare_enable(pclk->mclk_sel[idx_tg]))
 			pr_err("[CAMERA SENSOR] failed tg=%d\n", pmclk->TG);
 		else
-			atomic_inc(
-		&pclk->enable_cnt[pmclk->TG + SENINF_CLK_IDX_TG_MIN_NUM]);
+			atomic_inc(&pclk->enable_cnt[idx_tg]);
 
-		if (clk_prepare_enable(
-			pclk->mclk_sel[i + SENINF_CLK_IDX_FREQ_MIN_NUM]))
+		if (clk_prepare_enable(pclk->mclk_sel[idx_freq]))
 			pr_err("[CAMERA SENSOR] failed freq idx= %d\n", i);
 		else
-			atomic_inc(&pclk->enable_cnt[i
-					+ SENINF_CLK_IDX_FREQ_MIN_NUM]);
+			atomic_inc(&pclk->enable_cnt[idx_freq]);
 
 		ret = clk_set_parent(
-			pclk->mclk_sel[pmclk->TG + SENINF_CLK_IDX_TG_MIN_NUM],
-			pclk->mclk_sel[i + SENINF_CLK_IDX_FREQ_MIN_NUM]);
+			pclk->mclk_sel[idx_tg], pclk->mclk_sel[idx_freq]);
 	} else {
-		if (atomic_read
-			(&pclk->enable_cnt[i + SENINF_CLK_IDX_FREQ_MIN_NUM])
-			> 0) {
-			clk_disable_unprepare(
-			pclk->mclk_sel[i + SENINF_CLK_IDX_FREQ_MIN_NUM]);
-			atomic_dec(
-			&pclk->enable_cnt[i + SENINF_CLK_IDX_FREQ_MIN_NUM]);
+		if (atomic_read(&pclk->enable_cnt[idx_freq]) > 0) {
+			clk_disable_unprepare(pclk->mclk_sel[idx_freq]);
+			atomic_dec(&pclk->enable_cnt[idx_freq]);
 		}
 
-		if (atomic_read(
-		&pclk->enable_cnt[pmclk->TG + SENINF_CLK_IDX_TG_MIN_NUM])
-		> 0) {
-			clk_disable_unprepare(
-			pclk->mclk_sel[pmclk->TG + SENINF_CLK_IDX_TG_MIN_NUM]);
-			atomic_dec(
-		&pclk->enable_cnt[pmclk->TG + SENINF_CLK_IDX_TG_MIN_NUM]);
+		if (atomic_read(&pclk->enable_cnt[idx_tg]) > 0) {
+			clk_disable_unprepare(pclk->mclk_sel[idx_tg]);
+			atomic_dec(&pclk->enable_cnt[idx_tg]);
 		}
 
 		/* Workaround for timestamp: TG1 always ON */
