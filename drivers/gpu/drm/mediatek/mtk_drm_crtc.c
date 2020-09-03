@@ -2157,6 +2157,12 @@ void mtk_crtc_pkt_create(struct cmdq_pkt **cmdq_handle, struct drm_crtc *crtc,
 	struct cmdq_client *cl)
 {
 	*cmdq_handle = cmdq_pkt_create(cl);
+	if (IS_ERR_OR_NULL(*cmdq_handle)) {
+		DDPPR_ERR("%s create handle fail, %x\n",
+				__func__, *cmdq_handle);
+		return;
+	}
+
 	(*cmdq_handle)->err_cb.cb = mtk_crtc_cmdq_timeout_cb;
 	(*cmdq_handle)->err_cb.data = crtc;
 }
