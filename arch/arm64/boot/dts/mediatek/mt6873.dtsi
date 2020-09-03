@@ -2400,6 +2400,36 @@
 			#clock-cells = <1>;
 		};
 
+		mmc0: mmc@11f60000 {
+			compatible = "mediatek,mt6873-mmc", "mediatek,mt2712-mmc";
+			reg = <0 0x11f60000 0 0x10000>,
+			      <0 0x11f50000 0 0x1000>;
+			interrupts = <GIC_SPI 99 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&topckgen CLK_TOP_MSDC50_0_SEL>,
+				 <&msdc_top CLK_MSDC_TOP_H_MST_0P>,
+				 <&msdc_top CLK_MSDC_TOP_SRC_0P>,
+				 <&msdc_top CLK_MSDC_TOP_P_MSDC0>,
+				 <&msdc_top CLK_MSDC_TOP_AXI>,
+				 <&msdc_top CLK_MSDC_TOP_AHB2AXI_BRG_AXI>;
+			clock-names = "source", "hclk", "source_cg",
+					"p_clk", "axi_clk", "ahb_clk";
+		};
+
+		mmc1: mmc@11f70000 {
+			compatible = "mediatek,mt6873-mmc", "mediatek,mt2712-mmc";
+			reg = <0 0x11f70000 0 0x1000>,
+			      <0 0x11c70000 0 0x1000>;
+			interrupts = <GIC_SPI 103 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&topckgen CLK_TOP_MSDC30_1_SEL>,
+				 <&msdc_top CLK_MSDC_TOP_H_MST_1P>,
+				 <&msdc_top CLK_MSDC_TOP_SRC_1P>,
+				 <&msdc_top CLK_MSDC_TOP_P_MSDC1>,
+				 <&msdc_top CLK_MSDC_TOP_AXI>,
+				 <&msdc_top CLK_MSDC_TOP_AHB2AXI_BRG_AXI>;
+			clock-names = "source", "hclk", "source_cg",
+					"p_clk", "axi_clk", "ahb_clk";
+		};
+
 		ufsphy: phy@11fa0000 {
 			compatible = "mediatek,mt8183-ufsphy";
 			reg = <0 0x11fa0000 0 0xc000>;
@@ -5444,7 +5474,6 @@
 	};
 	aud_gpio_i2s9_on: aud_gpio_i2s9_on {
 	};
-
 	/* ATF logger */
 	atf_logger {
 		compatible = "mediatek,atf_logger";
@@ -5452,4 +5481,3 @@
 };
 
 #include "trusty.dtsi"
-
