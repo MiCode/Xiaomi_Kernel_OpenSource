@@ -450,14 +450,21 @@ int msdc_clk_stable(struct msdc_host *host, u32 mode, u32 div,
 	int retry = 0;
 	int cnt = 1000;
 	int retry_cnt = 1;
+	int lock;
 
 	do {
 		retry = 3;
-
+		lock = spin_is_locked(&host->lock);
+		if (lock)
+			spin_unlock(&host->lock);
+		clk_disable_unprepare(host->clk_ctl);
 		MSDC_SET_FIELD(MSDC_CFG,
 			MSDC_CFG_CKMOD_HS400 | MSDC_CFG_CKMOD | MSDC_CFG_CKDIV,
 			(hs400_div_dis << 14) | (mode << 12) |
 				((div + retry_cnt) % 0xfff));
+		(void)clk_prepare_enable(host->clk_ctl);
+		if (lock)
+			spin_lock(&host->lock);
 		msdc_retry(!(MSDC_READ32(MSDC_CFG) & MSDC_CFG_CKSTB), retry,
 			cnt, host->id);
 
@@ -471,7 +478,14 @@ int msdc_clk_stable(struct msdc_host *host, u32 mode, u32 div,
 			host->prev_cmd_cause_dump = 0;
 		}
 		retry = 3;
+		cnt = 1000;
+		if (lock)
+			spin_unlock(&host->lock);
+		clk_disable_unprepare(host->clk_ctl);
 		MSDC_SET_FIELD(MSDC_CFG, MSDC_CFG_CKDIV, div);
+		(void)clk_prepare_enable(host->clk_ctl);
+		if (lock)
+			spin_lock(&host->lock);
 		msdc_retry(!(MSDC_READ32(MSDC_CFG) & MSDC_CFG_CKSTB), retry,
 			cnt, host->id);
 		if (retry == 0)
@@ -4274,7 +4288,6 @@ void msdc_ops_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	struct msdc_host *host = mmc_priv(mmc);
 
 	spin_lock(&host->lock);
-	msdc_clk_enable_and_stable(host);
 
 	/*
 	 * Save timing setting if leaving current timing for restore
@@ -4358,10 +4371,6 @@ void msdc_ops_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	}
 
 	if (host->mclk != ios->clock) {
-		if (!host->mclk)
-			msdc_clk_enable_and_stable(host);
-		if (!ios->clock)
-			msdc_clk_disable(host);
 		if ((host->mclk > ios->clock)
 		 && (ios->clock <= 52000000)
 		 && (ios->clock > 0))
@@ -4386,7 +4395,6 @@ void msdc_ops_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		}
 	}
 
-	msdc_clk_disable(host);
 	spin_unlock(&host->lock);
 }
 
@@ -4398,12 +4406,8 @@ static int msdc_ops_get_ro(struct mmc_host *mmc)
 	unsigned long flags;
 	int ro = 0;
 
-	spin_lock_irqsave(&host->lock, flags);
-	msdc_clk_enable_and_stable(host);
 	if (host->hw->flags & MSDC_WP_PIN_EN)
 		ro = (MSDC_READ32(MSDC_PS) >> 31);
-	msdc_clk_disable(host);
-	spin_unlock_irqrestore(&host->lock, flags);
 
 	return ro;
 }
@@ -4524,10 +4528,6 @@ static int msdc_ops_switch_volt(struct mmc_host *mmc, struct mmc_ios *ios)
 		return 0;
 
 	case MMC_SIGNAL_VOLTAGE_180:
-		/*
-		 * guarantee clock during voltage switch.
-		 */
-		msdc_clk_enable_and_stable(host);
 		/* switch voltage */
 		if (host->power_switch)
 			host->power_switch(host, 1);
@@ -4545,7 +4545,6 @@ static int msdc_ops_switch_volt(struct mmc_host *mmc, struct mmc_ios *ios)
 		while ((status =
 			MSDC_READ32(MSDC_CFG)) & MSDC_CFG_BV18SDT)
 			;
-		msdc_clk_disable(host);
 		if (status & MSDC_CFG_BV18PSS)
 			return 0;
 
@@ -5463,19 +5462,19 @@ static int msdc_drv_remove(struct platform_device *pdev)
 #ifndef FPGA_PLATFORM
 	/* clock unprepare */
 	if (host->clk_ctl)
-		clk_unprepare(host->clk_ctl);
+		clk_disable_unprepare(host->clk_ctl);
 	if (host->hclk_ctl)
-		clk_unprepare(host->hclk_ctl);
+		clk_disable_unprepare(host->hclk_ctl);
 #if defined(CONFIG_MTK_HW_FDE) || defined(CONFIG_MMC_CRYPTO)
 	if (host->aes_clk_ctl)
-		clk_unprepare(host->aes_clk_ctl);
+		clk_disable_unprepare(host->aes_clk_ctl);
 #endif
 	if (host->axi_clk_ctl)
-		clk_unprepare(host->axi_clk_ctl);
+		clk_disable_unprepare(host->axi_clk_ctl);
 	if (host->ahb2axi_brg_clk_ctl)
-		clk_unprepare(host->ahb2axi_brg_clk_ctl);
+		clk_disable_unprepare(host->ahb2axi_brg_clk_ctl);
 	if (host->pclk_ctl)
-		clk_unprepare(host->pclk_ctl);
+		clk_disable_unprepare(host->pclk_ctl);
 #endif
 	pm_qos_remove_request(&host->msdc_pm_qos_req);
 	pm_runtime_disable(&pdev->dev);
@@ -5502,10 +5501,6 @@ static int msdc_runtime_suspend(struct device *dev)
 {
 	struct msdc_host *host = dev_get_drvdata(dev);
 
-	/* mclk = 0 means core layer suspend has disabled clk. */
-	if (host->mclk)
-		msdc_clk_disable(host);
-
 	clk_disable_unprepare(host->clk_ctl);
 	if (host->aes_clk_ctl)
 		clk_disable_unprepare(host->aes_clk_ctl);
@@ -5528,6 +5523,7 @@ static int msdc_runtime_resume(struct device *dev)
 {
 	struct msdc_host *host = dev_get_drvdata(dev);
 	struct arm_smccc_res smccc_res;
+	void __iomem *base = host->base;
 
 	pm_qos_update_request(&host->msdc_pm_qos_req, 0);
 
@@ -5543,9 +5539,8 @@ static int msdc_runtime_resume(struct device *dev)
 	if (host->hclk_ctl)
 		(void)clk_prepare_enable(host->hclk_ctl);
 
-	/* mclk = 0 means core layer resume will enable clk later. */
-	if (host->mclk)
-		msdc_clk_enable_and_stable(host);
+	while (!(MSDC_READ32(MSDC_CFG) & MSDC_CFG_CKSTB))
+		cpu_relax();
 	/*
 	 * 1: MSDC_AES_CTL_INIT
 	 * 4: cap_id, no-meaning
