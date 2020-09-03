@@ -841,16 +841,13 @@ static int m4u_debug_set(void *data, u64 val)
 		struct m4u_client_t *client;
 		unsigned long va = 0;
 
+		size = 0x500000;
+		va = (unsigned long)vmalloc(size);
+		client = m4u_create_client();
 		if (IS_ERR_OR_NULL(client)) {
 			m4u_info("%s #%d create client fail!\n", __func__, __LINE__);
 			return -ENOMEM;
 		}
-
-		size = 0x500000;
-		va = (unsigned long)vmalloc(size);
-		client = m4u_create_client();
-		if (IS_ERR_OR_NULL(client))
-			M4UMSG("create client fail!\n");
 		ret = m4u_alloc_mva(client, M4U_PORT_DISP_OVL0, va, NULL, size,
 				    M4U_PROT_READ | M4U_PROT_CACHE, 0, &mva);
 		if (ret) {
