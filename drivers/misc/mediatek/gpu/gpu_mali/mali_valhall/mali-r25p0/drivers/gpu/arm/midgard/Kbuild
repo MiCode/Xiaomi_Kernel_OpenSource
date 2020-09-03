@@ -23,7 +23,7 @@ include $(src)/Kbuild-mtk-custom-env
 include $(src)/platform/mtk_platform_common/Kbuild
 
 # Driver version string which is returned to userspace via an ioctl
-MALI_RELEASE_NAME ?= "r25p1-01bet0"
+MALI_RELEASE_NAME ?= "r26p0-01eac0"
 
 # Paths required for build
 
@@ -78,7 +78,7 @@ DEFINES += -DMALI_KBASE_BUILD
 
 # Use our defines when compiling
 # MTK Add -I$(src)/include to include ddk linux headers
-ccflags-y += $(DEFINES) -I$(KBASE_PATH)   -I$(KBASE_PLATFORM_PATH) -I$(UMP_PATH) -I$(srctree)/include/linux -I$(src)/../../../../include/ -I$(src)/include
+ccflags-y += $(DEFINES) -I$(KBASE_PATH)   -I$(KBASE_PLATFORM_PATH) -I$(UMP_PATH) -I$(srctree)/include/linux -I$(src)/include
 
 ifeq ($(CONFIG_MTK_IOMMU_V2),y)
 	ccflags-y += -I$(srctree)/drivers/staging/android/ion
@@ -86,7 +86,7 @@ ifeq ($(CONFIG_MTK_IOMMU_V2),y)
 	ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include
 endif
 
-subdir-ccflags-y += $(DEFINES) -I$(KBASE_PATH)   -I$(KBASE_PLATFORM_PATH) -I$(UMP_PATH) -I$(srctree)/include/linux -I$(src)/../../../../include/ -I$(src)/include
+subdir-ccflags-y += $(DEFINES) -I$(KBASE_PATH)   -I$(KBASE_PLATFORM_PATH) -I$(UMP_PATH) -I$(srctree)/include/linux -I$(src)/include
 
 SRC := \
 	context/mali_kbase_context.c \
@@ -130,7 +130,7 @@ SRC := \
 	mali_kbase_strings.c \
 	mali_kbase_as_fault_debugfs.c \
 	mali_kbase_regs_history_debugfs.c \
-	mali_kbase_linux_trace_events_power_gpu_frequency.c \
+	mali_power_gpu_frequency_trace.c \
 	thirdparty/mali_kbase_mmap.c \
 	tl/mali_kbase_timeline.c \
 	tl/mali_kbase_timeline_io.c \

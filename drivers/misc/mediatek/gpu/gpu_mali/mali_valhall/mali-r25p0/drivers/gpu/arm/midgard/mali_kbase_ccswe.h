@@ -87,4 +87,11 @@ u64 kbase_ccswe_cycle_at(struct kbase_ccswe *self, u64 timestamp_ns);
 void kbase_ccswe_freq_change(
 	struct kbase_ccswe *self, u64 timestamp_ns, u32 gpu_freq);
 
+/**
+ * kbase_ccswe_reset() - reset estimator state
+ *
+ * @self:    Cycles count software estimator instance.
+ */
+void kbase_ccswe_reset(struct kbase_ccswe *self);
+
 #endif /* _KBASE_CCSWE_H_ */

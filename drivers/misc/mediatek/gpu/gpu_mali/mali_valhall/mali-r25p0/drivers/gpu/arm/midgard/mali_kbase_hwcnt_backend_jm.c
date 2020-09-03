@@ -26,10 +26,15 @@
 #include "mali_kbase.h"
 #include "mali_kbase_pm_ca.h"
 #include "mali_kbase_hwaccess_instr.h"
+#include "mali_kbase_hwaccess_time.h"
+#include "mali_kbase_ccswe.h"
+
 #ifdef CONFIG_MALI_NO_MALI
 #include "backend/gpu/mali_kbase_model_dummy.h"
 #endif
+#include "backend/gpu/mali_kbase_clk_rate_trace_mgr.h"
 
+#include "backend/gpu/mali_kbase_pm_internal.h"
 
 /**
  * struct kbase_hwcnt_backend_jm_info - Information used to create an instance
@@ -50,14 +55,25 @@ struct kbase_hwcnt_backend_jm_info {
 
 /**
  * struct kbase_hwcnt_backend_jm - Instance of a JM hardware counter backend.
- * @info:         Info used to create the backend.
- * @kctx:         KBase context used for GPU memory allocation and
- *                counter dumping.
- * @gpu_dump_va:  GPU hardware counter dump buffer virtual address.
- * @cpu_dump_va:  CPU mapping of gpu_dump_va.
- * @vmap:         Dump buffer vmap.
- * @enabled:      True if dumping has been enabled, else false.
- * @pm_core_mask:  PM state sync-ed shaders core mask for the enabled dumping.
+ * @info:             Info used to create the backend.
+ * @kctx:             KBase context used for GPU memory allocation and
+ *                    counter dumping.
+ * @gpu_dump_va:      GPU hardware counter dump buffer virtual address.
+ * @cpu_dump_va:      CPU mapping of gpu_dump_va.
+ * @vmap:             Dump buffer vmap.
+ * @enabled:          True if dumping has been enabled, else false.
+ * @pm_core_mask:     PM state sync-ed shaders core mask for the enabled
+ *                    dumping.
+ * @clk_enable_map:   The enable map specifying enabled clock domains.
+ * @cycle_count_elapsed:
+ *                    Cycle count elapsed for a given sample period.
+ *                    The top clock cycle, index 0, is read directly from
+ *                    hardware, but the other clock domains need to be
+ *                    calculated with software estimation.
+ * @prev_cycle_count: Previous cycle count to calculate the cycle count for
+ *                    sample period.
+ * @rate_listener:    Clock rate listener callback state.
+ * @ccswe_shader_cores: Shader cores cycle count software estimator.
  */
 struct kbase_hwcnt_backend_jm {
 	const struct kbase_hwcnt_backend_jm_info *info;
@@ -67,7 +83,122 @@ struct kbase_hwcnt_backend_jm {
 	struct kbase_vmap_struct *vmap;
 	bool enabled;
 	u64 pm_core_mask;
+	u64 clk_enable_map;
+	u64 cycle_count_elapsed[BASE_MAX_NR_CLOCKS_REGULATORS];
+	u64 prev_cycle_count[BASE_MAX_NR_CLOCKS_REGULATORS];
+	struct kbase_clk_rate_listener rate_listener;
+	struct kbase_ccswe ccswe_shader_cores;
 };
+
+/**
+ * kbasep_hwcnt_backend_jm_on_freq_change() - On freq change callback
+ *
+ * @rate_listener:    Callback state
+ * @clk_index:        Clock index
+ * @clk_rate_hz:      Clock frequency(hz)
+ */
+static void kbasep_hwcnt_backend_jm_on_freq_change(
+	struct kbase_clk_rate_listener *rate_listener,
+	u32 clk_index,
+	u32 clk_rate_hz)
+{
+	struct kbase_hwcnt_backend_jm *backend_jm = container_of(
+		rate_listener, struct kbase_hwcnt_backend_jm, rate_listener);
+	u64 timestamp_ns;
+
+	if (clk_index != KBASE_CLOCK_DOMAIN_SHADER_CORES)
+		return;
+
+	timestamp_ns = ktime_get_raw_ns();
+	kbase_ccswe_freq_change(
+		&backend_jm->ccswe_shader_cores, timestamp_ns, clk_rate_hz);
+}
+
+/**
+ * kbasep_hwcnt_backend_jm_cc_enable() - Enable cycle count tracking
+ *
+ * @backend:      Non-NULL pointer to backend.
+ * @enable_map:   Non-NULL pointer to enable map specifying enabled counters.
+ * @timestamp_ns: Timestamp(ns) when HWCNT were enabled.
+ */
+static void kbasep_hwcnt_backend_jm_cc_enable(
+	struct kbase_hwcnt_backend_jm *backend_jm,
+	const struct kbase_hwcnt_enable_map *enable_map,
+	u64 timestamp_ns)
+{
+	struct kbase_device *kbdev = backend_jm->kctx->kbdev;
+	u64 clk_enable_map = enable_map->clk_enable_map;
+	u64 cycle_count;
+
+	if (kbase_hwcnt_clk_enable_map_enabled(
+		    clk_enable_map, KBASE_CLOCK_DOMAIN_TOP)) {
+		/* turn on the cycle counter */
+		kbase_pm_request_gpu_cycle_counter_l2_is_on(kbdev);
+		/* Read cycle count for top clock domain. */
+		kbase_backend_get_gpu_time_norequest(
+			kbdev, &cycle_count, NULL, NULL);
+
+		backend_jm->prev_cycle_count[KBASE_CLOCK_DOMAIN_TOP] =
+			cycle_count;
+	}
+
+	if (kbase_hwcnt_clk_enable_map_enabled(
+		    clk_enable_map, KBASE_CLOCK_DOMAIN_SHADER_CORES)) {
+		/* software estimation for non-top clock domains */
+		struct kbase_clk_rate_trace_manager *rtm = &kbdev->pm.clk_rtm;
+		const struct kbase_clk_data *clk_data =
+			rtm->clks[KBASE_CLOCK_DOMAIN_SHADER_CORES];
+		u32 cur_freq;
+		unsigned long flags;
+
+		spin_lock_irqsave(&rtm->lock, flags);
+
+		cur_freq = (u32) clk_data->clock_val;
+		kbase_ccswe_reset(&backend_jm->ccswe_shader_cores);
+		kbase_ccswe_freq_change(
+			&backend_jm->ccswe_shader_cores,
+			timestamp_ns,
+			cur_freq);
+
+		kbase_clk_rate_trace_manager_subscribe_no_lock(
+			rtm, &backend_jm->rate_listener);
+
+		spin_unlock_irqrestore(&rtm->lock, flags);
+
+		/* ccswe was reset. The estimated cycle is zero. */
+		backend_jm->prev_cycle_count[
+			KBASE_CLOCK_DOMAIN_SHADER_CORES] = 0;
+	}
+
+	/* Keep clk_enable_map for dump_request. */
+	backend_jm->clk_enable_map = clk_enable_map;
+}
+
+/**
+ * kbasep_hwcnt_backend_jm_cc_disable() - Disable cycle count tracking
+ *
+ * @backend:      Non-NULL pointer to backend.
+ */
+static void kbasep_hwcnt_backend_jm_cc_disable(
+	struct kbase_hwcnt_backend_jm *backend_jm)
+{
+	struct kbase_device *kbdev = backend_jm->kctx->kbdev;
+	struct kbase_clk_rate_trace_manager *rtm = &kbdev->pm.clk_rtm;
+	u64 clk_enable_map = backend_jm->clk_enable_map;
+
+	if (kbase_hwcnt_clk_enable_map_enabled(
+		clk_enable_map, KBASE_CLOCK_DOMAIN_TOP)) {
+		/* turn off the cycle counter */
+		kbase_pm_release_gpu_cycle_counter(backend_jm->kctx->kbdev);
+	}
+	if (kbase_hwcnt_clk_enable_map_enabled(
+		clk_enable_map, KBASE_CLOCK_DOMAIN_SHADER_CORES)) {
+
+		kbase_clk_rate_trace_manager_unsubscribe(
+			rtm, &backend_jm->rate_listener);
+	}
+}
+
 
 /* JM backend implementation of kbase_hwcnt_backend_timestamp_ns_fn */
 static u64 kbasep_hwcnt_backend_jm_timestamp_ns(
@@ -89,6 +220,7 @@ static int kbasep_hwcnt_backend_jm_dump_enable_nolock(
 	struct kbase_device *kbdev;
 	struct kbase_hwcnt_physical_enable_map phys;
 	struct kbase_instr_hwcnt_enable enable;
+	u64 timestamp_ns;
 
 	if (!backend_jm || !enable_map || backend_jm->enabled ||
 	    (enable_map->metadata != backend_jm->info->metadata))
@@ -109,12 +241,16 @@ static int kbasep_hwcnt_backend_jm_dump_enable_nolock(
 	enable.dump_buffer = backend_jm->gpu_dump_va;
 	enable.dump_buffer_bytes = backend_jm->info->dump_bytes;
 
+	timestamp_ns = kbasep_hwcnt_backend_jm_timestamp_ns(backend);
+
 	errcode = kbase_instr_hwcnt_enable_internal(kbdev, kctx, &enable);
 	if (errcode)
 		goto error;
 
 	backend_jm->pm_core_mask = kbase_pm_ca_get_instr_core_mask(kbdev);
 	backend_jm->enabled = true;
+
+	kbasep_hwcnt_backend_jm_cc_enable(backend_jm, enable_map, timestamp_ns);
 
 	return 0;
 error:
@@ -158,6 +294,8 @@ static void kbasep_hwcnt_backend_jm_dump_disable(
 	if (WARN_ON(!backend_jm) || !backend_jm->enabled)
 		return;
 
+	kbasep_hwcnt_backend_jm_cc_disable(backend_jm);
+
 	errcode = kbase_instr_hwcnt_disable_internal(backend_jm->kctx);
 	WARN_ON(errcode);
 
@@ -179,15 +317,61 @@ static int kbasep_hwcnt_backend_jm_dump_clear(
 
 /* JM backend implementation of kbase_hwcnt_backend_dump_request_fn */
 static int kbasep_hwcnt_backend_jm_dump_request(
-	struct kbase_hwcnt_backend *backend)
+	struct kbase_hwcnt_backend *backend,
+	u64 *dump_time_ns)
 {
 	struct kbase_hwcnt_backend_jm *backend_jm =
 		(struct kbase_hwcnt_backend_jm *)backend;
+	struct kbase_device *kbdev;
+	const struct kbase_hwcnt_metadata *metadata;
+	u64 current_cycle_count;
+	size_t clk;
+	int ret;
 
 	if (!backend_jm || !backend_jm->enabled)
 		return -EINVAL;
 
-	return kbase_instr_hwcnt_request_dump(backend_jm->kctx);
+	kbdev = backend_jm->kctx->kbdev;
+	metadata = backend_jm->info->metadata;
+
+	/* Disable pre-emption, to make the timestamp as accurate as possible */
+	preempt_disable();
+	{
+		*dump_time_ns = kbasep_hwcnt_backend_jm_timestamp_ns(backend);
+		ret = kbase_instr_hwcnt_request_dump(backend_jm->kctx);
+
+		kbase_hwcnt_metadata_for_each_clock(metadata, clk) {
+			if (!kbase_hwcnt_clk_enable_map_enabled(
+				backend_jm->clk_enable_map, clk))
+				continue;
+
+			if (clk == KBASE_CLOCK_DOMAIN_TOP) {
+				/* Read cycle count for top clock domain. */
+				kbase_backend_get_gpu_time_norequest(
+					kbdev, &current_cycle_count,
+					NULL, NULL);
+			} else {
+				/*
+				 * Estimate cycle count for non-top clock
+				 * domain.
+				 */
+				current_cycle_count = kbase_ccswe_cycle_at(
+					&backend_jm->ccswe_shader_cores,
+					*dump_time_ns);
+			}
+			backend_jm->cycle_count_elapsed[clk] =
+				current_cycle_count -
+				backend_jm->prev_cycle_count[clk];
+
+			/*
+			 * Keep the current cycle count for later calculation.
+			 */
+			backend_jm->prev_cycle_count[clk] = current_cycle_count;
+		}
+	}
+	preempt_enable();
+
+	return ret;
 }
 
 /* JM backend implementation of kbase_hwcnt_backend_dump_wait_fn */
@@ -212,6 +396,7 @@ static int kbasep_hwcnt_backend_jm_dump_get(
 {
 	struct kbase_hwcnt_backend_jm *backend_jm =
 		(struct kbase_hwcnt_backend_jm *)backend;
+	size_t clk;
 
 	if (!backend_jm || !dst || !dst_enable_map ||
 	    (backend_jm->info->metadata != dst->metadata) ||
@@ -221,6 +406,15 @@ static int kbasep_hwcnt_backend_jm_dump_get(
 	/* Invalidate the kernel buffer before reading from it. */
 	kbase_sync_mem_regions(
 		backend_jm->kctx, backend_jm->vmap, KBASE_SYNC_TO_CPU);
+
+	kbase_hwcnt_metadata_for_each_clock(dst_enable_map->metadata, clk) {
+		if (!kbase_hwcnt_clk_enable_map_enabled(
+			dst_enable_map->clk_enable_map, clk))
+			continue;
+
+		/* Extract elapsed cycle count for each clock domain. */
+		dst->clk_cnt_buf[clk] = backend_jm->cycle_count_elapsed[clk];
+	}
 
 	return kbase_hwcnt_gpu_dump_get(
 		dst, backend_jm->cpu_dump_va, dst_enable_map,
@@ -354,6 +548,9 @@ static int kbasep_hwcnt_backend_jm_create(
 		backend->gpu_dump_va, &backend->vmap);
 	if (!backend->cpu_dump_va)
 		goto alloc_error;
+
+	kbase_ccswe_init(&backend->ccswe_shader_cores);
+	backend->rate_listener.notify = kbasep_hwcnt_backend_jm_on_freq_change;
 
 #ifdef CONFIG_MALI_NO_MALI
 	/* The dummy model needs the CPU mapping. */
