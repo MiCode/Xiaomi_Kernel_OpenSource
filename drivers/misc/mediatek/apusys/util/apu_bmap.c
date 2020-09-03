@@ -132,7 +132,6 @@ out:
  */
 void apu_bmap_free(struct apu_bmap *ab, uint32_t addr, unsigned int size)
 {
-	uint32_t ret = 0;
 	unsigned int nr;
 	unsigned long offset;
 	unsigned long flags;
