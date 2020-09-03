@@ -258,6 +258,8 @@ enum cnss_driver_event_type {
 	CNSS_DRIVER_EVENT_QDSS_TRACE_REQ_MEM,
 	CNSS_DRIVER_EVENT_QDSS_TRACE_SAVE,
 	CNSS_DRIVER_EVENT_QDSS_TRACE_FREE,
+	CNSS_DRIVER_EVENT_DMS_SERVER_ARRIVE,
+	CNSS_DRIVER_EVENT_DMS_SERVER_EXIT,
 	CNSS_DRIVER_EVENT_MAX,
 };
 
@@ -282,6 +284,7 @@ enum cnss_driver_state {
 	CNSS_COLD_BOOT_CAL_DONE,
 	CNSS_IN_PANIC,
 	CNSS_QMI_DEL_SERVER,
+	CNSS_QMI_DMS_CONNECTED = 20,
 };
 
 struct cnss_recovery_data {
@@ -376,6 +379,11 @@ enum cnss_ce_index {
 	CNSS_CE_COMMON,
 };
 
+struct cnss_dms_data {
+	u32 mac_valid;
+	u8 mac[QMI_WLFW_MAC_ADDR_SIZE_V01];
+};
+
 struct cnss_plat_data {
 	struct platform_device *plat_dev;
 	void *bus_priv;
@@ -409,6 +417,7 @@ struct cnss_plat_data {
 	struct workqueue_struct *event_wq;
 	struct work_struct recovery_work;
 	struct qmi_handle qmi_wlfw;
+	struct qmi_handle qmi_dms;
 	struct wlfw_rf_chip_info chip_info;
 	struct wlfw_rf_board_info board_info;
 	struct wlfw_soc_info soc_info;
@@ -458,6 +467,7 @@ struct cnss_plat_data {
 	struct cnss_tcs_info tcs_info;
 	bool fw_pcie_gen_switch;
 	u8 pcie_gen_speed;
+	struct cnss_dms_data dms;
 };
 
 #ifdef CONFIG_ARCH_QCOM

@@ -27,6 +27,7 @@
 
 #define QMI_WLFW_MAX_RECV_BUF_SIZE	SZ_8K
 #define IMSPRIVATE_SERVICE_MAX_MSG_LEN	SZ_8K
+#define DMS_QMI_MAX_MSG_LEN		SZ_256
 
 #define QMI_WLFW_MAC_READY_TIMEOUT_MS	50
 #define QMI_WLFW_MAC_READY_MAX_RETRY	200
@@ -752,35 +753,19 @@ out:
 	return ret;
 }
 
-static int cnss_wlfw_wlan_mac_req_send_sync(struct cnss_plat_data *plat_priv,
-					    u8 *mac, u32 mac_len)
+int cnss_wlfw_wlan_mac_req_send_sync(struct cnss_plat_data *plat_priv,
+				     u8 *mac, u32 mac_len)
 {
-	struct wlfw_mac_addr_req_msg_v01 *req;
-	struct wlfw_mac_addr_resp_msg_v01 *resp;
+	struct wlfw_mac_addr_req_msg_v01 req;
+	struct wlfw_mac_addr_resp_msg_v01 resp = {0};
 	struct qmi_txn txn;
 	int ret;
-	u8 is_query;
 
-	if (!plat_priv)
-		return -ENODEV;
-
-	/* NULL mac && zero mac_len means querying the status of MAC in FW */
-	if ((mac && mac_len != QMI_WLFW_MAC_ADDR_SIZE_V01) ||
-	    (!mac && mac_len != 0))
+	if (!plat_priv || !mac || mac_len != QMI_WLFW_MAC_ADDR_SIZE_V01)
 		return -EINVAL;
 
-	req = kzalloc(sizeof(*req), GFP_KERNEL);
-	if (!req)
-		return -ENOMEM;
-
-	resp = kzalloc(sizeof(*resp), GFP_KERNEL);
-	if (!resp) {
-		kfree(req);
-		return -ENOMEM;
-	}
-
 	ret = qmi_txn_init(&plat_priv->qmi_wlfw, &txn,
-			   wlfw_mac_addr_resp_msg_v01_ei, resp);
+			   wlfw_mac_addr_resp_msg_v01_ei, &resp);
 	if (ret < 0) {
 		cnss_pr_err("Failed to initialize txn for mac req, err: %d\n",
 			    ret);
@@ -788,25 +773,18 @@ static int cnss_wlfw_wlan_mac_req_send_sync(struct cnss_plat_data *plat_priv,
 		goto out;
 	}
 
-	is_query = !mac;
-	if (!is_query) {
-		/* DO NOT print this for mac query, that might be too many */
 		cnss_pr_dbg("Sending WLAN mac req [%pM], state: 0x%lx\n",
 			    mac, plat_priv->driver_state);
-		memcpy(req->mac_addr, mac, mac_len);
-
-		/* 0 - query status of wlfw MAC; 1 - set wlfw MAC */
-		req->mac_addr_valid = 1;
-	}
+	memcpy(req.mac_addr, mac, mac_len);
+	req.mac_addr_valid = 1;
 
 	ret = qmi_send_request(&plat_priv->qmi_wlfw, NULL, &txn,
 			       QMI_WLFW_MAC_ADDR_REQ_V01,
 			       WLFW_MAC_ADDR_REQ_MSG_V01_MAX_MSG_LEN,
-			       wlfw_mac_addr_req_msg_v01_ei, req);
+			       wlfw_mac_addr_req_msg_v01_ei, &req);
 	if (ret < 0) {
 		qmi_txn_cancel(&txn);
 		cnss_pr_err("Failed to send mac req, err: %d\n", ret);
-
 		ret = -EIO;
 		goto out;
 	}
@@ -815,66 +793,17 @@ static int cnss_wlfw_wlan_mac_req_send_sync(struct cnss_plat_data *plat_priv,
 	if (ret < 0) {
 		cnss_pr_err("Failed to wait for resp of mac req, err: %d\n",
 			    ret);
-
 		ret = -EIO;
 		goto out;
 	}
 
-	if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
+	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
 		cnss_pr_err("WLAN mac req failed, result: %d, err: %d\n",
-			    resp->resp.result);
-
-		ret = -EIO;
-		goto out;
+			    resp.resp.result);
+		ret = -resp.resp.result;
 	}
-
-	if (resp->resp.error != QMI_ERR_NONE_V01) {
-		ret = ((resp->resp.error == QMI_ERR_NETWORK_NOT_READY_V01 &&
-			is_query) ? -EAGAIN : -EIO);
-		if (ret != -EAGAIN)
-			cnss_pr_err("Got error resp for mac req, err: %d\n",
-				    resp->resp.error);
-		goto out;
-	}
-
-	cnss_pr_dbg("WLAN mac req completed\n");
-
 out:
-	kfree(req);
-	kfree(resp);
 	return ret;
-}
-
-static void cnss_wait_for_wlfw_mac_ready(struct cnss_plat_data *plat_priv)
-{
-	int ret, retry = 0;
-
-	if (!plat_priv)
-		return;
-
-	cnss_pr_dbg("Checking wlfw mac, state: 0x%lx\n",
-		    plat_priv->driver_state);
-	do {
-		/* query the current status of WLAN MAC */
-		ret = cnss_wlfw_wlan_mac_req_send_sync(plat_priv, NULL, 0);
-		if (!ret) {
-			cnss_pr_dbg("wlfw mac is ready\n");
-			break;
-		}
-
-		if (ret != -EAGAIN) {
-			cnss_pr_err("failed to query wlfw mac, error: %d\n",
-				    ret);
-			break;
-		}
-
-		if (++retry >= QMI_WLFW_MAC_READY_MAX_RETRY) {
-			cnss_pr_err("Timeout to wait for wlfw mac ready\n");
-			break;
-		}
-
-		msleep(QMI_WLFW_MAC_READY_TIMEOUT_MS);
-	} while (true);
 }
 
 int cnss_wlfw_wlan_mode_send_sync(struct cnss_plat_data *plat_priv,
@@ -887,9 +816,6 @@ int cnss_wlfw_wlan_mode_send_sync(struct cnss_plat_data *plat_priv,
 
 	if (!plat_priv)
 		return -ENODEV;
-
-	if (mode == CNSS_MISSION && plat_priv->use_nv_mac)
-		cnss_wait_for_wlfw_mac_ready(plat_priv);
 
 	cnss_pr_dbg("Sending mode message, mode: %s(%d), state: 0x%lx\n",
 		    cnss_qmi_mode_to_str(mode), mode, plat_priv->driver_state);
@@ -2467,14 +2393,15 @@ int cnss_qmi_init(struct cnss_plat_data *plat_priv)
 			      QMI_WLFW_MAX_RECV_BUF_SIZE,
 			      &qmi_wlfw_ops, qmi_wlfw_msg_handlers);
 	if (ret < 0) {
-		cnss_pr_err("Failed to initialize QMI handle, err: %d\n", ret);
+		cnss_pr_err("Failed to initialize WLFW QMI handle, err: %d\n",
+			    ret);
 		goto out;
 	}
 
 	ret = qmi_add_lookup(&plat_priv->qmi_wlfw, WLFW_SERVICE_ID_V01,
 			     WLFW_SERVICE_VERS_V01, WLFW_SERVICE_INS_ID_V01);
 	if (ret < 0)
-		cnss_pr_err("Failed to add QMI lookup, err: %d\n", ret);
+		cnss_pr_err("Failed to add WLFW QMI lookup, err: %d\n", ret);
 
 out:
 	return ret;
@@ -2483,6 +2410,181 @@ out:
 void cnss_qmi_deinit(struct cnss_plat_data *plat_priv)
 {
 	qmi_handle_release(&plat_priv->qmi_wlfw);
+}
+
+int cnss_qmi_get_dms_mac(struct cnss_plat_data *plat_priv)
+{
+	struct dms_get_mac_address_req_msg_v01 req;
+	struct dms_get_mac_address_resp_msg_v01 resp;
+	struct qmi_txn txn;
+	int ret = 0;
+
+	if  (!test_bit(CNSS_QMI_DMS_CONNECTED, &plat_priv->driver_state)) {
+		cnss_pr_err("DMS QMI connection not established\n");
+		return -EINVAL;
+	}
+	cnss_pr_dbg("Requesting DMS MAC address");
+
+	memset(&resp, 0, sizeof(resp));
+	ret = qmi_txn_init(&plat_priv->qmi_dms, &txn,
+			   dms_get_mac_address_resp_msg_v01_ei, &resp);
+	if (ret < 0) {
+		cnss_pr_err("Failed to initialize txn for dms, err: %d\n",
+			    ret);
+		goto out;
+	}
+	req.device = DMS_DEVICE_MAC_WLAN_V01;
+	ret = qmi_send_request(&plat_priv->qmi_dms, NULL, &txn,
+			       QMI_DMS_GET_MAC_ADDRESS_REQ_V01,
+			       DMS_GET_MAC_ADDRESS_REQ_MSG_V01_MAX_MSG_LEN,
+			       dms_get_mac_address_req_msg_v01_ei, &req);
+	if (ret < 0) {
+		qmi_txn_cancel(&txn);
+		cnss_pr_err("Failed to send QMI_DMS_GET_MAC_ADDRESS_REQ_V01, err: %d\n",
+			    ret);
+		goto out;
+	}
+	ret = qmi_txn_wait(&txn, QMI_WLFW_TIMEOUT_JF);
+	if (ret < 0) {
+		cnss_pr_err("Failed to wait for QMI_DMS_GET_MAC_ADDRESS_RESP_V01, err: %d\n",
+			    ret);
+		goto out;
+	}
+
+	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
+		cnss_pr_err("QMI_DMS_GET_MAC_ADDRESS_REQ_V01 failed, result: %d, err: %d\n",
+			    resp.resp.result, resp.resp.error);
+		ret = -resp.resp.result;
+		goto out;
+	}
+	if (!resp.mac_address_valid ||
+	    resp.mac_address_len != QMI_WLFW_MAC_ADDR_SIZE_V01) {
+		cnss_pr_err("Invalid MAC address received from DMS\n");
+		plat_priv->dms.mac_valid = false;
+		goto out;
+	}
+	plat_priv->dms.mac_valid = true;
+	memcpy(plat_priv->dms.mac, resp.mac_address, QMI_WLFW_MAC_ADDR_SIZE_V01);
+	cnss_pr_info("Received DMS MAC: [%pM]\n", plat_priv->dms.mac);
+out:
+	return ret;
+}
+
+static int cnss_dms_connect_to_server(struct cnss_plat_data *plat_priv,
+				      void *data)
+{
+	struct cnss_qmi_event_server_arrive_data *event_data = data;
+	struct qmi_handle *qmi_dms = &plat_priv->qmi_dms;
+	struct sockaddr_qrtr sq = {0};
+	int ret = 0;
+
+	if (!event_data)
+		return -EINVAL;
+
+	sq.sq_family = AF_QIPCRTR;
+	sq.sq_node = event_data->node;
+	sq.sq_port = event_data->port;
+	kfree(data);
+
+	ret = kernel_connect(qmi_dms->sock, (struct sockaddr *)&sq,
+			     sizeof(sq), 0);
+	if (ret < 0) {
+		cnss_pr_err("Failed to connect to QMI DMS remote service port\n");
+		goto out;
+	}
+
+	set_bit(CNSS_QMI_DMS_CONNECTED, &plat_priv->driver_state);
+	cnss_pr_info("QMI DMS service connected, state: 0x%lx\n",
+		     plat_priv->driver_state);
+	cnss_qmi_get_dms_mac(plat_priv);
+out:
+	return ret;
+}
+
+int cnss_dms_server_arrive(struct cnss_plat_data *plat_priv, void *data)
+{
+	int ret = 0;
+
+	if (!plat_priv) {
+		cnss_pr_err("Platform not initialized on DMS server arrive\n");
+		return -ENODEV;
+	}
+	ret = cnss_dms_connect_to_server(plat_priv, data);
+	return ret;
+}
+
+int cnss_dms_server_exit(struct cnss_plat_data *plat_priv)
+{
+	if (!plat_priv)
+		return -ENODEV;
+
+	clear_bit(CNSS_QMI_DMS_CONNECTED, &plat_priv->driver_state);
+	cnss_pr_info("QMI DMS service disconnected, state: 0x%lx\n",
+		     plat_priv->driver_state);
+	return 0;
+}
+
+static int dms_new_server(struct qmi_handle *qmi_dms,
+			  struct qmi_service *service)
+{
+	struct cnss_plat_data *plat_priv =
+		container_of(qmi_dms, struct cnss_plat_data, qmi_dms);
+	struct cnss_qmi_event_server_arrive_data *event_data;
+
+	cnss_pr_err("DMS server arriving: node %u port %u\n",
+		    service->node, service->port);
+
+	event_data = kzalloc(sizeof(*event_data), GFP_KERNEL);
+	if (!event_data)
+		return -ENOMEM;
+
+	event_data->node = service->node;
+	event_data->port = service->port;
+
+	cnss_driver_event_post(plat_priv, CNSS_DRIVER_EVENT_DMS_SERVER_ARRIVE,
+			       0, event_data);
+
+	return 0;
+}
+
+static void dms_del_server(struct qmi_handle *qmi_dms,
+			   struct qmi_service *service)
+{
+	struct cnss_plat_data *plat_priv =
+		container_of(qmi_dms, struct cnss_plat_data, qmi_dms);
+
+	cnss_pr_dbg("DMS server exiting\n");
+	cnss_driver_event_post(plat_priv, CNSS_DRIVER_EVENT_DMS_SERVER_EXIT, 0,
+			       NULL);
+}
+
+static struct qmi_ops qmi_dms_ops = {
+	.new_server = dms_new_server,
+	.del_server = dms_del_server,
+};
+
+int cnss_dms_init(struct cnss_plat_data *plat_priv)
+{
+	int ret = 0;
+
+	ret = qmi_handle_init(&plat_priv->qmi_dms, DMS_QMI_MAX_MSG_LEN,
+			      &qmi_dms_ops, NULL);
+	if (ret < 0) {
+		cnss_pr_err("Failed to initialize DMS handle, err: %d\n", ret);
+		goto out;
+	}
+
+	ret = qmi_add_lookup(&plat_priv->qmi_dms, DMS_SERVICE_ID_V01,
+			     DMS_SERVICE_VERS_V01, 0);
+	if (ret < 0)
+		cnss_pr_err("Failed to add DMS lookup, err: %d\n", ret);
+out:
+	return ret;
+}
+
+void cnss_dms_deinit(struct cnss_plat_data *plat_priv)
+{
+	qmi_handle_release(&plat_priv->qmi_dms);
 }
 
 int coex_antenna_switch_to_wlan_send_sync_msg(struct cnss_plat_data *plat_priv)

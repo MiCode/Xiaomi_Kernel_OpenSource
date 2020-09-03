@@ -121,6 +121,9 @@ static int cnss_stats_show_state(struct seq_file *s,
 		case CNSS_QMI_DEL_SERVER:
 			seq_puts(s, "DEL_SERVER_IN_PROGRESS");
 			continue;
+		case CNSS_QMI_DMS_CONNECTED:
+			seq_puts(s, "DMS_CONNECTED");
+			continue;
 		}
 
 		seq_printf(s, "UNKNOWN-%d", i);
