@@ -268,7 +268,7 @@ int crtc_mva_map_kernel(unsigned int mva, unsigned int size,
 #ifdef CONFIG_MTK_IOMMU_V2
 	struct disp_iommu_device *disp_dev = disp_get_iommu_dev();
 
-	if ((disp_dev != NULL) && (disp_dev->iommu_pdev != NULL))
+	if ((disp_dev != NULL) && (disp_dev->iommu_pdev != NULL) && (mva != 0))
 		mtk_iommu_iova_to_va(&(disp_dev->iommu_pdev->dev),
 				     mva, map_va, size);
 	else
@@ -374,7 +374,7 @@ int mtk_drm_mmp_ovl_layer(struct mtk_plane_state *state,
 		bitmap.down_sample_x = downSampleX;
 		bitmap.down_sample_y = downSampleY;
 
-		if (crtc_mva_map_kernel(pending->addr, bitmap.data_size,
+		if (!pending->addr || crtc_mva_map_kernel(pending->addr, bitmap.data_size,
 					(unsigned long *)&bitmap.p_data,
 					&bitmap.data_size) != 0) {
 			DDPINFO("%s,fail to dump rgb\n", __func__);
@@ -382,11 +382,18 @@ int mtk_drm_mmp_ovl_layer(struct mtk_plane_state *state,
 		}
 
 		event_base = g_CRTC_MMP_Events[crtc_idx].layer_dump;
-		if (event_base)
-			mmprofile_log_meta_bitmap(
-			event_base[state->comp_state.lye_id],
-			MMPROFILE_FLAG_PULSE,
-			&bitmap);
+		if (event_base) {
+			if (!yuv)
+				mmprofile_log_meta_bitmap(
+				event_base[state->comp_state.lye_id],
+				MMPROFILE_FLAG_PULSE,
+				&bitmap);
+			else
+				mmprofile_log_meta_yuv_bitmap(
+				event_base[state->comp_state.lye_id],
+				MMPROFILE_FLAG_PULSE,
+				&bitmap);
+		}
 		crtc_mva_unmap_kernel(pending->addr, bitmap.data_size,
 				      (unsigned long)bitmap.p_data);
 	} else {

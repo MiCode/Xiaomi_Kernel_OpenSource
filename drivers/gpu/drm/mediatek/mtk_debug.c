@@ -1555,12 +1555,12 @@ static void process_dbg_opt(const char *opt)
 			DDPMSG("error to parse cmd\n");
 			return;
 		}
-		gCaptureOVLEn = dump_en;
 
-		if (!downSampleX)
+		if (downSampleX)
 			gCapturePriLayerDownX = downSampleX;
-		if (!downSampleY)
+		if (downSampleY)
 			gCapturePriLayerDownY = downSampleY;
+		gCaptureOVLEn = dump_en;
 #ifdef CONFIG_MTK_HDMI_SUPPORT
 	} else if (strncmp(opt, "dptx:", 5) == 0) {
 		mtk_dp_debug(opt + 5);
