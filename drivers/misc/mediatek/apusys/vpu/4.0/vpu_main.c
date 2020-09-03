@@ -535,7 +535,7 @@ static int vpu_shared_get(struct platform_device *pdev,
 	if (!vpu_drv->mva_algo) {
 		if (vpu_iova_dts(pdev, "algo", &vpu_drv->iova_algo))
 			goto error;
-		iova = vpu_iova_alloc(pdev,	&vpu_drv->iova_algo);
+		iova = vpu_iova_alloc(pdev, &vpu_drv->iova_algo);
 		if (!iova)
 			goto error;
 		vpu_drv->mva_algo = iova;

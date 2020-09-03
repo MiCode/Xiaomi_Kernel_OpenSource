@@ -24,7 +24,7 @@
 #include "vpu_mem.h"
 #include "vpu_debug.h"
 
-static struct page **vpu_map_kva_to_sgt(
+static int vpu_map_kva_to_sgt(
 	const char *buf, size_t len, struct sg_table *sgt);
 
 static dma_addr_t vpu_map_sg_to_iova(
@@ -87,13 +87,10 @@ vpu_mem_alloc(struct platform_device *pdev,
 
 	vpu_mem_debug("%s: kvmalloc: %llx\n", __func__, (uint64_t)kva);
 
-	i->pages = vpu_map_kva_to_sgt(kva, i->size, &i->sgt);
+	ret = vpu_map_kva_to_sgt(kva, i->size, &i->sgt);
 
-	if (IS_ERR_OR_NULL(i->pages)) {
-		ret = IS_ERR(i->pages) ? PTR_ERR(i->pages) : -ENOMEM;
-		i->pages = NULL;
+	if (ret)
 		goto error;
-	}
 
 	iova = vpu_map_sg_to_iova(pdev, i->sgt.sgl, i->sgt.nents,
 		i->size, given_iova);
@@ -106,7 +103,6 @@ vpu_mem_alloc(struct platform_device *pdev,
 	i->m.length = i->size;
 
 	goto out;
-
 error:
 	kvfree(kva);
 out:
@@ -118,7 +114,7 @@ void vpu_mem_free(struct vpu_mem *m)
 	kvfree((void *)m->va);
 }
 
-static struct page **
+static int
 vpu_map_kva_to_sgt(const char *buf, size_t len, struct sg_table *sgt)
 {
 	struct page **pages = NULL;
@@ -135,7 +131,7 @@ vpu_map_kva_to_sgt(const char *buf, size_t len, struct sg_table *sgt)
 	pages = kmalloc_array(nr_pages, sizeof(struct page *), GFP_KERNEL);
 
 	if (!pages)
-		return ERR_PTR(-ENOMEM);
+		return -ENOMEM;
 
 	p = buf - offset_in_page(buf);
 
@@ -145,9 +141,9 @@ vpu_map_kva_to_sgt(const char *buf, size_t len, struct sg_table *sgt)
 		else
 			pages[index] = kmap_to_page((void *)p);
 		if (!pages[index]) {
-			kfree(pages);
 			pr_info("%s: map failed\n", __func__);
-			return ERR_PTR(-EFAULT);
+			ret = -EFAULT;
+			goto out;
 		}
 		p += PAGE_SIZE;
 	}
@@ -160,13 +156,13 @@ vpu_map_kva_to_sgt(const char *buf, size_t len, struct sg_table *sgt)
 	if (ret) {
 		pr_info("%s: sg_alloc_table_from_pages: %d\n",
 			__func__, ret);
-		kfree(pages);
-		return ERR_PTR(ret);
+		goto out;
 	}
 
 	vpu_dump_sgt(sgt);
-
-	return pages;
+out:
+	kfree(pages);
+	return ret;
 }
 
 static dma_addr_t
@@ -229,22 +225,20 @@ vpu_map_sg_to_iova(
 
 static dma_addr_t
 vpu_map_to_iova(struct platform_device *pdev, void *addr, size_t len,
-	dma_addr_t given_iova, struct sg_table *sgt, struct page ***pages)
+	dma_addr_t given_iova, struct sg_table *sgt)
 {
 	dma_addr_t iova = 0;
-	struct page **p;
+	int ret;
 
-	if (!sgt || !pages)
+	if (!sgt)
 		goto out;
 
-	p = vpu_map_kva_to_sgt(addr, len, sgt);
+	ret = vpu_map_kva_to_sgt(addr, len, sgt);
 
-	if (IS_ERR_OR_NULL(p))
+	if (ret)
 		goto out;
 
 	iova = vpu_map_sg_to_iova(pdev, sgt->sgl, sgt->nents, len, given_iova);
-	*pages = p;
-
 out:
 	return iova;
 }
@@ -263,7 +257,6 @@ dma_addr_t vpu_iova_alloc(struct platform_device *pdev,
 	iova = i->addr ? i->addr : VPU_IOVA_END;
 
 	i->sgt.sgl = NULL;
-	i->pages = NULL;
 	i->m.handle = NULL;
 	i->m.va = 0;
 	i->m.pa = 0;
@@ -277,7 +270,7 @@ dma_addr_t vpu_iova_alloc(struct platform_device *pdev,
 	} else if (i->size) {
 		iova = vpu_map_to_iova(pdev,
 			(void *)(base + i->bin), i->size, iova,
-			&i->sgt, &i->pages);
+			&i->sgt);
 	} else {
 		dev_info(&pdev->dev,
 			"%s: unknown setting (%x, %x, %x)\n",
@@ -298,7 +291,6 @@ void vpu_iova_free(struct device *dev, struct vpu_iova *i)
 				   DMA_ATTR_SKIP_CPU_SYNC);
 		sg_free_table(&i->sgt);
 	}
-	kfree(i->pages);
 }
 
 void vpu_iova_sync_for_device(struct device *dev,
