@@ -1537,6 +1537,7 @@ unsigned int mt_gpufreq_get_min_power(void)
 			0 :
 			g_power_table[g_segment_min_opp_idx].gpufreq_power;
 }
+EXPORT_SYMBOL(mt_gpufreq_get_min_power);
 
 /* API : get idx on opp table */
 int mt_gpufreq_get_opp_idx_by_freq(unsigned int freq)
@@ -1551,6 +1552,7 @@ int mt_gpufreq_get_opp_idx_by_freq(unsigned int freq)
 EXIT:
 	return (i+1-g_segment_max_opp_idx);
 }
+EXPORT_SYMBOL(mt_gpufreq_get_opp_idx_by_freq);
 
 /* API : get power on power table */
 unsigned int mt_gpufreq_get_power_by_idx(int idx)
@@ -1564,6 +1566,7 @@ unsigned int mt_gpufreq_get_power_by_idx(int idx)
 	else
 		return 0;
 }
+EXPORT_SYMBOL(mt_gpufreq_get_power_by_idx);
 
 /* API : get static leakage power */
 unsigned int mt_gpufreq_get_leakage_mw(void)
@@ -1592,6 +1595,25 @@ unsigned int mt_gpufreq_get_leakage_mw(void)
 	return 130;
 #endif
 }
+EXPORT_SYMBOL(mt_gpufreq_get_leakage_mw);
+
+unsigned int mt_gpufreq_get_dyn_power(unsigned int freq_khz, unsigned int volt)
+{
+	unsigned int p_dynamic = 0;
+	unsigned int ref_freq = 0;
+	unsigned int ref_volt = 0;
+
+	p_dynamic = GPU_ACT_REF_POWER;
+	ref_freq = GPU_ACT_REF_FREQ;
+	ref_volt = GPU_ACT_REF_VOLT;
+
+	p_dynamic = p_dynamic *
+			((freq_khz * 100) / ref_freq) *
+			((volt * 100) / ref_volt) *
+			((volt * 100) / ref_volt) / (100 * 100 * 100);
+	return p_dynamic;
+}
+EXPORT_SYMBOL(mt_gpufreq_get_dyn_power);
 
 /* API : provide gpu lkg for swpm */
 unsigned int mt_gpufreq_get_leakage_no_lock(void)
@@ -1832,6 +1854,7 @@ void mt_gpufreq_thermal_protect(unsigned int limited_power)
 
 	mutex_unlock(&mt_gpufreq_power_lock);
 }
+EXPORT_SYMBOL(mt_gpufreq_thermal_protect);
 
 /* API : set limited OPP table index by PBM */
 void mt_gpufreq_set_power_limit_by_pbm(unsigned int limited_power)

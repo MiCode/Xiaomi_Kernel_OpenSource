@@ -37,6 +37,8 @@
 #define dev_pm_opp opp
 #endif
 
+#include "mtk_gpufreq.h"
+
 #define KBASE_IPA_FALLBACK_MODEL_NAME "mali-simple-power-model"
 
 static const struct kbase_ipa_model_ops *kbase_ipa_all_model_ops[] = {
@@ -658,16 +660,45 @@ int kbase_get_real_power(struct devfreq *df, u32 *power,
 }
 KBASE_EXPORT_TEST_API(kbase_get_real_power);
 
+unsigned long model_static_power(struct devfreq *devfreq,
+		unsigned long voltage_mv)
+{
+	(void)(voltage_mv);
+	return mt_gpufreq_get_leakage_mw();
+}
+
+unsigned long model_dynamic_power(struct devfreq *devfreq,
+		unsigned long freqHz,	unsigned long voltage_mv)
+{
+	return mt_gpufreq_get_dyn_power(freqHz/1000, voltage_mv * 100);
+}
+/* look-up power table with current freq */
+int modelget_real_power(struct devfreq *df, u32 *power,
+			      unsigned long freqHz, unsigned long voltage_mv)
+
+{
+	int opp_idx;
+
+	(void)(voltage_mv);
+	(void)(df);
+
+	opp_idx = mt_gpufreq_get_opp_idx_by_freq(freqHz / 1000);
+	if (power) /* return power */
+		*power = mt_gpufreq_get_power_by_idx(opp_idx);
+	/* assume success */
+	return 0;
+}
+
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 4, 0)
 struct devfreq_cooling_ops kbase_ipa_power_model_ops = {
 #else
 struct devfreq_cooling_power kbase_ipa_power_model_ops = {
 #endif
-	.get_static_power = &kbase_get_static_power,
-	.get_dynamic_power = &kbase_get_dynamic_power,
+	.get_static_power = &model_static_power,
+	.get_dynamic_power = &model_dynamic_power,
 #if defined(CONFIG_MALI_PWRSOFT_765) || \
 	LINUX_VERSION_CODE >= KERNEL_VERSION(4, 10, 0)
-	.get_real_power = &kbase_get_real_power,
+	.get_real_power = &modelget_real_power,
 #endif
 };
 KBASE_EXPORT_TEST_API(kbase_ipa_power_model_ops);

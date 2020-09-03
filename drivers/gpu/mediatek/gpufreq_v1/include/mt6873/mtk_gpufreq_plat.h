@@ -157,6 +157,10 @@ extern void mt_gpufreq_dump_infra_status(void);
 extern int mt_gpufreq_is_dfd_force_dump(void);
 extern void mt_gpufreq_software_trigger_dfd(void);
 extern void mt_gpufreq_wdt_reset(void);
+extern int mt_gpufreq_get_opp_idx_by_freq(unsigned int freq);
+extern unsigned int mt_gpufreq_get_dyn_power(unsigned int freq_khz, unsigned int volt);
+extern unsigned int mt_gpufreq_get_min_power(void);
+extern unsigned int mt_gpufreq_get_power_by_idx(int idx);
 
 /**
  * power limit notification

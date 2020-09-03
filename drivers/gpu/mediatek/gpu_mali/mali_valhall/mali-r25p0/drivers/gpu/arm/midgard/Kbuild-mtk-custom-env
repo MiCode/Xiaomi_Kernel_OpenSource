@@ -46,14 +46,17 @@ ccflags-y += -DCONFIG_PROC_FS
 ccflags-y += -DENABLE_MTK_MEMINFO
 ccflags-$(CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT) += -DENABLE_COMMON_DVFS
 
-ifneq (, $(findstring $(CONFIG_MTK_PLATFORM), "mt6885"))
-ccflags-y += -DGED_ENABLE_DVFS_LOADING_MODE
+
+ifeq ($(MTK_PLATFORM), mt6873)
+CONFIG_MALI_DEVFREQ := y
+ccflags-y += -DCONFIG_MALI_DEVFREQ
+#ccflags-y += -DGED_ENABLE_DVFS_LOADING_MODE
 endif
-ifneq (, $(findstring $(CONFIG_MTK_PLATFORM), "mt6873"))
-ccflags-y += -DGED_ENABLE_DVFS_LOADING_MODE
+ifeq ($(MTK_PLATFORM), mt6885)
+#ccflags-y += -DGED_ENABLE_DVFS_LOADING_MODE
 endif
-ifneq (, $(findstring $(CONFIG_MTK_PLATFORM), "mt6853"))
-ccflags-y += -DGED_ENABLE_DVFS_LOADING_MODE
+ifeq ($(MTK_PLATFORM), mt6853)
+#ccflags-y += -DGED_ENABLE_DVFS_LOADING_MODE
 endif
 
 
