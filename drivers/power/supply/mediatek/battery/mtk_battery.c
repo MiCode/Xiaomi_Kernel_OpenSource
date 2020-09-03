@@ -3501,7 +3501,7 @@ static ssize_t store_reset_aging_factor(
 		}
 		if (val == 0)
 			gm.is_reset_aging_factor = false;
-		else {
+		else if (val == 1) {
 			gm.is_reset_aging_factor = true;
 			wakeup_fg_algo_cmd(FG_INTR_KERNEL_CMD,
 				FG_KERNEL_CMD_RESET_AGING_FACTOR, 0);
