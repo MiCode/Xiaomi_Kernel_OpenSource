@@ -49,6 +49,7 @@ static int fsm_md_data_ioctl(int md_id, unsigned int cmd, unsigned long arg)
 				"%s-%d:snprintf fail,ret = %d\n", __func__, __LINE__, ret);
 			ret = -EFAULT;
 		}
+		ret = 0;
 		if (copy_to_user((void __user *)arg, MD_PLATFORM_INFO,
 				sizeof(MD_PLATFORM_INFO))) {
 			CCCI_ERROR_LOG(md_id, FSM,
