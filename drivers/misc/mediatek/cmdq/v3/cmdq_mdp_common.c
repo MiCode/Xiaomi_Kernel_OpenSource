@@ -136,6 +136,10 @@ struct mdp_context {
 
 	/* smi clock usage */
 	atomic_t mdp_smi_usage;
+
+	/* wake lock for prevent suspend */
+	struct wakeup_source wake_lock;
+	bool wake_locked;
 };
 static struct mdp_context mdp_ctx;
 static struct cmdq_buf_pool mdp_pool;
@@ -287,9 +291,27 @@ s32 cmdq_mdp_get_smi_usage(void)
 	return atomic_read(&mdp_ctx.mdp_smi_usage);
 }
 
+static void cmdq_mdp_lock_wake_lock(bool lock)
+{
+	if (lock) {
+		if (!mdp_ctx.wake_locked) {
+			__pm_stay_awake(&mdp_ctx.wake_lock);
+			mdp_ctx.wake_locked = true;
+		}
+	} else {
+		if (mdp_ctx.wake_locked) {
+			__pm_relax(&mdp_ctx.wake_lock);
+			mdp_ctx.wake_locked = false;
+		}
+	}
+}
+
 static void cmdq_mdp_common_clock_enable(void)
 {
 	s32 smi_ref = atomic_inc_return(&mdp_ctx.mdp_smi_usage);
+
+	if (smi_ref == 1)
+		cmdq_mdp_lock_wake_lock(true);
 
 	CMDQ_MSG("[CLOCK]MDP SMI clock enable %d\n", smi_ref);
 	cmdq_mdp_get_func()->mdpEnableCommonClock(true);
@@ -304,6 +326,9 @@ static void cmdq_mdp_common_clock_disable(void)
 
 	CMDQ_MSG("[CLOCK]MDP SMI clock disable %d\n", smi_ref);
 	cmdq_mdp_get_func()->mdpEnableCommonClock(false);
+
+	if (smi_ref == 0)
+		cmdq_mdp_lock_wake_lock(false);
 
 	CMDQ_PROF_MMP(cmdq_mmp_get_event()->MDP_clock_smi,
 		MMPROFILE_FLAG_PULSE, smi_ref, 0);
