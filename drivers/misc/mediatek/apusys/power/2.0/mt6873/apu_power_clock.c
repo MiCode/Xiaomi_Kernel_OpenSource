@@ -29,33 +29,6 @@ static struct clk *clk_top_dsp5_sel;
 static struct clk *clk_top_dsp5_apupll_sel;	/* MDLA0 */
 static struct clk *clk_top_ipu_if_sel;		/* VCORE */
 
-/* for vpu core 0 */
-static struct clk *clk_apu_core0_jtag_cg;
-static struct clk *clk_apu_core0_axi_m_cg;
-static struct clk *clk_apu_core0_apu_cg;
-
-/* for vpu core 1 */
-static struct clk *clk_apu_core1_jtag_cg;
-static struct clk *clk_apu_core1_axi_m_cg;
-static struct clk *clk_apu_core1_apu_cg;
-
-/* for mdla core 0 */
-static struct clk *clk_apu_mdla0_cg_b0;
-static struct clk *clk_apu_mdla0_cg_b1;
-static struct clk *clk_apu_mdla0_cg_b2;
-static struct clk *clk_apu_mdla0_cg_b3;
-static struct clk *clk_apu_mdla0_cg_b4;
-static struct clk *clk_apu_mdla0_cg_b5;
-static struct clk *clk_apu_mdla0_cg_b6;
-static struct clk *clk_apu_mdla0_cg_b7;
-static struct clk *clk_apu_mdla0_cg_b8;
-static struct clk *clk_apu_mdla0_cg_b9;
-static struct clk *clk_apu_mdla0_cg_b10;
-static struct clk *clk_apu_mdla0_cg_b11;
-static struct clk *clk_apu_mdla0_cg_b12;
-static struct clk *clk_apu_mdla0_apb_cg;
-static struct clk *clk_apu_mdla0_axi_m_cg;
-
 /* for dvfs clock parent */
 static struct clk *clk_top_clk26m;		//  26
 static struct clk *clk_top_mainpll_d4_d2;	// 273
@@ -226,7 +199,6 @@ int enable_apu_conn_vcore_clock(void)
 //per user
 int enable_apu_device_clock(enum DVFS_USER user)
 {
-	int ret = 0;
 	int ret_all = 0;
 
 	switch (user) {

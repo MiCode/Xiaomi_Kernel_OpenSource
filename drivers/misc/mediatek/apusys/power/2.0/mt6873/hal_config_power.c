@@ -320,7 +320,7 @@ static void hw_init_setting(void)
 #endif
 
 #if !BYPASS_POWER_OFF
-	rpc_power_status_check(0, 0);
+	//rpc_power_status_check(0, 0);
 	LOG_INF("%s done and request to enter sleep\n", __func__);
 #else
 	LOG_INF("%s done\n", __func__);
@@ -868,10 +868,10 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 			//udelay(100);
 
 			// conn disable mid stage, checking SPM flag
-			ret |= rpc_power_status_check(0, 2);
+			//ret |= rpc_power_status_check(0, 2);
 
 			// conn disable, checking APU_RPC_INTF_PWR_RDY
-			ret |= rpc_power_status_check(0, 0);
+			//ret |= rpc_power_status_check(0, 0);
 
 			ret |= set_apu_clock_source(VCORE_OFF_FREQ,
 								V_VCORE);
@@ -1237,11 +1237,7 @@ static int apusys_power_reg_dump(struct apu_power_info *info, int force)
 	unsigned int tmpVal = 0x0;
 
 	// FIXME: remove this code if 26MHz always on is ready after resume
-#ifndef APUSYS_POWER_BRINGUP
 	if (force == 0 && conn_mtcmos_on == 0) {
-#else
-	if (0) {
-#endif
 		LOG_WRN("APUREG dump bypass (conn mtcmos off)\n");
 		if (info != NULL) {
 			info->rpc_intf_rdy = 0xdb;

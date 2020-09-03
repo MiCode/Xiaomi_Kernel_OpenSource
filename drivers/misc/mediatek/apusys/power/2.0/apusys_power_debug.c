@@ -577,7 +577,7 @@ void apusys_power_debugfs_init(struct apusys_core_info *info)
 
 	mutex_init(&power_fix_dvfs_mtx);
 
-	apusys_power_dir = debugfs_create_dir("power", info->dbg_root);
+	apusys_power_dir = debugfs_create_dir("apupwr", info->dbg_root);
 
 	ret = IS_ERR_OR_NULL(apusys_power_dir);
 	if (ret) {
@@ -589,6 +589,12 @@ void apusys_power_debugfs_init(struct apusys_core_info *info)
 		apusys_power_dir, NULL, &apusys_debug_power_fops);
 	debugfs_create_file("power_dump_fail_log", (0644),
 		apusys_power_dir, NULL, &apusys_power_fail_fops);
+
+	debugfs_create_symlink("power", info->dbg_root,
+		"./apupwr/power");
+	debugfs_create_symlink("power_dump_fail_log", info->dbg_root,
+		"./apupwr/power_dump_fail_log");
+
 }
 
 void apusys_power_debugfs_exit(void)

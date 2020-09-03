@@ -25,7 +25,7 @@ static const char *efuse_field[APUSYS_EFUSE_NUM] = {
 int init_platform_resource(struct platform_device *pdev,
 struct hal_param_init_power *init_power_data)
 {
-	int err = 0;
+	int err = 0, i = 0;
 	struct nvmem_cell *cell[APUSYS_EFUSE_NUM];
 	uint32_t *buf[APUSYS_EFUSE_NUM];
 	size_t len[APUSYS_EFUSE_NUM];
@@ -54,7 +54,7 @@ struct hal_param_init_power *init_power_data)
 	apu_dev = &pdev->dev;
 #endif
 
-	for (int i = 0; i < APUSYS_EFUSE_NUM; i++) {
+	for (i = 0; i < APUSYS_EFUSE_NUM; i++) {
 		cell[i] = nvmem_cell_get(apusys_dev, efuse_field[i]);
 		if (IS_ERR(cell[i])) {
 			if (PTR_ERR(cell[i]) == -EPROBE_DEFER)
