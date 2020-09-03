@@ -2484,3 +2484,6 @@
   ufshcd_pltfrm_shutdown
   ufshcd_pltfrm_suspend
   ufshcd_remove
+
+# required by sprd_sip_svc.ko
+  __arm_smccc_smc

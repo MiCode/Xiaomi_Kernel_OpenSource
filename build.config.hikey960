@@ -15,3 +15,4 @@ arch/arm64/boot/dts/hisilicon/hi3660-hikey960.dtb
 vmlinux
 System.map
 "
+KMI_SYMBOL_LIST=android/abi_gki_aarch64_hikey960

@@ -16,6 +16,7 @@
 #include <linux/soc/mediatek/mtk_sip_svc.h>
 
 #include "ufshcd.h"
+#include "ufshcd-crypto.h"
 #include "ufshcd-pltfrm.h"
 #include "ufs_quirks.h"
 #include "unipro.h"
@@ -25,6 +26,9 @@
 	arm_smccc_smc(MTK_SIP_UFS_CONTROL, \
 		      cmd, val, 0, 0, 0, 0, 0, &(res))
 
+#define ufs_mtk_crypto_ctrl(res, enable) \
+	ufs_mtk_smc(UFS_MTK_SIP_CRYPTO_CTRL, enable, res)
+
 #define ufs_mtk_ref_clk_notify(on, res) \
 	ufs_mtk_smc(UFS_MTK_SIP_REF_CLK_NOTIFICATION, on, res)
 
@@ -32,6 +36,8 @@
 	ufs_mtk_smc(UFS_MTK_SIP_DEVICE_RESET, high, res)
 
 static struct ufs_dev_fix ufs_mtk_dev_fixups[] = {
+	UFS_FIX(UFS_VENDOR_MICRON, UFS_ANY_MODEL,
+		UFS_DEVICE_QUIRK_DELAY_AFTER_LPM),
 	UFS_FIX(UFS_VENDOR_SKHYNIX, "H9HQ21AFAMZDAR",
 		UFS_DEVICE_QUIRK_SUPPORT_EXTENDED_FEATURES),
 	END_FIX
@@ -73,6 +79,18 @@ static void ufs_mtk_cfg_unipro_cg(struct ufs_hba *hba, bool enable)
 	}
 }
 
+static void ufs_mtk_crypto_enable(struct ufs_hba *hba)
+{
+	struct arm_smccc_res res;
+
+	ufs_mtk_crypto_ctrl(res, 1);
+	if (res.a0) {
+		dev_info(hba->dev, "%s: crypto enable failed, err: %lu\n",
+			 __func__, res.a0);
+		hba->caps &= ~UFSHCD_CAP_CRYPTO;
+	}
+}
+
 static int ufs_mtk_hce_enable_notify(struct ufs_hba *hba,
 				     enum ufs_notify_change_status status)
 {
@@ -83,6 +101,9 @@ static int ufs_mtk_hce_enable_notify(struct ufs_hba *hba,
 			hba->vps->hba_enable_delay_us = 0;
 		else
 			hba->vps->hba_enable_delay_us = 600;
+
+		if (ufshcd_hba_is_crypto_supported(hba))
+			ufs_mtk_crypto_enable(hba);
 	}
 
 	return 0;
@@ -191,7 +212,7 @@ int ufs_mtk_wait_link_state(struct ufs_hba *hba, u32 state,
 	ktime_t timeout, time_checked;
 	u32 val;
 
-	timeout = ktime_add_us(ktime_get(), ms_to_ktime(max_wait_ms));
+	timeout = ktime_add_ms(ktime_get(), max_wait_ms);
 	do {
 		time_checked = ktime_get();
 		ufshcd_writel(hba, 0x20, REG_UFS_DEBUG_SEL);
@@ -316,6 +337,9 @@ static int ufs_mtk_init(struct ufs_hba *hba)
 
 	/* Enable clock-gating */
 	hba->caps |= UFSHCD_CAP_CLK_GATING;
+
+	/* Enable inline encryption */
+	hba->caps |= UFSHCD_CAP_CRYPTO;
 
 	/* Enable WriteBooster */
 	hba->caps |= UFSHCD_CAP_WB_EN;
@@ -552,7 +576,7 @@ static int ufs_mtk_link_set_lpm(struct ufs_hba *hba)
 
 static void ufs_mtk_vreg_set_lpm(struct ufs_hba *hba, bool lpm)
 {
-	if (!hba->vreg_info.vccq2)
+	if (!hba->vreg_info.vccq2 || !hba->vreg_info.vcc)
 		return;
 
 	if (lpm & !hba->vreg_info.vcc->enabled)

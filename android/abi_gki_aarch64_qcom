@@ -1129,6 +1129,10 @@
   input_unregister_device
   input_unregister_handle
   input_unregister_handler
+  interval_tree_insert
+  interval_tree_iter_first
+  interval_tree_iter_next
+  interval_tree_remove
   int_to_scsilun
   invalidate_mapping_pages
   iomem_resource
@@ -1212,6 +1216,7 @@
   irq_get_irq_data
   irq_modify_status
   irq_of_parse_and_map
+  irq_work_queue
   irq_set_affinity_hint
   irq_set_affinity_notifier
   irq_set_chained_handler_and_data
@@ -1365,6 +1370,7 @@
   __media_device_register
   media_device_unregister
   media_entity_pads_init
+  memblock_free
   memchr
   memcmp
   memcpy
@@ -2803,6 +2809,7 @@
   wiphy_new_nm
   wiphy_register
   wiphy_unregister
+wireless_send_event
   woken_wake_function
   work_busy
   would_dump

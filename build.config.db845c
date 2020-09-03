@@ -12,3 +12,4 @@ arch/arm64/boot/dts/qcom/sdm845-db845c.dtb
 vmlinux
 System.map
 "
+KMI_SYMBOL_LIST=android/abi_gki_aarch64_db845c
