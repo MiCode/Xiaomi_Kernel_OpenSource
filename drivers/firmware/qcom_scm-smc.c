@@ -2086,6 +2086,38 @@ int __qcom_scm_qseecom_do(struct device *dev, u32 cmd_id, struct scm_desc *desc,
 	return _ret;
 }
 
+#ifdef CONFIG_QCOM_RTIC
+
+#define TZ_RTIC_ENABLE_MEM_PROTECTION	0x4
+int  __init scm_mem_protection_init_do(struct device *dev)
+{
+	int ret = 0, resp;
+	struct qcom_scm_desc desc = {
+		.svc = SCM_SVC_RTIC,
+		.cmd = TZ_RTIC_ENABLE_MEM_PROTECTION,
+		.owner = ARM_SMCCC_OWNER_SIP,
+	};
+
+	desc.args[0] = 0;
+	desc.arginfo = 0;
+
+	ret = qcom_scm_call(dev, &desc);
+	resp = desc.res[0];
+
+	if (ret == -1) {
+		pr_err("%s: SCM call not supported\n", __func__);
+		return ret;
+	} else if (ret || resp) {
+		pr_err("%s: SCM call failed\n", __func__);
+		if (ret)
+			return ret;
+		else
+			return resp;
+	}
+	return resp;
+}
+#endif
+
 void __qcom_scm_init(void)
 {
 	__query_convention();
