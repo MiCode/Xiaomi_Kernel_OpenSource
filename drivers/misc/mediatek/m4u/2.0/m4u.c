@@ -2120,13 +2120,12 @@ out:
 
 #endif
 
-#ifdef M4U_GZ_SERVICE_ENABLE
 int m4u_gz_sec_init(int mtk_iommu_sec_id)
 {
 	M4UMSG("%s : do nothing!!\n", __func__);
 	return 0;
 }
-
+#ifdef M4U_GZ_SERVICE_ENABLE
 int m4u_map_gz_nonsec_buf(int iommu_sec_id, int port, unsigned long mva,
 		unsigned long size)
 {
