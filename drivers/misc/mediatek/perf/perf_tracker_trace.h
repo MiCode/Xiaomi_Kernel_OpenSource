@@ -61,6 +61,22 @@ TRACE_EVENT(perf_index_gpu,
 		__entry->lens, sizeof(u32)))
 );
 
+TRACE_EVENT(perf_index_sbin,
+	TP_PROTO(u32 *raw_data, u32 lens),
+	TP_ARGS(raw_data, lens),
+	TP_STRUCT__entry(
+		__dynamic_array(u32, raw_data, lens)
+		__field(u32, lens)
+	),
+	TP_fast_assign(
+		memcpy(__get_dynamic_array(raw_data), raw_data,
+			lens * sizeof(u32));
+		__entry->lens = lens;
+	),
+	TP_printk("data=%s", __print_array(__get_dynamic_array(raw_data),
+		__entry->lens, sizeof(u32)))
+);
+
 TRACE_EVENT(socket_packet,
 
 	TP_PROTO(
