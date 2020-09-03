@@ -774,8 +774,3 @@
 		};
 	};
 };
-
-&qupv3_se2_i2c {
-	qcom,clk-freq-out = <400000>;
-	status = "ok";
-};
