@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0
 export MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
+obj-$(CONFIG_MTK_SLBC) += slbc/
 obj-$(CONFIG_MTK_CM_MGR) += cm_mgr/
 obj-$(CONFIG_MTK_QOS_FRAMEWORK) += qos/
 obj-$(CONFIG_MTK_CCCI_DEVICES)	+=  ccci_util/
