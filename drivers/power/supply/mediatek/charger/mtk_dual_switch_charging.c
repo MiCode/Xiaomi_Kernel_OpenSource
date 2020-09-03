@@ -481,8 +481,13 @@ done:
 		}
 	}
 
-	charger_dev_get_min_charging_current(info->chg1_dev, &ichg1_min);
-	charger_dev_get_min_input_current(info->chg1_dev, &aicr1_min);
+	ret = charger_dev_get_min_charging_current(info->chg1_dev, &ichg1_min);
+	if (ret < 0)
+		chr_err("charger_dev_get_min_charging_current not support.");
+
+	ret = charger_dev_get_min_input_current(info->chg1_dev, &aicr1_min);
+	if (ret < 0)
+		chr_err("charger_dev_get_min_charging_current not support.");
 
 	/*
 	 * If thermal current limit is larger than charging IC's minimum
