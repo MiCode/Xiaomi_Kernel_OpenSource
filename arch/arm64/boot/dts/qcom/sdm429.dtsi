@@ -1516,6 +1516,61 @@
 		interrupt-names = "tsens-upper-lower";
 		#thermal-sensor-cells = <1>;
 	};
+
+	dcc: dcc@b3000 {
+		compatible = "qcom,dcc";
+		reg = <0xb3000 0x1000>,
+		      <0xb4000 0x2000>;
+		reg-names = "dcc-base", "dcc-ram-base";
+
+		clocks = <&gcc GCC_DCC_CLK>;
+		clock-names = "dcc_clk";
+		qcom,save-reg;
+	};
+
+	jtag_mm0: jtagmm@61bc000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x61bc000 0x1000>;
+		reg-names = "etm-base";
+
+		qcom,coresight-jtagmm-cpu = <&CPU0>;
+
+		clocks = <&rpmcc RPM_SMD_QDSS_CLK>;
+		clock-names = "core_clk";
+	};
+
+	jtag_mm1: jtagmm@61bd000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x61bd000 0x1000>;
+		reg-names = "etm-base";
+
+		qcom,coresight-jtagmm-cpu = <&CPU1>;
+
+		clocks = <&rpmcc RPM_SMD_QDSS_CLK>;
+		clock-names = "core_clk";
+	};
+
+	jtag_mm2: jtagmm@61be000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x61be000 0x1000>;
+		reg-names = "etm-base";
+
+		qcom,coresight-jtagmm-cpu = <&CPU2>;
+
+		clocks = <&rpmcc RPM_SMD_QDSS_CLK>;
+		clock-names = "core_clk";
+	};
+
+	jtag_mm3: jtagmm@61bf000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x61bf000 0x1000>;
+		reg-names = "etm-base";
+
+		qcom,coresight-jtagmm-cpu = <&CPU3>;
+
+		clocks = <&rpmcc RPM_SMD_QDSS_CLK>;
+		clock-names = "core_clk";
+	};
 };
 
 #include "sdm429-gdsc.dtsi"
@@ -1525,6 +1580,7 @@
 #include "sdm429-mdss-pll.dtsi"
 #include "sdm429-audio.dtsi"
 #include "sdm429-thermal.dtsi"
+#include "sdm429-coresight.dtsi"
 
 &venus_gdsc {
 	clock-names = "bus_clk", "core_clk";
