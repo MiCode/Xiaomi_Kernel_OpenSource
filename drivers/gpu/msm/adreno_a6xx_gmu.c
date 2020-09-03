@@ -2428,10 +2428,9 @@ static void a6xx_gmu_acd_probe(struct kgsl_device *device,
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-	struct kgsl_pwrlevel *pwrlevel =
-			&pwr->pwrlevels[pwr->num_pwrlevels - 1];
 	struct hfi_acd_table_cmd *cmd = &gmu->hfi.acd_table;
-	int ret, i, cmd_idx = 0;
+	u32 acd_level, cmd_idx, numlvl = pwr->num_pwrlevels;
+	int ret, i;
 
 	if (!ADRENO_FEATURE(adreno_dev, ADRENO_ACD))
 		return;
@@ -2441,17 +2440,12 @@ static void a6xx_gmu_acd_probe(struct kgsl_device *device,
 	cmd->stride = 1;
 	cmd->enable_by_level = 0;
 
-	/*
-	 * Iterate through each gpu power level and generate a mask for GMU
-	 * firmware for ACD enabled levels and store the corresponding control
-	 * register configurations to the acd_table structure.
-	 */
-	for (i = 0; i < pwr->num_pwrlevels; i++) {
-		if (pwrlevel->acd_level) {
-			cmd->enable_by_level |= (1 << (i + 1));
-			cmd->data[cmd_idx++] = pwrlevel->acd_level;
+	for (i = 0, cmd_idx = 0; i < numlvl; i++) {
+		acd_level = pwr->pwrlevels[numlvl - i].acd_level;
+		if (acd_level) {
+			cmd->enable_by_level |= (1 << i);
+			cmd->data[cmd_idx++] = acd_level;
 		}
-		pwrlevel--;
 	}
 
 	if (!cmd->enable_by_level)
