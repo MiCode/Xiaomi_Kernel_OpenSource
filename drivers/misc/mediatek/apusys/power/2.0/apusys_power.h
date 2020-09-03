@@ -6,6 +6,7 @@
 #ifndef _APUSYS_POWER_H_
 #define _APUSYS_POWER_H_
 
+#include <linux/platform_device.h>
 #include "apusys_power_user.h"
 
 struct profiling_timestamp {

@@ -538,13 +538,9 @@ int config_vcore(enum DVFS_USER user, int vcore_opp)
 	int ret = 0;
 	static unsigned int vpu0_vcore_opp, mdla0_vcore_opp;
 
-	//[Fix me] block at regulator_set_voltage
-	return 0;
-
 	if ((user != VPU0) && (user != MDLA0))
 		return 0;
 
-	spin_lock(&ipuif_lock);
 	if (user == VPU0)
 		vpu0_vcore_opp = vcore_opp;
 	else if (user == MDLA0)
@@ -553,9 +549,10 @@ int config_vcore(enum DVFS_USER user, int vcore_opp)
 
 	LOG_DBG("%s vcore_opp: %d = MIN( v0: %d, m0: %d)\n",
 				__func__, vcore_opp, vpu0_vcore_opp, mdla0_vcore_opp);
-	spin_unlock(&ipuif_lock);
 
 	ret = regulator_set_voltage(vcore_reg_id, vcore_opp_mapping[vcore_opp], INT_MAX);
+
+	LOG_DBG("%s vcore_opp done\n", __func__);
 
 	return ret;
 }
