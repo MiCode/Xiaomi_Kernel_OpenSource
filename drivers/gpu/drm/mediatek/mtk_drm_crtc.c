@@ -6499,7 +6499,11 @@ void mtk_need_vds_path_switch(struct drm_crtc *crtc)
 	int index = drm_crtc_index(crtc);
 	int i = 0;
 	int comp_nr = 0;
-	int old_comp_nr = 0;
+
+	if (!(priv && mtk_crtc && (index >= 0))) {
+		DDPPR_ERR("%s:%d:Error Invalid params\n");
+		return;
+	}
 
 	/* In order to confirm it will be called one time,
 	 * when switch to or switch back, So need some flags
@@ -6544,15 +6548,22 @@ void mtk_need_vds_path_switch(struct drm_crtc *crtc)
 			cmdq_pkt_destroy(cmdq_handle);
 
 			CRTC_MMP_MARK(index, path_switch, 0xFFFF, 1);
-			DDPINFO("Switch ovl0_2l to vds\n");
+			DDPMSG("Switch ovl0_2l to vds\n");
 
+			/* Update ddp ctx ddp_comp_nr */
 			mtk_crtc->ddp_ctx[DDP_MAJOR].ddp_comp_nr[DDP_FIRST_PATH]
 				= mtk_crtc->path_data->path_len[
 				DDP_MAJOR][DDP_FIRST_PATH] - 1;
-			comp_nr = mtk_crtc->ddp_ctx[
-				DDP_MAJOR].ddp_comp_nr[DDP_FIRST_PATH];
-			old_comp_nr = mtk_crtc->path_data->path_len[
+			/* Update ddp ctx ddp_comp */
+			comp_nr = mtk_crtc->path_data->path_len[
 				DDP_MAJOR][DDP_FIRST_PATH];
+			for (i = 0; i < comp_nr - 1; i++)
+				mtk_crtc->ddp_ctx[
+					DDP_MAJOR].ddp_comp[DDP_FIRST_PATH][i] =
+					mtk_crtc->ddp_ctx[
+					DDP_MAJOR].ddp_comp[DDP_FIRST_PATH][i+1];
+			mtk_crtc_attach_ddp_comp(crtc, mtk_crtc->ddp_mode, true);
+			/* Update Switch done flag */
 			priv->vds_path_switch_done = 1;
 		/* Switch main display path, take back ovl0_2l to main display */
 		} else {
@@ -6587,6 +6598,7 @@ void mtk_need_vds_path_switch(struct drm_crtc *crtc)
 				mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base),
 				cmdq_handle, 0);
 
+			/* Switch back need reprepare ovl0_2l */
 			mtk_ddp_comp_prepare(comp_ovl0_2l);
 			mtk_ddp_comp_start(comp_ovl0_2l, cmdq_handle);
 
@@ -6594,75 +6606,29 @@ void mtk_need_vds_path_switch(struct drm_crtc *crtc)
 			cmdq_pkt_destroy(cmdq_handle);
 
 			CRTC_MMP_MARK(index, path_switch, 0xFFFF, 2);
-			DDPINFO("Switch ovl0_2l to main disp\n");
+			DDPMSG("Switch ovl0_2l to main disp\n");
 
+			/* Update ddp ctx ddp_comp_nr */
 			mtk_crtc->ddp_ctx[DDP_MAJOR].ddp_comp_nr[DDP_FIRST_PATH]
 				= mtk_crtc->path_data->path_len[
 				DDP_MAJOR][DDP_FIRST_PATH];
-			comp_nr = mtk_crtc->ddp_ctx[
-				DDP_MAJOR].ddp_comp_nr[DDP_FIRST_PATH];
-			old_comp_nr = mtk_crtc->path_data->path_len[
-				DDP_MAJOR][DDP_FIRST_PATH] - 1;
-
+			/* Update ddp ctx ddp_comp */
+			comp_nr = mtk_crtc->path_data->path_len[
+				DDP_MAJOR][DDP_FIRST_PATH];
+			for (i = comp_nr - 1; i > 0; i--)
+				mtk_crtc->ddp_ctx[
+					DDP_MAJOR].ddp_comp[DDP_FIRST_PATH][i] =
+					mtk_crtc->ddp_ctx[
+					DDP_MAJOR].ddp_comp[DDP_FIRST_PATH][i-1];
+			mtk_crtc->ddp_ctx[
+				DDP_MAJOR].ddp_comp[DDP_FIRST_PATH][0] =
+				priv->ddp_comp[DDP_COMPONENT_OVL0_2L];
+			mtk_crtc_attach_ddp_comp(crtc, mtk_crtc->ddp_mode, true);
+			/* Update Switch done flag */
 			priv->vds_path_switch_dirty = 0;
 		}
 
-		CRTC_MMP_MARK(index, path_switch, 0xFFFF, comp_nr);
-
-		/* Free old path ctx and reload new path ctx */
-		for (i = 0; i < old_comp_nr; i++) {
-			enum mtk_ddp_comp_id comp_id;
-			struct mtk_ddp_comp *comp;
-
-			comp = mtk_crtc->ddp_ctx[DDP_MAJOR].ddp_comp[
-					DDP_FIRST_PATH][i];
-			comp_id = comp->id;
-
-			if (mtk_ddp_comp_get_type(comp_id) ==
-				MTK_DISP_VIRTUAL) {
-				kfree(comp);
-				continue;
-			}
-		}
-		devm_kfree(crtc->dev->dev,
-			mtk_crtc->ddp_ctx[DDP_MAJOR].ddp_comp[DDP_FIRST_PATH]);
-		mtk_crtc->ddp_ctx[DDP_MAJOR].ddp_comp[DDP_FIRST_PATH] =
-			devm_kmalloc_array(crtc->dev->dev, comp_nr,
-				sizeof(struct mtk_ddp_comp *), GFP_KERNEL);
-
-		for (i = 0; i < comp_nr; i++) {
-			struct mtk_ddp_comp *comp;
-			struct device_node *node;
-			enum mtk_ddp_comp_id comp_id;
-
-			if (priv->need_vds_path_switch)
-				comp_id = mtk_crtc->path_data->path[
-					DDP_MAJOR][DDP_FIRST_PATH][i+1];
-			else
-				comp_id = mtk_crtc->path_data->path[
-					DDP_MAJOR][DDP_FIRST_PATH][i];
-
-			CRTC_MMP_MARK(index, path_switch, i, comp_id);
-
-			if (mtk_ddp_comp_get_type(comp_id) ==
-				MTK_DISP_VIRTUAL) {
-				struct mtk_ddp_comp *comp;
-
-				comp = kzalloc(sizeof(*comp), GFP_KERNEL);
-				comp->id = comp_id;
-				mtk_crtc->ddp_ctx[DDP_MAJOR].ddp_comp[
-					DDP_FIRST_PATH][i] = comp;
-				continue;
-			}
-
-			node = priv->comp_node[comp_id];
-			comp = priv->ddp_comp[comp_id];
-
-			mtk_crtc->ddp_ctx[
-				DDP_MAJOR].ddp_comp[DDP_FIRST_PATH][i] = comp;
-			comp->mtk_crtc = mtk_crtc;
-		}
-
+		DDPMSG("Switch ovl0_2l Done\n");
 		CRTC_MMP_EVENT_END(index, path_switch, crtc->enabled, 0);
 	}
 }
