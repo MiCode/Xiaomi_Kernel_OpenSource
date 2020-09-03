@@ -43,7 +43,7 @@ void kgsl_snapshot_push_object(struct kgsl_device *device,
 	int index;
 	struct kgsl_mem_entry *entry;
 
-	if (process == NULL)
+	if (process == NULL || gpuaddr == 0)
 		return;
 
 	/*
