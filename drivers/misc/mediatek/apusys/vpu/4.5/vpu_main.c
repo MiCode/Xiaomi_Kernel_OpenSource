@@ -17,6 +17,7 @@
 /* internal headers */
 #include "vpu_cfg.h"
 #include "apusys_power.h"
+#include "apusys_core.h"
 #include "vpu_cfg.h"
 #include "vpu_power.h"
 #include "vpu_cmd.h"

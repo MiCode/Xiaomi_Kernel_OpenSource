@@ -173,7 +173,7 @@ static int vpu_xos_wait_idle(struct vpu_device *vd)
 static inline
 int vpu_reg_lock(struct vpu_device *vd, bool boot, unsigned long *flags)
 {
-	int ret;
+	int ret = 0;
 	struct vpu_sys_ops *sops = vd_sops(vd);
 
 	if (sops->xos_lock)

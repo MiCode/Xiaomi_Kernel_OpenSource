@@ -253,7 +253,7 @@ out:
 static dma_addr_t
 vpu_map_sg_to_iova_v2(
 	struct device *dev, struct scatterlist *sg,
-	unsigned int nents,	size_t len, dma_addr_t given_iova)
+	unsigned int nents, size_t len, dma_addr_t given_iova)
 {
 	struct iommu_domain *domain;
 	dma_addr_t iova = 0;
@@ -261,7 +261,6 @@ vpu_map_sg_to_iova_v2(
 	struct vpu_config *cfg = vpu_drv->vp->cfg;
 	struct vpu_device *vd = dev_get_drvdata(dev);
 	int prot = IOMMU_READ | IOMMU_WRITE;
-	uint32_t addr;
 	u64 bank = cfg->iova_bank;
 
 	domain = iommu_get_domain_for_dev(dev);
@@ -415,7 +414,6 @@ static dma_addr_t vpu_iova_alloc(struct device *dev,
 	unsigned long base = (unsigned long)vpu_drv->bin_va;
 	struct vpu_config *cfg = vpu_drv->vp->cfg;
 	struct vpu_device *vd = dev_get_drvdata(dev);
-	unsigned long flags;
 
 	if (!dev || !i || !i->size)
 		goto out;
