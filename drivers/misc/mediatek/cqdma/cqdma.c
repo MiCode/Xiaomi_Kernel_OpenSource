@@ -180,7 +180,7 @@ static DEFINE_SPINLOCK(dma_drv_lock);
  * @chan: specify a channel or not
  * Return channel number for success; return negative errot code for failure.
  */
-int mt_req_gdma(int chan)
+int mt_req_gdma(unsigned int chan)
 {
 	unsigned long flags;
 	int i;
@@ -238,7 +238,7 @@ EXPORT_SYMBOL(mt_req_gdma);
  * @channel: GDMA channel to start
  * Return 0 for success; return negative errot code for failure.
  */
-int mt_start_gdma(int channel)
+int mt_start_gdma(unsigned int channel)
 {
 	if ((channel < GDMA_START) ||
 			(channel >= (GDMA_START + nr_cqdma_channel)))
@@ -262,7 +262,7 @@ EXPORT_SYMBOL(mt_start_gdma);
  * Return 1 for timeout
  * return negative errot code for failure.
  */
-int mt_polling_gdma(int channel, unsigned long timeout)
+int mt_polling_gdma(unsigned int channel, unsigned long timeout)
 {
 	if (channel < GDMA_START)
 		return -DMA_ERR_INVALID_CH;
@@ -292,7 +292,7 @@ EXPORT_SYMBOL(mt_polling_gdma);
  * @channel: GDMA channel to stop
  * Return 0 for success; return negative errot code for failure.
  */
-int mt_stop_gdma(int channel)
+int mt_stop_gdma(unsigned int channel)
 {
 	if (channel < GDMA_START)
 		return -DMA_ERR_INVALID_CH;
@@ -321,7 +321,7 @@ EXPORT_SYMBOL(mt_stop_gdma);
  * @flag: ALL, SRC, DST, or SRC_AND_DST.
  * Return 0 for success; return negative errot code for failure.
  */
-int mt_config_gdma(int channel, struct mt_gdma_conf *config, int flag)
+int mt_config_gdma(unsigned int channel, struct mt_gdma_conf *config, int flag)
 {
 	unsigned int dma_con = 0x0, limiter = 0;
 
@@ -486,7 +486,7 @@ EXPORT_SYMBOL(mt_config_gdma);
  * @channel: channel to free
  * Return 0 for success; return negative errot code for failure.
  */
-int mt_free_gdma(int channel)
+int mt_free_gdma(unsigned int channel)
 {
 	if (channel < GDMA_START)
 		return -DMA_ERR_INVALID_CH;
@@ -520,7 +520,7 @@ EXPORT_SYMBOL(mt_free_gdma);
  * @channel: GDMA channel to dump registers
  * Return 0 for success; return negative errot code for failure.
  */
-int mt_dump_gdma(int channel)
+int mt_dump_gdma(unsigned int channel)
 {
 	unsigned int i;
 
@@ -539,7 +539,7 @@ EXPORT_SYMBOL(mt_dump_gdma);
  * @channel: GDMA channel to warm reset
  * Return 0 for success; return negative errot code for failure.
  */
-int mt_warm_reset_gdma(int channel)
+int mt_warm_reset_gdma(unsigned int channel)
 {
 	if (channel < GDMA_START)
 		return -DMA_ERR_INVALID_CH;
@@ -564,7 +564,7 @@ EXPORT_SYMBOL(mt_warm_reset_gdma);
  * @channel: GDMA channel to hard reset
  * Return 0 for success; return negative errot code for failure.
  */
-int mt_hard_reset_gdma(int channel)
+int mt_hard_reset_gdma(unsigned int channel)
 {
 	if (channel < GDMA_START)
 		return -DMA_ERR_INVALID_CH;
@@ -589,7 +589,7 @@ EXPORT_SYMBOL(mt_hard_reset_gdma);
  * @channel: GDMA channel to reset
  * Return 0 for success; return negative errot code for failure.
  */
-int mt_reset_gdma(int channel)
+int mt_reset_gdma(unsigned int channel)
 {
 	if (channel < GDMA_START)
 		return -DMA_ERR_INVALID_CH;
