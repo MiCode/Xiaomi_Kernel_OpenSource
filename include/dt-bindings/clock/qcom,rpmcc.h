@@ -151,5 +151,6 @@
 #define RPM_SMD_RF_CLK5_A			109
 #define RPM_SMD_RF_CLK5_PIN			110
 #define RPM_SMD_RF_CLK5_A_PIN			111
+#define RPM_SMD_BIMC_FREQ_LOG			112
 
 #endif
