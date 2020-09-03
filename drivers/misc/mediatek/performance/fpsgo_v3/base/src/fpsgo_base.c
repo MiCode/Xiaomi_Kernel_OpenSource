@@ -20,19 +20,28 @@
 #include "fbt_cpu.h"
 #include "fbt_cpu_platform.h"
 #include "fps_composer.h"
-#define API_READY 0
+#include "fpsgo.h"
+#define API_READY 1
 
 #include <linux/preempt.h>
 #include <linux/trace_events.h>
 #include <linux/fs.h>
 #include <linux/rbtree.h>
-#if API_READY
-#include <trace/events/fpsgo.h>
-#endif
 #include <linux/sched/task.h>
+#include <linux/kernel.h>
+#include <trace/trace.h>
 
 #define TIME_1S  1000000000ULL
 #define TRAVERSE_PERIOD  300000000000ULL
+
+#define event_trace(ip, fmt, args...) \
+do { \
+	__trace_printk_check_format(fmt, ##args);     \
+	static const char *trace_printk_fmt     \
+	__section(__trace_printk_fmt) =  \
+	__builtin_constant_p(fmt) ? fmt : NULL;   \
+	__trace_bprintk(ip, trace_printk_fmt, ##args);    \
+} while (0)
 
 static struct kobject *base_kobj;
 static struct rb_root render_pid_tree;
@@ -47,7 +56,7 @@ static DEFINE_MUTEX(fpsgo_render_lock);
 struct task_struct *find_task_by_pid_ns(pid_t nr, struct pid_namespace *ns)
 {
 	RCU_LOCKDEP_WARN(!rcu_read_lock_held(),
-			 "%s() needs rcu_read_lock() protection", __func__);
+			 "needs rcu_read_lock() protection");
 	return pid_task(find_pid_ns(nr, ns), PIDTYPE_PID);
 }
 
@@ -103,19 +112,7 @@ static const char * const mask_string[] = {
 
 static int fpsgo_update_tracemark(void)
 {
-#if API_READY
-	if (mark_addr)
-		return 1;
-
-	mark_addr = kallsyms_lookup_name("tracing_mark_write");
-
-	if (unlikely(!mark_addr))
-		return 0;
-
 	return 1;
-#else
-	return 1;
-#endif
 }
 
 void __fpsgo_systrace_c(pid_t pid, unsigned long long bufID,
@@ -141,16 +138,17 @@ void __fpsgo_systrace_c(pid_t pid, unsigned long long bufID,
 #if API_READY
 	if (!bufID) {
 		preempt_disable();
-		event_trace_printk(mark_addr, "C|%d|%s|%d\n", pid, log, val);
+		event_trace(mark_addr, "C|%d|%s|%d\n", pid, log, val);
 		preempt_enable();
 	} else {
 		preempt_disable();
-		event_trace_printk(mark_addr, "C|%d|%s|%d|0x%llx\n",
+		event_trace(mark_addr, "C|%d|%s|%d|0x%llx\n",
 			pid, log, val, bufID);
 		preempt_enable();
 	}
 #else
-	pr_debug("C|%d|%s|%d\n", pid, log, val);
+	//pr_debug("C|%d|%s|%d\n", pid, log, val);
+	trace_printk("C|%d|%s|%d\n", pid, log, val);
 #endif
 }
 
@@ -175,10 +173,11 @@ void __fpsgo_systrace_b(pid_t tgid, const char *fmt, ...)
 
 #if API_READY
 	preempt_disable();
-	event_trace_printk(mark_addr, "B|%d|%s\n", tgid, log);
+	event_trace(mark_addr, "B|%d|%s\n", tgid, log);
 	preempt_enable();
 #else
-	pr_debug("B|%d|%s\n", tgid, log);
+	//pr_debug("B|%d|%s\n", tgid, log);
+	trace_printk("B|%d|%s\n", tgid, log);
 #endif
 }
 
@@ -189,10 +188,11 @@ void __fpsgo_systrace_e(void)
 
 #if API_READY
 	preempt_disable();
-	event_trace_printk(mark_addr, "E\n");
+	event_trace(mark_addr, "E\n");
 	preempt_enable();
 #else
-	pr_debug("E\n");
+	//pr_debug("E\n");
+	trace_printk("E\n");
 #endif
 }
 
@@ -209,9 +209,7 @@ void fpsgo_main_trace(const char *fmt, ...)
 	if (unlikely(len == 256))
 		log[255] = '\0';
 	va_end(args);
-#if API_READY
-	trace_fpsgo_main_log(log);
-#endif
+	trace_printk(log);
 }
 EXPORT_SYMBOL(fpsgo_main_trace);
 
