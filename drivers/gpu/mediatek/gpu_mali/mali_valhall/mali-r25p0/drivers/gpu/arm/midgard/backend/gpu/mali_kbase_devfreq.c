@@ -31,6 +31,9 @@
 #include <linux/devfreq_cooling.h>
 #endif
 
+#include "governor.h"
+#include "mtk_gpufreq.h"
+
 #include <linux/version.h>
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 13, 0)
 #include <linux/pm_opp.h>
@@ -46,6 +49,69 @@
 #define dev_pm_opp_find_freq_ceil opp_find_freq_ceil
 #define dev_pm_opp_find_freq_floor opp_find_freq_floor
 #endif /* Linux >= 3.13 */
+
+static int devfreq_throttle_gov_func(struct devfreq *df,
+				    unsigned long *freq)
+{
+	/*
+	 * target callback should be able to get floor value as
+	 * said in devfreq.h
+	 */
+	int err;
+
+	err = devfreq_update_stats(df);
+
+	if (err)
+		return err;
+
+	if (!df->max_freq)
+		*freq = UINT_MAX;
+	else
+		*freq = df->max_freq;
+
+
+	return 0;
+}
+
+static int devfreq_throttle_gov_handler(struct devfreq *devfreq,
+				unsigned int event, void *data)
+{
+	int ret = 0;
+
+	switch (event) {
+	case DEVFREQ_GOV_START:
+		devfreq_monitor_start(devfreq);
+		break;
+
+	case DEVFREQ_GOV_STOP:
+		devfreq_monitor_stop(devfreq);
+		break;
+
+	case DEVFREQ_GOV_INTERVAL:
+		devfreq_interval_update(devfreq, (unsigned int *)data);
+		break;
+
+	case DEVFREQ_GOV_SUSPEND:
+		devfreq_monitor_suspend(devfreq);
+		break;
+
+	case DEVFREQ_GOV_RESUME:
+		devfreq_monitor_resume(devfreq);
+		break;
+
+	default:
+		break;
+	}
+
+	return ret;
+}
+
+
+static struct devfreq_governor devfreq_throttle_gov = {
+	.name = "ahlahuagua",
+	.get_target_freq = devfreq_throttle_gov_func,
+	.event_handler = devfreq_throttle_gov_handler,
+};
 
 /**
  * opp_translate - Translate nominal OPP frequency from devicetree into real
@@ -595,31 +661,54 @@ static void kbase_devfreq_work_term(struct kbase_device *kbdev)
 #endif
 }
 
+int mtk_devfreq_target(struct device *dev, unsigned long *target_freq, u32 flags)
+{
+	int opp_idx = 0;
+	unsigned int pow = 0;
+	static int resume;
+	struct kbase_device *kbdev = dev_get_drvdata(dev);
+
+	/* Now only thermal throttle will limit opps in devfreq
+	 * So the request opp freq would reflect the valid pow
+	 * Look up that power as throttle limit
+	 * and apply legacy throttle flow
+	 */
+
+	opp_idx = mt_gpufreq_get_opp_idx_by_freq(*target_freq);
+	if (opp_idx) {
+		pow = mt_gpufreq_get_power_by_idx(opp_idx);
+		mt_gpufreq_thermal_protect(pow);
+		resume = 0;
+	} else {
+		if (!resume) {
+			mt_gpufreq_thermal_protect(0);
+			resume = 1;
+		}
+	}
+
+	opp_idx = mt_gpufreq_get_cur_freq_index();
+	kbdev->current_nominal_freq =
+		mt_gpufreq_get_freq_by_idx(opp_idx) * 1000;
+
+	return 0;
+}
+
 int kbase_devfreq_init(struct kbase_device *kbdev)
 {
 	struct devfreq_dev_profile *dp;
 	int err;
-	unsigned int i;
 
-	if (kbdev->nr_clocks == 0) {
-		dev_err(kbdev->dev, "Clock not available for devfreq\n");
-		return -ENODEV;
+	err = devfreq_add_governor(&devfreq_throttle_gov);
+	if (err) {
+		dev_info(kbdev->dev, "init Governor failed\n");
+		return err;
 	}
-
-	for (i = 0; i < kbdev->nr_clocks; i++) {
-		if (kbdev->clocks[i])
-			kbdev->current_freqs[i] =
-				clk_get_rate(kbdev->clocks[i]);
-		else
-			kbdev->current_freqs[i] = 0;
-	}
-	kbdev->current_nominal_freq = kbdev->current_freqs[0];
 
 	dp = &kbdev->devfreq_profile;
 
 	dp->initial_freq = kbdev->current_freqs[0];
-	dp->polling_ms = 100;
-	dp->target = kbase_devfreq_target;
+	dp->polling_ms = 0;
+	dp->target = mtk_devfreq_target;
 	dp->get_dev_status = kbase_devfreq_status;
 	dp->get_cur_freq = kbase_devfreq_cur_freq;
 	dp->exit = kbase_devfreq_exit;
@@ -648,7 +737,7 @@ int kbase_devfreq_init(struct kbase_device *kbdev)
 	}
 
 	kbdev->devfreq = devfreq_add_device(kbdev->dev, dp,
-				"simple_ondemand", NULL);
+				"ahlahuagua", NULL);
 	if (IS_ERR(kbdev->devfreq)) {
 		err = PTR_ERR(kbdev->devfreq);
 		kbase_devfreq_work_term(kbdev);
@@ -687,6 +776,7 @@ int kbase_devfreq_init(struct kbase_device *kbdev)
 	}
 #endif
 
+	dev_info(kbdev->dev, "devfreq init done\n");
 	return 0;
 
 #ifdef CONFIG_DEVFREQ_THERMAL
@@ -728,4 +818,6 @@ void kbase_devfreq_term(struct kbase_device *kbdev)
 	kbase_devfreq_term_core_mask_table(kbdev);
 
 	kbase_devfreq_work_term(kbdev);
+
+	devfreq_remove_governor(&devfreq_throttle_gov);
 }
