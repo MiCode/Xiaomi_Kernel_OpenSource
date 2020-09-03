@@ -29,6 +29,8 @@
 #include "../mt6768/mtk_gpufreq.h"
 #elif defined(CONFIG_MACH_MT6739)
 #include "../mt6739/mtk_gpufreq.h"
+#elif defined(CONFIG_MACH_MT8168)
+#include "../mt8168/mtk_gpufreq.h"
 #endif
 
 #endif /* _MTK_GPUFREQ_H_ */
