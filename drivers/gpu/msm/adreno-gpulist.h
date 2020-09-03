@@ -1554,7 +1554,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a660 = {
 		DEFINE_ADRENO_REV(ADRENO_REV_A660, 6, 6, 0, ANY_ID),
 		.features = ADRENO_RPMH | ADRENO_GPMU | ADRENO_APRIV |
 				ADRENO_IOCOHERENT | ADRENO_CONTENT_PROTECTION |
-				ADRENO_IFPC | ADRENO_ACD,
+				ADRENO_IFPC,
 		.gpudev = &adreno_a6xx_gmu_gpudev,
 		.gmem_base = 0,
 		.gmem_size = SZ_1M + SZ_512K,
