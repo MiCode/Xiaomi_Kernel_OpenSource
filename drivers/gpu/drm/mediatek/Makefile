@@ -56,7 +56,7 @@ obj-y += mtk_dp_intf.o \
 
 ifeq (yy, $(CONFIG_MTK_TEE_GP_SUPPORT)$(CONFIG_TRUSTONIC_TEE_SUPPORT))
 obj-y += ca/
-#ccflags-y += -DDPTX_HDCP_ENABLE
+ccflags-y += -DDPTX_HDCP_ENABLE
 obj-y += mtk_dp_hdcp1x.o \
 	mtk_dp_hdcp2.o
 endif
