@@ -30,6 +30,7 @@
 struct regulator_chip {
 	struct regulator_desc desc;
 	unsigned char vol_reg;
+	unsigned char vol_mask;
 	unsigned char mode_reg;
 	unsigned char mode_bit;
 	unsigned char enable_reg;
@@ -115,8 +116,7 @@ int mt6691_read_byte(void *client,
 	return ret;
 }
 
-int mt6691_write_byte(void *client,
-			uint32_t addr, uint32_t value)
+int mt6691_write_byte(void *client, uint32_t addr, uint32_t value)
 {
 	int ret = 0;
 	struct i2c_client *i2c = (struct i2c_client *)client;
@@ -127,8 +127,7 @@ int mt6691_write_byte(void *client,
 	return ret;
 }
 
-int mt6691_assign_bit(void *client, uint32_t reg,
-					uint32_t  mask, uint32_t data)
+int mt6691_assign_bit(void *client, uint32_t reg, int32_t  mask, uint32_t data)
 {
 	struct i2c_client *i2c = (struct i2c_client *)client;
 	struct mt6691_regulator_info *ri = i2c_get_clientdata(i2c);
@@ -181,7 +180,7 @@ static int mt6691_regmap_init(struct mt6691_regulator_info *info)
 }
 
 static int mt6691_set_voltage(struct regulator_dev *rdev,
-				int min_uV, int max_uV, unsigned int *selector)
+			      int min_uV, int max_uV, unsigned int *selector)
 {
 	struct mt6691_regulator_info *info = rdev_get_drvdata(rdev);
 
@@ -192,7 +191,7 @@ static int mt6691_set_voltage(struct regulator_dev *rdev,
 
 	if (*selector > 255)
 		*selector = 255;
-	return	mt6691_write_byte(info->i2c,
+	return mt6691_write_byte(info->i2c,
 				  info->reg_chip->vol_reg, *selector);
 }
 
@@ -211,6 +210,33 @@ static int mt6691_get_voltage(struct regulator_dev *rdev)
 	if (reg_val > 200)
 		return 1300000 + (reg_val - 200) * 10000;
 	return 300000 + reg_val * 5000;
+}
+
+static int hl7593_set_voltage(struct regulator_dev *rdev,
+			      int min_uV, int max_uV, unsigned int *selector)
+{
+	struct mt6691_regulator_info *info = rdev_get_drvdata(rdev);
+
+	*selector = (min_uV - 600000) / 6250;
+
+	return mt6691_assign_bit(info->i2c, info->reg_chip->vol_reg,
+				 info->reg_chip->vol_mask, *selector);
+}
+
+static int hl7593_get_voltage(struct regulator_dev *rdev)
+{
+	struct mt6691_regulator_info *info = rdev_get_drvdata(rdev);
+	int ret;
+	uint32_t reg_val = 0;
+
+	ret = mt6691_read_byte(info->i2c, info->reg_chip->vol_reg, &reg_val);
+	if (ret < 0) {
+		pr_notice("%s read voltage fail\n", __func__);
+		return ret;
+	}
+
+	reg_val &= info->reg_chip->vol_mask;
+	return 600000 + reg_val * 6250;
 }
 
 static int mt6691_set_mode(struct regulator_dev *rdev, unsigned int mode)
@@ -294,6 +320,16 @@ static struct regulator_ops mt6691_regulator_ops = {
 	.is_enabled = mt6691_is_enabled,
 };
 
+static struct regulator_ops hl7593_regulator_ops = {
+	.set_voltage = hl7593_set_voltage,
+	.get_voltage = hl7593_get_voltage,
+	.set_mode = mt6691_set_mode,
+	.get_mode = mt6691_get_mode,
+	.enable = mt6691_enable,
+	.disable = mt6691_disable,
+	.is_enabled = mt6691_is_enabled,
+};
+
 #define REG_CHIP(_id, _vsel)	\
 {						\
 	.desc = {				\
@@ -305,10 +341,29 @@ static struct regulator_ops mt6691_regulator_ops = {
 		.owner = THIS_MODULE,		\
 	},					\
 	.vol_reg = MT6691_REG_VSEL##_vsel,	\
+	.vol_mask = 0xFF,			\
 	.mode_reg = MT6691_CTRL_1,		\
 	.mode_bit = (1 << _vsel),		\
 	.enable_reg = MT6691_REG_CTRL2,		\
 	.enable_bit = (1 << _vsel),		\
+}
+
+#define HL7593_REG_CHIP(_id, _vsel)	\
+{						\
+	.desc = {				\
+		.id = _id,			\
+		.name = "hl7593_buck"#_id,	\
+		.n_voltages = 128,		\
+		.ops = &hl7593_regulator_ops,	\
+		.type = REGULATOR_VOLTAGE,	\
+		.owner = THIS_MODULE,		\
+	},					\
+	.vol_reg = MT6691_REG_VSEL##_vsel,	\
+	.vol_mask = 0x7F,			\
+	.mode_reg = MT6691_CTRL_1,		\
+	.mode_bit = (1 << _vsel),		\
+	.enable_reg = MT6691_REG_VSEL##_vsel,	\
+	.enable_bit = (1 << 7),			\
 }
 
 static struct regulator_chip mt6691_datas[] = {
@@ -316,6 +371,8 @@ static struct regulator_chip mt6691_datas[] = {
 	REG_CHIP(1, 1), /* VDDQ 0.6V */
 	REG_CHIP(2, 0), /* VMDDR 0.75V */
 	REG_CHIP(3, 0), /* VUFS12 1.225V */
+	HL7593_REG_CHIP(2, 0), /* VMDDR 0.75V */
+	HL7593_REG_CHIP(3, 0), /* VUFS12 1.2V */
 };
 
 struct regulator_dev *mt6691_regulator_register(
@@ -392,9 +449,30 @@ static int mt6691_i2c_probe(struct i2c_client *i2c,
 						    info);
 
 	if (IS_ERR(info->regulator)) {
-		pr_notice("%s mt6691 register regulator fail\n", __func__);
-		return -EINVAL;
+		switch (i2c->addr) {
+		case 0x51: /* MT6691SVP */
+			i2c->addr = 0x61; /* HL7593WL0A */
+			info->reg_chip = &mt6691_datas[4];
+			break;
+		case 0x56: /* MT6691OTP */
+			i2c->addr = 0x60; /* HL7593WL07 */
+			info->reg_chip = &mt6691_datas[5];
+			break;
+		default:
+			pr_notice("mt6691 register regulator fail\n");
+			return -EINVAL;
+		}
+		info->regulator =
+			mt6691_regulator_register(&info->reg_chip->desc,
+						  &i2c->dev,
+						  init_data,
+						  info);
+		if (IS_ERR(info->regulator)) {
+			pr_notice("mt6691 register regulator fail\n");
+			return -EINVAL;
+		}
 	}
+	g_is_mt6691_exist = 1;
 
 	info->regulator->constraints->valid_modes_mask |=
 			(REGULATOR_MODE_NORMAL|REGULATOR_MODE_FAST);
