@@ -2070,11 +2070,11 @@
 			compatible = "mediatek,mali", "arm,mali-valhall";
 			reg = <0 0x13000000 0 0x4000>;
 			interrupts =
-				<GIC_SPI 363 IRQ_TYPE_LEVEL_HIGH 0>,
 				<GIC_SPI 364 IRQ_TYPE_LEVEL_HIGH 0>,
 				<GIC_SPI 365 IRQ_TYPE_LEVEL_HIGH 0>,
 				<GIC_SPI 366 IRQ_TYPE_LEVEL_HIGH 0>,
-				<GIC_SPI 367 IRQ_TYPE_LEVEL_HIGH 0>;
+				<GIC_SPI 367 IRQ_TYPE_LEVEL_HIGH 0>,
+				<GIC_SPI 368 IRQ_TYPE_LEVEL_HIGH 0>;
 			interrupt-names =
 				"GPU",
 				"MMU",
