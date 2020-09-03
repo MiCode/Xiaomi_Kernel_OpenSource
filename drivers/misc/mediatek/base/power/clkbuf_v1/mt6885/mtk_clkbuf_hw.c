@@ -106,9 +106,7 @@ static void __iomem *pmif_spmi_base;
 #define XO_BUF7_BBLPM_EN_MASK	(0x1 << 7)
 
 /* TODO: marked this after driver is ready */
-#if defined(CONFIG_MACH_MT6893)
-#define CLKBUF_BRINGUP
-#endif /* defined(CONFIG_MACH_MT6893) */
+/* #define CLKBUF_BRINGUP */
 /* #define CLKBUF_CONN_SUPPORT_CTRL_FROM_I1 */
 
 #define BUF_MAN_M				0
