@@ -615,8 +615,6 @@ int mhi_dev_restore_mmio(struct mhi_dev *dev)
 	/*Enable cmdb interrupt*/
 	mhi_dev_mmio_enable_cmdb_interrupt(dev);
 
-	/*Enable erdb interrupt*/
-	mhi_dev_mmio_enable_erdb_interrupts(dev);
 	mb();
 
 	return 0;
