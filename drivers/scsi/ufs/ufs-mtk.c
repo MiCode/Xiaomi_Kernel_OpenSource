@@ -55,6 +55,7 @@ bool ufs_mtk_rpm_enabled;              /* runtime PM: on/off */
 bool ufs_mtk_auto_hibern8_enabled;
 bool ufs_mtk_host_deep_stall_enable;
 bool ufs_mtk_host_scramble_enable;
+int  ufs_mtk_hs_gear;
 struct ufs_hba *ufs_mtk_hba;
 
 static bool ufs_mtk_is_data_cmd(char cmd_op);
@@ -966,11 +967,30 @@ static int ufs_mtk_pre_pwr_change(struct ufs_hba *hba,
 
 /* HSG3B as default power mode, only use HSG1B at FPGA */
 #ifndef CONFIG_FPGA_EARLY_PORTING
-	final->gear_rx = 3;
-	final->gear_tx = 3;
+	if (ufs_mtk_hs_gear == UFS_HS_G4) {
+		if ((desired->gear_rx == UFS_HS_G4) &&
+			(desired->gear_tx == UFS_HS_G4)) {
+			final->gear_rx = UFS_HS_G4;
+			final->gear_tx = UFS_HS_G4;
+			/* INITIAL ADAPT */
+			ufshcd_dme_set(hba,
+				       UIC_ARG_MIB(PA_TXHSADAPTTYPE),
+				       PA_INITIAL_ADAPT);
+		} else {
+			final->gear_rx = UFS_HS_G3;
+			final->gear_tx = UFS_HS_G3;
+			/* NO ADAPT */
+			ufshcd_dme_set(hba,
+				       UIC_ARG_MIB(PA_TXHSADAPTTYPE),
+				       PA_NO_ADAPT);
+		}
+	} else {
+		final->gear_rx = UFS_HS_G3;
+		final->gear_tx = UFS_HS_G3;
+	}
 #else
-	final->gear_rx = 1;
-	final->gear_tx = 1;
+	final->gear_rx = UFS_HS_G1;
+	final->gear_tx = UFS_HS_G1;
 #endif
 	/* Change by dts setting */
 	if (hba->lanes_per_direction == 2) {
@@ -1399,6 +1419,10 @@ void ufs_mtk_parse_dt(struct ufs_hba *hba)
 			host->spm_sw_mode = true;
 		else
 			host->spm_sw_mode = false;
+
+		if (of_property_read_u32(np, "highspeed-gear",
+			&ufs_mtk_hs_gear))
+			ufs_mtk_hs_gear = UFS_HS_G3;
 	}
 }
 
