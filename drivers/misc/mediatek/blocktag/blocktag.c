@@ -163,19 +163,20 @@ EXPORT_SYMBOL_GPL(mtk_btag_pidlog_insert);
 static void mtk_btag_pidlog_add(struct request_queue *q, struct bio *bio,
 	unsigned short pid, __u32 len)
 {
-	int write = bio_data_dir(bio);
 	int major = bio->bi_disk ? MAJOR(bio_dev(bio)) : 0;
 
 	if (pid != 0xFFFF && major) {
 #ifdef CONFIG_MTK_UFS_BLOCK_IO_LOG
 		if (major == SCSI_DISK0_MAJOR || major == BLOCK_EXT_MAJOR) {
-			mtk_btag_pidlog_add_ufs(q, pid, len, write);
+			mtk_btag_pidlog_add_ufs(q, pid, len,
+						bio_data_dir(bio));
 			return;
 		}
 #endif
 #ifdef CONFIG_MMC_BLOCK_IO_LOG
 		if (major == MMC_BLOCK_MAJOR || major == BLOCK_EXT_MAJOR) {
-			mtk_btag_pidlog_add_mmc(q, pid, len, write);
+			mtk_btag_pidlog_add_mmc(q, pid, len,
+						bio_data_dir(bio));
 			return;
 		}
 #endif
