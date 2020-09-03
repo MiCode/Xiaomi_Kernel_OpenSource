@@ -524,6 +524,7 @@ static struct T_ION_TBL gION_TBL[ISP_DEV_NODE_NUM] = {
 #endif
 
 #ifdef ENABLE_AOSP_ION
+#include <linux/seq_file.h>
 #include <linux/dma-buf.h>
 static struct mutex aosp_ion_mutex;
 
@@ -3643,11 +3644,56 @@ void dumpIonBufferList(unsigned int entry_num, bool TurnOn)
 	}
 	LOG_NOTICE("##################\n");
 }
+
 /*******************************************************************************
  *
  ******************************************************************************/
+static int ion_buf_list_read(struct seq_file *m, void *v)
+{
+	struct ION_BUFFER_LIST *entry;
+	struct list_head *pos;
+	int i = 0;
+
+	mutex_lock(&aosp_ion_mutex);
+
+	if (list_empty(&g_ion_buf_list.list)) {
+		seq_puts(m, "aosp ion buf list is empty\n");
+		mutex_unlock(&aosp_ion_mutex);
+		return 0;
+	}
+
+	seq_puts(m, " idx memID dev port       va           pa        size          user\n");
+	seq_puts(m, "===================================================================\n");
+
+	list_for_each(pos, &g_ion_buf_list.list) {
+		entry = list_entry(pos, struct ION_BUFFER_LIST, list);
+
+		seq_printf(m, "#%03d   %3d %2d  %2d   0x%10lx  0x%09lx 0x%06x  %s\n", i,
+			entry->memID, entry->devNode, entry->dmaPort,
+			entry->va, entry->dmaAddr, entry->size, entry->username);
+			i++;
+	}
+
+	mutex_unlock(&aosp_ion_mutex);
+
+	return 0;
+};
+
+static int proc_open_aosp_ion_list(struct inode *inode, struct file *file)
+{
+	return single_open(file, ion_buf_list_read, NULL);
+};
+
+static const struct file_operations faosp_ion_proc_fops = {
+	.owner = THIS_MODULE,
+	.open = proc_open_aosp_ion_list,
+	.read = seq_read,
+};
 #endif
 
+/*******************************************************************************
+ *
+ ******************************************************************************/
 static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 {
 	int Ret = 0;
@@ -7253,6 +7299,10 @@ static int ISP_probe(struct platform_device *pDev)
 			IspInfo.IrqCntInfo.m_int_usec[i] = 0;
 		}
 
+#ifdef ENABLE_AOSP_ION
+		proc_create("driver/isp_ion_buf_list", 0000, NULL, &faosp_ion_proc_fops);
+#endif
+
 EXIT:
 		if (Ret < 0)
 			ISP_UnregCharDev();
@@ -7293,6 +7343,9 @@ static int ISP_remove(struct platform_device *pDev)
 	class_destroy(pIspClass);
 	pIspClass = NULL;
 	/*  */
+#ifdef ENABLE_AOSP_ION
+	remove_proc_entry("driver/isp_ion_buf_list", NULL);
+#endif
 	return 0;
 }
 
