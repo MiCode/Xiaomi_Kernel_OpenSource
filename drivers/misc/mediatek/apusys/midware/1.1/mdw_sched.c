@@ -330,9 +330,8 @@ int mdw_sched_dev_routine(void *arg)
 			sc->idx, kref_read(&sc->multi_ref));
 		kref_put(&sc->multi_ref, mdw_sched_enque_done_sc);
 next:
-		mdw_trace_end("dev(%s-%d) exec|sc(0x%llx-%d) boost(%d/%u)",
-			d->name, d->idx, sc->parent->kid, sc->idx,
-			h.boost_val, sc->boost);
+		mdw_trace_end("dev(%s-%d) exec|boost(%d)",
+			d->name, d->idx, h.boost_val);
 direc_next:
 		mdw_flw_debug("done\n");
 		continue;
@@ -357,7 +356,7 @@ static int mdw_sched_dispatch(struct mdw_apu_sc *sc)
 {
 	int ret = 0, dev_num = 0, exec_num = 0;
 
-	mdw_trace_begin("dispatch|sc(0x%llx-%d) pack(%d) multi(%d)",
+	mdw_trace_begin("mdw dispatch|sc(0x%llx-%d) pack(%d) multi(%d)",
 		sc->parent->kid, sc->idx, sc->hdr->pack_id, sc->parent->multi);
 
 	/* get dev num */
@@ -376,8 +375,7 @@ static int mdw_sched_dispatch(struct mdw_apu_sc *sc)
 	else
 		ret = mdw_dispr_norm(sc);
 
-	mdw_trace_end("dispatch|sc(0x%llx-%d)",
-		sc->parent->kid, sc->idx);
+	mdw_trace_end("mdw dispatch|ret(%d)", ret);
 
 	return ret;
 }
