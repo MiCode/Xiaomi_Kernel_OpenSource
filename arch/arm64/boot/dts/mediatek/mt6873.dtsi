@@ -5084,6 +5084,11 @@
 		compatible = "mediatek,mtkfb";
 	};
 
+	slbc: slbc {
+		compatible = "mediatek,mt6873-slbc";
+		status = "enable";
+	};
+
 	sound: sound {
 		compatible = "mediatek,mt6873-mt6359p-sound";
 		mediatek,audio-codec = <&mt6359p_snd>;
