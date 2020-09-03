@@ -462,7 +462,7 @@
 	mc_virt: interconnect {
 		compatible = "qcom,sdxlemur-mc_virt";
 		#interconnect-cells = <1>;
-		qcom,bcm-voter-names = "hlos"
+		qcom,bcm-voter-names = "hlos";
 		qcom,bcm-voters = <&apps_bcm_voter>;
 	};
 
