@@ -567,6 +567,8 @@ int ccu_run(struct ccu_run_s *info)
 	ccu_write_reg(ccu_base, SPREG_05_LOG_TAGLEVEL, info->log_taglevel);
 	ccu_write_reg(ccu_base, SPREG_06_CPUREF_BUF_ADDR,
 	(info->CpuRefBufMva - remapOffset) | (info->CpuRefBufSz & 0xFF));
+	ccu_write_reg(ccu_base, SPREG_21_CTRL_BUF_ADDR, info->CtrlBufMva);
+	LOG_INF_MUST("set CCU CtrlBufMva: %x\n", info->CtrlBufMva);
 	LOG_INF_MUST("CPU Ref Buf MVA %x(%x-%x), sz %dMB\n",
 	info->CpuRefBufMva, info->CpuRefBufMva, remapOffset, info->CpuRefBufSz);
 
