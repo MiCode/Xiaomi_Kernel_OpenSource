@@ -1639,6 +1639,7 @@ static void mmdvfs_get_larb_node(struct device *dev, u32 larb_id)
 	const __be32 *p;
 	struct property *prop;
 	char larb_name[MAX_LARB_NAME];
+	s32 result;
 
 	if (larb_id >= MAX_LARB_COUNT) {
 		pr_notice("larb_id:%d is over MAX_LARB_COUNT:%d\n",
@@ -1646,7 +1647,9 @@ static void mmdvfs_get_larb_node(struct device *dev, u32 larb_id)
 		return;
 	}
 
-	snprintf(larb_name, MAX_LARB_NAME, "larb%d", larb_id);
+	result = snprintf(larb_name, MAX_LARB_NAME, "larb%d", larb_id);
+	if (result < 0)
+		pr_notice("snprintf fail(%d) larb_id=%d\n", result, larb_id);
 	of_property_for_each_u32(dev->of_node, larb_name, prop, p, value) {
 		if (count >= MAX_PORT_COUNT) {
 			pr_notice("port size is over (%d)\n", MAX_PORT_COUNT);
@@ -1756,8 +1759,13 @@ static void mmdvfs_get_limit_step_node(struct device *dev,
 	for (i = 0; i < limit_size; i++) {
 		limit_config->limit_steps[i] = kcalloc(MAX_FREQ_STEP,
 			sizeof(*limit_config->limit_steps[i]), GFP_KERNEL);
-		snprintf(ext_name, sizeof(ext_name) - 1,
+		result = snprintf(ext_name, sizeof(ext_name) - 1,
 			"%s_limit_%d", freq_name, i);
+		if (result < 0) {
+			pr_notice("snprint fail(%d) freq=%s id=%d\n",
+				result, freq_name, i);
+			continue;
+		}
 		pr_notice("[limit]%s-%d: %s\n", freq_name, i, ext_name);
 		mmdvfs_get_step_array_node(dev, ext_name,
 			limit_config->limit_steps[i]);
