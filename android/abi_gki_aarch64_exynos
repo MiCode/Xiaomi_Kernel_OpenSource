@@ -306,6 +306,7 @@
   dma_async_tx_descriptor_init
   dma_buf_attach
   dma_buf_begin_cpu_access
+  dma_buf_begin_cpu_access_partial
   dma_buf_detach
   dma_buf_end_cpu_access
   dma_buf_end_cpu_access_partial
@@ -1328,6 +1329,7 @@
   trace_event_reg
   trace_handle_return
   trace_output_call
+  __tracepoint_android_vh_ipi_stop
   __tracepoint_android_vh_is_fpsimd_save
   __tracepoint_device_pm_callback_end
   __tracepoint_device_pm_callback_start
