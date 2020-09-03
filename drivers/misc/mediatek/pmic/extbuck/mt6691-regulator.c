@@ -306,9 +306,9 @@ static struct regulator_ops mt6691_regulator_ops = {
 	},					\
 	.vol_reg = MT6691_REG_VSEL##_vsel,	\
 	.mode_reg = MT6691_CTRL_1,		\
-	.mode_bit = (1 << _id),			\
-	.enable_reg = MT6691_REG_MONITOR,	\
-	.enable_bit = (1 << _id),		\
+	.mode_bit = (1 << _vsel),		\
+	.enable_reg = MT6691_REG_CTRL2,		\
+	.enable_bit = (1 << _vsel),		\
 }
 
 static struct regulator_chip mt6691_datas[] = {
@@ -319,7 +319,7 @@ static struct regulator_chip mt6691_datas[] = {
 };
 
 struct regulator_dev *mt6691_regulator_register(
-					struct regulator_desc *desc,
+					const struct regulator_desc *desc,
 					struct device *dev,
 					struct regulator_init_data *init_data,
 					void *driver_data)
@@ -328,6 +328,7 @@ struct regulator_dev *mt6691_regulator_register(
 		.dev = dev,
 		.init_data = init_data,
 		.driver_data = driver_data,
+		.of_node = dev->of_node,
 	};
 	return regulator_register(desc, &config);
 }
@@ -375,13 +376,7 @@ static int mt6691_i2c_probe(struct i2c_client *i2c,
 
 	i2c_set_clientdata(i2c, info);
 
-	ret = mt6691_regmap_init(info);
-	if (ret < 0) {
-		dev_info(&i2c->dev, "%s mt6691 regmap init fail\n", __func__);
-		return -EINVAL;
-	}
-
-#if 1
+#if 0
 	g_is_mt6691_exist = 1;
 	if (mt6691_read_byte(info->i2c, MT6691_REG_MONITOR, &ret) >= 0)
 		g_is_mt6691_exist &= 1;
@@ -391,12 +386,12 @@ static int mt6691_i2c_probe(struct i2c_client *i2c,
 		 i2c->addr, ret, g_is_mt6691_exist);
 	return 0;
 #else
-	info->regulator = mt6691_regulator_register(info->reg_chip.desc,
+	info->regulator = mt6691_regulator_register(&info->reg_chip->desc,
 						    &i2c->dev,
 						    init_data,
 						    info);
 
-	if (!info->regulator) {
+	if (IS_ERR(info->regulator)) {
 		pr_notice("%s mt6691 register regulator fail\n", __func__);
 		return -EINVAL;
 	}
@@ -405,6 +400,12 @@ static int mt6691_i2c_probe(struct i2c_client *i2c,
 			(REGULATOR_MODE_NORMAL|REGULATOR_MODE_FAST);
 	info->regulator->constraints->valid_ops_mask |=
 			REGULATOR_CHANGE_MODE;
+
+	ret = mt6691_regmap_init(info);
+	if (ret < 0) {
+		dev_info(&i2c->dev, "%s mt6691 regmap init fail\n", __func__);
+		return -EINVAL;
+	}
 
 	pr_info("%s Successfully\n", __func__);
 
