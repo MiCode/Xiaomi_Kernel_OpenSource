@@ -311,8 +311,9 @@ static void fscrypt_generate_iv_spec(union fscrypt_iv *iv, u64 lblk_num,
 
 		iv->lblk_num = cpu_to_le64(lblk_num);
 	} else if (ci->ci_inode->i_sb->s_magic == EXT4_SUPER_MAGIC) {
-		iv->dun[0] = 0xFFFFFFFFFFFFFFFFULL;
-		iv->dun[1] = 0xFFFFFFFFFFFFFFFFULL;
+		lblk_num = (ci->ci_inode->i_ino << 32)
+				| (lblk_num & 0xFFFFFFFF);
+		iv->lblk_num = cpu_to_le64(lblk_num);
 	}
 }
 
@@ -365,6 +366,15 @@ void fscrypt_set_bio_crypt_ctx(struct bio *bio, const struct inode *inode,
 
 	fscrypt_generate_dun(ci, first_lblk, dun);
 	bio_crypt_set_ctx(bio, &ci->ci_key.blk_key->base, dun, gfp_mask);
+
+	if (ci->ci_policy.version == FSCRYPT_POLICY_V1) {
+		struct bio_crypt_ctx *bc = bio->bi_crypt_context;
+
+		if (ci->ci_inode->i_sb->s_magic == EXT4_SUPER_MAGIC)
+			bc->hie_ext4 = true;
+		else
+			bc->hie_ext4 = false;
+	}
 }
 EXPORT_SYMBOL_GPL(fscrypt_set_bio_crypt_ctx);
 
