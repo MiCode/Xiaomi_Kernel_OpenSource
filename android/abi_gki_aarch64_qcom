@@ -1203,6 +1203,7 @@
   kernel_kobj
   kernel_read
   kernel_recvmsg
+  kernel_restart
   kernel_sendmsg
   kernel_setsockopt
   kernel_sigaction
