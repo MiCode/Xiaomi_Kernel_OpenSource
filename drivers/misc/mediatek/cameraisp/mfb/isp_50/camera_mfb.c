@@ -321,16 +321,16 @@ struct MFB_REQUEST_STRUCT {
 	pid_t processID;	/* caller process ID */
 	unsigned int callerID;	/* caller thread ID */
 	unsigned int enqueReqNum;/* to judge it belongs to which frame package*/
-	signed int FrameWRIdx;	/* Frame write Index */
-	signed int RrameRDIdx;	/* Frame read Index */
+	unsigned int FrameWRIdx;	/* Frame write Index */
+	unsigned int RrameRDIdx;	/* Frame read Index */
 	enum MFB_FRAME_STATUS_ENUM
 		MfbFrameStatus[_SUPPORT_MAX_MFB_FRAME_REQUEST_];
 	MFB_Config MfbFrameConfig[_SUPPORT_MAX_MFB_FRAME_REQUEST_];
 };
 
 struct MFB_REQUEST_RING_STRUCT {
-	signed int WriteIdx;	/* enque how many request  */
-	signed int ReadIdx;		/* read which request index */
+	unsigned int WriteIdx;	/* enque how many request  */
+	unsigned int ReadIdx;		/* read which request index */
 	signed int HWProcessIdx;	/* HWWriteIdx */
 	struct MFB_REQUEST_STRUCT
 		MFBReq_Struct[_SUPPORT_MAX_MFB_REQUEST_RING_SIZE_];
@@ -422,6 +422,7 @@ static struct SV_LOG_STR gSvLog[MFB_IRQ_TYPE_AMOUNT];
  */
 #if 1
 #define IRQ_LOG_KEEPER(irq, ppb, logT, fmt, ...) do {\
+	int err_ret; \
 	char *ptr; \
 	char *pDes;\
 	unsigned int *ptr2 = &gSvLog[irq]._cnt[ppb][logT];\
@@ -437,7 +438,10 @@ static struct SV_LOG_STR gSvLog[MFB_IRQ_TYPE_AMOUNT];
 	} \
 	ptr = pDes = (char *)&(\
 	    gSvLog[irq]._str[ppb][logT][gSvLog[irq]._cnt[ppb][logT]]); \
-	sprintf((char *)(pDes), fmt, ##__VA_ARGS__);   \
+	err_ret = sprintf((char *)(pDes), fmt, ##__VA_ARGS__);   \
+	if (err_ret < 0) { \
+		log_err("sprintf return fail"); \
+	} \
 	if ('\0' != gSvLog[irq]._str[ppb][logT][str_leng - 1]) {\
 		log_err("log str over flow(%d)", irq);\
 	} \
@@ -456,8 +460,8 @@ static struct SV_LOG_STR gSvLog[MFB_IRQ_TYPE_AMOUNT];
 	struct SV_LOG_STR *pSrc = &gSvLog[irq];\
 	char *ptr;\
 	unsigned int i;\
-	signed int ppb = 0;\
-	signed int logT = 0;\
+	unsigned int ppb = 0;\
+	unsigned int logT = 0;\
 	if (ppb_in > 1) {\
 		ppb = 1;\
 	} else{\
@@ -938,7 +942,7 @@ static inline unsigned int MFB_JiffiesToMs(unsigned int Jiffies)
 }
 
 
-static bool ConfigMFBRequest(signed int ReqIdx)
+static bool ConfigMFBRequest(unsigned int ReqIdx)
 {
 #ifdef MFB_USE_GCE
 	unsigned int j;
@@ -2168,7 +2172,7 @@ static long MFB_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 	MFB_CLEAR_IRQ_STRUCT ClearIrq;
 	MFB_Config mfb_MfbConfig;
 	MFB_Request mfb_MfbReq;
-	signed int MfbWriteIdx = 0;
+	unsigned int MfbWriteIdx = 0;
 	int idx;
 	struct MFB_USER_INFO_STRUCT *pUserInfo;
 	int enqueNum;
@@ -3791,7 +3795,7 @@ static ssize_t mfb_reg_write(
 	size_t count, loff_t *data)
 {
 	char desc[128];
-	int len = 0;
+	unsigned int len = 0;
 	/*char *pEnd;*/
 	char addrSzBuf[24];
 	char valSzBuf[24];
