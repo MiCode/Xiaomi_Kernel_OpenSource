@@ -280,6 +280,8 @@ static int get_devinfo(void)
 	for (i = 0; i < n; i++) {
 		det = id_to_eem_det(pi_eem_ctrl_id[i]);
 
+		if (det == NULL)
+			return 0;
 		idx = i % det->pi_efuse_count;
 
 		if (!det->pi_efuse[idx])
@@ -1073,6 +1075,8 @@ static int eem_volt_thread_handler(void *data)
 		det = &eem_detector_cci;
 #endif
 
+	if (det == NULL)
+		return 0;
 	do {
 		wait_event_interruptible(ctrl->wq, ctrl->volt_update);
 
@@ -3306,6 +3310,8 @@ int mt_eem_opp_num(enum eem_det_id id)
 	struct eem_det *det = id_to_eem_det(id);
 
 	FUNC_ENTER(FUNC_LV_API);
+	if (det == NULL)
+		return 0;
 	FUNC_EXIT(FUNC_LV_API);
 
 	return det->num_freq_tbl;
@@ -3319,6 +3325,8 @@ void mt_eem_opp_freq(enum eem_det_id id, unsigned int *freq)
 
 	FUNC_ENTER(FUNC_LV_API);
 
+	if (det == NULL)
+		return;
 	for (i = 0; i < det->num_freq_tbl; i++)
 		freq[i] = det->freq_tbl[i];
 
@@ -3334,6 +3342,8 @@ void mt_eem_opp_status(enum eem_det_id id, unsigned int *temp,
 
 	FUNC_ENTER(FUNC_LV_API);
 
+	if (det == NULL)
+		return;
 #ifdef CONFIG_THERMAL
 	if (id == EEM_DET_2L)
 		*temp = tscpu_get_temp_by_bank(THERMAL_BANK0);
@@ -3962,6 +3972,8 @@ void eem_set_pi_efuse(enum eem_det_id id, unsigned int pi_efuse)
 {
 	struct eem_det *det = id_to_eem_det(id);
 
+	if (det == NULL)
+		return;
 	if (det->pi_efuse_count >= NR_PI_SHARED_CTRL)
 		return;
 

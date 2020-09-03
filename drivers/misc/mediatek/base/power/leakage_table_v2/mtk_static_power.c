@@ -666,6 +666,9 @@ int mt_spower_get_leakage_uW(int dev, unsigned int vol, int deg)
 {
 	int ret;
 
+	if (dev < 0)
+		return 0;
+
 	if (!tab_validate(&sptab[dev]))
 		return 0;
 
@@ -689,12 +692,14 @@ EXPORT_SYMBOL(mt_spower_get_leakage_uW);
 
 int mt_spower_get_efuse_lkg(int dev)
 {
-	int id = 0;
+	unsigned int id = 0;
 
-	if (dev >= MTK_SPOWER_MAX)
+	if (dev >= MTK_SPOWER_MAX || dev < 0)
 		return 0;
 
 	id = spower_raw[dev].leakage_id;
+	if (id >= MTK_SPOWER_MAX)
+		return 0;
 #if 0
 	int devinfo = 0, efuse_lkg = 0, efuse_lkg_mw = 0;
 	int leakage_id = spower_raw[dev].leakage_id;
