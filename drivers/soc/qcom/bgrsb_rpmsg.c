@@ -80,7 +80,7 @@ static int bgrsb_rpmsg_cb(struct rpmsg_device *rpdev,
 
 	if (!dev)
 		return -ENODEV;
-
+	bgrsb_rx_msg(data, len);
 	return 0;
 }
 
