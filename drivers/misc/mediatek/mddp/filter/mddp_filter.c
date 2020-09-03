@@ -7,7 +7,6 @@
 #include <linux/kernel_stat.h>
 #include <linux/netfilter_ipv4.h>
 #include <linux/netfilter_ipv6.h>
-#include <linux/netfilter_bridge.h>
 #include <asm/byteorder.h>
 #include <net/xfrm.h>
 #include <net/arp.h>    // for extension tag - mac addr
@@ -29,8 +28,6 @@
 #include "mtk_ccci_common.h"
 #endif
 
-#define MAX_IFACE_NUM 32
-#define DYN_IFACE_OFFSET 16
 #define IPC_HDR_IS_V4(_ip_hdr) \
 	(0x40 == (*((unsigned char *)(_ip_hdr)) & 0xf0))
 #define IPC_HDR_IS_V6(_ip_hdr) \
@@ -49,18 +46,11 @@ static u32 mddp_f_jhash_initval __read_mostly;
 
 int mddp_f_contentfilter;
 
-struct interface ifaces[MAX_IFACE_NUM];
-
 spinlock_t mddp_f_lock;
-#ifdef CONFIG_PREEMPT_RT_FULL
-raw_spinlock_t mddp_f_tuple_lock;
-#else
 spinlock_t mddp_f_tuple_lock;
-#endif
 
 static uint32_t mddp_f_suspend_s;
 
-#ifdef MDDP_F_NO_KERNEL_SUPPORT
 struct mddp_f_track_table_list_t mddp_f_track[MDDP_F_MAX_TRACK_NUM];
 struct mddp_f_track_table_list_t mddp_f_table_buffer;
 unsigned int buffer_cnt;
@@ -452,9 +442,6 @@ void del_all_track_table(void)
 	TRACK_TABLE_UNLOCK(mddp_f_table_buffer, flags);
 }
 
-#endif
-
-#ifdef MDDP_F_NETFILTER
 #define MDDP_F_DEVICE_REGISTERING_HASH_SIZE (32)
 static spinlock_t device_registering_lock;
 static struct list_head *device_registering_hash;
@@ -479,13 +466,11 @@ static inline void mddp_f_release_device(struct device_registering *device)
 	device->dev = NULL;
 	kfree(device);
 }
-#endif
 
 static int mddp_f_notifier_init(void)
 {
 	int ret = 0;
 
-#ifdef MDDP_F_NETFILTER
 	int i;
 
 	spin_lock_init(&device_registering_lock);
@@ -495,20 +480,16 @@ static int mddp_f_notifier_init(void)
 
 	for (i = 0; i < MDDP_F_DEVICE_REGISTERING_HASH_SIZE; i++)
 		INIT_LIST_HEAD(&device_registering_hash[i]);
-#endif
 
 	return ret;
 }
 
 static void mddp_f_notifier_dest(void)
 {
-#ifdef MDDP_F_NETFILTER
 	unsigned long flags;
 	struct device_registering *found_device;
 	int i;
-#endif
 
-#ifdef MDDP_F_NETFILTER
 	/* release all registered devices */
 	spin_lock_irqsave(&device_registering_lock, flags);
 	for (i = 0; i < MDDP_F_DEVICE_REGISTERING_HASH_SIZE; i++) {
@@ -519,7 +500,6 @@ static void mddp_f_notifier_dest(void)
 	}
 	spin_unlock_irqrestore(&device_registering_lock, flags);
 	vfree(device_registering_hash);
-#endif
 }
 
 static void mddp_f_init_jhash(void)
@@ -949,18 +929,14 @@ static inline void _mddp_f_in_nat(
 		t4.nat.src = ip->ip_src;
 		t4.nat.dst = ip->ip_dst;
 		t4.nat.proto = ip->ip_p;
-#ifdef MDDP_F_NETFILTER
 		t4.dev_in = skb->dev;
-#endif
 
 		switch (ip->ip_p) {
 		case IPPROTO_TCP:
-			mddp_f_ip4_tcp(desc, skb, &t4, &ifaces[iface],
-						ip, l4_header);
+			mddp_f_ip4_tcp(desc, skb, &t4, ip, l4_header);
 			return;
 		case IPPROTO_UDP:
-			mddp_f_ip4_udp(desc, skb, &t4, &ifaces[iface],
-						ip, l4_header);
+			mddp_f_ip4_udp(desc, skb, &t4, ip, l4_header);
 			return;
 		default:
 			desc->flag |= DESC_FLAG_UNKNOWN_PROTOCOL;
@@ -995,12 +971,10 @@ static inline void _mddp_f_in_nat(
 
 		switch (t6.proto) {
 		case IPPROTO_TCP:
-			mddp_f_ip6_tcp_lan(desc, skb, &t6, &ifaces[iface],
-							ip6, l4_header);
+			mddp_f_ip6_tcp_lan(desc, skb, &t6, ip6, l4_header);
 			return;
 		case IPPROTO_UDP:
-			mddp_f_ip6_udp_lan(desc, skb, &t6, &ifaces[iface],
-							ip6, l4_header);
+			mddp_f_ip6_udp_lan(desc, skb, &t6, ip6, l4_header);
 			return;
 		default:
 			{
@@ -1019,8 +993,6 @@ static inline int mddp_f_in_internal(int iface, struct sk_buff *skb)
 {
 	struct mddp_f_cb *cb;
 	struct mddp_f_desc desc;
-
-	pm_reset_traffic();
 
 	cb = (struct mddp_f_cb *) (&skb->cb[48]);
 	/* reset cb flag ?? */
@@ -1067,7 +1039,6 @@ int mddp_f_in_nf(int iface, struct sk_buff *skb)
 	return ret;
 }
 
-#ifdef MDDP_F_NETFILTER
 void mddp_f_out_nf_ipv4(
 	int iface,
 	struct sk_buff *skb,
@@ -1446,9 +1417,7 @@ void mddp_f_out_nf_ipv4(
 	}
 
 out:
-#ifdef MDDP_F_NO_KERNEL_SUPPORT
 	put_track_table(curr_track_table);
-#endif
 }
 
 void mddp_f_out_nf_ipv6(
@@ -1528,14 +1497,6 @@ void mddp_f_out_nf_ipv6(
 					__func__, tcp_state, skb);
 			goto out;
 		}
-#ifndef MDDP_F_NETFILTER
-		if (cb->iface == iface) {
-			MDDP_F_LOG(MDDP_LL_NOTICE,
-					"BUG %s,%d: in_iface[%p] and out_iface[%p] are same.\n",
-					__func__, __LINE__, cb->iface, iface);
-			goto out;
-		}
-#else
 		if (cb->dev == out) {
 			MDDP_F_LOG(MDDP_LL_NOTICE,
 					"BUG %s,%d: in_dev[%p] name[%s] and out_dev[%p] name [%s] are same.\n",
@@ -1543,7 +1504,6 @@ void mddp_f_out_nf_ipv6(
 					cb->dev->name, out, out->name);
 			goto out;
 		}
-#endif
 
 		if (mddp_f_is_support_wan_dev(out->name) == true) {
 			is_uplink = true;
@@ -1656,13 +1616,8 @@ void mddp_f_out_nf_ipv6(
 			/* Save tuple to avoid tag many packets */
 			found_router_tuple = kmem_cache_alloc(
 					mddp_f_router_tuple_cache, GFP_ATOMIC);
-#ifndef MDDP_F_NETFILTER
-			found_router_tuple->iface_src = cb->iface;
-			found_router_tuple->iface_dst = iface;
-#else
 			found_router_tuple->dev_src = cb->dev;
 			found_router_tuple->dev_dst = out;
-#endif
 			ipv6_addr_copy(&found_router_tuple->saddr, &ip6->saddr);
 			ipv6_addr_copy(&found_router_tuple->daddr, &ip6->daddr);
 			found_router_tuple->in.tcp.port = tcp->th_sport;
@@ -1696,15 +1651,6 @@ void mddp_f_out_nf_ipv6(
 			goto out;
 		}
 
-#ifndef MDDP_F_NETFILTER
-		if (cb->iface == iface)	{
-			MDDP_F_LOG(MDDP_LL_NOTICE,
-					"BUG %s,%d: in_iface[%p] and out_iface[%p] are same.\n",
-					__func__, __LINE__,
-					cb->iface, iface);
-			goto out;
-		}
-#else
 		if (cb->dev == out)	{
 			MDDP_F_LOG(MDDP_LL_NOTICE,
 					"BUG %s,%d: in_dev[%p] name[%s] and out_dev[%p] name [%s] are same.\n",
@@ -1712,7 +1658,6 @@ void mddp_f_out_nf_ipv6(
 					cb->dev->name, out, out->name);
 			goto out;
 		}
-#endif
 
 		if (mddp_f_is_support_wan_dev(out->name) == true) {
 			is_uplink = true;
@@ -1831,13 +1776,8 @@ void mddp_f_out_nf_ipv6(
 				found_router_tuple = kmem_cache_alloc(
 						mddp_f_router_tuple_cache,
 						GFP_ATOMIC);
-#ifndef MDDP_F_NETFILTER
-				found_router_tuple->iface_src = cb->iface;
-				found_router_tuple->iface_dst = iface;
-#else
 				found_router_tuple->dev_src = cb->dev;
 				found_router_tuple->dev_dst = out;
-#endif
 				ipv6_addr_copy(&found_router_tuple->saddr,
 						&ip6->saddr);
 				ipv6_addr_copy(&found_router_tuple->daddr,
@@ -1869,9 +1809,7 @@ void mddp_f_out_nf_ipv6(
 	}
 
 out:
-#ifdef MDDP_F_NO_KERNEL_SUPPORT
 	put_track_table(curr_track_table);
-#endif
 }
 
 void mddp_f_out_nf(int iface, struct sk_buff *skb, struct net_device *out)
@@ -1879,8 +1817,6 @@ void mddp_f_out_nf(int iface, struct sk_buff *skb, struct net_device *out)
 	unsigned char *offset2 = skb->data;
 	struct mddp_f_cb *cb;
 	struct mddp_f_track_table_t *curr_track_table;
-
-	pm_reset_traffic();
 
 	cb = search_and_hold_track_table(skb, &curr_track_table);
 	if (!cb) {
@@ -1940,14 +1876,11 @@ void mddp_f_out_nf(int iface, struct sk_buff *skb, struct net_device *out)
 	}
 
 out:
-#ifdef MDDP_F_NO_KERNEL_SUPPORT
 	put_track_table(curr_track_table);
-#endif
 }
 //EXPORT_SYMBOL(mddp_f_out_nf);
 module_param(mddp_f_contentfilter, int, 0000);
 
-#endif
 //EXPORT_SYMBOL(mddp_f_in_nf);
 
 static uint32_t mddp_nfhook_prerouting
@@ -2220,16 +2153,12 @@ int32_t mddp_filter_init(void)
 		return ret;
 	}
 
-	memset(ifaces, 0, sizeof(ifaces));
-
 	MDDP_F_INIT_LOCK(&mddp_f_lock);
 	MDDP_F_TUPLE_INIT_LOCK(&mddp_f_tuple_lock);
 
-#ifdef MDDP_F_NO_KERNEL_SUPPORT
 	mddp_f_init_table_buffer();
 	mddp_f_init_track_table();
 	mddp_f_init_jhash();
-#endif
 
 	ret = mddp_f_init_nat_tuple();
 	if (ret < 0) {
@@ -2271,7 +2200,5 @@ void mddp_filter_uninit(void)
 {
 	unregister_pernet_subsys(&mddp_net_ops);
 	mddp_f_notifier_dest();
-#ifdef MDDP_F_NO_KERNEL_SUPPORT
 	dest_track_table();
-#endif
 }

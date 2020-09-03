@@ -29,8 +29,6 @@ struct mddp_f_desc {
 	u_int16_t l3_off;
 	u_int16_t l4_off;
 	u_int32_t l3_len;
-	u_int16_t vlan[MAX_VLAN_LEVEL];
-	u_int8_t vlevel;
 };
 
 #endif /* _MDDP_F_DESC_H */
