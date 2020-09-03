@@ -30,6 +30,7 @@
 #include "diag_mux.h"
 #include "diagmem.h"
 #include "diag_ipc_logging.h"
+#include <soc/qcom/boot_stats.h>
 
 #define DIAG_USB_STRING_SZ	10
 #define DIAG_USB_MAX_SIZE	16384
@@ -419,6 +420,7 @@ static void diag_usb_notifier(void *priv, unsigned int event,
 	case USB_DIAG_CONNECT:
 		pr_info("diag: USB channel %s: Received Connect event\n",
 			usb_info->name);
+		place_marker("M - Diag port is enumerated");
 		spin_lock_irqsave(&usb_info->event_lock, flags);
 		diag_usb_event_add(usb_info, USB_DIAG_CONNECT);
 		spin_unlock_irqrestore(&usb_info->event_lock, flags);
