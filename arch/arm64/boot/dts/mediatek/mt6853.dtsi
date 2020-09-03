@@ -1828,7 +1828,7 @@
 			freq-table-hz = <0 0>, <0 0>, <0 0>,
 					<0 0>;
 
-			vcc-supply = <&mt6359p_vemc_reg>;
+			/* vcc-supply = <&mt6359p_vemc_reg>; */
 		};
 
 		efuse: efuse@11c10000 {
