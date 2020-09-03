@@ -131,19 +131,9 @@ static int cmdq_crypto_qti_derive_raw_secret(struct keyslot_manager *ksm,
 {
 	int err = 0;
 
-	if (wrapped_key_size <= RAW_SECRET_SIZE) {
-		pr_err("%s: Invalid wrapped_key_size: %u\n", __func__,
-			wrapped_key_size);
-		err = -EINVAL;
-		return err;
-	}
-	if (secret_size != RAW_SECRET_SIZE) {
-		pr_err("%s: Invalid secret size: %u\n", __func__, secret_size);
-		err = -EINVAL;
-		return err;
-	}
-	memcpy(secret, wrapped_key, secret_size);
-	return 0;
+	err = crypto_qti_derive_raw_secret(wrapped_key, wrapped_key_size,
+					   secret, secret_size);
+	return err;
 }
 
 static const struct keyslot_mgmt_ll_ops cmdq_crypto_qti_ksm_ops = {
