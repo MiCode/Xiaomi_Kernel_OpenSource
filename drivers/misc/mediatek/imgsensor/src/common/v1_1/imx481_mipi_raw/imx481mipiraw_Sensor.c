@@ -255,8 +255,8 @@ static struct SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info[10] = {
 	0000, 0000, 4656, 2608, 0, 0, 4656, 2608},	/*Video*/
 	{4656, 3496, 0, 664, 4656, 2160, 2328, 1080,
 	204, 0000, 1920, 1080, 0, 0, 1920, 1080},	/*hs-video*/
-	{4656, 3496, 0, 664, 4656, 2160, 2328, 1080,
-	204, 0000, 1920, 1080, 0, 0, 1920, 1080},	/*slim video*/
+	{4656, 3496, 0, 0, 4656, 3496, 2328, 1748,
+	0000, 0000, 2328, 1748, 0, 0, 2328, 1746},	/*slim video*/
 };
 
 static struct SENSOR_VC_INFO_STRUCT SENSOR_VC_INFO[4] = {
@@ -2430,11 +2430,11 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 			memcpy((void *)pvcinfo, (void *)&SENSOR_VC_INFO[2],
 			       sizeof(struct SENSOR_VC_INFO_STRUCT));
 			break;
-		case MSDK_SCENARIO_ID_SLIM_VIDEO:
 		case MSDK_SCENARIO_ID_HIGH_SPEED_VIDEO:
 			memcpy((void *)pvcinfo, (void *)&SENSOR_VC_INFO[3],
 			       sizeof(struct SENSOR_VC_INFO_STRUCT));
 			break;
+		case MSDK_SCENARIO_ID_SLIM_VIDEO:
 		case MSDK_SCENARIO_ID_CAMERA_PREVIEW:
 		default:
 			memcpy((void *)pvcinfo, (void *)&SENSOR_VC_INFO[0],
