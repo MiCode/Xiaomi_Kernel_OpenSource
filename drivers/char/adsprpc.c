@@ -2723,9 +2723,6 @@ static int fastrpc_invoke_send(struct smq_invoke_ctx *ctx,
 	ns = get_timestamp_in_ns();
 	fastrpc_update_txmsg_buf(channel_ctx, msg, err, ns);
  bail:
-	if (err)
-		ADSPRPC_ERR("failed with err %d, dom %d (hndl 0x%x, sc 0x%x)\n",
-			err, cid, handle, sc);
 	return err;
 }
 
