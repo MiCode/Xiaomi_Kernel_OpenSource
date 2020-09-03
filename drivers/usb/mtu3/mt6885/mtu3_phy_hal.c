@@ -16,11 +16,15 @@
 #include <linux/phy/phy.h>
 #include <linux/phy/mediatek/mtk_usb_phy.h>
 #include <linux/clk.h>
+#include <linux/pm_qos.h>
 
 #include "mtu3.h"
 #include "mtu3_priv.h"
 
+#define VCORE_OPP 1
+
 static struct phy *mtk_phy;
+static struct pm_qos_request vcore_pm_qos;
 
 #if !defined(CONFIG_USB_MU3D_DRV)
 void Charger_Detect_Init(void)
@@ -60,6 +64,19 @@ int ssusb_dual_phy_power_on(struct ssusb_mtk *ssusb, bool host_mode)
 {
 	int ret;
 
+	if (host_mode) {
+		if (pm_qos_request_active(&vcore_pm_qos)) {
+			pm_qos_update_request(&vcore_pm_qos, VCORE_OPP);
+			dev_info(ssusb->dev, "%s: Vcore QOS update %d\n", __func__,
+								VCORE_OPP);
+		} else {
+			pm_qos_add_request(&vcore_pm_qos, PM_QOS_VCORE_OPP,
+								VCORE_OPP);
+			dev_info(ssusb->dev, "%s: Vcore QOS request %d\n", __func__,
+								VCORE_OPP);
+		}
+	}
+
 	ret = phy_power_on(ssusb->phys[0]);
 
 	if (host_mode) {
@@ -71,8 +88,15 @@ int ssusb_dual_phy_power_on(struct ssusb_mtk *ssusb, bool host_mode)
 
 void ssusb_dual_phy_power_off(struct ssusb_mtk *ssusb, bool host_mode)
 {
-	if (host_mode)
+	if (host_mode) {
+		if (pm_qos_request_active(&vcore_pm_qos)) {
+			pm_qos_remove_request(&vcore_pm_qos);
+			dev_info(ssusb->dev, "%s: Vcore QOS remove\n",  __func__);
+		} else
+			dev_info(ssusb->dev, "%s: Vcore QOS remove again\n", __func__);
+
 		usb_mtkphy_host_mode(ssusb->phys[0], false);
+	}
 
 	phy_power_off(ssusb->phys[0]);
 }
