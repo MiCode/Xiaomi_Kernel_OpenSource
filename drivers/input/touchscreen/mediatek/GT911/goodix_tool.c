@@ -32,7 +32,7 @@
 
 #pragma pack(1)
 struct st_cmd_head {
-	u8 wr;		  /* write read flag£¬0:R  1:W  2:PID 3: */
+	u8  wr;         /* write read flag - 0:R  1:W  2:PID 3: */
 	u8 flag;	  /* 0:no need flag/int 1: need flag  2:need int */
 	u8 flag_addr[2];  /* flag address */
 	u8 flag_val;      /* flag val */
@@ -320,132 +320,7 @@ static u8 comfirm(void)
 static s32 goodix_tool_write(struct file *filp, const char __user *buff,
 			     unsigned long len, void *data)
 {
-	u64 ret = 0;
-
-	GTP_DEBUG_FUNC();
-	GTP_DEBUG_ARRAY((u8 *)buff, len);
-
-	ret = copy_from_user(&cmd_head, buff, CMD_HEAD_LENGTH);
-
-	if (ret)
-		GTP_ERROR("copy_from_user failed.");
-
-	GTP_DEBUG("wr  :0x%02x.", cmd_head.wr);
-	GTP_DEBUG("flag:0x%02x.", cmd_head.flag);
-	GTP_DEBUG("flag addr:0x%02x%02x.", cmd_head.flag_addr[0],
-		  cmd_head.flag_addr[1]);
-	GTP_DEBUG("flag val:0x%02x.", cmd_head.flag_val);
-	GTP_DEBUG("flag rel:0x%02x.", cmd_head.flag_relation);
-	GTP_DEBUG("circle  :%d.", (s32)cmd_head.circle);
-	GTP_DEBUG("times   :%d.", (s32)cmd_head.times);
-	GTP_DEBUG("retry   :%d.", (s32)cmd_head.retry);
-	GTP_DEBUG("delay   :%d.", (s32)cmd_head.delay);
-	GTP_DEBUG("data len:%d.", (s32)cmd_head.data_len);
-	GTP_DEBUG("addr len:%d.", (s32)cmd_head.addr_len);
-	GTP_DEBUG("addr:0x%02x%02x.", cmd_head.addr[0], cmd_head.addr[1]);
-	GTP_DEBUG("len:%d.", (s32)len);
-	GTP_DEBUG("buf[20]:0x%02x.", buff[CMD_HEAD_LENGTH]);
-
-	if (cmd_head.wr == 1) {
-		/* copy_from_user(&cmd_head.data[cmd_head.addr_len], */
-		/* &buff[CMD_HEAD_LENGTH], cmd_head.data_len); */
-		ret = copy_from_user(&cmd_head.data[GTP_ADDR_LENGTH],
-				     &buff[CMD_HEAD_LENGTH], cmd_head.data_len);
-
-		if (ret)
-			GTP_ERROR("copy_from_user failed.");
-
-		memcpy(&cmd_head.data[GTP_ADDR_LENGTH - cmd_head.addr_len],
-		       cmd_head.addr, cmd_head.addr_len);
-
-		GTP_DEBUG_ARRAY(cmd_head.data,
-				cmd_head.data_len + cmd_head.addr_len);
-		GTP_DEBUG_ARRAY((u8 *)&buff[CMD_HEAD_LENGTH],
-				cmd_head.data_len);
-
-		if (cmd_head.flag == 1) {
-			if (comfirm() == FAIL) {
-				GTP_ERROR("[WRITE]Comfirm fail!");
-				return FAIL;
-			}
-		} else if (cmd_head.flag == 2) {
-			/* Need interrupt! */
-		}
-
-		if (tool_i2c_write(
-			    &cmd_head.data[GTP_ADDR_LENGTH - cmd_head.addr_len],
-			    cmd_head.data_len + cmd_head.addr_len) <= 0) {
-			GTP_ERROR("[WRITE]Write data failed!");
-			return FAIL;
-		}
-
-		GTP_DEBUG_ARRAY(
-			&cmd_head.data[GTP_ADDR_LENGTH - cmd_head.addr_len],
-			cmd_head.data_len + cmd_head.addr_len);
-
-		if (cmd_head.delay)
-			msleep(cmd_head.delay);
-
-		return cmd_head.data_len + CMD_HEAD_LENGTH;
-	} else if (cmd_head.wr == 3) { /* Write ic type */
-		memcpy(IC_TYPE, cmd_head.data, cmd_head.data_len);
-		register_i2c_func();
-
-		return cmd_head.data_len + CMD_HEAD_LENGTH;
-	} else if (cmd_head.wr == 5) {
-		/* memcpy(IC_TYPE, cmd_head.data, cmd_head.data_len); */
-
-		return cmd_head.data_len + CMD_HEAD_LENGTH;
-	} else if (cmd_head.wr == 7) { /* disable irq! */
-		disable_irq(touch_irq);
-#ifdef CONFIG_GTP_ESD_PROTECT
-		gtp_esd_switch(i2c_client_point, SWITCH_OFF);
-#endif
-		return CMD_HEAD_LENGTH;
-	} else if (cmd_head.wr == 9) { /* enable irq! */
-		enable_irq(touch_irq);
-#ifdef CONFIG_GTP_ESD_PROTECT
-		gtp_esd_switch(i2c_client_point, SWITCH_ON);
-#endif
-		return CMD_HEAD_LENGTH;
-	} else if (cmd_head.wr == 17) {
-		ret = copy_from_user(&cmd_head.data[GTP_ADDR_LENGTH],
-				     &buff[CMD_HEAD_LENGTH], cmd_head.data_len);
-
-		if (ret)
-			GTP_DEBUG("copy_from_user failed.");
-
-		if (cmd_head.data[GTP_ADDR_LENGTH]) {
-			GTP_DEBUG("gtp enter rawdiff.");
-			gtp_rawdiff_mode = true;
-		} else {
-			gtp_rawdiff_mode = false;
-			GTP_DEBUG("gtp leave rawdiff.");
-		}
-
-		return CMD_HEAD_LENGTH;
-	}
-
-#ifdef UPDATE_FUNCTIONS
-	else if (cmd_head.wr == 11) { /* Enter update mode! */
-		if (gup_enter_update_mode(gt_client) == FAIL)
-			return FAIL;
-	} else if (cmd_head.wr == 13) { /* Leave update mode! */
-		gup_leave_update_mode();
-	} else if (cmd_head.wr == 15) { /* Update firmware! */
-		show_len = 0;
-		total_len = 0;
-		memset(cmd_head.data, 0, cmd_head.data_len + 1);
-		memcpy(cmd_head.data, &buff[CMD_HEAD_LENGTH],
-		       cmd_head.data_len);
-		GTP_DEBUG("update firmware, filename: %s", cmd_head.data);
-		if (gup_update_proc((void *)cmd_head.data) == FAIL)
-			return FAIL;
-	}
-
-#endif
-
-	return CMD_HEAD_LENGTH;
+	return 0;
 }
 
 /*
