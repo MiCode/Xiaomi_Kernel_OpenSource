@@ -275,6 +275,19 @@ config SND_SOC_MT8167_MT6392_MACH
 	  Select Y if you have such device.
 	  If unsure select "N".
 
+config SND_SOC_MT8167S_SOM_MACH
+	tristate "ASoC Audio driver for MT8167SSOM"
+	depends on MACH_MT8167
+	select SND_SOC_MT8167
+	select SND_SOC_TAS5782M
+	select SND_SOC_MT8167_CODEC
+	select SND_SOC_TLV320WN
+	help
+	  This adds support for ASoC machine driver for Mediatek MT8167 SOM
+	  platforms with internal audio codec and speaker codec TAS5782M.
+	  Select Y if you have such device.
+	  If unsure select "N".
+
 config MTK_SND_SOC_CODEC
 	string "String for Mediatek audio codec"
 	help
