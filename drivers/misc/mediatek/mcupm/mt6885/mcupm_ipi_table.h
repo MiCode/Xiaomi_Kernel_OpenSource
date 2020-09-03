@@ -151,7 +151,7 @@ struct mtk_mbox_pin_send mcupm_mbox_pin_send[] = {
  * pin_lock: (spinlock_t)lock of the pin
  */
 struct mtk_mbox_pin_recv mcupm_mbox_pin_recv[] = {
-	{0, PIN_R_OFFSET_PLATFORM, 1, 0, 1, 0,
+	{0, PIN_R_OFFSET_PLATFORM, 0, 0, 1, 0,
 		PIN_R_MSG_SIZE_PLATFORM, 0,
 		CH_S_PLATFORM, { 0 }, 0, 0, 0, { { { { 0 } } } },
 		{0, 0, 0, 0, 0, 0} },
@@ -159,15 +159,15 @@ struct mtk_mbox_pin_recv mcupm_mbox_pin_recv[] = {
 		PIN_R_MSG_SIZE_CPU_DVFS, 1,
 		CH_S_CPU_DVFS, { 0 }, 0, 0, 0, { { { { 0 } } } },
 		{0, 0, 0, 0, 0, 0} },
-	{2, PIN_R_OFFSET_FHCTL, 1, 0, 1, 0,
+	{2, PIN_R_OFFSET_FHCTL, 0, 0, 1, 0,
 		PIN_R_MSG_SIZE_FHCTL, 2,
 		CH_S_FHCTL, { 0 }, 0, 0, 0, { { { { 0 } } } },
 		{0, 0, 0, 0, 0, 0} },
-	{3, PIN_R_OFFSET_MCDI, 1, 0, 1, 0,
+	{3, PIN_R_OFFSET_MCDI, 0, 0, 1, 0,
 		PIN_R_MSG_SIZE_MCDI, 3,
 		CH_S_MCDI, { 0 }, 0, 0, 0, { { { { 0 } } } },
 		{0, 0, 0, 0, 0, 0} },
-	{4, PIN_R_OFFSET_SUSPEND, 1, 0, 1, 0,
+	{4, PIN_R_OFFSET_SUSPEND, 0, 0, 1, 0,
 		PIN_R_MSG_SIZE_SUSPEND, 4,
 		CH_S_SUSPEND, { 0 }, 0, 0, 0, { { { { 0 } } } },
 		{0, 0, 0, 0, 0, 0} },
