@@ -158,8 +158,6 @@
 
 #define IPC_TIMEOUT_MS (250)
 
-#define PHY_C_READY (BIT(0))
-
 #define PHY_READY_TIMEOUT_COUNT (10)
 #define XMLH_LINK_UP (0x400)
 #define MAX_PROP_SIZE (32)
@@ -592,6 +590,21 @@ struct __packed msm_pcie_drv_msg {
 	struct msm_pcie_drv_tre pkt;
 };
 
+struct msm_pcie_drv_info {
+	bool ep_connected; /* drv supports only one endpoint (no switch) */
+	struct msm_pcie_drv_msg drv_enable; /* hand off payload */
+	struct msm_pcie_drv_msg drv_disable; /* payload to request back */
+	struct msm_pcie_drv_msg drv_enable_l1ss_sleep; /* enable l1ss sleep */
+	struct msm_pcie_drv_msg drv_disable_l1ss_sleep; /* disable l1ss sleep */
+	int dev_id;
+	u16 seq;
+	u16 reply_seq;
+	u32 timeout_ms; /* IPC command timeout */
+	u32 l1ss_timeout_us;
+	u32 l1ss_sleep_disable;
+	struct completion completion;
+};
+
 /* msm pcie device structure */
 struct msm_pcie_dev_t {
 	struct platform_device *pdev;
@@ -735,28 +748,6 @@ struct msm_pcie_dev_t {
 struct msm_root_dev_t {
 	struct msm_pcie_dev_t *pcie_dev;
 	struct pci_dev *pci_dev;
-};
-
-struct msm_pcie_drv_info {
-	bool ep_connected; /* drv supports only one endpoint (no switch) */
-	struct msm_pcie_drv_msg drv_enable; /* hand off payload */
-	struct msm_pcie_drv_msg drv_disable; /* payload to request back */
-	struct msm_pcie_drv_msg drv_enable_l1ss_sleep; /* enable l1ss sleep */
-	struct msm_pcie_drv_msg drv_disable_l1ss_sleep; /* disable l1ss sleep */
-	int dev_id;
-	u16 seq;
-	u16 reply_seq;
-	u32 timeout_ms; /* IPC command timeout */
-	u32 l1ss_timeout_us;
-	u32 l1ss_sleep_disable;
-	struct completion completion;
-
-	/* for DRV SSR */
-	void (*manage_pll_power_on)(struct msm_pcie_dev_t *pcie_dev,
-					struct msm_pcie_drv_info *drv_info);
-	u32 phy_resetsm_cntrl2;
-	u32 phy_core_pll_en_mux;
-	u32 phy_c_ready_status;
 };
 
 static u32 msm_pcie_keep_resources_on;
@@ -5254,74 +5245,6 @@ static void msm_pcie_check_l1ss_support_all(struct msm_pcie_dev_t *dev)
 	pci_walk_bus(dev->dev->bus, msm_pcie_check_l1ss_support, dev);
 }
 
-static void msm_pcie_drv_manage_pll_power_on(struct msm_pcie_dev_t *pcie_dev,
-					struct msm_pcie_drv_info *drv_info)
-{
-	u32 cnt = 0;
-	u32 cnt_max = 20; /* 1ms */
-
-	PCIE_DBG(pcie_dev, "PCIe: RC%d: manually power on PHY PLL\n",
-		pcie_dev->rc_idx);
-
-	msm_pcie_write_mask(pcie_dev->phy + drv_info->phy_resetsm_cntrl2,
-			BIT(drv_info->phy_core_pll_en_mux), 0);
-
-	while (!(readl_relaxed(pcie_dev->phy + drv_info->phy_c_ready_status) &
-		PHY_C_READY)) {
-		if (unlikely(cnt++ >= cnt_max)) {
-			PCIE_ERR(pcie_dev,
-				"PCIe: RC%d: failed to manually power on PHY PLL\n",
-				pcie_dev->rc_idx);
-			return;
-		}
-
-		usleep_range(50, 55);
-	}
-
-	PCIE_DBG(pcie_dev, "PCIe: RC%d: successfully powered on PHY PLL\n",
-		pcie_dev->rc_idx);
-}
-
-static int msm_pcie_setup_drv_manage_pll(struct msm_pcie_dev_t *pcie_dev,
-					struct device_node *of_node,
-					struct msm_pcie_drv_info *drv_info)
-{
-	int ret;
-
-	PCIE_DBG(pcie_dev, "PCIe: RC%d: enter\n", pcie_dev->rc_idx);
-
-	ret = of_property_read_u32(of_node, "qcom,phy-resetsm-cntrl2",
-					&drv_info->phy_resetsm_cntrl2);
-	if (ret) {
-		PCIE_ERR(pcie_dev,
-			"PCIe: RC%d failed to get qcom,phy-resetsm-cntrl2\n",
-			pcie_dev->rc_idx);
-		return ret;
-	}
-
-	ret = of_property_read_u32(of_node, "qcom,phy-core-pll-en-mux",
-					&drv_info->phy_core_pll_en_mux);
-	if (ret) {
-		PCIE_ERR(pcie_dev,
-			"PCIe: RC%d failed to get qcom,phy-core-pll-en-mux\n",
-			pcie_dev->rc_idx);
-		return ret;
-	}
-
-	ret = of_property_read_u32(of_node, "qcom,phy-c-ready-status",
-					&drv_info->phy_c_ready_status);
-	if (ret) {
-		PCIE_ERR(pcie_dev,
-			"PCIe: RC%d failed to get qcom,phy-c-ready-status\n",
-			pcie_dev->rc_idx);
-		return ret;
-	}
-
-	drv_info->manage_pll_power_on = msm_pcie_drv_manage_pll_power_on;
-
-	return 0;
-}
-
 static void msm_pcie_setup_drv_msg(struct msm_pcie_drv_msg *msg, u32 dev_id,
 				enum msm_pcie_drv_cmds cmd)
 {
@@ -5343,7 +5266,6 @@ static int msm_pcie_setup_drv(struct msm_pcie_dev_t *pcie_dev,
 {
 	struct msm_pcie_drv_info *drv_info;
 	int ret;
-	u32 phy_manage_pll = 0;
 
 	drv_info = devm_kzalloc(&pcie_dev->pdev->dev, sizeof(*drv_info),
 				GFP_KERNEL);
@@ -5362,15 +5284,6 @@ static int msm_pcie_setup_drv(struct msm_pcie_dev_t *pcie_dev,
 
 	of_property_read_u32(of_node, "qcom,l1ss-sleep-disable",
 					&drv_info->l1ss_sleep_disable);
-
-	ret = of_property_read_u32(of_node, "qcom,phy-manage-pll",
-					&phy_manage_pll);
-	if (!ret && phy_manage_pll) {
-		ret = msm_pcie_setup_drv_manage_pll(pcie_dev, of_node,
-							drv_info);
-		if (ret)
-			return ret;
-	}
 
 	msm_pcie_setup_drv_msg(&drv_info->drv_enable, drv_info->dev_id,
 				MSM_PCIE_DRV_CMD_ENABLE);
@@ -6755,9 +6668,6 @@ static int msm_pcie_drv_resume(struct msm_pcie_dev_t *pcie_dev)
 			clk_prepare_enable(clk_info->hdl);
 
 	if (clkreq_override_en) {
-		if (drv_info->manage_pll_power_on)
-			drv_info->manage_pll_power_on(pcie_dev, drv_info);
-
 		/* remove CLKREQ override */
 		msm_pcie_write_reg_field(pcie_dev->parf,
 					PCIE20_PARF_CLKREQ_OVERRIDE,
