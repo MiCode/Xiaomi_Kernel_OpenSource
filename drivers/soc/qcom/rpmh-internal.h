@@ -153,6 +153,7 @@ int rpmh_rsc_mode_solver_set(struct rsc_drv *drv, bool enable);
 
 void rpmh_tx_done(const struct tcs_request *msg, int r);
 int rpmh_flush(struct rpmh_ctrlr *ctrlr);
+int _rpmh_flush(struct rpmh_ctrlr *ctrlr);
 
 int rpmh_rsc_init_fast_path(struct rsc_drv *drv, const struct tcs_request *msg);
 int rpmh_rsc_update_fast_path(struct rsc_drv *drv,
