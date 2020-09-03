@@ -55,10 +55,6 @@ else
   MTK_SECURE_FD_SUPPORT := 0
 endif
 
-ifeq ($(CONFIG_MACH_MT6771),y)
-  MTK_SECURE_FD_SUPPORT := 0
-endif
-
 subdir-ccflags-y += -DMTK_FD_LARB=$(MTK_FD_LARB)
 subdir-ccflags-y += -DMTK_SECURE_FD_SUPPORT=$(MTK_SECURE_FD_SUPPORT)
 #$(info FDVT: makefile end)

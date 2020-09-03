@@ -80,19 +80,20 @@ enum CMDQ_ENG_ENUM {
 	CMDQ_ENG_EAF,			/* 51 */
 	CMDQ_ENG_OWE,			/* 52 */
 	CMDQ_ENG_MFB,			/* 53 */
+	CMDQ_ENG_FDVT,			/* 54 */
 
 	/* temp: CMDQ internal usage */
-	CMDQ_ENG_CMDQ,			/* 54 */
-	CMDQ_ENG_DISP_MUTEX,		/* 55 */
-	CMDQ_ENG_MMSYS_CONFIG,		/* 56 */
+	CMDQ_ENG_CMDQ,			/* 55 */
+	CMDQ_ENG_DISP_MUTEX,		/* 56 */
+	CMDQ_ENG_MMSYS_CONFIG,		/* 57 */
 
 	/* Dummy Engine */
-	CMDQ_ENG_MDP_RDMA1,		/* 57 */
-	CMDQ_ENG_MDP_RSZ2,		/* 58 */
-	CMDQ_ENG_MDP_TDSHP1,		/* 59 */
-	CMDQ_ENG_MDP_WROT1,		/* 60 */
+	CMDQ_ENG_MDP_RDMA1,		/* 58 */
+	CMDQ_ENG_MDP_RSZ2,		/* 59 */
+	CMDQ_ENG_MDP_TDSHP1,		/* 60 */
+	CMDQ_ENG_MDP_WROT1,		/* 61 */
 
-	CMDQ_ENG_INORDER,		/* 61 */
+	CMDQ_ENG_INORDER,		/* 62 */
 
 	CMDQ_MAX_ENGINE_COUNT	/* ALWAYS keep at the end */
 };
@@ -157,6 +158,7 @@ enum CMDQ_ENG_ENUM {
 #define CMDQ_ENG_OWE_GROUP_BITS		(1LL << CMDQ_ENG_OWE)
 #define CMDQ_ENG_MFB_GROUP_BITS		(1LL << CMDQ_ENG_MFB)
 #define CMDQ_ENG_EAF_GROUP_BITS		(1LL << CMDQ_ENG_EAF)
+#define CMDQ_ENG_FDVT_GROUP_BITS	(1LL << CMDQ_ENG_FDVT)
 
 #define CMDQ_ENG_ISP_GROUP_FLAG(flag)   ((flag) & (CMDQ_ENG_ISP_GROUP_BITS))
 #define CMDQ_ENG_MDP_GROUP_FLAG(flag)   ((flag) & (CMDQ_ENG_MDP_GROUP_BITS))
@@ -170,6 +172,7 @@ enum CMDQ_ENG_ENUM {
 #define CMDQ_ENG_OWE_GROUP_FLAG(flag)	((flag) & (CMDQ_ENG_OWE_GROUP_BITS))
 #define CMDQ_ENG_MFB_GROUP_FLAG(flag)	((flag) & (CMDQ_ENG_MFB_GROUP_BITS))
 #define CMDQ_ENG_EAF_GROUP_FLAG(flag)	((flag) & (CMDQ_ENG_EAF_GROUP_BITS))
+#define CMDQ_ENG_FDVT_GROUP_FLAG(flag)	((flag) & (CMDQ_ENG_FDVT_GROUP_BITS))
 
 #define CMDQ_FOREACH_GROUP(ACTION_struct)\
 	ACTION_struct(CMDQ_GROUP_ISP, ISP)	\

@@ -374,7 +374,7 @@ int cmdq_virtual_get_thread_index(enum CMDQ_SCENARIO_ENUM scenario,
 		 * secure thread is enough
 		 */
 		return CMDQ_THREAD_SEC_MDP;
-#if IS_ENABLED(CONFIG_MACH_MT6768)
+#if IS_ENABLED(CONFIG_MACH_MT6768) || IS_ENABLED(CONFIG_MACH_MT6771)
 	case CMDQ_SCENARIO_ISP_FDVT:
 	case CMDQ_SCENARIO_ISP_FDVT_OFF:
 		return CMDQ_THREAD_SEC_SUB_DISP;

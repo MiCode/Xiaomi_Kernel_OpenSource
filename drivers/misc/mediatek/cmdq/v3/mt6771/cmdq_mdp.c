@@ -1343,6 +1343,7 @@ u64 cmdq_mdp_get_secure_engine(u64 engine_flags)
 	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, WPEO);
 	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, WPEI2);
 	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, WPEO2);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, FDVT);
 	return sec_eng_flag;
 }
 
