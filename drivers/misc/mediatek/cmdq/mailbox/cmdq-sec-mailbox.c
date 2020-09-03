@@ -1345,6 +1345,7 @@ static int cmdq_sec_mbox_send_data(struct mbox_chan *chan, void *data)
 	task = kzalloc(sizeof(*task), GFP_ATOMIC);
 	if (!task)
 		return -ENOMEM;
+	pkt->task_alloc = true;
 
 #if IS_ENABLED(CONFIG_MMPROFILE)
 	mmprofile_log_ex(cmdq->mmp.queue, MMPROFILE_FLAG_PULSE,
