@@ -2266,13 +2266,6 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 	if (pwr->grp_clks[0] == NULL)
 		pwr->grp_clks[0] = pwr->grp_clks[1];
 
-	/* Getting gfx-bimc-interface-clk frequency */
-	if (!of_property_read_u32(pdev->dev.of_node,
-			"qcom,gpu-bimc-interface-clk-freq",
-			&pwr->gpu_bimc_int_clk_freq))
-		pwr->gpu_bimc_int_clk = devm_clk_get(&pdev->dev,
-					"bimc_gpu_clk");
-
 	if (of_property_read_bool(pdev->dev.of_node, "qcom,no-nap"))
 		device->pwrctrl.ctrl_flags |= BIT(KGSL_PWRFLAGS_NAP_OFF);
 
