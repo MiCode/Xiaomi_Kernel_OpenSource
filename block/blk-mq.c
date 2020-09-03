@@ -137,15 +137,18 @@ void blk_mq_in_flight_rw(struct request_queue *q, struct hd_struct *part,
 	blk_mq_queue_tag_busy_iter(q, blk_mq_check_inflight_rw, &mi);
 }
 
-void blk_freeze_queue_start(struct request_queue *q)
+bool blk_freeze_queue_start(struct request_queue *q)
 {
 	int freeze_depth;
 
 	freeze_depth = atomic_inc_return(&q->mq_freeze_depth);
 	if (freeze_depth == 1) {
 		percpu_ref_kill(&q->q_usage_counter);
-		blk_mq_run_hw_queues(q, false);
+		if (q->mq_ops)
+			blk_mq_run_hw_queues(q, false);
+		return true;
 	}
+	return false;
 }
 EXPORT_SYMBOL_GPL(blk_freeze_queue_start);
 
@@ -168,7 +171,7 @@ EXPORT_SYMBOL_GPL(blk_mq_freeze_queue_wait_timeout);
  * Guarantee no request is in use, so we can change any data structure of
  * the queue afterward.
  */
-void blk_freeze_queue(struct request_queue *q)
+bool blk_freeze_queue(struct request_queue *q)
 {
 	/*
 	 * In the !blk_mq case we are only calling this to kill the
@@ -177,19 +180,20 @@ void blk_freeze_queue(struct request_queue *q)
 	 * no blk_unfreeze_queue(), and blk_freeze_queue() is not
 	 * exported to drivers as the only user for unfreeze is blk_mq.
 	 */
-	blk_freeze_queue_start(q);
+	bool ret = blk_freeze_queue_start(q);
 	if (!q->mq_ops)
 		blk_drain_queue(q);
 	blk_mq_freeze_queue_wait(q);
+	return ret;
 }
 
-void blk_mq_freeze_queue(struct request_queue *q)
+bool blk_mq_freeze_queue(struct request_queue *q)
 {
 	/*
 	 * ...just an alias to keep freeze and unfreeze actions balanced
 	 * in the blk_mq_* namespace
 	 */
-	blk_freeze_queue(q);
+	return blk_freeze_queue(q);
 }
 EXPORT_SYMBOL_GPL(blk_mq_freeze_queue);
 
@@ -276,13 +280,6 @@ void blk_mq_wake_waiters(struct request_queue *q)
 	queue_for_each_hw_ctx(q, hctx, i)
 		if (blk_mq_hw_queue_mapped(hctx))
 			blk_mq_tag_wakeup_all(hctx->tags, true);
-
-	/*
-	 * If we are called because the queue has now been marked as
-	 * dying, we need to ensure that processes currently waiting on
-	 * the queue are notified as well.
-	 */
-	wake_up_all(&q->mq_freeze_wq);
 }
 
 bool blk_mq_can_queue(struct blk_mq_hw_ctx *hctx)
@@ -411,7 +408,8 @@ struct request *blk_mq_alloc_request(struct request_queue *q, unsigned int op,
 	struct request *rq;
 	int ret;
 
-	ret = blk_queue_enter(q, flags & BLK_MQ_REQ_NOWAIT);
+	ret = blk_queue_enter(q, !(flags & BLK_MQ_REQ_NOWAIT) ? op :
+			op | REQ_NOWAIT);
 	if (ret)
 		return ERR_PTR(ret);
 
