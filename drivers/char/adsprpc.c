@@ -598,6 +598,7 @@ struct fastrpc_file {
 	/* IRQ safe spin lock for protecting async queue */
 	spinlock_t aqlock;
 	uint32_t ws_timeout;
+	bool untrusted_process;
 };
 
 static struct fastrpc_apps gfa;
@@ -3395,16 +3396,11 @@ static int fastrpc_init_create_dynamic_process(struct fastrpc_file *fl,
 	}
 	inbuf.pageslen = 1;
 
-	/*
-	 * Third-party apps don't have permission to open the fastrpc device, so
-	 * it is opened on their behalf by a trusted process. Such untrusted
-	 * apps are not allowed to offload to signedPD on DSP. This is detected
-	 * by comparing current PID with the one stored during device open.
-	 */
-	if (current->tgid != fl->tgid_open) {
+	/* Untrusted apps are not allowed to offload to signedPD on DSP. */
+	if (fl->untrusted_process) {
 		VERIFY(err, uproc->attrs & FASTRPC_MODE_UNSIGNED_MODULE);
 		if (err) {
-			err = -EINVAL;
+			err = -ECONNREFUSED;
 			ADSPRPC_ERR(
 				"untrusted app trying to offload to signed remote process\n");
 			goto bail;
@@ -5311,6 +5307,14 @@ static int fastrpc_set_process_info(struct fastrpc_file *fl)
 	char strpid[PID_SIZE];
 
 	fl->tgid = current->tgid;
+
+	/*
+	 * Third-party apps don't have permission to open the fastrpc device, so
+	 * it is opened on their behalf by DSP HAL. This is detected by
+	 * comparing current PID with the one stored during device open.
+	 */
+	if (current->tgid != fl->tgid_open)
+		fl->untrusted_process = true;
 	snprintf(strpid, PID_SIZE, "%d", current->pid);
 	if (debugfs_root) {
 		buf_size = strlen(current->comm) + strlen("_")
@@ -5525,6 +5529,12 @@ static int fastrpc_setmode(unsigned long ioctl_param,
 		fl->profile = (uint32_t)ioctl_param;
 		break;
 	case FASTRPC_MODE_SESSION:
+		if (fl->untrusted_process) {
+			err = -EPERM;
+			ADSPRPC_ERR(
+				"multiple sessions not allowed for untrusted apps\n");
+			goto bail;
+		}
 		fl->sessionid = 1;
 		fl->tgid |= (1 << SESSION_ID_INDEX);
 		break;
@@ -5532,6 +5542,7 @@ static int fastrpc_setmode(unsigned long ioctl_param,
 		err = -ENOTTY;
 		break;
 	}
+bail:
 	return err;
 }
 
@@ -6160,7 +6171,7 @@ static int fastrpc_cb_probe(struct device *dev)
 	}
 
 	chan->sesscount++;
-	if (debugfs_root) {
+	if (debugfs_root && !debugfs_global_file) {
 		debugfs_global_file = debugfs_create_file("global", 0644,
 			debugfs_root, NULL, &debugfs_fops);
 		if (IS_ERR_OR_NULL(debugfs_global_file)) {
