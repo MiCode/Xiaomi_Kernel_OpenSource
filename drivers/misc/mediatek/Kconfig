@@ -6,6 +6,7 @@ endmenu # Storage
 
 menu "Power, PMIC, Battery & Low Power"
 source "drivers/misc/mediatek/clkbuf/Kconfig"
+source "drivers/misc/mediatek/slbc/Kconfig"
 source "drivers/misc/mediatek/cm_mgr/Kconfig"
 source "drivers/misc/mediatek/mcupm/Kconfig"
 source "drivers/misc/mediatek/dvfsrc/Kconfig"
