@@ -1558,22 +1558,22 @@ static unsigned int msdc_command_start(struct msdc_host   *host,
 		break;
 #endif
 	case MMC_GEN_CMD:
-		if (cmd->data->flags & MMC_DATA_WRITE)
+		if (cmd->data && cmd->data->flags & MMC_DATA_WRITE)
 			rawcmd |= (1 << 13);
-		if (cmd->data->blocks > 1)
+		if (cmd->data && cmd->data->blocks > 1)
 			rawcmd |= (2 << 11);
 		else
 			rawcmd |= (1 << 11);
 		break;
 	case SD_IO_RW_EXTENDED:
-		if (cmd->data->flags & MMC_DATA_WRITE)
+		if (cmd->data && cmd->data->flags & MMC_DATA_WRITE)
 			rawcmd |= (1 << 13);
-		if (cmd->data->blocks > 1)
+		if (cmd->data && cmd->data->blocks > 1)
 			rawcmd |= (2 << 11);
 		else
 			rawcmd |= (1 << 11);
 
-		if (cmd->data->flags & MMC_DATA_READ) {
+		if (cmd->data && cmd->data->flags & MMC_DATA_READ) {
 			if ((cmd->data->blocks * host->blksz) > 256)
 				MSDC_SET_FIELD(EMMC50_CFG0,
 					MSDC_EMMC50_CFG_ENDBIT_CNT,
