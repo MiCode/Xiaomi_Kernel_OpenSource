@@ -1562,7 +1562,8 @@
 			      <0 0x11278000 0 0x1000>;
 			interrupts = <GIC_SPI 169 IRQ_TYPE_LEVEL_HIGH 0>,
 				<GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH 0>;
-
+			clocks = <&infracfg_ao_clk CLK_IFRAO_THERM>;
+			clock-names = "lvts_clk";
 			resets = <&infracfg_rst 0>,
 				 <&infracfg_rst 1>;
 
