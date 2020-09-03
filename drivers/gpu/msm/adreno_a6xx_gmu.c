@@ -2142,10 +2142,11 @@ static int a6xx_gmu_first_boot(struct adreno_device *adreno_dev)
 
 	ret = a6xx_gmu_aop_send_acd_state(gmu->mailbox.channel,
 			adreno_dev->acd_enabled);
-
-	if (ret)
+	if (ret) {
 		dev_err(&gmu->pdev->dev,
 			"AOP mbox send message failed: %d\n", ret);
+		return ret;
+	}
 
 	ret = a6xx_gmu_enable_gdsc(adreno_dev);
 	if (ret)
