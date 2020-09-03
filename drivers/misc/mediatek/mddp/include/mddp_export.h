@@ -9,7 +9,6 @@
 #define __MDDP_EXPORT_H
 
 #include <linux/netdevice.h>
-#include "mddp_usb_def.h"
 
 //------------------------------------------------------------------------------
 // Struct definition.
@@ -17,7 +16,6 @@
 #define __MDDP_VERSION__            2
 #define MDDP_TAG_PATTERN            0x4646
 
-#define MDDP_MAX_USB_RET_BUF_SZ     256
 #define MDDP_MAX_GET_BUF_SZ         256
 
 enum mddp_state_e {
@@ -37,7 +35,7 @@ enum mddp_state_e {
 };
 
 enum mddp_app_type_e {
-	MDDP_APP_TYPE_USB = 0,
+	MDDP_APP_TYPE_RESERVED_1 = 0,
 	MDDP_APP_TYPE_WH,
 
 	MDDP_APP_TYPE_CNT,
@@ -73,7 +71,6 @@ struct mddp_drv_handle_t {
 
 	/* Application layer handler. */
 	union {
-		struct mddpu_drv_handle_t     *usb_handle;
 		struct mddpw_drv_handle_t     *wifi_handle;
 	};
 };

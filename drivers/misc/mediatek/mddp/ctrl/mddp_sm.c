@@ -364,12 +364,6 @@ int32_t mddp_sm_msg_hdlr(
 		ret = mddp_sm_ctrl_msg_hdlr(msg_id, buf, buf_len);
 		goto _done;
 
-#if defined CONFIG_MTK_MDDP_USB_SUPPORT
-	case MDFPM_USER_ID_UFPM:
-		app = mddp_get_app_inst(MDDP_APP_TYPE_USB);
-		break;
-#endif
-
 #if defined CONFIG_MTK_MDDP_WH_SUPPORT || defined CONFIG_MTK_MCIF_WIFI_SUPPORT
 	case MDFPM_USER_ID_WFPM:
 		app = mddp_get_app_inst(MDDP_APP_TYPE_WH);
