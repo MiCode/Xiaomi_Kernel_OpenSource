@@ -257,7 +257,7 @@ static void mtk_cam_set_meta_stats_info(u32 dma_port, void *vaddr)
 		stats2 = (struct mtk_cam_uapi_meta_raw_stats_2 *)vaddr;
 		offset = sizeof(*stats2);
 		set_payload(&stats2->lce_stats.lceso_buf, MTK_CAM_UAPI_LCESO_SIZE, &offset);
-		set_payload(&stats2->lceh_stats.lcesho_buf, MTK_CAM_UAPI_LCESHO_SIZE, &offset);
+		set_payload(&stats2->lcesh_stats.lcesho_buf, MTK_CAM_UAPI_LCESHO_SIZE, &offset);
 		break;
 	default:
 		pr_debug("%s: dma_port err\n", __func__);
