@@ -77,3 +77,8 @@ endmenu # Other Peripheral
 menu "CCU"
 source "drivers/misc/mediatek/ccu/src/Kconfig"
 endmenu # CCU
+
+menu "Performance"
+source "drivers/misc/mediatek/performance/Kconfig"
+endmenu # Performance
+
