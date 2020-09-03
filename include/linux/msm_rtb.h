@@ -69,11 +69,10 @@ int uncached_logk(enum logk_event_type log_type, void *data);
 /* Override the #defines in asm/io.h with the logged ones */
 #define __raw_read_logged(a, _l, _t)    ({ \
 	_t __a; \
-	void *_addr = (void *)(a); \
 	int _ret; \
-	_ret = uncached_logk(LOGK_READL, _addr); \
+	_ret = uncached_logk(LOGK_READL, (__force void *) a); \
 	ETB_WAYPOINT; \
-	__a = __raw_read##_l(_addr); \
+	__a = __raw_read##_l(a); \
 	if (_ret) \
 		LOG_BARRIER; \
 	__a; \
@@ -136,10 +135,9 @@ int uncached_logk(enum logk_event_type log_type, void *data);
 
 #define __raw_write_logged(v, a, _t) ({ \
 	int _ret; \
-	void *_addr = (void *)(a); \
-	_ret = uncached_logk(LOGK_WRITEL, _addr); \
+	_ret = uncached_logk(LOGK_WRITEL, (__force void *) a); \
 	ETB_WAYPOINT; \
-	__raw_write##_t((v), _addr); \
+	__raw_write##_t((v), a); \
 	if (_ret) \
 		LOG_BARRIER; \
 	})
