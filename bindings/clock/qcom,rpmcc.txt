@@ -30,6 +30,10 @@ suspended or in deep idle. If it is important that the clock keeps running
 during system suspend, you need to specify the non-active clock, the one
 not containing *_A_* in the enumerator name.
 
+Optional properties:
+-  qcom,hw-clk-handoff : Add this property to support initial high votes on the
+                         to be sent to RPM as proxy votes.
+
 Example:
 	smd {
 		compatible = "qcom,smd";
