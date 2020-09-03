@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2015, 2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -92,6 +92,18 @@ static int dynamic_replicator_enable(struct replicator_state *drvdata,
 	return rc;
 }
 
+static bool is_replicator_disabled(struct coresight_device *csdev)
+{
+	int i;
+
+	for (i = 0; i < csdev->nr_outport; i++) {
+		if (atomic_read(&csdev->refcnt[i]) > 0)
+			return false;
+	}
+
+	return true;
+}
+
 static int replicator_enable(struct coresight_device *csdev, int inport,
 			     int outport)
 {
@@ -101,6 +113,10 @@ static int replicator_enable(struct coresight_device *csdev, int inport,
 	bool first_enable = false;
 
 	spin_lock_irqsave(&drvdata->spinlock, flags);
+
+	if (is_replicator_disabled(csdev))
+		replicator_reset(drvdata);
+
 	if (atomic_read(&csdev->refcnt[outport]) == 0) {
 		rc = dynamic_replicator_enable(drvdata, inport, outport);
 		if (!rc)
