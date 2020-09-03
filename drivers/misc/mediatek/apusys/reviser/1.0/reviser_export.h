@@ -21,5 +21,5 @@ extern int reviser_get_vlm(uint32_t request_size, bool force,
 extern int reviser_free_vlm(uint32_t ctxid);
 extern int reviser_set_context(int type,
 		int index, uint8_t ctxid);
-
+extern int reviser_get_resource_vlm(uint32_t *addr, uint32_t *size);
 #endif

@@ -24,11 +24,17 @@ struct reviser_dump {
 	unsigned int err_count;
 	unsigned int unknown_count;
 };
+struct reviser_resource {
+	unsigned int iova;
+	unsigned int size;
+};
 /* reviser driver's private structure */
 struct reviser_dev_info {
 	void *pctrl_top;
 	void *vlm_base;
 	void *tcm_base;
+	struct reviser_resource vlm;
+	struct reviser_resource tcm;
 
 	void *dram_base;
 	void *int_base;

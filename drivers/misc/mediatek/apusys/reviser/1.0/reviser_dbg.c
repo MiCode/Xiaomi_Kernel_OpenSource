@@ -295,6 +295,11 @@ static ssize_t reviser_dbg_read_mem_tcm(struct file *filp, char *buffer,
 	int res = 0;
 	unsigned char *vbuffer;
 
+	if (!reviser_device->tcm_base) {
+		LOG_ERR("No TCM\n");
+		return -EINVAL;
+	}
+
 	if (g_reviser_mem_tcm_bank >= VLM_TCM_BANK_MAX) {
 		LOG_ERR("copy TCM out of range. %d\n", g_reviser_mem_tcm_bank);
 		return -EINVAL;

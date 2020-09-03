@@ -18,13 +18,11 @@
 #include "mdw_cmn.h"
 #include "mdw_mem.h"
 #include "mdw_mem_cmn.h"
+#include "reviser_export.h"
 
 
 #define APUSYS_OPTIONS_MEM_ION
 #define APUSYS_OPTIONS_MEM_VLM
-
-#define APUSYS_VLM_START 0x1D800000
-#define APUSYS_VLM_SIZE 0x100000
 
 struct mdw_mem_mgr {
 	struct list_head list;
@@ -239,8 +237,15 @@ unsigned int mdw_mem_get_support(void)
 
 void mdw_mem_get_vlm(unsigned int *start, unsigned int *size)
 {
-	*start = APUSYS_VLM_START;
-	*size = APUSYS_VLM_SIZE;
+	unsigned int vlm_size;
+	unsigned int vlm_addr;
+
+	reviser_get_resource_vlm(&vlm_addr, &vlm_size);
+
+	*start = vlm_addr;
+	*size = vlm_size;
+
+	//mdw_drv_info("reviser vlm_addr(0x%x) vlm_size(0x%x)\n", vlm_addr, vlm_size);
 }
 
 int mdw_mem_init(void)

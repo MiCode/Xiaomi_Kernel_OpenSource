@@ -329,16 +329,28 @@ static int reviser_probe(struct platform_device *pdev)
 		ret = -EIO;
 		goto free_device;
 	}
+	reviser_device->vlm.iova = apusys_reviser_vlm->start;
+	reviser_device->vlm.size = apusys_reviser_vlm->end - apusys_reviser_vlm->start + 1;
+
 	LOG_DEBUG("apusys_reviser_tcm->start = %pa\n",
 			&apusys_reviser_tcm->start);
-	reviser_device->tcm_base =
-		ioremap_nocache(apusys_reviser_tcm->start,
-		apusys_reviser_tcm->end - apusys_reviser_tcm->start + 1);
-	if (!reviser_device->tcm_base) {
-		LOG_ERR("Could not allocate iomem\n");
-		ret = -EIO;
-		goto free_device;
+	LOG_DEBUG("apusys_reviser_tcm->end = %pa\n",
+			&apusys_reviser_tcm->end);
+	if (apusys_reviser_tcm->end > apusys_reviser_tcm->start) {
+		reviser_device->tcm_base =
+				ioremap_nocache(apusys_reviser_tcm->start,
+				apusys_reviser_tcm->end - apusys_reviser_tcm->start + 1);
+		if (!reviser_device->tcm_base) {
+			LOG_ERR("Could not allocate iomem\n");
+			ret = -EIO;
+			goto free_device;
+		}
+		reviser_device->tcm.size = apusys_reviser_tcm->end - apusys_reviser_tcm->start + 1;
+	} else {
+		reviser_device->tcm_base = NULL;
+		reviser_device->tcm.size = 0;
 	}
+	reviser_device->tcm.iova = apusys_reviser_tcm->start;
 
 	LOG_DEBUG("apusys_reviser_int->start = %pa\n",
 			&apusys_reviser_int->start);
@@ -423,7 +435,8 @@ static int reviser_probe(struct platform_device *pdev)
 free_map:
 	iounmap(reviser_device->pctrl_top);
 	iounmap(reviser_device->vlm_base);
-	iounmap(reviser_device->tcm_base);
+	if (reviser_device->tcm_base)
+		iounmap(reviser_device->tcm_base);
 free_device:
 	/* Release device */
 	device_destroy(reviser_class, reviser_device->reviser_devt);

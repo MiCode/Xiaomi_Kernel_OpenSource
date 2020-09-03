@@ -55,8 +55,8 @@ static int __reviser_get_sgt(const char *buf,
 			return -EFAULT;
 		}
 		p += PAGE_SIZE;
-		LOG_DEBUG("p: %llx PAGE_SIZE: %llx\n",
-				(uint64_t)p, (uint64_t)PAGE_SIZE);
+		//LOG_DEBUG("p: %llx PAGE_SIZE: %llx\n",
+		//		(uint64_t)p, (uint64_t)PAGE_SIZE);
 	}
 
 
