@@ -125,8 +125,7 @@ static void bargein_dump_routine(struct work_struct *ws);
 static void input_dump_routine(struct work_struct *ws);
 #endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
 static void recog_dump_routine(struct work_struct *ws);
-//static int vow_service_SearchSpeakerModelWithUuid(int uuid);
-static int vow_service_SearchSpeakerModelWithKeyword(int keyword);
+static int vow_service_SearchSpeakerModelWithUuid(int uuid);
 static int vow_service_SearchSpeakerModelWithId(int id);
 
 /*****************************************************************************
@@ -150,7 +149,6 @@ static struct
 	bool                 scp_command_flag;
 	bool                 recording_flag;
 	int                  scp_command_id;
-	int                  scp_command_keywordid;
 	int                  confidence_level;
 	int                  eint_status;
 	int                  pwr_status;
@@ -241,7 +239,7 @@ void vow_ipi_rx_internal(unsigned int msg_id,
 				vowserv.enter_phase3_cnt++;
 				if (vowserv.bypass_enter_phase3 == false) {
 					vow_ipi_reg_ok(
-					    (short)ipi_ptr->recog_ok_keywordid,
+					    (short)ipi_ptr->recog_ok_uuid,
 					    ipi_ptr->confidence_lv,
 					    0); // extra_data_len is 0 in CM4 project
 				}
@@ -403,19 +401,18 @@ bool vow_ipi_rceive_ack(unsigned int msg_id,
 	return result;
 }
 
-static void vow_ipi_reg_ok(short keyword,
+static void vow_ipi_reg_ok(short uuid,
 			   int confidence_lv,
 			   unsigned int extradata_len)
 {
 	int slot;
 
 	vowserv.scp_command_flag = true;
-	/* transfer keyword id to model handle id */
-	slot = vow_service_SearchSpeakerModelWithKeyword(keyword);
+	/* transfer uuid to model handle id */
+	slot = vow_service_SearchSpeakerModelWithUuid(uuid);
 	if (slot < 0)
 		return;
-	/* vowserv.scp_command_id = vowserv.vow_speaker_model[slot].id; */
-	vowserv.scp_command_keywordid = keyword;
+	vowserv.scp_command_id = vowserv.vow_speaker_model[slot].id;
 	vowserv.confidence_level = confidence_lv;
 	if (extradata_len <= VOW_EXTRA_DATA_SIZE)
 		vowserv.extradata_bytelen = extradata_len;
@@ -676,20 +673,25 @@ static int vow_service_SearchSpeakerModelWithId(int id)
 	return I;
 }
 
-static int vow_service_SearchSpeakerModelWithKeyword(int keyword)
+static int vow_service_SearchSpeakerModelWithUuid(int uuid)
 {
-	int I;
+	int I, J;
 
 	I = 0;
 	do {
-		if (vowserv.vow_speaker_model[I].keyword == keyword)
+		if (vowserv.vow_speaker_model[I].uuid == uuid)
 			break;
 		I++;
 	} while (I < MAX_VOW_SPEAKER_MODEL);
 
 	if (I == MAX_VOW_SPEAKER_MODEL) {
-		VOWDRV_DEBUG("vow Search Speaker Model By Keyword Fail:%x\n",
-			     keyword);
+		VOWDRV_DEBUG("vow Search Speaker Model By UUID Fail:%x\n",
+			     uuid);
+		for (J = 0; J < MAX_VOW_SPEAKER_MODEL; J++) {
+			/* print all uuid */
+			VOWDRV_DEBUG("uuid[%d]=%d\n",
+				     J, vowserv.vow_speaker_model[J].uuid);
+		}
 		return -1;
 	}
 	return I;
@@ -793,12 +795,12 @@ static bool vow_service_SetSpeakerModel(unsigned long arg)
 		return false;
 
 	ptr8 = (char *)vowserv.vow_speaker_model[I].model_ptr;
-	VOWDRV_DEBUG("SetSPKModel:slot: %d, ID: %x, UUID: %x, flag: %x\n",
+	VOWDRV_DEBUG("SetSPKModel:slot: %d, ID: %x, UUID: %x, flag: %x, keyword: %x\n",
 		      I,
 		      vowserv.vow_speaker_model[I].id,
-		      vowserv.vow_speaker_model[I].keyword,
 		      vowserv.vow_speaker_model[I].uuid,
-		      vowserv.vow_speaker_model[I].flag);
+		      vowserv.vow_speaker_model[I].flag,
+		      vowserv.vow_speaker_model[I].keyword);
 	VOWDRV_DEBUG("vow SetSPKModel:CheckValue:%x %x %x %x %x %x\n",
 		      *(char *)&ptr8[0], *(char *)&ptr8[1],
 		      *(char *)&ptr8[2], *(char *)&ptr8[3],
@@ -825,7 +827,7 @@ static bool vow_service_SendModelStatus(int slot, bool enable)
 		return ret;
 	}
 
-	vow_ipi_buf[0] = vowserv.vow_speaker_model[slot].keyword;
+	vow_ipi_buf[0] = vowserv.vow_speaker_model[slot].uuid;
 	vow_ipi_buf[1] = vowserv.vow_speaker_model[slot].confidence_lv;
 
 	if (enable == VOW_MODEL_STATUS_START) {
@@ -2895,15 +2897,6 @@ static ssize_t VowDrv_read(struct file *fp,
 					     VowDrv_GetHWStatus());
 			}
 		}
-	}
-	slot = vow_service_SearchSpeakerModelWithKeyword(
-		  vowserv.scp_command_keywordid);
-	if (slot < 0) {
-		/* there is no pair id */
-		VOWDRV_DEBUG("%s(),search ID fail, exit\n", __func__);
-		vowserv.scp_command_id =  0;
-	} else {
-		vowserv.scp_command_id = vowserv.vow_speaker_model[slot].id;
 	}
 	vowserv.vow_eint_data_struct.id = vowserv.scp_command_id;
 	vowserv.vow_eint_data_struct.eint_status = VowDrv_QueryVowEINTStatus();

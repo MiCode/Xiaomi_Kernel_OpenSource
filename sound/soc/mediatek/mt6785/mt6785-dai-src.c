@@ -517,6 +517,11 @@ static const struct snd_soc_dapm_widget mtk_dai_src_widgets[] = {
 			    SND_SOC_DAPM_PRE_PMU |
 			    SND_SOC_DAPM_POST_PMU |
 			    SND_SOC_DAPM_PRE_PMD),
+
+	SND_SOC_DAPM_INPUT("HW SRC 1 Out Endpoint"),
+	SND_SOC_DAPM_INPUT("HW SRC 2 Out Endpoint"),
+	SND_SOC_DAPM_OUTPUT("HW SRC 1 In Endpoint"),
+	SND_SOC_DAPM_OUTPUT("HW SRC 2 In Endpoint"),
 };
 
 static int mtk_afe_src_en_connect(struct snd_soc_dapm_widget *source,
@@ -577,6 +582,11 @@ static const struct snd_soc_dapm_route mtk_dai_src_routes[] = {
 	{"HW_SRC_1_Out", NULL, HW_SRC_1_EN_W_NAME, mtk_afe_src_en_connect},
 	{"HW_SRC_2_In", NULL, HW_SRC_2_EN_W_NAME, mtk_afe_src_en_connect},
 	{"HW_SRC_2_Out", NULL, HW_SRC_2_EN_W_NAME, mtk_afe_src_en_connect},
+
+	{"HW SRC 1 In Endpoint", NULL, "HW_SRC_1_In"},
+	{"HW SRC 2 In Endpoint", NULL, "HW_SRC_2_In"},
+	{"HW_SRC_1_Out", NULL, "HW SRC 1 Out Endpoint"},
+	{"HW_SRC_2_Out", NULL, "HW SRC 2 Out Endpoint"},
 };
 
 /* dai ops */
