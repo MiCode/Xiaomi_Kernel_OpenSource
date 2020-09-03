@@ -20,6 +20,7 @@
 #include <uapi/linux/sched/types.h>
 #include <linux/sched/clock.h>
 #include <linux/irq.h>
+#include <linux/syscore_ops.h>
 
 #define MASK_SIZE        32
 
@@ -45,23 +46,22 @@ static void qcom_wdt_dump_cpu_alive_mask(struct msm_watchdog_data *wdog_dd)
  *  will cause the watchdog counter to be frozen.
  *
  */
-int qcom_wdt_suspend(struct device *dev)
+static int qcom_wdt_suspend(void)
 {
-	struct msm_watchdog_data *wdog_dd = dev_get_drvdata(dev);
-
-	if (!wdog_dd)
+	if (!wdog_data)
 		return 0;
-	wdog_dd->ops->reset_wdt(wdog_dd);
-	if (wdog_dd->wakeup_irq_enable) {
-		wdog_dd->last_pet = sched_clock();
+
+	wdog_data->ops->reset_wdt(wdog_data);
+	if (wdog_data->wakeup_irq_enable) {
+		wdog_data->last_pet = sched_clock();
 		return 0;
 	}
-	wdog_dd->ops->disable_wdt(wdog_dd);
-	wdog_dd->enabled = false;
-	wdog_dd->last_pet = sched_clock();
+
+	wdog_data->ops->disable_wdt(wdog_data);
+	wdog_data->enabled = false;
+	wdog_data->last_pet = sched_clock();
 	return 0;
 }
-EXPORT_SYMBOL(qcom_wdt_suspend);
 
 /**
  *  qcom_wdt_resume() - Resumes qcom watchdog after a suspend.
@@ -72,25 +72,31 @@ EXPORT_SYMBOL(qcom_wdt_suspend);
  *  This will cause the watchdog counter to be reset and resumed.
  *
  */
-int qcom_wdt_resume(struct device *dev)
+static void qcom_wdt_resume(void)
 {
-	struct msm_watchdog_data *wdog_dd = dev_get_drvdata(dev);
+	if (!wdog_data)
+		return;
 
-	if (!wdog_dd)
-		return 0;
-	if (wdog_dd->wakeup_irq_enable) {
-		wdog_dd->ops->reset_wdt(wdog_dd);
-		wdog_dd->last_pet = sched_clock();
-		return 0;
+	if (wdog_data->wakeup_irq_enable) {
+		wdog_data->ops->reset_wdt(wdog_data);
+		wdog_data->last_pet = sched_clock();
+		return;
 	}
-	wdog_dd->ops->enable_wdt(1, wdog_dd);
-	wdog_dd->ops->reset_wdt(wdog_dd);
-	wdog_dd->enabled = true;
-	wdog_dd->last_pet = sched_clock();
-	return 0;
+
+	wdog_data->ops->enable_wdt(1, wdog_data);
+	wdog_data->ops->reset_wdt(wdog_data);
+	wdog_data->enabled = true;
+	wdog_data->last_pet = sched_clock();
+	return;
 }
-EXPORT_SYMBOL(qcom_wdt_resume);
 #endif
+
+static struct syscore_ops qcom_wdt_syscore_ops = {
+#ifdef CONFIG_PM_SLEEP
+	.suspend = qcom_wdt_suspend,
+	.resume = qcom_wdt_resume,
+#endif
+};
 
 static int qcom_wdt_panic_handler(struct notifier_block *this,
 			      unsigned long event, void *ptr)
@@ -374,6 +380,7 @@ int qcom_wdt_remove(struct platform_device *pdev)
 {
 	struct msm_watchdog_data *wdog_dd = platform_get_drvdata(pdev);
 
+	unregister_syscore_ops(&qcom_wdt_syscore_ops);
 	if (!IPI_CORES_IN_LPM)
 		cpu_pm_unregister_notifier(&wdog_dd->wdog_cpu_pm_nb);
 
@@ -575,6 +582,9 @@ int qcom_wdt_register(struct platform_device *pdev,
 	md_entry.size = sizeof(*wdog_dd);
 	if (msm_minidump_add_region(&md_entry) < 0)
 		dev_err(wdog_dd->dev, "Failed to add Wdt data in Minidump\n");
+
+	register_syscore_ops(&qcom_wdt_syscore_ops);
+
 	return 0;
 err:
 	return ret;
