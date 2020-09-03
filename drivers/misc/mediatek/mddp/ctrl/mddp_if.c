@@ -10,6 +10,7 @@
 #include <linux/skbuff.h>
 
 #include "mddp_ctrl.h"
+#include "mddp_debug.h"
 #include "mddp_dev.h"
 #include "mddp_filter.h"
 #include "mddp_ipc.h"
@@ -49,8 +50,9 @@ int32_t mddp_drv_attach(
 	if (MDDP_CHECK_APP_TYPE(conf->app_type) && handle)
 		return mddp_sm_reg_callback(conf, handle);
 
-	pr_notice("%s: Failed to drv_attach, type(%d), handle(%p)!\n",
-				__func__, conf->app_type, handle);
+	MDDP_C_LOG(MDDP_LL_WARN,
+			"%s: Failed to drv_attach, type(%d), handle(%p)!\n",
+			__func__, conf->app_type, handle);
 
 	return -EINVAL;
 }
@@ -128,7 +130,8 @@ int32_t mddp_on_activate(enum mddp_app_type_e type,
 			sizeof(app->ap_cfg.ul_dev_name));
 	strlcpy(app->ap_cfg.dl_dev_name, dl_dev_name,
 			sizeof(app->ap_cfg.dl_dev_name));
-	pr_info("%s: type(%d), app(%p), ul(%s), dl(%s).\n",
+	MDDP_C_LOG(MDDP_LL_INFO,
+			"%s: type(%d), app(%p), ul(%s), dl(%s).\n",
 			__func__, type, app,
 			app->ap_cfg.ul_dev_name, app->ap_cfg.dl_dev_name);
 	mddp_sm_on_event(app, MDDP_EVT_FUNC_ACT);
@@ -220,7 +223,8 @@ int32_t mddp_send_msg_to_md_isr(enum mddp_app_type_e type,
 	app = mddp_get_app_inst(type);
 	md_queue = &app->md_send_queue;
 	if (unlikely(!(app->is_config) || !md_queue)) {
-		pr_notice("%s: Invalid state, config(%d), queue(%p)!\n",
+		MDDP_C_LOG(MDDP_LL_WARN,
+				"%s: Invalid state, config(%d), queue(%p)!\n",
 				__func__, app->is_config, md_queue);
 		WARN_ON(1);
 		return -EPERM;

@@ -9,6 +9,8 @@
 #include <linux/fs.h>
 #include <linux/cdev.h>
 #include <linux/ioctl.h>
+
+#include "mddp_debug.h"
 #include "mddp_f_tuple.h"
 #include "mddp_f_dev.h"
 #include "mddp_track.h"
@@ -148,7 +150,8 @@ int mddp_f_dev_get_netif_id(char *dev_name)
 		}
 	}
 
-	pr_notice("%s: Invalid dev_name[%s].\n", __func__, dev_name);
+	MDDP_F_LOG(MDDP_LL_ERR,
+			"%s: Invalid dev_name[%s].\n", __func__, dev_name);
 	WARN_ON(1);
 
 	return -1;
@@ -206,7 +209,8 @@ int mddp_f_dev_name_to_netif_id(char *dev_name)
 const char *mddp_f_data_usage_id_to_dev_name(int id)
 {
 	if (id < 0 || id >= mddp_f_support_wan_dev_num) {
-		pr_notice("%s: Invalid ID[%d].\n", __func__, id);
+		MDDP_F_LOG(MDDP_LL_ERR,
+				"%s: Invalid ID[%d].\n", __func__, id);
 		WARN_ON(1);
 		return NULL;
 	}
@@ -243,7 +247,8 @@ bool mddp_f_dev_add_lan_dev(char *dev_name, int netif_id)
 	}
 
 	if (i >= MDDP_MAX_LAN_DEV_NUM) {
-		pr_notice("%s: LAN device is full[%d].\n", __func__, i);
+		MDDP_F_LOG(MDDP_LL_ERR,
+				"%s: LAN device is full[%d].\n", __func__, i);
 		WARN_ON(1);
 		ret = -ENOSPC;
 	}
@@ -262,7 +267,8 @@ bool mddp_f_dev_add_lan_dev(char *dev_name, int netif_id)
 
 	mddp_f_lan_dev_cnt_g++;
 
-	pr_notice("%s: Add LAN device[%s], netif_id[%x], lan_dev_id[%d], total_device_num[%d].\n",
+	MDDP_F_LOG(MDDP_LL_NOTICE,
+			"%s: Add LAN device[%s], netif_id[%x], lan_dev_id[%d], total_device_num[%d].\n",
 			__func__, dev_name, netif_id,
 			id, mddp_f_lan_dev_cnt_g);
 
@@ -284,7 +290,8 @@ bool mddp_f_dev_add_wan_dev(char *dev_name)
 	}
 
 	if (i >= MDDP_MAX_WAN_DEV_NUM) {
-		pr_notice("%s: WAN device is full[%d].\n", __func__, i);
+		MDDP_F_LOG(MDDP_LL_ERR,
+				"%s: WAN device is full[%d].\n", __func__, i);
 		ret = -ENOSPC;
 		WARN_ON(1);
 	}
@@ -296,7 +303,8 @@ bool mddp_f_dev_add_wan_dev(char *dev_name)
 
 	mddp_f_wan_dev_cnt_g++;
 
-	pr_notice("%s: Add WAN device[%s], wan_dev_id[%d], total_device_num[%d].\n",
+	MDDP_F_LOG(MDDP_LL_NOTICE,
+			"%s: Add WAN device[%s], wan_dev_id[%d], total_device_num[%d].\n",
 			__func__, dev_name, id,
 			mddp_f_wan_dev_cnt_g);
 
@@ -318,7 +326,8 @@ bool mddp_f_dev_del_lan_dev(char *dev_name)
 	}
 
 	if (i >= MDDP_MAX_LAN_DEV_NUM) {
-		pr_notice("%s: Cannot find LAN device[%s].\n",
+		MDDP_F_LOG(MDDP_LL_ERR,
+				"%s: Cannot find LAN device[%s].\n",
 				__func__, dev_name);
 		ret = -EINVAL;
 		WARN_ON(1);
@@ -330,7 +339,8 @@ bool mddp_f_dev_del_lan_dev(char *dev_name)
 	mddp_f_lan_dev[id].netif_id = -1;
 
 	mddp_f_lan_dev_cnt_g--;
-	pr_notice("%s: Delete LAN device[%s], lan_dev_id[%d], remaining_device_num[%d].\n",
+	MDDP_F_LOG(MDDP_LL_NOTICE,
+			"%s: Delete LAN device[%s], lan_dev_id[%d], remaining_device_num[%d].\n",
 			__func__, dev_name, id,
 			mddp_f_lan_dev_cnt_g);
 
@@ -351,7 +361,8 @@ bool mddp_f_dev_del_wan_dev(char *dev_name)
 	}
 
 	if (i >= MDDP_MAX_WAN_DEV_NUM) {
-		pr_notice("%s: Cannot find WAN device[%s].\n",
+		MDDP_F_LOG(MDDP_LL_ERR,
+				"%s: Cannot find WAN device[%s].\n",
 				__func__, dev_name);
 		ret = -EINVAL;
 		WARN_ON(1);
@@ -363,7 +374,8 @@ bool mddp_f_dev_del_wan_dev(char *dev_name)
 	mddp_f_wan_dev[id].netif_id = -1;
 
 	mddp_f_wan_dev_cnt_g--;
-	pr_notice("%s: Delete WAN device[%s], wan_dev_id[%d], remaining_device_num[%d].\n",
+	MDDP_F_LOG(MDDP_LL_NOTICE,
+			"%s: Delete WAN device[%s], wan_dev_id[%d], remaining_device_num[%d].\n",
 			__func__, dev_name, id,
 			mddp_f_lan_dev_cnt_g);
 

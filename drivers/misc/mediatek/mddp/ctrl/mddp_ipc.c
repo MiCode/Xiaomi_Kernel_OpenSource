@@ -8,6 +8,7 @@
 #include <linux/types.h>
 #include <linux/kthread.h>
 
+#include "mddp_debug.h"
 #include "mddp_ipc.h"
 #include "mddp_sm.h"
 
@@ -90,7 +91,8 @@ static int32_t mddp_ipc_md_smem_layout_config(void)
 		}
 	}
 
-	pr_info("%s: smem total_len(%d)\n!", __func__, total_len);
+	MDDP_C_LOG(MDDP_LL_INFO,
+			"%s: smem total_len(%d)\n!", __func__, total_len);
 	return 0;
 }
 
@@ -101,15 +103,18 @@ static int32_t mddp_ipc_open_port(void)
 	mddp_ipc_tty_port_s = mtk_ccci_request_port(MDDP_IPC_TTY_NAME);
 
 	if (mddp_ipc_tty_port_s < 0) {
-		pr_notice("%s: Failed to request port(%s, %d)!\n",
-			__func__, MDDP_IPC_TTY_NAME, mddp_ipc_tty_port_s);
+		MDDP_C_LOG(MDDP_LL_WARN,
+				"%s: Failed to request port(%s, %d)!\n",
+				__func__,
+				MDDP_IPC_TTY_NAME, mddp_ipc_tty_port_s);
 		return -ENODEV;
 	}
 
 	ret = mtk_ccci_open_port(mddp_ipc_tty_port_s);
 	if (ret < 0) {
-		pr_notice("%s: Failed to open port(%d)!\n",
-					__func__, mddp_ipc_tty_port_s);
+		MDDP_C_LOG(MDDP_LL_WARN,
+				"%s: Failed to open port(%d)!\n",
+				__func__, mddp_ipc_tty_port_s);
 		return -ENODEV;
 	}
 
@@ -129,7 +134,8 @@ int32_t mddp_md_msg_hdlr(void *arg)
 
 	while (1) {
 		if (mddp_ipc_tty_port_s < 0) {
-			pr_notice("%s: ipc_tty_port is invalid(%d)!\n",
+			MDDP_C_LOG(MDDP_LL_WARN,
+					"%s: ipc_tty_port is invalid(%d)!\n",
 					__func__, mddp_ipc_tty_port_s);
 			msleep(5000);
 			continue;
@@ -144,7 +150,8 @@ int32_t mddp_md_msg_hdlr(void *arg)
 					&(ctrl_msg.buf), ctrl_msg.buf_len);
 		} else {
 			// NG. Error to read TTY port!
-			pr_notice("%s: Failed to read TTY (%d), count(%d)!\n",
+			MDDP_C_LOG(MDDP_LL_DEBUG,
+					"%s: Failed to read TTY (%d), count(%d)!\n",
 					__func__,
 					mddp_ipc_tty_port_s, rx_count);
 			msleep(1000);
@@ -187,7 +194,8 @@ int32_t mddp_ipc_send_md(
 	kfree(msg);
 
 	if (unlikely(ret < 0)) {
-		pr_notice("%s: mtk_ccci_send_data error(%d)!\n",
+		MDDP_C_LOG(MDDP_LL_WARN,
+				"%s: mtk_ccci_send_data error(%d)!\n",
 				__func__, ret);
 		return -EAGAIN;
 	}
@@ -235,7 +243,8 @@ int32_t mddp_ipc_init(void)
 	rx_task = kthread_run(mddp_md_msg_hdlr, NULL, "mddp_rx");
 
 	if (IS_ERR(rx_task)) {
-		pr_notice("%s: kthread_run fail(%li)!\n",
+		MDDP_C_LOG(MDDP_LL_ERR,
+				"%s: kthread_run fail(%li)!\n",
 				__func__, PTR_ERR(rx_task));
 
 		rx_task = NULL;

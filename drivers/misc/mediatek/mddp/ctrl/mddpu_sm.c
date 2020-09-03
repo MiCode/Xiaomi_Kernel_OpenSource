@@ -56,7 +56,8 @@ void mddpu_sm_enable(struct mddp_app_t *app)
 	ret = app->drv_hdlr.change_state(MDDP_STATE_ENABLING,
 			NULL, &usb_buf_len);
 	if (ret < 0 || usb_buf_len != 0) {
-		pr_notice("%s: change_state fail, ret=%d, usb_len=%d\n",
+		MDDP_S_LOG(MDDP_LL_NOTICE,
+				"%s: change_state fail, ret=%d, usb_len=%d\n",
 				__func__, ret, usb_buf_len);
 		return;
 	}
@@ -64,7 +65,8 @@ void mddpu_sm_enable(struct mddp_app_t *app)
 	// 2. Send ENABLE to MD
 	ret = ccci_get_emi_info(0, &emi_info);
 	if (ret < 0) {
-		pr_notice("%s: ccci_get_emi_info fail, ret=%d\n",
+		MDDP_S_LOG(MDDP_LL_NOTICE,
+				"%s: ccci_get_emi_info fail, ret=%d\n",
 				__func__, ret);
 		return;
 	}
@@ -79,15 +81,20 @@ void mddpu_sm_enable(struct mddp_app_t *app)
 	enable_req.mpuInfo.memBank4BaseAddr = emi_info.ap_view_bank4_base;
 	enable_req.mpuInfo.memBank4Size = emi_info.bank4_size;
 
-	pr_info("%s: MDDP version=%d\n",
+	MDDP_S_LOG(MDDP_LL_DEBUG,
+			"%s: MDDP version=%d\n",
 			__func__, enable_req.version);
-	pr_info("%s: memBank0BaseAddr=0x%llx\n",
+	MDDP_S_LOG(MDDP_LL_DEBUG,
+			"%s: memBank0BaseAddr=0x%llx\n",
 			__func__, enable_req.mpuInfo.memBank0BaseAddr);
-	pr_info("%s: memBank0Size=0x%llx\n",
+	MDDP_S_LOG(MDDP_LL_DEBUG,
+			"%s: memBank0Size=0x%llx\n",
 			__func__, enable_req.mpuInfo.memBank0Size);
-	pr_info("%s: memBank4BaseAddr=0x%llx\n",
+	MDDP_S_LOG(MDDP_LL_DEBUG,
+			"%s: memBank4BaseAddr=0x%llx\n",
 			__func__, enable_req.mpuInfo.memBank4BaseAddr);
-	pr_info("%s: memBank4Size=0x%llx\n",
+	MDDP_S_LOG(MDDP_LL_DEBUG,
+			"%s: memBank4Size=0x%llx\n",
 			__func__, enable_req.mpuInfo.memBank4Size);
 
 	md_msg = kzalloc(sizeof(struct mddp_md_msg_t) + sizeof(enable_req),
@@ -112,7 +119,8 @@ void mddpu_sm_rsp_enable_ok(struct mddp_app_t *app)
 	// 1. Send RSP to USB
 	ret = app->drv_hdlr.change_state(app->state, NULL, &usb_buf_len);
 	if (ret < 0 || usb_buf_len != 0) {
-		pr_notice("%s: change_state fail, ret=%d, usb_len=%d\n",
+		MDDP_S_LOG(MDDP_LL_NOTICE,
+				"%s: change_state fail, ret=%d, usb_len=%d\n",
 				__func__, ret, usb_buf_len);
 		return;
 	}
@@ -131,7 +139,8 @@ void mddpu_sm_rsp_enable_fail(struct mddp_app_t *app)
 	// 1. Send RSP to USB
 	ret = app->drv_hdlr.change_state(app->state, NULL, &usb_buf_len);
 	if (ret < 0 || usb_buf_len != 0) {
-		pr_notice("%s: change_state fail, ret=%d, usb_len=%d\n",
+		MDDP_S_LOG(MDDP_LL_NOTICE,
+				"%s: change_state fail, ret=%d, usb_len=%d\n",
 				__func__, ret, usb_buf_len);
 		return;
 	}
@@ -153,7 +162,8 @@ void mddpu_sm_disable(struct mddp_app_t *app)
 			NULL, &usb_buf_len);
 
 	if (ret < 0 || usb_buf_len != 0) {
-		pr_notice("%s: change_state fail, ret=%d, usb_len=%d\n",
+		MDDP_S_LOG(MDDP_LL_NOTICE,
+				"%s: change_state fail, ret=%d, usb_len=%d\n",
 				__func__, ret, usb_buf_len);
 		return;
 	}
@@ -205,7 +215,8 @@ void mddpu_sm_rsp_disable(struct mddp_app_t *app)
 	// 1. Send RSP to USB
 	ret = app->drv_hdlr.change_state(app->state, NULL, &usb_buf_len);
 	if (ret < 0 || usb_buf_len != 0) {
-		pr_notice("%s: change_state fail, ret=%d, usb_len=%d\n",
+		MDDP_S_LOG(MDDP_LL_NOTICE,
+				"%s: change_state fail, ret=%d, usb_len=%d\n",
 				__func__, ret, usb_buf_len);
 		return;
 	}
@@ -231,9 +242,10 @@ void mddpu_sm_act(struct mddp_app_t *app)
 
 	if (ret < 0 ||
 		usb_buf_len != sizeof(struct ufpm_activate_md_func_req_t)) {
-		pr_notice("%s: Failed to change state, ret=%d, usb_len=%u, sz=%lu!\n",
-			__func__, ret, usb_buf_len,
-			sizeof(struct ufpm_activate_md_func_req_t));
+		MDDP_S_LOG(MDDP_LL_NOTICE,
+				"%s: Failed to change state, ret=%d, usb_len=%u, sz=%lu!\n",
+				__func__, ret, usb_buf_len,
+				sizeof(struct ufpm_activate_md_func_req_t));
 		return;
 	}
 
@@ -260,9 +272,9 @@ void mddpu_sm_rsp_act_ok(struct mddp_app_t *app)
 	// 1. Send RSP to USB
 	ret = app->drv_hdlr.change_state(app->state, NULL, &usb_buf_len);
 	if (ret < 0 || usb_buf_len != 0) {
-		pr_notice(
-		"%s: RNDIS failed to change state, ret=%d, usb_len=%d!\n",
-			__func__, ret, usb_buf_len);
+		MDDP_S_LOG(MDDP_LL_NOTICE,
+				"%s: RNDIS failed to change state, ret=%d, usb_len=%d!\n",
+				__func__, ret, usb_buf_len);
 		return;
 	}
 
@@ -280,9 +292,9 @@ void mddpu_sm_rsp_act_fail(struct mddp_app_t *app)
 	// 1. Send RSP to USB
 	ret = app->drv_hdlr.change_state(app->state, NULL, &usb_buf_len);
 	if (ret < 0 || usb_buf_len != 0) {
-		pr_notice(
-		"%s: RNDIS failed to change state, ret=%d, usb_len=%d\n",
-			__func__, ret, usb_buf_len);
+		MDDP_S_LOG(MDDP_LL_NOTICE,
+				"%s: RNDIS failed to change state, ret=%d, usb_len=%d\n",
+				__func__, ret, usb_buf_len);
 		return;
 	}
 
@@ -303,7 +315,8 @@ void mddpu_sm_deact(struct mddp_app_t *app)
 			usb_buf, &usb_buf_len);
 	if (ret < 0 ||
 		usb_buf_len != sizeof(struct ufpm_md_fast_path_common_req_t)) {
-		pr_notice("%s: change_state fail, ret=%d, usb_len=%d\n",
+		MDDP_S_LOG(MDDP_LL_NOTICE,
+				"%s: change_state fail, ret=%d, usb_len=%d\n",
 				__func__, ret, usb_buf_len);
 		//return;
 	}
@@ -338,7 +351,8 @@ void mddpu_sm_rsp_deact(struct mddp_app_t *app)
 			&deact_rsp_metadata_s,
 			&usb_buf_len);
 	if (ret < 0 || usb_buf_len != 0) {
-		pr_notice("%s: change_state fail, ret=%d, usb_len=%d\n",
+		MDDP_S_LOG(MDDP_LL_NOTICE,
+				"%s: change_state fail, ret=%d, usb_len=%d\n",
 				__func__, ret, usb_buf_len);
 		return;
 	}
@@ -445,7 +459,8 @@ int32_t mddpu_ufpm_msg_hdlr(uint32_t msg_id, void *buf, uint32_t buf_len)
 
 	rsp = (struct mddp_ilm_common_rsp_t *) buf;
 	if (unlikely(rsp->rsp.mode != UFPM_FUNC_MODE_TETHER)) {
-		pr_notice("%s: Wrong mode(%d)!\n",
+		MDDP_S_LOG(MDDP_LL_WARN,
+				"%s: Wrong mode(%d)!\n",
 				__func__, rsp->rsp.mode);
 		return -EINVAL;
 	}
@@ -455,20 +470,23 @@ int32_t mddpu_ufpm_msg_hdlr(uint32_t msg_id, void *buf, uint32_t buf_len)
 	switch (msg_id) {
 	case IPC_MSG_ID_UFPM_ENABLE_MD_FAST_PATH_RSP:
 		enable_rsp = (struct ufpm_enable_md_func_rsp_t *) buf;
-		pr_info("%s: set (%u), (%u),  MD version(%u), (%u).\n",
-			__func__, enable_rsp->mode, enable_rsp->result,
-			enable_rsp->version, enable_rsp->reserved);
+		MDDP_S_LOG(MDDP_LL_DEBUG,
+				"%s: set (%u), (%u),  MD version(%u), (%u).\n",
+				__func__, enable_rsp->mode, enable_rsp->result,
+				enable_rsp->version, enable_rsp->reserved);
 		mddp_set_md_version(enable_rsp->version);
 
 		if (rsp->rsp.result) {
 			/* ENABLE OK. */
-			pr_info("%s: ENABLE RSP OK, result(%d).\n",
+			MDDP_S_LOG(MDDP_LL_INFO,
+					"%s: ENABLE RSP OK, result(%d).\n",
 					__func__, rsp->rsp.result);
 			mddp_sm_set_state_by_md_rsp(app,
 				MDDP_STATE_ENABLING, true);
 		} else {
 			/* ENABLE FAIL. */
-			pr_notice("%s: ENABLE RSP FAIL, result(%d)!\n",
+			MDDP_S_LOG(MDDP_LL_NOTICE,
+					"%s: ENABLE RSP FAIL, result(%d)!\n",
 					__func__, rsp->rsp.result);
 			mddp_sm_set_state_by_md_rsp(app,
 				MDDP_STATE_ENABLING, false);
@@ -478,13 +496,15 @@ int32_t mddpu_ufpm_msg_hdlr(uint32_t msg_id, void *buf, uint32_t buf_len)
 	case IPC_MSG_ID_UFPM_DISABLE_MD_FAST_PATH_RSP:
 		if (rsp->rsp.result) {
 			/* DISABLE OK. */
-			pr_info("%s: DISABLE RSP OK, result(%d).\n",
+			MDDP_S_LOG(MDDP_LL_INFO,
+					"%s: DISABLE RSP OK, result(%d).\n",
 					__func__, rsp->rsp.result);
 			mddp_sm_set_state_by_md_rsp(app,
 				MDDP_STATE_DISABLING, true);
 		} else {
 			/* DISABLE FAIL. */
-			pr_notice("%s: DISABLE RSP FAIL, result(%d)!\n",
+			MDDP_S_LOG(MDDP_LL_NOTICE,
+					"%s: DISABLE RSP FAIL, result(%d)!\n",
 					__func__, rsp->rsp.result);
 			mddp_sm_set_state_by_md_rsp(app,
 				MDDP_STATE_DISABLING, false);
@@ -495,13 +515,15 @@ int32_t mddpu_ufpm_msg_hdlr(uint32_t msg_id, void *buf, uint32_t buf_len)
 	case IPC_MSG_ID_UFPM_ACTIVATE_MD_FAST_PATH_RSP:
 		if (rsp->rsp.result) {
 			/* ACT OK. */
-			pr_info("%s: ACT RSP OK, result(%d).\n",
+			MDDP_S_LOG(MDDP_LL_INFO,
+					"%s: ACT RSP OK, result(%d).\n",
 					__func__, rsp->rsp.result);
 			mddp_sm_set_state_by_md_rsp(app,
 				MDDP_STATE_ACTIVATING, true);
 		} else {
 			/* ACT FAIL. */
-			pr_notice("%s: ACT RSP FAIL, result(%d)!\n",
+			MDDP_S_LOG(MDDP_LL_NOTICE,
+					"%s: ACT RSP FAIL, result(%d)!\n",
 					__func__, rsp->rsp.result);
 			mddp_sm_set_state_by_md_rsp(app,
 				MDDP_STATE_ACTIVATING, false);
@@ -511,7 +533,8 @@ int32_t mddpu_ufpm_msg_hdlr(uint32_t msg_id, void *buf, uint32_t buf_len)
 	case IPC_MSG_ID_UFPM_DEACTIVATE_MD_FAST_PATH_RSP:
 		if (rsp->rsp.result) {
 			/* DEACT OK. */
-			pr_info("%s: DEACT RSP OK, result(%d)\n",
+			MDDP_S_LOG(MDDP_LL_INFO,
+					"%s: DEACT RSP OK, result(%d)\n",
 					__func__, rsp->rsp.result);
 			mddp_sm_set_state_by_md_rsp(app,
 				MDDP_STATE_DEACTIVATING, true);
@@ -521,7 +544,8 @@ int32_t mddpu_ufpm_msg_hdlr(uint32_t msg_id, void *buf, uint32_t buf_len)
 					sizeof(deact_rsp_metadata_s));
 		} else {
 			/* DEACT FAIL. */
-			pr_notice("%s: DEACT RSP FAIL, result(%d)\n",
+			MDDP_S_LOG(MDDP_LL_NOTICE,
+					"%s: DEACT RSP FAIL, result(%d)\n",
 					__func__, rsp->rsp.result);
 			mddp_sm_set_state_by_md_rsp(app,
 				MDDP_STATE_DEACTIVATING, false);
@@ -543,8 +567,9 @@ int32_t mddpu_ufpm_msg_hdlr(uint32_t msg_id, void *buf, uint32_t buf_len)
 		break;
 
 	default:
-		pr_notice("%s: Unsupported RSP MSG_ID[%d] from UFPM.\n",
-					__func__, msg_id);
+		MDDP_S_LOG(MDDP_LL_NOTICE,
+				"%s: Unsupported RSP MSG_ID[%d] from UFPM.\n",
+				__func__, msg_id);
 		break;
 	}
 

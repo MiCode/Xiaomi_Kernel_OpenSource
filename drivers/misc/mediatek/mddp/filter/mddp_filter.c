@@ -12,12 +12,6 @@
 #include <net/xfrm.h>
 #include <net/arp.h>    // for extension tag - mac addr
 
-#ifdef CONFIG_MTK_ENG_BUILD
-#define MDDP_DEBUG(fmt, args...) pr_debug(fmt, ##args)
-#else
-#define MDDP_DEBUG(fmt, args...) do { } while (0)
-#endif
-
 #include "mddp_track.h"
 #include "mddp_f_desc.h"
 #include "mddp_f_proto.h"
@@ -25,9 +19,10 @@
 #include "mddp_f_dev.h"
 #include "mddp_f_hw.c"
 
-#include "mddp_ctrl.h"
 #include "mddp_dev.h"
+#include "mddp_ctrl.h"
 #include "mddp_filter.h"
+#include "mddp_debug.h"
 
 #if defined MDDP_TETHERING_SUPPORT
 #include "mddp_ipc.h"
@@ -105,18 +100,6 @@ static struct nf_hook_ops mddp_nf_ops[] __read_mostly = {
 		.hooknum        = NF_INET_POST_ROUTING,
 		.priority       = NF_IP6_PRI_LAST,
 	},
-	{
-		.hook           = mddp_nfhook_prerouting,
-		.pf             = PF_BRIDGE,
-		.hooknum        = NF_BR_PRE_ROUTING,
-		.priority       = NF_BR_PRI_FIRST + 1,
-	},
-	{
-		.hook           = mddp_nfhook_postrouting,
-		.pf             = PF_BRIDGE,
-		.hooknum        = NF_BR_POST_ROUTING,
-		.priority       = NF_IP_PRI_LAST,
-	 },
 };
 
 //------------------------------------------------------------------------------
@@ -150,7 +133,8 @@ static void mddp_f_init_table_buffer(void)
 	}
 	mddp_f_table_buffer.table = track_table;
 
-	pr_notice("%s: Total table buffer num[%d], table head[%p]!\n",
+	MDDP_F_LOG(MDDP_LL_NOTICE,
+				"%s: Total table buffer num[%d], table head[%p]!\n",
 				__func__, buffer_cnt,
 				mddp_f_table_buffer.table);
 }
@@ -247,8 +231,9 @@ static struct mddp_f_cb *add_track_table(
 	struct mddp_f_track_table_t *tmp_track_table = NULL;
 
 	if (!skb || !desc) {
-		pr_notice("%s: Null input, skb[%p], desc[%p].\n",
-					__func__, skb, desc);
+		MDDP_F_LOG(MDDP_LL_WARN,
+				"%s: Null input, skb[%p], desc[%p].\n",
+				__func__, skb, desc);
 		goto out;
 	}
 
@@ -257,8 +242,9 @@ static struct mddp_f_cb *add_track_table(
 		hash = jhash_1word(((unsigned long)skb & 0xFFFFFFFF),
 				  mddp_f_jhash_initval) % MDDP_F_MAX_TRACK_NUM;
 	} else {
-		pr_notice("%s: Not a IPv4/v6 packet, flag[%x], skb[%p].\n",
-					__func__, desc->flag, skb);
+		MDDP_F_LOG(MDDP_LL_NOTICE,
+				"%s: Not a IPv4/v6 packet, flag[%x], skb[%p].\n",
+				__func__, desc->flag, skb);
 		goto out;
 	}
 
@@ -266,8 +252,9 @@ static struct mddp_f_cb *add_track_table(
 	if (track_table)
 		memset(track_table, 0, sizeof(struct mddp_f_track_table_t));
 	else
-		pr_notice("%s: Table buffer is used up, cannot get table buffer!.\n",
-					__func__);
+		MDDP_F_LOG(MDDP_LL_NOTICE,
+				"%s: Table buffer is used up, cannot get table buffer!.\n",
+				__func__);
 
 
 	TRACK_TABLE_LOCK(mddp_f_track[hash], flags);
@@ -278,7 +265,8 @@ static struct mddp_f_cb *add_track_table(
 	} else {
 		while (curr_track_table) {
 			if (list_cnt >= MDDP_F_MAX_TRACK_TABLE_LIST) {
-				pr_notice("%s: Reach max hash list! Don't add track table[%p], skb[%p], hash[%d], remain buffer[%d].\n",
+				MDDP_F_LOG(MDDP_LL_NOTICE,
+						"%s: Reach max hash list! Don't add track table[%p], skb[%p], hash[%d], remain buffer[%d].\n",
 						__func__, track_table,
 						skb, hash, buffer_cnt+1);
 
@@ -294,13 +282,14 @@ static struct mddp_f_cb *add_track_table(
 			if (curr_track_table->ref_count == 0) {
 				/* Remove timeout track table */
 				if (time_after(jiffies,
-					 (curr_track_table->jiffies
-					   + msecs_to_jiffies(10)))) {
-					MDDP_DEBUG("%s: Remove timeout track table[%p], skb[%p], hash[%d], is_first_track_table[%d], remain buffer[%d].\n",
-						__func__, curr_track_table,
-						skb, hash,
-						is_first_track_table,
-						buffer_cnt+1);
+					(curr_track_table->jiffies +
+					msecs_to_jiffies(10)))) {
+					MDDP_F_LOG(MDDP_LL_INFO,
+					"%s: Remove timeout track table[%p], skb[%p], hash[%d], is_first_track_table[%d], remain buffer[%d].\n",
+					__func__, curr_track_table,
+					skb, hash,
+					is_first_track_table,
+					buffer_cnt+1);
 
 					_remove_track_table(hash,
 							is_first_track_table,
@@ -313,7 +302,8 @@ static struct mddp_f_cb *add_track_table(
 				/* Remove track table of duplicated skb */
 				if (unlikely(curr_track_table->tracked_address
 						== (void *)skb)) {
-					MDDP_DEBUG("%s: Remove track table[%p] of duplicated skb[%p], hash[%d], is_first_track_table[%d], remain buffer[%d].\n",
+					MDDP_F_LOG(MDDP_LL_INFO,
+						"%s: Remove track table[%p] of duplicated skb[%p], hash[%d], is_first_track_table[%d], remain buffer[%d].\n",
 						__func__, curr_track_table,
 						skb, hash,
 						is_first_track_table,
@@ -346,7 +336,8 @@ static struct mddp_f_cb *add_track_table(
 
 	TRACK_TABLE_UNLOCK(mddp_f_track[hash], flags);
 
-	MDDP_DEBUG("%s: Add track table, skb[%p], hash[%d], is_first_track_table[%d], track_table[%p].\n",
+	MDDP_F_LOG(MDDP_LL_INFO,
+				"%s: Add track table, skb[%p], hash[%d], is_first_track_table[%d], track_table[%p].\n",
 				__func__, skb, hash,
 				is_first_track_table,
 				track_table);
@@ -366,15 +357,17 @@ static struct mddp_f_cb *search_and_hold_track_table(
 	struct mddp_f_track_table_t *prev_track_table = NULL;
 
 	if (likely(skb->destructor == dummy_destructor_track_table)) {
-		pr_notice("%s: Dummy destructor track table, skb[%p].\n",
-					__func__, skb);
+		MDDP_F_LOG(MDDP_LL_NOTICE,
+				"%s: Dummy destructor track table, skb[%p].\n",
+				__func__, skb);
 		return cb;
 	}
 
 	hash = jhash_1word(((unsigned long)skb & 0xFFFFFFFF),
 				mddp_f_jhash_initval) % MDDP_F_MAX_TRACK_NUM;
 
-	MDDP_DEBUG("%s: 1. Search track table, skb[%p], hash[%d].\n",
+	MDDP_F_LOG(MDDP_LL_DEBUG,
+				"%s: 1. Search track table, skb[%p], hash[%d].\n",
 				__func__, skb, hash);
 
 	TRACK_TABLE_LOCK(mddp_f_track[hash], flags);
@@ -410,14 +403,16 @@ static void put_track_table(
 {
 	curr_track_table->ref_count--;
 	if (curr_track_table->ref_count == 0) {
-		MDDP_DEBUG("%s: Remove track table track_table[%p], remain buffer[%d].\n",
+		MDDP_F_LOG(MDDP_LL_DEBUG,
+				"%s: Remove track table track_table[%p], remain buffer[%d].\n",
 				__func__, curr_track_table, buffer_cnt+1);
 		mddp_f_put_table_buffer(curr_track_table);
 	} else {
 		WARN_ON(1);
-		pr_notice("%s: Invalid ref_count of track table[%p], ref_cnt[%d].\n",
-					__func__, curr_track_table,
-					curr_track_table->ref_count);
+		MDDP_F_LOG(MDDP_LL_NOTICE,
+				"%s: Invalid ref_count of track table[%p], ref_cnt[%d].\n",
+				__func__, curr_track_table,
+				curr_track_table->ref_count);
 	}
 }
 
@@ -428,7 +423,8 @@ void del_all_track_table(void)
 	struct mddp_f_track_table_t *curr_track_table = NULL;
 	struct mddp_f_track_table_t *tmp_track_table = NULL;
 
-	pr_notice("%s: Delete all track table!\n", __func__);
+	MDDP_F_LOG(MDDP_LL_NOTICE,
+			"%s: Delete all track table!\n", __func__);
 
 	/* Free table buffer on hash table */
 	for (i = 0; i < MDDP_F_MAX_TRACK_NUM; i++) {
@@ -559,7 +555,8 @@ static int mddp_f_e_tag_packet(
 	etag_len = sizeof(struct mddp_f_e_tag_common_t) +
 			sizeof(struct mddp_f_e_tag_mac_t);
 	if (skb_headroom(skb) < (tag_len + etag_len)) {
-		pr_notice("%s: Add MDDP Etag Fail, headroom[%d], tag_len[%d], etag_len[%d]\n",
+		MDDP_F_LOG(MDDP_LL_NOTICE,
+				"%s: Add MDDP Etag Fail, headroom[%d], tag_len[%d], etag_len[%d]\n",
 				__func__, skb_headroom(skb),
 				tag_len, etag_len);
 		return -1;
@@ -572,7 +569,8 @@ static int mddp_f_e_tag_packet(
 
 	if (is_uplink == true) {
 		if (!skb_mac_header_was_set(skb)) {
-			MDDP_DEBUG("%s: Add MDDP Etag Fail, is_uplink[%d], mac_hdr_set[%d]\n",
+			MDDP_F_LOG(MDDP_LL_WARN,
+				"%s: Add MDDP Etag Fail, is_uplink[%d], mac_hdr_set[%d]\n",
 				__func__, is_uplink,
 				skb_mac_header_was_set(skb));
 			return -1;
@@ -593,14 +591,16 @@ static int mddp_f_e_tag_packet(
 			neigh = __ipv6_neigh_lookup_noref(dst->dev, nexthop_v6);
 		} else {
 			rcu_read_unlock_bh();
-			MDDP_DEBUG("%s: Add MDDP Etag Fail, ip_ver[%d]\n",
+			MDDP_F_LOG(MDDP_LL_WARN,
+					"%s: Add MDDP Etag Fail, ip_ver[%d]\n",
 					__func__, ip_ver);
 			return -1;
 		}
 
 		if (neigh == NULL) {
 			rcu_read_unlock_bh();
-			MDDP_DEBUG("%s: Add MDDP Etag Fail, neigh[%x]\n",
+			MDDP_F_LOG(MDDP_LL_WARN,
+					"%s: Add MDDP Etag Fail, neigh[%x]\n",
 					__func__, neigh);
 			return -1;
 		}
@@ -616,7 +616,8 @@ static int mddp_f_e_tag_packet(
 
 	memcpy(skb_e_tag->value, &e_tag_mac, sizeof(struct mddp_f_e_tag_mac_t));
 
-	MDDP_DEBUG("%s: Add MDDP Etag, type[%x], len[%d], mac[%02x:%02x:%02x:%02x:%02x:%02x], access_cnt[%d]\n",
+	MDDP_F_LOG(MDDP_LL_INFO,
+			"%s: Add MDDP Etag, type[%x], len[%d], mac[%02x:%02x:%02x:%02x:%02x:%02x], access_cnt[%d]\n",
 			__func__, skb_e_tag->type, skb_e_tag->len,
 			e_tag_mac.mac_addr[0], e_tag_mac.mac_addr[1],
 			e_tag_mac.mac_addr[2], e_tag_mac.mac_addr[3],
@@ -646,7 +647,8 @@ static int _mddp_f_e_tag_packet(
 	etag_len = mddp_f_e_tag_packet(is_uplink, skb, ip_ver, cb, hit_cnt);
 
 	if (etag_len < 0) {
-		pr_notice("%s: Add MDDP etag FAIL! Clean tag. etag_len[%d], is_uplink[%d], skb[%p], ip_ver[%d], skb_tag[%p]\n",
+		MDDP_F_LOG(MDDP_LL_NOTICE,
+				"%s: Add MDDP etag FAIL! Clean tag. etag_len[%d], is_uplink[%d], skb[%p], ip_ver[%d], skb_tag[%p]\n",
 				__func__, etag_len, is_uplink,
 				skb, ip_ver, skb_tag);
 
@@ -694,7 +696,8 @@ static int mddp_f_tag_packet(
 			ret = _mddp_f_e_tag_packet(is_uplink, skb, ip_ver,
 					skb_tag, cb, hit_cnt);
 
-			MDDP_DEBUG("%s: Add MDDP UL tag, guard_pattern[%x], version[%d], tag_len[%d], in_netif_id[%d], out_netif_id[%d], port[%x], skb[%p].\n",
+			MDDP_F_LOG(MDDP_LL_NOTICE,
+					"%s: Add MDDP UL tag, guard_pattern[%x], version[%d], tag_len[%d], in_netif_id[%d], out_netif_id[%d], port[%x], skb[%p].\n",
 					__func__, skb_tag->guard_pattern,
 					skb_tag->version,
 					skb_tag->tag_len,
@@ -717,7 +720,8 @@ static int mddp_f_tag_packet(
 			ret = _mddp_f_e_tag_packet(is_uplink, skb, ip_ver,
 					skb_tag, cb, hit_cnt);
 
-			MDDP_DEBUG("%s: Add MDDP UL tag, guard_pattern[%x], version[%d], tag_len[%d], tag_info[%d], lan_netif_id[%x], port[%x], ip[%x], skb[%p].\n",
+			MDDP_F_LOG(MDDP_LL_NOTICE,
+					"%s: Add MDDP UL tag, guard_pattern[%x], version[%d], tag_len[%d], tag_info[%d], lan_netif_id[%x], port[%x], ip[%x], skb[%p].\n",
 					__func__, skb_tag->guard_pattern,
 					skb_tag->version,
 					skb_tag->tag_len,
@@ -728,7 +732,8 @@ static int mddp_f_tag_packet(
 
 		} else {
 			WARN_ON(1);
-			pr_notice("%s: Unsupported MD MDDP version[%d], AP MDDP version[%d].\n",
+			MDDP_F_LOG(MDDP_LL_NOTICE,
+				"%s: Unsupported MD MDDP version[%d], AP MDDP version[%d].\n",
 				__func__, mddp_md_version, __MDDP_VERSION__);
 			ret = -EBADF;
 		}
@@ -750,7 +755,8 @@ static int mddp_f_tag_packet(
 			ret = _mddp_f_e_tag_packet(is_uplink, skb, ip_ver,
 					skb_tag, cb, hit_cnt);
 
-			MDDP_DEBUG("%s: Add MDDP DL tag, guard_pattern[%x], version[%d], tag_len[%d], in_netif_id[%d], out_netif_id[%d], port[%x], skb[%p].\n",
+			MDDP_F_LOG(MDDP_LL_NOTICE,
+					"%s: Add MDDP DL tag, guard_pattern[%x], version[%d], tag_len[%d], in_netif_id[%d], out_netif_id[%d], port[%x], skb[%p].\n",
 					__func__, skb_tag->guard_pattern,
 					skb_tag->version, skb_tag->tag_len,
 					skb_tag->v1.in_netif_id,
@@ -760,8 +766,10 @@ static int mddp_f_tag_packet(
 
 		} else if (mddp_md_version == 2) {
 			if (mddp_f_is_support_lan_dev(cb->dev->name) == true) {
-				pr_notice("%s: Both in and out devices are lan devices. Do not tag the packet! out_device[%s], in_device[%s].\n",
-					__func__, out->name, cb->dev->name);
+				MDDP_F_LOG(MDDP_LL_NOTICE,
+						"%s: Both in and out devices are lan devices. Do not tag the packet! out_device[%s], in_device[%s].\n",
+						__func__,
+						out->name, cb->dev->name);
 				return -EFAULT;
 			}
 
@@ -781,7 +789,8 @@ static int mddp_f_tag_packet(
 			ret = _mddp_f_e_tag_packet(is_uplink, fake_skb, ip_ver,
 					skb_tag, cb, hit_cnt);
 
-			MDDP_DEBUG("%s: Add MDDP DL tag, guard_pattern[%x], version[%d], tag_len[%d], tag_info[%d], lan_netif_id[%x], port[%x], ip[%x], skb[%p], fake_skb[%p].\n",
+			MDDP_F_LOG(MDDP_LL_NOTICE,
+					"%s: Add MDDP DL tag, guard_pattern[%x], version[%d], tag_len[%d], tag_info[%d], lan_netif_id[%x], port[%x], ip[%x], skb[%p], fake_skb[%p].\n",
 					__func__, skb_tag->guard_pattern,
 					skb_tag->version, skb_tag->tag_len,
 					skb_tag->v2.tag_info,
@@ -793,8 +802,10 @@ static int mddp_f_tag_packet(
 
 		} else {
 			WARN_ON(1);
-			pr_notice("%s: Unsupported MD MDDP version[%d], AP MDDP version[%d].\n",
-				__func__, mddp_md_version, __MDDP_VERSION__);
+			MDDP_F_LOG(MDDP_LL_NOTICE,
+					"%s: Unsupported MD MDDP version[%d], AP MDDP version[%d].\n",
+					__func__,
+					mddp_md_version, __MDDP_VERSION__);
 			ret = -EBADF;
 		}
 	}
@@ -815,7 +826,8 @@ static inline void _mddp_f_in_tail(
 
 	cb = add_track_table(skb, desc);
 	if (!cb) {
-		MDDP_DEBUG("%s: Add track table failed, skb[%p], desc[%p]!\n",
+		MDDP_F_LOG(MDDP_LL_WARN,
+				"%s: Add track table failed, skb[%p], desc[%p]!\n",
 				__func__, skb, desc);
 		return;
 	}
@@ -844,8 +856,9 @@ static inline void _mddp_f_in_tail(
 			cb->dport = udp->uh_dport;
 			break;
 		default:
-			pr_notice("IPv4 BUG, %s: Should not reach here, skb[%p], protocol[%d].\n",
-						__func__, skb, ip->ip_p);
+			MDDP_F_LOG(MDDP_LL_NOTICE,
+					"IPv4 BUG, %s: Should not reach here, skb[%p], protocol[%d].\n",
+					__func__, skb, ip->ip_p);
 			break;
 		}
 		cb->proto = ip->ip_p;
@@ -859,7 +872,8 @@ static inline void _mddp_f_in_tail(
 
 			cb->dev = skb->dev;
 		} else {
-			pr_notice("%s: Invalid router flag[%x], skb[%p]!\n",
+			MDDP_F_LOG(MDDP_LL_NOTICE,
+					"%s: Invalid router flag[%x], skb[%p]!\n",
 					__func__, desc->flag, skb);
 
 			return;
@@ -881,15 +895,17 @@ static inline void _mddp_f_in_tail(
 			cb->dport = udp->uh_dport;
 			break;
 		default:
-			pr_notice("IPv6 BUG, %s: Should not reach here, skb[%p], protocol[%d].\n",
-						__func__, skb, ip6->nexthdr);
+			MDDP_F_LOG(MDDP_LL_NOTICE,
+					"IPv6 BUG, %s: Should not reach here, skb[%p], protocol[%d].\n",
+					__func__, skb, ip6->nexthdr);
 			break;
 		}
 		cb->proto = ip6->nexthdr;
 
 		return;
 	}
-	MDDP_DEBUG("%s: Invalid flag[%x], skb[%p]!\n",
+	MDDP_F_LOG(MDDP_LL_DEBUG,
+				"%s: Invalid flag[%x], skb[%p]!\n",
 				__func__, desc->flag, skb);
 }
 
@@ -915,7 +931,8 @@ static inline void _mddp_f_in_nat(
 
 		ip = (struct ip4header *) offset2;
 
-		MDDP_DEBUG("%s: IPv4 pre-routing, skb[%p], ip_id[%x], checksum[%x], protocol[%d], in_dev[%s].\n",
+		MDDP_F_LOG(MDDP_LL_DEBUG,
+				"%s: IPv4 pre-routing, skb[%p], ip_id[%x], checksum[%x], protocol[%d], in_dev[%s].\n",
 				__func__, skb, ip->ip_id,
 				ip->ip_sum, ip->ip_p, skb->dev->name);
 
@@ -954,7 +971,8 @@ static inline void _mddp_f_in_nat(
 
 		ip6 = (struct ip6header *) offset2;
 
-		MDDP_DEBUG("%s: IPv6 pre-routing, skb[%p], protocol[%d].\n",
+		MDDP_F_LOG(MDDP_LL_DEBUG,
+				"%s: IPv6 pre-routing, skb[%p], protocol[%d].\n",
 				__func__, skb, ip6->nexthdr);
 
 		t6.proto = ip6->nexthdr;
@@ -1017,7 +1035,8 @@ static inline int mddp_f_in_internal(int iface, struct sk_buff *skb)
 
 	_mddp_f_in_nat(skb->data, &desc, skb, iface);
 	if (desc.flag & DESC_FLAG_NOMEM) {
-		pr_notice("%s: No memory, flag[%x], skb[%p].\n",
+		MDDP_F_LOG(MDDP_LL_NOTICE,
+				"%s: No memory, flag[%x], skb[%p].\n",
 				__func__, desc.flag, skb);
 
 		return 2;
@@ -1025,7 +1044,8 @@ static inline int mddp_f_in_internal(int iface, struct sk_buff *skb)
 	if (desc.flag & (DESC_FLAG_UNKNOWN_ETYPE |
 			DESC_FLAG_UNKNOWN_PROTOCOL | DESC_FLAG_IPFRAG)) {
 		/* un-handled packet, so pass it to kernel stack */
-		MDDP_DEBUG("%s: Un-handled packet, pass it to kernel stack, flag[%x], skb[%p].\n",
+		MDDP_F_LOG(MDDP_LL_DEBUG,
+					"%s: Un-handled packet, pass it to kernel stack, flag[%x], skb[%p].\n",
 					__func__, desc.flag, skb);
 		return 0;
 	}
@@ -1074,13 +1094,15 @@ void mddp_f_out_nf_ipv4(
 
 	memset(&t, 0, sizeof(struct tuple));
 
-	MDDP_DEBUG("%s: IPv4 add rule, skb[%p], cb->proto[%d], ip->ip_p[%d], offset2[%p], ip_id[%x], checksum[%x].\n",
+	MDDP_F_LOG(MDDP_LL_INFO,
+				"%s: IPv4 add rule, skb[%p], cb->proto[%d], ip->ip_p[%d], offset2[%p], ip_id[%x], checksum[%x].\n",
 				__func__, skb, cb->proto, ip->ip_p,
 				offset2, ip->ip_id, ip->ip_sum);
 
 	if (cb->proto != ip->ip_p) {
-		pr_info("%s: IPv4 protocol mismatch, cb->proto[%d], ip->ip_p[%d], skb[%p] is filtered out.\n",
-					__func__, cb->proto, ip->ip_p, skb);
+		MDDP_F_LOG(MDDP_LL_DEBUG,
+				"%s: IPv4 protocol mismatch, cb->proto[%d], ip->ip_p[%d], skb[%p] is filtered out.\n",
+				__func__, cb->proto, ip->ip_p, skb);
 		goto out;
 	}
 
@@ -1094,13 +1116,15 @@ void mddp_f_out_nf_ipv4(
 		ext_offset = nat_ip_conntrack->ext->offset[NF_CT_EXT_HELPER];
 
 		if (!nat_ip_conntrack) {
-			pr_notice("%s: Null ip conntrack, skb[%p] is filtered out.\n",
+			MDDP_F_LOG(MDDP_LL_NOTICE,
+					"%s: Null ip conntrack, skb[%p] is filtered out.\n",
 					__func__, skb);
 			goto out;
 		}
 
 		if (nat_ip_conntrack->ext && ext_offset) { /* helper */
-			pr_info("%s: skb[%p] is filtered out, ext[%p], ext_offset[%d].\n",
+			MDDP_F_LOG(MDDP_LL_DEBUG,
+					"%s: skb[%p] is filtered out, ext[%p], ext_offset[%d].\n",
 					__func__, skb,
 					nat_ip_conntrack->ext, ext_offset);
 			goto out;
@@ -1110,7 +1134,8 @@ void mddp_f_out_nf_ipv4(
 				&& (tcp->th_dport == htons(80)
 				|| tcp->th_sport == htons(80))
 				&& nat_ip_conntrack->mark != 0x80000000) {
-			pr_notice("%s: Invalid parameter, contentfilter[%d], dport[%x], sport[%x], mark[%x], skb[%p] is filtered out,.\n",
+			MDDP_F_LOG(MDDP_LL_NOTICE,
+					"%s: Invalid parameter, contentfilter[%d], dport[%x], sport[%x], mark[%x], skb[%p] is filtered out,.\n",
 					__func__, mddp_f_contentfilter,
 					tcp->th_dport,
 					tcp->th_sport,
@@ -1120,12 +1145,14 @@ void mddp_f_out_nf_ipv4(
 
 		if (tcp_state >= TCP_CONNTRACK_FIN_WAIT
 				&& tcp_state <=	TCP_CONNTRACK_CLOSE) {
-			pr_notice("%s: Invalid TCP state[%d], skb[%p] is filtered out.\n",
-						__func__, tcp_state, skb);
+			MDDP_F_LOG(MDDP_LL_NOTICE,
+					"%s: Invalid TCP state[%d], skb[%p] is filtered out.\n",
+					__func__, tcp_state, skb);
 			goto out;
 		} else if (tcp_state !=	TCP_CONNTRACK_ESTABLISHED) {
-			pr_notice("%s: TCP state[%d] is not in ESTABLISHED state, skb[%p] is filtered out.\n",
-						__func__, tcp_state, skb);
+			MDDP_F_LOG(MDDP_LL_NOTICE,
+					"%s: TCP state[%d] is not in ESTABLISHED state, skb[%p] is filtered out.\n",
+					__func__, tcp_state, skb);
 			goto out;
 		}
 
@@ -1137,7 +1164,8 @@ void mddp_f_out_nf_ipv4(
 			not_match += (ip->ip_id != cb->v4_ip_id) ? 1 : 0;
 			not_match += (tcp->th_dport != cb->dport) ? 1 : 0;
 			if (not_match) {
-				MDDP_DEBUG("%s: IPv4 TCP UL tag not_match[%d], ip_dst[%x], ip_p[%d], ip_id[%x], dport[%x], cb_dst[%x], cb_proto[%d], cb_ip_id[%x], cb_dport[%x].\n",
+				MDDP_F_LOG(MDDP_LL_INFO,
+					"%s: IPv4 TCP UL tag not_match[%d], ip_dst[%x], ip_p[%d], ip_id[%x], dport[%x], cb_dst[%x], cb_proto[%d], cb_ip_id[%x], cb_dport[%x].\n",
 					__func__, not_match, ip->ip_dst,
 					ip->ip_p, ip->ip_id,
 					tcp->th_dport, cb->dst[0],
@@ -1164,7 +1192,8 @@ void mddp_f_out_nf_ipv4(
 				not_match +=
 					(tcp->th_sport != cb->sport) ? 1 : 0;
 				if (not_match) {
-					MDDP_DEBUG("%s: IPv4 TCP DL tag not_match[%d], ip_src[%x], ip_p[%d], ip_id[%x], sport[%x], cb_src[%x], cb_proto[%d], cb_ip_id[%x], cb_sport[%x].\n",
+					MDDP_F_LOG(MDDP_LL_INFO,
+						"%s: IPv4 TCP DL tag not_match[%d], ip_src[%x], ip_p[%d], ip_id[%x], sport[%x], cb_src[%x], cb_proto[%d], cb_ip_id[%x], cb_sport[%x].\n",
 						__func__, not_match, ip->ip_src,
 						ip->ip_p, ip->ip_id,
 						tcp->th_sport, cb->src[0],
@@ -1175,7 +1204,8 @@ void mddp_f_out_nf_ipv4(
 				}
 			} else {
 				/* Do not tag TCP DL packet */
-				MDDP_DEBUG("%s: Do not tag IPv4 TCP DL.\n",
+				MDDP_F_LOG(MDDP_LL_DEBUG,
+						"%s: Do not tag IPv4 TCP DL.\n",
 						__func__);
 
 				goto out;
@@ -1194,13 +1224,15 @@ void mddp_f_out_nf_ipv4(
 				found_nat_tuple->curr_cnt = 0;
 				MDDP_F_TUPLE_UNLOCK(&mddp_f_tuple_lock, flag);
 
-				MDDP_DEBUG("%s: tuple[%p] is found!!\n",
+				MDDP_F_LOG(MDDP_LL_DEBUG,
+					"%s: tuple[%p] is found!!\n",
 					__func__, found_nat_tuple);
 				ret = mddp_f_tag_packet(is_uplink,
 						skb, out, cb, ip->ip_p,
 						ip->ip_v, tuple_hit_cnt);
 				if (ret == 0)
-					MDDP_DEBUG("%s: Add IPv4 TCP MDDP tag, is_uplink[%d], skb[%p], ip_id[%x], ip_checksum[%x].\n",
+					MDDP_F_LOG(MDDP_LL_NOTICE,
+						"%s: Add IPv4 TCP MDDP tag, is_uplink[%d], skb[%p], ip_id[%x], ip_checksum[%x].\n",
 						__func__, is_uplink, skb,
 						ip->ip_id, ip->ip_sum);
 
@@ -1212,7 +1244,8 @@ void mddp_f_out_nf_ipv4(
 						skb, out, cb, ip->ip_p,
 						ip->ip_v, tuple_hit_cnt);
 				if (ret == 0)
-					MDDP_DEBUG("%s: Add IPv4 TCP MDDP tag, is_uplink[%d], skb[%p], ip_id[%x], ip_checksum[%x].\n",
+					MDDP_F_LOG(MDDP_LL_NOTICE,
+							"%s: Add IPv4 TCP MDDP tag, is_uplink[%d], skb[%p], ip_id[%x], ip_checksum[%x].\n",
 							__func__, is_uplink,
 							skb, ip->ip_id,
 							ip->ip_sum);
@@ -1243,8 +1276,9 @@ void mddp_f_out_nf_ipv4(
 				mddp_f_add_nat_tuple(found_nat_tuple);
 			}
 		} else {
-			pr_notice("%s: Headroom of skb[%p] is not enough to add MDDP tag, headroom[%d].\n",
-				__func__, skb, skb_headroom(skb));
+			MDDP_F_LOG(MDDP_LL_NOTICE,
+					"%s: Headroom of skb[%p] is not enough to add MDDP tag, headroom[%d].\n",
+					__func__, skb, skb_headroom(skb));
 		}
 		break;
 	case IPPROTO_UDP:
@@ -1253,13 +1287,15 @@ void mddp_f_out_nf_ipv4(
 		ext_offset = nat_ip_conntrack->ext->offset[NF_CT_EXT_HELPER];
 
 		if (!nat_ip_conntrack) {
-			pr_notice("%s: Null ip conntrack, skb[%p] is filtered out.\n",
+			MDDP_F_LOG(MDDP_LL_NOTICE,
+					"%s: Null ip conntrack, skb[%p] is filtered out.\n",
 					__func__, skb);
 			goto out;
 		}
 
 		if (nat_ip_conntrack->ext && ext_offset) { /* helper */
-			pr_notice("%s: skb[%p] is filtered out, ext[%p], ext_offset[%d].\n",
+			MDDP_F_LOG(MDDP_LL_NOTICE,
+					"%s: skb[%p] is filtered out, ext[%p], ext_offset[%d].\n",
 					__func__, skb,
 					nat_ip_conntrack->ext, ext_offset);
 			goto out;
@@ -1273,7 +1309,8 @@ void mddp_f_out_nf_ipv4(
 			not_match += (ip->ip_id != cb->v4_ip_id) ? 1 : 0;
 			not_match += (udp->uh_dport != cb->dport) ? 1 : 0;
 			if (not_match) {
-				MDDP_DEBUG("%s: IPv4 UDP UL tag not_match[%d], ip_dst[%x], ip_p[%d], ip_id[%x], dport[%x], cb_dst[%x], cb_proto[%d], cb_ip_id[%x], cb_dport[%x].\n",
+				MDDP_F_LOG(MDDP_LL_INFO,
+					"%s: IPv4 UDP UL tag not_match[%d], ip_dst[%x], ip_p[%d], ip_id[%x], dport[%x], cb_dst[%x], cb_proto[%d], cb_ip_id[%x], cb_dport[%x].\n",
 					__func__, not_match, ip->ip_dst,
 					ip->ip_p, ip->ip_id,
 					udp->uh_dport, cb->dst[0],
@@ -1297,7 +1334,8 @@ void mddp_f_out_nf_ipv4(
 			not_match += (ip->ip_id != cb->v4_ip_id) ? 1 : 0;
 			not_match += (udp->uh_sport != cb->sport) ? 1 : 0;
 			if (not_match) {
-				MDDP_DEBUG("%s: IPv4 UDP DL tag not_match[%d], ip_src[%x], ip_p[%d], ip_id[%x], sport[%x], cb_src[%x], cb_proto[%d], cb_ip_id[%x], cb_sport[%x].\n",
+				MDDP_F_LOG(MDDP_LL_INFO,
+					"%s: IPv4 UDP DL tag not_match[%d], ip_src[%x], ip_p[%d], ip_id[%x], sport[%x], cb_src[%x], cb_proto[%d], cb_ip_id[%x], cb_sport[%x].\n",
 					__func__, not_match, ip->ip_src,
 					ip->ip_p, ip->ip_id,
 					udp->uh_sport, cb->src[0],
@@ -1327,10 +1365,14 @@ void mddp_f_out_nf_ipv4(
 					MDDP_F_TUPLE_UNLOCK(&mddp_f_tuple_lock,
 							flag);
 
-					MDDP_DEBUG("%s: tuple[%p] is found!!\n",
-						__func__, found_nat_tuple);
+					MDDP_F_LOG(MDDP_LL_DEBUG,
+							"%s: tuple[%p] is found!!\n",
+							__func__,
+							found_nat_tuple);
 					if (is_uplink == false) {
-						MDDP_DEBUG("%s: No need to tag UDP DL.\n");
+						MDDP_F_LOG(MDDP_LL_DEBUG,
+							"%s: No need to tag UDP DL.\n",
+							__func__);
 						goto out;
 					}
 
@@ -1339,7 +1381,8 @@ void mddp_f_out_nf_ipv4(
 							ip->ip_v,
 							tuple_hit_cnt);
 					if (ret == 0)
-						MDDP_DEBUG("%s: Add IPv4 UDP MDDP tag, is_uplink[%d], skb[%p], ip_id[%x], ip_checksum[%x].\n",
+						MDDP_F_LOG(MDDP_LL_NOTICE,
+							"%s: Add IPv4 UDP MDDP tag, is_uplink[%d], skb[%p], ip_id[%x], ip_checksum[%x].\n",
 							__func__, is_uplink,
 							skb, ip->ip_id,
 							ip->ip_sum);
@@ -1354,7 +1397,8 @@ void mddp_f_out_nf_ipv4(
 							ip->ip_v,
 							tuple_hit_cnt);
 					if (ret == 0)
-						MDDP_DEBUG("%s: Add IPv4 UDP MDDP tag, is_uplink[%d], skb[%p], ip_id[%x], ip_checksum[%x].\n",
+						MDDP_F_LOG(MDDP_LL_NOTICE,
+							"%s: Add IPv4 UDP MDDP tag, is_uplink[%d], skb[%p], ip_id[%x], ip_checksum[%x].\n",
 							__func__, is_uplink,
 							skb, ip->ip_id,
 							ip->ip_sum);
@@ -1383,16 +1427,20 @@ void mddp_f_out_nf_ipv4(
 
 				mddp_f_add_nat_tuple(found_nat_tuple);
 			} else {
-				pr_notice("%s: Headroom of skb[%p] is not enough to add MDDP tag, headroom[%d].\n",
-					__func__, skb, skb_headroom(skb));
+				MDDP_F_LOG(MDDP_LL_NOTICE,
+						"%s: Headroom of skb[%p] is not enough to add MDDP tag, headroom[%d].\n",
+						__func__,
+						skb, skb_headroom(skb));
 			}
 		} else {
-			MDDP_DEBUG("%s: Don't track DHCP packet, s_port[%d], skb[%p] is filtered out.\n",
+			MDDP_F_LOG(MDDP_LL_DEBUG,
+					"%s: Don't track DHCP packet, s_port[%d], skb[%p] is filtered out.\n",
 					__func__, cb->sport, skb);
 		}
 		break;
 	default:
-		MDDP_DEBUG("%s: Not TCP/UDP packet, protocal[%d], skb[%p] is filtered out.\n",
+		MDDP_F_LOG(MDDP_LL_DEBUG,
+					"%s: Not TCP/UDP packet, protocal[%d], skb[%p] is filtered out.\n",
 					__func__, ip->ip_p, skb);
 		break;
 	}
@@ -1442,13 +1490,15 @@ void mddp_f_out_nf_ipv6(
 		ext_offset = nat_ip_conntrack->ext->offset[NF_CT_EXT_HELPER];
 
 		if (!nat_ip_conntrack) {
-			pr_notice("%s: Null ip conntrack, skb[%p] is filtered out.\n",
+			MDDP_F_LOG(MDDP_LL_NOTICE,
+					"%s: Null ip conntrack, skb[%p] is filtered out.\n",
 					__func__, skb);
 			goto out;
 		}
 
 		if (nat_ip_conntrack->ext && ext_offset) { /* helper */
-			pr_info("%s: skb[%p] is filtered out, ext[%p], ext_offset[%d].\n",
+			MDDP_F_LOG(MDDP_LL_DEBUG,
+					"%s: skb[%p] is filtered out, ext[%p], ext_offset[%d].\n",
 					__func__, skb,
 					nat_ip_conntrack->ext, ext_offset);
 			goto out;
@@ -1458,30 +1508,37 @@ void mddp_f_out_nf_ipv6(
 				&& (tcp->th_dport == htons(80)
 				|| tcp->th_sport == htons(80))
 				&& nat_ip_conntrack->mark != 0x80000000) {
-			pr_notice("%s: Invalid parameter, contentfilter[%d], dport[%x], sport[%x], mark[%x], skb[%p] is filtered out,.\n",
-				__func__, mddp_f_contentfilter, tcp->th_dport,
-				tcp->th_sport, nat_ip_conntrack->mark, skb);
+			MDDP_F_LOG(MDDP_LL_NOTICE,
+					"%s: Invalid parameter, contentfilter[%d], dport[%x], sport[%x], mark[%x], skb[%p] is filtered out,.\n",
+					__func__,
+					mddp_f_contentfilter, tcp->th_dport,
+					tcp->th_sport, nat_ip_conntrack->mark,
+					skb);
 			goto out;
 		}
 		if (tcp_state >= TCP_CONNTRACK_FIN_WAIT
 				&& tcp_state <=	TCP_CONNTRACK_CLOSE) {
-			pr_notice("%s: Invalid TCP state[%d], skb[%p] is filtered out.\n",
-						__func__, tcp_state, skb);
+			MDDP_F_LOG(MDDP_LL_NOTICE,
+					"%s: Invalid TCP state[%d], skb[%p] is filtered out.\n",
+					__func__, tcp_state, skb);
 			goto out;
 		} else if (tcp_state !=	TCP_CONNTRACK_ESTABLISHED) {
-			pr_notice("%s: TCP state[%d] is not in ESTABLISHED state, skb[%p] is filtered out.\n",
-						__func__, tcp_state, skb);
+			MDDP_F_LOG(MDDP_LL_NOTICE,
+					"%s: TCP state[%d] is not in ESTABLISHED state, skb[%p] is filtered out.\n",
+					__func__, tcp_state, skb);
 			goto out;
 		}
 #ifndef MDDP_F_NETFILTER
 		if (cb->iface == iface) {
-			pr_notice("BUG %s,%d: in_iface[%p] and out_iface[%p] are same.\n",
+			MDDP_F_LOG(MDDP_LL_NOTICE,
+					"BUG %s,%d: in_iface[%p] and out_iface[%p] are same.\n",
 					__func__, __LINE__, cb->iface, iface);
 			goto out;
 		}
 #else
 		if (cb->dev == out) {
-			pr_notice("BUG %s,%d: in_dev[%p] name[%s] and out_dev[%p] name [%s] are same.\n",
+			MDDP_F_LOG(MDDP_LL_NOTICE,
+					"BUG %s,%d: in_dev[%p] name[%s] and out_dev[%p] name [%s] are same.\n",
 					__func__, __LINE__, cb->dev,
 					cb->dev->name, out, out->name);
 			goto out;
@@ -1501,7 +1558,8 @@ void mddp_f_out_nf_ipv6(
 			not_match += (tcp->th_sport != cb->sport) ? 1 : 0;
 			not_match += (tcp->th_dport != cb->dport) ? 1 : 0;
 			if (not_match) {
-				MDDP_DEBUG("%s: IPv6 TCP UL tag not_match[%d], ip_p[%d], sport[%x], dport[%x], cb_proto[%d], cb_sport[%x], cb_dport[%x].\n",
+				MDDP_F_LOG(MDDP_LL_INFO,
+					"%s: IPv6 TCP UL tag not_match[%d], ip_p[%d], sport[%x], dport[%x], cb_proto[%d], cb_sport[%x], cb_dport[%x].\n",
 					__func__, not_match, ip6->nexthdr,
 					tcp->th_sport, tcp->th_dport, cb->proto,
 					cb->sport, cb->dport);
@@ -1534,7 +1592,8 @@ void mddp_f_out_nf_ipv6(
 				not_match +=
 					(tcp->th_dport != cb->dport) ? 1 : 0;
 				if (not_match) {
-					MDDP_DEBUG("%s: IPv6 TCP DL tag not_match[%d], ip_p[%d], sport[%x], dport[%x], cb_proto[%d], cb_sport[%x], cb_dport[%x].\n",
+					MDDP_F_LOG(MDDP_LL_INFO,
+						"%s: IPv6 TCP DL tag not_match[%d], ip_p[%d], sport[%x], dport[%x], cb_proto[%d], cb_sport[%x], cb_dport[%x].\n",
 						__func__, not_match,
 						ip6->nexthdr, tcp->th_sport,
 						tcp->th_dport, cb->proto,
@@ -1544,7 +1603,8 @@ void mddp_f_out_nf_ipv6(
 				}
 			} else {
 				/* Do not tag TCP DL packet */
-				MDDP_DEBUG("%s: Do not tag IPv6 TCP DL.\n",
+				MDDP_F_LOG(MDDP_LL_DEBUG,
+						"%s: Do not tag IPv6 TCP DL.\n",
 						__func__);
 
 				goto out;
@@ -1564,13 +1624,15 @@ void mddp_f_out_nf_ipv6(
 				found_router_tuple->curr_cnt = 0;
 				MDDP_F_TUPLE_UNLOCK(&mddp_f_tuple_lock, flag);
 
-				MDDP_DEBUG("%s: tuple[%p] is found!!\n",
+				MDDP_F_LOG(MDDP_LL_DEBUG,
+					"%s: tuple[%p] is found!!\n",
 					__func__, found_router_tuple);
 				ret = mddp_f_tag_packet(is_uplink,
 						skb, out, cb, nexthdr,
 						ip6->version, tuple_hit_cnt);
 				if (ret == 0)
-					MDDP_DEBUG("%s: Add IPv6 TCP MDDP tag, is_uplink[%d], skb[%p], tcp_checksum[%x].\n",
+					MDDP_F_LOG(MDDP_LL_NOTICE,
+						"%s: Add IPv6 TCP MDDP tag, is_uplink[%d], skb[%p], tcp_checksum[%x].\n",
 						__func__, is_uplink,
 						skb, tcp->th_sum);
 
@@ -1582,7 +1644,8 @@ void mddp_f_out_nf_ipv6(
 						skb, out, cb, nexthdr,
 						ip6->version, tuple_hit_cnt);
 				if (ret == 0)
-					MDDP_DEBUG("%s: Add IPv6 TCP MDDP tag, is_uplink[%d], skb[%p], tcp_checksum[%x].\n",
+					MDDP_F_LOG(MDDP_LL_NOTICE,
+						"%s: Add IPv6 TCP MDDP tag, is_uplink[%d], skb[%p], tcp_checksum[%x].\n",
 						__func__, is_uplink,
 						skb, tcp->th_sum);
 			}
@@ -1608,7 +1671,8 @@ void mddp_f_out_nf_ipv6(
 
 			mddp_f_add_router_tuple_tcpudp(found_router_tuple);
 		} else {
-			pr_notice("%s: Headroom of skb[%p] is not enough to add MDDP tag, headroom[%d].\n",
+			MDDP_F_LOG(MDDP_LL_NOTICE,
+					"%s: Headroom of skb[%p] is not enough to add MDDP tag, headroom[%d].\n",
 					__func__, skb, skb_headroom(skb));
 		}
 		break;
@@ -1618,28 +1682,32 @@ void mddp_f_out_nf_ipv6(
 		ext_offset = nat_ip_conntrack->ext->offset[NF_CT_EXT_HELPER];
 
 		if (!nat_ip_conntrack) {
-			pr_notice("%s: Null ip conntrack, skb[%p] is filtered out.\n",
-				__func__, skb);
+			MDDP_F_LOG(MDDP_LL_NOTICE,
+					"%s: Null ip conntrack, skb[%p] is filtered out.\n",
+					__func__, skb);
 			goto out;
 		}
 
 		if (nat_ip_conntrack->ext && ext_offset) { /* helper */
-			pr_notice("%s: skb[%p] is filtered out, ext[%p], ext_offset[%d].\n",
-				__func__, skb,
+			MDDP_F_LOG(MDDP_LL_NOTICE,
+					"%s: skb[%p] is filtered out, ext[%p], ext_offset[%d].\n",
+					__func__, skb,
 				nat_ip_conntrack->ext, ext_offset);
 			goto out;
 		}
 
 #ifndef MDDP_F_NETFILTER
 		if (cb->iface == iface)	{
-			pr_notice("BUG %s,%d: in_iface[%p] and out_iface[%p] are same.\n",
+			MDDP_F_LOG(MDDP_LL_NOTICE,
+					"BUG %s,%d: in_iface[%p] and out_iface[%p] are same.\n",
 					__func__, __LINE__,
 					cb->iface, iface);
 			goto out;
 		}
 #else
 		if (cb->dev == out)	{
-			pr_notice("BUG %s,%d: in_dev[%p] name[%s] and out_dev[%p] name [%s] are same.\n",
+			MDDP_F_LOG(MDDP_LL_NOTICE,
+					"BUG %s,%d: in_dev[%p] name[%s] and out_dev[%p] name [%s] are same.\n",
 					__func__, __LINE__, cb->dev,
 					cb->dev->name, out, out->name);
 			goto out;
@@ -1659,7 +1727,8 @@ void mddp_f_out_nf_ipv6(
 			not_match += (udp->uh_sport != cb->sport) ? 1 : 0;
 			not_match += (udp->uh_dport != cb->dport) ? 1 : 0;
 			if (not_match) {
-				MDDP_DEBUG("%s: IPv6 UDP UL tag not_match[%d], ip_p[%d], sport[%x], dport[%x], cb_proto[%d], cb_sport[%x], cb_dport[%x].\n",
+				MDDP_F_LOG(MDDP_LL_INFO,
+					"%s: IPv6 UDP UL tag not_match[%d], ip_p[%d], sport[%x], dport[%x], cb_proto[%d], cb_sport[%x], cb_dport[%x].\n",
 					__func__, not_match, ip6->nexthdr,
 					udp->uh_sport, udp->uh_dport, cb->proto,
 					cb->sport, cb->dport);
@@ -1688,7 +1757,8 @@ void mddp_f_out_nf_ipv6(
 			not_match += (udp->uh_sport != cb->sport) ? 1 : 0;
 			not_match += (udp->uh_dport != cb->dport) ? 1 : 0;
 			if (not_match) {
-				MDDP_DEBUG("%s: IPv6 UDP DL tag not_match[%d], ip_p[%d], sport[%x], dport[%x], cb_proto[%d], cb_sport[%x], cb_dport[%x].\n",
+				MDDP_F_LOG(MDDP_LL_INFO,
+					"%s: IPv6 UDP DL tag not_match[%d], ip_p[%d], sport[%x], dport[%x], cb_proto[%d], cb_sport[%x], cb_dport[%x].\n",
 					__func__, not_match, ip6->nexthdr,
 					udp->uh_sport, udp->uh_dport, cb->proto,
 					cb->sport, cb->dport);
@@ -1717,11 +1787,14 @@ void mddp_f_out_nf_ipv6(
 							flag);
 
 					if (is_uplink == false) {
-						MDDP_DEBUG("%s: No need to tag UDP DL.\n");
+						MDDP_F_LOG(MDDP_LL_DEBUG,
+							"%s: No need to tag UDP DL.\n",
+							__func__);
 						goto out;
 					}
 
-					MDDP_DEBUG("%s: tuple[%p] is found!!\n",
+					MDDP_F_LOG(MDDP_LL_DEBUG,
+						"%s: tuple[%p] is found!!\n",
 						__func__, found_router_tuple);
 					ret = mddp_f_tag_packet(is_uplink, skb,
 								out, cb,
@@ -1729,7 +1802,8 @@ void mddp_f_out_nf_ipv6(
 								ip6->version,
 								tuple_hit_cnt);
 					if (ret == 0)
-						MDDP_DEBUG("%s: Add IPv6 UDP MDDP tag, is_uplink[%d], skb[%p], udp_checksum[%x].\n",
+						MDDP_F_LOG(MDDP_LL_NOTICE,
+							"%s: Add IPv6 UDP MDDP tag, is_uplink[%d], skb[%p], udp_checksum[%x].\n",
 							__func__, is_uplink,
 							skb, udp->uh_check);
 
@@ -1744,7 +1818,8 @@ void mddp_f_out_nf_ipv6(
 								ip6->version,
 								tuple_hit_cnt);
 					if (ret == 0)
-						MDDP_DEBUG("%s: Add IPv6 UDP MDDP tag, is_uplink[%d], skb[%p], udp_checksum[%x].\n",
+						MDDP_F_LOG(MDDP_LL_NOTICE,
+							"%s: Add IPv6 UDP MDDP tag, is_uplink[%d], skb[%p], udp_checksum[%x].\n",
 							__func__, is_uplink,
 							skb, udp->uh_check);
 				}
@@ -1775,16 +1850,20 @@ void mddp_f_out_nf_ipv6(
 				mddp_f_add_router_tuple_tcpudp(
 						found_router_tuple);
 			} else {
-				pr_notice("%s: Headroom of skb[%p] is not enough to add MDDP tag, headroom[%d].\n",
-					__func__, skb, skb_headroom(skb));
+				MDDP_F_LOG(MDDP_LL_NOTICE,
+						"%s: Headroom of skb[%p] is not enough to add MDDP tag, headroom[%d].\n",
+						__func__,
+						skb, skb_headroom(skb));
 			}
 		} else {
-			MDDP_DEBUG("%s: Don't track DHCP packet, s_port[%d], skb[%p] is filtered out.\n",
+			MDDP_F_LOG(MDDP_LL_DEBUG,
+					"%s: Don't track DHCP packet, s_port[%d], skb[%p] is filtered out.\n",
 					__func__, cb->sport, skb);
 		}
 		break;
 	default:
-		MDDP_DEBUG("%s: Not TCP/UDP packet, protocal[%d], skb[%p] is filtered out.\n",
+		MDDP_F_LOG(MDDP_LL_DEBUG,
+					"%s: Not TCP/UDP packet, protocal[%d], skb[%p] is filtered out.\n",
 					__func__, nexthdr, skb);
 		break;
 	}
@@ -1805,19 +1884,23 @@ void mddp_f_out_nf(int iface, struct sk_buff *skb, struct net_device *out)
 
 	cb = search_and_hold_track_table(skb, &curr_track_table);
 	if (!cb) {
-		MDDP_DEBUG("%s: Cannot find cb, skb[%p].\n",
+		MDDP_F_LOG(MDDP_LL_DEBUG,
+					"%s: Cannot find cb, skb[%p].\n",
 					__func__, skb);
 		return;
 	}
 
 	if (cb->dev == out) {
-		pr_info("%s: in_dev[%p] name[%s] and out_dev[%p] name[%s] are same, don't track skb[%p].\n",
-			__func__, cb->dev, cb->dev->name, out, out->name, skb);
+		MDDP_F_LOG(MDDP_LL_DEBUG,
+				"%s: in_dev[%p] name[%s] and out_dev[%p] name[%s] are same, don't track skb[%p].\n",
+				__func__, cb->dev,
+				cb->dev->name, out, out->name, skb);
 		goto out;
 	}
 
 	if (cb->dev == NULL || out == NULL) {
-		pr_info("%s: Each of in_dev[%p] or out_dev[%p] is NULL, don't track skb[%p].\n",
+		MDDP_F_LOG(MDDP_LL_DEBUG,
+					"%s: Each of in_dev[%p] or out_dev[%p] is NULL, don't track skb[%p].\n",
 					__func__, cb->dev, out, skb);
 		goto out;
 	}
@@ -1829,7 +1912,8 @@ void mddp_f_out_nf(int iface, struct sk_buff *skb, struct net_device *out)
 			return;
 
 		} else {
-			pr_notice("%s: Wrong IPv4 version[%d], offset[%p], flag[%x], skb[%p].\n",
+			MDDP_F_LOG(MDDP_LL_NOTICE,
+					"%s: Wrong IPv4 version[%d], offset[%p], flag[%x], skb[%p].\n",
 					__func__, IPC_HDR_IS_V4(offset2),
 					offset2, cb->flag, skb);
 		}
@@ -1844,12 +1928,14 @@ void mddp_f_out_nf(int iface, struct sk_buff *skb, struct net_device *out)
 			return;
 
 		} else {
-			pr_notice("%s: Invalid IPv6 flag[%x], skb[%p].\n",
-						__func__, cb->flag, skb);
+			MDDP_F_LOG(MDDP_LL_NOTICE,
+					"%s: Invalid IPv6 flag[%x], skb[%p].\n",
+					__func__, cb->flag, skb);
 		}
 
 	} else {
-		MDDP_DEBUG("%s: No need to track, skb[%p], cb->flag[%x].\n",
+		MDDP_F_LOG(MDDP_LL_DEBUG,
+					"%s: No need to track, skb[%p], cb->flag[%x].\n",
 					__func__, skb, cb->flag);
 	}
 
@@ -1874,7 +1960,8 @@ static uint32_t mddp_nfhook_prerouting
 		return NF_ACCEPT;
 
 	if (unlikely(!state->in || !skb->dev || !skb_mac_header_was_set(skb))) {
-		MDDP_DEBUG("%s: Invalid param, in(%p), dev(%p), mac(%d)!\n",
+		MDDP_F_LOG(MDDP_LL_DEBUG,
+			"%s: Invalid param, in(%p), dev(%p), mac(%d)!\n",
 			__func__, state->in, skb->dev,
 			skb_mac_header_was_set(skb));
 		return NF_ACCEPT;
@@ -1882,13 +1969,15 @@ static uint32_t mddp_nfhook_prerouting
 
 	if ((state->in->priv_flags & IFF_EBRIDGE) ||
 			(state->in->flags & IFF_LOOPBACK)) {
-		MDDP_DEBUG("%s: Invalid flag, priv_flags(%x), flags(%x)!\n",
+		MDDP_F_LOG(MDDP_LL_DEBUG,
+			"%s: Invalid flag, priv_flags(%x), flags(%x)!\n",
 			__func__, state->in->priv_flags, state->in->flags);
 		return NF_ACCEPT;
 	}
 
 	if (!mddp_f_is_support_dev(state->in->name)) {
-		MDDP_DEBUG("%s: Unsupport device, state->in->name(%s)!\n",
+		MDDP_F_LOG(MDDP_LL_DEBUG,
+			"%s: Unsupport device, state->in->name(%s)!\n",
 			__func__, state->in->name);
 		return NF_ACCEPT;
 	}
@@ -1905,20 +1994,23 @@ static uint32_t mddp_nfhook_postrouting
 
 	if (unlikely(!state->out || !skb->dev ||
 				(skb_headroom(skb) < ETH_HLEN))) {
-		MDDP_DEBUG("%s: Invalid parameter, out(%p), dev(%p), headroom(%d)\n",
+		MDDP_F_LOG(MDDP_LL_DEBUG,
+			"%s: Invalid parameter, out(%p), dev(%p), headroom(%d)\n",
 			__func__, state->out, skb->dev, skb_headroom(skb));
 		goto out;
 	}
 
 	if ((state->out->priv_flags & IFF_EBRIDGE) ||
 			(state->out->flags & IFF_LOOPBACK)) {
-		MDDP_DEBUG("%s: Invalid flag, priv_flags(%x), flags(%x).\n",
+		MDDP_F_LOG(MDDP_LL_DEBUG,
+			"%s: Invalid flag, priv_flags(%x), flags(%x).\n",
 			__func__, state->out->priv_flags, state->out->flags);
 		return NF_ACCEPT;
 	}
 
 	if (!mddp_f_is_support_dev(state->out->name)) {
-		MDDP_DEBUG("%s: Unsuport device,state->out->name(%s).\n",
+		MDDP_F_LOG(MDDP_LL_DEBUG,
+			"%s: Unsuport device,state->out->name(%s).\n",
 			__func__, state->out->name);
 		return NF_ACCEPT;
 	}
@@ -1943,12 +2035,14 @@ int32_t mddp_ct_update(void *buf, uint32_t buf_len)
 		entry = &(ct_ind->nat_table[i]);
 		read_cnt += sizeof(struct mddp_ct_nat_table_t);
 		if (read_cnt > buf_len) {
-			pr_notice("%s: Invalid buf_len(%u), i(%u), read_cnt(%u)!\n",
+			MDDP_F_LOG(MDDP_LL_NOTICE,
+					"%s: Invalid buf_len(%u), i(%u), read_cnt(%u)!\n",
 					__func__, buf_len, i, read_cnt);
 			break;
 		}
 
-		pr_info("%s: Update conntrack private(%u.%u.%u.%u:%u), target(%u.%u.%u.%u:%u), public(%u.%u.%u.%u:%u)\n",
+		MDDP_F_LOG(MDDP_LL_INFO,
+				"%s: Update conntrack private(%u.%u.%u.%u:%u), target(%u.%u.%u.%u:%u), public(%u.%u.%u.%u:%u)\n",
 				__func__,
 				entry->private_ip[0], entry->private_ip[1],
 				entry->private_ip[2], entry->private_ip[3],
@@ -1980,12 +2074,13 @@ int32_t mddp_f_suspend_tag(void)
 	struct mddp_md_msg_t           *md_msg;
 	struct mddp_app_t              *app;
 
-	pr_notice("%s: MDDP suspend tag.\n", __func__);
+	MDDP_F_LOG(MDDP_LL_NOTICE, "%s: MDDP suspend tag.\n", __func__);
 	mddp_f_suspend_s = 1;
 
 	md_msg = kzalloc(sizeof(struct mddp_md_msg_t), GFP_ATOMIC);
 	if (unlikely(!md_msg)) {
-		pr_notice("%s: failed to alloc md_msg bug!\n", __func__);
+		MDDP_F_LOG(MDDP_LL_NOTICE,
+				"%s: failed to alloc md_msg bug!\n", __func__);
 		WARN_ON(1);
 		return 0;
 	}
@@ -2004,12 +2099,13 @@ int32_t mddp_f_resume_tag(void)
 	struct mddp_md_msg_t           *md_msg;
 	struct mddp_app_t              *app;
 
-	pr_notice("%s: MDDP resume tag.\n", __func__);
+	MDDP_F_LOG(MDDP_LL_NOTICE, "%s: MDDP resume tag.\n", __func__);
 	mddp_f_suspend_s = 0;
 
 	md_msg = kzalloc(sizeof(struct mddp_md_msg_t), GFP_ATOMIC);
 	if (unlikely(!md_msg)) {
-		pr_notice("%s: failed to alloc md_msg bug!\n", __func__);
+		MDDP_F_LOG(MDDP_LL_NOTICE,
+				"%s: failed to alloc md_msg bug!\n", __func__);
 		WARN_ON(1);
 		return 0;
 	}
@@ -2038,7 +2134,9 @@ int32_t mddp_f_msg_hdlr(uint32_t msg_id, void *buf, uint32_t buf_len)
 		break;
 
 	default:
-		pr_notice("%s: Unaccepted msg_id(%d)!\n", __func__, msg_id);
+		MDDP_F_LOG(MDDP_LL_NOTICE,
+				"%s: Unaccepted msg_id(%d)!\n",
+				__func__, msg_id);
 		ret = -EINVAL;
 		break;
 	}
@@ -2054,7 +2152,8 @@ int32_t mddp_f_set_ct_value(uint8_t *buf, uint32_t buf_len)
 	struct mddp_f_set_ct_timeout_req_t      ct_req;
 
 	if (buf_len != sizeof(struct mddp_dev_req_set_ct_value_t)) {
-		pr_notice("%s: Invalid parameter, buf_len(%d)!\n",
+		MDDP_F_LOG(MDDP_LL_NOTICE,
+				"%s: Invalid parameter, buf_len(%d)!\n",
 				__func__, buf_len);
 		return -EINVAL;
 	}
@@ -2062,7 +2161,8 @@ int32_t mddp_f_set_ct_value(uint8_t *buf, uint32_t buf_len)
 	md_status = exec_ccci_kern_func_by_md_id(0, ID_GET_MD_STATE, NULL, 0);
 
 	if (md_status != MD_STATE_READY) {
-		pr_notice("%s: Invalid state, md_status(%d)!\n",
+		MDDP_F_LOG(MDDP_LL_NOTICE,
+				"%s: Invalid state, md_status(%d)!\n",
 				__func__, md_status);
 		return -ENODEV;
 	}
@@ -2114,7 +2214,9 @@ int32_t mddp_filter_init(void)
 
 	ret = register_pernet_subsys(&mddp_net_ops);
 	if (ret < 0) {
-		pr_notice("%s: Cannot register hooks(%d)!\n", __func__, ret);
+		MDDP_F_LOG(MDDP_LL_NOTICE,
+				"%s: Cannot register hooks(%d)!\n",
+				__func__, ret);
 		return ret;
 	}
 
@@ -2131,13 +2233,17 @@ int32_t mddp_filter_init(void)
 
 	ret = mddp_f_init_nat_tuple();
 	if (ret < 0) {
-		pr_notice("%s: Cannot init nat tuple(%d)!\n", __func__, ret);
+		MDDP_F_LOG(MDDP_LL_NOTICE,
+				"%s: Cannot init nat tuple(%d)!\n",
+				__func__, ret);
 		return ret;
 	}
 
 	ret = mddp_f_init_router_tuple();
 	if (ret < 0) {
-		pr_notice("%s: Cannot init router tuple(%d)!\n", __func__, ret);
+		MDDP_F_LOG(MDDP_LL_NOTICE,
+				"%s: Cannot init router tuple(%d)!\n",
+				__func__, ret);
 		return ret;
 	}
 
@@ -2152,7 +2258,8 @@ int32_t mddp_filter_init(void)
 
 	ret = mddp_f_notifier_init();
 	if (ret < 0) {
-		pr_notice("%s: mddp_f_notifier_init failed with ret = %d\n",
+		MDDP_F_LOG(MDDP_LL_NOTICE,
+				"%s: mddp_f_notifier_init failed with ret = %d\n",
 				__func__, ret);
 		return ret;
 	}

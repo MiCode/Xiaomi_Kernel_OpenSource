@@ -12,6 +12,7 @@
 #include "mddp_f_proto.h"
 #include "mddp_ctrl.h"
 #include "mddp_f_tuple.c"
+#include "mddp_debug.h"
 
 static inline void mddp_f_ip4_tcp(
 	struct mddp_f_desc *desc,
@@ -36,7 +37,8 @@ static inline void mddp_f_ip4_tcp(
 	}
 
 	ret = mddp_f_check_pkt_need_track_nat_tuple_ip4(t, &found_nat_tuple);
-	MDDP_DEBUG("%s: IPv4 TCP is_need_track[%d], found_tuple[%p], src_ip[%x], dst_ip[%x], ip_p[%d], sport[%x], dport[%x], dev[%x].\n",
+	MDDP_F_LOG(MDDP_LL_DEBUG,
+		"%s: IPv4 TCP is_need_track[%d], found_tuple[%p], src_ip[%x], dst_ip[%x], ip_p[%d], sport[%x], dport[%x], dev[%x].\n",
 		__func__, ret, found_nat_tuple, t->nat.src, t->nat.dst,
 		t->nat.proto, t->nat.s.tcp.port, t->nat.d.tcp.port, t->dev_in);
 	if (ret == true)
@@ -66,7 +68,8 @@ static inline void mddp_f_ip4_udp(
 	}
 
 	ret = mddp_f_check_pkt_need_track_nat_tuple_ip4(t, &found_nat_tuple);
-	MDDP_DEBUG("%s: IPv4 UDP is_need_track[%d], found_tuple[%p], src_ip[%x], dst_ip[%x], ip_p[%d], sport[%x], dport[%x], dev[%x].\n",
+	MDDP_F_LOG(MDDP_LL_DEBUG,
+		"%s: IPv4 UDP is_need_track[%d], found_tuple[%p], src_ip[%x], dst_ip[%x], ip_p[%d], sport[%x], dport[%x], dev[%x].\n",
 		__func__, ret, found_nat_tuple, t->nat.src, t->nat.dst,
 		t->nat.proto, t->nat.s.udp.port, t->nat.d.udp.port, t->dev_in);
 	if (ret == true)
@@ -96,7 +99,8 @@ static inline void mddp_f_ip6_tcp_lan(
 	}
 
 	ret = mddp_f_check_pkt_need_track_router_tuple(t, &found_router_tuple);
-	MDDP_DEBUG("%s: IPv6 TCP is_need_track[%d], found_tuple[%p], src_ip[%x], dst_ip[%x], ip_p[%d], sport[%x], dport[%x], dev[%x].\n",
+	MDDP_F_LOG(MDDP_LL_DEBUG,
+		"%s: IPv6 TCP is_need_track[%d], found_tuple[%p], src_ip[%x], dst_ip[%x], ip_p[%d], sport[%x], dport[%x], dev[%x].\n",
 		__func__, ret, found_router_tuple, &t->saddr, &t->daddr,
 		t->proto, t->in.tcp.port, t->out.tcp.port, t->dev_src);
 	if (ret == true)
@@ -126,7 +130,8 @@ static inline void mddp_f_ip6_udp_lan(
 	}
 
 	ret = mddp_f_check_pkt_need_track_router_tuple(t, &found_router_tuple);
-	MDDP_DEBUG("%s: IPv6 UDP tuple. ret[%d], found_tuple[%p], src_ip[%x], dst_ip[%x], ip_p[%d], sport[%x], dport[%x], dev[%x].\n",
+	MDDP_F_LOG(MDDP_LL_DEBUG,
+		"%s: IPv6 UDP tuple. ret[%d], found_tuple[%p], src_ip[%x], dst_ip[%x], ip_p[%d], sport[%x], dport[%x], dev[%x].\n",
 		__func__, ret, found_router_tuple, &t->saddr, &t->daddr,
 		t->proto, t->in.tcp.port, t->out.tcp.port, t->dev_src);
 	if (ret == true)

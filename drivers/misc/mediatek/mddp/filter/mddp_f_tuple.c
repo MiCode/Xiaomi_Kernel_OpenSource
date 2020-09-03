@@ -17,6 +17,7 @@
 #include "mddp_f_proto.h"
 #include "mddp_f_tuple.h"
 #include "mddp_f_desc.h"
+#include "mddp_debug.h"
 
 struct list_head *nat_tuple_hash;
 unsigned int nat_tuple_hash_rnd;
@@ -72,8 +73,9 @@ void mddp_f_del_nat_tuple(struct nat_tuple *t)
 {
 	unsigned long flag;
 
-	pr_info("%s: Del nat tuple[%p], next[%p], prev[%p].\n",
-		__func__, t, t->list.next, t->list.prev);
+	MDDP_F_LOG(MDDP_LL_DEBUG,
+			"%s: Del nat tuple[%p], next[%p], prev[%p].\n",
+			__func__, t, t->list.next, t->list.prev);
 
 	MDDP_F_TUPLE_LOCK(&mddp_f_tuple_lock, flag);
 	mddp_f_nat_cnt--;
@@ -82,8 +84,9 @@ void mddp_f_del_nat_tuple(struct nat_tuple *t)
 	if (t->list.next != LIST_POISON1 && t->list.prev != LIST_POISON2) {
 		list_del(&t->list);
 	} else {
-		pr_notice("%s: Del nat tuple fail, tuple[%p], next[%p], prev[%p].\n",
-			__func__, t, t->list.next, t->list.prev);
+		MDDP_F_LOG(MDDP_LL_NOTICE,
+				"%s: Del nat tuple fail, tuple[%p], next[%p], prev[%p].\n",
+				__func__, t, t->list.next, t->list.prev);
 		WARN_ON(1);
 	}
 	MDDP_F_TUPLE_UNLOCK(&mddp_f_tuple_lock, flag);
@@ -94,8 +97,9 @@ EXPORT_SYMBOL(mddp_f_del_nat_tuple);
 
 void mddp_f_del_nat_tuple_w_unlock(struct nat_tuple *t, unsigned long flag)
 {
-	pr_info("%s: Del nat tuple[%p], next[%p], prev[%p].\n",
-		__func__, t, t->list.next, t->list.prev);
+	MDDP_F_LOG(MDDP_LL_DEBUG,
+			"%s: Del nat tuple[%p], next[%p], prev[%p].\n",
+			__func__, t, t->list.next, t->list.prev);
 
 	mddp_f_nat_cnt--;
 
@@ -103,8 +107,9 @@ void mddp_f_del_nat_tuple_w_unlock(struct nat_tuple *t, unsigned long flag)
 	if (t->list.next != LIST_POISON1 && t->list.prev != LIST_POISON2) {
 		list_del(&t->list);
 	} else {
-		pr_notice("%s: Del nat tuple fail, tuple[%p], next[%p], prev[%p].\n",
-			__func__, t, t->list.next, t->list.prev);
+		MDDP_F_LOG(MDDP_LL_WARN,
+				"%s: Del nat tuple fail, tuple[%p], next[%p], prev[%p].\n",
+				__func__, t, t->list.next, t->list.prev);
 		WARN_ON(1);
 	}
 	MDDP_F_TUPLE_UNLOCK(&mddp_f_tuple_lock, flag);
@@ -136,12 +141,14 @@ bool mddp_f_add_nat_tuple(struct nat_tuple *t)
 	unsigned int hash;
 	struct nat_tuple *found_nat_tuple;
 
-	pr_info("%s: Add new nat tuple[%p] with src_port[%d] & proto[%d].\n",
-		__func__, t, t->src.all, t->proto);
+	MDDP_F_LOG(MDDP_LL_DEBUG,
+			"%s: Add new nat tuple[%p] with src_port[%d] & proto[%d].\n",
+			__func__, t, t->src.all, t->proto);
 
 	if (mddp_f_nat_cnt >= mddp_f_max_nat) {
-		pr_notice("%s: Nat tuple table is full! Tuple[%p] is about to free.\n",
-			__func__, t);
+		MDDP_F_LOG(MDDP_LL_NOTICE,
+				"%s: Nat tuple table is full! Tuple[%p] is about to free.\n",
+				__func__, t);
 		kmem_cache_free(mddp_f_nat_tuple_cache, t);
 		return false;
 	}
@@ -171,7 +178,9 @@ bool mddp_f_add_nat_tuple(struct nat_tuple *t)
 		if (found_nat_tuple->dst.all != t->dst.all)
 			continue;
 		MDDP_F_TUPLE_UNLOCK(&mddp_f_tuple_lock, flag);
-		pr_info("%s: Nat tuple[%p] is duplicated!\n", __func__, t);
+		MDDP_F_LOG(MDDP_LL_DEBUG,
+				"%s: Nat tuple[%p] is duplicated!\n",
+				__func__, t);
 		kmem_cache_free(mddp_f_nat_tuple_cache, t);
 		return false;   /* duplication */
 	}
@@ -185,8 +194,9 @@ bool mddp_f_add_nat_tuple(struct nat_tuple *t)
 	mddp_f_nat_cnt++;
 	MDDP_F_TUPLE_UNLOCK(&mddp_f_tuple_lock, flag);
 
-	// pr_info("%s: Add nat tuple[%p], next[%p], prev[%p].\n",
-	//	__func__, t, t->list.next, t->list.prev);
+	MDDP_F_LOG(MDDP_LL_DEBUG,
+			"%s: Add nat tuple[%p], next[%p], prev[%p].\n",
+			__func__, t, t->list.next, t->list.prev);
 
 	/* init timer and start it */
 	setup_timer(&t->timeout_used,
@@ -325,7 +335,8 @@ static inline bool mddp_f_check_pkt_need_track_nat_tuple_ip4(
 		*matched_tuple = found_nat_tuple;
 		found_nat_tuple->curr_cnt++;
 
-		MDDP_DEBUG("%s: check tcpudp nat tuple[%p], last_cnt[%d], curr_cnt[%d], need_tag[%d].\n",
+		MDDP_F_LOG(MDDP_LL_DEBUG,
+			"%s: check tcpudp nat tuple[%p], last_cnt[%d], curr_cnt[%d], need_tag[%d].\n",
 			__func__, found_nat_tuple,
 			found_nat_tuple->last_cnt,
 			found_nat_tuple->curr_cnt,
@@ -351,7 +362,8 @@ void mddp_f_del_router_tuple(struct router_tuple *t)
 {
 	unsigned long flag;
 
-	pr_info("%s: Del router tuple[%p], next[%p], prev[%p].\n",
+	MDDP_F_LOG(MDDP_LL_DEBUG,
+			"%s: Del router tuple[%p], next[%p], prev[%p].\n",
 			__func__, t, t->list.next, t->list.prev);
 
 	MDDP_F_TUPLE_LOCK(&mddp_f_tuple_lock, flag);
@@ -361,8 +373,9 @@ void mddp_f_del_router_tuple(struct router_tuple *t)
 	if (t->list.next != LIST_POISON1 && t->list.prev != LIST_POISON2) {
 		list_del(&t->list);
 	} else {
-		pr_notice("%s: Del router tuple fail, tuple[%p], next[%p], prev[%p].\n",
-			__func__, t, t->list.next, t->list.prev);
+		MDDP_F_LOG(MDDP_LL_NOTICE,
+				"%s: Del router tuple fail, tuple[%p], next[%p], prev[%p].\n",
+				__func__, t, t->list.next, t->list.prev);
 		WARN_ON(1);
 	}
 	MDDP_F_TUPLE_UNLOCK(&mddp_f_tuple_lock, flag);
@@ -374,7 +387,8 @@ EXPORT_SYMBOL(mddp_f_del_router_tuple);
 void mddp_f_del_router_tuple_w_unlock(struct router_tuple *t,
 		unsigned long flag)
 {
-	pr_info("%s: Del router tuple[%p], next[%p], prev[%p].\n",
+	MDDP_F_LOG(MDDP_LL_DEBUG,
+			"%s: Del router tuple[%p], next[%p], prev[%p].\n",
 			__func__, t, t->list.next, t->list.prev);
 
 	mddp_f_router_cnt--;
@@ -383,8 +397,9 @@ void mddp_f_del_router_tuple_w_unlock(struct router_tuple *t,
 	if (t->list.next != LIST_POISON1 && t->list.prev != LIST_POISON2) {
 		list_del(&t->list);
 	} else {
-		pr_notice("%s: Del router tuple fail, tuple[%p], next[%p], prev[%p].\n",
-			__func__, t, t->list.next, t->list.prev);
+		MDDP_F_LOG(MDDP_LL_NOTICE,
+				"%s: Del router tuple fail, tuple[%p], next[%p], prev[%p].\n",
+				__func__, t, t->list.next, t->list.prev);
 		WARN_ON(1);
 	}
 	MDDP_F_TUPLE_UNLOCK(&mddp_f_tuple_lock, flag);
@@ -417,14 +432,16 @@ bool mddp_f_add_router_tuple_tcpudp(struct router_tuple *t)
 	unsigned int hash;
 	struct router_tuple *found_router_tuple;
 
-	pr_info("%s: Add new tcpudp router tuple[%p] with src_port[%d] & proto[%d].\n",
+	MDDP_F_LOG(MDDP_LL_DEBUG,
+			"%s: Add new tcpudp router tuple[%p] with src_port[%d] & proto[%d].\n",
 			__func__, t, t->in.all, t->proto);
 
 	if (mddp_f_router_cnt >= mddp_f_max_router) {
 		kmem_cache_free(mddp_f_router_tuple_cache, t);
 
-		pr_notice("%s: TCPUDP router is full, tuple[%p], next[%p], prev[%p].\n",
-			__func__, t, t->list.next, t->list.prev);
+		MDDP_F_LOG(MDDP_LL_NOTICE,
+				"%s: TCPUDP router is full, tuple[%p], next[%p], prev[%p].\n",
+				__func__, t, t->list.next, t->list.prev);
 		return false;
 	}
 	hash = HASH_ROUTER_TUPLE_TCPUDP(t);
@@ -452,8 +469,9 @@ bool mddp_f_add_router_tuple_tcpudp(struct router_tuple *t)
 		if (found_router_tuple->out.all != t->out.all)
 			continue;
 		MDDP_F_TUPLE_UNLOCK(&mddp_f_tuple_lock, flag);
-		pr_info("%s: TCPUDP router is duplicated, tuple[%p].\n",
-			__func__, t);
+		MDDP_F_LOG(MDDP_LL_DEBUG,
+				"%s: TCPUDP router is duplicated, tuple[%p].\n",
+				__func__, t);
 		kmem_cache_free(mddp_f_router_tuple_cache, t);
 		return false;   /* duplication */
 	}
@@ -468,8 +486,9 @@ bool mddp_f_add_router_tuple_tcpudp(struct router_tuple *t)
 	mddp_f_router_cnt++;
 	MDDP_F_TUPLE_UNLOCK(&mddp_f_tuple_lock, flag);
 
-	// pr_info("%s: Add tcpudp router tuple[%p], next[%p], prev[%p].\n",
-	//		__func__, t, t->list.next, t->list.prev);
+	MDDP_F_LOG(MDDP_LL_DEBUG,
+			"%s: Add tcpudp router tuple[%p], next[%p], prev[%p].\n",
+			__func__, t, t->list.next, t->list.prev);
 
 	/* init timer and start it */
 	setup_timer(&t->timeout_used, mddp_f_timeout_router_tuple, 0);
@@ -616,7 +635,8 @@ static inline bool mddp_f_check_pkt_need_track_router_tuple(
 		*matched_tuple = found_router_tuple;
 		found_router_tuple->curr_cnt++;
 
-		MDDP_DEBUG("%s: check tcpudp router tuple[%p], last_cnt[%d], curr_cnt[%d], need_tag[%d].\n",
+		MDDP_F_LOG(MDDP_LL_DEBUG,
+			"%s: check tcpudp router tuple[%p], last_cnt[%d], curr_cnt[%d], need_tag[%d].\n",
 			__func__, found_router_tuple,
 			found_router_tuple->last_cnt,
 			found_router_tuple->curr_cnt,
