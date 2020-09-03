@@ -6,6 +6,7 @@
 #include <linux/delay.h>
 #include <linux/jiffies.h>
 #include <linux/kernel.h>
+#include <linux/module.h>
 #include <linux/kthread.h>
 #include <linux/sched.h>
 #include <linux/interrupt.h>
@@ -579,3 +580,6 @@ err:
 	return ret;
 }
 EXPORT_SYMBOL(qcom_wdt_register);
+
+MODULE_DESCRIPTION("QCOM Watchdog Driver Core");
+MODULE_LICENSE("GPL v2");
