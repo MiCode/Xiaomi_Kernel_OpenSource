@@ -270,7 +270,7 @@ void ccci_set_clk_by_id(int idx, unsigned int on)
 {
 	int ret = 0;
 
-	if (idx >= ARRAY_SIZE(clk_table))
+	if (idx >= ARRAY_SIZE(clk_table) || idx < 0)
 		return;
 	else if (clk_table[idx].clk_ref == NULL)
 		return;
