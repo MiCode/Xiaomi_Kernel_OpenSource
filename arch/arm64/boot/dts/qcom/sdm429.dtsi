@@ -1459,7 +1459,8 @@
 			< 960000  >,
 			< 1305600 >,
 			< 1497600 >,
-			< 1708800 >;
+			< 1708800 >,
+			< 2016000 >;
 	};
 	ddr_bw_opp_table: ddr-bw-opp-table {
 		compatible = "operating-points-v2";
@@ -1502,7 +1503,8 @@
 			< 960000  MHZ_TO_MBPS( 211, 8) >,
 			< 1305600 MHZ_TO_MBPS( 384, 8) >,
 			< 1497600 MHZ_TO_MBPS( 662, 8) >,
-			< 1708800 MHZ_TO_MBPS( 749, 8) >;
+			< 1708800 MHZ_TO_MBPS( 662, 8) >,
+			< 2016000 MHZ_TO_MBPS( 749, 8) >;
 	};
 
 	tsens0: tsens@4a8000 {
