@@ -876,6 +876,59 @@ static int qsmmuv500_cfg_probe(struct arm_smmu_device *smmu)
 	return 0;
 }
 
+/*
+ * Case 1)
+ * Client wants to use the standard upstream dma ops from
+ * drivers/iommu/dma-iommu.c
+ *
+ * This requires domain->type == IOMMU_DOMAIN_DMA.
+ *
+ * Case 2)
+ * Client doesn't want to use the default dma domain, and wants to
+ * allocate their own via iommu_domain_alloc()
+ *
+ * There are insufficient context banks to "waste" one on a default
+ * dma domain that isn't going to be used. Therefore, give it
+ * IOMMU_DOMAIN_IDENTITY. Note that IOMMU_DOMAIN_IDENTITY is treated as
+ * IOMMU_DOMAIN_BLOCKED by our hypervisor, which doesn't allow setting
+ * S2CR.TYPE = 0x1.
+ *
+ * Case 3)
+ * Client wants to use our fastmap dma ops
+ *
+ * Per case 1) we cannot use IOMMU_DOMAIN_DMA, since those imply using
+ * the standard upstream dma ops. So use IOMMU_DOMAIN_UNMANAGED instead.
+ *
+ * Case 4)
+ * Client wants to use S1 bypass
+ *
+ * Same as Case 3, except use the platform dma ops.
+ */
+static int qsmmuv500_def_domain_type(struct device *dev)
+{
+	const char *str;
+	struct device_node *np;
+
+	/* Default to iommu_def_domain_type */
+	np = of_parse_phandle(dev->of_node, "qcom,iommu-group", 0);
+	if (!np)
+		np = dev->of_node;
+
+	if (of_property_read_string(np, "qcom,iommu-dma", &str))
+		str = "default";
+
+	if (!strcmp(str, "fastmap"))
+		return IOMMU_DOMAIN_UNMANAGED;
+	if (!strcmp(str, "bypass"))
+		return IOMMU_DOMAIN_UNMANAGED;
+	if (!strcmp(str, "atomic"))
+		return IOMMU_DOMAIN_DMA;
+	if (!strcmp(str, "disabled"))
+		return IOMMU_DOMAIN_IDENTITY;
+
+	return IOMMU_DOMAIN_DMA;
+}
+
 static const struct arm_smmu_impl qsmmuv500_impl = {
 	.cfg_probe = qsmmuv500_cfg_probe,
 	.init_context_bank = qsmmuv500_init_cb,
@@ -883,6 +936,7 @@ static const struct arm_smmu_impl qsmmuv500_impl = {
 	.tlb_sync_timeout = qsmmuv500_tlb_sync_timeout,
 	.device_remove = qsmmuv500_device_remove,
 	.device_group = qsmmuv500_device_group,
+	.def_domain_type = qsmmuv500_def_domain_type,
 };
 
 struct arm_smmu_device *qsmmuv500_impl_init(struct arm_smmu_device *smmu)
