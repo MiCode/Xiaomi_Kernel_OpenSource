@@ -529,6 +529,7 @@ static int mtk_dvfsrc_helper_probe(struct platform_device *pdev)
 
 	dvfsrc_debug_notifier_register(dvfsrc);
 	dvfsrc_register_sysfs(dev);
+	register_dvfsrc_opp_handler(dvfsrc_query_info);
 	register_dvfsrc_debug_handler(dvfsrc_query_debug_info);
 	platform_set_drvdata(pdev, dvfsrc);
 	dvfsrc_drv = dvfsrc;
