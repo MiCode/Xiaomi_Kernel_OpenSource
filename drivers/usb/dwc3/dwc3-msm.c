@@ -3305,7 +3305,7 @@ static irqreturn_t msm_dwc3_pwr_irq(int irq, void *data)
 
 	if (mdwc->drd_state == DRD_STATE_PERIPHERAL_SUSPEND) {
 		dev_info(mdwc->dev, "USB Resume start\n");
-		place_marker("M - USB device resume started");
+		update_marker("M - USB device resume started");
 	}
 
 	/*
@@ -5178,7 +5178,7 @@ static int dwc3_msm_pm_resume(struct device *dev)
 	if (atomic_read(&dwc->in_lpm) &&
 			mdwc->drd_state == DRD_STATE_PERIPHERAL_SUSPEND) {
 		dev_info(mdwc->dev, "USB Resume start\n");
-		place_marker("M - USB device resume started");
+		update_marker("M - USB device resume started");
 	}
 
 	if (!dwc->ignore_wakeup_src_in_hostmode || !mdwc->in_host_mode) {
