@@ -1180,7 +1180,8 @@ void cnss_schedule_recovery(struct device *dev,
 	struct cnss_recovery_data *data;
 	int gfp = GFP_KERNEL;
 
-	if (!test_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state))
+	if (!test_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state) &&
+	    test_bit(CNSS_QMI_WLFW_CONNECTED, &plat_priv->driver_state))
 		cnss_bus_update_status(plat_priv, CNSS_FW_DOWN);
 
 	if (test_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state) ||
