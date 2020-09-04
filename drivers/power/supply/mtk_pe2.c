@@ -205,7 +205,7 @@ static void pe2_check_cable_impedance(struct chg_alg_device *alg)
 	unsigned int aicr_value;
 	bool mivr_state = false;
 	ktime_t ptime[2], ktime_diff;
-	struct timespec diff;
+	struct timespec64 diff;
 	struct mtk_pe20 *pe2;
 	int input_current;
 
@@ -241,7 +241,7 @@ static void pe2_check_cable_impedance(struct chg_alg_device *alg)
 
 	ptime[1] = ktime_get_boottime();
 	ktime_diff = ktime_sub(ptime[1], ptime[0]);
-	diff = ktime_to_timespec(ktime_diff);
+	diff = ktime_to_timespec64(ktime_diff);
 
 	aicr_value = 800000;
 	pe2_hal_set_input_current(alg, CHG1, aicr_value);
