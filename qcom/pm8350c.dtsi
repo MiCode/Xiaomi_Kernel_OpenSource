@@ -230,7 +230,7 @@
 &thermal_zones {
 	pm8350c_temp_alarm: pm8350c_tz {
 		polling-delay-passive = <100>;
-		polling-delay = <0>;
+		polling-delay = <2000>;
 		thermal-governor = "step_wise";
 		thermal-sensors = <&pm8350c_tz>;
 
