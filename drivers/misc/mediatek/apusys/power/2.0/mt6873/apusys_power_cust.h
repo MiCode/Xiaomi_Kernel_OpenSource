@@ -37,8 +37,7 @@
 #define APUSYS_SETTLE_TIME_TEST (0)
 #define SUPPORT_VCORE_TO_IPUIF	(1)
 
-// FIXME: disable this feature temporarily for bring up
-#define DISABLE_DEVFREQ_COOLING
+//#define DISABLE_DEVFREQ_COOLING
 #ifdef DISABLE_DEVFREQ_COOLING
 #define APUSYS_DEVFREQ_COOLING  (0)
 #else
