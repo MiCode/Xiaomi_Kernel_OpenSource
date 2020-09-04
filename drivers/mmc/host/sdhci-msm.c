@@ -1978,6 +1978,7 @@ static int sdhci_msm_setup_vreg(struct sdhci_msm_host *msm_host,
 	int ret = 0, i;
 	struct sdhci_msm_vreg_data *curr_slot;
 	struct sdhci_msm_reg_data *vreg_table[2];
+	struct mmc_host *mmc = msm_host->mmc;
 
 	curr_slot = msm_host->vreg_data;
 	if (!curr_slot) {
@@ -1988,6 +1989,10 @@ static int sdhci_msm_setup_vreg(struct sdhci_msm_host *msm_host,
 
 	vreg_table[0] = curr_slot->vdd_data;
 	vreg_table[1] = curr_slot->vdd_io_data;
+
+	/* When eMMC absent disable regulator marked as always_on */
+	if (!enable && vreg_table[1]->is_always_on && !mmc->card)
+		vreg_table[1]->is_always_on = false;
 
 	for (i = 0; i < ARRAY_SIZE(vreg_table); i++) {
 		if (vreg_table[i]) {
