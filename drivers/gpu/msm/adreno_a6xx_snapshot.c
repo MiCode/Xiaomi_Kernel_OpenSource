@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1473,6 +1473,8 @@ static void _a6xx_do_crashdump(struct kgsl_device *device)
 		return;
 	if (a6xx_capturescript.gpuaddr == 0 ||
 		a6xx_crashdump_registers.gpuaddr == 0)
+		return;
+	if (!test_bit(KGSL_MMU_STARTED, &device->mmu.flags))
 		return;
 
 	/* IF the SMMU is stalled we cannot do a crash dump */
