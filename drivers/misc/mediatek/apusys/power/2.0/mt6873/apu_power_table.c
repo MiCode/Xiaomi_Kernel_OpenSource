@@ -46,7 +46,7 @@ EXPORT_SYMBOL(mdla_power_table);
 #define MDLA_CORES	(1)
 
 #define LOCAL_DBG                       (0)
-#define DEVFREQ_POOLING_INTERVAL        (1000) // ms
+#define DEVFREQ_POOLING_INTERVAL        (0) // ms, 0 means event trigger
 
 struct apu_pwr_devfreq_st {
 	struct devfreq *apu_devfreq;
@@ -384,6 +384,14 @@ int register_devfreq_cooling(struct platform_device *pdev, enum DVFS_USER user)
 		LOG_ERR("%s error in of_devfreq_cooling_register_power\n",
 				__func__);
 		ret = PTR_ERR(apu_pwr_devfreq_ptr->apu_devfreq_cooling);
+		goto remove_devfreq;
+	}
+
+	ret = devfreq_register_opp_notifier(
+			dev, apu_pwr_devfreq_ptr->apu_devfreq);
+	if (ret) {
+		LOG_ERR("%s failed to register OPP notifier (%d)\n",
+							__func__, ret);
 		goto remove_devfreq;
 	}
 
