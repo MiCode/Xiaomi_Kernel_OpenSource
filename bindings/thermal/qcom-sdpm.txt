@@ -29,6 +29,13 @@ Properties:
 	Value type: <stringlist>
 	Definition: List of clock names matching the clock order mentioned in
 			the clocks property.
+
+- <supply-name>-supply:
+	Usage: Optional
+	Value type: <regulator phandle>
+	Definition: phandle to the regulator device tree node that powers
+			this domain.
+
 - cpu:
 	Usage: optional
 	Value type: <CPU phandle>
@@ -46,9 +53,10 @@ Example:
 cx_sdpm@0x00634000 {
 	compatible = "qcom,sdpm";
 	reg = <0x00634000 0x1000>;
-	clock-names = "cam_cc", "compo_aux";
+	clock-names = "cam_cc_ipe", "compo_aux";
 	clocks = <&clock_camcc CAM_CC_IPE_0_CLK_SRC>,
 		<&clk_m_a2_div1 CLK_M_COMPO_AUX>;
+	cam_cc_ipe-supply = <&cam_cc_ipe_0_gdsc>;
 	cpu = <&CPU7>;
 	csr-id = <5 7 4>;
 	//CSR 5 <=> cam_cc
