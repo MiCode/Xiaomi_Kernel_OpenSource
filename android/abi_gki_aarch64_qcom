@@ -2809,7 +2809,7 @@
   wiphy_new_nm
   wiphy_register
   wiphy_unregister
-wireless_send_event
+  wireless_send_event
   woken_wake_function
   work_busy
   would_dump
