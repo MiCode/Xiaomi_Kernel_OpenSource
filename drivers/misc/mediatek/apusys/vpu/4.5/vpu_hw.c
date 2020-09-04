@@ -28,16 +28,16 @@
 #include "vpu_events.h"
 
 #define VPU_TS_INIT(a) \
-	struct timespec a##_s, a##_e
+	struct timespec64 a##_s, a##_e
 
 #define VPU_TS_START(a) \
-	ktime_get_ts(&a##_s)
+	ktime_get_ts64(&a##_s)
 
 #define VPU_TS_END(a) \
-	ktime_get_ts(&a##_e)
+	ktime_get_ts64(&a##_e)
 
 #define VPU_TS_NS(a) \
-	((uint64_t)(timespec_to_ns(&a##_e) - timespec_to_ns(&a##_s)))
+	((uint64_t)(timespec64_to_ns(&a##_e) - timespec64_to_ns(&a##_s)))
 
 #define VPU_TS_US(a) \
 	(VPU_TS_NS(a) / 1000)
@@ -1109,14 +1109,14 @@ out:
 int vpu_dev_set_debug(struct vpu_device *vd)
 {
 	int ret;
-	struct timespec now;
+	struct timespec64 now;
 	unsigned int device_version = 0x0;
 	unsigned long flags;
 	uint64_t start_t;
 
 	vpu_cmd_debug("%s: vpu%d\n", __func__, vd->id);
 	start_t = sched_clock();
-	getnstimeofday(&now);
+	ktime_get_ts64(&now);
 
 	/* SET_DEBUG */
 	ret = vpu_reg_lock(vd, true, &flags);
