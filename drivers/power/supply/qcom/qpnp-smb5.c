@@ -2324,17 +2324,17 @@ static int smb5_determine_initial_status(struct smb5 *chip)
 	if (chg->iio_chan_list_qg)
 		smblib_suspend_on_debug_battery(chg);
 
-	usb_plugin_irq_handler(0, &irq_data);
-	dc_plugin_irq_handler(0, &irq_data);
-	typec_attach_detach_irq_handler(0, &irq_data);
-	typec_state_change_irq_handler(0, &irq_data);
-	usb_source_change_irq_handler(0, &irq_data);
-	chg_state_change_irq_handler(0, &irq_data);
-	icl_change_irq_handler(0, &irq_data);
-	batt_temp_changed_irq_handler(0, &irq_data);
-	wdog_bark_irq_handler(0, &irq_data);
-	typec_or_rid_detection_change_irq_handler(0, &irq_data);
-	wdog_snarl_irq_handler(0, &irq_data);
+	smb5_usb_plugin_irq_handler(0, &irq_data);
+	smb5_dc_plugin_irq_handler(0, &irq_data);
+	smb5_typec_attach_detach_irq_handler(0, &irq_data);
+	smb5_typec_state_change_irq_handler(0, &irq_data);
+	smb5_usb_source_change_irq_handler(0, &irq_data);
+	smb5_chg_state_change_irq_handler(0, &irq_data);
+	smb5_icl_change_irq_handler(0, &irq_data);
+	smb5_batt_temp_changed_irq_handler(0, &irq_data);
+	smb5_wdog_bark_irq_handler(0, &irq_data);
+	smb5_typec_or_rid_detection_change_irq_handler(0, &irq_data);
+	smb5_wdog_snarl_irq_handler(0, &irq_data);
 
 	return 0;
 }
@@ -2347,11 +2347,11 @@ static struct smb_irq_info smb5_irqs[] = {
 	/* CHARGER IRQs */
 	[CHGR_ERROR_IRQ] = {
 		.name		= "chgr-error",
-		.handler	= default_irq_handler,
+		.handler	= smb5_default_irq_handler,
 	},
 	[CHG_STATE_CHANGE_IRQ] = {
 		.name		= "chg-state-change",
-		.handler	= chg_state_change_irq_handler,
+		.handler	= smb5_chg_state_change_irq_handler,
 		.wake		= true,
 	},
 	[STEP_CHG_STATE_CHANGE_IRQ] = {
@@ -2375,7 +2375,7 @@ static struct smb_irq_info smb5_irqs[] = {
 	/* DCDC IRQs */
 	[OTG_FAIL_IRQ] = {
 		.name		= "otg-fail",
-		.handler	= default_irq_handler,
+		.handler	= smb5_default_irq_handler,
 	},
 	[OTG_OC_DISABLE_SW_IRQ] = {
 		.name		= "otg-oc-disable-sw",
@@ -2388,24 +2388,24 @@ static struct smb_irq_info smb5_irqs[] = {
 	},
 	[HIGH_DUTY_CYCLE_IRQ] = {
 		.name		= "high-duty-cycle",
-		.handler	= high_duty_cycle_irq_handler,
+		.handler	= smb5_high_duty_cycle_irq_handler,
 		.wake		= true,
 	},
 	[INPUT_CURRENT_LIMITING_IRQ] = {
 		.name		= "input-current-limiting",
-		.handler	= default_irq_handler,
+		.handler	= smb5_default_irq_handler,
 	},
 	[CONCURRENT_MODE_DISABLE_IRQ] = {
 		.name		= "concurrent-mode-disable",
 	},
 	[SWITCHER_POWER_OK_IRQ] = {
 		.name		= "switcher-power-ok",
-		.handler	= switcher_power_ok_irq_handler,
+		.handler	= smb5_switcher_power_ok_irq_handler,
 	},
 	/* BATTERY IRQs */
 	[BAT_TEMP_IRQ] = {
 		.name		= "bat-temp",
-		.handler	= batt_temp_changed_irq_handler,
+		.handler	= smb5_batt_temp_changed_irq_handler,
 		.wake		= true,
 	},
 	[ALL_CHNL_CONV_DONE_IRQ] = {
@@ -2413,19 +2413,19 @@ static struct smb_irq_info smb5_irqs[] = {
 	},
 	[BAT_OV_IRQ] = {
 		.name		= "bat-ov",
-		.handler	= batt_psy_changed_irq_handler,
+		.handler	= smb5_batt_psy_changed_irq_handler,
 	},
 	[BAT_LOW_IRQ] = {
 		.name		= "bat-low",
-		.handler	= batt_psy_changed_irq_handler,
+		.handler	= smb5_batt_psy_changed_irq_handler,
 	},
 	[BAT_THERM_OR_ID_MISSING_IRQ] = {
 		.name		= "bat-therm-or-id-missing",
-		.handler	= batt_psy_changed_irq_handler,
+		.handler	= smb5_batt_psy_changed_irq_handler,
 	},
 	[BAT_TERMINAL_MISSING_IRQ] = {
 		.name		= "bat-terminal-missing",
-		.handler	= batt_psy_changed_irq_handler,
+		.handler	= smb5_batt_psy_changed_irq_handler,
 	},
 	[BUCK_OC_IRQ] = {
 		.name		= "buck-oc",
@@ -2436,25 +2436,25 @@ static struct smb_irq_info smb5_irqs[] = {
 	/* USB INPUT IRQs */
 	[USBIN_COLLAPSE_IRQ] = {
 		.name		= "usbin-collapse",
-		.handler	= default_irq_handler,
+		.handler	= smb5_default_irq_handler,
 	},
 	[USBIN_VASHDN_IRQ] = {
 		.name		= "usbin-vashdn",
-		.handler	= default_irq_handler,
+		.handler	= smb5_default_irq_handler,
 	},
 	[USBIN_UV_IRQ] = {
 		.name		= "usbin-uv",
-		.handler	= usbin_uv_irq_handler,
+		.handler	= smb5_usbin_uv_irq_handler,
 		.wake		= true,
 		.storm_data	= {true, 3000, 5},
 	},
 	[USBIN_OV_IRQ] = {
 		.name		= "usbin-ov",
-		.handler	= usbin_ov_irq_handler,
+		.handler	= smb5_usbin_ov_irq_handler,
 	},
 	[USBIN_PLUGIN_IRQ] = {
 		.name		= "usbin-plugin",
-		.handler	= usb_plugin_irq_handler,
+		.handler	= smb5_usb_plugin_irq_handler,
 		.wake           = true,
 	},
 	[USBIN_REVI_CHANGE_IRQ] = {
@@ -2462,12 +2462,12 @@ static struct smb_irq_info smb5_irqs[] = {
 	},
 	[USBIN_SRC_CHANGE_IRQ] = {
 		.name		= "usbin-src-change",
-		.handler	= usb_source_change_irq_handler,
+		.handler	= smb5_usb_source_change_irq_handler,
 		.wake           = true,
 	},
 	[USBIN_ICL_CHANGE_IRQ] = {
 		.name		= "usbin-icl-change",
-		.handler	= icl_change_irq_handler,
+		.handler	= smb5_icl_change_irq_handler,
 		.wake           = true,
 	},
 	/* DC INPUT IRQs */
@@ -2476,16 +2476,16 @@ static struct smb_irq_info smb5_irqs[] = {
 	},
 	[DCIN_UV_IRQ] = {
 		.name		= "dcin-uv",
-		.handler	= dcin_uv_irq_handler,
+		.handler	= smb5_dcin_uv_irq_handler,
 		.wake		= true,
 	},
 	[DCIN_OV_IRQ] = {
 		.name		= "dcin-ov",
-		.handler	= default_irq_handler,
+		.handler	= smb5_default_irq_handler,
 	},
 	[DCIN_PLUGIN_IRQ] = {
 		.name		= "dcin-plugin",
-		.handler	= dc_plugin_irq_handler,
+		.handler	= smb5_dc_plugin_irq_handler,
 		.wake           = true,
 	},
 	[DCIN_REVI_IRQ] = {
@@ -2493,16 +2493,16 @@ static struct smb_irq_info smb5_irqs[] = {
 	},
 	[DCIN_PON_IRQ] = {
 		.name		= "dcin-pon",
-		.handler	= default_irq_handler,
+		.handler	= smb5_default_irq_handler,
 	},
 	[DCIN_EN_IRQ] = {
 		.name		= "dcin-en",
-		.handler	= default_irq_handler,
+		.handler	= smb5_default_irq_handler,
 	},
 	/* TYPEC IRQs */
 	[TYPEC_OR_RID_DETECTION_CHANGE_IRQ] = {
 		.name		= "typec-or-rid-detect-change",
-		.handler	= typec_or_rid_detection_change_irq_handler,
+		.handler	= smb5_typec_or_rid_detection_change_irq_handler,
 		.wake           = true,
 	},
 	[TYPEC_VPD_DETECT_IRQ] = {
@@ -2510,24 +2510,24 @@ static struct smb_irq_info smb5_irqs[] = {
 	},
 	[TYPEC_CC_STATE_CHANGE_IRQ] = {
 		.name		= "typec-cc-state-change",
-		.handler	= typec_state_change_irq_handler,
+		.handler	= smb5_typec_state_change_irq_handler,
 		.wake           = true,
 	},
 	[TYPEC_VCONN_OC_IRQ] = {
 		.name		= "typec-vconn-oc",
-		.handler	= default_irq_handler,
+		.handler	= smb5_default_irq_handler,
 	},
 	[TYPEC_VBUS_CHANGE_IRQ] = {
 		.name		= "typec-vbus-change",
 	},
 	[TYPEC_ATTACH_DETACH_IRQ] = {
 		.name		= "typec-attach-detach",
-		.handler	= typec_attach_detach_irq_handler,
+		.handler	= smb5_typec_attach_detach_irq_handler,
 		.wake		= true,
 	},
 	[TYPEC_LEGACY_CABLE_DETECT_IRQ] = {
 		.name		= "typec-legacy-cable-detect",
-		.handler	= default_irq_handler,
+		.handler	= smb5_default_irq_handler,
 	},
 	[TYPEC_TRY_SNK_SRC_DETECT_IRQ] = {
 		.name		= "typec-try-snk-src-detect",
@@ -2535,12 +2535,12 @@ static struct smb_irq_info smb5_irqs[] = {
 	/* MISCELLANEOUS IRQs */
 	[WDOG_SNARL_IRQ] = {
 		.name		= "wdog-snarl",
-		.handler	= wdog_snarl_irq_handler,
+		.handler	= smb5_wdog_snarl_irq_handler,
 		.wake		= true,
 	},
 	[WDOG_BARK_IRQ] = {
 		.name		= "wdog-bark",
-		.handler	= wdog_bark_irq_handler,
+		.handler	= smb5_wdog_bark_irq_handler,
 		.wake		= true,
 	},
 	[AICL_FAIL_IRQ] = {
@@ -2548,11 +2548,11 @@ static struct smb_irq_info smb5_irqs[] = {
 	},
 	[AICL_DONE_IRQ] = {
 		.name		= "aicl-done",
-		.handler	= default_irq_handler,
+		.handler	= smb5_default_irq_handler,
 	},
 	[SMB_EN_IRQ] = {
 		.name		= "smb-en",
-		.handler	= smb_en_irq_handler,
+		.handler	= smb5_smb_en_irq_handler,
 	},
 	[IMP_TRIGGER_IRQ] = {
 		.name		= "imp-trigger",
@@ -2563,7 +2563,7 @@ static struct smb_irq_info smb5_irqs[] = {
 	 */
 	[TEMP_CHANGE_IRQ] = {
 		.name		= "temp-change",
-		.handler	= temp_change_irq_handler,
+		.handler	= smb5_temp_change_irq_handler,
 		.wake		= true,
 	},
 	[TEMP_CHANGE_SMB_IRQ] = {
@@ -2575,7 +2575,7 @@ static struct smb_irq_info smb5_irqs[] = {
 	},
 	[ILIM_S2_IRQ] = {
 		.name		= "ilim2-s2",
-		.handler	= schgm_flash_ilim2_irq_handler,
+		.handler	= smb5_schgm_flash_ilim2_irq_handler,
 	},
 	[ILIM_S1_IRQ] = {
 		.name		= "ilim1-s1",
@@ -2588,7 +2588,7 @@ static struct smb_irq_info smb5_irqs[] = {
 	},
 	[FLASH_STATE_CHANGE_IRQ] = {
 		.name		= "flash-state-change",
-		.handler	= schgm_flash_state_change_irq_handler,
+		.handler	= smb5_schgm_flash_state_change_irq_handler,
 	},
 	[TORCH_REQ_IRQ] = {
 		.name		= "torch-req",
@@ -2599,7 +2599,7 @@ static struct smb_irq_info smb5_irqs[] = {
 	/* SDAM */
 	[SDAM_STS_IRQ] = {
 		.name		= "sdam-sts",
-		.handler	= sdam_sts_change_irq_handler,
+		.handler	= smb5_sdam_sts_change_irq_handler,
 	},
 };
 

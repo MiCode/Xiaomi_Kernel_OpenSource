@@ -5059,7 +5059,7 @@ int smblib_set_prop_thermal_overheat(struct smb_charger *chg,
  * INTERRUPT HANDLERS *
  **********************/
 
-irqreturn_t default_irq_handler(int irq, void *data)
+irqreturn_t smb5_default_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
@@ -5068,7 +5068,7 @@ irqreturn_t default_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-irqreturn_t smb_en_irq_handler(int irq, void *data)
+irqreturn_t smb5_smb_en_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
@@ -5103,7 +5103,7 @@ irqreturn_t smb_en_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-irqreturn_t sdam_sts_change_irq_handler(int irq, void *data)
+irqreturn_t smb5_sdam_sts_change_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
@@ -5156,7 +5156,7 @@ static void smblib_eval_chg_termination(struct smb_charger *chg, u8 batt_status)
 	}
 }
 
-irqreturn_t chg_state_change_irq_handler(int irq, void *data)
+irqreturn_t smb5_chg_state_change_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
@@ -5181,7 +5181,7 @@ irqreturn_t chg_state_change_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-irqreturn_t batt_temp_changed_irq_handler(int irq, void *data)
+irqreturn_t smb5_batt_temp_changed_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
@@ -5202,7 +5202,7 @@ irqreturn_t batt_temp_changed_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-irqreturn_t batt_psy_changed_irq_handler(int irq, void *data)
+irqreturn_t smb5_batt_psy_changed_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
@@ -5214,7 +5214,7 @@ irqreturn_t batt_psy_changed_irq_handler(int irq, void *data)
 
 #define AICL_STEP_MV		200
 #define MAX_AICL_THRESHOLD_MV	4800
-irqreturn_t usbin_uv_irq_handler(int irq, void *data)
+irqreturn_t smb5_usbin_uv_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
@@ -5348,7 +5348,7 @@ unsuspend_input:
 
 #define USB_WEAK_INPUT_UA	1400000
 #define ICL_CHANGE_DELAY_MS	1000
-irqreturn_t icl_change_irq_handler(int irq, void *data)
+irqreturn_t smb5_icl_change_irq_handler(int irq, void *data)
 {
 	u8 stat;
 	int rc, settled_ua, delay = ICL_CHANGE_DELAY_MS;
@@ -5564,7 +5564,7 @@ static void smblib_usb_plugin_locked(struct smb_charger *chg)
 					vbus_rising ? "attached" : "detached");
 }
 
-irqreturn_t usb_plugin_irq_handler(int irq, void *data)
+irqreturn_t smb5_usb_plugin_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
@@ -5774,7 +5774,7 @@ static void smblib_handle_apsd_done(struct smb_charger *chg, bool rising)
 		   apsd_result->name);
 }
 
-irqreturn_t usb_source_change_irq_handler(int irq, void *data)
+irqreturn_t smb5_usb_source_change_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
@@ -6441,7 +6441,7 @@ static void smblib_lpd_launch_ra_open_work(struct smb_charger *chg)
 	}
 }
 
-irqreturn_t typec_or_rid_detection_change_irq_handler(int irq, void *data)
+irqreturn_t smb5_typec_or_rid_detection_change_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
@@ -6485,7 +6485,7 @@ out:
 	return IRQ_HANDLED;
 }
 
-irqreturn_t typec_state_change_irq_handler(int irq, void *data)
+irqreturn_t smb5_typec_state_change_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
@@ -6523,7 +6523,7 @@ static void smblib_lpd_clear_ra_open_work(struct smb_charger *chg)
 }
 
 #define TYPEC_DETACH_DETECT_DELAY_MS 2000
-irqreturn_t typec_attach_detach_irq_handler(int irq, void *data)
+irqreturn_t smb5_typec_attach_detach_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
@@ -6780,7 +6780,7 @@ static void dcin_icl_decrement(struct smb_charger *chg)
 	chg->dcin_uv_last_time = now;
 }
 
-irqreturn_t dcin_uv_irq_handler(int irq, void *data)
+irqreturn_t smb5_dcin_uv_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
@@ -6797,7 +6797,7 @@ irqreturn_t dcin_uv_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-irqreturn_t dc_plugin_irq_handler(int irq, void *data)
+irqreturn_t smb5_dc_plugin_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
@@ -6923,7 +6923,7 @@ irqreturn_t dc_plugin_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-irqreturn_t high_duty_cycle_irq_handler(int irq, void *data)
+irqreturn_t smb5_high_duty_cycle_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
@@ -6953,7 +6953,7 @@ static void smblib_bb_removal_work(struct work_struct *work)
 #define BOOST_BACK_UNVOTE_DELAY_MS		750
 #define BOOST_BACK_STORM_COUNT			3
 #define WEAK_CHG_STORM_COUNT			8
-irqreturn_t switcher_power_ok_irq_handler(int irq, void *data)
+irqreturn_t smb5_switcher_power_ok_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
@@ -7010,7 +7010,7 @@ irqreturn_t switcher_power_ok_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-irqreturn_t wdog_snarl_irq_handler(int irq, void *data)
+irqreturn_t smb5_wdog_snarl_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
@@ -7028,7 +7028,7 @@ irqreturn_t wdog_snarl_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-irqreturn_t wdog_bark_irq_handler(int irq, void *data)
+irqreturn_t smb5_wdog_bark_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
@@ -7064,7 +7064,7 @@ static void smblib_die_rst_icl_regulate(struct smb_charger *chg)
  * triggered when DIE or SKIN or CONNECTOR temperature across
  * either of the _REG_L, _REG_H, _RST, or _SHDN thresholds
  */
-irqreturn_t temp_change_irq_handler(int irq, void *data)
+irqreturn_t smb5_temp_change_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
@@ -7085,7 +7085,7 @@ static void smblib_usbov_dbc_work(struct work_struct *work)
 }
 
 #define USB_OV_DBC_PERIOD_MS		1000
-irqreturn_t usbin_ov_irq_handler(int irq, void *data)
+irqreturn_t smb5_usbin_ov_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
