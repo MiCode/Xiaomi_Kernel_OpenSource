@@ -83,6 +83,5 @@
 	qcom,status-in-gpio = <&tlmm 76 0x00>;
 	qcom,status-out-gpio = <&tlmm 33 0x00>;
 	qcom,status-out2-gpio = <&tlmm 31 0x00>;
-	qcom,default-policy-nop;
 	status = "okay";
 };
