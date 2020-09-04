@@ -986,6 +986,11 @@
 		qcom,lut-row-size = <4>;
 		qcom,skip-enable-check;
 
+		interrupts = <GIC_SPI 30 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 31 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 19 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "dcvsh0_int", "dcvsh1_int", "dcvsh2_int";
+
 		#freq-domain-cells = <2>;
 	};
 
