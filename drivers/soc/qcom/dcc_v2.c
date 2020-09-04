@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -1853,11 +1853,7 @@ static struct platform_driver dcc_driver = {
 	},
 };
 
-static int __init dcc_init(void)
-{
-	return platform_driver_register(&dcc_driver);
-}
-pure_initcall(dcc_init);
+module_platform_driver(dcc_driver);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("MSM data capture and compare engine");
