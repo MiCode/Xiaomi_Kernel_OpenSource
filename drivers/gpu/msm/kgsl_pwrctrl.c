@@ -2030,7 +2030,7 @@ static int _suspend(struct kgsl_device *device)
 	/* drain to prevent from more commands being submitted */
 	device->ftbl->drain(device);
 	/* wait for active count so device can be put in slumber */
-	ret = kgsl_active_count_wait(device, 0);
+	ret = kgsl_active_count_wait(device, 0, HZ);
 	if (ret)
 		goto err;
 
@@ -2159,17 +2159,10 @@ static int _check_active_count(struct kgsl_device *device, int count)
 	return atomic_read(&device->active_cnt) > count ? 0 : 1;
 }
 
-/**
- * kgsl_active_count_wait() - Wait for activity to finish.
- * @device: Pointer to a KGSL device
- * @count: Active count value to wait for
- *
- * Block until the active_cnt value hits the desired value
- */
-int kgsl_active_count_wait(struct kgsl_device *device, int count)
+int kgsl_active_count_wait(struct kgsl_device *device, int count,
+	unsigned long wait_jiffies)
 {
 	int result = 0;
-	long wait_jiffies = HZ;
 
 	if (WARN_ON(!mutex_is_locked(&device->mutex)))
 		return -EINVAL;

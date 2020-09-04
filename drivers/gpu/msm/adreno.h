@@ -806,7 +806,7 @@ struct adreno_gpudev {
 	int (*preemption_init)(struct adreno_device *adreno_dev);
 	void (*preemption_schedule)(struct adreno_device *adreno_dev);
 	int (*preemption_context_init)(struct kgsl_context *context);
-	void (*preemption_context_destroy)(struct kgsl_context *context);
+	void (*context_detach)(struct adreno_context *drawctxt);
 	void (*clk_set_options)(struct adreno_device *adreno_dev,
 				const char *name, struct clk *clk, bool on);
 	void (*pre_reset)(struct adreno_device *adreno_dev);
@@ -1658,12 +1658,8 @@ static inline int adreno_perfcntr_active_oob_get(
 
 	if (!ret) {
 		ret = gmu_core_dev_oob_set(device, oob_perfcntr);
-		if (ret) {
-			adreno_set_gpu_fault(adreno_dev,
-				ADRENO_GMU_FAULT_SKIP_SNAPSHOT);
-			adreno_dispatcher_schedule(device);
+		if (ret)
 			adreno_active_count_put(adreno_dev);
-		}
 	}
 
 	return ret;
@@ -1775,6 +1771,13 @@ static inline void adreno_reg_offset_init(u32 *reg_offsets)
 		if (!reg_offsets[i])
 			reg_offsets[i] = ADRENO_REG_UNUSED;
 	}
+}
+
+static inline u32 adreno_get_level(u32 priority)
+{
+	u32 level = priority / KGSL_PRIORITY_MAX_RB_LEVELS;
+
+	return min_t(u32, level, KGSL_PRIORITY_MAX_RB_LEVELS - 1);
 }
 
 int adreno_gmu_fenced_write(struct adreno_device *adreno_dev,
@@ -1925,4 +1928,24 @@ void gmu_fault_snapshot(struct kgsl_device *device);
  * Return: 0 on success or negative error on failure
  */
 int adreno_suspend_context(struct kgsl_device *device);
+
+/*
+ * adreno_profile_submit_time - Populate profiling buffer with timestamps
+ * @time: Container for the statistics
+ *
+ * Populate the draw object user profiling buffer with the timestamps
+ * recored in the adreno_submit_time structure at the time of draw object
+ * submission.
+ */
+void adreno_profile_submit_time(struct adreno_submit_time *time);
+
+/**
+ * adreno_mark_guilty_context - Mark the given context as guilty
+ * (failed recovery)
+ * @device: Pointer to a KGSL device structure
+ * @id: Context ID of the guilty context (or 0 to mark all as guilty)
+ *
+ * Mark the given (or all) context(s) as guilty (failed recovery)
+ */
+void adreno_mark_guilty_context(struct kgsl_device *device, unsigned int id);
 #endif /*__ADRENO_H */

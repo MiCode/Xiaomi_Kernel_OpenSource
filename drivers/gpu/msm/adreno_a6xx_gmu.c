@@ -18,6 +18,7 @@
 
 #include "adreno.h"
 #include "adreno_a6xx.h"
+#include "adreno_hwsched.h"
 #include "kgsl_bus.h"
 #include "kgsl_device.h"
 #include "kgsl_trace.h"
@@ -728,6 +729,29 @@ static const char *oob_to_str(enum oob_request req)
 	return "unknown";
 }
 
+static void trigger_reset_recovery(struct adreno_device *adreno_dev,
+	enum oob_request req)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+
+	/*
+	 * Trigger recovery for perfcounter oob only since only
+	 * perfcounter oob can happen alongside an actively rendering gpu.
+	 */
+	if (req != oob_perfcntr)
+		return;
+
+	if (test_bit(GMU_DISPATCH, &device->gmu_core.flags)) {
+		adreno_get_gpu_halt(adreno_dev);
+
+		adreno_hwsched_set_fault(adreno_dev);
+	} else {
+		adreno_set_gpu_fault(adreno_dev,
+			ADRENO_GMU_FAULT_SKIP_SNAPSHOT);
+		adreno_dispatcher_schedule(device);
+	}
+}
+
 int a6xx_gmu_oob_set(struct kgsl_device *device,
 		enum oob_request req)
 {
@@ -762,6 +786,7 @@ int a6xx_gmu_oob_set(struct kgsl_device *device,
 		gmu_fault_snapshot(device);
 		ret = -ETIMEDOUT;
 		WARN(1, "OOB request %s timed out\n", oob_to_str(req));
+		trigger_reset_recovery(adreno_dev, req);
 	}
 
 	gmu_core_regwrite(device, A6XX_GMU_GMU2HOST_INTR_CLR, check);
@@ -841,9 +866,11 @@ static int a6xx_gmu_hfi_start_msg(struct adreno_device *adreno_dev)
 	 * serves as a better means to identify targets that depend on
 	 * legacy firmware.
 	 */
-	if (!ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG))
-		return a6xx_hfi_send_req(adreno_dev,
-					 H2F_MSG_START, &req);
+	if (!ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG)) {
+		CMD_MSG_HDR(req, H2F_MSG_START);
+
+		return a6xx_hfi_send_generic_req(adreno_dev, &req);
+	}
 
 	return 0;
 
@@ -1714,8 +1741,9 @@ static int a6xx_gmu_notify_slumber(struct adreno_device *adreno_dev)
 			.bw = bus_level,
 		};
 
-		ret = a6xx_hfi_send_req(adreno_dev,
-			H2F_MSG_PREPARE_SLUMBER, &req);
+		CMD_MSG_HDR(req, H2F_MSG_PREPARE_SLUMBER);
+
+		ret = a6xx_hfi_send_generic_req(adreno_dev, &req);
 		goto out;
 	}
 
@@ -1803,11 +1831,12 @@ static int a6xx_gmu_dcvs_set(struct adreno_device *adreno_dev,
 		return 0;
 	}
 
+	CMD_MSG_HDR(req, H2F_MSG_GX_BW_PERF_VOTE);
+
 	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG))
 		ret = a6xx_gmu_dcvs_nohfi(device, req.freq, req.bw);
 	else
-		ret = a6xx_hfi_send_req(adreno_dev, H2F_MSG_GX_BW_PERF_VOTE,
-			&req);
+		ret = a6xx_hfi_send_generic_req(adreno_dev, &req);
 
 	if (ret) {
 		dev_err_ratelimited(&gmu->pdev->dev,
@@ -2442,7 +2471,8 @@ static void a6xx_gmu_acd_probe(struct kgsl_device *device,
 	if (!ADRENO_FEATURE(adreno_dev, ADRENO_ACD))
 		return;
 
-	cmd->hdr = CMD_MSG_HDR(H2F_MSG_ACD_TBL, sizeof(*cmd));
+	cmd->hdr = CREATE_MSG_HDR(H2F_MSG_ACD_TBL, sizeof(*cmd), HFI_MSG_CMD);
+
 	cmd->version = 1;
 	cmd->stride = 1;
 	cmd->enable_by_level = 0;
@@ -3199,7 +3229,7 @@ static int a6xx_gmu_pm_suspend(struct adreno_device *adreno_dev)
 	reinit_completion(&device->halt_gate);
 
 	/* wait for active count so device can be put in slumber */
-	ret = kgsl_active_count_wait(device, 0);
+	ret = kgsl_active_count_wait(device, 0, HZ);
 	if (ret) {
 		dev_err(device->dev,
 			"Timed out waiting for the active count\n");
@@ -3230,10 +3260,9 @@ static void a6xx_gmu_pm_resume(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
 
-	if (!test_bit(GMU_PRIV_PM_SUSPEND, &gmu->flags)) {
-		dev_err(device->dev, "resume invoked without a suspend\n");
+	if (WARN(!test_bit(GMU_PRIV_PM_SUSPEND, &gmu->flags),
+		"resume invoked without a suspend\n"))
 		return;
-	}
 
 	adreno_dispatcher_unhalt(device);
 
@@ -3335,6 +3364,8 @@ int a6xx_gmu_device_probe(struct platform_device *pdev,
 	INIT_WORK(&device->idle_check_ws, gmu_idle_check);
 
 	timer_setup(&device->idle_timer, gmu_idle_timer, 0);
+
+	adreno_dev->irq_mask = A6XX_INT_MASK;
 
 	return 0;
 }

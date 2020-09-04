@@ -22,6 +22,7 @@
 #include "adreno_a5xx.h"
 #include "adreno_a6xx.h"
 #include "adreno_compat.h"
+#include "adreno_hwsched.h"
 #include "adreno_iommu.h"
 #include "adreno_trace.h"
 #include "kgsl_bus.h"
@@ -1522,10 +1523,15 @@ static void adreno_unbind(struct device *dev)
 
 	kgsl_pwrscale_close(device);
 
-	adreno_dispatcher_close(adreno_dev);
-	adreno_ringbuffer_close(adreno_dev);
+	if (test_bit(GMU_DISPATCH, &device->gmu_core.flags))
+		adreno_hwsched_dispatcher_close(adreno_dev);
+	else {
+		adreno_dispatcher_close(adreno_dev);
 
-	adreno_fault_detect_stop(adreno_dev);
+		adreno_ringbuffer_close(adreno_dev);
+
+		adreno_fault_detect_stop(adreno_dev);
+	}
 
 	kfree(adreno_ft_regs);
 	adreno_ft_regs = NULL;
@@ -1875,11 +1881,11 @@ static int adreno_last_close(struct kgsl_device *device)
 	 * Wait up to 1 second for the active count to go low
 	 * and then start complaining about it
 	 */
-	if (kgsl_active_count_wait(device, 0)) {
+	if (kgsl_active_count_wait(device, 0, HZ)) {
 		dev_err(device->dev,
 			"Waiting for the active count to become 0\n");
 
-		while (kgsl_active_count_wait(device, 0))
+		while (kgsl_active_count_wait(device, 0, HZ))
 			dev_err(device->dev,
 				"Still waiting for the active count\n");
 	}
@@ -3195,6 +3201,45 @@ void adreno_cx_misc_regrmw(struct adreno_device *adreno_dev,
 	adreno_cx_misc_regwrite(adreno_dev, offsetwords, val | bits);
 }
 
+void adreno_profile_submit_time(struct adreno_submit_time *time)
+{
+	struct kgsl_drawobj *drawobj;
+	struct kgsl_drawobj_cmd *cmdobj;
+	struct kgsl_mem_entry *entry;
+	struct kgsl_drawobj_profiling_buffer *profile_buffer;
+
+	drawobj = time->drawobj;
+	if (drawobj == NULL)
+		return;
+
+	cmdobj = CMDOBJ(drawobj);
+	entry = cmdobj->profiling_buf_entry;
+	if (!entry)
+		return;
+
+	profile_buffer = kgsl_gpuaddr_to_vaddr(&entry->memdesc,
+			cmdobj->profiling_buffer_gpuaddr);
+
+	if (profile_buffer == NULL)
+		return;
+
+	/* Return kernel clock time to the client if requested */
+	if (drawobj->flags & KGSL_DRAWOBJ_PROFILING_KTIME) {
+		u64 secs = time->ktime;
+
+		profile_buffer->wall_clock_ns =
+			do_div(secs, NSEC_PER_SEC);
+		profile_buffer->wall_clock_s = secs;
+	} else {
+		profile_buffer->wall_clock_s = time->utime.tv_sec;
+		profile_buffer->wall_clock_ns = time->utime.tv_nsec;
+	}
+
+	profile_buffer->gpu_ticks_queued = time->ticks;
+
+	kgsl_memdesc_unmap(&entry->memdesc);
+}
+
 /**
  * adreno_waittimestamp - sleep while waiting for the specified timestamp
  * @device - pointer to a KGSL device structure
@@ -3607,6 +3652,12 @@ static int adreno_queue_cmds(struct kgsl_device_private *dev_priv,
 	struct kgsl_context *context, struct kgsl_drawobj *drawobj[],
 	u32 count, u32 *timestamp)
 {
+	struct kgsl_device *device = dev_priv->device;
+
+	if (test_bit(GMU_DISPATCH, &device->gmu_core.flags))
+		return adreno_hwsched_queue_cmds(dev_priv, context, drawobj,
+				count, timestamp);
+
 	return adreno_dispatcher_queue_cmds(dev_priv, context, drawobj, count,
 			timestamp);
 }
@@ -3614,6 +3665,10 @@ static int adreno_queue_cmds(struct kgsl_device_private *dev_priv,
 static void adreno_drawctxt_sched(struct kgsl_device *device,
 		struct kgsl_context *context)
 {
+	if (test_bit(GMU_DISPATCH, &device->gmu_core.flags))
+		return adreno_hwsched_queue_context(device,
+			ADRENO_CONTEXT(context));
+
 	adreno_dispatcher_queue_context(device, ADRENO_CONTEXT(context));
 }
 

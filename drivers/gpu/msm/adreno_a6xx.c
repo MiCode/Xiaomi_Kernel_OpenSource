@@ -17,22 +17,6 @@
 #include "adreno_trace.h"
 #include "kgsl_trace.h"
 
-#define A6XX_INT_MASK \
-	((1 << A6XX_INT_CP_AHB_ERROR) |			\
-	 (1 << A6XX_INT_ATB_ASYNCFIFO_OVERFLOW) |	\
-	 (1 << A6XX_INT_RBBM_GPC_ERROR) |		\
-	 (1 << A6XX_INT_CP_SW) |			\
-	 (1 << A6XX_INT_CP_HW_ERROR) |			\
-	 (1 << A6XX_INT_CP_IB2) |			\
-	 (1 << A6XX_INT_CP_IB1) |			\
-	 (1 << A6XX_INT_CP_RB) |			\
-	 (1 << A6XX_INT_CP_CACHE_FLUSH_TS) |		\
-	 (1 << A6XX_INT_RBBM_ATB_BUS_OVERFLOW) |	\
-	 (1 << A6XX_INT_RBBM_HANG_DETECT) |		\
-	 (1 << A6XX_INT_UCHE_OOB_ACCESS) |		\
-	 (1 << A6XX_INT_UCHE_TRAP_INTR) |		\
-	 (1 << A6XX_INT_TSB_WRITE_ERROR))
-
 /* IFPC & Preemption static powerup restore list */
 static u32 a6xx_pwrup_reglist[] = {
 	A6XX_VSC_ADDR_MODE_CNTL,
@@ -438,8 +422,6 @@ void a6xx_start(struct adreno_device *adreno_dev)
 	unsigned int amsbc = 0;
 	unsigned int rgb565_predicator = 0;
 	static bool patch_reglist;
-
-	adreno_dev->irq_mask = A6XX_INT_MASK;
 
 	/* enable hardware clockgating */
 	a6xx_hwcg_set(adreno_dev, true);
@@ -2555,6 +2537,8 @@ static int a6xx_probe(struct platform_device *pdev,
 
 	INIT_WORK(&device->idle_check_ws, kgsl_idle_check);
 
+	adreno_dev->irq_mask = A6XX_INT_MASK;
+
 	return 0;
 }
 
@@ -2824,7 +2808,6 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.preemption_schedule = a6xx_preemption_schedule,
 	.set_marker = a6xx_set_marker,
 	.preemption_context_init = a6xx_preemption_context_init,
-	.preemption_context_destroy = a6xx_preemption_context_destroy,
 	.sptprac_is_on = a6xx_sptprac_is_on,
 	.ccu_invalidate = a6xx_ccu_invalidate,
 	.perfcounter_update = a6xx_perfcounter_update,
@@ -2841,13 +2824,13 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 struct adreno_gpudev adreno_a6xx_hwsched_gpudev = {
 	.reg_offsets = a6xx_register_offsets,
 	.probe = a6xx_hwsched_probe,
-	.snapshot = a6xx_gmu_snapshot,
+	.snapshot = a6xx_hwsched_snapshot,
 	.irq_handler = a6xx_irq_handler,
 	.perfcounters = &a6xx_perfcounters,
 	.read_throttling_counters = a6xx_read_throttling_counters,
 	.iommu_fault_block = a6xx_iommu_fault_block,
 	.preemption_context_init = a6xx_preemption_context_init,
-	.preemption_context_destroy = a6xx_preemption_context_destroy,
+	.context_detach = a6xx_hwsched_context_detach,
 	.perfcounter_update = a6xx_perfcounter_update,
 #ifdef CONFIG_QCOM_KGSL_CORESIGHT
 	.coresight = {&a6xx_coresight, &a6xx_coresight_cx},
@@ -2879,7 +2862,6 @@ struct adreno_gpudev adreno_a6xx_gmu_gpudev = {
 	.preemption_schedule = a6xx_preemption_schedule,
 	.set_marker = a6xx_set_marker,
 	.preemption_context_init = a6xx_preemption_context_init,
-	.preemption_context_destroy = a6xx_preemption_context_destroy,
 	.sptprac_is_on = a6xx_sptprac_is_on,
 	.ccu_invalidate = a6xx_ccu_invalidate,
 	.perfcounter_update = a6xx_perfcounter_update,
@@ -2913,7 +2895,6 @@ struct adreno_gpudev adreno_a6xx_rgmu_gpudev = {
 	.preemption_schedule = a6xx_preemption_schedule,
 	.set_marker = a6xx_set_marker,
 	.preemption_context_init = a6xx_preemption_context_init,
-	.preemption_context_destroy = a6xx_preemption_context_destroy,
 	.sptprac_is_on = a6xx_sptprac_is_on,
 	.ccu_invalidate = a6xx_ccu_invalidate,
 	.perfcounter_update = a6xx_perfcounter_update,
@@ -2947,7 +2928,6 @@ struct adreno_gpudev adreno_a619_holi_gpudev = {
 	.preemption_schedule = a6xx_preemption_schedule,
 	.set_marker = a6xx_set_marker,
 	.preemption_context_init = a6xx_preemption_context_init,
-	.preemption_context_destroy = a6xx_preemption_context_destroy,
 	.sptprac_is_on = a6xx_sptprac_is_on,
 	.ccu_invalidate = a6xx_ccu_invalidate,
 	.perfcounter_update = a6xx_perfcounter_update,
@@ -2984,7 +2964,6 @@ struct adreno_gpudev adreno_a630_gpudev = {
 	.preemption_schedule = a6xx_preemption_schedule,
 	.set_marker = a6xx_set_marker,
 	.preemption_context_init = a6xx_preemption_context_init,
-	.preemption_context_destroy = a6xx_preemption_context_destroy,
 	.sptprac_is_on = a6xx_sptprac_is_on,
 	.ccu_invalidate = a6xx_ccu_invalidate,
 	.perfcounter_update = a6xx_perfcounter_update,

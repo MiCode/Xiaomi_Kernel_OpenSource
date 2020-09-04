@@ -44,6 +44,7 @@ msm_kgsl-y += \
 	adreno_cp_parser.o \
 	adreno_dispatch.o \
 	adreno_drawctxt.o \
+	adreno_hwsched.o \
 	adreno_ioctl.o \
 	adreno_perfcounter.o \
 	adreno_ringbuffer.o \

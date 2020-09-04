@@ -107,10 +107,18 @@ struct mem_alloc_entry {
 struct a6xx_hwsched_hfi {
 	struct mem_alloc_entry mem_alloc_table[32];
 	u32 mem_alloc_entries;
-	/** @pending_ack: To track un-ack'd hfi packet */
-	struct pending_cmd pending_ack;
 	/** @irq_mask: Store the hfi interrupt mask */
 	u32 irq_mask;
+	/** @msglock: To protect the list of un-ACKed hfi packets */
+	rwlock_t msglock;
+	/** @msglist: List of un-ACKed hfi packets */
+	struct list_head msglist;
+	/** @f2h_task: Task for processing gmu fw to host packets */
+	struct task_struct *f2h_task;
+	/** @f2h_msglist: List of gmu fw to host packets */
+	struct llist_head f2h_msglist;
+	/** @f2h_wq: Waitqueue for the f2h_task */
+	wait_queue_head_t f2h_wq;
 };
 
 struct kgsl_drawobj_cmd;
@@ -178,7 +186,6 @@ int a6xx_hfi_send_cmd_async(struct adreno_device *adreno_dev, void *data);
 /**
  * a6xx_hwsched_submit_cmdobj - Dispatch IBs to dispatch queues
  * @adreno_dev: Pointer to adreno device structure
- * @flags: Flags associated with the submission
  * @cmdobj: The command object which needs to be submitted
  *
  * This function is used to register the context if needed and submit
@@ -186,6 +193,18 @@ int a6xx_hfi_send_cmd_async(struct adreno_device *adreno_dev, void *data);
 
  * Return: 0 on success and negative error on failure
  */
-int a6xx_hwsched_submit_cmdobj(struct adreno_device *adreno_dev, u32 flags,
+int a6xx_hwsched_submit_cmdobj(struct adreno_device *adreno_dev,
 	struct kgsl_drawobj_cmd *cmdobj);
+
+/**
+ * a6xx_hwsched_context_detach - Unregister a context with GMU
+ * @drawctxt: Pointer to the adreno context
+ *
+ * This function sends context unregister HFI and waits for the ack
+ * to ensure all submissions from this context have retired
+ */
+void a6xx_hwsched_context_detach(struct adreno_context *drawctxt);
+
+/* Helper function to get to a6xx hwsched hfi device from adreno device */
+struct a6xx_hwsched_hfi *to_a6xx_hwsched_hfi(struct adreno_device *adreno_dev);
 #endif

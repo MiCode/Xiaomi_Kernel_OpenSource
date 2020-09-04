@@ -8,7 +8,7 @@
 #define HFI_QUEUE_SIZE			SZ_4K /* bytes, must be base 4dw */
 #define MAX_RCVD_PAYLOAD_SIZE		16		/* dwords */
 #define MAX_RCVD_SIZE			(MAX_RCVD_PAYLOAD_SIZE + 3) /* dwords */
-#define HFI_MAX_MSG_SIZE		(SZ_1K>>2)	/* dwords */
+#define HFI_MAX_MSG_SIZE		(SZ_1K)
 
 #define HFI_CMD_ID 0
 #define HFI_MSG_ID 1
@@ -60,6 +60,7 @@
 #define HFI_FEATURE_BCL		11
 #define HFI_FEATURE_ACD		12
 #define HFI_FEATURE_DIDT	13
+#define HFI_FEATURE_KPROF	14
 
 #define HFI_VALUE_FT_POLICY		100
 #define HFI_VALUE_RB_MAX_CMDS		101
@@ -132,7 +133,6 @@ struct hfi_queue_header {
 /* Size is converted from Bytes to DWords */
 #define CREATE_MSG_HDR(id, size, type) \
 	(((type) << 16) | ((((size) >> 2) & 0xFF) << 8) | ((id) & 0xFF))
-#define CMD_MSG_HDR(id, size) CREATE_MSG_HDR(id, size, HFI_MSG_CMD)
 #define ACK_MSG_HDR(id, size) CREATE_MSG_HDR(id, size, HFI_MSG_ACK)
 
 #define HFI_QUEUE_DEFAULT_CNT 3
@@ -481,10 +481,14 @@ struct hfi_ts_notify_cmd {
 
 /* F2H */
 struct hfi_ts_retire_cmd {
-	uint32_t hdr;
-	uint32_t ctxt_id;
-	uint32_t ts;
-	uint32_t ret;
+	u32 hdr;
+	u32 ctxt_id;
+	u32 ts;
+	u32 type;
+	u64 submitted_to_rb;
+	u64 sop;
+	u64 eop;
+	u64 retired_on_gmu;
 } __packed;
 
 /* H2F */
@@ -506,10 +510,11 @@ struct hfi_context_rule_cmd {
 
 /* F2H */
 struct hfi_context_bad_cmd {
-	uint32_t hdr;
-	uint32_t ctxt_id;
-	uint32_t status;
-	uint32_t error;
+	u32 hdr;
+	u32 ctxt_id;
+	u32 policy;
+	u32 ts;
+	u32 error;
 } __packed;
 
 /* H2F */
@@ -524,6 +529,8 @@ struct hfi_submit_cmd {
 	u32 ctxt_id;
 	u32 flags;
 	u32 ts;
+	u32 profile_gpuaddr_lo;
+	u32 profile_gpuaddr_hi;
 	u32 numibs;
 } __packed;
 
@@ -539,6 +546,8 @@ struct pending_cmd {
 	u32 results[MAX_RCVD_SIZE];
 	/** @complete: Completion to signal hfi ack has been received */
 	struct completion complete;
+	/** @node: to add it to the list of hfi packets waiting for ack */
+	struct list_head node;
 };
 
 /**
@@ -559,6 +568,13 @@ struct a6xx_hfi {
 	/** @dcvs_table: HFI table for gpu dcvs levels */
 	struct hfi_dcvstable_cmd dcvs_table;
 };
+
+#define CMD_MSG_HDR(cmd, id) \
+	do { \
+		if (WARN_ON((sizeof(cmd)) > HFI_MAX_MSG_SIZE)) \
+			return -EMSGSIZE; \
+		cmd.hdr = CREATE_MSG_HDR((id), (sizeof(cmd)), HFI_MSG_CMD); \
+	} while (0)
 
 struct a6xx_gmu_device;
 
@@ -591,17 +607,6 @@ void a6xx_hfi_stop(struct adreno_device *adreno_dev);
  * Return: 0 on success or negative error on failure
  */
 int a6xx_hfi_init(struct adreno_device *adreno_dev);
-
-/**
- * a6xx_hfi_send_req - Send an HFI packet to GMU
- * @adreno_dev: Pointer to the adreno device
- * @id: Packet id to be sent
- * @data: Container for the data sent as part of this pcket
- *
- * Return: 0 on success or negative error on failure
- */
-int a6xx_hfi_send_req(struct adreno_device *adreno_dev,
-	unsigned int id, void *data);
 
 /* Helper function to get to a6xx hfi struct from adreno device */
 struct a6xx_hfi *to_a6xx_hfi(struct adreno_device *adreno_dev);
