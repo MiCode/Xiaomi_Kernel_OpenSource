@@ -1276,7 +1276,7 @@ static void mhi_hwc_cb(void *priv, enum ipa_mhi_event_type event,
 		}
 
 		mhi_log(MHI_MSG_CRITICAL, "Device in M0 State\n");
-		place_marker("MHI - Device in M0 State\n");
+		update_marker("MHI - Device in M0 State\n");
 		break;
 	case IPA_MHI_EVENT_DATA_AVAILABLE:
 		rc = mhi_dev_notify_sm_event(MHI_DEV_EVENT_HW_ACC_WAKEUP);

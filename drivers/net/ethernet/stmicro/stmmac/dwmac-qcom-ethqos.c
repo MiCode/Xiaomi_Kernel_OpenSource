@@ -2885,7 +2885,7 @@ static int qcom_ethqos_suspend(struct device *dev)
 
 	ETHQOSINFO("Ethernet Suspend Enter\n");
 #ifdef CONFIG_MSM_BOOT_TIME_MARKER
-	place_marker("M - Ethernet Suspend start");
+	update_marker("M - Ethernet Suspend start");
 #endif
 
 	ethqos = get_stmmac_bsp_priv(dev);
@@ -2925,7 +2925,7 @@ static int qcom_ethqos_suspend(struct device *dev)
 	}
 
 #ifdef CONFIG_MSM_BOOT_TIME_MARKER
-	place_marker("M - Ethernet Suspend End");
+	update_marker("M - Ethernet Suspend End");
 #endif
 	ETHQOSINFO("Ethernet Suspend End ret = %d\n", ret);
 
@@ -2944,7 +2944,7 @@ static int qcom_ethqos_resume(struct device *dev)
 
 	ETHQOSINFO("Ethernet Resume Enter\n");
 #ifdef CONFIG_MSM_BOOT_TIME_MARKER
-	place_marker("M - Ethernet Resume start");
+	update_marker("M - Ethernet Resume start");
 #endif
 
 	ethqos = get_stmmac_bsp_priv(dev);
@@ -3003,7 +3003,7 @@ static int qcom_ethqos_resume(struct device *dev)
 	ethqos_ipa_offload_event_handler(NULL, EV_DPM_RESUME);
 
 #ifdef CONFIG_MSM_BOOT_TIME_MARKER
-	place_marker("M - Ethernet Resume End");
+	update_marker("M - Ethernet Resume End");
 #endif
 	ETHQOSINFO("Ethernet Resume End ret = %d\n", ret);
 
