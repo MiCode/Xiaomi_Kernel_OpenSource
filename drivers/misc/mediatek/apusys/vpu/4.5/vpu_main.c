@@ -243,24 +243,24 @@ int vpu_send_cmd(int op, void *hnd, struct apusys_device *adev)
 int vpu_kbuf_alloc(struct vpu_device *vd)
 {
 	dma_addr_t iova = 0;
-	struct timespec start, end;
+	struct timespec64 start, end;
 	uint64_t period;
 	struct vpu_mem_ops *mops = vd_mops(vd);
 
 	if (vd->iova_kernel.m.va)
 		return 0;
 
-	ktime_get_ts(&start);
+	ktime_get_ts64(&start);
 	iova = mops->alloc(vd->dev, &vd->iova_kernel);
-	ktime_get_ts(&end);
+	ktime_get_ts64(&end);
 
 	if (!iova) {
 		pr_info("%s: vpu%d failed\n", __func__, vd->id);
 		return -ENOMEM;
 	}
 
-	period = ((uint64_t)(timespec_to_ns(&end)
-		- timespec_to_ns(&start)));
+	period = ((uint64_t)(timespec64_to_ns(&end)
+		- timespec64_to_ns(&start)));
 
 	mops->sync_for_cpu(vd->dev, &vd->iova_kernel);
 
