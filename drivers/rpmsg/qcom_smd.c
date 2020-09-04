@@ -585,7 +585,7 @@ static size_t qcom_smd_channel_ext_read(struct qcom_smd_channel *channel)
 		ptr = channel->ext_buf;
 	}
 
-	if (channel->pkt_size > channel->fifo_size) {
+	if (channel->pkt_size >= channel->fifo_size) {
 		avail = qcom_smd_channel_get_rx_avail(channel);
 		len = qcom_smd_channel_peek(channel, ptr, avail);
 	} else {
@@ -630,8 +630,8 @@ static int qcom_smd_channel_recv_single(struct qcom_smd_channel *channel)
 
 	tail = GET_RX_CHANNEL_INFO(channel, tail);
 
-	/* use extended buffer if data size is greter than fifo size */
-	if ((channel->pkt_size > channel->fifo_size) ||
+	/* extended buffer if data size is greter than or equal to fifo size */
+	if ((channel->pkt_size >= channel->fifo_size) ||
 					channel->ext_pkt_size) {
 		len = qcom_smd_channel_ext_read(channel);
 		if (len == 0)
@@ -720,7 +720,7 @@ static bool qcom_smd_channel_intr(struct qcom_smd_channel *channel)
 			"%s: pkt_size: %d ch %s ed %s\n", __func__,
 			channel->pkt_size, channel->name, channel->edge->name);
 		} else if (channel->pkt_size && (avail >= channel->pkt_size ||
-				channel->pkt_size > channel->fifo_size)) {
+				channel->pkt_size >= channel->fifo_size)) {
 			ret = qcom_smd_channel_recv_single(channel);
 			if (ret) {
 				smd_ipc(channel->edge->ipc, false, NULL,
