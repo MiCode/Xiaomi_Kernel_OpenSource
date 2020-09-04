@@ -990,8 +990,10 @@ struct btrfs_root {
 	wait_queue_head_t log_writer_wait;
 	wait_queue_head_t log_commit_wait[2];
 	struct list_head log_ctxs[2];
+	/* Used only for log trees of subvolumes, not for the log root tree */
 	atomic_t log_writers;
 	atomic_t log_commit[2];
+	/* Used only for log trees of subvolumes, not for the log root tree */
 	atomic_t log_batch;
 	int log_transid;
 	/* No matter the commit succeeds or not*/
@@ -3164,7 +3166,7 @@ do {								\
 	/* Report first abort since mount */			\
 	if (!test_and_set_bit(BTRFS_FS_STATE_TRANS_ABORTED,	\
 			&((trans)->fs_info->fs_state))) {	\
-		if ((errno) != -EIO) {				\
+		if ((errno) != -EIO && (errno) != -EROFS) {		\
 			WARN(1, KERN_DEBUG				\
 			"BTRFS: Transaction aborted (error %d)\n",	\
 			(errno));					\

@@ -849,12 +849,18 @@ static void rgmu_idle_check(struct work_struct *work)
 
 	mutex_lock(&device->mutex);
 
-	if (!atomic_read(&device->active_cnt))
+	if (test_bit(GMU_DISABLE_SLUMBER, &device->gmu_core.flags))
+		goto done;
+
+	if (!atomic_read(&device->active_cnt)) {
 		a6xx_power_off(adreno_dev);
-	else
+	} else {
+		kgsl_pwrscale_update(device);
 		mod_timer(&device->idle_timer,
 			jiffies + device->pwrctrl.interval_timeout);
+	}
 
+done:
 	mutex_unlock(&device->mutex);
 }
 
@@ -1036,6 +1042,8 @@ static int a6xx_power_off(struct adreno_device *adreno_dev)
 
 	trace_kgsl_pwr_request_state(device, KGSL_STATE_SLUMBER);
 
+	adreno_suspend_context(device);
+
 	ret = a6xx_rgmu_oob_set(device, oob_gpu);
 	if (ret) {
 		a6xx_rgmu_oob_clear(device, oob_gpu);
@@ -1050,6 +1058,8 @@ static int a6xx_power_off(struct adreno_device *adreno_dev)
 	/* Save physical performance counter values before GPU power down*/
 	adreno_perfcounter_save(adreno_dev);
 
+	adreno_irqctrl(adreno_dev, 0);
+
 	a6xx_rgmu_prepare_stop(device);
 
 	a6xx_rgmu_oob_clear(device, oob_gpu);
@@ -1061,7 +1071,7 @@ no_gx_power:
 	adreno_wait_for_halt_ack(device, ADRENO_REG_GBIF_HALT_ACK,
 		A6XX_GBIF_CLIENT_HALT_MASK);
 
-	a6xx_disable_gpu_irq(adreno_dev);
+	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
 
 	a6xx_rgmu_power_off(adreno_dev);
 

@@ -1506,7 +1506,8 @@ static inline bool sect_empty(const Elf_Shdr *sect)
 }
 
 struct module_sect_attr {
-	struct bin_attribute battr;
+	struct module_attribute mattr;
+	char *name;
 	unsigned long address;
 };
 
@@ -1516,18 +1517,13 @@ struct module_sect_attrs {
 	struct module_sect_attr attrs[0];
 };
 
-static ssize_t module_sect_read(struct file *file, struct kobject *kobj,
-				struct bin_attribute *battr,
-				char *buf, loff_t pos, size_t count)
+static ssize_t module_sect_show(struct module_attribute *mattr,
+				struct module_kobject *mk, char *buf)
 {
 	struct module_sect_attr *sattr =
-		container_of(battr, struct module_sect_attr, battr);
-
-	if (pos != 0)
-		return -EINVAL;
-
-	return sprintf(buf, "0x%px\n",
-		       kallsyms_show_value(file->f_cred) ? (void *)sattr->address : NULL);
+		container_of(mattr, struct module_sect_attr, mattr);
+	return sprintf(buf, "0x%px\n", kptr_restrict < 2 ?
+		       (void *)sattr->address : NULL);
 }
 
 static void free_sect_attrs(struct module_sect_attrs *sect_attrs)
@@ -1535,7 +1531,7 @@ static void free_sect_attrs(struct module_sect_attrs *sect_attrs)
 	unsigned int section;
 
 	for (section = 0; section < sect_attrs->nsections; section++)
-		kfree(sect_attrs->attrs[section].battr.attr.name);
+		kfree(sect_attrs->attrs[section].name);
 	kfree(sect_attrs);
 }
 
@@ -1544,41 +1540,42 @@ static void add_sect_attrs(struct module *mod, const struct load_info *info)
 	unsigned int nloaded = 0, i, size[2];
 	struct module_sect_attrs *sect_attrs;
 	struct module_sect_attr *sattr;
-	struct bin_attribute **gattr;
+	struct attribute **gattr;
 
 	/* Count loaded sections and allocate structures */
 	for (i = 0; i < info->hdr->e_shnum; i++)
 		if (!sect_empty(&info->sechdrs[i]))
 			nloaded++;
 	size[0] = ALIGN(struct_size(sect_attrs, attrs, nloaded),
-			sizeof(sect_attrs->grp.bin_attrs[0]));
-	size[1] = (nloaded + 1) * sizeof(sect_attrs->grp.bin_attrs[0]);
+			sizeof(sect_attrs->grp.attrs[0]));
+	size[1] = (nloaded + 1) * sizeof(sect_attrs->grp.attrs[0]);
 	sect_attrs = kzalloc(size[0] + size[1], GFP_KERNEL);
 	if (sect_attrs == NULL)
 		return;
 
 	/* Setup section attributes. */
 	sect_attrs->grp.name = "sections";
-	sect_attrs->grp.bin_attrs = (void *)sect_attrs + size[0];
+	sect_attrs->grp.attrs = (void *)sect_attrs + size[0];
 
 	sect_attrs->nsections = 0;
 	sattr = &sect_attrs->attrs[0];
-	gattr = &sect_attrs->grp.bin_attrs[0];
+	gattr = &sect_attrs->grp.attrs[0];
 	for (i = 0; i < info->hdr->e_shnum; i++) {
 		Elf_Shdr *sec = &info->sechdrs[i];
 		if (sect_empty(sec))
 			continue;
-		sysfs_bin_attr_init(&sattr->battr);
 		sattr->address = sec->sh_addr;
-		sattr->battr.attr.name =
-			kstrdup(info->secstrings + sec->sh_name, GFP_KERNEL);
-		if (sattr->battr.attr.name == NULL)
+		sattr->name = kstrdup(info->secstrings + sec->sh_name,
+					GFP_KERNEL);
+		if (sattr->name == NULL)
 			goto out;
 		sect_attrs->nsections++;
-		sattr->battr.read = module_sect_read;
-		sattr->battr.size = 3 /* "0x", "\n" */ + (BITS_PER_LONG / 4);
-		sattr->battr.attr.mode = 0400;
-		*(gattr++) = &(sattr++)->battr;
+		sysfs_attr_init(&sattr->mattr.attr);
+		sattr->mattr.show = module_sect_show;
+		sattr->mattr.store = NULL;
+		sattr->mattr.attr.name = sattr->name;
+		sattr->mattr.attr.mode = S_IRUSR;
+		*(gattr++) = &(sattr++)->mattr.attr;
 	}
 	*gattr = NULL;
 
@@ -1668,7 +1665,7 @@ static void add_notes_attrs(struct module *mod, const struct load_info *info)
 			continue;
 		if (info->sechdrs[i].sh_type == SHT_NOTE) {
 			sysfs_bin_attr_init(nattr);
-			nattr->attr.name = mod->sect_attrs->attrs[loaded].battr.attr.name;
+			nattr->attr.name = mod->sect_attrs->attrs[loaded].name;
 			nattr->attr.mode = S_IRUGO;
 			nattr->size = info->sechdrs[i].sh_size;
 			nattr->private = (void *) info->sechdrs[i].sh_addr;
@@ -2241,6 +2238,10 @@ static void free_module(struct module *mod)
 	/* Free lock-classes; relies on the preceding sync_rcu(). */
 	lockdep_free_key_range(mod->core_layout.base, mod->core_layout.size);
 
+#ifdef CONFIG_DEBUG_MODULE_LOAD_INFO
+	pr_info("Unloaded %s: module core layout, start: 0x%pK size: 0x%x\n",
+		mod->name, mod->core_layout.base, mod->core_layout.size);
+#endif
 	/* Finally, free the core (containing the module structure) */
 	module_memfree(mod->core_layout.base);
 }
@@ -4420,7 +4421,7 @@ static int modules_open(struct inode *inode, struct file *file)
 
 	if (!err) {
 		struct seq_file *m = file->private_data;
-		m->private = kallsyms_show_value(file->f_cred) ? NULL : (void *)8ul;
+		m->private = kallsyms_show_value(current_cred()) ? NULL : (void *)8ul;
 	}
 
 	return err;

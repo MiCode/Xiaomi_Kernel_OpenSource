@@ -1059,11 +1059,11 @@ static void arm_smmu_secure_pool_destroy(struct arm_smmu_domain *smmu_domain)
 	}
 }
 
-static void *arm_smmu_alloc_pages_exact(void *cookie,
-					size_t size, gfp_t gfp_mask)
+static void *arm_smmu_alloc_pages_exact(void *cookie, int order, gfp_t gfp_mask)
 {
 	int ret;
 	void *page;
+	size_t size = (1UL << order) * PAGE_SIZE;
 	struct arm_smmu_domain *smmu_domain = cookie;
 
 	if (!arm_smmu_has_secure_vmid(smmu_domain)) {
@@ -1096,9 +1096,10 @@ static void *arm_smmu_alloc_pages_exact(void *cookie,
 	return page;
 }
 
-static void arm_smmu_free_pages_exact(void *cookie, void *virt, size_t size)
+static void arm_smmu_free_pages_exact(void *cookie, void *virt, int order)
 {
 	struct arm_smmu_domain *smmu_domain = cookie;
+	size_t size = (1UL << order) * PAGE_SIZE;
 
 	if (!arm_smmu_has_secure_vmid(smmu_domain)) {
 		free_pages_exact(virt, size);
@@ -1109,10 +1110,13 @@ static void arm_smmu_free_pages_exact(void *cookie, void *virt, size_t size)
 		arm_smmu_unprepare_pgtable(smmu_domain, virt, size);
 }
 
+static const struct iommu_pgtable_ops arm_smmu_pgtable_ops = {
+	.alloc_pgtable = arm_smmu_alloc_pages_exact,
+	.free_pgtable  = arm_smmu_free_pages_exact,
+};
+
 #define ARM_SMMU_INIT_MSM_TLB_OPS(_tlb_flush_all) \
 	{\
-		.alloc_pages_exact = arm_smmu_alloc_pages_exact, \
-		.free_pages_exact = arm_smmu_free_pages_exact, \
 		.tlb_ops = { \
 			.tlb_flush_all = _tlb_flush_all, \
 			.tlb_flush_walk = arm_smmu_tlb_inv_walk, \
@@ -2173,6 +2177,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		.oas		= oas,
 		.coherent_walk	= is_iommu_pt_coherent(smmu_domain),
 		.tlb		= &smmu_domain->flush_ops->tlb.tlb_ops,
+		.iommu_pgtable_ops = &arm_smmu_pgtable_ops,
 		.iommu_dev	= smmu->dev,
 	};
 
@@ -3232,7 +3237,13 @@ static void arm_smmu_flush_iotlb_all(struct iommu_domain *domain)
 
 	if (smmu_domain->flush_ops) {
 		arm_smmu_rpm_get(smmu);
+		if (arm_smmu_domain_power_on(domain, smmu)) {
+			WARN_ON(1);
+			arm_smmu_rpm_put(smmu);
+			return;
+		}
 		smmu_domain->flush_ops->tlb.tlb_ops.tlb_flush_all(smmu_domain);
+		arm_smmu_domain_power_off(domain, smmu);
 		arm_smmu_rpm_put(smmu);
 	}
 }
@@ -3245,7 +3256,13 @@ static void arm_smmu_iotlb_sync(struct iommu_domain *domain,
 
 	if (smmu_domain->flush_ops) {
 		arm_smmu_rpm_get(smmu);
+		if (arm_smmu_domain_power_on(domain, smmu)) {
+			WARN_ON(1);
+			arm_smmu_rpm_put(smmu);
+			return;
+		}
 		smmu_domain->flush_ops->tlb_sync(smmu_domain);
+		arm_smmu_domain_power_off(domain, smmu);
 		arm_smmu_rpm_put(smmu);
 	}
 }

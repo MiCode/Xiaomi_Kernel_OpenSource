@@ -635,6 +635,18 @@ static int a6xx_hfi_verify_fw_version(struct adreno_device *adreno_dev)
 	return 0;
 }
 
+static int a6xx_hfi_send_bcl_feature_ctrl(struct adreno_device *adreno_dev)
+{
+	int ret;
+
+	if (!adreno_dev->bcl_enabled)
+		return 0;
+
+	ret = a6xx_hfi_send_feature_ctrl(adreno_dev, HFI_FEATURE_BCL, 1, 0);
+
+	return ret;
+}
+
 static int a6xx_hfi_send_lm_feature_ctrl(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -736,6 +748,10 @@ int a6xx_hfi_start(struct adreno_device *adreno_dev)
 			goto err;
 
 		result = a6xx_hfi_send_lm_feature_ctrl(adreno_dev);
+		if (result)
+			goto err;
+
+		result = a6xx_hfi_send_bcl_feature_ctrl(adreno_dev);
 		if (result)
 			goto err;
 

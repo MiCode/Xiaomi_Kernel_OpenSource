@@ -481,12 +481,15 @@ static int mhi_pm_mission_mode_transition(struct mhi_controller *mhi_cntrl)
 	write_lock_irq(&mhi_cntrl->pm_lock);
 	if (MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state))
 		ee = mhi_get_exec_env(mhi_cntrl);
-	write_unlock_irq(&mhi_cntrl->pm_lock);
 
 	if (!MHI_IN_MISSION_MODE(ee)) {
 		MHI_CNTRL_ERR("Invalid EE:%s\n", TO_MHI_EXEC_STR(ee));
+		mhi_cntrl->pm_state = MHI_PM_FW_DL_ERR;
+		wake_up_all(&mhi_cntrl->state_event);
+		write_unlock_irq(&mhi_cntrl->pm_lock);
 		return -EIO;
 	}
+	write_unlock_irq(&mhi_cntrl->pm_lock);
 
 	mhi_cntrl->status_cb(mhi_cntrl, mhi_cntrl->priv_data,
 			     MHI_CB_EE_MISSION_MODE);
@@ -968,6 +971,13 @@ int mhi_async_power_up(struct mhi_controller *mhi_cntrl)
 		goto error_bhi_offset;
 	}
 
+	if (val >= mhi_cntrl->len) {
+		ret = -ENODEV;
+		write_unlock_irq(&mhi_cntrl->pm_lock);
+		MHI_ERR("Invalid bhi offset:%x\n", val);
+		goto error_bhi_offset;
+	}
+
 	mhi_cntrl->bhi = mhi_cntrl->regs + val;
 
 	/* setup bhie offset if not set */
@@ -976,6 +986,13 @@ int mhi_async_power_up(struct mhi_controller *mhi_cntrl)
 		if (ret) {
 			write_unlock_irq(&mhi_cntrl->pm_lock);
 			MHI_CNTRL_ERR("Error getting bhie offset\n");
+			goto error_bhi_offset;
+		}
+
+		if (val >= mhi_cntrl->len) {
+			ret = -ENODEV;
+			write_unlock_irq(&mhi_cntrl->pm_lock);
+			MHI_ERR("Invalid bhie offset:%x\n", val);
 			goto error_bhi_offset;
 		}
 
@@ -1114,6 +1131,10 @@ void mhi_power_down(struct mhi_controller *mhi_cntrl, bool graceful)
 		}
 		mhi_deinit_dev_ctxt(mhi_cntrl);
 	}
+
+	/* reset set bhi and bhie to prevent reg access */
+	mhi_cntrl->bhi = NULL;
+	mhi_cntrl->bhie = NULL;
 }
 EXPORT_SYMBOL(mhi_power_down);
 
@@ -1129,7 +1150,13 @@ int mhi_sync_power_up(struct mhi_controller *mhi_cntrl)
 			   MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state),
 			   msecs_to_jiffies(mhi_cntrl->timeout_ms));
 
-	return (MHI_IN_MISSION_MODE(mhi_cntrl->ee)) ? 0 : -ETIMEDOUT;
+	if (!MHI_IN_MISSION_MODE(mhi_cntrl->ee)) {
+		if (!mhi_cntrl->rddm_supported)
+			mhi_power_down(mhi_cntrl, false);
+		return -ETIMEDOUT;
+	}
+
+	return 0;
 }
 EXPORT_SYMBOL(mhi_sync_power_up);
 
@@ -1648,7 +1675,8 @@ int mhi_device_get_sync(struct mhi_device *mhi_dev, int vote)
 }
 EXPORT_SYMBOL(mhi_device_get_sync);
 
-int mhi_device_get_sync_atomic(struct mhi_device *mhi_dev, int timeout_us)
+int mhi_device_get_sync_atomic(struct mhi_device *mhi_dev, int timeout_us,
+			       bool in_panic)
 {
 	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
 
@@ -1674,11 +1702,20 @@ int mhi_device_get_sync_atomic(struct mhi_device *mhi_dev, int timeout_us)
 		return 0;
 	}
 
-	while (mhi_cntrl->pm_state != MHI_PM_M0 &&
-			!MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state) &&
-			timeout_us > 0) {
-		udelay(MHI_FORCE_WAKE_DELAY_US);
-		timeout_us -= MHI_FORCE_WAKE_DELAY_US;
+	if (in_panic) {
+		while (mhi_get_mhi_state(mhi_cntrl) != MHI_STATE_M0 &&
+		       !MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state) &&
+		       timeout_us > 0) {
+			udelay(MHI_FORCE_WAKE_DELAY_US);
+			timeout_us -= MHI_FORCE_WAKE_DELAY_US;
+		}
+	} else {
+		while (mhi_cntrl->pm_state != MHI_PM_M0 &&
+		       !MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state) &&
+		       timeout_us > 0) {
+			udelay(MHI_FORCE_WAKE_DELAY_US);
+			timeout_us -= MHI_FORCE_WAKE_DELAY_US;
+		}
 	}
 
 	if (MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state) || timeout_us <= 0) {

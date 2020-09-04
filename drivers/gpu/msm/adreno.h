@@ -110,6 +110,8 @@
 #define ADRENO_DEPRECATED BIT(19)
 /* The target supports ringbuffer level APRIV */
 #define ADRENO_APRIV BIT(20)
+/* The GMU supports Battery Current Limiting */
+#define ADRENO_BCL BIT(21)
 /*
  * Adreno GPU quirks - control bits for various workarounds
  */
@@ -249,8 +251,7 @@ enum adreno_preempt_states {
 /**
  * struct adreno_preemption
  * @state: The current state of preemption
- * @counters: Memory descriptor for the memory where the GPU writes the
- * preemption counters on switch
+ * @scratch: Per-target scratch memory for implementation specific functionality
  * @timer: A timer to make sure preemption doesn't stall
  * @work: A work struct for the preemption worker (for 5XX)
  * preempt_level: The level of preemption (for 6XX)
@@ -260,7 +261,7 @@ enum adreno_preempt_states {
  */
 struct adreno_preemption {
 	atomic_t state;
-	struct kgsl_memdesc *counters;
+	struct kgsl_memdesc *scratch;
 	struct timer_list timer;
 	struct work_struct work;
 	unsigned int preempt_level;
@@ -268,7 +269,6 @@ struct adreno_preemption {
 	bool usesgmem;
 	unsigned int count;
 };
-
 
 struct adreno_busy_data {
 	unsigned int gpu_busy;
@@ -531,6 +531,8 @@ struct adreno_device {
 	bool throttling_enabled;
 	/** @sptp_pc_enabled: True if SPTP power collapse is enabled on a5xx */
 	bool sptp_pc_enabled;
+	/** @bcl_enabled: True if BCL is enabled */
+	bool bcl_enabled;
 	struct kgsl_memdesc *profile_buffer;
 	unsigned int profile_index;
 	struct kgsl_memdesc *pwrup_reglist;
@@ -658,7 +660,6 @@ enum adreno_regs {
 	ADRENO_REG_CP_ROQ_DATA,
 	ADRENO_REG_CP_MEQ_ADDR,
 	ADRENO_REG_CP_MEQ_DATA,
-	ADRENO_REG_CP_HW_FAULT,
 	ADRENO_REG_CP_PROTECT_STATUS,
 	ADRENO_REG_CP_PREEMPT,
 	ADRENO_REG_CP_PREEMPT_DEBUG,
@@ -923,7 +924,6 @@ long adreno_ioctl_helper(struct kgsl_device_private *dev_priv,
 int adreno_switch_to_unsecure_mode(struct adreno_device *adreno_dev,
 				struct adreno_ringbuffer *rb);
 
-void adreno_spin_idle_debug(struct adreno_device *adreno_dev, const char *str);
 int adreno_spin_idle(struct adreno_device *device, unsigned int timeout);
 int adreno_idle(struct kgsl_device *device);
 
@@ -1912,4 +1912,15 @@ void adreno_clear_dcvs_counters(struct adreno_device *adreno_dev);
  * Set the gmu fault and take snapshot when we hit a gmu fault
  */
 void gmu_fault_snapshot(struct kgsl_device *device);
+
+/**
+ * adreno_suspend_context - Make sure device is idle
+ * @device: Pointer to the kgsl device
+ *
+ * This function processes the profiling results and checks if the
+ * device is idle so that it can be turned off safely
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int adreno_suspend_context(struct kgsl_device *device);
 #endif /*__ADRENO_H */

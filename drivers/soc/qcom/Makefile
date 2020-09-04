@@ -47,6 +47,7 @@ obj-$(CONFIG_QCOM_MEMORY_DUMP_V2) += memory_dump_v2.o
 obj-$(CONFIG_QCOM_DCC_V2) += dcc_v2.o
 obj-$(CONFIG_MSM_JTAGV8) += jtagv8.o jtagv8-etm.o
 obj-$(CONFIG_QCOM_SMCINVOKE) += smcinvoke.o
+obj-$(CONFIG_QCOM_MICRODUMP) += microdump_collector.o
 obj-$(CONFIG_QCOM_SDM845_LLCC) += llcc-sdm845.o
 obj-$(CONFIG_QCOM_LLCC_PERFMON) += llcc_perfmon.o
 obj-$(CONFIG_QCOM_RPMHPD) += rpmhpd.o
@@ -61,6 +62,7 @@ obj-$(CONFIG_MSM_GLINK_SSR) += msm_glink_ssr.o
 obj-$(CONFIG_QTI_PMIC_GLINK) += pmic_glink.o
 obj-$(CONFIG_QTI_BATTERY_GLINK_DEBUG) += qti_battery_debug.o
 obj-$(CONFIG_QTI_ALTMODE_GLINK) += altmode-glink.o
+obj-$(CONFIG_QTI_PMIC_PON_LOG) += pmic-pon-log.o
 obj-$(CONFIG_QTI_DDR_STATS_LOG) += ddr_stats.o
 obj-$(CONFIG_QTI_SYSTEM_PM) += system_pm.o
 obj-$(CONFIG_QTI_SYSTEM_PM_RPM) += system_pm_rpm.o
@@ -73,7 +75,6 @@ ifdef CONFIG_MSM_RPM_SMD
 obj-$(CONFIG_QTI_RPM_STATS_LOG) += rpm_master_stat.o
 endif
 obj-$(CONFIG_QPNP_PBS) += qpnp-pbs.o
-obj-$(CONFIG_QCOM_WATCHDOG) += qcom_watchdog.o
 obj-$(CONFIG_MSM_SPCOM) += spcom.o
 obj-$(CONFIG_QCOM_CDSP_RM) += cdsprm.o
 obj-$(CONFIG_QCOM_FSA4480_I2C) += fsa4480-i2c.o
@@ -84,6 +85,8 @@ obj-$(CONFIG_MSM_QBT_HANDLER) += qbt_handler.o
 obj-$(CONFIG_QTI_CRYPTO_COMMON) += crypto-qti-common.o
 obj-$(CONFIG_QTI_CRYPTO_TZ) += crypto-qti-tz.o
 obj-$(CONFIG_QTI_HW_KEY_MANAGER) += hwkm.o crypto-qti-hwkm.o
+obj-$(CONFIG_QCOM_WDT_CORE) += qcom_wdt_core.o
+obj-$(CONFIG_QCOM_SOC_WATCHDOG) += qcom_soc_wdt.o
 ifdef CONFIG_DEBUG_FS
 obj-$(CONFIG_MSM_RPM_SMD)   +=  rpm-smd-debug.o
 endif

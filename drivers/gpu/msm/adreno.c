@@ -60,6 +60,19 @@ int adreno_wake_nice = -7;
 /* Number of milliseconds to stay active active after a wake on touch */
 unsigned int adreno_wake_timeout = 100;
 
+static u32 get_ucode_version(const u32 *data)
+{
+	u32 version;
+
+	version = data[1];
+
+	if ((version & 0xf) != 0xa)
+		return version;
+
+	version &= ~0xfff;
+	return  version | ((data[3] & 0xfff000) >> 12);
+}
+
 int adreno_get_firmware(struct adreno_device *adreno_dev,
 		const char *fwfile, struct adreno_firmware *firmware)
 {
@@ -86,7 +99,7 @@ int adreno_get_firmware(struct adreno_device *adreno_dev,
 	if (!ret) {
 		memcpy(firmware->memdesc->hostptr, &fw->data[4], fw->size - 4);
 		firmware->size = (fw->size - 4) / sizeof(u32);
-		firmware->version = *((u32 *)&fw->data[4]);
+		firmware->version = get_ucode_version((u32 *)fw->data);
 	}
 
 	release_firmware(fw);
@@ -1064,6 +1077,8 @@ static int adreno_of_get_power(struct adreno_device *adreno_dev,
 	/* Default timeout is 80 ms across all targets */
 	device->pwrctrl.interval_timeout = msecs_to_jiffies(80);
 
+	device->pwrctrl.minbw_timeout = 10;
+
 	/* Set default bus control to true on all targets */
 	device->pwrctrl.bus_control = true;
 
@@ -1788,28 +1803,6 @@ static bool regulators_left_on(struct kgsl_device *device)
 	return false;
 }
 
-int adreno_switch_to_unsecure_mode(struct adreno_device *adreno_dev,
-				struct adreno_ringbuffer *rb)
-{
-	unsigned int *cmds;
-	int ret;
-
-	cmds = adreno_ringbuffer_allocspace(rb, 2);
-	if (IS_ERR(cmds))
-		return PTR_ERR(cmds);
-	if (cmds == NULL)
-		return -ENOSPC;
-
-	cmds += cp_secure_mode(adreno_dev, cmds, 0);
-
-	ret = adreno_ringbuffer_submit_spin(rb, NULL, 2000);
-	if (ret)
-		adreno_spin_idle_debug(adreno_dev,
-				"Switch to unsecure failed to idle\n");
-
-	return ret;
-}
-
 void adreno_set_active_ctxs_null(struct adreno_device *adreno_dev)
 {
 	int i;
@@ -2312,12 +2305,8 @@ static int adreno_prop_device_shadow(struct kgsl_device *device,
 	struct kgsl_shadowprop shadowprop = { 0 };
 
 	if (device->memstore->hostptr) {
-		/*
-		 * NOTE: with mmu enabled, gpuaddr doesn't mean
-		 * anything to mmap().
-		 */
-
-		shadowprop.gpuaddr =  (unsigned long)device->memstore->gpuaddr;
+		/* Pass a dummy address to identify memstore */
+		shadowprop.gpuaddr =  KGSL_MEMSTORE_TOKEN_ADDRESS;
 		shadowprop.size = device->memstore->size;
 
 		shadowprop.flags = KGSL_FLAGS_INITIALIZED |
@@ -2573,6 +2562,27 @@ int adreno_set_constraint(struct kgsl_device *device,
 	return status;
 }
 
+static void adreno_force_on(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+
+	if (gmu_core_isenabled(device)) {
+
+		set_bit(GMU_DISABLE_SLUMBER, &device->gmu_core.flags);
+
+		if (!adreno_active_count_get(adreno_dev))
+			adreno_active_count_put(adreno_dev);
+
+		return;
+	}
+
+	kgsl_pwrctrl_change_state(device, KGSL_STATE_ACTIVE);
+
+	device->pwrctrl.ctrl_flags = KGSL_PWR_ON;
+
+	adreno_fault_detect_stop(adreno_dev);
+}
+
 static int adreno_setproperty(struct kgsl_device_private *dev_priv,
 				unsigned int type,
 				void __user *value,
@@ -2597,7 +2607,11 @@ static int adreno_setproperty(struct kgsl_device_private *dev_priv,
 			mutex_lock(&device->mutex);
 
 			if (enable) {
-				device->pwrctrl.ctrl_flags = 0;
+				if (gmu_core_isenabled(device))
+					clear_bit(GMU_DISABLE_SLUMBER,
+						&device->gmu_core.flags);
+				else
+					device->pwrctrl.ctrl_flags = 0;
 
 				if (!adreno_active_count_get(adreno_dev)) {
 					adreno_fault_detect_start(adreno_dev);
@@ -2606,10 +2620,7 @@ static int adreno_setproperty(struct kgsl_device_private *dev_priv,
 
 				kgsl_pwrscale_enable(device);
 			} else {
-				kgsl_pwrctrl_change_state(device,
-							KGSL_STATE_ACTIVE);
-				device->pwrctrl.ctrl_flags = KGSL_PWR_ON;
-				adreno_fault_detect_stop(adreno_dev);
+				adreno_force_on(adreno_dev);
 				kgsl_pwrscale_disable(device, true);
 			}
 
@@ -2787,34 +2798,6 @@ static bool adreno_isidle(struct adreno_device *adreno_dev)
 	return gpudev->hw_isidle(adreno_dev);
 }
 
-/* Print some key registers if a spin-for-idle times out */
-void adreno_spin_idle_debug(struct adreno_device *adreno_dev,
-		const char *str)
-{
-	struct kgsl_device *device = &adreno_dev->dev;
-	unsigned int rptr, wptr;
-	unsigned int status, status3, intstatus;
-	unsigned int hwfault;
-
-	dev_err(device->dev, str);
-
-	adreno_readreg(adreno_dev, ADRENO_REG_CP_RB_RPTR, &rptr);
-	adreno_readreg(adreno_dev, ADRENO_REG_CP_RB_WPTR, &wptr);
-
-	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_STATUS, &status);
-	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_STATUS3, &status3);
-	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_INT_0_STATUS, &intstatus);
-	adreno_readreg(adreno_dev, ADRENO_REG_CP_HW_FAULT, &hwfault);
-
-	dev_err(device->dev,
-		"rb=%d pos=%X/%X rbbm_status=%8.8X/%8.8X int_0_status=%8.8X\n",
-		adreno_dev->cur_rb->id, rptr, wptr, status, status3, intstatus);
-
-	dev_err(device->dev, " hwfault=%8.8X\n", hwfault);
-
-	kgsl_device_snapshot(device, NULL, false);
-}
-
 /**
  * adreno_spin_idle() - Spin wait for the GPU to idle
  * @adreno_dev: Pointer to an adreno device
@@ -2906,7 +2889,7 @@ static int adreno_drain(struct kgsl_device *device)
 }
 
 /* Caller must hold the device mutex. */
-static int adreno_suspend_context(struct kgsl_device *device)
+int adreno_suspend_context(struct kgsl_device *device)
 {
 	/* process any profiling results that are available */
 	adreno_profile_process_results(ADRENO_DEVICE(device));
@@ -3421,7 +3404,7 @@ static void adreno_power_stats(struct kgsl_device *device,
 
 	if (busy->gpu_busy)
 		gpu_busy = (val >= busy->gpu_busy) ? val - busy->gpu_busy :
-			(~0UL - busy->gpu_busy) + val;
+			(UINT_MAX - busy->gpu_busy) + val;
 
 	busy->gpu_busy = val;
 

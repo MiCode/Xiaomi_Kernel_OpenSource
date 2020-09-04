@@ -21,6 +21,11 @@
 #include "icc-rpm.h"
 #include "rpm-ids.h"
 
+static LIST_HEAD(qnoc_probe_list);
+static DEFINE_MUTEX(probe_list_lock);
+
+static int probe_count;
+
 static const struct clk_bulk_data bus_clocks[] = {
 	{ .id = "bus" },
 	{ .id = "bus_a" },
@@ -1232,6 +1237,13 @@ static int qnoc_probe(struct platform_device *pdev)
 	provider->data = data;
 	qp->dev = &pdev->dev;
 
+	qp->init = true;
+	qp->keepalive = of_property_read_bool(dev->of_node, "qcom,keepalive");
+
+	if (of_property_read_u32(dev->of_node, "qcom,util-factor",
+				 &qp->util_factor))
+		qp->util_factor = DEFAULT_UTIL_FACTOR;
+
 	qp->regmap = qcom_icc_map(pdev, desc);
 	if (IS_ERR(qp->regmap))
 		return PTR_ERR(qp->regmap);
@@ -1269,6 +1281,11 @@ static int qnoc_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, qp);
 
 	dev_info(dev, "Registered HOLI ICC\n");
+
+	mutex_lock(&probe_list_lock);
+	list_add_tail(&qp->probe_list, &qnoc_probe_list);
+	mutex_unlock(&probe_list_lock);
+
 	return 0;
 err:
 	list_for_each_entry_safe(node, tmp, &provider->nodes, node_list) {
@@ -1314,12 +1331,54 @@ static const struct of_device_id qnoc_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, qnoc_of_match);
 
+static void qnoc_sync_state(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct qcom_icc_provider *qp = platform_get_drvdata(pdev);
+	int ret, i;
+
+	mutex_lock(&probe_list_lock);
+	probe_count++;
+
+	if (probe_count < ARRAY_SIZE(qnoc_of_match) - 1) {
+		mutex_unlock(&probe_list_lock);
+		return;
+	}
+
+	list_for_each_entry(qp, &qnoc_probe_list, probe_list) {
+		qp->init = false;
+
+		if (!qp->keepalive)
+			continue;
+
+		for (i = 0; i < RPM_NUM_CXT; i++) {
+			if (i == RPM_ACTIVE_CXT) {
+				if (qp->bus_clk_cur_rate[i] == 0)
+					ret = clk_set_rate(qp->bus_clks[i].clk,
+						RPM_CLK_MIN_LEVEL);
+				else
+					ret = clk_set_rate(qp->bus_clks[i].clk,
+						qp->bus_clk_cur_rate[i]);
+			}
+
+			if (ret)
+				pr_err("%s clk_set_rate error: %d\n",
+					qp->bus_clks[i].id, ret);
+		}
+	}
+
+	mutex_unlock(&probe_list_lock);
+
+	pr_err("HOLI ICC Sync State done\n");
+}
+
 static struct platform_driver qnoc_driver = {
 	.probe = qnoc_probe,
 	.remove = qnoc_remove,
 	.driver = {
 		.name = "qnoc-holi",
 		.of_match_table = qnoc_of_match,
+		.sync_state = qnoc_sync_state,
 	},
 };
 

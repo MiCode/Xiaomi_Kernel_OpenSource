@@ -92,6 +92,7 @@ config ARM_QCOM_LPM_CPUIDLE
 	select CPU_IDLE_MULTIPLE_DRIVERS
 	select MSM_PM
 	select QGKI_LPM_IPI_CHECK if QGKI
+	select QGKI_PSCI_OSI_SUPPORT if QGKI
 	tristate "Qualcomm Technologies, Inc. (QTI) Power Management Drivers"
 	help
 	  Platform specific power driver to manage cores and cluster low power

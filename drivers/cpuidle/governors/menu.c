@@ -18,6 +18,9 @@
 #include <linux/sched/loadavg.h>
 #include <linux/sched/stat.h>
 #include <linux/math64.h>
+#ifdef CONFIG_QGKI_MENU_GOV_DEBUG
+#include <trace/events/power.h>
+#endif
 
 /*
  * Please note when changing the tuning values:
@@ -277,6 +280,9 @@ static int menu_select(struct cpuidle_driver *drv, struct cpuidle_device *dev,
 {
 	struct menu_device *data = this_cpu_ptr(&menu_devices);
 	int latency_req = cpuidle_governor_latency_req(dev->cpu);
+#ifdef CONFIG_QGKI_MENU_GOV_DEBUG
+	int qos = latency_req;
+#endif
 	int i;
 	int idx;
 	unsigned int interactivity_req;
@@ -305,6 +311,9 @@ static int menu_select(struct cpuidle_driver *drv, struct cpuidle_device *dev,
 		 * polling one.
 		 */
 		*stop_tick = !(drv->states[0].flags & CPUIDLE_FLAG_POLLING);
+#ifdef CONFIG_QGKI_MENU_GOV_DEBUG
+		trace_cpuidle_select(dev->cpu, 0, 0, *stop_tick, 0);
+#endif
 		return 0;
 	}
 
@@ -393,6 +402,11 @@ static int menu_select(struct cpuidle_driver *drv, struct cpuidle_device *dev,
 			    s->target_residency <= ktime_to_us(delta_next))
 				idx = i;
 
+#ifdef CONFIG_QGKI_MENU_GOV_DEBUG
+			trace_cpuidle_select(dev->cpu, predicted_us, qos,
+					     *stop_tick, idx);
+#endif
+
 			return idx;
 		}
 		if (s->exit_latency > latency_req)
@@ -433,6 +447,9 @@ static int menu_select(struct cpuidle_driver *drv, struct cpuidle_device *dev,
 		}
 	}
 
+#ifdef CONFIG_QGKI_MENU_GOV_DEBUG
+	trace_cpuidle_select(dev->cpu, predicted_us, qos, *stop_tick, idx);
+#endif
 	return idx;
 }
 

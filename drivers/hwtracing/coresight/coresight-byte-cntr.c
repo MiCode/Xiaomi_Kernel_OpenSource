@@ -192,6 +192,8 @@ static int tmc_etr_byte_cntr_release(struct inode *in, struct file *fp)
 
 static int usb_bypass_start(struct byte_cntr *byte_cntr_data)
 {
+	long offset;
+
 	if (!byte_cntr_data)
 		return -ENOMEM;
 
@@ -206,7 +208,16 @@ static int usb_bypass_start(struct byte_cntr *byte_cntr_data)
 	}
 
 	atomic_set(&byte_cntr_data->usb_free_buf, USB_BUF_NUM);
-	byte_cntr_data->offset = tmc_sg_get_rwp_offset(tmcdrvdata);
+
+	offset = tmc_sg_get_rwp_offset(tmcdrvdata);
+	if (offset < 0) {
+		dev_err(&tmcdrvdata->csdev->dev,
+			"%s: invalid rwp offset value\n", __func__);
+		mutex_unlock(&byte_cntr_data->usb_bypass_lock);
+		return offset;
+	}
+	byte_cntr_data->offset = offset;
+
 	byte_cntr_data->read_active = true;
 	/*
 	 * IRQ is a '8- byte' counter and to observe interrupt at
@@ -332,6 +343,13 @@ static int usb_transfer_small_packet(struct qdss_request *usb_req,
 	long w_offset;
 
 	w_offset = tmc_sg_get_rwp_offset(tmcdrvdata);
+	if (w_offset < 0) {
+		ret = w_offset;
+		dev_err_ratelimited(&tmcdrvdata->csdev->dev,
+			"%s: RWP offset is invalid\n", __func__);
+		goto out;
+	}
+
 	req_size = ((w_offset < drvdata->offset) ? etr_buf->size : 0) +
 				w_offset - drvdata->offset;
 	req_size = ((req_size + *small_size) < USB_BLK_SIZE) ? req_size :
@@ -347,6 +365,16 @@ static int usb_transfer_small_packet(struct qdss_request *usb_req,
 
 		actual = tmc_etr_buf_get_data(etr_buf, drvdata->offset,
 					req_size, &usb_req->buf);
+
+		if (actual <= 0 || actual > req_size) {
+			kfree(usb_req);
+			usb_req = NULL;
+			dev_err_ratelimited(&tmcdrvdata->csdev->dev,
+				"%s: Invalid data in ETR\n", __func__);
+			ret = -EINVAL;
+			goto out;
+		}
+
 		usb_req->length = actual;
 		drvdata->usb_req = usb_req;
 		req_size -= actual;
@@ -443,13 +471,13 @@ static void usb_read_work_fn(struct work_struct *work)
 							drvdata->offset,
 							PAGE_SIZE, &buf);
 
-				if (actual <= 0) {
+				if (actual <= 0 || actual > PAGE_SIZE) {
 					kfree(usb_req->sg);
 					kfree(usb_req);
 					usb_req = NULL;
 					dev_err_ratelimited(
 						&tmcdrvdata->csdev->dev,
-						"No data in ETR\n");
+						"Invalid data in ETR\n");
 					return;
 				}
 
@@ -520,6 +548,7 @@ void usb_bypass_notifier(void *priv, unsigned int event,
 			struct qdss_request *d_req, struct usb_qdss_ch *ch)
 {
 	struct byte_cntr *drvdata = priv;
+	int ret;
 
 	if (!drvdata)
 		return;
@@ -533,8 +562,11 @@ void usb_bypass_notifier(void *priv, unsigned int event,
 
 	switch (event) {
 	case USB_QDSS_CONNECT:
+		ret = usb_bypass_start(drvdata);
+		if (ret < 0)
+			return;
+
 		usb_qdss_alloc_req(ch, USB_BUF_NUM);
-		usb_bypass_start(drvdata);
 		queue_work(drvdata->usb_wq, &(drvdata->read_work));
 		break;
 

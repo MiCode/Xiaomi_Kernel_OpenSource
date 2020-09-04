@@ -2109,7 +2109,7 @@ enum {
 	IEEE80211_PROBE_FLAG_RANDOM_SN		= BIT(2),
 };
 
-int ieee80211_build_preq_ies(struct ieee80211_local *local, u8 *buffer,
+int ieee80211_build_preq_ies(struct ieee80211_sub_if_data *sdata, u8 *buffer,
 			     size_t buffer_len,
 			     struct ieee80211_scan_ies *ie_desc,
 			     const u8 *ie, size_t ie_len,
@@ -2149,6 +2149,8 @@ u8 ieee80211_ie_len_he_cap(struct ieee80211_sub_if_data *sdata, u8 iftype);
 u8 *ieee80211_ie_build_he_cap(u8 *pos,
 			      const struct ieee80211_sta_he_cap *he_cap,
 			      u8 *end);
+void ieee80211_ie_build_he_6ghz_cap(struct ieee80211_sub_if_data *sdata,
+				    struct sk_buff *skb);
 u8 *ieee80211_ie_build_he_oper(u8 *pos);
 int ieee80211_parse_bitrates(struct cfg80211_chan_def *chandef,
 			     const struct ieee80211_supported_band *sband,

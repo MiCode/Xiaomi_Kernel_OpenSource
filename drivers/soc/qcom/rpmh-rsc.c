@@ -642,9 +642,11 @@ int rpmh_rsc_write_pdc_data(struct rsc_drv *drv, const struct tcs_request *msg)
 {
 	int i;
 	void __iomem *addr = drv->base + RSC_PDC_DRV_DATA;
+	struct tcs_group *tcs = get_tcs_of_type(drv, CONTROL_TCS);
 	struct tcs_cmd *cmd;
 
-	if (!msg || !msg->cmds || msg->num_cmds != RSC_PDC_DATA_SIZE)
+	if (!msg || !msg->cmds || msg->num_cmds != RSC_PDC_DATA_SIZE ||
+	    !tcs->num_tcs)
 		return -EINVAL;
 
 	for (i = 0; i < msg->num_cmds; i++) {

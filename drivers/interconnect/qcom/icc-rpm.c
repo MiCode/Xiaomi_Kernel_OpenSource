@@ -15,6 +15,7 @@
 #include <linux/soc/qcom/smd-rpm.h>
 
 #include "icc-rpm.h"
+#include "qnoc-qos.h"
 
 static int qcom_icc_rpm_smd_send_msg(int ctx, int rsc_type, int rpm_id, u64 val)
 {
@@ -77,6 +78,9 @@ int qcom_icc_rpm_aggregate(struct icc_node *node, u32 tag, u32 avg_bw,
 		}
 	}
 
+	*agg_avg += avg_bw;
+	*agg_peak = max_t(u32, *agg_peak, peak_bw);
+
 	qn->dirty = true;
 
 	return 0;
@@ -118,6 +122,10 @@ int qcom_icc_rpm_set(struct icc_node *src, struct icc_node *dst)
 		qn = n->data;
 		for (i = 0; i < RPM_NUM_CXT; i++) {
 			sum_avg = icc_units_to_bps(qn->sum_avg[i]);
+
+			sum_avg *= qp->util_factor;
+			do_div(sum_avg, DEFAULT_UTIL_FACTOR);
+
 			do_div(sum_avg, qn->channels);
 			max_peak = icc_units_to_bps(qn->max_peak[i]);
 
@@ -130,8 +138,21 @@ int qcom_icc_rpm_set(struct icc_node *src, struct icc_node *dst)
 
 	for (i = 0; i < RPM_NUM_CXT; i++) {
 		if (qp->bus_clk_cur_rate[i] != bus_clk_rate[i]) {
-			ret = clk_set_rate(qp->bus_clks[i].clk,
-					bus_clk_rate[i]);
+			if (qp->keepalive && i == RPM_ACTIVE_CXT) {
+				if (qp->init)
+					ret = clk_set_rate(qp->bus_clks[i].clk,
+							RPM_CLK_MAX_LEVEL);
+				else if (bus_clk_rate[i] == 0)
+					ret = clk_set_rate(qp->bus_clks[i].clk,
+							RPM_CLK_MIN_LEVEL);
+				else
+					ret = clk_set_rate(qp->bus_clks[i].clk,
+							bus_clk_rate[i]);
+			} else {
+				ret = clk_set_rate(qp->bus_clks[i].clk,
+							bus_clk_rate[i]);
+			}
+
 			if (ret) {
 				pr_err("%s clk_set_rate error: %d\n",
 					qp->bus_clks[i].id, ret);
@@ -190,6 +211,22 @@ int qcom_icc_rpm_set(struct icc_node *src, struct icc_node *dst)
 				qn->last_sum_avg[i] = qn->sum_avg[i];
 			}
 		}
+	}
+
+	qn = node->data;
+	/* Defer setting QoS until the first non-zero bandwidth request. */
+	if (qn && qn->qosbox && !qn->qosbox->initialized &&
+		(node->avg_bw || node->peak_bw)) {
+		ret = clk_bulk_prepare_enable(qp->num_qos_clks, qp->qos_clks);
+		if (ret) {
+			pr_err("%s: Clock enable failed for node %s\n",
+			__func__, node->name);
+			return ret;
+		}
+
+		qn->noc_ops->set_qos(qn);
+		clk_bulk_disable_unprepare(qp->num_qos_clks, qp->qos_clks);
+		qn->qosbox->initialized = true;
 	}
 
 	return 0;

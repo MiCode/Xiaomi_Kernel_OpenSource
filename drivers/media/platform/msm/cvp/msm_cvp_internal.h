@@ -218,7 +218,6 @@ struct cvp_cycle_info {
 	u32 lo_ctrl_lim[HFI_MAX_HW_THREADS];
 	struct cvp_cycle_stat cycle[HFI_MAX_HW_THREADS];
 	unsigned long conf_freq;
-	struct mutex lock;
 };
 
 struct cvp_session_prop {
@@ -263,6 +262,7 @@ struct cvp_session_event {
 struct msm_cvp_core {
 	struct list_head list;
 	struct mutex lock;
+	struct mutex clk_lock;
 	int id;
 	dev_t dev_num;
 	struct cdev cdev;

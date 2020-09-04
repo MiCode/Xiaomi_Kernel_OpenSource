@@ -499,7 +499,7 @@
   wiphy_unregister
 
 # required by virt_wifi_sim.ko
-  ieee80211_get_channel
+  ieee80211_get_channel_khz
   kstrtoull
   release_firmware
   request_firmware

@@ -25,21 +25,42 @@ struct qoslat_data {
 	struct devfreq			*df;
 	struct devfreq_dev_profile	profile;
 	unsigned int			qos_level;
+	struct list_head		list;
 };
 
 #define QOS_LEVEL_OFF	1
 #define QOS_LEVEL_ON	2
 
+static LIST_HEAD(qoslat_list);
+static DEFINE_SPINLOCK(qoslat_lock);
+static unsigned int agg_qos_level = QOS_LEVEL_OFF;
+
 #define MAX_MSG_LEN	96
-static int update_qos_level(struct device *dev, struct qoslat_data *d)
+static int update_qos_level(struct device *dev)
 {
+	struct qoslat_data *d;
 	struct qmp_pkt pkt;
 	char mbox_msg[MAX_MSG_LEN + 1] = {0};
 	char *qos_msg = "off";
+	unsigned int qos_lvl = QOS_LEVEL_OFF;
 	int ret;
 
-	if (d->qos_level == QOS_LEVEL_ON)
+	spin_lock(&qoslat_lock);
+	list_for_each_entry(d, &qoslat_list, list)
+		qos_lvl = max(d->qos_level, qos_lvl);
+
+	if (qos_lvl == agg_qos_level) {
+		spin_unlock(&qoslat_lock);
+		return 0;
+	}
+
+	agg_qos_level = qos_lvl;
+
+	if (agg_qos_level == QOS_LEVEL_ON)
 		qos_msg = "on";
+	spin_unlock(&qoslat_lock);
+
+	d = dev_get_drvdata(dev);
 
 	snprintf(mbox_msg, MAX_MSG_LEN, "{class: ddr, perfmode: %s}", qos_msg);
 	pkt.size = MAX_MSG_LEN;
@@ -70,7 +91,7 @@ static int dev_target(struct device *dev, unsigned long *freq, u32 flags)
 
 	d->qos_level = *freq;
 
-	return update_qos_level(dev, d);
+	return update_qos_level(dev);
 }
 
 static int dev_get_cur_freq(struct device *dev, unsigned long *freq)
@@ -140,6 +161,10 @@ static int devfreq_qcom_qoslat_probe(struct platform_device *pdev)
 		dev_err(dev, "Failed to add devfreq device: %d\n", ret);
 		return ret;
 	}
+
+	spin_lock(&qoslat_lock);
+	list_add_tail(&d->list, &qoslat_list);
+	spin_unlock(&qoslat_lock);
 
 	return 0;
 }

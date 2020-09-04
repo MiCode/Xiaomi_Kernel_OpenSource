@@ -321,12 +321,14 @@ static inline void *phys_to_virt(phys_addr_t x)
  * virtual address. Therefore, use inline assembly to ensure we are
  * always taking the address of the actual function.
  */
-#define __pa_function(x) ({						\
-	unsigned long addr;						\
+#define __va_function(x) ({						\
+	void *addr;							\
 	asm("adrp %0, " __stringify(x) "\n\t"				\
 	    "add  %0, %0, :lo12:" __stringify(x) : "=r" (addr));	\
-	__pa_symbol(addr);						\
+	addr;								\
 })
+
+#define __pa_function(x) 	__pa_symbol(__va_function(x))
 
 /*
  *  virt_to_page(x)	convert a _valid_ virtual address to struct page *

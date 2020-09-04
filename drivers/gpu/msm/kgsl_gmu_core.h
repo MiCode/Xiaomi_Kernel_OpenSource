@@ -39,6 +39,7 @@ enum gmu_core_flags {
 	GMU_DCVS_REPLAY,
 	GMU_ENABLED,
 	GMU_RSCC_SLEEP_SEQ_DONE,
+	GMU_DISABLE_SLUMBER,
 };
 
 /*

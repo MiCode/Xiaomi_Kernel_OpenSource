@@ -244,8 +244,13 @@ static enum mhi_ee mhi_translate_dev_ee(struct mhi_controller *mhi_cntrl,
 
 enum mhi_ee mhi_get_exec_env(struct mhi_controller *mhi_cntrl)
 {
+	int ret;
 	u32 exec;
-	int ret = mhi_read_reg(mhi_cntrl, mhi_cntrl->bhi, BHI_EXECENV, &exec);
+
+	if (!mhi_cntrl || !mhi_cntrl->bhi)
+		return MHI_EE_MAX;
+
+	ret = mhi_read_reg(mhi_cntrl, mhi_cntrl->bhi, BHI_EXECENV, &exec);
 
 	return (ret) ? MHI_EE_MAX : mhi_translate_dev_ee(mhi_cntrl, exec);
 }
@@ -2138,15 +2143,15 @@ int mhi_debugfs_mhi_regdump_show(struct seq_file *m, void *d)
 		int offset;
 		void __iomem *base;
 	} debug_reg[] = {
+		{ "BHI_ERRDBG2", BHI_ERRDBG2, bhi_base},
+		{ "BHI_ERRDBG3", BHI_ERRDBG3, bhi_base},
+		{ "BHI_ERRDBG1", BHI_ERRDBG1, bhi_base},
+		{ "BHI_ERRCODE", BHI_ERRCODE, bhi_base},
+		{ "BHI_EXECENV", BHI_EXECENV, bhi_base},
+		{ "BHI_STATUS", BHI_STATUS, bhi_base},
 		{ "MHI_CNTRL", MHICTRL, mhi_base},
 		{ "MHI_STATUS", MHISTATUS, mhi_base},
 		{ "MHI_WAKE_DB", 0, wake_db},
-		{ "BHI_EXECENV", BHI_EXECENV, bhi_base},
-		{ "BHI_STATUS", BHI_STATUS, bhi_base},
-		{ "BHI_ERRCODE", BHI_ERRCODE, bhi_base},
-		{ "BHI_ERRDBG1", BHI_ERRDBG1, bhi_base},
-		{ "BHI_ERRDBG2", BHI_ERRDBG2, bhi_base},
-		{ "BHI_ERRDBG3", BHI_ERRDBG3, bhi_base},
 		{ "BHIE_TXVEC_DB", BHIE_TXVECDB_OFFS, bhie_base},
 		{ "BHIE_TXVEC_STATUS", BHIE_TXVECSTATUS_OFFS, bhie_base},
 		{ "BHIE_RXVEC_DB", BHIE_RXVECDB_OFFS, bhie_base},
@@ -2787,15 +2792,15 @@ void mhi_debug_reg_dump(struct mhi_controller *mhi_cntrl)
 		int offset;
 		void __iomem *base;
 	} debug_reg[] = {
+		{ "BHI_ERRDBG2", BHI_ERRDBG2, bhi_base},
+		{ "BHI_ERRDBG3", BHI_ERRDBG3, bhi_base},
+		{ "BHI_ERRDBG1", BHI_ERRDBG1, bhi_base},
+		{ "BHI_ERRCODE", BHI_ERRCODE, bhi_base},
+		{ "BHI_EXECENV", BHI_EXECENV, bhi_base},
+		{ "BHI_STATUS", BHI_STATUS, bhi_base},
 		{ "MHI_CNTRL", MHICTRL, mhi_base},
 		{ "MHI_STATUS", MHISTATUS, mhi_base},
 		{ "MHI_WAKE_DB", 0, wake_db},
-		{ "BHI_EXECENV", BHI_EXECENV, bhi_base},
-		{ "BHI_STATUS", BHI_STATUS, bhi_base},
-		{ "BHI_ERRCODE", BHI_ERRCODE, bhi_base},
-		{ "BHI_ERRDBG1", BHI_ERRDBG1, bhi_base},
-		{ "BHI_ERRDBG2", BHI_ERRDBG2, bhi_base},
-		{ "BHI_ERRDBG3", BHI_ERRDBG3, bhi_base},
 		{ "BHIE_TXVEC_DB", BHIE_TXVECDB_OFFS, bhie_base},
 		{ "BHIE_TXVEC_STATUS", BHIE_TXVECSTATUS_OFFS, bhie_base},
 		{ "BHIE_RXVEC_DB", BHIE_RXVECDB_OFFS, bhie_base},

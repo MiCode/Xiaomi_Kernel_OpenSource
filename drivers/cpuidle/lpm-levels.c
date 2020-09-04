@@ -251,8 +251,13 @@ static uint32_t get_next_event(struct lpm_cpu *cpu)
 {
 	ktime_t next_event = KTIME_MAX;
 	unsigned int next_cpu;
+	struct cpumask cpu_lpm_mask;
 
-	for_each_cpu(next_cpu, &cpu->related_cpus) {
+	cpumask_and(&cpu_lpm_mask, &cpu->related_cpus, cpu_online_mask);
+	if (cpumask_empty(&cpu_lpm_mask))
+		return 0;
+
+	for_each_cpu(next_cpu, &cpu_lpm_mask) {
 		ktime_t next_event_c = per_cpu(cpu_lpm, next_cpu)->next_hrtimer;
 
 		if (next_event > next_event_c)
@@ -1758,8 +1763,6 @@ static int lpm_probe(struct platform_device *pdev)
 	 * core.  BUG in existing code but no known issues possibly because of
 	 * how late lpm_levels gets initialized.
 	 */
-	suspend_set_ops(&lpm_suspend_ops);
-	s2idle_set_ops(&lpm_s2idle_ops);
 	for_each_possible_cpu(cpu) {
 		cpu_histtimer = &per_cpu(histtimer, cpu);
 		hrtimer_init(cpu_histtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
@@ -1807,11 +1810,15 @@ static int lpm_probe(struct platform_device *pdev)
 		goto failed;
 	}
 
+	suspend_set_ops(&lpm_suspend_ops);
+	s2idle_set_ops(&lpm_s2idle_ops);
 
 	return 0;
 failed:
 	free_cluster_node(lpm_root_node);
 	lpm_root_node = NULL;
+	dma_free_coherent(&pdev->dev, size, lpm_debug, lpm_debug_phys);
+
 	return ret;
 }
 

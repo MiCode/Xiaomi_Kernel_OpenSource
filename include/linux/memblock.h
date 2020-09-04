@@ -367,6 +367,9 @@ void *memblock_alloc_try_nid(phys_addr_t size, phys_addr_t align,
 
 static inline void * __init memblock_alloc(phys_addr_t size,  phys_addr_t align)
 {
+
+	memblock_dbg("%s: %llu bytes align=0x%llx %pS\n",
+			__func__, (u64)size, (u64)align, (void *)_RET_IP_);
 	return memblock_alloc_try_nid(size, align, MEMBLOCK_LOW_LIMIT,
 				      MEMBLOCK_ALLOC_ACCESSIBLE, NUMA_NO_NODE);
 }

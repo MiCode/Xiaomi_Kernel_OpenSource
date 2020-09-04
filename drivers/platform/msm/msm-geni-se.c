@@ -348,9 +348,12 @@ static int geni_se_select_dma_mode(void __iomem *base)
 	geni_write_reg(0xFFFFFFFF, base, SE_IRQ_EN);
 
 	common_geni_m_irq_en = geni_read_reg(base, SE_GENI_M_IRQ_EN);
-	if (proto != UART)
+	if (proto != UART) {
 		common_geni_m_irq_en &=
 			~(M_TX_FIFO_WATERMARK_EN | M_RX_FIFO_WATERMARK_EN);
+		if (proto != I3C)
+			common_geni_m_irq_en &= ~M_CMD_DONE_EN;
+	}
 
 	geni_write_reg(common_geni_m_irq_en, base, SE_GENI_M_IRQ_EN);
 	geni_dma_mode = geni_read_reg(base, SE_GENI_DMA_MODE_EN);
@@ -469,6 +472,14 @@ EXPORT_SYMBOL(geni_setup_s_cmd);
  */
 void geni_cancel_m_cmd(void __iomem *base)
 {
+	unsigned int common_geni_m_irq_en;
+	int proto = get_se_proto(base);
+
+	if (proto != UART && proto != I3C) {
+		common_geni_m_irq_en = geni_read_reg(base, SE_GENI_M_IRQ_EN);
+		common_geni_m_irq_en &= ~M_CMD_DONE_EN;
+		geni_write_reg(common_geni_m_irq_en, base, SE_GENI_M_IRQ_EN);
+	}
 	geni_write_reg(M_GENI_CMD_CANCEL, base, SE_GENI_M_CMD_CTRL_REG);
 }
 EXPORT_SYMBOL(geni_cancel_m_cmd);

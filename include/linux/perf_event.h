@@ -726,6 +726,10 @@ struct perf_event {
 	void *security;
 #endif
 	struct list_head		sb_list;
+#ifdef CONFIG_PERF_KERNEL_SHARE
+	/* Is this event shared with other events */
+	bool				shared;
+#endif
 #endif /* CONFIG_PERF_EVENTS */
 };
 

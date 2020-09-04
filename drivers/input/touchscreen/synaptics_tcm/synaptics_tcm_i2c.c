@@ -371,7 +371,7 @@ static int syna_tcm_check_dt(struct device_node *np)
 		}
 	}
 
-	return -ENODEV;
+	return PTR_ERR(panel);
 }
 
 static int syna_tcm_check_default_tp(struct device_node *dt, const char *prop)
@@ -409,7 +409,11 @@ static int syna_tcm_i2c_probe(struct i2c_client *i2c,
 	int retval;
 	struct device_node *dt = i2c->dev.of_node;
 
-	if (syna_tcm_check_dt(dt)) {
+	retval = syna_tcm_check_dt(dt);
+	if (retval == -EPROBE_DEFER)
+		return retval;
+
+	if (retval) {
 		if (!syna_tcm_check_default_tp(dt, "qcom,i2c-touch-active"))
 			retval = -EPROBE_DEFER;
 		else

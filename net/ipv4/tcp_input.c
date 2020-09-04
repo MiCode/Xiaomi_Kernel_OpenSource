@@ -79,6 +79,7 @@
 #include <trace/events/tcp.h>
 #include <linux/jump_label_ratelimit.h>
 #include <net/busy_poll.h>
+#include <trace/hooks/net.h>
 
 int sysctl_tcp_max_orphans __read_mostly = NR_FILE;
 
@@ -2944,6 +2945,8 @@ static bool tcp_ack_update_rtt(struct sock *sk, const int flag,
 		u32 delta = tcp_time_stamp(tp) - tp->rx_opt.rcv_tsecr;
 
 		if (likely(delta < INT_MAX / (USEC_PER_SEC / TCP_TS_HZ))) {
+			if (!delta)
+				delta = 1;
 			seq_rtt_us = delta * (USEC_PER_SEC / TCP_TS_HZ);
 			ca_rtt_us = seq_rtt_us;
 		}
@@ -4479,6 +4482,7 @@ static bool tcp_ooo_try_coalesce(struct sock *sk,
 
 static void tcp_drop(struct sock *sk, struct sk_buff *skb)
 {
+	trace_android_vh_kfree_skb(skb);
 	sk_drops_add(sk, skb);
 	__kfree_skb(skb);
 }

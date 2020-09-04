@@ -123,6 +123,7 @@ static int mhi_init_pci_dev(struct mhi_controller *mhi_cntrl)
 		MHI_CNTRL_ERR("Error ioremap region\n");
 		goto error_ioremap;
 	}
+	mhi_cntrl->len = len;
 
 	ret = pci_alloc_irq_vectors(pci_dev, mhi_cntrl->msi_required,
 				    mhi_cntrl->msi_required, PCI_IRQ_MSI);

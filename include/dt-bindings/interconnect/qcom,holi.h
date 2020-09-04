@@ -94,8 +94,8 @@
 #define SNOC_BIMC_SLV				564
 #define SLAVE_SERVICE_SNOC				565
 #define SLAVE_QDSS_STM				566
-#define SLAVE_TCU				567
-#define A1NOC_SNOC_SLV				568
-#define A2NOC_SNOC_SLV				569
+#define A1NOC_SNOC_SLV				567
+#define A2NOC_SNOC_SLV				568
+#define SLAVE_TCU				569
 
 #endif

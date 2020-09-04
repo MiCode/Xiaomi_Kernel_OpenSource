@@ -43,9 +43,9 @@
 /* Translate a kernel address of @sym into its equivalent linear mapping */
 #define kvm_ksym_ref(sym)						\
 	({								\
-		void *val = &sym;					\
+		void *val = __va_function(sym);				\
 		if (!is_kernel_in_hyp_mode())				\
-			val = lm_alias(&sym);				\
+			val = lm_alias(val);				\
 		val;							\
 	 })
 

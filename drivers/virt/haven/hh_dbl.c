@@ -569,6 +569,7 @@ int hh_dbl_populate_cap_info(enum hh_dbl_label label, u64 cap_id,
 			goto err;
 		}
 
+		irq_set_irq_wake(rx_irq, 1);
 		wake_up_interruptible(&cap_table_entry->cap_wq);
 
 		pr_debug("%s: label: %d; rx_cap_id: %llu; dir: %d; rx_irq: %d\n",

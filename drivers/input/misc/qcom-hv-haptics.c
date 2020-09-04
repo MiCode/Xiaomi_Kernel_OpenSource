@@ -217,6 +217,14 @@
 #define HAP_BOOST_V0P0				0x0000
 #define HAP_BOOST_V0P1				0x0001
 
+#define HAP_BOOST_HW_CTRL_FOLLOW_REG		0x41
+#define FOLLOW_HW_EN_BIT			BIT(7)
+#define FOLLOW_HW_CCM_BIT			BIT(6)
+#define FOLLOW_HW_VSET_BIT			BIT(5)
+
+#define HAP_BOOST_VREG_EN_REG			0x46
+#define VREG_EN_BIT				BIT(7)
+
 #define HAP_BOOST_V0P0_CLAMP_REG		0xF1
 #define HAP_BOOST_V0P1_CLAMP_REG		0x70
 #define CLAMP_5V_BIT				BIT(0)
@@ -411,6 +419,7 @@ struct haptics_hw_config {
 	u32			cl_t_lra_us;
 	u32			preload_effect;
 	u32			fifo_empty_thresh;
+	u16			rc_clk_cal_count;
 	enum drv_sig_shape	drv_wf;
 	bool			is_erm;
 };
@@ -727,7 +736,7 @@ static int haptics_get_closeloop_lra_period_v1(
 		struct haptics_chip *chip)
 {
 	struct haptics_hw_config *config = &chip->config;
-	int rc;
+	int rc, freq_diff, f_lra, cl_f_lra;
 	u8 val[2];
 	u32 tmp, step_ns;
 	bool auto_res_cal_done;
@@ -761,7 +770,25 @@ static int haptics_get_closeloop_lra_period_v1(
 	tmp = ((val[0] & CAL_TLRA_CL_STS_MSB_MASK) << 8) | val[1];
 	config->cl_t_lra_us = (tmp * step_ns) / 1000;
 
-	return haptics_adjust_lra_period(chip, &config->cl_t_lra_us);
+	rc = haptics_adjust_lra_period(chip, &config->cl_t_lra_us);
+	if (rc < 0)
+		return rc;
+
+	/* calculate RC_CLK_CAL_COUNT */
+	if (!config->t_lra_us || !config->cl_t_lra_us)
+		return -EINVAL;
+
+	f_lra = USEC_PER_SEC / config->t_lra_us;
+	if (!f_lra)
+		return -EINVAL;
+
+	cl_f_lra = USEC_PER_SEC / config->cl_t_lra_us;
+	freq_diff = cl_f_lra - f_lra;
+
+	/* RC_CLK_CAL_COUNT = 600*(1-(clk_adjustment/Fifo_pat_freq)) */
+	config->rc_clk_cal_count = 600 - ((600 * freq_diff) / f_lra);
+
+	return 0;
 }
 
 #define TLRA_AUTO_RES_ERR_NO_CAL_STEP_PSEC	1667000
@@ -822,12 +849,16 @@ static int haptics_get_closeloop_lra_period_v2(
 	if (rc_clk_cal == CAL_RC_CLK_DISABLED_VAL && !auto_res_done) {
 		/* TLRA_CL_ERR(us) = TLRA_CL_ERR_STS * 1.667 us */
 		tmp = tlra_cl_err_sts * TLRA_AUTO_RES_ERR_NO_CAL_STEP_PSEC;
+		dev_dbg(chip->dev, "tlra_cl_err_sts = %#x\n", tlra_cl_err_sts);
+		config->cl_t_lra_us = div_u64(tmp, 1000000);
 	} else if (rc_clk_cal == CAL_RC_CLK_DISABLED_VAL && auto_res_done) {
 		/*
 		 * CAL_TLRA_CL_STS_NO_CAL = CAL_TLRA_CL_STS
 		 * TLRA_AUTO_RES(us) = CAL_TLRA_CL_STS_NO_CAL * 3.333 us
 		 */
 		tmp = cal_tlra_cl_sts * TLRA_AUTO_RES_NO_CAL_STEP_PSEC;
+		dev_dbg(chip->dev, "cal_tlra_cl_sts = %#x\n", cal_tlra_cl_sts);
+		config->cl_t_lra_us = div_u64(tmp, 1000000);
 	} else if (rc_clk_cal == CAL_RC_CLK_AUTO_VAL && !auto_res_done) {
 		/*
 		 * CAL_TLRA_OL = CAL_TLRA_CL_STS;
@@ -842,9 +873,26 @@ static int haptics_get_closeloop_lra_period_v2(
 			return rc;
 
 		tlra_ol = (val[0] & TLRA_OL_MSB_MASK) << 8 | val[1];
+		dev_dbg(chip->dev, "tlra_ol = %#x, tlra_cl_err_sts = %#x, cal_tlra_cl_sts = %#x\n",
+				tlra_ol, tlra_cl_err_sts, cal_tlra_cl_sts);
+
 		tmp = tlra_cl_err_sts * tlra_ol;
 		tmp *= TLRA_AUTO_RES_ERR_AUTO_CAL_STEP_PSEC;
 		tmp = div_u64(tmp, cal_tlra_cl_sts);
+		config->cl_t_lra_us = div_u64(tmp, 1000000);
+
+		/* calculate RC_CLK_CAL_COUNT */
+		if (!config->t_lra_us || !config->cl_t_lra_us)
+			return -EINVAL;
+		/*
+		 * RC_CLK_CAL_COUNT = 600 * (CAL_TLRA_OL / TLRA_OL)
+		 *		* (600 / 586) * (CL_T_TLRA_US / OL_T_LRA_US)
+		 */
+		tmp = 360000;
+		tmp *= cal_tlra_cl_sts * config->cl_t_lra_us;
+		tmp = div_u64(tmp, tlra_ol);
+		tmp = div_u64(tmp, 586);
+		config->rc_clk_cal_count = div_u64(tmp, config->t_lra_us);
 	} else if (rc_clk_cal == CAL_RC_CLK_AUTO_VAL && auto_res_done) {
 		/*
 		 * CAL_TLRA_CL_STS_W_CAL = CAL_TLRA_CL_STS;
@@ -873,16 +921,33 @@ static int haptics_get_closeloop_lra_period_v2(
 		last_good_tlra_cl_sts =
 			((val[0] & LAST_GOOD_TLRA_CL_MSB_MASK) << 8) | val[1];
 
+		dev_dbg(chip->dev, "last_good_tlra_cl_sts = %#x, cal_tlra_cl_sts = %#x\n",
+				last_good_tlra_cl_sts, cal_tlra_cl_sts);
+
 		tmp = last_good_tlra_cl_sts * last_good_tlra_cl_sts;
 		tmp *= TLRA_AUTO_RES_AUTO_CAL_STEP_PSEC;
 		tmp = div_u64(tmp, cal_tlra_cl_sts);
+		config->cl_t_lra_us = div_u64(tmp, 1000000);
+
+		/* calculate RC_CLK_CAL_COUNT */
+		if (!config->t_lra_us || !config->cl_t_lra_us)
+			return -EINVAL;
+
+		/*
+		 * RC_CLK_CAL_COUNT =
+		 *	600 * (CAL_TLRA_CL_STS_AUTO_CAL / LAST_GOOD_TLRA_CL_STS)
+		 *		* (600 / 293) * (CL_T_TLRA_US / OL_T_LRA_US)
+		 */
+		tmp = 360000;
+		tmp *= cal_tlra_cl_sts * config->cl_t_lra_us;
+		tmp = div_u64(tmp, last_good_tlra_cl_sts);
+		tmp = div_u64(tmp, 293);
+		config->rc_clk_cal_count = div_u64(tmp, config->t_lra_us);
 	} else {
 		dev_err(chip->dev, "Can't get close-loop LRA period in rc_clk_cal mode %u\n",
 				rc_clk_cal);
 		return -EINVAL;
 	}
-
-	config->cl_t_lra_us = div_u64(tmp, 1000000);
 
 	return 0;
 }
@@ -902,8 +967,9 @@ static int haptics_get_closeloop_lra_period(struct haptics_chip *chip)
 		return rc;
 	}
 
-	dev_dbg(chip->dev, "OL_TLRA %u us, CL_TLRA %u us\n",
-		chip->config.t_lra_us, chip->config.cl_t_lra_us);
+	dev_dbg(chip->dev, "OL_TLRA %u us, CL_TLRA %u us, RC_CLK_CAL_COUNT %#x\n",
+		chip->config.t_lra_us, chip->config.cl_t_lra_us,
+		chip->config.rc_clk_cal_count);
 	return 0;
 }
 
@@ -1012,6 +1078,24 @@ static int haptics_boost_vreg_enable(struct haptics_chip *chip, bool en)
 	return rc;
 }
 
+static bool is_boost_vreg_enabled_in_open_loop(struct haptics_chip *chip)
+{
+	int rc;
+	u8 val;
+
+	rc = haptics_read(chip, chip->hbst_addr_base,
+			HAP_BOOST_HW_CTRL_FOLLOW_REG, &val, 1);
+	if (!rc && !(val & FOLLOW_HW_EN_BIT)) {
+		rc = haptics_read(chip, chip->hbst_addr_base,
+				HAP_BOOST_VREG_EN_REG, &val, 1);
+		if (!rc && (val & VREG_EN_BIT))
+			return true;
+	}
+
+	dev_dbg(chip->dev, "HBoost is not enabled in open loop condition\n");
+	return false;
+}
+
 static int haptics_enable_play(struct haptics_chip *chip, bool en)
 {
 	struct haptics_play_info *play = &chip->play;
@@ -1025,6 +1109,33 @@ static int haptics_enable_play(struct haptics_chip *chip, bool en)
 				HAP_CFG_FAULT_CLR_REG, &val, 1);
 		if (rc < 0)
 			return rc;
+
+		/*
+		 * Toggle RC_CLK_CAL_EN if it's in auto mode and
+		 * haptics boost is working in open loop
+		 */
+		rc = haptics_read(chip, chip->cfg_addr_base,
+				HAP_CFG_CAL_EN_REG, &val, 1);
+		if (rc < 0)
+			return rc;
+
+		if (((val & CAL_RC_CLK_MASK) ==
+				CAL_RC_CLK_AUTO_VAL << CAL_RC_CLK_SHIFT)
+				&& is_boost_vreg_enabled_in_open_loop(chip)) {
+			rc = haptics_masked_write(chip, chip->cfg_addr_base,
+					HAP_CFG_CAL_EN_REG, CAL_RC_CLK_MASK,
+					CAL_RC_CLK_DISABLED_VAL);
+			if (rc < 0)
+				return rc;
+
+			rc = haptics_masked_write(chip, chip->cfg_addr_base,
+					HAP_CFG_CAL_EN_REG, CAL_RC_CLK_MASK,
+					CAL_RC_CLK_AUTO_VAL);
+			if (rc < 0)
+				return rc;
+
+			dev_dbg(chip->dev, "Toggle CAL_EN in open-loop-VREG playing\n");
+		}
 	}
 
 	val = play->pattern_src;
@@ -1259,26 +1370,17 @@ static int haptics_get_available_fifo_memory(struct haptics_chip *chip)
 	return available;
 }
 
-static int haptics_adjust_rc_clk(struct haptics_chip *chip)
+static int haptics_set_manual_rc_clk_cal(struct haptics_chip *chip)
 {
-	int rc, freq_diff, cal_count, f_lra, cl_f_lra;
+	int rc;
+	u16 cal_count = chip->config.rc_clk_cal_count;
 	u8 val[2];
 
-	if (!chip->config.t_lra_us || !chip->config.cl_t_lra_us)
-		return -EINVAL;
+	if (cal_count == 0) {
+		dev_dbg(chip->dev, "Ignore setting RC_CLK_CAL_COUNT\n");
+		return 0;
+	}
 
-	f_lra = USEC_PER_SEC / chip->config.t_lra_us;
-	if (!f_lra)
-		return -EINVAL;
-
-	cl_f_lra = USEC_PER_SEC / chip->config.cl_t_lra_us;
-	freq_diff = cl_f_lra - f_lra;
-
-	/* RC_CLK_CAL_COUNT = 600*(1-(clk_adjustment/Fifo_pat_freq)) */
-	cal_count = 600 - ((600 * freq_diff) / f_lra);
-	dev_dbg(chip->dev, "RC clock calibration count:%#x\n", cal_count);
-
-	/* Set FIFO pattern frequency adjustment */
 	val[0] = (cal_count >> 8) & RC_CLK_CAL_COUNT_MSB_MASK;
 	val[1] = cal_count & RC_CLK_CAL_COUNT_LSB_MASK;
 	rc = haptics_write(chip, chip->cfg_addr_base,
@@ -1288,7 +1390,8 @@ static int haptics_adjust_rc_clk(struct haptics_chip *chip)
 
 	val[0] = CAL_RC_CLK_MANUAL_VAL << CAL_RC_CLK_SHIFT;
 	return haptics_masked_write(chip, chip->cfg_addr_base,
-			HAP_CFG_CAL_EN_REG, CAL_RC_CLK_MASK, val[0]);
+			HAP_CFG_CAL_EN_REG, CAL_RC_CLK_MASK,
+			val[0]);
 }
 
 static int haptics_update_fifo_samples(struct haptics_chip *chip,
@@ -1384,12 +1487,10 @@ static int haptics_set_fifo(struct haptics_chip *chip, struct fifo_cfg *fifo)
 		return rc;
 
 	if (fifo->period_per_s >= F_8KHZ) {
-		rc = haptics_adjust_rc_clk(chip);
-		if (rc < 0) {
-			dev_err(chip->dev, "RC CLK adjustment failed, rc=%d\n",
-				rc);
+		/* Set manual RC CLK CAL when playing FIFO */
+		rc = haptics_set_manual_rc_clk_cal(chip);
+		if (rc < 0)
 			return rc;
-		}
 	}
 
 	atomic_set(&status->written_done, 0);
@@ -2055,6 +2156,7 @@ static int haptics_hw_init(struct haptics_chip *chip)
 	if (rc < 0)
 		return rc;
 
+	/* get calibrated close loop period */
 	rc = haptics_get_closeloop_lra_period(chip);
 	if (rc < 0)
 		return rc;

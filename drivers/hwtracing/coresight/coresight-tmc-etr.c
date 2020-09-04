@@ -1471,7 +1471,7 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 			if (IS_ERR(new_buf))
 				return -ENOMEM;
 			coresight_cti_map_trigout(drvdata->cti_flush, 3, 0);
-			coresight_cti_map_trigin(drvdata->cti_reset, 0, 0);
+			coresight_cti_map_trigin(drvdata->cti_reset, 5, 0);
 		}
 		spin_lock_irqsave(&drvdata->spinlock, flags);
 	}

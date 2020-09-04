@@ -303,6 +303,7 @@ static void power_off_iris2(struct iris_hfi_device *device);
 
 static int __set_ubwc_config(struct iris_hfi_device *device);
 static void __noc_error_info_iris2(struct iris_hfi_device *device);
+static int __enable_hw_power_collapse(struct iris_hfi_device *device);
 
 static struct iris_hfi_vpu_ops iris2_ops = {
 	.interrupt_init = interrupt_init_iris2,
@@ -1126,8 +1127,31 @@ static int __tzbsp_set_cvp_state(enum tzbsp_subsys_state state)
 
 static inline int __boot_firmware(struct iris_hfi_device *device)
 {
-	int rc = 0;
+	int rc = 0, loop = 10;
 	u32 ctrl_init_val = 0, ctrl_status = 0, count = 0, max_tries = 1000;
+	u32 reg_gdsc;
+
+	/*
+	 * Hand off control of regulators to h/w _after_ enabling clocks.
+	 * Note that the GDSC will turn off when switching from normal
+	 * (s/w triggered) to fast (HW triggered) unless the h/w vote is
+	 * present. Since Iris isn't up yet, the GDSC will be off briefly.
+	 */
+	if (__enable_hw_power_collapse(device))
+		dprintk(CVP_ERR, "Failed to enabled inter-frame PC\n");
+
+	while (loop) {
+		reg_gdsc = __read_register(device, CVP_CC_MVS1_GDSCR);
+		if (reg_gdsc & 0x80000000) {
+			usleep_range(100, 200);
+			loop--;
+		} else {
+			break;
+		}
+	}
+
+	if (!loop)
+		dprintk(CVP_ERR, "fail to power off CORE during resume\n");
 
 	ctrl_init_val = BIT(0);
 	__write_register(device, CVP_CTRL_INIT, ctrl_init_val);
@@ -4176,7 +4200,7 @@ static void power_off_iris2(struct iris_hfi_device *device)
 static inline int __resume(struct iris_hfi_device *device)
 {
 	int rc = 0;
-	u32 flags = 0, reg_gdsc, reg_cbcr, loop = 10;
+	u32 flags = 0, reg_gdsc, reg_cbcr;
 
 	if (!device) {
 		dprintk(CVP_ERR, "Invalid params: %pK\n", device);
@@ -4195,8 +4219,6 @@ static inline int __resume(struct iris_hfi_device *device)
 		goto err_iris_power_on;
 	}
 
-
-
 	reg_gdsc = __read_register(device, CVP_CC_MVS1C_GDSCR);
 	reg_cbcr = __read_register(device, CVP_CC_MVS1C_CBCR);
 	if (!(reg_gdsc & 0x80000000) || (reg_cbcr & 0x80000000))
@@ -4211,28 +4233,6 @@ static inline int __resume(struct iris_hfi_device *device)
 	}
 
 	__setup_ucregion_memory_map(device);
-
-	/*
-	 * Hand off control of regulators to h/w _after_ enabling clocks.
-	 * Note that the GDSC will turn off when switching from normal
-	 * (s/w triggered) to fast (HW triggered) unless the h/w vote is
-	 * present. Since Iris isn't up yet, the GDSC will be off briefly.
-	 */
-	if (__enable_hw_power_collapse(device))
-		dprintk(CVP_ERR, "Failed to enabled inter-frame PC\n");
-
-	while (loop) {
-		reg_gdsc = __read_register(device, CVP_CC_MVS1_GDSCR);
-		if (reg_gdsc & 0x80000000) {
-			usleep_range(100, 200);
-			loop--;
-		} else {
-			break;
-		}
-	}
-
-	if (!loop)
-		dprintk(CVP_ERR, "fail to power off CORE during resume\n");
 
 	/* Wait for boot completion */
 	rc = __boot_firmware(device);
@@ -4379,6 +4379,35 @@ static int iris_hfi_get_core_capabilities(void *dev)
 static u32 cvp_arp_test_regs[16];
 static u32 cvp_dma_test_regs[512];
 
+static const char * const mid_names[16] = {
+	"CVP_FW",
+	"ARP_DATA",
+	"CVP_OD_NON_PIXEL",
+	"CVP_OD_ORIG_PIXEL",
+	"CVP_OD_WR_PIXEL",
+	"CVP_MPU_ORIG_PIXEL",
+	"CVP_MPU_REF_PIXEL",
+	"CVP_MPU_NON_PIXEL",
+	"CVP_MPU_DFS",
+	"CVP_FDU_NON_PIXEL",
+	"CVP_FDU_PIXEL",
+	"CVP_ICA_PIXEL",
+	"Invalid",
+	"Invalid",
+	"Invalid",
+	"Invalid"
+};
+
+static void __print_reg_details(u32 val)
+{
+	u32 mid, sid;
+
+	mid = (val >> 5) & 0xF;
+	sid = (val >> 2) & 0x7;
+	dprintk(CVP_ERR, "CVP_NOC_CORE_ERL_MAIN_ERRLOG3_LOW:     %#x\n", val);
+	dprintk(CVP_ERR, "Sub-client:%s, SID: %d\n", mid_names[mid], sid);
+}
+
 static void __noc_error_info_iris2(struct iris_hfi_device *device)
 {
 	u32 val = 0, regi, i;
@@ -4433,7 +4462,7 @@ static void __noc_error_info_iris2(struct iris_hfi_device *device)
 	val = __read_register(device, CVP_NOC_CORE_ERR_ERRLOG2_HIGH_OFFS);
 	dprintk(CVP_ERR, "CVP_NOC_CORE_ERL_MAIN_ERRLOG2_HIGH:     %#x\n", val);
 	val = __read_register(device, CVP_NOC_CORE_ERR_ERRLOG3_LOW_OFFS);
-	dprintk(CVP_ERR, "CVP_NOC_CORE_ERL_MAIN_ERRLOG3_LOW:     %#x\n", val);
+	__print_reg_details(val);
 	val = __read_register(device, CVP_NOC_CORE_ERR_ERRLOG3_HIGH_OFFS);
 	dprintk(CVP_ERR, "CVP_NOC_CORE_ERL_MAIN_ERRLOG3_HIGH:     %#x\n", val);
 #define CVP_SS_CLK_HALT 0x8

@@ -77,11 +77,10 @@ static int freq_qos_request_init(void)
 			ret = -EAGAIN;
 			goto cleanup;
 		}
-
 		per_cpu(msm_perf_cpu_stats, cpu).min = 0;
 		req = &per_cpu(qos_req_min, cpu);
 		ret = freq_qos_add_request(&policy->constraints, req,
-			FREQ_QOS_MIN, policy->min);
+			FREQ_QOS_MIN, FREQ_QOS_MIN_DEFAULT_VALUE);
 		if (ret < 0) {
 			pr_err("%s: Failed to add min freq constraint (%d)\n",
 				__func__, ret);
@@ -92,7 +91,7 @@ static int freq_qos_request_init(void)
 		per_cpu(msm_perf_cpu_stats, cpu).max = UINT_MAX;
 		req = &per_cpu(qos_req_max, cpu);
 		ret = freq_qos_add_request(&policy->constraints, req,
-			FREQ_QOS_MAX, policy->max);
+			FREQ_QOS_MAX, FREQ_QOS_MAX_DEFAULT_VALUE);
 		if (ret < 0) {
 			pr_err("%s: Failed to add max freq constraint (%d)\n",
 				__func__, ret);

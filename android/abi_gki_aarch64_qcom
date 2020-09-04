@@ -858,6 +858,7 @@
   eth_commit_mac_addr_change
   ether_setup
   eth_mac_addr
+  eth_platform_get_mac_address
   eth_prepare_mac_addr_change
   __ethtool_get_link_ksettings
   ethtool_op_get_link
@@ -938,12 +939,14 @@
   generic_file_read_iter
   generic_file_splice_read
   generic_handle_irq
+  generic_mii_ioctl
   generic_permission
   generic_read_dir
   generic_shutdown_super
   genlmsg_put
   genl_register_family
   genl_unregister_family
+  genphy_resume
   gen_pool_add_owner
   gen_pool_alloc_algo_owner
   gen_pool_avail
@@ -1082,8 +1085,9 @@
   idr_preload
   idr_remove
   idr_replace
-  ieee80211_frequency_to_channel
-  ieee80211_get_channel
+  ieee80211_channel_to_freq_khz
+  ieee80211_freq_khz_to_channel
+  ieee80211_get_channel_khz
   ieee80211_hdrlen
   iget5_locked
   igrab
@@ -1098,6 +1102,7 @@
   init_net
   __init_rwsem
   init_special_inode
+  init_srcu_struct
   init_timer_key
   init_uts_ns
   init_wait_entry
@@ -1229,6 +1234,7 @@
   kernel_kobj
   kernel_read
   kernel_recvmsg
+  kernel_restart
   kernel_sendmsg
   kernel_setsockopt
   kernel_sigaction
@@ -1349,6 +1355,10 @@
   mbox_free_channel
   mbox_request_channel
   mbox_send_message
+  mdiobus_alloc_size
+  mdiobus_free
+  __mdiobus_register
+  mdiobus_unregister
   media_create_pad_link
   media_device_cleanup
   media_device_init
@@ -1369,6 +1379,12 @@
   __memset_io
   memunmap
   memweight
+  mii_check_media
+  mii_ethtool_get_link_ksettings
+  mii_ethtool_gset
+  mii_ethtool_set_link_ksettings
+  mii_link_ok
+  mii_nway_restart
   mipi_dsi_create_packet
   mipi_dsi_dcs_set_display_brightness
   mipi_dsi_dcs_set_tear_off
@@ -1417,6 +1433,7 @@
   netdev_pick_tx
   netdev_rx_handler_register
   netdev_rx_handler_unregister
+  netdev_update_features
   netdev_upper_dev_link
   netdev_upper_dev_unlink
   netdev_warn
@@ -1649,13 +1666,22 @@
   perf_trace_run_bpf_submit
   pfn_valid
   phy_calibrate
+  phy_connect
+  phy_disconnect
+  phy_ethtool_get_link_ksettings
+  phy_ethtool_nway_reset
+  phy_ethtool_set_link_ksettings
   phy_exit
   phy_init
+  phy_mii_ioctl
   phy_pm_runtime_get_sync
   phy_pm_runtime_put_sync
   phy_power_off
   phy_power_on
+  phy_print_status
   phy_set_mode_ext
+  phy_start
+  phy_stop
   physvirt_offset
   pinconf_generic_dt_node_to_map
   pinctrl_dev_get_drvdata
@@ -1867,6 +1893,7 @@
   regmap_field_update_bits_base
   __regmap_init
   regmap_irq_get_virq
+  regmap_mmio_detach_clk
   regmap_raw_read
   regmap_read
   regmap_register_patch
@@ -2273,6 +2300,8 @@
   srcu_notifier_call_chain
   srcu_notifier_chain_register
   srcu_notifier_chain_unregister
+  __srcu_read_lock
+  __srcu_read_unlock
   sscanf
   __stack_chk_fail
   __stack_chk_guard
@@ -2315,6 +2344,7 @@
   synchronize_irq
   synchronize_net
   synchronize_rcu
+  synchronize_srcu
   syscon_node_to_regmap
   syscon_regmap_lookup_by_phandle
   sysfs_create_bin_file
@@ -2568,6 +2598,33 @@
   usb_kill_urb
   usb_lock_device_for_reset
   usb_match_one_id
+  usbnet_change_mtu
+  usbnet_disconnect
+  usbnet_get_drvinfo
+  usbnet_get_endpoints
+  usbnet_get_link
+  usbnet_get_link_ksettings
+  usbnet_get_msglevel
+  usbnet_get_stats64
+  usbnet_link_change
+  usbnet_nway_reset
+  usbnet_open
+  usbnet_probe
+  usbnet_read_cmd
+  usbnet_read_cmd_nopm
+  usbnet_resume
+  usbnet_set_link_ksettings
+  usbnet_set_msglevel
+  usbnet_skb_return
+  usbnet_start_xmit
+  usbnet_stop
+  usbnet_suspend
+  usbnet_tx_timeout
+  usbnet_unlink_rx_urbs
+  usbnet_update_max_qlen
+  usbnet_write_cmd
+  usbnet_write_cmd_async
+  usbnet_write_cmd_nopm
   usb_os_desc_prepare_interf_dir
   usb_poison_urb
   usb_put_dev
@@ -2676,6 +2733,7 @@
   vb2_reqbufs
   vb2_streamoff
   vb2_streamon
+  vb2_vmalloc_memops
   vchan_dma_desc_free_list
   vchan_init
   vchan_tx_desc_free

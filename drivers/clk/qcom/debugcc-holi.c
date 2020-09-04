@@ -26,29 +26,32 @@ static struct measure_clk_data debug_mux_priv = {
 };
 
 static const char *const cpu_cc_debug_mux_parent_names[] = {
+	"l3_clk",
 	"perfcl_clk",
 	"pwrcl_clk",
 };
 
 static int cpu_cc_debug_mux_sels[] = {
-	0x1,		/* perfcl_clk */
-	0x0,		/* pwrcl_clk */
+	0x41,		/* l3_clk */
+	0x25,		/* perfcl_clk */
+	0x21,		/* pwrcl_clk */
 };
 
 static int apss_cc_debug_mux_pre_divs[] = {
+	0x4,		/* l3_clk */
 	0x8,		/* perfcl_clk */
-	0x8,		/* pwrcl_clk */
+	0x4,		/* pwrcl_clk */
 };
 
 static struct clk_debug_mux cpu_cc_debug_mux = {
 	.priv = &debug_mux_priv,
 	.debug_offset = 0x0,
 	.post_div_offset = 0x0,
-	.cbcr_offset = U32_MAX,
-	.src_sel_mask = 0x3FF00,
-	.src_sel_shift = 8,
-	.post_div_mask = 0xF0000000,
-	.post_div_shift = 28,
+	.cbcr_offset = 0,
+	.src_sel_mask = 0x7F0,
+	.src_sel_shift = 4,
+	.post_div_mask = 0x7800,
+	.post_div_shift = 11,
 	.post_div_val = 1,
 	.mux_sels = cpu_cc_debug_mux_sels,
 	.pre_div_vals = apss_cc_debug_mux_pre_divs,
@@ -139,10 +142,12 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"gcc_camss_csi0phytimer_clk",
 	"gcc_camss_csi1phytimer_clk",
 	"gcc_camss_csi2phytimer_clk",
+	"gcc_camss_csi3phytimer_clk",
 	"gcc_camss_mclk0_clk",
 	"gcc_camss_mclk1_clk",
 	"gcc_camss_mclk2_clk",
 	"gcc_camss_mclk3_clk",
+	"gcc_camss_mclk4_clk",
 	"gcc_camss_nrt_axi_clk",
 	"gcc_camss_ope_ahb_clk",
 	"gcc_camss_ope_clk",
@@ -266,10 +271,12 @@ static int gcc_debug_mux_sels[] = {
 	0x12B,		/* gcc_camss_csi0phytimer_clk */
 	0x12C,		/* gcc_camss_csi1phytimer_clk */
 	0x12D,		/* gcc_camss_csi2phytimer_clk */
+	0x12E,		/* gcc_camss_csi3phytimer_clk */
 	0x12F,		/* gcc_camss_mclk0_clk */
 	0x130,		/* gcc_camss_mclk1_clk */
 	0x131,		/* gcc_camss_mclk2_clk */
 	0x132,		/* gcc_camss_mclk3_clk */
+	0x133,		/* gcc_camss_mclk4_clk */
 	0x153,		/* gcc_camss_nrt_axi_clk */
 	0x14B,		/* gcc_camss_ope_ahb_clk */
 	0x149,		/* gcc_camss_ope_clk */
@@ -541,6 +548,14 @@ static struct clk_dummy pwrcl_clk = {
 	},
 };
 
+static struct clk_dummy l3_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "l3_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
 struct clk_hw *debugcc_holi_hws[] = {
 	&measure_only_cnoc_clk.hw,
 	&measure_only_ipa_2x_clk.hw,
@@ -552,6 +567,7 @@ struct clk_hw *debugcc_holi_hws[] = {
 	&measure_only_pka_ahb_clk.hw,
 	&perfcl_clk.hw,
 	&pwrcl_clk.hw,
+	&l3_clk.hw,
 };
 
 static const struct of_device_id clk_debug_match_table[] = {

@@ -2628,7 +2628,7 @@ long kgsl_ioctl_gpuobj_import(struct kgsl_device_private *dev_priv,
 	return 0;
 
 unmap:
-	if (param->type == KGSL_USER_MEM_TYPE_DMABUF) {
+	if (kgsl_memdesc_usermem_type(&entry->memdesc) == KGSL_MEM_ENTRY_ION) {
 		kgsl_destroy_ion(entry->priv_data);
 		entry->memdesc.sgt = NULL;
 	}
@@ -2936,7 +2936,7 @@ long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 	return result;
 
 error_attach:
-	switch (memtype) {
+	switch (kgsl_memdesc_usermem_type(&entry->memdesc)) {
 	case KGSL_MEM_ENTRY_ION:
 		kgsl_destroy_ion(entry->priv_data);
 		entry->memdesc.sgt = NULL;
@@ -4301,6 +4301,8 @@ kgsl_mmap_memstore(struct file *file, struct kgsl_device *device,
 	if (vma->vm_flags & VM_WRITE)
 		return -EPERM;
 
+	vma->vm_flags &= ~VM_MAYWRITE;
+
 	if (memdesc->size  != vma_size) {
 		dev_err(device->dev, "Cannot partially map the memstore\n");
 		return -EINVAL;
@@ -4551,7 +4553,7 @@ kgsl_get_unmapped_area(struct file *file, unsigned long addr,
 	struct kgsl_device *device = dev_priv->device;
 	struct kgsl_mem_entry *entry = NULL;
 
-	if (vma_offset == (unsigned long) device->memstore->gpuaddr)
+	if (vma_offset == (unsigned long) KGSL_MEMSTORE_TOKEN_ADDRESS)
 		return get_unmapped_area(NULL, addr, len, pgoff, flags);
 
 	val = get_mmap_entry(private, &entry, pgoff, len);
@@ -4595,7 +4597,7 @@ static int kgsl_mmap(struct file *file, struct vm_area_struct *vma)
 
 	/* Handle leagacy behavior for memstore */
 
-	if (vma_offset == (unsigned long) device->memstore->gpuaddr)
+	if (vma_offset == (unsigned long) KGSL_MEMSTORE_TOKEN_ADDRESS)
 		return kgsl_mmap_memstore(file, device, vma);
 
 	/*

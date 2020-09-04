@@ -160,7 +160,7 @@ static long adreno_ioctl_preemption_counters_query(
 		ARRAY_SIZE(adreno_dev->ringbuffers));
 
 	if (copy_to_user(u64_to_user_ptr(read->counters),
-			adreno_dev->preempt.counters->hostptr,
+			adreno_dev->preempt.scratch->hostptr,
 			levels_to_copy * size_level))
 		return -EFAULT;
 

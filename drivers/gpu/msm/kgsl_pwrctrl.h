@@ -163,6 +163,10 @@ struct kgsl_pwrctrl {
 	struct icc_path *icc_path;
 	/** cur_ab: The last ab voted by the driver */
 	u32 cur_ab;
+	/** @minbw_timer - Timer struct for entering minimum bandwidth state */
+	struct timer_list minbw_timer;
+	/** @minbw_timeout - Timeout for entering minimum bandwidth state */
+	u32 minbw_timeout;
 };
 
 int kgsl_pwrctrl_init(struct kgsl_device *device);
@@ -228,4 +232,12 @@ int kgsl_pwrctrl_axi(struct kgsl_device *device, int state);
  * off state if the active_cnt is 0 and the hardware is idle.
  */
 void kgsl_idle_check(struct work_struct *work);
+
+/**
+ * kgsl_pwrctrl_irq - Enable or disable gpu interrupts
+ * @device: Handle to the kgsl device
+ * @state: Variable to decide whether interrupts need to be enabled or disabled
+ *
+ */
+void kgsl_pwrctrl_irq(struct kgsl_device *device, int state);
 #endif /* __KGSL_PWRCTRL_H */

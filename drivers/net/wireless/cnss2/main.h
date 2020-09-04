@@ -14,8 +14,11 @@
 #include <linux/platform_device.h>
 #include <net/cnss2.h>
 #include <soc/qcom/memory_dump.h>
-#if IS_ENABLED(CONFIG_MSM_SUBSYSTEM_RESTART)
+#if IS_ENABLED(CONFIG_MSM_SUBSYSTEM_RESTART) || \
+	IS_ENABLED(CONFIG_SUBSYSTEM_RAMDUMP)
 #include <soc/qcom/ramdump.h>
+#endif
+#if IS_ENABLED(CONFIG_MSM_SUBSYSTEM_RESTART)
 #include <soc/qcom/subsystem_notif.h>
 #include <soc/qcom/subsystem_restart.h>
 #endif
@@ -34,6 +37,7 @@
 #define TIME_CLOCK_FREQ_HZ		19200000
 #define CNSS_RAMDUMP_MAGIC		0x574C414E
 #define CNSS_RAMDUMP_VERSION		0
+#define MAX_FIRMWARE_NAME_LEN		20
 
 #define CNSS_EVENT_SYNC   BIT(0)
 #define CNSS_EVENT_UNINTERRUPTIBLE BIT(1)
@@ -401,7 +405,8 @@ struct cnss_plat_data {
 	u8 *diag_reg_read_buf;
 	u8 cal_done;
 	u8 powered_on;
-	char firmware_name[13];
+	u8 use_fw_path_with_prefix;
+	char firmware_name[MAX_FIRMWARE_NAME_LEN];
 	struct completion rddm_complete;
 	struct completion recovery_complete;
 	struct cnss_control_params ctrl_params;
@@ -411,6 +416,7 @@ struct cnss_plat_data {
 	struct qmi_handle coex_qmi;
 	struct qmi_handle ims_qmi;
 	struct qmi_txn txn;
+	struct wakeup_source *recovery_ws;
 	u64 dynamic_feature;
 	void *get_info_cb_ctx;
 	int (*get_info_cb)(void *ctx, void *event, int event_len);
@@ -466,6 +472,8 @@ int cnss_register_subsys(struct cnss_plat_data *plat_priv);
 void cnss_unregister_subsys(struct cnss_plat_data *plat_priv);
 int cnss_register_ramdump(struct cnss_plat_data *plat_priv);
 void cnss_unregister_ramdump(struct cnss_plat_data *plat_priv);
+int cnss_do_ramdump(struct cnss_plat_data *plat_priv);
+int cnss_do_elf_ramdump(struct cnss_plat_data *plat_priv);
 void cnss_set_pin_connect_status(struct cnss_plat_data *plat_priv);
 int cnss_get_cpr_info(struct cnss_plat_data *plat_priv);
 int cnss_update_cpr_info(struct cnss_plat_data *plat_priv);

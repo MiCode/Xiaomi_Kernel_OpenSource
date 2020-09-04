@@ -9,7 +9,11 @@
 
 #include <linux/interrupt.h>
 
+#include <trace/events/sched.h>
+
 #include "walt.h"
+
+#include <trace/hooks/sched.h>
 
 int sched_rr_timeslice = RR_TIMESLICE;
 int sysctl_sched_rr_timeslice = (MSEC_PER_SEC / HZ) * RR_TIMESLICE;
@@ -1534,6 +1538,12 @@ select_task_rq_rt(struct task_struct *p, int cpu, int sd_flag, int flags)
 	struct rq *rq;
 	bool may_not_preempt;
 	bool test;
+	int target_cpu = -1;
+
+	trace_android_rvh_select_task_rq_rt(p, cpu, sd_flag,
+					flags, &target_cpu);
+	if (target_cpu >= 0)
+		return target_cpu;
 
 	/* For anything but wake ups, just return the task_cpu */
 	if (sd_flag != SD_BALANCE_WAKE && sd_flag != SD_BALANCE_FORK)
@@ -1846,16 +1856,19 @@ retry:
 		}
 
 		for_each_cpu_and(cpu, lowest_mask, sched_group_span(sg)) {
+
+			trace_sched_cpu_util(cpu);
+
 			if (cpu_isolated(cpu))
 				continue;
 
 			if (sched_cpu_high_irqload(cpu))
 				continue;
 
-			util = cpu_util(cpu);
-
-			if (__cpu_overutilized(cpu, util + tutil))
+			if (__cpu_overutilized(cpu, tutil))
 				continue;
+
+			util = cpu_util(cpu);
 
 			/* Find the least loaded CPU */
 			if (util > best_cpu_util)
@@ -1919,6 +1932,11 @@ static int find_lowest_rq(struct task_struct *task)
 	int this_cpu = smp_processor_id();
 	int cpu = -1;
 	int ret;
+	int lowest_cpu = -1;
+
+	trace_android_rvh_find_lowest_rq(task, lowest_mask, &lowest_cpu);
+	if (lowest_cpu >= 0)
+		return lowest_cpu;
 
 	/* Make sure the mask is initialized first */
 	if (unlikely(!lowest_mask))

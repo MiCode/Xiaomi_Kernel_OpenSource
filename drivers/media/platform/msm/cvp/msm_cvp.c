@@ -376,7 +376,7 @@ static int cvp_check_clock(struct msm_cvp_inst *inst,
 		__func__, fw_cycles, hw_cycles[0],
 		hw_cycles[1], hw_cycles[2], hw_cycles[3]);
 
-	mutex_lock(&core->dyn_clk.lock);
+	mutex_lock(&core->clk_lock);
 	for (i = 0; i < HFI_MAX_HW_THREADS; ++i) {
 		dprintk(CVP_PWR, "%s - %d: hw_cycles %u, tens_thresh %u\n",
 			__func__, i, hw_cycles[i],
@@ -437,7 +437,7 @@ static int cvp_check_clock(struct msm_cvp_inst *inst,
 			}
 		}
 	}
-	mutex_unlock(&core->dyn_clk.lock);
+	mutex_unlock(&core->clk_lock);
 
 	return rc;
 }
@@ -861,6 +861,8 @@ static void aggregate_power_update(struct msm_cvp_core *core,
  * Clock vote from realtime session will be hard request. If aggregated
  * session clock request exceeds max limit, the function will return
  * error.
+ *
+ * Ensure caller acquires clk_lock!
  */
 static int adjust_bw_freqs(void)
 {
@@ -943,7 +945,6 @@ static int adjust_bw_freqs(void)
 	}
 
 	ctrl_freq = (core->curr_freq*3)>>1;
-	mutex_lock(&core->dyn_clk.lock);
 	core->dyn_clk.conf_freq = core->curr_freq;
 	for (i = 0; i < HFI_MAX_HW_THREADS; ++i) {
 		core->dyn_clk.hi_ctrl_lim[i] = core->dyn_clk.sum_fps[i] ?
@@ -951,7 +952,6 @@ static int adjust_bw_freqs(void)
 		core->dyn_clk.lo_ctrl_lim[i] =
 			core->dyn_clk.hi_ctrl_lim[i];
 	}
-	mutex_unlock(&core->dyn_clk.lock);
 
 	hdev->clk_freq = core->curr_freq;
 	rc = icc_set_bw(bus->client, bw_sum, 0);
@@ -980,9 +980,9 @@ static int msm_cvp_update_power(struct msm_cvp_inst *inst)
 	inst->cur_cmd_type = CVP_KMD_UPDATE_POWER;
 	core = inst->core;
 
-	mutex_lock(&core->lock);
+	mutex_lock(&core->clk_lock);
 	rc = adjust_bw_freqs();
-	mutex_unlock(&core->lock);
+	mutex_unlock(&core->clk_lock);
 	inst->cur_cmd_type = 0;
 	cvp_put_inst(s);
 

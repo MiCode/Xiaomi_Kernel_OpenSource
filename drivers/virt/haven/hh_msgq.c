@@ -462,6 +462,7 @@ int hh_msgq_populate_cap_info(enum hh_msgq_label label, u64 cap_id,
 		goto err;
 	}
 
+	irq_set_irq_wake(irq, 1);
 	spin_unlock(&cap_table_entry->cap_entry_lock);
 
 	pr_debug(
