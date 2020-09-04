@@ -514,4 +514,13 @@ config MSM_GCC_WAIPIO
 	  Say Y if you want to use peripheral devices such as UART, SPI, I2C,
 	  USB, UFS, SD/eMMC, PCIe, etc.
 
+config MSM_VIDEOCC_WAIPIO
+	tristate "WAIPIO Video Clock Controller"
+	select MSM_GCC_WAIPIO
+	help
+	  Support for the video clock controller on Qualcomm Technologies, Inc.
+	  WAIPIO devices.
+	  Say Y if you want to support video devices and functionality such as
+	  video encode/decode.
+
 endif
