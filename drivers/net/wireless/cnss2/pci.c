@@ -55,6 +55,8 @@
 #define EMULATION_HW			0
 #endif
 
+#define DEVICE_RDDM_COOKIE		0xCAFECACE
+
 static DEFINE_SPINLOCK(pci_link_down_lock);
 static DEFINE_SPINLOCK(pci_reg_window_lock);
 static DEFINE_SPINLOCK(time_sync_lock);
@@ -1005,6 +1007,106 @@ void cnss_pci_unlock_reg_window(struct device *dev, unsigned long *flags)
 }
 EXPORT_SYMBOL(cnss_pci_unlock_reg_window);
 
+/**
+ * cnss_pci_dump_bl_sram_mem - Dump WLAN FW bootloader debug log
+ * @pci_priv: PCI device private data structure of cnss platform driver
+ *
+ * Dump Primary and secondary bootloader debug log data. For SBL check the
+ * log struct address and size for validity.
+ *
+ * Supported only on QCA6490
+ *
+ * Return: None
+ */
+static void cnss_pci_dump_bl_sram_mem(struct cnss_pci_data *pci_priv)
+{
+	int i;
+	u32 mem_addr, val, pbl_stage, sbl_log_start, sbl_log_size;
+	u32 pbl_wlan_boot_cfg, pbl_bootstrap_status;
+	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
+
+	if (plat_priv->device_id != QCA6490_DEVICE_ID)
+		return;
+
+	if (cnss_pci_check_link_status(pci_priv))
+		return;
+
+	cnss_pci_reg_read(pci_priv, QCA6490_TCSR_PBL_LOGGING_REG, &pbl_stage);
+	cnss_pci_reg_read(pci_priv, QCA6490_PCIE_BHI_ERRDBG2_REG,
+			  &sbl_log_start);
+	cnss_pci_reg_read(pci_priv, QCA6490_PCIE_BHI_ERRDBG3_REG,
+			  &sbl_log_size);
+	cnss_pci_reg_read(pci_priv, QCA6490_PBL_WLAN_BOOT_CFG,
+			  &pbl_wlan_boot_cfg);
+	cnss_pci_reg_read(pci_priv, QCA6490_PBL_BOOTSTRAP_STATUS,
+			  &pbl_bootstrap_status);
+	cnss_pr_dbg("TCSR_PBL_LOGGING: 0x%08x PCIE_BHI_ERRDBG: Start: 0x%08x Size:0x%08x\n",
+		    pbl_stage, sbl_log_start, sbl_log_size);
+	cnss_pr_dbg("PBL_WLAN_BOOT_CFG: 0x%08x PBL_BOOTSTRAP_STATUS: 0x%08x\n",
+		    pbl_wlan_boot_cfg, pbl_bootstrap_status);
+
+	cnss_pr_dbg("Dumping PBL log data\n");
+	/* cnss_pci_reg_read provides 32bit register values */
+	for (i = 0; i < QCA6490_DEBUG_PBL_LOG_SRAM_MAX_SIZE; i += sizeof(val)) {
+		mem_addr = QCA6490_DEBUG_PBL_LOG_SRAM_START + i;
+		if (cnss_pci_reg_read(pci_priv, mem_addr, &val))
+			break;
+		cnss_pr_dbg("SRAM[0x%x] = 0x%x\n", mem_addr, val);
+	}
+
+	sbl_log_size = (sbl_log_size > QCA6490_DEBUG_SBL_LOG_SRAM_MAX_SIZE ?
+			QCA6490_DEBUG_SBL_LOG_SRAM_MAX_SIZE : sbl_log_size);
+	if (plat_priv->device_version.major_version == FW_V2_NUMBER) {
+		if (sbl_log_start < QCA6490_V2_SBL_DATA_START ||
+		    sbl_log_start > QCA6490_V2_SBL_DATA_END ||
+		    (sbl_log_start + sbl_log_size) > QCA6490_V2_SBL_DATA_END)
+			goto out;
+	} else {
+		if (sbl_log_start < QCA6490_V1_SBL_DATA_START ||
+		    sbl_log_start > QCA6490_V1_SBL_DATA_END ||
+		    (sbl_log_start + sbl_log_size) > QCA6490_V1_SBL_DATA_END)
+			goto out;
+	}
+
+	cnss_pr_dbg("Dumping SBL log data\n");
+	for (i = 0; i < sbl_log_size; i += sizeof(val)) {
+		mem_addr = sbl_log_start + i;
+		if (cnss_pci_reg_read(pci_priv, mem_addr, &val))
+			break;
+		cnss_pr_dbg("SRAM[0x%x] = 0x%x\n", mem_addr, val);
+	}
+	return;
+out:
+	cnss_pr_err("Invalid SBL log data\n");
+}
+
+static int cnss_pci_handle_mhi_poweron_timeout(struct cnss_pci_data *pci_priv)
+{
+	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
+
+	cnss_fatal_err("MHI power up returns timeout\n");
+
+	if (mhi_scan_rddm_cookie(pci_priv->mhi_ctrl, DEVICE_RDDM_COOKIE)) {
+		/* Wait for RDDM if RDDM cookie is set. If RDDM times out,
+		 * PBL/SBL error region may have been erased so no need to
+		 * dump them either.
+		 */
+		if (!test_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state) &&
+		    !pci_priv->pci_link_down_ind) {
+			mod_timer(&pci_priv->dev_rddm_timer,
+				  jiffies + msecs_to_jiffies(DEV_RDDM_TIMEOUT));
+		}
+	} else {
+		cnss_pr_dbg("RDDM cookie is not set\n");
+		mhi_debug_reg_dump(pci_priv->mhi_ctrl);
+		/* Dump PBL/SBL error log if RDDM cookie is not set */
+		cnss_pci_dump_bl_sram_mem(pci_priv);
+		return -ETIMEDOUT;
+	}
+
+	return 0;
+}
+
 static char *cnss_mhi_state_to_str(enum cnss_mhi_state mhi_state)
 {
 	switch (mhi_state) {
@@ -1152,11 +1254,6 @@ static int cnss_pci_set_mhi_state(struct cnss_pci_data *pci_priv,
 		break;
 	case CNSS_MHI_POWER_ON:
 		ret = mhi_sync_power_up(pci_priv->mhi_ctrl);
-		/* -ETIMEDOUT means MHI power up has succeeded but timed out
-		 * for firmware mission mode event, so handle it properly.
-		 */
-		if (ret == -ETIMEDOUT)
-			ret = 0;
 		break;
 	case CNSS_MHI_POWER_OFF:
 		mhi_power_down(pci_priv->mhi_ctrl, true);
@@ -1225,15 +1322,15 @@ int cnss_pci_start_mhi(struct cnss_pci_data *pci_priv)
 
 	ret = cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_INIT);
 	if (ret)
-		goto out;
+		return ret;
 
 	ret = cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_POWER_ON);
-	if (ret)
-		goto out;
+	/* -ETIMEDOUT means MHI power on has succeeded but timed out
+	 * for firmware mission mode event, so handle it properly.
+	 */
+	if (ret == -ETIMEDOUT)
+		ret = cnss_pci_handle_mhi_poweron_timeout(pci_priv);
 
-	return 0;
-
-out:
 	return ret;
 }
 
@@ -1243,6 +1340,11 @@ static void cnss_pci_power_off_mhi(struct cnss_pci_data *pci_priv)
 
 	if (test_bit(FBC_BYPASS, &plat_priv->ctrl_params.quirks))
 		return;
+
+	if (!test_bit(CNSS_MHI_POWER_ON, &pci_priv->mhi_state)) {
+		cnss_pr_dbg("MHI is already powered off\n");
+		return;
+	}
 
 	cnss_pci_set_mhi_state_bit(pci_priv, CNSS_MHI_RESUME);
 	cnss_pci_set_mhi_state_bit(pci_priv, CNSS_MHI_POWERING_OFF);
@@ -1259,6 +1361,11 @@ static void cnss_pci_deinit_mhi(struct cnss_pci_data *pci_priv)
 
 	if (test_bit(FBC_BYPASS, &plat_priv->ctrl_params.quirks))
 		return;
+
+	if (!test_bit(CNSS_MHI_INIT, &pci_priv->mhi_state)) {
+		cnss_pr_dbg("MHI is already deinited\n");
+		return;
+	}
 
 	cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_DEINIT);
 }
@@ -1749,79 +1856,6 @@ static void cnss_pci_collect_dump(struct cnss_pci_data *pci_priv)
 }
 #endif
 
-/**
- * cnss_pci_dump_bl_sram_mem - Dump WLAN FW bootloader debug log
- * @pci_priv: PCI device private data structure of cnss platform driver
- *
- * Dump Primary and secondary bootloader debug log data. For SBL check the
- * log struct address and size for validity.
- *
- * Supported only on QCA6490
- *
- * Return: None
- */
-static void cnss_pci_dump_bl_sram_mem(struct cnss_pci_data *pci_priv)
-{
-	int i;
-	u32 mem_addr, val, pbl_stage, sbl_log_start, sbl_log_size;
-	u32 pbl_wlan_boot_cfg, pbl_bootstrap_status;
-	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
-
-	if (plat_priv->device_id != QCA6490_DEVICE_ID)
-		return;
-
-	if (cnss_pci_check_link_status(pci_priv))
-		return;
-
-	cnss_pci_reg_read(pci_priv, QCA6490_TCSR_PBL_LOGGING_REG, &pbl_stage);
-	cnss_pci_reg_read(pci_priv, QCA6490_PCIE_BHI_ERRDBG2_REG,
-			  &sbl_log_start);
-	cnss_pci_reg_read(pci_priv, QCA6490_PCIE_BHI_ERRDBG3_REG,
-			  &sbl_log_size);
-	cnss_pci_reg_read(pci_priv, QCA6490_PBL_WLAN_BOOT_CFG,
-			  &pbl_wlan_boot_cfg);
-	cnss_pci_reg_read(pci_priv, QCA6490_PBL_BOOTSTRAP_STATUS,
-			  &pbl_bootstrap_status);
-	cnss_pr_dbg("TCSR_PBL_LOGGING: 0x%08x PCIE_BHI_ERRDBG: Start: 0x%08x Size:0x%08x",
-		    pbl_stage, sbl_log_start, sbl_log_size);
-	cnss_pr_dbg("PBL_WLAN_BOOT_CFG: 0x%08x PBL_BOOTSTRAP_STATUS: 0x%08x",
-		    pbl_wlan_boot_cfg, pbl_bootstrap_status);
-
-	cnss_pr_dbg("Dumping PBL log data");
-	/* cnss_pci_reg_read provides 32bit register values */
-	for (i = 0; i < QCA6490_DEBUG_PBL_LOG_SRAM_MAX_SIZE; i += sizeof(val)) {
-		mem_addr = QCA6490_DEBUG_PBL_LOG_SRAM_START + i;
-		if (cnss_pci_reg_read(pci_priv, mem_addr, &val))
-			break;
-		cnss_pr_dbg("SRAM[0x%x] = 0x%x\n", mem_addr, val);
-	}
-
-	sbl_log_size = (sbl_log_size > QCA6490_DEBUG_SBL_LOG_SRAM_MAX_SIZE ?
-			QCA6490_DEBUG_SBL_LOG_SRAM_MAX_SIZE : sbl_log_size);
-	if (plat_priv->device_version.major_version == FW_V2_NUMBER) {
-		if (sbl_log_start < QCA6490_V2_SBL_DATA_START ||
-		    sbl_log_start > QCA6490_V2_SBL_DATA_END ||
-		    (sbl_log_start + sbl_log_size) > QCA6490_V2_SBL_DATA_END)
-			goto out;
-	} else {
-		if (sbl_log_start < QCA6490_V1_SBL_DATA_START ||
-		    sbl_log_start > QCA6490_V1_SBL_DATA_END ||
-		    (sbl_log_start + sbl_log_size) > QCA6490_V1_SBL_DATA_END)
-			goto out;
-	}
-
-	cnss_pr_dbg("Dumping SBL log data");
-	for (i = 0; i < sbl_log_size; i += sizeof(val)) {
-		mem_addr = sbl_log_start + i;
-		if (cnss_pci_reg_read(pci_priv, mem_addr, &val))
-			break;
-		cnss_pr_dbg("SRAM[0x%x] = 0x%x\n", mem_addr, val);
-	}
-	return;
-out:
-	cnss_pr_err("Invalid SBL log data");
-}
-
 static int cnss_qca6174_powerup(struct cnss_pci_data *pci_priv)
 {
 	int ret = 0;
@@ -1943,9 +1977,11 @@ retry:
 	if (ret) {
 		cnss_fatal_err("Failed to start MHI, err = %d\n", ret);
 		if (!test_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state) &&
-		    !pci_priv->pci_link_down_ind && timeout)
-			mod_timer(&plat_priv->fw_boot_timer,
-				  jiffies + msecs_to_jiffies(timeout >> 1));
+		    !pci_priv->pci_link_down_ind && timeout) {
+			/* Start recovery directly for MHI start failures */
+			cnss_schedule_recovery(&pci_priv->pci_dev->dev,
+					       CNSS_REASON_DEFAULT);
+		}
 		return 0;
 	}
 
@@ -2239,10 +2275,8 @@ int cnss_wlan_register_driver(struct cnss_wlan_driver *driver_ops)
 					  msecs_to_jiffies(timeout));
 	if (!ret) {
 		cnss_pr_err("Timeout waiting for calibration to complete\n");
-		if (!test_bit(CNSS_IN_REBOOT, &plat_priv->driver_state)) {
-			cnss_pci_dump_bl_sram_mem(pci_priv);
+		if (!test_bit(CNSS_IN_REBOOT, &plat_priv->driver_state))
 			CNSS_ASSERT(0);
-		}
 
 		cal_info = kzalloc(sizeof(*cal_info), GFP_KERNEL);
 		if (!cal_info)
@@ -4112,7 +4146,6 @@ void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv, bool in_panic)
 
 	cnss_pci_dump_misc_reg(pci_priv);
 	cnss_pci_dump_qdss_reg(pci_priv);
-	cnss_pci_dump_bl_sram_mem(pci_priv);
 
 	ret = mhi_download_rddm_img(pci_priv->mhi_ctrl, in_panic);
 	if (ret) {
