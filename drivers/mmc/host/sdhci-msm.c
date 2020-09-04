@@ -3998,9 +3998,30 @@ static __maybe_unused int sdhci_msm_runtime_resume(struct device *dev)
 	return 0;
 }
 
+static int sdhci_msm_suspend_late(struct device *dev)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
+
+	if (!msm_host->sdhci_qos)
+		goto skip_qos;
+
+	if (flush_delayed_work(&msm_host->pmqos_unvote_work))
+		dev_dbg(dev, "%s Waited for pmqos_unvote_work to finish\n",
+			 __func__);
+
+skip_qos:
+	if (flush_delayed_work(&msm_host->clk_gating_work))
+		dev_dbg(dev, "%s Waited for clk_gating_work to finish\n",
+			 __func__);
+	return 0;
+}
+
 static const struct dev_pm_ops sdhci_msm_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend,
 				pm_runtime_force_resume)
+	SET_LATE_SYSTEM_SLEEP_PM_OPS(sdhci_msm_suspend_late, NULL)
 	SET_RUNTIME_PM_OPS(sdhci_msm_runtime_suspend,
 			   sdhci_msm_runtime_resume,
 			   NULL)
