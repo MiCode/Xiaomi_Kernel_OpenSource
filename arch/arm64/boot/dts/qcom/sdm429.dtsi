@@ -325,6 +325,7 @@
 		compatible = "qcom,gcc-sdm429w", "syscon";
 		reg = <0x1800000 0x80000>;
 		reg-names = "cc_base";
+		qcom,gcc_oxili_gfx3d_clk-opp-handle = <&msm_gpu>;
 		vdd_cx-supply = <&VDD_CX_LEVEL>;
 		clocks = <&rpmcc RPM_SMD_XO_CLK_SRC>;
 		clock-names = "bi_tcxo";
