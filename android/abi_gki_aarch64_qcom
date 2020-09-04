@@ -1342,6 +1342,12 @@
   memmove
   memory_read_from_buffer
   memparse
+  mempool_alloc
+  mempool_alloc_slab
+  mempool_create
+  mempool_destroy
+  mempool_free
+  mempool_free_slab
   memremap
   memset
   __memset_io
@@ -1850,6 +1856,7 @@
   regmap_field_update_bits_base
   __regmap_init
   regmap_irq_get_virq
+  regmap_mmio_detach_clk
   regmap_raw_read
   regmap_read
   regmap_update_bits_base
@@ -2673,6 +2680,7 @@
   vb2_reqbufs
   vb2_streamoff
   vb2_streamon
+  vb2_vmalloc_memops
   vchan_dma_desc_free_list
   vchan_init
   vchan_tx_desc_free
