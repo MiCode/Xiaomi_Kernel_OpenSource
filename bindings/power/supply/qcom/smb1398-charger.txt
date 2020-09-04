@@ -43,15 +43,18 @@ Charger specific properties:
 	      required when SMB1396 working as a DIV2 CP master.
 
 - io-channels
-- io-channel-names
   Usage:      optional
-  Value type: <phandle>
-  Definition: The IIO channel for measuring SMB1398 die temperature,
-	      io-channel-names should be "die-temp". For other details about
-	      IIO bindings see:
+  Value type: <phandle-array>
+  Definition: IIO channel specifiers for each name in io-channel-names.
+	      For other details about IIO bindings see:
 	             Documentation/devicetree/bindings/iio/iio-bindings.txt
 	      These properties are required when SMB1396 working as a DIV2 CP
 	      master.
+
+- io-channel-names
+  Usage:      optional
+  Value type: <string-array>
+  Definition: Names of the IIO channels that are used by CP master.
 
 - qcom,div2-cp-min-ilim-ua
   Usage:      optional
@@ -86,8 +89,12 @@ smb1398_charger: qcom,combo_charger {
 	interrupt-parent = <&smb1398>;
 	status = "disabled";
 
-	io-channels = <&pm8150b_vadc ADC_AMUX_THM2>;
-	io-channel-names = "die_temp";
+	io-channels = <&smb1396_div2_cp_slave PSY_IIO_CURRENT_CAPABILITY>,
+		     <&pm7250b_charger PSY_IIO_USB_REAL_TYPE>,
+		     <&pm7250b_vadc ADC5_AMUX_THM2>;
+	io-channel-names = "current_capability",
+		     "real_type",
+		     "die_temp";
 
 	interrupts = <0x26 0x1 IRQ_TYPE_EDGE_RISING>,
 		     <0x26 0x3 IRQ_TYPE_EDGE_RISING>,
