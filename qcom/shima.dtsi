@@ -1836,6 +1836,11 @@
 			compatible = "qcom,bcm-voter";
 			qcom,tcs-wait = <QCOM_ICC_TAG_AMC>;
 		};
+
+		sde_rsc_rpmh {
+			compatible = "qcom,sde-rsc-rpmh";
+			cell-index = <0>;
+		};
 	};
 
 	spmi_bus: qcom,spmi@c440000 {
