@@ -668,15 +668,43 @@
 	};
 
 	/* GPU_CC GDSCs */
+	gpu_cc_cx_hw_ctrl: syscon@3d9953d {
+		compatible = "syscon";
+		reg = <0x3d9953d 0x4>;
+	};
+
 	gpu_cc_cx_gdsc: qcom,gdsc@3d99108 {
-		compatible = "qcom,stub-regulator";
+		compatible = "qcom,gdsc";
+		reg = <0x3d99108 0x4>;
 		regulator-name = "gpu_cc_cx_gdsc";
+		hw-ctrl-addr = <&gpu_cc_cx_hw_ctrl>;
+		parent-supply = <&VDD_CX_LEVEL>;
+		qcom,no-status-check-on-disable;
+		qcom,clk-dis-wait-val = <8>;
 		qcom,gds-timeout = <500>;
+		qcom,retain-regs;
+	};
+
+	gpu_cc_gx_domain_addr: syscon@3d99504 {
+		compatible = "syscon";
+		reg = <0x3d99504 0x4>;
+	};
+
+	gpu_cc_gx_sw_reset: syscon@3d99058 {
+		compatible = "syscon";
+		reg = <0x3d99058 0x4>;
 	};
 
 	gpu_cc_gx_gdsc: qcom,gdsc@3d9905c {
-		compatible = "qcom,stub-regulator";
+		compatible = "qcom,gdsc";
+		reg = <0x3d9905c 0x4>;
 		regulator-name = "gpu_cc_gx_gdsc";
+		domain-addr = <&gpu_cc_gx_domain_addr>;
+		sw-reset = <&gpu_cc_gx_sw_reset>;
+		parent-supply = <&VDD_GFX_LEVEL>;
+		vdd_parent-supply = <&VDD_GFX_LEVEL>;
+		qcom,reset-aon-logic;
+		qcom,retain-regs;
 		qcom,gds-timeout = <500>;
 	};
 
@@ -778,9 +806,14 @@
 		#reset-cells = <1>;
 	};
 
-	clock_gpucc: qcom,gpucc {
-		compatible = "qcom,dummycc";
+	clock_gpucc: qcom,gpucc@3d90000 {
+		compatible = "qcom,waipio-gpucc", "syscon";
 		clock-output-names = "gpucc_clocks";
+		reg = <0x3d90000 0xA000>;
+		reg-names = "cc_base";
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		vdd_mx-supply = <&VDD_MXA_LEVEL>;
+		vdd_mxc-supply = <&VDD_MXC_LEVEL>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
