@@ -12,6 +12,7 @@
 
 #include "adreno.h"
 #include "adreno_a6xx.h"
+#include "adreno_a6xx_hwsched.h"
 #include "adreno_pm4types.h"
 #include "adreno_trace.h"
 #include "kgsl_trace.h"
@@ -685,6 +686,25 @@ void a6xx_start(struct adreno_device *adreno_dev)
 	}
 }
 
+void a6xx_unhalt_sqe(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct adreno_firmware *fw = ADRENO_FW(adreno_dev, ADRENO_FW_SQE);
+	uint64_t gpuaddr;
+
+	gpuaddr = fw->memdesc->gpuaddr;
+
+	/* Program the ucode base for CP */
+	kgsl_regwrite(device, A6XX_CP_SQE_INSTR_BASE_LO,
+				lower_32_bits(gpuaddr));
+	kgsl_regwrite(device, A6XX_CP_SQE_INSTR_BASE_HI,
+				upper_32_bits(gpuaddr));
+
+	/* Clear the SQE_HALT to start the CP engine */
+	kgsl_regwrite(device, A6XX_CP_SQE_CNTL, 1);
+}
+
+
 /*
  * CP_INIT_MAX_CONTEXT bit tells if the multiple hardware contexts can
  * be used at once of if they should be serialized
@@ -736,14 +756,14 @@ static int a6xx_get_cp_init_cmds(struct adreno_device *adreno_dev)
 	if (adreno_dev->cp_init_cmds)
 		return 0;
 
-	adreno_dev->cp_init_cmds = devm_kzalloc(&device->pdev->dev, 12 << 2,
-				GFP_KERNEL);
+	adreno_dev->cp_init_cmds = devm_kzalloc(&device->pdev->dev,
+			A6XX_CP_INIT_DWORDS << 2, GFP_KERNEL);
 	if (!adreno_dev->cp_init_cmds)
 		return -ENOMEM;
 
 	cmds = (u32 *)adreno_dev->cp_init_cmds;
 
-	cmds[i++] = cp_type7_packet(CP_ME_INIT, 11);
+	cmds[i++] = cp_type7_packet(CP_ME_INIT, A6XX_CP_INIT_DWORDS - 1);
 
 	/* Enabled ordinal mask */
 	cmds[i++] = CP_INIT_MASK;
@@ -778,7 +798,7 @@ static int a6xx_get_cp_init_cmds(struct adreno_device *adreno_dev)
 	return 0;
 }
 
-static void a6xx_spin_idle_debug(struct adreno_device *adreno_dev,
+void a6xx_spin_idle_debug(struct adreno_device *adreno_dev,
 				const char *str)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
@@ -910,7 +930,6 @@ static int a6xx_post_start(struct adreno_device *adreno_dev)
 int a6xx_rb_start(struct adreno_device *adreno_dev)
 {
 	const struct adreno_a6xx_core *a6xx_core = to_a6xx_core(adreno_dev);
-	struct adreno_firmware *fw = ADRENO_FW(adreno_dev, ADRENO_FW_SQE);
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	u32 cp_rb_cntl = A6XX_CP_RB_CNTL_DEFAULT |
 		(ADRENO_FEATURE(adreno_dev, ADRENO_APRIV) ? 0 : (1 << 27));
@@ -951,15 +970,7 @@ int a6xx_rb_start(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A6XX_CP_RB_BASE_HI,
 		upper_32_bits(rb->buffer_desc->gpuaddr));
 
-	/* Program the ucode base for CP */
-	kgsl_regwrite(device, A6XX_CP_SQE_INSTR_BASE_LO,
-			lower_32_bits(fw->memdesc->gpuaddr));
-
-	kgsl_regwrite(device, A6XX_CP_SQE_INSTR_BASE_HI,
-			upper_32_bits(fw->memdesc->gpuaddr));
-
-	/* Clear the SQE_HALT to start the CP engine */
-	kgsl_regwrite(device, A6XX_CP_SQE_CNTL, 1);
+	a6xx_unhalt_sqe(adreno_dev);
 
 	ret = a6xx_send_cp_init(adreno_dev, rb);
 	if (ret)
@@ -1085,7 +1096,7 @@ static bool a619_holi_hw_isidle(struct adreno_device *adreno_dev)
 	return (reg & BIT(23)) ? false : true;
 }
 
-static bool a6xx_hw_isidle(struct adreno_device *adreno_dev)
+bool a6xx_hw_isidle(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned int reg;
@@ -2825,6 +2836,24 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 #endif
 	.read_alwayson = a6xx_read_alwayson,
 	.power_ops = &adreno_power_operations,
+};
+
+struct adreno_gpudev adreno_a6xx_hwsched_gpudev = {
+	.reg_offsets = a6xx_register_offsets,
+	.probe = a6xx_hwsched_probe,
+	.snapshot = a6xx_gmu_snapshot,
+	.irq_handler = a6xx_irq_handler,
+	.perfcounters = &a6xx_perfcounters,
+	.read_throttling_counters = a6xx_read_throttling_counters,
+	.iommu_fault_block = a6xx_iommu_fault_block,
+	.preemption_context_init = a6xx_preemption_context_init,
+	.preemption_context_destroy = a6xx_preemption_context_destroy,
+	.perfcounter_update = a6xx_perfcounter_update,
+#ifdef CONFIG_QCOM_KGSL_CORESIGHT
+	.coresight = {&a6xx_coresight, &a6xx_coresight_cx},
+#endif
+	.read_alwayson = a6xx_read_alwayson,
+	.power_ops = &a6xx_hwsched_power_ops,
 };
 
 struct adreno_gpudev adreno_a6xx_gmu_gpudev = {

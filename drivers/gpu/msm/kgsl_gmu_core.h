@@ -54,6 +54,7 @@ enum oob_request {
 	oob_perfcntr = 1,
 	oob_boot_slumber = 6, /* reserved special case */
 	oob_dcvs = 7, /* reserved special case */
+	oob_max,
 };
 
 enum gmu_pwrctrl_mode {
@@ -134,6 +135,7 @@ struct gmu_core_device {
 
 extern struct platform_driver a6xx_gmu_driver;
 extern struct platform_driver a6xx_rgmu_driver;
+extern struct platform_driver a6xx_hwsched_driver;
 
 /* GMU core functions */
 

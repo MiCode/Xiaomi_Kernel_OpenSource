@@ -35,9 +35,6 @@
 #define HFI_DBG_PRI 40
 #define HFI_DSP_PRI_0 20
 
-#define HFI_RSP_TIMEOUT 100 /* msec */
-
-#define HFI_IRQ_MSGQ_MASK		BIT(0)
 #define HFI_IRQ_SIDEMSGQ_MASK		BIT(1)
 #define HFI_IRQ_DBGQ_MASK		BIT(2)
 #define HFI_IRQ_CM3_FAULT_MASK		BIT(15)
@@ -137,6 +134,44 @@ struct hfi_queue_header {
 	(((type) << 16) | ((((size) >> 2) & 0xFF) << 8) | ((id) & 0xFF))
 #define CMD_MSG_HDR(id, size) CREATE_MSG_HDR(id, size, HFI_MSG_CMD)
 #define ACK_MSG_HDR(id, size) CREATE_MSG_HDR(id, size, HFI_MSG_ACK)
+
+#define HFI_QUEUE_DEFAULT_CNT 3
+#define HFI_QUEUE_DISPATCH_MAX_CNT 14
+#define HFI_QUEUE_HDR_MAX (HFI_QUEUE_DEFAULT_CNT + HFI_QUEUE_DISPATCH_MAX_CNT)
+
+struct hfi_queue_table {
+	struct hfi_queue_table_header qtbl_hdr;
+	struct hfi_queue_header qhdr[HFI_QUEUE_HDR_MAX];
+};
+
+#define HFI_QUEUE_OFFSET(i)             \
+		(ALIGN(sizeof(struct hfi_queue_table), SZ_16) + \
+		((i) * HFI_QUEUE_SIZE))
+
+#define GMU_QUEUE_START_ADDR(gmuaddr, i) \
+	(gmuaddr + HFI_QUEUE_OFFSET(i))
+
+#define MSG_HDR_GET_ID(hdr) ((hdr) & 0xFF)
+#define MSG_HDR_GET_SIZE(hdr) (((hdr) >> 8) & 0xFF)
+#define MSG_HDR_GET_TYPE(hdr) (((hdr) >> 16) & 0xF)
+#define MSG_HDR_GET_SEQNUM(hdr) (((hdr) >> 20) & 0xFFF)
+
+#define MSG_HDR_GET_SIZE(hdr) (((hdr) >> 8) & 0xFF)
+#define MSG_HDR_GET_SEQNUM(hdr) (((hdr) >> 20) & 0xFFF)
+
+#define HDR_CMP_SEQNUM(out_hdr, in_hdr) \
+	(MSG_HDR_GET_SEQNUM(out_hdr) == MSG_HDR_GET_SEQNUM(in_hdr))
+
+#define MSG_HDR_SET_SEQNUM(hdr, num) \
+	(((hdr) & 0xFFFFF) | ((num) << 20))
+
+#define QUEUE_HDR_TYPE(id, prio, rtype, stype) \
+	(((id) & 0xFF) | (((prio) & 0xFF) << 8) | \
+	(((rtype) & 0xFF) << 16) | (((stype) & 0xFF) << 24))
+
+#define HFI_RSP_TIMEOUT 100 /* msec */
+
+#define HFI_IRQ_MSGQ_MASK  BIT(0)
 
 #define H2F_MSG_INIT		0
 #define H2F_MSG_FW_VER		1
@@ -458,6 +493,7 @@ struct hfi_context_pointers_cmd {
 	uint32_t ctxt_id;
 	uint64_t sop_addr;
 	uint64_t eop_addr;
+	u64 user_ctxt_record_addr;
 } __packed;
 
 /* H2F */
@@ -482,15 +518,27 @@ struct hfi_context_bad_reply_cmd {
 	uint32_t req_hdr;
 } __packed;
 
+/* H2F */
+struct hfi_submit_cmd {
+	u32 hdr;
+	u32 ctxt_id;
+	u32 flags;
+	u32 ts;
+	u32 numibs;
+} __packed;
+
+
 /**
  * struct pending_cmd - data structure to track outstanding HFI
  *	command messages
- * @sent_hdr: copy of outgoing header for response comparison
- * @results: the payload of received return message (ACK)
  */
 struct pending_cmd {
-	uint32_t sent_hdr;
-	uint32_t results[MAX_RCVD_SIZE];
+	/** @sent_hdr: Header of the un-ack'd hfi packet */
+	u32 sent_hdr;
+	/** @results: Array to store the ack packet */
+	u32 results[MAX_RCVD_SIZE];
+	/** @complete: Completion to signal hfi ack has been received */
+	struct completion complete;
 };
 
 /**
@@ -554,4 +602,114 @@ int a6xx_hfi_init(struct adreno_device *adreno_dev);
  */
 int a6xx_hfi_send_req(struct adreno_device *adreno_dev,
 	unsigned int id, void *data);
+
+/* Helper function to get to a6xx hfi struct from adreno device */
+struct a6xx_hfi *to_a6xx_hfi(struct adreno_device *adreno_dev);
+
+/**
+ * a6xx_hfi_queue_write - Write a command to hfi queue
+ * @adreno_dev: Pointer to the adreno device
+ * @queue_idx: destination queue id
+ * @msg: Data to be written to the queue
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int a6xx_hfi_queue_write(struct adreno_device *adreno_dev, u32 queue_idx,
+	u32 *msg);
+
+/**
+ * a6xx_hfi_queue_read - Read data from hfi queue
+ * @gmu: Pointer to the a6xx gmu device
+ * @queue_idx: queue id to read from
+ * @output: Pointer to read the data into
+ * @max_size: Number of bytes to read from the queue
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int a6xx_hfi_queue_read(struct a6xx_gmu_device *gmu, u32 queue_idx,
+	u32 *output, u32 max_size);
+
+/**
+ * a6xx_receive_ack_cmd - Process ack type packets
+ * @gmu: Pointer to the a6xx gmu device
+ * @rcvd: Pointer to the data read from hfi queue
+ * @ret_cmd: Container for the hfi packet for which this ack is received
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int a6xx_receive_ack_cmd(struct a6xx_gmu_device *gmu, void *rcvd,
+	struct pending_cmd *ret_cmd);
+
+/**
+ * a6xx_hfi_send_feature_ctrl - Enable gmu feature via hfi
+ * @adreno_dev: Pointer to the adreno device
+ * @feature: feature to be enabled or disabled
+ * enable: Set 1 to enable or 0 to disable a feature
+ * @data: payload for the send feature hfi packet
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int a6xx_hfi_send_feature_ctrl(struct adreno_device *adreno_dev,
+	u32 feature, u32 enable, u32 data);
+
+/**
+ * a6xx_hfi_send_core_fw_start - Send the core fw start hfi
+ * @adreno_dev: Pointer to the adreno device
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int a6xx_hfi_send_core_fw_start(struct adreno_device *adreno_dev);
+
+/**
+ * a6xx_hfi_send_acd_feature_ctrl - Send the acd table and acd feature
+ * @adreno_dev: Pointer to the adreno device
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int a6xx_hfi_send_acd_feature_ctrl(struct adreno_device *adreno_dev);
+
+/**
+ * a6xx_hfi_send_lm_feature_ctrl -  Send the lm feature hfi packet
+ * @adreno_dev: Pointer to the adreno device
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int a6xx_hfi_send_lm_feature_ctrl(struct adreno_device *adreno_dev);
+
+/**
+ * a6xx_hfi_send_generic_req -  Send a generic hfi packet
+ * @adreno_dev: Pointer to the adreno device
+ * @cmd: Pointer to the hfi packet header and data
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int a6xx_hfi_send_generic_req(struct adreno_device *adreno_dev, void *cmd);
+
+/**
+ * a6xx_hfi_send_bcl_feature_ctrl -  Send the bcl feature hfi packet
+ * @adreno_dev: Pointer to the adreno device
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int a6xx_hfi_send_bcl_feature_ctrl(struct adreno_device *adreno_dev);
+
+/*
+ * a6xx_hfi_process_queue - Check hfi queue for messages from gmu
+ * @gmu: Pointer to the a6xx gmu device
+ * @queue_idx: queue id to be processed
+ * @ret_cmd: Container for data needed for waiting for the ack
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int a6xx_hfi_process_queue(struct a6xx_gmu_device *gmu,
+	u32 queue_idx, struct pending_cmd *ret_cmd);
+
+/**
+ * a6xx_hfi_cmdq_write - Write a command to command queue
+ * @adreno_dev: Pointer to the adreno device
+ * @msg: Data to be written to the queue
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int a6xx_hfi_cmdq_write(struct adreno_device *adreno_dev, u32 *msg);
 #endif

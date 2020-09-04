@@ -1741,7 +1741,7 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct adreno_ringbuffer *rb;
-	bool sptprac_on;
+	bool sptprac_on = true;
 	unsigned int i, roq_size;
 	u32 hi, lo;
 
@@ -1779,7 +1779,8 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 				ARRAY_SIZE(a6xx_gmu_wrapper_registers) / 2);
 	}
 
-	sptprac_on = gpudev->sptprac_is_on(adreno_dev);
+	if (gpudev->sptprac_is_on)
+		sptprac_on = gpudev->sptprac_is_on(adreno_dev);
 
 	if (!gmu_core_dev_gx_is_on(device))
 		return;
