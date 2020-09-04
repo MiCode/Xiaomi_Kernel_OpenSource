@@ -126,6 +126,8 @@
 #define WLED5_CTRL_TEST4_REG		0xe5
 #define  WLED5_TEST4_EN_SH_SS		BIT(5)
 
+#define WLED5_CTRL_PBUS_WRITE_SYNC_CTL	0xef
+
 /* WLED5 specific sink registers */
 #define WLED5_SINK_MOD_A_EN_REG		0x50
 #define WLED5_SINK_MOD_B_EN_REG		0x60
@@ -301,15 +303,34 @@ static inline bool is_wled5(struct wled *wled)
 static int wled_module_enable(struct wled *wled, int val)
 {
 	int rc;
+	int reg;
 
 	if (wled->force_mod_disable)
 		return 0;
+
+	/* Force HFRC off */
+	if (*wled->version == WLED_PM8150L) {
+		reg = val ? 0 : 3;
+		rc = regmap_write(wled->regmap, wled->ctrl_addr +
+				  WLED5_CTRL_PBUS_WRITE_SYNC_CTL, reg);
+		if (rc < 0)
+			return rc;
+	}
 
 	rc = regmap_update_bits(wled->regmap, wled->ctrl_addr +
 			WLED_CTRL_MOD_ENABLE, WLED_CTRL_MOD_EN_MASK,
 			val << WLED_CTRL_MODULE_EN_SHIFT);
 	if (rc < 0)
 		return rc;
+
+	/* Force HFRC off */
+	if (*wled->version == WLED_PM8150L && val) {
+		rc = regmap_write(wled->regmap, wled->sink_addr +
+				  WLED5_SINK_FLASH_SHDN_CLR_REG, 0);
+		if (rc < 0)
+			return rc;
+	}
+
 	/*
 	 * Wait for at least 10ms before enabling OVP fault interrupt after
 	 * enabling the module so that soft start is completed. Keep the OVP
