@@ -147,11 +147,14 @@
   cpufreq_register_driver
   cpufreq_register_notifier
   cpufreq_table_index_unsorted
+  cpufreq_unregister_notifier
   __cpuhp_setup_state
   __cpuhp_setup_state_cpuslocked
   cpuhp_tasks_frozen
   cpu_hwcap_keys
   cpu_hwcaps
+  cpuidle_pause_and_lock
+  cpuidle_resume_and_unlock
   cpumask_next
   cpumask_next_and
   cpu_number
@@ -753,6 +756,7 @@
   netif_carrier_on
   netif_napi_add
   netif_receive_skb
+  netif_receive_skb_list
   netif_rx
   netif_tx_wake_queue
   no_llseek
@@ -1311,6 +1315,12 @@
   tasklet_init
   tasklet_kill
   __tasklet_schedule
+  tcp_register_congestion_control
+  tcp_reno_cong_avoid
+  tcp_reno_ssthresh
+  tcp_reno_undo_cwnd
+  tcp_slow_start
+  tcp_unregister_congestion_control
   thermal_cooling_device_unregister
   thermal_of_cooling_device_register
   thermal_zone_device_update
