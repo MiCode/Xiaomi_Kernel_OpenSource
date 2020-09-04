@@ -20,7 +20,6 @@
 #include "fbt_cpu.h"
 #include "fbt_cpu_platform.h"
 #include "fps_composer.h"
-#include "fpsgo.h"
 #define API_READY 1
 
 #include <linux/preempt.h>
