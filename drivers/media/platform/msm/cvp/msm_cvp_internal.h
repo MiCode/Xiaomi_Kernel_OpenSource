@@ -47,7 +47,8 @@
 
 #define ARP_BUF_SIZE 0x100000
 
-#define CVP_RT_PRIO_THRESHOLD 1
+/* Adjust this value to admit non-realtime session */
+#define CVP_RT_PRIO_THRESHOLD 0
 
 struct msm_cvp_inst;
 
