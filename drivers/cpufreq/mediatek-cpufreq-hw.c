@@ -50,9 +50,23 @@ static const u16 cpufreq_mtk_offsets[REG_ARRAY_SIZE] = {
 
 static struct cpufreq_mtk *mtk_freq_domain_map[NR_CPUS];
 
-static int mtk_cpufreq_get_cpu_power(unsigned long *power, unsigned long *KHz, int cpu)
+static int look_up_cpu(struct device *cpu_dev)
 {
-	struct device *cpu_dev = get_cpu_device(cpu);
+	int i = 0;
+
+	for (i = 0; i < NR_CPUS; i++) {
+		if (cpu_dev == get_cpu_device(i))
+			return i;
+	}
+
+	return 0; /* fallback to cpu0 */
+}
+
+
+static int mtk_cpufreq_get_cpu_power(unsigned long *power, unsigned long *KHz,
+		struct device *cpu_dev)
+{
+	int cpu = look_up_cpu(cpu_dev);
 	struct cpufreq_mtk *c = mtk_freq_domain_map[cpu];
 	unsigned long Hz;
 	int i;
@@ -138,7 +152,7 @@ static int mtk_cpufreq_hw_cpu_init(struct cpufreq_policy *policy)
 		return -ENODEV;
 	}
 
-	em_register_perf_domain(policy->cpus, c->nr_opp, &em_cb);
+	em_dev_register_perf_domain(cpu_dev, c->nr_opp, &em_cb, policy->cpus);
 
 	return 0;
 }
