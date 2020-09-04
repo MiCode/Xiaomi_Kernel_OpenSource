@@ -370,6 +370,13 @@ static void ucsi_qti_notify(struct ucsi_dev *udev, unsigned int offset,
 	mutex_unlock(&udev->notify_lock);
 
 	if (cmd_requested && offset == UCSI_MESSAGE_IN) {
+		/*
+		 * when Connector Partner Type or Flags changes,
+		 * Connector Partner Changed bit shall be set.
+		 */
+		if (!(status->change & UCSI_CONSTAT_PARTNER_CHANGE))
+			return;
+
 		cancel_work_sync(&udev->notify_work);
 
 		udev->constat_info.partner_usb = false;
