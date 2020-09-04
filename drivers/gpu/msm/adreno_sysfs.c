@@ -144,16 +144,38 @@ static void change_preemption(struct adreno_device *adreno_dev, void *priv)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct kgsl_context *context;
 	struct adreno_context *drawctxt;
-	int id;
+	struct adreno_ringbuffer *rb;
+	int id, i, ret;
+
+	/* Make sure all ringbuffers are finished */
+	FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
+		ret = adreno_ringbuffer_waittimestamp(rb, rb->timestamp,
+			2 * 1000);
+		if (ret) {
+			dev_err(device->dev,
+				"Cannot disable preemption because couldn't idle ringbuffer[%d] ret: %d\n",
+				rb->id, ret);
+			return;
+		}
+	}
 
 	change_bit(ADRENO_DEVICE_PREEMPTION, &adreno_dev->priv);
-	adreno_dev->cur_rb = &(adreno_dev->ringbuffers[0]);
+	adreno_dev->cur_rb = &adreno_dev->ringbuffers[0];
+	adreno_dev->next_rb = NULL;
+	adreno_dev->prev_rb = NULL;
 
 	/* Update the ringbuffer for each draw context */
 	write_lock(&device->context_lock);
 	idr_for_each_entry(&device->context_idr, context, id) {
 		drawctxt = ADRENO_CONTEXT(context);
 		drawctxt->rb = adreno_ctx_get_rb(adreno_dev, drawctxt);
+
+		/*
+		 * Make sure context destroy checks against the correct
+		 * ringbuffer's timestamp.
+		 */
+		adreno_rb_readtimestamp(adreno_dev, drawctxt->rb,
+			KGSL_TIMESTAMP_RETIRED, &drawctxt->internal_timestamp);
 	}
 	write_unlock(&device->context_lock);
 }
