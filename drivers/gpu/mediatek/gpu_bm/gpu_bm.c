@@ -56,12 +56,11 @@ static int _mgq_proc_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, _mgq_proc_show, NULL);
 }
-static const struct file_operations _mgq_proc_fops = {
-	.owner = THIS_MODULE,
-	.open = _mgq_proc_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = single_release,
+static const struct proc_ops _mgq_proc_fops = {
+	.proc_open = _mgq_proc_open,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
 };
 
 static int _MTKGPUQoS_initDebugFS(void)
