@@ -2230,75 +2230,130 @@ int cnss_minidump_remove_region(struct cnss_plat_data *plat_priv,
 	return ret;
 }
 
+/**
+ * cnss_register_bus_scale() - Setup interconnect voting data
+ * @plat_priv: Platform data structure
+ *
+ * For different interconnect path configured in device tree setup voting data
+ * for list of bandwidth requirements.
+ *
+ * Result: 0 for success. -EINVAL if not configured
+ */
 static int cnss_register_bus_scale(struct cnss_plat_data *plat_priv)
 {
-	int ret = 0, len = 0, i, j;
-	struct cnss_bus_bw_info *bus_bw_info;
-	const u32 *cfg_arr;
+	int ret = -EINVAL;
+	u32 idx, i, j, cfg_arr_size, *cfg_arr;
+	struct cnss_bus_bw_info *bus_bw_info, *tmp;
+	struct device *dev = &plat_priv->plat_dev->dev;
 
-	bus_bw_info = &plat_priv->bus_bw_info;
-
-	bus_bw_info->cnss_path =
-		of_icc_get(&plat_priv->plat_dev->dev, NULL);
-
-	if (!bus_bw_info->cnss_path) {
-		cnss_pr_err("Skip Bus BW setup. Interconnect not configured\n");
-		return 0;
-	}
-
-	if (IS_ERR(bus_bw_info->cnss_path))  {
-		ret = PTR_ERR(bus_bw_info->cnss_path);
-		if (ret != -EPROBE_DEFER) {
-			cnss_pr_err("Failed to get Interconnect path: %d!\n",
-				    ret);
-			goto out;
-		}
+	INIT_LIST_HEAD(&plat_priv->icc.list_head);
+	ret = of_property_read_u32(dev->of_node,
+				   "qcom,icc-path-count",
+				   &plat_priv->icc.path_count);
+	if (ret) {
+		cnss_pr_err("Platform Bus Interconnect path not configured\n");
+		return -EINVAL;
 	}
 	ret = of_property_read_u32(plat_priv->plat_dev->dev.of_node,
-				   "qcom,bus-bw-cfg-num",
-				   &bus_bw_info->num_cfg);
+				   "qcom,bus-bw-cfg-count",
+				   &plat_priv->icc.bus_bw_cfg_count);
 	if (ret) {
 		cnss_pr_err("Failed to get Bus BW Config table size\n");
-		goto out;
+		goto cleanup;
 	}
-
-	cfg_arr = of_get_property(plat_priv->plat_dev->dev.of_node,
-				  "qcom,bus-bw-cfg", &len);
+	cfg_arr_size = plat_priv->icc.path_count *
+			 plat_priv->icc.bus_bw_cfg_count * CNSS_ICC_VOTE_MAX;
+	cfg_arr = kzalloc(cfg_arr_size, GFP_KERNEL);
 	if (!cfg_arr) {
-		cnss_pr_err("Bus BW Config Table not setup!\n");
-		ret = -EINVAL;
-		goto out;
+		cnss_pr_err("Failed to alloc cfg table mem\n");
+		ret = -ENOMEM;
+		goto cleanup;
 	}
 
-	bus_bw_info->cfg_table = kcalloc(bus_bw_info->num_cfg,
-					 sizeof(*bus_bw_info->cfg_table),
-					 GFP_KERNEL);
-	if (!bus_bw_info->cfg_table) {
-		cnss_pr_err("No mem for Bus BW config table\n");
-		return -ENOMEM;
+	ret = of_property_read_u32_array(plat_priv->plat_dev->dev.of_node,
+					 "qcom,bus-bw-cfg", cfg_arr,
+					 cfg_arr_size);
+	if (ret) {
+		cnss_pr_err("Invalid Bus BW Config Table\n");
+		goto cleanup;
 	}
-	for (i = 0, j = 0; i < bus_bw_info->num_cfg; i++, j += 2) {
-		bus_bw_info->cfg_table[i].ab = be32_to_cpu(cfg_arr[j]);
-		bus_bw_info->cfg_table[i].ib = be32_to_cpu(cfg_arr[j + 1]);
-		cnss_pr_dbg("Bandwidth Type: %d bw_cfg.ab: %d bw_cfg.ib: %d\n",
-			    i, bus_bw_info->cfg_table[i].ab,
-			    bus_bw_info->cfg_table[i].ib);
+
+	cnss_pr_dbg("ICC Path_Count: %d BW_CFG_Count: %d\n",
+		    plat_priv->icc.path_count, plat_priv->icc.bus_bw_cfg_count);
+
+	for (idx = 0; idx < plat_priv->icc.path_count; idx++) {
+		bus_bw_info = devm_kzalloc(dev, sizeof(*bus_bw_info),
+					   GFP_KERNEL);
+		if (!bus_bw_info) {
+			ret = -ENOMEM;
+			goto out;
+		}
+		ret = of_property_read_string_index(dev->of_node,
+						    "interconnect-names", idx,
+						    &bus_bw_info->icc_name);
+		if (ret)
+			goto out;
+
+		bus_bw_info->icc_path =
+			of_icc_get(&plat_priv->plat_dev->dev,
+				   bus_bw_info->icc_name);
+
+		if (IS_ERR(bus_bw_info->icc_path))  {
+			ret = PTR_ERR(bus_bw_info->icc_path);
+			if (ret != -EPROBE_DEFER) {
+				cnss_pr_err("Failed to get Interconnect path for %s. Err: %d\n",
+					    bus_bw_info->icc_name, ret);
+				goto out;
+			}
+		}
+
+		bus_bw_info->cfg_table =
+			devm_kcalloc(dev, plat_priv->icc.bus_bw_cfg_count,
+				     sizeof(*bus_bw_info->cfg_table),
+				     GFP_KERNEL);
+		if (!bus_bw_info->cfg_table) {
+			ret = -ENOMEM;
+			goto out;
+		}
+		cnss_pr_dbg("ICC Vote CFG for path: %s\n",
+			    bus_bw_info->icc_name);
+		for (i = 0, j = (idx * plat_priv->icc.bus_bw_cfg_count *
+		     CNSS_ICC_VOTE_MAX);
+		     i < plat_priv->icc.bus_bw_cfg_count;
+		     i++, j += 2) {
+			bus_bw_info->cfg_table[i].avg_bw = cfg_arr[j];
+			bus_bw_info->cfg_table[i].peak_bw = cfg_arr[j + 1];
+			cnss_pr_dbg("ICC Vote BW: %d avg: %d peak: %d\n",
+				    i, bus_bw_info->cfg_table[i].avg_bw,
+				    bus_bw_info->cfg_table[i].peak_bw);
+		}
+		list_add_tail(&bus_bw_info->list,
+			      &plat_priv->icc.list_head);
 	}
+	kfree(cfg_arr);
 	return 0;
 out:
+	list_for_each_entry_safe(bus_bw_info, tmp,
+				 &plat_priv->icc.list_head, list) {
+		list_del(&bus_bw_info->list);
+	}
+cleanup:
+	kfree(cfg_arr);
+	memset(&plat_priv->icc, 0, sizeof(plat_priv->icc));
 	return ret;
 }
 
 static void cnss_unregister_bus_scale(struct cnss_plat_data *plat_priv)
 {
-	struct cnss_bus_bw_info *bus_bw_info;
+	struct cnss_bus_bw_info *bus_bw_info, *tmp;
 
-	bus_bw_info = &plat_priv->bus_bw_info;
-
-	if (bus_bw_info->cnss_path)
-		icc_put(bus_bw_info->cnss_path);
-
-	kfree(bus_bw_info->cfg_table);
+	list_for_each_entry_safe(bus_bw_info, tmp,
+				 &plat_priv->icc.list_head, list) {
+		list_del(&bus_bw_info->list);
+		if (bus_bw_info->icc_path)
+			icc_put(bus_bw_info->icc_path);
+	}
+	memset(&plat_priv->icc, 0, sizeof(plat_priv->icc));
 }
 
 static ssize_t recovery_store(struct device *dev,

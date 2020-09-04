@@ -140,16 +140,46 @@ struct cnss_esoc_info {
 };
 #endif
 
+/**
+ * struct cnss_bus_bw_cfg - Interconnect vote data
+ * @avg_bw: Vote for average bandwidth
+ * @peak_bw: Vote for peak bandwidth
+ */
 struct cnss_bus_bw_cfg {
-	u32 ab;
-	u32 ib;
+	u32 avg_bw;
+	u32 peak_bw;
 };
 
+/* Number of bw votes (avg, peak) entries that ICC requires */
+#define CNSS_ICC_VOTE_MAX 2
+
+/**
+ * struct cnss_bus_bw_info - Bus bandwidth config for interconnect path
+ * @list: Kernel linked list
+ * @icc_name: Name of interconnect path as defined in Device tree
+ * @icc_path: Interconnect path data structure
+ * @cfg_table: Interconnect vote data for average and peak bandwidth
+ */
 struct cnss_bus_bw_info {
-	struct icc_path *cnss_path;
-	int current_bw_vote;
-	u32 num_cfg;
+	struct list_head list;
+	const char *icc_name;
+	struct icc_path *icc_path;
 	struct cnss_bus_bw_cfg *cfg_table;
+};
+
+/**
+ * struct cnss_interconnect_cfg - CNSS platform interconnect config
+ * @list_head: List of interconnect path bandwidth configs
+ * @path_count: Count of interconnect path configured in device tree
+ * @current_bw_vote: WLAN driver provided bandwidth vote
+ * @bus_bw_cfg_count: Number of bandwidth configs for voting. It is the array
+ *                    size of struct cnss_bus_bw_info.cfg_table
+ */
+struct cnss_interconnect_cfg {
+	struct list_head list_head;
+	u32 path_count;
+	int current_bw_vote;
+	u32 bus_bw_cfg_count;
 };
 
 struct cnss_fw_mem {
@@ -360,7 +390,7 @@ struct cnss_plat_data {
 #if IS_ENABLED(CONFIG_ESOC)
 	struct cnss_esoc_info esoc_info;
 #endif
-	struct cnss_bus_bw_info bus_bw_info;
+	struct cnss_interconnect_cfg icc;
 	struct notifier_block modem_nb;
 	struct notifier_block reboot_nb;
 	struct notifier_block panic_nb;

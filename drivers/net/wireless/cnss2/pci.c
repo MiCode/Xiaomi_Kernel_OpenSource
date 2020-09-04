@@ -509,42 +509,58 @@ static int cnss_pci_force_wake_put(struct cnss_pci_data *pci_priv)
 	return ret;
 }
 
-int cnss_request_bus_bandwidth(struct device *dev, int bandwidth)
+/**
+ * cnss_setup_bus_bandwidth() - Setup interconnect vote for given bandwidth
+ * @plat_priv: Platform private data struct
+ * @bw: bandwidth
+ * @save: toggle flag to save bandwidth to current_bw_vote
+ *
+ * Setup bandwidth votes for configured interconnect paths
+ *
+ * Return: 0 for success
+ */
+static int cnss_setup_bus_bandwidth(struct cnss_plat_data *plat_priv,
+				    u32 bw, bool save)
 {
 	int ret = 0;
-	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
 	struct cnss_bus_bw_info *bus_bw_info;
+
+	if (!plat_priv->icc.path_count)
+		return -ENOTSUPP;
+
+	if (bw >= plat_priv->icc.bus_bw_cfg_count) {
+		cnss_pr_err("Invalid bus bandwidth Type: %d", bw);
+		return -EINVAL;
+	}
+
+	list_for_each_entry(bus_bw_info, &plat_priv->icc.list_head, list) {
+		ret = icc_set_bw(bus_bw_info->icc_path,
+				 bus_bw_info->cfg_table[bw].avg_bw,
+				 bus_bw_info->cfg_table[bw].peak_bw);
+		if (ret) {
+			cnss_pr_err("Could not set BW Cfg: %d, err = %d ICC Path: %s Val: %d %d\n",
+				    bw, ret, bus_bw_info->icc_name,
+				    bus_bw_info->cfg_table[bw].avg_bw,
+				    bus_bw_info->cfg_table[bw].peak_bw);
+			break;
+		}
+	}
+	if (ret == 0 && save)
+		plat_priv->icc.current_bw_vote = bw;
+	return ret;
+}
+
+int cnss_request_bus_bandwidth(struct device *dev, int bandwidth)
+{
+	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
 
 	if (!plat_priv)
 		return -ENODEV;
 
-	bus_bw_info = &plat_priv->bus_bw_info;
-	if (!bus_bw_info->cnss_path || bandwidth > bus_bw_info->num_cfg)
+	if (bandwidth < 0)
 		return -EINVAL;
 
-	switch (bandwidth) {
-	case CNSS_BUS_WIDTH_NONE:
-	case CNSS_BUS_WIDTH_IDLE:
-	case CNSS_BUS_WIDTH_LOW:
-	case CNSS_BUS_WIDTH_MEDIUM:
-	case CNSS_BUS_WIDTH_HIGH:
-	case CNSS_BUS_WIDTH_VERY_HIGH:
-	case CNSS_BUS_WIDTH_LOW_LATENCY:
-		ret = icc_set_bw(bus_bw_info->cnss_path,
-				 bus_bw_info->cfg_table[bandwidth].ab,
-				 bus_bw_info->cfg_table[bandwidth].ib);
-		if (!ret)
-			bus_bw_info->current_bw_vote = bandwidth;
-		else
-			cnss_pr_err("Could not set bus bandwidth: %d, err = %d\n",
-				    bandwidth, ret);
-		break;
-	default:
-		cnss_pr_err("Invalid bus bandwidth: %d", bandwidth);
-		ret = -EINVAL;
-	}
-
-	return ret;
+	return cnss_setup_bus_bandwidth(plat_priv, (u32)bandwidth, true);
 }
 EXPORT_SYMBOL(cnss_request_bus_bandwidth);
 
@@ -2987,7 +3003,6 @@ int cnss_auto_suspend(struct device *dev)
 	struct pci_dev *pci_dev = to_pci_dev(dev);
 	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(pci_dev);
 	struct cnss_plat_data *plat_priv;
-	struct cnss_bus_bw_info *bus_bw_info;
 
 	if (!pci_priv)
 		return -ENODEV;
@@ -3008,18 +3023,11 @@ int cnss_auto_suspend(struct device *dev)
 
 	cnss_pci_set_monitor_wake_intr(pci_priv, true);
 
-	bus_bw_info = &plat_priv->bus_bw_info;
-	if (!bus_bw_info->cnss_path)
-		goto out;
-
 	/* For suspend temporarily set bandwidth vote to NONE and dont save in
 	 * current_bw_vote as in resume path we should vote for last used
 	 * bandwidth vote. Also ignore error if bw voting is not setup.
 	 */
-	icc_set_bw(bus_bw_info->cnss_path,
-		   bus_bw_info->cfg_table[CNSS_BUS_WIDTH_NONE].ab,
-		   bus_bw_info->cfg_table[CNSS_BUS_WIDTH_NONE].ib);
-out:
+	cnss_setup_bus_bandwidth(plat_priv, CNSS_BUS_WIDTH_NONE, false);
 	return 0;
 }
 EXPORT_SYMBOL(cnss_auto_suspend);
@@ -3048,7 +3056,7 @@ int cnss_auto_resume(struct device *dev)
 	cnss_pci_set_auto_suspended(pci_priv, 0);
 	mutex_unlock(&pci_priv->bus_lock);
 
-	cnss_request_bus_bandwidth(dev, plat_priv->bus_bw_info.current_bw_vote);
+	cnss_request_bus_bandwidth(dev, plat_priv->icc.current_bw_vote);
 
 	return 0;
 }
