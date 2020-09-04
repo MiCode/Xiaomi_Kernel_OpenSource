@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "sysmon-qmi: %s: " fmt, __func__
@@ -33,11 +33,12 @@
 #define QMI_SSCTL_SUBSYS_EVENT_READY_IND_V02	0x0023
 
 #define QMI_SSCTL_ERROR_MSG_LENGTH		90
+#define QMI_SSCTL_EXT_ERROR_MSG_LENGTH_V02	256
 #define QMI_SSCTL_SUBSYS_NAME_LENGTH		15
 #define QMI_SSCTL_SUBSYS_EVENT_REQ_LENGTH	40
 #define QMI_SSCTL_RESP_MSG_LENGTH		7
 #define QMI_SSCTL_EMPTY_MSG_LENGTH		0
-#define QMI_SSCTL_MAX_MSG_LENGTH		101
+#define QMI_SSCTL_MAX_MSG_LENGTH		362
 
 #define SSCTL_SERVICE_ID			0x2B
 #define SSCTL_VER_2				2
@@ -461,6 +462,9 @@ struct qmi_ssctl_get_failure_reason_resp_msg {
 	uint8_t error_message_valid;
 	uint32_t error_message_len;
 	char error_message[QMI_SSCTL_ERROR_MSG_LENGTH];
+	uint8_t ext_error_message_valid;
+	uint32_t ext_error_message_len;
+	char ext_error_message[QMI_SSCTL_EXT_ERROR_MSG_LENGTH_V02];
 };
 
 static struct qmi_elem_info qmi_ssctl_get_failure_reason_req_msg_ei[] = {
@@ -510,6 +514,39 @@ static struct qmi_elem_info qmi_ssctl_get_failure_reason_resp_msg_ei[] = {
 		.offset    = offsetof(
 			struct qmi_ssctl_get_failure_reason_resp_msg,
 						error_message),
+		.ei_array  = NULL,
+	},
+	{
+		.data_type = QMI_OPT_FLAG,
+		.elem_len  = 1,
+		.elem_size = sizeof(uint8_t),
+		.array_type  = NO_ARRAY,
+		.tlv_type  = 0x10,
+		.offset    = offsetof(
+			struct qmi_ssctl_get_failure_reason_resp_msg,
+						ext_error_message_valid),
+		.ei_array  = NULL,
+	},
+	{
+		.data_type = QMI_DATA_LEN,
+		.elem_len  = 1,
+		.elem_size = sizeof(uint16_t),
+		.array_type  = NO_ARRAY,
+		.tlv_type  = 0x10,
+		.offset    = offsetof(
+			struct qmi_ssctl_get_failure_reason_resp_msg,
+						ext_error_message_len),
+		.ei_array  = NULL,
+	},
+	{
+		.data_type = QMI_UNSIGNED_1_BYTE,
+		.elem_len  = QMI_SSCTL_EXT_ERROR_MSG_LENGTH_V02,
+		.elem_size = sizeof(char),
+		.array_type  = VAR_LEN_ARRAY,
+		.tlv_type  = 0x10,
+		.offset    = offsetof(
+			struct qmi_ssctl_get_failure_reason_resp_msg,
+						ext_error_message),
 		.ei_array  = NULL,
 	},
 	QMI_EOTI_DATA_TYPE
