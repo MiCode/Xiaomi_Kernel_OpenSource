@@ -21,389 +21,57 @@
 #include <cmdq-sec-iwc-common.h>
 #endif
 
+#include <dt-bindings/memory/mt6873-larb-port.h>
+#include <linux/interconnect-provider.h>
 #include <soc/mediatek/smi.h>
 
-#ifdef CONFIG_MTK_SMI_EXT
-#include <mmdvfs_pmqos.h>
-#include "smi_public.h"
-#include "smi_port.h"
-
-#include <dt-bindings/memory/mt6873-larb-port.h>
-
 /* mdp */
-struct mm_qos_request mdp_rdma0_request[MDP_TOTAL_THREAD];
-struct mm_qos_request mdp_rdma1_request[MDP_TOTAL_THREAD];
-struct mm_qos_request mdp_wrot0_request[MDP_TOTAL_THREAD];
-struct mm_qos_request mdp_wrot1_request[MDP_TOTAL_THREAD];
+static struct icc_path *path_mdp_rdma0[MDP_TOTAL_THREAD];
+static struct icc_path *path_mdp_rdma1[MDP_TOTAL_THREAD];
+static struct icc_path *path_mdp_wrot0[MDP_TOTAL_THREAD];
+static struct icc_path *path_mdp_wrot1[MDP_TOTAL_THREAD];
 /* isp */
-struct mm_qos_request imgi_d1_mdp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request imgbi_d1_mdp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request dmgi_d1_mdp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request depi_d1_mdp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request ice_d1_mdp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request smti_d1_mdp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request smto_d2_mdp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request smto_d1_mdp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request crzo_d1_mdp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request img3o_d1_mdp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request vipi_d1_mdp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request smti_d5_mdp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request timgo_d1_mdp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request ufbc_w0_mdp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request ufbc_r0_mdp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request imgi_d1_disp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request imgbi_d1_disp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request dmgi_d1_disp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request depi_d1_disp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request ice_d1_disp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request smti_d1_disp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request smto_d2_disp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request smto_d1_disp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request crzo_d1_disp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request img3o_d1_disp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request vipi_d1_disp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request smti_d5_disp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request timgo_d1_disp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request ufbc_w0_disp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request ufbc_r0_disp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request mfb_rdma0_mdp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request mfb_rdma1_mdp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request mfb_rdma2_mdp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request mfb_rdma3_mdp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request mfb_rdma4_mdp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request mfb_rdma5_mdp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request mfb_wdma0_mdp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request mfb_wdma1_mdp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request mfb_rdma0_disp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request mfb_rdma1_disp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request mfb_rdma2_disp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request mfb_rdma3_disp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request mfb_rdma4_disp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request mfb_rdma5_disp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request mfb_wdma0_disp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request mfb_wdma1_disp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request wpe_rdma1_mdp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request wpe_rdma0_mdp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request wpe_wdma_mdp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request wpe_rdma1_disp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request wpe_rdma0_disp_request[MDP_TOTAL_THREAD];
-struct mm_qos_request wpe_wdma_disp_request[MDP_TOTAL_THREAD];
-
-uint32_t cmdq_mdp_translate_port(uint32_t engineId)
-{
-	switch (engineId) {
-	case CMDQ_ENG_MDP_RDMA0:
-		return M4U_PORT_L2_MDP_RDMA0;
-	case CMDQ_ENG_MDP_RDMA1:
-		return M4U_PORT_L2_MDP_RDMA1;
-	case CMDQ_ENG_MDP_WROT0:
-		return M4U_PORT_L2_MDP_WROT0;
-	case CMDQ_ENG_MDP_WROT1:
-		return M4U_PORT_L2_MDP_WROT1;
-	}
-
-	if (engineId != CMDQ_ENG_MDP_CAMIN
-		&& engineId != CMDQ_ENG_MDP_CAMIN2)
-		CMDQ_ERR("pmqos invalid engineId %d\n", engineId);
-	return 0;
-}
-
-struct mm_qos_request *cmdq_mdp_get_request(uint32_t thread_id, uint32_t port)
-{
-	if (!port)
-		return NULL;
-
-	switch (port) {
-	case M4U_PORT_L2_MDP_RDMA0:
-		return &mdp_rdma0_request[thread_id];
-	case M4U_PORT_L2_MDP_RDMA1:
-		return &mdp_rdma1_request[thread_id];
-	case M4U_PORT_L2_MDP_WROT0:
-		return &mdp_wrot0_request[thread_id];
-	case M4U_PORT_L2_MDP_WROT1:
-		return &mdp_wrot1_request[thread_id];
-	case M4U_PORT_L9_IMG_IMGI_D1:
-		return &imgi_d1_mdp_request[thread_id];
-	case M4U_PORT_L9_IMG_IMGBI_D1:
-		return &imgbi_d1_mdp_request[thread_id];
-	case M4U_PORT_L9_IMG_DMGI_D1:
-		return &dmgi_d1_mdp_request[thread_id];
-	case M4U_PORT_L9_IMG_DEPI_D1:
-		return &depi_d1_mdp_request[thread_id];
-	case M4U_PORT_L9_IMG_ICE_D1:
-		return &ice_d1_mdp_request[thread_id];
-	case M4U_PORT_L9_IMG_SMTI_D1:
-		return &smti_d1_mdp_request[thread_id];
-	case M4U_PORT_L9_IMG_SMTO_D2:
-		return &smto_d2_mdp_request[thread_id];
-	case M4U_PORT_L9_IMG_SMTO_D1:
-		return &smto_d1_mdp_request[thread_id];
-	case M4U_PORT_L9_IMG_CRZO_D1:
-		return &crzo_d1_mdp_request[thread_id];
-	case M4U_PORT_L9_IMG_IMG3O_D1:
-		return &img3o_d1_mdp_request[thread_id];
-	case M4U_PORT_L9_IMG_VIPI_D1:
-		return &vipi_d1_mdp_request[thread_id];
-	case M4U_PORT_L9_IMG_SMTI_D5:
-		return &smti_d5_mdp_request[thread_id];
-	case M4U_PORT_L9_IMG_TIMGO_D1:
-		return &timgo_d1_mdp_request[thread_id];
-	case M4U_PORT_L9_IMG_UFBC_W0:
-		return &ufbc_w0_mdp_request[thread_id];
-	case M4U_PORT_L9_IMG_UFBC_R0:
-		return &ufbc_r0_mdp_request[thread_id];
-	case M4U_PORT_L11_IMG_IMGI_D1:
-		return &imgi_d1_disp_request[thread_id];
-	case M4U_PORT_L11_IMG_IMGBI_D1:
-		return &imgbi_d1_disp_request[thread_id];
-	case M4U_PORT_L11_IMG_DMGI_D1:
-		return &dmgi_d1_disp_request[thread_id];
-	case M4U_PORT_L11_IMG_DEPI_D1:
-		return &depi_d1_disp_request[thread_id];
-	case M4U_PORT_L11_IMG_ICE_D1:
-		return &ice_d1_disp_request[thread_id];
-	case M4U_PORT_L11_IMG_SMTI_D1:
-		return &smti_d1_disp_request[thread_id];
-	case M4U_PORT_L11_IMG_SMTO_D2:
-		return &smto_d2_disp_request[thread_id];
-	case M4U_PORT_L11_IMG_SMTO_D1:
-		return &smto_d1_disp_request[thread_id];
-	case M4U_PORT_L11_IMG_CRZO_D1:
-		return &crzo_d1_disp_request[thread_id];
-	case M4U_PORT_L11_IMG_IMG3O_D1:
-		return &img3o_d1_disp_request[thread_id];
-	case M4U_PORT_L11_IMG_VIPI_D1:
-		return &vipi_d1_disp_request[thread_id];
-	case M4U_PORT_L11_IMG_SMTI_D5:
-		return &smti_d5_disp_request[thread_id];
-	case M4U_PORT_L11_IMG_TIMGO_D1:
-		return &timgo_d1_disp_request[thread_id];
-	case M4U_PORT_L11_IMG_UFBC_W0:
-		return &ufbc_w0_disp_request[thread_id];
-	case M4U_PORT_L11_IMG_UFBC_R0:
-		return &ufbc_r0_disp_request[thread_id];
-	case M4U_PORT_L9_IMG_MFB_RDMA0:
-		return &mfb_rdma0_mdp_request[thread_id];
-	case M4U_PORT_L9_IMG_MFB_RDMA1:
-		return &mfb_rdma1_mdp_request[thread_id];
-	case M4U_PORT_L9_IMG_MFB_RDMA2:
-		return &mfb_rdma2_mdp_request[thread_id];
-	case M4U_PORT_L9_IMG_MFB_RDMA3:
-		return &mfb_rdma3_mdp_request[thread_id];
-	case M4U_PORT_L9_IMG_MFB_RDMA4:
-		return &mfb_rdma4_mdp_request[thread_id];
-	case M4U_PORT_L9_IMG_MFB_RDMA5:
-		return &mfb_rdma5_mdp_request[thread_id];
-	case M4U_PORT_L9_IMG_MFB_WDMA0:
-		return &mfb_wdma0_mdp_request[thread_id];
-	case M4U_PORT_L9_IMG_MFB_WDMA1:
-		return &mfb_wdma1_mdp_request[thread_id];
-	case M4U_PORT_L11_IMG_MFB_RDMA0:
-		return &mfb_rdma0_disp_request[thread_id];
-	case M4U_PORT_L11_IMG_MFB_RDMA1:
-		return &mfb_rdma1_disp_request[thread_id];
-	case M4U_PORT_L11_IMG_MFB_RDMA2:
-		return &mfb_rdma2_disp_request[thread_id];
-	case M4U_PORT_L11_IMG_MFB_RDMA3:
-		return &mfb_rdma3_disp_request[thread_id];
-	case M4U_PORT_L11_IMG_MFB_RDMA4:
-		return &mfb_rdma4_disp_request[thread_id];
-	case M4U_PORT_L11_IMG_MFB_RDMA5:
-		return &mfb_rdma5_disp_request[thread_id];
-	case M4U_PORT_L11_IMG_MFB_WDMA0:
-		return &mfb_wdma0_disp_request[thread_id];
-	case M4U_PORT_L11_IMG_MFB_WDMA1:
-		return &mfb_wdma1_disp_request[thread_id];
-	case M4U_PORT_L9_IMG_WPE_RDMA1:
-		return &wpe_rdma1_mdp_request[thread_id];
-	case M4U_PORT_L9_IMG_WPE_RDMA0:
-		return &wpe_rdma0_mdp_request[thread_id];
-	case M4U_PORT_L9_IMG_WPE_WDMA:
-		return &wpe_wdma_mdp_request[thread_id];
-	case M4U_PORT_L11_IMG_WPE_RDMA1:
-		return &wpe_rdma1_disp_request[thread_id];
-	case M4U_PORT_L11_IMG_WPE_RDMA0:
-		return &wpe_rdma0_disp_request[thread_id];
-	case M4U_PORT_L11_IMG_WPE_WDMA:
-		return &wpe_wdma_disp_request[thread_id];
-	}
-
-	CMDQ_ERR("pmqos invalid port%d\n", port);
-	return NULL;
-}
-
-void cmdq_mdp_init_pmqos_mdp(s32 index, struct plist_head *owner_list)
-{
-	mm_qos_add_request(&owner_list[index],
-		&mdp_rdma0_request[index], M4U_PORT_L2_MDP_RDMA0);
-	mm_qos_add_request(&owner_list[index],
-		&mdp_rdma1_request[index], M4U_PORT_L2_MDP_RDMA1);
-	mm_qos_add_request(&owner_list[index],
-		&mdp_wrot0_request[index], M4U_PORT_L2_MDP_WROT0);
-	mm_qos_add_request(&owner_list[index],
-		&mdp_wrot1_request[index], M4U_PORT_L2_MDP_WROT1);
-}
-
-void cmdq_mdp_init_pmqos_isp(s32 index, struct plist_head *owner_list)
-{
-	mm_qos_add_request(&owner_list[index],
-		&imgi_d1_mdp_request[index],
-		M4U_PORT_L9_IMG_IMGI_D1);
-	mm_qos_add_request(&owner_list[index],
-		&imgbi_d1_mdp_request[index],
-		M4U_PORT_L9_IMG_IMGBI_D1);
-	mm_qos_add_request(&owner_list[index],
-		&dmgi_d1_mdp_request[index],
-		M4U_PORT_L9_IMG_DMGI_D1);
-	mm_qos_add_request(&owner_list[index],
-		&depi_d1_mdp_request[index],
-		M4U_PORT_L9_IMG_DEPI_D1);
-	mm_qos_add_request(&owner_list[index],
-		&ice_d1_mdp_request[index],
-		M4U_PORT_L9_IMG_ICE_D1);
-	mm_qos_add_request(&owner_list[index],
-		&smti_d1_mdp_request[index],
-		M4U_PORT_L9_IMG_SMTI_D1);
-	mm_qos_add_request(&owner_list[index],
-		&smto_d2_mdp_request[index],
-		M4U_PORT_L9_IMG_SMTO_D2);
-	mm_qos_add_request(&owner_list[index],
-		&smto_d1_mdp_request[index],
-		M4U_PORT_L9_IMG_SMTO_D1);
-	mm_qos_add_request(&owner_list[index],
-		&crzo_d1_mdp_request[index],
-		M4U_PORT_L9_IMG_CRZO_D1);
-	mm_qos_add_request(&owner_list[index],
-		&img3o_d1_mdp_request[index],
-		M4U_PORT_L9_IMG_IMG3O_D1);
-	mm_qos_add_request(&owner_list[index],
-		&vipi_d1_mdp_request[index],
-		M4U_PORT_L9_IMG_VIPI_D1);
-	mm_qos_add_request(&owner_list[index],
-		&smti_d5_mdp_request[index],
-		M4U_PORT_L9_IMG_SMTI_D5);
-	mm_qos_add_request(&owner_list[index],
-		&timgo_d1_mdp_request[index],
-		M4U_PORT_L9_IMG_TIMGO_D1);
-	mm_qos_add_request(&owner_list[index],
-		&ufbc_w0_mdp_request[index],
-		M4U_PORT_L9_IMG_UFBC_W0);
-	mm_qos_add_request(&owner_list[index],
-		&ufbc_r0_mdp_request[index],
-		M4U_PORT_L9_IMG_UFBC_R0);
-	mm_qos_add_request(&owner_list[index],
-		&imgi_d1_disp_request[index],
-		M4U_PORT_L11_IMG_IMGI_D1);
-	mm_qos_add_request(&owner_list[index],
-		&imgbi_d1_disp_request[index],
-		M4U_PORT_L11_IMG_IMGBI_D1);
-	mm_qos_add_request(&owner_list[index],
-		&dmgi_d1_disp_request[index],
-		M4U_PORT_L11_IMG_DMGI_D1);
-	mm_qos_add_request(&owner_list[index],
-		&depi_d1_disp_request[index],
-		M4U_PORT_L11_IMG_DEPI_D1);
-	mm_qos_add_request(&owner_list[index],
-		&ice_d1_disp_request[index],
-		M4U_PORT_L11_IMG_ICE_D1);
-	mm_qos_add_request(&owner_list[index],
-		&smti_d1_disp_request[index],
-		M4U_PORT_L11_IMG_SMTI_D1);
-	mm_qos_add_request(&owner_list[index],
-		&smto_d2_disp_request[index],
-		M4U_PORT_L11_IMG_SMTO_D2);
-	mm_qos_add_request(&owner_list[index],
-		&smto_d1_disp_request[index],
-		M4U_PORT_L11_IMG_SMTO_D1);
-	mm_qos_add_request(&owner_list[index],
-		&crzo_d1_disp_request[index],
-		M4U_PORT_L11_IMG_CRZO_D1);
-	mm_qos_add_request(&owner_list[index],
-		&img3o_d1_disp_request[index],
-		M4U_PORT_L11_IMG_IMG3O_D1);
-	mm_qos_add_request(&owner_list[index],
-		&vipi_d1_disp_request[index],
-		M4U_PORT_L11_IMG_VIPI_D1);
-	mm_qos_add_request(&owner_list[index],
-		&smti_d5_disp_request[index],
-		M4U_PORT_L11_IMG_SMTI_D5);
-	mm_qos_add_request(&owner_list[index],
-		&timgo_d1_disp_request[index],
-		M4U_PORT_L11_IMG_TIMGO_D1);
-	mm_qos_add_request(&owner_list[index],
-		&ufbc_w0_disp_request[index],
-		M4U_PORT_L11_IMG_UFBC_W0);
-	mm_qos_add_request(&owner_list[index],
-		&ufbc_r0_disp_request[index],
-		M4U_PORT_L11_IMG_UFBC_R0);
-	mm_qos_add_request(&owner_list[index],
-		&mfb_rdma0_mdp_request[index],
-		M4U_PORT_L9_IMG_MFB_RDMA0);
-	mm_qos_add_request(&owner_list[index],
-		&mfb_rdma1_mdp_request[index],
-		M4U_PORT_L9_IMG_MFB_RDMA1);
-	mm_qos_add_request(&owner_list[index],
-		&mfb_rdma2_mdp_request[index],
-		M4U_PORT_L9_IMG_MFB_RDMA2);
-	mm_qos_add_request(&owner_list[index],
-		&mfb_rdma3_mdp_request[index],
-		M4U_PORT_L9_IMG_MFB_RDMA3);
-	mm_qos_add_request(&owner_list[index],
-		&mfb_rdma4_mdp_request[index],
-		M4U_PORT_L9_IMG_MFB_RDMA4);
-	mm_qos_add_request(&owner_list[index],
-		&mfb_rdma5_mdp_request[index],
-		M4U_PORT_L9_IMG_MFB_RDMA5);
-	mm_qos_add_request(&owner_list[index],
-		&mfb_wdma0_mdp_request[index],
-		M4U_PORT_L9_IMG_MFB_WDMA0);
-	mm_qos_add_request(&owner_list[index],
-		&mfb_wdma1_mdp_request[index],
-		M4U_PORT_L9_IMG_MFB_WDMA1);
-	mm_qos_add_request(&owner_list[index],
-		&mfb_rdma0_disp_request[index],
-		M4U_PORT_L11_IMG_MFB_RDMA0);
-	mm_qos_add_request(&owner_list[index],
-		&mfb_rdma1_disp_request[index],
-		M4U_PORT_L11_IMG_MFB_RDMA1);
-	mm_qos_add_request(&owner_list[index],
-		&mfb_rdma2_disp_request[index],
-		M4U_PORT_L11_IMG_MFB_RDMA2);
-	mm_qos_add_request(&owner_list[index],
-		&mfb_rdma3_disp_request[index],
-		M4U_PORT_L11_IMG_MFB_RDMA3);
-	mm_qos_add_request(&owner_list[index],
-		&mfb_rdma4_disp_request[index],
-		M4U_PORT_L11_IMG_MFB_RDMA4);
-	mm_qos_add_request(&owner_list[index],
-		&mfb_rdma5_disp_request[index],
-		M4U_PORT_L11_IMG_MFB_RDMA5);
-	mm_qos_add_request(&owner_list[index],
-		&mfb_wdma0_disp_request[index],
-		M4U_PORT_L11_IMG_MFB_WDMA0);
-	mm_qos_add_request(&owner_list[index],
-		&mfb_wdma1_disp_request[index],
-		M4U_PORT_L11_IMG_MFB_WDMA1);
-	mm_qos_add_request(&owner_list[index],
-		&wpe_rdma1_mdp_request[index],
-		M4U_PORT_L9_IMG_WPE_RDMA1);
-	mm_qos_add_request(&owner_list[index],
-		&wpe_rdma0_mdp_request[index],
-		M4U_PORT_L9_IMG_WPE_RDMA0);
-	mm_qos_add_request(&owner_list[index],
-		&wpe_wdma_mdp_request[index],
-		M4U_PORT_L9_IMG_WPE_WDMA);
-	mm_qos_add_request(&owner_list[index],
-		&wpe_rdma1_disp_request[index],
-		M4U_PORT_L11_IMG_WPE_RDMA1);
-	mm_qos_add_request(&owner_list[index],
-		&wpe_rdma0_disp_request[index],
-		M4U_PORT_L11_IMG_WPE_RDMA0);
-	mm_qos_add_request(&owner_list[index],
-		&wpe_wdma_disp_request[index],
-		M4U_PORT_L11_IMG_WPE_WDMA);
-}
-#endif	/* CONFIG_MTK_SMI_EXT */
+static struct icc_path *path_l9_img_imgi_d1[MDP_TOTAL_THREAD];
+static struct icc_path *path_l9_img_imgbi_d1[MDP_TOTAL_THREAD];
+static struct icc_path *path_l9_img_dmgi_d1[MDP_TOTAL_THREAD];
+static struct icc_path *path_l9_img_depi_d1[MDP_TOTAL_THREAD];
+static struct icc_path *path_l9_img_ice_d1[MDP_TOTAL_THREAD];
+static struct icc_path *path_l9_img_smti_d1[MDP_TOTAL_THREAD];
+static struct icc_path *path_l9_img_smto_d2[MDP_TOTAL_THREAD];
+static struct icc_path *path_l9_img_smto_d1[MDP_TOTAL_THREAD];
+static struct icc_path *path_l9_img_crzo_d1[MDP_TOTAL_THREAD];
+static struct icc_path *path_l9_img_img3o_d1[MDP_TOTAL_THREAD];
+static struct icc_path *path_l9_img_vipi_d1[MDP_TOTAL_THREAD];
+static struct icc_path *path_l9_img_smti_d5[MDP_TOTAL_THREAD];
+static struct icc_path *path_l9_img_timgo_d1[MDP_TOTAL_THREAD];
+static struct icc_path *path_l9_img_ufbc_w0[MDP_TOTAL_THREAD];
+static struct icc_path *path_l9_img_ufbc_r0[MDP_TOTAL_THREAD];
+static struct icc_path *path_l11_img_imgi_d1[MDP_TOTAL_THREAD];
+static struct icc_path *path_l11_img_imgbi_d1[MDP_TOTAL_THREAD];
+static struct icc_path *path_l11_img_dmgi_d1[MDP_TOTAL_THREAD];
+static struct icc_path *path_l11_img_depi_d1[MDP_TOTAL_THREAD];
+static struct icc_path *path_l11_img_ice_d1[MDP_TOTAL_THREAD];
+static struct icc_path *path_l11_img_smti_d1[MDP_TOTAL_THREAD];
+static struct icc_path *path_l11_img_smto_d2[MDP_TOTAL_THREAD];
+static struct icc_path *path_l11_img_smto_d1[MDP_TOTAL_THREAD];
+static struct icc_path *path_l11_img_crzo_d1[MDP_TOTAL_THREAD];
+static struct icc_path *path_l11_img_img3o_d1[MDP_TOTAL_THREAD];
+static struct icc_path *path_l11_img_vipi_d1[MDP_TOTAL_THREAD];
+static struct icc_path *path_l11_img_smti_d5[MDP_TOTAL_THREAD];
+static struct icc_path *path_l11_img_timgo_d1[MDP_TOTAL_THREAD];
+static struct icc_path *path_l11_img_ufbc_w0[MDP_TOTAL_THREAD];
+static struct icc_path *path_l11_img_ufbc_r0[MDP_TOTAL_THREAD];
+static struct icc_path *path_l11_img_wpe_rdma1[MDP_TOTAL_THREAD];
+static struct icc_path *path_l11_img_wpe_rdma0[MDP_TOTAL_THREAD];
+static struct icc_path *path_l11_img_wpe_wdma[MDP_TOTAL_THREAD];
+static struct icc_path *path_l11_img_mfb_rdma0[MDP_TOTAL_THREAD];
+static struct icc_path *path_l11_img_mfb_rdma1[MDP_TOTAL_THREAD];
+static struct icc_path *path_l11_img_mfb_rdma2[MDP_TOTAL_THREAD];
+static struct icc_path *path_l11_img_mfb_rdma3[MDP_TOTAL_THREAD];
+static struct icc_path *path_l11_img_mfb_rdma4[MDP_TOTAL_THREAD];
+static struct icc_path *path_l11_img_mfb_rdma5[MDP_TOTAL_THREAD];
+static struct icc_path *path_l11_img_mfb_wdma0[MDP_TOTAL_THREAD];
+static struct icc_path *path_l11_img_mfb_wdma1[MDP_TOTAL_THREAD];
 
 #ifdef CONFIG_MTK_IOMMU_V2
 #include <mach/mt_iommu.h>
@@ -1998,16 +1666,248 @@ u64 cmdq_mdp_get_secure_engine(u64 engine_flags)
 }
 #endif
 
+static u32 cmdq_mdp_qos_translate_port(u32 engine_id)
+{
+	switch (engine_id) {
+	case CMDQ_ENG_MDP_RDMA0:
+		return M4U_PORT_L2_MDP_RDMA0;
+	case CMDQ_ENG_MDP_RDMA1:
+		return M4U_PORT_L2_MDP_RDMA1;
+	case CMDQ_ENG_MDP_WROT0:
+		return M4U_PORT_L2_MDP_WROT0;
+	case CMDQ_ENG_MDP_WROT1:
+		return M4U_PORT_L2_MDP_WROT1;
+	}
+
+	if (engine_id != CMDQ_ENG_MDP_CAMIN &&
+		engine_id != CMDQ_ENG_MDP_CAMIN2)
+		CMDQ_ERR("pmqos invalid engineId %d\n", engine_id);
+	return 0;
+}
+
+#define MDP_ICC_GET(port) do { \
+	path_##port[thread_id] = of_icc_get(dev, #port);		\
+	if (!path_##port[thread_id])					\
+		CMDQ_ERR("%s port:%s icc fail\n", __func__, #port);	\
+} while (0)
+
+static void mdp_qos_init(struct platform_device *pdev, u32 thread_id)
+{
+	struct device *dev = &pdev->dev;
+
+	CMDQ_LOG("%s thread %u\n", __func__, thread_id);
+
+	MDP_ICC_GET(mdp_rdma0);
+	MDP_ICC_GET(mdp_rdma1);
+	MDP_ICC_GET(mdp_wrot0);
+	MDP_ICC_GET(mdp_wrot1);
+
+	/* for isp L9 and L11 */
+	MDP_ICC_GET(l9_img_imgi_d1);
+	MDP_ICC_GET(l9_img_imgbi_d1);
+	MDP_ICC_GET(l9_img_dmgi_d1);
+	MDP_ICC_GET(l9_img_depi_d1);
+	MDP_ICC_GET(l9_img_ice_d1);
+	MDP_ICC_GET(l9_img_smti_d1);
+	MDP_ICC_GET(l9_img_smto_d2);
+	MDP_ICC_GET(l9_img_smto_d1);
+	MDP_ICC_GET(l9_img_crzo_d1);
+	MDP_ICC_GET(l9_img_img3o_d1);
+	MDP_ICC_GET(l9_img_vipi_d1);
+	MDP_ICC_GET(l9_img_smti_d5);
+	MDP_ICC_GET(l9_img_timgo_d1);
+	MDP_ICC_GET(l9_img_ufbc_w0);
+	MDP_ICC_GET(l9_img_ufbc_r0);
+	MDP_ICC_GET(l11_img_imgi_d1);
+	MDP_ICC_GET(l11_img_imgbi_d1);
+	MDP_ICC_GET(l11_img_dmgi_d1);
+	MDP_ICC_GET(l11_img_depi_d1);
+	MDP_ICC_GET(l11_img_ice_d1);
+	MDP_ICC_GET(l11_img_smti_d1);
+	MDP_ICC_GET(l11_img_smto_d2);
+	MDP_ICC_GET(l11_img_smto_d1);
+	MDP_ICC_GET(l11_img_crzo_d1);
+	MDP_ICC_GET(l11_img_img3o_d1);
+	MDP_ICC_GET(l11_img_vipi_d1);
+	MDP_ICC_GET(l11_img_smti_d5);
+	MDP_ICC_GET(l11_img_timgo_d1);
+	MDP_ICC_GET(l11_img_ufbc_w0);
+	MDP_ICC_GET(l11_img_ufbc_r0);
+	MDP_ICC_GET(l11_img_wpe_rdma1);
+	MDP_ICC_GET(l11_img_wpe_rdma0);
+	MDP_ICC_GET(l11_img_wpe_wdma);
+	MDP_ICC_GET(l11_img_mfb_rdma0);
+	MDP_ICC_GET(l11_img_mfb_rdma1);
+	MDP_ICC_GET(l11_img_mfb_rdma2);
+	MDP_ICC_GET(l11_img_mfb_rdma3);
+	MDP_ICC_GET(l11_img_mfb_rdma4);
+	MDP_ICC_GET(l11_img_mfb_rdma5);
+	MDP_ICC_GET(l11_img_mfb_wdma0);
+	MDP_ICC_GET(l11_img_mfb_wdma1);
+}
+
+static void *mdp_qos_get_path(u32 thread_id, u32 port)
+{
+	if (!port)
+		return NULL;
+
+	switch (port) {
+	/* mdp part */
+	case M4U_PORT_L2_MDP_RDMA0:
+		return path_mdp_rdma0[thread_id];
+	case M4U_PORT_L2_MDP_RDMA1:
+		return path_mdp_rdma1[thread_id];
+	case M4U_PORT_L2_MDP_WROT0:
+		return path_mdp_wrot0[thread_id];
+	case M4U_PORT_L2_MDP_WROT1:
+		return path_mdp_wrot1[thread_id];
+
+	/* isp part */
+	case M4U_PORT_L9_IMG_IMGI_D1:
+		return path_l9_img_imgi_d1[thread_id];
+	case M4U_PORT_L9_IMG_IMGBI_D1:
+		return path_l9_img_imgbi_d1[thread_id];
+	case M4U_PORT_L9_IMG_DMGI_D1:
+		return path_l9_img_dmgi_d1[thread_id];
+	case M4U_PORT_L9_IMG_DEPI_D1:
+		return path_l9_img_depi_d1[thread_id];
+	case M4U_PORT_L9_IMG_ICE_D1:
+		return path_l9_img_ice_d1[thread_id];
+	case M4U_PORT_L9_IMG_SMTI_D1:
+		return path_l9_img_smti_d1[thread_id];
+	case M4U_PORT_L9_IMG_SMTO_D2:
+		return path_l9_img_smto_d2[thread_id];
+	case M4U_PORT_L9_IMG_SMTO_D1:
+		return path_l9_img_smto_d1[thread_id];
+	case M4U_PORT_L9_IMG_CRZO_D1:
+		return path_l9_img_crzo_d1[thread_id];
+	case M4U_PORT_L9_IMG_IMG3O_D1:
+		return path_l9_img_img3o_d1[thread_id];
+	case M4U_PORT_L9_IMG_VIPI_D1:
+		return path_l9_img_vipi_d1[thread_id];
+	case M4U_PORT_L9_IMG_SMTI_D5:
+		return path_l9_img_smti_d5[thread_id];
+	case M4U_PORT_L9_IMG_TIMGO_D1:
+		return path_l9_img_timgo_d1[thread_id];
+	case M4U_PORT_L9_IMG_UFBC_W0:
+		return path_l9_img_ufbc_w0[thread_id];
+	case M4U_PORT_L9_IMG_UFBC_R0:
+		return path_l9_img_ufbc_r0[thread_id];
+	case M4U_PORT_L11_IMG_IMGI_D1:
+		return path_l11_img_imgi_d1[thread_id];
+	case M4U_PORT_L11_IMG_IMGBI_D1:
+		return path_l11_img_imgbi_d1[thread_id];
+	case M4U_PORT_L11_IMG_DMGI_D1:
+		return path_l11_img_dmgi_d1[thread_id];
+	case M4U_PORT_L11_IMG_DEPI_D1:
+		return path_l11_img_depi_d1[thread_id];
+	case M4U_PORT_L11_IMG_ICE_D1:
+		return path_l11_img_ice_d1[thread_id];
+	case M4U_PORT_L11_IMG_SMTI_D1:
+		return path_l11_img_smti_d1[thread_id];
+	case M4U_PORT_L11_IMG_SMTO_D2:
+		return path_l11_img_smto_d2[thread_id];
+	case M4U_PORT_L11_IMG_SMTO_D1:
+		return path_l11_img_smto_d1[thread_id];
+	case M4U_PORT_L11_IMG_CRZO_D1:
+		return path_l11_img_crzo_d1[thread_id];
+	case M4U_PORT_L11_IMG_IMG3O_D1:
+		return path_l11_img_img3o_d1[thread_id];
+	case M4U_PORT_L11_IMG_VIPI_D1:
+		return path_l11_img_vipi_d1[thread_id];
+	case M4U_PORT_L11_IMG_SMTI_D5:
+		return path_l11_img_smti_d5[thread_id];
+	case M4U_PORT_L11_IMG_TIMGO_D1:
+		return path_l11_img_timgo_d1[thread_id];
+	case M4U_PORT_L11_IMG_UFBC_W0:
+		return path_l11_img_ufbc_w0[thread_id];
+	case M4U_PORT_L11_IMG_UFBC_R0:
+		return path_l11_img_ufbc_r0[thread_id];
+	case M4U_PORT_L11_IMG_WPE_RDMA1:
+		return path_l11_img_wpe_rdma1[thread_id];
+	case M4U_PORT_L11_IMG_WPE_RDMA0:
+		return path_l11_img_wpe_rdma0[thread_id];
+	case M4U_PORT_L11_IMG_WPE_WDMA:
+		return path_l11_img_wpe_wdma[thread_id];
+	case M4U_PORT_L11_IMG_MFB_RDMA0:
+		return path_l11_img_mfb_rdma0[thread_id];
+	case M4U_PORT_L11_IMG_MFB_RDMA1:
+		return path_l11_img_mfb_rdma1[thread_id];
+	case M4U_PORT_L11_IMG_MFB_RDMA2:
+		return path_l11_img_mfb_rdma2[thread_id];
+	case M4U_PORT_L11_IMG_MFB_RDMA3:
+		return path_l11_img_mfb_rdma3[thread_id];
+	case M4U_PORT_L11_IMG_MFB_RDMA4:
+		return path_l11_img_mfb_rdma4[thread_id];
+	case M4U_PORT_L11_IMG_MFB_RDMA5:
+		return path_l11_img_mfb_rdma5[thread_id];
+	case M4U_PORT_L11_IMG_MFB_WDMA0:
+		return path_l11_img_mfb_wdma0[thread_id];
+	case M4U_PORT_L11_IMG_MFB_WDMA1:
+		return path_l11_img_mfb_wdma1[thread_id];
+	}
+
+	CMDQ_ERR("%s pmqos invalid port %d\n", __func__, port);
+	return NULL;
+}
+
+static void mdp_qos_clear_all(u32 thread_id)
+{
+	icc_set_bw(path_mdp_rdma0[thread_id], 0, 0);
+	icc_set_bw(path_mdp_rdma1[thread_id], 0, 0);
+	icc_set_bw(path_mdp_wrot0[thread_id], 0, 0);
+	icc_set_bw(path_mdp_wrot1[thread_id], 0, 0);
+}
+
+static void mdp_qos_clear_all_isp(u32 thread_id)
+{
+	icc_set_bw(path_l9_img_imgi_d1[thread_id], 0, 0);
+	icc_set_bw(path_l9_img_imgbi_d1[thread_id], 0, 0);
+	icc_set_bw(path_l9_img_dmgi_d1[thread_id], 0, 0);
+	icc_set_bw(path_l9_img_depi_d1[thread_id], 0, 0);
+	icc_set_bw(path_l9_img_ice_d1[thread_id], 0, 0);
+	icc_set_bw(path_l9_img_smti_d1[thread_id], 0, 0);
+	icc_set_bw(path_l9_img_smto_d2[thread_id], 0, 0);
+	icc_set_bw(path_l9_img_smto_d1[thread_id], 0, 0);
+	icc_set_bw(path_l9_img_crzo_d1[thread_id], 0, 0);
+	icc_set_bw(path_l9_img_img3o_d1[thread_id], 0, 0);
+	icc_set_bw(path_l9_img_vipi_d1[thread_id], 0, 0);
+	icc_set_bw(path_l9_img_smti_d5[thread_id], 0, 0);
+	icc_set_bw(path_l9_img_timgo_d1[thread_id], 0, 0);
+	icc_set_bw(path_l9_img_ufbc_w0[thread_id], 0, 0);
+	icc_set_bw(path_l9_img_ufbc_r0[thread_id], 0, 0);
+	icc_set_bw(path_l11_img_imgi_d1[thread_id], 0, 0);
+	icc_set_bw(path_l11_img_imgbi_d1[thread_id], 0, 0);
+	icc_set_bw(path_l11_img_dmgi_d1[thread_id], 0, 0);
+	icc_set_bw(path_l11_img_depi_d1[thread_id], 0, 0);
+	icc_set_bw(path_l11_img_ice_d1[thread_id], 0, 0);
+	icc_set_bw(path_l11_img_smti_d1[thread_id], 0, 0);
+	icc_set_bw(path_l11_img_smto_d2[thread_id], 0, 0);
+	icc_set_bw(path_l11_img_smto_d1[thread_id], 0, 0);
+	icc_set_bw(path_l11_img_crzo_d1[thread_id], 0, 0);
+	icc_set_bw(path_l11_img_img3o_d1[thread_id], 0, 0);
+	icc_set_bw(path_l11_img_vipi_d1[thread_id], 0, 0);
+	icc_set_bw(path_l11_img_smti_d5[thread_id], 0, 0);
+	icc_set_bw(path_l11_img_timgo_d1[thread_id], 0, 0);
+	icc_set_bw(path_l11_img_ufbc_w0[thread_id], 0, 0);
+	icc_set_bw(path_l11_img_ufbc_r0[thread_id], 0, 0);
+	icc_set_bw(path_l11_img_wpe_rdma1[thread_id], 0, 0);
+	icc_set_bw(path_l11_img_wpe_rdma0[thread_id], 0, 0);
+	icc_set_bw(path_l11_img_wpe_wdma[thread_id], 0, 0);
+	icc_set_bw(path_l11_img_mfb_rdma0[thread_id], 0, 0);
+	icc_set_bw(path_l11_img_mfb_rdma1[thread_id], 0, 0);
+	icc_set_bw(path_l11_img_mfb_rdma2[thread_id], 0, 0);
+	icc_set_bw(path_l11_img_mfb_rdma3[thread_id], 0, 0);
+	icc_set_bw(path_l11_img_mfb_rdma4[thread_id], 0, 0);
+	icc_set_bw(path_l11_img_mfb_rdma5[thread_id], 0, 0);
+	icc_set_bw(path_l11_img_mfb_wdma0[thread_id], 0, 0);
+	icc_set_bw(path_l11_img_mfb_wdma1[thread_id], 0, 0);
+}
+
 void cmdq_mdp_platform_function_setting(void)
 {
 	struct cmdqMDPFuncStruct *pFunc = cmdq_mdp_get_func();
 
-#ifdef CONFIG_MTK_SMI_EXT
-	pFunc->translatePort = cmdq_mdp_translate_port;
-	pFunc->getRequest = cmdq_mdp_get_request;
-	pFunc->initPmqosMdp = cmdq_mdp_init_pmqos_mdp;
-	pFunc->initPmqosIsp = cmdq_mdp_init_pmqos_isp;
-#endif	/* CONFIG_MTK_SMI_EXT */
 	pFunc->dumpMMSYSConfig = cmdq_mdp_dump_mmsys_config;
 
 	pFunc->initModuleBaseVA = cmdq_mdp_init_module_base_VA;
@@ -2035,6 +1935,12 @@ void cmdq_mdp_platform_function_setting(void)
 #ifdef CMDQ_SECURE_PATH_SUPPORT
 	pFunc->mdpGetSecEngine = cmdq_mdp_get_secure_engine;
 #endif
+
+	pFunc->qosTransPort = cmdq_mdp_qos_translate_port;
+	pFunc->qosInit = mdp_qos_init;
+	pFunc->qosGetPath = mdp_qos_get_path;
+	pFunc->qosClearAll = mdp_qos_clear_all;
+	pFunc->qosClearAllIsp = mdp_qos_clear_all_isp;
 }
 EXPORT_SYMBOL(cmdq_mdp_platform_function_setting);
 

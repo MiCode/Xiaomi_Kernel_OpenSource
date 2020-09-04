@@ -13,9 +13,6 @@
 
 #ifdef CONFIG_MTK_SMI_EXT
 
-/* translate port */
-typedef uint32_t (*CmdqTranslatePort) (uint32_t engineId);
-
 /* get request */
 typedef struct mm_qos_request *(*CmdqGetRequest) (
 	uint32_t thread_id, uint32_t port);
@@ -97,9 +94,17 @@ typedef u64(*CmdqMdpGetSecEngine) (u64 engine_flag);
 typedef void (*CmdqMdpResolveToken) (u64 engine_flag,
 	const struct cmdqRecStruct *task);
 
+/* translate port */
+typedef u32 (*MdpQosTranslatePort) (u32 engine_id);
+
+typedef void (*MdpQosInit) (struct platform_device *pdev, u32 thread_id);
+
+typedef void *(*MdpQosPathGet) (u32 thread_id, u32 port);
+
+typedef void (*MdpQosClearAll) (u32 thread_id);
+
 struct cmdqMDPFuncStruct {
 #ifdef CONFIG_MTK_SMI_EXT
-	CmdqTranslatePort translatePort;
 	CmdqGetRequest getRequest;
 	CmdqInitPmqosMdp initPmqosMdp;
 	CmdqInitPmqosIsp initPmqosIsp;
@@ -135,6 +140,12 @@ struct cmdqMDPFuncStruct {
 	CmdqCheckHwStatus CheckHwStatus;
 	CmdqMdpGetSecEngine mdpGetSecEngine;
 	CmdqMdpResolveToken resolve_token;
+
+	MdpQosTranslatePort qosTransPort;
+	MdpQosInit qosInit;
+	MdpQosPathGet qosGetPath;
+	MdpQosClearAll qosClearAll;
+	MdpQosClearAll qosClearAllIsp;
 };
 
 struct mdp_pmqos_record {
