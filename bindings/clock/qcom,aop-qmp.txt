@@ -7,6 +7,8 @@ Required properties :
 - mboxes : list of QMP mailbox phandle and channel identifier tuples.
 - mbox-names: List of identifier strings for each mailbox channel.
 		Must contain "qdss_clk".
+- qcom,clk-stop-bimc-log: Presence indicates a BIMC logging request will
+			  be sent to AOP during kernel panic.
 
 Example :
 	clock_qdss: qcom,aopclk {

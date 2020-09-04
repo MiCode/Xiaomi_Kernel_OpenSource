@@ -881,6 +881,7 @@
 		mboxes = <&qmp_aop 0>;
 		mbox-names = "qdss_clk";
 		#clock-cells = <1>;
+		qcom,clk-stop-bimc-log;
 	};
 
 	gcc: clock-controller@100000 {
