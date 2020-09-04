@@ -52,7 +52,7 @@ static ssize_t dvfsrc_req_hrtbw_store(struct device *dev,
 }
 static DEVICE_ATTR_WO(dvfsrc_req_hrtbw);
 
-static ssize_t dvfsrc_req_ddr_store(struct device *dev,
+static ssize_t dvfsrc_req_ddr_opp_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
 	u32 val = 0;
@@ -71,24 +71,33 @@ static ssize_t dvfsrc_req_ddr_store(struct device *dev,
 
 	return count;
 }
-static DEVICE_ATTR_WO(dvfsrc_req_ddr);
+static DEVICE_ATTR_WO(dvfsrc_req_ddr_opp);
 
-static ssize_t dvfsrc_req_vcore_store(struct device *dev,
+static ssize_t dvfsrc_req_vcore_opp_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
 	u32 val = 0;
+	u32 max_opp;
+	u32 gear;
+	int vcore_uV = 0;
+
 	struct mtk_dvfsrc *dvfsrc = dev_get_drvdata(dev);
 
 	if (kstrtou32(buf, 10, &val))
 		return -EINVAL;
 
-	if (dvfsrc->dvfsrc_vcore_power)
-		regulator_set_voltage(dvfsrc->dvfsrc_vcore_power,
-			val, INT_MAX);
+	max_opp = dvfsrc->opp_desc->num_vcore_opp - 1;
+	gear = (val <= max_opp) ? max_opp - val : 0;
+
+	if (dvfsrc->dvfsrc_vcore_power) {
+		vcore_uV = regulator_list_voltage(dvfsrc->dvfsrc_vcore_power, gear);
+		if (vcore_uV > 0)
+			regulator_set_voltage(dvfsrc->dvfsrc_vcore_power, vcore_uV, INT_MAX);
+	}
 
 	return count;
 }
-static DEVICE_ATTR_WO(dvfsrc_req_vcore);
+static DEVICE_ATTR_WO(dvfsrc_req_vcore_opp);
 
 static ssize_t dvfsrc_req_vscp_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
@@ -178,8 +187,8 @@ static DEVICE_ATTR_RO(dvfsrc_opp_table);
 static struct attribute *dvfsrc_sysfs_attrs[] = {
 	&dev_attr_dvfsrc_req_bw.attr,
 	&dev_attr_dvfsrc_req_hrtbw.attr,
-	&dev_attr_dvfsrc_req_vcore.attr,
-	&dev_attr_dvfsrc_req_ddr.attr,
+	&dev_attr_dvfsrc_req_vcore_opp.attr,
+	&dev_attr_dvfsrc_req_ddr_opp.attr,
 	&dev_attr_dvfsrc_req_vscp.attr,
 	&dev_attr_dvfsrc_dump.attr,
 	&dev_attr_dvfsrc_force_vcore_dvfs_opp.attr,
