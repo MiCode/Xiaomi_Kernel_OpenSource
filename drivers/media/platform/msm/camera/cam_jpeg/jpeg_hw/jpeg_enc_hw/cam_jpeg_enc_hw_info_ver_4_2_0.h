@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -65,7 +65,7 @@ static struct cam_jpeg_enc_device_hw_info cam_jpeg_enc_hw_info = {
 		.int_mask_disable_all = 0x00000000,
 		.int_mask_enable_all = 0xFFFFFFFF,
 		.hw_cmd_start = 0x00000001,
-		.reset_cmd = 0x00032093,
+		.reset_cmd = 0x200320D3,
 		.hw_cmd_stop = 0x00000002,
 	},
 	.int_status = {
