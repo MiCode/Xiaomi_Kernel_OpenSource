@@ -321,6 +321,7 @@ static int qg_store_soc_params(struct qpnp_qg *chip)
 {
 	int rc, batt_temp = 0, i;
 	unsigned long rtc_sec = 0;
+	u32 flash_ocv = 0;
 
 	rc = get_rtc_time(&rtc_sec);
 	if (rc < 0)
@@ -339,6 +340,12 @@ static int qg_store_soc_params(struct qpnp_qg *chip)
 		qg_dbg(chip, QG_DEBUG_STATUS, "SDAM write param %d value=%d\n",
 					i, chip->sdam_data[i]);
 	}
+
+	/* store the SDAM OCV */
+	flash_ocv = chip->sdam_data[SDAM_OCV_UV] / 20000;
+	rc = qg_sdam_write(SDAM_FLASH_OCV, flash_ocv);
+	if (rc < 0)
+		pr_err("Failed to update flash-ocv rc=%d\n", rc);
 
 	return rc;
 }
@@ -4318,7 +4325,7 @@ static int qg_parse_dt(struct qpnp_qg *chip)
 	if (rc < 0)
 		chip->dt.rbat_conn_mohm = 0;
 	else
-		chip->dt.rbat_conn_mohm = temp;
+		chip->dt.rbat_conn_mohm = (int)temp;
 
 	/* esr */
 	chip->dt.esr_disable = of_property_read_bool(node,
