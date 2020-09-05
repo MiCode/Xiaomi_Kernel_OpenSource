@@ -1156,6 +1156,7 @@
 
 	rpmcc: clock-controller {
 		compatible = "qcom,rpmcc-holi";
+		qcom,bimc-log-stop;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
