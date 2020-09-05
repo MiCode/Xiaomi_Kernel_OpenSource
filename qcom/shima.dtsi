@@ -3710,18 +3710,22 @@
 };
 
 &gcc_pcie_0_gdsc {
+	qcom,retain-regs;
 	status = "ok";
 };
 
 &gcc_pcie_1_gdsc {
+	qcom,retain-regs;
 	status = "ok";
 };
 
 &gcc_ufs_phy_gdsc {
+	qcom,retain-regs;
 	status = "ok";
 };
 
 &gcc_usb30_prim_gdsc {
+	qcom,retain-regs;
 	status = "ok";
 };
 
@@ -3762,6 +3766,7 @@
 	clock-names = "ahb_clk";
 	parent-supply = <&VDD_CX_LEVEL>;
 	vdd_parent-supply = <&VDD_CX_LEVEL>;
+	qcom,retain-regs;
 	status = "ok";
 };
 
@@ -3771,6 +3776,7 @@
 	qcom,support-hw-trigger;
 	parent-supply = <&VDD_CX_LEVEL>;
 	vdd_parent-supply = <&VDD_CX_LEVEL>;
+	qcom,retain-regs;
 	status = "ok";
 };
 
@@ -3779,6 +3785,7 @@
 	clock-names = "ahb_clk";
 	parent-supply = <&VDD_CX_LEVEL>;
 	vdd_parent-supply = <&VDD_CX_LEVEL>;
+	qcom,retain-regs;
 	status = "ok";
 };
 
@@ -3787,6 +3794,7 @@
 	clock-names = "ahb_clk";
 	parent-supply = <&VDD_CX_LEVEL>;
 	vdd_parent-supply = <&VDD_CX_LEVEL>;
+	qcom,retain-regs;
 	status = "ok";
 };
 
@@ -3795,6 +3803,7 @@
 	clock-names = "ahb_clk";
 	parent-supply = <&VDD_CX_LEVEL>;
 	vdd_parent-supply = <&VDD_CX_LEVEL>;
+	qcom,retain-regs;
 	status = "ok";
 };
 
@@ -3804,6 +3813,7 @@
 	qcom,support-hw-trigger;
 	parent-supply = <&VDD_CX_LEVEL>;
 	vdd_parent-supply = <&VDD_CX_LEVEL>;
+	qcom,retain-regs;
 	status = "ok";
 };
 
@@ -3813,6 +3823,7 @@
 	qcom,support-hw-trigger;
 	parent-supply = <&VDD_CX_LEVEL>;
 	vdd_parent-supply = <&VDD_CX_LEVEL>;
+	qcom,retain-regs;
 	status = "ok";
 };
 
@@ -3821,6 +3832,7 @@
 	clock-names = "ahb_clk";
 	parent-supply = <&VDD_CX_LEVEL>;
 	vdd_parent-supply = <&VDD_CX_LEVEL>;
+	qcom,retain-regs;
 	status = "ok";
 };
 
@@ -3829,6 +3841,7 @@
 	clock-names = "ahb_clk";
 	parent-supply = <&VDD_GFX_LEVEL>;
 	vdd_parent-supply = <&VDD_GFX_LEVEL>;
+	qcom,retain-regs;
 	status = "ok";
 };
 
@@ -3838,6 +3851,7 @@
 	qcom,support-hw-trigger;
 	parent-supply = <&VDD_CX_LEVEL>;
 	vdd_parent-supply = <&VDD_CX_LEVEL>;
+	qcom,retain-regs;
 	status = "ok";
 };
 
@@ -3846,6 +3860,7 @@
 	clock-names = "ahb_clk";
 	parent-supply = <&VDD_CX_LEVEL>;
 	vdd_parent-supply = <&VDD_CX_LEVEL>;
+	qcom,retain-regs;
 	status = "ok";
 };
 
@@ -3855,6 +3870,7 @@
 	qcom,support-hw-trigger;
 	parent-supply = <&VDD_CX_LEVEL>;
 	vdd_parent-supply = <&VDD_CX_LEVEL>;
+	qcom,retain-regs;
 	status = "ok";
 };
 
@@ -3863,6 +3879,7 @@
 	clock-names = "ahb_clk";
 	parent-supply = <&VDD_CX_LEVEL>;
 	vdd_parent-supply = <&VDD_CX_LEVEL>;
+	qcom,retain-regs;
 	status = "ok";
 };
 
