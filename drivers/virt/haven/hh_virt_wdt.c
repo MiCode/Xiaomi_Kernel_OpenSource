@@ -261,16 +261,6 @@ static int hh_wdt_probe(struct platform_device *pdev)
 	return qcom_wdt_register(pdev, wdog_dd, "hh-watchdog");
 }
 
-#ifdef CONFIG_PM_SLEEP
-static const struct dev_pm_ops hh_wdt_dev_pm_ops = {
-	.suspend_noirq = qcom_wdt_suspend,
-	.resume_noirq = qcom_wdt_resume,
-};
-#else
-static const struct dev_pm_ops hh_wdt_dev_pm_ops = {
-};
-#endif
-
 static const struct of_device_id hh_wdt_match_table[] = {
 	{ .compatible = "qcom,hh-watchdog" },
 	{}
@@ -281,7 +271,6 @@ static struct platform_driver hh_wdt_driver = {
 	.remove = qcom_wdt_remove,
 	.driver = {
 		.name = "hh-watchdog",
-		.pm = &hh_wdt_dev_pm_ops,
 		.of_match_table = hh_wdt_match_table,
 	},
 };
