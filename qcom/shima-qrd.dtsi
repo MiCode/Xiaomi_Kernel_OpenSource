@@ -98,7 +98,7 @@
 	vdd-hba-fixed-regulator;
 
 	vcc-supply = <&L7B>;
-	vcc-voltage-level = <2504000 2950000>;
+	vcc-voltage-level = <2950000 2960000>;
 	vcc-low-voltage-sup;
 	vcc-max-microamp = <800000>;
 
