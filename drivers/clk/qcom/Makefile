@@ -77,6 +77,7 @@ obj-$(CONFIG_SM_GCC_SHIMA) += gcc-shima.o
 obj-$(CONFIG_SM_GCC_8250) += gcc-sm8250.o
 obj-$(CONFIG_MSM_GCC_WAIPIO) += gcc-waipio.o
 obj-$(CONFIG_MSM_VIDEOCC_WAIPIO) += videocc-waipio.o
+obj-$(CONFIG_MSM_GPUCC_WAIPIO) += gpucc-waipio.o
 obj-$(CONFIG_SPMI_PMIC_CLKDIV) += clk-spmi-pmic-div.o
 obj-$(CONFIG_KPSS_XCC) += kpss-xcc.o
 obj-$(CONFIG_QCOM_HFPLL) += hfpll.o
