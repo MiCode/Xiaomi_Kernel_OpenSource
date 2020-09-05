@@ -5,6 +5,7 @@
 
 #include <linux/module.h>
 #include <linux/clk.h>
+#include <linux/regulator/consumer.h>
 #include <linux/platform_device.h>
 #include <linux/err.h>
 #include <linux/slab.h>
@@ -25,9 +26,13 @@ struct sdpm_clk_data {
 	struct notifier_block		clk_rate_nb;
 	struct clk			*clk;
 	const char			*clock_name;
+	struct notifier_block		reg_nb;
+	struct regulator		*reg;
+	uint8_t				reg_enable;
 	uint32_t			cpu_id;
 	uint32_t			csr_id;
 	unsigned long			last_freq;
+	struct mutex			sdpm_mutex;
 	struct sdpm_clk_instance	*sdpm_inst;
 };
 struct sdpm_clk_instance {
@@ -41,7 +46,7 @@ static void sdpm_csr_write(struct sdpm_clk_data *sdpm_data,
 				unsigned long clk_rate)
 {
 	struct sdpm_clk_instance *sdpm_inst = sdpm_data->sdpm_inst;
-	uint32_t val = clk_rate;
+	uint32_t val = sdpm_data->reg_enable ? clk_rate : 0;
 
 	sdpm_data->last_freq = clk_rate;
 
@@ -81,6 +86,34 @@ static int sdpm_cpu_notifier(struct notifier_block *nb,
 	return NOTIFY_DONE;
 }
 
+static int sdpm_reg_notifier(struct notifier_block *nb, unsigned long event,
+				void *data)
+{
+	struct sdpm_clk_data *sdpm_data = container_of(nb,
+			struct sdpm_clk_data, reg_nb);
+
+	dev_dbg(sdpm_data->sdpm_inst->dev, "reg:%s event:%lu\n",
+			sdpm_data->clock_name, event);
+	switch (event) {
+	case REGULATOR_EVENT_ENABLE:
+		mutex_lock(&sdpm_data->sdpm_mutex);
+		sdpm_data->reg_enable = 1;
+		sdpm_csr_write(sdpm_data, sdpm_data->last_freq);
+		mutex_unlock(&sdpm_data->sdpm_mutex);
+		return NOTIFY_OK;
+	case REGULATOR_EVENT_DISABLE:
+		mutex_lock(&sdpm_data->sdpm_mutex);
+		sdpm_data->reg_enable = 0;
+		sdpm_csr_write(sdpm_data, sdpm_data->last_freq);
+		mutex_unlock(&sdpm_data->sdpm_mutex);
+		return NOTIFY_OK;
+	default:
+		return NOTIFY_OK;
+	}
+
+	return NOTIFY_OK;
+}
+
 static int sdpm_clock_notifier(struct notifier_block *nb,
 					unsigned long event, void *data)
 {
@@ -92,19 +125,25 @@ static int sdpm_clock_notifier(struct notifier_block *nb,
 			sdpm_data->clock_name, event);
 	switch (event) {
 	case PRE_RATE_CHANGE:
+		mutex_lock(&sdpm_data->sdpm_mutex);
 		if (ndata->new_rate > ndata->old_rate)
 			sdpm_csr_write(sdpm_data,
 					FREQ_HZ_TO_MHZ(ndata->new_rate));
+		mutex_unlock(&sdpm_data->sdpm_mutex);
 		return NOTIFY_DONE;
 	case POST_RATE_CHANGE:
+		mutex_lock(&sdpm_data->sdpm_mutex);
 		if (ndata->new_rate < ndata->old_rate)
 			sdpm_csr_write(sdpm_data,
 					FREQ_HZ_TO_MHZ(ndata->new_rate));
+		mutex_unlock(&sdpm_data->sdpm_mutex);
 		return NOTIFY_DONE;
 	case ABORT_RATE_CHANGE:
+		mutex_lock(&sdpm_data->sdpm_mutex);
 		if (ndata->new_rate > ndata->old_rate)
 			sdpm_csr_write(sdpm_data,
 					FREQ_HZ_TO_MHZ(ndata->old_rate));
+		mutex_unlock(&sdpm_data->sdpm_mutex);
 		return NOTIFY_DONE;
 	default:
 		return NOTIFY_DONE;
@@ -198,10 +237,29 @@ static int sdpm_clk_device_probe(struct platform_device *pdev)
 			sdpm_clock_notifier;
 		sdpm_clk->clk_data[idx].last_freq = FREQ_HZ_TO_MHZ(
 				clk_get_rate(sdpm_clk->clk_data[idx].clk));
+		sdpm_clk->clk_data[idx].reg_enable = 1;
+		sdpm_clk->clk_data[idx].reg = NULL;
 		sdpm_csr_write(&sdpm_clk->clk_data[idx],
 				sdpm_clk->clk_data[idx].last_freq);
+		mutex_init(&sdpm_clk->clk_data[idx].sdpm_mutex);
 		clk_notifier_register(sdpm_clk->clk_data[idx].clk,
 					&sdpm_clk->clk_data[idx].clk_rate_nb);
+		sdpm_clk->clk_data[idx].reg = devm_regulator_get(dev,
+					sdpm_clk->clk_data[idx].clock_name);
+		if (IS_ERR(sdpm_clk->clk_data[idx].reg)) {
+			dev_err(dev, "regulator:%s get err:%d\n",
+					dev, sdpm_clk->clk_data[idx].clock_name,
+					PTR_ERR(sdpm_clk->clk_data[idx].reg));
+			if (PTR_ERR(sdpm_clk->clk_data[idx].reg)
+					== -EPROBE_DEFER)
+				return PTR_ERR(sdpm_clk->clk_data[idx].reg);
+		} else {
+			sdpm_clk->clk_data[idx].reg_nb.notifier_call =
+				sdpm_reg_notifier;
+			regulator_register_notifier(
+					sdpm_clk->clk_data[idx].reg,
+					&sdpm_clk->clk_data[idx].reg_nb);
+		}
 	}
 	cpu_phandle = of_parse_phandle(dev_node, "cpu", 0);
 	if (!cpu_phandle)
@@ -213,6 +271,8 @@ static int sdpm_clk_device_probe(struct platform_device *pdev)
 			continue;
 		sdpm_clk->clk_data[idx].clk = NULL;
 		sdpm_clk->clk_data[idx].clock_name = NULL;
+		sdpm_clk->clk_data[idx].reg = NULL;
+		sdpm_clk->clk_data[idx].reg_enable = 1;
 		ret = of_property_read_u32_index(dev_node, "csr-id", idx,
 							&csr);
 		if (ret < 0) {
@@ -231,6 +291,7 @@ static int sdpm_clk_device_probe(struct platform_device *pdev)
 		sdpm_clk->clk_data[idx].sdpm_inst = sdpm_clk;
 		sdpm_clk->clk_data[idx].clk_rate_nb.notifier_call =
 			sdpm_cpu_notifier;
+		mutex_init(&sdpm_clk->clk_data[idx].sdpm_mutex);
 		freq = UINT_MAX;
 		opp = dev_pm_opp_find_freq_floor(cpu_dev, &freq);
 		if (IS_ERR(opp)) {
@@ -259,6 +320,10 @@ static int sdpm_clk_device_remove(struct platform_device *pdev)
 	for (idx = 0; idx < sdpm_clk->clk_ct; idx++) {
 		clk_notifier_unregister(sdpm_clk->clk_data[idx].clk,
 					&sdpm_clk->clk_data[idx].clk_rate_nb);
+		if (!sdpm_clk->clk_data[idx].reg)
+			continue;
+		regulator_unregister_notifier(sdpm_clk->clk_data[idx].reg,
+					&sdpm_clk->clk_data[idx].reg_nb);
 	}
 	cpufreq_unregister_notifier(&sdpm_clk->clk_data[idx].clk_rate_nb,
 					CPUFREQ_TRANSITION_NOTIFIER);
