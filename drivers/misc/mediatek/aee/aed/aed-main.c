@@ -36,9 +36,6 @@
 #include <linux/wait.h>
 #include <linux/workqueue.h>
 
-#if IS_ENABLED(CONFIG_MTK_LCM)
-#include <disp_assert_layer.h>
-#endif
 #include <mt-plat/aee.h>
 
 #include "aed.h"
@@ -157,6 +154,13 @@ void msg_show(const char *prefix, struct AE_Msg *msg)
 		cmd_type, msg->cmdType, cmd_id, msg->cmdId, msg->seq, msg->arg,
 		msg->len);
 }
+
+
+int aee_get_mode(void)
+{
+	return aee_mode;
+}
+EXPORT_SYMBOL(aee_get_mode);
 
 
 /******************************************************************************
@@ -1510,8 +1514,6 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	int ret = 0;
 	int aee_mode_tmp = 0;
 	int aee_force_exp_tmp = 0;
-	struct aee_dal_show *dal_show;
-	struct aee_dal_setcolor dal_setcolor;
 	struct aee_thread_reg *tmp;
 	int pid;
 	struct aee_siginfo aee_si;
@@ -1559,76 +1561,6 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		}
 
 		pr_debug("set aee force_exp = %d\n", aee_force_exp);
-		break;
-	case AEEIOCTL_DAL_SHOW:
-		/* It's troublesome to allocate more than
-		 * 1KB size on stack
-		 */
-		dal_show = kzalloc(sizeof(struct aee_dal_show), GFP_KERNEL);
-		if (!dal_show) {
-			ret = -EFAULT;
-			goto EXIT;
-		}
-
-		if (copy_from_user(dal_show,
-				(struct aee_dal_show __user *)arg,
-				sizeof(struct aee_dal_show))) {
-			ret = -EFAULT;
-			goto OUT;
-		}
-
-		if (aee_mode >= AEE_MODE_CUSTOMER_ENG) {
-			pr_info("DAL_SHOW not allowed (mode %d)\n",
-					aee_mode);
-			goto OUT;
-		}
-
-		/* Try to prevent overrun */
-		dal_show->msg[sizeof(dal_show->msg) - 1] = 0;
-#if IS_ENABLED(CONFIG_MTK_LCM)
-		pr_debug("AEE CALL DAL_Printf now\n");
-		DAL_Printf("%s", dal_show->msg);
-#endif
-
- OUT:
-		kfree(dal_show);
-		dal_show = NULL;
-		goto EXIT;
-	case AEEIOCTL_DAL_CLEAN:
-		/* set default bgcolor to red,
-		 * it will be used in DAL_Clean
-		 */
-		dal_setcolor.foreground = 0x00ff00;	/*green */
-		dal_setcolor.background = 0xff0000;	/*red */
-
-#if IS_ENABLED(CONFIG_MTK_LCM)
-		pr_debug("AEE CALL DAL_SetColor now\n");
-		DAL_SetColor(dal_setcolor.foreground,
-				dal_setcolor.background);
-		pr_debug("AEE CALL DAL_Clean now\n");
-		DAL_Clean();
-#endif
-		break;
-	case AEEIOCTL_SETCOLOR:
-		if (aee_mode >= AEE_MODE_CUSTOMER_ENG) {
-			pr_info("SETCOLOR not allowed (mode %d)\n",
-					aee_mode);
-			goto EXIT;
-		}
-
-		if (copy_from_user(&dal_setcolor,
-				(struct aee_dal_setcolor __user *)arg,
-				sizeof(struct aee_dal_setcolor))) {
-			ret = -EFAULT;
-			goto EXIT;
-		}
-#if IS_ENABLED(CONFIG_MTK_LCM)
-		pr_debug("AEE CALL DAL_SetColor now\n");
-		DAL_SetColor(dal_setcolor.foreground,
-				dal_setcolor.background);
-		pr_debug("AEE CALL DAL_SetScreenColor now\n");
-		DAL_SetScreenColor(dal_setcolor.screencolor);
-#endif
 		break;
 	case AEEIOCTL_GET_THREAD_REG:
 		pr_debug("%s: get thread registers ioctl\n", __func__);

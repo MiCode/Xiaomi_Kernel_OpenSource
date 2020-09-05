@@ -22,3 +22,4 @@ aee_aed-y	+= \
 	aee-common.o \
 	reboot-reason.o
 
+obj-$(CONFIG_MTK_AEE_FEATURE)	+= aee_rs.o
