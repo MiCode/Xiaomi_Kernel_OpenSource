@@ -334,3 +334,5 @@
 #include "display/trustedvm-lahaina-sde-display.dtsi"
 #include "display/dsi-panel-sw43404-amoled-dsc-wqhd-cmd.dtsi"
 #include "display/dsi-panel-sw43404-amoled-dsc-wqhd-video.dtsi"
+#include "display/dsi-panel-r66451-dsc-fhd-plus-cmd.dtsi"
+#include "display/dsi-panel-r66451-dsc-fhd-plus-video.dtsi"
