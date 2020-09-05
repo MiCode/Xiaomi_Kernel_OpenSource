@@ -2183,7 +2183,7 @@ int cnss_minidump_add_region(struct cnss_plat_data *plat_priv,
 		    md_entry.name, va, &pa, size);
 
 	ret = msm_minidump_add_region(&md_entry);
-	if (ret)
+	if (ret < 0)
 		cnss_pr_err("Failed to add mini dump region, err = %d\n", ret);
 
 	return ret;
