@@ -405,26 +405,26 @@ static void a6xx_gmu_power_config(struct adreno_device *adreno_dev)
 
 	switch (gmu->idle_level) {
 	case GPU_HW_MIN_VOLT:
-		gmu_core_regrmw(device, A6XX_GMU_RPMH_CTRL, 0,
+		gmu_core_regrmw(device, A6XX_GMU_RPMH_CTRL, MIN_BW_ENABLE_MASK,
 				MIN_BW_ENABLE_MASK);
-		gmu_core_regrmw(device, A6XX_GMU_RPMH_HYST_CTRL, 0,
+		gmu_core_regrmw(device, A6XX_GMU_RPMH_HYST_CTRL, 0xFFFF,
 				MIN_BW_HYST);
 		/* fall through */
 	case GPU_HW_NAP:
-		gmu_core_regrmw(device, A6XX_GMU_GPU_NAP_CTRL, 0,
-				HW_NAP_ENABLE_MASK);
+		gmu_core_regrmw(device, A6XX_GMU_GPU_NAP_CTRL,
+				HW_NAP_ENABLE_MASK, HW_NAP_ENABLE_MASK);
 		/* fall through */
 	case GPU_HW_IFPC:
 		gmu_core_regwrite(device, A6XX_GMU_PWR_COL_INTER_FRAME_HYST,
 				GMU_PWR_COL_HYST);
-		gmu_core_regrmw(device, A6XX_GMU_PWR_COL_INTER_FRAME_CTRL, 0,
-				IFPC_ENABLE_MASK);
+		gmu_core_regrmw(device, A6XX_GMU_PWR_COL_INTER_FRAME_CTRL,
+				IFPC_ENABLE_MASK, IFPC_ENABLE_MASK);
 		/* fall through */
 	case GPU_HW_SPTP_PC:
 		gmu_core_regwrite(device, A6XX_GMU_PWR_COL_SPTPRAC_HYST,
 				GMU_PWR_COL_HYST);
-		gmu_core_regrmw(device, A6XX_GMU_PWR_COL_INTER_FRAME_CTRL, 0,
-				SPTP_ENABLE_MASK);
+		gmu_core_regrmw(device, A6XX_GMU_PWR_COL_INTER_FRAME_CTRL,
+				SPTP_ENABLE_MASK, SPTP_ENABLE_MASK);
 		/* fall through */
 	default:
 		break;
@@ -432,7 +432,7 @@ static void a6xx_gmu_power_config(struct adreno_device *adreno_dev)
 
 	/* Enable RPMh GPU client */
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_RPMH))
-		gmu_core_regrmw(device, A6XX_GMU_RPMH_CTRL, 0,
+		gmu_core_regrmw(device, A6XX_GMU_RPMH_CTRL, RPMH_ENABLE_MASK,
 				RPMH_ENABLE_MASK);
 }
 
