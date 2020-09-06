@@ -157,6 +157,7 @@ struct task_struct *find_task_by_vpid(pid_t vnr);
 void *fpsgo_alloc_atomic(int i32Size);
 void fpsgo_free(void *pvBuf, int i32Size);
 unsigned long long fpsgo_get_time(void);
+int fpsgo_arch_nr_clusters(void);
 
 int fpsgo_get_tgid(int pid);
 void fpsgo_render_tree_lock(const char *tag);

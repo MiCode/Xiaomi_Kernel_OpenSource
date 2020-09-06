@@ -1955,15 +1955,7 @@ static KOBJ_ATTR_RO(fpsgo_status);
 
 int mtk_fstb_init(void)
 {
-	int num_cluster = 0;
-
 	mtk_fstb_dprintk_always("init\n");
-
-#if API_READY
-	num_cluster = arch_nr_clusters();
-#else
-	num_cluster = 2;
-#endif
 
 #if API_READY
 	ged_kpi_output_gfx_info2_fp = gpu_time_update;

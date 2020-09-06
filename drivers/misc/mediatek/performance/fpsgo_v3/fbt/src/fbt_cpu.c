@@ -2540,6 +2540,11 @@ static unsigned int mt_cpufreq_get_freq_by_idx(
 	return 5000000;
 }
 
+static int cmp_uint(const void *a, const void *b)
+{
+	return *(unsigned int *)b - *(unsigned int *)a;
+}
+
 static void fbt_update_pwd_tbl(void)
 {
 	int cluster, opp;
@@ -2561,10 +2566,17 @@ static void fbt_update_pwd_tbl(void)
 
 
 		for (opp = 0; opp < NR_FREQ_CPU; opp++) {
-			unsigned int temp;
-
 			cpu_dvfs[cluster].power[opp] =
 				mt_cpufreq_get_freq_by_idx(cluster, opp);
+		}
+
+		sort(cpu_dvfs[cluster].power,
+				NR_FREQ_CPU,
+				sizeof(unsigned int),
+				cmp_uint, NULL);
+
+		for (opp = 0; opp < NR_FREQ_CPU; opp++) {
+			unsigned int temp;
 
 			cap = cap_orig * cpu_dvfs[cluster].power[opp];
 			if (cpu_dvfs[cluster].power[0])
@@ -3377,11 +3389,7 @@ int __init fbt_cpu_init(void)
 	boost_ta = fbt_get_default_boost_ta();
 	adjust_loading = fbt_get_default_adj_loading();
 
-#if API_READY
-	cluster_num = arch_nr_clusters();
-#else
-	cluster_num = 2;
-#endif
+	cluster_num = fpsgo_arch_nr_clusters();
 
 	max_cap_cluster = min((cluster_num - 1), 0);
 
