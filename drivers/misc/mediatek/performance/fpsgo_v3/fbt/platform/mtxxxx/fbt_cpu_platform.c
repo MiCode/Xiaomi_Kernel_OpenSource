@@ -4,6 +4,7 @@
  */
 
 #include "fbt_cpu_platform.h"
+#include <sched/sched.h>
 #include <mt-plat/fpsgo_common.h>
 
 #define API_READY 0
@@ -45,6 +46,7 @@ void fbt_set_per_task_min_cap(int pid, unsigned int base_blc)
 {
 	int ret = -1;
 	unsigned int base_blc_1024;
+	struct task_struct *p;
 
 	if (!pid)
 		return;
@@ -52,6 +54,31 @@ void fbt_set_per_task_min_cap(int pid, unsigned int base_blc)
 	base_blc_1024 = (base_blc << 10) / 100U;
 	base_blc_1024 = clamp(base_blc_1024, 1U, 1024U);
 
+	struct sched_attr attr = {
+		.sched_flags =
+			SCHED_FLAG_KEEP_PARAMS |
+			SCHED_FLAG_UTIL_CLAMP_MIN |
+			SCHED_FLAG_RESET_ON_FORK,
+		.sched_util_min = base_blc_1024,
+	};
+
+	if (pid < 0)
+		goto out;
+
+	rcu_read_lock();
+	p = find_task_by_vpid(pid);
+
+	if (likely(p))
+		get_task_struct(p);
+
+	rcu_read_unlock();
+
+	if (likely(p)) {
+		ret = sched_setattr(p, &attr);
+		put_task_struct(p);
+	}
+
+out:
 	if (ret != 0) {
 		fpsgo_systrace_c_fbt(pid, 0, ret, "uclamp fail");
 		fpsgo_systrace_c_fbt(pid, 0, 0, "uclamp fail");

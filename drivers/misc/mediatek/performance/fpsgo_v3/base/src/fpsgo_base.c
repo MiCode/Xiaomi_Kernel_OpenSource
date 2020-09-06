@@ -11,6 +11,7 @@
 #include <linux/sched.h>
 #include <linux/interrupt.h>
 #include <linux/sched/clock.h>
+#include <linux/cpufreq.h>
 
 #include <linux/uaccess.h>
 
@@ -98,6 +99,22 @@ unsigned long long fpsgo_get_time(void)
 	return temp;
 }
 
+int fpsgo_arch_nr_clusters(void)
+{
+	int cpu, num = 0;
+	struct cpufreq_policy *policy;
+
+	for_each_possible_cpu(cpu) {
+		policy = cpufreq_cpu_get(cpu);
+
+		num++;
+		cpu = cpumask_last(policy->related_cpus);
+	}
+
+	return num;
+
+}
+
 uint32_t fpsgo_systrace_mask;
 
 #if API_READY
@@ -137,11 +154,11 @@ void __fpsgo_systrace_c(pid_t pid, unsigned long long bufID,
 #if API_READY
 	if (!bufID) {
 		preempt_disable();
-		event_trace(mark_addr, "C|%d|%s|%d\n", pid, log, val);
+		event_trace(mark_addr, "tracing_mark_write:C|%d|%s|%d\n", pid, log, val);
 		preempt_enable();
 	} else {
 		preempt_disable();
-		event_trace(mark_addr, "C|%d|%s|%d|0x%llx\n",
+		event_trace(mark_addr, "tracing_mark_write:C|%d|%s|%d|0x%llx\n",
 			pid, log, val, bufID);
 		preempt_enable();
 	}
@@ -172,7 +189,7 @@ void __fpsgo_systrace_b(pid_t tgid, const char *fmt, ...)
 
 #if API_READY
 	preempt_disable();
-	event_trace(mark_addr, "B|%d|%s\n", tgid, log);
+	event_trace(mark_addr, "tracing_mark_write:B|%d|%s\n", tgid, log);
 	preempt_enable();
 #else
 	//pr_debug("B|%d|%s\n", tgid, log);
@@ -187,7 +204,7 @@ void __fpsgo_systrace_e(void)
 
 #if API_READY
 	preempt_disable();
-	event_trace(mark_addr, "E\n");
+	event_trace(mark_addr, "tracing_mark_write:E\n");
 	preempt_enable();
 #else
 	//pr_debug("E\n");
