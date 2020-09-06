@@ -4,6 +4,7 @@
  */
 
 #include <linux/cache.h>
+#include <linux/freezer.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
@@ -18,6 +19,7 @@
 #include <linux/mm.h>
 #include <linux/ratelimit.h>
 #include <linux/sched/task.h>
+#include <linux/suspend.h>
 #include <linux/vmalloc.h>
 
 #ifdef CONFIG_QCOM_DYN_MINIDUMP_STACK
@@ -38,10 +40,19 @@ struct md_stack_cpu_data {
 static int md_current_stack_init __read_mostly;
 
 static DEFINE_PER_CPU_SHARED_ALIGNED(struct md_stack_cpu_data, md_stack_data);
+
+struct md_suspend_context_data {
+	int task_mdno;
+	int stack_mdidx[STACK_NUM_PAGES];
+	struct md_region stack_mdr[STACK_NUM_PAGES];
+	struct md_region task_mdr;
+	bool init;
+};
+
+static struct md_suspend_context_data md_suspend_context;
 #endif
 
 static bool is_vmap_stack __read_mostly;
-
 
 static void __init register_log_buf(void)
 {
@@ -64,8 +75,7 @@ static void __init register_log_buf(void)
 		pr_err("Failed to add logbuf in Minidump\n");
 }
 
-static int register_stack_entry(struct md_region *ksp_entry, u64 sp, u64 size,
-				 u32 cpu)
+static int register_stack_entry(struct md_region *ksp_entry, u64 sp, u64 size)
 {
 	struct page *sp_page;
 	int entry;
@@ -81,7 +91,8 @@ static int register_stack_entry(struct md_region *ksp_entry, u64 sp, u64 size,
 
 	entry = msm_minidump_add_region(ksp_entry);
 	if (entry < 0)
-		pr_err("Failed to add stack of cpu %d in Minidump\n", cpu);
+		pr_err("Failed to add stack of entry %s in Minidump\n",
+				ksp_entry->name);
 	return entry;
 }
 
@@ -173,15 +184,14 @@ void dump_stack_minidump(u64 sp)
 		for (i = 0; i < copy_pages; i++) {
 			scnprintf(ksp_entry.name, sizeof(ksp_entry.name),
 				  "KSTACK%d_%d", cpu, i);
-			(void)register_stack_entry(&ksp_entry, sp,
-						   PAGE_SIZE, cpu);
+			(void)register_stack_entry(&ksp_entry, sp, PAGE_SIZE);
 			sp += PAGE_SIZE;
 		}
 	} else {
 		sp &= ~(THREAD_SIZE - 1);
 		scnprintf(ksp_entry.name, sizeof(ksp_entry.name), "KSTACK%d",
 			  cpu);
-		(void)register_stack_entry(&ksp_entry, sp, THREAD_SIZE, cpu);
+		(void)register_stack_entry(&ksp_entry, sp, THREAD_SIZE);
 	}
 
 	scnprintf(ktsk_entry.name, sizeof(ktsk_entry.name), "KTASK%d", cpu);
@@ -194,7 +204,7 @@ void dump_stack_minidump(u64 sp)
 
 #ifdef CONFIG_QCOM_DYN_MINIDUMP_STACK
 static void update_stack_entry(struct md_region *ksp_entry, u64 sp,
-			       int mdno, u32 cpu)
+			       int mdno)
 {
 	struct page *sp_page;
 
@@ -207,72 +217,72 @@ static void update_stack_entry(struct md_region *ksp_entry, u64 sp,
 	}
 	if (msm_minidump_update_region(mdno, ksp_entry) < 0) {
 		pr_err_ratelimited(
-			"Failed to update cpu[%d] current stack in minidump\n",
-			cpu);
+			"Failed to update stack entry %s in minidump\n",
+			ksp_entry->name);
 	}
 }
 
-static void register_vmapped_stack(struct md_stack_cpu_data *md_stack_cpu_d,
-				   u64 sp, u32 cpu, bool update)
+static void register_vmapped_stack(struct md_region *mdr, int *mdno,
+				   u64 sp, char *name_str, bool update)
 {
-	struct md_region *mdr;
-	int *mdno;
 	int i;
 
 	sp &= ~(PAGE_SIZE - 1);
 	for (i = 0; i < STACK_NUM_PAGES; i++) {
-		mdr = md_stack_cpu_d->stack_mdr + i;
-		mdno = md_stack_cpu_d->stack_mdidx + i;
 		if (unlikely(!update)) {
-			scnprintf(mdr->name, sizeof(mdr->name),
-				  "KSTACK%d_%d", cpu, i);
-			*mdno = register_stack_entry(mdr, sp, PAGE_SIZE, cpu);
+			scnprintf(mdr->name, sizeof(mdr->name), "%s_%d",
+					  name_str, i);
+			*mdno = register_stack_entry(mdr, sp, PAGE_SIZE);
 		} else {
-			update_stack_entry(mdr, sp, *mdno, cpu);
+			update_stack_entry(mdr, sp, *mdno);
 		}
 		sp += PAGE_SIZE;
+		mdr++;
+		mdno++;
 	}
 }
 
-static void register_normal_stack(struct md_stack_cpu_data *md_stack_cpu_d,
-				  u64 sp, u32 cpu, bool update)
+static void register_normal_stack(struct md_region *mdr, int *mdno,
+				  u64 sp, char *name_str, bool update)
 {
-	struct md_region *mdr;
-
-	mdr = md_stack_cpu_d->stack_mdr;
 	sp &= ~(THREAD_SIZE - 1);
 	if (unlikely(!update)) {
-		scnprintf(mdr->name, sizeof(mdr->name), "KSTACK%d", cpu);
-		*md_stack_cpu_d->stack_mdidx = register_stack_entry(
-						mdr, sp, THREAD_SIZE, cpu);
+		scnprintf(mdr->name, sizeof(mdr->name), name_str);
+		*mdno = register_stack_entry(mdr, sp, THREAD_SIZE);
 	} else {
-		update_stack_entry(mdr, sp,
-				   *md_stack_cpu_d->stack_mdidx, cpu);
+		update_stack_entry(mdr, sp, *mdno);
 	}
 }
 
-static void update_md_stack(u32 cpu, u64 sp)
+static void update_md_stack(struct md_region *stack_mdr,
+			    int *stack_mdno, u64 sp)
 {
-	struct md_stack_cpu_data *md_stack_cpu_d =
-				&per_cpu(md_stack_data, cpu);
-	int *mdno;
 	unsigned int i;
+	int *mdno;
+
+	if (likely(is_vmap_stack)) {
+		for (i = 0; i < STACK_NUM_PAGES; i++) {
+			mdno = stack_mdno + i;
+			if (unlikely(*mdno < 0))
+				return;
+		}
+		register_vmapped_stack(stack_mdr, stack_mdno, sp, NULL, true);
+	} else {
+		if (unlikely(*stack_mdno < 0))
+			return;
+		register_normal_stack(stack_mdr, stack_mdno, sp, NULL, true);
+	}
+}
+
+static void update_md_cpu_stack(u32 cpu, u64 sp)
+{
+	struct md_stack_cpu_data *md_stack_cpu_d = &per_cpu(md_stack_data, cpu);
 
 	if (is_idle_task(current) || !md_current_stack_init)
 		return;
 
-	if (likely(is_vmap_stack)) {
-		for (i = 0; i < STACK_NUM_PAGES; i++) {
-			mdno = md_stack_cpu_d->stack_mdidx + i;
-			if (unlikely(*mdno < 0))
-				return;
-		}
-		register_vmapped_stack(md_stack_cpu_d, sp, cpu, true);
-	} else {
-		if (unlikely(*md_stack_cpu_d->stack_mdidx < 0))
-			return;
-		register_normal_stack(md_stack_cpu_d, sp, cpu, true);
-	}
+	update_md_stack(md_stack_cpu_d->stack_mdr,
+			md_stack_cpu_d->stack_mdidx, sp);
 }
 
 void md_current_stack_notifer(void *ignore, bool preempt,
@@ -281,7 +291,7 @@ void md_current_stack_notifer(void *ignore, bool preempt,
 	u32 cpu = task_cpu(next);
 	u64 sp = (u64)next->stack;
 
-	update_md_stack(cpu, sp);
+	update_md_cpu_stack(cpu, sp);
 }
 
 void md_current_stack_ipi_handler(void *data)
@@ -296,7 +306,45 @@ void md_current_stack_ipi_handler(void *data)
 		stack_vm_area = task_stack_vm_area(current);
 		sp = (u64)stack_vm_area->addr;
 	}
-	update_md_stack(cpu, sp);
+	update_md_cpu_stack(cpu, sp);
+}
+
+static void update_md_current_task(struct md_region *mdr, int mdno)
+{
+	mdr->virt_addr = (u64)current;
+	mdr->phys_addr = virt_to_phys((uintptr_t *)current);
+	if (msm_minidump_update_region(mdno, mdr) < 0)
+		pr_err("Failed to update %s current task in minidump\n",
+			   mdr->name);
+}
+
+static void update_md_suspend_current_stack(void)
+{
+	u64 sp = current_stack_pointer;
+	struct vm_struct *stack_vm_area;
+
+	if (likely(is_vmap_stack)) {
+		stack_vm_area = task_stack_vm_area(current);
+		sp = (u64)stack_vm_area->addr;
+	}
+	update_md_stack(md_suspend_context.stack_mdr,
+			md_suspend_context.stack_mdidx, sp);
+}
+
+static void update_md_suspend_current_task(void)
+{
+	if (unlikely(md_suspend_context.task_mdno < 0))
+		return;
+	update_md_current_task(&md_suspend_context.task_mdr,
+			md_suspend_context.task_mdno);
+}
+
+static void update_md_suspend_currents(void)
+{
+	if (!md_suspend_context.init)
+		return;
+	update_md_suspend_current_stack();
+	update_md_suspend_current_task();
 }
 
 static void register_current_stack(void)
@@ -305,6 +353,7 @@ static void register_current_stack(void)
 	u64 sp = current_stack_pointer;
 	struct md_stack_cpu_data *md_stack_cpu_d;
 	struct vm_struct *stack_vm_area;
+	char name_str[MAX_NAME_LENGTH];
 
 	/*
 	 * Since stacks are now allocated with vmalloc, the translation to
@@ -324,15 +373,84 @@ static void register_current_stack(void)
 		 * once system up and running, let the cpu update its currents.
 		 */
 		md_stack_cpu_d = &per_cpu(md_stack_data, cpu);
+		scnprintf(name_str, sizeof(name_str), "KSTACK%d", cpu);
 		if (is_vmap_stack)
-			register_vmapped_stack(md_stack_cpu_d, sp, cpu, false);
+			register_vmapped_stack(md_stack_cpu_d->stack_mdr,
+				md_stack_cpu_d->stack_mdidx, sp,
+				name_str, false);
 		else
-			register_normal_stack(md_stack_cpu_d, sp, cpu, false);
+			register_normal_stack(md_stack_cpu_d->stack_mdr,
+				md_stack_cpu_d->stack_mdidx, sp,
+				name_str, false);
 	}
 
 	register_trace_sched_switch(md_current_stack_notifer, NULL);
 	md_current_stack_init = 1;
 	smp_call_function(md_current_stack_ipi_handler, NULL, 1);
+}
+
+static void register_suspend_stack(void)
+{
+	char name_str[MAX_NAME_LENGTH];
+	u64 sp = current_stack_pointer;
+	struct vm_struct *stack_vm_area = task_stack_vm_area(current);
+
+	scnprintf(name_str, sizeof(name_str), "KSUSPSTK");
+	if (is_vmap_stack) {
+		sp = (u64)stack_vm_area->addr;
+		register_vmapped_stack(md_suspend_context.stack_mdr,
+				md_suspend_context.stack_mdidx,
+				sp, name_str, false);
+	} else {
+		register_normal_stack(md_suspend_context.stack_mdr,
+			md_suspend_context.stack_mdidx,
+			sp, name_str, false);
+	}
+}
+
+static void register_current_task(struct md_region *mdr, int *mdno,
+				  char *name_str)
+{
+	scnprintf(mdr->name, sizeof(mdr->name), name_str);
+	mdr->virt_addr = (u64)current;
+	mdr->phys_addr = virt_to_phys((uintptr_t *)current);
+	mdr->size = sizeof(struct task_struct);
+	*mdno = msm_minidump_add_region(mdr);
+	if (*mdno < 0)
+		pr_err("Failed to add current task %s in Minidump\n",
+		       mdr->name);
+}
+
+static void register_suspend_current_task(void)
+{
+	char name_str[MAX_NAME_LENGTH];
+
+	scnprintf(name_str, sizeof(name_str), "KSUSPTASK");
+	register_current_task(&md_suspend_context.task_mdr,
+			&md_suspend_context.task_mdno, name_str);
+}
+
+static int minidump_pm_notifier(struct notifier_block *nb,
+				unsigned long event, void *unused)
+{
+	switch (event) {
+	case PM_SUSPEND_PREPARE:
+		update_md_suspend_currents();
+		break;
+	}
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block minidump_pm_nb = {
+	.notifier_call = minidump_pm_notifier,
+};
+
+static void register_suspend_context(void)
+{
+	register_suspend_stack();
+	register_suspend_current_task();
+	register_pm_notifier(&minidump_pm_nb);
+	md_suspend_context.init = true;
 }
 #endif
 
@@ -356,15 +474,14 @@ static void register_irq_stack(void)
 					  sizeof(irq_sp_entry.name),
 					  "KISTACK%d_%d", cpu, i);
 				register_stack_entry(&irq_sp_entry, sp,
-						     PAGE_SIZE, cpu);
+						     PAGE_SIZE);
 				sp += PAGE_SIZE;
 			}
 		} else {
 			sp = irq_stack_base;
 			scnprintf(irq_sp_entry.name, sizeof(irq_sp_entry.name),
 				  "KISTACK%d", cpu);
-			register_stack_entry(&irq_sp_entry, sp, IRQ_STACK_SIZE,
-					     cpu);
+			register_stack_entry(&irq_sp_entry, sp, IRQ_STACK_SIZE);
 		}
 	}
 }
@@ -379,6 +496,7 @@ static int __init msm_minidump_log_init(void)
 	register_irq_stack();
 #ifdef CONFIG_QCOM_DYN_MINIDUMP_STACK
 	register_current_stack();
+	register_suspend_context();
 #endif
 	register_log_buf();
 	return 0;

@@ -123,12 +123,16 @@ struct msm_watchdog_data {
 	unsigned long long ping_start[NR_CPUS];
 	unsigned long long ping_end[NR_CPUS];
 	int cpu_idle_pc_state[NR_CPUS];
+	bool freeze_in_progress;
+	spinlock_t freeze_lock;
 };
 
 extern void qcom_wdt_trigger_bite(void);
 int qcom_wdt_register(struct platform_device *pdev,
 			struct msm_watchdog_data *wdog_dd,
 			char *wdog_dd_name);
+int qcom_wdt_pet_suspend(struct device *dev);
+int qcom_wdt_pet_resume(struct device *dev);
 int qcom_wdt_remove(struct platform_device *pdev);
 #else
 static inline void qcom_wdt_trigger_bite(void) { }

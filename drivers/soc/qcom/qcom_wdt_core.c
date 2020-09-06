@@ -89,6 +89,45 @@ static void qcom_wdt_resume(void)
 	wdog_data->last_pet = sched_clock();
 	return;
 }
+
+int qcom_wdt_pet_suspend(struct device *dev)
+{
+	struct msm_watchdog_data *wdog_dd =
+			(struct msm_watchdog_data *)dev_get_drvdata(dev);
+
+	if (!wdog_dd)
+		return 0;
+
+	wdog_dd->ops->reset_wdt(wdog_dd);
+	wdog_dd->last_pet = sched_clock();
+	spin_lock(&wdog_dd->freeze_lock);
+	wdog_dd->freeze_in_progress = true;
+	spin_unlock(&wdog_dd->freeze_lock);
+	del_timer_sync(&wdog_dd->pet_timer);
+	return 0;
+}
+EXPORT_SYMBOL(qcom_wdt_pet_suspend);
+
+int qcom_wdt_pet_resume(struct device *dev)
+{
+	struct msm_watchdog_data *wdog_dd =
+			(struct msm_watchdog_data *)dev_get_drvdata(dev);
+	unsigned long delay_time = 0;
+
+	if (!wdog_dd)
+		return 0;
+
+	delay_time = msecs_to_jiffies(wdog_dd->pet_time);
+	wdog_dd->ops->reset_wdt(wdog_dd);
+	wdog_dd->last_pet = sched_clock();
+	spin_lock(&wdog_dd->freeze_lock);
+	wdog_dd->pet_timer.expires = jiffies + delay_time;
+	add_timer(&wdog_dd->pet_timer);
+	wdog_dd->freeze_in_progress = false;
+	spin_unlock(&wdog_dd->freeze_lock);
+	return 0;
+}
+EXPORT_SYMBOL(qcom_wdt_pet_resume);
 #endif
 
 static struct syscore_ops qcom_wdt_syscore_ops = {
@@ -339,8 +378,13 @@ static __ref int qcom_wdt_kthread(void *arg)
 		/* Check again before scheduling
 		 * Could have been changed on other cpu
 		 */
-		if (!kthread_should_stop())
-			mod_timer(&wdog_dd->pet_timer, jiffies + delay_time);
+		if (!kthread_should_stop()) {
+			spin_lock(&wdog_dd->freeze_lock);
+			if (!wdog_dd->freeze_in_progress)
+				mod_timer(&wdog_dd->pet_timer,
+					  jiffies + delay_time);
+			spin_unlock(&wdog_dd->freeze_lock);
+		}
 	}
 	return 0;
 }
@@ -444,6 +488,9 @@ static irqreturn_t qcom_wdt_bark_handler(int irq, void *dev_id)
 	if (wdog_dd->do_ipi_ping)
 		qcom_wdt_dump_cpu_alive_mask(wdog_dd);
 
+	if (wdog_dd->freeze_in_progress)
+		dev_info(wdog_dd->dev, "Suspend in progress\n");
+
 	qcom_wdt_trigger_bite();
 
 	return IRQ_HANDLED;
@@ -473,9 +520,9 @@ static int qcom_wdt_init(struct msm_watchdog_data *wdog_dd,
 	int ret;
 
 	ret = devm_request_irq(wdog_dd->dev, wdog_dd->bark_irq,
-					qcom_wdt_bark_handler,
-					IRQF_TRIGGER_RISING,
-					"apps_wdog_bark", wdog_dd);
+			       qcom_wdt_bark_handler,
+			       IRQF_TRIGGER_RISING | IRQF_NO_SUSPEND,
+			       "apps_wdog_bark", wdog_dd);
 	if (ret) {
 		dev_err(wdog_dd->dev, "failed to request bark irq\n");
 		return -EINVAL;
@@ -495,6 +542,8 @@ static int qcom_wdt_init(struct msm_watchdog_data *wdog_dd,
 	wdog_dd->timer_expired = false;
 	wdog_dd->user_pet_complete = true;
 	wdog_dd->user_pet_enabled = false;
+	spin_lock_init(&wdog_dd->freeze_lock);
+	wdog_dd->freeze_in_progress = false;
 	wake_up_process(wdog_dd->watchdog_task);
 	timer_setup(&wdog_dd->pet_timer, qcom_wdt_pet_task_wakeup, 0);
 	wdog_dd->pet_timer.expires = jiffies + delay_time;
