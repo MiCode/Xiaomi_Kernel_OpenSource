@@ -1097,7 +1097,7 @@
 
 		qcom,ipc-1 = <&apcs 0 13>;
 		qcom,ipc-2 = <&apcs 0 9>;
-		qcom,ipc-6 = <&apcs 0 19>;
+		qcom,ipc-3 = <&apcs 0 19>;
 
 		apps_smsm: apps@0 {
 			reg = <0>;
@@ -1118,8 +1118,8 @@
 			#interrupt-cells = <2>;
 		};
 
-		wcnss_smsm: wcnss@6 {
-			reg = <6>;
+		wcnss_smsm: wcnss@3 {
+			reg = <3>;
 			interrupts = <0 144 IRQ_TYPE_EDGE_RISING>;
 			interrupt-controller;
 			#interrupt-cells = <2>;
