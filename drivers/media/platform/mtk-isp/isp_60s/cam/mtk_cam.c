@@ -574,7 +574,6 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 		ctx->using_buffer_list.cnt--;
 		buf_entry->cq_size =
 			ipi_msg->ack_data.frame_result.cq_desc_size;
-		dev_dbg(dev, "composed_size:%d\n", buf_entry->cq_size);
 
 		if (ctx->composed_frame_seq_no == 1) {
 			struct mtk_cam_request *req;
@@ -1245,6 +1244,13 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 	cam->composer_cnt--;
 	ctx->streaming = false;
 	cam->streaming_ctx &= ~(1 << ctx->stream_id);
+	dev = mtk_cam_find_raw_dev(cam, ctx->used_raw_dev);
+	if (!dev) {
+		dev_dbg(cam->dev, "streamoff raw device not found\n");
+		goto fail_stream_off;
+	}
+	raw_dev = dev_get_drvdata(dev);
+	stream_on(raw_dev, 0);
 
 	ret = v4l2_subdev_call(ctx->seninf, video, s_stream, 0);
 	if (ret) {
@@ -1263,13 +1269,6 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 		}
 	}
 
-	dev = mtk_cam_find_raw_dev(cam, ctx->used_raw_dev);
-	if (!dev) {
-		dev_dbg(cam->dev, "streamoff raw device not found\n");
-		goto fail_stream_off;
-	}
-	raw_dev = dev_get_drvdata(dev);
-	stream_on(raw_dev, 0);
 	mtk_camsys_ctrl_stop(ctx);
 fail_stream_off:
 	/* FIXME: need to receive destroy ack then to destroy rproc_phandle */

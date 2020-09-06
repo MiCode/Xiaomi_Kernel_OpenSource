@@ -322,10 +322,10 @@ static void mtk_cam_sensor_worker(struct work_struct *work)
 				"[SOF+%dms] Sensor request:%d[ctx:%d] setup\n",
 				time_after_sof, req->frame_seq_no,
 				ctx->stream_id);
-			state_transition(&req->state, E_STATE_READY, E_STATE_SENSOR);
 			v4l2_ctrl_request_complete(&req->req, parent_hdl);
 		}
 	}
+	state_transition(&req->state, E_STATE_READY, E_STATE_SENSOR);
 	dev_dbg(cam->dev, "sensor try set done\n");
 }
 
