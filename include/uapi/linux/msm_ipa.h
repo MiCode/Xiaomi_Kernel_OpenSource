@@ -252,7 +252,7 @@ enum ipa_client_type {
 	IPA_CLIENT_A5_WLAN_AMPDU_PROD		= 12,
 	IPA_CLIENT_WLAN2_CONS			= 13,
 
-	/* RESERVED PROD			= 14, */
+	IPA_CLIENT_WLAN3_PROD			= 14,
 	IPA_CLIENT_WLAN3_CONS			= 15,
 
 	/* RESERVED PROD			= 16, */
@@ -390,9 +390,12 @@ enum ipa_client_type {
 
 	IPA_CLIENT_APPS_WAN_LOW_LAT_PROD	= 104,
 	IPA_CLIENT_APPS_WAN_LOW_LAT_CONS	= 105,
+
+	IPA_CLIENT_QDSS_PROD			= 106,
+	IPA_CLIENT_MHI_QDSS_CONS		= 107,
 };
 
-#define IPA_CLIENT_MAX (IPA_CLIENT_APPS_WAN_LOW_LAT_CONS + 1)
+#define IPA_CLIENT_MAX (IPA_CLIENT_MHI_QDSS_CONS + 1)
 
 #define IPA_CLIENT_WLAN2_PROD IPA_CLIENT_A5_WLAN_AMPDU_PROD
 #define IPA_CLIENT_Q6_DL_NLO_DATA_PROD IPA_CLIENT_Q6_DL_NLO_DATA_PROD
@@ -778,6 +781,7 @@ enum ipa_rm_resource_name {
  * @IPA_HW_v4_7: IPA hardware version 4.7
  * @IPA_HW_v4_9: IPA hardware version 4.9
  * @IPA_HW_v4_11: IPA hardware version 4.11
+ * @IPA_HW_v5_0: IPA hardware version 5.0
  */
 enum ipa_hw_type {
 	IPA_HW_None = 0,
@@ -799,8 +803,9 @@ enum ipa_hw_type {
 	IPA_HW_v4_7 = 18,
 	IPA_HW_v4_9 = 19,
 	IPA_HW_v4_11 = 20,
+	IPA_HW_v5_0 = 21,
 };
-#define IPA_HW_MAX (IPA_HW_v4_11 + 1)
+#define IPA_HW_MAX (IPA_HW_v5_0 + 1)
 
 #define IPA_HW_v4_0 IPA_HW_v4_0
 #define IPA_HW_v4_1 IPA_HW_v4_1
@@ -809,6 +814,7 @@ enum ipa_hw_type {
 #define IPA_HW_v4_7 IPA_HW_v4_7
 #define IPA_HW_v4_9 IPA_HW_v4_9
 #define IPA_HW_v4_11 IPA_HW_v4_11
+#define IPA_HW_v5_0 IPA_HW_v5_0
 
 /**
  * struct ipa_rule_attrib - attributes of a routing/filtering
@@ -1077,6 +1083,8 @@ struct ipa_flt_rule {
  * flt rule.
  * @cnt_idx: if 0 means disable, otherwise use for index.
  * will be assigned by ipa driver.
+ * @close_aggr_irq_mod: close aggregation/coalescing and close GSI
+ *  interrupt moderation
  */
 struct ipa_flt_rule_v2 {
 	uint8_t retain_hdr;
@@ -1094,6 +1102,7 @@ struct ipa_flt_rule_v2 {
 	uint8_t pdn_idx;
 	uint8_t enable_stats;
 	uint8_t cnt_idx;
+	uint8_t close_aggr_irq_mod;
 };
 
 /**
@@ -1186,6 +1195,8 @@ struct ipa_rt_rule {
  * rt rule.
  * @cnt_idx: if enable_stats is 1 and cnt_idx is 0, then cnt_idx
  * will be assigned by ipa driver.
+ * @close_aggr_irq_mod: close aggregation/coalescing and close GSI
+ *  interrupt moderation
  */
 struct ipa_rt_rule_v2 {
 	enum ipa_client_type dst;
@@ -1198,6 +1209,7 @@ struct ipa_rt_rule_v2 {
 	uint8_t coalesce;
 	uint8_t enable_stats;
 	uint8_t cnt_idx;
+	uint8_t close_aggr_irq_mod;
 };
 
 /**
