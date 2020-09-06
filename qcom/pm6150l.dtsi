@@ -281,6 +281,36 @@
 			};
 		};
 
+		pm6150l_wled: qcom,wled@d800 {
+			compatible = "qcom,pm6150l-spmi-wled";
+			reg = <0xd800>, <0xd900>;
+			reg-names = "wled-ctrl-base", "wled-sink-base";
+			label = "backlight";
+			interrupts = <0x5 0xd8 0x1 IRQ_TYPE_EDGE_RISING>,
+				     <0x5 0xd8 0x4 IRQ_TYPE_EDGE_BOTH>,
+				     <0x5 0xd8 0x5 IRQ_TYPE_EDGE_BOTH>;
+			interrupt-names = "ovp-irq", "pre-flash-irq",
+					  "flash-irq";
+			qcom,auto-calibration;
+			status = "disabled";
+
+			wled_flash: qcom,wled-flash {
+				label = "flash";
+				qcom,default-led-trigger = "wled_flash";
+			};
+
+			wled_torch: qcom,wled-torch {
+				label = "torch";
+				qcom,default-led-trigger = "wled_torch";
+				qcom,wled-torch-timer = <1200>;
+			};
+
+			wled_switch: qcom,wled-switch {
+				label = "switch";
+				qcom,default-led-trigger = "wled_switch";
+			};
+		};
+
 		pm6150l_lpg: qcom,pwms@b100 {
 			compatible = "qcom,pwm-lpg";
 			reg = <0xb100>, <0xb000>;

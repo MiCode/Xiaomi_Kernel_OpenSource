@@ -259,6 +259,15 @@
 			   "flash_active";
 };
 
+&pm6150l_wled {
+	io-channels = <&pm7250b_qg PSY_IIO_RESISTANCE>,
+		      <&pm7250b_qg PSY_IIO_VOLTAGE_OCV>,
+		      <&pm7250b_qg PSY_IIO_CURRENT_NOW>;
+	io-channel-names = "rbatt",
+			   "voltage_ocv",
+			   "current_now";
+};
+
 &thermal_zones {
 	chg-skin-therm-usr {
 		polling-delay-passive = <0>;
