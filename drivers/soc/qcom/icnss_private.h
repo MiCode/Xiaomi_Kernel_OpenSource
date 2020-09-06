@@ -175,6 +175,7 @@ struct icnss_vreg_info {
 	u32 load_ua;
 	unsigned long settle_delay;
 	bool required;
+	bool is_supported;
 };
 
 struct icnss_clk_info {
@@ -385,6 +386,8 @@ struct icnss_priv {
 	int last_updated_voltage;
 	struct work_struct soc_update_work;
 	struct workqueue_struct *soc_update_wq;
+	bool is_chain1_supported;
+	bool chain_reg_info_updated;
 };
 
 struct icnss_reg_info {
