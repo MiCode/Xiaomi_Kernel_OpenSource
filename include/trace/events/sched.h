@@ -1267,7 +1267,7 @@ TRACE_EVENT(sched_task_util,
 		__entry->start_cpu		= start_cpu;
 #ifdef CONFIG_SCHED_WALT
 		__entry->unfilter		= p->unfilter;
-		__entry->low_latency		= p->low_latency;
+		__entry->low_latency		= walt_low_latency_task(p);
 #else
 		__entry->unfilter		= 0;
 		__entry->low_latency		= 0;
