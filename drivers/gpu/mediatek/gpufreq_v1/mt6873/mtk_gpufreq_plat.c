@@ -32,15 +32,6 @@
 #include "mtk_gpufreq_internal.h"
 #include "mtk_gpufreq_common.h"
 
-/* TODO: porting*/
-/* #include "clk-fmeter.h" */
-
-/* TODO: porting*/
-/* #include "mtk_pmic_wrap.h"*/
-
-/* TODO: porting*/
-/* #include "mtk_devinfo.h" */
-
 #include "mtk_bp_thl.h"
 #include "mtk_low_battery_throttling.h"
 #include "mtk_battery_oc_throttling.h"
@@ -789,6 +780,7 @@ unsigned int mt_gpufreq_target(unsigned int request_idx,
 	mutex_unlock(&mt_gpufreq_lock);
 	return 0;
 }
+EXPORT_SYMBOL(mt_gpufreq_target);
 
 void mt_gpufreq_set_timestamp(void)
 {
@@ -867,12 +859,15 @@ static void mt_gpufreq_cg_control(enum mt_power_state power)
 	gpufreq_pr_debug("@%s: power = %d", __func__, power);
 
 	if (power == POWER_ON) {
+		if (clk_prepare_enable(g_clk->clk_sub_parent))
+			gpufreq_pr_info("failed when enable clk_sub_parent\n");
 		if (clk_prepare_enable(g_clk->subsys_bg3d))
 			gpufreq_pr_info("failed when enable subsys-bg3d\n");
 
 		mt_gpufreq_external_cg_control();
 	} else {
 		clk_disable_unprepare(g_clk->subsys_bg3d);
+		clk_disable_unprepare(g_clk->clk_sub_parent);
 	}
 
 	g_cg_on = power;
@@ -930,7 +925,6 @@ static void mt_gpufreq_buck_control(enum mt_power_state power)
 {
 	gpufreq_pr_debug("@%s: power = %d", __func__, power);
 
-#ifdef REGULATOR_READY
 	if (power == POWER_ON) {
 		if (regulator_enable(g_pmic->reg_vsram_gpu)) {
 			gpufreq_pr_info("enable VSRAM_GPU failed\n");
@@ -953,7 +947,6 @@ static void mt_gpufreq_buck_control(enum mt_power_state power)
 
 	g_buck_on = power;
 	__mt_gpufreq_kick_pbm(power);
-#endif
 }
 
 void mt_gpufreq_software_trigger_dfd(void)
@@ -1396,7 +1389,6 @@ unsigned int mt_gpufreq_get_dvfs_en(void)
 
 unsigned int mt_gpufreq_not_ready(void)
 {
-#ifdef REGULATOR_READY
 	if (mt_gpufreq_bringup())
 		return false;
 
@@ -1408,9 +1400,6 @@ unsigned int mt_gpufreq_not_ready(void)
 	} else {
 		return false;
 	}
-#else
-	return false;
-#endif
 }
 EXPORT_SYMBOL(mt_gpufreq_not_ready);
 
@@ -1901,6 +1890,7 @@ void mt_gpufreq_power_limit_notify_registerCB(gpufreq_power_limit_notify pCB)
 {
 	/* legacy */
 }
+EXPORT_SYMBOL(mt_gpufreq_power_limit_notify_registerCB);
 
 static unsigned int __mt_gpufreq_get_segment_id(void)
 {
@@ -2090,7 +2080,7 @@ static int mt_gpufreq_var_dump_proc_show(struct seq_file *m, void *v)
 {
 	unsigned int gpu_loading = 0;
 
-#ifdef CONFIG_MTK_GPU_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_GPU_SUPPORT)
 	mtk_get_gpu_loading(&gpu_loading);
 #endif
 
@@ -2778,7 +2768,6 @@ static void __mt_gpufreq_volt_switch(
 		unsigned int vgpu_old, unsigned int vgpu_new,
 		unsigned int vsram_gpu_old, unsigned int vsram_gpu_new)
 {
-#ifdef REGULATOR_READY
 	unsigned int vgpu_settle_time, vsram_settle_time, final_settle_time;
 
 	if (vgpu_new > vgpu_old) {
@@ -2824,7 +2813,6 @@ static void __mt_gpufreq_volt_switch(
 	gpufreq_pr_logbuf("Vgpu: %d, Vsram_gpu: %d, udelay: %d\n",
 		__mt_gpufreq_get_cur_vgpu(), __mt_gpufreq_get_cur_vsram_gpu(),
 		final_settle_time);
-#endif
 }
 
 /*
@@ -2834,7 +2822,6 @@ static void __mt_gpufreq_volt_switch(
  */
 static void __mt_gpufreq_vgpu_set_mode(unsigned int mode)
 {
-#ifdef REGULATOR_READY
 	int ret;
 
 	ret = regulator_set_mode(g_pmic->reg_vgpu, mode);
@@ -2845,7 +2832,6 @@ static void __mt_gpufreq_vgpu_set_mode(unsigned int mode)
 	else
 		gpufreq_pr_info("failed to configure mode, ret = %d, mode = %d\n",
 				ret, mode);
-#endif
 }
 
 /*
@@ -2995,12 +2981,10 @@ static unsigned int __mt_gpufreq_get_cur_vsram_gpu(void)
 {
 	unsigned int volt = 0;
 
-#ifdef REGULATOR_READY
 	if (regulator_is_enabled(g_pmic->reg_vsram_gpu)) {
 		/* regulator_get_voltage prints volt with uV */
 		volt = regulator_get_voltage(g_pmic->reg_vsram_gpu) / 10;
 	}
-#endif
 
 	return volt;
 }
@@ -3012,12 +2996,10 @@ static unsigned int __mt_gpufreq_get_cur_vgpu(void)
 {
 	unsigned int volt = 0;
 
-#ifdef REGULATOR_READY
 	if (regulator_is_enabled(g_pmic->reg_vgpu)) {
 		/* regulator_get_voltage prints volt with uV */
 		volt = regulator_get_voltage(g_pmic->reg_vgpu) / 10;
 	}
-#endif
 
 	return volt;
 }
@@ -3336,8 +3318,6 @@ static void __mt_gpufreq_init_volt_by_freq(void)
 
 static int __mt_gpufreq_init_pmic(struct platform_device *pdev)
 {
-
-#ifdef REGULATOR_READY
 	if (g_pmic == NULL)
 		g_pmic = kzalloc(sizeof(struct g_pmic_info), GFP_KERNEL);
 	if (g_pmic == NULL)
@@ -3358,7 +3338,6 @@ static int __mt_gpufreq_init_pmic(struct platform_device *pdev)
 			__func__, PTR_ERR(g_pmic->reg_vsram_gpu));
 		return PTR_ERR(g_pmic->reg_vsram_gpu);
 	}
-#endif
 
 	return 0;
 }
