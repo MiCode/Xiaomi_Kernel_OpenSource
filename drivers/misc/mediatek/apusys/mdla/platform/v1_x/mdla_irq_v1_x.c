@@ -6,6 +6,7 @@
 #include <linux/interrupt.h>
 #include <linux/slab.h>
 #include <linux/device.h>
+#include <linux/sched/clock.h>
 
 #include <common/mdla_driver.h>
 #include <common/mdla_device.h>
@@ -13,6 +14,7 @@
 
 #include <utilities/mdla_debug.h>
 #include <utilities/mdla_util.h>
+#include <utilities/mdla_profile.h>
 
 #include <interface/mdla_cmd_data_v1_x.h>
 
@@ -128,13 +130,16 @@ unlock:
 
 static void mdla_irq_intr(struct mdla_dev *mdla_device)
 {
-	u32 status_int, core_id, id;
+	u32 status_int, core_id, id, mask;
 	unsigned long flags;
 	const struct mdla_util_io_ops *io = mdla_util_io_ops_get();
 	struct mdla_pmu_info *pmu;
 
 	core_id = mdla_device->mdla_id;
 	status_int = io->cmde.read(core_id, MREG_TOP_G_INTP0);
+	mask = io->cmde.read(core_id, MREG_TOP_G_INTP2) | MDLA_IRQ_SWCMD_DONE;
+	io->cmde.write(core_id, MREG_TOP_G_INTP2, mask);
+	io->cmde.write(core_id, MREG_TOP_G_INTP0, mask);
 
 	spin_lock_irqsave(&mdla_device->hw_lock, flags);
 
@@ -160,9 +165,22 @@ static void mdla_irq_intr(struct mdla_dev *mdla_device)
 static irqreturn_t mdla_irq_handler(int irq, void *dev_id)
 {
 	struct mdla_dev *mdla_device = (struct mdla_dev *)dev_id;
+	struct command_entry *curr_ce;
+	u64 ts;
 
 	if (unlikely(!mdla_device))
 		return IRQ_HANDLED;
+
+	ts = sched_clock();
+	curr_ce = mdla_device->sched->pro_ce;
+
+	if (curr_ce && curr_ce->req_start_t) {
+		curr_ce->exec_time += ts - curr_ce->req_start_t;
+
+		curr_ce->req_start_t = 0;
+		/* for trace check */
+		curr_ce->req_end_t = ts;
+	}
 
 	if (mdla_plat_sw_preemption_support())
 		mdla_irq_sched(mdla_device);

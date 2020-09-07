@@ -41,6 +41,10 @@ int mdla_util_plat_init(struct platform_device *pdev)
 
 	mdla_fpga_reset();
 	mdla_dbg_fs_setup(&pdev->dev);
+
+	if (mdla_plat_micro_p_support())
+		return 1;
+
 	mdla_prof_init(mdla_plat_get_prof_ver());
 
 	return 0;

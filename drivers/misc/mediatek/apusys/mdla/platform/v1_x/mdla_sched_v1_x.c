@@ -218,9 +218,6 @@ static void mdla_sched_issue_ce(u32 core_id)
 		return;
 	}
 
-	if (!(ce->req_start_t))
-		ce->req_start_t = sched_clock();
-
 	addr = ce->mva + ((dma_addr_t)ce->fin_cid) * MREG_CMD_SIZE;
 	nr_cmd_to_issue = ce->count - ce->fin_cid;
 	if ((ce->batch_list_head != NULL)
@@ -262,6 +259,8 @@ static void mdla_sched_issue_ce(u32 core_id)
 		/* set command number */
 		io->cmde.write(core_id, MREG_TOP_G_CDMA2, nr_cmd_to_issue);
 
+		ce->req_start_t = sched_clock();
+
 		/* trigger engine */
 		io->cmde.write(core_id, MREG_TOP_G_CDMA3, ce->csn);
 
@@ -289,7 +288,6 @@ static void mdla_sched_complete_ce(u32 core_id)
 {
 	struct mdla_scheduler *sched = mdla_get_device(core_id)->sched;
 
-	sched->pro_ce->req_end_t = sched_clock();
 	sched->pro_ce->state |= (1 << CE_FIN);
 
 	complete(&sched->pro_ce->swcmd_done_wait);
@@ -372,7 +370,6 @@ void mdla_preempt_ce(unsigned int core_id, struct command_entry *high_ce)
 	struct mdla_scheduler *sched = mdla_get_device(core_id)->sched;
 	struct command_entry *low_ce = sched->pro_ce;
 
-	low_ce->req_end_t = sched_clock();
 	low_ce->state |= (1 << CE_PREEMPTED);
 	low_ce->deadline_t = get_jiffies_64() + msecs_to_jiffies(mdla_dbg_read_u32(FS_TIMEOUT));
 

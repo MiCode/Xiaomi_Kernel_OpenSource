@@ -268,9 +268,14 @@ static int mdla_probe(struct platform_device *pdev)
 		return -1;
 
 	/* Initialize platform to allocate mdla devices first. */
-	if (mdla_util_plat_init(pdev)) {
+	ret = mdla_util_plat_init(pdev);
+
+	if (ret < 0) {
 		dev_info(dev, "platform init failed\n");
 		return -EINVAL;
+	} else if (ret == 1) {
+		dev_info(dev, "%s: uP version done\n", __func__);
+		return 0;
 	}
 
 	apusys_dev_mdla = kcalloc(mdla_util_get_core_num(),

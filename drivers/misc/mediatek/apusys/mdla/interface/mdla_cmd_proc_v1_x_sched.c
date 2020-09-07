@@ -262,8 +262,7 @@ int mdla_cmd_run_sync_v1_x_sched(struct mdla_run_cmd_sync *cmd_data,
 	if (unlikely(ce->fin_cid < ce->count))
 		ret = mdla_cmd_wrong_count_handler(mdla_info, ce);
 
-	apusys_hd->ip_time +=
-			(u32)(ce->req_end_t - ce->req_start_t)/1000;
+	apusys_hd->ip_time = (u32)ce->exec_time / 1000;
 
 	/* update id to the last finished command id */
 	cd->id = ce->fin_cid;
