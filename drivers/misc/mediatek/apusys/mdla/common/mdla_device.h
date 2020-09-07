@@ -151,6 +151,7 @@ struct command_entry {
 	u64 poweron_t;   /* dvfs start time */
 	u64 req_start_t; /* request start time (ns) */
 	u64 req_end_t;   /* request end time (ns) */
+	u64 exec_time;   /* HW execution time (ns) */
 	u64 wait_t;      /* time waited by user */
 	u64 cmd_id;
 	u32 multicore_total;

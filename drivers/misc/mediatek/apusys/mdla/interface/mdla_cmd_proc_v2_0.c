@@ -164,7 +164,7 @@ int mdla_cmd_run_sync_v2_0(struct mdla_run_cmd_sync *cmd_data,
 	}
 
 	mdla_pwr_ops_get()->off_timer_start(core_id);
-	apusys_hd->ip_time += (u32)((ce.req_end_t - ce.req_start_t) / 1000);
+	apusys_hd->ip_time += (u32)(ce.req_end_t - ce.req_start_t) / 1000;
 
 out:
 	mdla_pwr_ops_get()->wake_unlock(core_id);

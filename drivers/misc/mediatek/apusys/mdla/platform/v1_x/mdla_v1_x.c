@@ -11,6 +11,7 @@
 #include <linux/slab.h>
 #include <linux/mm.h>
 #include <linux/debugfs.h>
+#include <linux/sched/clock.h>
 
 #include <common/mdla_device.h>
 #include <common/mdla_cmd_proc.h>
@@ -207,6 +208,8 @@ static void mdla_plat_raw_process_command(u32 core_id, u32 evt_id, dma_addr_t ad
 	io->cmde.write(core_id, MREG_TOP_G_CDMA1, addr);
 	/* set command number */
 	io->cmde.write(core_id, MREG_TOP_G_CDMA2, count);
+
+	mdla_plat_devices[core_id].sched->pro_ce->req_start_t = sched_clock();
 	/* trigger hw */
 	io->cmde.write(core_id, MREG_TOP_G_CDMA3, evt_id);
 }

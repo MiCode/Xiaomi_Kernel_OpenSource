@@ -28,6 +28,7 @@ struct mdla_plat_drv {
 	unsigned int off_delay_ms;
 	unsigned int polling_cmd_ms;
 	unsigned int pmu_period_us;
+	unsigned int rv_ver;
 	int profile_ver;
 };
 
@@ -39,6 +40,9 @@ void mdla_v1_x_deinit(struct platform_device *pdev);
 
 int mdla_v2_0_init(struct platform_device *pdev);
 void mdla_v2_0_deinit(struct platform_device *pdev);
+
+int mdla_rv_init(struct platform_device *pdev);
+void mdla_rv_deinit(struct platform_device *pdev);
 
 #endif /* __MDLA_PLAT_INTERNAL_H__ */
 

@@ -14,6 +14,7 @@
 #include <common/mdla_cmd_proc.h>
 #include <common/mdla_power_ctrl.h>
 #include <common/mdla_ioctl.h>
+#include <common/mdla_scheduler.h>
 
 #include <utilities/mdla_profile.h>
 #include <utilities/mdla_util.h>
@@ -115,7 +116,8 @@ int mdla_cmd_run_sync_v1_x(struct mdla_run_cmd_sync *cmd_data,
 	mdla_trace_begin(core_id, &ce);
 
 	ce.poweron_t = sched_clock();
-	ce.req_start_t = sched_clock();
+
+	mdla_info->sched->pro_ce = &ce;
 
 	mdla_cmd_plat_cb()->pre_cmd_handle(core_id, &ce);
 
@@ -133,7 +135,7 @@ int mdla_cmd_run_sync_v1_x(struct mdla_run_cmd_sync *cmd_data,
 
 	mdla_cmd_plat_cb()->post_cmd_info(core_id);
 
-	ce.req_end_t = sched_clock();
+	mdla_info->sched->pro_ce = NULL;
 
 	mdla_trace_end(core_id, 0, &ce);
 	mdla_prof_stop(core_id, 1);
@@ -162,9 +164,7 @@ int mdla_cmd_run_sync_v1_x(struct mdla_run_cmd_sync *cmd_data,
 
 	mdla_pwr_ops_get()->off_timer_start(core_id);
 
-	ce.wait_t = sched_clock();
-
-	apusys_hd->ip_time = (u32)((ce.wait_t - ce.poweron_t) / 1000);
+	apusys_hd->ip_time = (u32)ce.exec_time / 1000;
 
 out:
 	mdla_pwr_ops_get()->wake_unlock(core_id);
@@ -216,7 +216,6 @@ int mdla_cmd_ut_run_sync_v1_x(void *run_cmd, void *wait_cmd,
 	mdla_trace_begin(core_id, &ce);
 
 	ce.poweron_t = sched_clock();
-	ce.req_start_t = sched_clock();
 
 	mdla_cmd_plat_cb()->pre_cmd_handle(core_id, &ce);
 
@@ -233,9 +232,6 @@ int mdla_cmd_ut_run_sync_v1_x(void *run_cmd, void *wait_cmd,
 	}
 
 	mdla_cmd_plat_cb()->post_cmd_info(core_id);
-
-	ce.req_end_t = sched_clock();
-
 
 	mdla_prof_iter(core_id);
 	mdla_trace_end(core_id, 0, &ce);

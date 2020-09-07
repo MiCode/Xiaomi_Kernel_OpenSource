@@ -14,6 +14,8 @@
 enum PROF_MODE {
 	PROF_V1,
 	PROF_V2,
+
+	PROF_NONE = 0xff
 };
 
 enum PROF_TS {
