@@ -75,6 +75,7 @@ ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 dtbo-$(CONFIG_ARCH_HOLI) += holi-rumi-overlay.dtbo \
 	holi-mtp-overlay.dtbo \
 	holi-cdp-overlay.dtbo \
+	holi-cdp-lcd-overlay.dtbo \
 	holi-qrd-overlay.dtbo \
 	holi-atp-overlay.dtbo \
 	holi-mtp-usbc-overlay.dtbo
@@ -82,6 +83,7 @@ dtbo-$(CONFIG_ARCH_HOLI) += holi-rumi-overlay.dtbo \
 holi-rumi-overlay.dtbo-base := holi.dtb
 holi-mtp-overlay.dtbo-base := holi.dtb
 holi-cdp-overlay.dtbo-base := holi.dtb
+holi-cdp-lcd-overlay.dtbo-base := holi.dtb
 holi-qrd-overlay.dtbo-base := holi.dtb
 holi-atp-overlay.dtbo-base := holi.dtb
 holi-mtp-usbc-overlay.dtbo-base := holi.dtb
@@ -89,6 +91,7 @@ else
 dtb-$(CONFIG_ARCH_HOLI) += holi-rumi.dtb \
 	holi-mtp.dtb \
 	holi-cdp.dtb \
+	holi-cdp-lcd.dtb \
 	holi-qrd.dtb \
 	holi-atp.dtb \
 	holi-mtp-usbc.dtb
