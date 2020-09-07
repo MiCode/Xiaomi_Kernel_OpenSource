@@ -147,7 +147,8 @@ static void set_comm_icc_bw_handler(struct work_struct *work)
 						    comm_node->high_volt);
 		}
 	}
-	icc_set_bw(comm_node->icc_path, avg_bw, peak_bw);
+	icc_set_bw(comm_node->icc_path, avg_bw, 0);
+	icc_set_bw(comm_node->icc_hrt_path, peak_bw, 0);
 }
 
 static int mtk_mmqos_set(struct icc_node *src, struct icc_node *dst)
@@ -365,6 +366,17 @@ int mtk_mmqos_probe(struct platform_device *pdev)
 				dev_notice(&pdev->dev,
 					"get icc_path fail:%s\n",
 					mmqos_desc->comm_icc_path_names[
+						MASK_16(node->id)]);
+				ret = -EINVAL;
+				goto err;
+			}
+			comm_node->icc_hrt_path = of_icc_get(&pdev->dev,
+				mmqos_desc->comm_icc_hrt_path_names[
+						MASK_16(node->id)]);
+			if (IS_ERR_OR_NULL(comm_node->icc_hrt_path)) {
+				dev_notice(&pdev->dev,
+					"get icc_hrt_path fail:%s\n",
+					mmqos_desc->comm_icc_hrt_path_names[
 						MASK_16(node->id)]);
 				ret = -EINVAL;
 				goto err;
