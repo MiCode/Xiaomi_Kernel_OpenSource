@@ -20,7 +20,7 @@
 #include <linux/spinlock.h>
 #include <linux/iommu.h>
 
-#include <linux/iommu.h>
+#include <linux/firmware.h>
 
 #ifdef CONFIG_MTK_IOMMU_V2
 #include "mtk_iommu.h"
@@ -35,12 +35,15 @@
 #include "ccu_reg.h"
 #include "ccu_cmn.h"
 #include "ccu_kd_mailbox.h"
-
+#include "ccu_mva.h"
+#include "ccu_platform_def.h"
 #include "kd_camera_feature.h"/*for sensorType in ccu_set_sensor_info*/
+#include "ccu_ipc.h"
 
 static uint64_t camsys_base;
 static uint64_t bin_base;
 static uint64_t dmem_base;
+static uint64_t pmem_base;
 
 static struct ccu_device_s *ccu_dev;
 static struct task_struct *enque_task;
@@ -72,6 +75,10 @@ static unsigned int AFg_LogBufIdx[IMGSENSOR_SENSOR_IDX_MAX_NUM] = {1};
 static int _ccu_powerdown(bool need_check_ccu_stat);
 static int ccu_irq_enable(void);
 static int ccu_irq_disable(void);
+static int ccu_load_segments(const struct firmware *fw,
+	enum CCU_BIN_TYPE type);
+static void *ccu_da_to_va(u64 da, int len);
+static int ccu_sanity_check(const struct firmware *fw);
 
 static inline unsigned int CCU_MsToJiffies(unsigned int Ms)
 {
@@ -386,6 +393,7 @@ int ccu_init_hw(struct ccu_device_s *device)
 	camsys_base = device->camsys_base;
 	bin_base = device->bin_base;
 	dmem_base = device->dmem_base;
+	pmem_base = device->pmem_base;
 
 	ccu_dev = device;
 
@@ -554,6 +562,7 @@ int ccu_power(struct ccu_power_s *power)
 
 	} else if (power->bON == 0) {
 		/*CCU Power off*/
+		ccu_sw_hw_reset();
 		if (ccuInfo.IsCcuPoweredOn == 1)
 			ret = _ccu_powerdown(true);
 
@@ -694,15 +703,42 @@ CCU_PWDN_SKIP_STAT_CHK:
 	return 0;
 }
 
-int ccu_run(void)
+int ccu_run(struct ccu_run_s *info)
 {
 	int32_t timeout = 100000;
 	struct ccu_mailbox_t *ccuMbPtr = NULL;
 	struct ccu_mailbox_t *apMbPtr = NULL;
 	uint32_t status;
+	uint32_t mmu_enable_reg;
+	uint32_t ccu_H2X_MSB;
+	struct CcuMemInfo *bin_mem = ccu_get_binary_memory();
+	MUINT32 remapOffset = bin_mem->mva - CCU_CACHE_BASE;
+	struct shared_buf_map *sb_map_ptr = (struct shared_buf_map *)
+		(dmem_base + OFFSET_CCU_SHARED_BUF_MAP_BASE);
 
 	LOG_DBG("+:%s\n", __func__);
 	ccu_irq_enable();
+	ccu_H2X_MSB = ccu_read_reg_bit(ccu_base, CTRL, H2X_MSB);
+	ccu_write_reg(ccu_base, AXI_REMAP, remapOffset);
+	LOG_INF_MUST("set CCU remap offset: %x\n", remapOffset);
+	ccu_write_reg(ccu_base, SPREG_04_LOG_LEVEL, info->log_level);
+	ccu_write_reg(ccu_base, SPREG_05_LOG_TAGLEVEL, info->log_taglevel);
+	ccu_write_reg(ccu_base, SPREG_06_CPUREF_BUF_ADDR,
+	(info->CpuRefBufMva - remapOffset) | (info->CpuRefBufSz & 0xFF));
+	ccu_write_reg(ccu_base, SPREG_21_CTRL_BUF_ADDR, info->CtrlBufMva);
+	LOG_INF_MUST("set CCU CtrlBufMva: %x\n", info->CtrlBufMva);
+	LOG_INF_MUST("CPU Ref Buf MVA %x(%x-%x), sz %dMB\n",
+	info->CpuRefBufMva, info->CpuRefBufMva, remapOffset, info->CpuRefBufSz);
+
+	sb_map_ptr->bkdata_ddr_buf_mva = info->bkdata_ddr_buf_mva;
+
+	if (ccu_H2X_MSB)
+		LOG_INF_MUST("CCU 34bits support: %x\n", ccu_H2X_MSB);
+	else
+		LOG_INF_MUST("CCU 32bits support: %x\n", ccu_H2X_MSB);
+
+	mmu_enable_reg = ccu_read_reg(ccu_base, H2X_CFG);
+	ccu_write_reg(ccu_base, H2X_CFG, (mmu_enable_reg | MMU_ENABLE_BIT));
 	/*3. Set CCU_A_RESET. CCU_HW_RST=0*/
 	/*ccu_write_reg_bit(ccu_base, RESET, CCU_HW_RST, 0);*/
 	ccu_write_reg_bit(ccu_base, CCU_CTL, CCU_RUN_REQ, 1);
@@ -783,6 +819,7 @@ int ccu_run(void)
 	LOG_DBG_MUST("ccu log test done\n");
 	LOG_DBG_MUST("ccu log test stat: %x\n",
 			ccu_read_reg(ccu_base, SPREG_08_CCU_INIT_CHECK));
+	ccu_ipc_init((uint32_t *)dmem_base, (uint32_t *)ccu_base);
 
 	LOG_DBG_MUST("-:%s(0218)\n", __func__);
 
@@ -902,11 +939,87 @@ int ccu_flushLog(int argc, int *argv)
 
 int ccu_read_info_reg(int regNo)
 {
-	int *offset = (int *)(uintptr_t)(ccu_base + 0x60 + regNo * 4);
+	int *offset = (int *)(uintptr_t)(ccu_base + 0x80 + regNo * 4);
 
 	LOG_DBG("%s: %x\n", __func__, (unsigned int)(*offset));
 
 	return *offset;
+}
+
+void ccu_write_info_reg(int regNo, int val)
+{
+	int *offset = (int *)(uintptr_t)(ccu_base + 0x80 + regNo * 4);
+	*offset = val;
+	LOG_DBG("%s: %x\n", __func__, (unsigned int)(*offset));
+}
+
+void ccu_read_struct_size(uint32_t *structSizes, uint32_t structCnt)
+{
+	int i;
+	int offset = ccu_read_reg(ccu_base, SPREG_10_STRUCT_SIZE_CHECK);
+	uint32_t *ptr = ccu_da_to_va(offset, structCnt*sizeof(uint32_t));
+
+	for (i = 0; i < structCnt; i++)
+		structSizes[i] = ptr[i];
+	LOG_DBG("%s: %x\n", __func__, offset);
+}
+
+void ccu_print_reg(uint32_t *Reg)
+{
+	int i;
+	uint32_t offset = 0;
+	uint32_t *ccuCtrlPtr = Reg;
+	uint32_t *ccuDmPtr = Reg + (CCU_HW_DUMP_SIZE>>2);
+	uint32_t *ccuPmPtr = Reg + (CCU_HW_DUMP_SIZE>>2) + (CCU_DMEM_SIZE>>2);
+
+	for (i = 0 ; i < CCU_HW_DUMP_SIZE ; i += 16) {
+		*(ccuCtrlPtr+offset) = *(uint32_t *)(ccu_base + i);
+		*(ccuCtrlPtr+offset + 1) = *(uint32_t *)(ccu_base + i + 4);
+		*(ccuCtrlPtr+offset + 2) = *(uint32_t *)(ccu_base + i + 8);
+		*(ccuCtrlPtr+offset + 3) = *(uint32_t *)(ccu_base + i + 12);
+		offset += 4;
+	}
+	offset = 0;
+	for (i = 0 ; i < CCU_DMEM_SIZE ; i += 16) {
+		*(ccuDmPtr+offset) = *(uint32_t *)(dmem_base + i);
+		*(ccuDmPtr+offset + 1) = *(uint32_t *)(dmem_base + i + 4);
+		*(ccuDmPtr+offset + 2) = *(uint32_t *)(dmem_base + i + 8);
+		*(ccuDmPtr+offset + 3) = *(uint32_t *)(dmem_base + i + 12);
+		offset += 4;
+	}
+	offset = 0;
+	for (i = 0 ; i < CCU_PMEM_SIZE ; i += 16) {
+		*(ccuPmPtr+offset) = *(uint32_t *)(pmem_base + i);
+		*(ccuPmPtr+offset + 1) = *(uint32_t *)(pmem_base + i + 4);
+		*(ccuPmPtr+offset + 2) = *(uint32_t *)(pmem_base + i + 8);
+		*(ccuPmPtr+offset + 3) = *(uint32_t *)(pmem_base + i + 12);
+		offset += 4;
+	}
+}
+
+void ccu_print_sram_log(char *sram_log)
+{
+	int i;
+	uint32_t offset = ccu_read_reg(ccu_base, SPREG_07_LOG_SRAM_ADDR);
+	char *ccuLogPtr_1 = (char *)dmem_base + offset;
+	char *ccuLogPtr_2 = (char *)dmem_base + offset + CCU_LOG_SIZE;
+	char *isrLogPtr = (char *)dmem_base + offset + (CCU_LOG_SIZE * 2);
+
+	MUINT32 *from_sram;
+	MUINT32 *to_dram;
+
+	from_sram = (MUINT32 *)ccuLogPtr_1;
+	to_dram = (MUINT32 *)sram_log;
+	for (i = 0; i < CCU_LOG_SIZE/4-1; i++)
+		*(to_dram+i) = *(from_sram+i);
+	from_sram = (MUINT32 *)ccuLogPtr_2;
+	to_dram = (MUINT32 *)(sram_log + CCU_LOG_SIZE);
+	for (i = 0; i < CCU_LOG_SIZE/4-1; i++)
+		*(to_dram+i) = *(from_sram+i);
+	from_sram = (MUINT32 *)isrLogPtr;
+	to_dram = (MUINT32 *)(sram_log + (CCU_LOG_SIZE * 2));
+	for (i = 0; i < CCU_ISR_LOG_SIZE/4-1; i++)
+		*(to_dram+i) = *(from_sram+i);
 }
 
 int ccu_query_power_status(void)
@@ -940,4 +1053,322 @@ int ccu_irq_disable(void)
 	ccu_read_reg(ccu_base, EINTC_ST);
 
 	return 0;
+}
+
+int ccu_load_bin(struct ccu_device_s *device, enum CCU_BIN_TYPE type)
+{
+	const struct firmware *firmware_p;
+	int ret = 0;
+
+	ret = request_firmware(&firmware_p, "lib3a.ccu", device->dev);
+	if (ret < 0) {
+		LOG_ERR("request_firmware failed: %d\n", ret);
+		goto EXIT;
+	}
+
+	ret = ccu_sanity_check(firmware_p);
+	if (ret < 0) {
+		LOG_ERR("sanity check failed: %d\n", ret);
+		goto EXIT;
+	}
+
+	ret = ccu_load_segments(firmware_p, type);
+	if (ret < 0)
+		LOG_ERR("load segments failed: %d\n", ret);
+EXIT:
+	release_firmware(firmware_p);
+	return ret;
+}
+
+int ccu_sanity_check(const struct firmware *fw)
+{
+	// const char *name = rproc->firmware;
+	struct elf32_hdr *ehdr;
+	char class;
+
+	if (!fw) {
+		LOG_ERR("failed to load ccu_bin\n");
+		return -EINVAL;
+	}
+
+	if (fw->size < sizeof(struct elf32_hdr)) {
+		LOG_ERR("Image is too small\n");
+		return -EINVAL;
+	}
+
+	ehdr = (struct elf32_hdr *)fw->data;
+
+	/* We only support ELF32 at this point */
+	class = ehdr->e_ident[EI_CLASS];
+	if (class != ELFCLASS32) {
+		LOG_ERR("Unsupported class: %d\n", class);
+		return -EINVAL;
+	}
+
+	/* We assume the firmware has the same endianness as the host */
+# ifdef __LITTLE_ENDIAN
+	if (ehdr->e_ident[EI_DATA] != ELFDATA2LSB) {
+# else /* BIG ENDIAN */
+	if (ehdr->e_ident[EI_DATA] != ELFDATA2MSB) {
+# endif
+		LOG_ERR("Unsupported firmware endianness\n");
+		return -EINVAL;
+	}
+
+	if (fw->size < ehdr->e_shoff + sizeof(struct elf32_shdr)) {
+		LOG_ERR("Image is too small\n");
+		return -EINVAL;
+	}
+
+	if (memcmp(ehdr->e_ident, ELFMAG, SELFMAG)) {
+		LOG_ERR("Image is corrupted (bad magic)\n");
+		return -EINVAL;
+	}
+
+	if (ehdr->e_phnum == 0) {
+		LOG_ERR("No loadable segments\n");
+		return -EINVAL;
+	}
+
+	if (ehdr->e_phoff > fw->size) {
+		LOG_ERR("Firmware size is too small\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static void ccu_load_memcpy(void *dst, const void *src, uint32_t len)
+{
+	int i;
+
+	for (i = 0; i < len/4; ++i)
+		writel(*((uint32_t *)src+i), (uint32_t *)dst+i);
+}
+
+static void ccu_load_memclr(void *dst, uint32_t len)
+{
+	int i = 0;
+
+	for (i = 0; i < len/4; ++i)
+		writel(0, (uint32_t *)dst+i);
+}
+
+int ccu_load_segments(const struct firmware *fw, enum CCU_BIN_TYPE type)
+{
+	struct elf32_hdr *ehdr;
+	struct elf32_phdr *phdr;
+	int i, ret = 0;
+	int timeout = 10;
+	unsigned int status;
+	const u8 *elf_data = fw->data;
+
+	/*0. Set CCU_A_RESET. CCU_HW_RST=1*/
+	if (type == CCU_DP_BIN) {
+		ccu_write_reg(ccu_base, RESET, 0xFF3FFCFF);
+		ccu_write_reg(ccu_base, RESET, 0x00010000);
+		ccu_write_reg(ccu_base, RESET, 0x0);
+		udelay(10);
+		ccu_write_reg(ccu_base, RESET, 0x00010000);
+		udelay(10);
+		ccu_write_reg(ccu_base, RESET, 0x0);
+		udelay(10);
+
+		status = ccu_read_reg(ccu_base, CCU_ST);
+		while (!(status & 0x100)) {
+			status = ccu_read_reg(ccu_base, CCU_ST);
+			udelay(300);
+			if (timeout < 0 && !(status & 0x100)) {
+				LOG_ERR("ccu halt before load bin, timeout");
+				return -EFAULT;
+			}
+			timeout--;
+		}
+	}
+	ehdr = (struct elf32_hdr *)elf_data;
+	phdr = (struct elf32_phdr *)(elf_data + ehdr->e_phoff);
+	// dev_info(dev, "ehdr->e_phnum %d\n", ehdr->e_phnum);
+	/* go through the available ELF segments */
+	for (i = 0; i < ehdr->e_phnum; i++, phdr++) {
+		u32 da = phdr->p_paddr;
+		u32 memsz = phdr->p_memsz;
+		u32 filesz = phdr->p_filesz;
+		u32 offset = phdr->p_offset;
+		void *ptr;
+
+		if (phdr->p_type != PT_LOAD)
+			continue;
+
+		switch (type) {
+		case CCU_DP_BIN:
+		{
+			if (da < CCU_CORE_DMEM_BASE && da > CCU_CACHE_BASE)
+				continue;
+			break;
+		}
+		case CCU_DDR_BIN:
+		{
+			if (da >= CCU_CORE_DMEM_BASE || da < CCU_CACHE_BASE)
+				continue;
+			break;
+		}
+		default:
+		{
+			LOG_ERR("binary type error %d\n",
+				type);
+			return -EFAULT;
+		}
+
+		}
+		LOG_ERR("phdr: type %d da 0x%x memsz 0x%x filesz 0x%x\n",
+			phdr->p_type, da, memsz, filesz);
+
+		if (filesz > memsz) {
+			LOG_ERR("bad phdr filesz 0x%x memsz 0x%x\n",
+				filesz, memsz);
+			ret = -EINVAL;
+			break;
+		}
+
+		if (offset + filesz > fw->size) {
+			LOG_ERR("truncated fw: need 0x%x avail 0x%zx\n",
+				offset + filesz, fw->size);
+			ret = -EINVAL;
+			break;
+		}
+
+		/* grab the kernel address for this device address */
+		ptr = ccu_da_to_va(da, memsz);
+		if (!ptr) {
+			LOG_ERR("bad phdr da 0x%x mem 0x%x\n", da, memsz);
+			// ret = -EINVAL;
+			continue;
+		}
+
+		/* put the segment where the remote processor expects it */
+		if (phdr->p_filesz) {
+			ccu_load_memcpy(ptr,
+				(void *)elf_data + phdr->p_offset, filesz);
+		}
+
+		/*
+		 * Zero out remaining memory for this segment.
+		 *
+		 * This isn't strictly required since dma_alloc_coherent already
+		 * did this for us. albeit harmless, we may consider removing
+		 * this.
+		 */
+		if (memsz > filesz)
+			ccu_load_memclr(ptr + filesz, memsz - filesz);
+	}
+
+	return ret;
+}
+
+void *ccu_da_to_va(u64 da, int len)
+{
+	int offset;
+	struct CcuMemInfo *bin_mem = ccu_get_binary_memory();
+
+	if (da < CCU_CACHE_BASE) {
+		offset = da;
+		if ((offset >= 0) && ((offset + len) < CCU_PMEM_SIZE)) {
+			LOG_INF_MUST("da(0x%lx) to va(0x%lx)",
+				da, pmem_base + offset);
+			return (uint32_t *)(pmem_base + offset);
+		}
+	} else if (da >= CCU_CORE_DMEM_BASE) {
+		offset = da - CCU_CORE_DMEM_BASE;
+		if ((offset >= 0) && ((offset + len) < CCU_DMEM_SIZE)) {
+			LOG_INF_MUST("da(0x%lx) to va(0x%lx)",
+				da, dmem_base + offset);
+			return (uint32_t *)(dmem_base + offset);
+		}
+	} else {
+		offset = da - CCU_CACHE_BASE;
+		if ((offset >= 0) &&
+		((offset + len) < CCU_CTRL_BUF_TOTAL_SIZE)) {
+			LOG_INF_MUST("da(0x%lx) to va(0x%lx)",
+				da, bin_mem->va + offset);
+			return (uint32_t *)(bin_mem->va + offset);
+		}
+	}
+
+	LOG_ERR("failed lookup da(%x) len(%x) to va, offset(%x)", da, offset);
+	return NULL;
+}
+
+int ccu_sw_hw_reset(void)
+{
+	uint32_t duration = 0;
+	uint32_t ccu_status;
+	uint32_t ccu_reset;
+	//check halt is up
+
+	ccu_status = ccu_read_reg(ccu_base, CCU_ST);
+	LOG_INF_MUST("[%s] polling CCU halt(0x%08x)\n", __func__, ccu_status);
+	duration = 0;
+	while ((ccu_status & 0x100) != 0x100) {
+		duration++;
+		if (duration > 1000) {
+			LOG_ERR("[%s] polling halt, 1ms timeout: (0x%08x)\n",
+				__func__, ccu_status);
+			break;
+		}
+		udelay(10);
+		ccu_status = ccu_read_reg(ccu_base, CCU_ST);
+	}
+	LOG_INF_MUST("[%s] polling CCU halt done(0x%08x)\n",
+		__func__, ccu_status);
+
+	//do SW reset
+	LOG_INF_MUST("[%s] CCU SW reset: before(0x%08x)\n",
+		__func__, ccu_status);
+	ccu_reset = ccu_read_reg(ccu_base, RESET);
+	ccu_write_reg(ccu_base, RESET, ccu_reset | 0x700);
+	LOG_INF_MUST("[%s] CCU SW reset: after(0x%08x)\n",
+		__func__, ccu_status);
+
+	LOG_INF_MUST("[%s] polling CCU SW reset(0x%08x)\n",
+		__func__, ccu_status);
+	duration = 0;
+	ccu_reset = ccu_read_reg(ccu_base, RESET);
+	while ((ccu_reset & 0x7) != 0x7) {
+		duration++;
+		if (duration > 1000) {
+			LOG_ERR("[%s] polling reset, 1ms timeout: (0x%08x)\n",
+				__func__, ccu_reset);
+			break;
+		}
+		udelay(10);
+		ccu_reset = ccu_read_reg(ccu_base, RESET);
+	}
+	LOG_INF_MUST("[%s] polling CCU SW reset done(0x%08x)\n",
+		__func__, ccu_reset);
+	LOG_INF_MUST("[%s] release CCU SW reset: before(0x%08x)\n",
+		__func__, ccu_reset);
+	ccu_write_reg(ccu_base, RESET, ccu_reset & (~0x700));
+	ccu_reset = ccu_read_reg(ccu_base, RESET);
+
+	LOG_INF_MUST("[%s] release CCU SW reset: after(0x%08x)\n",
+		__func__, ccu_reset);
+
+	//do HW reset
+	LOG_INF_MUST("[%s] CCU HW reset: before(0x%08x)\n",
+		__func__, ccu_reset);
+	ccu_write_reg(ccu_base, RESET, ccu_reset | 0xFF0000);
+	ccu_reset = ccu_read_reg(ccu_base, RESET);
+
+	LOG_INF_MUST("[%s] CCU HW reset: after(0x%08x)\n",
+		__func__, ccu_reset);
+	LOG_INF_MUST("[%s] release CCU HW reset: before(0x%08x)\n",
+		__func__, ccu_reset);
+	ccu_write_reg(ccu_base, RESET, ccu_reset & (~0xFF0000));
+	ccu_reset = ccu_read_reg(ccu_base, RESET);
+
+	LOG_INF_MUST("[%s] release CCU HW reset: after(0x%08x)\n",
+		__func__, ccu_reset);
+
+	return true;
+
 }
