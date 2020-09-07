@@ -68,7 +68,6 @@ static int mtk_cpufreq_get_cpu_power(unsigned long *power, unsigned long *KHz,
 {
 	int cpu = look_up_cpu(cpu_dev);
 	struct cpufreq_mtk *c = mtk_freq_domain_map[cpu];
-	unsigned long Hz;
 	int i;
 
 	if (!cpu_dev) {
@@ -77,13 +76,12 @@ static int mtk_cpufreq_get_cpu_power(unsigned long *power, unsigned long *KHz,
 	}
 
 	/* Get the power cost of the performance domain. */
-	Hz = *KHz * 1000;
 	for (i = 0; i < c->nr_opp; i++) {
-		if (c->table[i].frequency < Hz)
+		if (c->table[i].frequency < *KHz)
 			break;
 	}
 	i--;
-	*KHz = c->table[i].frequency / 1000;
+	*KHz = c->table[i].frequency;
 
 	/* The EM framework specifies the frequency in KHz. */
 	*power = readl_relaxed(c->reg_bases[REG_EM_POWER_TBL] + i * LUT_ROW_SIZE) / 1000;
