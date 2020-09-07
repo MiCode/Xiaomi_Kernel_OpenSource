@@ -59,8 +59,9 @@
 #include "ccu_platform_def.h"
 #include "ccu_imgsensor.h"
 #include "kd_camera_feature.h"/*for IMGSENSOR_SENSOR_IDX*/
+#include "ccu_mva.h"
 #include "ccu_qos.h"
-
+#include "ccu_ipc.h"
 //for mmdvfs
 #include <linux/pm_qos.h>
 #ifdef CONFIG_MTK_QOS_SUPPORT_ENABLE
@@ -435,8 +436,8 @@ static int ccu_open(struct inode *inode, struct file *flip)
 
 	_clk_count = 0;
 
-	ret = ccu_create_user(&user);
-	if (IS_ERR_OR_NULL(ret)) {
+	ccu_create_user(&user);
+	if (IS_ERR_OR_NULL(user)) {
 		LOG_ERR("fail to create user\n");
 		return -ENOMEM;
 	}
@@ -646,12 +647,16 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd,
 	int powert_stat;
 	struct CCU_WAIT_IRQ_STRUCT IrqInfo;
 	struct ccu_user_s *user = flip->private_data;
+	enum CCU_BIN_TYPE type;
+	struct ccu_run_s ccu_run_info;
 
 	LOG_DBG("%s+, cmd:%d\n", __func__, cmd);
 
 	if ((cmd != CCU_IOCTL_SET_POWER) && (cmd != CCU_IOCTL_FLUSH_LOG) &&
 		(cmd != CCU_IOCTL_WAIT_IRQ) && (cmd != CCU_IOCTL_IMPORT_MEM) &&
-		(cmd != CCU_IOCTL_GET_IOVA)) {
+		(cmd != CCU_IOCTL_GET_IOVA) && (cmd != CCU_IOCTL_ALLOC_MEM) &&
+		(cmd != CCU_IOCTL_DEALLOC_MEM) &&
+		(cmd != CCU_IOCTL_LOAD_CCU_BIN)) {
 		powert_stat = ccu_query_power_status();
 		if (powert_stat == 0) {
 			LOG_WARN("ccuk: ioctl without powered on\n");
@@ -678,7 +683,16 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd,
 
 	case CCU_IOCTL_SET_RUN:
 	{
-		ret = ccu_run();
+		ret = copy_from_user(&ccu_run_info,
+			(void *)arg, sizeof(struct ccu_run_s));
+		if (ret != 0) {
+			LOG_ERR(
+			"CCU_IOCTL_SET_RUN copy_from_user failed: %d\n",
+			ret);
+			break;
+		}
+
+		ret = ccu_run(&ccu_run_info);
 		break;
 	}
 
@@ -735,6 +749,46 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd,
 			return -EFAULT;
 		}
 
+		break;
+	}
+
+	case CCU_IOCTL_IPC_SEND_CMD:
+	{
+		struct ccu_control_info msg;
+		uint32_t *indata = NULL;
+		uint32_t *outdata = NULL;
+
+		indata = kzalloc(CCU_IPC_IBUF_CAPACITY, GFP_KERNEL);
+		outdata = kzalloc(CCU_IPC_OBUF_CAPACITY, GFP_KERNEL);
+		ret = copy_from_user(&msg,
+			(void *)arg, sizeof(struct ccu_control_info));
+		if (ret != 0) {
+			LOG_ERR(
+			"CCU_IOCTL_IPC_SEND_CMD copy_to_user failed: %d\n",
+			ret);
+			kfree(indata);
+			kfree(outdata);
+			break;
+		}
+
+		ret = copy_from_user(indata,
+			(void *)msg.inDataPtr, msg.inDataSize);
+		if (ret != 0) {
+			LOG_ERR(
+			"CCU_IOCTL_IPC_SEND_CMD copy_to_user 2 failed: %d\n",
+			ret);
+			kfree(indata);
+			kfree(outdata);
+			break;
+		}
+		ret = ccuControl(
+		msg.feature_type,
+		(enum IMGSENSOR_SENSOR_IDX)msg.sensor_idx,
+		msg.msg_id, indata, msg.inDataSize, outdata, msg.outDataSize);
+
+		ret = copy_to_user((void *)msg.outDataPtr, outdata, msg.outDataSize);
+		kfree(indata);
+		kfree(outdata);
 		break;
 	}
 
@@ -954,6 +1008,101 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd,
 		return ccu_read_info_reg(regToRead);
 	}
 
+	case CCU_WRITE_REGISTER:
+	{
+		struct ccu_reg_s reg;
+
+		ret = copy_from_user(&reg,
+			(void *)arg, sizeof(struct ccu_reg_s));
+		if (ret != 0) {
+			LOG_ERR(
+			"CCU_WRITE_REGISTER copy_from_user failed: %d\n",
+			ret);
+			break;
+		}
+
+		ccu_write_info_reg(reg.reg_no, reg.reg_val);
+		break;
+	}
+
+	case CCU_READ_STRUCT_SIZE:
+	{
+		uint32_t structCnt;
+		uint32_t *structSizes;
+
+		ret = copy_from_user(&structCnt,
+			(void *)arg, sizeof(uint32_t));
+		if (ret != 0) {
+			LOG_ERR(
+			"CCU_READ_STRUCT_SIZE copy_from_user failed: %d\n",
+			ret);
+			break;
+		}
+		structSizes = kzalloc(sizeof(uint32_t)*structCnt, GFP_KERNEL);
+		if (!structSizes) {
+			LOG_ERR(
+			"CCU_READ_STRUCT_SIZE alloc failed\n");
+			break;
+		}
+		ccu_read_struct_size(structSizes, structCnt);
+		ret = copy_to_user((char *)arg,
+			structSizes, sizeof(uint32_t)*structCnt);
+		if (ret != 0) {
+			LOG_ERR(
+			"CCU_READ_STRUCT_SIZE copy_to_user failed: %d\n", ret);
+		}
+		kfree(structSizes);
+		break;
+	}
+
+	case CCU_IOCTL_PRINT_REG:
+	{
+		uint32_t *Reg;
+
+		Reg = kzalloc(sizeof(uint8_t)*
+			(CCU_HW_DUMP_SIZE+CCU_DMEM_SIZE+CCU_PMEM_SIZE),
+			GFP_KERNEL);
+		if (!Reg) {
+			LOG_ERR(
+			"CCU_IOCTL_PRINT_REG alloc failed\n");
+			break;
+		}
+		ccu_print_reg(Reg);
+		ret = copy_to_user((char *)arg,
+			Reg, sizeof(uint8_t)*
+			(CCU_HW_DUMP_SIZE+CCU_DMEM_SIZE+CCU_PMEM_SIZE));
+		if (ret != 0) {
+			LOG_ERR(
+			"CCU_IOCTL_PRINT_REG copy_to_user failed: %d\n", ret);
+		}
+		kfree(Reg);
+		break;
+	}
+
+	case CCU_IOCTL_PRINT_SRAM_LOG:
+	{
+		char *sram_log;
+
+		sram_log = kzalloc(sizeof(char)*
+			(CCU_LOG_SIZE*2+CCU_ISR_LOG_SIZE),
+			GFP_KERNEL);
+		if (!sram_log) {
+			LOG_ERR(
+			"CCU_IOCTL_PRINT_SRAM_LOG alloc failed\n");
+			break;
+		}
+		ccu_print_sram_log(sram_log);
+		ret = copy_to_user((char *)arg,
+			sram_log, sizeof(char)*
+			(CCU_LOG_SIZE*2+CCU_ISR_LOG_SIZE));
+		if (ret != 0) {
+			LOG_ERR(
+			"CCU_IOCTL_PRINT_SRAM_LOG copy_to_user failed: %d\n", ret);
+		}
+		kfree(sram_log);
+		break;
+	}
+
 	case CCU_IOCTL_IMPORT_MEM:
 	{
 		// struct ion_handle *handle;
@@ -1057,6 +1206,62 @@ err_map:
 err_attach:
 		dma_buf_put(dma_buf);
 		return -EFAULT;
+	}
+
+	case CCU_IOCTL_LOAD_CCU_BIN:
+	{
+		ret = copy_from_user(&type,
+			(void *)arg, sizeof(enum CCU_BIN_TYPE));
+		LOG_INF_MUST("load ccu bin %d\n", type);
+		ret = ccu_load_bin(g_ccu_device, type);
+
+		break;
+	}
+
+	case CCU_IOCTL_ALLOC_MEM:
+	{
+		struct CcuMemHandle handle;
+
+		ret = copy_from_user(&(handle.meminfo),
+			(void *)arg, sizeof(struct CcuMemInfo));
+		if (ret != 0) {
+			LOG_ERR(
+			"CCU_IOCTL_ALLOC_MEM copy_to_user failed: %d\n",
+			ret);
+			break;
+		}
+		ret = ccu_allocate_mem(g_ccu_device, &handle, handle.meminfo.size,
+			handle.meminfo.cached);
+		if (ret != 0) {
+			LOG_ERR(
+			"CCU_IOCTL_ALLOC_MEM ccu_allocate_mem failed: %d\n",
+			ret);
+			break;
+		}
+		break;
+	}
+
+	case CCU_IOCTL_DEALLOC_MEM:
+	{
+		struct CcuMemHandle handle;
+
+		ret = copy_from_user(&(handle.meminfo),
+			(void *)arg, sizeof(struct CcuMemInfo));
+		if (ret != 0) {
+			LOG_ERR(
+			"CCU_IOCTL_ALLOC_MEM copy_to_user failed: %d\n",
+			ret);
+			break;
+		}
+		ret = ccu_deallocate_mem(g_ccu_device, &handle);
+		if (ret != 0) {
+			LOG_ERR(
+			"CCU_IOCTL_ALLOC_MEM ccu_allocate_mem failed: %d\n",
+			ret);
+			break;
+		}
+		ret = copy_to_user((void *)arg, &handle.meminfo, sizeof(struct CcuMemInfo));
+		break;
 	}
 
 	default:
@@ -1317,6 +1522,18 @@ if ((strcmp("ccu", g_ccu_device->dev->of_node->name) == 0)) {
 	LOG_INF("dmem_base pa: 0x%x, size: 0x%x\n", phy_addr, phy_size);
 	LOG_INF("dmem_base va: 0x%lx\n", g_ccu_device->dmem_base);
 
+	phy_addr = CCU_PMEM_BASE;
+	phy_size = CCU_PMEM_SIZE;
+#ifdef CCU_LDVT
+	g_ccu_device->pmem_base =
+		(unsigned long)ioremap_wc(phy_addr, phy_size);
+#else
+	g_ccu_device->pmem_base =
+		(unsigned long)ioremap(phy_addr, phy_size);
+#endif
+	LOG_DBG_MUST("pmem_base pa: 0x%x, size: 0x%x\n", phy_addr, phy_size);
+	LOG_DBG_MUST("pmem_base va: 0x%lx\n", g_ccu_device->pmem_base);
+
 	/*remap camsys_base*/
 	phy_addr = CCU_CAMSYS_BASE;
 	phy_size = CCU_CAMSYS_SIZE;
@@ -1329,20 +1546,6 @@ if ((strcmp("ccu", g_ccu_device->dev->of_node->name) == 0)) {
 #endif
 	LOG_INF("camsys_base pa: 0x%x, size: 0x%x\n", phy_addr, phy_size);
 	LOG_INF("camsys_base va: 0x%lx\n", g_ccu_device->camsys_base);
-
-	/*remap n3d_a_base*/
-	phy_addr = CCU_N3D_A_BASE;
-	phy_size = CCU_N3D_A_SIZE;
-#ifdef CCU_LDVT
-	g_ccu_device->n3d_a_base =
-		(unsigned long)ioremap_wc(phy_addr, phy_size);
-#else
-	g_ccu_device->n3d_a_base =
-		(unsigned long)ioremap(phy_addr, phy_size);
-#endif
-	LOG_INF("n3d_a_base pa: 0x%x, size: 0x%x\n", phy_addr, phy_size);
-	LOG_INF("n3d_a_base va: 0x%lx\n", g_ccu_device->n3d_a_base);
-
 
 	/* get Clock control from device tree.  */
 	ccu_clk_pwr_ctrl[0] = devm_clk_get(g_ccu_device->dev,
