@@ -33,6 +33,7 @@ source "drivers/misc/mediatek/imgsensor/Kconfig"
 source "drivers/misc/mediatek/cam_cal/Kconfig"
 source "drivers/misc/mediatek/cam_timesync/Kconfig"
 source "drivers/misc/mediatek/vow/Kconfig"
+source "drivers/misc/mediatek/ccu/src/Kconfig"
 endmenu # MultiMedia, Display, Camera
 
 menu "Security"
@@ -80,10 +81,6 @@ source "drivers/misc/mediatek/extcon/Kconfig"
 source "drivers/misc/mediatek/adsp/Kconfig"
 source "drivers/misc/mediatek/usb_mtp/Kconfig"
 endmenu # Other Peripheral
-
-menu "CCU"
-source "drivers/misc/mediatek/ccu/src/Kconfig"
-endmenu # CCU
 
 menu "Performance"
 source "drivers/misc/mediatek/performance/Kconfig"
