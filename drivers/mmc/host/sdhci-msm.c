@@ -3860,8 +3860,7 @@ static void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 
 	curr_pwrsave = !!(readl_relaxed(host->ioaddr +
 	msm_host_offset->CORE_VENDOR_SPEC) & CORE_CLK_PWRSAVE);
-	if ((clock > 400000) &&
-	    !curr_pwrsave && card /*&& mmc_host_may_gate_card(card)*/)
+	if ((clock > 400000) && !curr_pwrsave)
 		writel_relaxed(readl_relaxed(host->ioaddr +
 				msm_host_offset->CORE_VENDOR_SPEC)
 				| CORE_CLK_PWRSAVE, host->ioaddr +
@@ -3870,7 +3869,7 @@ static void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 	 * Disable pwrsave for a newly added card if doesn't allow clock
 	 * gating.
 	 */
-	else if (curr_pwrsave && card /*&& !mmc_host_may_gate_card(card)*/)
+	else if (curr_pwrsave)
 		writel_relaxed(readl_relaxed(host->ioaddr +
 				msm_host_offset->CORE_VENDOR_SPEC)
 				& ~CORE_CLK_PWRSAVE, host->ioaddr +
@@ -5964,7 +5963,12 @@ static int sdhci_msm_runtime_suspend(struct device *dev)
 defer_disable_host_irq:
 	disable_irq(msm_host->pwr_irq);
 
+	if (host->mmc->card && !mmc_host_may_gate_card(host->mmc->card))
+		goto skip_clk_gating;
+
 	sdhci_msm_disable_controller_clock(host);
+
+skip_clk_gating:
 	trace_sdhci_msm_runtime_suspend(mmc_hostname(host->mmc), 0,
 			ktime_to_us(ktime_sub(ktime_get(), start)));
 	return 0;
@@ -5978,11 +5982,16 @@ static int sdhci_msm_runtime_resume(struct device *dev)
 	int ret;
 	ktime_t start = ktime_get();
 
+	if (host->mmc->card && !mmc_host_may_gate_card(host->mmc->card))
+		goto skip_clk_ungating;
+
 	ret = sdhci_msm_enable_controller_clock(host);
 	if (ret) {
 		pr_err("%s: Failed to enable reqd clocks\n",
-				mmc_hostname(host->mmc));
+			mmc_hostname(host->mmc));
 	}
+
+skip_clk_ungating:
 
 	if (host->mmc->ios.timing == MMC_TIMING_MMC_HS400)
 		sdhci_msm_toggle_fifo_write_clk(host);
