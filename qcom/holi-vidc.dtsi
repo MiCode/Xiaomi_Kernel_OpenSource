@@ -25,7 +25,7 @@
 		qcom,proxy-clock-names = "core_clk", "iface_clk", "bus_clk",
 			"core0_clk", "core0_bus_clk", "throttle_clk";
 		qcom,clock-configs = <0x1 0x0 0x0 0x1 0x0 0x0>;
-		qcom,allowed-clock-rates = <133330000 240000000 300000000
+		qcom,allowed-clock-rates = <133000000 240000000 300000000
 			384000000>;
 
 		/* Bus Interconnects */
