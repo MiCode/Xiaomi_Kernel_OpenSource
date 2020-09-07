@@ -6725,12 +6725,16 @@ void ISP_get_larb(struct platform_device *pDev, unsigned int dev_idx, int larb_n
 	int i = 0;
 
 	if ((larb_num > 2) || (larb_num < 1)) {
-		LOG_NOTICE("larb num is invalid. Not ot get larb.\n");
+		LOG_NOTICE("larb num is invalid. Not to get larb.\n");
 		return;
 	}
 
 	for (i = 0; i < larb_num; i++) {
-		node = of_parse_phandle(pDev->dev.of_node, "mediatek,larb", i);
+		if (larb_num > 1)
+			node = of_parse_phandle(pDev->dev.of_node, "mediatek,larbs", i);
+		else
+			node = of_parse_phandle(pDev->dev.of_node, "mediatek,larb", i);
+
 		if (!node) {
 			LOG_NOTICE("%s: no mediatek,larb found\n",
 				pDev->dev.of_node->name);
