@@ -4,7 +4,7 @@
  *
  * Copyright (C) 2016-2018 Linaro Ltd.
  * Copyright (C) 2014 Sony Mobile Communications AB
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, 2020, The Linux Foundation. All rights reserved.
  */
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
@@ -69,6 +69,9 @@ static irqreturn_t q6v5_wdog_interrupt(int irq, void *data)
 	else
 		dev_err(q6v5->dev, "watchdog without message\n");
 
+	if (q6v5->rproc->recovery_disabled)
+		panic("Panicking, remoterpoc %s crashed\n", q6v5->rproc->name);
+
 	rproc_report_crash(q6v5->rproc, RPROC_WATCHDOG);
 
 	return IRQ_HANDLED;
@@ -87,6 +90,9 @@ static irqreturn_t q6v5_fatal_interrupt(int irq, void *data)
 		dev_err(q6v5->dev, "fatal error without message\n");
 
 	q6v5->running = false;
+	if (q6v5->rproc->recovery_disabled)
+		panic("Panicking, remoterpoc %s crashed\n", q6v5->rproc->name);
+
 	rproc_report_crash(q6v5->rproc, RPROC_FATAL_ERROR);
 
 	return IRQ_HANDLED;

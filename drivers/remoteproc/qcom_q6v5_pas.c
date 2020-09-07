@@ -20,6 +20,7 @@
 #include <linux/qcom_scm.h>
 #include <linux/regulator/consumer.h>
 #include <linux/remoteproc.h>
+#include <linux/interconnect.h>
 #include <linux/soc/qcom/mdt_loader.h>
 #include <linux/soc/qcom/smem.h>
 #include <linux/soc/qcom/smem_state.h>
@@ -27,6 +28,10 @@
 #include "qcom_common.h"
 #include "qcom_q6v5.h"
 #include "remoteproc_internal.h"
+
+#define XO_FREQ		19200000
+#define PIL_TZ_AVG_BW	0
+#define PIL_TZ_PEAK_BW	UINT_MAX
 
 struct adsp_data {
 	int crash_reason_smem;
@@ -62,6 +67,7 @@ struct qcom_adsp {
 	int proxy_pd_count;
 
 	int pas_id;
+	struct icc_path *bus_client;
 	int crash_reason_smem;
 	bool has_aggre2_clk;
 
@@ -152,6 +158,25 @@ err_enable:
 	return rc;
 }
 
+static int do_bus_scaling(struct qcom_adsp *adsp, bool enable)
+{
+	int rc;
+	u32 avg_bw = enable ? PIL_TZ_AVG_BW : 0;
+	u32 peak_bw = enable ? PIL_TZ_PEAK_BW : 0;
+
+	if (adsp->bus_client) {
+		rc = icc_set_bw(adsp->bus_client, avg_bw, peak_bw);
+		if (rc) {
+			dev_err(adsp->dev, "bandwidth request failed(rc:%d)\n",
+									rc);
+			return rc;
+		}
+	} else
+		dev_err(adsp->dev, "Bus scaling not setup for %s\n",
+			adsp->rproc->name);
+	return 0;
+}
+
 static int adsp_start(struct rproc *rproc)
 {
 	struct qcom_adsp *adsp = (struct qcom_adsp *)rproc->priv;
@@ -159,9 +184,13 @@ static int adsp_start(struct rproc *rproc)
 
 	qcom_q6v5_prepare(&adsp->q6v5);
 
-	ret = adsp_pds_enable(adsp, adsp->active_pds, adsp->active_pd_count);
+	ret = do_bus_scaling(adsp, true);
 	if (ret < 0)
 		goto disable_irqs;
+
+	ret = adsp_pds_enable(adsp, adsp->active_pds, adsp->active_pd_count);
+	if (ret < 0)
+		goto unscale_bus;
 
 	ret = adsp_pds_enable(adsp, adsp->proxy_pds, adsp->proxy_pd_count);
 	if (ret < 0)
@@ -207,7 +236,8 @@ disable_active_pds:
 	adsp_pds_disable(adsp, adsp->active_pds, adsp->active_pd_count);
 disable_irqs:
 	qcom_q6v5_unprepare(&adsp->q6v5);
-
+unscale_bus:
+	do_bus_scaling(adsp, false);
 	return ret;
 }
 
@@ -350,6 +380,13 @@ static int adsp_init_regulator(struct qcom_adsp *adsp)
 	return 0;
 }
 
+static void adsp_init_bus_scaling(struct qcom_adsp *adsp)
+{
+	adsp->bus_client = of_icc_get(adsp->dev, NULL);
+	if (!adsp->bus_client)
+		dev_warn(adsp->dev, "%s: No bus client\n", __func__);
+}
+
 static int adsp_pds_attach(struct device *dev, struct device **devs,
 			   char **pd_names)
 {
@@ -385,7 +422,7 @@ unroll_attach:
 		dev_pm_domain_detach(devs[i], false);
 
 	return ret;
-};
+}
 
 static void adsp_pds_detach(struct qcom_adsp *adsp, struct device **pds,
 			    size_t pd_count)
@@ -482,6 +519,8 @@ static int adsp_probe(struct platform_device *pdev)
 	ret = adsp_init_regulator(adsp);
 	if (ret)
 		goto free_rproc;
+
+	adsp_init_bus_scaling(adsp);
 
 	ret = adsp_pds_attach(&pdev->dev, adsp->active_pds,
 			      desc->active_pd_names);
