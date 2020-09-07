@@ -1299,3 +1299,8 @@
 		};
 	};
 };
+
+&gpufreq {
+	_vgpu-supply = <&mt6315_7_vbuck1>;
+	_vsram_gpu-supply = <&mt6359p_vsram_others_reg>;
+};
