@@ -74,7 +74,7 @@ static irqreturn_t reviser_interrupt(int irq, void *private_data)
 
 	ret = reviser_mgt_isr_cb(rdv);
 	if (ret) {
-		LOG_ERR("ISR Error\n");
+		LOG_ERR("ISR Error ret(%d)\n", ret);
 		return IRQ_NONE;
 	}
 	return IRQ_HANDLED;
