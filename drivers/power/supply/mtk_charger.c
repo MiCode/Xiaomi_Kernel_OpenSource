@@ -212,7 +212,6 @@ static void mtk_charger_parse_dt(struct mtk_charger *info,
 	info->enable_sw_safety_timer =
 			of_property_read_bool(np, "enable_sw_safety_timer");
 	info->sw_safety_timer_setting = info->enable_sw_safety_timer;
-	info->enable_sw_jeita = of_property_read_bool(np, "enable_sw_jeita");
 
 	/* common */
 
@@ -465,6 +464,32 @@ static void mtk_charger_parse_dt(struct mtk_charger *info,
 					CHARGING_HOST_CHARGER_CURRENT;
 	}
 
+	/* dynamic mivr */
+	info->enable_dynamic_mivr =
+			of_property_read_bool(np, "enable_dynamic_mivr");
+
+	if (of_property_read_u32(np, "min_charger_voltage_1", &val) >= 0)
+		info->data.min_charger_voltage_1 = val;
+	else {
+		chr_err("use default V_CHARGER_MIN_1: %d\n", V_CHARGER_MIN_1);
+		info->data.min_charger_voltage_1 = V_CHARGER_MIN_1;
+	}
+
+	if (of_property_read_u32(np, "min_charger_voltage_2", &val) >= 0)
+		info->data.min_charger_voltage_2 = val;
+	else {
+		chr_err("use default V_CHARGER_MIN_2: %d\n", V_CHARGER_MIN_2);
+		info->data.min_charger_voltage_2 = V_CHARGER_MIN_2;
+	}
+
+	if (of_property_read_u32(np, "max_dmivr_charger_current", &val) >= 0)
+		info->data.max_dmivr_charger_current = val;
+	else {
+		chr_err("use default MAX_DMIVR_CHARGER_CURRENT: %d\n",
+			MAX_DMIVR_CHARGER_CURRENT);
+		info->data.max_dmivr_charger_current =
+					MAX_DMIVR_CHARGER_CURRENT;
+	}
 }
 
 static void mtk_charger_start_timer(struct mtk_charger *info)
@@ -518,6 +543,41 @@ static void check_battery_exist(struct mtk_charger *info)
 		}
 	}
 #endif
+}
+
+static void check_dynamic_mivr(struct mtk_charger *info)
+{
+	int i = 0, ret = 0;
+	int vbat = 0;
+	bool is_fast_charge = false;
+	struct chg_alg_device *alg = NULL;
+
+	if (!info->enable_dynamic_mivr)
+		return;
+
+	for (i = 0; i < MAX_ALG_NO; i++) {
+		alg = info->alg[i];
+		if (alg == NULL)
+			continue;
+		ret = chg_alg_is_algo_ready(alg);
+		if (ret == ALG_RUNNING) {
+			is_fast_charge = true;
+			break;
+		}
+	}
+
+	if (!is_fast_charge) {
+		vbat = get_battery_voltage(info);
+		if (vbat < info->data.min_charger_voltage_2 / 1000 - 200)
+			charger_dev_set_mivr(info->chg1_dev,
+				info->data.min_charger_voltage_2);
+		else if (vbat < info->data.min_charger_voltage_1 / 1000 - 200)
+			charger_dev_set_mivr(info->chg1_dev,
+				info->data.min_charger_voltage_1);
+		else
+			charger_dev_set_mivr(info->chg1_dev,
+				info->data.min_charger_voltage);
+	}
 }
 
 /* sw jeita */
@@ -710,21 +770,28 @@ static DEVICE_ATTR_RW(chr_type);
 static ssize_t Pump_Express_show(struct device *dev,
 				 struct device_attribute *attr, char *buf)
 {
-	int is_ta_detected = 0;
-	int ret, i;
+	int ret = 0, i = 0;
+	bool is_ta_detected = false;
 	struct mtk_charger *pinfo = dev->driver_data;
-	struct chg_alg_device *alg;
+	struct chg_alg_device *alg = NULL;
+
+	if (!pinfo) {
+		chr_err("%s: pinfo is null\n", __func__);
+		return sprintf(buf, "%d\n", is_ta_detected);
+	}
 
 	for (i = 0; i < MAX_ALG_NO; i++) {
 		alg = pinfo->alg[i];
 		if (alg == NULL)
 			continue;
 		ret = chg_alg_is_algo_ready(alg);
-		if (ret == ALG_RUNNING)
-			is_ta_detected = 1;
+		if (ret == ALG_RUNNING) {
+			is_ta_detected = true;
+			break;
 	}
-	chr_err("%s: %d\n", __func__, is_ta_detected);
-	return sprintf(buf, "%u\n", is_ta_detected);
+	}
+	chr_err("%s: idx = %d, detect = %d\n", __func__, i, is_ta_detected);
+	return sprintf(buf, "%d\n", is_ta_detected);
 }
 
 static DEVICE_ATTR_RO(Pump_Express);
@@ -1172,6 +1239,37 @@ static void mtk_battery_notify_check(struct mtk_charger *info)
 	}
 }
 
+static void mtk_chg_get_tchg(struct mtk_charger *info)
+{
+	int ret;
+	int tchg_min = -127, tchg_max = -127;
+	struct charger_data *pdata;
+
+	pdata = &info->chg_data[CHG1_SETTING];
+	ret = charger_dev_get_temperature(info->chg1_dev, &tchg_min, &tchg_max);
+	if (ret < 0) {
+		pdata->junction_temp_min = -127;
+		pdata->junction_temp_max = -127;
+	} else {
+		pdata->junction_temp_min = tchg_min;
+		pdata->junction_temp_max = tchg_max;
+	}
+
+	if (info->chg2_dev) {
+		pdata = &info->chg_data[CHG2_SETTING];
+		ret = charger_dev_get_temperature(info->chg2_dev,
+			&tchg_min, &tchg_max);
+
+		if (ret < 0) {
+			pdata->junction_temp_min = -127;
+			pdata->junction_temp_max = -127;
+		} else {
+			pdata->junction_temp_min = tchg_min;
+			pdata->junction_temp_max = tchg_max;
+		}
+	}
+}
+
 static void charger_check_status(struct mtk_charger *info)
 {
 	bool charging = true;
@@ -1235,8 +1333,7 @@ static void charger_check_status(struct mtk_charger *info)
 		}
 	}
 
-//todo
-//	mtk_chg_get_tchg(info);
+	mtk_chg_get_tchg(info);
 
 	if (!mtk_chg_check_vbus(info)) {
 		charging = false;
@@ -1508,6 +1605,7 @@ static int charger_routine_thread(void *arg)
 			mtk_charger_start_timer(info);
 
 		check_battery_exist(info);
+		check_dynamic_mivr(info);
 		charger_check_status(info);
 
 		if (is_disable_charger(info) == false &&
@@ -1714,6 +1812,7 @@ static int psy_charger_property_is_writeable(struct power_supply *psy,
 
 static enum power_supply_property charger_psy_properties[] = {
 	POWER_SUPPLY_PROP_ONLINE,
+	POWER_SUPPLY_PROP_PRESENT,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_TEMP,
@@ -1748,6 +1847,12 @@ static int psy_charger_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_ONLINE:
 		val->intval = is_charger_exist(info);
 		break;
+	case POWER_SUPPLY_PROP_PRESENT:
+		if (chg != NULL)
+			val->intval = true;
+		else
+			val->intval = false;
+		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		val->intval = info->enable_hv_charging;
 		break;
@@ -1755,7 +1860,14 @@ static int psy_charger_get_property(struct power_supply *psy,
 		val->intval = get_vbus(info);
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
-		val->intval = get_charger_temperature(info, chg);
+		if (chg == info->chg1_dev)
+			val->intval =
+				info->chg_data[CHG1_SETTING].junction_temp_max;
+		else if (chg == info->chg2_dev)
+			val->intval =
+				info->chg_data[CHG2_SETTING].junction_temp_max;
+		else
+			val->intval = -127;
 		break;
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
 		val->intval = get_charger_charging_current(info, chg);
@@ -1933,6 +2045,7 @@ static int mtk_charger_probe(struct platform_device *pdev)
 {
 	struct mtk_charger *info = NULL;
 	int i;
+	char *name = NULL;
 
 	chr_err("%s: starts\n", __func__);
 
@@ -1947,8 +2060,10 @@ static int mtk_charger_probe(struct platform_device *pdev)
 	mutex_init(&info->cable_out_lock);
 	mutex_init(&info->charger_lock);
 	mutex_init(&info->pd_lock);
+	name = devm_kasprintf(&pdev->dev, GFP_KERNEL, "%s",
+		"charger suspend wakelock");
 	info->charger_wakelock =
-		wakeup_source_register(NULL, "charger suspend wakelock");
+		wakeup_source_register(NULL, name);
 	spin_lock_init(&info->slock);
 
 	init_waitqueue_head(&info->wait_que);
@@ -2026,7 +2141,14 @@ static int mtk_charger_remove(struct platform_device *dev)
 
 static void mtk_charger_shutdown(struct platform_device *dev)
 {
+	struct mtk_charger *info = platform_get_drvdata(dev);
+	int i;
 
+	for (i = 0; i < MAX_ALG_NO; i++) {
+		if (info->alg[i] == NULL)
+			continue;
+		chg_alg_stop_algo(info->alg[i]);
+	}
 }
 
 static const struct of_device_id mtk_charger_of_match[] = {

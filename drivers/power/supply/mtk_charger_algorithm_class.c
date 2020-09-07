@@ -28,7 +28,7 @@ int chg_alg_init_algo(struct chg_alg_device *alg_dev)
 	    alg_dev->ops->init_algo)
 		return alg_dev->ops->init_algo(alg_dev);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(chg_alg_init_algo);
 
@@ -38,9 +38,19 @@ int chg_alg_is_algo_ready(struct chg_alg_device *alg_dev)
 	    alg_dev->ops->is_algo_ready)
 		return alg_dev->ops->is_algo_ready(alg_dev);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(chg_alg_is_algo_ready);
+
+int chg_alg_is_algo_running(struct chg_alg_device *alg_dev)
+{
+	if (alg_dev != NULL && alg_dev->ops != NULL &&
+	    alg_dev->ops->is_algo_running)
+		return alg_dev->ops->is_algo_running(alg_dev);
+
+	return -EOPNOTSUPP;
+}
+EXPORT_SYMBOL(chg_alg_is_algo_running);
 
 int chg_alg_start_algo(struct chg_alg_device *alg_dev)
 {
@@ -48,7 +58,7 @@ int chg_alg_start_algo(struct chg_alg_device *alg_dev)
 	    alg_dev->ops->start_algo)
 		return alg_dev->ops->start_algo(alg_dev);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(chg_alg_start_algo);
 
@@ -59,7 +69,7 @@ int chg_alg_get_prop(struct chg_alg_device *alg_dev,
 	    alg_dev->ops->get_prop)
 		return alg_dev->ops->get_prop(alg_dev, s, value);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(chg_alg_get_prop);
 
@@ -70,7 +80,7 @@ int chg_alg_set_prop(struct chg_alg_device *alg_dev,
 	    alg_dev->ops->set_prop)
 		return alg_dev->ops->set_prop(alg_dev, s, value);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(chg_alg_set_prop);
 
@@ -80,7 +90,7 @@ int chg_alg_stop_algo(struct chg_alg_device *alg_dev)
 	    alg_dev->ops->stop_algo)
 		return alg_dev->ops->stop_algo(alg_dev);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(chg_alg_stop_algo);
 
@@ -91,7 +101,7 @@ int chg_alg_notifier_call(struct chg_alg_device *alg_dev,
 	    alg_dev->ops->notifier_call)
 		return alg_dev->ops->notifier_call(alg_dev, notify);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(chg_alg_notifier_call);
 
@@ -103,7 +113,7 @@ int chg_alg_set_current_limit(struct chg_alg_device *alg_dev,
 	    alg_dev->ops->set_current_limit)
 		return alg_dev->ops->set_current_limit(alg_dev, setting);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(chg_alg_set_current_limit);
 
@@ -171,6 +181,7 @@ struct chg_alg_device *chg_alg_device_register(const char *name,
 	static struct lock_class_key key;
 	struct srcu_notifier_head *head;
 	int rc;
+	char *algo_name = NULL;
 
 	pr_debug("%s: name=%s\n", __func__, name);
 	chg_dev = kzalloc(sizeof(*chg_dev), GFP_KERNEL);
@@ -185,8 +196,10 @@ struct chg_alg_device *chg_alg_device_register(const char *name,
 	chg_dev->dev.class = charger_algorithm_class;
 	chg_dev->dev.parent = parent;
 	chg_dev->dev.release = chg_alg_device_release;
-	dev_set_name(&chg_dev->dev, name);
+	algo_name = kasprintf(GFP_KERNEL, "%s", name);
+	dev_set_name(&chg_dev->dev, algo_name);
 	dev_set_drvdata(&chg_dev->dev, devdata);
+	kfree(algo_name);
 
 	/* Copy properties */
 	if (props) {

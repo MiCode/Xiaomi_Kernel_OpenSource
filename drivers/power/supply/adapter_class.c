@@ -39,7 +39,7 @@ int adapter_dev_get_property(struct adapter_device *adapter_dev,
 	    adapter_dev->ops->get_property)
 		return adapter_dev->ops->get_property(adapter_dev, sta);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(adapter_dev_get_property);
 
@@ -50,7 +50,7 @@ int adapter_dev_get_status(struct adapter_device *adapter_dev,
 	    adapter_dev->ops->get_status)
 		return adapter_dev->ops->get_status(adapter_dev, sta);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(adapter_dev_get_status);
 
@@ -60,7 +60,7 @@ int adapter_dev_get_output(struct adapter_device *adapter_dev, int *mV, int *mA)
 	    adapter_dev->ops->get_output)
 		return adapter_dev->ops->get_output(adapter_dev, mV, mA);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(adapter_dev_get_output);
 
@@ -72,7 +72,7 @@ int adapter_dev_set_cap(struct adapter_device *adapter_dev,
 	    adapter_dev->ops->set_cap)
 		return adapter_dev->ops->set_cap(adapter_dev, type, mV, mA);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(adapter_dev_set_cap);
 
@@ -85,7 +85,7 @@ int adapter_dev_get_cap(struct adapter_device *adapter_dev,
 		adapter_dev->ops->get_cap)
 		return adapter_dev->ops->get_cap(adapter_dev, type, cap);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(adapter_dev_get_cap);
 

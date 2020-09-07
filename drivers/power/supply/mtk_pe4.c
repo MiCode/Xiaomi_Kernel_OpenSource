@@ -198,6 +198,8 @@ static int _pe4_is_algo_ready(struct chg_alg_device *alg)
 				pe4->low_temp_to_enter_pe40);
 			if (pe4->input_current_limit1 != -1 ||
 				pe4->charging_current_limit1 != -1 ||
+				pe4->input_current_limit2 != -1 ||
+				pe4->charging_current_limit2 != -1 ||
 				uisoc > pe4->pe40_stop_battery_soc ||
 				uisoc == -1 ||
 				tmp > pe4->high_temp_to_enter_pe40 ||
@@ -514,31 +516,20 @@ int mtk_pe40_pd_request(struct chg_alg_device *alg,
 		pe4_hal_set_input_current(alg, CHG1, ma * 1000);
 #endif
 
-	ret = pe4_hal_set_adapter_cap(alg, adapter_mv, adapter_ma);
+	if (pe40->cap.pdp > 0 &&
+		adapter_mv * adapter_ma > pe40->cap.pdp * 1000000) {
+		*adapter_ibus = pe40->cap.pdp * 1000000 / adapter_mv;
+		pe4_hal_set_input_current(alg, CHG1, *adapter_ibus * 1000);
+	}
 
-	pe4_err("pe40_pd_req:vbus:%d ibus:%d input_current:%d ret:%d\n",
-		adapter_mv, adapter_ma, ma, ret);
+	ret = pe4_hal_set_adapter_cap(alg, adapter_mv, *adapter_ibus);
+
+	pe4_err("%s: vbus:%d ibus:%d ibus2:%d input_current:%d pdp:%d ret:%d\n",
+		__func__, adapter_mv, adapter_ma, *adapter_ibus, ma,
+				pe40->cap.pdp, ret);
 
 	if (ret == MTK_ADAPTER_PE4_REJECT) {
 		pe4_err("pe40_pd_req: reject\n");
-
-		if (pe40->cap.pdp > 0 &&
-			adapter_mv * adapter_ma > pe40->cap.pdp * 1000000) {
-			*adapter_ibus = pe40->cap.pdp * 1000000
-					/ adapter_mv;
-			ret = pe4_hal_set_adapter_cap(alg,
-				adapter_mv, *adapter_ibus);
-
-			pe4_err("pe40_pd_req:vbus:%d new_ibus:%d pdp:%d ret:%d\n",
-				adapter_mv, *adapter_ibus,
-				pe40->cap.pdp, ret);
-
-			if (ret == MTK_ADAPTER_PE4_OK)
-				ret = MTK_ADAPTER_PE4_ADJUST;
-
-			if (ret == MTK_ADAPTER_PE4_REJECT)
-				goto err;
-		} else
 			goto err;
 	}
 
@@ -661,8 +652,7 @@ int mtk_pe40_get_init_watt(struct chg_alg_device *alg)
 	ret = mtk_pe40_pd_request(alg, &voltage, &adapter_ibus,
 				input_current);
 
-	if (ret != 0 && ret != MTK_ADAPTER_PE4_REJECT &&
-			ret != MTK_ADAPTER_PE4_ADJUST) {
+	if (ret != 0 && ret != MTK_ADAPTER_PE4_REJECT) {
 		pe4_err("[pe40_i1] err:1 %d\n", ret);
 		return -1;
 	}
@@ -687,7 +677,7 @@ int mtk_pe40_get_init_watt(struct chg_alg_device *alg)
 		ret = mtk_pe40_pd_request(alg, &voltage, &adapter_ibus,
 			input_current);
 
-		if (ret != 0 && ret != MTK_ADAPTER_PE4_ADJUST) {
+		if (ret != 0) {
 			pe4_err("[pe40_i1] err:2 %d\n", ret);
 			return -1;
 		}
@@ -838,7 +828,7 @@ int mtk_pe40_init_state(struct chg_alg_device *alg)
 		ret = mtk_pe40_pd_request(alg, &voltage, &actual_current,
 					actual_current);
 
-		if (ret != 0 && ret != MTK_ADAPTER_PE4_ADJUST) {
+		if (ret != 0) {
 			pe4_err("[pe40_i0] err:3 %d\n", ret);
 			goto err;
 		}
@@ -872,7 +862,7 @@ int mtk_pe40_init_state(struct chg_alg_device *alg)
 		ret = mtk_pe40_pd_request(alg, &voltage, &actual_current,
 					actual_current);
 
-		if (ret != 0 && ret != MTK_ADAPTER_PE4_ADJUST) {
+		if (ret != 0) {
 			pe4_err("[pe40_i0] err:5 %d\n", ret);
 			goto err;
 		}
@@ -935,8 +925,7 @@ int mtk_pe40_init_state(struct chg_alg_device *alg)
 	ret = mtk_pe40_pd_request(alg, &pe4->avbus, &adapter_ibus,
 				input_current);
 
-	if (ret != 0 && ret != MTK_ADAPTER_PE4_REJECT &&
-			ret != MTK_ADAPTER_PE4_ADJUST) {
+	if (ret != 0 && ret != MTK_ADAPTER_PE4_REJECT) {
 		pe4_err("[pe40_i0] err:6 %d\n", ret);
 		goto err;
 	}
@@ -1014,7 +1003,6 @@ int mtk_pe40_safety_check(struct chg_alg_device *alg)
 	/* TA Thermal */
 	for (i = 0; i < 3; i++) {
 		ret = pe40_hal_get_adapter_status(alg, &TAstatus);
-		//ret = tcpm_dpm_pd_get_status(pinfo->tcpc, NULL, &TAstatus);
 		if (TAstatus.temperature >= 100 &&
 			TAstatus.temperature != 0 &&
 			ret != MTK_ADAPTER_PE4_NOT_SUPPORT &&
@@ -1092,6 +1080,7 @@ int mtk_pe40_cc_state(struct chg_alg_device *alg)
 	bool chg1_mivr = false;
 	bool chg2_mivr = false;
 	bool chg2_enable = false;
+	bool chg2_chip_enable = false;
 	bool thermal_skip = false;
 
 	pe40 = dev_get_drvdata(&alg->dev);
@@ -1106,8 +1095,9 @@ int mtk_pe40_cc_state(struct chg_alg_device *alg)
 	pe4_hal_get_mivr(alg, CHG1, &mivr1);
 
 	if (alg->config == DUAL_CHARGERS_IN_SERIES) {
-		chg2_enable = pe4_hal_is_chip_enable(alg, CHG2);
-		if (chg2_enable) {
+		chg2_chip_enable = pe4_hal_is_chip_enable(alg, CHG2);
+		pe4_hal_is_charger_enable(alg, CHG2, &chg2_enable);
+		if (chg2_chip_enable) {
 			pe4_hal_get_mivr_state(alg, CHG2, &chg2_mivr);
 			pe4_hal_get_mivr(alg, CHG2, &mivr2);
 		}
@@ -1197,8 +1187,13 @@ int mtk_pe40_cc_state(struct chg_alg_device *alg)
 			pe40->avbus = pe40->avbus + 50;
 			new_watt = (pe40->avbus + 50) * ibus;
 		} else if (compare_ibus <= (max_icl - icl_threshold * 2)) {
-			new_watt = pe40->avbus * pe40->ibus - 500000;
-			pe40->avbus = pe40->avbus - 50;
+			if (chg2_enable && (mivr2 / 1000 < 5000) &&
+				((vbus - 50) < (mivr2 / 1000 + 100)))
+				new_watt = watt;
+			else {
+				new_watt = pe40->avbus * pe40->ibus - 500000;
+				pe40->avbus = pe40->avbus - 50;
+			}
 		}
 
 		ret = mtk_pe40_get_setting_by_watt(alg, &pe40->avbus,
@@ -1215,8 +1210,7 @@ int mtk_pe40_cc_state(struct chg_alg_device *alg)
 		if (abs(pe40->avbus - oldavbus) >= 50) {
 			ret = mtk_pe40_pd_request(alg, &pe40->avbus,
 					&adapter_ibus, input_current);
-			if (ret != 0 && ret != MTK_ADAPTER_PE4_REJECT &&
-					ret != MTK_ADAPTER_PE4_ADJUST) {
+			if (ret != 0 && ret != MTK_ADAPTER_PE4_REJECT) {
 				pe4_err("pe4 end2 error1\n");
 				goto err;
 			}
@@ -1286,7 +1280,7 @@ static int pe4_sc_set_charger(struct chg_alg_device *alg)
 			pe4->charger_current1 =
 				pe4->charging_current_limit1;
 		ret = pe4_hal_get_min_charging_current(alg, CHG1, &ichg1_min);
-		if (ret != -ENOTSUPP &&
+		if (ret != -EOPNOTSUPP &&
 			pe4->charging_current_limit1 < ichg1_min)
 			pe4->charger_current1 = 0;
 	} else
@@ -1305,7 +1299,7 @@ static int pe4_sc_set_charger(struct chg_alg_device *alg)
 	    pe4->input_current_limit1 < min_icl) {
 		pe4->input_current1 = pe4->input_current_limit1;
 		ret = pe4_hal_get_min_input_current(alg, CHG1, &aicr1_min);
-		if (ret != -ENOTSUPP && pe4->input_current_limit1 < aicr1_min)
+		if (ret != -EOPNOTSUPP && pe4->input_current_limit1 < aicr1_min)
 			pe4->input_current1 = 0;
 	} else
 		pe4->input_current1 = min_icl;
@@ -1341,7 +1335,6 @@ static int pe4_sc_set_charger(struct chg_alg_device *alg)
 static int pe4_dcs_set_charger(struct chg_alg_device *alg)
 {
 	struct mtk_pe40 *pe4;
-	bool chg2_enable = true;
 	bool chg2_chip_enabled = false;
 	int ret;
 	int ichg1_min = -1, ichg2_min = -1;
@@ -1371,7 +1364,7 @@ static int pe4_dcs_set_charger(struct chg_alg_device *alg)
 	    pe4->input_current_limit1 < min_icl) {
 		pe4->input_current1 = pe4->input_current_limit1;
 		ret = pe4_hal_get_min_input_current(alg, CHG1, &aicr1_min);
-		if (ret != -ENOTSUPP && pe4->input_current_limit1 < aicr1_min)
+		if (ret != -EOPNOTSUPP && pe4->input_current_limit1 < aicr1_min)
 			pe4->input_current1 = 0;
 	} else
 		pe4->input_current1 = min_icl;
@@ -1381,7 +1374,7 @@ static int pe4_dcs_set_charger(struct chg_alg_device *alg)
 		pe4->dcs_chg1_charger_current) {
 		pe4->charger_current1 = pe4->charging_current_limit1;
 		ret = pe4_hal_get_min_charging_current(alg, CHG1, &ichg1_min);
-		if (ret != -ENOTSUPP &&
+		if (ret != -EOPNOTSUPP &&
 			pe4->charging_current_limit1 < ichg1_min)
 			pe4->charger_current1 = 0;
 	} else
@@ -1395,7 +1388,7 @@ static int pe4_dcs_set_charger(struct chg_alg_device *alg)
 		pe4->charger_current2) {
 		pe4->charger_current2 = pe4->charging_current_limit2;
 		ret = pe4_hal_get_min_charging_current(alg, CHG2, &ichg1_min);
-		if (ret != -ENOTSUPP &&
+		if (ret != -EOPNOTSUPP &&
 			pe4->charging_current_limit2 < ichg1_min)
 			pe4->charger_current2 = 0;
 	}
@@ -1414,8 +1407,8 @@ static int pe4_dcs_set_charger(struct chg_alg_device *alg)
 	}
 
 	chg2_chip_enabled = pe4_hal_is_chip_enable(alg, CHG2);
-	pe4_err("chg2_en:%d %d %d\n",
-		chg2_enable, chg2_chip_enabled, pe4->state);
+	pe4_err("chg2_en:%d pe4_state:%d\n",
+		chg2_chip_enabled, pe4->state);
 	if (pe4->state == PE4_RUN) {
 		if (!chg2_chip_enabled)
 			pe4_hal_charger_enable_chip(alg, CHG2, true);
@@ -1439,6 +1432,7 @@ static int pe4_dcs_set_charger(struct chg_alg_device *alg)
 		pe4_hal_safety_check(alg, pe4->dual_polling_ieoc);
 	} else if (pe4->state == PE4_POSTCC) {
 		pe4_hal_set_eoc_current(alg, CHG1, 150000);
+		pe4_hal_reset_eoc_state(alg);
 		pe4_hal_enable_termination(alg, CHG1, true);
 	} else {
 		pe4_err("%s state error!", __func__);
@@ -1461,7 +1455,7 @@ static int pe4_dcs_set_charger(struct chg_alg_device *alg)
 		pe4->charger_current1,
 		pe4->input_current2,
 		pe4->charger_current2,
-		chg2_enable,
+		chg2_chip_enabled,
 		ichg1_min,
 		ichg2_min,
 		aicr1_min);
@@ -1519,6 +1513,8 @@ static int _pe4_start_algo(struct chg_alg_device *alg)
 				tmp = pe4_hal_get_battery_temperature(alg);
 				if (pe4->input_current_limit1 != -1 ||
 					pe4->charging_current_limit1 != -1 ||
+					pe4->input_current_limit2 != -1 ||
+					pe4->charging_current_limit2 != -1 ||
 					uisoc > pe4->pe40_stop_battery_soc ||
 					uisoc == -1 ||
 					tmp > pe4->high_temp_to_enter_pe40 ||
@@ -1655,7 +1651,7 @@ static int pe4_full_evt(struct chg_alg_device *alg)
 				pe4_hal_get_charging_current(alg, CHG2, &ichg2);
 				ret = pe4_hal_get_min_charging_current(
 					alg, CHG2, &ichg2_min);
-				if (ret == -ENOTSUPP)
+				if (ret == -EOPNOTSUPP)
 					ichg2_min = 100000;
 
 				pe4_err("ichg2:%d, ichg2_min:%d state:%d\n",
@@ -1666,6 +1662,7 @@ static int pe4_full_evt(struct chg_alg_device *alg)
 						CHG2, false);
 					pe4_hal_set_eoc_current(alg,
 						CHG1, 150000);
+					pe4_hal_reset_eoc_state(alg);
 					pe4_hal_enable_termination(alg,
 						CHG1, true);
 				} else {
@@ -1703,7 +1700,8 @@ static int _pe4_notifier_call(struct chg_alg_device *alg,
 	int ret_value;
 
 	pe4 = dev_get_drvdata(&alg->dev);
-	pe4_err("%s evt:%d\n", __func__, notify->evt);
+	pe4_err("%s evt:%d, state:%s\n", __func__, notify->evt,
+		pe4_state_to_str(pe4->state));
 
 	switch (notify->evt) {
 	case EVT_PLUG_OUT:

@@ -144,6 +144,11 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 			info->data.ac_charger_input_current;
 		pdata->charging_current_limit =
 			info->data.ac_charger_current;
+		if (info->config == DUAL_CHARGERS_IN_SERIES) {
+			pdata2->input_current_limit =
+				pdata->input_current_limit;
+			pdata2->charging_current_limit = 2000000;
+		}
 	}
 
 	if (info->enable_sw_jeita) {
@@ -210,7 +215,7 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 done:
 
 	ret = charger_dev_get_min_charging_current(info->chg1_dev, &ichg1_min);
-	if (ret != -ENOTSUPP && pdata->charging_current_limit < ichg1_min) {
+	if (ret != -EOPNOTSUPP && pdata->charging_current_limit < ichg1_min) {
 		pdata->charging_current_limit = 0;
 		chr_err("min_charging_current is too low %d %d\n",
 			pdata->charging_current_limit, ichg1_min);
@@ -218,7 +223,7 @@ done:
 	}
 
 	ret = charger_dev_get_min_input_current(info->chg1_dev, &aicr1_min);
-	if (ret != -ENOTSUPP && pdata->input_current_limit < aicr1_min) {
+	if (ret != -EOPNOTSUPP && pdata->input_current_limit < aicr1_min) {
 		pdata->input_current_limit = 0;
 		chr_err("min_input_current is too low %d %d\n",
 			pdata->input_current_limit, aicr1_min);
@@ -318,10 +323,26 @@ static int do_algorithm(struct mtk_charger *info)
 				//chg_alg_set_setting(alg, &info->setting);
 				chg_alg_start_algo(alg);
 				break;
+			} else {
+				chr_err("algorithm ret is error");
+				is_basic = true;
 			}
+		}
+	} else {
+		if (info->enable_hv_charging != true) {
+			for (i = 0; i < MAX_ALG_NO; i++) {
+				alg = info->alg[i];
+				if (alg == NULL)
+					continue;
 
-			chr_err("algorithm ret is error");
-			is_basic = true;
+				chg_alg_get_prop(alg, ALG_MAX_VBUS, &val);
+				if (val > 5000 && chg_alg_is_algo_running(alg))
+					chg_alg_stop_algo(alg);
+
+				chr_err("%s: Stop hv charging. en_hv:%d alg:%s alg_vbus:%d\n",
+					__func__, info->enable_hv_charging,
+					dev_name(&alg->dev), val);
+			}
 		}
 	}
 	info->is_chg_done = chg_done;

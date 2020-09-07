@@ -124,7 +124,7 @@ static int pe_leave(struct chg_alg_device *alg, bool disable_charging)
 	ret = pe_hal_enable_charging(alg, disable_charging);
 	if (ret < 0) {
 		pe_err("%s enable charging fail:%d\n",
-			ret);
+			__func__, ret);
 		ret_value = -EHAL;
 	}
 
@@ -132,7 +132,7 @@ static int pe_leave(struct chg_alg_device *alg, bool disable_charging)
 	ret = mtk_pe_reset_ta_vchr(alg);
 	if (ret < 0) {
 		pe_err("%s reset TA fail:%d\n",
-			ret);
+			__func__, ret);
 		ret_value = -EHAL;
 	}
 
@@ -404,16 +404,22 @@ static char *pe_state_to_str(int state)
 	switch (state) {
 	case PE_HW_UNINIT:
 		return "PE_HW_UNINIT";
+		break;
 	case PE_HW_FAIL:
 		return "PE_HW_FAIL";
+		break;
 	case PE_HW_READY:
 		return "PE_HW_READY";
+		break;
 	case PE_TA_NOT_SUPPORT:
 		return "PE_TA_NOT_SUPPORT";
+		break;
 	case PE_RUN:
 		return "PE_RUN";
+		break;
 	case PE_DONE:
 		return "PE_DONE";
+		break;
 	default:
 		break;
 	}
@@ -542,6 +548,19 @@ static int _pe_notifier_call(struct chg_alg_device *alg,
 	return 0;
 }
 
+static int pe_get_conditional_vbus(struct chg_alg_device *alg, u32 uA)
+{
+	int chr_volt = 0, orig_chr_current = 0;
+
+	pe_hal_get_charging_current(alg, CHG1, &orig_chr_current);
+	pe_hal_set_charging_current(alg, CHG1, uA);
+	msleep(20);
+	chr_volt = pe_hal_get_vbus(alg);
+	pe_hal_set_charging_current(alg, CHG1, orig_chr_current);
+
+	return chr_volt;
+}
+
 int _pe_get_status(struct chg_alg_device *alg,
 		enum chg_alg_props s, int *value)
 {
@@ -574,7 +593,7 @@ int _pe_set_setting(struct chg_alg_device *alg_dev,
 static int __pe_run(struct chg_alg_device *alg)
 {
 	struct mtk_pe *pe;
-	int ret = 0, chr_volt, ret_value = 0, ichg;
+	int ret = 0, chr_volt, chr_volt2, ret_value = 0, ichg;
 	bool tune = false;
 	int mivr;
 
@@ -585,17 +604,32 @@ static int __pe_run(struct chg_alg_device *alg)
 		goto _out;
 
 	chr_volt = pe_hal_get_vbus(alg);
+	chr_volt2 = pe_get_conditional_vbus(alg, 500000);
 
 	if (pe->ta_9v_support && pe->ta_12v_support) {
-		if (abs(chr_volt - 12000000) > VBUS_MAX_DROP)
-			tune = true;
+		if (abs(chr_volt - 12000000) > VBUS_MAX_DROP) {
+			if (abs(chr_volt2 - 12000000) > VBUS_MAX_DROP)
+				tune = true;
+			else {
+				pe_err("%s: V drop out of range, skip pe", __func__);
+				ret_value = ALG_TA_NOT_SUPPORT;
+				goto _err;
+			}
+		}
 		pe_dbg("%s: vbus:%d target:%d 9v:%d 12v:%d tune:%d\n",
 			__func__, chr_volt,
 			12000000, pe->ta_9v_support,
 			pe->ta_12v_support, tune);
 	} else if (pe->ta_9v_support && !pe->ta_12v_support) {
-		if (abs(chr_volt - 9000000) > VBUS_MAX_DROP)
-			tune = true;
+		if (abs(chr_volt - 9000000) > VBUS_MAX_DROP) {
+			if (abs(chr_volt2 - 9000000) > VBUS_MAX_DROP)
+				tune = true;
+			else {
+				pe_err("%s: V drop out of range, skip pe", __func__);
+				ret_value = ALG_TA_NOT_SUPPORT;
+				goto _err;
+			}
+		}
 		pe_dbg("%s: vbus:%d target:%d 9v:%d 12v:%d tune:%d\n",
 			__func__, chr_volt,
 			9000000, pe->ta_9v_support,
@@ -606,6 +640,7 @@ static int __pe_run(struct chg_alg_device *alg)
 			__func__, chr_volt,
 			pe->ta_9v_support, pe->ta_12v_support,
 			tune);
+		ret_value = ALG_TA_NOT_SUPPORT;
 		goto _err;
 	}
 
@@ -616,6 +651,7 @@ static int __pe_run(struct chg_alg_device *alg)
 			if (ret < 0) {
 				pe_err("%s: failed, cannot increase to 9V\n",
 					__func__);
+				ret_value = ALG_TA_NOT_SUPPORT;
 				goto _err;
 			}
 
@@ -631,6 +667,7 @@ static int __pe_run(struct chg_alg_device *alg)
 			if (ret < 0) {
 				pe_err("%s: failed, cannot increase to 12V\n",
 					__func__);
+				ret_value = ALG_TA_NOT_SUPPORT;
 				goto _err;
 			}
 
@@ -665,6 +702,7 @@ static int __pe_run(struct chg_alg_device *alg)
 	if (ret < 0) {
 		pe_err("%s: set mivr fail\n",
 			__func__);
+		ret_value = ALG_TA_NOT_SUPPORT;
 		goto _err;
 	}
 

@@ -37,7 +37,7 @@ int charger_dev_enable(struct charger_device *chg_dev, bool en)
 	if (chg_dev != NULL && chg_dev->ops != NULL && chg_dev->ops->enable)
 		return chg_dev->ops->enable(chg_dev, en);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_enable);
 
@@ -46,7 +46,7 @@ int charger_dev_is_enabled(struct charger_device *chg_dev, bool *en)
 	if (chg_dev != NULL && chg_dev->ops != NULL && chg_dev->ops->is_enabled)
 		return chg_dev->ops->is_enabled(chg_dev, en);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_is_enabled);
 
@@ -55,7 +55,7 @@ int charger_dev_plug_in(struct charger_device *chg_dev)
 	if (chg_dev != NULL && chg_dev->ops != NULL && chg_dev->ops->plug_in)
 		return chg_dev->ops->plug_in(chg_dev);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_plug_in);
 
@@ -64,7 +64,7 @@ int charger_dev_plug_out(struct charger_device *chg_dev)
 	if (chg_dev != NULL && chg_dev->ops != NULL && chg_dev->ops->plug_out)
 		return chg_dev->ops->plug_out(chg_dev);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_plug_out);
 
@@ -73,7 +73,7 @@ int charger_dev_do_event(struct charger_device *chg_dev, u32 event, u32 args)
 	if (chg_dev != NULL && chg_dev->ops != NULL && chg_dev->ops->event)
 		return chg_dev->ops->event(chg_dev, event, args);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_do_event);
 
@@ -83,7 +83,7 @@ int charger_dev_set_charging_current(struct charger_device *chg_dev, u32 uA)
 	    chg_dev->ops->set_charging_current)
 		return chg_dev->ops->set_charging_current(chg_dev, uA);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_set_charging_current);
 
@@ -93,7 +93,7 @@ int charger_dev_get_charging_current(struct charger_device *chg_dev, u32 *uA)
 	    chg_dev->ops->get_charging_current)
 		return chg_dev->ops->get_charging_current(chg_dev, uA);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_get_charging_current);
 
@@ -104,7 +104,7 @@ int charger_dev_get_min_charging_current(struct charger_device *chg_dev,
 	    chg_dev->ops->get_min_charging_current)
 		return chg_dev->ops->get_min_charging_current(chg_dev, uA);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_get_min_charging_current);
 
@@ -114,7 +114,7 @@ int charger_dev_enable_chip(struct charger_device *chg_dev, bool en)
 	    chg_dev->ops->enable_chip)
 		return chg_dev->ops->enable_chip(chg_dev, en);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_enable_chip);
 
@@ -124,7 +124,7 @@ int charger_dev_is_chip_enabled(struct charger_device *chg_dev, bool *en)
 	    chg_dev->ops->is_chip_enabled)
 		return chg_dev->ops->is_chip_enabled(chg_dev, en);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_is_chip_enabled);
 
@@ -134,7 +134,7 @@ int charger_dev_enable_direct_charging(struct charger_device *chg_dev, bool en)
 	    chg_dev->ops->enable_direct_charging)
 		return chg_dev->ops->enable_direct_charging(chg_dev, en);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_enable_direct_charging);
 
@@ -144,7 +144,7 @@ int charger_dev_kick_direct_charging_wdt(struct charger_device *chg_dev)
 	    chg_dev->ops->kick_direct_charging_wdt)
 		return chg_dev->ops->kick_direct_charging_wdt(chg_dev);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_kick_direct_charging_wdt);
 
@@ -154,7 +154,7 @@ int charger_dev_get_vbus(struct charger_device *chg_dev, u32 *vbus)
 	    chg_dev->ops->get_vbus_adc)
 		return chg_dev->ops->get_vbus_adc(chg_dev, vbus);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_get_vbus);
 
@@ -164,7 +164,7 @@ int charger_dev_get_ibus(struct charger_device *chg_dev, u32 *ibus)
 	    chg_dev->ops->get_ibus_adc)
 		return chg_dev->ops->get_ibus_adc(chg_dev, ibus);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_get_ibus);
 
@@ -174,7 +174,7 @@ int charger_dev_get_ibat(struct charger_device *chg_dev, u32 *ibat)
 	    chg_dev->ops->get_ibat_adc)
 		return chg_dev->ops->get_ibat_adc(chg_dev, ibat);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_get_ibat);
 
@@ -186,7 +186,7 @@ int charger_dev_get_temperature(struct charger_device *chg_dev, int *tchg_min,
 		return chg_dev->ops->get_tchg_adc(chg_dev, tchg_min,
 						  tchg_max);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_get_temperature);
 
@@ -196,7 +196,7 @@ int charger_dev_set_input_current(struct charger_device *chg_dev, u32 uA)
 	    chg_dev->ops->set_input_current)
 		return chg_dev->ops->set_input_current(chg_dev, uA);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_set_input_current);
 
@@ -206,7 +206,7 @@ int charger_dev_get_input_current(struct charger_device *chg_dev, u32 *uA)
 	    chg_dev->ops->get_input_current)
 		return chg_dev->ops->get_input_current(chg_dev, uA);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_get_input_current);
 
@@ -216,7 +216,7 @@ int charger_dev_get_min_input_current(struct charger_device *chg_dev, u32 *uA)
 	    chg_dev->ops->get_min_input_current)
 		return chg_dev->ops->get_min_input_current(chg_dev, uA);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_get_min_input_current);
 
@@ -226,7 +226,7 @@ int charger_dev_set_eoc_current(struct charger_device *chg_dev, u32 uA)
 	    chg_dev->ops->set_eoc_current)
 		chg_dev->ops->set_eoc_current(chg_dev, uA);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_set_eoc_current);
 
@@ -236,7 +236,7 @@ int charger_dev_get_eoc_current(struct charger_device *chg_dev, u32 *uA)
 	    chg_dev->ops->get_eoc_current)
 		return chg_dev->ops->get_eoc_current(chg_dev, uA);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_get_eoc_current);
 
@@ -245,7 +245,7 @@ int charger_dev_kick_wdt(struct charger_device *chg_dev)
 	if (chg_dev != NULL && chg_dev->ops != NULL && chg_dev->ops->kick_wdt)
 		return chg_dev->ops->kick_wdt(chg_dev);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_kick_wdt);
 
@@ -255,7 +255,7 @@ int charger_dev_set_constant_voltage(struct charger_device *chg_dev, u32 uV)
 	    chg_dev->ops->set_constant_voltage)
 		return chg_dev->ops->set_constant_voltage(chg_dev, uV);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_set_constant_voltage);
 
@@ -265,7 +265,7 @@ int charger_dev_get_constant_voltage(struct charger_device *chg_dev, u32 *uV)
 	    chg_dev->ops->get_constant_voltage)
 		return chg_dev->ops->get_constant_voltage(chg_dev, uV);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_get_constant_voltage);
 
@@ -275,7 +275,7 @@ int charger_dev_dump_registers(struct charger_device *chg_dev)
 	    chg_dev->ops->dump_registers)
 		return chg_dev->ops->dump_registers(chg_dev);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_dump_registers);
 
@@ -285,7 +285,7 @@ int charger_dev_is_charging_done(struct charger_device *chg_dev, bool *done)
 	    chg_dev->ops->is_charging_done)
 		return chg_dev->ops->is_charging_done(chg_dev, done);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_is_charging_done);
 
@@ -295,7 +295,7 @@ int charger_dev_enable_vbus_ovp(struct charger_device *chg_dev, bool en)
 	    chg_dev->ops->enable_vbus_ovp)
 		return chg_dev->ops->enable_vbus_ovp(chg_dev, en);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_enable_vbus_ovp);
 
@@ -304,7 +304,7 @@ int charger_dev_set_mivr(struct charger_device *chg_dev, u32 uV)
 	if (chg_dev != NULL && chg_dev->ops != NULL && chg_dev->ops->set_mivr)
 		return chg_dev->ops->set_mivr(chg_dev, uV);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_set_mivr);
 
@@ -313,7 +313,7 @@ int charger_dev_get_mivr(struct charger_device *chg_dev, u32 *uV)
 	if (chg_dev != NULL && chg_dev->ops != NULL && chg_dev->ops->get_mivr)
 		return chg_dev->ops->get_mivr(chg_dev, uV);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_get_mivr);
 
@@ -323,7 +323,7 @@ int charger_dev_enable_powerpath(struct charger_device *chg_dev, bool en)
 	    chg_dev->ops->enable_powerpath)
 		return chg_dev->ops->enable_powerpath(chg_dev, en);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_enable_powerpath);
 
@@ -333,7 +333,7 @@ int charger_dev_is_powerpath_enabled(struct charger_device *chg_dev, bool *en)
 	    chg_dev->ops->is_powerpath_enabled)
 		return chg_dev->ops->is_powerpath_enabled(chg_dev, en);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_is_powerpath_enabled);
 
@@ -343,7 +343,7 @@ int charger_dev_enable_safety_timer(struct charger_device *chg_dev, bool en)
 	    chg_dev->ops->enable_safety_timer)
 		return chg_dev->ops->enable_safety_timer(chg_dev, en);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_enable_safety_timer);
 
@@ -353,7 +353,7 @@ int charger_dev_enable_hz(struct charger_device *chg_dev, bool en)
 	    chg_dev->ops->enable_hz)
 		return chg_dev->ops->enable_hz(chg_dev, en);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_enable_hz);
 
@@ -364,7 +364,7 @@ int charger_dev_get_adc(struct charger_device *charger_dev,
 	    charger_dev->ops->get_adc)
 		return charger_dev->ops->get_adc(charger_dev, chan, min, max);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_get_adc);
 
@@ -375,7 +375,7 @@ int charger_dev_is_safety_timer_enabled(struct charger_device *chg_dev,
 	    chg_dev->ops->is_safety_timer_enabled)
 		return chg_dev->ops->is_safety_timer_enabled(chg_dev, en);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_is_safety_timer_enabled);
 
@@ -385,7 +385,7 @@ int charger_dev_enable_termination(struct charger_device *chg_dev, bool en)
 	    chg_dev->ops->enable_termination)
 		return chg_dev->ops->enable_termination(chg_dev, en);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_enable_termination);
 
@@ -395,7 +395,7 @@ int charger_dev_get_mivr_state(struct charger_device *chg_dev, bool *in_loop)
 	    chg_dev->ops->get_mivr_state)
 		return chg_dev->ops->get_mivr_state(chg_dev, in_loop);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_get_mivr_state);
 
@@ -407,7 +407,7 @@ int charger_dev_send_ta_current_pattern(struct charger_device *chg_dev,
 		return chg_dev->ops->send_ta_current_pattern(chg_dev,
 							     is_increase);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_send_ta_current_pattern);
 
@@ -418,7 +418,7 @@ int charger_dev_send_ta20_current_pattern(struct charger_device *chg_dev,
 	    chg_dev->ops->send_ta20_current_pattern)
 		return chg_dev->ops->send_ta20_current_pattern(chg_dev, uV);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_send_ta20_current_pattern);
 
@@ -428,7 +428,7 @@ int charger_dev_reset_ta(struct charger_device *chg_dev)
 	    chg_dev->ops->reset_ta)
 		return chg_dev->ops->reset_ta(chg_dev);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_reset_ta);
 
@@ -438,7 +438,7 @@ int charger_dev_set_pe20_efficiency_table(struct charger_device *chg_dev)
 	    chg_dev->ops->set_pe20_efficiency_table)
 		return chg_dev->ops->set_pe20_efficiency_table(chg_dev);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_set_pe20_efficiency_table);
 
@@ -448,7 +448,7 @@ int charger_dev_enable_cable_drop_comp(struct charger_device *chg_dev, bool en)
 	    chg_dev->ops->enable_cable_drop_comp)
 		return chg_dev->ops->enable_cable_drop_comp(chg_dev, en);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_enable_cable_drop_comp);
 
@@ -460,7 +460,7 @@ int charger_dev_set_direct_charging_ibusoc(struct charger_device *chg_dev,
 		return chg_dev->ops->set_direct_charging_ibusoc(chg_dev,
 								uA);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_set_direct_charging_ibusoc);
 
@@ -472,7 +472,7 @@ int charger_dev_set_direct_charging_vbusov(struct charger_device *chg_dev,
 		return chg_dev->ops->set_direct_charging_vbusov(chg_dev,
 								uV);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_set_direct_charging_vbusov);
 
@@ -482,7 +482,7 @@ int charger_dev_enable_chg_type_det(struct charger_device *chg_dev, bool en)
 	    chg_dev->ops->enable_chg_type_det)
 		return chg_dev->ops->enable_chg_type_det(chg_dev, en);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_enable_chg_type_det);
 
@@ -491,7 +491,7 @@ int charger_dev_enable_otg(struct charger_device *chg_dev, bool en)
 	if (chg_dev != NULL && chg_dev->ops != NULL && chg_dev->ops->enable_otg)
 		return chg_dev->ops->enable_otg(chg_dev, en);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_enable_otg);
 
@@ -501,7 +501,7 @@ int charger_dev_enable_discharge(struct charger_device *chg_dev, bool en)
 	    chg_dev->ops->enable_discharge)
 		return chg_dev->ops->enable_discharge(chg_dev, en);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_enable_discharge);
 
@@ -511,7 +511,7 @@ int charger_dev_set_boost_current_limit(struct charger_device *chg_dev, u32 uA)
 	    chg_dev->ops->set_boost_current_limit)
 		return chg_dev->ops->set_boost_current_limit(chg_dev, uA);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_set_boost_current_limit);
 
@@ -520,7 +520,7 @@ int charger_dev_get_zcv(struct charger_device *chg_dev, u32 *uV)
 	if (chg_dev != NULL && chg_dev->ops != NULL && chg_dev->ops->get_zcv)
 		return chg_dev->ops->get_zcv(chg_dev, uV);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_get_zcv);
 
@@ -529,7 +529,7 @@ int charger_dev_run_aicl(struct charger_device *chg_dev, u32 *uA)
 	if (chg_dev != NULL && chg_dev->ops != NULL && chg_dev->ops->run_aicl)
 		return chg_dev->ops->run_aicl(chg_dev, uA);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_run_aicl);
 
@@ -539,7 +539,7 @@ int charger_dev_reset_eoc_state(struct charger_device *chg_dev)
 	    chg_dev->ops->reset_eoc_state)
 		return chg_dev->ops->reset_eoc_state(chg_dev);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_reset_eoc_state);
 
@@ -549,7 +549,7 @@ int charger_dev_safety_check(struct charger_device *chg_dev, u32 polling_ieoc)
 	    chg_dev->ops->safety_check)
 		return chg_dev->ops->safety_check(chg_dev, polling_ieoc);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_safety_check);
 
@@ -566,7 +566,7 @@ int charger_dev_enable_usbid(struct charger_device *charger_dev, bool en)
 	    charger_dev->ops->enable_usbid)
 		return charger_dev->ops->enable_usbid(charger_dev, en);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_enable_usbid);
 
@@ -576,7 +576,7 @@ int charger_dev_set_usbid_rup(struct charger_device *charger_dev, u32 rup)
 	    charger_dev->ops->set_usbid_rup)
 		return charger_dev->ops->set_usbid_rup(charger_dev, rup);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_set_usbid_rup);
 
@@ -588,7 +588,7 @@ int charger_dev_set_usbid_src_ton(struct charger_device *charger_dev,
 		return charger_dev->ops->set_usbid_src_ton(charger_dev,
 							   src_ton);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_set_usbid_src_ton);
 
@@ -599,7 +599,7 @@ int charger_dev_enable_usbid_floating(struct charger_device *charger_dev,
 	    charger_dev->ops->enable_usbid_floating)
 		return charger_dev->ops->enable_usbid_floating(charger_dev, en);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_enable_usbid_floating);
 
@@ -611,7 +611,7 @@ int charger_dev_enable_force_typec_otp(struct charger_device *charger_dev,
 		return charger_dev->ops->enable_force_typec_otp(charger_dev,
 								en);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_enable_force_typec_otp);
 
@@ -623,7 +623,7 @@ int charger_dev_get_ctd_dischg_status(struct charger_device *charger_dev,
 		return charger_dev->ops->get_ctd_dischg_status(charger_dev,
 							       status);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_get_ctd_dischg_status);
 
@@ -633,7 +633,7 @@ int charger_dev_enable_hidden_mode(struct charger_device *charger_dev, bool en)
 					   charger_dev->ops->enable_hidden_mode)
 		return charger_dev->ops->enable_hidden_mode(charger_dev, en);
 
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_enable_hidden_mode);
 

@@ -250,7 +250,7 @@ static void pe2_check_cable_impedance(struct chg_alg_device *alg)
 	msleep(150);
 
 	ret = pe2_hal_get_mivr_state(alg, CHG1, &mivr_state);
-	if (ret != -ENOTSUPP && mivr_state) {
+	if (ret != -EOPNOTSUPP && mivr_state) {
 		pe2->aicr_cable_imp = 1000000;
 		goto end;
 	}
@@ -608,15 +608,14 @@ static int _pe2_is_algo_ready(struct chg_alg_device *alg)
 		ret_value = ALG_INIT_FAIL;
 		break;
 	case PE2_HW_READY:
-
 		uisoc = pe2_hal_get_uisoc(alg);
-
 		if (pe2_hal_get_charger_type(alg) !=
 			POWER_SUPPLY_USB_TYPE_DCP) {
-			pe2->state = PE2_TA_NOT_SUPPORT;
 			ret_value = ALG_TA_NOT_SUPPORT;
 		} else if (uisoc < pe2->ta_start_battery_soc ||
-			uisoc >= pe2->ta_stop_battery_soc) {
+			uisoc >= pe2->ta_stop_battery_soc ||
+			pe2->charging_current_limit1 != -1 ||
+			pe2->charging_current_limit2 != -1) {
 			ret_value = ALG_NOT_READY;
 		} else {
 			ret_value = ALG_READY;
@@ -662,7 +661,7 @@ static int pe2_sc_set_charger(struct chg_alg_device *alg)
 			pe2->charging_current1 =
 				pe2->charging_current_limit1;
 		ret = pe2_hal_get_min_charging_current(alg, CHG1, &ichg1_min);
-		if (ret != -ENOTSUPP &&
+		if (ret != -EOPNOTSUPP &&
 			pe2->charging_current_limit1 < ichg1_min)
 			pe2->charging_current1 = 0;
 	} else
@@ -673,7 +672,7 @@ static int pe2_sc_set_charger(struct chg_alg_device *alg)
 		pe2->sc_input_current) {
 		pe2->input_current1 = pe2->input_current_limit1;
 		ret = pe2_hal_get_min_input_current(alg, CHG1, &aicr1_min);
-		if (ret != -ENOTSUPP &&
+		if (ret != -EOPNOTSUPP &&
 			pe2->input_current_limit1 < aicr1_min)
 			pe2->input_current1 = 0;
 	} else
@@ -733,7 +732,7 @@ static int pe2_dcs_set_charger(struct chg_alg_device *alg)
 		pe2->dcs_input_current) {
 		pe2->input_current1 = pe2->input_current_limit1;
 		ret = pe2_hal_get_min_input_current(alg, CHG1, &aicr1_min);
-		if (ret != -ENOTSUPP &&
+		if (ret != -EOPNOTSUPP &&
 			pe2->input_current_limit1 < aicr1_min)
 			pe2->input_current1 = 0;
 	} else
@@ -744,7 +743,7 @@ static int pe2_dcs_set_charger(struct chg_alg_device *alg)
 		pe2->dcs_chg1_charger_current) {
 		pe2->charging_current1 = pe2->charging_current_limit1;
 		ret = pe2_hal_get_min_charging_current(alg, CHG1, &ichg1_min);
-		if (ret != -ENOTSUPP &&
+		if (ret != -EOPNOTSUPP &&
 			pe2->charging_current_limit1 < ichg1_min)
 			pe2->charging_current1 = 0;
 	} else
@@ -758,7 +757,7 @@ static int pe2_dcs_set_charger(struct chg_alg_device *alg)
 		pe2->charging_current2) {
 		pe2->charging_current2 = pe2->charging_current_limit2;
 		ret = pe2_hal_get_min_charging_current(alg, CHG2, &ichg1_min);
-		if (ret != -ENOTSUPP &&
+		if (ret != -EOPNOTSUPP &&
 			pe2->charging_current_limit2 < ichg1_min)
 			pe2->charging_current2 = 0;
 	}
@@ -919,11 +918,13 @@ static int __pe2_run(struct chg_alg_device *alg)
 
 	if (alg->config == DUAL_CHARGERS_IN_SERIES) {
 		if (pe2_dcs_set_charger(alg) != 0) {
+			ret = pe2_leave(alg);
 			ret_value = ALG_DONE;
 			goto out;
 		}
 	} else {
 		if (pe2_sc_set_charger(alg) != 0) {
+			ret = pe2_leave(alg);
 			ret_value = ALG_DONE;
 			goto out;
 		}
@@ -980,6 +981,9 @@ static int _pe2_start_algo(struct chg_alg_device *alg)
 				again = true;
 			} else if (ret == ALG_TA_CHECKING)
 				ret_value = ALG_TA_CHECKING;
+			else if (pe2->charging_current_limit1 != -1 ||
+				pe2->charging_current_limit2 != -1)
+				ret_value = ALG_NOT_READY;
 			else {
 				pe2->state = PE2_TA_NOT_SUPPORT;
 				ret_value = ALG_TA_NOT_SUPPORT;
@@ -1085,7 +1089,7 @@ static int pe2_full_event(struct chg_alg_device *alg)
 					alg, CHG2, &ichg2);
 				ret = pe2_hal_get_min_charging_current(
 					alg, CHG2, &ichg2_min);
-				if (ret == -ENOTSUPP)
+				if (ret == -EOPNOTSUPP)
 					ichg2_min = 100000;
 
 				pe2_err("ichg2:%d, ichg2_min:%d state:%d\n",
