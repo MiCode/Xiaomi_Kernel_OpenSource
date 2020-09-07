@@ -163,6 +163,9 @@ enum vpu_state {
 	VS_TOTAL
 };
 
+#define vd_is_available(vd)  \
+	(!((vd)->state >= VS_REMOVING || (vd)->state <= VS_DISALBED))
+
 struct vpu_iomem {
 	void __iomem *m;
 	struct resource *res;
@@ -468,12 +471,13 @@ struct vpu_device {
 	struct vpu_met_pm pm;
 };
 
-#define vd_reg(vd)	(vd->drv->vp->reg)
-#define vd_cfg(vd)	(vd->drv->vp->cfg)
-#define vd_mops(vd)	(vd->drv->vp->mops)
-#define vd_cops(vd)	(vd->drv->vp->cops)
-#define vd_sops(vd)	(vd->drv->vp->sops)
-#define vd_bops(vd)	(vd->drv->vp->bops)
+#define __vp (vpu_drv->vp)
+#define vd_reg(vd)	(__vp->reg)
+#define vd_cfg(vd)	(__vp->cfg)
+#define vd_mops(vd)	(__vp->mops)
+#define vd_cops(vd)	(__vp->cops)
+#define vd_sops(vd)	(__vp->sops)
+#define vd_bops(vd)	(__vp->bops)
 
 #define xos_type(vd)	(vd_cfg(vd)->xos)
 #define bin_type(vd)	(vd_cfg(vd)->bin_type)

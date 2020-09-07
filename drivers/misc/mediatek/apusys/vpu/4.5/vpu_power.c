@@ -326,9 +326,7 @@ int vpu_init_dev_pwr(struct platform_device *pdev, struct vpu_device *vd)
 	vd->pw_off_latency = vd_cfg(vd)->pw_off_latency_ms;
 	refcount_set(&vd->pw_ref.refcount, 0);
 
-	vpu_drv_debug("%s: vpu%d: apu_power_device_register call\n",
-		__func__, vd->id);
-
+	vpu_drv_debug("%s: vpu%d\n", __func__, vd->id);
 	ret = apu_power_device_register(adu(vd->id), pdev);
 
 	if (ret)
@@ -342,8 +340,12 @@ int vpu_init_dev_pwr(struct platform_device *pdev, struct vpu_device *vd)
 
 void vpu_exit_dev_pwr(struct platform_device *pdev, struct vpu_device *vd)
 {
+	vpu_drv_debug("%s: vpu%d\n", __func__, vd->id);
 	cancel_delayed_work(&vd->pw_off_work);
-	apu_device_power_off(adu(vd->id));
+
+	if (kref_read(&vd->pw_ref) > 0)
+		vpu_pwr_off_locked(vd, 0);
+
 	vpu_pwr_wake_exit(vd);
 	apu_power_device_unregister(adu(vd->id));
 }

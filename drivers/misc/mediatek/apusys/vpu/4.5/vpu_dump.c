@@ -39,7 +39,6 @@ out:
  */
 void vpu_dmp_free_locked(struct vpu_device *vd)
 {
-	pr_info("%s:\n", __func__);
 	if (!vd->dmp)
 		return;
 
@@ -489,6 +488,6 @@ void vpu_dmp_init(struct vpu_device *vd)
 
 void vpu_dmp_exit(struct vpu_device *vd)
 {
-	vpu_dmp_free_locked(vd);
+	vpu_dmp_free(vd);
 }
 

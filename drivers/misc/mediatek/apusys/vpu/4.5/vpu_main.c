@@ -295,6 +295,12 @@ static struct vpu_device *vpu_alloc(struct platform_device *pdev)
 	struct vpu_device *vd;
 
 	vd = kzalloc(sizeof(struct vpu_device), GFP_KERNEL);
+	if (!vd)
+		return NULL;
+
+	memset(vd, 0, sizeof(struct vpu_device));
+	vd->dev = &pdev->dev;
+	platform_set_drvdata(pdev, vd);
 	return vd;
 }
 
@@ -306,43 +312,37 @@ static void vpu_free(struct platform_device *pdev)
 	platform_set_drvdata(pdev, NULL);
 }
 
-static int vpu_dev_add(struct platform_device *pdev)
-{
-	return 0;
-}
-
-static void vpu_dev_del(struct platform_device *pdev)
-{
-}
-
 struct vpu_driver *vpu_drv;
-
-void vpu_drv_release(struct kref *ref)
-{
-	vpu_drv_debug("%s:\n", __func__);
-	vpu_exit_drv_plat();
-	kfree(vpu_drv);
-	vpu_drv = NULL;
-}
-
-void vpu_drv_put(void)
+static void vpu_drv_release(struct kref *ref);
+static void vpu_drv_put(void)
 {
 	if (!vpu_drv)
 		return;
 
-	if (vpu_drv->wq) {
-		flush_workqueue(vpu_drv->wq);
-		destroy_workqueue(vpu_drv->wq);
-		vpu_drv->wq = NULL;
-	}
-
-	vpu_drv_debug("%s:\n", __func__);
 	kref_put(&vpu_drv->ref, vpu_drv_release);
 }
 
-void vpu_drv_get(void)
+static void vpu_drv_get(void)
 {
 	kref_get(&vpu_drv->ref);
+}
+
+static void vpu_dev_add(struct vpu_device *vd)
+{
+	/* add to vd list */
+	mutex_lock(&vpu_drv->lock);
+	vpu_drv_get();
+	list_add_tail(&vd->list, &vpu_drv->devs);
+	mutex_unlock(&vpu_drv->lock);
+}
+
+static void vpu_dev_del(struct vpu_device *vd)
+{
+	/* remove from vd list */
+	mutex_lock(&vpu_drv->lock);
+	list_del(&vd->list);
+	mutex_unlock(&vpu_drv->lock);
+	vpu_drv_put();
 }
 
 static int vpu_init_bin(void)
@@ -456,6 +456,7 @@ static int vpu_exit_dev_mem(struct platform_device *pdev,
 {
 	struct vpu_mem_ops *mops = vd_mops(vd);
 
+	vpu_drv_debug("%s: vpu%d\n", __func__, vd->id);
 	mops->free(&pdev->dev, &vd->iova_reset);
 	mops->free(&pdev->dev, &vd->iova_main);
 	mops->free(&pdev->dev, &vd->iova_work);
@@ -653,9 +654,6 @@ static int vpu_probe(struct platform_device *pdev)
 	if (!vd)
 		return -ENOMEM;
 
-	vd->dev = &pdev->dev;
-	platform_set_drvdata(pdev, vd);
-
 	ret = of_property_read_u32(pdev->dev.of_node, "id", &vd->id);
 	if (ret) {
 		dev_info(&pdev->dev, "unable to get core ID: %d\n", ret);
@@ -724,21 +722,11 @@ static int vpu_probe(struct platform_device *pdev)
 			goto free;
 	}
 
-	/* register debugfs nodes */
 	vpu_init_dev_debug(pdev, vd);
-
 	vpu_init_dev_met(pdev, vd);
-
-	ret = vpu_dev_add(pdev);
-	if (ret)
-		goto free;
-
-	/* add to vd list */
-	mutex_lock(&vpu_drv->lock);
-	vpu_drv_get();
-	list_add_tail(&vd->list, &vpu_drv->devs);
-	mutex_unlock(&vpu_drv->lock);
+	vpu_dev_add(vd);
 	dev_info(&pdev->dev, "%s: succeed\n", __func__);
+
 	return 0;
 
 	// TODO: add error handling free algo
@@ -754,6 +742,7 @@ static int vpu_remove(struct platform_device *pdev)
 {
 	struct vpu_device *vd = platform_get_drvdata(pdev);
 
+	dev_info(&pdev->dev, "%s\n", __func__);
 	vpu_exit_dev_met(pdev, vd);
 	vpu_exit_dev_debug(pdev, vd);
 	vpu_exit_dev_hw(pdev, vd);
@@ -765,9 +754,8 @@ static int vpu_remove(struct platform_device *pdev)
 		apusys_unregister_device(&vd->adev_rt);
 
 	vpu_exit_dev_pwr(pdev, vd);
-	vpu_dev_del(pdev);
+	vpu_dev_del(vd);
 	vpu_free(pdev);
-	vpu_drv_put();
 
 	return 0;
 }
@@ -829,6 +817,8 @@ static const struct of_device_id vpu_of_ids[] = {
 	{}
 };
 
+MODULE_DEVICE_TABLE(of, vpu_of_ids);
+
 static struct platform_driver vpu_plat_drv = {
 	.probe   = vpu_probe,
 	.remove  = vpu_remove,
@@ -838,6 +828,25 @@ static struct platform_driver vpu_plat_drv = {
 	.of_match_table = vpu_of_ids,
 	}
 };
+
+static void vpu_drv_release(struct kref *ref)
+{
+	vpu_drv_debug("%s:\n", __func__);
+	vpu_exit_drv_plat();
+	vpu_drv_debug("%s: destroy workqueue\n", __func__);
+	if (vpu_drv->wq) {
+		flush_workqueue(vpu_drv->wq);
+		destroy_workqueue(vpu_drv->wq);
+		vpu_drv->wq = NULL;
+	}
+	vpu_drv_debug("%s: iounmap\n", __func__);
+	if (vpu_drv->bin_va) {
+		iounmap(vpu_drv->bin_va);
+		vpu_drv->bin_va = NULL;
+	}
+	kfree(vpu_drv);
+	vpu_drv = NULL;
+}
 
 int vpu_init(struct apusys_core_info *info)
 {
@@ -896,29 +905,17 @@ void vpu_exit(void)
 	mutex_lock(&vpu_drv->lock);
 	list_for_each_safe(ptr, tmp, &vpu_drv->devs) {
 		vd = list_entry(ptr, struct vpu_device, list);
-		list_del(ptr);
 		vpu_cmd_lock_all(vd);
 		vd->state = VS_REMOVING;
 		vpu_cmd_unlock_all(vd);
 	}
 	mutex_unlock(&vpu_drv->lock);
-
-	vpu_exit_debug();
-	vpu_exit_drv_met();
-	vpu_exit_drv_hw();
-	vpu_exit_drv_tags();
-
-	if (vpu_drv) {
-		vpu_drv_debug("%s: iounmap\n", __func__);
-		if (vpu_drv->bin_va) {
-			iounmap(vpu_drv->bin_va);
-			vpu_drv->bin_va = NULL;
-		}
-
-		vpu_drv_put();
-	}
-
 	vpu_drv_debug("%s: platform_driver_unregister\n", __func__);
 	platform_driver_unregister(&vpu_plat_drv);
+	vpu_exit_drv_tags();
+	vpu_exit_drv_met();
+	vpu_exit_drv_hw();
+	vpu_exit_debug();
+	vpu_drv_put();
 }
 
