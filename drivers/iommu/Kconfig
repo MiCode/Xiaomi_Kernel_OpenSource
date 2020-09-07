@@ -38,6 +38,8 @@ config IOMMU_IOVA_ALIGNMENT
 
 config DMA_CONFIGURE_ALIGNMENT
         bool "Configure IOVA alignment"
+	depends on QGKI
+	default y
         help
 	  Currently the IOVA framework automatically applies IOVA
 	  alignment to provided IOVAs based on the requested IOVA size and
