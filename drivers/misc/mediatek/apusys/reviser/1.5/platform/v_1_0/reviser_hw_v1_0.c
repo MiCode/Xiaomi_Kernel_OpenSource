@@ -66,14 +66,14 @@ int reviser_isr(void *drvinfo)
 	rdv = (struct reviser_dev_info *)drvinfo;
 
 	if (!reviser_is_power(rdv)) {
-		//LOG_ERR("Can Not Read when power disable\n");
+		LOG_ERR("Can Not Read when power disable\n");
 		return -ENODEV;
 	}
 
 	// Check if INT is for reviser
 	if (reviser_check_int_valid(rdv)) {
-		//LOG_ERR("INT NOT triggered by reviser\n");
-		return -1;
+		LOG_ERR("INT NOT triggered by reviser\n");
+		return -EINVAL;
 	}
 
 	if (!reviser_get_interrupt_offset(rdv)) {
@@ -84,8 +84,8 @@ int reviser_isr(void *drvinfo)
 		spin_unlock_irqrestore(&rdv->lock.lock_dump, flags);
 		ret = 0;
 	} else {
-		//LOG_ERR("INT NOT triggered by reviser\n");
-		ret = -1;
+		LOG_ERR("INT NOT triggered by reviser\n");
+		ret = -EINVAL;
 	}
 
 	return ret;
@@ -765,33 +765,33 @@ int reviser_get_interrupt_offset(void *drvinfo)
 	if (_reviser_ctrl_reg_read(rdv,
 			AXI_EXCEPTION_MDLA_0)) {
 		offset = AXI_EXCEPTION_MDLA_0;
-		LOG_DEBUG("Interrupt from AXI_EXCEPTION_MDLA_0\n");
+		LOG_ERR("Interrupt from AXI_EXCEPTION_MDLA_0\n");
 	} else if (_reviser_ctrl_reg_read(rdv,
 			AXI_EXCEPTION_MDLA_1)) {
 		offset = AXI_EXCEPTION_MDLA_1;
-		LOG_DEBUG("Interrupt from AXI_EXCEPTION_MDLA_1\n");
+		LOG_ERR("Interrupt from AXI_EXCEPTION_MDLA_1\n");
 	} else if (_reviser_ctrl_reg_read(rdv,
 			AXI_EXCEPTION_VPU_0)) {
 		offset = AXI_EXCEPTION_VPU_0;
-		LOG_DEBUG("Interrupt from AXI_EXCEPTION_VPU_0\n");
+		LOG_ERR("Interrupt from AXI_EXCEPTION_VPU_0\n");
 	} else if (_reviser_ctrl_reg_read(rdv,
 			AXI_EXCEPTION_VPU_1)) {
 		offset = AXI_EXCEPTION_VPU_1;
-		LOG_DEBUG("Interrupt from AXI_EXCEPTION_VPU_1\n");
+		LOG_ERR("Interrupt from AXI_EXCEPTION_VPU_1\n");
 	} else if (_reviser_ctrl_reg_read(rdv,
 			AXI_EXCEPTION_VPU_2)) {
 		offset = AXI_EXCEPTION_VPU_2;
-		LOG_DEBUG("Interrupt from AXI_EXCEPTION_VPU_2\n");
+		LOG_ERR("Interrupt from AXI_EXCEPTION_VPU_2\n");
 	} else if (_reviser_ctrl_reg_read(rdv,
 			AXI_EXCEPTION_EDMA_0)) {
 		offset = AXI_EXCEPTION_EDMA_0;
-		LOG_DEBUG("Interrupt from AXI_EXCEPTION_EDMA_0\n");
+		LOG_ERR("Interrupt from AXI_EXCEPTION_EDMA_0\n");
 	} else if (_reviser_ctrl_reg_read(rdv,
 			AXI_EXCEPTION_EDMA_1)) {
 		offset = AXI_EXCEPTION_EDMA_1;
-		LOG_DEBUG("Interrupt from AXI_EXCEPTION_EDMA_1\n");
+		LOG_ERR("Interrupt from AXI_EXCEPTION_EDMA_1\n");
 	} else {
-		//LOG_ERR("Unknown Interrupt\n");
+		LOG_ERR("Unknown Interrupt\n");
 		return -EINVAL;
 	}
 
