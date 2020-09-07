@@ -151,8 +151,12 @@ static int _pd_is_algo_ready(struct chg_alg_device *alg)
 		ret_value = pd_hal_is_pd_adapter_ready(alg);
 		if (ret_value == ALG_READY) {
 			uisoc = pd_hal_get_uisoc(alg);
-			if (uisoc >= pd->pd_stop_battery_soc)
-				ret_value = ALG_TA_CHECKING;
+			if (pd->input_current_limit1 != -1 ||
+				pd->charging_current_limit1 != -1 ||
+				pd->input_current_limit2 != -1 ||
+				pd->charging_current_limit2 != -1 ||
+				uisoc >= pd->pd_stop_battery_soc)
+				ret_value = ALG_NOT_READY;
 		} else if (ret_value == ALG_TA_NOT_SUPPORT)
 			pd->state = PD_TA_NOT_SUPPORT;
 		else if (ret_value == ALG_TA_CHECKING)
@@ -561,15 +565,15 @@ int __mtk_pdc_get_setting(struct chg_alg_device *alg, int *newvbus, int *newcur,
 	selected_idx = cap->selected_cap_idx;
 	idx = selected_idx;
 
+	if (idx < 0 || idx >= PD_CAP_MAX_NR)
+		idx = selected_idx = 0;
+
 	pd_err("idx:%d %d %d %d %d %d\n", idx,
 		cap->max_mv[idx],
 		cap->ma[idx],
 		cap->maxwatt[idx],
 		pd->ibus_err,
 		ibus);
-
-	if (idx < 0 || idx >= PD_CAP_MAX_NR)
-		idx = selected_idx = 0;
 
 	pd_max_watt = cap->max_mv[idx] * (cap->ma[idx]
 			/ 100 * (100 - pd->ibus_err) - 100);
@@ -658,7 +662,7 @@ static int pd_sc_set_charger(struct chg_alg_device *alg)
 			pd->charging_current1 =
 				pd->charging_current_limit1;
 		ret = pd_hal_get_min_charging_current(alg, CHG1, &ichg1_min);
-		if (ret != -ENOTSUPP &&
+		if (ret != -EOPNOTSUPP &&
 			pd->charging_current_limit1 < ichg1_min)
 			pd->charging_current1 = 0;
 	} else
@@ -669,7 +673,7 @@ static int pd_sc_set_charger(struct chg_alg_device *alg)
 		pd->sc_input_current) {
 		pd->input_current1 = pd->input_current_limit1;
 		ret = pd_hal_get_min_input_current(alg, CHG1, &aicr1_min);
-		if (ret != -ENOTSUPP &&
+		if (ret != -EOPNOTSUPP &&
 			pd->input_current_limit1 < aicr1_min)
 			pd->input_current1 = 0;
 	} else
@@ -728,7 +732,7 @@ static int pd_dcs_set_charger(struct chg_alg_device *alg)
 		pd->dcs_input_current) {
 		pd->input_current1 = pd->input_current_limit1;
 		ret = pd_hal_get_min_input_current(alg, CHG1, &aicr1_min);
-		if (ret != -ENOTSUPP &&
+		if (ret != -EOPNOTSUPP &&
 			pd->input_current_limit1 < aicr1_min)
 			pd->input_current1 = 0;
 	} else
@@ -739,7 +743,7 @@ static int pd_dcs_set_charger(struct chg_alg_device *alg)
 		pd->dcs_chg1_charger_current) {
 		pd->charging_current1 = pd->charging_current_limit1;
 		ret = pd_hal_get_min_charging_current(alg, CHG1, &ichg1_min);
-		if (ret != -ENOTSUPP &&
+		if (ret != -EOPNOTSUPP &&
 			pd->charging_current_limit1 < ichg1_min)
 			pd->charging_current1 = 0;
 	} else
@@ -752,9 +756,9 @@ static int pd_dcs_set_charger(struct chg_alg_device *alg)
 		pd->charging_current_limit2 <
 		pd->charging_current2) {
 		pd->charging_current2 = pd->charging_current_limit2;
-		ret = pd_hal_get_min_charging_current(alg, CHG2, &ichg1_min);
-		if (ret != -ENOTSUPP &&
-			pd->charging_current_limit2 < ichg1_min)
+		ret = pd_hal_get_min_charging_current(alg, CHG2, &ichg2_min);
+		if (ret != -EOPNOTSUPP &&
+			pd->charging_current_limit2 < ichg2_min)
 			pd->charging_current2 = 0;
 	}
 	mutex_unlock(&pd->data_lock);
@@ -887,8 +891,12 @@ static int _pd_start_algo(struct chg_alg_device *alg)
 				pd->state = PD_TA_NOT_SUPPORT;
 			else if (ret_value == ALG_READY) {
 				uisoc = pd_hal_get_uisoc(alg);
-				if (uisoc >= pd->pd_stop_battery_soc)
-					ret_value = ALG_TA_CHECKING;
+				if (pd->input_current_limit1 != -1 ||
+					pd->charging_current_limit1 != -1 ||
+					pd->input_current_limit2 != -1 ||
+					pd->charging_current_limit2 != -1 ||
+					uisoc >= pd->pd_stop_battery_soc)
+					ret_value = ALG_NOT_READY;
 				else {
 					pd->state = PD_RUN;
 					again = true;
@@ -1008,7 +1016,7 @@ static int pd_full_evt(struct chg_alg_device *alg)
 				pd_hal_get_charging_current(alg, CHG2, &ichg2);
 				ret = pd_hal_get_min_charging_current(
 					alg, CHG2, &ichg2_min);
-				if (ret == -ENOTSUPP)
+				if (ret == -EOPNOTSUPP)
 					ichg2_min = 100000;
 
 				pd_err("ichg2:%d, ichg2_min:%d state:%d\n",
@@ -1071,6 +1079,11 @@ static int pd_plugout_reset(struct chg_alg_device *alg)
 			pd_hal_charger_enable_chip(alg,
 			CHG2, false);
 		}
+		pd->pd_cap_max_watt = -1;
+		pd->pd_idx = -1;
+		pd->pd_reset_idx = -1;
+		pd->pd_boost_idx = 0;
+		pd->pd_buck_idx = 0;
 		break;
 	default:
 		pd_err("PD unknown state:%d\n", pd->state);

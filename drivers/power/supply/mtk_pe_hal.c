@@ -171,6 +171,24 @@ int pe_hal_get_ibat(struct chg_alg_device *alg)
 	return ret;
 }
 
+int pe_hal_get_charging_current(struct chg_alg_device *alg,
+	enum chg_idx chgidx, u32 *ua)
+{
+	struct pe_hal *hal;
+
+	if (alg == NULL)
+		return -EINVAL;
+
+	hal = chg_alg_dev_get_drv_hal_data(alg);
+	if (chgidx == CHG1 && hal->chg1_dev != NULL)
+		charger_dev_get_charging_current(hal->chg1_dev, ua);
+	else if (chgidx == CHG2 && hal->chg2_dev != NULL)
+		charger_dev_get_charging_current(hal->chg2_dev, ua);
+	pr_notice("%s idx:%d %d\n", __func__, chgidx, ua);
+
+	return 0;
+}
+
 /* Enable/Disable HW & SW VBUS OVP */
 int pe_hal_enable_vbus_ovp(struct chg_alg_device *alg, bool enable)
 {
@@ -243,9 +261,9 @@ int pe_hal_get_uisoc(struct chg_alg_device *alg)
 
 int pe_hal_get_charger_type(struct chg_alg_device *alg)
 {
-	struct mtk_charger *info;
+	struct mtk_charger *info = NULL;
 	struct power_supply *chg_psy = NULL;
-	int ret;
+	int ret = 0;
 
 	if (alg == NULL)
 		return -EINVAL;
@@ -294,7 +312,7 @@ int pe_hal_get_charger_cnt(struct chg_alg_device *alg)
 bool pe_hal_is_chip_enable(struct chg_alg_device *alg, enum chg_idx chgidx)
 {
 	struct pe_hal *hal;
-	bool is_chip_enable;
+	bool is_chip_enable = false;
 
 	if (alg == NULL)
 		return -EINVAL;

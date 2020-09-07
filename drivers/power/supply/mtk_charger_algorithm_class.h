@@ -148,6 +148,7 @@ extern int unregister_chg_alg_notifier(struct chg_alg_device *alg_dev,
 extern int chg_alg_init_algo(struct chg_alg_device *alg_dev);
 extern int chg_alg_is_algo_ready(struct chg_alg_device *alg_dev);
 extern int chg_alg_start_algo(struct chg_alg_device *alg_dev);
+extern int chg_alg_is_algo_running(struct chg_alg_device *alg_dev);
 extern int chg_alg_stop_algo(struct chg_alg_device *alg_dev);
 extern int chg_alg_get_prop(struct chg_alg_device *alg_dev,
 	enum chg_alg_props s, int *value);
