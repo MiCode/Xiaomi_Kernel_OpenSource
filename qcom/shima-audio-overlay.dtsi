@@ -420,5 +420,5 @@
 	nvmem-cells = <&adsp_variant>;
 	nvmem-cell-names = "adsp_variant";
 	adsp-fw-names = "adsp2";
-	adsp-fw-bit-values = <0x1>;
+	adsp-fw-bit-values = <0x4>;
 };
