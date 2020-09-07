@@ -13,12 +13,14 @@
 #include <linux/of_address.h>
 #include <linux/of_platform.h>
 #include <linux/pm_opp.h>
+#include <linux/pm_qos.h>
 #include <linux/slab.h>
 
 #define LUT_MAX_ENTRIES			32U
 #define LUT_FREQ			GENMASK(11, 0)
 #define LUT_ROW_SIZE			0x4
 #define CPUFREQ_HW_STATUS		BIT(0)
+#define SVS_HW_STATUS			BIT(1)
 #define POLL_USEC			1000
 #define TIMEOUT_USEC			300000
 #define DT_STRING_LEN			15
@@ -123,9 +125,14 @@ static unsigned int mtk_cpufreq_hw_get(unsigned int cpu)
 static int mtk_cpufreq_hw_cpu_init(struct cpufreq_policy *policy)
 {
 	struct em_data_callback em_cb = EM_DATA_CB(mtk_cpufreq_get_cpu_power);
+	struct pm_qos_request *qos_request;
 	struct cpufreq_mtk *c;
 	struct device *cpu_dev;
-	int ret, sig;
+	int ret, sig, pwr_hw = CPUFREQ_HW_STATUS | SVS_HW_STATUS;
+
+	qos_request = kzalloc(sizeof(*qos_request), GFP_KERNEL);
+	if (!qos_request)
+		return -ENOMEM;
 
 	cpu_dev = get_cpu_device(policy->cpu);
 	if (!cpu_dev)
@@ -140,17 +147,27 @@ static int mtk_cpufreq_hw_cpu_init(struct cpufreq_policy *policy)
 	policy->freq_table = c->table;
 	policy->driver_data = c;
 
+	/* Let CPUs leave idle-off state for SVS CPU initializing */
+	pm_qos_add_request(qos_request, PM_QOS_CPU_DMA_LATENCY, 0);
+
 	writel_relaxed(0x1, c->reg_bases[REG_FREQ_ENABLE]);
 
 	/* HW should be in enabled state to proceed now */
 	if (readl_poll_timeout((c->reg_bases[REG_FREQ_HW_STATE]),
-	    sig, sig & CPUFREQ_HW_STATUS, POLL_USEC, TIMEOUT_USEC)) {
-		pr_info("cpufreq hardware of CPU%d is not enabled\n",
-			policy->cpu);
-		return -ENODEV;
+	    sig, (sig & pwr_hw) == pwr_hw, POLL_USEC, TIMEOUT_USEC)) {
+		if (!(sig & CPUFREQ_HW_STATUS)) {
+			pr_info("cpufreq hardware of CPU%d is not enabled\n",
+				policy->cpu);
+			return -ENODEV;
+		}
+
+		pr_info("SVS CPU%d is not enabled\n", policy->cpu);
 	}
 
 	em_dev_register_perf_domain(cpu_dev, c->nr_opp, &em_cb, policy->cpus);
+
+	pm_qos_remove_request(qos_request);
+	kfree(qos_request);
 
 	return 0;
 }
