@@ -285,14 +285,15 @@ out:
 static void vpu_exit_dev_algo_general(struct vpu_device *vd,
 	struct vpu_algo_list *al)
 {
-	struct __vpu_algo *alg, *tmp;
+	struct __vpu_algo *alg;
+	struct list_head *ptr, *tmp;
 
-	vpu_alg_debug("%s: vd: %p, vpu%d, al->a: %p\n",
-		__func__, vd, vd->id, &al->a);
+	if (!al)
+		return;
 
-	list_for_each_entry_safe(alg, tmp, &al->a, list) {
-		vpu_alg_debug("%s: vd: %p, vpu%d, vd->al.a: %p, alg: %p\n",
-			__func__, vd, vd->id, &al->a, alg);
+	vpu_alg_debug("%s: %s\n", __func__, al->name);
+	list_for_each_safe(ptr, tmp, &al->a) {
+		alg = list_entry(ptr, struct __vpu_algo, list);
 		al->ops->put(alg);
 	}
 }
@@ -883,12 +884,17 @@ int vpu_execute(struct vpu_device *vd, struct vpu_request *req)
 	flags = req->flags;
 	/* Bootup VPU */
 	mutex_lock_nested(&vd->lock, VPU_MUTEX_DEV);
+	if (!vd_is_available(vd)) {
+		ret_pwr = -ENODEV;
+		goto nodev;
+	}
 	boost = vpu_cmd_boost_set(vd, req->prio, req->power_param.boost_value);
 	ret_pwr = vpu_pwr_get_locked(vd, boost);
 	if (!ret_pwr)
 		ret = vpu_dev_boot(vd);
 	/* Backup original state */
 	state = vd->state;
+nodev:
 	mutex_unlock(&vd->lock);
 
 	if (ret_pwr || (ret == -ETIMEDOUT))
@@ -1021,7 +1027,6 @@ int vpu_exit_drv_hw(void)
 {
 	return 0;
 }
-
 
 /* device hw exit function */
 int vpu_exit_dev_hw(struct platform_device *pdev, struct vpu_device *vd)

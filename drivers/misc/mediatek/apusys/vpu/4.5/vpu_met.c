@@ -602,6 +602,7 @@ int vpu_exit_drv_met(void)
 int vpu_init_dev_met(struct platform_device *pdev,
 	struct vpu_device *vd)
 {
+	memset(&vd->met, 0, sizeof(struct vpu_met_work));
 	spin_lock_init(&vd->met.lock);
 	INIT_LIST_HEAD(&vd->met.list);
 	INIT_WORK(&vd->met.work, vpu_met_wq);
@@ -611,6 +612,7 @@ int vpu_init_dev_met(struct platform_device *pdev,
 void vpu_exit_dev_met(struct platform_device *pdev,
 	struct vpu_device *vd)
 {
-	cancel_work_sync(&vd->met.work);
+	if (vd->met.work.func)
+		cancel_work_sync(&vd->met.work);
 }
 

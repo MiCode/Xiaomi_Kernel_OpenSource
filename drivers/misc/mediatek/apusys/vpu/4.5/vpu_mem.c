@@ -84,7 +84,7 @@ static void vpu_mem_exit_v1(void)
 			i->iova, i->addr, i->size, i->bin,
 			i->m.pa, i->m.length);
 		list_del(&i->list);
-		i->list.prev = i->list.next = NULL;
+		i->time = 0;
 		vpu_iova_free(vpu_drv->iova_dev, i);
 		remain++;
 	}
@@ -109,8 +109,8 @@ static int vpu_mem_init_v2(void)
 
 static void vpu_mem_exit_v2(void)
 {
-	apu_bmap_exit(&vpu_drv->ab);
 	vpu_mem_exit_v1();
+	apu_bmap_exit(&vpu_drv->ab);
 }
 
 static int vpu_map_kva_to_sgt(
@@ -208,8 +208,7 @@ vpu_map_kva_to_sgt(const char *buf, size_t len, struct sg_table *sgt)
 	const char *p;
 	int ret;
 
-	vpu_mem_debug("%s: buf: %p, len: %lx, sgt: %p\n",
-		__func__, buf, len, sgt);
+	vpu_mem_debug("%s: buf: %p, len: %lx\n", __func__, buf, len);
 
 	nr_pages = DIV_ROUND_UP((unsigned long)buf + len, PAGE_SIZE)
 		- ((unsigned long)buf / PAGE_SIZE);
@@ -425,7 +424,6 @@ static dma_addr_t vpu_iova_alloc(struct device *dev,
 	i->m.va = 0;
 	i->m.pa = 0;
 	i->m.length = 0;
-	i->time = sched_clock();
 
 	/* allocate kvm and map */
 	if (i->bin == VPU_MEM_ALLOC) {
@@ -447,6 +445,7 @@ static dma_addr_t vpu_iova_alloc(struct device *dev,
 	vpu_mem_debug("%s: %s: iova: 0x%llx, size: %x\n",
 		__func__, vd->name, i->iova, i->size);
 	mutex_lock(&vpu_drv->vi_lock);
+	i->time = sched_clock();
 	list_add_tail(&i->list, &vpu_drv->vi);
 	mutex_unlock(&vpu_drv->vi_lock);
 
@@ -494,9 +493,10 @@ static void vpu_iova_free(struct device *dev, struct vpu_iova *i)
 	struct vpu_device *vd = dev_get_drvdata(dev);
 
 	/* skip, if already deleted by .exit() */
-	if (i->list.prev && i->list.next) {
+	if (i->time) {
 		mutex_lock(&vpu_drv->vi_lock);
 		list_del(&i->list);
+		i->time = 0;
 		mutex_unlock(&vpu_drv->vi_lock);
 	}
 

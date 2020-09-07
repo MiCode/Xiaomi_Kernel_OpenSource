@@ -326,7 +326,7 @@ static int vpu_debug_reg_dev(struct seq_file *s, struct vpu_device *vd)
 		return -ENODEV;
 
 	mutex_lock_nested(&vd->lock, VPU_MUTEX_DEV);
-	if (vd->state >= VS_REMOVING || vd->state <= VS_DISALBED)
+	if (!vd_is_available(vd))
 		goto out;
 
 	if (vd->state == VS_DOWN) {
@@ -758,7 +758,7 @@ static int vpu_debug_info_dev(struct seq_file *s, struct vpu_device *vd)
 	if (!s || !vd)
 		return -ENOENT;
 
-	if (vd->state >= VS_REMOVING || vd->state <= VS_DISALBED)
+	if (!vd_is_available(vd))
 		return 0;
 
 	seq_printf(s, "\n----- %s: settings -----\n", vd->name);
@@ -904,25 +904,25 @@ int vpu_init_dev_debug(struct platform_device *pdev, struct vpu_device *vd)
 	int ret = 0;
 	struct dentry *droot;
 
+	vd->droot = NULL;
+	vpu_mesg_init(vd);
+	vpu_dmp_init(vd);
+
 	if (!vpu_drv->droot)
 		return -ENODEV;
 
 	droot = debugfs_create_dir(vd->name, vpu_drv->droot);
-
 	if (IS_ERR_OR_NULL(droot)) {
 		ret = PTR_ERR(droot);
 		pr_info("%s: failed to create debugfs node: vpu/%s: %d\n",
 			__func__, vd->name, ret);
 		goto out;
 	}
-
+	vd->droot = droot;
 	debugfs_create_u64("pw_off_latency", 0660, droot,
 		&vd->pw_off_latency);
 	debugfs_create_u64("cmd_timeout", 0660, droot,
 		&vd->cmd_timeout);
-
-	vpu_dmp_init(vd);
-	vpu_mesg_init(vd);
 
 	VPU_DEBUGFS_CREATE(algo);
 	VPU_DEBUGFS_CREATE(dump);
@@ -939,13 +939,12 @@ out:
 
 void vpu_exit_dev_debug(struct platform_device *pdev, struct vpu_device *vd)
 {
-	if (!vpu_drv || !vpu_drv->droot || !vd || !vd->droot)
+	if (!vd || IS_ERR_OR_NULL(vd->droot))
 		return;
-
-	vpu_dmp_exit(vd);
 
 	debugfs_remove_recursive(vd->droot);
 	vd->droot = NULL;
+	vpu_dmp_exit(vd);
 }
 
 int vpu_init_debug(void)
@@ -977,7 +976,7 @@ out:
 
 void vpu_exit_debug(void)
 {
-	if (!vpu_drv || !vpu_drv->droot)
+	if (!vpu_drv || IS_ERR_OR_NULL(vpu_drv->droot))
 		return;
 
 	debugfs_remove_recursive(vpu_drv->droot);
