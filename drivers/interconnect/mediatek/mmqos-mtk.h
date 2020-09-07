@@ -42,6 +42,7 @@ struct common_node {
 	u64 freq;
 	struct list_head list;
 	struct icc_path *icc_path;
+	struct icc_path *icc_hrt_path;
 	struct work_struct work;
 	struct list_head comm_port_list;
 };
@@ -63,6 +64,7 @@ struct mtk_mmqos_desc {
 	const size_t num_nodes;
 	const char * const *comm_muxes;
 	const char * const *comm_icc_path_names;
+	const char * const *comm_icc_hrt_path_names;
 	const u32 max_ratio;
 	const struct mmqos_hrt hrt;
 	const u8 comm_port_channels[][MMQOS_MAX_COMM_PORT_NUM];
