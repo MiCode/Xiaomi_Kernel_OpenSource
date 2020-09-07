@@ -29,6 +29,12 @@ void (*fpsgo_get_nn_ttime_fp)(unsigned int pid, unsigned long long mid,
 void (*rsu_getusage_fp)(__s32 *devusage, __u32 *bwusage, __u32 pid);
 void (*rsu_getstate_fp)(int *throttled);
 
+int (*usrtch_ioctl_fp)(unsigned long arg);
+EXPORT_SYMBOL(usrtch_ioctl_fp);
+
+struct proc_dir_entry *perfmgr_root;
+EXPORT_SYMBOL(perfmgr_root);
+
 static unsigned long perfctl_copy_from_user(void *pvTo,
 		const void __user *pvFrom, unsigned long ulBytes)
 {
@@ -324,6 +330,8 @@ static long device_ioctl(struct file *filp,
 				msgKM->start);
 		break;
 	case FPSGO_TOUCH:
+		if (usrtch_ioctl_fp)
+			usrtch_ioctl_fp(msgKM->frame_time);
 		break;
 	case FPSGO_VSYNC:
 		if (fpsgo_notify_vsync_fp)
@@ -379,6 +387,7 @@ static int __init init_perfctl(void)
 	pr_debug(TAG"Start to init perf_ioctl driver\n");
 
 	parent = proc_mkdir("perfmgr", NULL);
+	perfmgr_root = parent;
 
 	pe = proc_create("perf_ioctl", 0664, parent, &Fops);
 	if (!pe) {
