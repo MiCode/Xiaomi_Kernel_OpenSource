@@ -133,6 +133,7 @@ int is_fstb_active(long long time_diff)
 
 	return active;
 }
+EXPORT_SYMBOL(is_fstb_active);
 
 int fpsgo_ctrl2fstb_gblock(int tid, int start)
 {
