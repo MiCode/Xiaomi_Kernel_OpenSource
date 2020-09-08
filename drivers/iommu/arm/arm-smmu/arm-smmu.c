@@ -3168,6 +3168,7 @@ static int arm_smmu_enable_s1_translations(struct arm_smmu_domain *smmu_domain)
 }
 
 static struct qcom_iommu_ops arm_smmu_ops = {
+	.iova_to_phys_hard = arm_smmu_iova_to_phys_hard,
 	.iommu_ops = {
 		.capable		= arm_smmu_capable,
 		.domain_alloc		= arm_smmu_domain_alloc,
