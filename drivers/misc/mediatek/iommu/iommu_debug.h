@@ -26,5 +26,7 @@ int mtk_iommu_register_fault_callback(int port,
 
 /* port: comes from "include/dt-binding/memort/mtxxx-larb-port.h" */
 int mtk_iommu_unregister_fault_callback(int port, bool is_vpu);
-
+void mtk_iova_map(u64 iova, size_t size);
+void mtk_iova_unmap(u64 iova, size_t size);
+void mtk_iova_map_dump(u64 iova);
 #endif

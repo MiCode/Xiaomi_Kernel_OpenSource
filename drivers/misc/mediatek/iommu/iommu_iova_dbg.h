@@ -43,6 +43,7 @@ void mtk_iova_dbg_alloc(struct device *dev, dma_addr_t iova, size_t size)
 {
 	u32 dom_id;
 	struct iova_info *iova_buf;
+	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
 
 	if (!atomic_cmpxchg(&iova_list.init_flag, 0, 1)) {
 		pr_info("iommu debug info init\n");
@@ -53,7 +54,7 @@ void mtk_iova_dbg_alloc(struct device *dev, dma_addr_t iova, size_t size)
 	if (!iova_buf)
 		return;
 
-	iova_buf->dom_id = (iova >> 32);
+	iova_buf->dom_id = MTK_M4U_TO_DOM(fwspec->ids[0]);
 	iova_buf->dev = dev;
 	iova_buf->iova = iova;
 	iova_buf->size = size;
@@ -81,30 +82,14 @@ void mtk_iova_dbg_free(dma_addr_t iova, size_t size)
 
 void mtk_iova_dbg_dump(struct device *dev)
 {
-	u32 id = 0;
-	struct iommu_fwspec *fwspec;
+	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
 	struct iova_info *plist = NULL;
 	struct iova_info *n = NULL;
 
 	mutex_lock(&iova_list.lock);
-
-	if (!dev)
-		goto dump;
-
-	fwspec = dev_iommu_fwspec_get(dev);
-	id = MTK_M4U_TO_DOM(fwspec->ids[0]);
-
-dump:
 	pr_info("%6s %18s %8s %18s\n", "dom_id", "iova", "size", "dev");
-	list_for_each_entry_safe(plist, n, &iova_list.head,
-				 list_node)
-		if (!dev)
-			pr_info("%6u %18pa %8zx %18s\n",
-				plist->dom_id,
-				&plist->iova,
-				plist->size,
-				dev_name(plist->dev));
-		else if (plist->dom_id == id)
+	list_for_each_entry_safe(plist, n, &iova_list.head, list_node)
+		if (plist->dom_id == MTK_M4U_TO_DOM(fwspec->ids[0]))
 			pr_info("%6u %18pa %8zx %18s\n",
 				plist->dom_id,
 				&plist->iova,
