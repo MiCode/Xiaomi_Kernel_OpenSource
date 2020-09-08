@@ -106,12 +106,12 @@ static int freq_qos_request_init(void)
 cleanup:
 	for_each_present_cpu(cpu) {
 		req = &per_cpu(qos_req_min, cpu);
-		if (req)
+		if (req && freq_qos_request_active(req))
 			freq_qos_remove_request(req);
 
 
 		req = &per_cpu(qos_req_max, cpu);
-		if (req)
+		if (req && freq_qos_request_active(req))
 			freq_qos_remove_request(req);
 
 		per_cpu(msm_perf_cpu_stats, cpu).min = 0;
