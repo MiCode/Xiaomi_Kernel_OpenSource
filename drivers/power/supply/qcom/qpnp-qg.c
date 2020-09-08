@@ -2770,7 +2770,7 @@ static int qg_init_iio_psy(struct qpnp_qg *chip,
 	indio_dev->info = &qg_iio_info;
 	indio_dev->dev.parent = chip->dev;
 	indio_dev->dev.of_node = chip->dev->of_node;
-	indio_dev->name = pdev->name;
+	indio_dev->name = "qpnp,qg";
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->channels = chip->iio_chan;
 	indio_dev->num_channels = qg_num_iio_channels;
