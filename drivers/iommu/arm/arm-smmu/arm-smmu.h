@@ -22,6 +22,7 @@
 #include <linux/mutex.h>
 #include <linux/spinlock.h>
 #include <linux/types.h>
+#include <linux/qcom-iommu-util.h>
 
 #include "../../qcom-io-pgtable.h"
 
@@ -613,8 +614,7 @@ struct arm_smmu_impl {
 	void (*init_context_bank)(struct arm_smmu_domain *smmu_domain,
 				  struct device *dev);
 	phys_addr_t (*iova_to_phys_hard)(struct arm_smmu_domain *smmu_domain,
-					 dma_addr_t iova,
-					 unsigned long trans_flags);
+					 struct qcom_iommu_atos_txn *txn);
 	void (*tlb_sync_timeout)(struct arm_smmu_device *smmu);
 	void (*device_remove)(struct arm_smmu_device *smmu);
 	int (*device_group)(struct device *dev, struct iommu_group *group);

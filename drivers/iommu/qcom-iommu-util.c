@@ -330,14 +330,14 @@ int qcom_iommu_get_fast_iova_range(struct device *dev, dma_addr_t *ret_iova_base
 EXPORT_SYMBOL(qcom_iommu_get_fast_iova_range);
 
 phys_addr_t qcom_iommu_iova_to_phys_hard(struct iommu_domain *domain,
-				    dma_addr_t iova, unsigned long trans_flags)
+				    struct qcom_iommu_atos_txn *txn)
 {
 	struct qcom_iommu_ops *ops = to_qcom_iommu_ops(domain->ops);
 
 	if (unlikely(ops->iova_to_phys_hard == NULL))
 		return 0;
 
-	return ops->iova_to_phys_hard(domain, iova, trans_flags);
+	return ops->iova_to_phys_hard(domain, txn);
 }
 EXPORT_SYMBOL(qcom_iommu_iova_to_phys_hard);
 

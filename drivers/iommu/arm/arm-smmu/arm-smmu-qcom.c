@@ -929,23 +929,10 @@ out_power_off:
 
 static phys_addr_t qsmmuv500_iova_to_phys_hard(
 					struct arm_smmu_domain *smmu_domain,
-					dma_addr_t iova,
-					unsigned long trans_flags)
+					struct qcom_iommu_atos_txn *txn)
 {
-	u16 sid;
-	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
-	struct arm_smmu_device *smmu = smmu_domain->smmu;
-	u32 frsynra;
-
-	/*
-	 * Read the SID from the frsynra register, kick of translation
-	 */
-	frsynra = arm_smmu_gr1_read(smmu,
-				    ARM_SMMU_GR1_CBFRSYNRA(cfg->cbndx));
-	frsynra &= CBFRSYNRA_SID_MASK;
-	sid      = frsynra;
-
-	return qsmmuv500_iova_to_phys(smmu_domain, iova, sid, trans_flags);
+	return qsmmuv500_iova_to_phys(smmu_domain, txn->addr, txn->id,
+				txn->flags);
 }
 
 static void qsmmuv500_release_group_iommudata(void *data)

@@ -124,7 +124,7 @@ static struct arm_smmu_option_prop arm_smmu_options[] = {
 static phys_addr_t arm_smmu_iova_to_phys(struct iommu_domain *domain,
 					dma_addr_t iova);
 static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
-				    dma_addr_t iova, unsigned long trans_flags);
+				struct qcom_iommu_atos_txn *txn);
 static void arm_smmu_destroy_domain_context(struct iommu_domain *domain);
 
 static int arm_smmu_assign_table(struct arm_smmu_domain *smmu_domain);
@@ -781,15 +781,17 @@ static void print_fault_regs(struct arm_smmu_domain *smmu_domain,
 static void arm_smmu_verify_fault(struct arm_smmu_domain *smmu_domain,
 	struct arm_smmu_device *smmu, int idx)
 {
-	u32 fsynr;
+	u32 fsynr, cbfrsynra;
 	unsigned long iova;
 	struct iommu_domain *domain = &smmu_domain->domain;
 	phys_addr_t phys_soft;
 	phys_addr_t phys_stimu, phys_hard_priv, phys_stimu_post_tlbiall;
 	unsigned long flags = 0;
+	struct qcom_iommu_atos_txn txn = {0};
 
 	fsynr = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSYNR0);
 	iova = arm_smmu_cb_readq(smmu, idx, ARM_SMMU_CB_FAR);
+	cbfrsynra = arm_smmu_gr1_read(smmu, ARM_SMMU_GR1_CBFRSYNRA(idx));
 
 	phys_soft = arm_smmu_iova_to_phys(domain, iova);
 	dev_err(smmu->dev, "soft iova-to-phys=%pa\n", &phys_soft);
@@ -802,8 +804,12 @@ static void arm_smmu_verify_fault(struct arm_smmu_domain *smmu_domain,
 	if (fsynr & ARM_SMMU_FSYNR0_IND)
 		flags |= IOMMU_TRANS_INST;
 
+	txn.addr = iova;
+	txn.flags = flags;
+	txn.id = cbfrsynra & CBFRSYNRA_SID_MASK;
+
 	/* Now replicate the faulty transaction */
-	phys_stimu = arm_smmu_iova_to_phys_hard(domain, iova, flags);
+	phys_stimu = arm_smmu_iova_to_phys_hard(domain, &txn);
 
 	/*
 	 * If the replicated transaction fails, it could be due to legitimate
@@ -811,15 +817,16 @@ static void arm_smmu_verify_fault(struct arm_smmu_domain *smmu_domain,
 	 * privileges (permission fault). Try ATOS operation with full access
 	 * privileges to rule out stale entry with insufficient privileges case.
 	 */
-	if (!phys_stimu)
-		phys_hard_priv = arm_smmu_iova_to_phys_hard(domain, iova,
-						       IOMMU_TRANS_DEFAULT |
-						       IOMMU_TRANS_PRIV);
+	if (!phys_stimu) {
+		txn.flags = QCOM_IOMMU_ATOS_TRANS_DEFAULT |
+				QCOM_IOMMU_ATOS_TRANS_PRIV;
+		phys_hard_priv = arm_smmu_iova_to_phys_hard(domain, &txn);
+	}
 
 	/* Now replicate the faulty transaction post tlbiall */
 	iommu_flush_iotlb_all(domain);
-	phys_stimu_post_tlbiall = arm_smmu_iova_to_phys_hard(domain, iova,
-							     flags);
+	txn.flags = flags;
+	phys_stimu_post_tlbiall = arm_smmu_iova_to_phys_hard(domain, &txn);
 
 	if (!phys_stimu && phys_hard_priv) {
 		dev_err(smmu->dev,
@@ -2520,7 +2527,7 @@ static phys_addr_t arm_smmu_iova_to_phys(struct iommu_domain *domain,
  * original iova_to_phys() op.
  */
 static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
-				    dma_addr_t iova, unsigned long trans_flags)
+				    struct qcom_iommu_atos_txn *txn)
 {
 	phys_addr_t ret = 0;
 	unsigned long flags;
@@ -2534,15 +2541,14 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 		return 0;
 
 	if (smmu->impl && smmu->impl->iova_to_phys_hard) {
-		ret = smmu->impl->iova_to_phys_hard(smmu_domain, iova,
-						    trans_flags);
+		ret = smmu->impl->iova_to_phys_hard(smmu_domain, txn);
 		goto out;
 	}
 
 	spin_lock_irqsave(&smmu_domain->cb_lock, flags);
 	if (smmu_domain->smmu->features & ARM_SMMU_FEAT_TRANS_OPS &&
 			smmu_domain->stage == ARM_SMMU_DOMAIN_S1)
-		ret = __arm_smmu_iova_to_phys_hard(domain, iova);
+		ret = __arm_smmu_iova_to_phys_hard(domain, txn->addr);
 
 	spin_unlock_irqrestore(&smmu_domain->cb_lock, flags);
 
