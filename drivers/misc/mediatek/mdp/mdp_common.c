@@ -1933,7 +1933,7 @@ static void cmdq_mdp_init_pmqos(struct platform_device *pdev)
 	/* Get regulator instance by name. */
 	mdp_mmdvfs_reg = devm_regulator_get(&pdev->dev, "dvfsrc-vcore");
 	/* number of available opp */
-	mdp_pmqos_opp_num = dev_pm_opp_get_opp_count(&pdev->dev);
+	mdp_pmqos_opp_num = regulator_count_voltages(mdp_mmdvfs_reg);
 	CMDQ_LOG("%s opp count:%d\n", __func__, mdp_pmqos_opp_num);
 	if (mdp_pmqos_opp_num > 0) {
 		mdp_pmqos_freq = mdp_parse_opp(pdev, "mdp-opp", mdp_pmqos_opp_num);
