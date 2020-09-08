@@ -80,7 +80,7 @@
 	qcom,vdd-io-voltage-level = <1800000 2960000>;
 	qcom,vdd-io-current-level = <0 22000>;
 
-	cd-gpios = <&tlmm 92 GPIO_ACTIVE_HIGH>;
+	cd-gpios = <&tlmm 92 GPIO_ACTIVE_LOW>;
 };
 
 &ufsphy_mem {
