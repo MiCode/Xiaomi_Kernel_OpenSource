@@ -71,6 +71,7 @@ void **mtk_panel_tch_handle_init(void)
 {
 	return (void **)&panel_rst_ctx.rst_cb;
 }
+EXPORT_SYMBOL(mtk_panel_tch_handle_init);
 
 int mtk_panel_tch_rst(struct drm_panel *panel)
 {
