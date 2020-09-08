@@ -33,6 +33,8 @@ not containing *_A_* in the enumerator name.
 Optional properties:
 -  qcom,hw-clk-handoff : Add this property to support initial high votes on the
                          to be sent to RPM as proxy votes.
+-  qcom,bimc-log-stop : Add this property to request RPM to stop the bimc
+			logging.
 
 Example:
 	smd {
