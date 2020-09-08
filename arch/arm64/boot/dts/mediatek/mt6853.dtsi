@@ -920,7 +920,6 @@
 			reg = <0 0x10006000 0 0x1000>;
 			#power-domain-cells = <1>;
 			clocks = <&topckgen_clk CLK_TOP_MFG_PLL_SEL>,
-				<&topckgen_clk CLK_TOP_MFG_REF_SEL>,
 				<&topckgen_clk CLK_TOP_IMG1_SEL>,
 				<&topckgen_clk CLK_TOP_IMG2_SEL>,
 				<&topckgen_clk CLK_TOP_IPE_SEL>,
@@ -929,8 +928,6 @@
 				<&topckgen_clk CLK_TOP_MDP_SEL>,
 				<&topckgen_clk CLK_TOP_DISP_SEL>,
 				<&topckgen_clk CLK_TOP_AUD_INTBUS_SEL>,
-				<&infracfg_ao_clk CLK_IFRAO_AUDIO_26M_BCLK>,
-				<&infracfg_ao_clk CLK_IFRAO_AUDIO>,
 				<&topckgen_clk CLK_TOP_ADSP_SEL>,
 				<&topckgen_clk CLK_TOP_CAM_SEL>,
 				<&imgsys1_clk CLK_IMGSYS1_LARB9>,
@@ -950,21 +947,23 @@
 				<&mmsys_config_clk CLK_MM_SMI_COMMON>,
 				<&mmsys_config_clk CLK_MM_SMI_GALS>,
 				<&mmsys_config_clk CLK_MM_SMI_IOMMU>,
+				<&infracfg_ao_clk CLK_IFRAO_AUDIO_26M_BCLK>,
+				<&infracfg_ao_clk CLK_IFRAO_AUDIO>,
 				<&camsys_main_clk CLK_CAM_M_LARB13>,
 				<&camsys_main_clk CLK_CAM_M_LARB14>,
 				<&camsys_main_clk CLK_CAM_M_CCU_GALS>,
 				<&camsys_main_clk CLK_CAM_M_CAM2MM_GALS>,
 				<&camsys_rawa_clk CLK_CAM_RA_LARBX>,
 				<&camsys_rawb_clk CLK_CAM_RB_LARBX>;
-			clock-names = "mfg1", "mfg2", "isp", "isp2", "ipe",
-				      "vdec", "venc", "mdp", "disp",
-				      "audio", "audio1", "audio2", "adsp",
-				      "cam", "isp-0", "isp-1", "isp2-0",
-				      "isp2-1", "isp2-2", "ipe-0", "ipe-1", "ipe-2",
-				      "ipe-3", "vdec-0", "vdec-1", "venc-0", "venc-1",
-				      "disp-0", "disp-1", "disp-2", "disp-3",
-				      "disp-4", "cam-0", "cam-1", "cam-2",
-				      "cam-3", "cam_rawa-0", "cam_rawb-0";
+			clock-names = "mfg", "isp", "isp2", "ipe",
+				"vdec", "venc", "mdp", "disp",
+				"audio", "adsp", "cam", "isp-0",
+				"isp-1", "isp2-0", "isp2-1", "isp2-2",
+				"ipe-0", "ipe-1", "ipe-2", "ipe-3",
+				"vdec-0", "vdec-1", "venc-0", "disp-0",
+				"disp-1", "disp-2", "disp-3", "disp-4",
+				"audio-0", "audio-1", "cam-0", "cam-1",
+				"cam-2", "cam-3", "cam_rawa-0", "cam_rawb-0";
 			infracfg = <&infracfg_ao_clk>;
 		};
 
