@@ -11,8 +11,11 @@
 #include <linux/genalloc.h>
 #include <linux/platform_device.h>
 #include <linux/mod_devicetable.h>
+#include <linux/of_platform.h>
+#include <linux/of_reserved_mem.h>
 #include <linux/qcom_scm.h>
 #include <linux/dma-mapping.h>
+#include <linux/msm_ion.h>
 #include <soc/qcom/qseecomi.h>
 #include <linux/qtee_shmbridge.h>
 #include <linux/of_platform.h>
@@ -76,6 +79,18 @@ struct bridge_list_entry {
 	struct list_head list;
 	phys_addr_t paddr;
 	uint64_t handle;
+};
+
+struct cma_heap_bridge_info {
+	uint32_t heapid;
+	uint64_t handle;
+};
+
+enum CMA_HEAP_TYPE {
+	QSEECOM_HEAP = 0,
+	QSEECOM_TA_HEAP,
+	USER_CONTI_HEAP,
+	HEAP_TYPE_MAX
 };
 
 static struct bridge_info default_bridge;
@@ -390,11 +405,12 @@ static int qtee_shmbridge_init(struct platform_device *pdev)
 	mutex_init(&bridge_list_head.lock);
 	INIT_LIST_HEAD(&bridge_list_head.head);
 
+	/* temporarily disable shm bridge mechanism */
 	ret = qtee_shmbridge_enable(true);
 	if (ret) {
 		/* keep the mem pool and return if failed to enable bridge */
 		ret = 0;
-		goto exit;
+		goto exit_shmbridge_enable;
 	}
 
 	/*register default bridge*/
@@ -412,7 +428,7 @@ static int qtee_shmbridge_init(struct platform_device *pdev)
 	if (ret) {
 		pr_err("Failed to register default bridge, size %zu\n",
 			default_bridge.size);
-		goto exit;
+		goto exit_deregister_default_bridge;
 	}
 
 	pr_debug("qtee shmbridge registered default bridge with size %d bytes\n",
@@ -420,6 +436,10 @@ static int qtee_shmbridge_init(struct platform_device *pdev)
 
 	return 0;
 
+exit_deregister_default_bridge:
+	qtee_shmbridge_deregister(default_bridge.handle);
+exit_shmbridge_enable:
+	qtee_shmbridge_enable(false);
 exit_destroy_pool:
 	gen_pool_destroy(default_bridge.genpool);
 exit_unmap:
@@ -427,7 +447,8 @@ exit_unmap:
 			DMA_TO_DEVICE);
 exit_freebuf:
 	free_pages((long)default_bridge.vaddr, get_order(default_bridge.size));
-exit:
+	default_bridge.vaddr = NULL;
+//exit:
 	return ret;
 }
 
@@ -439,6 +460,16 @@ static int qtee_shmbridge_probe(struct platform_device *pdev)
 	return qtee_shmbridge_init(pdev);
 }
 
+static int qtee_shmbridge_remove(struct platform_device *pdev)
+{
+	qtee_shmbridge_deregister(default_bridge.handle);
+	gen_pool_destroy(default_bridge.genpool);
+	dma_unmap_single(&pdev->dev, default_bridge.paddr, default_bridge.size,
+			DMA_TO_DEVICE);
+	free_pages((long)default_bridge.vaddr, get_order(default_bridge.size));
+	return 0;
+}
+
 static const struct of_device_id qtee_shmbridge_of_match[] = {
 	{ .compatible = "qcom,tee-shared-memory-bridge"},
 	{}
@@ -447,6 +478,7 @@ MODULE_DEVICE_TABLE(of, qtee_shmbridge_of_match);
 
 static struct platform_driver qtee_shmbridge_driver = {
 	.probe = qtee_shmbridge_probe,
+	.remove = qtee_shmbridge_remove,
 	.driver = {
 		.name = "shared_memory_bridge",
 		.of_match_table = qtee_shmbridge_of_match,
