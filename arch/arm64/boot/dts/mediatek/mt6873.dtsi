@@ -4883,7 +4883,6 @@
 				"l11_img_mfb_wdma1";
 			mdp-opp = <&opp_table_mdp>;
 			isp-opp = <&opp_table_img>;
-			operating-points-v2 = <&opp_table_mdp>;
 			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 		};
 
