@@ -307,6 +307,21 @@ out:
 static DEVICE_ATTR_RW(mode);
 static DEVICE_ATTR_RO(curr_chan);
 
+static struct attribute *qdss_bridge_attrs[] = {
+	&dev_attr_mode.attr,
+	&dev_attr_curr_chan.attr,
+	NULL,
+};
+
+static const struct attribute_group qdss_bridge_group = {
+	.attrs = qdss_bridge_attrs,
+};
+
+static const struct attribute_group *qdss_bridge_groups[] = {
+	&qdss_bridge_group,
+	NULL,
+};
+
 static void mhi_read_work_fn(struct work_struct *work)
 {
 	int err = 0;
@@ -838,7 +853,6 @@ static void qdss_mhi_remove(struct mhi_device *mhi_dev)
 	} else
 		spin_unlock_bh(&drvdata->lock);
 
-	device_remove_file(drvdata->dev, &dev_attr_mode);
 	device_destroy(mhi_class, drvdata->cdev.dev);
 	cdev_del(&drvdata->cdev);
 	unregister_chrdev_region(drvdata->cdev.dev, 1);
@@ -937,27 +951,14 @@ static int qdss_mhi_probe(struct mhi_device *mhi_dev,
 	mhi_device_set_devdata(mhi_dev, drvdata);
 	dev_set_drvdata(drvdata->dev, drvdata);
 
-	ret = device_create_file(drvdata->dev, &dev_attr_mode);
-	if (ret) {
-		pr_err("mode sysfs node create failed error:%d\n", ret);
-		goto exit_destroy_device;
-	}
-	ret = device_create_file(drvdata->dev, &dev_attr_curr_chan);
-	if (ret) {
-		pr_err("curr_chan sysfs node create failed error:%d\n", ret);
-		goto exit_destroy_device;
-	}
-
 	ret = qdss_mhi_init(drvdata);
 	if (ret) {
 		pr_err("Device probe failed err:%d\n", ret);
-		goto remove_sysfs_exit;
+		goto exit_destroy_device;
 	}
 	queue_work(drvdata->mhi_wq, &drvdata->open_work);
 	return 0;
 
-remove_sysfs_exit:
-	device_remove_file(drvdata->dev, &dev_attr_mode);
 exit_destroy_device:
 	device_destroy(mhi_class, drvdata->cdev.dev);
 exit_cdev_add:
@@ -993,6 +994,8 @@ static int __init qdss_bridge_init(void)
 	mhi_class = class_create(THIS_MODULE, MODULE_NAME);
 	if (IS_ERR(mhi_class))
 		return -ENODEV;
+
+	mhi_class->dev_groups = qdss_bridge_groups;
 
 	ret = mhi_driver_register(&qdss_mhi_driver);
 	if (ret)
