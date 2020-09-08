@@ -253,8 +253,6 @@
 			operating-points-v2 = <&cluster0_opp>;
 			capacity-dmips-mhz = <365>;
 			dynamic-power-coefficient = <365>;
-			cpu-idle-states = <&cpuoff_l &clusteroff_l
-						&mcusysoff &s2idle>;
 		};
 
 		cpu1: cpu@001 {
@@ -266,8 +264,6 @@
 			operating-points-v2 = <&cluster0_opp>;
 			capacity-dmips-mhz = <365>;
 			dynamic-power-coefficient = <365>;
-			cpu-idle-states = <&cpuoff_l &clusteroff_l
-						&mcusysoff &s2idle>;
 		};
 
 		cpu2: cpu@002 {
@@ -279,8 +275,6 @@
 			operating-points-v2 = <&cluster0_opp>;
 			capacity-dmips-mhz = <365>;
 			dynamic-power-coefficient = <365>;
-			cpu-idle-states = <&cpuoff_l &clusteroff_l
-						&mcusysoff &s2idle>;
 		};
 
 		cpu3: cpu@003 {
@@ -292,8 +286,6 @@
 			operating-points-v2 = <&cluster0_opp>;
 			capacity-dmips-mhz = <365>;
 			dynamic-power-coefficient = <365>;
-			cpu-idle-states = <&cpuoff_l &clusteroff_l
-						&mcusysoff &s2idle>;
 		};
 
 		cpu4: cpu@100 {
@@ -305,8 +297,6 @@
 			operating-points-v2 = <&cluster1_opp>;
 			capacity-dmips-mhz = <1024>;
 			dynamic-power-coefficient = <1024>;
-			cpu-idle-states = <&cpuoff_l &clusteroff_l
-						&mcusysoff &s2idle>;
 		};
 
 		cpu5: cpu@101 {
@@ -318,8 +308,6 @@
 			operating-points-v2 = <&cluster1_opp>;
 			capacity-dmips-mhz = <1024>;
 			dynamic-power-coefficient = <1024>;
-			cpu-idle-states = <&cpuoff_l &clusteroff_l
-						&mcusysoff &s2idle>;
 		};
 
 		cpu6: cpu@102 {
@@ -331,8 +319,6 @@
 			operating-points-v2 = <&cluster1_opp>;
 			capacity-dmips-mhz = <1024>;
 			dynamic-power-coefficient = <1024>;
-			cpu-idle-states = <&cpuoff_b &clusteroff_b
-						&mcusysoff &s2idle>;
 		};
 
 		cpu7: cpu@103 {
@@ -344,8 +330,6 @@
 			operating-points-v2 = <&cluster1_opp>;
 			capacity-dmips-mhz = <1024>;
 			dynamic-power-coefficient = <1024>;
-			cpu-idle-states = <&cpuoff_b &clusteroff_b
-						&mcusysoff &s2idle>;
 		};
 
 		cpu-map {
