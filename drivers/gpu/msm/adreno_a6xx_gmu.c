@@ -2244,6 +2244,9 @@ static int a6xx_gmu_first_boot(struct adreno_device *adreno_dev)
 
 	device->gmu_fault = false;
 
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_BCL))
+		adreno_dev->bcl_enabled = true;
+
 	trace_kgsl_pwr_set_state(device, KGSL_STATE_AWARE);
 
 	return 0;
@@ -2678,9 +2681,6 @@ int a6xx_gmu_probe(struct kgsl_device *device,
 		gmu->idle_level = GPU_HW_IFPC;
 	else
 		gmu->idle_level = GPU_HW_ACTIVE;
-
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_BCL))
-		adreno_dev->bcl_enabled = true;
 
 	a6xx_gmu_acd_probe(device, gmu, pdev->dev.of_node);
 
