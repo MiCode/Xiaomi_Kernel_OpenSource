@@ -345,6 +345,7 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 		if (!fault_pgpa && i > 0)
 			break;
 	}
+	mtk_iova_map_dump(fault_iova);
 	report_custom_iommu_fault(fault_iova, fault_pa, regval,
 				  data->plat_data->is_apu ? true : false);
 #endif
@@ -508,6 +509,7 @@ static void mtk_iommu_detach_device(struct iommu_domain *domain,
 static int mtk_iommu_map(struct iommu_domain *domain, unsigned long iova,
 			 phys_addr_t paddr, size_t size, int prot, gfp_t gfp)
 {
+	int ret;
 	struct mtk_iommu_domain *dom = to_mtk_domain(domain);
 	struct mtk_iommu_data *data = mtk_iommu_get_m4u_data();
 
@@ -516,16 +518,27 @@ static int mtk_iommu_map(struct iommu_domain *domain, unsigned long iova,
 		paddr |= BIT_ULL(32);
 
 	/* Synchronize with the tlb_lock */
-	return dom->iop->map(dom->iop, iova, paddr, size, prot, gfp);
+	ret = dom->iop->map(dom->iop, iova, paddr, size, prot, gfp);
+#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
+	if (!ret)
+		mtk_iova_map(iova, size);
+#endif
+	return ret;
 }
 
 static size_t mtk_iommu_unmap(struct iommu_domain *domain,
 			      unsigned long iova, size_t size,
 			      struct iommu_iotlb_gather *gather)
 {
+	size_t ret;
 	struct mtk_iommu_domain *dom = to_mtk_domain(domain);
 
-	return dom->iop->unmap(dom->iop, iova, size, gather);
+	ret = dom->iop->unmap(dom->iop, iova, size, gather);
+#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
+	if (ret)
+		mtk_iova_unmap(iova, size);
+#endif
+	return ret;
 }
 
 static void mtk_iommu_flush_iotlb_all(struct iommu_domain *domain)

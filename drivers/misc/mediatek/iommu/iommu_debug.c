@@ -11,6 +11,7 @@
 #include <linux/debugfs.h>
 #include <linux/mutex.h>
 #include <linux/slab.h>
+#include <linux/sched/clock.h>
 #include <linux/export.h>
 #include <dt-bindings/memory/mtk-smi-larb-port.h>
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
@@ -22,6 +23,14 @@
 #define F_MMU_INT_TF_MSK		GENMASK(11, 2)
 #define F_MMU_INT_TF_CCU		GENMASK(11, 7)
 #define F_APU_MMU_INT_TF_MSK(id)	FIELD_GET(GENMASK(10, 7), id)
+
+enum mtk_iova_space {
+	MTK_IOVA_SPACE0, /* 0GB ~ 4GB */
+	MTK_IOVA_SPACE1, /* 4GB ~ 8GB */
+	MTK_IOVA_SPACE2, /* 8GB ~ 12GB */
+	MTK_IOVA_SPACE3, /* 12GB ~ 16GB */
+	MTK_IOVA_SPACE_NUM
+};
 
 enum mtk_iommu_type {
 	MM_IOMMU,
@@ -479,8 +488,118 @@ static const struct mtk_iommu_port apu_port_mt6873[] = {
 	APU_IOMMU_PORT_INIT("APU_UNKNOWN", 0, 0, 0, 0xf)
 };
 
-static struct mtk_m4u_data *m4u_data;
+struct iova_map_info {
+	u64			iova;
+	u64			time_high;
+	u64			time_low;
+	size_t			size;
+	struct list_head	list_node;
+};
 
+struct iova_map_list {
+	atomic_t		init_flag;
+	spinlock_t		lock;
+	struct list_head	head[MTK_IOVA_SPACE_NUM];
+};
+
+static struct iova_map_list map_list = {.init_flag = ATOMIC_INIT(0)};
+
+void mtk_iova_map(u64 iova, size_t size)
+{
+	u32 id = (iova >> 32);
+	unsigned long flags;
+	struct iova_map_info *iova_buf;
+
+	if (!atomic_cmpxchg(&map_list.init_flag, 0, 1)) {
+		pr_info("iommu map list init\n");
+		spin_lock_init(&map_list.lock);
+		INIT_LIST_HEAD(&map_list.head[MTK_IOVA_SPACE0]);
+		INIT_LIST_HEAD(&map_list.head[MTK_IOVA_SPACE1]);
+		INIT_LIST_HEAD(&map_list.head[MTK_IOVA_SPACE2]);
+		INIT_LIST_HEAD(&map_list.head[MTK_IOVA_SPACE3]);
+	}
+	iova_buf = kzalloc(sizeof(*iova_buf), GFP_KERNEL);
+	if (!iova_buf)
+		return;
+
+	iova_buf->time_high = sched_clock();
+	do_div(iova_buf->time_high, 1000);
+	iova_buf->time_low = do_div(iova_buf->time_high, 1000000);
+	iova_buf->iova = iova;
+	iova_buf->size = size;
+	spin_lock_irqsave(&map_list.lock, flags);
+	list_add(&iova_buf->list_node, &map_list.head[id]);
+	spin_unlock_irqrestore(&map_list.lock, flags);
+}
+EXPORT_SYMBOL_GPL(mtk_iova_map);
+
+void mtk_iova_unmap(u64 iova, size_t size)
+{
+	u32 id = (iova >> 32);
+	u64 start_t, end_t;
+	size_t total = 0;
+	unsigned long flags;
+	struct iova_map_info *plist;
+	struct iova_map_info *tmp_plist;
+
+	spin_lock_irqsave(&map_list.lock, flags);
+	start_t = sched_clock();
+	list_for_each_entry_safe(plist, tmp_plist,
+				 &map_list.head[id], list_node) {
+		if (plist->iova >= iova &&
+		    (plist->iova + plist->size) <= (iova + size)) {
+			total += plist->size;
+			list_del(&plist->list_node);
+			kfree(plist);
+			if (total == size)
+				break;
+		}
+	}
+	end_t = sched_clock();
+	if ((end_t - start_t) > 5000000) //5ms
+		pr_info("%s time:%llu\n", (end_t - start_t));
+	spin_unlock_irqrestore(&map_list.lock, flags);
+}
+EXPORT_SYMBOL_GPL(mtk_iova_unmap);
+
+void mtk_iova_map_dump(u64 iova)
+{
+	u32 i, id = (iova >> 32);
+	unsigned long flags;
+	struct iova_map_info *plist = NULL;
+	struct iova_map_info *n = NULL;
+
+	spin_lock_irqsave(&map_list.lock, flags);
+	pr_info("%-4s %-14s %-10s %-18s\n", "id", "start_iova", "size", "time");
+
+	if (!iova) {
+		for (i = 0; i < MTK_IOVA_SPACE_NUM; i++) {
+			list_for_each_entry_safe(plist, n, &map_list.head[i],
+					 list_node)
+				pr_info("%-4u, 0x%-12llx 0x%-8zx %llu.%llus\n",
+					i, plist->iova,
+					plist->size,
+					plist->time_high,
+					plist->time_low);
+		}
+		spin_unlock_irqrestore(&map_list.lock, flags);
+		return;
+	}
+
+	list_for_each_entry_safe(plist, n, &map_list.head[id],
+				 list_node)
+		if (iova <= (plist->iova + SZ_4M) &&
+		    iova >= (plist->iova - SZ_4M))
+			pr_info("%-4u, 0x%-12llx 0x%-8zx %llu.%llus\n",
+				id, plist->iova,
+				plist->size,
+				plist->time_high,
+				plist->time_low);
+	spin_unlock_irqrestore(&map_list.lock, flags);
+}
+EXPORT_SYMBOL_GPL(mtk_iova_map_dump);
+
+static struct mtk_m4u_data *m4u_data;
 static int mtk_iommu_get_tf_port_idx(int tf_id, bool is_vpu)
 {
 	int i;
@@ -604,16 +723,15 @@ static int m4u_debug_set(void *data, u64 val)
 	pr_info("%s:val=%llu\n", __func__, val);
 
 	switch (val) {
+	case 1:	/* dump iova map info */
+		mtk_iova_map_dump(0);
+		break;
 	case 2: /* mm translation fault test */
-	{
 		report_custom_iommu_fault(0, 0, 0x500000f, false);
 		break;
-	}
 	case 3: /* mm translation fault test */
-	{
 		report_custom_iommu_fault(0, 0, 0x102, true);
 		break;
-	}
 	default:
 		pr_err("%s error,val=%llu\n", __func__, val);
 	}
