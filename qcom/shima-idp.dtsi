@@ -179,7 +179,8 @@
 
 		panel = <&dsi_r66451_amoled_cmd
 			 &dsi_r66451_amoled_video
-			&dsi_r66451_amoled_60hz_video>;
+			&dsi_r66451_amoled_60hz_video
+			&dsi_r66451_amoled_60hz_cmd>;
 	};
 };
 
