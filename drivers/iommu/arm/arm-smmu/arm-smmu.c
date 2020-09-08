@@ -322,7 +322,7 @@ static void arm_smmu_interrupt_selftest(struct arm_smmu_device *smmu)
 #endif
 
 static struct platform_driver arm_smmu_driver;
-static struct iommu_ops arm_smmu_ops;
+static struct qcom_iommu_ops arm_smmu_ops;
 
 #ifdef CONFIG_ARM_SMMU_LEGACY_DT_BINDINGS
 static int arm_smmu_bus_init(struct iommu_ops *ops);
@@ -399,7 +399,7 @@ static int arm_smmu_register_legacy_master(struct device *dev,
 	}
 
 	err = iommu_fwspec_init(dev, &smmu_dev->of_node->fwnode,
-				&arm_smmu_ops);
+				&arm_smmu_ops.iommu_ops);
 	if (err)
 		return err;
 
@@ -423,7 +423,7 @@ static int arm_smmu_register_legacy_master(struct device *dev,
 static int arm_smmu_legacy_bus_init(void)
 {
 	if (using_legacy_binding)
-		return arm_smmu_bus_init(&arm_smmu_ops);
+		return arm_smmu_bus_init(&arm_smmu_ops.iommu_ops);
 	return 0;
 }
 device_initcall_sync(arm_smmu_legacy_bus_init);
@@ -2277,7 +2277,7 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	struct arm_smmu_device *smmu;
 	int ret;
 
-	if (!fwspec || fwspec->ops != &arm_smmu_ops) {
+	if (!fwspec || fwspec->ops != &arm_smmu_ops.iommu_ops) {
 		dev_err(dev, "cannot attach to SMMU, is it on the same bus?\n");
 		return -ENXIO;
 	}
@@ -2595,7 +2595,7 @@ static struct iommu_device * arm_smmu_probe_device(struct device *dev)
 		fwspec = dev_iommu_fwspec_get(dev);
 		if (ret)
 			goto out_free;
-	} else if (fwspec && fwspec->ops == &arm_smmu_ops) {
+	} else if (fwspec && fwspec->ops == &arm_smmu_ops.iommu_ops) {
 		smmu = arm_smmu_get_by_fwnode(fwspec->iommu_fwnode);
 		if (!smmu)
 			return ERR_PTR(-ENODEV);
@@ -2660,7 +2660,7 @@ static void arm_smmu_release_device(struct device *dev)
 	struct arm_smmu_device *smmu;
 	int ret;
 
-	if (!fwspec || fwspec->ops != &arm_smmu_ops)
+	if (!fwspec || fwspec->ops != &arm_smmu_ops.iommu_ops)
 		return;
 
 	cfg  = dev_iommu_priv_get(dev);
@@ -3167,27 +3167,29 @@ static int arm_smmu_enable_s1_translations(struct arm_smmu_domain *smmu_domain)
 	return ret;
 }
 
-static struct iommu_ops arm_smmu_ops = {
-	.capable		= arm_smmu_capable,
-	.domain_alloc		= arm_smmu_domain_alloc,
-	.domain_free		= arm_smmu_domain_free,
-	.attach_dev		= arm_smmu_attach_dev,
-	.detach_dev		= arm_smmu_detach_dev,
-	.map			= arm_smmu_map,
-	.unmap			= arm_smmu_unmap,
-	.flush_iotlb_all	= arm_smmu_flush_iotlb_all,
-	.iotlb_sync		= arm_smmu_iotlb_sync,
-	.iova_to_phys		= arm_smmu_iova_to_phys,
-	.probe_device		= arm_smmu_probe_device,
-	.release_device		= arm_smmu_release_device,
-	.device_group		= arm_smmu_device_group,
-	.domain_get_attr	= arm_smmu_domain_get_attr,
-	.domain_set_attr	= arm_smmu_domain_set_attr,
-	.of_xlate		= arm_smmu_of_xlate,
-	.get_resv_regions	= arm_smmu_get_resv_regions,
-	.put_resv_regions	= generic_iommu_put_resv_regions,
-	.def_domain_type	= arm_smmu_def_domain_type,
-	.pgsize_bitmap		= -1UL, /* Restricted during device attach */
+static struct qcom_iommu_ops arm_smmu_ops = {
+	.iommu_ops = {
+		.capable		= arm_smmu_capable,
+		.domain_alloc		= arm_smmu_domain_alloc,
+		.domain_free		= arm_smmu_domain_free,
+		.attach_dev		= arm_smmu_attach_dev,
+		.detach_dev		= arm_smmu_detach_dev,
+		.map			= arm_smmu_map,
+		.unmap			= arm_smmu_unmap,
+		.flush_iotlb_all	= arm_smmu_flush_iotlb_all,
+		.iotlb_sync		= arm_smmu_iotlb_sync,
+		.iova_to_phys		= arm_smmu_iova_to_phys,
+		.probe_device		= arm_smmu_probe_device,
+		.release_device		= arm_smmu_release_device,
+		.device_group		= arm_smmu_device_group,
+		.domain_get_attr	= arm_smmu_domain_get_attr,
+		.domain_set_attr	= arm_smmu_domain_set_attr,
+		.of_xlate		= arm_smmu_of_xlate,
+		.get_resv_regions	= arm_smmu_get_resv_regions,
+		.put_resv_regions	= generic_iommu_put_resv_regions,
+		.def_domain_type	= arm_smmu_def_domain_type,
+		.pgsize_bitmap		= -1UL, /* Restricted during device attach */
+	}
 };
 
 static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
@@ -3575,10 +3577,10 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 	if (smmu->features & ARM_SMMU_FEAT_FMT_AARCH64_64K)
 		smmu->pgsize_bitmap |= SZ_64K | SZ_512M;
 
-	if (arm_smmu_ops.pgsize_bitmap == -1UL)
-		arm_smmu_ops.pgsize_bitmap = smmu->pgsize_bitmap;
+	if (arm_smmu_ops.iommu_ops.pgsize_bitmap == -1UL)
+		arm_smmu_ops.iommu_ops.pgsize_bitmap = smmu->pgsize_bitmap;
 	else
-		arm_smmu_ops.pgsize_bitmap |= smmu->pgsize_bitmap;
+		arm_smmu_ops.iommu_ops.pgsize_bitmap |= smmu->pgsize_bitmap;
 	dev_dbg(smmu->dev, "\tSupported page sizes: 0x%08lx\n",
 		   smmu->pgsize_bitmap);
 
@@ -3916,7 +3918,7 @@ static int arm_smmu_device_probe(struct platform_device *pdev)
 		goto out_power_off;
 	}
 
-	iommu_device_set_ops(&smmu->iommu, &arm_smmu_ops);
+	iommu_device_set_ops(&smmu->iommu, &arm_smmu_ops.iommu_ops);
 	iommu_device_set_fwnode(&smmu->iommu, dev->fwnode);
 
 	err = iommu_device_register(&smmu->iommu);
@@ -3951,7 +3953,7 @@ static int arm_smmu_device_probe(struct platform_device *pdev)
 	 * ready to handle default domain setup as soon as any SMMU exists.
 	 */
 	if (!using_legacy_binding)
-		return arm_smmu_bus_init(&arm_smmu_ops);
+		return arm_smmu_bus_init(&arm_smmu_ops.iommu_ops);
 
 	return 0;
 
