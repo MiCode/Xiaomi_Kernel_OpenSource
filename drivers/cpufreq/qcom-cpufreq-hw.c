@@ -9,6 +9,7 @@
 #include <linux/energy_model.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
+#include <linux/interconnect.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/of_address.h>
@@ -55,6 +56,49 @@ static const u16 *offsets;
 static unsigned int lut_row_size = LUT_ROW_SIZE;
 static unsigned int lut_max_entries = LUT_MAX_ENTRIES;
 static bool accumulative_counter;
+static struct platform_device *global_pdev;
+static bool icc_scaling_enabled;
+
+static int qcom_cpufreq_set_bw(struct cpufreq_policy *policy,
+			       unsigned long freq_khz)
+{
+	unsigned long freq_hz = freq_khz * 1000;
+	struct dev_pm_opp *opp;
+	struct device *dev;
+	int ret;
+
+	dev = get_cpu_device(policy->cpu);
+	if (!dev)
+		return -ENODEV;
+
+	opp = dev_pm_opp_find_freq_exact(dev, freq_hz, true);
+	if (IS_ERR(opp))
+		return PTR_ERR(opp);
+
+	ret = dev_pm_opp_set_bw(dev, opp);
+	dev_pm_opp_put(opp);
+	return ret;
+}
+
+static int qcom_cpufreq_update_opp(struct device *cpu_dev,
+				   unsigned long freq_khz,
+				   unsigned long volt)
+{
+	unsigned long freq_hz = freq_khz * 1000;
+	int ret;
+
+	/* Skip voltage update if the opp table is not available */
+	if (!icc_scaling_enabled)
+		return dev_pm_opp_add(cpu_dev, freq_hz, volt);
+
+	ret = dev_pm_opp_adjust_voltage(cpu_dev, freq_hz, volt, volt, volt);
+	if (ret) {
+		dev_err(cpu_dev, "Voltage update failed freq=%ld\n", freq_khz);
+		return ret;
+	}
+
+	return dev_pm_opp_enable(cpu_dev, freq_hz);
+}
 
 struct cpufreq_qcom {
 	struct cpufreq_frequency_table *table;
@@ -226,9 +270,14 @@ static int
 qcom_cpufreq_hw_target_index(struct cpufreq_policy *policy,
 			     unsigned int index)
 {
+	unsigned long freq = policy->freq_table[index].frequency;
+
 	writel_relaxed(index, policy->driver_data + offsets[REG_PERF_STATE]);
-	arch_set_freq_scale(policy->related_cpus,
-			    policy->freq_table[index].frequency,
+
+	if (icc_scaling_enabled)
+		qcom_cpufreq_set_bw(policy, freq);
+
+	arch_set_freq_scale(policy->related_cpus, freq,
 			    policy->cpuinfo.max_freq);
 
 	return 0;
@@ -253,11 +302,11 @@ static unsigned int
 qcom_cpufreq_hw_fast_switch(struct cpufreq_policy *policy,
 			    unsigned int target_freq)
 {
-	int index;
+	void __iomem *perf_state_reg = policy->driver_data;
+	unsigned int index;
+	unsigned long freq;
 
 	index = policy->cached_resolved_idx;
-	if (index < 0)
-		return 0;
 
 	if (qcom_cpufreq_hw_target_index(policy, index))
 		return 0;
@@ -376,6 +425,10 @@ static int qcom_cpufreq_hw_read_lut(struct platform_device *pdev,
 	struct device *dev = &pdev->dev;
 	u32 data, src, lval, i, core_count, prev_cc, prev_freq, freq, volt;
 	unsigned long cpu;
+	struct cpufreq_frequency_table	*table;
+	struct dev_pm_opp *opp;
+	unsigned long rate;
+	int ret;
 
 	c->table = devm_kcalloc(dev, lut_max_entries + 1,
 				sizeof(*c->table), GFP_KERNEL);
@@ -387,6 +440,27 @@ static int qcom_cpufreq_hw_read_lut(struct platform_device *pdev,
 	for (i = 0; i < lut_max_entries; i++) {
 		data = readl_relaxed(c->base + offsets[REG_FREQ_LUT] +
 				      i * lut_row_size);
+
+	ret = dev_pm_opp_of_add_table(cpu_dev);
+	if (!ret) {
+		/* Disable all opps and cross-validate against LUT later */
+		icc_scaling_enabled = true;
+		for (rate = 0; ; rate++) {
+			opp = dev_pm_opp_find_freq_ceil(cpu_dev, &rate);
+			if (IS_ERR(opp))
+				break;
+
+			dev_pm_opp_put(opp);
+			dev_pm_opp_disable(cpu_dev, rate);
+		}
+	} else if (ret != -ENODEV) {
+		dev_err(cpu_dev, "Invalid opp table in device tree\n");
+		return ret;
+	} else {
+		policy->fast_switch_possible = true;
+		icc_scaling_enabled = false;
+	}
+
 		src = FIELD_GET(LUT_SRC, data);
 		lval = FIELD_GET(LUT_L_VAL, data);
 		core_count = FIELD_GET(LUT_CORE_COUNT, data);
@@ -402,7 +476,7 @@ static int qcom_cpufreq_hw_read_lut(struct platform_device *pdev,
 
 		if (freq != prev_freq && core_count == max_cores) {
 			c->table[i].frequency = freq;
-			dev_pm_opp_add(get_cpu_device(cpu), freq * 1000, volt);
+			qcom_cpufreq_update_opp(cpu_dev, freq, volt);
 			dev_dbg(dev, "index=%d freq=%d, core_count %d\n",
 				i, c->table[i].frequency, core_count);
 		} else {
@@ -419,8 +493,7 @@ static int qcom_cpufreq_hw_read_lut(struct platform_device *pdev,
 			if (prev_cc != max_cores) {
 				prev->frequency = prev_freq;
 				prev->flags = CPUFREQ_BOOST_FREQ;
-				dev_pm_opp_add(get_cpu_device(cpu),
-						prev_freq * 1000, volt);
+				qcom_cpufreq_update_opp(cpu_dev, prev_freq, volt);
 			}
 
 			break;
@@ -519,6 +592,8 @@ static int qcom_cpu_resources_init(struct platform_device *pdev,
 
 	for_each_cpu(cpu_r, &c->related_cpus)
 		qcom_freq_domain_map[cpu_r] = c;
+
+	dev_pm_opp_of_register_em(cpu_dev, policy->cpus);
 
 	return 0;
 }

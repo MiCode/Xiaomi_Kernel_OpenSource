@@ -217,11 +217,11 @@ config MSM_HSUSB_PHY
 	  PHY with a dedicated register I/O memory region.
 
 config JZ4770_PHY
-	tristate "Ingenic JZ4770 Transceiver Driver"
+	tristate "Ingenic SoCs Transceiver Driver"
 	depends on MIPS || COMPILE_TEST
 	select USB_PHY
 	help
 	  This driver provides PHY support for the USB controller found
-	  on the JZ4770 SoC from Ingenic.
+	  on the JZ-series and X-series SoCs from Ingenic.
 
 endmenu

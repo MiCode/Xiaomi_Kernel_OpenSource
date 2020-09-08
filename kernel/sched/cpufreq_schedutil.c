@@ -325,7 +325,7 @@ unsigned long schedutil_cpu_util(int cpu, unsigned long util_cfs,
 	struct rq *rq = cpu_rq(cpu);
 
 #ifndef CONFIG_SCHED_WALT
-	if (!IS_BUILTIN(CONFIG_UCLAMP_TASK) &&
+	if (!uclamp_is_used() &&
 	    type == FREQUENCY_UTIL && rt_rq_is_runnable(&rq->rt)) {
 		return max;
 	}
@@ -1457,8 +1457,4 @@ struct cpufreq_governor *cpufreq_default_governor(void)
 }
 #endif
 
-static int __init sugov_register(void)
-{
-	return cpufreq_register_governor(&schedutil_gov);
-}
-core_initcall(sugov_register);
+cpufreq_governor_init(schedutil_gov);

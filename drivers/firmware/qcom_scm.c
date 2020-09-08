@@ -481,7 +481,7 @@ int __qcom_scm_set_dload_mode(struct device *dev, enum qcom_download_mode mode)
 	desc.args[1] = 0;
 	desc.arginfo = QCOM_SCM_ARGS(2);
 
-	return qcom_scm_call_atomic(dev, &desc, NULL);
+	return qcom_scm_call_atomic(__scm->dev, &desc, NULL);
 }
 
 void qcom_scm_set_download_mode(enum qcom_download_mode mode,
@@ -815,7 +815,6 @@ int qcom_scm_io_writel(phys_addr_t addr, unsigned int val)
 		.args[1] = val,
 		.owner = ARM_SMCCC_OWNER_SIP,
 	};
-
 
 	return qcom_scm_call_atomic(__scm->dev, &desc, NULL);
 }
@@ -1576,44 +1575,6 @@ int qcom_scm_dcvs_update_ca_v2(int level, s64 total_time, s64 busy_time,
 }
 EXPORT_SYMBOL(qcom_scm_dcvs_update_ca_v2);
 
-int qcom_scm_config_set_ice_key(uint32_t index, phys_addr_t paddr, size_t size,
-				uint32_t cipher, unsigned int data_unit,
-				unsigned int ce)
-{
-	struct qcom_scm_desc desc = {
-		.svc = QCOM_SCM_SVC_ES,
-		.cmd = QCOM_SCM_ES_CONFIG_SET_ICE_KEY,
-		.owner = ARM_SMCCC_OWNER_SIP,
-		.args[0] = index,
-		.args[1] = paddr,
-		.args[2] = size,
-		.args[3] = cipher,
-		.args[4] = data_unit,
-		.args[5] = ce,
-		.arginfo = QCOM_SCM_ARGS(6, QCOM_SCM_VAL, QCOM_SCM_RW,
-					QCOM_SCM_VAL, QCOM_SCM_VAL,
-					QCOM_SCM_VAL, QCOM_SCM_VAL),
-	};
-
-	return qcom_scm_call_noretry(__scm->dev, &desc, NULL);
-}
-EXPORT_SYMBOL(qcom_scm_config_set_ice_key);
-
-int qcom_scm_clear_ice_key(uint32_t index,  unsigned int ce)
-{
-	struct qcom_scm_desc desc = {
-		.svc = QCOM_SCM_SVC_ES,
-		.cmd = QCOM_SCM_ES_CLEAR_ICE_KEY,
-		.owner = ARM_SMCCC_OWNER_SIP,
-		.args[0] = index,
-		.args[1] = ce,
-		.arginfo = QCOM_SCM_ARGS(2),
-	};
-
-	return qcom_scm_call_noretry(__scm->dev, &desc, NULL);
-}
-EXPORT_SYMBOL(qcom_scm_clear_ice_key);
-
 int qcom_scm_get_feat_version_cp(u64 *version)
 {
 	return __qcom_scm_get_feat_version(__scm->dev, QCOM_SCM_MP_CP_FEAT_ID,
@@ -1679,6 +1640,145 @@ int qcom_scm_ocmem_unlock(enum qcom_scm_ocmem_client id, u32 offset, u32 size)
 	return qcom_scm_call(__scm->dev, &desc, NULL);
 }
 EXPORT_SYMBOL(qcom_scm_ocmem_unlock);
+
+/**
+ * qcom_scm_ice_available() - Is the ICE key programming interface available?
+ *
+ * Return: true iff the SCM calls wrapped by qcom_scm_ice_invalidate_key() and
+ *	   qcom_scm_ice_set_key() are available.
+ */
+bool qcom_scm_ice_available(void)
+{
+	return __qcom_scm_is_call_available(__scm->dev, QCOM_SCM_SVC_ES,
+					    QCOM_SCM_ES_INVALIDATE_ICE_KEY) &&
+		__qcom_scm_is_call_available(__scm->dev, QCOM_SCM_SVC_ES,
+					     QCOM_SCM_ES_CONFIG_SET_ICE_KEY);
+}
+EXPORT_SYMBOL(qcom_scm_ice_available);
+
+/**
+ * qcom_scm_ice_invalidate_key() - Invalidate an inline encryption key
+ * @index: the keyslot to invalidate
+ *
+ * The UFSHCI standard defines a standard way to do this, but it doesn't work on
+ * these SoCs; only this SCM call does.
+ *
+ * Return: 0 on success; -errno on failure.
+ */
+int qcom_scm_ice_invalidate_key(u32 index)
+{
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_ES,
+		.cmd = QCOM_SCM_ES_INVALIDATE_ICE_KEY,
+		.arginfo = QCOM_SCM_ARGS(1),
+		.args[0] = index,
+		.owner = ARM_SMCCC_OWNER_SIP,
+	};
+
+	return qcom_scm_call(__scm->dev, &desc, NULL);
+}
+EXPORT_SYMBOL(qcom_scm_ice_invalidate_key);
+
+/**
+ * qcom_scm_ice_set_key() - Set an inline encryption key
+ * @index: the keyslot into which to set the key
+ * @key: the key to program
+ * @key_size: the size of the key in bytes
+ * @cipher: the encryption algorithm the key is for
+ * @data_unit_size: the encryption data unit size, i.e. the size of each
+ *		    individual plaintext and ciphertext.  Given in 512-byte
+ *		    units, e.g. 1 = 512 bytes, 8 = 4096 bytes, etc.
+ *
+ * Program a key into a keyslot of Qualcomm ICE (Inline Crypto Engine), where it
+ * can then be used to encrypt/decrypt UFS I/O requests inline.
+ *
+ * The UFSHCI standard defines a standard way to do this, but it doesn't work on
+ * these SoCs; only this SCM call does.
+ *
+ * Return: 0 on success; -errno on failure.
+ */
+int qcom_scm_ice_set_key(u32 index, const u8 *key, u32 key_size,
+			 enum qcom_scm_ice_cipher cipher, u32 data_unit_size)
+{
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_ES,
+		.cmd = QCOM_SCM_ES_CONFIG_SET_ICE_KEY,
+		.arginfo = QCOM_SCM_ARGS(5, QCOM_SCM_VAL, QCOM_SCM_RW,
+					 QCOM_SCM_VAL, QCOM_SCM_VAL,
+					 QCOM_SCM_VAL),
+		.args[0] = index,
+		.args[2] = key_size,
+		.args[3] = cipher,
+		.args[4] = data_unit_size,
+		.owner = ARM_SMCCC_OWNER_SIP,
+	};
+	void *keybuf;
+	dma_addr_t key_phys;
+	int ret;
+
+	/*
+	 * 'key' may point to vmalloc()'ed memory, but we need to pass a
+	 * physical address that's been properly flushed.  The sanctioned way to
+	 * do this is by using the DMA API.  But as is best practice for crypto
+	 * keys, we also must wipe the key after use.  This makes kmemdup() +
+	 * dma_map_single() not clearly correct, since the DMA API can use
+	 * bounce buffers.  Instead, just use dma_alloc_coherent().  Programming
+	 * keys is normally rare and thus not performance-critical.
+	 */
+
+	keybuf = dma_alloc_coherent(__scm->dev, key_size, &key_phys,
+				    GFP_KERNEL);
+	if (!keybuf)
+		return -ENOMEM;
+	memcpy(keybuf, key, key_size);
+	desc.args[1] = key_phys;
+
+	ret = qcom_scm_call(__scm->dev, &desc, NULL);
+
+	memzero_explicit(keybuf, key_size);
+
+	dma_free_coherent(__scm->dev, key_size, keybuf, key_phys);
+	return ret;
+}
+EXPORT_SYMBOL(qcom_scm_ice_set_key);
+
+int qcom_scm_config_set_ice_key(uint32_t index, phys_addr_t paddr, size_t size,
+				uint32_t cipher, unsigned int data_unit,
+				unsigned int ce)
+{
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_ES,
+		.cmd = QCOM_SCM_ES_CONFIG_SET_ICE_KEY_V2,
+		.owner = ARM_SMCCC_OWNER_SIP,
+		.args[0] = index,
+		.args[1] = paddr,
+		.args[2] = size,
+		.args[3] = cipher,
+		.args[4] = data_unit,
+		.args[5] = ce,
+		.arginfo = QCOM_SCM_ARGS(6, QCOM_SCM_VAL, QCOM_SCM_RW,
+					QCOM_SCM_VAL, QCOM_SCM_VAL,
+					QCOM_SCM_VAL, QCOM_SCM_VAL),
+	};
+
+	return qcom_scm_call_noretry(__scm->dev, &desc, NULL);
+}
+EXPORT_SYMBOL(qcom_scm_config_set_ice_key);
+
+int qcom_scm_clear_ice_key(uint32_t index,  unsigned int ce)
+{
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_ES,
+		.cmd = QCOM_SCM_ES_CLEAR_ICE_KEY,
+		.owner = ARM_SMCCC_OWNER_SIP,
+		.args[0] = index,
+		.args[1] = ce,
+		.arginfo = QCOM_SCM_ARGS(2),
+	};
+
+	return qcom_scm_call_noretry(__scm->dev, &desc, NULL);
+}
+EXPORT_SYMBOL(qcom_scm_clear_ice_key);
 
 /**
  * qcom_scm_hdcp_available() - Check if secure environment supports HDCP.
@@ -2363,6 +2463,7 @@ static const struct of_device_id qcom_scm_dt_match[] = {
 							     SCM_HAS_IFACE_CLK |
 							     SCM_HAS_BUS_CLK)
 	},
+	{ .compatible = "qcom,scm-msm8994" },
 	{ .compatible = "qcom,scm-msm8996" },
 	{ .compatible = "qcom,scm" },
 	{}

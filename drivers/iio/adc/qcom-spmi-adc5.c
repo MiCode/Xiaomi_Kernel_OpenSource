@@ -67,7 +67,7 @@
 #define ADC5_USR_IBAT_DATA1			0x53
 
 #define ADC_CHANNEL_OFFSET			0x8
-#define ADC_CHANNEL_MASK			0xff
+#define ADC_CHANNEL_MASK			GENMASK(7, 0)
 
 /*
  * Conversion time varies based on the decimation, clock rate, fast average
@@ -86,7 +86,7 @@
 
 /* For PMIC7 */
 #define ADC_APP_SID				0x40
-#define ADC_APP_SID_MASK			0xf
+#define ADC_APP_SID_MASK			GENMASK(3, 0)
 #define ADC7_CONV_TIMEOUT			msecs_to_jiffies(10)
 
 enum adc5_cal_method {
@@ -248,25 +248,20 @@ static int adc5_read_voltage_data(struct adc5_chip *adc, u16 *data)
 	*data = (rslt_msb << 8) | rslt_lsb;
 
 	if (*data == ADC5_USR_DATA_CHECK) {
-		pr_err("Invalid data:0x%x\n", *data);
+		dev_err(adc->dev, "Invalid data:0x%x\n", *data);
 		return -EINVAL;
 	}
 
-	pr_debug("voltage raw code:0x%x\n", *data);
+	dev_dbg(adc->dev, "voltage raw code:0x%x\n", *data);
 
 	return 0;
 }
 
-static int adc5_poll_wait_eoc(struct adc5_chip *adc, bool poll_only)
+static int adc5_poll_wait_eoc(struct adc5_chip *adc)
 {
 	unsigned int count, retry = ADC5_CONV_TIME_RETRY;
 	u8 status1;
 	int ret;
-
-	if (poll_only)
-		retry = ADC5_CONV_TIME_RETRY_POLL;
-	else
-		retry = ADC5_CONV_TIME_RETRY;
 
 	for (count = 0; count < retry; count++) {
 		ret = adc5_read(adc, ADC5_USR_STATUS1, &status1,
@@ -308,7 +303,7 @@ static int adc5_configure(struct adc5_chip *adc,
 
 	/* Read registers 0x42 through 0x46 */
 	ret = adc5_read(adc, ADC5_USR_DIG_PARAM, buf, sizeof(buf));
-	if (ret < 0)
+	if (ret)
 		return ret;
 
 	/* Digital param selection */
@@ -348,21 +343,21 @@ static int adc7_configure(struct adc5_chip *adc,
 		return ret;
 
 	ret = adc5_read(adc, ADC5_USR_DIG_PARAM, buf, sizeof(buf));
-	if (ret < 0)
+	if (ret)
 		return ret;
 
 	/* Digital param selection */
 	adc5_update_dig_param(adc, prop, &buf[0]);
 
 	/* Update fast average sample value */
-	buf[1] &= (u8) ~ADC5_USR_FAST_AVG_CTL_SAMPLES_MASK;
+	buf[1] &= ~ADC5_USR_FAST_AVG_CTL_SAMPLES_MASK;
 	buf[1] |= prop->avg_samples;
 
 	/* Select ADC channel */
 	buf[2] = prop->channel;
 
 	/* Select HW settle delay for channel */
-	buf[3] &= (u8) ~ADC5_USR_HW_SETTLE_DELAY_MASK;
+	buf[3] &= ~ADC5_USR_HW_SETTLE_DELAY_MASK;
 	buf[3] |= prop->hw_settle_time;
 
 	/* Select CONV request */
@@ -375,9 +370,7 @@ static int adc7_configure(struct adc5_chip *adc,
 	if (ret)
 		return ret;
 
-	ret = adc5_write(adc, ADC5_USR_CONV_REQ, &conv_req, 1);
-
-	return ret;
+	return adc5_write(adc, ADC5_USR_CONV_REQ, &conv_req, 1);
 }
 
 static int adc5_do_conversion(struct adc5_chip *adc,
@@ -391,24 +384,24 @@ static int adc5_do_conversion(struct adc5_chip *adc,
 
 	ret = adc5_configure(adc, prop);
 	if (ret) {
-		pr_err("ADC configure failed with %d\n", ret);
+		dev_err(adc->dev, "ADC configure failed with %d\n", ret);
 		goto unlock;
 	}
 
 	if (adc->poll_eoc) {
-		ret = adc5_poll_wait_eoc(adc, true);
-		if (ret < 0) {
-			pr_err("EOC bit not set\n");
+		ret = adc5_poll_wait_eoc(adc);
+		if (ret) {
+			dev_err(adc->dev, "EOC bit not set\n");
 			goto unlock;
 		}
 	} else {
 		ret = wait_for_completion_timeout(&adc->complete,
 							ADC5_CONV_TIMEOUT);
 		if (!ret) {
-			pr_debug("Did not get completion timeout.\n");
-			ret = adc5_poll_wait_eoc(adc, false);
-			if (ret < 0) {
-				pr_err("EOC bit not set\n");
+			dev_dbg(adc->dev, "Did not get completion timeout.\n");
+			ret = adc5_poll_wait_eoc(adc);
+			if (ret) {
+				dev_err(adc->dev, "EOC bit not set\n");
 				goto unlock;
 			}
 		}
@@ -427,26 +420,25 @@ static int adc7_do_conversion(struct adc5_chip *adc,
 			u16 *data_volt, u16 *data_cur)
 {
 	int ret;
-	u8 status = 0;
+	u8 status;
 
 	mutex_lock(&adc->lock);
 
 	ret = adc7_configure(adc, prop);
 	if (ret) {
-		pr_err("ADC configure failed with %d\n", ret);
+		dev_err(adc->dev, "ADC configure failed with %d\n", ret);
 		goto unlock;
 	}
 
-	/* No support for polling mode at present*/
-	wait_for_completion_timeout(&adc->complete,
-					ADC7_CONV_TIMEOUT);
+	/* No support for polling mode at present */
+	wait_for_completion_timeout(&adc->complete, ADC7_CONV_TIMEOUT);
 
 	ret = adc5_read(adc, ADC5_USR_STATUS1, &status, 1);
-	if (ret < 0)
+	if (ret)
 		goto unlock;
 
 	if (status & ADC5_USR_STATUS1_CONV_FAULT) {
-		pr_err("Unexpected conversion fault\n");
+		dev_err(adc->dev, "Unexpected conversion fault\n");
 		ret = -EIO;
 		goto unlock;
 	}
@@ -458,6 +450,11 @@ unlock:
 
 	return ret;
 }
+
+typedef int (*adc_do_conversion)(struct adc5_chip *adc,
+			struct adc5_channel_prop *prop,
+			struct iio_chan_spec const *chan,
+			u16 *data_volt, u16 *data_cur);
 
 static irqreturn_t adc5_isr(int irq, void *dev_id)
 {
@@ -488,8 +485,8 @@ static int adc7_of_xlate(struct iio_dev *indio_dev,
 	int i, v_channel;
 
 	for (i = 0; i < adc->nchannels; i++) {
-		v_channel = ((adc->chan_props[i].sid << ADC_CHANNEL_OFFSET) |
-			adc->chan_props[i].channel);
+		v_channel = (adc->chan_props[i].sid << ADC_CHANNEL_OFFSET) |
+			adc->chan_props[i].channel;
 		if (v_channel == iiospec->args[0])
 			return i;
 	}
@@ -497,9 +494,9 @@ static int adc7_of_xlate(struct iio_dev *indio_dev,
 	return -EINVAL;
 }
 
-static int adc7_read_raw(struct iio_dev *indio_dev,
+static int adc_read_raw_common(struct iio_dev *indio_dev,
 			 struct iio_chan_spec const *chan, int *val, int *val2,
-			 long mask)
+			 long mask, adc_do_conversion do_conv)
 {
 	struct adc5_chip *adc = iio_priv(indio_dev);
 	struct adc5_channel_prop *prop;
@@ -510,7 +507,7 @@ static int adc7_read_raw(struct iio_dev *indio_dev,
 
 	switch (mask) {
 	case IIO_CHAN_INFO_PROCESSED:
-		ret = adc7_do_conversion(adc, prop, chan,
+		ret = do_conv(adc, prop, chan,
 					&adc_code_volt, &adc_code_cur);
 		if (ret)
 			return ret;
@@ -519,59 +516,29 @@ static int adc7_read_raw(struct iio_dev *indio_dev,
 			&adc5_prescale_ratios[prop->prescale],
 			adc->data,
 			adc_code_volt, val);
-
 		if (ret)
 			return ret;
 
 		return IIO_VAL_INT;
-
-	case IIO_CHAN_INFO_RAW:
-		ret = adc7_do_conversion(adc, prop, chan,
-					&adc_code_volt, &adc_code_cur);
-		if (ret)
-			return ret;
-
-		*val = (int)adc_code_volt;
-		return IIO_VAL_INT;
-
 	default:
 		return -EINVAL;
 	}
-
-	return 0;
 }
 
 static int adc5_read_raw(struct iio_dev *indio_dev,
 			 struct iio_chan_spec const *chan, int *val, int *val2,
 			 long mask)
 {
-	struct adc5_chip *adc = iio_priv(indio_dev);
-	struct adc5_channel_prop *prop;
-	u16 adc_code_volt, adc_code_cur;
-	int ret;
+	return adc_read_raw_common(indio_dev, chan, val, val2,
+				mask, adc5_do_conversion);
+}
 
-	prop = &adc->chan_props[chan->address];
-
-	switch (mask) {
-	case IIO_CHAN_INFO_PROCESSED:
-		ret = adc5_do_conversion(adc, prop, chan,
-					&adc_code_volt, &adc_code_cur);
-		if (ret)
-			return ret;
-
-		ret = qcom_adc5_hw_scale(prop->scale_fn_type,
-			&adc5_prescale_ratios[prop->prescale],
-			adc->data,
-			adc_code_volt, val);
-		if (ret)
-			return ret;
-
-		return IIO_VAL_INT;
-	default:
-		return -EINVAL;
-	}
-
-	return 0;
+static int adc7_read_raw(struct iio_dev *indio_dev,
+			 struct iio_chan_spec const *chan, int *val, int *val2,
+			 long mask)
+{
+	return adc_read_raw_common(indio_dev, chan, val, val2,
+				mask, adc7_do_conversion);
 }
 
 static const struct iio_info adc5_info = {
@@ -675,17 +642,17 @@ static const struct adc5_channels adc7_chans_pmic[ADC5_MAX_CHANNEL] = {
 					SCALE_HW_CALIB_DEFAULT)
 	[ADC7_DIE_TEMP]		= ADC5_CHAN_TEMP("die_temp", 0,
 					SCALE_HW_CALIB_PMIC_THERM_PM7)
-	[ADC7_AMUX_THM1_100K_PU]	= ADC5_CHAN_TEMP("amux_thm1_pu2", 0,
+	[ADC7_AMUX_THM1_100K_PU] = ADC5_CHAN_TEMP("amux_thm1_pu2", 0,
 					SCALE_HW_CALIB_THERM_100K_PU_PM7)
-	[ADC7_AMUX_THM2_100K_PU]	= ADC5_CHAN_TEMP("amux_thm2_pu2", 0,
+	[ADC7_AMUX_THM2_100K_PU] = ADC5_CHAN_TEMP("amux_thm2_pu2", 0,
 					SCALE_HW_CALIB_THERM_100K_PU_PM7)
-	[ADC7_AMUX_THM3_100K_PU]	= ADC5_CHAN_TEMP("amux_thm3_pu2", 0,
+	[ADC7_AMUX_THM3_100K_PU] = ADC5_CHAN_TEMP("amux_thm3_pu2", 0,
 					SCALE_HW_CALIB_THERM_100K_PU_PM7)
-	[ADC7_AMUX_THM4_100K_PU]	= ADC5_CHAN_TEMP("amux_thm4_pu2", 0,
+	[ADC7_AMUX_THM4_100K_PU] = ADC5_CHAN_TEMP("amux_thm4_pu2", 0,
 					SCALE_HW_CALIB_THERM_100K_PU_PM7)
-	[ADC7_AMUX_THM5_100K_PU]	= ADC5_CHAN_TEMP("amux_thm5_pu2", 0,
+	[ADC7_AMUX_THM5_100K_PU] = ADC5_CHAN_TEMP("amux_thm5_pu2", 0,
 					SCALE_HW_CALIB_THERM_100K_PU_PM7)
-	[ADC7_AMUX_THM6_100K_PU]	= ADC5_CHAN_TEMP("amux_thm6_pu2", 0,
+	[ADC7_AMUX_THM6_100K_PU] = ADC5_CHAN_TEMP("amux_thm6_pu2", 0,
 					SCALE_HW_CALIB_THERM_100K_PU_PM7)
 	[ADC7_GPIO1_100K_PU]	= ADC5_CHAN_TEMP("gpio1_pu2", 0,
 					SCALE_HW_CALIB_THERM_100K_PU_PM7)
@@ -741,13 +708,13 @@ static int adc5_get_dt_channel_data(struct adc5_chip *adc,
 		return ret;
 	}
 
-	/*
-	 * Value read from "reg" is virtual channel number
-	 * virtual channel number = (sid << 8 | channel number).
-	 */
-	if (adc->is_pmic7) {
-		sid = (chan >> ADC_CHANNEL_OFFSET);
-		chan = (chan & ADC_CHANNEL_MASK);
+	/* Value read from "reg" is virtual channel number */
+
+	/* virtual channel number = sid << 8 | channel number */
+
+	if (adc->data->info == &adc7_info) {
+		sid = chan >> ADC_CHANNEL_OFFSET;
+		chan = chan & ADC_CHANNEL_MASK;
 	}
 
 	if (chan > ADC5_PARALLEL_ISENSE_VBAT_IDATA ||
@@ -763,7 +730,7 @@ static int adc5_get_dt_channel_data(struct adc5_chip *adc,
 	channel_name = of_get_property(node,
 				"label", NULL) ? : node->name;
 	if (!channel_name) {
-		pr_err("Invalid channel name\n");
+		dev_err(dev, "Invalid channel name\n");
 		return -EINVAL;
 	}
 	prop->datasheet_name = channel_name;
@@ -801,17 +768,17 @@ static int adc5_get_dt_channel_data(struct adc5_chip *adc,
 
 		ret = adc5_read(adc, ADC5_USR_REVISION1, dig_version,
 							sizeof(dig_version));
-		if (ret < 0) {
+		if (ret) {
 			dev_err(dev, "Invalid dig version read %d\n", ret);
 			return ret;
 		}
 
-		pr_debug("dig_ver:minor:%d, major:%d\n", dig_version[0],
+		dev_dbg(dev, "dig_ver:minor:%d, major:%d\n", dig_version[0],
 						dig_version[1]);
 		/* Digital controller >= 5.3 have hw_settle_2 option */
 		if ((dig_version[0] >= ADC5_HW_SETTLE_DIFF_MINOR &&
 			dig_version[1] >= ADC5_HW_SETTLE_DIFF_MAJOR) ||
-			(adc->is_pmic7))
+			adc->data->info == &adc7_info)
 			ret = adc5_hw_settle_time_from_dt(value,
 							data->hw_settle_2);
 		else
@@ -866,6 +833,7 @@ static const struct adc5_data adc5_data_pmic = {
 	.full_scale_code_volt = 0x70e4,
 	.full_scale_code_cur = 0x2710,
 	.adc_chans = adc5_chans_pmic,
+	.info = &adc5_info,
 	.decimation = (unsigned int [ADC5_DECIMATION_SAMPLES_MAX])
 				{250, 420, 840},
 	.hw_settle_1 = (unsigned int [VADC_HW_SETTLE_SAMPLES_MAX])
@@ -879,6 +847,7 @@ static const struct adc5_data adc5_data_pmic = {
 static const struct adc5_data adc7_data_pmic = {
 	.full_scale_code_volt = 0x70e4,
 	.adc_chans = adc7_chans_pmic,
+	.info = &adc7_info,
 	.decimation = (unsigned int [ADC5_DECIMATION_SAMPLES_MAX])
 				{85, 340, 1360},
 	.hw_settle_2 = (unsigned int [VADC_HW_SETTLE_SAMPLES_MAX])
@@ -891,6 +860,7 @@ static const struct adc5_data adc5_data_pmic_rev2 = {
 	.full_scale_code_volt = 0x4000,
 	.full_scale_code_cur = 0x1800,
 	.adc_chans = adc5_chans_rev2,
+	.info = &adc5_info,
 	.decimation = (unsigned int [ADC5_DECIMATION_SAMPLES_MAX])
 				{256, 512, 1024},
 	.hw_settle_1 = (unsigned int [VADC_HW_SETTLE_SAMPLES_MAX])
@@ -1007,21 +977,12 @@ static int adc5_probe(struct platform_device *pdev)
 	adc->dev = dev;
 	adc->base = reg;
 
-	platform_set_drvdata(pdev, adc);
-
-	if (of_device_is_compatible(node, "qcom,spmi-adc7")) {
-		indio_dev->info = &adc7_info;
-		adc->is_pmic7 = true;
-	} else {
-		indio_dev->info = &adc5_info;
-	}
-
 	init_completion(&adc->complete);
 	mutex_init(&adc->lock);
 
 	ret = adc5_get_dt_data(adc, node);
 	if (ret) {
-		pr_err("adc get dt data failed\n");
+		dev_err(dev, "adc get dt data failed\n");
 		return ret;
 	}
 
@@ -1037,10 +998,9 @@ static int adc5_probe(struct platform_device *pdev)
 			return ret;
 	}
 
-	indio_dev->dev.parent = dev;
-	indio_dev->dev.of_node = node;
 	indio_dev->name = pdev->name;
 	indio_dev->modes = INDIO_DIRECT_MODE;
+	indio_dev->info = adc->data->info;
 	indio_dev->channels = adc->iio_chans;
 	indio_dev->num_channels = adc->nchannels;
 

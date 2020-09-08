@@ -27,7 +27,7 @@ config BLK_DEV_MD
 
 	  More information about Software RAID on Linux is contained in the
 	  Software RAID mini-HOWTO, available from
-	  <http://www.tldp.org/docs.html#howto>. There you will also learn
+	  <https://www.tldp.org/docs.html#howto>. There you will also learn
 	  where to get the supporting user space utilities raidtools.
 
 	  If unsure, say N.
@@ -71,7 +71,7 @@ config MD_RAID0
 
 	  Information about Software RAID on Linux is contained in the
 	  Software-RAID mini-HOWTO, available from
-	  <http://www.tldp.org/docs.html#howto>. There you will also
+	  <https://www.tldp.org/docs.html#howto>. There you will also
 	  learn where to get the supporting user space utilities raidtools.
 
 	  To compile this as a module, choose M here: the module
@@ -93,7 +93,7 @@ config MD_RAID1
 
 	  Information about Software RAID on Linux is contained in the
 	  Software-RAID mini-HOWTO, available from
-	  <http://www.tldp.org/docs.html#howto>.  There you will also
+	  <https://www.tldp.org/docs.html#howto>.  There you will also
 	  learn where to get the supporting user space utilities raidtools.
 
 	  If you want to use such a RAID-1 set, say Y.  To compile this code
@@ -148,7 +148,7 @@ config MD_RAID456
 
 	  Information about Software RAID on Linux is contained in the
 	  Software-RAID mini-HOWTO, available from
-	  <http://www.tldp.org/docs.html#howto>. There you will also
+	  <https://www.tldp.org/docs.html#howto>. There you will also
 	  learn where to get the supporting user space utilities raidtools.
 
 	  If you want to use such a RAID-4/RAID-5/RAID-6 set, say Y.  To
@@ -561,7 +561,7 @@ config DM_VERITY_VERIFY_ROOTHASH_SIG
 config DM_VERITY_AVB
 	tristate "Support AVB specific verity error behavior"
 	depends on DM_VERITY
-	---help---
+	help
 	  Enables Android Verified Boot platform-specific error
 	  behavior. In particular, it will modify the vbmeta partition
 	  specified on the kernel command-line when non-transient error
@@ -653,7 +653,7 @@ config DM_BOW
 	tristate "Backup block device"
 	depends on BLK_DEV_DM
 	select DM_BUFIO
-	---help---
+	help
 	  This device-mapper target takes a device and keeps a log of all
 	  changes using free blocks identified by issuing a trim command.
 	  This can then be restored by running a command line utility,

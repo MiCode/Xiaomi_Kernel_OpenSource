@@ -51,13 +51,13 @@
 #define ADC5_FULL_SCALE_CODE			0x70e4
 #define ADC5_USR_DATA_CHECK			0x8000
 
-#define R_PU_100K			100000
-#define RATIO_MAX_ADC7		0x4000
+#define R_PU_100K				100000
+#define RATIO_MAX_ADC7				BIT(14)
 
-#define DIE_TEMP_ADC7_SCALE_1				-60000
-#define DIE_TEMP_ADC7_SCALE_2				20000
-#define DIE_TEMP_ADC7_SCALE_FACTOR			1000
-#define DIE_TEMP_ADC7_MAX				160000
+#define DIE_TEMP_ADC7_SCALE_1			-60000
+#define DIE_TEMP_ADC7_SCALE_2			20000
+#define DIE_TEMP_ADC7_SCALE_FACTOR		1000
+#define DIE_TEMP_ADC7_MAX			160000
 
 /**
  * struct vadc_map_pt - Map the graph representation for ADC channel
@@ -151,16 +151,15 @@ enum vadc_scale_fn_type {
 	SCALE_HW_CALIB_DEFAULT,
 	SCALE_HW_CALIB_THERM_100K_PULLUP,
 	SCALE_HW_CALIB_XOTHERM,
+	SCALE_HW_CALIB_THERM_100K_PU_PM7,
 	SCALE_HW_CALIB_PMIC_THERM,
-	SCALE_HW_CALIB_CUR,
+	SCALE_HW_CALIB_PMIC_THERM_PM7,
 	SCALE_HW_CALIB_PM5_CHG_TEMP,
 	SCALE_HW_CALIB_PM5_SMB_TEMP,
 	SCALE_HW_CALIB_BATT_THERM_100K,
 	SCALE_HW_CALIB_BATT_THERM_30K,
 	SCALE_HW_CALIB_BATT_THERM_400K,
 	SCALE_HW_CALIB_PM5_SMB1398_TEMP,
-	SCALE_HW_CALIB_THERM_100K_PU_PM7,
-	SCALE_HW_CALIB_PMIC_THERM_PM7,
 	SCALE_HW_CALIB_INVALID,
 };
 
@@ -168,6 +167,7 @@ struct adc5_data {
 	const u32	full_scale_code_volt;
 	const u32	full_scale_code_cur;
 	const struct adc5_channels *adc_chans;
+	const struct iio_info *info;
 	unsigned int	*decimation;
 	unsigned int	*hw_settle_1;
 	unsigned int	*hw_settle_2;

@@ -964,11 +964,7 @@ static void __uprobe_trace_func(struct trace_uprobe *tu,
 
 	memcpy(data, ucb->buf, tu->tp.size + dsize);
 
-#ifdef CONFIG_CORESIGHT_QGKI
-	event_trigger_unlock_commit(trace_file, buffer, event, entry, 0, 0, 0);
-#else
 	event_trigger_unlock_commit(trace_file, buffer, event, entry, 0, 0);
-#endif
 }
 
 /* uprobe handler */
@@ -1460,7 +1456,6 @@ trace_uprobe_register(struct trace_event_call *event, enum trace_reg type,
 	default:
 		return 0;
 	}
-	return 0;
 }
 
 static int uprobe_dispatcher(struct uprobe_consumer *con, struct pt_regs *regs)

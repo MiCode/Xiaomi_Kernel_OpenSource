@@ -146,6 +146,10 @@ config QCOM_LLCC_PERFMON
 	  interface. sysfs interface is used to configure and dump the LLCC
 	  performance events.
 
+config QCOM_KRYO_L2_ACCESSORS
+	bool
+	depends on ARCH_QCOM && ARM64 || COMPILE_TEST
+
 config QCOM_MDT_LOADER
 	tristate
 	select QCOM_SCM

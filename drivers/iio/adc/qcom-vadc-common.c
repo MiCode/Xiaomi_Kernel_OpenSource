@@ -517,6 +517,10 @@ static int qcom_vadc_scale_hw_calib_therm(
 				const struct vadc_prescale_ratio *prescale,
 				const struct adc5_data *data,
 				u16 adc_code, int *result_mdec);
+static int qcom_vadc7_scale_hw_calib_therm(
+				const struct vadc_prescale_ratio *prescale,
+				const struct adc5_data *data,
+				u16 adc_code, int *result_mdec);
 static int qcom_vadc_scale_hw_calib_batt_therm_100(
 				const struct vadc_prescale_ratio *prescale,
 				const struct adc5_data *data,
@@ -526,10 +530,6 @@ static int qcom_vadc_scale_hw_calib_batt_therm_30(
 				const struct adc5_data *data,
 				u16 adc_code, int *result_mdec);
 static int qcom_vadc_scale_hw_calib_batt_therm_400(
-				const struct vadc_prescale_ratio *prescale,
-				const struct adc5_data *data,
-				u16 adc_code, int *result_mdec);
-static int qcom_vadc7_scale_hw_calib_therm(
 				const struct vadc_prescale_ratio *prescale,
 				const struct adc5_data *data,
 				u16 adc_code, int *result_mdec);
@@ -751,15 +751,15 @@ static int qcom_vadc7_scale_hw_calib_therm(
 				const struct adc5_data *data,
 				u16 adc_code, int *result_mdec)
 {
-	s64 resistance = 0;
-	int ret, result = 0;
+	s64 resistance = adc_code;
+	int ret, result;
 
 	if (adc_code >= RATIO_MAX_ADC7)
 		return -EINVAL;
 
 	/* (ADC code * R_PULLUP (100Kohm)) / (full_scale_code - ADC code)*/
-	resistance = (s64) adc_code * R_PU_100K;
-	resistance = div64_s64(resistance, (RATIO_MAX_ADC7 - adc_code));
+	resistance *= R_PU_100K;
+	resistance = div64_s64(resistance, RATIO_MAX_ADC7 - adc_code);
 
 	ret = qcom_vadc_map_voltage_temp(adcmap7_100k,
 				 ARRAY_SIZE(adcmap7_100k),
@@ -865,29 +865,31 @@ static int qcom_vadc7_scale_hw_calib_die_temp(
 				u16 adc_code, int *result_mdec)
 {
 
-	int voltage, vtemp0, temp, i = 0;
+	int voltage, vtemp0, temp, i;
 
 	voltage = qcom_vadc_scale_code_voltage_factor(adc_code,
 				prescale, data, 1);
 
-	while (i < ARRAY_SIZE(adcmap7_die_temp)) {
-		if (adcmap7_die_temp[i].x > voltage)
-			break;
-		i++;
+	if (adcmap7_die_temp[0].x > voltage) {
+		*result_mdec = DIE_TEMP_ADC7_SCALE_1;
+		return 0;
 	}
 
-	if (i == 0) {
-		*result_mdec = DIE_TEMP_ADC7_SCALE_1;
-	} else if (i == ARRAY_SIZE(adcmap7_die_temp)) {
+	if (adcmap7_die_temp[ARRAY_SIZE(adcmap7_die_temp) - 1].x <= voltage) {
 		*result_mdec = DIE_TEMP_ADC7_MAX;
-	} else {
-		vtemp0 = adcmap7_die_temp[i-1].x;
-		voltage = voltage - vtemp0;
-		temp = div64_s64(voltage * DIE_TEMP_ADC7_SCALE_FACTOR,
-				adcmap7_die_temp[i-1].y);
-		temp += DIE_TEMP_ADC7_SCALE_1 + (DIE_TEMP_ADC7_SCALE_2 * (i-1));
-		*result_mdec = temp;
+		return 0;
 	}
+
+	for (i = 0; i < ARRAY_SIZE(adcmap7_die_temp); i++)
+		if (adcmap7_die_temp[i].x > voltage)
+			break;
+
+	vtemp0 = adcmap7_die_temp[i - 1].x;
+	voltage = voltage - vtemp0;
+	temp = div64_s64(voltage * DIE_TEMP_ADC7_SCALE_FACTOR,
+		adcmap7_die_temp[i - 1].y);
+	temp += DIE_TEMP_ADC7_SCALE_1 + (DIE_TEMP_ADC7_SCALE_2 * (i - 1));
+	*result_mdec = temp;
 
 	return 0;
 }

@@ -36,6 +36,7 @@ qcom_smd.ko
 mdt_loader.ko
 qmi_helpers.ko
 qcom_q6v5_pas.ko
+qcom_pil_info.ko
 qcom_sysmon.ko
 qcom_q6v5.ko
 qcom_common.ko

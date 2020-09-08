@@ -24,7 +24,7 @@
 #define SOCINFO_VERSION(maj, min)  ((((maj) & 0xffff) << 16)|((min) & 0xffff))
 
 #define SMEM_SOCINFO_BUILD_ID_LENGTH           32
-#define SMEM_SOCINFO_CHIP_ID_LENGTH			   32
+#define SMEM_SOCINFO_CHIP_ID_LENGTH            32
 
 /*
  * SMEM item id, used to acquire handles to respective
@@ -651,9 +651,10 @@ static const struct soc_id soc_id[] = {
 	{ 310, "MSM8996AU" },
 	{ 311, "APQ8096AU" },
 	{ 312, "APQ8096SG" },
+	{ 318, "SDM630" },
 	{ 321, "SDM845" },
 	{ 341, "SDA845" },
-	{ 356, "KONA" },
+	{ 356, "SM8250" },
 	{ 415, "LAHAINA" },
 	{ 450, "SHIMA" },
 	{ 454, "HOLI" },

@@ -58,7 +58,6 @@
 #define PLL_STATUS(p)		((p)->offset + (p)->regs[PLL_OFF_STATUS])
 #define PLL_OPMODE(p)		((p)->offset + (p)->regs[PLL_OFF_OPMODE])
 #define PLL_FRAC(p)		((p)->offset + (p)->regs[PLL_OFF_FRAC])
-#define PLL_CAL_VAL(p)		((p)->offset + (p)->regs[PLL_OFF_CAL_VAL])
 
 #define FABIA_PLL_RATE_MARGIN   500
 
@@ -106,22 +105,6 @@ const u8 clk_alpha_pll_regs[][PLL_OFF_MAX_REGS] = {
 		[PLL_OFF_FRAC] = 0x38,
 	},
 	[CLK_ALPHA_PLL_TYPE_TRION] = {
-		[PLL_OFF_L_VAL] = 0x04,
-		[PLL_OFF_CAL_L_VAL] = 0x08,
-		[PLL_OFF_USER_CTL] = 0x0c,
-		[PLL_OFF_USER_CTL_U] = 0x10,
-		[PLL_OFF_USER_CTL_U1] = 0x14,
-		[PLL_OFF_CONFIG_CTL] = 0x18,
-		[PLL_OFF_CONFIG_CTL_U] = 0x1c,
-		[PLL_OFF_CONFIG_CTL_U1] = 0x20,
-		[PLL_OFF_TEST_CTL] = 0x24,
-		[PLL_OFF_TEST_CTL_U] = 0x28,
-		[PLL_OFF_STATUS] = 0x30,
-		[PLL_OFF_OPMODE] = 0x38,
-		[PLL_OFF_ALPHA_VAL] = 0x40,
-		[PLL_OFF_CAL_VAL] = 0x44,
-	},
-	[CLK_ALPHA_PLL_TYPE_LUCID] =  {
 		[PLL_OFF_L_VAL] = 0x04,
 		[PLL_OFF_CAL_L_VAL] = 0x08,
 		[PLL_OFF_USER_CTL] = 0x0c,
@@ -234,6 +217,13 @@ EXPORT_SYMBOL_GPL(clk_alpha_pll_regs);
 #define PLL_RUN			0x1
 #define PLL_OUT_MASK		0x7
 #define PLL_RATE_MARGIN		500
+
+/* TRION PLL specific settings and offsets */
+#define TRION_PLL_CAL_VAL	0x44
+#define TRION_PCAL_DONE		BIT(26)
+
+/* LUCID PLL specific settings and offsets */
+#define LUCID_PCAL_DONE		BIT(27)
 
 #define pll_alpha_width(p)					\
 		((PLL_ALPHA_VAL_U(p) - PLL_ALPHA_VAL(p) == 4) ?	\
@@ -990,14 +980,14 @@ const struct clk_ops clk_alpha_pll_hwfsm_ops = {
 };
 EXPORT_SYMBOL_GPL(clk_alpha_pll_hwfsm_ops);
 
-const struct clk_ops clk_trion_fixed_pll_ops = {
+const struct clk_ops clk_alpha_pll_fixed_trion_ops = {
 	.enable = clk_trion_pll_enable,
 	.disable = clk_trion_pll_disable,
 	.is_enabled = clk_trion_pll_is_enabled,
 	.recalc_rate = clk_trion_pll_recalc_rate,
 	.round_rate = clk_alpha_pll_round_rate,
 };
-EXPORT_SYMBOL_GPL(clk_trion_fixed_pll_ops);
+EXPORT_SYMBOL_GPL(clk_alpha_pll_fixed_trion_ops);
 #endif
 
 static int __zonda_pll_is_enabled(struct clk_alpha_pll *pll,
@@ -1967,12 +1957,12 @@ clk_trion_pll_postdiv_set_rate(struct clk_hw *hw, unsigned long rate,
 				  val << PLL_POST_DIV_SHIFT);
 }
 
-const struct clk_ops clk_trion_pll_postdiv_ops = {
+const struct clk_ops clk_alpha_pll_postdiv_trion_ops = {
 	.recalc_rate = clk_trion_pll_postdiv_recalc_rate,
 	.round_rate = clk_trion_pll_postdiv_round_rate,
 	.set_rate = clk_trion_pll_postdiv_set_rate,
 };
-EXPORT_SYMBOL_GPL(clk_trion_pll_postdiv_ops);
+EXPORT_SYMBOL_GPL(clk_alpha_pll_postdiv_trion_ops);
 
 static long clk_alpha_pll_postdiv_fabia_round_rate(struct clk_hw *hw,
 				unsigned long rate, unsigned long *prate)
@@ -2054,8 +2044,15 @@ static void clk_alpha_pll_custom_configure(struct clk_alpha_pll *pll,
 				config->custom_reg_val[i]);
 }
 
-void clk_lucid_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
-				const struct alpha_pll_config *config)
+/**
+ * clk_lucid_pll_configure - configure the lucid pll
+ *
+ * @pll: clk alpha pll
+ * @regmap: register map
+ * @config: configuration to apply for pll
+ */
+void clk_trion_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
+			     const struct alpha_pll_config *config)
 {
 	int ret;
 
@@ -2069,7 +2066,7 @@ void clk_lucid_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 	if (config->cal_l)
 		regmap_write(regmap, PLL_CAL_L_VAL(pll), config->cal_l);
 	else
-		regmap_write(regmap, PLL_CAL_L_VAL(pll), LUCID_PLL_CAL_VAL);
+		regmap_write(regmap, PLL_CAL_L_VAL(pll), TRION_PLL_CAL_VAL);
 
 	if (config->alpha)
 		regmap_write(regmap, PLL_ALPHA_VAL(pll), config->alpha);
@@ -2128,6 +2125,7 @@ void clk_lucid_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 	regmap_update_bits(regmap, PLL_MODE(pll),
 				 PLL_RESET_N, PLL_RESET_N);
 }
+EXPORT_SYMBOL_GPL(clk_trion_pll_configure);
 
 static int alpha_pll_lucid_enable(struct clk_hw *hw)
 {
@@ -2208,14 +2206,10 @@ static void alpha_pll_lucid_disable(struct clk_hw *hw)
 }
 
 /*
- * The Lucid PLL requires a power-on self-calibration which happens when the
- * PLL comes out of reset. The calibration is performed at an output frequency
- * of ~1300 MHz which means that SW will have to vote on a voltage that's
- * equal to or greater than SVS_L1 on the corresponding rail. Since this is not
- * feasable to do in the atomic enable path, temporarily bring up the PLL here,
- * let it calibrate, and place it in standby before returning.
+ * The TRION PLL requires a power-on self-calibration which happens when the
+ * PLL comes out of reset. Calibrate in case it is not completed.
  */
-static int alpha_pll_lucid_prepare(struct clk_hw *hw)
+static int __alpha_pll_trion_prepare(struct clk_hw *hw, u32 pcal_done)
 {
 	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
 	struct clk_hw *p;
@@ -2229,7 +2223,7 @@ static int alpha_pll_lucid_prepare(struct clk_hw *hw)
 
 	/* Return early if calibration is not needed. */
 	regmap_read(pll->clkr.regmap, PLL_MODE(pll), &regval);
-	if (regval & LUCID_PCAL_DONE)
+	if (regval & pcal_done)
 		return 0;
 
 	if (pll->config) {
@@ -2275,7 +2269,17 @@ alpha_pll_lucid_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
 	return alpha_pll_calc_rate(parent_rate, l, frac, ALPHA_REG_16BIT_WIDTH);
 }
 
-static int alpha_pll_lucid_set_rate(struct clk_hw *hw, unsigned long rate,
+static int alpha_pll_trion_prepare(struct clk_hw *hw)
+{
+	return __alpha_pll_trion_prepare(hw, TRION_PCAL_DONE);
+}
+
+static int alpha_pll_lucid_prepare(struct clk_hw *hw)
+{
+	return __alpha_pll_trion_prepare(hw, LUCID_PCAL_DONE);
+}
+
+static int alpha_pll_trion_set_rate(struct clk_hw *hw, unsigned long rate,
 				    unsigned long prate)
 {
 	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
@@ -2708,6 +2712,17 @@ static int clk_lucid_pll_init(struct clk_hw *hw)
 	return 0;
 }
 
+const struct clk_ops clk_alpha_pll_trion_ops = {
+	.prepare = alpha_pll_trion_prepare,
+	.enable = clk_trion_pll_enable,
+	.disable = clk_trion_pll_disable,
+	.is_enabled = clk_trion_pll_is_enabled,
+	.recalc_rate = clk_trion_pll_recalc_rate,
+	.round_rate = clk_alpha_pll_round_rate,
+	.set_rate = alpha_pll_trion_set_rate,
+};
+EXPORT_SYMBOL_GPL(clk_alpha_pll_trion_ops);
+
 const struct clk_ops clk_alpha_pll_lucid_ops = {
 	.prepare = alpha_pll_lucid_prepare,
 	.unprepare = clk_unprepare_regmap,
@@ -2718,7 +2733,7 @@ const struct clk_ops clk_alpha_pll_lucid_ops = {
 	.is_enabled = alpha_pll_lucid_is_enabled,
 	.recalc_rate = alpha_pll_lucid_recalc_rate,
 	.round_rate = clk_alpha_pll_round_rate,
-	.set_rate = alpha_pll_lucid_set_rate,
+	.set_rate = alpha_pll_trion_set_rate,
 	.debug_init = clk_common_debug_init,
 	.init = clk_lucid_pll_init,
 #ifdef CONFIG_COMMON_CLK_QCOM_DEBUG
@@ -2745,24 +2760,6 @@ const struct clk_ops clk_alpha_pll_lucid_5lpe_ops = {
 #endif
 };
 EXPORT_SYMBOL(clk_alpha_pll_lucid_5lpe_ops);
-
-const struct clk_ops clk_alpha_pll_fixed_lucid_ops = {
-	.prepare = clk_prepare_regmap,
-	.unprepare = clk_unprepare_regmap,
-	.pre_rate_change = clk_pre_change_regmap,
-	.post_rate_change = clk_post_change_regmap,
-	.enable = alpha_pll_lucid_enable,
-	.disable = alpha_pll_lucid_disable,
-	.is_enabled = alpha_pll_lucid_is_enabled,
-	.recalc_rate = alpha_pll_lucid_recalc_rate,
-	.round_rate = clk_alpha_pll_round_rate,
-	.debug_init = clk_common_debug_init,
-	.init = clk_lucid_pll_init,
-#ifdef CONFIG_COMMON_CLK_QCOM_DEBUG
-	.list_rate_vdd_level = clk_list_rate_vdd_level,
-#endif
-};
-EXPORT_SYMBOL(clk_alpha_pll_fixed_lucid_ops);
 
 const struct clk_ops clk_alpha_pll_postdiv_lucid_ops = {
 	.recalc_rate = clk_alpha_pll_postdiv_fabia_recalc_rate,

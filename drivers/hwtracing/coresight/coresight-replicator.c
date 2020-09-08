@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2011-2015, 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * Description: CoreSight Replicator driver
  */
@@ -14,6 +14,7 @@
 #include <linux/err.h>
 #include <linux/slab.h>
 #include <linux/pm_runtime.h>
+#include <linux/property.h>
 #include <linux/clk.h>
 #include <linux/of.h>
 #include <linux/coresight.h>
@@ -32,12 +33,14 @@ DEFINE_CORESIGHT_DEVLIST(replicator_devs, "replicator");
  * @atclk:	optional clock for the core parts of the replicator.
  * @csdev:	component vitals needed by the framework
  * @spinlock:	serialize enable/disable operations.
+ * @check_idfilter_val: check if the context is lost upon clock removal.
  */
 struct replicator_drvdata {
 	void __iomem		*base;
 	struct clk		*atclk;
 	struct coresight_device	*csdev;
 	spinlock_t		spinlock;
+	bool			check_idfilter_val;
 };
 
 static void dynamic_replicator_reset(struct replicator_drvdata *drvdata)
@@ -66,44 +69,46 @@ static int dynamic_replicator_enable(struct replicator_drvdata *drvdata,
 				     int inport, int outport)
 {
 	int rc = 0;
-	u32 reg;
-
-	switch (outport) {
-	case 0:
-		reg = REPLICATOR_IDFILTER0;
-		break;
-	case 1:
-		reg = REPLICATOR_IDFILTER1;
-		break;
-	default:
-		WARN_ON(1);
-		return -EINVAL;
-	}
+	u32 id0val, id1val;
 
 	CS_UNLOCK(drvdata->base);
 
-	if ((readl_relaxed(drvdata->base + REPLICATOR_IDFILTER0) == 0xff) &&
-	    (readl_relaxed(drvdata->base + REPLICATOR_IDFILTER1) == 0xff))
+	id0val = readl_relaxed(drvdata->base + REPLICATOR_IDFILTER0);
+	id1val = readl_relaxed(drvdata->base + REPLICATOR_IDFILTER1);
+
+	/*
+	 * Some replicator designs lose context when AMBA clocks are removed,
+	 * so have a check for this.
+	 */
+	if (drvdata->check_idfilter_val && id0val == 0x0 && id1val == 0x0)
+		id0val = id1val = 0xff;
+
+	if (id0val == 0xff && id1val == 0xff)
 		rc = coresight_claim_device_unlocked(drvdata->base);
 
+	if (!rc) {
+		switch (outport) {
+		case 0:
+			id0val = 0x0;
+			break;
+		case 1:
+			id1val = 0x0;
+			break;
+		default:
+			WARN_ON(1);
+			rc = -EINVAL;
+		}
+	}
+
 	/* Ensure that the outport is enabled. */
-	if (!rc)
-		writel_relaxed(0x00, drvdata->base + reg);
+	if (!rc) {
+		writel_relaxed(id0val, drvdata->base + REPLICATOR_IDFILTER0);
+		writel_relaxed(id1val, drvdata->base + REPLICATOR_IDFILTER1);
+	}
+
 	CS_LOCK(drvdata->base);
 
 	return rc;
-}
-
-static bool is_replicator_disabled(struct coresight_device *csdev)
-{
-	int i;
-
-	for (i = 0; i < csdev->pdata->nr_outport; i++) {
-		if (atomic_read(&csdev->refcnt[i]) > 0)
-			return false;
-	}
-
-	return true;
 }
 
 static int replicator_enable(struct coresight_device *csdev, int inport,
@@ -115,10 +120,6 @@ static int replicator_enable(struct coresight_device *csdev, int inport,
 	bool first_enable = false;
 
 	spin_lock_irqsave(&drvdata->spinlock, flags);
-
-	if (is_replicator_disabled(csdev))
-		dynamic_replicator_reset(drvdata);
-
 	if (atomic_read(&csdev->refcnt[outport]) == 0) {
 		if (drvdata->base)
 			rc = dynamic_replicator_enable(drvdata, inport,
@@ -255,9 +256,11 @@ static int replicator_probe(struct device *dev, struct resource *res)
 		desc.groups = replicator_groups;
 	}
 
-	dev_set_drvdata(dev, drvdata);
+	if (fwnode_property_present(dev_fwnode(dev),
+				    "qcom,replicator-loses-context"))
+		drvdata->check_idfilter_val = true;
 
-	spin_lock_init(&drvdata->spinlock);
+	dev_set_drvdata(dev, drvdata);
 
 	pdata = coresight_get_platform_data(dev);
 	if (IS_ERR(pdata)) {
@@ -366,16 +369,9 @@ static int dynamic_replicator_probe(struct amba_device *adev,
 }
 
 static const struct amba_id dynamic_replicator_ids[] = {
-	{
-		.id     = 0x000bb909,
-		.mask   = 0x000fffff,
-	},
-	{
-		/* Coresight SoC-600 */
-		.id     = 0x000bb9ec,
-		.mask   = 0x000fffff,
-	},
-	{ 0, 0 },
+	CS_AMBA_ID(0x000bb909),
+	CS_AMBA_ID(0x000bb9ec),		/* Coresight SoC-600 */
+	{},
 };
 
 static struct amba_driver dynamic_replicator_driver = {

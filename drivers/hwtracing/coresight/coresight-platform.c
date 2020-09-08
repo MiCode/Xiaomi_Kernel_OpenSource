@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2012, 2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/acpi.h>
@@ -27,9 +27,8 @@ static int coresight_alloc_conns(struct device *dev,
 				 struct coresight_platform_data *pdata)
 {
 	if (pdata->nr_outport) {
-		pdata->conns = devm_kzalloc(dev, pdata->nr_outport *
-					    sizeof(*pdata->conns),
-					    GFP_KERNEL);
+		pdata->conns = devm_kcalloc(dev, pdata->nr_outport,
+					    sizeof(*pdata->conns), GFP_KERNEL);
 		if (!pdata->conns)
 			return -ENOMEM;
 	}
@@ -216,9 +215,6 @@ static int of_coresight_parse_endpoint(struct device *dev,
 	struct of_endpoint endpoint, rendpoint;
 	struct device_node *rparent = NULL;
 	struct device_node *rep = NULL;
-#ifdef CONFIG_CORESIGHT_QGKI
-	struct device_node *sn = NULL;
-#endif
 	struct device *rdev = NULL;
 	struct fwnode_handle *rdev_fwnode;
 	struct coresight_connection *conn;
@@ -266,15 +262,6 @@ static int of_coresight_parse_endpoint(struct device *dev,
 		 */
 		conn->child_fwnode = fwnode_handle_get(rdev_fwnode);
 		conn->child_port = rendpoint.port;
-#ifdef CONFIG_CORESIGHT_QGKI
-		conn->source_name = NULL;
-		sn = of_parse_phandle(ep, "source", 0);
-		if (sn) {
-			ret = of_property_read_string(sn,
-			"coresight-name", &conn->source_name);
-			of_node_put(sn);
-		}
-#endif
 		/* Connection record updated */
 	} while (0);
 
@@ -284,60 +271,7 @@ static int of_coresight_parse_endpoint(struct device *dev,
 
 	return ret;
 }
-#ifdef CONFIG_CORESIGHT_QGKI
-static struct coresight_reg_clk *
-of_coresight_get_reg_clk(struct device *dev, const struct device_node *node)
-{
-	struct coresight_reg_clk *reg_clk;
-	const char *clk_name, *reg_name;
-	int nr_reg, nr_clk, i, ret;
 
-	nr_reg = of_property_count_strings(node, "qcom,proxy-regs");
-	nr_clk = of_property_count_strings(node, "qcom,proxy-clks");
-	if (!nr_reg && !nr_clk)
-		return NULL;
-
-	reg_clk = devm_kzalloc(dev, sizeof(*reg_clk), GFP_KERNEL);
-	if (!reg_clk)
-		return ERR_PTR(-ENOMEM);
-
-	reg_clk->nr_reg = nr_reg;
-	reg_clk->nr_clk = nr_clk;
-	if (nr_reg > 0) {
-		reg_clk->reg = devm_kzalloc(dev, nr_reg *
-			sizeof(reg_clk->reg), GFP_KERNEL);
-		if (!reg_clk->reg)
-			return ERR_PTR(-ENOMEM);
-
-		for (i = 0; i < nr_reg; i++) {
-			ret = of_property_read_string_index(node,
-				"qcom,proxy-regs", i, &reg_name);
-			if (ret)
-				return ERR_PTR(ret);
-			reg_clk->reg[i] = devm_regulator_get(dev, reg_name);
-			if (IS_ERR(reg_clk->reg[i]))
-				return ERR_PTR(-EINVAL);
-		}
-	}
-	if (nr_clk > 0) {
-		reg_clk->clk = devm_kzalloc(dev, nr_clk *
-			sizeof(reg_clk->clk), GFP_KERNEL);
-		if (!reg_clk->clk)
-			return ERR_PTR(-ENOMEM);
-
-		for (i = 0; i < nr_clk; i++) {
-			ret = of_property_read_string_index(node,
-				"qcom,proxy-clks", i, &clk_name);
-			if (ret)
-				return ERR_PTR(ret);
-			reg_clk->clk[i] = devm_clk_get(dev, clk_name);
-			if (IS_ERR(reg_clk->clk[i]))
-				return ERR_PTR(-EINVAL);
-		}
-	}
-	return reg_clk;
-}
-#endif
 static int of_get_coresight_platform_data(struct device *dev,
 					  struct coresight_platform_data *pdata)
 {
@@ -347,11 +281,6 @@ static int of_get_coresight_platform_data(struct device *dev,
 	bool legacy_binding = false;
 	struct device_node *node = dev->of_node;
 
-#ifdef CONFIG_CORESIGHT_QGKI
-	pdata->reg_clk = of_coresight_get_reg_clk(dev, node);
-	if (IS_ERR(pdata->reg_clk))
-		return PTR_ERR(pdata->reg_clk);
-#endif
 	/* Get the number of input and output port for this component */
 	of_coresight_get_ports(node, &pdata->nr_inport, &pdata->nr_outport);
 
