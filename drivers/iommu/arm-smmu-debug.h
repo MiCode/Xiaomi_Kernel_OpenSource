@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020, The Linux Foundation. All rights reserved.
  */
 
 #define ARM_SMMU_TESTBUS_SEL			0x25E4
@@ -65,14 +65,14 @@ u32 arm_smmu_debug_tbu_testbus_select(void __iomem *tbu_base,
 		bool write, u32 reg);
 u32 arm_smmu_debug_tbu_testbus_output(void __iomem *tbu_base,
 					u32 testbus_version);
-u32 arm_smmu_debug_tcu_testbus_select(void __iomem *base,
+u32 arm_smmu_debug_tcu_testbus_select(phys_addr_t phys_addr,
 		void __iomem *tcu_base, enum tcu_testbus testbus,
 		bool write, u32 val);
-u32 arm_smmu_debug_tcu_testbus_output(void __iomem *base);
+u32 arm_smmu_debug_tcu_testbus_output(phys_addr_t phys_addr);
 void arm_smmu_debug_dump_tbu_testbus(struct device *dev, void __iomem *tbu_base,
 		void __iomem *tcu_base, int tbu_testbus_sel,
 		u32 testbus_version);
-void arm_smmu_debug_dump_tcu_testbus(struct device *dev, void __iomem *base,
+void arm_smmu_debug_dump_tcu_testbus(struct device *dev, phys_addr_t phys_addr,
 			void __iomem *tcu_base, int tcu_testbus_sel);
 void arm_smmu_debug_set_tnx_tcr_cntl(void __iomem *tbu_base, u64 val);
 unsigned long arm_smmu_debug_get_tnx_tcr_cntl(void __iomem *tbu_base);
@@ -94,12 +94,12 @@ static inline u32 arm_smmu_debug_tbu_testbus_output(void __iomem *tbu_base,
 						u32 testbus_version)
 {
 }
-u32 arm_smmu_debug_tcu_testbus_select(void __iomem *base,
-		void __iomem *tcu_base, enum tcu_testbus testbus,
+u32 arm_smmu_debug_tcu_testbus_select(phys_addr_t phys_addr,
+		void __iomem *tcu_base,	enum tcu_testbus testbus,
 		bool write, u32 val)
 {
 }
-static inline u32 arm_smmu_debug_tcu_testbus_output(void __iomem *base)
+static inline u32 arm_smmu_debug_tcu_testbus_output(phys_addr_t phys_addr)
 {
 }
 static inline void arm_smmu_debug_dump_tbu_testbus(struct device *dev,
@@ -108,7 +108,7 @@ static inline void arm_smmu_debug_dump_tbu_testbus(struct device *dev,
 {
 }
 static inline void arm_smmu_debug_dump_tcu_testbus(struct device *dev,
-			void __iomem *base, void __iomem *tcu_base,
+			phys_addr_t phys_addr, void __iomem *tcu_base,
 			int tcu_testbus_sel)
 {
 }

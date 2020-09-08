@@ -579,6 +579,15 @@ static struct ctl_table kern_table[] = {
 		.extra1		= &min_cfs_boost_prio,
 		.extra2		= &max_cfs_boost_prio,
 	},
+	{
+		.procname	= "walt_low_latency_task_boost",
+		.data		= &sysctl_walt_low_latency_task_boost,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler   = proc_dointvec_minmax,
+		.extra1		= &zero,
+		.extra2		= &one,
+	},
 #endif
 #ifdef CONFIG_SCHED_DEBUG
 	{

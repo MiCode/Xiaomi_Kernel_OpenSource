@@ -44,6 +44,7 @@ struct diag_mhi_info diag_mhi[NUM_MHI_DEV][NUM_MHI_CHAN] = {
 			.name = "MDM",
 			.enabled = 0,
 			.num_read = 0,
+			.device_reset = 0,
 			.mempool = POOL_TYPE_MDM,
 			.mempool_init = 0,
 			.mhi_wq = NULL,
@@ -61,6 +62,7 @@ struct diag_mhi_info diag_mhi[NUM_MHI_DEV][NUM_MHI_CHAN] = {
 			.name = "MDM_DCI",
 			.enabled = 0,
 			.num_read = 0,
+			.device_reset = 0,
 			.mempool = POOL_TYPE_MDM_DCI,
 			.mempool_init = 0,
 			.mhi_wq = NULL,
@@ -80,6 +82,7 @@ struct diag_mhi_info diag_mhi[NUM_MHI_DEV][NUM_MHI_CHAN] = {
 			.name = "MDM_2",
 			.enabled = 0,
 			.num_read = 0,
+			.device_reset = 0,
 			.mempool = POOL_TYPE_MDM2,
 			.mempool_init = 0,
 			.mhi_wq = NULL,
@@ -97,6 +100,7 @@ struct diag_mhi_info diag_mhi[NUM_MHI_DEV][NUM_MHI_CHAN] = {
 			.name = "MDM_DCI_2",
 			.enabled = 0,
 			.num_read = 0,
+			.device_reset = 0,
 			.mempool = POOL_TYPE_MDM2_DCI,
 			.mempool_init = 0,
 			.mhi_wq = NULL,
@@ -294,6 +298,7 @@ static int __mhi_close(struct diag_mhi_info *mhi_info, int close_flag)
 	}
 	mhi_buf_tbl_clear(mhi_info);
 	diag_remote_dev_close(mhi_info->dev_id);
+	mhi_info->device_reset = 1;
 	return 0;
 }
 
@@ -377,6 +382,7 @@ static int __mhi_open(struct diag_mhi_info *mhi_info, int token, int open_flag)
 		}
 	}
 
+	mhi_info->device_reset = 0;
 	diag_remote_dev_open(mhi_info->dev_id);
 	queue_work(mhi_info->mhi_wq, &(mhi_info->read_work));
 	return 0;
@@ -660,6 +666,13 @@ static int mhi_fwd_complete(int token, int ch, unsigned char *buf,
 	}
 	if (!buf)
 		return -EINVAL;
+
+	if (diag_mhi[dev_idx][ch].device_reset) {
+		DIAG_LOG(DIAG_DEBUG_MHI,
+		"Device (id: %d, ch: %d) has gone down, skip freeing buffer %pK len:%d\n",
+		dev_idx, ch, buf, len);
+		return -ENODEV;
+	}
 
 	DIAG_LOG(DIAG_DEBUG_MHI,
 		"Remove buffer from mhi read table after write completion %pK len:%d\n",

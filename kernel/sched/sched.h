@@ -2903,6 +2903,11 @@ static inline bool task_rtg_high_prio(struct task_struct *p)
 		(p->prio <= sysctl_walt_rtg_cfs_boost_prio);
 }
 
+static inline bool walt_low_latency_task(struct task_struct *p)
+{
+	return sysctl_walt_low_latency_task_boost && p->low_latency;
+}
+
 /* Is frequency of two cpus synchronized with each other? */
 static inline int same_freq_domain(int src_cpu, int dst_cpu)
 {

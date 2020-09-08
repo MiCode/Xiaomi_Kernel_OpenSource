@@ -553,7 +553,7 @@ int cnss_wlfw_bdf_dnld_send_sync(struct cnss_plat_data *plat_priv,
 				     filename, sizeof(filename));
 	if (ret > 0) {
 		temp = DUMMY_BDF_FILE_NAME;
-		remaining = MAX_FIRMWARE_NAME_LEN;
+		remaining = strlen(DUMMY_BDF_FILE_NAME) + 1;
 		goto bypass_bdf;
 	} else if (ret < 0) {
 		goto err_req_fw;

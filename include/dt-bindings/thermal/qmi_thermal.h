@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved. */
 
 #ifndef _DT_BINDINGS_QCOM_QMI_THERMAL_H
 #define _DT_BINDINGS_QCOM_QMI_THERMAL_H
@@ -30,6 +30,9 @@
 #define QMI_SYS_THERM_1		23
 #define QMI_SYS_THERM_2		24
 #define QMI_MODEM_TSENS_1	25
+#define QMI_BEAMER_W_THERM	26
+#define QMI_BEAMER_N_THERM	27
+#define QMI_BEAMER_E_THERM	28
 
 #define QMI_MODEM_INST_ID	0x0
 #define QMI_ADSP_INST_ID	0x1

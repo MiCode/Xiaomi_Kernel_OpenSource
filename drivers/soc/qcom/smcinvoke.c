@@ -1025,6 +1025,7 @@ static int marshal_out_invoke_req(const uint8_t *buf, uint32_t buf_size,
 				union smcinvoke_arg *args_buf)
 {
 	int ret = -EINVAL, i = 0;
+	int32_t temp_fd = UHANDLE_NULL;
 	union smcinvoke_tz_args *tz_args = NULL;
 	size_t offset = sizeof(struct smcinvoke_msg_hdr) +
 				OBJECT_COUNTS_TOTAL(req->counts) *
@@ -1065,9 +1066,15 @@ static int marshal_out_invoke_req(const uint8_t *buf, uint32_t buf_size,
 		 * is a CBObj. For CBObj, we have to ensure that it is sent
 		 * to server who serves it and that info comes from USpace.
 		 */
+		temp_fd = UHANDLE_NULL;
+
 		ret = get_uhandle_from_tzhandle(tz_args->handle,
 					TZHANDLE_GET_SERVER(tz_args->handle),
-				(int32_t *)&(args_buf[i].o.fd), NO_LOCK);
+				&temp_fd, NO_LOCK);
+
+		if (temp_fd >= 0)
+			args_buf[i].o.fd = temp_fd;
+
 		if (ret)
 			goto out;
 		tz_args++;
@@ -1282,6 +1289,7 @@ static int marshal_in_tzcb_req(const struct smcinvoke_cb_txn *cb_txn,
 				struct smcinvoke_accept *user_req, int srvr_id)
 {
 	int ret = 0, i = 0;
+	int32_t temp_fd = UHANDLE_NULL;
 	union smcinvoke_arg tmp_arg;
 	struct smcinvoke_tzcb_req *tzcb_req = cb_txn->cb_req;
 	union smcinvoke_tz_args *tz_args = tzcb_req->args;
@@ -1358,8 +1366,14 @@ static int marshal_in_tzcb_req(const struct smcinvoke_cb_txn *cb_txn,
 		 * create a new FD and assign to output object's
 		 * context
 		 */
+		temp_fd = UHANDLE_NULL;
+
 		ret = get_uhandle_from_tzhandle(tz_args[i].handle, srvr_id,
-					(int32_t *)&(tmp_arg.o.fd), TAKE_LOCK);
+					&temp_fd, TAKE_LOCK);
+
+		if (temp_fd >= 0)
+			tmp_arg.o.fd = temp_fd;
+
 		if (ret) {
 			ret = -EINVAL;
 			goto out;

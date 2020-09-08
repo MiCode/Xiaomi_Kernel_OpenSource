@@ -726,7 +726,7 @@ out:
 
 static int icnss_pd_restart_complete(struct icnss_priv *priv)
 {
-	int ret;
+	int ret = 0;
 
 	icnss_pm_relax(priv);
 
@@ -766,7 +766,6 @@ static int icnss_pd_restart_complete(struct icnss_priv *priv)
 		goto out_power_off;
 	}
 
-out:
 	icnss_block_shutdown(false);
 	clear_bit(ICNSS_SHUTDOWN_DONE, &priv->state);
 	return 0;
@@ -777,6 +776,7 @@ call_probe:
 out_power_off:
 	icnss_hw_power_off(priv);
 
+out:
 	return ret;
 }
 
@@ -805,6 +805,8 @@ static int icnss_driver_event_fw_ready_ind(struct icnss_priv *priv, void *data)
 		ret = icnss_pd_restart_complete(priv);
 	else
 		ret = icnss_call_driver_probe(priv);
+
+	icnss_vreg_unvote(priv);
 
 out:
 	return ret;
@@ -1888,7 +1890,7 @@ int icnss_thermal_cdev_register(struct device *dev, unsigned long max_state,
 	struct device_node *dev_node;
 	int ret = 0;
 
-	icnss_tcdev = devm_kzalloc(dev, sizeof(*icnss_tcdev), GFP_KERNEL);
+	icnss_tcdev = kzalloc(sizeof(*icnss_tcdev), GFP_KERNEL);
 	if (!icnss_tcdev)
 		return -ENOMEM;
 
@@ -1935,7 +1937,10 @@ void icnss_thermal_cdev_unregister(struct device *dev, int tcdev_id)
 	struct icnss_priv *priv = dev_get_drvdata(dev);
 	struct icnss_thermal_cdev *icnss_tcdev = NULL;
 
-	list_for_each_entry(icnss_tcdev, &priv->icnss_tcdev_list, tcdev_list) {
+	while (!list_empty(&priv->icnss_tcdev_list)) {
+		icnss_tcdev = list_first_entry(&priv->icnss_tcdev_list,
+					       struct icnss_thermal_cdev,
+					       tcdev_list);
 		thermal_cooling_device_unregister(icnss_tcdev->tcdev);
 		list_del(&icnss_tcdev->tcdev_list);
 		kfree(icnss_tcdev);
@@ -3352,6 +3357,10 @@ static int icnss_pm_resume(struct device *dev)
 		goto out;
 
 	if (priv->device_id == WCN6750_DEVICE_ID) {
+		if (test_bit(ICNSS_PD_RESTART, &priv->state) ||
+		    !test_bit(ICNSS_MODE_ON, &priv->state))
+			goto out;
+
 		ret = wlfw_exit_power_save_send_msg(priv);
 		if (ret) {
 			priv->stats.pm_resume_err++;
@@ -3464,13 +3473,18 @@ static int icnss_pm_runtime_resume(struct device *dev)
 	if (!priv->ops || !priv->ops->runtime_resume)
 		goto out;
 
+	icnss_pr_vdbg("Runtime resume, state: 0x%lx\n", priv->state);
+
+	if (test_bit(ICNSS_PD_RESTART, &priv->state) ||
+	    !test_bit(ICNSS_MODE_ON, &priv->state))
+		goto out;
+
 	ret = wlfw_exit_power_save_send_msg(priv);
 	if (ret) {
 		priv->stats.pm_resume_err++;
 		return ret;
 	}
 
-	icnss_pr_vdbg("Runtime resume\n");
 	ret = priv->ops->runtime_resume(dev);
 
 out:

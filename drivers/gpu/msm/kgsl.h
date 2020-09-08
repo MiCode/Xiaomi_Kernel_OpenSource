@@ -188,6 +188,8 @@ struct kgsl_memdesc_ops {
 #define KGSL_MEMDESC_RECLAIMED BIT(12)
 /* Skip reclaim of the memdesc pages */
 #define KGSL_MEMDESC_SKIP_RECLAIM BIT(13)
+/* Use SHMEM for allocation */
+#define KGSL_MEMDESC_USE_SHMEM BIT(14)
 
 /**
  * struct kgsl_memdesc - GPU memory object descriptor

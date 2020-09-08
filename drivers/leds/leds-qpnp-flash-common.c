@@ -39,6 +39,9 @@ int qpnp_flash_led_prepare(struct led_trigger *trig, int options,
 	int rc = -ENODEV;
 
 	led_cdev = trigger_to_lcdev(trig);
+	if (!led_cdev)
+		return rc;
+
 	list_for_each_entry(flash_data, &flash_common_data, link) {
 		if (led_cdev->dev->parent == flash_data->dev)
 			rc = flash_data->func(trig, options, max_current);

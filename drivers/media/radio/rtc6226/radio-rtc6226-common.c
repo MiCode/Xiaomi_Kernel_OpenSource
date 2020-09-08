@@ -518,6 +518,8 @@ int rtc6226_cancel_seek(struct rtc6226_device *radio)
 
 	mutex_unlock(&radio->lock);
 	radio->is_search_cancelled = true;
+	if (radio->g_search_mode == SEEK)
+		rtc6226_q_event(radio, RTC6226_EVT_SEEK_COMPLETE);
 
 	return retval;
 

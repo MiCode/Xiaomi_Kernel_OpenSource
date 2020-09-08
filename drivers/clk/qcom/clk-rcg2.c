@@ -258,9 +258,16 @@ static unsigned long
 clk_rcg2_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
 {
 	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
+	struct clk_hw *parent = clk_hw_get_parent(hw);
 	const struct freq_tbl *f_curr;
 	u32 cfg, src, hid_div, m = 0, n = 0, mode = 0, mask;
-	unsigned long rrate = 0;
+	unsigned long rrate = 0, prate;
+
+	if (rcg->flags & RCG_UPDATE_BEFORE_PLL) {
+		prate =  clk_hw_get_rate(parent);
+		if (prate != parent_rate)
+			parent_rate = prate;
+	}
 
 	regmap_read(rcg->clkr.regmap, rcg->cmd_rcgr + CFG_REG, &cfg);
 	src = cfg;
@@ -286,7 +293,7 @@ clk_rcg2_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
 		mode >>= CFG_MODE_SHIFT;
 	}
 
-	if (rcg->enable_safe_config && !src) {
+	if (rcg->enable_safe_config && rcg->current_freq && rcg->freq_tbl) {
 		f_curr = qcom_find_freq(rcg->freq_tbl, rcg->current_freq);
 		if (!f_curr)
 			return -EINVAL;
@@ -310,12 +317,81 @@ clk_rcg2_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
 	return rrate;
 }
 
+static int _determine_parent_and_update_div(struct clk_hw *hw,
+		const struct freq_tbl *f, struct clk_hw *parent)
+{
+	struct clk_hw *curr_parent, *next_parent;
+	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
+	const struct freq_tbl *f_curr;
+	bool update_rcg = false;
+	u32 old_cfg, cfg, mask, regval;
+	int ret, curr_src_index, next_src_index;
+
+	/* Get the current parent for the current frequency */
+	f_curr = qcom_find_freq(rcg->freq_tbl, rcg->current_freq);
+	if (!f_curr)
+		return -EINVAL;
+
+	curr_src_index = qcom_find_src_index(hw, rcg->parent_map, f_curr->src);
+	if (curr_src_index < 0)
+		return curr_src_index;
+
+	curr_parent = clk_hw_get_parent_by_index(hw, curr_src_index);
+	if (!curr_parent)
+		return -EINVAL;
+
+	next_parent = parent;
+	next_src_index = qcom_find_src_index(hw, rcg->parent_map, f->src);
+	if (next_src_index < 0)
+		return next_src_index;
+
+	/* Slew PLL and  no update in RCG is required. */
+	if ((curr_parent == next_parent) && (f->pre_div == f_curr->pre_div))
+		return 0;
+
+	if (curr_parent == next_parent || curr_parent != next_parent) {
+		/* Read back the old configuration */
+		regmap_read(rcg->clkr.regmap, rcg->cmd_rcgr + CFG_REG,
+				&old_cfg);
+
+		if (f->pre_div > f_curr->pre_div) {
+			mask = BIT(rcg->hid_width) - 1;
+			cfg = f->pre_div << CFG_SRC_DIV_SHIFT;
+			update_rcg = true;
+		}
+
+		if (f_curr->src_freq < f->src_freq) {
+			mask = CFG_SRC_SEL_MASK;
+			cfg = (rcg->parent_map[next_src_index].cfg <<
+					CFG_SRC_SEL_SHIFT);
+			update_rcg = true;
+		}
+
+		if (!update_rcg)
+			return 0;
+
+		ret = regmap_update_bits(rcg->clkr.regmap,
+				rcg->cmd_rcgr + CFG_REG, mask, cfg);
+		if (ret) {
+			pr_err("Failed to regmap update cfg\n");
+			return ret;
+		}
+
+		regmap_read(rcg->clkr.regmap, rcg->cmd_rcgr + CFG_REG, &regval);
+
+		ret = update_config(rcg, old_cfg);
+		if (ret)
+			pr_err("Failed to update pre_div in determine rate\n");
+	}
+
+	return ret;
+}
+
 static int _freq_tbl_determine_rate(struct clk_hw *hw, const struct freq_tbl *f,
 				    struct clk_rate_request *req,
 				    enum freq_policy policy)
 {
 	unsigned long clk_flags, rate = req->rate;
-	struct clk_rate_request parent_req = { };
 	struct clk_hw *p;
 	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
 	int index, ret = 0;
@@ -365,22 +441,18 @@ static int _freq_tbl_determine_rate(struct clk_hw *hw, const struct freq_tbl *f,
 	req->best_parent_rate = rate;
 	req->rate = f->freq;
 
-	if (f->src_freq != FIXED_FREQ_SRC) {
-		rate = parent_req.rate = f->src_freq;
-		parent_req.best_parent_hw = p;
-		ret = __clk_determine_rate(p, &parent_req);
-		if (ret)
-			return ret;
+	if ((rcg->flags & RCG_UPDATE_BEFORE_PLL) &&
+			(clk_flags & CLK_SET_RATE_PARENT)) {
 
-		ret = clk_set_rate(p->clk, parent_req.rate);
-		if (ret) {
-			pr_err("Failed set rate(%lu) on parent for non-fixed source\n",
-							parent_req.rate);
-			return ret;
-		}
+		if (!f->src_freq)
+			return 0;
+
+		ret = _determine_parent_and_update_div(hw, f, p);
+		if (ret)
+			pr_err("Failed to update the div value\n");
 	}
 
-	return 0;
+	return ret;
 }
 
 static int clk_rcg2_determine_rate(struct clk_hw *hw,

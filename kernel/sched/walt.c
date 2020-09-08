@@ -639,7 +639,7 @@ cpu_util_freq_walt(int cpu, struct sched_walt_cpu_load *walt_load)
 static inline void account_load_subtractions(struct rq *rq)
 {
 	u64 ws = rq->window_start;
-	u64 prev_ws = ws - sched_ravg_window;
+	u64 prev_ws = ws - rq->prev_window_size;
 	struct load_subtractions *ls = rq->load_subs;
 	int i;
 
@@ -714,7 +714,7 @@ void update_cluster_load_subtractions(struct task_struct *p,
 {
 	struct sched_cluster *cluster = cpu_cluster(cpu);
 	struct cpumask cluster_cpus = cluster->cpus;
-	u64 prev_ws = ws - sched_ravg_window;
+	u64 prev_ws = ws - cpu_rq(cpu)->prev_window_size;
 	int i;
 
 	cpumask_clear_cpu(cpu, &cluster_cpus);
