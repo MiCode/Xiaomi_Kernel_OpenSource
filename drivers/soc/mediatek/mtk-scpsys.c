@@ -1448,7 +1448,8 @@ static const struct scp_domain_data scp_domain_data_mt6853[] = {
 		.ctl_offs = 0x354,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
-		.basic_clk_name = {"audio", "audio1", "audio2"},
+		.basic_clk_name = {"audio"},
+		.subsys_clk_prefix = "audio",
 		.bp_table = {
 			BUS_PROT(IFR_TYPE, 0x0714, 0x0718, 0x0710, 0x0724,
 				MT6853_TOP_AXI_PROT_EN_2_AUDIO),
@@ -1503,6 +1504,10 @@ static const struct scp_domain_data scp_domain_data_mt6853[] = {
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
 		.subsys_clk_prefix = "cam_rawb",
+	},
+	[MT6853_POWER_DOMAIN_APU] = {
+		.name = "apu",
+		.caps = MTK_SCPD_APU_OPS,
 	},
 };
 
