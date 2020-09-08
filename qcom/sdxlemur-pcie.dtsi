@@ -70,7 +70,7 @@
 			<&gcc GCC_PCIE_SLEEP_CLK>,
 			<&gcc GCC_PCIE_RCHNG_PHY_CLK>,
 			<&gcc GCC_PCIE_PIPE_CLK_SRC>,
-			<&gcc PCIE_PIPE_CLK>;
+			<&pcie_pipe_clk>;
 
 		clock-names = "pcie_0_pipe_clk", "pcie_0_ref_clk_src",
 				"pcie_0_aux_clk", "pcie_0_cfg_ahb_clk",
