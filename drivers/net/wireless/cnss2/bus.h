@@ -24,6 +24,8 @@ void *cnss_bus_dev_to_bus_priv(struct device *dev);
 struct cnss_plat_data *cnss_bus_dev_to_plat_priv(struct device *dev);
 int cnss_bus_init(struct cnss_plat_data *plat_priv);
 void cnss_bus_deinit(struct cnss_plat_data *plat_priv);
+void cnss_bus_add_fw_prefix_name(struct cnss_plat_data *plat_priv,
+				 char *prefix_name, char *name);
 int cnss_bus_load_m3(struct cnss_plat_data *plat_priv);
 int cnss_bus_alloc_fw_mem(struct cnss_plat_data *plat_priv);
 int cnss_bus_alloc_qdss_mem(struct cnss_plat_data *plat_priv);
@@ -50,6 +52,7 @@ int cnss_bus_update_status(struct cnss_plat_data *plat_priv,
 			   enum cnss_driver_status status);
 int cnss_bus_is_device_down(struct cnss_plat_data *plat_priv);
 int cnss_bus_check_link_status(struct cnss_plat_data *plat_priv);
+int cnss_bus_recover_link_down(struct cnss_plat_data *plat_priv);
 int cnss_bus_debug_reg_read(struct cnss_plat_data *plat_priv, u32 offset,
 			    u32 *val);
 int cnss_bus_debug_reg_write(struct cnss_plat_data *plat_priv, u32 offset,

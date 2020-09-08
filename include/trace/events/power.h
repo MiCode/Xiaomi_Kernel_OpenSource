@@ -40,6 +40,36 @@ DEFINE_EVENT(cpu, cpu_idle,
 	TP_ARGS(state, cpu_id)
 );
 
+#ifdef CONFIG_QGKI_MENU_GOV_DEBUG
+TRACE_EVENT(cpuidle_select,
+
+	TP_PROTO(int cpu, long residency, unsigned int latency, bool tick,
+		 int idx),
+
+	TP_ARGS(cpu, residency, latency, tick, idx),
+
+	TP_STRUCT__entry(
+			 __field(int,  cpu)
+			 __field(long, residency)
+			 __field(u32,  latency)
+			 __field(bool, tick)
+			 __field(int,  idx)
+	),
+
+	TP_fast_assign(
+		       __entry->cpu = cpu;
+		       __entry->residency = residency;
+		       __entry->latency = latency;
+		       __entry->tick = tick;
+		       __entry->idx = idx;
+	),
+
+	TP_printk("cpu: %d residency: %lld latency: %d tick: %d idx: %d",
+		  __entry->cpu, __entry->residency, __entry->latency,
+		  __entry->tick, __entry->idx)
+);
+#endif
+
 TRACE_EVENT(powernv_throttle,
 
 	TP_PROTO(int chip_id, const char *reason, int pmax),

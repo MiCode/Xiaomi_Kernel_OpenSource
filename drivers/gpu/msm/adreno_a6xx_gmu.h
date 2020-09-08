@@ -137,6 +137,7 @@ enum {
 	GMU_PRIV_HFI_STARTED,
 	GMU_PRIV_RSCC_SLEEP_DONE,
 	GMU_PRIV_PM_SUSPEND,
+	GMU_PRIV_PDC_RSC_LOADED,
 };
 
 /**
@@ -297,4 +298,236 @@ void a6xx_disable_gpu_irq(struct adreno_device *adreno_dev);
  */
 void a6xx_gmu_snapshot(struct adreno_device *adreno_dev,
 	struct kgsl_snapshot *snapshot);
+
+/**
+ * a6xx_gmu_probe - Probe a6xx gmu resources
+ * @device: Pointer to the kgsl device
+ * @pdev: Pointer to the gmu platform device
+ *
+ * Probe the gmu and hfi resources
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int a6xx_gmu_probe(struct kgsl_device *device,
+	struct platform_device *pdev);
+
+/**
+ * a6xx_gmu_parse_fw - Parse the gmu fw binary
+ * @adreno_dev: Pointer to the adreno device
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int a6xx_gmu_parse_fw(struct adreno_device *adreno_dev);
+
+/**
+ * a6xx_gmu_memory_init - Allocate gmu memory
+ * @adreno_dev: Pointer to the adreno device
+ *
+ * Allocates the gmu log buffer and others if ndeeded.
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int a6xx_gmu_memory_init(struct adreno_device *adreno_dev);
+
+/**
+ * a6xx_gmu_aop_send_acd_state - Enable or disable acd feature in aop
+ * @gmu: Pointer to the a6xx gmu device
+ * @flag: Boolean to enable or disable acd in aop
+ *
+ * This function enables or disables gpu acd feature using mailbox
+ */
+void a6xx_gmu_aop_send_acd_state(struct a6xx_gmu_device *gmu, bool flag);
+
+/**
+ * a6xx_gmu_enable_clocks - Enable gmu clocks
+ * @adreno_dev: Pointer to the adreno device
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int a6xx_gmu_enable_gdsc(struct adreno_device *adreno_dev);
+
+/**
+ * a6xx_gmu_load_fw - Load gmu firmware
+ * @adreno_dev: Pointer to the adreno device
+ *
+ * Loads the gmu firmware binary into TCMs and memory
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int a6xx_gmu_load_fw(struct adreno_device *adreno_dev);
+
+/**
+ * a6xx_gmu_device_start - Bring gmu out of reset
+ * @adreno_dev: Pointer to the adreno device
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int a6xx_gmu_device_start(struct adreno_device *adreno_dev);
+
+/**
+ * a6xx_gmu_hfi_start - Indicate hfi start to gmu
+ * @device: Pointer to the kgsl device
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int a6xx_gmu_hfi_start(struct adreno_device *adreno_dev);
+
+/**
+ * a6xx_gmu_itcm_shadow - Create itcm shadow copy for snapshot
+ * @adreno_dev: Pointer to the adreno device
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int a6xx_gmu_itcm_shadow(struct adreno_device *adreno_dev);
+
+/**
+ * a6xx_gmu_register_config - gmu register configuration
+ * @adreno_dev: Pointer to the adreno device
+ *
+ * Program gmu regsiters based on features
+ */
+void a6xx_gmu_register_config(struct adreno_device *adreno_dev);
+
+/**
+ * a6xx_gmu_version_info - Get gmu firmware version
+ * @adreno_dev: Pointer to the adreno device
+ */
+void a6xx_gmu_version_info(struct adreno_device *adreno_dev);
+
+/**
+ * a6xx_gmu_irq_enable - Enable gmu interrupts
+ * @adreno_dev: Pointer to the adreno device
+ */
+void a6xx_gmu_irq_enable(struct adreno_device *adreno_dev);
+
+/**
+ * a6xx_gmu_irq_disable - Disaable gmu interrupts
+ * @adreno_dev: Pointer to the adreno device
+ */
+void a6xx_gmu_irq_disable(struct adreno_device *adreno_dev);
+
+/**
+ * a6xx_gmu_suspend - Hard reset the gpu and gmu
+ * @adreno_dev: Pointer to the adreno device
+ *
+ * In case we hit a gmu fault, hard reset the gpu and gmu
+ * to recover from the fault
+ */
+void a6xx_gmu_suspend(struct adreno_device *adreno_dev);
+
+/**
+ * a6xx_gmu_oob_set - send gmu oob request
+ * @device: Pointer to the kgsl device
+ * @req: Type of oob request as defined in enum oob_request
+ *
+ * Request gmu to keep gpu powered up till the oob is cleared
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int a6xx_gmu_oob_set(struct kgsl_device *device, enum oob_request oob);
+
+/**
+ * a6xx_gmu_oob_clear - clear an asserted oob request
+ * @device: Pointer to the kgsl device
+ * @req: Type of oob request as defined in enum oob_request
+ *
+ * Clear a previously requested oob so that gmu can power
+ * collapse the gpu
+ */
+void a6xx_gmu_oob_clear(struct kgsl_device *device, enum oob_request oob);
+
+/**
+ * a6xx_gmu_wait_for_lowest_idle - wait for gmu to complete ifpc
+ * @adreno_dev: Pointer to the adreno device
+ *
+ * If ifpc is enabled, wait for gmu to put gpu into ifpc.
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int a6xx_gmu_wait_for_lowest_idle(struct adreno_device *adreno_dev);
+
+/**
+ * a6xx_gmu_wait_for_idle - Wait for gmu to become idle
+ * @adreno_dev: Pointer to the adreno device
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int a6xx_gmu_wait_for_idle(struct adreno_device *adreno_dev);
+
+/**
+ * a6xx_rscc_sleep_sequence - Trigger rscc sleep sequence
+ * @adreno_dev: Pointer to the adreno device
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int a6xx_rscc_sleep_sequence(struct adreno_device *adreno_dev);
+
+/**
+ * a6xx_rscc_wakeup_sequence - Trigger rscc wakeup sequence
+ * @adreno_dev: Pointer to the adreno device
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int a6xx_rscc_wakeup_sequence(struct adreno_device *adreno_dev);
+
+/**
+ * a6xx_halt_gbif - Halt CX and GX requests in GBIF
+ * @adreno_dev: Pointer to the adreno device
+ *
+ * Clear any pending GX or CX transactions in GBIF and
+ * deassert GBIF halt
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int a6xx_halt_gbif(struct adreno_device *adreno_dev);
+
+/**
+ * a6xx_load_pdc_ucode - Load and enable pdc sequence
+ * @adreno_dev: Pointer to the adreno device
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int a6xx_load_pdc_ucode(struct adreno_device *adreno_dev);
+
+/**
+ * a6xx_load_rsc_ucode - Load rscc sequence
+ * @adreno_dev: Pointer to the adreno device
+ */
+void a6xx_load_rsc_ucode(struct adreno_device *adreno_dev);
+
+/**
+ * a6xx_gmu_remove - Clean up gmu probed resources
+ * @device: Pointer to the kgsl device
+ */
+void a6xx_gmu_remove(struct kgsl_device *device);
+
+/**
+ * a6xx_gmu_enable_clks - Enable gmu clocks
+ * @adreno_dev: Pointer to the adreno device
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int a6xx_gmu_enable_clks(struct adreno_device *adreno_dev);
+
+/**
+ * a6xx_gmu_enable_gdsc - Enable gmu gdsc
+ * @adreno_dev: Pointer to the adreno device
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int a6xx_gmu_enable_gdsc(struct adreno_device *adreno_dev);
+
+/**
+ * a6xx_get_gmu_domain - Get the gmu iommu domain for a gmu memory block
+ * @gmu: Pointer to the a6xx gmu device
+ * @gmuaddr: Address of the memory block
+ * @size: Size in bytes of the memory block
+ *
+ * Based on the gmu address and size of a gmu memory block, get the gmu iommu
+ * domain to map the memory block to.
+ *
+ * Return: gmu iommu domain to which the given memory block is to be mapped
+ */
+struct iommu_domain *a6xx_get_gmu_domain(struct a6xx_gmu_device *gmu,
+	u32 gmuaddr, u32 size);
 #endif

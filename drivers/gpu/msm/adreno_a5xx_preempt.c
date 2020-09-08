@@ -530,17 +530,17 @@ int a5xx_preemption_init(struct adreno_device *adreno_dev)
 	INIT_WORK(&preempt->work, _a5xx_preemption_worker);
 
 	/* Allocate mem for storing preemption counters */
-	if (IS_ERR_OR_NULL(preempt->counters))
-		preempt->counters = kgsl_allocate_global(device,
+	if (IS_ERR_OR_NULL(preempt->scratch))
+		preempt->scratch = kgsl_allocate_global(device,
 			adreno_dev->num_ringbuffers *
 			A5XX_CP_CTXRECORD_PREEMPTION_COUNTER_SIZE, 0, 0,
 			"preemption_counters");
 
-	ret = PTR_ERR_OR_ZERO(preempt->counters);
+	ret = PTR_ERR_OR_ZERO(preempt->scratch);
 	if (ret)
 		return ret;
 
-	addr = preempt->counters->gpuaddr;
+	addr = preempt->scratch->gpuaddr;
 
 	/* Allocate mem for storing preemption switch record */
 	FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {

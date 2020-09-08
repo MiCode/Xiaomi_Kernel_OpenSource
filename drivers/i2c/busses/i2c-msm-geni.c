@@ -638,11 +638,11 @@ static struct msm_gpi_tre *setup_unlock_tre(struct geni_i2c_dev *gi2c)
 }
 
 static struct dma_async_tx_descriptor *geni_i2c_prep_desc
-	(struct geni_i2c_dev *gi2c, struct dma_chan *chan, int segs)
+(struct geni_i2c_dev *gi2c, struct dma_chan *chan, int segs, bool tx_chan)
 {
 	struct dma_async_tx_descriptor *geni_desc = NULL;
 
-	if (chan->chan_id == 0) {
+	if (tx_chan) {
 		geni_desc = dmaengine_prep_slave_sg(gi2c->tx_c, gi2c->tx_sg,
 					segs, DMA_MEM_TO_DEV,
 					(DMA_PREP_INTERRUPT | DMA_CTRL_ACK));
@@ -676,6 +676,7 @@ static int geni_i2c_lock_bus(struct geni_i2c_dev *gi2c)
 	struct msm_gpi_tre *lock_t = NULL;
 	int ret = 0, timeout = 0;
 	dma_cookie_t tx_cookie;
+	bool tx_chan = true;
 
 	if (!gi2c->req_chan) {
 		ret = geni_i2c_gsi_request_channel(gi2c);
@@ -688,7 +689,7 @@ static int geni_i2c_lock_bus(struct geni_i2c_dev *gi2c)
 	sg_set_buf(&gi2c->tx_sg[0], lock_t,
 					sizeof(gi2c->lock_t));
 
-	gi2c->tx_desc = geni_i2c_prep_desc(gi2c, gi2c->tx_c, 1);
+	gi2c->tx_desc = geni_i2c_prep_desc(gi2c, gi2c->tx_c, 1, tx_chan);
 	if (!gi2c->tx_desc) {
 		gi2c->err = -ENOMEM;
 		goto geni_i2c_err_lock_bus;
@@ -723,6 +724,7 @@ static void geni_i2c_unlock_bus(struct geni_i2c_dev *gi2c)
 	struct msm_gpi_tre *unlock_t = NULL;
 	int timeout = 0;
 	dma_cookie_t tx_cookie;
+	bool tx_chan = true;
 
 	if (gi2c->gpi_reset)
 		goto geni_i2c_err_unlock_bus;
@@ -732,7 +734,7 @@ static void geni_i2c_unlock_bus(struct geni_i2c_dev *gi2c)
 	sg_set_buf(&gi2c->tx_sg[0], unlock_t,
 					sizeof(gi2c->unlock_t));
 
-	gi2c->tx_desc = geni_i2c_prep_desc(gi2c, gi2c->tx_c, 1);
+	gi2c->tx_desc = geni_i2c_prep_desc(gi2c, gi2c->tx_c, 1, tx_chan);
 	if (!gi2c->tx_desc) {
 		gi2c->err = -ENOMEM;
 		goto geni_i2c_err_unlock_bus;
@@ -796,8 +798,9 @@ static int geni_i2c_gsi_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 		struct msm_gpi_tre *tx_t = NULL;
 		struct device *rx_dev = gi2c->wrapper_dev;
 		struct device *tx_dev = gi2c->wrapper_dev;
-		reinit_completion(&gi2c->xfer);
+		bool tx_chan = true;
 
+		reinit_completion(&gi2c->xfer);
 		gi2c->cur = &msgs[i];
 
 		dma_buf = i2c_get_dma_safe_msg_buf(&msgs[i], 1);
@@ -861,7 +864,7 @@ static int geni_i2c_gsi_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 						 sizeof(gi2c->rx_t));
 
 			gi2c->rx_desc =
-				geni_i2c_prep_desc(gi2c, gi2c->rx_c, segs);
+			geni_i2c_prep_desc(gi2c, gi2c->rx_c, segs, !tx_chan);
 			if (!gi2c->rx_desc) {
 				gi2c->err = -ENOMEM;
 				goto geni_i2c_err_prep_sg;
@@ -902,7 +905,8 @@ static int geni_i2c_gsi_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 				unlock_t, sizeof(gi2c->unlock_t));
 		}
 
-		gi2c->tx_desc = geni_i2c_prep_desc(gi2c, gi2c->tx_c, segs);
+		gi2c->tx_desc =
+		geni_i2c_prep_desc(gi2c, gi2c->tx_c, segs, tx_chan);
 		if (!gi2c->tx_desc) {
 			gi2c->err = -ENOMEM;
 			goto geni_i2c_err_prep_sg;
@@ -1293,12 +1297,11 @@ static int geni_i2c_probe(struct platform_device *pdev)
 	}
 
 	if (of_property_read_u32(pdev->dev.of_node, "qcom,clk-freq-out",
-				&gi2c->i2c_rsc.clk_freq_out)) {
-		dev_info(&pdev->dev,
-			"Bus frequency not specified, default to 400KHz.\n");
+				&gi2c->i2c_rsc.clk_freq_out))
 		gi2c->i2c_rsc.clk_freq_out = KHz(400);
-	}
 
+	dev_info(&pdev->dev, "Bus frequency is set to %dHz.\n",
+						gi2c->i2c_rsc.clk_freq_out);
 
 	ret = geni_i2c_clk_map_idx(gi2c);
 	if (ret) {

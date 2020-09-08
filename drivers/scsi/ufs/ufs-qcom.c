@@ -1678,6 +1678,29 @@ static void ufshcd_parse_pm_levels(struct ufs_hba *hba)
 		hba->spm_lvl = spm_lvl;
 }
 
+#if defined(CONFIG_SCSI_UFSHCD_QTI)
+static void ufs_qcom_override_pa_h8time(struct ufs_hba *hba)
+{
+	int ret;
+	u32 loc_tx_h8time_cap = 0;
+
+	ret = ufshcd_dme_get(hba, UIC_ARG_MIB_SEL(TX_HIBERN8TIME_CAPABILITY,
+				UIC_ARG_MPHY_TX_GEN_SEL_INDEX(0)),
+				&loc_tx_h8time_cap);
+	if (ret) {
+		dev_err(hba->dev, "Failed getting max h8 time: %d\n", ret);
+		return;
+	}
+
+	/* 1 implies 100 us */
+	ret = ufshcd_dme_set(hba, UIC_ARG_MIB(PA_HIBERN8TIME),
+				loc_tx_h8time_cap + 1);
+	if (ret)
+		dev_err(hba->dev, "Failed updating PA_HIBERN8TIME: %d\n", ret);
+
+}
+#endif
+
 static int ufs_qcom_apply_dev_quirks(struct ufs_hba *hba)
 {
 	unsigned long flags;
@@ -1686,8 +1709,8 @@ static int ufs_qcom_apply_dev_quirks(struct ufs_hba *hba)
 	spin_lock_irqsave(hba->host->host_lock, flags);
 	/* Set the rpm auto suspend delay to 3s */
 	hba->host->hostt->rpm_autosuspend_delay = UFS_QCOM_AUTO_SUSPEND_DELAY;
-	/* Set the default auto-hiberate idle timer value to 1ms */
-	hba->ahit = FIELD_PREP(UFSHCI_AHIBERN8_TIMER_MASK, 1) |
+	/* Set the default auto-hiberate idle timer value to 10ms */
+	hba->ahit = FIELD_PREP(UFSHCI_AHIBERN8_TIMER_MASK, 10) |
 		    FIELD_PREP(UFSHCI_AHIBERN8_SCALE_MASK, 3);
 	/* Set the clock gating delay to performance mode */
 	hba->clk_gating.delay_ms = UFS_QCOM_CLK_GATING_DELAY_MS_PERF;
@@ -1704,6 +1727,10 @@ static int ufs_qcom_apply_dev_quirks(struct ufs_hba *hba)
 	if (hba->dev_info.wmanufacturerid == UFS_VENDOR_MICRON)
 		hba->dev_quirks |= UFS_DEVICE_QUIRK_DELAY_BEFORE_LPM;
 
+#if defined(CONFIG_SCSI_UFSHCD_QTI)
+	if (hba->dev_quirks & UFS_DEVICE_QUIRK_PA_HIBER8TIME)
+		ufs_qcom_override_pa_h8time(hba);
+#endif
 	return err;
 }
 
@@ -3198,7 +3225,6 @@ static void ufs_qcom_dump_dbg_regs(struct ufs_hba *hba)
 	ufshcd_dump_regs(hba, REG_UFS_SYS1CLK_1US, 16 * 4,
 			 "HCI Vendor Specific Registers ");
 
-	/* sleep a bit intermittently as we are dumping too much data */
 	ufs_qcom_print_hw_debug_reg_all(hba, NULL, ufs_qcom_dump_regs_wrapper);
 
 	if (in_task()) {

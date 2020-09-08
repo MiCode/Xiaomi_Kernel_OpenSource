@@ -10,6 +10,7 @@ config INTERCONNECT_QCOM_HOLI
 	depends on INTERCONNECT_QCOM
 	depends on MSM_RPM_SMD
 	select INTERCONNECT_QCOM_RPM
+	select INTERCONNECT_QCOM_QOS
 	help
 	  This is a driver for the Qualcomm Technologies, Inc. Network-on-Chip
 	  on holi-based platforms. The interconnect provider collects and
@@ -39,6 +40,7 @@ config INTERCONNECT_QCOM_LAHAINA
 	depends on QCOM_RPMH && QCOM_COMMAND_DB && OF
 	select INTERCONNECT_QCOM_BCM_VOTER
 	select INTERCONNECT_QCOM_RPMH
+	select INTERCONNECT_QCOM_QOS
 	help
 	  This is a driver for the Qualcomm Technologies, Inc. Network-on-Chip
 	  on lahaina-based platforms.
@@ -64,6 +66,15 @@ config INTERCONNECT_QCOM_EPSS_L3
 	  collects and aggregates consumer requests to satisfy constraints
 	  placed on L3 performance states.
 
+config INTERCONNECT_QCOM_CPUCP_L3
+	tristate "HOLI CPUCP L3 driver"
+	depends on INTERCONNECT_QCOM
+	help
+	  This is a driver for the Qualcomm Technologies, Inc. CPUCP
+	  L3 control found on Holi-based platforms. The CPUCP L3 provider
+	  collects and aggregates consumer requests to satisfy constraints
+	  placed on L3 performance states.
+
 config INTERCONNECT_QCOM_SMD_RPM
 	tristate
 
@@ -78,9 +89,14 @@ config INTERCONNECT_QCOM_SDXLEMUR
 	depends on INTERCONNECT_QCOM
 	depends on QCOM_RPMH && QCOM_COMMAND_DB && OF
 	select INTERCONNECT_QCOM_BCM_VOTER
+	select INTERCONNECT_QCOM_RPMH
+	select INTERCONNECT_QCOM_QOS
 	help
 	  This is a driver for the Qualcomm Technologies, Inc. Network-on-Chip
 	  on sdxlemur-based platforms.
 
 config INTERCONNECT_QCOM_RPM
+	tristate
+
+config INTERCONNECT_QCOM_QOS
 	tristate

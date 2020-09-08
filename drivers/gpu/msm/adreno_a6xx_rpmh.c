@@ -346,8 +346,7 @@ static int build_dcvs_table(struct adreno_device *adreno_dev)
 	struct rpmh_arc_vals gx_arc, cx_arc, mx_arc;
 	int ret;
 
-	hfi->dcvs_table.hdr = CMD_MSG_HDR(H2F_MSG_PERF_TBL,
-		sizeof(hfi->dcvs_table));
+	CMD_MSG_HDR(hfi->dcvs_table, H2F_MSG_PERF_TBL);
 
 	ret = rpmh_arc_cmds(&gx_arc, "gfx.lvl");
 	if (ret)
@@ -388,7 +387,6 @@ static void build_bw_table_cmd(struct hfi_bwtable_cmd *cmd,
 {
 	u32 i, j;
 
-	cmd->hdr = CMD_MSG_HDR(H2F_MSG_BW_VOTE_TBL, sizeof(*cmd));
 	cmd->bw_level_num = ddr->num_levels;
 	cmd->ddr_cmds_num = ddr->num_cmds;
 	cmd->ddr_wait_bitmask = ddr->wait_bitmask;
@@ -441,6 +439,8 @@ static int build_bw_table(struct adreno_device *adreno_dev)
 		free_rpmh_bw_votes(ddr);
 		return PTR_ERR(cnoc);
 	}
+
+	CMD_MSG_HDR(gmu->hfi.bw_table, H2F_MSG_BW_VOTE_TBL);
 
 	build_bw_table_cmd(&gmu->hfi.bw_table, ddr, cnoc);
 

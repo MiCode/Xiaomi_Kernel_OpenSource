@@ -357,6 +357,14 @@ int map_debug_bases(struct platform_device *pdev, const char *base,
 				PTR_ERR(mux->regmap));
 		return PTR_ERR(mux->regmap);
 	}
+
+	/*
+	 * syscon_regmap_lookup_by_phandle prepares the 0th clk handle provided
+	 * in the device node. The debug clock controller prepares/enables/
+	 * disables the required clock, thus detach the clock.
+	 */
+	regmap_mmio_detach_clk(mux->regmap);
+
 	return 0;
 }
 EXPORT_SYMBOL(map_debug_bases);

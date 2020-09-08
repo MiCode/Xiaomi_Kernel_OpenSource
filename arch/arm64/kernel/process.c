@@ -41,6 +41,7 @@
 #include <linux/percpu.h>
 #include <linux/thread_info.h>
 #include <linux/prctl.h>
+#include <trace/hooks/fpsimd.h>
 
 #include <asm/alternative.h>
 #include <asm/arch_gicv3.h>
@@ -529,6 +530,8 @@ __notrace_funcgraph struct task_struct *__switch_to(struct task_struct *prev,
 	 * call.
 	 */
 	dsb(ish);
+
+	trace_android_vh_is_fpsimd_save(prev, next);
 
 	/* the actual thread switch */
 	last = cpu_switch_to(prev, next);

@@ -10,6 +10,7 @@
 #define _LINUX_FWNODE_H_
 
 #include <linux/types.h>
+#include <linux/android_kabi.h>
 
 struct fwnode_operations;
 struct device;
@@ -18,6 +19,11 @@ struct fwnode_handle {
 	struct fwnode_handle *secondary;
 	const struct fwnode_operations *ops;
 	struct device *dev;
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
+	ANDROID_KABI_RESERVE(3);
+	ANDROID_KABI_RESERVE(4);
 };
 
 /**

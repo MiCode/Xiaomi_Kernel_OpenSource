@@ -1858,9 +1858,6 @@
   down_timeout
   freq_reg_info
   genlmsg_put
-  ieee80211_channel_to_frequency
-  ieee80211_frequency_to_channel
-  ieee80211_get_channel
   jiffies_to_usecs
   kfree_skb_list
   netdev_alloc_frag
@@ -2487,3 +2484,6 @@
   ufshcd_pltfrm_shutdown
   ufshcd_pltfrm_suspend
   ufshcd_remove
+
+# required by sprd_sip_svc.ko
+  __arm_smccc_smc

@@ -11,6 +11,8 @@
 #include <linux/power_supply.h>
 #include <linux/slab.h>
 #include <linux/pmic-voter.h>
+#include <linux/iio/consumer.h>
+#include <dt-bindings/iio/qti_power_supply_iio.h>
 #include "step-chg-jeita.h"
 #include "battery-profile-loader.h"
 
@@ -67,12 +69,13 @@ struct step_chg_info {
 	struct votable		*usb_icl_votable;
 	struct wakeup_source	*step_chg_ws;
 	struct power_supply	*batt_psy;
-	struct power_supply	*bms_psy;
 	struct power_supply	*usb_psy;
 	struct power_supply	*dc_psy;
 	struct delayed_work	status_change_work;
 	struct delayed_work	get_config_work;
 	struct notifier_block	nb;
+	struct iio_channel	*iio_chans;
+	struct iio_channel	**iio_chan_list_qg;
 };
 
 static struct step_chg_info *the_chip;
@@ -95,13 +98,37 @@ static bool is_batt_available(struct step_chg_info *chip)
 	return true;
 }
 
+static const char * const step_chg_ext_iio_chan[] = {
+	[STEP_QG_RESISTANCE_ID] = "resistance_id",
+	[STEP_QG_VOLTAGE_NOW] = "voltage_now",
+	[STEP_QG_TEMP] = "temp",
+	[STEP_QG_CAPACITY] = "capacity",
+	[STEP_QG_VOLTAGE_OCV] = "voltage_ocv",
+	[STEP_QG_VOLTAGE_AVG] = "voltage_avg",
+};
+
 static bool is_bms_available(struct step_chg_info *chip)
 {
-	if (!chip->bms_psy)
-		chip->bms_psy = power_supply_get_by_name("bms");
+	int rc = 0;
+	struct iio_channel **iio_list;
 
-	if (!chip->bms_psy)
+	if (IS_ERR(chip->iio_chan_list_qg))
 		return false;
+
+	if (!chip->iio_chan_list_qg) {
+		iio_list = get_ext_channels(chip->dev, step_chg_ext_iio_chan,
+				ARRAY_SIZE(step_chg_ext_iio_chan));
+		if (IS_ERR(iio_list)) {
+			rc = PTR_ERR(iio_list);
+			if (rc != -EPROBE_DEFER) {
+				dev_err(chip->dev, "Failed to get channels, %d\n",
+						rc);
+				chip->iio_chan_list_qg = ERR_PTR(-EINVAL);
+			}
+			return false;
+		}
+		chip->iio_chan_list_qg = iio_list;
+	}
 
 	return true;
 }
@@ -150,7 +177,7 @@ static bool is_input_present(struct step_chg_info *chip)
 	return false;
 }
 
-int read_range_data_from_node(struct device_node *node,
+static int read_range_data_from_node(struct device_node *node,
 		const char *prop_str, struct range_data *ranges,
 		int max_threshold, u32 max_value)
 {
@@ -221,7 +248,32 @@ clean:
 	memset(ranges, 0, tuples * sizeof(struct range_data));
 	return rc;
 }
-EXPORT_SYMBOL(read_range_data_from_node);
+
+static int step_chg_read_iio_prop(struct step_chg_info *chip,
+		enum iio_type type, int iio_chan, int *val)
+{
+	struct iio_channel *iio_chan_list;
+	int rc;
+
+	switch (type) {
+	case MAIN:
+		if (!chip->iio_chans)
+			return -ENODEV;
+		iio_chan_list = &chip->iio_chans[iio_chan];
+		break;
+	case QG:
+		if (IS_ERR_OR_NULL(chip->iio_chan_list_qg))
+			return -ENODEV;
+		iio_chan_list = chip->iio_chan_list_qg[iio_chan];
+		break;
+	default:
+		pr_err_ratelimited("iio_type %d is not supported\n", type);
+		return -EINVAL;
+	}
+
+	rc = iio_read_channel_processed(iio_chan_list, val);
+	return (rc < 0) ? rc : 0;
+}
 
 static int get_step_chg_jeita_setting_from_profile(struct step_chg_info *chip)
 {
@@ -229,8 +281,7 @@ static int get_step_chg_jeita_setting_from_profile(struct step_chg_info *chip)
 	u32 max_fv_uv, max_fcc_ma;
 	const char *batt_type_str;
 	const __be32 *handle;
-	int batt_id_ohms, rc;
-	union power_supply_propval prop = {0, };
+	int batt_id_ohms = 0, rc;
 
 	handle = of_get_property(chip->dev->of_node,
 			"qcom,battery-data", NULL);
@@ -248,9 +299,10 @@ static int get_step_chg_jeita_setting_from_profile(struct step_chg_info *chip)
 	if (!is_bms_available(chip))
 		return -ENODEV;
 
-	power_supply_get_property(chip->bms_psy,
-			POWER_SUPPLY_PROP_RESISTANCE_ID, &prop);
-	batt_id_ohms = prop.intval;
+	rc = step_chg_read_iio_prop(chip, QG, STEP_QG_RESISTANCE_ID,
+			&batt_id_ohms);
+	if (rc < 0)
+		pr_err("Failed to read batt_id rc=%d\n", rc);
 
 	/* bms_psy has not yet read the batt_id */
 	if (batt_id_ohms < 0)
@@ -296,6 +348,7 @@ static int get_step_chg_jeita_setting_from_profile(struct step_chg_info *chip)
 	if (chip->soc_based_step_chg) {
 		chip->step_chg_config->param.psy_prop =
 				POWER_SUPPLY_PROP_CAPACITY;
+		chip->step_chg_config->param.iio_prop = STEP_QG_CAPACITY;
 		chip->step_chg_config->param.prop_name = "SOC";
 		chip->step_chg_config->param.hysteresis = 0;
 	}
@@ -305,6 +358,7 @@ static int get_step_chg_jeita_setting_from_profile(struct step_chg_info *chip)
 	if (chip->ocv_based_step_chg) {
 		chip->step_chg_config->param.psy_prop =
 				POWER_SUPPLY_PROP_VOLTAGE_OCV;
+		chip->step_chg_config->param.iio_prop = STEP_QG_VOLTAGE_OCV;
 		chip->step_chg_config->param.prop_name = "OCV";
 		chip->step_chg_config->param.hysteresis = 0;
 		chip->step_chg_config->param.use_bms = true;
@@ -316,6 +370,7 @@ static int get_step_chg_jeita_setting_from_profile(struct step_chg_info *chip)
 	if (chip->vbat_avg_based_step_chg) {
 		chip->step_chg_config->param.psy_prop =
 				POWER_SUPPLY_PROP_VOLTAGE_AVG;
+		chip->step_chg_config->param.iio_prop = STEP_QG_VOLTAGE_AVG;
 		chip->step_chg_config->param.prop_name = "VBAT_AVG";
 		chip->step_chg_config->param.hysteresis = 0;
 		chip->step_chg_config->param.use_bms = true;
@@ -370,7 +425,7 @@ static void get_config_work(struct work_struct *work)
 		if (rc == -ENODEV || rc == -EBUSY) {
 			if (chip->get_config_retry_count++
 					< GET_CONFIG_RETRY_COUNT) {
-				pr_debug("bms_psy is not ready, retry: %d\n",
+				pr_debug("bms is not ready, retry: %d\n",
 						chip->get_config_retry_count);
 				goto reschedule;
 			}
@@ -538,22 +593,19 @@ static int handle_step_chg_config(struct step_chg_info *chip)
 	if (elapsed_us < STEP_CHG_HYSTERISIS_DELAY_US)
 		return 0;
 
-	rc = power_supply_get_property(chip->batt_psy,
-		POWER_SUPPLY_PROP_STEP_CHARGING_ENABLED, &pval);
-	if (rc < 0)
-		chip->step_chg_enable = false;
-	else
-		chip->step_chg_enable = pval.intval;
-
 	if (!chip->step_chg_enable || !chip->step_chg_cfg_valid) {
 		if (chip->fcc_votable)
 			vote(chip->fcc_votable, STEP_CHG_VOTER, false, 0);
 		goto update_time;
 	}
 
-	if (chip->step_chg_config->param.use_bms)
-		rc = power_supply_get_property(chip->bms_psy,
-				chip->step_chg_config->param.psy_prop, &pval);
+	if (chip->step_chg_config->param.use_bms) {
+		rc = step_chg_read_iio_prop(chip, QG,
+			chip->step_chg_config->param.iio_prop, &pval.intval);
+		if (rc < 0)
+			pr_err("Failed to read IIO prop %d rc=%d\n",
+				chip->step_chg_config->param.iio_prop, rc);
+	}
 	else
 		rc = power_supply_get_property(chip->batt_psy,
 				chip->step_chg_config->param.psy_prop, &pval);
@@ -612,15 +664,17 @@ update_time:
 static int handle_jeita(struct step_chg_info *chip)
 {
 	union power_supply_propval pval = {0, };
-	int rc = 0, fcc_ua = 0, fv_uv = 0;
+	int rc = 0, fcc_ua = 0, fv_uv = 0, data;
 	u64 elapsed_us;
 
-	rc = power_supply_get_property(chip->batt_psy,
-		POWER_SUPPLY_PROP_SW_JEITA_ENABLED, &pval);
-	if (rc < 0)
+	rc = step_chg_read_iio_prop(chip, MAIN, PSY_IIO_SW_JEITA_ENABLED,
+			&data);
+	if (rc < 0) {
 		chip->sw_jeita_enable = false;
-	else
-		chip->sw_jeita_enable = pval.intval;
+		pr_err("Failed to read jeita_enabled rc=%d\n", rc);
+	} else {
+		chip->sw_jeita_enable = data;
+	}
 
 	if (!chip->sw_jeita_enable || !chip->sw_jeita_cfg_valid) {
 		if (chip->fcc_votable)
@@ -637,12 +691,16 @@ static int handle_jeita(struct step_chg_info *chip)
 	if (elapsed_us < STEP_CHG_HYSTERISIS_DELAY_US)
 		return 0;
 
-	if (chip->jeita_fcc_config->param.use_bms)
-		rc = power_supply_get_property(chip->bms_psy,
-				chip->jeita_fcc_config->param.psy_prop, &pval);
-	else
+	if (chip->jeita_fcc_config->param.use_bms) {
+		rc = step_chg_read_iio_prop(chip, QG,
+			chip->jeita_fcc_config->param.iio_prop, &pval.intval);
+		if (rc < 0)
+			pr_err("Failed to read IIO prop %d rc=%d\n",
+				chip->jeita_fcc_config->param.iio_prop, rc);
+	} else {
 		rc = power_supply_get_property(chip->batt_psy,
 				chip->jeita_fcc_config->param.psy_prop, &pval);
+	}
 
 	if (rc < 0) {
 		pr_err("Couldn't read %s property rc=%d\n",
@@ -805,8 +863,6 @@ static int step_chg_notifier_call(struct notifier_block *nb,
 	}
 
 	if ((strcmp(psy->desc->name, "bms") == 0)) {
-		if (chip->bms_psy == NULL)
-			chip->bms_psy = psy;
 		if (!chip->config_is_read)
 			schedule_delayed_work(&chip->get_config_work, 0);
 	}
@@ -828,8 +884,8 @@ static int step_chg_register_notifier(struct step_chg_info *chip)
 	return 0;
 }
 
-int qcom_step_chg_init(struct device *dev,
-		bool step_chg_enable, bool sw_jeita_enable, bool jeita_arb_en)
+int qcom_step_chg_init(struct device *dev, bool step_chg_enable,
+	bool sw_jeita_enable, bool jeita_arb_en, struct iio_channel *iio_chans)
 {
 	int rc;
 	struct step_chg_info *chip;
@@ -843,7 +899,7 @@ int qcom_step_chg_init(struct device *dev,
 	if (!chip)
 		return -ENOMEM;
 
-	chip->step_chg_ws = wakeup_source_register("qcom-step-chg");
+	chip->step_chg_ws = wakeup_source_register(dev, "qcom-step-chg");
 	if (!chip->step_chg_ws)
 		return -EINVAL;
 
@@ -854,6 +910,8 @@ int qcom_step_chg_init(struct device *dev,
 	chip->step_index = -EINVAL;
 	chip->jeita_fcc_index = -EINVAL;
 	chip->jeita_fv_index = -EINVAL;
+	chip->iio_chans = iio_chans;
+	chip->iio_chan_list_qg = NULL;
 
 	chip->step_chg_config = devm_kzalloc(dev,
 			sizeof(struct step_chg_cfg), GFP_KERNEL);
@@ -861,6 +919,7 @@ int qcom_step_chg_init(struct device *dev,
 		return -ENOMEM;
 
 	chip->step_chg_config->param.psy_prop = POWER_SUPPLY_PROP_VOLTAGE_NOW;
+	chip->step_chg_config->param.iio_prop = STEP_QG_VOLTAGE_NOW;
 	chip->step_chg_config->param.prop_name = "VBATT";
 	chip->step_chg_config->param.hysteresis = 100000;
 
@@ -872,9 +931,11 @@ int qcom_step_chg_init(struct device *dev,
 		return -ENOMEM;
 
 	chip->jeita_fcc_config->param.psy_prop = POWER_SUPPLY_PROP_TEMP;
+	chip->jeita_fcc_config->param.iio_prop = STEP_QG_TEMP;
 	chip->jeita_fcc_config->param.prop_name = "BATT_TEMP";
 	chip->jeita_fcc_config->param.hysteresis = 10;
 	chip->jeita_fv_config->param.psy_prop = POWER_SUPPLY_PROP_TEMP;
+	chip->jeita_fv_config->param.iio_prop = STEP_QG_TEMP;
 	chip->jeita_fv_config->param.prop_name = "BATT_TEMP";
 	chip->jeita_fv_config->param.hysteresis = 10;
 

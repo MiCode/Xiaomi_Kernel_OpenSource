@@ -21,6 +21,10 @@
 #include "btfm_slim.h"
 #include "btfm_slim_slave.h"
 
+#define DELAY_FOR_PORT_OPEN_MS (200)
+
+static bool btfm_is_port_opening_delayed = true;
+
 int btfm_slim_write(struct btfmslim *btfmslim,
 		uint16_t reg, int bytes, void *src, uint8_t pgd)
 {
@@ -110,6 +114,19 @@ int btfm_slim_read_inf(struct btfmslim *btfmslim,
 	return btfm_slim_read(btfmslim, reg, bytes, dest, IFD);
 }
 
+static bool btfm_slim_is_sb_reset_needed(int chip_ver)
+{
+	switch (chip_ver) {
+	case QCA_APACHE_SOC_ID_0100:
+	case QCA_APACHE_SOC_ID_0110:
+	case QCA_APACHE_SOC_ID_0120:
+	case QCA_APACHE_SOC_ID_0121:
+		return true;
+	default:
+		return false;
+	}
+}
+
 int btfm_slim_enable_ch(struct btfmslim *btfmslim, struct btfmslim_ch *ch,
 	uint8_t rxport, uint32_t rates, uint8_t grp, uint8_t nchan)
 {
@@ -117,6 +134,7 @@ int btfm_slim_enable_ch(struct btfmslim *btfmslim, struct btfmslim_ch *ch,
 	struct slim_ch prop;
 	struct btfmslim_ch *chan = ch;
 	uint16_t ch_h[2];
+	int chipset_ver;
 
 	if (!btfmslim || !ch)
 		return -EINVAL;
@@ -129,6 +147,27 @@ int btfm_slim_enable_ch(struct btfmslim *btfmslim, struct btfmslim_ch *ch,
 	prop.baser = ((rates == 44100) || (rates == 88200)) ?
 			SLIM_RATE_11025HZ : SLIM_RATE_4000HZ;
 	prop.dataf = SLIM_CH_DATAF_NOT_DEFINED;
+
+	chipset_ver = btpower_get_chipset_version();
+	BTFMSLIM_INFO("chipset soc version:%x", chipset_ver);
+
+	/* Delay port opening for few chipsets if:
+	 *	1. for 8k, feedback channel
+	 *	2. 44.1k, 88.2k rxports
+	 */
+	if (((rates == 8000 && btfm_feedback_ch_setting && rxport == 0) ||
+		(rxport == 1 && (rates == 44100 || rates == 88200))) &&
+		btfm_slim_is_sb_reset_needed(chipset_ver)) {
+
+		BTFMSLIM_INFO("btfm_is_port_opening_delayed %d",
+				btfm_is_port_opening_delayed);
+
+		if (!btfm_is_port_opening_delayed) {
+			BTFMSLIM_INFO("SB reset needed, sleeping");
+			btfm_is_port_opening_delayed = true;
+			msleep(DELAY_FOR_PORT_OPEN_MS);
+		}
+	}
 
 	/* for feedback channel, PCM bit should not be set */
 	if (btfm_feedback_ch_setting) {
@@ -229,6 +268,8 @@ int btfm_slim_disable_ch(struct btfmslim *btfmslim, struct btfmslim_ch *ch,
 
 	BTFMSLIM_INFO("port:%d, grp: %d, ch->grph:0x%x, ch->ch_hdl:0x%x ",
 		ch->port, grp, ch->grph, ch->ch_hdl);
+
+	btfm_is_port_opening_delayed = false;
 
 	/* For 44.1/88.2 Khz A2DP Rx, disconnect the port first */
 	if (rxport &&

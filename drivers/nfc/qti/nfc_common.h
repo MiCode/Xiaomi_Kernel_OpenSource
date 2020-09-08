@@ -62,7 +62,12 @@
 #define COLD_RESET_OID			0x1E
 
 #define MAX_NCI_PAYLOAD_LEN		(255)
-#define MAX_BUFFER_SIZE			(NCI_HDR_LEN + MAX_NCI_PAYLOAD_LEN)
+/*
+ * From MW 11.04 buffer size increased to support
+ * frame size of 554 in FW download mode
+ * Frame len(2) + Frame Header(6) + DATA(512) + HASH(32) + CRC(2) + RFU(4)
+ */
+#define MAX_BUFFER_SIZE			(558)
 
 // Maximum retry count for standby writes
 #define MAX_RETRY_COUNT			(3)
@@ -87,10 +92,10 @@
 #define DTS_FWDN_GPIO_STR	"qcom,sn-firm"
 #define DTS_CLKREQ_GPIO_STR	"qcom,sn-clkreq"
 #define DTS_CLKSRC_GPIO_STR	"qcom,clk-src"
-#define NFC_LDO_SUPPLY_DT_NAME	"qcom,nq-vdd-1p8"
-#define NFC_LDO_SUPPLY_NAME	"qcom,nq-vdd-1p8-supply"
-#define NFC_LDO_VOL_DT_NAME	"qcom,nq-vdd-1p8-voltage"
-#define NFC_LDO_CUR_DT_NAME	"qcom,nq-vdd-1p8-current"
+#define NFC_LDO_SUPPLY_DT_NAME	"qcom,sn-vdd-1p8"
+#define NFC_LDO_SUPPLY_NAME	"qcom,sn-vdd-1p8-supply"
+#define NFC_LDO_VOL_DT_NAME	"qcom,sn-vdd-1p8-voltage"
+#define NFC_LDO_CUR_DT_NAME	"qcom,sn-vdd-1p8-current"
 
 //as per SN1x0 datasheet
 #define NFC_VDDIO_MIN		1650000 //in uV

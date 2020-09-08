@@ -12,9 +12,6 @@
 #define A6XX_NUM_XIN_AXI_BLOCKS 5
 #define A6XX_NUM_XIN_CORE_BLOCKS 4
 
-/* Snapshot section size of each CP preemption record for A6XX  */
-#define A6XX_SNAPSHOT_CP_CTXRECORD_SIZE_IN_BYTES (64 * 1024)
-
 static const unsigned int a6xx_gras_cluster[] = {
 	0x8000, 0x8006, 0x8010, 0x8092, 0x8094, 0x809D, 0x80A0, 0x80A6,
 	0x80AF, 0x80F1, 0x8100, 0x8107, 0x8109, 0x8109, 0x8110, 0x8110,
@@ -40,6 +37,10 @@ static const unsigned int a6xx_vpc_ps_cluster[] = {
 static const unsigned int a6xx_fe_cluster[] = {
 	0x9300, 0x9306, 0x9800, 0x9806, 0x9B00, 0x9B07, 0xA000, 0xA009,
 	0xA00E, 0xA0EF, 0xA0F8, 0xA0F8,
+};
+
+static const unsigned int a660_fe_cluster[] = {
+	0x9807, 0x9807,
 };
 
 static const unsigned int a6xx_pc_vs_cluster[] = {
@@ -92,6 +93,8 @@ static struct a6xx_cluster_registers {
 		NULL },
 	{ CP_CLUSTER_PC_VS, a6xx_pc_vs_cluster,
 		ARRAY_SIZE(a6xx_pc_vs_cluster)/2, NULL },
+	{ CP_CLUSTER_FE, a660_fe_cluster, ARRAY_SIZE(a660_fe_cluster)/2,
+		NULL },
 };
 
 struct a6xx_cluster_regs_info {
@@ -300,6 +303,15 @@ static const unsigned int a6xx_registers[] = {
 	/* VFD */
 	0xA600, 0xA601, 0xA603, 0xA603, 0xA60A, 0xA60A, 0xA610, 0xA617,
 	0xA630, 0xA630,
+};
+
+static const unsigned int a660_registers[] = {
+	/* UCHE */
+	0x0E3C, 0x0E3C,
+	/* LPAC RBBM */
+	0x05FC, 0x05FF,
+	/* LPAC CP */
+	0x0B00, 0x0B40, 0x0B80, 0x0B83,
 };
 
 /*
@@ -570,6 +582,7 @@ static struct reg_list {
 	uint64_t offset;
 } a6xx_reg_list[] = {
 	{ a6xx_registers, ARRAY_SIZE(a6xx_registers) / 2, NULL },
+	{ a660_registers, ARRAY_SIZE(a660_registers) / 2, NULL },
 	{ a6xx_rb_rac_registers, ARRAY_SIZE(a6xx_rb_rac_registers) / 2,
 		&_a6xx_rb_rac_aperture },
 	{ a6xx_rb_rbp_registers, ARRAY_SIZE(a6xx_rb_rbp_registers) / 2,
@@ -1164,6 +1177,11 @@ static void a6xx_snapshot_mvc_regs(struct kgsl_device *device,
 	for (i = 0; i < ARRAY_SIZE(a6xx_clusters); i++) {
 		struct a6xx_cluster_registers *cluster = &a6xx_clusters[i];
 
+		/* Skip registers that dont exists on targets other than A660 */
+		if (!adreno_is_a660(ADRENO_DEVICE(device)) &&
+				(cluster->regs == a660_fe_cluster))
+			continue;
+
 		info.cluster = cluster;
 		for (j = 0; j < A6XX_NUM_CTXTS; j++) {
 			info.ctxt_id = j;
@@ -1720,7 +1738,7 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct adreno_ringbuffer *rb;
-	bool sptprac_on;
+	bool sptprac_on = true;
 	unsigned int i, roq_size;
 	u32 hi, lo;
 
@@ -1758,7 +1776,8 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 				ARRAY_SIZE(a6xx_gmu_wrapper_registers) / 2);
 	}
 
-	sptprac_on = gpudev->sptprac_is_on(adreno_dev);
+	if (gpudev->sptprac_is_on)
+		sptprac_on = gpudev->sptprac_is_on(adreno_dev);
 
 	if (!gmu_core_dev_gx_is_on(device))
 		return;
@@ -1799,6 +1818,11 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 		_a6xx_do_crashdump(device);
 
 	for (i = 0; i < ARRAY_SIZE(a6xx_reg_list); i++) {
+		/* Skip registers that dont exists on targets other than A660 */
+		if (!adreno_is_a660(adreno_dev) &&
+				(a6xx_reg_list[i].regs == a660_registers))
+			continue;
+
 		kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS,
 			snapshot, a6xx_snapshot_registers, &a6xx_reg_list[i]);
 	}
@@ -1817,6 +1841,28 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 		A6XX_CP_SQE_UCODE_DBG_ADDR, A6XX_CP_SQE_UCODE_DBG_DATA,
 		0, 0x8000);
 
+	/* CP LPAC indexed registers */
+	if (adreno_is_a660(adreno_dev)) {
+		kgsl_snapshot_indexed_registers(device, snapshot,
+			 A6XX_CP_SQE_AC_STAT_ADDR, A6XX_CP_SQE_AC_STAT_DATA,
+				0, 0x33);
+		kgsl_snapshot_indexed_registers(device, snapshot,
+			A6XX_CP_LPAC_DRAW_STATE_ADDR,
+				A6XX_CP_LPAC_DRAW_STATE_DATA, 0, 0x100);
+		kgsl_snapshot_indexed_registers(device, snapshot,
+			A6XX_CP_SQE_AC_UCODE_DBG_ADDR,
+				A6XX_CP_SQE_AC_UCODE_DBG_DATA, 0, 0x8000);
+
+		kgsl_regread(device, A6XX_CP_LPAC_ROQ_THRESHOLDS_2, &roq_size);
+		roq_size = roq_size >> 14;
+		kgsl_snapshot_indexed_registers(device, snapshot,
+			A6XX_CP_LPAC_ROQ_DBG_ADDR,
+				A6XX_CP_LPAC_ROQ_DBG_DATA, 0, roq_size);
+
+		kgsl_snapshot_indexed_registers(device, snapshot,
+			A6XX_CP_LPAC_FIFO_DBG_ADDR, A6XX_CP_LPAC_FIFO_DBG_DATA,
+			0, 0x40);
+	}
 	/*
 	 * CP ROQ dump units is 4dwords. The number of units is stored
 	 * in CP_ROQ_THRESHOLDS_2[31:16]. Read the value and convert to
@@ -1880,6 +1926,11 @@ static int _a6xx_crashdump_init_mvc(struct adreno_device *adreno_dev,
 
 	for (i = 0; i < ARRAY_SIZE(a6xx_clusters); i++) {
 		struct a6xx_cluster_registers *cluster = &a6xx_clusters[i];
+
+		/* Skip registers that dont exists on targets other than A660 */
+		if (!adreno_is_a660(adreno_dev) &&
+				(cluster->regs == a660_fe_cluster))
+			continue;
 
 		/* The VPC registers are driven by VPC_PS cluster on a650 */
 		if (adreno_is_a650_family(adreno_dev) &&
@@ -2050,6 +2101,11 @@ void a6xx_crashdump_init(struct adreno_device *adreno_dev)
 	for (i = 0; i < ARRAY_SIZE(a6xx_reg_list); i++) {
 		struct reg_list *regs = &a6xx_reg_list[i];
 
+		/* Skip registers that dont exists on targets other than A660 */
+		if (!adreno_is_a660(adreno_dev) &&
+			(regs->regs == a660_registers))
+			continue;
+
 		/* 16 bytes for programming the aperture */
 		if (regs->sel)
 			script_size += 16;
@@ -2079,6 +2135,11 @@ void a6xx_crashdump_init(struct adreno_device *adreno_dev)
 	/* Calculate the script and data size for MVC registers */
 	for (i = 0; i < ARRAY_SIZE(a6xx_clusters); i++) {
 		struct a6xx_cluster_registers *cluster = &a6xx_clusters[i];
+
+		/* Skip registers that dont exists on targets other than A660 */
+		if (!adreno_is_a660(adreno_dev) &&
+				(cluster->regs == a660_fe_cluster))
+			continue;
 
 		/* 16 bytes if cluster sel exists */
 		if (cluster->sel)
@@ -2165,6 +2226,11 @@ void a6xx_crashdump_init(struct adreno_device *adreno_dev)
 	/* For the registers, program a read command for each pair */
 	for (i = 0; i < ARRAY_SIZE(a6xx_reg_list); i++) {
 		struct reg_list *regs = &a6xx_reg_list[i];
+
+		/* Skip registers that dont exists on targets other than A660 */
+		if (!adreno_is_a660(adreno_dev) &&
+			(regs->regs == a660_registers))
+			continue;
 
 		regs->offset = offset;
 

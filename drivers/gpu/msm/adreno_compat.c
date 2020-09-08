@@ -51,15 +51,9 @@ int adreno_getproperty_compat(struct kgsl_device *device,
 			}
 			memset(&shadowprop, 0, sizeof(shadowprop));
 			if (device->memstore->hostptr) {
-				/*
-				 * NOTE: with mmu enabled, gpuaddr doesn't mean
-				 * anything to mmap().
-				 * NOTE: shadowprop.gpuaddr is uint32
-				 * (because legacy) and the memstore gpuaddr is
-				 * 64 bit. Cast the memstore gpuaddr to uint32.
-				 */
+				/* Give a token address to identify memstore */
 				shadowprop.gpuaddr = (unsigned int)
-					device->memstore->gpuaddr;
+					KGSL_MEMSTORE_TOKEN_ADDRESS;
 				shadowprop.size =
 					(unsigned int) device->memstore->size;
 				/*

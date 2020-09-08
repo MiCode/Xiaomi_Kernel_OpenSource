@@ -1165,6 +1165,15 @@ static int __init qcom_scm_init(void)
 }
 subsys_initcall(qcom_scm_init);
 
+#ifdef CONFIG_QCOM_RTIC
+static int __init scm_mem_protection_init(void)
+{
+	return scm_mem_protection_init_do(__scm ? __scm->dev : NULL);
+}
+
+early_initcall(scm_mem_protection_init);
+#endif
+
 #if IS_MODULE(CONFIG_QCOM_SCM)
 static void __exit qcom_scm_exit(void)
 {

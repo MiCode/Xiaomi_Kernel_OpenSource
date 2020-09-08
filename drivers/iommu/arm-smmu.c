@@ -1059,49 +1059,57 @@ static void arm_smmu_secure_pool_destroy(struct arm_smmu_domain *smmu_domain)
 	}
 }
 
-static void *arm_smmu_alloc_pages_exact(void *cookie,
-					size_t size, gfp_t gfp_mask)
+static void *arm_smmu_alloc_pgtable(void *cookie, int order, gfp_t gfp_mask)
 {
 	int ret;
-	void *page;
+	struct page *page;
+	void *page_addr;
+	size_t size = (1UL << order) * PAGE_SIZE;
 	struct arm_smmu_domain *smmu_domain = cookie;
 
 	if (!arm_smmu_has_secure_vmid(smmu_domain)) {
-		struct page *pg;
 		/* size is expected to be 4K with current configuration */
 		if (size == PAGE_SIZE) {
-			pg = list_first_entry_or_null(
+			page = list_first_entry_or_null(
 				&smmu_domain->nonsecure_pool, struct page, lru);
-			if (pg) {
-				list_del_init(&pg->lru);
-				return page_address(pg);
+			if (page) {
+				list_del_init(&page->lru);
+				return page_address(page);
 			}
 		}
-		return alloc_pages_exact(size, gfp_mask);
-	}
 
-	page = arm_smmu_secure_pool_remove(smmu_domain, size);
-	if (page)
-		return page;
-
-	page = alloc_pages_exact(size, gfp_mask);
-	if (page) {
-		ret = arm_smmu_prepare_pgtable(page, cookie);
-		if (ret) {
-			free_pages_exact(page, size);
+		page = alloc_pages(gfp_mask, order);
+		if (!page)
 			return NULL;
-		}
+
+		return page_address(page);
 	}
 
-	return page;
+	page_addr = arm_smmu_secure_pool_remove(smmu_domain, size);
+	if (page_addr)
+		return page_addr;
+
+	page = alloc_pages(gfp_mask, order);
+	if (!page)
+		return NULL;
+
+	page_addr = page_address(page);
+	ret = arm_smmu_prepare_pgtable(page_addr, cookie);
+	if (ret) {
+		free_pages((unsigned long)page_addr, order);
+		return NULL;
+	}
+
+	return page_addr;
 }
 
-static void arm_smmu_free_pages_exact(void *cookie, void *virt, size_t size)
+static void arm_smmu_free_pgtable(void *cookie, void *virt, int order)
 {
 	struct arm_smmu_domain *smmu_domain = cookie;
+	size_t size = (1UL << order) * PAGE_SIZE;
 
 	if (!arm_smmu_has_secure_vmid(smmu_domain)) {
-		free_pages_exact(virt, size);
+		free_pages((unsigned long)virt, order);
 		return;
 	}
 
@@ -1109,41 +1117,40 @@ static void arm_smmu_free_pages_exact(void *cookie, void *virt, size_t size)
 		arm_smmu_unprepare_pgtable(smmu_domain, virt, size);
 }
 
-#define ARM_SMMU_INIT_MSM_TLB_OPS(_tlb_flush_all) \
-	{\
-		.alloc_pages_exact = arm_smmu_alloc_pages_exact, \
-		.free_pages_exact = arm_smmu_free_pages_exact, \
-		.tlb_ops = { \
-			.tlb_flush_all = _tlb_flush_all, \
-			.tlb_flush_walk = arm_smmu_tlb_inv_walk, \
-			.tlb_flush_leaf = arm_smmu_tlb_inv_leaf, \
-			.tlb_add_page = arm_smmu_tlb_add_page, \
-		} \
-	}
-
-#define ARM_SMMU_MSM_TLB_OPS_S1	\
-	ARM_SMMU_INIT_MSM_TLB_OPS(arm_smmu_tlb_inv_context_s1)
-
-#define ARM_SMMU_MSM_TLB_OPS_S2_V2 \
-	ARM_SMMU_INIT_MSM_TLB_OPS(arm_smmu_tlb_inv_context_s2)
-
-#define ARM_SMMU_MSM_TLB_OPS_S2_V1 \
-	ARM_SMMU_INIT_MSM_TLB_OPS(arm_smmu_tlb_inv_context_s2)
+static const struct iommu_pgtable_ops arm_smmu_pgtable_ops = {
+	.alloc_pgtable = arm_smmu_alloc_pgtable,
+	.free_pgtable  = arm_smmu_free_pgtable,
+};
 
 static const struct arm_smmu_flush_ops arm_smmu_s1_tlb_ops = {
-	.tlb			= ARM_SMMU_MSM_TLB_OPS_S1,
+	.tlb = {
+		.tlb_flush_all  = arm_smmu_tlb_inv_context_s1,
+		.tlb_flush_walk = arm_smmu_tlb_inv_walk,
+		.tlb_flush_leaf = arm_smmu_tlb_inv_leaf,
+		.tlb_add_page   = arm_smmu_tlb_add_page,
+	},
 	.tlb_inv_range		= arm_smmu_tlb_inv_range_s1,
 	.tlb_sync		= arm_smmu_tlb_sync_context,
 };
 
 static const struct arm_smmu_flush_ops arm_smmu_s2_tlb_ops_v2 = {
-	.tlb			= ARM_SMMU_MSM_TLB_OPS_S2_V2,
+	.tlb = {
+		.tlb_flush_all  = arm_smmu_tlb_inv_context_s2,
+		.tlb_flush_walk = arm_smmu_tlb_inv_walk,
+		.tlb_flush_leaf = arm_smmu_tlb_inv_leaf,
+		.tlb_add_page   = arm_smmu_tlb_add_page,
+	},
 	.tlb_inv_range		= arm_smmu_tlb_inv_range_s2,
 	.tlb_sync		= arm_smmu_tlb_sync_context,
 };
 
 static const struct arm_smmu_flush_ops arm_smmu_s2_tlb_ops_v1 = {
-	.tlb			= ARM_SMMU_MSM_TLB_OPS_S2_V1,
+	.tlb = {
+		.tlb_flush_all  = arm_smmu_tlb_inv_context_s2,
+		.tlb_flush_walk = arm_smmu_tlb_inv_walk,
+		.tlb_flush_leaf = arm_smmu_tlb_inv_leaf,
+		.tlb_add_page   = arm_smmu_tlb_add_page,
+	},
 	.tlb_inv_range		= arm_smmu_tlb_inv_vmid_nosync,
 	.tlb_sync		= arm_smmu_tlb_sync_vmid,
 };
@@ -2172,7 +2179,8 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		.ias		= ias,
 		.oas		= oas,
 		.coherent_walk	= is_iommu_pt_coherent(smmu_domain),
-		.tlb		= &smmu_domain->flush_ops->tlb.tlb_ops,
+		.tlb		= &smmu_domain->flush_ops->tlb,
+		.iommu_pgtable_ops = &arm_smmu_pgtable_ops,
 		.iommu_dev	= smmu->dev,
 	};
 
@@ -2743,7 +2751,8 @@ static void arm_smmu_unassign_table(struct arm_smmu_domain *smmu_domain)
 
 		if (WARN_ON(ret))
 			break;
-		free_pages_exact(pte_info->virt_addr, pte_info->size);
+		free_pages((unsigned long)pte_info->virt_addr,
+			   get_order(pte_info->size));
 	}
 
 	list_for_each_entry_safe(pte_info, temp, &smmu_domain->unassign_list,
@@ -3232,7 +3241,13 @@ static void arm_smmu_flush_iotlb_all(struct iommu_domain *domain)
 
 	if (smmu_domain->flush_ops) {
 		arm_smmu_rpm_get(smmu);
-		smmu_domain->flush_ops->tlb.tlb_ops.tlb_flush_all(smmu_domain);
+		if (arm_smmu_domain_power_on(domain, smmu)) {
+			WARN_ON(1);
+			arm_smmu_rpm_put(smmu);
+			return;
+		}
+		smmu_domain->flush_ops->tlb.tlb_flush_all(smmu_domain);
+		arm_smmu_domain_power_off(domain, smmu);
 		arm_smmu_rpm_put(smmu);
 	}
 }
@@ -3245,7 +3260,13 @@ static void arm_smmu_iotlb_sync(struct iommu_domain *domain,
 
 	if (smmu_domain->flush_ops) {
 		arm_smmu_rpm_get(smmu);
+		if (arm_smmu_domain_power_on(domain, smmu)) {
+			WARN_ON(1);
+			arm_smmu_rpm_put(smmu);
+			return;
+		}
 		smmu_domain->flush_ops->tlb_sync(smmu_domain);
+		arm_smmu_domain_power_off(domain, smmu);
 		arm_smmu_rpm_put(smmu);
 	}
 }

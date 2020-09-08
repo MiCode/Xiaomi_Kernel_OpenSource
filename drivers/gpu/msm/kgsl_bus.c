@@ -31,7 +31,8 @@ static u32 _ab_buslevel_update(struct kgsl_pwrctrl *pwr,
 }
 
 
-int kgsl_bus_update(struct kgsl_device *device, bool on)
+int kgsl_bus_update(struct kgsl_device *device,
+			 enum kgsl_bus_vote vote_state)
 {
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	/* FIXME: this might be wrong? */
@@ -40,17 +41,24 @@ int kgsl_bus_update(struct kgsl_device *device, bool on)
 	u32 ab;
 
 	/* the bus should be ON to update the active frequency */
-	if (on && !(test_bit(KGSL_PWRFLAGS_AXI_ON, &pwr->power_flags)))
+	if ((vote_state != KGSL_BUS_VOTE_OFF) &&
+		!(test_bit(KGSL_PWRFLAGS_AXI_ON, &pwr->power_flags)))
 		return 0;
 	/*
 	 * If the bus should remain on calculate our request and submit it,
 	 * otherwise request bus level 0, off.
 	 */
-	if (on) {
+	if (vote_state == KGSL_BUS_VOTE_ON) {
 		buslevel = min_t(int, pwr->pwrlevels[0].bus_max,
 				cur + pwr->bus_mod);
 		buslevel = max_t(int, buslevel, 1);
-	} else {
+	} else if (vote_state == KGSL_BUS_VOTE_MINIMUM) {
+		/* Request bus level 1, minimum non-zero value */
+		buslevel = 1;
+		pwr->bus_mod = 0;
+		pwr->bus_percent_ab = 0;
+		pwr->bus_ab_mbytes = 0;
+	} else if (vote_state == KGSL_BUS_VOTE_OFF) {
 		/* If the bus is being turned off, reset to default level */
 		pwr->bus_mod = 0;
 		pwr->bus_percent_ab = 0;

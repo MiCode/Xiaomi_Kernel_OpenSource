@@ -36,7 +36,9 @@ enum {
 	P_CORE_BI_PLL_TEST_SE,
 	P_GPLL0_OUT_EVEN,
 	P_GPLL0_OUT_MAIN,
+	P_PCIE_PIPE_CLK,
 	P_SLEEP_CLK,
+	P_USB3_PHY_WRAPPER_GCC_USB30_PIPE_CLK,
 };
 
 static struct clk_alpha_pll gpll0 = {
@@ -145,6 +147,77 @@ static const struct clk_parent_data gcc_parent_data_3[] = {
 	{ .fw_name = "bi_tcxo" },
 	{ .fw_name = "sleep_clk" },
 	{ .fw_name = "core_bi_pll_test_se", .name = "core_bi_pll_test_se" },
+};
+
+static const struct parent_map gcc_parent_map_4[] = {
+	{ P_BI_TCXO, 2 },
+};
+
+static const struct parent_map gcc_parent_map_5[] = {
+	{ P_PCIE_PIPE_CLK, 0 },
+	{ P_BI_TCXO, 2 },
+};
+
+static const struct clk_parent_data gcc_parent_data_5[] = {
+	{ .fw_name = "pcie_pipe_clk"},
+	{ .fw_name = "bi_tcxo"},
+};
+
+static const struct parent_map gcc_parent_map_6[] = {
+	{ P_USB3_PHY_WRAPPER_GCC_USB30_PIPE_CLK, 0 },
+	{ P_BI_TCXO, 2 },
+};
+
+static const struct clk_parent_data gcc_parent_data_6[] = {
+	{ .fw_name = "usb3_phy_wrapper_gcc_usb30_pipe_clk"},
+	{ .fw_name = "bi_tcxo"},
+};
+
+static struct clk_regmap_mux gcc_pcie_aux_clk_src = {
+	.reg = 0x43060,
+	.shift = 0,
+	.width = 2,
+	.parent_map = gcc_parent_map_4,
+	.clkr = {
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_pcie_aux_clk_src",
+			.parent_data = &(const struct clk_parent_data){
+				.fw_name = "bi_tcxo",
+			},
+			.num_parents = 1,
+			.ops = &clk_regmap_mux_closest_ops,
+		},
+	},
+};
+
+static struct clk_regmap_mux gcc_pcie_pipe_clk_src = {
+	.reg = 0x43044,
+	.shift = 0,
+	.width = 2,
+	.parent_map = gcc_parent_map_5,
+	.clkr = {
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_pcie_pipe_clk_src",
+			.parent_data = gcc_parent_data_5,
+			.num_parents = 2,
+			.ops = &clk_regmap_mux_closest_ops,
+		},
+	},
+};
+
+static struct clk_regmap_mux gcc_usb3_phy_pipe_clk_src = {
+	.reg = 0x1706c,
+	.shift = 0,
+	.width = 2,
+	.parent_map = gcc_parent_map_6,
+	.clkr = {
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_usb3_phy_pipe_clk_src",
+			.parent_data = gcc_parent_data_6,
+			.num_parents = 2,
+			.ops = &clk_regmap_mux_closest_ops,
+		},
+	},
 };
 
 static const struct freq_tbl ftbl_gcc_blsp1_qup1_i2c_apps_clk_src[] = {
@@ -1214,6 +1287,11 @@ static struct clk_branch gcc_pcie_aux_clk = {
 		.enable_mask = BIT(3),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_pcie_aux_clk",
+			.parent_data = &(const struct clk_parent_data){
+				.hw = &gcc_pcie_aux_clk_src.clkr.hw,
+			},
+			.num_parents = 1,
+			.flags = CLK_SET_RATE_PARENT,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -1259,6 +1337,11 @@ static struct clk_branch gcc_pcie_pipe_clk = {
 		.enable_mask = BIT(4),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_pcie_pipe_clk",
+			.parent_data = &(const struct clk_parent_data){
+				.hw = &gcc_pcie_pipe_clk_src.clkr.hw,
+			},
+			.num_parents = 1,
+			.flags = CLK_SET_RATE_PARENT,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -1659,10 +1742,12 @@ static struct clk_regmap *gcc_sdxlemur_clocks[] = {
 	[GCC_GP3_CLK_SRC] = &gcc_gp3_clk_src.clkr,
 	[GCC_PCIE_0_CLKREF_EN] = &gcc_pcie_0_clkref_en.clkr,
 	[GCC_PCIE_AUX_CLK] = &gcc_pcie_aux_clk.clkr,
+	[GCC_PCIE_AUX_CLK_SRC] = &gcc_pcie_aux_clk_src.clkr,
 	[GCC_PCIE_AUX_PHY_CLK_SRC] = &gcc_pcie_aux_phy_clk_src.clkr,
 	[GCC_PCIE_CFG_AHB_CLK] = &gcc_pcie_cfg_ahb_clk.clkr,
 	[GCC_PCIE_MSTR_AXI_CLK] = &gcc_pcie_mstr_axi_clk.clkr,
 	[GCC_PCIE_PIPE_CLK] = &gcc_pcie_pipe_clk.clkr,
+	[GCC_PCIE_PIPE_CLK_SRC] = &gcc_pcie_pipe_clk_src.clkr,
 	[GCC_PCIE_RCHNG_PHY_CLK] = &gcc_pcie_rchng_phy_clk.clkr,
 	[GCC_PCIE_RCHNG_PHY_CLK_SRC] = &gcc_pcie_rchng_phy_clk_src.clkr,
 	[GCC_PCIE_SLEEP_CLK] = &gcc_pcie_sleep_clk.clkr,
@@ -1689,6 +1774,7 @@ static struct clk_regmap *gcc_sdxlemur_clocks[] = {
 	[GCC_USB3_PHY_AUX_CLK] = &gcc_usb3_phy_aux_clk.clkr,
 	[GCC_USB3_PHY_AUX_CLK_SRC] = &gcc_usb3_phy_aux_clk_src.clkr,
 	[GCC_USB3_PHY_PIPE_CLK] = &gcc_usb3_phy_pipe_clk.clkr,
+	[GCC_USB3_PHY_PIPE_CLK_SRC] = &gcc_usb3_phy_pipe_clk_src.clkr,
 	[GCC_USB3_PRIM_CLKREF_EN] = &gcc_usb3_prim_clkref_en.clkr,
 	[GCC_USB_PHY_CFG_AHB2PHY_CLK] = &gcc_usb_phy_cfg_ahb2phy_clk.clkr,
 	[GCC_XO_DIV4_CLK] = &gcc_xo_div4_clk.clkr,

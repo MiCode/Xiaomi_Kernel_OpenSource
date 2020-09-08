@@ -480,7 +480,7 @@ static int tz_start(struct devfreq *devfreq)
 	priv->nb.notifier_call = tz_notify;
 
 	out = 1;
-	if (devfreq->profile->max_state < MSM_ADRENO_MAX_PWRLEVELS) {
+	if (devfreq->profile->max_state < ARRAY_SIZE(tz_pwrlevels)) {
 		for (i = 0; i < devfreq->profile->max_state; i++)
 			tz_pwrlevels[out++] = devfreq->profile->freq_table[i];
 		tz_pwrlevels[0] = i;

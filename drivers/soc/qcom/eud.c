@@ -84,11 +84,7 @@ static const unsigned int eud_extcon_cable[] = {
 	EXTCON_NONE,
 };
 
-/*
- * On the kernel command line specify eud.enable=1 to enable EUD.
- * EUD is disabled by default.
- */
-static int enable = EUD_ENABLE_CMD;
+static int enable = EUD_DISABLE_CMD;
 static bool eud_ready;
 static struct platform_device *eud_private;
 
@@ -719,8 +715,26 @@ static int msm_eud_probe(struct platform_device *pdev)
 	eud_ready = true;
 
 	/* Proceed enable other EUD elements if bootloader has enabled it */
-	if (enable && msm_eud_hw_is_enabled(pdev))
+	if (msm_eud_hw_is_enabled(pdev)) {
 		msm_eud_enable_irqs(chip);
+
+		/*
+		 * Set the default cable state to usb connect and charger
+		 * enable
+		 */
+		ret = extcon_set_state_sync(chip->extcon, EXTCON_USB, true);
+		if (ret)
+			dev_warn(&pdev->dev, "Failed to set EXTCON_USB (%d)\n",
+				ret);
+
+		ret = extcon_set_state_sync(chip->extcon,
+						EXTCON_CHG_USB_SDP, true);
+		if (ret)
+			dev_warn(&pdev->dev,
+				"Failed to set EXTCON_CHG_USB_SDP (%d)\n", ret);
+
+		enable = EUD_ENABLE_CMD;
+	}
 
 	return 0;
 

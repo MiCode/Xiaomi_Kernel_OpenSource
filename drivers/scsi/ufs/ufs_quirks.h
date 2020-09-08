@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _UFS_QUIRKS_H_
@@ -159,5 +159,19 @@ struct ufs_dev_fix {
  * supported features on such devices.
  */
 #define UFS_DEVICE_QUIRK_SUPPORT_EXTENDED_FEATURES (1 << 14)
+#if defined(CONFIG_SCSI_UFSHCD_QTI)
+/*
+ * Some ufs devices may need more time to be in hibern8 before exiting.
+ * Enable this quirk to give it an additional 100us.
+ */
+#define UFS_DEVICE_QUIRK_PA_HIBER8TIME		(1 << 15)
+#endif
+
+/*
+ * Some UFS devices require delay after VCC power rail is turned-off.
+ * Enable this quirk to introduce 5ms delays after VCC power-off during
+ * suspend flow.
+ */
+#define UFS_DEVICE_QUIRK_DELAY_AFTER_LPM        (1 << 11)
 
 #endif /* UFS_QUIRKS_H_ */

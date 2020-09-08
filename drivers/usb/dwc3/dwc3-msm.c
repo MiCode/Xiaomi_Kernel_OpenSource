@@ -15,6 +15,7 @@
 #include <linux/iommu.h>
 #include <linux/ioport.h>
 #include <linux/clk.h>
+#include <linux/clk/qcom.h>
 #include <linux/io.h>
 #include <linux/module.h>
 #include <linux/types.h>
@@ -400,7 +401,6 @@ struct dwc3_msm {
 	struct list_head req_complete_list;
 	struct clk		*xo_clk;
 	struct clk		*core_clk;
-	struct clk		*core_csr_clk;
 	long			core_clk_rate;
 	long			core_clk_rate_hs;
 	struct clk		*iface_clk;
@@ -2187,14 +2187,9 @@ static int dwc3_msm_config_gdsc(struct dwc3_msm *mdwc, int on)
 			return ret;
 		}
 
-		ret = clk_prepare_enable(mdwc->core_csr_clk);
-		if (ret) {
-			regulator_disable(mdwc->dwc3_gdsc);
-			dev_err(mdwc->dev, "unable to enable core_csr_clks\n");
-			return ret;
-		}
+		qcom_clk_set_flags(mdwc->core_clk, CLKFLAG_RETAIN_MEM);
 	} else {
-		clk_disable_unprepare(mdwc->core_csr_clk);
+		qcom_clk_set_flags(mdwc->core_clk, CLKFLAG_NORETAIN_MEM);
 		ret = regulator_disable(mdwc->dwc3_gdsc);
 		if (ret) {
 			dev_err(mdwc->dev, "unable to disable usb3 gdsc\n");
@@ -3455,10 +3450,6 @@ static int dwc3_msm_get_clk_gdsc(struct dwc3_msm *mdwc)
 		ret = PTR_ERR(mdwc->core_clk);
 		return ret;
 	}
-
-	mdwc->core_csr_clk = devm_clk_get(mdwc->dev, "core_csr_clk");
-	if (IS_ERR(mdwc->core_csr_clk))
-		mdwc->core_csr_clk = NULL;
 
 	mdwc->core_reset = devm_reset_control_get(mdwc->dev, "core_reset");
 	if (IS_ERR(mdwc->core_reset)) {

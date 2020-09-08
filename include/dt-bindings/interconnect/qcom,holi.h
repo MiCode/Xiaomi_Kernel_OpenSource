@@ -38,6 +38,13 @@
 #define MASTER_IPA				29
 #define MASTER_QDSS_ETR				30
 #define MASTER_USB3_0				31
+#define MASTER_CAMNOC_SF_SNOC				32
+#define MASTER_CAMNOC_HF_SNOC				33
+#define MASTER_MDP_PORT0_SNOC				34
+#define MASTER_VIDEO_P0_SNOC				35
+#define MASTER_VIDEO_PROC_SNOC				36
+#define MASTER_SNOC_RT				37
+#define MASTER_SNOC_NRT				38
 
 #define SLAVE_EBI				512
 #define BIMC_SNOC_SLV				513
@@ -94,8 +101,15 @@
 #define SNOC_BIMC_SLV				564
 #define SLAVE_SERVICE_SNOC				565
 #define SLAVE_QDSS_STM				566
-#define SLAVE_TCU				567
-#define A1NOC_SNOC_SLV				568
-#define A2NOC_SNOC_SLV				569
+#define A1NOC_SNOC_SLV				567
+#define A2NOC_SNOC_SLV				568
+#define SLAVE_CAMNOC_HF_SNOC				569
+#define SLAVE_MDP_PORT0_SNOC				570
+#define SLAVE_CAMNOC_SF_SNOC				571
+#define SLAVE_VIDEO_P0_SNOC				572
+#define SLAVE_VIDEO_PROC_SNOC				573
+#define SLAVE_SNOC_RT				574
+#define SLAVE_SNOC_NRT				575
+#define SLAVE_TCU				576
 
 #endif

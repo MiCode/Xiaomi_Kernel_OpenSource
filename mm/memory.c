@@ -2970,8 +2970,9 @@ vm_fault_t do_swap_page(struct vm_fault *vmf)
 		if (si->flags & SWP_SYNCHRONOUS_IO &&
 				__swap_count(entry) == 1) {
 			/* skip swapcache */
-			page = alloc_page_vma(GFP_HIGHUSER_MOVABLE | __GFP_CMA,
-					      vma, vmf->address);
+			page = alloc_page_vma(GFP_HIGHUSER_MOVABLE | __GFP_CMA
+					      | __GFP_OFFLINABLE, vma,
+					      vmf->address);
 			if (page) {
 				__SetPageLocked(page);
 				__SetPageSwapBacked(page);

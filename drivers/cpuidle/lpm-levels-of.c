@@ -549,6 +549,7 @@ static int parse_cpu_levels(struct device_node *dn, struct lpm_cluster *c)
 
 	cpu->parent = c;
 
+	of_property_read_string(dn, "label", &cpu->domain_name);
 	ret = lpm_of_read_u32(dn, "qcom,psci-mode-shift",
 			      &cpu->psci_mode_shift, true);
 	if (ret)
@@ -696,7 +697,7 @@ static void add_rimps_tmr_register(struct device_node *dn,
 {
 	struct lpm_cpu *lpm_cpu;
 	uint32_t rimps_threshold = 0;
-	static uint32_t i;
+	uint32_t index;
 
 	if (list_empty(&cl->cpu)) {
 		struct lpm_cluster *n;
@@ -708,7 +709,18 @@ static void add_rimps_tmr_register(struct device_node *dn,
 	list_for_each_entry(lpm_cpu, &cl->cpu, list) {
 		int idx = lpm_cpu->nlevels-1;
 
-		lpm_cpu->rimps_tmr_base = of_iomap(dn, i++);
+		if (!lpm_cpu->domain_name) {
+			pr_debug("cpu domain name not found\n");
+			return;
+		}
+
+		index = of_property_match_string(dn, "reg-names", lpm_cpu->domain_name);
+		if (index < 0) {
+			pr_debug("reg name field not found for %s\n", lpm_cpu->domain_name);
+			return;
+		}
+
+		lpm_cpu->rimps_tmr_base = of_iomap(dn, index);
 		if (!lpm_cpu->rimps_tmr_base) {
 			pr_debug("Unable to get rimps base address\n");
 			return;

@@ -91,6 +91,11 @@ static struct qg_sdam_info sdam_info[] = {
 		.offset = QG_SDAM_MAGIC_OFFSET,
 		.length = 4,
 	},
+	[SDAM_FLASH_OCV] = {
+		.name	= "SDAM_FLASH_OCV_OFFSET",
+		.offset = QG_SDAM_FLASH_OCV_OFFSET,
+		.length = 1,
+	},
 };
 
 int qg_sdam_write(u8 param, u32 data)

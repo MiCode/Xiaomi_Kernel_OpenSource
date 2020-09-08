@@ -66,6 +66,7 @@
 /* Feature support bit positions in feature fuse register*/
 #define CAM_CPAS_QCFA_BINNING_ENABLE 0
 #define CAM_CPAS_SECURE_CAMERA_ENABLE 1
-#define CAM_CPAS_FUSE_FEATURE_MAX 2
+#define CAM_CPAS_MF_HDR_ENABLE 2
+#define CAM_CPAS_FUSE_FEATURE_MAX 3
 
 #endif

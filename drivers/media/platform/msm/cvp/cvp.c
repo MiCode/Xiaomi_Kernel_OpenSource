@@ -115,7 +115,6 @@ static void init_cycle_info(struct cvp_cycle_info *info)
 	memset(info->cycle, 0,
 		HFI_MAX_HW_THREADS*sizeof(struct cvp_cycle_stat));
 	info->conf_freq = 0;
-	mutex_init(&info->lock);
 }
 
 static int msm_cvp_initialize_core(struct platform_device *pdev,
@@ -134,6 +133,7 @@ static int msm_cvp_initialize_core(struct platform_device *pdev,
 
 	INIT_LIST_HEAD(&core->instances);
 	mutex_init(&core->lock);
+	mutex_init(&core->clk_lock);
 
 	core->state = CVP_CORE_UNINIT;
 	for (i = SYS_MSG_INDEX(SYS_MSG_START);
@@ -502,7 +502,7 @@ static int msm_cvp_remove(struct platform_device *pdev)
 	sysfs_remove_group(&pdev->dev.kobj, &msm_cvp_core_attr_group);
 	dev_set_drvdata(&pdev->dev, NULL);
 	mutex_destroy(&core->lock);
-	mutex_destroy(&core->dyn_clk.lock);
+	mutex_destroy(&core->clk_lock);
 	kfree(core);
 	return rc;
 }

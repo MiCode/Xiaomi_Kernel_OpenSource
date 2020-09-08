@@ -396,7 +396,8 @@ struct sdhci_msm_host {
 	int pwr_irq;		/* power irq */
 	struct clk *bus_clk;	/* SDHC bus voter clock */
 	struct clk *xo_clk;	/* TCXO clk needed for FLL feature of cm_dll*/
-	struct clk_bulk_data bulk_clks[4]; /* core, iface, cal, sleep clocks */
+	/* core, iface, ice, cal, sleep clocks */
+	struct clk_bulk_data bulk_clks[5];
 	unsigned long clk_rate;
 	struct sdhci_msm_vreg_data *vreg_data;
 	struct mmc_host *mmc;
@@ -427,6 +428,11 @@ struct sdhci_msm_host {
 	bool use_7nm_dll;
 	struct sdhci_msm_dll_hsr *dll_hsr;
 	struct sdhci_msm_regs_restore regs_restore;
+	u32 *sup_ice_clk_table;
+	unsigned char sup_ice_clk_cnt;
+	u32 ice_clk_max;
+	u32 ice_clk_min;
+	u32 ice_clk_rate;
 	struct workqueue_struct *workq;	/* QoS work queue */
 	struct sdhci_msm_qos_req *sdhci_qos;
 	struct irq_affinity_notify affinity_notify;
@@ -435,18 +441,6 @@ struct sdhci_msm_host {
 	u32 clk_gating_delay;
 	u32 pm_qos_delay;
 };
-
-#define	ANDROID_BOOT_DEV_MAX	30
-static char android_boot_dev[ANDROID_BOOT_DEV_MAX];
-
-#ifndef MODULE
-static int __init get_android_boot_dev(char *str)
-{
-	strlcpy(android_boot_dev, str, ANDROID_BOOT_DEV_MAX);
-	return 1;
-}
-__setup("androidboot.bootdevice=", get_android_boot_dev);
-#endif
 
 static struct sdhci_msm_host *sdhci_slot[2];
 
@@ -1650,6 +1644,8 @@ static bool sdhci_msm_populate_pdata(struct device *dev,
 						struct sdhci_msm_host *msm_host)
 {
 	struct device_node *np = dev->of_node;
+	int ice_clk_table_len;
+	u32 *ice_clk_table = NULL;
 
 	msm_host->vreg_data = devm_kzalloc(dev, sizeof(struct
 						    sdhci_msm_vreg_data),
@@ -1679,6 +1675,22 @@ static bool sdhci_msm_populate_pdata(struct device *dev,
 
 	if (sdhci_msm_dt_parse_hsr_info(dev, msm_host))
 		goto out;
+
+	if (!sdhci_msm_dt_get_array(dev, "qcom,ice-clk-rates",
+			&ice_clk_table, &ice_clk_table_len, 0)) {
+		if (ice_clk_table && ice_clk_table_len) {
+			if (ice_clk_table_len != 2) {
+				dev_err(dev, "Need max and min frequencies\n");
+				goto out;
+			}
+			msm_host->sup_ice_clk_table = ice_clk_table;
+			msm_host->sup_ice_clk_cnt = ice_clk_table_len;
+			msm_host->ice_clk_max = msm_host->sup_ice_clk_table[0];
+			msm_host->ice_clk_min = msm_host->sup_ice_clk_table[1];
+			dev_dbg(dev, "ICE clock rates (Hz): max: %u min: %u\n",
+				msm_host->ice_clk_max, msm_host->ice_clk_min);
+		}
+	}
 
 	return false;
 out:
@@ -3047,7 +3059,8 @@ static const struct sdhci_pltfm_data sdhci_msm_pdata = {
 		  SDHCI_QUIRK_SINGLE_POWER_WRITE |
 		  SDHCI_QUIRK_CAP_CLOCK_BASE_BROKEN |
 		  SDHCI_QUIRK_NO_ENDATTR_IN_NOPDESC |
-		  SDHCI_QUIRK_MULTIBLOCK_READ_ACMD12,
+		  SDHCI_QUIRK_MULTIBLOCK_READ_ACMD12 |
+		  SDHCI_QUIRK_DATA_TIMEOUT_USES_SDCLK,
 
 	.quirks2 = SDHCI_QUIRK2_PRESET_VALUE_BROKEN,
 	.ops = &sdhci_msm_ops,
@@ -3546,6 +3559,33 @@ static void sdhci_msm_setup_pm(struct platform_device *pdev,
 	}
 }
 
+static int sdhci_msm_setup_ice_clk(struct sdhci_msm_host *msm_host,
+						struct platform_device *pdev)
+{
+	int ret = 0;
+	struct clk *clk;
+
+	msm_host->bulk_clks[2].clk = NULL;
+
+	/* Setup SDC ICE clock */
+	clk = devm_clk_get(&pdev->dev, "ice_core");
+	if (!IS_ERR(clk)) {
+		msm_host->bulk_clks[2].clk = clk;
+
+		/* Set maximum clock rate for ice clk */
+		ret = clk_set_rate(clk, msm_host->ice_clk_max);
+		if (ret) {
+			dev_err(&pdev->dev, "ICE_CLK rate set failed (%d) for %u\n",
+				ret, msm_host->ice_clk_max);
+			return ret;
+		}
+
+		msm_host->ice_clk_rate = msm_host->ice_clk_max;
+	}
+
+	return ret;
+}
+
 static int sdhci_msm_probe(struct platform_device *pdev)
 {
 	struct sdhci_host *host;
@@ -3582,13 +3622,6 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "get slot index failed %d\n", ret);
 		else if (ret <= 2)
 			sdhci_slot[ret-1] = msm_host;
-
-		if (of_property_read_bool(dev->of_node, "non-removable") &&
-				strlen(android_boot_dev) &&
-				strcmp(android_boot_dev, dev_name(dev))) {
-			ret = -ENODEV;
-			goto pltfm_free;
-		}
 	}
 
 	/*
@@ -3653,15 +3686,19 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	if (ret)
 		dev_warn(&pdev->dev, "core clock boost failed\n");
 
+	ret = sdhci_msm_setup_ice_clk(msm_host, pdev);
+	if (ret)
+		goto bus_clk_disable;
+
 	clk = devm_clk_get(&pdev->dev, "cal");
 	if (IS_ERR(clk))
 		clk = NULL;
-	msm_host->bulk_clks[2].clk = clk;
+	msm_host->bulk_clks[3].clk = clk;
 
 	clk = devm_clk_get(&pdev->dev, "sleep");
 	if (IS_ERR(clk))
 		clk = NULL;
-	msm_host->bulk_clks[3].clk = clk;
+	msm_host->bulk_clks[4].clk = clk;
 
 	ret = clk_bulk_prepare_enable(ARRAY_SIZE(msm_host->bulk_clks),
 				      msm_host->bulk_clks);
@@ -3791,6 +3828,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	msm_host->mmc->caps |= MMC_CAP_WAIT_WHILE_BUSY | MMC_CAP_NEED_RSP_BUSY;
 
 #if defined(CONFIG_SDC_QTI)
+	host->timeout_clk_div = 4;
 	msm_host->mmc->caps2 |= MMC_CAP2_CLK_SCALE;
 #endif
 	sdhci_msm_setup_pm(pdev, msm_host);

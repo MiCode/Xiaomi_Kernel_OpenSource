@@ -95,6 +95,23 @@ void cnss_bus_deinit(struct cnss_plat_data *plat_priv)
 	}
 }
 
+void cnss_bus_add_fw_prefix_name(struct cnss_plat_data *plat_priv,
+				 char *prefix_name, char *name)
+{
+	if (!plat_priv)
+		return;
+
+	switch (plat_priv->bus_type) {
+	case CNSS_BUS_PCI:
+		return cnss_pci_add_fw_prefix_name(plat_priv->bus_priv,
+						   prefix_name, name);
+	default:
+		cnss_pr_err("Unsupported bus type: %d\n",
+			    plat_priv->bus_type);
+		return;
+	}
+}
+
 int cnss_bus_load_m3(struct cnss_plat_data *plat_priv)
 {
 	if (!plat_priv)
@@ -445,6 +462,21 @@ int cnss_bus_check_link_status(struct cnss_plat_data *plat_priv)
 		cnss_pr_dbg("Unsupported bus type: %d\n",
 			    plat_priv->bus_type);
 		return 0;
+	}
+}
+
+int cnss_bus_recover_link_down(struct cnss_plat_data *plat_priv)
+{
+	if (!plat_priv)
+		return -ENODEV;
+
+	switch (plat_priv->bus_type) {
+	case CNSS_BUS_PCI:
+		return cnss_pci_recover_link_down(plat_priv->bus_priv);
+	default:
+		cnss_pr_dbg("Unsupported bus type: %d\n",
+			    plat_priv->bus_type);
+		return -EINVAL;
 	}
 }
 

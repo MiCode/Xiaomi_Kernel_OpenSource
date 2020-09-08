@@ -227,12 +227,11 @@ opp_err_exit:
 	return ERR_PTR(-ENODEV);
 }
 
-static int cc_init(struct device *dev, int *cpus)
+static int cc_init(struct device_node *np, int *cpus)
 {
 	struct cc_limits_data *cc_cdev;
 	int idx = 0, ret = 0;
 	struct cpufreq_policy *policy;
-	struct device_node *np = dev->of_node;
 
 	mutex_lock(&cc_list_lock);
 	list_for_each_entry(cc_cdev, &cc_cdev_list, node) {
@@ -323,7 +322,7 @@ static int cc_cooling_probe(struct platform_device *pdev)
 				}
 			}
 		}
-		ret = cc_init(dev, cpu_map);
+		ret = cc_init(subsys_np, cpu_map);
 	}
 
 	return ret;

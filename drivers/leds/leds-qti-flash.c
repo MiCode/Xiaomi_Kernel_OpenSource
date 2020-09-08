@@ -456,8 +456,10 @@ static int qti_flash_led_disable(struct flash_node_data *fnode)
 	struct qti_flash_led *led = fnode->led;
 	int rc;
 
-	if (!fnode->configured)
-		return -EINVAL;
+	if (!fnode->configured) {
+		pr_debug("%s is not configured\n", fnode->fdev.led_cdev.name);
+		return 0;
+	}
 
 	spin_lock(&led->lock);
 	if ((fnode->strobe_sel == HW_STROBE) &&
@@ -1102,7 +1104,7 @@ static ssize_t qti_flash_on_time_show(struct device *dev,
 
 	snode = container_of(led_cdev, struct flash_switch_data, cdev);
 
-	return scnprintf(buf, PAGE_SIZE, "%lu\n", snode->on_time_ms);
+	return scnprintf(buf, PAGE_SIZE, "%lu\n", snode->on_time_ms * 1000);
 }
 
 static ssize_t qti_flash_off_time_store(struct device *dev,
@@ -1133,7 +1135,7 @@ static ssize_t qti_flash_off_time_show(struct device *dev,
 
 	snode = container_of(led_cdev, struct flash_switch_data, cdev);
 
-	return scnprintf(buf, PAGE_SIZE, "%lu\n", snode->off_time_ms);
+	return scnprintf(buf, PAGE_SIZE, "%lu\n", snode->off_time_ms * 1000);
 }
 
 static struct device_attribute qti_flash_led_attrs[] = {

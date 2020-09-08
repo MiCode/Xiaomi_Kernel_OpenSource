@@ -2095,7 +2095,7 @@ static struct clk_branch gcc_ddrss_gpu_axi_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_ddrss_gpu_axi_clk",
-			.ops = &clk_branch2_ops,
+			.ops = &clk_branch2_aon_ops,
 		},
 	},
 };
@@ -2979,24 +2979,6 @@ static struct clk_branch gcc_qupv3_wrap1_s4_clk = {
 	},
 };
 
-static struct clk_branch gcc_qupv3_wrap1_s5_clk = {
-	.halt_reg = 0x185fc,
-	.halt_check = BRANCH_HALT_VOTED,
-	.clkr = {
-		.enable_reg = 0x52008,
-		.enable_mask = BIT(27),
-		.hw.init = &(struct clk_init_data){
-			.name = "gcc_qupv3_wrap1_s5_clk",
-			.parent_data = &(const struct clk_parent_data){
-				.hw = &gcc_qupv3_wrap1_s5_clk_src.clkr.hw,
-			},
-			.num_parents = 1,
-			.flags = CLK_SET_RATE_PARENT,
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
 static struct clk_branch gcc_qupv3_wrap2_core_2x_clk = {
 	.halt_reg = 0x23278,
 	.halt_check = BRANCH_HALT_VOTED,
@@ -3156,36 +3138,6 @@ static struct clk_branch gcc_qupv3_wrap_0_s_ahb_clk = {
 		.enable_mask = BIT(7),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_qupv3_wrap_0_s_ahb_clk",
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
-static struct clk_branch gcc_qupv3_wrap_1_m_ahb_clk = {
-	.halt_reg = 0x18004,
-	.halt_check = BRANCH_HALT_VOTED,
-	.hwcg_reg = 0x18004,
-	.hwcg_bit = 1,
-	.clkr = {
-		.enable_reg = 0x52008,
-		.enable_mask = BIT(20),
-		.hw.init = &(struct clk_init_data){
-			.name = "gcc_qupv3_wrap_1_m_ahb_clk",
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
-static struct clk_branch gcc_qupv3_wrap_1_s_ahb_clk = {
-	.halt_reg = 0x18008,
-	.halt_check = BRANCH_HALT_VOTED,
-	.hwcg_reg = 0x18008,
-	.hwcg_bit = 1,
-	.clkr = {
-		.enable_reg = 0x52008,
-		.enable_mask = BIT(21),
-		.hw.init = &(struct clk_init_data){
-			.name = "gcc_qupv3_wrap_1_s_ahb_clk",
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -4178,7 +4130,6 @@ static struct clk_regmap *gcc_lahaina_clocks[] = {
 	[GCC_QUPV3_WRAP1_S3_CLK_SRC] = &gcc_qupv3_wrap1_s3_clk_src.clkr,
 	[GCC_QUPV3_WRAP1_S4_CLK] = &gcc_qupv3_wrap1_s4_clk.clkr,
 	[GCC_QUPV3_WRAP1_S4_CLK_SRC] = &gcc_qupv3_wrap1_s4_clk_src.clkr,
-	[GCC_QUPV3_WRAP1_S5_CLK] = &gcc_qupv3_wrap1_s5_clk.clkr,
 	[GCC_QUPV3_WRAP1_S5_CLK_SRC] = &gcc_qupv3_wrap1_s5_clk_src.clkr,
 	[GCC_QUPV3_WRAP2_CORE_2X_CLK] = &gcc_qupv3_wrap2_core_2x_clk.clkr,
 	[GCC_QUPV3_WRAP2_CORE_CLK] = &gcc_qupv3_wrap2_core_clk.clkr,
@@ -4196,8 +4147,6 @@ static struct clk_regmap *gcc_lahaina_clocks[] = {
 	[GCC_QUPV3_WRAP2_S5_CLK_SRC] = &gcc_qupv3_wrap2_s5_clk_src.clkr,
 	[GCC_QUPV3_WRAP_0_M_AHB_CLK] = &gcc_qupv3_wrap_0_m_ahb_clk.clkr,
 	[GCC_QUPV3_WRAP_0_S_AHB_CLK] = &gcc_qupv3_wrap_0_s_ahb_clk.clkr,
-	[GCC_QUPV3_WRAP_1_M_AHB_CLK] = &gcc_qupv3_wrap_1_m_ahb_clk.clkr,
-	[GCC_QUPV3_WRAP_1_S_AHB_CLK] = &gcc_qupv3_wrap_1_s_ahb_clk.clkr,
 	[GCC_QUPV3_WRAP_2_M_AHB_CLK] = &gcc_qupv3_wrap_2_m_ahb_clk.clkr,
 	[GCC_QUPV3_WRAP_2_S_AHB_CLK] = &gcc_qupv3_wrap_2_s_ahb_clk.clkr,
 	[GCC_SDCC2_AHB_CLK] = &gcc_sdcc2_ahb_clk.clkr,
@@ -4421,6 +4370,20 @@ static int gcc_lahaina_probe(struct platform_device *pdev)
 	/* FORCE_MEM_CORE_ON for ufs phy ice core clocks */
 	regmap_update_bits(regmap, gcc_ufs_phy_ice_core_clk.halt_reg,
 				BIT(14), BIT(14));
+
+	/*
+	 * Enable clocks required by the i2c-connected pm8008 regulators. Don't
+	 * register them with the clock framework so that client requests are
+	 * short-circuited before grabbing the enable/prepare locks. This
+	 * prevents deadlocks between the clk/regulator frameworks.
+	 *
+	 *	gcc_qupv3_wrap_1_m_ahb_clk
+	 *	gcc_qupv3_wrap_1_s_ahb_clk
+	 *	gcc_qupv3_wrap1_s5_clk
+	 */
+	regmap_update_bits(regmap, 0x52008, BIT(20), BIT(20));
+	regmap_update_bits(regmap, 0x52008, BIT(21), BIT(21));
+	regmap_update_bits(regmap, 0x52008, BIT(27), BIT(27));
 
 	ret = qcom_cc_really_probe(pdev, &gcc_lahaina_desc, regmap);
 	if (ret) {

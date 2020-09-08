@@ -524,6 +524,11 @@ struct sdhci_host {
 
 	unsigned int max_clk;	/* Max possible freq (MHz) */
 	unsigned int timeout_clk;	/* Timeout freq (KHz) */
+
+#if defined(CONFIG_SDC_QTI)
+	u8 timeout_clk_div;     /* Timeout freq (KHz) divider */
+#endif
+
 	unsigned int clk_mul;	/* Clock Muliplier value */
 
 	unsigned int clock;	/* Current clock (MHz) */

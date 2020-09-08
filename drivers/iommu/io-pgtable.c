@@ -114,32 +114,45 @@ static void mod_pages_allocated(int nr_pages)
 }
 #endif
 
-void *io_pgtable_alloc_pages_exact(struct io_pgtable_cfg *cfg, void *cookie,
-				   size_t size, gfp_t gfp_mask)
+void *io_pgtable_alloc_pages(struct io_pgtable_cfg *cfg, void *cookie,
+			     int order, gfp_t gfp_mask)
 {
-	void *ret;
-	struct msm_iommu_flush_ops *ops = to_msm_iommu_flush_ops(cfg->tlb);
+	struct device *dev;
+	struct page *p;
+	void *page_addr;
 
-	if (ops->alloc_pages_exact)
-		ret = ops->alloc_pages_exact(cookie, size, gfp_mask);
-	else
-		ret = alloc_pages_exact(size, gfp_mask);
+	if (!cfg)
+		return NULL;
 
-	if (likely(ret))
-		mod_pages_allocated(1 << get_order(size));
+	if (cfg->iommu_pgtable_ops && cfg->iommu_pgtable_ops->alloc_pgtable) {
+		page_addr = cfg->iommu_pgtable_ops->alloc_pgtable(cookie, order,
+							     gfp_mask);
+		if (likely(page_addr))
+			mod_pages_allocated(1 << order);
 
-	return ret;
+		return page_addr;
+	}
+
+	dev = cfg->iommu_dev;
+	p =  alloc_pages_node(dev ? dev_to_node(dev) : NUMA_NO_NODE,
+			      gfp_mask, order);
+	if (!p)
+		return NULL;
+
+	mod_pages_allocated(1 << order);
+	return page_address(p);
 }
 
-void io_pgtable_free_pages_exact(struct io_pgtable_cfg *cfg, void *cookie,
-				 void *virt, size_t size)
+void io_pgtable_free_pages(struct io_pgtable_cfg *cfg, void *cookie, void *virt,
+			   int order)
 {
-	struct msm_iommu_flush_ops *ops = to_msm_iommu_flush_ops(cfg->tlb);
+	if (!cfg)
+		return;
 
-	if (ops->free_pages_exact)
-		ops->free_pages_exact(cookie, virt, size);
+	if (cfg->iommu_pgtable_ops && cfg->iommu_pgtable_ops->free_pgtable)
+		cfg->iommu_pgtable_ops->free_pgtable(cookie, virt, order);
 	else
-		free_pages_exact(virt, size);
+		free_pages((unsigned long)virt, order);
 
-	mod_pages_allocated(-(1 << get_order(size)));
+	mod_pages_allocated(-(1 << order));
 }
