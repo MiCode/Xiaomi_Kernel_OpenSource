@@ -446,7 +446,7 @@ static int ufs_mtk_pwr_change_notify(struct ufs_hba *hba,
 	return ret;
 }
 
-static int ufs_mtk_unipro_set_pm(struct ufs_hba *hba, u32 lpm)
+static int ufs_mtk_unipro_set_pm(struct ufs_hba *hba, bool lpm)
 {
 	int ret;
 	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
@@ -454,8 +454,14 @@ static int ufs_mtk_unipro_set_pm(struct ufs_hba *hba, u32 lpm)
 	ret = ufshcd_dme_set(hba,
 			     UIC_ARG_MIB_SEL(VS_UNIPROPOWERDOWNCONTROL, 0),
 			     lpm);
-	if (!ret)
+	if (!ret || !lpm) {
+		/*
+		 * Forcibly set as non-LPM mode if UIC commands is failed
+		 * to use default hba_enable_delay_us value for re-enabling
+		 * the host.
+		 */
 		host->unipro_lpm = lpm;
+	}
 
 	return ret;
 }
@@ -465,7 +471,9 @@ static int ufs_mtk_pre_link(struct ufs_hba *hba)
 	int ret;
 	u32 tmp;
 
-	ufs_mtk_unipro_set_pm(hba, 0);
+	ret = ufs_mtk_unipro_set_pm(hba, false);
+	if (ret)
+		return ret;
 
 	/*
 	 * Setting PA_Local_TX_LCC_Enable to 0 before link startup
@@ -573,7 +581,7 @@ static int ufs_mtk_link_set_hpm(struct ufs_hba *hba)
 	if (err)
 		return err;
 
-	err = ufs_mtk_unipro_set_pm(hba, 0);
+	err = ufs_mtk_unipro_set_pm(hba, false);
 	if (err)
 		return err;
 
@@ -594,10 +602,10 @@ static int ufs_mtk_link_set_lpm(struct ufs_hba *hba)
 {
 	int err;
 
-	err = ufs_mtk_unipro_set_pm(hba, 1);
+	err = ufs_mtk_unipro_set_pm(hba, true);
 	if (err) {
 		/* Resume UniPro state for following error recovery */
-		ufs_mtk_unipro_set_pm(hba, 0);
+		ufs_mtk_unipro_set_pm(hba, false);
 		return err;
 	}
 
