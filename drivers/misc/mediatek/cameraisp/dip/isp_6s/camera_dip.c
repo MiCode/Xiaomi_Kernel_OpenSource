@@ -110,7 +110,9 @@ struct dip_fd_list_template {
 	struct list_head list;
 };
 
-struct dip_fd_list_template *dip_fd_list;
+LIST_HEAD(dip_fd_head);
+int put_cnt;
+int get_cnt;
 #define CAMSV_DBG
 #ifdef CAMSV_DBG
 #define CAM_TAG "CAM:"
@@ -5888,8 +5890,8 @@ static long DIP_ioctl(
 	unsigned int                 module;
 	unsigned long flags;
 	int i;
-	int fd, bufpa;
-	struct dip_fd_list_template *dip_ion_list, *dip_ion_list_temp, *tmp;
+	int fd, bufpa, release_flag;
+	struct dip_fd_list_template *dip_ion_list, *dip_ion_list_temp, *dip_ion_entry, *tmp1;
 	struct list_head *pos;
 
 
@@ -6155,27 +6157,51 @@ static long DIP_ioctl(
 				Ret = -EFAULT;
 				goto EXIT;
 			}
-		mutex_lock(&(DipMutexbuf));
-		dip_ion_list = kzalloc(sizeof(struct dip_fd_list_template), GFP_KERNEL);
-		dip_ion_list->buf = dma_buf_get(ion_mem_info.buf_fd);
-		dip_ion_list->attach = dma_buf_attach(dip_ion_list->buf, dip_devs->dev);
-		dip_ion_list->sgt = dma_buf_map_attachment(dip_ion_list->attach, DMA_BIDIRECTIONAL);
-		dip_ion_list->dma_addr = (unsigned int)sg_dma_address(dip_ion_list->sgt->sgl);
-		ion_mem_info.buf_pa = (unsigned int)sg_dma_address(dip_ion_list->sgt->sgl);
-		list_add_tail(&dip_ion_list->list, &dip_fd_list->list);
+			LOG_AST("gki add list fd:%d\n", ion_mem_info.buf_fd);
+			mutex_lock(&(DipMutexbuf));
+			int in_use = 0;
 
-		if (copy_to_user((void *)Param,
-			&ion_mem_info,
-			sizeof(struct DIP_ION_MEM_INFO)) != 0) {
-			LOG_ERR("DIP_SET_BUF_PA copy to user failed\n");
-		}
-		mutex_unlock(&(DipMutexbuf));
+			dip_ion_list = kzalloc(sizeof(struct dip_fd_list_template), GFP_KERNEL);
+			dip_ion_entry = kzalloc(sizeof(struct dip_fd_list_template), GFP_KERNEL);
 
-		} else {
-			LOG_ERR("DIP_SET_BUF_PA failed\n");
-			Ret = -EFAULT;
-		}
-		break;
+			list_for_each(pos, &dip_fd_head) {
+				dip_ion_entry = list_entry(pos, struct dip_fd_list_template, list);
+				if (ion_mem_info.buf_fd == dip_ion_entry->fd) {
+					LOG_AST("fd:%d\n", ion_mem_info.buf_fd);
+					ion_mem_info.buf_pa = dip_ion_entry->dma_addr;
+					in_use = 1;
+				}
+			}
+
+			if (in_use == 0) {
+				put_cnt = 0;
+				get_cnt++;
+				dip_ion_list->fd = ion_mem_info.buf_fd;
+				dip_ion_list->buf = dma_buf_get(ion_mem_info.buf_fd);
+				dip_ion_list->attach = dma_buf_attach(dip_ion_list->buf,
+						dip_devs->dev);
+				dip_ion_list->sgt = dma_buf_map_attachment(dip_ion_list->attach,
+						DMA_BIDIRECTIONAL);
+				dip_ion_list->dma_addr =
+					(unsigned int)sg_dma_address(dip_ion_list->sgt->sgl);
+				ion_mem_info.buf_pa =
+					(unsigned int)sg_dma_address(dip_ion_list->sgt->sgl);
+				LOG_AST("gki add list cnt:%d,fd:%d, pa:%x\n", get_cnt,
+						ion_mem_info.buf_fd, ion_mem_info.buf_pa);
+				list_add_tail(&dip_ion_list->list, &dip_fd_head);
+			}
+				if (copy_to_user((void *)Param,
+					&ion_mem_info,
+					sizeof(struct DIP_ION_MEM_INFO)) != 0) {
+					LOG_ERR("DIP_SET_BUF_PA copy to user failed\n");
+				}
+				mutex_unlock(&(DipMutexbuf));
+
+			} else {
+				LOG_ERR("DIP_SET_BUF_PA failed\n");
+				Ret = -EFAULT;
+			}
+			break;
 	}
 	/* unmap delete dip fd list */
 	case DIP_DET_BUF_FD: {
@@ -6187,15 +6213,26 @@ static long DIP_ioctl(
 				Ret = -EFAULT;
 				goto EXIT;
 			}
+			get_cnt = 0;
+			put_cnt++;
 			mutex_lock(&(DipMutexbuf));
-			tmp = kzalloc(sizeof(struct dip_fd_list_template), GFP_KERNEL);
-			list_for_each(pos, &dip_fd_list->list) {
-				tmp = list_entry(pos, struct dip_fd_list_template, list);
-				if (fd == tmp->fd) {
-					list_del(pos);
-					kfree(tmp);
+			list_for_each(pos, &dip_fd_head) {
+				dip_ion_list = list_entry(pos, struct dip_fd_list_template, list);
+				if (fd == dip_ion_list->fd) {
+					if (dip_ion_list->buf) {
+						dma_buf_unmap_attachment(dip_ion_list->attach,
+								dip_ion_list->sgt,
+								DMA_BIDIRECTIONAL);
+						dma_buf_detach(dip_ion_list->buf,
+								dip_ion_list->attach);
+						dma_buf_put(dip_ion_list->buf);
+					}
+					list_del(&dip_ion_list->list);
+					kfree(dip_ion_list);
+					break;
 				}
 			}
+			LOG_AST("unmap dma successful\n");
 			mutex_unlock(&(DipMutexbuf));
 		} else {
 			LOG_ERR("DIP_GET_BUF_PA failed\n");
@@ -7281,8 +7318,8 @@ static signed int DIP_probe(struct platform_device *pDev)
 		}
 
 		/* Init ION FD LIST*/
-		dip_fd_list = kzalloc(sizeof(struct dip_fd_list_template), GFP_KERNEL);
-		INIT_LIST_HEAD(&dip_fd_list->list);
+		put_cnt = 0;
+		get_cnt = 0;
 
 		g_DIP_PMState = 0;
 EXIT:
