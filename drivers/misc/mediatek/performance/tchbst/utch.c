@@ -420,8 +420,16 @@ static void __exit exit_utch_mod(void)
 {
 	int i;
 
-	for (i = 0; i < policy_num; i++)
+	for (i = 0; i < policy_num; i++) {
 		freq_qos_remove_request(&(tchbst_rq[i]));
+		if (opp_tbl)
+			kfree(opp_tbl[i]);
+	}
+
+	kfree(tchbst_policy);
+	kfree(tchbst_rq);
+	kfree(opp_count);
+	kfree(opp_tbl);
 }
 
 static int __init init_utch_mod(void)
@@ -431,20 +439,27 @@ static int __init init_utch_mod(void)
 	struct cpufreq_policy *policy;
 	struct cpufreq_frequency_table *pos;
 
-	/* register callback */
-	usrtch_ioctl_fp = usrtch_ioctl;
-
-	/* query policy info */
+	/* query policy number */
 	for_each_possible_cpu(cpu) {
 		policy = cpufreq_cpu_get(cpu);
 		pr_info("%s, policy[%d]: first:%d, min:%d, max:%d",
 			__func__, num, cpu, policy->min, policy->max);
 
-		num++;
-		cpu = cpumask_last(policy->related_cpus);
+		if (policy) {
+			num++;
+			cpu = cpumask_last(policy->related_cpus);
+		}
 	}
 
 	policy_num = num;
+
+	if (policy_num == 0) {
+		pr_info("%s, no policy", __func__);
+		return 0;
+	}
+
+	/* register callback */
+	usrtch_ioctl_fp = usrtch_ioctl;
 
 	tchbst_policy = kcalloc(policy_num,	sizeof(struct cpufreq_policy *), GFP_KERNEL);
 	tchbst_rq = kcalloc(policy_num,	sizeof(struct freq_qos_request), GFP_KERNEL);
@@ -454,6 +469,10 @@ static int __init init_utch_mod(void)
 	num = 0;
 	for_each_possible_cpu(cpu) {
 		policy = cpufreq_cpu_get(cpu);
+
+		if (!policy)
+			continue;
+
 		tchbst_policy[num] = policy;
 #ifdef DEBUG_LOG
 		pr_info("%s, policy[%d]: first:%d, sort:%d",
