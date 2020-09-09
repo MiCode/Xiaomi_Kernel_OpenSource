@@ -238,7 +238,7 @@ retry:
 			goto retry;
 		}
 		iovad->max32_alloc_size = size;
-		pr_info("[iommu_debug] %s fail, size:0x%lx,linmit:0x%lx\n, new:0x%lx, start::0x%lx",
+		pr_info("[iommu_debug] %s fail, size:0x%lx,limit:0x%lx, new:0x%lx, start:0x%lx\n",
 			__func__, size, limit_pfn, new_pfn, iovad->start_pfn);
 		goto iova32_full;
 	}

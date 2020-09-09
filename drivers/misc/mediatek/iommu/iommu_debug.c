@@ -61,7 +61,7 @@ enum mtk_iommu_type {
 struct mtk_iommu_port {
 	char *name;
 	unsigned m4u_id: 2;
-	unsigned larb_id: 4;
+	unsigned larb_id: 6;
 	unsigned port_id: 8;
 	unsigned tf_id: 12;     /* 12 bits */
 	bool enable_tf;
@@ -499,7 +499,7 @@ static int mtk_iommu_get_tf_port_idx(int tf_id, bool is_vpu)
 	for (i = 0; i < port_nr; i++) {
 		if (port_list[i].tf_id == vld_id)
 			return i;
-		if (port_list[i].tf_id == vld_id & F_MMU_INT_TF_CCU)
+		if (port_list[i].tf_id == (vld_id & F_MMU_INT_TF_CCU))
 			return i;
 	}
 
