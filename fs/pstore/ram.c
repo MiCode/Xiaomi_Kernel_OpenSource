@@ -21,6 +21,7 @@
 #include <linux/pstore_ram.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
+#include <soc/qcom/minidump.h>
 
 #define RAMOOPS_KERNMSG_HDR "===="
 #define MIN_MEM_SIZE 4096UL
@@ -96,6 +97,54 @@ struct ramoops_context {
 };
 
 static struct platform_device *dummy;
+
+static void register_minidump(struct ramoops_context *cxt)
+{
+	int i;
+	struct md_region pstore_entry;
+	struct persistent_ram_zone *prz;
+
+	for (i = 0; i < cxt->max_dump_cnt; i++) {
+		prz = cxt->dprzs[i];
+		scnprintf(pstore_entry.name, sizeof(pstore_entry.name),
+				"KDMESG%d", i);
+		pstore_entry.virt_addr = (u64)(prz->vaddr);
+		pstore_entry.phys_addr = prz->paddr;
+		pstore_entry.size = prz->size;
+		if (msm_minidump_add_region(&pstore_entry) < 0)
+			pr_err("failed to add dmesg in minidump\n");
+	}
+	if (cxt->console_size) {
+		prz = cxt->cprz;
+		strlcpy(pstore_entry.name, "KCONSOLE",
+				sizeof(pstore_entry.name));
+		pstore_entry.virt_addr = (u64)(prz->vaddr);
+		pstore_entry.phys_addr = prz->paddr;
+		pstore_entry.size = prz->size;
+		if (msm_minidump_add_region(&pstore_entry) < 0)
+			pr_err("failed to add console in minidump\n");
+	}
+	for (i = 0; i < cxt->max_ftrace_cnt; i++) {
+		prz = cxt->fprzs[i];
+		scnprintf(pstore_entry.name, sizeof(pstore_entry.name),
+				"KFTRACE%d", i);
+		pstore_entry.virt_addr = (u64)(prz->vaddr);
+		pstore_entry.phys_addr = prz->paddr;
+		pstore_entry.size = prz->size;
+		if (msm_minidump_add_region(&pstore_entry) < 0)
+			pr_err("failed to add ftrace in minidump\n");
+	}
+	if (cxt->pmsg_size) {
+		prz = cxt->mprz;
+		strlcpy(pstore_entry.name, "KPMSG",
+				sizeof(pstore_entry.name));
+		pstore_entry.virt_addr = (u64)(prz->vaddr);
+		pstore_entry.phys_addr = prz->paddr;
+		pstore_entry.size = prz->size;
+		if (msm_minidump_add_region(&pstore_entry) < 0)
+			pr_err("failed to add pmsg in minidump\n");
+	}
+}
 
 static int ramoops_pstore_open(struct pstore_info *psi)
 {
@@ -874,6 +923,8 @@ static int ramoops_probe(struct platform_device *pdev)
 	pr_info("using 0x%lx@0x%llx, ecc: %d\n",
 		cxt->size, (unsigned long long)cxt->phys_addr,
 		cxt->ecc_info.ecc_size);
+
+	register_minidump(cxt);
 
 	return 0;
 
