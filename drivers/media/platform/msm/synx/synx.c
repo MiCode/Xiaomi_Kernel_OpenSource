@@ -256,9 +256,11 @@ int synx_signal_core(struct synx_coredata *synx_obj,
 		 */
 		ret = bind_ops->deregister_callback(
 				synx_external_callback, data, sync_id);
-		if (ret < 0)
+		if (ret < 0) {
 			pr_err("deregistration fail on %d, type: %u, err: %d\n",
 				sync_id, type, ret);
+			continue;
+		}
 		pr_debug("signal external sync: %d, type: %u, status: %u\n",
 			sync_id, type, status);
 		/* optional function to enable external signaling */
