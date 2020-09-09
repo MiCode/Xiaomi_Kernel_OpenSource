@@ -1087,11 +1087,19 @@ static void neigh_timer_handler(struct timer_list *t)
 		if (!mod_timer(&neigh->timer, next))
 			neigh_hold(neigh);
 	}
-	if (neigh->nud_state & (NUD_INCOMPLETE | NUD_PROBE)) {
-		neigh_probe(neigh);
+
+	if (neigh_probe_enable) {
+		if (neigh->nud_state & (NUD_INCOMPLETE | NUD_PROBE | NUD_STALE))
+			neigh_probe(neigh);
+		else
+			write_unlock(&neigh->lock);
 	} else {
+		if (neigh->nud_state & (NUD_INCOMPLETE | NUD_PROBE)) {
+			neigh_probe(neigh);
+		} else {
 out:
-		write_unlock(&neigh->lock);
+			write_unlock(&neigh->lock);
+		}
 	}
 
 	if (notify)
