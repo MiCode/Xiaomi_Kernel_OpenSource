@@ -6,3 +6,4 @@ obj-$(CONFIG_QPNP_QG)	+= qcom-qpnp-qg.o
 qcom-qpnp-qg-y	+= qpnp-qg.o battery-profile-loader.o pmic-voter.o qg-util.o qg-soc.o qg-sdam.o qg-battery-profile.o qg-profile-lib.o fg-alg.o
 obj-$(CONFIG_SMB1398_CHARGER)		+= smb1398-charger.o pmic-voter.o
 obj-$(CONFIG_SMB1355_SLAVE_CHARGER)	+= smb1355-charger.o pmic-voter.o
+obj-$(CONFIG_QPNP_SMBLITE)	        += step-chg-jeita.o battery.o qpnp-smblite.o smblite-lib.o pmic-voter.o storm-watch.o schgm-falshlite.o
