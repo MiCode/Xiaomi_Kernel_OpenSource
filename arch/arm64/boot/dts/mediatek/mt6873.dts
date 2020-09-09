@@ -1304,3 +1304,11 @@
 	_vgpu-supply = <&mt6315_7_vbuck1>;
 	_vsram_gpu-supply = <&mt6359p_vsram_others_reg>;
 };
+
+&mddriver {
+	md_vmodem-supply = <&mt6315_3_vbuck1>;
+	md_vsram-supply = <&mt6315_3_vbuck4>;
+	md_vnr-supply = <&mt6315_3_vbuck3>;
+	md_vdigrf-supply = <&mt6359p_vpu_reg>;
+};
+
