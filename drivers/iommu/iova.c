@@ -207,7 +207,7 @@ static int __alloc_and_insert_iova_range(struct iova_domain *iovad,
 	} while (curr && new_pfn <= curr_iova->pfn_hi);
 
 	if (limit_pfn < size || new_pfn < iovad->start_pfn) {
-		pr_info("[iommu_debug] %s fail, size:0x%lx,linmit:0x%lx\n, new:0x%lx, start::0x%lx",
+		pr_info("[iommu_debug] %s fail, size:0x%lx,limit:0x%lx, new:0x%lx, start:0x%lx\n",
 			__func__, size, limit_pfn, new_pfn, iovad->start_pfn);
 		iovad->max32_alloc_size = size;
 		goto iova32_full;

@@ -441,7 +441,7 @@ static dma_addr_t iommu_dma_alloc_iova(struct iommu_domain *domain,
 	if (iova) {
 		mtk_iova_dbg_alloc(dev, ((dma_addr_t)iova << shift), size);
 	} else {
-		pr_info("[iommu_debug] %s fail! dev:%s, size:0x%zx\n",
+		pr_info("%s fail! dev:%s, size:0x%zx\n",
 			__func__, dev_name(dev), size);
 		mtk_iova_dbg_dump(dev);
 	}
