@@ -59,7 +59,7 @@
 			RPMH_REGULATOR_LEVEL_NOM 100000000>; /* Gen3 */
 
 		interconnect-names = "icc_path";
-		interconnects = <&aggre2_noc MASTER_PCIE_0 &mc_virt SLAVE_EBI1>;
+		interconnects = <&aggre1_noc MASTER_PCIE_0 &mc_virt SLAVE_EBI1>;
 
 		clocks = <&gcc GCC_PCIE_0_PIPE_CLK>,
 			<&rpmhcc RPMH_CXO_CLK>,
