@@ -315,11 +315,6 @@
 			reg = <0x0 0xc0000000 0x0 0x5100000>;
 		};
 
-		pil_trustedvm_mem: pil_trustedvm_region@d0000000 {
-			no-map;
-			reg = <0x0 0xd0000000 0x0 0xa600000>;
-		};
-
 		secure_display_memory: secure_display_region {
 			compatible = "shared-dma-pool";
 			alloc-ranges = <0 0x00000000 0 0xffffffff>;
