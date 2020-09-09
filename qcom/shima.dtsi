@@ -403,6 +403,13 @@
 			size = <0x0 0x1400000>;
 		};
 
+		qcom: ramoops {
+			compatible = "ramoops";
+			reg = <0x0 0xa9000000 0x0 0x200000>;
+			pmsg-size = <0x200000>;
+			mem-type = <2>;
+		};
+
 		/* global autoconfigured region for contiguous allocations */
 		linux,cma {
 			compatible = "shared-dma-pool";
