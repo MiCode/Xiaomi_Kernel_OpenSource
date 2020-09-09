@@ -6623,19 +6623,13 @@ static int msm_pcie_drv_resume(struct msm_pcie_dev_t *pcie_dev)
 		if (clk_info->hdl && !clk_info->suppressible)
 			clk_prepare_enable(clk_info->hdl);
 
-	/*
-	 * if DRV subsystem did not respond to previous rpmsg command, check if
-	 * PCIe CLKREQ override is still enabled
-	 */
-	if (rpmsg_ret) {
-		clkreq_override_en = readl_relaxed(pcie_dev->parf +
-					PCIE20_PARF_CLKREQ_OVERRIDE) &
-					PCIE20_PARF_CLKREQ_IN_ENABLE;
-		if (clkreq_override_en)
-			PCIE_DBG(pcie_dev,
-				"PCIe: RC%d: CLKREQ Override detected\n",
-				pcie_dev->rc_idx);
-	}
+	clkreq_override_en = readl_relaxed(pcie_dev->parf +
+				PCIE20_PARF_CLKREQ_OVERRIDE) &
+				PCIE20_PARF_CLKREQ_IN_ENABLE;
+	if (clkreq_override_en)
+		PCIE_DBG(pcie_dev,
+			"PCIe: RC%d: CLKREQ Override detected\n",
+			pcie_dev->rc_idx);
 
 	/*
 	 * if PCIe CLKREQ override is still enabled, then make sure PCIe mux is
