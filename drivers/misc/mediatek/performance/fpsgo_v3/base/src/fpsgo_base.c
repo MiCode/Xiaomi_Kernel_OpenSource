@@ -106,6 +106,10 @@ int fpsgo_arch_nr_clusters(void)
 
 	for_each_possible_cpu(cpu) {
 		policy = cpufreq_cpu_get(cpu);
+		if (!policy) {
+			num = 2;
+			break;
+		}
 
 		num++;
 		cpu = cpumask_last(policy->related_cpus);
