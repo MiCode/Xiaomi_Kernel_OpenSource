@@ -129,6 +129,10 @@
 #include	"internal.h"
 
 #include	"slab.h"
+#ifdef CONFIG_QCOM_MINIDUMP_PANIC_DUMP
+#include <soc/qcom/minidump.h>
+#include <linux/seq_buf.h>
+#endif
 
 /*
  * DEBUG	- 1 for kmem_cache_create() to honour; SLAB_RED_ZONE & SLAB_POISON.
@@ -4084,10 +4088,21 @@ void slabinfo_show_stats(struct seq_file *m, struct kmem_cache *cachep)
 		unsigned long node_frees = cachep->node_frees;
 		unsigned long overflows = cachep->node_overflow;
 
-		seq_printf(m, " : globalstat %7lu %6lu %5lu %4lu %4lu %4lu %4lu %4lu %4lu",
+		if (m) {
+			seq_printf(m, " : globalstat %7lu %6lu %5lu %4lu %4lu %4lu %4lu %4lu %4lu",
 			   allocs, high, grown,
 			   reaped, errors, max_freeable, node_allocs,
 			   node_frees, overflows);
+		} else {
+#ifdef CONFIG_QCOM_MINIDUMP_PANIC_DUMP
+			if (md_slabinfo_seq_buf)
+				seq_buf_printf(md_slabinfo_seq_buf,
+					" : globalstat %7lu %6lu %5lu %4lu %4lu %4lu %4lu %4lu %4lu",
+					allocs, high, grown,
+					reaped, errors, max_freeable,
+					node_allocs, node_frees, overflows);
+#endif
+		}
 	}
 	/* cpu stats */
 	{
@@ -4096,8 +4111,17 @@ void slabinfo_show_stats(struct seq_file *m, struct kmem_cache *cachep)
 		unsigned long freehit = atomic_read(&cachep->freehit);
 		unsigned long freemiss = atomic_read(&cachep->freemiss);
 
-		seq_printf(m, " : cpustat %6lu %6lu %6lu %6lu",
+		if (m) {
+			seq_printf(m, " : cpustat %6lu %6lu %6lu %6lu",
 			   allochit, allocmiss, freehit, freemiss);
+		} else {
+#ifdef CONFIG_QCOM_MINIDUMP_PANIC_DUMP
+			if (md_slabinfo_seq_buf)
+				seq_buf_printf(md_slabinfo_seq_buf,
+					" : cpustat %6lu %6lu %6lu %6lu",
+					allochit, allocmiss, freehit, freemiss);
+#endif
+		}
 	}
 #endif
 }
