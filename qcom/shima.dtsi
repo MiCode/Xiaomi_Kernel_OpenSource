@@ -3406,6 +3406,40 @@
 		wlan-ant-switch-supply = <&L11C>;
 		qcom,wlan-ant-switch-config = <2800000 2800000 0 0 0>;
 
+		interconnects =
+		<&aggre2_noc MASTER_PCIE_0 &aggre2_noc SLAVE_ANOC_PCIE_GEM_NOC>,
+		<&gem_noc MASTER_ANOC_PCIE_GEM_NOC &mc_virt SLAVE_EBI1>;
+		interconnect-names = "pcie_to_memnoc", "memnoc_to_ddr";
+
+		qcom,icc-path-count = <2>;
+		qcom,bus-bw-cfg-count = <7>;
+		qcom,bus-bw-cfg =
+		/** ICC Path 1 **/
+		<0 0>, /* no vote */
+		/* idle: 0-18 Mbps snoc/anoc: 100 Mhz ddr: 451.2 MHz */
+		<2250 390000>,
+		/* low: 18-60 Mbps snoc/anoc: 100 Mhz ddr: 451.2 MHz */
+		<7500 390000>,
+		/* medium: 60-240 Mbps snoc/anoc: 200 Mhz ddr: 451.2 MHz */
+		<30000 790000>,
+		/* high: 240-1080 Mbps snoc/anoc: 200 Mhz ddr: 451.2 MHz */
+		<100000 790000>,
+		/* very high: > 1080 Mbps snoc/anoc: 403 Mhz ddr: 451.2 MHz */
+		<175000 1600000>,
+		/* low (latency critical): 18-60 Mbps snoc/anoc: 200 Mhz
+		 * ddr: 547.2 MHz
+		 */
+		<7500 390000>,
+
+		/** ICC Path 2 **/
+		<0 0>,
+		<2250 1804800>,
+		<7500 1804800>,
+		<30000 1804800>,
+		<100000 1804800>,
+		<175000 6220800>,
+		<7500 2188800>;
+
 		mhi,max-channels = <30>;
 		mhi,timeout = <10000>;
 		mhi,buffer-len = <0x8000>;
