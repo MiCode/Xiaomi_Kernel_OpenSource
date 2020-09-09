@@ -20,7 +20,7 @@ description: |
   [2]: https://wiki.st.com/stm32mpu/wiki/STM32MP15_RAM_mapping
 
 allOf:
- - $ref: /schemas/simple-bus.yaml#
+  - $ref: /schemas/simple-bus.yaml#
 
 properties:
   compatible:
@@ -52,7 +52,7 @@ required:
 
 examples:
   - |
-    mlahb: ahb {
+    mlahb: ahb@38000000 {
       compatible = "st,mlahb", "simple-bus";
       #address-cells = <1>;
       #size-cells = <1>;

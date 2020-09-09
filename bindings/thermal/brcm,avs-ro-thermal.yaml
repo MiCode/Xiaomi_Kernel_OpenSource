@@ -17,13 +17,13 @@ description: |+
                 "brcm,bcm2711-avs-monitor", "syscon", "simple-mfd"
 
   Refer to the the bindings described in
-  Documentation/devicetree/bindings/mfd/syscon.txt
+  Documentation/devicetree/bindings/mfd/syscon.yaml
 
 properties:
   compatible:
     const: brcm,bcm2711-thermal
 
-  # See ./thermal.txt for details
+  # See Documentation/devicetree/bindings/thermal/thermal-sensor.yaml for details
   "#thermal-sensor-cells":
     const: 0
 
