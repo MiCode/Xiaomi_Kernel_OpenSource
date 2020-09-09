@@ -1011,7 +1011,7 @@ static int pl_fcc_vote_callback(struct votable *votable, void *data,
 	 */
 	if (!chip->iio_chan_list_cp_slave) {
 		chip->iio_chan_list_cp_slave = iio_channel_get(chip->dev,
-			"current capability");
+			"current_capability");
 		if (PTR_ERR(chip->iio_chan_list_cp_slave) == -EPROBE_DEFER)
 			chip->iio_chan_list_cp_slave = NULL;
 	}
