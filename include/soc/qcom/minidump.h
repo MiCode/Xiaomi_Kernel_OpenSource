@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __MINIDUMP_H
@@ -56,5 +56,11 @@ static inline int msm_minidump_remove_region(const struct md_region *entry)
 }
 static inline bool msm_minidump_enabled(void) { return false; }
 static inline void dump_stack_minidump(u64 sp) {}
+static inline void add_trace_event(char *buf, size_t size) {}
+#endif
+#ifdef CONFIG_QCOM_MINIDUMP_FTRACE
+extern void minidump_add_trace_event(char *buf, size_t size);
+#else
+static inline void minidump_add_trace_event(char *buf, size_t size) {}
 #endif
 #endif

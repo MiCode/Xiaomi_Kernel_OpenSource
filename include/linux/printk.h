@@ -11,6 +11,12 @@
 extern const char linux_banner[];
 extern const char linux_proc_banner[];
 
+#ifdef CONFIG_QCOM_INITIAL_LOGBUF
+extern char *boot_log_buf;
+extern unsigned int boot_log_buf_size;
+extern bool copy_early_boot_log;
+#endif
+
 #define PRINTK_MAX_SINGLE_HEADER_LEN 2
 
 static inline int printk_get_level(const char *buffer)

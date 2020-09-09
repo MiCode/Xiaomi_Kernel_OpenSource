@@ -33,6 +33,7 @@
 
 #if IS_ENABLED(CONFIG_QCOM_WDT_CORE)
 #include <linux/platform_device.h>
+#include <asm/hardirq.h>
 
 /**
  *  The enable constant that can be used between the core framework and the
@@ -63,8 +64,23 @@
 #define QCOM_WATCHDOG_USERSPACE_PET 0
 #endif
 
+#define NR_TOP_HITTERS 10
+
 struct qcom_wdt_ops;
 struct msm_watchdog_data;
+
+
+/** qcom_irq_info - IRQ stats
+ *
+ * @irq:            linux/virtual irq numer.
+ * @total_count:    sum of irq occurrence count on all cpu's.
+ * @irq_counter:    irq occurrence count on each cpu.
+ */
+struct qcom_irq_info {
+	unsigned int irq;
+	unsigned int total_count;
+	unsigned int irq_counter[NR_CPUS];
+};
 
 /** qcom_wdt_ops - The msm-watchdog-devices operations
  *
@@ -125,6 +141,11 @@ struct msm_watchdog_data {
 	int cpu_idle_pc_state[NR_CPUS];
 	bool freeze_in_progress;
 	spinlock_t freeze_lock;
+	struct work_struct irq_counts_work;
+	struct qcom_irq_info irq_counts[NR_TOP_HITTERS];
+	struct qcom_irq_info ipi_counts[NR_IPI];
+	unsigned int tot_irq_count[NR_CPUS];
+	atomic_t irq_counts_running;
 };
 
 extern void qcom_wdt_trigger_bite(void);

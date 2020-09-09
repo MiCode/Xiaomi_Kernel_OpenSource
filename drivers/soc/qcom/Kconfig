@@ -487,6 +487,28 @@ config QCOM_DYN_MINIDUMP_STACK
 	  where CPU is unable to register it from IPI_CPU_STOP. The stack data
 	  can be used to unwind stack frames.
 
+config QCOM_MINIDUMP_FTRACE
+	bool "QCOM Minidump Support"
+	depends on QGKI && QCOM_MINIDUMP
+	help
+	  This enables ftrace buffer registration in minidump table.
+	  This allows dumping ftrace buffer content as part of
+	  minidump dumps.
+
+config QCOM_MINIDUMP_PANIC_DUMP
+	bool "QCOM Minidump Panic dumps Support"
+	depends on QGKI && QCOM_MINIDUMP
+	help
+	  This enables various dumps collection in minidump table,
+	  on panic.
+
+config QCOM_MINIDUMP_PANIC_CPU_CONTEXT
+	bool "QCOM Minidump Panic dumps Support"
+	depends on ARM64 && QCOM_MINIDUMP_PANIC_DUMP
+	help
+	  This enables cpu context collection in minidump table,
+	  on panic.
+
 config MINIDUMP_MAX_ENTRIES
 	int "Minidump Maximum num of entries"
 	default 200
@@ -821,6 +843,24 @@ config QCOM_SOC_WATCHDOG
 	  setting the bark/bite time and also petting the hardware watchdog. To
 	  utilize this the Qualcomm Technologies, Inc. watchdog framework must
 	  also be enabled.
+
+config QCOM_IRQ_STAT
+	bool "QCOM IRQ stats"
+	depends on QGKI && QCOM_WDT_CORE
+	help
+	  This give irq stats for top hitter at
+	  watchdog pet, watchdog bark and kernel panics.
+	  This provides additional debug information
+	  for irq counts on cpu and ipi counts.
+
+config QCOM_INITIAL_LOGBUF
+	bool "QCOM save initial log_buf"
+	depends on QGKI && QCOM_WDT_CORE
+	help
+	  This enables to keep copy of initial log_buf
+	  of minimum 512KB from bootup. It can help in
+	  debugging issues which are manifestation
+	  of failure during initial bootup.
 
 config QCOM_FORCE_WDOG_BITE_ON_PANIC
 	bool "QCOM force watchdog bite on panic"
