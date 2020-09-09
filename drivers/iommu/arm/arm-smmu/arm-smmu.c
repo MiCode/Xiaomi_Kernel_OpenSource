@@ -3617,8 +3617,19 @@ static int arm_smmu_id_size_to_bits(int size)
 static int arm_smmu_handoff_cbs(struct arm_smmu_device *smmu)
 {
 	u32 i, smr, s2cr;
+	u32 index;
 
-	for (i = 0; i < smmu->num_mapping_groups; i++) {
+	for (index = 0;; index++) {
+		if (of_property_read_u32_index(smmu->dev->of_node,
+				"qcom,handoff-smrs", index, &i) < 0)
+			break;
+
+		if (i >= smmu->num_mapping_groups) {
+			dev_err(smmu->dev, "Invalid qcom,handoff-smrs property, only %d smrs\n",
+				smmu->num_mapping_groups);
+			break;
+		}
+
 		smr = arm_smmu_gr0_read(smmu, ARM_SMMU_GR0_SMR(i));
 		s2cr = arm_smmu_gr0_read(smmu, ARM_SMMU_GR0_S2CR(i));
 
