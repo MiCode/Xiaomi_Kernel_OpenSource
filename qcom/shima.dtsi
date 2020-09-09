@@ -3382,7 +3382,6 @@
 	};
 
 	wlan: qcom,cnss-qca6490@b0000000 {
-		status = "disabled";
 		compatible = "qcom,cnss-qca6490";
 		reg = <0xb0000000 0x10000>;
 		reg-names = "smmu_iova_ipa";
