@@ -13,10 +13,10 @@
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
 #include <linux/pci.h>
-#include <linux/dma-iommu.h>
 #include <linux/iova.h>
-#include <trace/events/iommu.h>
 #include <linux/io-pgtable.h>
+#include <linux/qcom-iommu-util.h>
+#include "qcom-dma-iommu-generic.h"
 
 /* some redundant definitions... :( TODO: move to io-pgtable-fast.h */
 #define FAST_PAGE_SHIFT		12
@@ -29,32 +29,6 @@ static pgprot_t __get_dma_pgprot(unsigned long attrs, pgprot_t prot,
 	if (!coherent || (attrs & DMA_ATTR_WRITE_COMBINE))
 		return pgprot_writecombine(prot);
 	return prot;
-}
-
-static struct gen_pool *fast_atomic_pool __ro_after_init;
-
-static int __init fast_smmu_dma_init(void)
-{
-	struct gen_pool *pool = __dma_atomic_pool_init();
-
-	if (!IS_ERR(pool)) {
-		fast_atomic_pool = pool;
-		return 0;
-	}
-
-	return PTR_ERR(pool);
-}
-arch_initcall(fast_smmu_dma_init);
-
-static void *fast_dma_alloc_from_pool(size_t size, struct page **ret_page,
-				      gfp_t flags)
-{
-	return __dma_alloc_from_pool(fast_atomic_pool, size, ret_page, flags);
-}
-
-static bool fast_dma_free_from_pool(void *start, size_t size)
-{
-	return __dma_free_from_pool(fast_atomic_pool, start, size);
 }
 
 static bool is_dma_coherent(struct device *dev, unsigned long attrs)
@@ -89,6 +63,7 @@ static dma_addr_t __fast_smmu_alloc_iova(struct dma_fast_smmu_mapping *mapping,
 {
 	unsigned long bit, nbits = size >> FAST_PAGE_SHIFT;
 	unsigned long align = (1 << get_order(size)) - 1;
+	struct iommu_domain *domain = mapping->domain;
 
 	bit = bitmap_find_next_zero_area(mapping->clean_bitmap,
 					  mapping->num_4k_pages,
@@ -110,7 +85,7 @@ static dma_addr_t __fast_smmu_alloc_iova(struct dma_fast_smmu_mapping *mapping,
 				bool skip_sync = (attrs &
 						  DMA_ATTR_SKIP_CPU_SYNC);
 
-				iommu_tlbiall(mapping->domain);
+				iommu_flush_tlb_all(domain);
 				bitmap_copy(mapping->clean_bitmap,
 					    mapping->bitmap,
 					    mapping->num_4k_pages);
@@ -155,26 +130,6 @@ static void __fast_smmu_free_iova(struct dma_fast_smmu_mapping *mapping,
 	mapping->have_stale_tlbs = true;
 }
 
-
-static void __fast_dma_page_cpu_to_dev(struct page *page, unsigned long off,
-				       size_t size, enum dma_data_direction dir)
-{
-	__dma_map_area(page_address(page) + off, size, dir);
-}
-
-static void __fast_dma_page_dev_to_cpu(struct page *page, unsigned long off,
-				       size_t size, enum dma_data_direction dir)
-{
-	__dma_unmap_area(page_address(page) + off, size, dir);
-
-	/* TODO: WHAT IS THIS? */
-	/*
-	 * Mark the D-cache clean for this page to avoid extra flushing.
-	 */
-	if (dir != DMA_TO_DEVICE && off == 0 && size >= PAGE_SIZE)
-		set_bit(PG_dcache_clean, &page->flags);
-}
-
 static dma_addr_t fast_smmu_map_page(struct device *dev, struct page *page,
 				   unsigned long offset, size_t size,
 				   enum dma_data_direction dir,
@@ -189,11 +144,10 @@ static dma_addr_t fast_smmu_map_page(struct device *dev, struct page *page,
 	size_t len = ALIGN(size + offset_from_phys_to_map, FAST_PAGE_SIZE);
 	bool skip_sync = (attrs & DMA_ATTR_SKIP_CPU_SYNC);
 	bool is_coherent = is_dma_coherent(dev, attrs);
-	int prot = dma_info_to_prot(dir, is_coherent, attrs);
+	int prot = qcom_dma_info_to_prot(dir, is_coherent, attrs);
 
 	if (!skip_sync && !is_coherent)
-		__fast_dma_page_cpu_to_dev(phys_to_page(phys_to_map),
-					   offset_from_phys_to_map, size, dir);
+		qcom_arch_sync_dma_for_device(phys_plus_off, size, dir);
 
 	spin_lock_irqsave(&mapping->lock, flags);
 
@@ -208,8 +162,6 @@ static dma_addr_t fast_smmu_map_page(struct device *dev, struct page *page,
 
 	spin_unlock_irqrestore(&mapping->lock, flags);
 
-	trace_map(to_msm_iommu_domain(mapping->domain), iova, phys_to_map, len,
-		  prot);
 	return iova + offset_from_phys_to_map;
 
 fail_free_iova:
@@ -236,24 +188,19 @@ static void fast_smmu_unmap_page(struct device *dev, dma_addr_t iova,
 		phys = av8l_fast_iova_to_phys_public(mapping->pgtbl_ops, iova);
 		WARN_ON(!phys);
 
-		__fast_dma_page_dev_to_cpu(phys_to_page(phys), offset,
-						size, dir);
+		qcom_arch_sync_dma_for_cpu(phys, size, dir);
 	}
 
 	spin_lock_irqsave(&mapping->lock, flags);
 	av8l_fast_unmap_public(mapping->pgtbl_ops, iova, len);
 	__fast_smmu_free_iova(mapping, iova, len);
 	spin_unlock_irqrestore(&mapping->lock, flags);
-
-	trace_unmap(to_msm_iommu_domain(mapping->domain), iova - offset, len,
-		    len);
 }
 
 static void fast_smmu_sync_single_for_cpu(struct device *dev,
 		dma_addr_t iova, size_t size, enum dma_data_direction dir)
 {
 	struct dma_fast_smmu_mapping *mapping = dev_get_mapping(dev);
-	unsigned long offset = iova & ~FAST_PAGE_MASK;
 
 	if (!av8l_fast_iova_coherent_public(mapping->pgtbl_ops, iova)) {
 		phys_addr_t phys;
@@ -261,8 +208,7 @@ static void fast_smmu_sync_single_for_cpu(struct device *dev,
 		phys = av8l_fast_iova_to_phys_public(mapping->pgtbl_ops, iova);
 		WARN_ON(!phys);
 
-		__fast_dma_page_dev_to_cpu(phys_to_page(phys), offset,
-						size, dir);
+		qcom_arch_sync_dma_for_cpu(phys, size, dir);
 	}
 }
 
@@ -270,7 +216,6 @@ static void fast_smmu_sync_single_for_device(struct device *dev,
 		dma_addr_t iova, size_t size, enum dma_data_direction dir)
 {
 	struct dma_fast_smmu_mapping *mapping = dev_get_mapping(dev);
-	unsigned long offset = iova & ~FAST_PAGE_MASK;
 
 	if (!av8l_fast_iova_coherent_public(mapping->pgtbl_ops, iova)) {
 		phys_addr_t phys;
@@ -278,8 +223,7 @@ static void fast_smmu_sync_single_for_device(struct device *dev,
 		phys = av8l_fast_iova_to_phys_public(mapping->pgtbl_ops, iova);
 		WARN_ON(!phys);
 
-		__fast_dma_page_cpu_to_dev(phys_to_page(phys), offset,
-						size, dir);
+		qcom_arch_sync_dma_for_device(phys, size, dir);
 	}
 }
 
@@ -296,7 +240,7 @@ static void fast_smmu_sync_sg_for_cpu(struct device *dev,
 		return;
 
 	for_each_sg(sgl, sg, nelems, i)
-		__dma_unmap_area(sg_virt(sg), sg->length, dir);
+		qcom_arch_sync_dma_for_cpu(sg_phys(sg), sg->length, dir);
 }
 
 static void fast_smmu_sync_sg_for_device(struct device *dev,
@@ -312,7 +256,7 @@ static void fast_smmu_sync_sg_for_device(struct device *dev,
 		return;
 
 	for_each_sg(sgl, sg, nelems, i)
-		__dma_map_area(sg_virt(sg), sg->length, dir);
+		qcom_arch_sync_dma_for_device(sg_phys(sg), sg->length, dir);
 }
 
 static int fast_smmu_map_sg(struct device *dev, struct scatterlist *sg,
@@ -322,13 +266,13 @@ static int fast_smmu_map_sg(struct device *dev, struct scatterlist *sg,
 	struct dma_fast_smmu_mapping *mapping = dev_get_mapping(dev);
 	size_t iova_len;
 	bool is_coherent = is_dma_coherent(dev, attrs);
-	int prot = dma_info_to_prot(dir, is_coherent, attrs);
+	int prot = qcom_dma_info_to_prot(dir, is_coherent, attrs);
 	int ret;
 	dma_addr_t iova;
 	unsigned long flags;
 	size_t unused;
 
-	iova_len = iommu_dma_prepare_map_sg(dev, mapping->iovad, sg, nents);
+	iova_len = qcom_iommu_dma_prepare_map_sg(dev, mapping->iovad, sg, nents);
 
 	spin_lock_irqsave(&mapping->lock, flags);
 	iova = __fast_smmu_alloc_iova(mapping, attrs, iova_len);
@@ -340,14 +284,14 @@ static int fast_smmu_map_sg(struct device *dev, struct scatterlist *sg,
 	av8l_fast_map_sg_public(mapping->pgtbl_ops, iova, sg, nents, prot,
 				&unused);
 
-	ret = iommu_dma_finalise_sg(dev, sg, nents, iova);
+	ret = qcom_iommu_dma_finalise_sg(dev, sg, nents, iova);
 
 	if ((attrs & DMA_ATTR_SKIP_CPU_SYNC) == 0)
 		fast_smmu_sync_sg_for_device(dev, sg, nents, dir);
 
 	return ret;
 fail:
-	iommu_dma_invalidate_sg(sg, nents);
+	qcom_iommu_dma_invalidate_sg(sg, nents);
 	return 0;
 }
 
@@ -404,13 +348,13 @@ static void *fast_smmu_alloc_atomic(struct dma_fast_smmu_mapping *mapping,
 	unsigned long flags;
 	struct page *page;
 	dma_addr_t dma_addr;
-	int prot = dma_info_to_prot(DMA_BIDIRECTIONAL, coherent, attrs);
+	int prot = qcom_dma_info_to_prot(DMA_BIDIRECTIONAL, coherent, attrs);
 
 	if (coherent) {
 		page = alloc_pages(gfp, get_order(size));
 		addr = page ? page_address(page) : NULL;
 	} else
-		addr = fast_dma_alloc_from_pool(size, &page, gfp);
+		addr = qcom_dma_alloc_from_pool(mapping->dev, size, &page, gfp);
 	if (!addr)
 		return NULL;
 
@@ -437,7 +381,7 @@ out_free_page:
 	if (coherent)
 		__free_pages(page, get_order(size));
 	else
-		fast_dma_free_from_pool(addr, size);
+		qcom_dma_free_from_pool(mapping->dev, addr, size);
 	return NULL;
 }
 
@@ -473,14 +417,14 @@ static void *__fast_smmu_alloc_contiguous(struct device *dev, size_t size,
 {
 	struct dma_fast_smmu_mapping *mapping = dev_get_mapping(dev);
 	bool is_coherent = is_dma_coherent(dev, attrs);
-	int prot = dma_info_to_prot(DMA_BIDIRECTIONAL, is_coherent, attrs);
+	int prot = qcom_dma_info_to_prot(DMA_BIDIRECTIONAL, is_coherent, attrs);
 	pgprot_t remap_prot = __get_dma_pgprot(attrs, PAGE_KERNEL, is_coherent);
 	struct page *page;
 	dma_addr_t iova;
 	unsigned long flags;
 	void *coherent_addr;
 
-	page = dma_alloc_from_contiguous(dev, size >> PAGE_SHIFT,
+	page = qcom_dma_alloc_from_contiguous(dev, size >> PAGE_SHIFT,
 					get_order(size), gfp & __GFP_NOWARN);
 	if (!page)
 		return NULL;
@@ -497,14 +441,14 @@ static void *__fast_smmu_alloc_contiguous(struct device *dev, size_t size,
 		goto release_iova;
 
 	if (!is_coherent || PageHighMem(page)) {
-		coherent_addr = dma_common_contiguous_remap(page, size,
+		coherent_addr = qcom_dma_common_contiguous_remap(page, size,
 							    remap_prot,
 						__fast_smmu_alloc_contiguous);
 		if (!coherent_addr)
 			goto release_mapping;
 
 		if (!is_coherent)
-			__dma_flush_area(page_to_virt(page), size);
+			qcom_arch_dma_prep_coherent(page, size);
 	} else {
 		coherent_addr = page_address(page);
 	}
@@ -518,7 +462,7 @@ release_mapping:
 release_iova:
 	__fast_smmu_free_iova(mapping, iova, size);
 release_page:
-	dma_release_from_contiguous(dev, page, size >> PAGE_SHIFT);
+	qcom_dma_release_from_contiguous(dev, page, size >> PAGE_SHIFT);
 	return NULL;
 }
 
@@ -534,7 +478,7 @@ static void *fast_smmu_alloc(struct device *dev, size_t size,
 	struct sg_mapping_iter miter;
 	size_t count = ALIGN(size, SZ_4K) >> PAGE_SHIFT;
 	bool is_coherent = is_dma_coherent(dev, attrs);
-	int prot = dma_info_to_prot(DMA_BIDIRECTIONAL, is_coherent, attrs);
+	int prot = qcom_dma_info_to_prot(DMA_BIDIRECTIONAL, is_coherent, attrs);
 	pgprot_t remap_prot = __get_dma_pgprot(attrs, PAGE_KERNEL, is_coherent);
 	struct page **pages;
 
@@ -580,7 +524,7 @@ static void *fast_smmu_alloc(struct device *dev, size_t size,
 		sg_miter_start(&miter, sgt.sgl, sgt.orig_nents,
 			       SG_MITER_FROM_SG);
 		while (sg_miter_next(&miter))
-			__dma_flush_area(miter.addr, miter.length);
+			qcom_arch_dma_prep_coherent(miter.page, miter.length);
 		sg_miter_stop(&miter);
 	}
 
@@ -608,7 +552,7 @@ static void *fast_smmu_alloc(struct device *dev, size_t size,
 	sg_miter_stop(&miter);
 	spin_unlock_irqrestore(&mapping->lock, flags);
 
-	addr = dma_common_pages_remap(pages, size, remap_prot,
+	addr = qcom_dma_common_pages_remap(pages, size, remap_prot,
 				      __builtin_return_address(0));
 	if (!addr) {
 		dev_err(dev, "no common pages\n");
@@ -649,14 +593,14 @@ static void fast_smmu_free(struct device *dev, size_t size,
 	__fast_smmu_free_iova(mapping, dma_handle, size);
 	spin_unlock_irqrestore(&mapping->lock, flags);
 
-	if (fast_dma_free_from_pool(cpu_addr, size))
+	if (qcom_dma_free_from_pool(dev, cpu_addr, size))
 		return;
 
 	if (is_vmalloc_addr(cpu_addr)) {
-		pages = dma_common_find_pages(cpu_addr);
+		pages = qcom_dma_common_find_pages(cpu_addr);
 		if (!pages)
 			page = vmalloc_to_page(cpu_addr);
-		dma_common_free_remap(cpu_addr, size);
+		qcom_dma_common_free_remap(cpu_addr, size);
 	} else {
 		page = virt_to_page(cpu_addr);
 	}
@@ -665,21 +609,21 @@ static void fast_smmu_free(struct device *dev, size_t size,
 		__fast_smmu_free_pages(pages, size >> FAST_PAGE_SHIFT);
 
 	if (page)
-		dma_free_contiguous(dev, page, size);
+		qcom_dma_free_contiguous(dev, page, size);
 }
 
 static int fast_smmu_mmap_attrs(struct device *dev, struct vm_area_struct *vma,
 				void *cpu_addr, dma_addr_t dma_addr,
 				size_t size, unsigned long attrs)
 {
-	return iommu_dma_mmap(dev, vma, cpu_addr, dma_addr, size, attrs);
+	return qcom_iommu_dma_mmap(dev, vma, cpu_addr, dma_addr, size, attrs);
 }
 
 static int fast_smmu_get_sgtable(struct device *dev, struct sg_table *sgt,
 				void *cpu_addr, dma_addr_t dma_addr,
 				size_t size, unsigned long attrs)
 {
-	return iommu_dma_get_sgtable(dev, sgt, cpu_addr, dma_addr, size, attrs);
+	return qcom_iommu_dma_get_sgtable(dev, sgt, cpu_addr, dma_addr, size, attrs);
 }
 
 static dma_addr_t fast_smmu_dma_map_resource(
@@ -701,7 +645,7 @@ static dma_addr_t fast_smmu_dma_map_resource(
 	if (dma_addr == DMA_MAPPING_ERROR)
 		return dma_addr;
 
-	prot = dma_info_to_prot(dir, false, attrs);
+	prot = qcom_dma_info_to_prot(dir, false, attrs);
 	prot |= IOMMU_MMIO;
 
 	if (iommu_map(mapping->domain, dma_addr, phys_addr - offset,
@@ -863,7 +807,7 @@ static void fast_smmu_reserve_pci_windows(struct device *dev,
 		return;
 
 	pci_dev = to_pci_dev(dev);
-	bridge = pci_find_host_bridge(pci_dev->bus);
+	bridge = qcom_pci_find_host_bridge(pci_dev->bus);
 
 	spin_lock_irqsave(&mapping->lock, flags);
 	resource_list_for_each_entry(window, &bridge->windows) {
@@ -918,6 +862,7 @@ const struct dma_map_ops *fast_smmu_get_dma_ops(void)
 {
 	return &fast_smmu_dma_ops;
 }
+EXPORT_SYMBOL(fast_smmu_get_dma_ops);
 
 /**
  * fast_smmu_init_mapping
