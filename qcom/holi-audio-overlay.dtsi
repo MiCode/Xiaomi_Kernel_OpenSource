@@ -231,6 +231,7 @@
 
 &holi_snd {
 	qcom,model = "holi-mtp-snd-card";
+	qcom,sku-model = "holi-mtpsku1-snd-card";
 	qcom,msm-mi2s-master = <1>, <1>, <1>, <1>;
 	qcom,wcn-btfm = <1>;
 	qcom,tdm-max-slots = <4>;
@@ -279,6 +280,10 @@
 	qcom,msm-mbhc-gnd-swh = <1>;
 	qcom,cdc-dmic01-gpios = <&cdc_dmic01_gpios>;
 	qcom,cdc-dmic23-gpios = <&cdc_dmic23_gpios>;
+
+	nvmem-cells = <&adsp_variant>;
+	nvmem-cell-names = "adsp_variant";
+
 	asoc-codec  = <&stub_codec>, <&bolero>,
 		      <&wcd937x_codec>, <&wsa881x_i2c_e>,
 		      <&wsa881x_i2c_f>;
