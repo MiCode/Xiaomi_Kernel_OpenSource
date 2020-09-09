@@ -1713,8 +1713,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	if (domain->type == IOMMU_DOMAIN_IDENTITY) {
 		smmu_domain->stage = ARM_SMMU_DOMAIN_BYPASS;
 		smmu_domain->smmu = smmu;
-		smmu_domain->cfg.irptndx = ARM_SMMU_INVALID_IRPTNDX;
-		smmu_domain->cfg.asid = INVALID_ASID;
+		goto out_unlock;
 	}
 
 	/*
