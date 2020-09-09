@@ -830,6 +830,11 @@
 			qcom,dump-id = <0x104>;
 		};
 
+		osm_reg {
+			qcom,dump-size = <0x400>;
+			qcom,dump-id = <0x163>;
+		};
+
 		pcu_reg {
 			qcom,dump-size = <0x400>;
 			qcom,dump-id = <0x164>;
