@@ -1476,8 +1476,10 @@
 			interrupts = <GIC_SPI 78 IRQ_TYPE_EDGE_RISING 0>,
 				     <GIC_SPI 194 IRQ_TYPE_LEVEL_HIGH 0>,
 				     <GIC_SPI 195 IRQ_TYPE_LEVEL_HIGH 0>;
-			vmodem-supply = <&mt6359p_vmodem_reg>;
-			vsram-supply = <&mt6359p_vsram_md_reg>;
+			/* md_vmodem-supply = <&mt6315_3_vbuck1>; move mt6873.dts */
+			/* md_vsram-supply = <&mt6315_3_vbuck4>; move mt6873.dts */
+			/* md_vnr-supply = <&mt6315_3_vbuck3>; move mt6873.dts */
+			/* md_vdigrf-supply = <&mt6359p_vpu_reg>; move mt6873.dts */
 			power-domains = <&scpsys MT6873_POWER_DOMAIN_MD>;
 			ccci-infracfg = <&infracfg>;
 		};
