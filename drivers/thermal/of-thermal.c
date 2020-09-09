@@ -732,6 +732,7 @@ static void handle_thermal_trip(struct device *dev,
 	struct __thermal_zone *data = tzd->devdata;
 	int idx = 0;
 	struct __sensor_param *sens_param = NULL;
+	bool notify = false;
 
 	idx = find_sensor_index(dev, data);
 	if (idx < 0)
@@ -750,10 +751,19 @@ static void handle_thermal_trip(struct device *dev,
 		} else {
 			if (!of_thermal_is_trips_triggered(zone, trip_temp))
 				continue;
+			notify = true;
 			thermal_zone_device_update_temp(zone,
 				THERMAL_EVENT_UNSPECIFIED, trip_temp);
 		}
 	}
+
+	/*
+	 * It is better to notify at least one thermal zone if trip is violated
+	 * for none.
+	 */
+	if (temp_valid && !notify)
+		thermal_zone_device_update_temp(tzd, THERMAL_EVENT_UNSPECIFIED,
+				trip_temp);
 }
 
 /*
