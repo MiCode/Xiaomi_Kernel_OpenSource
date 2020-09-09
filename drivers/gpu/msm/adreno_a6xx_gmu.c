@@ -1702,10 +1702,26 @@ static void a6xx_gmu_pwrctrl_suspend(struct adreno_device *adreno_dev)
 				dev_err(&gmu->pdev->dev,
 					"suspend fail: gx enable %d\n", ret);
 
+			/*
+			 * Toggle the loop_en bit, across disabling the gx gdsc,
+			 * with a delay of 10 XO cycles before disabling gx
+			 * gdsc. This is to prevent CPR measurements from
+			 * failing.
+			 */
+			if (adreno_is_a660(adreno_dev)) {
+				gmu_core_regrmw(device, A6XX_GPU_CPR_FSM_CTL,
+					1, 0);
+				ndelay(520);
+			}
+
 			ret = regulator_disable(gmu->gx_gdsc);
 			if (ret)
 				dev_err(&gmu->pdev->dev,
 					"suspend fail: gx disable %d\n", ret);
+
+			if (adreno_is_a660(adreno_dev))
+				gmu_core_regrmw(device, A6XX_GPU_CPR_FSM_CTL,
+					1, 1);
 
 			if (a6xx_gmu_gx_is_on(device))
 				dev_err(&gmu->pdev->dev,
