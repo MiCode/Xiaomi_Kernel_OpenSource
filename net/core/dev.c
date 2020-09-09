@@ -5609,13 +5609,12 @@ static void napi_skb_free_stolen_head(struct sk_buff *skb)
 	kmem_cache_free(skbuff_head_cache, skb);
 }
 
-static gro_result_t napi_skb_finish(struct napi_struct *napi,
-				    struct sk_buff *skb,
-				    gro_result_t ret)
+static gro_result_t napi_skb_finish(gro_result_t ret, struct sk_buff *skb)
 {
 	switch (ret) {
 	case GRO_NORMAL:
-		gro_normal_one(napi, skb);
+		if (netif_receive_skb_internal(skb))
+			ret = GRO_DROP;
 		break;
 
 	case GRO_DROP:
@@ -5647,7 +5646,7 @@ gro_result_t napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
 
 	skb_gro_reset_offset(skb);
 
-	ret = napi_skb_finish(napi, skb, dev_gro_receive(napi, skb));
+	ret = napi_skb_finish(dev_gro_receive(napi, skb), skb);
 	trace_napi_gro_receive_exit(ret);
 
 	return ret;
