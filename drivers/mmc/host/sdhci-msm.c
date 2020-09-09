@@ -1763,8 +1763,10 @@ static void sdhci_msm_check_power_status(struct sdhci_host *host, u32 req_type)
 		return;
 	}
 
-	if (mmc->ops->get_cd && !mmc->ops->get_cd(mmc)) {
-		pr_debug("%s: card is not present. Do not wait for pwr irq\n",
+	if (mmc->card && mmc->ops->get_cd && !mmc->ops->get_cd(mmc) &&
+			(req_type & REQ_BUS_ON)) {
+		pr_debug(
+			"%s: Regulators are never turned on when SD card is removed so do not wait for pwr irq\n",
 				mmc_hostname(host->mmc));
 		return;
 	}
