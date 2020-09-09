@@ -61,6 +61,9 @@
 			enable-method = "spin-table";
 			cpu-release-addr = <0x0 0x90000000>;
 			next-level-cache = <&L2_0>;
+			cpu-idle-states = <&SILVER_OFF>;
+			power-domains = <&CPU_PD1>;
+			power-domain-names = "psci";
 		};
 
 		CPU2: cpu@200 {
@@ -70,6 +73,9 @@
 			enable-method = "spin-table";
 			cpu-release-addr = <0x0 0x90000000>;
 			next-level-cache = <&L2_2>;
+			cpu-idle-states = <&SILVER_OFF>;
+			power-domains = <&CPU_PD2>;
+			power-domain-names = "psci";
 			L2_2: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-level = <2>;
@@ -84,6 +90,9 @@
 			enable-method = "spin-table";
 			cpu-release-addr = <0x0 0x90000000>;
 			next-level-cache = <&L2_2>;
+			cpu-idle-states = <&SILVER_OFF>;
+			power-domains = <&CPU_PD3>;
+			power-domain-names = "psci";
 		};
 
 		CPU4: cpu@400 {
@@ -93,6 +102,9 @@
 			enable-method = "spin-table";
 			cpu-release-addr = <0x0 0x90000000>;
 			next-level-cache = <&L2_4>;
+			cpu-idle-states = <&GOLD_OFF>;
+			power-domains = <&CPU_PD4>;
+			power-domain-names = "psci";
 			L2_4: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-level = <2>;
