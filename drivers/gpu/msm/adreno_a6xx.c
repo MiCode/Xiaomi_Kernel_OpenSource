@@ -149,7 +149,7 @@ int a6xx_init(struct adreno_device *adreno_dev)
 	if (IS_ERR_OR_NULL(adreno_dev->pwrup_reglist)) {
 		adreno_dev->pwrup_reglist =
 				kgsl_allocate_global(KGSL_DEVICE(adreno_dev),
-					PAGE_SIZE, 0, KGSL_MEMDESC_PRIVILEGED,
+					PAGE_SIZE, 0, 0, KGSL_MEMDESC_PRIVILEGED,
 					"powerup_register_list");
 		if (IS_ERR(adreno_dev->pwrup_reglist))
 			return PTR_ERR(adreno_dev->pwrup_reglist);

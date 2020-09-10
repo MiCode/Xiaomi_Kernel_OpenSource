@@ -261,7 +261,7 @@ static void kgsl_iommu_map_global_to_pt(struct kgsl_mmu *mmu,
 }
 
 static void kgsl_iommu_map_global(struct kgsl_mmu *mmu,
-		struct kgsl_memdesc *memdesc)
+		struct kgsl_memdesc *memdesc, u32 padding)
 {
 	struct kgsl_device *device = KGSL_MMU_DEVICE(mmu);
 	struct kgsl_iommu *iommu = _IOMMU_PRIV(mmu);
@@ -275,7 +275,8 @@ static void kgsl_iommu_map_global(struct kgsl_mmu *mmu,
 		u64 offset;
 		u64 base;
 
-		offset = global_get_offset(device, memdesc->size,
+		/* Find room for the memdesc plus any padding */
+		offset = global_get_offset(device, memdesc->size + padding,
 			memdesc->priv);
 
 		if (IS_ERR_VALUE(offset))

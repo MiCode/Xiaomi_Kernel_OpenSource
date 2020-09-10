@@ -92,7 +92,7 @@ int adreno_get_firmware(struct adreno_device *adreno_dev,
 		return ret;
 	}
 
-	firmware->memdesc = kgsl_allocate_global(device, fw->size - 4,
+	firmware->memdesc = kgsl_allocate_global(device, fw->size - 4, 0,
 				KGSL_MEMFLAGS_GPUREADONLY, KGSL_MEMDESC_UCODE,
 				"ucode");
 
@@ -1397,7 +1397,7 @@ int adreno_device_probe(struct platform_device *pdev,
 		priv |= KGSL_MEMDESC_PRIVILEGED;
 
 	device->memstore = kgsl_allocate_global(device,
-		KGSL_MEMSTORE_SIZE, 0, priv, "memstore");
+		KGSL_MEMSTORE_SIZE, 0, 0, priv, "memstore");
 
 	status = PTR_ERR_OR_ZERO(device->memstore);
 	if (status) {
@@ -1722,7 +1722,7 @@ static int adreno_init(struct kgsl_device *device)
 			priv |= KGSL_MEMDESC_PRIVILEGED;
 
 		adreno_dev->profile_buffer =
-			kgsl_allocate_global(device, PAGE_SIZE, 0, priv,
+			kgsl_allocate_global(device, PAGE_SIZE, 0, 0, priv,
 				"alwayson");
 
 		adreno_dev->profile_index = 0;

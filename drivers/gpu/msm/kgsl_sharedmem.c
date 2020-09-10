@@ -1253,7 +1253,7 @@ struct kgsl_memdesc *kgsl_allocate_global_fixed(struct kgsl_device *device,
 	 */
 	list_add_tail(&md->node, &device->globals);
 
-	kgsl_mmu_map_global(device, &md->memdesc);
+	kgsl_mmu_map_global(device, &md->memdesc, 0);
 
 	return &md->memdesc;
 }
@@ -1290,13 +1290,13 @@ kgsl_allocate_secure_global(struct kgsl_device *device,
 	 * No offset needed, we'll get an address inside of the pagetable
 	 * normally
 	 */
-	kgsl_mmu_map_global(device, &md->memdesc);
+	kgsl_mmu_map_global(device, &md->memdesc, 0);
 
 	return &md->memdesc;
 }
 
 struct kgsl_memdesc *kgsl_allocate_global(struct kgsl_device *device,
-		u64 size, u64 flags, u32 priv, const char *name)
+		u64 size, u32 padding, u64 flags, u32 priv, const char *name)
 {
 	int ret;
 	struct kgsl_global_memdesc *md;
@@ -1329,7 +1329,7 @@ struct kgsl_memdesc *kgsl_allocate_global(struct kgsl_device *device,
 	 */
 	list_add_tail(&md->node, &device->globals);
 
-	kgsl_mmu_map_global(device, &md->memdesc);
+	kgsl_mmu_map_global(device, &md->memdesc, padding);
 
 	return &md->memdesc;
 }

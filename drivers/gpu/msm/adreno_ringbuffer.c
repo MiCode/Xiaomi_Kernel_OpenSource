@@ -241,7 +241,7 @@ static int _adreno_ringbuffer_init(struct adreno_device *adreno_dev,
 	 */
 	if (IS_ERR_OR_NULL(rb->pagetable_desc)) {
 		rb->pagetable_desc = kgsl_allocate_global(device, PAGE_SIZE,
-			0, KGSL_MEMDESC_PRIVILEGED, "pagetable_desc");
+			SZ_16K, 0, KGSL_MEMDESC_PRIVILEGED, "pagetable_desc");
 		if (IS_ERR(rb->pagetable_desc))
 			return PTR_ERR(rb->pagetable_desc);
 	}
@@ -249,14 +249,14 @@ static int _adreno_ringbuffer_init(struct adreno_device *adreno_dev,
 	/* allocate a chunk of memory to create user profiling IB1s */
 	if (IS_ERR_OR_NULL(rb->profile_desc))
 		rb->profile_desc = kgsl_allocate_global(device, PAGE_SIZE,
-			KGSL_MEMFLAGS_GPUREADONLY, 0, "profile_desc");
+			0, KGSL_MEMFLAGS_GPUREADONLY, 0, "profile_desc");
 
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_APRIV))
 		priv |= KGSL_MEMDESC_PRIVILEGED;
 
 	if (IS_ERR_OR_NULL(rb->buffer_desc)) {
 		rb->buffer_desc = kgsl_allocate_global(device, KGSL_RB_SIZE,
-			KGSL_MEMFLAGS_GPUREADONLY, priv, "ringbuffer");
+			SZ_4K, KGSL_MEMFLAGS_GPUREADONLY, priv, "ringbuffer");
 		if (IS_ERR(rb->buffer_desc))
 			return PTR_ERR(rb->buffer_desc);
 	}
@@ -303,7 +303,7 @@ int adreno_ringbuffer_init(struct adreno_device *adreno_dev)
 
 		if (IS_ERR_OR_NULL(device->scratch)) {
 			device->scratch = kgsl_allocate_global(device,
-				PAGE_SIZE, 0, priv, "scratch");
+				PAGE_SIZE, 0, 0, priv, "scratch");
 
 			if (IS_ERR(device->scratch))
 				return PTR_ERR(device->scratch);

@@ -2960,7 +2960,7 @@ static int a6xx_first_boot(struct adreno_device *adreno_dev)
 		priv |= KGSL_MEMDESC_PRIVILEGED;
 
 	adreno_dev->profile_buffer = kgsl_allocate_global(device, PAGE_SIZE, 0,
-				priv, "alwayson");
+			0, priv, "alwayson");
 
 	adreno_dev->profile_index = 0;
 

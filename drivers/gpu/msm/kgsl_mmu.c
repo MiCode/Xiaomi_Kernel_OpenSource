@@ -463,12 +463,12 @@ kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
 }
 
 void kgsl_mmu_map_global(struct kgsl_device *device,
-		struct kgsl_memdesc *memdesc)
+		struct kgsl_memdesc *memdesc, u32 padding)
 {
 	struct kgsl_mmu *mmu = &(device->mmu);
 
 	if (MMU_OP_VALID(mmu, mmu_map_global))
-		mmu->mmu_ops->mmu_map_global(mmu, memdesc);
+		mmu->mmu_ops->mmu_map_global(mmu, memdesc, padding);
 }
 
 void kgsl_mmu_close(struct kgsl_device *device)

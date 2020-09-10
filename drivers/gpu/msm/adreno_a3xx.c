@@ -149,7 +149,7 @@ static int _a3xx_pwron_fixup(struct adreno_device *adreno_dev)
 		return 0;
 
 	adreno_dev->pwron_fixup = kgsl_allocate_global(KGSL_DEVICE(adreno_dev),
-		PAGE_SIZE, KGSL_MEMFLAGS_GPUREADONLY, 0, "pwron_fixup");
+		PAGE_SIZE, 0, KGSL_MEMFLAGS_GPUREADONLY, 0, "pwron_fixup");
 
 	if (IS_ERR(adreno_dev->pwron_fixup))
 		return PTR_ERR(adreno_dev->pwron_fixup);

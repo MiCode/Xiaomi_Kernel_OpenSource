@@ -991,7 +991,7 @@ static int a6xx_first_boot(struct adreno_device *adreno_dev)
 	adreno_get_bus_counters(adreno_dev);
 
 	adreno_dev->profile_buffer = kgsl_allocate_global(device, PAGE_SIZE, 0,
-				0, "alwayson");
+				0, 0, "alwayson");
 
 	adreno_dev->profile_index = 0;
 
