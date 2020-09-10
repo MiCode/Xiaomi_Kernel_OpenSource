@@ -1,0 +1,28 @@
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/bindings/soc/qcom/qcom,rimps.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Qualcomm Technologies, Inc. Rimps Mailbox controller driver
+
+description: |
+  This mailbox controller act as interface to do doorbell between
+  HLOS and Rimps subsystem.
+
+properties:
+  compatible:
+    Usage: required
+    Value type: <string>
+    Definition: Must be "qcom,rimps"
+
+example:
+  - |
+    qcom,rimps@0f400000 {
+	#address-cells = <2>;
+	#size-cells = <2>;
+	compatible = "qcom,rimps";
+	reg =   <0x0f400000 0x10>,
+	<0x0fd90000 0x2000>;
+	#mbox-cells = <1>;
+	status = "ok";
+	};
