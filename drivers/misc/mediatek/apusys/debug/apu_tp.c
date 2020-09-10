@@ -7,6 +7,7 @@
 #include <linux/tracepoint.h>
 #include <linux/tracepoint-defs.h>
 #include <linux/string.h>
+#include <linux/module.h>
 #include "apu_tp.h"
 
 #define apu_tp_foreach(tbl, t) \
@@ -45,6 +46,36 @@ void apu_tp_exit(struct apu_tp_tbl *tbl)
 }
 
 /**
+ * for_each_apu_tracepoint() - Iterate tracepoints of this module.
+ *
+ * @fct: callback function for each tracepoint
+ * @priv: private data to be passed to fct.
+ */
+#ifdef MODULE
+static void for_each_apu_tracepoint(
+	void (*fct)(struct tracepoint *tp, void *priv),
+	void *priv)
+{
+	struct module *mod;
+	int i;
+
+	preempt_disable();
+	mod = (struct module *)__module_address(apu_tp_exit);
+	preempt_enable();
+
+	if (!mod || !fct)
+		return;
+
+	for (i = 0; i < mod->num_tracepoints; i++) {
+		struct tracepoint *tp;
+
+		tp = mod->tracepoints_ptrs[i];
+		fct(tp, priv);
+	}
+}
+#endif
+
+/**
  * apu_tp_init() - Initialize trace point table
  *
  * @apu_tp_tbl: trace point table
@@ -56,8 +87,12 @@ int apu_tp_init(struct apu_tp_tbl *tbl)
 {
 	struct apu_tp_tbl *t;
 
-	/* install tracepoints */
+#ifdef MODULE
+	for_each_apu_tracepoint(apu_tp_lookup, tbl);
+#else
 	for_each_kernel_tracepoint(apu_tp_lookup, tbl);
+#endif
+
 	apu_tp_foreach(tbl, t) {
 		if (!t->tp) {
 			pr_info("%s: %s was not found\n", __func__, t->name);
