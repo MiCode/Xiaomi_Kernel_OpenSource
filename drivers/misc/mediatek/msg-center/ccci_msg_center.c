@@ -656,7 +656,7 @@ static int create_cmd_head(int msg_id)
 
 		head->pcmd_head = cmd_head;
 		if (IS_ERR(cmd_head->pthread)) {
-			ret = PTR_RET(cmd_head->pthread);
+			ret = PTR_ERR_OR_ZERO(cmd_head->pthread);
 			goto create_fail;
 		}
 	}
