@@ -94,8 +94,6 @@ struct cti_drvdata {
 	struct coresight_cti		cti;
 	int				refcnt;
 	int				cpu;
-	unsigned int			trig_num_max;
-	unsigned int			ch_num_max;
 	bool				cti_save;
 	bool				cti_hwclk;
 	bool				l2_off;
@@ -1363,14 +1361,52 @@ static ssize_t cti_store_disable_gate(struct device *dev,
 }
 static DEVICE_ATTR(disable_gate, 0200, NULL, cti_store_disable_gate);
 
-static ssize_t show_info_show(struct device *dev, struct device_attribute *attr,
-				char *buf)
+struct cti_reg {
+	void __iomem *addr;
+	u32 data;
+};
+
+static void do_smp_cross_read(void *data)
+{
+	struct cti_reg *reg = data;
+
+	reg->data = readl_relaxed(reg->addr);
+}
+
+static u32 cti_devid_cross_read(const struct cti_drvdata *drvdata)
+{
+	struct cti_reg reg;
+
+	reg.addr = drvdata->base + DEVID;
+	smp_call_function_single(drvdata->cpu, do_smp_cross_read, &reg, 1);
+	return reg.data;
+}
+
+static ssize_t show_info_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
 {
 	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
 	ssize_t size = 0;
+	unsigned int ctidevid, trig_num_max, chan_num_max;
+
+	mutex_lock(&drvdata->mutex);
+
+	pm_runtime_get_sync(drvdata->dev);
+
+	if (drvdata->cpu == -ENODEV)
+		ctidevid = cti_readl(drvdata, DEVID);
+	else
+		ctidevid = cti_devid_cross_read(drvdata);
+
+	pm_runtime_put_sync(drvdata->dev);
+
+	trig_num_max = (ctidevid & GENMASK(15, 8)) >> 8;
+	chan_num_max = (ctidevid & GENMASK(21, 16)) >> 16;
 
 	size = scnprintf(&buf[size], PAGE_SIZE, "%d %d\n",
-			drvdata->trig_num_max, drvdata->ch_num_max);
+			trig_num_max, chan_num_max);
+
+	mutex_unlock(&drvdata->mutex);
 
 	return size;
 }
@@ -1433,7 +1469,6 @@ static int cti_probe(struct amba_device *adev, const struct amba_id *id)
 {
 	int ret;
 	int trig;
-	unsigned int ctidevid;
 	struct device *dev = &adev->dev;
 	struct coresight_platform_data *pdata;
 	struct cti_drvdata *drvdata;
@@ -1541,9 +1576,6 @@ static int cti_probe(struct amba_device *adev, const struct amba_id *id)
 		registered++;
 	}
 
-	ctidevid = cti_readl(drvdata, DEVID);
-	drvdata->trig_num_max = (ctidevid & GENMASK(15, 8)) >> 8;
-	drvdata->ch_num_max = (ctidevid & GENMASK(21, 16)) >> 16;
 	pm_runtime_put(&adev->dev);
 	dev_dbg(dev, "CTI initialized\n");
 	return 0;

@@ -2439,12 +2439,19 @@ void cnss_get_msi_address(struct device *dev, u32 *msi_addr_low,
 			  u32 *msi_addr_high)
 {
 	struct pci_dev *pci_dev = to_pci_dev(dev);
+	u16 control;
 
+	pci_read_config_word(pci_dev, pci_dev->msi_cap + PCI_MSI_FLAGS,
+			     &control);
 	pci_read_config_dword(pci_dev, pci_dev->msi_cap + PCI_MSI_ADDRESS_LO,
 			      msi_addr_low);
-
-	pci_read_config_dword(pci_dev, pci_dev->msi_cap + PCI_MSI_ADDRESS_HI,
-			      msi_addr_high);
+	/*return msi high addr only when device support 64 BIT MSI */
+	if (control & PCI_MSI_FLAGS_64BIT)
+		pci_read_config_dword(pci_dev,
+				      pci_dev->msi_cap + PCI_MSI_ADDRESS_HI,
+				      msi_addr_high);
+	else
+		*msi_addr_high = 0;
 }
 EXPORT_SYMBOL(cnss_get_msi_address);
 

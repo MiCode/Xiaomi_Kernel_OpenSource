@@ -252,4 +252,5 @@ extern int cnss_set_fw_log_mode(struct device *dev, uint8_t fw_log_mode);
 extern int cnss_usb_wlan_register_driver(struct cnss_usb_wlan_driver *driver);
 extern void cnss_usb_wlan_unregister_driver(struct cnss_usb_wlan_driver *
 					    driver);
+extern int cnss_set_pcie_gen_speed(struct device *dev, u8 pcie_gen_speed);
 #endif /* _NET_CNSS2_H */

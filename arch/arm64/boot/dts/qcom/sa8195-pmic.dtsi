@@ -122,6 +122,15 @@
 		};
 
 		cooling-maps {
+			/*
+			 * trip0 cooling map is dummy node to enable
+			 * passive polling on trip0 violation.
+			 */
+			trip0_cpu0 {
+				trip = <&pm8195_1_trip0>;
+				cooling-device = <&CPU0 0 0>;
+			};
+
 			trip1_cpu0 {
 				trip = <&pm8195_1_trip1>;
 				cooling-device =
@@ -206,6 +215,15 @@
 		};
 
 		cooling-maps {
+			/*
+			 * trip0 cooling map is dummy node to enable
+			 * passive polling on trip0 violation.
+			 */
+			trip0_cpu0 {
+				trip = <&pm8195_2_trip0>;
+				cooling-device = <&CPU0 0 0>;
+			};
+
 			trip1_cpu0 {
 				trip = <&pm8195_2_trip1>;
 				cooling-device =
@@ -290,6 +308,15 @@
 		};
 
 		cooling-maps {
+			/*
+			 * trip0 cooling map is dummy node to enable
+			 * passive polling on trip0 violation.
+			 */
+			trip0_cpu0 {
+				trip = <&pm8195_3_trip0>;
+				cooling-device = <&CPU0 0 0>;
+			};
+
 			trip1_cpu0 {
 				trip = <&pm8195_3_trip1>;
 				cooling-device =

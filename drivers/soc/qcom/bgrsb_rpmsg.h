@@ -8,22 +8,29 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
+ *
  */
+#ifndef BGRSBRPMSG_H
+#define BGRSBRPMSG_H
 
-/dts-v1/;
-/plugin/;
+#include <linux/rpmsg.h>
+#include "bgrsb.h"
 
-#include <dt-bindings/interrupt-controller/arm-gic.h>
-
-#include "qcs6125-iot-idp.dtsi"
-
-/ {
-	model = "USB-C Ext Audio Codec IDP";
-	compatible = "qcom,qcs6125-idp", "qcom,qcs6125", "qcom,idp";
-	qcom,msm-id = <468 0x10000>;
-	qcom,board-id = <34 3>;
+struct bgrsb_rpmsg_dev {
+	struct rpmsg_endpoint *channel;
+	struct device *dev;
+	bool chnl_state;
+	void *message;
+	size_t message_length;
 };
 
-&dsi_td4330_truly_cmd_display {
-	qcom,dsi-display-active;
-};
+#if IS_ENABLED(CONFIG_MSM_BGRSB_RPMSG)
+int bgrsb_rpmsg_tx_msg(void  *msg, size_t len);
+#else
+static inline int bgrsb_rpmsg_tx_msg(void  *msg, size_t len)
+{
+	return -EIO;
+}
+#endif
+
+#endif

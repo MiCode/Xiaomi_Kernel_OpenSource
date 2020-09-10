@@ -25,6 +25,7 @@
 #include "sm6150-sde-pll.dtsi"
 #include "sm6150-sde-display.dtsi"
 #include "qcs610-camera-sensor-idp.dtsi"
+#include "sm6150-audio-overlay.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. QCS610 IOT";
@@ -362,6 +363,12 @@
 	cd-gpios = <&tlmm 99 GPIO_ACTIVE_LOW>;
 
 	status = "ok";
+};
+
+&usb0 {
+	dwc3@a600000 {
+		snps,usb3-u1u2-disable;
+	};
 };
 
 &L16A {

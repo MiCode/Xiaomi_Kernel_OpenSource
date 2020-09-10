@@ -2,7 +2,7 @@
  * drivers/staging/android/ion/ion_system_heap.c
  *
  * Copyright (C) 2011 Google, Inc.
- * Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2020, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -409,11 +409,13 @@ err_free_sg2:
 	buffer->private_flags |= ION_PRIV_FLAG_SHRINKER_FREE;
 
 	if (vmid > 0)
-		ion_hyp_unassign_sg(table, &vmid, 1, true, false);
+		if (ion_hyp_unassign_sg(table, &vmid, 1, true, false))
+			goto err_free_table_sync;
 
 	for_each_sg(table->sgl, sg, table->nents, i)
 		free_buffer_page(sys_heap, buffer, sg_page(sg),
 				 get_order(sg->length));
+err_free_table_sync:
 	if (nents_sync)
 		sg_free_table(&table_sync);
 err_free_sg:

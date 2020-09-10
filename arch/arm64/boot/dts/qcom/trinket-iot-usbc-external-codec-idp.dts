@@ -12,13 +12,11 @@
 
 /dts-v1/;
 
-#include "qcs6125.dtsi"
-#include "qcs6125-iot-idp.dtsi"
-#include "trinket-tasha-codec-audio-overlay.dtsi"
-#include "trinket-tasha-codec.dtsi"
+#include "trinket-iot.dtsi"
+#include "trinket-iot-idp.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. QCS6125 IOT Ext Audio Codec IDP";
-	compatible = "qcom,qcs6125-idp", "qcom,qcs6125", "qcom,idp";
-	qcom,board-id = <34 1>;
+	model = "Qualcomm Technologies,Inc. TRINKET IOT USBC Ext Aud Codec IDP";
+	compatible = "qcom,trinket-iot-idp", "qcom,trinket-iot", "qcom,idp";
+	qcom,board-id = <34 3>;
 };

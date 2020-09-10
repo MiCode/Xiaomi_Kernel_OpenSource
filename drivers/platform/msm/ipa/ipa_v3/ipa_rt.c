@@ -86,14 +86,16 @@ static int ipa_generate_rt_hw_rule(enum ipa_ip_type ip,
 
 	if (entry->hdr) {
 		hdr_entry = ipa3_id_find(entry->rule.hdr_hdl);
-		if (!hdr_entry || hdr_entry->cookie != IPA_HDR_COOKIE) {
+		if (!hdr_entry || (hdr_entry->cookie != IPA_HDR_COOKIE) ||
+			ipa3_check_idr_if_freed(entry->hdr)) {
 			IPAERR_RL("Header entry already deleted\n");
 			return -EPERM;
 		}
 	} else if (entry->proc_ctx) {
 		hdr_proc_entry = ipa3_id_find(entry->rule.hdr_proc_ctx_hdl);
 		if (!hdr_proc_entry ||
-			hdr_proc_entry->cookie != IPA_PROC_HDR_COOKIE) {
+			(hdr_proc_entry->cookie != IPA_PROC_HDR_COOKIE) ||
+			ipa3_check_idr_if_freed(entry->proc_ctx)) {
 			IPAERR_RL("Proc header entry already deleted\n");
 			return -EPERM;
 		}
@@ -1768,18 +1770,19 @@ int __ipa3_del_rt_rule(u32 rule_hdl)
 		hdr_entry = ipa3_id_find(entry->rule.hdr_hdl);
 		if (!hdr_entry || hdr_entry->cookie != IPA_HDR_COOKIE) {
 			IPAERR_RL("Header entry already deleted\n");
-			return -EINVAL;
+			entry->hdr = NULL;
 		}
 	} else if (entry->proc_ctx) {
 		hdr_proc_entry = ipa3_id_find(entry->rule.hdr_proc_ctx_hdl);
 		if (!hdr_proc_entry ||
 			hdr_proc_entry->cookie != IPA_PROC_HDR_COOKIE) {
 			IPAERR_RL("Proc header entry already deleted\n");
-			return -EINVAL;
+			entry->proc_ctx = NULL;
 		}
 	}
 
-	if (entry->hdr)
+	if (entry->hdr &&
+		(!ipa3_check_idr_if_freed(entry->hdr)))
 		__ipa3_release_hdr(entry->hdr->id);
 	else if (entry->proc_ctx &&
 		(!ipa3_check_idr_if_freed(entry->proc_ctx)))
@@ -1956,7 +1959,6 @@ int ipa3_reset_rt(enum ipa_ip_type ip, bool user_only)
 
 			if (!user_only ||
 				rule->ipacm_installed) {
-				list_del(&rule->link);
 				if (rule->hdr) {
 					hdr_entry = ipa3_id_find(
 							rule->rule.hdr_hdl);
@@ -1964,8 +1966,7 @@ int ipa3_reset_rt(enum ipa_ip_type ip, bool user_only)
 					hdr_entry->cookie != IPA_HDR_COOKIE) {
 						IPAERR_RL(
 						"Header already deleted\n");
-						mutex_unlock(&ipa3_ctx->lock);
-						return -EINVAL;
+						rule->hdr = NULL;
 					}
 				} else if (rule->proc_ctx) {
 					hdr_proc_entry =
@@ -1976,12 +1977,13 @@ int ipa3_reset_rt(enum ipa_ip_type ip, bool user_only)
 							IPA_PROC_HDR_COOKIE) {
 						IPAERR_RL(
 						"Proc entry already deleted\n");
-						mutex_unlock(&ipa3_ctx->lock);
-						return -EINVAL;
+						rule->proc_ctx = NULL;
 					}
 				}
 				tbl->rule_cnt--;
-				if (rule->hdr)
+				list_del(&rule->link);
+				if (rule->hdr &&
+					(!ipa3_check_idr_if_freed(rule->hdr)))
 					__ipa3_release_hdr(rule->hdr->id);
 				else if (rule->proc_ctx &&
 					(!ipa3_check_idr_if_freed(
@@ -2158,20 +2160,8 @@ static int __ipa_mdfy_rt_rule(struct ipa_rt_rule_mdfy_i *rtrule)
 	struct ipa3_hdr_entry *hdr_entry;
 	struct ipa3_hdr_proc_ctx_entry *hdr_proc_entry;
 
-	if (rtrule->rule.hdr_hdl) {
-		hdr = ipa3_id_find(rtrule->rule.hdr_hdl);
-		if ((hdr == NULL) || (hdr->cookie != IPA_HDR_COOKIE)) {
-			IPAERR_RL("rt rule does not point to valid hdr\n");
-			goto error;
-		}
-	} else if (rtrule->rule.hdr_proc_ctx_hdl) {
-		proc_ctx = ipa3_id_find(rtrule->rule.hdr_proc_ctx_hdl);
-		if ((proc_ctx == NULL) ||
-			(proc_ctx->cookie != IPA_PROC_HDR_COOKIE)) {
-			IPAERR_RL("rt rule does not point to valid proc ctx\n");
-			goto error;
-		}
-	}
+	if (__ipa_rt_validate_hndls(&rtrule->rule, &hdr, &proc_ctx))
+		goto error;
 
 	entry = ipa3_id_find(rtrule->rt_rule_hdl);
 	if (entry == NULL) {
@@ -2194,14 +2184,16 @@ static int __ipa_mdfy_rt_rule(struct ipa_rt_rule_mdfy_i *rtrule)
 
 	if (entry->hdr) {
 		hdr_entry = ipa3_id_find(entry->rule.hdr_hdl);
-		if (!hdr_entry || hdr_entry->cookie != IPA_HDR_COOKIE) {
+		if (!hdr_entry || (hdr_entry->cookie != IPA_HDR_COOKIE) ||
+			ipa3_check_idr_if_freed(entry->hdr)) {
 			IPAERR_RL("Header entry already deleted\n");
 			return -EPERM;
 		}
 	} else if (entry->proc_ctx) {
 		hdr_proc_entry = ipa3_id_find(entry->rule.hdr_proc_ctx_hdl);
 		if (!hdr_proc_entry ||
-			hdr_proc_entry->cookie != IPA_PROC_HDR_COOKIE) {
+			(hdr_proc_entry->cookie != IPA_PROC_HDR_COOKIE) ||
+			ipa3_check_idr_if_freed(entry->proc_ctx)) {
 			IPAERR_RL("Proc header entry already deleted\n");
 			return -EPERM;
 		}
@@ -2209,7 +2201,7 @@ static int __ipa_mdfy_rt_rule(struct ipa_rt_rule_mdfy_i *rtrule)
 
 	if (entry->hdr)
 		entry->hdr->ref_cnt--;
-	if (entry->proc_ctx)
+	else if (entry->proc_ctx)
 		entry->proc_ctx->ref_cnt--;
 
 	entry->rule = rtrule->rule;

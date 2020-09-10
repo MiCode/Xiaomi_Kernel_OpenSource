@@ -12,11 +12,14 @@
  */
 
 /dts-v1/;
+/plugin/;
 
-#include "qcs6125.dtsi"
+#include "trinket-iot-idp.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. QCS6125 SoC";
-	compatible = "qcom,qcs6125";
-	qcom,board-id = <0 0>;
+	model = "Qualcomm Technologies, Inc. TRINKET IOT IDP Overlay";
+	compatible = "qcom,trinket-iot";
+	qcom,msm-id = <467 0x10000>;
+	qcom,board-id = <34 0>;
 };
+

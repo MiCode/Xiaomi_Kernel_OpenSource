@@ -224,6 +224,8 @@ const char *ipa_clients_strings[IPA_CLIENT_MAX] = {
 	__stringify(IPA_CLIENT_MHI_LOW_LAT_CONS),
 	__stringify(IPA_CLIENT_QDSS_PROD),
 	__stringify(IPA_CLIENT_MHI_QDSS_CONS),
+	__stringify(IPA_CLIENT_ETHERNET2_PROD),
+	__stringify(IPA_CLIENT_ETHERNET2_CONS),
 };
 
 /**
@@ -363,6 +365,8 @@ int ipa_smmu_store_sgt(struct sg_table **out_ch_ptr,
 	struct sg_table *in_sgt_ptr)
 {
 	unsigned int nents;
+	int i;
+	struct scatterlist *in_sg, *out_sg;
 
 	if (in_sgt_ptr != NULL) {
 		*out_ch_ptr = kzalloc(sizeof(struct sg_table), GFP_KERNEL);
@@ -380,8 +384,12 @@ int ipa_smmu_store_sgt(struct sg_table **out_ch_ptr,
 			return -ENOMEM;
 		}
 
-		memcpy((*out_ch_ptr)->sgl, in_sgt_ptr->sgl,
-			nents*sizeof((*out_ch_ptr)->sgl));
+		out_sg = (*out_ch_ptr)->sgl;
+		for_each_sg(in_sgt_ptr->sgl, in_sg, in_sgt_ptr->nents, i) {
+			memcpy(out_sg, in_sg, sizeof(struct scatterlist));
+			out_sg++;
+		}
+
 		(*out_ch_ptr)->nents = nents;
 		(*out_ch_ptr)->orig_nents = in_sgt_ptr->orig_nents;
 	}

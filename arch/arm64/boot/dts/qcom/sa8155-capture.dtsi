@@ -186,6 +186,7 @@
 				  <WAKE_TCS    1>,
 				  <ACTIVE_TCS  2>,
 				  <CONTROL_TCS 0>;
+		status = "disabled";
 	};
 
 	qmp_aop: qcom,qmp-aop@c300000 {

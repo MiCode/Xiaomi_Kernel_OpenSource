@@ -264,7 +264,7 @@
 		reg-names = "wdt-base";
 		interrupts = <1 3 0>, <1 2 0>;
 		qcom,bark-time = <11000>;
-		qcom,pet-time = <10000>;
+		qcom,pet-time = <9360>;
 		qcom,wakeup-enable;
 	};
 
@@ -1459,7 +1459,7 @@
 	};
 
 	mtl_tx_setup: tx-queues-config {
-		snps,tx-queues-to-use = <5>;
+		snps,tx-queues-to-use = <4>;
 		snps,tx-sched-sp;
 		queue0 {
 			snps,dcb-algorithm;

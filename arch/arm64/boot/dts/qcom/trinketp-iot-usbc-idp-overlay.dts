@@ -1,5 +1,4 @@
-/*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,12 +13,18 @@
 /dts-v1/;
 /plugin/;
 
-#include "qcs6125-iot-idp.dtsi"
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
+#include "trinketp-iot-idp.dtsi"
+#include "trinketp-iot-usbc-idp.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. QCS6125 IOT IDP Overlay";
-	compatible = "qcom,qcs6125";
+	model = "USBC Audio IDP";
+	compatible = "qcom,trinketp-iot-idp", "qcom,trinketp-iot", "qcom,idp";
 	qcom,msm-id = <468 0x10000>;
-	qcom,board-id = <34 0>;
+	qcom,board-id = <34 2>;
 };
 
+&dsi_td4330_truly_cmd_display {
+	qcom,dsi-display-active;
+};

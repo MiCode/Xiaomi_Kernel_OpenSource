@@ -11,13 +11,11 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
-
-#include "qcm6125.dtsi"
-#include "qcm6125-iot-idp.dtsi"
+#include "trinket.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. QCM6125 IOT IDP SoC";
-	compatible = "qcom,qcm6125";
-	qcom,board-id = <34 0>;
+	model = "Qualcomm Technologies, Inc. TRINKET IOT";
+	compatible = "qcom,trinket-iot";
+	qcom,msm-id = <467 0x0>;
+	qcom,msm-name = "trinket";
 };

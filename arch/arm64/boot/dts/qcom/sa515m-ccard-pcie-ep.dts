@@ -48,6 +48,12 @@
 	qcom,mhi-event-ring-id-limits = <7 11>; /* start and end */
 };
 
+&ethqos_hw {
+	ethqos_emb_smmu: ethqos_emb_smmu {
+		qcom,smmu-s1-bypass;
+	};
+};
+
 &pcie0 {
 	status = "disabled";
 };
@@ -77,6 +83,5 @@
 	qcom,status-in-gpio = <&tlmm 76 0x00>;
 	qcom,status-out-gpio = <&tlmm 33 0x00>;
 	qcom,status-out2-gpio = <&tlmm 31 0x00>;
-	qcom,default-policy-nop;
 	status = "okay";
 };

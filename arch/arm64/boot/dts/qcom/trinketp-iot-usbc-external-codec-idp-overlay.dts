@@ -1,5 +1,4 @@
-/*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,11 +10,20 @@
  * GNU General Public License for more details.
  */
 
-#include "trinket.dtsi"
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
+#include "trinketp-iot-idp.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. QCS6125";
-	compatible = "qcom,qcs6125";
-	qcom,msm-id = <468 0x0>;
-	qcom,msm-name = "QCS6125";
+	model = "USB-C Ext Audio Codec IDP";
+	compatible = "qcom,trinketp-iot-idp", "qcom,trinketp-iot", "qcom,idp";
+	qcom,msm-id = <468 0x10000>;
+	qcom,board-id = <34 3>;
+};
+
+&dsi_td4330_truly_cmd_display {
+	qcom,dsi-display-active;
 };

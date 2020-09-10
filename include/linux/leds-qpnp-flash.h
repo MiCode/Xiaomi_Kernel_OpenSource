@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, 2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,8 +22,17 @@
 
 #define FLASH_LED_PREPARE_OPTIONS_MASK	GENMASK(3, 0)
 
+#if (defined CONFIG_LEDS_QTI_FLASH || defined CONFIG_LEDS_QPNP_FLASH_V2)
 int qpnp_flash_led_prepare(struct led_trigger *trig, int options,
 					int *max_current);
+#else
+static inline int qpnp_flash_led_prepare(struct led_trigger *trig, int options,
+					int *max_current)
+{
+	return -ENODEV;
+}
+#endif
+
 #ifdef CONFIG_BACKLIGHT_QCOM_SPMI_WLED
 int wled_flash_led_prepare(struct led_trigger *trig, int options,
 					int *max_current);

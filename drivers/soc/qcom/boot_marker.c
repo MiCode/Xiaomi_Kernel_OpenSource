@@ -44,12 +44,14 @@ struct boot_marker {
 static struct dentry *dent_bkpi, *dent_bkpi_status, *dent_mpm_timer;
 static struct boot_marker boot_marker_list;
 
-static void _destroy_boot_marker(const char *name)
+/*
+ * Caller is expected to hold the list spinlock.
+ */
+static void delete_boot_marker(const char *name)
 {
 	struct boot_marker *marker;
 	struct boot_marker *temp_addr;
 
-	spin_lock(&boot_marker_list.slock);
 	list_for_each_entry_safe(marker, temp_addr, &boot_marker_list.list,
 			list) {
 		if (strnstr(marker->marker_name, name,
@@ -58,9 +60,11 @@ static void _destroy_boot_marker(const char *name)
 			kfree(marker);
 		}
 	}
-	spin_unlock(&boot_marker_list.slock);
 }
 
+/*
+ * Caller is expected to hold the list spinlock.
+ */
 static void _create_boot_marker(const char *name,
 		unsigned long long int timer_value)
 {
@@ -79,13 +83,39 @@ static void _create_boot_marker(const char *name,
 			sizeof(new_boot_marker->marker_name));
 	new_boot_marker->timer_value = timer_value;
 
-	spin_lock(&boot_marker_list.slock);
 	list_add_tail(&(new_boot_marker->list), &(boot_marker_list.list));
+}
+
+/*
+ * Update existing boot marker. Delete existing boot marker and add it
+ * to the tail of boot marker list (to keep timestamp in order). Used to
+ * avoid duplicate boot markers.
+ */
+void update_marker(const char *name)
+{
+	struct boot_marker *marker;
+	struct boot_marker *temp_addr;
+
+	unsigned long long timer_value = msm_timer_get_sclk_ticks();
+
+	spin_lock(&boot_marker_list.slock);
+	list_for_each_entry_safe(marker, temp_addr, &boot_marker_list.list,
+				list) {
+		if (strnstr(marker->marker_name, name,
+				strlen(marker->marker_name))) {
+			delete_boot_marker(marker->marker_name);
+			break;
+		}
+	}
+
+	_create_boot_marker(name, timer_value);
 	spin_unlock(&boot_marker_list.slock);
 }
+EXPORT_SYMBOL(update_marker);
 
 static void set_bootloader_stats(bool hibernation_restore)
 {
+	spin_lock(&boot_marker_list.slock);
 	_create_boot_marker("M - APPSBL Start - ",
 		readl_relaxed(&boot_stats->bootloader_start));
 	if (!hibernation_restore) {
@@ -107,6 +137,7 @@ static void set_bootloader_stats(bool hibernation_restore)
 	}
 	_create_boot_marker("M - APPSBL End - ",
 		readl_relaxed(&boot_stats->bootloader_end));
+	spin_unlock(&boot_marker_list.slock);
 }
 
 static void boot_marker_cleanup(void)
@@ -132,15 +163,11 @@ void place_marker(const char *name)
 		set_bootloader_stats(true);
 	}
 #endif /* CONFIG_HIBERNATION */
+	spin_lock(&boot_marker_list.slock);
 	_create_boot_marker((char *)name, msm_timer_get_sclk_ticks());
+	spin_unlock(&boot_marker_list.slock);
 }
 EXPORT_SYMBOL(place_marker);
-
-void destroy_marker(const char *name)
-{
-	_destroy_boot_marker((char *) name);
-}
-EXPORT_SYMBOL(destroy_marker);
 
 static inline u64 get_time_in_msec(u64 counter)
 {
@@ -163,10 +190,15 @@ void measure_wake_up_time(void)
 			current_time, deep_sleep_exit_time, wake_up_time);
 		snprintf(wakeup_marker, sizeof(wakeup_marker),
 				"M - STR Wakeup : %llu ms", wake_up_time);
-		destroy_marker("M - STR Wakeup");
+		spin_lock(&boot_marker_list.slock);
+		delete_boot_marker("M - STR Wakeup");
+		spin_unlock(&boot_marker_list.slock);
 		place_marker(wakeup_marker);
-	} else
-		destroy_marker("M - STR Wakeup");
+	} else {
+		spin_lock(&boot_marker_list.slock);
+		delete_boot_marker("M - STR Wakeup");
+		spin_unlock(&boot_marker_list.slock);
+	}
 }
 EXPORT_SYMBOL(measure_wake_up_time);
 

@@ -34,6 +34,23 @@
 		};
 	};
 
+	qcom,msm-dai-q6 {
+		/delete-node/ sb_7_rx;
+		/delete-node/ sb_7_tx;
+
+		sb_7_rx: qcom,msm-dai-q6-sb-7-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <16398>;
+			qcom,msm-q6-slim-dev-id = <0>;
+		};
+
+		sb_7_tx: qcom,msm-dai-q6-sb-7-tx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <16399>;
+			qcom,msm-q6-slim-dev-id = <0>;
+		};
+	};
+
 	int_codec: sound {
 		status = "disabled";
 		compatible = "qcom,msm8952-audio-codec";

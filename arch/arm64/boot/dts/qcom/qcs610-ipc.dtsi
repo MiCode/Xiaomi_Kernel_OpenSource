@@ -10,8 +10,8 @@
  * GNU General Public License for more details.
  */
 
-#include "sm6150-audio-overlay.dtsi"
-#include "sm6150-camera-sensor-idp.dtsi"
+#include "qcs610-iot.dtsi"
+
 / {
 	model = "Qualcomm Technologies, Inc. QCS610 IPC";
 	compatible = "qcom,qcs610-iot", "qcom,qcs610", "qcom,iot";
@@ -67,29 +67,17 @@
 	qcom,wsa-max-devs = <1>;
 	qcom,wsa-devs = <&wsa881x_0211>, <&wsa881x_0213>;
 	qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrLeft";
+	qcom,linein-det-swh = <1>;
+	qcom,lineout-det-swh = <1>;
+	qcom,linein-det-gpio = <&tlmm 1 0>;
+	qcom,lineout-det-gpio = <&tlmm 60 0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&jack_det_linein_default
+		     &jack_det_lineout_default>;
 };
 
 &pm6150_charger {
 	qcom,batteryless-platform;
-};
-
-&eeprom_rear {
-	cam_vana-supply = <&pm6150l_l4>;
-	rgltr-min-voltage = <1800000 2900000 1200000 0 2800000>;
-	rgltr-max-voltage = <1800000 2900000 1200000 0 2800000>;
-};
-
-&cam_cci {
-	qcom,cam-sensor@0 {
-		cam_vana-supply = <&pm6150l_l4>;
-		rgltr-min-voltage = <1800000 2900000 1200000 0>;
-		rgltr-max-voltage = <1800000 2900000 1200000 0>;
-	};
-};
-
-
-&led_flash_front {
-	status = "disabled";
 };
 
 &tlmm {

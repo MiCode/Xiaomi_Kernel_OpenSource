@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, 2020 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -273,13 +273,15 @@ static int cam_lrme_hw_dev_remove(struct platform_device *pdev)
 	kfree(lrme_core);
 
 deinit_platform_res:
-	rc = cam_lrme_soc_deinit_resources(&lrme_hw->soc_info);
-	if (rc)
-		CAM_ERR(CAM_LRME, "Error in LRME soc deinit, rc=%d", rc);
+	if (lrme_hw) {
+		rc = cam_lrme_soc_deinit_resources(&lrme_hw->soc_info);
+		if (rc)
+			CAM_ERR(CAM_LRME,
+				"Error in LRME soc deinit, rc=%d", rc);
 
-	mutex_destroy(&lrme_hw->hw_mutex);
-	kfree(lrme_hw);
-
+		mutex_destroy(&lrme_hw->hw_mutex);
+		kfree(lrme_hw);
+	}
 	return rc;
 }
 

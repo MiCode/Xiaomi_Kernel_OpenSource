@@ -324,7 +324,7 @@ static ssize_t ipa3_read_ep_reg(struct file *file, char __user *ubuf,
 
 		*ppos = pos;
 		ret = simple_read_from_buffer(ubuf, count, ppos, dbg_buff,
-					      nbytes);
+						  nbytes);
 		if (ret < 0) {
 			IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 			return ret;
@@ -503,12 +503,12 @@ static int ipa3_attrib_dump(struct ipa_rule_attrib *attrib,
 	if (attrib->attrib_mask & IPA_FLT_SRC_PORT_RANGE) {
 		pr_err("src_port_range:%u %u ",
 				   attrib->src_port_lo,
-			     attrib->src_port_hi);
+				 attrib->src_port_hi);
 	}
 	if (attrib->attrib_mask & IPA_FLT_DST_PORT_RANGE) {
 		pr_err("dst_port_range:%u %u ",
 				   attrib->dst_port_lo,
-			     attrib->dst_port_hi);
+				 attrib->dst_port_hi);
 	}
 	if (attrib->attrib_mask & IPA_FLT_TYPE)
 		pr_err("type:%d ", attrib->type);
@@ -1397,76 +1397,83 @@ nxt_clnt_cons:
 static ssize_t ipa3_read_ntn(struct file *file, char __user *ubuf,
 		size_t count, loff_t *ppos)
 {
-#define TX_STATS(y) \
-	ipa3_ctx->uc_ntn_ctx.ntn_uc_stats_mmio->tx_ch_stats[0].y
-#define RX_STATS(y) \
-	ipa3_ctx->uc_ntn_ctx.ntn_uc_stats_mmio->rx_ch_stats[0].y
+#define TX_STATS(x, y) \
+	stats.tx_ch_stats[x].y
+#define RX_STATS(x, y) \
+	stats.rx_ch_stats[x].y
 
 	struct Ipa3HwStatsNTNInfoData_t stats;
 	int nbytes;
-	int cnt = 0;
+	int cnt = 0, i = 0;
 
 	if (!ipa3_get_ntn_stats(&stats)) {
-		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
-			"TX num_pkts_processed=%u\n"
-			"TX ringFull=%u\n"
-			"TX ringEmpty=%u\n"
-			"TX ringUsageHigh=%u\n"
-			"TX ringUsageLow=%u\n"
-			"TX RingUtilCount=%u\n"
-			"TX bamFifoFull=%u\n"
-			"TX bamFifoEmpty=%u\n"
-			"TX bamFifoUsageHigh=%u\n"
-			"TX bamFifoUsageLow=%u\n"
-			"TX bamUtilCount=%u\n"
-			"TX num_db=%u\n"
-			"TX num_qmb_int_handled=%u\n"
-			"TX ipa_pipe_number=%u\n",
-			TX_STATS(num_pkts_processed),
-			TX_STATS(ring_stats.ringFull),
-			TX_STATS(ring_stats.ringEmpty),
-			TX_STATS(ring_stats.ringUsageHigh),
-			TX_STATS(ring_stats.ringUsageLow),
-			TX_STATS(ring_stats.RingUtilCount),
-			TX_STATS(gsi_stats.bamFifoFull),
-			TX_STATS(gsi_stats.bamFifoEmpty),
-			TX_STATS(gsi_stats.bamFifoUsageHigh),
-			TX_STATS(gsi_stats.bamFifoUsageLow),
-			TX_STATS(gsi_stats.bamUtilCount),
-			TX_STATS(num_db),
-			TX_STATS(num_qmb_int_handled),
-			TX_STATS(ipa_pipe_number));
-		cnt += nbytes;
-		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
-			"RX num_pkts_processed=%u\n"
-			"RX ringFull=%u\n"
-			"RX ringEmpty=%u\n"
-			"RX ringUsageHigh=%u\n"
-			"RX ringUsageLow=%u\n"
-			"RX RingUtilCount=%u\n"
-			"RX bamFifoFull=%u\n"
-			"RX bamFifoEmpty=%u\n"
-			"RX bamFifoUsageHigh=%u\n"
-			"RX bamFifoUsageLow=%u\n"
-			"RX bamUtilCount=%u\n"
-			"RX num_db=%u\n"
-			"RX num_qmb_int_handled=%u\n"
-			"RX ipa_pipe_number=%u\n",
-			RX_STATS(num_pkts_processed),
-			RX_STATS(ring_stats.ringFull),
-			RX_STATS(ring_stats.ringEmpty),
-			RX_STATS(ring_stats.ringUsageHigh),
-			RX_STATS(ring_stats.ringUsageLow),
-			RX_STATS(ring_stats.RingUtilCount),
-			RX_STATS(gsi_stats.bamFifoFull),
-			RX_STATS(gsi_stats.bamFifoEmpty),
-			RX_STATS(gsi_stats.bamFifoUsageHigh),
-			RX_STATS(gsi_stats.bamFifoUsageLow),
-			RX_STATS(gsi_stats.bamUtilCount),
-			RX_STATS(num_db),
-			RX_STATS(num_qmb_int_handled),
-			RX_STATS(ipa_pipe_number));
-		cnt += nbytes;
+		for (i = 0; i < IPA_UC_MAX_NTN_TX_CHANNELS; i++) {
+			nbytes = scnprintf(dbg_buff + cnt,
+				IPA_MAX_MSG_LEN - cnt,
+				"TX%d num_pkts_psr=%u\n"
+				"TX%d ringFull=%u\n"
+				"TX%d ringEmpty=%u\n"
+				"TX%d ringUsageHigh=%u\n"
+				"TX%d ringUsageLow=%u\n"
+				"TX%d RingUtilCount=%u\n"
+				"TX%d bamFifoFull=%u\n"
+				"TX%d bamFifoEmpty=%u\n"
+				"TX%d bamFifoUsageHigh=%u\n"
+				"TX%d bamFifoUsageLow=%u\n"
+				"TX%d bamUtilCount=%u\n"
+				"TX%d num_db=%u\n"
+				"TX%d num_qmb_int_handled=%u\n"
+				"TX%d ipa_pipe_number=%u\n",
+				i, TX_STATS(i, num_pkts_processed),
+				i, TX_STATS(i, ring_stats.ringFull),
+				i, TX_STATS(i, ring_stats.ringEmpty),
+				i, TX_STATS(i, ring_stats.ringUsageHigh),
+				i, TX_STATS(i, ring_stats.ringUsageLow),
+				i, TX_STATS(i, ring_stats.RingUtilCount),
+				i, TX_STATS(i, gsi_stats.bamFifoFull),
+				i, TX_STATS(i, gsi_stats.bamFifoEmpty),
+				i, TX_STATS(i, gsi_stats.bamFifoUsageHigh),
+				i, TX_STATS(i, gsi_stats.bamFifoUsageLow),
+				i, TX_STATS(i, gsi_stats.bamUtilCount),
+				i, TX_STATS(i, num_db),
+				i, TX_STATS(i, num_qmb_int_handled),
+				i, TX_STATS(i, ipa_pipe_number));
+			cnt += nbytes;
+		}
+
+		for (i = 0; i < IPA_UC_MAX_NTN_RX_CHANNELS; i++) {
+			nbytes = scnprintf(dbg_buff + cnt,
+				IPA_MAX_MSG_LEN - cnt,
+				"RX%d num_pkts_psr=%u\n"
+				"RX%d ringFull=%u\n"
+				"RX%d ringEmpty=%u\n"
+				"RX%d ringUsageHigh=%u\n"
+				"RX%d ringUsageLow=%u\n"
+				"RX%d RingUtilCount=%u\n"
+				"RX%d bamFifoFull=%u\n"
+				"RX%d bamFifoEmpty=%u\n"
+				"RX%d bamFifoUsageHigh=%u\n"
+				"RX%d bamFifoUsageLow=%u\n"
+				"RX%d bamUtilCount=%u\n"
+				"RX%d num_db=%u\n"
+				"RX%d num_qmb_int_handled=%u\n"
+				"RX%d ipa_pipe_number=%u\n",
+				i, RX_STATS(i, num_pkts_processed),
+				i, RX_STATS(i, ring_stats.ringFull),
+				i, RX_STATS(i, ring_stats.ringEmpty),
+				i, RX_STATS(i, ring_stats.ringUsageHigh),
+				i, RX_STATS(i, ring_stats.ringUsageLow),
+				i, RX_STATS(i, ring_stats.RingUtilCount),
+				i, RX_STATS(i, gsi_stats.bamFifoFull),
+				i, RX_STATS(i, gsi_stats.bamFifoEmpty),
+				i, RX_STATS(i, gsi_stats.bamFifoUsageHigh),
+				i, RX_STATS(i, gsi_stats.bamFifoUsageLow),
+				i, RX_STATS(i, gsi_stats.bamUtilCount),
+				i, RX_STATS(i, num_db),
+				i, RX_STATS(i, num_qmb_int_handled),
+				i, RX_STATS(i, ipa_pipe_number));
+			cnt += nbytes;
+		}
 	} else {
 		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
 				"Fail to read NTN stats\n");
@@ -2646,6 +2653,125 @@ static ssize_t ipa3_enable_ipc_low(struct file *file,
 	return count;
 }
 
+static ssize_t ipa3_read_uc_act_tbl(struct file *file,
+	char __user *ubuf, size_t count, loff_t *ppos)
+{
+	int nbytes;
+	int cnt = 0;
+	int i;
+	struct ipa_ipv6_nat_uc_tmpl *uc_entry_nat;
+	struct ipa_socksv5_uc_tmpl *uc_entry_socks;
+	struct iphdr_rsv *socks_iphdr;
+	struct ipv6hdr *socks_ipv6hdr;
+
+	/* IPA version check */
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5) {
+		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
+			"This feature only support on IPA4.5+\n");
+		cnt += nbytes;
+		goto done;
+	}
+
+	if (!ipa3_ctx->uc_act_tbl_valid) {
+		IPAERR("uC act tbl wasn't allocated\n");
+		return -ENOENT;
+	}
+
+	if (sizeof(dbg_buff) < count + 1)
+		return -EFAULT;
+
+	dbg_buff[count] = '\0';
+
+	mutex_lock(&ipa3_ctx->act_tbl_lock);
+
+	uc_entry_nat = (struct ipa_ipv6_nat_uc_tmpl *)
+		(ipa3_ctx->uc_act_tbl.base);
+	nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
+		"uc_act_tbl_total %d, uc_act_tbl_ipv6_nat_total %d uc_act_tbl_socksv5_total %d, uc_act_tbl_next_index %d\n"
+		"uC activation entries:"
+		, ipa3_ctx->uc_act_tbl_total,
+		ipa3_ctx->uc_act_tbl_ipv6_nat_total,
+		ipa3_ctx->uc_act_tbl_socksv5_total,
+		ipa3_ctx->uc_act_tbl_next_index);
+	cnt += nbytes;
+	for (i = 0; i < IPA_UC_ACT_TBL_SIZE; i++) {
+		if (uc_entry_nat[i].cmd_id == IPA_IPv6_NAT_COM_ID) {
+			nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN,
+				"\nentry %d:\n"
+				"cmd_id = IPV6_NAT\n"
+				"private_address_msb 0x%llX\n"
+				"private_address_lsb 0x%llX\n"
+				"private_port %u\n"
+				"public_address_msb 0x%llX\n"
+				"public_address_lsb 0x%llX\n"
+				"public_port %u\n",
+				i,
+				uc_entry_nat[i].private_address_msb,
+				uc_entry_nat[i].private_address_lsb,
+				uc_entry_nat[i].private_port,
+				uc_entry_nat[i].public_address_msb,
+				uc_entry_nat[i].public_address_lsb,
+				uc_entry_nat[i].public_port);
+			cnt += nbytes;
+		} else if (uc_entry_nat[i].cmd_id == IPA_SOCKSV5_ADD_COM_ID) {
+			uc_entry_socks = (struct ipa_socksv5_uc_tmpl *)
+				(uc_entry_nat);
+			nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN,
+				"\nentry %d:\n"
+				"cmd_id = SOCKSv5\n"
+				"cmd_param: %u\n"
+				"source_port: %u\n"
+				"dest_port: %u\n"
+				"ipa_socksv5_mask: %x\n",
+				i,
+				uc_entry_socks[i].cmd_param,
+				uc_entry_socks[i].src_port,
+				uc_entry_socks[i].dst_port,
+				uc_entry_socks[i].ipa_sockv5_mask);
+			cnt += nbytes;
+
+			if (uc_entry_socks[i].cmd_param ==
+					IPA_SOCKsv5_ADD_V6_V4_COM_PM) {
+				socks_iphdr =
+					&uc_entry_socks[i].ip_hdr.ipv4_rsv;
+				nbytes = scnprintf(dbg_buff + cnt,
+					IPA_MAX_MSG_LEN,
+					"ipv4_src_addr: 0x%X\n"
+					"ipv4_dst_addr: 0x%X\n",
+					socks_iphdr->ipv4_temp.saddr,
+					socks_iphdr->ipv4_temp.daddr);
+				cnt += nbytes;
+			} else {
+				socks_ipv6hdr =
+					&uc_entry_socks[i].ip_hdr.ipv6_temp;
+				nbytes = scnprintf(dbg_buff + cnt,
+					IPA_MAX_MSG_LEN,
+					"ipv6_src_addr[0]: 0x%X\n"
+					"ipv6_src_addr[1]: 0x%X\n"
+					"ipv6_src_addr[2]: 0x%X\n"
+					"ipv6_src_addr[3]: 0x%X\n"
+					"ipv6_dts_addr[0]: 0x%X\n"
+					"ipv6_dts_addr[1]: 0x%X\n"
+					"ipv6_dts_addr[2]: 0x%X\n"
+					"ipv6_dts_addr[3]: 0x%X\n",
+					socks_ipv6hdr->saddr.s6_addr32[0],
+					socks_ipv6hdr->saddr.s6_addr32[1],
+					socks_ipv6hdr->saddr.s6_addr32[2],
+					socks_ipv6hdr->saddr.s6_addr32[3],
+					socks_ipv6hdr->daddr.s6_addr32[0],
+					socks_ipv6hdr->daddr.s6_addr32[1],
+					socks_ipv6hdr->daddr.s6_addr32[2],
+					socks_ipv6hdr->daddr.s6_addr32[3]);
+				cnt += nbytes;
+			}
+		}
+	}
+	mutex_unlock(&ipa3_ctx->act_tbl_lock);
+done:
+	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
+
+}
+
 static const struct ipa3_debugfs_file debugfs_files[] = {
 	{
 		"gen_reg", IPA_READ_ONLY_MODE, NULL, {
@@ -2811,7 +2937,11 @@ static const struct ipa3_debugfs_file debugfs_files[] = {
 		"app_clk_vote_cnt", IPA_READ_ONLY_MODE, NULL, {
 			.read = ipa3_read_app_clk_vote,
 		}
-	},
+	}, {
+		"uc_act_table", IPA_READ_ONLY_MODE, NULL, {
+			.read = ipa3_read_uc_act_tbl,
+		}
+	}
 };
 
 void ipa3_debugfs_pre_init(void)

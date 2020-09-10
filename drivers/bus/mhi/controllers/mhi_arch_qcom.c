@@ -210,7 +210,11 @@ static int mhi_arch_esoc_ops_power_on(void *priv, unsigned int flags)
 	}
 
 	mhi_dev->mdm_state = (flags & ESOC_HOOK_MDM_CRASH);
-	return mhi_pci_probe(pci_dev, NULL);
+	ret = mhi_pci_probe(pci_dev, NULL);
+	if (ret)
+		mhi_dev->powered_on = false;
+
+	return ret;
 }
 
 static void mhi_arch_link_off(struct mhi_controller *mhi_cntrl)

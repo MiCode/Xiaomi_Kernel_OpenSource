@@ -862,6 +862,74 @@ static void ipa3_get_pcie_ep_info(
 	}
 }
 
+static void ipa3_get_eth_ep_info(
+			struct ipa_ioc_get_ep_info *ep_info,
+			struct ipa_ep_pair_info *pair_info
+			)
+{
+	int ep_index = -1, i;
+
+	ep_info->num_ep_pairs = 0;
+	for (i = 0; i < ep_info->max_ep_pairs; i++) {
+		pair_info[i].consumer_pipe_num = -1;
+		pair_info[i].producer_pipe_num = -1;
+		pair_info[i].ep_id = -1;
+	}
+
+	ep_index = ipa3_get_ep_mapping(IPA_CLIENT_ETHERNET2_PROD);
+
+	if ((ep_index != -1) && ipa3_ctx->ep[ep_index].valid) {
+		pair_info[ep_info->num_ep_pairs].consumer_pipe_num = ep_index;
+		ep_index = ipa3_get_ep_mapping(IPA_CLIENT_ETHERNET2_CONS);
+		if ((ep_index != -1) && (ipa3_ctx->ep[ep_index].valid)) {
+			pair_info[ep_info->num_ep_pairs].producer_pipe_num =
+				ep_index;
+			pair_info[ep_info->num_ep_pairs].ep_id =
+				IPA_ETH1_EP_ID;
+
+			IPADBG("ep_pair_info consumer_pipe_num %d",
+			pair_info[ep_info->num_ep_pairs].consumer_pipe_num);
+			IPADBG(" producer_pipe_num %d ep_id %d\n",
+			pair_info[ep_info->num_ep_pairs].producer_pipe_num,
+				pair_info[ep_info->num_ep_pairs].ep_id);
+			ep_info->num_ep_pairs++;
+		} else {
+			pair_info[ep_info->num_ep_pairs].consumer_pipe_num = -1;
+			IPADBG("ep_pair_info consumer_pipe_num %d",
+			pair_info[ep_info->num_ep_pairs].consumer_pipe_num);
+			IPADBG(" producer_pipe_num %d ep_id %d\n",
+			pair_info[ep_info->num_ep_pairs].producer_pipe_num,
+				pair_info[ep_info->num_ep_pairs].ep_id);
+		}
+	}
+
+	ep_index = ipa3_get_ep_mapping(IPA_CLIENT_ETHERNET_PROD);
+
+	if ((ep_index != -1) && ipa3_ctx->ep[ep_index].valid) {
+		pair_info[ep_info->num_ep_pairs].consumer_pipe_num = ep_index;
+		ep_index = ipa3_get_ep_mapping(IPA_CLIENT_ETHERNET_CONS);
+		if ((ep_index != -1) && (ipa3_ctx->ep[ep_index].valid)) {
+			pair_info[ep_info->num_ep_pairs].producer_pipe_num =
+				ep_index;
+			pair_info[ep_info->num_ep_pairs].ep_id =
+				IPA_ETH0_EP_ID;
+
+			IPADBG("ep_pair_info consumer_pipe_num %d",
+			pair_info[ep_info->num_ep_pairs].consumer_pipe_num);
+			IPADBG(" producer_pipe_num %d ep_id %d\n",
+			pair_info[ep_info->num_ep_pairs].producer_pipe_num,
+				pair_info[ep_info->num_ep_pairs].ep_id);
+			ep_info->num_ep_pairs++;
+		} else {
+			pair_info[ep_info->num_ep_pairs].consumer_pipe_num = -1;
+			IPADBG("ep_pair_info consumer_pipe_num %d",
+			pair_info[ep_info->num_ep_pairs].consumer_pipe_num);
+			IPADBG(" producer_pipe_num %d ep_id %d\n",
+			pair_info[ep_info->num_ep_pairs].producer_pipe_num,
+				pair_info[ep_info->num_ep_pairs].ep_id);
+		}
+	}
+}
 
 static int ipa3_get_ep_info(struct ipa_ioc_get_ep_info *ep_info,
 							u8 *param)
@@ -876,6 +944,10 @@ static int ipa3_get_ep_info(struct ipa_ioc_get_ep_info *ep_info,
 
 	case IPA_DATA_EP_TYP_PCIE:
 		ipa3_get_pcie_ep_info(ep_info, pair_info);
+		break;
+
+	case IPA_DATA_EP_TYP_ETH:
+		ipa3_get_eth_ep_info(ep_info, pair_info);
 		break;
 
 	default:
@@ -1003,6 +1075,7 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	struct ipa_ioc_get_vlan_mode vlan_mode;
 	struct ipa_ioc_wigig_fst_switch fst_switch;
 	struct ipa_nat_in_sram_info nat_in_sram_info;
+	union ipa_ioc_uc_activation_entry uc_act;
 	size_t sz;
 	int pre_entry;
 	int hdl;
@@ -3047,6 +3120,39 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 	case IPA_IOC_SET_MAC_FLT:
 		if (ipa3_send_mac_flt_list(arg)) {
+			retval = -EFAULT;
+			break;
+		}
+		break;
+
+	case IPA_IOC_ADD_UC_ACT_ENTRY:
+		if (copy_from_user(&uc_act, (const void __user *)arg,
+			sizeof(union ipa_ioc_uc_activation_entry))) {
+			IPAERR_RL("copy_from_user fails\n");
+			retval = -EFAULT;
+			break;
+		}
+
+		/* first field in both structs is cmd id */
+		if (uc_act.socks.cmd_id == IPA_SOCKSV5_ADD_COM_ID) {
+			retval = ipa3_add_socksv5_conn_usr(&uc_act.socks);
+		} else {
+			retval = ipa3_add_ipv6_nat_uc_activation_entry(
+				&uc_act.ipv6_nat);
+		}
+		if (retval) {
+			retval = -EFAULT;
+			break;
+		}
+		if (copy_to_user((void __user *)arg, &uc_act,
+			sizeof(union ipa_ioc_uc_activation_entry))) {
+			IPAERR_RL("copy_to_user fails\n");
+			retval = -EFAULT;
+			break;
+		}
+		break;
+	case IPA_IOC_DEL_UC_ACT_ENTRY:
+		if (ipa3_del_uc_act_entry((uint16_t)arg)) {
 			retval = -EFAULT;
 			break;
 		}
@@ -7046,7 +7152,7 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	}
 
 	IPADBG(
-	    "base(0x%x)+offset(0x%x)=(0x%x) mapped to (%pK) with len (0x%x)\n",
+	    "base(0x%x)+offset(0x%x)=(0x%x) mapped to (0x%x) with len (0x%x)\n",
 	    resource_p->ipa_mem_base,
 	    ipa3_ctx->ctrl->ipa_reg_base_ofst,
 	    resource_p->ipa_mem_base + ipa3_ctx->ctrl->ipa_reg_base_ofst,

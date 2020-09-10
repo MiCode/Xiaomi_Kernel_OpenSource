@@ -19,6 +19,8 @@
 			label = "pmem_shared_mem";
 		};
 	};
+
+	/delete-node/ rename_blk;
 };
 
 &hab {

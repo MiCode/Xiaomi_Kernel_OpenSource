@@ -1313,5 +1313,30 @@
 			};
 		};
 
+		tlmm_gpio_key {
+			gpio_key_active: gpio_key_active {
+				mux {
+					pins = "gpio74", "gpio35", "gpio126";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio74", "gpio35", "gpio126";
+					bias-pull-up;
+				};
+			};
+
+			gpio_key_suspend: gpio_key_suspend {
+				mux {
+					pins = "gpio74", "gpio35", "gpio126";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio74", "gpio35", "gpio126";
+					bias-pull-up;
+				};
+			};
+		};
 	};
 };

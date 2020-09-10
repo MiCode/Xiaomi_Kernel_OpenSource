@@ -2446,9 +2446,7 @@ static int npu_probe(struct platform_device *pdev)
 		goto error_res_init;
 	}
 
-	rc = npu_debugfs_init(npu_dev);
-	if (rc)
-		goto error_driver_init;
+	npu_debugfs_init(npu_dev);
 
 	npu_dev->smmu_ctx.attach_cnt = 0;
 	npu_dev->smmu_ctx.mmu_mapping = arm_iommu_create_mapping(

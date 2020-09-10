@@ -1031,6 +1031,24 @@ config MSM_BAM_DMUX
                 communication between G-Link/bg_com_dev and BG processor over SPI.
                 This handle the interrupts raised by BG and notify the G-link with
                 interrupt event and event data.
+
+config MSM_BGRSB
+	bool "Provide support for rsb events on Blackghost chipset"
+	help
+	  BGRSB communicates to BG over rpmsg driver for RSB configuration and
+	  enable/disable on device power state change. It enables/disables
+	  the regulator specific to RSB. Sends the side band events generated
+	  by BG to input framework.
+
+config MSM_BGRSB_RPMSG
+	bool "Provide support for Blackghost events to RSB"
+	depends on MSM_BGRSB
+	help
+	  BGRSB-RPMSG informs BGRSB driver if GLINK channel has been
+	  opened by remote processor. It doesn't maintain state machine
+	  and is probed when BG opens channel and removed when the
+	  channel is closed by remote processor.
+
 config MSM_PIL_SSR_BG
 	tristate "MSM Subsystem Blackghost(BG) Support"
 	depends on MSM_PIL && MSM_SUBSYSTEM_RESTART

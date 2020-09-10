@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3449,6 +3449,43 @@ struct qmi_elem_info wlfw_shutdown_resp_msg_v01_ei[] = {
 		.is_array       = NO_ARRAY,
 		.tlv_type       = 0x02,
 		.offset         = offsetof(struct wlfw_shutdown_resp_msg_v01,
+					   resp),
+		.ei_array      = qmi_response_type_v01_ei,
+	},
+	{
+		.data_type      = QMI_EOTI,
+		.is_array       = NO_ARRAY,
+		.tlv_type       = QMI_COMMON_TLV_TYPE,
+	},
+};
+
+struct qmi_elem_info wlfw_pcie_gen_switch_req_msg_v01_ei[] = {
+	{
+		.data_type      = QMI_SIGNED_4_BYTE_ENUM,
+		.elem_len       = 1,
+		.elem_size      = sizeof(enum wlfw_pcie_gen_speed_v01),
+		.is_array       = NO_ARRAY,
+		.tlv_type       = 0x01,
+		.offset         = offsetof(struct
+					   wlfw_pcie_gen_switch_req_msg_v01,
+					   pcie_speed),
+	},
+	{
+		.data_type      = QMI_EOTI,
+		.is_array       = NO_ARRAY,
+		.tlv_type       = QMI_COMMON_TLV_TYPE,
+	},
+};
+
+struct qmi_elem_info wlfw_pcie_gen_switch_resp_msg_v01_ei[] = {
+	{
+		.data_type      = QMI_STRUCT,
+		.elem_len       = 1,
+		.elem_size      = sizeof(struct qmi_response_type_v01),
+		.is_array       = NO_ARRAY,
+		.tlv_type       = 0x02,
+		.offset         = offsetof(struct
+					   wlfw_pcie_gen_switch_resp_msg_v01,
 					   resp),
 		.ei_array      = qmi_response_type_v01_ei,
 	},

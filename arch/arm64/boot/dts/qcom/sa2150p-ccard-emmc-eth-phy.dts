@@ -11,20 +11,12 @@
  */
 
 /dts-v1/;
-/plugin/;
 
-#include <dt-bindings/interrupt-controller/arm-gic.h>
-
-#include "qcm6125-iot-idp.dtsi"
-#include "qcm6125-iot-usbc-idp.dtsi"
+#include "sa2150p-ccard.dtsi"
 
 / {
-	model = "USBC Audio IDP";
-	compatible = "qcom,qcm6125-idp", "qcom,qcm6125", "qcom,idp";
-	qcom,msm-id = <467 0x10000>;
-	qcom,board-id = <34 2>;
-};
-
-&dsi_td4330_truly_cmd_display {
-	qcom,dsi-display-active;
+	model = "Qualcomm Technologies, Inc. SA2150P CCARD EMMC Eth Phy";
+	compatible = "qcom,sa2150p-ccard", "qcom,qcs405", "qcom,sa2150p",
+				"qcom,ccard";
+	qcom,board-id = <0x030019 0>;
 };

@@ -1,4 +1,4 @@
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -351,6 +351,8 @@ static int a6xx_gmu_start(struct kgsl_device *device)
 
 	/* Bring GMU out of reset */
 	gmu_core_regwrite(device, A6XX_GMU_CM3_SYSRESET, 0);
+	/* Make sure the request completes before continuing */
+	wmb();
 	if (timed_poll_check(device,
 			A6XX_GMU_CM3_FW_INIT_RESULT,
 			0xBABEFACE,
@@ -830,6 +832,21 @@ static bool a6xx_gmu_gx_is_on(struct adreno_device *adreno_dev)
 }
 
 /*
+ * a6xx_gmu_cx_is_on() - Check if CX is on using GPUCC register
+ * @device - Pointer to KGSL device struct
+ */
+static bool a6xx_gmu_cx_is_on(struct kgsl_device *device)
+{
+	unsigned int val;
+
+	if (ADRENO_QUIRK(ADRENO_DEVICE(device), ADRENO_QUIRK_CX_GDSC))
+		return regulator_is_enabled(KGSL_GMU_DEVICE(device)->cx_gdsc);
+
+	gmu_core_regread(device, A6XX_GPU_CC_CX_GDSCR, &val);
+	return (val & BIT(31));
+}
+
+/*
  * a6xx_gmu_sptprac_is_on() - Check if SPTP is on using pwr status register
  * @adreno_dev - Pointer to adreno_device
  * This check should only be performed if the keepalive bit is set or it
@@ -1042,6 +1059,13 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 	gmu_core_regwrite(device, A6XX_GMU_AHB_FENCE_RANGE_0,
 			GMU_FENCE_RANGE_MASK);
 
+	/*
+	 * Make sure that CM3 state is at reset value. Snapshot is changing
+	 * NMI bit and if we boot up GMU with NMI bit set.GMU will boot straight
+	 * in to NMI handler without executing __main code
+	 */
+	gmu_core_regwrite(device, A6XX_GMU_CM3_CFG, 0x4052);
+
 	/* Pass chipid to GMU FW, must happen before starting GMU */
 
 	/* Keep Core and Major bitfields unchanged */
@@ -1182,6 +1206,8 @@ static int a6xx_gmu_suspend(struct kgsl_device *device)
 
 	/* Check no outstanding RPMh voting */
 	a6xx_complete_rpmh_votes(device);
+
+	gmu_core_regwrite(device, A6XX_GMU_CM3_SYSRESET, 1);
 
 	/*
 	 * This is based on the assumption that GMU is the only one controlling
@@ -1669,6 +1695,7 @@ struct gmu_dev_ops adreno_a6xx_gmudev = {
 	.enable_lm = a6xx_gmu_enable_lm,
 	.rpmh_gpu_pwrctrl = a6xx_gmu_rpmh_gpu_pwrctrl,
 	.gx_is_on = a6xx_gmu_gx_is_on,
+	.cx_is_on = a6xx_gmu_cx_is_on,
 	.wait_for_lowest_idle = a6xx_gmu_wait_for_lowest_idle,
 	.wait_for_gmu_idle = a6xx_gmu_wait_for_idle,
 	.ifpc_store = a6xx_gmu_ifpc_store,

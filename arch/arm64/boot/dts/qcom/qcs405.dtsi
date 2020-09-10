@@ -1584,7 +1584,7 @@
 	};
 
 	mtl_tx_setup: tx-queues-config {
-		snps,tx-queues-to-use = <5>;
+		snps,tx-queues-to-use = <4>;
 		snps,tx-sched-sp;
 		queue0 {
 			snps,dcb-algorithm;
@@ -1611,7 +1611,7 @@
 		};
 	};
 
-	ethqos_hw: qcom,ethernet@00020000 {
+	ethqos_hw: qcom,ethernet@07A80000 {
 		compatible = "qcom,stmmac-ethqos";
 		reg = <0x07A80000 0x10000>,
 			  <0x7A96000 0x100>;
@@ -1642,7 +1642,6 @@
 		qcom,bus-vector-names = "0", "10", "100", "1000";
 		snps,tso;
 		snps,pbl = <32>;
-		mac-address = [00 55 7B B5 7D f7];
 		clocks = <&clock_gcc GCC_ETH_AXI_CLK>,
 			<&clock_gcc GCC_ETH_SLAVE_AHB_CLK>,
 			<&clock_gcc GCC_ETH_PTP_CLK>,

@@ -854,8 +854,6 @@ static struct diag_context *diag_context_init(const char *name)
 	dev->ch = _ch;
 
 	dev->function.name = _ch->name;
-	dev->function.fs_descriptors = fs_diag_desc;
-	dev->function.hs_descriptors = hs_diag_desc;
 	dev->function.bind = diag_function_bind;
 	dev->function.unbind = diag_function_unbind;
 	dev->function.set_alt = diag_function_set_alt;

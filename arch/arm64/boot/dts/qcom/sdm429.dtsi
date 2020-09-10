@@ -325,6 +325,7 @@
 		compatible = "qcom,gcc-sdm429w", "syscon";
 		reg = <0x1800000 0x80000>;
 		reg-names = "cc_base";
+		qcom,gcc_oxili_gfx3d_clk-opp-handle = <&msm_gpu>;
 		vdd_cx-supply = <&VDD_CX_LEVEL>;
 		clocks = <&rpmcc RPM_SMD_XO_CLK_SRC>;
 		clock-names = "bi_tcxo";
@@ -597,6 +598,12 @@
 		status = "disabled";
 	};
 
+
+	qcom,mpm2-sleep-counter@4a3000 {
+		compatible = "qcom,mpm2-sleep-counter";
+		reg = <0x4a3000 0x1000>;
+		clock-frequency = <32768>;
+	};
 
 	qcom,msm-imem@8600000 {
 		compatible = "qcom,msm-imem";
@@ -1043,6 +1050,13 @@
 				qcom,net-id = <1>;
 				qcom,low-latency;
 			};
+
+			qcom,diag {
+				qcom,smd-channels = "APPS_RIVA_DATA";
+			};
+			qcom,diag_cntl {
+				qcom,smd-channels = "APPS_RIVA_CTRL";
+			};
 		};
 
 		adsp {
@@ -1083,7 +1097,7 @@
 
 		qcom,ipc-1 = <&apcs 0 13>;
 		qcom,ipc-2 = <&apcs 0 9>;
-		qcom,ipc-6 = <&apcs 0 19>;
+		qcom,ipc-3 = <&apcs 0 19>;
 
 		apps_smsm: apps@0 {
 			reg = <0>;
@@ -1104,8 +1118,8 @@
 			#interrupt-cells = <2>;
 		};
 
-		wcnss_smsm: wcnss@6 {
-			reg = <6>;
+		wcnss_smsm: wcnss@3 {
+			reg = <3>;
 			interrupts = <0 144 IRQ_TYPE_EDGE_RISING>;
 			interrupt-controller;
 			#interrupt-cells = <2>;
@@ -1446,7 +1460,8 @@
 			< 960000  >,
 			< 1305600 >,
 			< 1497600 >,
-			< 1708800 >;
+			< 1708800 >,
+			< 2016000 >;
 	};
 	ddr_bw_opp_table: ddr-bw-opp-table {
 		compatible = "operating-points-v2";
@@ -1489,7 +1504,8 @@
 			< 960000  MHZ_TO_MBPS( 211, 8) >,
 			< 1305600 MHZ_TO_MBPS( 384, 8) >,
 			< 1497600 MHZ_TO_MBPS( 662, 8) >,
-			< 1708800 MHZ_TO_MBPS( 749, 8) >;
+			< 1708800 MHZ_TO_MBPS( 662, 8) >,
+			< 2016000 MHZ_TO_MBPS( 749, 8) >;
 	};
 
 	tsens0: tsens@4a8000 {
@@ -1503,6 +1519,61 @@
 		interrupt-names = "tsens-upper-lower";
 		#thermal-sensor-cells = <1>;
 	};
+
+	dcc: dcc@b3000 {
+		compatible = "qcom,dcc";
+		reg = <0xb3000 0x1000>,
+		      <0xb4000 0x2000>;
+		reg-names = "dcc-base", "dcc-ram-base";
+
+		clocks = <&gcc GCC_DCC_CLK>;
+		clock-names = "dcc_clk";
+		qcom,save-reg;
+	};
+
+	jtag_mm0: jtagmm@61bc000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x61bc000 0x1000>;
+		reg-names = "etm-base";
+
+		qcom,coresight-jtagmm-cpu = <&CPU0>;
+
+		clocks = <&rpmcc RPM_SMD_QDSS_CLK>;
+		clock-names = "core_clk";
+	};
+
+	jtag_mm1: jtagmm@61bd000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x61bd000 0x1000>;
+		reg-names = "etm-base";
+
+		qcom,coresight-jtagmm-cpu = <&CPU1>;
+
+		clocks = <&rpmcc RPM_SMD_QDSS_CLK>;
+		clock-names = "core_clk";
+	};
+
+	jtag_mm2: jtagmm@61be000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x61be000 0x1000>;
+		reg-names = "etm-base";
+
+		qcom,coresight-jtagmm-cpu = <&CPU2>;
+
+		clocks = <&rpmcc RPM_SMD_QDSS_CLK>;
+		clock-names = "core_clk";
+	};
+
+	jtag_mm3: jtagmm@61bf000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x61bf000 0x1000>;
+		reg-names = "etm-base";
+
+		qcom,coresight-jtagmm-cpu = <&CPU3>;
+
+		clocks = <&rpmcc RPM_SMD_QDSS_CLK>;
+		clock-names = "core_clk";
+	};
 };
 
 #include "sdm429-gdsc.dtsi"
@@ -1512,6 +1583,7 @@
 #include "sdm429-mdss-pll.dtsi"
 #include "sdm429-audio.dtsi"
 #include "sdm429-thermal.dtsi"
+#include "sdm429-coresight.dtsi"
 
 &venus_gdsc {
 	clock-names = "bus_clk", "core_clk";

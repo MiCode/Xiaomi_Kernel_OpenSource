@@ -82,6 +82,7 @@ struct ais_vfe_buffer_t {
 	int32_t                    mem_handle;
 	uint64_t                   iova_addr;
 	uint32_t                   bufIdx;
+	struct ais_ife_rdi_timestamps    ts_hw;
 };
 
 struct ais_sof_info_t {

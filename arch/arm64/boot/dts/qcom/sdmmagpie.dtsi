@@ -2630,7 +2630,15 @@
 		qcom,smem-id = <421>;
 		qcom,signal-aop;
 		qcom,minidump-id = <3>;
+		qcom,aux-minidump-ids = <4>;
 		qcom,complete-ramdump;
+
+		qcom,msm-bus,name = "pil-modem";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<129 512 0 0>,
+			<129 512 0 7000000>;
 
 		/* Inputs from mss */
 		interrupts-extended = <&pdc GIC_SPI 266 IRQ_TYPE_EDGE_RISING>,

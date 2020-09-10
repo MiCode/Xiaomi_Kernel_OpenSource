@@ -130,13 +130,12 @@ static void bgcom_load_twm_bg_work(struct work_struct *work)
 		pr_err("bg-wear is already loaded\n");
 		subsystem_put(dev->pil_h);
 		dev->pil_h = NULL;
-		bg_soft_reset();
 	} else {
 		dev->bg_twm_wear_load = true;
 		dev->pil_h = subsystem_get_with_fwname("bg-wear",
-							"bg-twm-wear");
+							"bg-twm");
 		if (!dev->pil_h)
-			pr_err("failed to load bg-twm-wear\n");
+			pr_err("failed to load bg-twm\n");
 	}
 }
 
@@ -617,7 +616,8 @@ static int ssr_bg_cb(struct notifier_block *this,
 		break;
 	case SUBSYS_AFTER_SHUTDOWN:
 		if (dev->pending_bg_twm_wear_load) {
-			/* Load bg-twm-wear */
+			bg_soft_reset();
+			/* Load bg-twm */
 			dev->pending_bg_twm_wear_load = false;
 			queue_work(dev->bgdaemon_wq,
 				&dev->bgdaemon_load_twm_bg_work);

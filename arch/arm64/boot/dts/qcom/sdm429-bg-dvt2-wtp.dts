@@ -17,6 +17,10 @@
 #include "sdm429-bg-dvt2-wtp.dtsi"
 #include "sdm429w-bg-pm660.dtsi"
 
+&int_codec {
+	qcom,wcn-bt-slim = <1>;
+};
+
 / {
 	model = "Qualcomm Technologies, Inc. SDM429 BG WTP";
 	compatible = "qcom,sdm429w-qrd", "qcom,sdm429w", "qcom,qrd";

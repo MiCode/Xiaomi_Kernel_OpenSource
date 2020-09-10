@@ -21,3 +21,20 @@
 	qcom,pmic-name = "PM8195";
 	qcom,board-id = <0x1000002 0>;
 };
+
+&soc {
+	sde_kms_hyp1: qcom,sde_kms_hyp@ae10000 {
+		compatible = "qcom,sde-kms-hyp";
+		qcom,client-id = "7815";
+	};
+
+	sde_kms_hyp2: qcom,sde_kms_hyp@ae20000 {
+		compatible = "qcom,sde-kms-hyp";
+		qcom,client-id = "7818";
+	};
+
+	sde_kms_hyp3: qcom,sde_kms_hyp@ae30000 {
+		compatible = "qcom,sde-kms-hyp";
+		qcom,client-id = "7819";
+	};
+};

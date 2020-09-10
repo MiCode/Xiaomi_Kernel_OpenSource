@@ -1858,9 +1858,41 @@ static int queue_notification_request(struct f_gsi *gsi)
 {
 	int ret;
 	unsigned long flags;
+	struct usb_function *func = &gsi->function;
+	struct usb_request *req = gsi->c_port.notify_req;
+	struct usb_ep *ep = gsi->c_port.notify;
+	struct usb_gadget *gadget = func->config->cdev->gadget;
 
-	ret = usb_func_ep_queue(&gsi->function, gsi->c_port.notify,
-			   gsi->c_port.notify_req, GFP_ATOMIC);
+	if (gsi->c_port.is_suspended) {
+		/*For remote wakeup, queue the req from gsi_resume*/
+		spin_lock_irqsave(&gsi->c_port.lock, flags);
+		gsi->c_port.notify_req_queued = false;
+		spin_unlock_irqrestore(&gsi->c_port.lock, flags);
+
+		if (gsi->rwake_inprogress) {
+			log_event_dbg("%s remote-wakeup in progress\n",
+							__func__);
+			return -EBUSY;
+		}
+
+		if (!usb_gsi_remote_wakeup_allowed(func)) {
+			log_event_dbg("%s remote-wakeup not capable\n",
+							__func__);
+			return -EOPNOTSUPP;
+		}
+
+		log_event_dbg("%s wakeup host\n", __func__);
+		if (gadget->speed >= USB_SPEED_SUPER
+		    && func->func_is_suspended)
+			ret = usb_func_wakeup(func);
+		else
+			ret = usb_gadget_wakeup(gadget);
+
+		gsi->rwake_inprogress = true;
+		return ret;
+	}
+
+	ret = usb_ep_queue(ep, req, GFP_ATOMIC);
 	if (ret < 0) {
 		spin_lock_irqsave(&gsi->c_port.lock, flags);
 		gsi->c_port.notify_req_queued = false;
@@ -2493,6 +2525,7 @@ static int gsi_set_alt(struct usb_function *f, unsigned int intf,
 				gsi->data_id, gsi->data_interface_up);
 	}
 
+	gsi->c_port.is_suspended = false;
 	atomic_set(&gsi->connected, 1);
 
 	/* send 0 len pkt to qti to notify state change */
@@ -2593,6 +2626,7 @@ static void gsi_suspend(struct usb_function *f)
 		return;
 	}
 
+	gsi->c_port.is_suspended = true;
 	block_db = true;
 	usb_gsi_ep_op(gsi->d_port.in_ep, (void *)&block_db,
 			GSI_EP_OP_SET_CLR_BLOCK_DBL);
@@ -2623,6 +2657,8 @@ static void gsi_resume(struct usb_function *f)
 
 	if (gsi->c_port.notify && !gsi->c_port.notify->desc)
 		config_ep_by_speed(cdev->gadget, f, gsi->c_port.notify);
+
+	gsi->c_port.is_suspended = false;
 
 	/* Check any pending cpkt, and queue immediately on resume */
 	gsi_ctrl_send_notification(gsi);
@@ -2867,6 +2903,7 @@ fail:
 	if (gsi->c_port.notify_req) {
 		kfree(gsi->c_port.notify_req->buf);
 		usb_ep_free_request(gsi->c_port.notify, gsi->c_port.notify_req);
+		gsi->c_port.notify_req = NULL;
 	}
 	/* we might as well release our claims on endpoints */
 	if (gsi->c_port.notify)
@@ -3383,6 +3420,7 @@ skip_ipa_dinit:
 	if (gsi->c_port.notify) {
 		kfree(gsi->c_port.notify_req->buf);
 		usb_ep_free_request(gsi->c_port.notify, gsi->c_port.notify_req);
+		gsi->c_port.notify_req = NULL;
 	}
 }
 

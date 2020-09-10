@@ -201,5 +201,7 @@ struct plat_stmmacenet_data {
 	bool early_eth;
 	bool crc_strip_en;
 	bool phy_intr_en;
+	int mac2mac_rgmii_speed;
+	bool mac2mac_en;
 };
 #endif

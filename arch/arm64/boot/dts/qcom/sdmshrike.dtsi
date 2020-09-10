@@ -2035,7 +2035,6 @@
 		reg = <0x1d87000 0xda8>; /* PHY regs */
 		reg-names = "phy_mem";
 		#phy-cells = <0>;
-		ufs-qcom-crypto = <&ufs_ice>;
 
 		lanes-per-direction = <2>;
 
@@ -2049,11 +2048,11 @@
 
 	ufshc_mem: ufshc@1d84000 {
 		compatible = "qcom,ufshc";
-		reg = <0x1d84000 0x2500>;
+		reg = <0x1d84000 0x2500>, <0x1d90000 0x8000>;
+		reg-names = "ufs_mem", "ufs_ice";
 		interrupts = <0 265 0>;
 		phys = <&ufsphy_mem>;
 		phy-names = "ufsphy";
-		ufs-qcom-crypto = <&ufs_ice>;
 		spm-level = <5>;
 
 		lanes-per-direction = <2>;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,6 +46,11 @@ struct diag_usb_buf_tbl_t {
 	int ctxt;
 };
 
+struct diag_usb_event_q {
+	struct list_head link;
+	int data;
+};
+
 struct diag_usb_info {
 	int id;
 	int ctxt;
@@ -53,7 +58,6 @@ struct diag_usb_info {
 	atomic_t connected;
 	atomic_t diag_state;
 	atomic_t read_pending;
-	atomic_t disconnected;
 	int enabled;
 	int mempool;
 	int max_size;
@@ -62,16 +66,17 @@ struct diag_usb_info {
 	unsigned long write_cnt;
 	spinlock_t lock;
 	spinlock_t write_lock;
+	spinlock_t event_lock;
 	struct usb_diag_ch *hdl;
 	struct diag_mux_ops *ops;
 	unsigned char *read_buf;
 	struct diag_request *read_ptr;
 	struct work_struct read_work;
 	struct work_struct read_done_work;
-	struct work_struct connect_work;
-	struct work_struct disconnect_work;
+	struct work_struct event_work;
 	struct workqueue_struct *usb_wq;
 	wait_queue_head_t wait_q;
+	struct list_head event_q;
 };
 
 #ifdef CONFIG_DIAG_OVER_USB

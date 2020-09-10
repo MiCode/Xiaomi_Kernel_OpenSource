@@ -374,7 +374,7 @@ static int ipa_eth_pci_suspend_late_handler(struct device *dev)
 				IPA_ETH_SUBSYS, eth_dev->net_dev->name);
 
 		/* Have PM_SUSPEND_PREPARE give us one wakeup time quanta */
-		eth_dev_priv(eth_dev)->assume_active++;
+		ipa_eth_dev_assume_active_inc(eth_dev, 1);
 
 		return -EAGAIN;
 	}
@@ -428,8 +428,8 @@ static int ipa_eth_pci_resume_handler(struct device *dev)
 			"Device resume delegated to net driver");
 		rc = eth_dev_pm_ops(eth_dev)->resume(dev);
 
-		/* Give some time after a resume for the device to settle */
-		eth_dev_priv(eth_dev)->assume_active++;
+		/* Give some time for device to settle after a resume */
+		ipa_eth_dev_assume_active_ms(eth_dev, IPA_ETH_RESUME_SETTLE_MS);
 	}
 
 	if (rc)

@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,6 +26,7 @@ enum ipa_uc_offload_proto {
 	IPA_UC_INVALID = 0,
 	IPA_UC_WDI = 1,
 	IPA_UC_NTN = 2,
+	IPA_UC_NTN_V2X = 3,
 	IPA_UC_MAX_PROT_SIZE
 };
 
@@ -95,6 +96,7 @@ struct ntn_buff_smmu_map {
  * @num_buffers: Rx/Tx buffer pool size (in terms of elements)
  * @data_buff_size: size of the each data buffer allocated in DDR
  * @ntn_reg_base_ptr_pa: physical address of the Tx/Rx NTN Ring's
+ * @u8 db_mode: 0 means irq mode, 1 means db mode
  *						tail pointer
  */
 struct ipa_ntn_setup_info {
@@ -117,6 +119,8 @@ struct ipa_ntn_setup_info {
 	u32 data_buff_size;
 
 	phys_addr_t ntn_reg_base_ptr_pa;
+
+	u8 db_mode;
 };
 
 /**
@@ -144,11 +148,14 @@ struct ipa_ntn_conn_in_params {
  *				to uC offload client
  * @ul_uc_db_pa: physical address of IPA uc doorbell for UL
  * @dl_uc_db_pa: physical address of IPA uc doorbell for DL
- * @clnt_hdl: opaque handle assigned to offload client
+ * @ul_uc_db_iomem: iomem address of IPA uc doorbell for UL
+ * @dl_uc_db_iomem: iomem address of IPA uc doorbell for DL
  */
 struct ipa_ntn_conn_out_params {
 	phys_addr_t ul_uc_db_pa;
 	phys_addr_t dl_uc_db_pa;
+	void __iomem *ul_uc_db_iomem;
+	void __iomem *dl_uc_db_iomem;
 };
 
 /**
@@ -182,10 +189,12 @@ struct ipa_uc_offload_conn_out_params {
  * struct  ipa_perf_profile - To set BandWidth profile
  *
  * @client: type of "client" (IPA_CLIENT_ODU#_PROD/CONS)
+ * @proto: uC offload protocol type
  * @max_supported_bw_mbps: maximum bandwidth needed (in Mbps)
  */
 struct ipa_perf_profile {
 	enum ipa_client_type client;
+	enum ipa_uc_offload_proto proto;
 	u32 max_supported_bw_mbps;
 };
 

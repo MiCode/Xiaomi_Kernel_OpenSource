@@ -1056,8 +1056,9 @@ static int msm_nand_flash_onfi_probe(struct msm_nand_info *info)
 	flash->blksize  = onfi_param_page_ptr->number_of_pages_per_block *
 					flash->pagesize;
 	flash->oobsize  = onfi_param_page_ptr->number_of_spare_bytes_per_page;
-	flash->density  = onfi_param_page_ptr->number_of_blocks_per_logical_unit
-					* flash->blksize;
+	flash->density  = onfi_param_page_ptr->number_of_logical_units *
+		onfi_param_page_ptr->number_of_blocks_per_logical_unit *
+					flash->blksize;
 	flash->ecc_correctability =
 			onfi_param_page_ptr->number_of_bits_ecc_correctability;
 
@@ -2023,7 +2024,7 @@ free_dma:
 			total_ecc_byte_cnt, DMA_FROM_DEVICE);
 	/* check for bit flips in ecc data */
 	ecc_temp = ecc;
-	for (n = rw_params->start_sector; n < cwperpage; n++) {
+	for (n = rw_params->start_sector; !err && n < cwperpage; n++) {
 		int last_pos = 0, next_pos = 0;
 		int ecc_bytes_percw_in_bits = (chip->ecc_parity_bytes * 8);
 
@@ -2691,7 +2692,7 @@ free_dma:
 			total_ecc_byte_cnt, DMA_FROM_DEVICE);
 	/* check for bit flips in ecc data */
 	ecc_temp = ecc;
-	for (n = rw_params->start_sector; n < cwperpage; n++) {
+	for (n = rw_params->start_sector; !err && n < cwperpage; n++) {
 		int last_pos = 0, next_pos = 0;
 		int ecc_bytes_percw_in_bits = (chip->ecc_parity_bytes * 8);
 

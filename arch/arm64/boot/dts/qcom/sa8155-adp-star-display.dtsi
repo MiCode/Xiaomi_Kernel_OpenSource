@@ -306,118 +306,67 @@
 	};
 
 	sde_sh_base0: qcom,shared-display-base@0 {
-		      qcom,shared-display-base-intf = <1>;
-		      qcom,shared-display-base-mode {
-			      qcom,mode-h-active = <1920>;
-			      qcom,mode-h-front-porch = <88>;
-			      qcom,mode-h-pulse-width = <44>;
-			      qcom,mode-h-back-porch = <148>;
-			      qcom,mode-h-active-high;
-			      qcom,mode-v-active = <1080>;
-			      qcom,mode-v-front-porch = <4>;
-			      qcom,mode-v-pulse-width = <5>;
-			      qcom,mode-v-back-porch = <36>;
-			      qcom,mode-v-active-high;
-			      qcom,mode-refresh-rate = <60>;
-			      qcom,mode-clock-in-khz = <148500>;
-		      };
-	      };
+		qcom,shared-display-base-intf = <1>;
+	};
 
 
 	sde_sh0: qcom,shared-display@0 {
-		 compatible = "qcom,shared-display";
-		 qcom,shared-display-base = <&sde_sh_base0>;
-		 qcom,blend-stage-range = <0 8>;
-		 qcom,shared-display-name = "shared-disp-0";
-		 qcom,display-type = "primary";
-		 qcom,shared-display-src-mode {
-			 qcom,mode-h-active = <1920>;
-			 qcom,mode-v-active = <1080>;
-		 };
-		 qcom,shared-display-dst-mode {
-			 qcom,mode-x-offset = <0>;
-			 qcom,mode-y-offset = <0>;
-			 qcom,mode-width = <1920>;
-			 qcom,mode-height = <1080>;
-		 };
-	 };
+		compatible = "qcom,shared-display";
+		qcom,shared-display-base = <&sde_sh_base0>;
+		qcom,blend-stage-range = <0 8>;
+		qcom,shared-display-name = "shared-disp-0";
+		qcom,display-type = "primary";
+	};
 
 	sde_sh1: qcom,shared-display@1 {
-		 compatible = "qcom,shared-display";
-		 qcom,shared-display-base = <&sde_sh_base0>;
-		 qcom,blend-stage-range = <8 1>;
-		 qcom,shared-display-name = "shared-disp-1";
-		 qcom,shared-display-src-mode {
-			 qcom,mode-h-active = <1920>;
-			 qcom,mode-v-active = <1080>;
-		 };
-		 qcom,shared-display-dst-mode {
-			 qcom,mode-x-offset = <0>;
-			 qcom,mode-y-offset = <0>;
-			 qcom,mode-width = <1920>;
-			 qcom,mode-height = <1080>;
-		 };
-	 };
+		compatible = "qcom,shared-display";
+		qcom,shared-display-base = <&sde_sh_base0>;
+		qcom,blend-stage-range = <8 1>;
+		qcom,shared-display-name = "shared-disp-1";
+	};
 
 	sde_sh2: qcom,shared-display@2 {
-		 compatible = "qcom,shared-display";
-		 qcom,shared-display-base = <&sde_sh_base0>;
-		 qcom,blend-stage-range = <9 1>;
-		 qcom,shared-display-name = "shared-disp-2";
-		 qcom,shared-display-src-mode {
-			 qcom,mode-h-active = <1920>;
-			 qcom,mode-v-active = <1080>;
-		 };
-		 qcom,shared-display-dst-mode {
-			 qcom,mode-x-offset = <0>;
-			 qcom,mode-y-offset = <0>;
-			 qcom,mode-width = <1920>;
-			 qcom,mode-height = <1080>;
-		 };
-	 };
+		compatible = "qcom,shared-display";
+		qcom,shared-display-base = <&sde_sh_base0>;
+		qcom,blend-stage-range = <9 1>;
+		qcom,shared-display-name = "shared-disp-2";
+	};
 
 	sde_shp: qcom,sde-shared-plane {
-		 compatible = "qcom,sde-shared-plane";
-		 qcom,add-planes {
-			 plane@0 {
-				 qcom,plane-name = "plane-4-splash";
-				 qcom,plane-parent = "plane-4";
-				 qcom,plane-init-active;
-			 };
-			 plane@1 {
-				 qcom,plane-name = "plane-3-splash";
-				 qcom,plane-parent = "plane-3";
-				 qcom,plane-init-active;
-				 qcom,plane-init-handoff;
-			 };
-		 };
-	 };
+		compatible = "qcom,sde-shared-plane";
+		qcom,add-planes {
+			plane@0 {
+				qcom,plane-name = "plane-4-splash";
+				qcom,plane-parent = "plane-4";
+				qcom,plane-init-active;
+			};
+			plane@1 {
+				qcom,plane-name = "plane-3-splash";
+				qcom,plane-parent = "plane-3";
+				qcom,plane-init-active;
+				qcom,plane-init-handoff;
+			};
+		};
+	};
 
 	sde_card1: qcom,sde-kms-lease@0 {
-		   compatible = "qcom,sde-kms-lease";
-		   qcom,dev-name = "msm_drm";
-		   qcom,lease-connectors = "DSI-2", "shared-disp-0",
-					"DP-1", "DP-2", "DP-3", "Virtual-1";
-		   qcom,lease-planes = "plane-0", "plane-1", "plane-2",
-					"plane-3","plane-4", "plane-5",
-					"plane-6","plane-7", "plane-8",
-					"plane-9","plane-10","plane-11",
-					"plane-12","plane-13","plane-14",
-					"plane-15";
-	   };
-	sde_card2: qcom,sde-kms-lease@1 {
-		   compatible = "qcom,sde-kms-lease";
-		   qcom,dev-name = "msm_drm2";
-		   qcom,lease-connectors = "shared-disp-2";
-		   qcom,lease-planes = "plane-4-splash";
-	   };
-	sde_card3: qcom,sde-kms-lease@2 {
-		   compatible = "qcom,sde-kms-lease";
-		   qcom,dev-name = "msm_drm3";
-		   qcom,lease-connectors = "shared-disp-1";
-		   qcom,lease-planes = "plane-3-splash";
-	   };
+		compatible = "qcom,sde-kms-lease";
+		qcom,dev-name = "msm_drm";
+	};
 
+	sde_card2: qcom,sde-kms-lease@1 {
+		compatible = "qcom,sde-kms-lease";
+		qcom,dev-name = "msm_drm2";
+		qcom,lease-connectors = "shared-disp-2";
+		qcom,lease-planes = "plane-4-splash";
+	};
+
+	sde_card3: qcom,sde-kms-lease@2 {
+		compatible = "qcom,sde-kms-lease";
+		qcom,dev-name = "msm_drm3";
+		qcom,lease-connectors = "shared-disp-1";
+		qcom,lease-planes = "plane-3-splash";
+	};
 };
 
 &mdss_mdp {

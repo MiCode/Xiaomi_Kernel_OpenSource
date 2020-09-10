@@ -193,6 +193,15 @@ pm8150_1_gpios: &pm8150_gpios {
 		};
 
 		cooling-maps {
+			/*
+			 * trip0 cooling map is dummy node to enable
+			 * passive polling on trip0 violation.
+			 */
+			trip0_cpu0 {
+				trip = <&pm8150_2_trip0>;
+				cooling-device = <&CPU0 0 0>;
+			};
+
 			trip1_cpu0 {
 				trip = <&pm8150_2_trip1>;
 				cooling-device =
@@ -253,6 +262,15 @@ pm8150_1_gpios: &pm8150_gpios {
 
 	pm8150_tz {
 		cooling-maps {
+			/*
+			 * trip0 cooling map is dummy node to enable
+			 * passive polling on trip0 violation.
+			 */
+			trip0_cpu0 {
+				trip = <&pm8150_trip0>;
+				cooling-device = <&CPU0 0 0>;
+			};
+
 			trip1_cpu0 {
 				trip = <&pm8150_trip1>;
 				cooling-device =

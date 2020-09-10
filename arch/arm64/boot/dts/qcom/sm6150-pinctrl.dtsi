@@ -1146,6 +1146,35 @@
 			};
 		};
 
+
+		gpio_jack_det_line_in {
+			jack_det_linein_default: jack_det_linein_default {
+				mux {
+					pins = "gpio1";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio1";
+					bias-pull-up; /* pull up */
+					input-enable;
+				};
+			};
+		};
+
+		gpio_jack_det_line_out {
+			jack_det_lineout_default: jack_det_lineout_default {
+				mux {
+					pins = "gpio60";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio60";
+					bias-pull-up; /* pull up */
+					input-enable;
+				};
+			};
+		};
+
 		ter_i2s_sck_ws {
 			ter_i2s_sck_sleep: ter_i2s_sck_sleep {
 				mux {

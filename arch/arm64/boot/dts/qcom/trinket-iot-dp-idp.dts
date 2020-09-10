@@ -1,4 +1,5 @@
-/* Copyright (c) 2020, The Linux Foundation. All rights reserved.
+/*
+ * Copyright (c) 2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,22 +12,14 @@
  */
 
 /dts-v1/;
-/plugin/;
 
-#include <dt-bindings/interrupt-controller/arm-gic.h>
-#include <dt-bindings/clock/qcom,gcc-trinket.h>
-#include "qcs6125-iot-idp.dtsi"
-#include "trinket-audio-overlay.dtsi"
+#include "trinket-iot.dtsi"
+#include "trinket-iot-idp.dtsi"
 
 / {
-	model = "Display Port Enable IDP";
-	compatible = "qcom,qcs6125-idp", "qcom,qcs6125", "qcom,idp";
-	qcom,msm-id = <468 0x10000>;
+	model = "Qualcomm Technologies, Inc. TRINKET IOT Disp. Port Enable IDP";
+	compatible = "qcom,trinket-iot-idp", "qcom,trinket-iot", "qcom,idp";
 	qcom,board-id = <34 4>;
-};
-
-&dsi_td4330_truly_cmd_display {
-	qcom,dsi-display-active;
 };
 
 &sde_dp {

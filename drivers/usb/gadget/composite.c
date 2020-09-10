@@ -2439,7 +2439,7 @@ void composite_resume(struct usb_gadget *gadget)
 	 * suspend/resume callbacks?
 	 */
 	INFO(cdev, "USB Resume end\n");
-	place_marker("M - USB device is resumed");
+	update_marker("M - USB device is resumed");
 	if (cdev->driver->resume)
 		cdev->driver->resume(cdev);
 

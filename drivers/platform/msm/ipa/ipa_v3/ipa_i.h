@@ -98,6 +98,10 @@
 #define IPA_WDI2_OVER_GSI() (ipa3_ctx->ipa_wdi2_over_gsi \
 		&& (ipa3_get_wdi_version() == IPA_WDI_2))
 
+/* Bit alignment for IPA4.5 GSI rings */
+#define IPA_LOW_16_BIT_MASK (0xFFFF)
+#define IPA4_5_GSI_RING_SIZE_ALIGN (16 * PAGE_SIZE)
+
 #define IPADBG(fmt, args...) \
 	do { \
 		pr_debug(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args);\
@@ -2022,6 +2026,8 @@ struct ipa3_context {
 	bool uc_act_tbl_valid;
 	struct mutex act_tbl_lock;
 	int uc_act_tbl_total;
+	int uc_act_tbl_socksv5_total;
+	int uc_act_tbl_ipv6_nat_total;
 	int uc_act_tbl_next_index;
 	bool manual_fw_load;
 };
@@ -2418,6 +2424,15 @@ int ipa3_setup_uc_act_tbl(void);
 int ipa3_add_socksv5_conn(struct ipa_socksv5_info *info);
 
 int ipa3_del_socksv5_conn(uint32_t handle);
+
+int ipa3_add_socksv5_conn_usr(struct ipa_kernel_tests_socksv5_uc_tmpl *tmpl);
+
+int ipa3_add_ipv6_nat_uc_activation_entry(
+	struct ipa_ioc_ipv6_nat_uc_act_entry *entry);
+
+int ipa3_del_ipv6_nat_uc_activation_entry(uint16_t index);
+
+int ipa3_del_uc_act_entry(uint16_t index);
 
 /*
  * Header removal / addition

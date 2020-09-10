@@ -944,6 +944,7 @@ gen_headers_out_arm = [
     "linux/netfilter/ipset/ip_set_bitmap.h",
     "linux/netfilter/ipset/ip_set_hash.h",
     "linux/netfilter/ipset/ip_set_list.h",
+    "linux/msm_eth.h",
 
     // From arch/arm/include/uapi/**/*.h
 

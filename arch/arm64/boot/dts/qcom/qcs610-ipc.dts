@@ -13,15 +13,10 @@
 /dts-v1/;
 
 #include "qcs610.dtsi"
-#include "qcs610-iot.dtsi"
 #include "qcs610-ipc.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. QCS610 IPC";
 	compatible = "qcom,qcs610-iot", "qcom,qcs610", "qcom,iot";
 	qcom,board-id = <32 1>;
-};
-
-&sm6150_snd {
-	/delete-property/ fsa4480-i2c-handle;
 };

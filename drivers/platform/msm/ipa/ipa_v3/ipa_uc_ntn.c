@@ -69,10 +69,12 @@ struct IpaHwEventLogInfoData_t *uc_event_top_mmio)
  */
 int ipa3_get_ntn_stats(struct Ipa3HwStatsNTNInfoData_t *stats)
 {
-#define TX_STATS(y) stats->tx_ch_stats[0].y = \
-	ipa3_ctx->uc_ntn_ctx.ntn_uc_stats_mmio->tx_ch_stats[0].y
-#define RX_STATS(y) stats->rx_ch_stats[0].y = \
-	ipa3_ctx->uc_ntn_ctx.ntn_uc_stats_mmio->rx_ch_stats[0].y
+#define TX_STATS(x, y) stats->tx_ch_stats[x].y = \
+	ipa3_ctx->uc_ntn_ctx.ntn_uc_stats_mmio->tx_ch_stats[x].y
+#define RX_STATS(x, y) stats->rx_ch_stats[x].y = \
+	ipa3_ctx->uc_ntn_ctx.ntn_uc_stats_mmio->rx_ch_stats[x].y
+
+	int i = 0;
 
 	if (unlikely(!ipa3_ctx)) {
 		IPAERR("IPA driver was not initialized\n");
@@ -87,36 +89,39 @@ int ipa3_get_ntn_stats(struct Ipa3HwStatsNTNInfoData_t *stats)
 	}
 
 	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+	for (i = 0; i < IPA_UC_MAX_NTN_TX_CHANNELS; i++) {
+		TX_STATS(i, num_pkts_processed);
+		TX_STATS(i, ring_stats.ringFull);
+		TX_STATS(i, ring_stats.ringEmpty);
+		TX_STATS(i, ring_stats.ringUsageHigh);
+		TX_STATS(i, ring_stats.ringUsageLow);
+		TX_STATS(i, ring_stats.RingUtilCount);
+		TX_STATS(i, gsi_stats.bamFifoFull);
+		TX_STATS(i, gsi_stats.bamFifoEmpty);
+		TX_STATS(i, gsi_stats.bamFifoUsageHigh);
+		TX_STATS(i, gsi_stats.bamFifoUsageLow);
+		TX_STATS(i, gsi_stats.bamUtilCount);
+		TX_STATS(i, num_db);
+		TX_STATS(i, num_qmb_int_handled);
+		TX_STATS(i, ipa_pipe_number);
+	}
 
-	TX_STATS(num_pkts_processed);
-	TX_STATS(ring_stats.ringFull);
-	TX_STATS(ring_stats.ringEmpty);
-	TX_STATS(ring_stats.ringUsageHigh);
-	TX_STATS(ring_stats.ringUsageLow);
-	TX_STATS(ring_stats.RingUtilCount);
-	TX_STATS(gsi_stats.bamFifoFull);
-	TX_STATS(gsi_stats.bamFifoEmpty);
-	TX_STATS(gsi_stats.bamFifoUsageHigh);
-	TX_STATS(gsi_stats.bamFifoUsageLow);
-	TX_STATS(gsi_stats.bamUtilCount);
-	TX_STATS(num_db);
-	TX_STATS(num_qmb_int_handled);
-	TX_STATS(ipa_pipe_number);
-
-	RX_STATS(num_pkts_processed);
-	RX_STATS(ring_stats.ringFull);
-	RX_STATS(ring_stats.ringEmpty);
-	RX_STATS(ring_stats.ringUsageHigh);
-	RX_STATS(ring_stats.ringUsageLow);
-	RX_STATS(ring_stats.RingUtilCount);
-	RX_STATS(gsi_stats.bamFifoFull);
-	RX_STATS(gsi_stats.bamFifoEmpty);
-	RX_STATS(gsi_stats.bamFifoUsageHigh);
-	RX_STATS(gsi_stats.bamFifoUsageLow);
-	RX_STATS(gsi_stats.bamUtilCount);
-	RX_STATS(num_db);
-	RX_STATS(num_qmb_int_handled);
-	RX_STATS(ipa_pipe_number);
+	for (i = 0; i < IPA_UC_MAX_NTN_RX_CHANNELS; i++) {
+		RX_STATS(i, num_pkts_processed);
+		RX_STATS(i, ring_stats.ringFull);
+		RX_STATS(i, ring_stats.ringEmpty);
+		RX_STATS(i, ring_stats.ringUsageHigh);
+		RX_STATS(i, ring_stats.ringUsageLow);
+		RX_STATS(i, ring_stats.RingUtilCount);
+		RX_STATS(i, gsi_stats.bamFifoFull);
+		RX_STATS(i, gsi_stats.bamFifoEmpty);
+		RX_STATS(i, gsi_stats.bamFifoUsageHigh);
+		RX_STATS(i, gsi_stats.bamFifoUsageLow);
+		RX_STATS(i, gsi_stats.bamUtilCount);
+		RX_STATS(i, num_db);
+		RX_STATS(i, num_qmb_int_handled);
+		RX_STATS(i, ipa_pipe_number);
+	}
 
 	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
@@ -177,6 +182,12 @@ int ipa3_ntn_init(void)
 
 	ipa3_uc_register_handlers(IPA_HW_FEATURE_NTN, &uc_ntn_cbs);
 
+	/* ntn_init */
+	ipa3_ctx->uc_ntn_ctx.uc_ready_cb = NULL;
+	ipa3_ctx->uc_ntn_ctx.priv = NULL;
+	ipa3_ctx->uc_ntn_ctx.ntn_reg_base_ptr_pa_rd = 0x0;
+	ipa3_ctx->uc_ntn_ctx.smmu_mapped = 0;
+
 	return 0;
 }
 
@@ -213,6 +224,7 @@ static int ipa3_uc_send_ntn_setup_pipe_cmd(
 	IPADBG("num_buffers = %d\n", ntn_info->num_buffers);
 	IPADBG("data_buff_size = %d\n", ntn_info->data_buff_size);
 	IPADBG("tail_ptr_base_pa = 0x%pa\n", &ntn_info->ntn_reg_base_ptr_pa);
+	IPADBG("db_mode = %d\n", ntn_info->db_mode);
 	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0)
 		cmd.size = sizeof(*cmd_data_v4_0);
 	else
@@ -248,6 +260,7 @@ static int ipa3_uc_send_ntn_setup_pipe_cmd(
 	Ntn_params->num_buffers = ntn_info->num_buffers;
 	Ntn_params->ntn_reg_base_ptr_pa = ntn_info->ntn_reg_base_ptr_pa;
 	Ntn_params->data_buff_size = ntn_info->data_buff_size;
+	Ntn_params->db_mode = ntn_info->db_mode;
 	Ntn_params->ipa_pipe_number = ipa_ep_idx;
 	Ntn_params->dir = dir;
 
@@ -263,7 +276,7 @@ static int ipa3_uc_send_ntn_setup_pipe_cmd(
 }
 
 static int ipa3_smmu_map_uc_ntn_pipes(struct ipa_ntn_setup_info *params,
-	bool map, bool map_unmap_once)
+	bool map)
 {
 	struct iommu_domain *smmu_domain;
 	int result;
@@ -273,11 +286,19 @@ static int ipa3_smmu_map_uc_ntn_pipes(struct ipa_ntn_setup_info *params,
 	u64 iova_p;
 	phys_addr_t pa_p;
 	u32 size_p;
+	bool map_unmap_once;
 
 	if (params->data_buff_size > PAGE_SIZE) {
 		IPAERR("invalid data buff size\n");
 		return -EINVAL;
 	}
+
+	/* only map/unmap once the ntn_reg_base_ptr_pa */
+	map_unmap_once = (map && ipa3_ctx->uc_ntn_ctx.smmu_mapped == 0)
+	|| (!map && ipa3_ctx->uc_ntn_ctx.smmu_mapped == 1);
+
+	IPADBG(" %s uC regs, smmu_mapped %d\n",
+		map ? "map" : "unmap", ipa3_ctx->uc_ntn_ctx.smmu_mapped);
 
 	if (map_unmap_once) {
 		result = ipa3_smmu_map_peer_reg(rounddown(
@@ -288,7 +309,33 @@ static int ipa3_smmu_map_uc_ntn_pipes(struct ipa_ntn_setup_info *params,
 					map ? "map" : "unmap", result);
 			goto fail;
 		}
+		/* backup the ntn_reg_base_ptr_pa_r */
+		ipa3_ctx->uc_ntn_ctx.ntn_reg_base_ptr_pa_rd =
+			rounddown(params->ntn_reg_base_ptr_pa,
+			PAGE_SIZE);
+		IPADBG(" %s ntn_reg_base_ptr_pa regs 0X%0x smmu_mapped %d\n",
+			map ? "map" : "unmap",
+			(unsigned long long)
+			ipa3_ctx->uc_ntn_ctx.ntn_reg_base_ptr_pa_rd,
+			ipa3_ctx->uc_ntn_ctx.smmu_mapped);
 	}
+	/* update smmu_mapped reference count */
+	if (map) {
+		ipa3_ctx->uc_ntn_ctx.smmu_mapped++;
+		IPADBG("uc_ntn_ctx.smmu_mapped %d\n",
+			ipa3_ctx->uc_ntn_ctx.smmu_mapped);
+	} else {
+		if (ipa3_ctx->uc_ntn_ctx.smmu_mapped == 0) {
+			IPAERR("Invalid smmu_mapped %d\n",
+					ipa3_ctx->uc_ntn_ctx.smmu_mapped);
+			goto fail;
+		} else {
+			ipa3_ctx->uc_ntn_ctx.smmu_mapped--;
+			IPADBG("uc_ntn_ctx.smmu_mapped %d\n",
+				ipa3_ctx->uc_ntn_ctx.smmu_mapped);
+		}
+	}
+
 	if (params->smmu_enabled) {
 		IPADBG("smmu is enabled on EMAC\n");
 		result = ipa3_smmu_map_peer_buff((u64)params->ring_base_iova,
@@ -397,7 +444,6 @@ int ipa3_setup_uc_ntn_pipes(struct ipa_ntn_conn_in_params *in,
 	int ipa_ep_idx_ul;
 	int ipa_ep_idx_dl;
 	int result = 0;
-	bool unmapped = false;
 
 	if (in == NULL) {
 		IPAERR("invalid input\n");
@@ -451,7 +497,7 @@ int ipa3_setup_uc_ntn_pipes(struct ipa_ntn_conn_in_params *in,
 		goto fail;
 	}
 
-	result = ipa3_smmu_map_uc_ntn_pipes(&in->ul, true, true);
+	result = ipa3_smmu_map_uc_ntn_pipes(&in->ul, true);
 	if (result) {
 		IPAERR("failed to map SMMU for UL %d\n", result);
 		goto fail;
@@ -471,7 +517,10 @@ int ipa3_setup_uc_ntn_pipes(struct ipa_ntn_conn_in_params *in,
 		goto fail_disable_dp_ul;
 	}
 	ipa3_install_dflt_flt_rules(ipa_ep_idx_ul);
-	outp->ul_uc_db_pa = IPA_UC_NTN_DB_PA_RX;
+	/* Rx: IPA_UC_MAILBOX_m_n m = 1, n =3 mmio*/
+	outp->ul_uc_db_iomem = ipa3_ctx->mmio +
+		ipahal_get_reg_mn_ofst(IPA_UC_MAILBOX_m_n,
+		1, 3);
 	ep_ul->uc_offload_state |= IPA_UC_OFFLOAD_CONNECTED;
 	IPADBG("client %d (ep: %d) connected\n", in->ul.client,
 		ipa_ep_idx_ul);
@@ -490,7 +539,7 @@ int ipa3_setup_uc_ntn_pipes(struct ipa_ntn_conn_in_params *in,
 		goto fail_disable_dp_ul;
 	}
 
-	result = ipa3_smmu_map_uc_ntn_pipes(&in->dl, true, false);
+	result = ipa3_smmu_map_uc_ntn_pipes(&in->dl, true);
 	if (result) {
 		IPAERR("failed to map SMMU for DL %d\n", result);
 		goto fail_disable_dp_ul;
@@ -509,7 +558,10 @@ int ipa3_setup_uc_ntn_pipes(struct ipa_ntn_conn_in_params *in,
 		result = -EFAULT;
 		goto fail_disable_dp_dl;
 	}
-	outp->dl_uc_db_pa = IPA_UC_NTN_DB_PA_TX;
+	/* Tx: IPA_UC_MAILBOX_m_n m = 1, n =4 mmio */
+	outp->dl_uc_db_iomem = ipa3_ctx->mmio +
+		ipahal_get_reg_mn_ofst(IPA_UC_MAILBOX_m_n,
+		1, 4);
 	ep_dl->uc_offload_state |= IPA_UC_OFFLOAD_CONNECTED;
 
 	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
@@ -521,12 +573,11 @@ int ipa3_setup_uc_ntn_pipes(struct ipa_ntn_conn_in_params *in,
 fail_disable_dp_dl:
 	ipa3_disable_data_path(ipa_ep_idx_dl);
 fail_smmu_unmap_dl:
-	ipa3_smmu_map_uc_ntn_pipes(&in->dl, false, true);
-	unmapped = true;
+	ipa3_smmu_map_uc_ntn_pipes(&in->dl, false);
 fail_disable_dp_ul:
 	ipa3_disable_data_path(ipa_ep_idx_ul);
 fail_smmu_unmap_ul:
-	ipa3_smmu_map_uc_ntn_pipes(&in->ul, false, !unmapped);
+	ipa3_smmu_map_uc_ntn_pipes(&in->ul, false);
 fail:
 	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 	return result;
@@ -548,6 +599,20 @@ int ipa3_tear_down_uc_offload_pipes(int ipa_ep_idx_ul,
 
 	IPADBG("ep_ul = %d\n", ipa_ep_idx_ul);
 	IPADBG("ep_dl = %d\n", ipa_ep_idx_dl);
+
+	if (ipa_ep_idx_ul == IPA_EP_NOT_ALLOCATED ||
+		ipa_ep_idx_ul >= IPA3_MAX_NUM_PIPES) {
+		IPAERR("ipa_ep_idx_ul %d invalid\n",
+			ipa_ep_idx_ul);
+		return -EFAULT;
+	}
+
+	if (ipa_ep_idx_dl == IPA_EP_NOT_ALLOCATED ||
+		ipa_ep_idx_dl >= IPA3_MAX_NUM_PIPES) {
+		IPAERR("ep ipa_ep_idx_dl %d invalid\n",
+			ipa_ep_idx_dl);
+		return -EFAULT;
+	}
 
 	ep_ul = &ipa3_ctx->ep[ipa_ep_idx_ul];
 	ep_dl = &ipa3_ctx->ep[ipa_ep_idx_dl];
@@ -606,7 +671,7 @@ int ipa3_tear_down_uc_offload_pipes(int ipa_ep_idx_ul,
 	}
 
 	/* unmap the DL pipe */
-	result = ipa3_smmu_map_uc_ntn_pipes(&params->dl, false, true);
+	result = ipa3_smmu_map_uc_ntn_pipes(&params->dl, false);
 	if (result) {
 		IPAERR("failed to unmap SMMU for DL %d\n", result);
 		goto fail;
@@ -627,7 +692,7 @@ int ipa3_tear_down_uc_offload_pipes(int ipa_ep_idx_ul,
 	}
 
 	/* unmap the UL pipe */
-	result = ipa3_smmu_map_uc_ntn_pipes(&params->ul, false, false);
+	result = ipa3_smmu_map_uc_ntn_pipes(&params->ul, false);
 	if (result) {
 		IPAERR("failed to unmap SMMU for UL %d\n", result);
 		goto fail;
