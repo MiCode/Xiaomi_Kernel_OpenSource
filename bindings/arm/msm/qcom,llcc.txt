@@ -12,7 +12,7 @@ Properties:
 	Usage: required
 	Value type: <string>
 	Definition: must be "qcom,sdm845-llcc" or "qcom,lahaina-llcc"
-	            or "qcom,shima-llcc".
+	            or "qcom,shima-llcc" or "qcom,waipio-llcc".
 		    "qcom,llcc-v2" must be appended for V2 hardware.
 
 - reg:
