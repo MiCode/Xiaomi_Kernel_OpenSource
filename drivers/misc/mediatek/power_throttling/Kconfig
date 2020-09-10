@@ -76,3 +76,12 @@ config MTK_MD_POWER_THROTTLING
 	  Select "y" if you want to enable MTK modem power throttling
 	  feature
 	  Select "n" if unsure.
+
+config MTK_CPU_POWER_THROTTLING
+	tristate "MTK CPU power throttling"
+	help
+	  For MediaTek CPU power throttling.
+	  Throttle MTK CPU power when MTK power throttling triggers
+	  Select "y" if you want to enable MTK CPU power throttling
+	  feature
+	  Select "n" if unsure.

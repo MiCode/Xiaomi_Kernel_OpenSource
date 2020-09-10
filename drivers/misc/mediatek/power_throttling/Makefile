@@ -13,3 +13,4 @@ obj-$(CONFIG_MTK_DYNAMIC_LOADING_POWER_THROTTLING) += mtk_dynamic_loading_thrott
 obj-$(CONFIG_MTK_LOW_BATTERY_POWER_THROTTLING) += mtk_low_battery_throttling.o
 obj-$(CONFIG_PMIC_LBAT_SERVICE) += pmic_lbat_service.o
 obj-$(CONFIG_MTK_MD_POWER_THROTTLING) += mtk_md_power_throttling.o
+obj-$(CONFIG_MTK_CPU_POWER_THROTTLING) += mtk_cpu_power_throttling.o
