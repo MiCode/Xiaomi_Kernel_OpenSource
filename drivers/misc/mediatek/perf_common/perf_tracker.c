@@ -5,6 +5,7 @@
 
 #include <linux/mm.h>
 #include <linux/swap.h>
+#include <linux/power_supply.h>
 
 #if IS_ENABLED(CONFIG_MTK_DRAMC)
 #include <soc/mediatek/dramc.h>
@@ -19,6 +20,19 @@
 
 #include <perf_tracker.h>
 #include <perf_tracker_internal.h>
+
+static void fuel_gauge_handler(struct work_struct *work);
+static int fuel_gauge_enable;
+static int fuel_gauge_delay;
+static DECLARE_DELAYED_WORK(fuel_gauge, fuel_gauge_handler);
+
+#if IS_ENABLED(CONFIG_MTK_CHARGER)
+static void charger_handler(struct work_struct *work);
+static int charger_enable;
+static int charger_delay;
+static DECLARE_DELAYED_WORK(charger, charger_handler);
+#endif
+
 
 static int perf_tracker_on;
 static DEFINE_MUTEX(perf_ctl_mutex);
@@ -159,5 +173,197 @@ static ssize_t store_perf_enable(struct kobject *kobj,
 	return count;
 }
 
+static void fuel_gauge_handler(struct work_struct *work)
+{
+	int curr, volt, cap;
+	struct power_supply *psy;
+	union power_supply_propval val;
+	int ret;
+
+	if (!fuel_gauge_enable)
+		return;
+
+	psy = power_supply_get_by_name("battery");
+	if (psy == NULL)
+		return;
+
+	ret = power_supply_get_property(psy, POWER_SUPPLY_PROP_VOLTAGE_NOW, &val);
+	volt = val.intval;
+
+	ret = power_supply_get_property(psy, POWER_SUPPLY_PROP_CAPACITY, &val);
+	cap = val.intval;
+
+	ret = power_supply_get_property(psy, POWER_SUPPLY_PROP_CURRENT_NOW, &val);
+	curr = val.intval;
+
+	curr = curr/1000;
+	volt = volt/1000;
+	trace_fuel_gauge(curr, volt, cap);
+	queue_delayed_work(system_power_efficient_wq,
+			&fuel_gauge, msecs_to_jiffies(fuel_gauge_delay));
+}
+
+static ssize_t show_fuel_gauge_enable(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	unsigned int len = 0, max_len = 4096;
+
+	len += snprintf(buf, max_len, "fuel_gauge_enable = %u\n",
+			fuel_gauge_enable);
+	return len;
+}
+
+static ssize_t store_fuel_gauge_enable(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	int tmp;
+
+	mutex_lock(&perf_ctl_mutex);
+
+	if (kstrtouint(buf, 10, &tmp) == 0)
+		fuel_gauge_enable = (tmp > 0) ? 1 : 0;
+
+	if (fuel_gauge_enable) {
+		/* default delay 8ms */
+		fuel_gauge_delay = (fuel_gauge_delay > 0) ?
+				fuel_gauge_delay : 8;
+
+		/* start fuel gauge tracking */
+		queue_delayed_work(system_power_efficient_wq,
+				&fuel_gauge,
+				msecs_to_jiffies(fuel_gauge_delay));
+	}
+
+	mutex_unlock(&perf_ctl_mutex);
+
+	return count;
+}
+
+static ssize_t show_fuel_gauge_period(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	unsigned int len = 0, max_len = 4096;
+
+	len += snprintf(buf, max_len, "fuel_gauge_period = %u(ms)\n",
+				fuel_gauge_delay);
+	return len;
+}
+
+static ssize_t store_fuel_gauge_period(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	int tmp;
+
+	mutex_lock(&perf_ctl_mutex);
+
+	if (kstrtouint(buf, 10, &tmp) == 0)
+		if (tmp > 0) /* ms */
+			fuel_gauge_delay = tmp;
+
+	mutex_unlock(&perf_ctl_mutex);
+
+	return count;
+}
+
+
+#if IS_ENABLED(CONFIG_MTK_CHARGER)
+static void charger_handler(struct work_struct *work)
+{
+	int volt, temp;
+	struct power_supply *psy;
+	union power_supply_propval val;
+	int ret;
+
+	if (!charger_enable)
+		return;
+
+	psy = power_supply_get_by_name("mtk-master-charger");
+	if (psy == NULL)
+		return;
+
+	ret = power_supply_get_property(psy, POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT, &val);
+	volt = val.intval;
+
+	ret = power_supply_get_property(psy, POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT, &val);
+	temp = val.intval;
+	trace_charger(temp, volt);
+
+	queue_delayed_work(system_power_efficient_wq,
+			&charger, msecs_to_jiffies(charger_delay));
+}
+
+static ssize_t show_charger_enable(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	unsigned int len = 0, max_len = 4096;
+
+	len += snprintf(buf, max_len, "charger_enable = %u\n",
+			charger_enable);
+	return len;
+}
+
+static ssize_t store_charger_enable(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	int tmp;
+
+	mutex_lock(&perf_ctl_mutex);
+
+	if (kstrtouint(buf, 10, &tmp) == 0)
+		charger_enable = (tmp > 0) ? 1 : 0;
+
+	if (charger_enable) {
+		/* default delay 1000ms */
+		charger_delay = (charger_delay > 0) ?
+				charger_delay : 1000;
+
+		queue_delayed_work(system_power_efficient_wq,
+				&charger,
+				msecs_to_jiffies(charger_delay));
+	}
+
+	mutex_unlock(&perf_ctl_mutex);
+
+	return count;
+}
+
+static ssize_t show_charger_period(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	unsigned int len = 0, max_len = 4096;
+
+	len += snprintf(buf, max_len, "charger_period = %u(ms)\n",
+				charger_delay);
+	return len;
+}
+
+static ssize_t store_charger_period(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	int tmp;
+
+	mutex_lock(&perf_ctl_mutex);
+
+	if (kstrtouint(buf, 10, &tmp) == 0)
+		if (tmp > 0) /* ms */
+			charger_delay = tmp;
+
+	mutex_unlock(&perf_ctl_mutex);
+
+	return count;
+}
+#endif
+
 struct kobj_attribute perf_tracker_enable_attr =
 __ATTR(enable, 0600, show_perf_enable, store_perf_enable);
+struct kobj_attribute perf_fuel_gauge_enable_attr =
+__ATTR(fuel_gauge_enable, 0600,	show_fuel_gauge_enable, store_fuel_gauge_enable);
+struct kobj_attribute perf_fuel_gauge_period_attr =
+__ATTR(fuel_gauge_period, 0600,	show_fuel_gauge_period, store_fuel_gauge_period);
+
+#if IS_ENABLED(CONFIG_MTK_CHARGER)
+struct kobj_attribute perf_charger_enable_attr =
+__ATTR(charger_enable, 0600, show_charger_enable, store_charger_enable);
+struct kobj_attribute perf_charger_period_attr =
+__ATTR(charger_period, 0600, show_charger_period, store_charger_period);
+#endif

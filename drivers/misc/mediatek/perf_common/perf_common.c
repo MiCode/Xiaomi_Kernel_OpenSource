@@ -66,7 +66,16 @@ static void perf_common(void *data, struct rq *rq)
 static struct attribute *perf_attrs[] = {
 #if IS_ENABLED(CONFIG_MTK_PERF_TRACKER)
 	&perf_tracker_enable_attr.attr,
+
+	&perf_fuel_gauge_enable_attr.attr,
+	&perf_fuel_gauge_period_attr.attr,
+#if IS_ENABLED(CONFIG_MTK_CHARGER)
+	&perf_charger_enable_attr.attr,
+	&perf_charger_period_attr.attr,
 #endif
+
+#endif
+
 	NULL,
 };
 

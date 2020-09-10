@@ -11,4 +11,3 @@ void perf_update_gpu_counter(unsigned int gpu_pmu[], unsigned int len);
 #endif
 
 #endif /* _PERF_TRACKER_H */
-

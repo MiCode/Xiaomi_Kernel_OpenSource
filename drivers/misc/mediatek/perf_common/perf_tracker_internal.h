@@ -31,6 +31,14 @@ extern struct kobj_attribute perf_tracker_enable_attr;
 
 extern void perf_tracker(u64 wallclock,
 			 bool hit_long_check);
+
+extern struct kobj_attribute perf_fuel_gauge_enable_attr;
+extern struct kobj_attribute perf_fuel_gauge_period_attr;
+#if IS_ENABLED(CONFIG_MTK_CHARGER)
+extern struct kobj_attribute perf_charger_enable_attr;
+extern struct kobj_attribute perf_charger_period_attr;
+#endif
+
 #else
 static inline void perf_tracker(u64 wallclock,
 				bool hit_long_check) {}
