@@ -952,7 +952,7 @@ static void ufs_mtk_compl_xfer_req(struct ufs_hba *hba, int tag,
 	}
 }
 
-/**
+/*
  * struct ufs_hba_mtk_vops - UFS MTK specific variant operations
  *
  * The variant operations configure the necessary controller and PHY
