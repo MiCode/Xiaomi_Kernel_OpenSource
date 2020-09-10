@@ -2118,25 +2118,6 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 		crtc);
 
 	session_id = mtk_get_session_id(crtc);
-
-	id = drm_crtc_index(crtc);
-
-	CRTC_MMP_EVENT_START(id, frame_cfg, 0, 0);
-
-	if (id == 0) {
-		struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
-
-		ovl_status = *(unsigned int *)(cmdq_buf->va_base +
-			DISP_SLOT_OVL_STATUS);
-
-		if (ovl_status & 1) {
-			DDPPR_ERR("ovl status error\n");
-			mtk_drm_crtc_analysis(crtc);
-			mtk_drm_crtc_dump(crtc);
-		}
-	}
-	CRTC_MMP_MARK(id, frame_cfg, ovl_status, 0);
-
 	mtk_crtc_release_input_layer_fence(crtc, session_id);
 
 #ifdef MTK_DRM_DELAY_PRESENT_FENCE
@@ -2151,10 +2132,38 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 #endif
 
 	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
+
+	id = drm_crtc_index(crtc);
+
+	CRTC_MMP_EVENT_START(id, frame_cfg, 0, 0);
+
+	if (id == 0) {
+		struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
+
+		ovl_status = *(unsigned int *)(cmdq_buf->va_base +
+				DISP_SLOT_OVL_STATUS);
+
+		if (ovl_status & 1) {
+			DDPPR_ERR("ovl status error\n");
+			if (mtk_crtc->enabled) {
+				mtk_drm_crtc_analysis(crtc);
+				mtk_drm_crtc_dump(crtc);
+			} else
+				DDPPR_ERR("crtc%d is disabled so skip dump\n",
+					id);
+		}
+	}
+
+	CRTC_MMP_MARK(id, frame_cfg, ovl_status, 0);
+
+
 	if (!mtk_crtc_is_dc_mode(crtc))
 		mtk_crtc_release_output_buffer_fence(crtc, session_id);
 
-	mtk_crtc_update_hrt_qos(crtc, cb_data->misc);
+	if (mtk_crtc->enabled)
+		mtk_crtc_update_hrt_qos(crtc, cb_data->misc);
+	else
+		DDPINFO("crtc%d is disabled so skip update hrt qos\n", id);
 
 	if (mtk_crtc->pending_needs_vblank) {
 		mtk_drm_crtc_finish_page_flip(mtk_crtc);
