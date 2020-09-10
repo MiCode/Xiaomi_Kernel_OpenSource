@@ -387,7 +387,7 @@ int register_devfreq_cooling(struct platform_device *pdev, enum DVFS_USER user)
 		goto remove_devfreq;
 	}
 
-	ret = devfreq_register_opp_notifier(
+	ret = devm_devfreq_register_opp_notifier(
 			dev, apu_pwr_devfreq_ptr->apu_devfreq);
 	if (ret) {
 		LOG_ERR("%s failed to register OPP notifier (%d)\n",
@@ -417,6 +417,10 @@ void unregister_devfreq_cooling(enum DVFS_USER user)
 		LOG_ERR("%s, apu_pwr_devfreq_ptr is NULL\n", __func__);
 		return;
 	}
+
+	devm_devfreq_unregister_opp_notifier(
+			apu_pwr_devfreq_ptr->apu_devfreq->dev.parent,
+			apu_pwr_devfreq_ptr->apu_devfreq);
 
 	if (apu_pwr_devfreq_ptr->apu_devfreq_cooling)
 		devfreq_cooling_unregister(
@@ -466,5 +470,24 @@ void stop_monitor_devfreq_cooling(enum DVFS_USER user)
 	}
 
 	devfreq_suspend_device(apu_pwr_devfreq_ptr->apu_devfreq);
+}
+
+#else // APUSYS_DEVFREQ_COOLING
+
+int register_devfreq_cooling(struct platform_device *pdev, enum DVFS_USER user)
+{
+	return 0;
+}
+
+void unregister_devfreq_cooling(enum DVFS_USER user)
+{
+}
+
+void start_monitor_devfreq_cooling(enum DVFS_USER user)
+{
+}
+
+void stop_monitor_devfreq_cooling(enum DVFS_USER user)
+{
 }
 #endif

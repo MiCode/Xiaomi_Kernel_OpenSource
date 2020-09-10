@@ -14,6 +14,13 @@ struct profiling_timestamp {
 	u64 end;
 };
 
+// keep power data for vpu, mdla engine driver (per core usage)
+struct apu_dev_power_data {
+	int dev_type;
+	int dev_core;
+	void *pdata;
+};
+
 /******************************************************
  * for apusys power platform device API
  ******************************************************/
@@ -45,5 +52,8 @@ extern bool apusys_power_check(void);
 extern void apu_set_vcore_boost(bool enable);
 extern void apu_qos_set_vcore(int target_volt);
 void apu_profiling(struct profiling_timestamp *profile, const char *tag);
+
+extern void unregister_devfreq_cooling(enum DVFS_USER user);
+extern void stop_monitor_devfreq_cooling(enum DVFS_USER user);
 
 #endif
