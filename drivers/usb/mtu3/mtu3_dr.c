@@ -8,6 +8,7 @@
  */
 
 #include <linux/usb/role.h>
+#include <linux/of_platform.h>
 
 #include "mtu3.h"
 #include "mtu3_dr.h"
@@ -181,12 +182,24 @@ static void ssusb_set_mailbox(struct otg_switch_mtk *otg_sx,
 	switch (status) {
 	case MTU3_ID_GROUND:
 		switch_port_to_on(ssusb, true);
+		if (ssusb->clk_mgr) {
+			ssusb_host_enable(ssusb);
+			/* register host driver */
+			of_platform_populate(ssusb->dev->of_node,
+				NULL, NULL, ssusb->dev);
+		}
+		ssusb_set_force_mode(ssusb, MTU3_DR_FORCE_HOST);
 		switch_port_to_host(ssusb);
 		ssusb_set_vbus(otg_sx, 1);
 		ssusb->is_host = true;
 		otg_sx->sw_state |= MTU3_SW_ID_GROUND;
 		break;
 	case MTU3_ID_FLOAT:
+		if (ssusb->clk_mgr) {
+			/* unregister host driver */
+			of_platform_depopulate(ssusb->dev);
+		}
+		ssusb_set_force_mode(ssusb, MTU3_DR_FORCE_NONE);
 		ssusb->is_host = false;
 		ssusb_set_vbus(otg_sx, 0);
 		switch_port_to_device(ssusb);
