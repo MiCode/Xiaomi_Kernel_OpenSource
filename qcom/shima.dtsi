@@ -1751,7 +1751,20 @@
 		non-removable;
 		supports-cqe;
 
+		qcom,devfreq,freq-table = <50000000 200000000>;
+		qcom,scaling-lower-bus-speed-mode = "DDR52";
+
 		status = "disabled";
+
+		qos0 {
+			mask = <0x0f>;
+			vote = <61>;
+		};
+
+		qos1 {
+			mask = <0xf0>;
+			vote = <67>;
+		};
 	};
 
 	sdhc_2: sdhci@8804000 {
@@ -1799,7 +1812,19 @@
 		/* DLL HSR settings. Refer go/hsr - <Target> DLL settings */
 		qcom,dll-hsr-list = <0x0007642c 0x0 0x10 0x2C010800 0x80040868>;
 
+		qcom,devfreq,freq-table = <50000000 202000000>;
+
 		status = "disabled";
+
+		qos0 {
+			mask = <0x0f>;
+			vote = <61>;
+		};
+
+		qos1 {
+			mask = <0xf0>;
+			vote = <67>;
+		};
 	};
 
 	apps_rsc: rsc@18200000 {
