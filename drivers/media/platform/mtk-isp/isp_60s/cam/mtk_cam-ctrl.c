@@ -505,9 +505,10 @@ static int mtk_camsys_state_handle(struct mtk_raw_device *raw_dev,
 						 E_STATE_INNER);
 				sensor_ctrl->isp_request_seq_no =
 					frame_inner_idx;
+				req->timestamp = ktime_get_boottime_ns();
 				dev_dbg(raw_dev->dev,
-					"[SOF-DBLOAD] req:%d, OUTER->INNER state:%d\n",
-					req->frame_seq_no, state_outer->estate);
+					"[SOF-DBLOAD] req:%d, OUTER->INNER state:%d time:%llu\n",
+					req->frame_seq_no, state_outer->estate, req->timestamp);
 			}
 		}
 	}
@@ -557,7 +558,8 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 	ctx->dequeued_frame_seq_no = dequeued_frame_seq_no;
 	/* Send V4L2_EVENT_FRAME_SYNC event */
 	mtk_cam_event_frame_sync(raw_dev, dequeued_frame_seq_no);
-
+	/*Find request of this dequeued frame*/
+	req = mtk_cam_dev_get_req(cam, ctx, dequeued_frame_seq_no);
 	if (ctx->sensor) {
 		state_handle_ret =
 			mtk_camsys_state_handle(raw_dev, sensor_ctrl,
@@ -570,11 +572,6 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 		INIT_WORK(&req->link_work, mtk_cam_link_change_worker);
 		queue_work(cam->link_change_wq, &req->link_work);
 	}
-
-	/*Find request of this dequeued frame*/
-	req = mtk_cam_dev_get_req(cam, ctx, dequeued_frame_seq_no);
-	if (req)
-		req->timestamp = ktime_get_boottime_ns();
 	/* Update CQ base address if needed */
 	if (ctx->composed_frame_seq_no <= dequeued_frame_seq_no) {
 		dev_dbg(raw_dev->dev,
