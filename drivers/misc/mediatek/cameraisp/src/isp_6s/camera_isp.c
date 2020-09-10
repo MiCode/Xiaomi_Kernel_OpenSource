@@ -3684,10 +3684,9 @@ static int proc_open_aosp_ion_list(struct inode *inode, struct file *file)
 	return single_open(file, ion_buf_list_read, NULL);
 };
 
-static const struct file_operations faosp_ion_proc_fops = {
-	.owner = THIS_MODULE,
-	.open = proc_open_aosp_ion_list,
-	.read = seq_read,
+static const struct proc_ops faosp_ion_proc_fops = {
+	.proc_open = proc_open_aosp_ion_list,
+	.proc_read = seq_read,
 };
 #endif
 
