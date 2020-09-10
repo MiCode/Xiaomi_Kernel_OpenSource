@@ -496,6 +496,10 @@ static int kryo_cpu_erp_probe(struct platform_device *pdev)
 	drv->edev_ctl->ctl_name = "cache";
 #ifdef CONFIG_EDAC_KRYO_ARM64_PANIC_ON_CE
 	drv->edev_ctl->panic_on_ce = ARM64_ERP_PANIC_ON_CE;
+	if (of_property_read_bool(pdev->dev.of_node,
+			"qcom,disable-panic-on-ce"))
+		drv->edev_ctl->panic_on_ce = 0;
+
 #endif
 	drv->edev_ctl->panic_on_ue = ARM64_ERP_PANIC_ON_UE;
 	drv->nb_pm.notifier_call = kryo_pmu_cpu_pm_notify;
