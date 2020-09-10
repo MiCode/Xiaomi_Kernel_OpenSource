@@ -331,6 +331,15 @@
 		qcom,le-vm;
 		status = "disabled";
 	};
+
+	qcom_smcinvoke {
+		compatible = "qcom,smcinvoke";
+	};
+
+	qtee_shmbridge {
+		compatible = "qcom,tee-shared-memory-bridge";
+		qcom,support-hypervisor;
+	};
 };
 
 #include "lahaina-vm-ion.dtsi"
