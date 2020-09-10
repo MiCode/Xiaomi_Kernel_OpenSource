@@ -225,4 +225,4 @@
 			     <GIC_PPI 12 (GIC_CPU_MASK_SIMPLE(8) | IRQ_TYPE_LEVEL_LOW)>;
 	};
 };
-#include "shima-vm-ion.dtsi"
+#include "lahaina-vm-ion.dtsi"
