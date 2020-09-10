@@ -304,12 +304,12 @@ int usrtch_ioctl(unsigned long arg)
 	return ret >= 0 ? ret : 0;
 }
 
-static const struct file_operations Fops = {
-	.open = device_open,
-	.write = device_write,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = single_release,
+static const struct proc_ops Fops = {
+	.proc_open = device_open,
+	.proc_write = device_write,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
 };
 /*--------------------usrdebug OP------------------------*/
 static ssize_t mt_usrdebug_write(struct file *filp, const char *ubuf,
@@ -347,12 +347,12 @@ static int mt_usrdebug_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, mt_usrdebug_show, inode->i_private);
 }
-static const struct file_operations fop = {
-	.open = mt_usrdebug_open,
-	.write = mt_usrdebug_write,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = single_release,
+static const struct proc_ops fop = {
+	.proc_open = mt_usrdebug_open,
+	.proc_write = mt_usrdebug_write,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
 };
 
 /*--------------------INIT------------------------*/
