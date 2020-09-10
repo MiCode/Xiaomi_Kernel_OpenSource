@@ -135,6 +135,58 @@ TRACE_EVENT(perf_index_l,
 		)
 );
 
+TRACE_EVENT(fuel_gauge,
+	TP_PROTO(
+		int cur,
+		int volt,
+		int uisoc
+	),
+
+	TP_ARGS(cur, volt, uisoc),
+
+	TP_STRUCT__entry(
+		__field(int, cur)
+		__field(int, volt)
+		__field(int, uisoc)
+	),
+
+	TP_fast_assign(
+		__entry->cur = cur;
+		__entry->volt = volt;
+		__entry->uisoc = uisoc;
+	),
+
+	TP_printk("cur=%d vol=%d UISOC=%d",
+		__entry->cur,
+		__entry->volt,
+		__entry->uisoc
+	)
+);
+
+TRACE_EVENT(charger,
+	TP_PROTO(
+		int temp,
+		int volt
+	),
+
+	TP_ARGS(temp, volt),
+
+	TP_STRUCT__entry(
+		__field(int, temp)
+		__field(int, volt)
+	),
+
+	TP_fast_assign(
+		__entry->temp = temp;
+		__entry->volt = volt;
+	),
+
+	TP_printk("ICHG=%d IBUS=%d",
+		__entry->temp,
+		__entry->volt
+	)
+);
+
 #endif /*_PERF_TRACKER_TRACE_H */
 
 #undef TRACE_INCLUDE_PATH
