@@ -2061,6 +2061,16 @@
 			mediatek,force-vbus;
 			mediatek,clk-mgr;
 			usb-role-switch;
+
+			usb_host: xhci0@11200000 {
+				compatible = "mediatek,mtk-xhci";
+				reg = <0 0x11200000 0 0x1000>;
+				reg-names = "mac";
+				interrupts = <GIC_SPI 97 IRQ_TYPE_LEVEL_HIGH 0>;
+				clocks = <&clk26m>;
+				clock-names = "sys_ck";
+				status = "okay";
+			};
 		};
 
 		audsys: audsys@11210000 {
