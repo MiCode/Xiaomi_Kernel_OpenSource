@@ -262,13 +262,12 @@ unlock_and_return:
 	return ret;
 }
 
-static const struct file_operations eara_Fops = {
-	.unlocked_ioctl = eara_ioctl,
-	.compat_ioctl = eara_compat_ioctl,
-	.open = eara_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = single_release,
+static const struct proc_ops eara_Fops = {
+	.proc_compat_ioctl = eara_compat_ioctl,
+	.proc_open = eara_open,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
 };
 
 /*--------------------INIT------------------------*/
@@ -360,13 +359,12 @@ ret_ioctl:
 	return ret;
 }
 
-static const struct file_operations Fops = {
-	.unlocked_ioctl = device_ioctl,
-	.compat_ioctl = device_ioctl,
-	.open = device_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = single_release,
+static const struct proc_ops Fops = {
+	.proc_compat_ioctl = device_ioctl,
+	.proc_open = device_open,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
 };
 
 /*--------------------INIT------------------------*/
