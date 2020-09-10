@@ -10,6 +10,48 @@
 #include "mtk_cam-video.h"
 #include "mtk_cam-meta.h"
 
+/*
+ * Note
+ *	differt dma(fmt) would have different bus_size
+ *	align xsize(bytes per line) with [bus_size * pixel_mode]
+ */
+int mtk_cam_is_fullg(unsigned int ipi_fmt)
+{
+	return (ipi_fmt == MTKCAM_IPI_IMG_FMT_FG_BAYER8)
+		|| (ipi_fmt == MTKCAM_IPI_IMG_FMT_FG_BAYER10)
+		|| (ipi_fmt == MTKCAM_IPI_IMG_FMT_FG_BAYER12);
+}
+
+static inline
+int mtk_cam_dma_bus_size(int bpp, int pixel_mode_shift, int is_fg)
+{
+	unsigned int bus_size = ALIGN(bpp, 32) << pixel_mode_shift;
+
+	if (is_fg)
+		bus_size <<= 1;
+	return bus_size / 8; /* in bytes */
+}
+
+static inline
+int mtk_cam_yuv_dma_bus_size(int bpp, int pixel_mode_shift)
+{
+	unsigned int bus_size = ALIGN(bpp, 32) << pixel_mode_shift;
+
+	return bus_size / 8; /* in bytes */
+}
+
+static inline
+int mtk_cam_dmao_xsize(int w, unsigned int ipi_fmt, int pixel_mode_shift)
+{
+	const int is_fg		= mtk_cam_is_fullg(ipi_fmt);
+	const int bpp		= mtk_cam_get_pixel_bits(ipi_fmt);
+	const int bytes		= is_fg ?
+		DIV_ROUND_UP(w * bpp * 3 / 2, 8) : DIV_ROUND_UP(w * bpp, 8);
+	const int bus_size	= mtk_cam_dma_bus_size(bpp, pixel_mode_shift, is_fg);
+
+	return ALIGN(bytes, bus_size);
+}
+
 static int mtk_cam_vb2_queue_setup(struct vb2_queue *vq,
 				   unsigned int *num_buffers,
 				   unsigned int *num_planes,
@@ -265,6 +307,155 @@ static void mtk_cam_set_meta_stats_info(u32 dma_port, void *vaddr)
 	}
 }
 
+int is_mtk_format(u32 pixelformat)
+{
+	switch (pixelformat) {
+	case V4L2_PIX_FMT_YUYV10:
+	case V4L2_PIX_FMT_YVYU10:
+	case V4L2_PIX_FMT_UYVY10:
+	case V4L2_PIX_FMT_VYUY10:
+	case V4L2_PIX_FMT_MTISP_YUYV10P:
+	case V4L2_PIX_FMT_MTISP_YVYU10P:
+	case V4L2_PIX_FMT_MTISP_UYVY10P:
+	case V4L2_PIX_FMT_MTISP_VYUY10P:
+	case V4L2_PIX_FMT_NV12_10:
+	case V4L2_PIX_FMT_NV21_10:
+	case V4L2_PIX_FMT_NV16_10:
+	case V4L2_PIX_FMT_NV61_10:
+	case V4L2_PIX_FMT_MTISP_NV12_10P:
+	case V4L2_PIX_FMT_MTISP_NV21_10P:
+	case V4L2_PIX_FMT_MTISP_NV16_10P:
+	case V4L2_PIX_FMT_MTISP_NV61_10P:
+		return 1;
+	break;
+	default:
+		return 0;
+	break;
+	}
+}
+
+const struct mtk_format_info *mtk_format_info(u32 format)
+{
+	static const struct mtk_format_info formats[] = {
+		/* YUV planar formats */
+		{ .format = V4L2_PIX_FMT_NV12_10,  .mem_planes = 1, .comp_planes = 2,
+			.bpp = { 1, 2, 0, 0 }, .hdiv = 2, .vdiv = 2,
+			.bit_r_num = 2, .bit_r_den = 1 },
+		{ .format = V4L2_PIX_FMT_NV21_10,  .mem_planes = 1, .comp_planes = 2,
+			.bpp = { 1, 2, 0, 0 }, .hdiv = 2, .vdiv = 2,
+			.bit_r_num = 2, .bit_r_den = 1 },
+		{ .format = V4L2_PIX_FMT_NV16_10,  .mem_planes = 1, .comp_planes = 2,
+			.bpp = { 1, 2, 0, 0 }, .hdiv = 2, .vdiv = 1,
+			.bit_r_num = 2, .bit_r_den = 1 },
+		{ .format = V4L2_PIX_FMT_NV61_10,  .mem_planes = 1, .comp_planes = 2,
+			.bpp = { 1, 2, 0, 0 }, .hdiv = 2, .vdiv = 1,
+			.bit_r_num = 2, .bit_r_den = 1 },
+		{ .format = V4L2_PIX_FMT_MTISP_NV12_10P, .mem_planes = 1, .comp_planes = 2,
+			.bpp = { 1, 2, 0, 0 }, .hdiv = 2, .vdiv = 2,
+			.bit_r_num = 5, .bit_r_den = 4 },
+		{ .format = V4L2_PIX_FMT_MTISP_NV21_10P, .mem_planes = 1, .comp_planes = 2,
+			.bpp = { 1, 2, 0, 0 }, .hdiv = 2, .vdiv = 2,
+			.bit_r_num = 5, .bit_r_den = 4 },
+		{ .format = V4L2_PIX_FMT_MTISP_NV16_10P, .mem_planes = 1, .comp_planes = 2,
+			.bpp = { 1, 2, 0, 0 }, .hdiv = 2, .vdiv = 1,
+			.bit_r_num = 5, .bit_r_den = 4 },
+		{ .format = V4L2_PIX_FMT_MTISP_NV61_10P, .mem_planes = 1, .comp_planes = 2,
+			.bpp = { 1, 2, 0, 0 }, .hdiv = 2, .vdiv = 1,
+			.bit_r_num = 5, .bit_r_den = 4 },
+		/* YUV packed formats */
+		{ .format = V4L2_PIX_FMT_YUYV10,	  .mem_planes = 1, .comp_planes = 1,
+			.bpp = { 2, 0, 0, 0 }, .hdiv = 2, .vdiv = 1,
+			.bit_r_num = 2, .bit_r_den = 1 },
+		{ .format = V4L2_PIX_FMT_YVYU10,	  .mem_planes = 1, .comp_planes = 1,
+			.bpp = { 2, 0, 0, 0 }, .hdiv = 2, .vdiv = 1,
+			.bit_r_num = 2, .bit_r_den = 1 },
+		{ .format = V4L2_PIX_FMT_UYVY10,	  .mem_planes = 1, .comp_planes = 1,
+			.bpp = { 2, 0, 0, 0 }, .hdiv = 2, .vdiv = 1,
+			.bit_r_num = 2, .bit_r_den = 1 },
+		{ .format = V4L2_PIX_FMT_VYUY10,	  .mem_planes = 1, .comp_planes = 1,
+			.bpp = { 2, 0, 0, 0 }, .hdiv = 2, .vdiv = 1,
+			.bit_r_num = 2, .bit_r_den = 1 },
+		{ .format = V4L2_PIX_FMT_MTISP_YUYV10P,	  .mem_planes = 1, .comp_planes = 1,
+			.bpp = { 2, 0, 0, 0 }, .hdiv = 2, .vdiv = 1,
+			.bit_r_num = 5, .bit_r_den = 4 },
+		{ .format = V4L2_PIX_FMT_MTISP_YVYU10P,	  .mem_planes = 1, .comp_planes = 1,
+			.bpp = { 2, 0, 0, 0 }, .hdiv = 2, .vdiv = 1,
+			.bit_r_num = 5, .bit_r_den = 4 },
+		{ .format = V4L2_PIX_FMT_MTISP_UYVY10P,	  .mem_planes = 1, .comp_planes = 1,
+			.bpp = { 2, 0, 0, 0 }, .hdiv = 2, .vdiv = 1,
+			.bit_r_num = 5, .bit_r_den = 4 },
+		{ .format = V4L2_PIX_FMT_MTISP_VYUY10P,	  .mem_planes = 1, .comp_planes = 1,
+			.bpp = { 2, 0, 0, 0 }, .hdiv = 2, .vdiv = 1,
+			.bit_r_num = 5, .bit_r_den = 4 },
+	};
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(formats); ++i)
+		if (formats[i].format == format)
+			return &formats[i];
+	return NULL;
+}
+
+int mtk_cam_fill_img_buf(struct mtkcam_ipi_img_output *img_out,
+						struct v4l2_format *f, dma_addr_t daddr)
+{
+	u32 pixelformat = f->fmt.pix_mp.pixelformat;
+	u32 width = f->fmt.pix_mp.width;
+	u32 height = f->fmt.pix_mp.height;
+	struct v4l2_plane_pix_format *plane = &f->fmt.pix_mp.plane_fmt[0];
+	u32 stride = plane->bytesperline;
+	unsigned int pre_plane_size = 0;
+	int i;
+
+	if (is_mtk_format(pixelformat)) {
+		const struct mtk_format_info *info;
+
+		info = mtk_format_info(pixelformat);
+		if (!info)
+			return -EINVAL;
+
+		if (info->mem_planes == 1) {
+			for (i = 0; i < info->comp_planes; i++) {
+				unsigned int hdiv = (i == 0) ? 1 : info->hdiv;
+				unsigned int vdiv = (i == 0) ? 1 : info->vdiv;
+
+				img_out->buf[i].iova = daddr + pre_plane_size;
+				img_out->fmt.stride[i] = info->bpp[i] * DIV_ROUND_UP(stride, hdiv);
+				img_out->buf[i].size = img_out->fmt.stride[i]
+					* DIV_ROUND_UP(height, vdiv);
+				pre_plane_size = img_out->buf[i].size;
+				pr_debug("stride:%d plane_size:%d\n", stride, img_out->buf[i].size);
+			}
+		} else {
+			pr_debug("do not support non contiguous mplane\n");
+		}
+	} else {
+		const struct v4l2_format_info *info;
+
+		info = v4l2_format_info(pixelformat);
+		if (!info)
+			return -EINVAL;
+
+		if (info->mem_planes == 1) {
+			for (i = 0; i < info->comp_planes; i++) {
+				unsigned int hdiv = (i == 0) ? 1 : info->hdiv;
+				unsigned int vdiv = (i == 0) ? 1 : info->vdiv;
+
+				img_out->buf[i].iova = daddr + pre_plane_size;
+				img_out->fmt.stride[i] = info->bpp[i] * DIV_ROUND_UP(stride, hdiv);
+				img_out->buf[i].size = img_out->fmt.stride[i]
+					* DIV_ROUND_UP(height, vdiv);
+				pre_plane_size = img_out->buf[i].size;
+				pr_debug("stride:%d plane_size:%d\n", stride, img_out->buf[i].size);
+			}
+		} else {
+			pr_debug("do not support non contiguous mplane\n");
+		}
+	}
+
+	return 0;
+}
+
 static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 {
 	struct mtk_cam_device *cam = vb2_get_drv_priv(vb->vb2_queue);
@@ -275,6 +466,8 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 	unsigned long flags;
 	unsigned int desc_id;
 	void *vaddr;
+	struct v4l2_format *f = &node->active_fmt;
+	struct mtkcam_ipi_img_output *img_out;
 
 	dev_dbg(dev, "%s: node:%d fd:%d idx:%d\n", __func__,
 		node->desc.id, buf->vbb.request_fd, buf->vbb.vb2_buf.index);
@@ -294,6 +487,17 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 		desc_id = node->desc.id-MTK_RAW_SOURCE_BEGIN;
 		req->frame_params.img_outs[desc_id]
 			.buf[0].iova = buf->daddr;
+		/* un-processed raw frame */
+		req->frame_params.raw_param.main_path_sel = 0;
+		break;
+	case MTKCAM_IPI_RAW_YUVO:
+	case MTKCAM_IPI_RAW_CRZO_1:
+	case MTKCAM_IPI_RAW_CRZO_2:
+	case MTKCAM_IPI_RAW_RSSO_2:
+		/* TODO: support sub-sampling multi-plane buffer */
+		desc_id = node->desc.id-MTK_RAW_SOURCE_BEGIN;
+		img_out = &req->frame_params.img_outs[desc_id];
+		mtk_cam_fill_img_buf(img_out, f, buf->daddr);
 		/* un-processed raw frame */
 		req->frame_params.raw_param.main_path_sel = 0;
 		break;
@@ -440,53 +644,118 @@ unsigned int mtk_cam_get_sensor_fmt(unsigned int fmt)
 	}
 }
 
-unsigned int mtk_cam_get_pixel_bits(unsigned int pix_fmt)
+unsigned int mtk_cam_get_pixel_bits(unsigned int ipi_fmt)
 {
-	switch (pix_fmt) {
-	case V4L2_PIX_FMT_SBGGR8:
-	case V4L2_PIX_FMT_SGBRG8:
-	case V4L2_PIX_FMT_SGRBG8:
-	case V4L2_PIX_FMT_SRGGB8:
-	case V4L2_PIX_FMT_MTISP_SBGGR8F:
-	case V4L2_PIX_FMT_MTISP_SGBRG8F:
-	case V4L2_PIX_FMT_MTISP_SGRBG8F:
-	case V4L2_PIX_FMT_MTISP_SRGGB8F:
+	switch (ipi_fmt) {
+	case MTKCAM_IPI_IMG_FMT_BAYER8:
+	case MTKCAM_IPI_IMG_FMT_FG_BAYER8:
 		return 8;
-	case V4L2_PIX_FMT_MTISP_SBGGR10:
-	case V4L2_PIX_FMT_MTISP_SGBRG10:
-	case V4L2_PIX_FMT_MTISP_SGRBG10:
-	case V4L2_PIX_FMT_MTISP_SRGGB10:
-	case V4L2_PIX_FMT_MTISP_SBGGR10F:
-	case V4L2_PIX_FMT_MTISP_SGBRG10F:
-	case V4L2_PIX_FMT_MTISP_SGRBG10F:
-	case V4L2_PIX_FMT_MTISP_SRGGB10F:
+	case MTKCAM_IPI_IMG_FMT_BAYER10:
+	case MTKCAM_IPI_IMG_FMT_FG_BAYER10:
 		return 10;
-	case V4L2_PIX_FMT_MTISP_SBGGR12:
-	case V4L2_PIX_FMT_MTISP_SGBRG12:
-	case V4L2_PIX_FMT_MTISP_SGRBG12:
-	case V4L2_PIX_FMT_MTISP_SRGGB12:
-	case V4L2_PIX_FMT_MTISP_SBGGR12F:
-	case V4L2_PIX_FMT_MTISP_SGBRG12F:
-	case V4L2_PIX_FMT_MTISP_SGRBG12F:
-	case V4L2_PIX_FMT_MTISP_SRGGB12F:
+	case MTKCAM_IPI_IMG_FMT_BAYER12:
+	case MTKCAM_IPI_IMG_FMT_FG_BAYER12:
 		return 12;
-	case V4L2_PIX_FMT_MTISP_SBGGR14:
-	case V4L2_PIX_FMT_MTISP_SGBRG14:
-	case V4L2_PIX_FMT_MTISP_SGRBG14:
-	case V4L2_PIX_FMT_MTISP_SRGGB14:
-	case V4L2_PIX_FMT_MTISP_SBGGR14F:
-	case V4L2_PIX_FMT_MTISP_SGBRG14F:
-	case V4L2_PIX_FMT_MTISP_SGRBG14F:
-	case V4L2_PIX_FMT_MTISP_SRGGB14F:
+	case MTKCAM_IPI_IMG_FMT_BAYER14:
 		return 14;
+	case MTKCAM_IPI_IMG_FMT_YUYV:
+	case MTKCAM_IPI_IMG_FMT_YVYU:
+	case MTKCAM_IPI_IMG_FMT_UYVY:
+	case MTKCAM_IPI_IMG_FMT_VYUY:
+		return 16;
+	case MTKCAM_IPI_IMG_FMT_Y8:
+	case MTKCAM_IPI_IMG_FMT_YUV_422_2P:
+	case MTKCAM_IPI_IMG_FMT_YVU_422_2P:
+	case MTKCAM_IPI_IMG_FMT_YUV_422_3P:
+	case MTKCAM_IPI_IMG_FMT_YVU_422_3P:
+	case MTKCAM_IPI_IMG_FMT_YUV_420_2P:
+	case MTKCAM_IPI_IMG_FMT_YVU_420_2P:
+	case MTKCAM_IPI_IMG_FMT_YUV_420_3P:
+	case MTKCAM_IPI_IMG_FMT_YVU_420_3P:
+		return 8;
+	case MTKCAM_IPI_IMG_FMT_YUYV_Y210:
+	case MTKCAM_IPI_IMG_FMT_YVYU_Y210:
+	case MTKCAM_IPI_IMG_FMT_UYVY_Y210:
+	case MTKCAM_IPI_IMG_FMT_VYUY_Y210:
+		return 32;
+	case MTKCAM_IPI_IMG_FMT_YUV_P210:
+	case MTKCAM_IPI_IMG_FMT_YVU_P210:
+	case MTKCAM_IPI_IMG_FMT_YUV_P010:
+	case MTKCAM_IPI_IMG_FMT_YVU_P010:
+		return 16;
+	case MTKCAM_IPI_IMG_FMT_YUYV_Y210_PACKED:
+	case MTKCAM_IPI_IMG_FMT_YVYU_Y210_PACKED:
+	case MTKCAM_IPI_IMG_FMT_UYVY_Y210_PACKED:
+	case MTKCAM_IPI_IMG_FMT_VYUY_Y210_PACKED:
+		return 20;
+	case MTKCAM_IPI_IMG_FMT_YUV_P210_PACKED:
+	case MTKCAM_IPI_IMG_FMT_YVU_P210_PACKED:
+	case MTKCAM_IPI_IMG_FMT_YUV_P010_PACKED:
+	case MTKCAM_IPI_IMG_FMT_YVU_P010_PACKED:
+		return 10;
 	default:
-		return 0;
+		break;
 	}
+	pr_debug("not supported ipi-fmt 0x%08x", ipi_fmt);
+
+	return -1;
 }
 
 unsigned int mtk_cam_get_img_fmt(unsigned int fourcc)
 {
 	switch (fourcc) {
+	case V4L2_PIX_FMT_GREY:
+		return MTKCAM_IPI_IMG_FMT_Y8;
+	case V4L2_PIX_FMT_YUYV:
+		return MTKCAM_IPI_IMG_FMT_YUYV;
+	case V4L2_PIX_FMT_YVYU:
+		return MTKCAM_IPI_IMG_FMT_YVYU;
+	case V4L2_PIX_FMT_NV16:
+		return MTKCAM_IPI_IMG_FMT_YUV_422_2P;
+	case V4L2_PIX_FMT_NV61:
+		return MTKCAM_IPI_IMG_FMT_YVU_422_2P;
+	case V4L2_PIX_FMT_NV12:
+		return MTKCAM_IPI_IMG_FMT_YUV_420_2P;
+	case V4L2_PIX_FMT_NV21:
+		return MTKCAM_IPI_IMG_FMT_YVU_420_2P;
+	case V4L2_PIX_FMT_YUV422P:
+		return MTKCAM_IPI_IMG_FMT_YUV_422_3P;
+	case V4L2_PIX_FMT_YUV420:
+		return MTKCAM_IPI_IMG_FMT_YUV_420_3P;
+	case V4L2_PIX_FMT_YVU420:
+		return MTKCAM_IPI_IMG_FMT_YVU_420_3P;
+	case V4L2_PIX_FMT_NV12_10:
+		return MTKCAM_IPI_IMG_FMT_YUV_P010;
+	case V4L2_PIX_FMT_NV21_10:
+		return MTKCAM_IPI_IMG_FMT_YVU_P010;
+	case V4L2_PIX_FMT_NV16_10:
+		return MTKCAM_IPI_IMG_FMT_YUV_P210;
+	case V4L2_PIX_FMT_NV61_10:
+		return MTKCAM_IPI_IMG_FMT_YVU_P210;
+	case V4L2_PIX_FMT_MTISP_NV12_10P:
+		return MTKCAM_IPI_IMG_FMT_YUV_P010_PACKED;
+	case V4L2_PIX_FMT_MTISP_NV21_10P:
+		return MTKCAM_IPI_IMG_FMT_YVU_P010_PACKED;
+	case V4L2_PIX_FMT_MTISP_NV16_10P:
+		return MTKCAM_IPI_IMG_FMT_YUV_P210_PACKED;
+	case V4L2_PIX_FMT_MTISP_NV61_10P:
+		return MTKCAM_IPI_IMG_FMT_YVU_P210_PACKED;
+	case V4L2_PIX_FMT_YUYV10:
+		return MTKCAM_IPI_IMG_FMT_YUYV_Y210;
+	case V4L2_PIX_FMT_YVYU10:
+		return MTKCAM_IPI_IMG_FMT_YVYU_Y210;
+	case V4L2_PIX_FMT_UYVY10:
+		return MTKCAM_IPI_IMG_FMT_UYVY_Y210;
+	case V4L2_PIX_FMT_VYUY10:
+		return MTKCAM_IPI_IMG_FMT_VYUY_Y210;
+	case V4L2_PIX_FMT_MTISP_YUYV10P:
+		return MTKCAM_IPI_IMG_FMT_YUYV_Y210_PACKED;
+	case V4L2_PIX_FMT_MTISP_YVYU10P:
+		return MTKCAM_IPI_IMG_FMT_YVYU_Y210_PACKED;
+	case V4L2_PIX_FMT_MTISP_UYVY10P:
+		return MTKCAM_IPI_IMG_FMT_UYVY_Y210_PACKED;
+	case V4L2_PIX_FMT_MTISP_VYUY10P:
+		return MTKCAM_IPI_IMG_FMT_VYUY_Y210_PACKED;
 	case V4L2_PIX_FMT_SBGGR8:
 	case V4L2_PIX_FMT_SGBRG8:
 	case V4L2_PIX_FMT_SGRBG8:
@@ -532,39 +801,138 @@ unsigned int mtk_cam_get_img_fmt(unsigned int fourcc)
 	}
 }
 
+int mtk_cam_fill_pixfmt_mp(struct v4l2_pix_format_mplane *pixfmt,
+			u32 pixelformat, u32 width, u32 height)
+{
+	struct v4l2_plane_pix_format *plane;
+	unsigned int ipi_fmt = mtk_cam_get_img_fmt(pixelformat);
+	u8 pixel_bits = mtk_cam_get_pixel_bits(ipi_fmt);
+	u32 stride;
+	u32 size;
+	u8 pixel_mode_shift = 0; /* todo: should set by resMgr */
+	u8 bus_size;
+	u8 i;
+
+	pixfmt->width = width;
+	pixfmt->height = height;
+	pixfmt->pixelformat = pixelformat;
+	plane = &pixfmt->plane_fmt[0];
+	bus_size = mtk_cam_yuv_dma_bus_size(pixel_bits, pixel_mode_shift);
+
+	if (is_mtk_format(pixelformat)) {
+		const struct mtk_format_info *info;
+
+		info = mtk_format_info(pixelformat);
+		pixfmt->num_planes = info->mem_planes;
+
+		if (!info)
+			return -EINVAL;
+
+		if (info->mem_planes == 1) {
+			/* width should be bus_size align */
+			stride = ALIGN(DIV_ROUND_UP(width * info->bpp[0]
+				* info->bit_r_num, info->bit_r_den), bus_size);
+			if (plane->bytesperline <= stride)
+				plane->bytesperline = stride;
+
+			for (i = 0; i < info->comp_planes; i++) {
+				unsigned int hdiv = (i == 0) ? 1 : info->hdiv;
+				unsigned int vdiv = (i == 0) ? 1 : info->vdiv;
+
+				plane->sizeimage += info->bpp[i]
+					* DIV_ROUND_UP(plane->bytesperline, hdiv)
+					* DIV_ROUND_UP(height, vdiv);
+			}
+		} else {
+			pr_debug("do not support non contiguous mplane\n");
+		}
+	} else {
+		const struct v4l2_format_info *info;
+
+		info = v4l2_format_info(pixelformat);
+		pixfmt->num_planes = info->mem_planes;
+
+		if (!info)
+			return -EINVAL;
+
+		if (info->mem_planes == 1) {
+			stride = ALIGN(width * info->bpp[0], bus_size);
+			if (plane->bytesperline <= stride)
+				plane->bytesperline = stride;
+
+			for (i = 0; i < info->comp_planes; i++) {
+				unsigned int hdiv = (i == 0) ? 1 : info->hdiv;
+				unsigned int vdiv = (i == 0) ? 1 : info->vdiv;
+
+				plane->sizeimage += info->bpp[i]
+					* DIV_ROUND_UP(plane->bytesperline, hdiv)
+					* DIV_ROUND_UP(height, vdiv);
+			}
+		} else {
+			pr_debug("do not support non contiguous mplane\n");
+		}
+	}
+
+	return 0;
+}
+
 static void cal_image_pix_mp(unsigned int node_id,
 			     struct v4l2_pix_format_mplane *mp)
 {
-	unsigned int bpl, ppl;
-	unsigned int pixel_bits = mtk_cam_get_pixel_bits(mp->pixelformat);
-	unsigned int img_fmt = mtk_cam_get_img_fmt(mp->pixelformat);
+	unsigned int ipi_fmt = mtk_cam_get_img_fmt(mp->pixelformat);
 	unsigned int width = mp->width;
+	unsigned int height = mp->height;
+	unsigned int stride;
+	unsigned int pixel_mode_shift = 0; /* todo: depend on resMgr */
 
-	bpl = 0;
-	switch (img_fmt) {
+	switch (ipi_fmt) {
 	case MTKCAM_IPI_IMG_FMT_BAYER8:
 	case MTKCAM_IPI_IMG_FMT_BAYER10:
 	case MTKCAM_IPI_IMG_FMT_BAYER12:
 	case MTKCAM_IPI_IMG_FMT_BAYER14:
-		bpl = ALIGN(DIV_ROUND_UP(width * pixel_bits, 8), 2);
-		break;
 	case MTKCAM_IPI_IMG_FMT_FG_BAYER8:
 	case MTKCAM_IPI_IMG_FMT_FG_BAYER10:
 	case MTKCAM_IPI_IMG_FMT_FG_BAYER12:
 	case MTKCAM_IPI_IMG_FMT_FG_BAYER14:
-		bpl = 0xFF00 & DIV_ROUND_UP(width * pixel_bits * 3 / 2, 8) + 0xFF;
-		break;
+		stride = mtk_cam_dmao_xsize(width, ipi_fmt, pixel_mode_shift);
+		if (mp->plane_fmt[0].bytesperline <= stride)
+			mp->plane_fmt[0].bytesperline = stride;
+
+		mp->plane_fmt[0].sizeimage = mp->plane_fmt[0].bytesperline * height;
+	break;
+	case MTKCAM_IPI_IMG_FMT_YUYV:
+	case MTKCAM_IPI_IMG_FMT_YVYU:
+	case MTKCAM_IPI_IMG_FMT_UYVY:
+	case MTKCAM_IPI_IMG_FMT_VYUY:
+	case MTKCAM_IPI_IMG_FMT_YUV_422_2P:
+	case MTKCAM_IPI_IMG_FMT_YVU_422_2P:
+	case MTKCAM_IPI_IMG_FMT_YUV_422_3P:
+	case MTKCAM_IPI_IMG_FMT_YVU_422_3P:
+	case MTKCAM_IPI_IMG_FMT_YUV_420_2P:
+	case MTKCAM_IPI_IMG_FMT_YVU_420_2P:
+	case MTKCAM_IPI_IMG_FMT_YUV_420_3P:
+	case MTKCAM_IPI_IMG_FMT_YVU_420_3P:
+	case MTKCAM_IPI_IMG_FMT_Y8:
+	case MTKCAM_IPI_IMG_FMT_YUYV_Y210:
+	case MTKCAM_IPI_IMG_FMT_YVYU_Y210:
+	case MTKCAM_IPI_IMG_FMT_UYVY_Y210:
+	case MTKCAM_IPI_IMG_FMT_VYUY_Y210:
+	case MTKCAM_IPI_IMG_FMT_YUYV_Y210_PACKED:
+	case MTKCAM_IPI_IMG_FMT_YVYU_Y210_PACKED:
+	case MTKCAM_IPI_IMG_FMT_UYVY_Y210_PACKED:
+	case MTKCAM_IPI_IMG_FMT_VYUY_Y210_PACKED:
+	case MTKCAM_IPI_IMG_FMT_YUV_P210:
+	case MTKCAM_IPI_IMG_FMT_YVU_P210:
+	case MTKCAM_IPI_IMG_FMT_YUV_P010:
+	case MTKCAM_IPI_IMG_FMT_YVU_P010:
+	case MTKCAM_IPI_IMG_FMT_YUV_P210_PACKED:
+	case MTKCAM_IPI_IMG_FMT_YVU_P210_PACKED:
+	case MTKCAM_IPI_IMG_FMT_YUV_P010_PACKED:
+	case MTKCAM_IPI_IMG_FMT_YVU_P010_PACKED:
+		mtk_cam_fill_pixfmt_mp(mp, mp->pixelformat, width, height);
 	default:
-		bpl = 0;
 		break;
 	}
-	/*
-	 * This image output buffer will be input buffer of MTK CAM DIP HW
-	 * For MTK CAM DIP HW constrained, it needs 4 bytes alignment
-	 */
-	bpl = ALIGN(bpl, 4);
-	mp->plane_fmt[0].bytesperline = bpl;
-	mp->plane_fmt[0].sizeimage = bpl * mp->height;
 }
 
 static int mtk_video_init_format(struct mtk_cam_video_device *video)
@@ -838,7 +1206,8 @@ int video_try_fmt(struct mtk_cam_video_device *node, struct v4l2_format *f)
 	try_fmt.fmt.pix_mp.height = clamp_val(f->fmt.pix_mp.height,
 					      IMG_MIN_HEIGHT, IMG_MAX_HEIGHT);
 	/* 4 bytes alignment for width */
-	try_fmt.fmt.pix_mp.width = ALIGN(try_fmt.fmt.pix_mp.width, 4);
+	/* Todo: width and stride should align bus_size */
+	try_fmt.fmt.pix_mp.width = ALIGN(try_fmt.fmt.pix_mp.width, IMG_PIX_ALIGN);
 
 	/* Only support one plane */
 	try_fmt.fmt.pix_mp.num_planes = 1;

@@ -231,7 +231,7 @@ static int config_img_fmt(struct mtk_cam_device *cam,
 	}
 
 	dev_dbg(cam->dev,
-		"ctx: %d node:%d size=%0dx%0d, stride:%d, crop=%0dx%0d\n",
+		"ctx: %d dma_port:%d size=%0dx%0d, stride:%d, crop=%0dx%0d\n",
 		node->ctx->stream_id, node->desc.dma_port, out_fmt->fmt.s.w,
 		out_fmt->fmt.s.h, out_fmt->fmt.stride[0], out_fmt->crop.s.w,
 		out_fmt->crop.s.h);
@@ -308,6 +308,11 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 		/* update buffer format */
 		switch (node->desc.dma_port) {
 		case MTKCAM_IPI_RAW_IMGO:
+		case MTKCAM_IPI_RAW_RRZO:
+		case MTKCAM_IPI_RAW_YUVO:
+		case MTKCAM_IPI_RAW_CRZO_1:
+		case MTKCAM_IPI_RAW_CRZO_2:
+		case MTKCAM_IPI_RAW_RSSO_2:
 			sd_fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
 			sd_fmt.pad = PAD_SRC_RAW0;
 			ret = v4l2_subdev_call(node->ctx->seninf, pad,
@@ -337,44 +342,7 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 			out_fmt = &req->frame_params
 					.img_outs[node->desc.id-MTK_RAW_SOURCE_BEGIN];
 			out_fmt->uid.pipe_id = node->uid.pipe_id;
-			out_fmt->uid.id = MTKCAM_IPI_RAW_IMGO;
-			ret = config_img_fmt(cam, node, out_fmt,
-						sd_width, sd_height);
-			if (ret)
-				return ret;
-			break;
-
-		case MTKCAM_IPI_RAW_RRZO:
-			sd_fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
-			sd_fmt.pad = PAD_SRC_RAW0;
-			ret = v4l2_subdev_call(node->ctx->seninf, pad,
-						get_fmt, NULL, &sd_fmt);
-			if (ret) {
-				dev_dbg(cam->dev,
-					"seninf(%s) g_fmt failed:%d\n",
-					node->ctx->seninf->name, ret);
-				return ret;
-			}
-
-			fd = get_format_request_fd(&node->pending_fmt.fmt.pix_mp);
-			if (fd > 0) {
-				request = media_request_get_by_fd(
-					&cam->media_dev, fd);
-
-				if (request == &req->req) {
-					fmt = &node->pending_fmt;
-					video_try_fmt(node, fmt);
-					node->active_fmt = *fmt;
-				}
-			}
-
-			sd_width = sd_fmt.format.width;
-			sd_height = sd_fmt.format.height;
-
-			out_fmt = &req->frame_params
-					.img_outs[node->desc.id-MTK_RAW_SOURCE_BEGIN];
-			out_fmt->uid.pipe_id = node->uid.pipe_id;
-			out_fmt->uid.id = MTKCAM_IPI_RAW_RRZO;
+			out_fmt->uid.id =  node->desc.dma_port;
 
 			fd = get_crop_request_fd(&node->pending_crop);
 			if (fd > 0) {

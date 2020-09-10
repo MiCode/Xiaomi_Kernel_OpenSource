@@ -104,6 +104,19 @@ struct mtk_cam_video_device {
 	struct list_head buf_list;
 };
 
+struct mtk_format_info {
+	u32 format;
+	u8 mem_planes;
+	u8 comp_planes;
+	u8 bpp[4];
+	u8 hdiv;
+	u8 vdiv;
+	/* numerator of bit ratio */
+	u8 bit_r_num;
+	/* denominator of bit ratio */
+	u8 bit_r_den;
+};
+
 int mtk_cam_video_register(struct mtk_cam_video_device *video,
 			   struct v4l2_device *v4l2_dev);
 void mtk_cam_video_unregister(struct mtk_cam_video_device *video);

@@ -30,7 +30,7 @@
 #define CAM_SUB_FRM_DATA_NUM 32
 #define WORKING_BUF_SIZE  0x4000
 
-#define MTK_ISP_MIN_RESIZE_RATIO 25
+#define MTK_ISP_MIN_RESIZE_RATIO 6
 
 struct platform_device;
 struct mtk_rpmsg_device;
