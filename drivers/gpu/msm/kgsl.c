@@ -2346,7 +2346,8 @@ static int memdesc_sg_virt(struct kgsl_memdesc *memdesc, struct file *vmfile)
 	if (sglen == 0 || sglen >= LONG_MAX)
 		return -EINVAL;
 
-	pages = kvcalloc(sglen, sizeof(*pages), GFP_KERNEL);
+	pages = kvcalloc(sglen, sizeof(*pages),
+		GFP_KERNEL | __GFP_NORETRY | __GFP_NOWARN);
 	if (pages == NULL)
 		return -ENOMEM;
 
