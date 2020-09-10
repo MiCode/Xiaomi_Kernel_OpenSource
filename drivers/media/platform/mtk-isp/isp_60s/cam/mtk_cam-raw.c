@@ -1795,7 +1795,254 @@ static const struct v4l2_format bin_out_fmts[] = {
 	},
 };
 
-#define MTK_RAW_TOTAL_OUTPUT_QUEUES 4
+static const struct v4l2_format yuv_out_fmts[] = {
+	/* This is a default image format */
+	{
+		.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_GREY,
+		},
+	},
+	{
+		.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_YUYV,
+		},
+	},
+	{
+		.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_YVYU,
+		},
+	},
+	{
+		.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_NV16,
+		},
+	},
+	{
+		.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_NV61,
+		},
+	},
+	{
+		.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_NV12,
+		},
+	},
+	{
+		.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_NV21,
+		},
+	},
+	{
+		.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_YUV422P,
+		},
+	},
+	{
+		.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_YUV420,
+		},
+	},
+	{
+		.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_YVU420,
+		},
+	},
+	{
+		.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_NV12_10,
+		},
+	},
+	{
+		.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_NV21_10,
+		},
+	},
+	{
+		.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_NV16_10,
+		},
+	},
+	{
+		.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_NV61_10,
+		},
+	},
+	{
+		.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_NV12_10P,
+		},
+	},
+	{
+		.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_NV21_10P,
+		},
+	},
+	{
+		.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_NV16_10P,
+		},
+	},
+	{
+		.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_NV61_10P,
+		},
+	},
+	{
+		.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_YUYV10,
+		},
+	},
+	{
+		.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_YVYU10,
+		},
+	},
+	{
+		.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_UYVY10,
+		},
+	},
+	{
+		.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_VYUY10,
+		},
+	},
+	{
+		.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_YUYV10P,
+		},
+	},
+	{
+		.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_YVYU10P,
+		},
+	},
+	{
+		.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_UYVY10P,
+		},
+	},
+	{
+		.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_VYUY10P,
+		},
+	},
+};
+
+static const struct v4l2_format rss_2_out_fmts[] = {
+	/* This is a default image format */
+	{
+		.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_GREY,
+		},
+	},
+};
+
+static const struct v4l2_format crz_1_out_fmts[] = {
+	/* This is a default image format */
+	{
+		.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_YUYV,
+		},
+	},
+	{
+		.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_YVYU,
+		},
+	},
+	{
+		.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_NV16,
+		},
+	},
+	{
+		.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_NV61,
+		},
+	},
+};
+
+static const struct v4l2_format crz_2_out_fmts[] = {
+	/* This is a default image format */
+	{
+		.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_YUYV,
+		},
+	},
+	{
+		.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_YVYU,
+		},
+	},
+};
+
+#define MTK_RAW_TOTAL_OUTPUT_QUEUES 3
 
 static const struct
 mtk_cam_dev_node_desc output_queues[] = {
@@ -1844,32 +2091,6 @@ mtk_cam_dev_node_desc output_queues[] = {
 		},
 	},
 	{
-		.id = MTK_RAW_UFDI_2_IN,
-		.name = "ufdi 2",
-		.cap = V4L2_CAP_VIDEO_OUTPUT_MPLANE,
-		.buf_type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
-		.link_flags = 0,
-		.image = true,
-		.smem_alloc = false,
-		.dma_port = MTKCAM_IPI_RAW_UFDI_2,
-		.fmts = stream_out_fmts,
-		.num_fmts = ARRAY_SIZE(stream_out_fmts),
-		.default_fmt_idx = 0,
-		.ioctl_ops = &mtk_cam_v4l2_vcap_ioctl_ops,
-		.frmsizes = &(struct v4l2_frmsizeenum) {
-			.index = 0,
-			.type = V4L2_FRMSIZE_TYPE_CONTINUOUS,
-			.stepwise = {
-				.max_width = IMG_MAX_WIDTH,
-				.min_width = IMG_MIN_WIDTH,
-				.max_height = IMG_MAX_HEIGHT,
-				.min_height = IMG_MIN_HEIGHT,
-				.step_height = 1,
-				.step_width = 1,
-			},
-		},
-	},
-	{
 		.id = MTK_RAW_RAWI_3_IN,
 		.name = "rawi 3",
 		.cap = V4L2_CAP_VIDEO_OUTPUT_MPLANE,
@@ -1899,14 +2120,14 @@ mtk_cam_dev_node_desc output_queues[] = {
 
 static const char *output_queue_names[RAW_PIPELINE_NUM][MTK_RAW_TOTAL_OUTPUT_QUEUES] = {
 	{"mtk-cam raw-0 meta-input", "mtk-cam raw-0 rawi-2",
-	 "mtk-cam raw-0 ufdi-2", "mtk-cam raw-0 rawi-3"},
+	 "mtk-cam raw-0 rawi-3"},
 	{"mtk-cam raw-1 meta-input", "mtk-cam raw-1 rawi-2",
-	 "mtk-cam raw-1 ufdi-2", "mtk-cam raw-1 rawi 3"},
+	 "mtk-cam raw-1 rawi 3"},
 	{"mtk-cam raw-2 meta-input", "mtk-cam raw-2 rawi-2",
-	 "mtk-cam raw-2 ufdi-2", "mtk-cam raw-2 rawi-3"},
+	 "mtk-cam raw-2 rawi-3"},
 };
 
-#define MTK_RAW_TOTAL_CAPTURE_QUEUES 15
+#define MTK_RAW_TOTAL_CAPTURE_QUEUES 10
 
 static const struct
 mtk_cam_dev_node_desc capture_queues[] = {
@@ -1919,32 +2140,6 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		.image = true,
 		.smem_alloc = false,
 		.dma_port = MTKCAM_IPI_RAW_IMGO,
-		.fmts = stream_out_fmts,
-		.num_fmts = ARRAY_SIZE(stream_out_fmts),
-		.default_fmt_idx = 0,
-		.ioctl_ops = &mtk_cam_v4l2_vcap_ioctl_ops,
-		.frmsizes = &(struct v4l2_frmsizeenum) {
-			.index = 0,
-			.type = V4L2_FRMSIZE_TYPE_CONTINUOUS,
-			.stepwise = {
-				.max_width = IMG_MAX_WIDTH,
-				.min_width = IMG_MIN_WIDTH,
-				.max_height = IMG_MAX_HEIGHT,
-				.min_height = IMG_MIN_HEIGHT,
-				.step_height = 1,
-				.step_width = 1,
-			},
-		},
-	},
-	{
-		.id = MTK_RAW_UFEO_OUT,
-		.name = "ufeo",
-		.cap = V4L2_CAP_VIDEO_CAPTURE_MPLANE,
-		.buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
-		.link_flags = 0,
-		.image = true,
-		.smem_alloc = false,
-		.dma_port = MTKCAM_IPI_RAW_UFEO,
 		.fmts = stream_out_fmts,
 		.num_fmts = ARRAY_SIZE(stream_out_fmts),
 		.default_fmt_idx = 0,
@@ -1989,32 +2184,6 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		},
 	},
 	{
-		.id = MTK_RAW_UFGO_OUT,
-		.name = "ufgo",
-		.cap = V4L2_CAP_VIDEO_CAPTURE_MPLANE,
-		.buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
-		.link_flags = 0,
-		.image = true,
-		.smem_alloc = false,
-		.dma_port = MTKCAM_IPI_RAW_UFGO,
-		.fmts = stream_out_fmts,
-		.num_fmts = ARRAY_SIZE(stream_out_fmts),
-		.default_fmt_idx = 0,
-		.ioctl_ops = &mtk_cam_v4l2_vcap_ioctl_ops,
-		.frmsizes = &(struct v4l2_frmsizeenum) {
-			.index = 0,
-			.type = V4L2_FRMSIZE_TYPE_CONTINUOUS,
-			.stepwise = {
-				.max_width = IMG_MAX_WIDTH,
-				.min_width = IMG_MIN_WIDTH,
-				.max_height = IMG_MAX_HEIGHT,
-				.min_height = IMG_MIN_HEIGHT,
-				.step_height = 1,
-				.step_width = 1,
-			},
-		},
-	},
-	{
 		.id = MTK_RAW_YUVO_OUT,
 		.name = "yuvo",
 		.cap = V4L2_CAP_VIDEO_CAPTURE_MPLANE,
@@ -2023,60 +2192,8 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		.image = true,
 		.smem_alloc = false,
 		.dma_port = MTKCAM_IPI_RAW_YUVO,
-		.fmts = stream_out_fmts,
-		.num_fmts = ARRAY_SIZE(stream_out_fmts),
-		.default_fmt_idx = 0,
-		.ioctl_ops = &mtk_cam_v4l2_vcap_ioctl_ops,
-		.frmsizes = &(struct v4l2_frmsizeenum) {
-			.index = 0,
-			.type = V4L2_FRMSIZE_TYPE_CONTINUOUS,
-			.stepwise = {
-				.max_width = IMG_MAX_WIDTH,
-				.min_width = IMG_MIN_WIDTH,
-				.max_height = IMG_MAX_HEIGHT,
-				.min_height = IMG_MIN_HEIGHT,
-				.step_height = 1,
-				.step_width = 1,
-			},
-		},
-	},
-	{
-		.id = MTK_RAW_YUVBO_OUT,
-		.name = "yuvbo",
-		.cap = V4L2_CAP_VIDEO_CAPTURE_MPLANE,
-		.buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
-		.link_flags = 0,
-		.image = true,
-		.smem_alloc = false,
-		.dma_port = MTKCAM_IPI_RAW_YUVBO,
-		.fmts = stream_out_fmts,
-		.num_fmts = ARRAY_SIZE(stream_out_fmts),
-		.default_fmt_idx = 0,
-		.ioctl_ops = &mtk_cam_v4l2_vcap_ioctl_ops,
-		.frmsizes = &(struct v4l2_frmsizeenum) {
-			.index = 0,
-			.type = V4L2_FRMSIZE_TYPE_CONTINUOUS,
-			.stepwise = {
-				.max_width = IMG_MAX_WIDTH,
-				.min_width = IMG_MIN_WIDTH,
-				.max_height = IMG_MAX_HEIGHT,
-				.min_height = IMG_MIN_HEIGHT,
-				.step_height = 1,
-				.step_width = 1,
-			},
-		},
-	},
-	{
-		.id = MTK_RAW_YUVCO_OUT,
-		.name = "yuvco",
-		.cap = V4L2_CAP_VIDEO_CAPTURE_MPLANE,
-		.buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
-		.link_flags = 0,
-		.image = true,
-		.smem_alloc = false,
-		.dma_port = MTKCAM_IPI_RAW_YUVCO,
-		.fmts = stream_out_fmts,
-		.num_fmts = ARRAY_SIZE(stream_out_fmts),
+		.fmts = yuv_out_fmts,
+		.num_fmts = ARRAY_SIZE(yuv_out_fmts),
 		.default_fmt_idx = 0,
 		.ioctl_ops = &mtk_cam_v4l2_vcap_ioctl_ops,
 		.frmsizes = &(struct v4l2_frmsizeenum) {
@@ -2127,16 +2244,16 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		.image = true,
 		.smem_alloc = false,
 		.dma_port = MTKCAM_IPI_RAW_RSSO_2,
-		.fmts = stream_out_fmts,
-		.num_fmts = ARRAY_SIZE(stream_out_fmts),
+		.fmts = rss_2_out_fmts,
+		.num_fmts = ARRAY_SIZE(rss_2_out_fmts),
 		.default_fmt_idx = 0,
 		.ioctl_ops = &mtk_cam_v4l2_vcap_ioctl_ops,
 		.frmsizes = &(struct v4l2_frmsizeenum) {
 			.index = 0,
 			.type = V4L2_FRMSIZE_TYPE_CONTINUOUS,
 			.stepwise = {
-				.max_width = IMG_MAX_WIDTH,
-				.min_width = IMG_MIN_WIDTH,
+				.max_width = RSSO_R2_MAX_WIDTH,
+				.min_width = RSSO_R2_MIN_WIDTH,
 				.max_height = IMG_MAX_HEIGHT,
 				.min_height = IMG_MIN_HEIGHT,
 				.step_height = 1,
@@ -2153,15 +2270,15 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		.image = true,
 		.smem_alloc = false,
 		.dma_port = MTKCAM_IPI_RAW_CRZO_1,
-		.fmts = stream_out_fmts,
-		.num_fmts = ARRAY_SIZE(stream_out_fmts),
+		.fmts = crz_1_out_fmts,
+		.num_fmts = ARRAY_SIZE(crz_1_out_fmts),
 		.default_fmt_idx = 0,
 		.ioctl_ops = &mtk_cam_v4l2_vcap_ioctl_ops,
 		.frmsizes = &(struct v4l2_frmsizeenum) {
 			.index = 0,
 			.type = V4L2_FRMSIZE_TYPE_CONTINUOUS,
 			.stepwise = {
-				.max_width = IMG_MAX_WIDTH,
+				.max_width = CRZO_R1_MAX_WIDTH,
 				.min_width = IMG_MIN_WIDTH,
 				.max_height = IMG_MAX_HEIGHT,
 				.min_height = IMG_MIN_HEIGHT,
@@ -2179,41 +2296,15 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		.image = true,
 		.smem_alloc = false,
 		.dma_port = MTKCAM_IPI_RAW_CRZO_2,
-		.fmts = stream_out_fmts,
-		.num_fmts = ARRAY_SIZE(stream_out_fmts),
+		.fmts = crz_2_out_fmts,
+		.num_fmts = ARRAY_SIZE(crz_2_out_fmts),
 		.default_fmt_idx = 0,
 		.ioctl_ops = &mtk_cam_v4l2_vcap_ioctl_ops,
 		.frmsizes = &(struct v4l2_frmsizeenum) {
 			.index = 0,
 			.type = V4L2_FRMSIZE_TYPE_CONTINUOUS,
 			.stepwise = {
-				.max_width = IMG_MAX_WIDTH,
-				.min_width = IMG_MIN_WIDTH,
-				.max_height = IMG_MAX_HEIGHT,
-				.min_height = IMG_MIN_HEIGHT,
-				.step_height = 1,
-				.step_width = 1,
-			},
-		},
-	},
-	{
-		.id = MTK_RAW_CRZBO_OUT,
-		.name = "crzbo",
-		.cap = V4L2_CAP_VIDEO_CAPTURE_MPLANE,
-		.buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
-		.link_flags = 0,
-		.image = true,
-		.smem_alloc = false,
-		.dma_port = MTKCAM_IPI_RAW_CRZBO,
-		.fmts = stream_out_fmts,
-		.num_fmts = ARRAY_SIZE(stream_out_fmts),
-		.default_fmt_idx = 0,
-		.ioctl_ops = &mtk_cam_v4l2_vcap_ioctl_ops,
-		.frmsizes = &(struct v4l2_frmsizeenum) {
-			.index = 0,
-			.type = V4L2_FRMSIZE_TYPE_CONTINUOUS,
-			.stepwise = {
-				.max_width = IMG_MAX_WIDTH,
+				.max_width = CRZO_R2_MAX_WIDTH,
 				.min_width = IMG_MIN_WIDTH,
 				.max_height = IMG_MAX_HEIGHT,
 				.min_height = IMG_MIN_HEIGHT,
@@ -2267,28 +2358,25 @@ mtk_cam_dev_node_desc capture_queues[] = {
 };
 
 static const char *capture_queue_names[RAW_PIPELINE_NUM][MTK_RAW_TOTAL_CAPTURE_QUEUES] = {
-	{"mtk-cam raw-0 main-stream", "mtk-cam raw-0 ufeo",
-	 "mtk-cam raw-0 packed-out", "mtk-cam raw-0 ufgo",
-	 "mtk-cam raw-0 yuvo", "mtk-cam raw-0 yuvbo",
-	 "mtk-cam raw-0 yuvc", "mtk-cam raw-0 rsso-1",
-	 "mtk-cam raw-0 rsso-2", "mtk-cam raw-0 crzo-1",
-	 "mtk-cam raw-0 crzo-2", "mtk-cam raw-0 crzbo",
+	{"mtk-cam raw-0 main-stream",
+	 "mtk-cam raw-0 packed-out",
+	 "mtk-cam raw-0 yuvo",
+	 "mtk-cam raw-0 rsso-1", "mtk-cam raw-0 rsso-2",
+	 "mtk-cam raw-0 crzo-1", "mtk-cam raw-0 crzo-2",
 	 "mtk-cam raw-0 partial-meta-0", "mtk-cam raw-0 partial-meta-1",
 	 "mtk-cam raw-0 partial-meta-2"},
-	{"mtk-cam raw-1 main-stream", "mtk-cam raw-1 ufeo",
-	 "mtk-cam raw-1 packed-out", "mtk-cam raw-1 ufgo",
-	 "mtk-cam raw-1 yuvo", "mtk-cam raw-1 yuvbo",
-	 "mtk-cam raw-1 yuvc", "mtk-cam raw-1 rsso-1",
-	 "mtk-cam raw-1 rsso-2", "mtk-cam raw-1 crzo-1",
-	 "mtk-cam raw-1 crzo-2", "mtk-cam raw-1 crzbo",
+	{"mtk-cam raw-1 main-stream",
+	 "mtk-cam raw-1 packed-out",
+	 "mtk-cam raw-1 yuvo",
+	 "mtk-cam raw-1 rsso-1", "mtk-cam raw-1 rsso-2",
+	 "mtk-cam raw-1 crzo-1", "mtk-cam raw-1 crzo-2",
 	 "mtk-cam raw-1 partial-meta-0", "mtk-cam raw-1 partial-meta-1",
 	 "mtk-cam raw-1 partial-meta-2"},
-	{"mtk-cam raw-2 main-stream", "mtk-cam raw-2 ufeo",
-	 "mtk-cam raw-2 packed-out", "mtk-cam raw-2 ufgo",
-	 "mtk-cam raw-2 yuvo", "mtk-cam raw-2 yuvbo",
-	 "mtk-cam raw-2 yuvc", "mtk-cam raw-2 rsso-1",
-	 "mtk-cam raw-2 rsso-2", "mtk-cam raw-2 crzo-1",
-	 "mtk-cam raw-2 crzo-2", "mtk-cam raw-2 crzbo",
+	{"mtk-cam raw-2 main-stream",
+	 "mtk-cam raw-2 packed-out",
+	 "mtk-cam raw-2 yuvo",
+	 "mtk-cam raw-2 rsso-1", "mtk-cam raw-2 rsso-2",
+	 "mtk-cam raw-2 crzo-1", "mtk-cam raw-2 crzo-2",
 	 "mtk-cam raw-2 partial-meta-0", "mtk-cam raw-2 partial-meta-1",
 	 "mtk-cam raw-2 partial-meta-2"}
 };
