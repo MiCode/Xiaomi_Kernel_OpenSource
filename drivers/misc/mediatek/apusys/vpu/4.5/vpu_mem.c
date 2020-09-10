@@ -116,23 +116,29 @@ static void vpu_mem_exit_v2(void)
 static int vpu_map_kva_to_sgt(
 	const char *buf, size_t len, struct sg_table *sgt);
 
-static void vpu_dump_sg(struct scatterlist *s, unsigned int nents)
+static void vpu_dump_sg(struct scatterlist *s)
 {
-	unsigned int i;
+	unsigned int i = 0;
 
 	if (!s || !vpu_debug_on(VPU_DBG_MEM))
 		return;
 
-	for (i = 0; i < nents; i++) {
-		struct page *p = sg_page(&s[i]);
-		phys_addr_t phys = page_to_phys(p);
+	while (s) {
+		struct page *p = sg_page(s);
+		phys_addr_t phys;
 
-		pr_info("%s: sg[%d]: pfn: %lx, pa: %lx, len: %lx, dma_addr: %lx\n",
+		if (!p)
+			break;
+
+		phys = page_to_phys(p);
+		pr_info("%s: s[%d]: pfn: %lx, pa: %lx, len: %lx, dma_addr: %lx\n",
 			__func__, i,
 			(unsigned long) page_to_pfn(p),
 			(unsigned long) phys,
-			(unsigned long) s[i].length,
-			(unsigned long) s[i].dma_address);
+			(unsigned long) s->length,
+			(unsigned long) s->dma_address);
+		s = sg_next(s);
+		i++;
 	}
 }
 
@@ -141,7 +147,7 @@ static void vpu_dump_sgt(struct sg_table *sgt)
 	if (!sgt || !sgt->sgl)
 		return;
 
-	vpu_dump_sg(sgt->sgl, sgt->nents);
+	vpu_dump_sg(sgt->sgl);
 }
 
 static int
