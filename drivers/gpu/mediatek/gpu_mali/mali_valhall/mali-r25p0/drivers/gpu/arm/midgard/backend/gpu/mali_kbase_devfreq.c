@@ -64,10 +64,10 @@ static int devfreq_throttle_gov_func(struct devfreq *df,
 	if (err)
 		return err;
 
-	if (!df->max_freq)
+	if (!df->scaling_max_freq)
 		*freq = UINT_MAX;
 	else
-		*freq = df->max_freq;
+		*freq = df->scaling_max_freq;
 
 
 	return 0;
@@ -87,8 +87,8 @@ static int devfreq_throttle_gov_handler(struct devfreq *devfreq,
 		devfreq_monitor_stop(devfreq);
 		break;
 
-	case DEVFREQ_GOV_INTERVAL:
-		devfreq_interval_update(devfreq, (unsigned int *)data);
+	case DEVFREQ_GOV_UPDATE_INTERVAL:
+		devfreq_update_interval(devfreq, (unsigned int *)data);
 		break;
 
 	case DEVFREQ_GOV_SUSPEND:
