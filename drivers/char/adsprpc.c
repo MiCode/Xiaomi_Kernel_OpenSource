@@ -2562,14 +2562,12 @@ static int put_args(uint32_t kernel, struct smq_invoke_ctx *ctx,
 		}
 	}
 	mutex_lock(&ctx->fl->map_mutex);
-	if (inbufs + outbufs + handles) {
-		for (i = 0; i < M_FDLIST; i++) {
-			if (!fdlist[i])
-				break;
-			if (!fastrpc_mmap_find(ctx->fl, (int)fdlist[i], 0, 0,
-						0, 0, &mmap))
-				fastrpc_mmap_free(mmap, 0);
-		}
+	for (i = 0; i < M_FDLIST; i++) {
+		if (!fdlist[i])
+			break;
+		if (!fastrpc_mmap_find(ctx->fl, (int)fdlist[i], 0, 0,
+					0, 0, &mmap))
+			fastrpc_mmap_free(mmap, 0);
 	}
 	mutex_unlock(&ctx->fl->map_mutex);
 	if (ctx->crc && crclist && rpra)
@@ -2981,13 +2979,11 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 	if (err)
 		goto bail;
 	isasyncinvoke = (ctx->asyncjob.isasyncjob ? true : false);
-	if (REMOTE_SCALARS_LENGTH(ctx->sc)) {
-		PERF(fl->profile, GET_COUNTER(perf_counter, PERF_GETARGS),
-		VERIFY(err, 0 == (err = get_args(kernel, ctx)));
-		PERF_END);
-		if (err)
-			goto bail;
-	}
+	PERF(fl->profile, GET_COUNTER(perf_counter, PERF_GETARGS),
+	VERIFY(err, 0 == (err = get_args(kernel, ctx)));
+	PERF_END);
+	if (err)
+		goto bail;
 
 	PERF(fl->profile, GET_COUNTER(perf_counter, PERF_INVARGS),
 	inv_args(ctx);
