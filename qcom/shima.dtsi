@@ -3432,7 +3432,7 @@
 		qcom,wlan-ant-switch-config = <2800000 2800000 0 0 0>;
 
 		interconnects =
-		<&aggre2_noc MASTER_PCIE_0 &aggre2_noc SLAVE_ANOC_PCIE_GEM_NOC>,
+		<&aggre1_noc MASTER_PCIE_0 &aggre1_noc SLAVE_ANOC_PCIE_GEM_NOC>,
 		<&gem_noc MASTER_ANOC_PCIE_GEM_NOC &mc_virt SLAVE_EBI1>;
 		interconnect-names = "pcie_to_memnoc", "memnoc_to_ddr";
 
