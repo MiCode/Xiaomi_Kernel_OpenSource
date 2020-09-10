@@ -2191,10 +2191,11 @@ static irqreturn_t mt6360_pmu_wdtmri_handler(int irq, void *data)
 {
 	struct mt6360_chg_info *mci = data;
 	int ret;
+	unsigned int regval;
 
 	dev_warn(mci->dev, "%s\n", __func__);
 	/* Any I2C R/W can kick watchdog timer */
-	ret = regmap_read(mci->regmap, MT6360_PMU_CHG_CTRL1, NULL);
+	ret = regmap_read(mci->regmap, MT6360_PMU_CHG_CTRL1, &regval);
 	if (ret < 0)
 		dev_err(mci->dev, "%s: kick wdt failed\n", __func__);
 	return IRQ_HANDLED;
