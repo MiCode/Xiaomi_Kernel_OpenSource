@@ -432,7 +432,7 @@ config QCOM_WCNSS_CTRL
 	  firmware to a newly booted WCNSS chip.
 
 config QCOM_DCC_V2
-       bool "Qualcomm Technologies Data Capture and Compare enigne support for V2"
+       tristate "Qualcomm Technologies Data Capture and Compare enigne support for V2"
        help
          This option enables driver for Data Capture and Compare engine. DCC
          driver provides interface to configure DCC block and read back
