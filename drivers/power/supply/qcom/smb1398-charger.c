@@ -17,9 +17,12 @@
 #include <linux/power_supply.h>
 #include <linux/regmap.h>
 #include <linux/iio/consumer.h>
+#include <linux/iio/iio.h>
+#include <linux/qti_power_supply.h>
+#include <dt-bindings/iio/qti_power_supply_iio.h>
 
 /* Status register definition */
-#define PERPH0_REVISION4		0x2603
+#define REVID_REVISION4			0x103
 
 #define INPUT_STATUS_REG		0x2609
 #define INPUT_USB_IN			BIT(1)
@@ -290,16 +293,20 @@ static const struct smb_irq smb_irqs[];
 struct smb1398_chip {
 	struct device		*dev;
 	struct regmap		*regmap;
-	struct pmic_revid_data	*pmic_rev_id;
+	u8			rev4;
 
 	struct wakeup_source	*ws;
 	struct iio_channel	*die_temp_chan;
+
+	unsigned int		nchannels;
+	struct iio_channel	**cp_slave_iio_chan_list;
+	struct iio_chan_spec	*cp_iio_chan_ids;
+	struct iio_channel	**smb5_iio_chan_list;
 
 	struct power_supply	*div2_cp_master_psy;
 	struct power_supply	*div2_cp_slave_psy;
 	struct power_supply	*pre_regulator_psy;
 	struct power_supply	*batt_psy;
-	struct power_supply	*usb_psy;
 	struct power_supply	*dc_psy;
 	struct notifier_block	nb;
 
@@ -349,6 +356,33 @@ struct smb1398_chip {
 	bool			disabled;
 };
 
+struct cp_iio_prop_channels {
+	const char *datasheet_name;
+	int channel_no;
+	enum iio_chan_type type;
+	long info_mask;
+};
+
+#define SMB1398_CHAN(_dname, _chno, _type, _mask)			\
+	{								\
+		.datasheet_name = _dname,				\
+		.channel_no = _chno,					\
+		.type = _type,						\
+		.info_mask = _mask,					\
+	},
+
+#define SMB1398_CHAN_CUR(_dname, _chno)					\
+	SMB1398_CHAN(_dname, _chno, IIO_CURRENT,			\
+		  BIT(IIO_CHAN_INFO_PROCESSED))
+
+#define SMB1398_CHAN_TEMP(_dname, _chno)				\
+	SMB1398_CHAN(_dname, _chno, IIO_TEMP,				\
+		  BIT(IIO_CHAN_INFO_PROCESSED))
+
+#define SMB1398_CHAN_INDEX(_dname, _chno)				\
+	SMB1398_CHAN(_dname, _chno, IIO_INDEX,				\
+		  BIT(IIO_CHAN_INFO_PROCESSED))
+
 static int smb1398_read(struct smb1398_chip *chip, u16 reg, u8 *val)
 {
 	int rc = 0, value = 0;
@@ -374,6 +408,77 @@ static int smb1398_masked_write(struct smb1398_chip *chip,
 				reg, val, mask, rc);
 
 	return rc;
+}
+
+enum iio_type {
+	CP_SLAVE,
+	QPNP_SMB5,
+};
+
+enum cp_slave_channels {
+	CURRENT_CAPABILITY = 0,
+	CP_ENABLE,
+	CP_INPUT_CURRENT_MAX,
+};
+
+enum smb5_iio_channels {
+	REAL_TYPE = 0,
+	ADAPTER_CC_MODE,
+	PD_CURRENT_MAX,
+	INPUT_CURRENT_SETTLED,
+	SMB_EN_MODE,
+	SMB_EN_REASON,
+};
+
+static const char * const cp_slave_iio_chans[] = {
+	[CURRENT_CAPABILITY] = "current_capability",
+	[CP_ENABLE] = "cp_enable",
+	[CP_INPUT_CURRENT_MAX] = "cp_input_current_max",
+};
+
+static const char * const cp_smb5_ext_iio_chan[] = {
+	[REAL_TYPE] = "real_type",
+	[ADAPTER_CC_MODE] = "adapter_cc_mode",
+	[PD_CURRENT_MAX] = "pd_current_max",
+	[INPUT_CURRENT_SETTLED] = "input_current_settled",
+	[SMB_EN_MODE] = "smb_en_mode",
+	[SMB_EN_REASON] = "smb_en_reason",
+};
+
+static int cp_read_iio_prop(struct smb1398_chip *chip,
+		enum iio_type type, int iio_chan_id, int *val)
+{
+	struct iio_channel *iio_chan;
+	int rc;
+
+	if (type == QPNP_SMB5) {
+		if (IS_ERR_OR_NULL(chip->smb5_iio_chan_list))
+			return -ENODEV;
+		iio_chan = chip->smb5_iio_chan_list[iio_chan_id];
+	} else {
+		pr_err_ratelimited("iio_type %d is not supported\n", type);
+		return -EINVAL;
+	}
+
+	rc = iio_read_channel_processed(iio_chan, val);
+	return rc < 0 ? rc : 0;
+}
+
+static int cp_write_iio_prop(struct smb1398_chip *chip,
+		enum iio_type type, int iio_chan_id, int val)
+{
+	struct iio_channel *iio_chan;
+
+	if (type == CP_SLAVE) {
+		if (IS_ERR_OR_NULL(chip->cp_slave_iio_chan_list))
+			return -ENODEV;
+		iio_chan = chip->cp_slave_iio_chan_list[iio_chan_id];
+	} else {
+		pr_err_ratelimited("iio_type %d is not supported\n", type);
+		return -EINVAL;
+	}
+
+	return iio_write_channel_raw(iio_chan, val);
 }
 
 static int smb1398_get_enable_status(struct smb1398_chip *chip)
@@ -674,23 +779,61 @@ static inline int calculate_div2_cp_isns_ua(int temp)
 	return (2850 * 1000 + div_s64((s64)temp * 340, 32));
 }
 
+static struct iio_channel **get_ext_channels(struct device *dev,
+		 const char *const *channel_map, int size)
+{
+	int i, rc = 0;
+	struct iio_channel **iio_ch_ext;
+
+	iio_ch_ext = devm_kcalloc(dev, size, sizeof(*iio_ch_ext), GFP_KERNEL);
+	if (!iio_ch_ext)
+		return ERR_PTR(-ENOMEM);
+
+	for (i = 0; i < size; i++) {
+		iio_ch_ext[i] = devm_iio_channel_get(dev, channel_map[i]);
+
+		if (IS_ERR(iio_ch_ext[i])) {
+			rc = PTR_ERR(iio_ch_ext[i]);
+			if (rc != -EPROBE_DEFER)
+				dev_err(dev, "%s channel unavailable, %d\n",
+						channel_map[i], rc);
+			return ERR_PTR(rc);
+		}
+	}
+
+	return iio_ch_ext;
+}
+
 static bool is_cps_available(struct smb1398_chip *chip)
 {
-	if (chip->div2_cp_slave_psy)
-		return true;
+	int rc = 0;
+	struct iio_channel **iio_list;
 
-	chip->div2_cp_slave_psy = power_supply_get_by_name("cp_slave");
-	if (chip->div2_cp_slave_psy)
-		return true;
+	if (IS_ERR(chip->cp_slave_iio_chan_list))
+		return false;
 
-	return false;
+	if (!chip->cp_slave_iio_chan_list) {
+		iio_list = get_ext_channels(chip->dev,
+			cp_slave_iio_chans, ARRAY_SIZE(cp_slave_iio_chans));
+		if (IS_ERR(iio_list)) {
+			rc = PTR_ERR(iio_list);
+			if (rc != -EPROBE_DEFER) {
+				dev_err(chip->dev, "Failed to get channels, rc=%d\n",
+						rc);
+				chip->cp_slave_iio_chan_list = ERR_PTR(-EINVAL);
+			}
+			return false;
+		}
+		chip->cp_slave_iio_chan_list = iio_list;
+	}
+
+	return true;
 }
 
 static int smb1398_div2_cp_get_master_isns(
 		struct smb1398_chip *chip, int *isns_ua)
 {
-	union power_supply_propval pval = {0};
-	int rc = 0, temp;
+	int rc = 0, temp, val;
 
 	rc = smb1398_get_enable_status(chip);
 	if (rc < 0)
@@ -710,9 +853,9 @@ static int smb1398_div2_cp_get_master_isns(
 	 */
 	mutex_lock(&chip->die_chan_lock);
 	if (is_cps_available(chip)) {
-		pval.intval = ISNS_MODE_OFF;
-		rc = power_supply_set_property(chip->div2_cp_slave_psy,
-				POWER_SUPPLY_PROP_CURRENT_CAPABILITY, &pval);
+		val = ISNS_MODE_OFF;
+		rc = cp_write_iio_prop(chip, CP_SLAVE,
+				CURRENT_CAPABILITY, val);
 		if (rc < 0) {
 			dev_err(chip->dev, "Couldn't set slave ISNS_MODE_OFF, rc=%d\n",
 					rc);
@@ -772,8 +915,7 @@ unlock:
 static int smb1398_div2_cp_get_slave_isns(
 		struct smb1398_chip *chip, int *isns_ua)
 {
-	union power_supply_propval pval = {0};
-	int temp = 0, rc;
+	int temp = 0, rc, val;
 
 	if (!is_cps_available(chip)) {
 		*isns_ua = 0;
@@ -804,9 +946,8 @@ static int smb1398_div2_cp_get_slave_isns(
 		goto unlock;
 	}
 
-	pval.intval = ISNS_MODE_ACTIVE;
-	rc = power_supply_set_property(chip->div2_cp_slave_psy,
-			POWER_SUPPLY_PROP_CURRENT_CAPABILITY, &pval);
+	val = ISNS_MODE_ACTIVE;
+	rc = cp_write_iio_prop(chip, CP_SLAVE, CURRENT_CAPABILITY, val);
 	if (rc < 0) {
 		dev_err(chip->dev, "Couldn't set slave ISNS_MODE_ACTIVE, rc=%d\n",
 				rc);
@@ -879,74 +1020,15 @@ static void smb1398_toggle_switcher(struct smb1398_chip *chip)
 		dev_err(chip->dev, "Couldn't disable EN_ILIM_DET, rc=%d\n", rc);
 }
 
-static enum power_supply_property div2_cp_master_props[] = {
-	POWER_SUPPLY_PROP_CP_STATUS1,
-	POWER_SUPPLY_PROP_CP_STATUS2,
-	POWER_SUPPLY_PROP_CP_ENABLE,
-	POWER_SUPPLY_PROP_CP_SWITCHER_EN,
-	POWER_SUPPLY_PROP_CP_DIE_TEMP,
-	POWER_SUPPLY_PROP_CP_ISNS,
-	POWER_SUPPLY_PROP_CP_ISNS_SLAVE,
-	POWER_SUPPLY_PROP_CP_TOGGLE_SWITCHER,
-	POWER_SUPPLY_PROP_CP_IRQ_STATUS,
-	POWER_SUPPLY_PROP_CP_ILIM,
-	POWER_SUPPLY_PROP_CHIP_VERSION,
-	POWER_SUPPLY_PROP_MODEL_NAME,
-	POWER_SUPPLY_PROP_PARALLEL_MODE,
-	POWER_SUPPLY_PROP_PARALLEL_OUTPUT_MODE,
-	POWER_SUPPLY_PROP_MIN_ICL,
-};
-
-static int div2_cp_master_get_prop_suspended(struct smb1398_chip *chip,
-				enum power_supply_property prop,
-				union power_supply_propval *val)
-{
-	switch (prop) {
-	case POWER_SUPPLY_PROP_CP_STATUS1:
-		val->intval = chip->cp_status1;
-		break;
-	case POWER_SUPPLY_PROP_CP_STATUS2:
-		val->intval = chip->cp_status2;
-		break;
-	case POWER_SUPPLY_PROP_CP_ENABLE:
-		val->intval = chip->cp_enable;
-		break;
-	case POWER_SUPPLY_PROP_CP_SWITCHER_EN:
-		val->intval = chip->switcher_en;
-		break;
-	case POWER_SUPPLY_PROP_CP_DIE_TEMP:
-		val->intval = chip->die_temp;
-		break;
-	case POWER_SUPPLY_PROP_CP_ISNS:
-		val->intval = chip->cp_isns_master;
-		break;
-	case POWER_SUPPLY_PROP_CP_ISNS_SLAVE:
-		val->intval = chip->cp_isns_slave;
-		break;
-	case POWER_SUPPLY_PROP_CP_IRQ_STATUS:
-		val->intval = chip->div2_irq_status;
-		break;
-	case POWER_SUPPLY_PROP_CP_ILIM:
-		val->intval = chip->cp_ilim;
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
 #define DEFAULT_HVDCP3_MIN_ICL_UA 1000000
 static int smb1398_div2_cp_get_min_icl(struct smb1398_chip *chip)
 {
-	union power_supply_propval pval;
-	int rc;
+	int rc, val = 0;
 
 	/* Use max(dt_min_icl, 1A) for HVDCP3 */
-	if (chip->usb_psy) {
-		rc = power_supply_get_property(chip->usb_psy,
-			POWER_SUPPLY_PROP_REAL_TYPE, &pval);
-		if (rc >= 0 && (pval.intval == POWER_SUPPLY_TYPE_USB_HVDCP_3))
+	if (!IS_ERR_OR_NULL(chip->smb5_iio_chan_list)) {
+		rc = cp_read_iio_prop(chip, QPNP_SMB5, REAL_TYPE, &val);
+		if (rc >= 0 && (val == QTI_POWER_SUPPLY_TYPE_USB_HVDCP_3))
 			return max(chip->div2_cp_min_ilim_ua,
 				DEFAULT_HVDCP3_MIN_ICL_UA);
 	}
@@ -954,173 +1036,46 @@ static int smb1398_div2_cp_get_min_icl(struct smb1398_chip *chip)
 	return chip->div2_cp_min_ilim_ua;
 }
 
+static char *div2_cp_get_model_name(struct smb1398_chip *chip)
+{
+
+	if (chip->rev4 > 2)
+		return "SMB1398_V3";
+	else if (chip->rev4 == 2)
+		return "SMB1398_V2";
+	else
+		return "SMB1398_V1";
+}
+
+static enum power_supply_property div2_cp_master_props[] = {
+	POWER_SUPPLY_PROP_MODEL_NAME,
+};
+
 static int div2_cp_master_get_prop(struct power_supply *psy,
 				enum power_supply_property prop,
 				union power_supply_propval *val)
 {
 	struct smb1398_chip *chip = power_supply_get_drvdata(psy);
-	int rc = 0, ilim_ma, temp, isns_ua;
-	u8 status;
-
-	/*
-	 * Return the cached values when the system is in suspend state
-	 * instead of reading the registers to avoid read failures.
-	 */
-	if (chip->in_suspend) {
-		rc = div2_cp_master_get_prop_suspended(chip, prop, val);
-		if (!rc)
-			return rc;
-		rc = 0;
-	}
-
-	switch (prop) {
-	case POWER_SUPPLY_PROP_CP_STATUS1:
-		rc = smb1398_div2_cp_get_status1(chip, &status);
-		if (!rc)
-			chip->cp_status1 = val->intval = status;
-		break;
-	case POWER_SUPPLY_PROP_CP_STATUS2:
-		rc = smb1398_div2_cp_get_status2(chip, &status);
-		if (!rc)
-			chip->cp_status2 = val->intval = status;
-		break;
-	case POWER_SUPPLY_PROP_CP_ENABLE:
-		rc = smb1398_get_enable_status(chip);
-		if (!rc)
-			chip->cp_enable = val->intval = chip->smb_en &&
-				!get_effective_result(
-						chip->div2_cp_disable_votable);
-		break;
-	case POWER_SUPPLY_PROP_CP_SWITCHER_EN:
-		rc = smb1398_get_enable_status(chip);
-		if (!rc)
-			val->intval = chip->switcher_en;
-		break;
-	case POWER_SUPPLY_PROP_CP_ISNS:
-		rc = smb1398_div2_cp_get_master_isns(chip, &isns_ua);
-		if (rc >= 0)
-			chip->cp_isns_master = val->intval = isns_ua;
-		break;
-	case POWER_SUPPLY_PROP_CP_ISNS_SLAVE:
-		rc = smb1398_div2_cp_get_slave_isns(chip, &isns_ua);
-		if (rc >= 0)
-			chip->cp_isns_slave = val->intval = isns_ua;
-		break;
-	case POWER_SUPPLY_PROP_CP_TOGGLE_SWITCHER:
-		val->intval = 0;
-		break;
-	case POWER_SUPPLY_PROP_CP_DIE_TEMP:
-		rc = smb1398_get_die_temp(chip, &temp);
-		if (rc >= 0) {
-			val->intval = temp;
-			if (temp <= THERMAL_SUSPEND_DECIDEGC)
-				chip->die_temp = temp;
-			else if (chip->die_temp == -ENODATA)
-				rc = -ENODATA;
-			else
-				val->intval = chip->die_temp;
-		}
-		break;
-	case POWER_SUPPLY_PROP_CP_IRQ_STATUS:
-		val->intval = chip->div2_irq_status;
-		rc = smb1398_div2_cp_get_irq_status(chip, &status);
-		if (!rc)
-			val->intval |= status;
-		break;
-	case POWER_SUPPLY_PROP_CP_ILIM:
-		if (is_cps_available(chip)) {
-			if (chip->div2_cp_ilim_votable)
-				val->intval = get_effective_result(
-						chip->div2_cp_ilim_votable);
-		} else {
-			rc = smb1398_get_iin_ma(chip, &ilim_ma);
-			if (!rc)
-				val->intval = (ilim_ma * 1000 * 100)
-							/ DIV2_ILIM_CFG_PCT;
-		}
-		chip->cp_ilim = val->intval;
-		break;
-	case POWER_SUPPLY_PROP_CHIP_VERSION:
-		val->intval = chip->pmic_rev_id->rev4;
-		break;
-	case POWER_SUPPLY_PROP_MODEL_NAME:
-		val->strval = (chip->pmic_rev_id->rev4 > 1) ? "SMB1398_V2" :
-								"SMB1398_V1";
-		break;
-	case POWER_SUPPLY_PROP_PARALLEL_MODE:
-		val->intval = chip->pl_input_mode;
-		break;
-	case POWER_SUPPLY_PROP_PARALLEL_OUTPUT_MODE:
-		val->intval = chip->pl_output_mode;
-		break;
-	case POWER_SUPPLY_PROP_MIN_ICL:
-		val->intval = smb1398_div2_cp_get_min_icl(chip);
-		break;
-	default:
-		rc = -EINVAL;
-		break;
-	}
-
-	return rc;
-}
-
-static int div2_cp_master_set_prop(struct power_supply *psy,
-				enum power_supply_property prop,
-				const union power_supply_propval *val)
-{
-	struct smb1398_chip *chip = power_supply_get_drvdata(psy);
 	int rc = 0;
 
 	switch (prop) {
-	case POWER_SUPPLY_PROP_CP_ENABLE:
-		vote(chip->div2_cp_disable_votable,
-				USER_VOTER, !val->intval, 0);
-		break;
-	case POWER_SUPPLY_PROP_CP_TOGGLE_SWITCHER:
-		if (!!val->intval)
-			smb1398_toggle_switcher(chip);
-		break;
-	case POWER_SUPPLY_PROP_CP_IRQ_STATUS:
-		chip->div2_irq_status = val->intval;
-		break;
-	case POWER_SUPPLY_PROP_CP_ILIM:
-		if (chip->div2_cp_ilim_votable)
-			vote_override(chip->div2_cp_ilim_votable, CC_MODE_VOTER,
-						(val->intval > 0), val->intval);
+	case POWER_SUPPLY_PROP_MODEL_NAME:
+		val->strval = div2_cp_get_model_name(chip);
 		break;
 	default:
-		dev_err(chip->dev, "setprop %d is not supported\n", prop);
 		rc = -EINVAL;
 		break;
 	}
 
 	return rc;
-}
-
-static int div2_cp_master_prop_is_writeable(struct power_supply *psy,
-					enum power_supply_property prop)
-{
-	switch (prop) {
-	case POWER_SUPPLY_PROP_CP_ENABLE:
-	case POWER_SUPPLY_PROP_CP_TOGGLE_SWITCHER:
-	case POWER_SUPPLY_PROP_CP_IRQ_STATUS:
-	case POWER_SUPPLY_PROP_CP_ILIM:
-		return 1;
-	default:
-		break;
-	}
-
-	return 0;
 }
 
 static struct power_supply_desc div2_cp_master_desc = {
 	.name			= "charge_pump_master",
-	.type			= POWER_SUPPLY_TYPE_CHARGE_PUMP,
+	.type			= POWER_SUPPLY_TYPE_MAINS,
 	.properties		= div2_cp_master_props,
 	.num_properties		= ARRAY_SIZE(div2_cp_master_props),
 	.get_property		= div2_cp_master_get_prop,
-	.set_property		= div2_cp_master_set_prop,
-	.property_is_writeable	= div2_cp_master_prop_is_writeable,
 };
 
 static int smb1398_init_div2_cp_master_psy(struct smb1398_chip *chip)
@@ -1149,14 +1104,6 @@ static bool is_psy_voter_available(struct smb1398_chip *chip)
 		chip->batt_psy = power_supply_get_by_name("battery");
 		if (!chip->batt_psy) {
 			dev_dbg(chip->dev, "Couldn't find battery psy\n");
-			return false;
-		}
-	}
-
-	if (!chip->usb_psy) {
-		chip->usb_psy = power_supply_get_by_name("usb");
-		if (!chip->usb_psy) {
-			dev_dbg(chip->dev, "Couldn't find USB psy\n");
 			return false;
 		}
 	}
@@ -1227,23 +1174,18 @@ err:
 
 static bool is_adapter_in_cc_mode(struct smb1398_chip *chip)
 {
-	int rc;
-	union power_supply_propval pval = {0};
+	int rc, val = 0;
 
-	if (!chip->usb_psy) {
-		chip->usb_psy = power_supply_get_by_name("usb");
-		if (!chip->usb_psy)
-			return false;
-	}
-	rc = power_supply_get_property(chip->usb_psy,
-			POWER_SUPPLY_PROP_ADAPTER_CC_MODE,
-			&pval);
+	if (IS_ERR_OR_NULL(chip->smb5_iio_chan_list))
+		return false;
+
+	rc = cp_read_iio_prop(chip, QPNP_SMB5, ADAPTER_CC_MODE, &val);
 	if (rc < 0) {
 		dev_err(chip->dev, "Couldn't get ADAPTER_CC_MODE, rc=%d\n");
-		return rc;
+		return false;
 	}
 
-	return !!pval.intval;
+	return !!val;
 }
 
 static int smb1398_awake_vote_cb(struct votable *votable,
@@ -1290,10 +1232,9 @@ static int smb1398_div2_cp_slave_disable_vote_cb(struct votable *votable,
 		void *data, int disable, const char *client)
 {
 	struct smb1398_chip *chip = (struct smb1398_chip *)data;
-	union power_supply_propval pval = {0};
 	u16 reg;
 	u8 val;
-	int rc, ilim_ua;
+	int rc, ilim_ua, value;
 
 	if (!is_cps_available(chip))
 		return -ENODEV;
@@ -1306,9 +1247,8 @@ static int smb1398_div2_cp_slave_disable_vote_cb(struct votable *votable,
 		return rc;
 	}
 
-	pval.intval = !disable;
-	rc = power_supply_set_property(chip->div2_cp_slave_psy,
-		POWER_SUPPLY_PROP_CP_ENABLE, &pval);
+	value = !disable;
+	rc = cp_write_iio_prop(chip, CP_SLAVE, CP_ENABLE, value);
 	if (rc < 0) {
 		dev_err(chip->dev, "%s slave switcher failed, rc=%d\n",
 				!!disable ? "disable" : "enable", rc);
@@ -1342,8 +1282,7 @@ static int smb1398_div2_cp_ilim_vote_cb(struct votable *votable,
 		void *data, int ilim_ua, const char *client)
 {
 	struct smb1398_chip *chip = (struct smb1398_chip *)data;
-	union power_supply_propval pval = {0};
-	int rc = 0, max_ilim_ua, min_ilim_ua;
+	int rc = 0, max_ilim_ua, min_ilim_ua, val;
 	bool slave_dis, split_ilim = false;
 
 	if (!is_psy_voter_available(chip) || chip->in_suspend)
@@ -1377,9 +1316,9 @@ static int smb1398_div2_cp_ilim_vote_cb(struct votable *votable,
 
 		if (split_ilim) {
 			ilim_ua /= 2;
-			pval.intval = ilim_ua;
-			rc = power_supply_set_property(chip->div2_cp_slave_psy,
-				POWER_SUPPLY_PROP_INPUT_CURRENT_MAX, &pval);
+			val = ilim_ua;
+			rc = cp_write_iio_prop(chip, CP_SLAVE,
+					CP_INPUT_CURRENT_MAX, val);
 			if (rc < 0)
 				dev_err(chip->dev, "Couldn't set CP slave ilim, rc=%d\n",
 						rc);
@@ -1449,7 +1388,7 @@ static int smb1398_div2_cp_create_votables(struct smb1398_chip *chip)
 	 * when SMB1398 is directly connected to VBAT.
 	 */
 	if (is_psy_voter_available(chip) &&
-		(chip->pl_output_mode != POWER_SUPPLY_PL_OUTPUT_VPH))
+		(chip->pl_output_mode != QTI_POWER_SUPPLY_PL_OUTPUT_VPH))
 		vote(chip->div2_cp_ilim_votable, FCC_VOTER, true,
 			get_effective_result(chip->fcc_votable) / 2);
 	return 0;
@@ -1459,7 +1398,7 @@ destroy:
 	return 0;
 }
 
-static irqreturn_t default_irq_handler(int irq, void *data)
+static irqreturn_t smb1398_default_irq_handler(int irq, void *data)
 {
 	struct smb1398_chip *chip = data;
 	int rc, i;
@@ -1490,44 +1429,44 @@ static const struct smb_irq smb_irqs[] = {
 	/* useful IRQs from perph0 */
 	[TEMP_SHDWN_IRQ]	= {
 		.name		= "temp-shdwn",
-		.handler	= default_irq_handler,
+		.handler	= smb1398_default_irq_handler,
 		.wake		= true,
 		.shift		= 2,
 	},
 	[DIV2_IREV_LATCH_IRQ]	= {
 		.name		= "div2-irev",
-		.handler	= default_irq_handler,
+		.handler	= smb1398_default_irq_handler,
 		.wake		= true,
 		.shift		= 3,
 	},
 	[USB_IN_UVLO_IRQ]	= {
 		.name		= "usbin-uv",
-		.handler	= default_irq_handler,
+		.handler	= smb1398_default_irq_handler,
 		.wake		= true,
 		.shift		= 1,
 	},
 	[USB_IN_OVLO_IRQ]	= {
 		.name		= "usbin-ov",
-		.handler	= default_irq_handler,
+		.handler	= smb1398_default_irq_handler,
 		.wake		= true,
 		.shift		= 1,
 	},
 	/* useful IRQs from perph1 */
 	[DIV2_ILIM_IRQ]		= {
 		.name		= "div2-ilim",
-		.handler	= default_irq_handler,
+		.handler	= smb1398_default_irq_handler,
 		.wake		= true,
 		.shift		= 6,
 	},
 	[DIV2_WIN_UV_IRQ]	= {
 		.name		= "div2-win-uv",
-		.handler	= default_irq_handler,
+		.handler	= smb1398_default_irq_handler,
 		.wake		= true,
 		.shift		= 0,
 	},
 	[DIV2_WIN_OV_IRQ]	= {
 		.name		= "div2-win-ov",
-		.handler	= default_irq_handler,
+		.handler	= smb1398_default_irq_handler,
 		.wake		= true,
 		.shift		= 0,
 	},
@@ -1611,31 +1550,29 @@ static int smb1398_request_interrupts(struct smb1398_chip *chip)
 
 static void smb1398_configure_ilim(struct smb1398_chip *chip, int mode)
 {
-	int rc;
-	union power_supply_propval pval = {0, };
+	int rc, val = 0;
 
 	/* PPS adapter reply on the current advertised by the adapter */
-	if ((chip->pl_output_mode == POWER_SUPPLY_PL_OUTPUT_VPH)
-			&& (mode == POWER_SUPPLY_CP_PPS)) {
-		rc = power_supply_get_property(chip->usb_psy,
-				POWER_SUPPLY_PROP_PD_CURRENT_MAX, &pval);
+	if ((chip->pl_output_mode == QTI_POWER_SUPPLY_PL_OUTPUT_VPH)
+			&& (mode == QTI_POWER_SUPPLY_CP_PPS)) {
+		rc = cp_read_iio_prop(chip, QPNP_SMB5, PD_CURRENT_MAX, &val);
 		if (rc < 0)
 			pr_err("Couldn't get PD CURRENT MAX rc=%d\n", rc);
 		else
 			vote(chip->div2_cp_ilim_votable, ICL_VOTER,
-					true, ILIM_FACTOR(pval.intval));
+					true, ILIM_FACTOR(val));
 	}
 
 	/* QC3.0/Wireless adapter rely on the settled AICL for USBMID_USBMID */
-	if ((chip->pl_input_mode == POWER_SUPPLY_PL_USBMID_USBMID)
-			&& (mode == POWER_SUPPLY_CP_HVDCP3)) {
-		rc = power_supply_get_property(chip->usb_psy,
-				POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED, &pval);
+	if ((chip->pl_input_mode == QTI_POWER_SUPPLY_PL_USBMID_USBMID)
+			&& (mode == QTI_POWER_SUPPLY_CP_HVDCP3)) {
+		rc = cp_read_iio_prop(chip, QPNP_SMB5, INPUT_CURRENT_SETTLED,
+			&val);
 		if (rc < 0)
 			pr_err("Couldn't get usb aicl rc=%d\n", rc);
 		else
 			vote(chip->div2_cp_ilim_votable, ICL_VOTER,
-					true, pval.intval);
+					true, val);
 	}
 }
 
@@ -1644,7 +1581,7 @@ static void smb1398_status_change_work(struct work_struct *work)
 	struct smb1398_chip *chip = container_of(work,
 			struct smb1398_chip, status_change_work);
 	union power_supply_propval pval = {0};
-	int rc;
+	int rc, val = 0;
 
 	if (!is_psy_voter_available(chip))
 		goto out;
@@ -1656,15 +1593,14 @@ static void smb1398_status_change_work(struct work_struct *work)
 	if (!is_cutoff_soc_reached(chip))
 		vote(chip->div2_cp_disable_votable, CUTOFF_SOC_VOTER, false, 0);
 
-	rc = power_supply_get_property(chip->usb_psy,
-			POWER_SUPPLY_PROP_SMB_EN_MODE, &pval);
+	rc = cp_read_iio_prop(chip, QPNP_SMB5, SMB_EN_MODE, &val);
 	if (rc < 0) {
 		dev_err(chip->dev, "Couldn't get SMB_EN_MODE, rc=%d\n", rc);
 		goto out;
 	}
 
 	/* If no CP charging started */
-	if (pval.intval != POWER_SUPPLY_CHARGER_SEC_CP) {
+	if (val != QTI_POWER_SUPPLY_CHARGER_SEC_CP) {
 		chip->cutoff_soc_checked = false;
 		vote(chip->div2_cp_slave_disable_votable, SRC_VOTER, true, 0);
 		vote(chip->div2_cp_slave_disable_votable,
@@ -1679,8 +1615,7 @@ static void smb1398_status_change_work(struct work_struct *work)
 		goto out;
 	}
 
-	rc = power_supply_get_property(chip->usb_psy,
-			POWER_SUPPLY_PROP_SMB_EN_REASON, &pval);
+	rc = cp_read_iio_prop(chip, QPNP_SMB5, SMB_EN_REASON, &val);
 	if (rc < 0) {
 		dev_err(chip->dev, "Couldn't get SMB_EN_REASON failed, rc=%d\n",
 				rc);
@@ -1690,10 +1625,10 @@ static void smb1398_status_change_work(struct work_struct *work)
 	/*
 	 * Slave SMB1398 is not required for the power-rating of QC3
 	 */
-	if (pval.intval != POWER_SUPPLY_CP_HVDCP3)
+	if (val != QTI_POWER_SUPPLY_CP_HVDCP3)
 		vote(chip->div2_cp_slave_disable_votable, SRC_VOTER, false, 0);
 
-	if (pval.intval == POWER_SUPPLY_CP_NONE) {
+	if (val == QTI_POWER_SUPPLY_CP_NONE) {
 		vote(chip->div2_cp_disable_votable, SRC_VOTER, true, 0);
 		goto out;
 	}
@@ -1705,7 +1640,7 @@ static void smb1398_status_change_work(struct work_struct *work)
 		chip->cutoff_soc_checked = true;
 	}
 
-	if (pval.intval == POWER_SUPPLY_CP_WIRELESS) {
+	if (val == QTI_POWER_SUPPLY_CP_WIRELESS) {
 		/*
 		 * Get the max output current from the wireless PSY
 		 * and set the DIV2 CP ilim accordingly
@@ -1750,7 +1685,7 @@ static void smb1398_status_change_work(struct work_struct *work)
 		goto out;
 	}
 
-	if (pval.intval == POWER_SUPPLY_CHARGE_TYPE_TAPER) {
+	if (pval.intval == POWER_SUPPLY_CHARGE_TYPE_ADAPTIVE) {
 		if (!chip->taper_work_running) {
 			chip->taper_work_running = true;
 			vote(chip->awake_votable, TAPER_VOTER, true, 0);
@@ -1774,7 +1709,6 @@ static int smb1398_notifier_cb(struct notifier_block *nb,
 
 	if (strcmp(psy->desc->name, "battery") == 0 ||
 			strcmp(psy->desc->name, "usb") == 0 ||
-			strcmp(psy->desc->name, "main") == 0 ||
 			strcmp(psy->desc->name, "cp_slave") == 0) {
 		spin_lock_irqsave(&chip->status_change_lock, flags);
 		if (!chip->status_change_running) {
@@ -1810,7 +1744,7 @@ static void smb1398_taper_work(struct work_struct *work)
 	chip->taper_entry_fv = get_effective_result(chip->fv_votable);
 	while (true) {
 		rc = power_supply_get_property(chip->batt_psy,
-				POWER_SUPPLY_PROP_CHARGE_TYPE, &pval);
+			POWER_SUPPLY_PROP_CHARGE_TYPE, &pval);
 		if (rc < 0) {
 			dev_err(chip->dev, "Couldn't get CHARGE_TYPE, rc=%d\n",
 					rc);
@@ -1828,7 +1762,7 @@ static void smb1398_taper_work(struct work_struct *work)
 			chip->taper_entry_fv = fv_uv;
 		}
 
-		if (pval.intval == POWER_SUPPLY_CHARGE_TYPE_TAPER) {
+		if (pval.intval == POWER_SUPPLY_CHARGE_TYPE_ADAPTIVE) {
 			stepper_ua = is_adapter_in_cc_mode(chip) ?
 				TAPER_STEPPER_UA_IN_CC_MODE :
 				TAPER_STEPPER_UA_DEFAULT;
@@ -1894,17 +1828,9 @@ out:
 static int smb1398_update_ovp(struct smb1398_chip *chip)
 {
 	int rc = 0;
-	u8 reg = 0;
-
-	rc = smb1398_read(chip, PERPH0_REVISION4, &reg);
-	if (rc < 0) {
-		dev_err(chip->dev,
-			"Couldn't read PERPH0_REVISION4 rc=%d\n", rc);
-		return rc;
-	}
 
 	/* Ignore for REV2 and below */
-	if (reg <= 2)
+	if (chip->rev4 <= 2)
 		return 0;
 
 	rc = smb1398_masked_write(chip, PERPH0_SSUPPLY_CFG0_REG,
@@ -1978,7 +1904,7 @@ static int smb1398_div2_cp_hw_init(struct smb1398_chip *chip)
 	if (rc < 0) {
 		pr_err("Couldn't configure IREV threshold rc=%d\n", rc);
 		return rc;
-		}
+	}
 
 	/* Initial configuration needed before enabling DIV2_CP operations */
 	rc = smb1398_masked_write(chip, MISC_DIV2_3LVL_CTRL_REG,
@@ -2055,12 +1981,12 @@ static int smb1398_div2_cp_parse_dt(struct smb1398_chip *chip)
 				&chip->cc_mode_taper_main_icl_ua);
 
 	/* Default parallel output configuration is VPH connection */
-	chip->pl_output_mode = POWER_SUPPLY_PL_OUTPUT_VPH;
+	chip->pl_output_mode = QTI_POWER_SUPPLY_PL_OUTPUT_VPH;
 	of_property_read_u32(chip->dev->of_node, "qcom,parallel-output-mode",
 			&chip->pl_output_mode);
 
 	/* Default parallel input configuration is USBMID connection */
-	chip->pl_input_mode = POWER_SUPPLY_PL_USBMID_USBMID;
+	chip->pl_input_mode = QTI_POWER_SUPPLY_PL_USBMID_USBMID;
 	of_property_read_u32(chip->dev->of_node, "qcom,parallel-input-mode",
 			&chip->pl_input_mode);
 
@@ -2070,29 +1996,14 @@ static int smb1398_div2_cp_parse_dt(struct smb1398_chip *chip)
 static int smb1398_div2_cp_master_probe(struct smb1398_chip *chip)
 {
 	int rc;
-	struct device_node *revid_dev_node;
-	struct pmic_revid_data *pmic_rev_id;
 
-	revid_dev_node = of_parse_phandle(chip->dev->of_node,
-					  "qcom,pmic-revid", 0);
-	if (!revid_dev_node) {
-		pr_err("Couldn't get revid node\n");
-		return -EINVAL;
+	rc = smb1398_read(chip, REVID_REVISION4, &chip->rev4);
+	if (rc < 0) {
+		dev_err(chip->dev,
+			"Couldn't read REVID_REVISION4 rc=%d\n", rc);
+		return rc;
 	}
 
-	pmic_rev_id = get_revid_data(revid_dev_node);
-	of_node_put(revid_dev_node);
-
-	if (IS_ERR_OR_NULL(pmic_rev_id)) {
-		/*
-		 * the revid peripheral must be registered, any failure
-		 * here only indicates that the rev-id module has not
-		 * probed yet.
-		 */
-		return -EPROBE_DEFER;
-	}
-
-	chip->pmic_rev_id = pmic_rev_id;
 	spin_lock_init(&chip->status_change_lock);
 	mutex_init(&chip->die_chan_lock);
 
@@ -2157,31 +2068,18 @@ destroy_votable:
 }
 
 static enum power_supply_property div2_cp_slave_props[] = {
-	POWER_SUPPLY_PROP_CP_ENABLE,
-	POWER_SUPPLY_PROP_INPUT_CURRENT_MAX,
-	POWER_SUPPLY_PROP_CURRENT_CAPABILITY,
+	POWER_SUPPLY_PROP_MODEL_NAME,
 };
 
 static int div2_cp_slave_get_prop(struct power_supply *psy,
 		enum power_supply_property prop,
-		union power_supply_propval *pval)
+		union power_supply_propval *val)
 {
 	struct smb1398_chip *chip = power_supply_get_drvdata(psy);
 
 	switch (prop) {
-	case POWER_SUPPLY_PROP_CP_ENABLE:
-		pval->intval = chip->switcher_en;
-		break;
-	case POWER_SUPPLY_PROP_INPUT_CURRENT_MAX:
-		pval->intval = 0;
-		if (!chip->div2_cp_ilim_votable)
-			chip->div2_cp_ilim_votable = find_votable("CP_ILIM");
-		if (chip->div2_cp_ilim_votable)
-			pval->intval = get_effective_result_locked(
-						chip->div2_cp_ilim_votable);
-		break;
-	case POWER_SUPPLY_PROP_CURRENT_CAPABILITY:
-		pval->intval = (int)chip->current_capability;
+	case POWER_SUPPLY_PROP_MODEL_NAME:
+		val->strval = div2_cp_get_model_name(chip);
 		break;
 	default:
 		dev_err(chip->dev, "read div2_cp_slave property %d is not supported\n",
@@ -2192,61 +2090,12 @@ static int div2_cp_slave_get_prop(struct power_supply *psy,
 	return 0;
 }
 
-static int div2_cp_slave_set_prop(struct power_supply *psy,
-		enum power_supply_property prop,
-		const union power_supply_propval *pval)
-{
-	struct smb1398_chip *chip = power_supply_get_drvdata(psy);
-	int ilim_ma, rc = 0;
-	enum isns_mode mode;
-
-	switch (prop) {
-	case POWER_SUPPLY_PROP_CP_ENABLE:
-		rc = smb1398_div2_cp_switcher_en(chip, !!pval->intval);
-		break;
-	case POWER_SUPPLY_PROP_INPUT_CURRENT_MAX:
-		ilim_ma = pval->intval / 1000;
-		rc = smb1398_set_iin_ma(chip, ilim_ma);
-		break;
-	case POWER_SUPPLY_PROP_CURRENT_CAPABILITY:
-		mode = (enum isns_mode)pval->intval;
-		rc = smb1398_div2_cp_isns_mode_control(chip, mode);
-		if (rc < 0)
-			return rc;
-		chip->current_capability = mode;
-		break;
-	default:
-		dev_err(chip->dev, "write div2_cp_slave property %d is not supported\n",
-				prop);
-		return -EINVAL;
-	}
-
-	return rc;
-}
-
-static int div2_cp_slave_is_writeable(struct power_supply *psy,
-		enum power_supply_property prop)
-{
-	switch (prop) {
-	case POWER_SUPPLY_PROP_CP_ENABLE:
-	case POWER_SUPPLY_PROP_INPUT_CURRENT_MAX:
-	case POWER_SUPPLY_PROP_CURRENT_CAPABILITY:
-		return 1;
-	default:
-		break;
-	}
-
-	return 0;
-}
-
 static const struct power_supply_desc div2_cps_psy_desc = {
 	.name = "cp_slave",
-	.type = POWER_SUPPLY_TYPE_PARALLEL,
+	.type = POWER_SUPPLY_TYPE_MAINS,
 	.properties = div2_cp_slave_props,
 	.num_properties = ARRAY_SIZE(div2_cp_slave_props),
 	.get_property = div2_cp_slave_get_prop,
-	.set_property = div2_cp_slave_set_prop,
-	.property_is_writeable = div2_cp_slave_is_writeable,
 };
 
 static int smb1398_init_div2_cp_slave_psy(struct smb1398_chip *chip)
@@ -2273,6 +2122,13 @@ static int smb1398_div2_cp_slave_probe(struct smb1398_chip *chip)
 {
 	int rc;
 	u8 status;
+
+	rc = smb1398_read(chip, REVID_REVISION4, &chip->rev4);
+	if (rc < 0) {
+		dev_err(chip->dev,
+			"Couldn't read REVID_REVISION4 rc=%d\n", rc);
+		return rc;
+	}
 
 	rc = smb1398_update_ovp(chip);
 	if (rc < 0) {
@@ -2415,7 +2271,7 @@ static int smb1398_create_pre_regulator_votables(struct smb1398_chip *chip)
 }
 
 static enum power_supply_property pre_regulator_props[] = {
-	POWER_SUPPLY_PROP_INPUT_CURRENT_MAX,
+	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE_MAX,
 };
@@ -2428,7 +2284,7 @@ static int pre_regulator_get_prop(struct power_supply *psy,
 	int rc, iin_ma, iout_ma, vout_mv;
 
 	switch (prop) {
-	case POWER_SUPPLY_PROP_INPUT_CURRENT_MAX:
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
 		rc = smb1398_get_iin_ma(chip, &iin_ma);
 		if (rc < 0)
 			return rc;
@@ -2473,7 +2329,7 @@ static int pre_regulator_set_prop(struct power_supply *psy,
 	int rc = 0;
 
 	switch (prop) {
-	case POWER_SUPPLY_PROP_INPUT_CURRENT_MAX:
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
 		rc = smb1398_set_iin_ma(chip, pval->intval / 1000);
 		if (rc < 0)
 			return rc;
@@ -2499,7 +2355,7 @@ static int pre_regulator_is_writeable(struct power_supply *psy,
 		enum power_supply_property prop)
 {
 	switch (prop) {
-	case POWER_SUPPLY_PROP_INPUT_CURRENT_MAX:
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		return 1;
@@ -2512,7 +2368,7 @@ static int pre_regulator_is_writeable(struct power_supply *psy,
 
 static const struct power_supply_desc pre_regulator_psy_desc = {
 	.name = "pre_regulator",
-	.type = POWER_SUPPLY_TYPE_WIRELESS,
+	.type = POWER_SUPPLY_TYPE_MAINS,
 	.properties = pre_regulator_props,
 	.num_properties = ARRAY_SIZE(pre_regulator_props),
 	.get_property = pre_regulator_get_prop,
@@ -2560,17 +2416,428 @@ static int smb1398_pre_regulator_probe(struct smb1398_chip *chip)
 	}
 
 	return 0;
+}
 
+/* master  IIO configuration */
+static const struct cp_iio_prop_channels cp_master_chans[] = {
+	SMB1398_CHAN_INDEX("cp_master_cp_status_1", PSY_IIO_CP_STATUS1)
+	SMB1398_CHAN_INDEX("cp_master_cp_status_2", PSY_IIO_CP_STATUS2)
+	SMB1398_CHAN_INDEX("cp_master_cp_enable", PSY_IIO_CP_ENABLE)
+	SMB1398_CHAN_INDEX("cp_master_cp_switcher_en", PSY_IIO_CP_SWITCHER_EN)
+	SMB1398_CHAN_TEMP("cp_master_cp_die_temp", PSY_IIO_CP_DIE_TEMP)
+	SMB1398_CHAN_CUR("cp_master_cp_isns", PSY_IIO_CP_ISNS)
+	SMB1398_CHAN_CUR("cp_master_cp_isns_slave", PSY_IIO_CP_ISNS_SLAVE)
+	SMB1398_CHAN_INDEX("cp_master_cp_toggle_switcher",
+		PSY_IIO_CP_TOGGLE_SWITCHER)
+	SMB1398_CHAN_INDEX("cp_master_cp_irq_status", PSY_IIO_IRQ_STATUS)
+	SMB1398_CHAN_CUR("cp_master_cp_ilim", PSY_IIO_CP_ILIM)
+	SMB1398_CHAN_INDEX("cp_master_chip_version", PSY_IIO_CHIP_VERSION)
+	SMB1398_CHAN_INDEX("cp_master_parallel_mode", PSY_IIO_PARALLEL_MODE)
+	SMB1398_CHAN_INDEX("cp_master_parallel_output_mode",
+		PSY_IIO_PARALLEL_OUTPUT_MODE)
+	SMB1398_CHAN_CUR("cp_master_min_icl", PSY_IIO_MIN_ICL)
+};
+
+static int cp_master_iio_set_prop(struct smb1398_chip *chip,
+	int channel, int val)
+{
+	int rc = 0;
+
+	switch (channel) {
+	case PSY_IIO_CP_ENABLE:
+		vote(chip->div2_cp_disable_votable,
+				USER_VOTER, !val, 0);
+		break;
+	case PSY_IIO_CP_TOGGLE_SWITCHER:
+		if (!!val)
+			smb1398_toggle_switcher(chip);
+		break;
+	case PSY_IIO_IRQ_STATUS:
+		chip->div2_irq_status = val;
+		break;
+	case PSY_IIO_CP_ILIM:
+		if (chip->div2_cp_ilim_votable)
+			vote_override(chip->div2_cp_ilim_votable, CC_MODE_VOTER,
+						(val > 0), val);
+		break;
+	default:
+		pr_err("get prop %d is not supported\n", channel);
+		rc = -EINVAL;
+		break;
+	}
+
+	return 0;
+}
+
+static int cp_master_iio_get_prop_in_suspend(struct smb1398_chip *chip,
+	int channel, int *val)
+{
+	switch (channel) {
+	case PSY_IIO_CP_STATUS1:
+		*val = chip->cp_status1;
+		break;
+	case PSY_IIO_CP_STATUS2:
+		*val = chip->cp_status2;
+		break;
+	case PSY_IIO_CP_ENABLE:
+		*val = chip->cp_enable;
+		break;
+	case PSY_IIO_CP_SWITCHER_EN:
+		*val = chip->switcher_en;
+		break;
+	case PSY_IIO_CP_DIE_TEMP:
+		*val = chip->die_temp;
+		break;
+	case PSY_IIO_CP_ISNS:
+		*val = chip->cp_isns_master;
+		break;
+	case PSY_IIO_CP_ISNS_SLAVE:
+		*val = chip->cp_isns_slave;
+		break;
+	case PSY_IIO_IRQ_STATUS:
+		*val = chip->div2_irq_status;
+		break;
+	case PSY_IIO_CP_ILIM:
+		*val = chip->cp_ilim;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int cp_master_iio_get_prop(struct smb1398_chip *chip,
+	int channel, int *val)
+{
+	int rc = 0, temp, isns_ua, ilim_ma;
+	u8 status;
+
+	/*
+	 * Return the cached values when the system is in suspend state
+	 * instead of reading the registers to avoid read failures.
+	 */
+
+	if (chip->in_suspend) {
+		rc = cp_master_iio_get_prop_in_suspend(chip, channel, val);
+		if (!rc)
+			return rc;
+	}
+
+	switch (channel) {
+	case PSY_IIO_CP_STATUS1:
+		rc = smb1398_div2_cp_get_status1(chip, &status);
+		if (!rc)
+			chip->cp_status1 = *val = status;
+		break;
+	case PSY_IIO_CP_STATUS2:
+		rc = smb1398_div2_cp_get_status2(chip, &status);
+		if (!rc)
+			chip->cp_status2 = *val = status;
+		break;
+	case PSY_IIO_CP_ENABLE:
+		rc = smb1398_get_enable_status(chip);
+		if (!rc)
+			chip->cp_enable = *val = chip->smb_en &&
+				!get_effective_result(
+						chip->div2_cp_disable_votable);
+		break;
+	case PSY_IIO_CP_SWITCHER_EN:
+		rc = smb1398_get_enable_status(chip);
+		if (!rc)
+			*val = chip->switcher_en;
+		break;
+	case PSY_IIO_CP_ISNS:
+		rc = smb1398_div2_cp_get_master_isns(chip, &isns_ua);
+		if (rc >= 0)
+			chip->cp_isns_master = *val = isns_ua;
+		break;
+	case PSY_IIO_CP_ISNS_SLAVE:
+		rc = smb1398_div2_cp_get_slave_isns(chip, &isns_ua);
+		if (rc >= 0)
+			chip->cp_isns_slave = *val = isns_ua;
+		break;
+	case PSY_IIO_CP_TOGGLE_SWITCHER:
+		*val = 0;
+		break;
+	case PSY_IIO_CP_DIE_TEMP:
+		rc = smb1398_get_die_temp(chip, &temp);
+		if (rc >= 0) {
+			*val = temp;
+			if (temp <= THERMAL_SUSPEND_DECIDEGC)
+				chip->die_temp = temp;
+			else if (chip->die_temp == -ENODATA)
+				rc = -ENODATA;
+			else
+				*val = chip->die_temp;
+		}
+		break;
+	case PSY_IIO_IRQ_STATUS:
+		*val = chip->div2_irq_status;
+		rc = smb1398_div2_cp_get_irq_status(chip, &status);
+		if (!rc)
+			*val |= status;
+		break;
+	case PSY_IIO_CP_ILIM:
+		if (is_cps_available(chip)) {
+			if (chip->div2_cp_ilim_votable)
+				*val = get_effective_result(
+						chip->div2_cp_ilim_votable);
+		} else {
+			rc = smb1398_get_iin_ma(chip, &ilim_ma);
+			if (!rc)
+				*val = (ilim_ma * 1000 * 100)
+							/ DIV2_ILIM_CFG_PCT;
+		}
+		chip->cp_ilim = *val;
+		break;
+	case PSY_IIO_CHIP_VERSION:
+		*val = chip->rev4;
+		break;
+	case PSY_IIO_PARALLEL_MODE:
+		*val = chip->pl_input_mode;
+		break;
+	case PSY_IIO_PARALLEL_OUTPUT_MODE:
+		*val = chip->pl_output_mode;
+		break;
+	case PSY_IIO_MIN_ICL:
+		*val = smb1398_div2_cp_get_min_icl(chip);
+		break;
+	default:
+		pr_err("get prop %d is not supported\n", channel);
+		rc = -EINVAL;
+		break;
+	}
+
+	if (rc < 0 && rc != -ENODATA) {
+		pr_err("Couldn't get prop %d rc = %d\n", channel, rc);
+		return rc;
+	}
+
+	return IIO_VAL_INT;
+}
+
+static int cp_master_write_raw(struct iio_dev *indio_dev,
+			 struct iio_chan_spec const *chan, int val, int val2,
+			 long mask)
+{
+	struct smb1398_chip *iio_chip = iio_priv(indio_dev);
+	int channel;
+
+	channel = chan->channel;
+
+	return cp_master_iio_set_prop(iio_chip, channel, val);
+}
+
+static int cp_master_read_raw(struct iio_dev *indio_dev,
+			 struct iio_chan_spec const *chan, int *val, int *val2,
+			 long mask)
+{
+	struct smb1398_chip *iio_chip = iio_priv(indio_dev);
+	int channel;
+
+	channel = chan->channel;
+
+	return cp_master_iio_get_prop(iio_chip, channel, val);
+}
+
+/* slave  IIO configuration */
+static const struct cp_iio_prop_channels cp_slave_chans[] = {
+	SMB1398_CHAN_INDEX("cp_slave_cp_enable", PSY_IIO_CP_ENABLE)
+	SMB1398_CHAN_CUR("cp_slave_input_current_max",
+		PSY_IIO_CP_INPUT_CURRENT_MAX)
+	SMB1398_CHAN_CUR("cp_slave_current_capability",
+		PSY_IIO_CURRENT_CAPABILITY)
+};
+
+static int cp_slave_iio_set_prop(struct smb1398_chip *chip,
+	int channel, int val)
+{
+	int ilim_ma, rc = 0;
+	enum isns_mode mode;
+
+	switch (channel) {
+	case PSY_IIO_CP_ENABLE:
+		rc = smb1398_div2_cp_switcher_en(chip, !!val);
+		break;
+	case PSY_IIO_CP_INPUT_CURRENT_MAX:
+		ilim_ma = val / 1000;
+		rc = smb1398_set_iin_ma(chip, ilim_ma);
+		break;
+	case PSY_IIO_CURRENT_CAPABILITY:
+		mode = (enum isns_mode)val;
+		rc = smb1398_div2_cp_isns_mode_control(chip, mode);
+		if (rc < 0)
+			return rc;
+		chip->current_capability = mode;
+		break;
+	default:
+		pr_err("get prop %d is not supported\n", channel);
+		rc = -EINVAL;
+		break;
+	}
+
+	if (rc < 0) {
+		pr_err("Couldn't set prop %d rc = %d\n", channel, rc);
+		return rc;
+	}
+
+	return 0;
+}
+
+static int cp_slave_iio_get_prop(struct smb1398_chip *chip,
+	int channel, int *val)
+{
+	int rc = 0;
+
+	switch (channel) {
+	case PSY_IIO_CP_ENABLE:
+		*val = chip->switcher_en;
+		break;
+	case PSY_IIO_CP_INPUT_CURRENT_MAX:
+		*val = 0;
+		if (!chip->div2_cp_ilim_votable)
+			chip->div2_cp_ilim_votable = find_votable("CP_ILIM");
+		if (chip->div2_cp_ilim_votable)
+			*val = get_effective_result_locked(
+						chip->div2_cp_ilim_votable);
+		break;
+	case PSY_IIO_CURRENT_CAPABILITY:
+		*val = (int)chip->current_capability;
+		break;
+	default:
+		pr_err("get prop %d is not supported\n", channel);
+		rc = -EINVAL;
+		break;
+	}
+
+	return IIO_VAL_INT;
+}
+
+static int cp_slave_write_raw(struct iio_dev *indio_dev,
+			 struct iio_chan_spec const *chan, int val, int val2,
+			 long mask)
+{
+	struct smb1398_chip *iio_chip = iio_priv(indio_dev);
+	int channel;
+
+	channel = chan->channel;
+
+	return cp_slave_iio_set_prop(iio_chip, channel, val);
+}
+
+static int cp_slave_read_raw(struct iio_dev *indio_dev,
+			 struct iio_chan_spec const *chan, int *val, int *val2,
+			 long mask)
+{
+	struct smb1398_chip *iio_chip = iio_priv(indio_dev);
+	int channel;
+
+	channel = chan->channel;
+
+	return cp_slave_iio_get_prop(iio_chip, channel, val);
+}
+
+static int cp_of_xlate(struct iio_dev *indio_dev,
+				const struct of_phandle_args *iiospec)
+{
+	struct smb1398_chip *iio_chip = iio_priv(indio_dev);
+	int i;
+	struct iio_chan_spec *iio_chan = iio_chip->cp_iio_chan_ids;
+
+	for (i = 0; i < iio_chip->nchannels; i++) {
+		if (iio_chan->channel == iiospec->args[0])
+			return i;
+		iio_chan++;
+	}
+
+	return -EINVAL;
+}
+
+static const struct iio_info cp_master_iio_info = {
+	.read_raw = cp_master_read_raw,
+	.write_raw = cp_master_write_raw,
+	.of_xlate = cp_of_xlate,
+};
+
+static const struct iio_info cp_slave_iio_info = {
+	.read_raw = cp_slave_read_raw,
+	.write_raw = cp_slave_write_raw,
+	.of_xlate = cp_of_xlate,
+};
+
+static int cp_smb5_iio_init(struct smb1398_chip *chip)
+{
+	int rc = 0;
+	struct iio_channel **iio_list;
+
+	if (IS_ERR(chip->smb5_iio_chan_list))
+		return -EINVAL;
+
+	iio_list = get_ext_channels(chip->dev,
+		cp_smb5_ext_iio_chan, ARRAY_SIZE(cp_smb5_ext_iio_chan));
+	if (IS_ERR(iio_list)) {
+		rc = PTR_ERR(iio_list);
+		if (rc != -EPROBE_DEFER) {
+			dev_err(chip->dev, "Failed to get channels, rc=%d\n",
+					rc);
+			chip->smb5_iio_chan_list = ERR_PTR(-EINVAL);
+		}
+		return rc;
+	}
+
+	chip->smb5_iio_chan_list = iio_list;
+	return 0;
+}
+
+static int cp_iio_probe_init(struct smb1398_chip *chip,
+	struct iio_dev *indio_dev, const struct cp_iio_prop_channels *cp_chans,
+	const struct iio_info *cp_iio_info)
+{
+	int i;
+	struct iio_chan_spec *iio_chan;
+
+	chip->cp_iio_chan_ids = devm_kcalloc(chip->dev, chip->nchannels,
+		sizeof(*chip->cp_iio_chan_ids), GFP_KERNEL);
+	if (!chip->cp_iio_chan_ids)
+		return -ENOMEM;
+
+	for (i = 0; i < chip->nchannels; i++) {
+		iio_chan = &chip->cp_iio_chan_ids[i];
+
+		iio_chan->channel = cp_chans[i].channel_no;
+		iio_chan->datasheet_name =
+			cp_chans[i].datasheet_name;
+		iio_chan->extend_name = cp_chans[i].datasheet_name;
+		iio_chan->info_mask_separate =
+			cp_chans[i].info_mask;
+		iio_chan->type = cp_chans[i].type;
+		iio_chan->address = i;
+	}
+
+	if (chip->div2_cp_role == DIV2_CP_MASTER) {
+		cp_smb5_iio_init(chip);
+		indio_dev->name = "smb1396-div2-cp-master";
+	} else {
+		indio_dev->name = "smb1396-div2-cp-slave";
+	}
+
+	indio_dev->info = cp_iio_info;
+
+	return 0;
 }
 
 static int smb1398_probe(struct platform_device *pdev)
 {
 	struct smb1398_chip *chip;
+	struct iio_dev *indio_dev;
 	int rc = 0;
 
-	chip = devm_kzalloc(&pdev->dev, sizeof(*chip), GFP_KERNEL);
-	if (!chip)
+	indio_dev = devm_iio_device_alloc(&pdev->dev, sizeof(*chip));
+	if (!indio_dev)
 		return -ENOMEM;
+
+	chip = iio_priv(indio_dev);
 
 	chip->die_temp = -ENODATA;
 	chip->dev = &pdev->dev;
@@ -2585,10 +2852,26 @@ static int smb1398_probe(struct platform_device *pdev)
 	chip->div2_cp_role = (int)of_device_get_match_data(chip->dev);
 	switch (chip->div2_cp_role) {
 	case DIV2_CP_MASTER:
+		chip->nchannels = ARRAY_SIZE(cp_master_chans);
 		rc = smb1398_div2_cp_master_probe(chip);
+		if (rc < 0) {
+			if (rc != -EPROBE_DEFER)
+				dev_err(chip->dev, "Couldn't probe SMB1398 master rc= %d\n",
+					rc);
+			goto cleanup;
+		}
+		rc = cp_iio_probe_init(chip, indio_dev, cp_master_chans, &cp_master_iio_info);
 		break;
 	case DIV2_CP_SLAVE:
+		chip->nchannels = ARRAY_SIZE(cp_slave_chans);
 		rc = smb1398_div2_cp_slave_probe(chip);
+		if (rc < 0) {
+			if (rc != -EPROBE_DEFER)
+				dev_err(chip->dev, "Couldn't probe SMB1398 slave rc= %d\n",
+					rc);
+			goto cleanup;
+		}
+		rc = cp_iio_probe_init(chip, indio_dev, cp_slave_chans, &cp_slave_iio_info);
 		break;
 	case COMBO_PRE_REGULATOR:
 		rc = smb1398_pre_regulator_probe(chip);
@@ -2601,8 +2884,27 @@ static int smb1398_probe(struct platform_device *pdev)
 
 	if (rc < 0) {
 		if (rc != -EPROBE_DEFER)
-			dev_err(chip->dev, "Couldn't probe SMB1398 %s rc= %d\n",
+			dev_err(chip->dev, "IIO init failed for %s rc= %d\n",
 				!!chip->div2_cp_role ? "slave" : "master", rc);
+		goto cleanup;
+	}
+
+	/*
+	 * This configuration below is applicable to both
+	 * master and slave. The individual channel
+	 * configurations are done in master/slave
+	 * iio_probe_init calls.
+	 */
+
+	indio_dev->dev.parent = &pdev->dev;
+	indio_dev->dev.of_node = pdev->dev.of_node;
+	indio_dev->modes = INDIO_DIRECT_MODE;
+	indio_dev->channels = chip->cp_iio_chan_ids;
+	indio_dev->num_channels = chip->nchannels;
+
+	rc = devm_iio_device_register(&pdev->dev, indio_dev);
+	if (rc) {
+		pr_err("iio device register failed rc=%d\n", rc);
 		goto cleanup;
 	}
 
