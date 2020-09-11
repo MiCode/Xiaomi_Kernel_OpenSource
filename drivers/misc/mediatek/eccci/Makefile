@@ -22,7 +22,6 @@ endif
 ifneq ($(CCCI_OBJ), n)
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/inc/
-#ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/$(MTK_PLATFORM)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/mt6873
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/ccmni/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/conn_md/include/
@@ -163,7 +162,6 @@ obj-$(CCCI_OBJ) += port/
 obj-$(CCCI_OBJ) += udc/
 
 # platform code
-#obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 obj-$(CCCI_OBJ) += mt6873/
 
 endif
