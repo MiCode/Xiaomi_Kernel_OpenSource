@@ -1,0 +1,8 @@
+config MTK_EMI_MPU
+	bool "enable MTK_EMI_MPU"
+	default n
+	help
+	  This config enable/disable EMI MPU Driver.
+	  EMI MPU driver is used to protect some memory regions.
+	  It can set protected start/end address of the memory region,
+	  and access permission of all domains for that region.

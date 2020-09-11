@@ -1,0 +1,56 @@
+config MFD_MT6360_PMU
+	bool "Support for MT6360 PMU part"
+	depends on I2C
+	select MFD_CORE
+	select RT_REGMAP
+	help
+	  This selects for MediaTek(R) Sub PMIC MT6360 PMU parts.
+	  It's cordinate some features like
+	  fled, rgbled, charger.
+	  Select Y to enable support for MT6360 PMU.
+
+config MT6360_PMU_CHARGER
+	bool "MT6360 PMU Charger Part"
+	depends on MFD_MT6360_PMU
+	help
+	  This selects for MT6360 PMU Charger driver.
+	  Usually used in primary charger by gauge and thermal.
+	  Depends on MFD_MT6360_PMU.
+	  Say Y here to enable support for MT6360 charger device.
+
+config MT6360_PMU_CHARGER_TYPE_DETECT
+	bool "MT6360 PMU Charger Type Detect"
+	depends on MT6360_PMU_CHARGER
+	depends on MTK_EXTERNAL_CHARGER_TYPE_DETECT
+	default MTK_EXTERNAL_CHARGER_TYPE_DETECT
+	help
+	  Depends on enable MT6360 PMU Charger
+	  Say Y here to enable support for
+	  MT6360 charger type detect instead of using PMIC.
+
+config MT6360_PMU_FLED
+	bool "MT6360 PMU FLED Part"
+	depends on LEDS_CLASS && MFD_MT6360_PMU
+	select RT_FLASHLIGHT
+	help
+	  This selects for MT6360 PMU Flashlight LED driver.
+	  Support Normal/Strobe/Torch mode by camera.
+	  Say Y here to enable support for
+	  MT6360 flashlight LED device.
+
+config MT6360_PMU_RGBLED
+	bool "MT6360 PMU RGBLED Part"
+	depends on LEDS_CLASS && MFD_MT6360_PMU
+	help
+	  Support four channels and cc/pwm/breath mode.
+	  Isink4 can also use as CHG_VIN power good Indicator.
+	  Say Y here to enable support for
+	  MT6360 RGB LED device.
+
+config MT6360_PMU_DEBUG
+	bool "MT6360 PMU Debug Part"
+	depends on MFD_MT6360_PMU
+	help
+	  Thsis is a debug feature.
+	  Say Y here to enable support for
+	  enhance MT6360 debug message to issue clarify

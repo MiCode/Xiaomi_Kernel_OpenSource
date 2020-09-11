@@ -1,0 +1,5 @@
+config MTK_HWMON
+	bool "MTK HWMON Config"
+	default n
+	help
+	  CONFIG_MTK_HWMON for sensor common util

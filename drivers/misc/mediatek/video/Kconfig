@@ -1,0 +1,169 @@
+menuconfig MTK_FB
+	bool "MediaTek Framebuffer Driver"
+	depends on FB
+	select FB_CFB_FILLRECT
+	select FB_CFB_COPYAREA
+	select FB_CFB_IMAGEBLIT
+	select FB_SOFT_CURSOR
+	---help---
+	  This selects the MediaTek(R) frame buffer driver.
+	  Meditek Framebuffer Driver is driver display.
+	  If you want to use MediaTek(R) frame buffer diver, please make sure it is Y in xxx_defconfig.mk.
+	  If unsure, set N in xxx_defconfig.mk.
+
+config MTK_VIDEOX
+	bool "enable medietak display driver"
+	default n
+	help
+	  define CONFIG_MTK_VIDEOX to enable Mediatek display driver.
+	  MTK_VIDEOX design meditek display driver.
+	  If you want to use Meditek display driver, please make sure it is Y in xxx_defconfig.mk.
+	  If unsure, set N.
+
+config MTK_LCM_PHYSICAL_ROTATION
+	string "define LCM PHYSICAL ROTATION"
+	help
+	  To set the angle between dimension of UI layout and LCM scan direction.
+	  If you want to use rotation in LCM, please define it is set in xxx_defconfig.mk.
+	  MTK_LCM_PHYSICAL_ROTATION=0 means not rotation.
+	  MTK_LCM_PHYSICAL_ROTATION=180 means 180 rotation.
+
+config MTK_LCM_PHYSICAL_ROTATION_HW
+	bool "Rotate LCM display for 180 degree using HW"
+	default n
+	help
+	  Rotate LCM display for 180 degree using mediatek
+	  hardware engine.
+	  Enable it when LCM hardware is intalled upside down,
+	  and you need to rotate the display content to adapting.
+
+config MTK_ROUND_CORNER_SUPPORT
+	bool "enable medietak display round corner"
+	default n
+	help
+	  define CONFIG_MTK_ROUND_CORNER_SUPPORT to enable Mediatek Round Corner on display.
+	  If you want to use Meditek Round Corner on display, please make sure it is Y in xxx_defconfig.mk.
+	  This feature require round corner pattern provided in lcm driver folder.
+	  If unsure, set N.
+
+config LCM_HEIGHT
+	string "define LCM HEIGHT size"
+	default "1920"
+	help
+	  To set LCM resolution height size.
+	  This define is in ProjectConfig.mk.
+	  LCM height can be set 1024/1920/680 etc.
+	  If you want to change LCM height, please define it in ProjectConfig.mk.
+
+config LCM_WIDTH
+	string "LCM width size"
+	default "1080"
+	help
+	  To set LCM resolution width size.
+	  This define is in ProjectConfig.mk.
+	  LCM width can be set 1080/480/400 etc.
+	  If you want to change LCM width, please define it in ProjectConfig.mk.
+
+config CUSTOM_LCM_X
+	string "define LCM fake X coordinate"
+	default "0"
+	help
+	  To set X coordinate in WHD.
+	  This define in xxxx_defconfig.mk.
+	  If you want to change LCM resolution, please set it.
+	  default value is "0".
+
+config CUSTOM_LCM_Y
+	string "define LCM fake Y coordinate"
+	default "0"
+	help
+	  To set Y coordinate in WHD.
+	  This define in xxx_defconfig.mk.
+	  If you want to change LCM resolution, please set it.
+	  defaule value is "0".
+
+config MTK_ROUND_CORNER_SUPPORT
+        bool "enable medietak display round corner"
+        default n
+        help
+          define CONFIG_MTK_ROUND_CORNER_SUPPORT to enable Mediatek Round Corner on display.
+          If you want to use Meditek Round Corner on display, please make sure it is Y in xxx_defconfig.mk.
+	  This feature require round corner pattern provided in lcm driver folder.
+          If unsure, set N.
+
+config MTK_FB_SUPPORT_ASSERTION_LAYER
+	bool "AEE Assertion Layer Support"
+	depends on MTK_FB
+	select FONT_SUPPORT
+	select FONT_8x16
+	default y
+	---help---
+	  This enable support for AEE assertion layer.
+	  It define in xxx_defconfig.mk.
+	  If you want to enable AEE assertion layer support, say Y here.
+	  If unsure, say N.
+
+config MTK_AAL_SUPPORT
+	bool "support AAL"
+	default n
+	help
+	  Decide whether to support ambient-light adaptive luma and
+	  display visual enhancement.
+	  This feature requires the cowork of AAL user-space algorithm process.
+	  Please also turn on MTK_AAL_SUPPORT in ProjectConfig.mk.
+
+config MTK_OD_SUPPORT
+	bool "support od"
+	default n
+	help
+	  Over drive LCD to enhance the response time.
+	  On high frame rate (e.g. 120Hz) platform, the LCD response time is
+	  not short enough to display clear moving objects.
+	  This feature allows to speed up the change time of each pixels.
+	  MUST fill the over-drive table correctly according to LCD property.
+
+config SINGLE_PANEL_OUTPUT
+	bool "support single panel output"
+	default n
+	help
+	  Decide whether to support single panel display feature.
+	  Panel and tv can't not display at the same time.
+	  When hdmi plug in, only show display in tv, panle will be black screen.
+	  And when hdmi plug out, panel will resume.
+
+config MTK_OVERLAY_ENGINE_SUPPORT
+	bool "support overlay time division multiplex"
+	default n
+	help
+	  This enable support overlay time division multiplex.
+	  This enable means support overlay engine.
+	  If you want display support Overlay time division mulptiplex, set Y in xxx_defconfig.mk.
+	  If unsure, set N.
+
+config MTK_CONSUMER_PARTIAL_UPDATE_SUPPORT
+	bool "support partial update"
+	default n
+	help
+	  This enable support display partial support.
+	  Define it means display driver support partial update.
+	  If you want to support partial update, please set Y in xxx_defconfig.mk.
+	  If unsure, set N.
+
+config MTK_PQ_COLOR_MODE
+	string "Config PQ_COLOR_MODE (MDP & DISP COLOR on/off)"
+	default "DISP"
+	help
+	  This control mdp color on/off and disp color on/off
+	  if value equals to DISP, only display color is on.
+	  if value equals to MDP, only mdp color is on.
+	  if value equals to DISP_MDP, mdp and display color are both on.
+	  if value equals to OFF, mdp and display color are both off.
+
+config MTK_DRE30_SUPPORT
+	bool "support DRE 30"
+	default n
+	help
+	  Decide whether to support ambient-light adaptive luma and
+	  display visual enhancement ver.3.
+	  This feature requires the cowork of AAL user-space algorithm process.
+	  Please also turn on MTK_AAL_SUPPORT amd MTK_DRE30_SUPPORT in ProjectConfig.mk.

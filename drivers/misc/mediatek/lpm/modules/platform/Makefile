@@ -1,0 +1,2 @@
+obj-$(CONFIG_MTK_LPM_MT6885) += mt6885/
+obj-$(CONFIG_MTK_LPM_MT6873) += mt6873/

@@ -1,0 +1,3 @@
+source "drivers/misc/mediatek/pmic/mt6360/pmu/Kconfig"
+source "drivers/misc/mediatek/pmic/mt6360/pmic/Kconfig"
+source "drivers/misc/mediatek/pmic/mt6360/ldo/Kconfig"

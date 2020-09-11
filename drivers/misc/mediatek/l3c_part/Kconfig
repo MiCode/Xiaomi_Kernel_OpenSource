@@ -1,0 +1,7 @@
+config MTK_L3C_PART
+	tristate "MediaTek L3C partition driver"
+	---help---
+	  This enable the MediaTek(R) L3C partition driver.
+	  Include the L3C partition init and provide the
+	  partition setting API to adjust the partition of
+	  APMCU port and ACP port.

@@ -1,0 +1,435 @@
+/*
+this file is only for attribution of begonia
+*/
+#include "xiaomi-mt6875-common.dtsi"
+
+&lk_charger {
+	max_charger_voltage = <14500000>;
+
+	/* charging current */
+	usb_charger_current = <500000>;
+	ac_charger_current = <1500000>;
+	ac_charger_input_current = <1500000>;
+	non_std_ac_charger_current = <1000000>;
+	charging_host_charger_current = <1500000>;
+	ta_ac_charger_current = <1500000>;
+	pd_charger_current = <1500000>;
+};
+
+&charger {
+	algorithm_name = "SwitchCharging2";
+
+	battery_cv = <4460000>;
+
+	/* vote */
+	enable_vote;
+	enable_cv_step;
+	step_a = <4250000>;
+	step_b = <4450000>;
+	current_a = <5400000>;
+	current_b = <3536000>;
+	current_max = <6000000>;
+	step_hy_down_a = <150000>;
+	step_hy_down_b = <150000>;
+
+	/* ffc */
+	enable_ffc;
+	non_ffc_ieoc = <200000>;
+	non_ffc_cv = <4450000>;
+	ffc_ieoc = <550000>;
+	ffc_cv = <4480000>;
+
+	/* battery verify */
+	mi,fcc-batt-unverify-ua = <2000000>;
+
+	enable_sw_jeita;
+	/* sw jeita */
+	jeita_temp_above_t4_cv = <4100000>;
+	jeita_temp_t3_to_t4_cv = <4100000>;
+	jeita_temp_t2_to_t3_cv = <4450000>;
+	jeita_temp_t1p5_to_t2_cv = <4450000>;
+	jeita_temp_t1_to_t1p5_cv = <4450000>;
+	jeita_temp_t0_to_t1_cv = <4450000>;
+	jeita_temp_tn1_to_t0_cv = <4450000>;
+	jeita_temp_below_t0_cv = <4450000>;
+	temp_t4_thres = <60>;
+	temp_t4_thres_minus_x_degree = <58>;
+	temp_t3_thres = <48>;
+	temp_t3_thres_minus_x_degree = <47>;
+	temp_t2_thres = <15>;
+	temp_t2_thres_plus_x_degree = <13>;
+	temp_t1p5_thres = <10>;
+	temp_t1p5_thres_plus_x_degree = <8>;
+	temp_t1_thres = <5>;
+	temp_t1_thres_plus_x_degree = <2>;
+	temp_t0_thres = <0>;
+	temp_t0_thres_plus_x_degree = <(-2)>;
+	temp_tn1_thres = <(-10)>;
+	temp_tn1_thres_plus_x_degree = <(-10)>;
+	temp_neg_10_thres = <(-10)>;
+	temp_t3_to_t4_fcc = <2210000>;
+	temp_t2_to_t3_fcc = <6000000>;
+	temp_t1p5_to_t2_fcc = <3536000>;
+	temp_t1_to_t1p5_fcc = <2210000>;
+	temp_t0_to_t1_fcc = <884000>;
+	temp_tn1_to_t0_fcc = <442000>;
+	/* battery temperature protection */
+	enable_min_charge_temp;
+	min_charge_temp = <0>;
+	min_charge_temp_plus_x_degree = <2>;
+	max_charge_temp = <60>;
+	max_charge_temp_minus_x_degree = <58>;
+
+	qcom,thermal-mitigation-dcp
+		= <1600000 1600000 1600000 1600000 1600000 1600000 1600000
+		1600000 1600000 1600000 1600000 1600000 1500000 1400000
+		1200000 1000000>;
+	qcom,thermal-mitigation-qc3p5
+		= <4500000 4200000 4000000 3800000 3600000 3400000 3200000
+		3100000 3000000 2800000 2600000 2400000 2200000 2000000
+		1000000 700000>;
+	qcom,thermal-mitigation-qc3
+		= <3600000 3600000 3600000 3500000 3400000 3300000 3200000
+		3100000 3000000 2800000 2600000 2400000 2200000 2000000
+		1000000 700000>;
+	qcom,thermal-mitigation-qc3-classb
+		= <5100000 4700000 4300000 4000000 3600000 3500000 3400000
+		3400000 3400000 3200000 2500000 2200000 2000000 1300000
+		1000000 700000>;
+	qcom,thermal-mitigation-qc2
+		= <1500000 1500000 1500000 1500000 1500000 1500000 1400000
+		1300000 1200000 1100000 1000000 900000 800000 700000
+		600000 500000>;
+	qcom,thermal-mitigation-pd-base
+		= <6000000 5200000 5000000 4400000 4100000 4000000 3500000
+		3100000 3000000 2800000 2600000 2400000 2200000 2000000
+		1000000 700000>;
+
+	/* enable_pe_plus; */
+	/* enable_pe_2; */
+	bc12_charger = <1>;
+
+	charging_host_charger_current = <1500000>;
+	/* common */
+	max_charger_voltage = <14500000>;
+
+	/* xiaomi pps */
+	xm_pps_single_charger_input_current = <3000000>;
+	xm_pps_single_charger_current = <6000000>;
+	xm_pps_dual_charger_input_current = <3000000>;
+	xm_pps_dual_charger_chg1_current = <500000>;
+	xm_pps_dual_charger_chg2_current = <2500000>;
+	xm_pps_max_vbus = <12000000>;
+	xm_pps_max_ibus = <3000000>;
+	xm_pps_single_charger_current_non_verified_pps = <4800000>;
+
+	/* PD */
+	pd_vbus_upper_bound = <9000000>;
+	ac_charger_input_current = <1500000>;
+	/* float charger */
+	non_std_ac_charger_current = <1000000>;
+	/* default ac charger charge current */
+	ac_charger_current = <2000000>;
+
+	use_xmusb350_do_apsd;
+
+	qcom,soc_decimal_rate = <
+		0	38
+		10	35
+		20	33
+		30	33
+		40	33
+		50	33
+		60	33
+		70	33
+		80	25
+		90	20
+		95	10
+		99	5	>;
+};
+
+&mt6360_pmu {
+	chg {
+		cv = <4460000>;			/* uA */
+		ieoc = <200000>;		/* uA */
+		ircmp_resistor = <25000>;		/* uohm */
+		ircmp_vclamp = <32000>;		/* uV */
+	};
+};
+
+&odm {
+	simtray {
+		compatible = "xiaomi,simtray-status";
+		status-gpio =	<&pio 43 0>;
+	};
+};
+
+&pio {
+	/* bq25970 */
+	bq2597x_int_default: bq2597x_int_default {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO3__FUNC_GPIO3>;
+			slew-rate = <0>;
+			bias-pull-up = <11>;
+		};
+	};
+
+	bq2597x_int_suspend: bq2597x_int_suspend {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO3__FUNC_GPIO3>;
+			slew-rate = <0>;
+			bias-pull-up = <11>;
+		};
+	};
+
+	/* xmusb350 */
+	xmusb350_int_normal: xmusb350_int_normal {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO1__FUNC_GPIO1>;
+			slew-rate = <0>;
+			bias-pull-up = <11>;
+			input-enable;
+		};
+	};
+
+	xmusb350_int_isp: xmusb350_int_isp {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO1__FUNC_GPIO1>;
+			slew-rate = <0>;
+			bias-pull-up = <11>;
+			input-enable;
+		};
+	};
+
+	xmusb350_rst_normal: xmusb350_rst_normal {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO126__FUNC_GPIO126>;
+			slew-rate = <1>;
+			bias-disable;
+			output-low;
+		};
+	};
+
+	xmusb350_rst_isp: xmusb350_rst_isp {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO126__FUNC_GPIO126>;
+			slew-rate = <1>;
+			bias-disable;
+			output-low;
+		};
+	};
+
+	xmusb350_sda_normal: xmusb350_sda_normal {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO121__FUNC_SDA9>;
+			slew-rate = <0>;
+			bias-pull-up = <11>;
+			input-enable;
+		};
+	};
+
+	xmusb350_sda_isp: xmusb350_sda_isp {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO121__FUNC_GPIO121>;
+			slew-rate = <1>;
+			bias-disable;
+			output-low;
+		};
+	};
+
+	xmusb350_scl_normal: xmusb350_scl_normal {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO120__FUNC_SCL9>;
+			slew-rate = <0>;
+			bias-pull-up = <11>;
+			input-enable;
+		};
+	};
+
+	xmusb350_scl_isp: xmusb350_scl_isp {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO120__FUNC_GPIO120>;
+			slew-rate = <1>;
+			bias-disable;
+			output-low;
+		};
+	};
+};
+
+&i2c9 {
+	clock-frequency = <100000>;
+	bq2597x-standalone@66 {
+		compatible = "ti,bq2597x-standalone";
+		reg = <0x66>;
+		interrupt-parent = <&pio>;
+		interrupts = <3 IRQ_TYPE_EDGE_FALLING 3 0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&bq2597x_int_default &bq2597x_int_suspend>;
+
+		/*ti,bq2597x,bat-ovp-disable;*/
+		ti,bq2597x,bat-ovp-alarm-disable;
+		//ti,bq2597x,bat-ocp-disable;
+		//ti,bq2597x,bat-ocp-alarm-disable;
+		ti,bq2597x,bat-ucp-alarm-disable;
+		ti,bq2597x,bat-ucp-disable;
+
+		/*ti,bq2597x,bus-ovp-alarm-disable;
+		ti,bq2597x,bus-ocp-disable;
+		ti,bq2597x,bus-ocp-alarm-disable;*/
+		ti,bq2597x,bat-therm-disable;
+		ti,bq2597x,bus-therm-disable;
+		ti,bq2597x,die-therm-disable;
+
+		ti,bq2597x,bat-ovp-threshold = <4525>;
+		ti,bq2597x,bat-ovp-alarm-threshold = <4490>;
+		ti,bq2597x,bat-ocp-threshold = <7000>;
+		ti,bq2597x,bat-ocp-alarm-threshold = <6000>;
+
+		ti,bq2597x,bus-ovp-threshold = <12000>;
+		ti,bq2597x,bus-ovp-alarm-threshold = <11000>;
+		//ti,bq2597x,bus-ocp-threshold = <2200>;
+		//ti,bq2597x,bus-ocp-alarm-threshold = <2000>;
+		ti,bq2597x,bus-ocp-threshold = <3750>;
+		ti,bq2597x,bus-ocp-alarm-threshold = <3500>;
+
+		//ti,bq2597x,bat-ucp-alarm-threshold = <2000>;
+
+		ti,bq2597x,bat-therm-threshold = <0x15>;/*4.1%*/
+		ti,bq2597x,bus-therm-threshold = <0x15>;/*4.1%*/
+		ti,bq2597x,die-therm-threshold = <145>;
+
+		ti,bq2597x,ac-ovp-threshold = <14>;
+		sc8551,ac-ovp-threshold = <13>;
+
+		ti,bq2597x,sense-resistor-mohm = <5>;
+	};
+
+	xmusb350-charger@35 {
+		compatible = "xm,xmusb350-charger";
+		reg = <0x35>;
+		interrupt-parent = <&pio>;
+		interrupts = <1 IRQ_TYPE_EDGE_FALLING 1 0>;
+		pinctrl-names = "xmusb350_normal", "xmusb350_isp";
+		pinctrl-0 = <&xmusb350_rst_normal &xmusb350_sda_normal &xmusb350_scl_normal>;
+		pinctrl-1 = <&xmusb350_rst_isp &xmusb350_sda_isp &xmusb350_scl_isp>;
+		xm,xmusb350_rst_gpio = <&pio 126 0x00>;
+		xm,xmusb350_sda_gpio = <&pio 121 0x00>;
+		xm,xmusb350_scl_gpio = <&pio 120 0x00>;
+		mi,connect_therm = <&pio 127 0x00>;
+
+		charger_name = "secondary_chg";
+		alias_name  = "xmusb350";
+		en_bc12;
+		en_hvdcp;
+		en_intb;
+		en_sleep;
+	};
+};
+
+&cp_qc30 {
+	compatible = "xiaomi,cp-qc30";
+	status = "okay";
+	mi,qc3-bat-volt-max = <4480>;
+	mi,qc3-bat-curr-max = <3600>;
+	mi,qc3-bus-volt-max = <12000>;
+	mi,qc3-bus-curr-max = <2100>;
+	mi,qc3-non-ffc-bat-volt-max = <4450>;
+
+	mi,qc3-27w-bat-curr-max = <5400>;
+	mi,qc3-27w-bus-curr-max = <2700>;
+	mi,qc3p-bat-curr-max = <4500>;
+	mi,qc3p-bus-curr-max = <2300>;
+	//mi,cp-sec-enable;
+};
+
+&usbpd_pm {
+	compatible = "xiaomi,usbpd-pm";
+	status = "okay";
+	mi,pd-bat-volt-max = <4480>;
+	mi,pd-bat-curr-max = <6000>;
+	mi,pd-bus-volt-max = <12000>;
+	mi,pd-bus-curr-max = <3000>;
+	mi,pd-non-ffc-bat-volt-max = <4450>;
+	//mi,cp-sec-enable;
+};
+
+&pio {
+	/* One wire GPIO Settings Start */
+	/* default: GPIO28, output, high */
+	onewire_gpio_active: onewire_gpio_active@gpio28 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO28__FUNC_GPIO28>;
+			slew-rate = <1>;
+			bias-disable;
+			drive-strength = <MTK_DRIVE_4mA>;
+			output-high;
+		};
+	};
+
+	onewire_gpio_sleep: onewire_gpio_sleep@gpio28 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO28__FUNC_GPIO28>;
+			slew-rate = <1>;
+			bias-disable;
+			drive-strength = <MTK_DRIVE_4mA>;
+			output-high;
+		};
+	};
+};
+
+&onewire_gpio {
+	compatible = "xiaomi,onewire_gpio";
+	label = "xm_onewire";
+	xiaomi,version = <1>;
+	xiaomi,ow_gpio = <&pio 28 0x00>;
+	xiaomi,gpio_number = <28>;//
+	mi,onewire-gpio-dir-addr = <0x10005000>;//
+	mi,onewire-gpio-dir-set-addr = <0x10005004>;//
+	mi,onewire-gpio-dir-clr-addr = <0x10005008>;//
+	mi,onewire-gpio-dout-addr = <0x10005100>;//
+	mi,onewire-gpio-dout-set-addr = <0x10005104>;//
+	mi,onewire-gpio-dout-clr-addr = <0x10005108>;//
+	mi,onewire-gpio-din-addr = <0x10005200>;//
+	pinctrl-names = "onewire_active", "onewire_sleep";
+	pinctrl-0 = <&onewire_gpio_active>;
+	pinctrl-1 = <&onewire_gpio_sleep>;
+	status = "ok";
+};
+
+&maxim_ds28e16 {
+	compatible = "maxim,ds28e16";
+	label = "max_ds28e16";
+	maxim,version = <1>;
+	status = "ok";
+};
+
+&xiaomi_touch {
+	compatible = "xiaomi-touch";
+	status = "ok";
+	touch,name = "xiaomi-touch";
+};
+
+&pd_adapter {
+	mi,non-mtk-pps-ctrl;
+};
+
+&thermal_message {
+	board-sensor = "VIRTUAL-SENSOR";
+};
+
+
+&usb0phy {
+	usb_phy_tuning {
+		compatible = "mediatek,phy_tuning";
+		u2_vrt_ref  = <2>;
+		u2_term_ref = <2>;
+		u2_enhance  = <1>;
+		u2_intr_cal = <30>;
+		u2_discth  = <7>;
+    };
+};
+
+&bat_gm30 {
+	suppld-maxim;
+	#include "bat_setting/mt6873_battery_table_bomb.dtsi"
+};

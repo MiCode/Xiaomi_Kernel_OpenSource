@@ -1,0 +1,8 @@
+config MTK_MET_MEM_ALLOC
+	bool "MET driver use dynamic alloc buffer"
+	help
+	  MET is a MediaTek profiling tool, it need buf to store log msg
+	  set N to use reserve 4MB buffer
+	  set Y to use dynamic alloc buffer
+	  If unsure,
+	  Set N to use reserve 4MB buffer

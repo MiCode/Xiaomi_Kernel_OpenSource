@@ -1,0 +1,11 @@
+config MTK_BOOT
+	bool "Enable MTK Boot information Driver"
+	default y
+	help
+	  Boot information driver includes specific information about booting
+	  process, such as boot mode. It supports two functions:
+	  (1) boot mode API: caller uses this API to do initialization under
+	      different boot mode
+	  (2) meta info API: user space program will read the information passed
+	      from boot-loader
+

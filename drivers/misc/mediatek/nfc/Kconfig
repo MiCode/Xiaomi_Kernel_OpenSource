@@ -1,0 +1,26 @@
+config NFC_CHIP_SUPPORT
+	tristate "NFC driver solution - NFC Controller Driver"
+	depends on I2C && MTK_NFC_CLKBUF_ENABLE
+	select NFC_ST54_SPI
+	help
+	  STMicroelectronics ST21NFC Near Field Communication controller
+	  support. ST21NFC is standalone NFC and ST54 is combined with secure
+	  element. If configures to be y, means devices supports NFC
+	  functionality. If configures to be n, means devices doesn't support
+	  NFC functionality.
+
+config NFC_ST54_SPI
+	tristate "NFC driver solution - SPI Controller Driver"
+	depends on SPI && NFC_CHIP_SUPPORT
+	help
+	  STMicroelectronics ST54 Secure Element controller SPI interface
+	  support. ST21NFC is standalone NFC and ST54 is combined with
+	  secure element. If configures to be y, means devices supports SPI
+	  interface to ST54. If configures to be n, means devices doesn't
+	  support SPI interface (eSE still usable).
+
+config MTK_NFC_CLKBUF_ENABLE
+	tristate "Enable clock buffer for NFC"
+	help
+          Enable clock buffer from PMIC for NFC.
+

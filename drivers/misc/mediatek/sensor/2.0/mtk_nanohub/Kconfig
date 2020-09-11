@@ -1,0 +1,10 @@
+config NANOHUB
+	tristate "Nanohub"
+	default N
+	help
+	  Enable support for the nanohub sensorhub driver.
+	  This driver supports the android nanohub sensorhub.
+
+	  If in doubt, say N here.
+
+source "drivers/misc/mediatek/sensor/2.0/mtk_nanohub/nanohub/Kconfig"
