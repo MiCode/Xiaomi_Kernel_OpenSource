@@ -327,6 +327,9 @@ int vpu_init_dev_pwr(struct platform_device *pdev, struct vpu_device *vd)
 	refcount_set(&vd->pw_ref.refcount, 0);
 
 	vpu_drv_debug("%s: vpu%d\n", __func__, vd->id);
+	/* initialize APU power management data, and register to APU power */
+	vd->pd.dev_type = adu(vd->id);
+	vd->pd.dev_core = vd->id;
 	ret = apu_power_device_register(adu(vd->id), pdev);
 
 	if (ret)

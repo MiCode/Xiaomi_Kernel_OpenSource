@@ -298,7 +298,6 @@ static struct vpu_device *vpu_alloc(struct platform_device *pdev)
 	if (!vd)
 		return NULL;
 
-	memset(vd, 0, sizeof(struct vpu_device));
 	vd->dev = &pdev->dev;
 	platform_set_drvdata(pdev, vd);
 	return vd;
