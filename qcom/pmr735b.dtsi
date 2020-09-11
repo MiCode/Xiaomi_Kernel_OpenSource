@@ -34,7 +34,7 @@
 &thermal_zones {
 	pmr735b_temp_alarm: pmr735b_tz {
 		polling-delay-passive = <100>;
-		polling-delay = <2000>;
+		polling-delay = <0>;
 		thermal-governor = "step_wise";
 		thermal-sensors = <&pmr735b_tz>;
 
