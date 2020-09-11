@@ -61,16 +61,43 @@ static void mdw_sched_met_end(struct mdw_apu_sc *sc, struct mdw_dev_info *d,
 		sc->parent->kid, ret);
 }
 
-static inline uint64_t mdw_sched_shift(uint64_t val, int start, int end)
-{
-	return val << (63 - (end - start)) >> (63 - end);
-}
 
 static void mdw_sched_trace(struct mdw_apu_sc *sc,
 	struct mdw_dev_info *d, struct apusys_cmd_hnd *h, int ret, int done)
 {
+#ifdef APUSYS_MDW_TAG_SUPPORT
+	struct mdw_tag_pack {
+		union {
+			uint64_t val;
+			struct {
+				uint16_t sc_idx;
+				uint16_t num_sc;
+				uint16_t dev_type;
+				uint16_t dev_idx;
+			} __packed s;
+			struct {
+				uint16_t pack_id;
+				uint16_t multi_idx;
+				uint16_t multi_num;
+				uint16_t multi_bmp;
+			} __packed m;
+			struct {
+				uint16_t prio;
+				uint16_t soft_limit;
+				uint16_t hard_limit;
+				uint16_t suggest_time;
+			} __packed e;
+			struct {
+				uint16_t ctx;
+				uint16_t tcm_force;
+				uint16_t tcm_usage;
+				uint16_t tcm_real_size;
+			} __packed t;
+		};
+	};
+	struct mdw_tag_pack sc_info, multi_info, exec_info, tcm_info;
+#endif
 	char state[16];
-	uint64_t sc_info = 0, multi_info = 0, exec_info = 0, tcm_info = 0;
 
 	/* prefix */
 	memset(state, 0, sizeof(state));
@@ -154,34 +181,38 @@ static void mdw_sched_trace(struct mdw_apu_sc *sc,
 			ret);
 	}
 
-	/* encode info for 12 args limitation */
-	sc_info = mdw_sched_shift((uint64_t)sc->idx, 32, 63) |
-	mdw_sched_shift((uint64_t)sc->parent->hdr->num_sc, 0, 31);
-	multi_info = mdw_sched_shift((uint64_t)sc->hdr->pack_id, 48, 63) |
-		mdw_sched_shift((uint64_t)h->multicore_idx, 32, 47) |
-		mdw_sched_shift((uint64_t)sc->multi_total, 16, 31) |
-		mdw_sched_shift((uint64_t)sc->multi_bmp, 0, 15);
-	exec_info = mdw_sched_shift((uint64_t)sc->parent->hdr->priority,
-		48, 63) |
-		mdw_sched_shift((uint64_t)sc->parent->hdr->soft_limit, 32, 47) |
-		mdw_sched_shift((uint64_t)sc->parent->hdr->hard_limit, 16, 31) |
-		mdw_sched_shift((uint64_t)sc->hdr->suggest_time, 0, 15);
-	tcm_info = mdw_sched_shift((uint64_t)sc->ctx, 48, 63) |
-		mdw_sched_shift((uint64_t)sc->hdr->tcm_force, 32, 47) |
-		mdw_sched_shift((uint64_t)sc->hdr->tcm_usage, 16, 31) |
-		mdw_sched_shift((uint64_t)sc->real_tcm_usage, 0, 15);
-
 #ifdef APUSYS_MDW_TAG_SUPPORT
+	/* encode info for 12 args limitation */
+	sc_info.s.sc_idx = sc->idx;
+	sc_info.s.num_sc = sc->parent->hdr->num_sc;
+	sc_info.s.dev_type = d->type;
+	sc_info.s.dev_idx = d->idx;
+
+	multi_info.m.pack_id = sc->hdr->pack_id;
+	multi_info.m.multi_idx = h->multicore_idx;
+	multi_info.m.multi_num = sc->multi_total;
+	multi_info.m.multi_bmp = sc->multi_bmp;
+
+	exec_info.e.prio = sc->parent->hdr->priority;
+	exec_info.e.soft_limit = sc->parent->hdr->soft_limit;
+	exec_info.e.hard_limit = sc->parent->hdr->hard_limit;
+	exec_info.e.suggest_time = sc->hdr->suggest_time;
+
+	tcm_info.t.ctx = sc->ctx;
+	tcm_info.t.tcm_force = sc->hdr->tcm_force;
+	tcm_info.t.tcm_usage = sc->hdr->tcm_usage;
+	tcm_info.t.tcm_real_size = sc->real_tcm_usage;
+
 	/* trace cmd end */
 	trace_mdw_cmd(done,
 		sc->parent->pid,
 		sc->parent->tgid,
 		sc->parent->kid,
-		sc_info,
+		sc_info.val,
 		d->name,
-		multi_info,
-		exec_info,
-		tcm_info,
+		multi_info.val,
+		exec_info.val,
+		tcm_info.val,
 		h->boost_val,
 		h->ip_time,
 		ret);

@@ -163,7 +163,7 @@ static int mdw_dbg_test_dump(struct seq_file *s, void *unused)
 	mdw_con_info(s, " tcm_default(0x%x):\n",
 		g_dbg_prop[MDW_DBG_PROP_TCM_DEFAULT]);
 	mdw_con_info(s, "    set default tcm size if user doesn't set\n");
-	mdw_con_info(s, "    1MB: 1048546\n");
+	mdw_con_info(s, "    1MB: 1048576\n");
 	mdw_con_info(s, " query_mem(%d):\n",
 		g_dbg_prop[MDW_DBG_PROP_QUERY_MEM]);
 	mdw_con_info(s, "    0: disable, can't query kva/iova from code\n");
