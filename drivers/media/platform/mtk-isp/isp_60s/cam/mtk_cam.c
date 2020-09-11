@@ -126,11 +126,15 @@ void mtk_cam_dequeue_req_frame(struct mtk_cam_device *cam,
 				spin_unlock(&sensor_ctrl->camsys_state_lock);
 			}
 			mtk_cam_dev_job_done(cam, req, buf_state);
-
 			list_del(&req->list);
 			break;
 		} else if (req->frame_seq_no < frame_seq_no) {
 			cam->running_job_count--;
+			if (ctx->sensor) {
+				spin_lock(&sensor_ctrl->camsys_state_lock);
+				list_del(&req->state.state_element);
+				spin_unlock(&sensor_ctrl->camsys_state_lock);
+			}
 			/* Pass to user space for frame drop */
 			mtk_cam_dev_job_done(cam, req, VB2_BUF_STATE_ERROR);
 			dev_dbg(cam->dev, "frame_seq:%d drop\n",
