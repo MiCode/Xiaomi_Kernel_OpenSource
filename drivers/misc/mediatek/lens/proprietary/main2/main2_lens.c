@@ -216,32 +216,10 @@ static int DrvPwrDn1 = 1;
 void MAIN2AF_PowerDown(void)
 {
 	if (g_pstAF_I2Cclient != NULL) {
-#if defined(CONFIG_MACH_MT6771) || defined(CONFIG_MACH_MT6775)
-		LC898217AF_PowerDown(g_pstAF_I2Cclient,
-					&g_s4AF_Opened);
-#endif
-
-#ifdef CONFIG_MACH_MT6758
-		AK7371AF_PowerDown(g_pstAF_I2Cclient,
-					&g_s4AF_Opened);
-#endif
-
-#ifdef CONFIG_MACH_MT6765
-		int Ret1 = 0;
-
-		if (DrvPwrDn1) {
-			Ret1 = bu64748af_PowerDown_Main2(
-			g_pstAF_I2Cclient, &g_s4AF_Opened);
-		}
-
-		if (DrvPwrDn1) {
-			if (Ret1 < 0)
-				DrvPwrDn1 = 0;
-
-			LOG_INF("%d/%d\n", Ret1, DrvPwrDn1);
-		}
-#endif
+		LOG_INF("+\n");
+		LOG_INF("-\n");
 	}
+	return;
 }
 EXPORT_SYMBOL(MAIN2AF_PowerDown);
 
