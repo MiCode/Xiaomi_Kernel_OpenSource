@@ -72,4 +72,24 @@ extern void minidump_add_trace_event(char *buf, size_t size);
 #else
 static inline void minidump_add_trace_event(char *buf, size_t size) {}
 #endif
+#ifdef CONFIG_PAGE_OWNER
+extern size_t md_pageowner_dump_size;
+extern char *md_pageowner_dump_addr;
+
+extern bool is_page_owner_enabled(void);
+extern void md_dump_pageowner(void);
+#else
+static inline void md_dump_pageowner(void) {}
+static inline bool is_page_owner_enabled(void) { return false; }
+#endif
+#ifdef CONFIG_SLUB_DEBUG
+extern size_t md_slabowner_dump_size;
+extern char *md_slabowner_dump_addr;
+
+extern bool is_slub_debug_enabled(void);
+extern void md_dump_slabowner(void);
+#else
+static inline void md_dump_slabowner(void) {}
+static inline bool is_slub_debug_enabled(void) { return false; }
+#endif
 #endif

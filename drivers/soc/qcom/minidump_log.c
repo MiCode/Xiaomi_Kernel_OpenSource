@@ -44,6 +44,8 @@
 #include <linux/percpu.h>
 
 #include <linux/module.h>
+#include <linux/cma.h>
+#include <linux/dma-contiguous.h>
 #endif
 
 #ifdef CONFIG_QCOM_DYN_MINIDUMP_STACK
@@ -110,6 +112,16 @@ struct seq_buf *md_meminfo_seq_buf;
 #define MD_SLABINFO_PAGES	8
 
 struct seq_buf *md_slabinfo_seq_buf;
+
+#ifdef CONFIG_PAGE_OWNER
+size_t md_pageowner_dump_size = SZ_2M;
+char *md_pageowner_dump_addr;
+#endif
+
+#ifdef CONFIG_SLUB_DEBUG
+size_t md_slabowner_dump_size = SZ_2M;
+char *md_slabowner_dump_addr;
+#endif
 
 /* Modules information */
 #ifdef CONFIG_MODULES
@@ -977,6 +989,15 @@ dump_rq:
 	if (md_slabinfo_seq_buf)
 		md_dump_slabinfo();
 
+#ifdef CONFIG_SLUB_DEBUG
+	if (md_slabowner_dump_addr)
+		md_dump_slabowner();
+#endif
+
+#ifdef CONFIG_PAGE_OWNER
+	if (md_pageowner_dump_addr)
+		md_dump_pageowner();
+#endif
 	md_in_oops_handler = false;
 	return NOTIFY_DONE;
 }
@@ -1039,6 +1060,175 @@ err_seq_buf:
 	return ret;
 }
 
+static bool md_register_memory_dump(int size, char *name)
+{
+	void *buffer_start;
+	struct page *page;
+	int ret;
+
+	page  = cma_alloc(dev_get_cma_area(NULL), size >> PAGE_SHIFT,
+			0, false);
+
+	if (!page) {
+		pr_err("Failed to allocate %s minidump, increase cma size\n",
+			name);
+		return false;
+	}
+
+	buffer_start = page_to_virt(page);
+	ret = md_register_minidump_entry(name, (uintptr_t)buffer_start,
+			virt_to_phys(buffer_start), size);
+	if (ret < 0) {
+		cma_release(dev_get_cma_area(NULL), page, size >> PAGE_SHIFT);
+		return false;
+	}
+
+	/* Complete registration before adding enteries */
+	smp_mb();
+
+#ifdef CONFIG_PAGE_OWNER
+	if (!strcmp(name, "PAGEOWNER"))
+		WRITE_ONCE(md_pageowner_dump_addr, buffer_start);
+#endif
+#ifdef CONFIG_SLUB_DEBUG
+	if (!strcmp(name, "SLABOWNER"))
+		WRITE_ONCE(md_slabowner_dump_addr, buffer_start);
+#endif
+	return true;
+}
+
+static bool md_unregister_memory_dump(char *name)
+{
+	struct page *page;
+	struct md_region *mdr;
+	struct md_region md_entry;
+
+	mdr = md_get_region(name);
+	if (!mdr) {
+		pr_err("minidump entry for %s not found\n", name);
+		return false;
+	}
+	strlcpy(md_entry.name, mdr->name, sizeof(md_entry.name));
+	md_entry.virt_addr = mdr->virt_addr;
+	md_entry.phys_addr = mdr->phys_addr;
+	md_entry.size = mdr->size;
+	page = virt_to_page(mdr->virt_addr);
+
+	if (msm_minidump_remove_region(&md_entry) < 0)
+		return false;
+
+	cma_release(dev_get_cma_area(NULL), page,
+			(md_entry.size) >> PAGE_SHIFT);
+	return true;
+}
+
+static void update_dump_size(char *name, size_t size,
+		char **addr, size_t *dump_size)
+{
+	if ((*dump_size) == 0) {
+		if (md_register_memory_dump(size * SZ_1M,
+						name)) {
+			*dump_size = size * SZ_1M;
+			pr_info_ratelimited("%s Minidump set to %zd MB size\n",
+					name, size);
+		}
+		return;
+	}
+	if (md_unregister_memory_dump(name)) {
+		*addr = NULL;
+		if (size == 0) {
+			*dump_size = 0;
+			pr_info_ratelimited("%s Minidump : disabled\n", name);
+			return;
+		}
+		if (md_register_memory_dump(size * SZ_1M,
+						name)) {
+			*dump_size = size * SZ_1M;
+			pr_info_ratelimited("%s Minidump : set to %zd MB\n",
+					name, size);
+		} else if (md_register_memory_dump(*dump_size,
+							name)) {
+			pr_info_ratelimited("%s Minidump : Fallback to %zd MB\n",
+					name, (*dump_size) / SZ_1M);
+		} else {
+			pr_err_ratelimited("%s Minidump : disabled, Can't fallback to %zd MB,\n",
+						name, (*dump_size) / SZ_1M);
+			*dump_size = 0;
+		}
+	} else {
+		pr_err_ratelimited("Failed to unregister %s Minidump\n", name);
+	}
+}
+
+#ifdef CONFIG_PAGE_OWNER
+static DEFINE_MUTEX(page_owner_dump_size_lock);
+
+static ssize_t page_owner_dump_size_write(struct file *file,
+					  const char __user *ubuf,
+					  size_t count, loff_t *offset)
+{
+	unsigned long long  size;
+
+	if (kstrtoull_from_user(ubuf, count, 0, &size)) {
+		pr_err_ratelimited("Invalid format for size\n");
+		return -EINVAL;
+	}
+	mutex_lock(&page_owner_dump_size_lock);
+	update_dump_size("PAGEOWNER", size,
+			&md_pageowner_dump_addr, &md_pageowner_dump_size);
+	mutex_unlock(&page_owner_dump_size_lock);
+	return count;
+}
+
+static ssize_t page_owner_dump_size_read(struct file *file, char __user *ubuf,
+				       size_t count, loff_t *offset)
+{
+	char buf[100];
+
+	snprintf(buf, sizeof(buf), "%llu MB\n",
+			md_pageowner_dump_size / SZ_1M);
+	return simple_read_from_buffer(ubuf, count, offset, buf, strlen(buf));
+}
+
+static const struct file_operations proc_page_owner_dump_size_ops = {
+	.open	= simple_open,
+	.write	= page_owner_dump_size_write,
+	.read	= page_owner_dump_size_read,
+};
+#endif
+
+#ifdef CONFIG_SLUB_DEBUG
+static ssize_t slab_owner_dump_size_write(struct file *file,
+					  const char __user *ubuf,
+					  size_t count, loff_t *offset)
+{
+	unsigned long long  size;
+
+	if (kstrtoull_from_user(ubuf, count, 0, &size)) {
+		pr_err_ratelimited("Invalid format for size\n");
+		return -EINVAL;
+	}
+	update_dump_size("SLABOWNER", size,
+			&md_slabowner_dump_addr, &md_slabowner_dump_size);
+	return count;
+}
+
+static ssize_t slab_owner_dump_size_read(struct file *file, char __user *ubuf,
+				       size_t count, loff_t *offset)
+{
+	char buf[100];
+
+	snprintf(buf, sizeof(buf), "%llu MB\n", md_slabowner_dump_size/SZ_1M);
+	return simple_read_from_buffer(ubuf, count, offset, buf, strlen(buf));
+}
+
+static const struct file_operations proc_slab_owner_dump_size_ops = {
+	.open	= simple_open,
+	.write	= slab_owner_dump_size_write,
+	.read	= slab_owner_dump_size_read,
+};
+#endif
+
 static void md_register_panic_data(void)
 {
 	md_register_panic_entries(MD_RUNQUEUE_PAGES, "KRUNQUEUE",
@@ -1051,6 +1241,16 @@ static void md_register_panic_data(void)
 				  &md_meminfo_seq_buf);
 	md_register_panic_entries(MD_SLABINFO_PAGES, "SLABINFO",
 				  &md_slabinfo_seq_buf);
+	if (is_page_owner_enabled()) {
+		md_register_memory_dump(md_pageowner_dump_size, "PAGEOWNER");
+		debugfs_create_file("page_owner_dump_size_mb", 0400, NULL, NULL,
+			    &proc_page_owner_dump_size_ops);
+	}
+	if (is_slub_debug_enabled()) {
+		md_register_memory_dump(md_slabowner_dump_size, "SLABOWNER");
+		debugfs_create_file("slab_owner_dump_size_mb", 0400, NULL, NULL,
+			    &proc_slab_owner_dump_size_ops);
+	}
 }
 
 #ifdef CONFIG_MODULES
