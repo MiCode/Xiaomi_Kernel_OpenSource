@@ -277,15 +277,24 @@ int mdla_pwr_device_register(struct platform_device *pdev,
 	enum DVFS_USER user_mdla;
 	struct mdla_dev *mdla_device;
 	struct mdla_pwr_ctrl *pwr_ctrl;
+	struct apu_dev_power_data *pwr_data;
 
 	mdla_drv_debug("probe 0, pdev id = %d name = %s, name = %s\n",
 						pdev->id, pdev->name,
 						pdev->dev.of_node->name);
 
+	pwr_data = kzalloc(sizeof(struct apu_dev_power_data), GFP_KERNEL);
+	if (!pwr_data)
+		return -1;
+
+	/* Only one platform_device */
+	pwr_data->dev_type = MDLA0;
+	pwr_data->dev_core = 0;
+	platform_set_drvdata(pdev, pwr_data);
+
 	for_each_mdla_core(i) {
 
-		pwr_ctrl = kzalloc(sizeof(struct mdla_pwr_ctrl),
-					GFP_KERNEL);
+		pwr_ctrl = kzalloc(sizeof(struct mdla_pwr_ctrl), GFP_KERNEL);
 		if (!pwr_ctrl)
 			goto out;
 
@@ -351,6 +360,7 @@ out:
 		mdla_get_device(i)->power = NULL;
 		apu_power_device_unregister(get_pwr_id(i));
 	}
+	kfree(pwr_data);
 
 	return -1;
 }
@@ -377,6 +387,9 @@ int mdla_pwr_device_unregister(struct platform_device *pdev)
 		mutex_destroy(&pwr_ctrl->lock);
 		kfree(pwr_ctrl);
 	}
+
+	kfree(platform_get_drvdata(pdev));
+
 	return 0;
 }
 
