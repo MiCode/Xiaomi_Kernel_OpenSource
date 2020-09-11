@@ -3625,6 +3625,7 @@
 			compatible = "mediatek,apu_top";
 			reg = <0 0x190f0000 0 0x1000>;
 			vvpu-supply = <&mt6359p_vproc1_reg>;
+			vsram_apu-supply = <&mt6359p_vsram_md_reg>;
 			power-domains = <&scpsys MT6873_POWER_DOMAIN_APU>;
 			clocks = <&topckgen CLK_TOP_DSP_SEL>,	    /* CONN */
 				<&topckgen CLK_TOP_IPU_IF_SEL>;	        /* VCORE */
