@@ -602,14 +602,15 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 		base_addr = buf_entry->buffer.iova;
 		apply_cq(raw_dev, base_addr, buf_entry->cq_size, 0);
 		/* Transit state from Sensor -> CQ */
-		if (ctx->sensor)
+		if (ctx->sensor) {
 			state_transition(current_state, E_STATE_SENSOR,
 					 E_STATE_CQ);
-		req_cq = container_of(current_state, struct mtk_cam_request, state);
-		dev_dbg(raw_dev->dev,
+			req_cq = container_of(current_state, struct mtk_cam_request, state);
+			dev_dbg(raw_dev->dev,
 			"SOF[ctx:%d-#%d], CQ-%d is update, composed:%d, cq_addr:0x%x\n",
 			ctx->stream_id, dequeued_frame_seq_no, req_cq->frame_seq_no,
 			ctx->composed_frame_seq_no, base_addr);
+		}
 	}
 }
 
