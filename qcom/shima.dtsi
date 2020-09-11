@@ -3348,6 +3348,16 @@
 			qcom,dump-id = <0x102>;
 		};
 
+		LLCC_1: llcc_1_dcache {
+			qcom,dump-size = <0x1141c0>;
+			qcom,dump-id = <0x140>;
+		};
+
+		LLCC_2: llcc_2_dcache {
+			qcom,dump-size = <0x1141c0>;
+			qcom,dump-id = <0x141>;
+		};
+
 		misc_data {
 			qcom,dump-size = <0x1000>;
 			qcom,dump-id = <0xe8>;
