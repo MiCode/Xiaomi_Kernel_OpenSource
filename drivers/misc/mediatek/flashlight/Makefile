@@ -25,17 +25,11 @@ ccflags-$(CONFIG_MTK_FLASHLIGHT_PT)        += -DCONFIG_MTK_FLASHLIGHT_PT
 ccflags-$(CONFIG_MTK_FLASHLIGHT_PT_STRICT) += -DCONFIG_MTK_FLASHLIGHT_PT_STRICT
 ccflags-$(CONFIG_MTK_FLASHLIGHT_DLPT)      += -DCONFIG_MTK_FLASHLIGHT_DLPT
 
-MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
-MTK_PROJECT := $(subst ",,$(CONFIG_ARCH_MTK_PROJECT))
 MTK_CUSTOM_PATH := $(srctree)/drivers/misc/mediatek
 
 ifeq ($(CONFIG_MTK_FLASHLIGHT_AW3644),y)
 ccflags-y += -DCONFIG_MTK_FLASHLIGHT_AW3644
 endif
 subdir-ccflags-y += \
-	-I$(MTK_CUSTOM_PATH)/include/mt-plat \
-	-I$(MTK_CUSTOM_PATH)/include/mt-plat/$(MTK_PLATFORM)/include/mach \
-	-I$(MTK_CUSTOM_PATH)/pmic/include \
-	-I$(MTK_CUSTOM_PATH)/pmic \
 	-I$(MTK_CUSTOM_PATH)/power_throttling
 
