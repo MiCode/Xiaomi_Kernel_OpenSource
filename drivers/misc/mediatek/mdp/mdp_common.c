@@ -53,8 +53,11 @@
 
 /* mmdvfs with regulator */
 struct regulator *mdp_mmdvfs_reg;
+struct regulator *isp_mmdvfs_reg;
 u64 *mdp_pmqos_freq;
 u64 *isp_pmqos_freq;
+int *mdp_volts;
+int *isp_volts;
 int mdp_pmqos_opp_num;
 u64 mdp_current_freq[MDP_TOTAL_THREAD];
 
@@ -1870,24 +1873,32 @@ int cmdq_mdp_status_dump(struct notifier_block *nb,
 	return 0;
 }
 
-static u64 *mdp_parse_opp(struct platform_device *pdev, const char *ref,
-	int opp_num)
+static void mdp_parse_opp(struct platform_device *pdev, const char *ref,
+	int opp_num, u64 **freq_out, int **volt_out)
 {
 	struct device_node *np, *child_np = NULL;
 	u64 *speeds;
 	u64 freq;
 	u32 index = 0;
+	int volt, *volts;
 
 	np = of_parse_phandle(pdev->dev.of_node, ref, 0);
 	if (!np) {
 		CMDQ_ERR("%s fail to parse opp:%s\n", __func__, ref);
-		return NULL;
+		return;
 	}
 
 	speeds = kcalloc(opp_num, sizeof(u64), GFP_KERNEL);
 	if (!speeds) {
 		CMDQ_ERR("%s alloc freq array fail and skip\n", __func__);
-		return NULL;
+		return;
+	}
+
+	volts = kcalloc(opp_num, sizeof(u64), GFP_KERNEL);
+	if (!volts) {
+		CMDQ_ERR("%s alloc volt array fail and skip\n", __func__);
+		kfree(speeds);
+		return;
 	}
 
 	do {
@@ -1895,17 +1906,23 @@ static u64 *mdp_parse_opp(struct platform_device *pdev, const char *ref,
 		if (!child_np)
 			break;
 
-		of_property_read_u64(child_np, "opp-hz", &freq);
-		CMDQ_LOG("%s %u: %llu\n", ref, index, freq);
-
 		/* available freq is stored in speeds[index] */
+		of_property_read_u64(child_np, "opp-hz", &freq);
 		speeds[index] = freq;
+
+		/* available voltage is stored in volts[i]*/
+		of_property_read_u32(child_np, "opp-microvolt", &volt);
+		volts[index] = volt;
+
+		CMDQ_LOG("%s %u: %llu %d\n", ref, index, freq, volt);
+
 		index++;
 	} while (index < opp_num);
 
 	of_node_put(np);
 
-	return speeds;
+	*freq_out = speeds;
+	*volt_out = volts;
 }
 
 static void cmdq_mdp_init_pmqos(struct platform_device *pdev)
@@ -1931,13 +1948,18 @@ static void cmdq_mdp_init_pmqos(struct platform_device *pdev)
 	dev_pm_opp_of_add_table(&pdev->dev);
 
 	/* Get regulator instance by name. */
-	mdp_mmdvfs_reg = devm_regulator_get(&pdev->dev, "dvfsrc-vcore");
+	mdp_mmdvfs_reg = devm_regulator_get(&pdev->dev, "mdp-dvfsrc-vcore");
+	isp_mmdvfs_reg = devm_regulator_get(&pdev->dev, "isp-dvfsrc-vcore");
 	/* number of available opp */
 	mdp_pmqos_opp_num = regulator_count_voltages(mdp_mmdvfs_reg);
 	CMDQ_LOG("%s opp count:%d\n", __func__, mdp_pmqos_opp_num);
 	if (mdp_pmqos_opp_num > 0) {
-		mdp_pmqos_freq = mdp_parse_opp(pdev, "mdp-opp", mdp_pmqos_opp_num);
-		isp_pmqos_freq = mdp_parse_opp(pdev, "isp-opp", mdp_pmqos_opp_num);
+		mdp_volts = kcalloc(mdp_pmqos_opp_num, sizeof(int), GFP_KERNEL);
+
+		mdp_parse_opp(pdev, "mdp-opp", mdp_pmqos_opp_num,
+			&mdp_pmqos_freq, &mdp_volts);
+		mdp_parse_opp(pdev, "isp-opp", mdp_pmqos_opp_num,
+			&isp_pmqos_freq, &isp_volts);
 	}
 }
 
@@ -2378,34 +2400,37 @@ static bool mdp_is_isp_camin(struct cmdqRecStruct *handle)
 		((1LL << CMDQ_ENG_MDP_CAMIN) | CMDQ_ENG_ISP_GROUP_BITS));
 }
 
-static void mdp_request_voltage(unsigned long frequency)
+static void mdp_request_voltage(unsigned long frequency, bool is_mdp)
 {
 	struct dev_pm_opp *opp;
 	int low_volt, ret = 0;
-	struct device *dev = cmdq_dev_get();
+	int index = 0;
+	u64 *freqs = is_mdp ? mdp_pmqos_freq : isp_pmqos_freq;
+	int *volts = is_mdp ? mdp_volts : isp_volts;
+	struct regulator *reg = is_mdp ? mdp_mmdvfs_reg : isp_mmdvfs_reg;
 
 	CMDQ_LOG_PMQOS("%s frequency %u\n", __func__, frequency);
 
 	if (!frequency) {
 		low_volt = 0;
 	} else {
-		opp = dev_pm_opp_find_freq_ceil(dev, &frequency);
+		for (index = 0; index < mdp_pmqos_opp_num; index++) {
+			if (frequency <= freqs[index])
+				break;
+		}
 
-		/* It means freq is over the highest available frequency */
-		if (IS_ERR(opp))
-			opp = dev_pm_opp_find_freq_floor(dev, &frequency);
-
-		low_volt = dev_pm_opp_get_voltage(opp);
-		dev_pm_opp_put(opp);
+		if (index == mdp_pmqos_opp_num)
+			index--;
+		low_volt = volts[index];
 	}
 
-	//ret = regulator_set_voltage(mdp_mmdvfs_reg, low_volt, INT_MAX);
+	ret = regulator_set_voltage(mdp_mmdvfs_reg, low_volt, INT_MAX);
 	if (ret)
 		CMDQ_ERR("%s regulator_set_voltage fail ret:%d\n",
 			__func__, ret);
 }
 
-static void mdp_update_voltage(u32 thread_id, u64 freq)
+static void mdp_update_voltage(u32 thread_id, u64 freq, bool is_mdp)
 {
 	u32 i;
 	unsigned long max_freq = 0;
@@ -2420,7 +2445,7 @@ static void mdp_update_voltage(u32 thread_id, u64 freq)
 	for (i = 0; i < ARRAY_SIZE(mdp_current_freq); i++)
 		max_freq = max(max_freq, mdp_current_freq[i]);
 	/* update voltage by clock frequency */
-	mdp_request_voltage(max_freq);
+	mdp_request_voltage(max_freq, is_mdp);
 	CMDQ_SYSTRACE_END();
 }
 
@@ -2635,7 +2660,7 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 				MBps_to_icc(isp_curr_bandwidth), 0);
 		}
 
-		mdp_update_voltage(thread_id, isp_throughput);
+		mdp_update_voltage(thread_id, isp_throughput, false);
 	}
 
 	/*update bandwidth*/
@@ -2662,7 +2687,7 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 
 	/* update clock */
 	if (mdp_curr_pmqos->mdp_total_pixel)
-		mdp_update_voltage(thread_id, mdp_t(max_throughput));
+		mdp_update_voltage(thread_id, mdp_t(max_throughput), true);
 
 #ifdef MDP_MMPATH
 	if (!handle->prop_addr)
@@ -2888,9 +2913,9 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 	handle->user_private = NULL;
 
 	if (update_isp_throughput)
-		mdp_update_voltage(thread_id, isp_t(max_throughput));
+		mdp_update_voltage(thread_id, isp_t(max_throughput), false);
 	else if (mdp_curr_pmqos->isp_total_pixel)
-		mdp_update_voltage(thread_id, 0);
+		mdp_update_voltage(thread_id, 0, false);
 
 	if (update_isp_bandwidth) {
 		u32 isp_throughput = isp_t(max_throughput);
@@ -2962,9 +2987,10 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 	/* update clock */
 	if (mdp_curr_pmqos->mdp_total_pixel) {
 		if (mdp_curr_pmqos->mdp_total_datasize)
-			mdp_update_voltage(thread_id, mdp_t(max_throughput));
+			mdp_update_voltage(thread_id, mdp_t(max_throughput),
+				true);
 		else
-			mdp_update_voltage(thread_id, 0);
+			mdp_update_voltage(thread_id, 0, true);
 	}
 
 #ifdef MDP_MMPATH
