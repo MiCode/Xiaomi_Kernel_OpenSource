@@ -51,6 +51,10 @@ static inline unsigned int get_devinfo_with_index(unsigned int index)
 {
 	if (index == 30)
 		return efuse[EF_SEGMENT];
+	else if (index == EFUSE_INDEX)
+		return efuse[EF_POD26];
+	else if (index == EFUSE_POD19)
+		return efuse[EF_POD19];
 	else
 		return 0;
 }
@@ -423,7 +427,8 @@ static int binning_support_check(void)
 	vpu_efuse_val = GET_BITS_VAL(10:8, get_devinfo_with_index(EFUSE_INDEX));
 	mdla_efuse_val = GET_BITS_VAL(13:11,
 		get_devinfo_with_index(EFUSE_INDEX));
-	LOG_DBG("Vol bin: vpu_efuse=%d, mdla_efuse=%d, efuse: 0x%x\n",
+	LOG_INF("%s Vol bin: vpu_efuse=%d, mdla_efuse=%d, efuse: 0x%x\n",
+		__func__,
 		vpu_efuse_val, mdla_efuse_val,
 		get_devinfo_with_index(EFUSE_INDEX));
 

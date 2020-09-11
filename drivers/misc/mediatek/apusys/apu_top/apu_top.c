@@ -24,6 +24,7 @@
 
 /* regulator id */
 static struct regulator *vvpu_reg_id;
+static struct regulator *vsram_reg_id;
 /* apu_top preclk */
 static struct clk *clk_top_dsp_sel;		/* CONN */
 static struct clk *clk_top_ipu_if_sel;		/* VCORE */
@@ -41,6 +42,10 @@ static int apu_top_on(void)
 		return 0;
 
 	ret = regulator_enable(vvpu_reg_id);
+	if (ret < 0)
+		return ret;
+
+	ret = regulator_enable(vsram_reg_id);
 	if (ret < 0)
 		return ret;
 
@@ -136,6 +141,10 @@ static int apu_top_off(void)
 	writel(readl(APUSYS_BUCK_ISOLATION) & 0x00000021,
 		APUSYS_BUCK_ISOLATION);
 
+	ret = regulator_disable(vsram_reg_id);
+	if (ret < 0)
+		return ret;
+
 	ret = regulator_disable(vvpu_reg_id);
 	if (ret < 0)
 		return ret;
@@ -174,25 +183,6 @@ static int apu_top_probe(struct platform_device *pdev)
 		pr_info("get apu_top device node err\n");
 		return -ENODEV;
 	}
-
-	vvpu_reg_id = regulator_get(&pdev->dev, "vvpu");
-	if (!vvpu_reg_id) {
-		pr_info("regulator_get vvpu_reg_id failed\n");
-		return -ENOENT;
-	}
-
-	PREPARE_CLK(clk_top_dsp_sel);
-	PREPARE_CLK(clk_top_ipu_if_sel);
-	if (ret_clk < 0)
-		return ret_clk;
-
-	/* pr_info("register_apu_callback start\n"); */
-	register_apu_callback(&apu_handle);
-
-	/* pr_info("%s pm_runtime_enable start\n", __func__); */
-	pm_runtime_enable(&pdev->dev);
-	/* pr_info("%s pm_runtime_get_sync start\n", __func__); */
-	pm_runtime_get_sync(&pdev->dev);
 
 	apu_rpc_base_addr = of_iomap(node, 0);
 	if (IS_ERR((void *)apu_rpc_base_addr)) {
@@ -239,6 +229,34 @@ static int apu_top_probe(struct platform_device *pdev)
 		g_APUSYS_VCORE_BASE = apu_vcore_base_addr;
 	}
 
+	//Vvpu Buck
+	vvpu_reg_id = regulator_get(&pdev->dev, "vvpu");
+	if (!vvpu_reg_id) {
+		pr_info("regulator_get vvpu_reg_id failed\n");
+		return -ENOENT;
+	}
+
+	//Vsram
+	vsram_reg_id = regulator_get(&pdev->dev, "vsram_apu");
+	if (!vsram_reg_id) {
+		pr_info("regulator_get vsram_reg_id failed\n");
+		return -ENOENT;
+	}
+
+	//pre clk
+	PREPARE_CLK(clk_top_dsp_sel);
+	PREPARE_CLK(clk_top_ipu_if_sel);
+	if (ret_clk < 0)
+		return ret_clk;
+
+	/* pr_info("register_apu_callback start\n"); */
+	register_apu_callback(&apu_handle);
+
+	/* pr_info("%s pm_runtime_enable start\n", __func__); */
+	pm_runtime_enable(&pdev->dev);
+	/* pr_info("%s pm_runtime_get_sync start\n", __func__); */
+	pm_runtime_get_sync(&pdev->dev);
+
 	/*
 	 * set memory type to PD or sleep group
 	 * sw_type register for each memory group, set to PD mode default
@@ -253,10 +271,6 @@ static int apu_top_probe(struct platform_device *pdev)
 	regValue |= 0x9E;
 	regValue |= BIT(10);
 	writel(regValue, APUSYS_RPC_TOP_SEL);
-	/* pr_info("%s pm_runtime_put_sync start\n", __func__); */
-	pm_runtime_put_sync(&pdev->dev);
-	/* pr_info("%s pm_runtime_get_sync start\n", __func__); */
-	pm_runtime_get_sync(&pdev->dev);
 	/* pr_info("%s pm_runtime_put_sync start\n", __func__); */
 	pm_runtime_put_sync(&pdev->dev);
 
@@ -277,8 +291,13 @@ static int apu_top_remove(struct platform_device *pdev)
 {
 	pr_info("%s +\n", __func__);
 
+	UNPREPARE_CLK(clk_top_dsp_sel);
+	UNPREPARE_CLK(clk_top_ipu_if_sel);
+
 	regulator_put(vvpu_reg_id);
+	regulator_put(vsram_reg_id);
 	vvpu_reg_id = NULL;
+	vsram_reg_id = NULL;
 
 	pr_info("%s -\n", __func__);
 
