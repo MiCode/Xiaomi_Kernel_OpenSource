@@ -5,6 +5,7 @@
 | armani-kk-oss | Redmi 1S, Redmi Note Single SIM | Android KK | LNX.LA.3.5.2.2.2-00510-8x26.0 | [armani-kk-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/armani-kk-oss) |
 | begonia-p-oss | Redmi Note 8 Pro | Android P | MTK | [begonia-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/begonia-p-oss) |
 | begonia-q-oss | Redmi Note 8 Pro | Android Q | MTK | [begonia-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/begonia-q-oss) |
+| bomb-q-oss | Redmi 10X, Redmi 10X Pro | Android Q | MTK | [bomb-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/bomb-q-oss) |
 | cactus-o-oss | Redmi 6A, Redmi 6 | Android O | MTK | [cactus-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/cactus-o-oss) |
 | cactus-p-oss | Redmi 6A, Redmi 6 | Android P | MTK | [cactus-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/cactus-p-oss) |
 | cancro-kk-oss | Mi 3, Mi 4, Mi Note | Android KK | LNX.LA.3.5.2.2.1-04310-8x74.0 | [cancro-kk-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/cancro-kk-oss) |
