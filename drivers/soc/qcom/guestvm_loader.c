@@ -87,6 +87,7 @@ static int guestvm_loader_nb_handler(struct notifier_block *this,
 		complete_all(&priv->vm_start);
 		break;
 	case HH_RM_VM_STATUS_RUNNING:
+		dev_info(priv->dev, "vm(%d) started running\n", vm_status_payload->vmid);
 		break;
 	default:
 		dev_err(priv->dev, "Unknown notification receieved for vmid = %d vm_status = %d\n",
@@ -138,7 +139,7 @@ static ssize_t guestvm_loader_start(struct kobject *kobj,
 		priv->vm_status = HH_RM_VM_STATUS_RUNNING;
 		ret = hh_rm_vm_start(priv->vmid);
 		if (ret)
-			dev_err(priv->dev, "VM start has failed for vmid = %d ret = %d\n",
+			dev_err(priv->dev, "VM start failed for vmid = %d ret = %d\n",
 				priv->vmid, ret);
 	}
 
