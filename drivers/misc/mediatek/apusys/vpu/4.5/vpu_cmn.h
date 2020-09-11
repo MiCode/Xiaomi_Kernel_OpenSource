@@ -17,6 +17,7 @@
 #include <linux/seq_file.h>
 
 #include "apusys_device.h"
+#include "apusys_power.h"
 #include "apu_bmap.h"
 #include "vpu_cfg.h"
 #include "vpu_cmd.h"
@@ -400,15 +401,19 @@ struct vpu_platform {
 
 // device data
 struct vpu_device {
+	/* APU power management data. MUST be placed at the begin. */
+	struct apu_dev_power_data pd;
+
+	/* general */
 	int id;
 	char name[8];
-	struct list_head list;   // link in vpu driver
+	struct list_head list;   /* link in vpu driver */
 	struct vpu_driver *drv;
 	enum vpu_state state;
 	struct mutex lock;
 	struct apusys_device adev;
 	struct apusys_device adev_rt;
-	struct device *dev;      // platform device
+	struct device *dev;
 	struct rproc *rproc;
 
 	/* xos */
