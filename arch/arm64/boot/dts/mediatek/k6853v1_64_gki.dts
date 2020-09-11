@@ -352,8 +352,6 @@
 	};
 };
 
-/*End of this file, DO NOT ADD ANYTHING HERE*/
-
 /* CONSYS GPIO standardization */
 &pio {
 	consys_pins_default: consys_default {
@@ -391,5 +389,7 @@
 	pinctrl-3 = <&gpslna_pins_ol>;
 	status = "okay";
 };
-
 /* CONSYS end */
+
+#include "mediatek/cust_mt6853_touch_1080x1920.dtsi"
+/*End of this file, DO NOT ADD ANYTHING HERE*/
