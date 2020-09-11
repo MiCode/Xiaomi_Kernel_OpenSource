@@ -45,7 +45,6 @@
 #include <tz_cross/ta_system.h>
 #include <linux/sched.h>
 #include <uapi/linux/sched/types.h>
-/* FIXME: MTK_PPM_SUPPORT is disabled temporarily */
 #if IS_ENABLED(CONFIG_TEE)
 #include "tee_client_api.h"
 #endif
@@ -682,11 +681,6 @@ enum GZ_ReeServiceCommand {
 	REE_SERVICE_CMD_TEE_INVOK_CMD,
 	REE_SERVICE_CMD_END
 };
-
-#ifdef MTK_PPM_SUPPORT
-struct _cpus_cluster_freq cpus_cluster_freq[NR_PPM_CLUSTERS];
-/* static atomic_t boost_cpu[NR_PPM_CLUSTERS]; */
-#endif
 
 int tz_system_nop_std32(uint32_t type, uint64_t value)
 {

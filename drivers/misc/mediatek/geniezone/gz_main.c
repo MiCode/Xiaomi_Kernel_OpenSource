@@ -49,15 +49,6 @@
 
 #endif
 
-/* FIXME: MTK_PPM_SUPPORT is disabled temporarily */
-#ifdef MTK_PPM_SUPPORT
-#if IS_ENABLED(CONFIG_MACH_MT6758)
-#include "legacy_controller.h"
-#else
-#include "mtk_ppm_platform.h"
-#endif
-#endif
-
 #if IS_ENABLED(CONFIG_GZ_VPU_WITH_M4U)
 #include <m4u.h>
 #include <m4u_port.h>
@@ -438,9 +429,6 @@ int mtee_sdsp_enable(u32 on)
 
 int gz_get_cpuinfo_thread(void *data)
 {
-#ifdef MTK_PPM_SUPPORT
-	struct cpufreq_policy curr_policy;
-#endif
 #if IS_ENABLED(CONFIG_GZ_VPU_WITH_M4U)
 	int ret;
 	uint32_t sdsp_elf_buf_mva;
@@ -453,23 +441,7 @@ int gz_get_cpuinfo_thread(void *data)
 
 	KREE_DEBUG("%s driver register done\n", __func__);
 
-#if IS_ENABLED(CONFIG_MACH_MT6758)
-	msleep(3000);
-#else
 	msleep(1000);
-#endif
-
-#ifdef MTK_PPM_SUPPORT
-	cpufreq_get_policy(&curr_policy, 0);
-	cpus_cluster_freq[0].max_freq = curr_policy.cpuinfo.max_freq;
-	cpus_cluster_freq[0].min_freq = curr_policy.cpuinfo.min_freq;
-	cpufreq_get_policy(&curr_policy, 4);
-	cpus_cluster_freq[1].max_freq = curr_policy.cpuinfo.max_freq;
-	cpus_cluster_freq[1].min_freq = curr_policy.cpuinfo.min_freq;
-	KREE_INFO("%s, cluster [0]=%u-%u, [1]=%u-%u\n", __func__,
-		  cpus_cluster_freq[0].max_freq, cpus_cluster_freq[0].min_freq,
-		  cpus_cluster_freq[1].max_freq, cpus_cluster_freq[1].min_freq);
-#endif
 
 #if IS_ENABLED(CONFIG_GZ_VPU_WITH_M4U)
 	if (!m4u_gz_client)
