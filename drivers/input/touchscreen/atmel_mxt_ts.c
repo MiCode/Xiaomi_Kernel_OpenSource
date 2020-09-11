@@ -1222,10 +1222,12 @@ static irqreturn_t mxt_interrupt(int irq, void *dev_id)
 		return IRQ_HANDLED;
 
 	if (data->T44_address) {
-		return mxt_process_messages_t44(data);
+		mxt_process_messages_t44(data);
 	} else {
-		return mxt_process_messages(data);
+		mxt_process_messages(data);
 	}
+
+	return IRQ_HANDLED;
 }
 
 static int mxt_t6_command(struct mxt_data *data, u16 cmd_offset,
