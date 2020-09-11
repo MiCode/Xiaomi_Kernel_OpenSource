@@ -353,13 +353,13 @@
 		};
 	};
 
-	tpdm_acptm: tpdm@9860000 {
+	tpdm_actpm: tpdm@9860000 {
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x000bb968>;
 		reg = <0x9860000 0x1000>;
 		reg-names = "tpdm-base";
 
-		coresight-name = "coresight-tpdm-acptm";
+		coresight-name = "coresight-tpdm-actpm";
 
 		clocks = <&rpmcc RPM_SMD_QDSS_CLK>;
 		clock-names = "apb_pclk";
