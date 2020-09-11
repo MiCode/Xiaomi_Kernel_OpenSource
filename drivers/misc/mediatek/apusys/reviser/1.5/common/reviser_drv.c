@@ -490,12 +490,8 @@ static int reviser_probe(struct platform_device *pdev)
 		goto free_map;
 	}
 
-	if (reviser_dbg_init(rdv, g_apusys->dbg_root)) {
-		LOG_ERR("dbg init fail\n");
-		ret = -EINVAL;
-		goto free_table;
-	}
-	DEBUG_TAG;
+	reviser_dbg_init(rdv, g_apusys->dbg_root);
+
 
 	ret = apu_power_callback_device_register(REVISOR,
 			reviser_power_on_cb, reviser_power_off_cb);
