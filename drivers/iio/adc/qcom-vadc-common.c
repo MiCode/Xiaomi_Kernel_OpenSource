@@ -513,6 +513,14 @@ static int qcom_vadc_scale_hw_calib_volt(
 				const struct vadc_prescale_ratio *prescale,
 				const struct adc5_data *data,
 				u16 adc_code, int *result_uv);
+static int qcom_vadc_scale_hw_calib_current(
+				const struct vadc_prescale_ratio *prescale,
+				const struct adc5_data *data,
+				u16 adc_code, int *result_ua);
+static int qcom_vadc_scale_hw_calib_current_raw(
+				const struct vadc_prescale_ratio *prescale,
+				const struct adc5_data *data,
+				u16 adc_code, int *result_ua);
 static int qcom_vadc_scale_hw_calib_therm(
 				const struct vadc_prescale_ratio *prescale,
 				const struct adc5_data *data,
@@ -564,6 +572,8 @@ static int qcom_vadc7_scale_hw_calib_die_temp(
 
 static struct qcom_adc5_scale_type scale_adc5_fn[] = {
 	[SCALE_HW_CALIB_DEFAULT] = {qcom_vadc_scale_hw_calib_volt},
+	[SCALE_HW_CALIB_CUR] = {qcom_vadc_scale_hw_calib_current},
+	[SCALE_HW_CALIB_CUR_RAW] = {qcom_vadc_scale_hw_calib_current_raw},
 	[SCALE_HW_CALIB_THERM_100K_PULLUP] = {qcom_vadc_scale_hw_calib_therm},
 	[SCALE_HW_CALIB_BATT_THERM_100K] = {
 				qcom_vadc_scale_hw_calib_batt_therm_100},
@@ -778,6 +788,44 @@ static int qcom_vadc7_scale_hw_calib_therm(
 		return ret;
 
 	*result_mdec = result;
+
+	return 0;
+}
+
+static int qcom_vadc_scale_hw_calib_current_raw(
+				const struct vadc_prescale_ratio *prescale,
+				const struct adc5_data *data,
+				u16 adc_code, int *result_ua)
+{
+	s64 temp;
+
+	if (!prescale->num)
+		return -EINVAL;
+
+	temp = div_s64((s64)(s16)adc_code * prescale->den, prescale->num);
+	*result_ua = (int) temp;
+	pr_debug("raw adc_code: %#x result_ua: %d\n", adc_code, *result_ua);
+
+	return 0;
+}
+
+static int qcom_vadc_scale_hw_calib_current(
+				const struct vadc_prescale_ratio *prescale,
+				const struct adc5_data *data,
+				u16 adc_code, int *result_ua)
+{
+	u32 adc_vdd_ref_mv = 1875;
+	s64 voltage;
+
+	if (!prescale->num)
+		return -EINVAL;
+
+	/* (ADC code * vref_vadc (1.875V)) / full_scale_code */
+	voltage = (s64)(s16) adc_code * adc_vdd_ref_mv * 1000;
+	voltage = div_s64(voltage, data->full_scale_code_volt);
+	voltage = div_s64(voltage * prescale->den, prescale->num);
+	*result_ua = (int) voltage;
+	pr_debug("adc_code: %#x result_ua: %d\n", adc_code, *result_ua);
 
 	return 0;
 }

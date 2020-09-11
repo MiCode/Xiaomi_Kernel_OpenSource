@@ -145,6 +145,10 @@ struct vadc_prescale_ratio {
  *	SMB139x temperature.
  * SCALE_HW_CALIB_PM7_CHG_TEMP: Returns result in millidegrees for PMIC7
  *	charger temperature.
+ * SCALE_HW_CALIB_CUR: Returns result in microamperes for PMIC7 channels that
+ *	use voltage scaling.
+ * SCALE_HW_CALIB_CUR_RAW: Returns result in microamperes for PMIC7 channels
+ *	that use raw ADC code.
  */
 enum vadc_scale_fn_type {
 	SCALE_DEFAULT = 0,
@@ -166,6 +170,8 @@ enum vadc_scale_fn_type {
 	SCALE_HW_CALIB_PM5_SMB1398_TEMP,
 	SCALE_HW_CALIB_PM7_SMB_TEMP,
 	SCALE_HW_CALIB_PM7_CHG_TEMP,
+	SCALE_HW_CALIB_CUR,
+	SCALE_HW_CALIB_CUR_RAW,
 	SCALE_HW_CALIB_INVALID,
 };
 

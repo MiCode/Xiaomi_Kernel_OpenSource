@@ -165,7 +165,13 @@ static const struct vadc_prescale_ratio adc5_prescale_ratios[] = {
 	{.num =  1, .den =  8},
 	{.num = 10, .den = 81},
 	{.num =  1, .den = 10},
-	{.num =  1, .den = 16}
+	{.num =  1, .den = 16},
+	/* Prescale ratios for current channels below */
+	{.num = 32, .den = 100},	/* IIN_FB */
+	{.num = 14, .den = 100},	/* ICHG_SMB */
+	{.num = 28, .den = 100},	/* IIN_SMB */
+	{.num = 1000, .den = 305185},	/* ICHG_FB */
+	{.num = 1000, .den = 610370},	/* ICHG_FB_2X */
 };
 
 static int adc5_read(struct adc5_chip *adc, u16 offset, u8 *data, int len)
@@ -611,6 +617,11 @@ struct adc5_channels {
 		  BIT(IIO_CHAN_INFO_PROCESSED),				\
 		  _pre, _scale)						\
 
+#define ADC5_CHAN_CUR(_dname, _pre, _scale)				\
+	ADC5_CHAN(_dname, IIO_CURRENT,					\
+		  BIT(IIO_CHAN_INFO_PROCESSED),				\
+		  _pre, _scale)						\
+
 static const struct adc5_channels adc5_chans_pmic[ADC5_MAX_CHANNEL] = {
 	[ADC5_REF_GND]		= ADC5_CHAN_VOLT("ref_gnd", 0,
 					SCALE_HW_CALIB_DEFAULT)
@@ -676,6 +687,14 @@ static const struct adc5_channels adc7_chans_pmic[ADC5_MAX_CHANNEL] = {
 					SCALE_HW_CALIB_PM7_SMB_TEMP)
 	[ADC7_CHG_TEMP]		= ADC5_CHAN_TEMP("chg_temp", 0,
 					SCALE_HW_CALIB_PM7_CHG_TEMP)
+	[ADC7_IIN_FB]		= ADC5_CHAN_CUR("iin_fb", 9,
+					SCALE_HW_CALIB_CUR)
+	[ADC7_ICHG_SMB]		= ADC5_CHAN_CUR("ichg_smb", 10,
+					SCALE_HW_CALIB_CUR)
+	[ADC7_IIN_SMB]		= ADC5_CHAN_CUR("iin_smb", 11,
+					SCALE_HW_CALIB_CUR)
+	[ADC7_ICHG_FB]		= ADC5_CHAN_CUR("ichg_fb", 12,
+					SCALE_HW_CALIB_CUR_RAW)
 	[ADC7_DIE_TEMP]		= ADC5_CHAN_TEMP("die_temp", 0,
 					SCALE_HW_CALIB_PMIC_THERM_PM7)
 	[ADC7_AMUX_THM1_100K_PU] = ADC5_CHAN_TEMP("amux_thm1_pu2", 0,
