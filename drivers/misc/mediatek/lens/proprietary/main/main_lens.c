@@ -256,57 +256,10 @@ static int DrvPwrDn3 = 1;
 void AF_PowerDown(void)
 {
 	if (g_pstAF_I2Cclient != NULL) {
-#if defined(CONFIG_MACH_MT6771) ||              \
-	defined(CONFIG_MACH_MT6775)
-		LC898217AF_PowerDown(g_pstAF_I2Cclient, &g_s4AF_Opened);
-#endif
-
-#ifdef CONFIG_MTK_LENS_AK7371AF_SUPPORT
-		AK7371AF_PowerDown(g_pstAF_I2Cclient, &g_s4AF_Opened);
-#endif
-
-#ifdef CONFIG_MACH_MT6758
-		AK7371AF_PowerDown(g_pstAF_I2Cclient, &g_s4AF_Opened);
-
-		BU63169AF_PowerDown(g_pstAF_I2Cclient, &g_s4AF_Opened);
-#endif
-
-#ifdef CONFIG_MACH_MT6765
-		int Ret1 = 0, Ret2 = 0, Ret3 = 0;
-
-		if (DrvPwrDn1) {
-			Ret1 = LC898217AF_PowerDown(g_pstAF_I2Cclient,
-						&g_s4AF_Opened);
-		}
-
-		if (DrvPwrDn2) {
-			Ret2 = DW9718SAF_PowerDown(g_pstAF_I2Cclient,
-						&g_s4AF_Opened);
-		}
-
-		if (DrvPwrDn3) {
-			Ret3 = bu64748af_PowerDown_Main(g_pstAF_I2Cclient,
-						&g_s4AF_Opened);
-		}
-
-		if (DrvPwrDn1 && DrvPwrDn2 && DrvPwrDn3) {
-			if (Ret1 < 0)
-				DrvPwrDn1 = 0;
-			if (Ret2 < 0)
-				DrvPwrDn2 = 0;
-			if (Ret3 < 0)
-				DrvPwrDn3 = 0;
-
-		}
-			LOG_INF("%d/%d , %d/%d, %d/%d\n", Ret1, DrvPwrDn1,
-				Ret2, DrvPwrDn2, Ret3, DrvPwrDn3);
-#endif
-
-#ifdef CONFIG_MACH_MT6761
-		DW9718SAF_PowerDown(g_pstAF_I2Cclient, &g_s4AF_Opened);
-#endif
+		LOG_INF("+\n");
+		LOG_INF("-\n");
 	}
-	// MAIN2AF_PowerDown();
+	return;
 }
 EXPORT_SYMBOL(AF_PowerDown);
 
