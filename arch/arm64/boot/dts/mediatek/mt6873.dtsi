@@ -4921,7 +4921,8 @@
 				"l11_img_mfb_wdma1";
 			mdp-opp = <&opp_table_mdp>;
 			isp-opp = <&opp_table_img>;
-			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+			mdp-dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+			isp-dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 		};
 
 		mdp_mutex: mdp_mutex@1f001000 {
