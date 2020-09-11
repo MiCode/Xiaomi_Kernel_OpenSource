@@ -485,7 +485,7 @@ out:
 }
 
 static struct kobj_attribute dbg_cm_mgr_attribute =
-__ATTR(dbg_cm_mgr, 0644, dbg_cm_mgr_show, dbg_cm_mgr_store);
+__ATTR(dbg_cm_mgr, 0660, dbg_cm_mgr_show, dbg_cm_mgr_store);
 
 static struct attribute *attrs[] = {
 	&dbg_cm_mgr_attribute.attr,
