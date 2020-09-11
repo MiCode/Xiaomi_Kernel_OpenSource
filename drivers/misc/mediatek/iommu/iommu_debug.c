@@ -65,7 +65,7 @@ enum mtk_iommu_type {
 }
 
 #define mmu_translation_log_format \
-	"CRDISPATCH_KEY:M4U_%s\ntranslation fault:port=%s,mva=0x%x,pa=0x%x\n"
+	"CRDISPATCH_KEY:M4U_%s\ntranslation fault:port=%s,mva=0x%llx,pa=0x%llx\n"
 
 struct mtk_iommu_port {
 	char *name;
@@ -615,9 +615,13 @@ static int mtk_iommu_get_tf_port_idx(int tf_id, bool is_vpu)
 	pr_info("get vld tf_id:0x%x\n", vld_id);
 	port_nr =  m4u_data->plat_data->port_nr[type];
 	port_list = m4u_data->plat_data->port_list[type];
+	/* check (larb | port) for smi_larb or apu_bus */
 	for (i = 0; i < port_nr; i++) {
 		if (port_list[i].tf_id == vld_id)
 			return i;
+	}
+	/* check larb for smi_common */
+	for (i = 0; i < port_nr; i++) {
 		if (port_list[i].tf_id == (vld_id & F_MMU_INT_TF_CCU))
 			return i;
 	}
@@ -669,7 +673,9 @@ void report_custom_iommu_fault(
 	}
 	port = MTK_M4U_ID(port_list[idx].larb_id,
 			  port_list[idx].port_id);
-	pr_info("error, tf report port:0x%x\n", port);
+	pr_info("error, tf report port:0x%x(%u--%u), idx:%d\n",
+		port, port_list[idx].larb_id,
+		port_list[idx].port_id, idx);
 	if (port_list[idx].enable_tf &&
 		m4u_data->m4u_cb[idx].fault_fn)
 		m4u_data->m4u_cb[idx].fault_fn(port,
@@ -693,10 +699,15 @@ int mtk_iommu_register_fault_callback(int port,
 		pr_info("%s fail, port=%d\n", __func__, port);
 		return -1;
 	}
+	pr_info("%s, %s, port:0x%x(%s), idx:%d\n",
+		__func__, is_vpu ? "apu_port" : "mm_port",
+		port, m4u_data->plat_data->port_list[type][idx].name,
+		idx);
 	if (is_vpu)
 		idx += m4u_data->plat_data->port_nr[type];
 	m4u_data->m4u_cb[idx].fault_fn = fn;
 	m4u_data->m4u_cb[idx].fault_data = cb_data;
+
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mtk_iommu_register_fault_callback);
