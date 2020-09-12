@@ -188,9 +188,9 @@ static int def_dsi_hbp;
 static int dsi_currect_mode;
 static int dsi_force_config;
 static int dsi0_te_enable = 1;
-static const struct LCM_UTIL_FUNCS lcm_utils_dsi0;
-static const struct LCM_UTIL_FUNCS lcm_utils_dsi1;
-static const struct LCM_UTIL_FUNCS lcm_utils_dsidual;
+static struct LCM_UTIL_FUNCS lcm_utils_dsi0;
+static struct LCM_UTIL_FUNCS lcm_utils_dsi1;
+static struct LCM_UTIL_FUNCS lcm_utils_dsidual;
 static cmdqBackupSlotHandle _h_intstat;
 unsigned int impendance0[2] = { 0 }; /* MIPITX_DSI_IMPENDANCE0 */
 unsigned int impendance1[2] = { 0 }; /* MIPITX_DSI_IMPENDANCE1 */
@@ -3612,9 +3612,7 @@ const struct LCM_UTIL_FUNCS PM_lcm_utils_dsi0 = {
 	.udelay = lcm_udelay,
 	.mdelay = lcm_mdelay,
 	.dsi_set_cmdq = DSI_set_cmdq_wrapper_DSI0,
-	.dsi_set_cmdq_V2 = DSI_set_cmdq_V2_Wrapper_DSI0,
-	.dsi_dcs_read_lcm_reg_v2 =
-		DSI_dcs_read_lcm_reg_v2_wrapper_DSI0
+	.dsi_set_cmdq_V2 = DSI_set_cmdq_V2_Wrapper_DSI0
 };
 
 int ddp_dsi_set_lcm_utils(enum DISP_MODULE_ENUM module,
@@ -3646,7 +3644,7 @@ int ddp_dsi_set_lcm_utils(enum DISP_MODULE_ENUM module,
 	if (module == DISP_MODULE_DSI0) {
 		utils->dsi_set_cmdq =
 			DSI_set_cmdq_wrapper_DSI0;
-		for (i = 0; i < 10; i++) {
+		for (i = 0; i < 5; i++) {
 			if (utils->dsi_set_cmdq)
 				pr_notice("%s, %d %d, correct\n", __func__, __LINE__, i);
 			else
@@ -3654,12 +3652,6 @@ int ddp_dsi_set_lcm_utils(enum DISP_MODULE_ENUM module,
 		}
 		utils->dsi_set_cmdq_V2 =
 			DSI_set_cmdq_V2_Wrapper_DSI0;
-		for (i = 0; i < 10; i++) {
-			if (utils->dsi_set_cmdq_V2)
-				pr_notice("%s, %d %d, v2 correct\n", __func__, __LINE__, i);
-			else
-				pr_notice("%s, %d %d, v2 error\n", __func__, __LINE__, i);
-		}
 		utils->dsi_set_cmdq_V3 =
 			DSI_set_cmdq_V3_Wrapper_DSI0;
 		utils->dsi_dcs_read_lcm_reg_v2 =
@@ -3764,7 +3756,7 @@ int ddp_dsi_set_lcm_utils(enum DISP_MODULE_ENUM module,
 #endif
 #endif
 
-	lcm_drv->set_util_funcs(&PM_lcm_utils_dsi0);
+	lcm_drv->set_util_funcs(utils);
 
 	return 0;
 }
