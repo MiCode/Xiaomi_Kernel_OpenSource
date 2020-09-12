@@ -129,7 +129,7 @@
 #define SPCOM_MAX_READ_SIZE	(PAGE_SIZE)
 
 /* Current Process ID */
-#define current_pid() ((u32)(current->pid))
+#define current_pid() ((u32)(current->tgid))
 
 /*
  * After both sides get CONNECTED,
@@ -1471,6 +1471,11 @@ static int spcom_device_open(struct inode *inode, struct file *filp)
 		return 0;
 	}
 
+	if (pid == 0) {
+		spcom_pr_err("unknown PID\n");
+		return -EINVAL;
+	}
+
 	ch = spcom_find_channel_by_name(name);
 	if (!ch) {
 		spcom_pr_err("ch[%s] doesn't exist, load app first\n", name);
@@ -1556,6 +1561,7 @@ static int spcom_device_release(struct inode *inode, struct file *filp)
 	const char *name = file_to_filename(filp);
 	int ret = 0;
 	int i = 0;
+	u32 pid = current_pid();
 
 	if (strcmp(name, "unknown") == 0) {
 		spcom_pr_err("name is unknown\n");
@@ -1569,6 +1575,11 @@ static int spcom_device_release(struct inode *inode, struct file *filp)
 	if (strcmp(name, "sp_ssr") == 0) {
 		spcom_pr_dbg("sp_ssr dev node skipped\n");
 		return 0;
+	}
+
+	if (pid == 0) {
+		spcom_pr_err("unknown PID\n");
+		return -EINVAL;
 	}
 
 	ch = filp->private_data;
@@ -1587,7 +1598,8 @@ static int spcom_device_release(struct inode *inode, struct file *filp)
 	}
 
 	for (i = 0; i < SPCOM_MAX_CHANNEL_CLIENTS; i++) {
-		if (ch->pid[i] == current_pid()) {
+		if (ch->pid[i] == pid) {
+			spcom_pr_dbg("PID [%x] is releasing ch [%s]\n", current->tgid, name);
 			ch->pid[i] = 0;
 			break;
 		}
@@ -1598,7 +1610,7 @@ static int spcom_device_release(struct inode *inode, struct file *filp)
 		 * Shared client is trying to close channel,
 		 * release the sync_lock if applicable
 		 */
-		if (ch->active_pid == current_pid()) {
+		if (ch->active_pid == pid) {
 			spcom_pr_dbg("active_pid [%x] is releasing ch [%s] sync lock\n",
 				 ch->active_pid, name);
 			/* No longer the current active user of the channel */
