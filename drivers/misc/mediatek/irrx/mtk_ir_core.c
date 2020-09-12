@@ -10,8 +10,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
-#include "inc/mtk_ir_core.h"
-#include "inc/mtk_ir_regs.h"
+#include "mtk_ir_core.h"
+#include "mtk_ir_regs.h"
 static int mtk_ir_get_hw_info(struct platform_device *pdev);
 static int mtk_ir_core_register_swirq(int trigger_type);
 static void mtk_ir_core_free_swirq(void);
@@ -252,7 +252,11 @@ static ssize_t mtk_ir_core_show_info(struct device *dev,
 
 	if (strcmp(pattr->name, "register") == 0) {
 		SPRINTF_DEV_ATTR("-------------dump ir register-----------\n");
+#ifdef USE_OLD_IRRX_CODA
+		for (vregstart = 0; vregstart <= IRRX_CHKDATA16;) {
+#else
 		for (vregstart = 0; vregstart <= IRRX_CHKDATA31;) {
+#endif
 			SPRINTF_DEV_ATTR("IR reg 0x%08x = 0x%08x\n",
 				vregstart, IR_READ32(vregstart));
 			vregstart += 4;

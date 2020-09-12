@@ -11,9 +11,9 @@
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 #include <linux/jiffies.h>
-#include "../inc/mtk_ir_common.h"
-#include "../inc/mtk_ir_core.h"
-#include "../inc/mtk_ir_regs.h"
+#include "mtk_ir_common.h"
+#include "mtk_ir_core.h"
+#include "mtk_ir_regs.h"
 #include "mtk_ir_cus_rc6.h"
 
 #define MTK_RC6_BITCNT   0x1e
@@ -129,6 +129,10 @@ static int mtk_ir_rc6_suspend(void *preserve)
 		IRRX_BCEPEN_OFFSET, 0x1);
 	IR_WRITE_MASK(IRRX_EXPBCNT, IRRX_EXP_BITCNT_MASK,
 		IRRX_EXP_BITCNT_OFFSET, 0x1E);
+#ifdef USE_OLD_IRRX_CODA
+	IR_WRITE_MASK(IRRX_PDWNOUT, IRRX_PDWNOUT_MASK,
+		IRRX_PDWNOUT_OFFSET, 0x1);
+#endif
 	IR_WRITE32(IRRX_ENEXP_IRM, MTK_RC6_EXP_IRM_BIT_MASK);
 	IR_WRITE32(IRRX_ENEXP_IRL, MTK_RC6_EXP_IRL_BIT_MASK);
 	IR_WRITE32(IRRX_EXP_IRM0, MTK_RC6_EXP_POWE_KEY1);
@@ -146,6 +150,10 @@ static int mtk_ir_rc6_resume(void *preserve)
 		IRRX_BCEPEN_OFFSET, 0x0);
 	IR_WRITE_MASK(IRRX_WAKEEN, IRRX_WAKEEN_MASK,
 		IRRX_WAKEEN_OFFSET, 0x0);
+#ifdef USE_OLD_IRRX_CODA
+	IR_WRITE_MASK(IRRX_PDWNOUT, IRRX_PDWNOUT_MASK,
+		IRRX_PDWNOUT_OFFSET, 0x0);
+#endif
 	IR_WRITE_MASK(IRRX_WAKECLR, IRRX_WAKECLR_MASK,
 		IRRX_WAKECLR_OFFSET, 0x1);
 
