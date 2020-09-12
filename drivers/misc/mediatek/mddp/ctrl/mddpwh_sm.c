@@ -272,6 +272,7 @@ static struct mddp_sm_entry_t mddpwh_wait_enable_state_machine_s[] = {
 /* event                new_state                action */
 {MDDP_EVT_FUNC_ENABLE,  MDDP_STATE_ENABLING,     mddpwh_sm_enable},
 {MDDP_EVT_DRV_DEREGHDLR, MDDP_STATE_UNINIT,      NULL},
+{MDDP_EVT_DRV_REGHDLR,  MDDP_STATE_WAIT_ENABLE,  NULL},
 {MDDP_EVT_DUMMY,        MDDP_STATE_WAIT_ENABLE,  NULL} /* End of SM. */
 };
 
@@ -313,6 +314,7 @@ static struct mddp_sm_entry_t mddpwh_activated_state_machine_s[] = {
 /* event                new_state                action */
 {MDDP_EVT_FUNC_DEACT,   MDDP_STATE_DEACTIVATING, mddpwh_sm_deact},
 {MDDP_EVT_FUNC_DISABLE, MDDP_STATE_DISABLING,    mddpwh_sm_disable},
+{MDDP_EVT_DRV_DEREGHDLR, MDDP_STATE_ACTIVATED,    NULL},
 {MDDP_EVT_DUMMY,        MDDP_STATE_ACTIVATED,    NULL} /* End of SM. */
 };
 
