@@ -51,6 +51,8 @@
 
 		qcom,gpu-qdss-stm = <0x161c0000 0x40000>; /* base addr, size */
 
+		qcom,tzone-names = "gpuss-0-usr", "gpuss-1-usr";
+
 		interconnects = <&gem_noc MASTER_GFX3D &mc_virt SLAVE_EBI1>;
 		interconnect-names = "gpu_icc_path";
 
