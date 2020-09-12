@@ -32,19 +32,21 @@
 #include <linux/sched/debug.h>
 
 #ifdef CONFIG_OF
+#ifndef CONFIG_FPGA_EARLY_PORTING
 static unsigned long __iomem *udipin_base;
-static unsigned long __iomem *udipin_mux1;
-static unsigned int udipin_value1;
-static unsigned long __iomem *udipin_mux2;
-static unsigned int udipin_value2;
 static unsigned int udi_offset1;
 static unsigned int udi_value1;
 static unsigned int udi_offset2;
 static unsigned int udi_value2;
 static unsigned int ecc_debug;
+static unsigned int ecc_debug_enable;
+#endif
+static unsigned long __iomem *udipin_mux1;
+static unsigned long __iomem *udipin_mux2;
+static unsigned int udipin_value1;
+static unsigned int udipin_value2;
 #endif
 
-static unsigned int ecc_debug_enable;
 static unsigned int func_lv_trig_ecc;
 static unsigned int func_lv_mask_udi;
 
@@ -682,8 +684,10 @@ static ssize_t udi_bit_ctrl_proc_write(struct file *file,
 }
 
 /* ECC debug */
+
 void ecc_dump_debug_info(void)
 {
+/*
 	if (ecc_debug_enable) {
 		show_stack(current, NULL);
 		pr_notice("%s: LCPU %d khz, BCPU %d khz\n",
@@ -691,8 +695,10 @@ void ecc_dump_debug_info(void)
 				mt_cpufreq_get_cur_freq(0),
 				mt_cpufreq_get_cur_freq(1));
 	} else
+*/
 		pr_notice("ecc backtrace off.");
 }
+
 
 #define ECC_UE_TRIGGER		(0x80000002)
 #define ECC_CE_TRIGGER		(0x80000040)
