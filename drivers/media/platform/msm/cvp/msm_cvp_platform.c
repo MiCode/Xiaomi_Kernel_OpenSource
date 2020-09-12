@@ -158,6 +158,10 @@ static struct msm_cvp_ubwc_config_data kona_ubwc_data[] = {
 	UBWC_CONFIG(1, 1, 1, 0, 0, 0, 8, 32, 16, 0, 0),
 };
 
+/* Default UBWC config for LPDDR5 */
+static struct msm_cvp_ubwc_config_data shima_ubwc_data[] = {
+	UBWC_CONFIG(1, 1, 1, 0, 0, 0, 8, 32, 15, 0, 0),
+};
 
 static struct msm_cvp_platform_data default_data = {
 	.common_data = default_common_data,
@@ -183,10 +187,18 @@ static struct msm_cvp_platform_data sm8350_data = {
 	.ubwc_config = kona_ubwc_data,
 };
 
+static struct msm_cvp_platform_data shima_data = {
+	.common_data = sm8350_common_data,
+	.common_data_length =  ARRAY_SIZE(sm8350_common_data),
+	.sku_version = 0,
+	.vpu_ver = VPU_VERSION_5,
+	.ubwc_config = shima_ubwc_data,
+};
+
 static const struct of_device_id msm_cvp_dt_match[] = {
 	{
 		.compatible = "qcom,shima-cvp",
-		.data = &sm8350_data,
+		.data = &shima_data,
 	},
 	{
 		.compatible = "qcom,lahaina-cvp",
@@ -230,6 +242,22 @@ void *cvp_get_drv_data(struct device *dev)
 			(ddr_type == DDR_TYPE_LPDDR4 ||
 			ddr_type == DDR_TYPE_LPDDR4X))
 			driver_data->ubwc_config->highest_bank_bit = 15;
+		dprintk(CVP_CORE, "DDR Type 0x%x hbb 0x%x\n",
+			ddr_type, driver_data->ubwc_config ?
+			driver_data->ubwc_config->highest_bank_bit : -1);
+	}
+
+	if (!strcmp(match->compatible, "qcom,shima-cvp")) {
+		ddr_type = of_fdt_get_ddrtype();
+		if (ddr_type == -ENOENT) {
+			dprintk(CVP_ERR,
+				"Failed to get ddr type, use LPDDR5\n");
+		}
+
+		if (driver_data->ubwc_config &&
+			(ddr_type == DDR_TYPE_LPDDR4 ||
+			ddr_type == DDR_TYPE_LPDDR4X))
+			driver_data->ubwc_config->highest_bank_bit = 14;
 		dprintk(CVP_CORE, "DDR Type 0x%x hbb 0x%x\n",
 			ddr_type, driver_data->ubwc_config ?
 			driver_data->ubwc_config->highest_bank_bit : -1);
