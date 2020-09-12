@@ -45,8 +45,11 @@
 #define DATA_AT_CMD_Q	5
 #endif
 
+#if (MD_GENERATION >= 6295)
 #define DATA_TCHE	8
-
+#else
+#define DATA_TCHE	2
+#endif
 
 #define SMEM_Q			AP_MD_CCB_WAKEUP
 
