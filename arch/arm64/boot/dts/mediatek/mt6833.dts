@@ -1574,6 +1574,25 @@ page_owner=on";
 		compatible = "mediatek,imgsensor";
 	};
 
+	flashlight_core: flashlight_core {
+		compatible = "mediatek,flashlight_core";
+	};
+
+	flashlights_mt6360: flashlights_mt6360 {
+		compatible = "mediatek,flashlights_mt6360";
+		decouple = <1>;
+		channel@1 {
+			type = <0>;
+			ct = <0>;
+			part = <0>;
+		};
+		channel@2 {
+			type = <0>;
+			ct = <1>;
+			part = <0>;
+		};
+	};
+
 	imp_iic_wrap_w: imp_iic_wrap_w@11e01000 {
 		compatible = "mediatek,imp_iic_wrap_w",
 			"mediatek,mt6833-imp_iic_wrap_w", "syscon";
