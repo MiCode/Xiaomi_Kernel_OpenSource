@@ -42,7 +42,7 @@ static u32 cable_mode = CABLE_MODE_NORMAL;
 #ifndef FPGA_PLATFORM
 struct clk *musb_clk;
 struct clk *musb_clk_top_sel;
-struct clk *musb_clk_univpll3_d4;
+struct clk *musb_clk_univpll5_d4;
 static struct regulator *reg_vusb;
 static struct regulator *reg_vio18;
 static struct regulator *reg_va12;
@@ -1645,9 +1645,9 @@ static int mt_usb_probe(struct platform_device *pdev)
 		goto err2;
 	}
 
-	musb_clk_univpll3_d4 = devm_clk_get(&pdev->dev, "usb0_clk_univpll3_d4");
-	if (IS_ERR(musb_clk_univpll3_d4)) {
-		DBG(0, "cannot get musb_clk_univpll3_d4 clock\n");
+	musb_clk_univpll5_d4 = devm_clk_get(&pdev->dev, "usb0_clk_univpll5_d4");
+	if (IS_ERR(musb_clk_univpll5_d4)) {
+		DBG(0, "cannot get musb_clk_univpll5_d4 clock\n");
 		goto err2;
 	}
 
