@@ -269,6 +269,8 @@ int vpu_kbuf_alloc(struct vpu_device *vd)
 	period = ((uint64_t)(timespec_to_ns(&end)
 		- timespec_to_ns(&start)));
 
+	vpu_iova_sync_for_cpu(vd->dev, &vd->iova_kernel);
+
 	vpu_pwr_debug("%s: vpu%d, iova: 0x%llx, period: %llu ns, page num: %d\n",
 	__func__, vd->id, (u64)iova, period, vd->iova_kernel.sgt.nents);
 
