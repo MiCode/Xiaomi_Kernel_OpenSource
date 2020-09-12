@@ -24,6 +24,7 @@
 #include "mtk_drm_ddp_comp.h"
 #include "mtk_drm_drv.h"
 #include "mtk_disp_ccorr.h"
+#include "mtk_disp_color.h"
 #include "mtk_log.h"
 #include "mtk_dump.h"
 
@@ -50,6 +51,8 @@
 
 static unsigned int g_ccorr_relay_value[DISP_CCORR_TOTAL];
 #define index_of_ccorr(module) ((module == DDP_COMPONENT_CCORR0) ? 0 : 1)
+
+static bool bypass_color;
 
 static atomic_t g_ccorr_is_clock_on[DISP_CCORR_TOTAL] = {
 	ATOMIC_INIT(0), ATOMIC_INIT(0) };
@@ -572,12 +575,13 @@ static int disp_ccorr_set_coef(
 }
 
 int disp_ccorr_set_color_matrix(struct mtk_ddp_comp *comp,
-	struct cmdq_pkt *handle, int32_t matrix[16], int32_t hint)
+	struct cmdq_pkt *handle, int32_t matrix[16], int32_t hint, bool fte_flag)
 {
 	int ret = 0;
 	int i, j;
 	int ccorr_without_gamma = 0;
 	bool need_refresh = false;
+	bool identity_matrix = true;
 	int id = index_of_ccorr(comp->id);
 
 	if (handle == NULL) {
@@ -601,10 +605,31 @@ int disp_ccorr_set_color_matrix(struct mtk_ddp_comp *comp,
 			if (ccorr_without_gamma == 1)
 				continue;
 
-			if (i == j && g_ccorr_color_matrix[i][j] != 1024)
+			if (i == j && g_ccorr_color_matrix[i][j] != 1024) {
 				ccorr_without_gamma = 1;
-			else if (i != j && g_ccorr_color_matrix[i][j] != 0)
+				identity_matrix = false;
+			} else if (i != j && g_ccorr_color_matrix[i][j] != 0) {
 				ccorr_without_gamma = 1;
+				identity_matrix = false;
+			}
+		}
+	}
+
+	// hint: 0: identity matrix; 1: arbitraty matrix
+	// fte_flag: true: gpu overlay && hwc not identity matrix
+	// arbitraty matrix maybe identity matrix or color transform matrix;
+	// only when set identity matrix and not gpu overlay, open display color
+	DDPINFO("hint: %d, identity: %d, fte_flag: %d, bypass: %d",
+		hint, identity_matrix, fte_flag, bypass_color);
+	if (((hint == 0) || ((hint == 1) && identity_matrix)) && (!fte_flag)) {
+		if (bypass_color == true) {
+			mtk_color_setbypass(comp, false);
+			bypass_color = false;
+		}
+	} else {
+		if (bypass_color == false) {
+			mtk_color_setbypass(comp, true);
+			bypass_color = true;
 		}
 	}
 
@@ -630,10 +655,10 @@ int disp_ccorr_set_color_matrix(struct mtk_ddp_comp *comp,
 				g_ccorr_color_matrix[i][2]);
 	}
 
-	DDPDBG("g_ccorr_color_matrix offset {%d, %d, %d}\n",
+	DDPDBG("g_ccorr_color_matrix offset {%d, %d, %d}, hint: %d\n",
 		g_disp_ccorr_coef[id]->offset[0],
 		g_disp_ccorr_coef[id]->offset[1],
-		g_disp_ccorr_coef[id]->offset[2]);
+		g_disp_ccorr_coef[id]->offset[2], hint);
 
 	g_disp_ccorr_without_gamma = ccorr_without_gamma;
 
