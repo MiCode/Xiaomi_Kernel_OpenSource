@@ -437,7 +437,9 @@ static void set_shutter(kal_uint16 shutter)
 
 }
 
-static void set_shutter_frame_length(kal_uint16 shutter, kal_uint16 target_frame_length)
+static void set_shutter_frame_length(kal_uint16 shutter,
+				kal_uint16 target_frame_length,
+				kal_bool auto_extend_en)
 {
 	spin_lock(&imgsensor_drv_lock);
 	if (imgsensor.sensor_mode == IMGSENSOR_MODE_CAPTURE) {//spec case 24fps
@@ -1142,6 +1144,7 @@ static kal_uint32 get_info(enum MSDK_SCENARIO_ID_ENUM scenario_id,
 	sensor_info->Custom3DelayFrame = imgsensor_info.custom3_delay_frame;
 	sensor_info->Custom4DelayFrame = imgsensor_info.custom4_delay_frame;
 	sensor_info->Custom5DelayFrame = imgsensor_info.custom5_delay_frame;
+	sensor_info->FrameTimeDelayFrame = imgsensor_info.frame_time_delay_frame;
 
 	sensor_info->SensorMasterClockSwitch = 0; /* not use */
 	sensor_info->SensorDrivingCurrent = imgsensor_info.isp_driving_current;
@@ -1979,7 +1982,18 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 #endif
 	case SENSOR_FEATURE_SET_SHUTTER_FRAME_TIME:/*lzl*/
 		pr_debug("SENSOR_FEATURE_SET_SHUTTER_FRAME_TIME\n");
-		set_shutter_frame_length((UINT16)*feature_data, (UINT16)*(feature_data+1));
+		set_shutter_frame_length((UINT16)*(feature_data),
+				(UINT16)(*(feature_data+1)),
+				(BOOL) (*(feature_data + 2)));
+		break;
+	case SENSOR_FEATURE_GET_FRAME_CTRL_INFO_BY_SCENARIO:
+		/*
+		 * set_shutter_frame_length() support
+		 * N+1 shutter take effect (auto extend on)
+		 */
+		*(feature_data + 1) = 1;
+		/* margin info by scenario */
+		*(feature_data + 2) = imgsensor_info.margin;
 		break;
 	case SENSOR_FEATURE_SET_STREAMING_SUSPEND:
 		pr_debug("SENSOR_FEATURE_SET_STREAMING_SUSPEND\n");
