@@ -1271,7 +1271,7 @@ static struct platform_device *pdev_from_name(const char *name)
 {
 	struct generic_pm_domain **pds = get_all_genpd();
 
-	for (; *pds != NULL; pds++) {
+	for (; pds != NULL && *pds != NULL; pds++) {
 		struct pm_domain_data *pdd;
 		struct generic_pm_domain *pd = *pds;
 
@@ -1294,7 +1294,7 @@ static struct generic_pm_domain *genpd_from_name(const char *name)
 {
 	struct generic_pm_domain **pds = get_all_genpd();
 
-	for (; *pds != NULL; pds++) {
+	for (; pds != NULL && *pds != NULL; pds++) {
 		struct generic_pm_domain *pd = *pds;
 
 		if (IS_ERR_OR_NULL(pd))
@@ -1329,7 +1329,7 @@ static void save_all_genpd_state(struct genpd_state *genpd_states,
 	struct genpd_dev_state *devst = genpd_dev_states;
 	struct generic_pm_domain **pds = get_all_genpd();
 
-	for (; *pds != NULL; pds++) {
+	for (; pds != NULL && *pds != NULL; pds++) {
 		struct pm_domain_data *pdd;
 		struct generic_pm_domain *pd = *pds;
 
@@ -1620,7 +1620,7 @@ static int genpd_op(const char *gpd_op_name, struct seq_file *s)
 	if (strcmp(pd_name, "all") == 0) {
 		struct generic_pm_domain **pds = get_all_genpd();
 
-		for (; *pds != NULL; pds++) {
+		for (; pds != NULL && *pds != NULL; pds++) {
 			genpd = *pds;
 
 			if (IS_ERR_OR_NULL(genpd))
@@ -1745,7 +1745,7 @@ static void reg_pdev_drv(const char *pdname, struct seq_file *s)
 	bool allpd = (pdname == NULL || strcmp(pdname, "all") == 0);
 	int r;
 
-	for (i = 0; i < ARRAY_SIZE(pderv) && *pds != NULL; i++, pds++) {
+	for (i = 0; i < ARRAY_SIZE(pderv) && pds != NULL && *pds != NULL; i++, pds++) {
 		const char *name = pderv[i].pdrv.driver.name;
 		struct generic_pm_domain *pd = *pds;
 
