@@ -1789,6 +1789,9 @@ static unsigned int __mt_gpufreq_get_segment_id(void)
 
 	efuse_id = (get_devinfo_with_index(30) & 0xFF);
 
+#if 1
+	segment_id = MT6833_SEGMENT;
+#else
 	switch (efuse_id) {
 	case 0x1:
 		segment_id = MT6833_SEGMENT;
@@ -1808,32 +1811,27 @@ static unsigned int __mt_gpufreq_get_segment_id(void)
 		gpufreq_pr_info("@%s: invalid efuse_id(0x%x)\n",
 				__func__, efuse_id);
 	}
+#endif
 
 	gpufreq_pr_info("@%s: efuse_id=0x%x segment_id=%d\n",
 			__func__, efuse_id, segment_id);
 
 	return segment_id;
 }
+
 static struct opp_table_info *__mt_gpufreq_get_segment_table(void)
 {
-#if 1
-	return g_opp_table_segment_1;
-#else
-
 	unsigned int efuse_id;
 
-	efuse_id = ((get_devinfo_with_index(134) >> 2) & 0x3);
+	efuse_id = ((get_devinfo_with_index(209) >> 9) & 0x3);
 	switch (efuse_id) {
-	case 0x1: //EFUSE 0x11C107B0[3:2] = 2'b01
+	case 0x2: // EFUSE 0x11C105E8[10:9] = 2'b10
 		return g_opp_table_segment_2;
-	case 0x2: //EFUSE 0x11C107B0[3:2] = 2'b10
-		return g_opp_table_segment_3;
 	default:
-		gpufreq_pr_info("@%s: invalid efuse_id(0x%x)\n",
+		gpufreq_pr_debug("@%s: invalid efuse_id(0x%x)\n",
 				__func__, efuse_id);
 		return g_opp_table_segment_1;
 	}
-#endif
 }
 
 /**
@@ -2258,17 +2256,17 @@ static ssize_t mt_gpufreq_fixed_freq_volt_proc_write(
 					fixed_volt,
 					VGPU_MIN_VOLT);
 			goto out;
-		} else if (fixed_freq > POSDIV_4_MAX_FREQ) {
-			gpufreq_pr_debug("@%s: fixed_freq(%d) > POSDIV_4_MAX_FREQ(%d)\n",
+		} else if (fixed_freq > POSDIV_2_MAX_FREQ) {
+			gpufreq_pr_debug("@%s: fixed_freq(%d) > POSDIV_2_MAX_FREQ(%d)\n",
 					__func__,
 					fixed_freq,
-					POSDIV_4_MAX_FREQ);
+					POSDIV_2_MAX_FREQ);
 			goto out;
-		} else if (fixed_freq < POSDIV_8_MIN_FREQ && fixed_freq > 0) {
-			gpufreq_pr_debug("@%s: fixed_freq(%d) < POSDIV_8_MIN_FREQ(%d)\n",
+		} else if (fixed_freq < POSDIV_4_MIN_FREQ && fixed_freq > 0) {
+			gpufreq_pr_debug("@%s: fixed_freq(%d) < POSDIV_4_MIN_FREQ(%d)\n",
 					__func__,
 					fixed_freq,
-					POSDIV_8_MIN_FREQ);
+					POSDIV_4_MIN_FREQ);
 			goto out;
 		}
 
@@ -2530,9 +2528,9 @@ static unsigned int __mt_gpufreq_calculate_dds(
 	 */
 	unsigned int dds = 0;
 
-	/* only use posdiv 4 or 8 */
-	if ((freq_khz >= POSDIV_8_MIN_FREQ) &&
-		(freq_khz <= POSDIV_4_MAX_FREQ)) {
+	/* only use posdiv 2 or 4 */
+	if ((freq_khz >= POSDIV_4_MIN_FREQ) &&
+		(freq_khz <= POSDIV_2_MAX_FREQ)) {
 		dds = (((freq_khz / TO_MHZ_HEAD * (1 << posdiv_power))
 			<< DDS_SHIFT) /
 			MFGPLL_FIN + ROUNDING_VALUE) / TO_MHZ_TAIL;
@@ -2583,7 +2581,7 @@ static enum g_posdiv_power_enum __mt_gpufreq_get_posdiv_power(unsigned int freq)
 	}
 
 	gpufreq_pr_info("@%s: freq %d find no post divider\n", __func__, freq);
-	return POSDIV_POWER_4;
+	return (freq > POSDIV_4_MAX_FREQ) ? POSDIV_POWER_2 : POSDIV_POWER_4;
 }
 
 static enum g_posdiv_power_enum __mt_gpufreq_get_curr_posdiv_power(void)
@@ -3055,11 +3053,11 @@ static void __mt_gpufreq_init_table(void)
 
 	/* determine max_opp/num/segment_table... by segment  */
 	if (segment_id == MT6833_SEGMENT)
-		g_segment_max_opp_idx = 18;
+		g_segment_max_opp_idx = 0;
 	else if (segment_id == MT6833T_SEGMENT)
 		g_segment_max_opp_idx = 0;
 	else
-		g_segment_max_opp_idx = 18;
+		g_segment_max_opp_idx = 0;
 
 /* Special SW setting */
 #if defined(CONFIG_ARM64) && defined(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES)
