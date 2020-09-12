@@ -279,9 +279,19 @@ static inline void m4u_clear_intr_sec(unsigned int m4u_base_sec)
 				F_INT_L2_CLR_BIT_SEC);
 }
 
-static inline void m4u_clear_intr(unsigned int m4u_id)
+static inline void m4u_clear_intr(unsigned int m4u_id, unsigned int bank_id)
 {
-	m4uHw_set_field_by_mask(gM4UBaseAddr[m4u_id],
+	unsigned long m4u_base = 0;
+
+#ifdef __MTK_M4U_BANK_IRQ_SUPPORT__
+	if (bank_id >= 1 && bank_id <= 3)
+		m4u_base = gM4UBankAddr[m4u_id][bank_id - 1];
+	else
+#endif
+	{
+		m4u_base = gM4UBaseAddr[m4u_id];
+	}
+	m4uHw_set_field_by_mask(m4u_base,
 		REG_MMU_INT_L2_CONTROL, F_INT_L2_CLR_BIT,
 				F_INT_L2_CLR_BIT);
 }
@@ -2184,9 +2194,12 @@ void dump_pgd_info(unsigned int mva)
 
 irqreturn_t MTK_M4U_isr(int irq, void *dev_id)
 {
-	unsigned long m4u_base;
+	unsigned long m4u_base = 0;
 	unsigned int m4u_index;
-
+#ifdef __MTK_M4U_BANK_IRQ_SUPPORT__
+	unsigned int bank_no = 0;
+#endif
+	M4UMSG("%s in, irq:%d\n", __func__, irq);
 	if (irq == gM4uDev->irq_num[0]) {
 		m4u_base = gM4UBaseAddr[0];
 		m4u_index = 0;
@@ -2196,8 +2209,35 @@ irqreturn_t MTK_M4U_isr(int irq, void *dev_id)
 		m4u_index = 1;
 		M4UMSG("This is VPU_IOMMU domian\n");
 	} else {
-		M4UMSG("%s(), Invalid irq number %d\n", __func__, irq);
-		return -1;
+	// need check related register whether can be accessed in normal world
+#ifdef __MTK_M4U_BANK_IRQ_SUPPORT__
+		int id = 0, bank_id = 0;
+		unsigned int pg_base = 0;
+
+		for (id = 0; id < TOTAL_M4U_NUM; id++) {
+			for (bank_id = 0;
+				bank_id < MTK_M4U_BANK_NODE_COUNT;
+				bank_id++) {
+				if (irq == m4u_irq_bank[id][bank_id]) {
+					m4u_base = gM4UBankAddr[id][bank_id];
+					m4u_index = id;
+					pg_base = M4U_ReadReg32(m4u_base, 0);
+					//protect 1-3 : bank1-3, count from 1
+					bank_no = bank_id + 1;
+					m4u_info("%s: id:%d, bank:%d(normal=0), base:0x%lx, pg_base:0x%x\n",
+						 __func__, id, bank_no,
+						 m4u_base, pg_base);
+					goto bank_irq_out;
+				}
+			}
+		}
+		bank_no = 0;
+bank_irq_out:
+#endif
+		if (m4u_base == 0) {
+			M4UMSG("%s(), Invalid irq number %d\n", __func__, irq);
+			return -1;
+		}
 	}
 
 	{
@@ -2268,7 +2308,7 @@ irqreturn_t MTK_M4U_isr(int irq, void *dev_id)
 			m4u_slave_id = 1;
 		else {
 			M4UMSG("m4u interrupt error: status = 0x%x\n", IntrSrc);
-			m4u_clear_intr(m4u_index);
+			m4u_clear_intr(m4u_index, 0);
 			return 0;
 		}
 
@@ -2297,13 +2337,12 @@ irqreturn_t MTK_M4U_isr(int irq, void *dev_id)
 
 			MMU_INT_REPORT(m4u_index, m4u_slave_id,
 				       F_INT_TRANSLATION_FAULT(m4u_slave_id));
-			M4UMSG(
-				"fault: port=%s, mva=0x%x, pa=0x%x, layer=%d, wr=%d, fault_id=0x%x, replace_pa:0x%x, replace_pa1:0x%lx\n",
-			       m4u_get_port_name(m4u_port),
-			       fault_mva, fault_pa,
-			       layer, write, regval,
-			       replace_pa,
-			       gM4UtfAddr[m4u_index]);
+			m4u_info("fault: port=%s, mva=0x%x, pa=0x%x, layer=%d, wr=%d, fault_id=0x%x, replace_pa:0x%x, replace_pa1:0x%lx\n",
+				 m4u_get_port_name(m4u_port),
+				 fault_mva, fault_pa,
+				 layer, write, regval,
+				 replace_pa,
+				 gM4UtfAddr[m4u_index]);
 
 			if (m4u_port == M4U_PORT_DISP_OVL0) {
 				unsigned int valid_mva = 0;
@@ -2328,9 +2367,15 @@ irqreturn_t MTK_M4U_isr(int irq, void *dev_id)
 
 			if (gM4uPort[m4u_port].enable_tf == 1 &&
 					bypass_DISP_TF == 0) {
-				m4u_dump_pte_nolock(
-					m4u_get_domain_by_port(m4u_port),
-							fault_mva);
+				struct m4u_domain_t *dom;
+#ifdef __MTK_M4U_BANK_IRQ_SUPPORT__
+				if (irq == gM4uDev->irq_num[0] ||
+					irq == gM4uDev->irq_num[1])
+#endif
+				{
+					dom = m4u_get_domain_by_port(m4u_port);
+					m4u_dump_pte_nolock(dom, fault_mva);
+				}
 
 				/*call user's callback to dump user registers*/
 				if (m4u_port < M4U_PORT_UNKNOWN &&
@@ -2339,8 +2384,13 @@ irqreturn_t MTK_M4U_isr(int irq, void *dev_id)
 						fault_mva,
 						gM4uPort[m4u_port].fault_data);
 				}
-
+#ifdef __MTK_M4U_BANK_IRQ_SUPPORT__
+				if (irq == gM4uDev->irq_num[0] ||
+					irq == gM4uDev->irq_num[1])
+#endif
+				{
 				m4u_dump_buf_info(NULL, m4u_index);
+				}
 				if (m4u_index == 0)
 					m4u_aee_print(
 						"\nCRDISPATCH_KEY:M4U_%s\ntranslation fault: port=%s, mva=0x%x, pa=0x%x\n",
@@ -2413,8 +2463,15 @@ irqreturn_t MTK_M4U_isr(int irq, void *dev_id)
 			__mau_dump_status(m4u_index, m4u_slave_id, 3);
 		}
 
-		m4u_clear_intr(m4u_index);
+		m4u_clear_intr(m4u_index, bank_no);
+
+#ifdef __MTK_M4U_BANK_IRQ_SUPPORT__
+		if (irq == gM4uDev->irq_num[0] ||
+			irq == gM4uDev->irq_num[1])
+#endif
+		{
 		m4u_isr_record();
+		}
 	}
 
 	return IRQ_HANDLED;
@@ -2678,7 +2735,7 @@ int m4u_domain_init(struct m4u_device *m4u_dev,
 int m4u_reset(int m4u_id)
 {
 	m4u_invalid_tlb_all(m4u_id);
-	m4u_clear_intr(m4u_id);
+	m4u_clear_intr(m4u_id, 0);
 
 	return 0;
 }
