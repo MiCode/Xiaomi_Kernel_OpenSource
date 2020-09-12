@@ -15,7 +15,11 @@
 ifeq (y, $(filter y, $(CONFIG_MACH_MT6893)))
 MTK_PLATFORM := mt6885
 else
+ifeq (y, $(filter y, $(CONFIG_MACH_MT6833)))
+MTK_PLATFORM := mt6833
+else
 MTK_PLATFORM := $(CONFIG_MTK_PLATFORM)
+endif
 endif
 
 ifeq ($(CONFIG_MTK_ECCCI_DRIVER), y)
