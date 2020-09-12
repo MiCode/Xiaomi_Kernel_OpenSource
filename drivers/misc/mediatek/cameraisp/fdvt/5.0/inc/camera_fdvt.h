@@ -106,6 +106,20 @@ struct FDVT_CLEAR_IRQ_STRUCT {
 };
 #define FDVT_CLEAR_IRQ_STRUCT struct FDVT_CLEAR_IRQ_STRUCT
 
+struct FDVT_ROI {
+	unsigned int x1;
+	unsigned int y1;
+	unsigned int x2;
+	unsigned int y2;
+};
+
+struct FDVT_PADDING {
+	unsigned int left;
+	unsigned int right;
+	unsigned int down;
+	unsigned int up;
+};
+
 struct FDVT_MetaDataToGCE {
 	unsigned int ImgSrcY_Handler;
 	unsigned int ImgSrcUV_Handler;
@@ -115,6 +129,7 @@ struct FDVT_MetaDataToGCE {
 	unsigned int RSOutBuf_Handler;
 	unsigned int FDConfig_Handler;
 	unsigned int FDOutBuf_Handler;
+	unsigned int FD_POSE_Config_Handler;
 	unsigned int FDResultBuf_MVA;
 	unsigned int ImgSrc_Y_Size;
 	unsigned int ImgSrc_UV_Size;
@@ -123,6 +138,7 @@ struct FDVT_MetaDataToGCE {
 	unsigned int RSConfigSize;
 	unsigned int RSOutBufSize;
 	unsigned int FDConfigSize;
+	unsigned int FD_POSE_ConfigSize;
 	unsigned int FDOutBufSize;
 	unsigned int FDResultBufSize;
 	unsigned int FDMode;
@@ -134,6 +150,13 @@ struct FDVT_MetaDataToGCE {
 	unsigned int rotateDegree;
 	unsigned short featureTH;
 	unsigned short SecMemType;
+	unsigned int enROI;
+	struct FDVT_ROI src_roi;
+	unsigned int enPadding;
+	struct FDVT_PADDING src_padding;
+	unsigned int SRC_IMG_STRIDE;
+	unsigned int pyramid_width;
+	unsigned int pyramid_height;
 	bool isReleased;
 };
 #define FDVT_MetaDataToGCE struct FDVT_MetaDataToGCE
