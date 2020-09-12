@@ -426,6 +426,7 @@ struct msdc_host {
 	unsigned char timing;
 	bool vqmmc_enabled;
 	u32 latch_ck;
+	u32 ckgen_delay;
 	u32 hs400_ds_delay;
 	u32 hs200_cmd_int_delay; /* cmd internal delay for HS200/SDR104 */
 	u32 hs400_cmd_int_delay; /* cmd internal delay for HS400 */
@@ -751,6 +752,32 @@ static void msdc_ungate_clock(struct msdc_host *host)
 		cpu_relax();
 }
 
+static void msdc_gate_src_clock(struct msdc_host *host)
+{
+	sdr_clr_bits(host->base + MSDC_CFG, MSDC_CFG_CKPDN);
+	/*
+	 * As src_clk/HCLK use the same bit to gate/ungate,
+	 * So if want to only gate src_clk, need gate its parent(mux).
+	 */
+	if (host->src_clk_cg)
+		clk_disable_unprepare(host->src_clk_cg);
+	else
+		clk_disable_unprepare(clk_get_parent(host->src_clk));
+}
+
+static void msdc_ungate_src_clock(struct msdc_host *host)
+{
+	if (host->src_clk_cg)
+		clk_prepare_enable(host->src_clk_cg);
+	else
+		clk_prepare_enable(clk_get_parent(host->src_clk));
+
+	while (!(readl(host->base + MSDC_CFG) & MSDC_CFG_CKSTB))
+		cpu_relax();
+
+	sdr_set_bits(host->base + MSDC_CFG, MSDC_CFG_CKPDN);
+}
+
 static void msdc_set_mclk(struct msdc_host *host, unsigned char timing, u32 hz)
 {
 	u32 mode;
@@ -815,15 +842,8 @@ static void msdc_set_mclk(struct msdc_host *host, unsigned char timing, u32 hz)
 			sclk = (host->src_clk_freq >> 2) / div;
 		}
 	}
-	sdr_clr_bits(host->base + MSDC_CFG, MSDC_CFG_CKPDN);
-	/*
-	 * As src_clk/HCLK use the same bit to gate/ungate,
-	 * So if want to only gate src_clk, need gate its parent(mux).
-	 */
-	if (host->src_clk_cg)
-		clk_disable_unprepare(host->src_clk_cg);
-	else
-		clk_disable_unprepare(clk_get_parent(host->src_clk));
+
+	msdc_gate_src_clock(host);
 	if (host->dev_comp->clk_div_bits == 8)
 		sdr_set_field(host->base + MSDC_CFG,
 			      MSDC_CFG_CKMOD | MSDC_CFG_CKDIV,
@@ -832,14 +852,8 @@ static void msdc_set_mclk(struct msdc_host *host, unsigned char timing, u32 hz)
 		sdr_set_field(host->base + MSDC_CFG,
 			      MSDC_CFG_CKMOD_EXTRA | MSDC_CFG_CKDIV_EXTRA,
 			      (mode << 12) | div);
-	if (host->src_clk_cg)
-		clk_prepare_enable(host->src_clk_cg);
-	else
-		clk_prepare_enable(clk_get_parent(host->src_clk));
+	msdc_ungate_src_clock(host);
 
-	while (!(readl(host->base + MSDC_CFG) & MSDC_CFG_CKSTB))
-		cpu_relax();
-	sdr_set_bits(host->base + MSDC_CFG, MSDC_CFG_CKPDN);
 	host->sclk = sclk;
 	host->mclk = hz;
 	host->timing = timing;
@@ -1485,7 +1499,13 @@ static void msdc_init_hw(struct msdc_host *host)
 	writel(0, host->base + MSDC_IOCON);
 	sdr_set_field(host->base + MSDC_IOCON, MSDC_IOCON_DDLSEL, 0);
 	writel(0x403c0046, host->base + MSDC_PATCH_BIT);
-	sdr_set_field(host->base + MSDC_PATCH_BIT, MSDC_CKGEN_MSDC_DLY_SEL, 1);
+
+	/* modify CKGEN delay also need protect, or will data timeout */
+	msdc_gate_src_clock(host);
+	sdr_set_field(host->base + MSDC_PATCH_BIT, MSDC_CKGEN_MSDC_DLY_SEL,
+		      host->ckgen_delay);
+	msdc_ungate_src_clock(host);
+
 	writel(0xffff4089, host->base + MSDC_PATCH_BIT1);
 	sdr_set_bits(host->base + EMMC50_CFG0, EMMC50_CFG_CFCSTS_SEL);
 
@@ -2110,6 +2130,11 @@ static int msdc_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	int ret;
 	u32 tune_reg = host->dev_comp->pad_tune_reg;
 
+	/*run high-speed mode(which can execute tuning), use ckgen_delay as 0*/
+	msdc_gate_src_clock(host);
+	sdr_set_field(host->base + MSDC_PATCH_BIT, MSDC_CKGEN_MSDC_DLY_SEL, 0);
+	msdc_ungate_src_clock(host);
+
 	if (host->dev_comp->tune_resp_data_together) {
 		ret = msdc_tune_resp_data(mmc, opcode);
 		if (ret == -EIO)
@@ -2208,6 +2233,9 @@ static void msdc_of_property_parse(struct platform_device *pdev,
 {
 	of_property_read_u32(pdev->dev.of_node, "mediatek,latch-ck",
 			     &host->latch_ck);
+
+	of_property_read_u32(pdev->dev.of_node, "ckgen-delay",
+			     &host->ckgen_delay);
 
 	of_property_read_u32(pdev->dev.of_node, "hs400-ds-delay",
 			     &host->hs400_ds_delay);
