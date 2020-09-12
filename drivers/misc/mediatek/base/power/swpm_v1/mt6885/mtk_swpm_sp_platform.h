@@ -26,7 +26,7 @@ enum pmsr_power_state {
 };
 /* #define NR_POWER_STATE (3) */
 
-/* core ip (cam, img1, img2, ipe, disp venc, vdec, gpu, scp, adsp */
+/* core ip (cam, img1, img2, ipe, disp, venc, vdec, scp */
 enum core_ip_state {
 	CORE_IP_CAM,
 	CORE_IP_IMG1,
@@ -35,22 +35,20 @@ enum core_ip_state {
 	CORE_IP_DISP,
 	CORE_IP_VENC,
 	CORE_IP_VDEC,
-	CORE_IP_GPU,
 	CORE_IP_SCP,
-	CORE_IP_ADSP,
 
 	NR_CORE_IP,
 };
-/* #define NR_CORE_IP (13) */
+/* #define NR_CORE_IP (8) */
 
-/* ddr byte count ip (total read, total write, cpu, mm, gpu, md+others) */
+/* ddr byte count ip (total read, total write, cpu, mm, gpu, others) */
 enum ddr_bc_ip {
 	DDR_BC_TOTAL_R,
 	DDR_BC_TOTAL_W,
 	DDR_BC_TOTAL_CPU,
 	DDR_BC_TOTAL_GPU,
 	DDR_BC_TOTAL_MM,
-	DDR_BC_TOTAL_MD,
+	DDR_BC_TOTAL_OTHERS,
 
 	NR_DDR_BC_IP,
 };
