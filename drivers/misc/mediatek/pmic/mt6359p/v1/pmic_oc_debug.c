@@ -147,6 +147,11 @@ static int regulator_oc_notify(struct notifier_block *nb, unsigned long event,
 		PMIC_OC_DEBUG_DUMP(MT6359_LDO_VIO18_OP_CFG);
 		PMIC_OC_DEBUG_DUMP(MT6359_VIO18_ANA_CON0);
 		PMIC_OC_DEBUG_DUMP(MT6359_VIO18_ANA_CON1);
+#if defined(CONFIG_MACH_MT6853) && defined(CONFIG_REGULATOR_MT6315)
+		return NOTIFY_OK;
+#elif defined(CONFIG_MACH_MT6833)
+		return NOTIFY_OK;
+#endif /* MTK_5G_B_MT6360_MT6315 */
 	} else if (!strcmp(reg_oc_dbg->name, "vusb")) {
 		/* case results from mechanism design */
 		return NOTIFY_OK;
