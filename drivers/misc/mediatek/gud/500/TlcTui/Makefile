@@ -14,12 +14,12 @@
 # Makefile for the Kinibi trusted UI driver
 #
 
-GUD_ROOT_FOLDER := drivers/gud/
+#GUD_ROOT_FOLDER := drivers/gud/
 
 # add our modules to kernel.
 obj-$(CONFIG_TRUSTONIC_TRUSTED_UI) += t-base-tui.o
 
-t-base-tui-y := main.o tlcTui.o trustedui.o tui-hal.o
+t-base-tui-y := main.o tlcTui.o trustedui.o tui-hal_$(MTK_PLATFORM).o
 
 # Release mode by default
 ccflags-y += -DNDEBUG
@@ -33,3 +33,14 @@ ccflags-y += -I$(GUD_ROOT_FOLDER)/MobiCoreDriver/public
 # MobiCore TlcTui required includes
 ccflags-y += -I$(GUD_ROOT_FOLDER)/TlcTui/inc \
              -I$(GUD_ROOT_FOLDER)/TlcTui/public
+
+ifeq ($(CONFIG_MTK_SSMR),y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/memory-ssmr/
+endif
+
+ccflags-y += -DTUI_ENABLE_DISPLAY
+ccflags-y += -DTUI_ENABLE_TOUCH
+ccflags-y += -DTUI_LOCK_I2C
+ccflags-y += -DTUI_ENABLE_MPU
+
+
