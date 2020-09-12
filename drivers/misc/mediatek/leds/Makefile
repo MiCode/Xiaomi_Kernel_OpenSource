@@ -19,6 +19,8 @@ ifeq (y, $(filter y, $(CONFIG_MACH_MT6765) $(CONFIG_MACH_MT6761)))
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/leds/mt6765
 else ifeq (y, $(filter y, $(CONFIG_MACH_MT6885) $(CONFIG_MACH_MT6893)))
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/leds/mt6885
+else ifeq (y, $(filter y, $(CONFIG_MACH_MT6853) $(CONFIG_MACH_MT6833)))
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/leds/mt6853
 else
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/leds/$(MTK_PLATFORM)
 endif
@@ -31,6 +33,8 @@ ifeq (y, $(filter y, $(CONFIG_MACH_MT6765) $(CONFIG_MACH_MT6761)))
 obj-y += $(subst ",,mt6765)/
 else ifeq (y, $(filter y, $(CONFIG_MACH_MT6885) $(CONFIG_MACH_MT6893)))
 obj-y += $(subst ",,mt6885)/
+else ifeq (y, $(filter y, $(CONFIG_MACH_MT6853) $(CONFIG_MACH_MT6833)))
+obj-y += $(subst ",,mt6853)/
 else
 obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 endif
