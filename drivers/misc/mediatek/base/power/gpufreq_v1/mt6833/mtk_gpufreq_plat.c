@@ -1074,8 +1074,10 @@ void mt_gpufreq_power_control(enum mt_power_state power, enum mt_cg_state cg,
 	mutex_unlock(&mt_gpufreq_lock);
 }
 
+// DEPRECATED: there is no needed for PTPOD calibration in normal temperature
 void mt_gpufreq_enable_by_ptpod(void)
 {
+#if MT_GPUFREQ_PTPOD_CALIBRATION_ENABLE
 	__mt_gpufreq_vgpu_set_mode(REGULATOR_MODE_NORMAL); /* NORMAL */
 
 	mt_gpufreq_power_control(POWER_OFF, CG_OFF,
@@ -1089,10 +1091,13 @@ void mt_gpufreq_enable_by_ptpod(void)
 
 	gpufreq_pr_debug("@%s: g_DVFS_is_paused_by_ptpod=%d\n",
 			__func__, g_DVFS_is_paused_by_ptpod);
+#endif
 }
 
+// DEPRECATED: there is no needed for PTPOD calibration in normal temperature
 void mt_gpufreq_disable_by_ptpod(void)
 {
+#if MT_GPUFREQ_PTPOD_CALIBRATION_ENABLE
 	struct opp_table_info *opp_table = g_opp_table;
 	unsigned int i = 0;
 	unsigned int target_idx = 0;
@@ -1117,6 +1122,7 @@ void mt_gpufreq_disable_by_ptpod(void)
 	mt_gpufreq_target(target_idx, KIR_PTPOD);
 
 	__mt_gpufreq_vgpu_set_mode(REGULATOR_MODE_FAST); /* PWM */
+#endif
 }
 
 /*
