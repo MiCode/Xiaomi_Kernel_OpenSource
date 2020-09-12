@@ -11,7 +11,11 @@
 # GNU General Public License for more details.
 #
 
+ifeq ($(CONFIG_MACH_MT6893),y)
+PDIR = mt6885
+else
 PDIR = $(MTK_PLATFORM)
+endif
 
 ccflags-y += -I$(srctree)/drivers/devfreq
 ccflags-y += -I$(srctree)/include
