@@ -356,6 +356,15 @@ struct DDP_MODULE_DRIVER *ddp_get_module_driver(enum DISP_MODULE_ENUM module)
 	return 0;
 }
 
+void ddp_set_module_driver(enum DISP_MODULE_ENUM module,
+	struct DDP_MODULE_DRIVER *drv)
+{
+	if (!is_ddp_module(module))
+		return;
+
+	ddp_modules[module].module_driver = drv;
+}
+
 const char *ddp_get_module_dtname(enum DISP_MODULE_ENUM module)
 {
 	if (is_ddp_module(module))
