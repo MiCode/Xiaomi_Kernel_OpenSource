@@ -128,7 +128,7 @@ static bool kbase_capture_dma_buf_mapping(struct kbase_context *kctx,
 
 	if (unique_buf_imported) {
 		struct kbase_dma_buf *buf_node =
-			kzalloc(sizeof(struct kbase_dma_buf), GFP_KERNEL);
+			kzalloc(sizeof(*buf_node), GFP_KERNEL);
 
 		if (buf_node == NULL) {
 			dev_err(kctx->kbdev->dev, "Error allocating memory for kbase_dma_buf\n");
@@ -220,3 +220,8 @@ void kbase_add_dma_buf_usage(struct kbase_context *kctx,
 
 	mutex_unlock(&kbdev->dma_buf_lock);
 }
+
+#ifndef CONFIG_TRACE_GPU_MEM
+#define CREATE_TRACE_POINTS
+#include "mali_gpu_mem_trace.h"
+#endif

@@ -20,15 +20,8 @@
  *
  */
 
-/* Detect if the Mali shim header */
-#define _TRACE_POWER_GPU_FREQUENCY_H
-#include <trace/events/power_gpu_frequency.h>
-#undef _TRACE_POWER_GPU_FREQUENCY_H
-
-/* Create the trace points if Mali shim */
-#ifdef _TRACE_POWER_GPU_FREQUENCY_MALI
+/* Create the trace point if not configured in kernel */
+#ifndef CONFIG_TRACE_POWER_GPU_FREQUENCY
 #define CREATE_TRACE_POINTS
-#include <trace/events/power_gpu_frequency.h>
-
-EXPORT_TRACEPOINT_SYMBOL_GPL(gpu_frequency);
+#include "mali_power_gpu_frequency_trace.h"
 #endif

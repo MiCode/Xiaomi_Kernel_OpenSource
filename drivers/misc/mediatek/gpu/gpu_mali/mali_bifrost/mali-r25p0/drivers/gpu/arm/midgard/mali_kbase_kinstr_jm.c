@@ -33,11 +33,12 @@
 
 #include <mali_kbase_jm_rb.h>
 
-#include <asm-generic/barrier.h>
+#include <asm/barrier.h>
 #include <linux/anon_inodes.h>
 #include <linux/circ_buf.h>
 #include <linux/fs.h>
 #include <linux/kref.h>
+#include <linux/ktime.h>
 #include <linux/log2.h>
 #include <linux/mutex.h>
 #include <linux/rculist_bl.h>
@@ -69,7 +70,13 @@ typedef unsigned int __poll_t;
 /* Allows us to perform ASM goto for the tracing
  * https://www.kernel.org/doc/Documentation/static-keys.txt
  */
+#if KERNEL_VERSION(4, 3, 0) <= LINUX_VERSION_CODE
 DEFINE_STATIC_KEY_FALSE(basep_kinstr_jm_reader_static_key);
+#else
+struct static_key basep_kinstr_jm_reader_static_key = STATIC_KEY_INIT_FALSE;
+#define static_branch_inc(key) static_key_slow_inc(key)
+#define static_branch_dec(key) static_key_slow_dec(key)
+#endif /* KERNEL_VERSION(4 ,3, 0) <= LINUX_VERSION_CODE */
 
 #define KBASE_KINSTR_JM_VERSION 1
 
@@ -230,7 +237,7 @@ static int reader_changes_init(struct reader_changes *const changes,
 	BUILD_BUG_ON((PAGE_SIZE % sizeof(*changes->data)) != 0);
 
 	if (!reader_changes_is_valid_size(size)) {
-		pr_warn(PR_ "invalid size %lu\n", size);
+		pr_warn(PR_ "invalid size %zu\n", size);
 		return -ERANGE;
 	}
 
@@ -807,22 +814,6 @@ void kbase_kinstr_jm_term(struct kbase_kinstr_jm *const ctx)
 	kbase_kinstr_jm_ref_put(ctx);
 }
 
-/**
- * timestamp() - Retrieves the current monotonic nanoseconds
- * Return: monotonic nanoseconds timestamp.
- */
-static u64 timestamp(void)
-{
-	struct timespec ts;
-	long ns;
-
-	getrawmonotonic(&ts);
-	ns = ((long)(ts.tv_sec) * NSEC_PER_SEC) + ts.tv_nsec;
-	if (unlikely(ns < 0))
-		return 0;
-	return ((u64)(ns));
-}
-
 void kbasep_kinstr_jm_atom_state(
 	struct kbase_jd_atom *const katom,
 	const enum kbase_kinstr_jm_reader_atom_state state)
@@ -831,7 +822,7 @@ void kbasep_kinstr_jm_atom_state(
 	struct kbase_kinstr_jm *const ctx = kctx->kinstr_jm;
 	const u8 id = kbase_jd_atom_id(kctx, katom);
 	struct kbase_kinstr_jm_atom_state_change change = {
-		.timestamp = timestamp(), .atom = id, .state = state
+		.timestamp = ktime_get_raw_ns(), .atom = id, .state = state
 	};
 	struct reader *reader;
 	struct hlist_bl_node *node;
@@ -854,7 +845,7 @@ void kbasep_kinstr_jm_atom_state(
 	rcu_read_unlock();
 }
 
-KBASE_EXPORT_TEST_API(kbase_kinstr_jm_atom_state);
+KBASE_EXPORT_TEST_API(kbasep_kinstr_jm_atom_state);
 
 void kbasep_kinstr_jm_atom_hw_submit(struct kbase_jd_atom *const katom)
 {
