@@ -80,6 +80,7 @@ struct ion_buffer {
 	void *vaddr;
 	int dmap_cnt;
 	struct sg_table *sg_table;
+	struct sg_table *sg_table_orig;
 	struct page **pages;
 	struct list_head vmas;
 	/* used to track orphaned buffers */
