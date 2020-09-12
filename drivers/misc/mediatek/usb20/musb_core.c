@@ -1938,6 +1938,7 @@ static int musb_core_init(u16 musb_type, struct musb *musb)
 	void __iomem *mbase = musb->mregs;
 	int status = 0;
 	int i;
+	int ret;
 
 	/* log core options (read using indexed model) */
 	reg = musb_read_configdata(mbase);
@@ -1984,9 +1985,13 @@ static int musb_core_init(u16 musb_type, struct musb *musb)
 
 	/* log release info */
 	musb->hwvers = musb_read_hwvers(mbase);
-	snprintf(aRevision, 32, "%d.%d%s", MUSB_HWVERS_MAJOR(musb->hwvers),
+	ret = snprintf(aRevision, 32, "%d.%d%s", MUSB_HWVERS_MAJOR(musb->hwvers),
 		 MUSB_HWVERS_MINOR(musb->hwvers),
 		 (musb->hwvers & MUSB_HWVERS_RC) ? "RC" : "");
+
+	if (ret < 0)
+		return -EINVAL;
+
 	pr_debug("%s: %sHDRC RTL version %s %s\n"
 		, musb_driver_name, type, aRevision, aDate);
 
