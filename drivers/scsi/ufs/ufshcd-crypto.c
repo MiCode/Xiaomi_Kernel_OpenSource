@@ -399,8 +399,8 @@ int ufshcd_prepare_lrbp_crypto_spec(struct ufs_hba *hba,
 	lrbp->crypto_enable = true;
 	lrbp->crypto_key_slot = bc->bc_keyslot;
 	if (bc->hie_ext4)
-		lrbp->data_unit_num = cmd->cmnd[5] | (cmd->cmnd[4] << 8)
-			| (cmd->cmnd[3] << 16) | (cmd->cmnd[2] << 24);
+		lrbp->data_unit_num = (u64)(cmd->cmnd[5] | (cmd->cmnd[4] << 8)
+			| (cmd->cmnd[3] << 16) | (cmd->cmnd[2] << 24));
 	else
 		lrbp->data_unit_num = bc->bc_dun[0];
 
