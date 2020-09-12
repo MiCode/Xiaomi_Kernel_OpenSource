@@ -218,7 +218,9 @@ extern struct apusys_dvfs_steps dvfs_table_1[APUSYS_MAX_NUM_OPPS]
 extern struct apusys_dvfs_steps dvfs_table_2[APUSYS_MAX_NUM_OPPS]
 						[APUSYS_BUCK_DOMAIN_NUM];
 #else
-extern struct apusys_dvfs_steps dvfs_table_3[APUSYS_MAX_NUM_OPPS]
+extern struct apusys_dvfs_steps dvfs_table_b0[APUSYS_MAX_NUM_OPPS]
+						[APUSYS_BUCK_DOMAIN_NUM];
+extern struct apusys_dvfs_steps dvfs_table_b1[APUSYS_MAX_NUM_OPPS]
 						[APUSYS_BUCK_DOMAIN_NUM];
 #endif
 

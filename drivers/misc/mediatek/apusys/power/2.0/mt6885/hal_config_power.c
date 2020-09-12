@@ -385,8 +385,11 @@ static int segment_user_support_check(void *param)
 	seg_info->seg = SEGMENT_1;
 
 #if defined(CONFIG_MACH_MT6893)
-	// TODO for mt6893
-	val = 0;
+	val = get_devinfo_with_index(30);
+	if (val == 0x10) {
+		seg_info->seg = SEGMENT_0;
+		pr_info("%s segment:0x%x\n", __func__, (unsigned int)val);
+	}
 #else
 	val = get_devinfo_with_index(30);
 	if (val == 0x1) {
@@ -1700,7 +1703,7 @@ static void power_debug_func(void *param)
 #if BINNING_UT
 #if defined(CONFIG_MACH_MT6893)
 	if (!backup_done) {
-		memcpy(opps_backup, dvfs_table_3, sizeof(opps_backup));
+		memcpy(opps_backup, dvfs_table_b1, sizeof(opps_backup));
 		backup_done = 1;
 	}
 
@@ -1711,8 +1714,8 @@ static void power_debug_func(void *param)
 			global_test_efuse_bin,
 			global_test_efuse_raise);
 
-	memcpy(dvfs_table_3, opps_backup, sizeof(dvfs_table_3));
-	apusys_opps.opps = dvfs_table_3;
+	memcpy(dvfs_table_b1, opps_backup, sizeof(dvfs_table_b1));
+	apusys_opps.opps = dvfs_table_b1;
 	binning_init = 0;
 	binning_support_check();
 #endif

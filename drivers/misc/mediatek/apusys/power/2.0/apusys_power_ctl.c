@@ -1113,8 +1113,10 @@ int apusys_power_init(enum DVFS_USER user, void *init_power_data)
 		goto out;
 
 #if defined(CONFIG_MACH_MT6893)
-	// TODO: segment judgement
-	apusys_opps.opps = dvfs_table_3;
+	if (seg_data.seg == SEGMENT_0)
+		apusys_opps.opps = dvfs_table_b0;
+	else
+		apusys_opps.opps = dvfs_table_b1;
 #else
 	if (seg_data.seg == SEGMENT_0)
 		apusys_opps.opps = dvfs_table_0;
