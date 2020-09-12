@@ -59,6 +59,7 @@
 #ifdef CONFIG_MEDIATEK_SOLUTION
 #include "mtk_secure_api.h"
 #include <linux/arm-smccc.h>
+#define GIC_ISO_CODE (1 << 0)
 #endif
 #ifdef CONFIG_MTK_QOS_FRAMEWORK
 #include <mt-plat/mtk_qos_prefetch_common.h>
@@ -7052,12 +7053,11 @@ void notify_atf_cpu_isolated_status(int cpu)
 {
 
 #ifdef CONFIG_MEDIATEK_SOLUTION
-	int gic_iso_code = 1 << 0;
 	unsigned long cur_mask = cpu_isolated_mask->bits[0];
 	struct arm_smccc_res res;
 
-	arm_smccc_smc(MTK_SIP_GIC_CONTROL, gic_iso_code, cpu,
-			cur_mask, 0, 0, 0, 0, &res);
+	arm_smccc_smc(MTK_SIP_GIC_CONTROL, GIC_ISO_CODE, cur_mask,
+			0, 0, 0, 0, 0, &res);
 #endif
 }
 
