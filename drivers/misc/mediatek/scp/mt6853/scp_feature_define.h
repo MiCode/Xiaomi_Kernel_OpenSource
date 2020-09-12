@@ -41,7 +41,11 @@
 #define SCP_REGISTER_SUB_SENSOR          (1)
 
 /* emi mpu define*/
+#ifdef CONFIG_MEDIATEK_EMI
 #define ENABLE_SCP_EMI_PROTECTION        (1)
+#else
+#define ENABLE_SCP_EMI_PROTECTION        (0)
+#endif
 
 #define MPU_REGION_ID_SCP_SMEM           7
 #define MPU_DOMAIN_D0                    0
