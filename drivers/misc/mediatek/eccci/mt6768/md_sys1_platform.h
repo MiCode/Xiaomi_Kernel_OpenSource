@@ -169,7 +169,6 @@ struct md_pll_reg {
 struct md_hw_info {
 	/* HW info - Register Address */
 	unsigned long md_rgu_base;
-	unsigned long l1_rgu_base;
 	unsigned long ap_mixed_base;
 	void __iomem *ap_topclkgen_base;
 	unsigned long md_boot_slave_Vector;

@@ -34,7 +34,6 @@
 #define BASE_ADDR_MDRSTCTL   0x200f0000  /* From md, no use by AP directly */
 #define L1_BASE_ADDR_L1RGU   0x26010000  /* From md, no use by AP directly  */
 #define MD_RGU_BASE          (BASE_ADDR_MDRSTCTL + 0x100)  /* AP use */
-#define L1_RGU_BASE          L1_BASE_ADDR_L1RGU    /* AP use */
 
 /* MD1 PLL */
 #define MDTOP_PLLMIXED_BASE		(0x20140000)
