@@ -72,11 +72,6 @@ void hook_ca_scheduler_tick(int cpu)
 	pftch_qos_tick(cpu);
 }
 
-void hook_ca_context_switch(struct rq *rq, struct task_struct *prev,
-		    struct task_struct *next)
-{
-}
-
 static void ca_pmu_overflow_handler(struct perf_event *event,
 			struct perf_sample_data *data, struct pt_regs *regs)
 {
