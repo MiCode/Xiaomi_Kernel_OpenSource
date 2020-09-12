@@ -182,6 +182,9 @@ struct mtk_drm_private {
 	int vds_path_switch_dirty;
 	int vds_path_switch_done;
 	int vds_path_enable;
+
+	/* Due to 2nd display share 1 secure gce client, need store here */
+	struct cmdq_client *ext_sec_client;
 };
 
 struct mtk_drm_property {

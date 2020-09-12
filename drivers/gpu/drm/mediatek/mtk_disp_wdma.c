@@ -28,6 +28,7 @@
 #include "mtk_drm_fb.h"
 #include "mtk_drm_trace.h"
 #include "mtk_drm_drv.h"
+#include "cmdq-sec.h"
 
 #define DISP_REG_WDMA_INTEN 0x0000
 #define INTEN_FLD_FME_CPL_INTEN REG_FLD_MSB_LSB(0, 0)
@@ -755,7 +756,7 @@ static unsigned int wdma_fmt_convert(unsigned int fmt)
 static int wdma_config_yuv420(struct mtk_ddp_comp *comp,
 			      uint32_t fmt, unsigned int dstPitch,
 			      unsigned int Height, unsigned long dstAddress,
-			      void *handle)
+			      uint32_t sec, void *handle)
 {
 	/* size_t size; */
 	unsigned int u_off = 0;
@@ -785,12 +786,26 @@ static int wdma_config_yuv420(struct mtk_ddp_comp *comp,
 		has_v = 0;
 	}
 
-	mtk_ddp_write(comp, dstAddress + u_off,
-		DISP_REG_WDMA_DST_ADDR1, handle);
+	if (!sec) {
+		mtk_ddp_write(comp, dstAddress + u_off,
+			DISP_REG_WDMA_DST_ADDR1, handle);
 
-	if (has_v)
-		mtk_ddp_write(comp, dstAddress + v_off,
-			DISP_REG_WDMA_DST_ADDR2, handle);
+		if (has_v)
+			mtk_ddp_write(comp, dstAddress + v_off,
+				DISP_REG_WDMA_DST_ADDR2, handle);
+	} else {
+#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
+		cmdq_sec_pkt_write_reg(handle,
+			comp->regs_pa + DISP_REG_WDMA_DST_ADDR1,
+			dstAddress, CMDQ_IWC_H_2_MVA,
+			u_off, u_size, 0);
+		if (has_v)
+			cmdq_sec_pkt_write_reg(handle,
+				comp->regs_pa + DISP_REG_WDMA_DST_ADDR2,
+				dstAddress, CMDQ_IWC_H_2_MVA,
+				v_off, u_size, 0);
+#endif
+	}
 	mtk_ddp_write_mask(comp, u_stride,
 			DISP_REG_WDMA_DST_UV_PITCH, 0xFFFF, handle);
 	return 0;
@@ -825,6 +840,7 @@ static void mtk_wdma_config(struct mtk_ddp_comp *comp,
 	struct mtk_wdma_cfg_info *cfg_info = &wdma->cfg_info;
 	int crtc_idx = drm_crtc_index(&comp->mtk_crtc->base);
 	int clip_w, clip_h;
+	u32 sec, buffer_size;
 
 	if (!comp->fb) {
 		if (crtc_idx != 2)
@@ -840,10 +856,12 @@ static void mtk_wdma_config(struct mtk_ddp_comp *comp,
 				crtc_idx);
 		return;
 	}
+	sec = mtk_drm_fb_is_secure(comp->fb);
+
 	addr += comp->fb->offsets[0];
 	con = wdma_fmt_convert(comp->fb->format->format);
-	DDPINFO("%s fmt:0x%x, con:0x%x\n", __func__,
-		comp->fb->format->format, con);
+	DDPINFO("%s fmt:0x%x, con:0x%x addr %x\n", __func__,
+		comp->fb->format->format, con, addr);
 	if (!addr) {
 		DDPPR_ERR("%s wdma dst addr is zero\n", __func__);
 		return;
@@ -870,7 +888,8 @@ static void mtk_wdma_config(struct mtk_ddp_comp *comp,
 
 	if (is_yuv(comp->fb->format->format)) {
 		wdma_config_yuv420(comp, comp->fb->format->format,
-				comp->fb->pitches[0], cfg->h, addr, handle);
+				comp->fb->pitches[0], cfg->h,
+				addr, sec, handle);
 		mtk_ddp_write_mask(comp, 0,
 				DISP_REG_WDMA_CFG, WDMA_UFO_DCP_ENABLE, handle);
 		mtk_ddp_write_mask(comp, WDMA_CT_EN,
@@ -886,9 +905,18 @@ static void mtk_wdma_config(struct mtk_ddp_comp *comp,
 
 	mtk_ddp_write(comp, comp->fb->pitches[0],
 		DISP_REG_WDMA_DST_WIN_BYTE, handle);
-	mtk_ddp_write(comp, addr & 0xFFFFFFFFU,
-			DISP_REG_WDMA_DST_ADDR0, handle);
-
+	if (!sec) {
+		mtk_ddp_write(comp, addr & 0xFFFFFFFFU,
+				DISP_REG_WDMA_DST_ADDR0, handle);
+	} else {
+		buffer_size = clip_w * comp->fb->pitches[0];
+#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
+		cmdq_sec_pkt_write_reg(handle,
+				comp->regs_pa + DISP_REG_WDMA_DST_ADDR0,
+				addr & 0xFFFFFFFFU, CMDQ_IWC_H_2_MVA,
+				0, buffer_size, 0);
+#endif
+	}
 	mtk_wdma_golden_setting(comp, cfg, handle);
 
 	cfg_info->addr = addr;

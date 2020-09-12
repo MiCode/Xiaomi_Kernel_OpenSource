@@ -4334,11 +4334,66 @@ void mtk_drm_crtc_suspend(struct drm_crtc *crtc)
 }
 
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
+int mtk_crtc_check_out_sec(struct drm_crtc *crtc)
+{
+	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc->state);
+	int out_sec = 0;
+
+	if (state->prop_val[CRTC_PROP_OUTPUT_ENABLE]) {
+		/* Output buffer configuration for virtual display */
+
+		out_sec = mtk_drm_fb_is_secure(
+				mtk_drm_framebuffer_lookup(crtc->dev,
+				state->prop_val[CRTC_PROP_OUTPUT_FB_ID]));
+
+		DDPINFO("%s lookup wb fb:%u sec:%d\n", __func__,
+			state->prop_val[CRTC_PROP_OUTPUT_FB_ID], out_sec);
+	}
+
+	return out_sec;
+}
+
+static u64 mtk_crtc_secure_port_lookup(struct mtk_ddp_comp *comp)
+{
+	u64 ret = 0;
+
+	if (!comp)
+		return ret;
+
+	switch (comp->id) {
+	case DDP_COMPONENT_WDMA0:
+		ret = 1LL << CMDQ_SEC_DISP_WDMA0;
+		break;
+	case DDP_COMPONENT_WDMA1:
+		ret = 1LL << CMDQ_SEC_DISP_WDMA1;
+		break;
+	default:
+		ret = 0;
+	}
+
+	return ret;
+}
+
 void mtk_crtc_disable_secure_state(struct drm_crtc *crtc)
 {
 	struct cmdq_pkt *cmdq_handle;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_ddp_comp *comp = NULL;
+	u32 sec_disp_type, idx = drm_crtc_index(crtc);
+	u64 sec_disp_port;
 
+	comp = mtk_ddp_comp_request_output(mtk_crtc);
+
+	if (idx == 0) {
+		sec_disp_type =
+			CMDQ_SEC_DISP_PRIMARY_DISABLE_SECURE_PATH;
+		sec_disp_port = 0;
+	} else {
+		sec_disp_type =
+			CMDQ_SEC_DISP_SUB_DISABLE_SECURE_PATH;
+		sec_disp_port = (idx == 2) ? 0 :
+			mtk_crtc_secure_port_lookup(comp);
+	}
 	DDPINFO("%s+ crtc%d\n", __func__, drm_crtc_index(crtc));
 	mtk_crtc_pkt_create(&cmdq_handle, crtc,
 		mtk_crtc->gce_obj.client[CLIENT_SEC_CFG]);
@@ -4350,8 +4405,8 @@ void mtk_crtc_disable_secure_state(struct drm_crtc *crtc)
 	/* Disable secure path */
 	cmdq_sec_pkt_set_data(cmdq_handle,
 		0,
-		0,
-		CMDQ_SEC_DISP_PRIMARY_DISABLE_SECURE_PATH,
+		sec_disp_port,
+		sec_disp_type,
 		CMDQ_METAEX_NONE);
 
 	cmdq_pkt_flush(cmdq_handle);
@@ -4378,16 +4433,29 @@ struct cmdq_pkt *mtk_crtc_gce_commit_begin(struct drm_crtc *crtc)
 	mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle, DDP_FIRST_PATH, 0);
 
 	if (mtk_crtc->sec_on) {
-		DDPDBG("%s:%d crtc:0x%p, sec_on:%d +\n",
-				__func__, __LINE__,
-				crtc,
-				mtk_crtc->sec_on);
 	#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
+		u32 sec_disp_type, idx = drm_crtc_index(crtc);
+		u64 sec_disp_port;
+		struct mtk_ddp_comp *comp = NULL;
+
+		comp = mtk_ddp_comp_request_output(mtk_crtc);
+
+		if (idx == 0) {
+			sec_disp_type = CMDQ_SEC_PRIMARY_DISP;
+			sec_disp_port = 0;
+		} else {
+			sec_disp_type = CMDQ_SEC_SUB_DISP;
+			sec_disp_port = (idx == 2) ? 0 :
+				mtk_crtc_secure_port_lookup(comp);
+		}
 		cmdq_sec_pkt_set_data(cmdq_handle, 0,
-			0,
-			CMDQ_SEC_PRIMARY_DISP,
+			sec_disp_port, sec_disp_type,
 			CMDQ_METAEX_NONE);
 	#endif
+		DDPDBG("%s:%d crtc:0x%p, sec_on:%d +\n",
+			__func__, __LINE__,
+			crtc,
+			mtk_crtc->sec_on);
 	}
 	return cmdq_handle;
 }
@@ -5427,6 +5495,7 @@ static void mtk_crtc_init_gce_obj(struct drm_device *drm_dev,
 				  struct mtk_drm_crtc *mtk_crtc)
 {
 	struct device *dev = drm_dev->dev;
+	struct mtk_drm_private *priv = drm_dev->dev_private;
 	struct cmdq_pkt_buffer *cmdq_buf;
 	char buf[50];
 	int len, index, i;
@@ -5445,11 +5514,20 @@ static void mtk_crtc_init_gce_obj(struct drm_device *drm_dev,
 		}
 		index = of_property_match_string(dev->of_node,
 						 "gce-client-names", buf);
-		if (index < 0)
+		if (index < 0) {
 			mtk_crtc->gce_obj.client[i] = NULL;
+			continue;
+		}
+		mtk_crtc->gce_obj.client[i] =
+			cmdq_mbox_create(dev, index);
+		if (i != CLIENT_SEC_CFG)
+			continue;
+		/* crtc1 & crtc2 share same secure gce thread */
+		if (drm_crtc_index(&mtk_crtc->base) != 0
+				&& priv->ext_sec_client == NULL)
+			priv->ext_sec_client = mtk_crtc->gce_obj.client[i];
 		else
-			mtk_crtc->gce_obj.client[i] =
-				cmdq_mbox_create(dev, index);
+			mtk_crtc->gce_obj.client[i] = priv->ext_sec_client;
 	}
 
 	/* Load CRTC GCE event */
