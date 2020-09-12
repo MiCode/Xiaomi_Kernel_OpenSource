@@ -54,7 +54,7 @@ u32 set_pmic_boot_phase(u32 boot_phase)
 
 u32 get_pmic_boot_phase(void)
 {
-	u32 value, ret;
+	u32 value = 0, ret;
 
 	ret = pmic_read_interface(0xA0E, &value, BOOT_PHASE_MASK,
 		PMIC_LAST_BOOT_PHASE_SHIFT);
@@ -178,6 +178,7 @@ void log_store_to_emmc(void)
 		return;
 	}
 
+	memset(&pEmmc, 0, sizeof(struct log_emmc_header));
 	file_size  = sys_lseek(fd, 0, SEEK_END);
 	sys_lseek(fd, file_size - sram_header->reserve[1], 0);
 	sys_read(fd, (char *)&pEmmc, sizeof(struct log_emmc_header));
@@ -242,6 +243,7 @@ int set_emmc_config(int type, int value)
 		return -1;
 	}
 
+	memset(&pEmmc, 0, sizeof(struct log_emmc_header));
 	file_size  = sys_lseek(fd, 0, SEEK_END);
 	sys_lseek(fd, file_size - sram_header->reserve[1], 0);
 	sys_read(fd, (char *)&pEmmc, sizeof(struct log_emmc_header));
@@ -471,10 +473,15 @@ static void store_printk_buff(void)
 	buff = log_buf_addr_get();
 	log_buf = __pa_symbol(buff);
 	size = log_buf_len_get();
-	if ((log_buf & ~0XFFFFFFFF) == 0)
+	/* support 32/64 bits */
+#ifdef CONFIG_PHYS_ADDR_T_64BIT
+	if ((log_buf >> 32) == 0)
 		sram_dram_buff->klog_addr = (u32)(log_buf & 0xffffffff);
 	else
 		sram_dram_buff->klog_addr = 0;
+#else
+	sram_dram_buff->klog_addr = log_buf;
+#endif
 	sram_dram_buff->klog_size = size;
 	if (!early_log_disable)
 		sram_dram_buff->flag |= BUFF_EARLY_PRINTK;
@@ -526,12 +533,11 @@ static int __init log_store_early_init(void)
 #if IS_ENABLED(CONFIG_MTK_DRAM_LOG_STORE)
 	struct mem_desc_ls sram_ls = { 0 };
 
-	if (of_scan_flat_dt(dt_get_log_store, &sram_ls)) {
+	if (of_scan_flat_dt(dt_get_log_store, &sram_ls))
 		pr_info("log_store: get ok, sram addr:0x%x, size:0x%x\n",
 				sram_ls.addr, sram_ls.size);
-	} else {
+	else
 		pr_info("log_store: get fail\n");
-	}
 
 	sram_header = ioremap_wc(sram_ls.addr,
 		CONFIG_MTK_DRAM_LOG_STORE_SIZE);
