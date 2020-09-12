@@ -1851,12 +1851,9 @@ static int charger_routine_thread(void *arg)
 			if (is_charger_on == true) {
 				if (info->do_algorithm)
 					info->do_algorithm(info);
-				sc_update(pinfo);
 				wakeup_sc_algo_cmd(&pinfo->sc.data, SC_EVENT_CHARGING, 0);
-			} else {
-				sc_update(pinfo);
+			} else
 				wakeup_sc_algo_cmd(&pinfo->sc.data, SC_EVENT_STOP_CHARGING, 0);
-			}
 		} else
 			chr_debug("disable charging\n");
 
@@ -3325,14 +3322,17 @@ static void chg_nl_data_handler(struct sk_buff *skb)
 
 void sc_select_charging_current(struct charger_manager *info, struct charger_data *pdata)
 {
-
-	if (pinfo->sc.g_scd_pid != 0 && pinfo->sc.disable_in_this_plug == false) {
-		chr_debug("sck: %d %d %d %d %d\n",
+	chr_err("sck: en:%d pid:%d %d %d %d %d %d\n",
+			info->sc.enable,
+			info->sc.g_scd_pid,
 			info->sc.pre_ibat,
 			info->sc.sc_ibat,
 			pdata->charging_current_limit,
 			pdata->thermal_charging_current_limit,
 			info->sc.solution);
+
+
+	if (pinfo->sc.g_scd_pid != 0 && pinfo->sc.disable_in_this_plug == false) {
 		if (info->sc.pre_ibat == -1 || info->sc.solution == SC_IGNORE
 			|| info->sc.solution == SC_DISABLE) {
 			info->sc.sc_ibat = -1;
@@ -3396,7 +3396,11 @@ void sc_update(struct charger_manager *pinfo)
 	charger_dev_get_charging_current(pinfo->chg1_dev, &pinfo->sc.data.data[SC_IBAT_SETTING]);
 	pinfo->sc.data.data[SC_IBAT_SETTING] = pinfo->sc.data.data[SC_IBAT_SETTING] / 1000;
 	pinfo->sc.data.data[SC_IBAT] = battery_get_bat_current() / 10;
-
+	charger_dev_get_ibus(pinfo->chg1_dev, &pinfo->sc.data.data[SC_IBUS]);
+	if (chargerlog_level == 1)
+		pinfo->sc.data.data[SC_DBGLV] = 3;
+	else
+		pinfo->sc.data.data[SC_DBGLV] = 7;
 
 }
 
@@ -3424,6 +3428,8 @@ int wakeup_sc_algo_cmd(struct scd_cmd_param_t_1 *data, int subcmd, int para1)
 			if (sc_msg == NULL)
 				return -1;
 		}
+
+		sc_update(pinfo);
 
 		chr_debug(
 			"[wakeup_fg_algo] malloc size=%d pid=%d\n",
