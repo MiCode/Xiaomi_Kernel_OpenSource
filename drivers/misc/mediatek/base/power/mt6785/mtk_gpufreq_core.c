@@ -79,6 +79,9 @@ static unsigned int __mt_gpufreq_get_cur_freq(void);
 static unsigned int __mt_gpufreq_get_cur_vsram_gpu(void);
 static int __mt_gpufreq_get_opp_idx_by_vgpu(unsigned int vgpu);
 static unsigned int __mt_gpufreq_get_vsram_gpu_by_vgpu(unsigned int vgpu);
+static void __mt_gpufreq_update_intepolating_volt(
+		unsigned int idx, unsigned int high,
+		unsigned int low, int factor);
 static unsigned int __mt_gpufreq_get_limited_freq_by_power(
 		unsigned int limited_power);
 static enum g_posdiv_power_enum __mt_gpufreq_get_posdiv_power(
@@ -788,6 +791,9 @@ unsigned int mt_gpufreq_update_volt(
 
 	for (i = 0; i < array_size; i++) {
 		target_idx = mt_gpufreq_get_ori_opp_idx(i);
+		if (target_idx == 12)
+			continue;
+
 		g_opp_table[target_idx].gpufreq_volt = pmic_volt[i];
 		g_opp_table[target_idx].gpufreq_vsram =
 		__mt_gpufreq_get_vsram_gpu_by_vgpu(pmic_volt[i]);
@@ -796,31 +802,18 @@ unsigned int mt_gpufreq_update_volt(
 			/* interpolation for opps not for ptpod */
 			int larger = pmic_volt[i];
 			int smaller = pmic_volt[i + 1];
-			int interpolation;
-			if (target_idx == 0 ||
-				target_idx == 3) {
-				/* After opp 20, 2 opps need intepolation */
-				interpolation =	((larger << 1) + smaller) / 3;
-				g_opp_table[target_idx + 1].gpufreq_volt =
-				VOLT_NORMALIZATION(interpolation);
-				g_opp_table[target_idx + 1].gpufreq_vsram =
-				__mt_gpufreq_get_vsram_gpu_by_vgpu(
-				g_opp_table[target_idx + 1].gpufreq_volt);
-
-				interpolation =	(larger + (smaller << 1)) / 3;
-				g_opp_table[target_idx + 2].gpufreq_volt =
-				VOLT_NORMALIZATION(interpolation);
-				g_opp_table[target_idx + 2].gpufreq_vsram =
-				__mt_gpufreq_get_vsram_gpu_by_vgpu(
-				g_opp_table[target_idx + 2].gpufreq_volt);
-			} else if (target_idx != 28 &&
-				target_idx != 29) {
-				interpolation =	(larger + smaller) >> 1;
-				g_opp_table[target_idx + 1].gpufreq_volt =
-				VOLT_NORMALIZATION(interpolation);
-				g_opp_table[target_idx + 1].gpufreq_vsram =
-				__mt_gpufreq_get_vsram_gpu_by_vgpu(
-				g_opp_table[target_idx + 1].gpufreq_volt);
+			if (target_idx == 0) {
+				/* At opp 0, 14 opps need intepolation */
+				smaller = pmic_volt[2];
+				__mt_gpufreq_update_intepolating_volt(
+				target_idx, larger, smaller, 15);
+			} else if (target_idx == 15) {
+				/* At opp 15, 2 opps need intepolation */
+				__mt_gpufreq_update_intepolating_volt(
+				target_idx, larger, smaller, 3);
+			} else {
+				__mt_gpufreq_update_intepolating_volt(
+				target_idx, larger, smaller, 2);
 			}
 		}
 	}
@@ -2747,6 +2740,26 @@ static unsigned int __mt_gpufreq_get_vsram_gpu_by_vgpu(unsigned int vgpu)
 			vsram_gpu);
 
 	return vsram_gpu;
+}
+
+/*
+ * update intepolating voltage via given vgpu
+ */
+static void __mt_gpufreq_update_intepolating_volt(
+		unsigned int idx, unsigned int high,
+		unsigned int low, int factor)
+{
+	int intepolating_volt, i;
+
+	for (i = 1; i < factor; i++) {
+		intepolating_volt =
+		((high * (factor - i)) + low * (i)) / factor;
+		g_opp_table[idx + i].gpufreq_volt =
+		VOLT_NORMALIZATION(intepolating_volt);
+		g_opp_table[idx + i].gpufreq_vsram =
+		__mt_gpufreq_get_vsram_gpu_by_vgpu(
+		g_opp_table[idx + i].gpufreq_volt);
+	}
 }
 
 /*
