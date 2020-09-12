@@ -1867,8 +1867,7 @@ static ssize_t eachreg_write(struct file *file, const char __user *ubuf,
 
 	lbuf[count] = '\0';
 
-	pars = devm_kcalloc(&rd->dev, rm->size,
-			sizeof(unsigned char), GFP_KERNEL);
+	pars = kcalloc(rm->size, sizeof(unsigned char), GFP_KERNEL);
 	if (!pars)
 		return -ENOMEM;
 
