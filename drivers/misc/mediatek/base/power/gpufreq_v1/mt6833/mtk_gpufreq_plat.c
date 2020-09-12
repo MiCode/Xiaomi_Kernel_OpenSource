@@ -1808,7 +1808,7 @@ static unsigned int __mt_gpufreq_get_segment_id(void)
 }
 static struct opp_table_info *__mt_gpufreq_get_segment_table(void)
 {
-#if 0
+#if 1
 	return g_opp_table_segment_1;
 #else
 
