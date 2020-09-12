@@ -486,22 +486,31 @@ static const struct regulator_ops mt6315_volt_range_ops = {
 
 /* The array is indexed by id(MT6315_ID_SID_XXX) */
 static struct mt6315_regulator_info mt6315_6_regulators[] = {
+#if defined(CONFIG_MACH_MT6893)
+	MT_BUCK("6_vbuck1", 6_VBUCK1, 300000, 1193750, 6250,
+		mt_volt_range1, 1, MT_BUCK_VOL_EN_MODE, 0xF),
+#else
 	MT_BUCK("6_vbuck1", 6_VBUCK1, 300000, 1193750, 6250,
 		mt_volt_range1, 1, MT_BUCK_VOL_EN_MODE, 0xB),
+#endif
 	MT_BUCK("6_vbuck3", 6_VBUCK3, 300000, 1193750, 6250,
 		mt_volt_range1, 3, MT_BUCK_VOL_EN_MODE, 0x4),
 };
 
 static struct mt6315_regulator_info mt6315_7_regulators[] = {
-#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6893)
+#if defined(CONFIG_MACH_MT6885)
 	MT_BUCK("7_vbuck1", 7_VBUCK1, 300000, 1193750, 6250,
 		mt_volt_range1, 1, MT_BUCK_VOL_EN_MODE, 0xB),
-#elif defined(CONFIG_MACH_MT6873)
+#elif defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6893)
 	MT_BUCK("7_vbuck1", 7_VBUCK1, 300000, 1193750, 6250,
 		mt_volt_range1, 1, MT_BUCK_VOL_EN_MODE, 0x3),
 #endif
 	MT_BUCK("7_vbuck3", 7_VBUCK3, 300000, 1193750, 6250,
 		mt_volt_range1, 3, MT_BUCK_VOL_EN, 0x4),
+#if defined(CONFIG_MACH_MT6893)
+	MT_BUCK("7_vbuck4", 7_VBUCK4, 300000, 1193750, 6250,
+		mt_volt_range1, 4, MT_BUCK_VOL_EN, 0x8),
+#endif
 };
 
 static struct mt6315_regulator_info mt6315_3_regulators[] = {
