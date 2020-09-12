@@ -61,7 +61,7 @@ struct ufs_hba *ufs_mtk_hba;
 static bool ufs_mtk_is_data_cmd(char cmd_op);
 static bool ufs_mtk_is_unmap_cmd(char cmd_op);
 
-#ifdef PMIC_RG_LDO_VUFS_LP_ADDR
+#if defined(PMIC_RG_LDO_VUFS_LP_ADDR) && defined(pmic_config_interface)
 #define ufs_mtk_vufs_lpm(on) \
 	pmic_config_interface(PMIC_RG_LDO_VUFS_LP_ADDR, \
 			      (on), \
