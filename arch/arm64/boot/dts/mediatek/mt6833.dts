@@ -15,6 +15,9 @@
 
 /dts-v1/;
 #include <dt-bindings/clock/mt6833-clk.h>
+#include <dt-bindings/iio/mt635x-auxadc.h>
+#include <dt-bindings/mfd/mt6315-irq.h>
+#include <dt-bindings/mfd/mt6359-irq.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/spmi/spmi.h>
@@ -439,9 +442,29 @@ page_owner=on";
 		reg = <0 0x1000ce00 0 0x200>;
 	};
 
-	pwrap@1000d000 {
+	pwrap: pwrap@1000d000 {
 		compatible = "mediatek,pwrap";
 		reg = <0 0x1000d000 0 0x1000>;
+
+		main_pmic: mt6359-pmic {
+			compatible = "mediatek,mt6359-pmic";
+			interrupt-parent = <&pio>;
+			interrupts = <118 IRQ_TYPE_LEVEL_HIGH 118 0>;
+			status = "okay";
+
+#ifdef CONFIG_REGULATOR_MT6315
+			mt635x_ot_debug: mt635x-ot-debug {
+				compatible = "mediatek,mt635x-ot-debug";
+				interrupts-extended =
+					<&mt6315_3_regulator
+					INT_TEMP_H IRQ_TYPE_EDGE_RISING>;
+			};
+#endif
+
+			pmic_oc_debug: pmic-oc-debug {
+				compatible = "mediatek,pmic-oc-debug";
+			};
+		};
 	};
 
 	devapc_ao_infra_peri@1000e000 {
@@ -3357,3 +3380,21 @@ page_owner=on";
 	};
 };
 
+#include "mediatek/mt6359p.dtsi"
+
+&spmi_bus {
+	grpid = <11>;
+	mt6315_3: mt6315@3 {
+		compatible = "mediatek,mt6315", "mtk,spmi-pmic";
+		reg = <0x3 SPMI_USID 0xb SPMI_GSID>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		mt6315_3_regulator: mt6315_3_regulator {
+			compatible = "mediatek,mt6315_3-regulator";
+			interrupt-parent = <&pio>;
+			interrupts = <0 IRQ_TYPE_LEVEL_HIGH 0 0>;
+		};
+	};
+};
+
+#include "mediatek/mt6315_s3.dtsi"
