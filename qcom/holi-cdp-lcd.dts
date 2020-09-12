@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "holi.dtsi"
+#include "holi-cdp-lcd.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Holi CDP-LCD attach";
+	compatible = "qcom,holi-cdp", "qcom,holi", "qcom,cdp";
+	qcom,board-id = <1 1>;
+};
