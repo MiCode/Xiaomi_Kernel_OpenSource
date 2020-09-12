@@ -119,7 +119,8 @@ int scp_awake_lock(void *_scp_id)
 		pr_notice("%s: awake %s fail..\n", __func__, core_id);
 		WARN_ON(1);
 #if SCP_RECOVERY_SUPPORT
-		if (scp_set_reset_status() == RESET_STATUS_STOP) {
+		/* avoid scp just wake up and halt to reset again */
+		if (scp_set_reset_status() == RESET_STATUS_STOP && is_scp_ready(scp_id) == 0) {
 			pr_notice("%s: start to reset scp...\n", __func__);
 
 			/* trigger halt isr, force scp enter wfi */
