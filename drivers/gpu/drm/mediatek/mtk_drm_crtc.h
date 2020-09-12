@@ -628,6 +628,7 @@ struct mtk_drm_crtc {
 
 	wait_queue_head_t state_wait_queue;
 	bool crtc_blank;
+	struct mutex blank_lock;
 };
 
 struct mtk_crtc_state {
