@@ -2819,17 +2819,17 @@ static void __mt_gpufreq_calculate_power(
 static unsigned int __calculate_vgpu_settletime(bool mode, int deltaV)
 {
 	unsigned int settleTime;
-	/* [MT6315][VGPU]
-	 * DVFS Rising : delta(V) / 12.5mV + 4us + 5us
-	 * DVFS Falling: delta(V) / 5mV + 4us + 5us
+	/* [MT6359P][VGPU]
+	 * DVS Rising : delta(mV) / 10(mV/us) + 4(us) + 5(us)
+	 * DVS Falling: delta(mV) / 10(mV/us) + 4(us) + 5(us)
 	 */
 
 	if (mode) {
-		/* rising 12.5mv/us*/
-		settleTime = deltaV / (125 * 10) + 9;
+		/* rising 10 mV/us */
+		settleTime = deltaV / (10 * 100) + 9;
 	} else {
-		/* falling 5mv/us*/
-		settleTime = deltaV / (5 * 100) + 9;
+		/* falling 10 mV/us */
+		settleTime = deltaV / (10 * 100) + 9;
 	}
 	return settleTime; /* us */
 }
@@ -2837,16 +2837,16 @@ static unsigned int __calculate_vgpu_settletime(bool mode, int deltaV)
 static unsigned int __calculate_vsram_settletime(bool mode, int deltaV)
 {
 	unsigned int settleTime;
-	/* [MT6359][VSRAM_GPU]
-	 * DVFS Rising : delta(V) / 12.5mV + 3us + 5us
-	 * DVFS Falling: delta(V) / 5mV + 3us + 5us
+	/* [MT6359P][VSRAM_GPU]
+	 * DVS Rising : delta(mV) / 10(mV/us) + 3(us) + 5(us)
+	 * DVS Falling: delta(mV) /  5(mV/us) + 3(us) + 5(us)
 	 */
 
 	if (mode) {
-		/* rising 12.5mv/us*/
-		settleTime = deltaV / (125 * 10) + 8;
+		/* rising 10 mV/us */
+		settleTime = deltaV / (10 * 100) + 8;
 	} else {
-		/* falling 5mv/us*/
+		/* falling 5 mV/us */
 		settleTime = deltaV / (5 * 100) + 8;
 	}
 	return settleTime; /* us */
