@@ -529,6 +529,7 @@ struct mtk_drm_fake_layer {
 struct disp_ccorr_config {
 	int mode;
 	int color_matrix[16];
+	bool featureFlag;
 };
 
 /**
