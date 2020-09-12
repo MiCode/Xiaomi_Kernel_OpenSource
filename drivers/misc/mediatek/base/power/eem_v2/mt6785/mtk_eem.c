@@ -1893,6 +1893,8 @@ static int eem_volt_thread_handler(void *data)
 #endif
 
 	FUNC_ENTER(FUNC_LV_HELP);
+	if (det == NULL)
+		return 0;
 
 	do {
 		eem_debug("In thread handler\n");
