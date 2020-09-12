@@ -66,3 +66,6 @@ ifeq ($(CONFIG_MACH_MT6893),y)
   obj-$(CONFIG_MTK_CAMERA_ISP_RSC_SUPPORT) += isp_6s/camera_rsc.o
 endif
 
+ifeq ($(CONFIG_MACH_MT6833),y)
+  obj-$(CONFIG_MTK_CAMERA_ISP_RSC_SUPPORT) += isp_6s/camera_rsc.o
+endif
