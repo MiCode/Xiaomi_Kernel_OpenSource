@@ -54,10 +54,14 @@ static int qos_ipi_recv_thread(void *arg)
 					get_qos_bound());
 			break;
 #ifdef QOS_PREFETCH_SUPPORT
-		case QOS_IPI_QOS_PREFETCH:
+		case QOS_IPI_QOS_PREFETCH_CB:
 			prefetch_notifier_call_chain(
-					qos_ipi_d->u.qos_prefetch.state,
+					qos_ipi_d->u.qos_prefetch_cb.state,
 					NULL);
+			break;
+		case QOS_IPI_QOS_PREFETCH_UPDATE:
+			if (is_qos_prefetch_enabled())
+				qos_prefetch_update_all();
 			break;
 #endif /* QOS_PREFETCH_SUPPORT */
 		default:
