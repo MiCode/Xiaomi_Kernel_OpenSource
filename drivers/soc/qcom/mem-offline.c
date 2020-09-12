@@ -30,6 +30,14 @@
 #define AOP_MSG_ADDR_HIGH_SHIFT		32
 #define MAX_LEN				96
 
+/**
+ * bypass_send_msg - skip mem offline/online mesg sent to rpm/aop
+ */
+static bool bypass_send_msg;
+module_param(bypass_send_msg, bool, 0644);
+MODULE_PARM_DESC(bypass_send_msg,
+	"skip mem offline/online mesg sent to rpm/aop.");
+
 static unsigned long start_section_nr, end_section_nr;
 static struct kobject *kobj;
 static unsigned int sections_per_block;
@@ -241,6 +249,9 @@ static int send_msg(struct memory_notify *mn, bool online, int count)
 	unsigned long segment_size = offline_granule * SZ_1M;
 	unsigned long start, base_sec_nr, sec_nr, sections_per_segment;
 	int ret, idx, i;
+
+	if (bypass_send_msg)
+		return 0;
 
 	sections_per_segment = get_rounded_sections_per_segment();
 	sec_nr = pfn_to_section_nr(SECTION_ALIGN_DOWN(mn->start_pfn));
@@ -1072,6 +1083,9 @@ static int mem_offline_driver_probe(struct platform_device *pdev)
 	}
 	pr_info("mem-offline: Added memory blocks ranging from mem%lu - mem%lu\n",
 			start_section_nr, end_section_nr);
+
+	if (bypass_send_msg)
+		pr_info("mem-offline: bypass mode\n");
 
 	return 0;
 
