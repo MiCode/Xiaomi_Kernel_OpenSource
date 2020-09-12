@@ -505,6 +505,74 @@ page_owner=on";
 		reg = <0 0x10013000 0 0x1000>;
 	};
 
+	dpmaif:dpmaif@10014000 {
+		compatible = "mediatek,dpmaif";
+		reg = <0 0x10014000 0 0x1000>, /*AO_UL*/
+			<0 0x1022D000 0 0x1000>, /*PD_UL*/
+			<0 0x1022C000 0 0x1000>, /*PD_MD_MISC*/
+			<0 0x1022E000 0 0x1000>; /*SRAM*/
+		interrupts = <GIC_SPI 209 IRQ_TYPE_LEVEL_HIGH>; /*209+32=241*/
+		mediatek,dpmaif_capability = <6>;
+		/*clocks = ; clock-names = ; set in mddriver node */
+	};
+
+	mddriver:mddriver {
+		compatible = "mediatek,mddriver";
+		mediatek,mdhif_type = <6>; /* bit0~3: CLDMA|CCIF|DPMAIF */
+		mediatek,md_id = <0>;
+		mediatek,ap_plat_info = <6833>;
+		mediatek,md_generation = <6297>;
+		mediatek,cldma_capability = <6>;
+		reg = <0 0x10209000 0 0x1000>, /*AP_CCIF_BASE*/
+			<0 0x1020a000 0 0x1000>; /*MD_CCIF_BASE*/
+		interrupts = <GIC_SPI 78 IRQ_TYPE_EDGE_RISING>,
+				/*MDWDT*/
+			     <GIC_SPI 194 IRQ_TYPE_LEVEL_HIGH>,
+				/*CCIF0 194/226*/
+			     <GIC_SPI 195 IRQ_TYPE_LEVEL_HIGH>;
+				/*CCIF0 195/227*/
+		clocks = <&scpsys SCP_SYS_MD1>,
+			<&infracfg_ao CLK_IFRAO_DPMAIF_MAIN>,
+			<&infracfg_ao CLK_IFRAO_CLDMA_BCLK>,
+			<&infracfg_ao CLK_IFRAO_CCIF_AP>,
+			<&infracfg_ao CLK_IFRAO_CCIF_MD>,
+			<&infracfg_ao CLK_IFRAO_CCIF1_AP>,
+			<&infracfg_ao CLK_IFRAO_CCIF1_MD>,
+			<&infracfg_ao CLK_IFRAO_CCIF2_AP>,
+			<&infracfg_ao CLK_IFRAO_CCIF2_MD>,
+			<&infracfg_ao CLK_IFRAO_CCIF4_MD>;
+		clock-names = "scp-sys-md1-main",
+			"infra-dpmaif-clk",
+			"infra-dpmaif-blk-clk",
+			"infra-ccif-ap",
+			"infra-ccif-md",
+			"infra-ccif1-ap",
+			"infra-ccif1-md",
+			"infra-ccif2-ap",
+			"infra-ccif2-md",
+			"infra-ccif4-md";
+	};
+
+	radio_md_cfg:radio_md_cfg {
+		compatible = "mediatek,radio_md_cfg";
+	};
+
+	md_auxadc:md_auxadc {
+		compatible = "mediatek,md_auxadc";
+		io-channels = <&auxadc 2>;
+		io-channel-names = "md-channel";
+	};
+
+	gpio_usage_mapping:gpio_usage_mapping {
+		compatible = "mediatek,gpio_usage_mapping";
+	};
+
+	md1_sim1_hot_plug_eint:md1_sim1_hot_plug_eint {
+	};
+
+	md1_sim2_hot_plug_eint:md1_sim2_hot_plug_eint {
+	};
+
 	apcldmain_ao@10014000 {
 		compatible = "mediatek,apcldmain_ao";
 		reg = <0 0x10014000 0 0x400>;
@@ -1368,56 +1436,6 @@ page_owner=on";
 	dbg_mdsys1@0d0c0000 {
 		compatible = "mediatek,dbg_mdsys1";
 		reg = <0 0x0d0c0000 0 0x40000>;
-	};
-
-	dpmaif:dpmaif@10014000 {
-		compatible = "mediatek,dpmaif";
-		reg = <0 0x10014000 0 0x1000>, /*AO_UL*/
-			<0 0x1022D000 0 0x1000>, /*PD_UL*/
-			<0 0x1022C000 0 0x1000>, /*PD_MD_MISC*/
-			<0 0x1022E000 0 0x1000>; /*SRAM*/
-		interrupts = <GIC_SPI 209 IRQ_TYPE_LEVEL_HIGH>; /*209+32=241*/
-		mediatek,dpmaif_capability = <6>;
-		/*clocks = ; clock-names = ; set in mddriver node */
-	};
-
-	mddriver:mddriver {
-		compatible = "mediatek,mddriver";
-		mediatek,mdhif_type = <6>; /* bit0~3: CLDMA|CCIF|DPMAIF */
-		mediatek,md_id = <0>;
-		mediatek,cldma_capability = <6>;
-		reg = <0 0x10209000 0 0x1000>, /*AP_CCIF_BASE*/
-			<0 0x1020a000 0 0x1000>; /*MD_CCIF_BASE*/
-		interrupts = <GIC_SPI 78 IRQ_TYPE_EDGE_RISING>,
-				/*MDWDT*/
-			     <GIC_SPI 194 IRQ_TYPE_LEVEL_HIGH>,
-				/*CCIF0 194/226*/
-			     <GIC_SPI 195 IRQ_TYPE_LEVEL_HIGH>;
-				/*CCIF0 195/227*/
-		/*
-		 *clocks = <&scpsys SCP_SYS_MD1>;
-		 *clock-names = "scp-sys-md1-main";
-		 */
-	};
-
-	radio_md_cfg:radio_md_cfg {
-		compatible = "mediatek,radio_md_cfg";
-	};
-
-	md_auxadc:md_auxadc {
-		compatible = "mediatek,md_auxadc";
-		/* io-channels = <&auxadc 2>; */
-		/* io-channel-names = "md-channel"; */
-	};
-
-	gpio_usage_mapping:gpio_usage_mapping {
-		compatible = "mediatek,gpio_usage_mapping";
-	};
-
-	md1_sim1_hot_plug_eint:md1_sim1_hot_plug_eint {
-	};
-
-	md1_sim2_hot_plug_eint:md1_sim2_hot_plug_eint {
 	};
 
 	usb0@11200000 {
