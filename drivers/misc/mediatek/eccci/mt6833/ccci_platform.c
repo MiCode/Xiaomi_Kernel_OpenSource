@@ -46,6 +46,7 @@ int Is_MD_EMI_voilation(void)
 	return 1;
 }
 
+unsigned long pericfg_base;
 unsigned long infra_ao_base;
 unsigned long infra_ao_mem_base;
 
@@ -127,7 +128,7 @@ static int ccci_md_low_power_notify(
 static void ccci_md_low_battery_cb(LOW_BATTERY_LEVEL level)
 {
 	int idx = 0;
-	struct ccci_modem *md;
+	struct ccci_modem *md = NULL;
 
 	for (idx = 0; idx < MAX_MD_NUM; idx++) {
 		md = ccci_md_get_modem_by_id(idx);
@@ -139,7 +140,7 @@ static void ccci_md_low_battery_cb(LOW_BATTERY_LEVEL level)
 static void ccci_md_over_current_cb(BATTERY_OC_LEVEL level)
 {
 	int idx = 0;
-	struct ccci_modem *md;
+	struct ccci_modem *md = NULL;
 
 	for (idx = 0; idx < MAX_MD_NUM; idx++) {
 		md = ccci_md_get_modem_by_id(idx);
@@ -159,7 +160,7 @@ void ccci_reset_ccif_hw(unsigned char md_id,
 			int ccif_id, void __iomem *baseA, void __iomem *baseB)
 {
 	int i;
-	struct ccci_smem_region *region;
+	struct ccci_smem_region *region = NULL;
 
 	{
 		int ccif0_reset_bit = 8;
@@ -218,6 +219,17 @@ int ccci_platform_init(struct ccci_modem *md)
 		return -1;
 	}
 	CCCI_INIT_LOG(-1, TAG, "infra_ao_base:0x%p\n", (void *)infra_ao_base);
+
+	/*Get pericfg base(0x1000 3000) for ccif5*/
+	node = of_find_compatible_node(NULL, NULL, "mediatek,pericfg");
+	pericfg_base = (unsigned long)of_iomap(node, 0);
+	if (!pericfg_base) {
+		CCCI_ERROR_LOG(md->index, TAG,
+			"%s: pericfg_base of_iomap failed\n", node->full_name);
+		return -1;
+	}
+	CCCI_INIT_LOG(-1, TAG, "pericfg_base:0x%p\n", (void *)pericfg_base);
+
 	node = of_find_compatible_node(NULL, NULL, "mediatek,infracfg_ao_mem");
 	infra_ao_mem_base = (unsigned long)of_iomap(node, 0);
 	if (!infra_ao_mem_base) {
@@ -369,53 +381,5 @@ struct dvfs_ref *mtk_ccci_get_dvfs_table(int *tbl_num)
 {
 	*tbl_num = (int)ARRAY_SIZE(s_dvfs_tbl);
 	return s_dvfs_tbl;
-}
-
-int mtk_ccci_cpu_freq_rta(u64 dl_speed, u64 ul_speed, int ref[], int n)
-{
-	static int last_lvl;
-
-	if (n != 2) {
-		CCCI_REPEAT_LOG(-1, "speed", "%s: cluster not 2(%d)\r\n",
-					__func__, n);
-		return 0;
-	}
-
-	if ((dl_speed + ul_speed) >= 1350000000LL) {
-		ref[0] = 1500000;
-		ref[1] = -1;
-		if (last_lvl != 1) {
-			last_lvl = 1;
-			CCCI_REPEAT_LOG(-1, "speed", "%s: lvl:%d\r\n",
-					__func__, last_lvl);
-			return 1;
-		}
-		return 0;
-	}
-	if ((dl_speed + ul_speed) >= 1000000000LL) {
-		ref[0] = 800000;
-		ref[1] = -1;
-		if (last_lvl != 2) {
-			last_lvl = 2;
-			CCCI_REPEAT_LOG(-1, "speed", "%s: lvl:%d\r\n",
-					__func__, last_lvl);
-			return 1;
-		}
-		return 0;
-	}
-
-	if ((dl_speed + ul_speed) < 800000000LL) {
-		ref[0] = -1;
-		ref[1] = -1;
-		if (last_lvl != 0) {
-			last_lvl = 0;
-			CCCI_REPEAT_LOG(-1, "speed", "%s: lvl:%d\r\n",
-					__func__, last_lvl);
-			return 1;
-		}
-		return 0;
-	}
-
-	return 0;
 }
 
