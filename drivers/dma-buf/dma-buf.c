@@ -1223,6 +1223,9 @@ static int dma_buf_debug_show(struct seq_file *s, void *unused)
 			continue;
 		}
 
+		if (file_inode(buf_obj->file) == NULL)
+			continue;
+
 		seq_printf(s, "%08zu\t%08x\t%08x\t%08ld\t%s\t%08lu\t%s\n",
 				buf_obj->size,
 				buf_obj->file->f_flags, buf_obj->file->f_mode,
