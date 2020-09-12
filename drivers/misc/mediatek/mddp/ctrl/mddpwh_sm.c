@@ -692,6 +692,22 @@ int32_t mddpw_drv_get_net_stat_ext(struct mddpw_net_stat_ext_t *usage)
 	return 0;
 }
 
+int32_t mddpw_drv_get_sys_stat(struct mddpw_sys_stat_t **sys_stat)
+{
+	uint8_t                  smem_attr;
+	uint32_t                 smem_size;
+
+	if (mddp_ipc_get_md_smem_by_id(MDDP_MD_SMEM_USER_SYS_STAT_SYNC,
+				(void **)sys_stat, &smem_attr, &smem_size)) {
+		MDDP_S_LOG(MDDP_LL_ERR,
+				"%s: Failed to get smem_id (%d)!\n",
+				__func__, MDDP_MD_SMEM_USER_SYS_STAT_SYNC);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 int32_t mddpw_drv_get_ap_rx_reorder_buf(
 	struct mddpw_ap_reorder_sync_table_t **ap_table)
 {
@@ -777,6 +793,7 @@ int32_t mddpw_drv_reg_callback(struct mddp_drv_handle_t *handle)
 	wifi_handle->get_md_rx_reorder_buf = mddpw_drv_get_md_rx_reorder_buf;
 	wifi_handle->notify_drv_info = mddpw_drv_notify_info;
 	wifi_handle->get_net_stat_ext = mddpw_drv_get_net_stat_ext;
+	wifi_handle->get_sys_stat = mddpw_drv_get_sys_stat;
 
 	return 0;
 }
