@@ -386,7 +386,7 @@ int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
 #if VOLTAGE_RAISE_UP
 	unsigned int raise_up_efuse_val = 0;
 #endif
-#if BINNING_VOLTAGE_SUPPORT
+#if BINNING_VOLTAGE_SUPPORT && !defined(CONFIG_MACH_MT6893)
 	unsigned int vpu_efuse_val = 0;
 	unsigned int mdla_efuse_val = 0;
 

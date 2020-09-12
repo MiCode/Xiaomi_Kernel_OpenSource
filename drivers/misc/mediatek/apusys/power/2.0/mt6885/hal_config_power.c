@@ -384,6 +384,10 @@ static int segment_user_support_check(void *param)
 	seg_info->support = true;
 	seg_info->seg = SEGMENT_1;
 
+#if defined(CONFIG_MACH_MT6893)
+	// TODO for mt6893
+	val = 0;
+#else
 	val = get_devinfo_with_index(30);
 	if (val == 0x1) {
 		seg_info->seg = SEGMENT_0;
@@ -391,7 +395,7 @@ static int segment_user_support_check(void *param)
 			seg_info->support = false;
 	} else if (val == 0x10)
 		seg_info->seg = SEGMENT_2;
-
+#endif
 	if (seg_info->support == false)
 		LOG_INF("%s user=%d, support=%d\n", __func__,
 		seg_info->user, seg_info->support);
@@ -399,11 +403,274 @@ static int segment_user_support_check(void *param)
 	return 0;
 }
 
+#if defined(CONFIG_MACH_MT6893)
+static int binning_init;
+#ifndef AGING_MARGIN
+static void aging_support_check(int opp, enum DVFS_VOLTAGE_DOMAIN bk_dmn) {}
+#else
+/*
+ * aging_support_check() - Brief description of aging_support_check.
+ * @opp: opp to check
+ * @bk_dmn: buck domain to check
+ *
+ * Comparing whether freq of opp on the buck domain matches aging freq.
+ * If yes, voltage of opp on the buck domain will minus aging voltage.
+ * (so far only support vpu buck domains)
+ *
+ * Return void.
+ */
+static void aging_support_check(int opp, enum DVFS_VOLTAGE_DOMAIN bk_dmn)
+{
+	enum DVFS_FREQ ag_freq = 0;
+	enum DVFS_FREQ seg_freq = 0;
+	int seg_volt = 0;
+	int ag_volt = 0;
+	int ag_opp_idx = 0;
+
+	/* only support VPU for aging */
+	if (bk_dmn > V_VCORE)
+		LOG_ERR("%s %s opp %d not support aging volt\n",
+				__func__, buck_domain_str[bk_dmn], opp);
+
+	seg_freq = apusys_opps.opps[opp][bk_dmn].freq;
+	seg_volt = apusys_opps.opps[opp][bk_dmn].voltage;
+
+	/*
+	 * Brute-force searching whether seg_freq meet
+	 * any aging freq in aging_tbl array
+	 */
+	for (ag_opp_idx = 0; ag_opp_idx < APUSYS_MAX_NUM_OPPS; ag_opp_idx++) {
+		ag_freq = aging_tbl[ag_opp_idx][bk_dmn].freq;
+		ag_volt = aging_tbl[ag_opp_idx][bk_dmn].volt;
+
+		/*
+		 * if setment freqs matchs aging freq,
+		 * minus aging voltage and break
+		 */
+		if (ag_freq == seg_freq) {
+			apusys_opps.opps[opp][bk_dmn].voltage -= ag_volt;
+			LOG_DBG("%s %s opp%d(%d, %d) hit ag(%d,%d) end v %d\n",
+				__func__, buck_domain_str[bk_dmn], opp,
+				seg_freq, seg_volt, ag_freq, ag_volt,
+				apusys_opps.opps[opp][bk_dmn].voltage);
+			break;
+		}
+	}
+}
+#endif
+
+#if BINNING_VOLTAGE_SUPPORT || VOLTAGE_RAISE_UP
+
+/**
+ * get_bin_raise_voltage() - calculate binning/raising voltage
+ * @bin_efuse: binning efuse value
+ * @raise_efuse: raising efuse value
+ * @bin_mv: return binning voltage
+ * @raise_mv: return raising voltage
+ *
+ * Based on binning/raising efuse, return voltage upper bound, bin_mv,
+ * and lower bound, raise_mv, to caller.
+ */
+static void get_bin_raise_voltage(enum DVFS_BUCK buck, int bin_efuse,
+	int raise_efuse, enum DVFS_VOLTAGE *bin_mv, enum DVFS_VOLTAGE *raise_mv)
+{
+	// TODO for mt6893
+
+	if (buck == VPU_BUCK) {
+		/* Binning voltage check */
+		if (bin_efuse == 2)
+			*bin_mv = DVFS_VOLT_00_750000_V;
+		else if (bin_efuse == 3)
+			*bin_mv = DVFS_VOLT_00_737500_V;
+		else if (bin_efuse == 4)
+			*bin_mv = DVFS_VOLT_00_725000_V;
+
+		/* Raising voltage check */
+		if (raise_efuse == 1)
+			*raise_mv = DVFS_VOLT_00_600000_V;
+		else if (raise_efuse == 2)
+			*raise_mv = DVFS_VOLT_00_625000_V;
+
+	} else if (buck == MDLA_BUCK) {
+		/* Binning voltage check */
+		if (bin_efuse == 2)
+			*bin_mv = DVFS_VOLT_00_750000_V;
+		else if (bin_efuse == 3)
+			*bin_mv = DVFS_VOLT_00_737500_V;
+		else if (bin_efuse == 4)
+			*bin_mv = DVFS_VOLT_00_725000_V;
+
+		/* Raising voltage check */
+		if (raise_efuse == 1)
+			*raise_mv = DVFS_VOLT_00_600000_V;
+		else if (raise_efuse == 2)
+			*raise_mv = DVFS_VOLT_00_625000_V;
+
+	} else {
+		LOG_ERR("%s invalid buck : %d\n", __func__, buck);
+	}
+}
+
+/**
+ * change_opp_voltage() - change opp's voltage upper/lower bound
+ * @bk_domain: which buck domain's opp need to modify
+ * @bin_mv: upper bound voltage
+ * @raise_mv: lower bound voltage
+ *
+ * Modify upper/lower voltage bound of buck domain's opp.
+ */
+static void change_opp_voltage(enum DVFS_VOLTAGE_DOMAIN bk_domain,
+			enum DVFS_VOLTAGE *bin_mv, enum DVFS_VOLTAGE *raise_mv)
+{
+	int opp = 0;
+	int bin_print = 0;
+	int raise_print = 0;
+	enum DVFS_USER user;
+
+	user = apusys_buck_domain_to_user[bk_domain];
+	for (opp = 0; opp < APUSYS_MAX_NUM_OPPS; opp++) {
+		/* only show efuse message when binning set */
+		bin_print = 0;
+		raise_print = 0;
+
+		/* set upper bound of clk_path_max_vol for valid dvfs user*/
+		if (user < APUSYS_DVFS_USER_NUM) {
+			dvfs_clk_path_max_vol[user][0] = *bin_mv;
+
+			/*
+			 * Index[1] is APUCONN and APUCONN use vvpu as well.
+			 * That is why also modify index[1]'s upper bound here.
+			 */
+			dvfs_clk_path_max_vol[user][1] = *bin_mv;
+
+			/*
+			 * Index[2] is APU_IOMMU and APU_IOMMU use vvpu as well.
+			 * That is why also modify index[2]'s upper bound here.
+			 */
+			dvfs_clk_path_max_vol[user][2] = *bin_mv;
+		}
+		/* set upper bound as binning voltage to this buck domain */
+		if (apusys_opps.opps[opp][bk_domain].voltage > *bin_mv) {
+			apusys_opps.opps[opp][bk_domain].voltage = *bin_mv;
+			bin_print = 1;
+		}
+
+		/* set lower bound as raising voltage to this buck domain */
+		if (apusys_opps.opps[opp][bk_domain].voltage < *raise_mv) {
+			apusys_opps.opps[opp][bk_domain].voltage = *raise_mv;
+			raise_print = 1;
+		}
+
+		/* show binning information */
+		if (bin_print)
+			LOG_WRN("Binning Volt!!, opp-%d vol=%d\n",
+				opp,
+				apusys_opps.opps[opp][bk_domain].voltage);
+		if (raise_print)
+			LOG_WRN("Raising Volt!!, opp-%d vol=%d\n",
+				opp,
+				apusys_opps.opps[opp][bk_domain].voltage);
+	}
+}
+#endif
+
+static int binning_support_check(void)
+{
+	int opp = 0;
+#if BINNING_VOLTAGE_SUPPORT || VOLTAGE_RAISE_UP
+	unsigned int vpu_efuse_bin = 0;
+	unsigned int vpu_efuse_raise = 0;
+	unsigned int mdla_efuse_bin = 0;
+	unsigned int mdla_efuse_raise = 0;
+	enum DVFS_VOLTAGE bin_mv = 0;
+	enum DVFS_VOLTAGE raise_mv = 0;
+#endif
+	/* opp table only need to be aging/bining/raise once */
+	if (binning_init)
+		goto out;
+
+#if BINNING_VOLTAGE_SUPPORT || VOLTAGE_RAISE_UP
+// TODO for mt6893
+// vpu_efuse_bin =
+//		GET_BITS_VAL(10:8, get_devinfo_with_index(EFUSE_BIN));
+//	LOG_DBG("Vol bin: vpu_efuse=%d, efuse: 0x%x\n",
+//		vpu_efuse_bin, get_devinfo_with_index(EFUSE_BIN));
+
+// TODO for mt6893
+//	vpu_efuse_raise =
+//		GET_BITS_VAL(1:0, get_devinfo_with_index(EFUSE_RAISE));
+//	LOG_DBG("Raise bin: vpu_efuse=%d, efuse: 0x%x\n",
+//		vpu_efuse_raise, get_devinfo_with_index(EFUSE_RAISE));
+
+// TODO for mt6893
+// mdla_efuse_bin =
+//		GET_BITS_VAL(10:8, get_devinfo_with_index(EFUSE_BIN));
+//	LOG_DBG("Vol bin: mdla_efuse=%d, efuse: 0x%x\n",
+//		mdla_efuse_bin, get_devinfo_with_index(EFUSE_BIN));
+
+// TODO for mt6893
+//	mdla_efuse_raise =
+//		GET_BITS_VAL(1:0, get_devinfo_with_index(EFUSE_RAISE));
+//	LOG_DBG("Raise bin: mdla_efuse=%d, efuse: 0x%x\n",
+//		mdla_efuse_raise, get_devinfo_with_index(EFUSE_RAISE));
+
+
+	get_bin_raise_voltage(VPU_BUCK, vpu_efuse_bin, vpu_efuse_raise,
+							&bin_mv, &raise_mv);
+
+	if (vpu_efuse_bin > 1 || vpu_efuse_raise > 0) {
+		if (vpu_efuse_bin > 1)
+			LOG_ERR("Vol bin: vpu_efuse=%d\n", vpu_efuse_bin);
+		if (vpu_efuse_raise > 0)
+			LOG_ERR("Raise bin: vpu_efuse=%d\n", vpu_efuse_raise);
+
+		change_opp_voltage(V_VPU0, &bin_mv, &raise_mv);
+		change_opp_voltage(V_VPU1, &bin_mv, &raise_mv);
+		change_opp_voltage(V_VPU2, &bin_mv, &raise_mv);
+
+		/* APU_CONN & APU_IOMMU share vvpu with VPU0/1/2 */
+		change_opp_voltage(V_APU_CONN, &bin_mv, &raise_mv);
+		change_opp_voltage(V_TOP_IOMMU, &bin_mv, &raise_mv);
+
+	}
+
+	get_bin_raise_voltage(MDLA_BUCK, mdla_efuse_bin, mdla_efuse_raise,
+							&bin_mv, &raise_mv);
+
+	if (mdla_efuse_bin > 1 || mdla_efuse_raise > 0) {
+		if (mdla_efuse_bin > 1)
+			LOG_ERR("Vol bin: mdla_efuse=%d\n", mdla_efuse_bin);
+		if (mdla_efuse_raise > 0)
+			LOG_ERR("Raise bin: mdla_efuse=%d\n", mdla_efuse_raise);
+
+		change_opp_voltage(V_MDLA0, &bin_mv, &raise_mv);
+		change_opp_voltage(V_MDLA1, &bin_mv, &raise_mv);
+	}
+#endif
+	for (opp = 0; opp < APUSYS_MAX_NUM_OPPS; opp++) {
+		/* Minus VPU aging voltage if need */
+		aging_support_check(opp, V_VPU0);
+		aging_support_check(opp, V_VPU1);
+		aging_support_check(opp, V_VPU2);
+		aging_support_check(opp, V_MDLA0);
+		aging_support_check(opp, V_MDLA1);
+		aging_support_check(opp, V_APU_CONN);
+		aging_support_check(opp, V_TOP_IOMMU);
+	}
+
+	/* initial done */
+	binning_init = 1;
+
+out:
+	return 0;
+}
+
+#else
 static int binning_support_check(void)
 {
 	return 0;
 }
-
+#endif
 static int apu_pm_handler(void *param)
 {
 	int suspend = ((struct hal_param_pm *)param)->is_suspend;
