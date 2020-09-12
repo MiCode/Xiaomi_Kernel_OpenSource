@@ -11,7 +11,11 @@
 # GNU General Public License for more details.
 #
 
-
+ifeq ($(CONFIG_MACH_MT6893), y)
+MTK_ADSP_PLATFORM := mt6885
+else
+MTK_ADSP_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
+endif
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include
@@ -35,7 +39,7 @@ endif
 
 ifeq ($(CONFIG_MTK_AUDIODSP_SUPPORT), y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/adsp/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/adsp/$(MTK_PLATFORM)/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/adsp/$(MTK_ADSP_PLATFORM)/
 endif
 
 
