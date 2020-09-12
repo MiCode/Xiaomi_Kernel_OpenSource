@@ -240,63 +240,6 @@ static unsigned long g_reg_dvfs[FH_PLL_NUM];
 static unsigned long g_reg_pll_con0[FH_PLL_NUM];
 static unsigned long g_reg_pll_con1[FH_PLL_NUM];
 
-/***********************************/
-/* In memory log */
-/***********************************/
-struct fh_log_entry {
-	unsigned long long	serial;
-	unsigned int		target_dds;
-	unsigned int		before_dds;
-	unsigned int		after_dds;
-};
-
-#define FH_LOG_LIST_SIZE 128
-
-struct fh_log_entry fh_log_list_mfgpll[FH_LOG_LIST_SIZE];
-struct fh_log_entry fh_log_list_apupll[FH_LOG_LIST_SIZE];
-unsigned int fh_log_list_idx_table[FH_PLL_NUM] = {0};
-struct fh_log_entry *fh_log_list_table[FH_PLL_NUM] = {
-	NULL,			//ARMPLL_LL
-	NULL,			//ARMPLL_BL0
-	NULL,			//ARMPLL_BL1
-	NULL,			//ARMPLL_BL2
-	NULL,			//ARMPLL_BL3
-	NULL,			//CCIPLL
-	fh_log_list_mfgpll,	//MFGPLL
-	NULL,			//MEMPLL
-	NULL,			//MPLL
-	NULL,			//MPLL
-	NULL,			//MAINPLL
-	NULL,			//MSDCPLL
-	NULL,			//ADSPPLL
-	fh_log_list_apupll,	//APUPLL
-	NULL			//TVDPLL
-};
-
-struct fh_log_entry fh_log_list_mfgpll_fail[FH_LOG_LIST_SIZE];
-struct fh_log_entry fh_log_list_apupll_fail[FH_LOG_LIST_SIZE];
-unsigned int fh_log_list_idx_table_fail[FH_PLL_NUM] = {0};
-struct fh_log_entry *fh_log_list_table_fail[FH_PLL_NUM] = {
-	NULL,			//ARMPLL_LL
-	NULL,			//ARMPLL_BL0
-	NULL,			//ARMPLL_BL1
-	NULL,			//ARMPLL_BL2
-	NULL,			//ARMPLL_BL3
-	NULL,			//CCIPLL
-	fh_log_list_mfgpll_fail,//MFGPLL
-	NULL,			//MEMPLL
-	NULL,			//MPLL
-	NULL,			//MPLL
-	NULL,			//MAINPLL
-	NULL,			//MSDCPLL
-	NULL,			//ADSPPLL
-	fh_log_list_apupll_fail,//APUPLL
-	NULL			//TVDPLL
-};
-
-unsigned long long fh_log_list_serial[FH_PLL_NUM] = {0};
-
-unsigned int fh_ipi_hopping_serial;
 
 /*****************************************************************************/
 /* Function */
@@ -543,24 +486,6 @@ static void mt_fh_hal_default_conf(void)
 	}
 }
 
-static void mt_fh_dump_register(void)
-{
-	int i;
-
-	FH_MSG("HP_EN:%08x\n", fh_read32(REG_FHCTL_HP_EN));
-
-	for (i = 0 ; i < FH_PLL_NUM ; i++) {
-		FH_MSG("P:%s C:%08x DV:%08x DDS:%08x M:%08x CON1:%08x\n",
-		g_pll_name[i],
-		fh_read32(g_reg_cfg[i]),
-		fh_read32(g_reg_dvfs[i]),
-		fh_read32(g_reg_dds[i]),
-		fh_read32(g_reg_mon[i]),
-		g_reg_pll_con1[i] == REG_PLL_NOT_SUPPORT ?
-			REG_PLL_NOT_SUPPORT : fh_read32(g_reg_pll_con1[i]));
-	}
-}
-
 /* General purpose PLL hopping and SSC enable API. */
 #define HOPPING_FORBIDDEN_PLL_MSG \
 	"ERROR! The [PLL_ID]:%d was forbidden hopping by MT6758 FHCTL."
@@ -570,8 +495,6 @@ static int mt_fh_hal_general_pll_dfs(enum FH_PLL_ID pll_id,
 {
 	struct fhctl_ipi_data ipi_data;
 	int retVal = 0;
-	unsigned int log_idx, log_idx_f;
-	unsigned int cur_dds;
 
 	if (g_initialize == 0) {
 		FH_MSG("(Warning) %s FHCTL isn't ready. ", __func__);
@@ -610,72 +533,10 @@ static int mt_fh_hal_general_pll_dfs(enum FH_PLL_ID pll_id,
 			(fh_read32(g_reg_pll_con1[pll_id]) & FH_DDS_MASK),
 			target_dds);
 
-	//FHCTL IN MEM LOG
-	if (fh_log_list_table[pll_id] != NULL) {
-		//get log idx
-		log_idx = fh_log_list_idx_table[pll_id];
-
-		//recording
-		fh_log_list_table[pll_id][log_idx].serial =
-			fh_log_list_serial[pll_id]++;
-
-		fh_log_list_table[pll_id][log_idx].before_dds =
-			fh_read32(g_reg_pll_con1[pll_id]) & (0x3FFFFF);
-
-		fh_log_list_table[pll_id][log_idx].target_dds =
-			target_dds;
-	}
-
 	memset(&ipi_data, 0, sizeof(struct fhctl_ipi_data));
 	ipi_data.u.args[0] = pll_id;
 	ipi_data.u.args[1] = target_dds;
-	ipi_data.u.args[7] = ++fh_ipi_hopping_serial;
 	retVal = fhctl_to_mcupm_command(FH_DCTL_CMD_GENERAL_DFS, &ipi_data);
-
-	//read back CON1 after hopping IPI complete
-	cur_dds = fh_read32(g_reg_pll_con1[pll_id]) & (0x3FFFFF);
-
-	if (cur_dds != target_dds) {
-		FH_MSG("[FH] hopping fail, cur %x, tgt %x, s %d\n",
-			cur_dds,
-			target_dds,
-			fh_ipi_hopping_serial);
-		FH_MSG("[FH] serial %d, ack %d\n", fh_ipi_hopping_serial, ack_data);
-		mt_fh_dump_register();
-		//BUG();
-	}
-
-	//FHCTL IN MEM LOG
-	if (fh_log_list_table[pll_id] != NULL) {
-		fh_log_list_table[pll_id][log_idx].after_dds = cur_dds;
-
-		//validate result
-		if (cur_dds != target_dds) {
-			//log to fail list
-			log_idx_f = fh_log_list_idx_table_fail[pll_id];
-
-			fh_log_list_table_fail[pll_id][log_idx_f].serial =
-				fh_log_list_table[pll_id][log_idx].serial;
-			fh_log_list_table_fail[pll_id][log_idx_f].before_dds =
-				fh_log_list_table[pll_id][log_idx].before_dds;
-			fh_log_list_table_fail[pll_id][log_idx_f].target_dds =
-				fh_log_list_table[pll_id][log_idx].target_dds;
-			fh_log_list_table_fail[pll_id][log_idx_f].after_dds =
-				fh_log_list_table[pll_id][log_idx].after_dds;
-
-			//increament log idx
-			if (++log_idx_f >= FH_LOG_LIST_SIZE)
-				log_idx_f = 0;
-
-			fh_log_list_idx_table_fail[pll_id] = log_idx_f;
-		}
-
-		//increament log idx
-		if (++log_idx >= FH_LOG_LIST_SIZE)
-			log_idx = 0;
-
-		fh_log_list_idx_table[pll_id] = log_idx;
-	}
 
 	return retVal;
 
@@ -868,11 +729,10 @@ static int __reg_base_addr_init(void)
 
 	/* Init APMIXED base address */
 	apmixed_node = of_find_compatible_node(NULL, NULL,
-					"mediatek,mt6853-apmixedsys");
+					"mediatek,mt6833-apmixedsys");
 	if (!apmixed_node)
 		apmixed_node = of_find_compatible_node(NULL, NULL,
-				"mediatek,mt6833-apmixedsys");
-
+				"mediatek,mt6853-apmixedsys");
 	g_apmixed_base = of_iomap(apmixed_node, 0);
 	if (!g_apmixed_base) {
 		FH_MSG_DEBUG("Error, APMIXED iomap failed");
