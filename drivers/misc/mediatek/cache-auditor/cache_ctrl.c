@@ -146,7 +146,7 @@ static int qos_callback(struct notifier_block *nb,
 	return NOTIFY_DONE;
 }
 
-struct notifier_block nb = {
+static struct notifier_block nb = {
 	.notifier_call = qos_callback,
 };
 
