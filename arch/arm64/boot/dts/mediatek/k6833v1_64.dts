@@ -186,6 +186,8 @@
 };
 #endif
 
+#include "mediatek/cust_mt6833_touch_1080x2300.dtsi"
+
 &odm {
 	led0:led@0 {
 		compatible = "mediatek,red";

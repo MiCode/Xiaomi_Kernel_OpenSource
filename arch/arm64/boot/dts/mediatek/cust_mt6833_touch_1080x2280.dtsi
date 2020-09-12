@@ -84,11 +84,11 @@
 		goodix,irq-flags = <2>; /* 1:rising, 2:falling;*/
 		goodix,panel-max-id = <10>;
 		goodix,panel-max-x = <1080>;
-		goodix,panel-max-y = <2300>;
+		goodix,panel-max-y = <2280>;
 		goodix,panel-max-w = <256>;
 		goodix,panel-max-p = <256>;
 		goodix,input-max-x = <1080>;
-		goodix,input-max-y = <2300>;
+		goodix,input-max-y = <2280>;
 		goodix,panel-key-map = <158 172 217>; /*BACK,HOMEPAGE,SEARCH*/
 		goodix,power-on-delay-us = <10000>; /*10ms*/
 		goodix,power-off-delay-us = <5000>;
