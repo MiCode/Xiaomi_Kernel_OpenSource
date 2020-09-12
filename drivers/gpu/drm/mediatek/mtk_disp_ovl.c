@@ -2852,6 +2852,9 @@ int mtk_ovl_dump(struct mtk_ddp_comp *comp)
 	void __iomem *baddr = comp->regs;
 	int i;
 
+	if (comp->blank_mode)
+		return 0;
+
 	DDPDUMP("== %s REGS ==\n", mtk_dump_comp_str(comp));
 	if (mtk_ddp_comp_helper_get_opt(comp,
 					MTK_DRM_OPT_REG_PARSER_RAW_DUMP)) {
@@ -3122,9 +3125,16 @@ int mtk_ovl_analysis(struct mtk_ddp_comp *comp)
 	void __iomem *Lx_base;
 	void __iomem *rdma_offset;
 	void __iomem *baddr = comp->regs;
-	unsigned int src_con = readl(DISP_REG_OVL_SRC_CON + baddr);
-	unsigned int ext_con = readl(DISP_REG_OVL_DATAPATH_EXT_CON + baddr);
-	unsigned int addcon = readl(DISP_REG_OVL_ADDCON_DBG + baddr);
+	unsigned int src_con;
+	unsigned int ext_con;
+	unsigned int addcon;
+
+	if (comp->blank_mode)
+		return 0;
+
+	src_con = readl(DISP_REG_OVL_SRC_CON + baddr);
+	ext_con = readl(DISP_REG_OVL_DATAPATH_EXT_CON + baddr);
+	addcon = readl(DISP_REG_OVL_ADDCON_DBG + baddr);
 
 	DDPDUMP("== %s ANALYSIS ==\n", mtk_dump_comp_str(comp));
 	DDPDUMP("ovl_en=%d,layer_en(%d,%d,%d,%d),bg(%dx%d)\n",

@@ -152,6 +152,34 @@ static void mtk_drm_crtc_reset(struct drm_crtc *crtc)
 	state->base.crtc = crtc;
 }
 
+static int mtk_drm_wait_blank(struct mtk_drm_crtc *mtk_crtc,
+	bool blank, long timeout)
+{
+	int ret;
+
+	ret = wait_event_timeout(mtk_crtc->state_wait_queue,
+		mtk_crtc->crtc_blank == blank, timeout);
+
+	return ret;
+}
+
+int mtk_drm_crtc_wait_blank(struct mtk_drm_crtc *mtk_crtc)
+{
+	int ret = 0;
+
+	/* TODO: figure out mutex lock is necessary or not */
+	while (mtk_crtc->crtc_blank == true) {
+//		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+		DDPMSG("%s wait TUI finish\n", __func__);
+		ret |= mtk_drm_wait_blank(mtk_crtc, false, HZ / 5);
+//		DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
+		DDPMSG("%s TUI done state=%d\n", __func__,
+			mtk_crtc->crtc_blank);
+	}
+
+	return ret;
+}
+
 void mtk_drm_crtc_dump(struct drm_crtc *crtc)
 {
 	int i, j;
@@ -1129,7 +1157,7 @@ int mtk_crtc_user_cmd(struct drm_crtc *crtc, struct mtk_ddp_comp *comp,
 	CRTC_MMP_MARK(index, user_cmd, user_cmd_cnt, 2);
 
 	/* set user command */
-	if (comp && comp->funcs && comp->funcs->user_cmd)
+	if (comp && comp->funcs && comp->funcs->user_cmd && !comp->blank_mode)
 		comp->funcs->user_cmd(comp, cmdq_handle, cmd, (void *)params);
 	else {
 		DDPPR_ERR("%s:%d, invalid comp:(0x%p,0x%p)\n",
@@ -4323,6 +4351,8 @@ void mtk_drm_crtc_suspend(struct drm_crtc *crtc)
 	CRTC_MMP_EVENT_START(index, suspend,
 			mtk_crtc->enabled, 0);
 
+	mtk_drm_crtc_wait_blank(mtk_crtc);
+
 /* disable engine secure state */
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 	if (index == 2 && mtk_crtc->sec_on) {
@@ -5974,6 +6004,7 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 			kthread_create(_mtk_crtc_check_trigger_delay,
 						mtk_crtc, "ddp_trig_d");
 		wake_up_process(mtk_crtc->trigger_delay_task);
+		init_waitqueue_head(&mtk_crtc->state_wait_queue);
 	}
 
 	/* init wakelock resources */
@@ -6772,6 +6803,8 @@ int mtk_crtc_path_switch(struct drm_crtc *crtc, unsigned int ddp_mode,
 		goto done2;
 	}
 
+	mtk_drm_crtc_wait_blank(mtk_crtc);
+
 	DDPINFO("%s crtc%d path switch(%d->%d)\n", __func__, index,
 		mtk_crtc->ddp_mode, ddp_mode);
 	mtk_drm_idlemgr_kick(__func__, crtc, 0);
@@ -7128,6 +7161,74 @@ done:
 	return 0;
 }
 
+int mtk_crtc_enter_tui(struct drm_crtc *crtc)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
+	unsigned int hrt_idx;
+	int i;
+
+	DDPMSG("%s\n", __func__);
+
+	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
+
+	mtk_crtc->crtc_blank = true;
+	mtk_disp_esd_check_switch(crtc, 0);
+
+	mtk_drm_set_idlemgr(crtc, 0, 0);
+
+	hrt_idx = _layering_rule_get_hrt_idx();
+	hrt_idx++;
+	atomic_set(&priv->rollback_all, 1);
+	drm_trigger_repaint(DRM_REPAINT_FOR_IDLE, crtc->dev);
+	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+
+	/* TODO: Potential risk, display suspend after release lock */
+	for (i = 0; i < 60; ++i) {
+		usleep_range(16667, 17000);
+		if (atomic_read(&mtk_crtc->qos_ctx->last_hrt_idx) >=
+			hrt_idx)
+			break;
+	}
+	if (i >= 60)
+		DDPPR_ERR("wait repaint %d\n", i);
+
+	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
+
+	/* TODO: HardCode select OVL0, maybe store in platform data */
+	priv->ddp_comp[DDP_COMPONENT_OVL0]->blank_mode = true;
+	wake_up(&mtk_crtc->state_wait_queue);
+
+	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+
+	return 0;
+}
+
+int mtk_crtc_exit_tui(struct drm_crtc *crtc)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
+
+	DDPMSG("%s\n", __func__);
+
+	mtk_crtc->crtc_blank = false;
+
+	wake_up(&mtk_crtc->state_wait_queue);
+
+	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
+
+	/* TODO: Hard Code select OVL0, maybe store in platform data */
+	priv->ddp_comp[DDP_COMPONENT_OVL0]->blank_mode = false;
+	atomic_set(&priv->rollback_all, 0);
+
+	mtk_drm_set_idlemgr(crtc, 1, 0);
+
+	mtk_disp_esd_check_switch(crtc, 1);
+
+	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+
+	return 0;
+}
 
 /********************** Legacy DISP API ****************************/
 unsigned int DISP_GetScreenWidth(void)

@@ -412,6 +412,37 @@ void mtk_disp_osc_ccci_callback(unsigned int en, unsigned int usrdata)
 }
 EXPORT_SYMBOL(mtk_disp_osc_ccci_callback);
 
+void display_enter_tui(void)
+{
+	struct drm_crtc *crtc;
+
+	crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+				typeof(*crtc), head);
+
+	if (!crtc) {
+		DDPPR_ERR("find crtc fail\n");
+		return;
+	}
+	mtk_crtc_enter_tui(crtc);
+}
+EXPORT_SYMBOL(display_enter_tui);
+
+
+void display_exit_tui(void)
+{
+	struct drm_crtc *crtc;
+
+	crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+				typeof(*crtc), head);
+
+	if (!crtc) {
+		DDPPR_ERR("find crtc fail\n");
+		return;
+	}
+	mtk_crtc_exit_tui(crtc);
+}
+EXPORT_SYMBOL(display_exit_tui);
+
 static int debug_get_info(unsigned char *stringbuf, int buf_len)
 {
 	int n = 0;
@@ -1650,6 +1681,20 @@ static void process_dbg_opt(const char *opt)
 		mtk_crtc = to_mtk_crtc(crtc);
 		comp = mtk_ddp_comp_request_output(mtk_crtc);
 		comp->funcs->io_cmd(comp, NULL, DSI_LFR_STATUS_CHECK, NULL);
+	} else if (strncmp(opt, "tui:", 4) == 0) {
+		unsigned int en, ret;
+
+		ret = sscanf(opt, "tui:%d\n", &en);
+		if (ret != 1) {
+			DDPPR_ERR("%d error to parse cmd %s\n",
+				__LINE__, opt);
+			return;
+		}
+
+		if (en)
+			display_enter_tui();
+		else
+			display_exit_tui();
 	}
 
 }
