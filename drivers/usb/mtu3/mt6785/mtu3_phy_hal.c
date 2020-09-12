@@ -107,6 +107,11 @@ bool ssusb_u3loop_back_test(struct ssusb_mtk *ssusb)
 	return ret;
 }
 
+void ssusb_set_phy_mode(int speed)
+{
+	/* do nothing */
+}
+
 void phy_hal_init(struct phy *phy)
 {
 	mtk_phy = phy;

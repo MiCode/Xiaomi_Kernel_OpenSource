@@ -530,14 +530,16 @@ static int get_ssusb_rscs(struct platform_device *pdev, struct ssusb_mtk *ssusb)
 	}
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "ippc");
-	if (res) {
-		ssusb->ippc_base =
-			devm_ioremap(dev, res->start, resource_size(res));
+	if (IS_ERR_OR_NULL(res)) {
+		dev_info(dev, "failed to get resource for ippc\n");
+		return -ENOMEM;
+	}
+
+	ssusb->ippc_base = devm_ioremap(dev, res->start, resource_size(res));
 		if (IS_ERR(ssusb->ippc_base)) {
 			dev_info(dev, "failed to map memory for ippc\n");
 			return PTR_ERR(ssusb->ippc_base);
 		}
-	}
 
 	ssusb->dr_mode = usb_get_dr_mode(dev);
 	if (ssusb->dr_mode == USB_DR_MODE_UNKNOWN) {
@@ -741,7 +743,7 @@ static int __maybe_unused mtu3_suspend(struct device *dev)
 	ssusb_host_disable(ssusb, ssusb->is_host);
 	/* ssusb_phy_power_off(ssusb); */
 	ssusb_clk_off(ssusb, ssusb->is_host);
-	usb_wakeup_enable(ssusb);
+	ssusb_wakeup_mode_enable(ssusb);
 	return 0;
 }
 
@@ -755,7 +757,7 @@ static int __maybe_unused mtu3_resume(struct device *dev)
 	if (!ssusb->is_host)
 		return 0;
 
-	usb_wakeup_disable(ssusb);
+	ssusb_wakeup_mode_disable(ssusb);
 	ssusb_clk_on(ssusb, ssusb->is_host);
 	/* ssusb_phy_power_on(ssusb); */
 	ssusb_host_enable(ssusb);

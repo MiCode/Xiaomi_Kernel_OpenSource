@@ -90,13 +90,13 @@ static struct platform_driver usb_ipsleep_driver = {
 	},
 };
 
-void usb_wakeup_enable(struct ssusb_mtk *ssusb)
+void ssusb_wakeup_mode_enable(struct ssusb_mtk *ssusb)
 {
 	if (ipsleep_init)
 		enable_irq(ipsleep_irqnum);
 }
 
-void usb_wakeup_disable(struct ssusb_mtk *ssusb)
+void ssusb_wakeup_mode_disable(struct ssusb_mtk *ssusb)
 {
 	if (ipsleep_init)
 		disable_irq(ipsleep_irqnum);

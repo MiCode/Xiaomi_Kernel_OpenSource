@@ -364,7 +364,7 @@ static int usb_driving_capability_show(struct seq_file *s, void *unused)
 {
 	struct phy *phy = s->private;
 	u32 val;
-	char str[16];
+	char str[16] = "";
 	u8 combined_val, tmp_val = 0xff;
 
 	val = usb_mtkphy_io_read(phy, (OFFSET_RG_USB20_TERM_VREF_SEL));
@@ -447,7 +447,7 @@ static int rg_usb20_term_vref_sel_show(struct seq_file *s, void *unused)
 {
 	struct phy *phy = s->private;
 	u32 val;
-	char str[16];
+	char str[16] = "";
 
 	val = usb_mtkphy_io_read(phy, (OFFSET_RG_USB20_TERM_VREF_SEL));
 	val = val >> SHFT_RG_USB20_TERM_VREF_SEL;
@@ -462,7 +462,7 @@ static int rg_usb20_hstx_srctrl_show(struct seq_file *s, void *unused)
 {
 	struct phy *phy = s->private;
 	u32 val;
-	char str[16];
+	char str[16] = "";
 
 	val = usb_mtkphy_io_read(phy, (OFFSET_RG_USB20_HSTX_SRCTRL));
 	val = val >> SHFT_RG_USB20_HSTX_SRCTRL;
@@ -477,7 +477,7 @@ static int rg_usb20_vrt_vref_sel_show(struct seq_file *s, void *unused)
 {
 	struct phy *phy = s->private;
 	u32 val;
-	char str[16];
+	char str[16] = "";
 
 	val = usb_mtkphy_io_read(phy, (OFFSET_RG_USB20_VRT_VREF_SEL));
 	val = val >> SHFT_RG_USB20_VRT_VREF_SEL;
@@ -492,7 +492,7 @@ static int rg_usb20_intr_en_show(struct seq_file *s, void *unused)
 {
 	struct phy *phy = s->private;
 	u32 val;
-	char str[16];
+	char str[16] = "";
 
 	val = usb_mtkphy_io_read(phy, (OFFSET_RG_USB20_INTR_EN));
 	val = val >> SHFT_RG_USB20_INTR_EN;
@@ -507,7 +507,7 @@ static int rg_usb20_rev6_show(struct seq_file *s, void *unused)
 {
 	struct phy *phy = s->private;
 	u32 val;
-	char str[16];
+	char str[16] = "";
 
 	val = usb_mtkphy_io_read(phy, (OFFSET_RG_USB20_PHY_REV6));
 	val = val >> SHFT_RG_USB20_PHY_REV6;
@@ -522,7 +522,7 @@ static int rg_usb20_intr_cal_show(struct seq_file *s, void *unused)
 {
 	struct phy *phy = s->private;
 	u32 val;
-	char str[16];
+	char str[16] = "";
 
 	val = usb_mtkphy_io_read(phy, (OFFSET_RG_USB20_INTR_CAL));
 	val = val >> SHFT_RG_USB20_INTR_CAL;
@@ -537,7 +537,7 @@ static int rg_usb20_discth_show(struct seq_file *s, void *unused)
 {
 	struct phy *phy = s->private;
 	u32 val;
-	char str[16];
+	char str[16] = "";
 
 	val = usb_mtkphy_io_read(phy, (OFFSET_RG_USB20_DISCTH));
 	val = val >> SHFT_RG_USB20_DISCTH;

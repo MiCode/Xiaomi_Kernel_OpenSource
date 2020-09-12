@@ -27,9 +27,11 @@
 #include "xhci.h"
 #include "xhci-trace.h"
 
-#if IS_ENABLED(CONFIG_USB_XHCI_MTK_SUSPEND)
+#if IS_ENABLED(CONFIG_USB_XHCI_MTK)
 #include "xhci-mtk.h"
 #endif
+
+#include <linux/iopoll.h>
 
 #define	PORT_WAKE_BITS	(PORT_WKOC_E | PORT_WKDISC_E | PORT_WKCONN_E)
 #define	PORT_RWC_BITS	(PORT_CSC | PORT_PEC | PORT_WRC | PORT_OCC | \
@@ -1122,7 +1124,7 @@ int xhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 			}
 			port_li = readl(port_array[wIndex] + PORTLI);
 			status = xhci_get_ext_port_status(temp, port_li);
-			put_unaligned_le32(status, &buf[4]);
+			put_unaligned_le32(cpu_to_le32(status), &buf[4]);
 		}
 		break;
 	case SetPortFeature:
@@ -1159,7 +1161,7 @@ int xhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 			}
 			/* In spec software should not attempt to suspend
 			 * a port unless the port reports that it is in the
-			 * enabled (PED = ‘1’,PLS < ‘3’) state.
+			 * enabled (PED = ????PLS < ???? state.
 			 */
 			temp = readl(port_array[wIndex]);
 			if ((temp & PORT_PE) == 0 || (temp & PORT_RESET)
@@ -1295,9 +1297,25 @@ int xhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 		case USB_PORT_FEAT_RESET:
 			temp = (temp | PORT_RESET);
 			writel(temp, port_array[wIndex]);
-
 			temp = readl(port_array[wIndex]);
-			xhci_dbg(xhci, "set port reset, actual port %d status  = 0x%x\n", wIndex, temp);
+			xhci_info(xhci, "port %d reset status = 0x%x\n",
+								wIndex, temp);
+
+			if (xhci->quirks & XHCI_MTK_HOST) {
+				spin_unlock_irqrestore(&xhci->lock, flags);
+				if (readl_poll_timeout_atomic(
+					port_array[wIndex], temp,
+					!(temp & PORT_RESET), 100, 100000))
+					xhci_warn(xhci, "port reset timeout\n");
+				spin_lock_irqsave(&xhci->lock, flags);
+
+				if ((temp & PORT_PLS_MASK) != XDEV_U0)
+					xhci_warn(xhci, "error reset, 0x%08x\n",
+									temp);
+				#if IS_ENABLED(CONFIG_USB_XHCI_MTK)
+				xhci_mtk_set_port_mode(hcd, port_array, wIndex);
+				#endif
+			}
 			break;
 		case USB_PORT_FEAT_REMOTE_WAKE_MASK:
 			xhci_set_remote_wake_mask(xhci, port_array,
