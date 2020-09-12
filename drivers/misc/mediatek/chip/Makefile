@@ -16,4 +16,8 @@ subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/chip/
 obj-$(CONFIG_MTK_CHIP) += CHIP_COMMON.o
 CHIP_COMMON-$(CONFIG_MTK_CHIP) := mtk_chip_common.o
 
+ifeq ($(CONFIG_MACH_MT6833),y)
+obj-$(CONFIG_MTK_CHIP) += mt6833/
+else
 obj-$(CONFIG_MTK_CHIP) += $(subst ",,$(CONFIG_MTK_PLATFORM))/
+endif
