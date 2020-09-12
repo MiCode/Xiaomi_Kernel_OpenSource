@@ -4225,6 +4225,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 		if (copy_from_user(
 			    &RegUserKey, (void *)Param,
 			    sizeof(struct ISP_REGISTER_USERKEY_STRUCT)) == 0) {
+			RegUserKey.userName[sizeof(RegUserKey.userName)-1] = '\0';
 			userKey = ISP_REGISTER_IRQ_USERKEY(RegUserKey.userName);
 			RegUserKey.userKey = userKey;
 			if (copy_to_user((void *)Param, &RegUserKey,

@@ -583,7 +583,7 @@ int ISP_SetPMQOS(
 			return 1;
 #else
 			u32 step, i = 0;
-			u64 freq[ISP_CLK_LEVEL_CNT];
+			u64 freq[ISP_CLK_LEVEL_CNT] = {0};
 
 			mtk_dfs_supported(freq, &step);
 

@@ -4334,11 +4334,20 @@ static signed int ISP_ReadReg(struct ISP_REG_IO_STRUCT *pRegIo)
 	unsigned int module;
 	void __iomem *regBase;
 
-
 	/*  */
 	struct ISP_REG_STRUCT reg;
 	/* unsigned int* pData = (unsigned int*)pRegIo->Data; */
 	struct ISP_REG_STRUCT *pData = (struct ISP_REG_STRUCT *)pRegIo->pData;
+
+	if ((pRegIo->pData == NULL) ||
+			(pRegIo->Count == 0) ||
+			(pRegIo->Count > ISP_REG_RANGE)) {
+		LOG_NOTICE(
+			"pRegIo->pData is NULL, Count:%d!!\n",
+			pRegIo->Count);
+		Ret = -EFAULT;
+		goto EXIT;
+	}
 
 	if (get_user(module, (unsigned int *)&pData->module) != 0) {
 		LOG_NOTICE("get_user failed\n");
