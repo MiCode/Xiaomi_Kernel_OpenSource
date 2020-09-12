@@ -3765,7 +3765,7 @@ static int mtk_clk_rate_change(struct notifier_block *nb,
 
 	int vcore_opp = get_sw_req_vcore_opp();
 
-	if (flags == PRE_RATE_CHANGE) {
+	if (flags == PRE_RATE_CHANGE && clk_name) {
 		warn_vcore(vcore_opp, clk_name,
 			ndata->new_rate, mtk_mux2id(&clk_name));
 	}
