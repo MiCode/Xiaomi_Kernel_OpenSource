@@ -238,7 +238,7 @@ int scp_set_pmic_vcore(unsigned int cur_freq)
 	unsigned int ret_vc = 0;
 	int get_vcore_val = 0;
 
-#if !defined(CONFIG_MACH_MT6893) && !defined(CONFIG_MTK_DVFSRC_MT6893_PRETEST)
+#if !defined(CONFIG_MACH_MT6893)
 	if (cur_freq == CLK_OPP0) {
 		get_vcore_val = get_vcore_uv_table(VCORE_OPP_3);
 	} else if (cur_freq == CLK_OPP1) {
@@ -381,7 +381,7 @@ void scp_vcore_request(unsigned int clk_opp)
 		pm_qos_update_request(&dvfsrc_scp_vcore_req, 0x3);
 #endif
 
-#if !defined(CONFIG_MACH_MT6893) && !defined(CONFIG_MTK_DVFSRC_MT6893_PRETEST)
+#if !defined(CONFIG_MACH_MT6893)
 	if (clk_opp == CLK_OPP0)
 		DRV_WriteReg32(SCP_SCP2SPM_VOL_LV, 0x0008);
 	else if (clk_opp == CLK_OPP1)
