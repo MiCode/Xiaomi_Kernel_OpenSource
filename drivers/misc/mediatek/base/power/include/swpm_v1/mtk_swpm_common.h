@@ -23,6 +23,7 @@
 #include <linux/uaccess.h>
 #include <mt-plat/sync_write.h>
 #include <mtk_swpm_platform.h>
+#include <mtk_swpm_sp_interface.h>
 
 
 /* LOG */
@@ -93,6 +94,40 @@ struct swpm_mem_ref_tbl {
 	phys_addr_t *virt;
 };
 
+/* swpm extension interface types */
+enum swpm_num_type {
+	DDR_DATA_IP,
+	DDR_FREQ,
+	CORE_IP,
+	CORE_VOL,
+};
+enum swpm_cmd_type {
+	SYNC_DATA,
+	SET_INTERVAL,
+};
+
+/* swpm extension internal ops structure */
+struct swpm_internal_ops {
+	void (*const cmd)(unsigned int type,
+			  unsigned int val);
+	int32_t (*const ddr_times_get)
+		(int32_t freq_num,
+		 struct ddr_times *ddr_times);
+	int32_t (*const ddr_freq_data_ip_stats_get)
+		(int32_t data_ip_num,
+		 int32_t freq_num,
+		 void *stats);
+	int32_t (*const vcore_ip_vol_stats_get)
+		(int32_t ip_num,
+		 int32_t vol_num,
+		 void *stats);
+	int32_t (*const vcore_vol_duration_get)
+		(int32_t vol_num,
+		 int64_t *duration);
+	int32_t (*const num_get)
+		(enum swpm_num_type type);
+};
+
 extern bool swpm_debug;
 extern unsigned int swpm_status;
 extern struct mutex swpm_mutex;
@@ -115,5 +150,8 @@ extern void swpm_set_update_cnt(unsigned int type, unsigned int cnt);
 extern char *swpm_power_rail_to_string(enum power_rail p);
 extern unsigned int swpm_get_avg_power(unsigned int type,
 				       unsigned int avg_window);
+/* swpm extension ops registry */
+extern int mtk_register_swpm_ops(struct swpm_internal_ops *ops);
+
 #endif
 
