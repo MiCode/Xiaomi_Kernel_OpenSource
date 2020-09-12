@@ -828,7 +828,8 @@ page_owner=on";
 			<&infracfg_ao CLK_IFRAO_CCIF1_MD>,
 			<&infracfg_ao CLK_IFRAO_CCIF2_AP>,
 			<&infracfg_ao CLK_IFRAO_CCIF2_MD>,
-			<&infracfg_ao CLK_IFRAO_CCIF4_MD>;
+			<&infracfg_ao CLK_IFRAO_CCIF4_MD>,
+			<&infracfg_ao CLK_IFRAO_CCIF5_MD>;
 		clock-names = "scp-sys-md1-main",
 			"infra-dpmaif-clk",
 			"infra-dpmaif-blk-clk",
@@ -838,7 +839,8 @@ page_owner=on";
 			"infra-ccif1-md",
 			"infra-ccif2-ap",
 			"infra-ccif2-md",
-			"infra-ccif4-md";
+			"infra-ccif4-md",
+			"infra-ccif5-md";
 	};
 
 	radio_md_cfg:radio_md_cfg {
