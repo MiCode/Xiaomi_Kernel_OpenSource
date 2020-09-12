@@ -3910,10 +3910,10 @@ void mtk_drm_crtc_atomic_resume(struct drm_crtc *crtc,
 		MTK_DRM_OPT_VDS_PATH_SWITCH) && (index == 2)) {
 		if (atomic_read(&mtk_crtc0->already_config) &&
 			(!priv->vds_path_switch_done)) {
-			DDPMSG("VDS need skip first crtc enable\n");
+			DDPMSG("Switch vds: VDS need skip first crtc enable\n");
 			return;
-		} else {
-			DDPMSG("VDS no need skip as crtc0 disable\n");
+		} else if (!atomic_read(&mtk_crtc0->already_config)) {
+			DDPMSG("Switch vds: VDS no need skip as crtc0 disable\n");
 			priv->vds_path_enable = 1;
 		}
 	}
@@ -4494,7 +4494,7 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 		MTK_DRM_OPT_VDS_PATH_SWITCH) && (crtc_idx == 2))
 		if (priv->vds_path_switch_done &&
 			!priv->vds_path_enable) {
-			DDPINFO("CRTC2 vds enable\n");
+			DDPMSG("Switch vds: CRTC2 vds enable\n");
 			mtk_drm_crtc_atomic_resume(crtc, NULL);
 			priv->vds_path_enable = 1;
 		}
@@ -5266,13 +5266,13 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 		priv->vds_path_switch_dirty &&
 		!priv->vds_path_switch_done) {
 		if ((index == 0) && atomic_read(&mtk_crtc0->already_config)) {
-			DDPMSG("%s:%d mtk_crtc0 enable:%d\n", __func__, __LINE__,
+			DDPMSG("Switch vds: mtk_crtc0 enable:%d\n",
 				atomic_read(&mtk_crtc0->already_config));
 			mtk_need_vds_path_switch(crtc);
 		}
 
 		if ((index == 2) && (!atomic_read(&mtk_crtc0->already_config))) {
-			DDPMSG("%s:%d mtk_crtc0 enable:%d\n", __func__, __LINE__,
+			DDPMSG("Switch vds: mtk_crtc0 enable:%d\n",
 				atomic_read(&mtk_crtc0->already_config));
 			mtk_need_vds_path_switch(priv->crtc[0]);
 		}
@@ -6640,6 +6640,7 @@ void mtk_need_vds_path_switch(struct drm_crtc *crtc)
 			_mtk_crtc_atmoic_addon_module_disconnect(
 				crtc, mtk_crtc->ddp_mode,
 				&crtc_state->lye_state, cmdq_handle);
+			/* Stop ovl 2l */
 			comp_ovl0_2l = priv->ddp_comp[DDP_COMPONENT_OVL0_2L];
 			mtk_ddp_comp_stop(comp_ovl0_2l, cmdq_handle);
 			/* Change ovl0 bg mode frmoe DL mode to const mode */
@@ -6651,12 +6652,13 @@ void mtk_need_vds_path_switch(struct drm_crtc *crtc)
 				DDP_COMPONENT_OVL0, cmdq_handle);
 			mtk_disp_mutex_remove_comp_with_cmdq(
 					mtk_crtc, DDP_COMPONENT_OVL0_2L, cmdq_handle, 0);
-
 			cmdq_pkt_flush(cmdq_handle);
 			cmdq_pkt_destroy(cmdq_handle);
+			/* unprepare ovl 2l */
+			mtk_ddp_comp_unprepare(comp_ovl0_2l);
 
 			CRTC_MMP_MARK(index, path_switch, 0xFFFF, 1);
-			DDPMSG("Switch ovl0_2l to vds\n");
+			DDPMSG("Switch vds: Switch ovl0_2l to vds\n");
 
 			/* Update ddp ctx ddp_comp_nr */
 			mtk_crtc->ddp_ctx[DDP_MAJOR].ddp_comp_nr[DDP_FIRST_PATH]
@@ -6714,7 +6716,7 @@ void mtk_need_vds_path_switch(struct drm_crtc *crtc)
 			cmdq_pkt_destroy(cmdq_handle);
 
 			CRTC_MMP_MARK(index, path_switch, 0xFFFF, 2);
-			DDPMSG("Switch ovl0_2l to main disp\n");
+			DDPMSG("Switch vds: Switch ovl0_2l to main disp\n");
 
 			/* Update ddp ctx ddp_comp_nr */
 			mtk_crtc->ddp_ctx[DDP_MAJOR].ddp_comp_nr[DDP_FIRST_PATH]
@@ -6736,7 +6738,7 @@ void mtk_need_vds_path_switch(struct drm_crtc *crtc)
 			priv->vds_path_switch_dirty = 0;
 		}
 
-		DDPMSG("Switch ovl0_2l Done\n");
+		DDPMSG("Switch vds: Switch ovl0_2l Done\n");
 		CRTC_MMP_EVENT_END(index, path_switch, crtc->enabled, 0);
 	}
 }
