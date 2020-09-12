@@ -2951,7 +2951,7 @@ static int smb5_iio_init(struct smb5 *chip, struct platform_device *pdev,
 
 	indio_dev->dev.parent = &pdev->dev;
 	indio_dev->dev.of_node = pdev->dev.of_node;
-	indio_dev->name = pdev->name;
+	indio_dev->name = "qpnp-smb5";
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->channels = chip->iio_chan_ids;
 	indio_dev->num_channels = chip->nchannels;
