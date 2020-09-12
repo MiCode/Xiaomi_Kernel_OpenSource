@@ -2592,6 +2592,16 @@ static int dpmaif_tx_send_skb(unsigned char hif_id, int qno,
 		return ret;
 	}
 	txq = &hif_ctrl->txq[qno];
+
+	ccci_h = *(struct ccci_header *)skb->data;
+	skb_pull(skb, sizeof(struct ccci_header));
+	if (atomic_read(&s_tx_busy_assert_on)) {
+		if (likely(ccci_md_get_cap_by_id(hif_ctrl->md_id)
+				&MODEM_CAP_TXBUSY_STOP))
+			dpmaif_queue_broadcast_state(hif_ctrl, TX_FULL, OUT,
+					txq->index);
+		return HW_REG_CHK_FAIL;
+	}
 #ifdef DPMAIF_DEBUG_LOG
 	CCCI_HISTORY_LOG(dpmaif_ctrl->md_id, TAG,
 	"send_skb(%d): drb: %d, w(%d), r(%d), rel(%d)\n", qno,
@@ -2714,9 +2724,13 @@ retry:
 		}
 
 	}
-	ccci_h = *(struct ccci_header *)skb->data;
-	skb_pull(skb, sizeof(struct ccci_header));
 	spin_lock_irqsave(&txq->tx_lock, flags);
+
+	if (atomic_read(&s_tx_busy_assert_on)) {
+		spin_unlock_irqrestore(&txq->tx_lock, flags);
+		return HW_REG_CHK_FAIL;
+	}
+
 	remain_cnt = ringbuf_writeable(txq->drb_size_cnt,
 			txq->drb_rel_rd_idx, txq->drb_wr_idx);
 	cur_idx = txq->drb_wr_idx;
@@ -2783,7 +2797,6 @@ retry:
 			is_last_one, phy_addr, data_len);
 		cur_idx = ringbuf_get_next_idx(txq->drb_size_cnt, cur_idx, 1);
 	}
-
 	/* debug: tx on ccci_channel && HW Q */
 	ccci_channel_update_packet_counter(
 		dpmaif_ctrl->traffic_info.logic_ch_pkt_pre_cnt, &ccci_h);
@@ -2796,9 +2809,15 @@ retry:
 	ret = drv_dpmaif_ul_add_wcnt(txq->index,
 		send_cnt * DPMAIF_UL_DRB_ENTRY_WORD);
 	ul_add_wcnt_record(txq->index, send_cnt * DPMAIF_UL_DRB_ENTRY_WORD,
-				ret, txq->drb_wr_idx, txq->drb_rd_idx,
-				txq->drb_rel_rd_idx,
-				atomic_read(&txq->tx_budget));
+			ret, txq->drb_wr_idx, txq->drb_rd_idx,
+			txq->drb_rel_rd_idx,
+			atomic_read(&txq->tx_budget));
+
+	if (ret == HW_REG_CHK_FAIL) {
+		tx_force_md_assert("HW_REG_CHK_FAIL");
+		ret = 0;
+	}
+
 	spin_unlock_irqrestore(&txq->tx_lock, flags);
 __EXIT_FUN:
 #ifdef DPMAIF_DEBUG_LOG
@@ -2808,8 +2827,6 @@ __EXIT_FUN:
 		txq->drb_rd_idx, txq->drb_rel_rd_idx);
 #endif
 	atomic_set(&txq->tx_processing, 0);
-	if (ret == HW_REG_CHK_FAIL)
-		tx_force_md_assert("HW_REG_CHK_FAIL");
 
 	return ret;
 }
