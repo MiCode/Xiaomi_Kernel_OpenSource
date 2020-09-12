@@ -1502,6 +1502,12 @@ static int pmif_probe(struct platform_device *pdev)
 		if (err)
 			return err;
 	}
+	err = clk_prepare_enable(arb->pmif_sys_ck);
+	if (err)
+		return err;
+	err = clk_prepare_enable(arb->pmif_tmr_ck);
+	if (err)
+		return err;
 
 	/* get spmimst topckgen clock */
 	arb->spmimst_clk_mux = devm_clk_get(&pdev->dev, "spmimst_clk_mux");
