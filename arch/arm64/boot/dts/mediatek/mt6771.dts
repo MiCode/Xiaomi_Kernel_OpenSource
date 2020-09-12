@@ -297,8 +297,8 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 
 		zmc-default {
 			compatible = "mediatek,zone_movable_cma";
-			size = <0 0xffc00000>;
-			alignment = <0 0x10000000>;
+			size = <0 0x2d000000>;
+			alignment = <0 0x1000000>;
 			alloc-ranges = <0 0xc0000000 1 0x80000000>;
 		};
 
