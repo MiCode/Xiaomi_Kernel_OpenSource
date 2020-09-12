@@ -33,6 +33,7 @@
 #include "mtk_drm_fb.h"
 #include "mtk_layering_rule.h"
 #include "mtk_drm_trace.h"
+#include "swpm_me.h"
 
 #define DISP_REG_RDMA_INT_ENABLE 0x0000
 #define DISP_REG_RDMA_INT_STATUS 0x0004
@@ -298,6 +299,7 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 		DDPIRQ("[IRQ] %s: reg update done!\n", mtk_dump_comp_str(rdma));
 
 	if (val & (1 << 2)) {
+		set_swpm_disp_work(); /* counting fps for swpm */
 		DDPIRQ("[IRQ] %s: frame done!\n", mtk_dump_comp_str(rdma));
 		if (rdma->mtk_crtc && rdma->mtk_crtc->esd_ctx)
 			atomic_set(&rdma->mtk_crtc->esd_ctx->target_time, 0);
