@@ -1486,23 +1486,71 @@ page_owner=on";
 		#clock-cells = <1>;
 	};
 
-	dfd@13e00000 {
-		compatible = "mediatek,dfd";
+	mali: mali@13000000 {
+		compatible = "mediatek,mali", "arm,mali-valhall";
+		reg = <0 0x13000000 0 0x4000>;
+		interrupts =
+			<GIC_SPI 364 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 365 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 366 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 367 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 368 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names =
+			"GPU",
+			"MMU",
+			"JOB",
+			"EVENT",
+			"PWR";
+	};
+
+	gpufreq {
+		compatible = "mediatek,gpufreq";
+		clocks =
+			<&topckgen CLK_TOP_MFG_PLL_SEL>,
+			<&topckgen CLK_TOP_MFGPLL>,
+			<&topckgen CLK_TOP_MFG_REF_SEL>,
+			<&mfgcfg CLK_MFGCFG_BG3D>,
+			<&scpsys SCP_SYS_MFG0>,
+			<&scpsys SCP_SYS_MFG1>,
+			<&scpsys SCP_SYS_MFG2>,
+			<&scpsys SCP_SYS_MFG3>;
+		clock-names =
+			"clk_mux",		/* switch main/sub */
+			"clk_main_parent",	/* main pll freq */
+			"clk_sub_parent",	/* default 218.4 MHz */
+			"subsys_bg3d",
+			"mtcmos_mfg0",		/* ASYNC */
+			"mtcmos_mfg1",		/* MFG_TOP */
+			"mtcmos_mfg2",		/* Shader Stack0 */
+			"mtcmos_mfg3";		/* Shader Stack2 */
+#ifndef CONFIG_FPGA_EARLY_PORTING
+		_vgpu-supply = <&mt_pmic_vproc1_buck_reg>;
+		_vsram_gpu-supply = <&mt_pmic_vsram_md_ldo_reg>;
+#endif
+	};
+
+	dfd_controller@13e00000 {
+		compatible = "mediatek,dfd_controller";
 		reg = <0 0x13e00000 0 0x112000>;
 	};
 
-	g3d_config@13fbb000 {
-		compatible = "mediatek,g3d_config";
+	cpe@13fb7000 {
+		compatible = "mediatek,cpe";
+		reg = <0 0x13fb7000 0 0x3000>;
+	};
+
+	mali_dvfs_hint@13fbb000 {
+		compatible = "mediatek,mali_dvfs_hint", "syscon";
 		reg = <0 0x13fbb000 0 0x1000>;
 	};
 
-	g3d_dvfs@13fbc000 {
-		compatible = "mediatek,g3d_dvfs";
+	g3d_secure_reg@13fbc000 {
+		compatible = "mediatek,g3d_secure_reg";
 		reg = <0 0x13fbc000 0 0x1000>;
 	};
 
-	g3d_config@13fbd000 {
-		compatible = "mediatek,g3d_config";
+	g3d_testbench@13fbd000 {
+		compatible = "mediatek,g3d_testbench", "syscon";
 		reg = <0 0x13fbd000 0 0x1000>;
 	};
 
@@ -1513,6 +1561,11 @@ page_owner=on";
 		reg = <0 0x13fbf000 0 0x1000>;
 		pwr-regmap = <&sleep>;
 		#clock-cells = <1>;
+	};
+
+	sensor_network@13fce000 {
+		compatible = "mediatek,sensor_network";
+		reg = <0 0x13fce000 0 0x2000>;
 	};
 
 	smi_common@14002000 {
