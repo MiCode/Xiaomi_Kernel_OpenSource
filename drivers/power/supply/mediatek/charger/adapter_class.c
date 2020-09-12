@@ -171,6 +171,7 @@ struct adapter_device *adapter_device_register(const char *name,
 	static struct lock_class_key key;
 	struct srcu_notifier_head *head = NULL;
 	int rc;
+	char *adapter_name = NULL;
 
 	pr_notice("%s: name=%s\n", __func__, name);
 	adapter_dev = kzalloc(sizeof(*adapter_dev), GFP_KERNEL);
@@ -185,8 +186,10 @@ struct adapter_device *adapter_device_register(const char *name,
 	adapter_dev->dev.class = adapter_class;
 	adapter_dev->dev.parent = parent;
 	adapter_dev->dev.release = adapter_device_release;
-	dev_set_name(&adapter_dev->dev, "%s", name);
+	adapter_name = kasprintf(GFP_KERNEL, "%s", name);
+	dev_set_name(&adapter_dev->dev, "%s", adapter_name);
 	dev_set_drvdata(&adapter_dev->dev, devdata);
+	kfree(adapter_name);
 
 	/* Copy properties */
 	if (props) {
