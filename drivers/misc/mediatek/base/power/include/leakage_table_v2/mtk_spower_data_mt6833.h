@@ -11,6 +11,14 @@
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
+#ifndef __MTK_SPOWER_DATA_MTK6833_H__
+#define __MTK_SPOWER_DATA_MTK6833_H__
+
+#include "mtk_static_power.h"
+#define VSIZE 14
+#define TSIZE 22
+#define MAX_TABLE_SIZE 3
+
 /* sheet name : CA53L_Core */
 #define CA53L_Core_0 { \
 	600, 650, 700, 750, 800, 850, 900, 950, 1000, 1050, 1100, 1150, 1200, \
@@ -1047,3 +1055,256 @@
 		12079, 13029, 14043, 15148, 16310, 17574, 18994, \
 }
 
+int cpul_leakage_data[][VSIZE*TSIZE+VSIZE+TSIZE] = {
+		CA73BL_Core_0,
+		CA73BL_Core_1,
+		CA73BL_Core_2,
+};
+
+int cpull_leakage_data[][VSIZE*TSIZE+VSIZE+TSIZE] = {
+		CA53L_Core_0,
+		CA53L_Core_1,
+		CA53L_Core_2,
+};
+
+int cci_leakage_data[][VSIZE*TSIZE+VSIZE+TSIZE] = {
+		MCUSYS_0,
+		MCUSYS_1,
+		MCUSYS_2,
+};
+int gpu_leakage_data[][VSIZE*TSIZE+VSIZE+TSIZE] = {
+		GPU_0,
+		GPU_1,
+		GPU_2,
+};
+
+int vcore_leakage_data[][VSIZE*TSIZE+VSIZE+TSIZE] = {
+		SOC_0,
+		SOC_1,
+		SOC_2,
+};
+
+int modem_leakage_data[][VSIZE*TSIZE+VSIZE+TSIZE] = {
+		VMODEM_0,
+		VMODEM_1,
+		VMODEM_2,
+};
+
+int vpu_leakage_data[][VSIZE*TSIZE+VSIZE+TSIZE] = {
+		VPU_0,
+		VPU_1,
+		VPU_2,
+};
+
+struct spower_raw_t spower_raw[MTK_SPOWER_MAX] = {
+	[MTK_LL_LEAKAGE] = {
+		.vsize = VSIZE,
+		.tsize = TSIZE,
+		.table_size = MAX_TABLE_SIZE,
+		.table = {
+			(int *)&cpull_leakage_data[0],
+			(int *)&cpull_leakage_data[1],
+			(int *)&cpull_leakage_data[2]
+		},
+		.devinfo_domain = LL_DEVINFO_DOMAIN,
+		.leakage_id = MTK_LL_LEAKAGE,
+		.instance = DEFAULT_LL_CORE_INSTANCE,
+		.print_leakage = true,
+	},
+
+	[MTK_L_LEAKAGE] = {
+		.vsize = VSIZE,
+		.tsize = TSIZE,
+		.table_size = MAX_TABLE_SIZE,
+		.table = {
+			(int *)&cpul_leakage_data[0],
+			(int *)&cpul_leakage_data[1],
+			(int *)&cpul_leakage_data[2]
+		},
+		.devinfo_domain = L_DEVINFO_DOMAIN,
+		.leakage_id = MTK_L_LEAKAGE,
+		.instance = DEFAULT_L_CORE_INSTANCE,
+		.print_leakage = true,
+	},
+
+	[MTK_CCI_LEAKAGE] = {
+		.vsize = VSIZE,
+		.tsize = TSIZE,
+		.table_size = MAX_TABLE_SIZE,
+		.table = {
+			(int *)&cci_leakage_data[0],
+			(int *)&cci_leakage_data[1],
+			(int *)&cci_leakage_data[2]
+		},
+		.devinfo_domain = CCI_DEVINFO_DOMAIN,
+		.leakage_id = MTK_CCI_LEAKAGE,
+		.instance = DEFAULT_INSTANCE,
+		.print_leakage = true,
+	},
+
+	[MTK_GPU_LEAKAGE] = {
+		.vsize = VSIZE,
+		.tsize = TSIZE,
+		.table_size = MAX_TABLE_SIZE,
+		.table = {
+			(int *)&gpu_leakage_data[0],
+			(int *)&gpu_leakage_data[1],
+			(int *)&gpu_leakage_data[2]
+		},
+		.devinfo_domain = GPU_DEVINFO_DOMAIN,
+		.leakage_id = MTK_GPU_LEAKAGE,
+		.instance = DEFAULT_INSTANCE,
+		.print_leakage = true,
+	},
+
+	[MTK_VCORE_LEAKAGE] = {
+		.vsize = VSIZE,
+		.tsize = TSIZE,
+		.table_size = MAX_TABLE_SIZE,
+		.table = {
+			(int *)&vcore_leakage_data[0],
+			(int *)&vcore_leakage_data[1],
+			(int *)&vcore_leakage_data[2]
+		},
+		.devinfo_domain = VCORE_DEVINFO_DOMAIN,
+		.leakage_id = MTK_VCORE_LEAKAGE,
+		.instance = DEFAULT_INSTANCE,
+		.print_leakage = true,
+	},
+
+	[MTK_MODEM_LEAKAGE] = {
+		.vsize = VSIZE,
+		.tsize = TSIZE,
+		.table_size = MAX_TABLE_SIZE,
+		.table = {
+			(int *)&modem_leakage_data[0],
+			(int *)&modem_leakage_data[1],
+			(int *)&modem_leakage_data[2]
+		},
+		.devinfo_domain = MODEM_DEVINFO_DOMAIN,
+		.leakage_id = MTK_MODEM_LEAKAGE,
+		.instance = DEFAULT_INSTANCE,
+		.print_leakage = true,
+	},
+
+	[MTK_VPU_LEAKAGE] = {
+		.vsize = VSIZE,
+		.tsize = TSIZE,
+		.table_size = MAX_TABLE_SIZE,
+		.table = {
+			(int *)&vpu_leakage_data[0],
+			(int *)&vpu_leakage_data[1],
+			(int *)&vpu_leakage_data[2]
+		},
+		.devinfo_domain = VPU_DEVINFO_DOMAIN,
+		.leakage_id = MTK_VPU_LEAKAGE,
+		.instance = DEFAULT_INSTANCE,
+		.print_leakage = true,
+	},
+
+	[MTK_VSRAM_PROC12_LEAKAGE] = {
+		.vsize = VSIZE,
+		.tsize = TSIZE,
+		.table_size = MAX_TABLE_SIZE,
+		.table = {
+			(int *)&vpu_leakage_data[0],
+			(int *)&vpu_leakage_data[1],
+			(int *)&vpu_leakage_data[2]
+		},
+		.devinfo_domain = VSRAM_PROC12_DEVINFO_DOMAIN,
+		.leakage_id = MTK_VSRAM_PROC12_LEAKAGE,
+		.instance = DEFAULT_INSTANCE,
+		.print_leakage = true,
+	},
+
+	[MTK_VSRAM_PROC11_LEAKAGE] = {
+		.vsize = VSIZE,
+		.tsize = TSIZE,
+		.table_size = MAX_TABLE_SIZE,
+		.table = {
+			(int *)&vpu_leakage_data[0],
+			(int *)&vpu_leakage_data[1],
+			(int *)&vpu_leakage_data[2]
+		},
+		.devinfo_domain = VSRAM_PROC11_DEVINFO_DOMAIN,
+		.leakage_id = MTK_VSRAM_PROC11_LEAKAGE,
+		.instance = DEFAULT_INSTANCE,
+		.print_leakage = true,
+	},
+
+	[MTK_VSRAM_GPU_LEAKAGE] = {
+		.vsize = VSIZE,
+		.tsize = TSIZE,
+		.table_size = MAX_TABLE_SIZE,
+		.table = {
+			(int *)&vpu_leakage_data[0],
+			(int *)&vpu_leakage_data[1],
+			(int *)&vpu_leakage_data[2]
+		},
+		.devinfo_domain = VSRAM_GPU_DEVINFO_DOMAIN,
+		.leakage_id = MTK_VSRAM_GPU_LEAKAGE,
+		.instance = DEFAULT_INSTANCE,
+		.print_leakage = true,
+	},
+
+	[MTK_VSRAM_OTHERS_LEAKAGE] = {
+		.vsize = VSIZE,
+		.tsize = TSIZE,
+		.table_size = MAX_TABLE_SIZE,
+		.table = {
+			(int *)&vpu_leakage_data[0],
+			(int *)&vpu_leakage_data[1],
+			(int *)&vpu_leakage_data[2]
+		},
+		.devinfo_domain = VSRAM_OTHERS_DEVINFO_DOMAIN,
+		.leakage_id = MTK_VSRAM_OTHERS_LEAKAGE,
+		.instance = DEFAULT_INSTANCE,
+		.print_leakage = true,
+	},
+
+	[MTK_VSRAM_VPU_MDLA_LEAKAGE] = {
+		.vsize = VSIZE,
+		.tsize = TSIZE,
+		.table_size = MAX_TABLE_SIZE,
+		.table = {
+			(int *)&vpu_leakage_data[0],
+			(int *)&vpu_leakage_data[1],
+			(int *)&vpu_leakage_data[2]
+		},
+		.devinfo_domain = VSRAM_VPU_MDLA_DEVINFO_DOMAIN,
+		.leakage_id = MTK_VSRAM_VPU_MDLA_LEAKAGE,
+		.instance = DEFAULT_INSTANCE,
+		.print_leakage = true,
+	},
+
+	[MTK_VSRAM_MODEM_LEAKAGE] = {
+		.vsize = VSIZE,
+		.tsize = TSIZE,
+		.table_size = MAX_TABLE_SIZE,
+		.table = {
+			(int *)&modem_leakage_data[0],
+			(int *)&modem_leakage_data[1],
+			(int *)&modem_leakage_data[2]
+		},
+		.devinfo_domain = VSRAM_MODEM_DEVINFO_DOMAIN,
+		.leakage_id = MTK_VSRAM_MODEM_LEAKAGE,
+		.instance = DEFAULT_INSTANCE,
+		.print_leakage = true,
+	},
+
+	[MTK_VCORE_OFF_LEAKAGE] = {
+		.vsize = VSIZE,
+		.tsize = TSIZE,
+		.table_size = MAX_TABLE_SIZE,
+		.table = {
+			(int *)&vpu_leakage_data[0],
+			(int *)&vpu_leakage_data[1],
+			(int *)&vpu_leakage_data[2]
+		},
+		.devinfo_domain = VCORE_OFF_DEVINFO_DOMAIN,
+		.leakage_id = MTK_VCORE_OFF_LEAKAGE,
+		.instance = DEFAULT_INSTANCE,
+		.print_leakage = true,
+	},
+};
+#endif
