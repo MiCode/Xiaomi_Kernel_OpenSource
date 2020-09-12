@@ -21,7 +21,7 @@
 #include <linux/pinctrl/pinctrl.h>
 #include "imgsensor_hw.h"
 #include "imgsensor_common.h"
-#include "imgsensor_platform.h"
+#include <imgsensor_platform.h>
 
 enum GPIO_CTRL_STATE_CAM {
 	/* Main */

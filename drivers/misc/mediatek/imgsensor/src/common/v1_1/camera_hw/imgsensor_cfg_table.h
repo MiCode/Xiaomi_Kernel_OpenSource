@@ -13,7 +13,7 @@
 
 #include <linux/atomic.h>
 #include "imgsensor_common.h"
-#include "imgsensor_platform.h"
+#include <imgsensor_platform.h>
 
 #ifndef __IMGSENSOR_CFG_TABLE_H__
 #define __IMGSENSOR_CFG_TABLE_H__
