@@ -2403,7 +2403,8 @@ static void dpmaif_tx_done(struct work_struct *work)
 			__func__, txq->index);
 		return;
 	}
-
+	if (atomic_read(&dpmaif_ctrl->tx_resume_done))
+		return;
 	if (!txq->que_started) {
 		CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
 			"%s meet queue stop(%d)\n",
@@ -2918,6 +2919,8 @@ static void dpmaif_irq_tx_done(unsigned int tx_done_isr)
 	int i, ret;
 	unsigned int intr_ul_que_done;
 
+	if (atomic_read(&dpmaif_ctrl->tx_resume_done))
+		atomic_set(&dpmaif_ctrl->tx_resume_done, 0);
 	for (i = 0; i < DPMAIF_TXQ_NUM; i++) {
 		intr_ul_que_done =
 			tx_done_isr & (1 << (i + UL_INT_DONE_OFFSET));
@@ -3827,7 +3830,6 @@ static int dpmaif_stop_txq(struct dpmaif_tx_queue *txq)
 	/* flush work */
 	cancel_delayed_work(&txq->dpmaif_tx_work);
 	flush_delayed_work(&txq->dpmaif_tx_work);
-
 	atomic_set(&s_tx_busy_num[txq->index], 0);
 	/* reset sw */
 #ifdef DPMAIF_DEBUG_LOG
@@ -3967,6 +3969,8 @@ int dpmaif_stop_tx_sw(unsigned char hif_id)
 		txq = &dpmaif_ctrl->txq[i];
 		dpmaif_stop_txq(txq);
 	}
+
+	atomic_set(&dpmaif_ctrl->tx_resume_done, 0);
 	return 0;
 }
 
@@ -4163,6 +4167,7 @@ static int dpmaif_resume(unsigned char hif_id)
 			queue = &hif_ctrl->txq[i];
 			dpmaif_tx_hw_init(queue);
 		}
+		atomic_set(&dpmaif_ctrl->tx_resume_done, 1);
 	}
 	return 0;
 }

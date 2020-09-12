@@ -370,6 +370,7 @@ struct hif_dpmaif_ctrl {
 	unsigned char hif_id;
 	struct ccci_hif_traffic traffic_info;
 	atomic_t wakeup_src;
+	atomic_t tx_resume_done;
 
 	void __iomem *dpmaif_ao_ul_base;
 	void __iomem *dpmaif_ao_dl_base;
