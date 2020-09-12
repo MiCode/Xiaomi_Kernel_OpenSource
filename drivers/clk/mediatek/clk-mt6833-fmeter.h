@@ -161,4 +161,9 @@
 #define FM_MMPLL_D7_CK				34
 #define FM_MMPLL_D9_CK				35
 
-#endif /* _CLK_MT6833_FMETER_H */
+extern unsigned int mt_get_ckgen_freq(unsigned int ID);
+extern unsigned int mt_get_abist_freq(unsigned int ID);
+extern unsigned int mt_get_abist2_freq(unsigned int ID);
+extern const struct fmeter_clk *get_fmeter_clks(void);
+
+#endif /* _CLK_MT6853_FMETER_H */
