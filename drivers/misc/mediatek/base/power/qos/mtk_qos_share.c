@@ -115,6 +115,21 @@ unsigned int qos_rec_get_hist_bw(unsigned int idx, unsigned int type)
 	return val;
 }
 
+unsigned int qos_rec_get_hist_data_bw(unsigned int idx, unsigned int type)
+{
+	unsigned int val = 0;
+
+	if (!qos_share_ref)
+		return val;
+
+	if (idx >= HIST_NUM || type >= BW_TYPE)
+		return val;
+
+	val = qos_share_ref->data_bw_hist[idx][type];
+
+	return val;
+}
+
 unsigned int qos_rec_get_hist_idx(void)
 {
 	if (qos_share_ref)
