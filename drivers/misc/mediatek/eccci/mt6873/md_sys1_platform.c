@@ -47,6 +47,8 @@
 #include "modem_secure_base.h"
 #include "modem_reg_base.h"
 #include "ap_md_reg_dump.h"
+#include <devapc_public.h>
+#include "ccci_fsm.h"
 
 static struct ccci_clk_node clk_table[] = {
 	{ NULL, "scp-sys-md1-main"},
@@ -113,6 +115,62 @@ void md1_subsys_debug_dump(enum subsys_id sys)
 struct pg_callbacks md1_subsys_handle = {
 	.debug_dump = md1_subsys_debug_dump,
 };
+
+/*devapc_violation_triggered*/
+static enum devapc_cb_status devapc_dump_adv_cb(uint32_t vio_addr)
+{
+	int count;
+
+	CCCI_NORMAL_LOG(0, TAG,
+		"[%s] vio_addr: 0x%x; is normal mdee: %d\n",
+		__func__, vio_addr, ccci_fsm_is_normal_mdee());
+
+	if (ccci_fsm_get_md_state(0) == EXCEPTION &&
+		ccci_fsm_is_normal_mdee()) {
+		count = ccci_fsm_increase_devapc_dump_counter();
+
+		CCCI_NORMAL_LOG(0, TAG,
+			"[%s] count: %d\n", __func__, count);
+
+		if (count == 1)
+			ccci_md_dump_in_interrupt((char *)__func__);
+
+		return DEVAPC_NOT_KE;
+
+	} else {
+		ccci_md_dump_in_interrupt((char *)__func__);
+
+		return DEVAPC_OK;
+	}
+}
+
+static struct devapc_vio_callbacks devapc_test_handle = {
+	.id = INFRA_SUBSYS_MD,
+	.debug_dump_adv = devapc_dump_adv_cb,
+};
+
+void ccci_md_devapc_register_cb(void)
+{
+	/*register handle function*/
+	register_devapc_vio_callback(&devapc_test_handle);
+}
+
+void ccci_md_dump_in_interrupt(char *user_info)
+{
+	struct ccci_modem *md;
+
+	CCCI_NORMAL_LOG(0, TAG, "%s called by %s\n", __func__, user_info);
+	md = ccci_md_get_modem_by_id(0);
+	if (md != NULL) {
+		CCCI_NORMAL_LOG(0, TAG, "%s dump start\n", __func__);
+		md->ops->dump_info(md, DUMP_FLAG_CCIF_REG | DUMP_FLAG_CCIF |
+			DUMP_FLAG_REG | DUMP_FLAG_QUEUE_0_1 |
+			DUMP_MD_BOOTUP_STATUS, NULL, 0);
+	} else
+		CCCI_NORMAL_LOG(0, TAG, "%s error\n", __func__);
+	CCCI_NORMAL_LOG(0, TAG, "%s exit\n", __func__);
+}
+EXPORT_SYMBOL(ccci_md_dump_in_interrupt);
 
 void ccci_md_debug_dump(char *user_info)
 {
@@ -387,6 +445,9 @@ int md_cd_io_remap_md_side_register(struct ccci_modem *md)
 	struct md_pll_reg *md_reg;
 	struct md_sys1_info *md_info = (struct md_sys1_info *)md->private_data;
 
+	/* call internal_dump io_remap */
+	md_io_remap_internal_dump_register(md);
+
 	md_info->md_boot_slave_En =
 	 ioremap_nocache(md->hw_info->md_boot_slave_En, 0x4);
 	md_info->md_rgu_base =
@@ -511,15 +572,9 @@ void md_cd_dump_debug_register(struct ccci_modem *md)
 	else if (!((reg_value[0] == 0x5443000CU) || (reg_value[0] == 0) ||
 		(reg_value[0] >= 0x53310000 && reg_value[0] <= 0x533100FF)))
 		return;
-	if (unlikely(in_interrupt())) {
-		CCCI_MEM_LOG_TAG(md->index, TAG,
-			"In interrupt, skip dump MD debug register.\n");
-		return;
-	}
+
 	md_cd_lock_modem_clock_src(1);
 
-	/* This function needs to be cancelled temporarily */
-	/* for margaux bringup */
 	internal_md_dump_debug_register(md->index);
 
 	md_cd_lock_modem_clock_src(0);
