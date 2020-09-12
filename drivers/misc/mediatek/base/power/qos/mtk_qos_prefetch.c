@@ -19,6 +19,7 @@
 
 #include "mtk_qos_ipi.h"
 #include "mtk_qos_prefetch.h"
+#include "mtk_qos_prefetch_data.h"
 #include <mtk_qos_sram.h>
 #include <linux/arm-smccc.h>
 #include <mtk_secure_api.h>
@@ -184,6 +185,84 @@ int is_qos_prefetch_force(void)
 	return qos_prefetch_forced;
 }
 EXPORT_SYMBOL(is_qos_prefetch_force);
+
+static void qos_prefetch_setting(int cmd, int val)
+{
+#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
+	struct qos_ipi_data qos_ipi_d;
+
+	qos_ipi_d.cmd = cmd;
+	qos_ipi_d.u.qos_prefetch_setting.val = val;
+	qos_ipi_to_sspm_command(&qos_ipi_d, 2);
+#endif
+}
+
+ssize_t qos_prefetch_setting_get(char *buf)
+{
+	int ret = 0;
+	int i;
+
+	ret += sprintf(buf + ret, "qos_cpu_opp_bound ");
+	for (i = 0; i < QOS_CPUS_NR; i++)
+		ret += sprintf(buf + ret, "%d ", qos_cpu_opp_bound[i]);
+	ret += sprintf(buf + ret, "\n");
+
+	ret += sprintf(buf + ret, "qos_cpu_power_ratio_up %d\n",
+			qos_cpu_power_ratio_up);
+	ret += sprintf(buf + ret, "qos_cpu_power_ratio_dn %d\n",
+			qos_cpu_power_ratio_dn);
+
+	return ret;
+}
+EXPORT_SYMBOL(qos_prefetch_setting_get);
+
+ssize_t qos_prefetch_setting_set(const char *buf, size_t count)
+{
+	int ret = -EINVAL;
+	char cmd[64];
+	u32 val_1;
+	u32 val_2;
+
+	if (!buf)
+		return -ENOMEM;
+
+	if (count >= PAGE_SIZE)
+		goto out;
+
+	ret = sscanf(buf, "%63s %d %d", cmd, &val_1, &val_2);
+	if (ret < 1) {
+		ret = -EPERM;
+		goto out;
+	}
+
+	if (!strcmp(cmd, "qos_cpu_opp_bound")) {
+		if (ret == 3 && val_1 < QOS_CPUS_NR) {
+			qos_cpu_opp_bound[val_1] = val_2;
+#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
+			qos_prefetch_setting(QOS_IPI_QOS_PREFETCH_CPU_OPP,
+					val_1 << 16 | val_2);
+#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
+		}
+	} else if (!strcmp(cmd, "qos_cpu_power_ratio_up")) {
+		qos_cpu_power_ratio_up = val_1;
+#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
+		qos_prefetch_setting(QOS_IPI_QOS_PREFETCH_POWER_RATIO_UP,
+				val_1);
+#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
+	} else if (!strcmp(cmd, "qos_cpu_power_ratio_dn")) {
+		qos_cpu_power_ratio_dn = val_1;
+#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
+		qos_prefetch_setting(QOS_IPI_QOS_PREFETCH_POWER_RATIO_DN,
+				val_1);
+#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
+	}
+
+out:
+	if (ret < 0)
+		return ret;
+	return count;
+}
+EXPORT_SYMBOL(qos_prefetch_setting_set);
 
 int is_qos_prefetch_log_enabled(void)
 {
@@ -352,6 +431,8 @@ EXPORT_SYMBOL(qos_prefetch_tick);
 
 void qos_prefetch_init(void)
 {
+	int i;
+
 	spin_lock_init(&qos_prefetch_cpumask_lock);
 	qos_prefetch_sched_pm_init();
 
@@ -365,6 +446,18 @@ void qos_prefetch_init(void)
 	qos_prefetch_timer.function = qos_prefetch_timer_fn;
 	qos_prefetch_timer.data = 0;
 #endif /* QOS_PREFETCH_USE_TIMER */
+
+#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
+
+	for (i = 0; i < QOS_CPUS_NR; i++) {
+		qos_prefetch_setting(QOS_IPI_QOS_PREFETCH_CPU_OPP,
+				i << 16 | (qos_cpu_opp_bound[i] & 0xffff));
+	}
+	qos_prefetch_setting(QOS_IPI_QOS_PREFETCH_POWER_RATIO_UP,
+			qos_cpu_power_ratio_up);
+	qos_prefetch_setting(QOS_IPI_QOS_PREFETCH_POWER_RATIO_DN,
+			qos_cpu_power_ratio_dn);
+#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
 
 	qos_prefetch_enable(0);
 }
