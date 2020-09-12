@@ -3592,17 +3592,17 @@ page_owner=on";
 		reg = <0 0x11e00000 0 0x1000>,
 			<0 0x10217080 0 0x80>;
 		interrupts = <GIC_SPI 112 IRQ_TYPE_LEVEL_HIGH>;
-		/* clocks = <&imp_iic_wrap_w CLK_IMPW_AP_CLOCK_RO_I2C0>, */
-			/* <&infracfg_ao CLK_IFRAO_AP_DMA>; */
+		clocks = <&imp_iic_wrap_w CLK_IMPW_AP_CLOCK_RO_I2C0>,
+			<&infracfg_ao CLK_IFRAO_AP_DMA>;
 		clock-names = "main", "dma";
 		clock-div = <5>;
 		scl-gpio-id = <97>;
 		sda-gpio-id = <98>;
-		gpio_start = <0x11e20000>;
+		gpio_start = <0x11e60000>;
 		mem_len = <0x200>;
-		eh_cfg = <0x30>;
-		pu_cfg = <0x70>;
-		rsel_cfg = <0x90>;
+		eh_cfg = <0x50>;
+		pu_cfg = <0xe0>;
+		rsel_cfg = <0x110>;
 		aed = <0x1a>;
 	};
 
@@ -3612,17 +3612,17 @@ page_owner=on";
 		reg = <0 0x11d20000 0 0x1000>,
 			<0 0x10217100 0 0x80>;
 		interrupts = <GIC_SPI 113 IRQ_TYPE_LEVEL_HIGH>;
-		/* clocks = <&imp_iic_wrap_ws CLK_IMPWS_AP_CLOCK_RO_I2C1>, */
-			/* <&infracfg_ao CLK_IFRAO_AP_DMA>; */
+		clocks = <&imp_iic_wrap_ws CLK_IMPWS_AP_CLOCK_RO_I2C1>,
+			<&infracfg_ao CLK_IFRAO_AP_DMA>;
 		clock-names = "main", "dma";
 		clock-div = <5>;
 		scl-gpio-id = <99>;
 		sda-gpio-id = <100>;
-		gpio_start = <0x11d40000>;
+		gpio_start = <0x11d10000>;
 		mem_len = <0x200>;
-		eh_cfg = <0x50>;
-		pu_cfg = <0xc0>;
-		rsel_cfg = <0xe0>;
+		eh_cfg = <0x70>;
+		pu_cfg = <0x120>;
+		rsel_cfg = <0x170>;
 		aed = <0x1a>;
 	};
 
@@ -3632,17 +3632,17 @@ page_owner=on";
 		reg = <0 0x11d21000 0 0x1000>,
 			<0 0x10217180 0 0x180>;
 		interrupts = <GIC_SPI 114 IRQ_TYPE_LEVEL_HIGH>;
-		/* clocks = <&imp_iic_wrap_ws CLK_IMPWS_AP_CLOCK_RO_I2C2>, */
-			/* <&infracfg_ao CLK_IFRAO_AP_DMA>; */
+		clocks = <&imp_iic_wrap_ws CLK_IMPWS_AP_CLOCK_RO_I2C2>,
+			<&infracfg_ao CLK_IFRAO_AP_DMA>;
 		clock-names = "main", "dma";
 		clock-div = <5>;
 		scl-gpio-id = <101>;
 		sda-gpio-id = <102>;
-		gpio_start = <0x11d40000>;
+		gpio_start = <0x11d10000>;
 		mem_len = <0x200>;
-		eh_cfg = <0x40>;
-		pu_cfg = <0xb0>;
-		rsel_cfg = <0xe0>;
+		eh_cfg = <0x60>;
+		pu_cfg = <0x100>;
+		rsel_cfg = <0x170>;
 		aed = <0x1a>;
 	};
 
@@ -3652,17 +3652,17 @@ page_owner=on";
 		reg = <0 0x11cb0000 0 0x1000>,
 			<0 0x10217300 0 0x80>;
 		interrupts = <GIC_SPI 115 IRQ_TYPE_LEVEL_HIGH>;
-		/* clocks = <&imp_iic_wrap_e CLK_IMPE_AP_CLOCK_RO_I2C3>, */
-			/* <&infracfg_ao CLK_IFRAO_AP_DMA>; */
+		clocks = <&imp_iic_wrap_e CLK_IMPE_AP_CLOCK_RO_I2C3>,
+			<&infracfg_ao CLK_IFRAO_AP_DMA>;
 		clock-names = "main", "dma";
 		clock-div = <5>;
 		scl-gpio-id = <103>;
 		sda-gpio-id = <104>;
 		gpio_start = <0x11ea0000>;
 		mem_len = <0x200>;
-		eh_cfg = <0x30>;
-		pu_cfg = <0x70>;
-		rsel_cfg = <0x90>;
+		eh_cfg = <0x40>;
+		pu_cfg = <0xa0>;
+		rsel_cfg = <0xd0>;
 		aed = <0x1a>;
 	};
 
@@ -3672,17 +3672,17 @@ page_owner=on";
 		reg = <0 0x11d22000 0 0x1000>,
 			<0 0x10217380 0 0x180>;
 		interrupts = <GIC_SPI 116 IRQ_TYPE_LEVEL_HIGH>;
-		/* clocks = <&imp_iic_wrap_ws CLK_IMPWS_AP_CLOCK_RO_I2C4>, */
-			/* <&infracfg_ao CLK_IFRAO_AP_DMA>; */
+		clocks = <&imp_iic_wrap_ws CLK_IMPWS_AP_CLOCK_RO_I2C4>,
+			<&infracfg_ao CLK_IFRAO_AP_DMA>;
 		clock-names = "main", "dma";
 		clock-div = <5>;
 		scl-gpio-id = <105>;
 		sda-gpio-id = <106>;
-		gpio_start = <0x11d40000>;
+		gpio_start = <0x11d10000>;
 		mem_len = <0x200>;
-		eh_cfg = <0x40>;
-		pu_cfg = <0xb0>;
-		rsel_cfg = <0xe0>;
+		eh_cfg = <0x60>;
+		pu_cfg = <0x100>;
+		rsel_cfg = <0x170>;
 		aed = <0x1a>;
 	};
 
@@ -3692,17 +3692,17 @@ page_owner=on";
 		reg = <0 0x11e01000 0 0x1000>,
 			<0 0x10217500 0 0x80>;
 		interrupts = <GIC_SPI 117 IRQ_TYPE_LEVEL_HIGH>;
-		/* clocks = <&imp_iic_wrap_s CLK_IMPS_AP_CLOCK_RO_I2C5>, */
-			/* <&infracfg_ao CLK_IFRAO_AP_DMA>; */
+		clocks = <&imp_iic_wrap_w CLK_IMPW_AP_CLOCK_RO_I2C5>,
+			<&infracfg_ao CLK_IFRAO_AP_DMA>;
 		clock-names = "main", "dma";
 		clock-div = <5>;
 		scl-gpio-id = <107>;
 		sda-gpio-id = <108>;
-		gpio_start = <0x11d40000>;
+		gpio_start = <0x11e60000>;
 		mem_len = <0x200>;
-		eh_cfg = <0x40>;
-		pu_cfg = <0xb0>;
-		rsel_cfg = <0xe0>;
+		eh_cfg = <0x50>;
+		pu_cfg = <0xe0>;
+		rsel_cfg = <0x110>;
 		aed = <0x1a>;
 	};
 
@@ -3712,17 +3712,17 @@ page_owner=on";
 		reg = <0 0x11f00000 0 0x1000>,
 			<0 0x10217580 0 0x80>;
 		interrupts = <GIC_SPI 118 IRQ_TYPE_LEVEL_HIGH>;
-		/* clocks = <&imp_iic_wrap_n CLK_IMPN_AP_CLOCK_RO_I2C6>, */
-			/* <&infracfg_ao CLK_IFRAO_AP_DMA>; */
+		clocks = <&imp_iic_wrap_n CLK_IMPN_AP_CLOCK_RO_I2C6>,
+			<&infracfg_ao CLK_IFRAO_AP_DMA>;
 		clock-names = "main", "dma";
 		clock-div = <5>;
 		scl-gpio-id = <109>;
 		sda-gpio-id = <110>;
-		gpio_start = <0x11f30000>;
+		gpio_start = <0x11e20000>;
 		mem_len = <0x200>;
 		eh_cfg = <0x30>;
-		pu_cfg = <0x70>;
-		rsel_cfg = <0xd0>;
+		pu_cfg = <0x80>;
+		rsel_cfg = <0xe0>;
 		aed = <0x1a>;
 	};
 
@@ -3732,17 +3732,17 @@ page_owner=on";
 		reg = <0 0x11e02000 0 0x1000>,
 			<0 0x10217600 0 0x180>;
 		interrupts = <GIC_SPI 119 IRQ_TYPE_LEVEL_HIGH>;
-		/* clocks = <&imp_iic_wrap_s CLK_IMPS_AP_CLOCK_RO_I2C7>, */
-			/* <&infracfg_ao CLK_IFRAO_AP_DMA>; */
+		clocks = <&imp_iic_wrap_w CLK_IMPW_AP_CLOCK_RO_I2C7>,
+			<&infracfg_ao CLK_IFRAO_AP_DMA>;
 		clock-names = "main", "dma";
 		clock-div = <5>;
 		scl-gpio-id = <111>;
 		sda-gpio-id = <112>;
-		gpio_start = <0x11d40000>;
+		gpio_start = <0x11e60000>;
 		mem_len = <0x200>;
-		eh_cfg = <0x40>;
-		pu_cfg = <0xc0>;
-		rsel_cfg = <0xe0>;
+		eh_cfg = <0x50>;
+		pu_cfg = <0xe0>;
+		rsel_cfg = <0x110>;
 		aed = <0x1a>;
 	};
 
@@ -3752,17 +3752,17 @@ page_owner=on";
 		reg = <0 0x11d00000 0 0x1000>,
 			<0 0x10217780 0 0x180>;
 		interrupts = <GIC_SPI 120 IRQ_TYPE_LEVEL_HIGH>;
-		/* clocks = <&imp_iic_wrap_s CLK_IMPS_AP_CLOCK_RO_I2C8>, */
-			/* <&infracfg_ao CLK_IFRAO_AP_DMA>; */
+		clocks = <&imp_iic_wrap_s CLK_IMPS_AP_CLOCK_RO_I2C8>,
+			<&infracfg_ao CLK_IFRAO_AP_DMA>;
 		clock-names = "main", "dma";
 		clock-div = <5>;
 		scl-gpio-id = <113>;
 		sda-gpio-id = <114>;
-		gpio_start = <0x11d40000>;
+		gpio_start = <0x11d10000>;
 		mem_len = <0x200>;
-		eh_cfg = <0x40>;
-		pu_cfg = <0xb0>;
-		rsel_cfg = <0xe0>;
+		eh_cfg = <0x70>;
+		pu_cfg = <0x100>;
+		rsel_cfg = <0x170>;
 		aed = <0x1a>;
 	};
 
@@ -3772,17 +3772,17 @@ page_owner=on";
 		reg = <0 0x11d01000 0 0x1000>,
 			<0 0x10217900 0 0x180>;
 		interrupts = <GIC_SPI 121 IRQ_TYPE_LEVEL_HIGH>;
-		/* clocks = <&imp_iic_wrap_s CLK_IMPS_AP_CLOCK_RO_I2C9>, */
-			/* <&infracfg_ao CLK_IFRAO_AP_DMA>; */
+		clocks = <&imp_iic_wrap_s CLK_IMPS_AP_CLOCK_RO_I2C9>,
+			<&infracfg_ao CLK_IFRAO_AP_DMA>;
 		clock-names = "main", "dma";
 		clock-div = <5>;
 		scl-gpio-id = <141>;
 		sda-gpio-id = <142>;
-		gpio_start = <0x11d40000>;
+		gpio_start = <0x11d10000>;
 		mem_len = <0x200>;
-		eh_cfg = <0x40>;
-		pu_cfg = <0xb0>;
-		rsel_cfg = <0xe0>;
+		eh_cfg = <0x70>;
+		pu_cfg = <0x100>;
+		rsel_cfg = <0x170>;
 		aed = <0x1a>;
 	};
 
@@ -3791,7 +3791,7 @@ page_owner=on";
 		id = <10>;
 		reg = <0 0x11015000 0 0x1000>;
 		interrupts = <GIC_SPI 122 IRQ_TYPE_LEVEL_HIGH>;
-		/* clocks = <&imp_iic_wrap_c CLK_IMPC_AP_CLOCK_RO_I2C10>; */
+		clocks = <&imp_iic_wrap_c CLK_IMPC_AP_CLOCK_RO_I2C10>;
 		clock-names = "main";
 		clock-div = <5>;
 		aed = <0x1a>;
@@ -3803,7 +3803,7 @@ page_owner=on";
 		id = <11>;
 		reg = <0 0x11017000 0 0x1000>;
 		interrupts = <GIC_SPI 123 IRQ_TYPE_LEVEL_HIGH>;
-		/* clocks = <&imp_iic_wrap_c CLK_IMPC_AP_CLOCK_RO_I2C11>; */
+		clocks = <&imp_iic_wrap_c CLK_IMPC_AP_CLOCK_RO_I2C11>;
 		clock-names = "main";
 		clock-div = <5>;
 		aed = <0x1a>;
