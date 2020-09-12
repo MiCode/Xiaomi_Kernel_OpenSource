@@ -2118,9 +2118,6 @@ void fg_bat_plugout_int_handler(void)
 		for (i = 0 ; i < 20 ; i++)
 			gauge_dev_dump(gm.gdev, NULL, 0);
 
-		/* TODO debug purpose, remove it!!!!!! */
-		aee_kernel_warning("GAUGE", "BAT_PLUGOUT error!\n");
-
 		if (gm.plug_miss_count >= 3) {
 			gauge_enable_interrupt(FG_BAT_PLUGOUT_NO, 0);
 			bm_err("[%s]disable FG_BAT_PLUGOUT\n",
