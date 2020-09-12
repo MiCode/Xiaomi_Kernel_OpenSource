@@ -298,7 +298,8 @@
 	status = "okay";
 };
 /* GPS GPIO standardization end */
-/* #include <k6833v1_64/cust.dtsi> */
+#include <k6833v1_64/cust.dtsi>
+
 
 /*End of this file, DO NOT ADD ANYTHING HERE*/
 
