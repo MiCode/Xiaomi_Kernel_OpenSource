@@ -66,6 +66,8 @@ static int fmeter_v1_init(struct platform_device *pdev,
 	ret |= of_property_read_u32_array(dramc_node,
 		"fbksel", (unsigned int *)(fmeter_dev_ptr->fbksel), 6);
 	ret |= of_property_read_u32_array(dramc_node,
+		"dqsopen", (unsigned int *)(fmeter_dev_ptr->dqsopen), 6);
+	ret |= of_property_read_u32_array(dramc_node,
 		"dqopen", (unsigned int *)(fmeter_dev_ptr->dqopen), 6);
 
 	return ret;
@@ -471,6 +473,8 @@ static unsigned int decode_freq(unsigned int vco_freq)
 		return 1200;
 	case 754:
 		return 800;
+	case 396:
+		return 400;
 	}
 
 	return vco_freq;
@@ -491,6 +495,7 @@ static unsigned int fmeter_v1(struct dramc_dev_t *dramc_dev_ptr)
 	unsigned int offset;
 	unsigned int vco_freq;
 	unsigned int fbksel;
+	unsigned int dqsopen;
 	unsigned int dqopen;
 
 	shu_lv_val = (readl(dramc_dev_ptr->ddrphy_chn_base_nao[0] +
@@ -545,6 +550,12 @@ static unsigned int fmeter_v1(struct dramc_dev_t *dramc_dev_ptr)
 		fmeter_dev_ptr->fbksel[pll_id_val].mask) >>
 		fmeter_dev_ptr->fbksel[pll_id_val].shift;
 
+	offset = fmeter_dev_ptr->dqsopen[pll_id_val].offset +
+		fmeter_dev_ptr->shu_of * shu_lv_val;
+	dqsopen = (readl(dramc_dev_ptr->ddrphy_chn_base_ao[0] + offset) &
+		fmeter_dev_ptr->dqsopen[pll_id_val].mask) >>
+		fmeter_dev_ptr->dqsopen[pll_id_val].shift;
+
 	offset = fmeter_dev_ptr->dqopen[pll_id_val].offset +
 		fmeter_dev_ptr->shu_of * shu_lv_val;
 	dqopen = (readl(dramc_dev_ptr->ddrphy_chn_base_ao[0] + offset) &
@@ -553,7 +564,10 @@ static unsigned int fmeter_v1(struct dramc_dev_t *dramc_dev_ptr)
 
 	vco_freq = ((fmeter_dev_ptr->crystal_freq >> prediv_val) *
 		(sdmpcw_val >> 8)) >> posdiv_val >> ckdiv4_val >>
-		pll_md_val >> cldiv2_val << fbksel >> (dqopen << 1);
+		pll_md_val >> cldiv2_val << fbksel;
+
+	if (dqsopen == 1 || dqopen == 1)
+		vco_freq >>= 2;
 
 	return decode_freq(vco_freq);
 }
