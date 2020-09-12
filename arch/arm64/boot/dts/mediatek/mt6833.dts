@@ -840,6 +840,80 @@ page_owner=on";
 		reg = <0 0x10227000 0 0x1000>;
 	};
 
+	dvfsp: dvfsp@0011bc00 {
+		compatible = "mediatek,mt6833-dvfsp";
+		reg = <0 0x0011bc00 0 0x1400>,
+		      <0 0x0011bc00 0 0x1400>;
+		state = <1>;
+		imax_state = <2>;
+		change_flag = <0>;
+		little-rise-time = <1000>;
+		little-down-time = <750>;
+		big-rise-time = <1000>;
+		big-down-time = <750>;
+		L-table = <2000 96 1 1
+			   1916 92 1 1
+			   1812 87 1 1
+			   1750 84 1 1
+			   1645 79 2 1
+			   1500 72 2 1
+			   1390 68 2 1
+			   1280 64 2 1
+			   1115 58 2 1
+			   1032 55 2 1
+			   950 52 2 1
+			   840 48 4 1
+			   730 44 4 1
+			   675 42 4 1
+			   620 40 4 1
+			   500 40 4 1 >;
+
+		B-table = <2210 104 1 1
+			   2093 99 1 1
+			   2000 95 1 1
+			   1906 91 1 1
+			   1790 86 1 1
+			   1720 83 1 1
+			   1650 80 2 1
+			   1534 75 2 1
+			   1418 70 2 1
+			   1274 64 2 1
+			   1129 57 2 1
+			   1042 54 2 1
+			   985 51 2 1
+			   898 47 2 1
+			   840 45 4 1
+			   725 40 4 1 >;
+
+		CCI-table = <1600 96 1 1
+			     1508 92 2 1
+			     1400 87 2 1
+			     1325 84 2 1
+			     1256 81 2 1
+			     1141 76 2 1
+			     1050 72 2 1
+			     975 68 2 1
+			     900 64 2 1
+			     825 60 2 1
+			     750 56 4 1
+			     675 52 4 1
+			     618 49 4 1
+			     562 46 4 1
+			     506 43 4 1
+			     450 40 4 1 >;
+
+	};
+
+	mt_cpufreq: mt_cpufreq {
+		compatible = "mediatek,mt-cpufreq";
+#if 0
+		proc1-supply = <&mt_pmic_vgpu11_buck_reg>;
+		proc2-supply = <&mt_pmic_vproc2_buck_reg>;
+		sram_proc1-supply = <&mt_pmic_vsram_proc1_ldo_reg>;
+		sram_proc2-supply = <&mt_pmic_vsram_proc2_ldo_reg>;
+#endif
+	};
+
 	gce_mbox: gce_mbox@10228000 {
 		compatible = "mediatek,mailbox-gce";
 		reg = <0 0x10228000 0 0x4000>;
