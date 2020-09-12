@@ -4952,6 +4952,14 @@ int mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 	struct disp_ccorr_config *ccorr_config = NULL;
 
 	if (mtk_crtc_gec_flush_check(crtc) < 0)	{
+		if (cb_data) {
+			struct drm_crtc_state *crtc_state;
+			struct drm_atomic_state *atomic_state;
+
+			crtc_state = ((struct mtk_cmdq_cb_data *)cb_data)->state;
+			atomic_state = crtc_state->state;
+			mtk_atomic_state_put(atomic_state);
+		}
 		cmdq_pkt_destroy(cmdq_handle);
 		kfree(cb_data);
 		DDPPR_ERR("flush check failed\n");
