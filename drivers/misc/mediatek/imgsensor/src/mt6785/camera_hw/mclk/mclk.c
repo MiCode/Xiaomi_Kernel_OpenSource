@@ -51,7 +51,7 @@ static enum IMGSENSOR_RETURN mclk_init(
 					"cam%d_mclk_%s",
 					i,
 					mclk_pinctrl[j].ppinctrl_names);
-				if (ret < 0) {
+				if (ret_snprintf < 0) {
 					pr_info(
 					"snprintf alloc error!, ret = %d", ret);
 					return IMGSENSOR_RETURN_ERROR;
