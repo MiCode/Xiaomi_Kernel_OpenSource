@@ -4193,9 +4193,8 @@ int vpu_hw_boot_sequence(int core_s)
 	unsigned int core = (unsigned int)core_s;
 
 	if (core >= MTK_VPU_CORE) {
-		ret = -EINVAL;
 		LOG_DBG("invalid core =%d\n", core);
-		goto out;
+		return -EINVAL;
 	}
 
 	vpu_trace_begin("%s", __func__);
