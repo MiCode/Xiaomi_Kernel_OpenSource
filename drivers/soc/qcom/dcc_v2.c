@@ -1053,7 +1053,8 @@ static int dcc_config_add(struct dcc_drvdata *drvdata, unsigned int addr,
 		pentry = list_last_entry(&drvdata->cfg_head[drvdata->curr_list],
 					 struct dcc_config_entry, list);
 
-		if (addr >= (pentry->base + pentry->offset) &&
+		if (pentry->desc_type == DCC_ADDR_TYPE &&
+		    addr >= (pentry->base + pentry->offset) &&
 		    addr <= (pentry->base + pentry->offset + MAX_DCC_OFFSET)) {
 
 			/* Re-use base address from last entry */
