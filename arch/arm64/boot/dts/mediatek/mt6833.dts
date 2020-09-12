@@ -3686,6 +3686,12 @@ page_owner=on";
 	rt-pd-manager {
 		compatible = "mediatek,rt-pd-manager";
 	};
+
+	mrdump_ext_rst: mrdump_ext_rst {
+		compatible = "mediatek, mrdump_ext_rst-eint";
+		mode = "IRQ";
+		status = "okay";
+	};
 };
 
 #include "mediatek/mt6359p.dtsi"
