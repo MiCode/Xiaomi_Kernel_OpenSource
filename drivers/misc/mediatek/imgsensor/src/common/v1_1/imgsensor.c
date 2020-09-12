@@ -444,6 +444,8 @@ MINT32 imgsensor_sensor_close(struct IMGSENSOR_SENSOR *psensor)
 	    psensor_func->SensorClose &&
 	    psensor_inst) {
 
+		IMGSENSOR_PROFILE_INIT(&psensor_inst->profile_time);
+
 		imgsensor_mutex_lock(psensor_inst);
 
 #ifdef IMGSENSOR_OC_ENABLE
@@ -474,6 +476,8 @@ MINT32 imgsensor_sensor_close(struct IMGSENSOR_SENSOR *psensor)
 		}
 
 		imgsensor_mutex_unlock(psensor_inst);
+
+		IMGSENSOR_PROFILE(&psensor_inst->profile_time, "SensorClose");
 	}
 
 	IMGSENSOR_FUNCTION_EXIT();
