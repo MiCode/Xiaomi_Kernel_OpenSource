@@ -1214,7 +1214,6 @@ static const enum mtk_ddp_comp_id mt6833_mtk_ddp_main_minor[] = {
 static const enum mtk_ddp_comp_id mt6833_mtk_ddp_main_minor_sub[] = {
 	DDP_COMPONENT_RDMA0,
 	DDP_COMPONENT_COLOR0,   DDP_COMPONENT_CCORR0,
-	DDP_COMPONENT_CCORR1,
 	DDP_COMPONENT_AAL0,      DDP_COMPONENT_GAMMA0,
 	DDP_COMPONENT_POSTMASK0, DDP_COMPONENT_DITHER0,
 	DDP_COMPONENT_DSI0,     DDP_COMPONENT_PWM0,
@@ -2197,8 +2196,9 @@ int lcm_fps_ctx_update(unsigned long long cur_ns,
 
 	spin_unlock_irqrestore(&lcm_fps_ctx[index].lock, flags);
 
-	DDPINFO("%s CRTC:%d update %lld to index %d\n",
-		__func__, index, delta, idx);
+	/* DDPINFO("%s CRTC:%d update %lld to index %d\n",
+	 *	__func__, index, delta, idx);
+	 */
 
 	return 0;
 }
@@ -3075,8 +3075,8 @@ static int mtk_drm_probe(struct platform_device *pdev)
 		    || comp_type == MTK_DP_INTF || comp_type == MTK_DISP_DPTX
 #endif
 		    ) {
-			dev_info(dev, "Adding component match for %s\n",
-				 node->full_name);
+			dev_info(dev, "Adding component match for %s, comp_id:%d\n",
+				 node->full_name, comp_id);
 			component_match_add(dev, &match, compare_of, node);
 		} else {
 			struct mtk_ddp_comp *comp;
