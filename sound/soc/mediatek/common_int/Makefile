@@ -13,13 +13,6 @@
 
 # Old kernel architecture
 MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
-
-ifeq ($(CONFIG_MACH_MT6893),y)
-MTK_ADSP_PLATFORM := mt6885
-else
-MTK_ADSP_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
-endif
-
 subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/include
 subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include
 subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/include/mt-plat
@@ -40,12 +33,12 @@ obj-$(CONFIG_MTK_HDMI_TDM) += mtk-soc-pcm-hdmi.o
 # Feature support
 ifeq ($(CONFIG_SND_SOC_MTK_AUDIO_DSP),y)
 subdir-ccflags-y += -I$(srctree)/sound/soc/mediatek/audio_dsp/
-subdir-ccflags-y += -I$(srctree)/sound/soc/mediatek/audio_dsp/$(MTK_ADSP_PLATFORM)
+subdir-ccflags-y += -I$(srctree)/sound/soc/mediatek/audio_dsp/$(MTK_PLATFORM)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/common/framework
 obj-y += mtk-soc-offload-common.o
 endif
 ifeq ($(CONFIG_MTK_AUDIODSP_SUPPORT),y)
-subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/adsp/$(MTK_ADSP_PLATFORM)
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/adsp/$(MTK_PLATFORM)
 endif
 
 
