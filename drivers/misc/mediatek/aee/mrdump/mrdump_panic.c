@@ -296,8 +296,6 @@ static int __init mrdump_panic_init(void)
 			  __func__, mrdump_lk);
 	}
 
-	mrdump_wdt_init();
-
 	atomic_notifier_chain_register(&panic_notifier_list, &panic_blk);
 	register_die_notifier(&die_blk);
 	pr_debug("ipanic: startup\n");
@@ -530,28 +528,22 @@ asmlinkage void aee_stop_nested_panic(struct pt_regs *regs)
 		aee_nested_printf("Current\n");
 		aee_print_regs(regs);
 
-		/*should not print stack info.
-		 * this may overwhelms ram console used by fiq
-		 */
-		if (in_fiq_handler() != 0) {
-			aee_nested_printf("in fiq handler\n");
-		} else {
-			/*Dump first panic stack */
-			aee_nested_printf("Previous\n");
-			if (excp_regs) {
-				len = aee_nested_save_stack(excp_regs);
-				aee_nested_printf("\nbacktrace:");
-				aee_print_bt(excp_regs);
-			}
-
-			/*Dump second panic stack */
-			aee_nested_printf("Current\n");
-			if (mrdump_virt_addr_valid(regs)) {
-				len = aee_nested_save_stack(regs);
-				aee_nested_printf("\nbacktrace:");
-				aee_print_bt(regs);
-			}
+		/*Dump first panic stack */
+		aee_nested_printf("Previous\n");
+		if (excp_regs) {
+			len = aee_nested_save_stack(excp_regs);
+			aee_nested_printf("\nbacktrace:");
+			aee_print_bt(excp_regs);
 		}
+
+		/*Dump second panic stack */
+		aee_nested_printf("Current\n");
+		if (mrdump_virt_addr_valid(regs)) {
+			len = aee_nested_save_stack(regs);
+			aee_nested_printf("\nbacktrace:");
+			aee_print_bt(regs);
+		}
+
 		aee_rec_step_nested_panic(step_base + 5);
 		ipanic_recursive_ke(regs, excp_regs, cpu);
 
