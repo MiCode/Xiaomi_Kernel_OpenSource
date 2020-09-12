@@ -97,6 +97,7 @@ struct ccci_smem_region md1_6297_noncacheable_fat[] = {
 {SMEM_USER_RAW_UDC_DATA,	0,		0,		0, },
 {SMEM_USER_MD_WIFI_PROXY,	0,		0,		0,},
 {SMEM_USER_RAW_DFD,		0,		0,		0, },
+{SMEM_USER_SECURITY_SMEM,	0,		0, SMF_NCLR_FIRST, },
 {SMEM_USER_RAW_AMMS_POS,	0,		0, SMF_NCLR_FIRST, },
 {SMEM_USER_MAX, }, /* tail guard */
 };
@@ -1647,6 +1648,8 @@ static void config_ap_side_feature(struct ccci_modem *md,
 	md_feature->feature_set[NVRAM_CACHE_SHARE_MEMORY].support_mask =
 		CCCI_FEATURE_NOT_SUPPORT;
 #endif
+	md_feature->feature_set[SECURITY_SHARE_MEMORY].support_mask =
+		CCCI_FEATURE_MUST_SUPPORT;
 
 	/* This item is reserved */
 	md_feature->feature_set[SECURITY_SHARE_MEMORY].support_mask =
@@ -2233,6 +2236,13 @@ int ccci_md_prepare_runtime_data(unsigned char md_id, unsigned char *data,
 				rt_mem_view);
 				break;
 #endif
+			case SECURITY_SHARE_MEMORY:
+				ccci_smem_region_set_runtime(md_id,
+					SMEM_USER_SECURITY_SMEM,
+					&rt_feature, &rt_shm);
+				append_runtime_feature(&rt_data, &rt_feature,
+				&rt_shm);
+				break;
 			default:
 				break;
 			};
