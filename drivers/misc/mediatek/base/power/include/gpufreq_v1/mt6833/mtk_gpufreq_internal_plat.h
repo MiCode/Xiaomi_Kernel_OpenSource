@@ -124,6 +124,11 @@
 #define MT_GPUFREQ_DFD_DEBUG 0
 
 /**************************************************
+ * GPM (GIMP: GPU Idle To Max Protector)
+ **************************************************/
+#define MT_GPUFREQ_GPM_ENABLE 0
+
+/**************************************************
  * Register Manipulations
  **************************************************/
 #define READ_REGISTER_UINT32(reg)	\

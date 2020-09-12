@@ -665,6 +665,7 @@ void mt_gpufreq_set_timestamp(void)
 
 void mt_gpufreq_set_gpm(void)
 {
+#if MT_GPUFREQ_GPM_ENABLE
 	gpufreq_pr_debug("@%s\n", __func__);
 
 	/* MFG_I2M_PROTECTOR_CFG_00 (0x13fb_ff60) = 0x20700316 */
@@ -681,6 +682,7 @@ void mt_gpufreq_set_gpm(void)
 
 	/* MFG_I2M_PROTECTOR_CFG_00 (0x13fb_ff60) = 0x20700317 */
 	writel(0x20700317, g_mfg_base + 0xf60);
+#endif
 }
 
 void mt_gpufreq_check_bus_idle(void)
