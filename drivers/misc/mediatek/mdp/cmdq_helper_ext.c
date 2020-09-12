@@ -4597,6 +4597,7 @@ static s32 cmdq_pkt_flush_async_ex_impl(struct cmdqRecStruct *handle,
 	struct ContextStruct *ctx;
 	u32 handle_count;
 	static wait_queue_head_t *wait_q;
+	int32_t thread;
 
 	if (!handle->finalized) {
 		CMDQ_ERR("handle not finalized:0x%p scenario:%d\n",
@@ -4659,18 +4660,18 @@ static s32 cmdq_pkt_flush_async_ex_impl(struct cmdqRecStruct *handle,
 		handle->pkt->cl = client;
 	}
 	wait_q = &cmdq_wait_queue[(u32)handle->thread];
+	thread = handle->thread;
 	err = cmdq_pkt_flush_async(handle->pkt, cmdq_pkt_flush_handler,
 		(void *)handle);
 	wake_up(wait_q);
 
 	CMDQ_SYSTRACE_END();
 
-	mutex_unlock(&ctx->thread[(u32)handle->thread].thread_mutex);
+	mutex_unlock(&ctx->thread[(u32)thread].thread_mutex);
 
 	if (err < 0) {
-		CMDQ_ERR("pkt flush failed err:%d pkt:0x%p\n",
-			err, handle->pkt);
-		cmdq_pkt_release_handle(handle);
+		CMDQ_ERR("pkt flush failed err:%d pkt:0x%p thread:%d\n",
+			err, handle->pkt, thread);
 		return err;
 	}
 
@@ -4701,21 +4702,23 @@ s32 cmdq_pkt_flush_async_ex(struct cmdqRecStruct *handle,
 	CmdqAsyncFlushCB cb, u64 user_data, bool auto_release)
 {
 	s32 err;
+	int32_t thread;
 
 	/* mark self as running to notify client */
 	if (handle->pkt->loop)
 		handle->running_task = (void *)handle;
 
 	CMDQ_SYSTRACE_BEGIN("%s\n", __func__);
+	thread = handle->thread;
 	err = cmdq_pkt_flush_async_ex_impl(handle, cb, user_data);
 	CMDQ_SYSTRACE_END();
 
 	if (err < 0) {
-		if (handle->thread == CMDQ_INVALID_THREAD || err == -EBUSY)
+		if (thread == CMDQ_INVALID_THREAD || err == -EBUSY)
 			return err;
 		/* client may already wait for flush done, trigger as error */
 		handle->state = TASK_STATE_ERROR;
-		wake_up(&cmdq_wait_queue[(u32)handle->thread]);
+		wake_up(&cmdq_wait_queue[(u32)thread]);
 		return err;
 	}
 
