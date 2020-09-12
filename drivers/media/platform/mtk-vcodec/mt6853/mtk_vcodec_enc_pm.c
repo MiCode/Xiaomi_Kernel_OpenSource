@@ -29,6 +29,8 @@
 #include "mach/pseudo_m4u.h"
 #endif
 
+#include "swpm_me.h"
+
 #if ENC_DVFS
 #include <linux/pm_qos.h>
 #include <mmdvfs_pmqos.h>
@@ -133,6 +135,8 @@ void mtk_vcodec_enc_clock_on(struct mtk_vcodec_ctx *ctx, int core_id)
 	ret = clk_prepare_enable(pm->clk_MT_CG_VENC);
 	if (ret)
 		mtk_v4l2_err("clk_prepare_enable CG_VENC fail %d", ret);
+
+	set_swpm_venc_active(true);
 #endif
 
 #ifdef CONFIG_MTK_PSEUDO_M4U
@@ -167,6 +171,7 @@ void mtk_vcodec_enc_clock_off(struct mtk_vcodec_ctx *ctx, int core_id)
 #ifndef FPGA_PWRCLK_API_DISABLE
 	struct mtk_vcodec_pm *pm = &ctx->dev->pm;
 
+	set_swpm_venc_active(false);
 	clk_disable_unprepare(pm->clk_MT_CG_VENC);
 	smi_bus_disable_unprepare(SMI_LARB7, "VENC");
 #endif
