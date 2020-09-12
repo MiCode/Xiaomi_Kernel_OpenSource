@@ -231,7 +231,7 @@ page_owner=on";
 		reg = <0 0x40000000 0 0x3e605000>;
 	};
 
-	reserved-memory {
+	reserved_memory: reserved-memory {
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges;
