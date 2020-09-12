@@ -1849,6 +1849,11 @@ static void mtk_crtc_disp_mode_switch_begin(struct drm_crtc *crtc,
 }
 
 bool already_free;
+bool mtk_crtc_frame_buffer_existed(void)
+{
+	DDPMSG("%s, frame buffer is freed:%d\n", __func__, already_free);
+	return !already_free;
+}
 
 static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
 				      struct drm_crtc_state *old_crtc_state,
@@ -1909,6 +1914,7 @@ static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
 						   cmdq_handle);
 			if (lyeblob_ids->lye_idx == 2 && !already_free) {
 				/*free fb buf in second query valid*/
+				DDPMSG("%s, %d release frame buffer\n");
 				mtk_drm_fb_gem_release(dev);
 				free_fb_buf();
 				already_free = true;
