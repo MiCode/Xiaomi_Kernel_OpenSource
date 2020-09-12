@@ -299,13 +299,15 @@ static ssize_t baro_show_active(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {
 	struct baro_context *cxt = NULL;
-	int div;
+	int div = 0;
+	ssize_t res = 0;
 
 	cxt = baro_context_obj;
 	div = cxt->baro_data.vender_div;
 
 	pr_debug("baro vender_div value: %d\n", div);
-	return snprintf(buf, PAGE_SIZE, "%d\n", div);
+	res = snprintf(buf, PAGE_SIZE, "%d\n", div);
+	return res < PAGE_SIZE ? res : -EINVAL;
 }
 
 static ssize_t baro_store_batch(struct device *dev,
@@ -344,7 +346,10 @@ static ssize_t baro_store_batch(struct device *dev,
 static ssize_t baro_show_batch(struct device *dev,
 			       struct device_attribute *attr, char *buf)
 {
-	return snprintf(buf, PAGE_SIZE, "%d\n", 0);
+	ssize_t res = 0;
+
+	res = snprintf(buf, PAGE_SIZE, "%d\n", 0);
+	return res < PAGE_SIZE ? res : -EINVAL;
 }
 
 static ssize_t baro_store_flush(struct device *dev,
@@ -379,13 +384,46 @@ static ssize_t baro_store_flush(struct device *dev,
 static ssize_t baro_show_flush(struct device *dev,
 			       struct device_attribute *attr, char *buf)
 {
-	return snprintf(buf, PAGE_SIZE, "%d\n", 0);
+	ssize_t res = 0;
+
+	res = snprintf(buf, PAGE_SIZE, "%d\n", 0);
+	return res < PAGE_SIZE ? res : -EINVAL;
+}
+
+static ssize_t baro_store_cali(struct device *dev,
+			       struct device_attribute *attr,
+			       const char *buf, size_t count)
+{
+	struct baro_context *cxt = NULL;
+	int err = 0;
+	int32_t cali_buf[2] = {0};
+
+	err = sscanf(buf, "%d,%d", &cali_buf[0], &cali_buf[1]);
+	if (err != 2) {
+		pr_err("%s sscanf param error:%d\n", __func__, err);
+		return -1;
+	}
+
+	mutex_lock(&baro_context_obj->baro_op_mutex);
+	cxt = baro_context_obj;
+	if (cxt->baro_ctl.set_cali != NULL)
+		err = cxt->baro_ctl.set_cali((int8_t *)cali_buf, count);
+	else
+		pr_err("DON'T SUPPORT BARO COMMONVERSION CALI\n");
+	if (err < 0)
+		pr_err("baro set cali err %d\n", err);
+	mutex_unlock(&baro_context_obj->baro_op_mutex);
+
+	return count;
 }
 
 static ssize_t baro_show_devnum(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {
-	return snprintf(buf, PAGE_SIZE, "%d\n", 0);
+	ssize_t res = 0;
+
+	res = snprintf(buf, PAGE_SIZE, "%d\n", 0);
+	return res < PAGE_SIZE ? res : -EINVAL;
 }
 
 static int barometer_remove(struct platform_device *pdev)
@@ -529,11 +567,13 @@ DEVICE_ATTR(baroactive, 0644, baro_show_active, baro_store_active);
 DEVICE_ATTR(barobatch, 0644, baro_show_batch, baro_store_batch);
 DEVICE_ATTR(baroflush, 0644, baro_show_flush, baro_store_flush);
 DEVICE_ATTR(barodevnum, 0644, baro_show_devnum, NULL);
+DEVICE_ATTR(barocali, 0644, NULL, baro_store_cali);
 
 static struct attribute *baro_attributes[] = {
 	&dev_attr_baroactive.attr,
 	&dev_attr_barobatch.attr,
 	&dev_attr_baroflush.attr,
+	&dev_attr_barocali.attr,
 	&dev_attr_barodevnum.attr,
 	NULL
 };
@@ -570,6 +610,7 @@ int baro_register_control_path(struct baro_control_path *ctl)
 	cxt->baro_ctl.enable_nodata = ctl->enable_nodata;
 	cxt->baro_ctl.batch = ctl->batch;
 	cxt->baro_ctl.flush = ctl->flush;
+	cxt->baro_ctl.set_cali = ctl->set_cali;
 	cxt->baro_ctl.is_support_batch = ctl->is_support_batch;
 	cxt->baro_ctl.is_report_input_direct = ctl->is_report_input_direct;
 	cxt->baro_ctl.is_support_batch = ctl->is_support_batch;
@@ -603,7 +644,6 @@ int baro_register_control_path(struct baro_control_path *ctl)
 int baro_data_report(int value, int status, int64_t nt)
 {
 	struct sensor_event event;
-	int err = 0;
 
 	memset(&event, 0, sizeof(struct sensor_event));
 
@@ -612,21 +652,30 @@ int baro_data_report(int value, int status, int64_t nt)
 	event.word[0] = value;
 	event.status = status;
 
-	err = sensor_input_event(baro_context_obj->mdev.minor, &event);
-	return err;
+	return sensor_input_event(baro_context_obj->mdev.minor, &event);
+}
+
+int baro_cali_report(int32_t *data)
+{
+	struct sensor_event event;
+
+	memset(&event, 0, sizeof(struct sensor_event));
+
+	event.flush_action = CALI_ACTION;
+	event.word[0] = data[0];
+	event.word[1] = data[1];
+	return sensor_input_event(baro_context_obj->mdev.minor, &event);
 }
 
 int baro_flush_report(void)
 {
 	struct sensor_event event;
-	int err = 0;
 
 	memset(&event, 0, sizeof(struct sensor_event));
 
 	pr_debug_ratelimited("flush\n");
 	event.flush_action = FLUSH_ACTION;
-	err = sensor_input_event(baro_context_obj->mdev.minor, &event);
-	return err;
+	return sensor_input_event(baro_context_obj->mdev.minor, &event);
 }
 
 static int baro_probe(void)
