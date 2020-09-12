@@ -481,6 +481,20 @@ page_owner=on";
 		#clock-cells = <1>;
 	};
 
+	mt6359_gauge {
+		compatible = "mediatek,mt6359_gauge";
+		gauge_name = "gauge";
+		alias_name = "MT6359";
+	};
+
+	gauge_timer {
+		compatible = "mediatek,gauge_timer_service";
+	};
+
+#if (CONFIG_MTK_GAUGE_VERSION == 30)
+	#include "mediatek/bat_setting/mt6833_battery_prop.dtsi"
+#endif
+
 	subpmic_pmu_eint:subpmic_pmu_eint {
 	};
 
