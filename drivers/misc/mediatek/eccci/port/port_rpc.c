@@ -39,6 +39,9 @@
 #ifdef FEATURE_RF_CLK_BUF
 #include <mtk_clkbuf_ctl.h>
 #endif
+#ifdef CONFIG_MTK_OTP
+#include <mt-plat/mtk_otp.h>
+#endif
 
 #include "ccci_core.h"
 #include "ccci_bm.h"
@@ -1075,6 +1078,31 @@ static void ccci_rpc_work_helper(struct port_t *port, struct rpc_pkt *pkt,
 			break;
 		}
 #endif
+
+#ifdef CONFIG_MTK_OTP
+		/* Fall through */
+		case IPC_RPC_EFUSE_BLOWING:
+			{
+				unsigned int *buf_data;
+				unsigned int cmd;
+
+				buf_data = (unsigned int *) (pkt[0].buf);
+				cmd = *buf_data;
+
+				tmp_data[1] = otp_ccci_handler(cmd);
+				pkt_num = 0;
+				tmp_data[0] = 0;
+				pkt[pkt_num].len = sizeof(unsigned int);
+				pkt[pkt_num++].buf = (void *)&tmp_data[0];
+				pkt[pkt_num].len = sizeof(unsigned int);
+				pkt[pkt_num++].buf = (void *)&tmp_data[1];
+				CCCI_NORMAL_LOG(md_id, RPC,
+					"[IPC_RPC_EFUSE_BLOWING] cmd = 0x%X, return 0x%X\n",
+					cmd, tmp_data[1]);
+				break;
+			}
+#endif
+
 	case IPC_RPC_CCCI_LHIF_MAPPING:
 		{
 			struct ccci_rpc_queue_mapping *remap;
