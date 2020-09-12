@@ -11,6 +11,11 @@
 # GNU General Public License for more details.
 #
 
+# separate mt6833 from family mt6853
+ifeq (y, $(filter y, $(CONFIG_MACH_MT6833)))
+	MTK_PLATFORM := mt6833
+endif
+
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/video/include/ \
              -I$(srctree)/drivers/misc/mediatek/video/common/ \
              -I$(srctree)/drivers/misc/mediatek/video/$(MTK_PLATFORM)/videox/ \
