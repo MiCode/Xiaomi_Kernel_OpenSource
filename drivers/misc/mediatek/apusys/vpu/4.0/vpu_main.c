@@ -269,6 +269,12 @@ int vpu_kbuf_alloc(struct vpu_device *vd)
 	period = ((uint64_t)(timespec_to_ns(&end)
 		- timespec_to_ns(&start)));
 
+	/*
+	 * To ensure that vp6's data store won't be overwritten
+	 * by unexpected arm's cache flush sometime later at the
+	 * same address space, an extra iova cache flush here
+	 * before do_loader is necessary.
+	 */
 	vpu_iova_sync_for_cpu(vd->dev, &vd->iova_kernel);
 
 	vpu_pwr_debug("%s: vpu%d, iova: 0x%llx, period: %llu ns, page num: %d\n",
