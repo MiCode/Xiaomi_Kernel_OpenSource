@@ -3950,9 +3950,10 @@ static signed int __init MFB_Init(void)
 	void *tmp;
 	/* FIX-ME: linux-3.10 procfs API changed */
 	/* use proc_create */
+#if 0
 	/* struct proc_dir_entry *proc_entry; */
 	struct proc_dir_entry *isp_mfb_dir;
-
+#endif
 
 	int i;
 	/*  */
@@ -3980,6 +3981,7 @@ static signed int __init MFB_Init(void)
 	log_dbg("ISP_MFB_BASE: %lx\n", ISP_MFB_BASE);
 #endif
 
+#if 0
 	isp_mfb_dir = proc_mkdir("mfb", NULL);
 	if (!isp_mfb_dir) {
 		log_err("[%s]: fail to mkdir /proc/mfb\n", __func__);
@@ -3994,7 +3996,7 @@ static signed int __init MFB_Init(void)
 
 	/* proc_entry = proc_create("mfb_reg", 0644, */
 	/*	isp_mfb_dir, &mfb_reg_proc_fops); */
-
+#endif
 
 	/* isr log */
 	if (PAGE_SIZE <
