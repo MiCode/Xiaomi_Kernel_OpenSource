@@ -3,23 +3,17 @@
  * Copyright (c) 2020 MediaTek Inc.
  */
 
-#include <linux/version.h>
-#include <linux/sysctl.h>
-#include <linux/module.h>
-#include <linux/fs.h>
-#include <linux/cdev.h>
-#include <linux/ioctl.h>
+#include <linux/errno.h>
+#include <linux/string.h>
 
 #include "mddp_debug.h"
-#include "mddp_f_tuple.h"
 #include "mddp_f_dev.h"
-#include "mddp_track.h"
 
 /*------------------------------------------------------------------------*/
 /* MD Direct Tethering only supports some specified network devices,      */
 /* which are defined below                                                */
 /*------------------------------------------------------------------------*/
-const char *mddp_f_support_dev_names[] = {
+static const char * const mddp_f_support_dev_names[] = {
 	"ccmni-lan",
 	"ccmni0",
 	"ccmni1",
@@ -56,7 +50,7 @@ const char *mddp_f_support_dev_names[] = {
 	"rndis0"
 };
 
-const char *mddp_f_support_wan_dev_names[] = {
+static const char * const mddp_f_support_wan_dev_names[] = {
 	"ccmni0",
 	"ccmni1",
 	"ccmni2",
@@ -91,10 +85,10 @@ const char *mddp_f_support_wan_dev_names[] = {
 	"ccmni31"
 };
 
-const int mddp_f_support_dev_num =
+static const int mddp_f_support_dev_num =
 	sizeof(mddp_f_support_dev_names) /
 	sizeof(mddp_f_support_dev_names[0]);
-const int mddp_f_support_wan_dev_num =
+static const int mddp_f_support_wan_dev_num =
 	sizeof(mddp_f_support_wan_dev_names) /
 	sizeof(mddp_f_support_wan_dev_names[0]);
 
@@ -135,7 +129,7 @@ bool mddp_f_is_support_wan_dev(char *dev_name)
 	return false;
 }
 
-int mddp_f_dev_get_netif_id(char *dev_name)
+static int mddp_f_dev_get_netif_id(char *dev_name)
 {
 	int i;
 
@@ -201,18 +195,6 @@ int mddp_f_dev_name_to_netif_id(char *dev_name)
 	}
 
 	return -1;
-}
-
-const char *mddp_f_data_usage_id_to_dev_name(int id)
-{
-	if (id < 0 || id >= mddp_f_support_wan_dev_num) {
-		MDDP_F_LOG(MDDP_LL_ERR,
-				"%s: Invalid ID[%d].\n", __func__, id);
-		WARN_ON(1);
-		return NULL;
-	}
-
-	return mddp_f_support_wan_dev_names[id];
 }
 
 int mddp_f_data_usage_wan_dev_name_to_id(char *dev_name)

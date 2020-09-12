@@ -6,9 +6,9 @@
 #ifndef __MDDP_USAGE_H
 #define __MDDP_USAGE_H
 
-#if defined(MDDP_TETHERING_SUPPORT)
+#ifdef CONFIG_MTK_MDDP_WH_SUPPORT
 
-#include <linux/netdevice.h>
+#include "mddp_export.h"
 
 //------------------------------------------------------------------------------
 // Struct definition.
@@ -68,6 +68,6 @@ int32_t mddp_u_msg_hdlr(uint32_t msg_id, void *buf, uint32_t buf_len);
 #define mddp_u_set_data_limit(x, y) 0
 #define mddp_u_msg_hdlr() 0
 
-#endif /* MDDP_TETHERING_SUPPORT */
+#endif /* CONFIG_MTK_MDDP_WH_SUPPORT */
 
 #endif /* __MDDP_USAGE_H */

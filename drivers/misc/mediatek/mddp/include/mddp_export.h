@@ -8,8 +8,9 @@
 #ifndef __MDDP_EXPORT_H
 #define __MDDP_EXPORT_H
 
-#include <linux/netdevice.h>
+#include <linux/if.h>
 
+#include "mddp_wifi_def.h"
 //------------------------------------------------------------------------------
 // Struct definition.
 // -----------------------------------------------------------------------------
@@ -61,7 +62,6 @@ typedef int32_t (*mddp_cbf_drv_notify_t)(
 	enum mddp_app_type_e app_type,
 	enum mddp_drv_notify_type_e notify_type);
 
-#include "mddp_wifi_def.h"
 struct mddp_drv_handle_t {
 	/* MDDP invokes these APIs provided by driver. */
 	drv_cbf_change_state_t          change_state;
@@ -74,12 +74,6 @@ struct mddp_drv_handle_t {
 		struct mddpw_drv_handle_t     *wifi_handle;
 	};
 };
-
-//------------------------------------------------------------------------------
-// Public function definition.
-// -----------------------------------------------------------------------------
-/* MD to AP CCCI_IPC callback function */
-int32_t mddp_md_msg_hdlr(void *arg);
 
 //------------------------------------------------------------------------------
 // Public function definition - For driver
@@ -260,20 +254,13 @@ struct mddp_f_tag_packet_t {
 	u_int16_t	guard_pattern;
 	u_int8_t	version;
 	u_int8_t	tag_len;    // extension tag included
-	union {
-		struct {
-			u_int8_t	in_netif_id;
-			u_int8_t	out_netif_id;
-			u_int16_t	port;
-		} v1;
-		struct {
-			u_int8_t	tag_info;
-			u_int8_t	reserved;
-			u_int16_t	port;
-			u_int32_t	lan_netif_id;
-			u_int32_t	ip;
-		} v2;
-	};
+	struct {
+		u_int8_t	tag_info;
+		u_int8_t	reserved;
+		u_int16_t	port;
+		u_int32_t	lan_netif_id;
+		u_int32_t	ip;
+	} v2;
 };
 
 /*

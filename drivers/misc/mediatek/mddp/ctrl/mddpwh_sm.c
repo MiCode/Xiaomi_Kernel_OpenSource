@@ -5,19 +5,13 @@
  * Copyright (c) 2020 MediaTek Inc.
  */
 
-#include <linux/types.h>
-#include <linux/timer.h>
-#include <linux/workqueue.h>
+#include <linux/slab.h>
 
 #include "mddp_ctrl.h"
-#include "mddp_filter.h"
-
 #include "mddp_debug.h"
 #include "mddp_dev.h"
-#include "mddp_if.h"
-#include "mddp_ipc.h"
+#include "mddp_filter.h"
 #include "mddp_sm.h"
-#include "mddp_wifi_def.h"
 
 //------------------------------------------------------------------------------
 // Struct definition.
@@ -36,7 +30,6 @@ static struct mddp_md_cfg_t mddpw_md_cfg_s = {
 	MDFPM_USER_ID_WFPM,
 };
 
-struct mddp_sm_entry_t *prev_mddpwh_state_machines_s;
 static struct timer_list mddpw_timer;
 static struct work_struct mddpw_reset_workq;
 static uint8_t mddpw_reset_ongoing;
@@ -58,7 +51,7 @@ static uint8_t mddpw_reset_ongoing;
 //------------------------------------------------------------------------------
 // Public functions - MDDPWH (WiFi) state machine functions
 //------------------------------------------------------------------------------
-void mddpwh_sm_enable(struct mddp_app_t *app)
+static void mddpwh_sm_enable(struct mddp_app_t *app)
 {
 	struct mddp_md_msg_t                   *md_msg;
 	struct wfpm_enable_md_func_req_t       *enable_req;
@@ -98,7 +91,7 @@ void mddpwh_sm_enable(struct mddp_app_t *app)
 	mddp_ipc_send_md(app, md_msg, MDFPM_USER_ID_NULL);
 }
 
-void mddpwh_sm_rsp_enable_ok(struct mddp_app_t *app)
+static void mddpwh_sm_rsp_enable_ok(struct mddp_app_t *app)
 {
 	struct mddp_dev_rsp_enable_t            enable;
 
@@ -110,7 +103,7 @@ void mddpwh_sm_rsp_enable_ok(struct mddp_app_t *app)
 			true, (uint8_t *)&enable, sizeof(enable));
 }
 
-void mddpwh_sm_rsp_enable_fail(struct mddp_app_t *app)
+static void mddpwh_sm_rsp_enable_fail(struct mddp_app_t *app)
 {
 	struct mddp_dev_rsp_enable_t    enable;
 
@@ -122,7 +115,7 @@ void mddpwh_sm_rsp_enable_fail(struct mddp_app_t *app)
 			false, (uint8_t *)&enable, sizeof(enable));
 }
 
-void mddpwh_sm_disable(struct mddp_app_t *app)
+static void mddpwh_sm_disable(struct mddp_app_t *app)
 {
 	struct mddp_md_msg_t                   *md_msg;
 	struct wfpm_md_fast_path_common_req_t  *disable_req;
@@ -149,7 +142,7 @@ void mddpwh_sm_disable(struct mddp_app_t *app)
 	mddp_ipc_send_md(app, md_msg, MDFPM_USER_ID_NULL);
 }
 
-void mddpwh_sm_rsp_disable(struct mddp_app_t *app)
+static void mddpwh_sm_rsp_disable(struct mddp_app_t *app)
 {
 	// 1. Send RSP to WiFi
 	app->drv_hdlr.change_state(app->state, NULL, NULL);
@@ -158,7 +151,7 @@ void mddpwh_sm_rsp_disable(struct mddp_app_t *app)
 
 }
 
-void mddpwh_sm_act(struct mddp_app_t *app)
+static void mddpwh_sm_act(struct mddp_app_t *app)
 {
 	struct mddp_md_msg_t                 *md_msg;
 	struct wfpm_activate_md_func_req_t   *act_req;
@@ -187,7 +180,7 @@ void mddpwh_sm_act(struct mddp_app_t *app)
 	mddp_ipc_send_md(app, md_msg, MDFPM_USER_ID_NULL);
 }
 
-void mddpwh_sm_rsp_act_ok(struct mddp_app_t *app)
+static void mddpwh_sm_rsp_act_ok(struct mddp_app_t *app)
 {
 	struct mddp_dev_rsp_act_t       act;
 
@@ -199,7 +192,7 @@ void mddpwh_sm_rsp_act_ok(struct mddp_app_t *app)
 			true, (uint8_t *)&act, sizeof(act));
 }
 
-void mddpwh_sm_rsp_act_fail(struct mddp_app_t *app)
+static void mddpwh_sm_rsp_act_fail(struct mddp_app_t *app)
 {
 	struct mddp_dev_rsp_act_t       act;
 
@@ -211,7 +204,7 @@ void mddpwh_sm_rsp_act_fail(struct mddp_app_t *app)
 			false, (uint8_t *)&act, sizeof(act));
 }
 
-void mddpwh_sm_deact(struct mddp_app_t *app)
+static void mddpwh_sm_deact(struct mddp_app_t *app)
 {
 	struct mddp_md_msg_t                 *md_msg;
 	struct wfpm_activate_md_func_req_t   *deact_req;
@@ -236,7 +229,7 @@ void mddpwh_sm_deact(struct mddp_app_t *app)
 	mddp_ipc_send_md(app, md_msg, MDFPM_USER_ID_NULL);
 }
 
-void mddpwh_sm_rsp_deact(struct mddp_app_t *app)
+static void mddpwh_sm_rsp_deact(struct mddp_app_t *app)
 {
 	struct mddp_dev_rsp_deact_t     deact;
 
@@ -326,7 +319,8 @@ static struct mddp_sm_entry_t mddpwh_deactivating_state_machine_s[] = {
 {MDDP_EVT_DUMMY,        MDDP_STATE_DEACTIVATING, NULL} /* End of SM. */
 };
 
-#if defined(CONFIG_MTK_MDDP_WH_SUPPORT) || defined(CONFIG_MTK_ENG_BUILD)
+#ifdef CONFIG_MTK_MDDP_WH_SUPPORT
+static struct mddp_sm_entry_t *prev_mddpwh_state_machines_s;
 static struct mddp_sm_entry_t mddpwh_dead_state_machine_s[] = {
 /* event                new_state                action */
 {MDDP_EVT_DUMMY,        MDDP_STATE_DEACTIVATED,  NULL} /* End of SM. */
@@ -350,7 +344,7 @@ struct mddp_sm_entry_t *mddpwh_state_machines_s[MDDP_STATE_CNT] = {
 // Public functions.
 //------------------------------------------------------------------------------
 
-void mddpw_ack_md_reset(struct work_struct *mddp_work)
+static void mddpw_ack_md_reset(struct work_struct *mddp_work)
 {
 	struct mddp_app_t                *app;
 	struct mddp_md_msg_t             *md_msg;
@@ -441,12 +435,12 @@ void mddpw_ack_md_reset(struct work_struct *mddp_work)
 	}
 }
 
-void mddpw_reset_work(unsigned long data)
+static void mddpw_reset_work(unsigned long data)
 {
 	schedule_work(&(mddpw_reset_workq));
 }
 
-int32_t mddpw_wfpm_msg_hdlr(uint32_t msg_id, void *buf, uint32_t buf_len)
+static int32_t mddpw_wfpm_msg_hdlr(uint32_t msg_id, void *buf, uint32_t buf_len)
 {
 	struct mddp_app_t                      *app;
 	struct wfpm_md_fast_path_common_rsp_t  *rsp;
@@ -467,7 +461,6 @@ int32_t mddpw_wfpm_msg_hdlr(uint32_t msg_id, void *buf, uint32_t buf_len)
 				"%s: set (%u), (%u), MD version(%u), (%u).\n",
 				__func__, enable_rsp->mode, enable_rsp->result,
 		enable_rsp->version, enable_rsp->reserved);
-		mddp_set_md_version(enable_rsp->version);
 
 		if (rsp->result) {
 			/* ENABLE OK. */
@@ -590,7 +583,7 @@ int32_t mddpw_wfpm_msg_hdlr(uint32_t msg_id, void *buf, uint32_t buf_len)
 	return 0;
 }
 
-int32_t mddpw_drv_add_txd(struct mddpw_txd_t *txd)
+static int32_t mddpw_drv_add_txd(struct mddpw_txd_t *txd)
 {
 	struct mddp_md_msg_t    *md_msg;
 	struct mddp_app_t       *app;
@@ -621,7 +614,7 @@ int32_t mddpw_drv_add_txd(struct mddpw_txd_t *txd)
 	return 0;
 }
 
-int32_t mddpw_drv_get_net_stat(struct mddpw_net_stat_t *usage)
+static int32_t mddpw_drv_get_net_stat(struct mddpw_net_stat_t *usage)
 {
 	// Use global variable to cache previous statistics,
 	// and return delta value each call.
@@ -661,7 +654,7 @@ int32_t mddpw_drv_get_net_stat(struct mddpw_net_stat_t *usage)
 	return 0;
 }
 
-int32_t mddpw_drv_get_net_stat_ext(struct mddpw_net_stat_ext_t *usage)
+static int32_t mddpw_drv_get_net_stat_ext(struct mddpw_net_stat_ext_t *usage)
 {
 	struct mddpw_net_stat_ext_t       *md_stats = NULL;
 	uint8_t                            smem_attr;
@@ -694,7 +687,7 @@ int32_t mddpw_drv_get_net_stat_ext(struct mddpw_net_stat_ext_t *usage)
 	return 0;
 }
 
-int32_t mddpw_drv_get_sys_stat(struct mddpw_sys_stat_t **sys_stat)
+static int32_t mddpw_drv_get_sys_stat(struct mddpw_sys_stat_t **sys_stat)
 {
 	uint8_t                  smem_attr;
 	uint32_t                 smem_size;
@@ -710,7 +703,7 @@ int32_t mddpw_drv_get_sys_stat(struct mddpw_sys_stat_t **sys_stat)
 	return 0;
 }
 
-int32_t mddpw_drv_get_ap_rx_reorder_buf(
+static int32_t mddpw_drv_get_ap_rx_reorder_buf(
 	struct mddpw_ap_reorder_sync_table_t **ap_table)
 {
 	uint8_t      smem_attr;
@@ -727,7 +720,7 @@ int32_t mddpw_drv_get_ap_rx_reorder_buf(
 	return 0;
 }
 
-int32_t mddpw_drv_get_md_rx_reorder_buf(
+static int32_t mddpw_drv_get_md_rx_reorder_buf(
 	struct mddpw_md_reorder_sync_table_t **md_table)
 {
 	uint8_t      smem_attr;
@@ -744,7 +737,7 @@ int32_t mddpw_drv_get_md_rx_reorder_buf(
 	return 0;
 }
 
-int32_t mddpw_drv_notify_info(
+static int32_t mddpw_drv_notify_info(
 	struct mddpw_drv_notify_info_t *wifi_notify)
 {
 	struct mddp_md_msg_t    *md_msg;
@@ -778,7 +771,7 @@ int32_t mddpw_drv_notify_info(
 	return 0;
 }
 
-int32_t mddpw_drv_reg_callback(struct mddp_drv_handle_t *handle)
+static int32_t mddpw_drv_reg_callback(struct mddp_drv_handle_t *handle)
 {
 	struct mddpw_drv_handle_t         *wifi_handle;
 
@@ -800,7 +793,7 @@ int32_t mddpw_drv_reg_callback(struct mddp_drv_handle_t *handle)
 	return 0;
 }
 
-int32_t mddpw_drv_dereg_callback(struct mddp_drv_handle_t *handle)
+static int32_t mddpw_drv_dereg_callback(struct mddp_drv_handle_t *handle)
 {
 	struct mddpw_drv_handle_t         *wifi_handle;
 
@@ -816,11 +809,13 @@ int32_t mddpw_drv_dereg_callback(struct mddp_drv_handle_t *handle)
 	wifi_handle->get_ap_rx_reorder_buf = NULL;
 	wifi_handle->get_md_rx_reorder_buf = NULL;
 	wifi_handle->notify_drv_info = NULL;
+	wifi_handle->get_net_stat_ext = NULL;
+	wifi_handle->get_sys_stat = NULL;
 
 	return 0;
 }
 
-ssize_t mddpwh_sysfs_callback(
+static ssize_t mddpwh_sysfs_callback(
 	struct mddp_app_t *app,
 	enum mddp_sysfs_cmd_e cmd,
 	char *buf,
@@ -863,6 +858,7 @@ ssize_t mddpwh_sysfs_callback(
 		return show_cnt;
 	}
 #ifdef CONFIG_MTK_ENG_BUILD
+#ifdef CONFIG_MTK_MDDP_WH_SUPPORT
 	if (cmd == MDDP_SYSFS_CMD_ENABLE_WRITE) {
 		if (sysfs_streq(buf, "1")) {
 			app->state_machines[MDDP_STATE_DEACTIVATED] =
@@ -880,6 +876,7 @@ ssize_t mddpwh_sysfs_callback(
 	} else if (cmd == MDDP_SYSFS_CMD_ENABLE_READ)
 		return scnprintf(buf, PAGE_SIZE,
 					"wh_enable(%d)\n", mddpwh_state);
+#endif
 #endif
 #ifdef MDDP_EM_SUPPORT
 	if (cmd == MDDP_SYSFS_EM_CMD_TEST_WRITE) {

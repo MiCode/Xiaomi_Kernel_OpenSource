@@ -6,8 +6,9 @@
  */
 
 #include <linux/cdev.h>
-#include <linux/types.h>
-#include <linux/string.h>
+#include <linux/fs.h>
+#include <linux/slab.h>
+#include <linux/uaccess.h>
 
 #include "mddp_ctrl.h"
 #include "mddp_debug.h"
@@ -64,6 +65,24 @@ struct mddp_dev_rb_head_t {
 		if (_len > 1 && _buf[_len-1] == '\n') \
 			_buf[_len-1] = '\0'; \
 	} while (0)
+
+//------------------------------------------------------------------------------
+// Private prototype.
+// -----------------------------------------------------------------------------
+static int32_t mddp_dev_open(struct inode *inode,
+	struct file *file);
+static int32_t mddp_dev_close(struct inode *inode,
+	struct file *file);
+static ssize_t mddp_dev_read(struct file *file,
+	char *buf, size_t count, loff_t *ppos);
+static ssize_t mddp_dev_write(struct file *file,
+	const char __user *buf, size_t count, loff_t *ppos);
+static long mddp_dev_ioctl(struct file *file,
+	unsigned int cmd, unsigned long arg);
+static long mddp_dev_compat_ioctl(struct file *filp,
+	unsigned int cmd, unsigned long arg);
+static unsigned int mddp_dev_poll(struct file *fp,
+	struct poll_table_struct *poll);
 
 //------------------------------------------------------------------------------
 // Private variables.
@@ -408,7 +427,7 @@ static char *__mddp_dev_devnode(struct device *dev, umode_t *mode)
 	return NULL;
 }
 
-void _mddp_dev_create_dev_node(void)
+static void _mddp_dev_create_dev_node(void)
 {
 	dev_t                   dev;
 	int32_t                 alloc_err = 0;
@@ -454,7 +473,7 @@ create_class_error:
 			__func__, alloc_err, cd_err);
 }
 
-void _mddp_dev_release_dev_node(void)
+static void _mddp_dev_release_dev_node(void)
 {
 	dev_t                   dev;
 
@@ -562,7 +581,7 @@ void mddp_dev_response(enum mddp_app_type_e type,
 //------------------------------------------------------------------------------
 // Device node functins.
 //------------------------------------------------------------------------------
-int32_t mddp_dev_open(struct inode *inode, struct file *file)
+static int32_t mddp_dev_open(struct inode *inode, struct file *file)
 {
 	MDDP_C_LOG(MDDP_LL_INFO, "%s: IOCTL dev open.\n", __func__);
 
@@ -574,7 +593,7 @@ int32_t mddp_dev_open(struct inode *inode, struct file *file)
 	return 0;
 }
 
-int32_t mddp_dev_close(struct inode *inode, struct file *file)
+static int32_t mddp_dev_close(struct inode *inode, struct file *file)
 {
 	MDDP_C_LOG(MDDP_LL_INFO, "%s: IOCTL dev close.\n", __func__);
 
@@ -583,7 +602,7 @@ int32_t mddp_dev_close(struct inode *inode, struct file *file)
 	return 0;
 }
 
-ssize_t mddp_dev_read(struct file *file, char *buf, size_t count, loff_t *ppos)
+static ssize_t mddp_dev_read(struct file *file, char *buf, size_t count, loff_t *ppos)
 {
 	int32_t                         ret = 0;
 	uint32_t                        len = 0;
@@ -647,7 +666,7 @@ exit:
 	return ret ? ret : len;
 }
 
-ssize_t mddp_dev_write(struct file *file,
+static ssize_t mddp_dev_write(struct file *file,
 		const char __user *buf,
 		size_t count,
 		loff_t *ppos)
@@ -660,7 +679,7 @@ ssize_t mddp_dev_write(struct file *file,
 	return count;
 }
 
-long mddp_dev_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+static long mddp_dev_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	struct mddp_dev_req_common_t            dev_req;
 	struct mddp_dev_rsp_common_t           *dev_rsp;
@@ -832,7 +851,7 @@ ioctl_error:
 }
 
 #ifdef CONFIG_COMPAT
-long mddp_dev_compat_ioctl(struct file *filp,
+static long mddp_dev_compat_ioctl(struct file *filp,
 		unsigned int cmd,
 		unsigned long arg)
 {
@@ -840,7 +859,7 @@ long mddp_dev_compat_ioctl(struct file *filp,
 }
 #endif
 
-unsigned int mddp_dev_poll(struct file *fp, struct poll_table_struct *poll)
+static unsigned int mddp_dev_poll(struct file *fp, struct poll_table_struct *poll)
 {
 	return 0;
 }
