@@ -13,6 +13,7 @@
 
 #ifndef _MTK_PERFMGR_INTERNAL_H
 #define _MTK_PERFMGR_INTERNAL_H
+#include "mtk_ppm_api.h"
 
 /* PROCFS */
 #define PROC_FOPS_RW(name) \
@@ -71,5 +72,7 @@ extern void perfmgr_trace_end(void);
 extern void perfmgr_trace_begin(char *name, int id, int a, int b);
 extern void perfmgr_trace_printk(char *module, char *string);
 extern void perfmgr_trace_log(char *module, const char *fmt, ...);
+extern int perfmgr_common_userlimit_cpu_freq(unsigned int cluster_num,
+					struct ppm_limit_data *final_freq);
 
 #endif /* _MTK_PERFMGR_INTERNAL_H */
