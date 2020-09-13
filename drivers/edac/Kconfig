@@ -23,15 +23,6 @@ menuconfig EDAC
 
 if EDAC
 
-config EDAC_QGKI
-	bool "Enable QGKI features for EDAC"
-	depends on QGKI
-	help
-	  When QGKI variants are selected, use special EDAC features like
-	  creating and using deferred work. This feature adds
-	  a deferrable timer if the error checking is not worth waking up
-	  the cpu from idle.
-
 config EDAC_LEGACY_SYSFS
 	bool "EDAC legacy sysfs"
 	default y
