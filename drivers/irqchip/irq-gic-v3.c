@@ -609,7 +609,8 @@ static void gic_show_resume_irq(struct gic_chip_data *gic)
 		else if (desc->action && desc->action->name)
 			name = desc->action->name;
 
-		pr_warn("%s: %d triggered %s\n", __func__, irq, name);
+		pr_warn("%s: irq:%d hwirq:%u triggered %s\n",
+			 __func__, irq, i, name);
 	}
 }
 
