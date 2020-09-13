@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2012-2014,2018-2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014,2018-2020 The Linux Foundation. All rights reserved.
  */
 
 #ifndef _DT_BINDINGS_QCOM_SPMI_VADC_H
@@ -245,6 +245,9 @@
 #define ADC7_CC1_ID				0x13
 #define ADC7_VREF_BAT_THERM			0x15
 #define ADC7_IIN_FB				0x17
+#define ADC7_ICHG_SMB				0x18
+#define ADC7_IIN_SMB				0x19
+#define ADC7_ICHG_FB				0xa1
 
 /* 30k pull-up1 */
 #define ADC7_AMUX_THM1_30K_PU			0x24
@@ -316,5 +319,8 @@
 #define ADC_SCALE_HW_CALIB_PM5_SMB1398_TEMP	15
 #define ADC_SCALE_HW_CALIB_THERM_100K_PU_PM7	16
 #define ADC_SCALE_HW_CALIB_PMIC_THERM_PM7	17
+#define ADC_SCALE_HW_CALIB_PM7_SMB_TEMP		18
+#define ADC_SCALE_HW_CALIB_PM7_CHG_TEMP		19
+#define ADC_SCALE_HW_CALIB_CUR_RAW		20
 
 #endif /* _DT_BINDINGS_QCOM_SPMI_VADC_H */
