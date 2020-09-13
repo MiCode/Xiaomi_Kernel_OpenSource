@@ -390,6 +390,7 @@ static struct dyn_event_operations synth_event_ops = {
 	.match = synth_event_match,
 };
 
+#ifndef CONFIG_KPROBES_DEBUG
 struct synth_field {
 	char *type;
 	char *name;
@@ -409,6 +410,7 @@ struct synth_event {
 	struct trace_event_call			call;
 	struct tracepoint			*tp;
 };
+#endif
 
 static bool is_synth_event(struct dyn_event *ev)
 {
@@ -1170,7 +1172,11 @@ static inline void trace_synth(struct synth_event *event, u64 *var_ref_vals,
 	}
 }
 
+#ifdef CONFIG_KPROBES_DEBUG
+struct synth_event *find_synth_event(const char *name)
+#else
 static struct synth_event *find_synth_event(const char *name)
+#endif
 {
 	struct dyn_event *pos;
 	struct synth_event *event;
@@ -1185,6 +1191,9 @@ static struct synth_event *find_synth_event(const char *name)
 
 	return NULL;
 }
+#ifdef CONFIG_KPROBES_DEBUG
+EXPORT_SYMBOL(find_synth_event);
+#endif
 
 static int register_synth_event(struct synth_event *event)
 {

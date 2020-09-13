@@ -442,6 +442,44 @@ enum event_trigger_type {
 	ETT_HIST_ENABLE		= (1 << 5),
 };
 
+#ifdef CONFIG_KPROBES_DEBUG
+struct dyn_event_operations;
+
+/**
+ * struct dyn_event - Dynamic event list header
+ *
+ * The dyn_event structure encapsulates a list and a pointer to the operators
+ * for making a global list of dynamic events.
+ * User must includes this in each event structure, so that those events can
+ * be added/removed via dynamic_events interface.
+ */
+struct dyn_event {
+	struct list_head		list;
+	struct dyn_event_operations	*ops;
+};
+
+struct synth_field {
+	char *type;
+	char *name;
+	size_t size;
+	bool is_signed;
+	bool is_string;
+};
+
+struct synth_event {
+	struct dyn_event			devent;
+	int					ref;
+	char					*name;
+	struct synth_field			**fields;
+	unsigned int				n_fields;
+	unsigned int				n_u64;
+	struct trace_event_class		class;
+	struct trace_event_call			call;
+	struct tracepoint			*tp;
+};
+extern struct synth_event *find_synth_event(const char *name);
+#endif
+
 extern int filter_match_preds(struct event_filter *filter, void *rec);
 
 extern enum event_trigger_type
