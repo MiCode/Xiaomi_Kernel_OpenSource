@@ -2153,8 +2153,7 @@ static void sdhci_msm_handle_pwr_irq(struct sdhci_host *host, int irq)
 		io_level = REQ_IO_HIGH;
 	}
 	if (irq_status & CORE_PWRCTL_BUS_OFF) {
-		if (!(host->mmc->caps & MMC_CAP_NONREMOVABLE) ||
-		    msm_host->pltfm_init_done)
+		if (msm_host->pltfm_init_done)
 			ret = sdhci_msm_setup_vreg(msm_host,
 					false, false);
 		if (!ret)
