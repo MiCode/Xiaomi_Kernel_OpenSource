@@ -3442,6 +3442,22 @@ static void ufs_qcom_config_scaling_param(struct ufs_hba *hba,
 }
 #endif
 
+#if defined(CONFIG_SCSI_UFSHCD_QTI)
+static struct ufs_dev_fix ufs_qcom_dev_fixups[] = {
+	UFS_FIX(UFS_VENDOR_MICRON, UFS_ANY_MODEL,
+		UFS_DEVICE_QUIRK_DELAY_BEFORE_LPM),
+	UFS_FIX(UFS_VENDOR_SKHYNIX, UFS_ANY_MODEL,
+		UFS_DEVICE_QUIRK_DELAY_BEFORE_LPM),
+	UFS_FIX(UFS_VENDOR_WDC, UFS_ANY_MODEL,
+		UFS_DEVICE_QUIRK_HOST_PA_TACTIVATE),
+	END_FIX
+};
+
+static void ufs_qcom_fixup_dev_quirks(struct ufs_hba *hba)
+{
+	ufshcd_fixup_dev_quirks(hba, ufs_qcom_dev_fixups);
+}
+#endif
 /**
  * struct ufs_hba_qcom_vops - UFS QCOM specific variant operations
  *
@@ -3465,6 +3481,9 @@ static const struct ufs_hba_variant_ops ufs_hba_qcom_vops = {
 	.device_reset		= ufs_qcom_device_reset,
 	.config_scaling_param = ufs_qcom_config_scaling_param,
 	.setup_xfer_req         = ufs_qcom_qos,
+#if defined(CONFIG_SCSI_UFSHCD_QTI)
+	.fixup_dev_quirks       = ufs_qcom_fixup_dev_quirks,
+#endif
 };
 
 /**
