@@ -61,9 +61,21 @@ function merge_defconfig_fragments() {
 		echo "No defconfig fragments for ${DEFCONFIG}"
 		return
 	fi
+	local output=$(mktemp)
 	KCONFIG_CONFIG=${KERNEL_DIR}/arch/${ARCH}/configs/${DEFCONFIG} \
 		${KERNEL_DIR}/scripts/kconfig/merge_config.sh \
-		-m -r ${DEFCONFIG_FRAGMENTS}
+		-m -r ${DEFCONFIG_FRAGMENTS} | tee $output
+	set +x
+	if grep -q -E -e "Previous value: [^=]+=[ym]" $output; then
+		echo "========================================================"
+		echo "ERROR! Detected overridden config!"
+		grep -C 1 -E -e "Previous value: [^=]+=[ym]" $output >&2
+		rm $output
+		exit 1
+	fi
+	rm $output
+	set -x
+
 }
 append_cmd PRE_DEFCONFIG_CMDS "merge_defconfig_fragments"
 
