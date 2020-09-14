@@ -314,6 +314,13 @@ msm_gpu: qcom,kgsl-3d0@5900000 {
 
 		vddcx-supply = <&gpu_cx_gdsc>;
 
+		clocks = <&gcc GCC_BIMC_GPU_AXI_CLK>,
+			<&gpucc GPU_CC_AHB_CLK>,
+			<&gcc GCC_GPU_MEMNOC_GFX_CLK>;
+
+		clock-names = "gcc_bimc_gpu_axi", "gpu_cc_ahb",
+			      "gcc_gpu_memnoc_gfx";
+
 		gfx3d_user: gfx3d_user {
 			compatible = "qcom,smmu-kgsl-cb";
 			iommus = <&kgsl_smmu 0x0>;
