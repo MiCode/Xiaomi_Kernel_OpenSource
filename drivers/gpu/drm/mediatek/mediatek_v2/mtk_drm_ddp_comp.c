@@ -12,9 +12,8 @@
 #include <linux/platform_device.h>
 #include <linux/soc/mediatek/mtk-cmdq.h>
 #include <soc/mediatek/smi.h>
-#ifdef IF_ZERO
-#include "mt_iommu.h"
-#include "mtk_iommu_ext.h"
+#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
+#include "iommu_debug.h"
 #endif
 
 #include "mtk_drm_drv.h"
@@ -629,9 +628,8 @@ void mtk_ddp_comp_clk_unprepare(struct mtk_ddp_comp *comp)
 #endif
 }
 
-#ifdef IF_ZERO
-static enum mtk_iommu_callback_ret_t
-	mtk_ddp_m4u_callback(int port, unsigned long mva, void *data)
+#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
+static int mtk_ddp_m4u_callback(int port, unsigned long mva, void *data)
 {
 	struct mtk_ddp_comp *comp = data;
 
@@ -643,7 +641,7 @@ static enum mtk_iommu_callback_ret_t
 		mtk_dump_reg(comp);
 	}
 
-	return MTK_IOMMU_CALLBACK_HANDLED;
+	return 0;
 }
 #endif
 
@@ -664,10 +662,10 @@ void mtk_ddp_comp_iommu_enable(struct mtk_ddp_comp *comp,
 		if (ret < 0)
 			break;
 
-#ifdef IF_ZERO
+#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
 		mtk_iommu_register_fault_callback(
 			port, (mtk_iommu_fault_callback_t)mtk_ddp_m4u_callback,
-			comp);
+			comp, false);
 #endif
 
 		port &= (unsigned int)GET_M4U_PORT;
