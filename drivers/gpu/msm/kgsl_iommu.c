@@ -182,7 +182,7 @@ static int kgsl_iommu_get_gpuaddr(struct kgsl_pagetable *pagetable,
 static void kgsl_iommu_map_secure_global(struct kgsl_mmu *mmu,
 		struct kgsl_memdesc *memdesc)
 {
-	if (!mmu->securepagetable)
+	if (IS_ERR_OR_NULL(mmu->securepagetable))
 		return;
 
 	if (!memdesc->gpuaddr) {
