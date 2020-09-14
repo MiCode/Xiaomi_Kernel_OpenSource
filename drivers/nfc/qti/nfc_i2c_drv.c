@@ -66,10 +66,15 @@ static irqreturn_t i2c_irq_handler(int irq, void *dev_id)
 int i2c_read(struct nfc_dev *dev, char *buf, size_t count)
 {
 	int ret;
+	uint16_t i = 0;
+	uint16_t disp_len = GET_IPCLOG_MAX_PKT_LEN(count);
 
 	pr_debug("%s : reading %zu bytes.\n", __func__, count);
 	/* Read data */
+
 	ret = i2c_master_recv(dev->i2c_dev.client, buf, count);
+	NFCLOG_IPC(dev, false, "%s of %d bytes, ret %d", __func__, count,
+								ret);
 	if (ret <= 0) {
 		pr_err("%s: i2c_master_recv returned %d\n", __func__, ret);
 		goto i2c_read_err;
@@ -79,7 +84,11 @@ int i2c_read(struct nfc_dev *dev, char *buf, size_t count)
 		       __func__, ret);
 		ret = -EIO;
 	}
-	/* delay for the slow nfc devices between susequent read operation */
+
+	for (i = 0; i < disp_len; i++)
+		NFCLOG_IPC(dev, false, " %02x", buf[i]);
+
+	/* delay for the slow nfc devices between susequent read  operation */
 	usleep_range(1000, 1100);
 i2c_read_err:
 	return ret;
@@ -90,11 +99,20 @@ int i2c_write(struct nfc_dev *dev, const char *buf, size_t count,
 {
 	int ret = -EINVAL;
 	int retry_cnt;
+	uint16_t i = 0;
+	uint16_t disp_len = GET_IPCLOG_MAX_PKT_LEN(count);
 
 	pr_debug("%s : writing %zu bytes.\n", __func__, count);
 
+	NFCLOG_IPC(dev, false, "%s sending %d B", __func__, count);
+
+	for (i = 0; i < disp_len; i++)
+		NFCLOG_IPC(dev, false, " %02x", buf[i]);
+
 	for (retry_cnt = 1; retry_cnt <= max_retry_cnt; retry_cnt++) {
+
 		ret = i2c_master_send(dev->i2c_dev.client, buf, count);
+		NFCLOG_IPC(dev, false, "%s ret %d", __func__, ret);
 		if (ret <= 0) {
 			pr_warn("%s: write failed, Maybe in Standby Mode - Retry(%d)\n",
 				__func__, retry_cnt);
@@ -436,6 +454,9 @@ int nfc_i2c_dev_suspend(struct device *device)
 	struct nfc_dev *nfc_dev = i2c_get_clientdata(client);
 	struct i2c_dev *i2c_dev = &nfc_dev->i2c_dev;
 
+	NFCLOG_IPC(nfc_dev, false, "%s: irq_enabled = %d", __func__,
+							i2c_dev->irq_enabled);
+
 	if (device_may_wakeup(&client->dev) && i2c_dev->irq_enabled) {
 		if (!enable_irq_wake(client->irq))
 			i2c_dev->irq_wake_up = true;
@@ -448,6 +469,9 @@ int nfc_i2c_dev_resume(struct device *device)
 	struct i2c_client *client = to_i2c_client(device);
 	struct nfc_dev *nfc_dev = i2c_get_clientdata(client);
 	struct i2c_dev *i2c_dev = &nfc_dev->i2c_dev;
+
+	NFCLOG_IPC(nfc_dev, false, "%s: irq_wake_up = %d", __func__,
+							i2c_dev->irq_wake_up);
 
 	if (device_may_wakeup(&client->dev) && i2c_dev->irq_wake_up) {
 		if (!disable_irq_wake(client->irq))
