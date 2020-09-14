@@ -96,4 +96,13 @@ config MTK_THERMAL_TRACE
 	  This driver creates trace points and a periodical timer
 	  for network throughput calculation.
 
+config MTK_THERMAL_IPI
+	tristate "Mediatek thermal IPI interface driver"
+	depends on MTK_TINYSYS_SSPM_SUPPORT || MTK_TINYSYS_MCUPM_SUPPORT
+	help
+	  Enable this option if you want to use and communicate
+	  with tinysys microprocessors for Mediatek platforms.
+	  This driver defines thermal ipi commands and provides an
+	  API to send a ipi command to tinysys microprocessors.
+
 endif

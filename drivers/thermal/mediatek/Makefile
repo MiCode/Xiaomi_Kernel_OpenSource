@@ -1,4 +1,7 @@
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat
+ccflags-y += \
+	-I$(srctree)/drivers/misc/mediatek/include/mt-plat \
+	-I$(srctree)/drivers/misc/mediatek/sspm/v2 \
+	-I$(srctree)/drivers/misc/mediatek/mcupm/include
 
 obj-$(CONFIG_MTK_SOC_THERMAL)	+= soc_temp.o
 obj-$(CONFIG_MTK_SOC_THERMAL_LVTS)	+= soc_temp_lvts.o
@@ -11,3 +14,5 @@ obj-$(CONFIG_MTK_MD_THERMAL_TX_POWER)	+= md_cooling_tx_pwr.o
 obj-$(CONFIG_MTK_MD_THERMAL_SCG_OFF)	+= md_cooling_scg_off.o
 
 obj-$(CONFIG_MTK_THERMAL_TRACE) += thermal_trace.o
+
+obj-$(CONFIG_MTK_THERMAL_IPI)	+= thermal_ipi.o
