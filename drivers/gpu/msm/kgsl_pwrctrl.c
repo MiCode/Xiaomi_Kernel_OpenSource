@@ -1601,6 +1601,18 @@ void kgsl_idle_check(struct work_struct *work)
 
 	mutex_lock(&device->mutex);
 
+	/*
+	 * After scheduling idle work for transitioning to either NAP or
+	 * SLUMBER, it's possible that requested state can change to NONE
+	 * if any new workload comes before kgsl_idle_check is executed or
+	 * it gets the device mutex. In such case, no need to change state
+	 * to NONE.
+	 */
+	if (device->requested_state == KGSL_STATE_NONE) {
+		mutex_unlock(&device->mutex);
+		return;
+	}
+
 	requested_state = device->requested_state;
 
 	if (device->state == KGSL_STATE_ACTIVE
