@@ -99,7 +99,7 @@ void apusys_reg_dump(char *module_name, bool dump_vpu)
 	}
 
 	debug_drv.reg_dump(apu_top, dump_vpu, data.reg_all_mem,
-				apusys_dump_skip_gals, data.gals_reg);
+				apusys_dump_skip_gals, data.gals_reg, debug_drv.platform_idx);
 
 out:
 	mutex_unlock(&dump_lock);
@@ -122,7 +122,7 @@ int dump_show(struct seq_file *sfile, void *v)
 		goto out;
 
 	debug_drv.dump_show(sfile, v, data.reg_all_mem,
-				data.gals_reg, data.module_name);
+				data.gals_reg, data.module_name, debug_drv.platform_idx);
 
 
 	vfree(data.reg_all_mem);
