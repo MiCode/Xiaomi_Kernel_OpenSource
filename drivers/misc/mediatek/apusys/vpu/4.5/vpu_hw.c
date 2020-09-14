@@ -46,15 +46,26 @@ static int wait_idle(struct vpu_device *vd, uint32_t latency, uint32_t retry);
 static int vpu_set_ftrace(struct vpu_device *vd);
 static void vpu_run(struct vpu_device *vd, int prio, uint32_t cmd)
 {
+	struct vpu_register *r = vd_reg(vd);
+
 	vpu_reg_write(vd, xtensa_info01, cmd);
 	vpu_cmd_run(vd, prio, cmd);
-	vpu_reg_clr(vd, ctrl, (1 << 23));
+	vpu_reg_clr(vd, ctrl, r->stall);
+}
+
+static inline void __vpu_stall(struct vpu_device *vd)
+{
+	struct vpu_register *r = vd_reg(vd);
+
+	vpu_reg_set(vd, ctrl, r->stall);
 }
 
 static inline void vpu_stall(struct vpu_device *vd)
 {
+	struct vpu_register *r = vd_reg(vd);
+
 	if (xos_type(vd) == VPU_NON_XOS)
-		vpu_reg_set(vd, ctrl, (1 << 23));
+		__vpu_stall(vd);
 
 	/* XOS doesn't need stall */
 }
@@ -1031,6 +1042,8 @@ int vpu_exit_drv_hw(void)
 /* device hw exit function */
 int vpu_exit_dev_hw(struct platform_device *pdev, struct vpu_device *vd)
 {
+	/* stall vpu to prevent iommu translation faults after free iovas */
+	__vpu_stall(vd);
 	vpu_cmd_exit(vd);
 	free_irq(vd->irq_num, vd);
 	return 0;

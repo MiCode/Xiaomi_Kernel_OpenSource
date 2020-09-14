@@ -343,11 +343,14 @@ int vpu_init_dev_pwr(struct platform_device *pdev, struct vpu_device *vd)
 
 void vpu_exit_dev_pwr(struct platform_device *pdev, struct vpu_device *vd)
 {
-	vpu_drv_debug("%s: vpu%d\n", __func__, vd->id);
-	cancel_delayed_work(&vd->pw_off_work);
-
-	if (kref_read(&vd->pw_ref) > 0)
+	if (flush_delayed_work(&vd->pw_off_work)) {
+		vpu_drv_debug("%s: vpu%d: pw_off_work done\n",
+			__func__, vd->id);
+	} else if (kref_read(&vd->pw_ref) > 0) {
 		vpu_pwr_off_locked(vd, 0);
+		vpu_drv_debug("%s: vpu%d: forced power down\n",
+			__func__, vd->id);
+	}
 
 	vpu_pwr_wake_exit(vd);
 	apu_power_device_unregister(adu(vd->id));

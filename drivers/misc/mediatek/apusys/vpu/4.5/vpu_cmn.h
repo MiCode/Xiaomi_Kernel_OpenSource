@@ -316,6 +316,7 @@ struct vpu_register {
 	uint32_t pbclk_enable;
 	uint32_t prid;
 	uint32_t pif_gated;
+	uint32_t stall;
 
 	/* Register Config: SW_RST */
 	uint32_t apu_d_rst;
