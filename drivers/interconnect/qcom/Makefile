@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0
 
+qnoc-direwolf-objs			:= direwolf.o
 qnoc-holi-objs			:= holi.o
 qnoc-monaco-objs			:= monaco.o
 qnoc-qcs404-objs			:= qcs404.o
@@ -18,6 +19,7 @@ icc-rpmh-obj				:= icc-rpmh.o
 icc-rpm-obj			:= icc-rpm.o
 qnoc-qos-obj			:= qnoc-qos.o
 
+obj-$(CONFIG_INTERCONNECT_QCOM_DIREWOLF) += qnoc-direwolf.o
 obj-$(CONFIG_INTERCONNECT_QCOM_HOLI) += qnoc-holi.o
 obj-$(CONFIG_INTERCONNECT_QCOM_OSM_L3) += osm-l3.o
 obj-$(CONFIG_INTERCONNECT_QCOM_MONACO) += qnoc-monaco.o
