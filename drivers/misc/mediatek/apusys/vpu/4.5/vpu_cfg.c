@@ -195,6 +195,7 @@ struct vpu_register vpu_reg_mt68xx = {
 	.pbclk_enable = (1 << 26),
 	.prid = (0x1fffe),
 	.pif_gated = (1 << 17),
+	.stall = (1 << 23),
 
 	/* register config: sw_rst */
 	.apu_d_rst = (1 << 8),
@@ -281,6 +282,7 @@ struct vpu_register vpu_reg_mt67xx = {
 	.pbclk_enable = (1 << 26),
 	.prid = (0x1fffe),
 	.pif_gated = (1 << 17),
+	.stall = (1 << 23),
 
 	/* register config: sw_rst */
 	.apu_d_rst = (1 << 8),
