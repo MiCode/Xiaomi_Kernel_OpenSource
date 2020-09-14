@@ -6,32 +6,36 @@
 #include <linux/of_device.h>
 
 #include "debug_plat_internal.h"
+#include "debug_platform.h"
 
 static struct debug_plat_drv mt6853_drv = {
-	.dump_show = dump_show_mt6853,
-	.reg_dump  = apusys_reg_dump_mt6853,
+	.reg_dump  = reg_dump_implement,
+	.dump_show = dump_show_implement,
 
-	.apusys_base          = 0x19000000,
-	.apusys_reg_size      = 0x100000,
-	.total_dbg_mux_count  = 28,
+	.platform_idx = 0,
+	.apusys_base			= APUSYS_BASE,
+	.apusys_reg_size		= APUSYS_REG_SIZE,
+	.total_dbg_mux_count	= TOTAL_MUX_COUNT_MT6853,
 };
 
 static struct debug_plat_drv mt6873_drv = {
-	.dump_show = dump_show_mt6873,
-	.reg_dump  = apusys_reg_dump_mt6873,
+	.reg_dump  = reg_dump_implement,
+	.dump_show = dump_show_implement,
 
-	.apusys_base          = 0x19000000,
-	.apusys_reg_size      = 0x100000,
-	.total_dbg_mux_count  = 22,
+	.platform_idx = 1,
+	.apusys_base			= APUSYS_BASE,
+	.apusys_reg_size		= APUSYS_REG_SIZE,
+	.total_dbg_mux_count	= TOTAL_MUX_COUNT_MT6873,
 };
 
 static struct debug_plat_drv mt6885_drv = {
-	.dump_show = dump_show_mt6885,
-	.reg_dump  = apusys_reg_dump_mt6885,
+	.reg_dump  = reg_dump_implement,
+	.dump_show = dump_show_implement,
 
-	.apusys_base          = 0x19000000,
-	.apusys_reg_size      = 0x100000,
-	.total_dbg_mux_count  = 38,
+	.platform_idx = 2,
+	.apusys_base			= APUSYS_BASE,
+	.apusys_reg_size		= APUSYS_REG_SIZE,
+	.total_dbg_mux_count	= TOTAL_MUX_COUNT_MT6885,
 };
 
 static const struct of_device_id debug_of_match[] = {

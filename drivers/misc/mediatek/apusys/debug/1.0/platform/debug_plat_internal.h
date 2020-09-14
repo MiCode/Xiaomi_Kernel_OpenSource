@@ -9,9 +9,11 @@
 
 struct debug_plat_drv {
 	void (*reg_dump)(void *apu_top, bool dump_vpu, char *mem,
-				bool skip_gals, u32 *gals_reg);
+				bool skip_gals, u32 *gals_reg, int platform_idx);
 	int (*dump_show)(struct seq_file *sfile, void *v, char *mem,
-				u32 *gals_reg, char *module_name);
+				u32 *gals_reg, char *module_name, int platform_idx);
+
+	int platform_idx;
 
 	u32 apusys_base;
 	u32 apusys_reg_size;
@@ -19,21 +21,10 @@ struct debug_plat_drv {
 };
 
 
-void apusys_reg_dump_mt6853(void *apu_top, bool dump_vpu, char *mem,
-				bool skip_gals, u32 *gals_reg);
-int dump_show_mt6853(struct seq_file *sfile, void *v, char *mem,
-				u32 *gals_reg, char *module_name);
-
-void apusys_reg_dump_mt6873(void *apu_top, bool dump_vpu, char *mem,
-				bool skip_gals, u32 *gals_reg);
-int dump_show_mt6873(struct seq_file *sfile, void *v, char *mem,
-				u32 *gals_reg, char *module_name);
-
-void apusys_reg_dump_mt6885(void *apu_top, bool dump_vpu, char *mem,
-				bool skip_gals, u32 *gals_reg);
-int dump_show_mt6885(struct seq_file *sfile, void *v, char *mem,
-				u32 *gals_reg, char *module_name);
-
+void reg_dump_implement(void *apu_top, bool dump_vpu, char *mem,
+				bool skip_gals, u32 *gals_reg, int platform_idx);
+int dump_show_implement(struct seq_file *sfile, void *v, char *mem,
+				u32 *gals_reg, char *module_name, int platform_idx);
 
 #endif /* __DEBUG_PLAT_INTERNAL_H__ */
 

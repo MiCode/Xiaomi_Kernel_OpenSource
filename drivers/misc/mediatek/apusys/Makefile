@@ -135,9 +135,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/debug/$(APUSYS_VERSION_DE
 
 apusys-objs += debug/$(APUSYS_VERSION_DEBUG)/common/debug_drv.o
 apusys-objs += debug/$(APUSYS_VERSION_DEBUG)/platform/debug_plat_device.o
-apusys-objs += debug/$(APUSYS_VERSION_DEBUG)/platform/mt6853/debug_mt6853.o
-apusys-objs += debug/$(APUSYS_VERSION_DEBUG)/platform/mt6873/debug_mt6873.o
-apusys-objs += debug/$(APUSYS_VERSION_DEBUG)/platform/mt6885/debug_mt6885.o
+apusys-objs += debug/$(APUSYS_VERSION_DEBUG)/platform/debug_platform.o
 endif
 
 # power driver makefile
