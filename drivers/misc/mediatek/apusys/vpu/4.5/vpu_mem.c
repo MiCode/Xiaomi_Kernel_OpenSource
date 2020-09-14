@@ -498,6 +498,9 @@ static void vpu_iova_free(struct device *dev, struct vpu_iova *i)
 	struct vpu_mem_ops *mops = vpu_drv->vp->mops;
 	struct vpu_device *vd = dev_get_drvdata(dev);
 
+	if (!i->iova || !i->size)
+		return;
+
 	/* skip, if already deleted by .exit() */
 	if (i->time) {
 		mutex_lock(&vpu_drv->vi_lock);
@@ -506,12 +509,10 @@ static void vpu_iova_free(struct device *dev, struct vpu_iova *i)
 		mutex_unlock(&vpu_drv->vi_lock);
 	}
 
-	if (i->iova && i->size) {
-		vpu_mem_debug("%s: %s: iova: 0x%llx, size: %x\n",
-			__func__, vd->name, i->iova, i->size);
-		vpu_mem_free(&i->m);
-		mops->unmap_iova_from_sg(dev, i);
-	}
+	vpu_mem_debug("%s: %s: iova: 0x%llx, size: %x\n",
+		__func__, vd->name, i->iova, i->size);
+	vpu_mem_free(&i->m);
+	mops->unmap_iova_from_sg(dev, i);
 }
 
 static void vpu_iova_sync_for_device(struct device *dev,
