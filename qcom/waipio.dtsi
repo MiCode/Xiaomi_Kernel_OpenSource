@@ -471,6 +471,18 @@
 		};
 	};
 
+	dcc: dcc_v2@100ff000 {
+		compatible = "qcom,dcc-v2";
+		reg = <0x100ff000 0x1000>,
+		      <0x10080000 0x18000>;
+
+		qcom,transaction_timeout = <0>;
+
+		status = "disabled";
+		reg-names = "dcc-base", "dcc-ram-base";
+		dcc-ram-offset = <0>;
+	};
+
 	tlmm: pinctrl@f000000 {
 		compatible = "qcom,waipio-pinctrl";
 		reg = <0x0F000000 0x1000000>;
