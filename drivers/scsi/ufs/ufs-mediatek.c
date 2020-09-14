@@ -523,8 +523,8 @@ static int ufs_mtk_setup_clocks(struct ufs_hba *hba, bool on,
 	} else if (on && status == POST_CHANGE) {
 		ufs_mtk_mphy_power_on(hba, on);
 		ufs_mtk_setup_ref_clk(hba, on);
-		ufs_mtk_pm_qos(hba, on);
 		ufs_mtk_boost_crypt(hba, on);
+		ufs_mtk_pm_qos(hba, on);
 	}
 
 	return ret;
