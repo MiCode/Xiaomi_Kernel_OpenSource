@@ -61,10 +61,10 @@ int get_customized_uisoc(int origin_uisoc)
 int fg_get_system_sec(void)
 {
 	ktime_t ctime = 0;
-	struct timespec tmp_time;
+	struct timespec64 tmp_time;
 
 	ctime = ktime_get_boottime();
-	tmp_time = ktime_to_timespec(ctime);
+	tmp_time = ktime_to_timespec64(ctime);
 
 	return (int)tmp_time.tv_sec;
 }
@@ -2419,13 +2419,13 @@ static void mtk_battery_daemon_handler(struct mtk_battery *gm, void *nl_data,
 	{
 		int secs;
 		ktime_t ctime = 0, ktime = 0;
-		struct timespec tmp_time, end_time;
+		struct timespec64 tmp_time, end_time;
 
 		memcpy(&secs, &msg->fgd_data[0], sizeof(secs));
 
 		if (secs != 0 && secs > 0) {
 			ctime = ktime_get_boottime();
-			tmp_time = ktime_to_timespec(ctime);
+			tmp_time = ktime_to_timespec64(ctime);
 			end_time.tv_sec = tmp_time.tv_sec + secs;
 			end_time.tv_sec = 0;
 			ktime = ktime_set(end_time.tv_sec, end_time.tv_nsec);
@@ -3014,7 +3014,7 @@ static void mtk_battery_daemon_handler(struct mtk_battery *gm, void *nl_data,
 	{
 		int daemon_ui_soc;
 		int old_uisoc;
-		struct timespec now_time, diff_time;
+		struct timespec64 now_time, diff_time;
 		ktime_t ctime = 0, dtime = 0;
 
 		memcpy(&daemon_ui_soc, &msg->fgd_data[0],
@@ -3038,7 +3038,7 @@ static void mtk_battery_daemon_handler(struct mtk_battery *gm, void *nl_data,
 		if (old_uisoc != gm->ui_soc) {
 			ctime = ktime_get_boottime();
 			dtime = ktime_sub(ctime, gm->uisoc_oldtime);
-			diff_time = ktime_to_timespec(dtime);
+			diff_time = ktime_to_timespec64(dtime);
 
 			bm_err("[K]FG_DAEMON_CMD_SET_KERNEL_UISOC = %d %d GM3:%d old:%d diff=%ld\n",
 				daemon_ui_soc, gm->ui_soc,
@@ -4127,15 +4127,15 @@ static irqreturn_t bat_temp_irq(int irq, void *data)
 void notify_fg_chr_full(struct mtk_battery *gm)
 {
 	ktime_t ctime = 0, dtime = 0, pre_time = 0;
-	struct timespec difftime;
+	struct timespec64 difftime;
 
 	ctime = ktime_get_boottime();
-	pre_time = timespec_to_ktime(gm->chr_full_handler_time);
+	pre_time = timespec64_to_ktime(gm->chr_full_handler_time);
 	dtime = ktime_sub(ctime, pre_time);
-	difftime = ktime_to_timespec(dtime);
+	difftime = ktime_to_timespec64(dtime);
 
 	if (ctime <= 10 || difftime.tv_sec >= 10) {
-		gm->chr_full_handler_time = ktime_to_timespec(ctime);
+		gm->chr_full_handler_time = ktime_to_timespec64(ctime);
 		bm_err("[fg_chr_full_int_handler]\n");
 		wakeup_fg_algo(gm, FG_INTR_CHR_FULL);
 		fg_int_event(gm, EVT_INT_CHR_FULL);
@@ -4171,11 +4171,11 @@ void fg_update_sw_iavg(struct mtk_battery *gm)
 	int fg_coulomb;
 	int version;
 	ktime_t ctime = 0, dtime = 0;
-	struct timespec diff;
+	struct timespec64 diff;
 
 	ctime = ktime_get_boottime();
 	dtime = ktime_sub(ctime, gm->sw_iavg_time);
-	diff = ktime_to_timespec(dtime);
+	diff = ktime_to_timespec64(dtime);
 
 	bm_debug("[%s]diff time:%ld\n",
 		__func__,
