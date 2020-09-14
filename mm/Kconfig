@@ -531,6 +531,8 @@ config CMA_AREAS
 
 config LIMIT_MOVABLE_ZONE_ALLOC
 	bool "Limit types of allocations from Movable zone"
+	depends on QGKI && MEMORY_HOTPLUG_MOVABLE_NODE
+	default y
 	help
 	  Ensure that only allocations which include __GFP_OFFLINABLE can be
 	  satisfied from zone Movable. This restriction helps reduce the
