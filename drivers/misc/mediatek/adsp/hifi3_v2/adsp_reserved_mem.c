@@ -176,6 +176,9 @@ void adsp_init_reserve_memory(void)
 #endif
 	}
 	WARN_ON(acc_size > mem->size);
+
+	/* set mpu of shared memory to emi */
+	adsp_set_emimpu_shared_region();
 }
 
 ssize_t adsp_reserve_memory_dump(char *buffer, int size)

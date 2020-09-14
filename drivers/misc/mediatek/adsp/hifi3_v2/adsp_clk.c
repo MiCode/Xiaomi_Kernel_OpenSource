@@ -99,6 +99,7 @@ int adsp_enable_clock(void)
 
 	pm_runtime_get_sync(pm_dev);
 
+#ifdef SCP_CLK_CONTROL
 	/* enable scp clock before access adsp clock cg */
 	ret = clk_prepare_enable(scp_clks[CLK_TOP_SCP_SEL].clock);
 	if (IS_ERR(&ret)) {
@@ -106,7 +107,7 @@ int adsp_enable_clock(void)
 			__func__, scp_clks[CLK_TOP_SCP_SEL].name, ret);
 		return -EINVAL;
 	}
-
+#endif
 	ret = clk_prepare_enable(adsp_clks[CLK_ADSP_CK_CG].clock);
 	if (IS_ERR(&ret)) {
 		pr_err("%s(), clk_prepare_enable %s fail, ret %d\n",
@@ -125,7 +126,8 @@ void adsp_disable_clock(void)
 
 	adsp_clock_count--;
 	clk_disable_unprepare(adsp_clks[CLK_ADSP_CK_CG].clock);
+#ifdef SCP_CLK_CONTROL
 	clk_disable_unprepare(scp_clks[CLK_TOP_SCP_SEL].clock);
-
+#endif
 	pm_runtime_put_sync(pm_dev);
 }
