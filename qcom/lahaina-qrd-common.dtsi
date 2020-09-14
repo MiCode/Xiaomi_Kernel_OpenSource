@@ -210,7 +210,7 @@
 		focaltech,touch-environment = "pvm";
 		focaltech,trusted-touch-spi-irq = <566>;
 		focaltech,trusted-touch-io-bases = <0xF114000 0xF115000 0xF116000 0xF117000 0x990000 0x00910000>;
-		focaltech,trusted-touch-io-sizes = <0x1000 0x1000 0x1000 0x1000 0x4000 0x4000>;
+		focaltech,trusted-touch-io-sizes = <0x1000 0x1000 0x1000 0x1000 0x1000 0x4000>;
 	};
 };
 
