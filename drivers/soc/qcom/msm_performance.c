@@ -700,6 +700,18 @@ module_param_cb(evnt_gplaf_pid, &param_ops_game_start_pid, NULL, 0644);
 
 /*******************************GFX Call************************************/
 
+static bool splh_notif;
+static int set_splh_notif(const char *buf, const struct kernel_param *kp)
+{
+	return param_set_bool(buf, kp);
+}
+
+static const struct kernel_param_ops param_ops_splh_notification = {
+	.set = set_splh_notif,
+	.get = param_get_bool,
+};
+module_param_cb(splh_notif, &param_ops_splh_notification, &splh_notif, 0644);
+
 static int __init msm_performance_init(void)
 {
 	int ret;
