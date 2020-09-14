@@ -2376,7 +2376,7 @@ static int __mt_gpufreq_create_procfs(void)
 
 	struct pentry {
 		const char *name;
-		const struct file_operations *fops;
+		const struct proc_ops *fops;
 	};
 
 	const struct pentry entries[] = {
