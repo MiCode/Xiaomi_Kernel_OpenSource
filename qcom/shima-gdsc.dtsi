@@ -4,6 +4,8 @@
 		compatible = "qcom,gdsc";
 		reg = <0x16b004 0x4>;
 		regulator-name = "gcc_pcie_0_gdsc";
+		qcom,gds-timeout = <500>;
+		qcom,no-status-check-on-disable;
 		status = "disabled";
 	};
 
@@ -11,6 +13,8 @@
 		compatible = "qcom,gdsc";
 		reg = <0x18d004 0x4>;
 		regulator-name = "gcc_pcie_1_gdsc";
+		qcom,gds-timeout = <500>;
+		qcom,no-status-check-on-disable;
 		status = "disabled";
 	};
 
