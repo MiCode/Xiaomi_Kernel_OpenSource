@@ -42,6 +42,8 @@ static const struct of_device_id reviser_of_match[] = {
 	{/* end of list */},
 };
 
+MODULE_DEVICE_TABLE(of, reviser_of_match);
+
 const struct of_device_id *reviser_get_of_device_id(void)
 {
 	return reviser_of_match;
