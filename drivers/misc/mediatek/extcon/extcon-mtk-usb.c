@@ -383,7 +383,7 @@ static int mtk_usb_extcon_probe(struct platform_device *pdev)
 	extcon->extcon_wq = create_singlethread_workqueue("extcon_usb");
 
 	/* default initial role */
-	/* mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_NONE); */
+	mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_NONE);
 
 	/* default turn off vbus */
 	mtk_usb_extcon_set_vbus(extcon, false);
