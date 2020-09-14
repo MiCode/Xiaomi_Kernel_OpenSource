@@ -313,7 +313,6 @@ int adsp_reset(void)
 	return 0;
 }
 
-
 static void adsp_ready_ipi_handler(int id, void *data, unsigned int len)
 {
 	unsigned int cid = *(unsigned int *)data;
@@ -339,38 +338,11 @@ static void adsp_suspend_ipi_handler(int id, void *data, unsigned int len)
 	complete(&pdata->done);
 }
 
-static int __init adsp_init(void)
-{
-	int ret = 0;
-
-	ret = create_adsp_drivers();
-	if (ret)
-		goto DONE;
-
-	rwlock_init(&access_rwlock);
-	adsp_platform_init();
-
-	//register_syscore_ops(&adsp_syscore_ops);
-	adsp_ipi_registration(ADSP_IPI_ADSP_A_READY,
-			      adsp_ready_ipi_handler,
-			      "adsp_ready");
-	adsp_ipi_registration(ADSP_IPI_DVFS_SUSPEND,
-			      adsp_suspend_ipi_handler,
-			      "adsp_suspend_ack");
-DONE:
-	pr_info("%s(), done, ret = %d\n", __func__, ret);
-	return 0;
-}
-#ifdef ADSP_IMAGE
-static int __init adsp_module_init(void)
+static int adsp_system_bootup(void)
 {
 	int ret = 0, cid = 0;
 	struct adsp_priv *pdata;
 
-	if (!is_adsp_load()) {
-		ret = -ENODEV;
-		goto ERROR;
-	}
 	switch_adsp_power(true);
 
 	for (cid = 0; cid < ADSP_CORE_TOTAL; cid++) {
@@ -418,30 +390,39 @@ ERROR:
 	pr_info("%s fail ret(%d)\n", __func__, ret);
 	return ret;
 }
-#endif
-/*
- * driver exit point
- */
+
+static int __init adsp_init(void)
+{
+	int ret = 0;
+
+	ret = create_adsp_drivers();
+	if (ret)
+		goto DONE;
+
+	rwlock_init(&access_rwlock);
+	adsp_platform_init();
+
+	//register_syscore_ops(&adsp_syscore_ops);
+	adsp_ipi_registration(ADSP_IPI_ADSP_A_READY,
+			      adsp_ready_ipi_handler,
+			      "adsp_ready");
+	adsp_ipi_registration(ADSP_IPI_DVFS_SUSPEND,
+			      adsp_suspend_ipi_handler,
+			      "adsp_suspend_ack");
+
+	ret = adsp_system_bootup();
+DONE:
+	pr_info("%s(), done, ret = %d\n", __func__, ret);
+	return 0;
+}
+
 static void __exit adsp_exit(void)
 {
 	pr_info("%s\n", __func__);
 }
-#ifdef ADSP_IMAGE
-static int __init adsp_late_init(void)
-{
-	if (!is_adsp_load())
-		return -ENXIO;
 
-	adsp_set_emimpu_shared_region();
-	pr_info("[ADSP] late_init done\n");
-
-	return 0;
-}
-#endif
-//subsys_initcall(adsp_init);
 module_init(adsp_init);
 module_exit(adsp_exit);
-//late_initcall(adsp_late_init);
 
 MODULE_AUTHOR("Chien-Wei Hsu <Chien-Wei.Hsu@mediatek.com>");
 MODULE_DESCRIPTION("MTK AUDIO DSP Device Driver");

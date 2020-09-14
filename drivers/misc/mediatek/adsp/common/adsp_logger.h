@@ -8,16 +8,20 @@
 
 #define ADSP_LOGGER_UT              (1)
 
-struct log_ctrl_s {
+struct log_ctrl_s { /* ap used */
+	unsigned int inited;
+	struct mutex lock;
+	struct delayed_work work;
+	void *priv;
+};
+
+struct log_info_s { /* adsp & ap shared */
 	unsigned int base;
 	unsigned int size;
 	unsigned int enable;
 	unsigned int info_ofs;
 	unsigned int buff_ofs;
 	unsigned int buff_size;
-	unsigned int inited;     /* ap used */
-	struct mutex lock;       /* ap used */
-	struct delayed_work work; /* ap used */
 };
 
 struct buffer_info_s {

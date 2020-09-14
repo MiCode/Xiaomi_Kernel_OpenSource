@@ -538,8 +538,7 @@ static int adsp_common_drv_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 
 	/* indicate if adsp images is loaded successfully */
-	/* of_property_read_u32(dev->of_node, "load", &adsp_load); */
-	adsp_load = 1; /* TODO: force 1 */
+	of_property_read_u32(dev->of_node, "load", &adsp_load);
 	if (!adsp_load)
 		pr_info("%s adsp disable\n", __func__);
 
@@ -648,11 +647,11 @@ static int adsp_core_drv_probe(struct platform_device *pdev)
 	pdata->sysram_phys = (phys_addr_t)temp;
 	of_property_read_u32(dev->of_node, "sysram_size", &temp);
 	pdata->sysram_size = (size_t)temp;
-#ifdef ADSP_IMAGE
+
 	if (pdata->sysram_phys == 0 || pdata->sysram_size == 0)
 		return -ENODEV;
 	pdata->sysram = ioremap_wc(pdata->sysram_phys, pdata->sysram_size);
-#endif
+
 	pdata->secure = adsp_secure_base;
 
 	of_property_read_u32(dev->of_node, "feature_control_bits",
