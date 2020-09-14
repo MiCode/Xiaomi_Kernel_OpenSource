@@ -426,6 +426,10 @@
 
 /* CONSYS end */
 
+&pdc {
+	pd_vbus_upper_bound = <12000000>;
+};
+
 
 #include "mediatek/cust_mt6873_camera_v4l2.dtsi"
 /*End of this file, DO NOT ADD ANYTHING HERE*/

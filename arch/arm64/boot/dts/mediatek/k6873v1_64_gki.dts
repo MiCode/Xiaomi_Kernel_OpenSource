@@ -424,4 +424,8 @@
 	status = "okay";
 };
 
+&pdc {
+	pd_vbus_upper_bound = <12000000>;
+};
+
 /* CONSYS end */
