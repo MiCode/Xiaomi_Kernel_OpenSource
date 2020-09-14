@@ -208,6 +208,9 @@ static void ssusb_set_mailbox(struct otg_switch_mtk *otg_sx,
 		break;
 	case MTU3_VBUS_OFF:
 		mtu3_stop(mtu);
+		/* report disconnect */
+		if (mtu->g.speed != USB_SPEED_UNKNOWN)
+			mtu3_gadget_disconnect(mtu);
 		pm_relax(ssusb->dev);
 		ssusb_set_force_vbus(ssusb, false);
 		otg_sx->sw_state &= ~MTU3_SW_VBUS_VALID;
