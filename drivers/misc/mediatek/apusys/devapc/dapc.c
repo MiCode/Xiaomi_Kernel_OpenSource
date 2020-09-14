@@ -621,6 +621,8 @@ static const struct of_device_id apusys_devapc_of_match[] = {
 	{},
 };
 
+MODULE_DEVICE_TABLE(of, apusys_devapc_of_match);
+
 static struct platform_driver apusys_devapc_driver = {
 	.probe = apusys_devapc_probe,
 	.remove = apusys_devapc_remove,

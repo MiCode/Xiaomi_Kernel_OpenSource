@@ -365,6 +365,8 @@ static const struct of_device_id edma_of_ids[] = {
 	{}
 };
 
+MODULE_DEVICE_TABLE(of, edma_of_ids);
+
 static struct platform_driver edma_driver = {
 	.probe = edma_probe,
 	.remove = edma_remove,

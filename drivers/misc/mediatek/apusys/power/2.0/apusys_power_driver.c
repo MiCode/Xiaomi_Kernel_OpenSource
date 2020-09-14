@@ -914,6 +914,7 @@ static const struct of_device_id apu_power_of_match[] = {
 	{ /* end of list */},
 };
 
+MODULE_DEVICE_TABLE(of, apu_power_of_match);
 
 static struct platform_driver apu_power_driver = {
 	.probe	= apu_power_probe,
