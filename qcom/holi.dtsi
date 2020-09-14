@@ -918,6 +918,12 @@
 		qcom,rtb-size = <0x100000>;
 	};
 
+	qcom,mpm2-sleep-counter@0x4403000 {
+		compatible = "qcom,mpm2-sleep-counter";
+		reg = <0x4403000 0x1000>;
+		clock-frequency = <32768>;
+	};
+
 	wdog: qcom,wdt@f410000 {
 		compatible = "qcom,msm-watchdog";
 		reg = <0xf410000 0x1000>;
