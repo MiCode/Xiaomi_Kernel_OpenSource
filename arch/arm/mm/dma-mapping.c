@@ -130,6 +130,10 @@ static void *arm_dma_remap(struct device *dev, void *cpu_addr,
 static void arm_dma_unremap(struct device *dev, void *remapped_addr,
 				size_t size);
 
+static void arm_iommu_sync_sg_for_device(struct device *dev,
+		struct scatterlist *sg, int nents, enum dma_data_direction dir);
+static void arm_iommu_sync_sg_for_cpu(struct device *dev,
+		struct scatterlist *sg, int nents, enum dma_data_direction dir);
 
 static pgprot_t __get_dma_pgprot(unsigned long attrs, pgprot_t prot,
 				 bool coherent)
@@ -1976,6 +1980,9 @@ int arm_iommu_map_sg(struct device *dev, struct scatterlist *sg,
 		current_offset += s->length;
 	}
 
+	if ((attrs & DMA_ATTR_SKIP_CPU_SYNC) == 0)
+		arm_iommu_sync_sg_for_device(dev, sg, nents, dir);
+
 	return nents;
 }
 
@@ -2031,6 +2038,9 @@ void arm_iommu_unmap_sg(struct device *dev, struct scatterlist *sg, int nents,
 	unsigned int total_length = sg_dma_len(sg);
 	dma_addr_t iova = sg_dma_address(sg);
 
+	if ((attrs & DMA_ATTR_SKIP_CPU_SYNC) == 0)
+		arm_iommu_sync_sg_for_cpu(dev, sg, nents, dir);
+
 	total_length = PAGE_ALIGN((iova & ~PAGE_MASK) + total_length);
 	iova &= PAGE_MASK;
 
@@ -2045,8 +2055,8 @@ void arm_iommu_unmap_sg(struct device *dev, struct scatterlist *sg, int nents,
  * @nents: number of buffers to map (returned from dma_map_sg)
  * @dir: DMA transfer direction (same as was passed to dma_map_sg)
  */
-void arm_iommu_sync_sg_for_cpu(struct device *dev, struct scatterlist *sg,
-			int nents, enum dma_data_direction dir)
+static void arm_iommu_sync_sg_for_cpu(struct device *dev,
+		struct scatterlist *sg, int nents, enum dma_data_direction dir)
 {
 	struct scatterlist *s;
 	int i;
@@ -2069,8 +2079,8 @@ void arm_iommu_sync_sg_for_cpu(struct device *dev, struct scatterlist *sg,
  * @nents: number of buffers to map (returned from dma_map_sg)
  * @dir: DMA transfer direction (same as was passed to dma_map_sg)
  */
-void arm_iommu_sync_sg_for_device(struct device *dev, struct scatterlist *sg,
-			int nents, enum dma_data_direction dir)
+static void arm_iommu_sync_sg_for_device(struct device *dev,
+		struct scatterlist *sg, int nents, enum dma_data_direction dir)
 {
 	struct scatterlist *s;
 	int i;
