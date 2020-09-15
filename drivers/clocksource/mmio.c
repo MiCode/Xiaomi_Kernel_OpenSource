@@ -46,7 +46,7 @@ u64 clocksource_mmio_readw_down(struct clocksource *c)
  * @bits:	Number of valid bits
  * @read:	One of clocksource_mmio_read*() above
  */
-int clocksource_mmio_init(void __iomem *base, const char *name,
+int __init clocksource_mmio_init(void __iomem *base, const char *name,
 	unsigned long hz, int rating, unsigned bits,
 	u64 (*read)(struct clocksource *))
 {
