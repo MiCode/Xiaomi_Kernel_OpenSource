@@ -22,7 +22,7 @@ static struct reviser_mem g_mem_sys;
 static int __reviser_free_iova(struct device *dev, size_t len,
 		dma_addr_t given_iova)
 {
-	struct reviser_dev_info *rdv = dev_get_drvdata(dev);
+
 	struct iommu_domain *domain;
 	dma_addr_t iova;
 	size_t size = len;
@@ -100,7 +100,6 @@ static dma_addr_t __reviser_get_iova(
 	struct iommu_domain *domain;
 	dma_addr_t iova = 0;
 	int prot = IOMMU_READ | IOMMU_WRITE;
-	uint32_t addr;
 	struct reviser_dev_info *rdv = dev_get_drvdata(dev);
 	dma_addr_t boundary_mask;
 	size_t iova_size;

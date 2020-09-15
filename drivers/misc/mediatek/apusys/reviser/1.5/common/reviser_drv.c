@@ -516,7 +516,7 @@ static int reviser_probe(struct platform_device *pdev)
 	return ret;
 free_dbg:
 	reviser_dbg_destroy(rdv);
-free_table:
+
 free_map:
 	reviser_unmap_dts(pdev);
 free_node:
