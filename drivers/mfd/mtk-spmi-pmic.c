@@ -29,8 +29,6 @@ static const struct regmap_config spmi_regmap_config = {
 static int pmic_spmi_probe(struct spmi_device *sdev)
 {
 	struct regmap *regmap;
-	int ret;
-	unsigned int rdata = 0;
 
 	/* Only the first slave id for a PMIC contains this information */
 	switch (sdev->usid) {
