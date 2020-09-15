@@ -515,7 +515,7 @@ static int vpu_debug_vpu_memory(struct seq_file *s)
 	vpu_debug_info(s);
 	seq_puts(s, "======== Tags ========\n");
 	apu_tags_seq(vpu_drv->tags, s);
-	vpu_dmp_seq(s);
+	//vpu_dmp_seq(s);
 	return 0;
 }
 
