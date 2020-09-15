@@ -2,6 +2,9 @@
 /*
  * Copyright (C) 2019 MediaTek Inc.
  */
+
+#define pr_fmt(fmt)    "[iommu_debug] " fmt
+
 #include <linux/bitfield.h>
 #include <linux/bits.h>
 #include <linux/of.h>
@@ -576,7 +579,7 @@ void mtk_iova_map_dump(u64 iova)
 		for (i = 0; i < MTK_IOVA_SPACE_NUM; i++) {
 			list_for_each_entry_safe(plist, n, &map_list.head[i],
 					 list_node)
-				pr_info("%-4u, 0x%-12llx 0x%-8zx %llu.%llus\n",
+				pr_info("%-4u 0x%-12llx 0x%-8zx %llu.%llus\n",
 					i, plist->iova,
 					plist->size,
 					plist->time_high,
@@ -590,7 +593,7 @@ void mtk_iova_map_dump(u64 iova)
 				 list_node)
 		if (iova <= (plist->iova + SZ_4M) &&
 		    iova >= (plist->iova - SZ_4M))
-			pr_info("%-4u, 0x%-12llx 0x%-8zx %llu.%llus\n",
+			pr_info("%-4u 0x%-12llx 0x%-8zx %llu.%llus\n",
 				id, plist->iova,
 				plist->size,
 				plist->time_high,

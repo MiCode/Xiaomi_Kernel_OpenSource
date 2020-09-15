@@ -2,9 +2,6 @@
 /*
  * Copyright (C) 2019 MediaTek Inc.
  */
-
-#define pr_fmt(fmt)    "[iommu_debug] " fmt
-
 #ifndef IOMMU_DEBUG_H
 #define IOMMU_DEBUG_H
 
