@@ -436,7 +436,6 @@ static int mt6360_fled_strobe_set(
 	struct mt6360_led_info *mli = dev_get_drvdata(led_cdev->dev->parent);
 	struct mt6360_fled_classdev *mtfled_cdev = (void *)fled_cdev;
 	int id = mtfled_cdev->index, ret, regval = 0;
-	bool hz_en = false, cfo_en = false;
 
 	dev_dbg(led_cdev->dev, "%s: id[%d], state %d\n", __func__, id, state);
 	if (!(state ^ test_bit(id, &mli->fl_strobe_flags))) {
