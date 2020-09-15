@@ -22,8 +22,7 @@
 #include <mt-plat/aee.h>
 
 struct module_sect_attr {
-	struct module_attribute mattr;
-	char *name;
+	struct bin_attribute battr;
 	unsigned long address;
 };
 
@@ -464,10 +463,11 @@ int aee_save_modules(char *mbuf, int mbufsize)
 		init_addr = (unsigned long)mod->init_layout.base;
 		search_nm = 2;
 		for (i = 0; i < mod->sect_attrs->nsections; i++) {
-			if (!strcmp(mod->sect_attrs->attrs[i].name, ".text")) {
+			if (!strcmp(mod->sect_attrs->attrs[i].battr.attr.name,
+					   ".text")) {
 				text_addr = mod->sect_attrs->attrs[i].address;
 				search_nm--;
-			} else if (!strcmp(mod->sect_attrs->attrs[i].name,
+			} else if (!strcmp(mod->sect_attrs->attrs[i].battr.attr.name,
 					   ".init.text")) {
 				init_addr = mod->sect_attrs->attrs[i].address;
 				search_nm--;
@@ -476,7 +476,7 @@ int aee_save_modules(char *mbuf, int mbufsize)
 				break;
 		}
 		sz += snprintf(mbuf + sz, mbufsize - sz,
-				" %s 0x%lx 0x%lx %d %d",
+				" %s %lx %lx %d %d",
 				mod->name,
 				text_addr,
 				init_addr,
@@ -721,6 +721,22 @@ void aee_zap_locks(void)
 	sema_init(p_console_sem, 1);
 }
 
+static raw_spinlock_t *p_die_lock;
+void aee_reinit_die_lock(void)
+{
+	if (!p_die_lock) {
+		p_die_lock = (void *)aee_addr_find("die_lock");
+		if (!p_die_lock) {
+			aee_sram_printk("%s failed to get die_lock\n",
+					__func__);
+			return;
+		}
+	}
+
+	/* If a crash is occurring, make sure we can't deadlock */
+	raw_spin_lock_init(p_die_lock);
+}
+
 /* for aee_aed.ko */
 #ifdef __aarch64__
 const char *aee_arch_vma_name(struct vm_area_struct *vma)
@@ -845,10 +861,11 @@ int aee_save_modules(char *mbuf, int mbufsize)
 		init_addr = (unsigned long)mod->init_layout.base;
 		search_nm = 2;
 		for (i = 0; i < mod->sect_attrs->nsections; i++) {
-			if (!strcmp(mod->sect_attrs->attrs[i].name, ".text")) {
+			if (!strcmp(mod->sect_attrs->attrs[i].battr.attr.name,
+					   ".text")) {
 				text_addr = mod->sect_attrs->attrs[i].address;
 				search_nm--;
-			} else if (!strcmp(mod->sect_attrs->attrs[i].name,
+			} else if (!strcmp(mod->sect_attrs->attrs[i].battr.attr.name,
 					   ".init.text")) {
 				init_addr = mod->sect_attrs->attrs[i].address;
 				search_nm--;
@@ -857,7 +874,7 @@ int aee_save_modules(char *mbuf, int mbufsize)
 				break;
 		}
 		sz += snprintf(mbuf + sz, mbufsize - sz,
-				" %s 0x%lx 0x%lx %d %d",
+				" %s %lx %lx %d %d",
 				mod->name,
 				text_addr,
 				init_addr,
@@ -952,6 +969,23 @@ void aee_zap_locks(void)
 	raw_spin_lock_init(p_logbuf_lock);
 	/* And make sure that we print immediately */
 	sema_init(p_console_sem, 1);
+}
+
+
+static raw_spinlock_t *p_die_lock;
+void aee_reinit_die_lock(void)
+{
+	if (!p_die_lock) {
+		p_die_lock = (void *)kallsyms_lookup_name("die_lock");
+		if (!p_die_lock) {
+			aee_sram_printk("%s failed to get die_lock\n",
+					__func__);
+			return;
+		}
+	}
+
+	/* If a crash is occurring, make sure we can't deadlock */
+	raw_spin_lock_init(p_die_lock);
 }
 
 /* for aee_aed.ko */
