@@ -535,7 +535,7 @@ int reviser_table_get_tcm(void *drvinfo,
 	struct reviser_dev_info *rdv = NULL;
 	uint32_t i;
 	unsigned long setbits = 0;
-	int ret = 0;
+
 
 	DEBUG_TAG;
 
