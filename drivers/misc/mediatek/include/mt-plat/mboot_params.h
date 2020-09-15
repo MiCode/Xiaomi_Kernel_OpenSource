@@ -43,8 +43,9 @@ enum AEE_FIQ_STEP_NUM {
 	AEE_FIQ_STEP_KE_IPANIC_HEADER,
 	AEE_FIQ_STEP_KE_IPANIC_DONE,
 	AEE_FIQ_STEP_COMMON_DIE_START = 64,
+	AEE_FIQ_STEP_COMMON_DIE_LOCK,
+	AEE_FIQ_STEP_COMMON_DIE_KASLR,
 	AEE_FIQ_STEP_COMMON_DIE_SCP,
-	AEE_FIQ_STEP_COMMON_DIE_MRDUMP,
 	AEE_FIQ_STEP_COMMON_DIE_TRACE,
 	AEE_FIQ_STEP_COMMON_DIE_REGS,
 	AEE_FIQ_STEP_COMMON_DIE_CS,
@@ -943,10 +944,12 @@ static inline void aee_rr_rec_set_bit_pmic_ext_buck(int bit, int loc)
 
 static inline int aee_rr_init_thermal_temp(int num)
 {
+	return 0;
 }
 
 static inline int aee_rr_rec_thermal_temp(int index, s8 val)
 {
+	return 0;
 }
 
 static inline void aee_rr_rec_thermal_status(u8 val)
