@@ -10,6 +10,7 @@
 #include <linux/of_device.h>
 #include <linux/of.h>
 #include <linux/regmap.h>
+#include <linux/pm_runtime.h>
 
 #include <dt-bindings/clock/qcom,camcc-lahaina.h>
 
@@ -1931,24 +1932,6 @@ static struct clk_branch cam_cc_csiphy5_clk = {
 	},
 };
 
-static struct clk_branch cam_cc_gdsc_clk = {
-	.halt_reg = 0xc148,
-	.halt_check = BRANCH_HALT,
-	.clkr = {
-		.enable_reg = 0xc148,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "cam_cc_gdsc_clk",
-			.parent_data = &(const struct clk_parent_data){
-				.hw = &cam_cc_xo_clk_src.clkr.hw,
-			},
-			.num_parents = 1,
-			.flags = CLK_IS_CRITICAL | CLK_SET_RATE_PARENT,
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
 static struct clk_branch cam_cc_icp_ahb_clk = {
 	.halt_reg = 0xc094,
 	.halt_check = BRANCH_HALT,
@@ -2866,7 +2849,6 @@ static struct clk_regmap *cam_cc_lahaina_clocks[] = {
 	[CAM_CC_CSIPHY4_CLK] = &cam_cc_csiphy4_clk.clkr,
 	[CAM_CC_CSIPHY5_CLK] = &cam_cc_csiphy5_clk.clkr,
 	[CAM_CC_FAST_AHB_CLK_SRC] = &cam_cc_fast_ahb_clk_src.clkr,
-	[CAM_CC_GDSC_CLK] = &cam_cc_gdsc_clk.clkr,
 	[CAM_CC_ICP_AHB_CLK] = &cam_cc_icp_ahb_clk.clkr,
 	[CAM_CC_ICP_CLK] = &cam_cc_icp_clk.clkr,
 	[CAM_CC_ICP_CLK_SRC] = &cam_cc_icp_clk_src.clkr,
@@ -2972,7 +2954,7 @@ static const struct regmap_config cam_cc_lahaina_regmap_config = {
 	.fast_io = true,
 };
 
-static const struct qcom_cc_desc cam_cc_lahaina_desc = {
+static struct qcom_cc_desc cam_cc_lahaina_desc = {
 	.config = &cam_cc_lahaina_regmap_config,
 	.clks = cam_cc_lahaina_clocks,
 	.num_clks = ARRAY_SIZE(cam_cc_lahaina_clocks),
@@ -3014,22 +2996,21 @@ static int cam_cc_lahaina_fixup(struct platform_device *pdev,
 static int cam_cc_lahaina_probe(struct platform_device *pdev)
 {
 	struct regmap *regmap;
-	struct clk *clk;
 	int ret;
-
-	clk = devm_clk_get(&pdev->dev, "cfg_ahb_clk");
-	if (IS_ERR(clk)) {
-		if (PTR_ERR(clk) != -EPROBE_DEFER)
-			dev_err(&pdev->dev, "Unable to get ahb clock handle\n");
-		return PTR_ERR(clk);
-	}
-	devm_clk_put(&pdev->dev, clk);
 
 	regmap = qcom_cc_map(pdev, &cam_cc_lahaina_desc);
 	if (IS_ERR(regmap)) {
 		dev_err(&pdev->dev, "Failed to map cam CC registers\n");
 		return PTR_ERR(regmap);
 	}
+
+	ret = qcom_cc_runtime_init(pdev, &cam_cc_lahaina_desc);
+	if (ret)
+		return ret;
+
+	ret = pm_runtime_get_sync(&pdev->dev);
+	if (ret)
+		return ret;
 
 	clk_lucid_5lpe_pll_configure(&cam_cc_pll0, regmap, &cam_cc_pll0_config);
 	clk_lucid_5lpe_pll_configure(&cam_cc_pll1, regmap, &cam_cc_pll1_config);
@@ -3043,12 +3024,19 @@ static int cam_cc_lahaina_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	/*
+	 * Keep clocks always enabled:
+	 *	cam_cc_gdsc_clk
+	 */
+	regmap_update_bits(regmap, 0xc148, BIT(0), BIT(0));
+
 	ret = qcom_cc_really_probe(pdev, &cam_cc_lahaina_desc, regmap);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to register CAM CC clocks\n");
 		return ret;
 	}
 
+	pm_runtime_put_sync(&pdev->dev);
 	dev_info(&pdev->dev, "Registered CAM CC clocks\n");
 
 	return ret;
@@ -3059,12 +3047,17 @@ static void cam_cc_lahaina_sync_state(struct device *dev)
 	qcom_cc_sync_state(dev, &cam_cc_lahaina_desc);
 }
 
+static const struct dev_pm_ops cam_cc_lahaina_pm_ops = {
+	SET_RUNTIME_PM_OPS(qcom_cc_runtime_suspend, qcom_cc_runtime_resume, NULL)
+};
+
 static struct platform_driver cam_cc_lahaina_driver = {
 	.probe = cam_cc_lahaina_probe,
 	.driver = {
 		.name = "lahaina-cam_cc",
 		.of_match_table = cam_cc_lahaina_match_table,
 		.sync_state = cam_cc_lahaina_sync_state,
+		.pm = &cam_cc_lahaina_pm_ops,
 	},
 };
 

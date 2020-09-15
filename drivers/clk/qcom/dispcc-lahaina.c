@@ -10,6 +10,7 @@
 #include <linux/of_device.h>
 #include <linux/of.h>
 #include <linux/regmap.h>
+#include <linux/pm_runtime.h>
 
 #include <dt-bindings/clock/qcom,dispcc-lahaina.h>
 
@@ -1422,24 +1423,6 @@ static struct clk_branch disp_cc_sleep_clk = {
 	},
 };
 
-static struct clk_branch disp_cc_xo_clk = {
-	.halt_reg = 0x605c,
-	.halt_check = BRANCH_HALT,
-	.clkr = {
-		.enable_reg = 0x605c,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "disp_cc_xo_clk",
-			.parent_data = &(const struct clk_parent_data){
-				.hw = &disp_cc_xo_clk_src.clkr.hw,
-			},
-			.num_parents = 1,
-			.flags = CLK_IS_CRITICAL | CLK_SET_RATE_PARENT,
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
 static struct clk_regmap *disp_cc_lahaina_clocks[] = {
 	[DISP_CC_MDSS_AHB_CLK] = &disp_cc_mdss_ahb_clk.clkr,
 	[DISP_CC_MDSS_AHB_CLK_SRC] = &disp_cc_mdss_ahb_clk_src.clkr,
@@ -1502,7 +1485,6 @@ static struct clk_regmap *disp_cc_lahaina_clocks[] = {
 	[DISP_CC_PLL1] = &disp_cc_pll1.clkr,
 	[DISP_CC_SLEEP_CLK] = &disp_cc_sleep_clk.clkr,
 	[DISP_CC_SLEEP_CLK_SRC] = &disp_cc_sleep_clk_src.clkr,
-	[DISP_CC_XO_CLK] = &disp_cc_xo_clk.clkr,
 	[DISP_CC_XO_CLK_SRC] = &disp_cc_xo_clk_src.clkr,
 };
 
@@ -1519,7 +1501,7 @@ static const struct regmap_config disp_cc_lahaina_regmap_config = {
 	.fast_io = true,
 };
 
-static const struct qcom_cc_desc disp_cc_lahaina_desc = {
+static struct qcom_cc_desc disp_cc_lahaina_desc = {
 	.config = &disp_cc_lahaina_regmap_config,
 	.clks = disp_cc_lahaina_clocks,
 	.num_clks = ARRAY_SIZE(disp_cc_lahaina_clocks),
@@ -1538,20 +1520,19 @@ MODULE_DEVICE_TABLE(of, disp_cc_lahaina_match_table);
 static int disp_cc_lahaina_probe(struct platform_device *pdev)
 {
 	struct regmap *regmap;
-	struct clk *clk;
 	int ret;
 
 	regmap = qcom_cc_map(pdev, &disp_cc_lahaina_desc);
 	if (IS_ERR(regmap))
 		return PTR_ERR(regmap);
 
-	clk = devm_clk_get(&pdev->dev, "cfg_ahb_clk");
-	if (IS_ERR(clk)) {
-		if (PTR_ERR(clk) != -EPROBE_DEFER)
-			dev_err(&pdev->dev, "Unable to get ahb clock handle\n");
-		return PTR_ERR(clk);
-	}
-	devm_clk_put(&pdev->dev, clk);
+	ret = qcom_cc_runtime_init(pdev, &disp_cc_lahaina_desc);
+	if (ret)
+		return ret;
+
+	ret = pm_runtime_get_sync(&pdev->dev);
+	if (ret)
+		return ret;
 
 	clk_lucid_5lpe_pll_configure(&disp_cc_pll0, regmap,
 		&disp_cc_pll0_config);
@@ -1561,12 +1542,19 @@ static int disp_cc_lahaina_probe(struct platform_device *pdev)
 	/* Enable clock gating for MDP clocks */
 	regmap_update_bits(regmap, DISP_CC_MISC_CMD, 0x10, 0x10);
 
+	/*
+	 * Keep clocks always enabled:
+	 *	disp_cc_xo_clk
+	 */
+	regmap_update_bits(regmap, 0x605c, BIT(0), BIT(0));
+
 	ret = qcom_cc_really_probe(pdev, &disp_cc_lahaina_desc, regmap);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to register DISP CC clocks\n");
 		return ret;
 	}
 
+	pm_runtime_put_sync(&pdev->dev);
 	dev_info(&pdev->dev, "Registered DISP CC clocks\n");
 
 	return ret;
@@ -1577,12 +1565,17 @@ static void disp_cc_lahaina_sync_state(struct device *dev)
 	qcom_cc_sync_state(dev, &disp_cc_lahaina_desc);
 }
 
+static const struct dev_pm_ops disp_cc_lahaina_pm_ops = {
+	SET_RUNTIME_PM_OPS(qcom_cc_runtime_suspend, qcom_cc_runtime_resume, NULL)
+};
+
 static struct platform_driver disp_cc_lahaina_driver = {
 	.probe = disp_cc_lahaina_probe,
 	.driver = {
 		.name = "disp_cc-lahaina",
 		.of_match_table = disp_cc_lahaina_match_table,
 		.sync_state = disp_cc_lahaina_sync_state,
+		.pm = &disp_cc_lahaina_pm_ops,
 	},
 };
 
