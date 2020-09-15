@@ -25,6 +25,7 @@
 #include "mtk_cam-raw.h"
 #include "mtk_cam-regs.h"
 #include "mtk_cam-video.h"
+#include "mtk_cam-meta.h"
 
 #ifdef CONFIG_MTK_SMI_EXT
 #include "smi_public.h"
@@ -36,6 +37,18 @@
 #endif
 
 #define MTK_RAW_STOP_HW_TIMEOUT			(33 * USEC_PER_MSEC)
+
+#define META_STATS_CFG_MAX_SIZE (48 * SZ_1K)
+/* meta out max size include 1k meta info and dma buffer size */
+#define META_STATS_0_MAX_SIZE \
+	ALIGN((MTK_CAM_UAPI_AAO_MAX_BUF_SIZE + MTK_CAM_UAPI_AAHO_MAX_BUF_SIZE + \
+		MTK_CAM_UAPI_LTMSO_SIZE + MTK_CAM_UAPI_FLK_MAX_BUF_SIZE + \
+		MTK_CAM_UAPI_TSFSO_SIZE + SZ_1K), (4 * SZ_1K))
+#define META_STATS_1_MAX_SIZE \
+	ALIGN((MTK_CAM_UAPI_AFO_MAX_BUF_SIZE + SZ_1K), (4 * SZ_1K))
+#define META_STATS_2_MAX_SIZE \
+	ALIGN((MTK_CAM_UAPI_LCESO_SIZE + MTK_CAM_UAPI_LCESHO_SIZE + \
+		MTK_CAM_UAPI_LMVO_SIZE + SZ_1K), (4 * SZ_1K))
 
 static const struct of_device_id mtk_raw_of_ids[] = {
 	{.compatible = "mediatek,isp6s-cam",},
@@ -1515,25 +1528,25 @@ static const struct v4l2_format meta_fmts[] = { /* FIXME for ISP6 meta format */
 	{
 		.fmt.meta = {
 			.dataformat = V4L2_META_FMT_MTISP_PARAMS,
-			.buffersize = 200 * SZ_1K,
+			.buffersize = META_STATS_CFG_MAX_SIZE,
 		},
 	},
 	{
 		.fmt.meta = {
 			.dataformat = V4L2_META_FMT_MTISP_3A,
-			.buffersize = 12000 * SZ_1K,
+			.buffersize = META_STATS_0_MAX_SIZE,
 		},
 	},
 	{
 		.fmt.meta = {
 			.dataformat = V4L2_META_FMT_MTISP_AF,
-			.buffersize = 800 * SZ_1K,
+			.buffersize = META_STATS_1_MAX_SIZE,
 		},
 	},
 	{
 		.fmt.meta = {
 			.dataformat = V4L2_META_FMT_MTISP_LCS,
-			.buffersize = 800 * SZ_1K,
+			.buffersize = META_STATS_2_MAX_SIZE,
 		},
 	},
 };
@@ -2220,7 +2233,7 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		.smem_alloc = false,
 		.dma_port = MTKCAM_IPI_RAW_META_STATS_1,
 		.fmts = meta_fmts,
-		.default_fmt_idx = 1,
+		.default_fmt_idx = 2,
 		.max_buf_count = 5,
 		.ioctl_ops = &mtk_cam_v4l2_meta_cap_ioctl_ops,
 	},
@@ -2234,7 +2247,7 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		.smem_alloc = false,
 		.dma_port = MTKCAM_IPI_RAW_META_STATS_2,
 		.fmts = meta_fmts,
-		.default_fmt_idx = 1,
+		.default_fmt_idx = 3,
 		.max_buf_count = 5,
 		.ioctl_ops = &mtk_cam_v4l2_meta_cap_ioctl_ops,
 	},

@@ -304,7 +304,7 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 			.buf.ccd_fd = vb->planes[0].m.fd;
 		/* vb->planes[0].bytesused; todo: vb2_q byteused is zero before stream on */
 		req->frame_params.meta_inputs[desc_id]
-			.buf.size = 80000;
+			.buf.size = node->active_fmt.fmt.meta.buffersize;
 		req->frame_params.meta_inputs[desc_id]
 			.buf.iova = buf->daddr;
 		req->frame_params.meta_inputs[desc_id].uid.id = node->desc.dma_port;
@@ -317,7 +317,7 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 		req->frame_params.meta_outputs[desc_id]
 			.buf.ccd_fd = vb->planes[0].m.fd;
 		req->frame_params.meta_outputs[desc_id]
-			.buf.size = vb->planes[0].bytesused;
+			.buf.size = node->active_fmt.fmt.meta.buffersize;
 		req->frame_params.meta_outputs[desc_id]
 			.buf.iova = buf->daddr;
 		req->frame_params.meta_outputs[desc_id].uid.id = node->desc.dma_port;
