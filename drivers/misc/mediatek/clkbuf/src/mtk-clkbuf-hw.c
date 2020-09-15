@@ -969,23 +969,6 @@ static ssize_t _clk_buf_show_status_info_internal(char *buf)
 	return len;
 }
 
-static void clk_buf_show_status_info(void)
-{
-	char *buf, *str, *str_sep;
-	int len = 0;
-
-	buf = vmalloc(CLKBUF_STATUS_INFO_SIZE);
-	if (buf) {
-		len = _clk_buf_show_status_info_internal(buf);
-		str = buf;
-		while ((str_sep = strsep(&str, ".")) != NULL)
-			pr_info("%s\n", str_sep);
-
-		vfree(buf);
-	} else
-		pr_info("%s: allocate memory fail\n", __func__);
-}
-
 #ifdef CONFIG_PM
 static ssize_t clk_buf_ctrl_store(struct kobject *kobj,
 	struct kobj_attribute *attr, const char *buf, size_t count)
