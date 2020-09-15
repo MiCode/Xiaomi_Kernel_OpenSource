@@ -221,6 +221,7 @@ int devmpu_print_violation(uint64_t vio_addr, uint32_t vio_id,
 }
 EXPORT_SYMBOL(devmpu_print_violation);
 
+#if IS_ENABLED(CONFIG_MTK_DEVMPU_DEBUG)
 /* sysfs */
 static int devmpu_dump_perm(void)
 {
@@ -369,6 +370,7 @@ static ssize_t devmpu_config_store(struct device_driver *driver,
 	return count;
 }
 static DRIVER_ATTR_RW(devmpu_config);
+#endif
 
 static irqreturn_t devmpu_irq_handler(int irq, void *dev_id)
 {
