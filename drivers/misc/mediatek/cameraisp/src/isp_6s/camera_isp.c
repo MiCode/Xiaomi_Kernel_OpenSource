@@ -3662,15 +3662,16 @@ static int ion_buf_list_read(struct seq_file *m, void *v)
 		return 0;
 	}
 
-	seq_puts(m, " idx memID dev port       va           pa        size   refCnt    user\n");
+	seq_puts(m, " idx memID        va           pa        size/aligned   refCnt    user\n");
 	seq_puts(m, "===================================================================\n");
 
 	list_for_each(pos, &g_ion_buf_list.list) {
 		entry = list_entry(pos, struct ION_BUFFER_LIST, list);
 
-		seq_printf(m, "#%03d   %3d %2d  %2d   0x%10lx  0x%09lx 0x%06x  %2d  %s\n", i,
-			entry->memID, entry->devNode, entry->dmaPort,
-			entry->va, entry->dmaAddr, entry->size, entry->refCnt, entry->username);
+		seq_printf(m, "#%03d   %3d   0x%10lx  0x%09lx 0x%06x/0x%06x  %2d  %s\n", i,
+			entry->memID,
+			entry->va, entry->dmaAddr, entry->size, entry->dmaBuf->size,
+			entry->refCnt, entry->username);
 			i++;
 	}
 
@@ -5023,14 +5024,9 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 		if (copy_from_user(&IonNode, (void *)Param,
 			sizeof(struct ISP_DEV_ION_NODE_STRUCT)) == 0) {
 			struct ION_BUFFER_LIST *tmp; /* for delete the mapped node */
-			struct ION_BUFFER_LIST *entry; /* for traverse. */
 			struct list_head *pos, *q;
 			struct ION_BUFFER pIonBuf = {NULL, NULL, NULL, 0};
 			bool foundFD = false;
-
-			struct dma_buf_attachment *delete_attach = NULL;
-			struct dma_buf *delete_dmaBuf = NULL;
-			struct sg_table *delete_sgt = NULL;
 
 			LOG_NOTICE("unmap: try memID(%d); VA/PA(0x%lx/0x%lx); (%d,%d,%s,0x%x)\n",
 				IonNode.memID, IonNode.va, IonNode.dma_pa, IonNode.devNode,
