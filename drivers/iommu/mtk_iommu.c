@@ -339,7 +339,7 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 		if (i > 0)
 			tf_iova_tmp -= SZ_4K;
 		fault_pgpa = mtk_iommu_iova_to_phys(&data->m4u_dom->domain, tf_iova_tmp);
-		pr_info("%s error, index:%d, falut_iova:0x%lx, fault_pa(pg):%pa\n",
+		pr_info("[iommu_debug] %s error, index:%d, falut_iova:0x%lx, fault_pa(pg):%pa\n",
 			data->plat_data->is_apu ? "apu_iommu" : "mm_iommu",
 			i, tf_iova_tmp, &fault_pgpa);
 		if (!fault_pgpa && i > 0)
