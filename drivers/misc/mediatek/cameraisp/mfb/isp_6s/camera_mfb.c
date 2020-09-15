@@ -2707,7 +2707,7 @@ static long MFB_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 	unsigned long flags; /* old: unsigned int flags;*/
 			     /* FIX to avoid build warning */
 	struct MFB_MapTable mfb_maptable;
-	unsigned int dma_addr = 0, i = 0;
+	unsigned int i = 0;
 
 	if (pFile->private_data == NULL) {
 		LOG_WRN(
