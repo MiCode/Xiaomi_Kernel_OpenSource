@@ -184,7 +184,7 @@ static void mtk_wdt_parse_dt(struct device_node *np,
 	}
 }
 
-static int mtk_wdt_init(struct device_node *np,
+static void mtk_wdt_init(struct device_node *np,
 			struct watchdog_device *wdt_dev)
 {
 	struct mtk_wdt_dev *mtk_wdt = watchdog_get_drvdata(wdt_dev);
