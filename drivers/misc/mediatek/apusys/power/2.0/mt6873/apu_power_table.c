@@ -294,7 +294,7 @@ static int opp_tbl_to_freq_tbl(struct device *dev, enum DVFS_USER user)
 		if (ret)
 			break;
 	}
-out:
+
 	return ret;
 }
 
