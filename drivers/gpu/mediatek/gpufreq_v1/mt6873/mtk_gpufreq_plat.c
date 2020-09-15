@@ -66,6 +66,10 @@ extern GED_LOG_BUF_HANDLE gpufreq_ged_log;
 #include "dbgtop.h"
 #endif
 
+#if IS_ENABLED(CONFIG_MTK_DEVINFO)
+#include <linux/nvmem-consumer.h>
+#endif
+
 enum gpu_dvfs_vgpu_step {
 	GPU_DVFS_VGPU_STEP_1 = 0x1,
 	GPU_DVFS_VGPU_STEP_2 = 0x2,
@@ -176,6 +180,7 @@ static unsigned int __calculate_vsram_settletime(bool mode, int deltaV);
  * ===============================================
  */
 
+static struct platform_device *g_pdev;
 static struct mt_gpufreq_power_table_info *g_power_table;
 static struct g_pmic_info *g_pmic;
 static struct g_clk_info *g_clk;
@@ -399,7 +404,7 @@ unsigned int mt_gpufreq_get_shader_present(void)
 		shader_present = MT_GPU_SHADER_PRESENT_5;
 		gpufreq_pr_info("invalid segment id: %d\n", segment_id);
 	}
-	gpufreq_pr_info("@%s: segment_id: %d, shader_present: %d\n",
+	gpufreq_pr_info("@%s: segment_id: %d, shader_present: 0x%llX\n",
 					__func__, segment_id, shader_present);
 
 	return shader_present;
@@ -1894,9 +1899,32 @@ EXPORT_SYMBOL(mt_gpufreq_power_limit_notify_registerCB);
 
 static unsigned int __mt_gpufreq_get_segment_id(void)
 {
-#if EFUSE_READY
 	unsigned int efuse_id;
 	static int segment_id = -1;
+
+#if IS_ENABLED(CONFIG_MTK_DEVINFO)
+	struct nvmem_cell *efuse_cell;
+	unsigned int *efuse_buf;
+	size_t efuse_len;
+
+	efuse_cell = nvmem_cell_get(&g_pdev->dev, "efuse_segment_cell");
+	if (IS_ERR(efuse_cell)) {
+		gpufreq_pr_info("@%s: cannot get efuse_segment_cell\n", __func__);
+		return PTR_ERR(efuse_cell);
+	}
+
+	efuse_buf = (unsigned int *)nvmem_cell_read(efuse_cell, &efuse_len);
+	nvmem_cell_put(efuse_cell);
+	if (IS_ERR(efuse_buf)) {
+		gpufreq_pr_info("@%s: cannot get efuse_buf\n", __func__);
+		return PTR_ERR(efuse_buf);
+	}
+
+	efuse_id =  (*efuse_buf & 0xFF);
+	kfree(efuse_buf);
+#else
+	efuse_id = 0x0;
+#endif
 
 	if (segment_id != -1)
 		return segment_id;
@@ -1907,7 +1935,6 @@ static unsigned int __mt_gpufreq_get_segment_id(void)
 	 * mt6875  = 0001_0000 (5G-A+)
 	 * mt6875t = 0011_0000 (5G-A+ turbo)
 	 */
-	efuse_id = (get_devinfo_with_index(30) & 0xFF);
 
 	switch (efuse_id) {
 	case 0x1:
@@ -1928,21 +1955,39 @@ static unsigned int __mt_gpufreq_get_segment_id(void)
 						__func__, efuse_id, segment_id);
 
 	return segment_id;
-#else
-	return MT6875_SEGMENT;
-#endif
 }
 
 static unsigned int __mt_gpufreq_get_segment_table(void)
 {
-#if EFUSE_READY
 	unsigned int efuse_id;
 	static int segment_table = -1;
 
+#if IS_ENABLED(CONFIG_MTK_DEVINFO)
+	struct nvmem_cell *efuse_cell;
+	unsigned int *efuse_buf;
+	size_t efuse_len;
+
+	efuse_cell = nvmem_cell_get(&g_pdev->dev, "efuse_pod19");
+	if (IS_ERR(efuse_cell)) {
+		gpufreq_pr_info("@%s: cannot get efuse_pod19\n", __func__);
+		return PTR_ERR(efuse_cell);
+	}
+
+	efuse_buf = (unsigned int *)nvmem_cell_read(efuse_cell, &efuse_len);
+	nvmem_cell_put(efuse_cell);
+	if (IS_ERR(efuse_buf)) {
+		gpufreq_pr_info("@%s: cannot get efuse_buf\n", __func__);
+		return PTR_ERR(efuse_buf);
+	}
+
+	efuse_id = ((*efuse_buf >> 4) & 0x3);
+	kfree(efuse_buf);
+#else
+	efuse_id = 0x0;
+#endif
+
 	if (segment_table != -1)
 		return segment_table;
-
-	efuse_id = ((get_devinfo_with_index(69) >> 4) & 0x3);
 
 	switch (efuse_id) {
 	case 0x0:
@@ -1960,9 +2005,6 @@ static unsigned int __mt_gpufreq_get_segment_table(void)
 					__func__, efuse_id, segment_table);
 
 	return segment_table;
-#else
-	return SEGMENT_TABLE_1;
-#endif
 }
 
 /**
@@ -3634,6 +3676,8 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 		return EPROBE_DEFER;
 	}
 #endif
+
+	g_pdev = pdev;
 
 	/* init pmic regulator */
 	ret = __mt_gpufreq_init_pmic(pdev);
