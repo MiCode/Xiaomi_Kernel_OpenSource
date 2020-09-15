@@ -1377,7 +1377,23 @@ void a6xx_gmu_register_config(struct adreno_device *adreno_dev)
 	 * Bit 11-8: patch version
 	 */
 	chipid = chipid | (ADRENO_CHIPID_MINOR(adreno_dev->chipid) << 12)
-			| (ADRENO_CHIPID_PATCH(adreno_dev->chipid) << 8);
+			| ((ADRENO_CHIPID_PATCH(adreno_dev->chipid) & 0xf) << 8);
+
+	/*
+	 * For A660 GPU variant, GMU firmware expects chipid as per below
+	 * format to differentiate between A660 and A660 variant. In device
+	 * tree, target version is specified as high nibble of patch to align
+	 * with usermode driver expectation. Format the chipid according to
+	 * firmware requirement.
+	 *
+	 * Bit 11-8: patch version
+	 * Bit 15-12: minor version
+	 * Bit 23-16: major version
+	 * Bit 27-24: core version
+	 * Bit 31-28: target version
+	 */
+	if (adreno_is_a660_shima(adreno_dev))
+		chipid |= ((ADRENO_CHIPID_PATCH(adreno_dev->chipid) >> 4) << 28);
 
 	gmu_core_regwrite(device, A6XX_GMU_HFI_SFR_ADDR, chipid);
 
