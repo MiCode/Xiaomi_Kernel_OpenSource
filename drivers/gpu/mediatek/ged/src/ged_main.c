@@ -26,9 +26,6 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 
-/* TODO: porting*/
-/* #include <mt-plat/aee.h> */
-
 #ifdef GED_DEBUG_FS
 #include "ged_debugFS.h"
 #endif

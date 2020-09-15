@@ -18,8 +18,6 @@
 #include "platform/mtk_platform_common.h"
 #include "ged_dvfs.h"
 #include "mtk_gpufreq.h"
-/* TODO: porting*/
-/*#include "mtk_idle.h"*/
 #ifdef CONFIG_MTK_GPU_SWPM_SUPPORT
 #include <mtk_gpu_power_sspm_ipi.h>
 #endif

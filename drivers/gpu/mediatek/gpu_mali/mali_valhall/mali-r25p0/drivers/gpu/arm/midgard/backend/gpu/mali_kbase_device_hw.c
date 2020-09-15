@@ -215,7 +215,6 @@ bool kbase_is_gpu_lost(struct kbase_device *kbdev)
  */
 static void kbase_report_gpu_fault(struct kbase_device *kbdev, int multiple)
 {
-	u32 status = kbase_reg_read(kbdev, GPU_CONTROL_REG(GPU_FAULTSTATUS));
 	u64 address = (u64) kbase_reg_read(kbdev,
 			GPU_CONTROL_REG(GPU_FAULTADDRESS_HI)) << 32;
 

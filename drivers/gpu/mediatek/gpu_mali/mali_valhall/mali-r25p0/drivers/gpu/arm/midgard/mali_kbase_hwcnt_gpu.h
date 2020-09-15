@@ -1,6 +1,6 @@
 /*
  *
- * (C) COPYRIGHT 2018 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2018, 2020 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -80,13 +80,13 @@ enum kbase_hwcnt_gpu_v5_block_type {
 /**
  * struct kbase_hwcnt_physical_enable_map - Representation of enable map
  *                                          directly used by GPU.
- * @jm_bm:     Job Manager counters selection bitmask.
+ * @fe_bm:     Front end (JM/CSHW) counters selection bitmask.
  * @shader_bm: Shader counters selection bitmask.
  * @tiler_bm:  Tiler counters selection bitmask.
  * @mmu_l2_bm: MMU_L2 counters selection bitmask.
  */
 struct kbase_hwcnt_physical_enable_map {
-	u32 jm_bm;
+	u32 fe_bm;
 	u32 shader_bm;
 	u32 tiler_bm;
 	u32 mmu_l2_bm;
@@ -96,6 +96,7 @@ struct kbase_hwcnt_physical_enable_map {
  * struct kbase_hwcnt_gpu_v4_info - Information about hwcnt blocks on v4 GPUs.
  * @cg_count: Core group count.
  * @cgs:      Non-NULL pointer to array of cg_count coherent group structures.
+ * @clk_cnt:  Number of clock domains available.
  *
  * V4 devices are Mali-T6xx or Mali-T72x, and have one or more core groups,
  * where each core group may have a physically different layout.
@@ -103,16 +104,19 @@ struct kbase_hwcnt_physical_enable_map {
 struct kbase_hwcnt_gpu_v4_info {
 	size_t cg_count;
 	const struct mali_base_gpu_coherent_group *cgs;
+	u8 clk_cnt;
 };
 
 /**
  * struct kbase_hwcnt_gpu_v5_info - Information about hwcnt blocks on v5 GPUs.
  * @l2_count:   L2 cache count.
  * @core_mask:  Shader core mask. May be sparse.
+ * @clk_cnt:    Number of clock domains available.
  */
 struct kbase_hwcnt_gpu_v5_info {
 	size_t l2_count;
 	u64 core_mask;
+	u8 clk_cnt;
 };
 
 /**

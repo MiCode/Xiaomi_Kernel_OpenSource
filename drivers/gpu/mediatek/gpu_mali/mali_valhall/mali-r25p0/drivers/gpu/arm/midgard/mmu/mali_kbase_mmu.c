@@ -45,6 +45,7 @@
 #include <mmu/mali_kbase_mmu_internal.h>
 #include <mali_kbase_cs_experimental.h>
 
+#include <mali_kbase_trace_gpu_mem.h>
 #define KBASE_MMU_PAGE_ENTRIES 512
 
 /**
@@ -150,6 +151,13 @@ static size_t reg_grow_calc_extra_pages(struct kbase_device *kbdev,
 	 * Depending on reg's flags, the base used for calculating multiples is
 	 * different
 	 */
+
+	/* multiple is based from the current backed size, even if the
+	 * current backed size/pfn for end of committed memory are not
+	 * themselves aligned to multiple
+	 */
+	remainder = minimum_extra % multiple;
+
 	if (reg->flags & KBASE_REG_TILER_ALIGN_TOP) {
 		/* multiple is based from the top of the initial commit, which
 		 * has been allocated in such a way that (start_pfn +
@@ -175,12 +183,6 @@ static size_t reg_grow_calc_extra_pages(struct kbase_device *kbdev,
 
 			remainder = pages_after_initial % multiple;
 		}
-	} else {
-		/* multiple is based from the current backed size, even if the
-		 * current backed size/pfn for end of committed memory are not
-		 * themselves aligned to multiple
-		 */
-		remainder = minimum_extra % multiple;
 	}
 
 	if (remainder == 0)
@@ -544,7 +546,9 @@ void page_fault_worker(struct work_struct *data)
 	struct kbase_sub_alloc *prealloc_sas[2] = { NULL, NULL };
 	int i;
 	size_t current_backed_size;
-
+#if MALI_JIT_PRESSURE_LIMIT_BASE
+	size_t pages_trimmed = 0;
+#endif
 
 	faulting_as = container_of(data, struct kbase_as, work_pagefault);
 	fault = &faulting_as->pf_data;
@@ -567,6 +571,10 @@ void page_fault_worker(struct work_struct *data)
 	}
 
 	KBASE_DEBUG_ASSERT(kctx->kbdev == kbdev);
+
+#if MALI_JIT_PRESSURE_LIMIT_BASE
+	mutex_lock(&kctx->jctx.lock);
+#endif
 
 	if (unlikely(fault->protected_mode)) {
 		kbase_mmu_report_fault_and_kill(kctx, faulting_as,
@@ -758,6 +766,13 @@ page_fault_retry:
 
 	pages_to_grow = 0;
 
+#if MALI_JIT_PRESSURE_LIMIT_BASE
+	if ((region->flags & KBASE_REG_ACTIVE_JIT_ALLOC) && !pages_trimmed) {
+		kbase_jit_request_phys_increase(kctx, new_pages);
+		pages_trimmed = new_pages;
+	}
+#endif
+
 	spin_lock(&kctx->mem_partials_lock);
 	grown = page_fault_try_alloc(kctx, region, new_pages, &pages_to_grow,
 			&grow_2mb_pool, prealloc_sas);
@@ -872,6 +887,13 @@ page_fault_retry:
 			}
 		}
 #endif
+
+#if MALI_JIT_PRESSURE_LIMIT_BASE
+		if (pages_trimmed) {
+			kbase_jit_done_phys_increase(kctx, pages_trimmed);
+			pages_trimmed = 0;
+		}
+#endif
 		kbase_gpu_vm_unlock(kctx);
 	} else {
 		int ret = -ENOMEM;
@@ -918,6 +940,15 @@ page_fault_retry:
 	}
 
 fault_done:
+#if MALI_JIT_PRESSURE_LIMIT_BASE
+	if (pages_trimmed) {
+		kbase_gpu_vm_lock(kctx);
+		kbase_jit_done_phys_increase(kctx, pages_trimmed);
+		kbase_gpu_vm_unlock(kctx);
+	}
+	mutex_unlock(&kctx->jctx.lock);
+#endif
+
 	for (i = 0; i != ARRAY_SIZE(prealloc_sas); ++i)
 		kfree(prealloc_sas[i]);
 
@@ -963,6 +994,8 @@ static phys_addr_t kbase_mmu_alloc_pgd(struct kbase_device *kbdev,
 	}
 
 	atomic_add(1, &kbdev->memdev.used_pages);
+
+	kbase_trace_gpu_mem_usage_inc(kbdev, mmut->kctx, 1);
 
 	for (i = 0; i < KBASE_MMU_PAGE_ENTRIES; i++)
 		kbdev->mmu_mode->entry_invalidate(&page[i]);
@@ -1290,6 +1323,8 @@ static inline void cleanup_empty_pte(struct kbase_device *kbdev,
 		atomic_sub(1, &mmut->kctx->used_pages);
 	}
 	atomic_sub(1, &kbdev->memdev.used_pages);
+
+	kbase_trace_gpu_mem_usage_dec(kbdev, mmut->kctx, 1);
 }
 
 u64 kbase_mmu_create_ate(struct kbase_device *const kbdev,
@@ -1932,6 +1967,8 @@ static void mmu_teardown_level(struct kbase_device *kbdev,
 		kbase_process_page_usage_dec(mmut->kctx, 1);
 		atomic_sub(1, &mmut->kctx->used_pages);
 	}
+
+	kbase_trace_gpu_mem_usage_dec(kbdev, mmut->kctx, 1);
 }
 
 int kbase_mmu_init(struct kbase_device *const kbdev,

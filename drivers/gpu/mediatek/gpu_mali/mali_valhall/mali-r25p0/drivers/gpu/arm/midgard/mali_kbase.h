@@ -162,6 +162,25 @@ void kbase_sysfs_term(struct kbase_device *kbdev);
 int kbase_protected_mode_init(struct kbase_device *kbdev);
 void kbase_protected_mode_term(struct kbase_device *kbdev);
 
+/**
+ * kbase_device_pm_init() - Performs power management initialization and
+ * Verifies device tree configurations.
+ * @kbdev: The kbase device structure for the device (must be a valid pointer)
+ *
+ * Return: 0 if successful, otherwise a standard Linux error code
+ */
+int kbase_device_pm_init(struct kbase_device *kbdev);
+
+/**
+ * kbase_device_pm_term() - Performs power management deinitialization and
+ * Free resources.
+ * @kbdev: The kbase device structure for the device (must be a valid pointer)
+ *
+ * Clean up all the resources
+ */
+void kbase_device_pm_term(struct kbase_device *kbdev);
+
+
 int power_control_init(struct kbase_device *kbdev);
 void power_control_term(struct kbase_device *kbdev);
 
@@ -194,9 +213,9 @@ void kbase_jd_exit(struct kbase_context *kctx);
  * kbase_jd_submit - Submit atoms to the job dispatcher
  *
  * @kctx: The kbase context to submit to
- * @user_addr: The address in user space of the struct base_jd_atom_v2 array
+ * @user_addr: The address in user space of the struct base_jd_atom array
  * @nr_atoms: The number of atoms in the array
- * @stride: sizeof(struct base_jd_atom_v2)
+ * @stride: sizeof(struct base_jd_atom)
  * @uk6_atom: true if the atoms are legacy atoms (struct base_jd_atom_v2_uk6)
  *
  * Return: 0 on success or error code
@@ -386,6 +405,24 @@ static inline bool kbase_pm_is_suspending(struct kbase_device *kbdev)
 	return kbdev->pm.suspending;
 }
 
+#ifdef CONFIG_MALI_ARBITER_SUPPORT
+/*
+ * Check whether a gpu lost is in progress
+ *
+ * @kbdev: The kbase device structure for the device (must be a valid pointer)
+ *
+ * Indicates whether a gpu lost has been received and jobs are no longer
+ * being scheduled
+ *
+ * Return: false if gpu is lost
+ * Return: != false otherwise
+ */
+static inline bool kbase_pm_is_gpu_lost(struct kbase_device *kbdev)
+{
+	return kbdev->pm.gpu_lost;
+}
+#endif
+
 /**
  * kbase_pm_is_active - Determine whether the GPU is active
  *
@@ -420,7 +457,7 @@ void kbase_pm_metrics_stop(struct kbase_device *kbdev);
 
 /**
  * Return the atom's ID, as was originally supplied by userspace in
- * base_jd_atom_v2::atom_number
+ * base_jd_atom::atom_number
  */
 static inline int kbase_jd_atom_id(struct kbase_context *kctx, struct kbase_jd_atom *katom)
 {

@@ -288,7 +288,7 @@ DEFINE_EVENT_PRINT(mali_jit_softjob_template, mali_jit_free,
 	TP_printk("start=0x%llx va_pages=0x%zx backed_size=0x%zx",
 		__entry->start_addr, __entry->nr_pages, __entry->backed_pages));
 
-#if MALI_JIT_PRESSURE_LIMIT
+#if MALI_JIT_PRESSURE_LIMIT_BASE
 /* trace_mali_jit_report
  *
  * Tracepoint about the GPU data structure read to form a just-in-time memory
@@ -326,13 +326,13 @@ TRACE_EVENT(mali_jit_report,
 		),
 		__entry->read_val, __entry->used_pages)
 );
-#endif /* MALI_JIT_PRESSURE_LIMIT */
+#endif /* MALI_JIT_PRESSURE_LIMIT_BASE */
 
 #if (KERNEL_VERSION(4, 1, 0) <= LINUX_VERSION_CODE)
 TRACE_DEFINE_ENUM(KBASE_JIT_REPORT_ON_ALLOC_OR_FREE);
 #endif
 
-#if MALI_JIT_PRESSURE_LIMIT
+#if MALI_JIT_PRESSURE_LIMIT_BASE
 /* trace_mali_jit_report_pressure
  *
  * Tracepoint about change in physical memory pressure, due to the information
@@ -366,7 +366,7 @@ TRACE_EVENT(mali_jit_report_pressure,
 			{ KBASE_JIT_REPORT_ON_ALLOC_OR_FREE,
 				"HAPPENED_ON_ALLOC_OR_FREE" }))
 );
-#endif /* MALI_JIT_PRESSURE_LIMIT */
+#endif /* MALI_JIT_PRESSURE_LIMIT_BASE */
 
 #ifndef __TRACE_SYSGRAPH_ENUM
 #define __TRACE_SYSGRAPH_ENUM

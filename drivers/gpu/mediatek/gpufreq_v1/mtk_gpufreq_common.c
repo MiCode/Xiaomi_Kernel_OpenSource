@@ -15,11 +15,6 @@
  */
 #include <linux/slab.h>
 
-/* TODO: porting*/
-/* #include <mt-plat/aee.h> */
-
-/* TODO: porting*/
-/* #include <aed.h> */
 #include "mtk_gpufreq_common.h"
 
 #ifdef CONFIG_MTK_AEE_AED

@@ -9,9 +9,6 @@
 #include <linux/module.h>
 #include <linux/clk.h>
 
-/* TODO: porting*/
-/* #include "mtk_ram_console.h" */
-
 #define MT_GPUFREQ_BRINGUP                      0
 #define MT_GPUFREQ_KICKER_PBM_READY             0
 #define MT_GPUFREQ_STATIC_PWR_READY2USE         0

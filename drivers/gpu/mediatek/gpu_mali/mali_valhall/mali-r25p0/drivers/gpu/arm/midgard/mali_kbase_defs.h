@@ -40,7 +40,7 @@
 #include <mali_kbase_instr_defs.h>
 #include <mali_kbase_pm.h>
 #include <mali_kbase_gpuprops_types.h>
-#include <mali_kbase_hwcnt_backend_gpu.h>
+#include <mali_kbase_hwcnt_backend_jm.h>
 #include <protected_mode_switcher.h>
 
 #include <linux/atomic.h>
@@ -67,6 +67,9 @@
 #include <linux/devfreq.h>
 #endif /* CONFIG_MALI_DEVFREQ */
 
+#ifdef CONFIG_MALI_ARBITER_SUPPORT
+#include <arbiter/mali_kbase_arbiter_defs.h>
+#endif /* CONFIG_MALI_ARBITER_SUPPORT */
 
 #include <linux/clk.h>
 #include <linux/regulator/consumer.h>
@@ -153,6 +156,7 @@ struct kbase_device;
 struct kbase_as;
 struct kbase_mmu_setup;
 struct kbase_ipa_model_vinstr_data;
+struct kbase_kinstr_jm;
 
 /**
  * struct kbase_io_access - holds information about 1 register access
@@ -317,6 +321,58 @@ struct kbasep_mem_device {
 	atomic_t ir_threshold;
 };
 
+struct kbase_clk_rate_listener;
+
+/**
+ * kbase_clk_rate_listener_on_change_t() - Frequency change callback
+ *
+ * @listener:     Clock frequency change listener.
+ * @clk_index:    Index of the clock for which the change has occurred.
+ * @clk_rate_hz:  Clock frequency(Hz).
+ *
+ * A callback to call when clock rate changes. The function must not
+ * sleep. No clock rate manager functions must be called from here, as
+ * its lock is taken.
+ */
+typedef void (*kbase_clk_rate_listener_on_change_t)(
+	struct kbase_clk_rate_listener *listener,
+	u32 clk_index,
+	u32 clk_rate_hz);
+
+/**
+ * struct kbase_clk_rate_listener - Clock frequency listener
+ *
+ * @node:        List node.
+ * @notify:    Callback to be called when GPU frequency changes.
+ */
+struct kbase_clk_rate_listener {
+	struct list_head node;
+	kbase_clk_rate_listener_on_change_t notify;
+};
+
+/**
+ * struct kbase_clk_rate_trace_manager - Data stored per device for GPU clock
+ *                                       rate trace manager.
+ *
+ * @gpu_idle:           Tracks the idle state of GPU.
+ * @clks:               Array of pointer to structures storing data for every
+ *                      enumerated GPU clock.
+ * @clk_rate_trace_ops: Pointer to the platform specific GPU clock rate trace
+ *                      operations.
+ * @gpu_clk_rate_trace_write: Pointer to the function that would emit the
+ *                            tracepoint for the clock rate change.
+ * @listeners:          List of listener attached.
+ * @lock:               Lock to serialize the actions of GPU clock rate trace
+ *                      manager.
+ */
+struct kbase_clk_rate_trace_manager {
+	bool gpu_idle;
+	struct kbase_clk_data *clks[BASE_MAX_NR_CLOCKS_REGULATORS];
+	struct kbase_clk_rate_trace_op_conf *clk_rate_trace_ops;
+	struct list_head listeners;
+	spinlock_t lock;
+};
+
 /**
  * Data stored per device for power management.
  *
@@ -341,6 +397,10 @@ struct kbase_pm_device_data {
 	int active_count;
 	/** Flag indicating suspending/suspended */
 	bool suspending;
+#ifdef CONFIG_MALI_ARBITER_SUPPORT
+	/* Flag indicating gpu lost */
+	bool gpu_lost;
+#endif /* CONFIG_MALI_ARBITER_SUPPORT */
 	/* Wait queue set when active_count == 0 */
 	wait_queue_head_t zero_active_count_wait;
 
@@ -372,6 +432,17 @@ struct kbase_pm_device_data {
 
 	struct kbase_pm_backend_data backend;
 
+#ifdef CONFIG_MALI_ARBITER_SUPPORT
+	/**
+	 * The state of the arbiter VM machine
+	 */
+	struct kbase_arbiter_vm_state *arb_vm_state;
+#endif /* CONFIG_MALI_ARBITER_SUPPORT */
+
+	/**
+	 * The state of the GPU clock rate trace manager
+	 */
+	struct kbase_clk_rate_trace_manager clk_rtm;
 };
 
 /**
@@ -559,6 +630,32 @@ struct kbase_devfreq_queue_info {
 	struct work_struct work;
 	enum kbase_devfreq_work_type req_type;
 	enum kbase_devfreq_work_type acted_type;
+};
+
+/**
+ * struct kbase_process - Representing an object of a kbase process instantiated
+ *                        when the first kbase context is created under it.
+ * @tgid:               Thread group ID.
+ * @total_gpu_pages:    Total gpu pages allocated across all the contexts
+ *                      of this process, it accounts for both native allocations
+ *                      and dma_buf imported allocations.
+ * @kctx_list:          List of kbase contexts created for the process.
+ * @kprcs_node:         Node to a rb_tree, kbase_device will maintain a rb_tree
+ *                      based on key tgid, kprcs_node is the node link to
+ *                      &struct_kbase_device.process_root.
+ * @dma_buf_root:       RB tree of the dma-buf imported allocations, imported
+ *                      across all the contexts created for this process.
+ *                      Used to ensure that pages of allocation are accounted
+ *                      only once for the process, even if the allocation gets
+ *                      imported multiple times for the process.
+ */
+struct kbase_process {
+	pid_t tgid;
+	size_t total_gpu_pages;
+	struct list_head kctx_list;
+
+	struct rb_node kprcs_node;
+	struct rb_root dma_buf_root;
 };
 
 /**
@@ -808,6 +905,20 @@ struct kbase_devfreq_queue_info {
  *                          Job Scheduler
  * @l2_size_override:       Used to set L2 cache size via device tree blob
  * @l2_hash_override:       Used to set L2 cache hash via device tree blob
+ * @process_root:           rb_tree root node for maintaining a rb_tree of
+ *                          kbase_process based on key tgid(thread group ID).
+ * @dma_buf_root:           rb_tree root node for maintaining a rb_tree of
+ *                          &struct kbase_dma_buf based on key dma_buf.
+ *                          We maintain a rb_tree of dma_buf mappings under
+ *                          kbase_device and kbase_process, one indicates a
+ *                          mapping and gpu memory usage at device level and
+ *                          other one at process level.
+ * @total_gpu_pages:        Total GPU pages used for the complete GPU device.
+ * @dma_buf_lock:           This mutex should be held while accounting for
+ *                          @total_gpu_pages from imported dma buffers.
+ * @gpu_mem_usage_lock:     This spinlock should be held while accounting
+ *                          @total_gpu_pages for both native and dma-buf imported
+ *                          allocations.
  */
 struct kbase_device {
 	u32 hw_quirks_sc;
@@ -1045,6 +1156,13 @@ struct kbase_device {
 #endif /* CONFIG_MALI_CINSTR_GWT */
 
 
+	struct rb_root process_root;
+	struct rb_root dma_buf_root;
+
+	size_t total_gpu_pages;
+	struct mutex dma_buf_lock;
+	spinlock_t gpu_mem_usage_lock;
+
 	struct {
 		struct kbase_context *ctx;
 		u64 jc;
@@ -1060,11 +1178,12 @@ struct kbase_device {
 	struct job_status_qos job_status_addr;
 	struct v1_data* v1;
 #endif
-};
 
-#define KBASE_API_VERSION(major, minor) ((((major) & 0xFFF) << 20)  | \
-					 (((minor) & 0xFFF) << 8) | \
-					 ((0 & 0xFF) << 0))
+#ifdef CONFIG_MALI_ARBITER_SUPPORT
+		/* Pointer to the arbiter device */
+		struct kbase_arbiter_device arb;
+#endif
+};
 
 /**
  * enum kbase_file_state - Initialization state of a file opened by @kbase_open
@@ -1195,6 +1314,13 @@ enum kbase_context_flags {
 	KCTX_PULLED_SINCE_ACTIVE_JS1 = 1U << 13,
 	KCTX_PULLED_SINCE_ACTIVE_JS2 = 1U << 14,
 	KCTX_AS_DISABLED_ON_FAULT = 1U << 15,
+#if MALI_JIT_PRESSURE_LIMIT_BASE
+	/*
+	 * Set when JIT physical page limit is less than JIT virtual address
+	 * page limit, so we must take care to not exceed the physical limit
+	 */
+	KCTX_JPL_ENABLED = 1U << 16,
+#endif /* !MALI_JIT_PRESSURE_LIMIT_BASE */
 };
 
 struct kbase_sub_alloc {
@@ -1405,6 +1531,16 @@ struct kbase_sub_alloc {
  *                             that were used (i.e. the
  *                             &struct_kbase_va_region.used_pages for regions
  *                             that have had a usage report).
+ * @jit_phys_pages_to_be_allocated: Count of the physical pages that are being
+ *                                  now allocated for just-in-time memory
+ *                                  allocations of a context (across all the
+ *                                  threads). This is supposed to be updated
+ *                                  with @reg_lock held before allocating
+ *                                  the backing pages. This helps ensure that
+ *                                  total physical memory usage for just in
+ *                                  time memory allocation remains within the
+ *                                  @jit_phys_pages_limit in multi-threaded
+ *                                  scenarios.
  * @jit_active_head:      List containing the just-in-time memory allocations
  *                        which are in use.
  * @jit_pool_head:        List containing the just-in-time memory allocations
@@ -1431,6 +1567,10 @@ struct kbase_sub_alloc {
  *                        is used to determine the atom's age when it is added to
  *                        the runnable RB-tree.
  * @trim_level:           Level of JIT allocation trimming to perform on free (0-100%)
+ * @kprcs:                Reference to @struct kbase_process that the current
+ *                        kbase_context belongs to.
+ * @kprcs_link:           List link for the list of kbase context maintained
+ *                        under kbase_process.
  * @gwt_enabled:          Indicates if tracking of GPU writes is enabled, protected by
  *                        kbase_context.reg_lock.
  * @gwt_was_enabled:      Simple sticky bit flag to know if GWT was ever enabled.
@@ -1441,6 +1581,7 @@ struct kbase_sub_alloc {
  *                        for context scheduling, protected by hwaccess_lock.
  * @atoms_count:          Number of GPU atoms currently in use, per priority
  * @create_flags:         Flags used in context creation.
+ * @kinstr_jm:            Kernel job manager instrumentation context handle
  *
  * A kernel base context is an entity among which the GPU is scheduled.
  * Each context has its own GPU address space.
@@ -1551,10 +1692,11 @@ struct kbase_context {
 	u8 jit_current_allocations_per_bin[256];
 	u8 jit_version;
 	u8 jit_group_id;
-#if MALI_JIT_PRESSURE_LIMIT
+#if MALI_JIT_PRESSURE_LIMIT_BASE
 	u64 jit_phys_pages_limit;
 	u64 jit_current_phys_pressure;
-#endif /* MALI_JIT_PRESSURE_LIMIT */
+	u64 jit_phys_pages_to_be_allocated;
+#endif /* MALI_JIT_PRESSURE_LIMIT_BASE */
 	struct list_head jit_active_head;
 	struct list_head jit_pool_head;
 	struct list_head jit_destroy_head;
@@ -1565,6 +1707,9 @@ struct kbase_context {
 
 	u8 trim_level;
 
+	struct kbase_process *kprcs;
+	struct list_head kprcs_link;
+
 #ifdef CONFIG_MALI_CINSTR_GWT
 	bool gwt_enabled;
 	bool gwt_was_enabled;
@@ -1573,6 +1718,8 @@ struct kbase_context {
 #endif
 
 	base_context_create_flags create_flags;
+
+	struct kbase_kinstr_jm *kinstr_jm;
 };
 
 #ifdef CONFIG_MALI_CINSTR_GWT
