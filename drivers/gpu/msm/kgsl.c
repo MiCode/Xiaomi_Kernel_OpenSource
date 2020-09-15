@@ -4008,6 +4008,7 @@ static struct kobj_type kgsl_gpu_sysfs_ktype = {
 static int _register_device(struct kgsl_device *device)
 {
 	static u64 dma_mask = DMA_BIT_MASK(64);
+	static struct device_dma_parameters dma_parms;
 	int minor, ret;
 	dev_t dev;
 
@@ -4044,6 +4045,10 @@ static int _register_device(struct kgsl_device *device)
 	}
 
 	device->dev->dma_mask = &dma_mask;
+	device->dev->dma_parms = &dma_parms;
+
+	dma_set_max_seg_size(device->dev, DMA_BIT_MASK(32));
+
 	set_dma_ops(device->dev, NULL);
 
 	kobject_init_and_add(&device->gpu_sysfs_kobj, &kgsl_gpu_sysfs_ktype,
