@@ -28,10 +28,6 @@
 #include "charger_class.h"
 #include "mtk_charger.h"
 #endif
-#if FIXME /* TODO: implement not yet */
-#include <mt-plat/mtk_boot.h>
-#endif
-#include <tcpm.h>
 
 #include "mt6360_pmu_chg.h"
 
@@ -1222,24 +1218,6 @@ out:
 
 static int mt6360_set_pep20_efficiency_table(struct charger_device *chg_dev)
 {
-#if FIXME /* TODO: without charger manager */
-	struct charger_manager *chg_mgr = NULL;
-
-	chg_mgr = charger_dev_get_drvdata(chg_dev);
-	if (!chg_mgr)
-		return -EINVAL;
-
-	chg_mgr->pe2.profile[0].vchr = 8000000;
-	chg_mgr->pe2.profile[1].vchr = 8000000;
-	chg_mgr->pe2.profile[2].vchr = 8000000;
-	chg_mgr->pe2.profile[3].vchr = 8500000;
-	chg_mgr->pe2.profile[4].vchr = 8500000;
-	chg_mgr->pe2.profile[5].vchr = 8500000;
-	chg_mgr->pe2.profile[6].vchr = 9000000;
-	chg_mgr->pe2.profile[7].vchr = 9000000;
-	chg_mgr->pe2.profile[8].vchr = 9500000;
-	chg_mgr->pe2.profile[9].vchr = 9500000;
-#endif
 	return 0;
 }
 
@@ -2745,33 +2723,6 @@ static ssize_t shipping_mode_store(struct device *dev,
 }
 static const DEVICE_ATTR_WO(shipping_mode);
 
-#if FIXME /* TODO: wait mtk_charger_intf.h */
-void mt6360_recv_batoc_callback(BATTERY_OC_LEVEL tag)
-{
-	int ret, cnt = 0;
-
-	if (tag != BATTERY_OC_LEVEL_1)
-		return;
-	while (!pmic_get_register_value(PMIC_RG_INT_STATUS_FG_CUR_H)) {
-		if (cnt >= 1) {
-			ret = mt6360_set_shipping_mode(g_mci);
-			if (ret < 0)
-				dev_err(g_mci->dev,
-					"%s: set shipping mode fail\n",
-					__func__);
-			else
-				dev_info(g_mci->dev,
-					 "%s: set shipping mode done\n",
-					 __func__);
-		}
-		mdelay(8);
-		cnt++;
-	}
-	dev_info(g_mci->dev, "%s exit, cnt = %d, FG_CUR_H = %d\n",
-		 __func__, cnt,
-
-}
-#endif
 /* ======================= */
 /* MT6360 Power Supply Ops */
 /* ======================= */
@@ -3287,13 +3238,6 @@ static int mt6360_pmu_chg_probe(struct platform_device *pdev)
 	}
 	INIT_WORK(&mci->pe_work, mt6360_trigger_pep_work_handler);
 
-	/* register fg bat oc notify */
-#if FIXME /* without mtk_charger_intf  BATTERY_OC_LEVEL */
-	if (pdata->batoc_notify)
-		register_battery_oc_notify(&mt6360_recv_batoc_callback,
-					   BATTERY_OC_PRIO_CHARGER);
-#endif
-
 	/* otg regulator */
 	config.dev = &pdev->dev;
 	config.driver_data = mci;
@@ -3303,7 +3247,6 @@ static int mt6360_pmu_chg_probe(struct platform_device *pdev)
 		ret = PTR_ERR(mci->otg_rdev);
 		goto err_register_otg;
 	}
-
 
 	/* power supply register */
 	memcpy(&mci->psy_desc,
