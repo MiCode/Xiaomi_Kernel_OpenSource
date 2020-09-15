@@ -126,6 +126,7 @@ int register_ccci_sys_call_back(int md_id, unsigned int id,
 
 	return ret;
 }
+EXPORT_SYMBOL(register_ccci_sys_call_back);
 
 void exec_ccci_sys_call_back(int md_id, int cb_id, int data)
 {
