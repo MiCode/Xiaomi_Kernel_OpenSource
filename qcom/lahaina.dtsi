@@ -2346,8 +2346,9 @@
 		reg-name = "cc_base";
 		vdd_mm-supply = <&VDD_MM_LEVEL>;
 		vdd_mx-supply = <&VDD_MXA_LEVEL>;
-		clock-names = "cfg_ahb_clk";
+		interconnects = <&gem_noc MASTER_APPSS_PROC &config_noc SLAVE_VENUS_CFG>;
 		clocks = <&clock_gcc GCC_VIDEO_AHB_CLK>;
+		clock-names = "iface";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -2358,8 +2359,9 @@
 		reg-names = "cc_base";
 		vdd_mm-supply = <&VDD_MM_LEVEL>;
 		vdd_mx-supply = <&VDD_MXA_LEVEL>;
-		clock-names = "cfg_ahb_clk";
+		interconnects = <&gem_noc MASTER_APPSS_PROC &config_noc SLAVE_CAMERA_CFG>;
 		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
+		clock-names = "iface";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -2369,8 +2371,9 @@
 		reg = <0xaf00000 0x20000>;
 		reg-name = "cc_base";
 		vdd_mm-supply = <&VDD_MM_LEVEL>;
-		clock-names = "cfg_ahb_clk";
+		interconnects = <&gem_noc MASTER_APPSS_PROC &config_noc SLAVE_DISPLAY_CFG>;
 		clocks = <&clock_gcc GCC_DISP_AHB_CLK>;
+		clock-names = "iface";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
