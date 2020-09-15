@@ -1,4 +1,4 @@
-[abi_whitelist]
+[abi_symbol_list]
 # commonly used symbols
   pinctrl_get
   pinctrl_gpio_set_config
