@@ -1815,9 +1815,9 @@ static const struct scp_domain_data scp_domain_data_mt8192[] = {
 		.basic_clk_name = {"disp"},
 		.subsys_clk_prefix = "disp",
 		.bp_table = {
-			BUS_PROT(IFR_TYPE, 0x2d4, 0x2d8, 0x2d0, 0x2ec,
+			BUS_PROT_IGN(IFR_TYPE, 0x2d4, 0x2d8, 0x2d0, 0x2ec,
 				MT8192_TOP_AXI_PROT_EN_MM_DISP),
-			BUS_PROT(IFR_TYPE, 0xdcc, 0xdd0, 0xdc8, 0xdd8,
+			BUS_PROT_IGN(IFR_TYPE, 0xdcc, 0xdd0, 0xdc8, 0xdd8,
 				MT8192_TOP_AXI_PROT_EN_MM_2_DISP),
 			BUS_PROT(IFR_TYPE, 0x2a0, 0x2a4, 0x220, 0x228,
 				MT8192_TOP_AXI_PROT_EN_DISP),
@@ -1826,7 +1826,6 @@ static const struct scp_domain_data scp_domain_data_mt8192[] = {
 			BUS_PROT(IFR_TYPE, 0xdcc, 0xdd0, 0xdc8, 0xdd8,
 				MT8192_TOP_AXI_PROT_EN_MM_2_DISP_2ND),
 		},
-		.caps = MTK_SCPD_ALWAYS_ON,
 	},
 	[MT8192_POWER_DOMAIN_ISP] = {
 		.name = "isp",
