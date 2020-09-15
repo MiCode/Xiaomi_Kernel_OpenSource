@@ -57,7 +57,7 @@ int get_customized_uisoc(int origin_uisoc)
 
 	return val;
 }
-//timo
+
 int fg_get_system_sec(void)
 {
 	ktime_t ctime = 0;
