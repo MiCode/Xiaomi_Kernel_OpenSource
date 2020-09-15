@@ -36,6 +36,14 @@ do { \
 #define ccci_read16(b, a)               ioread16((void __iomem *)((b)+(a)))
 #define ccci_read8(b, a)                ioread8((void __iomem *)((b)+(a)))
 
+#ifdef FEATURE_LOW_BATTERY_SUPPORT
+enum LOW_POEWR_NOTIFY_TYPE {
+	LOW_BATTERY,
+	BATTERY_PERCENT,
+	OVER_CURRENT,
+};
+#endif
+
 struct ccci_modem;
 
 #ifdef SET_EMI_STEP_BY_STAGE

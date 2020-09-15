@@ -287,8 +287,6 @@ EXPORT_SYMBOL(md_fsm_exp_info);
 
 static inline int md_sys1_sw_init(struct ccci_modem *md)
 {
-	struct md_sys1_info *md_info =
-		(struct md_sys1_info *)md->private_data;
 	int ret;
 
 	CCCI_BOOTUP_LOG(md->index, TAG,

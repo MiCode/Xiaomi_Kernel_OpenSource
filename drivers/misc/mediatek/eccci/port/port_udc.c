@@ -613,7 +613,7 @@ int udc_kick_handler(struct port_t *port, struct z_stream_s *zcpr,
 	struct udc_comp_rslt_t *rslt_des, *rslt_des_base = NULL;
 	unsigned int uncomp_len, comp_len = 0;
 	unsigned int remain_len;
-	unsigned char *uncomp_data;
+	unsigned char *uncomp_data = NULL;
 	/* reserved 8k for reduce memcpy op */
 	unsigned int rsvd_len = MAX_PACKET_SIZE - 8*1024;
 
@@ -654,7 +654,7 @@ int udc_kick_handler(struct port_t *port, struct z_stream_s *zcpr,
 		uncomp_data = (unsigned char *)
 			((unsigned long)uncomp_data_buf_base +
 			req_des->seg_phy_addr);
-	else if (req_des->buf_type == 1)
+	else // if (req_des->buf_type == 1)
 		uncomp_data = (unsigned char *)
 			((unsigned long)uncomp_cache_data_base +
 			req_des->seg_phy_addr);

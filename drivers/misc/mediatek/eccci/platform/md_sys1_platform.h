@@ -83,9 +83,6 @@ struct cldma_hw_info {
 	unsigned long cldma_irq_flags;
 };
 
-
-int md_cd_low_power_notify(struct ccci_modem *md,
-	enum LOW_POEWR_NOTIFY_TYPE type, int level);
 int md_cd_pccif_send(struct ccci_modem *md, int channel_id);
 #ifndef CCCI_KMODULE_ENABLE
 void md_cd_dump_pccif_reg(struct ccci_modem *md);
