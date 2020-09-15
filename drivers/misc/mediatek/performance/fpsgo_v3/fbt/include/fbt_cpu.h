@@ -44,7 +44,6 @@ int __init fbt_cpu_init(void);
 void __exit fbt_cpu_exit(void);
 
 int fpsgo_ctrl2fbt_switch_fbt(int enable);
-int fbt_switch_ceiling(int value);
 
 #else
 static inline void fpsgo_ctrl2fbt_dfrc_fps(int fps_limit) { }
@@ -75,7 +74,6 @@ static inline void fpsgo_base2fbt_set_bypass(int has_bypass) { }
 static inline void fpsgo_base2fbt_check_max_blc(void) { }
 static inline void fpsgo_base2fbt_no_one_render(void) { }
 static inline void fpsgo_base2fbt_only_bypass(void) { }
-static inline int fbt_switch_ceiling(int en) { return 0; }
 static inline void fpsgo_base2fbt_set_min_cap(struct render_info *thr,
 				int min_cap, int check) { }
 static inline void fpsgo_base2fbt_clear_llf_policy(struct render_info *thr,
