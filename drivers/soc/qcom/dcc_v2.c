@@ -45,24 +45,32 @@
 #define DCC_CFG				(0x20)
 #define DCC_FDA_CURR			(0x24)
 #define DCC_LLA_CURR			(0x28)
-#define DCC_LL_LOCK(m)			(0x2C + 0x80 * (m + HLOS_LIST_START))
-#define DCC_LL_CFG(m)			(0x30 + 0x80 * (m + HLOS_LIST_START))
-#define DCC_LL_BASE(m)			(0x34 + 0x80 * (m + HLOS_LIST_START))
-#define DCC_FD_BASE(m)			(0x38 + 0x80 * (m + HLOS_LIST_START))
-#define DCC_LL_TIMEOUT(m)		(0x3c + 0x80 * (m + HLOS_LIST_START))
-#define DCC_TRANS_TIMEOUT(m)		(0x40 + 0x80 * (m + HLOS_LIST_START))
-#define DCC_LL_INT_ENABLE(m)		(0x44 + 0x80 * (m + HLOS_LIST_START))
-#define DCC_LL_INT_STATUS(m)		(0x48 + 0x80 * (m + HLOS_LIST_START))
-#define DCC_FDA_CAPTURED(m)		(0x4C + 0x80 * (m + HLOS_LIST_START))
-#define DCC_LLA_CAPTURED(m)		(0x50 + 0x80 * (m + HLOS_LIST_START))
-#define DCC_LL_CRC_CAPTURED(m)		(0x54 + 0x80 * (m + HLOS_LIST_START))
-#define DCC_LL_SW_TRIGGER(m)		(0x58 + 0x80 * (m + HLOS_LIST_START))
-#define DCC_LL_BUS_ACCESS_STATUS(m)	(0x5C + 0x80 * (m + HLOS_LIST_START))
+#define DCC_QAD_VALUE			(0x2C)
+#define DCC_LL_TO_CNTR_VAL		(0x30)
+#define DCC_LL_LOCK(m)			(0x34 + 0x80 * (m + HLOS_LIST_START))
+#define DCC_LL_CFG(m)			(0x38 + 0x80 * (m + HLOS_LIST_START))
+#define DCC_LL_BASE(m)			(0x3c + 0x80 * (m + HLOS_LIST_START))
+#define DCC_FD_BASE(m)			(0x40 + 0x80 * (m + HLOS_LIST_START))
+#define DCC_LL_TIMEOUT(m)		(0x44 + 0x80 * (m + HLOS_LIST_START))
+#define DCC_TRANS_TIMEOUT(m)		(0x48 + 0x80 * (m + HLOS_LIST_START))
+#define DCC_LL_INT_ENABLE(m)		(0x4C + 0x80 * (m + HLOS_LIST_START))
+#define DCC_LL_INT_STATUS(m)		(0x50 + 0x80 * (m + HLOS_LIST_START))
+#define DCC_FDA_CAPTURED(m)		(0x54 + 0x80 * (m + HLOS_LIST_START))
+#define DCC_LLA_CAPTURED(m)		(0x58 + 0x80 * (m + HLOS_LIST_START))
+#define DCC_LL_CRC_CAPTURED(m)		(0x5C + 0x80 * (m + HLOS_LIST_START))
+#define DCC_LL_SW_TRIGGER(m)		(0x60 + 0x80 * (m + HLOS_LIST_START))
+#define DCC_LL_BUS_ACCESS_STATUS(m)	(0x64 + 0x80 * (m + HLOS_LIST_START))
+#define DCC_CTI_TRIG(m)			(0x68 + 0x80 * (m + HLOS_LIST_START))
+#define DCC_qad_output(m)		(0x6C + 0x80 * (m + HLOS_LIST_START))
 
-#define DCC_MAP2_LEVEL1			(0x18)
-#define DCC_MAP2_OFFSET1		(0x10)
-#define DCC_MAP2_LEVEL2			(0x44)
-#define DCC_MAP2_OFFSET2		(0x14)
+#define DCC_MAP_LEVEL1			(0x18)
+#define DCC_MAP_LEVEL2			(0x34)
+#define DCC_MAP_LEVEL3			(0x4C)
+
+#define DCC_MAP_OFFSET1			(0x10)
+#define DCC_MAP_OFFSET2			(0x18)
+#define DCC_MAP_OFFSET3			(0x1C)
+#define DCC_MAP_OFFSET4			(0x8)
 
 #define DCC_FIX_LOOP_OFFSET		(16)
 
@@ -109,6 +117,12 @@ enum dcc_descriptor_type {
 	DCC_WRITE_TYPE
 };
 
+enum dcc_mem_map_ver {
+	DCC_MEM_MAP_VER1,
+	DCC_MEM_MAP_VER2,
+	DCC_MEM_MAP_VER3
+};
+
 static const char * const str_dcc_data_sink[] = {
 	[DCC_DATA_SINK_SRAM]		= "sram",
 	[DCC_DATA_SINK_ATB]		= "atb",
@@ -142,12 +156,12 @@ struct dcc_drvdata {
 	uint32_t		ram_offset;
 	enum dcc_data_sink	*data_sink;
 	enum dcc_func_type	*func_type;
+	enum dcc_mem_map_ver	mem_map_ver;
 	uint32_t		ram_cfg;
 	uint32_t		ram_start;
 	bool			*enable;
 	bool			*configured;
 	bool			interrupt_disable;
-	bool			memory_map2;
 	char			*sram_node;
 	struct cdev		sram_dev;
 	struct class		*sram_class;
@@ -161,11 +175,16 @@ struct dcc_drvdata {
 
 static uint32_t dcc_offset_conv(struct dcc_drvdata *drvdata, uint32_t off)
 {
-	if (!drvdata->memory_map2) {
-		if ((off & 0x7F) > DCC_MAP2_LEVEL2)
-			return (off - DCC_MAP2_OFFSET2);
-		else if ((off & 0x7F) > DCC_MAP2_LEVEL1)
-			return (off - DCC_MAP2_OFFSET1);
+	if (drvdata->mem_map_ver == DCC_MEM_MAP_VER1) {
+		if ((off & 0x7F) >= DCC_MAP_LEVEL3)
+			return (off - DCC_MAP_OFFSET3);
+		if ((off & 0x7F) >= DCC_MAP_LEVEL2)
+			return (off - DCC_MAP_OFFSET2);
+		else if ((off & 0x7F) >= DCC_MAP_LEVEL1)
+			return (off - DCC_MAP_OFFSET1);
+	} else if (drvdata->mem_map_ver == DCC_MEM_MAP_VER2) {
+		if ((off & 0x7F) >= DCC_MAP_LEVEL2)
+			return (off - DCC_MAP_OFFSET4);
 	}
 	return (off);
 }
@@ -1763,13 +1782,18 @@ static int dcc_probe(struct platform_device *pdev)
 	if (ret)
 		return -EINVAL;
 
-	if ((dcc_readl(drvdata, DCC_HW_INFO) & 0x3F) == 0x3F) {
-		drvdata->memory_map2 = true;
+	if (BVAL(dcc_readl(drvdata, DCC_HW_INFO), 9)) {
+		drvdata->mem_map_ver = DCC_MEM_MAP_VER3;
+		drvdata->nr_link_list = dcc_readl(drvdata, DCC_LL_NUM_INFO);
+		if (drvdata->nr_link_list == 0)
+			return  -EINVAL;
+	} else if ((dcc_readl(drvdata, DCC_HW_INFO) & 0x3F) == 0x3F) {
+		drvdata->mem_map_ver = DCC_MEM_MAP_VER2;
 		drvdata->nr_link_list = dcc_readl(drvdata, DCC_LL_NUM_INFO);
 		if (drvdata->nr_link_list == 0)
 			return  -EINVAL;
 	} else {
-		drvdata->memory_map2 = false;
+		drvdata->mem_map_ver = DCC_MEM_MAP_VER1;
 		drvdata->nr_link_list = DCC_MAX_LINK_LIST;
 	}
 
