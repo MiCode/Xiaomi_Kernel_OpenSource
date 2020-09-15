@@ -402,8 +402,7 @@ static int qdss_bind(struct usb_configuration *c, struct usb_function *f)
 	if (!strcmp(qdss->ch.name, USB_QDSS_CH_MDM))
 		qdss_data_ep_comp_desc.bMaxBurst = 0;
 
-	ep = usb_ep_autoconfig_ss(gadget, &qdss_ss_data_desc,
-		&qdss_data_ep_comp_desc);
+	ep = usb_ep_autoconfig(gadget, &qdss_ss_data_desc);
 	if (!ep) {
 		pr_err("%s: ep_autoconfig error\n", __func__);
 		goto clear_ep;
@@ -415,8 +414,7 @@ static int qdss_bind(struct usb_configuration *c, struct usb_function *f)
 		msm_ep_set_endless(qdss->port.data, true);
 
 	if (qdss->debug_inface_enabled) {
-		ep = usb_ep_autoconfig_ss(gadget, &qdss_ss_ctrl_in_desc,
-			&qdss_ctrl_in_ep_comp_desc);
+		ep = usb_ep_autoconfig(gadget, &qdss_ss_ctrl_in_desc);
 		if (!ep) {
 			pr_err("%s: ep_autoconfig error\n", __func__);
 			goto clear_ep;
@@ -425,8 +423,7 @@ static int qdss_bind(struct usb_configuration *c, struct usb_function *f)
 		qdss->port.ctrl_in = ep;
 		ep->driver_data = qdss;
 
-		ep = usb_ep_autoconfig_ss(gadget, &qdss_ss_ctrl_out_desc,
-			&qdss_ctrl_out_ep_comp_desc);
+		ep = usb_ep_autoconfig(gadget, &qdss_ss_ctrl_out_desc);
 		if (!ep) {
 			pr_err("%s: ep_autoconfig error\n", __func__);
 			goto clear_ep;
