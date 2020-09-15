@@ -13,12 +13,8 @@
 #include <linux/clocksource.h>
 #include <linux/interrupt.h>
 #include <linux/irqreturn.h>
-#include <linux/module.h>
-#include <linux/of_device.h>
-#include <linux/platform_device.h>
 #include <linux/sched_clock.h>
 #include <linux/slab.h>
-#include <linux/tick.h>
 #include "timer-of.h"
 
 #define TIMER_CLK_EVT           (1)
@@ -314,56 +310,5 @@ static int __init mtk_gpt_init(struct device_node *node)
 	return 0;
 }
 
-#ifdef MODULE
-static void mtk_timer_setup_broadcast_timer(void *arg)
-{
-	tick_broadcast_enable();
-}
-
-static void mtk_timer_disable_broadcast_timer(void *arg)
-{
-	tick_broadcast_disable();
-}
-
-static int mtk_timer_probe(struct platform_device *pdev)
-{
-	int (*timer_init)(struct device_node *node);
-	struct device_node *np = pdev->dev.of_node;
-	int ret = 0, cpu = 0;
-
-	timer_init = of_device_get_match_data(&pdev->dev);
-	ret = timer_init(np);
-	if (!ret) {
-		on_each_cpu_mask(cpu_possible_mask, mtk_timer_disable_broadcast_timer, NULL, 1);
-		on_each_cpu_mask(cpu_possible_mask, mtk_timer_setup_broadcast_timer, NULL, 1);
-	}
-	return ret;
-}
-
-static const struct of_device_id mtk_timer_match_table[] = {
-	{
-		.compatible = "mediatek,mt6577-timer",
-		.data = mtk_gpt_init,
-	},
-	{
-		.compatible = "mediatek,mt6765-timer",
-		.data = mtk_syst_init,
-	},
-	{}
-};
-
-static struct platform_driver mtk_timer_driver = {
-	.probe = mtk_timer_probe,
-	.driver = {
-		.name = "mtk-timer",
-		.of_match_table = mtk_timer_match_table,
-	},
-};
-MODULE_DESCRIPTION("MEDIATEK Module SSPM driver");
-MODULE_LICENSE("GPL v2");
-
-module_platform_driver(mtk_timer_driver);
-#else
 TIMER_OF_DECLARE(mtk_mt6577, "mediatek,mt6577-timer", mtk_gpt_init);
 TIMER_OF_DECLARE(mtk_mt6765, "mediatek,mt6765-timer", mtk_syst_init);
-#endif
