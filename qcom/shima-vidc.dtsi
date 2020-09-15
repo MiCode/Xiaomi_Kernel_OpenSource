@@ -54,6 +54,7 @@
 			qcom,iommu-pagetable = "LLC";
 			buffer-types = <0xfff>;
 			virtual-addr-pool = <0x25800000 0xba800000>;
+			dma-coherent-hint-cached;
 		};
 
 		secure_non_pixel_cb {
