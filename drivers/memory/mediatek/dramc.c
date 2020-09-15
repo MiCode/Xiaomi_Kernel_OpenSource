@@ -604,22 +604,9 @@ EXPORT_SYMBOL(mtk_dramc_get_ddr_type);
 
 static int dramc_remove(struct platform_device *pdev)
 {
-	struct dramc_dev_t *dramc_dev_ptr = platform_get_drvdata(pdev);
+	dramc_pdev = NULL;
 
-	if (dramc_dev_ptr->fmeter_dev_ptr)
-		devm_kfree(&pdev->dev, dramc_dev_ptr->fmeter_dev_ptr);
-
-	if (dramc_dev_ptr->mr4_dev_ptr)
-		devm_kfree(&pdev->dev, dramc_dev_ptr->mr4_dev_ptr);
-
-	devm_kfree(&pdev->dev, dramc_dev_ptr->rk_cnt);
-	devm_kfree(&pdev->dev, dramc_dev_ptr->mr_info_ptr);
-	devm_kfree(&pdev->dev, dramc_dev_ptr->freq_step);
-	devm_kfree(&pdev->dev, dramc_dev_ptr->ddrphy_chn_base_nao);
-	devm_kfree(&pdev->dev, dramc_dev_ptr->ddrphy_chn_base_ao);
-	devm_kfree(&pdev->dev, dramc_dev_ptr->dramc_chn_base_nao);
-	devm_kfree(&pdev->dev, dramc_dev_ptr->dramc_chn_base_ao);
-	devm_kfree(&pdev->dev, dramc_dev_ptr);
+	return 0;
 }
 
 static const struct of_device_id dramc_of_ids[] = {
