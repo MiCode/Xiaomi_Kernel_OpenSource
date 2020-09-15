@@ -60,7 +60,9 @@ static void for_each_apu_tracepoint(
 	int i;
 
 	preempt_disable();
-	mod = (struct module *)__module_address(apu_tp_exit);
+	/* fixme: */
+	/* mod = (struct module *)__module_address(apu_tp_exit); */
+	mod = 0;
 	preempt_enable();
 
 	if (!mod || !fct)
