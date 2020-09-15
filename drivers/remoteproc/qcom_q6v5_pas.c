@@ -34,6 +34,10 @@
 #define PIL_TZ_AVG_BW	0
 #define PIL_TZ_PEAK_BW	UINT_MAX
 
+static struct icc_path *scm_perf_client;
+static int scm_pas_bw_count;
+static DEFINE_MUTEX(scm_pas_bw_mutex);
+
 struct adsp_data {
 	int crash_reason_smem;
 	const char *firmware_name;
@@ -122,14 +126,51 @@ static void adsp_pds_disable(struct qcom_adsp *adsp, struct device **pds,
 	}
 }
 
+static int scm_pas_enable_bw(void)
+{
+	int ret = 0;
+
+	if (!scm_perf_client)
+		return -EINVAL;
+
+	mutex_lock(&scm_pas_bw_mutex);
+	if (!scm_pas_bw_count) {
+		ret = icc_set_bw(scm_perf_client, PIL_TZ_AVG_BW,
+						PIL_TZ_PEAK_BW);
+		if (ret)
+			goto err_bus;
+		scm_pas_bw_count++;
+	}
+
+	mutex_unlock(&scm_pas_bw_mutex);
+	return ret;
+
+err_bus:
+	pr_err("scm-pas: Bandwidth request failed (%d)\n", ret);
+	icc_set_bw(scm_perf_client, 0, 0);
+
+	mutex_unlock(&scm_pas_bw_mutex);
+	return ret;
+}
+
+static void scm_pas_disable_bw(void)
+{
+	mutex_lock(&scm_pas_bw_mutex);
+	if (scm_pas_bw_count-- == 1)
+		icc_set_bw(scm_perf_client, 0, 0);
+	mutex_unlock(&scm_pas_bw_mutex);
+}
+
 static int adsp_load(struct rproc *rproc, const struct firmware *fw)
 {
 	struct qcom_adsp *adsp = (struct qcom_adsp *)rproc->priv;
 	int ret;
 
+	scm_pas_enable_bw();
 	ret = qcom_mdt_load(adsp->dev, fw, rproc->firmware, adsp->pas_id,
 			    adsp->mem_region, adsp->mem_phys, adsp->mem_size,
 			    &adsp->mem_reloc);
+	scm_pas_disable_bw();
 	if (ret)
 		return ret;
 
@@ -216,12 +257,14 @@ static int adsp_start(struct rproc *rproc)
 	if (ret)
 		goto disable_aggre2_clk;
 
+	scm_pas_enable_bw();
 	ret = qcom_scm_pas_auth_and_reset(adsp->pas_id);
 	if (ret) {
 		dev_err(adsp->dev,
 			"failed to authenticate image and release reset\n");
 		goto disable_regs;
 	}
+	scm_pas_disable_bw();
 
 	ret = qcom_q6v5_wait_for_start(&adsp->q6v5, msecs_to_jiffies(5000));
 	if (ret == -ETIMEDOUT) {
@@ -476,6 +519,31 @@ static int adsp_alloc_memory_region(struct qcom_adsp *adsp)
 	return 0;
 }
 
+static int crypto_pas_init(struct qcom_adsp *adsp)
+{
+	struct device_node *crypto_node;
+	struct platform_device *pas;
+
+	if (scm_perf_client)
+		return 0;
+
+	crypto_node = of_parse_phandle(adsp->dev->of_node, "crypto_pas", 0);
+	if (!crypto_node) {
+		dev_err(adsp->dev, "Crypto pas node not available\n");
+		return 0;
+	}
+
+	pas = of_find_device_by_node(crypto_node);
+	scm_perf_client = of_icc_get(&pas->dev, NULL);
+	if (IS_ERR(scm_perf_client)) {
+		dev_err(adsp->dev, "Crypto scaling not setup\n");
+		return PTR_ERR(scm_perf_client);
+	}
+
+	return 0;
+}
+
+
 static int adsp_probe(struct platform_device *pdev)
 {
 	const struct adsp_data *desc;
@@ -516,6 +584,12 @@ static int adsp_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, adsp);
 
 	device_wakeup_enable(adsp->dev);
+
+	ret = crypto_pas_init(adsp);
+	if (ret) {
+		scm_perf_client = NULL;
+		goto free_rproc;
+	}
 
 	ret = adsp_alloc_memory_region(adsp);
 	if (ret)
