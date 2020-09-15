@@ -22,7 +22,7 @@ endif
 ifneq ($(CCCI_OBJ), n)
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/inc/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/mt6873
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/platform
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/ccmni/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/conn_md/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/mt6873
@@ -118,9 +118,9 @@ endif
 ifeq ($(CONFIG_MTK_SEC_MODEM_NVRAM_ANTI_CLONE), y)
 ccflags-y  += -DMTK_SEC_MODEM_NVRAM_ANTI_CLONE
 endif
-ccci_md_all-$(CCCI_OBJ) += mt6873/ccci_platform.o $(core_obj) $(mach_obj) $(sec_obj) \
-		mt6873/ap_md_reg_dump.o \
-		mt6873/md_sys1_platform.o
+ccci_md_all-$(CCCI_OBJ) += platform/ccci_platform.o $(core_obj) $(mach_obj) $(sec_obj) \
+		platform/ap_md_reg_dump.o \
+		platform/md_sys1_platform.o
 # plat end
 
 ifeq ($(CONFIG_MTK_ECCCI_C2K), y)
@@ -162,7 +162,7 @@ obj-$(CCCI_OBJ) += port/
 obj-$(CCCI_OBJ) += udc/
 
 # platform code
-obj-$(CCCI_OBJ) += mt6873/
+obj-$(CCCI_OBJ) += platform/
 
 endif
 

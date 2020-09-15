@@ -86,7 +86,7 @@ static int md_cd_soft_power_on(struct ccci_modem *md, unsigned int mode);
 static int md_cd_let_md_go(struct ccci_modem *md);
 static void md_cd_lock_cldma_clock_src(int locked);
 static void md_cd_lock_modem_clock_src(int locked);
-static void md_cldma_hw_reset(unsigned char md_id);
+//static void md_cldma_hw_reset(unsigned char md_id);
 static void ccci_set_clk_cg(struct ccci_modem *md, unsigned int on);
 
 static int ccci_modem_remove(struct platform_device *dev);

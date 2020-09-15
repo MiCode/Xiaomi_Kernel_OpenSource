@@ -775,7 +775,9 @@ static int dpmaif_set_rx_frag_to_skb(struct dpmaif_rx_queue *rxq,
 	struct dpmaif_bat_page_t *cur_page_info = ((struct dpmaif_bat_page_t *)
 		rxq->bat_frag.bat_skb_ptr + pkt_inf_t->buffer_id);
 	struct page *page = cur_page_info->page;
+#ifndef REFINE_BAT_OFFSET_REMOVE
 	unsigned long long data_phy_addr, data_base_addr;
+#endif
 	int data_offset = 0;
 	unsigned int data_len;
 	int ret = 0;

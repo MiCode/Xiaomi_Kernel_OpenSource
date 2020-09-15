@@ -53,7 +53,9 @@
 #define CREATE_TRACE_POINTS
 #include "modem_cldma_events.h"
 #endif
+#ifdef CLDMA_TRACE
 static unsigned int trace_sample_time = 200000000;
+#endif
 
 /* CLDMA setting */
 /* always keep this in mind:

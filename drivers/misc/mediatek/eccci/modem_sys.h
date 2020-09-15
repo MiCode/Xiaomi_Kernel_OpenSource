@@ -31,12 +31,6 @@ enum MD_COMM_TYPE {
 	CCIF_MPU_INTR,
 };
 
-enum LOW_POEWR_NOTIFY_TYPE {
-	LOW_BATTERY,
-	BATTERY_PERCENT,
-	OVER_CURRENT,
-};
-
 enum MODEM_EE_FLAG {
 	EE_FLAG_ENABLE_WDT = (1 << 0),
 	EE_FLAG_DISABLE_WDT = (1 << 1),
@@ -96,8 +90,6 @@ struct ccci_modem_ops {
 	int (*force_assert)(struct ccci_modem *md, enum MD_COMM_TYPE type);
 	int (*dump_info)(struct ccci_modem *md, enum MODEM_DUMP_FLAG flag,
 		void *buff, int length);
-	int (*low_power_notify)(struct ccci_modem *md,
-		enum LOW_POEWR_NOTIFY_TYPE type, int level);
 	int (*ee_callback)(struct ccci_modem *md, enum MODEM_EE_FLAG flag);
 	int (*send_ccb_tx_notify)(struct ccci_modem *md, int core_id);
 	int (*reset_pccif)(struct ccci_modem *md);

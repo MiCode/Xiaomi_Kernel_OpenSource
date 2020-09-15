@@ -1090,8 +1090,6 @@ void md_ccif_reset_queue(unsigned char hif_id, unsigned char for_start)
 	struct md_ccif_ctrl *md_ctrl =
 		(struct md_ccif_ctrl *)ccci_hif_get_by_id(hif_id);
 	unsigned long flags;
-	int ccif_id = md_ctrl->md_id ==
-		MD_SYS1 ? AP_MD1_CCIF : AP_MD3_CCIF;
 
 	if (for_start) {
 		mod_timer(&md_ctrl->traffic_monitor,
