@@ -19,11 +19,10 @@ extern long sched_setaffinity(pid_t pid, const struct cpumask *in_mask);
 extern int sched_set_cpuprefer(pid_t pid, unsigned int prefer_type);
 extern int capacity_min_write_for_perf_idx(int idx, int capacity_min);
 extern void cm_mgr_perf_set_status(int enable);
-extern int set_task_util_min(pid_t pid, unsigned int util_min);
 
 void fbt_set_boost_value(unsigned int base_blc);
 void fbt_clear_boost_value(void);
-void fbt_set_per_task_min_cap(int pid, unsigned int base_blc);
+void fbt_set_per_task_cap(int pid, unsigned int min_blc, unsigned int max_blc);
 int fbt_get_L_cluster_num(void);
 int fbt_get_L_min_ceiling(void);
 void fbt_notify_CM_limit(int reach_limit);

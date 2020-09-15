@@ -37,10 +37,12 @@
 #define event_trace(ip, fmt, args...) \
 do { \
 	__trace_printk_check_format(fmt, ##args);     \
+	{	\
 	static const char *trace_printk_fmt     \
 	__section(__trace_printk_fmt) =  \
 	__builtin_constant_p(fmt) ? fmt : NULL;   \
 	__trace_bprintk(ip, trace_printk_fmt, ##args);    \
+	}	\
 } while (0)
 
 static struct kobject *base_kobj;

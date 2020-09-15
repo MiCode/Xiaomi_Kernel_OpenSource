@@ -9,11 +9,6 @@
 
 #define API_READY 0
 
-#if API_READY
-static struct pm_qos_request dram_req;
-#endif
-static struct cpumask mask[FPSGO_PREFER_TOTAL];
-static int mask_done;
 
 void fbt_notify_CM_limit(int reach_limit)
 {
@@ -28,38 +23,29 @@ void fbt_boost_dram(int boost)
 {
 }
 
-void fbt_set_boost_value(unsigned int base_blc)
-{
-	base_blc = clamp(base_blc, 1U, 100U);
-	fpsgo_systrace_c_fbt_gm(-100, 0, base_blc, "TA_cap");
-}
-
-void fbt_clear_boost_value(void)
-{
-	fpsgo_systrace_c_fbt_gm(-100, 0, 0, "TA_cap");
-
-	fbt_notify_CM_limit(0);
-	fbt_boost_dram(0);
-}
-
-void fbt_set_per_task_min_cap(int pid, unsigned int base_blc)
+void fbt_set_per_task_cap(int pid, unsigned int min_blc, unsigned int max_blc)
 {
 	int ret = -1;
-	unsigned int base_blc_1024;
+	unsigned int min_blc_1024;
+	unsigned int max_blc_1024;
 	struct task_struct *p;
 
 	if (!pid)
 		return;
 
-	base_blc_1024 = (base_blc << 10) / 100U;
-	base_blc_1024 = clamp(base_blc_1024, 1U, 1024U);
+	min_blc_1024 = (min_blc << 10) / 100U;
+	min_blc_1024 = clamp(min_blc_1024, 1U, 1024U);
+
+	max_blc_1024 = (max_blc << 10) / 100U;
+	max_blc_1024 = clamp(max_blc_1024, 1U, 1024U);
 
 	struct sched_attr attr = {
 		.sched_flags =
 			SCHED_FLAG_KEEP_PARAMS |
 			SCHED_FLAG_UTIL_CLAMP_MIN |
 			SCHED_FLAG_RESET_ON_FORK,
-		.sched_util_min = base_blc_1024,
+		.sched_util_min = min_blc_1024,
+		.sched_util_max = max_blc_1024,
 	};
 
 	if (pid < 0)
@@ -85,31 +71,8 @@ out:
 		return;
 	}
 
-	fpsgo_systrace_c_fbt_gm(pid, 0, base_blc, "min_cap");
-}
-
-static int generate_cpu_mask(unsigned int prefer_type, struct cpumask *cpu_mask)
-{
-	if (prefer_type == FPSGO_PREFER_BIG) {
-		cpumask_clear(cpu_mask);
-		cpumask_set_cpu(0, cpu_mask);
-		cpumask_set_cpu(1, cpu_mask);
-		cpumask_set_cpu(2, cpu_mask);
-		cpumask_set_cpu(3, cpu_mask);
-	} else if (prefer_type == FPSGO_PREFER_LITTLE) {
-		cpumask_setall(cpu_mask);
-		cpumask_clear_cpu(0, cpu_mask);
-		cpumask_clear_cpu(1, cpu_mask);
-		cpumask_clear_cpu(2, cpu_mask);
-		cpumask_clear_cpu(3, cpu_mask);
-	} else if (prefer_type == FPSGO_PREFER_NONE)
-		cpumask_setall(cpu_mask);
-	else
-		return -1;
-
-	mask_done = 1;
-
-	return 0;
+	fpsgo_systrace_c_fbt_gm(pid, 0, min_blc, "min_cap");
+	fpsgo_systrace_c_fbt_gm(pid, 0, max_blc, "max_cap");
 }
 
 void fbt_set_affinity(pid_t pid, unsigned int prefer_type)
