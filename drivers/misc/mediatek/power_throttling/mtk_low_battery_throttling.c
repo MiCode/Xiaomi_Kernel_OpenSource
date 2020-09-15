@@ -51,7 +51,7 @@ void exec_low_battery_callback(unsigned int thd)
 		switch (thd) {
 		case POWER_INT0_VOLT:
 			g_low_battery_level = LOW_BATTERY_LEVEL_0;
-		break;
+			break;
 		case POWER_INT1_VOLT:
 			g_low_battery_level = LOW_BATTERY_LEVEL_1;
 			break;
@@ -91,7 +91,7 @@ static ssize_t low_battery_protect_ut_store(
 	int ret = 0;
 	char *pvalue = NULL;
 	unsigned int val = 0;
-	unsigned int thd;
+	unsigned int thd = 0;
 
 	pr_info("[%s]\n", __func__);
 
