@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  */
 
@@ -33,6 +33,10 @@
 #define LLCC_WRTCH       31
 #define LLCC_CVPFW       32
 #define LLCC_CPUSS1      33
+#define LLCC_CAMSHDR     34
+#define LLCC_CPUMTE      35
+#define LLCC_CPUHWT      36
+#define LLCC_MDMCLAD2    37
 
 /**
  * llcc_slice_desc - Cache slice descriptor
