@@ -36,10 +36,8 @@
 #include "mtk_low_battery_throttling.h"
 #include "mtk_battery_oc_throttling.h"
 
-/* TODO: porting*/
 #ifdef CONFIG_THERMAL
 #undef CONFIG_THERMAL
-/* #include "mtk_thermal.h" */
 #endif
 
 #ifdef CONFIG_MTK_FREQ_HOPPING
@@ -154,7 +152,6 @@ static unsigned int __mt_gpufreq_get_cur_freq(void);
 static unsigned int __mt_gpufreq_get_cur_vsram_gpu(void);
 static unsigned int __mt_gpufreq_get_segment_id(void);
 static unsigned int __mt_gpufreq_get_segment_table(void);
-static int __mt_gpufreq_get_opp_idx_by_vgpu(unsigned int vgpu);
 static unsigned int __mt_gpufreq_get_vsram_gpu_by_vgpu(unsigned int vgpu);
 static void __mt_gpufreq_kick_pbm(int enable);
 static void __mt_gpufreq_clock_switch(unsigned int freq_new);
@@ -375,10 +372,17 @@ static void __iomem *g_infra_peri_debug2;
 static void __iomem *g_infra_peri_debug3;
 static void __iomem *g_infra_peri_debug4;
 static void __iomem *g_infra_peri_debug5;
+
+#if MT_GPUFREQ_DFD_ENABLE
 static void __iomem *g_infracfg_ao;
 static void __iomem *g_dbgtop;
+#endif
+
 static void __iomem *g_sleep;
+
+#if MT_GPUFREQ_DFD_DEBUG
 static void __iomem *g_toprgu;
+#endif
 
 unsigned int mt_gpufreq_get_shader_present(void)
 {
@@ -994,25 +998,25 @@ static int __mt_gpufreq_is_dfd_triggered(void)
 #endif
 }
 
+#if MT_GPUFREQ_DFD_DEBUG
 static int __mt_gpufreq_is_dfd_completed(void)
 {
 #if MT_GPUFREQ_DFD_ENABLE
 	unsigned int status = readl(g_infracfg_ao + 0x600);
 
-#if MT_GPUFREQ_DFD_DEBUG
 	gpufreq_pr_debug("[GPU_DFD] @%s: dfd status 0x%x\n",
 			__func__, status);
-#endif
 
 	return (status & 0x40000);
 #else
 	return 0;
 #endif
 }
+#endif
 
+#if MT_GPUFREQ_DFD_ENABLE
 static void __mt_gpufreq_dbgtop_pwr_on(bool enable)
 {
-#if MT_GPUFREQ_DFD_ENABLE
 	unsigned int rgu_pwr;
 	int ret;
 	int retry = 10;
@@ -1030,12 +1034,12 @@ static void __mt_gpufreq_dbgtop_pwr_on(bool enable)
 		gpufreq_pr_info("[GPU_DFD] mtk_dbgtop_mfg_pwr_on(%d) fail:0x%0x ret:%d retry_remain:%d\n",
 			enable, rgu_pwr, ret, retry);
 	}
-#endif
 }
+#endif
 
+#if MT_GPUFREQ_DFD_ENABLE
 static void __mt_gpufreq_config_dfd(bool enable)
 {
-#if MT_GPUFREQ_DFD_ENABLE
 	if (enable) {
 		// debug monitor
 		if (mt_gpufreq_is_dfd_force_dump())
@@ -1072,8 +1076,8 @@ static void __mt_gpufreq_config_dfd(bool enable)
 		writel(0x00000000, g_mfg_base + 0xA2C);
 		writel(0x00000000, g_mfg_base + 0x8F8);
 	}
-#endif
 }
+#endif
 
 void mt_gpufreq_power_control(enum mt_power_state power, enum mt_cg_state cg,
 			enum mt_mtcmos_state mtcmos, enum mt_buck_state buck)
@@ -3047,22 +3051,6 @@ static unsigned int __mt_gpufreq_get_cur_vgpu(void)
 }
 
 /*
- * get OPP table index by voltage (mV * 100)
- */
-static int __mt_gpufreq_get_opp_idx_by_vgpu(unsigned int vgpu)
-{
-	int i = g_max_opp_idx_num - 1;
-
-	while (i >= 0) {
-		if (g_opp_table[i--].gpufreq_vgpu >= vgpu)
-			goto out;
-	}
-
-out:
-	return i + 1;
-}
-
-/*
  * calculate vsram_gpu via given vgpu
  * PTPOD only change vgpu, so we need change vsram by vgpu.
  */
@@ -3519,6 +3507,7 @@ static int __mt_gpufreq_init_clk(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef TODO
 static void __mt_gpufreq_init_acp(void)
 {
 	unsigned int val;
@@ -3527,6 +3516,7 @@ static void __mt_gpufreq_init_acp(void)
 	val = readl(g_infracfg_ao + 0x290) | (0x1 << 9);
 	writel(val, g_infracfg_ao + 0x290);
 }
+#endif
 
 static void __mt_gpufreq_init_power(void)
 {
@@ -3585,6 +3575,7 @@ static void __mt_gpufreq_gpu_dfd_trigger_simulate(void)
 }
 #endif
 
+#if MT_GPUFREQ_DFD_DEBUG
 static void __mt_gpufreq_gpu_hard_reset(void)
 {
 	/*
@@ -3598,11 +3589,13 @@ static void __mt_gpufreq_gpu_hard_reset(void)
 	udelay(10);
 	writel(0x88000000, g_toprgu + 0x018);
 }
+#endif
 
 /*
  * clear gpu dfd if it is triggerd
  * this is a workaround to prevent dev apc violation
  */
+#if MT_GPUFREQ_DFD_ENABLE
 static void __mt_gpufreq_gpu_dfd_clear(void)
 {
 	/* 0. gpu hard reset*/
@@ -3655,6 +3648,7 @@ static void __mt_gpufreq_gpu_dfd_clear(void)
 #endif
 	__mt_gpufreq_dbgtop_pwr_on(true);
 }
+#endif
 
 /*
  * gpufreq driver probe

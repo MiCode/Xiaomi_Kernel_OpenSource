@@ -3,9 +3,6 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
-/* TODO: porting*/
-/* #include <mtk_gpu_utility.h> */
-
 #include <linux/uaccess.h>
 #include <mali_kbase_gator_api.h>
 #include <platform/mtk_mfg_counter.h>
@@ -69,7 +66,7 @@ static void MTKGPUPower_model_kbase_setup(int flag, unsigned int interval_ns) {
 		return;
 
 	//Default doesn't enable all HWC
-	setup.jm_bm = 0x16;
+	setup.fe_bm = 0x16;
 	setup.shader_bm = 0x5EC6;
 	setup.tiler_bm = 0x2;
 	setup.mmu_l2_bm = 0x1FC0;

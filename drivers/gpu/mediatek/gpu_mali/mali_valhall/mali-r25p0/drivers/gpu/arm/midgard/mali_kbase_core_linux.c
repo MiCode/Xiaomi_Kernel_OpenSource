@@ -55,16 +55,21 @@
 #include <mali_kbase_reset_gpu.h>
 #include <backend/gpu/mali_kbase_device_internal.h>
 #include "mali_kbase_ioctl.h"
+#include "mali_kbase_kinstr_jm.h"
 #include "mali_kbase_hwcnt_context.h"
 #include "mali_kbase_hwcnt_virtualizer.h"
 #include "mali_kbase_hwcnt_legacy.h"
 #include "mali_kbase_vinstr.h"
+#ifdef CONFIG_MALI_ARBITER_SUPPORT
+#include "arbiter/mali_kbase_arbiter_pm.h"
+#endif
 
 #include "mali_kbase_cs_experimental.h"
 
 #ifdef CONFIG_MALI_CINSTR_GWT
 #include "mali_kbase_gwt.h"
 #endif
+#include "mali_kbase_pm_internal.h"
 
 #include <linux/module.h>
 #include <linux/init.h>
@@ -112,12 +117,90 @@
 
 #include <mtk_gpufreq.h>
 
+#include <mali_kbase_caps.h>
+
 /* GPU IRQ Tags */
 #define	JOB_IRQ_TAG	0
 #define MMU_IRQ_TAG	1
 #define GPU_IRQ_TAG	2
 
 #define KERNEL_SIDE_DDK_VERSION_STRING "K:" MALI_RELEASE_NAME "(GPL)"
+
+/**
+ * Kernel min/maj <=> API Version
+ */
+#define KBASE_API_VERSION(major, minor) ((((major) & 0xFFF) << 20)  | \
+					 (((minor) & 0xFFF) << 8) | \
+					 ((0 & 0xFF) << 0))
+
+#define KBASE_API_MIN(api_version) ((api_version >> 8) & 0xFFF)
+#define KBASE_API_MAJ(api_version) ((api_version >> 20) & 0xFFF)
+
+/**
+ * mali_kbase_api_version_to_maj_min - convert an api_version to a min/maj pair
+ *
+ * @api_version: API version to convert
+ * @major:  Major version number (must not exceed 12 bits)
+ * @minor:  Major version number (must not exceed 12 bits)
+ */
+void mali_kbase_api_version_to_maj_min(unsigned long api_version, u16 *maj, u16 *min)
+{
+	if (WARN_ON(!maj))
+		return;
+
+	if (WARN_ON(!min))
+		return;
+
+	*maj = KBASE_API_MAJ(api_version);
+	*min = KBASE_API_MIN(api_version);
+}
+
+/**
+ * kbase capabilities table
+ */
+typedef struct mali_kbase_capability_def {
+	u16 required_major;
+	u16 required_minor;
+} mali_kbase_capability_def;
+
+/**
+ * This must be kept in-sync with mali_kbase_cap
+ *
+ * TODO: The alternative approach would be to embed the cap enum values
+ * in the table. Less efficient but potentially safer.
+ */
+static mali_kbase_capability_def kbase_caps_table[MALI_KBASE_NUM_CAPS] = {
+	{ 11, 15 },             /* SYSTEM_MONITOR 	*/
+	{ 11, 25 },             /* JIT_PRESSURE_LIMIT	*/
+	{ 11,  2 },             /* MEM_GROW_ON_GPF	*/
+	{ 11,  2 }              /* MEM_PROTECTED	*/
+};
+
+/**
+ * mali_kbase_supports_cap - Query whether a kbase capability is supported
+ *
+ * @api_version: 	API version to convert
+ * @cap:		Capability to query for - see mali_kbase_caps.h
+ */
+bool mali_kbase_supports_cap(unsigned long api_version, mali_kbase_cap cap)
+{
+	bool supported = false;
+	unsigned long required_ver;
+
+	mali_kbase_capability_def const *cap_def;
+
+	if (WARN_ON(cap < 0))
+		return false;
+
+	if (WARN_ON(cap >= MALI_KBASE_NUM_CAPS))
+		return false;
+
+	cap_def = &kbase_caps_table[(int)cap];
+	required_ver = KBASE_API_VERSION(cap_def->required_major, cap_def->required_minor);
+	supported = (api_version >= required_ver);
+
+	return supported;
+}
 
 #include "platform/mtk_platform_common.h"
 
@@ -233,7 +316,7 @@ static struct kbase_file *kbase_file_new(struct kbase_device *const kbdev,
 }
 
 /**
- * kbase_file_get_api_version - Set the application programmer interface version
+ * kbase_file_set_api_version - Set the application programmer interface version
  *
  * @kfile:  A device file created by kbase_file_new()
  * @major:  Major version number (must not exceed 12 bits)
@@ -407,7 +490,7 @@ static int kbase_api_handshake(struct kbase_file *kfile,
 	 * the flags have been set. Originally it was created on file open
 	 * (with job submission disabled) but we don't support that usage.
 	 */
-	if (kbase_file_get_api_version(kfile) < KBASE_API_VERSION(11, 15))
+	if (!mali_kbase_supports_system_monitor(kbase_file_get_api_version(kfile)))
 		err = kbase_file_create_kctx(kfile,
 			BASE_CONTEXT_SYSTEM_MONITOR_SUBMIT_DISABLED);
 
@@ -744,7 +827,7 @@ static int kbase_api_set_flags(struct kbase_file *kfile,
 	/* For backward compatibility, the context may have been created before
 	 * the flags were set.
 	 */
-	if (api_version >= KBASE_API_VERSION(11, 15)) {
+	if (mali_kbase_supports_system_monitor(api_version)) {
 		err = kbase_file_create_kctx(kfile, flags->create_flags);
 	} else {
 		struct kbasep_js_kctx_info *js_kctx_info = NULL;
@@ -869,6 +952,12 @@ static int kbase_api_mem_free(struct kbase_context *kctx,
 		struct kbase_ioctl_mem_free *free)
 {
 	return kbase_mem_free(kctx, free->gpu_addr);
+}
+
+static int kbase_api_kinstr_jm_fd(struct kbase_context *kctx,
+				  union kbase_kinstr_jm_fd *arg)
+{
+	return kbase_kinstr_jm_get_fd(kctx->kinstr_jm, arg);
 }
 
 static int kbase_api_hwcnt_reader_setup(struct kbase_context *kctx,
@@ -1617,6 +1706,12 @@ static long kbase_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		break;
 
 	/* Instrumentation. */
+	case KBASE_IOCTL_KINSTR_JM_FD:
+		KBASE_HANDLE_IOCTL_INOUT(KBASE_IOCTL_KINSTR_JM_FD,
+				kbase_api_kinstr_jm_fd,
+				union kbase_kinstr_jm_fd,
+				kctx);
+		break;
 	case KBASE_IOCTL_HWCNT_READER_SETUP:
 		KBASE_HANDLE_IOCTL_IN(KBASE_IOCTL_HWCNT_READER_SETUP,
 				kbase_api_hwcnt_reader_setup,
@@ -1971,7 +2066,7 @@ static ssize_t show_core_mask(struct device *dev, struct device_attribute *attr,
  * @dev:	The device with sysfs file is for
  * @attr:	The attributes of the sysfs file
  * @buf:	The value written to the sysfs file
- * @count:	The number of bytes written to the sysfs file
+ * @count:	The number of bytes to write to the sysfs file
  *
  * Return: @count if the function succeeded. An error code on failure.
  */
@@ -2066,7 +2161,7 @@ static DEVICE_ATTR(core_mask, S_IRUGO | S_IWUSR, show_core_mask, set_core_mask);
  * @dev: The device this sysfs file is for.
  * @attr: The attributes of the sysfs file.
  * @buf: The value written to the sysfs file.
- * @count: The number of bytes written to the sysfs file.
+ * @count: The number of bytes to write to the sysfs file.
  *
  * This allows setting the timeout for software jobs. Waiting soft event wait
  * jobs will be cancelled after this period expires, while soft fence wait jobs
@@ -2159,7 +2254,7 @@ static u32 timeout_ms_to_ticks(struct kbase_device *kbdev, long timeout_ms,
  * @dev:	The device with sysfs file is for
  * @attr:	The attributes of the sysfs file
  * @buf:	The value written to the sysfs file
- * @count:	The number of bytes written to the sysfs file
+ * @count:	The number of bytes to write to the sysfs file
  *
  * Return: @count if the function succeeded. An error code on failure.
  */
@@ -2336,7 +2431,7 @@ static u32 get_new_js_timeout(
  * @dev:   The device the sysfs file is for
  * @attr:  The attributes of the sysfs file
  * @buf:   The value written to the sysfs file
- * @count: The number of bytes written to the sysfs file
+ * @count: The number of bytes to write to the sysfs file
  *
  * This function is called when the js_scheduling_period sysfs file is written
  * to. It checks the data written, and if valid updates the js_scheduling_period
@@ -2576,7 +2671,7 @@ static ssize_t show_debug(struct device *dev, struct device_attribute *attr, cha
  * @dev:	The device with sysfs file is for
  * @attr:	The attributes of the sysfs file
  * @buf:	The value written to the sysfs file
- * @count:	The number of bytes written to the sysfs file
+ * @count:	The number of bytes to write to the sysfs file
  *
  * Return: @count if the function succeeded. An error code on failure.
  */
@@ -2648,9 +2743,9 @@ static ssize_t kbase_show_gpuinfo(struct device *dev,
 		{ .id = GPU_ID2_PRODUCT_TTRX >> GPU_ID_VERSION_PRODUCT_ID_SHIFT,
 		  .name = "Mali-G77" },
 		{ .id = GPU_ID2_PRODUCT_TBEX >> GPU_ID_VERSION_PRODUCT_ID_SHIFT,
-		  .name = "Mali-TBEX" },
+		  .name = "Mali-G78" },
 		{ .id = GPU_ID2_PRODUCT_LBEX >> GPU_ID_VERSION_PRODUCT_ID_SHIFT,
-		  .name = "Mali-LBEX" },
+		  .name = "Mali-G68" },
 		{ .id = GPU_ID2_PRODUCT_TNAX >> GPU_ID_VERSION_PRODUCT_ID_SHIFT,
 		  .name = "Mali-G57" },
 		{ .id = GPU_ID2_PRODUCT_TODX >> GPU_ID_VERSION_PRODUCT_ID_SHIFT,
@@ -3177,7 +3272,6 @@ static DEVICE_ATTR(js_ctx_scheduling_mode, S_IRUGO | S_IWUSR,
 		set_js_ctx_scheduling_mode);
 
 #ifdef MALI_KBASE_BUILD
-#ifdef CONFIG_DEBUG_FS
 
 /* Number of entries in serialize_jobs_settings[] */
 #define NR_SERIALIZE_JOBS_SETTINGS 5
@@ -3198,8 +3292,47 @@ static struct
 };
 
 /**
- * kbasep_serialize_jobs_seq_show - Show callback for the serialize_jobs debugfs
- *                                  file
+ * update_serialize_jobs_setting - Update the serialization setting for the
+ *                                 submission of GPU jobs.
+ *
+ * This function is called when the serialize_jobs sysfs/debugfs file is
+ * written to. It matches the requested setting against the available settings
+ * and if a matching setting is found updates kbdev->serialize_jobs.
+ *
+ * @kbdev:  An instance of the GPU platform device, allocated from the probe
+ *          method of the driver.
+ * @buf:    Buffer containing the value written to the sysfs/debugfs file.
+ * @count:  The number of bytes to write to the sysfs/debugfs file.
+ *
+ * Return: @count if the function succeeded. An error code on failure.
+ */
+static ssize_t update_serialize_jobs_setting(struct kbase_device *kbdev,
+					     const char *buf, size_t count)
+{
+	int i;
+	bool valid = false;
+
+	for (i = 0; i < NR_SERIALIZE_JOBS_SETTINGS; i++) {
+		if (sysfs_streq(serialize_jobs_settings[i].name, buf)) {
+			kbdev->serialize_jobs =
+				serialize_jobs_settings[i].setting;
+			valid = true;
+			break;
+		}
+	}
+
+	if (!valid) {
+		dev_err(kbdev->dev, "serialize_jobs: invalid setting");
+		return -EINVAL;
+	}
+
+	return count;
+}
+
+#ifdef CONFIG_DEBUG_FS
+/**
+ * kbasep_serialize_jobs_seq_debugfs_show - Show callback for the serialize_jobs
+ *					    debugfs file
  * @sfile: seq_file pointer
  * @data:  Private callback data
  *
@@ -3209,7 +3342,8 @@ static struct
  *
  * Return: 0 on success, or an error code on error
  */
-static int kbasep_serialize_jobs_seq_show(struct seq_file *sfile, void *data)
+static int kbasep_serialize_jobs_seq_debugfs_show(struct seq_file *sfile,
+						  void *data)
 {
 	struct kbase_device *kbdev = sfile->private;
 	int i;
@@ -3250,8 +3384,6 @@ static ssize_t kbasep_serialize_jobs_debugfs_write(struct file *file,
 	struct seq_file *s = file->private_data;
 	struct kbase_device *kbdev = s->private;
 	char buf[MAX_SERIALIZE_JOBS_NAME_LEN];
-	int i;
-	bool valid = false;
 
 	CSTD_UNUSED(ppos);
 
@@ -3261,21 +3393,7 @@ static ssize_t kbasep_serialize_jobs_debugfs_write(struct file *file,
 
 	buf[count] = 0;
 
-	for (i = 0; i < NR_SERIALIZE_JOBS_SETTINGS; i++) {
-		if (sysfs_streq(serialize_jobs_settings[i].name, buf)) {
-			kbdev->serialize_jobs =
-					serialize_jobs_settings[i].setting;
-			valid = true;
-			break;
-		}
-	}
-
-	if (!valid) {
-		dev_err(kbdev->dev, "serialize_jobs: invalid setting\n");
-		return -EINVAL;
-	}
-
-	return count;
+	return update_serialize_jobs_setting(kbdev, buf, count);
 }
 
 /**
@@ -3289,7 +3407,8 @@ static ssize_t kbasep_serialize_jobs_debugfs_write(struct file *file,
 static int kbasep_serialize_jobs_debugfs_open(struct inode *in,
 		struct file *file)
 {
-	return single_open(file, kbasep_serialize_jobs_seq_show, in->i_private);
+	return single_open(file, kbasep_serialize_jobs_seq_debugfs_show,
+			   in->i_private);
 }
 
 static const struct file_operations kbasep_serialize_jobs_debugfs_fops = {
@@ -3302,6 +3421,72 @@ static const struct file_operations kbasep_serialize_jobs_debugfs_fops = {
 };
 
 #endif /* CONFIG_DEBUG_FS */
+
+/**
+ * show_serialize_jobs_sysfs - Show callback for serialize_jobs sysfs file.
+ *
+ * This function is called to get the contents of the serialize_jobs sysfs
+ * file. This is a list of the available settings with the currently active
+ * one surrounded by square brackets.
+ *
+ * @dev:	The device this sysfs file is for
+ * @attr:	The attributes of the sysfs file
+ * @buf:	The output buffer for the sysfs file contents
+ *
+ * Return: The number of bytes output to @buf.
+ */
+static ssize_t show_serialize_jobs_sysfs(struct device *dev,
+					 struct device_attribute *attr,
+					 char *buf)
+{
+	struct kbase_device *kbdev = to_kbase_device(dev);
+	ssize_t ret = 0;
+	int i;
+
+	for (i = 0; i < NR_SERIALIZE_JOBS_SETTINGS; i++) {
+		if (kbdev->serialize_jobs ==
+				serialize_jobs_settings[i].setting)
+			ret += scnprintf(buf + ret, PAGE_SIZE - ret, "[%s]",
+					 serialize_jobs_settings[i].name);
+		else
+			ret += scnprintf(buf + ret, PAGE_SIZE - ret, "%s ",
+					 serialize_jobs_settings[i].name);
+	}
+
+	if (ret < PAGE_SIZE - 1) {
+		ret += scnprintf(buf + ret, PAGE_SIZE - ret, "\n");
+	} else {
+		buf[PAGE_SIZE - 2] = '\n';
+		buf[PAGE_SIZE - 1] = '\0';
+		ret = PAGE_SIZE - 1;
+	}
+
+	return ret;
+}
+
+/**
+ * store_serialize_jobs_sysfs - Store callback for serialize_jobs sysfs file.
+ *
+ * This function is called when the serialize_jobs sysfs file is written to.
+ * It matches the requested setting against the available settings and if a
+ * matching setting is found updates kbdev->serialize_jobs.
+ *
+ * @dev:	The device this sysfs file is for
+ * @attr:	The attributes of the sysfs file
+ * @buf:	The value written to the sysfs file
+ * @count:	The number of bytes to write to the sysfs file
+ *
+ * Return: @count if the function succeeded. An error code on failure.
+ */
+static ssize_t store_serialize_jobs_sysfs(struct device *dev,
+					  struct device_attribute *attr,
+					  const char *buf, size_t count)
+{
+	return update_serialize_jobs_setting(to_kbase_device(dev), buf, count);
+}
+
+static DEVICE_ATTR(serialize_jobs, 0600, show_serialize_jobs_sysfs,
+		   store_serialize_jobs_sysfs);
 #endif /* MALI_KBASE_BUILD */
 
 static void kbasep_protected_mode_hwcnt_disable_worker(struct work_struct *data)
@@ -3461,6 +3646,124 @@ int registers_map(struct kbase_device * const kbdev)
 void registers_unmap(struct kbase_device *kbdev)
 {
 	kbase_common_reg_unmap(kbdev);
+}
+
+#if defined(CONFIG_MALI_ARBITER_SUPPORT) && defined(CONFIG_OF)
+
+static bool kbase_is_pm_enabled(const struct device_node *gpu_node)
+{
+	const struct device_node *power_model_node;
+	const void *cooling_cells_node;
+	const void *operating_point_node;
+	bool is_pm_enable = false;
+
+	power_model_node = of_get_child_by_name(gpu_node,
+		"power_model");
+	if (power_model_node)
+		is_pm_enable = true;
+
+	cooling_cells_node = of_get_property(gpu_node,
+		"#cooling-cells", NULL);
+	if (cooling_cells_node)
+		is_pm_enable = true;
+
+	operating_point_node = of_get_property(gpu_node,
+		"operating-points", NULL);
+	if (operating_point_node)
+		is_pm_enable = true;
+
+	return is_pm_enable;
+}
+
+static bool kbase_is_pv_enabled(const struct device_node *gpu_node)
+{
+	const void *arbiter_if_node;
+
+	arbiter_if_node = of_get_property(gpu_node,
+		"arbiter_if", NULL);
+
+	return arbiter_if_node ? true : false;
+}
+
+static bool kbase_is_full_coherency_enabled(const struct device_node *gpu_node)
+{
+	const void *coherency_dts;
+	u32 coherency;
+
+	coherency_dts = of_get_property(gpu_node,
+					"system-coherency",
+					NULL);
+	if (coherency_dts) {
+		coherency = be32_to_cpup(coherency_dts);
+		if (coherency == COHERENCY_ACE)
+			return true;
+	}
+	return false;
+}
+
+#endif /* CONFIG_MALI_ARBITER_SUPPORT && CONFIG_OF */
+
+int kbase_device_pm_init(struct kbase_device *kbdev)
+{
+	int err = 0;
+
+#if defined(CONFIG_MALI_ARBITER_SUPPORT) && defined(CONFIG_OF)
+
+	u32 gpu_id;
+	u32 product_id;
+	u32 gpu_model_id;
+
+	if (kbase_is_pv_enabled(kbdev->dev->of_node)) {
+		if (kbase_is_pm_enabled(kbdev->dev->of_node)) {
+			/* Arbitration AND power management invalid */
+			dev_err(kbdev->dev, "Invalid combination of arbitration AND power management\n");
+			return -EPERM;
+		}
+		if (kbase_is_full_coherency_enabled(kbdev->dev->of_node)) {
+			/* Arbitration AND full coherency invalid */
+			dev_err(kbdev->dev, "Invalid combination of arbitration AND full coherency\n");
+			return -EPERM;
+		}
+		err = kbase_arbiter_pm_early_init(kbdev);
+		if (err == 0) {
+			/* Check if Arbitration is running on
+			 * supported GPU platform
+			 */
+			kbase_pm_register_access_enable(kbdev);
+			gpu_id = kbase_reg_read(kbdev, GPU_CONTROL_REG(GPU_ID));
+			kbase_pm_register_access_disable(kbdev);
+			product_id = KBASE_UBFX32(gpu_id,
+				GPU_ID_VERSION_PRODUCT_ID_SHIFT, 16);
+			gpu_model_id = GPU_ID2_MODEL_MATCH_VALUE(product_id);
+
+			if (gpu_model_id != GPU_ID2_PRODUCT_TGOX
+				&& gpu_model_id != GPU_ID2_PRODUCT_TNOX) {
+				kbase_arbiter_pm_early_term(kbdev);
+				dev_err(kbdev->dev, "GPU platform not suitable for arbitration\n");
+				return -EPERM;
+			}
+		}
+	} else {
+		err = power_control_init(kbdev);
+	}
+#else
+	err = power_control_init(kbdev);
+#endif /* CONFIG_MALI_ARBITER_SUPPORT && CONFIG_OF */
+	return err;
+}
+
+void kbase_device_pm_term(struct kbase_device *kbdev)
+{
+#ifdef CONFIG_MALI_ARBITER_SUPPORT
+#ifdef CONFIG_OF
+	if (kbase_is_pv_enabled(kbdev->dev->of_node))
+		kbase_arbiter_pm_early_term(kbdev);
+	else
+		power_control_term(kbdev);
+#endif /* CONFIG_OF */
+#else
+	power_control_term(kbdev);
+#endif
 }
 
 int power_control_init(struct kbase_device *kbdev)
@@ -3982,6 +4285,11 @@ void buslog_term(struct kbase_device *kbdev)
 }
 #endif
 
+static struct attribute *kbase_scheduling_attrs[] = {
+	&dev_attr_serialize_jobs.attr,
+	NULL
+};
+
 static struct attribute *kbase_attrs[] = {
 #ifdef CONFIG_MALI_DEBUG
 	&dev_attr_debug_command.attr,
@@ -4004,6 +4312,12 @@ static struct attribute *kbase_attrs[] = {
 	NULL
 };
 
+#define SYSFS_SCHEDULING_GROUP "scheduling"
+static const struct attribute_group kbase_scheduling_attr_group = {
+	.name = SYSFS_SCHEDULING_GROUP,
+	.attrs = kbase_scheduling_attrs,
+};
+
 static const struct attribute_group kbase_attr_group = {
 	.attrs = kbase_attrs,
 };
@@ -4019,11 +4333,23 @@ int kbase_sysfs_init(struct kbase_device *kbdev)
 	kbdev->mdev.mode = 0666;
 
 	err = sysfs_create_group(&kbdev->dev->kobj, &kbase_attr_group);
+	if (!err) {
+		err = sysfs_create_group(&kbdev->dev->kobj,
+					 &kbase_scheduling_attr_group);
+		if (err) {
+			dev_err(kbdev->dev, "Creation of %s sysfs group failed",
+				SYSFS_SCHEDULING_GROUP);
+			sysfs_remove_group(&kbdev->dev->kobj,
+					   &kbase_attr_group);
+		}
+	}
+
 	return err;
 }
 
 void kbase_sysfs_term(struct kbase_device *kbdev)
 {
+	sysfs_remove_group(&kbdev->dev->kobj, &kbase_scheduling_attr_group);
 	sysfs_remove_group(&kbdev->dev->kobj, &kbase_attr_group);
 	put_device(kbdev->dev);
 }
@@ -4157,6 +4483,11 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 			"Probed as %s\n", dev_name(kbdev->mdev.this_device));
 #endif /* MALI_KBASE_BUILD */
 		kbase_increment_device_id();
+#ifdef CONFIG_MALI_ARBITER_SUPPORT
+		mutex_lock(&kbdev->pm.lock);
+		kbase_arbiter_pm_vm_event(kbdev, KBASE_VM_GPU_INITIALIZED_EVT);
+		mutex_unlock(&kbdev->pm.lock);
+#endif
 	}
 
 	pr_info("%s finish with %d\n", __func__, err);

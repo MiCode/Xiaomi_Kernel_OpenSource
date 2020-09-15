@@ -536,9 +536,8 @@ static int _mtk_mfg_update_counter(void)
 
 		nr_hwc_blocks = info.nr_hwc_blocks ;
 		cnt = 0;
-		/* TODO: porting*/
-		ktime_get_ts64(&tv_end);
-		end_utime = tv_end.tv_sec * 1000000 + tv_end.tv_nsec / 1000;
+		ktime_get_real_ts64(&tv_end);
+		end_utime = tv_end.tv_sec * 1000000 + (unsigned int)(tv_end.tv_nsec / 1000);
 		timd_diff_us = (end_utime > start_utime) ? (end_utime - start_utime) : 0;
 		gpu_freq = mt_gpufreq_get_cur_freq();
 
@@ -603,9 +602,8 @@ static int _mtk_mfg_update_counter(void)
 FINISH:
 	if (handle) {
 		kbase_gator_instr_hwcnt_dump_irq(handle);
-		/* TODO: porting*/
-		ktime_get_ts64(&tv_start);
-		start_utime = tv_start.tv_sec * 1000000 + tv_start.tv_nsec / 1000;
+		ktime_get_real_ts64(&tv_start);
+		start_utime = tv_start.tv_sec * 1000000 + (unsigned int)(tv_start.tv_nsec / 1000);
 	}
 
 	return ret;

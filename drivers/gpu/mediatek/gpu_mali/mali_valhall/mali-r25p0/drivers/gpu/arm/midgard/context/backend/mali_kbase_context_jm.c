@@ -30,6 +30,7 @@
 #include <mali_kbase.h>
 #include <mali_kbase_ctx_sched.h>
 #include <mali_kbase_dma_fence.h>
+#include <mali_kbase_kinstr_jm.h>
 #include <mali_kbase_mem_linux.h>
 #include <mali_kbase_mem_pool_group.h>
 #include <mmu/mali_kbase_mmu.h>
@@ -69,6 +70,21 @@ void kbase_context_debugfs_term(struct kbase_context *const kctx)
 }
 KBASE_EXPORT_SYMBOL(kbase_context_debugfs_term);
 #endif /* CONFIG_DEBUG_FS */
+
+static int kbase_context_kbase_kinstr_jm_init(struct kbase_context *kctx)
+{
+	int ret = kbase_kinstr_jm_init(&kctx->kinstr_jm);
+
+	if (!ret)
+		return ret;
+
+	return 0;
+}
+
+static void kbase_context_kbase_kinstr_jm_term(struct kbase_context *kctx)
+{
+	kbase_kinstr_jm_term(kctx->kinstr_jm);
+}
 
 static int kbase_context_kbase_timer_setup(struct kbase_context *kctx)
 {
@@ -122,6 +138,8 @@ static const struct kbase_context_init context_init[] = {
 			"Sticky resource initialization failed"},
 	{kbase_jit_init, kbase_jit_term,
 			"JIT initialization failed"},
+	{kbase_context_kbase_kinstr_jm_init, kbase_context_kbase_kinstr_jm_term,
+			"JM instrumentation initialization failed"},
 	{kbase_context_kbase_timer_setup, NULL, NULL},
 	{kbase_context_submit_check, NULL, NULL},
 };

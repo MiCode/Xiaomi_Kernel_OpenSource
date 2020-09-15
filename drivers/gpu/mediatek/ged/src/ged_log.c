@@ -189,13 +189,12 @@ GED_ERROR __ged_log_buf_vprint(struct GED_LOG_BUF *psGEDLogBuf,
 		struct timespec64 time;
 		unsigned long local_time;
 
-		/* TODO: porting*/
-		ktime_get_ts64(&time);
+		ktime_get_real_ts64(&time);
 		local_time = (u32)(time.tv_sec - (sys_tz.tz_minuteswest * 60));
 
 		curline->tattrs = GED_LOG_ATTR_TIME_TPT;
 		curline->time = local_time;
-		curline->time_usec = time.tv_nsec / 1000;
+		curline->time_usec = (unsigned int)(time.tv_nsec / 1000);
 		curline->pid = current->tgid;
 		curline->tid = current->pid;
 	}
@@ -1116,8 +1115,9 @@ void ged_log_dump(GED_LOG_BUF_HANDLE hLogBuf)
 			psGEDLogBuf->ulIRQFlags);
 	}
 }
-
+#ifdef CONFIG_MTK_GPU_SUPPORT
 static unsigned long __read_mostly tracing_mark_write_addr;
+#endif
 static inline void __mt_update_tracing_mark_write_addr(void)
 {
 /*

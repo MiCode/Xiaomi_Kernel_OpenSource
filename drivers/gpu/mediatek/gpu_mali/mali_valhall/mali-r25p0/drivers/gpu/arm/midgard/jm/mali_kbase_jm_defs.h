@@ -496,9 +496,9 @@ struct kbase_jd_atom {
 	struct list_head jd_item;
 	bool in_jd_list;
 
-#if MALI_JIT_PRESSURE_LIMIT
+#if MALI_JIT_PRESSURE_LIMIT_BASE
 	u8 jit_ids[2];
-#endif /* MALI_JIT_PRESSURE_LIMIT */
+#endif /* MALI_JIT_PRESSURE_LIMIT_BASE */
 
 	u16 nr_extres;
 	struct kbase_ext_res *extres;
@@ -611,6 +611,9 @@ struct kbase_jd_atom {
 	bool need_cache_flush_cores_retained;
 
 	atomic_t blocked;
+
+	/* user-space sequence number, to order atoms in some temporal order */
+	u64 seq_nr;
 
 	struct kbase_jd_atom *pre_dep;
 	struct kbase_jd_atom *post_dep;

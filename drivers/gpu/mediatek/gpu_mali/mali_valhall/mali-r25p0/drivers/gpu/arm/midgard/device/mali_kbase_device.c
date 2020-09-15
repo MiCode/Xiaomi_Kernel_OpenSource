@@ -51,6 +51,9 @@
 #include "backend/gpu/mali_kbase_pm_internal.h"
 #include "backend/gpu/mali_kbase_irq_internal.h"
 
+#ifdef CONFIG_MALI_ARBITER_SUPPORT
+#include "arbiter/mali_kbase_arbiter_pm.h"
+#endif /* CONFIG_MALI_ARBITER_SUPPORT */
 
 /* NOTE: Magic - 0x45435254 (TRCE in ASCII).
  * Supports tracing feature provided in the base module.
@@ -268,14 +271,14 @@ void kbase_increment_device_id(void)
 	kbase_dev_nr++;
 }
 
-int kbase_device_hwcnt_backend_gpu_init(struct kbase_device *kbdev)
+int kbase_device_hwcnt_backend_jm_init(struct kbase_device *kbdev)
 {
-	return kbase_hwcnt_backend_gpu_create(kbdev, &kbdev->hwcnt_gpu_iface);
+	return kbase_hwcnt_backend_jm_create(kbdev, &kbdev->hwcnt_gpu_iface);
 }
 
-void kbase_device_hwcnt_backend_gpu_term(struct kbase_device *kbdev)
+void kbase_device_hwcnt_backend_jm_term(struct kbase_device *kbdev)
 {
-	kbase_hwcnt_backend_gpu_destroy(&kbdev->hwcnt_gpu_iface);
+	kbase_hwcnt_backend_jm_destroy(&kbdev->hwcnt_gpu_iface);
 }
 
 int kbase_device_hwcnt_context_init(struct kbase_device *kbdev)
@@ -413,7 +416,14 @@ fail_runtime_pm:
 
 void kbase_device_early_term(struct kbase_device *kbdev)
 {
+#ifdef CONFIG_MALI_ARBITER_SUPPORT
+	if (kbdev->arb.arb_if)
+		kbase_arbiter_pm_release_interrupts(kbdev);
+	else
+		kbase_release_interrupts(kbdev);
+#else
 	kbase_release_interrupts(kbdev);
+#endif /* CONFIG_MALI_ARBITER_SUPPORT */
 	kbase_pm_runtime_term(kbdev);
 	kbasep_platform_device_term(kbdev);
 }

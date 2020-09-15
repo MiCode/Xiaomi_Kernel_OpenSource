@@ -23,9 +23,12 @@ include $(src)/Kbuild-mtk-custom-env
 include $(src)/platform/mtk_platform_common/Kbuild
 
 # Driver version string which is returned to userspace via an ioctl
-MALI_RELEASE_NAME ?= "r25p0-00cet2"
+MALI_RELEASE_NAME ?= "r26p0-01eac0"
 
 # Paths required for build
+
+# make $(src) as absolute path if it isn't already, by prefixing $(srctree)
+src:=$(if $(patsubst /%,,$(src)),$(srctree)/$(src),$(src))
 KBASE_PATH = $(src)
 KBASE_PLATFORM_PATH = $(KBASE_PATH)/platform_dummy
 UMP_PATH = $(src)/../../../base
@@ -36,6 +39,7 @@ MALI_USE_CSF ?= 0
 MALI_UNIT_TEST ?= 0
 MALI_KERNEL_TEST_API ?= 0
 MALI_COVERAGE ?= 0
+MALI_JIT_PRESSURE_LIMIT_BASE ?= 1
 #CONFIG_MALI_PLATFORM_NAME ?= "devicetree"
 CONFIG_MALI_PLATFORM_NAME ?= $(CONFIG_MALI_PLATFORM_THIRDPARTY_NAME)
 
@@ -45,7 +49,6 @@ CONFIG_MALI_PLATFORM_NAME ?= $(CONFIG_MALI_PLATFORM_THIRDPARTY_NAME)
 #
 # Experimental features must default to disabled, e.g.:
 # MALI_EXPERIMENTAL_FEATURE ?= 0
-MALI_JIT_PRESSURE_LIMIT ?= 0
 MALI_INCREMENTAL_RENDERING ?= 0
 
 # Set up our defines, which will be passed to gcc
@@ -56,7 +59,7 @@ DEFINES = \
 	-DMALI_UNIT_TEST=$(MALI_UNIT_TEST) \
 	-DMALI_COVERAGE=$(MALI_COVERAGE) \
 	-DMALI_RELEASE_NAME=\"$(MALI_RELEASE_NAME)\" \
-	-DMALI_JIT_PRESSURE_LIMIT=$(MALI_JIT_PRESSURE_LIMIT) \
+	-DMALI_JIT_PRESSURE_LIMIT_BASE=$(MALI_JIT_PRESSURE_LIMIT_BASE) \
 	-DMALI_INCREMENTAL_RENDERING=$(MALI_INCREMENTAL_RENDERING)
 
 ifeq ($(KBUILD_EXTMOD),)
@@ -70,6 +73,9 @@ endif
 DEFINES += -I$(srctree)/drivers/staging/android
 
 DEFINES += -DMALI_KBASE_BUILD
+
+# arm Ticket: CAS-173191-P7F4D1
+DEFINES += -DCONFIG_MALI_DMA_BUF_LEGACY_COMPAT=1
 
 # Use our defines when compiling
 # MTK Add -I$(src)/include to include ddk linux headers
@@ -88,6 +94,7 @@ SRC := \
 	debug/mali_kbase_debug_ktrace.c \
 	device/mali_kbase_device.c \
 	mali_kbase_cache_policy.c \
+	mali_kbase_ccswe.c \
 	mali_kbase_mem.c \
 	mali_kbase_mem_pool_group.c \
 	mali_kbase_native_mgm.c \
@@ -98,7 +105,7 @@ SRC := \
 	mali_kbase_config.c \
 	mali_kbase_vinstr.c \
 	mali_kbase_hwcnt.c \
-	mali_kbase_hwcnt_backend_gpu.c \
+	mali_kbase_hwcnt_backend_jm.c \
 	mali_kbase_hwcnt_gpu.c \
 	mali_kbase_hwcnt_legacy.c \
 	mali_kbase_hwcnt_types.c \
@@ -124,12 +131,14 @@ SRC := \
 	mali_kbase_strings.c \
 	mali_kbase_as_fault_debugfs.c \
 	mali_kbase_regs_history_debugfs.c \
+	mali_power_gpu_frequency_trace.c \
 	thirdparty/mali_kbase_mmap.c \
 	tl/mali_kbase_timeline.c \
 	tl/mali_kbase_timeline_io.c \
 	tl/mali_kbase_tlstream.c \
 	tl/mali_kbase_tracepoints.c \
-	gpu/mali_kbase_gpu.c
+	gpu/mali_kbase_gpu.c \
+	mali_kbase_trace_gpu_mem.c
 
 ifeq ($(MALI_USE_CSF),1)
 	SRC += \
@@ -148,6 +157,7 @@ else
 		mali_kbase_jd_debugfs.c \
 		mali_kbase_js.c \
 		mali_kbase_js_ctx_attr.c \
+		mali_kbase_kinstr_jm.c \
 		debug/backend/mali_kbase_debug_ktrace_jm.c \
 		device/backend/mali_kbase_device_jm.c \
 		gpu/backend/mali_kbase_gpu_fault_jm.c \
