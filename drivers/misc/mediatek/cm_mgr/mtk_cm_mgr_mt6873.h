@@ -6,8 +6,6 @@
 #ifndef __MTK_CM_MGR_PLATFORM_H__
 #define __MTK_CM_MGR_PLATFORM_H__
 
-#define PERF_TIME 3000
-
 #include "mtk_cm_mgr_reg_mt6873.h"
 
 #define CREATE_TRACE_POINTS

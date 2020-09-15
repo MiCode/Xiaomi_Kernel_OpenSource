@@ -377,7 +377,7 @@ static int platform_cm_mgr_probe(struct platform_device *pdev)
 #endif /* CONFIG_MTK_CPU_FREQ */
 
 	timer_setup(&cm_mgr_perf_timeout_timer, cm_mgr_perf_timeout_timer_fn,
-			NULL);
+			0);
 
 	if (cm_mgr_use_cpu_to_dram_map) {
 		cm_mgr_add_cpu_opp_to_ddr_req();
