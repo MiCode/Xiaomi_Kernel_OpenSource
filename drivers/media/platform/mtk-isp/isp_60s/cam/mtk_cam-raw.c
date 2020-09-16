@@ -945,18 +945,31 @@ void raw_irq_handle_tg_grab_err(struct mtk_raw_device *raw_dev)
 void raw_irq_handle_dma_err(struct mtk_raw_device *raw_dev)
 {
 	dev_dbg_ratelimited(raw_dev->dev,
-			    "IMGO:0x%x, RRZO:0x%x, AAO=0x%x, AFO=0x%x, LMVO=0x%x\n",
+			    "IMGO:0x%x, RRZO:0x%x, YUVO:0x%x, CRZO_R1:0x%x, RSSO_R2:0x%x, BPCI:0x%x\n",
 		readl_relaxed(raw_dev->base + REG_IMGO_ERR_STAT),
 		readl_relaxed(raw_dev->base + REG_RRZO_ERR_STAT),
-		readl_relaxed(raw_dev->base + REG_AAO_ERR_STAT),
-		readl_relaxed(raw_dev->base + REG_AFO_ERR_STAT),
-		readl_relaxed(raw_dev->base + REG_LMVO_ERR_STAT));
+		readl_relaxed(raw_dev->base + REG_YUVO_ERR_STAT),
+		readl_relaxed(raw_dev->base + REG_CRZO_R1_ERR_STAT),
+		readl_relaxed(raw_dev->base + REG_RSSO_R2_ERR_STAT),
+		readl_relaxed(raw_dev->base + REG_BPCI_ERR_STAT));
+
 	dev_dbg_ratelimited(raw_dev->dev,
-			    "LCSO=0x%x, PSO=0x%x, FLKO=0x%x, BPCI:0x%x, LSCI=0x%x\n",
+			    "LSCI:0x%x, PDI:0x%x, AAO:0x%x, AAHO:0x%x, AFO:0x%x, TSFSO:0x%x\n",
+		readl_relaxed(raw_dev->base + REG_LSCI_ERR_STAT),
+		readl_relaxed(raw_dev->base + REG_PDI_ERR_STAT),
+		readl_relaxed(raw_dev->base + REG_AAO_ERR_STAT),
+		readl_relaxed(raw_dev->base + REG_AAHO_ERR_STAT),
+		readl_relaxed(raw_dev->base + REG_AFO_ERR_STAT),
+		readl_relaxed(raw_dev->base + REG_TSFSO_ERR_STAT));
+
+	dev_dbg_ratelimited(raw_dev->dev,
+			    " LMVO:0x%x, LTMSO:0x%x, LCSO:0x%x, LCSHO:0x%x, FLKO:0x%x, PDO:0x%x\n",
+		readl_relaxed(raw_dev->base + REG_LMVO_ERR_STAT),
+		readl_relaxed(raw_dev->base + REG_LTMSO_ERR_STAT),
 		readl_relaxed(raw_dev->base + REG_LCSO_ERR_STAT),
+		readl_relaxed(raw_dev->base + REG_LCSHO_ERR_STAT),
 		readl_relaxed(raw_dev->base + REG_FLKO_ERR_STAT),
-		readl_relaxed(raw_dev->base + REG_BPCI_ERR_STAT),
-		readl_relaxed(raw_dev->base + REG_LSCI_ERR_STAT));
+		readl_relaxed(raw_dev->base + REG_PDO_ERR_STAT));
 }
 
 #ifdef CONFIG_MTK_IOMMU_V2
