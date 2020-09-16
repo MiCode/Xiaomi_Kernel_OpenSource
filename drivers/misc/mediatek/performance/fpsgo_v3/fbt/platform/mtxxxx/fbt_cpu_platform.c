@@ -7,8 +7,6 @@
 #include <sched/sched.h>
 #include <mt-plat/fpsgo_common.h>
 
-#define API_READY 0
-
 
 void fbt_notify_CM_limit(int reach_limit)
 {
@@ -29,6 +27,7 @@ void fbt_set_per_task_cap(int pid, unsigned int min_blc, unsigned int max_blc)
 	unsigned int min_blc_1024;
 	unsigned int max_blc_1024;
 	struct task_struct *p;
+	struct sched_attr attr = {};
 
 	if (!pid)
 		return;
@@ -39,14 +38,13 @@ void fbt_set_per_task_cap(int pid, unsigned int min_blc, unsigned int max_blc)
 	max_blc_1024 = (max_blc << 10) / 100U;
 	max_blc_1024 = clamp(max_blc_1024, 1U, 1024U);
 
-	struct sched_attr attr = {
-		.sched_flags =
-			SCHED_FLAG_KEEP_PARAMS |
-			SCHED_FLAG_UTIL_CLAMP_MIN |
-			SCHED_FLAG_RESET_ON_FORK,
-		.sched_util_min = min_blc_1024,
-		.sched_util_max = max_blc_1024,
-	};
+	attr.sched_policy = -1;
+	attr.sched_flags =
+		SCHED_FLAG_KEEP_ALL |
+		SCHED_FLAG_UTIL_CLAMP |
+		SCHED_FLAG_RESET_ON_FORK;
+	attr.sched_util_min = min_blc_1024;
+	attr.sched_util_max = max_blc_1024;
 
 	if (pid < 0)
 		goto out;
