@@ -4,8 +4,10 @@
  */
 
 #include <linux/slab.h>
+#include <linux/sysfs.h>
 #include <soc/qcom/msm_performance.h>
 #include "adreno.h"
+#include "adreno_sysfs.h"
 #include "adreno_trace.h"
 #include "kgsl_gmu_core.h"
 #include "kgsl_timeline.h"
@@ -2658,6 +2660,116 @@ void adreno_dispatcher_stop_fault_timer(struct kgsl_device *device)
 	del_timer_sync(&dispatcher->fault_timer);
 }
 
+static int _skipsaverestore_store(struct adreno_device *adreno_dev, bool val)
+{
+	adreno_dev->preempt.skipsaverestore = val ? true : false;
+	return 0;
+}
+
+static bool _skipsaverestore_show(struct adreno_device *adreno_dev)
+{
+	return adreno_dev->preempt.skipsaverestore;
+}
+
+static int _usesgmem_store(struct adreno_device *adreno_dev, bool val)
+{
+	adreno_dev->preempt.usesgmem = val ? true : false;
+	return 0;
+}
+
+static bool _usesgmem_show(struct adreno_device *adreno_dev)
+{
+	return adreno_dev->preempt.usesgmem;
+}
+
+static int _preempt_level_store(struct adreno_device *adreno_dev,
+		unsigned int val)
+{
+	adreno_dev->preempt.preempt_level = min_t(unsigned int, val, 2);
+	return 0;
+}
+
+static unsigned int _preempt_level_show(struct adreno_device *adreno_dev)
+{
+	return adreno_dev->preempt.preempt_level;
+}
+
+static void change_preemption(struct adreno_device *adreno_dev, void *priv)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct kgsl_context *context;
+	struct adreno_context *drawctxt;
+	struct adreno_ringbuffer *rb;
+	int id, i, ret;
+
+	/* Make sure all ringbuffers are finished */
+	FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
+		ret = adreno_ringbuffer_waittimestamp(rb, rb->timestamp,
+			2 * 1000);
+		if (ret) {
+			dev_err(device->dev,
+				"Cannot disable preemption because couldn't idle ringbuffer[%d] ret: %d\n",
+				rb->id, ret);
+			return;
+		}
+	}
+
+	change_bit(ADRENO_DEVICE_PREEMPTION, &adreno_dev->priv);
+	adreno_dev->cur_rb = &adreno_dev->ringbuffers[0];
+	adreno_dev->next_rb = NULL;
+	adreno_dev->prev_rb = NULL;
+
+	/* Update the ringbuffer for each draw context */
+	write_lock(&device->context_lock);
+	idr_for_each_entry(&device->context_idr, context, id) {
+		drawctxt = ADRENO_CONTEXT(context);
+		drawctxt->rb = adreno_ctx_get_rb(adreno_dev, drawctxt);
+
+		/*
+		 * Make sure context destroy checks against the correct
+		 * ringbuffer's timestamp.
+		 */
+		adreno_rb_readtimestamp(adreno_dev, drawctxt->rb,
+			KGSL_TIMESTAMP_RETIRED, &drawctxt->internal_timestamp);
+	}
+	write_unlock(&device->context_lock);
+}
+
+static int _preemption_store(struct adreno_device *adreno_dev, bool val)
+{
+	if (!(ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION)) ||
+		(test_bit(ADRENO_DEVICE_PREEMPTION,
+		&adreno_dev->priv) == val))
+		return 0;
+
+	return adreno_power_cycle(adreno_dev, change_preemption, NULL);
+}
+
+static bool _preemption_show(struct adreno_device *adreno_dev)
+{
+	return adreno_is_preemption_enabled(adreno_dev);
+}
+
+static unsigned int _preempt_count_show(struct adreno_device *adreno_dev)
+{
+	return adreno_dev->preempt.count;
+}
+
+static ADRENO_SYSFS_BOOL(preemption);
+static ADRENO_SYSFS_U32(preempt_level);
+static ADRENO_SYSFS_BOOL(usesgmem);
+static ADRENO_SYSFS_BOOL(skipsaverestore);
+static ADRENO_SYSFS_RO_U32(preempt_count);
+
+static const struct attribute *_preempt_attr_list[] = {
+	&adreno_attr_preemption.attr.attr,
+	&adreno_attr_preempt_level.attr.attr,
+	&adreno_attr_usesgmem.attr.attr,
+	&adreno_attr_skipsaverestore.attr.attr,
+	&adreno_attr_preempt_count.attr.attr,
+	NULL,
+};
+
 /**
  * adreno_dispatcher_close() - close the dispatcher
  * @adreno_dev: pointer to the adreno device structure
@@ -2669,6 +2781,7 @@ void adreno_dispatcher_close(struct adreno_device *adreno_dev)
 	struct adreno_dispatcher *dispatcher = &adreno_dev->dispatcher;
 	int i;
 	struct adreno_ringbuffer *rb;
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
 	mutex_lock(&dispatcher->mutex);
 	del_timer_sync(&dispatcher->timer);
@@ -2690,6 +2803,8 @@ void adreno_dispatcher_close(struct adreno_device *adreno_dev)
 	kobject_put(&dispatcher->kobj);
 
 	kmem_cache_destroy(jobs_cache);
+
+	sysfs_remove_files(&device->dev->kobj, _preempt_attr_list);
 }
 
 struct dispatcher_attribute {
@@ -2838,6 +2953,8 @@ int adreno_dispatcher_init(struct adreno_device *adreno_dev)
 		&device->dev->kobj, "dispatch");
 	if (ret)
 		return ret;
+
+	sysfs_create_files(&device->dev->kobj, _preempt_attr_list);
 
 	mutex_init(&dispatcher->mutex);
 
