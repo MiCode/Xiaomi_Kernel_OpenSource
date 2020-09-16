@@ -21,6 +21,7 @@
 #include "ufs_quirks.h"
 #include "unipro.h"
 #include "ufs-mediatek.h"
+#include "ufs-mediatek-dbg.h"
 
 #define ufs_mtk_smc(cmd, val, res) \
 	arm_smccc_smc(MTK_SIP_UFS_CONTROL, \
@@ -353,6 +354,10 @@ static int ufs_mtk_init(struct ufs_hba *hba)
 	 * Enable phy clocks specifically here.
 	 */
 	ufs_mtk_setup_clocks(hba, true, POST_CHANGE);
+
+#if IS_ENABLED(CONFIG_SCSI_UFS_MEDIATEK_DBG)
+	ufs_mtk_dbg_register(hba);
+#endif
 
 	goto out;
 
