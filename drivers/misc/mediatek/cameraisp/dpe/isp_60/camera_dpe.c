@@ -5516,7 +5516,7 @@ static signed int __init DPE_Init(void)
 	/* use proc_create */
 	struct proc_dir_entry *proc_entry;
 	struct proc_dir_entry *isp_dpe_dir;
-
+	struct device_node *node = NULL;
 
 	int i;
 	/*  */
@@ -5529,7 +5529,6 @@ static signed int __init DPE_Init(void)
 	}
 
 #ifndef get_DPE_node_en
-	struct device_node *node = NULL;
 
 	node = of_find_compatible_node(NULL, NULL, "mediatek,DPE");
 	if (!node) {

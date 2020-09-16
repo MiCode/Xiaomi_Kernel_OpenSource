@@ -224,7 +224,7 @@ struct vb2_dc_attachment {
 	enum dma_data_direction dma_dir;
 };
 
-static int vb2_dc_dmabuf_ops_attach(struct dma_buf *dbuf, struct device *dev,
+static int vb2_dc_dmabuf_ops_attach(struct dma_buf *dbuf,
 	struct dma_buf_attachment *dbuf_attach)
 {
 	struct vb2_dc_attachment *attach;
@@ -356,7 +356,7 @@ static int vb2_dc_dmabuf_ops_mmap(struct dma_buf *dbuf,
 }
 
 static const struct dma_buf_ops vb2_dc_dmabuf_ops = {
-	//!.attach = vb2_dc_dmabuf_ops_attach,
+	.attach = vb2_dc_dmabuf_ops_attach,
 	.detach = vb2_dc_dmabuf_ops_detach,
 	.map_dma_buf = vb2_dc_dmabuf_ops_map,
 	.unmap_dma_buf = vb2_dc_dmabuf_ops_unmap,
