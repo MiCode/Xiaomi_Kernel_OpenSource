@@ -21,6 +21,7 @@
 #define ACCUMULATED_ADDR	0x18
 #define CLIENT_VOTES_ADDR	0x1c
 
+#if IS_ENABLED(CONFIG_QCOM_SMEM)
 struct subsystem_data {
 	const char *name;
 	u32 smem_item;
@@ -35,6 +36,7 @@ static struct subsystem_data subsystems[] = {
 	{ "gpu", 609, 0 },
 	{ "display", 610, 0 },
 };
+#endif
 
 struct stats_config {
 	unsigned int offset_addr;
@@ -77,6 +79,7 @@ static void print_sleep_stats(struct seq_file *s, struct sleep_stats *stat)
 	seq_printf(s, "Accumulated Duration = %llu\n", accumulated);
 }
 
+#if IS_ENABLED(CONFIG_QCOM_SMEM)
 static int subsystem_sleep_stats_show(struct seq_file *s, void *d)
 {
 	struct subsystem_data *subsystem = s->private;
@@ -90,6 +93,9 @@ static int subsystem_sleep_stats_show(struct seq_file *s, void *d)
 
 	return 0;
 }
+
+DEFINE_SHOW_ATTRIBUTE(subsystem_sleep_stats);
+#endif
 
 static int soc_sleep_stats_show(struct seq_file *s, void *d)
 {
@@ -115,13 +121,11 @@ static int soc_sleep_stats_show(struct seq_file *s, void *d)
 }
 
 DEFINE_SHOW_ATTRIBUTE(soc_sleep_stats);
-DEFINE_SHOW_ATTRIBUTE(subsystem_sleep_stats);
 
 static struct dentry *create_debugfs_entries(void __iomem *reg,
 					     struct stats_prv_data *prv_data)
 {
 	struct dentry *root;
-	struct sleep_stats *stat;
 	char stat_type[sizeof(u32) + 1] = {0};
 	u32 offset, type;
 	int i;
@@ -143,7 +147,10 @@ static struct dentry *create_debugfs_entries(void __iomem *reg,
 				    &soc_sleep_stats_fops);
 	}
 
+#if IS_ENABLED(CONFIG_QCOM_SMEM)
 	for (i = 0; i < ARRAY_SIZE(subsystems); i++) {
+		struct sleep_stats *stat;
+
 		stat = qcom_smem_get(subsystems[i].pid, subsystems[i].smem_item,
 				     NULL);
 		if (IS_ERR(stat))
@@ -153,7 +160,7 @@ static struct dentry *create_debugfs_entries(void __iomem *reg,
 				    &subsystems[i],
 				    &subsystem_sleep_stats_fops);
 	}
-
+#endif
 	return root;
 }
 
@@ -242,3 +249,4 @@ module_platform_driver(soc_sleep_stats_driver);
 
 MODULE_DESCRIPTION("Qualcomm Technologies, Inc. (QTI) SoC Sleep Stats driver");
 MODULE_LICENSE("GPL v2");
+MODULE_SOFTDEP("pre: smem");
