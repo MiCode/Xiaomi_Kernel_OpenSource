@@ -219,11 +219,61 @@ void qcom_iommu_put_resv_regions(struct device *dev, struct list_head *list)
 }
 EXPORT_SYMBOL(qcom_iommu_put_resv_regions);
 
+/*
+ * These tables must have the same length.
+ * It is allowed to have a NULL exitcall corresponding to a non-NULL initcall.
+ */
+static initcall_t init_table[] __initdata = {
+	NULL
+};
+
+static exitcall_t exit_table[] = {
+	NULL
+};
+
 static int __init qcom_iommu_util_init(void)
 {
-	/* STUB */
+	initcall_t *init_fn;
+	exitcall_t *exit_fn;
+	int ret;
+
+	if (ARRAY_SIZE(init_table) != ARRAY_SIZE(exit_table)) {
+		pr_err("qcom-iommu-util: Invalid initcall/exitcall table\n");
+		return -EINVAL;
+	}
+
+	for (init_fn = init_table; *init_fn; init_fn++) {
+		ret = (**init_fn)();
+		if (ret) {
+			pr_err("%ps returned %d\n", *init_fn, ret);
+			goto out_undo;
+		}
+	}
+
 	return 0;
+
+out_undo:
+	exit_fn = exit_table + (init_fn - init_table);
+	for (exit_fn--; exit_fn >= exit_table; exit_fn--) {
+		if (!*exit_fn)
+			continue;
+		(**exit_fn)();
+	}
+	return ret;
 }
 module_init(qcom_iommu_util_init);
+
+static void qcom_iommu_util_exit(void)
+{
+	exitcall_t *exit_fn;
+
+	exit_fn = exit_table + ARRAY_SIZE(exit_table) - 2;
+	for (; exit_fn >= exit_table; exit_fn--) {
+		if (!*exit_fn)
+			continue;
+		(**exit_fn)();
+	}
+}
+module_exit(qcom_iommu_util_exit);
 
 MODULE_LICENSE("GPL v2");
