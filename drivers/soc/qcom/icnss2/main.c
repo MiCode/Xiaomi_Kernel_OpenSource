@@ -2743,6 +2743,26 @@ int icnss_idle_restart(struct device *dev)
 }
 EXPORT_SYMBOL(icnss_idle_restart);
 
+int icnss_exit_power_save(struct device *dev)
+{
+	struct icnss_priv *priv = dev_get_drvdata(dev);
+	int ret = 0;
+
+	icnss_pr_dbg("Calling Exit Power Save\n");
+
+	if (test_bit(ICNSS_PD_RESTART, &priv->state) ||
+	    !test_bit(ICNSS_MODE_ON, &priv->state))
+		return 0;
+
+	ret = wlfw_exit_power_save_send_msg(priv);
+	if (ret) {
+		priv->stats.pm_resume_err++;
+		return ret;
+	}
+	return 0;
+}
+EXPORT_SYMBOL(icnss_exit_power_save);
+
 void icnss_allow_recursive_recovery(struct device *dev)
 {
 	struct icnss_priv *priv = dev_get_drvdata(dev);
@@ -3356,18 +3376,6 @@ static int icnss_pm_resume(struct device *dev)
 	    !test_bit(ICNSS_DRIVER_PROBED, &priv->state))
 		goto out;
 
-	if (priv->device_id == WCN6750_DEVICE_ID) {
-		if (test_bit(ICNSS_PD_RESTART, &priv->state) ||
-		    !test_bit(ICNSS_MODE_ON, &priv->state))
-			goto out;
-
-		ret = wlfw_exit_power_save_send_msg(priv);
-		if (ret) {
-			priv->stats.pm_resume_err++;
-			return ret;
-		}
-	}
-
 	ret = priv->ops->pm_resume(dev);
 
 out:
@@ -3474,16 +3482,6 @@ static int icnss_pm_runtime_resume(struct device *dev)
 		goto out;
 
 	icnss_pr_vdbg("Runtime resume, state: 0x%lx\n", priv->state);
-
-	if (test_bit(ICNSS_PD_RESTART, &priv->state) ||
-	    !test_bit(ICNSS_MODE_ON, &priv->state))
-		goto out;
-
-	ret = wlfw_exit_power_save_send_msg(priv);
-	if (ret) {
-		priv->stats.pm_resume_err++;
-		return ret;
-	}
 
 	ret = priv->ops->runtime_resume(dev);
 
