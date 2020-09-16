@@ -593,4 +593,13 @@ config SM_GPUCC_YUPIK
 	  Say Y if you want to support graphics controller devices and
 	  functionality such as 3D graphics.
 
+config SDX_GCC_NIGHTJAR
+	tristate "SDXNIGHTJAR Global Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the global clock controller on Qualcomm Technologies, Inc.
+	  SDXNIGHTJAR devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI, I2C,
+	  USB, SD/eMMC, PCIe, etc.
+
 endif

@@ -65,6 +65,7 @@ obj-$(CONFIG_SDM_LPASSCC_845) += lpasscc-sdm845.o
 obj-$(CONFIG_SDM_VIDEOCC_845) += videocc-sdm845.o
 obj-$(CONFIG_SDX_DEBUGCC_LEMUR) += debugcc-sdxlemur.o
 obj-$(CONFIG_SDX_GCC_LEMUR) += gcc-sdxlemur.o
+obj-$(CONFIG_SDX_GCC_NIGHTJAR) += gcc-sdxnightjar.o
 obj-$(CONFIG_SM_CAMCC_8150) += camcc-sm8150.o
 obj-$(CONFIG_SM_CAMCC_SHIMA) += camcc-shima.o
 obj-$(CONFIG_SM_DEBUGCC_8150) += debugcc-sm8150.o
