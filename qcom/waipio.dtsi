@@ -852,6 +852,30 @@
 		#reset-cells = <1>;
 	};
 
+	clock_apsscc: syscon@17A80000 {
+		compatible = "syscon";
+		reg = <0x17A80000 0x21000>;
+	};
+
+	clock_mccc: syscon@190ba000 {
+		compatible = "syscon";
+		reg = <0x190ba000 0x54>;
+	};
+
+	clock_debugcc: qcom,cc-debug {
+		compatible = "qcom,waipio-debugcc";
+		qcom,gcc = <&clock_gcc>;
+		qcom,videocc = <&clock_videocc>;
+		qcom,dispcc = <&clock_dispcc>;
+		qcom,camcc = <&clock_camcc>;
+		qcom,gpucc = <&clock_gpucc>;
+		qcom,apsscc = <&clock_apsscc>;
+		qcom,mccc = <&clock_mccc>;
+		clock-names = "xo_clk_src";
+		clocks = <&clock_rpmh RPMH_CXO_CLK>;
+		#clock-cells = <1>;
+	};
+
 	clk_virt: interconnect@0 {
 		compatible = "qcom,waipio-clk_virt";
 		#interconnect-cells = <1>;
