@@ -163,6 +163,7 @@ done:
 		WARN(1, "The CPU has no way to set the GPU bus levels\n");
 
 		kfree(pwr->ddr_table);
+		pwr->ddr_table = NULL;
 		return PTR_ERR(pwr->icc_path);
 	}
 
@@ -172,5 +173,6 @@ done:
 void kgsl_bus_close(struct kgsl_device *device)
 {
 	kfree(device->pwrctrl.ddr_table);
+	device->pwrctrl.ddr_table = NULL;
 	icc_put(device->pwrctrl.icc_path);
 }
