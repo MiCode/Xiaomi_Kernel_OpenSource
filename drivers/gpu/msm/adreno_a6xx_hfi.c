@@ -469,6 +469,7 @@ static int a6xx_hfi_send_test(struct adreno_device *adreno_dev)
 	struct hfi_test_cmd cmd;
 
 	CMD_MSG_HDR(cmd, H2F_MSG_TEST);
+	cmd.data = 0;
 
 	return a6xx_hfi_send_generic_req(adreno_dev, &cmd);
 }
