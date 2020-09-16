@@ -148,6 +148,7 @@ enum {
 	PARALLEL_OUTPUT_MODE,
 };
 
+/* CP Channels */
 static const char * const bat_cp_ext_iio_chan[] = {
 	[BAT_CP_PARALLEL_MODE] = "parallel_mode",
 	[BAT_CP_PARALLEL_OUTPUT_MODE] = "parallel_output_mode",
@@ -155,17 +156,18 @@ static const char * const bat_cp_ext_iio_chan[] = {
 	[BAT_CP_SWITCHER_EN] = "cp_switcher_en",
 };
 
+/* SMB1355 Channels */
 static const char * const bat_smb_parallel_ext_iio_chan[] = {
-	[BAT_SMB_PARALLEL_INPUT_SUSPEND] = "input_suspend",
-	[BAT_SMB_PARALLEL_MODE] = "parallel_mode",
-	[BAT_SMB_PARALLEL_BATFET_MODE] = "parallel_batfet_mode",
-	[BAT_SMB_PARALLEL_MIN_ICL] = "min_icl",
-	[BAT_SMB_PARALLEL_FCC_MAX] = "parallel_fcc_max",
-	[BAT_SMB_PARALLEL_CURRENT_MAX] = "current_max",
+	[BAT_SMB_PARALLEL_INPUT_SUSPEND] = "pl_input_suspend",
+	[BAT_SMB_PARALLEL_MODE] = "pl_mode",
+	[BAT_SMB_PARALLEL_BATFET_MODE] = "pl_batfet_mode",
+	[BAT_SMB_PARALLEL_MIN_ICL] = "pl_min_icl",
+	[BAT_SMB_PARALLEL_FCC_MAX] = "pl_fcc_max",
+	[BAT_SMB_PARALLEL_CURRENT_MAX] = "pl_current_max",
 	[BAT_SMB_PARALLEL_CONSTANT_CHARGE_CURRENT_MAX] =
-			"constant_charge_current_max",
-	[BAT_SMB_PARALLEL_VOLTAGE_MAX] = "voltage_max",
-	[BAT_SMB_PARALLEL_CHARGE_TYPE] = "charge_type",
+			"pl_constant_charge_current_max",
+	[BAT_SMB_PARALLEL_VOLTAGE_MAX] = "pl_voltage_max",
+	[BAT_SMB_PARALLEL_CHARGE_TYPE] = "pl_charge_type",
 };
 
 /*********

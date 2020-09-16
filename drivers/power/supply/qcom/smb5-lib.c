@@ -864,6 +864,8 @@ int smblib_set_aicl_cont_threshold(struct smb_chg_param *param,
 /********************
  * HELPER FUNCTIONS *
  ********************/
+
+/* CP channels */
 static const char * const smblib_cp_ext_iio_chan[] = {
 	[CP_PARALLEL_OUTPUT_MODE] = "parallel_output_mode",
 	[CP_MASTER_ENABLE] = "cp_enable",
@@ -871,12 +873,14 @@ static const char * const smblib_cp_ext_iio_chan[] = {
 	[CP_DIE_TEMP] = "cp_die_temp",
 };
 
+/* SMB1355 channels */
 static const char * const smblib_parallel_ext_iio_chan[] = {
-	[SMB_CHARGER_TEMP] = "charger_temp",
-	[SMB_CHARGER_TEMP_MAX] = "charger_temp_max",
-	[SMB_SET_SHIP_MODE] = "set_ship_mode",
+	[SMB_CHARGER_TEMP] = "pl_charger_temp",
+	[SMB_CHARGER_TEMP_MAX] = "pl_charger_temp_max",
+	[SMB_SET_SHIP_MODE] = "pl_set_ship_mode",
 };
 
+/* QG/FG channels */
 static const char * const smblib_qg_ext_iio_chan[] = {
 	[SMB5_QG_DEBUG_BATTERY] = "debug_battery",
 	[SMB5_QG_CAPACITY] = "capacity",
