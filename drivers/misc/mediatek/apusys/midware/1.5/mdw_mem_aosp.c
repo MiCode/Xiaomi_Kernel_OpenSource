@@ -10,6 +10,7 @@
 #include <linux/platform_device.h>
 #include <linux/highmem.h>
 
+#include "apusys_core.h"
 #include "apusys_device.h"
 #include "mdw_cmn.h"
 #include "mdw_mem_cmn.h"
@@ -265,7 +266,7 @@ static int mdw_mem_aosp_flush(struct apusys_kmem *mem)
 		return -EINVAL;
 
 	if (IS_ERR_OR_NULL(mem->sgt))
-		flush_kernel_vmap_range(mem->kva, mem->size);
+		flush_kernel_vmap_range((void *)mem->kva, mem->size);
 	else
 		dma_sync_sg_for_device(md.dev, mem->sgt->sgl,
 			mem->sgt->nents, DMA_FROM_DEVICE);
@@ -286,7 +287,7 @@ static int mdw_mem_aosp_invalidate(struct apusys_kmem *mem)
 		return -EINVAL;
 
 	if (IS_ERR_OR_NULL(mem->sgt))
-		invalidate_kernel_vmap_range(mem->kva, mem->size);
+		invalidate_kernel_vmap_range((void *)mem->kva, mem->size);
 	else
 		dma_sync_sg_for_cpu(md.dev, mem->sgt->sgl,
 			mem->sgt->nents, DMA_FROM_DEVICE);

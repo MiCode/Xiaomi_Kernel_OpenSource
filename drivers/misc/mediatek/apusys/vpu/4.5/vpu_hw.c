@@ -62,8 +62,6 @@ static inline void __vpu_stall(struct vpu_device *vd)
 
 static inline void vpu_stall(struct vpu_device *vd)
 {
-	struct vpu_register *r = vd_reg(vd);
-
 	if (xos_type(vd) == VPU_NON_XOS)
 		__vpu_stall(vd);
 
