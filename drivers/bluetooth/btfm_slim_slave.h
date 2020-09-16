@@ -109,6 +109,11 @@ enum {
 	QCA_HSP_SOC_ID_0200 = 0x400C0200,
 };
 
+enum {
+	QCA_MOSELLE_SOC_ID_0100 = 0x40140100,
+	QCA_MOSELLE_SOC_ID_0110 = 0x40140110,
+};
+
 /* Function Prototype */
 
 /*

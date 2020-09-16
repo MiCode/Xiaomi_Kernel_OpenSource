@@ -472,16 +472,32 @@ int btfm_slim_hw_init(struct btfmslim *btfmslim)
 		slim_ifd->e_addr[3] = 0x02;
 		slim_ifd->e_addr[4] = 0x17;
 		slim_ifd->e_addr[5] = 0x02;
+	} else if (chipset_ver == QCA_MOSELLE_SOC_ID_0100 ||
+			chipset_ver == QCA_MOSELLE_SOC_ID_0110) {
+		BTFMSLIM_INFO("chipset is Moselle, overwriting EA");
+		slim->e_addr[0] = 0x00;
+		slim->e_addr[1] = 0x01;
+		slim->e_addr[2] = 0x22;
+		slim->e_addr[3] = 0x02;
+		slim->e_addr[4] = 0x17;
+		slim->e_addr[5] = 0x02;
+
+		slim_ifd->e_addr[0] = 0x00;
+		slim_ifd->e_addr[1] = 0x00;
+		slim_ifd->e_addr[2] = 0x22;
+		slim_ifd->e_addr[3] = 0x02;
+		slim_ifd->e_addr[4] = 0x17;
+		slim_ifd->e_addr[5] = 0x02;
 	}
-		BTFMSLIM_INFO(
-			"PGD Enum Addr: %.02x:%.02x:%.02x:%.02x:%.02x: %.02x",
-			slim->e_addr[0], slim->e_addr[1], slim->e_addr[2],
-			slim->e_addr[3], slim->e_addr[4], slim->e_addr[5]);
-		BTFMSLIM_INFO(
-			"IFD Enum Addr: %.02x:%.02x:%.02x:%.02x:%.02x: %.02x",
-			slim_ifd->e_addr[0], slim_ifd->e_addr[1],
-			slim_ifd->e_addr[2], slim_ifd->e_addr[3],
-			slim_ifd->e_addr[4], slim_ifd->e_addr[5]);
+	BTFMSLIM_INFO(
+		"PGD Enum Addr: %.02x:%.02x:%.02x:%.02x:%.02x: %.02x",
+		slim->e_addr[0], slim->e_addr[1], slim->e_addr[2],
+		slim->e_addr[3], slim->e_addr[4], slim->e_addr[5]);
+	BTFMSLIM_INFO(
+		"IFD Enum Addr: %.02x:%.02x:%.02x:%.02x:%.02x: %.02x",
+		slim_ifd->e_addr[0], slim_ifd->e_addr[1],
+		slim_ifd->e_addr[2], slim_ifd->e_addr[3],
+		slim_ifd->e_addr[4], slim_ifd->e_addr[5]);
 
 	/* Assign Logical Address for PGD (Ported Generic Device)
 	 * enumeration address
