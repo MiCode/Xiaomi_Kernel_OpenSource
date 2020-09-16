@@ -15,8 +15,8 @@
 
 enum ccci_msg_id {
 	CCCI_USB_MSG_ID = 0,
-	CCCI_PORT_MSG_ID,
-	CCCI_FSM_MSG_ID,
+//	CCCI_PORT_MSG_ID,
+//	CCCI_FSM_MSG_ID,
 
 	CCCI_MAX_MSG_ID,
 };
@@ -35,12 +35,12 @@ enum ccci_error_id {
 	CCCI_ERR_NO_MEMORY,
 	CCCI_ERR_NO_CALLBACK_FUN,
 	CCCI_ERR_CMD_HEAD_NULL,
+	CCCI_ERR_INVALID_MSG_TYPE,
 
 };
 
-
 /* define none sub id */
-#define CCCI_NONE_SUB_ID (-1)
+#define CCCI_NONE_SUB_ID (0xFFFFFFFF)
 
 
 

@@ -39,5 +39,10 @@ int ccci_cmd_send(
 		unsigned int cmd_id,
 		void *msg_data);
 
+extern
+int ccci_cmd_send_to_one(
+		int msg_id,
+		unsigned int cmd_id,
+		void *msg_data);
 
 #endif	/* __CCCI_CMD_CENTER_H__ */
