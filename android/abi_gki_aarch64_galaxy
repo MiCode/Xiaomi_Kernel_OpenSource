@@ -93,6 +93,7 @@
   __mutex_init
   __napi_alloc_skb
   __napi_schedule
+  __napi_schedule_irqoff
   __netdev_alloc_skb
   __netlink_kernel_create
   __nlmsg_put
@@ -145,6 +146,8 @@
   __tasklet_schedule
   __trace_bprintk
   __tracepoint_android_vh_is_fpsimd_save
+  __tracepoint_android_vh_kfree_skb
+  __tracepoint_android_vh_ptype_head
   __tracepoint_device_pm_callback_end
   __tracepoint_device_pm_callback_start
   __tracepoint_pelt_cfs_tp
@@ -415,6 +418,8 @@
   cpufreq_table_index_unsorted
   cpufreq_unregister_driver
   cpuhp_tasks_frozen
+  cpuidle_pause_and_lock
+  cpuidle_resume_and_unlock
   cpumask_next
   cpumask_next_and
   cpus_read_lock
@@ -797,6 +802,7 @@
   drm_dp_update_payload_part1
   drm_dp_update_payload_part2
   drm_edid_duplicate
+  drm_edid_get_monitor_name
   drm_encoder_cleanup
   drm_encoder_init
   drm_err
@@ -853,6 +859,7 @@
   drm_mode_create
   drm_mode_create_dp_colorspace_property
   drm_mode_debug_printmodeline
+  drm_mode_destroy
   drm_mode_duplicate
   drm_mode_equal
   drm_mode_object_find
@@ -987,6 +994,7 @@
   get_cpu_device
   get_cpu_idle_time
   get_device
+  get_options
   get_pid_task
   get_random_bytes
   get_random_u32
@@ -1041,6 +1049,8 @@
   gpiod_set_value
   gpiod_set_value_cansleep
   gpiod_to_irq
+  gro_find_complete_by_type
+  gro_find_receive_by_type
   gs_alloc_req
   gs_free_req
   gserial_alloc_line
@@ -1131,6 +1141,7 @@
   iio_read_channel_processed
   iio_read_channel_raw
   import_iovec
+  in_aton
   in_egroup_p
   init_dummy_netdev
   init_net
@@ -1289,6 +1300,7 @@
   kfree_call_rcu
   kfree_const
   kfree_skb
+  kfree_skb_partial
   kill_fasync
   kimage_vaddr
   kimage_voffset
@@ -2022,6 +2034,7 @@
   smp_call_function
   smp_call_function_many
   smp_call_function_single
+  smp_call_function_single_async
   smp_call_on_cpu
   snd_card_free
   snd_card_new
