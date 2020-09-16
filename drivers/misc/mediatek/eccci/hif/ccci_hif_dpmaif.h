@@ -338,6 +338,8 @@ struct dpmaif_tx_queue {
 #if DPMAIF_TRAFFIC_MONITOR_INTERVAL
 	unsigned int busy_count;
 #endif
+	atomic_t tx_resume_tx;
+	atomic_t tx_resume_done;
 };
 
 enum hifdpmaif_state {

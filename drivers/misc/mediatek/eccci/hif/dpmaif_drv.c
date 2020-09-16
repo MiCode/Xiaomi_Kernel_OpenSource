@@ -665,6 +665,15 @@ unsigned int drv_dpmaif_ul_get_ridx(unsigned char q_num)
 	return ridx;
 }
 
+unsigned int drv_dpmaif_ul_get_rwidx(unsigned char q_num)
+{
+	unsigned int ridx;
+
+	ridx = DPMA_READ_AO_UL(DPMAIF_ULQ_STA0_n(q_num));
+
+	return ridx;
+}
+
 int drv_dpmaif_ul_add_wcnt(unsigned char q_num, unsigned short drb_wcnt)
 {
 	unsigned int ul_update;
@@ -1433,11 +1442,17 @@ unsigned int drv_dpmaif_ul_idle_check(void)
 		DPMAIF_PD_UL_DBG_STA2)>>DPMAIF_UL_STS_CUR_SHIFT) &
 			DPMAIF_UL_IDLE_STS_MSK);
 
+#ifdef MT6297
+	if (idle_sts == DPMAIF_UL_IDLE_STS)
+		ret = 0;
+	else
+		ret = 1;
+#else
 	if (idle_sts == DPMAIF_UL_IDLE_STS)
 		ret = 1;
 	else
 		ret = 0;
-
+#endif
 	return ret;
 }
 
