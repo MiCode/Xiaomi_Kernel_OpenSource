@@ -9,6 +9,7 @@
 
 #include <linux/interrupt.h>
 #include "edma_dbgfs.h"
+#include "edma_driver.h"
 
 
 #define EDMA_TAG "[edma]"
