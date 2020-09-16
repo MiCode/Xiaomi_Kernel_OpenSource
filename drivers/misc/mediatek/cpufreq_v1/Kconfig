@@ -1,0 +1,8 @@
+config MEDIATEK_CPUFREQ_DEBUG
+	tristate "Mediatek cpu dvfs debug driver"
+	help
+	  This kernel config can be used to debug cpu dvfs (dynamic voltage
+	  and frequency scaling) for Mediatek cpufreq driver.
+	  When enable this option, we can dump the dvfs log and check
+	  physical frequency
+          If unsure, say N.

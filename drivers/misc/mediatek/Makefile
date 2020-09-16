@@ -46,6 +46,7 @@ obj-$(CONFIG_MTK_CLK_BUFFER) += clkbuf/
 obj-$(CONFIG_MTK_SRCLKEN_RC) += srclken_rc/
 obj-$(CONFIG_MTK_POWER_THROTTLING_COMMON) += power_throttling/
 obj-$(CONFIG_MTK_CCU) += ccu/src/
+obj-$(CONFIG_MEDIATEK_CPUFREQ_DEBUG) += cpufreq_v1/
 obj-$(CONFIG_EXTCON_MTK_USB) += extcon/
 obj-$(CONFIG_MTK_VOW_SUPPORT) += vow/
 obj-$(CONFIG_MTK_PERFORMANCE_MODULE) += performance/

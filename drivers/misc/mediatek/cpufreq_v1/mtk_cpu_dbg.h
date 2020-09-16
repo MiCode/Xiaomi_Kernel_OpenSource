@@ -1,0 +1,67 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * mtk_cpu_dbg.h - cpu dvfs debug driver common define
+ *
+ * Copyright (c) 2020 MediaTek Inc.
+ * chienwei Chang <chienwei.chang@mediatek.com>
+ */
+
+#undef  BIT
+#define BIT(bit)					(1U << (bit))
+/* static void __iomem *cspm_base; */
+#define csram_read(offs)	__raw_readl(csram_base + (offs))
+#define csram_write(offs, val)	__raw_writel(val, csram_base + (offs))
+
+#define TAG	"[Power/cpufreq] "
+#define tag_pr_info(fmt, args...)	pr_info(TAG fmt, ##args)
+#define tag_pr_notice(fmt, args...)	pr_notice(TAG fmt, ##args)
+
+#define PROC_FOPS_RW(name)						\
+	static int name ## _proc_open(struct inode *inode, struct file *file)\
+{									\
+	return single_open(file, name ## _proc_show, PDE_DATA(inode));	\
+}									\
+static const struct file_operations name ## _proc_fops = {		\
+	.owner          = THIS_MODULE,					\
+	.open           = name ## _proc_open,				\
+	.read           = seq_read,					\
+	.llseek         = seq_lseek,					\
+	.release        = single_release,				\
+	.write          = name ## _proc_write,				\
+}
+
+#define PROC_FOPS_RO(name)                                                     \
+	static int name##_proc_open(struct inode *inode, struct file *file)    \
+	{                                                                      \
+		return single_open(file, name##_proc_show, PDE_DATA(inode));   \
+	}                                                                      \
+	static const struct file_operations name##_proc_fops = {               \
+		.owner = THIS_MODULE,                                          \
+		.open = name##_proc_open,                                      \
+		.read = seq_read,                                              \
+		.llseek = seq_lseek,                                           \
+		.release = single_release,                                     \
+	}
+
+#define PROC_ENTRY(name)	{__stringify(name), &name ## _proc_fops}
+#define PROC_ENTRY_DATA(name)	\
+{__stringify(name), &name ## _proc_fops, g_ ## name}
+#define LAST_LL_CORE	3
+#define CLUSTER_NRS	2
+#define _BITMASK_(_bits_)               \
+(((unsigned int) -1 >> (31 - ((1) ? _bits_))) & ~((1U << ((0) ? _bits_)) - 1))
+#define _GET_BITS_VAL_(_bits_, _val_)   \
+(((_val_) & (_BITMASK_(_bits_))) >> ((0) ? _bits_))
+
+
+struct pll_addr_offs {
+	unsigned int armpll_con;
+	unsigned int clkdiv_cfg;
+};
+
+struct pll_addr {
+	unsigned int reg_addr[2];
+};
+
+extern int mtk_eem_init(void);
+
