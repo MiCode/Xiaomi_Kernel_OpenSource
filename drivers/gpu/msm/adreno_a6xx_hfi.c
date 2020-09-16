@@ -473,7 +473,7 @@ static int a6xx_hfi_send_test(struct adreno_device *adreno_dev)
 	return a6xx_hfi_send_generic_req(adreno_dev, &cmd);
 }
 
-static void receive_err_req(struct a6xx_gmu_device *gmu, void *rcvd)
+void adreno_a6xx_receive_err_req(struct a6xx_gmu_device *gmu, void *rcvd)
 {
 	struct hfi_err_cmd *cmd = rcvd;
 
@@ -483,7 +483,7 @@ static void receive_err_req(struct a6xx_gmu_device *gmu, void *rcvd)
 			(char *) cmd->data);
 }
 
-static void receive_debug_req(struct a6xx_gmu_device *gmu, void *rcvd)
+void adreno_a6xx_receive_debug_req(struct a6xx_gmu_device *gmu, void *rcvd)
 {
 	struct hfi_debug_cmd *cmd = rcvd;
 
@@ -503,10 +503,10 @@ static void a6xx_hfi_v1_receiver(struct a6xx_gmu_device *gmu, uint32_t *rcvd,
 	/* V1 Request Handler */
 	switch (MSG_HDR_GET_ID(rcvd[0])) {
 	case F2H_MSG_ERR: /* No Reply */
-		receive_err_req(gmu, rcvd);
+		adreno_a6xx_receive_err_req(gmu, rcvd);
 		break;
 	case F2H_MSG_DEBUG: /* No Reply */
-		receive_debug_req(gmu, rcvd);
+		adreno_a6xx_receive_debug_req(gmu, rcvd);
 		break;
 	default: /* No Reply */
 		dev_err(&gmu->pdev->dev,
@@ -540,10 +540,10 @@ int a6xx_hfi_process_queue(struct a6xx_gmu_device *gmu,
 		/* V2 Request Handler */
 		switch (MSG_HDR_GET_ID(rcvd[0])) {
 		case F2H_MSG_ERR: /* No Reply */
-			receive_err_req(gmu, rcvd);
+			adreno_a6xx_receive_err_req(gmu, rcvd);
 			break;
 		case F2H_MSG_DEBUG: /* No Reply */
-			receive_debug_req(gmu, rcvd);
+			adreno_a6xx_receive_debug_req(gmu, rcvd);
 			break;
 		default: /* No Reply */
 			dev_err(&gmu->pdev->dev,
