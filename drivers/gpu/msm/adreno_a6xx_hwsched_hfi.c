@@ -234,6 +234,14 @@ static irqreturn_t a6xx_hwsched_hfi_handler(int irq, void *data)
 	gmu_core_regread(device, A6XX_GMU_GMU2HOST_INTR_INFO, &status);
 	gmu_core_regwrite(device, A6XX_GMU_GMU2HOST_INTR_CLR, hfi->irq_mask);
 
+	/*
+	 * If interrupts are not enabled on the HFI message queue,
+	 * the inline message processing loop will process it,
+	 * else, process it here.
+	 */
+	if (!(hfi->irq_mask & HFI_IRQ_MSGQ_MASK))
+		status &= ~HFI_IRQ_MSGQ_MASK;
+
 	if (status & HFI_IRQ_MSGQ_MASK)
 		process_msgq_irq(adreno_dev);
 	if (status & HFI_IRQ_DBGQ_MASK)
