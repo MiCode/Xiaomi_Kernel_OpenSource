@@ -7,6 +7,8 @@
 #define __QCOM_IOMMU_UTIL_H
 
 #include <linux/iommu.h>
+#include <linux/dma-mapping.h>
+#include <linux/iova.h>
 
 struct qcom_iommu_ops {
 	struct iommu_ops iommu_ops;

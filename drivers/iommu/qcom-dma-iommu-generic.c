@@ -7,7 +7,7 @@
  *	Marek Szyprowski <m.szyprowski@samsung.com>
  *	Michal Nazarewicz <mina86@mina86.com>
  * Copyright (c) 2014 The Linux Foundation
- * Copyright (C) 2012 ARM Ltd.
+ * Copyright (C) 2012, 2014-2015 ARM Ltd.
  */
 
 
@@ -24,6 +24,7 @@
 #include <linux/dma-noncoherent.h>
 #include <linux/dma-mapping.h>
 #include <linux/of_reserved_mem.h>
+#include <linux/iommu.h>
 #include "qcom-dma-iommu-generic.h"
 
 static bool probe_finished;
@@ -416,6 +417,249 @@ pgprot_t qcom_dma_pgprot(struct device *dev, pgprot_t prot, unsigned long attrs)
 		return pgprot_writecombine(prot);
 #endif
 	return pgprot_dmacoherent(prot);
+}
+
+/**
+ * dma_info_to_prot - Translate DMA API directions and attributes to IOMMU API
+ *                    page flags.
+ * @dir: Direction of DMA transfer
+ * @coherent: Is the DMA master cache-coherent?
+ * @attrs: DMA attributes for the mapping
+ *
+ * Return: corresponding IOMMU API page protection flags
+ */
+int qcom_dma_info_to_prot(enum dma_data_direction dir, bool coherent,
+		     unsigned long attrs)
+{
+	int prot = coherent ? IOMMU_CACHE : 0;
+
+	if (attrs & DMA_ATTR_PRIVILEGED)
+		prot |= IOMMU_PRIV;
+
+	if (!(attrs & DMA_ATTR_EXEC_MAPPING))
+		prot |= IOMMU_NOEXEC;
+
+	if (attrs & DMA_ATTR_IOMMU_USE_UPSTREAM_HINT)
+		prot |= IOMMU_USE_UPSTREAM_HINT;
+
+	if (attrs & DMA_ATTR_IOMMU_USE_LLC_NWA)
+		prot |= IOMMU_USE_LLC_NWA;
+
+	switch (dir) {
+	case DMA_BIDIRECTIONAL:
+		return prot | IOMMU_READ | IOMMU_WRITE;
+	case DMA_TO_DEVICE:
+		return prot | IOMMU_READ;
+	case DMA_FROM_DEVICE:
+		return prot | IOMMU_WRITE;
+	default:
+		return 0;
+	}
+}
+
+/*
+ * The DMA API client is passing in a scatterlist which could describe
+ * any old buffer layout, but the IOMMU API requires everything to be
+ * aligned to IOMMU pages. Hence the need for this complicated bit of
+ * impedance-matching, to be able to hand off a suitably-aligned list,
+ * but still preserve the original offsets and sizes for the caller.
+ */
+size_t qcom_iommu_dma_prepare_map_sg(struct device *dev, struct iova_domain *iovad,
+				struct scatterlist *sg, int nents)
+{
+	struct scatterlist *s, *prev = NULL;
+	size_t iova_len = 0;
+	unsigned long mask = dma_get_seg_boundary(dev);
+	int i;
+
+	/*
+	 * Work out how much IOVA space we need, and align the segments to
+	 * IOVA granules for the IOMMU driver to handle. With some clever
+	 * trickery we can modify the list in-place, but reversibly, by
+	 * stashing the unaligned parts in the as-yet-unused DMA fields.
+	 */
+	for_each_sg(sg, s, nents, i) {
+		size_t s_iova_off = iova_offset(iovad, s->offset);
+		size_t s_length = s->length;
+		size_t pad_len = (mask - iova_len + 1) & mask;
+
+		sg_dma_address(s) = s_iova_off;
+		sg_dma_len(s) = s_length;
+		s->offset -= s_iova_off;
+		s_length = iova_align(iovad, s_length + s_iova_off);
+		s->length = s_length;
+
+		/*
+		 * Due to the alignment of our single IOVA allocation, we can
+		 * depend on these assumptions about the segment boundary mask:
+		 * - If mask size >= IOVA size, then the IOVA range cannot
+		 *   possibly fall across a boundary, so we don't care.
+		 * - If mask size < IOVA size, then the IOVA range must start
+		 *   exactly on a boundary, therefore we can lay things out
+		 *   based purely on segment lengths without needing to know
+		 *   the actual addresses beforehand.
+		 * - The mask must be a power of 2, so pad_len == 0 if
+		 *   iova_len == 0, thus we cannot dereference prev the first
+		 *   time through here (i.e. before it has a meaningful value).
+		 */
+		if (pad_len && pad_len < s_length - 1) {
+			prev->length += pad_len;
+			iova_len += pad_len;
+		}
+
+		iova_len += s_length;
+		prev = s;
+	}
+
+	return iova_len;
+}
+
+/*
+ * Prepare a successfully-mapped scatterlist to give back to the caller.
+ *
+ * At this point the segments are already laid out by iommu_dma_map_sg() to
+ * avoid individually crossing any boundaries, so we merely need to check a
+ * segment's start address to avoid concatenating across one.
+ */
+int qcom_iommu_dma_finalise_sg(struct device *dev, struct scatterlist *sg, int nents,
+		dma_addr_t dma_addr)
+{
+	struct scatterlist *s, *cur = sg;
+	unsigned long seg_mask = dma_get_seg_boundary(dev);
+	unsigned int cur_len = 0, max_len = dma_get_max_seg_size(dev);
+	int i, count = 0;
+
+	for_each_sg(sg, s, nents, i) {
+		/* Restore this segment's original unaligned fields first */
+		unsigned int s_iova_off = sg_dma_address(s);
+		unsigned int s_length = sg_dma_len(s);
+		unsigned int s_iova_len = s->length;
+
+		s->offset += s_iova_off;
+		s->length = s_length;
+		sg_dma_address(s) = DMA_MAPPING_ERROR;
+		sg_dma_len(s) = 0;
+
+		/*
+		 * Now fill in the real DMA data. If...
+		 * - there is a valid output segment to append to
+		 * - and this segment starts on an IOVA page boundary
+		 * - but doesn't fall at a segment boundary
+		 * - and wouldn't make the resulting output segment too long
+		 */
+		if (cur_len && !s_iova_off && (dma_addr & seg_mask) &&
+		    (max_len - cur_len >= s_length)) {
+			/* ...then concatenate it with the previous one */
+			cur_len += s_length;
+		} else {
+			/* Otherwise start the next output segment */
+			if (i > 0)
+				cur = sg_next(cur);
+			cur_len = s_length;
+			count++;
+
+			sg_dma_address(cur) = dma_addr + s_iova_off;
+		}
+
+		sg_dma_len(cur) = cur_len;
+		dma_addr += s_iova_len;
+
+		if (s_length + s_iova_off < s_iova_len)
+			cur_len = 0;
+	}
+	return count;
+}
+
+/*
+ * If mapping failed, then just restore the original list,
+ * but making sure the DMA fields are invalidated.
+ */
+void qcom_iommu_dma_invalidate_sg(struct scatterlist *sg, int nents)
+{
+	struct scatterlist *s;
+	int i;
+
+	for_each_sg(sg, s, nents, i) {
+		if (sg_dma_address(s) != DMA_MAPPING_ERROR)
+			s->offset += sg_dma_address(s);
+		if (sg_dma_len(s))
+			s->length = sg_dma_len(s);
+		sg_dma_address(s) = DMA_MAPPING_ERROR;
+		sg_dma_len(s) = 0;
+	}
+}
+
+/**
+ * __iommu_dma_mmap - Map a buffer into provided user VMA
+ * @pages: Array representing buffer from __iommu_dma_alloc()
+ * @size: Size of buffer in bytes
+ * @vma: VMA describing requested userspace mapping
+ *
+ * Maps the pages of the buffer in @pages into @vma. The caller is responsible
+ * for verifying the correct size and protection of @vma beforehand.
+ */
+static int __qcom_iommu_dma_mmap(struct page **pages, size_t size,
+		struct vm_area_struct *vma)
+{
+	return vm_map_pages(vma, pages, PAGE_ALIGN(size) >> PAGE_SHIFT);
+}
+
+int qcom_iommu_dma_mmap(struct device *dev, struct vm_area_struct *vma,
+		void *cpu_addr, dma_addr_t dma_addr, size_t size,
+		unsigned long attrs)
+{
+	unsigned long nr_pages = PAGE_ALIGN(size) >> PAGE_SHIFT;
+	unsigned long pfn, off = vma->vm_pgoff;
+	int ret;
+
+	vma->vm_page_prot = qcom_dma_pgprot(dev, vma->vm_page_prot, attrs);
+
+	if (qcom_dma_mmap_from_dev_coherent(dev, vma, cpu_addr, size, &ret))
+		return ret;
+
+	if (off >= nr_pages || vma_pages(vma) > nr_pages - off)
+		return -ENXIO;
+
+	if (IS_ENABLED(CONFIG_DMA_REMAP) && is_vmalloc_addr(cpu_addr)) {
+		struct page **pages = qcom_dma_common_find_pages(cpu_addr);
+
+		if (pages)
+			return __qcom_iommu_dma_mmap(pages, size, vma);
+		pfn = vmalloc_to_pfn(cpu_addr);
+	} else {
+		pfn = page_to_pfn(virt_to_page(cpu_addr));
+	}
+
+	return remap_pfn_range(vma, vma->vm_start, pfn + off,
+			       vma->vm_end - vma->vm_start,
+			       vma->vm_page_prot);
+}
+
+int qcom_iommu_dma_get_sgtable(struct device *dev, struct sg_table *sgt,
+		void *cpu_addr, dma_addr_t dma_addr, size_t size,
+		unsigned long attrs)
+{
+	struct page *page;
+	int ret;
+
+	if (IS_ENABLED(CONFIG_DMA_REMAP) && is_vmalloc_addr(cpu_addr)) {
+		struct page **pages = qcom_dma_common_find_pages(cpu_addr);
+
+		if (pages) {
+			return sg_alloc_table_from_pages(sgt, pages,
+					PAGE_ALIGN(size) >> PAGE_SHIFT,
+					0, size, GFP_KERNEL);
+		}
+
+		page = vmalloc_to_page(cpu_addr);
+	} else {
+		page = virt_to_page(cpu_addr);
+	}
+
+	ret = sg_alloc_table(sgt, 1, GFP_KERNEL);
+	if (!ret)
+		sg_set_page(sgt->sgl, page, PAGE_ALIGN(size), 0);
+	return ret;
 }
 
 static int qcom_dma_iommu_probe(struct platform_device *pdev)
