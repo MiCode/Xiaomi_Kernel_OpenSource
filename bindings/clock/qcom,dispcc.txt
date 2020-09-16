@@ -9,6 +9,7 @@ Required properties :
 			"qcom,lahaina-dispcc"
 			"qcom,shima-dispcc"
 			"qcom,holi-dispcc"
+			"qcom,waipio-dispcc"
 
 - reg : shall contain base register location and length.
 - #clock-cells : from common clock binding, shall contain 1.

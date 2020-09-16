@@ -588,15 +588,29 @@
 
 	/* DISP_CC GDSCs */
 	disp_cc_mdss_core_gdsc: qcom,gdsc@af09000 {
-		compatible = "qcom,stub-regulator";
+		compatible = "qcom,gdsc";
+		reg = <0xaf09000 0x4>;
 		regulator-name = "disp_cc_mdss_core_gdsc";
 		qcom,gds-timeout = <500>;
+		clock-names = "ahb_clk";
+		clocks = <&clock_gcc GCC_DISP_AHB_CLK>;
+		parent-supply = <&VDD_MM_LEVEL>;
+		vdd_parent-supply = <&VDD_MM_LEVEL>;
+		qcom,support-hw-trigger;
+		qcom,retain-regs;
 	};
 
 	disp_cc_mdss_core_int2_gdsc: qcom,gdsc@af0b000 {
-		compatible = "qcom,stub-regulator";
+		compatible = "qcom,gdsc";
+		reg = <0xaf0b000 0x4>;
 		regulator-name = "disp_cc_mdss_core_int2_gdsc";
 		qcom,gds-timeout = <500>;
+		clock-names = "ahb_clk";
+		clocks = <&clock_gcc GCC_DISP_AHB_CLK>;
+		parent-supply = <&VDD_MM_LEVEL>;
+		vdd_parent-supply = <&VDD_MM_LEVEL>;
+		qcom,support-hw-trigger;
+		qcom,retain-regs;
 	};
 
 	gcc_apcs_gdsc_vote_ctrl: syscon@162128 {
@@ -815,9 +829,13 @@
 		#reset-cells = <1>;
 	};
 
-	clock_dispcc: qcom,dispcc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "dispcc_clocks";
+	clock_dispcc: qcom,dispcc@af00000 {
+		compatible = "qcom,waipio-dispcc", "syscon";
+		reg = <0xaf00000 0x20000>;
+		reg-name = "cc_base";
+		vdd_mm-supply = <&VDD_MM_LEVEL>;
+		clock-names = "cfg_ahb_clk";
+		clocks = <&clock_gcc GCC_DISP_AHB_CLK>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
