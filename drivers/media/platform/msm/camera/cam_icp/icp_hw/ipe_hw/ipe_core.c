@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -300,7 +300,6 @@ int cam_ipe_process_cmd(void *device_priv, uint32_t cmd_type,
 	struct cam_ipe_device_core_info *core_info = NULL;
 	struct cam_ipe_device_hw_info *hw_info = NULL;
 	int rc = 0;
-	unsigned long flags;
 
 	if (!device_priv) {
 		CAM_ERR(CAM_ICP, "Invalid arguments");
@@ -389,16 +388,12 @@ int cam_ipe_process_cmd(void *device_priv, uint32_t cmd_type,
 		}
 		break;
 	case CAM_ICP_IPE_CMD_DISABLE_CLK:
-		spin_lock_irqsave(&ipe_dev->hw_lock, flags);
 		if (core_info->clk_enable == true)
 			cam_ipe_toggle_clk(soc_info, false);
 		core_info->clk_enable = false;
-		spin_unlock_irqrestore(&ipe_dev->hw_lock, flags);
 		break;
 	case CAM_ICP_IPE_CMD_RESET:
-		spin_lock_irqsave(&ipe_dev->hw_lock, flags);
 		rc = cam_ipe_cmd_reset(soc_info, core_info);
-		spin_unlock_irqrestore(&ipe_dev->hw_lock, flags);
 		break;
 	default:
 		CAM_ERR(CAM_ICP, "Invalid Cmd Type:%u", cmd_type);
