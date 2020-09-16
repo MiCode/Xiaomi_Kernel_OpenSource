@@ -176,12 +176,12 @@ static void init_queues(struct adreno_device *adreno_dev)
 	/*
 	 * Overwrite the queue IDs for A630, A615 and A616 as they use
 	 * legacy firmware. Legacy firmware has different queue IDs for
-	 * message, debug and dispatch queues.
+	 * message, debug and dispatch queues (dispatch queues aren't used
+	 * on these targets so the queue idx value update is not needed).
 	 */
 	if (adreno_is_a630(adreno_dev) || adreno_is_a615_family(adreno_dev)) {
 		queue[HFI_MSG_ID].idx = HFI_MSG_IDX_LEGACY;
 		queue[HFI_DBG_ID].idx = HFI_DBG_IDX_LEGACY;
-		queue[HFI_DSP_ID_0].idx = HFI_DSP_IDX_0_LEGACY;
 	}
 
 	/* Fill Table Header */
