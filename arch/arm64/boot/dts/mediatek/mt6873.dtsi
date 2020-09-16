@@ -887,6 +887,11 @@
 		};
 	};
 
+	thermal_ipi: thermal-ipi {
+		compatible = "mediatek,thermal-ipi";
+		target-bitmask = <0x2>; /* MCUPM */
+	};
+
 	soc {
 		#address-cells = <2>;
 		#size-cells = <2>;
