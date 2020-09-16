@@ -164,7 +164,7 @@ static void adsp_logger_init_handler(int id, void *data, unsigned int len)
  */
 struct log_ctrl_s *adsp_logger_init(int mem_id)
 {
-	struct log_ctrl_s *ctrl;
+	struct log_ctrl_s *ctrl = NULL;
 	struct log_info_s *log_info;
 	struct buffer_info_s *buf_info;
 	int last_ofs;
@@ -172,7 +172,7 @@ struct log_ctrl_s *adsp_logger_init(int mem_id)
 
 	ctrl = kzalloc(sizeof(*ctrl), GFP_KERNEL);
 	if (!ctrl)
-		return -ENOMEM;
+		goto DONE;
 
 	ctrl->priv = adsp_get_reserve_mem_virt(mem_id);
 	size = adsp_get_reserve_mem_size(mem_id);
@@ -180,7 +180,9 @@ struct log_ctrl_s *adsp_logger_init(int mem_id)
 	if (!ctrl->priv || size < MINIMUM_LOG_BUF_SIZE) {
 		pr_info("%s(), failed addr=%p, size=%zu\n", __func__,
 			ctrl->priv, size);
-		return ctrl->priv;
+		kfree(ctrl);
+		ctrl = NULL;
+		goto DONE;
 	}
 
 	memset(ctrl->priv, 0, size);
@@ -215,7 +217,7 @@ struct log_ctrl_s *adsp_logger_init(int mem_id)
 
 	pr_debug("%s, init done, check:[0x%x, 0x%x, 0x%x, 0x%x]", __func__,
 		 log_info->base, log_info->size, log_info->info_ofs, log_info->buff_ofs);
-
+DONE:
 	return ctrl;
 }
 
