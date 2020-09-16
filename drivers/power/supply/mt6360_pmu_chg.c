@@ -841,6 +841,18 @@ vsys_wkard_fail:
 	return ret;
 }
 
+static int __mt6360_is_enabled(struct mt6360_chg_info *mci, bool *en)
+{
+	int ret;
+	unsigned int regval;
+
+	ret = regmap_read(mci->regmap, MT6360_PMU_CHG_CTRL2, &regval);
+	if (ret < 0)
+		return ret;
+	*en = regval & MT6360_MASK_CHG_EN ? true : false;
+	return 0;
+}
+
 static int mt6360_enable_pump_express(struct mt6360_chg_info *mci,
 				      bool pe20)
 {
@@ -1035,6 +1047,13 @@ static int mt6360_enable(struct charger_device *chg_dev, bool en)
 	struct mt6360_chg_info *mci = charger_get_data(chg_dev);
 
 	return __mt6360_enable(mci, en);
+}
+
+static int mt6360_is_enabled(struct charger_device *chg_dev, bool *en)
+{
+	struct mt6360_chg_info *mci = charger_get_data(chg_dev);
+
+	return __mt6360_is_enabled(mci, en);
 }
 
 static int mt6360_get_min_ichg(struct charger_device *chg_dev, u32 *uA)
@@ -1952,6 +1971,7 @@ static const struct charger_ops mt6360_chg_ops = {
 	.plug_out = mt6360_plug_out,
 	/* enable */
 	.enable = mt6360_enable,
+	.is_enabled = mt6360_is_enabled,
 	/* charging current */
 	.set_charging_current = mt6360_set_ichg,
 	.get_charging_current = mt6360_get_ichg,
@@ -2728,7 +2748,7 @@ static const DEVICE_ATTR_WO(shipping_mode);
 /* MT6360 Power Supply Ops */
 /* ======================= */
 static int mt6360_charger_get_online(struct mt6360_chg_info *mci,
-				     union power_supply_propval *val)
+				     bool *val)
 {
 	int ret;
 	bool pwr_rdy;
@@ -2747,7 +2767,7 @@ static int mt6360_charger_get_online(struct mt6360_chg_info *mci,
 		}
 	}
 	dev_info(mci->dev, "%s: online = %d\n", __func__, pwr_rdy);
-	val->intval = pwr_rdy;
+	*val = pwr_rdy;
 	return 0;
 }
 
@@ -2764,26 +2784,34 @@ static int mt6360_charger_get_property(struct power_supply *psy,
 	struct mt6360_chg_info *mci = power_supply_get_drvdata(psy);
 	enum mt6360_charging_status chg_stat = MT6360_CHG_STATUS_MAX;
 	int ret = 0;
+	bool pwr_rdy = false, chg_en = false;
 
 	dev_dbg(mci->dev, "%s: prop = %d\n", __func__, psp);
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
-		ret = mt6360_charger_get_online(mci, val);
+		ret = mt6360_charger_get_online(mci, &pwr_rdy);
 		break;
 	case POWER_SUPPLY_PROP_USB_TYPE:
 		val->intval = mci->psy_usb_type;
 		break;
 	case POWER_SUPPLY_PROP_STATUS:
-		ret = mt6360_get_charging_status(mci, &chg_stat);
+		ret = mt6360_charger_get_online(mci, &pwr_rdy);
+		ret |= __mt6360_is_enabled(mci, &chg_en);
+		ret |= mt6360_get_charging_status(mci, &chg_stat);
 		if (ret < 0)
-			dev_info(mci->dev,
-				"%s: get mt6360 chg_status failed\n", __func__);
+			return ret;
+		if (!pwr_rdy) {
+			val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
+			return ret;
+		}
 		switch (chg_stat) {
 		case MT6360_CHG_STATUS_READY:
-			val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
-			break;
+			fallthrough;
 		case MT6360_CHG_STATUS_PROGRESS:
-			val->intval = POWER_SUPPLY_STATUS_CHARGING;
+			if (chg_en)
+				val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
+			else
+				val->intval = POWER_SUPPLY_STATUS_CHARGING;
 			break;
 		case MT6360_CHG_STATUS_DONE:
 			val->intval = POWER_SUPPLY_STATUS_FULL;
