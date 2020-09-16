@@ -29,7 +29,7 @@
 
 #define MRDUMP_ENABLE_COOKIE 0x590d2ba3
 
-#define MRDUMP_GO_DUMP "MRDUMP08"
+#define MRDUMP_GO_DUMP "MRDUMP09"
 
 #define KSYM_32        1
 #define KSYM_64        2
