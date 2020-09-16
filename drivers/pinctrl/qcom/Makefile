@@ -29,5 +29,6 @@ obj-$(CONFIG_PINCTRL_LAHAINA) += pinctrl-lahaina.o
 obj-$(CONFIG_PINCTRL_SHIMA) += pinctrl-shima.o
 obj-$(CONFIG_PINCTRL_HOLI) += pinctrl-holi.o
 obj-$(CONFIG_PINCTRL_YUPIK) += pinctrl-yupik.o
+obj-$(CONFIG_PINCTRL_SCUBA) += pinctrl-scuba.o
 obj-$(CONFIG_PINCTRL_SDXLEMUR) += pinctrl-sdxlemur.o
 obj-$(CONFIG_PINCTRL_SDXNIGHTJAR) += pinctrl-sdxnightjar.o
