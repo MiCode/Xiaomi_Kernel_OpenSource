@@ -694,11 +694,7 @@ static int mrdump_modules_info(unsigned char *buffer, size_t sz_buf)
 }
 
 #define EXTRA_MISC(func, name, max_size) \
-	__weak void func(unsigned long *vaddr, unsigned long *size) \
-	{ \
-		if (size) \
-			*size = 0; \
-	}
+	extern void func(unsigned long *vaddr, unsigned long *size);
 #include "mrdump_mini_extra_misc.h"
 
 #undef EXTRA_MISC
