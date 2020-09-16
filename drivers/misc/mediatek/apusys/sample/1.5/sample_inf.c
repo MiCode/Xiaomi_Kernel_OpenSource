@@ -212,7 +212,6 @@ static int _sample_execute(struct apusys_cmd_hnd *hnd,
 	struct sample_dev_info *info = NULL;
 	struct timespec64 duration;
 	uint32_t tdiff = 0;
-	int ret;
 
 	if (hnd == NULL || dev == NULL)
 		return -EINVAL;
