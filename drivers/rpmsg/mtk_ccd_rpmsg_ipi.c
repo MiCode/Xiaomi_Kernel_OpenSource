@@ -274,12 +274,14 @@ void ccd_worker_read(struct mtk_ccd *ccd,
 	ccd_params = list_first_entry(&mept->pending_sendq.queue,
 				      struct mtk_ccd_params,
 				      list_entry);
-	list_del(&ccd_params->list_entry);
-	atomic_dec(&mept->ccd_cmd_sent);
+	if (atomic_read(&mept->ccd_cmd_sent)) {
+		list_del(&ccd_params->list_entry);
+		atomic_dec(&mept->ccd_cmd_sent);
+		memcpy(read_obj, &ccd_params->worker_obj, sizeof(*read_obj));
+		kfree(ccd_params);
+	}
 	spin_unlock(&mept->pending_sendq.queue_lock);
 
-	memcpy(read_obj, &ccd_params->worker_obj, sizeof(*read_obj));
-	kfree(ccd_params);
 err_ret:
 	kref_put(&mept->ept.refcount, __ept_release);
 }
