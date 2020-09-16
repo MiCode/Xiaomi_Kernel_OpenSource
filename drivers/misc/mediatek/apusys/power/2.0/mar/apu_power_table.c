@@ -42,8 +42,8 @@ EXPORT_SYMBOL(mdla_power_table);
 
 #if APUSYS_DEVFREQ_COOLING
 
-#define VPU_CORES	(2)
-#define MDLA_CORES	(1)
+#define VPU_DEV_UNIT	(2)
+#define MDLA_DEV_UNIT	(1) // no matter how many cores, MDLA UNIT always is 1
 
 #define LOCAL_DBG                       (0)
 #define DEVFREQ_POOLING_INTERVAL        (0) // ms, 0 means event trigger
@@ -63,10 +63,13 @@ int devfreq_set_target(struct device *dev, unsigned long *freq, u32 flags)
 	uint8_t normalize_opp = 0;
 	unsigned long normalize_freq = 0;
 	unsigned long ori_freq;
-	uint8_t dvfs_user;
+	int dvfs_user;
+	struct apu_dev_power_data *dev_pdata;
 	struct apu_pwr_devfreq_st *apu_pwr_devfreq_ptr;
 
-	dvfs_user = *((uint8_t *)dev_get_drvdata(dev));
+	dev_pdata = (struct apu_dev_power_data *)dev_get_drvdata(dev);
+
+	dvfs_user = dev_pdata->dev_type;
 	if (dvfs_user < 0 || dvfs_user >= APUSYS_DVFS_USER_NUM)
 		return -1;
 
@@ -130,10 +133,13 @@ int devfreq_set_target(struct device *dev, unsigned long *freq, u32 flags)
 
 int devfreq_get_status(struct device *dev, struct devfreq_dev_status *stat)
 {
-	uint8_t dvfs_user;
+	int dvfs_user;
+	struct apu_dev_power_data *dev_pdata;
 	struct apu_pwr_devfreq_st *apu_pwr_devfreq_ptr;
 
-	dvfs_user = *((uint8_t *)dev_get_drvdata(dev));
+	dev_pdata = (struct apu_dev_power_data *)dev_get_drvdata(dev);
+
+	dvfs_user = dev_pdata->dev_type;
 	if (dvfs_user < 0 || dvfs_user >= APUSYS_DVFS_USER_NUM)
 		return -1;
 
@@ -157,10 +163,13 @@ int devfreq_get_status(struct device *dev, struct devfreq_dev_status *stat)
 
 int devfreq_get_cur_freq(struct device *dev, unsigned long *freq)
 {
-	uint8_t dvfs_user;
+	int dvfs_user;
+	struct apu_dev_power_data *dev_pdata;
 	struct apu_pwr_devfreq_st *apu_pwr_devfreq_ptr;
 
-	dvfs_user = *((uint8_t *)dev_get_drvdata(dev));
+	dev_pdata = (struct apu_dev_power_data *)dev_get_drvdata(dev);
+
+	dvfs_user = dev_pdata->dev_type;
 	if (dvfs_user < 0 || dvfs_user >= APUSYS_DVFS_USER_NUM)
 		return -1;
 
@@ -196,13 +205,16 @@ static unsigned long apusys_dynamic_power(struct devfreq *devfreq,
 	int opp;
 	unsigned long power;
 	unsigned long normalize_freq = freqHz / 1000;
-	uint8_t dvfs_user;
+	int dvfs_user;
+	struct apu_dev_power_data *dev_pdata;
 
-	dvfs_user = *((uint8_t *)dev_get_drvdata(devfreq->dev.parent));
+	dev_pdata = (struct apu_dev_power_data *)dev_get_drvdata(
+						devfreq->dev.parent);
+
+	dvfs_user = dev_pdata->dev_type;
 
 #if LOCAL_DBG
-	pr_info("%s usr:%d, 0x%x\n", __func__, dvfs_user,
-			dev_get_drvdata(devfreq->dev.parent));
+	pr_info("%s usr:%d\n", __func__, dvfs_user);
 #endif
 
 	if (dvfs_user < 0 || dvfs_user >= APUSYS_DVFS_USER_NUM)
@@ -214,10 +226,10 @@ static unsigned long apusys_dynamic_power(struct devfreq *devfreq,
 	// need to div core number since power table is total power cross cores
 	if (dvfs_user >= VPU0 && dvfs_user <= VPU1)
 		power = ((unsigned int)vpu_power_table[
-				(enum APU_OPP_INDEX)opp].power) / VPU_CORES;
+				(enum APU_OPP_INDEX)opp].power) / VPU_DEV_UNIT;
 	else
 		power = ((unsigned int)mdla_power_table[
-				(enum APU_OPP_INDEX)opp].power) / MDLA_CORES;
+				(enum APU_OPP_INDEX)opp].power) / MDLA_DEV_UNIT;
 #if LOCAL_DBG
 	pr_info("%s freq=%lu, volt=%lu, power=%lu\n",
 			__func__, freqHz, voltage_mv, power);
@@ -230,12 +242,16 @@ static int apusys_real_power(struct devfreq *devfreq, unsigned int *power,
 {
 	int opp;
 	unsigned long normalize_freq = freqHz / 1000;
-	uint8_t dvfs_user;
+	int dvfs_user;
+	struct apu_dev_power_data *dev_pdata;
 
 	if (!power)
 		return -1;
 
-	dvfs_user = *((uint8_t *)dev_get_drvdata(devfreq->dev.parent));
+	dev_pdata = (struct apu_dev_power_data *)dev_get_drvdata(
+							devfreq->dev.parent);
+
+	dvfs_user = dev_pdata->dev_type;
 	if (dvfs_user < 0 || dvfs_user >= APUSYS_DVFS_USER_NUM)
 		return -1;
 
@@ -245,10 +261,10 @@ static int apusys_real_power(struct devfreq *devfreq, unsigned int *power,
 	// need to div core number since power table is total power cross cores
 	if (dvfs_user >= VPU0 && dvfs_user <= VPU1)
 		*power = ((unsigned int)vpu_power_table[
-				(enum APU_OPP_INDEX)opp].power) / VPU_CORES;
+				(enum APU_OPP_INDEX)opp].power) / VPU_DEV_UNIT;
 	else
 		*power = ((unsigned int)mdla_power_table[
-				(enum APU_OPP_INDEX)opp].power) / MDLA_CORES;
+				(enum APU_OPP_INDEX)opp].power) / MDLA_DEV_UNIT;
 
 #if LOCAL_DBG
 	pr_info("%s freq=%lu, volt=%lu, power=%ld, opp=%d\n",
@@ -278,7 +294,7 @@ static int opp_tbl_to_freq_tbl(struct device *dev, enum DVFS_USER user)
 		if (ret)
 			break;
 	}
-out:
+
 	return ret;
 }
 
@@ -289,7 +305,7 @@ int register_devfreq_cooling(struct platform_device *pdev, enum DVFS_USER user)
 	int ret = 0;
 	struct dev_pm_opp *opp;
 	unsigned long rate;
-	uint8_t *drvdata_user;
+	struct apu_dev_power_data *dev_pdata;
 	struct apu_pwr_devfreq_st *apu_pwr_devfreq_ptr;
 
 	/*
@@ -304,11 +320,6 @@ int register_devfreq_cooling(struct platform_device *pdev, enum DVFS_USER user)
 		LOG_ERR("%s, apu_pwr_devfreq_ptr is NULL\n", __func__);
 		return -1;
 	}
-
-	// use driver_data of dev to record device corresponding DVFS_USER num
-	drvdata_user = kzalloc(sizeof(uint8_t), GFP_KERNEL);
-	*drvdata_user = user;
-	dev_set_drvdata(dev, drvdata_user);
 
 	ret = opp_tbl_to_freq_tbl(dev, user);
 	if (ret)
@@ -357,11 +368,8 @@ int register_devfreq_cooling(struct platform_device *pdev, enum DVFS_USER user)
 	apu_pwr_devfreq_ptr->apu_devfreq->max_freq = rate;
 	dev_pm_opp_put(opp);
 
-	LOG_INF("%s for usr:%d %d, 0x%x\n", __func__, user,
-			*((uint8_t *)dev_get_drvdata(
-				apu_pwr_devfreq_ptr->apu_devfreq->dev.parent)),
-			dev_get_drvdata(
-				apu_pwr_devfreq_ptr->apu_devfreq->dev.parent));
+	dev_pdata = (struct apu_dev_power_data *)dev_get_drvdata(dev);
+	LOG_INF("%s for usr:%d %d\n", __func__, user, dev_pdata->dev_type);
 
 	of_node = of_node_get(dev->of_node);
 	apu_pwr_devfreq_ptr->apu_devfreq_cooling =
@@ -395,7 +403,6 @@ remove_devfreq:
 
 void unregister_devfreq_cooling(enum DVFS_USER user)
 {
-	uint8_t *drvdata_user;
 	struct apu_pwr_devfreq_st *apu_pwr_devfreq_ptr;
 
 	if (user < 0 || user >= APUSYS_DVFS_USER_NUM)
@@ -418,11 +425,6 @@ void unregister_devfreq_cooling(enum DVFS_USER user)
 			apu_pwr_devfreq_ptr->apu_devfreq_cooling);
 
 	if (apu_pwr_devfreq_ptr->apu_devfreq) {
-		drvdata_user = (uint8_t *)dev_get_drvdata(
-				apu_pwr_devfreq_ptr->apu_devfreq->dev.parent);
-		if (*drvdata_user >= 0 && *drvdata_user < APUSYS_DVFS_USER_NUM)
-			kfree(drvdata_user);
-
 		devm_devfreq_remove_device(
 			apu_pwr_devfreq_ptr->apu_devfreq->dev.parent,
 			apu_pwr_devfreq_ptr->apu_devfreq);
