@@ -71,7 +71,7 @@ static void for_each_apu_tracepoint(
 	for (i = 0; i < mod->num_tracepoints; i++) {
 		struct tracepoint *tp;
 
-		tp = mod->tracepoints_ptrs[i];
+		tp = (struct tracepoint *)mod->tracepoints_ptrs[i];
 		fct(tp, priv);
 	}
 }
