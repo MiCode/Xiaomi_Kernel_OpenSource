@@ -49,7 +49,7 @@ ssize_t adreno_sysfs_show_bool(struct device *dev,
 	struct device_attribute *attr, char *buf);
 
 #define ADRENO_SYSFS_BOOL(_name) \
-struct adreno_sysfs_attribute_bool adreno_attr_##_name = { \
+const struct adreno_sysfs_attribute_bool adreno_attr_##_name = { \
 	.attr = __ATTR(_name, 0644, adreno_sysfs_show_bool, \
 			adreno_sysfs_store_bool), \
 	.show = _ ## _name ## _show, \
@@ -57,13 +57,13 @@ struct adreno_sysfs_attribute_bool adreno_attr_##_name = { \
 }
 
 #define ADRENO_SYSFS_RO_BOOL(_name) \
-struct adreno_sysfs_attribute_bool adreno_attr_##_name = { \
+const struct adreno_sysfs_attribute_bool adreno_attr_##_name = { \
 	.attr = __ATTR(_name, 0444, adreno_sysfs_show_bool, NULL), \
 	.show = _ ## _name ## _show, \
 }
 
 #define ADRENO_SYSFS_U32(_name) \
-struct adreno_sysfs_attribute_u32 adreno_attr_##_name = { \
+const struct adreno_sysfs_attribute_u32 adreno_attr_##_name = { \
 	.attr = __ATTR(_name, 0644, adreno_sysfs_show_u32, \
 			adreno_sysfs_store_u32), \
 	.show = _ ## _name ## _show, \
@@ -71,7 +71,7 @@ struct adreno_sysfs_attribute_u32 adreno_attr_##_name = { \
 }
 
 #define ADRENO_SYSFS_RO_U32(_name) \
-struct adreno_sysfs_attribute_u32 adreno_attr_##_name = { \
+const struct adreno_sysfs_attribute_u32 adreno_attr_##_name = { \
 	.attr = __ATTR(_name, 0444, adreno_sysfs_show_u32, NULL), \
 	.show = _ ## _name ## _show, \
 }

@@ -422,4 +422,22 @@ int a6xx_perfcounter_update(struct adreno_device *adreno_dev,
 extern const struct adreno_perfcounters adreno_a630_perfcounters;
 extern const struct adreno_perfcounters adreno_a6xx_perfcounters;
 extern const struct adreno_perfcounters adreno_a6xx_legacy_perfcounters;
+
+/**
+ * a6xx_rdpm_mx_freq_update - Update the mx frequency
+ * @gmu: An Adreno GMU handle
+ * @freq: Frequency in KHz
+ *
+ * This function communicates GPU mx frequency(in Mhz) changes to rdpm.
+ */
+void a6xx_rdpm_mx_freq_update(struct a6xx_gmu_device *gmu, u32 freq);
+
+/**
+ * a6xx_rdpm_cx_freq_update - Update the cx frequency
+ * @gmu: An Adreno GMU handle
+ * @freq: Frequency in KHz
+ *
+ * This function communicates GPU cx frequency(in Mhz) changes to rdpm.
+ */
+void a6xx_rdpm_cx_freq_update(struct a6xx_gmu_device *gmu, u32 freq);
 #endif

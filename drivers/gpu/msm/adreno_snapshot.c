@@ -718,7 +718,7 @@ static void setup_fault_process(struct kgsl_device *device,
 	if (kgsl_mmu_is_perprocess(&device->mmu)) {
 		struct kgsl_process_private *tmp;
 
-		spin_lock(&kgsl_driver.proclist_lock);
+		read_lock(&kgsl_driver.proclist_lock);
 		list_for_each_entry(tmp, &kgsl_driver.process_list, list) {
 			u64 pt_ttbr0;
 
@@ -729,7 +729,7 @@ static void setup_fault_process(struct kgsl_device *device,
 				break;
 			}
 		}
-		spin_unlock(&kgsl_driver.proclist_lock);
+		read_unlock(&kgsl_driver.proclist_lock);
 	}
 done:
 	snapshot->process = process;
@@ -816,7 +816,7 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 {
 	unsigned int i;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 
 	ib_max_objs = 0;
 	/* Reset the list of objects */

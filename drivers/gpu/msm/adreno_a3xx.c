@@ -149,7 +149,7 @@ static int _a3xx_pwron_fixup(struct adreno_device *adreno_dev)
 		return 0;
 
 	adreno_dev->pwron_fixup = kgsl_allocate_global(KGSL_DEVICE(adreno_dev),
-		PAGE_SIZE, KGSL_MEMFLAGS_GPUREADONLY, 0, "pwron_fixup");
+		PAGE_SIZE, 0, KGSL_MEMFLAGS_GPUREADONLY, 0, "pwron_fixup");
 
 	if (IS_ERR(adreno_dev->pwron_fixup))
 		return PTR_ERR(adreno_dev->pwron_fixup);
@@ -793,7 +793,7 @@ static void a3xx_err_callback(struct adreno_device *adreno_dev, int bit)
 	 (1 << A3XX_INT_CP_AHB_ERROR_HALT) |     \
 	 (1 << A3XX_INT_UCHE_OOB_ACCESS))
 
-static struct adreno_irq_funcs a3xx_irq_funcs[32] = {
+static const struct adreno_irq_funcs a3xx_irq_funcs[32] = {
 	ADRENO_IRQ_CALLBACK(NULL),                    /* 0 - RBBM_GPU_IDLE */
 	ADRENO_IRQ_CALLBACK(a3xx_err_callback),  /* 1 - RBBM_AHB_ERROR */
 	ADRENO_IRQ_CALLBACK(NULL),  /* 2 - RBBM_REG_TIMEOUT */
@@ -1040,10 +1040,6 @@ static unsigned int a3xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 				A3XX_RBBM_PERFCTR_LOAD_VALUE_LO),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_LOAD_VALUE_HI,
 				A3XX_RBBM_PERFCTR_LOAD_VALUE_HI),
-	ADRENO_REG_DEFINE(ADRENO_REG_VBIF_XIN_HALT_CTRL0,
-				A3XX_VBIF_XIN_HALT_CTRL0),
-	ADRENO_REG_DEFINE(ADRENO_REG_VBIF_XIN_HALT_CTRL1,
-				A3XX_VBIF_XIN_HALT_CTRL1),
 };
 
 static int _load_firmware(struct kgsl_device *device, const char *fwfile,
@@ -1232,12 +1228,24 @@ static bool a3xx_hw_isidle(struct adreno_device *adreno_dev)
 	return adreno_irq_pending(adreno_dev) ? false : true;
 }
 
-struct adreno_gpudev adreno_a3xx_gpudev = {
+static int a3xx_clear_pending_transactions(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	u32 mask = A30X_VBIF_XIN_HALT_CTRL0_MASK;
+	int ret;
+
+	kgsl_regwrite(device, A3XX_VBIF_XIN_HALT_CTRL0, mask);
+	ret = adreno_wait_for_halt_ack(device, A3XX_VBIF_XIN_HALT_CTRL1, mask);
+	kgsl_regwrite(device, A3XX_VBIF_XIN_HALT_CTRL0, 0);
+
+	return ret;
+}
+
+const struct adreno_gpudev adreno_a3xx_gpudev = {
 	.reg_offsets = a3xx_register_offsets,
 	.ft_perf_counters = a3xx_ft_perf_counters,
 	.ft_perf_counters_count = ARRAY_SIZE(a3xx_ft_perf_counters),
 	.irq_handler = a3xx_irq_handler,
-	.vbif_xin_halt_ctrl0_mask = A30X_VBIF_XIN_HALT_CTRL0_MASK,
 	.probe = a3xx_probe,
 	.rb_start = a3xx_rb_start,
 	.init = a3xx_init,
@@ -1253,4 +1261,5 @@ struct adreno_gpudev adreno_a3xx_gpudev = {
 	.read_alwayson = a3xx_read_alwayson,
 	.hw_isidle = a3xx_hw_isidle,
 	.power_ops = &adreno_power_operations,
+	.clear_pending_transactions = a3xx_clear_pending_transactions,
 };

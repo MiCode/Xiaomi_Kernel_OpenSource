@@ -107,6 +107,7 @@ int kgsl_allocate_kernel(struct kgsl_device *device,
  * kgsl_allocate_global - Allocate a global GPU memory object
  * @device: A GPU device handle
  * @size: Size of the allocation in bytes
+ * @padding: Amount of extra adding to add to the VA allocation
  * @flags: Control flags for the allocation
  * @priv: Internal flags for the allocation
  * @name: Name of the allocation (for the debugfs file)
@@ -118,7 +119,7 @@ int kgsl_allocate_kernel(struct kgsl_device *device,
  * failure.
  */
 struct kgsl_memdesc *kgsl_allocate_global(struct kgsl_device *device,
-		u64 size, u64 flags, u32 priv, const char *name);
+		u64 size, u32 padding, u64 flags, u32 priv, const char *name);
 
 /**
  * kgsl_allocate_global_fixed - Allocate a global GPU memory object from a fixed

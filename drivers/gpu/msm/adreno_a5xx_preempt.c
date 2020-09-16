@@ -484,7 +484,7 @@ static int a5xx_preemption_ringbuffer_init(struct adreno_device *adreno_dev,
 
 	if (IS_ERR_OR_NULL(rb->preemption_desc))
 		rb->preemption_desc = kgsl_allocate_global(device,
-			A5XX_CP_CTXRECORD_SIZE_IN_BYTES, 0,
+			A5XX_CP_CTXRECORD_SIZE_IN_BYTES, SZ_16K, 0,
 			KGSL_MEMDESC_PRIVILEGED, "preemption_desc");
 
 	if (IS_ERR(rb->preemption_desc))
@@ -533,7 +533,7 @@ int a5xx_preemption_init(struct adreno_device *adreno_dev)
 	if (IS_ERR_OR_NULL(preempt->scratch))
 		preempt->scratch = kgsl_allocate_global(device,
 			adreno_dev->num_ringbuffers *
-			A5XX_CP_CTXRECORD_PREEMPTION_COUNTER_SIZE, 0, 0,
+			A5XX_CP_CTXRECORD_PREEMPTION_COUNTER_SIZE, 0, 0, 0,
 			"preemption_counters");
 
 	ret = PTR_ERR_OR_ZERO(preempt->scratch);
@@ -553,7 +553,7 @@ int a5xx_preemption_init(struct adreno_device *adreno_dev)
 
 	/* Allocate mem for storing preemption smmu record */
 	if (IS_ERR_OR_NULL(iommu->smmu_info))
-		iommu->smmu_info = kgsl_allocate_global(device, PAGE_SIZE,
+		iommu->smmu_info = kgsl_allocate_global(device, PAGE_SIZE, 0,
 			KGSL_MEMFLAGS_GPUREADONLY, KGSL_MEMDESC_PRIVILEGED,
 			"smmu_info");
 

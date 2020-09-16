@@ -70,7 +70,7 @@ struct kgsl_mmu_ops {
 	struct kgsl_pagetable * (*mmu_getpagetable)(struct kgsl_mmu *mmu,
 			unsigned long name);
 	void (*mmu_map_global)(struct kgsl_mmu *mmu,
-		struct kgsl_memdesc *memdesc);
+		struct kgsl_memdesc *memdesc, u32 padding);
 };
 
 struct kgsl_mmu_pt_ops {
@@ -325,11 +325,12 @@ kgsl_mmu_pagetable_get_contextidr(struct kgsl_pagetable *pagetable)
  * kgsl_mmu_map_global - Map a memdesc as a global buffer
  * @device: A KGSL GPU device handle
  * @memdesc: Pointer to a GPU memory descriptor
+ * @padding: Any padding to add to the end of the VA allotment (in bytes)
  *
  * Map a buffer as globally accessible in all pagetable contexts
  */
 void kgsl_mmu_map_global(struct kgsl_device *device,
-		struct kgsl_memdesc *memdesc);
+		struct kgsl_memdesc *memdesc, u32 padding);
 
 /**
  * kgsl_mmu_pagetable_get_context_bank - Return the context bank number

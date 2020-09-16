@@ -144,7 +144,7 @@ static void adreno_coresight_disable(struct coresight_device *csdev,
 {
 	struct kgsl_device *device = dev_get_drvdata(csdev->dev.parent);
 	struct adreno_device *adreno_dev;
-	struct adreno_gpudev *gpudev;
+	const struct adreno_gpudev *gpudev;
 	struct adreno_coresight *coresight;
 	int i, cs_id;
 
@@ -191,7 +191,7 @@ static int _adreno_coresight_get_and_clear(struct adreno_device *adreno_dev,
 						int cs_id)
 {
 	int i;
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_coresight *coresight = gpudev->coresight[cs_id];
 
@@ -225,7 +225,7 @@ static int _adreno_coresight_get_and_clear(struct adreno_device *adreno_dev,
 
 static int _adreno_coresight_set(struct adreno_device *adreno_dev, int cs_id)
 {
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_coresight *coresight = gpudev->coresight[cs_id];
 	int i;
@@ -251,7 +251,7 @@ static int adreno_coresight_enable(struct coresight_device *csdev,
 {
 	struct kgsl_device *device = dev_get_drvdata(csdev->dev.parent);
 	struct adreno_device *adreno_dev;
-	struct adreno_gpudev *gpudev;
+	const struct adreno_gpudev *gpudev;
 	struct adreno_coresight *coresight;
 	int ret = 0, adreno_dev_flag = -EINVAL, cs_id;
 
@@ -323,7 +323,7 @@ void adreno_coresight_start(struct adreno_device *adreno_dev)
 static int adreno_coresight_trace_id(struct coresight_device *csdev)
 {
 	struct kgsl_device *device = dev_get_drvdata(csdev->dev.parent);
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(ADRENO_DEVICE(device));
+	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(ADRENO_DEVICE(device));
 	int cs_id;
 
 	cs_id = adreno_coresight_identify(dev_name(&csdev->dev));
@@ -386,7 +386,7 @@ adreno_coresight_dev_probe(struct kgsl_device *device,
 
 void adreno_coresight_init(struct adreno_device *adreno_dev)
 {
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	int i = 0;
 	struct device_node *node, *child;
