@@ -148,18 +148,18 @@ static int __init mtk_bp_thl_module_init(void)
 	bp_notify_lock = wakeup_source_register(NULL, "bp_notify_lock wakelock");
 	if (!bp_notify_lock) {
 		pr_notice("bp_notify_lock wakeup source fail\n");
-		return bp_notify_lock;
+		return -ENOMEM;
 	}
 
 	bp_notify_thread = kthread_run(bp_notify_handler, 0, "bp_notify_thread");
 	if (IS_ERR(bp_notify_thread)) {
 		pr_notice("Failed to create bp_notify_thread\n");
-		return bp_notify_thread;
+		return PTR_ERR(bp_notify_thread);
 	}
 
 	bp_nb.notifier_call = bp_psy_event;
 	ret = power_supply_reg_notifier(&bp_nb);
-	if (!ret) {
+	if (ret) {
 		pr_notice("power_supply_reg_notifier fail\n");
 		return ret;
 	}
