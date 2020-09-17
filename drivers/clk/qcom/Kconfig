@@ -585,4 +585,13 @@ config MSM_GPUCC_WAIPIO
 	  Say Y if you want to support graphics controller devices and
 	  functionality such as 3D graphics.
 
+config MSM_DISPCC_WAIPIO
+	tristate "WAIPIO Display Clock Controller"
+	select MSM_GCC_WAIPIO
+	help
+	  Support for the display clock controller on Qualcomm Technologies, Inc
+	  Waipio devices.
+	  Say Y if you want to support display devices and functionality such as
+	  splash screen.
+
 endif
