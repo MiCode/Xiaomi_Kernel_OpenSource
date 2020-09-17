@@ -282,6 +282,8 @@ struct ufs_pwr_mode_info {
  * @phy_initialization: used to initialize phys
  * @device_reset: called to issue a reset pulse on the UFS device
  * @program_key: program or evict an inline encryption key
+ * @fill_prdt: called after initializing the standard PRDT fields so that any
+ *	       variant-specific PRDT fields can be initialized too
  */
 struct ufs_hba_variant_ops {
 	const char *name;
@@ -317,6 +319,8 @@ struct ufs_hba_variant_ops {
 					void *data);
 	int	(*program_key)(struct ufs_hba *hba,
 			       const union ufs_crypto_cfg_entry *cfg, int slot);
+	int	(*fill_prdt)(struct ufs_hba *hba, struct ufshcd_lrb *lrbp,
+			     unsigned int segments);
 };
 
 /* clock gating state  */
@@ -526,6 +530,22 @@ enum ufshcd_quirks {
 	 * auto-hibernate capability but it doesn't work.
 	 */
 	UFSHCD_QUIRK_BROKEN_AUTO_HIBERN8		= 1 << 11,
+
+	/*
+	 * This quirk needs to be enabled if the host controller supports inline
+	 * encryption, but it uses a nonstandard mechanism where the standard
+	 * crypto registers aren't used and there is no concept of keyslots.
+	 * ufs_hba_variant_ops::init() is expected to initialize ufs_hba::ksm as
+	 * a passthrough keyslot manager.
+	 */
+	UFSHCD_QUIRK_NO_KEYSLOTS			= 1 << 12,
+
+	/*
+	 * This quirk needs to be enabled if the host controller requires that
+	 * the PRDT be cleared after each encrypted request because encryption
+	 * keys were stored in it.
+	 */
+	UFSHCD_QUIRK_KEYS_IN_PRDT			= 1 << 13,
 };
 
 enum ufshcd_caps {
@@ -1171,6 +1191,16 @@ static inline void ufshcd_vops_config_scaling_param(struct ufs_hba *hba,
 {
 	if (hba->vops && hba->vops->config_scaling_param)
 		hba->vops->config_scaling_param(hba, profile, data);
+}
+
+static inline int ufshcd_vops_fill_prdt(struct ufs_hba *hba,
+					struct ufshcd_lrb *lrbp,
+					unsigned int segments)
+{
+	if (hba->vops && hba->vops->fill_prdt)
+		return hba->vops->fill_prdt(hba, lrbp, segments);
+
+	return 0;
 }
 
 extern struct ufs_pm_lvl_states ufs_pm_lvl_states[];

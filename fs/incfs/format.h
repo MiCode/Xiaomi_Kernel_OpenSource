@@ -117,7 +117,6 @@
 enum incfs_metadata_type {
 	INCFS_MD_NONE = 0,
 	INCFS_MD_BLOCK_MAP = 1,
-	INCFS_MD_FILE_ATTR = 2,
 	INCFS_MD_SIGNATURE = 3
 };
 
@@ -136,17 +135,8 @@ struct incfs_md_header {
 	 */
 	__le16 h_record_size;
 
-	/*
-	 * CRC32 of the metadata record.
-	 * (e.g. inode, dir entry etc) not just this struct.
-	 */
-	__le32 h_record_crc;
-
 	/* Offset of the next metadata entry if any */
 	__le64 h_next_md_offset;
-
-	/* Offset of the previous metadata entry if any */
-	__le64 h_prev_md_offset;
 
 } __packed;
 
@@ -196,7 +186,6 @@ struct incfs_file_header {
 
 enum incfs_block_map_entry_flags {
 	INCFS_BLOCK_COMPRESSED_LZ4 = (1 << 0),
-	INCFS_BLOCK_HASH = (1 << 1),
 };
 
 /* Block map entry pointing to an actual location of the data block. */
@@ -223,17 +212,6 @@ struct incfs_blockmap {
 
 	/* Size of the map entry array in blocks */
 	__le32 m_block_count;
-} __packed;
-
-/* Metadata record for file attribute. Type = INCFS_MD_FILE_ATTR */
-struct incfs_file_attr {
-	struct incfs_md_header fa_header;
-
-	__le64 fa_offset;
-
-	__le16 fa_size;
-
-	__le32 fa_crc;
 } __packed;
 
 /* Metadata record for file signature. Type = INCFS_MD_SIGNATURE */
@@ -280,14 +258,11 @@ struct metadata_handler {
 	union {
 		struct incfs_md_header md_header;
 		struct incfs_blockmap blockmap;
-		struct incfs_file_attr file_attr;
 		struct incfs_file_signature signature;
 	} md_buffer;
 
 	int (*handle_blockmap)(struct incfs_blockmap *bm,
 			       struct metadata_handler *handler);
-	int (*handle_file_attr)(struct incfs_file_attr *fa,
-				 struct metadata_handler *handler);
 	int (*handle_signature)(struct incfs_file_signature *sig,
 				 struct metadata_handler *handler);
 };
@@ -322,9 +297,6 @@ int incfs_write_hash_block_to_backing_file(struct backing_file_context *bfc,
 					   loff_t hash_area_off,
 					   loff_t bm_base_off,
 					   loff_t file_size);
-
-int incfs_write_file_attr_to_backing_file(struct backing_file_context *bfc,
-		struct mem_range value, struct incfs_file_attr *attr);
 
 int incfs_write_signature_to_backing_file(struct backing_file_context *bfc,
 					  struct mem_range sig, u32 tree_size);

@@ -43,6 +43,8 @@ struct mount_info *incfs_alloc_mount_info(struct super_block *sb,
 	mutex_init(&mi->mi_dir_struct_mutex);
 	init_waitqueue_head(&mi->mi_pending_reads_notif_wq);
 	init_waitqueue_head(&mi->mi_log.ml_notif_wq);
+	init_waitqueue_head(&mi->mi_blocks_written_notif_wq);
+	atomic_set(&mi->mi_blocks_written, 0);
 	INIT_DELAYED_WORK(&mi->mi_log.ml_wakeup_work, log_wake_up_all);
 	spin_lock_init(&mi->mi_log.rl_lock);
 	spin_lock_init(&mi->pending_read_lock);
@@ -902,6 +904,9 @@ static void notify_pending_reads(struct mount_info *mi,
 	}
 	rcu_read_unlock();
 	wake_up_all(&segment->new_data_arrival_wq);
+
+	atomic_inc(&mi->mi_blocks_written);
+	wake_up_all(&mi->mi_blocks_written_notif_wq);
 }
 
 static int wait_for_data_block(struct data_file *df, int block_index,
@@ -1223,25 +1228,6 @@ static int process_blockmap_md(struct incfs_blockmap *bm,
 	return error;
 }
 
-static int process_file_attr_md(struct incfs_file_attr *fa,
-				struct metadata_handler *handler)
-{
-	struct data_file *df = handler->context;
-	u16 attr_size = le16_to_cpu(fa->fa_size);
-
-	if (!df)
-		return -EFAULT;
-
-	if (attr_size > INCFS_MAX_FILE_ATTR_SIZE)
-		return -E2BIG;
-
-	df->n_attr.fa_value_offset = le64_to_cpu(fa->fa_offset);
-	df->n_attr.fa_value_size = attr_size;
-	df->n_attr.fa_crc = le32_to_cpu(fa->fa_crc);
-
-	return 0;
-}
-
 static int process_file_signature_md(struct incfs_file_signature *sg,
 				struct metadata_handler *handler)
 {
@@ -1343,7 +1329,6 @@ int incfs_scan_metadata_chain(struct data_file *df)
 	handler->md_record_offset = df->df_metadata_off;
 	handler->context = df;
 	handler->handle_blockmap = process_blockmap_md;
-	handler->handle_file_attr = process_file_attr_md;
 	handler->handle_signature = process_file_signature_md;
 
 	while (handler->md_record_offset > 0) {
