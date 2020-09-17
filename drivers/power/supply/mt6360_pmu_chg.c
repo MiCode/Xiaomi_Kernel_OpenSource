@@ -28,6 +28,7 @@
 #include "charger_class.h"
 #include "mtk_charger.h"
 #endif
+#include <tcpm.h>
 
 #include "mt6360_pmu_chg.h"
 
