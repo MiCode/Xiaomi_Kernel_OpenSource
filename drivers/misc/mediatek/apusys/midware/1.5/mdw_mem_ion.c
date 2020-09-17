@@ -8,7 +8,7 @@
 #include <ion.h>
 #include <mtk/ion_drv.h>
 #include <mtk/mtk_ion.h>
-#ifdef CONFIG_MTK_M4U
+#if IS_ENABLED(CONFIG_MTK_M4U)
 #include <m4u.h>
 #else
 #include <mt_iommu.h>

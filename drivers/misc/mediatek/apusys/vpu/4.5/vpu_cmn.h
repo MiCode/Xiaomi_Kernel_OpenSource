@@ -28,7 +28,7 @@
 #include "vpu_ioctl.h"
 #include "apu_tags.h"
 
-#ifdef CONFIG_MTK_AEE_FEATURE
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #include <aee.h>
 #define vpu_aee aee_kernel_exception
 #else
@@ -433,7 +433,7 @@ struct vpu_device {
 	wait_queue_head_t pw_wait;
 	uint64_t pw_off_latency;   /* ms, 0 = always on */
 	atomic_t pw_boost;         /* current boost */
-#ifdef CONFIG_PM_SLEEP
+#if IS_ENABLED(CONFIG_PM_SLEEP)
 	struct wakeup_source *ws;
 #endif
 

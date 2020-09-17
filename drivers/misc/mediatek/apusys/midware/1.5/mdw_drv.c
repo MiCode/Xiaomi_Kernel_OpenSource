@@ -513,7 +513,7 @@ static long mdw_compat_ioctl(struct file *flip, unsigned int cmd,
 	return 0;
 }
 
-#ifdef CONFIG_PM
+#if IS_ENABLED(CONFIG_PM)
 static int mdw_pm_suspend(struct device *device)
 {
 	struct platform_device *pdev = to_platform_device(device);
@@ -554,7 +554,7 @@ static struct platform_driver mdw_drv = {
 	.driver = {
 		.name = APUSYS_DEV_NAME,
 		.owner = THIS_MODULE,
-#ifdef CONFIG_PM
+#if IS_ENABLED(CONFIG_PM)
 		.pm = &mdw_pm_ops,
 #endif
 	},

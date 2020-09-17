@@ -44,7 +44,7 @@ static struct engine_pm_qos_counter engine_pm_qos_counter[NR_APU_QOS_ENGINE];
 #define get_qosbound_enum(x) (APUSYS_QOSBOUND_START + x)
 
 #ifdef APU_QOS_IPUIF_ADJUST
-#ifdef CONFIG_MACH_MT6873
+#if IS_ENABLED(CONFIG_MACH_MT6873)
 #define NR_APU_VCORE_OPP (4)
 static unsigned int apu_vcore_bw_opp_tab[NR_APU_VCORE_OPP] = {
 	10200, /* 4266 Mhz -> 0.725v */
@@ -59,7 +59,7 @@ enum DVFS_VOLTAGE vcore_opp_map[NR_APU_VCORE_OPP] = {
 	DVFS_VOLT_00_575000_V   // VCORE_OPP_3
 };
 #endif /* CONFIG_MACH_MT6873 */
-#ifdef CONFIG_MACH_MT6885
+#if IS_ENABLED(CONFIG_MACH_MT6885)
 #define NR_APU_VCORE_OPP (4)
 static unsigned int apu_vcore_bw_opp_tab[NR_APU_VCORE_OPP] = {
 	20400, /* 3733 Mhz -> 0.725v */

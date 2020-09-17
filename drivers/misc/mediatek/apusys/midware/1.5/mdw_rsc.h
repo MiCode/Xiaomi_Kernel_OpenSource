@@ -127,7 +127,7 @@ void mdw_rsc_exit(void);
 uint64_t mdw_rsc_get_dev_bmp(void);
 int mdw_rsc_get_dev_num(int type);
 
-#ifdef CONFIG_MTK_GZ_SUPPORT_SDSP
+#if IS_ENABLED(CONFIG_MTK_GZ_SUPPORT_SDSP)
 extern int mtee_sdsp_enable(u32 on);
 #endif
 

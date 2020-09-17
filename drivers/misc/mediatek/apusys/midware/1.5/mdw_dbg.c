@@ -19,8 +19,8 @@
 #include "mdw_trace.h"
 #include "mdw_usr.h"
 #include "mdw_sched.h"
-#if defined CONFIG_MTK_AEE_FEATURE
-#include "aee.h"
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+#include <aee.h>
 #endif
 
 struct dentry *mdw_dbg_root;
@@ -59,7 +59,7 @@ int mdw_dbg_get_prop(int idx)
 
 void mdw_dbg_aee(char *name)
 {
-#if defined CONFIG_MTK_AEE_FEATURE
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 	aee_kernel_warning("VPU", "\nCRDISPATCH_KEY:APUSYS_MIDDLEWARE\n",
 		name);
 #else

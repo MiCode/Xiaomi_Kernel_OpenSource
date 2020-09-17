@@ -39,7 +39,7 @@ struct vpu_tag {
 	} d;
 };
 
-#ifdef CONFIG_MTK_APUSYS_VPU_DEBUG
+#if IS_ENABLED(CONFIG_MTK_APUSYS_VPU_DEBUG)
 int vpu_init_drv_tags(void);
 void vpu_exit_drv_tags(void);
 #else

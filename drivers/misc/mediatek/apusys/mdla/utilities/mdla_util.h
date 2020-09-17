@@ -19,7 +19,7 @@ enum MDLA_PRIORITY {
 };
 
 /* apusys MDLA device priority level */
-#ifdef CONFIG_MTK_APUSYS_RT_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_APUSYS_RT_SUPPORT)
 #define PRIORITY_LEVEL      2
 #else
 #define PRIORITY_LEVEL      1

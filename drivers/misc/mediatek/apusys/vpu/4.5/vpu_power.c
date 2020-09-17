@@ -291,28 +291,28 @@ static void vpu_pwr_off(struct work_struct *work)
 
 static void vpu_pwr_wake_lock(struct vpu_device *vd)
 {
-#ifdef CONFIG_PM_SLEEP
+#if IS_ENABLED(CONFIG_PM_SLEEP)
 	__pm_stay_awake(vd->ws);
 #endif
 }
 
 static void vpu_pwr_wake_unlock(struct vpu_device *vd)
 {
-#ifdef CONFIG_PM_SLEEP
+#if IS_ENABLED(CONFIG_PM_SLEEP)
 	__pm_relax(vd->ws);
 #endif
 }
 
 static void vpu_pwr_wake_init(struct vpu_device *vd)
 {
-#ifdef CONFIG_PM_SLEEP
+#if IS_ENABLED(CONFIG_PM_SLEEP)
 	vd->ws = wakeup_source_register(NULL, vd->name);
 #endif
 }
 
 static void vpu_pwr_wake_exit(struct vpu_device *vd)
 {
-#ifdef CONFIG_PM_SLEEP
+#if IS_ENABLED(CONFIG_PM_SLEEP)
 	wakeup_source_unregister(vd->ws);
 #endif
 }

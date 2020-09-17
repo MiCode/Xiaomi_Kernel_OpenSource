@@ -25,7 +25,7 @@ static int vpu_resume(struct platform_device *pdev)
 	return 0;
 }
 
-#ifdef CONFIG_PM
+#if IS_ENABLED(CONFIG_PM)
 int vpu_pm_suspend(struct device *device)
 {
 	return 0;
@@ -125,7 +125,7 @@ static struct platform_driver vpu_driver = {
 		.name = "vpu",
 		.owner = THIS_MODULE,
 		.of_match_table = vpu_of_ids,
-#ifdef CONFIG_PM
+#if IS_ENABLED(CONFIG_PM)
 		.pm = &vpu_pm_ops,
 #endif
 	}

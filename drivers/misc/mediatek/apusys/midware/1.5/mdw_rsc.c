@@ -17,7 +17,7 @@
 #include <linux/uaccess.h>
 #include <linux/vmalloc.h>
 #include <linux/atomic.h>
-#ifdef CONFIG_PM_SLEEP
+#if IS_ENABLED(CONFIG_PM_SLEEP)
 #include <linux/device.h>
 #include <linux/pm_wakeup.h>
 #endif
@@ -48,7 +48,7 @@ static char * const rsc_dev_name[] = {
 	"edma",
 };
 
-#ifdef CONFIG_PM_SLEEP
+#if IS_ENABLED(CONFIG_PM_SLEEP)
 static struct wakeup_source *mdw_rsc_ws;
 static uint32_t ws_cnt;
 static struct mutex ws_mtx;
@@ -57,7 +57,7 @@ static struct mutex ws_mtx;
 //----------------------------------------
 static void mdw_rsc_ws_init(void)
 {
-#if defined CONFIG_PM_SLEEP
+#if IS_ENABLED(CONFIG_PM_SLEEP)
 	char ws_name[16];
 
 	if (snprintf(ws_name, sizeof(ws_name)-1, "apusys_secure") < 0) {
@@ -76,7 +76,7 @@ static void mdw_rsc_ws_init(void)
 
 static void mdw_rsc_ws_destroy(void)
 {
-#if defined CONFIG_PM_SLEEP
+#if IS_ENABLED(CONFIG_PM_SLEEP)
 	ws_cnt = 0;
 	wakeup_source_unregister(mdw_rsc_ws);
 #else
@@ -86,7 +86,7 @@ static void mdw_rsc_ws_destroy(void)
 
 void mdw_rsc_ws_lock(void)
 {
-#ifdef CONFIG_PM_SLEEP
+#if IS_ENABLED(CONFIG_PM_SLEEP)
 	mutex_lock(&ws_mtx);
 	if (mdw_rsc_ws && !ws_cnt) {
 		mdw_flw_debug("lock\n");
@@ -101,7 +101,7 @@ void mdw_rsc_ws_lock(void)
 
 void mdw_rsc_ws_unlock(void)
 {
-#ifdef CONFIG_PM_SLEEP
+#if IS_ENABLED(CONFIG_PM_SLEEP)
 	mutex_lock(&ws_mtx);
 	ws_cnt--;
 	if (mdw_rsc_ws && !ws_cnt) {
@@ -458,7 +458,7 @@ static int mdw_rsc_sec_on(struct mdw_dev_info *d)
 	case APUSYS_DEVICE_SAMPLE:
 		break;
 
-#ifdef CONFIG_MTK_GZ_SUPPORT_SDSP
+#if IS_ENABLED(CONFIG_MTK_GZ_SUPPORT_SDSP)
 	case APUSYS_DEVICE_VPU:
 		ret = mtee_sdsp_enable(1);
 		if (!ret)
@@ -483,7 +483,7 @@ static int mdw_rsc_sec_off(struct mdw_dev_info *d)
 	case APUSYS_DEVICE_SAMPLE:
 		break;
 
-#ifdef CONFIG_MTK_GZ_SUPPORT_SDSP
+#if IS_ENABLED(CONFIG_MTK_GZ_SUPPORT_SDSP)
 	case APUSYS_DEVICE_VPU:
 		mdw_rsc_ws_unlock();
 		ret = mtee_sdsp_enable(0);

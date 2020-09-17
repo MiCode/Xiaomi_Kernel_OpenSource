@@ -6,7 +6,7 @@
 #ifndef __APUSYS_MDW_SCHED_H__
 #define __APUSYS_MDW_SCHED_H__
 
-#ifdef CONFIG_MTK_APUSYS_RT_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_APUSYS_RT_SUPPORT)
 #define preemption_support (1)
 #else
 #define preemption_support (0)

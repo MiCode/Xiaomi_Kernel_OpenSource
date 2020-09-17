@@ -3,7 +3,7 @@
  * Copyright (c) 2020 MediaTek Inc.
  */
 
-#ifdef CONFIG_FTRACE
+#if IS_ENABLED(CONFIG_FTRACE)
 
 #ifdef TRACE_LEN
 #undef TRACE_LEN

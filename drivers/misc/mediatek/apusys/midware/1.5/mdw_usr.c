@@ -9,7 +9,7 @@
 #include <linux/delay.h>
 #include <linux/list.h>
 #include <linux/slab.h>
-#ifdef CONFIG_PM_SLEEP
+#if IS_ENABLED(CONFIG_PM_SLEEP)
 #include <linux/device.h>
 #include <linux/pm_wakeup.h>
 #endif
@@ -27,7 +27,7 @@
 
 #define MDW_CMD_DEFAULT_TIMEOUT (30*1000) //30s
 
-#ifdef CONFIG_PM_SLEEP
+#if IS_ENABLED(CONFIG_PM_SLEEP)
 static struct wakeup_source *mdw_usr_ws;
 static uint32_t ws_cnt;
 static struct mutex ws_mtx;
@@ -172,7 +172,7 @@ void mdw_usr_dump(struct seq_file *s)
 //----------------------------------------
 static void mdw_usr_ws_init(void)
 {
-#if defined CONFIG_PM_SLEEP
+#if IS_ENABLED(CONFIG_PM_SLEEP)
 	char ws_name[16];
 
 	if (snprintf(ws_name, sizeof(ws_name)-1, "apusys_usr") < 0) {
@@ -191,7 +191,7 @@ static void mdw_usr_ws_init(void)
 
 static void mdw_usr_ws_destroy(void)
 {
-#if defined CONFIG_PM_SLEEP
+#if IS_ENABLED(CONFIG_PM_SLEEP)
 	ws_cnt = 0;
 	wakeup_source_unregister(mdw_usr_ws);
 #else
@@ -201,7 +201,7 @@ static void mdw_usr_ws_destroy(void)
 
 void mdw_usr_ws_lock(void)
 {
-#ifdef CONFIG_PM_SLEEP
+#if IS_ENABLED(CONFIG_PM_SLEEP)
 	mutex_lock(&ws_mtx);
 	if (mdw_usr_ws && !ws_cnt) {
 		mdw_flw_debug("lock\n");
@@ -216,7 +216,7 @@ void mdw_usr_ws_lock(void)
 
 void mdw_usr_ws_unlock(void)
 {
-#ifdef CONFIG_PM_SLEEP
+#if IS_ENABLED(CONFIG_PM_SLEEP)
 	mutex_lock(&ws_mtx);
 	ws_cnt--;
 	if (mdw_usr_ws && !ws_cnt) {
