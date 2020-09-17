@@ -41,7 +41,6 @@
 #include "kd_imgsensor_errcode.h"
 
 #include "imx481mipiraw_Sensor.h"
-#include "adaptor-subdrv.h"
 
 #include "adaptor-subdrv.h"
 #include "adaptor-i2c.h"
@@ -2251,20 +2250,6 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 	return ERROR_NONE;
 } /* feature_control */
 
-
-static struct subdrv_pw_seq_entry pw_seq[] = {
-	{HW_ID_MCLK, 24, 0},
-	{HW_ID_PDN, 0, 0},
-	{HW_ID_RST, 0, 0},
-	{HW_ID_AVDD, 2800000, 0},
-	{HW_ID_DOVDD, 1800000, 0},
-	{HW_ID_DVDD, 1200000, 1},
-	{HW_ID_MCLK_DRIVING_CURRENT, 2, 1},
-	{HW_ID_PDN, 1, 0},
-	{HW_ID_RST, 1, 10},
-};
-
-
 static const struct subdrv_ctx defctx = {
 
 	.ana_gain_def = 0x100,
@@ -2318,6 +2303,18 @@ static struct subdrv_ops ops = {
 	.control = control,
 	.feature_control = feature_control,
 	.close = close,
+};
+
+static struct subdrv_pw_seq_entry pw_seq[] = {
+	{HW_ID_MCLK, 24, 0},
+	{HW_ID_PDN, 0, 0},
+	{HW_ID_RST, 0, 0},
+	{HW_ID_AVDD, 2800000, 0},
+	{HW_ID_DOVDD, 1800000, 0},
+	{HW_ID_DVDD, 1200000, 1},
+	{HW_ID_MCLK_DRIVING_CURRENT, 2, 1},
+	{HW_ID_PDN, 1, 0},
+	{HW_ID_RST, 1, 10},
 };
 
 const struct subdrv_entry imx481_mipi_raw_entry = {

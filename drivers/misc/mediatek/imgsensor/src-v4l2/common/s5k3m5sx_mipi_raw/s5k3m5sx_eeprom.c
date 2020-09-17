@@ -26,15 +26,6 @@
 #include "adaptor-subdrv.h"
 #include "adaptor-i2c.h"
 
-//#define read_cmos_sensor_8(ctx, ...) subdrv_i2c_rd_u8(__VA_ARGS__)
-//#define read_cmos_sensor(ctx, ...) subdrv_i2c_rd_u16(__VA_ARGS__)
-//#define write_cmos_sensor_8(ctx, ...) subdrv_i2c_wr_u8(__VA_ARGS__)
-//#define write_cmos_sensor(ctx, ...) subdrv_i2c_wr_u16(__VA_ARGS__)
-//#define table_write_cmos_sensor(ctx, ...) subdrv_i2c_wr_regs_u8(__VA_ARGS__)
-//#define table_write_cmos_sensor(ctx, ...) subdrv_i2c_wr_regs_u16(__VA_ARGS__)
-
-
-
 #define Sleep(ms) mdelay(ms)
 
 #define S5K3M5SX_EEPROM_READ_ID  0xA0

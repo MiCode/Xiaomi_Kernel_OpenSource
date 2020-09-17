@@ -43,8 +43,6 @@
 #include "imx586_eeprom.h"
 
 #include "adaptor-subdrv.h"
-
-#include "adaptor-subdrv.h"
 #include "adaptor-i2c.h"
 
 #define read_cmos_sensor_8(...) subdrv_i2c_rd_u8(__VA_ARGS__)
@@ -4353,17 +4351,6 @@ break;
 } /* feature_control(ctx) */
 
 
-static struct subdrv_pw_seq_entry pw_seq[] = {
-	{HW_ID_MCLK, 24, 0},
-	{HW_ID_RST, 0, 0},
-	{HW_ID_AVDD, 2800000, 0},
-	{HW_ID_AFVDD, 2800000, 0},
-	{HW_ID_DVDD, 1100000, 0},
-	{HW_ID_DOVDD, 1800000, 1},
-	{HW_ID_MCLK_DRIVING_CURRENT, 4, 1},
-	{HW_ID_RST, 1, 3},
-};
-
 #ifdef IMGSENSOR_VC_ROUTING
 static struct v4l2_mbus_frame_desc_entry frame_desc_prev[] = {
 	{
@@ -4486,6 +4473,17 @@ static struct subdrv_ops ops = {
 	.get_frame_desc = get_frame_desc,
 #endif
 	.get_temp = get_temp,
+};
+
+static struct subdrv_pw_seq_entry pw_seq[] = {
+	{HW_ID_MCLK, 24, 0},
+	{HW_ID_RST, 0, 0},
+	{HW_ID_AVDD, 2800000, 0},
+	{HW_ID_AFVDD, 2800000, 0},
+	{HW_ID_DVDD, 1100000, 0},
+	{HW_ID_DOVDD, 1800000, 1},
+	{HW_ID_MCLK_DRIVING_CURRENT, 4, 1},
+	{HW_ID_RST, 1, 3},
 };
 
 const struct subdrv_entry imx586_mipi_raw_entry = {

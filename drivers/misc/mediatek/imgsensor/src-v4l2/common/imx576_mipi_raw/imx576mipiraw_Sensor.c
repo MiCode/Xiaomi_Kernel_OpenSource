@@ -2645,18 +2645,6 @@ static int feature_control(
 	return ERROR_NONE;
 }	/*	feature_control(ctx)  */
 
-static struct subdrv_pw_seq_entry pw_seq[] = {
-	{HW_ID_MCLK, 24, 0},
-	{HW_ID_PDN, 0, 0},
-	{HW_ID_RST, 0, 0},
-	{HW_ID_AVDD, 2800000, 0},
-	{HW_ID_DOVDD, 1800000, 0},
-	{HW_ID_DVDD, 1100000, 1},
-	{HW_ID_MCLK_DRIVING_CURRENT, 8, 1},
-	{HW_ID_PDN, 1, 0},
-	{HW_ID_RST, 1, 8},
-};
-
 #ifdef IMGSENSOR_VC_ROUTING
 static struct v4l2_mbus_frame_desc_entry frame_desc_prev[] = {
 	{
@@ -2798,6 +2786,18 @@ static struct subdrv_ops ops = {
 	.get_frame_desc = get_frame_desc,
 #endif
 	.get_temp = get_temp,
+};
+
+static struct subdrv_pw_seq_entry pw_seq[] = {
+	{HW_ID_MCLK, 24, 0},
+	{HW_ID_PDN, 0, 0},
+	{HW_ID_RST, 0, 0},
+	{HW_ID_AVDD, 2800000, 0},
+	{HW_ID_DOVDD, 1800000, 0},
+	{HW_ID_DVDD, 1100000, 1},
+	{HW_ID_MCLK_DRIVING_CURRENT, 8, 1},
+	{HW_ID_PDN, 1, 0},
+	{HW_ID_RST, 1, 8},
 };
 
 const struct subdrv_entry imx576_mipi_raw_entry = {
