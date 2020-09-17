@@ -81,13 +81,13 @@ DEFINES += -DCONFIG_MALI_DMA_BUF_LEGACY_COMPAT=1
 # MTK Add -I$(src)/include to include ddk linux headers
 ccflags-y += $(DEFINES) -I$(KBASE_PATH)   -I$(KBASE_PLATFORM_PATH) -I$(UMP_PATH) -I$(srctree)/include/linux -I$(src)/include
 
+subdir-ccflags-y += $(DEFINES) -I$(KBASE_PATH)   -I$(KBASE_PLATFORM_PATH) -I$(UMP_PATH) -I$(srctree)/include/linux -I$(src)/include
+
 ifeq ($(CONFIG_MTK_IOMMU_V2),y)
 	ccflags-y += -I$(srctree)/drivers/staging/android/ion
 	ccflags-y += -I$(srctree)/drivers/iommu
 	ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include
 endif
-
-subdir-ccflags-y += $(DEFINES) -I$(KBASE_PATH)   -I$(KBASE_PLATFORM_PATH) -I$(UMP_PATH) -I$(srctree)/include/linux -I$(src)/include
 
 SRC := \
 	context/mali_kbase_context.c \

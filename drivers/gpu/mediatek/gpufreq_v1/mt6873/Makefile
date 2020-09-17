@@ -18,7 +18,6 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/freqhopping/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/freqhopping/$(CONFIG_MTK_PLATFORM)/
-ccflags-y += -I$(srctree)/drivers/gpu/mediatek/ged/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/dbgtop/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/dbgtop/$(MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/clk/mediatek/

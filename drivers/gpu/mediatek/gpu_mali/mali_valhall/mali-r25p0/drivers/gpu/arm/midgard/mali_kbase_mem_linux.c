@@ -52,7 +52,7 @@
 #include <mali_kbase_caps.h>
 #include <mali_kbase_trace_gpu_mem.h>
 
-#ifdef CONFIG_MTK_IOMMU_V2
+#if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
 #include <asm/cacheflush.h>
 static DEFINE_MUTEX(config_ion_buffer_lock_mutex);
 #endif
@@ -1134,7 +1134,7 @@ static int kbase_mem_umm_map_attachment(struct kbase_context *kctx,
 	int err;
 	size_t count = 0;
 	struct kbase_mem_phy_alloc *alloc = reg->gpu_alloc;
-#ifdef CONFIG_MTK_IOMMU_V2
+#if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
 	struct ion_mm_data mm_data;
 	int retry_cnt = 0;
 #endif
@@ -1142,7 +1142,7 @@ static int kbase_mem_umm_map_attachment(struct kbase_context *kctx,
 	WARN_ON_ONCE(alloc->type != KBASE_MEM_TYPE_IMPORTED_UMM);
 	WARN_ON_ONCE(alloc->imported.umm.sgt);
 
-#ifdef CONFIG_MTK_IOMMU_V2
+#if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
 	mutex_lock(&config_ion_buffer_lock_mutex);
 
 	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
@@ -1172,7 +1172,7 @@ retry:
 	sgt = dma_buf_map_attachment(alloc->imported.umm.dma_attachment,
 			DMA_BIDIRECTIONAL);
 
-#ifdef CONFIG_MTK_IOMMU_V2
+#if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
 	mutex_unlock(&config_ion_buffer_lock_mutex);
 #endif
 
@@ -1376,7 +1376,7 @@ static struct kbase_va_region *kbase_mem_from_umm(struct kbase_context *kctx,
 	bool shared_zone = false;
 	bool need_sync = false;
 	int group_id;
-#ifdef CONFIG_MTK_IOMMU_V2
+#if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
 	struct ion_handle *handle = NULL;
 #endif
 
@@ -1479,7 +1479,7 @@ static struct kbase_va_region *kbase_mem_from_umm(struct kbase_context *kctx,
 	reg->gpu_alloc->imported.umm.need_sync = need_sync;
 	reg->gpu_alloc->imported.umm.kctx = kctx;
 
-#ifdef CONFIG_MTK_IOMMU_V2
+#if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
 	/* 64-bit address range is the max */
 	if (*va_pages > (U64_MAX / PAGE_SIZE))
 		return NULL;
@@ -1513,7 +1513,7 @@ static struct kbase_va_region *kbase_mem_from_umm(struct kbase_context *kctx,
 				 "Failed to map dma-buf %pK on GPU: %d\n",
 				 dma_buf, err);
 
-#ifdef CONFIG_MTK_IOMMU_V2
+#if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
 			ion_free(kctx->kbdev->client, handle);
 			handle = NULL;
 #endif

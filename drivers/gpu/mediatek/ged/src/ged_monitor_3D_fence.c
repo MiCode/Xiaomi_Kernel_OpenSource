@@ -13,9 +13,7 @@
 #include <linux/dma-fence.h>
 
 #include <mt-plat/mtk_gpu_utility.h>
-/* This has been removed on kernel-4.19
- * #include <trace/events/gpu.h>
- */
+
 #ifdef MTK_GPU_DVFS
 #include <mtk_gpufreq.h>
 #else

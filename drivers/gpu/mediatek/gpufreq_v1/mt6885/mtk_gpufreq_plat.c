@@ -39,7 +39,7 @@
 #ifdef CONFIG_THERMAL
 #include "mtk_thermal.h"
 #endif
-#ifdef CONFIG_MTK_FREQ_HOPPING
+#if IS_ENABLED(CONFIG_MTK_FREQ_HOPPING)
 #include "mtk_freqhopping_drv.h"
 #endif
 #if MT_GPUFREQ_KICKER_PBM_READY
@@ -48,16 +48,11 @@
 #if MT_GPUFREQ_STATIC_PWR_READY2USE
 #include "mtk_static_power.h"
 #endif
-#ifdef CONFIG_MTK_GPU_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_GPU_SUPPORT)
 #include "ged_log.h"
 #include "ged_base.h"
 #endif
 #include "mtk_gpu_utility.h"
-
-#ifdef CONFIG_MTK_GPU_SUPPORT
-/* adb pull "/d/ged/logbufs/gfreq" */
-extern GED_LOG_BUF_HANDLE gpufreq_ged_log;
-#endif
 
 #if MT_GPUFREQ_DFD_ENABLE
 #include "dbgtop.h"
@@ -1899,7 +1894,7 @@ static int mt_gpufreq_var_dump_proc_show(struct seq_file *m, void *v)
 	int i;
 	unsigned int gpu_loading = 0;
 
-#ifdef CONFIG_MTK_GPU_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_GPU_SUPPORT)
 	mtk_get_gpu_loading(&gpu_loading);
 #endif
 
@@ -2592,14 +2587,14 @@ static void __mt_gpufreq_clock_switch(unsigned int freq_new)
 	dds = __mt_gpufreq_calculate_dds(freq_new, posdiv_power);
 	pll = (0x80000000) | (posdiv_power << POSDIV_SHIFT) | dds;
 
-#ifndef CONFIG_MTK_FREQ_HOPPING
-	/* force parking if FHCTL not ready */
-	parking = true;
-#else
+#if IS_ENABLED(CONFIG_MTK_FREQ_HOPPING)
 	if (posdiv_power != real_posdiv_power)
 		parking = true;
 	else
 		parking = false;
+#else
+	/* force parking if FHCTL not ready */
+	parking = true;
 #endif
 
 	if (parking) {
@@ -2619,7 +2614,7 @@ static void __mt_gpufreq_clock_switch(unsigned int freq_new)
 		/* univpll_d3(416MHz) to mfgpll_ck */
 		__mt_gpufreq_switch_to_clksrc(CLOCK_MAIN);
 	} else {
-#ifdef CONFIG_MTK_FREQ_HOPPING
+#if IS_ENABLED(CONFIG_MTK_FREQ_HOPPING)
 		mt_dfs_general_pll(MFGPLL_FH_PLL, dds);
 #endif
 	}

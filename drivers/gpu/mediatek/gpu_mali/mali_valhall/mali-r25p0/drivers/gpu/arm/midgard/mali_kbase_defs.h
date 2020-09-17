@@ -1170,7 +1170,7 @@ struct kbase_device {
 		u64 flags;
 	} dummy_job_wa;
 
-#ifdef CONFIG_MTK_IOMMU_V2
+#if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
 	struct ion_client *client;
 #endif
 

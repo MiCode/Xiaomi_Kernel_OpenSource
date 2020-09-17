@@ -14,22 +14,23 @@
  * ===============================================
  */
 #include <linux/slab.h>
-
+#include <aee.h>
+#include <aed.h>
 #include "mtk_gpufreq_common.h"
 
-#ifdef CONFIG_MTK_AEE_AED
+#if IS_ENABLED(CONFIG_MTK_AEE_AED)
 static struct gpu_assert_info g_pending_info;
 static int g_have_pending_info;
 #endif
 
 static void dump_except(enum g_exception_enum except_type, char *except_str)
 {
-#ifdef CONFIG_MTK_AEE_AED
+#if IS_ENABLED(CONFIG_MTK_AEE_AED)
 	if (except_str == NULL) {
 		pr_info("%s: NULL string\n", __func__);
 		return;
 	}
-	if (aee_mode != AEE_MODE_NOT_INIT) {
+	if (aee_get_mode() != AEE_MODE_NOT_INIT) {
 		aee_kernel_warning("GPU_FREQ",
 			"\n\n%s\nCRDISPATCH_KEY:%s\n",
 			except_str,
@@ -72,9 +73,9 @@ void gpu_assert(bool cond, enum g_exception_enum except_type,
  */
 void check_pending_info(void)
 {
-#ifdef CONFIG_MTK_AEE_AED
+#if IS_ENABLED(CONFIG_MTK_AEE_AED)
 	if (g_have_pending_info &&
-		aee_mode != AEE_MODE_NOT_INIT) {
+		aee_get_mode() != AEE_MODE_NOT_INIT) {
 		g_have_pending_info = 0;
 		dump_except(
 			g_pending_info.exception_type,

@@ -406,7 +406,7 @@ static int ged_log_buf_seq_show(struct seq_file *psSeqFile, void *pvData)
 	if (psGEDLogBuf != NULL) {
 		int i;
 
-#ifdef CONFIG_MTK_GPU_SUPPORT /* Only enable when GPU isn't kerenl module */
+#if IS_BUILTIN(CONFIG_MTK_GPU_SUPPORT)
 #if defined(CONFIG_MACH_MT8167) || defined(CONFIG_MACH_MT8173)\
 || defined(CONFIG_MACH_MT6739) || defined(CONFIG_MACH_MT6761)\
 || defined(CONFIG_MACH_MT6765)
@@ -1120,7 +1120,7 @@ void ged_log_dump(GED_LOG_BUF_HANDLE hLogBuf)
 			psGEDLogBuf->ulIRQFlags);
 	}
 }
-#ifdef CONFIG_MTK_GPU_SUPPORT
+#if IS_BUILTIN(CONFIG_MTK_GPU_SUPPORT)
 static unsigned long __read_mostly tracing_mark_write_addr;
 #endif
 static inline void __mt_update_tracing_mark_write_addr(void)
@@ -1130,7 +1130,7 @@ static inline void __mt_update_tracing_mark_write_addr(void)
  * kernel-4.19, and it cause build error in gki flavor, so we check
  * CONFIG_MTK_GPU_SUPPORT=y
  */
-#ifdef CONFIG_MTK_GPU_SUPPORT
+#if IS_BUILTIN(CONFIG_MTK_GPU_SUPPORT)
 	if (unlikely(tracing_mark_write_addr == 0)) {
 		tracing_mark_write_addr =
 			kallsyms_lookup_name("tracing_mark_write");

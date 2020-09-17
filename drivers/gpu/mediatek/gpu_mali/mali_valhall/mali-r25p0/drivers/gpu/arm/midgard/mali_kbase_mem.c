@@ -2588,7 +2588,7 @@ void kbase_mem_kref_free(struct kref *kref)
 			       alloc->imported.umm.dma_attachment);
 		dma_buf_put(alloc->imported.umm.dma_buf);
 
-#ifdef CONFIG_MTK_IOMMU_V2
+#if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
 		if (alloc->imported.umm.ion_client != NULL &&
 			alloc->imported.umm.ion_handle != NULL) {
 			ion_free(alloc->imported.umm.ion_client, alloc->imported.umm.ion_handle);
