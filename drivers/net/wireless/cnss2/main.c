@@ -2266,7 +2266,7 @@ static int cnss_register_bus_scale(struct cnss_plat_data *plat_priv)
 	}
 	cfg_arr_size = plat_priv->icc.path_count *
 			 plat_priv->icc.bus_bw_cfg_count * CNSS_ICC_VOTE_MAX;
-	cfg_arr = kzalloc(cfg_arr_size, GFP_KERNEL);
+	cfg_arr = kcalloc(cfg_arr_size, sizeof(*cfg_arr), GFP_KERNEL);
 	if (!cfg_arr) {
 		cnss_pr_err("Failed to alloc cfg table mem\n");
 		ret = -ENOMEM;
