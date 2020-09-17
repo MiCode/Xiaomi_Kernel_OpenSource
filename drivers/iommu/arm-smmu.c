@@ -110,6 +110,15 @@ struct arm_smmu_cb {
 #define ARM_SMMU_CB_VMID(smmu, cfg) ((u16)(smmu)->cavium_id_base + \
 							(cfg)->cbndx + 1)
 
+#define TCU_TESTBUS_SEL_ALL 0x3
+#define TBU_TESTBUS_SEL_ALL 0xf
+
+int tbu_testbus_sel = TBU_TESTBUS_SEL_ALL;
+int tcu_testbus_sel = TCU_TESTBUS_SEL_ALL;
+
+module_param_named(tcu_testbus_sel, tcu_testbus_sel, int, 0644);
+module_param_named(tbu_testbus_sel, tbu_testbus_sel, int, 0644);
+
 struct arm_smmu_pte_info {
 	void *virt_addr;
 	size_t size;
