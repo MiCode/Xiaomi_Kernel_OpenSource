@@ -591,22 +591,6 @@ unsigned long model_dynamic_power(struct devfreq *devfreq,
 {
 	return mt_gpufreq_get_dyn_power(freqHz/1000, voltage_mv * 100);
 }
-/* look-up power table with current freq */
-int modelget_real_power(struct devfreq *df, u32 *power,
-			      unsigned long freqHz, unsigned long voltage_mv)
-
-{
-	int opp_idx;
-
-	(void)(voltage_mv);
-	(void)(df);
-
-	opp_idx = mt_gpufreq_get_opp_idx_by_freq(freqHz / 1000);
-	if (power) /* return power */
-		*power = mt_gpufreq_get_power_by_idx(opp_idx);
-	/* assume success */
-	return 0;
-}
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 4, 0)
 struct devfreq_cooling_ops kbase_ipa_power_model_ops = {
@@ -617,7 +601,7 @@ struct devfreq_cooling_power kbase_ipa_power_model_ops = {
 	.get_dynamic_power = &model_dynamic_power,
 #if defined(CONFIG_MALI_PWRSOFT_765) || \
 	LINUX_VERSION_CODE >= KERNEL_VERSION(4, 10, 0)
-	.get_real_power = &modelget_real_power,
+	/* .get_real_power = &modelget_real_power, */
 #endif
 };
 KBASE_EXPORT_TEST_API(kbase_ipa_power_model_ops);
