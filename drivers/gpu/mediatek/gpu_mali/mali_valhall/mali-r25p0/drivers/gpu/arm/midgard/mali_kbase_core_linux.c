@@ -4363,7 +4363,7 @@ static int kbase_platform_device_remove(struct platform_device *pdev)
 
 	kbase_device_term(kbdev);
 	dev_set_drvdata(kbdev->dev, NULL);
-#ifdef CONFIG_MTK_IOMMU_V2
+#if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
 	if (kbdev->client != NULL)
 		ion_client_destroy(kbdev->client);
 #endif
@@ -4470,7 +4470,7 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 		mtk_bandwith_resource_init(kbdev);
 #endif
 
-#ifdef CONFIG_MTK_IOMMU_V2
+#if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
 		if (g_ion_device)
 			kbdev->client = ion_client_create(g_ion_device, "mali_kbase");
 

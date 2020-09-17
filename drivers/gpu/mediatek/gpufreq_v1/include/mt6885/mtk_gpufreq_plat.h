@@ -19,11 +19,10 @@
 #define gpufreq_pr_info(fmt, args...)	pr_info(GPUFERQ_TAG fmt, ##args)
 #define gpufreq_pr_debug(fmt, args...)	pr_debug(GPUFERQ_TAG fmt, ##args)
 
-#ifdef CONFIG_MTK_GPU_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_GPU_SUPPORT)
 #define gpufreq_pr_logbuf(fmt, args...)			\
 do {							\
 	gpufreq_pr_debug(fmt, ##args);			\
-	ged_log_buf_print2(gpufreq_ged_log, GED_LOG_ATTR_TIME, fmt, ##args); \
 } while (0)
 #else
 #define gpufreq_pr_logbuf(fmt, args...)	gpufreq_pr_debug(fmt, ##args)

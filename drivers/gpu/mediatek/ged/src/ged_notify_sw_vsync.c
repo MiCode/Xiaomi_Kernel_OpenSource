@@ -489,7 +489,7 @@ void ged_sodi_stop(void)
 	}
 }
 
-#ifdef CONFIG_MTK_GPU_SUPPORT /* Only enable when GPU isn't kerenl module */
+#if IS_BUILTIN(CONFIG_MTK_GPU_SUPPORT)
 #if defined(CONFIG_MACH_MT8167) || defined(CONFIG_MACH_MT8173)\
 || defined(CONFIG_MACH_MT6739) || defined(CONFIG_MACH_MT6761)\
 || defined(CONFIG_MACH_MT6765)

@@ -92,7 +92,9 @@ static GED_LOG_BUF_HANDLE ghLogBuf_ftrace;
 GED_LOG_BUF_HANDLE ghLogBuf_DVFS;
 #endif /* GED_DVFS_DEBUG_BUF */
 
+#if IS_ENABLED(CONFIG_MTK_GPU_SUPPORT)
 GED_LOG_BUF_HANDLE gpufreq_ged_log;
+#endif
 
 static const struct of_device_id g_ged_of_match[] = {
 	{ .compatible = "mediatek,ged" },

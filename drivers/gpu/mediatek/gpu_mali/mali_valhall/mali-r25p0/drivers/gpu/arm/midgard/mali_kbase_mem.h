@@ -42,7 +42,7 @@
 /* Required for kbase_mem_evictable_unmake */
 #include "mali_kbase_mem_linux.h"
 
-#ifdef CONFIG_MTK_IOMMU_V2
+#if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
 #include <mtk/ion_drv.h>
 #include <mtk/mtk_ion.h>
 #include <ion.h>
@@ -154,7 +154,7 @@ struct kbase_mem_phy_alloc {
 			unsigned int current_mapping_usage_count;
 			struct sg_table *sgt;
 			bool need_sync;
-#ifdef CONFIG_MTK_IOMMU_V2
+#if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
 			struct ion_client *ion_client;
 			struct ion_handle *ion_handle;
 #endif
