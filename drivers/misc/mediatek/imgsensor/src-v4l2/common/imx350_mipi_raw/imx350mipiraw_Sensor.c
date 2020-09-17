@@ -40,8 +40,6 @@
 #include "imx350mipiraw_Sensor.h"
 
 #include "adaptor-subdrv.h"
-
-#include "adaptor-subdrv.h"
 #include "adaptor-i2c.h"
 
 #define read_cmos_sensor(...) subdrv_i2c_rd_u8(__VA_ARGS__)
@@ -239,7 +237,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 
 /* Sensor output window information */
 static struct SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info[10] = {
-	{5184, 3880, 0, 0, 5184, 3880, 2592, 1936,
+	{5184, 3880, 0, 0, 5184, 3872, 2592, 1936,
 	0000, 0000, 2592, 1936, 0, 0, 2592, 1936},	/* Preview */
 	{5184, 3880, 0, 0, 5184, 3880, 5184, 3880,
 	0000, 0000, 5184, 3880, 0, 0, 5184, 3880},	/* capture */
@@ -4311,19 +4309,6 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 }				/*    feature_control(ctx)  */
 
 
-static struct subdrv_pw_seq_entry pw_seq[] = {
-	{HW_ID_MCLK, 24, 0},
-	{HW_ID_PDN, 0, 0},
-	{HW_ID_RST, 0, 0},
-	{HW_ID_AVDD, 2800000, 0},
-	{HW_ID_DVDD, 1200000, 0},
-	{HW_ID_DOVDD, 1800000, 1},
-	{HW_ID_MCLK_DRIVING_CURRENT, 8, 5},
-	{HW_ID_PDN, 1, 0},
-	{HW_ID_RST, 1, 1},
-};
-
-
 static const struct subdrv_ctx defctx = {
 
 	.ana_gain_def = 0x100,
@@ -4374,6 +4359,18 @@ static struct subdrv_ops ops = {
 	.control = control,
 	.feature_control = feature_control,
 	.close = close,
+};
+
+static struct subdrv_pw_seq_entry pw_seq[] = {
+	{HW_ID_MCLK, 24, 0},
+	{HW_ID_PDN, 0, 0},
+	{HW_ID_RST, 0, 0},
+	{HW_ID_AVDD, 2800000, 0},
+	{HW_ID_DVDD, 1200000, 0},
+	{HW_ID_DOVDD, 1800000, 1},
+	{HW_ID_MCLK_DRIVING_CURRENT, 8, 5},
+	{HW_ID_PDN, 1, 0},
+	{HW_ID_RST, 1, 1},
 };
 
 const struct subdrv_entry imx350_mipi_raw_entry = {

@@ -45,8 +45,6 @@
 #include "imx398_eeprom.h"
 
 #include "adaptor-subdrv.h"
-
-#include "adaptor-subdrv.h"
 #include "adaptor-i2c.h"
 
 #define read_cmos_sensor(...) subdrv_i2c_rd_u8(__VA_ARGS__)
@@ -4585,21 +4583,6 @@ static int feature_control(struct subdrv_ctx *ctx,
 	return ERROR_NONE;
 }				/*    feature_control(ctx)  */
 
-
-static struct subdrv_pw_seq_entry pw_seq[] = {
-	{HW_ID_MCLK, 24, 0},
-	{HW_ID_PDN, 0, 0},
-	{HW_ID_RST, 0, 0},
-	{HW_ID_AVDD, 2800000, 0},
-	{HW_ID_DOVDD, 1800000, 1},
-	{HW_ID_DVDD, 1100000, 0},
-	{HW_ID_AFVDD, 2800000, 0},
-	{HW_ID_MCLK_DRIVING_CURRENT, 2, 0},
-	{HW_ID_PDN, 1, 0},
-	{HW_ID_RST, 1, 1},
-};
-
-
 static const struct subdrv_ctx defctx = {
 
 	.ana_gain_def = 0x100,
@@ -4663,6 +4646,19 @@ static struct subdrv_ops ops = {
 #ifdef IMGSENSOR_VC_ROUTING
 	.get_frame_desc = get_frame_desc,
 #endif
+};
+
+static struct subdrv_pw_seq_entry pw_seq[] = {
+	{HW_ID_MCLK, 24, 0},
+	{HW_ID_PDN, 0, 0},
+	{HW_ID_RST, 0, 0},
+	{HW_ID_AVDD, 2800000, 0},
+	{HW_ID_DOVDD, 1800000, 1},
+	{HW_ID_DVDD, 1100000, 0},
+	{HW_ID_AFVDD, 2800000, 0},
+	{HW_ID_MCLK_DRIVING_CURRENT, 2, 0},
+	{HW_ID_PDN, 1, 0},
+	{HW_ID_RST, 1, 1},
 };
 
 const struct subdrv_entry imx398_mipi_raw_entry = {
