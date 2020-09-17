@@ -99,7 +99,7 @@ int mt6873_suspend_s2idle_prompt(int cpu,
 
 	cpumask_set_cpu(cpu, &s2idle_cpumask);
 	if (cpumask_weight(&s2idle_cpumask) == num_online_cpus()) {
-#ifdef CONFIG_PM_SLEEP
+#if IS_ENABLED(CONFIG_PM_SLEEP)
 		/* TODO
 		 * Need to fix the rcu_idle workaround later.
 		 * There are many rcu behaviors in syscore callback.
@@ -123,7 +123,7 @@ void mt6873_suspend_s2idle_reflect(int cpu,
 	if (cpumask_weight(&s2idle_cpumask) == num_online_cpus()) {
 		__mt6873_suspend_reflect(MTK_LPM_SUSPEND_S2IDLE,
 					 cpu, issuer);
-#ifdef CONFIG_PM_SLEEP
+#if IS_ENABLED(CONFIG_PM_SLEEP)
 		/* TODO
 		 * Need to fix the rcu_idle/timekeeping later.
 		 * There are many rcu behaviors in syscore callback.
@@ -154,7 +154,7 @@ struct mtk_lpm_model mt6873_model_suspend = {
 	}
 };
 
-#ifdef CONFIG_PM
+#if IS_ENABLED(CONFIG_PM)
 static int mt6873_spm_suspend_pm_event(struct notifier_block *notifier,
 			unsigned long pm_event, void *unused)
 {
@@ -207,7 +207,7 @@ int __init mt6873_model_suspend_init(void)
 
 	cpumask_clear(&s2idle_cpumask);
 
-#ifdef CONFIG_PM
+#if IS_ENABLED(CONFIG_PM)
 	ret = register_pm_notifier(&mt6873_spm_suspend_pm_notifier_func);
 	if (ret) {
 		pr_debug("[name:spm&][SPM] Failed to register PM notifier.\n");

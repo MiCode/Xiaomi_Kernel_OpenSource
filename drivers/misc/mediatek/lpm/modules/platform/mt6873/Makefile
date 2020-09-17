@@ -1,8 +1,3 @@
-
-ifeq ($(CONFIG_MTK_TINYSYS_SSPM_SUPPORT), y)
-MTK_LPM_MODULE_PLAT_PLATFORM_CFLAGS += -I$(srctree)/drivers/misc/mediatek/sspm/v1
-endif
-
 ifeq ($(CONFIG_MTK_TINYSYS_MCUPM_SUPPORT),$(filter $(CONFIG_MTK_TINYSYS_MCUPM_SUPPORT),y m))
 MTK_LPM_MODULE_PLAT_PLATFORM_CFLAGS += -I$(srctree)/drivers/misc/mediatek/mcupm/
 MTK_LPM_MODULE_PLAT_PLATFORM_CFLAGS += -I$(srctree)/drivers/misc/mediatek/mcupm/include/

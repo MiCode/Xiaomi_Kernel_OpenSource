@@ -565,7 +565,6 @@ static int lpm_pm_event(struct notifier_block *notifier, unsigned long pm_event,
 		ret = suspend_syssync_check();
 		if (ret < 0)
 			return NOTIFY_BAD;
-	/* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
 		return NOTIFY_DONE;
 	case PM_POST_SUSPEND:
 		return NOTIFY_DONE;

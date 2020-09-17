@@ -67,24 +67,17 @@ static void spm_resource_req_timer_fn(struct timer_list *data)
 static void spm_resource_req_timer_en(u32 enable, u32 timer_ms)
 {
 	if (enable) {
-		/* if spm resource request timer doesn't init */
-		if (spm_resource_req_timer.function == NULL) {
-			/* FIXME */
-			timer_setup(&spm_resource_req_timer, NULL, 0);
-			//init_timer(&spm_resource_req_timer); -> timer_setup
-			//spm_resource_req_timer.function =
-			//	spm_resource_req_timer_fn;
-			//spm_resource_req_timer.data = 0;
-			spm_resource_req_timer_is_enabled = false;
-		}
-
 		if (spm_resource_req_timer_is_enabled)
 			return;
+
+		timer_setup(&spm_resource_req_timer,
+			spm_resource_req_timer_fn, 0);
 
 		spm_resource_req_timer_ms = timer_ms;
 		spm_resource_req_timer.expires = jiffies +
 			msecs_to_jiffies(spm_resource_req_timer_ms);
 		add_timer(&spm_resource_req_timer);
+
 		spm_resource_req_timer_is_enabled = true;
 	} else if (spm_resource_req_timer_is_enabled) {
 		del_timer(&spm_resource_req_timer);
@@ -113,6 +106,13 @@ ssize_t set_spm_resource_req_timer_enable(char *ToUserBuf
 	if (sscanf(ToUserBuf, "%d %d", &is_enable, &timer_ms) == 2) {
 		spm_resource_req_timer_en(is_enable, timer_ms);
 		return sz;
+	}
+
+	if (kstrtouint(ToUserBuf, 10, &is_enable) == 0) {
+		if (is_enable == 0) {
+			spm_resource_req_timer_en(is_enable, 0);
+			return sz;
+		}
 	}
 
 	return -EINVAL;

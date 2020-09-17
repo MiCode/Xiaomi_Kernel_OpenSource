@@ -6,11 +6,6 @@
 #include <linux/workqueue.h>
 #include <linux/delay.h>
 
-#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
-#include <sspm_helper.h>
-#include <sspm_mbox.h>
-#endif
-
 #include <mtk_lp_plat_apmcu_mbox.h>
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_MCUPM_SUPPORT)
 #include "mcupm_driver.h"
@@ -20,22 +15,6 @@ struct mbox_ops {
 	void (*write)(int id, int *buf, unsigned int len);
 	void (*read)(int id, int *buf, unsigned int len);
 };
-
-static void apmcu_sspm_mailbox_write(int id, int *buf, unsigned int len)
-{
-#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
-//	if (is_sspm_ready())
-//		sspm_mbox_write(APMCU_SSPM_MBOX_ID, id, (void *)buf, len);
-#endif
-}
-
-static void apmcu_sspm_mailbox_read(int id, int *buf, unsigned int len)
-{
-#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
-//	if (is_sspm_ready())
-//		sspm_mbox_read(APMCU_SSPM_MBOX_ID, id, (void *)&buf, len);
-#endif
-}
 
 static void apmcu_mcupm_mailbox_write(int id, int *buf, unsigned int len)
 {
@@ -52,31 +31,11 @@ static void apmcu_mcupm_mailbox_read(int id, int *buf, unsigned int len)
 }
 
 static struct mbox_ops mbox[NF_MBOX] = {
-	[MBOX_SSPM] = {
-		.write = apmcu_sspm_mailbox_write,
-		.read = apmcu_sspm_mailbox_read
-	},
 	[MBOX_MCUPM] = {
 		.write = apmcu_mcupm_mailbox_write,
 		.read = apmcu_mcupm_mailbox_read
 	},
 };
-
-void mtk_set_sspm_lp_cmd(void *buf)
-{
-	mbox[MBOX_SSPM].write(APMCU_SSPM_MBOX_SPM_CMD,
-			(int *)buf,
-			APMCU_SSPM_MBOX_SPM_CMD_SIZE);
-}
-
-void mtk_clr_sspm_lp_cmd(void)
-{
-	int buf[APMCU_SSPM_MBOX_SPM_CMD_SIZE] = {0};
-
-	mbox[MBOX_SSPM].write(APMCU_SSPM_MBOX_SPM_CMD,
-			(int *)buf,
-			APMCU_SSPM_MBOX_SPM_CMD_SIZE);
-}
 
 static void mtk_mcupm_pwr_ctrl_setting(int dev)
 {
@@ -170,7 +129,7 @@ void mtk_wait_mbox_init_done(void)
 
 	mtk_mcupm_pwr_ctrl_setting(
 			 MCUPM_MCUSYS_CTRL |
-#ifdef CONFIG_MTK_CM_MGR
+#if IS_ENABLED(CONFIG_MTK_CM_MGR)
 			 MCUPM_CM_CTRL |
 #endif
 			 MCUPM_BUCK_CTRL |
@@ -179,13 +138,12 @@ void mtk_wait_mbox_init_done(void)
 
 void mtk_notify_subsys_ap_ready(void)
 {
-#ifdef CONFIG_MFD_MT6360_PMU
+#if IS_ENABLED(CONFIG_MFD_MT6360_PMU)
 	int ready = 0x6360;
 #else
 	int ready = 1;
 #endif
 
-	mbox[MBOX_SSPM].write(APMCU_SSPM_MBOX_AP_READY, &ready, 1);
 	mbox[MBOX_MCUPM].write(APMCU_MCUPM_MBOX_AP_READY, &ready, 1);
 }
 
