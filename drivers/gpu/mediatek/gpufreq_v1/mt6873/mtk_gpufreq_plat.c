@@ -2076,6 +2076,7 @@ out:
 static int mt_gpufreq_opp_dump_proc_show(struct seq_file *m, void *v)
 {
 	int i;
+	int power = 0;
 
 	for (i = g_segment_max_opp_idx; i <= g_segment_min_opp_idx; i++) {
 		seq_printf(m, "[%02d] ",
@@ -2088,8 +2089,12 @@ static int mt_gpufreq_opp_dump_proc_show(struct seq_file *m, void *v)
 				g_opp_table[i].gpufreq_vsram);
 		seq_printf(m, "posdiv = %d, ",
 				(1 << g_opp_table[i].gpufreq_post_divider));
-		seq_printf(m, "gpu_power = %d, ",
-				g_power_table[i].gpufreq_power);
+
+		power = mt_gpufreq_get_dyn_power(g_opp_table[i].gpufreq_khz,
+						g_opp_table[i].gpufreq_vgpu);
+		power += mt_gpufreq_get_leakage_mw();
+
+		seq_printf(m, "gpu_power = %d, ", power);
 		seq_printf(m, "aging = %d\n",
 				g_opp_table[i].gpufreq_aging_margin);
 	}
