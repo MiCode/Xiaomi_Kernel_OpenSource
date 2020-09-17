@@ -36,7 +36,7 @@
 
 #include "mtk_cm_mgr_common.h"
 
-#ifdef CONFIG_MTK_DVFSRC
+#if IS_ENABLED(CONFIG_MTK_DVFSRC)
 #include <linux/soc/mediatek/mtk_dvfsrc.h>
 #include <dvfsrc-exp.h>
 #endif /* CONFIG_MTK_DVFSRC */
