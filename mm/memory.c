@@ -4417,6 +4417,7 @@ int __handle_speculative_fault(struct mm_struct *mm, unsigned long address,
 	 * If there is no need to retry, don't return the vma to the caller.
 	 */
 	if (ret != VM_FAULT_RETRY) {
+		check_sync_rss_stat(current);
 		if (vma_is_anonymous(vmf.vma))
 			count_vm_event(SPECULATIVE_PGFAULT_ANON);
 		else
