@@ -11,8 +11,8 @@
 #define CREATE_TRACE_POINTS
 #include "mtk_cm_mgr_events_mt6873.h"
 
-#ifdef CONFIG_MTK_DRAMC
-#include <mtk_dramc.h>
+#if IS_ENABLED(CONFIG_MTK_DRAMC)
+#include <soc/mediatek/dramc.h>
 #endif /* CONFIG_MTK_DRAMC */
 
 #define CM_MGR_CPU_CLUSTER 2

@@ -34,13 +34,13 @@
 #include <linux/pm_domain.h>
 #include <linux/pm_opp.h>
 #include <linux/interconnect.h>
-#ifdef CONFIG_MTK_DVFSRC
+#if IS_ENABLED(CONFIG_MTK_DVFSRC)
 #include "dvfsrc-exp.h"
 #endif /* CONFIG_MTK_DVFSRC */
 #include "mtk_cm_mgr_mt6873.h"
 #include "mtk_cm_mgr_common.h"
 
-#ifdef CONFIG_MTK_CPU_FREQ
+#if IS_ENABLED(CONFIG_MTK_CPU_FREQ)
 #include <mtk_cpufreq_platform.h>
 #include <mtk_cpufreq_common_api.h>
 #endif /* CONFIG_MTK_CPU_FREQ */
@@ -61,7 +61,7 @@ static int cm_mgr_idx = -1;
 
 static int cm_mgr_check_dram_type(void)
 {
-#ifdef CONFIG_MTK_DRAMC
+#if IS_ENABLED(CONFIG_MTK_DRAMC)
 	int ddr_type = mtk_dramc_get_ddr_type();
 	int ddr_hz = mtk_dramc_get_steps_freq(0);
 
@@ -282,7 +282,7 @@ void cm_mgr_update_dram_by_cpu_opp(int cpu_opp)
 
 void check_cm_mgr_status_mt6873(unsigned int cluster, unsigned int freq)
 {
-#ifdef CONFIG_MTK_CPU_FREQ
+#if IS_ENABLED(CONFIG_MTK_CPU_FREQ)
 	int freq_idx = 0;
 	struct mt_cpu_dvfs *p;
 
@@ -320,7 +320,7 @@ static int platform_cm_mgr_probe(struct platform_device *pdev)
 {
 	int ret;
 	struct device_node *node = pdev->dev.of_node;
-#ifdef CONFIG_MTK_DVFSRC
+#if IS_ENABLED(CONFIG_MTK_DVFSRC)
 	int i;
 #endif /* CONFIG_MTK_DVFSRC */
 
@@ -354,7 +354,7 @@ static int platform_cm_mgr_probe(struct platform_device *pdev)
 			goto ERROR;
 		}
 
-#ifdef CONFIG_MTK_DVFSRC
+#if IS_ENABLED(CONFIG_MTK_DVFSRC)
 		for (i = 0; i < cm_mgr_num_perf; i++) {
 			cm_mgr_perfs[i] =
 				dvfsrc_get_required_opp_peak_bw(node, i);
@@ -372,7 +372,7 @@ static int platform_cm_mgr_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-#ifdef CONFIG_MTK_CPU_FREQ
+#if IS_ENABLED(CONFIG_MTK_CPU_FREQ)
 	mt_cpufreq_set_governor_freq_registerCB(check_cm_mgr_status_mt6873);
 #endif /* CONFIG_MTK_CPU_FREQ */
 
