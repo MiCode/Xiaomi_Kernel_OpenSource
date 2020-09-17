@@ -26,6 +26,17 @@
 #define MMRM_CLIENT_DATA_FLAG_RESERVE_ONLY  0x0001
 
 /**
+ * mmrm_client_domain : MMRM client domain
+ * Clients need to configure this in mmrm_clk_client_desc
+ */
+enum mmrm_client_domain {
+	MMRM_CLIENT_DOMAIN_CAMERA = 0x1,
+	MMRM_CLIENT_DOMAIN_CVP = 0x2,
+	MMRM_CLIENT_DOMAIN_DISPLAY = 0x3,
+	MMRM_CLIENT_DOMAIN_VIDEO = 0x4,
+};
+
+/**
  * mmrm_client_type : MMRM Client type
  */
 enum mmrm_client_type {
@@ -112,11 +123,13 @@ struct mmrm_client {
 /**
  * mmrm_clk_client_desc : MMRM clock client descriptor used
  *                        for registering client
- * @client_id: Client provides this info as one of CLK_SRC_XXXX
+ * @client_domain: Client provides MMRM_CLIENT_DOMAIN_XXXX
+ * @client_id: Client provides CLK_SRC_XXXX id
  * @name     : Client name
  * @clk      : Pointer to clock struct
  */
 struct mmrm_clk_client_desc {
+	u32 client_domain;
 	u32 client_id;
 	const char name[MMRM_CLK_CLIENT_NAME_SIZE];
 	struct clk *clk;
@@ -136,7 +149,7 @@ struct mmrm_clk_client_desc {
 struct mmrm_client_desc {
 	enum mmrm_client_type client_type;
 	union {
-		mmrm_clk_client_desc desc;
+		struct mmrm_clk_client_desc desc;
 	} client_info;
 	enum mmrm_client_priority priority;
 	void *pvt_data;
@@ -235,13 +248,13 @@ static inline int mmrm_client_deregister(struct mmrm_client *client)
 }
 
 static inline int mmrm_client_set_value(struct mmrm_client *client,
-	struct mmrm_client_set_data *client_data, unsigned long val)
+	struct mmrm_client_data *client_data, unsigned long val)
 {
 	return -EINVAL;
 }
 
 static inline int mmrm_client_set_value_in_range(struct mmrm_client *client,
-	struct mmrm_client_set_data *client_data,
+	struct mmrm_client_data *client_data,
 	struct mmrm_client_res_value *val)
 {
 	return -EINVAL;
