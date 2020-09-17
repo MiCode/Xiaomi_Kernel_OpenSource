@@ -26,10 +26,6 @@
 #include "input-compat.h"
 #include "input-poller.h"
 
-#ifndef __GENKSYMS__
-#include <trace/hooks/debug.h>
-#endif
-
 MODULE_AUTHOR("Vojtech Pavlik <vojtech@suse.cz>");
 MODULE_DESCRIPTION("Input core");
 MODULE_LICENSE("GPL");
@@ -442,7 +438,6 @@ void input_event(struct input_dev *dev,
 	if (is_event_supported(type, dev->evbit, EV_MAX)) {
 
 		spin_lock_irqsave(&dev->event_lock, flags);
-		trace_android_vh_input_handle_event(dev, type, code, value);
 		input_handle_event(dev, type, code, value);
 		spin_unlock_irqrestore(&dev->event_lock, flags);
 	}
