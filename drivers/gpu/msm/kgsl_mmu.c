@@ -361,13 +361,10 @@ kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 
 	if (!memdesc->gpuaddr)
 		return -EINVAL;
-	if (!(memdesc->flags & (KGSL_MEMFLAGS_SPARSE_VIRT |
-					KGSL_MEMFLAGS_SPARSE_PHYS))) {
-		/* Only global mappings should be mapped multiple times */
-		if (!kgsl_memdesc_is_global(memdesc) &&
-				(KGSL_MEMDESC_MAPPED & memdesc->priv))
-			return -EINVAL;
-	}
+	/* Only global mappings should be mapped multiple times */
+	if (!kgsl_memdesc_is_global(memdesc) &&
+			(KGSL_MEMDESC_MAPPED & memdesc->priv))
+		return -EINVAL;
 
 	size = kgsl_memdesc_footprint(memdesc);
 
@@ -382,7 +379,6 @@ kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 		KGSL_STATS_ADD(size, &pagetable->stats.mapped,
 				&pagetable->stats.max_mapped);
 
-		/* This is needed for non-sparse mappings */
 		memdesc->priv |= KGSL_MEMDESC_MAPPED;
 	}
 
@@ -445,12 +441,9 @@ kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
 	if (memdesc->size == 0)
 		return -EINVAL;
 
-	if (!(memdesc->flags & (KGSL_MEMFLAGS_SPARSE_VIRT |
-					KGSL_MEMFLAGS_SPARSE_PHYS))) {
-		/* Only global mappings should be mapped multiple times */
-		if (!(KGSL_MEMDESC_MAPPED & memdesc->priv))
-			return -EINVAL;
-	}
+	/* Only global mappings should be mapped multiple times */
+	if (!(KGSL_MEMDESC_MAPPED & memdesc->priv))
+		return -EINVAL;
 
 	if (PT_OP_VALID(pagetable, mmu_unmap)) {
 		uint64_t size;
@@ -467,64 +460,6 @@ kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
 	}
 
 	return ret;
-}
-
-int kgsl_mmu_map_offset(struct kgsl_pagetable *pagetable,
-			uint64_t virtaddr, uint64_t virtoffset,
-			struct kgsl_memdesc *memdesc, uint64_t physoffset,
-			uint64_t size, uint64_t flags)
-{
-	if (PT_OP_VALID(pagetable, mmu_map_offset)) {
-		int ret;
-
-		ret = pagetable->pt_ops->mmu_map_offset(pagetable, virtaddr,
-				virtoffset, memdesc, physoffset, size, flags);
-		if (ret)
-			return ret;
-
-		atomic_inc(&pagetable->stats.entries);
-		KGSL_STATS_ADD(size, &pagetable->stats.mapped,
-				&pagetable->stats.max_mapped);
-	}
-
-	return 0;
-}
-
-int kgsl_mmu_unmap_offset(struct kgsl_pagetable *pagetable,
-		struct kgsl_memdesc *memdesc, uint64_t addr, uint64_t offset,
-		uint64_t size)
-{
-	if (PT_OP_VALID(pagetable, mmu_unmap_offset)) {
-		int ret;
-
-		ret = pagetable->pt_ops->mmu_unmap_offset(pagetable, memdesc,
-				addr, offset, size);
-		if (ret)
-			return ret;
-
-		atomic_dec(&pagetable->stats.entries);
-		atomic_long_sub(size, &pagetable->stats.mapped);
-	}
-
-	return 0;
-}
-
-int kgsl_mmu_sparse_dummy_map(struct kgsl_pagetable *pagetable,
-		struct kgsl_memdesc *memdesc, uint64_t offset, uint64_t size)
-{
-	if (PT_OP_VALID(pagetable, mmu_sparse_dummy_map)) {
-		int ret;
-
-		ret = pagetable->pt_ops->mmu_sparse_dummy_map(pagetable,
-				memdesc, offset, size);
-		if (ret)
-			return ret;
-
-		atomic_dec(&pagetable->stats.entries);
-		atomic_long_sub(size, &pagetable->stats.mapped);
-	}
-
-	return 0;
 }
 
 void kgsl_mmu_map_global(struct kgsl_device *device,
