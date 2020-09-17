@@ -7,7 +7,7 @@ MTK_LPM_MODULE_PLATFORM_PLAT_NAME = $(strip $(subst ",, $(CONFIG_MTK_LPM_MODULE_
 
 #mtk-lpm platform source files
 ifneq ($(MTK_LPM_MODULE_PLATFORM_PLAT_NAME), )
-include $(MTK_LPM_MODULES_FOLDER)/platform/${MTK_LPM_MODULE_PLATFORM_PLAT_NAME}/build.mk
+include $(MTK_LPM_MODULES_FOLDER)/platform/${MTK_LPM_MODULE_PLATFORM_PLAT_NAME}/Makefile
 
 ccflags-y += -I$(MTK_LPM_MODULES_FOLDER)/platform/${MTK_LPM_MODULE_PLATFORM_PLAT_NAME}/
 ccflags-y += ${MTK_LPM_MODULE_PLAT_PLATFORM_CFLAGS}

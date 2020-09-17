@@ -7,7 +7,6 @@
 #define __MTK_LP_PLAT_APMCU_MBOX_H__
 
 enum {
-	MBOX_SSPM,
 	MBOX_MCUPM,
 
 	NF_MBOX,
@@ -27,12 +26,7 @@ enum {
 #define APMCU_SSPM_MBOX_SPM_ARGS7    7
 #define APMCU_SSPM_MBOX_AP_READY     17
 
-void mtk_set_sspm_lp_cmd(void *buf);
-void mtk_clr_sspm_lp_cmd(void);
-
-
 /* MCUPM Mbox */
-
 #define APMCU_MCUPM_MBOX_ID             3
 
 /* Read/Write */
