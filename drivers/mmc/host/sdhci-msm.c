@@ -124,6 +124,10 @@
 #define INVALID_TUNING_PHASE	-1
 #define SDHCI_MSM_MIN_CLOCK	400000
 #define CORE_FREQ_100MHZ	(100 * 1000 * 1000)
+#define TCXO_FREQ		19200000
+
+#define ROUND(x, y)		((x) / (y) + \
+				((x) % (y) * 10 / (y) >= 5 ? 1 : 0))
 
 #define CDR_SELEXT_SHIFT	20
 #define CDR_SELEXT_MASK		(0xf << CDR_SELEXT_SHIFT)
@@ -452,6 +456,9 @@ static void sdhci_msm_bus_voting(struct sdhci_host *host, bool enable);
 static int sdhci_msm_dt_get_array(struct device *dev, const char *prop_name,
 				u32 **bw_vecs, int *len, u32 size);
 
+static unsigned int sdhci_msm_get_sup_clk_rate(struct sdhci_host *host,
+				u32 req_clk);
+
 static const struct sdhci_msm_offset *sdhci_priv_msm_offset(struct sdhci_host *host)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
@@ -773,54 +780,94 @@ static int msm_init_cm_dll(struct sdhci_host *host,
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
 	int wait_cnt = 50;
-	unsigned long flags, xo_clk = 0;
-	u32 config;
+	int rc = 0;
+	unsigned long flags, dll_clock = 0;
+	u32 ddr_cfg_offset, core_vendor_spec;
 	const struct sdhci_msm_offset *msm_offset =
 					msm_host->offset;
 
-	if (msm_host->use_14lpp_dll_reset && !IS_ERR_OR_NULL(msm_host->xo_clk))
-		xo_clk = clk_get_rate(msm_host->xo_clk);
-
+	dll_clock = sdhci_msm_get_sup_clk_rate(host, host->clock);
 	spin_lock_irqsave(&host->lock, flags);
 
+	core_vendor_spec = readl_relaxed(host->ioaddr +
+			msm_offset->core_vendor_spec);
+
 	/*
-	 * Make sure that clock is always enabled when DLL
-	 * tuning is in progress. Keeping PWRSAVE ON may
-	 * turn off the clock.
+	 * Step 1 - Always disable PWRSAVE during the DLL power
+	 * up regardless of its current setting.
 	 */
-	config = readl_relaxed(host->ioaddr + msm_offset->core_vendor_spec);
-	config &= ~CORE_CLK_PWRSAVE;
-	writel_relaxed(config, host->ioaddr + msm_offset->core_vendor_spec);
+	writel_relaxed((core_vendor_spec & ~CORE_CLK_PWRSAVE),
+			host->ioaddr +
+			msm_offset->core_vendor_spec);
 
 	if (msm_host->use_14lpp_dll_reset) {
-		config = readl_relaxed(host->ioaddr +
-				msm_offset->core_dll_config);
-		config &= ~CORE_CK_OUT_EN;
-		writel_relaxed(config, host->ioaddr +
-				msm_offset->core_dll_config);
+		/* Step 2 - Disable CK_OUT */
+		writel_relaxed((readl_relaxed(host->ioaddr +
+			msm_offset->core_dll_config)
+			& ~CORE_CK_OUT_EN), host->ioaddr +
+			msm_offset->core_dll_config);
 
-		config = readl_relaxed(host->ioaddr +
-				msm_offset->core_dll_config_2);
-		config |= CORE_DLL_CLOCK_DISABLE;
-		writel_relaxed(config, host->ioaddr +
-				msm_offset->core_dll_config_2);
+		/* Step 3 - Disable the DLL clock */
+		writel_relaxed((readl_relaxed(host->ioaddr +
+			msm_offset->core_dll_config_2)
+			| CORE_DLL_CLOCK_DISABLE), host->ioaddr +
+			msm_offset->core_dll_config_2);
 	}
 
-	config = readl_relaxed(host->ioaddr +
-			msm_offset->core_dll_config);
-	config |= CORE_DLL_RST;
-	writel_relaxed(config, host->ioaddr +
-			msm_offset->core_dll_config);
+	/*
+	 * Step 4 - Write 1 to DLL_RST bit of DLL_CONFIG register
+	 * and Write 1 to DLL_PDN bit of DLL_CONFIG register.
+	 */
+	writel_relaxed((readl_relaxed(host->ioaddr +
+		msm_offset->core_dll_config) | CORE_DLL_RST),
+		host->ioaddr + msm_offset->core_dll_config);
 
-	config = readl_relaxed(host->ioaddr +
-			msm_offset->core_dll_config);
-	config |= CORE_DLL_PDN;
-	writel_relaxed(config, host->ioaddr +
-			msm_offset->core_dll_config);
+	writel_relaxed((readl_relaxed(host->ioaddr +
+		msm_offset->core_dll_config) | CORE_DLL_PDN),
+		host->ioaddr + msm_offset->core_dll_config);
 
-	if (msm_host->use_14lpp_dll_reset &&
-	    !IS_ERR_OR_NULL(msm_host->xo_clk)) {
+	/*
+	 * Step 5 and Step 6 - Configure Tassadar DLL and USER_CTRL
+	 * (Only applicable for 7FF projects).
+	 */
+	if (msm_host->use_7nm_dll) {
+		if (msm_host->dll_hsr) {
+			writel_relaxed(msm_host->dll_hsr->dll_config_3,
+					host->ioaddr +
+					msm_offset->core_dll_config_3);
+			writel_relaxed(msm_host->dll_hsr->dll_usr_ctl,
+					host->ioaddr +
+					msm_offset->core_dll_usr_ctl);
+		} else {
+			writel_relaxed(DLL_CONFIG_3_POR_VAL, host->ioaddr +
+				msm_offset->core_dll_config_3);
+			writel_relaxed(DLL_USR_CTL_POR_VAL | FINE_TUNE_MODE_EN |
+					ENABLE_DLL_LOCK_STATUS | BIAS_OK_SIGNAL,
+					host->ioaddr +
+					msm_offset->core_dll_usr_ctl);
+		}
+	}
+
+	/*
+	 * Step 8 - Set DDR_CONFIG since step 7 is setting TEST_CTRL
+	 * that can be skipped.
+	 */
+	if (msm_host->updated_ddr_cfg)
+		ddr_cfg_offset = msm_offset->core_ddr_config;
+	else
+		ddr_cfg_offset = msm_offset->core_ddr_config_old;
+
+	if (msm_host->dll_hsr->ddr_config)
+		writel_relaxed(msm_host->dll_hsr->ddr_config, host->ioaddr +
+			ddr_cfg_offset);
+	else
+		writel_relaxed(DDR_CONFIG_POR_VAL, host->ioaddr +
+			ddr_cfg_offset);
+
+	/* Step 9 - Set DLL_CONFIG_2 */
+	if (msm_host->use_14lpp_dll_reset) {
 		u32 mclk_freq = 0;
+		int cycle_cnt = 0;
 
 		/*
 		 * Only configure the mclk_freq in normal DLL init
@@ -830,83 +877,28 @@ static int msm_init_cm_dll(struct sdhci_host *host,
 		 * proper value prior to getting here.
 		 */
 		if (init_context == DLL_INIT_NORMAL) {
-			switch (host->clock) {
-			case 208000000:
-			case 202000000:
-			case 201500000:
-			case 200000000:
-				mclk_freq = 42;
-				break;
-			case 192000000:
-				mclk_freq = 40;
-				break;
-			default:
-				pr_err("%s: %s: Error. Unsupported clk freq\n",
-					mmc_hostname(mmc), __func__);
+			cycle_cnt = readl_relaxed(host->ioaddr +
+					msm_offset->core_dll_config_2)
+					& CORE_FLL_CYCLE_CNT ? 8 : 4;
 
-			}
+			mclk_freq = ROUND(dll_clock * cycle_cnt, TCXO_FREQ);
 
-			config = readl_relaxed(host->ioaddr +
-				msm_offset->core_dll_config_2);
-			config &= CORE_FLL_CYCLE_CNT;
-			if (config)
-				mclk_freq *= 2;
+			if (dll_clock < 192000000)
+				pr_err("%s: %s: Non standard clk freq =%u\n",
+				mmc_hostname(mmc), __func__, dll_clock);
 
-			config = readl_relaxed(host->ioaddr +
-					msm_offset->core_dll_config_2);
-			config &= ~(0xFF << 10);
-			config |= mclk_freq << 10;
-
-			writel_relaxed(config, host->ioaddr +
-					msm_offset->core_dll_config_2);
+			writel_relaxed(((readl_relaxed(host->ioaddr +
+				msm_offset->core_dll_config_2)
+				& ~(0xFF << 10)) | (mclk_freq << 10)),
+				host->ioaddr + msm_offset->core_dll_config_2);
 		}
 		/* wait for 5us before enabling DLL clock */
 		udelay(5);
 	}
 
-	config = readl_relaxed(host->ioaddr +
-			msm_offset->core_dll_config);
-	config &= ~CORE_DLL_RST;
-	writel_relaxed(config, host->ioaddr +
-			msm_offset->core_dll_config);
-
-	config = readl_relaxed(host->ioaddr +
-			msm_offset->core_dll_config);
-	config &= ~CORE_DLL_PDN;
-	writel_relaxed(config, host->ioaddr +
-			msm_offset->core_dll_config);
-
-	if (msm_host->use_14lpp_dll_reset) {
-		config = readl_relaxed(host->ioaddr +
-				msm_offset->core_dll_config_2);
-		config &= ~CORE_DLL_CLOCK_DISABLE;
-		writel_relaxed(config, host->ioaddr +
-				msm_offset->core_dll_config_2);
-	}
-
-	/* Configure Tassadar DLL (Only applicable for 7FF projects) */
-	if (msm_host->use_7nm_dll) {
-		if (msm_host->dll_hsr) {
-			writel_relaxed(msm_host->dll_hsr->dll_usr_ctl,
-					host->ioaddr +
-					msm_offset->core_dll_usr_ctl);
-			writel_relaxed(msm_host->dll_hsr->dll_config_3,
-					host->ioaddr +
-					msm_offset->core_dll_config_3);
-		} else {
-			writel_relaxed(DLL_USR_CTL_POR_VAL | FINE_TUNE_MODE_EN |
-					ENABLE_DLL_LOCK_STATUS | BIAS_OK_SIGNAL,
-					host->ioaddr +
-					msm_offset->core_dll_usr_ctl);
-
-			writel_relaxed(DLL_CONFIG_3_POR_VAL, host->ioaddr +
-				msm_offset->core_dll_config_3);
-		}
-	}
-
 	/*
-	 * Update the lower two bytes of DLL_CONFIG only with HSR values.
-	 * Since these are the static settings.
+	 * Step 10 - Update the lower two bytes of DLL_CONFIG only with
+	 * HSR values. Since these are the static settings.
 	 */
 	if (msm_host->dll_hsr) {
 		writel_relaxed((readl_relaxed(host->ioaddr +
@@ -915,33 +907,88 @@ static int msm_init_cm_dll(struct sdhci_host *host,
 			host->ioaddr + msm_offset->core_dll_config);
 	}
 
-	config = readl_relaxed(host->ioaddr +
-			msm_offset->core_dll_config);
-	config |= CORE_DLL_EN;
-	writel_relaxed(config, host->ioaddr +
+	/* Step 11 - Wait for 52us */
+	spin_unlock_irqrestore(&host->lock, flags);
+	usleep_range(55, 60);
+	spin_lock_irqsave(&host->lock, flags);
+
+	/*
+	 * Step12 - Write 0 to DLL_RST bit of DLL_CONFIG register
+	 * and Write 0 to DLL_PDN bit of DLL_CONFIG register.
+	 */
+	writel_relaxed((readl_relaxed(host->ioaddr +
+		msm_offset->core_dll_config) & ~CORE_DLL_RST),
+		host->ioaddr + msm_offset->core_dll_config);
+
+	writel_relaxed((readl_relaxed(host->ioaddr +
+		msm_offset->core_dll_config) & ~CORE_DLL_PDN),
+		host->ioaddr + msm_offset->core_dll_config);
+
+	/* Step 13 - Write 1 to DLL_RST bit of DLL_CONFIG register */
+	writel_relaxed((readl_relaxed(host->ioaddr +
+		msm_offset->core_dll_config) | CORE_DLL_RST),
+		host->ioaddr + msm_offset->core_dll_config);
+
+	/* Step 14 - Write 0 to DLL_RST bit of DLL_CONFIG register */
+	writel_relaxed((readl_relaxed(host->ioaddr +
+		msm_offset->core_dll_config) & ~CORE_DLL_RST),
+		host->ioaddr + msm_offset->core_dll_config);
+
+	/* Step 15 - Set CORE_DLL_CLOCK_DISABLE to 0 */
+	if (msm_host->use_14lpp_dll_reset) {
+		writel_relaxed((readl_relaxed(host->ioaddr +
+				msm_offset->core_dll_config_2)
+				& ~CORE_DLL_CLOCK_DISABLE), host->ioaddr +
+				msm_offset->core_dll_config_2);
+	}
+
+	/* Step 16 - Set DLL_EN bit to 1. */
+	writel_relaxed((readl_relaxed(host->ioaddr +
+			msm_offset->core_dll_config) | CORE_DLL_EN),
+			host->ioaddr + msm_offset->core_dll_config);
+
+	/*
+	 * Step 17 - Wait for 8000 input clock. Here we calculate the
+	 * delay from fixed clock freq 192MHz, which turns out 42us.
+	 */
+	spin_unlock_irqrestore(&host->lock, flags);
+	usleep_range(45, 50);
+	spin_lock_irqsave(&host->lock, flags);
+
+	/* Step 18 - Set CK_OUT_EN bit to 1. */
+	writel_relaxed((readl_relaxed(host->ioaddr +
+			msm_offset->core_dll_config)
+			| CORE_CK_OUT_EN), host->ioaddr +
 			msm_offset->core_dll_config);
 
-	config = readl_relaxed(host->ioaddr +
-			msm_offset->core_dll_config);
-	config |= CORE_CK_OUT_EN;
-	writel_relaxed(config, host->ioaddr +
-			msm_offset->core_dll_config);
-
-	/* Wait until DLL_LOCK bit of DLL_STATUS register becomes '1' */
+	/*
+	 * Step 19 - Wait until DLL_LOCK bit of DLL_STATUS register
+	 * becomes '1'.
+	 */
 	while (!(readl_relaxed(host->ioaddr + msm_offset->core_dll_status) &
 		 CORE_DLL_LOCK)) {
 		/* max. wait for 50us sec for LOCK bit to be set */
 		if (--wait_cnt == 0) {
 			dev_err(mmc_dev(mmc), "%s: DLL failed to LOCK\n",
 			       mmc_hostname(mmc));
-			spin_unlock_irqrestore(&host->lock, flags);
-			return -ETIMEDOUT;
+			rc = -ETIMEDOUT;
+			goto out;
 		}
+		/* wait for 1us before polling again */
 		udelay(1);
 	}
 
+out:
+	if (core_vendor_spec & CORE_CLK_PWRSAVE) {
+		/* Step 20 - Reenable PWRSAVE as needed */
+		writel_relaxed((readl_relaxed(host->ioaddr +
+			msm_offset->core_vendor_spec)
+			| CORE_CLK_PWRSAVE), host->ioaddr +
+			msm_offset->core_vendor_spec);
+	}
+
 	spin_unlock_irqrestore(&host->lock, flags);
-	return 0;
+	return rc;
 }
 
 static void msm_hc_select_default(struct sdhci_host *host)
@@ -2271,6 +2318,27 @@ static unsigned int sdhci_msm_get_max_clock(struct sdhci_host *host)
 static unsigned int sdhci_msm_get_min_clock(struct sdhci_host *host)
 {
 	return SDHCI_MSM_MIN_CLOCK;
+}
+
+static unsigned int sdhci_msm_get_sup_clk_rate(struct sdhci_host *host,
+						u32 req_clk)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
+	struct clk *core_clk = msm_host->bulk_clks[0].clk;
+	unsigned int sup_clk = -1;
+
+	if (req_clk < sdhci_msm_get_min_clock(host)) {
+		sup_clk = sdhci_msm_get_min_clock(host);
+		return sup_clk;
+	}
+
+	sup_clk = clk_round_rate(core_clk, clk_get_rate(core_clk));
+
+	if (host->clock != msm_host->clk_rate)
+		sup_clk = sup_clk / 2;
+
+	return sup_clk;
 }
 
 /**
