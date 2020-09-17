@@ -551,33 +551,33 @@
 		nvmem-cell-names = "e_data1";
 	};
 
-	md_cooler_mutt: mutt {
-		compatible = "mediatek,mt6297-md-cooler-mutt";
-		mutt_pa1: mutt-pa1 {
-			id = <0>;
-			#cooling-cells = <2>;
+	md_cooler: md-cooler {
+		compatible = "mediatek,mt6297-md-cooler";
+
+		pa1: pa1 {
+			mutt_pa1: mutt-pa1 {
+				#cooling-cells = <2>;
+			};
+			mutt_pa1_no_ims: mutt-pa1-no-ims {
+				#cooling-cells = <2>;
+			};
+			tx_pwr_pa1: tx-pwr-pa1 {
+				#cooling-cells = <2>;
+			};
 		};
-		mutt_pa2: mutt-pa2 {
-			id = <1>;
-			#cooling-cells = <2>;
-		};
-	};
-	md_cooler_tx_pwr: tx-pwr {
-		compatible = "mediatek,md-cooler-tx-pwr";
-		tx_pwr_pa1: tx-pwr-pa1 {
-			id = <0>;
-			#cooling-cells = <2>;
-		};
-		tx_pwr_pa2: tx-pwr-pa2 {
-			id = <1>;
-			#cooling-cells = <2>;
-		};
-	};
-	md_cooler_scg_off: scg-off {
-		compatible = "mediatek,md-cooler-scg-off";
-		scg_off_pa2: scg-off-pa2 {
-			id = <1>;
-			#cooling-cells = <2>;
+		pa2: pa2 {
+			mutt_pa2: mutt-pa2 {
+				#cooling-cells = <2>;
+			};
+			mutt_pa2_no_ims: mutt-pa2-no-ims {
+				#cooling-cells = <2>;
+			};
+			tx_pwr_pa2: tx-pwr-pa2 {
+				#cooling-cells = <2>;
+			};
+			scg_off_pa2: scg-off-pa2 {
+				#cooling-cells = <2>;
+			};
 		};
 	};
 
@@ -620,11 +620,13 @@
 			cooling-maps {
 				map0 {
 					trip = <&ltepa_ntc_target>;
-					cooling-device = <&mutt_pa1 1 8>;
+					cooling-device = <&mutt_pa1
+						THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
 				};
 				map1 {
 					trip = <&ltepa_ntc_no_ims>;
-					cooling-device = <&mutt_pa1 9 9>;
+					cooling-device = <&mutt_pa1_no_ims
+						THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
 				};
 			};
 		};
@@ -653,11 +655,13 @@
 			cooling-maps {
 				map0 {
 					trip = <&nrpa_ntc_target>;
-					cooling-device = <&mutt_pa2 1 8>;
+					cooling-device = <&mutt_pa2
+						THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
 				};
 				map1 {
 					trip = <&nrpa_ntc_no_ims>;
-					cooling-device = <&mutt_pa2 9 9>;
+					cooling-device = <&mutt_pa2_no_ims
+						THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
 				};
 			};
 		};
