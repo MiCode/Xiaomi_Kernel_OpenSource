@@ -2543,6 +2543,10 @@
 			interconnect-names = "icc-bw", "icc-hrt-bw";
 		};
 
+		mtk_iommu_debug {
+			compatible = "mediatek,mt6853-iommu-debug";
+		};
+
 		iommu0: iommu@1401d000 {
 			compatible = "mediatek,mt6873-m4u";
 			reg = <0 0x1401d000 0 0x1000>;
@@ -2552,6 +2556,9 @@
 					  &larb9 &larb11 &larb13
 					  &larb14 &larb16 &larb17
 					  &larb18 &larb19 &larb20>;
+			power-domains = <&scpsys MT6853_POWER_DOMAIN_DISP>;
+			clocks = <&mmsys_config_clk CLK_MM_SMI_IOMMU>;
+			clock-names = "bclk";
 			#iommu-cells = <1>;
 		};
 
