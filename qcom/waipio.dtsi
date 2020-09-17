@@ -1030,6 +1030,11 @@
 				  <WAKE_TCS    1>,
 				  <CONTROL_TCS 0>;
 	};
+
+	soc-sleep-stats@c3f0000 {
+		compatible = "qcom,rpmh-sleep-stats";
+		reg = <0xc3f0000 0x400>;
+	};
 };
 
 #include "waipio-qupv3.dtsi"
