@@ -24,11 +24,9 @@ endif
 ifneq (strip $(CONFIG_MTK_SLBC),)
 obj-${CONFIG_MTK_SLBC} += mtk_slbc.o
 mtk_slbc-y += slbc.o
-ccflags-y += -DMTK_SLBC
 endif
 
 ifneq ($(CONFIG_MTK_SLBC_MMSRAM),)
 mtk_slbc-y += mmsram.o
-ccflags-y += -DMTK_SLBC_MMSRAM
 endif
 

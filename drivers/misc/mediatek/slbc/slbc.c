@@ -23,13 +23,13 @@
 #define trace_slbc_api(f, id)
 #define trace_slbc_data(f, data)
 
-#ifdef MTK_SLBC_MMSRAM
+#if IS_ENABLED(CONFIG_MTK_SLBC_MMSRAM)
 #include <mmsram.h>
 
 static struct mmsram_data mmsram;
-#endif /* MTK_SLBC_MMSRAM */
+#endif /* CONFIG_MTK_SLBC_MMSRAM */
 
-#ifdef CONFIG_MTK_L3C_PART
+#if IS_ENABLED(CONFIG_MTK_L3C_PART)
 #include <l3c_part.h>
 #endif /* CONFIG_MTK_L3C_PART */
 
@@ -90,7 +90,7 @@ char *slbc_uid_str[] = {
 	"UID_MAX",
 };
 
-#ifdef MTK_SLBC_MMSRAM
+#if IS_ENABLED(CONFIG_MTK_SLBC_MMSRAM)
 static int slbc_check_mmsram(void)
 {
 	if (!mmsram.size) {
@@ -105,11 +105,11 @@ static int slbc_check_mmsram(void)
 
 	return 0;
 }
-#endif /* MTK_SLBC_MMSRAM */
+#endif /* CONFIG_MTK_SLBC_MMSRAM */
 
 static void slbc_set_mmsram_data(struct slbc_data *d)
 {
-#ifdef MTK_SLBC_MMSRAM
+#if IS_ENABLED(CONFIG_MTK_SLBC_MMSRAM)
 	if (slbc_check_mmsram()) {
 		pr_info("#@# %s(%d) mmsram is wrong !!!\n",
 				__func__, __LINE__);
@@ -117,15 +117,15 @@ static void slbc_set_mmsram_data(struct slbc_data *d)
 
 	d->paddr = mmsram.paddr;
 	d->vaddr = mmsram.vaddr;
-#endif /* MTK_SLBC_MMSRAM */
+#endif /* CONFIG_MTK_SLBC_MMSRAM */
 }
 
 static void slbc_clr_mmsram_data(struct slbc_data *d)
 {
-#ifdef MTK_SLBC_MMSRAM
+#if IS_ENABLED(CONFIG_MTK_SLBC_MMSRAM)
 	d->paddr = 0;
 	d->vaddr = 0;
-#endif /* MTK_SLBC_MMSRAM */
+#endif /* CONFIG_MTK_SLBC_MMSRAM */
 }
 
 static void slbc_debug_log(const char *fmt, ...)
@@ -166,14 +166,14 @@ int register_slbc_ops(struct slbc_ops *ops)
 	unsigned int sid;
 	struct slbc_data *d;
 
-#ifdef MTK_SLBC_MMSRAM
+#if IS_ENABLED(CONFIG_MTK_SLBC_MMSRAM)
 	if (slbc_check_mmsram()) {
 		pr_info("#@# %s(%d) mmsram is wrong !!!\n",
 				__func__, __LINE__);
 
 		return -EINVAL;
 	}
-#endif /* MTK_SLBC_MMSRAM */
+#endif /* CONFIG_MTK_SLBC_MMSRAM */
 
 	if (ops && ops->data) {
 		d = ops->data;
@@ -626,19 +626,19 @@ int slbc_request(struct slbc_data *d)
 
 	if ((d->type) == TP_BUFFER) {
 		slbc_debug_log("%s: TP_BUFFER\n", __func__);
-#ifdef MTK_SLBC_MMSRAM
+#if IS_ENABLED(CONFIG_MTK_SLBC_MMSRAM)
 		if (!buffer_ref) {
 			d->pwr_ref++;
 			enable_mmsram();
 		}
-#endif /* MTK_SLBC_MMSRAM */
+#endif /* CONFIG_MTK_SLBC_MMSRAM */
 
 		slbc_set_mmsram_data(d);
 
 		buffer_ref++;
 	}
 
-#ifdef CONFIG_MTK_L3C_PART
+#if IS_ENABLED(CONFIG_MTK_L3C_PART)
 	if ((d->type) == TP_CACHE) {
 		slbc_debug_log("%s: TP_CACHE\n", __func__);
 		if (cache_ref++ == 0) {
@@ -814,15 +814,15 @@ int slbc_release(struct slbc_data *d)
 
 		slbc_clr_mmsram_data(d);
 
-#ifdef MTK_SLBC_MMSRAM
+#if IS_ENABLED(CONFIG_MTK_SLBC_MMSRAM)
 		if (!buffer_ref) {
 			d->pwr_ref--;
 			disable_mmsram();
 		}
-#endif /* MTK_SLBC_MMSRAM */
+#endif /* CONFIG_MTK_SLBC_MMSRAM */
 	}
 
-#ifdef CONFIG_MTK_L3C_PART
+#if IS_ENABLED(CONFIG_MTK_L3C_PART)
 	if ((d->type) == TP_CACHE) {
 		slbc_debug_log("%s: TP_CACHE\n", __func__);
 		if (--cache_ref == 0) {
@@ -901,14 +901,14 @@ int slbc_power_on(struct slbc_data *d)
 	/* slbc_debug_log("%s: %s flag %x", __func__, */
 			/* slbc_uid_str[uid], d->flag); */
 
-#ifdef MTK_SLBC_MMSRAM
+#if IS_ENABLED(CONFIG_MTK_SLBC_MMSRAM)
 	if (IS_ENABLED(CONFIG_MTK_SLBC_MMSRAM) &&
 			(SLBC_TRY_FLAG_BIT(d, FG_POWER) ||
 			 d->ref)) {
 		d->pwr_ref++;
 		return mmsram_power_on();
 	}
-#endif /* MTK_SLBC_MMSRAM */
+#endif /* CONFIG_MTK_SLBC_MMSRAM */
 
 	return 0;
 }
@@ -935,14 +935,14 @@ int slbc_power_off(struct slbc_data *d)
 	/* slbc_debug_log("%s: %s flag %x", __func__, */
 			/* slbc_uid_str[uid], d->flag); */
 
-#ifdef MTK_SLBC_MMSRAM
+#if IS_ENABLED(CONFIG_MTK_SLBC_MMSRAM)
 	if (IS_ENABLED(CONFIG_MTK_SLBC_MMSRAM) &&
 			(SLBC_TRY_FLAG_BIT(d, FG_POWER) ||
 			 d->ref)) {
 		d->pwr_ref--;
 		mmsram_power_off();
 	}
-#endif /* MTK_SLBC_MMSRAM */
+#endif /* CONFIG_MTK_SLBC_MMSRAM */
 
 	return 0;
 }
@@ -968,12 +968,12 @@ int slbc_secure_on(struct slbc_data *d)
 #endif /* SLBC_TRACE */
 	slbc_debug_log("%s: %s flag %x", __func__, slbc_uid_str[uid], d->flag);
 
-#ifdef MTK_SLBC_MMSRAM
+#if IS_ENABLED(CONFIG_MTK_SLBC_MMSRAM)
 	if (IS_ENABLED(CONFIG_MTK_SLBC_MMSRAM) &&
 			SLBC_TRY_FLAG_BIT(d, FG_SECURE)) {
 		mmsram_set_secure(true);
 	}
-#endif /* MTK_SLBC_MMSRAM */
+#endif /* CONFIG_MTK_SLBC_MMSRAM */
 
 	return 0;
 }
@@ -999,12 +999,12 @@ int slbc_secure_off(struct slbc_data *d)
 #endif /* SLBC_TRACE */
 	slbc_debug_log("%s: %s flag %x", __func__, slbc_uid_str[uid], d->flag);
 
-#ifdef MTK_SLBC_MMSRAM
+#if IS_ENABLED(CONFIG_MTK_SLBC_MMSRAM)
 	if (IS_ENABLED(CONFIG_MTK_SLBC_MMSRAM) &&
 			SLBC_TRY_FLAG_BIT(d, FG_SECURE)) {
 		mmsram_set_secure(false);
 	}
-#endif /* MTK_SLBC_MMSRAM */
+#endif /* CONFIG_MTK_SLBC_MMSRAM */
 
 	return 0;
 }
