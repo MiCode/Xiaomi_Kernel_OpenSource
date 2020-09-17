@@ -209,8 +209,7 @@ static void cmd_hist_init_common_info(int ptr)
 static void probe_ufshcd_command(void *data, const char *dev_name,
 				 const char *str, unsigned int tag,
 				 u32 doorbell, int transfer_len,
-				 u32 intr, u64 lba, u8 opcode,
-				 u8 crypt_en, u8 crypt_keyslot)
+				 u32 intr, u64 lba, u8 opcode)
 {
 	int ptr;
 	unsigned long flags;
@@ -242,8 +241,10 @@ static void probe_ufshcd_command(void *data, const char *dev_name,
 	cmd_hist[ptr].cmd.utp.opcode = opcode;
 	cmd_hist[ptr].cmd.utp.doorbell = doorbell;
 	cmd_hist[ptr].cmd.utp.intr = intr;
-	cmd_hist[ptr].cmd.utp.crypt_en = crypt_en;
-	cmd_hist[ptr].cmd.utp.crypt_keyslot = crypt_keyslot;
+
+	/* Need patch trace_ufshcd_command() first */
+	cmd_hist[ptr].cmd.utp.crypt_en = 0;
+	cmd_hist[ptr].cmd.utp.crypt_keyslot = 0;
 
 	if (event == CMD_COMPLETED || event == CMD_DEV_COMPLETED) {
 		ptr = cmd_hist_get_prev_ptr(cmd_hist_ptr);
