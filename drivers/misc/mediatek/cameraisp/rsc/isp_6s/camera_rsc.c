@@ -1064,10 +1064,13 @@ static void mmu_release(struct tee_mmu *mmu)
 
 void rsc_cmdq_cb_destroy(struct cmdq_cb_data data)
 {
-	for (int i = 0; i < NUM_BASEADDR; i++)
+	int i = 0;
+	unsigned long *pkt_ptr = NULL;
+
+	for (i = 0; i < NUM_BASEADDR; i++)
 		mmu_release(((struct tee_mmu *)(data.data))+i);
 
-	unsigned long *pkt_ptr = (unsigned long *)(((struct tee_mmu *)data.data)+NUM_BASEADDR);
+	pkt_ptr = (unsigned long *)(((struct tee_mmu *)data.data)+NUM_BASEADDR);
 
 	cmdq_pkt_destroy((struct cmdq_pkt *)(*pkt_ptr));
 	kfree((struct tee_mmu *)data.data);
@@ -1078,7 +1081,15 @@ void rsc_cmdq_cb_destroy(struct cmdq_cb_data data)
 unsigned long FD_OFFSET_ADDR[NUM_BASEADDR];
 signed int CmdqRSCHW(struct frame *frame)
 {
-	struct RSC_Config *pRscConfig;
+	struct tee_mmu mmu;
+	struct tee_mmu *records = NULL;
+	unsigned long *pkt_addr = NULL;
+	struct RSC_Config *pRscConfig = NULL;
+	unsigned int hw_array[NUM_BASEADDR];
+	unsigned int fd_array[NUM_BASEADDR];
+	unsigned int offset_array[NUM_BASEADDR];
+	int i = 0;
+
 #if CHECK_SERVICE_IF_1
 	struct cmdq_pkt *pkt;
 #if CHECK_SERVICE_IF_0
@@ -1129,35 +1140,34 @@ signed int CmdqRSCHW(struct frame *frame)
 	cmdq_pkt_write(pkt, cmdq_base, RSC_CTRL_HW, pRscConfig->RSC_CTRL, ~0);
 	cmdq_pkt_write(pkt, cmdq_base, RSC_SIZE_HW, pRscConfig->RSC_SIZE, ~0);
 
-	struct tee_mmu mmu;
-
-	struct tee_mmu *records = kzalloc(sizeof(struct tee_mmu) * NUM_BASEADDR
+	records = kzalloc(sizeof(struct tee_mmu) * NUM_BASEADDR
 					+ sizeof(unsigned long), GFP_KERNEL);
 
-	unsigned int hw_array[NUM_BASEADDR] = {RSC_APLI_C_BASE_ADDR_HW,
-						RSC_APLI_P_BASE_ADDR_HW,
-						RSC_IMGI_C_BASE_ADDR_HW,
-						RSC_IMGI_P_BASE_ADDR_HW,
-						RSC_MVI_BASE_ADDR_HW,
-						RSC_MVO_BASE_ADDR_HW,
-						RSC_BVO_BASE_ADDR_HW};
+	hw_array[0] = RSC_APLI_C_BASE_ADDR_HW;
+	hw_array[1] = RSC_APLI_P_BASE_ADDR_HW;
+	hw_array[2] = RSC_IMGI_C_BASE_ADDR_HW;
+	hw_array[3] = RSC_IMGI_P_BASE_ADDR_HW;
+	hw_array[4] = RSC_MVI_BASE_ADDR_HW;
+	hw_array[5] = RSC_MVO_BASE_ADDR_HW;
+	hw_array[6] = RSC_BVO_BASE_ADDR_HW;
 
-	unsigned int fd_array[NUM_BASEADDR] = {pRscConfig->RSC_APLI_C_FD,
-						pRscConfig->RSC_APLI_P_FD,
-						pRscConfig->RSC_IMGI_C_FD,
-						pRscConfig->RSC_IMGI_P_FD,
-						pRscConfig->RSC_MVI_FD,
-						pRscConfig->RSC_MVO_FD,
-						pRscConfig->RSC_BVO_FD};
+	fd_array[0] = pRscConfig->RSC_APLI_C_FD;
+	fd_array[1] = pRscConfig->RSC_APLI_P_FD;
+	fd_array[2] = pRscConfig->RSC_IMGI_C_FD;
+	fd_array[3] = pRscConfig->RSC_IMGI_P_FD;
+	fd_array[4] = pRscConfig->RSC_MVI_FD;
+	fd_array[5] = pRscConfig->RSC_MVO_FD;
+	fd_array[6] = pRscConfig->RSC_BVO_FD;
 
-	unsigned int offset_array[NUM_BASEADDR] = {pRscConfig->RSC_APLI_C_OFFSET,
-						pRscConfig->RSC_APLI_P_OFFSET,
-						pRscConfig->RSC_IMGI_C_OFFSET,
-						pRscConfig->RSC_IMGI_P_OFFSET,
-						pRscConfig->RSC_MVI_OFFSET,
-						pRscConfig->RSC_MVO_OFFSET,
-						pRscConfig->RSC_BVO_OFFSET};
-	for (int i = 0; i < NUM_BASEADDR; i++) {
+	offset_array[0] = pRscConfig->RSC_APLI_C_OFFSET;
+	offset_array[1] = pRscConfig->RSC_APLI_P_OFFSET;
+	offset_array[2] = pRscConfig->RSC_IMGI_C_OFFSET;
+	offset_array[3] = pRscConfig->RSC_IMGI_P_OFFSET;
+	offset_array[4] = pRscConfig->RSC_MVI_OFFSET;
+	offset_array[5] = pRscConfig->RSC_MVO_OFFSET;
+	offset_array[6] = pRscConfig->RSC_BVO_OFFSET;
+
+	for (i = 0; i < NUM_BASEADDR; i++) {
 		unsigned int success = mmu_get_dma_buffer(&mmu, fd_array[i]);
 
 		if (success) {
@@ -1169,30 +1179,15 @@ signed int CmdqRSCHW(struct frame *frame)
 			memcpy(&records[i], &mmu, sizeof(struct tee_mmu));
 		}
 	}
-	//cmdq_pkt_write(pkt, cmdq_base, RSC_APLI_C_BASE_ADDR_HW, \
-			pRscConfig->RSC_APLI_C_BASE_ADDR, ~0);
-	//cmdq_pkt_write(pkt, cmdq_base, RSC_APLI_P_BASE_ADDR_HW, \
-			pRscConfig->RSC_APLI_P_BASE_ADDR, ~0);
-	//cmdq_pkt_write(pkt, cmdq_base, RSC_IMGI_C_BASE_ADDR_HW, \
-			pRscConfig->RSC_IMGI_C_BASE_ADDR, ~0);
-	//cmdq_pkt_write(pkt, cmdq_base, RSC_IMGI_P_BASE_ADDR_HW, \
-			pRscConfig->RSC_IMGI_P_BASE_ADDR, ~0);
+
 	cmdq_pkt_write(pkt, cmdq_base, RSC_IMGI_C_STRIDE_HW,
 			pRscConfig->RSC_IMGI_C_STRIDE, ~0);
 	cmdq_pkt_write(pkt, cmdq_base, RSC_IMGI_P_STRIDE_HW,
 			pRscConfig->RSC_IMGI_P_STRIDE, ~0);
-
-	//cmdq_pkt_write(pkt, cmdq_base, RSC_MVI_BASE_ADDR_HW, \
-			pRscConfig->RSC_MVI_BASE_ADDR, ~0);
 	cmdq_pkt_write(pkt, cmdq_base, RSC_MVI_STRIDE_HW,
 			pRscConfig->RSC_MVI_STRIDE, ~0);
-
-	//cmdq_pkt_write(pkt, cmdq_base, RSC_MVO_BASE_ADDR_HW, \
-			pRscConfig->RSC_MVO_BASE_ADDR, ~0);
 	cmdq_pkt_write(pkt, cmdq_base, RSC_MVO_STRIDE_HW,
 			pRscConfig->RSC_MVO_STRIDE, ~0);
-	//cmdq_pkt_write(pkt, cmdq_base, RSC_BVO_BASE_ADDR_HW, \
-			pRscConfig->RSC_BVO_BASE_ADDR, ~0);
 	cmdq_pkt_write(pkt, cmdq_base, RSC_BVO_STRIDE_HW,
 			pRscConfig->RSC_BVO_STRIDE, ~0);
 
@@ -1253,8 +1248,8 @@ signed int CmdqRSCHW(struct frame *frame)
 	/* non-blocking API, Please  use cmdqRecFlushAsync() */
 	//cmdq_task_flush_async_destroy(handle);
 	/* flush and destroy in cmdq */
-	unsigned long *pkt_addr = (unsigned long *)&records[NUM_BASEADDR];
-	*pkt_addr = pkt;
+	pkt_addr = (unsigned long *)&records[NUM_BASEADDR];
+	*pkt_addr = (unsigned long)pkt;
 	cmdq_pkt_flush_threaded(pkt, rsc_cmdq_cb_destroy, (void *)records);
 
 #else  // old cmdq function
@@ -3028,12 +3023,14 @@ EXIT:
 static signed int RSC_probe(struct platform_device *pDev)
 {
 	signed int Ret = 0;
+	struct device_node *node = NULL;
+	struct platform_device *pdev = NULL;
 	/*struct resource *pRes = NULL;*/
 	signed int i = 0;
 	unsigned char n;
 	unsigned int irq_info[3];
 	struct device *dev = NULL;
-	struct RSC_device *_rsc_dev;
+	struct RSC_device *_rsc_dev = NULL;
 
 #ifdef CONFIG_OF
 	struct RSC_device *RSC_dev;
@@ -3070,10 +3067,8 @@ static signed int RSC_probe(struct platform_device *pDev)
 			nr_RSC_devs, pDev->dev.of_node->name);
 		return -ENOMEM;
 	}
-	/*temperate: power for larb20*/
-	struct device_node *node;
-	struct platform_device *pdev;
 
+	/*temperate: power for larb20*/
 	node = of_parse_phandle(RSC_dev->dev->of_node, "mediatek,larb", 0);
 	if (!node)
 		return -EINVAL;
