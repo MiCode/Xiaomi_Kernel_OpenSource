@@ -240,8 +240,6 @@ conditions.
 --- "default":
 		Pagetable coherency defaults to the coherency setting of the
 		IOMMU device.
---- "non-coherent":
-		Pagetables are not coherent nor cached in the system cache..
 --- "coherent"
 		Pagetables are io-coherent.
 --- "LLC"
