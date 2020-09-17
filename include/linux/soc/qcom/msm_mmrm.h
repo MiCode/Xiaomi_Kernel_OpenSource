@@ -11,6 +11,20 @@
 
 #define MMRM_CLK_CLIENT_NAME_SIZE  128
 
+/*
+ * MMRM Client data flags
+ * MMRM_CLIENT_DATA_FLAG_RESERVE_ONLY : Clients can use this flag
+ * to reserve the actual required resource to MMRM (as some clients
+ * have a differnt path to validate the resource availability).
+ * With this flag set for mmrm_set_value, MMRM will skip setting rate
+ * to clk driver & only check if requested clk resource is available.
+ * Client need to call mmrm_set_value again (without this flag) to complete
+ * the rate setting to clk driver. If MMRM driver will not receive
+ * set_value call from client within stipulated time eg: 100ms,
+ * resource will be returned back to pool.
+ */
+#define MMRM_CLIENT_DATA_FLAG_RESERVE_ONLY  0x0001
+
 /**
  * mmrm_client_type : MMRM Client type
  */
@@ -135,9 +149,12 @@ struct mmrm_client_desc {
  * set value.
  * @num_hw_blocks: Client hw blocks enabled for resource allocation estimation
  *                 Default 1 for each client
+ * @flags: Client flags used to provide additional client info
+ *         Refer flags MMRM_CLIENT_DATA_FLAG_XXXX
  */
 struct mmrm_client_data {
 	u32 num_hw_blocks;
+	u32 flags;
 };
 
 #if IS_ENABLED(CONFIG_MSM_MMRM)
