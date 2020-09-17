@@ -383,7 +383,6 @@ struct arm_smmu_device {
 	u32				features;
 
 #define ARM_SMMU_OPT_FATAL_ASF		(1 << 0)
-#define ARM_SMMU_OPT_SKIP_INIT		(1 << 1)
 #define ARM_SMMU_OPT_3LVL_TABLES	(1 << 2)
 #define ARM_SMMU_OPT_NO_ASID_RETENTION	(1 << 3)
 #define ARM_SMMU_OPT_DISABLE_ATOS	(1 << 4)
