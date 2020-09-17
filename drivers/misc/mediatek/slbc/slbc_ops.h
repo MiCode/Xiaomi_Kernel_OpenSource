@@ -89,7 +89,7 @@ struct slbc_ops {
 	void (*deactivate)(struct slbc_data *data);
 };
 
-#ifdef MTK_SLBC
+#if IS_ENABLED(CONFIG_MTK_SLBC)
 extern int register_slbc_ops(struct slbc_ops *ops);
 extern int unregister_slbc_ops(struct slbc_ops *ops);
 extern int slbc_request(struct slbc_data *data);
@@ -139,6 +139,6 @@ int slbc_secure_off(struct slbc_data *data)
 {
 	return -EDISABLED;
 };
-#endif /* MTK_SLBC */
+#endif /* CONFIG_MTK_SLBC */
 
 #endif /* _SLBC_OPS_H_ */
