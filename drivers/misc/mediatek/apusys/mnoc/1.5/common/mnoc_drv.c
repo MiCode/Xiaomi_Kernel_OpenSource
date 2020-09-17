@@ -20,7 +20,7 @@
 #include <linux/mutex.h>
 
 
-#ifdef CONFIG_OF
+#if IS_ENABLED(CONFIG_OF)
 #include <linux/cpu.h>
 #include <linux/of.h>
 #include <linux/of_irq.h>

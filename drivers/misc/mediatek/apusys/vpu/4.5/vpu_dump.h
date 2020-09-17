@@ -54,7 +54,7 @@ struct vpu_dmp {
 	uint8_t m_pl_iram[VPU_MAX_PRIORITY][VPU_DMP_IRAM_SZ];
 };
 
-#ifdef CONFIG_MTK_APUSYS_VPU_DEBUG
+#if IS_ENABLED(CONFIG_MTK_APUSYS_VPU_DEBUG)
 void vpu_dmp_init(struct vpu_device *vd);
 void vpu_dmp_exit(struct vpu_device *vd);
 int vpu_dmp_create_locked(struct vpu_device *vd, struct vpu_request *req,

@@ -17,7 +17,7 @@
 #include <linux/workqueue.h>
 #include <linux/sched/clock.h>
 #include <linux/of.h>
-#ifdef CONFIG_PM_SLEEP
+#if IS_ENABLED(CONFIG_PM_SLEEP)
 #include <linux/device.h>
 #include <linux/pm_wakeup.h>
 #endif
@@ -57,7 +57,7 @@ struct apusys_core_info *apu_core_info;
 
 bool apusys_power_check(void)
 {
-#ifdef CONFIG_MACH_MT6885
+#if IS_ENABLED(CONFIG_MACH_MT6885)
 	char *pwr_ptr;
 	bool pwr_status = true;
 
@@ -108,7 +108,7 @@ static DECLARE_WORK(d_work_power_info, d_work_power_info_func);
 static DECLARE_WORK(d_work_power_init, d_work_power_init_func);
 struct delayed_work d_work_power;
 
-#ifdef CONFIG_PM_SLEEP
+#if IS_ENABLED(CONFIG_PM_SLEEP)
 static struct wakeup_source *pwr_wake_lock;
 #else
 struct wake_lock pwr_wake_lock;
@@ -116,7 +116,7 @@ struct wake_lock pwr_wake_lock;
 
 static void apu_pwr_wake_lock(void)
 {
-#ifdef CONFIG_PM_SLEEP
+#if IS_ENABLED(CONFIG_PM_SLEEP)
 	__pm_stay_awake(pwr_wake_lock);
 #else
 	wake_lock(&pwr_wake_lock);
@@ -125,7 +125,7 @@ static void apu_pwr_wake_lock(void)
 
 static void apu_pwr_wake_unlock(void)
 {
-#ifdef CONFIG_PM_SLEEP
+#if IS_ENABLED(CONFIG_PM_SLEEP)
 	__pm_relax(pwr_wake_lock);
 #else
 	wake_unlock(&pwr_wake_lock);
@@ -134,7 +134,7 @@ static void apu_pwr_wake_unlock(void)
 
 static void apu_pwr_wake_init(void)
 {
-#ifdef CONFIG_PM_SLEEP
+#if IS_ENABLED(CONFIG_PM_SLEEP)
 	pwr_wake_lock = wakeup_source_register(NULL, "apupwr_wakelock");
 	if (!pwr_wake_lock)
 		LOG_ERR("apusys power wakelock register fail!\n");
@@ -145,7 +145,7 @@ static void apu_pwr_wake_init(void)
 
 static void apu_pwr_wake_destroy(void)
 {
-#ifdef CONFIG_PM_SLEEP
+#if IS_ENABLED(CONFIG_PM_SLEEP)
 	wakeup_source_unregister(pwr_wake_lock);
 #endif
 }

@@ -18,13 +18,13 @@ bool mdla_plat_sw_preemption_support(void);
 bool mdla_plat_micro_p_support(void);
 int mdla_plat_get_prof_ver(void);
 
-#ifdef CONFIG_OF
+#if IS_ENABLED(CONFIG_OF)
 const struct of_device_id *mdla_plat_get_device(void);
 #else
 #define mdla_plat_get_device() NULL
 #endif
 
-#ifdef CONFIG_FPGA_EARLY_PORTING
+#if IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
 #include <mdla_cmd_proc.h>
 #define mdla_fpga_reset()						\
 do {									\

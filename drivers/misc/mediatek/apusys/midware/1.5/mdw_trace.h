@@ -7,7 +7,7 @@
 #include <linux/kernel.h>
 #include "apusys_trace.h"
 
-#ifdef CONFIG_FTRACE
+#if IS_ENABLED(CONFIG_FTRACE)
 extern u8 cfg_apusys_trace;
 #ifdef mdw_trace_begin
 #undef mdw_trace_begin

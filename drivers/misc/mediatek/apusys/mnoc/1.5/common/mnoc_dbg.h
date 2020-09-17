@@ -5,9 +5,8 @@
 #ifndef __APUSYS_MNOC_DBG_H__
 #define __APUSYS_MNOC_DBG_H__
 
-//#include <aee.h>
-
-#ifdef CONFIG_MTK_AEE_FEATURE
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+#include <aee.h>
 #define mnoc_aee_warn(key, format, args...) \
 	do { \
 		pr_info(format, ##args); \

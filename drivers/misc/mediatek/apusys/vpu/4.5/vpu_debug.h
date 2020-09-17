@@ -18,7 +18,7 @@ enum VPU_DEBUG_MASK {
 	VPU_DBG_MET = 0x40,
 };
 
-#ifdef CONFIG_MTK_APUSYS_VPU_DEBUG
+#if IS_ENABLED(CONFIG_MTK_APUSYS_VPU_DEBUG)
 extern u32 vpu_klog;
 
 static inline

@@ -20,7 +20,7 @@
 #include "reviser_plat.h"
 #include "reviser_device.h"
 
-#ifdef CONFIG_OF
+#if IS_ENABLED(CONFIG_OF)
 #include <linux/of.h>
 #include <linux/of_platform.h>
 #endif

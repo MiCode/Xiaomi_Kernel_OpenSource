@@ -278,7 +278,7 @@ unsigned int mdw_mem_get_support(void)
 {
 	unsigned int mem_support = 0;
 
-#ifdef CONFIG_MTK_ION
+#if IS_ENABLED(CONFIG_MTK_ION)
 	mem_support |= (1UL << APUSYS_MEM_DRAM_ION);
 #endif
 	mem_support |= (1UL << APUSYS_MEM_DRAM_ION_AOSP);
@@ -298,7 +298,7 @@ int mdw_mem_init(void)
 	mutex_init(&m_mgr.mtx);
 	INIT_LIST_HEAD(&m_mgr.list);
 
-#ifdef CONFIG_MTK_ION
+#if IS_ENABLED(CONFIG_MTK_ION)
 	m_mgr.dops = mdw_mops_ion();
 #else
 	m_mgr.dops = mdw_mops_aosp();

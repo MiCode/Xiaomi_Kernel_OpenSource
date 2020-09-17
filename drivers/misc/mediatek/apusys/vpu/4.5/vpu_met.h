@@ -14,7 +14,7 @@ struct vpu_device;
 #define VPU_MET_LEGACY   0x1
 #define VPU_MET_COMPACT  0x2
 
-#ifdef CONFIG_MTK_APUSYS_VPU_DEBUG
+#if IS_ENABLED(CONFIG_MTK_APUSYS_VPU_DEBUG)
 int vpu_init_drv_met(void);
 int vpu_exit_drv_met(void);
 int vpu_init_dev_met(struct platform_device *pdev,

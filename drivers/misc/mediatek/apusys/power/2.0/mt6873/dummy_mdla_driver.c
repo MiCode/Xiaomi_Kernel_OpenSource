@@ -25,7 +25,7 @@ static int mdla_resume(struct platform_device *pdev)
 	return 0;
 }
 
-#ifdef CONFIG_PM
+#if IS_ENABLED(CONFIG_PM)
 int mdla_pm_suspend(struct device *device)
 {
 	return 0;
@@ -117,7 +117,7 @@ static struct platform_driver mdla_driver = {
 		.name = "mdla",
 		.owner = THIS_MODULE,
 		.of_match_table = mdla_of_ids,
-#ifdef CONFIG_PM
+#if IS_ENABLED(CONFIG_PM)
 		.pm = &mdla_pm_ops,
 #endif
 	}

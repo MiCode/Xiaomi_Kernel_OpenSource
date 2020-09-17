@@ -45,7 +45,7 @@ static void dapc_drv_put(void)
 	kref_put(&dapc_drv->ref, dapc_drv_release);
 }
 
-#ifdef CONFIG_MTK_APUSYS_DEBUG
+#if IS_ENABLED(CONFIG_MTK_APUSYS_DEBUG)
 /* apusys devapc debug file operations */
 static int dapc_debug_open(struct inode *inode, struct file *file)
 {
@@ -304,7 +304,7 @@ static void do_kernel_exception(struct dapc_driver *drv, unsigned int i,
 		goto out;
 	}
 
-#if defined(CONFIG_MTK_AEE_FEATURE)
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 	if (drv->enable_aee) {
 		aee_kernel_exception("APUSYS_DEVAPC",
 			"Violation Slave: %s (%s%s): transaction ID:0x%x, Addr:0x%x, HighAddr: %x, Domain: 0x%x\n",

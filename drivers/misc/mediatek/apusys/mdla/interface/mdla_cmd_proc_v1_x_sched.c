@@ -8,7 +8,7 @@
 #include <linux/slab.h>
 #include <linux/sched/clock.h>
 
-#ifdef CONFIG_MTK_GIC_V3_EXT
+#if IS_ENABLED(CONFIG_MTK_GIC_V3_EXT)
 #include <linux/irqchip/mtk-gic-extend.h>
 #else
 #define mt_irq_dump_status(n)
