@@ -22,6 +22,7 @@
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
+#include <linux/pm_domain.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
 #include <asm/barrier.h>
@@ -268,8 +269,18 @@ static void mtk_iommu_tlb_flush_range_sync(unsigned long iova, size_t size,
 		ret = readl_poll_timeout_atomic(data->base + REG_MMU_CPE_DONE,
 						tmp, tmp != 0, 10, 1000);
 		if (ret) {
+			struct generic_pm_domain *genpd = pd_to_genpd(data->dev->pm_domain);
+
 			dev_warn(data->dev,
 				 "Partial TLB flush timed out, falling back to full flush\n");
+			pr_info("[iommu_debug] dump info power_status:%d, 0x0:0x%x, 0x24:0x%x, 0x28:0x%x, 0x120:0x%x, 0x124:0x%x, iova:0x%lx\n",
+				genpd->status,
+				readl_relaxed(data->base + REG_MMU_INVLD_START_A),
+				readl_relaxed(data->base + REG_MMU_INVLD_END_A),
+				readl_relaxed(data->base + REG_MMU_PT_BASE_ADDR),
+				readl_relaxed(data->base + REG_MMU_INT_CONTROL0),
+				readl_relaxed(data->base + REG_MMU_INT_MAIN_CONTROL),
+				iova);
 			mtk_iommu_tlb_flush_all(cookie);
 		}
 		/* Clear the CPE status */
