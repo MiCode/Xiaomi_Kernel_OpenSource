@@ -6159,21 +6159,20 @@ static long DIP_ioctl(
 			}
 			LOG_AST("gki add list fd:%d\n", ion_mem_info.buf_fd);
 			mutex_lock(&(DipMutexbuf));
-			int in_use = 0;
 
 			dip_ion_list = kzalloc(sizeof(struct dip_fd_list_template), GFP_KERNEL);
 			dip_ion_entry = kzalloc(sizeof(struct dip_fd_list_template), GFP_KERNEL);
-
-			list_for_each(pos, &dip_fd_head) {
-				dip_ion_entry = list_entry(pos, struct dip_fd_list_template, list);
-				if (ion_mem_info.buf_fd == dip_ion_entry->fd) {
-					LOG_AST("fd:%d\n", ion_mem_info.buf_fd);
-					ion_mem_info.buf_pa = dip_ion_entry->dma_addr;
-					in_use = 1;
+			if (ion_mem_info.check_flag == 1) {
+				list_for_each(pos, &dip_fd_head) {
+					dip_ion_entry = list_entry(pos,
+							struct dip_fd_list_template, list);
+					if (ion_mem_info.buf_fd == dip_ion_entry->fd) {
+						LOG_AST("fd:%d\n", ion_mem_info.buf_fd);
+						ion_mem_info.buf_pa = dip_ion_entry->dma_addr;
+					}
 				}
 			}
-
-			if (in_use == 0) {
+			if (ion_mem_info.check_flag == 0) {
 				put_cnt = 0;
 				get_cnt++;
 				dip_ion_list->fd = ion_mem_info.buf_fd;

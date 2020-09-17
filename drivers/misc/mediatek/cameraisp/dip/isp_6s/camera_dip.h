@@ -193,6 +193,7 @@ struct DIP_ION_MEM_INFO {
 	unsigned int buf_fd;
 	unsigned int buf_offset;
 	unsigned int buf_pa;
+	unsigned int check_flag;
 };
 
 #ifdef CONFIG_COMPAT
