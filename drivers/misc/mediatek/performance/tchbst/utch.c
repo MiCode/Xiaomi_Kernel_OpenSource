@@ -51,10 +51,12 @@ static unsigned long __read_mostly mark_addr;
 #define event_trace(ip, fmt, args...) \
 do { \
 	__trace_printk_check_format(fmt, ##args);     \
-	static const char *trace_printk_fmt     \
-	__section(__trace_printk_fmt) =  \
-	__builtin_constant_p(fmt) ? fmt : NULL;   \
-	__trace_bprintk(ip, trace_printk_fmt, ##args);    \
+	{ \
+		static const char *trace_printk_fmt     \
+		__section(__trace_printk_fmt) =  \
+		__builtin_constant_p(fmt) ? fmt : NULL;   \
+		__trace_bprintk(ip, trace_printk_fmt, ##args);    \
+	} \
 } while (0)
 
 /* local function */
@@ -435,7 +437,7 @@ static void __exit exit_utch_mod(void)
 static int __init init_utch_mod(void)
 {
 	int cpu;
-	int num = 0, count, i;
+	int num = 0, count;
 	struct cpufreq_policy *policy;
 	struct cpufreq_frequency_table *pos;
 
@@ -474,7 +476,7 @@ static int __init init_utch_mod(void)
 			continue;
 
 		tchbst_policy[num] = policy;
-#ifdef DEBUG_LOG
+#if DEBUG_LOG
 		pr_info("%s, policy[%d]: first:%d, sort:%d",
 			__func__, num, cpu, (int)policy->freq_table_sorted);
 #endif
@@ -482,7 +484,7 @@ static int __init init_utch_mod(void)
 		/* calc opp count */
 		count = 0;
 		cpufreq_for_each_entry(pos, policy->freq_table) {
-#ifdef DEBUG_LOG
+#if DEBUG_LOG
 			pr_info("%s, [%d]:%d", __func__, count, pos->frequency);
 #endif
 			count++;
@@ -498,7 +500,7 @@ static int __init init_utch_mod(void)
 		}
 
 		sort(opp_tbl[num], opp_count[num], sizeof(unsigned int), cmp_uint, NULL);
-#ifdef DEBUG_LOG
+#if DEBUG_LOG
 		for (i = 0; i < opp_count[num]; i++) {
 			pr_info("%s, policy[%d]: opp[%d]:%d",
 				__func__, num, i, opp_tbl[num][i]);
