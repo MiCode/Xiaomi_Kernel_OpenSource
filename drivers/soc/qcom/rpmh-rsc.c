@@ -30,6 +30,10 @@
 #define CREATE_TRACE_POINTS
 #include "trace-rpmh.h"
 
+#include <linux/ipc_logging.h>
+
+#define RSC_DRV_IPC_LOG_SIZE		2
+
 #define RSC_DRV_TCS_OFFSET		672
 #define RSC_DRV_CMD_OFFSET		20
 
@@ -375,6 +379,7 @@ static void __tcs_set_trigger(struct rsc_drv *drv, int tcs_id, bool trigger)
 		write_tcs_reg_sync(drv, RSC_DRV_CONTROL, tcs_id, enable);
 		enable |= TCS_AMC_MODE_TRIGGER;
 		write_tcs_reg(drv, RSC_DRV_CONTROL, tcs_id, enable);
+		ipc_log_string(drv->ipc_log_ctx, "TCS trigger: m=%d", tcs_id);
 	}
 }
 
@@ -441,6 +446,8 @@ static irqreturn_t tcs_tx_done(int irq, void *p)
 		}
 
 		trace_rpmh_tx_done(drv, i, req, err);
+		ipc_log_string(drv->ipc_log_ctx, "IRQ response: m=%d err=%d",
+			       i, err);
 
 		/*
 		 * If wake tcs was re-purposed for sending active
@@ -506,6 +513,10 @@ static void __tcs_buffer_write(struct rsc_drv *drv, int tcs_id, int cmd_id,
 		write_tcs_cmd(drv, RSC_DRV_CMD_ADDR, tcs_id, j, cmd->addr);
 		write_tcs_cmd(drv, RSC_DRV_CMD_DATA, tcs_id, j, cmd->data);
 		trace_rpmh_send_msg(drv, tcs_id, j, msgid, cmd);
+		ipc_log_string(drv->ipc_log_ctx,
+			       "TCS write: m=%d n=%d msgid=%#x addr=%#x data=%#x wait=%d",
+			       tcs_id, j, msgid, cmd->addr,
+			       cmd->data, cmd->wait);
 	}
 
 	cmd_enable |= read_tcs_reg(drv, RSC_DRV_CMD_ENABLE, tcs_id);
@@ -678,8 +689,14 @@ int rpmh_rsc_send_data(struct rsc_drv *drv, const struct tcs_request *msg)
 	do {
 		ret = tcs_write(drv, msg);
 		if (ret == -EBUSY) {
-			pr_info_ratelimited("DRV:%s TCS Busy, retrying RPMH message send: addr=%#x\n",
-					    drv->name, msg->cmds[0].addr);
+			bool irq_sts;
+
+			irq_get_irqchip_state(drv->irq, IRQCHIP_STATE_PENDING,
+					      &irq_sts);
+			pr_info_ratelimited("DRV:%s TCS Busy, retrying RPMH message send: addr=%#x interrupt status=%s\n",
+					    drv->name, msg->cmds[0].addr,
+					    irq_sts ?
+					    "PENDING" : "NOT PENDING");
 			udelay(10);
 		}
 	} while (ret == -EBUSY);
@@ -1128,6 +1145,9 @@ static int rpmh_rsc_probe(struct platform_device *pdev)
 	spin_lock_init(&drv->client.cache_lock);
 	INIT_LIST_HEAD(&drv->client.cache);
 	INIT_LIST_HEAD(&drv->client.batch_cache);
+
+	drv->ipc_log_ctx = ipc_log_context_create(RSC_DRV_IPC_LOG_SIZE,
+						  drv->name, 0);
 
 	dev_set_drvdata(&pdev->dev, drv);
 

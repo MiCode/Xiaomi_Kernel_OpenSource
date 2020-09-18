@@ -108,6 +108,7 @@ struct rpmh_ctrlr {
  *                      lock will also be held, the order is: drv->lock then
  *                      cache_lock.
  * @client:             Handle to the DRV's client.
+ * @ipc_log_ctx:        IPC logger handle
  */
 struct rsc_drv {
 	const char *name;
@@ -121,6 +122,7 @@ struct rsc_drv {
 	DECLARE_BITMAP(tcs_in_use, MAX_TCS_NR);
 	spinlock_t lock;
 	struct rpmh_ctrlr client;
+	void *ipc_log_ctx;
 };
 
 int rpmh_rsc_send_data(struct rsc_drv *drv, const struct tcs_request *msg);
