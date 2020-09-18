@@ -323,6 +323,7 @@
 	status = "okay";
 };
 /* GPS GPIO standardization end */
+#include "mediatek/cust_mt6833_camera.dtsi"
 #include <k6833v1_64/cust.dtsi>
 
 
