@@ -53,6 +53,12 @@ properties:
       - const: ecm-sdam1
     $ref: /schemas/types.yaml#/definitions/string-array
 
+  display-panels:
+    minItems: 1
+    description: Array of one or more phandles of the display panel(s)
+      that sends the DRM blank/unblank notifications.
+    $ref: /schemas/types.yaml#/definitions/phandle-array
+
 required:
   - compatible
   - reg
