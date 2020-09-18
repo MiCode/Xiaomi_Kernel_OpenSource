@@ -148,7 +148,7 @@ static int mtk_cpufreq_hw_cpu_init(struct cpufreq_policy *policy)
 	policy->driver_data = c;
 
 	/* Let CPUs leave idle-off state for SVS CPU initializing */
-	pm_qos_add_request(qos_request, PM_QOS_CPU_DMA_LATENCY, 0);
+	cpu_latency_qos_add_request(qos_request, PM_QOS_DEFAULT_VALUE);
 
 	writel_relaxed(0x1, c->reg_bases[REG_FREQ_ENABLE]);
 
@@ -166,7 +166,7 @@ static int mtk_cpufreq_hw_cpu_init(struct cpufreq_policy *policy)
 
 	em_dev_register_perf_domain(cpu_dev, c->nr_opp, &em_cb, policy->cpus);
 
-	pm_qos_remove_request(qos_request);
+	cpu_latency_qos_remove_request(qos_request);
 	kfree(qos_request);
 
 	return 0;
