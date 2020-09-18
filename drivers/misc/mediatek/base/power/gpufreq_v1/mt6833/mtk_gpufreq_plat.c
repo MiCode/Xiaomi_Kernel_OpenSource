@@ -3257,7 +3257,7 @@ static int __mt_gpufreq_init_pmic(struct platform_device *pdev)
 static int __mt_gpufreq_init_clk(struct platform_device *pdev)
 {
 	/* MFGPLL is from APMIXED and its parent clock is from XTAL(26MHz); */
-
+	// 0x1000C000
 	g_apmixed_base =
 			__mt_gpufreq_of_ioremap(
 				"mediatek,mt6833-apmixedsys", 0);
@@ -3501,6 +3501,40 @@ static void __mt_gpufreq_gpu_dfd_clear(void)
 	__mt_gpufreq_dbgtop_pwr_on(true);
 }
 
+static void __mt_gpufreq_dump_bringup_status(void)
+{
+	if (!mt_gpufreq_bringup())
+		return;
+
+	// 0x1000C000
+	g_apmixed_base =
+			__mt_gpufreq_of_ioremap(
+				"mediatek,mt6833-apmixedsys", 0);
+	if (!g_apmixed_base) {
+		gpufreq_pr_info("@%s: ioremap failed at APMIXED\n", __func__);
+		return;
+	}
+
+	// 0x10006000
+	g_sleep = __mt_gpufreq_of_ioremap("mediatek,sleep", 0);
+	if (!g_sleep) {
+		gpufreq_pr_info("@%s: ioremap failed at sleep\n", __func__);
+		return;
+	}
+
+	// [SPM] pwr_status: pwr_ack (@0x1000_616C)
+	// [SPM] pwr_status_2nd: pwr_ack_2nd (@x1000_6170)
+	// [2]: MFG0, [3]: MFG1, [4]: MFG2, [5]: MFG3
+	gpufreq_pr_info("@%s: [PWR_ACK] MFG0~MFG3=0x%08X(0x%08X)\n",
+			__func__,
+			readl(g_sleep + 0x16C) & 0x0000003C,
+			readl(g_sleep + 0x170) & 0x0000003C);
+	gpufreq_pr_info("@%s: [MFGPLL] FMETER=%d FREQ=%d\n",
+			__func__,
+			mt_get_abist_freq(FM_MGPLL_CK),
+			__mt_gpufreq_get_cur_freq());
+}
+
 /*
  * gpufreq driver probe
  */
@@ -3585,6 +3619,7 @@ static int __init __mt_gpufreq_init(void)
 #endif
 
 	if (mt_gpufreq_bringup()) {
+		__mt_gpufreq_dump_bringup_status();
 		gpufreq_pr_info("@%s: skip driver init when bringup\n",
 				__func__);
 		return 0;
