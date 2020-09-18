@@ -104,6 +104,9 @@ enum mem_kind {
 /* Host initializes the buffer */
 #define MEMFLAG_HOST_INIT       BIT(9)
 
+/* Gfx buffer needs to be secure */
+#define MEMFLAG_GFX_SECURE      BIT(12)
+
 struct mem_alloc_entry {
 	struct hfi_mem_alloc_desc desc;
 	struct kgsl_memdesc *gpu_md;
