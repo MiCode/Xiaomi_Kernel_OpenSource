@@ -1522,7 +1522,7 @@
                 <inpull_en>true</inpull_en>
                 <inpull_selhigh>false</inpull_selhigh>
                 <def_dir>OUT</def_dir>
-                <out_high>false</out_high>
+                <out_high>true</out_high>
                 <varName0>GPIO_LCM_BL_EN</varName0>
                 <smt>true</smt>
                 <ies>true</ies>
