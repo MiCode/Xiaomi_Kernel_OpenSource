@@ -1,4 +1,4 @@
-[abi_whitelist]
+[abi_symbol_list]
 # commonly used symbols
   alloc_workqueue
   __arch_copy_from_user
