@@ -40,10 +40,10 @@ struct IMGSENSOR_HW_POWER_SEQ sensor_power_sequence[] = {
 		SENSOR_DRVNAME_IMX586_MIPI_RAW,
 		{
 			{RST, Vol_Low, 1},
+			{DOVDD, Vol_1800, 1},
 			{AVDD, Vol_2800, 0},
 			{AFVDD, Vol_2800, 0},
 			{DVDD, Vol_1100, 0},
-			{DOVDD, Vol_1800, 1},
 			{SensorMCLK, Vol_High, 1},
 			{RST, Vol_High, 3}
 		},
