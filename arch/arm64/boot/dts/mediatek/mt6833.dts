@@ -22,7 +22,7 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/spmi/spmi.h>
 #include <generated/autoconf.h>
-#include <dt-bindings/mmc/mt6853-msdc.h>
+#include <dt-bindings/mmc/mt6833-msdc.h>
 #include <dt-bindings/memory/mt6833-larb-port.h>
 #include <dt-bindings/pinctrl/mt6833-pinfunc.h>
 #include <dt-bindings/gce/mt6833-gce.h>
