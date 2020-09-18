@@ -246,7 +246,7 @@ struct AUTOK_PLAT_FUNC {
 		autok_para_rx.end_bit_chk_cnt_ddr208 = 0; \
 		autok_para_rx.latchck_switch_cnt_hs400 = 6; \
 		autok_para_rx.latchck_switch_cnt_ddr208 = 0; \
-		autok_para_rx.ds_dly3_hs400 = 0; \
+		autok_para_rx.ds_dly3_hs400 = 20; \
 		autok_para_rx.ds_dly3_ddr208 = 0; \
 	} while (0)
 
