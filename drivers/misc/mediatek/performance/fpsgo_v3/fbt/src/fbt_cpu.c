@@ -540,6 +540,18 @@ static void fbt_set_walt_locked(int enable)
 
 static void fbt_set_down_throttle_locked(int nsec)
 {
+	char temp[FPSGO_SYSFS_MAX_BUFF_SIZE] = "";
+
+	if (!fbt_down_throttle_enable)
+		return;
+
+	if (down_throttle_ns == nsec)
+		return;
+
+	xgf_trace("fpsgo set sched_rate_ns %d", nsec);
+	snprintf(temp, sizeof(temp), "SCHED_RATE_NS=%d", nsec);
+	fpsgo_sentuevent(temp);
+	down_throttle_ns = nsec;
 }
 
 static void fbt_set_sync_flag_locked(int input)
@@ -2535,23 +2547,6 @@ void fpsgo_base2fbt_cancel_jerk(struct render_info *thr)
 	}
 }
 
-static unsigned int mt_cpufreq_get_freq_by_idx(
-	unsigned int cluster, unsigned int opp)
-{
-	struct cpufreq_policy curr_policy;
-	struct cpufreq_frequency_table *pos, *table;
-	int idx;
-
-	cpufreq_get_policy(&curr_policy, cluster * 4);
-	table = curr_policy.freq_table;
-
-	cpufreq_for_each_valid_entry_idx(pos, table, idx)
-		if (idx == opp)
-			return pos->frequency;
-
-	return 5000000;
-}
-
 static int cmp_uint(const void *a, const void *b)
 {
 	return *(unsigned int *)b - *(unsigned int *)a;
@@ -2579,7 +2574,7 @@ static void fbt_update_pwd_tbl(void)
 
 		for (opp = 0; opp < NR_FREQ_CPU; opp++) {
 			cpu_dvfs[cluster].power[opp] =
-				mt_cpufreq_get_freq_by_idx(cluster, opp);
+				fpsgo_cpufreq_get_freq_by_idx(cluster, opp);
 		}
 
 		sort(cpu_dvfs[cluster].power,
@@ -2664,6 +2659,13 @@ int fpsgo_ctrl2fbt_switch_fbt(int enable)
 		fpsgo_clear_uclamp_boost(1);
 
 	return 0;
+}
+
+
+int fbt_switch_uclamp_onoff(int enable);
+int fpsgo_ctrl2fbt_switch_uclamp(int enable)
+{
+	return fbt_switch_uclamp_onoff(enable);
 }
 
 int fbt_switch_idleprefer(int enable)
@@ -2940,29 +2942,7 @@ static ssize_t enable_uclamp_boost_show(struct kobject *kobj,
 	return scnprintf(buf, PAGE_SIZE, "%s", temp);
 }
 
-static ssize_t enable_uclamp_boost_store(struct kobject *kobj,
-		struct kobj_attribute *attr,
-		const char *buf, size_t count)
-{
-	int val = -1;
-	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
-	int arg;
-
-	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
-		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
-			if (kstrtoint(acBuffer, 0, &arg) == 0)
-				val = arg;
-			else
-				return count;
-		}
-	}
-
-	fbt_switch_uclamp_onoff(val);
-
-	return count;
-}
-
-static KOBJ_ATTR_RW(enable_uclamp_boost);
+static KOBJ_ATTR_RO(enable_uclamp_boost);
 
 static ssize_t boost_ta_show(struct kobject *kobj,
 		struct kobj_attribute *attr,

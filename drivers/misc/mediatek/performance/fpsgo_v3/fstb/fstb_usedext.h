@@ -79,8 +79,6 @@ struct FSTB_FRAME_INFO {
 	unsigned long long sorted_weighted_cpu_time[FRAME_TIME_BUFFER_SIZE];
 	unsigned long long sorted_weighted_gpu_time[FRAME_TIME_BUFFER_SIZE];
 
-	unsigned long long gblock_b;
-	unsigned long long gblock_time;
 	int fps_raise_flag;
 };
 

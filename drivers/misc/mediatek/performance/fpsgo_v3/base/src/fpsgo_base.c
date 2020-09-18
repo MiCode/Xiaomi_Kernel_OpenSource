@@ -12,7 +12,9 @@
 #include <linux/interrupt.h>
 #include <linux/sched/clock.h>
 #include <linux/cpufreq.h>
-
+#include <linux/kobject.h>
+#include <linux/device.h>
+#include <linux/miscdevice.h>
 #include <linux/uaccess.h>
 
 #include "mt-plat/fpsgo_common.h"
@@ -119,6 +121,53 @@ int fpsgo_arch_nr_clusters(void)
 
 	return num;
 
+}
+
+unsigned int fpsgo_cpufreq_get_freq_by_idx(
+	unsigned int cluster, unsigned int opp)
+{
+	struct cpufreq_policy curr_policy;
+	struct cpufreq_frequency_table *pos, *table;
+	int idx;
+
+	cpufreq_get_policy(&curr_policy, cluster * 4);
+	table = curr_policy.freq_table;
+
+	cpufreq_for_each_valid_entry_idx(pos, table, idx)
+		if (idx == opp)
+			return pos->frequency;
+
+	return 5000000;
+}
+
+static struct miscdevice fpsgo_object;
+bool fpsgo_sentuevent(const char *src)
+{
+	int ret;
+	char *envp[2];
+	int string_size = FPSGO_SYSFS_MAX_BUFF_SIZE;
+	char  event_string[string_size];
+
+	envp[0] = event_string;
+	envp[1] = NULL;
+
+
+	/*send uevent*/
+	strlcpy(event_string, src, string_size);
+	if (event_string[0] == '\0') { /*string is null*/
+
+		return false;
+	}
+	ret = kobject_uevent_env(
+			&fpsgo_object.this_device->kobj,
+			KOBJ_CHANGE, envp);
+	if (ret != 0) {
+		pr_debug("uevent failed");
+
+		return false;
+	}
+
+	return true;
 }
 
 uint32_t fpsgo_systrace_mask;
@@ -1055,17 +1104,15 @@ static ssize_t BQid_show(struct kobject *kobj,
 
 static KOBJ_ATTR_RO(BQid);
 
-static ssize_t gpu_block_boost_show(struct kobject *kobj,
+static ssize_t perfserv_ta_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
 {
-	return scnprintf(buf, PAGE_SIZE, "%d %d %d\n",
-		fpsgo_is_gpu_block_boost_enable(),
-		fpsgo_is_gpu_block_boost_perf_enable(),
-		fpsgo_is_gpu_block_boost_camera_enable());
+	return scnprintf(buf, PAGE_SIZE, "%d\n",
+		fpsgo_perfserv_ta_value());
 }
 
-static ssize_t gpu_block_boost_store(struct kobject *kobj,
+static ssize_t perfserv_ta_store(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		const char *buf, size_t count)
 {
@@ -1085,16 +1132,43 @@ static ssize_t gpu_block_boost_store(struct kobject *kobj,
 	if (val > 101 || val < -1)
 		return count;
 
-	fpsgo_gpu_block_boost_enable_perf(val);
+	fpsgo_set_perfserv_ta(val);
 
 	return count;
 }
 
-static KOBJ_ATTR_RW(gpu_block_boost);
+static KOBJ_ATTR_RW(perfserv_ta);
 
+static int init_fpsgo_kobj(void)
+{
+	int ret = 0;
+
+	/* dev init */
+
+	fpsgo_object.name = "fpsgo";
+	fpsgo_object.minor = MISC_DYNAMIC_MINOR;
+	ret = misc_register(&fpsgo_object);
+	if (ret) {
+		pr_debug("misc_register error:%d\n", ret);
+		return ret;
+	}
+
+	ret = kobject_uevent(
+			&fpsgo_object.this_device->kobj, KOBJ_ADD);
+
+	if (ret) {
+		misc_deregister(&fpsgo_object);
+		pr_debug("uevent creat fail:%d\n", ret);
+		return ret;
+	}
+
+	return ret;
+
+}
 
 int init_fpsgo_common(void)
 {
+	int ret;
 	render_pid_tree = RB_ROOT;
 
 	BQ_id_list = RB_ROOT;
@@ -1106,11 +1180,15 @@ int init_fpsgo_common(void)
 		fpsgo_sysfs_create_file(base_kobj, &kobj_attr_force_onoff);
 		fpsgo_sysfs_create_file(base_kobj, &kobj_attr_render_info);
 		fpsgo_sysfs_create_file(base_kobj, &kobj_attr_BQid);
-		fpsgo_sysfs_create_file(base_kobj, &kobj_attr_gpu_block_boost);
+		fpsgo_sysfs_create_file(base_kobj, &kobj_attr_perfserv_ta);
 	}
 
 	fpsgo_update_tracemark();
 	fpsgo_systrace_mask = FPSGO_DEBUG_MANDATORY;
+
+	ret = init_fpsgo_kobj();
+	if (ret)
+		pr_debug("init gbe_kobj failed");
 
 	return 0;
 }

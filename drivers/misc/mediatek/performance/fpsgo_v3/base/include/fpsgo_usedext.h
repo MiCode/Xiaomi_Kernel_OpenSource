@@ -31,9 +31,6 @@ extern void (*ged_vsync_notifier_fp)(void);
 int fpsgo_is_force_enable(void);
 void fpsgo_force_switch_enable(int enable);
 
-int fpsgo_is_gpu_block_boost_enable(void);
-int fpsgo_is_gpu_block_boost_perf_enable(void);
-int fpsgo_is_gpu_block_boost_camera_enable(void);
-void fpsgo_gpu_block_boost_enable_perf(int enable);
-void fpsgo_gpu_block_boost_enable_camera(int enable);
+int fpsgo_perfserv_ta_value(void);
+void fpsgo_set_perfserv_ta(int value);
 #endif

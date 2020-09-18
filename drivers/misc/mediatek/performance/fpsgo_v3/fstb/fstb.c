@@ -135,46 +135,6 @@ int is_fstb_active(long long time_diff)
 }
 EXPORT_SYMBOL(is_fstb_active);
 
-int fpsgo_ctrl2fstb_gblock(int tid, int start)
-{
-	struct FSTB_FRAME_INFO *iter;
-	ktime_t cur_time;
-	unsigned long long cur_time_ns;
-
-	cur_time = ktime_get();
-	cur_time_ns = ktime_to_ns(cur_time);
-
-	mutex_lock(&fstb_lock);
-
-	if (!fstb_enable) {
-		mutex_unlock(&fstb_lock);
-		return 0;
-	}
-
-	hlist_for_each_entry(iter, &fstb_frame_infos, hlist) {
-		if (iter->pid == tid)
-			break;
-	}
-
-	if (iter == NULL) {
-		mutex_unlock(&fstb_lock);
-		return 0;
-	}
-
-	fpsgo_systrace_c_fstb(tid, 0, start, "gblock");
-
-	/* end */
-	if (!start && iter->gblock_b)
-		iter->gblock_time += cur_time_ns - iter->gblock_b;
-
-	/* start */
-	if (start)
-		iter->gblock_b = cur_time_ns;
-
-	mutex_unlock(&fstb_lock);
-	return 0;
-}
-
 int fpsgo_ctrl2fstb_switch_fstb(int enable)
 {
 	struct FSTB_FRAME_INFO *iter;
@@ -872,7 +832,6 @@ static void fstb_set_cam_active(int active)
 		return;
 
 	fstb_is_cam_active = active;
-	fpsgo_gpu_block_boost_enable_camera(active ? 0 : -1);
 }
 
 static void fstb_check_cam_status(void)
@@ -963,8 +922,6 @@ void fpsgo_comp2fstb_queue_time_update(int pid, unsigned long long bufID,
 		new_frame_info->m_v_cap = 0;
 		new_frame_info->m_m_time = 0;
 		new_frame_info->m_m_cap = 0;
-		new_frame_info->gblock_b = 0ULL;
-		new_frame_info->gblock_time = 0ULL;
 		new_frame_info->fps_raise_flag = 0;
 
 		rcu_read_lock();
@@ -1283,8 +1240,6 @@ static int cal_target_fps(struct FSTB_FRAME_INFO *iter)
 
 }
 
-void (*eara_thrm_gblock_bypass_fp)(int pid, unsigned long long bufid,
-					int bypass);
 #define FSTB_SEC_DIVIDER 1000000000
 void fpsgo_fbt2fstb_query_fps(int pid, unsigned long long bufID,
 	int *target_fps, int *target_cpu_time,
@@ -1321,23 +1276,8 @@ void fpsgo_fbt2fstb_query_fps(int pid, unsigned long long bufID,
 			(*target_fps) + tolerence_fps > max_fps_limit ?
 			max_fps_limit : (*target_fps) + tolerence_fps);
 
-		if (total_time > 1000000ULL + iter->gblock_time &&
-				iter->gblock_time > 1000000ULL) {
-			fpsgo_systrace_c_fstb(pid, iter->bufid,
-					iter->gblock_time, "gblock_time");
-			total_time -= iter->gblock_time;
-			if (eara_thrm_gblock_bypass_fp)
-				eara_thrm_gblock_bypass_fp(iter->pid,
-							iter->bufid, 1);
-		} else {
-			if (eara_thrm_gblock_bypass_fp)
-				eara_thrm_gblock_bypass_fp(iter->pid,
-							iter->bufid, 0);
-		}
 
-		iter->gblock_time = 0ULL;
-
-			v_c_time = total_time;
+		v_c_time = total_time;
 
 	}
 
