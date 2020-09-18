@@ -148,6 +148,16 @@ config QCOM_IPCC
          Say Y here to compile the driver as a part of kernel or M to compile
          as a module.
 
+config QCOM_RIMPS
+	tristate "Qualcomm Technologies, Inc. Rimps driver"
+	depends on MAILBOX
+	help
+	 Qualcomm Technologies, Inc. RIMPS driver for MSM devices. This driver
+	 acts as a mailbox controller to do doorbell between Apss and Rimps
+	 subsystem. Say yes here to enable rx and tx channel between both
+	 the subsystems.
+	 If unsure, say n.
+
 config QCOM_LLCC
 	tristate "Qualcomm Technologies, Inc. LLCC driver"
 	depends on ARCH_QCOM || COMPILE_TEST
@@ -478,6 +488,37 @@ config QCOM_MINIDUMP
 	  Minidump would dump all registered entries, only when DLOAD mode
 	  is enabled.
 
+config QCOM_DYN_MINIDUMP_STACK
+	bool "QTI Dynamic Minidump Stack Registration Support"
+	depends on QCOM_MINIDUMP
+	help
+	  This enables minidump dynamic current stack registration feature.
+	  It allows current task stack to be available in minidump, for cases
+	  where CPU is unable to register it from IPI_CPU_STOP. The stack data
+	  can be used to unwind stack frames.
+
+config QCOM_MINIDUMP_FTRACE
+	bool "QCOM Minidump Support"
+	depends on QGKI && QCOM_MINIDUMP
+	help
+	  This enables ftrace buffer registration in minidump table.
+	  This allows dumping ftrace buffer content as part of
+	  minidump dumps.
+
+config QCOM_MINIDUMP_PANIC_DUMP
+	bool "QCOM Minidump Panic dumps Support"
+	depends on QGKI && QCOM_MINIDUMP
+	help
+	  This enables various dumps collection in minidump table,
+	  on panic.
+
+config QCOM_MINIDUMP_PANIC_CPU_CONTEXT
+	bool "QCOM Minidump Panic dumps Support"
+	depends on ARM64 && QCOM_MINIDUMP_PANIC_DUMP
+	help
+	  This enables cpu context collection in minidump table,
+	  on panic.
+
 config MINIDUMP_MAX_ENTRIES
 	int "Minidump Maximum num of entries"
 	default 200
@@ -679,6 +720,42 @@ config QTI_SYSTEM_PM
 config QTI_SYSTEM_PM_RPM
 	bool
 
+config QTI_HW_MEMLAT
+	tristate "Qualcomm Technologies Inc. RIMPS memlat interface driver"
+	depends on PERF_EVENTS
+	default n
+	help
+	  Interface driver between RIMPS memlat and userspace.
+
+	  This driver is responsible for handling the communication with
+	  RIMPS memlat such as setting up PMU events, passing tunables, frequency
+	  table, PMU counters and saving the values of PMU counters during LPM and
+	  hotplug.
+
+config QTI_HW_MEMLAT_SCMI_CLIENT
+	tristate "Qualcomm Technologies Inc. SCMI client driver for HW MEMLAT"
+	depends on QTI_HW_MEMLAT
+	default n
+	help
+	  SCMI client driver registers itself with SCMI framework for memlat
+	  vendor protocol, and also registers with the memlat hw interface
+	  driver.
+
+	  This driver deliver the memlat vendor protocol handle to interface
+	  driver, and interface driver will use this handle to communicate with
+	  memlat HW.
+
+config QTI_HW_MEMLAT_LOG
+	tristate "Qualcomm Technologies Inc. HW MEMLAT Logging"
+	depends on IPC_LOGGING && QCOM_RIMPS
+	default n
+	help
+	  Memlat hw logging driver, this driver has the infra to collect logs
+	  generated in MEMLAT HW and log the buffers.
+
+	  This driver register with IPC_Logging framework, to have dedicated
+	  buffer for memlat hw device.
+
 if MSM_PM
 menuconfig MSM_IDLE_STATS
 	bool "Collect idle statistics"
@@ -812,6 +889,24 @@ config QCOM_SOC_WATCHDOG
 	  setting the bark/bite time and also petting the hardware watchdog. To
 	  utilize this the Qualcomm Technologies, Inc. watchdog framework must
 	  also be enabled.
+
+config QCOM_IRQ_STAT
+	bool "QCOM IRQ stats"
+	depends on QGKI && QCOM_WDT_CORE
+	help
+	  This give irq stats for top hitter at
+	  watchdog pet, watchdog bark and kernel panics.
+	  This provides additional debug information
+	  for irq counts on cpu and ipi counts.
+
+config QCOM_INITIAL_LOGBUF
+	bool "QCOM save initial log_buf"
+	depends on QGKI && QCOM_WDT_CORE
+	help
+	  This enables to keep copy of initial log_buf
+	  of minimum 512KB from bootup. It can help in
+	  debugging issues which are manifestation
+	  of failure during initial bootup.
 
 config QCOM_FORCE_WDOG_BITE_ON_PANIC
 	bool "QCOM force watchdog bite on panic"

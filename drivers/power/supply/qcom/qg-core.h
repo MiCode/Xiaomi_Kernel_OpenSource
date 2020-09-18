@@ -64,6 +64,7 @@ struct qg_dt {
 	int			sys_min_volt_mv;
 	int			fvss_vbat_mv;
 	int			tcss_entry_soc;
+	int			esr_low_temp_threshold;
 	bool			hold_soc_while_full;
 	bool			linearize_soc;
 	bool			cl_disable;
@@ -71,6 +72,7 @@ struct qg_dt {
 	bool			esr_disable;
 	bool			esr_discharge_enable;
 	bool			qg_ext_sense;
+	bool			use_cp_iin_sns;
 	bool			use_s7_ocv;
 	bool			qg_sleep_config;
 	bool			qg_fast_chg_cfg;
@@ -130,6 +132,7 @@ struct qpnp_qg {
 	struct power_supply	*usb_psy;
 	struct power_supply	*dc_psy;
 	struct power_supply	*parallel_psy;
+	struct power_supply	*cp_psy;
 	struct qg_esr_data	esr_data[QG_MAX_ESR_COUNT];
 
 	/* status variable */

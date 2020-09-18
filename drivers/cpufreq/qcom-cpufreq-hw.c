@@ -29,7 +29,7 @@
 #define LUT_ROW_SIZE			32
 #define CLK_HW_DIV			2
 #define GT_IRQ_STATUS			BIT(2)
-#define MAX_FN_SIZE			12
+#define MAX_FN_SIZE			20
 #define LIMITS_POLLING_DELAY_MS		10
 
 #define CYCLE_CNTR_OFFSET(c, m, acc_count)				\
@@ -54,10 +54,12 @@ static const u16 *offsets;
 static unsigned int lut_row_size = LUT_ROW_SIZE;
 static unsigned int lut_max_entries = LUT_MAX_ENTRIES;
 static bool accumulative_counter;
+static bool perf_lock_support;
 
 struct cpufreq_qcom {
 	struct cpufreq_frequency_table *table;
 	void __iomem *base;
+	void __iomem *pdmem_base;
 	cpumask_t related_cpus;
 	unsigned long dcvsh_freq_limit;
 	struct delayed_work freq_poll_work;
@@ -234,6 +236,14 @@ static int
 qcom_cpufreq_hw_target_index(struct cpufreq_policy *policy,
 			     unsigned int index)
 {
+	struct cpufreq_qcom *c;
+
+	if (perf_lock_support) {
+		c = qcom_freq_domain_map[policy->cpu];
+		if (c->pdmem_base)
+			writel_relaxed(index, c->pdmem_base);
+	}
+
 	writel_relaxed(index, policy->driver_data + offsets[REG_PERF_STATE]);
 	arch_set_freq_scale(policy->related_cpus,
 			    policy->freq_table[index].frequency,
@@ -469,6 +479,7 @@ static int qcom_cpu_resources_init(struct platform_device *pdev,
 	struct resource *res;
 	struct device *dev = &pdev->dev;
 	void __iomem *base;
+	char pdmem_name[MAX_FN_SIZE] = {};
 	int ret, cpu_r;
 
 	c = devm_kzalloc(dev, sizeof(*c), GFP_KERNEL);
@@ -507,6 +518,23 @@ static int qcom_cpu_resources_init(struct platform_device *pdev,
 	if (ret) {
 		dev_err(dev, "Domain-%d failed to read LUT\n", index);
 		return ret;
+	}
+
+	perf_lock_support = of_property_read_bool(dev->of_node,
+					"qcom,perf-lock-support");
+	if (perf_lock_support) {
+		snprintf(pdmem_name, sizeof(pdmem_name), "pdmem-domain%d",
+								index);
+		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+								pdmem_name);
+		if (!res)
+			dev_err(dev, "PDMEM domain-%d failed\n", index);
+
+		base = devm_ioremap_resource(dev, res);
+		if (IS_ERR(base))
+			dev_err(dev, "Failed to map PDMEM domain-%d\n", index);
+		else
+			c->pdmem_base = base;
 	}
 
 	if (of_find_property(dev->of_node, "interrupts", NULL)) {

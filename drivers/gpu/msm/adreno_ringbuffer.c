@@ -34,6 +34,9 @@ static void adreno_get_submit_time(struct adreno_device *adreno_dev,
 {
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	unsigned long flags;
+	struct adreno_context *drawctxt = rb->drawctxt_active;
+	struct kgsl_context *context = &drawctxt->base;
+
 	/*
 	 * Here we are attempting to create a mapping between the
 	 * GPU time domain (alwayson counter) and the CPU time domain
@@ -49,7 +52,8 @@ static void adreno_get_submit_time(struct adreno_device *adreno_dev,
 	time->ticks = gpudev->read_alwayson(adreno_dev);
 
 	/* Trace the GPU time to create a mapping to ftrace time */
-	trace_adreno_cmdbatch_sync(rb->drawctxt_active, time->ticks);
+	trace_adreno_cmdbatch_sync(context->id, context->priority,
+		drawctxt->timestamp, time->ticks);
 
 	/* Get the kernel clock for time since boot */
 	time->ktime = local_clock();
@@ -108,50 +112,6 @@ static void adreno_ringbuffer_wptr(struct adreno_device *adreno_dev,
 		adreno_set_gpu_fault(adreno_dev,
 			ADRENO_GMU_FAULT_SKIP_SNAPSHOT);
 		adreno_dispatcher_schedule(device);
-	}
-}
-
-static void adreno_profile_submit_time(struct adreno_submit_time *time)
-{
-	struct kgsl_drawobj *drawobj;
-	struct kgsl_drawobj_cmd *cmdobj;
-	struct kgsl_mem_entry *entry;
-
-	if (time == NULL)
-		return;
-
-	drawobj = time->drawobj;
-
-	if (drawobj == NULL)
-		return;
-
-	cmdobj = CMDOBJ(drawobj);
-	entry = cmdobj->profiling_buf_entry;
-
-	if (entry) {
-		struct kgsl_drawobj_profiling_buffer *profile_buffer;
-
-		profile_buffer = kgsl_gpuaddr_to_vaddr(&entry->memdesc,
-					cmdobj->profiling_buffer_gpuaddr);
-
-		if (profile_buffer == NULL)
-			return;
-
-		/* Return kernel clock time to the the client if requested */
-		if (drawobj->flags & KGSL_DRAWOBJ_PROFILING_KTIME) {
-			uint64_t secs = time->ktime;
-
-			profile_buffer->wall_clock_ns =
-				do_div(secs, NSEC_PER_SEC);
-			profile_buffer->wall_clock_s = secs;
-		} else {
-			profile_buffer->wall_clock_s = time->utime.tv_sec;
-			profile_buffer->wall_clock_ns = time->utime.tv_nsec;
-		}
-
-		profile_buffer->gpu_ticks_queued = time->ticks;
-
-		kgsl_memdesc_unmap(&entry->memdesc);
 	}
 }
 

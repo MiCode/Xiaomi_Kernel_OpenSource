@@ -10,6 +10,7 @@ config INTERCONNECT_QCOM_HOLI
 	depends on INTERCONNECT_QCOM
 	depends on MSM_RPM_SMD
 	select INTERCONNECT_QCOM_RPM
+	select INTERCONNECT_QCOM_QOS
 	help
 	  This is a driver for the Qualcomm Technologies, Inc. Network-on-Chip
 	  on holi-based platforms. The interconnect provider collects and
@@ -50,6 +51,7 @@ config INTERCONNECT_QCOM_SHIMA
 	depends on QCOM_RPMH && QCOM_COMMAND_DB && OF
 	select INTERCONNECT_QCOM_BCM_VOTER
 	select INTERCONNECT_QCOM_RPMH
+	select INTERCONNECT_QCOM_QOS
 	help
 	  This is a driver for the Qualcomm Technologies, Inc. Network-on-Chip
 	  on shima-based platforms. The interconnect provider collects and

@@ -273,8 +273,8 @@ static void msm_cvp_clean_sess_queue(struct msm_cvp_inst *inst,
 
 static void msm_cvp_cleanup_instance(struct msm_cvp_inst *inst)
 {
-	bool empty;
-	int max_retries;
+	bool empty, empty_dsp;
+	int max_retries, max_retries_dsp;
 	struct msm_cvp_frame *frame;
 	struct cvp_session_queue *sq, *sqf;
 
@@ -287,7 +287,26 @@ static void msm_cvp_cleanup_instance(struct msm_cvp_inst *inst)
 	sq = &inst->session_queue;
 
 	max_retries =  inst->core->resources.msm_cvp_hw_rsp_timeout >> 1;
+	max_retries_dsp = max_retries;
 	msm_cvp_session_queue_stop(inst);
+
+wait_dsp:
+	mutex_lock(&inst->cvpdspbufs.lock);
+	empty_dsp = list_empty(&inst->cvpdspbufs.list);
+	if (!empty_dsp && max_retries_dsp > 0) {
+		mutex_unlock(&inst->cvpdspbufs.lock);
+		usleep_range(1000, 2000);
+		max_retries_dsp--;
+		goto wait_dsp;
+	}
+	mutex_unlock(&inst->cvpdspbufs.lock);
+
+	dprintk(CVP_DBG, "empty_dsp %d, retry %d\n", (int)empty_dsp,
+	(inst->core->resources.msm_cvp_hw_rsp_timeout >> 1) - max_retries_dsp);
+	if (!empty_dsp) {
+		dprintk(CVP_WARN,
+			"Failed to process DSP frames before session close\n");
+	}
 
 wait:
 	mutex_lock(&inst->frames.lock);

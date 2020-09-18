@@ -74,6 +74,7 @@ struct gdsc {
 	int			reset_count;
 	int			root_clk_idx;
 	u32			gds_timeout;
+	bool			skip_disable_before_enable;
 };
 
 enum gdscr_status {
@@ -162,6 +163,9 @@ static int gdsc_is_enabled(struct regulator_dev *rdev)
 	if (!sc->toggle_logic)
 		return !sc->resets_asserted;
 
+	if (sc->skip_disable_before_enable)
+		return false;
+
 	return sc->is_gdsc_enabled;
 }
 
@@ -170,6 +174,9 @@ static int gdsc_enable(struct regulator_dev *rdev)
 	struct gdsc *sc = rdev_get_drvdata(rdev);
 	uint32_t regval, hw_ctrl_regval = 0x0;
 	int i, ret = 0;
+
+	if (sc->skip_disable_before_enable)
+		return 0;
 
 	if (sc->root_en || sc->force_root_en) {
 		clk_prepare_enable(sc->clocks[sc->root_clk_idx]);
@@ -606,6 +613,8 @@ static int gdsc_parse_dt_data(struct gdsc *sc, struct device *dev,
 					"qcom,no-status-check-on-disable");
 	sc->retain_ff_enable = of_property_read_bool(dev->of_node,
 						"qcom,retain-regs");
+	sc->skip_disable_before_enable = of_property_read_bool(dev->of_node,
+					"qcom,skip-disable-before-sw-enable");
 
 	if (of_find_property(dev->of_node, "qcom,collapse-vote", NULL)) {
 		ret = of_property_count_u32_elems(dev->of_node,

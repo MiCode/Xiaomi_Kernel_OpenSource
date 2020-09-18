@@ -281,7 +281,6 @@
 				bias-pull-up;
 			};
 
-			/omit-if-no-ref/
 			mmc1_pins: mmc1-pins {
 				pins = "PG0", "PG1", "PG2", "PG3",
 				       "PG4", "PG5";

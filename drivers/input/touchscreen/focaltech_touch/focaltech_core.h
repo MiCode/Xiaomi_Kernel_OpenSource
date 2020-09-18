@@ -61,6 +61,7 @@
 #include <linux/sched.h>
 #include <linux/kthread.h>
 #include <linux/dma-mapping.h>
+#include <linux/haven/hh_irq_lend.h>
 #include "focaltech_common.h"
 
 /*****************************************************************************
@@ -138,6 +139,33 @@ struct ts_event {
 	int area;
 };
 
+enum trusted_touch_mode_config {
+	TRUSTED_TOUCH_VM_MODE,
+	TRUSTED_TOUCH_MODE_NONE
+};
+
+#ifdef CONFIG_FTS_TRUSTED_TOUCH
+#define TRUSTED_TOUCH_MEM_LABEL 0x7
+
+struct trusted_touch_vm_info {
+	enum hh_irq_label irq_label;
+	enum hh_vm_names vm_name;
+	u32 hw_irq;
+	hh_memparcel_handle_t vm_mem_handle;
+	u32 *iomem_bases;
+	u32 *iomem_sizes;
+	u32 iomem_list_size;
+	void *mem_cookie;
+#ifdef CONFIG_ARCH_QTI_VM
+	atomic_t tvm_owns_iomem;
+	atomic_t tvm_owns_irq;
+#else
+	atomic_t pvm_owns_iomem;
+	atomic_t pvm_owns_irq;
+#endif
+};
+#endif
+
 struct fts_ts_data {
 	struct i2c_client *client;
 	struct spi_device *spi;
@@ -189,6 +217,20 @@ struct fts_ts_data {
 	struct notifier_block fb_notif;
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
 	struct early_suspend early_suspend;
+#endif
+
+#ifdef CONFIG_FTS_TRUSTED_TOUCH
+	struct trusted_touch_vm_info *vm_info;
+	struct mutex fts_clk_io_ctrl_mutex;
+	const char *touch_environment;
+	struct completion trusted_touch_powerdown;
+	struct completion resource_checkpoint;
+	struct clk *core_clk;
+	struct clk *iface_clk;
+	atomic_t trusted_touch_initialized;
+	atomic_t trusted_touch_enabled;
+	atomic_t delayed_vm_probe_pending;
+	atomic_t trusted_touch_mode;
 #endif
 };
 
@@ -258,4 +300,6 @@ int fts_ex_mode_recovery(struct fts_ts_data *ts_data);
 
 void fts_irq_disable(void);
 void fts_irq_enable(void);
+int fts_ts_handle_trusted_touch_pvm(struct fts_ts_data *ts_data, int value);
+int fts_ts_handle_trusted_touch_tvm(struct fts_ts_data *ts_data, int value);
 #endif /* __LINUX_FOCALTECH_CORE_H__ */

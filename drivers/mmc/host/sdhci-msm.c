@@ -1763,8 +1763,10 @@ static void sdhci_msm_check_power_status(struct sdhci_host *host, u32 req_type)
 		return;
 	}
 
-	if (mmc->ops->get_cd && !mmc->ops->get_cd(mmc)) {
-		pr_debug("%s: card is not present. Do not wait for pwr irq\n",
+	if (mmc->card && mmc->ops->get_cd && !mmc->ops->get_cd(mmc) &&
+			(req_type & REQ_BUS_ON)) {
+		pr_debug(
+			"%s: Regulators are never turned on when SD card is removed so do not wait for pwr irq\n",
 				mmc_hostname(host->mmc));
 		return;
 	}
@@ -1990,6 +1992,7 @@ static int sdhci_msm_setup_vreg(struct sdhci_msm_host *msm_host,
 	int ret = 0, i;
 	struct sdhci_msm_vreg_data *curr_slot;
 	struct sdhci_msm_reg_data *vreg_table[2];
+	struct mmc_host *mmc = msm_host->mmc;
 
 	curr_slot = msm_host->vreg_data;
 	if (!curr_slot) {
@@ -2000,6 +2003,10 @@ static int sdhci_msm_setup_vreg(struct sdhci_msm_host *msm_host,
 
 	vreg_table[0] = curr_slot->vdd_data;
 	vreg_table[1] = curr_slot->vdd_io_data;
+
+	/* When eMMC absent disable regulator marked as always_on */
+	if (!enable && vreg_table[1]->is_always_on && !mmc->card)
+		vreg_table[1]->is_always_on = false;
 
 	for (i = 0; i < ARRAY_SIZE(vreg_table); i++) {
 		if (vreg_table[i]) {
@@ -2151,7 +2158,8 @@ static void sdhci_msm_handle_pwr_irq(struct sdhci_host *host, int irq)
 		io_level = REQ_IO_HIGH;
 	}
 	if (irq_status & CORE_PWRCTL_BUS_OFF) {
-		if (msm_host->pltfm_init_done)
+		if (!(host->mmc->caps & MMC_CAP_NONREMOVABLE) ||
+		    msm_host->pltfm_init_done)
 			ret = sdhci_msm_setup_vreg(msm_host,
 					false, false);
 		if (!ret)
@@ -3998,9 +4006,30 @@ static __maybe_unused int sdhci_msm_runtime_resume(struct device *dev)
 	return 0;
 }
 
+static int sdhci_msm_suspend_late(struct device *dev)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
+
+	if (!msm_host->sdhci_qos)
+		goto skip_qos;
+
+	if (flush_delayed_work(&msm_host->pmqos_unvote_work))
+		dev_dbg(dev, "%s Waited for pmqos_unvote_work to finish\n",
+			 __func__);
+
+skip_qos:
+	if (flush_delayed_work(&msm_host->clk_gating_work))
+		dev_dbg(dev, "%s Waited for clk_gating_work to finish\n",
+			 __func__);
+	return 0;
+}
+
 static const struct dev_pm_ops sdhci_msm_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend,
 				pm_runtime_force_resume)
+	SET_LATE_SYSTEM_SLEEP_PM_OPS(sdhci_msm_suspend_late, NULL)
 	SET_RUNTIME_PM_OPS(sdhci_msm_runtime_suspend,
 			   sdhci_msm_runtime_resume,
 			   NULL)

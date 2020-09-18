@@ -48,7 +48,7 @@ void schgm_flash_torch_priority(struct smb_charger *chg, enum torch_mode mode);
 int schgm_flash_init(struct smb_charger *chg);
 bool is_flash_active(struct smb_charger *chg);
 
-irqreturn_t schgm_flash_default_irq_handler(int irq, void *data);
-irqreturn_t schgm_flash_ilim2_irq_handler(int irq, void *data);
-irqreturn_t schgm_flash_state_change_irq_handler(int irq, void *data);
+irqreturn_t smb5_schgm_flash_default_irq_handler(int irq, void *data);
+irqreturn_t smb5_schgm_flash_ilim2_irq_handler(int irq, void *data);
+irqreturn_t smb5_schgm_flash_state_change_irq_handler(int irq, void *data);
 #endif /* __SCHGM_FLASH_H__ */

@@ -3,7 +3,7 @@ Ramoops oops/panic logger
 
 Sergiu Iordache <sergiu@chromium.org>
 
-Updated: 17 November 2011
+Updated: 10 July 2020
 
 Introduction
 ------------
@@ -29,7 +29,9 @@ mapping to pgprot_writecombine. Setting ``mem_type=1`` attempts to use
 ``pgprot_noncached``, which only works on some platforms. This is because pstore
 depends on atomic operations. At least on ARM, pgprot_noncached causes the
 memory to be mapped strongly ordered, and atomic operations on strongly ordered
-memory are implementation defined, and won't work on many ARMs such as omaps.
+memory are implementation defined, and won't work on many ARMs such as omaps. Setting
+``mem_type=2`` attempts to treat the memory region as normal memory, which enables
+full cache on it. This can improve the performance.
 
 The memory area is divided into ``record_size`` chunks (also rounded down to
 power of two) and each oops/panic writes a ``record_size`` chunk of

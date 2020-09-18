@@ -83,6 +83,7 @@ struct cnss_pci_data {
 	dma_addr_t smmu_iova_start;
 	size_t smmu_iova_len;
 	dma_addr_t smmu_iova_ipa_start;
+	dma_addr_t smmu_iova_ipa_current;
 	size_t smmu_iova_ipa_len;
 	void __iomem *bar;
 	struct cnss_msi_config *msi_config;
@@ -101,6 +102,7 @@ struct cnss_pci_data {
 	u32 pcie_reg_size;
 	struct cnss_misc_reg *wlaon_reg;
 	u32 wlaon_reg_size;
+	u8 iommu_geometry;
 };
 
 static inline void cnss_set_pci_priv(struct pci_dev *pci_dev, void *data)

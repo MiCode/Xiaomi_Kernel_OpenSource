@@ -2309,12 +2309,6 @@ static int rtc6226_vidioc_s_hw_freq_seek(struct file *file, void *priv,
 	return retval;
 }
 
-static int rtc6226_vidioc_g_fmt_type_private(struct file *file, void *priv,
-						struct v4l2_format *f)
-{
-	return 0;
-}
-
 static const struct v4l2_file_operations rtc6226_fops = {
 	.owner			= THIS_MODULE,
 	.unlocked_ioctl	= video_ioctl2,
@@ -2342,7 +2336,6 @@ const struct v4l2_ioctl_ops rtc6226_ioctl_ops = {
 	.vidioc_s_frequency         =   rtc6226_vidioc_s_frequency,
 	.vidioc_s_hw_freq_seek      =   rtc6226_vidioc_s_hw_freq_seek,
 	.vidioc_dqbuf               =   rtc6226_vidioc_dqbuf,
-	.vidioc_g_fmt_type_private  =	rtc6226_vidioc_g_fmt_type_private,
 };
 
 /*

@@ -662,7 +662,7 @@ int msm_dump_data_register(enum msm_dump_table_ids id,
 
 	ret = register_dump_table_entry(id, entry);
 	if (!ret)
-		if (msm_dump_data_add_minidump(entry))
+		if (msm_dump_data_add_minidump(entry) < 0)
 			pr_err("Failed to add entry in Minidump table\n");
 
 	return ret;
@@ -856,7 +856,7 @@ static int mem_dump_alloc(struct platform_device *pdev)
 		md_entry.size = size;
 		md_entry.id = id;
 		strlcpy(md_entry.name, child_node->name, sizeof(md_entry.name));
-		if (msm_minidump_add_region(&md_entry))
+		if (msm_minidump_add_region(&md_entry) < 0)
 			dev_err(&pdev->dev, "Mini dump entry failed id = %d\n",
 				id);
 

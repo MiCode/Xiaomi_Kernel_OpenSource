@@ -261,15 +261,12 @@ static int hh_wdt_probe(struct platform_device *pdev)
 	return qcom_wdt_register(pdev, wdog_dd, "hh-watchdog");
 }
 
+static const struct dev_pm_ops hh_wdt_dev_pm_ops = {
 #ifdef CONFIG_PM_SLEEP
-static const struct dev_pm_ops hh_wdt_dev_pm_ops = {
-	.suspend_noirq = qcom_wdt_suspend,
-	.resume_noirq = qcom_wdt_resume,
-};
-#else
-static const struct dev_pm_ops hh_wdt_dev_pm_ops = {
-};
+	.suspend_late = qcom_wdt_pet_suspend,
+	.resume_early = qcom_wdt_pet_resume,
 #endif
+};
 
 static const struct of_device_id hh_wdt_match_table[] = {
 	{ .compatible = "qcom,hh-watchdog" },

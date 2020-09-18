@@ -12,25 +12,10 @@
 
 #include "adreno.h"
 #include "adreno_a6xx.h"
+#include "adreno_a6xx_hwsched.h"
 #include "adreno_pm4types.h"
 #include "adreno_trace.h"
 #include "kgsl_trace.h"
-
-#define A6XX_INT_MASK \
-	((1 << A6XX_INT_CP_AHB_ERROR) |			\
-	 (1 << A6XX_INT_ATB_ASYNCFIFO_OVERFLOW) |	\
-	 (1 << A6XX_INT_RBBM_GPC_ERROR) |		\
-	 (1 << A6XX_INT_CP_SW) |			\
-	 (1 << A6XX_INT_CP_HW_ERROR) |			\
-	 (1 << A6XX_INT_CP_IB2) |			\
-	 (1 << A6XX_INT_CP_IB1) |			\
-	 (1 << A6XX_INT_CP_RB) |			\
-	 (1 << A6XX_INT_CP_CACHE_FLUSH_TS) |		\
-	 (1 << A6XX_INT_RBBM_ATB_BUS_OVERFLOW) |	\
-	 (1 << A6XX_INT_RBBM_HANG_DETECT) |		\
-	 (1 << A6XX_INT_UCHE_OOB_ACCESS) |		\
-	 (1 << A6XX_INT_UCHE_TRAP_INTR) |		\
-	 (1 << A6XX_INT_TSB_WRITE_ERROR))
 
 /* IFPC & Preemption static powerup restore list */
 static u32 a6xx_pwrup_reglist[] = {
@@ -438,11 +423,6 @@ void a6xx_start(struct adreno_device *adreno_dev)
 	unsigned int rgb565_predicator = 0;
 	static bool patch_reglist;
 
-	adreno_dev->irq_mask = A6XX_INT_MASK;
-
-	/* enable hardware clockgating */
-	a6xx_hwcg_set(adreno_dev, true);
-
 	/* Enable 64 bit addressing */
 	kgsl_regwrite(device, A6XX_CP_ADDR_MODE_CNTL, 0x1);
 	kgsl_regwrite(device, A6XX_VSC_ADDR_MODE_CNTL, 0x1);
@@ -675,6 +655,12 @@ void a6xx_start(struct adreno_device *adreno_dev)
 	a6xx_set_secvid(device);
 
 	/*
+	 * Enable hardware clock gating here to prevent any register access
+	 * issue due to internal clock gating.
+	 */
+	a6xx_hwcg_set(adreno_dev, true);
+
+	/*
 	 * All registers must be written before this point so that we don't
 	 * miss any register programming when we patch the power up register
 	 * list.
@@ -684,6 +670,25 @@ void a6xx_start(struct adreno_device *adreno_dev)
 		patch_reglist = true;
 	}
 }
+
+void a6xx_unhalt_sqe(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct adreno_firmware *fw = ADRENO_FW(adreno_dev, ADRENO_FW_SQE);
+	uint64_t gpuaddr;
+
+	gpuaddr = fw->memdesc->gpuaddr;
+
+	/* Program the ucode base for CP */
+	kgsl_regwrite(device, A6XX_CP_SQE_INSTR_BASE_LO,
+				lower_32_bits(gpuaddr));
+	kgsl_regwrite(device, A6XX_CP_SQE_INSTR_BASE_HI,
+				upper_32_bits(gpuaddr));
+
+	/* Clear the SQE_HALT to start the CP engine */
+	kgsl_regwrite(device, A6XX_CP_SQE_CNTL, 1);
+}
+
 
 /*
  * CP_INIT_MAX_CONTEXT bit tells if the multiple hardware contexts can
@@ -736,14 +741,14 @@ static int a6xx_get_cp_init_cmds(struct adreno_device *adreno_dev)
 	if (adreno_dev->cp_init_cmds)
 		return 0;
 
-	adreno_dev->cp_init_cmds = devm_kzalloc(&device->pdev->dev, 12 << 2,
-				GFP_KERNEL);
+	adreno_dev->cp_init_cmds = devm_kzalloc(&device->pdev->dev,
+			A6XX_CP_INIT_DWORDS << 2, GFP_KERNEL);
 	if (!adreno_dev->cp_init_cmds)
 		return -ENOMEM;
 
 	cmds = (u32 *)adreno_dev->cp_init_cmds;
 
-	cmds[i++] = cp_type7_packet(CP_ME_INIT, 11);
+	cmds[i++] = cp_type7_packet(CP_ME_INIT, A6XX_CP_INIT_DWORDS - 1);
 
 	/* Enabled ordinal mask */
 	cmds[i++] = CP_INIT_MASK;
@@ -778,7 +783,7 @@ static int a6xx_get_cp_init_cmds(struct adreno_device *adreno_dev)
 	return 0;
 }
 
-static void a6xx_spin_idle_debug(struct adreno_device *adreno_dev,
+void a6xx_spin_idle_debug(struct adreno_device *adreno_dev,
 				const char *str)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
@@ -910,7 +915,6 @@ static int a6xx_post_start(struct adreno_device *adreno_dev)
 int a6xx_rb_start(struct adreno_device *adreno_dev)
 {
 	const struct adreno_a6xx_core *a6xx_core = to_a6xx_core(adreno_dev);
-	struct adreno_firmware *fw = ADRENO_FW(adreno_dev, ADRENO_FW_SQE);
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	u32 cp_rb_cntl = A6XX_CP_RB_CNTL_DEFAULT |
 		(ADRENO_FEATURE(adreno_dev, ADRENO_APRIV) ? 0 : (1 << 27));
@@ -951,15 +955,7 @@ int a6xx_rb_start(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A6XX_CP_RB_BASE_HI,
 		upper_32_bits(rb->buffer_desc->gpuaddr));
 
-	/* Program the ucode base for CP */
-	kgsl_regwrite(device, A6XX_CP_SQE_INSTR_BASE_LO,
-			lower_32_bits(fw->memdesc->gpuaddr));
-
-	kgsl_regwrite(device, A6XX_CP_SQE_INSTR_BASE_HI,
-			upper_32_bits(fw->memdesc->gpuaddr));
-
-	/* Clear the SQE_HALT to start the CP engine */
-	kgsl_regwrite(device, A6XX_CP_SQE_CNTL, 1);
+	a6xx_unhalt_sqe(adreno_dev);
 
 	ret = a6xx_send_cp_init(adreno_dev, rb);
 	if (ret)
@@ -1085,7 +1081,7 @@ static bool a619_holi_hw_isidle(struct adreno_device *adreno_dev)
 	return (reg & BIT(23)) ? false : true;
 }
 
-static bool a6xx_hw_isidle(struct adreno_device *adreno_dev)
+bool a6xx_hw_isidle(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned int reg;
@@ -1522,6 +1518,29 @@ static void a6xx_cp_callback(struct adreno_device *adreno_dev, int bit)
 	adreno_dispatcher_schedule(device);
 }
 
+/*
+ * a6xx_gpc_err_int_callback() - Isr for GPC error interrupts
+ * @adreno_dev: Pointer to device
+ * @bit: Interrupt bit
+ */
+static void a6xx_gpc_err_int_callback(struct adreno_device *adreno_dev, int bit)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+
+	/*
+	 * GPC error is typically the result of mistake SW programming.
+	 * Force GPU fault for this interrupt so that we can debug it
+	 * with help of register dump.
+	 */
+
+	dev_crit(device->dev, "RBBM: GPC error\n");
+	adreno_irqctrl(adreno_dev, 0);
+
+	/* Trigger a fault in the dispatcher - this will effect a restart */
+	adreno_set_gpu_fault(adreno_dev, ADRENO_SOFT_FAULT);
+	adreno_dispatcher_schedule(device);
+}
+
 static struct adreno_irq_funcs a6xx_irq_funcs[32] = {
 	ADRENO_IRQ_CALLBACK(NULL),              /* 0 - RBBM_GPU_IDLE */
 	ADRENO_IRQ_CALLBACK(a6xx_err_callback), /* 1 - RBBM_AHB_ERROR */
@@ -1531,7 +1550,7 @@ static struct adreno_irq_funcs a6xx_irq_funcs[32] = {
 	ADRENO_IRQ_CALLBACK(NULL), /* 5 - UNUSED */
 	/* 6 - RBBM_ATB_ASYNC_OVERFLOW */
 	ADRENO_IRQ_CALLBACK(a6xx_err_callback),
-	ADRENO_IRQ_CALLBACK(NULL), /* 7 - GPC_ERR */
+	ADRENO_IRQ_CALLBACK(a6xx_gpc_err_int_callback), /* 7 - GPC_ERR */
 	ADRENO_IRQ_CALLBACK(a6xx_preemption_callback),/* 8 - CP_SW */
 	ADRENO_IRQ_CALLBACK(a6xx_cp_hw_err_callback), /* 9 - CP_HW_ERROR */
 	ADRENO_IRQ_CALLBACK(NULL),  /* 10 - CP_CCU_FLUSH_DEPTH_TS */
@@ -2521,6 +2540,8 @@ static int a6xx_probe(struct platform_device *pdev,
 
 	INIT_WORK(&device->idle_check_ws, kgsl_idle_check);
 
+	adreno_dev->irq_mask = A6XX_INT_MASK;
+
 	return 0;
 }
 
@@ -2791,7 +2812,6 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.preemption_schedule = a6xx_preemption_schedule,
 	.set_marker = a6xx_set_marker,
 	.preemption_context_init = a6xx_preemption_context_init,
-	.preemption_context_destroy = a6xx_preemption_context_destroy,
 	.sptprac_is_on = a6xx_sptprac_is_on,
 	.ccu_invalidate = a6xx_ccu_invalidate,
 	.perfcounter_update = a6xx_perfcounter_update,
@@ -2803,6 +2823,24 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 #endif
 	.read_alwayson = a6xx_read_alwayson,
 	.power_ops = &adreno_power_operations,
+};
+
+struct adreno_gpudev adreno_a6xx_hwsched_gpudev = {
+	.reg_offsets = a6xx_register_offsets,
+	.probe = a6xx_hwsched_probe,
+	.snapshot = a6xx_hwsched_snapshot,
+	.irq_handler = a6xx_irq_handler,
+	.perfcounters = &a6xx_perfcounters,
+	.read_throttling_counters = a6xx_read_throttling_counters,
+	.iommu_fault_block = a6xx_iommu_fault_block,
+	.preemption_context_init = a6xx_preemption_context_init,
+	.context_detach = a6xx_hwsched_context_detach,
+	.perfcounter_update = a6xx_perfcounter_update,
+#ifdef CONFIG_QCOM_KGSL_CORESIGHT
+	.coresight = {&a6xx_coresight, &a6xx_coresight_cx},
+#endif
+	.read_alwayson = a6xx_read_alwayson,
+	.power_ops = &a6xx_hwsched_power_ops,
 };
 
 struct adreno_gpudev adreno_a6xx_gmu_gpudev = {
@@ -2828,7 +2866,6 @@ struct adreno_gpudev adreno_a6xx_gmu_gpudev = {
 	.preemption_schedule = a6xx_preemption_schedule,
 	.set_marker = a6xx_set_marker,
 	.preemption_context_init = a6xx_preemption_context_init,
-	.preemption_context_destroy = a6xx_preemption_context_destroy,
 	.sptprac_is_on = a6xx_sptprac_is_on,
 	.ccu_invalidate = a6xx_ccu_invalidate,
 	.perfcounter_update = a6xx_perfcounter_update,
@@ -2862,7 +2899,6 @@ struct adreno_gpudev adreno_a6xx_rgmu_gpudev = {
 	.preemption_schedule = a6xx_preemption_schedule,
 	.set_marker = a6xx_set_marker,
 	.preemption_context_init = a6xx_preemption_context_init,
-	.preemption_context_destroy = a6xx_preemption_context_destroy,
 	.sptprac_is_on = a6xx_sptprac_is_on,
 	.ccu_invalidate = a6xx_ccu_invalidate,
 	.perfcounter_update = a6xx_perfcounter_update,
@@ -2896,7 +2932,6 @@ struct adreno_gpudev adreno_a619_holi_gpudev = {
 	.preemption_schedule = a6xx_preemption_schedule,
 	.set_marker = a6xx_set_marker,
 	.preemption_context_init = a6xx_preemption_context_init,
-	.preemption_context_destroy = a6xx_preemption_context_destroy,
 	.sptprac_is_on = a6xx_sptprac_is_on,
 	.ccu_invalidate = a6xx_ccu_invalidate,
 	.perfcounter_update = a6xx_perfcounter_update,
@@ -2933,7 +2968,6 @@ struct adreno_gpudev adreno_a630_gpudev = {
 	.preemption_schedule = a6xx_preemption_schedule,
 	.set_marker = a6xx_set_marker,
 	.preemption_context_init = a6xx_preemption_context_init,
-	.preemption_context_destroy = a6xx_preemption_context_destroy,
 	.sptprac_is_on = a6xx_sptprac_is_on,
 	.ccu_invalidate = a6xx_ccu_invalidate,
 	.perfcounter_update = a6xx_perfcounter_update,

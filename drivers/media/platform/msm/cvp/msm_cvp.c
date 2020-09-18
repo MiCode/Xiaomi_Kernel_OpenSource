@@ -182,9 +182,7 @@ static int msm_cvp_session_process_hfi(
 		dprintk(CVP_ERR, "%s incorrect packet %d, %x\n", __func__,
 				in_pkt->pkt_data[0],
 				in_pkt->pkt_data[1]);
-		offset = in_offset;
-		buf_num = in_buf_num;
-		signal = HAL_NO_RESP;
+		goto exit;
 	} else {
 		offset = cvp_hfi_defs[pkt_idx].buf_offset;
 		buf_num = cvp_hfi_defs[pkt_idx].buf_num;
@@ -761,7 +759,7 @@ static void aggregate_power_update(struct msm_cvp_core *core,
 			inst->state == MSM_CVP_CORE_UNINIT ||
 			!is_subblock_profile_existed(inst))
 			continue;
-		if (inst->prop.priority <= CVP_RT_PRIO_THRESHOLD) {
+		if (inst->prop.priority < CVP_RT_PRIO_THRESHOLD) {
 			/* Non-realtime session use index 0 */
 			i = 0;
 		} else {

@@ -308,12 +308,24 @@ bool is_input_present(struct qpnp_qg *chip)
 	return is_usb_present(chip) || is_dc_present(chip);
 }
 
-static bool is_parallel_available(struct qpnp_qg *chip)
+bool is_parallel_available(struct qpnp_qg *chip)
 {
 	if (is_chan_valid(chip, PARALLEL_CHARGING_ENABLED))
 		return true;
 
 	return false;
+}
+
+bool is_cp_available(struct qpnp_qg *chip)
+{
+	if (chip->cp_psy)
+		return true;
+
+	chip->cp_psy = power_supply_get_by_name("charge_pump_master");
+	if (!chip->cp_psy)
+		return false;
+
+	return true;
 }
 
 bool is_parallel_enabled(struct qpnp_qg *chip)
@@ -322,6 +334,8 @@ bool is_parallel_enabled(struct qpnp_qg *chip)
 
 	if (is_parallel_available(chip))
 		qg_read_iio_chan(chip, PARALLEL_CHARGING_ENABLED, &val);
+	else if (is_cp_available(chip))
+		qg_read_iio_chan(chip, CP_CHARGING_ENABLED, &val);
 
 	return val ? true : false;
 }

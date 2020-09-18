@@ -1039,6 +1039,7 @@
 
 /* FAL10 veto register */
 #define A6XX_GPU_GMU_CX_GMU_CX_FAL_INTF         0x1F8F0
+#define A6XX_GPU_GMU_CX_GMU_CX_FALNEXT_INTF     0x1F8F1
 
 #define A6XX_GMU_AO_INTERRUPT_EN		0x23B03
 #define A6XX_GMU_AO_HOST_INTERRUPT_CLR		0x23B04
@@ -1074,6 +1075,8 @@
 #define A6XX_GPU_CC_GX_DOMAIN_MISC             0x24542
 #define A6XX_GPU_CC_GX_DOMAIN_MISC3            0x24563
 
+/* GPU CPR registers */
+#define A6XX_GPU_CPR_FSM_CTL			0x26801
 
 /* GPU RSC sequencer registers */
 #define A6XX_GPU_RSCC_RSC_STATUS0_DRV0			0x00004

@@ -20,6 +20,7 @@
 #include <linux/dma-buf.h>
 #include <linux/kref.h>
 #include <linux/signal.h>
+#include <linux/msm_ion.h>
 
 #include <linux/qcom_scm.h>
 #include <asm/cacheflush.h>
@@ -249,6 +250,8 @@ struct smcinvoke_mem_obj {
 	uint64_t p_addr;
 	size_t p_addr_len;
 	struct list_head list;
+	bool bridge_created_by_others;
+	uint64_t shmbridge_handle;
 };
 
 static void destroy_cb_server(struct kref *kref)
@@ -357,6 +360,8 @@ static inline void free_mem_obj_locked(struct smcinvoke_mem_obj *mem_obj)
 {
 	list_del(&mem_obj->list);
 	dma_buf_put(mem_obj->dma_buf);
+	if (!mem_obj->bridge_created_by_others)
+		qtee_shmbridge_deregister(mem_obj->shmbridge_handle);
 	kfree(mem_obj);
 }
 
@@ -788,6 +793,82 @@ out:
 	return ret;
 }
 
+static int smcinvoke_create_bridge(struct smcinvoke_mem_obj *mem_obj)
+{
+	int ret = 0, i;
+	int tz_perm = PERM_READ|PERM_WRITE;
+	uint32_t *vmid_list;
+	uint32_t *perms_list;
+	uint32_t nelems = 0;
+	unsigned long dma_buf_flags = 0;
+	struct dma_buf *dmabuf = mem_obj->dma_buf;
+	phys_addr_t phys = mem_obj->p_addr;
+	size_t size = mem_obj->p_addr_len;
+
+	if (!qtee_shmbridge_is_enabled())
+		return 0;
+
+	ret = dma_buf_get_flags(dmabuf, &dma_buf_flags);
+	if (ret) {
+		pr_err("failed to get dmabuf flag for mem_region_id %d\n",
+				mem_obj->mem_region_id);
+		return ret;
+	}
+
+	if (dma_buf_flags & ION_FLAG_SECURE)
+		nelems = ion_get_flags_num_vm_elems(dma_buf_flags);
+	else
+		nelems = 1;
+
+	vmid_list = kcalloc(nelems, sizeof(*vmid_list), GFP_KERNEL);
+	if (!vmid_list) {
+		ret = -ENOMEM;
+		goto exit;
+	}
+
+	perms_list = kcalloc(nelems, sizeof(*perms_list), GFP_KERNEL);
+	if (!perms_list) {
+		ret = -ENOMEM;
+		goto exit_free_vmid_list;
+	}
+
+	if (dma_buf_flags & ION_FLAG_SECURE) {
+		ret = ion_populate_vm_list(dma_buf_flags, vmid_list, nelems);
+		if (ret)
+			goto exit_free_vmid_list;
+
+		for (i = 0; i < nelems; i++)
+			perms_list[i] = msm_secure_get_vmid_perms(vmid_list[i]);
+	} else {
+		vmid_list[0] = VMID_HLOS;
+		perms_list[0] = PERM_READ | PERM_WRITE;
+	}
+
+	ret = qtee_shmbridge_register(phys, size, vmid_list, perms_list, nelems,
+				      tz_perm, &mem_obj->shmbridge_handle);
+
+	if (ret && ret != -EEXIST) {
+		pr_err("creation of shm bridge for mem_region_id %d failed ret %d\n",
+		       mem_obj->mem_region_id, ret);
+		goto exit_free_perms_list;
+	}
+
+	if (ret == -EEXIST) {
+		mem_obj->bridge_created_by_others = true;
+		ret = 0;
+	}
+
+	pr_debug("created shm bridge handle %lld for mem_region_id %d\n",
+			mem_obj->shmbridge_handle, mem_obj->mem_region_id);
+
+exit_free_perms_list:
+	kfree(perms_list);
+exit_free_vmid_list:
+	kfree(vmid_list);
+exit:
+	return ret;
+}
+
 static int32_t smcinvoke_release_mem_obj_locked(void *buf, size_t buf_len)
 {
 	struct smcinvoke_tzcb_req *msg = buf;
@@ -845,8 +926,9 @@ static int32_t smcinvoke_map_mem_region(void *buf, size_t buf_len)
 
 		sgt = dma_buf_map_attachment(buf_attach, DMA_BIDIRECTIONAL);
 		if (IS_ERR(sgt)) {
+			pr_err("mapping dma buffers failed, ret: %d\n",
+					PTR_ERR(sgt));
 			ret = OBJECT_ERROR_KMEM;
-			pr_err("mapping dma buffers failed, ret: %d\n", ret);
 			goto out;
 		}
 		mem_obj->sgt = sgt;
@@ -862,6 +944,11 @@ static int32_t smcinvoke_map_mem_region(void *buf, size_t buf_len)
 		if (!mem_obj->p_addr) {
 			ret = OBJECT_ERROR_INVALID;
 			pr_err("invalid physical address, ret: %d\n", ret);
+			goto out;
+		}
+		ret = smcinvoke_create_bridge(mem_obj);
+		if (ret) {
+			ret = OBJECT_ERROR_INVALID;
 			goto out;
 		}
 		mem_obj->mem_map_obj_id = next_mem_map_obj_id_locked();
@@ -974,7 +1061,12 @@ static void process_tzcb_req(void *buf, size_t buf_len, struct file **arr_filp)
 				TZHANDLE_GET_SERVER(cb_req->hdr.tzhandle));
 	if (!srvr_info || srvr_info->state == SMCINVOKE_SERVER_STATE_DEFUNCT) {
 		/* ret equals Object_ERROR_DEFUNCT, at this point go to out */
-		pr_err("sever is either invalid or defunct\n");
+		if (!srvr_info)
+			pr_err("server is invalid\n");
+		else {
+			pr_err("server is defunct, state= %d tzhandle = %d\n",
+				srvr_info->state, cb_req->hdr.tzhandle);
+		}
 		mutex_unlock(&g_smcinvoke_lock);
 		goto out;
 	}
@@ -1928,6 +2020,11 @@ static int smcinvoke_probe(struct platform_device *pdev)
 		goto exit_destroy_device;
 	}
 	smcinvoke_pdev = pdev;
+	rc = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
+	if (rc) {
+		pr_err("dma_set_mask_and_coherent failed %d\n", rc);
+		goto exit_destroy_device;
+	}
 
 	return  0;
 

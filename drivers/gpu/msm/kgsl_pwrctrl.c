@@ -1007,23 +1007,27 @@ static ssize_t freq_table_mhz_show(struct device *dev,
 static ssize_t _gpu_tmu_show(struct kgsl_device *device,
 					char *buf)
 {
-	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	struct device *dev;
 	struct thermal_zone_device *thermal_dev;
-	int ret, temperature = 0;
+	int temperature = 0, max_temp = 0;
+	const char *name;
+	struct property *prop;
 
-	if (!pwr->tzone_name)
-		return 0;
+	dev = &device->pdev->dev;
 
-	thermal_dev = thermal_zone_get_zone_by_name((char *)pwr->tzone_name);
-	if (thermal_dev == NULL)
-		return 0;
+	of_property_for_each_string(dev->of_node, "qcom,tzone-names", prop, name) {
+		thermal_dev = thermal_zone_get_zone_by_name(name);
+		if (IS_ERR(thermal_dev))
+			continue;
 
-	ret = thermal_zone_get_temp(thermal_dev, &temperature);
-	if (ret)
-		return 0;
+		if (thermal_zone_get_temp(thermal_dev, &temperature))
+			continue;
+
+		max_temp = max(temperature, max_temp);
+	}
 
 	return scnprintf(buf, PAGE_SIZE, "%d\n",
-			temperature);
+			max_temp);
 }
 
 static ssize_t temp_show(struct device *dev,
@@ -1127,15 +1131,15 @@ static const struct attribute *pwrctrl_attr_list[] = {
 	NULL,
 };
 
-static GPU_SYSFS_ATTR(gpu_model, 0200, _gpu_model_show, NULL);
-static GPU_SYSFS_ATTR(gpu_busy, 0200, _gpu_busy_show, NULL);
+static GPU_SYSFS_ATTR(gpu_model, 0444, _gpu_model_show, NULL);
+static GPU_SYSFS_ATTR(gpu_busy, 0444, _gpu_busy_show, NULL);
 static GPU_SYSFS_ATTR(gpu_min_clock, 0644, _min_clock_mhz_show,
 		_min_clock_mhz_store);
 static GPU_SYSFS_ATTR(gpu_max_clock, 0644, _max_clock_mhz_show,
 		_max_clock_mhz_store);
-static GPU_SYSFS_ATTR(gpu_clock, 0200, _clock_mhz_show, NULL);
-static GPU_SYSFS_ATTR(gpu_freq_table, 0200, _freq_table_mhz_show, NULL);
-static GPU_SYSFS_ATTR(gpu_tmu, 0200, _gpu_tmu_show, NULL);
+static GPU_SYSFS_ATTR(gpu_clock, 0444, _clock_mhz_show, NULL);
+static GPU_SYSFS_ATTR(gpu_freq_table, 0444, _freq_table_mhz_show, NULL);
+static GPU_SYSFS_ATTR(gpu_tmu, 0444, _gpu_tmu_show, NULL);
 
 static const struct attribute *gpu_sysfs_attr_list[] = {
 	&gpu_sysfs_attr_gpu_model.attr,
@@ -1574,10 +1578,6 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 
 	timer_setup(&pwr->minbw_timer, kgsl_minbw_timer, 0);
 
-	/* temperature sensor name */
-	of_property_read_string(pdev->dev.of_node, "qcom,tzone-name",
-		&pwr->tzone_name);
-
 	return 0;
 }
 
@@ -1601,11 +1601,22 @@ void kgsl_idle_check(struct work_struct *work)
 
 	mutex_lock(&device->mutex);
 
+	/*
+	 * After scheduling idle work for transitioning to either NAP or
+	 * SLUMBER, it's possible that requested state can change to NONE
+	 * if any new workload comes before kgsl_idle_check is executed or
+	 * it gets the device mutex. In such case, no need to change state
+	 * to NONE.
+	 */
+	if (device->requested_state == KGSL_STATE_NONE) {
+		mutex_unlock(&device->mutex);
+		return;
+	}
+
 	requested_state = device->requested_state;
 
-	if (requested_state != KGSL_STATE_NONE &&
-		(device->state == KGSL_STATE_ACTIVE ||
-		kgsl_state_is_nap_or_minbw(device))) {
+	if (device->state == KGSL_STATE_ACTIVE
+		   || kgsl_state_is_nap_or_minbw(device)) {
 
 		if (!atomic_read(&device->active_cnt)) {
 			spin_lock(&device->submit_lock);
@@ -1814,6 +1825,8 @@ static int _wake(struct kgsl_device *device)
 		kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_ON);
 		kgsl_pwrscale_wake(device);
 		kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_ON);
+		trace_gpu_frequency(
+			pwr->pwrlevels[pwr->active_pwrlevel].gpu_freq/1000, 0);
 		/* fall through */
 	case KGSL_STATE_MINBW:
 		kgsl_bus_update(device, KGSL_BUS_VOTE_ON);
@@ -1990,6 +2003,7 @@ _slumber(struct kgsl_device *device)
 		kgsl_pwrctrl_clk_set_options(device, false);
 		kgsl_pwrctrl_disable(device);
 		kgsl_pwrscale_sleep(device);
+		trace_gpu_frequency(0, 0);
 		kgsl_pwrctrl_set_state(device, KGSL_STATE_SLUMBER);
 		break;
 	case KGSL_STATE_SUSPEND:
@@ -1999,6 +2013,7 @@ _slumber(struct kgsl_device *device)
 		break;
 	case KGSL_STATE_AWARE:
 		kgsl_pwrctrl_disable(device);
+		trace_gpu_frequency(0, 0);
 		kgsl_pwrctrl_set_state(device, KGSL_STATE_SLUMBER);
 		break;
 	default:
@@ -2027,7 +2042,7 @@ static int _suspend(struct kgsl_device *device)
 	/* drain to prevent from more commands being submitted */
 	device->ftbl->drain(device);
 	/* wait for active count so device can be put in slumber */
-	ret = kgsl_active_count_wait(device, 0);
+	ret = kgsl_active_count_wait(device, 0, HZ);
 	if (ret)
 		goto err;
 
@@ -2156,17 +2171,10 @@ static int _check_active_count(struct kgsl_device *device, int count)
 	return atomic_read(&device->active_cnt) > count ? 0 : 1;
 }
 
-/**
- * kgsl_active_count_wait() - Wait for activity to finish.
- * @device: Pointer to a KGSL device
- * @count: Active count value to wait for
- *
- * Block until the active_cnt value hits the desired value
- */
-int kgsl_active_count_wait(struct kgsl_device *device, int count)
+int kgsl_active_count_wait(struct kgsl_device *device, int count,
+	unsigned long wait_jiffies)
 {
 	int result = 0;
-	long wait_jiffies = HZ;
 
 	if (WARN_ON(!mutex_is_locked(&device->mutex)))
 		return -EINVAL;

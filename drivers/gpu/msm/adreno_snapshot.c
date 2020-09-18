@@ -171,13 +171,7 @@ static int snapshot_freeze_obj_list(struct kgsl_snapshot *snapshot,
 	return ret;
 }
 
-/*
- * We want to store the last executed IB1 and IB2 in the static region to ensure
- * that we get at least some information out of the snapshot even if we can't
- * access the dynamic data from the sysfs file.  Push all other IBs on the
- * dynamic list
- */
-static inline void parse_ib(struct kgsl_device *device,
+void adreno_parse_ib(struct kgsl_device *device,
 		struct kgsl_snapshot *snapshot,
 		struct kgsl_process_private *process,
 		uint64_t gpuaddr, uint64_t dwords)
@@ -245,8 +239,8 @@ static void dump_all_ibs(struct kgsl_device *device,
 				ibaddr, ibsize))
 				continue;
 
-			parse_ib(device, snapshot, snapshot->process, ibaddr,
-				ibsize);
+			adreno_parse_ib(device, snapshot, snapshot->process,
+				ibaddr, ibsize);
 		} else
 			index = index + 1;
 	}
@@ -398,7 +392,7 @@ static void snapshot_rb_ibs(struct kgsl_device *device,
 				ibaddr, ibsize))
 				continue;
 
-			parse_ib(device, snapshot, snapshot->process,
+			adreno_parse_ib(device, snapshot, snapshot->process,
 				ibaddr, ibsize);
 		} else
 			index = (index + 1) % KGSL_RB_DWORDS;
@@ -561,7 +555,7 @@ static void kgsl_snapshot_add_active_ib_obj_list(struct kgsl_device *device,
 		index = find_object(snapshot->ib2base, snapshot->process);
 
 		if (index != -ENOENT)
-			parse_ib(device, snapshot, snapshot->process,
+			adreno_parse_ib(device, snapshot, snapshot->process,
 				snapshot->ib2base, objbuf[index].size >> 2);
 	}
 }
@@ -742,7 +736,7 @@ done:
 }
 
 /* Snapshot a global memory buffer */
-static size_t snapshot_global(struct kgsl_device *device, u8 *buf,
+size_t adreno_snapshot_global(struct kgsl_device *device, u8 *buf,
 	size_t remain, void *priv)
 {
 	struct kgsl_memdesc *memdesc = priv;
@@ -786,12 +780,12 @@ static void adreno_snapshot_iommu(struct kgsl_device *device,
 	struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
 
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
-		snapshot, snapshot_global, iommu->setstate);
+		snapshot, adreno_snapshot_global, iommu->setstate);
 
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION))
 		kgsl_snapshot_add_section(device,
 			KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
-			snapshot, snapshot_global, iommu->smmu_info);
+			snapshot, adreno_snapshot_global, iommu->smmu_info);
 }
 
 static void adreno_snapshot_ringbuffer(struct kgsl_device *device,
@@ -830,12 +824,12 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 
 	snapshot_frozen_objsize = 0;
 
+	setup_fault_process(device, snapshot,
+			context ? context->proc_priv : NULL);
+
 	/* Add GPU specific sections - registers mainly, but other stuff too */
 	if (gpudev->snapshot)
 		gpudev->snapshot(adreno_dev, snapshot);
-
-	setup_fault_process(device, snapshot,
-			context ? context->proc_priv : NULL);
 
 	snapshot->ib1dumped = false;
 	snapshot->ib2dumped = false;
@@ -854,10 +848,10 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 
 	/* Dump selected global buffers */
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
-			snapshot, snapshot_global, device->memstore);
+			snapshot, adreno_snapshot_global, device->memstore);
 
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
-			snapshot, snapshot_global,
+			snapshot, adreno_snapshot_global,
 			adreno_dev->pwron_fixup);
 
 	if (kgsl_mmu_get_mmutype(device) == KGSL_MMU_TYPE_IOMMU)

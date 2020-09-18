@@ -1279,7 +1279,7 @@ static int mxt_soft_reset(struct mxt_data *data)
 	struct device *dev = &data->client->dev;
 	int ret = 0;
 
-	dev_info(dev, "Resetting device\n");
+	dev_dbg(dev, "Resetting device\n");
 
 	disable_irq(data->irq);
 
@@ -2088,7 +2088,7 @@ static int mxt_regulator_configure(struct mxt_data *data, bool state)
 		prop = of_find_property(np, "xvdd-supply", NULL);
 		if (prop && (error == -EPROBE_DEFER))
 			return -EPROBE_DEFER;
-		dev_info(dev, "xvdd regulator is not used\n");
+		dev_dbg(dev, "xvdd regulator is not used\n");
 	} else {
 		if (regulator_count_voltages(data->reg_xvdd) > 0) {
 			error = regulator_set_voltage(data->reg_xvdd,
@@ -2446,6 +2446,7 @@ static int mxt_initialize(struct mxt_data *data)
 		error = mxt_probe_bootloader(data, false);
 		if (error) {
 			dev_info(&client->dev, "Trying alternate bootloader address\n");
+			mxt_soft_reset(data);
 			error = mxt_probe_bootloader(data, true);
 			if (error) {
 				/* Chip is not in appmode or bootloader mode */
@@ -2992,6 +2993,7 @@ static int mxt_configure_objects(struct mxt_data *data,
 
 	mxt_debug_init(data);
 
+	enable_irq(data->irq);
 	return 0;
 }
 
@@ -3575,12 +3577,20 @@ static int mxt_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	init_completion(&data->reset_completion);
 	init_completion(&data->crc_completion);
 
+#if defined(CONFIG_OF) && defined(CONFIG_DRM)
+	data->suspend_mode = MXT_SUSPEND_T9_CTRL;
+#else
 	data->suspend_mode = dmi_check_system(chromebook_T9_suspend_dmi) ?
 		MXT_SUSPEND_T9_CTRL : MXT_SUSPEND_DEEP_SLEEP;
+#endif
 
 	error = mxt_parse_device_properties(data);
 	if (error)
 		return error;
+
+	error = mxt_pinctrl_init(data);
+	if (error)
+		dev_info(&client->dev, "No pinctrl support\n");
 
 	data->reset_gpio = devm_gpiod_get_optional(&client->dev,
 						"reset", GPIOD_OUT_LOW);
@@ -3623,9 +3633,6 @@ static int mxt_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		gpiod_set_value(data->reset_gpio, 1);
 		msleep(MXT_RESET_INVALID_CHG);
 	}
-	error = mxt_pinctrl_init(data);
-	if (error)
-		dev_info(&client->dev, "No pinctrl support\n");
 
 	error = mxt_gpio_enable(data, true);
 	if (error)

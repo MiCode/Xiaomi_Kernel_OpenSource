@@ -105,15 +105,12 @@ static int qcom_soc_wdt_probe(struct platform_device *pdev)
 	return qcom_wdt_register(pdev, wdog_dd, "msm-watchdog");
 }
 
+static const struct dev_pm_ops qcom_soc_dev_pm_ops = {
 #ifdef CONFIG_PM_SLEEP
-static const struct dev_pm_ops qcom_soc_dev_pm_ops = {
-	.suspend_noirq = qcom_wdt_suspend,
-	.resume_noirq = qcom_wdt_resume,
-};
-#else
-static const struct dev_pm_ops qcom_soc_dev_pm_ops = {
-};
+	.suspend_late = qcom_wdt_pet_suspend,
+	.resume_early = qcom_wdt_pet_resume,
 #endif
+};
 
 static const struct of_device_id qcom_soc_match_table[] = {
 	{ .compatible = "qcom,msm-watchdog" },

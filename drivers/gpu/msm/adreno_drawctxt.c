@@ -381,9 +381,6 @@ adreno_drawctxt_create(struct kgsl_device_private *dev_priv,
 		(drawctxt->base.flags & KGSL_CONTEXT_PRIORITY_MASK) >>
 		KGSL_CONTEXT_PRIORITY_SHIFT;
 
-	/* set the context ringbuffer */
-	drawctxt->rb = adreno_ctx_get_rb(adreno_dev, drawctxt);
-
 	/*
 	 * Now initialize the common part of the context. This allocates the
 	 * context id, and then possibly another thread could look it up.
@@ -405,8 +402,6 @@ adreno_drawctxt_create(struct kgsl_device_private *dev_priv,
 
 	adreno_context_debugfs_init(ADRENO_DEVICE(device), drawctxt);
 
-	INIT_LIST_HEAD(&drawctxt->active_node);
-
 	if (gpudev->preemption_context_init) {
 		ret = gpudev->preemption_context_init(&drawctxt->base);
 		if (ret != 0) {
@@ -417,57 +412,23 @@ adreno_drawctxt_create(struct kgsl_device_private *dev_priv,
 
 	/* copy back whatever flags we dediced were valid */
 	*flags = drawctxt->base.flags;
+
+	if (!test_bit(GMU_DISPATCH, &device->gmu_core.flags)) {
+		/* set the context ringbuffer */
+		drawctxt->rb = adreno_ctx_get_rb(adreno_dev, drawctxt);
+
+		INIT_LIST_HEAD(&drawctxt->active_node);
+	}
+
 	return &drawctxt->base;
 }
 
-/**
- * adreno_drawctxt_detach(): detach a context from the GPU
- * @context: Generic KGSL context container for the context
- *
- */
-void adreno_drawctxt_detach(struct kgsl_context *context)
+static void wait_for_timestamp_rb(struct kgsl_device *device,
+	struct adreno_context *drawctxt)
 {
-	struct kgsl_device *device;
-	struct adreno_device *adreno_dev;
-	struct adreno_gpudev *gpudev;
-	struct adreno_context *drawctxt;
-	struct adreno_ringbuffer *rb;
-	int ret, count, i;
-	struct kgsl_drawobj *list[ADRENO_CONTEXT_DRAWQUEUE_SIZE];
-
-	if (context == NULL)
-		return;
-
-	device = context->device;
-	adreno_dev = ADRENO_DEVICE(device);
-	gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-	drawctxt = ADRENO_CONTEXT(context);
-	rb = drawctxt->rb;
-
-	spin_lock(&drawctxt->lock);
-
-	spin_lock(&adreno_dev->active_list_lock);
-	list_del_init(&drawctxt->active_node);
-	spin_unlock(&adreno_dev->active_list_lock);
-
-
-	count = drawctxt_detach_drawobjs(drawctxt, list);
-	spin_unlock(&drawctxt->lock);
-
-	for (i = 0; i < count; i++) {
-		/*
-		 * If the context is deteached while we are waiting for
-		 * the next command in GFT SKIP CMD, print the context
-		 * detached status here.
-		 */
-		adreno_fault_skipcmd_detached(adreno_dev, drawctxt, list[i]);
-		kgsl_drawobj_destroy(list[i]);
-	}
-
-	debugfs_remove_recursive(drawctxt->debug_root);
-	/* The debugfs file has a reference, release it */
-	if (drawctxt->debug_root)
-		kgsl_context_put(context);
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct kgsl_context *context = &drawctxt->base;
+	int ret;
 
 	/*
 	 * internal_timestamp is set in adreno_ringbuffer_addcmds,
@@ -482,7 +443,7 @@ void adreno_drawctxt_detach(struct kgsl_context *context)
 	 * commands to retire will be greater than 10s. 30s should be sufficient
 	 * time to wait for the commands even if a hang happens.
 	 */
-	ret = adreno_drawctxt_wait_rb(adreno_dev, context,
+	ret = adreno_drawctxt_wait_rb(adreno_dev, &drawctxt->base,
 		drawctxt->internal_timestamp, 30 * 1000);
 
 	/*
@@ -525,9 +486,62 @@ void adreno_drawctxt_detach(struct kgsl_context *context)
 	adreno_profile_process_results(adreno_dev);
 
 	mutex_unlock(&device->mutex);
+}
 
-	if (gpudev->preemption_context_destroy)
-		gpudev->preemption_context_destroy(context);
+void adreno_drawctxt_detach(struct kgsl_context *context)
+{
+	struct kgsl_device *device;
+	struct adreno_device *adreno_dev;
+	struct adreno_gpudev *gpudev;
+	struct adreno_context *drawctxt;
+	int count, i;
+	struct kgsl_drawobj *list[ADRENO_CONTEXT_DRAWQUEUE_SIZE];
+
+	if (context == NULL)
+		return;
+
+	device = context->device;
+	adreno_dev = ADRENO_DEVICE(device);
+	gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	drawctxt = ADRENO_CONTEXT(context);
+
+	spin_lock(&drawctxt->lock);
+
+	if (!test_bit(GMU_DISPATCH, &device->gmu_core.flags)) {
+		spin_lock(&adreno_dev->active_list_lock);
+		list_del_init(&drawctxt->active_node);
+		spin_unlock(&adreno_dev->active_list_lock);
+	}
+
+	count = drawctxt_detach_drawobjs(drawctxt, list);
+	spin_unlock(&drawctxt->lock);
+
+	for (i = 0; i < count; i++) {
+		/*
+		 * If the context is detached while we are waiting for
+		 * the next command in GFT SKIP CMD, print the context
+		 * detached status here.
+		 */
+		adreno_fault_skipcmd_detached(adreno_dev, drawctxt, list[i]);
+		kgsl_drawobj_destroy(list[i]);
+	}
+
+	debugfs_remove_recursive(drawctxt->debug_root);
+	/* The debugfs file has a reference, release it */
+	if (drawctxt->debug_root)
+		kgsl_context_put(context);
+
+	if (gpudev->context_detach)
+		gpudev->context_detach(drawctxt);
+	else
+		wait_for_timestamp_rb(device, drawctxt);
+
+	if (context->user_ctxt_record) {
+		gpumem_free_entry(context->user_ctxt_record);
+
+		/* Put the extra ref from gpumem_alloc_entry() */
+		kgsl_mem_entry_put(context->user_ctxt_record);
+	}
 
 	/* wake threads waiting to submit commands from this context */
 	wake_up_all(&drawctxt->waiting);

@@ -374,6 +374,7 @@ struct kgsl_process_private;
  * across preemption
  * @total_fault_count: number of times gpu faulted in this context
  * @last_faulted_cmd_ts: last faulted command batch timestamp
+ * @gmu_registered: whether context is registered with gmu or not
  */
 struct kgsl_context {
 	struct kref refcount;
@@ -395,6 +396,12 @@ struct kgsl_context {
 	struct kgsl_mem_entry *user_ctxt_record;
 	unsigned int total_fault_count;
 	unsigned int last_faulted_cmd_ts;
+	bool gmu_registered;
+	/**
+	 * @gmu_dispatch_queue: dispatch queue id to which this context will be
+	 * submitted
+	 */
+	u32 gmu_dispatch_queue;
 };
 
 #define _context_comm(_c) \

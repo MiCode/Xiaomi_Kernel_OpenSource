@@ -131,11 +131,13 @@ extern int for_each_memory_block(void *arg, walk_memory_blocks_func_t func);
 })
 #define register_hotmemory_notifier(nb)		register_memory_notifier(nb)
 #define unregister_hotmemory_notifier(nb) 	unregister_memory_notifier(nb)
+extern unsigned long get_offlined_pages_count(void);
 #else
 #define hotplug_memory_notifier(fn, pri)	({ 0; })
 /* These aren't inline functions due to a GCC bug. */
 #define register_hotmemory_notifier(nb)    ({ (void)(nb); 0; })
 #define unregister_hotmemory_notifier(nb)  ({ (void)(nb); })
+static inline unsigned long get_offlined_pages_count(void) { return 0; }
 #endif
 
 /*

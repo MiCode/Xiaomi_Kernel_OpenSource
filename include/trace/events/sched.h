@@ -1052,7 +1052,7 @@ TRACE_EVENT(sched_task_util,
 		__entry->cpus_allowed		=
 					cpumask_bits(&p->cpus_mask)[0];
 		__entry->task_boost		= per_task_boost(p);
-		__entry->low_latency		= p->wts.low_latency;
+		__entry->low_latency		= walt_low_latency_task(p);
 	),
 
 	TP_printk("pid=%d comm=%s util=%lu prev_cpu=%d candidates=%#lx best_energy_cpu=%d sync=%d need_idle=%d fastpath=%d placement_boost=%d latency=%llu stune_boosted=%d is_rtg=%d rtg_skip_min=%d start_cpu=%d unfilter=%u affinity=%lx task_boost=%d low_latency=%d",

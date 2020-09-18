@@ -35,6 +35,8 @@ msm_kgsl-y += \
 	adreno_a6xx_gmu.o \
 	adreno_a6xx_gmu_snapshot.o \
 	adreno_a6xx_hfi.o \
+	adreno_a6xx_hwsched.o \
+	adreno_a6xx_hwsched_hfi.o \
 	adreno_a6xx_preempt.o \
 	adreno_a6xx_rgmu.o \
 	adreno_a6xx_rpmh.o \
@@ -42,6 +44,7 @@ msm_kgsl-y += \
 	adreno_cp_parser.o \
 	adreno_dispatch.o \
 	adreno_drawctxt.o \
+	adreno_hwsched.o \
 	adreno_ioctl.o \
 	adreno_perfcounter.o \
 	adreno_ringbuffer.o \

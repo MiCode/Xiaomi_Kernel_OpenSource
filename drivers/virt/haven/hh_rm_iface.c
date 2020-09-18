@@ -22,7 +22,8 @@
 #define HH_RM_MEM_SHARE_VALID_FLAGS HH_RM_MEM_SHARE_SANITIZE
 #define HH_RM_MEM_LEND_VALID_FLAGS HH_RM_MEM_LEND_SANITIZE
 #define HH_RM_MEM_NOTIFY_VALID_FLAGS\
-	(HH_RM_MEM_NOTIFY_RECIPIENT | HH_RM_MEM_NOTIFY_OWNER)
+	(HH_RM_MEM_NOTIFY_RECIPIENT_SHARED |\
+	 HH_RM_MEM_NOTIFY_OWNER_RELEASED | HH_RM_MEM_NOTIFY_OWNER_ACCEPTED)
 
 static struct hh_vm_property hh_vm_table[HH_VM_MAX];
 
@@ -501,28 +502,26 @@ int hh_rm_vm_start(int vmid)
 	struct hh_vm_start_resp_payload *resp_payload;
 	struct hh_vm_start_req_payload req_payload = {0};
 	size_t resp_payload_size;
-	int err, reply_err_code;
+	int reply_err_code = 0;
 
 	req_payload.vmid = (hh_vmid_t) vmid;
 
 	resp_payload = hh_rm_call(HH_RM_RPC_MSG_ID_CALL_VM_START,
 				&req_payload, sizeof(req_payload),
 				&resp_payload_size, &reply_err_code);
-	if (reply_err_code || IS_ERR_OR_NULL(resp_payload)) {
-		err = PTR_ERR(resp_payload);
+	if (reply_err_code) {
 		pr_err("%s: VM_START failed with err: %d\n",
-			__func__, err);
-		return err;
+			__func__, reply_err_code);
+		return reply_err_code;
 	}
 
-	if (resp_payload_size != sizeof(*resp_payload)) {
+	if (resp_payload_size) {
 		pr_err("%s: Invalid size received for VM_START: %u\n",
 			__func__, resp_payload_size);
-		kfree(resp_payload);
 		return -EINVAL;
 	}
 
-	return resp_payload->response;
+	return 0;
 }
 EXPORT_SYMBOL(hh_rm_vm_start);
 
@@ -1214,9 +1213,9 @@ EXPORT_SYMBOL(hh_rm_mem_lend);
  * out
  * @flags: Flags to determine if the notification is for notifying that memory
  *         has been shared to another VM, or that a VM has released memory
- * @mem_info_tag: A 32-bit value that is attached to the MEM_SHARED/MEM_RELEASED
- *                notifications to aid in distinguishing different resources
- *                from one another.
+ * @mem_info_tag: A 32-bit value that is attached to the
+ *                MEM_SHARED/MEM_RELEASED/MEM_ACCEPTED notifications to aid in
+ *                distinguishing different resources from one another.
  * @vmid_desc: A list of VMIDs to notify that memory has been shared with them.
  *             This parameter should only be non-NULL if other VMs are being
  *             notified (i.e. it is invalid to specify this parameter when the
@@ -1238,13 +1237,15 @@ int hh_rm_mem_notify(hh_memparcel_handle_t handle, u8 flags,
 	int ret = 0, hh_ret;
 
 	if ((flags & ~HH_RM_MEM_NOTIFY_VALID_FLAGS) ||
-	    ((flags & HH_RM_MEM_NOTIFY_RECIPIENT) && (!vmid_desc ||
-						      (vmid_desc &&
+	    ((flags & HH_RM_MEM_NOTIFY_RECIPIENT_SHARED) && (!vmid_desc ||
+							     (vmid_desc &&
 						!vmid_desc->n_vmid_entries))) ||
-	    ((flags & HH_RM_MEM_NOTIFY_OWNER) && vmid_desc))
+	    ((flags & (HH_RM_MEM_NOTIFY_OWNER_RELEASED |
+		       HH_RM_MEM_NOTIFY_OWNER_ACCEPTED)) && vmid_desc) ||
+	    (hweight8(flags) != 1))
 		return -EINVAL;
 
-	if (flags & HH_RM_MEM_NOTIFY_RECIPIENT) {
+	if (flags & HH_RM_MEM_NOTIFY_RECIPIENT_SHARED) {
 		n_vmid_entries = vmid_desc->n_vmid_entries;
 		req_vmid_desc_size = offsetof(struct hh_notify_vmid_desc,
 					      vmid_entries[n_vmid_entries]);
@@ -1260,7 +1261,7 @@ int hh_rm_mem_notify(hh_memparcel_handle_t handle, u8 flags,
 	req_payload_hdr->flags = flags;
 	req_payload_hdr->mem_info_tag = mem_info_tag;
 
-	if (flags & HH_RM_MEM_NOTIFY_RECIPIENT) {
+	if (flags & HH_RM_MEM_NOTIFY_RECIPIENT_SHARED) {
 		dst_vmid_desc = req_buf + sizeof(*req_payload_hdr);
 		dst_vmid_desc->n_vmid_entries = n_vmid_entries;
 		for (i = 0; i < n_vmid_entries; i++)

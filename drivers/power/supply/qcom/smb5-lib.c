@@ -1410,6 +1410,7 @@ static int smblib_get_pulse_cnt(struct smb_charger *chg, int *count)
 #define USBIN_150MA	150000
 #define USBIN_500MA	500000
 #define USBIN_900MA	900000
+#define USBIN_1000MA	1000000
 static int set_sdp_current(struct smb_charger *chg, int icl_ua)
 {
 	int rc;
@@ -4044,6 +4045,24 @@ int smblib_get_prop_input_current_settled(struct smb_charger *chg,
 	return smblib_get_charge_param(chg, &chg->param.icl_stat, &val->intval);
 }
 
+int smblib_get_prop_input_current_max(struct smb_charger *chg,
+					  union power_supply_propval *val)
+{
+	int icl_ua = 0, rc;
+
+	rc = smblib_get_charge_param(chg, &chg->param.usb_icl, &icl_ua);
+	if (rc < 0)
+		return rc;
+
+	if (is_override_vote_enabled_locked(chg->usb_icl_votable) &&
+					icl_ua < USBIN_1000MA) {
+		val->intval = USBIN_1000MA;
+		return 0;
+	}
+
+	return smblib_get_charge_param(chg, &chg->param.icl_stat, &val->intval);
+}
+
 int smblib_get_prop_input_voltage_settled(struct smb_charger *chg,
 						int *val)
 {
@@ -5059,7 +5078,7 @@ int smblib_set_prop_thermal_overheat(struct smb_charger *chg,
  * INTERRUPT HANDLERS *
  **********************/
 
-irqreturn_t default_irq_handler(int irq, void *data)
+irqreturn_t smb5_default_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
@@ -5068,7 +5087,7 @@ irqreturn_t default_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-irqreturn_t smb_en_irq_handler(int irq, void *data)
+irqreturn_t smb5_smb_en_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
@@ -5103,7 +5122,7 @@ irqreturn_t smb_en_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-irqreturn_t sdam_sts_change_irq_handler(int irq, void *data)
+irqreturn_t smb5_sdam_sts_change_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
@@ -5156,7 +5175,7 @@ static void smblib_eval_chg_termination(struct smb_charger *chg, u8 batt_status)
 	}
 }
 
-irqreturn_t chg_state_change_irq_handler(int irq, void *data)
+irqreturn_t smb5_chg_state_change_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
@@ -5181,7 +5200,7 @@ irqreturn_t chg_state_change_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-irqreturn_t batt_temp_changed_irq_handler(int irq, void *data)
+irqreturn_t smb5_batt_temp_changed_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
@@ -5202,7 +5221,7 @@ irqreturn_t batt_temp_changed_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-irqreturn_t batt_psy_changed_irq_handler(int irq, void *data)
+irqreturn_t smb5_batt_psy_changed_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
@@ -5214,7 +5233,7 @@ irqreturn_t batt_psy_changed_irq_handler(int irq, void *data)
 
 #define AICL_STEP_MV		200
 #define MAX_AICL_THRESHOLD_MV	4800
-irqreturn_t usbin_uv_irq_handler(int irq, void *data)
+irqreturn_t smb5_usbin_uv_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
@@ -5348,7 +5367,7 @@ unsuspend_input:
 
 #define USB_WEAK_INPUT_UA	1400000
 #define ICL_CHANGE_DELAY_MS	1000
-irqreturn_t icl_change_irq_handler(int irq, void *data)
+irqreturn_t smb5_icl_change_irq_handler(int irq, void *data)
 {
 	u8 stat;
 	int rc, settled_ua, delay = ICL_CHANGE_DELAY_MS;
@@ -5400,12 +5419,115 @@ irqreturn_t icl_change_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static int smblib_role_switch_failure(struct smb_charger *chg)
+{
+	int rc = 0;
+	union power_supply_propval pval = {0, };
+
+	if (!chg->use_extcon)
+		return 0;
+
+	rc = smblib_get_prop_usb_present(chg, &pval);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't get usb presence status rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	/*
+	 * When role switch fails notify the
+	 * current charger state to usb driver.
+	 */
+	if (pval.intval) {
+		smblib_dbg(chg, PR_MISC, " Role reversal failed, notifying device mode to usb driver.\n");
+		smblib_notify_device_mode(chg, true);
+	}
+
+	return rc;
+}
+
+static int typec_partner_register(struct smb_charger *chg)
+{
+	int typec_mode, rc = 0;
+
+	mutex_lock(&chg->typec_lock);
+
+	if (!chg->typec_port || chg->pr_swap_in_progress)
+		goto unlock;
+
+	if (!chg->typec_partner) {
+		if (chg->sink_src_mode == AUDIO_ACCESS_MODE)
+			chg->typec_partner_desc.accessory =
+					TYPEC_ACCESSORY_AUDIO;
+		else
+			chg->typec_partner_desc.accessory =
+					TYPEC_ACCESSORY_NONE;
+
+		chg->typec_partner = typec_register_partner(chg->typec_port,
+				&chg->typec_partner_desc);
+		if (IS_ERR(chg->typec_partner)) {
+			rc = PTR_ERR(chg->typec_partner);
+			pr_err("failed to register typec_partner rc=%d\n", rc);
+			goto unlock;
+		}
+	}
+
+	typec_mode = smblib_get_prop_typec_mode(chg);
+
+	if (typec_mode >= QTI_POWER_SUPPLY_TYPEC_SOURCE_DEFAULT
+			|| typec_mode == QTI_POWER_SUPPLY_TYPEC_NONE) {
+
+		if (chg->typec_role_swap_failed) {
+			rc = smblib_role_switch_failure(chg);
+			if (rc < 0)
+				smblib_err(chg, "Failed to role switch rc=%d\n",
+					rc);
+			chg->typec_role_swap_failed = false;
+		}
+
+		typec_set_data_role(chg->typec_port, TYPEC_DEVICE);
+		typec_set_pwr_role(chg->typec_port, TYPEC_SINK);
+	} else {
+		typec_set_data_role(chg->typec_port, TYPEC_HOST);
+		typec_set_pwr_role(chg->typec_port, TYPEC_SOURCE);
+	}
+
+unlock:
+	mutex_unlock(&chg->typec_lock);
+	return rc;
+}
+
+static void typec_partner_unregister(struct smb_charger *chg)
+{
+	mutex_lock(&chg->typec_lock);
+
+	if (!chg->typec_port)
+		goto unlock;
+
+	if (chg->typec_partner && !chg->pr_swap_in_progress) {
+		smblib_dbg(chg, PR_MISC, "Un-registering typeC partner\n");
+		typec_unregister_partner(chg->typec_partner);
+		chg->typec_partner = NULL;
+	}
+
+unlock:
+	mutex_unlock(&chg->typec_lock);
+}
+
 static void smblib_micro_usb_plugin(struct smb_charger *chg, bool vbus_rising)
 {
+	int rc = 0;
+
 	if (!vbus_rising) {
 		smblib_update_usb_type(chg);
 		smblib_notify_device_mode(chg, false);
 		smblib_uusb_removal(chg);
+		typec_partner_unregister(chg);
+	} else {
+		rc = typec_partner_register(chg);
+		if (rc < 0)
+			smblib_err(chg, "Couldn't register partner rc =%d\n",
+					rc);
 	}
 }
 
@@ -5564,7 +5686,7 @@ static void smblib_usb_plugin_locked(struct smb_charger *chg)
 					vbus_rising ? "attached" : "detached");
 }
 
-irqreturn_t usb_plugin_irq_handler(int irq, void *data)
+irqreturn_t smb5_usb_plugin_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
@@ -5774,7 +5896,7 @@ static void smblib_handle_apsd_done(struct smb_charger *chg, bool rising)
 		   apsd_result->name);
 }
 
-irqreturn_t usb_source_change_irq_handler(int irq, void *data)
+irqreturn_t smb5_usb_source_change_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
@@ -5986,97 +6108,6 @@ static void typec_ra_ra_insertion(struct smb_charger *chg)
 	vote(chg->usb_icl_votable, USB_PSY_VOTER, false, 0);
 	chg->ok_to_pd = false;
 	smblib_hvdcp_detect_enable(chg, true);
-}
-
-static int smblib_role_switch_failure(struct smb_charger *chg)
-{
-	int rc = 0;
-	union power_supply_propval pval = {0, };
-
-	if (!chg->use_extcon)
-		return 0;
-
-	rc = smblib_get_prop_usb_present(chg, &pval);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't get usb presence status rc=%d\n",
-				rc);
-		return rc;
-	}
-
-	/*
-	 * When role switch fails notify the
-	 * current charger state to usb driver.
-	 */
-	if (pval.intval) {
-		smblib_dbg(chg, PR_MISC, " Role reversal failed, notifying device mode to usb driver.\n");
-		smblib_notify_device_mode(chg, true);
-	}
-
-	return rc;
-}
-
-static int typec_partner_register(struct smb_charger *chg)
-{
-	int typec_mode, rc = 0;
-
-	mutex_lock(&chg->typec_lock);
-
-	if (!chg->typec_port || chg->pr_swap_in_progress)
-		goto unlock;
-
-	if (!chg->typec_partner) {
-		if (chg->sink_src_mode == AUDIO_ACCESS_MODE)
-			chg->typec_partner_desc.accessory =
-					TYPEC_ACCESSORY_AUDIO;
-		else
-			chg->typec_partner_desc.accessory =
-					TYPEC_ACCESSORY_NONE;
-
-		chg->typec_partner = typec_register_partner(chg->typec_port,
-				&chg->typec_partner_desc);
-		if (IS_ERR(chg->typec_partner)) {
-			rc = PTR_ERR(chg->typec_partner);
-			pr_err("failed to register typec_partner rc=%d\n", rc);
-			goto unlock;
-		}
-	}
-
-	typec_mode = smblib_get_prop_typec_mode(chg);
-
-	if (typec_mode >= QTI_POWER_SUPPLY_TYPEC_SOURCE_DEFAULT
-			|| typec_mode == QTI_POWER_SUPPLY_TYPEC_NONE) {
-
-		if (chg->typec_role_swap_failed) {
-			rc = smblib_role_switch_failure(chg);
-			if (rc < 0)
-				smblib_err(chg, "Failed to role switch rc=%d\n",
-					rc);
-			chg->typec_role_swap_failed = false;
-		}
-
-		typec_set_data_role(chg->typec_port, TYPEC_DEVICE);
-		typec_set_pwr_role(chg->typec_port, TYPEC_SINK);
-	} else {
-		typec_set_data_role(chg->typec_port, TYPEC_HOST);
-		typec_set_pwr_role(chg->typec_port, TYPEC_SOURCE);
-	}
-
-unlock:
-	mutex_unlock(&chg->typec_lock);
-	return rc;
-}
-
-static void typec_partner_unregister(struct smb_charger *chg)
-{
-	mutex_lock(&chg->typec_lock);
-
-	if (chg->typec_partner && !chg->pr_swap_in_progress) {
-		smblib_dbg(chg, PR_MISC, "Un-registering typeC partner\n");
-		typec_unregister_partner(chg->typec_partner);
-		chg->typec_partner = NULL;
-	}
-
-	mutex_unlock(&chg->typec_lock);
 }
 
 static const char * const dr_mode_text[] = {
@@ -6441,7 +6472,7 @@ static void smblib_lpd_launch_ra_open_work(struct smb_charger *chg)
 	}
 }
 
-irqreturn_t typec_or_rid_detection_change_irq_handler(int irq, void *data)
+irqreturn_t smb5_typec_or_rid_detection_change_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
@@ -6485,7 +6516,7 @@ out:
 	return IRQ_HANDLED;
 }
 
-irqreturn_t typec_state_change_irq_handler(int irq, void *data)
+irqreturn_t smb5_typec_state_change_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
@@ -6523,7 +6554,7 @@ static void smblib_lpd_clear_ra_open_work(struct smb_charger *chg)
 }
 
 #define TYPEC_DETACH_DETECT_DELAY_MS 2000
-irqreturn_t typec_attach_detach_irq_handler(int irq, void *data)
+irqreturn_t smb5_typec_attach_detach_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
@@ -6780,7 +6811,7 @@ static void dcin_icl_decrement(struct smb_charger *chg)
 	chg->dcin_uv_last_time = now;
 }
 
-irqreturn_t dcin_uv_irq_handler(int irq, void *data)
+irqreturn_t smb5_dcin_uv_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
@@ -6797,7 +6828,7 @@ irqreturn_t dcin_uv_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-irqreturn_t dc_plugin_irq_handler(int irq, void *data)
+irqreturn_t smb5_dc_plugin_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
@@ -6923,7 +6954,7 @@ irqreturn_t dc_plugin_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-irqreturn_t high_duty_cycle_irq_handler(int irq, void *data)
+irqreturn_t smb5_high_duty_cycle_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
@@ -6953,7 +6984,7 @@ static void smblib_bb_removal_work(struct work_struct *work)
 #define BOOST_BACK_UNVOTE_DELAY_MS		750
 #define BOOST_BACK_STORM_COUNT			3
 #define WEAK_CHG_STORM_COUNT			8
-irqreturn_t switcher_power_ok_irq_handler(int irq, void *data)
+irqreturn_t smb5_switcher_power_ok_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
@@ -7010,7 +7041,7 @@ irqreturn_t switcher_power_ok_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-irqreturn_t wdog_snarl_irq_handler(int irq, void *data)
+irqreturn_t smb5_wdog_snarl_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
@@ -7028,7 +7059,7 @@ irqreturn_t wdog_snarl_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-irqreturn_t wdog_bark_irq_handler(int irq, void *data)
+irqreturn_t smb5_wdog_bark_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
@@ -7064,7 +7095,7 @@ static void smblib_die_rst_icl_regulate(struct smb_charger *chg)
  * triggered when DIE or SKIN or CONNECTOR temperature across
  * either of the _REG_L, _REG_H, _RST, or _SHDN thresholds
  */
-irqreturn_t temp_change_irq_handler(int irq, void *data)
+irqreturn_t smb5_temp_change_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
@@ -7085,7 +7116,7 @@ static void smblib_usbov_dbc_work(struct work_struct *work)
 }
 
 #define USB_OV_DBC_PERIOD_MS		1000
-irqreturn_t usbin_ov_irq_handler(int irq, void *data)
+irqreturn_t smb5_usbin_ov_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;

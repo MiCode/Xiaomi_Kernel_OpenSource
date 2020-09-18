@@ -597,7 +597,6 @@
 				function = "csi";
 			};
 
-			/omit-if-no-ref/
 			csi_mclk_pin: csi-mclk-pin {
 				pins = "PE1";
 				function = "csi";
@@ -613,7 +612,6 @@
 				function = "i2c1";
 			};
 
-			/omit-if-no-ref/
 			lcd_rgb666_pins: lcd-rgb666-pins {
 				pins = "PD0", "PD1", "PD2", "PD3", "PD4",
 				       "PD5", "PD6", "PD7", "PD8", "PD9",

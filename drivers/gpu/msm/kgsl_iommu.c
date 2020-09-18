@@ -182,7 +182,7 @@ static int kgsl_iommu_get_gpuaddr(struct kgsl_pagetable *pagetable,
 static void kgsl_iommu_map_secure_global(struct kgsl_mmu *mmu,
 		struct kgsl_memdesc *memdesc)
 {
-	if (!mmu->securepagetable)
+	if (IS_ERR_OR_NULL(mmu->securepagetable))
 		return;
 
 	if (!memdesc->gpuaddr) {
@@ -841,9 +841,8 @@ static void kgsl_iommu_disable_clk(struct kgsl_mmu *mmu)
 	 */
 	WARN_ON(atomic_read(&iommu->clk_enable_count) < 0);
 
-	for (j = (KGSL_IOMMU_MAX_CLKS - 1); j >= 0; j--)
-		if (iommu->clks[j])
-			clk_disable_unprepare(iommu->clks[j]);
+	for (j = 0; j < iommu->num_clks; j++)
+		clk_disable_unprepare(iommu->clks[j]);
 
 	if (!IS_ERR_OR_NULL(iommu->cx_gdsc))
 		regulator_disable(iommu->cx_gdsc);
@@ -877,10 +876,9 @@ static void kgsl_iommu_enable_clk(struct kgsl_mmu *mmu)
 	if (!IS_ERR_OR_NULL(iommu->cx_gdsc))
 		WARN_ON(regulator_enable(iommu->cx_gdsc));
 
-	for (j = 0; j < KGSL_IOMMU_MAX_CLKS; j++) {
-		if (iommu->clks[j])
-			kgsl_iommu_clk_prepare_enable(iommu->clks[j]);
-	}
+	for (j = 0; j < iommu->num_clks; j++)
+		kgsl_iommu_clk_prepare_enable(iommu->clks[j]);
+
 	atomic_inc(&iommu->clk_enable_count);
 }
 
@@ -2599,6 +2597,7 @@ static const char * const kgsl_iommu_clocks[] = {
 	"gpu_cc_hlos1_vote_gpu_smmu",
 	"gpu_cc_hub_aon",
 	"gpu_cc_hub_cx_int",
+	"gcc_bimc_gpu_axi",
 };
 
 static struct kgsl_mmu_ops kgsl_iommu_ops;
@@ -2606,7 +2605,7 @@ static struct kgsl_mmu_ops kgsl_iommu_ops;
 int kgsl_iommu_probe(struct kgsl_device *device)
 {
 	u32 val[2];
-	int ret, i, index = 0;
+	int ret, i;
 	struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
 	struct platform_device *pdev;
 	struct kgsl_mmu *mmu = &device->mmu;
@@ -2640,6 +2639,10 @@ int kgsl_iommu_probe(struct kgsl_device *device)
 
 	pdev = of_find_device_by_node(node);
 	iommu->pdev = pdev;
+	iommu->num_clks = 0;
+
+	iommu->clks = devm_kcalloc(&pdev->dev, ARRAY_SIZE(kgsl_iommu_clocks),
+				sizeof(struct clk **), GFP_KERNEL);
 
 	/* Get the clock from the KGSL device */
 	for (i = 0; i < ARRAY_SIZE(kgsl_iommu_clocks); i++) {
@@ -2662,13 +2665,7 @@ int kgsl_iommu_probe(struct kgsl_device *device)
 		if (IS_ERR(c))
 			continue;
 
-		if (index >= KGSL_IOMMU_MAX_CLKS) {
-			dev_err(device->dev, "dt: too many clocks defined\n");
-			platform_device_put(pdev);
-			goto err;
-		}
-
-		iommu->clks[index++] = c;
+		iommu->clks[iommu->num_clks++] = c;
 	}
 
 	/* Get the CX regulator if it is available */

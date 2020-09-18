@@ -612,6 +612,47 @@ static u32 truncate_msg(u16 *text_len, u16 *trunc_msg_len,
 	return msg_used_size(*text_len + *trunc_msg_len, 0, pad_len);
 }
 
+#ifdef CONFIG_QCOM_INITIAL_LOGBUF
+static inline void copy_boot_log(struct printk_log *msg)
+{
+	unsigned int bytes_to_copy;
+	unsigned int avail_buf;
+	static unsigned int boot_log_offset;
+
+	if (!boot_log_buf)
+		goto out;
+
+	avail_buf = boot_log_buf_size - boot_log_offset;
+	if (!avail_buf || (avail_buf < sizeof(*msg)))
+		goto out;
+
+	if (copy_early_boot_log) {
+		bytes_to_copy = log_next_idx;
+
+		if (avail_buf < bytes_to_copy)
+			bytes_to_copy = avail_buf;
+
+		memcpy(boot_log_buf + boot_log_offset, log_buf, bytes_to_copy);
+		boot_log_offset += bytes_to_copy;
+		copy_early_boot_log = false;
+		goto out;
+	}
+
+	bytes_to_copy = msg->len;
+	if (!bytes_to_copy)
+		bytes_to_copy = sizeof(*msg);
+
+	if (avail_buf < bytes_to_copy)
+		bytes_to_copy = avail_buf;
+
+	memcpy(boot_log_buf + boot_log_offset, msg, bytes_to_copy);
+	boot_log_offset += bytes_to_copy;
+
+out:
+	return;
+}
+#endif
+
 /* insert record into the buffer, discard old ones, update heads */
 static int log_store(u32 caller_id, int facility, int level,
 		     enum log_flags flags, u64 ts_nsec,
@@ -670,6 +711,9 @@ static int log_store(u32 caller_id, int facility, int level,
 	/* insert message */
 	log_next_idx += msg->len;
 	log_next_seq++;
+#ifdef CONFIG_QCOM_INITIAL_LOGBUF
+	copy_boot_log(msg);
+#endif
 
 	return msg->text_len;
 }
