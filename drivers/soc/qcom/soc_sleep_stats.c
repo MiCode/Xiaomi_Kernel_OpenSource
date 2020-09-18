@@ -31,8 +31,10 @@ struct subsystem_data {
 static struct subsystem_data subsystems[] = {
 	{ "modem", 605, 1 },
 	{ "adsp", 606, 2 },
+	{ "adsp_island", 613, 2 },
 	{ "cdsp", 607, 5 },
 	{ "slpi", 608, 3 },
+	{ "slpi_island", 613, 3 },
 	{ "gpu", 609, 0 },
 	{ "display", 610, 0 },
 };
