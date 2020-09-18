@@ -578,6 +578,23 @@ static const struct clk_rpmh_desc clk_rpmh_yupik = {
 	.num_clks = ARRAY_SIZE(yupik_rpmh_clocks),
 };
 
+DEFINE_CLK_RPMH_VRM(direwolf, ln_bb_clk3, ln_bb_clk3_ao, "lnbclka3", 2);
+
+static struct clk_hw *direwolf_rpmh_clocks[] = {
+	[RPMH_CXO_CLK]		= &lahaina_bi_tcxo.hw,
+	[RPMH_CXO_CLK_A]	= &lahaina_bi_tcxo_ao.hw,
+	[RPMH_LN_BB_CLK3]	= &direwolf_ln_bb_clk3.hw,
+	[RPMH_LN_BB_CLK3_A]	= &direwolf_ln_bb_clk3_ao.hw,
+	[RPMH_IPA_CLK]		= &lahaina_ipa.hw,
+	[RPMH_PKA_CLK]		= &lahaina_pka.hw,
+	[RPMH_HWKM_CLK]		= &lahaina_hwkm.hw,
+};
+
+static const struct clk_rpmh_desc clk_rpmh_direwolf = {
+	.clks = direwolf_rpmh_clocks,
+	.num_clks = ARRAY_SIZE(direwolf_rpmh_clocks),
+};
+
 static struct clk_hw *of_clk_rpmh_hw_get(struct of_phandle_args *clkspec,
 					 void *data)
 {
@@ -677,6 +694,7 @@ static const struct of_device_id clk_rpmh_match_table[] = {
 	{ .compatible = "qcom,shima-rpmh-clk", .data = &clk_rpmh_shima},
 	{ .compatible = "qcom,sdxlemur-rpmh-clk", .data = &clk_rpmh_sdxlemur},
 	{ .compatible = "qcom,yupik-rpmh-clk", .data = &clk_rpmh_yupik},
+	{ .compatible = "qcom,direwolf-rpmh-clk", .data = &clk_rpmh_direwolf},
 	{ }
 };
 MODULE_DEVICE_TABLE(of, clk_rpmh_match_table);
