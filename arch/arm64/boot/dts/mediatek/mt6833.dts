@@ -710,6 +710,10 @@ page_owner=on";
 		gpio-controller;
 		gpio-ranges = <&pio 0 0 201>;
 		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		interrupts = <GIC_SPI 212 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-parent = <&gic>;
 	};
 
 	sleep:sleep@10006000 {
