@@ -1380,6 +1380,12 @@
   memmove
   memory_read_from_buffer
   memparse
+  mempool_alloc
+  mempool_alloc_slab
+  mempool_create
+  mempool_destroy
+  mempool_free
+  mempool_free_slab
   memremap
   memset
   __memset_io
@@ -2809,7 +2815,7 @@
   wiphy_new_nm
   wiphy_register
   wiphy_unregister
-wireless_send_event
+  wireless_send_event
   woken_wake_function
   work_busy
   would_dump

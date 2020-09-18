@@ -236,6 +236,15 @@ static int hh_rm_process_notif(void *recv_buff, size_t recv_buff_size)
 			goto err;
 		}
 		break;
+	case HH_RM_NOTIF_MEM_ACCEPTED:
+		if (recv_buff_size != sizeof(*hdr) +
+			sizeof(struct hh_rm_notif_mem_accepted_payload)) {
+			pr_err("%s: Invalid size for MEM_ACCEPTED notif: %u\n",
+				__func__, recv_buff_size - sizeof(*hdr));
+			ret = -EINVAL;
+			goto err;
+		}
+		break;
 	case HH_RM_NOTIF_VM_CONSOLE_CHARS:
 		if (recv_buff_size < sizeof(*hdr) +
 			sizeof(struct hh_rm_notif_vm_console_chars)) {

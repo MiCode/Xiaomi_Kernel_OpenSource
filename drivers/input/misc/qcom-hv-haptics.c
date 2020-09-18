@@ -39,7 +39,7 @@
 #define TLRA_CL_ERR_MSB_MASK			GENMASK(4, 0)
 /* STATUS_DATA_MSB definition in V1 while MOD_STATUS_SEL is 5 */
 #define FIFO_REAL_TIME_FILL_STATUS_MASK_V1	GENMASK(6, 0)
-/* STATUS DATA_MSB definition in V2 while MOD_STATUS_SEL is 5 */
+/* STATUS_DATA_MSB definition in V2 while MOD_STATUS_SEL is 5 */
 #define FIFO_REAL_TIME_FILL_STATUS_MSB_MASK_V2	GENMASK(1, 0)
 
 #define HAP_CFG_STATUS_DATA_LSB_REG		0x0A
@@ -57,6 +57,9 @@
 #define FIFO_EMPTY_BIT				BIT(1)
 
 /* config register definitions in HAPTICS_CFG module */
+#define HAP_CFG_EN_CTL_REG			0x46
+#define HAPTICS_EN_BIT				BIT(7)
+
 #define HAP_CFG_DRV_CTRL_REG			0x47
 #define PSTG_DLY_MASK				GENMASK(7, 6)
 #define DRV_SLEW_RATE_MASK			GENMASK(2, 0)
@@ -805,12 +808,16 @@ static int haptics_get_closeloop_lra_period_v1(
 	return 0;
 }
 
+/* The offset of SDAM register which saves STATUS_DATA_MSB value */
+#define HAP_STATUS_DATA_MSB_SDAM_OFFSET		0x46
+
+/* constant definitions for calculating TLRA */
 #define TLRA_AUTO_RES_ERR_NO_CAL_STEP_PSEC	1667000
 #define TLRA_AUTO_RES_NO_CAL_STEP_PSEC		3333000
 #define TLRA_AUTO_RES_ERR_AUTO_CAL_STEP_PSEC	1627700
 #define TLRA_AUTO_RES_AUTO_CAL_STEP_PSEC	813850
 static int haptics_get_closeloop_lra_period_v2(
-		struct haptics_chip *chip)
+		struct haptics_chip *chip, bool in_boot)
 {
 	struct haptics_hw_config *config = &chip->config;
 	u16 cal_tlra_cl_sts, tlra_cl_err_sts, tlra_ol, last_good_tlra_cl_sts;
@@ -827,16 +834,31 @@ static int haptics_get_closeloop_lra_period_v2(
 
 	rc_clk_cal = ((val[0] & CAL_RC_CLK_MASK) >> CAL_RC_CLK_SHIFT);
 	/* read auto resonance calibration result */
-	val[0] = MOD_STATUS_SEL_CAL_TLRA_CL_STS_VAL;
-	rc = haptics_write(chip, chip->cfg_addr_base,
-		HAP_CFG_MOD_STATUS_SEL_REG, val, 1);
-	if (rc < 0)
-		return rc;
+	if (in_boot) {
+		if (chip->hap_cfg_nvmem == NULL) {
+			dev_dbg(chip->dev, "nvmem device for hap_cfg is not defined\n");
+			return -EINVAL;
+		}
 
-	rc = haptics_read(chip, chip->cfg_addr_base,
-		HAP_CFG_STATUS_DATA_MSB_REG, val, 2);
-	if (rc < 0)
-		return rc;
+		rc = nvmem_device_read(chip->hap_cfg_nvmem,
+				HAP_STATUS_DATA_MSB_SDAM_OFFSET, 2, val);
+		if (rc < 0) {
+			dev_err(chip->dev, "read SDAM %#x failed, rc=%d\n",
+					HAP_STATUS_DATA_MSB_SDAM_OFFSET, rc);
+			return rc;
+		}
+	} else {
+		val[0] = MOD_STATUS_SEL_CAL_TLRA_CL_STS_VAL;
+		rc = haptics_write(chip, chip->cfg_addr_base,
+			HAP_CFG_MOD_STATUS_SEL_REG, val, 1);
+		if (rc < 0)
+			return rc;
+
+		rc = haptics_read(chip, chip->cfg_addr_base,
+			HAP_CFG_STATUS_DATA_MSB_REG, val, 2);
+		if (rc < 0)
+			return rc;
+	}
 
 	auto_res_done = !!(val[0] & AUTO_RES_CAL_DONE_BIT);
 	cal_tlra_cl_sts =
@@ -966,14 +988,15 @@ static int haptics_get_closeloop_lra_period_v2(
 	return 0;
 }
 
-static int haptics_get_closeloop_lra_period(struct haptics_chip *chip)
+static int haptics_get_closeloop_lra_period(struct haptics_chip *chip,
+						bool in_boot)
 {
 	int rc = 0;
 
 	if (chip->ptn_revision == HAP_PTN_V1)
 		rc = haptics_get_closeloop_lra_period_v1(chip);
 	else
-		rc = haptics_get_closeloop_lra_period_v2(chip);
+		rc = haptics_get_closeloop_lra_period_v2(chip, in_boot);
 
 	if (rc < 0) {
 		dev_err(chip->dev, "get close loop T LRA failed, rc=%d\n",
@@ -1668,7 +1691,7 @@ static int haptics_init_custom_effect(struct haptics_chip *chip)
 	chip->custom_effect->vmax_mv = chip->config.vmax_mv;
 	chip->custom_effect->t_lra_us = chip->config.t_lra_us;
 	chip->custom_effect->src = FIFO;
-	chip->custom_effect->auto_res_disable = false;
+	chip->custom_effect->auto_res_disable = true;
 
 	return 0;
 }
@@ -2165,7 +2188,7 @@ static int haptics_hw_init(struct haptics_chip *chip)
 		return rc;
 
 	/* get calibrated close loop period */
-	rc = haptics_get_closeloop_lra_period(chip);
+	rc = haptics_get_closeloop_lra_period(chip, true);
 	if (rc < 0)
 		return rc;
 
@@ -3745,7 +3768,7 @@ static int haptics_detect_lra_frequency(struct haptics_chip *chip)
 	/* wait for ~150ms to get the LRA calibration result */
 	usleep_range(150000, 155000);
 
-	rc = haptics_get_closeloop_lra_period(chip);
+	rc = haptics_get_closeloop_lra_period(chip, false);
 	if (rc < 0)
 		goto restore;
 
@@ -4007,6 +4030,56 @@ static int haptics_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM_SLEEP
+static int haptics_suspend(struct device *dev)
+{
+	struct haptics_chip *chip = dev_get_drvdata(dev);
+	struct haptics_play_info *play = &chip->play;
+	u8 val = 0;
+	int rc;
+
+	if (chip->cfg_revision == HAP_CFG_V1)
+		return 0;
+
+	if ((play->pattern_src == FIFO) &&
+			atomic_read(&play->fifo_status.is_busy)) {
+		if (atomic_read(&play->fifo_status.written_done) == 0) {
+			dev_dbg(chip->dev, "cancelling FIFO playing\n");
+			atomic_set(&play->fifo_status.cancelled, 1);
+		}
+
+		rc = haptics_stop_fifo_play(chip);
+		if (rc < 0) {
+			dev_err(chip->dev, "stop FIFO playing failed, rc=%d\n");
+			return rc;
+		}
+	} else {
+		rc = haptics_enable_play(chip, false);
+		if (rc < 0)
+			return rc;
+	}
+
+	return haptics_write(chip, chip->cfg_addr_base,
+		HAP_CFG_EN_CTL_REG, &val, 1);
+}
+
+static int haptics_resume(struct device *dev)
+{
+	struct haptics_chip *chip = dev_get_drvdata(dev);
+	u8 val = HAPTICS_EN_BIT;
+
+	if (chip->cfg_revision == HAP_CFG_V1)
+		return 0;
+
+	return haptics_write(chip, chip->cfg_addr_base,
+		HAP_CFG_EN_CTL_REG, &val, 1);
+}
+#endif
+
+static const struct dev_pm_ops haptics_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(haptics_suspend, haptics_resume)
+};
+
 static const struct of_device_id haptics_match_table[] = {
 	{ .compatible = "qcom,hv-haptics" },
 	{ .compatible = "qcom,pm8350b-haptics" },
@@ -4017,6 +4090,7 @@ static struct platform_driver haptics_driver = {
 	.driver		= {
 		.name = "qcom-hv-haptics",
 		.of_match_table = haptics_match_table,
+		.pm		= &haptics_pm_ops,
 	},
 	.probe		= haptics_probe,
 	.remove		= haptics_remove,

@@ -266,11 +266,21 @@ static u32 get_mux_divs(struct clk_hw *mux)
 
 static int clk_debug_measure_get(void *data, u64 *val)
 {
+	struct clk_regmap *rclk = NULL;
 	struct clk_debug_mux *mux;
 	struct clk_hw *hw = data;
 	struct clk_hw *parent;
 	int ret = 0;
 	u32 regval;
+
+	if (clk_is_regmap_clk(hw))
+		rclk = to_clk_regmap(hw);
+
+	if (rclk) {
+		ret = clk_runtime_get_regmap(rclk);
+		if (ret)
+			return ret;
+	}
 
 	mutex_lock(&clk_debug_lock);
 
@@ -306,6 +316,8 @@ static int clk_debug_measure_get(void *data, u64 *val)
 	}
 exit:
 	mutex_unlock(&clk_debug_lock);
+	if (rclk)
+		clk_runtime_put_regmap(rclk);
 	return ret;
 }
 
@@ -501,8 +513,14 @@ static void clk_debug_print_hw(struct clk_hw *hw, struct seq_file *f)
 
 	if (clk_is_regmap_clk(hw)) {
 		rclk = to_clk_regmap(hw);
+
+		if (clk_runtime_get_regmap(rclk))
+			return;
+
 		if (rclk->ops && rclk->ops->list_registers)
 			rclk->ops->list_registers(f, hw);
+
+		clk_runtime_put_regmap(rclk);
 	}
 }
 

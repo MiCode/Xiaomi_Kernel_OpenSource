@@ -1075,6 +1075,8 @@
 #define A6XX_GPU_CC_GX_DOMAIN_MISC             0x24542
 #define A6XX_GPU_CC_GX_DOMAIN_MISC3            0x24563
 
+/* GPU CPR registers */
+#define A6XX_GPU_CPR_FSM_CTL			0x26801
 
 /* GPU RSC sequencer registers */
 #define A6XX_GPU_RSCC_RSC_STATUS0_DRV0			0x00004

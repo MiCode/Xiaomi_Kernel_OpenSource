@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "Minidump: " fmt
@@ -87,6 +87,19 @@ static inline unsigned int set_section_name(const char *name)
 	minidump_elfheader.strtable_idx = idx + 1;
 
 	return ret;
+}
+
+struct md_region *md_get_region(char *name)
+{
+	struct md_region *mdr;
+	int i, regno = minidump_table.num_regions;
+
+	for (i = 0; i < regno; i++) {
+		mdr = &minidump_table.entry[i];
+		if (!strcmp(mdr->name, name))
+			return mdr;
+	}
+	return NULL;
 }
 
 static inline int md_region_num(const char *name, int *seqno)

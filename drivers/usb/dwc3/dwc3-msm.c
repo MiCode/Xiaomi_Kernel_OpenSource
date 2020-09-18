@@ -658,7 +658,7 @@ static int dbm_get_num_of_eps_configured(struct dwc3_msm *mdwc)
 	int i;
 	int count = 0;
 
-	for (i = 0; i < mdwc->dbm_num_eps; i++)
+	for (i = 0; i < min(mdwc->dbm_num_eps, DBM_1_5_NUM_EP); i++)
 		if (mdwc->dbm_ep_num_mapping[i])
 			count++;
 
@@ -779,6 +779,7 @@ int msm_data_fifo_config(struct usb_ep *ep, unsigned long addr,
 
 	return 0;
 }
+EXPORT_SYMBOL(msm_data_fifo_config);
 
 static int dbm_ep_unconfig(struct dwc3_msm *mdwc, u8 usb_ep);
 
@@ -2772,9 +2773,9 @@ static int dwc3_msm_update_bus_bw(struct dwc3_msm *mdwc, enum bus_vote bv)
 	 * set it to _NONE irrespective of the requested vote
 	 * from userspace.
 	 */
-	if (bv >= BUS_VOTE_MAX)
-		bv_index = mdwc->default_bus_vote;
-	else if (bv == BUS_VOTE_NONE)
+	if (bv_index >= BUS_VOTE_MAX)
+		bv_index = BUS_VOTE_MAX - 1;
+	else if (bv_index < BUS_VOTE_NONE)
 		bv_index = BUS_VOTE_NONE;
 
 	for (i = 0; i < ARRAY_SIZE(mdwc->icc_paths); i++) {

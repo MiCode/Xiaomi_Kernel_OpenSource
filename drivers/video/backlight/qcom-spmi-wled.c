@@ -18,11 +18,10 @@
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/of_address.h>
-#include <linux/power_supply.h>
 #include <linux/regmap.h>
 #include <linux/spinlock.h>
-#include <linux/qpnp/qpnp-revid.h>
 #include <linux/leds-qpnp-flash.h>
+#include <linux/iio/consumer.h>
 #include "../../leds/leds.h"
 
 /* General definitions */
@@ -33,6 +32,8 @@
 #define WLED_SOFT_START_DLY_US		10000
 
 /* WLED control registers */
+#define WLED_CTRL_REVISION2		0x01
+
 #define WLED_CTRL_FAULT_STATUS		0x08
 #define  WLED_CTRL_ILIM_FAULT_BIT	BIT(0)
 #define  WLED_CTRL_OVP_FAULT_BIT	BIT(1)
@@ -118,6 +119,8 @@
 
 #define WLED5_CTRL_TEST4_REG		0xe5
 #define  WLED5_TEST4_EN_SH_SS		BIT(5)
+
+#define WLED5_CTRL_PBUS_WRITE_SYNC_CTL	0xef
 
 /* WLED5 specific sink registers */
 #define WLED5_SINK_MOD_A_EN_REG		0x50
@@ -216,8 +219,7 @@ struct wled {
 	const char *name;
 	struct platform_device *pdev;
 	struct regmap *regmap;
-	struct pmic_revid_data *pmic_rev_id;
-	struct power_supply *bms_psy;
+	struct iio_channel **iio_channels;
 	struct mutex lock;
 	struct wled_config cfg;
 	ktime_t last_sc_event_time;
@@ -228,6 +230,7 @@ struct wled {
 	u32 brightness;
 	u32 max_brightness;
 	u32 sc_count;
+	u32 rev2;
 	const int *version;
 	int sc_irq;
 	int ovp_irq;
@@ -272,6 +275,18 @@ static const u8 wled5_brt_wid_sel_reg[MOD_MAX] = {
 	[MOD_B] = WLED5_SINK_MOD_B_BR_WID_SEL_REG,
 };
 
+enum wled_iio_props {
+	RBATT,
+	OCV,
+	IBAT,
+};
+
+static const char *const wled_iio_prop_names[] = {
+	[RBATT] = "rbatt",
+	[OCV] = "voltage_ocv",
+	[IBAT] = "current_now",
+};
+
 static int wled_flash_setup(struct wled *wled);
 
 static inline bool is_wled4(struct wled *wled)
@@ -293,15 +308,34 @@ static inline bool is_wled5(struct wled *wled)
 static int wled_module_enable(struct wled *wled, int val)
 {
 	int rc;
+	int reg;
 
 	if (wled->force_mod_disable)
 		return 0;
+
+	/* Force HFRC off */
+	if (*wled->version == WLED_PM8150L) {
+		reg = val ? 0 : 3;
+		rc = regmap_write(wled->regmap, wled->ctrl_addr +
+				  WLED5_CTRL_PBUS_WRITE_SYNC_CTL, reg);
+		if (rc < 0)
+			return rc;
+	}
 
 	rc = regmap_update_bits(wled->regmap, wled->ctrl_addr +
 			WLED_CTRL_MOD_ENABLE, WLED_CTRL_MOD_EN_MASK,
 			val << WLED_CTRL_MODULE_EN_SHIFT);
 	if (rc < 0)
 		return rc;
+
+	/* Force HFRC off */
+	if (*wled->version == WLED_PM8150L && val) {
+		rc = regmap_write(wled->regmap, wled->sink_addr +
+				  WLED5_SINK_FLASH_SHDN_CLR_REG, 0);
+		if (rc < 0)
+			return rc;
+	}
+
 	/*
 	 * Wait for at least 10ms before enabling OVP fault interrupt after
 	 * enabling the module so that soft start is completed. Keep the OVP
@@ -379,7 +413,7 @@ static int wled5_sample_hold_control(struct wled *wled, u16 brightness,
 		usleep_range(5000, 5010);
 
 	/* Disable S_H if brightness is < 1% */
-	if (wled->pmic_rev_id->rev4 == PM8150L_V3P0_REV4) {
+	if (wled->rev2 >= 6) {
 		offset = WLED5_CTRL_SH_FOR_SOFTSTART_REG;
 		val = enable ? WLED5_SOFTSTART_EN_SH_SS : 0;
 		mask = WLED5_SOFTSTART_EN_SH_SS;
@@ -1470,26 +1504,49 @@ static int wled_get_max_current(struct led_classdev *led_cdev,
 	return 0;
 }
 
-static int get_property_from_fg(struct wled *wled,
-		enum power_supply_property prop, int *val)
+static int wled_get_iio_chan(struct wled *wled,
+				   enum wled_iio_props chan)
 {
-	int rc;
-	union power_supply_propval pval = {0, };
+	int rc = 0;
 
-	if (!wled->bms_psy)
-		wled->bms_psy = power_supply_get_by_name("bms");
+	/*
+	 * if the channel pointer is not-NULL and has a ERR value it has
+	 * already been queried upon earlier, hence return from here.
+	 */
+	if (IS_ERR(wled->iio_channels[chan]))
+		return -EINVAL;
 
-	if (!wled->bms_psy)
-		return -ENODEV;
-
-	rc = power_supply_get_property(wled->bms_psy, prop, &pval);
-	if (rc < 0) {
-		pr_err("bms psy doesn't support reading prop %d rc = %d\n",
-			prop, rc);
-		return rc;
+	if (!wled->iio_channels[chan]) {
+		wled->iio_channels[chan] = iio_channel_get(&wled->pdev->dev,
+						  wled_iio_prop_names[chan]);
+		if (IS_ERR(wled->iio_channels[chan])) {
+			rc = PTR_ERR(wled->iio_channels[chan]);
+			if (rc == -EPROBE_DEFER) {
+				wled->iio_channels[chan] = NULL;
+				return rc;
+			}
+			pr_err("%s channel unavailable %d\n",
+			       wled_iio_prop_names[chan], rc);
+			return rc;
+		}
 	}
 
-	*val = pval.intval;
+	return 0;
+}
+
+static int wled_iio_get_prop(struct wled *wled,
+				  enum wled_iio_props chan, int *data)
+{
+	int rc = 0;
+
+	rc = wled_get_iio_chan(wled, chan);
+	if (rc < 0)
+		return rc;
+
+	rc = iio_read_channel_processed(wled->iio_channels[chan], data);
+	if (rc < 0)
+		pr_err("Error in reading IIO channel data rc = %d\n", rc);
+
 	return rc;
 }
 
@@ -1519,23 +1576,21 @@ static int wled_get_max_avail_current(struct led_classdev *led_cdev,
 		return 0;
 	}
 
-	rc = get_property_from_fg(wled, POWER_SUPPLY_PROP_VOLTAGE_OCV, &ocv_mv);
+	rc = wled_iio_get_prop(wled, OCV, &ocv_mv);
 	if (rc < 0) {
 		pr_err("Error in getting OCV rc=%d\n", rc);
 		return rc;
 	}
 	ocv_mv /= 1000;
 
-	rc = get_property_from_fg(wled, POWER_SUPPLY_PROP_CURRENT_NOW,
-		&i_bat_ma);
+	rc = wled_iio_get_prop(wled, IBAT, &i_bat_ma);
 	if (rc < 0) {
 		pr_err("Error in getting I_BAT rc=%d\n", rc);
 		return rc;
 	}
 	i_bat_ma /= 1000;
 
-	rc = get_property_from_fg(wled, POWER_SUPPLY_PROP_RESISTANCE,
-		&r_bat_mohms);
+	rc = wled_iio_get_prop(wled, RBATT, &r_bat_mohms);
 	if (rc < 0) {
 		pr_err("Error in getting R_BAT rc=%d\n", rc);
 		return rc;
@@ -1613,6 +1668,22 @@ static struct device_attribute wled_flash_attrs[] = {
 	__ATTR(max_avail_current, 0664, wled_flash_max_avail_current_show,
 		NULL),
 };
+
+static struct led_classdev *trigger_to_lcdev(struct led_trigger *trig)
+{
+	struct led_classdev *led_cdev;
+
+	read_lock(&trig->leddev_list_lock);
+	list_for_each_entry(led_cdev, &trig->led_cdevs, trig_list) {
+		if (!strcmp(led_cdev->default_trigger, trig->name)) {
+			read_unlock(&trig->leddev_list_lock);
+			return led_cdev;
+		}
+	}
+
+	read_unlock(&trig->leddev_list_lock);
+	return NULL;
+}
 
 int wled_flash_led_prepare(struct led_trigger *trig, int options,
 				int *max_current)
@@ -1840,7 +1911,6 @@ static int wled_flash_device_register(struct wled *wled)
 	/* switch */
 	wled->switch_cdev.name = "wled_switch";
 	wled->switch_cdev.brightness_set = wled_switch_brightness_set;
-	wled->switch_cdev.flags |= LED_KEEP_TRIGGER;
 	rc = devm_led_classdev_register(&wled->pdev->dev, &wled->switch_cdev);
 	if (rc < 0)
 		return rc;
@@ -1897,13 +1967,6 @@ static int wled_flash_configure(struct wled *wled)
 				}
 			}
 
-			/*
-			 * As per the hardware recommendation, FS current should
-			 * be limited to 20 mA for PM8150L v1.0.
-			 */
-			if (wled->pmic_rev_id->rev4 == PM8150L_V1P0_REV4)
-				wled->fparams.fs_current = 20;
-
 			/* Value read in us */
 			wled->fparams.step_delay = 200;
 			rc = of_property_read_u32(temp, "qcom,wled-flash-step",
@@ -1948,13 +2011,6 @@ static int wled_flash_configure(struct wled *wled)
 					return rc;
 				}
 			}
-
-			/*
-			 * As per the hardware recommendation, FS current should
-			 * be limited to 20 mA for PM8150L v1.0.
-			 */
-			if (wled->pmic_rev_id->rev4 == PM8150L_V1P0_REV4)
-				wled->tparams.fs_current = 20;
 
 			/* Value read in us */
 			wled->tparams.step_delay = 200;
@@ -2076,7 +2132,6 @@ static int wled_flash_setup(struct wled *wled)
 static int wled_configure(struct wled *wled, struct device *dev)
 {
 	struct wled_config *cfg = &wled->cfg;
-	struct device_node *revid_node;
 	const __be32 *prop_addr;
 	u32 val, c;
 	int rc, i, j, size;
@@ -2169,6 +2224,13 @@ static int wled_configure(struct wled *wled, struct device *dev)
 	}
 	wled->ctrl_addr = be32_to_cpu(*prop_addr);
 
+	rc = regmap_read(wled->regmap,
+		wled->ctrl_addr + WLED_CTRL_REVISION2, &wled->rev2);
+	if (rc < 0) {
+		pr_err("Error in reading WLED_CTRL_REVISION2 rc=%d\n", rc);
+		return -EINVAL;
+	}
+
 	prop_addr = of_get_address(dev->of_node, 1, NULL, NULL);
 	if (!prop_addr) {
 		pr_err("invalid IO resources\n");
@@ -2178,24 +2240,6 @@ static int wled_configure(struct wled *wled, struct device *dev)
 	rc = of_property_read_string(dev->of_node, "label", &wled->name);
 	if (rc < 0)
 		wled->name = dev->of_node->name;
-
-	if (of_find_property(dev->of_node, "qcom,pmic-revid", NULL)) {
-		revid_node = of_parse_phandle(dev->of_node, "qcom,pmic-revid",
-				0);
-		if (!revid_node) {
-			pr_err("Error in getting revid_node\n");
-			return -EINVAL;
-		}
-
-		wled->pmic_rev_id = get_revid_data(revid_node);
-		of_node_put(revid_node);
-		if (IS_ERR_OR_NULL(wled->pmic_rev_id)) {
-			pr_err("Unable to get pmic_revid rc=%ld\n",
-				PTR_ERR(wled->pmic_rev_id));
-			wled->pmic_rev_id = NULL;
-			return -EPROBE_DEFER;
-		}
-	}
 
 	if (is_wled5(wled)) {
 		u32_opts = wled5_opts;
@@ -2322,14 +2366,6 @@ static int wled_probe(struct platform_device *pdev)
 	if (is_wled5(wled) && wled->cfg.cabc_sel)
 		wled->max_brightness = WLED_MAX_BRIGHTNESS_12B;
 
-	/*
-	 * As per the hardware recommendation, FS current should
-	 * be limited to 20 mA for PM8150L v1.0.
-	 */
-	if (wled->pmic_rev_id->rev4 == PM8150L_V1P0_REV4 &&
-		wled->cfg.fs_current > 8)
-		wled->cfg.fs_current = 8;
-
 	if (is_wled4(wled))
 		rc = wled4_setup(wled);
 	else
@@ -2362,6 +2398,12 @@ static int wled_probe(struct platform_device *pdev)
 			rc);
 		return rc;
 	}
+
+	wled->iio_channels = devm_kcalloc(&pdev->dev,
+				ARRAY_SIZE(wled_iio_prop_names),
+				sizeof(struct iio_channel *), GFP_KERNEL);
+	if (!wled->iio_channels)
+		return -ENOMEM;
 
 	return rc;
 }

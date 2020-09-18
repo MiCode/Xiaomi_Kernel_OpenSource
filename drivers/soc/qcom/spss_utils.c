@@ -34,6 +34,7 @@
 #include <linux/sizes.h>    /* SZ_4K */
 #include <linux/uaccess.h>  /* copy_from_user() */
 #include <linux/completion.h>	/* wait_for_completion_timeout() */
+#include <linux/reboot.h>	/* kernel_restart() */
 
 #include <soc/qcom/subsystem_notif.h>
 #include <soc/qcom/subsystem_restart.h>
@@ -84,6 +85,7 @@ static u32 saved_apps_cmac[NUM_UEFI_APPS][CMAC_SIZE_IN_DWORDS];
 
 static u32 iar_state;
 static bool is_iar_enabled;
+static bool ssr_disabled_flag;
 
 static void __iomem *cmac_mem;
 static size_t cmac_mem_size = SZ_4K; /* XPU align to 4KB */
@@ -598,9 +600,23 @@ static long spss_utils_ioctl(struct file *file,
 			return ret;
 		break;
 
+	case SPSS_IOC_SET_SSR_STATE:
+		/* check input params */
+		if (size != sizeof(uint32_t)) {
+			pr_err("cmd [0x%x] invalid size [0x%x]\n", cmd, size);
+			return -EINVAL;
+		}
+
+		if (is_iar_active) {
+			memcpy(&ssr_disabled_flag, data, size);
+			pr_debug("SSR disabled state updated to: %d\n",
+				 ssr_disabled_flag);
+		}
+		break;
+
 	default:
 		pr_err("invalid ioctl cmd [0x%x]\n", cmd);
-		return -EINVAL;
+		return -ENOIOCTLCMD;
 	}
 
 	return 0;
@@ -1116,6 +1132,10 @@ static int spss_utils_pil_callback(struct notifier_block *nb,
 		break;
 	case SUBSYS_BEFORE_POWERUP:
 		pr_debug("[SUBSYS_BEFORE_POWERUP] event.\n");
+		if (is_iar_active && ssr_disabled_flag) {
+			pr_warn("SPSS SSR disabled, requesting reboot\n");
+			kernel_restart("SPSS SSR disabled, requesting reboot");
+		}
 		break;
 	case SUBSYS_AFTER_POWERUP:
 		pr_debug("[SUBSYS_AFTER_POWERUP] event.\n");
@@ -1232,6 +1252,8 @@ static int spss_probe(struct platform_device *pdev)
 		spss_events_signaled[i] = false;
 	}
 	mutex_init(&event_lock);
+
+	ssr_disabled_flag = false;
 
 	pr_info("Probe completed successfully, [%s].\n", firmware_name);
 

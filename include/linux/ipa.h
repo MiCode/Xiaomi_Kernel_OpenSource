@@ -223,6 +223,10 @@ struct ipa_ep_cfg_hdr {
  * @hdr_little_endian: 0-Big Endian, 1-Little Endian
  * @hdr: The header structure. Used starting IPA4.5 where part of the info
  *	at the header structure is implemented via the EXT register at the H/W
+ * @hdr_bytes_to_remove_valid: 0-Ignore hdr_bytes_to_remove field, 1-Process
+ *	hdr_bytes_to_remove field
+ * @hdr_bytes_to_remove: desired bytes to remove from top of the packet for
+ *	partial L2 header retention
  */
 struct ipa_ep_cfg_hdr_ext {
 	u32 hdr_pad_to_alignment;
@@ -232,6 +236,8 @@ struct ipa_ep_cfg_hdr_ext {
 	bool hdr_total_len_or_pad_valid;
 	bool hdr_little_endian;
 	struct ipa_ep_cfg_hdr *hdr;
+	bool hdr_bytes_to_remove_valid;
+	u32 hdr_bytes_to_remove;
 };
 
 /**
@@ -425,6 +431,7 @@ struct ipa_ep_cfg_cfg {
 	enum ipa_cs_offload cs_offload_en;
 	u8 cs_metadata_hdr_offset;
 	u8 gen_qmb_master_sel;
+	u8 tx_instance;
 };
 
 /**

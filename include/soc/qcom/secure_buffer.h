@@ -54,6 +54,7 @@ int hyp_assign_phys(phys_addr_t addr, u64 size,
 			int *dest_vmids, int *dest_perms, int dest_nelems);
 const char *msm_secure_vmid_to_string(int secure_vmid);
 u32 msm_secure_get_vmid_perms(u32 vmid);
+int page_accessible(unsigned long pfn);
 #else
 static inline int hyp_assign_table(struct sg_table *table,
 			u32 *source_vm_list, int source_nelems,
@@ -78,6 +79,11 @@ static inline const char *msm_secure_vmid_to_string(int secure_vmid)
 static inline u32 msm_secure_get_vmid_perms(u32 vmid)
 {
 	return 0;
+}
+
+static inline int page_accessible(unsigned long pfn)
+{
+	return 1;
 }
 #endif
 #endif

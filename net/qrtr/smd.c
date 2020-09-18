@@ -24,8 +24,10 @@ static int qcom_smd_qrtr_callback(struct rpmsg_device *rpdev,
 	struct qrtr_smd_dev *qdev = dev_get_drvdata(&rpdev->dev);
 	int rc;
 
-	if (!qdev)
+	if (!qdev) {
+		pr_err("%d:Not ready\n", __func__);
 		return -EAGAIN;
+	}
 
 	rc = qrtr_endpoint_post(&qdev->ep, data, len);
 	if (rc == -EINVAL) {
@@ -63,6 +65,7 @@ static int qcom_smd_qrtr_probe(struct rpmsg_device *rpdev)
 	u32 net_id;
 	bool rt;
 	int rc;
+	pr_err("%d:Entered\n", __func__);
 
 	qdev = devm_kzalloc(&rpdev->dev, sizeof(*qdev), GFP_KERNEL);
 	if (!qdev)
@@ -84,7 +87,8 @@ static int qcom_smd_qrtr_probe(struct rpmsg_device *rpdev)
 
 	dev_set_drvdata(&rpdev->dev, qdev);
 
-	dev_dbg(&rpdev->dev, "Qualcomm SMD QRTR driver probed\n");
+	pr_err("%d:SMD QRTR driver probed\n", __func__);
+	dev_dbg(&rpdev->dev, "SMD QRTR driver probed\n");
 
 	return 0;
 }

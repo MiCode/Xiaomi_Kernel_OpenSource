@@ -93,9 +93,14 @@ EXPORT_SYMBOL(hh_mem_notifier_unregister);
 static enum hh_mem_notifier_tag hh_mem_notifier_get_tag(unsigned long action,
 							void *msg)
 {
-	return action == HH_RM_NOTIF_MEM_SHARED ?
-		((struct hh_rm_notif_mem_shared_payload *)msg)->mem_info_tag :
+	if (action == HH_RM_NOTIF_MEM_SHARED)
+		return
+		((struct hh_rm_notif_mem_shared_payload *)msg)->mem_info_tag;
+	else if (action == HH_RM_NOTIF_MEM_RELEASED)
+		return
 		((struct hh_rm_notif_mem_released_payload *)msg)->mem_info_tag;
+
+	return ((struct hh_rm_notif_mem_accepted_payload *)msg)->mem_info_tag;
 }
 
 static int hh_mem_notifier_call(struct notifier_block *nb, unsigned long action,
@@ -107,7 +112,8 @@ static int hh_mem_notifier_call(struct notifier_block *nb, unsigned long action,
 	void *data;
 
 	if ((action != HH_RM_NOTIF_MEM_SHARED) &&
-	    (action != HH_RM_NOTIF_MEM_RELEASED))
+	    (action != HH_RM_NOTIF_MEM_RELEASED) &&
+	    (action != HH_RM_NOTIF_MEM_ACCEPTED))
 		return NOTIFY_DONE;
 
 	tag = hh_mem_notifier_get_tag(action, msg);

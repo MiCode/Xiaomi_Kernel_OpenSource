@@ -13,6 +13,7 @@
 #include <linux/reset-controller.h>
 #include <linux/interconnect.h>
 #include <linux/phy/phy-qcom-ufs.h>
+#include <linux/clk/qcom.h>
 #include <linux/devfreq.h>
 #include <linux/cpu.h>
 #include <linux/blk-mq.h>
@@ -184,6 +185,19 @@ static int ufs_qcom_get_connected_tx_lanes(struct ufs_hba *hba, u32 *tx_lanes)
 			UIC_ARG_MIB(PA_CONNECTEDTXDATALANES), tx_lanes);
 	if (err)
 		dev_err(hba->dev, "%s: couldn't read PA_CONNECTEDTXDATALANES %d\n",
+				__func__, err);
+
+	return err;
+}
+
+static int ufs_qcom_get_connected_rx_lanes(struct ufs_hba *hba, u32 *rx_lanes)
+{
+	int err = 0;
+
+	err = ufshcd_dme_get(hba,
+			UIC_ARG_MIB(PA_CONNECTEDRXDATALANES), rx_lanes);
+	if (err)
+		dev_err(hba->dev, "%s: couldn't read PA_CONNECTEDRXDATALANES %d\n",
 				__func__, err);
 
 	return err;
@@ -591,6 +605,36 @@ out:
 	return err;
 }
 
+static void ufs_qcom_force_mem_config(struct ufs_hba *hba)
+{
+	struct ufs_clk_info *clki;
+
+	/*
+	 * Configure the behavior of ufs clocks core and peripheral
+	 * memory state when they are turned off.
+	 * This configuration is required to allow retaining
+	 * ICE crypto configuration (including keys) when
+	 * core_clk_ice is turned off, and powering down
+	 * non-ICE RAMs of host controller.
+	 *
+	 * This is applicable only to gcc clocks.
+	 */
+	list_for_each_entry(clki, &hba->clk_list_head, list) {
+
+		/* skip it for non-gcc (rpmh) clocks */
+		if (!strcmp(clki->name, "ref_clk"))
+			continue;
+
+		if (!strcmp(clki->name, "core_clk_ice") ||
+			!strcmp(clki->name, "core_clk_ice_hw_ctl"))
+			qcom_clk_set_flags(clki->clk, CLKFLAG_RETAIN_MEM);
+		else
+			qcom_clk_set_flags(clki->clk, CLKFLAG_NORETAIN_MEM);
+		qcom_clk_set_flags(clki->clk, CLKFLAG_NORETAIN_PERIPH);
+		qcom_clk_set_flags(clki->clk, CLKFLAG_PERIPH_OFF_CLEAR);
+	}
+}
+
 static int ufs_qcom_hce_enable_notify(struct ufs_hba *hba,
 				      enum ufs_notify_change_status status)
 {
@@ -599,6 +643,7 @@ static int ufs_qcom_hce_enable_notify(struct ufs_hba *hba,
 
 	switch (status) {
 	case PRE_CHANGE:
+		ufs_qcom_force_mem_config(hba);
 		ufs_qcom_power_up_sequence(hba);
 		/*
 		 * The PHY PLL output is the source of tx/rx lane symbol
@@ -868,6 +913,62 @@ out:
 	return err;
 }
 
+static void ufs_qcom_dump_attribs(struct ufs_hba *hba)
+{
+	int ret;
+	int attrs[] = {0x15a0, 0x1552, 0x1553, 0x1554,
+		       0x1555, 0x1556, 0x1557, 0x155a,
+		       0x155b, 0x155c, 0x155d, 0x155e,
+		       0x155f, 0x1560, 0x1561, 0x1568,
+		       0x1569, 0x156a, 0x1571, 0x1580,
+		       0x1581, 0x1583, 0x1584, 0x1585,
+		       0x1586, 0x1587, 0x1590, 0x1591,
+		       0x15a1, 0x15a2, 0x15a3, 0x15a4,
+		       0x15a5, 0x15a6, 0x15a7, 0x15a8,
+		       0x15a9, 0x15aa, 0x15ab, 0x15c0,
+		       0x15c1, 0x15c2, 0x15d0, 0x15d1,
+		       0x15d2, 0x15d3, 0x15d4, 0x15d5,
+	};
+	int cnt = ARRAY_SIZE(attrs);
+	int i = 0, val;
+
+	for (; i < cnt; i++) {
+		ret = ufshcd_dme_get(hba, UIC_ARG_MIB(attrs[i]), &val);
+		if (ret) {
+			dev_err(hba->dev, "Failed reading: 0x%04x, ret:%d\n",
+				attrs[i], ret);
+			continue;
+		}
+		dev_err(hba->dev, "0x%04x: %d\n", attrs[i], val);
+	}
+}
+
+static void ufs_qcom_validate_link_params(struct ufs_hba *hba)
+{
+	int val = 0;
+	bool err = false;
+
+	WARN_ON(ufs_qcom_get_connected_tx_lanes(hba, &val));
+	if (val != hba->lanes_per_direction) {
+		dev_err(hba->dev, "%s: Tx lane mismatch [config,reported] [%d,%d]\n",
+			__func__, hba->lanes_per_direction, val);
+		WARN_ON(1);
+		err = true;
+	}
+
+	val = 0;
+	WARN_ON(ufs_qcom_get_connected_rx_lanes(hba, &val));
+	if (val != hba->lanes_per_direction) {
+		dev_err(hba->dev, "%s: Rx lane mismatch [config,reported] [%d,%d]\n",
+			__func__, hba->lanes_per_direction, val);
+		WARN_ON(1);
+		err = true;
+	}
+
+	if (err)
+		ufs_qcom_dump_attribs(hba);
+}
+
 static int ufs_qcom_link_startup_notify(struct ufs_hba *hba,
 					enum ufs_notify_change_status status)
 {
@@ -914,6 +1015,7 @@ static int ufs_qcom_link_startup_notify(struct ufs_hba *hba,
 		break;
 	case POST_CHANGE:
 		ufs_qcom_link_startup_post_change(hba);
+		ufs_qcom_validate_link_params(hba);
 		break;
 	default:
 		break;
@@ -3340,6 +3442,22 @@ static void ufs_qcom_config_scaling_param(struct ufs_hba *hba,
 }
 #endif
 
+#if defined(CONFIG_SCSI_UFSHCD_QTI)
+static struct ufs_dev_fix ufs_qcom_dev_fixups[] = {
+	UFS_FIX(UFS_VENDOR_MICRON, UFS_ANY_MODEL,
+		UFS_DEVICE_QUIRK_DELAY_BEFORE_LPM),
+	UFS_FIX(UFS_VENDOR_SKHYNIX, UFS_ANY_MODEL,
+		UFS_DEVICE_QUIRK_DELAY_BEFORE_LPM),
+	UFS_FIX(UFS_VENDOR_WDC, UFS_ANY_MODEL,
+		UFS_DEVICE_QUIRK_HOST_PA_TACTIVATE),
+	END_FIX
+};
+
+static void ufs_qcom_fixup_dev_quirks(struct ufs_hba *hba)
+{
+	ufshcd_fixup_dev_quirks(hba, ufs_qcom_dev_fixups);
+}
+#endif
 /**
  * struct ufs_hba_qcom_vops - UFS QCOM specific variant operations
  *
@@ -3363,6 +3481,9 @@ static const struct ufs_hba_variant_ops ufs_hba_qcom_vops = {
 	.device_reset		= ufs_qcom_device_reset,
 	.config_scaling_param = ufs_qcom_config_scaling_param,
 	.setup_xfer_req         = ufs_qcom_qos,
+#if defined(CONFIG_SCSI_UFSHCD_QTI)
+	.fixup_dev_quirks       = ufs_qcom_fixup_dev_quirks,
+#endif
 };
 
 /**

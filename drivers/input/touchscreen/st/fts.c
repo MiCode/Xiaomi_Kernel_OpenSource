@@ -462,7 +462,7 @@ static int fts_vm_mem_release(struct fts_ts_info *info)
 		pr_err("VM mem release failed: rc=%d\n", rc);
 
 	rc = hh_rm_mem_notify(info->vm_info->vm_mem_handle,
-				HH_RM_MEM_NOTIFY_OWNER,
+				HH_RM_MEM_NOTIFY_OWNER_RELEASED,
 				HH_MEM_NOTIFIER_TAG_TOUCH, 0);
 	if (rc)
 		pr_err("Failed to notify mem release to PVM: rc=%d\n");
@@ -713,7 +713,7 @@ static int fts_vm_mem_lend(struct fts_ts_info *info)
 
 	vmid_desc = fts_vm_get_vmid(trusted_vmid);
 
-	rc = hh_rm_mem_notify(mem_handle, HH_RM_MEM_NOTIFY_RECIPIENT,
+	rc = hh_rm_mem_notify(mem_handle, HH_RM_MEM_NOTIFY_RECIPIENT_SHARED,
 			HH_MEM_NOTIFIER_TAG_TOUCH, vmid_desc);
 	if (rc) {
 		pr_err("Failed to notify mem lend to hypervisor rc:%d\n", rc);

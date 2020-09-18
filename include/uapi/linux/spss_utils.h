@@ -78,4 +78,7 @@ struct spss_ioc_is_signaled {
 #define SPSS_IOC_IS_EVENT_SIGNALED \
 	_IOWR(SPSS_IOC_MAGIC, 4, struct spss_ioc_is_signaled)
 
+#define SPSS_IOC_SET_SSR_STATE \
+	_IOWR(SPSS_IOC_MAGIC, 5, __u32)
+
 #endif /* _UAPI_SPSS_UTILS_H_ */
