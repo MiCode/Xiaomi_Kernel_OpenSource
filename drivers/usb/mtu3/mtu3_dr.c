@@ -175,6 +175,7 @@ static void ssusb_set_mailbox(struct otg_switch_mtk *otg_sx,
 	struct ssusb_mtk *ssusb =
 		container_of(otg_sx, struct ssusb_mtk, otg_switch);
 	struct mtu3 *mtu = ssusb->u3d;
+	unsigned long flags;
 
 	dev_dbg(ssusb->dev, "mailbox %s\n", mailbox_state_string(status));
 	mtu3_dbg_trace(ssusb->dev, "mailbox %s", mailbox_state_string(status));
@@ -207,10 +208,12 @@ static void ssusb_set_mailbox(struct otg_switch_mtk *otg_sx,
 		switch_port_to_on(ssusb, false);
 		break;
 	case MTU3_VBUS_OFF:
+		spin_lock_irqsave(&mtu->lock, flags);
 		mtu3_stop(mtu);
 		/* report disconnect */
 		if (mtu->g.speed != USB_SPEED_UNKNOWN)
 			mtu3_gadget_disconnect(mtu);
+		spin_unlock_irqrestore(&mtu->lock, flags);
 		pm_relax(ssusb->dev);
 		ssusb_set_force_vbus(ssusb, false);
 		otg_sx->sw_state &= ~MTU3_SW_VBUS_VALID;
