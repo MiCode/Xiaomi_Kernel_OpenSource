@@ -431,7 +431,7 @@ static char *pe_state_to_str(int state)
 static int _pe_is_algo_ready(struct chg_alg_device *alg)
 {
 	struct mtk_pe *pe;
-	int ret_value, uisoc;
+	int ret_value = 0, uisoc;
 
 	pe = dev_get_drvdata(&alg->dev);
 	pe_dbg("%s state:%s\n", __func__,
