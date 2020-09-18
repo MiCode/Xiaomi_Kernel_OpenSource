@@ -1622,7 +1622,7 @@ static int pe4_full_evt(struct chg_alg_device *alg)
 	int ret = 0;
 	bool chg_en, chg2_enabled = false;
 	int ichg2, ichg2_min;
-	int ret_value;
+	int ret_value = 0;
 
 	pe4 = dev_get_drvdata(&alg->dev);
 	switch (pe4->state) {
