@@ -73,9 +73,8 @@ void ufs_mtk_dbg_print_info(char **buff, unsigned long *size,
 	SPREAD_PRINTF(buff, size, m,
 		      "UFS Host state=%d\n", hba->ufshcd_state);
 	SPREAD_PRINTF(buff, size, m,
-		      "lrb in use=0x%lx, outstanding reqs=0x%lx tasks=0x%lx\n",
-		      hba->lrb_in_use, hba->outstanding_reqs,
-		      hba->outstanding_tasks);
+		      "outstanding reqs=0x%lx tasks=0x%lx\n",
+		      hba->outstanding_reqs, hba->outstanding_tasks);
 	SPREAD_PRINTF(buff, size, m,
 		      "saved_err=0x%x, saved_uic_err=0x%x\n",
 		      hba->saved_err, hba->saved_uic_err);
@@ -645,12 +644,12 @@ static int ufs_debug_proc_open(struct inode *inode, struct file *file)
 	return single_open(file, ufs_debug_proc_show, inode->i_private);
 }
 
-static const struct file_operations ufs_debug_proc_fops = {
-	.open = ufs_debug_proc_open,
-	.write = ufs_debug_proc_write,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = single_release,
+static const struct proc_ops ufs_debug_proc_fops = {
+	.proc_open = ufs_debug_proc_open,
+	.proc_write = ufs_debug_proc_write,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
 };
 
 int ufs_mtk_dbg_init_procfs(void)
