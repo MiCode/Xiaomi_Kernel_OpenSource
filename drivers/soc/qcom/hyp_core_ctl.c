@@ -30,10 +30,13 @@
 #include <linux/sched/walt.h>
 
 #define MAX_RESERVE_CPUS (num_possible_cpus()/2)
+#define SVM_STATE_RUNNING 1
+#define SVM_STATE_SYSTEM_SUSPENDED 3
 
 static DEFINE_PER_CPU(struct freq_qos_request, qos_min_req);
 static DEFINE_PER_CPU(unsigned int, qos_min_freq);
 
+static unsigned int gh_suspend_timeout_ms = 1000;
 /**
  * struct hyp_core_ctl_cpumap - vcpu to pcpu mapping for the other guest
  * @cap_id: System call id to be used while referring to this vcpu
@@ -85,6 +88,9 @@ static bool is_vcpu_info_populated;
 static bool init_done;
 static int nr_vcpus;
 static bool freq_qos_init_done;
+static u64 vpmg_cap_id;
+static struct timer_list gh_suspend_timer;
+static bool is_vpm_group_info_populated;
 
 static inline void hyp_core_ctl_print_status(char *msg)
 {
@@ -442,20 +448,21 @@ done:
 static int hyp_core_ctl_thread(void *data)
 {
 	struct hyp_core_ctl_data *hcd = data;
+	unsigned long flags;
 
 	while (1) {
-		spin_lock(&hcd->lock);
+		spin_lock_irqsave(&hcd->lock, flags);
 		if (!hcd->pending) {
 			set_current_state(TASK_INTERRUPTIBLE);
-			spin_unlock(&hcd->lock);
+			spin_unlock_irqrestore(&hcd->lock, flags);
 
 			schedule();
 
-			spin_lock(&hcd->lock);
+			spin_lock_irqsave(&hcd->lock, flags);
 			set_current_state(TASK_RUNNING);
 		}
 		hcd->pending = false;
-		spin_unlock(&hcd->lock);
+		spin_unlock_irqrestore(&hcd->lock, flags);
 
 		if (kthread_should_stop())
 			break;
@@ -539,6 +546,7 @@ static int hyp_core_ctl_cpu_cooling_cb(struct notifier_block *nb,
 	const cpumask_t *thermal_cpus = thermal_paused_cpumask();
 	struct freq_qos_request *qos_req;
 	int ret;
+	unsigned long flags;
 
 	if (!the_hcd)
 		return NOTIFY_DONE;
@@ -599,10 +607,10 @@ static int hyp_core_ctl_cpu_cooling_cb(struct notifier_block *nb,
 	}
 
 	if (the_hcd->reservation_enabled) {
-		spin_lock(&the_hcd->lock);
+		spin_lock_irqsave(&the_hcd->lock, flags);
 		the_hcd->pending = true;
 		wake_up_process(the_hcd->task);
-		spin_unlock(&the_hcd->lock);
+		spin_unlock_irqrestore(&the_hcd->lock, flags);
 	} else {
 		/*
 		 * When the reservation is enabled, the state machine
@@ -646,6 +654,8 @@ static int hyp_core_ctl_hp_offline(unsigned int cpu)
 
 static int hyp_core_ctl_hp_online(unsigned int cpu)
 {
+	unsigned long flags;
+
 	if (!the_hcd || !the_hcd->reservation_enabled)
 		return 0;
 
@@ -653,12 +663,12 @@ static int hyp_core_ctl_hp_online(unsigned int cpu)
 	 * A reserved CPU is coming online. It should be paused
 	 * to honor the reservation. So kick the state machine.
 	 */
-	spin_lock(&the_hcd->lock);
+	spin_lock_irqsave(&the_hcd->lock, flags);
 	if (cpumask_test_cpu(cpu, &the_hcd->final_reserved_cpus)) {
 		the_hcd->pending = true;
 		wake_up_process(the_hcd->task);
 	}
-	spin_unlock(&the_hcd->lock);
+	spin_unlock_irqrestore(&the_hcd->lock, flags);
 
 	return 0;
 }
@@ -666,8 +676,9 @@ static int hyp_core_ctl_hp_online(unsigned int cpu)
 static void hyp_core_ctl_init_reserve_cpus(struct hyp_core_ctl_data *hcd)
 {
 	int i;
+	unsigned long flags;
 
-	spin_lock(&hcd->lock);
+	spin_lock_irqsave(&hcd->lock, flags);
 	cpumask_clear(&hcd->reserve_cpus);
 
 	for (i = 0; i < MAX_RESERVE_CPUS; i++) {
@@ -682,7 +693,7 @@ static void hyp_core_ctl_init_reserve_cpus(struct hyp_core_ctl_data *hcd)
 	}
 
 	cpumask_copy(&hcd->final_reserved_cpus, &hcd->reserve_cpus);
-	spin_unlock(&hcd->lock);
+	spin_unlock_irqrestore(&hcd->lock, flags);
 	pr_info("reserve_cpus=%*pbl\n", cpumask_pr_args(&hcd->reserve_cpus));
 }
 
@@ -760,17 +771,98 @@ static struct notifier_block gh_vcpu_nb = {
 	.notifier_call = gh_vcpu_done_populate_affinity_info,
 };
 
+static void gh_suspend_timer_callback(struct timer_list *t)
+{
+	pr_err("Warning:%u ms timeout occurred while waiting for SVM suspend\n",
+							gh_suspend_timeout_ms);
+}
+
+static inline void gh_del_suspend_timer(void)
+{
+	del_timer(&gh_suspend_timer);
+}
+
+static inline void gh_start_suspend_timer(void)
+{
+	mod_timer(&gh_suspend_timer, jiffies +
+			msecs_to_jiffies(gh_suspend_timeout_ms));
+}
+
+static irqreturn_t gh_susp_res_irq_handler(int irq, void *data)
+{
+	int err;
+	uint64_t vpmg_state;
+	unsigned long flags;
+
+	err = gh_hcall_vpm_group_get_state(vpmg_cap_id, &vpmg_state);
+
+	if (err != GH_ERROR_OK) {
+		pr_err("Failed to get VPM Group state for cap_id=%llu err=%d\n",
+			vpmg_cap_id, err);
+		return IRQ_HANDLED;
+	}
+
+	spin_lock_irqsave(&the_hcd->lock, flags);
+	if (vpmg_state == SVM_STATE_RUNNING) {
+		if (!the_hcd->reservation_enabled)
+			pr_err_ratelimited("Reservation not enabled,unexpected SVM wake up\n");
+	} else if (vpmg_state == SVM_STATE_SYSTEM_SUSPENDED) {
+		gh_del_suspend_timer();
+	} else {
+		pr_err("VPM Group state invalid/non-existent\n");
+	}
+	spin_unlock_irqrestore(&the_hcd->lock, flags);
+	return IRQ_HANDLED;
+}
+
+static int gh_vpm_grp_populate_info(gh_vmid_t vmid, gh_capid_t cap_id, int virq_num)
+{
+	int ret = 0;
+
+	if (!init_done) {
+		pr_err("%s: Driver probe failed\n", __func__);
+		return -ENXIO;
+	}
+
+	if (virq_num < 0) {
+		pr_err("%s: Invalid IRQ number\n", __func__);
+		return -EINVAL;
+	}
+
+	vpmg_cap_id = cap_id;
+	ret = request_irq(virq_num, gh_susp_res_irq_handler, 0,
+			"gh_susp_res_irq", NULL);
+	if (ret < 0) {
+		pr_err("%s: IRQ registration failed ret=%d\n", __func__, ret);
+		return ret;
+	}
+
+	timer_setup(&gh_suspend_timer, gh_suspend_timer_callback, 0);
+	is_vpm_group_info_populated = true;
+
+	return ret;
+}
+
 static void hyp_core_ctl_enable(bool enable)
 {
+	unsigned long flags;
+
 	mutex_lock(&the_hcd->reservation_mutex);
 	if (!is_vcpu_info_populated) {
 		pr_err("VCPU info isn't populated\n");
 		goto err_out;
 	}
 
-	spin_lock(&the_hcd->lock);
+	spin_lock_irqsave(&the_hcd->lock, flags);
 	if (enable == the_hcd->reservation_enabled)
 		goto out;
+
+	if (is_vpm_group_info_populated) {
+		if (enable)
+			gh_del_suspend_timer();
+		else
+			gh_start_suspend_timer();
+	}
 
 	trace_hyp_core_ctl_enable(enable);
 	pr_debug("reservation %s\n", enable ? "enabled" : "disabled");
@@ -779,7 +871,7 @@ static void hyp_core_ctl_enable(bool enable)
 	the_hcd->pending = true;
 	wake_up_process(the_hcd->task);
 out:
-	spin_unlock(&the_hcd->lock);
+	spin_unlock_irqrestore(&the_hcd->lock, flags);
 err_out:
 	mutex_unlock(&the_hcd->reservation_mutex);
 }
@@ -995,6 +1087,7 @@ static ssize_t write_reserve_cpus(struct file *file, const char __user *ubuf,
 {
 	int ret;
 	cpumask_t temp_mask;
+	unsigned long flags;
 
 	mutex_lock(&the_hcd->reservation_mutex);
 	if (!is_vcpu_info_populated) {
@@ -1015,14 +1108,14 @@ static ssize_t write_reserve_cpus(struct file *file, const char __user *ubuf,
 		goto err_out;
 	}
 
-	spin_lock(&the_hcd->lock);
+	spin_lock_irqsave(&the_hcd->lock, flags);
 	if (the_hcd->reservation_enabled) {
 		count = -EPERM;
 		pr_err("reservation is enabled, can't change reserve_cpus\n");
 	} else {
 		cpumask_copy(&the_hcd->reserve_cpus, &temp_mask);
 	}
-	spin_unlock(&the_hcd->lock);
+	spin_unlock_irqrestore(&the_hcd->lock, flags);
 	mutex_unlock(&the_hcd->reservation_mutex);
 
 	return count;
@@ -1062,10 +1155,16 @@ static int hyp_core_ctl_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	ret = gh_rm_set_vpm_grp_cb(&gh_vpm_grp_populate_info);
+	if (ret) {
+		pr_err("fail to set the vpm grp callback\n");
+		goto reset_vcpu_affinity_cb;
+	}
+
 	ret = gh_rm_register_notifier(&gh_vcpu_nb);
 	if (ret) {
 		pr_err("fail to register gh_rm_notifier\n");
-		goto reset_cb;
+		goto reset_vpm_grp_cb;
 	}
 
 	hcd = kzalloc(sizeof(*hcd), GFP_KERNEL);
@@ -1116,7 +1215,9 @@ free_hcd:
 	kfree(hcd);
 unregister_rm_notifier:
 	gh_rm_unregister_notifier(&gh_vcpu_nb);
-reset_cb:
+reset_vpm_grp_cb:
+	gh_rm_set_vpm_grp_cb(NULL);
+reset_vcpu_affinity_cb:
 	gh_rm_set_vcpu_affinity_cb(NULL);
 
 	return ret;
