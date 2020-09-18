@@ -34,6 +34,7 @@ struct full_record {
 	u32 block_index : 30;
 	incfs_uuid_t file_id;
 	u64 absolute_ts_us;
+	uid_t uid;
 } __packed; /* 28 bytes */
 
 struct same_file_record {
@@ -103,6 +104,7 @@ struct mount_options {
 	unsigned int read_log_wakeup_count;
 	bool no_backing_file_cache;
 	bool no_backing_file_readahead;
+	bool report_uid;
 };
 
 struct mount_info {
@@ -153,6 +155,13 @@ struct mount_info {
 
 	void *pending_read_xattr;
 	size_t pending_read_xattr_size;
+
+	/* A queue of waiters who want to be notified about blocks_written */
+	wait_queue_head_t mi_blocks_written_notif_wq;
+
+	/* Number of blocks written since mount */
+	atomic_t mi_blocks_written;
+
 };
 
 struct data_file_block {
@@ -173,6 +182,8 @@ struct pending_read {
 	int block_index;
 
 	int serial_number;
+
+	uid_t uid;
 
 	struct list_head mi_reads_list;
 
@@ -235,6 +246,9 @@ struct data_file {
 	/* Total number of blocks, data + hash */
 	int df_total_block_count;
 
+	/* For mapped files, the offset into the actual file */
+	loff_t df_mapped_offset;
+
 	struct file_attr n_attr;
 
 	struct mtree *df_hash_tree;
@@ -271,6 +285,8 @@ int incfs_realloc_mount_info(struct mount_info *mi,
 
 void incfs_free_mount_info(struct mount_info *mi);
 
+char *file_id_to_str(incfs_uuid_t id);
+struct dentry *incfs_lookup_dentry(struct dentry *parent, const char *name);
 struct data_file *incfs_open_data_file(struct mount_info *mi, struct file *bf);
 void incfs_free_data_file(struct data_file *df);
 
@@ -303,11 +319,13 @@ bool incfs_fresh_pending_reads_exist(struct mount_info *mi, int last_number);
  */
 int incfs_collect_pending_reads(struct mount_info *mi, int sn_lowerbound,
 				struct incfs_pending_read_info *reads,
+				struct incfs_pending_read_info2 *reads2,
 				int reads_size, int *new_max_sn);
 
 int incfs_collect_logged_reads(struct mount_info *mi,
 			       struct read_log_state *start_state,
 			       struct incfs_pending_read_info *reads,
+			       struct incfs_pending_read_info2 *reads2,
 			       int reads_size);
 struct read_log_state incfs_get_log_state(struct mount_info *mi);
 int incfs_get_uncollected_logs_count(struct mount_info *mi,

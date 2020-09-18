@@ -32,6 +32,7 @@
 #include "smp.h"
 
 #include <trace/hooks/sched.h>
+#include <trace/hooks/dtask.h>
 
 /*
  * Export tracepoints that act as a bare tracehook (ie: have no trace event
@@ -2443,7 +2444,7 @@ static int select_fallback_rq(int cpu, struct task_struct *p, bool allow_iso)
 				state = possible;
 				break;
 			}
-			/* Fall-through */
+			fallthrough;
 		case possible:
 			do_set_cpus_allowed(p, cpu_possible_mask);
 			state = fail;
@@ -4289,7 +4290,7 @@ void scheduler_tick(void)
 	if (curr->sched_class == &fair_sched_class)
 		check_for_migration(rq, curr);
 #endif
-	trace_android_rvh_scheduler_tick(rq);
+	trace_android_vh_scheduler_tick(rq);
 }
 
 #ifdef CONFIG_NO_HZ_FULL
@@ -6856,6 +6857,7 @@ void sched_show_task(struct task_struct *p)
 		(unsigned long)task_thread_info(p)->flags);
 
 	print_worker_info(KERN_INFO, p);
+	trace_android_vh_sched_show_task(p);
 	show_stack(p, NULL, KERN_INFO);
 	put_task_stack(p);
 }

@@ -8,6 +8,7 @@
 #include <linux/ktime.h>
 #include <linux/lz4.h>
 #include <linux/mm.h>
+#include <linux/namei.h>
 #include <linux/pagemap.h>
 #include <linux/slab.h>
 #include <linux/types.h>
@@ -42,6 +43,8 @@ struct mount_info *incfs_alloc_mount_info(struct super_block *sb,
 	mutex_init(&mi->mi_dir_struct_mutex);
 	init_waitqueue_head(&mi->mi_pending_reads_notif_wq);
 	init_waitqueue_head(&mi->mi_log.ml_notif_wq);
+	init_waitqueue_head(&mi->mi_blocks_written_notif_wq);
+	atomic_set(&mi->mi_blocks_written, 0);
 	INIT_DELAYED_WORK(&mi->mi_log.ml_wakeup_work, log_wake_up_all);
 	spin_lock_init(&mi->mi_log.rl_lock);
 	spin_lock_init(&mi->pending_read_lock);
@@ -123,6 +126,86 @@ static void data_file_segment_init(struct data_file_segment *segment)
 	INIT_LIST_HEAD(&segment->reads_list_head);
 }
 
+char *file_id_to_str(incfs_uuid_t id)
+{
+	char *result = kmalloc(1 + sizeof(id.bytes) * 2, GFP_NOFS);
+	char *end;
+
+	if (!result)
+		return NULL;
+
+	end = bin2hex(result, id.bytes, sizeof(id.bytes));
+	*end = 0;
+	return result;
+}
+
+struct dentry *incfs_lookup_dentry(struct dentry *parent, const char *name)
+{
+	struct inode *inode;
+	struct dentry *result = NULL;
+
+	if (!parent)
+		return ERR_PTR(-EFAULT);
+
+	inode = d_inode(parent);
+	inode_lock_nested(inode, I_MUTEX_PARENT);
+	result = lookup_one_len(name, parent, strlen(name));
+	inode_unlock(inode);
+
+	if (IS_ERR(result))
+		pr_warn("%s err:%ld\n", __func__, PTR_ERR(result));
+
+	return result;
+}
+
+static struct data_file *handle_mapped_file(struct mount_info *mi,
+					    struct data_file *df)
+{
+	char *file_id_str;
+	struct dentry *index_file_dentry;
+	struct path path;
+	struct file *bf;
+	struct data_file *result = NULL;
+
+	file_id_str = file_id_to_str(df->df_id);
+	if (!file_id_str)
+		return ERR_PTR(-ENOENT);
+
+	index_file_dentry = incfs_lookup_dentry(mi->mi_index_dir,
+						file_id_str);
+	kfree(file_id_str);
+	if (!index_file_dentry)
+		return ERR_PTR(-ENOENT);
+	if (IS_ERR(index_file_dentry))
+		return (struct data_file *)index_file_dentry;
+	if (!d_really_is_positive(index_file_dentry)) {
+		result = ERR_PTR(-ENOENT);
+		goto out;
+	}
+
+	path = (struct path) {
+		.mnt = mi->mi_backing_dir_path.mnt,
+		.dentry = index_file_dentry
+	};
+
+	bf = dentry_open(&path, O_RDWR | O_NOATIME | O_LARGEFILE, mi->mi_owner);
+	if (IS_ERR(bf)) {
+		result = (struct data_file *)bf;
+		goto out;
+	}
+
+	result = incfs_open_data_file(mi, bf);
+	fput(bf);
+	if (IS_ERR(result))
+		goto out;
+
+	result->df_mapped_offset = df->df_metadata_off;
+
+out:
+	dput(index_file_dentry);
+	return result;
+}
+
 struct data_file *incfs_open_data_file(struct mount_info *mi, struct file *bf)
 {
 	struct data_file *df = NULL;
@@ -166,6 +249,13 @@ struct data_file *incfs_open_data_file(struct mount_info *mi, struct file *bf)
 	df->df_size = size;
 	if (size > 0)
 		df->df_data_block_count = get_blocks_count_for_size(size);
+
+	if (df->df_header_flags & INCFS_FILE_MAPPED) {
+		struct data_file *mapped_df = handle_mapped_file(mi, df);
+
+		incfs_free_data_file(df);
+		return mapped_df;
+	}
 
 	md_records = incfs_scan_metadata_chain(df);
 	if (md_records < 0)
@@ -303,6 +393,7 @@ static void log_block_read(struct mount_info *mi, incfs_uuid_t *id,
 	s64 relative_us;
 	union log_record record;
 	size_t record_size;
+	uid_t uid = current_uid().val;
 
 	/*
 	 * This may read the old value, but it's OK to delay the logging start
@@ -324,12 +415,14 @@ static void log_block_read(struct mount_info *mi, incfs_uuid_t *id,
 	relative_us = now_us - head->base_record.absolute_ts_us;
 
 	if (memcmp(id, &head->base_record.file_id, sizeof(incfs_uuid_t)) ||
-	    relative_us >= 1ll << 32) {
+	    relative_us >= 1ll << 32 ||
+	    uid != head->base_record.uid) {
 		record.full_record = (struct full_record){
 			.type = FULL,
 			.block_index = block_index,
 			.file_id = *id,
 			.absolute_ts_us = now_us,
+			.uid = uid,
 		};
 		head->base_record.file_id = *id;
 		record_size = sizeof(struct full_record);
@@ -745,6 +838,7 @@ static struct pending_read *add_pending_read(struct data_file *df,
 	result->file_id = df->df_id;
 	result->block_index = block_index;
 	result->timestamp_us = ktime_to_us(ktime_get());
+	result->uid = current_uid().val;
 
 	spin_lock(&mi->pending_read_lock);
 
@@ -810,6 +904,9 @@ static void notify_pending_reads(struct mount_info *mi,
 	}
 	rcu_read_unlock();
 	wake_up_all(&segment->new_data_arrival_wq);
+
+	atomic_inc(&mi->mi_blocks_written);
+	wake_up_all(&mi->mi_blocks_written_notif_wq);
 }
 
 static int wait_for_data_block(struct data_file *df, int block_index,
@@ -1131,25 +1228,6 @@ static int process_blockmap_md(struct incfs_blockmap *bm,
 	return error;
 }
 
-static int process_file_attr_md(struct incfs_file_attr *fa,
-				struct metadata_handler *handler)
-{
-	struct data_file *df = handler->context;
-	u16 attr_size = le16_to_cpu(fa->fa_size);
-
-	if (!df)
-		return -EFAULT;
-
-	if (attr_size > INCFS_MAX_FILE_ATTR_SIZE)
-		return -E2BIG;
-
-	df->n_attr.fa_value_offset = le64_to_cpu(fa->fa_offset);
-	df->n_attr.fa_value_size = attr_size;
-	df->n_attr.fa_crc = le32_to_cpu(fa->fa_crc);
-
-	return 0;
-}
-
 static int process_file_signature_md(struct incfs_file_signature *sg,
 				struct metadata_handler *handler)
 {
@@ -1251,7 +1329,6 @@ int incfs_scan_metadata_chain(struct data_file *df)
 	handler->md_record_offset = df->df_metadata_off;
 	handler->context = df;
 	handler->handle_blockmap = process_blockmap_md;
-	handler->handle_file_attr = process_file_attr_md;
 	handler->handle_signature = process_file_signature_md;
 
 	while (handler->md_record_offset > 0) {
@@ -1308,6 +1385,7 @@ bool incfs_fresh_pending_reads_exist(struct mount_info *mi, int last_number)
 
 int incfs_collect_pending_reads(struct mount_info *mi, int sn_lowerbound,
 				struct incfs_pending_read_info *reads,
+				struct incfs_pending_read_info2 *reads2,
 				int reads_size, int *new_max_sn)
 {
 	int reported_reads = 0;
@@ -1336,10 +1414,24 @@ int incfs_collect_pending_reads(struct mount_info *mi, int sn_lowerbound,
 		if (entry->serial_number <= sn_lowerbound)
 			continue;
 
-		reads[reported_reads].file_id = entry->file_id;
-		reads[reported_reads].block_index = entry->block_index;
-		reads[reported_reads].serial_number = entry->serial_number;
-		reads[reported_reads].timestamp_us = entry->timestamp_us;
+		if (reads) {
+			reads[reported_reads].file_id = entry->file_id;
+			reads[reported_reads].block_index = entry->block_index;
+			reads[reported_reads].serial_number =
+				entry->serial_number;
+			reads[reported_reads].timestamp_us =
+				entry->timestamp_us;
+		}
+
+		if (reads2) {
+			reads2[reported_reads].file_id = entry->file_id;
+			reads2[reported_reads].block_index = entry->block_index;
+			reads2[reported_reads].serial_number =
+				entry->serial_number;
+			reads2[reported_reads].timestamp_us =
+				entry->timestamp_us;
+			reads2[reported_reads].uid = entry->uid;
+		}
 
 		if (entry->serial_number > *new_max_sn)
 			*new_max_sn = entry->serial_number;
@@ -1385,8 +1477,9 @@ int incfs_get_uncollected_logs_count(struct mount_info *mi,
 }
 
 int incfs_collect_logged_reads(struct mount_info *mi,
-			       struct read_log_state *reader_state,
+			       struct read_log_state *state,
 			       struct incfs_pending_read_info *reads,
+			       struct incfs_pending_read_info2 *reads2,
 			       int reads_size)
 {
 	int dst_idx;
@@ -1397,36 +1490,48 @@ int incfs_collect_logged_reads(struct mount_info *mi,
 	head = &log->rl_head;
 	tail = &log->rl_tail;
 
-	if (reader_state->generation_id != head->generation_id) {
+	if (state->generation_id != head->generation_id) {
 		pr_debug("read ptr is wrong generation: %u/%u",
-			 reader_state->generation_id, head->generation_id);
+			 state->generation_id, head->generation_id);
 
-		*reader_state = (struct read_log_state){
+		*state = (struct read_log_state){
 			.generation_id = head->generation_id,
 		};
 	}
 
-	if (reader_state->current_record_no < tail->current_record_no) {
+	if (state->current_record_no < tail->current_record_no) {
 		pr_debug("read ptr is behind, moving: %u/%u -> %u/%u\n",
-			 (u32)reader_state->next_offset,
-			 (u32)reader_state->current_pass_no,
+			 (u32)state->next_offset,
+			 (u32)state->current_pass_no,
 			 (u32)tail->next_offset, (u32)tail->current_pass_no);
 
-		*reader_state = *tail;
+		*state = *tail;
 	}
 
 	for (dst_idx = 0; dst_idx < reads_size; dst_idx++) {
-		if (reader_state->current_record_no == head->current_record_no)
+		if (state->current_record_no == head->current_record_no)
 			break;
 
-		log_read_one_record(log, reader_state);
+		log_read_one_record(log, state);
 
-		reads[dst_idx] = (struct incfs_pending_read_info){
-			.file_id = reader_state->base_record.file_id,
-			.block_index = reader_state->base_record.block_index,
-			.serial_number = reader_state->current_record_no,
-			.timestamp_us = reader_state->base_record.absolute_ts_us
-		};
+		if (reads)
+			reads[dst_idx] = (struct incfs_pending_read_info) {
+				.file_id = state->base_record.file_id,
+				.block_index = state->base_record.block_index,
+				.serial_number = state->current_record_no,
+				.timestamp_us =
+					state->base_record.absolute_ts_us,
+			};
+
+		if (reads2)
+			reads2[dst_idx] = (struct incfs_pending_read_info2) {
+				.file_id = state->base_record.file_id,
+				.block_index = state->base_record.block_index,
+				.serial_number = state->current_record_no,
+				.timestamp_us =
+					state->base_record.absolute_ts_us,
+				.uid = state->base_record.uid,
+			};
 	}
 
 	spin_unlock(&log->rl_lock);
