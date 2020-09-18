@@ -355,7 +355,12 @@ int register_devfreq_cooling(struct platform_device *pdev, enum DVFS_USER user)
 		ret = PTR_ERR(opp);
 		goto remove_devfreq;
 	}
-	apu_pwr_devfreq_ptr->apu_devfreq->min_freq = rate;
+	ret = dev_pm_qos_update_request(
+			&apu_pwr_devfreq_ptr->apu_devfreq->user_min_freq_req,
+			rate);
+	if (ret < 0)
+		goto remove_devfreq;
+
 	dev_pm_opp_put(opp);
 
 	/* set devfreq's max freq */
@@ -365,7 +370,13 @@ int register_devfreq_cooling(struct platform_device *pdev, enum DVFS_USER user)
 		ret = PTR_ERR(opp);
 		goto remove_devfreq;
 	}
-	apu_pwr_devfreq_ptr->apu_devfreq->max_freq = rate;
+
+	ret = dev_pm_qos_update_request(
+			&apu_pwr_devfreq_ptr->apu_devfreq->user_max_freq_req,
+			rate);
+	if (ret < 0)
+		goto remove_devfreq;
+
 	dev_pm_opp_put(opp);
 
 	dev_pdata = (struct apu_dev_power_data *)dev_get_drvdata(dev);
