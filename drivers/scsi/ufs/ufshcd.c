@@ -10428,8 +10428,8 @@ disable_clks:
 	 */
 	ufshcd_disable_irq(hba);
 
-	/* reset the connected UFS device during shutdown */
-	if (ufshcd_is_shutdown_pm(pm_op)) {
+	/* reset the connected UFS device during power down */
+	if (ufshcd_is_link_off(hba)) {
 		ret = ufshcd_assert_device_reset(hba);
 		if (ret)
 			goto set_link_active;
@@ -10469,6 +10469,7 @@ set_link_active:
 		ufshcd_set_link_active(hba);
 	} else if (ufshcd_is_link_off(hba)) {
 		ufshcd_update_error_stats(hba, UFS_ERR_VOPS_SUSPEND);
+		ufshcd_deassert_device_reset(hba);
 		ufshcd_host_reset_and_restore(hba);
 	}
 set_dev_active:
@@ -10511,17 +10512,25 @@ static int ufshcd_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	old_pwr_mode = hba->curr_dev_pwr_mode;
 
 	ufshcd_hba_vreg_set_hpm(hba);
+
+	ret = ufshcd_vreg_set_hpm(hba);
+	if (ret)
+		goto out;
+
 	/* Make sure clocks are enabled before accessing controller */
 	ret = ufshcd_enable_clocks(hba);
 	if (ret)
-		goto out;
+		goto disable_vreg;
 
 	/* enable the host irq as host controller would be active soon */
 	ufshcd_enable_irq(hba);
 
-	ret = ufshcd_vreg_set_hpm(hba);
-	if (ret)
-		goto disable_irq_and_vops_clks;
+	/* Pull up RST_n before device reset */
+	if (ufshcd_is_link_off(hba)) {
+		ret = ufshcd_deassert_device_reset(hba);
+		if (ret)
+			goto disable_irq_and_vops_clks;
+	}
 
 	/*
 	 * Call vendor specific resume callback. As these callbacks may access
@@ -10530,7 +10539,7 @@ static int ufshcd_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	 */
 	ret = ufshcd_vops_resume(hba, pm_op);
 	if (ret)
-		goto disable_vreg;
+		goto assert_device_reset;
 
 	if (ufshcd_is_link_hibern8(hba)) {
 		ret = ufshcd_uic_hibern8_exit(hba);
@@ -10621,8 +10630,9 @@ set_old_link_state:
 		hba->hibern8_on_idle.state = HIBERN8_ENTERED;
 vendor_suspend:
 	ufshcd_vops_suspend(hba, pm_op);
-disable_vreg:
-	ufshcd_vreg_set_lpm(hba);
+assert_device_reset:
+	if (ufshcd_is_link_off(hba))
+		ufshcd_assert_device_reset(hba);
 disable_irq_and_vops_clks:
 	ufshcd_disable_irq(hba);
 	if (hba->clk_scaling.is_allowed)
@@ -10630,6 +10640,8 @@ disable_irq_and_vops_clks:
 	ufshcd_disable_clocks(hba, false);
 	if (ufshcd_is_clkgating_allowed(hba))
 		hba->clk_gating.state = CLKS_OFF;
+disable_vreg:
+	ufshcd_vreg_set_lpm(hba);
 out:
 	hba->pm_op_in_progress = 0;
 
