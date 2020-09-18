@@ -16,6 +16,10 @@
 #include <linux/workqueue.h>
 #include <linux/haven/hh_rm_drv.h>
 #include <linux/cpu.h>
+#include <linux/of_address.h>
+#include <linux/qcom_scm.h>
+#include <linux/firmware.h>
+#include <linux/soc/qcom/mdt_loader.h>
 
 #include <soc/qcom/subsystem_notif.h>
 #include <soc/qcom/subsystem_restart.h>
@@ -42,7 +46,8 @@ struct guestvm_loader_private {
 	struct kobject vm_loader_kobj;
 	struct device *dev;
 	char vm_name[MAX_LEN];
-	void *vm_loaded;
+	bool vm_loaded;
+	int pas_id;
 	int vmid;
 	u8 vm_status;
 };
@@ -162,6 +167,71 @@ static int guestvm_loader_nb_handler(struct notifier_block *this,
 	return NOTIFY_DONE;
 }
 
+static int vm_load(struct guestvm_loader_private *priv)
+{
+	const struct firmware *fw;
+	char fw_name[32];
+	struct device_node *node;
+	struct resource res;
+	phys_addr_t phys;
+	ssize_t size;
+	void *virt;
+	int ret;
+	struct device *dev = priv->dev;
+
+	node = of_parse_phandle(dev->of_node, "memory-region", 0);
+	if (!node) {
+		dev_err(dev, "DT error getting \"memory-region\" property\n");
+		return -EINVAL;
+	}
+
+	ret = of_address_to_resource(node, 0, &res);
+	if (ret) {
+		dev_err(dev, "error %d getting \"memory-region\" resource\n",
+			ret);
+		return ret;
+	}
+
+	scnprintf(fw_name, ARRAY_SIZE(fw_name), "%s.mdt", priv->vm_name);
+
+	ret = of_property_read_u32(dev->of_node, "qcom,pas-id", &priv->pas_id);
+	if (ret) {
+		dev_err(dev, "error %d getting pas-id\n", ret);
+		return ret;
+	}
+
+	ret = request_firmware(&fw, fw_name, dev);
+	if (ret) {
+		dev_err(dev, "error %d requesting \"%s\"\n", ret, fw_name);
+		return ret;
+	}
+
+	phys = res.start;
+	size = (size_t)resource_size(&res);
+	virt = memremap(phys, size, MEMREMAP_WC);
+	if (!virt) {
+		dev_err(dev, "unable to remap firmware memory\n");
+		ret = -ENOMEM;
+		goto release_firmware;
+	}
+
+	ret = qcom_mdt_load(dev, fw, fw_name, priv->pas_id, virt, phys, size, NULL);
+	if (ret) {
+		dev_err(dev, "error %d loading \"%s\"\n", ret, fw_name);
+		goto mem_unmap;
+	}
+
+	ret = qcom_scm_pas_auth_and_reset(priv->pas_id);
+	if (ret)
+		dev_err(dev, "error %d authenticating \"%s\"\n", ret, fw_name);
+
+mem_unmap:
+	memunmap(virt);
+release_firmware:
+	release_firmware(fw);
+	return ret;
+}
+
 static ssize_t guestvm_loader_start(struct kobject *kobj,
 	struct kobj_attribute *attr,
 	const char *buf,
@@ -190,14 +260,14 @@ static ssize_t guestvm_loader_start(struct kobject *kobj,
 			return count;
 		}
 
-		priv->vm_loaded = subsystem_get(priv->vm_name);
-		if (IS_ERR(priv->vm_loaded)) {
-			ret = (int)(PTR_ERR(priv->vm_loaded));
+		ret = vm_load(priv);
+		if (ret) {
 			dev_err(priv->dev,
-				"subsystem_get failed with error %d\n", ret);
-			priv->vm_loaded = NULL;
+				"vm_load failed with error %d\n", ret);
 			return ret;
 		}
+		priv->vm_loaded = true;
+
 		if (wait_for_completion_interruptible(&priv->vm_start))
 			dev_err(priv->dev, "VM start completion interrupted\n");
 
@@ -241,8 +311,8 @@ static int guestvm_loader_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, priv);
 	priv->dev = &pdev->dev;
 
-	ret = of_property_read_string(pdev->dev.of_node, "image_to_be_loaded",
-		 &sub_sys);
+	ret = of_property_read_string(pdev->dev.of_node, "qcom,firmware-name",
+				      &sub_sys);
 	if (ret)
 		return -EINVAL;
 	strlcpy(priv->vm_name, sub_sys, sizeof(priv->vm_name));
@@ -306,7 +376,8 @@ static int guestvm_loader_remove(struct platform_device *pdev)
 	struct guestvm_loader_private *priv = platform_get_drvdata(pdev);
 
 	if (priv->vm_loaded) {
-		subsystem_put(priv->vm_loaded);
+		qcom_scm_pas_shutdown(priv->pas_id);
+		priv->vm_loaded = false;
 		init_completion(&priv->vm_start);
 	}
 
