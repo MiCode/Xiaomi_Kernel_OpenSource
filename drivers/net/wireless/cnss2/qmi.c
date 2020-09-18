@@ -1300,7 +1300,7 @@ out:
 int cnss_wlfw_send_pcie_gen_speed_sync(struct cnss_plat_data *plat_priv)
 {
 	struct wlfw_pcie_gen_switch_req_msg_v01 req;
-	struct wlfw_pcie_gen_switch_resp_msg_v01 resp;
+	struct wlfw_pcie_gen_switch_resp_msg_v01 resp = {0};
 	struct qmi_txn txn;
 	int ret = 0;
 

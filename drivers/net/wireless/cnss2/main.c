@@ -323,6 +323,9 @@ int cnss_set_pcie_gen_speed(struct device *dev, u8 pcie_gen_speed)
 {
 	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
 
+	if (!plat_priv)
+		return -EINVAL;
+
 	if (plat_priv->device_id != QCA6490_DEVICE_ID ||
 	    !plat_priv->fw_pcie_gen_switch)
 		return -ENOTSUPP;
@@ -2245,7 +2248,7 @@ int cnss_minidump_remove_region(struct cnss_plat_data *plat_priv,
 static int cnss_register_bus_scale(struct cnss_plat_data *plat_priv)
 {
 	int ret = -EINVAL;
-	u32 idx, i, j, cfg_arr_size, *cfg_arr;
+	u32 idx, i, j, cfg_arr_size, *cfg_arr = NULL;
 	struct cnss_bus_bw_info *bus_bw_info, *tmp;
 	struct device *dev = &plat_priv->plat_dev->dev;
 
