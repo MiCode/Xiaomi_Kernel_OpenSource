@@ -1,0 +1,24 @@
+config MTK_HANG_DETECT
+	tristate "hang detect monitor"
+	help
+	  MTK_HANG_DETECT is the kernel config of hang feature designed by MTK,
+	  which is a debug feature for detecting device hang. When the device
+	  hang is detected by this mechanism, it will notice get some
+	  debug information.
+
+config MTK_HANG_DETECT_DB
+	bool "hang detect AEE DB"
+	depends on MTK_AEE_FEATURE
+	help
+	  MTK_HANG_DETECT_DB is the kernel config of
+	  hang feature designed by MTK
+	  which is deponded on MTK_AEE_AED
+	  when detect device hang, will create AEE DB.
+
+config MTK_HANG_DETECT_LOG
+	bool "hang detect debug log"
+	help
+	  MTK_HANG_DETECT_LOG is the kernel config of hang feature designed by
+	  MTK, when detect device hang, it will print debug log. The kernel
+	  debug log is larger, We can't enable the feature general. But when
+	  MTK_HANG_DETECT_DB is disable, we should enable this feature.

@@ -46,3 +46,4 @@ obj-$(CONFIG_EXTCON_MTK_USB) += extcon/
 obj-$(CONFIG_MTK_PERFORMANCE_MODULE) += performance/
 obj-$(CONFIG_MTK_PERF_COMMON) += perf_common/
 obj-$(CONFIG_MTK_AUDIODSP_SUPPORT) += adsp/
+obj-$(CONFIG_MTK_HANG_DETECT) += monitor_hang/
