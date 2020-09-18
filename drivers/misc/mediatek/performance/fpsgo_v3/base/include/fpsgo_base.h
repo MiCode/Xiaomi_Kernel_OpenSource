@@ -158,6 +158,9 @@ void *fpsgo_alloc_atomic(int i32Size);
 void fpsgo_free(void *pvBuf, int i32Size);
 unsigned long long fpsgo_get_time(void);
 int fpsgo_arch_nr_clusters(void);
+unsigned int fpsgo_cpufreq_get_freq_by_idx(
+	unsigned int cluster, unsigned int opp);
+bool fpsgo_sentuevent(const char *src);
 
 int fpsgo_get_tgid(int pid);
 void fpsgo_render_tree_lock(const char *tag);

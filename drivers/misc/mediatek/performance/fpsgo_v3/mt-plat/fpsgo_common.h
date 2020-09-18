@@ -161,11 +161,5 @@ static inline void xgf_qudeq_notify(unsigned int cmd, unsigned long arg) { }
 static inline void fpsgo_update_render_dep(struct task_struct *p) { }
 #endif
 
-#if defined(CONFIG_MTK_FPSGO_V3)
-int fpsgo_notify_gpu_block(int tid, unsigned long long mid, int begin);
-#else
-static inline int fpsgo_notify_gpu_block(int tid,
-	unsigned long long mid, int begin) { return -1; }
-#endif
 
 #endif

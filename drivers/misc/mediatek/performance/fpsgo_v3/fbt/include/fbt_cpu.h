@@ -16,6 +16,7 @@ extern int fpsgo_fbt2xgf_get_dep_list(int pid, int count,
 void fpsgo_ctrl2fbt_dfrc_fps(int fps_limit);
 void fpsgo_ctrl2fbt_cpufreq_cb(int cid, unsigned long freq);
 void fpsgo_ctrl2fbt_vsync(unsigned long long ts);
+int fpsgo_ctrl2fbt_switch_uclamp(int enable);
 void fpsgo_comp2fbt_frame_start(struct render_info *thr,
 		unsigned long long ts);
 void fpsgo_comp2fbt_deq_end(struct render_info *thr,
@@ -50,6 +51,7 @@ static inline void fpsgo_ctrl2fbt_dfrc_fps(int fps_limit) { }
 static inline void fpsgo_ctrl2fbt_cpufreq_cb(int cid,
 		unsigned long freq) { }
 static inline void fpsgo_ctrl2fbt_vsync(unsigned long long ts) { }
+int fpsgo_ctrl2fbt_switch_uclamp(int enable) { return 0; }
 static inline void fpsgo_comp2fbt_frame_start(struct render_info *thr,
 	unsigned long long ts) { }
 static inline void fpsgo_comp2fbt_deq_end(struct render_info *thr,
