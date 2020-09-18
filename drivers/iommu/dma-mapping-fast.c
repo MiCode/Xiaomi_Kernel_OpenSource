@@ -835,6 +835,31 @@ static void fast_smmu_reserve_pci_windows(struct device *dev,
 	spin_unlock_irqrestore(&mapping->lock, flags);
 }
 
+static void fast_smmu_reserve_iommu_regions(struct device *dev,
+		struct dma_fast_smmu_mapping *fast)
+{
+	struct iommu_resv_region *region;
+	LIST_HEAD(resv_regions);
+
+	if (dev_is_pci(dev))
+		fast_smmu_reserve_pci_windows(dev, fast);
+
+	qcom_iommu_get_resv_regions(dev, &resv_regions);
+	list_for_each_entry(region, &resv_regions, list) {
+		unsigned long lo, hi;
+
+		lo = max(fast->base, region->start);
+		hi = min(fast->base + fast->size - 1,
+			 region->start + region->length - 1);
+
+		lo = (lo - fast->base) >> FAST_PAGE_SHIFT;
+		hi = (hi - fast->base) >> FAST_PAGE_SHIFT;
+		bitmap_set(fast->bitmap, lo, hi - lo + 1);
+		bitmap_set(fast->clean_bitmap, lo, hi - lo + 1);
+	}
+	qcom_iommu_put_resv_regions(dev, &resv_regions);
+}
+
 void fast_smmu_put_dma_cookie(struct iommu_domain *domain)
 {
 	struct dma_fast_smmu_mapping *fast = domain->iova_cookie;
@@ -876,9 +901,7 @@ EXPORT_SYMBOL(fast_smmu_get_dma_ops);
 int fast_smmu_init_mapping(struct device *dev, struct iommu_domain *domain,
 			   struct io_pgtable_ops *pgtable_ops)
 {
-	u64 dma_base = domain->geometry.aperture_start;
-	u64 dma_end = domain->geometry.aperture_end;
-	u64 size = dma_end - dma_base + 1;
+	u64 dma_base, dma_end, size;
 	struct dma_fast_smmu_mapping *fast;
 
 	if (domain->iova_cookie) {
@@ -889,8 +912,12 @@ int fast_smmu_init_mapping(struct device *dev, struct iommu_domain *domain,
 	if (!pgtable_ops)
 		return -EINVAL;
 
-	if (dma_base + size > (SZ_1G * 4ULL)) {
-		dev_err(dev, "Iova end address too large\n");
+	dma_base = max_t(u64, domain->geometry.aperture_start, 0);
+	dma_end = min_t(u64, domain->geometry.aperture_end,
+			(SZ_1G * 4ULL - 1));
+	size = dma_end - dma_base + 1;
+	if (dma_base >= dma_end) {
+		dev_err(dev, "Invalid domain geometry\n");
 		return -EINVAL;
 	}
 
@@ -908,7 +935,7 @@ int fast_smmu_init_mapping(struct device *dev, struct iommu_domain *domain,
 	av8l_register_notify(&fast->notifier);
 
 finish:
-	fast_smmu_reserve_pci_windows(dev, fast);
+	fast_smmu_reserve_iommu_regions(dev, fast);
 	return 0;
 }
 EXPORT_SYMBOL(fast_smmu_init_mapping);
