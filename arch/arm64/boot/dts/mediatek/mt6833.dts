@@ -170,11 +170,10 @@ page_owner=on";
 		suspend-method = "disable";
 		cpupm-method = "mcu";
 
-		resource-ctrl = <&bus26m &infra &syspll>;/*,
+		resource-ctrl = <&bus26m &infra &syspll>,
 				<&dram_s0 &dram_s1>;
-				*/
 
-		constraints = <&rc_bus26m &rc_syspll>;/* &rc_dram>;*/
+		constraints = <&rc_bus26m &rc_syspll &rc_dram>;
 
 		cpupm_sysram: cpupm-sysram@0011b000 {
 			compatible = "mediatek,cpupm-sysram";
@@ -199,7 +198,7 @@ page_owner=on";
 				id = <0x00000002>;
 				value = <0>;
 			};
-			/*dram_s0: dram_s0 {
+			dram_s0: dram_s0 {
 				id = <0x00000003>;
 				value = <0>;
 			};
@@ -207,7 +206,6 @@ page_owner=on";
 				id = <0x00000004>;
 				value = <0>;
 			};
-			*/
 		};
 
 		constraint-list {
@@ -219,12 +217,10 @@ page_owner=on";
 				id = <0x00000001>;
 				value = <1>;
 			};
-			/*
 			rc_dram: rc_dram {
 				id = <0x00000002>;
 				value = <1>;
 			};
-			*/
 		};
 	};
 	memory {
