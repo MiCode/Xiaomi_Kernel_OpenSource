@@ -806,6 +806,8 @@ int hh_rm_populate_hyp_res(hh_vmid_t vmid)
 					HH_MSGQ_DIRECTION_RX, linux_irq);
 				break;
 			case HH_RM_RES_TYPE_VPMGRP:
+				ret = hh_vpm_grp_populate_info(cap_id,
+								linux_irq);
 				break;
 			default:
 				pr_err("%s: Unknown resource type: %u\n",
