@@ -56,3 +56,4 @@ usb_f_ccid.ko
 usb_f_cdev.ko
 typec.ko
 soc_sleep_stats.ko
+sys_pm_vx.ko
