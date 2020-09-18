@@ -264,10 +264,12 @@ unsigned int mt_gpufreq_get_shader_present(void)
 	case MT6833_SEGMENT:
 		shader_present = MT_GPU_SHADER_PRESENT_2;
 		break;
+	case MT6833M_SEGMENT:
+		shader_present = MT_GPU_SHADER_PRESENT_2;
+		break;
 	case MT6833T_SEGMENT:
 		shader_present = MT_GPU_SHADER_PRESENT_2;
 		break;
-
 	default:
 		shader_present = MT_GPU_SHADER_PRESENT_2;
 		gpufreq_pr_info("@%s: invalid segment_id(%d)\n",
@@ -1789,29 +1791,20 @@ static unsigned int __mt_gpufreq_get_segment_id(void)
 
 	efuse_id = (get_devinfo_with_index(30) & 0xFF);
 
-#if 1
-	segment_id = MT6833_SEGMENT;
-#else
 	switch (efuse_id) {
-	case 0x1:
-		segment_id = MT6833_SEGMENT;
+	case 0x01:
+	case 0x02:
+		segment_id = MT6833_SEGMENT;    /* 5G-C */
 		break;
-	case 0x2:
-		segment_id = MT6833_SEGMENT;
+	case 0x03:
+	case 0x04:
+		segment_id = MT6833M_SEGMENT;    /* 5G-CM */
 		break;
-	case 0x10:
-		segment_id = MT6833T_SEGMENT;
-		break;
-	case 0x20:
-		segment_id = MT6833T_SEGMENT;
-		break;
-
 	default:
-		segment_id = MT6833_SEGMENT;
+		segment_id = MT6833T_SEGMENT;
 		gpufreq_pr_info("@%s: invalid efuse_id(0x%x)\n",
 				__func__, efuse_id);
 	}
-#endif
 
 	gpufreq_pr_info("@%s: efuse_id=0x%x segment_id=%d\n",
 			__func__, efuse_id, segment_id);
@@ -3053,9 +3046,9 @@ static void __mt_gpufreq_init_table(void)
 
 	/* determine max_opp/num/segment_table... by segment  */
 	if (segment_id == MT6833_SEGMENT)
-		g_segment_max_opp_idx = 0;
-	else if (segment_id == MT6833T_SEGMENT)
-		g_segment_max_opp_idx = 0;
+		g_segment_max_opp_idx = 11;
+	else if (segment_id == MT6833M_SEGMENT)
+		g_segment_max_opp_idx = 24;
 	else
 		g_segment_max_opp_idx = 0;
 

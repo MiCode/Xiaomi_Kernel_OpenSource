@@ -223,6 +223,7 @@
  **************************************************/
 enum g_segment_id_enum {
 	MT6833_SEGMENT = 1,
+	MT6833M_SEGMENT,
 	MT6833T_SEGMENT,		//Reserve Segment
 };
 
