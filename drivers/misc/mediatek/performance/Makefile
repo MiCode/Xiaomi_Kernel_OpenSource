@@ -20,11 +20,8 @@ obj-y += base/
 obj-y += boost_ctrl/
 obj-y += tchbst/
 obj-y += syslimiter/
-
-ifeq (,$(findstring mt8,$(CONFIG_MTK_PLATFORM)))
-	obj-$(CONFIG_MTK_PERF_OBSERVER) += observer/
-	obj-$(CONFIG_MTK_RESYM) += resym/
-endif
+obj-$(CONFIG_MTK_PERF_OBSERVER) += observer/
+obj-$(CONFIG_MTK_RESYM) += resym/
 
 obj-y += perf_ioctl/
 obj-$(CONFIG_MTK_FPSGO_V3) += fpsgo_v3/
