@@ -23,6 +23,7 @@
 #include <linux/of_address.h>
 #include <linux/suspend.h>
 #include <linux/platform_device.h>
+#include <linux/rtc.h>
 
 #include <mtk_cpuidle.h>	/* mtk_cpuidle_init */
 #include <mtk_sleep.h>	    /* slp_module_init */
@@ -187,6 +188,12 @@ static struct platform_driver spm_dev_drv = {
 static int spm_pm_event(struct notifier_block *notifier, unsigned long pm_event,
 			void *unused)
 {
+	struct timespec ts;
+	struct rtc_time tm;
+
+	getnstimeofday(&ts);
+	rtc_time_to_tm(ts.tv_sec, &tm);
+
 #if 0 /* Avoid race condition between Suspend sync and Idle async IPI cmd */
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 	struct spm_data spm_d;
@@ -215,6 +222,11 @@ static int spm_pm_event(struct notifier_block *notifier, unsigned long pm_event,
 		}
 #endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
 #endif
+		printk_deferred(
+		"[name:spm&][SPM] PM: suspend entry %d-%02d-%02d %02d:%02d:%02d.%09lu UTC\n",
+			tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+			tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec);
+
 		return NOTIFY_DONE;
 	case PM_POST_SUSPEND:
 #if 0 /* Avoid race condition between Suspend sync and Idle async IPI cmd */
@@ -229,6 +241,11 @@ static int spm_pm_event(struct notifier_block *notifier, unsigned long pm_event,
 		}
 #endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
 #endif
+		printk_deferred(
+		"[name:spm&][SPM] PM: suspend exit %d-%02d-%02d %02d:%02d:%02d.%09lu UTC\n",
+			tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+			tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec);
+
 		return NOTIFY_DONE;
 	}
 	return NOTIFY_OK;
