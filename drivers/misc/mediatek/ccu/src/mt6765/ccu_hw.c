@@ -789,6 +789,7 @@ int ccu_power(struct ccu_power_s *power)
 
 	if (power->bON == 1) {
 		/*CCU power on sequence*/
+		ccu_clock_enable();
 
 		/*0. Set CCU_A_RESET. CCU_HW_RST=1*/
 		/*TSF be affected.*/
@@ -799,8 +800,6 @@ int ccu_power(struct ccu_power_s *power)
 		/*ccu_write_reg_bit(ccu_base, RESET, CCU_HW_RST, 1);*/
 
 		/*1. Enable CCU CAMSYS_CG_CON bit12 CCU_CGPDN=0*/
-		ccu_clock_enable();
-
 		LOG_DBG("CG released\n");
 		/*mdelay(1);*/
 		/**/
