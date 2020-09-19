@@ -2889,6 +2889,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 	case ISP_REGISTER_IRQ_USER_KEY:
 		if (copy_from_user(&RegUserKey, (void *)Param,
 		    sizeof(struct ISP_REGISTER_USERKEY_STRUCT)) == 0) {
+			RegUserKey.userName[sizeof(RegUserKey.userName)-1] = '\0';
 			userKey = ISP_REGISTER_IRQ_USERKEY(RegUserKey.userName);
 			RegUserKey.userKey = userKey;
 			if (copy_to_user((void *)Param, &RegUserKey,
@@ -3980,6 +3981,13 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			LOG_NOTICE("get ISP_SET_SEC_DAPC_REG from user fail\n");
 			Ret = -EFAULT;
 		} else {
+			if (Dapc_Reg[0] < ISP_CAM_A_IDX ||
+			    Dapc_Reg[0] >= ISP_CAMSV0_IDX) {
+				LOG_NOTICE("module index(0x%x) error\n",
+					   Dapc_Reg[0]);
+				Ret = -EFAULT;
+				break;
+			}
 			sec_on = Dapc_Reg[1];
 			lock_reg.CAM_REG_CTL_EN[Dapc_Reg[0]] = Dapc_Reg[2];
 			lock_reg.CAM_REG_CTL_DMA_EN[Dapc_Reg[0]] = Dapc_Reg[3];
