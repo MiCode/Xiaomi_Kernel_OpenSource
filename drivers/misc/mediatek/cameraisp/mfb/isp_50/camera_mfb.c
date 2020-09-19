@@ -3678,7 +3678,7 @@ static struct platform_driver MFBDriver = {
 	}
 };
 
-
+#if 0
 static int mfb_dump_read(struct seq_file *m, void *v)
 {
 	int i, j;
@@ -3753,7 +3753,6 @@ static int mfb_dump_read(struct seq_file *m, void *v)
 	return 0;
 }
 
-
 static int proc_mfb_dump_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, mfb_dump_read, NULL);
@@ -3764,7 +3763,6 @@ static const struct file_operations mfb_dump_proc_fops = {
 	.open = proc_mfb_dump_open,
 	.read = seq_read,
 };
-
 
 static int mfb_reg_read(struct seq_file *m, void *v)
 {
@@ -3905,7 +3903,7 @@ static const struct file_operations mfb_reg_proc_fops = {
 	.read = seq_read,
 	.write = mfb_reg_write,
 };
-
+#endif
 
 /******************************************************************************
  *
@@ -3952,7 +3950,7 @@ static signed int __init MFB_Init(void)
 	void *tmp;
 	/* FIX-ME: linux-3.10 procfs API changed */
 	/* use proc_create */
-	struct proc_dir_entry *proc_entry;
+	/* struct proc_dir_entry *proc_entry; */
 	struct proc_dir_entry *isp_mfb_dir;
 
 
@@ -3991,11 +3989,11 @@ static signed int __init MFB_Init(void)
 	/* proc_entry = proc_create("pll_test", 0644, */
 	/*	isp_mfb_dir, &pll_test_proc_fops); */
 
-	proc_entry = proc_create("mfb_dump", 0444,
-		isp_mfb_dir, &mfb_dump_proc_fops);
+	/* proc_entry = proc_create("mfb_dump", 0444, */
+	/*	isp_mfb_dir, &mfb_dump_proc_fops); */
 
-	proc_entry = proc_create("mfb_reg", 0644,
-		isp_mfb_dir, &mfb_reg_proc_fops);
+	/* proc_entry = proc_create("mfb_reg", 0644, */
+	/*	isp_mfb_dir, &mfb_reg_proc_fops); */
 
 
 	/* isr log */
