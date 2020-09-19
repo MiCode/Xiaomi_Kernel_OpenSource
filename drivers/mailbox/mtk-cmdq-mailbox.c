@@ -193,12 +193,35 @@ static void cmdq_init_cpu(struct cmdq *cmdq)
 	cmdq_trace_ex_end();
 }
 
+#if IS_ENABLED(CONFIG_MACH_MT6873)
+static inline void cmdq_init_check(struct cmdq *cmdq)
+{
+	s32 i;
+	u32 val;
+
+	cmdq_log("%s cmdq:%p pa:%pa token_cnt:%u",
+		__func__, cmdq, &cmdq->base_pa, cmdq->token_cnt);
+
+	for (i = 0; i < cmdq->token_cnt; i++) {
+		writel(0x3FF & cmdq->tokens[i],
+			cmdq->base + CMDQ_SYNC_TOKEN_ID);
+		val = readl(cmdq->base + CMDQ_SYNC_TOKEN_VAL);
+		if (val != 0x1)
+			cmdq_err("tokens[%d]:%#x val:%#x set to 1 failed",
+				i, cmdq->tokens[i], val);
+	}
+}
+#endif
+
 static void cmdq_init(struct cmdq *cmdq)
 {
 	if (cmdq->init_cmds_base)
 		cmdq_init_cmds(cmdq);
 	else
 		cmdq_init_cpu(cmdq);
+#if IS_ENABLED(CONFIG_MACH_MT6873)
+	cmdq_init_check(cmdq);
+#endif
 }
 
 static inline void cmdq_mmp_init(void)
@@ -678,6 +701,11 @@ static void cmdq_task_exec(struct cmdq_pkt *pkt, struct cmdq_thread *thread)
 			spin_unlock_irqrestore(&cmdq->lock, flags);
 		}
 #endif
+#if IS_ENABLED(CONFIG_MACH_MT6873)
+		if (thread->idx >= 19 && thread->idx <= 22)
+			cmdq_init_check(cmdq);
+#endif
+
 		writel(CMDQ_INST_CYCLE_TIMEOUT,
 			thread->base + CMDQ_THR_INST_CYCLES);
 		writel(thread->priority & CMDQ_THR_PRIORITY,
