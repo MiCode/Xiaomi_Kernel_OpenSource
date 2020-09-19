@@ -678,9 +678,6 @@ static void fbt_set_task_policy(struct fpsgo_loading *fl,
 	if (!fl || !fl->pid)
 		return;
 
-	if (fl->prefer_type == prefer_type && fl->policy == policy)
-		return;
-
 	/* policy changes, reset */
 	if (fl->policy != policy && fl->prefer_type != FPSGO_PREFER_NONE)
 		fbt_set_task_policy(fl, fl->policy, FPSGO_PREFER_NONE);
