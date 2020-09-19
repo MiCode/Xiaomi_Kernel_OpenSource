@@ -8,9 +8,9 @@
 #ifndef __MDDP_SM_H
 #define __MDDP_SM_H
 
-#include <linux/types.h>
+#include <linux/workqueue.h>
 
-#include "mddp_ctrl.h"
+#include "mddp_export.h"
 #include "mddp_ipc.h"
 
 //------------------------------------------------------------------------------
@@ -77,12 +77,6 @@ struct mddp_md_cfg_t {
 	enum mdfpm_user_id_e ipc_md_user_id;
 };
 
-struct mddp_md_queue_t {
-	struct list_head        list;
-	struct work_struct      work;
-	spinlock_t              locker;
-};
-
 /*!
  * MDDP application structure.
  */
@@ -96,7 +90,6 @@ struct mddp_app_t {
 	struct mddp_md_cfg_t        md_cfg; /**< MD config. */
 
 	mddp_md_recv_msg_hdlr_t     md_recv_msg_hdlr; /**< Recv msg from MD. */
-	struct mddp_md_queue_t      md_send_queue; /**< Send msg to MD queue. */
 
 	mddp_reg_drv_cbf_t          reg_drv_callback; /**< Register callback. */
 	mddp_reg_drv_cbf_t          dereg_drv_callback; /**< DeReg callback. */
@@ -140,7 +133,7 @@ void mddp_sm_uninit(void);
 struct mddp_app_t *mddp_get_default_app_inst(void);
 enum mddp_state_e mddp_sm_set_state_by_md_rsp(struct mddp_app_t *app,
 		enum mddp_state_e new_state, bool md_rsp_result);
-#if defined __MDDP_DEBUG__
+#ifdef __MDDP_DEBUG__
 void mddp_dump_sm_table(struct mddp_app_t *app);
 #else
 #define mddp_dump_sm_table(...)

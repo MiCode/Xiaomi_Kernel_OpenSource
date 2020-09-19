@@ -6,6 +6,7 @@
 #ifndef _MDDP_F_DEV_H
 #define _MDDP_F_DEV_H
 
+#include <linux/if.h>
 
 #define MDDP_MAX_LAN_DEV_NUM 32
 #define MDDP_MAX_WAN_DEV_NUM 8

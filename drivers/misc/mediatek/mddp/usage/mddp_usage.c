@@ -6,12 +6,9 @@
  */
 
 #include <linux/types.h>
-#include <linux/module.h>
-#include <linux/skbuff.h>
 
 #include "mddp_debug.h"
 #include "mddp_dev.h"
-#include "mddp_export.h"
 #include "mddp_filter.h"
 #include "mddp_ipc.h"
 #include "mddp_usage.h"

@@ -6,20 +6,8 @@
 #ifndef _MDDP_F_TUPLE_H
 #define _MDDP_F_TUPLE_H
 
-#include <linux/atomic.h>
-#include <linux/list.h>
+#include <linux/in6.h>
 #include <linux/timer.h>
-#include <net/ip.h>
-#include <net/ipv6.h>
-#include "mddp_f_config.h"
-
-#define MAX_VLAN_LEVEL	2
-#define USED_TIMEOUT 1
-
-/* Have to be power of 2 */
-#define NAT_TUPLE_HASH_SIZE		(MD_DIRECT_TETHERING_RULE_NUM)
-#define ROUTER_TUPLE_HASH_SIZE	(MD_DIRECT_TETHERING_RULE_NUM)
-
 
 struct tuple {
 	struct {
@@ -145,34 +133,5 @@ struct router_tuple {
 	} out;
 	u_int8_t proto;
 };
-
-#define HASH_TUPLE_TCPUDP(t) \
-	(jhash_3words((t)->nat.src, ((t)->nat.dst ^ (t)->nat.proto), \
-	((t)->nat.s.all | ((t)->nat.d.all << 16)), \
-	nat_tuple_hash_rnd) & (NAT_TUPLE_HASH_SIZE - 1))
-
-#define HASH_NAT_TUPLE_TCPUDP(t) \
-	(jhash_3words((t)->src_ip, ((t)->dst_ip ^ (t)->proto), \
-	((t)->src.all | ((t)->dst.all << 16)), \
-	nat_tuple_hash_rnd) & (NAT_TUPLE_HASH_SIZE - 1))
-
-#define HASH_ROUTER_TUPLE_TCPUDP(t) \
-	(jhash_3words(((t)->saddr.s6_addr32[0] ^ (t)->saddr.s6_addr32[3]), \
-	((t)->daddr.s6_addr32[0] ^ (t)->daddr.s6_addr32[3]), \
-	((t)->in.all | ((t)->out.all << 16)), \
-	router_tuple_hash_rnd) & (ROUTER_TUPLE_HASH_SIZE - 1))
-
-#define HASH_ROUTER_TUPLE(t) \
-	(jhash_3words((t)->saddr.s6_addr32[2], \
-	(t)->daddr.s6_addr32[2], (t)->daddr.s6_addr32[3], \
-	router_tuple_hash_rnd) & (ROUTER_TUPLE_HASH_SIZE - 1))
-
-int32_t mddp_f_init_nat_tuple(void);
-bool mddp_f_add_nat_tuple(struct nat_tuple *t);
-void mddp_f_del_nat_tuple(struct nat_tuple *t);
-
-int32_t mddp_f_init_router_tuple(void);
-bool mddp_f_add_router_tuple_tcpudp(struct router_tuple *t);
-void mddp_f_del_router_tuple(struct router_tuple *t);
 
 #endif /* _MDDP_F_TUPLE_H */

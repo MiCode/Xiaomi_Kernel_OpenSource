@@ -3,32 +3,45 @@
  * Copyright (c) 2020 MediaTek Inc.
  */
 
-#include <linux/atomic.h>
-#include <linux/kernel.h>
-#include <linux/jiffies.h>
-#include <linux/types.h>
-#include <linux/jhash.h>
-#include <linux/list.h>
-#include <linux/timer.h>
-#include <linux/random.h>
-#include <linux/vmalloc.h>
-#include <linux/spinlock.h>
-#include "mddp_track.h"
-#include "mddp_f_proto.h"
-#include "mddp_f_tuple.h"
-#include "mddp_f_desc.h"
-#include "mddp_debug.h"
+//#include <linux/jhash.h>
 
-struct list_head *nat_tuple_hash;
-unsigned int nat_tuple_hash_rnd;
+#define USED_TIMEOUT 1
 
-struct list_head *router_tuple_hash;
-unsigned int router_tuple_hash_rnd;
+/* Have to be power of 2 */
+#define NAT_TUPLE_HASH_SIZE		(MD_DIRECT_TETHERING_RULE_NUM)
+#define ROUTER_TUPLE_HASH_SIZE	(MD_DIRECT_TETHERING_RULE_NUM)
 
-int mddp_f_nat_cnt;
-int mddp_f_router_cnt;
+static struct list_head *nat_tuple_hash;
+static unsigned int nat_tuple_hash_rnd;
 
-int32_t mddp_f_init_router_tuple(void)
+static struct list_head *router_tuple_hash;
+static unsigned int router_tuple_hash_rnd;
+
+#define HASH_TUPLE_TCPUDP(t) \
+	(jhash_3words((t)->nat.src, ((t)->nat.dst ^ (t)->nat.proto), \
+	((t)->nat.s.all | ((t)->nat.d.all << 16)), \
+	nat_tuple_hash_rnd) & (NAT_TUPLE_HASH_SIZE - 1))
+
+#define HASH_NAT_TUPLE_TCPUDP(t) \
+	(jhash_3words((t)->src_ip, ((t)->dst_ip ^ (t)->proto), \
+	((t)->src.all | ((t)->dst.all << 16)), \
+	nat_tuple_hash_rnd) & (NAT_TUPLE_HASH_SIZE - 1))
+
+#define HASH_ROUTER_TUPLE_TCPUDP(t) \
+	(jhash_3words(((t)->saddr.s6_addr32[0] ^ (t)->saddr.s6_addr32[3]), \
+	((t)->daddr.s6_addr32[0] ^ (t)->daddr.s6_addr32[3]), \
+	((t)->in.all | ((t)->out.all << 16)), \
+	router_tuple_hash_rnd) & (ROUTER_TUPLE_HASH_SIZE - 1))
+
+#define HASH_ROUTER_TUPLE(t) \
+	(jhash_3words((t)->saddr.s6_addr32[2], \
+	(t)->daddr.s6_addr32[2], (t)->daddr.s6_addr32[3], \
+	router_tuple_hash_rnd) & (ROUTER_TUPLE_HASH_SIZE - 1))
+
+static int mddp_f_nat_cnt;
+static int mddp_f_router_cnt;
+
+static int32_t mddp_f_init_router_tuple(void)
 {
 	int i;
 
@@ -48,7 +61,7 @@ int32_t mddp_f_init_router_tuple(void)
 	return 0;
 }
 
-int32_t mddp_f_init_nat_tuple(void)
+static int32_t mddp_f_init_nat_tuple(void)
 {
 	int i;
 
@@ -69,33 +82,7 @@ int32_t mddp_f_init_nat_tuple(void)
 	return 0;
 }
 
-void mddp_f_del_nat_tuple(struct nat_tuple *t)
-{
-	unsigned long flag;
-
-	MDDP_F_LOG(MDDP_LL_DEBUG,
-			"%s: Del nat tuple[%p], next[%p], prev[%p].\n",
-			__func__, t, t->list.next, t->list.prev);
-
-	MDDP_F_TUPLE_LOCK(&mddp_f_tuple_lock, flag);
-	mddp_f_nat_cnt--;
-
-	/* remove from the list */
-	if (t->list.next != LIST_POISON1 && t->list.prev != LIST_POISON2) {
-		list_del(&t->list);
-	} else {
-		MDDP_F_LOG(MDDP_LL_NOTICE,
-				"%s: Del nat tuple fail, tuple[%p], next[%p], prev[%p].\n",
-				__func__, t, t->list.next, t->list.prev);
-		WARN_ON(1);
-	}
-	MDDP_F_TUPLE_UNLOCK(&mddp_f_tuple_lock, flag);
-
-	kmem_cache_free(mddp_f_nat_tuple_cache, t);
-}
-EXPORT_SYMBOL(mddp_f_del_nat_tuple);
-
-void mddp_f_del_nat_tuple_w_unlock(struct nat_tuple *t, unsigned long flag)
+static void mddp_f_del_nat_tuple_w_unlock(struct nat_tuple *t, unsigned long flag)
 {
 	MDDP_F_LOG(MDDP_LL_DEBUG,
 			"%s: Del nat tuple[%p], next[%p], prev[%p].\n",
@@ -116,9 +103,8 @@ void mddp_f_del_nat_tuple_w_unlock(struct nat_tuple *t, unsigned long flag)
 
 	kmem_cache_free(mddp_f_nat_tuple_cache, t);
 }
-EXPORT_SYMBOL(mddp_f_del_nat_tuple_w_unlock);
 
-void mddp_f_timeout_nat_tuple(unsigned long data)
+static void mddp_f_timeout_nat_tuple(unsigned long data)
 {
 	struct nat_tuple *t = (struct nat_tuple *)data;
 	unsigned long flag;
@@ -133,9 +119,8 @@ void mddp_f_timeout_nat_tuple(unsigned long data)
 		mod_timer(&t->timeout_used, jiffies + HZ * USED_TIMEOUT);
 	}
 }
-EXPORT_SYMBOL(mddp_f_timeout_nat_tuple);
 
-bool mddp_f_add_nat_tuple(struct nat_tuple *t)
+static bool mddp_f_add_nat_tuple(struct nat_tuple *t)
 {
 	unsigned long flag;
 	unsigned int hash;
@@ -337,33 +322,7 @@ static inline bool mddp_f_check_pkt_need_track_nat_tuple_ip4(
 	return true;
 }
 
-void mddp_f_del_router_tuple(struct router_tuple *t)
-{
-	unsigned long flag;
-
-	MDDP_F_LOG(MDDP_LL_DEBUG,
-			"%s: Del router tuple[%p], next[%p], prev[%p].\n",
-			__func__, t, t->list.next, t->list.prev);
-
-	MDDP_F_TUPLE_LOCK(&mddp_f_tuple_lock, flag);
-	mddp_f_router_cnt--;
-
-	/* remove from the list */
-	if (t->list.next != LIST_POISON1 && t->list.prev != LIST_POISON2) {
-		list_del(&t->list);
-	} else {
-		MDDP_F_LOG(MDDP_LL_NOTICE,
-				"%s: Del router tuple fail, tuple[%p], next[%p], prev[%p].\n",
-				__func__, t, t->list.next, t->list.prev);
-		WARN_ON(1);
-	}
-	MDDP_F_TUPLE_UNLOCK(&mddp_f_tuple_lock, flag);
-
-	kmem_cache_free(mddp_f_router_tuple_cache, t);
-}
-EXPORT_SYMBOL(mddp_f_del_router_tuple);
-
-void mddp_f_del_router_tuple_w_unlock(struct router_tuple *t,
+static void mddp_f_del_router_tuple_w_unlock(struct router_tuple *t,
 		unsigned long flag)
 {
 	MDDP_F_LOG(MDDP_LL_DEBUG,
@@ -385,9 +344,8 @@ void mddp_f_del_router_tuple_w_unlock(struct router_tuple *t,
 
 	kmem_cache_free(mddp_f_router_tuple_cache, t);
 }
-EXPORT_SYMBOL(mddp_f_del_router_tuple_w_unlock);
 
-void mddp_f_timeout_router_tuple(unsigned long data)
+static void mddp_f_timeout_router_tuple(unsigned long data)
 {
 	struct router_tuple *t = (struct router_tuple *)data;
 	unsigned long flag;
@@ -403,9 +361,8 @@ void mddp_f_timeout_router_tuple(unsigned long data)
 		mod_timer(&t->timeout_used, jiffies + HZ * USED_TIMEOUT);
 	}
 }
-EXPORT_SYMBOL(mddp_f_timeout_router_tuple);
 
-bool mddp_f_add_router_tuple_tcpudp(struct router_tuple *t)
+static bool mddp_f_add_router_tuple_tcpudp(struct router_tuple *t)
 {
 	unsigned long flag;
 	unsigned int hash;
