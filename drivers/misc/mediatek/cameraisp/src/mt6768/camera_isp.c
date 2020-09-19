@@ -10013,7 +10013,7 @@ EXIT:
 static signed int ISP_mmap(struct file *pFile, struct vm_area_struct *pVma)
 {
 	unsigned long length = 0;
-	unsigned int pfn = 0x0;
+	unsigned long pfn = 0x0;
 
 	/*pr_info("- E.");*/
 	length = (pVma->vm_end - pVma->vm_start);
