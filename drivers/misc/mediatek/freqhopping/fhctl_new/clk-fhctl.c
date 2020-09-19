@@ -70,6 +70,54 @@ int mt_dfs_armpll(int fh_id, int dds)
 {
 	return mt_dfs_general_pll(FH_ARM_PLLID, dds);
 }
+#define FH_ID_MEM_6739 4
+int freqhopping_config(unsigned int fh_id
+	, unsigned long vco_freq, unsigned int enable)
+{
+	int i;
+	struct fh_hdlr *hdlr = NULL;
+	struct pll_dts *array = get_dts_array();
+	int num_pll = array->num_pll;
+	static bool on;
+	static DEFINE_MUTEX(lock);
+
+	if (!_inited) {
+		FHDBG("!_inited\n");
+		return -1;
+	}
+
+	for (i = 0; i < num_pll; i++, array++) {
+		if (fh_id == array->fh_id) {
+			hdlr = array->hdlr;
+			break;
+		}
+	}
+
+	if (!hdlr || fh_id != FH_ID_MEM_6739) {
+		FHDBG("err!, hdlr<%x>, fh_id<%d>\n",
+				hdlr, fh_id);
+		return -1;
+	}
+
+	mutex_lock(&lock);
+	if (!on && enable) {
+		FHDBG("enable\n");
+		hdlr->ops->ssc_enable(hdlr->data,
+				array->domain,
+				array->fh_id,
+				8);
+	} else if (on && !enable) {
+		FHDBG("disable\n");
+		hdlr->ops->ssc_disable(hdlr->data,
+				array->domain,
+				array->fh_id);
+	} else
+		FHDBG("already %s",
+				on ? "enabled" : "disabled");
+	mutex_unlock(&lock);
+
+	return 0;
+}
 #else
 int mt_dfs_armpll(int fh_id, int dds)
 {
