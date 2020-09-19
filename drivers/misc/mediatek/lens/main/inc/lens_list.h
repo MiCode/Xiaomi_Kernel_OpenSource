@@ -339,6 +339,15 @@ extern int LC898217AFA_PowerDown(struct i2c_client *pstAF_I2Cclient,
 				int *pAF_Opened);
 extern int LC898217AFA_GetFileName(unsigned char *pFileName);
 
+#define OV5645AF_SetI2Cclient OV5645AF_SetI2Cclient_Main
+#define OV5645AF_Ioctl OV5645AF_Ioctl_Main
+#define OV5645AF_Release OV5645AF_Release_Main
+extern int OV5645AF_SetI2Cclient(struct i2c_client *pstAF_I2Cclient,
+			spinlock_t *pAF_SpinLock, int *pAF_Opened);
+extern long OV5645AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
+			unsigned long a_u4Param);
+extern int OV5645AF_Release(struct inode *a_pstInode, struct file *a_pstFile);
+
 #define LC898217AFB_SetI2Cclient LC898217AFB_SetI2Cclient_Main
 #define LC898217AFB_Ioctl LC898217AFB_Ioctl_Main
 #define LC898217AFB_Release LC898217AFB_Release_Main
