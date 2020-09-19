@@ -3334,10 +3334,10 @@ static void mtk_crtc_disable_plane_setting(struct mtk_drm_crtc *mtk_crtc)
 
 	for (i = 0; i < mtk_crtc->layer_nr; i++) {
 		struct drm_plane *plane = &mtk_crtc->planes[i].base;
-		struct mtk_plane_state *plane_state;
+		struct mtk_plane_state *plane_state
+			= to_mtk_plane_state(plane->state);
 
 		if (i < OVL_PHY_LAYER_NR || plane_state->comp_state.comp_id) {
-			plane_state = to_mtk_plane_state(plane->state);
 			plane_state->pending.enable = 0;
 		}
 	}
