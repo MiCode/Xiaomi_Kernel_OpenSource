@@ -45,8 +45,7 @@ void fpsgo_base2fbt_set_bypass(int has_bypass);
 void fpsgo_base2fbt_check_max_blc(void);
 void fpsgo_base2fbt_no_one_render(void);
 void fpsgo_base2fbt_only_bypass(void);
-void fpsgo_base2fbt_set_min_cap(struct render_info *thr, int min_cap,
-						int check);
+void fpsgo_base2fbt_set_min_cap(struct render_info *thr, int min_cap);
 void fpsgo_base2fbt_clear_llf_policy(struct render_info *thr,
 						int orig_policy);
 void fpsgo_base2fbt_cancel_jerk(struct render_info *thr);
@@ -88,7 +87,7 @@ static inline void fpsgo_base2fbt_no_one_render(void) { }
 static inline void fpsgo_base2fbt_only_bypass(void) { }
 static inline int fbt_switch_ceiling(int en) { return 0; }
 static inline void fpsgo_base2fbt_set_min_cap(struct render_info *thr,
-				int min_cap, int check) { }
+				int min_cap) { }
 static inline void fpsgo_base2fbt_clear_llf_policy(struct render_info *thr,
 				int orig_policy) { }
 static inline void fpsgo_base2fbt_cancel_jerk(struct render_info *thr) { }
