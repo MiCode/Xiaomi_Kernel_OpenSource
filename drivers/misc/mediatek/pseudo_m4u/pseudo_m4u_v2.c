@@ -1694,12 +1694,13 @@ int __pseudo_alloc_mva(struct m4u_client_t *client,
 					&base, &max, &owner,
 					NULL);
 		M4U_ERR(
-			"err %s, domain:%d(%s(%d):0x%lx~0x%lx) iova:0x%pad+0x%lx, pa=0x%pad, f:0x%x, n:%d-%d\n",
+			"err %s, domain:%d(%s(%d):0x%lx~0x%lx) iova:0x%pad+0x%lx, pa=0x%pad, f:0x%x, n:%d-%d, sg_tab:0x%llx\n",
 			iommu_get_port_name(port), domain,
 			iommu_get_port_name(owner),
 			owner, base, max,
 			&dma_addr, size, &paddr,
-			flags, table->nents, table->orig_nents);
+			flags, table->nents, table->orig_nents,
+			(unsigned long long)sg_table);
 		__m4u_dump_pgtable(NULL, 1, true, 0);
 		if (owner < 0)
 			m4u_find_max_port_size(base, max, &err_port, &err_size);
@@ -1767,6 +1768,9 @@ ERR_EXIT:
 		ret = -EINVAL;
 
 	if (table && free_table) {
+		M4U_ERR("nent:%u--%u, len:0x%lx\n",
+			table->nents, table->orig_nents,
+			(unsigned long)sg_dma_len(table->sgl));/* debug memory corruption */
 		sg_free_table(table);
 		kfree(table);
 	}
