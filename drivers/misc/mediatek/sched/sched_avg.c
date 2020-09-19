@@ -1082,8 +1082,47 @@ OUT:
 }
 EXPORT_SYMBOL(sched_update_nr_heavy_prod);
 
+/*
+ * if all core ids are set correctly, then return true.
+ * That is meaning that there is no repeat core id in same
+ * cluster.
+ */
+static inline bool is_all_cpu_parsed(void)
+{
+#ifdef CONFIG_ARM64
+	int cpu = 0, core_id = 0, cluster_id = 0;
+	bool all_parsed = true;
+	struct cpumask cluster_mask[NR_CPUS];
+	struct cpumask *tmp_cpumask = NULL;
+
+	for (cpu = 0; cpu < num_possible_cpus(); cpu++)
+		cpumask_clear(&cluster_mask[cpu]);
+
+	for_each_possible_cpu(cpu) {
+		core_id = cpu_topology[cpu].core_id;
+		cluster_id = cpu_topology[cpu].cluster_id;
+		if (core_id < 0 || cluster_id < 0) {
+			all_parsed = false;
+			break;
+		}
+		tmp_cpumask = &cluster_mask[cluster_id];
+		if (cpumask_test_cpu(core_id, tmp_cpumask)) {
+			all_parsed = false;
+			break;
+		}
+		cpumask_set_cpu(core_id, tmp_cpumask);
+	}
+	return all_parsed;
+ #else
+	return true;
+ #endif
+}
+
 static int init_heavy_tlb(void)
 {
+	if (!is_all_cpu_parsed())
+		return init_heavy;
+
 	if (!init_heavy) {
 		/* init variables */
 		int tmp_cpu, cluster_nr;
