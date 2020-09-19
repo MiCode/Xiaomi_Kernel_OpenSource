@@ -1741,8 +1741,15 @@ s32 cmdq_pkt_flush_async(struct cmdq_pkt *pkt,
 
 	mutex_lock(&client->chan_mutex);
 	err = mbox_send_message(client->chan, pkt);
-	if (!pkt->task_alloc)
+	if (!pkt->task_alloc) {
 		err = -ENOMEM;
+		if (pkt->cb.cb) {
+			struct cmdq_cb_data data = {
+				.data = pkt->cb.data, .err = err};
+
+			pkt->cb.cb(data);
+		}
+	}
 	/* We can send next packet immediately, so just call txdone. */
 	mbox_client_txdone(client->chan, 0);
 	mutex_unlock(&client->chan_mutex);
