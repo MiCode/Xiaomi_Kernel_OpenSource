@@ -31,6 +31,9 @@ MTK_CUSTOM_PATH := $(srctree)/drivers/misc/mediatek
 
 ccflags-y += -D$(MTK_PLATFORM) -D$(MTK_PROJECT)
 
+subdir-ccflags-${CONFIG_MACH_MT6833} += \
+	-I$(MTK_CUSTOM_PATH)/include/mt-plat/mt6833/include/mach
+
 subdir-ccflags-y += \
 	-I$(MTK_CUSTOM_PATH)/include/mt-plat \
 	-I$(MTK_CUSTOM_PATH)/include/mt-plat/$(MTK_PLATFORM)/include/mach \
