@@ -37,7 +37,7 @@
 static inline bool timer_callback_should_run(struct kbase_device *kbdev)
 {
 	struct kbase_backend_data *backend = &kbdev->hwaccess.backend;
-	s8 nr_running_ctxs;
+	int nr_running_ctxs;
 
 	lockdep_assert_held(&kbdev->js_data.runpool_mutex);
 
@@ -69,10 +69,10 @@ static inline bool timer_callback_should_run(struct kbase_device *kbdev)
 		 * don't check KBASEP_JS_CTX_ATTR_NON_COMPUTE).
 		 */
 		{
-			s8 nr_compute_ctxs =
+			int nr_compute_ctxs =
 				kbasep_js_ctx_attr_count_on_runpool(kbdev,
 						KBASEP_JS_CTX_ATTR_COMPUTE);
-			s8 nr_noncompute_ctxs = nr_running_ctxs -
+			int nr_noncompute_ctxs = nr_running_ctxs -
 							nr_compute_ctxs;
 
 			return (bool) (nr_compute_ctxs >= 2 ||

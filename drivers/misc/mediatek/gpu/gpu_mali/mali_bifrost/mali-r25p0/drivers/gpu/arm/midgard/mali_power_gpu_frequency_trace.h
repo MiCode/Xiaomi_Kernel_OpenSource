@@ -27,7 +27,9 @@
 #undef TRACE_SYSTEM
 #define TRACE_SYSTEM power
 #undef TRACE_INCLUDE_FILE
-#define TRACE_INCLUDE_FILE power_gpu_frequency
+#define TRACE_INCLUDE_FILE mali_power_gpu_frequency_trace
+#undef TRACE_INCLUDE_PATH
+#define TRACE_INCLUDE_PATH .
 
 #if !defined(_TRACE_POWER_GPU_FREQUENCY_H) || defined(TRACE_HEADER_MULTI_READ)
 #define _TRACE_POWER_GPU_FREQUENCY_H

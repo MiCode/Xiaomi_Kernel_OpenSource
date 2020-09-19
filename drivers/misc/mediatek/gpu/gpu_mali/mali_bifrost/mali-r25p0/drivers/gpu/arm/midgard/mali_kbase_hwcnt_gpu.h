@@ -96,6 +96,7 @@ struct kbase_hwcnt_physical_enable_map {
  * struct kbase_hwcnt_gpu_v4_info - Information about hwcnt blocks on v4 GPUs.
  * @cg_count: Core group count.
  * @cgs:      Non-NULL pointer to array of cg_count coherent group structures.
+ * @clk_cnt:  Number of clock domains available.
  *
  * V4 devices are Mali-T6xx or Mali-T72x, and have one or more core groups,
  * where each core group may have a physically different layout.
@@ -103,16 +104,19 @@ struct kbase_hwcnt_physical_enable_map {
 struct kbase_hwcnt_gpu_v4_info {
 	size_t cg_count;
 	const struct mali_base_gpu_coherent_group *cgs;
+	u8 clk_cnt;
 };
 
 /**
  * struct kbase_hwcnt_gpu_v5_info - Information about hwcnt blocks on v5 GPUs.
  * @l2_count:   L2 cache count.
  * @core_mask:  Shader core mask. May be sparse.
+ * @clk_cnt:    Number of clock domains available.
  */
 struct kbase_hwcnt_gpu_v5_info {
 	size_t l2_count;
 	u64 core_mask;
+	u8 clk_cnt;
 };
 
 /**

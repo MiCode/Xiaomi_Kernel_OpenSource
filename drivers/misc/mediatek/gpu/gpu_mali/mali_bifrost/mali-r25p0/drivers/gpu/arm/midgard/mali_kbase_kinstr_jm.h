@@ -67,11 +67,13 @@
 #include "mali_kbase_kinstr_jm_reader.h"
 
 #ifdef __KERNEL__
+#include <linux/version.h>
 #include <linux/static_key.h>
 #else
 /* empty wrapper macros for userspace */
-#define static_branch_likely(key)	1
-#define static_branch_unlikely(key)	1
+#define static_branch_unlikely(key) (1)
+#define KERNEL_VERSION(a, b, c) (0)
+#define LINUX_VERSION_CODE (1)
 #endif /* __KERNEL__ */
 
 /* Forward declarations */
@@ -125,7 +127,14 @@ void kbasep_kinstr_jm_atom_state(
  * shouldn't be changed externally, but if you do, make sure you use
  * a static_key_inc()/static_key_dec() pair.
  */
+#if KERNEL_VERSION(4, 3, 0) <= LINUX_VERSION_CODE
 extern struct static_key_false basep_kinstr_jm_reader_static_key;
+#else
+/* Pre-4.3 kernels have a different API for static keys, but work
+ * mostly the same with less type safety. */
+extern struct static_key basep_kinstr_jm_reader_static_key;
+#define static_branch_unlikely(key) static_key_false(key)
+#endif /* KERNEL_VERSION(4, 3, 0) <= LINUX_VERSION_CODE */
 
 /**
  * kbase_kinstr_jm_atom_state() - Signifies that an atom has changed state

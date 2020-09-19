@@ -23,7 +23,13 @@
 #ifndef _KBASE_CLK_RATE_TRACE_MGR_
 #define _KBASE_CLK_RATE_TRACE_MGR_
 
-#include <mali_kbase_ccswe.h>
+/** The index of top clock domain in kbase_clk_rate_trace_manager:clks. */
+#define KBASE_CLOCK_DOMAIN_TOP (0)
+
+/** The index of shader-cores clock domain in
+ * kbase_clk_rate_trace_manager:clks.
+ */
+#define KBASE_CLOCK_DOMAIN_SHADER_CORES (1)
 
 /**
  * struct kbase_clk_data - Data stored per enumerated GPU clock.
@@ -35,7 +41,6 @@
  *                      function that is invoked whenever the rate of
  *                      enumerated GPU clock changes.
  * @clock_val:          Current rate of the enumerated GPU clock.
- * @ccswe:              Cycle count software estimator.
  * @index:              Index at which the GPU clock was enumerated.
  */
 struct kbase_clk_data {
@@ -44,7 +49,6 @@ struct kbase_clk_data {
 	void *plat_private;
 	struct notifier_block clk_rate_change_nb;
 	unsigned long clock_val;
-	struct kbase_ccswe ccswe;
 	u8 index;
 };
 
@@ -78,6 +82,57 @@ void kbase_clk_rate_trace_manager_gpu_active(struct kbase_device *kbdev);
  * @kbdev:      Device pointer
  */
 void kbase_clk_rate_trace_manager_gpu_idle(struct kbase_device *kbdev);
+
+/**
+ * kbase_clk_rate_trace_manager_subscribe_no_lock() - Add freq change listener.
+ *
+ * @clk_rtm:    Clock rate manager instance.
+ * @listener:   Listener handle
+ *
+ * kbase_clk_rate_trace_manager:lock must be held by the caller.
+ */
+static inline void kbase_clk_rate_trace_manager_subscribe_no_lock(
+	struct kbase_clk_rate_trace_manager *clk_rtm,
+	struct kbase_clk_rate_listener *listener)
+{
+	lockdep_assert_held(&clk_rtm->lock);
+	list_add(&listener->node, &clk_rtm->listeners);
+}
+
+/**
+ * kbase_clk_rate_trace_manager_subscribe() - Add freq change listener.
+ *
+ * @clk_rtm:    Clock rate manager instance.
+ * @listener:   Listener handle
+ */
+static inline void kbase_clk_rate_trace_manager_subscribe(
+	struct kbase_clk_rate_trace_manager *clk_rtm,
+	struct kbase_clk_rate_listener *listener)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&clk_rtm->lock, flags);
+	kbase_clk_rate_trace_manager_subscribe_no_lock(
+		clk_rtm, listener);
+	spin_unlock_irqrestore(&clk_rtm->lock, flags);
+}
+
+/**
+ * kbase_clk_rate_trace_manager_unsubscribe() - Remove freq change listener.
+ *
+ * @clk_rtm:    Clock rate manager instance.
+ * @listener:   Listener handle
+ */
+static inline void kbase_clk_rate_trace_manager_unsubscribe(
+	struct kbase_clk_rate_trace_manager *clk_rtm,
+	struct kbase_clk_rate_listener *listener)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&clk_rtm->lock, flags);
+	list_del(&listener->node);
+	spin_unlock_irqrestore(&clk_rtm->lock, flags);
+}
 
 #endif /* _KBASE_CLK_RATE_TRACE_MGR_ */
 

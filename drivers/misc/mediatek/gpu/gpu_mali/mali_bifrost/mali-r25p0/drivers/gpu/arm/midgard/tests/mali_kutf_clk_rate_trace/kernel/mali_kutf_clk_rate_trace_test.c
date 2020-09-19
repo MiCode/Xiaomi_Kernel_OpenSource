@@ -75,6 +75,7 @@ struct clk_trace_snapshot {
 /**
  * struct kutf_clk_rate_trace_fixture_data - Fixture data for the test.
  * @kbdev:            kbase device for the GPU.
+ * @listener:         Clock rate change listener structure.
  * @snapshot:         Clock trace update snapshot data array. A snapshot
  *                    for each clock contains info accumulated beteen two
  *                    GET_TRACE_SNAPSHOT requests.
@@ -84,20 +85,17 @@ struct clk_trace_snapshot {
  *                    0 to 1 (INC), or, 1 to 0 (DEC), a PM context action is
  *                    triggered.
  * @total_update_cnt: Total number of received trace write callbacks.
- * @old_trace_write:  Saved copy of the kbase_clk_trace_manager rate write
- *                    callback function pointer at portal setup.
  * @server_state:     Portal server operational state.
  * @result_msg:       Message for the test result.
  * @test_status:      Portal test reslt status.
  */
 struct kutf_clk_rate_trace_fixture_data {
 	struct kbase_device *kbdev;
+	struct kbase_clk_rate_listener listener;
 	struct clk_trace_snapshot snapshot[BASE_MAX_NR_CLOCKS_REGULATORS];
 	unsigned int nclks;
 	unsigned int pm_ctx_cnt;
 	unsigned int total_update_cnt;
-	void (*old_trace_write)(struct kbase_device*, unsigned int,
-				unsigned long);
 	enum portal_server_state server_state;
 	char const *result_msg;
 	enum kutf_result_status test_status;
@@ -132,12 +130,15 @@ struct kutf_clk_rate_trace_fixture_data *g_ptr_portal_data;
 #define PORTAL_MSG_LEN (KUTF_MAX_LINE_LENGTH - MAX_REPLY_NAME_LEN)
 static char portal_msg_buf[PORTAL_MSG_LEN];
 
-static void kutf_portal_trace_write(struct kbase_device *kbdev,
-		unsigned int index, unsigned long new_rate)
+static void kutf_portal_trace_write(
+	struct kbase_clk_rate_listener *listener,
+	u32 index, u32 new_rate)
 {
 	struct clk_trace_snapshot *snapshot;
+	struct kutf_clk_rate_trace_fixture_data *data = container_of(
+		listener, struct kutf_clk_rate_trace_fixture_data, listener);
 
-	lockdep_assert_held(&kbdev->pm.clk_rtm.lock);
+	lockdep_assert_held(data->kbdev->pm.clk_rtm.lock);
 
 	if (WARN_ON(g_ptr_portal_data == NULL))
 		return;
@@ -712,16 +713,17 @@ static void *mali_kutf_clk_rate_trace_create_fixture(
 		}
 	}
 
+	spin_unlock(&kbdev->pm.clk_rtm.lock);
+
 	if (data->nclks) {
-		/* Replace the trace_write to this test server portal */
-		data->old_trace_write =
-				kbdev->pm.clk_rtm.gpu_clk_rate_trace_write;
-		kbdev->pm.clk_rtm.gpu_clk_rate_trace_write =
-				kutf_portal_trace_write;
+		/* Subscribe this test server portal */
+		data->listener.notify = kutf_portal_trace_write;
+
+		kbase_clk_rate_trace_manager_subscribe(
+			&kbdev->pm.clk_rtm, &data->listener);
 		/* Update the kutf_server_portal fixture_data pointer */
 		g_ptr_portal_data = data;
 	}
-	spin_unlock(&kbdev->pm.clk_rtm.lock);
 
 	data->kbdev = kbdev;
 	data->result_msg = NULL;
@@ -752,11 +754,10 @@ static void mali_kutf_clk_rate_trace_remove_fixture(
 
 	if (data->nclks) {
 		/* Clean up the portal trace write arrangement */
-		spin_lock(&kbdev->pm.clk_rtm.lock);
 		g_ptr_portal_data = NULL;
-		kbdev->pm.clk_rtm.gpu_clk_rate_trace_write =
-						data->old_trace_write;
-		spin_unlock(&kbdev->pm.clk_rtm.lock);
+
+		kbase_clk_rate_trace_manager_unsubscribe(
+			&kbdev->pm.clk_rtm, &data->listener);
 	}
 	pr_debug("Destroying fixture\n");
 	kbase_release_device(kbdev);

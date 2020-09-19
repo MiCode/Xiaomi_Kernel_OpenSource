@@ -322,6 +322,35 @@ struct kbasep_mem_device {
 	atomic_t ir_threshold;
 };
 
+struct kbase_clk_rate_listener;
+
+/**
+ * kbase_clk_rate_listener_on_change_t() - Frequency change callback
+ *
+ * @listener:     Clock frequency change listener.
+ * @clk_index:    Index of the clock for which the change has occurred.
+ * @clk_rate_hz:  Clock frequency(Hz).
+ *
+ * A callback to call when clock rate changes. The function must not
+ * sleep. No clock rate manager functions must be called from here, as
+ * its lock is taken.
+ */
+typedef void (*kbase_clk_rate_listener_on_change_t)(
+	struct kbase_clk_rate_listener *listener,
+	u32 clk_index,
+	u32 clk_rate_hz);
+
+/**
+ * struct kbase_clk_rate_listener - Clock frequency listener
+ *
+ * @node:        List node.
+ * @notify:    Callback to be called when GPU frequency changes.
+ */
+struct kbase_clk_rate_listener {
+	struct list_head node;
+	kbase_clk_rate_listener_on_change_t notify;
+};
+
 /**
  * struct kbase_clk_rate_trace_manager - Data stored per device for GPU clock
  *                                       rate trace manager.
@@ -333,6 +362,7 @@ struct kbasep_mem_device {
  *                      operations.
  * @gpu_clk_rate_trace_write: Pointer to the function that would emit the
  *                            tracepoint for the clock rate change.
+ * @listeners:          List of listener attached.
  * @lock:               Lock to serialize the actions of GPU clock rate trace
  *                      manager.
  */
@@ -340,9 +370,7 @@ struct kbase_clk_rate_trace_manager {
 	bool gpu_idle;
 	struct kbase_clk_data *clks[BASE_MAX_NR_CLOCKS_REGULATORS];
 	struct kbase_clk_rate_trace_op_conf *clk_rate_trace_ops;
-	void (*gpu_clk_rate_trace_write)(struct kbase_device *kbdev,
-					 unsigned int clk_index,
-					 unsigned long new_rate);
+	struct list_head listeners;
 	spinlock_t lock;
 };
 

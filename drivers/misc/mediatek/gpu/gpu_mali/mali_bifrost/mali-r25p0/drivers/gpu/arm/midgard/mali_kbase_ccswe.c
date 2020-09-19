@@ -89,3 +89,17 @@ exit:
 }
 KBASE_EXPORT_TEST_API(kbase_ccswe_freq_change);
 
+void kbase_ccswe_reset(struct kbase_ccswe *self)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&self->access, flags);
+
+	self->timestamp_ns = 0;
+	self->cycles_elapsed = 0;
+	self->gpu_freq = 0;
+	self->prev_gpu_freq = 0;
+
+	spin_unlock_irqrestore(&self->access, flags);
+}
+
