@@ -61,6 +61,20 @@ static ssize_t qos_prefetch_force_store(struct device *dev,
 static DEVICE_ATTR(qos_prefetch_force, 0644,
 		qos_prefetch_force_show, qos_prefetch_force_store);
 
+static ssize_t qos_prefetch_setting_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return qos_prefetch_setting_get(buf);
+}
+static ssize_t qos_prefetch_setting_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	return qos_prefetch_setting_set(buf, count);
+}
+
+static DEVICE_ATTR(qos_prefetch_setting, 0644,
+		qos_prefetch_setting_show, qos_prefetch_setting_store);
+
 static ssize_t qos_prefetch_log_enable_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -184,6 +198,7 @@ static struct attribute *qos_attrs[] = {
 #ifdef QOS_PREFETCH_SUPPORT
 	&dev_attr_qos_prefetch_enable.attr,
 	&dev_attr_qos_prefetch_force.attr,
+	&dev_attr_qos_prefetch_setting.attr,
 	&dev_attr_qos_prefetch_log_enable.attr,
 	&dev_attr_qos_prefetch_status.attr,
 	&dev_attr_qos_prefetch_val.attr,
