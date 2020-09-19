@@ -4323,6 +4323,13 @@ void mtk_drm_crtc_suspend(struct drm_crtc *crtc)
 	CRTC_MMP_EVENT_START(index, suspend,
 			mtk_crtc->enabled, 0);
 
+/* disable engine secure state */
+#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
+	if (index == 2 && mtk_crtc->sec_on) {
+		mtk_crtc_disable_secure_state(crtc);
+		mtk_crtc->sec_on = false;
+	}
+#endif
 	mtk_drm_crtc_disable(crtc, true);
 
 	mtk_crtc_disable_plane_setting(mtk_crtc);
