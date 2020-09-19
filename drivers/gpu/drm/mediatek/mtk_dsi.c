@@ -5754,6 +5754,9 @@ int fbconfig_get_esd_check_test(struct drm_crtc *crtc,
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_ddp_comp *output_comp;
 	struct mtk_dsi *dsi;
+	struct mtk_panel_params *dsi_params;
+	int cmd_matched = 0;
+	uint32_t i = 0;
 
 	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 	if (crtc->state && !(crtc->state->active)) {
@@ -5771,6 +5774,28 @@ int fbconfig_get_esd_check_test(struct drm_crtc *crtc,
 		goto done;
 	}
 	dsi = container_of(output_comp, struct mtk_dsi, ddp_comp);
+	if (dsi && dsi->ext && dsi->ext->params)
+		dsi_params = dsi->ext->params;//get_dsi_params_handle((uint32_t)(PM_DSI0));
+	if (dsi && dsi_params) {
+		for (i = 0; i < ESD_CHECK_NUM; i++) {
+			if (dsi_params->lcm_esd_check_table[i].cmd == 0)
+				break;
+			if ((uint32_t)(dsi_params->lcm_esd_check_table[i].cmd) == cmd) {
+				cmd_matched = 1;
+				break;
+			}
+		}
+	} else {
+		DDPPR_ERR("%s: dsi or panel is invalid  -- skip\n", __func__);
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+		goto done;
+	}
+	if (!cmd_matched) {
+		DDPPR_ERR("%s: cmd not matched support cmd=%d, test cmd =%d -- skip\n", __func__,
+				dsi_params->lcm_esd_check_table[0].cmd, cmd);
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+		goto done;
+	}
 	mtk_drm_idlemgr_kick(__func__, &mtk_crtc->base, 0);
 
 	/* 0 disable esd check */
