@@ -4399,7 +4399,7 @@ void mtk_crtc_disable_secure_state(struct drm_crtc *crtc)
 	} else {
 		sec_disp_type =
 			CMDQ_SEC_DISP_SUB_DISABLE_SECURE_PATH;
-		sec_disp_port = (idx == 2) ? 0 :
+		sec_disp_port = (idx == 1) ? 0 :
 			mtk_crtc_secure_port_lookup(comp);
 	}
 	DDPINFO("%s+ crtc%d\n", __func__, drm_crtc_index(crtc));
@@ -4453,7 +4453,7 @@ struct cmdq_pkt *mtk_crtc_gce_commit_begin(struct drm_crtc *crtc)
 			sec_disp_port = 0;
 		} else {
 			sec_disp_type = CMDQ_SEC_SUB_DISP;
-			sec_disp_port = (idx == 2) ? 0 :
+			sec_disp_port = (idx == 1) ? 0 :
 				mtk_crtc_secure_port_lookup(comp);
 		}
 		cmdq_sec_pkt_set_data(cmdq_handle, 0,
