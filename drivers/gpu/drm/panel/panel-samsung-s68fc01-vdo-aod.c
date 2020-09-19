@@ -25,6 +25,7 @@
 
 #include <linux/module.h>
 #include <linux/of_platform.h>
+#include <linux/of_graph.h>
 #include <linux/platform_device.h>
 
 #define CONFIG_MTK_PANEL_EXT
@@ -315,22 +316,45 @@ static int lcm_unprepare(struct drm_panel *panel)
 	return 0;
 }
 
+static int lcm_panel_poweron(struct drm_panel *panel)
+{
+	struct lcm *ctx = panel_to_lcm(panel);
+	int ret;
+
+	if (ctx->prepared)
+		return 0;
+
+	usleep_range(10 * 1000, 10 * 1000);
+	ctx->bias_gpio = devm_gpiod_get(ctx->dev,
+		"bias", GPIOD_OUT_HIGH);
+	gpiod_set_value(ctx->bias_gpio, 1);
+	devm_gpiod_put(ctx->dev, ctx->bias_gpio);
+	usleep_range(10 * 1000, 10 * 1000);
+	ctx->reset_gpio = devm_gpiod_get(ctx->dev, "reset", GPIOD_OUT_HIGH);
+	gpiod_set_value(ctx->reset_gpio, 1);
+	usleep_range(5 * 1000, 5 * 1000);
+	gpiod_set_value(ctx->reset_gpio, 0);
+	usleep_range(5 * 1000, 5 * 1000);
+	gpiod_set_value(ctx->reset_gpio, 1);
+	usleep_range(10 * 1000, 10 * 1000);
+	devm_gpiod_put(ctx->dev, ctx->reset_gpio);
+
+	ret = ctx->error;
+	if (ret < 0)
+		lcm_unprepare(panel);
+	return 0;
+}
+
 static int lcm_prepare(struct drm_panel *panel)
 {
 	struct lcm *ctx = panel_to_lcm(panel);
 	int ret;
 
-	pr_info("%s\n", __func__);
+	lcm_panel_poweron(panel);
+
 	if (ctx->prepared)
 		return 0;
 
-#if defined(CONFIG_RT5081_PMU_DSV) || defined(CONFIG_MT6370_PMU_DSV)
-	lcm_panel_bias_enable();
-#endif
-	ctx->bias_gpio =
-	devm_gpiod_get(ctx->dev, "bias", GPIOD_OUT_HIGH);
-	gpiod_set_value(ctx->bias_gpio, 1);
-	devm_gpiod_put(ctx->dev, ctx->bias_gpio);
 	lcm_panel_init(ctx);
 
 	ret = ctx->error;
@@ -879,6 +903,24 @@ static int lcm_probe(struct mipi_dsi_device *dsi)
 	struct lcm *ctx;
 	struct device_node *backlight;
 	int ret;
+	struct device_node *dsi_node, *remote_node = NULL, *endpoint = NULL;
+
+	dsi_node = of_get_parent(dev->of_node);
+	if (dsi_node) {
+		endpoint = of_graph_get_next_endpoint(dsi_node, NULL);
+		if (endpoint) {
+			remote_node = of_graph_get_remote_port_parent(endpoint);
+			if (!remote_node) {
+				pr_info("No panel connected,skip probe lcm\n");
+				return -ENODEV;
+			}
+			pr_info("device node name:%s\n", remote_node->name);
+		}
+	}
+	if (remote_node != dev->of_node) {
+		pr_info("%s+ skip probe due to not current lcm\n", __func__);
+		return -ENODEV;
+	}
 
 	ctx = devm_kzalloc(dev, sizeof(struct lcm), GFP_KERNEL);
 	if (!ctx)
@@ -910,6 +952,14 @@ static int lcm_probe(struct mipi_dsi_device *dsi)
 		return PTR_ERR(ctx->reset_gpio);
 	}
 	devm_gpiod_put(dev, ctx->reset_gpio);
+	ctx->bias_gpio = devm_gpiod_get(dev, "bias", GPIOD_OUT_HIGH);
+	if (IS_ERR(ctx->bias_gpio)) {
+		dev_info(dev, "cannot get bias-gpios 0 %ld\n",
+			PTR_ERR(ctx->bias_gpio));
+		return PTR_ERR(ctx->bias_gpio);
+	}
+	devm_gpiod_put(dev, ctx->bias_gpio);
+
 	ctx->prepared = true;
 	ctx->enabled = true;
 
