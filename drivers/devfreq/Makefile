@@ -46,6 +46,6 @@ obj-$(CONFIG_MACH_MT6873)		+= helio-dvfsrc-v3/
 obj-$(CONFIG_MACH_MT6853)		+= helio-dvfsrc-v3/
 obj-$(CONFIG_MACH_MT8168)		+= helio-dvfsrc-v4/
 obj-$(CONFIG_MACH_MT6893)		+= helio-dvfsrc-v3/
-#obj-$(CONFIG_MACH_MT6833)		+= helio-dvfsrc-v3/
+obj-$(CONFIG_MACH_MT6833)		+= helio-dvfsrc-v3/
 # DEVFREQ Event Drivers
 obj-$(CONFIG_PM_DEVFREQ_EVENT)		+= event/
