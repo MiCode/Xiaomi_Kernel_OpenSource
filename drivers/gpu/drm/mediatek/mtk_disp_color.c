@@ -34,6 +34,9 @@ static struct DISP_PQ_PARAM g_Color_Param[DISP_COLOR_TOTAL];
 
 #define CCORR_REG(idx) (idx * 4 + 0x80)
 
+// It's a work around for no comp assigned in functions.
+static struct mtk_ddp_comp *default_comp;
+
 int ncs_tuning_mode;
 
 static unsigned int g_split_en;
@@ -1113,7 +1116,7 @@ bool disp_color_reg_get(struct mtk_ddp_comp *comp,
 	if (spin_trylock_irqsave(&g_color_clock_lock, flags)) {
 		DDPDBG("%s @ %d......... spin_trylock_irqsave -- ",
 			__func__, __LINE__);
-		*value = readl(comp->regs + addr);
+		*value = readl(default_comp->regs + addr);
 		spin_unlock_irqrestore(&g_color_clock_lock, flags);
 	} else {
 		DDPINFO("%s @ %d......... Failed to spin_trylock_irqsave ",
@@ -2918,6 +2921,22 @@ static int mtk_color_user_cmd(struct mtk_ddp_comp *comp,
 	return 0;
 }
 
+struct color_backup {
+	unsigned int COLOR_CFG_MAIN;
+};
+static struct color_backup g_color_backup;
+
+static void ddp_color_backup(struct mtk_ddp_comp *comp)
+{
+	g_color_backup.COLOR_CFG_MAIN =
+		readl(comp->regs + DISP_COLOR_CFG_MAIN);
+}
+
+static void ddp_color_restore(struct mtk_ddp_comp *comp)
+{
+	writel(g_color_backup.COLOR_CFG_MAIN, comp->regs + DISP_COLOR_CFG_MAIN);
+}
+
 static void mtk_color_prepare(struct mtk_ddp_comp *comp)
 {
 #if defined(CONFIG_DRM_MTK_SHADOW_REGISTER_SUPPORT)
@@ -2945,6 +2964,8 @@ static void mtk_color_prepare(struct mtk_ddp_comp *comp)
 		DISP_COLOR_SHADOW_CTRL, COLOR_BYPASS_SHADOW);
 #endif
 #endif
+	// restore DISP_COLOR_CFG_MAIN register
+	ddp_color_restore(comp);
 }
 
 static void mtk_color_unprepare(struct mtk_ddp_comp *comp)
@@ -2957,6 +2978,8 @@ static void mtk_color_unprepare(struct mtk_ddp_comp *comp)
 	atomic_set(&g_color_is_clock_on[index_of_color(comp->id)], 0);
 	spin_unlock_irqrestore(&g_color_clock_lock, flags);
 	DDPINFO("%s @ %d......... spin_unlock_irqrestore ", __func__, __LINE__);
+	// backup DISP_COLOR_CFG_MAIN register
+	ddp_color_backup(comp);
 	mtk_ddp_comp_clk_unprepare(comp);
 }
 
@@ -3041,6 +3064,9 @@ static int mtk_disp_color_probe(struct platform_device *pdev)
 		dev_err(dev, "Failed to initialize component: %d\n", ret);
 		return ret;
 	}
+
+	if (!default_comp)
+		default_comp = &priv->ddp_comp;
 
 	priv->data = of_device_get_match_data(dev);
 
@@ -3161,3 +3187,20 @@ struct platform_driver mtk_disp_color_driver = {
 		},
 };
 
+void mtk_color_setbypass(struct mtk_ddp_comp *comp, bool bypass)
+{
+	DDPINFO("%s, bypass: %d\n", __func__, bypass);
+	if (default_comp != NULL) {
+		if (bypass) {
+			mtk_ddp_write_mask_cpu(default_comp, 0x80,
+				DISP_COLOR_CFG_MAIN, COLOR_BYPASS_ALL);
+			g_color_bypass[index_of_color(default_comp->id)] = 0x1;
+		} else {
+			mtk_ddp_write_mask_cpu(default_comp, 0x0,
+				DISP_COLOR_CFG_MAIN, COLOR_BYPASS_ALL);
+			g_color_bypass[index_of_color(default_comp->id)] = 0x0;
+		}
+	} else {
+		DDPINFO("%s, default_comp is null\n", __func__);
+	}
+}
