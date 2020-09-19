@@ -152,7 +152,8 @@ void disp_get_fb_address(unsigned long *fbVirAddr)
 {
 	*fbVirAddr = (unsigned long)debug_info->screen_base;
 	pr_info(
-		  "fbdev->fb_va_base = 0x%p\n", debug_info->screen_base);
+		  "%s fbdev->fb_va_base = 0x%p\n",
+		  __func__, debug_info->screen_base);
 }
 
 int pan_display_test(int frame_num, int bpp)
@@ -167,6 +168,12 @@ int pan_display_test(int frame_num, int bpp)
 
 	debug_info->var.yoffset = 0;
 	disp_get_fb_address((unsigned long *)&fb_va);
+	if (!fb_va)
+		return 0;
+
+	if (!mtk_crtc_frame_buffer_existed())
+		return 0;
+
 	fb_size = debug_info->fix.smem_len;
 	w = debug_info->var.xres;
 	h = debug_info->var.yres;
@@ -200,6 +207,7 @@ int pan_display_test(int frame_num, int bpp)
 		mtk_drm_fb_pan_display(&debug_info->var, debug_info);
 	}
 
+	DDPMSG("%s, %d--\n", __func__, __LINE__);
 	return 0;
 }
 
