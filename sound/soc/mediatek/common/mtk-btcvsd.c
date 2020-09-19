@@ -318,26 +318,6 @@ static void mtk_btcvsd_snd_data_transfer(enum bt_sco_direct dir,
 	}
 }
 
-/* do not write header, skip ther first two bytes */
-static void mtk_btcvsd_snd_data_transfer_no_header(enum bt_sco_direct dir,
-						  u8 *src, u8 *dst,
-						  unsigned int blk_size,
-						  unsigned int blk_num)
-{
-	unsigned int i, j;
-
-	u16 *src_16 = (u16 *)src;
-	u16 *dst_16 = (u16 *)dst;
-
-	for (j = 0; j < blk_num; j++) {
-		dst_16++;
-		src_16++;
-
-		for (i = 0; i < ((blk_size / 2) - 1); i++)
-			*dst_16++ = *src_16++;
-	}
-}
-
 /* write encoded mute data to bt sram */
 static int btcvsd_tx_clean_buffer(struct mtk_btcvsd_snd *bt)
 {
@@ -380,18 +360,10 @@ static int btcvsd_tx_clean_buffer(struct mtk_btcvsd_snd *bt)
 
 	dev_info(bt->dev, "%s(), clean addr 0x%lx\n", __func__, ap_addr_tx);
 
-	if (band == BT_SCO_NB) {
-		mtk_btcvsd_snd_data_transfer(BT_SCO_DIRECT_ARM2BT,
-					     bt->tx->temp_packet_buf, dst,
-					     bt->tx->buffer_info.packet_length,
-					     bt->tx->buffer_info.packet_num);
-	} else {
-		mtk_btcvsd_snd_data_transfer_no_header(
-					BT_SCO_DIRECT_ARM2BT,
-					bt->tx->temp_packet_buf, dst,
-					bt->tx->buffer_info.packet_length,
-					bt->tx->buffer_info.packet_num);
-	}
+	mtk_btcvsd_snd_data_transfer(BT_SCO_DIRECT_ARM2BT,
+				     bt->tx->temp_packet_buf, dst,
+				     bt->tx->buffer_info.packet_length,
+				     bt->tx->buffer_info.packet_num);
 
 	spin_unlock_irqrestore(&bt->tx_lock, flags);
 	bt->write_tx = 1;
