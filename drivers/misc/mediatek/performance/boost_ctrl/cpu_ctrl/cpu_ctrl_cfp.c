@@ -156,7 +156,10 @@ static void set_cfp_ppm(struct ppm_limit_data *desired_freq, int headroom_opp)
 	perfmgr_trace_count(cc_is_ceiled, "cfp_ceiled");
 #endif
 #ifndef CONFIG_FPGA_EARLY_PORTING
-	mt_ppm_userlimit_cpu_freq(perfmgr_clusters, cfp_freq);
+	if (mt_ppm_userlimit_cpu_freq)
+		mt_ppm_userlimit_cpu_freq(perfmgr_clusters, cfp_freq);
+	else
+		perfmgr_common_userlimit_cpu_freq(perfmgr_clusters, cfp_freq);
 #endif
 }
 
