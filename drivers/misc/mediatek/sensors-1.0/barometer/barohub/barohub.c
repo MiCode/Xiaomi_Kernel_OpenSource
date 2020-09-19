@@ -411,11 +411,12 @@ static int barohub_flush(void)
 
 static int barohub_set_cali(uint8_t *data, uint8_t count)
 {
+	int32_t *buf = (int32_t *)data;
 	struct barohub_ipi_data *obj = obj_ipi_data;
 
 	spin_lock(&calibration_lock);
-	obj->config_data[0] = data[0];
-	obj->config_data[1] = data[1];
+	obj->config_data[0] = buf[0];
+	obj->config_data[1] = buf[1];
 	spin_unlock(&calibration_lock);
 
 	return sensor_cfg_to_hub(ID_PRESSURE, data, count);
