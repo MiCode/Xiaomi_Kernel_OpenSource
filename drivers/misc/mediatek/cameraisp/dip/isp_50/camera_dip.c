@@ -223,6 +223,136 @@ static const struct of_device_id dip_of_ids[] = {
 };
 
 #endif
+
+struct Dip_Init_Array {
+	unsigned int ofset;
+	unsigned int val;
+};
+
+#define DIP_INIT_ARRAY_COUNT  118
+const struct Dip_Init_Array DIP_INIT_ARY[DIP_INIT_ARRAY_COUNT] = {
+	{0x00A0, 0x1},   //DIP_X_CTL_TOP_DCM_DIS
+	{0x0020, 0x0},   //DIP_X_REG_CTL_INT_EN
+	{0x0024, 0x0},   //DIP_X_REG_CTL_CQ_INT_EN
+	{0x0028, 0x0},   //DIP_X_REG_CTL_CQ_INT2_EN
+	{0x002C, 0x0},   //DIP_X_REG_CTL_CQ_INT3_EN
+	{0x0204, 0x11},   //DIP_X_CQ_THR0_CTL
+	{0x0210, 0x11},   //DIP_X_CQ_THR1_CTL
+	{0x021C, 0x11},   //DIP_X_CQ_THR2_CTL
+	{0x0228, 0x11},   //DIP_X_CQ_THR3_CTL
+	{0x0234, 0x11},   //DIP_X_CQ_THR4_CTL
+	{0x0240, 0x11},   //DIP_X_CQ_THR5_CTL
+	{0x024C, 0x11},   //DIP_X_CQ_THR6_CTL
+	{0x0258, 0x11},   //DIP_X_CQ_THR7_CTL
+	{0x0264, 0x11},   //DIP_X_CQ_THR8_CTL
+	{0x0270, 0x11},   //DIP_X_CQ_THR9_CTL
+	{0x027C, 0x11},   //DIP_X_CQ_THR10_CTL
+	{0x0288, 0x11},   //DIP_X_CQ_THR11_CTL
+	{0x0294, 0x11},   //DIP_X_CQ_THR12_CTL
+	{0x02A0, 0x11},   //DIP_X_CQ_THR13_CTL
+	{0x02AC, 0x11},   //DIP_X_CQ_THR14_CTL
+	{0x02B8, 0x11},   //DIP_X_CQ_THR15_CTL
+	{0x02C4, 0x11},   //DIP_X_CQ_THR16_CTL
+	{0x02D0, 0x11},   //DIP_X_CQ_THR17_CTL
+	{0x02DC, 0x11},   //DIP_X_CQ_THR18_CTL
+	{0x020C, 0x308},    //DIP_X_CQ_THR0_DESC_SIZE
+	{0x0218, 0x308},    //DIP_X_CQ_THR1_DESC_SIZE
+	{0x0224, 0x308},    //DIP_X_CQ_THR2_DESC_SIZE
+	{0x0230, 0x308},    //DIP_X_CQ_THR3_DESC_SIZE
+	{0x023C, 0x308},    //DIP_X_CQ_THR4_DESC_SIZE
+	{0x0248, 0x308},    //DIP_X_CQ_THR5_DESC_SIZE
+	{0x0254, 0x308},    //DIP_X_CQ_THR6_DESC_SIZE
+	{0x0260, 0x308},    //DIP_X_CQ_THR7_DESC_SIZE
+	{0x026C, 0x308},    //DIP_X_CQ_THR8_DESC_SIZE
+	{0x0278, 0x308},    //DIP_X_CQ_THR9_DESC_SIZE
+	{0x0284, 0x308},    //DIP_X_CQ_THR10_DESC_SIZE
+	{0x0290, 0x308},    //DIP_X_CQ_THR11_DESC_SIZE
+	{0x029C, 0x308},    //DIP_X_CQ_THR12_DESC_SIZE
+	{0x02A8, 0x308},    //DIP_X_CQ_THR13_DESC_SIZE
+	{0x02B4, 0x308},    //DIP_X_CQ_THR14_DESC_SIZE
+	{0x02C0, 0x308},    //DIP_X_CQ_THR15_DESC_SIZE
+	{0x02CC, 0x308},    //DIP_X_CQ_THR16_DESC_SIZE
+	{0x02D8, 0x308},    //DIP_X_CQ_THR17_DESC_SIZE
+	{0x02E4, 0x308},    //DIP_X_CQ_THR18_DESC_SIZE
+	{0x34C, 0x80000040},    //DIP_X_IMG2O_CON
+	{0x350, 0x00400040},    //DIP_X_IMG2O_CON2
+	{0x354, 0x00150015},    //DIP_X_IMG2O_CON3
+	{0x37C, 0x80000040},    //DIP_X_IMG2BO_CON
+	{0x380, 0x00400040},    //DIP_X_IMG2bO_CON2
+	{0x384, 0x00150015},    //DIP_X_IMG2bO_CON3
+	{0x3AC, 0x80000040},    //DIP_X_IMG3O_CON
+	{0x3B0, 0x00400040},    //DIP_X_IMG3O_CON2
+	{0x3B4, 0x00150015},    //DIP_X_IMG3O_CON3
+	{0x3DC, 0x80000020},    //DIP_X_IMG3BO_CON
+	{0x3E0, 0x00200020},    //DIP_X_IMG3BO_CON2
+	{0x3E4, 0x000A000A},    //DIP_X_IMG3BO_CON3
+	{0x40C, 0x80000020},    //DIP_X_IMG3CO_CON
+	{0x410, 0x00200020},    //DIP_X_IMG3CO_CON2
+	{0x414, 0x000A000A},    //DIP_X_IMG3CO_CON3
+	{0x43C, 0x80000040},    //DIP_X_FEO_CON
+	{0x440, 0x00400040},    //DIP_X_FEO_CON2
+	{0x444, 0x00150015},    //DIP_X_FEO_CON3
+	{0x46C, 0x80000040},    //DIP_X_PAK2O_CON
+	{0x470, 0x00400040},    //DIP_X_PAK2O_CON2
+	{0x474, 0x00150015},    //DIP_X_PAK2O_CON3
+	{0x51C, 0x80000080},    //DIP_X_IMGI_CON
+	{0x520, 0x00800080},    //DIP_X_IMGI_CON2
+	{0x524, 0x002A002A},    //DIP_X_IMGI_CON3
+	{0x54C, 0x80000040},    //DIP_X_IMGBI_CON
+	{0x550, 0x00400040},    //DIP_X_IMGBI_CON2
+	{0x554, 0x00150015},    //DIP_X_IMGBI_CON3
+	{0x57C, 0x80000040},    //DIP_X_IMGCI_CON
+	{0x580, 0x00400040},    //DIP_X_IMGCI_CON2
+	{0x584, 0x00150015},    //DIP_X_IMGCI_CON3
+	{0x5AC, 0x80000080},    //DIP_X_VIPI_CON
+	{0x5B0, 0x00800080},    //DIP_X_VIPI_CON2
+	{0x5B4, 0x002A002A},    //DIP_X_VIPI_CON3
+	{0x5DC, 0x80000040},    //DIP_X_VIP2I_CON
+	{0x5E0, 0x00400040},    //DIP_X_VIP2I_CON2
+	{0x5E4, 0x00150015},    //DIP_X_VIP2I_CON3
+	{0x60C, 0x80000040},    //DIP_X_VIP3I_CON
+	{0x610, 0x00400040},    //DIP_X_VIP3I_CON2
+	{0x614, 0x00150015},    //DIP_X_VIP3I_CON3
+	{0x63C, 0x80000020},    //DIP_X_DMGI_CON
+	{0x640, 0x00200020},    //DIP_X_DMGI_CON2
+	{0x644, 0x000A000A},    //DIP_X_DMGI_CON3
+	{0x66C, 0x80000020},    //DIP_X_DEPI_CON
+	{0x670, 0x00200020},    //DIP_X_DEPI_CON2
+	{0x674, 0x000A000A},    //DIP_X_DEPI_CON3
+	{0x69C, 0x80000020},    //DIP_X_LCEI_CON
+	{0x6A0, 0x00200020},    //DIP_X_LCEI_CON2
+	{0x6A4, 0x000A000A},    //DIP_X_LCEI_CON3
+	{0x6CC, 0x80000020},    //DIP_X_UFDI_CON
+	{0x6D0, 0x00200020},    //DIP_X_UFDI_CON2
+	{0x6D4, 0x000A000A},    //DIP_X_UFDI_CON3
+	{0x7EC, 0x80000040},    //DIP_X_SMX1O_CON
+	{0x7F0, 0x00400040},    //DIP_X_SMX1O_CON2
+	{0x7F4, 0x00400040},    //DIP_X_SMX1O_CON3
+	{0x81C, 0x80000040},    //DIP_X_SMX2O_CON
+	{0x820, 0x00400040},    //DIP_X_SMX2O_CON2
+	{0x824, 0x00400040},    //DIP_X_SMX2O_CON3
+	{0x84C, 0x80000040},    //DIP_X_SMX3O_CON
+	{0x850, 0x00400040},    //DIP_X_SMX3O_CON2
+	{0x854, 0x00400040},    //DIP_X_SMX3O_CON3
+	{0x87C, 0x80000040},    //DIP_X_SMX4O_CON
+	{0x880, 0x00400040},    //DIP_X_SMX4O_CON2
+	{0x884, 0x00400040},    //DIP_X_SMX4O_CON3
+	{0x8AC, 0x80000040},    //DIP_A_SMX1I_CON
+	{0x8B0, 0x00400040},    //DIP_A_SMX1I_CON2
+	{0x8B4, 0x00400040},    //DIP_A_SMX1I_CON3
+	{0x8DC, 0x80000040},    //DIP_A_SMX2I_CON
+	{0x8E0, 0x00400040},    //DIP_A_SMX2I_CON2
+	{0x8E4, 0x00400040},    //DIP_A_SMX2I_CON3
+	{0x90C, 0x80000040},    //DIP_A_SMX3I_CON
+	{0x910, 0x00400040},    //DIP_A_SMX3I_CON2
+	{0x914, 0x00400040},    //DIP_A_SMX3I_CON3
+	{0x93C, 0x80000040},    //DIP_A_SMX4I_CON
+	{0x940, 0x00400040},    //DIP_A_SMX4I_CON2
+	{0x944, 0x00400040}     //DIP_A_SMX4I_CON3
+};
+
+
+
 /**************************************************************
  *
  **************************************************************/
@@ -1882,6 +2012,7 @@ EXIT:
 /**************************************************************
  *
  **************************************************************/
+/*
 static signed int DIP_WriteRegToHw(
 	struct DIP_REG_STRUCT *pReg,
 	unsigned int         Count)
@@ -1892,8 +2023,6 @@ static signed int DIP_WriteRegToHw(
 	unsigned int module;
 	void __iomem *regBase;
 
-	/* Use local variable to store IspInfo.DebugMask & */
-	/* DIP_DBG_WRITE_REG for saving lock time*/
 	spin_lock(&(IspInfo.SpinLockIsp));
 	dbgWriteReg = IspInfo.DebugMask & DIP_DBG_WRITE_REG;
 	spin_unlock(&(IspInfo.SpinLockIsp));
@@ -1910,11 +2039,9 @@ static signed int DIP_WriteRegToHw(
 		return -EFAULT;
 	}
 
-	/*  */
 	if (dbgWriteReg)
 		LOG_DBG("- E.\n");
 
-	/*  */
 	for (i = 0; i < Count; i++) {
 		if (dbgWriteReg)
 			LOG_DBG("mod(%d),base(0x%lx),Addr(0x%lx),Val(0x%x)\n",
@@ -1931,25 +2058,19 @@ static signed int DIP_WriteRegToHw(
 
 	}
 
-	/*  */
 	return Ret;
 }
-
-
+*/
 
 /**************************************************************
  *
  **************************************************************/
+/*
 static signed int DIP_WriteReg(struct DIP_REG_IO_STRUCT *pRegIo)
 {
 	signed int Ret = 0;
-	/*    signed int TimeVd = 0;*/
-	/*    signed int TimeExpdone = 0;*/
-	/*    signed int TimeTasklet = 0;*/
-	/* unsigned char* pData = NULL; */
 	struct DIP_REG_STRUCT *pData = NULL;
 
-	/*  */
 	if (IspInfo.DebugMask & DIP_DBG_WRITE_REG)
 		LOG_DBG("Data(0x%p), Count(%d)\n",
 			(pRegIo->pData),
@@ -1965,7 +2086,7 @@ static signed int DIP_WriteReg(struct DIP_REG_IO_STRUCT *pRegIo)
 	}
 	pData = kmalloc((pRegIo->Count) *
 		sizeof(struct DIP_REG_STRUCT),
-		GFP_KERNEL); /* Use GFP_KERNEL instead of GFP_ATOMIC */
+		GFP_KERNEL);
 	if (pData == NULL) {
 		LOG_INF("ERROR:kmalloc failed,(process,pid,tgid)=(%s,%d,%d)\n",
 		current->comm,
@@ -1974,7 +2095,6 @@ static signed int DIP_WriteReg(struct DIP_REG_IO_STRUCT *pRegIo)
 	Ret = -ENOMEM;
 	goto EXIT;
 	}
-	/*  */
 	if (copy_from_user(pData,
 		(void __user *)(pRegIo->pData),
 		pRegIo->Count * sizeof(struct DIP_REG_STRUCT)) != 0) {
@@ -1983,11 +2103,11 @@ static signed int DIP_WriteReg(struct DIP_REG_IO_STRUCT *pRegIo)
 		goto EXIT;
 	}
 
-	/*  */
+
 	Ret = DIP_WriteRegToHw(
 		      pData,
 		      pRegIo->Count);
-	/*  */
+
 EXIT:
 	if (pData != NULL) {
 		kfree(pData);
@@ -1995,7 +2115,7 @@ EXIT:
 	}
 	return Ret;
 }
-
+*/
 /**************************************************************
  *
  **************************************************************/
@@ -3457,7 +3577,9 @@ static long DIP_ioctl(
 			(void *)Param,
 			sizeof(struct DIP_REG_IO_STRUCT)) == 0) {
 /* 2nd layer behavoir of copy from user is implemented in DIP_WriteReg(...) */
-			Ret = DIP_WriteReg(&RegIo);
+			/* Ret = DIP_WriteReg(&RegIo);*/
+			LOG_ERR("Not Support Wrire Reg.\n");
+			Ret = -EFAULT;
 		} else {
 			LOG_ERR("copy_from_user failed\n");
 			Ret = -EFAULT;
@@ -3855,6 +3977,20 @@ static long DIP_ioctl_compat(
 
 #endif
 
+
+/**************************************************************
+ *
+ **************************************************************/
+static inline void DIP_Load_InitialSettings(void)
+{
+	unsigned int i = 0;
+
+	for (i = 0 ; i < DIP_INIT_ARRAY_COUNT ; i++) {
+		DIP_WR32(DIP_A_BASE + DIP_INIT_ARY[i].ofset,
+				DIP_INIT_ARY[i].val);
+	}
+}
+
 /**************************************************************
  *
  **************************************************************/
@@ -4055,6 +4191,9 @@ static signed int DIP_open(
 	__pm_stay_awake(&dip_wake_lock);
 #endif
 	DIP_EnableClock(MTRUE);
+	/* Initial HW default value */
+	if (G_u4DipEnClkCnt == 1)
+		DIP_Load_InitialSettings();
 	g_u4DipCnt = 0;
 #ifdef CONFIG_PM_SLEEP
 	__pm_relax(&dip_wake_lock);
@@ -4229,26 +4368,17 @@ EXIT:
 /**************************************************************
  *
  **************************************************************/
+/*
 static signed int DIP_mmap(
 	struct file *pFile, struct vm_area_struct *pVma)
 {
 	unsigned long length = 0;
 	unsigned int pfn = 0x0;
 
-	/*LOG_DBG("- E.");*/
 	length = (pVma->vm_end - pVma->vm_start);
-	/*  */
+
 	pVma->vm_page_prot = pgprot_noncached(pVma->vm_page_prot);
 	pfn = pVma->vm_pgoff << PAGE_SHIFT;
-
-	/*LOG_INF("DIP_mmap: vm_pgoff(0x%lx),pfn(0x%x),phy(0x%lx), */
-		/* vm_start(0x%lx),vm_end(0x%lx),length(0x%lx)\n", */
-		/* pVma->vm_pgoff, */
-		/* pfn, */
-		/* pVma->vm_pgoff << PAGE_SHIFT, */
-		/* pVma->vm_start, */
-		/* pVma->vm_end, */
-		/* ength); */
 
 
 	switch (pfn) {
@@ -4271,10 +4401,9 @@ static signed int DIP_mmap(
 		pVma->vm_page_prot))
 		return -EAGAIN;
 
-	/*  */
 	return 0;
 }
-
+*/
 /**************************************************************
  *
  **************************************************************/
@@ -4288,7 +4417,7 @@ static const struct file_operations IspFileOper = {
 	.open = DIP_open,
 	.release = DIP_release,
 	/* .flush       = mt_dip_flush, */
-	.mmap = DIP_mmap,
+	/*  .mmap = DIP_mmap, */
 	.unlocked_ioctl = DIP_ioctl,
 #ifdef CONFIG_COMPAT
 	.compat_ioctl = DIP_ioctl_compat,
@@ -4682,6 +4811,8 @@ static signed int DIP_resume(struct platform_device *pDev)
 {
 	if (g_u4DipCnt > 0) {
 		DIP_EnableClock(MTRUE);
+		if (G_u4DipEnClkCnt == 1)
+			DIP_Load_InitialSettings();
 		g_u4DipCnt--;
 	}
 	return 0;
