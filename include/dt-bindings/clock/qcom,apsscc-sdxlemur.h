@@ -7,7 +7,7 @@
 #define _DT_BINDINGS_CLK_QCOM_APSS_CC_SDXLEMUR_H
 
 /* APSS_CC clocks */
-#define APCS_CLK						0
-#define APCS_CPU_PLL						1
+#define APCS_CPU_PLL						0
+#define APCS_MUX_CLK						1
 
 #endif
