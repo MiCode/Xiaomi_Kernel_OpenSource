@@ -118,6 +118,7 @@ int freqhopping_config(unsigned int fh_id
 
 	return 0;
 }
+EXPORT_SYMBOL(freqhopping_config);
 #else
 int mt_dfs_armpll(int fh_id, int dds)
 {
