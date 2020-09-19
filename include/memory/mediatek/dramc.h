@@ -31,6 +31,7 @@ struct fmeter_dev_t {
 	struct reg_ctrl_t ckdiv4[2];
 	struct reg_ctrl_t cldiv2[2];
 	struct reg_ctrl_t fbksel[2];
+	struct reg_ctrl_t dqsopen[2];
 	struct reg_ctrl_t dqopen[2];
 };
 
