@@ -129,34 +129,6 @@ static int iReadData_CAM_CAL(struct i2c_client *client,
 }
 
 #if EEPROM_WRITE_EN
-/*20200716 Add Feature: burn MTK cal data in EEPROM*/
-static int Erase_I2C_CAM_CAL(struct i2c_client *client)
-{
-	int i4RetValue = 0;
-	char puCmd[2];
-	struct i2c_msg msg;
-
-	puCmd[0] = (char)(0x81);
-	puCmd[1] = (char)(0xEE);
-
-	msg.addr = client->addr;
-	msg.flags = client->flags & I2C_M_TEN;
-	msg.len = 2;
-	msg.buf = puCmd;
-
-	i4RetValue = i2c_transfer(client->adapter, &msg, 1);
-
-	if (i4RetValue != 1) {
-		pr_debug("I2C erase data failed!!\n");
-		return -1;
-	}
-
-	/* Wait for erase complete */
-	mdelay(30);
-
-	return 0;
-}
-
 static int Write_I2C_CAM_CAL(struct i2c_client *client,
 			     u16 a_u2Addr,
 			     u32 ui4_length,
@@ -268,17 +240,34 @@ unsigned int DW9763_write_region(struct i2c_client *client, unsigned int addr,
 #if EEPROM_WRITE_EN
 	struct timeval t;
 
+	int i4RetValue = 0;
+	char puCmd[2];
+	struct i2c_msg msg;
+
 	EEPROM_PROFILE_INIT(&t);
 
-	if (Erase_I2C_CAM_CAL(client) != 0) {
-		pr_debug("Erase_I2C_CAM_CAL failed!!\n");
+	puCmd[0] = (char)(0x81);
+	puCmd[1] = (char)(0xEE);
+
+	msg.addr = client->addr;
+	msg.flags = client->flags & I2C_M_TEN;
+	msg.len = 2;
+	msg.buf = puCmd;
+
+	i4RetValue = i2c_transfer(client->adapter, &msg, 1);
+
+	if (i4RetValue != 1) {
+		pr_debug("I2C erase data failed!!\n");
 		return -1;
 	}
+
+	/* Wait for erase complete */
+	mdelay(30);
 
 	if (iWriteData_CAM_CAL(client, addr, size, data) == 0)
 		ret = size;
 
-	EEPROM_PROFILE(&t, "common_write_time");
+	EEPROM_PROFILE(&t, "DW9763_write_time");
 #else
 	pr_debug("Write operation disabled\n");
 #endif
@@ -286,3 +275,116 @@ unsigned int DW9763_write_region(struct i2c_client *client, unsigned int addr,
 	return ret;
 }
 
+unsigned int BL24SA64_write_region(struct i2c_client *client, unsigned int addr,
+				unsigned char *data, unsigned int size)
+{
+	unsigned int ret = 0;
+#if EEPROM_WRITE_EN
+	struct timeval t;
+
+	unsigned char test_read = 0x00;
+	unsigned char unlock_cmd = 0x40;
+	unsigned char lock_cmd = 0x78;
+	unsigned char unlock_val = 0x00 | ((client->addr) & 0x7) << 4; // 0x50 -> 0x00
+	unsigned char lock_val = unlock_val | 0x0F; // 0x50 -> 0x0F
+	unsigned int ori_addr = 0x00; // to store the current address during sending cmd.
+	unsigned int exp_addr = 0x00; // to store the expected address after lock EEPROM.
+	unsigned int i = 0;
+
+	EEPROM_PROFILE_INIT(&t);
+
+/************ test read EEPROM ************/
+
+	exp_addr = client->addr;
+	if (iReadData_CAM_CAL(client, 0x0008, 1, &test_read) < 0) {
+		pr_debug("Read EEPROM ID failed\n");
+		pr_debug("Start looping slave address 0x50 ~ 0x57\n");
+		for (i = 0; i < 8; i++) {
+			client->addr = 0x50+i;
+			pr_debug("Change slave address to 0x%02x\n", client->addr);
+			if (iReadData_CAM_CAL(client, 0x0008, 1, &test_read) == 0) {
+				pr_debug("EEPROM ID = 0x%02x\n", test_read);
+				break;
+			}
+		}
+	} else
+		pr_debug("EEPROM ID = 0x%02x\n", test_read);
+
+	if (iReadData_CAM_CAL(client, 0x8000, 1, &test_read) < 0) {
+		pr_debug("Read register failed\n");
+		return -1;
+	}
+	pr_debug("Register ID = 0x%02x\n", test_read);
+
+/************ unlock EEPROM ************/
+
+	pr_debug("BL24SA64 write unlock 0x%02x\n", unlock_val);
+
+	ori_addr = client->addr;
+	client->addr = unlock_cmd;
+
+	iWriteData_CAM_CAL(client, 0x8000, 1, &unlock_val);
+	pr_debug("BL24SA64 unlock part1\n");
+
+	client->addr = ori_addr;
+
+	if (iWriteData_CAM_CAL(client, 0x8000, 1, &unlock_val) < 0) {
+		pr_debug("Unlock protection failed!!\n");
+		return -1;
+	}
+	pr_debug("BL24SA64 unlock done\n");
+
+/************ test read EEPROM ************/
+
+	if (iReadData_CAM_CAL(client, 0x8000, 1, &test_read) == 0)
+		pr_debug("Register ID = 0x%02x\n", test_read);
+	else {
+		pr_debug("Read register failed!!\n");
+		return -1;
+	}
+
+/************ write EEPROM ************/
+
+	if (iWriteData_CAM_CAL(client, addr, size, data) < 0)
+		pr_debug("Write EEPROM failed!!\n");
+	else
+		ret = size;
+	pr_debug("Write EEPROM ret = %d\n", ret);
+
+/************ lock EEPROM ************/
+
+	pr_debug("BL24SA64 write lock 0x%02x\n", lock_val);
+
+	ori_addr = client->addr;
+	client->addr = lock_cmd;
+
+	iWriteData_CAM_CAL(client, 0x8000, 1, &lock_val);
+	pr_debug("BL24SA64 lock part1\n");
+
+	client->addr = ori_addr;
+
+	if (iWriteData_CAM_CAL(client, 0x8000, 1, &lock_val) < 0) {
+		pr_debug("Lock protection failed!!\n");
+		return -1;
+	}
+	pr_debug("BL24SA64 lock done\n");
+
+/************ test read EEPROM ************/
+
+	client->addr = exp_addr;
+	if (iReadData_CAM_CAL(client, 0x8000, 1, &test_read) == 0)
+		pr_debug("Register ID = 0x%02x\n", test_read);
+	else {
+		pr_debug("Failed to read register!!\n");
+		return -1;
+	}
+
+/***************************************/
+
+	EEPROM_PROFILE(&t, "BL24SA64_write_time");
+#else
+	pr_debug("Write operation disabled\n");
+#endif
+
+	return ret;
+}
