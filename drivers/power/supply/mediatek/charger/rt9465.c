@@ -731,6 +731,9 @@ static inline const char *rt9465_get_irq_name(struct rt9465_info *info,
 
 static inline void rt9465_irq_mask(struct rt9465_info *info, int irqnum)
 {
+	if (irqnum < 0)
+		return;
+
 	dev_dbg(info->dev, "%s: irq = %d, %s\n", __func__, irqnum,
 		rt9465_get_irq_name(info, irqnum));
 	rt9465_irqmask[irqnum / 8] |= (1 << (irqnum % 8));
@@ -738,6 +741,9 @@ static inline void rt9465_irq_mask(struct rt9465_info *info, int irqnum)
 
 static inline void rt9465_irq_unmask(struct rt9465_info *info, int irqnum)
 {
+	if (irqnum < 0)
+		return;
+
 	dev_dbg(info->dev, "%s: irq = %d, %s\n", __func__, irqnum,
 		rt9465_get_irq_name(info, irqnum));
 	rt9465_irqmask[irqnum / 8] &= ~(1 << (irqnum % 8));
@@ -856,7 +862,10 @@ static int rt9465_register_irq(struct rt9465_info *info)
 	/* request gpio */
 	len = strlen(info->desc->chg_dev_name);
 	name = devm_kzalloc(info->dev, len + 10, GFP_KERNEL);
-	snprintf(name,  len + 10, "%s_irq_gpio", info->desc->chg_dev_name);
+	ret = snprintf(name, len + 10, "%s_irq_gpio", info->desc->chg_dev_name);
+	if (ret < 0 || ret > (len + 10))
+		goto err;
+
 	ret = devm_gpio_request_one(info->dev, info->intr_gpio, GPIOF_IN, name);
 	if (ret < 0) {
 		chr_err("%s: gpio request fail\n", __func__);
