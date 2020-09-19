@@ -23,6 +23,7 @@
 #include <linux/of_irq.h>
 #include <linux/clk.h>
 #include <linux/debugfs.h>
+#include <linux/pinctrl/consumer.h>
 
 #define KPD_NAME	"mtk-kpd"
 
