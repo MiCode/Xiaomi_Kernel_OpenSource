@@ -53,6 +53,7 @@ static DEFINE_MUTEX(svp_online_task_lock);
 #define SSMR_ALIGN (1 << (PAGE_SHIFT + (MAX_ORDER - 1)))
 
 static u64 ssmr_upper_limit = UPPER_LIMIT64;
+static int reserved_for_unmap_ready;
 
 /* Flag indicates if all SSMR features use reserved memory as source */
 static int is_pre_reserve_memory;
@@ -259,6 +260,28 @@ static int __init memory_ssmr_init(struct reserved_mem *rmem)
 }
 RESERVEDMEM_OF_DECLARE(memory_ssmr, "mediatek,memory-ssmr",
 			memory_ssmr_init);
+
+/*
+ * This is for unmap in 1G block descriptor
+ * reserve a 4KB around movable zone to make sure it's not 1G block descriptor
+ */
+static int __init ssmr_reserve_init(struct reserved_mem *rmem)
+{
+	pr_info("%s, name: %s, base: %pa, size: %pa\n",
+			__func__, rmem->name,
+			&rmem->base, &rmem->size);
+
+	if (__MAX_NR_SSMR_FEATURES <= 0) {
+		memblock_free(rmem->base, rmem->size);
+		memblock_add(rmem->base, rmem->size);
+		return 0;
+	}
+
+	reserved_for_unmap_ready = 1;
+	return 0;
+}
+RESERVEDMEM_OF_DECLARE(ssmr_reserve, "mediatek,reserve-memory-ssmr",
+			ssmr_reserve_init);
 
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) ||\
 	defined(CONFIG_MTK_TEE_GP_SUPPORT)
@@ -1426,6 +1449,9 @@ static int __init memory_ssmr_debug_init(void)
 		pr_err("SSMR sanity fail\n");
 		return 1;
 	}
+
+	if (reserved_for_unmap_ready)
+		pr_info("%s: reserved mem for unmap is ready\n", __func__);
 
 	pr_info("[PASS]: SSMR sanity.\n");
 
