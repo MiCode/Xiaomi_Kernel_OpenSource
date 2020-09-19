@@ -102,8 +102,10 @@ int ppm_main_freq_to_idx(unsigned int cluster_id,
 	FUNC_ENTER(FUNC_LV_MAIN);
 
 	if (!p->cluster_info[cluster_id].dvfs_tbl) {
+#ifdef FIXME
 		ppm_err("@%s: DVFS table of cluster %d is not exist!\n",
 			__func__, cluster_id);
+#endif
 		idx = (relation == CPUFREQ_RELATION_L)
 			? get_cluster_min_cpufreq_idx(cluster_id)
 			: get_cluster_max_cpufreq_idx(cluster_id);
