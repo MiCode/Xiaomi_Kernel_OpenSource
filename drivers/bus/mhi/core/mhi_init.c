@@ -1776,6 +1776,13 @@ int mhi_prepare_for_power_up(struct mhi_controller *mhi_cntrl)
 				goto bhie_error;
 			}
 
+			if (bhie_off >= mhi_cntrl->len) {
+				MHI_ERR("Invalid BHIE=0x%x  len=0x%x\n",
+					bhie_off, mhi_cntrl->len);
+				ret = -EINVAL;
+				goto bhie_error;
+			}
+
 			mhi_cntrl->bhie = mhi_cntrl->regs + bhie_off;
 		}
 
