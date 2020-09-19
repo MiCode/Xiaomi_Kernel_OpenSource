@@ -7,6 +7,16 @@ config MTK_IRRX
 		and the IRRX driver configuration should
 		be configured as well.
 
+config MTK_IRRX_PLAT
+	string "MediaTek irrx register map rely on specific IC"
+	depends on MTK_IRRX
+	default "default"
+	---help---
+	  choose which irrx register map you want to use.
+	  Every IC has its own irrx register map.
+	  So should implement driver rely on specific IC and
+	  get register map from ic designer.
+
 source "drivers/misc/mediatek/irrx/nec/Kconfig"
 source "drivers/misc/mediatek/irrx/rc5/Kconfig"
 source "drivers/misc/mediatek/irrx/rc6/Kconfig"
