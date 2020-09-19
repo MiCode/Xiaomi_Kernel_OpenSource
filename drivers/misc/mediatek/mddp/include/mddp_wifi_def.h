@@ -56,6 +56,13 @@ struct mddpw_net_stat_ext_t {
 	struct mddpw_net_stat_elem_ext_t ifs[MDDP_DOUBLE_BUFFER][NW_IF_NUM_MAX];
 };
 
+struct mddpw_sys_stat_t {
+	uint32_t        version[2];
+	uint32_t        md_stat[4];
+	uint32_t        ap_stat[4];
+	uint32_t        reserved[2];
+};
+
 #define MAX_STAREC_NUM          32 // Max driver support station records
 #define MAX_CLIENT_NUM          16 // AP client only support 16 station records
 #define VIRTUAL_BUF_SIZE        512 // 4096 bits
@@ -129,6 +136,7 @@ typedef int32_t (*mddpw_cbf_get_md_rx_reorder_buf_t)(
 typedef int32_t (*mddpw_cbf_notify_drv_info_t)(
 		struct mddpw_drv_notify_info_t *);
 typedef int32_t (*mddpw_cbf_get_net_stat_ext_t)(struct mddpw_net_stat_ext_t *);
+typedef int32_t (*mddpw_cbf_get_sys_stat_t)(struct mddpw_sys_stat_t **);
 
 struct mddpw_drv_handle_t {
 	/* MDDPW invokes these APIs provided by driver. */
@@ -141,6 +149,7 @@ struct mddpw_drv_handle_t {
 	mddpw_cbf_get_md_rx_reorder_buf_t      get_md_rx_reorder_buf;
 	mddpw_cbf_notify_drv_info_t            notify_drv_info;
 	mddpw_cbf_get_net_stat_ext_t           get_net_stat_ext;
+	mddpw_cbf_get_sys_stat_t               get_sys_stat;
 };
 
 enum mddp_md_smem_user_id_e {
@@ -148,6 +157,7 @@ enum mddp_md_smem_user_id_e {
 	MDDP_MD_SMEM_USER_RX_REORDER_FROM_MD,
 	MDDP_MD_SMEM_USER_WIFI_STATISTICS,
 	MDDP_MD_SMEM_USER_WIFI_STATISTICS_EXT,
+	MDDP_MD_SMEM_USER_SYS_STAT_SYNC,
 
 	MDDP_MD_SMEM_USER_NUM,
 };
@@ -155,6 +165,7 @@ enum mddp_md_smem_user_id_e {
 enum wfpm_smem_entry_attri_e {
 	WFPM_SM_E_ATTRI_RO = (1 << 0),
 	WFPM_SM_E_ATTRI_WO = (1 << 1),
+	WFPM_SM_E_ATTRI_RW = (1 << 2),
 };
 
 struct wfpm_smem_info_t {
