@@ -3,11 +3,17 @@
 # Copyright (c) 2019 MediaTek Inc.
 #
 
-THERMAL_CHIP_DRIVER_DIR := $(srctree)/drivers/misc/mediatek/thermal/$(MTK_PLATFORM)
+ifeq ($(CONFIG_MACH_MT6833),y)
+	PDIR = mt6833
+else
+	PDIR = $(MTK_PLATFORM)
+endif
+
+THERMAL_CHIP_DRIVER_DIR := $(srctree)/drivers/misc/mediatek/thermal/$(PDIR)
 ccflags-y  += -I$(THERMAL_CHIP_DRIVER_DIR)/inc
-ccflags-y  += -I$(srctree)/drivers/misc/mediatek/base/power/$(MTK_PLATFORM)
-ccflags-y  += -I$(srctree)/drivers/misc/mediatek/power/$(MTK_PLATFORM)
-ccflags-y  += -I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)
+ccflags-y  += -I$(srctree)/drivers/misc/mediatek/base/power/$(PDIR)
+ccflags-y  += -I$(srctree)/drivers/misc/mediatek/power/$(PDIR)
+ccflags-y  += -I$(srctree)/drivers/misc/mediatek/dramc/$(PDIR)
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/gpu/hal/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/thermal/fakeHeader/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/base/power/include/
@@ -19,8 +25,8 @@ ccflags-y  += -I$(srctree)/drivers/misc/mediatek/imgsensor/inc/
 ifeq ($(CONFIG_MTK_TINYSYS_SSPM_SUPPORT),y)
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/sspm
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/sspm/v1
-ccflags-y  += -I$(srctree)/drivers/misc/mediatek/sspm/$(MTK_PLATFORM)
-ccflags-y  += -I$(srctree)/drivers/misc/mediatek/mcupm/$(MTK_PLATFORM)
+ccflags-y  += -I$(srctree)/drivers/misc/mediatek/sspm/$(PDIR)
+ccflags-y  += -I$(srctree)/drivers/misc/mediatek/mcupm/$(PDIR)
 endif
 
 ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6735"))

@@ -13,16 +13,22 @@
 
 ccflags-y += -I$(srctree)
 
+ifeq ($(CONFIG_MACH_MT6833),y)
+	PDIR = mt6833
+else
+	PDIR = $(MTK_PLATFORM)
+endif
+
 ifeq ($(CONFIG_ARCH_MT7623), y)
 # MT2701 & MT7623 use the same thermal driver.
 THERMAL_CHIP_DRIVER_DIR := $(srctree)/drivers/misc/mediatek/thermal/mt2701
 else
-THERMAL_CHIP_DRIVER_DIR := $(srctree)/drivers/misc/mediatek/thermal/$(MTK_PLATFORM)
+THERMAL_CHIP_DRIVER_DIR := $(srctree)/drivers/misc/mediatek/thermal/$(PDIR)
 endif
 
 ccflags-y  += -I$(THERMAL_CHIP_DRIVER_DIR)/inc
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/thermal/fakeHeader/
-ccflags-y  += -I$(srctree)/drivers/misc/mediatek/base/power/$(MTK_PLATFORM)
+ccflags-y  += -I$(srctree)/drivers/misc/mediatek/base/power/$(PDIR)
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/base/power/include/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/base/power/include/gpufreq_v1/
 
@@ -44,6 +50,8 @@ endif
 ifeq ($(CONFIG_ARCH_MT7623), y)
 # MT2701 & MT7623 use the same thermal driver.
 obj-y += mt2701/
+else ifeq ($(CONFIG_MACH_MT6833),y)
+obj-y += mt6833/
 else
 obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 endif
