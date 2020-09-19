@@ -59,16 +59,10 @@ subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/include/
 endif
 endif
 
-ifeq ($(CONFIG_MACH_MT6893),y)
-MTK_ADSP_PLATFORM := mt6885
-else
-MTK_ADSP_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
-endif
-
 # adsp
 ifeq ($(CONFIG_MTK_AURISYS_PHONE_CALL_SUPPORT),y)
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/common/framework/
-subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/adsp/$(MTK_ADSP_PLATFORM)/
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/adsp/$(MTK_PLATFORM)/
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/common/tasks/call/
 subdir-ccflags-y += -I$(srctree)/sound/soc/mediatek/audio_dsp
 endif
