@@ -11,19 +11,15 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __MTK_ISP_SWPM_PLAT_H__
-#define __MTK_ISP_SWPM_PLAT_H__
-
-#if defined(CONFIG_MACH_MT6885)
-#include "subsys/mtk_isp_swpm_mt6885.h"
-#endif
-
-#if defined(CONFIG_MACH_MT6873)
-#include "subsys/mtk_isp_swpm_mt6873.h"
-#endif
+#ifndef __MTK_ME_SWPM_PLAT_H__
+#define __MTK_ME_SWPM_PLAT_H__
 
 #if defined(CONFIG_MACH_MT6853)
-#include "subsys/mtk_isp_swpm_mt6853.h"
+#include "subsys/mtk_me_swpm_mt6853.h"
+#else
+/* Use a default header for other projects */
+/* Todo: Should refine in the future */
+#include "subsys/mtk_me_swpm_default.h"
 #endif
 
 #endif
