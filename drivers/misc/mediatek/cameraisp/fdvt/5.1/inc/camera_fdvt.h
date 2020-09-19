@@ -105,16 +105,14 @@ struct FDVT_CLEAR_IRQ_STRUCT {
 };
 #define FDVT_CLEAR_IRQ_STRUCT struct FDVT_CLEAR_IRQ_STRUCT
 
-struct FDVT_ROI // AIE2.0
-{
+struct FDVT_ROI {
 	unsigned int x1;
 	unsigned int y1;
 	unsigned int x2;
 	unsigned int y2;
 };
 
-struct FDVT_PADDING // AIE2.0
-{
+struct FDVT_PADDING {
 	unsigned int left;
 	unsigned int right;
 	unsigned int down;
@@ -125,7 +123,7 @@ struct FDVT_MetaDataToGCE {
 	unsigned int ImgSrcY_Handler;
 	unsigned int ImgSrcUV_Handler;
 	unsigned int YUVConfig_Handler;
-	//unsigned int YUVOutBuf_Handler;
+	unsigned int YUVOutBuf_Handler;
 	unsigned int RSConfig_Handler;
 	unsigned int RSOutBuf_Handler;
 	unsigned int FDConfig_Handler;
@@ -158,6 +156,7 @@ struct FDVT_MetaDataToGCE {
 	unsigned int SRC_IMG_STRIDE;
 	unsigned int pyramid_width;
 	unsigned int pyramid_height;
+	bool isReleased;
 };
 #define FDVT_MetaDataToGCE struct FDVT_MetaDataToGCE
 
