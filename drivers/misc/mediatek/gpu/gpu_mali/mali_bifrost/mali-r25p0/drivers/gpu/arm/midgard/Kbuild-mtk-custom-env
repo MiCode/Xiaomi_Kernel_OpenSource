@@ -30,10 +30,10 @@ ccflags-y += -DCONFIG_PROC_FS
 ccflags-y += -DENABLE_MTK_MEMINFO
 ccflags-$(CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT) += -DENABLE_COMMON_DVFS
 
-#ifneq (, $(findstring $(CONFIG_MTK_PLATFORM), "mt6785"))
-#ccflags-y += -DMTK_GPU_BM_2
-#$(info *GPU defined GPU BM QoS 2.0)
-#endif
+ifneq (, $(findstring $(CONFIG_MTK_PLATFORM), "mt6785"))
+ccflags-y += -DMTK_GPU_BM_2
+$(info *GPU defined GPU BM QoS 2.0)
+endif
 
 ifneq (, $(findstring $(CONFIG_MTK_PLATFORM), "mt6771"))
 ccflags-y += -DENABLE_MTK_DEBUG
