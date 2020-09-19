@@ -61,17 +61,15 @@ mtk_addon_get_scenario_data(const char *source, struct drm_crtc *crtc,
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 
-	if ((scn < NONE) || (scn > TRIPLE_DISP)) {
-		DDPPR_ERR("[%s] crtc%d scn is wrong\n", source,
-				drm_crtc_index(crtc));
-		return NULL;
-	}
+	if (scn < NONE || scn >= ADDON_SCN_NR)
+		goto err;
 
 	if (mtk_crtc->path_data && mtk_crtc->path_data->addon_data)
 		return &mtk_crtc->path_data->addon_data[scn];
 
-	DDPPR_ERR("[%s] crtc%d cannot get addon data\n", source,
-		  drm_crtc_index(crtc));
+err:
+	DDPPR_ERR("[%s] crtc%d cannot get addon data scn[%u]\n", source,
+		  drm_crtc_index(crtc), scn);
 	return NULL;
 }
 
