@@ -13,7 +13,11 @@
 
 # driver code for MDP
 
+ifeq ($(CONFIG_MACH_MT6833),y)
+MTK_PLATFORM := "mt6833"
+else
 MTK_PLATFORM := $(CONFIG_MTK_PLATFORM)
+endif
 
 ccflags-$(CONFIG_MACH_MT6768) += -DCMDQ_MDP_ENABLE_SPR
 ccflags-$(CONFIG_MACH_MT6885) += -DCMDQ_MDP_ENABLE_SPR
@@ -28,6 +32,12 @@ ccflags-$(CONFIG_MACH_MT6873) += -DMDP_MMPATH
 ccflags-$(CONFIG_MACH_MT6853) += -DCMDQ_MDP_ENABLE_SPR
 ccflags-$(CONFIG_MACH_MT6853) += -DPMQOS_VERSION2
 ccflags-$(CONFIG_MACH_MT6853) += -DMDP_MMPATH
+ccflags-$(CONFIG_MACH_MT6893) += -DCMDQ_MDP_ENABLE_SPR
+ccflags-$(CONFIG_MACH_MT6893) += -DPMQOS_VERSION2
+ccflags-$(CONFIG_MACH_MT6893) += -DMDP_MMPATH
+ccflags-$(CONFIG_MACH_MT6833) += -DCMDQ_MDP_ENABLE_SPR
+ccflags-$(CONFIG_MACH_MT6833) += -DPMQOS_VERSION2
+ccflags-$(CONFIG_MACH_MT6833) += -DMDP_MMPATH
 
 ifeq ($(CONFIG_MACH_MT6785),y)
 ccflags-y += -DPMQOS_VERSION2
@@ -37,10 +47,10 @@ ccflags-$(CONFIG_MTK_DEVAPC) += -DMDP_DEVAPC
 endif
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/ \
-             -I$(srctree)/drivers/misc/mediatek/smi/$(MTK_PLATFORM)/ \
-             -I$(srctree)/drivers/misc/mediatek/mmdvfs/ \
-             -I$(srctree)/drivers/misc/mediatek/mmp/ \
-             -I$(srctree)/drivers/misc/mediatek/mach/$(MTK_PLATFORM)/include \
+	     -I$(srctree)/drivers/misc/mediatek/smi/$(MTK_PLATFORM)/ \
+	     -I$(srctree)/drivers/misc/mediatek/mmdvfs/ \
+	     -I$(srctree)/drivers/misc/mediatek/mmp/ \
+	     -I$(srctree)/drivers/misc/mediatek/mach/$(MTK_PLATFORM)/include \
 	     -I$(srctree)/drivers/iommu/ \
 	     -I$(srctree)/drivers/staging/android/ion \
 	     -I$(srctree)/drivers/staging/android/ion/mtk
