@@ -332,6 +332,7 @@ struct mtk_ddp_comp {
 	struct mm_qos_request qos_req;
 	struct mm_qos_request fbdc_qos_req;
 	struct mm_qos_request hrt_qos_req;
+	bool blank_mode;
 	u32 qos_bw;
 	u32 fbdc_bw;
 	u32 hrt_bw;
@@ -341,33 +342,33 @@ static inline void mtk_ddp_comp_config(struct mtk_ddp_comp *comp,
 				       struct mtk_ddp_config *cfg,
 				       struct cmdq_pkt *handle)
 {
-	if (comp && comp->funcs && comp->funcs->config)
+	if (comp && comp->funcs && comp->funcs->config && !comp->blank_mode)
 		comp->funcs->config(comp, cfg, handle);
 }
 
 static inline void mtk_ddp_comp_prepare(struct mtk_ddp_comp *comp)
 {
-	if (comp && comp->funcs && comp->funcs->prepare)
+	if (comp && comp->funcs && comp->funcs->prepare && !comp->blank_mode)
 		comp->funcs->prepare(comp);
 }
 
 static inline void mtk_ddp_comp_unprepare(struct mtk_ddp_comp *comp)
 {
-	if (comp && comp->funcs && comp->funcs->unprepare)
+	if (comp && comp->funcs && comp->funcs->unprepare && !comp->blank_mode)
 		comp->funcs->unprepare(comp);
 }
 
 static inline void mtk_ddp_comp_start(struct mtk_ddp_comp *comp,
 				      struct cmdq_pkt *handle)
 {
-	if (comp && comp->funcs && comp->funcs->start)
+	if (comp && comp->funcs && comp->funcs->start && !comp->blank_mode)
 		comp->funcs->start(comp, handle);
 }
 
 static inline void mtk_ddp_comp_stop(struct mtk_ddp_comp *comp,
 				     struct cmdq_pkt *handle)
 {
-	if (comp && comp->funcs && comp->funcs->stop)
+	if (comp && comp->funcs && comp->funcs->stop && !comp->blank_mode)
 		comp->funcs->stop(comp, handle);
 }
 
@@ -375,14 +376,16 @@ static inline void mtk_ddp_comp_enable_vblank(struct mtk_ddp_comp *comp,
 					      struct drm_crtc *crtc,
 					      struct cmdq_pkt *handle)
 {
-	if (comp && comp->funcs && comp->funcs->enable_vblank)
+	if (comp && comp->funcs && comp->funcs->enable_vblank &&
+			!comp->blank_mode)
 		comp->funcs->enable_vblank(comp, crtc, handle);
 }
 
 static inline void mtk_ddp_comp_disable_vblank(struct mtk_ddp_comp *comp,
 					       struct cmdq_pkt *handle)
 {
-	if (comp && comp->funcs && comp->funcs->disable_vblank)
+	if (comp && comp->funcs && comp->funcs->disable_vblank &&
+			!comp->blank_mode)
 		comp->funcs->disable_vblank(comp, handle);
 }
 
@@ -390,7 +393,7 @@ static inline void mtk_ddp_comp_layer_on(struct mtk_ddp_comp *comp,
 					 unsigned int idx, unsigned int ext_idx,
 					 struct cmdq_pkt *handle)
 {
-	if (comp && comp->funcs && comp->funcs->layer_on)
+	if (comp && comp->funcs && comp->funcs->layer_on && !comp->blank_mode)
 		comp->funcs->layer_on(comp, idx, ext_idx, handle);
 }
 
@@ -399,7 +402,7 @@ static inline void mtk_ddp_comp_layer_off(struct mtk_ddp_comp *comp,
 					  unsigned int ext_idx,
 					  struct cmdq_pkt *handle)
 {
-	if (comp && comp->funcs && comp->funcs->layer_off)
+	if (comp && comp->funcs && comp->funcs->layer_off && !comp->blank_mode)
 		comp->funcs->layer_off(comp, idx, ext_idx, handle);
 }
 
@@ -408,7 +411,8 @@ static inline void mtk_ddp_comp_layer_config(struct mtk_ddp_comp *comp,
 					     struct mtk_plane_state *state,
 					     struct cmdq_pkt *handle)
 {
-	if (comp && comp->funcs && comp->funcs->layer_config) {
+	if (comp && comp->funcs && comp->funcs->layer_config &&
+			!comp->blank_mode) {
 		DDPDBG("[DRM]func:%s, line:%d ==>\n",
 			__func__, __LINE__);
 		DDPDBG("comp_funcs:0x%p, layer_config:0x%p\n",
@@ -422,14 +426,14 @@ static inline void mtk_ddp_gamma_set(struct mtk_ddp_comp *comp,
 				     struct drm_crtc_state *state,
 				     struct cmdq_pkt *handle)
 {
-	if (comp && comp->funcs && comp->funcs->gamma_set)
+	if (comp && comp->funcs && comp->funcs->gamma_set && !comp->blank_mode)
 		comp->funcs->gamma_set(comp, state, handle);
 }
 
 static inline void mtk_ddp_comp_bypass(struct mtk_ddp_comp *comp,
 				       struct cmdq_pkt *handle)
 {
-	if (comp && comp->funcs && comp->funcs->bypass)
+	if (comp && comp->funcs && comp->funcs->bypass && !comp->blank_mode)
 		comp->funcs->bypass(comp, handle);
 }
 
@@ -437,7 +441,7 @@ static inline void mtk_ddp_comp_first_cfg(struct mtk_ddp_comp *comp,
 				       struct mtk_ddp_config *cfg,
 				       struct cmdq_pkt *handle)
 {
-	if (comp && comp->funcs && comp->funcs->first_cfg)
+	if (comp && comp->funcs && comp->funcs->first_cfg && !comp->blank_mode)
 		comp->funcs->first_cfg(comp, cfg, handle);
 }
 
@@ -445,7 +449,8 @@ static inline void
 mtk_ddp_comp_config_trigger(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			    enum mtk_ddp_comp_trigger_flag flag)
 {
-	if (comp && comp->funcs && comp->funcs->config_trigger)
+	if (comp && comp->funcs && comp->funcs->config_trigger &&
+			!comp->blank_mode)
 		comp->funcs->config_trigger(comp, handle, flag);
 }
 
@@ -455,9 +460,10 @@ mtk_ddp_comp_addon_config(struct mtk_ddp_comp *comp, enum mtk_ddp_comp_id prev,
 			  union mtk_addon_config *addon_config,
 			  struct cmdq_pkt *handle)
 {
-	if (comp && comp->funcs && comp->funcs->addon_config)
+	if (comp && comp->funcs && comp->funcs->addon_config &&
+			!comp->blank_mode)
 		comp->funcs->addon_config(comp, prev, next, addon_config,
-					  handle);
+				handle);
 }
 
 static inline int mtk_ddp_comp_io_cmd(struct mtk_ddp_comp *comp,
@@ -466,7 +472,7 @@ static inline int mtk_ddp_comp_io_cmd(struct mtk_ddp_comp *comp,
 {
 	int ret = -EINVAL;
 
-	if (comp && comp->funcs && comp->funcs->io_cmd)
+	if (comp && comp->funcs && comp->funcs->io_cmd && !comp->blank_mode)
 		ret = comp->funcs->io_cmd(comp, handle, io_cmd, params);
 
 	return ret;
@@ -477,7 +483,7 @@ mtk_ddp_comp_is_busy(struct mtk_ddp_comp *comp)
 {
 	int ret = 0;
 
-	if (comp && comp->funcs && comp->funcs->is_busy)
+	if (comp && comp->funcs && comp->funcs->is_busy && !comp->blank_mode)
 		ret = comp->funcs->is_busy(comp);
 
 	return ret;

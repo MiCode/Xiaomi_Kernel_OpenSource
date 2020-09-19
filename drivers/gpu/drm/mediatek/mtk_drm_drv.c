@@ -2440,7 +2440,7 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 	INIT_LIST_HEAD(&private->repaint_data.job_pool);
 	for (i = 0; i < MAX_CRTC ; ++i)
 		atomic_set(&private->crtc_present[i], 0);
-
+	atomic_set(&private->rollback_all, 0);
 #ifdef MTK_DRM_FENCE_SUPPORT
 #ifndef MTK_DRM_DELAY_PRESENT_FENCE
 	/* fence release kthread */

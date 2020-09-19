@@ -157,6 +157,7 @@ struct mtk_drm_private {
 	struct mtk_drm_helper *helper_opt;
 
 	atomic_t idle_need_repaint;
+	atomic_t rollback_all;
 
 	unsigned int top_clk_num;
 	struct clk **top_clk;

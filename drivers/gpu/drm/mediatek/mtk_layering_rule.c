@@ -473,6 +473,11 @@ static bool _rollback_all_to_GPU_for_idle(struct drm_device *dev)
 {
 	struct mtk_drm_private *priv = dev->dev_private;
 
+	/* Slghtly modify this function for TUI */
+
+	if (atomic_read(&priv->rollback_all))
+		return true;
+
 	if (!mtk_drm_helper_get_opt(priv->helper_opt,
 				    MTK_DRM_OPT_IDLEMGR_BY_REPAINT) ||
 	    !atomic_read(&priv->idle_need_repaint)) {
