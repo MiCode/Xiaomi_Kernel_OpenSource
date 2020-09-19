@@ -40,14 +40,17 @@ struct barohub_ipi_data {
 	atomic_t suspend;
 	struct work_struct init_done_work;
 	atomic_t scp_init_done;
+	atomic_t first_ready_after_boot;
 	bool factory_enable;
 	bool android_enable;
+	int32_t config_data[2];
 };
 
 static struct barohub_ipi_data *obj_ipi_data;
 static int barohub_local_init(void);
 static int barohub_local_remove(void);
 static int barohub_init_flag = -1;
+static DEFINE_SPINLOCK(calibration_lock);
 static struct baro_init_info barohub_init_info = {
 	.name = "barohub",
 	.init = barohub_local_init,
@@ -74,7 +77,7 @@ static int barohub_get_pressure(char *buf, int bufsize)
 	struct barohub_ipi_data *obj = obj_ipi_data;
 	struct data_unit_t data;
 	uint64_t time_stamp = 0;
-	int pressure;
+	int pressure = 0;
 	int err = 0;
 
 	if (atomic_read(&obj->suspend))
@@ -88,8 +91,8 @@ static int barohub_get_pressure(char *buf, int bufsize)
 		return err;
 	}
 
-	time_stamp		= data.time_stamp;
-	pressure		= data.pressure_t.pressure;
+	time_stamp = data.time_stamp;
+	pressure = data.pressure_t.pressure;
 	sprintf(buf, "%08x", pressure);
 	if (atomic_read(&obj->trace) & BAR_TRC_IOCTL)
 		pr_debug("compensated pressure value: %s\n", buf);
@@ -100,18 +103,20 @@ static ssize_t sensordata_show(struct device_driver *ddri, char *buf)
 {
 	char strbuf[BAROHUB_BUFSIZE] = {0};
 	int err = 0;
+	ssize_t res = 0;
 
 	err = barohub_set_powermode(true);
 	if (err < 0) {
 		pr_err("barohub_set_powermode fail!!\n");
-		return 0;
+		return err;
 	}
 	err = barohub_get_pressure(strbuf, BAROHUB_BUFSIZE);
 	if (err < 0) {
 		pr_err("barohub_set_powermode fail!!\n");
-		return 0;
+		return err;
 	}
-	return snprintf(buf, PAGE_SIZE, "%s\n", strbuf);
+	res = snprintf(buf, PAGE_SIZE, "%s\n", strbuf);
+	return res < PAGE_SIZE ? res : -EINVAL;
 }
 static ssize_t trace_show(struct device_driver *ddri, char *buf)
 {
@@ -124,7 +129,7 @@ static ssize_t trace_show(struct device_driver *ddri, char *buf)
 	}
 
 	res = snprintf(buf, PAGE_SIZE, "0x%04X\n", atomic_read(&obj->trace));
-	return res;
+	return res < PAGE_SIZE ? res : -EINVAL;
 }
 
 static ssize_t trace_store(struct device_driver *ddri,
@@ -152,12 +157,30 @@ static ssize_t trace_store(struct device_driver *ddri,
 	}
 	return count;
 }
+
+static int barohub_factory_enable_calibration(void);
+static ssize_t test_cali_store(struct device_driver *ddri, const char *buf,
+			       size_t count)
+{
+	int enable = 0, ret = 0;
+
+	ret = kstrtoint(buf, 10, &enable);
+	if (ret != 0) {
+		pr_err("%s, kstrtoint fail\n", __func__);
+		return ret;
+	}
+	if (enable == 1)
+		barohub_factory_enable_calibration();
+	return count;
+}
 static DRIVER_ATTR_RO(sensordata);
 static DRIVER_ATTR_RW(trace);
+static DRIVER_ATTR_WO(test_cali);
 
 static struct driver_attribute *barohub_attr_list[] = {
 	&driver_attr_sensordata,	/* dump sensor data */
 	&driver_attr_trace,	/* trace log */
+	&driver_attr_test_cali, /* enable cali */
 };
 
 static int barohub_create_attr(struct device_driver *driver)
@@ -193,10 +216,33 @@ static int barohub_delete_attr(struct device_driver *driver)
 	return err;
 }
 
+static void scp_init_work_done(struct work_struct *work)
+{
+	int err = 0;
+	int32_t cfg_data[2] = {0};
+	struct barohub_ipi_data *obj = obj_ipi_data;
+
+	if (atomic_read(&obj->scp_init_done) == 0) {
+		pr_debug("scp is not ready to send cmd\n");
+		return;
+	}
+	if (atomic_xchg(&obj->first_ready_after_boot, 1) == 0)
+		return;
+	spin_lock(&calibration_lock);
+	cfg_data[0] = obj->config_data[0];
+	cfg_data[1] = obj->config_data[1];
+	spin_unlock(&calibration_lock);
+	err = sensor_cfg_to_hub(ID_PRESSURE, (uint8_t *)cfg_data,
+				sizeof(cfg_data));
+	if (err < 0)
+		pr_err("sensor_cfg_to_hub fail\n");
+}
+
 static int baro_recv_data(struct data_unit_t *event, void *reserved)
 {
 	int err = 0;
 	struct barohub_ipi_data *obj = obj_ipi_data;
+	int32_t cali_data[2] = {0};
 
 	if (event->flush_action == FLUSH_ACTION)
 		err = baro_flush_report();
@@ -204,6 +250,15 @@ static int baro_recv_data(struct data_unit_t *event, void *reserved)
 			READ_ONCE(obj->android_enable) == true)
 		err = baro_data_report(event->pressure_t.pressure, 2,
 			(int64_t)event->time_stamp);
+	else if (event->flush_action == CALI_ACTION) {
+		cali_data[0] = event->data[0];
+		cali_data[1] = event->data[1];
+		err = baro_cali_report(cali_data);
+		spin_lock(&calibration_lock);
+		obj->config_data[0] = event->data[0];
+		obj->config_data[1] = event->data[1];
+		spin_unlock(&calibration_lock);
+	}
 	return err;
 }
 static int barohub_factory_enable_sensor(bool enabledisable,
@@ -353,6 +408,19 @@ static int barohub_flush(void)
 {
 	return sensor_flush_to_hub(ID_PRESSURE);
 }
+
+static int barohub_set_cali(uint8_t *data, uint8_t count)
+{
+	struct barohub_ipi_data *obj = obj_ipi_data;
+
+	spin_lock(&calibration_lock);
+	obj->config_data[0] = data[0];
+	obj->config_data[1] = data[1];
+	spin_unlock(&calibration_lock);
+
+	return sensor_cfg_to_hub(ID_PRESSURE, data, count);
+}
+
 static int barohub_get_data(int *value, int *status)
 {
 	char buff[BAROHUB_BUFSIZE] = {0};
@@ -379,6 +447,7 @@ static int scp_ready_event(uint8_t event, void *ptr)
 	switch (event) {
 	case SENSOR_POWER_UP:
 	    atomic_set(&obj->scp_init_done, 1);
+	    schedule_work(&obj->init_done_work);
 		break;
 	case SENSOR_POWER_DOWN:
 	    atomic_set(&obj->scp_init_done, 0);
@@ -408,7 +477,7 @@ static int barohub_probe(struct platform_device *pdev)
 		err = -ENOMEM;
 		goto exit;
 	}
-
+	INIT_WORK(&obj->init_done_work, scp_init_work_done);
 	obj_ipi_data = obj;
 	platform_set_drvdata(pdev, obj);
 
@@ -416,8 +485,8 @@ static int barohub_probe(struct platform_device *pdev)
 	atomic_set(&obj->suspend, 0);
 	WRITE_ONCE(obj->factory_enable, false);
 	WRITE_ONCE(obj->android_enable, false);
-
 	atomic_set(&obj->scp_init_done, 0);
+	atomic_set(&obj->first_ready_after_boot, 0);
 	scp_power_monitor_register(&scp_ready_notifier);
 	err = scp_sensorHub_data_registration(ID_PRESSURE, baro_recv_data);
 	if (err < 0) {
@@ -443,6 +512,7 @@ static int barohub_probe(struct platform_device *pdev)
 	ctl.set_delay = barohub_set_delay;
 	ctl.batch = barohub_batch;
 	ctl.flush = barohub_flush;
+	ctl.set_cali = barohub_set_cali;
 #if defined CONFIG_MTK_SCP_SENSORHUB_V1
 	ctl.is_report_input_direct = false;
 	ctl.is_support_batch = false;
