@@ -402,6 +402,9 @@ int vcorefs_get_ddr_by_steps(u32 opp)
 
 char *governor_get_kicker_name(int id)
 {
+	if (id < 0)
+		return NULL;
+
 	return kicker_name[id];
 }
 EXPORT_SYMBOL(governor_get_kicker_name);
