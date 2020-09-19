@@ -1508,6 +1508,9 @@ void scp_sys_reset_ws(struct work_struct *ws)
 	scp_reset_awake_counts();
 	spin_unlock_irqrestore(&scp_awake_spinlock, spin_flags);
 
+	/* Setup dram reserved address and size for scp*/
+	writel((unsigned int)scp_mem_base_phys, DRAM_RESV_ADDR_REG);
+	writel((unsigned int)scp_mem_size, DRAM_RESV_SIZE_REG);
 	/* start scp */
 	pr_notice("[SCP] start scp\n");
 	writel(1, R_CORE0_SW_RSTN_CLR);
