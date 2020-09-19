@@ -718,16 +718,21 @@ static int rollback_to_GPU(struct drm_mtk_layering_info *info, int disp,
 		available_ovl_num = _rollback_to_GPU_top_down(
 			info, disp, available_ovl_num);
 
+	if (info->gles_head[disp] == -1 && info->gles_tail[disp] == -1)
+		goto out;
+
 	if (mtk_is_layer_id_valid(info, disp, info->gles_head[disp]) == false) {
 		dump_disp_info(info, DISP_DEBUG_LEVEL_CRITICAL);
 		DDPAEE("invalid gles_head:%d, aval:%d\n",
 			  info->gles_head[disp], available);
+		goto out;
 	}
 
 	if (mtk_is_layer_id_valid(info, disp, info->gles_tail[disp]) == false) {
 		dump_disp_info(info, DISP_DEBUG_LEVEL_CRITICAL);
 		DDPAEE("invalid gles_tail:%d, aval:%d\n",
 			  info->gles_tail[disp], available);
+		goto out;
 	}
 
 	/* Clear extended layer for all GLES layer */
@@ -742,6 +747,7 @@ static int rollback_to_GPU(struct drm_mtk_layering_info *info, int disp,
 			l_info->ext_sel_layer = -1;
 	}
 
+out:
 	return available_ovl_num;
 }
 
