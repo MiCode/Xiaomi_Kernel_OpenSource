@@ -117,22 +117,24 @@ s32 cmdq_sec_register_share_memory(struct cmdq_sec_tee_context *tee)
 				tzRes);
 		return tzRes;
 	}
-	CMDQ_MSG("harry KREE_TeeServiceCall tzRes =0x%x\n", tzRes);
+	CMDQ_MSG("KREE_TeeServiceCall tzRes =0x%x\n", tzRes);
 	return 0;
 #endif
 
 }
 
 /* allocate share memory for communicate with trustzone */
-s32 cmdq_sec_allocate_wsm(struct cmdq_sec_tee_context *tee,
-	void **wsm_buffer, u32 size)
+s32 cmdq_sec_allocate_wsm(struct cmdq_sec_tee_context *tee, void **wsm_buffer,
+	u32 size, void **wsm_buf_ex, u32 size_ex,
+	void **wsm_buf_ex2, u32 size_ex2)
 {
 	s32 status = 0;
 
-
-	if (!wsm_buffer)
+	if (!wsm_buffer || !wsm_buf_ex || !wsm_buf_ex2) {
+		CMDQ_ERR("%s invalid param:%p %p %p\n", __func__,
+			wsm_buffer, wsm_buf_ex, wsm_buf_ex2);
 		return -EINVAL;
-
+	}
 	/* because world shared mem(WSM) will ba managed by mobicore device,
 	 * instead of linux kernel vmalloc/kmalloc, call mc_malloc_wasm to
 	 * alloc WSM to prvent error such as "can not resolve tci physicall
@@ -149,7 +151,25 @@ s32 cmdq_sec_allocate_wsm(struct cmdq_sec_tee_context *tee,
 		return -ENOMEM;
 	}
 
+	if (tee->wsm_buf_ex == NULL) {
+		tee->wsm_buf_ex = kmalloc(size_ex, GFP_KERNEL);
+		if (tee->wsm_buf_ex == NULL) {
+			CMDQ_ERR("ex share memory kmalloc failed!\n");
+			return -ENOMEM;
+		}
+	}
+
+	if (tee->wsm_buf_ex2 == NULL) {
+		tee->wsm_buf_ex2 = kmalloc(size_ex2, GFP_KERNEL);
+		if (tee->wsm_buf_ex2 == NULL) {
+			CMDQ_ERR("ex2 share memory kmalloc failed!\n");
+			return -ENOMEM;
+		}
+	}
+
 	*wsm_buffer = tee->share_memory;
+	*wsm_buf_ex = tee->wsm_buf_ex;
+	*wsm_buf_ex2 = tee->wsm_buf_ex2;
 
 	return status;
 }
@@ -163,6 +183,14 @@ s32 cmdq_sec_free_wsm(struct cmdq_sec_tee_context *tee,
 		*wsm_buffer = NULL;
 		tee->share_memory = NULL;
 	}
+
+
+	kfree(tee->wsm_buf_ex);
+	tee->wsm_buf_ex = NULL;
+
+
+	kfree(tee->wsm_buf_ex2);
+	tee->wsm_buf_ex2 = NULL;
 
 	return 0;
 }
