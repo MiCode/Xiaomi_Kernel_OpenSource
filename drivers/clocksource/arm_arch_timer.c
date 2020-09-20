@@ -985,6 +985,7 @@ u32 arch_timer_get_rate(void)
 {
 	return arch_timer_rate;
 }
+EXPORT_SYMBOL_GPL(arch_timer_get_rate);
 
 bool arch_timer_evtstrm_available(void)
 {
@@ -1012,6 +1013,7 @@ void arch_timer_mem_get_cval(u32 *lo, u32 *hi)
 		*hi = readl_relaxed_no_log(arch_counter_base + CNTCVAL_HI);
 	}
 }
+EXPORT_SYMBOL_GPL(arch_timer_mem_get_cval);
 
 static u64 arch_counter_get_cntvct_mem(void)
 {
