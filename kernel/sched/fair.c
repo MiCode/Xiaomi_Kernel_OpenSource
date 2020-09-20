@@ -180,6 +180,7 @@ unsigned int sysctl_walt_rtg_cfs_boost_prio = 99; /* disabled by default */
 unsigned int sysctl_walt_low_latency_task_boost; /* disabled by default */
 #endif
 unsigned int sched_small_task_threshold = 102;
+__read_mostly unsigned int sysctl_sched_force_lb_enable = 1;
 
 static inline void update_load_add(struct load_weight *lw, unsigned long inc)
 {
@@ -6953,7 +6954,7 @@ static void find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 	if (prefer_idle && boosted)
 		target_capacity = 0;
 
-	if (fbt_env->strict_max)
+	if (fbt_env->strict_max || p->in_iowait)
 		most_spare_wake_cap = LONG_MIN;
 
 	/* Find start CPU based on boost value */
@@ -7269,6 +7270,10 @@ static void find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 
 		next_group_higher_cap = (capacity_orig_of(group_first_cpu(sg)) <
 			capacity_orig_of(group_first_cpu(sg->next)));
+
+		if (p->in_iowait && !next_group_higher_cap &&
+				most_spare_cap_cpu != -1)
+			break;
 
 		/*
 		 * If we've found a cpu, but the boost is ON_ALL we continue
@@ -8714,6 +8719,10 @@ int can_migrate_task(struct task_struct *p, struct lb_env *env)
 	 * don't allow pull boost task to smaller cores.
 	 */
 	if (!can_migrate_boosted_task(p, env->src_cpu, env->dst_cpu))
+		return 0;
+
+	if (p->in_iowait && is_min_capacity_cpu(env->dst_cpu) &&
+			!is_min_capacity_cpu(env->src_cpu))
 		return 0;
 
 	if (!cpumask_test_cpu(env->dst_cpu, &p->cpus_allowed)) {
@@ -11827,6 +11836,7 @@ static int idle_balance(struct rq *this_rq, struct rq_flags *rf)
 	bool prefer_spread = prefer_spread_on_idle(this_cpu, true);
 	bool force_lb = (!is_min_capacity_cpu(this_cpu) &&
 				silver_has_big_tasks() &&
+				sysctl_sched_force_lb_enable &&
 				(atomic_read(&this_rq->nr_iowait) == 0));
 
 

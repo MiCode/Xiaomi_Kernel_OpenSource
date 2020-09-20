@@ -140,7 +140,8 @@ struct pmic_data {
  * @all_ramp_down_done_irq		: IRQ number for all ramp down interrupt
  * @led_fault_irq		: IRQ number for LED fault interrupt
  * @base		: Base address of the flash LED module
- * @ref_count		: Reference count used to enable/disable flash LED
+ * @chan_en_map		: Bit map of individual channel enable
+ * @module_en		: Flag used to enable/disable flash LED module
  */
 struct qti_flash_led {
 	struct platform_device		*pdev;
@@ -161,8 +162,9 @@ struct qti_flash_led {
 	int			ibatt_ocp_threshold_ua;
 	int			max_current;
 	u16			base;
-	u8		ref_count;
 	u8		subtype;
+	u8		chan_en_map;
+	bool		module_en;
 };
 
 static const u32 flash_led_max_ires_values[MAX_IRES_LEVELS] = {
@@ -313,7 +315,7 @@ static int qti_flash_led_module_control(struct qti_flash_led *led,
 	u8 val;
 
 	if (enable) {
-		if (!led->ref_count) {
+		if (!led->module_en && led->chan_en_map) {
 			val = FLASH_MODULE_ENABLE;
 			rc = qti_flash_led_write(led, FLASH_ENABLE_CONTROL,
 						&val, 1);
@@ -330,18 +332,15 @@ static int qti_flash_led_module_control(struct qti_flash_led *led,
 			return rc;
 		}
 
-		led->ref_count++;
-	} else {
-		if (led->ref_count)
-			led->ref_count--;
+		led->module_en = true;
+	} else if (led->module_en && !led->chan_en_map) {
+		val = FLASH_MODULE_DISABLE;
+		rc = qti_flash_led_write(led, FLASH_ENABLE_CONTROL,
+					&val, 1);
+		if (rc < 0)
+			return rc;
 
-		if (!led->ref_count) {
-			val = FLASH_MODULE_DISABLE;
-			rc = qti_flash_led_write(led, FLASH_ENABLE_CONTROL,
-						&val, 1);
-			if (rc < 0)
-				return rc;
-		}
+		led->module_en = false;
 	}
 
 	return rc;
@@ -350,26 +349,59 @@ static int qti_flash_led_module_control(struct qti_flash_led *led,
 static int qti_flash_led_strobe(struct qti_flash_led *led,
 				u8 mask, u8 value)
 {
-	int rc;
+	int rc, i;
 	bool enable = mask & value;
 
 	spin_lock(&led->lock);
 
 	if (enable) {
+		for (i = 0; i < led->data->max_channels; i++) {
+			if ((mask & BIT(i)) && (value & BIT(i)))
+				led->chan_en_map |= BIT(i);
+		}
+
 		rc = qti_flash_led_module_control(led, enable);
 		if (rc < 0)
 			goto error;
 
+		for (i = 0; i < led->num_fnodes; i++) {
+			if ((mask & BIT(led->fnode[i].id)) &&
+				led->fnode[i].configured &&
+				led->fnode[i].type == FLASH_LED_TYPE_TORCH &&
+						led->subtype == 0x6) {
+				rc = qti_flash_led_masked_write(led,
+						FORCE_TORCH_MODE,
+					FORCE_TORCH, FORCE_TORCH);
+				if (rc < 0)
+					goto error;
+			}
+		}
 		rc = qti_flash_led_masked_write(led, FLASH_EN_LED_CTRL,
 				mask, value);
 		if (rc < 0)
 			goto error;
 	} else {
+		for (i = 0; i < led->data->max_channels; i++) {
+			if ((led->chan_en_map & BIT(i)) &&
+				(mask & BIT(i)) && !(value & BIT(i)))
+				led->chan_en_map &= ~(BIT(i));
+		}
 		rc = qti_flash_led_masked_write(led, FLASH_EN_LED_CTRL,
 				mask, value);
 		if (rc < 0)
 			goto error;
 
+		for (i = 0; i < led->num_fnodes; i++) {
+			if ((mask & BIT(led->fnode[i].id)) &&
+				led->fnode[i].configured &&
+				led->fnode[i].type == FLASH_LED_TYPE_TORCH &&
+					led->subtype == 0x6) {
+				rc = qti_flash_led_masked_write(led,
+					FORCE_TORCH_MODE, FORCE_TORCH, 0);
+				if (rc < 0)
+					goto error;
+			}
+		}
 		rc = qti_flash_led_module_control(led, enable);
 		if (rc < 0)
 			goto error;
@@ -425,13 +457,6 @@ static int qti_flash_led_enable(struct flash_node_data *fnode)
 			goto out;
 	}
 
-	if (fnode->type == FLASH_LED_TYPE_TORCH && led->subtype == 0x6) {
-		rc = qti_flash_led_masked_write(led, FORCE_TORCH_MODE,
-					FORCE_TORCH, FORCE_TORCH);
-		if (rc < 0)
-			goto out;
-	}
-
 	fnode->configured = true;
 
 	if ((fnode->strobe_sel == HW_STROBE) &&
@@ -447,6 +472,9 @@ static int qti_flash_led_disable(struct flash_node_data *fnode)
 {
 	struct qti_flash_led *led = fnode->led;
 	int rc;
+
+	if (!fnode->configured)
+		return 0;
 
 	spin_lock(&led->lock);
 	if ((fnode->strobe_sel == HW_STROBE) &&
@@ -464,13 +492,7 @@ static int qti_flash_led_disable(struct flash_node_data *fnode)
 	if (rc < 0)
 		goto out;
 
-	if (fnode->type == FLASH_LED_TYPE_TORCH && led->subtype == 0x6) {
-		rc = qti_flash_led_masked_write(led, FORCE_TORCH_MODE,
-						FORCE_TORCH, 0);
-		if (rc < 0)
-			goto out;
-	}
-
+	fnode->configured = false;
 	fnode->current_ma = 0;
 
 out:
@@ -498,10 +520,15 @@ static void qti_flash_led_brightness_set(struct led_classdev *led_cdev,
 	fnode = container_of(fdev, struct flash_node_data, fdev);
 	led = fnode->led;
 
-	if (brightness <= 0) {
+	if (!brightness) {
+		rc = qti_flash_led_strobe(fnode->led,
+			FLASH_LED_ENABLE(fnode->id), 0);
+		if (rc < 0)
+			pr_err("Failed to destrobe LED, rc=%d\n", rc);
+
 		rc = qti_flash_led_disable(fnode);
 		if (rc < 0)
-			pr_err("Failed to set brightness %d to LED\n",
+			pr_err("Failed to disable %d LED\n",
 				brightness);
 		return;
 	}
@@ -623,6 +650,21 @@ static int qti_flash_switch_disable(struct flash_switch_data *snode)
 	u8 led_dis = 0;
 
 	for (i = 0; i < led->num_fnodes; i++) {
+		if (!(snode->led_mask & BIT(led->fnode[i].id)) ||
+				!led->fnode[i].configured)
+			continue;
+
+		led_dis |= BIT(led->fnode[i].id);
+	}
+
+	rc = qti_flash_led_strobe(led, led_dis, ~led_dis);
+	if (rc < 0) {
+		pr_err("Failed to destrobe LEDs under with switch, rc=%d\n",
+					rc);
+		return rc;
+	}
+
+	for (i = 0; i < led->num_fnodes; i++) {
 		/*
 		 * Do not turn OFF flash/torch device if
 		 * i. the device is not under this switch or
@@ -639,11 +681,9 @@ static int qti_flash_switch_disable(struct flash_switch_data *snode)
 			break;
 		}
 
-		led_dis |= (1 << led->fnode[i].id);
-		led->fnode[i].configured = false;
 	}
 
-	return qti_flash_led_strobe(led, led_dis, ~led_dis);
+	return rc;
 }
 
 static void qti_flash_led_switch_brightness_set(
@@ -1020,14 +1060,25 @@ static int qti_flash_strobe_set(struct led_classdev_flash *fdev,
 	if (fnode->enabled == state)
 		return 0;
 
+	if (state && !fnode->configured)
+		return -EINVAL;
+
 	mask = FLASH_LED_ENABLE(fnode->id);
 	value = state ? FLASH_LED_ENABLE(fnode->id) : 0;
 
 	rc = qti_flash_led_strobe(fnode->led, mask, value);
-	if (!rc) {
-		fnode->enabled = state;
-		if (!state)
-			fnode->configured = false;
+	if (rc < 0) {
+		pr_err("Failed to %s LED, rc=%d\n",
+			state ? "strobe" : "desrobe", rc);
+		return rc;
+	}
+
+	fnode->enabled = state;
+
+	if (!state) {
+		rc = qti_flash_led_disable(fnode);
+		if (rc < 0)
+			pr_err("Failed to disable LED %u\n", fnode->id);
 	}
 
 	return rc;

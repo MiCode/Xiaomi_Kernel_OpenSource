@@ -541,6 +541,8 @@ static void __init mm_init(void)
 	page_ext_init_flatmem();
 	report_meminit();
 	mem_init();
+	/* page_owner must be initialized after buddy is ready */
+	page_ext_init_flatmem_late();
 	kmem_cache_init();
 	pgtable_init();
 	vmalloc_init();

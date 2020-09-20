@@ -993,6 +993,26 @@ static int adreno_of_parse_pwrlevels(struct adreno_device *adreno_dev,
 	return 0;
 }
 
+static void adreno_of_get_bimc_iface_clk(struct adreno_device *adreno_dev,
+		struct device_node *node)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+
+	/* Getting gfx-bimc-interface-clk frequency */
+	if (!of_property_read_u32(node, "qcom,gpu-bimc-interface-clk-freq",
+				&pwr->gpu_bimc_int_clk_freq)) {
+		pwr->gpu_bimc_int_clk = devm_clk_get(&device->pdev->dev,
+				"bimc_gpu_clk");
+		if (IS_ERR_OR_NULL(pwr->gpu_bimc_int_clk)) {
+			dev_err(&device->pdev->dev,
+					"dt: Couldn't get bimc_gpu_clk (%d)\n",
+					PTR_ERR(pwr->gpu_bimc_int_clk));
+			pwr->gpu_bimc_int_clk = NULL;
+		}
+	}
+}
+
 static void adreno_of_get_initial_pwrlevel(struct adreno_device *adreno_dev,
 		struct device_node *node)
 {
@@ -1050,6 +1070,8 @@ static int adreno_of_get_legacy_pwrlevels(struct adreno_device *adreno_dev,
 
 	adreno_of_get_limits(adreno_dev, parent);
 
+	adreno_of_get_bimc_iface_clk(adreno_dev, parent);
+
 	return 0;
 }
 
@@ -1076,6 +1098,8 @@ static int adreno_of_get_pwrlevels(struct adreno_device *adreno_dev,
 				return ret;
 
 			adreno_of_get_initial_pwrlevel(adreno_dev, child);
+
+			adreno_of_get_bimc_iface_clk(adreno_dev, child);
 
 			/*
 			 * Check for global throttle-pwrlevel first and override
@@ -2453,6 +2477,14 @@ int adreno_reset(struct kgsl_device *device, int fault)
 		}
 	}
 	if (ret) {
+		unsigned long flags = device->pwrctrl.ctrl_flags;
+
+		/*
+		 * Clear ctrl_flags to ensure clocks and regulators are
+		 * turned off
+		 */
+		device->pwrctrl.ctrl_flags = 0;
+
 		/* If soft reset failed/skipped, then pull the power */
 		kgsl_pwrctrl_change_state(device, KGSL_STATE_INIT);
 		/* since device is officially off now clear start bit */
@@ -2470,6 +2502,8 @@ int adreno_reset(struct kgsl_device *device, int fault)
 					break;
 			}
 		}
+
+		device->pwrctrl.ctrl_flags = flags;
 	}
 	if (ret)
 		return ret;

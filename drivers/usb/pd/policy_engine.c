@@ -710,6 +710,7 @@ static inline void pd_reset_protocol(struct usbpd *pd)
 	memset(pd->rx_msgid, -1, sizeof(pd->rx_msgid));
 	memset(pd->tx_msgid, 0, sizeof(pd->tx_msgid));
 	pd->send_request = false;
+	pd->send_get_status = false;
 	pd->send_pr_swap = false;
 	pd->send_dr_swap = false;
 }
@@ -3484,6 +3485,7 @@ static void handle_disconnect(struct usbpd *pd)
 	pd->forced_pr = POWER_SUPPLY_TYPEC_PR_NONE;
 
 	pd->current_state = PE_UNKNOWN;
+	pd_reset_protocol(pd);
 
 	kobject_uevent(&pd->dev.kobj, KOBJ_CHANGE);
 	typec_unregister_partner(pd->partner);

@@ -1049,11 +1049,17 @@ static int qcom_glink_rx_data(struct qcom_glink *glink, size_t avail)
 	if (!left_size) {
 		spin_lock(&channel->recv_lock);
 		if (channel->ept.cb) {
-			channel->ept.cb(channel->ept.rpdev,
+			ret = channel->ept.cb(channel->ept.rpdev,
 					intent->data,
 					intent->offset,
 					channel->ept.priv,
 					RPMSG_ADDR_ANY);
+			if (ret < 0)
+				CH_INFO(channel,
+					"glink:callback error ret = %d\n", ret);
+		} else {
+			CH_INFO(channel, "callback not present\n");
+			dev_err(glink->dev, "glink:callback not present\n");
 		}
 		spin_unlock(&channel->recv_lock);
 
@@ -1396,13 +1402,14 @@ static struct rpmsg_endpoint *qcom_glink_create_ept(struct rpmsg_device *rpdev,
 		if (ret)
 			return NULL;
 	}
+	CH_INFO(channel, "Initializing ept\n");
 
 	ept = &channel->ept;
 	ept->rpdev = rpdev;
 	ept->cb = cb;
 	ept->priv = priv;
 	ept->ops = &glink_endpoint_ops;
-
+	CH_INFO(channel, "Initialized ept\n");
 	return ept;
 }
 
@@ -1422,6 +1429,7 @@ static int qcom_glink_announce_create(struct rpmsg_device *rpdev)
 	int iid;
 	int size;
 
+	CH_INFO(channel, "Entered\n");
 	if (glink->intentless || !completion_done(&channel->open_ack))
 		return 0;
 
@@ -1458,6 +1466,7 @@ static int qcom_glink_announce_create(struct rpmsg_device *rpdev)
 			qcom_glink_advertise_intent(glink, channel, intent);
 		}
 	}
+	CH_INFO(channel, "Exit\n");
 	return 0;
 }
 
