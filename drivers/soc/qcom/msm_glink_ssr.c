@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/of.h>
@@ -74,7 +74,7 @@ static int glink_ssr_ssr_cb(struct notifier_block *this,
 	struct do_cleanup_msg msg;
 	int ret;
 
-	if (code == SUBSYS_AFTER_SHUTDOWN) {
+	if (code == SUBSYS_AFTER_SHUTDOWN || code == SUBSYS_POWERUP_FAILURE) {
 		ssr->seq_num++;
 		reinit_completion(&ssr->completion);
 
