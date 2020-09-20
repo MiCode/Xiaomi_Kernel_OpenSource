@@ -1903,6 +1903,22 @@ static void a6xx_gmu_send_nmi(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	u32 val;
 
+	if (!a6xx_gmu_gx_is_on(device))
+		goto done;
+
+	/*
+	 * Do not send NMI if the SMMU is stalled because GMU will not be able
+	 * to save cm3 state to DDR.
+	 */
+	if (a6xx_is_smmu_stalled(device)) {
+		struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
+
+		dev_err(&gmu->pdev->dev,
+			"Skipping NMI because SMMU is stalled\n");
+		return;
+	}
+
+done:
 	/* Mask so there's no interrupt caused by NMI */
 	gmu_core_regwrite(device, A6XX_GMU_GMU2HOST_INTR_MASK, 0xFFFFFFFF);
 
