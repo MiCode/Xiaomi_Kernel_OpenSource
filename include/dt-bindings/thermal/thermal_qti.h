@@ -41,6 +41,7 @@
 #define QMI_MMW_PA2		27
 #define QMI_MMW_PA3		28
 #define QMI_SDR_MMW		29
+#define QMI_MSM_SKIN	30
 
 #define QMI_MODEM_INST_ID	0x0
 #define QMI_ADSP_INST_ID	0x1
