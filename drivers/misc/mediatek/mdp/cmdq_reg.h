@@ -120,7 +120,7 @@
 #define CMDQ_GET_GPR_PX2RX_LOW(id)	((id & 0xf) * 2)
 #define CMDQ_GET_GPR_PX2RX_HIGH(id)	((id & 0xf) * 2 + 1)
 
-#define CMDQ_REG_SET32(addr, val)	writel(val, (addr))
+#define CMDQ_REG_SET32(addr, val)	writel(val, ((void *)addr))
 
 
 #endif				/* __CMDQ_REG_H__ */

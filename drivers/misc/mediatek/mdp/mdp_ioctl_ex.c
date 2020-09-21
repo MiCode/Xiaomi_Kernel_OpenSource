@@ -29,7 +29,7 @@
 #include "cmdq_device.h"
 
 struct mdpsys_con_context {
-	struct device *dev
+	struct device *dev;
 };
 struct mdpsys_con_context mdpsys_con_ctx;
 
@@ -928,6 +928,8 @@ EXPORT_SYMBOL(mdp_ioctl_free_readback_slots_by_node);
 int mdp_limit_dev_create(struct platform_device *device)
 {
 	INIT_LIST_HEAD(&job_mapping_list);
+
+	return 0;
 }
 
 static int mdpsys_con_probe(struct platform_device *pdev)
@@ -950,6 +952,8 @@ static int mdpsys_con_probe(struct platform_device *pdev)
 	mdpsys_con_ctx.dev = dev;
 
 	CMDQ_LOG("%s done\n", __func__);
+
+	return 0;
 }
 
 static int mdpsys_con_remove(struct platform_device *pdev)
@@ -959,6 +963,8 @@ static int mdpsys_con_remove(struct platform_device *pdev)
 	mdpsys_con_ctx.dev = NULL;
 
 	CMDQ_LOG("%s done\n", __func__);
+
+	return 0;
 }
 
 static const struct of_device_id mdpsyscon_of_ids[] = {

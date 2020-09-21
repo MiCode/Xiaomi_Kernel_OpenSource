@@ -1928,10 +1928,6 @@ static void mdp_parse_opp(struct platform_device *pdev, const char *ref,
 static void cmdq_mdp_init_pmqos(struct platform_device *pdev)
 {
 	u32 i = 0;
-	struct dev_pm_opp *opp;
-	unsigned long freq = 0;
-	struct of_phandle_iterator *it;
-	int ret;
 
 	for (i = 0; i < CMDQ_MAX_THREAD_COUNT; i++) {
 		if (!cmdq_helper_mbox_client(i))
@@ -2353,7 +2349,7 @@ static void cmdq_mdp_enable_common_clock_virtual(bool enable)
 {
 #ifdef CMDQ_PWR_AWARE
 #if IS_ENABLED(CONFIG_MTK_SMI)
-	int ret;
+	int ret = 0;
 
 	if (!mdp_ctx.larb) {
 		CMDQ_ERR("%s smi larb not support\n", __func__);
@@ -2402,12 +2398,10 @@ static bool mdp_is_isp_camin(struct cmdqRecStruct *handle)
 
 static void mdp_request_voltage(unsigned long frequency, bool is_mdp)
 {
-	struct dev_pm_opp *opp;
 	int low_volt, ret = 0;
 	int index = 0;
 	u64 *freqs = is_mdp ? mdp_pmqos_freq : isp_pmqos_freq;
 	int *volts = is_mdp ? mdp_volts : isp_volts;
-	struct regulator *reg = is_mdp ? mdp_mmdvfs_reg : isp_mmdvfs_reg;
 
 	CMDQ_LOG_PMQOS("%s frequency %u\n", __func__, frequency);
 
@@ -2443,7 +2437,7 @@ static void mdp_update_voltage(u32 thread_id, u64 freq, bool is_mdp)
 
 	/* scan for max freq */
 	for (i = 0; i < ARRAY_SIZE(mdp_current_freq); i++)
-		max_freq = max(max_freq, mdp_current_freq[i]);
+		max_freq = max((unsigned long long)(max_freq), mdp_current_freq[i]);
 	/* update voltage by clock frequency */
 	mdp_request_voltage(max_freq, is_mdp);
 	CMDQ_SYSTRACE_END();
@@ -2628,12 +2622,12 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 	DP_BANDWIDTH(
 		target_pmqos->mdp_total_datasize,
 		total_pixel,
-		mdp_t(max_throughput),
+		mdp_t((unsigned long long)(max_throughput)),
 		mdp_curr_bandwidth);
 	DP_BANDWIDTH(
 		target_pmqos->isp_total_datasize,
 		total_pixel,
-		isp_t(max_throughput),
+		isp_t((unsigned long long)(max_throughput)),
 		isp_curr_bandwidth);
 
 	CMDQ_LOG_PMQOS(
@@ -2642,7 +2636,7 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 		max_throughput);
 
 	if (mdp_is_isp_camin(handle) && isp_pmqos_freq) {
-		u32 isp_throughput = isp_t(max_throughput);
+		u32 isp_throughput = isp_t((unsigned long long)(max_throughput));
 
 		/*update bandwidth*/
 		for (i = 0; i < PMQOS_ISP_PORT_NUM &&
@@ -2665,7 +2659,7 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 
 	/*update bandwidth*/
 	if (target_pmqos->mdp_total_datasize) {
-		u32 mdp_throughput = mdp_t(max_throughput);
+		u32 mdp_throughput = mdp_t((unsigned long long)(max_throughput));
 
 		for (i = 0; i < PMQOS_MDP_PORT_NUM
 			&& target_pmqos->qos2_mdp_count > i
@@ -2687,7 +2681,7 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 
 	/* update clock */
 	if (mdp_curr_pmqos->mdp_total_pixel)
-		mdp_update_voltage(thread_id, mdp_t(max_throughput), true);
+		mdp_update_voltage(thread_id, mdp_t((unsigned long long)(max_throughput)), true);
 
 #ifdef MDP_MMPATH
 	if (!handle->prop_addr)
@@ -2895,12 +2889,12 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 	DP_BANDWIDTH(
 		mdp_data_size,
 		curr_pixel_size,
-		mdp_t(max_throughput),
+		mdp_t((unsigned long long)(max_throughput)),
 		mdp_curr_bandwidth);
 	DP_BANDWIDTH(
 		isp_data_size,
 		curr_pixel_size,
-		isp_t(max_throughput),
+		isp_t((unsigned long long)(max_throughput)),
 		isp_curr_bandwidth);
 
 	CMDQ_LOG_PMQOS(
@@ -2913,12 +2907,12 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 	handle->user_private = NULL;
 
 	if (update_isp_throughput)
-		mdp_update_voltage(thread_id, isp_t(max_throughput), false);
+		mdp_update_voltage(thread_id, isp_t((unsigned long long)(max_throughput)), false);
 	else if (mdp_curr_pmqos->isp_total_pixel)
 		mdp_update_voltage(thread_id, 0, false);
 
 	if (update_isp_bandwidth) {
-		u32 isp_throughput = isp_t(max_throughput);
+		u32 isp_throughput = isp_t((unsigned long long)(max_throughput));
 		/*update bandwidth*/
 		for (i = 0; i < PMQOS_ISP_PORT_NUM &&
 			target_pmqos->qos2_isp_count > i &&
@@ -2940,7 +2934,7 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 	}
 
 	if (mdp_curr_pmqos->mdp_total_datasize) {
-		u32 mdp_throughput = mdp_t(max_throughput);
+		u32 mdp_throughput = mdp_t((unsigned long long)(max_throughput));
 
 		for (i = 0; i < PMQOS_MDP_PORT_NUM
 			&& mdp_curr_pmqos->qos2_mdp_count > i
@@ -2960,7 +2954,7 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 				MBps_to_icc(mdp_curr_bandwidth), 0);
 		}
 	} else if (target_pmqos && target_pmqos->mdp_total_datasize) {
-		u32 mdp_throughput = mdp_t(max_throughput);
+		u32 mdp_throughput = mdp_t((unsigned long long)(max_throughput));
 
 		for (i = 0; i < PMQOS_MDP_PORT_NUM &&
 			target_pmqos->qos2_mdp_count > i &&
@@ -2987,7 +2981,7 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 	/* update clock */
 	if (mdp_curr_pmqos->mdp_total_pixel) {
 		if (mdp_curr_pmqos->mdp_total_datasize)
-			mdp_update_voltage(thread_id, mdp_t(max_throughput),
+			mdp_update_voltage(thread_id, mdp_t((unsigned long long)(max_throughput)),
 				true);
 		else
 			mdp_update_voltage(thread_id, 0, true);
@@ -3042,6 +3036,7 @@ static void mdp_qos_init_virtual(struct platform_device *pdev, u32 thread_id)
 
 static void *mdp_qos_get_path_virtual(u32 thread_id, u32 port)
 {
+	return NULL;
 }
 
 static void mdp_qos_clear_all_virtual(u32 thread_id)
