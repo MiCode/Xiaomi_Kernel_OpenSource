@@ -268,6 +268,9 @@
 #define RG_CDR_BIRLTD0_GEN3_MSK		GENMASK(4, 0)
 #define RG_CDR_BIRLTD0_GEN3_VAL(x)	(0x1f & (x))
 
+#define PHY_MODE_BC11_SW_SET 1
+#define PHY_MODE_BC11_SW_CLR 2
+
 enum mtk_phy_version {
 	MTK_PHY_V1 = 1,
 	MTK_PHY_V2,
@@ -608,27 +611,48 @@ static void u2_phy_instance_exit(struct mtk_tphy *tphy,
 
 static void u2_phy_instance_set_mode(struct mtk_tphy *tphy,
 				     struct mtk_phy_instance *instance,
-				     enum phy_mode mode)
+				     enum phy_mode mode,
+				     int submode)
 {
 	struct u2phy_banks *u2_banks = &instance->u2_banks;
 	u32 tmp;
 
-	tmp = readl(u2_banks->com + U3P_U2PHYDTM1);
-	switch (mode) {
-	case PHY_MODE_USB_DEVICE:
-		tmp |= P2C_FORCE_IDDIG | P2C_RG_IDDIG;
-		break;
-	case PHY_MODE_USB_HOST:
-		tmp |= P2C_FORCE_IDDIG;
-		tmp &= ~P2C_RG_IDDIG;
-		break;
-	case PHY_MODE_USB_OTG:
-		tmp &= ~(P2C_FORCE_IDDIG | P2C_RG_IDDIG);
-		break;
-	default:
-		return;
+	dev_info(tphy->dev, "%s mode(%d), submode(%d)\n", __func__,
+		mode, submode);
+
+	if (!submode) {
+		tmp = readl(u2_banks->com + U3P_U2PHYDTM1);
+		switch (mode) {
+		case PHY_MODE_USB_DEVICE:
+			tmp |= P2C_FORCE_IDDIG | P2C_RG_IDDIG;
+			break;
+		case PHY_MODE_USB_HOST:
+			tmp |= P2C_FORCE_IDDIG;
+			tmp &= ~P2C_RG_IDDIG;
+			break;
+		case PHY_MODE_USB_OTG:
+			tmp &= ~(P2C_FORCE_IDDIG | P2C_RG_IDDIG);
+			break;
+		default:
+			return;
+		}
+		writel(tmp, u2_banks->com + U3P_U2PHYDTM1);
+	} else {
+		switch (submode) {
+		case PHY_MODE_BC11_SW_SET:
+			tmp = readl(u2_banks->com + U3P_USBPHYACR6);
+			tmp |= PA6_RG_U2_BC11_SW_EN;
+			writel(tmp, u2_banks->com + U3P_USBPHYACR6);
+			break;
+		case PHY_MODE_BC11_SW_CLR:
+			tmp = readl(u2_banks->com + U3P_USBPHYACR6);
+			tmp &= ~PA6_RG_U2_BC11_SW_EN;
+			writel(tmp, u2_banks->com + U3P_USBPHYACR6);
+			break;
+		default:
+			return;
+		}
 	}
-	writel(tmp, u2_banks->com + U3P_U2PHYDTM1);
 }
 
 static void pcie_phy_instance_init(struct mtk_tphy *tphy,
@@ -1008,7 +1032,7 @@ static int mtk_phy_set_mode(struct phy *phy, enum phy_mode mode, int submode)
 	struct mtk_tphy *tphy = dev_get_drvdata(phy->dev.parent);
 
 	if (instance->type == PHY_TYPE_USB2)
-		u2_phy_instance_set_mode(tphy, instance, mode);
+		u2_phy_instance_set_mode(tphy, instance, mode, submode);
 
 	return 0;
 }
