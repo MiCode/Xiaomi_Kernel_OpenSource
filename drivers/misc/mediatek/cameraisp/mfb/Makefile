@@ -16,6 +16,8 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/
 ccflags-y += -I$(srctree)/drivers/staging/android/ion \
              -I$(srctree)/drivers/staging/android/ion/mtk
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/mailbox/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 
 obj-$(CONFIG_MTK_CAMERA_ISP_MFB_SUPPORT) += camera_mfb.o
 camera_mfb-objs += isp_6s/engine_request.o
