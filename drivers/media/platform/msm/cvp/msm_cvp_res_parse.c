@@ -925,8 +925,9 @@ int msm_cvp_smmu_fault_handler(struct iommu_domain *domain,
 
 	if (core->smmu_fault_handled) {
 		if (core->resources.non_fatal_pagefaults) {
-			WARN_ONCE(1, "%s: non-fatal pagefault address: %lx\n",
-					__func__, iova);
+			pr_err_ratelimited(
+				"msm_cvp: non-fatal pagefault address %lx\n",
+				 iova);
 			*pfaddr = (*pfaddr == 0) ? iova : (*pfaddr);
 			return 0;
 		}

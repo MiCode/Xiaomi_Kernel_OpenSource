@@ -659,7 +659,9 @@ static void handle_sys_error(enum hal_command_response cmd, void *data)
 
 	cur_state = core->state;
 	core->state = CVP_CORE_UNINIT;
-	dprintk(CVP_WARN, "SYS_ERROR received for core %pK\n", core);
+	dprintk(CVP_WARN, "SYS_ERROR from core %pK ssr_sess_cnt %lld\n",
+			core, core->ssr_sess_cnt);
+	core->ssr_sess_cnt = 0;
 	msm_cvp_noc_error_info(core);
 	call_hfi_op(hdev, flush_debug_queue, hdev->hfi_device_data);
 	list_for_each_entry(inst, &core->instances, list) {
@@ -1367,7 +1369,7 @@ int msm_cvp_trigger_ssr(struct msm_cvp_core *core,
 
 void msm_cvp_ssr_handler(struct work_struct *work)
 {
-	int rc;
+	int rc, max_retries = CVP_MAX_SSR_RETRIES;
 	struct msm_cvp_core *core;
 	struct cvp_hfi_device *hdev;
 
@@ -1427,7 +1429,8 @@ send_again:
 				mutex_unlock(&core->lock);
 				usleep_range(500, 1000);
 				dprintk(CVP_WARN, "Retry ssr\n");
-				goto send_again;
+				if (max_retries-- > 0)
+					goto send_again;
 			}
 			dprintk(CVP_ERR, "%s: trigger_ssr failed\n",
 				__func__);

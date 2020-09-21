@@ -50,6 +50,8 @@
 /* Adjust this value to admit non-realtime session */
 #define CVP_RT_PRIO_THRESHOLD 0
 
+#define CVP_MAX_SSR_RETRIES 5
+
 struct msm_cvp_inst;
 
 enum cvp_core_state {
@@ -284,6 +286,7 @@ struct msm_cvp_core {
 	bool smmu_fault_handled;
 	u32 last_fault_addr;
 	bool trigger_ssr;
+	u64 ssr_sess_cnt;
 	unsigned long curr_freq;
 	struct cvp_cycle_info dyn_clk;
 	atomic64_t kernel_trans_id;
