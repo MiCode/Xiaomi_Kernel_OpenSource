@@ -3146,7 +3146,6 @@ static void sdhci_msm_reset(struct sdhci_host *host, u8 mask)
 	sdhci_reset(host, mask);
 }
 
-
 #define MAX_TEST_BUS 60
 #define DRIVER_NAME "sdhci_msm"
 #define SDHCI_MSM_DUMP(f, x...) \
@@ -3268,6 +3267,31 @@ static void sdhci_msm_dump_vendor_regs(struct sdhci_host *host)
 				debug_reg[i+2], debug_reg[i+3]);
 }
 
+static int sdhci_msm_notify_load(struct sdhci_host *host, enum mmc_load state)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
+	int ret = 0;
+	u32 clk_rate = 0;
+
+	if (!IS_ERR(msm_host->bulk_clks[2].clk)) {
+		clk_rate = (state == MMC_LOAD_LOW) ?
+			msm_host->ice_clk_min :
+			msm_host->ice_clk_max;
+		if (msm_host->ice_clk_rate == clk_rate)
+			return 0;
+		pr_debug("%s: changing ICE clk rate to %u\n",
+				mmc_hostname(host->mmc), clk_rate);
+		ret = clk_set_rate(msm_host->bulk_clks[2].clk, clk_rate);
+		if (ret) {
+			pr_err("%s: ICE_CLK rate set failed (%d) for %u\n",
+				mmc_hostname(host->mmc), ret, clk_rate);
+			return ret;
+		}
+		msm_host->ice_clk_rate = clk_rate;
+	}
+	return 0;
+}
 #endif
 
 static const struct sdhci_msm_variant_ops mci_var_ops = {
@@ -3374,6 +3398,7 @@ static const struct sdhci_ops sdhci_msm_ops = {
 	.irq	= sdhci_msm_cqe_irq,
 #if defined(CONFIG_SDC_QTI)
 	.get_current_limit = sdhci_msm_get_current_limit,
+	.notify_load = sdhci_msm_notify_load,
 #endif
 	.hw_reset = sdhci_msm_hw_reset,
 };
