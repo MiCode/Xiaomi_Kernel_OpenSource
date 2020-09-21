@@ -2790,6 +2790,7 @@ static int mt6360_charger_get_property(struct power_supply *psy,
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
 		ret = mt6360_charger_get_online(mci, &pwr_rdy);
+		val->intval = pwr_rdy;
 		break;
 	case POWER_SUPPLY_PROP_USB_TYPE:
 		val->intval = mci->psy_usb_type;
@@ -2809,9 +2810,9 @@ static int mt6360_charger_get_property(struct power_supply *psy,
 			fallthrough;
 		case MT6360_CHG_STATUS_PROGRESS:
 			if (chg_en)
-				val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
-			else
 				val->intval = POWER_SUPPLY_STATUS_CHARGING;
+			else
+				val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
 			break;
 		case MT6360_CHG_STATUS_DONE:
 			val->intval = POWER_SUPPLY_STATUS_FULL;
