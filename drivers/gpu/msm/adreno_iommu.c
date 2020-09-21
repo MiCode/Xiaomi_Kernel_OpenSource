@@ -188,6 +188,8 @@ static unsigned int _adreno_iommu_set_pt_v2_a5xx(struct kgsl_device *device,
 	*cmds++ = contextidr;
 
 
+	*cmds++ = cp_type7_packet(CP_WAIT_FOR_IDLE, 0);
+	*cmds++ = cp_type7_packet(CP_WAIT_FOR_ME, 0);
 	*cmds++ = cp_type4_packet(A5XX_CP_CNTL, 1);
 	*cmds++ = 1;
 
@@ -198,6 +200,8 @@ static unsigned int _adreno_iommu_set_pt_v2_a5xx(struct kgsl_device *device,
 	*cmds++ = upper_32_bits(ttbr0);
 	*cmds++ = contextidr;
 
+	*cmds++ = cp_type7_packet(CP_WAIT_FOR_IDLE, 0);
+	*cmds++ = cp_type7_packet(CP_WAIT_FOR_ME, 0);
 	*cmds++ = cp_type4_packet(A5XX_CP_CNTL, 1);
 	*cmds++ = 0;
 
@@ -221,6 +225,8 @@ static unsigned int _adreno_iommu_set_pt_v2_a6xx(struct kgsl_device *device,
 	*cmds++ = cb_num;
 
 	if (!ADRENO_FEATURE(adreno_dev, ADRENO_APRIV)) {
+		*cmds++ = cp_type7_packet(CP_WAIT_FOR_IDLE, 0);
+		*cmds++ = cp_type7_packet(CP_WAIT_FOR_CP_FLUSH, 0);
 		*cmds++ = cp_type4_packet(A6XX_CP_MISC_CNTL, 1);
 		*cmds++ = 1;
 	}
@@ -233,6 +239,8 @@ static unsigned int _adreno_iommu_set_pt_v2_a6xx(struct kgsl_device *device,
 	*cmds++ = contextidr;
 
 	if (!ADRENO_FEATURE(adreno_dev, ADRENO_APRIV)) {
+		*cmds++ = cp_type7_packet(CP_WAIT_FOR_IDLE, 0);
+		*cmds++ = cp_type7_packet(CP_WAIT_FOR_CP_FLUSH, 0);
 		*cmds++ = cp_type4_packet(A6XX_CP_MISC_CNTL, 1);
 		*cmds++ = 0;
 	}
