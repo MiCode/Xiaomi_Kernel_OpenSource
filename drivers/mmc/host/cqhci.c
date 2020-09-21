@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/delay.h>
@@ -631,6 +631,14 @@ out_unlock:
 	return err;
 }
 
+#if defined(CONFIG_SDC_QTI)
+static void cqhci_crypto_update_queue(struct mmc_host *mmc,
+					struct request_queue *queue)
+{
+	//struct cqhci_host *cq_host = mmc->cqe_private;
+}
+#endif
+
 static void cqhci_recovery_needed(struct mmc_host *mmc, struct mmc_request *mrq,
 				  bool notify)
 {
@@ -1067,6 +1075,9 @@ static const struct mmc_cqe_ops cqhci_cqe_ops = {
 	.cqe_timeout = cqhci_timeout,
 	.cqe_recovery_start = cqhci_recovery_start,
 	.cqe_recovery_finish = cqhci_recovery_finish,
+#if defined(CONFIG_SDC_QTI)
+	.cqe_crypto_update_queue = cqhci_crypto_update_queue,
+#endif
 };
 
 struct cqhci_host *cqhci_pltfm_init(struct platform_device *pdev)
