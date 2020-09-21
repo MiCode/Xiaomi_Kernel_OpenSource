@@ -14,6 +14,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
 #include <linux/soc/qcom/llcc-qcom.h>
+#include <linux/mailbox/qmp.h>
 #include <soc/qcom/cmd-db.h>
 
 #include "adreno.h"
@@ -2128,19 +2129,20 @@ void a6xx_gmu_snapshot(struct adreno_device *adreno_dev,
 
 void a6xx_gmu_aop_send_acd_state(struct a6xx_gmu_device *gmu, bool flag)
 {
-	char msg_buf[33];
+	struct qmp_pkt msg;
+	char msg_buf[36];
+	u32 size;
 	int ret;
-	struct {
-		u32 len;
-		void *msg;
-	} msg;
 
 	if (IS_ERR_OR_NULL(gmu->mailbox.channel))
 		return;
 
-	msg.len = scnprintf(msg_buf, sizeof(msg_buf),
-			"{class: gpu, res: acd, value: %d}", flag);
-	msg.msg = msg_buf;
+	size = scnprintf(msg_buf, sizeof(msg_buf),
+			"{class: gpu, res: acd, val: %d}", flag);
+
+	/* mailbox controller expects 4-byte aligned buffer */
+	msg.size = ALIGN((size + 1), SZ_4);
+	msg.data = msg_buf;
 
 	ret = mbox_send_message(gmu->mailbox.channel, &msg);
 
