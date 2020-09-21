@@ -175,18 +175,34 @@ static irqreturn_t mnoc_isr(int irq, void *dev_id)
 		return IRQ_NONE;
 	}
 
-	//mnoc_irq_triggered = mnoc_check_int_status();
 	mnoc_irq_triggered = mnoc_drv.chk_int_status();
 
 	spin_unlock_irqrestore(&mnoc_spinlock, flags);
 
 	if (mnoc_irq_triggered != 0) {
 		LOG_DEBUG("INT triggered by mnoc\n");
+
+		if (mnoc_irq_triggered == 2)
+			LOG_DEBUG("mnoc timeout\n");
+
+		if (mnoc_irq_triggered == 3 && is_first_isr_after_pwr_on) {
+
+			LOG_ERR("check int status case 3 !!\n");
+			is_first_isr_after_pwr_on = false;
+
+			mutex_lock(&mnoc_pwr_mtx);
+			if (mnoc_pwr_is_on)
+				apusys_reg_dump("apusys-mnoc", false);
+			mutex_unlock(&mnoc_pwr_mtx);
+			mnoc_aee_warn("MNOC", "MNOC Exception");
+		}
+
 		/* Prevent overwhelming interrupts paralyzing system */
 		if (mnoc_irq_triggered == 1 && is_first_isr_after_pwr_on) {
 			is_first_isr_after_pwr_on = false;
 			schedule_work(&mnoc_isr_work);
 		}
+
 		return IRQ_HANDLED;
 	}
 

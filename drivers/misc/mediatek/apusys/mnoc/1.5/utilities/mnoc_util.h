@@ -28,10 +28,10 @@
  * @val:        The value to be written to the field
  */
 //#define mnoc_read(addr)	ioread32((void*) (uintptr_t) addr)
-#define mnoc_read(addr)	__raw_readl((void __iomem *) (uintptr_t) (addr)) //Redman
+#define mnoc_read(addr)	ioread32((void __iomem *) (uintptr_t) (addr))
 
 #define mnoc_write(addr,  val) \
-__raw_writel(val, (void __iomem *) (uintptr_t) addr)
+iowrite32(val, (void __iomem *) (uintptr_t) addr)
 #define mnoc_read_field(addr, range) GET_BITS_VAL(range, mnoc_read(addr))
 #define mnoc_write_field(addr, range, val) mnoc_write(addr, (mnoc_read(addr) \
 & ~(BITMASK(range))) | BITS(range, val))
