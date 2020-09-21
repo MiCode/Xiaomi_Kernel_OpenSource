@@ -172,6 +172,22 @@ struct CCU_TIME_LOG_STRUCT {
 	unsigned int TaskletExpdone;
 };
 
+struct ccu_iova_t {
+	/* ION case only */
+	struct dma_buf        *dma_buf;
+	struct dma_buf_attachment *attach;
+	struct sg_table *sgt;
+};
+
+enum CCU_IOVA_BUFFER {
+	CCU_IOVA_BUFFER_MIN = 0,
+	//buffer type for CCU IPC command I/O buffer
+	CCU_IOVA_BUFFER_CTRL = CCU_IOVA_BUFFER_MIN,
+	//buffer type for buffers that CPU will reference, but managed by CCU
+	CCU_IOVA_BUFFER_CPUREF,
+	CCU_IOVA_BUFFER_MAX,
+};
+
 #ifdef MTK_VPU_KERNEL
 struct CCU_INFO_STRUCT {
 	spinlock_t SpinLockCcuRef;
@@ -341,12 +357,9 @@ struct ccu_reg_s {
 #define CCU_REGISTER_IRQ_USER_KEY           _IOR(CCU_MAGICNO,  13, int)
 #define CCU_READ_REGISTER                   _IOWR(CCU_MAGICNO, 14, int)
 #define CCU_WRITE_REGISTER                  _IOWR(CCU_MAGICNO, 15, int)
-#define CCU_READ_STRUCT_SIZE                _IOWR(CCU_MAGICNO,  16, int)
-#define CCU_IOCTL_PRINT_REG                 _IOR(CCU_MAGICNO,  17, int)
-#define CCU_IOCTL_PRINT_SRAM_LOG            _IOR(CCU_MAGICNO,  18, int)
 
-#define CCU_IOCTL_SET_WORK_BUF              _IOW(CCU_MAGICNO,  19, int)
-#define CCU_IOCTL_FLUSH_LOG                 _IOW(CCU_MAGICNO,  20, int)
+#define CCU_IOCTL_SET_WORK_BUF              _IOW(CCU_MAGICNO,  18, int)
+#define CCU_IOCTL_FLUSH_LOG                 _IOW(CCU_MAGICNO,  19, int)
 
 #define CCU_IOCTL_GET_CURRENT_FPS           _IOR(CCU_MAGICNO,  23, int)
 #define CCU_IOCTL_GET_SENSOR_NAME           _IOR(CCU_MAGICNO,  25, int)
@@ -355,10 +368,13 @@ struct ccu_reg_s {
 #define CCU_IOCTL_UPDATE_QOS_REQUEST        _IOW(CCU_MAGICNO,  28, int)
 #define CCU_IOCTL_UPDATE_CAM_FREQ_REQUEST   _IOW(CCU_MAGICNO,  29, int)
 
-#define CCU_IOCTL_LOAD_CCU_BIN		    _IOW(CCU_MAGICNO,  30, int)
+#define CCU_IOCTL_LOAD_CCU_BIN              _IOW(CCU_MAGICNO,  30, int)
 #define CCU_IOCTL_IPC_INIT                  _IOW(CCU_MAGICNO,  31, int)
 #define CCU_IOCTL_IPC_SEND_CMD              _IOW(CCU_MAGICNO,  32, int)
 #define CCU_IOCTL_ALLOC_MEM                 _IOW(CCU_MAGICNO,  33, int)
 #define CCU_IOCTL_DEALLOC_MEM               _IOW(CCU_MAGICNO,  34, int)
-#define CCU_IOCTL_GET_IOVA		    _IOWR(CCU_MAGICNO, 35, int)
+#define CCU_IOCTL_GET_IOVA                  _IOWR(CCU_MAGICNO, 35, int)
+#define CCU_READ_STRUCT_SIZE                _IOWR(CCU_MAGICNO, 36, int)
+#define CCU_IOCTL_PRINT_REG                 _IOR(CCU_MAGICNO,  37, int)
+#define CCU_IOCTL_PRINT_SRAM_LOG            _IOR(CCU_MAGICNO,  38, int)
 #endif

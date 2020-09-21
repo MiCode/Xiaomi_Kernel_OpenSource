@@ -84,6 +84,12 @@ static uint32_t ccu_hw_base;
 static wait_queue_head_t wait_queue_deque;
 static wait_queue_head_t wait_queue_enque;
 
+#include <linux/dma-buf.h>
+struct device *dev;
+
+struct ccu_iova_t ccu_iova[CCU_IOVA_BUFFER_MAX];
+int iova_buf_count;
+
 // static struct ion_handle
 //	*import_buffer_handle[CCU_IMPORT_BUF_NUM];
 
@@ -435,6 +441,7 @@ static int ccu_open(struct inode *inode, struct file *flip)
 	struct ccu_user_s *user;
 
 	_clk_count = 0;
+	iova_buf_count = 0;
 
 	ccu_create_user(&user);
 	if (IS_ERR_OR_NULL(user)) {
@@ -637,8 +644,7 @@ void ccu_clock_disable(void)
 #endif
 	mutex_unlock(&g_ccu_device->clk_mutex);
 }
-#include <linux/dma-buf.h>
-struct device *dev;
+
 static long ccu_ioctl(struct file *flip, unsigned int cmd,
 		      unsigned long arg)
 {
@@ -1143,10 +1149,7 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd,
 	{
 		int va = 0;
 		int ret = 0;
-
-		struct dma_buf        *dma_buf;
-		struct dma_buf_attachment *attach;
-		struct sg_table *sgt;
+		dma_addr_t dma_addr;
 		struct dma_buf *buf;
 
 		ret = copy_from_user(&va,
@@ -1162,32 +1165,35 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd,
 		}
 		LOG_ERR(
 			"[CCU_IOCTL_GET_IOVA] dma_buf_get va=%x\n", buf);
-		dma_buf = buf;
-		attach = dma_buf_attach(dma_buf, g_ccu_device->dev);
-		if (IS_ERR(attach)) {
+		ccu_iova[iova_buf_count].dma_buf = buf;
+		ccu_iova[iova_buf_count].attach =
+			dma_buf_attach(ccu_iova[iova_buf_count].dma_buf, g_ccu_device->dev);
+		if (IS_ERR(ccu_iova[iova_buf_count].attach)) {
 			LOG_ERR(
 			"[CCU_IOCTL_GET_IOVA] dma_buf_attach failed, attach=%d va=%x\n",
-			 attach, dma_buf);
+			 ccu_iova[iova_buf_count].attach, ccu_iova[iova_buf_count].dma_buf);
 			goto err_attach;
 		}
 		LOG_ERR(
-			"[CCU_IOCTL_GET_IOVA] dma_buf_attach va=%x\n", attach);
-		sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
-		if (IS_ERR(sgt)) {
+			"[CCU_IOCTL_GET_IOVA] dma_buf_attach va=%x\n",
+			ccu_iova[iova_buf_count].attach);
+		ccu_iova[iova_buf_count].sgt =
+			dma_buf_map_attachment(ccu_iova[iova_buf_count].attach, DMA_BIDIRECTIONAL);
+		if (IS_ERR(ccu_iova[iova_buf_count].sgt)) {
 			LOG_ERR(
 			"[CCU_IOCTL_GET_IOVA] dma_buf_map_attachment failed, sgt=%d va=%d\n",
-			 sgt, DMA_BIDIRECTIONAL);
+			 ccu_iova[iova_buf_count].sgt, DMA_BIDIRECTIONAL);
 			goto err_map;
 		}
 		LOG_ERR(
-			"[CCU_IOCTL_GET_IOVA] dma_buf_map_attachment va=%x\n", sgt);
+			"[CCU_IOCTL_GET_IOVA] dma_buf_map_attachment va=%x\n",
+			ccu_iova[iova_buf_count].sgt);
 
 		/* return true;*/
 
-dma_addr_t dma_addr;
 
-dma_addr = sg_dma_address(sgt->sgl); //dma_addr即为hw要访问的pa
-
+		dma_addr = sg_dma_address(ccu_iova[iova_buf_count].sgt->sgl);
+		iova_buf_count++;
 		LOG_ERR(
 			"[CCU_IOCTL_GET_IOVA] sg_dma_address, ret=%ld\n", dma_addr);
 
@@ -1201,10 +1207,10 @@ dma_addr = sg_dma_address(sgt->sgl); //dma_addr即为hw要访问的pa
 
 		break;
 err_map:
-		dma_buf_detach(dma_buf, attach);
+		dma_buf_detach(ccu_iova[iova_buf_count].dma_buf, ccu_iova[iova_buf_count].attach);
 
 err_attach:
-		dma_buf_put(dma_buf);
+		dma_buf_put(ccu_iova[iova_buf_count].dma_buf);
 		return -EFAULT;
 	}
 
@@ -1253,6 +1259,7 @@ err_attach:
 			ret);
 			break;
 		}
+
 		ret = ccu_deallocate_mem(g_ccu_device, &handle);
 		if (ret != 0) {
 			LOG_ERR(
@@ -1291,7 +1298,15 @@ static int ccu_release(struct inode *inode, struct file *flip)
 
 	LOG_INF_MUST("%s +\n", __func__);
 	ccu_force_powerdown();
-
+	for (i = 0; i < CCU_IOVA_BUFFER_MAX; i++) {
+		if (ccu_iova[i].dma_buf) {
+			dma_buf_unmap_attachment(ccu_iova[i].attach, ccu_iova[i].sgt,
+							DMA_BIDIRECTIONAL);
+			dma_buf_detach(ccu_iova[i].dma_buf, ccu_iova[i].attach);
+			dma_buf_put(ccu_iova[i].dma_buf);
+		}
+	}
+	iova_buf_count = 0;
 	// for (i = 0; i < CCU_IMPORT_BUF_NUM; i++) {
 	//	if (import_buffer_handle[i] ==
 	//		(struct ion_handle *)CCU_IMPORT_BUF_UNDEF) {

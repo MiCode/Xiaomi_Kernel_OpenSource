@@ -17,7 +17,7 @@ subdir-ccflags-y += -DCCU_AF_ENABLE
 $(warning CCU_MAKE_FILE_CALLED_2_1_1)
 $(info $(CONFIG_MTK_CAMERA_ISP_PLATFORM))
 
-platform = mt6873
+platform = $(subst $\",,$(CONFIG_MTK_CAMERA_ISP_PLATFORM))
 folder_name = isp6s
 obj-$(CONFIG_MTK_CCU) += $(subst ",,$(folder_name))/
 
