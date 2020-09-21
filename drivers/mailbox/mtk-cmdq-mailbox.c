@@ -21,6 +21,15 @@
 #include <linux/of_device.h>
 #include <linux/atomic.h>
 #include <linux/sched/clock.h>
+
+#ifndef cmdq_util_msg
+#define cmdq_util_msg(f, args...) cmdq_msg(f, ##args)
+#endif
+
+#ifndef cmdq_util_err
+#define cmdq_util_err(f, args...) cmdq_dump(f, ##args)
+#endif
+
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 struct cmdq_util_controller_fp *cmdq_util;
 #endif

@@ -22,6 +22,17 @@ struct cmdq_util_helper_fp *cmdq_util;
 
 #endif
 
+#ifndef cmdq_util_msg
+#define cmdq_util_msg(f, args...) cmdq_msg(f, ##args)
+#endif
+#ifndef cmdq_util_err
+#define cmdq_util_err(f, args...) cmdq_dump(f, ##args)
+#endif
+#ifndef cmdq_util_aee
+#define cmdq_util_aee(k, f, args...) cmdq_dump(f, ##args)
+#endif
+
+
 #define CMDQ_ARG_A_WRITE_MASK	0xffff
 #define CMDQ_WRITE_ENABLE_MASK	BIT(0)
 #define CMDQ_EOC_IRQ_EN		BIT(0)

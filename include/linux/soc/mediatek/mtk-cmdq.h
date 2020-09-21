@@ -38,9 +38,6 @@ struct cmdq_util_helper_fp {
 };
 void cmdq_helper_set_fp(struct cmdq_util_helper_fp *cust_cmdq_util);
 #endif
-#define cmdq_util_msg(f, args...) cmdq_msg(f, ##args)
-#define cmdq_util_err(f, args...) cmdq_dump(f, ##args)
-#define cmdq_util_aee(k, f, args...) cmdq_dump(f, ##args)
 
 #define CMDQ_SPR_FOR_TEMP		0
 #define CMDQ_THR_SPR_IDX0		0

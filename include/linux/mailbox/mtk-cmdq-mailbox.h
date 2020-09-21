@@ -23,8 +23,6 @@ struct cmdq_util_controller_fp {
 
 void cmdq_controller_set_fp(struct cmdq_util_controller_fp *cust_cmdq_util);
 #endif
-#define cmdq_util_msg(f, args...) cmdq_msg(f, ##args)
-#define cmdq_util_err(f, args...) cmdq_dump(f, ##args)
 
 /* see also gce platform binding header */
 #define CMDQ_NO_TIMEOUT			0xffffffff
