@@ -43,6 +43,7 @@ int drm_register_fps_chg_callback(FPS_CHG_CALLBACK fps_chg_cb)
 	mutex_unlock(&cb_table_lock);
 	return ret;
 }
+EXPORT_SYMBOL(drm_register_fps_chg_callback);
 
 int drm_unregister_fps_chg_callback(FPS_CHG_CALLBACK fps_chg_cb)
 {
@@ -65,6 +66,7 @@ int drm_unregister_fps_chg_callback(FPS_CHG_CALLBACK fps_chg_cb)
 	mutex_unlock(&cb_table_lock);
 	return ret;
 }
+EXPORT_SYMBOL(drm_unregister_fps_chg_callback);
 
 void drm_invoke_fps_chg_callbacks(unsigned int new_fps)
 {
