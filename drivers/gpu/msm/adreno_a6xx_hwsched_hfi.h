@@ -117,6 +117,8 @@ struct a6xx_hwsched_hfi {
 	struct task_struct *f2h_task;
 	/** @f2h_msglist: List of gmu fw to host packets */
 	struct llist_head f2h_msglist;
+	/** @f2h_secondary_list: List of host profile packets from GMU */
+	struct llist_head f2h_secondary_list;
 	/** @f2h_wq: Waitqueue for the f2h_task */
 	wait_queue_head_t f2h_wq;
 };
