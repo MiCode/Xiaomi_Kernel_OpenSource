@@ -77,6 +77,8 @@ void apusys_reg_dump(char *module_name, bool dump_vpu)
 {
 	LOG_DEBUG("+\n");
 
+	LOG_DEBUG("name:%s dump_vpu:%d", module_name, dump_vpu);
+
 	mutex_lock(&dump_lock);
 
 	if (data.reg_all_mem == NULL) {

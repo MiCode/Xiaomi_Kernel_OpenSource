@@ -104,6 +104,8 @@ void reg_dump_implement(void *apu_top, bool dump_vpu, char *mem,
 
 	LOG_DEBUG("+\n");
 
+	LOG_DEBUG("platform_idx:%d", platform_idx);
+
 	if (!skip_gals)
 		dump_gals_reg(dump_vpu, apu_top, gals_reg,
 						hw_info.total_mux_ount,
@@ -116,6 +118,8 @@ void reg_dump_implement(void *apu_top, bool dump_vpu, char *mem,
 	for (i = 0; i < hw_info.seg_count; ++i) {
 		offset = hw_info.range_tbl[i].base - APUSYS_BASE;
 		size = hw_info.range_tbl[i].size;
+
+		LOG_DEBUG("0x%x, 0x%x, 0x%x, 0x%x", mem, apu_top, offset, size);
 
 		memcpy_fromio(mem + offset, apu_top + offset, size);
 	}

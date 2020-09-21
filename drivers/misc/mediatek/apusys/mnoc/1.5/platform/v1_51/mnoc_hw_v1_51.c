@@ -209,32 +209,6 @@ static void mnoc_reg_init(void)
 	/* EMI fine tune: SLV04_QOS/SLV05_QOS = 0x7 */
 	mnoc_write_field(MNOC_REG(2, SLV_QOS_CTRL0), 7:0, 0x77);
 
-	/* set request router timeout interrupt */
-	for (rt_idx = 0; rt_idx < NR_MNOC_RT; rt_idx++) {
-		/* all VC enabled */
-		mnoc_write(MNOC_RT_PMU_REG(rt_idx, REQ_RT_PMU, 3), 0xFFFFFFFF);
-		mnoc_write(MNOC_RT_PMU_REG(rt_idx, REQ_RT_PMU, 4), 0xFFFFFFFF);
-		/* set timeout threshold to 510 cycles */
-		mnoc_write_field(MNOC_RT_PMU_REG(rt_idx, REQ_RT_PMU, 2),
-			8:0, 510);
-		/* enable timeout counting */
-		mnoc_write_field(MNOC_RT_PMU_REG(rt_idx, REQ_RT_PMU, 2),
-			31:31, 1);
-	}
-
-	/* set response router timeout interrupt */
-	for (rt_idx = 0; rt_idx < NR_MNOC_RT; rt_idx++) {
-		/* all VC enabled */
-		mnoc_write(MNOC_RT_PMU_REG(rt_idx, RSP_RT_PMU, 3), 0xFFFFFFFF);
-		mnoc_write(MNOC_RT_PMU_REG(rt_idx, RSP_RT_PMU, 4), 0xFFFFFFFF);
-		/* set timeout threshold to 510 cycles */
-		mnoc_write_field(MNOC_RT_PMU_REG(rt_idx, RSP_RT_PMU, 2),
-			8:0, 510);
-		/* enable timeout counting */
-		mnoc_write_field(MNOC_RT_PMU_REG(rt_idx, RSP_RT_PMU, 2),
-			31:31, 1);
-	}
-
 	spin_unlock_irqrestore(&mnoc_spinlock, flags);
 
 	LOG_DEBUG("-\n");
@@ -592,64 +566,57 @@ int mnoc_check_int_status_v1_51(void)
 		d->count++;
 
 		for (int_idx = 0; int_idx < NR_MNI_INT_STA; int_idx++) {
-			val = mnoc_read(MNOC_REG(grp_idx,
-				mni_int_sta_offset[int_idx]));
+			val = mnoc_read(MNOC_REG(grp_idx, mni_int_sta_offset[int_idx]));
+
 			if ((val & 0xFFFF) != 0) {
 				d->mni_int_sta[int_idx].reg_val = val;
-				d->mni_int_sta[int_idx].timestamp =
-					cur_timestamp;
+				d->mni_int_sta[int_idx].timestamp = cur_timestamp;
 				LOG_DEBUG("RT(%d): %s = 0x%x\n", grp_idx,
 					mni_int_sta_string[int_idx], val);
-				for (ni_idx = 0; ni_idx < grp_nr_mni[grp_idx];
-					ni_idx++)
+				for (ni_idx = 0; ni_idx < grp_nr_mni[grp_idx]; ni_idx++)
 					if ((val & (1 << ni_idx)) != 0)
 						LOG_DEBUG("From %s\n",
-							mni_map_string[grp_idx]
-							[ni_idx]);
+								mni_map_string[grp_idx][ni_idx]);
 				mnoc_write_field(
-					MNOC_REG(grp_idx,
-						mni_int_sta_offset[int_idx]),
-						15:0, 0xFFFF);
+					MNOC_REG(grp_idx, mni_int_sta_offset[int_idx]),
+					15:0, 0xFFFF);
+
 				mnoc_irq_triggered = 1;
 			}
 		}
 
 		for (int_idx = 0; int_idx < NR_SNI_INT_STA; int_idx++) {
-			val = mnoc_read(MNOC_REG(grp_idx,
-				sni_int_sta_offset[int_idx]));
+			val = mnoc_read(MNOC_REG(grp_idx, sni_int_sta_offset[int_idx]));
+
 			if ((val & 0xFFFF) != 0) {
 				d->sni_int_sta[int_idx].reg_val = val;
-				d->sni_int_sta[int_idx].timestamp =
-					cur_timestamp;
+				d->sni_int_sta[int_idx].timestamp = cur_timestamp;
 				LOG_DEBUG("RT(%d): %s = 0x%x\n", grp_idx,
 					sni_int_sta_string[int_idx], val);
-				for (ni_idx = 0; ni_idx < grp_nr_sni[grp_idx];
-					ni_idx++)
+				for (ni_idx = 0; ni_idx < grp_nr_sni[grp_idx]; ni_idx++)
 					if ((val & (1 << ni_idx)) != 0)
 						LOG_DEBUG("From %s\n",
-							sni_map_string[grp_idx]
-							[ni_idx]);
+								sni_map_string[grp_idx][ni_idx]);
 				mnoc_write_field(
-					MNOC_REG(grp_idx,
-						sni_int_sta_offset[int_idx]),
-						15:0, 0xFFFF);
+					MNOC_REG(grp_idx, sni_int_sta_offset[int_idx]),
+					15:0, 0xFFFF);
+
 				mnoc_irq_triggered = 1;
 			}
 		}
 
 		for (int_idx = 0; int_idx < NR_RT_INT_STA; int_idx++) {
-			val = mnoc_read(MNOC_REG(grp_idx,
-				rt_int_sta_offset[int_idx]));
+			val = mnoc_read(MNOC_REG(grp_idx, rt_int_sta_offset[int_idx]));
+
 			if ((val & 0x1F) != 0) {
 				d->rt_int_sta[int_idx].reg_val = val;
-				d->rt_int_sta[int_idx].timestamp =
-					cur_timestamp;
+				d->rt_int_sta[int_idx].timestamp = cur_timestamp;
 				LOG_DEBUG("RT(%d): %s = 0x%x\n", grp_idx,
-					rt_int_sta_string[int_idx], val);
+							rt_int_sta_string[int_idx], val);
 				mnoc_write_field(
-					MNOC_REG(grp_idx,
-						rt_int_sta_offset[int_idx]),
-						4:0, 0x1F);
+					MNOC_REG(grp_idx, rt_int_sta_offset[int_idx]),
+					4:0, 0x1F);
+
 				/* timeout interrupt may be only perf
 				 * hint but not actually hang
 				 */
@@ -663,17 +630,19 @@ int mnoc_check_int_status_v1_51(void)
 		}
 
 		/* additional check: sw triggered irq */
-		val = mnoc_read_field(MNOC_REG(grp_idx,
-			MISC_CTRL), 18:16);
+		val = mnoc_read_field(MNOC_REG(grp_idx, MISC_CTRL), 18:16);
 		if (val != 0) {
 			d->sw_irq_sta.reg_val = val;
 			d->sw_irq_sta.timestamp = cur_timestamp;
-			LOG_DEBUG("RT(%d): From SW_IRQ = 0x%x\n",
-				grp_idx, val);
-			mnoc_write_field(MNOC_REG(grp_idx, MISC_CTRL),
-				18:16, 0x0);
+			LOG_DEBUG("RT(%d): From SW_IRQ = 0x%x\n", grp_idx, val);
+			mnoc_write_field(MNOC_REG(grp_idx, MISC_CTRL), 18:16, 0x0);
 			mnoc_irq_triggered = 1;
 		}
+	}
+
+	if (mnoc_irq_triggered == 0) {
+		LOG_ERR("int_sta = 0x%x, MNOC_INT_MAP = 0x%x", int_sta, MNOC_INT_MAP);
+		mnoc_irq_triggered = 3;
 	}
 
 	LOG_DEBUG("-\n");
