@@ -192,6 +192,14 @@ static phys_addr_t qsmmuv2_iova_to_phys_hard(
 	return phys;
 }
 
+static void qsmmuv2_tlb_sync_timeout(struct arm_smmu_device *smmu)
+{
+	dev_err_ratelimited(smmu->dev,
+			    "TLB sync timed out -- SMMU may be deadlocked\n");
+
+	BUG_ON(IS_ENABLED(CONFIG_IOMMU_TLBSYNC_DEBUG));
+}
+
 static int qsmmuv2_device_reset(struct arm_smmu_device *smmu)
 {
 	struct qsmmuv2_archdata *data = to_qsmmuv2_archdata(smmu);
@@ -279,6 +287,7 @@ static int arm_smmu_parse_impl_def_registers(struct arm_smmu_device *smmu)
 static const struct arm_smmu_impl qsmmuv2_impl = {
 	.init_context_bank = qsmmuv2_init_cb,
 	.iova_to_phys_hard = qsmmuv2_iova_to_phys_hard,
+	.tlb_sync_timeout = qsmmuv2_tlb_sync_timeout,
 	.reset = qsmmuv2_device_reset,
 };
 
