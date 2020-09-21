@@ -3032,6 +3032,9 @@ void mmc_rescan(struct work_struct *work)
 		if (freqs[i] <= host->f_min)
 			break;
 	}
+#if defined(CONFIG_SDC_QTI)
+	host->err_stats[MMC_ERR_CMD_TIMEOUT] = 0;
+#endif
 	mmc_release_host(host);
 
  out:
