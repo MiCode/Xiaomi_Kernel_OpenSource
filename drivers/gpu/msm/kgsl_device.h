@@ -309,6 +309,8 @@ struct kgsl_device {
 	u32 speed_bin;
 	/** @gmu_fault: Set when a gmu or rgmu fault is encountered */
 	bool gmu_fault;
+	/** @timelines: xarray for the timelines */
+	struct xarray timelines;
 };
 
 #define KGSL_MMU_DEVICE(_mmu) \

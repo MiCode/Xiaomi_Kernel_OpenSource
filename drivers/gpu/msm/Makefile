@@ -16,6 +16,7 @@ msm_kgsl-y = \
 	kgsl_pwrscale.o \
 	kgsl_sharedmem.o \
 	kgsl_snapshot.o \
+	kgsl_timeline.o \
 	kgsl_trace.o \
 	kgsl_util.o
 

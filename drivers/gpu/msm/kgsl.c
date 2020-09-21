@@ -1858,6 +1858,141 @@ done:
 	return result;
 }
 
+long kgsl_ioctl_gpu_aux_command(struct kgsl_device_private *dev_priv,
+		unsigned int cmd, void *data)
+{
+	struct kgsl_gpu_aux_command *param = data;
+	struct kgsl_device *device = dev_priv->device;
+	struct kgsl_context *context;
+	struct kgsl_drawobj **drawobjs;
+	struct kgsl_drawobj_sync *tsobj;
+	void __user *cmdlist;
+	u32 queued, count;
+	int i, index = 0;
+	long ret;
+
+	/* Aux commands don't make sense without commands */
+	if (!param->numcmds)
+		return -EINVAL;
+
+	if (!(param->flags &
+		(KGSL_GPU_AUX_COMMAND_TIMELINE)))
+		return -EINVAL;
+
+	/* Make sure we don't overflow count */
+	if (param->numcmds == UINT_MAX)
+		return -EINVAL;
+
+	context = kgsl_context_get_owner(dev_priv, param->context_id);
+	if (!context)
+		return -EINVAL;
+
+	/*
+	 * We have one drawobj for the timestamp sync plus one for all of the
+	 * commands
+	 */
+	count = param->numcmds + 1;
+
+	if (param->flags & KGSL_GPU_AUX_COMMAND_SYNC)
+		count++;
+
+	drawobjs = kvcalloc(count, sizeof(*drawobjs),
+		GFP_KERNEL | __GFP_NORETRY | __GFP_NOWARN);
+
+	if (!drawobjs) {
+		kgsl_context_put(context);
+		return -ENOMEM;
+	}
+
+	trace_kgsl_aux_command(context->id, param->numcmds, param->flags,
+		param->timestamp);
+
+	if (param->flags & KGSL_GPU_AUX_COMMAND_SYNC) {
+		struct kgsl_drawobj_sync *syncobj =
+			kgsl_drawobj_sync_create(device, context);
+
+		if (IS_ERR(syncobj)) {
+			ret = PTR_ERR(syncobj);
+			goto err;
+		}
+
+		drawobjs[index++] = DRAWOBJ(syncobj);
+
+		ret = kgsl_drawobj_sync_add_synclist(device, syncobj,
+				u64_to_user_ptr(param->synclist),
+				param->syncsize, param->numsyncs);
+		if (ret)
+			goto err;
+	}
+
+	kgsl_readtimestamp(device, context, KGSL_TIMESTAMP_QUEUED, &queued);
+
+	/*
+	 * Make an implicit sync object for the last queued timestamp on this
+	 * context
+	 */
+	tsobj = kgsl_drawobj_create_timestamp_syncobj(device,
+		context, queued);
+
+	if (IS_ERR(tsobj)) {
+		ret = PTR_ERR(tsobj);
+		goto err;
+	}
+
+	drawobjs[index++] = DRAWOBJ(tsobj);
+
+	cmdlist = u64_to_user_ptr(param->cmdlist);
+
+	/* Create a draw object for each command */
+	for (i = 0; i < param->numcmds; i++) {
+		struct kgsl_gpu_aux_command_generic generic;
+
+		if (copy_struct_from_user(&generic, sizeof(generic),
+			cmdlist, param->cmdsize)) {
+			ret = -EFAULT;
+			goto err;
+		}
+
+		if (generic.type == KGSL_GPU_AUX_COMMAND_TIMELINE) {
+			struct kgsl_drawobj_timeline *timelineobj;
+
+			timelineobj = kgsl_drawobj_timeline_create(device,
+				context);
+
+			if (IS_ERR(timelineobj)) {
+				ret = PTR_ERR(timelineobj);
+				goto err;
+			}
+
+			ret = kgsl_drawobj_add_timeline(dev_priv, timelineobj,
+				cmdlist, param->cmdsize);
+			if (ret)
+				goto err;
+
+			drawobjs[index++] = DRAWOBJ(timelineobj);
+		} else {
+			ret = -EINVAL;
+			goto err;
+		}
+
+		cmdlist += param->cmdsize;
+	}
+
+	ret = device->ftbl->queue_cmds(dev_priv, context,
+		drawobjs, index, &param->timestamp);
+
+err:
+	kgsl_context_put(context);
+
+	if (ret && ret != -EPROTO) {
+		for (i = 0; i < count; i++)
+			kgsl_drawobj_destroy(drawobjs[i]);
+	}
+
+	kvfree(drawobjs);
+	return ret;
+}
+
 long kgsl_ioctl_cmdstream_readtimestamp_ctxtid(struct kgsl_device_private
 						*dev_priv, unsigned int cmd,
 						void *data)
@@ -4146,6 +4281,9 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 
 	rwlock_init(&device->context_lock);
 	spin_lock_init(&device->submit_lock);
+
+	/* Use XA_FLAGS_ALLOC1 to disallow 0 as an option */
+	xa_init_flags(&device->timelines, XA_FLAGS_ALLOC1);
 
 	kgsl_device_debugfs_init(device);
 
