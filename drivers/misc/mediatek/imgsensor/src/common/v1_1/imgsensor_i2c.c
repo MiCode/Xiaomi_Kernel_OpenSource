@@ -99,7 +99,7 @@ static int imgsensor_i2c_probe_0(struct i2c_client *client,
 {
 	gi2c.inst[IMGSENSOR_I2C_DEV_0].pi2c_client = client;
 	devm_thermal_zone_of_sensor_register(&client->dev, 0,
-		DUAL_CAMERA_MAIN_SENSOR, &imgsensor_tz_ops);
+		(void *)DUAL_CAMERA_MAIN_SENSOR, &imgsensor_tz_ops);
 	return 0;
 }
 
@@ -108,7 +108,7 @@ static int imgsensor_i2c_probe_1(struct i2c_client *client,
 {
 	gi2c.inst[IMGSENSOR_I2C_DEV_1].pi2c_client = client;
 	devm_thermal_zone_of_sensor_register(&client->dev, 0,
-		DUAL_CAMERA_SUB_SENSOR, &imgsensor_tz_ops);
+		(void *)DUAL_CAMERA_SUB_SENSOR, &imgsensor_tz_ops);
 	return 0;
 }
 
@@ -117,7 +117,7 @@ static int imgsensor_i2c_probe_2(struct i2c_client *client,
 {
 	gi2c.inst[IMGSENSOR_I2C_DEV_2].pi2c_client = client;
 	devm_thermal_zone_of_sensor_register(&client->dev, 0,
-		DUAL_CAMERA_MAIN_2_SENSOR, &imgsensor_tz_ops);
+		(void *)DUAL_CAMERA_MAIN_2_SENSOR, &imgsensor_tz_ops);
 	return 0;
 }
 
@@ -126,7 +126,7 @@ static int imgsensor_i2c_probe_3(struct i2c_client *client,
 {
 	gi2c.inst[IMGSENSOR_I2C_DEV_3].pi2c_client = client;
 	devm_thermal_zone_of_sensor_register(&client->dev, 0,
-		DUAL_CAMERA_SUB_2_SENSOR, &imgsensor_tz_ops);
+		(void *)DUAL_CAMERA_SUB_2_SENSOR, &imgsensor_tz_ops);
 	return 0;
 }
 
@@ -135,7 +135,7 @@ static int imgsensor_i2c_probe_4(struct i2c_client *client,
 {
 	gi2c.inst[IMGSENSOR_I2C_DEV_4].pi2c_client = client;
 	devm_thermal_zone_of_sensor_register(&client->dev, 0,
-		DUAL_CAMERA_MAIN_3_SENSOR, &imgsensor_tz_ops);
+		(void *)DUAL_CAMERA_MAIN_3_SENSOR, &imgsensor_tz_ops);
 	return 0;
 }
 
@@ -144,7 +144,7 @@ static int imgsensor_i2c_probe_5(struct i2c_client *client,
 {
 	gi2c.inst[IMGSENSOR_I2C_DEV_5].pi2c_client = client;
 	devm_thermal_zone_of_sensor_register(&client->dev, 0,
-		DUAL_CAMERA_SUB_3_SENSOR, &imgsensor_tz_ops);
+		(void *)DUAL_CAMERA_SUB_3_SENSOR, &imgsensor_tz_ops);
 	return 0;
 }
 
@@ -153,7 +153,7 @@ static int imgsensor_i2c_probe_6(struct i2c_client *client,
 {
 	gi2c.inst[IMGSENSOR_I2C_DEV_6].pi2c_client = client;
 	devm_thermal_zone_of_sensor_register(&client->dev, 0,
-		DUAL_CAMERA_MAIN_4_SENSOR, &imgsensor_tz_ops);
+		(void *)DUAL_CAMERA_MAIN_4_SENSOR, &imgsensor_tz_ops);
 	return 0;
 }
 
@@ -162,7 +162,7 @@ static int imgsensor_i2c_probe_7(struct i2c_client *client,
 {
 	gi2c.inst[IMGSENSOR_I2C_DEV_7].pi2c_client = client;
 	devm_thermal_zone_of_sensor_register(&client->dev, 0,
-		DUAL_CAMERA_SUB_4_SENSOR, &imgsensor_tz_ops);
+		(void *)DUAL_CAMERA_SUB_4_SENSOR, &imgsensor_tz_ops);
 	return 0;
 }
 

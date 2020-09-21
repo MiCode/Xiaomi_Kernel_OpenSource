@@ -5,8 +5,7 @@ MKFILE_PATH := $(lastword $(MAKEFILE_LIST))
 IMGSENSOR_DRIVER_PATH := $(patsubst %/,%,$(dir $(realpath $(MKFILE_PATH))))
 MTK_DRIVER_PATH := $(srctree)/drivers/misc/mediatek
 
-MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
-ARCH_MTK_PROJECT := $(subst ",,$(CONFIG_ARCH_MTK_PROJECT))
+IMGSENSOR_PROJECT := $(subst ",,$(CONFIG_MTK_IMGSENSOR_PROJECT))
 
 subdir-ccflags-y += \
 	-I$(MTK_DRIVER_PATH)/imgsensor/inc \
@@ -20,16 +19,11 @@ imgsensor-objs := \
 	adaptor-ioctl.o \
 
 define FILTER_DRV
-ifeq ($(wildcard $(IMGSENSOR_DRIVER_PATH)/$(MTK_PLATFORM)/camera_project/$(ARCH_MTK_PROJECT)/$(1)),)
-ifeq ($(wildcard $(IMGSENSOR_DRIVER_PATH)/$(MTK_PLATFORM)/$(1)),)
+ifeq ($(wildcard $(IMGSENSOR_DRIVER_PATH)/camera_project/$(IMGSENSOR_PROJECT)/$(1)),)
 ifeq ($(wildcard $(IMGSENSOR_DRIVER_PATH)/common/$(1)),)
 unknown_drv += $(1)
 else
 common_drv += $(1)
-total_subdrvs += $(1)
-endif
-else
-platform_drv += $(1)
 total_subdrvs += $(1)
 endif
 else
@@ -54,14 +48,9 @@ $(info common_drv : $(common_drv))
 $(foreach drv,$(common_drv),$(eval $(call add_subdrv,common/$(drv))))
 endif
 
-ifneq ($(platform_drv),)
-$(info platform_drv : $(platform_drv))
-$(foreach drv,$(platform_drv),$(eval $(call add_subdrv,$(MTK_PLATFORM)/$(drv))))
-endif
-
 ifneq ($(project_drv),)
 $(info project_drv : $(project_drv))
-$(foreach drv,$(project_drv),$(eval $(call add_subdrv,$(MTK_PLATFORM)/camera_project/$(ARCH_MTK_PROJECT)/$(drv))))
+$(foreach drv,$(project_drv),$(eval $(call add_subdrv,camera_project/$(IMGSENSOR_PROJECT)/$(drv))))
 endif
 
 comma := ,
@@ -69,7 +58,7 @@ empty :=
 space := $(empty) $(empty)
 
 IMGSENSOR_SUBDRVS := $(subst $(space),$(comma),$(foreach e,$(total_subdrvs),E($(e))))
-subdir-ccflags-y += -D'IMGSENSOR_SUBDRVS=$(IMGSENSOR_SUBDRVS)' #-DHAVE_MTK_I2C_TRANSFER
+subdir-ccflags-y += -D'IMGSENSOR_SUBDRVS=$(IMGSENSOR_SUBDRVS)'
 
 $(info imgsensor-objs : $(imgsensor-objs))
 $(info subdir-ccflags-y : $(subdir-ccflags-y))
