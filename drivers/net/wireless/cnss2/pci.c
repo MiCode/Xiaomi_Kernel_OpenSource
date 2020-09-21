@@ -739,7 +739,9 @@ static int cnss_set_pci_link(struct cnss_pci_data *pci_priv, bool link_up)
 			cnss_pr_vdbg("Use PCIe DRV suspend\n");
 			pm_ops = MSM_PCIE_DRV_SUSPEND;
 			pm_options |= MSM_PCIE_CONFIG_NO_DRV_PC;
-			cnss_set_pci_link_status(pci_priv, PCI_GEN1);
+			if (pci_priv->device_id != QCA6390_DEVICE_ID &&
+			    pci_priv->device_id != QCA6490_DEVICE_ID)
+				cnss_set_pci_link_status(pci_priv, PCI_GEN1);
 		} else {
 			pm_ops = MSM_PCIE_SUSPEND;
 		}
