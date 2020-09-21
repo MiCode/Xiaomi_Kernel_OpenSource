@@ -17,6 +17,7 @@
 #include "fstb.h"
 #include "fps_composer.h"
 #include "xgf.h"
+#include "mtk_drm_arr.h"
 #define API_READY 0
 
 #define CREATE_TRACE_POINTS
@@ -586,8 +587,8 @@ static void __exit fpsgo_exit(void)
 		destroy_workqueue(g_psNotifyWorkQueue);
 		g_psNotifyWorkQueue = NULL;
 	}
-#if API_READY
-	disp_unregister_fps_chg_callback(dfrc_fps_limit_cb);
+#if IS_ENABLED(CONFIG_DRM_MEDIATEK)
+	drm_unregister_fps_chg_callback(dfrc_fps_limit_cb);
 #endif
 	fbt_cpu_exit();
 	mtk_fstb_exit();
@@ -628,12 +629,8 @@ static int __init fpsgo_init(void)
 	fpsgo_notify_connect_fp = fpsgo_notify_connect;
 	fpsgo_notify_bqid_fp = fpsgo_notify_bqid;
 
-#ifdef CONFIG_DRM_MEDIATEK
+#if IS_ENABLED(CONFIG_DRM_MEDIATEK)
 	drm_register_fps_chg_callback(dfrc_fps_limit_cb);
-#else
-#if API_READY
-	disp_register_fps_chg_callback(dfrc_fps_limit_cb);
-#endif
 #endif
 
 	return 0;

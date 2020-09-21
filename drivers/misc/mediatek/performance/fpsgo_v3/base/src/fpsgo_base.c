@@ -23,7 +23,6 @@
 #include "fbt_cpu.h"
 #include "fbt_cpu_platform.h"
 #include "fps_composer.h"
-#define API_READY 1
 
 #include <linux/preempt.h>
 #include <linux/trace_events.h>
@@ -172,10 +171,6 @@ bool fpsgo_sentuevent(const char *src)
 
 uint32_t fpsgo_systrace_mask;
 
-#if API_READY
-static unsigned long __read_mostly mark_addr;
-#endif
-
 #define GENERATE_STRING(name, unused) #name
 static const char * const mask_string[] = {
 	FPSGO_SYSTRACE_LIST(GENERATE_STRING)
@@ -186,12 +181,19 @@ static int fpsgo_update_tracemark(void)
 	return 1;
 }
 
+static noinline int tracing_mark_write(const char *buf)
+{
+	trace_printk(buf);
+	return 0;
+}
+
 void __fpsgo_systrace_c(pid_t pid, unsigned long long bufID,
 	int val, const char *fmt, ...)
 {
 	char log[256];
 	va_list args;
 	int len;
+	char buf2[256];
 
 	if (unlikely(!fpsgo_update_tracemark()))
 		return;
@@ -206,21 +208,14 @@ void __fpsgo_systrace_c(pid_t pid, unsigned long long bufID,
 	else if (unlikely(len == 256))
 		log[255] = '\0';
 
-#if API_READY
 	if (!bufID) {
-		preempt_disable();
-		event_trace(mark_addr, "tracing_mark_write:C|%d|%s|%d\n", pid, log, val);
-		preempt_enable();
+		snprintf(buf2, sizeof(buf2), "C|%d|%s|%d\n", pid, log, val);
+		tracing_mark_write(buf2);
 	} else {
-		preempt_disable();
-		event_trace(mark_addr, "tracing_mark_write:C|%d|%s|%d|0x%llx\n",
+		snprintf(buf2, sizeof(buf2), "C|%d|%s|%d|0x%llx\n",
 			pid, log, val, bufID);
-		preempt_enable();
+		tracing_mark_write(buf2);
 	}
-#else
-	//pr_debug("C|%d|%s|%d\n", pid, log, val);
-	trace_printk("C|%d|%s|%d\n", pid, log, val);
-#endif
 }
 
 void __fpsgo_systrace_b(pid_t tgid, const char *fmt, ...)
@@ -228,6 +223,7 @@ void __fpsgo_systrace_b(pid_t tgid, const char *fmt, ...)
 	char log[256];
 	va_list args;
 	int len;
+	char buf2[256];
 
 	if (unlikely(!fpsgo_update_tracemark()))
 		return;
@@ -242,29 +238,19 @@ void __fpsgo_systrace_b(pid_t tgid, const char *fmt, ...)
 	else if (unlikely(len == 256))
 		log[255] = '\0';
 
-#if API_READY
-	preempt_disable();
-	event_trace(mark_addr, "tracing_mark_write:B|%d|%s\n", tgid, log);
-	preempt_enable();
-#else
-	//pr_debug("B|%d|%s\n", tgid, log);
-	trace_printk("B|%d|%s\n", tgid, log);
-#endif
+	snprintf(buf2, sizeof(buf2), "B|%d|%s\n", tgid, log);
+	tracing_mark_write(buf2);
 }
 
 void __fpsgo_systrace_e(void)
 {
+	char buf2[256];
+
 	if (unlikely(!fpsgo_update_tracemark()))
 		return;
 
-#if API_READY
-	preempt_disable();
-	event_trace(mark_addr, "tracing_mark_write:E\n");
-	preempt_enable();
-#else
-	//pr_debug("E\n");
-	trace_printk("E\n");
-#endif
+	snprintf(buf2, sizeof(buf2), "E\n");
+	tracing_mark_write(buf2);
 }
 
 void fpsgo_main_trace(const char *fmt, ...)
