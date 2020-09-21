@@ -6,6 +6,11 @@
 #ifndef _ADRENO_A6XX_HWSCHED_HFI_H_
 #define _ADRENO_A6XX_HWSCHED_HFI_H_
 
+/* Maximum number of IBs in a submission */
+#define HWSCHED_MAX_NUMIBS \
+	((HFI_MAX_MSG_SIZE - offsetof(struct hfi_issue_cmd_cmd, ibs)) \
+		/ sizeof(struct hfi_issue_ib))
+
 enum mem_kind {
 	/** @MEMKIND_GENERIC: Used for requesting generic memory */
 	MEMKIND_GENERIC = 0,
