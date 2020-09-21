@@ -94,6 +94,7 @@ enum DMA_REGS_OFFSET {
 	OFFSET_RX_MEM_ADDR = 0x20,
 	OFFSET_TX_LEN = 0x24,
 	OFFSET_RX_LEN = 0x28,
+	OFFSET_DEBUG_STA = 0x50,
 	OFFSET_TX_4G_MODE = 0x54,
 	OFFSET_RX_4G_MODE = 0x58,
 };
@@ -142,6 +143,7 @@ enum I2C_REGS_OFFSET {
 	OFFSET_STA_STO_AC_TIMING,
 	OFFSET_HS_STA_STO_AC_TIMING,
 	OFFSET_SDA_TIMING,
+	OFFSET_DMA_FSM_DEBUG,
 };
 
 static const u16 mt_i2c_regs_v1[] = {
@@ -175,6 +177,7 @@ static const u16 mt_i2c_regs_v1[] = {
 	[OFFSET_STA_STO_AC_TIMING] = 0x80,
 	[OFFSET_HS_STA_STO_AC_TIMING] = 0x84,
 	[OFFSET_SDA_TIMING] = 0x88,
+	[OFFSET_DMA_FSM_DEBUG] = 0xec,
 };
 
 static const u16 mt_i2c_regs_v2[] = {
@@ -199,7 +202,9 @@ static const u16 mt_i2c_regs_v2[] = {
 	[OFFSET_SOFTRESET] = 0x50,
 	[OFFSET_SCL_MIS_COMP_POINT] = 0x90,
 	[OFFSET_DEBUGSTAT] = 0xe0,
+	[OFFSET_DEBUGSTAT] = 0xe4,
 	[OFFSET_DEBUGCTRL] = 0xe8,
+	[OFFSET_DMA_FSM_DEBUG] = 0xec,
 	[OFFSET_FIFO_STAT] = 0xf4,
 	[OFFSET_FIFO_THRESH] = 0xf8,
 	[OFFSET_DCM_EN] = 0xf88,
@@ -848,6 +853,35 @@ static int mtk_i2c_set_speed(struct mtk_i2c *i2c, unsigned int parent_clk)
 	return 0;
 }
 
+static void mtk_i2c_dump_reg(struct mtk_i2c *i2c)
+{
+	dev_info(i2c->dev, "I2C register:\n"
+		"SLAVE_ADDR=0x%x,INTR_STAT=0x%x,CONTROL=0x%x,\n"
+		"TRANSFER_LEN=0x%x,TRANSAC_LEN=0x%x,START=0x%x,\n"
+		"FIFO_STAT=0x%x,DEBUGSTAT=0x%x,DMA_FSM_DEBUG=0x%x\n",
+		(mtk_i2c_readw(i2c, OFFSET_SLAVE_ADDR)),
+		(mtk_i2c_readw(i2c, OFFSET_INTR_STAT)),
+		(mtk_i2c_readw(i2c, OFFSET_CONTROL)),
+		(mtk_i2c_readw(i2c, OFFSET_TRANSFER_LEN)),
+		(mtk_i2c_readw(i2c, OFFSET_TRANSAC_LEN)),
+		(mtk_i2c_readw(i2c, OFFSET_START)),
+		(mtk_i2c_readw(i2c, OFFSET_FIFO_STAT)),
+		(mtk_i2c_readw(i2c, OFFSET_DEBUGSTAT)),
+		(mtk_i2c_readw(i2c, OFFSET_DMA_FSM_DEBUG)));
+	if (i2c->dev_comp->aux_len_reg)
+		dev_info(i2c->dev, "I2C register: TRANSFER_LEN_AUX=0x%x\n",
+			mtk_i2c_readw(i2c, OFFSET_TRANSFER_LEN_AUX));
+
+	dev_info(i2c->dev, "DMA register:\n"
+		"EN=0x%x,CON=0x%x,TX_LEN=0x%x,\n"
+		"RX_LEN=0x%x,DEBUG_STA=0x%x\n",
+		(readl(i2c->pdmabase + OFFSET_EN)),
+		(readl(i2c->pdmabase + OFFSET_CON)),
+		(readl(i2c->pdmabase + OFFSET_TX_LEN)),
+		(readl(i2c->pdmabase + OFFSET_RX_LEN)),
+		(readl(i2c->pdmabase + OFFSET_DEBUG_STA)));
+}
+
 static int mtk_i2c_do_transfer(struct mtk_i2c *i2c, struct i2c_msg *msgs,
 			       int num, int left_num)
 {
@@ -1107,6 +1141,7 @@ static int mtk_i2c_do_transfer(struct mtk_i2c *i2c, struct i2c_msg *msgs,
 
 	if (ret == 0) {
 		dev_dbg(i2c->dev, "addr: %x, transfer timeout\n", msgs->addr);
+		mtk_i2c_dump_reg(i2c);
 		mtk_i2c_init_hw(i2c);
 		return -ETIMEDOUT;
 	}
