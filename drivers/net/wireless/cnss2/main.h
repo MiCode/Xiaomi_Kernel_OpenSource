@@ -281,6 +281,7 @@ enum cnss_driver_state {
 	CNSS_IN_REBOOT,
 	CNSS_COLD_BOOT_CAL_DONE,
 	CNSS_IN_PANIC,
+	CNSS_QMI_DEL_SERVER,
 };
 
 struct cnss_recovery_data {

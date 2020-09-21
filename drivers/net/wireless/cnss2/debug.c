@@ -118,6 +118,8 @@ static int cnss_stats_show_state(struct seq_file *s,
 			continue;
 		case CNSS_IN_PANIC:
 			seq_puts(s, "IN_PANIC");
+		case CNSS_QMI_DEL_SERVER:
+			seq_puts(s, "DEL_SERVER_IN_PROGRESS");
 			continue;
 		}
 
