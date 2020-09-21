@@ -30,7 +30,7 @@
 
 #include <linux/soc/mediatek/mtk-cmdq.h>
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
-//YWtodo #include <cmdq-util.h>
+#include <cmdq-util.h>
 #endif
 #include <soc/mediatek/smi.h>
 
