@@ -41,6 +41,7 @@
 #define CNSS_QMI_TIMEOUT_DEFAULT	10000
 #define CNSS_BDF_TYPE_DEFAULT		CNSS_BDF_ELF
 #define CNSS_TIME_SYNC_PERIOD_DEFAULT	900000
+#define CNSS_MIN_TIME_SYNC_PERIOD	2000
 
 static struct cnss_plat_data *plat_env;
 
@@ -2329,6 +2330,33 @@ static void cnss_unregister_bus_scale(struct cnss_plat_data *plat_priv)
 		msm_bus_scale_unregister_client(bus_bw_info->bus_client);
 }
 
+static ssize_t qtime_sync_period_show(struct device *dev,
+				      struct device_attribute *attr,
+				      char *buf)
+{
+	struct cnss_plat_data *plat_priv = dev_get_drvdata(dev);
+
+	return scnprintf(buf, PAGE_SIZE, "%u\n",
+			plat_priv->ctrl_params.time_sync_period);
+}
+
+static ssize_t qtime_sync_period_store(struct device *dev,
+				       struct device_attribute *attr,
+				       const char *buf, size_t count)
+{
+	unsigned int qtime_sync_period = 0;
+
+	if (sscanf(buf, "%du", &qtime_sync_period) != 1) {
+		cnss_pr_err("Invalid qtime sync sysfs command\n");
+		return -EINVAL;
+	}
+
+	if (qtime_sync_period >= CNSS_MIN_TIME_SYNC_PERIOD)
+		cnss_pci_update_qtime_sync_period(dev, qtime_sync_period);
+
+	return count;
+}
+
 static ssize_t recovery_store(struct device *dev,
 			      struct device_attribute *attr,
 			      const char *buf, size_t count)
@@ -2419,11 +2447,13 @@ static ssize_t fs_ready_store(struct device *dev,
 static DEVICE_ATTR_WO(fs_ready);
 static DEVICE_ATTR_WO(shutdown);
 static DEVICE_ATTR_WO(recovery);
+static DEVICE_ATTR_RW(qtime_sync_period);
 
 static struct attribute *cnss_attrs[] = {
 	&dev_attr_fs_ready.attr,
 	&dev_attr_shutdown.attr,
 	&dev_attr_recovery.attr,
+	&dev_attr_qtime_sync_period.attr,
 	NULL,
 };
 
