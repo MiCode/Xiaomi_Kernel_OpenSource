@@ -22,4 +22,7 @@ void qcom_iommu_generate_resv_regions(struct device *dev,
 /* Remove once these functions are exported by upstream kernel */
 void qcom_iommu_get_resv_regions(struct device *dev, struct list_head *list);
 void qcom_iommu_put_resv_regions(struct device *dev, struct list_head *list);
+
+extern int __init qcom_dma_iommu_generic_driver_init(void);
+extern void qcom_dma_iommu_generic_driver_exit(void);
 #endif /* __QCOM_IOMMU_UTIL_H */

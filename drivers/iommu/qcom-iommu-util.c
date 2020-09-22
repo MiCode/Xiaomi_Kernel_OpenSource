@@ -6,6 +6,7 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/qcom-iommu-util.h>
+#include  "qcom-dma-iommu-generic.h"
 
 struct device_node *qcom_iommu_group_parse_phandle(struct device *dev)
 {
@@ -224,10 +225,12 @@ EXPORT_SYMBOL(qcom_iommu_put_resv_regions);
  * It is allowed to have a NULL exitcall corresponding to a non-NULL initcall.
  */
 static initcall_t init_table[] __initdata = {
+	qcom_dma_iommu_generic_driver_init,
 	NULL
 };
 
 static exitcall_t exit_table[] = {
+	qcom_dma_iommu_generic_driver_exit,
 	NULL
 };
 
