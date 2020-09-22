@@ -923,9 +923,7 @@ static int msm_cvp_session_process_hfi(
 		dprintk(CVP_ERR, "%s incorrect packet %d, %x\n", __func__,
 				in_pkt->pkt_data[0],
 				in_pkt->pkt_data[1]);
-		offset = in_offset;
-		buf_num = in_buf_num;
-		signal = HAL_NO_RESP;
+		goto exit;
 	} else {
 		offset = cvp_hfi_defs[pkt_idx].buf_offset;
 		buf_num = cvp_hfi_defs[pkt_idx].buf_num;

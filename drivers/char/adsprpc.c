@@ -3194,8 +3194,7 @@ static int fastrpc_mmap_remove_pdr(struct fastrpc_file *fl)
 	VERIFY(err, cid == fl->cid);
 	if (err)
 		goto bail;
-	if (!me->channel[fl->cid].spd[session].ispdup &&
-		me->channel[fl->cid].spd[session].pdrhandle) {
+	if (!me->channel[fl->cid].spd[session].ispdup) {
 		err = -ENOTCONN;
 		goto bail;
 	}

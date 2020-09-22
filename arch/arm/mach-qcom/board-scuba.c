@@ -10,6 +10,8 @@
 
 static const char *scuba_dt_match[] __initconst = {
 	"qcom,scuba",
+	"qcom,scuba-iot",
+	"qcom,scubap-iot",
 	NULL
 };
 

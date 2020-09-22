@@ -103,6 +103,7 @@
 #define RX_IO_POS_FF_EN_SEL_SHFT	4
 #define RX_IO_EN2CORE_EN_DELAY_SHFT	8
 #define RX_SI_EN2IO_DELAY_SHFT 12
+#define SB_PIPE_SEL_SHIFT	20
 
 struct gsi_desc_cb {
 	struct spi_master *spi;
@@ -164,6 +165,8 @@ struct spi_geni_master {
 	bool cmd_done;
 	bool set_miso_sampling;
 	u32 miso_sampling_ctrl_val;
+	int set_cs_sb_delay; /*SB PIPE Delay */
+	int set_pre_cmd_dly; /*Pre command Delay */
 };
 
 static struct spi_master *get_spi_master(struct device *dev)
@@ -861,6 +864,7 @@ static int spi_geni_prepare_transfer_hardware(struct spi_master *spi)
 	int ret = 0, count = 0;
 	u32 max_speed = spi->cur_msg->spi->max_speed_hz;
 	struct se_geni_rsc *rsc = &mas->spi_rsc;
+	u32 cfg_reg108;
 
 	/* Adjust the IB based on the max speed of the slave.*/
 	rsc->ib = max_speed * DEFAULT_BUS_WIDTH;
@@ -991,6 +995,20 @@ setup_ipc:
 		if (mas->set_miso_sampling)
 			spi_geni_set_sampling_rate(mas, major, minor);
 
+		/* Add the SB pipe delay */
+		if (mas->set_cs_sb_delay) {
+			cfg_reg108 =
+				geni_read_reg(mas->base, SE_GENI_CFG_REG108);
+			/* Clear the sb pipe delay register value */
+			cfg_reg108 &=
+				~(0x3 << SB_PIPE_SEL_SHIFT);
+			/* Write the value into sb pipe delay register */
+			cfg_reg108 |=
+				(mas->set_cs_sb_delay << SB_PIPE_SEL_SHIFT);
+			geni_write_reg(cfg_reg108,
+				mas->base, SE_GENI_CFG_REG108);
+		}
+
 		if (mas->dis_autosuspend)
 			GENI_SE_DBG(mas->ipc, false, mas->dev,
 					"Auto Suspend is disabled\n");
@@ -1042,6 +1060,7 @@ static int setup_fifo_xfer(struct spi_transfer *xfer,
 	u32 m_param = 0;
 	u32 spi_tx_cfg = geni_read_reg(mas->base, SE_SPI_TRANS_CFG);
 	u32 trans_len = 0, fifo_size = 0;
+	u32 spi_pre_cmd_dly;
 
 	if (xfer->bits_per_word != mas->cur_word_len) {
 		spi_setup_word_len(mas, mode, xfer->bits_per_word);
@@ -1091,6 +1110,16 @@ static int setup_fifo_xfer(struct spi_transfer *xfer,
 		if (!list_is_last(&xfer->transfer_list,
 					&spi->cur_msg->transfers))
 			m_param |= FRAGMENTATION;
+	}
+
+	/* Add pre command delay */
+	if (mas->set_pre_cmd_dly) {
+		m_param |= SPI_PRE_CMD_DELAY;
+		spi_pre_cmd_dly = geni_read_reg(mas->base,
+			SE_SPI_PRE_POST_CMD_DLY);
+		spi_pre_cmd_dly += mas->set_pre_cmd_dly;
+		geni_write_reg(spi_pre_cmd_dly, mas->base,
+			SE_SPI_PRE_POST_CMD_DLY);
 	}
 
 	mas->cur_xfer = xfer;
@@ -1653,6 +1682,21 @@ static int spi_geni_probe(struct platform_device *pdev)
 			dev_info(&pdev->dev, "MISO_SAMPLING_SET: %d\n",
 				geni_mas->miso_sampling_ctrl_val);
 	}
+
+	/* On minicore based targets like bengal, increasing the cs delay
+	 * using spi_cs_clk_dly register introduces unwanted inter words delay.
+	 * So, SB_PIPE_SEL register can be used to achieve this purpose. In
+	 * such cases, set SPI_PRE_POST_CMD_DLY = n+SB_PIPE_SEL (if it was set
+	 * as n before) to delay the clock initially by the same number of
+	 * clocks as SB_PIPE_SEL.
+	 */
+	if (!of_property_read_u32(pdev->dev.of_node,
+		"qcom,set-cs-sb-delay", &geni_mas->set_cs_sb_delay)) {
+		dev_dbg(&pdev->dev, "CS Sb pipe delay set: %d",
+			geni_mas->set_cs_sb_delay);
+		geni_mas->set_pre_cmd_dly = geni_mas->set_cs_sb_delay;
+	}
+
 	geni_mas->phys_addr = res->start;
 	geni_mas->size = resource_size(res);
 	geni_mas->base = devm_ioremap(&pdev->dev, res->start,

@@ -408,6 +408,9 @@ int wlfw_cap_send_sync_msg(struct icnss_priv *priv)
 	if (resp->fw_build_id_valid)
 		strlcpy(priv->fw_build_id, resp->fw_build_id,
 			QMI_WLFW_MAX_BUILD_ID_LEN_V01 + 1);
+	if (resp->rd_card_chain_cap_valid &&
+	    resp->rd_card_chain_cap == WLFW_RD_CARD_CHAIN_CAP_1x1_V01)
+		priv->is_chain1_supported = false;
 
 	icnss_pr_dbg("Capability, chip_id: 0x%x, chip_family: 0x%x, board_id: 0x%x, soc_id: 0x%x, fw_version: 0x%x, fw_build_timestamp: %s, fw_build_id: %s",
 		     priv->chip_info.chip_id, priv->chip_info.chip_family,

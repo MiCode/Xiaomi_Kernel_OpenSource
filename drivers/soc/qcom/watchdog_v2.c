@@ -493,24 +493,24 @@ static void print_irq_stat(struct msm_watchdog_data *wdog_dd)
 	struct irq_info *info;
 
 
-	pr_info("(virq:irq_count)- ");
+	pr_debug("(virq:irq_count)-\n");
 	for (index = 0; index < NR_TOP_HITTERS; index++) {
 		info = &wdog_dd->irq_counts[index];
-		pr_cont("%u:%u ", info->irq, info->total_count);
+		pr_debug("%u:%u\n", info->irq, info->total_count);
 	}
-	pr_cont("\n");
+	pr_debug("\n");
 
-	pr_info("(cpu:irq_count)- ");
+	pr_debug("(cpu:irq_count)-\n");
 	for_each_possible_cpu(cpu)
-		pr_cont("%u:%u ", cpu, wdog_dd->tot_irq_count[cpu]);
-	pr_cont("\n");
+		pr_debug("%u:%u\n", cpu, wdog_dd->tot_irq_count[cpu]);
+	pr_debug("\n");
 
-	pr_info("(ipi:irq_count)- ");
+	pr_debug("(ipi:irq_count)-\n");
 	for (index = 0; index < NR_IPI; index++) {
 		info = &wdog_dd->ipi_counts[index];
-		pr_cont("%u:%u ", info->irq, info->total_count);
+		pr_debug("%u:%u\n", info->irq, info->total_count);
 	}
-	pr_cont("\n");
+	pr_debug("\n");
 }
 
 static void compute_irq_stat(struct work_struct *work)

@@ -806,6 +806,8 @@ static int icnss_driver_event_fw_ready_ind(struct icnss_priv *priv, void *data)
 	else
 		ret = icnss_call_driver_probe(priv);
 
+	icnss_vreg_unvote(priv);
+
 out:
 	return ret;
 }
@@ -3354,10 +3356,11 @@ static int icnss_pm_resume(struct device *dev)
 	    !test_bit(ICNSS_DRIVER_PROBED, &priv->state))
 		goto out;
 
-	if (test_bit(ICNSS_PD_RESTART, &priv->state))
-		return -EAGAIN;
-
 	if (priv->device_id == WCN6750_DEVICE_ID) {
+		if (test_bit(ICNSS_PD_RESTART, &priv->state) ||
+		    !test_bit(ICNSS_MODE_ON, &priv->state))
+			goto out;
+
 		ret = wlfw_exit_power_save_send_msg(priv);
 		if (ret) {
 			priv->stats.pm_resume_err++;
@@ -3472,8 +3475,9 @@ static int icnss_pm_runtime_resume(struct device *dev)
 
 	icnss_pr_vdbg("Runtime resume, state: 0x%lx\n", priv->state);
 
-	if (test_bit(ICNSS_PD_RESTART, &priv->state))
-		return -EAGAIN;
+	if (test_bit(ICNSS_PD_RESTART, &priv->state) ||
+	    !test_bit(ICNSS_MODE_ON, &priv->state))
+		goto out;
 
 	ret = wlfw_exit_power_save_send_msg(priv);
 	if (ret) {
