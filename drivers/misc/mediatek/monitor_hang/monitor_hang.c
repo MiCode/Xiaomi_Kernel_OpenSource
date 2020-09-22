@@ -46,7 +46,7 @@
 #include "mrdump/mrdump_mini.h"
 
 #ifndef TASK_STATE_TO_CHAR_STR
-#define TASK_STATE_TO_CHAR_STR "RSDTtXZxKWPNn"
+#define TASK_STATE_TO_CHAR_STR "RSDTtZXxKWPNn"
 #endif
 
 #ifdef CONFIG_MTK_HANG_DETECT_DB
@@ -881,41 +881,53 @@ static void show_bt_by_pid(int task_pid)
 #endif
 	int count = 0, dump_native = 0;
 	unsigned int state = 0;
+	char stat_nam[] = TASK_STATE_TO_CHAR_STR;
 
 	pid = find_get_pid(task_pid);
 	t = p = get_pid_task(pid, PIDTYPE_PID);
 
-	if (p && try_get_task_stack(p)) {
-		log_hang_info("%s: %d: %s.\n", __func__, task_pid, t->comm);
-		hang_log("%s: %d: %s.\n", __func__, task_pid, t->comm);
+	if (p != NULL) {
+		if (try_get_task_stack(p)) {
+			log_hang_info("%s: %d: %s.\n", __func__, task_pid, t->comm);
+			hang_log("%s: %d: %s.\n", __func__, task_pid, t->comm);
 #ifndef __aarch64__	 /* 32bit */
-		if (!strcmp(t->comm, "system_server"))
-			dump_native = 1;
-		else
-			dump_native = 0;
-#else
-		user_ret = task_pt_regs(t);
-
-		if (!user_mode(user_ret)) {
-			pr_info(" %s,%d:%s,fail in user_mode", __func__,
-					task_pid, t->comm);
-			dump_native = 0;
-		} else	if (!t->mm) {
-			pr_info(" %s,%d:%s, current_task->mm == NULL", __func__,
-					task_pid, t->comm);
-			dump_native = 0;
-		} else if (compat_user_mode(user_ret)) {
-			/* K64_U32 for check reg */
 			if (!strcmp(t->comm, "system_server"))
 				dump_native = 1;
 			else
 				dump_native = 0;
-		} else
-			dump_native = 1;
+#else
+			user_ret = task_pt_regs(t);
+
+			if (!user_mode(user_ret)) {
+				pr_info(" %s,%d:%s,fail in user_mode", __func__,
+						task_pid, t->comm);
+				dump_native = 0;
+			} else	if (!t->mm) {
+				pr_info(" %s,%d:%s, current_task->mm == NULL", __func__,
+						task_pid, t->comm);
+				dump_native = 0;
+			} else if (compat_user_mode(user_ret)) {
+				/* K64_U32 for check reg */
+				if (!strcmp(t->comm, "system_server"))
+					dump_native = 1;
+				else
+					dump_native = 0;
+			} else
+				dump_native = 1;
 #endif
-		if (dump_native == 1)
-			/* catch maps to Userthread_maps */
-			dump_native_maps(task_pid, p);
+			if (dump_native == 1)
+				/* catch maps to Userthread_maps */
+				dump_native_maps(task_pid, p);
+			put_task_struct(p);
+		} else {
+			state = p->state ? __ffs(p->state) + 1 : 0;
+			log_hang_info("%s pid %d state %c, flags %d. stack is null.\n",
+				t->comm, task_pid, state < sizeof(stat_nam) - 1 ?
+				stat_nam[state] : '?', t->flags);
+			hang_log("%s pid %d state %c, flags %d. stack is null.\n",
+				t->comm, task_pid, state < sizeof(stat_nam) - 1 ?
+				stat_nam[state] : '?', t->flags);
+		}
 		do {
 			if (t && try_get_task_stack(t)) {
 				pid_t tid = 0;
@@ -939,15 +951,33 @@ static void show_bt_by_pid(int task_pid)
 				msleep(20);
 			log_hang_info("-\n");
 		} while_each_thread(p, t);
-		put_task_struct(p);
-	} else if (p) {
-		put_task_struct(p);
-		log_hang_info("%s pid %d state %ld, flags %d. stack is null.\n",
-			t->comm, task_pid, t->state, t->flags);
-		hang_log("%s pid %d state %ld, flags %d. stack is null.\n",
-			t->comm, task_pid, t->state, t->flags);
 	}
 	put_pid(pid);
+}
+
+static int show_white_list_bt(struct task_struct *p)
+{
+	struct name_list *pList = NULL;
+
+	if (!white_list)
+		return -1;
+
+
+	raw_spin_lock(&white_list_lock);
+	pList = white_list;
+	while (pList) {
+		if (!strcmp(p->comm, pList->name)) {
+			raw_spin_unlock(&white_list_lock);
+			rcu_read_unlock();
+			show_bt_by_pid(p->pid);
+			rcu_read_lock();
+			put_task_struct(p);
+			return 0;
+		}
+		pList = pList->next;
+	}
+	raw_spin_unlock(&white_list_lock);
+	return -1;
 }
 
 static void show_task_backtrace(void)
@@ -985,6 +1015,8 @@ static void show_task_backtrace(void)
 			put_task_struct(p);
 			continue;
 		}
+		if (!show_white_list_bt(p))
+			continue;
 		for_each_thread(p, t) {
 			if (try_get_task_stack(t)) {
 				get_task_struct(t);
