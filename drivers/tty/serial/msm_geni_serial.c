@@ -124,11 +124,11 @@
 #define S_IRQ_BITS		(S_RX_FIFO_WATERMARK_EN | S_RX_FIFO_LAST_EN |\
 				S_CMD_CANCEL_EN | S_CMD_ABORT_EN)
 #define DMA_TX_IRQ_BITS		(TX_RESET_DONE | TX_DMA_DONE |\
-				TX_GENI_CANCEL_IRQ)
+				TX_GENI_CANCEL_IRQ | TX_EOT | TX_SBE)
 #define DMA_RX_IRQ_BITS		(RX_EOT | RX_GENI_CANCEL_IRQ |\
 				RX_RESET_DONE | UART_DMA_RX_ERRS |\
 				UART_DMA_RX_PARITY_ERR | UART_DMA_RX_BREAK |\
-				RX_DMA_DONE)
+				RX_DMA_DONE | RX_SBE)
 
 /* Required for polling for 100 msecs */
 #define POLL_WAIT_TIMEOUT_MSEC	100
@@ -269,34 +269,23 @@ static int msm_geni_serial_spinlocked(struct uart_port *uport)
 static void msm_geni_serial_enable_interrupts(struct uart_port *uport)
 {
 	unsigned int geni_m_irq_en, geni_s_irq_en;
-	unsigned int dma_m_irq_en, dma_s_irq_en;
 	struct msm_geni_serial_port *port = GET_DEV_PORT(uport);
 
 	geni_m_irq_en = geni_read_reg_nolog(uport->membase,
 						SE_GENI_M_IRQ_EN);
 	geni_s_irq_en = geni_read_reg_nolog(uport->membase,
 						SE_GENI_S_IRQ_EN);
-	if (port->xfer_mode == SE_DMA) {
-		dma_m_irq_en = geni_read_reg_nolog(uport->membase,
-						SE_DMA_TX_IRQ_EN);
-		dma_s_irq_en = geni_read_reg_nolog(uport->membase,
-						SE_DMA_RX_IRQ_EN);
-	}
 
 	geni_m_irq_en |= M_IRQ_BITS;
 	geni_s_irq_en |= S_IRQ_BITS;
-	if (port->xfer_mode == SE_DMA) {
-		dma_m_irq_en |= DMA_TX_IRQ_BITS;
-		dma_s_irq_en |= DMA_RX_IRQ_BITS;
-	}
 
 	geni_write_reg_nolog(geni_m_irq_en, uport->membase, SE_GENI_M_IRQ_EN);
 	geni_write_reg_nolog(geni_s_irq_en, uport->membase, SE_GENI_S_IRQ_EN);
 	if (port->xfer_mode == SE_DMA) {
-		geni_write_reg_nolog(dma_m_irq_en, uport->membase,
-							SE_DMA_TX_IRQ_EN);
-		geni_write_reg_nolog(dma_s_irq_en, uport->membase,
-							SE_DMA_RX_IRQ_EN);
+		geni_write_reg_nolog(DMA_TX_IRQ_BITS, uport->membase,
+							SE_DMA_TX_IRQ_EN_SET);
+		geni_write_reg_nolog(DMA_RX_IRQ_BITS, uport->membase,
+							SE_DMA_RX_IRQ_EN_SET);
 	}
 }
 
@@ -304,7 +293,6 @@ static void msm_geni_serial_enable_interrupts(struct uart_port *uport)
 static bool msm_serial_try_disable_interrupts(struct uart_port *uport)
 {
 	unsigned int geni_m_irq_en, geni_s_irq_en;
-	unsigned int dma_m_irq_en, dma_s_irq_en;
 	struct msm_geni_serial_port *port = GET_DEV_PORT(uport);
 
 	/*
@@ -316,27 +304,17 @@ static bool msm_serial_try_disable_interrupts(struct uart_port *uport)
 
 	geni_m_irq_en = geni_read_reg_nolog(uport->membase, SE_GENI_M_IRQ_EN);
 	geni_s_irq_en = geni_read_reg_nolog(uport->membase, SE_GENI_S_IRQ_EN);
-	if (port->xfer_mode == SE_DMA) {
-		dma_m_irq_en = geni_read_reg_nolog(uport->membase,
-						SE_DMA_TX_IRQ_EN);
-		dma_s_irq_en = geni_read_reg_nolog(uport->membase,
-						SE_DMA_RX_IRQ_EN);
-	}
 
 	geni_m_irq_en &= ~M_IRQ_BITS;
 	geni_s_irq_en &= ~S_IRQ_BITS;
-	if (port->xfer_mode == SE_DMA) {
-		dma_m_irq_en &= ~DMA_TX_IRQ_BITS;
-		dma_s_irq_en &= ~DMA_RX_IRQ_BITS;
-	}
 
 	geni_write_reg_nolog(geni_m_irq_en, uport->membase, SE_GENI_M_IRQ_EN);
 	geni_write_reg_nolog(geni_s_irq_en, uport->membase, SE_GENI_S_IRQ_EN);
 	if (port->xfer_mode == SE_DMA) {
-		geni_write_reg_nolog(dma_m_irq_en, uport->membase,
-							SE_DMA_TX_IRQ_EN);
-		geni_write_reg_nolog(dma_s_irq_en, uport->membase,
-							SE_DMA_RX_IRQ_EN);
+		geni_write_reg_nolog(DMA_TX_IRQ_BITS, uport->membase,
+							SE_DMA_TX_IRQ_EN_CLR);
+		geni_write_reg_nolog(DMA_RX_IRQ_BITS, uport->membase,
+							SE_DMA_RX_IRQ_EN_CLR);
 	}
 
 	return true;
