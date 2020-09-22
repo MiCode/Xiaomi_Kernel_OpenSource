@@ -38,7 +38,6 @@ static struct iova_buf_list iova_list = {.init_flag = ATOMIC_INIT(0)};
 
 void mtk_iova_dbg_alloc(struct device *dev, dma_addr_t iova, size_t size)
 {
-	u32 dom_id;
 	struct iova_info *iova_buf;
 	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
 
