@@ -97,17 +97,7 @@ struct array_head {
 
 static struct array_head msg_reg_array[CCCI_MAX_MSG_ID];
 
-static inline void lock_msg_reg_array(int msg_id, unsigned long flags)
-{
-	if (msg_reg_array[msg_id].ptr_lock)
-		spin_lock_irqsave(msg_reg_array[msg_id].ptr_lock, flags);
-}
 
-static inline void unlock_msg_reg_array(int msg_id, unsigned long flags)
-{
-	if (msg_reg_array[msg_id].ptr_lock)
-		spin_unlock_irqrestore(msg_reg_array[msg_id].ptr_lock, flags);
-}
 
 static inline struct message_head *alloc_msg_head(
 		int msg_id,
@@ -177,13 +167,14 @@ static inline int handle_msg_data(
 	int ret = 0, match;
 	int count = 0;
 	struct register_head *reg;
-	unsigned long flags;
+	unsigned long flags = 0;
 
 	ret = msg_id_check(msg_id);
 	if (ret)
 		return ret;
 
-	lock_msg_reg_array(msg_id, flags);
+	if (msg_reg_array[msg_id].ptr_lock)
+		spin_lock_irqsave(msg_reg_array[msg_id].ptr_lock, flags);
 
 	if (!list_empty(&msg_reg_array[msg_id].hlist)) {
 		list_for_each_entry(reg, &msg_reg_array[msg_id].hlist, list) {
@@ -217,7 +208,8 @@ static inline int handle_msg_data(
 		}
 	}
 
-	unlock_msg_reg_array(msg_id, flags);
+	if (msg_reg_array[msg_id].ptr_lock)
+		spin_unlock_irqrestore(msg_reg_array[msg_id].ptr_lock, flags);
 
 	if (count)
 		return ret;
@@ -240,14 +232,15 @@ static inline int del_reg_from_array(
 			void *my_data))
 {
 	struct register_head *reg;
-	unsigned long flags;
+	unsigned long flags = 0;
 	int ret;
 
 	ret = msg_id_check(msg_id);
 	if (ret)
 		return ret;
 
-	lock_msg_reg_array(msg_id, flags);
+	if (msg_reg_array[msg_id].ptr_lock)
+		spin_lock_irqsave(msg_reg_array[msg_id].ptr_lock, flags);
 
 	list_for_each_entry(reg, &msg_reg_array[msg_id].hlist, list) {
 		if (reg->sub_id == sub_id &&
@@ -256,12 +249,15 @@ static inline int del_reg_from_array(
 			list_del(&reg->list);
 			kfree(reg);
 
-			unlock_msg_reg_array(msg_id, flags);
+			if (msg_reg_array[msg_id].ptr_lock)
+				spin_unlock_irqrestore(msg_reg_array[msg_id].ptr_lock, flags);
+
 			return 0;
 		}
 	}
 
-	unlock_msg_reg_array(msg_id, flags);
+	if (msg_reg_array[msg_id].ptr_lock)
+		spin_unlock_irqrestore(msg_reg_array[msg_id].ptr_lock, flags);
 
 	pr_notice("[%s][%s] error: no call back func: (%d,0x%08X)\n",
 			TAG, __func__, msg_id, sub_id);
@@ -290,7 +286,7 @@ err_nomem:
 static inline struct command_data *pop_next_cmd(struct command_head *pcmd_head)
 {
 	struct command_data *pcmd = NULL;
-	unsigned long flags;
+	unsigned long flags = 0;
 
 	spin_lock_irqsave(&pcmd_head->cmd_lock, flags);
 
@@ -471,7 +467,7 @@ int ccci_msg_register(
 {
 	int ret;
 	struct register_head *new_reg = NULL;
-	unsigned long flags;
+	unsigned long flags = 0;
 
 	ret = msg_id_check(msg_id);
 	if (ret)
@@ -488,11 +484,13 @@ int ccci_msg_register(
 	pr_info("[%s][%s] id: (%d,0x%08X); cb: %p\n",
 			TAG, __func__, msg_id, sub_id, callback);
 
-	lock_msg_reg_array(msg_id, flags);
+	if (msg_reg_array[msg_id].ptr_lock)
+		spin_lock_irqsave(msg_reg_array[msg_id].ptr_lock, flags);
 
 	list_add_tail(&new_reg->list, &msg_reg_array[msg_id].hlist);
 
-	unlock_msg_reg_array(msg_id, flags);
+	if (msg_reg_array[msg_id].ptr_lock)
+		spin_unlock_irqrestore(msg_reg_array[msg_id].ptr_lock, flags);
 
 	return 0;
 }
@@ -566,7 +564,7 @@ static void add_cmd_to_list(
 		struct command_head *pcmd_head,
 		struct command_data *pcmd)
 {
-	unsigned long flags;
+	unsigned long flags = 0;
 
 	spin_lock_irqsave(&pcmd_head->cmd_lock, flags);
 
@@ -652,19 +650,21 @@ int ccci_cmd_send_to_one(
 		void *cmd_data)
 {
 	int ret;
-	unsigned long flags;
+	unsigned long flags = 0;
 
 	ret = msg_id_check(msg_id);
 	if (ret)
 		return ret;
 
-	lock_msg_reg_array(msg_id, flags);
+	if (msg_reg_array[msg_id].ptr_lock)
+		spin_lock_irqsave(msg_reg_array[msg_id].ptr_lock, flags);
 
 	ret = push_new_cmd(msg_id, cmd_id, cmd_data, SEND_TO_ONE);
 	if (!ret)
 		wake_up_all(&msg_reg_array[msg_id].pcmd_head->cmd_wq);
 
-	unlock_msg_reg_array(msg_id, flags);
+	if (msg_reg_array[msg_id].ptr_lock)
+		spin_unlock_irqrestore(msg_reg_array[msg_id].ptr_lock, flags);
 
 	pr_notice("[%s][%s] ret: %d; (%d,0x%08X)\n",
 		TAG, __func__, ret, msg_id, cmd_id);
@@ -680,19 +680,21 @@ int ccci_cmd_send(
 		void *cmd_data)
 {
 	int ret;
-	unsigned long flags;
+	unsigned long flags = 0;
 
 	ret = msg_id_check(msg_id);
 	if (ret)
 		return ret;
 
-	lock_msg_reg_array(msg_id, flags);
+	if (msg_reg_array[msg_id].ptr_lock)
+		spin_lock_irqsave(msg_reg_array[msg_id].ptr_lock, flags);
 
 	ret = push_new_cmd(msg_id, cmd_id, cmd_data, SEND_TO_ALL);
 	if (!ret)
 		wake_up_all(&msg_reg_array[msg_id].pcmd_head->cmd_wq);
 
-	unlock_msg_reg_array(msg_id, flags);
+	if (msg_reg_array[msg_id].ptr_lock)
+		spin_unlock_irqrestore(msg_reg_array[msg_id].ptr_lock, flags);
 
 	pr_notice("[%s][%s] ret: %d; (%d,0x%08X)\n",
 				TAG, __func__, ret, msg_id, cmd_id);
