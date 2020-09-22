@@ -380,21 +380,16 @@ int cmd_hist_enable(void)
 	int ret = 0;
 
 	spin_lock_irqsave(&cmd_hist_lock, flags);
-
 	if (!cmd_hist) {
-		cmd_hist = kcalloc(MAX_CMD_HIST_ENTRY_CNT,
-				   sizeof(struct cmd_hist_struct),
-				   GFP_NOFS);
-		if (!cmd_hist) {
-			ret = -ENOMEM;
-			goto out_unlock;
-		}
+		cmd_hist_enabled = false;
+		spin_unlock_irqrestore(&cmd_hist_lock, flags);
+		return -ENOMEM;
 	}
+
 	cmd_hist_enabled = true;
-out_unlock:
 	spin_unlock_irqrestore(&cmd_hist_lock, flags);
 
-	return ret;
+	return 0;
 }
 
 int cmd_hist_disable(void)
@@ -736,10 +731,14 @@ EXPORT_SYMBOL_GPL(ufs_mtk_dbg_register);
 
 static void __exit ufs_mtk_dbg_exit(void)
 {
+	kfree(cmd_hist);
 }
 
 static int __init ufs_mtk_dbg_init(void)
 {
+	cmd_hist = kcalloc(MAX_CMD_HIST_ENTRY_CNT,
+			   sizeof(struct cmd_hist_struct),
+			   GFP_KERNEL);
 	return 0;
 }
 
