@@ -673,7 +673,7 @@ irqreturn_t smb5_typec_or_rid_detection_change_irq_handler(int irq, void *data);
 irqreturn_t smb5_temp_change_irq_handler(int irq, void *data);
 irqreturn_t smb5_usbin_ov_irq_handler(int irq, void *data);
 irqreturn_t smb5_sdam_sts_change_irq_handler(int irq, void *data);
-int smblib_get_prop_input_current_limit_usb(struct smb_charger *chg,
+int smblib_get_prop_input_suspend(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_batt_present(struct smb_charger *chg,
 				union power_supply_propval *val);
@@ -697,7 +697,7 @@ int smblib_get_prop_input_current_limited(struct smb_charger *chg,
 				int *val);
 int smblib_get_prop_batt_iterm(struct smb_charger *chg,
 				union power_supply_propval *val);
-int smblib_set_prop_input_current_limit_usb(struct smb_charger *chg,
+int smblib_set_prop_input_suspend(struct smb_charger *chg,
 				  const union power_supply_propval *val);
 int smblib_set_prop_batt_capacity(struct smb_charger *chg,
 				const union power_supply_propval *val);
