@@ -258,6 +258,16 @@ clear:
 	return qcom_llcc_clear_error_status(err_type, drv);
 }
 
+
+static void llcc_edac_handle_ce(struct edac_device_ctl_info *edac_dev,
+				int inst_nr, int block_nr, const char *msg)
+{
+	edac_device_handle_ce(edac_dev, inst_nr, block_nr, msg);
+#ifdef CONFIG_EDAC_KRYO_ARM64_PANIC_ON_CE
+	panic("EDAC %s CE: %s\n", edac_dev->ctl_name, msg);
+#endif
+}
+
 static int
 dump_syn_reg(struct edac_device_ctl_info *edev_ctl, int err_type, u32 bank)
 {
@@ -270,7 +280,7 @@ dump_syn_reg(struct edac_device_ctl_info *edev_ctl, int err_type, u32 bank)
 
 	switch (err_type) {
 	case LLCC_DRAM_CE:
-		edac_device_handle_ce(edev_ctl, 0, bank,
+		llcc_edac_handle_ce(edev_ctl, 0, bank,
 				      "LLCC Data RAM correctable Error");
 		break;
 	case LLCC_DRAM_UE:
@@ -278,7 +288,7 @@ dump_syn_reg(struct edac_device_ctl_info *edev_ctl, int err_type, u32 bank)
 				      "LLCC Data RAM uncorrectable Error");
 		break;
 	case LLCC_TRAM_CE:
-		edac_device_handle_ce(edev_ctl, 0, bank,
+		llcc_edac_handle_ce(edev_ctl, 0, bank,
 				      "LLCC Tag RAM correctable Error");
 		break;
 	case LLCC_TRAM_UE:
@@ -372,9 +382,6 @@ static int qcom_llcc_edac_probe(struct platform_device *pdev)
 	edev_ctl->dev_name = dev_name(dev);
 	edev_ctl->ctl_name = "llcc";
 	edev_ctl->panic_on_ue = LLCC_ERP_PANIC_ON_UE;
-#ifdef CONFIG_EDAC_QCOM_LLCC_PANIC_ON_CE
-	edev_ctl->panic_on_ce = LLCC_ERP_PANIC_ON_CE;
-#endif
 	edev_ctl->pvt_info = llcc_driv_data;
 
 	/* Request for ecc irq */
