@@ -1072,13 +1072,14 @@ static void a6xx_gpu_keepalive(struct adreno_device *adreno_dev,
 
 static bool a619_holi_hw_isidle(struct adreno_device *adreno_dev)
 {
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned int reg;
 
-	adreno_read_gmu_wrapper(adreno_dev,
-		A6XX_GPU_GMU_AO_GPU_CX_BUSY_STATUS, &reg);
+	kgsl_regread(device, A6XX_RBBM_STATUS, &reg);
+	if (reg & 0xfffffffe)
+		return false;
 
-	/* Bit 23 is GPUBUSYIGNAHB */
-	return (reg & BIT(23)) ? false : true;
+	return adreno_irq_pending(adreno_dev) ? false : true;
 }
 
 bool a6xx_hw_isidle(struct adreno_device *adreno_dev)
