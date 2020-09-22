@@ -257,7 +257,7 @@ int mtk_mmqos_probe(struct platform_device *pdev)
 	struct common_port_node *comm_port_node;
 	struct larb_node *larb_node;
 	struct larb_port_node *larb_port_node;
-	struct mtk_iommu_data smi_imu = {};
+	struct mtk_iommu_data *smi_imu;
 	int i, id, num_larbs = 0, num_volts, ret;
 	const struct mtk_mmqos_desc *mmqos_desc;
 	const struct mtk_node_desc *node_desc;
@@ -270,6 +270,11 @@ int mtk_mmqos_probe(struct platform_device *pdev)
 	if (!mmqos)
 		return -ENOMEM;
 	mmqos->dev = &pdev->dev;
+
+	smi_imu = devm_kzalloc(&pdev->dev, sizeof(*smi_imu), GFP_KERNEL);
+	if (!smi_imu)
+		return -ENOMEM;
+
 	of_for_each_phandle(
 		&it, ret, pdev->dev.of_node, "mediatek,larbs", NULL, 0) {
 		struct device_node *np;
@@ -289,7 +294,7 @@ int mtk_mmqos_probe(struct platform_device *pdev)
 		}
 		if (of_property_read_u32(np, "mediatek,larb-id", &id))
 			id = num_larbs;
-		smi_imu.larb_imu[id].dev = &larb_pdev->dev;
+		smi_imu->larb_imu[id].dev = &larb_pdev->dev;
 		num_larbs += 1;
 	}
 	INIT_LIST_HEAD(&mmqos->comm_list);
@@ -447,7 +452,7 @@ int mtk_mmqos_probe(struct platform_device *pdev)
 				goto err;
 			}
 			comm_port_node = node->links[0]->data;
-			larb_dev = smi_imu.larb_imu[node->id &
+			larb_dev = smi_imu->larb_imu[node->id &
 					(MTK_LARB_NR_MAX-1)].dev;
 			if (larb_dev) {
 				comm_port_node->larb_dev = larb_dev;
@@ -497,6 +502,7 @@ int mtk_mmqos_probe(struct platform_device *pdev)
 	if (ret)
 		dev_notice(&pdev->dev, "sysfs create fail\n");
 	platform_set_drvdata(pdev, mmqos);
+	devm_kfree(&pdev->dev, smi_imu);
 	return 0;
 err:
 	list_for_each_entry_safe(node, temp, &mmqos->prov.nodes, node_list) {
