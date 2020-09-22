@@ -3014,7 +3014,7 @@ static void mtk_battery_daemon_handler(struct mtk_battery *gm, void *nl_data,
 	{
 		int daemon_ui_soc;
 		int old_uisoc;
-		struct timespec64 now_time, diff_time;
+		struct timespec64 diff_time;
 		ktime_t ctime = 0, dtime = 0;
 
 		memcpy(&daemon_ui_soc, &msg->fgd_data[0],
