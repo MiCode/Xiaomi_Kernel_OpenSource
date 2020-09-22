@@ -407,6 +407,9 @@ static int icnss_stats_show_state(struct seq_file *s, struct icnss_priv *priv)
 			continue;
 		case ICNSS_DEL_SERVER:
 			seq_puts(s, "DEL SERVER");
+			continue;
+		case ICNSS_COLD_BOOT_CAL:
+			seq_puts(s, "COLD BOOT CALIBRATION");
 		}
 
 		seq_printf(s, "UNKNOWN-%d", i);

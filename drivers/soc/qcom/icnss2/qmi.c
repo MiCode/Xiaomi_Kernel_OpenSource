@@ -1726,12 +1726,17 @@ static void rejuvenate_ind_cb(struct qmi_handle *qmi, struct sockaddr_qrtr *sq,
 static void cal_done_ind_cb(struct qmi_handle *qmi, struct sockaddr_qrtr *sq,
 			    struct qmi_txn *txn, const void *data)
 {
+	struct icnss_priv *priv = container_of(qmi, struct icnss_priv, qmi);
+
 	icnss_pr_dbg("Received QMI WLFW calibration done indication\n");
 
 	if (!txn) {
 		icnss_pr_err("Spurious indication\n");
 		return;
 	}
+
+	priv->cal_done = true;
+	clear_bit(ICNSS_COLD_BOOT_CAL, &priv->state);
 }
 
 static void fw_init_done_ind_cb(struct qmi_handle *qmi,
