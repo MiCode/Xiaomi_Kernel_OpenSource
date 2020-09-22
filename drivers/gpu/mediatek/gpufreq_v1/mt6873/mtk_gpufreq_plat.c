@@ -213,6 +213,7 @@ static int g_gpufreq_mfg2_probe(struct platform_device *pdev)
 
 	mfg2Dev = pdev;
 	pm_runtime_enable(&pdev->dev);
+	dev_pm_syscore_device(&pdev->dev, true);
 	return 0;
 }
 static int g_gpufreq_mfg3_probe(struct platform_device *pdev)
@@ -224,6 +225,7 @@ static int g_gpufreq_mfg3_probe(struct platform_device *pdev)
 
 	mfg3Dev = pdev;
 	pm_runtime_enable(&pdev->dev);
+	dev_pm_syscore_device(&pdev->dev, true);
 	return 0;
 }
 static int g_gpufreq_mfg4_probe(struct platform_device *pdev)
@@ -235,6 +237,7 @@ static int g_gpufreq_mfg4_probe(struct platform_device *pdev)
 
 	mfg4Dev = pdev;
 	pm_runtime_enable(&pdev->dev);
+	dev_pm_syscore_device(&pdev->dev, true);
 	return 0;
 }
 static int g_gpufreq_mfg5_probe(struct platform_device *pdev)
@@ -246,6 +249,7 @@ static int g_gpufreq_mfg5_probe(struct platform_device *pdev)
 
 	mfg5Dev = pdev;
 	pm_runtime_enable(&pdev->dev);
+	dev_pm_syscore_device(&pdev->dev, true);
 	return 0;
 }
 static int g_gpufreq_mfg6_probe(struct platform_device *pdev)
@@ -257,6 +261,7 @@ static int g_gpufreq_mfg6_probe(struct platform_device *pdev)
 
 	mfg6Dev = pdev;
 	pm_runtime_enable(&pdev->dev);
+	dev_pm_syscore_device(&pdev->dev, true);
 	return 0;
 }
 static int g_gpufreq_mfg_remove(struct platform_device *pdev)
