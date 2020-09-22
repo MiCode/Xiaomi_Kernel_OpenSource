@@ -560,7 +560,7 @@ void mtk_iova_unmap(u64 iova, size_t size)
 	}
 	end_t = sched_clock();
 	if ((end_t - start_t) > 5000000) //5ms
-		pr_info("%s time:%llu\n", (end_t - start_t));
+		pr_info("%s time:%llu\n", __func__, (end_t - start_t));
 	spin_unlock_irqrestore(&map_list.lock, flags);
 }
 EXPORT_SYMBOL_GPL(mtk_iova_unmap);
