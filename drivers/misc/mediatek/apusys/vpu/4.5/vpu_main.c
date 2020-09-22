@@ -781,7 +781,7 @@ static int vpu_resume(struct vpu_device *vd)
 
 struct vpu_platform vpu_plat_mt6885 = {
 	.bops = &vpu_bops_preload,
-	.mops = &vpu_mops_v1,
+	.mops = &vpu_mops_v2,
 	.sops = &vpu_sops_mt68xx,
 	.cops = &vpu_cops_mt6885,
 	.reg = &vpu_reg_mt68xx,

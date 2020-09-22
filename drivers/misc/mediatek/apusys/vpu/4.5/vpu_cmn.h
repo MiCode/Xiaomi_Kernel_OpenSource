@@ -173,9 +173,14 @@ struct vpu_iomem {
 };
 
 struct vpu_bin_ops {
+	/* Image header */
 	void *(*header)(int index);
+
+	/* Normal algorithm */
 	struct vpu_algo_info *(*alg_info)(void *header, int j);
 	int (*alg_info_cnt)(void *header);
+
+	/* Preload algorithm */
 	uint32_t (*pre_info)(void *header);
 	int (*pre_info_cnt)(void *header);
 };
