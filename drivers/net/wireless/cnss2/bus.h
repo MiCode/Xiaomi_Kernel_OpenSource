@@ -64,4 +64,7 @@ int cnss_bus_debug_reg_write(struct cnss_plat_data *plat_priv, u32 offset,
 int cnss_bus_get_iova(struct cnss_plat_data *plat_priv, u64 *addr, u64 *size);
 int cnss_bus_get_iova_ipa(struct cnss_plat_data *plat_priv, u64 *addr,
 			  u64 *size);
+int cnss_bus_update_time_sync_period(struct cnss_plat_data *plat_priv,
+				     unsigned int time_sync_period);
+
 #endif /* _CNSS_BUS_H */
