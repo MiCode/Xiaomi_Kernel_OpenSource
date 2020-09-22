@@ -128,7 +128,7 @@ static int mtk_cpufreq_hw_cpu_init(struct cpufreq_policy *policy)
 	struct pm_qos_request *qos_request;
 	struct cpufreq_mtk *c;
 	struct device *cpu_dev;
-	int ret, sig, pwr_hw = CPUFREQ_HW_STATUS | SVS_HW_STATUS;
+	int sig, pwr_hw = CPUFREQ_HW_STATUS | SVS_HW_STATUS;
 
 	qos_request = kzalloc(sizeof(*qos_request), GFP_KERNEL);
 	if (!qos_request)
@@ -193,7 +193,7 @@ static int mtk_cpufreq_hw_opp_create(struct platform_device *pdev,
 {
 	struct device *dev = &pdev->dev;
 	void __iomem *base_table;
-	u32 data, i, freq, volt, prev_freq = 0;
+	u32 data, i, freq, prev_freq = 0;
 
 	c->table = devm_kcalloc(dev, LUT_MAX_ENTRIES + 1,
 				sizeof(*c->table), GFP_KERNEL);
@@ -273,9 +273,6 @@ static int mtk_cpu_resources_init(struct platform_device *pdev,
 
 	snprintf(unode, sizeof(unode), "%s%d", "em-domain", index);
 	uindex = of_property_match_string(pdev->dev.of_node, "reg-names", unode);
-	if (IS_ERR(uindex))
-		return PTR_ERR(uindex);
-
 	res = platform_get_resource(pdev, IORESOURCE_MEM, uindex);
 	ubase = devm_ioremap_resource(dev, res);
 	if (IS_ERR(ubase))
