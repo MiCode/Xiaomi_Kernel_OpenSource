@@ -7,23 +7,31 @@
 #define _MD_COOLING_H
 
 #include <linux/thermal.h>
-#include <linux/types.h>
 
 /*===========================================================
  *  Macro Definitions
  *===========================================================
  */
-#define MAX_MD_COOLER_NAME_LEN	(20)
-#define MAX_NUM_TX_PWR_LV	(3)
-#define MD_COOLING_UNLIMITED_LV	(0)
+#define MAX_MD_COOLER_NAME_LEN		(20)
 
-#define is_mutt_enabled(status)	(status >= MD_LV_THROTTLE_ENABLED)
-#define is_md_inactive(status)	(status == MD_OFF || status == MD_NO_IMS)
-#define is_md_off(status)	(status == MD_OFF)
+#define MAX_NUM_NO_IMS_STATE		(1)
+#define MAX_NUM_TX_PWR_STATE		(3)
+#define MAX_NUM_SCG_OFF_STATE		(1)
 
+#define MD_COOLING_UNLIMITED_STATE	(0)
 
-enum md_status {
+#define DEFAULT_THROTTLE_TX_PWR_LV1	(4)
+#define DEFAULT_THROTTLE_TX_PWR_LV2	(6)
+#define DEFAULT_THROTTLE_TX_PWR_LV3	(8)
+
+#define is_scg_off_enabled(status)	(status == MD_SCG_OFF)
+#define is_mutt_enabled(status)		(status >= MD_LV_THROTTLE_ENABLED)
+#define is_md_inactive(status)		(status == MD_OFF || status == MD_NO_IMS)
+#define is_md_off(status)		(status == MD_OFF)
+
+enum md_cooling_status {
 	MD_LV_THROTTLE_DISABLED,
+	MD_SCG_OFF,
 	MD_LV_THROTTLE_ENABLED,
 	MD_IMS_ONLY,
 	MD_NO_IMS,
@@ -32,6 +40,7 @@ enum md_status {
 
 enum md_cooling_type {
 	MD_COOLING_TYPE_MUTT,
+	MD_COOLING_TYPE_NO_IMS,
 	MD_COOLING_TYPE_TX_PWR,
 	MD_COOLING_TYPE_SCG_OFF,
 
@@ -141,37 +150,62 @@ enum tmc_tx_pwr_event {
  * @name: naming string for this cooling device
  * @type: type of cooling device with different throttle method
  * @pa_id: hint to MD to know the heat source
- * @target_level: target cooling level which is set in set_cur_state()
+ * @target_state: target cooling state which is set in set_cur_state()
  *	callback.
- * @max_level: maximum level supported for this cooling device
+ * @max_state: maximum state supported for this cooling device
  * @cdev: thermal_cooling_device pointer to keep track of the
  *	registered cooling device.
  * @throttle_tx_power: array of throttle TX power from device tree.
+ * @throttle: callback function to handle throttle request
  * @node: list_head to link all md_cooling_device.
- * @dev_data: device private data
+ * @dev: device node pointer
  */
 struct md_cooling_device {
 	char name[MAX_MD_COOLER_NAME_LEN];
 	enum md_cooling_type type;
 	unsigned int pa_id;
-	unsigned long target_level;
-	unsigned long max_level;
+	unsigned long target_state;
+	unsigned long max_state;
 	struct thermal_cooling_device *cdev;
-	unsigned int throttle_tx_power[MAX_NUM_TX_PWR_LV];
+	unsigned int throttle_tx_power[MAX_NUM_TX_PWR_STATE];
+	int (*throttle)(struct md_cooling_device *md_cdev, unsigned long state);
 	struct list_head node;
-	void *dev_data;
+	struct device *dev;
 };
 
-enum md_status get_md_status(void);
-void set_md_status(enum md_status status);
-int send_throttle_msg(unsigned int msg);
-void update_throttle_power(unsigned int pa_id, unsigned int *pwr);
-struct md_cooling_device*
-get_md_cdev(enum md_cooling_type type, unsigned int pa_id);
-unsigned int get_pa_num(void);
-int md_cooling_register(struct device_node *np, enum md_cooling_type type,
-		unsigned long max_level, unsigned int *throttle_pwr,
-		struct thermal_cooling_device_ops *cooling_ops, void *data);
-void md_cooling_unregister(enum md_cooling_type type);
+/**
+ * struct md_cooling_platform_data - MD cooler platform dependent data
+ * @state_to_mutt_lv: callback function to transfer cooling state
+ *			to mutt LV defined by MD
+ * @max_lv: max cooler LV supported by MD
+ */
+struct md_cooling_platform_data {
+	unsigned long (*state_to_mutt_lv)(unsigned long state);
+	unsigned long max_lv;
+};
+
+/**
+ * struct md_cooling_data - data for MD cooling driver
+ * @pa_num: number of PA from device tree
+ * @mutt_lv: current MUTT state (maximum of all PA's target state)
+ * @status: current MD throttle status
+ * @pdata: platform data of MD cooling driver
+ */
+struct md_cooling_data {
+	unsigned int pa_num;
+	unsigned long mutt_state;
+	enum md_cooling_status status;
+	const struct md_cooling_platform_data *pdata;
+};
+
+extern enum md_cooling_status get_md_cooling_status(void);
+extern int send_throttle_msg(unsigned int msg);
+extern void update_throttle_power(unsigned int pa_id, unsigned int *pwr);
+extern struct md_cooling_device *get_md_cdev(enum md_cooling_type type, unsigned int pa_id);
+extern unsigned int get_pa_num(void);
+#if IS_ENABLED(CONFIG_DEBUG_FS)
+extern int md_cooling_debugfs_init(void);
+extern void md_cooling_debugfs_exit(void);
+#endif
 
 #endif
