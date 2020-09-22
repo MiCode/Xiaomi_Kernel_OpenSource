@@ -5889,9 +5889,8 @@ static long DIP_ioctl(
 	unsigned int                 wakelock_ctrl;
 	unsigned int                 module;
 	unsigned long flags;
-	int i;
-	int fd, bufpa, release_flag;
-	struct dip_fd_list_template *dip_ion_list, *dip_ion_list_temp, *dip_ion_entry, *tmp1;
+	int fd, i;
+	struct dip_fd_list_template *dip_ion_list, *dip_ion_entry;
 	struct list_head *pos;
 
 
@@ -7386,8 +7385,6 @@ static signed int DIP_suspend(
  **************************************************************/
 static signed int DIP_resume(struct platform_device *pDev)
 {
-	unsigned int i = 0;
-	//unsigned int ofset = 0;
 	if (g_u4DipCnt > 0) {
 		DIP_EnableClock(MTRUE);
 		if (G_u4DipEnClkCnt == 1)
