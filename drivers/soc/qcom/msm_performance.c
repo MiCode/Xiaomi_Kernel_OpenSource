@@ -106,7 +106,6 @@ static bool max_cap_cpus[NR_CPUS];
 static cpumask_var_t limit_mask_min;
 static cpumask_var_t limit_mask_max;
 
-static atomic_t game_status;
 static atomic_t game_status_pid;
 
 static bool ready_for_freq_updates;
@@ -884,8 +883,7 @@ void  msm_perf_events_update(enum evt_update_t update_typ,
 	if (update_typ != MSM_PERF_GFX)
 		return;
 
-	if (!atomic_read(&game_status) ||
-	(pid != atomic_read(&game_status_pid)))
+	if (pid != atomic_read(&game_status_pid) || (timestamp == 0))
 		return;
 
 	spin_lock_irqsave(&gfx_circ_buff_lock, flags);
@@ -902,30 +900,6 @@ void  msm_perf_events_update(enum evt_update_t update_typ,
 		complete(&gfx_evt_arrival);
 }
 
-
-
-static int set_game_start_event(const char *buf, const struct kernel_param *kp)
-{
-	long usr_val = 0;
-	int ret = strlen(buf);
-
-	kstrtol(buf, 0, &usr_val);
-	atomic_set(&game_status, usr_val);
-	return ret;
-}
-
-static int get_game_start_event(char *buf, const struct kernel_param *kp)
-{
-	long usr_val  = atomic_read(&game_status);
-
-	return scnprintf(buf, PAGE_SIZE, "%ld\n", usr_val);
-}
-
-static const struct kernel_param_ops param_ops_game_start_evt = {
-	.set = set_game_start_event,
-	.get = get_game_start_event,
-};
-module_param_cb(evnt_gplaf_status, &param_ops_game_start_evt, NULL, 0644);
 
 static int set_game_start_pid(const char *buf, const struct kernel_param *kp)
 {
