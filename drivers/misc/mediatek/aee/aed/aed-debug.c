@@ -682,7 +682,6 @@ static ssize_t proc_generate_kernel_notify_write(struct file *file,
 
 	case 'E':
 		aee_kernel_exception(&msg[2], colon_ptr + 1);
-		WARN(1, AEE_FMT, 0, 'E', &msg[2], colon_ptr + 1);
 		break;
 
 	default:
