@@ -13,6 +13,7 @@
 #define MNOC_AEE_WARN_ENABLE (1)
 #define MNOC_APU_PWR_CHK (0)
 
-#define APU_QOS_IPUIF_ADJUST
+#define APU_QOS_IPUIF_ADJUST (1)
+#define MNOC_TIMEOUT_IRQ_ENABLE (0)
 
 #endif

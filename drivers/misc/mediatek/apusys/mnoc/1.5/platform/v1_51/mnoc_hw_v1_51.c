@@ -199,8 +199,10 @@ static void mnoc_qos_reg_init(void)
 /* register to apusys power on callback */
 static void mnoc_reg_init(void)
 {
-	int rt_idx;
 	unsigned long flags;
+#if MNOC_TIMEOUT_IRQ_ENABLE
+	int rt_idx;
+#endif
 
 	LOG_DEBUG("+\n");
 
@@ -208,6 +210,33 @@ static void mnoc_reg_init(void)
 
 	/* EMI fine tune: SLV04_QOS/SLV05_QOS = 0x7 */
 	mnoc_write_field(MNOC_REG(2, SLV_QOS_CTRL0), 7:0, 0x77);
+#if MNOC_TIMEOUT_IRQ_ENABLE
+	/* set request router timeout interrupt */
+	for (rt_idx = 0; rt_idx < NR_MNOC_RT; rt_idx++) {
+		/* all VC enabled */
+		mnoc_write(MNOC_RT_PMU_REG(rt_idx, REQ_RT_PMU, 3), 0xFFFFFFFF);
+		mnoc_write(MNOC_RT_PMU_REG(rt_idx, REQ_RT_PMU, 4), 0xFFFFFFFF);
+		/* set timeout threshold to 510 cycles */
+		mnoc_write_field(MNOC_RT_PMU_REG(rt_idx, REQ_RT_PMU, 2),
+			8:0, 510);
+		/* enable timeout counting */
+		mnoc_write_field(MNOC_RT_PMU_REG(rt_idx, REQ_RT_PMU, 2),
+			31:31, 1);
+	}
+
+	/* set response router timeout interrupt */
+	for (rt_idx = 0; rt_idx < NR_MNOC_RT; rt_idx++) {
+		/* all VC enabled */
+		mnoc_write(MNOC_RT_PMU_REG(rt_idx, RSP_RT_PMU, 3), 0xFFFFFFFF);
+		mnoc_write(MNOC_RT_PMU_REG(rt_idx, RSP_RT_PMU, 4), 0xFFFFFFFF);
+		/* set timeout threshold to 510 cycles */
+		mnoc_write_field(MNOC_RT_PMU_REG(rt_idx, RSP_RT_PMU, 2),
+			8:0, 510);
+		/* enable timeout counting */
+		mnoc_write_field(MNOC_RT_PMU_REG(rt_idx, RSP_RT_PMU, 2),
+			31:31, 1);
+	}
+#endif
 
 	spin_unlock_irqrestore(&mnoc_spinlock, flags);
 

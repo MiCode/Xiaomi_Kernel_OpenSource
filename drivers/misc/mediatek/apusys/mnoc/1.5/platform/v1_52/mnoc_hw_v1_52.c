@@ -179,8 +179,10 @@ static void mnoc_qos_reg_init(void)
 /* register to apusys power on callback */
 static void mnoc_reg_init(void)
 {
-	int rt_idx;
 	unsigned long flags;
+#if MNOC_TIMEOUT_IRQ_ENABLE
+	int rt_idx;
+#endif
 
 	LOG_DEBUG("+\n");
 
@@ -190,6 +192,7 @@ static void mnoc_reg_init(void)
 	mnoc_set_bit(MNOC_REG(SNI_EMI0_GRP, SLV_QOS_CTRL0), EMI0_FINE_TUNE);
 	mnoc_set_bit(MNOC_REG(SNI_EMI1_GRP, SLV_QOS_CTRL0), EMI1_FINE_TUNE);
 
+#if MNOC_TIMEOUT_IRQ_ENABLE
 	/* set request router timeout interrupt */
 	for (rt_idx = 0; rt_idx < NR_MNOC_RT; rt_idx++) {
 		/* all VC enabled */
@@ -215,6 +218,7 @@ static void mnoc_reg_init(void)
 		mnoc_write_field(MNOC_RT_PMU_REG(rt_idx, RSP_RT_PMU, 2),
 			31:31, 1);
 	}
+#endif
 
 	spin_unlock_irqrestore(&mnoc_spinlock, flags);
 

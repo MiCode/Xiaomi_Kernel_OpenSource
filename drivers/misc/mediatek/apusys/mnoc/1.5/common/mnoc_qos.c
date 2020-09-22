@@ -43,7 +43,7 @@ static struct engine_pm_qos_counter engine_pm_qos_counter[NR_APU_QOS_ENGINE];
 #define APUSYS_QOSBOUND_START (QOS_SMIBM_VPU0)
 #define get_qosbound_enum(x) (APUSYS_QOSBOUND_START + x)
 
-#ifdef APU_QOS_IPUIF_ADJUST
+#if APU_QOS_IPUIF_ADJUST
 #if IS_ENABLED(CONFIG_MACH_MT6873)
 #define NR_APU_VCORE_OPP (4)
 static unsigned int apu_vcore_bw_opp_tab[NR_APU_VCORE_OPP] = {
@@ -287,7 +287,7 @@ void apu_qos_off(void)
 	apusys_on_flag = false;
 	mutex_unlock(&apu_qos_boost_mtx);
 #endif
-#ifdef APU_QOS_IPUIF_ADJUST
+#if APU_QOS_IPUIF_ADJUST
 	apu_bw_vcore_opp = NR_APU_VCORE_OPP - 1;
 	apu_qos_set_vcore(vcore_opp_map[apu_bw_vcore_opp]);
 #endif
@@ -451,7 +451,7 @@ static void qos_work_func(struct work_struct *work)
 	int i = 0, idx = 0, current_idx;
 	unsigned int peak_bw = 0, total_bw = 0, avg_bw = 0;
 	unsigned int cnt = 0, bw = 0, report_bw = 0;
-#ifdef APU_QOS_IPUIF_ADJUST
+#if APU_QOS_IPUIF_ADJUST
 	unsigned int total_apu_bw = 0, new_apu_vcore_opp = 0;
 #endif
 #if MNOC_TIME_PROFILE
@@ -507,7 +507,7 @@ static void qos_work_func(struct work_struct *work)
 		report_bw = peak_bw;
 #endif
 
-#ifdef APU_QOS_IPUIF_ADJUST
+#if APU_QOS_IPUIF_ADJUST
 		report_bw = rounddown(report_bw, 100);
 		total_apu_bw += report_bw;
 #endif
@@ -522,7 +522,7 @@ static void qos_work_func(struct work_struct *work)
 			i, engine_boost_val[i], report_bw, peak_bw, avg_bw);
 	}
 
-#ifdef APU_QOS_IPUIF_ADJUST
+#if APU_QOS_IPUIF_ADJUST
 	new_apu_vcore_opp = 0;
 	for (i = NR_APU_VCORE_OPP - 1; i >= 0 ; i--) {
 		if (total_apu_bw >= apu_vcore_bw_opp_tab[i])
@@ -954,7 +954,7 @@ void apu_qos_boost_start(void)
 /* 6885: ~16G, 6873/6853: ~8G */
 	if (apu_qos_boost_flag == true && apusys_on_flag == true) {
 		cpu_latency_qos_update_request(&apu_qos_cpu_dma_req, 2);
-#ifdef APU_QOS_IPUIF_ADJUST
+#if APU_QOS_IPUIF_ADJUST
 		apu_qos_set_vcore(vcore_opp_map[apu_bw_vcore_opp]);
 #endif
 	}
@@ -973,7 +973,7 @@ void apu_qos_boost_end(void)
 	if (apusys_on_flag) {
 		apu_bw_vcore_opp = NR_APU_VCORE_OPP - 1;
 
-#ifdef APU_QOS_IPUIF_ADJUST
+#if APU_QOS_IPUIF_ADJUST
 		apu_qos_set_vcore(vcore_opp_map[apu_bw_vcore_opp]);
 #endif
 		cpu_latency_qos_update_request(&apu_qos_cpu_dma_req,
@@ -1038,7 +1038,7 @@ void apu_qos_counter_init(struct device *dev)
 	cpu_latency_qos_add_request(&apu_qos_cpu_dma_req, PM_QOS_DEFAULT_VALUE);
 #endif
 
-#ifdef APU_QOS_IPUIF_ADJUST
+#if APU_QOS_IPUIF_ADJUST
 	apu_bw_vcore_opp = NR_APU_VCORE_OPP - 1;
 #endif
 
