@@ -2907,6 +2907,22 @@ irqreturn_t smblite_usb_id_irq_handler(int irq, void *data)
 
 	smblite_lib_dbg(chg, PR_INTERRUPT, "IRQ: %s, id_state=%d\n",
 					"usb-id-irq", id_state);
+	if (id_state) {
+		/*otg cable removed */
+		if (chg->otg_present) {
+			if (chg->typec_port) {
+				typec_set_data_role(chg->typec_port,
+							TYPEC_DEVICE);
+				typec_set_pwr_role(chg->typec_port, TYPEC_SINK);
+				typec_partner_unregister(chg);
+			}
+		}
+	} else if (chg->typec_port) {
+		/*otg cable inserted */
+		typec_partner_register(chg);
+		typec_set_data_role(chg->typec_port, TYPEC_HOST);
+		typec_set_pwr_role(chg->typec_port, TYPEC_SOURCE);
+	}
 
 	smblite_lib_notify_usb_host(chg, !id_state);
 
