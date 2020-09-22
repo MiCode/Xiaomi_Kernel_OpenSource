@@ -393,7 +393,8 @@ struct mtk_cam_uapi_tsf_stats {
  *	T O N E
  */
 #define MTK_CAM_UAPI_LTMSO_SIZE		18036
-#define MTK_CAM_UAPI_LCESO_SIZE		(680 * 510 * 2)
+#define MTK_CAM_UAPI_LCESO_STRIDE	(680 * 2)
+#define MTK_CAM_UAPI_LCESO_SIZE		(MTK_CAM_UAPI_LCESO_STRIDE * 510)
 #define MTK_CAM_UAPI_LCESHO_SIZE	1548
 
 /**
@@ -575,7 +576,7 @@ struct mtk_cam_uapi_meta_raw_stats_2 {
 };
 
 #define MTK_CAM_META_VERSION_MAJOR 3
-#define MTK_CAM_META_VERSION_MINOR 2
+#define MTK_CAM_META_VERSION_MINOR 3
 
 
 #endif /* __MTK_CAM_META_H__ */
