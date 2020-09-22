@@ -837,7 +837,7 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 	int bhr_opp_local;
 	int bhr_local;
 	int cluster = 0;
-	int max_cap = 0;
+	unsigned int max_cap = 0;
 
 	if (check && !uclamp_boost_enable)
 		return;
@@ -1107,7 +1107,6 @@ static void fbt_do_jerk(struct work_struct *work)
 	struct fbt_proc *proc;
 	struct fbt_boost_info *boost;
 	struct render_info *thr;
-	int cluster;
 	int tofree = 0;
 
 	jerk = container_of(work, struct fbt_jerk, work);

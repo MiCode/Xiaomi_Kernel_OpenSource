@@ -145,7 +145,7 @@ bool fpsgo_sentuevent(const char *src)
 	int ret;
 	char *envp[2];
 	int string_size = FPSGO_SYSFS_MAX_BUFF_SIZE;
-	char  event_string[string_size];
+	char  event_string[FPSGO_SYSFS_MAX_BUFF_SIZE];
 
 	envp[0] = event_string;
 	envp[1] = NULL;
