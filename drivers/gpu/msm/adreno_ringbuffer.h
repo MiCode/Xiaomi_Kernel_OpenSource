@@ -36,7 +36,7 @@ struct kgsl_device_private;
 struct adreno_submit_time {
 	uint64_t ticks;
 	u64 ktime;
-	struct timespec utime;
+	struct timespec64 utime;
 	struct kgsl_drawobj *drawobj;
 };
 

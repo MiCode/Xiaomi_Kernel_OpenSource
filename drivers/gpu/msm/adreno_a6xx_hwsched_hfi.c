@@ -1046,7 +1046,7 @@ static void add_profile_events(struct adreno_device *adreno_dev,
 	time->ktime = local_clock();
 
 	/* Get the timeofday for the wall time (for the user) */
-	getnstimeofday(&time->utime);
+	ktime_get_real_ts64(&time->utime);
 
 	local_irq_restore(flags);
 
