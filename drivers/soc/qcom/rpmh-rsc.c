@@ -98,6 +98,7 @@ static const char * const accl_str[] = {
 
 static struct rsc_drv *__rsc_drv[MAX_RSC_COUNT];
 static int __rsc_count;
+bool rpmh_standalone;
 
 /*
  * Here's a high level overview of how all the registers in RPMH work
@@ -616,6 +617,13 @@ static int tcs_write(struct rsc_drv *drv, const struct tcs_request *msg)
 		return PTR_ERR(tcs);
 
 	spin_lock_irqsave(&drv->lock, flags);
+
+	if (drv->in_solver_mode) {
+		/* Controller is busy in 'solver' mode */
+		ret = -EBUSY;
+		goto unlock;
+	}
+
 	/*
 	 * The h/w does not like if we send a request to the same address,
 	 * when one is already in-flight or being processed.
@@ -994,6 +1002,33 @@ static int rpmh_rsc_cpu_pm_callback(struct notifier_block *nfb,
 	return ret;
 }
 
+/**
+ * rpmh_rsc_mode_solver_set() - Enable/disable solver mode.
+ * @drv:     The controller.
+ * @enable:  Boolean state to be set - true/false
+ *
+ * Return:
+ * * 0			- success
+ * * -EBUSY		- AMCs are busy
+ */
+int rpmh_rsc_mode_solver_set(struct rsc_drv *drv, bool enable)
+{
+	int ret = -EBUSY;
+
+	if (spin_trylock(&drv->lock)) {
+		if (!enable || !rpmh_rsc_ctrlr_is_busy(drv)) {
+			drv->in_solver_mode = enable;
+			trace_rpmh_solver_set(drv, enable);
+			ipc_log_string(drv->ipc_log_ctx,
+				       "solver mode set: %d", enable);
+			ret = 0;
+		}
+		spin_unlock(&drv->lock);
+	}
+
+	return ret;
+}
+
 static int rpmh_probe_tcs_config(struct platform_device *pdev,
 				 struct rsc_drv *drv, void __iomem *base)
 {
@@ -1087,6 +1122,11 @@ static int rpmh_rsc_probe(struct platform_device *pdev)
 									ret);
 		return ret;
 	}
+
+	rpmh_standalone = cmd_db_is_standalone();
+	if (rpmh_standalone)
+		dev_info(&pdev->dev, "RPMH is running in standalone mode.\n");
+
 
 	drv = devm_kzalloc(&pdev->dev, sizeof(*drv), GFP_KERNEL);
 	if (!drv)
