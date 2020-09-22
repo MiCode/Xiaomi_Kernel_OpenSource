@@ -50,42 +50,6 @@ config MTK_MD_THERMAL
 	  This option depends on MTK_ECCCI_DRIVER which is the
 	  IPC interface between AP SoC and modem.
 
-if MTK_MD_THERMAL
-
-config MTK_MD_THERMAL_MUTT
-	tristate "Mediatek modem uplink throughput throttle driver"
-	help
-	  Enable this option if you want to use modem
-	  uplink throughput throttle cooler for Mediatek
-	  platforms.
-	  The throttling levels are defined in modem.
-
-config MTK_MD_THERMAL_TX_POWER
-	tristate "Mediatek modem TX power throttle driver"
-	help
-	  Enable this option if you want use modem TX power
-	  throttle cooler for Mediatek platforms.
-	  This feature is only supported for mt6297 or later
-	  modem platforms.
-
-config MTK_MD_THERMAL_SCG_OFF
-	tristate "Mediatek modem SCG cell off driver"
-	help
-	  Enable this option if you want use modem SCG cell
-	  throttle cooler for Mediatek platforms.
-	  This feature is only supported for mt6297 or later
-	  modem platforms.
-
-config MTK_MD_THERMAL_DEBUGFS
-	bool "Mediatek modem throttle debugfs driver"
-	depends on DEBUG_FS
-	help
-	  Enable this option if you want to use Mediatek
-	  modem coolers debugfs.
-	  This option should be enabled only for HW power
-	  evaluation purpose.
-endif
-
 config MTK_THERMAL_TRACE
 	tristate "Mediatek thermal ftrace driver"
 	depends on FTRACE

@@ -5,7 +5,6 @@
 
 #include <linux/debugfs.h>
 #include <linux/kernel.h>
-#include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 #include "md_cooling.h"
@@ -51,7 +50,7 @@ static int md_cooling_status_show(struct seq_file *m, void *unused)
 	unsigned int pa_num = get_pa_num();
 
 	seq_printf(m, "PA num = %d\n", pa_num);
-	seq_printf(m, "MD status = %d\n", get_md_status());
+	seq_printf(m, "MD status = %d\n", get_md_cooling_status());
 
 	for (i = 0; i < NR_MD_COOLING_TYPE; i++) {
 		for (j = 0; j < pa_num; j++) {
@@ -62,7 +61,7 @@ static int md_cooling_status_show(struct seq_file *m, void *unused)
 			seq_printf(m, "\n[%s, %d]\n", md_cdev->name,
 				md_cdev->pa_id);
 			seq_printf(m, "target/max = %ld/%ld\n",
-				md_cdev->target_level, md_cdev->max_level);
+				md_cdev->target_state, md_cdev->max_state);
 
 			if (md_cdev->type == MD_COOLING_TYPE_TX_PWR)
 				seq_printf(m, "throttle tx_pwr = %d/%d/%d\n",
@@ -107,7 +106,7 @@ static ssize_t md_cooling_duty_ctrl_write(struct file *flip,
 		goto err;
 	}
 
-	if (get_md_status() != MD_LV_THROTTLE_DISABLED) {
+	if (get_md_cooling_status() != MD_LV_THROTTLE_DISABLED) {
 		ret = -EBUSY;
 		goto err;
 	}
@@ -154,7 +153,7 @@ static ssize_t md_cooling_ca_ctrl_write(struct file *flip,
 	if (kstrtoint_from_user(ubuf, cnt, 0, &val))
 		return -EFAULT;
 
-	if (get_md_status() != MD_LV_THROTTLE_DISABLED)
+	if (get_md_cooling_status() != MD_LV_THROTTLE_DISABLED)
 		return -EBUSY;
 
 	if (send_throttle_msg(ca_ctrl_to_tmc_msg(val)))
@@ -181,7 +180,7 @@ static ssize_t md_cooling_pa_ctrl_write(struct file *flip,
 	if (kstrtoint_from_user(ubuf, cnt, 0, &val))
 		return -EFAULT;
 
-	if (get_md_status() != MD_LV_THROTTLE_DISABLED)
+	if (get_md_cooling_status() != MD_LV_THROTTLE_DISABLED)
 		return -EBUSY;
 
 	if (send_throttle_msg(pa_ctrl_to_tmc_msg(val)))
@@ -217,7 +216,7 @@ static ssize_t md_cooling_update_tx_pwr_write(struct file *flip,
 			const char *ubuf, size_t cnt, loff_t *data)
 {
 	int ret = cnt, id, tx_pwr_lv1, tx_pwr_lv2, tx_pwr_lv3;
-	unsigned int tx_pwr[MAX_NUM_TX_PWR_LV];
+	unsigned int tx_pwr[MAX_NUM_TX_PWR_STATE];
 	char *buf;
 
 	if (cnt > 32)
@@ -234,7 +233,7 @@ static ssize_t md_cooling_update_tx_pwr_write(struct file *flip,
 	buf[cnt] = '\0';
 
 	if ((sscanf(buf, "%d %d %d %d", &id, &tx_pwr_lv1,
-		&tx_pwr_lv2, &tx_pwr_lv3) != (MAX_NUM_TX_PWR_LV + 1))) {
+		&tx_pwr_lv2, &tx_pwr_lv3) != (MAX_NUM_TX_PWR_STATE + 1))) {
 		ret = -EINVAL;
 		goto err;
 	}
@@ -258,7 +257,7 @@ err:
 }
 MD_COOLING_DEBUGFS_ENTRY_RW(update_tx_pwr);
 
-static int __init md_cooling_debugfs_init(void)
+int md_cooling_debugfs_init(void)
 {
 	mdc_debug_dir = debugfs_create_dir("md_cooling", NULL);
 	if (!mdc_debug_dir) {
@@ -288,13 +287,8 @@ failed:
 	return -ENODEV;
 }
 
-static void __exit md_cooling_debugfs_exit(void)
+void md_cooling_debugfs_exit(void)
 {
 	debugfs_remove_recursive(mdc_debug_dir);
 }
-module_init(md_cooling_debugfs_init);
-module_exit(md_cooling_debugfs_exit);
 
-MODULE_AUTHOR("Shun-Yao Yang <brian-sy.yang@mediatek.com>");
-MODULE_DESCRIPTION("Mediatek modem cooling debugfs driver");
-MODULE_LICENSE("GPL v2");

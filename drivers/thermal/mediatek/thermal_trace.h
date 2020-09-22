@@ -15,6 +15,7 @@
 
 #if IS_ENABLED(CONFIG_MTK_MD_THERMAL)
 TRACE_DEFINE_ENUM(MD_LV_THROTTLE_DISABLED);
+TRACE_DEFINE_ENUM(MD_SCG_OFF);
 TRACE_DEFINE_ENUM(MD_LV_THROTTLE_ENABLED);
 TRACE_DEFINE_ENUM(MD_IMS_ONLY);
 TRACE_DEFINE_ENUM(MD_NO_IMS);
@@ -23,6 +24,7 @@ TRACE_DEFINE_ENUM(MD_OFF);
 #define show_md_status(status)						\
 	__print_symbolic(status,					\
 		{ MD_LV_THROTTLE_DISABLED, "LV_THROTTLE_DISABLED"},	\
+		{ MD_SCG_OFF,	"SCG_OFF"},				\
 		{ MD_LV_THROTTLE_ENABLED,  "LV_THROTTLE_ENABLED"},	\
 		{ MD_IMS_ONLY,  "IMS_ONLY"},				\
 		{ MD_NO_IMS,    "NO_IMS"},				\
@@ -30,66 +32,66 @@ TRACE_DEFINE_ENUM(MD_OFF);
 
 TRACE_EVENT(md_mutt_limit,
 
-	TP_PROTO(struct md_cooling_device *md_cdev, enum md_status status),
+	TP_PROTO(struct md_cooling_device *md_cdev, enum md_cooling_status status),
 
 	TP_ARGS(md_cdev, status),
 
 	TP_STRUCT__entry(
-		__field(unsigned long, lv)
+		__field(unsigned long, state)
 		__field(unsigned int, id)
-		__field(enum md_status, status)
+		__field(enum md_cooling_status, status)
 	),
 
 	TP_fast_assign(
-		__entry->lv = md_cdev->target_level;
+		__entry->state = md_cdev->target_state;
 		__entry->id = md_cdev->pa_id;
 		__entry->status = status;
 	),
 
 	TP_printk("mutt_lv=%ld pa_id=%d status=%s",
-		__entry->lv, __entry->id, show_md_status(__entry->status))
+		__entry->state, __entry->id, show_md_status(__entry->status))
 );
 
 TRACE_EVENT(md_tx_pwr_limit,
 
-	TP_PROTO(struct md_cooling_device *md_cdev, enum md_status status),
+	TP_PROTO(struct md_cooling_device *md_cdev, enum md_cooling_status status),
 
 	TP_ARGS(md_cdev, status),
 
 	TP_STRUCT__entry(
-		__field(unsigned int, lv)
+		__field(unsigned int, state)
 		__field(unsigned int, pwr)
 		__field(unsigned int, id)
-		__field(enum md_status, status)
+		__field(enum md_cooling_status, status)
 	),
 
 	TP_fast_assign(
-		__entry->lv = md_cdev->target_level;
+		__entry->state = md_cdev->target_state;
 		__entry->pwr =
-			md_cdev->throttle_tx_power[md_cdev->target_level];
+			md_cdev->throttle_tx_power[md_cdev->target_state];
 		__entry->id = md_cdev->pa_id;
 		__entry->status = status;
 	),
 
 	TP_printk("tx_pwr_lv=%ld tx_pwr=%d pa_id=%d status=%s",
-		__entry->lv, __entry->pwr, __entry->id,
+		__entry->state, __entry->pwr, __entry->id,
 		show_md_status(__entry->status))
 );
 
 TRACE_EVENT(md_scg_off,
 
-	TP_PROTO(struct md_cooling_device *md_cdev, enum md_status status),
+	TP_PROTO(struct md_cooling_device *md_cdev, enum md_cooling_status status),
 
 	TP_ARGS(md_cdev, status),
 
 	TP_STRUCT__entry(
 		__field(unsigned long, off)
 		__field(unsigned int, id)
-		__field(enum md_status, status)
+		__field(enum md_cooling_status, status)
 	),
 
 	TP_fast_assign(
-		__entry->off = md_cdev->target_level;
+		__entry->off = md_cdev->target_state;
 		__entry->id = md_cdev->pa_id;
 		__entry->status = status;
 	),
