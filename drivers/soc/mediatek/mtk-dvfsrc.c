@@ -770,6 +770,23 @@ err:
 	return ret;
 }
 
+#define DVFSRC_MT6873_SERIES_OPS			\
+	.get_target_level = mt6873_get_target_level,	\
+	.get_current_level = mt6873_get_current_level,	\
+	.get_vcore_level = mt6873_get_vcore_level,	\
+	.get_vcp_level = mt6873_get_vcp_level,		\
+	.get_dram_level = mt6873_get_dram_level,	\
+	.set_dram_bw = mt6873_set_dram_bw,		\
+	.set_dram_peak_bw = mt6873_set_dram_peak_bw,	\
+	.set_opp_level = mt6873_set_opp_level,		\
+	.set_dram_level = mt6873_set_dram_level,	\
+	.set_dram_hrtbw = mt6873_set_dram_hrtbw,	\
+	.set_vcore_level = mt6873_set_vcore_level,	\
+	.set_vscp_level = mt6873_set_vscp_level,	\
+	.wait_for_opp_level = mt6873_wait_for_opp_level,	\
+	.wait_for_vcore_level = dvfsrc_wait_for_vcore_level,	\
+	.wait_for_dram_level = dvfsrc_wait_for_dram_level
+
 static const struct dvfsrc_opp dvfsrc_opp_mt8183_lp4[] = {
 	{0, 0}, {0, 1}, {0, 2}, {1, 2},
 };
@@ -801,11 +818,14 @@ static const struct dvfsrc_soc_data mt8183_data = {
 
 static void mt6873_fb_callback(struct mtk_dvfsrc *dvfsrc, int fb_blank)
 {
-	/* switch md some scenario request policy*/
-	if (fb_blank == FB_BLANK_UNBLANK)
-		dvfsrc_write(dvfsrc, DVFSRC_95MD_SCEN_BW1_T, 0x44444444);
-	else if (fb_blank == FB_BLANK_POWERDOWN)
-		dvfsrc_write(dvfsrc, DVFSRC_95MD_SCEN_BW1_T, 0x22244444);
+	struct device_node *of_node = dvfsrc->dev->of_node;
+
+	if (of_device_is_compatible(of_node, "mediatek,mt6873-dvfsrc")) {
+		if (fb_blank == FB_BLANK_UNBLANK)
+			dvfsrc_write(dvfsrc, DVFSRC_95MD_SCEN_BW1_T, 0x44444444);
+		else if (fb_blank == FB_BLANK_POWERDOWN)
+			dvfsrc_write(dvfsrc, DVFSRC_95MD_SCEN_BW1_T, 0x22244444);
+	}
 }
 
 static const struct dvfsrc_opp dvfsrc_opp_mt6873_lp4[] = {
@@ -822,25 +842,81 @@ static const struct dvfsrc_opp_desc dvfsrc_opp_mt6873_desc[] = {
 };
 
 static const struct dvfsrc_soc_data mt6873_data = {
+	DVFSRC_MT6873_SERIES_OPS,
 	.opps_desc = dvfsrc_opp_mt6873_desc,
 	.num_opp_desc = ARRAY_SIZE(dvfsrc_opp_mt6873_desc),
 	.regs = mt6873_regs,
 	.fb_notifier_callback = mt6873_fb_callback,
-	.get_target_level = mt6873_get_target_level,
-	.get_current_level = mt6873_get_current_level,
-	.get_vcore_level = mt6873_get_vcore_level,
-	.get_vcp_level = mt6873_get_vcp_level,
-	.get_dram_level = mt6873_get_dram_level,
-	.set_dram_bw = mt6873_set_dram_bw,
-	.set_dram_peak_bw = mt6873_set_dram_peak_bw,
-	.set_opp_level = mt6873_set_opp_level,
-	.set_dram_level = mt6873_set_dram_level,
-	.set_dram_hrtbw = mt6873_set_dram_hrtbw,
-	.set_vcore_level = mt6873_set_vcore_level,
-	.set_vscp_level = mt6873_set_vscp_level,
-	.wait_for_opp_level = mt6873_wait_for_opp_level,
-	.wait_for_vcore_level = dvfsrc_wait_for_vcore_level,
-	.wait_for_dram_level = dvfsrc_wait_for_dram_level,
+#ifdef DVFSRC_FORCE_OPP_SUPPORT
+	.set_force_opp_level = mt6873_set_force_opp_level,
+#endif
+};
+
+static const struct dvfsrc_opp dvfsrc_opp_mt6885_lp4[] = {
+	{0, 0}, {1, 0}, {2, 0}, {3, 0},
+	{0, 1}, {1, 1}, {2, 1}, {3, 1},
+	{0, 2}, {1, 2}, {2, 2}, {3, 2},
+	{0, 3}, {1, 3}, {2, 3}, {3, 3},
+	{1, 4}, {2, 4}, {3, 4}, {2, 5},
+	{3, 5}, {3, 6},
+};
+
+static const struct dvfsrc_opp_desc dvfsrc_opp_mt6885_desc[] = {
+	DVFSRC_OPP_DESC(dvfsrc_opp_mt6885_lp4),
+};
+
+static const struct dvfsrc_soc_data mt6885_data = {
+	DVFSRC_MT6873_SERIES_OPS,
+	.opps_desc = dvfsrc_opp_mt6885_desc,
+	.num_opp_desc = ARRAY_SIZE(dvfsrc_opp_mt6885_desc),
+	.regs = mt6873_regs,
+#ifdef DVFSRC_FORCE_OPP_SUPPORT
+	.set_force_opp_level = mt6873_set_force_opp_level,
+#endif
+};
+
+static const struct dvfsrc_opp dvfsrc_opp_mt6893_lp4[] = {
+	{0, 0}, {1, 0}, {2, 0}, {3, 0},
+	{0, 1}, {1, 1}, {2, 1}, {3, 1},
+	{0, 2}, {1, 2}, {2, 2}, {3, 2},
+	{0, 3}, {1, 3}, {2, 3}, {3, 3},
+	{1, 4}, {2, 4}, {3, 4}, {2, 5},
+	{3, 5}, {3, 6}, {4, 6}, {4, 7},
+};
+
+static const struct dvfsrc_opp_desc dvfsrc_opp_mt6893_desc[] = {
+	DVFSRC_OPP_DESC(dvfsrc_opp_mt6893_lp4),
+};
+
+static const struct dvfsrc_soc_data mt6893_data = {
+	DVFSRC_MT6873_SERIES_OPS,
+	.opps_desc = dvfsrc_opp_mt6893_desc,
+	.num_opp_desc = ARRAY_SIZE(dvfsrc_opp_mt6893_desc),
+	.regs = mt6873_regs,
+#ifdef DVFSRC_FORCE_OPP_SUPPORT
+	.set_force_opp_level = mt6873_set_force_opp_level,
+#endif
+};
+
+static const struct dvfsrc_opp dvfsrc_opp_mt6833_lp4[] = {
+	{0, 0}, {1, 0}, {2, 0}, {3, 0},
+	{0, 1}, {1, 1}, {2, 1}, {3, 1},
+	{0, 2}, {1, 2}, {2, 2}, {3, 3},
+	{0, 3}, {1, 3}, {2, 3}, {3, 3},
+	{1, 4}, {2, 4}, {3, 4}, {1, 5},
+	{2, 5}, {3, 5}, {2, 6}, {3, 6},
+	{3, 7},
+};
+
+static const struct dvfsrc_opp_desc dvfsrc_opp_mt6833_desc[] = {
+	DVFSRC_OPP_DESC(dvfsrc_opp_mt6833_lp4),
+};
+
+static const struct dvfsrc_soc_data mt6833_data = {
+	DVFSRC_MT6873_SERIES_OPS,
+	.opps_desc = dvfsrc_opp_mt6833_desc,
+	.num_opp_desc = ARRAY_SIZE(dvfsrc_opp_mt6833_desc),
+	.regs = mt6873_regs,
 #ifdef DVFSRC_FORCE_OPP_SUPPORT
 	.set_force_opp_level = mt6873_set_force_opp_level,
 #endif
@@ -866,6 +942,18 @@ static const struct of_device_id mtk_dvfsrc_of_match[] = {
 	}, {
 		.compatible = "mediatek,mt6873-dvfsrc",
 		.data = &mt6873_data,
+	}, {
+		.compatible = "mediatek,mt6853-dvfsrc",
+		.data = &mt6873_data,
+	}, {
+		.compatible = "mediatek,mt6885-dvfsrc",
+		.data = &mt6885_data,
+	}, {
+		.compatible = "mediatek,mt6893-dvfsrc",
+		.data = &mt6893_data,
+	}, {
+		.compatible = "mediatek,mt6833-dvfsrc",
+		.data = &mt6833_data,
 	}, {
 		/* sentinel */
 	},
