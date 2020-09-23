@@ -1,6 +1,5 @@
 [abi_symbol_list]
 # commonly used symbols
-  add_uevent_var
   alloc_chrdev_region
   __alloc_disk_node
   __alloc_pages_nodemask
@@ -89,11 +88,9 @@
   device_property_present
   device_property_read_string
   device_property_read_u32_array
-  device_register
   device_release_driver
   device_remove_file
   device_set_wakeup_capable
-  device_unregister
   device_wakeup_enable
   _dev_info
   devm_clk_get
@@ -172,7 +169,6 @@
   free_irq
   __free_pages
   free_pages
-  fwnode_property_present
   get_device
   __get_free_pages
   get_random_bytes
@@ -203,7 +199,6 @@
   irq_of_parse_and_map
   irq_set_irq_wake
   jiffies
-  jiffies_to_msecs
   kfree
   kfree_const
   kfree_skb
@@ -213,7 +208,6 @@
   kmalloc_order_trace
   kmem_cache_alloc_trace
   kmemdup
-  kstrtobool
   kstrtoint
   kstrtouint
   kstrtoull
@@ -462,6 +456,8 @@
   usb_hub_clear_tt_buffer
   usb_put_hcd
   usb_remove_hcd
+  usb_role_switch_register
+  usb_role_switch_unregister
   usb_root_hub_lost_power
   __usecs_to_jiffies
   usleep_range
@@ -700,6 +696,12 @@
 # required by hi655x-regulator.ko
   regulator_list_voltage_linear
 
+# required by hisi_hikey_usb.ko
+  usb_role_switch_get
+  usb_role_switch_get_role
+  usb_role_switch_put
+  usb_role_switch_set_role
+
 # required by hisi_powerkey.ko
   devm_input_allocate_device
   devm_request_any_context_irq
@@ -716,6 +718,8 @@
 # required by hwmon.ko
   __class_register
   class_unregister
+  device_register
+  device_unregister
   kstrtoll
   strpbrk
 
@@ -1058,6 +1062,7 @@
   spi_sync_locked
 
 # required by nvme-core.ko
+  add_uevent_var
   blk_freeze_queue_start
   blk_mq_alloc_request
   blk_mq_alloc_request_hctx
@@ -1161,6 +1166,7 @@
   kmem_cache_create
   kmem_cache_destroy
   kstrndup
+  kstrtobool
   kstrtou16
   mempool_alloc_slab
   mempool_create
@@ -1210,15 +1216,6 @@
   rfkill_find_type
   rfkill_register
   rfkill_unregister
-
-# required by roles.ko
-  class_find_device
-  device_connection_find_match
-  device_match_fwnode
-  device_match_name
-  fwnode_connection_find_match
-  fwnode_get_parent
-  __sysfs_match_string
 
 # required by rtc-efi.ko
   devm_rtc_device_register
@@ -1291,53 +1288,17 @@
 
 # required by tcpci.ko
   device_get_named_child_node
+  tcpm_cc_change
+  tcpm_pd_hard_reset
+  tcpm_pd_receive
+  tcpm_pd_transmit_complete
+  tcpm_register_port
+  tcpm_tcpc_reset
+  tcpm_unregister_port
+  tcpm_vbus_change
 
 # required by tcpci_rt1711h.ko
   i2c_smbus_read_word_data
-
-# required by tcpm.ko
-  devm_power_supply_register
-  fwnode_property_read_string
-  fwnode_property_read_u32_array
-  power_supply_changed
-  power_supply_get_drvdata
-  typec_altmode_attention
-  typec_altmode_notify
-  typec_altmode_update_active
-  typec_altmode_vdm
-  typec_find_port_data_role
-  typec_find_port_power_role
-  typec_find_power_role
-  typec_get_drvdata
-  typec_match_altmode
-  typec_partner_register_altmode
-  typec_partner_set_identity
-  typec_port_register_altmode
-  typec_register_partner
-  typec_register_port
-  typec_set_data_role
-  typec_set_mode
-  typec_set_orientation
-  typec_set_pwr_opmode
-  typec_set_pwr_role
-  typec_set_vconn_role
-  typec_unregister_altmode
-  typec_unregister_partner
-  typec_unregister_port
-
-# required by ufs-hisi.ko
-  devm_platform_ioremap_resource
-  ufshcd_dme_get_attr
-  ufshcd_dme_set_attr
-  ufshcd_get_pwr_dev_param
-  ufshcd_pltfrm_init
-  ufshcd_pltfrm_resume
-  ufshcd_pltfrm_runtime_idle
-  ufshcd_pltfrm_runtime_resume
-  ufshcd_pltfrm_runtime_suspend
-  ufshcd_pltfrm_shutdown
-  ufshcd_pltfrm_suspend
-  ufshcd_remove
 
 # required by wl18xx.ko
   __cfg80211_alloc_event_skb
@@ -1388,6 +1349,7 @@
   ieee80211_unregister_hw
   ieee80211_wake_queue
   ieee80211_wake_queues
+  jiffies_to_msecs
   jiffies_to_usecs
   __local_bh_enable_ip
   __netdev_alloc_skb
