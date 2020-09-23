@@ -1936,7 +1936,7 @@ EXPORT_SYMBOL(usb_ep_autoconfig_by_name);
  *
  * This function should be called by usb function/class
  * layer which need a support from the specific MSM HW
- * which wrap the USB3 core. (like GSI or DBM specific endpoints)
+ * which wrap the USB3 core. (like EBC or DBM specific endpoints)
  *
  * @ep - a pointer to some usb_ep instance
  *
@@ -1947,38 +1947,10 @@ int msm_ep_config(struct usb_ep *ep, struct usb_request *request, u32 bam_opts)
 	struct dwc3_ep *dep = to_dwc3_ep(ep);
 	struct dwc3 *dwc = dep->dwc;
 	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
-	struct usb_ep_ops *new_ep_ops;
 	int ret = 0;
 	unsigned long flags;
 
-
 	spin_lock_irqsave(&dwc->lock, flags);
-	/* Save original ep ops for future restore*/
-	if (mdwc->original_ep_ops[dep->number]) {
-		dev_err(mdwc->dev,
-			"ep [%s,%d] already configured as msm endpoint\n",
-			ep->name, dep->number);
-		spin_unlock_irqrestore(&dwc->lock, flags);
-		return -EPERM;
-	}
-	mdwc->original_ep_ops[dep->number] = ep->ops;
-
-	/* Set new usb ops as we like */
-	new_ep_ops = kzalloc(sizeof(struct usb_ep_ops), GFP_ATOMIC);
-	if (!new_ep_ops) {
-		spin_unlock_irqrestore(&dwc->lock, flags);
-		return -ENOMEM;
-	}
-
-	(*new_ep_ops) = (*ep->ops);
-	new_ep_ops->queue = dwc3_msm_ep_queue;
-	ep->ops = new_ep_ops;
-
-	if (!request || dep->gsi) {
-		spin_unlock_irqrestore(&dwc->lock, flags);
-		return 0;
-	}
-
 	/*
 	 * Configure the DBM endpoint if required.
 	 */
@@ -2039,28 +2011,9 @@ int msm_ep_unconfig(struct usb_ep *ep)
 	struct dwc3_ep *dep = to_dwc3_ep(ep);
 	struct dwc3 *dwc = dep->dwc;
 	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
-	struct usb_ep_ops *old_ep_ops;
 	unsigned long flags;
 
 	spin_lock_irqsave(&dwc->lock, flags);
-	/* Restore original ep ops */
-	if (!mdwc->original_ep_ops[dep->number]) {
-		dev_err(mdwc->dev,
-			"ep [%s,%d] was not configured as msm endpoint\n",
-			ep->name, dep->number);
-		spin_unlock_irqrestore(&dwc->lock, flags);
-		return -EINVAL;
-	}
-	old_ep_ops = (struct usb_ep_ops	*)ep->ops;
-	ep->ops = mdwc->original_ep_ops[dep->number];
-	mdwc->original_ep_ops[dep->number] = NULL;
-	kfree(old_ep_ops);
-
-	/* If this is a GSI endpoint, we're done */
-	if (dep->gsi) {
-		spin_unlock_irqrestore(&dwc->lock, flags);
-		return 0;
-	}
 
 	if (dep->trb_dequeue == dep->trb_enqueue
 					&& list_empty(&dep->pending_list)
@@ -2094,6 +2047,86 @@ void msm_ep_set_endless(struct usb_ep *ep, bool set_clear)
 	dep->endless = !!set_clear;
 }
 EXPORT_SYMBOL(msm_ep_set_endless);
+
+/**
+ * msm_ep_clear_ops - Restore default endpoint operations
+ * @ep: The endpoint to restore
+ *
+ * Resets the usb endpoint operations to the default callbacks previously saved
+ * when calling msm_ep_update_ops.
+ */
+int msm_ep_clear_ops(struct usb_ep *ep)
+{
+	struct dwc3_ep *dep = to_dwc3_ep(ep);
+	struct dwc3 *dwc = dep->dwc;
+	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
+	struct usb_ep_ops *old_ep_ops;
+	unsigned long flags;
+
+	spin_lock_irqsave(&dwc->lock, flags);
+
+	/* Restore original ep ops */
+	if (!mdwc->original_ep_ops[dep->number]) {
+		spin_unlock_irqrestore(&dwc->lock, flags);
+		dev_err(mdwc->dev,
+			"ep [%s,%d] was not configured as msm endpoint\n",
+			ep->name, dep->number);
+		return -EINVAL;
+	}
+	old_ep_ops = (struct usb_ep_ops *)ep->ops;
+	ep->ops = mdwc->original_ep_ops[dep->number];
+	mdwc->original_ep_ops[dep->number] = NULL;
+	kfree(old_ep_ops);
+
+	spin_unlock_irqrestore(&dwc->lock, flags);
+	return 0;
+}
+EXPORT_SYMBOL(msm_ep_clear_ops);
+
+/**
+ * msm_ep_update_ops - Override default USB ep ops w/ MSM specific ops
+ * @ep: The endpoint to override
+ *
+ * Replaces the default endpoint operations with MSM specific operations for
+ * handling HW based endpoints, such as DBM or EBC eps.  This does not depend
+ * on calling msm_ep_config beforehand.
+ */
+int msm_ep_update_ops(struct usb_ep *ep)
+{
+	struct dwc3_ep *dep = to_dwc3_ep(ep);
+	struct dwc3 *dwc = dep->dwc;
+	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
+	struct usb_ep_ops *new_ep_ops;
+	unsigned long flags;
+
+	spin_lock_irqsave(&dwc->lock, flags);
+
+	/* Save original ep ops for future restore*/
+	if (mdwc->original_ep_ops[dep->number]) {
+		spin_unlock_irqrestore(&dwc->lock, flags);
+		dev_err(mdwc->dev,
+			"ep [%s,%d] already configured as msm endpoint\n",
+			ep->name, dep->number);
+		return -EPERM;
+	}
+	mdwc->original_ep_ops[dep->number] = ep->ops;
+
+	/* Set new usb ops as we like */
+	new_ep_ops = kzalloc(sizeof(struct usb_ep_ops), GFP_ATOMIC);
+	if (!new_ep_ops) {
+		spin_unlock_irqrestore(&dwc->lock, flags);
+		return -ENOMEM;
+	}
+
+	(*new_ep_ops) = (*ep->ops);
+	new_ep_ops->queue = dwc3_msm_ep_queue;
+	ep->ops = new_ep_ops;
+
+	spin_unlock_irqrestore(&dwc->lock, flags);
+
+	return 0;
+}
+EXPORT_SYMBOL(msm_ep_update_ops);
 
 #endif /* (CONFIG_USB_DWC3_GADGET) || (CONFIG_USB_DWC3_DUAL_ROLE) */
 
