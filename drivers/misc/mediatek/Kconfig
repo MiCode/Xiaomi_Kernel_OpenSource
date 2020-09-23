@@ -75,6 +75,7 @@ menu "Other Peripherals"
 source "drivers/misc/mediatek/typec/Kconfig"
 source "drivers/misc/mediatek/extcon/Kconfig"
 source "drivers/misc/mediatek/adsp/Kconfig"
+source "drivers/misc/mediatek/usb_mtp/Kconfig"
 endmenu # Other Peripheral
 
 menu "CCU"
