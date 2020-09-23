@@ -13,6 +13,7 @@
 #include <linux/notifier.h>
 #include <linux/irqdomain.h>
 #include <linux/workqueue.h>
+#include <linux/delay.h>
 #include <linux/completion.h>
 #include <linux/mod_devicetable.h>
 #include <linux/platform_device.h>
@@ -538,6 +539,11 @@ static int hh_rm_send_request(u32 message_id,
 		 * to be sent immediately to the receiver
 		 */
 		tx_flags = (i == num_fragments) ? HH_MSGQ_TX_PUSH : 0;
+
+		/* delay sending console characters to RM */
+		if (message_id == HH_RM_RPC_MSG_ID_CALL_VM_CONSOLE_WRITE ||
+		    message_id == HH_RM_RPC_MSG_ID_CALL_VM_CONSOLE_FLUSH)
+			udelay(800);
 
 		ret = hh_msgq_send(hh_rm_msgq_desc, send_buff,
 					sizeof(*hdr) + payload_size, tx_flags);
