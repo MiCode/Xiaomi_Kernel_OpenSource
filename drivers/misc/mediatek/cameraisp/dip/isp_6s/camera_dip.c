@@ -8312,7 +8312,7 @@ static signed int __init DIP_Init(void)
 #ifndef EP_CODE_MARK_CMDQ
 	/* Register DIP callback */
 	LOG_INF("register dip callback for MDP");
-	cmdqCoreRegisterCB(CMDQ_GROUP_ISP,
+	cmdqCoreRegisterCB(mdp_get_group_isp(),
 			   DIP_MDPClockOnCallback,
 			   DIP_MDPDumpCallback,
 			   DIP_MDPResetCallback,
@@ -8504,7 +8504,7 @@ static void __exit DIP_Exit(void)
 	/*  */
 #ifndef EP_CODE_MARK_CMDQ
 	/* Unregister DIP callback */
-	cmdqCoreRegisterCB(CMDQ_GROUP_ISP,
+	cmdqCoreRegisterCB(mdp_get_group_isp(),
 			   NULL,
 			   NULL,
 			   NULL,

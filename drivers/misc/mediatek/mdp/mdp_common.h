@@ -31,13 +31,13 @@ extern const u32 isp_iwc_buf_size[];
 #endif
 
 /* dump mmsys config */
-typedef void (*CmdqDumpMMSYSConfig) (void);
+typedef void (*CmdqDumpMMSYSConfig) (const struct cmdqRecStruct *handle);
 
 /* query MDP clock is on  */
-typedef bool(*CmdqMdpClockIsOn) (enum CMDQ_ENG_ENUM engine);
+typedef bool(*CmdqMdpClockIsOn) (u32 engine);
 
 /* enable MDP clock  */
-typedef void (*CmdqEnableMdpClock) (bool enable, enum CMDQ_ENG_ENUM engine);
+typedef void (*CmdqEnableMdpClock) (bool enable, u32 engine);
 
 /* Common Clock Framework */
 typedef void (*CmdqMdpInitModuleClk) (void);
@@ -50,6 +50,10 @@ typedef s32(*CmdqMdpDumpInfo) (u64 engineFlag, int level);
 typedef s32(*CmdqMdpResetEng) (u64 engineFlag);
 
 typedef s32(*CmdqMdpClockOff) (u64 engineFlag);
+
+typedef s32(*MdpEngineFunc) (struct EngineStruct *engine_list);
+
+typedef bool(*MdpCheckHandleFunc) (struct cmdqRecStruct *handle);
 
 /* MDP Initialization setting */
 typedef void(*CmdqMdpInitialSet) (void);
@@ -80,9 +84,6 @@ typedef void (*CmdqTrackTask) (const struct cmdqRecStruct *task);
 typedef const char *(*CmdqPraseErrorModByEngFlag) (
 	const struct cmdqRecStruct *task);
 
-typedef const char *(*CmdqPraseHandleErrorModByEngFlag) (
-	const struct cmdqRecStruct *handle);
-
 typedef u64 (*CmdqMdpGetEngineGroupBits) (u32 engine_group);
 
 typedef void (*CmdqMdpEnableCommonClock) (bool enable);
@@ -94,6 +95,8 @@ typedef u64(*CmdqMdpGetSecEngine) (u64 engine_flag);
 typedef void (*CmdqMdpResolveToken) (u64 engine_flag,
 	const struct cmdqRecStruct *task);
 
+typedef const char *(*MdpParseModule) (struct cmdqRecStruct *handle);
+
 /* translate port */
 typedef u32 (*MdpQosTranslatePort) (u32 engine_id);
 
@@ -102,6 +105,10 @@ typedef void (*MdpQosInit) (struct platform_device *pdev, u32 thread_id);
 typedef void *(*MdpQosPathGet) (u32 thread_id, u32 port);
 
 typedef void (*MdpQosClearAll) (u32 thread_id);
+
+typedef u32 (*MdpGetGroup) (void);
+
+typedef const char *const (*MdpGetEngineGroupName) (void);
 
 struct cmdqMDPFuncStruct {
 #ifdef CONFIG_MTK_SMI_EXT
@@ -121,6 +128,11 @@ struct cmdqMDPFuncStruct {
 	CmdqMdpDumpInfo mdpDumpInfo;
 	CmdqMdpResetEng mdpResetEng;
 	CmdqMdpClockOff mdpClockOff;
+	MdpEngineFunc mdpIsModuleSuspend;
+	MdpEngineFunc mdpDumpEngineUsage;
+	MdpCheckHandleFunc mdpIsMtee;
+	MdpCheckHandleFunc mdpIsIspImg;
+	MdpCheckHandleFunc mdpIsIspCamin;
 	CmdqMdpInitialSet mdpInitialSet;
 	CmdqMdpRdmaGetRegOffsetSrcAddr rdmaGetRegOffsetSrcAddr;
 	CmdqMdpWrotGetRegOffsetDstAddr wrotGetRegOffsetDstAddr;
@@ -129,7 +141,6 @@ struct cmdqMDPFuncStruct {
 	CmdqDispatchModule dispatchModule;
 	CmdqTrackTask trackTask;
 	CmdqPraseErrorModByEngFlag parseErrModByEngFlag;
-	CmdqPraseHandleErrorModByEngFlag parseHandleErrModByEngFlag;
 	CmdqMdpGetEngineGroupBits getEngineGroupBits;
 	CmdqErrorResetCB errorReset;
 	CmdqMdpEnableCommonClock mdpEnableCommonClock;
@@ -140,12 +151,18 @@ struct cmdqMDPFuncStruct {
 	CmdqCheckHwStatus CheckHwStatus;
 	CmdqMdpGetSecEngine mdpGetSecEngine;
 	CmdqMdpResolveToken resolve_token;
+	MdpParseModule mdpParseMod;
 
 	MdpQosTranslatePort qosTransPort;
 	MdpQosInit qosInit;
 	MdpQosPathGet qosGetPath;
 	MdpQosClearAll qosClearAll;
 	MdpQosClearAll qosClearAllIsp;
+	MdpGetGroup getGroupMax;
+	MdpGetGroup getGroupIsp;
+	MdpGetGroup getGroupMdp;
+	MdpGetGroup getGroupWpe;
+	MdpGetEngineGroupName getEngineGroupName;
 };
 
 struct mdp_pmqos_record {
@@ -181,7 +198,6 @@ s32 cmdq_mdp_get_smi_usage(void);
 
 void cmdq_mdp_reset_resource(void);
 void cmdq_mdp_dump_thread_usage(void);
-void cmdq_mdp_dump_engine_usage(void);
 void cmdq_mdp_dump_resource(u32 event);
 void cmdq_mdp_init_resource(u32 engine_id,
 	enum cmdq_event res_event);
@@ -223,15 +239,15 @@ long cmdq_mdp_get_module_base_VA_MMSYS_CONFIG(void);
 void cmdq_mdp_unmap_mmsys_VA(void);
 struct cmdqMDPFuncStruct *cmdq_mdp_get_func(void);
 
-void cmdq_mdp_enable(u64 engineFlag, enum CMDQ_ENG_ENUM engine);
+void cmdq_mdp_enable(u64 engineFlag, u32 engine);
 
-int cmdq_mdp_loop_reset(enum CMDQ_ENG_ENUM engine,
+int cmdq_mdp_loop_reset(u32 engine,
 	const unsigned long resetReg,
 	const unsigned long resetStateReg,
 	const u32 resetMask,
 	const u32 resetValue, const bool pollInitResult);
 
-void cmdq_mdp_loop_off(enum CMDQ_ENG_ENUM engine,
+void cmdq_mdp_loop_off(u32 engine,
 	const unsigned long resetReg,
 	const unsigned long resetStateReg,
 	const u32 resetMask,

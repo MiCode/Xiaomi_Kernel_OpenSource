@@ -73,7 +73,7 @@ static atomic_t cmdq_thread_usage;
 static wait_queue_head_t *cmdq_wait_queue; /* task done notify */
 static struct ContextStruct cmdq_ctx; /* cmdq driver context */
 static struct DumpCommandBufferStruct cmdq_command_dump;
-static struct CmdqCBkStruct cmdq_group_cb[CMDQ_MAX_GROUP_COUNT];
+static struct CmdqCBkStruct *cmdq_group_cb;
 static struct CmdqDebugCBkStruct cmdq_debug_cb;
 static struct cmdqDTSDataStruct cmdq_dts_data;
 static struct SubsysStruct cmdq_adds_subsys = {
@@ -298,21 +298,33 @@ static void cmdq_core_destroy_thread_work_queue(void)
 
 void cmdq_core_deinit_group_cb(void)
 {
-	memset(&cmdq_group_cb, 0x0, sizeof(cmdq_group_cb));
+	kfree(cmdq_group_cb);
 	memset(&cmdq_debug_cb, 0x0, sizeof(cmdq_debug_cb));
 }
 EXPORT_SYMBOL(cmdq_core_deinit_group_cb);
 
-static bool cmdq_core_is_valid_group(enum CMDQ_GROUP_ENUM engGroup)
+static bool cmdq_core_is_valid_group(u32 engGroup)
 {
 	/* check range */
-	if (engGroup < 0 || engGroup >= CMDQ_MAX_GROUP_COUNT)
+	if (engGroup < 0 || engGroup >= cmdq_mdp_get_func()->getGroupMax())
 		return false;
 
 	return true;
 }
 
-s32 cmdqCoreRegisterCB(enum CMDQ_GROUP_ENUM engGroup,
+u32 mdp_get_group_isp(void)
+{
+	return cmdq_mdp_get_func()->getGroupIsp();
+}
+EXPORT_SYMBOL(mdp_get_group_isp);
+
+u32 mdp_get_group_wpe(void)
+{
+	return cmdq_mdp_get_func()->getGroupWpe();
+}
+EXPORT_SYMBOL(mdp_get_group_wpe);
+
+s32 cmdqCoreRegisterCB(u32 engGroup,
 	CmdqClockOnCB clockOn, CmdqDumpInfoCB dumpInfo,
 	CmdqResetEngCB resetEng, CmdqClockOffCB clockOff)
 {
@@ -336,7 +348,7 @@ s32 cmdqCoreRegisterCB(enum CMDQ_GROUP_ENUM engGroup,
 EXPORT_SYMBOL(cmdqCoreRegisterCB);
 
 s32 cmdqCoreRegisterDispatchModCB(
-	enum CMDQ_GROUP_ENUM engGroup, CmdqDispatchModuleCB dispatchMod)
+	u32 engGroup, CmdqDispatchModuleCB dispatchMod)
 {
 	struct CmdqCBkStruct *callback;
 
@@ -362,7 +374,7 @@ s32 cmdqCoreRegisterDebugRegDumpCB(
 }
 EXPORT_SYMBOL(cmdqCoreRegisterDebugRegDumpCB);
 
-s32 cmdqCoreRegisterTrackTaskCB(enum CMDQ_GROUP_ENUM engGroup,
+s32 cmdqCoreRegisterTrackTaskCB(u32 engGroup,
 	CmdqTrackTaskCB trackTask)
 {
 	struct CmdqCBkStruct *callback;
@@ -379,7 +391,7 @@ s32 cmdqCoreRegisterTrackTaskCB(enum CMDQ_GROUP_ENUM engGroup,
 	return 0;
 }
 
-s32 cmdqCoreRegisterErrorResetCB(enum CMDQ_GROUP_ENUM engGroup,
+s32 cmdqCoreRegisterErrorResetCB(u32 engGroup,
 	CmdqErrorResetCB errorReset)
 {
 	struct CmdqCBkStruct *callback;
@@ -418,7 +430,7 @@ void cmdq_core_remove_status_dump(struct notifier_block *notifier)
 }
 
 /* for PMQOS task begin/end */
-s32 cmdq_core_register_task_cycle_cb(enum CMDQ_GROUP_ENUM group,
+s32 cmdq_core_register_task_cycle_cb(u32 group,
 	CmdqBeginTaskCB beginTask, CmdqEndTaskCB endTask)
 {
 	struct CmdqCBkStruct *callback;
@@ -2040,22 +2052,6 @@ u32 cmdqCoreGetEvent(enum cmdq_event event)
 	return cmdq_get_event(cmdq_entry->chan, eventValue);
 }
 
-void cmdq_core_reset_gce(void)
-{
-	/* CMDQ init flow:
-	 * 1. clock-on
-	 * 2. reset all events
-	 */
-	cmdq_get_func()->enableGCEClockLocked(true);
-	cmdq_mdp_reset_resource();
-#ifdef CMDQ_ENABLE_BUS_ULTRA
-	CMDQ_LOG("Enable GCE Ultra ability");
-	CMDQ_REG_SET32(CMDQ_BUS_CONTROL_TYPE, 0x3);
-#endif
-	/* Restore event */
-	cmdq_get_func()->eventRestore();
-}
-
 void cmdq_core_set_addon_subsys(u32 msb, s32 subsys_id, u32 mask)
 {
 	cmdq_adds_subsys.msb = msb;
@@ -2332,7 +2328,6 @@ static void cmdq_core_parse_handle_error(const struct cmdqRecStruct *handle,
 	u32 *insts, u32 size, u32 **pc_va)
 {
 	u32 op, arg_a, arg_b;
-	s32 eventENUM;
 	u32 addr = 0;
 	const char *module = NULL;
 	dma_addr_t curr_pc = 0;
@@ -2384,9 +2379,8 @@ static void cmdq_core_parse_handle_error(const struct cmdqRecStruct *handle,
 			break;
 		case CMDQ_CODE_WFE:
 			/* arg_a is the event ID */
-			eventENUM = cmdq_core_reverse_event_enum(arg_a);
-			module = cmdq_get_func()->moduleFromEvent(eventENUM,
-				cmdq_group_cb, handle->engineFlag);
+			module = cmdq_event_module_dispatch(1, arg_a,
+				handle->thread);
 			break;
 		case CMDQ_CODE_READ:
 		case CMDQ_CODE_MOVE:
@@ -2761,7 +2755,7 @@ static void cmdq_core_dump_error_buffer(const struct cmdqRecStruct *handle,
 		CMDQ_LOG("PC is not in region, dump all\n");
 }
 
-s32 cmdq_core_is_group_flag(enum CMDQ_GROUP_ENUM engGroup, u64 engineFlag)
+s32 cmdq_core_is_group_flag(u32 engGroup, u64 engineFlag)
 {
 	if (!cmdq_core_is_valid_group(engGroup))
 		return false;
@@ -2780,9 +2774,8 @@ static void cmdq_core_attach_engine_error(
 	u64 print_eng_flag = 0;
 	CmdqMdpGetEngineGroupBits get_engine_group_bit = NULL;
 	struct CmdqCBkStruct *callback = NULL;
-	static const char *const engineGroupName[] = {
-		CMDQ_FOREACH_GROUP(GENERATE_STRING)
-	};
+	const char *engine_group_names =
+		cmdq_mdp_get_func()->getEngineGroupName();
 
 	if (short_log) {
 		CMDQ_ERR("============ skip detail error dump ============\n");
@@ -2796,21 +2789,17 @@ static void cmdq_core_attach_engine_error(
 		print_eng_flag |= nginfo->engine_flag;
 
 	/* Dump MMSYS configuration */
-	if (handle->engineFlag & CMDQ_ENG_MDP_GROUP_BITS) {
-		CMDQ_ERR("============ [CMDQ] MMSYS_CONFIG ============\n");
-		cmdq_mdp_get_func()->dumpMMSYSConfig();
-	}
+	cmdq_mdp_get_func()->dumpMMSYSConfig(handle);
 
 	/* ask each module to print their status */
 	CMDQ_ERR("============ [CMDQ] Engine Status ============\n");
 	callback = cmdq_group_cb;
-	for (index = 0; index < CMDQ_MAX_GROUP_COUNT; index++) {
-		if (!cmdq_core_is_group_flag(
-			(enum CMDQ_GROUP_ENUM) index, print_eng_flag))
+	for (index = 0; index < cmdq_mdp_get_func()->getGroupMax(); index++) {
+		if (!cmdq_core_is_group_flag(index, print_eng_flag))
 			continue;
 
 		CMDQ_ERR("====== engine group %s status =======\n",
-			engineGroupName[index]);
+			engine_group_names[index]);
 
 		if (callback[index].dumpInfo == NULL) {
 			CMDQ_ERR("(no dump function)\n");
@@ -2822,9 +2811,8 @@ static void cmdq_core_attach_engine_error(
 			cmdq_ctx.logLevel);
 	}
 
-	for (index = 0; index < CMDQ_MAX_GROUP_COUNT; ++index) {
-		if (!cmdq_core_is_group_flag((enum CMDQ_GROUP_ENUM) index,
-			print_eng_flag))
+	for (index = 0; index < cmdq_mdp_get_func()->getGroupMax(); ++index) {
+		if (!cmdq_core_is_group_flag(index, print_eng_flag))
 			continue;
 
 		if (callback[index].errorReset) {
@@ -2832,7 +2820,7 @@ static void cmdq_core_attach_engine_error(
 				get_engine_group_bit(index) & print_eng_flag);
 			CMDQ_LOG(
 				"engine group (%s): function is called\n",
-				engineGroupName[index]);
+				engine_group_names[index]);
 		}
 
 	}
@@ -3051,9 +3039,8 @@ static void cmdq_core_group_reset_hw(u64 engine_flag)
 
 	CMDQ_LOG("%s engine:0x%llx\n", __func__, engine_flag);
 
-	for (i = 0; i < CMDQ_MAX_GROUP_COUNT; i++) {
-		if (cmdq_core_is_group_flag((enum CMDQ_GROUP_ENUM)i,
-			engine_flag)) {
+	for (i = 0; i < cmdq_mdp_get_func()->getGroupMax(); i++) {
+		if (cmdq_core_is_group_flag(i, engine_flag)) {
 			if (!callback[i].resetEng) {
 				CMDQ_ERR(
 					"no reset func to reset engine group:%u\n",
@@ -3072,8 +3059,7 @@ static void cmdq_core_group_reset_hw(u64 engine_flag)
 	}
 }
 
-static void cmdq_core_group_clk_on(enum CMDQ_GROUP_ENUM group,
-	u64 engine_flag)
+static void cmdq_core_group_clk_on(u32 group, u64 engine_flag)
 {
 	struct CmdqCBkStruct *callback = cmdq_group_cb;
 	s32 status;
@@ -3090,8 +3076,7 @@ static void cmdq_core_group_clk_on(enum CMDQ_GROUP_ENUM group,
 		CMDQ_ERR("[CLOCK]enable group %d clockOn failed\n", group);
 }
 
-static void cmdq_core_group_clk_off(enum CMDQ_GROUP_ENUM group,
-	u64 engine_flag)
+static void cmdq_core_group_clk_off(u32 group, u64 engine_flag)
 {
 	struct CmdqCBkStruct *callback = cmdq_group_cb;
 	s32 status;
@@ -3112,20 +3097,22 @@ static void cmdq_core_group_clk_cb(bool enable,
 	u64 engine_flag, u64 engine_clk)
 {
 	s32 index;
+	u32 group_isp = cmdq_mdp_get_func()->getGroupIsp();
 
 	/* ISP special check: Always call ISP on/off if this task
 	 * involves ISP. Ignore the ISP HW flags.
 	 */
-	if (cmdq_core_is_group_flag(CMDQ_GROUP_ISP, engine_flag)) {
+	if (cmdq_core_is_group_flag(group_isp, engine_flag)) {
 		if (enable)
-			cmdq_core_group_clk_on(CMDQ_GROUP_ISP, engine_flag);
+			cmdq_core_group_clk_on(group_isp, engine_flag);
 		else
-			cmdq_core_group_clk_off(CMDQ_GROUP_ISP, engine_flag);
+			cmdq_core_group_clk_off(group_isp, engine_flag);
 	}
 
-	for (index = CMDQ_MAX_GROUP_COUNT - 1; index >= 0; index--) {
+	for (index = cmdq_mdp_get_func()->getGroupMax() - 1; index >= 0;
+		index--) {
 		/* note that ISP is per-task on/off, not per HW flag */
-		if (index == CMDQ_GROUP_ISP)
+		if (index == group_isp)
 			continue;
 
 		if (cmdq_core_is_group_flag(index, engine_flag)) {
@@ -3152,8 +3139,15 @@ static void cmdq_core_clk_enable(struct cmdqRecStruct *handle)
 		clock_count, handle->scenario);
 
 	if (clock_count == 1) {
-		cmdq_core_reset_gce();
-		cmdq_mbox_enable(((struct cmdq_client *)handle->pkt->cl)->chan);
+		if (!handle->secData.is_secure)
+			cmdq_mbox_enable(((struct cmdq_client *)
+				handle->pkt->cl)->chan);
+#ifdef CMDQ_SECURE_PATH_SUPPORT
+		else
+			cmdq_sec_mbox_enable(((struct cmdq_client *)
+				handle->pkt->cl)->chan);
+#endif
+		cmdq_mdp_reset_resource();
 	}
 
 	cmdq_core_group_clk_cb(true, handle->engineFlag, handle->engine_clk);
@@ -3170,12 +3164,14 @@ static void cmdq_core_clk_disable(struct cmdqRecStruct *handle)
 	CMDQ_MSG("[CLOCK]disable usage:%d\n", clock_count);
 
 	if (clock_count == 0) {
-		cmdq_mbox_disable(((struct cmdq_client *)
-			handle->pkt->cl)->chan);
-		/* Backup event */
-		cmdq_get_func()->eventBackup();
-		/* clock-off */
-		cmdq_get_func()->enableGCEClockLocked(false);
+		if (!handle->secData.is_secure)
+			cmdq_mbox_disable(((struct cmdq_client *)
+				handle->pkt->cl)->chan);
+#ifdef CMDQ_SECURE_PATH_SUPPORT
+		else
+			cmdq_sec_mbox_disable(((struct cmdq_client *)
+				handle->pkt->cl)->chan);
+#endif
 	} else if (clock_count < 0) {
 		CMDQ_ERR(
 			"enable clock %s error usage:%d smi use:%d\n",
@@ -3486,7 +3482,7 @@ s32 cmdq_core_suspend(void)
 	CMDQ_LOG("%s usage:%d exec thread:0x%x\n",
 		__func__, ref_count, exec_thread);
 
-	if (cmdq_get_func()->moduleEntrySuspend(cmdq_mdp_get_engines()) < 0) {
+	if (cmdq_mdp_get_func()->mdpIsModuleSuspend(cmdq_mdp_get_engines()) < 0) {
 		CMDQ_ERR(
 			"[SUSPEND] MDP running, kill tasks. threads:0x%08x ref:%d\n",
 			exec_thread, ref_count);
@@ -3832,9 +3828,9 @@ static s32 cmdq_pkt_lock_handle(struct cmdqRecStruct *handle,
 static void cmdq_core_group_begin_task(struct cmdqRecStruct *handle,
 	struct cmdqRecStruct **handle_list, u32 size)
 {
-	enum CMDQ_GROUP_ENUM group = 0;
+	u32 group = 0;
 
-	for (group = 0; group < CMDQ_MAX_GROUP_COUNT; group++) {
+	for (group = 0; group < cmdq_mdp_get_func()->getGroupMax(); group++) {
 		if (!cmdq_group_cb[group].beginTask ||
 			!cmdq_core_is_group_flag(group, handle->engineFlag))
 			continue;
@@ -3845,9 +3841,9 @@ static void cmdq_core_group_begin_task(struct cmdqRecStruct *handle,
 static void cmdq_core_group_end_task(struct cmdqRecStruct *handle,
 	struct cmdqRecStruct **handle_list, u32 size)
 {
-	enum CMDQ_GROUP_ENUM group = 0;
+	u32 group = 0;
 
-	for (group = 0; group < CMDQ_MAX_GROUP_COUNT; group++) {
+	for (group = 0; group < cmdq_mdp_get_func()->getGroupMax(); group++) {
 		if (!cmdq_group_cb[group].endTask ||
 			!cmdq_core_is_group_flag(group, handle->engineFlag))
 			continue;
@@ -4534,6 +4530,9 @@ void cmdq_core_initialize(void)
 	cmdq_helper_mbox_register(cmdq_dev_get());
 
 	atomic_set(&cmdq_thread_usage, 0);
+
+	cmdq_group_cb = kcalloc(cmdq_mdp_get_func()->getGroupMax(),
+		sizeof(struct CmdqCBkStruct), GFP_KERNEL);
 
 	cmdq_wait_queue = kcalloc(max_thread_count, sizeof(*cmdq_wait_queue),
 		GFP_KERNEL);

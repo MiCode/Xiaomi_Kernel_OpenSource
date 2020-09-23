@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2015 MediaTek Inc.
+ * Copyright (c) 2020 MediaTek Inc.
  */
 
 #ifndef __MDP_ENGINE_H__
@@ -61,7 +61,7 @@ enum CMDQ_ENG_ENUM {
 	CMDQ_ENG_MDP_RSZ2 = 63,
 	CMDQ_ENG_MDP_WDMA = 63,
 
-	CMDQ_MAX_ENGINE_COUNT	/* ALWAYS keep at the end */
+	CMDQ_ENG_MAX = CMDQ_MAX_ENGINE_COUNT	/* ALWAYS keep at the end */
 };
 
 #define CMDQ_ENG_WPE_GROUP_BITS	((1LL << CMDQ_ENG_WPEI) |	\

@@ -25,6 +25,26 @@
 #include <linux/interconnect-provider.h>
 #include <soc/mediatek/smi.h>
 
+#include "mdp_engine_mt6873.h"
+#include "mdp_base_mt6873.h"
+
+/* use to generate [CMDQ_ENGINE_ENUM_id and name] mapping for status print */
+#define CMDQ_FOREACH_MODULE_PRINT(ACTION)\
+{		\
+ACTION(CMDQ_ENG_ISP_IMGI,   ISP_IMGI)	\
+ACTION(CMDQ_ENG_MDP_RDMA0,  MDP_RDMA0)	\
+ACTION(CMDQ_ENG_MDP_RDMA1,  MDP_RDMA1)	\
+ACTION(CMDQ_ENG_MDP_RSZ0,   MDP_RSZ0)	\
+ACTION(CMDQ_ENG_MDP_RSZ1,   MDP_RSZ1)	\
+ACTION(CMDQ_ENG_MDP_RSZ2,   MDP_RSZ2)	\
+ACTION(CMDQ_ENG_MDP_TDSHP0, MDP_TDSHP0)	\
+ACTION(CMDQ_ENG_MDP_TDSHP1, MDP_TDSHP1)	\
+ACTION(CMDQ_ENG_MDP_COLOR0, MDP_COLOR0) \
+ACTION(CMDQ_ENG_MDP_WROT0,  MDP_WROT0)	\
+ACTION(CMDQ_ENG_MDP_WROT1,  MDP_WROT1)	\
+ACTION(CMDQ_ENG_MDP_WDMA,   MDP_WDMA)	\
+}
+
 /* mdp */
 static struct icc_path *path_mdp_rdma0[MDP_TOTAL_THREAD];
 static struct icc_path *path_mdp_rdma1[MDP_TOTAL_THREAD];
@@ -296,7 +316,7 @@ struct RegDef {
 	const char *name;
 };
 
-void cmdq_mdp_dump_mmsys_config(void)
+void cmdq_mdp_dump_mmsys_config(const struct cmdqRecStruct *handle)
 {
 	int i = 0;
 	uint32_t value = 0;
@@ -364,6 +384,11 @@ void cmdq_mdp_dump_mmsys_config(void)
 		{0x0F0, "MMSYS_MISC"},
 		{0x0F4,	"MDPSYS_MODULE_DBG"}
 	};
+
+	if (!(handle->engineFlag & CMDQ_ENG_MDP_GROUP_BITS))
+		return;
+
+	CMDQ_ERR("============ [CMDQ] MMSYS_CONFIG ============\n");
 
 	if (!MMSYS_CONFIG_BASE) {
 		CMDQ_ERR("mmsys not porting\n");
@@ -660,7 +685,7 @@ void cmdq_mdp_deinit_module_base_VA(void)
 	memset(&gCmdqMdpModuleBaseVA, 0, sizeof(struct CmdqMdpModuleBaseVA));
 }
 
-bool cmdq_mdp_clock_is_on(enum CMDQ_ENG_ENUM engine)
+bool cmdq_mdp_clock_is_on(u32 engine)
 {
 	switch (engine) {
 	case CMDQ_ENG_MDP_CAMIN:
@@ -734,7 +759,7 @@ static void config_port_34bit(enum CMDQ_ENG_ENUM engine)
 
 }
 
-void cmdq_mdp_enable_clock(bool enable, enum CMDQ_ENG_ENUM engine)
+void cmdq_mdp_enable_clock(bool enable, u32 engine)
 {
 	switch (engine) {
 	case CMDQ_ENG_MDP_CAMIN:
@@ -1471,6 +1496,86 @@ int32_t cmdqMdpClockOff(uint64_t engineFlag)
 	return 0;
 }
 
+static s32 mdp_is_mod_suspend(struct EngineStruct *engine_list)
+{
+	s32 status = 0;
+	int i;
+	enum CMDQ_ENG_ENUM e = 0;
+
+	u32 non_suspend_engine[] = {
+		CMDQ_ENG_ISP_IMGI,
+		CMDQ_ENG_MDP_RDMA0,
+		CMDQ_ENG_MDP_RDMA1,
+		CMDQ_ENG_MDP_RSZ0,
+		CMDQ_ENG_MDP_RSZ1,
+		CMDQ_ENG_MDP_TDSHP0,
+		CMDQ_ENG_MDP_TDSHP1,
+		CMDQ_ENG_MDP_COLOR0,
+		CMDQ_ENG_MDP_COLOR1,
+		CMDQ_ENG_MDP_WROT0,
+		CMDQ_ENG_MDP_WROT1,
+	};
+
+	for (i = 0; i < ARRAY_SIZE(non_suspend_engine); i++) {
+		e = non_suspend_engine[i];
+		if (engine_list[e].userCount != 0) {
+			CMDQ_ERR(
+				"suspend but engine:%d count:%d owner:%d\n",
+				e, engine_list[e].userCount,
+				engine_list[e].currOwner);
+			status = -EBUSY;
+		}
+	}
+
+	return status;
+}
+
+static s32 mdp_dump_engine_usage(struct EngineStruct *engine_list)
+{
+	struct EngineStruct *engine;
+	const u32 engine_enum[] =
+		CMDQ_FOREACH_MODULE_PRINT(GENERATE_ENUM);
+	static const char *const engine_names[] =
+		CMDQ_FOREACH_MODULE_PRINT(GENERATE_STRING);
+	u32 i;
+
+	CMDQ_ERR("====== Engine Usage =======\n");
+	for (i = 0; i < ARRAY_SIZE(engine_enum); i++) {
+		engine = &engine_list[engine_enum[i]];
+		if (engine->userCount ||
+			engine->currOwner != CMDQ_INVALID_THREAD ||
+			engine->failCount || engine->resetCount)
+			CMDQ_ERR("%s: count:%d owner:%d fail:%d reset:%d\n",
+				engine_names[i], engine->userCount,
+				engine->currOwner, engine->failCount,
+				engine->resetCount);
+	}
+
+	return 0;
+}
+
+static bool mdp_is_mtee(struct cmdqRecStruct *handle)
+{
+#ifdef CMDQ_ENG_MTEE_GROUP_BITS
+	return bool(handle->engineFlag & CMDQ_ENG_MTEE_GROUP_BITS);
+#else
+	return false;
+#endif
+}
+
+static bool mdp_is_isp_img(struct cmdqRecStruct *handle)
+{
+	return ((handle->engineFlag & (1LL << CMDQ_ENG_ISP_IMGI) &&
+		handle->engineFlag & (1LL << CMDQ_ENG_ISP_IMG2O)) ||
+		(handle->engineFlag & (1LL << CMDQ_ENG_ISP_IMGI2) &&
+		 handle->engineFlag & (1LL << CMDQ_ENG_ISP_IMG2O2)));
+}
+
+static bool mdp_is_isp_camin(struct cmdqRecStruct *handle)
+{
+	return (handle->engineFlag &
+		((1LL << CMDQ_ENG_MDP_CAMIN) | CMDQ_ENG_ISP_GROUP_BITS));
+}
 
 void cmdqMdpInitialSetting(void)
 {
@@ -1558,9 +1663,6 @@ const char *cmdq_mdp_parse_error_module(const struct cmdqRecStruct *task)
 			 * for more detail
 			 */
 			break;
-		} else if (CMDQ_ENG_MDP_GROUP_FLAG(task->engineFlag)) {
-			module = "MDP";
-			break;
 		} else if (CMDQ_ENG_DPE_GROUP_FLAG(task->engineFlag)) {
 			module = "DPE";
 			break;
@@ -1581,6 +1683,9 @@ const char *cmdq_mdp_parse_error_module(const struct cmdqRecStruct *task)
 			break;
 		} else if (CMDQ_ENG_FDVT_GROUP_FLAG(task->engineFlag)) {
 			module = "FDVT";
+			break;
+		} else if (CMDQ_ENG_MDP_GROUP_FLAG(task->engineFlag)) {
+			module = "MDP";
 			break;
 		}
 
@@ -1912,6 +2017,35 @@ static void mdp_qos_clear_all_isp(u32 thread_id)
 	icc_set_bw(path_l11_img_mfb_wdma1[thread_id], 0, 0);
 }
 
+static u32 mdp_get_group_max(void)
+{
+	return CMDQ_MAX_GROUP_COUNT;
+}
+
+static u32 mdp_get_group_isp_plat(void)
+{
+	return CMDQ_GROUP_ISP;
+}
+
+static u32 mdp_get_group_mdp(void)
+{
+	return CMDQ_GROUP_MDP;
+}
+
+static u32 mdp_get_group_wpe_plat(void)
+{
+	return CMDQ_GROUP_WPE;
+}
+
+static const char *const mdp_get_engine_group_name(void)
+{
+	static const char *const engineGroupName[] = {
+		CMDQ_FOREACH_GROUP(GENERATE_STRING)
+	};
+
+	return (const char *const)engineGroupName;
+}
+
 void cmdq_mdp_platform_function_setting(void)
 {
 	struct cmdqMDPFuncStruct *pFunc = cmdq_mdp_get_func();
@@ -1930,7 +2064,12 @@ void cmdq_mdp_platform_function_setting(void)
 	pFunc->mdpDumpInfo = cmdqMdpDumpInfo;
 	pFunc->mdpResetEng = cmdqMdpResetEng;
 	pFunc->mdpClockOff = cmdqMdpClockOff;
+	pFunc->mdpIsModuleSuspend = mdp_is_mod_suspend;
+	pFunc->mdpDumpEngineUsage = mdp_dump_engine_usage;
 
+	pFunc->mdpIsMtee = mdp_is_mtee;
+	pFunc->mdpIsIspImg = mdp_is_isp_img;
+	pFunc->mdpIsIspCamin = mdp_is_isp_camin;
 	pFunc->mdpInitialSet = cmdqMdpInitialSetting;
 
 	pFunc->rdmaGetRegOffsetSrcAddr = cmdq_mdp_rdma_get_reg_offset_src_addr;
@@ -1949,11 +2088,13 @@ void cmdq_mdp_platform_function_setting(void)
 	pFunc->qosGetPath = mdp_qos_get_path;
 	pFunc->qosClearAll = mdp_qos_clear_all;
 	pFunc->qosClearAllIsp = mdp_qos_clear_all_isp;
+	pFunc->getGroupMax = mdp_get_group_max;
+	pFunc->getGroupIsp = mdp_get_group_isp_plat;
+	pFunc->getGroupMdp = mdp_get_group_mdp;
+	pFunc->getGroupWpe = mdp_get_group_wpe_plat;
+	pFunc->getEngineGroupName = mdp_get_engine_group_name;
 }
 EXPORT_SYMBOL(cmdq_mdp_platform_function_setting);
-
-#include "mdp_engine_mt6873.h"
-#include "mt6873/mdp_base.h"
 
 u32 *mdp_engine_base_get(void)
 {

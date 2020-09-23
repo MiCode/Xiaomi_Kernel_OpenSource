@@ -470,14 +470,8 @@ static s32 cmdq_mdp_handle_setup(struct mdp_submit *user_job,
 				struct task_private *desc_private,
 				struct cmdqRecStruct *handle)
 {
-	const u64 inorder_mask = 1ll << CMDQ_ENG_INORDER;
-
-	handle->engineFlag = user_job->engine_flag & ~inorder_mask;
 	handle->pkt->priority = user_job->priority;
 	handle->user_debug_str = NULL;
-
-	if (user_job->engine_flag & inorder_mask)
-		handle->force_inorder = true;
 
 	if (desc_private)
 		handle->node_private = desc_private->node_private_data;
