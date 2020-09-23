@@ -431,7 +431,7 @@ enum smb5_iio_channels {
 };
 
 static const char * const cp_slave_iio_chans[] = {
-	[CURRENT_CAPABILITY] = "current_capability",
+	[CURRENT_CAPABILITY] = "cp_current_capability",
 	[CP_ENABLE] = "cp_enable",
 	[CP_INPUT_CURRENT_MAX] = "cp_input_current_max",
 };
