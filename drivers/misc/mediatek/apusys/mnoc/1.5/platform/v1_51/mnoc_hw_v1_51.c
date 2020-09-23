@@ -22,7 +22,7 @@
 #include "v1_51/mnoc_hw_v1_51.h"
 #include "mnoc_drv.h"
 #include "mnoc_util.h"
-
+#include "mnoc_option.h"
 
 enum APUSYS_MNOC_SMC_ID {
 	MNOC_INFRA2APU_SRAM_EN,
