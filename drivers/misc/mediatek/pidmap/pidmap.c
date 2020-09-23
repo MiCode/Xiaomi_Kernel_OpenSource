@@ -6,6 +6,7 @@
 #include <linux/proc_fs.h>
 #include <linux/sched.h>
 #include <linux/seq_file.h>
+#include <linux/slab.h>
 #include <linux/tracepoint.h>
 #include <linux/uaccess.h>
 #include <mt-plat/mtk_pidmap.h>
@@ -23,7 +24,7 @@
  * handling flow, e.g., hwt or hw reboot.
  */
 
-static char mtk_pidmap[PIDMAP_AEE_BUF_SIZE];
+static char *mtk_pidmap;
 static int  mtk_pidmap_proc_dump_mode;
 static int  mtk_pidmap_max_pid;
 static char mtk_pidmap_proc_cmd_buf[PIDMAP_PROC_CMD_BUF_SIZE];
@@ -129,9 +130,13 @@ static void mtk_pidmap_deinit(void)
 	}
 }
 
-static void mtk_pidmap_init_map(void)
+static int mtk_pidmap_init_map(void)
 {
 	int i;
+
+	mtk_pidmap = kzalloc(PIDMAP_AEE_BUF_SIZE, GFP_KERNEL);
+	if (!mtk_pidmap)
+		return -ENOMEM;
 
 	/* Install the tracepoints */
 	for_each_kernel_tracepoint(lookup_tracepoints, NULL);
@@ -141,7 +146,7 @@ static void mtk_pidmap_init_map(void)
 			pr_info("Error: %s not found\n", interests[i].name);
 			/* Unload previously loaded */
 			mtk_pidmap_deinit();
-			return;
+			return -EINVAL;
 		}
 
 		tracepoint_probe_register(interests[i].tp, interests[i].func,
@@ -155,6 +160,8 @@ static void mtk_pidmap_init_map(void)
 	 */
 	mtk_pidmap_max_pid =
 		PIDMAP_AEE_BUF_SIZE / PIDMAP_ENTRY_SIZE;
+
+	return 0;
 }
 
 static void mtk_pidmap_seq_dump_readable(char **buff, unsigned long *size,
@@ -277,7 +284,7 @@ static ssize_t mtk_pidmap_proc_write(struct file *file, const char *buf,
 		mtk_pidmap_proc_dump_mode = PIDMAP_PROC_DUMP_READABLE;
 		pr_info("[pidmap] dump mode: readable\n");
 	} else if (mtk_pidmap_proc_cmd_buf[0] == '2') {
-		memset(mtk_pidmap, 0, sizeof(mtk_pidmap));
+		memset(mtk_pidmap, 0, PIDMAP_AEE_BUF_SIZE);
 		pr_info("[pidmap] reset pidmap\n");
 	} else
 		goto err;
@@ -326,10 +333,15 @@ static int mtk_pidmap_proc_init(void)
 
 static int __init mtk_pidmap_init(void)
 {
-	mtk_pidmap_init_map();
-	mtk_pidmap_proc_init();
+	int ret;
 
-	return 0;
+	ret = mtk_pidmap_init_map();
+	if (ret)
+		return ret;
+
+	ret = mtk_pidmap_proc_init();
+
+	return ret;
 }
 
 static void __exit mtk_pidmap_exit(void)
@@ -342,6 +354,7 @@ static void __exit mtk_pidmap_exit(void)
  * list of kernel threads. Need to find out solution.
  */
 early_initcall(mtk_pidmap_init);
+module_exit(mtk_pidmap_exit);
 
 MODULE_AUTHOR("Stanley Chu <stanley.chu@mediatek.com>");
 MODULE_LICENSE("GPL");
