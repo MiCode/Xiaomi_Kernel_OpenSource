@@ -3771,6 +3771,9 @@
 		mediatek,platform = <&afe>;
 	};
 
+	touch:touch {
+		compatible = "mediatek,touch";
+	};
 
 	mtk_lpm: mtk_lpm {
 		compatible = "mediatek,mtk-lpm";
