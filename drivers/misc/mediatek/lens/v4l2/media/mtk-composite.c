@@ -51,6 +51,7 @@ fl_async_bound(struct v4l2_async_notifier *notifier,
 	bool found = false;
 	int i;
 
+	pr_info("%s\n", __func__);
 	for (i = 0; i < ARRAY_SIZE(pfdev->asd); i++) {
 		if (pfdev->asd[i]->match.fwnode ==
 			asd[0].match.fwnode) {
@@ -73,6 +74,7 @@ static int fl_probe_complete(struct mtk_composite_v4l2_device *vpfe)
 	int err;
 	struct v4l2_subdev *sd;
 
+	pr_info("%s\n", __func__);
 	/* set first sub device as current one */
 	vpfe->v4l2_dev.ctrl_handler = vpfe->sd[0]->ctrl_handler;
 
@@ -108,17 +110,12 @@ static int fl_async_complete(struct v4l2_async_notifier *notifier)
 	return fl_probe_complete(pfdev);
 }
 
-static const struct v4l2_async_notifier_operations fl_async_ops = {
-	.bound = fl_async_bound,
-	.complete = fl_async_complete,
-};
 
 static struct v4l2_async_subdev *
 mtk_get_pdata(struct platform_device *pdev,
 	struct mtk_composite_v4l2_device *pfdev)
 {
 	struct device_node *endpoint = NULL;
-	struct v4l2_async_subdev *pdata[MISC_MAX_SUBDEVS];
 	struct v4l2_async_notifier *notifier;
 	unsigned int i;
 
@@ -144,25 +141,16 @@ mtk_get_pdata(struct platform_device *pdev,
 			goto done;
 		}
 
-		pdata[i] = devm_kzalloc(&pdev->dev,
-				sizeof(struct v4l2_async_subdev),
-				GFP_KERNEL);
-		if (!pdata[i]) {
+		pr_info("rem %p, name %s, full_name %s\n",
+				rem, rem->name, rem->full_name);
+		pfdev->asd[i] = v4l2_async_notifier_add_fwnode_subdev(notifier,
+				of_fwnode_handle(rem),
+				sizeof(struct v4l2_async_subdev));
 			of_node_put(rem);
-		pr_info("i %d, pdata %p\n", i, pdata[i]);
-			goto done;
-		}
-		pr_debug("rem %p, pdata[i] %p, name %s, full_name %s\n",
-				rem, pdata[i], rem->name, rem->full_name);
-		pdata[i]->match_type = V4L2_ASYNC_MATCH_FWNODE;
-		pdata[i]->match.fwnode = of_fwnode_handle(rem);
-		of_node_put(rem);
-		notifier->num_subdevs++;
-		pfdev->asd[i] = pdata[i];
 	}
 
 	of_node_put(endpoint);
-	return pdata[0];
+	return pfdev->asd[0];
 
 done:
 	of_node_put(endpoint);
@@ -172,9 +160,14 @@ done:
 static void mtk_composite_unregister_entities(
 		struct mtk_composite_v4l2_device *isp)
 {
-	v4l2_device_unregister(&isp->v4l2_dev);
 	media_device_unregister(isp->v4l2_dev.mdev);
+	v4l2_device_unregister(&isp->v4l2_dev);
 }
+
+static const struct v4l2_async_notifier_operations fl_async_notify_ops = {
+	.bound = fl_async_bound,
+	.complete = fl_async_complete,
+};
 
 static int mtk_composite_probe(struct platform_device *dev)
 {
@@ -195,7 +188,9 @@ static int mtk_composite_probe(struct platform_device *dev)
 		goto vdec_end;
 	}
 
-	pfdev->asd[0] = mtk_get_pdata(dev, pfdev);
+	v4l2_async_notifier_init(&pfdev->notifier);
+
+	mtk_get_pdata(dev, pfdev);
 	pr_debug("asd %p %p %p\n", pfdev->asd[0], pfdev->asd[1],
 		pfdev->asd[2]);
 
@@ -238,9 +233,6 @@ static int mtk_composite_probe(struct platform_device *dev)
 	}
 	platform_set_drvdata(dev, pfdev);
 
-	pr_debug("platform_set_drvdata num_subdevs %d\n",
-		pfdev->notifier.num_subdevs);
-
 	pfdev->sd = devm_kzalloc(&dev->dev, sizeof(struct v4l2_subdev *) *
 		ARRAY_SIZE(pfdev->asd), GFP_KERNEL);
 	if (!pfdev->sd) {
@@ -249,8 +241,7 @@ static int mtk_composite_probe(struct platform_device *dev)
 		goto mdev_end;
 	}
 
-	pfdev->notifier.subdevs = pfdev->asd;
-	pfdev->notifier.ops = &fl_async_ops;
+	pfdev->notifier.ops = &fl_async_notify_ops;
 
 	rc = v4l2_async_notifier_register(&pfdev->v4l2_dev, &pfdev->notifier);
 	if (rc) {
@@ -259,12 +250,13 @@ static int mtk_composite_probe(struct platform_device *dev)
 		goto mdev_end;
 	}
 
+	pr_info("%s: Probe done.\n", __func__);
 	return 0;
 
 mdev_end:
 	kzfree(pfdev->vdev);
 vdec_end:
-	kzfree(pfdev);
+	kfree(pfdev);
 
 	return rc;
 }
