@@ -752,38 +752,6 @@
 		regulator-always-on;
 	};
 
-	gcc_hlos1_vote_mmnoc_mmu_tbu_hf0_gdsc: qcom,gdsc@18d050 {
-		compatible = "qcom,gdsc";
-		reg = <0x18d050 0x4>;
-		regulator-name = "gcc_hlos1_vote_mmnoc_mmu_tbu_hf0_gdsc";
-		qcom,no-status-check-on-disable;
-		qcom,gds-timeout = <500>;
-	};
-
-	gcc_hlos1_vote_mmnoc_mmu_tbu_hf1_gdsc: qcom,gdsc@18d058 {
-		compatible = "qcom,gdsc";
-		reg = <0x18d058 0x4>;
-		regulator-name = "gcc_hlos1_vote_mmnoc_mmu_tbu_hf1_gdsc";
-		qcom,no-status-check-on-disable;
-		qcom,gds-timeout = <500>;
-	};
-
-	gcc_hlos1_vote_mmnoc_mmu_tbu_sf0_gdsc: qcom,gdsc@18d054 {
-		compatible = "qcom,gdsc";
-		reg = <0x18d054 0x4>;
-		regulator-name = "gcc_hlos1_vote_mmnoc_mmu_tbu_sf0_gdsc";
-		qcom,no-status-check-on-disable;
-		qcom,gds-timeout = <500>;
-	};
-
-	gcc_hlos1_vote_mmnoc_mmu_tbu_sf1_gdsc: qcom,gdsc@18d06c {
-		compatible = "qcom,gdsc";
-		reg = <0x18d06c 0x4>;
-		regulator-name = "gcc_hlos1_vote_mmnoc_mmu_tbu_sf1_gdsc";
-		qcom,no-status-check-on-disable;
-		qcom,gds-timeout = <500>;
-	};
-
 	/* GPU_CC GDSCs */
 	gpu_cc_cx_hw_ctrl: syscon@3d9953d {
 		compatible = "syscon";
