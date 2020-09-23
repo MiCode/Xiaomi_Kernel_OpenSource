@@ -53,7 +53,7 @@
 static struct llcc_slice_config lahaina_data[] =  {
 	SCT_ENTRY(LLCC_CPUSS,    1, 3072, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 1, 1),
 	SCT_ENTRY(LLCC_VIDSC0,   2, 512, 3, 1, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
-	SCT_ENTRY(LLCC_AUDIO,    6, 1024, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
+	SCT_ENTRY(LLCC_AUDIO,    6, 1024, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 0, 0),
 	SCT_ENTRY(LLCC_MDMHPGRW, 7, 1024, 3, 0, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
 	SCT_ENTRY(LLCC_MDMHW,    9, 1024, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
 	SCT_ENTRY(LLCC_CMPT,     10, 3072, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
