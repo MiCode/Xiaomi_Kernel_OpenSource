@@ -56,6 +56,7 @@ config MTK_ATF_LOGGER
 	  user space. We can obtain live TF-A log through
 	  atf logger driver
 
+source "drivers/misc/mediatek/blocktag/Kconfig"
 source "drivers/misc/mediatek/mtprof/Kconfig"
 source "drivers/misc/mediatek/mmstat/Kconfig"
 source "drivers/misc/mediatek/aee/Kconfig"
