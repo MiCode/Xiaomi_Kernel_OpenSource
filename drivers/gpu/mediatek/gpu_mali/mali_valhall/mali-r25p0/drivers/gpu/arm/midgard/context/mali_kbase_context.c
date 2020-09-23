@@ -164,7 +164,7 @@ int kbase_context_common_init(struct kbase_context *kctx)
 	atomic_set(&kctx->jctx.work_id, 0);
 #endif
 
-#ifdef defined(MTK_GPU_BM_2)
+#if defined(MTK_GPU_BM_2)
 	atomic_set(&kctx->jctx.work_id, 0);
 #endif
 	kctx->id = atomic_add_return(1, &(kctx->kbdev->ctx_num)) - 1;
