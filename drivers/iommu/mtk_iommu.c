@@ -321,6 +321,12 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 	u32 int_state, regval, fault_iova, fault_pa;
 	unsigned int fault_larb, fault_port, sub_comm = 0;
 	bool layer, write;
+#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
+	int i;
+	u64 tf_iova_tmp;
+	phys_addr_t fault_pgpa;
+	#define TF_IOVA_DUMP_NUM	5
+#endif
 
 	/* Read error info from registers */
 	int_state = readl_relaxed(data->base + REG_MMU_FAULT_ST1);
@@ -345,11 +351,6 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 	fault_larb = data->plat_data->larbid_remap[fault_larb][sub_comm];
 
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
-	int i;
-	u64 tf_iova_tmp;
-	phys_addr_t fault_pgpa;
-	#define TF_IOVA_DUMP_NUM	5
-
 	for (i = 0, tf_iova_tmp = fault_iova; i < TF_IOVA_DUMP_NUM; i++) {
 		if (i > 0)
 			tf_iova_tmp -= SZ_4K;
