@@ -11,6 +11,7 @@
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
 #include <linux/soc/mediatek/mtk_dvfsrc.h>
+#include <linux/soc/mediatek/mtk_sip_svc.h>
 
 #include "dvfsrc-helper.h"
 #include "dvfsrc-common.h"
@@ -36,6 +37,7 @@ enum dvfsrc_regs {
 	DVFSRC_95MD_SCEN_BW4,
 	DVFSRC_95MD_SCEN_BW0,
 	DVFSRC_95MD_SCEN_BW0_T,
+	DVFSRC_RSRV_4,
 };
 
 static const int mt6779_regs[] = {
@@ -78,6 +80,7 @@ static const int mt6873_regs[] = {
 	[DVFSRC_95MD_SCEN_BW4] = 0x544,
 	[DVFSRC_95MD_SCEN_BW0] = 0x524,
 	[DVFSRC_95MD_SCEN_BW0_T] = 0x534,
+	[DVFSRC_RSRV_4] = 0x610,
 };
 
 enum dvfsrc_spm_regs {
@@ -491,6 +494,54 @@ static char *dvfsrc_dump_mt6873_spm_info(struct mtk_dvfsrc *dvfsrc,
 	return p;
 }
 
+#define MTK_SIP_VCOREFS_GET_EFUSE 18
+static int dvfsrc_dvfs_get_efuse_data(u32 idx)
+{
+	struct arm_smccc_res ares;
+
+	arm_smccc_smc(MTK_SIP_VCOREFS_CONTROL, MTK_SIP_VCOREFS_GET_EFUSE,
+		idx, 0, 0, 0, 0, 0,
+		&ares);
+
+	if (!ares.a0)
+		return ares.a1;
+
+	return 0;
+}
+
+static char *dvfsrc_dump_mt6873_vmode_info(struct mtk_dvfsrc *dvfsrc,
+	char *p, u32 size)
+{
+	char *buff_end = p + size;
+	int max_info = 0;
+	int i;
+
+	switch (dvfsrc->dvd->version) {
+	case 0x6873:
+	case 0x6853:
+	case 0x6885:
+	case 0x6833:
+		max_info = 1;
+	break;
+	case 0x6893:
+		max_info = 3;
+	break;
+	default:
+		max_info = 0;
+	break;
+	}
+
+	for (i = 0; i < max_info; i++)
+		p += snprintf(p, buff_end - p, "VBINFO_%d: %08x\n",
+			i, dvfsrc_dvfs_get_efuse_data(i));
+
+	p += snprintf(p, buff_end - p, "%s: 0x%08x\n",
+			"V_MODE",
+			dvfsrc_read(dvfsrc, DVFSRC_RSRV_4, 0));
+
+	return p;
+}
+
 static int dvfsrc_query_request_status(struct mtk_dvfsrc *dvfsrc, u32 id)
 {
 	int ret = 0;
@@ -539,7 +590,8 @@ const struct dvfsrc_config mt6873_dvfsrc_config = {
 	.spm_regs = mt6873_spm_regs,
 	.dump_record = dvfsrc_dump_record,
 	.dump_reg = dvfsrc_dump_reg,
-	.query_request = dvfsrc_query_request_status,
 	.dump_spm_info = dvfsrc_dump_mt6873_spm_info,
+	.dump_vmode_info = dvfsrc_dump_mt6873_vmode_info,
+	.query_request = dvfsrc_query_request_status,
 };
 

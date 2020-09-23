@@ -20,6 +20,7 @@ struct dvfsrc_met_config {
 
 struct dvfsrc_met_data {
 	const struct dvfsrc_met_config *met;
+	u32 version;
 };
 
 struct mtk_dvfsrc_met {
