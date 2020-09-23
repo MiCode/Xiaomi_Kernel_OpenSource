@@ -103,6 +103,17 @@ static int dvfsrc_devfreq_get_cur_freq(struct device *dev, unsigned long *freq)
 	return 0;
 }
 
+static int dvfsrc_devfreq_get_dev_status(struct device *dev, struct devfreq_dev_status *stat)
+{
+	struct dvfsrc_devfreq *dvfsrc = dev_get_drvdata(dev);
+
+	stat->busy_time = 0;
+	stat->total_time = 0;
+	stat->current_frequency = dvfsrc->rate;
+
+	return 0;
+}
+
 static int dvfsrc_init_freq_info(struct device *dev)
 {
 	struct dvfsrc_devfreq *dvfsrc = dev_get_drvdata(dev);
@@ -160,6 +171,7 @@ static int dvfsrc_devfreq_probe(struct platform_device *pdev)
 	dvfsrc->ctrl_dev = dev->parent;
 	dvfsrc->profile.target = dvfsrc_devfreq_target;
 	dvfsrc->profile.get_cur_freq = dvfsrc_devfreq_get_cur_freq;
+	dvfsrc->profile.get_dev_status = dvfsrc_devfreq_get_dev_status;
 	dvfsrc->profile.initial_freq = 0;
 	dvfsrc->devfreq = devm_devfreq_add_device(dev,
 		&dvfsrc->profile, gov, NULL);
