@@ -16,6 +16,11 @@
 #include "mtk_battery_daemon.h"
 #include "mtk_battery.h"
 
+#if IS_ENABLED(CONFIG_PMIC_LBAT_SERVICE)
+#include <pmic_lbat_service.h>
+#endif
+
+
 
 static int interpolation(int i1, int b1, int i2, int b2, int i)
 {
@@ -103,8 +108,11 @@ int gauge_get_average_current(struct mtk_battery *gm, bool *valid)
 		if (ver >= GAUGE_HW_V1000 &&
 			ver < GAUGE_HW_V2000)
 			iavg = gm->sw_iavg;
-		else
+		else {
 			*valid = gm->gauge->fg_hw_info.current_avg_valid;
+			iavg =
+			gauge_get_int_property(GAUGE_PROP_AVERAGE_CURRENT);
+		}
 	}
 
 	return iavg;
@@ -1388,6 +1396,14 @@ void exec_BAT_EC(int cmd, int param)
 				cmd, param);
 		}
 		break;
+	case 797:
+		{
+			bm_err(
+				"exe_BAT_EC cmd %d,GAUGE_PROP_CAR_TUNE_VALUE, current=%d\n",
+				cmd, param);
+			gauge_set_property(GAUGE_PROP_CAR_TUNE_VALUE,
+				param);
+		}
 
 
 	default:
@@ -2295,12 +2311,13 @@ static void mtk_battery_daemon_handler(struct mtk_battery *gm, void *nl_data,
 	break;
 	case FG_DAEMON_CMD_IS_CHARGER_EXIST:
 	{
+		/* todo */
 		int is_charger_exist = 0;
 
 		if (gm->bs_data.bat_status == POWER_SUPPLY_STATUS_CHARGING)
-			is_charger_exist = false;
-		else
 			is_charger_exist = true;
+		else
+			is_charger_exist = false;
 
 		ret_msg->fgd_data_len += sizeof(is_charger_exist);
 		memcpy(ret_msg->fgd_data,
@@ -3295,7 +3312,7 @@ static void mtk_battery_daemon_handler(struct mtk_battery *gm, void *nl_data,
 	case FG_DAEMON_CMD_PRINT_LOG:
 	{
 		fg_cmd_check(msg);
-		bm_debug("%s", &msg->fgd_data[0]);
+		bm_err("%s", &msg->fgd_data[0]);
 	}
 	break;
 	case FG_DAEMON_CMD_SEND_CUSTOM_TABLE:
@@ -3326,15 +3343,22 @@ static void mtk_battery_daemon_handler(struct mtk_battery *gm, void *nl_data,
 	case FG_DAEMON_CMD_GET_SHUTDOWN_CAR:
 	{
 		int shutdown_car_diff = 0;
+		int tmp_cardiff = 0;
 
 		shutdown_car_diff = gauge_get_int_property(
 			GAUGE_PROP_SHUTDOWN_CAR);
+
+		if (abs(shutdown_car_diff) > 1000) {
+			tmp_cardiff = shutdown_car_diff;
+			shutdown_car_diff = 0;
+		}
+
 		ret_msg->fgd_data_len += sizeof(shutdown_car_diff);
 		memcpy(ret_msg->fgd_data, &shutdown_car_diff,
 			sizeof(shutdown_car_diff));
 		bm_debug(
-			"[K]FG_DAEMON_CMD_GET_SHUTDOWN_CAR = %d\n",
-			shutdown_car_diff);
+			"[K]FG_DAEMON_CMD_GET_SHUTDOWN_CAR = %d, tmp=%d\n",
+			shutdown_car_diff, tmp_cardiff);
 	}
 	break;
 	case FG_DAEMON_CMD_GET_NCAR:
@@ -3520,6 +3544,35 @@ static void mtk_battery_daemon_handler(struct mtk_battery *gm, void *nl_data,
 		bm_debug("[K]FG_DAEMON_CMD_SET_CON0_SOFF_VALID ori:%d, new:%d\n",
 			ori_value, int_value);
 	}
+	break;
+
+	case FG_DAEMON_CMD_SET_AGING_INFO:
+		bm_debug("[K]FG_DAEMON_CMD_SET_AGING_INFO\n");
+	break;
+	case FG_DAEMON_CMD_GET_SOC_DECIMAL_RATE:
+	{
+		int decimal_rate = gm->soc_decimal_rate;
+
+		ret_msg->fgd_data_len += sizeof(decimal_rate);
+		memcpy(ret_msg->fgd_data, &decimal_rate,
+			sizeof(decimal_rate));
+		bm_debug("[K]FG_DAEMON_CMD_GET_SOC_DECIMAL_RATE %d",
+			decimal_rate);
+	}
+	break;
+	case FG_DAEMON_CMD_GET_DIFF_SOC_SET:
+	{
+		int soc_setting = 1;
+
+		ret_msg->fgd_data_len += sizeof(soc_setting);
+		memcpy(ret_msg->fgd_data, &soc_setting,
+			sizeof(soc_setting));
+
+		bm_debug("[K]FG_DAEMON_CMD_GET_DIFF_SOC_SET %d", soc_setting);
+	}
+	break;
+	case FG_DAEMON_CMD_SET_ZCV_INTR_EN:
+		bm_debug("[K]FG_DAEMON_CMD_SET_ZCV_INTR_EN");
 	break;
 
 	default:
@@ -3822,6 +3875,57 @@ void sw_check_bat_plugout(struct mtk_battery *gm)
 		}
 	}
 }
+
+/* ============================================================ */
+/* sw low battery interrupt handler */
+/* ============================================================ */
+void fg_update_sw_low_battery_check(unsigned int thd)
+{
+	int vbat;
+	int thd1, thd2, thd3;
+	struct mtk_battery *gm;
+	struct fuel_gauge_custom_data *fg_cust_data;
+	int version = 0;
+
+	gm = get_mtk_battery();
+	fg_cust_data = &gm->fg_cust_data;
+
+	thd1 = fg_cust_data->vbat2_det_voltage1 / 10;
+	thd2 = fg_cust_data->vbat2_det_voltage2 / 10;
+	thd3 = fg_cust_data->vbat2_det_voltage3 / 10;
+
+	gauge_get_property(GAUGE_PROP_HW_VERSION, &version);
+
+	if (version >= GAUGE_HW_V2000)
+		return;
+
+	vbat = gauge_get_int_property(GAUGE_PROP_BATTERY_VOLTAGE) * 10;
+
+	bm_err("[%s]vbat:%d %d ht:%d %d lt:%d %d\n",
+		__func__,
+		thd, vbat,
+		gm->sw_low_battery_ht_en,
+		gm->sw_low_battery_ht_threshold,
+		gm->sw_low_battery_lt_en,
+		gm->sw_low_battery_lt_threshold);
+
+	if (gm->sw_low_battery_ht_en == 1 && thd == thd3) {
+		mutex_lock(&gm->sw_low_battery_mutex);
+		gm->sw_low_battery_ht_en = 0;
+		gm->sw_low_battery_lt_en = 0;
+		mutex_unlock(&gm->sw_low_battery_mutex);
+		disable_shutdown_cond(gm, LOW_BAT_VOLT);
+		wakeup_fg_algo(gm, FG_INTR_VBAT2_H);
+	}
+	if (gm->sw_low_battery_lt_en == 1 && (thd == thd1 || thd == thd2)) {
+		mutex_lock(&gm->sw_low_battery_mutex);
+		gm->sw_low_battery_ht_en = 0;
+		gm->sw_low_battery_lt_en = 0;
+		mutex_unlock(&gm->sw_low_battery_mutex);
+		wakeup_fg_algo(gm, FG_INTR_VBAT2_L);
+	}
+}
+
 
 /* ============================================================ */
 /* hw low battery interrupt handler */
@@ -4231,12 +4335,14 @@ int wakeup_fg_daemon(unsigned int flow_state, int cmd, int para1)
 				return -1;
 		}
 		Intr_Number_to_Name(intr_name, flow_state);
-		bm_debug("[%s] malloc size=%d pid=%d cmd:[%s],%d\n",
-			__func__,
-			size, gm->fgd_pid, intr_name, flow_state);
 
+		bm_debug("[%s] malloc size=%d pid=%d cmd:[%s],0x%x,cmd:%d,para1:%d\n",
+			__func__,
+			size, gm->fgd_pid, intr_name, flow_state, cmd, para1);
 		memset(fgd_msg, 0, size);
 		fgd_msg->fgd_cmd = FG_DAEMON_CMD_NOTIFY_DAEMON;
+		fgd_msg->fgd_subcmd = cmd;
+		fgd_msg->fgd_subcmd_para1 = para1;
 		memcpy(fgd_msg->fgd_data, &flow_state, sizeof(flow_state));
 		fgd_msg->fgd_data_len += sizeof(flow_state);
 		mtk_battery_send_to_user(gm, 0, fgd_msg);
@@ -4295,7 +4401,7 @@ static void mtk_battery_shutdown(struct mtk_battery *gm)
 
 void enable_bat_temp_det(bool en)
 {
-	/* todo in ALSP */
+	gauge_set_property(GAUGE_PROP_BAT_TEMP_FROZE_EN, !en);
 }
 
 static int mtk_battery_suspend(struct mtk_battery *gm, pm_message_t state)
@@ -4311,8 +4417,11 @@ static int mtk_battery_suspend(struct mtk_battery *gm, pm_message_t state)
 		gm->cmd_disable_nafg,
 		gm->enable_tmp_intr_suspend);
 
-	if (gm->enable_tmp_intr_suspend == 0)
+	if (gm->enable_tmp_intr_suspend == 0) {
+		gauge_set_property(GAUGE_PROP_EN_BAT_TMP_LT, 0);
+		gauge_set_property(GAUGE_PROP_EN_BAT_TMP_HT, 0);
 		enable_bat_temp_det(0);
+	}
 
 	version = gauge_get_int_property(GAUGE_PROP_HW_VERSION);
 
@@ -4350,7 +4459,11 @@ static int mtk_battery_resume(struct mtk_battery *gm)
 
 	fg_update_sw_iavg(gm);
 
+	if (gm->enable_tmp_intr_suspend == 0) {
+		gauge_set_property(GAUGE_PROP_EN_BAT_TMP_LT, 1);
+		gauge_set_property(GAUGE_PROP_EN_BAT_TMP_HT, 1);
 	enable_bat_temp_det(1);
+	}
 
 	return 0;
 }
@@ -4369,6 +4482,7 @@ int mtk_battery_daemon_init(struct platform_device *pdev)
 	int hw_version;
 	struct mtk_battery *gm;
 	struct mtk_gauge *gauge;
+	struct fuel_gauge_custom_data *fg_cust_data;
 
 	gauge = dev_get_drvdata(&pdev->dev);
 	gm = gauge->gm;
@@ -4389,6 +4503,7 @@ int mtk_battery_daemon_init(struct platform_device *pdev)
 	gm->shutdown = mtk_battery_shutdown;
 	gm->suspend = mtk_battery_suspend;
 	gm->resume = mtk_battery_resume;
+	fg_cust_data = &gm->fg_cust_data;
 
 	if (hw_version == GAUGE_NO_HW) {
 		gm->gauge->sw_nafg_irq = nafg_irq_handler;
@@ -4428,6 +4543,40 @@ int mtk_battery_daemon_init(struct platform_device *pdev)
 		IRQF_ONESHOT | IRQF_TRIGGER_HIGH,
 		"mtk_gauge_nafg",
 		gm);
+		if (hw_version < GAUGE_HW_V2000) {
+#if IS_ENABLED(CONFIG_PMIC_LBAT_SERVICE)
+			gm->lowbat_service =
+			lbat_user_register("fuel gauge",
+			fg_cust_data->vbat2_det_voltage3 / 10,
+			fg_cust_data->vbat2_det_voltage1 / 10,
+			fg_cust_data->vbat2_det_voltage2 / 10,
+			fg_update_sw_low_battery_check);
+			bm_err("[%s]lbat user_register done, %d,%d,%d\n",
+				__func__, fg_cust_data->vbat2_det_voltage3,
+				fg_cust_data->vbat2_det_voltage1,
+				fg_cust_data->vbat2_det_voltage2);
+
+			if (gm->lowbat_service != NULL) {
+				lbat_user_set_debounce(gm->lowbat_service,
+				fg_cust_data->vbat2_det_time * 1000,
+				fg_cust_data->vbat2_det_counter,
+				fg_cust_data->vbat2_det_time * 1000,
+				fg_cust_data->vbat2_det_counter);
+
+				bm_err("[%s]lbat set_debounce,time:%d,counter:%d\n",
+					__func__, fg_cust_data->vbat2_det_time,
+					fg_cust_data->vbat2_det_counter);
+			} else
+				bm_err("[%s]lowbat_service null\n", __func__);
+
+#endif /* end of CONFIG_PMIC_LBAT_SERVICE */
+
+			/* sw bat_cycle_car init, gm25 should start from 0 */
+			gm->bat_cycle_car =
+				gauge_get_int_property(GAUGE_PROP_COULOMB);
+			if (gm->bat_cycle_car < 0)
+				gm->bat_cycle_car = 0;
+		}
 	}
 
 	if (hw_version >= GAUGE_HW_V2000) {

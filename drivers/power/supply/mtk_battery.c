@@ -160,7 +160,7 @@ int wakeup_fg_algo_cmd(
 	struct mtk_battery *gm, unsigned int flow_state, int cmd, int para1)
 {
 
-	bm_debug("[%s] %d %d %d\n", __func__, flow_state, cmd, para1);
+	bm_debug("[%s] 0x%x %d %d\n", __func__, flow_state, cmd, para1);
 	if (gm->disableGM30) {
 		bm_err("FG daemon is disabled\n");
 		return -1;
@@ -209,6 +209,22 @@ bool is_kernel_power_off_charging(void)
 /* ============================================================ */
 /* power supply: battery */
 /* ============================================================ */
+int check_cap_level(int uisoc)
+{
+	if (uisoc >= 100)
+		return POWER_SUPPLY_CAPACITY_LEVEL_FULL;
+	else if (uisoc >= 80 && uisoc < 100)
+		return POWER_SUPPLY_CAPACITY_LEVEL_HIGH;
+	else if (uisoc >= 20 && uisoc < 80)
+		return POWER_SUPPLY_CAPACITY_LEVEL_NORMAL;
+	else if (uisoc > 0 && uisoc < 20)
+		return POWER_SUPPLY_CAPACITY_LEVEL_LOW;
+	else if (uisoc == 0)
+		return POWER_SUPPLY_CAPACITY_LEVEL_CRITICAL;
+	else
+		return POWER_SUPPLY_CAPACITY_LEVEL_UNKNOWN;
+}
+
 static enum power_supply_property battery_props[] = {
 	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_HEALTH,
@@ -222,6 +238,9 @@ static enum power_supply_property battery_props[] = {
 	POWER_SUPPLY_PROP_CHARGE_FULL,
 	POWER_SUPPLY_PROP_CHARGE_COUNTER,
 	POWER_SUPPLY_PROP_TEMP,
+	POWER_SUPPLY_PROP_CAPACITY_LEVEL,
+	POWER_SUPPLY_PROP_TIME_TO_FULL_NOW,
+	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
 };
 
 static int battery_psy_get_property(struct power_supply *psy,
@@ -257,6 +276,14 @@ static int battery_psy_get_property(struct power_supply *psy,
 		val->intval = 1;
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
+		/* 1 = META_BOOT, 4 = FACTORY_BOOT 5=ADVMETA_BOOT */
+		/* 6= ATE_factory_boot */
+		if (gm->bootmode == 1 || gm->bootmode == 4
+			|| gm->bootmode == 5 || gm->bootmode == 6) {
+			val->intval = 75;
+			break;
+		}
+
 		if (gm->fixed_uisoc != 0xffff)
 			val->intval = gm->fixed_uisoc;
 		else
@@ -290,6 +317,57 @@ static int battery_psy_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_TEMP:
 		val->intval = force_get_tbat(gm, true) * 10;
 		break;
+	case POWER_SUPPLY_PROP_CAPACITY_LEVEL:
+		val->intval = check_cap_level(bs_data->bat_capacity);
+		break;
+	case POWER_SUPPLY_PROP_TIME_TO_FULL_NOW:
+		/* full or unknown must return 0 */
+		ret = check_cap_level(bs_data->bat_capacity);
+		if ((ret == POWER_SUPPLY_CAPACITY_LEVEL_FULL) ||
+			(ret == POWER_SUPPLY_CAPACITY_LEVEL_UNKNOWN))
+			val->intval = 0;
+		else {
+			int q_max_now = gm->fg_table_cust_data.fg_profile[
+						gm->battery_id].q_max;
+			int remain_ui = 100 - bs_data->bat_capacity;
+			int remain_mah = remain_ui * q_max_now / 10;
+			int current_now =
+			gauge_get_int_property(GAUGE_PROP_BATTERY_CURRENT);
+
+			int time_to_full = 0;
+
+			if (current_now != 0)
+				time_to_full = remain_mah * 3600 / current_now;
+
+				bm_debug("time_to_full:%d, remain:ui:%d mah:%d, current_now:%d, qmax:%d\n",
+					time_to_full, remain_ui, remain_mah,
+					current_now, q_max_now);
+			val->intval = abs(time_to_full);
+		}
+		ret = 0;
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
+		if (check_cap_level(bs_data->bat_capacity) ==
+			POWER_SUPPLY_CAPACITY_LEVEL_UNKNOWN)
+			val->intval = 0;
+		else {
+			int q_max_mah = 0;
+			int q_max_uah = 0;
+
+			q_max_mah =
+				gm->fg_table_cust_data.fg_profile[
+				gm->battery_id].q_max / 10;
+
+			q_max_uah = q_max_mah * 1000;
+			if (q_max_uah <= 100000) {
+				bm_debug("%s q_max_mah:%d q_max_uah:%d\n",
+					__func__, q_max_mah, q_max_uah);
+				q_max_uah = 100001;
+			}
+			val->intval = q_max_uah;
+		}
+		break;
+
 	default:
 		ret = -EINVAL;
 		break;
@@ -334,12 +412,14 @@ static void mtk_battery_external_power_changed(struct power_supply *psy)
 			else
 				bs_data->bat_status =
 					POWER_SUPPLY_STATUS_CHARGING;
+			fg_sw_bat_cycle_accu(gm);
 		}
 
 		if (status.intval == POWER_SUPPLY_STATUS_FULL
 			&& gm->b_EOC != true) {
 			bm_err("POWER_SUPPLY_STATUS_FULL\n");
 			gm->b_EOC = true;
+			notify_fg_chr_full(gm);
 		} else
 			gm->b_EOC = false;
 
@@ -350,8 +430,16 @@ static void mtk_battery_external_power_changed(struct power_supply *psy)
 			POWER_SUPPLY_PROP_USB_TYPE, &prop_type);
 
 		/* plug in out */
-
 		cur_chr_type = prop_type.intval;
+
+		if (cur_chr_type == POWER_SUPPLY_USB_TYPE_UNKNOWN) {
+			if (gm->chr_type != POWER_SUPPLY_USB_TYPE_UNKNOWN)
+				bm_err("%s chr plug out\n");
+		} else {
+			if (gm->chr_type == POWER_SUPPLY_USB_TYPE_UNKNOWN)
+				wakeup_fg_algo(gm, FG_INTR_CHARGER_IN);
+		}
+
 	}
 
 	bm_err("%s event, name:%s online:%d, status:%d, EOC:%d, cur_chr_type:%d old:%d\n",
@@ -448,8 +536,8 @@ int volttotemp(struct mtk_battery *gm, int dwVolt, int volt_cali)
 		if (delta_v == 0)
 			delta_v = 1;
 		tres_temp = div_s64(tres_temp, delta_v);
-		if (vbif28 > 3000 || vbif28 < 2500)
-			bm_err("[RBAT_PULL_UP_VOLT_BY_BIF] vbif28:%d\n",
+		if (vbif28 > 3000 || vbif28 < 1700)
+			bm_debug("[RBAT_PULL_UP_VOLT_BY_BIF] vbif28:%d\n",
 				vbif28_raw);
 	} else {
 		delta_v = abs(gm->rbat.rbat_pull_up_volt - dwVolt);
@@ -545,7 +633,7 @@ int force_get_tbat_internal(struct mtk_battery *gm, bool update)
 				vol_cali);
 		}
 
-		bm_err("[%s] %d,%d,%d,%d,%d,%d r:%d %d %d\n",
+		bm_notice("[%s] %d,%d,%d,%d,%d,%d r:%d %d %d\n",
 			__func__,
 			bat_temperature_volt_temp, bat_temperature_volt,
 			fg_current_state, fg_current_temp,
@@ -600,7 +688,7 @@ int force_get_tbat_internal(struct mtk_battery *gm, bool update)
 
 			tmp_time = ktime_to_timespec64(dtime);
 
-			bm_err("[%s] current:%d,%d,%d,%d,%d,%d pre:%d,%d,%d,%d,%d,%d time:%d\n",
+			bm_trace("[%s] current:%d,%d,%d,%d,%d,%d pre:%d,%d,%d,%d,%d,%d time:%d\n",
 				__func__,
 				bat_temperature_volt_temp, bat_temperature_volt,
 				fg_current_state, fg_current_temp,
@@ -766,7 +854,15 @@ void fg_custom_init_from_header(struct mtk_battery *gm)
 	fg_cust_data->aging_one_en = AGING_ONE_EN;
 	fg_cust_data->aging1_update_soc = UNIT_TRANS_100 * AGING1_UPDATE_SOC;
 	fg_cust_data->aging1_load_soc = UNIT_TRANS_100 * AGING1_LOAD_SOC;
+	fg_cust_data->aging4_update_soc = UNIT_TRANS_100 * AGING4_UPDATE_SOC;
+	fg_cust_data->aging4_load_soc = UNIT_TRANS_100 * AGING4_LOAD_SOC;
+	fg_cust_data->aging5_update_soc = UNIT_TRANS_100 * AGING5_UPDATE_SOC;
+	fg_cust_data->aging5_load_soc = UNIT_TRANS_100 * AGING5_LOAD_SOC;
+	fg_cust_data->aging6_update_soc = UNIT_TRANS_100 * AGING6_UPDATE_SOC;
+	fg_cust_data->aging6_load_soc = UNIT_TRANS_100 * AGING6_LOAD_SOC;
 	fg_cust_data->aging_temp_diff = AGING_TEMP_DIFF;
+	fg_cust_data->aging_temp_low_limit = AGING_TEMP_LOW_LIMIT;
+	fg_cust_data->aging_temp_high_limit = AGING_TEMP_HIGH_LIMIT;
 	fg_cust_data->aging_100_en = AGING_100_EN;
 	fg_cust_data->difference_voltage_update = DIFFERENCE_VOLTAGE_UPDATE;
 	fg_cust_data->aging_factor_min = UNIT_TRANS_100 * AGING_FACTOR_MIN;
@@ -775,6 +871,9 @@ void fg_custom_init_from_header(struct mtk_battery *gm)
 	fg_cust_data->aging_two_en = AGING_TWO_EN;
 	/* Aging Compensation 3*/
 	fg_cust_data->aging_third_en = AGING_THIRD_EN;
+	fg_cust_data->aging_4_en = AGING_4_EN;
+	fg_cust_data->aging_5_en = AGING_5_EN;
+	fg_cust_data->aging_6_en = AGING_6_EN;
 
 	/* ui_soc related */
 	fg_cust_data->diff_soc_setting = DIFF_SOC_SETTING;
@@ -917,6 +1016,9 @@ void fg_custom_init_from_header(struct mtk_battery *gm)
 	fg_cust_data->ui_low_limit_soc4 = UI_LOW_LIMIT_SOC4;
 	fg_cust_data->ui_low_limit_vth4 = UI_LOW_LIMIT_VTH4;
 	fg_cust_data->ui_low_limit_time = UI_LOW_LIMIT_TIME;
+
+	fg_cust_data->moving_battemp_en = MOVING_BATTEMP_EN;
+	fg_cust_data->moving_battemp_thr = MOVING_BATTEMP_THR;
 
 	if (version == GAUGE_HW_V2001) {
 		bm_debug("GAUGE_HW_V2001 disable nafg\n");
@@ -1472,6 +1574,12 @@ void fg_custom_init_from_dts(struct platform_device *dev,
 		&(fg_cust_data->ui_low_limit_vth4), 1);
 	fg_read_dts_val(np, "UI_LOW_LIMIT_TIME",
 		&(fg_cust_data->ui_low_limit_time), 1);
+
+	/* average battemp */
+	fg_read_dts_val(np, "MOVING_BATTEMP_EN",
+		&(fg_cust_data->moving_battemp_en), 1);
+	fg_read_dts_val(np, "MOVING_BATTEMP_THR",
+		&(fg_cust_data->moving_battemp_thr), 1);
 
 	gm->disableGM30 = of_property_read_bool(
 		np, "DISABLE_MTKBATTERY");
@@ -2837,10 +2945,8 @@ static int mtk_power_misc_psy_event(
 	struct notifier_block *nb, unsigned long event, void *v)
 {
 	struct power_supply *psy = v;
-	union power_supply_propval val;
 	struct shutdown_controller *sdc;
 	struct mtk_battery *gm;
-	int ret;
 	int tmp = 0;
 
 	gm = get_mtk_battery();
