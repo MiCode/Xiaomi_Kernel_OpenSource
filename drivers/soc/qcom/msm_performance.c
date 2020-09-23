@@ -36,6 +36,7 @@
 #define QUEUE_POOL_SIZE 512 /*2^8 always keep in 2^x */
 #define INST_EV 0x08 /* 0th event*/
 #define CYC_EV 0x11 /* 1st event*/
+#define INIT "Init"
 static DEFINE_PER_CPU(bool, cpu_is_idle);
 static DEFINE_PER_CPU(bool, cpu_is_hp);
 
@@ -964,15 +965,42 @@ module_param_cb(evnt_gplaf_pid, &param_ops_game_start_pid, NULL, 0644);
 
 /*******************************GFX Call************************************/
 
-static bool splh_notif;
+static int splh_notif;
+static void init_splh_notif(const char *buf)
+{
+	/*buf contains the init info from user*/
+	if (buf == NULL)
+		return;
+
+	pr_debug("msm_perf:Init info for scroll :: %s\n", buf);
+}
+
+static void activate_splh_notif(void)
+{
+	/*received event notification here*/
+}
+
 static int set_splh_notif(const char *buf, const struct kernel_param *kp)
 {
-	return param_set_bool(buf, kp);
+	int ret;
+
+	if (strnstr(buf, INIT, sizeof(INIT)) != NULL) {
+		init_splh_notif(buf);
+		return 0;
+	}
+
+	ret = param_set_int(buf, kp);
+	if (ret < 0)
+		return ret;
+
+	activate_splh_notif();
+
+	return ret;
 }
 
 static const struct kernel_param_ops param_ops_splh_notification = {
 	.set = set_splh_notif,
-	.get = param_get_bool,
+	.get = param_get_int,
 };
 module_param_cb(splh_notif, &param_ops_splh_notification, &splh_notif, 0644);
 
