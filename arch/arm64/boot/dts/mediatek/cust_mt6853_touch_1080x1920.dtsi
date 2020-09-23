@@ -65,6 +65,11 @@
 	pinctrl-5 = <&ctp_ts_i2c_mode>;
 	pinctrl-6 = <&ctp_ts_int_as_gpio>;
 
+	gt1151@14 {
+		compatible = "goodix,gt1151";
+		reg = <0x14>;
+		status = "okay";
+	};
 	gt9886@5d {
 		compatible = "goodix,gt9886";
 		reg = <0x5d>;
@@ -98,6 +103,28 @@
 		tpd-filter-custom-speed = <0 0 0>;
 	};
 
+};
+
+&touch {
+	tpd-resolution = <1080 1920>;
+	lcm-resolution = <1080 1920>;
+	tpd-cfg-version = "config17";
+	tpd-max-touch-num = <10>;
+	interrupt-parent = <&pio>;
+	interrupts = <14 IRQ_TYPE_EDGE_FALLING 14 0>;
+	goodix,eint-gpio = <&pio 14 0x0>;
+	goodix,reset-gpio = <&pio 15 0x0>;
+	vtouch-supply = <&mt_pmic_vtp_ldo_reg>;
+
+	/* hw rotate */
+	/* goodix,x2x; */
+	/* goodix,y2y; */
+
+	tpd-filter-enable = <0>;
+	tpd-filter-pixel-density = <168>;
+	tpd-filter-custom-prameters = <0 0 0 0 0 0 0 0 0 0 0 0>;
+	tpd-filter-custom-speed = <0 0 0>;
+	status = "okay";
 };
 
 &pio {
