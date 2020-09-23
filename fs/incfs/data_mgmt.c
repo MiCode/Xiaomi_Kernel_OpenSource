@@ -274,8 +274,32 @@ out:
 
 void incfs_free_data_file(struct data_file *df)
 {
+	u32 data_blocks_written, hash_blocks_written;
+
 	if (!df)
 		return;
+
+	data_blocks_written = atomic_read(&df->df_data_blocks_written);
+	hash_blocks_written = atomic_read(&df->df_hash_blocks_written);
+
+	if (data_blocks_written != df->df_initial_data_blocks_written ||
+	    hash_blocks_written != df->df_initial_hash_blocks_written) {
+		struct backing_file_context *bfc = df->df_backing_file_context;
+		int error = -1;
+
+		if (bfc && !mutex_lock_interruptible(&bfc->bc_mutex)) {
+			error = incfs_write_status_to_backing_file(
+						df->df_backing_file_context,
+						df->df_status_offset,
+						data_blocks_written,
+						hash_blocks_written);
+			mutex_unlock(&bfc->bc_mutex);
+		}
+
+		if (error)
+			/* Nothing can be done, just warn */
+			pr_warn("incfs: failed to write status to backing file\n");
+	}
 
 	incfs_free_mtree(df->df_hash_tree);
 	incfs_free_bfc(df->df_backing_file_context);
@@ -662,36 +686,9 @@ static int copy_one_range(struct incfs_filled_range *range, void __user *buffer,
 	return 0;
 }
 
-static int update_file_header_flags(struct data_file *df, u32 bits_to_reset,
-				    u32 bits_to_set)
-{
-	int result;
-	u32 new_flags;
-	struct backing_file_context *bfc;
-
-	if (!df)
-		return -EFAULT;
-	bfc = df->df_backing_file_context;
-	if (!bfc)
-		return -EFAULT;
-
-	result = mutex_lock_interruptible(&bfc->bc_mutex);
-	if (result)
-		return result;
-
-	new_flags = (df->df_header_flags & ~bits_to_reset) | bits_to_set;
-	if (new_flags != df->df_header_flags) {
-		df->df_header_flags = new_flags;
-		result = incfs_write_file_header_flags(bfc, new_flags);
-	}
-
-	mutex_unlock(&bfc->bc_mutex);
-
-	return result;
-}
-
 #define READ_BLOCKMAP_ENTRIES 512
 int incfs_get_filled_blocks(struct data_file *df,
+			    struct incfs_file_data *fd,
 			    struct incfs_get_filled_blocks_args *arg)
 {
 	int error = 0;
@@ -705,6 +702,8 @@ int incfs_get_filled_blocks(struct data_file *df,
 	int i = READ_BLOCKMAP_ENTRIES - 1;
 	int entries_read = 0;
 	struct incfs_blockmap_entry *bme;
+	int data_blocks_filled = 0;
+	int hash_blocks_filled = 0;
 
 	*size_out = 0;
 	if (end_index > df->df_total_block_count)
@@ -712,7 +711,8 @@ int incfs_get_filled_blocks(struct data_file *df,
 	arg->total_blocks_out = df->df_total_block_count;
 	arg->data_blocks_out = df->df_data_block_count;
 
-	if (df->df_header_flags & INCFS_FILE_COMPLETE) {
+	if (atomic_read(&df->df_data_blocks_written) ==
+	    df->df_data_block_count) {
 		pr_debug("File marked full, fast get_filled_blocks");
 		if (arg->start_index > end_index) {
 			arg->index_out = arg->start_index;
@@ -765,6 +765,13 @@ int incfs_get_filled_blocks(struct data_file *df,
 
 		convert_data_file_block(bme + i, &dfb);
 
+		if (is_data_block_present(&dfb)) {
+			if (arg->index_out >= df->df_data_block_count)
+				++hash_blocks_filled;
+			else
+				++data_blocks_filled;
+		}
+
 		if (is_data_block_present(&dfb) == in_range)
 			continue;
 
@@ -794,13 +801,28 @@ int incfs_get_filled_blocks(struct data_file *df,
 			arg->index_out = range.begin;
 	}
 
-	if (!error && in_range && arg->start_index == 0 &&
-	    end_index == df->df_total_block_count &&
-	    *size_out == sizeof(struct incfs_filled_range)) {
-		int result =
-			update_file_header_flags(df, 0, INCFS_FILE_COMPLETE);
-		/* Log failure only, since it's just a failed optimization */
-		pr_debug("Marked file full with result %d", result);
+	if (arg->start_index == 0) {
+		fd->fd_get_block_pos = 0;
+		fd->fd_filled_data_blocks = 0;
+		fd->fd_filled_hash_blocks = 0;
+	}
+
+	if (arg->start_index == fd->fd_get_block_pos) {
+		fd->fd_get_block_pos = arg->index_out + 1;
+		fd->fd_filled_data_blocks += data_blocks_filled;
+		fd->fd_filled_hash_blocks += hash_blocks_filled;
+	}
+
+	if (fd->fd_get_block_pos == df->df_total_block_count + 1) {
+		if (fd->fd_filled_data_blocks >
+		   atomic_read(&df->df_data_blocks_written))
+			atomic_set(&df->df_data_blocks_written,
+				   fd->fd_filled_data_blocks);
+
+		if (fd->fd_filled_hash_blocks >
+		   atomic_read(&df->df_hash_blocks_written))
+			atomic_set(&df->df_hash_blocks_written,
+				   fd->fd_filled_hash_blocks);
 	}
 
 	kfree(bme);
@@ -1125,8 +1147,10 @@ int incfs_process_new_data_block(struct data_file *df,
 			df->df_blockmap_off, flags);
 		mutex_unlock(&bfc->bc_mutex);
 	}
-	if (!error)
+	if (!error) {
 		notify_pending_reads(mi, segment, block->block_index);
+		atomic_inc(&df->df_data_blocks_written);
+	}
 
 	up_write(&segment->rwsem);
 
@@ -1206,6 +1230,9 @@ int incfs_process_new_hash_block(struct data_file *df,
 			hash_area_base, df->df_blockmap_off, df->df_size);
 		mutex_unlock(&bfc->bc_mutex);
 	}
+	if (!error)
+		atomic_inc(&df->df_hash_blocks_written);
+
 	return error;
 }
 
@@ -1303,6 +1330,26 @@ out:
 	return error;
 }
 
+static int process_status_md(struct incfs_status *is,
+			     struct metadata_handler *handler)
+{
+	struct data_file *df = handler->context;
+
+	df->df_initial_data_blocks_written =
+		le32_to_cpu(is->is_data_blocks_written);
+	atomic_set(&df->df_data_blocks_written,
+		   df->df_initial_data_blocks_written);
+
+	df->df_initial_hash_blocks_written =
+		le32_to_cpu(is->is_hash_blocks_written);
+	atomic_set(&df->df_hash_blocks_written,
+		   df->df_initial_hash_blocks_written);
+
+	df->df_status_offset = handler->md_record_offset;
+
+	return 0;
+}
+
 int incfs_scan_metadata_chain(struct data_file *df)
 {
 	struct metadata_handler *handler = NULL;
@@ -1330,6 +1377,7 @@ int incfs_scan_metadata_chain(struct data_file *df)
 	handler->context = df;
 	handler->handle_blockmap = process_blockmap_md;
 	handler->handle_signature = process_file_signature_md;
+	handler->handle_status = process_status_md;
 
 	while (handler->md_record_offset > 0) {
 		error = incfs_read_next_metadata_record(bfc, handler);

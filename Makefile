@@ -2,7 +2,7 @@
 VERSION = 5
 PATCHLEVEL = 9
 SUBLEVEL = 0
-EXTRAVERSION = -rc5
+EXTRAVERSION = -rc6
 NAME = Kleptomaniac Octopus
 
 # *DOCUMENTATION*
@@ -435,6 +435,7 @@ OBJDUMP		= llvm-objdump
 READELF		= llvm-readelf
 OBJSIZE		= llvm-size
 STRIP		= llvm-strip
+KBUILD_HOSTLDFLAGS	+= -fuse-ld=lld --rtlib=compiler-rt
 else
 CC		= $(CROSS_COMPILE)gcc
 LD		= $(CROSS_COMPILE)ld

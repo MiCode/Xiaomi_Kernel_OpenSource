@@ -205,15 +205,6 @@ static int append_md_to_backing_file(struct backing_file_context *bfc,
 	return result;
 }
 
-int incfs_write_file_header_flags(struct backing_file_context *bfc, u32 flags)
-{
-	if (!bfc)
-		return -EFAULT;
-
-	return write_to_bf(bfc, &flags, sizeof(flags),
-			   offsetof(struct incfs_file_header, fh_flags));
-}
-
 /*
  * Reserve 0-filled space for the blockmap body, and append
  * incfs_blockmap metadata record pointing to it.
@@ -314,6 +305,58 @@ err:
 		/* Error, rollback file changes */
 		truncate_backing_file(bfc, rollback_pos);
 	return result;
+}
+
+static int write_new_status_to_backing_file(struct backing_file_context *bfc,
+				       u32 data_blocks_written,
+				       u32 hash_blocks_written)
+{
+	int result;
+	loff_t rollback_pos;
+	struct incfs_status is = {
+		.is_header = {
+			.h_md_entry_type = INCFS_MD_STATUS,
+			.h_record_size = cpu_to_le16(sizeof(is)),
+		},
+		.is_data_blocks_written = cpu_to_le32(data_blocks_written),
+		.is_hash_blocks_written = cpu_to_le32(hash_blocks_written),
+	};
+
+	if (!bfc)
+		return -EFAULT;
+
+	LOCK_REQUIRED(bfc->bc_mutex);
+	rollback_pos = incfs_get_end_offset(bfc->bc_file);
+	result = append_md_to_backing_file(bfc, &is.is_header);
+	if (result)
+		truncate_backing_file(bfc, rollback_pos);
+
+	return result;
+}
+
+int incfs_write_status_to_backing_file(struct backing_file_context *bfc,
+				       loff_t status_offset,
+				       u32 data_blocks_written,
+				       u32 hash_blocks_written)
+{
+	struct incfs_status is;
+	int result;
+
+	if (status_offset == 0)
+		return write_new_status_to_backing_file(bfc,
+				data_blocks_written, hash_blocks_written);
+
+	result = incfs_kread(bfc->bc_file, &is, sizeof(is), status_offset);
+	if (result != sizeof(is))
+		return -EIO;
+
+	is.is_data_blocks_written = cpu_to_le32(data_blocks_written);
+	is.is_hash_blocks_written = cpu_to_le32(hash_blocks_written);
+	result = incfs_kwrite(bfc->bc_file, &is, sizeof(is), status_offset);
+	if (result != sizeof(is))
+		return -EIO;
+
+	return 0;
 }
 
 /*
@@ -626,10 +669,21 @@ int incfs_read_next_metadata_record(struct backing_file_context *bfc,
 			res = handler->handle_blockmap(
 				&handler->md_buffer.blockmap, handler);
 		break;
+	case INCFS_MD_FILE_ATTR:
+		/*
+		 * File attrs no longer supported, ignore section for
+		 * compatibility
+		 */
+		break;
 	case INCFS_MD_SIGNATURE:
 		if (handler->handle_signature)
 			res = handler->handle_signature(
 				&handler->md_buffer.signature, handler);
+		break;
+	case INCFS_MD_STATUS:
+		if (handler->handle_status)
+			res = handler->handle_status(
+				&handler->md_buffer.status, handler);
 		break;
 	default:
 		res = -ENOTSUPP;

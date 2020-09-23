@@ -117,11 +117,12 @@
 enum incfs_metadata_type {
 	INCFS_MD_NONE = 0,
 	INCFS_MD_BLOCK_MAP = 1,
-	INCFS_MD_SIGNATURE = 3
+	INCFS_MD_FILE_ATTR = 2,
+	INCFS_MD_SIGNATURE = 3,
+	INCFS_MD_STATUS = 4,
 };
 
 enum incfs_file_header_flags {
-	INCFS_FILE_COMPLETE = 1 << 0,
 	INCFS_FILE_MAPPED = 1 << 1,
 };
 
@@ -135,8 +136,17 @@ struct incfs_md_header {
 	 */
 	__le16 h_record_size;
 
+	/*
+	 * Was: CRC32 of the metadata record.
+	 * (e.g. inode, dir entry etc) not just this struct.
+	 */
+	__le32 h_unused1;
+
 	/* Offset of the next metadata entry if any */
 	__le64 h_next_md_offset;
+
+	/* Was: Offset of the previous metadata entry if any */
+	__le64 h_unused2;
 
 } __packed;
 
@@ -235,6 +245,16 @@ struct incfs_df_signature {
 	u64 hash_offset;
 };
 
+struct incfs_status {
+	struct incfs_md_header is_header;
+
+	__le32 is_data_blocks_written; /* Number of data blocks written */
+
+	__le32 is_hash_blocks_written; /* Number of hash blocks written */
+
+	__le32 is_dummy[6]; /* Spare fields */
+} __packed;
+
 /* State of the backing file. */
 struct backing_file_context {
 	/* Protects writes to bc_file */
@@ -259,11 +279,14 @@ struct metadata_handler {
 		struct incfs_md_header md_header;
 		struct incfs_blockmap blockmap;
 		struct incfs_file_signature signature;
+		struct incfs_status status;
 	} md_buffer;
 
 	int (*handle_blockmap)(struct incfs_blockmap *bm,
 			       struct metadata_handler *handler);
 	int (*handle_signature)(struct incfs_file_signature *sig,
+				 struct metadata_handler *handler);
+	int (*handle_status)(struct incfs_status *sig,
 				 struct metadata_handler *handler);
 };
 #define INCFS_MAX_METADATA_RECORD_SIZE \
@@ -301,7 +324,10 @@ int incfs_write_hash_block_to_backing_file(struct backing_file_context *bfc,
 int incfs_write_signature_to_backing_file(struct backing_file_context *bfc,
 					  struct mem_range sig, u32 tree_size);
 
-int incfs_write_file_header_flags(struct backing_file_context *bfc, u32 flags);
+int incfs_write_status_to_backing_file(struct backing_file_context *bfc,
+				       loff_t status_offset,
+				       u32 data_blocks_written,
+				       u32 hash_blocks_written);
 
 int incfs_make_empty_backing_file(struct backing_file_context *bfc,
 				  incfs_uuid_t *uuid, u64 file_size);
