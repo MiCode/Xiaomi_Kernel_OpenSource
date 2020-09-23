@@ -23,7 +23,6 @@ qcom-scm.ko
 qcom-pdc.ko
 iommu-logger.ko
 arm_smmu.ko
-msm_ion_heaps.ko
 msm_dma_iommu_mapping.ko
 qcom-arm-smmu-mod.ko
 msm-geni-se.ko
