@@ -30,10 +30,8 @@
 
 
 #define API_READY 0
-#if API_READY
 #if IS_ENABLED(CONFIG_MTK_GPU_SUPPORT)
 #include "ged_kpi.h"
-#endif
 #endif
 
 #define mtk_fstb_dprintk_always(fmt, args...) \
@@ -1326,12 +1324,10 @@ static void fstb_fps_stats(struct work_struct *work)
 			fpsgo_systrace_c_fstb(iter->pid, iter->bufid,
 				iter->target_fps_margin_dbnc_b,
 				"target_fps_margin_dbnc_b");
-
-#if API_READY
+#if defined(CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT)
 			ged_kpi_set_target_FPS_margin(iter->bufid,
 			iter->target_fps, iter->target_fps_margin);
 #endif
-
 			mtk_fstb_dprintk(
 			"%s pid:%d target_fps:%d\n",
 			__func__, iter->pid,
@@ -1897,11 +1893,9 @@ static KOBJ_ATTR_RO(fpsgo_status);
 int mtk_fstb_init(void)
 {
 	mtk_fstb_dprintk_always("init\n");
-
-#if API_READY
+#if defined(CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT)
 	ged_kpi_output_gfx_info2_fp = gpu_time_update;
 #endif
-
 
 	if (!fpsgo_sysfs_create_dir(NULL, "fstb", &fstb_kobj)) {
 		fpsgo_sysfs_create_file(fstb_kobj,
