@@ -21,6 +21,10 @@ on the Qualcomm ADSP Hexagon core.
 		    "qcom,sm8150-cdsp-pas"
 		    "qcom,sm8150-mpss-pas"
 		    "qcom,sm8150-slpi-pas"
+		    "qcom,waipio-adsp-pas"
+		    "qcom,waipio-cdsp-pas"
+		    "qcom,waipio-slpi-pas"
+		    "qcom,waipio-modem-pas"
 
 - interrupts-extended:
 	Usage: required
