@@ -377,7 +377,6 @@ static void lookup_tracepoints(struct tracepoint *tp, void *ignore)
 int cmd_hist_enable(void)
 {
 	unsigned long flags;
-	int ret = 0;
 
 	spin_lock_irqsave(&cmd_hist_lock, flags);
 	if (!cmd_hist) {
