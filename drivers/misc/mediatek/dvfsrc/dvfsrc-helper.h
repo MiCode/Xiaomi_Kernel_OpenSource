@@ -47,11 +47,13 @@ struct dvfsrc_config {
 	char *(*dump_reg)(struct mtk_dvfsrc *dvfsrc, char *p, u32 size);
 	char *(*dump_record)(struct mtk_dvfsrc *dvfsrc, char *p, u32 size);
 	char *(*dump_spm_info)(struct mtk_dvfsrc *dvfsrc, char *p, u32 size);
+	char *(*dump_vmode_info)(struct mtk_dvfsrc *dvfsrc, char *p, u32 size);
 	int (*query_request)(struct mtk_dvfsrc *dvfsrc, u32 id);
 };
 
 struct dvfsrc_debug_data {
 	u32 num_opp_desc;
+	u32 version;
 	struct dvfsrc_opp_desc *opps_desc;
 	const struct dvfsrc_config *config;
 };

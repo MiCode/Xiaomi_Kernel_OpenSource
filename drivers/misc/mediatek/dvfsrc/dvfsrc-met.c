@@ -187,13 +187,49 @@ static void dvfsrc_met_unregister_sysfs(struct device *dev)
 
 static const struct dvfsrc_met_data mt6873_data = {
 	.met = &mt6873_met_config,
+	.version = 0x6873,
 };
+
+static const struct dvfsrc_met_data mt6853_data = {
+	.met = &mt6873_met_config,
+	.version = 0x6853,
+};
+
+static const struct dvfsrc_met_data mt6885_data = {
+	.met = &mt6873_met_config,
+	.version = 0x6885,
+};
+
+static const struct dvfsrc_met_data mt6893_data = {
+	.met = &mt6873_met_config,
+	.version = 0x6893,
+};
+
+static const struct dvfsrc_met_data mt6833_data = {
+	.met = &mt6873_met_config,
+	.version = 0x6833,
+};
+
+
+
 
 static const struct of_device_id dvfsrc_met_of_match[] = {
 #if IS_ENABLED(CONFIG_MTK_DVFSRC_MET_MT6873)
 	{
 		.compatible = "mediatek,mt6873-dvfsrc",
 		.data = &mt6873_data,
+	}, {
+		.compatible = "mediatek,mt6853-dvfsrc",
+		.data = &mt6853_data,
+	}, {
+		.compatible = "mediatek,mt6885-dvfsrc",
+		.data = &mt6885_data,
+	}, {
+		.compatible = "mediatek,mt6893-dvfsrc",
+		.data = &mt6893_data,
+	}, {
+		.compatible = "mediatek,mt6833-dvfsrc",
+		.data = &mt6833_data,
 	},
 #endif
 	{

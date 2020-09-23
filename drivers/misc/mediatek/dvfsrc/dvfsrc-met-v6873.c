@@ -139,6 +139,82 @@ static u32 dvfsrc_get_current_level(struct mtk_dvfsrc_met *dvfsrc)
 	return dvfsrc_met_read(dvfsrc, DVFSRC_CURRENT_LEVEL);
 }
 
+static u32 dvfsrc_mt6873_ddr_qos(u32 qos_bw)
+{
+	if (qos_bw < 0x19)
+		return 0;
+	else if (qos_bw < 0x26)
+		return 1;
+	else if (qos_bw < 0x33)
+		return 2;
+	else if (qos_bw < 0x3B)
+		return 3;
+	else if (qos_bw < 0x4C)
+		return 4;
+	else if (qos_bw < 0x66)
+		return 5;
+	else
+		return 6;
+}
+
+static u32 dvfsrc_mt6885_ddr_qos(u32 qos_bw)
+{
+	if (qos_bw < 0x33)
+		return 0;
+	else if (qos_bw < 0x4C)
+		return 1;
+	else if (qos_bw < 0x62)
+		return 2;
+	else if (qos_bw < 0x77)
+		return 3;
+	else if (qos_bw < 0x99)
+		return 4;
+	else if (qos_bw < 0xCC)
+		return 5;
+	else
+		return 6;
+}
+
+static u32 dvfsrc_mt6893_ddr_qos(u32 qos_bw)
+{
+	if (qos_bw < 0x33)
+		return 0;
+	else if (qos_bw < 0x4C)
+		return 1;
+	else if (qos_bw < 0x62)
+		return 2;
+	else if (qos_bw < 0x77)
+		return 3;
+	else if (qos_bw < 0x99)
+		return 4;
+	else if (qos_bw < 0xCC)
+		return 5;
+	else if (qos_bw < 0xEE)
+		return 6;
+	else
+		return 7;
+}
+
+static u32 dvfsrc_mt6833_ddr_qos(u32 qos_bw)
+{
+	if (qos_bw < 0xC)
+		return 0;
+	else if (qos_bw < 0x19)
+		return 1;
+	else if (qos_bw < 0x26)
+		return 2;
+	else if (qos_bw < 0x33)
+		return 3;
+	else if (qos_bw < 0x3B)
+		return 4;
+	else if (qos_bw < 0x4C)
+		return 5;
+	else if (qos_bw < 0x66)
+		return 6;
+	else
+		return 7;
+}
+
 static u32 dvfsrc_ddr_qos(struct mtk_dvfsrc_met *dvfs)
 {
 	u32 qos_total_bw = dvfsrc_met_read(dvfs, DVFSRC_SW_BW_0) +
@@ -150,29 +226,45 @@ static u32 dvfsrc_ddr_qos(struct mtk_dvfsrc_met *dvfs)
 
 	qos_total_bw = max_t(u32, qos_total_bw, qos_peak_bw);
 
-	if (qos_total_bw < 0x19)
+	switch (dvfs->dvd->version) {
+	case 0x6873:
+		return dvfsrc_mt6873_ddr_qos(qos_total_bw);
+	case 0x6853:
+		return dvfsrc_mt6873_ddr_qos(qos_total_bw);
+	case 0x6885:
+		return dvfsrc_mt6885_ddr_qos(qos_total_bw);
+	case 0x6893:
+		return dvfsrc_mt6893_ddr_qos(qos_total_bw);
+	case 0x6833:
+		return dvfsrc_mt6833_ddr_qos(qos_total_bw);
+	default:
 		return 0;
-	else if (qos_total_bw < 0x26)
-		return 1;
-	else if (qos_total_bw < 0x33)
-		return 2;
-	else if (qos_total_bw < 0x3B)
-		return 3;
-	else if (qos_total_bw < 0x4C)
-		return 4;
-	else if (qos_total_bw < 0x66)
-		return 5;
-	else
-		return 6;
+	}
 }
 
 static int dvfsrc_emi_mon_gear(struct mtk_dvfsrc_met *dvfs)
 {
 	unsigned int total_bw_status;
 	int i;
+	u32 max_idx, level_mask;
 
-	total_bw_status = dvfsrc_met_read(dvfs, DVFSRC_DEBUG_STA_2) & 0x3F;
-	for (i = 5; i >= 0 ; i--) {
+	switch (dvfs->dvd->version) {
+	case 0x6893:
+	case 0x6833:
+		max_idx = 6;
+		level_mask = 0x7F;
+	break;
+	case 0x6873:
+	case 0x6853:
+	case 0x6885:
+	default:
+		max_idx = 5;
+		level_mask = 0x3F;
+	break;
+	}
+
+	total_bw_status = dvfsrc_met_read(dvfs, DVFSRC_DEBUG_STA_2) & level_mask;
+	for (i = max_idx; i >= 0 ; i--) {
 		if ((total_bw_status >> i) > 0)
 			return i + 1;
 	}
@@ -322,10 +414,24 @@ static int dvfsrc_get_ddr_ratio(struct mtk_dvfsrc_met *dvfs)
 
 	dram_opp = mtk_dvfsrc_query_opp_info(MTK_DVFSRC_CURR_DRAM_OPP);
 
-	if (dram_opp < 6)
-		return 8;
-	else
-		return 4;
+	switch (dvfs->dvd->version) {
+	case 0x6893:
+		if (dram_opp < 7)
+			return 8;
+		else
+			return 4;
+		break;
+	case 0x6873:
+	case 0x6853:
+	case 0x6885:
+	case 0x6833:
+	default:
+		if (dram_opp < 6)
+			return 8;
+		else
+			return 4;
+	break;
+	}
 }
 
 const struct dvfsrc_met_config mt6873_met_config = {

@@ -457,15 +457,148 @@ static struct dvfsrc_opp_desc dvfsrc_opp_mt6873_desc[] = {
 };
 
 static const struct dvfsrc_debug_data mt6873_data = {
+	.version = 0x6873,
 	.config = &mt6873_dvfsrc_config,
 	.opps_desc = dvfsrc_opp_mt6873_desc,
 	.num_opp_desc = ARRAY_SIZE(dvfsrc_opp_mt6873_desc),
+};
+
+static const struct dvfsrc_debug_data mt6853_data = {
+	.version = 0x6853,
+	.config = &mt6873_dvfsrc_config,
+	.opps_desc = dvfsrc_opp_mt6873_desc,
+	.num_opp_desc = ARRAY_SIZE(dvfsrc_opp_mt6873_desc),
+};
+
+static struct dvfsrc_opp dvfsrc_opp_mt6885_lp4[] = {
+	{0, 0, 0, 0},
+	{1, 0, 0, 0},
+	{2, 0, 0, 0},
+	{3, 0, 0, 0},
+	{0, 1, 0, 0},
+	{1, 1, 0, 0},
+	{2, 1, 0, 0},
+	{3, 1, 0, 0},
+	{0, 2, 0, 0},
+	{1, 2, 0, 0},
+	{2, 2, 0, 0},
+	{3, 2, 0, 0},
+	{0, 3, 0, 0},
+	{1, 3, 0, 0},
+	{2, 3, 0, 0},
+	{3, 3, 0, 0},
+	{1, 4, 0, 0},
+	{2, 4, 0, 0},
+	{3, 4, 0, 0},
+	{2, 5, 0, 0},
+	{3, 5, 0, 0},
+	{3, 6, 0, 0},
+};
+
+static struct dvfsrc_opp_desc dvfsrc_opp_mt6885_desc[] = {
+	MT_DVFSRC_OPP(4, 7, dvfsrc_opp_mt6885_lp4),
+};
+
+static const struct dvfsrc_debug_data mt6885_data = {
+	.version = 0x6885,
+	.config = &mt6873_dvfsrc_config,
+	.opps_desc = dvfsrc_opp_mt6885_desc,
+	.num_opp_desc = ARRAY_SIZE(dvfsrc_opp_mt6885_desc),
+};
+
+static struct dvfsrc_opp dvfsrc_opp_mt6893_lp4[] = {
+	{0, 0, 0, 0},
+	{1, 0, 0, 0},
+	{2, 0, 0, 0},
+	{3, 0, 0, 0},
+	{0, 1, 0, 0},
+	{1, 1, 0, 0},
+	{2, 1, 0, 0},
+	{3, 1, 0, 0},
+	{0, 2, 0, 0},
+	{1, 2, 0, 0},
+	{2, 2, 0, 0},
+	{3, 2, 0, 0},
+	{0, 3, 0, 0},
+	{1, 3, 0, 0},
+	{2, 3, 0, 0},
+	{3, 3, 0, 0},
+	{1, 4, 0, 0},
+	{2, 4, 0, 0},
+	{3, 4, 0, 0},
+	{2, 5, 0, 0},
+	{3, 5, 0, 0},
+	{3, 6, 0, 0},
+	{4, 6, 0, 0},
+	{4, 7, 0, 0},
+};
+
+static struct dvfsrc_opp_desc dvfsrc_opp_mt6893_desc[] = {
+	MT_DVFSRC_OPP(5, 8, dvfsrc_opp_mt6893_lp4),
+};
+
+static const struct dvfsrc_debug_data mt6893_data = {
+	.version = 0x6893,
+	.config = &mt6873_dvfsrc_config,
+	.opps_desc = dvfsrc_opp_mt6893_desc,
+	.num_opp_desc = ARRAY_SIZE(dvfsrc_opp_mt6893_desc),
+};
+
+static struct dvfsrc_opp dvfsrc_opp_mt6833_lp4[] = {
+	{0, 0, 0, 0},
+	{1, 0, 0, 0},
+	{2, 0, 0, 0},
+	{3, 0, 0, 0},
+	{0, 1, 0, 0},
+	{1, 1, 0, 0},
+	{2, 1, 0, 0},
+	{3, 1, 0, 0},
+	{0, 2, 0, 0},
+	{1, 2, 0, 0},
+	{2, 2, 0, 0},
+	{3, 2, 0, 0},
+	{0, 3, 0, 0},
+	{1, 3, 0, 0},
+	{2, 3, 0, 0},
+	{3, 3, 0, 0},
+	{1, 4, 0, 0},
+	{2, 4, 0, 0},
+	{3, 4, 0, 0},
+	{1, 5, 0, 0},
+	{2, 5, 0, 0},
+	{3, 5, 0, 0},
+	{2, 6, 0, 0},
+	{3, 6, 0, 0},
+	{3, 7, 0, 0},
+};
+
+static struct dvfsrc_opp_desc dvfsrc_opp_mt6833_desc[] = {
+	MT_DVFSRC_OPP(4, 8, dvfsrc_opp_mt6833_lp4),
+};
+
+static const struct dvfsrc_debug_data mt6833_data = {
+	.version = 0x6833,
+	.config = &mt6873_dvfsrc_config,
+	.opps_desc = dvfsrc_opp_mt6833_desc,
+	.num_opp_desc = ARRAY_SIZE(dvfsrc_opp_mt6833_desc),
 };
 
 static const struct of_device_id dvfsrc_helper_of_match[] = {
 	{
 		.compatible = "mediatek,mt6873-dvfsrc",
 		.data = &mt6873_data,
+	}, {
+		.compatible = "mediatek,mt6853-dvfsrc",
+		.data = &mt6853_data,
+	}, {
+		.compatible = "mediatek,mt6885-dvfsrc",
+		.data = &mt6885_data,
+	}, {
+		.compatible = "mediatek,mt6893-dvfsrc",
+		.data = &mt6893_data,
+	}, {
+		.compatible = "mediatek,mt6833-dvfsrc",
+		.data = &mt6833_data,
 	}, {
 		/* sentinel */
 	},
