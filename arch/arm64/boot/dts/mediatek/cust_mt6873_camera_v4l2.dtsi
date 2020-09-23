@@ -476,9 +476,9 @@
 	};
 };
 &i2c8 {
-	camera_main_af_mtk:camera_main_af@72 {
+	camera_main_af_mtk:camera_main_af@74 {
 		compatible = "mediatek,camera_main_af";
-		reg = <0x72>;
+		reg = <0x74>;
 		status = "okay";
 	};
 };
@@ -489,6 +489,27 @@
 		status = "okay";
 	};
 };
+
+&i2c8 {
+	camera_af_main@72 {
+		compatible = "mediatek,lc898229";
+		reg = <0x72>;
+		port {
+			main_af: endpoint {
+				remote-endpoint = <&main_af_endpoint>;
+			};
+		};
+	};
+};
+
+&mtk_composite_v4l2_2 {
+	port@0 {
+		main_af_endpoint: endpoint {
+			remote-endpoint = <&main_af>;
+		};
+	};
+};
+
 /* CAMERA AF end */
 
 &i2c8 {

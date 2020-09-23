@@ -4149,6 +4149,10 @@
 			compatible = "mediatek,mtk_composite_v4l2_1";
 		};
 
+		mtk_composite_v4l2_2: mtk_composite_v4l2_2 {
+			compatible = "mediatek,mtk_composite_v4l2_2";
+		};
+
 		larb13: larb@1a001000 {
 			compatible = "mediatek,mt6873-smi-larb";
 			mediatek,smi = <&smi_common>;
