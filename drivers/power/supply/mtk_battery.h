@@ -840,6 +840,7 @@ struct mtk_battery {
 	int bat_tmp_c_lt;
 	int bat_tmp_int_ht;
 	int bat_tmp_int_lt;
+	int cur_bat_temp;
 
 	/*nafg monitor */
 	int last_nafg_cnt;
