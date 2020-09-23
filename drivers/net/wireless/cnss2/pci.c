@@ -366,7 +366,8 @@ int cnss_pci_check_link_status(struct cnss_pci_data *pci_priv)
 	u16 device_id;
 
 	if (pci_priv->pci_link_state == PCI_LINK_DOWN) {
-		cnss_pr_dbg("%ps: PCIe link is suspended\n", (void *)_RET_IP_);
+		cnss_pr_dbg("%ps: PCIe link is in suspend state\n",
+			    (void *)_RET_IP_);
 		return -EIO;
 	}
 
@@ -821,7 +822,7 @@ int cnss_pci_prevent_l1(struct device *dev)
 	}
 
 	if (pci_priv->pci_link_state == PCI_LINK_DOWN) {
-		cnss_pr_dbg("PCIe link is suspended\n");
+		cnss_pr_dbg("PCIe link is in suspend state\n");
 		return -EIO;
 	}
 
@@ -845,7 +846,7 @@ void cnss_pci_allow_l1(struct device *dev)
 	}
 
 	if (pci_priv->pci_link_state == PCI_LINK_DOWN) {
-		cnss_pr_dbg("PCIe link is suspended\n");
+		cnss_pr_dbg("PCIe link is in suspend state\n");
 		return;
 	}
 
@@ -2417,6 +2418,7 @@ static void cnss_pci_event_cb(struct msm_pcie_notify *notify)
 
 	switch (notify->event) {
 	case MSM_PCIE_EVENT_LINKDOWN:
+		cnss_pr_dbg("PCI link down event callback\n");
 		cnss_pci_handle_linkdown(pci_priv);
 		break;
 	case MSM_PCIE_EVENT_WAKEUP:
