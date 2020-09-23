@@ -12,6 +12,7 @@ COM_TOP = $(FPSGO_TOP)/composer
 ccflags-y += \
         -I$(srctree)/include/ \
         -I$(srctree)/drivers/gpu/drm/mediatek/mediatek_v2/ \
+        -I$(srctree)/drivers/gpu/mediatek/ged/include/ \
         -I$(BASE_TOP)/include/ \
         -I$(FBT_TOP)/include/ \
         -I$(FSTB_TOP)/ \
@@ -21,6 +22,7 @@ ccflags-y += \
 subdir-ccflags-y += \
         -I$(srctree)/include/ \
         -I$(srctree)/drivers/gpu/drm/mediatek/mediatek_v2/ \
+        -I$(srctree)/drivers/gpu/mediatek/ged/include/ \
         -I$(BASE_TOP)/include/ \
         -I$(FBT_TOP)/include/ \
         -I$(FSTB_TOP)/ \
