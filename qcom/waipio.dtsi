@@ -32,17 +32,17 @@
 		#address-cells = <2>;
 		#size-cells = <0>;
 
-		CPU0: cpu@400 {
+		CPU0: cpu@0 {
 			device_type = "cpu";
 			compatible = "qcom,kryo";
-			reg = <0x0 0x400>;
+			reg = <0x0 0x0>;
 			enable-method = "spin-table"; /* TODO: Update to psci */
 			cpu-release-addr = <0x0 0x90000000>;
-			next-level-cache = <&L2_4>;
-			cpu-idle-states = <&GOLD_OFF>;
-			power-domains = <&CPU_PD4>;
+			next-level-cache = <&L2_0>;
+			cpu-idle-states = <&SILVER_OFF>;
+			power-domains = <&CPU_PD0>;
 			power-domain-names = "psci";
-			L2_4: l2-cache {
+			L2_0: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-level = <2>;
 			      next-level-cache = <&L3_0>;
@@ -54,7 +54,66 @@
 			};
 		};
 
-		CPU1: cpu@500 {
+		CPU1: cpu@100 {
+			device_type = "cpu";
+			compatible = "qcom,kryo";
+			reg = <0x0 0x100>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0x0 0x90000000>;
+			next-level-cache = <&L2_0>;
+			cpu-idle-states = <&SILVER_OFF>;
+			power-domains = <&CPU_PD1>;
+			power-domain-names = "psci";
+		};
+
+		CPU2: cpu@200 {
+			device_type = "cpu";
+			compatible = "qcom,kryo";
+			reg = <0x0 0x200>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0x0 0x90000000>;
+			next-level-cache = <&L2_2>;
+			cpu-idle-states = <&SILVER_OFF>;
+			power-domains = <&CPU_PD2>;
+			power-domain-names = "psci";
+			L2_2: l2-cache {
+			      compatible = "arm,arch-cache";
+			      cache-level = <2>;
+			      next-level-cache = <&L3_0>;
+			};
+		};
+
+		CPU3: cpu@300 {
+			device_type = "cpu";
+			compatible = "qcom,kryo";
+			reg = <0x0 0x300>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0x0 0x90000000>;
+			next-level-cache = <&L2_2>;
+			cpu-idle-states = <&SILVER_OFF>;
+			power-domains = <&CPU_PD3>;
+			power-domain-names = "psci";
+		};
+
+		CPU4: cpu@400 {
+			device_type = "cpu";
+			compatible = "qcom,kryo";
+			reg = <0x0 0x400>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0x0 0x90000000>;
+			next-level-cache = <&L2_4>;
+			cpu-idle-states = <&GOLD_OFF>;
+			power-domains = <&CPU_PD4>;
+			power-domain-names = "psci";
+			L2_4: l2-cache {
+			      compatible = "arm,arch-cache";
+			      cache-level = <2>;
+			      next-level-cache = <&L3_0>;
+
+			};
+		};
+
+		CPU5: cpu@500 {
 			device_type = "cpu";
 			compatible = "qcom,kryo";
 			reg = <0x0 0x500>;
@@ -71,7 +130,7 @@
 			};
 		};
 
-		CPU2: cpu@600 {
+		CPU6: cpu@600 {
 			device_type = "cpu";
 			compatible = "qcom,kryo";
 			reg = <0x0 0x600>;
@@ -88,7 +147,7 @@
 			};
 		};
 
-		CPU3: cpu@700 {
+		CPU7: cpu@700 {
 			device_type = "cpu";
 			compatible = "qcom,kryo";
 			reg = <0x0 0x700>;
@@ -119,13 +178,29 @@
 					cpu = <&CPU2>;
 				};
 
+				core3 {
+					cpu = <&CPU3>;
+				};
 			};
 
 			cluster1 {
 				core0 {
-					cpu = <&CPU3>;
+					cpu = <&CPU4>;
 				};
 
+				core1 {
+					cpu = <&CPU5>;
+				};
+
+				core2 {
+					cpu = <&CPU6>;
+				};
+			};
+
+			cluster2 {
+				core0 {
+					cpu = <&CPU7>;
+				};
 			};
 		};
 	};
