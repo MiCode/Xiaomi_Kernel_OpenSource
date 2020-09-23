@@ -2,6 +2,4 @@
 # Makefile for misc devices that really don't fit anywhere else.
 #
 
-obj-y   += media/
-obj-y   += dw9718/
-obj-y   += lc898229/
+obj-$(CONFIG_MTK_V4L2_LENS) += lc898229.o
