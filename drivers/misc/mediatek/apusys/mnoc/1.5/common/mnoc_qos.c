@@ -43,15 +43,34 @@ static struct engine_pm_qos_counter engine_pm_qos_counter[NR_APU_QOS_ENGINE];
 #define APUSYS_QOSBOUND_START (QOS_SMIBM_VPU0)
 #define get_qosbound_enum(x) (APUSYS_QOSBOUND_START + x)
 
-#if APU_QOS_IPUIF_ADJUST
-#if IS_ENABLED(CONFIG_MACH_MT6873)
+
+#if MNOC_QOS_BOOST_ENABLE || MNOC_QOS_BOOST_ENABLE
 #define NR_APU_VCORE_OPP (4)
+unsigned int apu_bw_vcore_opp;
+#endif
+
+
+#if MNOC_QOS_BOOST_ENABLE
+#if IS_ENABLED(CONFIG_MACH_MT6873)
 static unsigned int apu_vcore_bw_opp_tab[NR_APU_VCORE_OPP] = {
 	10200, /* 4266 Mhz -> 0.725v */
 	7600,  /* 3200 Mhz -> 0.65v */
 	5120,  /* 1866 Mhz -> 0.6v */
 	0,     /* 800~1600 Mhz -> 0.575v */
 };
+#endif /* CONFIG_MACH_MT6873 */
+#if IS_ENABLED(CONFIG_MACH_MT6885)
+static unsigned int apu_vcore_bw_opp_tab[NR_APU_VCORE_OPP] = {
+	20400, /* 3733 Mhz -> 0.725v */
+	15300, /* 3068 Mhz -> 0.65v */
+	11900, /* 2366 Mhz -> 0.6v */
+	0,     /* 800~1866 Mhz -> 0.575v */
+};
+#endif /* CONFIG_MACH_MT6885 */
+#endif /* MNOC_QOS_BOOST_ENABLE */
+
+#if MNOC_QOS_BOOST_ENABLE
+#if IS_ENABLED(CONFIG_MACH_MT6873)
 enum DVFS_VOLTAGE vcore_opp_map[NR_APU_VCORE_OPP] = {
 	DVFS_VOLT_00_725000_V,	// VCORE_OPP_0
 	DVFS_VOLT_00_650000_V,	// VCORE_OPP_1
@@ -60,13 +79,6 @@ enum DVFS_VOLTAGE vcore_opp_map[NR_APU_VCORE_OPP] = {
 };
 #endif /* CONFIG_MACH_MT6873 */
 #if IS_ENABLED(CONFIG_MACH_MT6885)
-#define NR_APU_VCORE_OPP (4)
-static unsigned int apu_vcore_bw_opp_tab[NR_APU_VCORE_OPP] = {
-	20400, /* 3733 Mhz -> 0.725v */
-	15300, /* 3068 Mhz -> 0.65v */
-	11900, /* 2366 Mhz -> 0.6v */
-	0,     /* 800~1866 Mhz -> 0.575v */
-};
 enum DVFS_VOLTAGE vcore_opp_map[NR_APU_VCORE_OPP] = {
 	DVFS_VOLT_00_725000_V,	// VCORE_OPP_0
 	DVFS_VOLT_00_650000_V,	// VCORE_OPP_1
@@ -74,8 +86,8 @@ enum DVFS_VOLTAGE vcore_opp_map[NR_APU_VCORE_OPP] = {
 	DVFS_VOLT_00_575000_V   // VCORE_OPP_3
 };
 #endif /* CONFIG_MACH_MT6885 */
-unsigned int apu_bw_vcore_opp;
 #endif /* APU_QOS_IPUIF_ADJUST */
+
 
 enum apu_qos_cmd_status {
 	CMD_RUNNING,
