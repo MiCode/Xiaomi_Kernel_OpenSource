@@ -6603,11 +6603,15 @@ static int msm_pcie_drv_resume(struct msm_pcie_dev_t *pcie_dev)
 
 	msm_pcie_vreg_init(pcie_dev);
 
+	PCIE_DBG(pcie_dev, "PCIe: RC%d:enable gdsc\n", pcie_dev->rc_idx);
+
 	ret = regulator_enable(pcie_dev->gdsc);
 	if (ret)
 		PCIE_ERR(pcie_dev,
 			"PCIe: RC%d: failed to enable GDSC: ret %d\n",
 			pcie_dev->rc_idx, ret);
+
+	PCIE_DBG(pcie_dev, "PCIe: RC%d:set ICC path vote\n", pcie_dev->rc_idx);
 
 	if (pcie_dev->icc_path) {
 		ret = icc_set_bw(pcie_dev->icc_path, ICC_AVG_BW, ICC_PEAK_BW);
@@ -6617,11 +6621,23 @@ static int msm_pcie_drv_resume(struct msm_pcie_dev_t *pcie_dev)
 				pcie_dev->rc_idx, ret);
 	}
 
+	PCIE_DBG(pcie_dev, "PCIe: RC%d:turn on unsuppressible clks\n",
+		pcie_dev->rc_idx);
+
 	/* turn on all unsuppressible clocks */
 	clk_info = pcie_dev->clk;
-	for (i = 0; i < MSM_PCIE_MAX_CLK; i++, clk_info++)
-		if (clk_info->hdl && !clk_info->suppressible)
-			clk_prepare_enable(clk_info->hdl);
+	for (i = 0; i < MSM_PCIE_MAX_CLK; i++, clk_info++) {
+		if (clk_info->hdl && !clk_info->suppressible) {
+			ret = clk_prepare_enable(clk_info->hdl);
+			if (ret)
+				PCIE_DBG(pcie_dev,
+				"PCIe: RC%d:clk_prepare_enable failed for %s\n",
+				pcie_dev->rc_idx, clk_info->name);
+		}
+	}
+
+	PCIE_DBG(pcie_dev, "PCIe: RC%d:turn on unsuppressible clks Done.\n",
+		pcie_dev->rc_idx);
 
 	clkreq_override_en = readl_relaxed(pcie_dev->parf +
 				PCIE20_PARF_CLKREQ_OVERRIDE) &
@@ -6656,10 +6672,22 @@ static int msm_pcie_drv_resume(struct msm_pcie_dev_t *pcie_dev)
 		}
 	}
 
+	PCIE_DBG(pcie_dev, "PCIe: RC%d:turn on pipe clk\n",
+		pcie_dev->rc_idx);
+
 	clk_info = pcie_dev->pipeclk;
-	for (i = 0; i < MSM_PCIE_MAX_PIPE_CLK; i++, clk_info++)
-		if (clk_info->hdl && !clk_info->suppressible)
-			clk_prepare_enable(clk_info->hdl);
+	for (i = 0; i < MSM_PCIE_MAX_PIPE_CLK; i++, clk_info++) {
+		if (clk_info->hdl && !clk_info->suppressible) {
+			ret = clk_prepare_enable(clk_info->hdl);
+			if (ret)
+				PCIE_DBG(pcie_dev,
+				"PCIe: RC%d:clk_prepare_enable failed for %s\n",
+				pcie_dev->rc_idx, clk_info->name);
+		}
+	}
+
+	PCIE_DBG(pcie_dev, "PCIe: RC%d:turn on pipe clk, Done\n",
+		pcie_dev->rc_idx);
 
 	if (clkreq_override_en) {
 		/* remove CLKREQ override */
