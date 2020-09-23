@@ -13,31 +13,11 @@
 
 # driver code for MDP
 
-
-#ccflags-$(CONFIG_MACH_MT6768) += -DCMDQ_MDP_ENABLE_SPR
-#ccflags-$(CONFIG_MACH_MT6885) += -DCMDQ_MDP_ENABLE_SPR
-#ccflags-$(CONFIG_MACH_MT6885) += -DMDP_MMPATH
-#ccflags-$(CONFIG_MACH_MT6893) += -DCMDQ_MDP_ENABLE_SPR
-#ccflags-$(CONFIG_MACH_MT6893) += -DMDP_MMPATH
-ccflags-$(CONFIG_MTK_MDP_MT6873) += -DCMDQ_MDP_ENABLE_SPR
-ccflags-$(CONFIG_MTK_MDP_MT6873) += -DMDP_MMPATH
-#ccflags-$(CONFIG_MACH_MT6853) += -DCMDQ_MDP_ENABLE_SPR
-#ccflags-$(CONFIG_MACH_MT6853) += -DMDP_MMPATH
-
-ifeq ($(CONFIG_MACH_MT6785),y)
-ccflags-y += -DMDP_MMPATH
-ccflags-y += -DCMDQ_MDP_ENABLE_SPR
-ccflags-$(CONFIG_MTK_DEVAPC) += -DMDP_DEVAPC
-endif
-
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/ \
              -I$(srctree)/drivers/misc/mediatek/mmdvfs/ \
              -I$(srctree)/drivers/misc/mediatek/include/ \
              -I$(srctree)/drivers/misc/mediatek/mmp/ \
-             -I$(srctree)/drivers/misc/mediatek/mach/$(MTK_PLATFORM)/include \
              -I$(srctree)/drivers/iommu
-
-ccflags-$(CONFIG_MTK_MDP_MT6873) += -I$(srctree)/drivers/misc/mediatek/mdp/mt6873
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/mailbox/
 
@@ -76,17 +56,17 @@ endif
 # driver module
 obj-$(CONFIG_MTK_MDP) += mdp_drv.o
 mdp_drv-y := mdp_driver.o \
-				mdp_ioctl_ex.o
+	mdp_ioctl_ex.o
 
 obj-$(CONFIG_MTK_MDP) += mdp_core.o
 mdp_core-y := mdp_common.o \
-				cmdq_record.o \
-				cmdq_virtual.o \
-				cmdq_device.o \
-				mdp_event_common.o \
-				cmdq_subsys_common.o \
-				cmdq_helper_ext.o \
-				cmdq_mmp.o
+	cmdq_record.o \
+	cmdq_virtual.o \
+	cmdq_device.o \
+	mdp_event_common.o \
+	cmdq_subsys_common.o \
+	cmdq_helper_ext.o \
+	cmdq_mmp.o
 
 mdp_core-$(CONFIG_MTK_MDP_MT6873) += mdp_mt6873.o
 #obj-y += cmdq_prof.o
@@ -94,10 +74,6 @@ mdp_core-$(CONFIG_MTK_MDP_MT6873) += mdp_mt6873.o
 
 #ifeq ($(strip $(CONFIG_MMPROFILE)),y)
 #obj-y += cmdq_mmp.o
-#endif
-
-#ifeq ($(platformdir_exists), y)
-#obj-y += $(subst ",,$(MTK_PLATFORM))/
 #endif
 
 # mdp_sw_sync

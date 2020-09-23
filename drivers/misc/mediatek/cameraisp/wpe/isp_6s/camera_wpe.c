@@ -5740,7 +5740,7 @@ static signed int __init WPE_Init(void)
 	/* Register WPE callback */
 #ifndef EP_CODE_MARK_CMDQ
 	LOG_INF("register wpe callback for CMDQ");
-	cmdqCoreRegisterCB(CMDQ_GROUP_WPE,
+	cmdqCoreRegisterCB(mdp_get_group_wpe(),
 			   WPE_ClockOnCallback,
 			   WPE_DumpCallback,
 			   WPE_ResetCallback,
@@ -5765,7 +5765,7 @@ static void __exit WPE_Exit(void)
 	/* Cmdq */
 	/* Unregister WPE callback */
 #ifndef EP_CODE_MARK_CMDQ
-	cmdqCoreRegisterCB(CMDQ_GROUP_WPE, NULL, NULL, NULL, NULL);
+	cmdqCoreRegisterCB(mdp_get_group_wpe(), NULL, NULL, NULL, NULL);
 #endif
 
 	kfree(pLog_kmalloc);

@@ -260,73 +260,6 @@ bool cmdq_virtual_is_disp_loop(enum CMDQ_SCENARIO_ENUM scenario)
 	return is_disp_loop;
 }
 
-/**
- * Module dependent
- *
- */
-void cmdq_virtual_get_reg_id_from_hwflag(u64 hwflag,
-	enum cmdq_gpr_reg *valueRegId,
-	enum cmdq_gpr_reg *destRegId,
-	enum cmdq_event *regAccessToken)
-{
-	*regAccessToken = CMDQ_SYNC_TOKEN_INVALID;
-
-	if (hwflag & (1LL << CMDQ_ENG_MDP_TDSHP0)) {
-		*valueRegId = CMDQ_DATA_REG_2D_SHARPNESS_0;
-		*destRegId = CMDQ_DATA_REG_2D_SHARPNESS_0_DST;
-		*regAccessToken = CMDQ_SYNC_TOKEN_GPR_SET_1;
-	} else if (hwflag & (1LL << CMDQ_ENG_MDP_TDSHP1)) {
-		*valueRegId = CMDQ_DATA_REG_2D_SHARPNESS_1;
-		*destRegId = CMDQ_DATA_REG_2D_SHARPNESS_1_DST;
-		*regAccessToken = CMDQ_SYNC_TOKEN_GPR_SET_2;
-	} else {
-		/* assume others are debug cases */
-		*valueRegId = CMDQ_DATA_REG_DEBUG;
-		*destRegId = CMDQ_DATA_REG_DEBUG_DST;
-		*regAccessToken = CMDQ_SYNC_TOKEN_GPR_SET_4;
-	}
-}
-
-const char *cmdq_virtual_module_from_event_id(const s32 event,
-	struct CmdqCBkStruct *groupCallback, u64 engineFlag)
-{
-	const char *module = "CMDQ";
-	enum CMDQ_GROUP_ENUM group = CMDQ_MAX_GROUP_COUNT;
-
-	switch (event) {
-	case CMDQ_EVENT_MDP_RDMA0_SOF ... CMDQ_EVENT_MDP_WROT3_SOF:
-	case CMDQ_EVENT_MDP_RDMA0_EOF ... CMDQ_EVENT_MDP_WROT3_WRITE_EOF:
-	case CMDQ_EVENT_IMG_DL_RELAY_SOF ... CMDQ_EVENT_IMG_DL_RELAY3_SOF:
-		module = "MDP";
-		group = CMDQ_GROUP_MDP;
-		break;
-
-	case CMDQ_EVENT_ISP_PASS2_2_EOF ... CMDQ_EVENT_ISP_PASS2_0_EOF:
-	case CMDQ_EVENT_DIP_CQ_THREAD0_EOF ... CMDQ_EVENT_DIP_CQ_THREAD18_EOF:
-	case CMDQ_EVENT_IMG1_EVENT_TX_FRAME_DONE_0
-		... CMDQ_EVENT_IMG2_EVENT_TX_FRAME_DONE_23:
-		module = "DIP";
-		group = CMDQ_GROUP_ISP;
-		break;
-
-	case CMDQ_EVENT_WPE_A_EOF:
-	case CMDQ_EVENT_WPE_B_FRAME_DONE:
-		module = "WPE";
-		group = CMDQ_GROUP_WPE;
-		break;
-
-	default:
-		module = "CMDQ";
-		group = CMDQ_MAX_GROUP_COUNT;
-		break;
-	}
-
-	if (group < CMDQ_MAX_GROUP_COUNT && groupCallback[group].dispatchMod)
-		module = groupCallback[group].dispatchMod(engineFlag);
-
-	return module;
-}
-
 const char *cmdq_virtual_parse_module_from_reg_addr(u32 reg_addr)
 {
 	const u32 addr_base_and_page = (reg_addr & 0xFFFFF000);
@@ -380,41 +313,6 @@ const char *cmdq_virtual_parse_module_from_reg_addr(u32 reg_addr)
 	 */
 	return cmdq_core_parse_subsys_from_reg_addr(reg_addr);
 #endif
-}
-
-s32 cmdq_virtual_can_module_entry_suspend(struct EngineStruct *engineList)
-{
-	s32 status = 0;
-	int i;
-	enum CMDQ_ENG_ENUM e = 0;
-
-	u32 mdpEngines[] = {
-		CMDQ_ENG_ISP_IMGI,
-		CMDQ_ENG_MDP_RDMA0,
-		CMDQ_ENG_MDP_RDMA1,
-		CMDQ_ENG_MDP_RSZ0,
-		CMDQ_ENG_MDP_RSZ1,
-		CMDQ_ENG_MDP_RSZ2,
-		CMDQ_ENG_MDP_TDSHP0,
-		CMDQ_ENG_MDP_TDSHP1,
-		CMDQ_ENG_MDP_COLOR0,
-		CMDQ_ENG_MDP_WROT0,
-		CMDQ_ENG_MDP_WROT1,
-		CMDQ_ENG_MDP_WDMA,
-	};
-
-	for (i = 0; i < ARRAY_SIZE(mdpEngines); i++) {
-		e = mdpEngines[i];
-		if (engineList[e].userCount != 0) {
-			CMDQ_ERR(
-				"suspend but engine %d has userCount %d, owner=%d\n",
-				e, engineList[e].userCount,
-				engineList[e].currOwner);
-			status = -EBUSY;
-		}
-	}
-
-	return status;
 }
 
 ssize_t cmdq_virtual_print_status_clock(char *buf)
@@ -649,10 +547,7 @@ void cmdq_virtual_function_setting(void)
 	 * Module dependent
 	 *
 	 */
-	pFunc->getRegID = cmdq_virtual_get_reg_id_from_hwflag;
-	pFunc->moduleFromEvent = cmdq_virtual_module_from_event_id;
 	pFunc->parseModule = cmdq_virtual_parse_module_from_reg_addr;
-	pFunc->moduleEntrySuspend = cmdq_virtual_can_module_entry_suspend;
 	pFunc->printStatusClock = cmdq_virtual_print_status_clock;
 	pFunc->printStatusSeqClock = cmdq_virtual_print_status_seq_clock;
 	pFunc->enableGCEClockLocked = cmdq_virtual_enable_gce_clock_locked;

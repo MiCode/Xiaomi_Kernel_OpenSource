@@ -1270,11 +1270,11 @@ static int __init cmdq_init(void)
 	cmdq_mdp_platform_function_setting();
 
 	/* Register PMQoS */
-	cmdq_core_register_task_cycle_cb(CMDQ_GROUP_MDP,
+	cmdq_core_register_task_cycle_cb(cmdq_mdp_get_func()->getGroupMdp(),
 			cmdq_mdp_get_func()->beginTask,
 			cmdq_mdp_get_func()->endTask);
 
-	cmdq_core_register_task_cycle_cb(CMDQ_GROUP_ISP,
+	cmdq_core_register_task_cycle_cb(cmdq_mdp_get_func()->getGroupIsp(),
 			cmdq_mdp_get_func()->beginISPTask,
 			cmdq_mdp_get_func()->endISPTask);
 
@@ -1324,7 +1324,8 @@ static void __exit cmdq_exit(void)
 	}
 
 	/* Unregister MDP callback */
-	cmdqCoreRegisterCB(CMDQ_GROUP_MDP, NULL, NULL, NULL, NULL);
+	cmdqCoreRegisterCB(cmdq_mdp_get_func()->getGroupMdp(),
+		NULL, NULL, NULL, NULL);
 
 	/* De-Initialize group callback */
 	cmdq_core_deinit_group_cb();

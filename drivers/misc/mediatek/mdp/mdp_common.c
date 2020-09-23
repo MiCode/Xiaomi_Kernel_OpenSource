@@ -12,8 +12,6 @@
 #endif
 #ifdef MDP_COMMON_ENG_SUPPORT
 #include "mdp_engine_common.h"
-#else
-#include "mdp_engine_mt6873.h"
 #endif
 
 #include <linux/slab.h>
@@ -153,23 +151,6 @@ static DEFINE_MUTEX(mdp_resource_mutex);
 static wait_queue_head_t mdp_thread_dispatch;
 
 static struct notifier_block mdp_status_dump_notify;
-
-/* use to generate [CMDQ_ENGINE_ENUM_id and name] mapping for status print */
-#define CMDQ_FOREACH_MODULE_PRINT(ACTION)\
-{		\
-ACTION(CMDQ_ENG_ISP_IMGI,   ISP_IMGI)	\
-ACTION(CMDQ_ENG_MDP_RDMA0,  MDP_RDMA0)	\
-ACTION(CMDQ_ENG_MDP_RDMA1,  MDP_RDMA1)	\
-ACTION(CMDQ_ENG_MDP_RSZ0,   MDP_RSZ0)	\
-ACTION(CMDQ_ENG_MDP_RSZ1,   MDP_RSZ1)	\
-ACTION(CMDQ_ENG_MDP_RSZ2,   MDP_RSZ2)	\
-ACTION(CMDQ_ENG_MDP_TDSHP0, MDP_TDSHP0)	\
-ACTION(CMDQ_ENG_MDP_TDSHP1, MDP_TDSHP1)	\
-ACTION(CMDQ_ENG_MDP_COLOR0, MDP_COLOR0) \
-ACTION(CMDQ_ENG_MDP_WROT0,  MDP_WROT0)	\
-ACTION(CMDQ_ENG_MDP_WROT1,  MDP_WROT1)	\
-ACTION(CMDQ_ENG_MDP_WDMA,   MDP_WDMA)	\
-}
 
 /* MDP common kernel logic */
 
@@ -900,7 +881,6 @@ static s32 cmdq_mdp_consume_handle(void)
 	u32 index;
 	bool acquired = false;
 	struct CmdqCBkStruct *callback = cmdq_core_get_group_cb();
-	bool force_inorder = false;
 	bool secure_run = false;
 
 	/* operation for tasks_wait list need task mutex */
@@ -922,14 +902,6 @@ static s32 cmdq_mdp_consume_handle(void)
 		/* operations for thread list need thread lock */
 		mutex_lock(&mdp_thread_mutex);
 
-		if (force_inorder && handle->force_inorder) {
-			mutex_unlock(&mdp_thread_mutex);
-			CMDQ_LOG(
-				"skip force inorder handle:0x%p engine:0x%llx\n",
-				handle, handle->engineFlag);
-			continue;
-		}
-
 		if (secure_run != handle->secData.is_secure) {
 			mutex_unlock(&mdp_thread_mutex);
 			CMDQ_LOG(
@@ -942,12 +914,6 @@ static s32 cmdq_mdp_consume_handle(void)
 		handle->thread = cmdq_mdp_find_free_thread(handle);
 		if (handle->thread == CMDQ_INVALID_THREAD) {
 			/* no available thread, keep wait */
-			if (handle->force_inorder) {
-				CMDQ_LOG(
-					"begin force inorder handle:0x%p engine:0x%llx\n",
-					handle, handle->engineFlag);
-				force_inorder = true;
-			}
 			mutex_unlock(&mdp_thread_mutex);
 			CMDQ_MSG(
 				"fail to get thread handle:0x%p engine:0x%llx\n",
@@ -970,14 +936,14 @@ static s32 cmdq_mdp_consume_handle(void)
 			mdp_ctx.thread[handle->thread].engine_flag : 0);
 
 		/* callback task for tracked group */
-		for (index = 0; index < CMDQ_MAX_GROUP_COUNT; ++index) {
+		for (index = 0; index < cmdq_mdp_get_func()->getGroupMax();
+			++index) {
 			if (!callback[index].trackTask)
 				continue;
 
 			CMDQ_MSG("track task group %d with task:0x%p\n",
 				index, handle);
-			if (!cmdq_core_is_group_flag(
-				(enum CMDQ_GROUP_ENUM)index,
+			if (!cmdq_core_is_group_flag(index,
 				handle->engineFlag))
 				continue;
 			CMDQ_MSG("track task group %d flag:0x%llx\n",
@@ -1313,14 +1279,10 @@ s32 cmdq_mdp_handle_sec_setup(struct cmdqSecDataStruct *secData,
 		secData->addrMetadataCount,
 		addr_meta);
 
-#ifdef CMDQ_ENG_MTEE_GROUP_BITS
-	if (handle->engineFlag & CMDQ_ENG_MTEE_GROUP_BITS)
-		cmdq_sec_pkt_set_mtee(handle->pkt, true);
-	else
-		cmdq_sec_pkt_set_mtee(handle->pkt, false);
+	cmdq_sec_pkt_set_mtee(handle->pkt,
+		cmdq_mdp_get_func()->mdpIsMtee(handle));
 	CMDQ_LOG("handle:%p mtee:%d\n", handle,
 		((struct cmdq_sec_data *)handle->pkt->sec_data)->mtee);
-#endif
 
 	kfree(addr_meta);
 	return 0;
@@ -1367,7 +1329,7 @@ s32 cmdq_mdp_handle_flush(struct cmdqRecStruct *handle)
 	s32 status;
 
 	CMDQ_TRACE_FORCE_BEGIN("%s %llx\n", __func__, handle->engineFlag);
-	CMDQ_LOG("%s %llx\n", __func__, handle->engineFlag);
+	CMDQ_MSG("%s %llx\n", __func__, handle->engineFlag);
 	if (handle->profile_exec)
 		cmdq_pkt_perf_end(handle->pkt);
 
@@ -1380,7 +1342,7 @@ s32 cmdq_mdp_handle_flush(struct cmdqRecStruct *handle)
 #endif
 
 	/* finalize it */
-	CMDQ_LOG("%s finalize\n", __func__);
+	CMDQ_MSG("%s finalize\n", __func__);
 	handle->finalized = true;
 	cmdq_pkt_finalize(handle->pkt);
 
@@ -1388,7 +1350,7 @@ s32 cmdq_mdp_handle_flush(struct cmdqRecStruct *handle)
 	 * Task may flush directly if no engine conflict and no waiting task
 	 * holds same engines.
 	 */
-	CMDQ_LOG("%s flush impl\n", __func__);
+	CMDQ_MSG("%s flush impl\n", __func__);
 	status = cmdq_mdp_flush_async_impl(handle);
 	CMDQ_TRACE_FORCE_END();
 	return status;
@@ -1402,7 +1364,6 @@ s32 cmdq_mdp_flush_async(struct cmdqCommandStruct *desc, bool user_space,
 	struct task_private *private;
 	s32 err;
 	u32 copy_size;
-	const u64 inorder_mask = 1ll << CMDQ_ENG_INORDER;
 
 	CMDQ_TRACE_FORCE_BEGIN("%s %llx\n",
 		__func__, desc->engineFlag);
@@ -1419,12 +1380,8 @@ s32 cmdq_mdp_flush_async(struct cmdqCommandStruct *desc, bool user_space,
 	handle->secStatus = NULL;
 	cmdq_mdp_setup_sec(desc, handle);
 
-	handle->engineFlag = desc->engineFlag & ~inorder_mask;
 	handle->pkt->priority = desc->priority;
 	cmdq_mdp_store_debug(desc, handle);
-
-	if (desc->engineFlag & inorder_mask)
-		handle->force_inorder = true;
 
 	private = (struct task_private *)CMDQ_U32_PTR(desc->privateData);
 	if (private)
@@ -1519,7 +1476,7 @@ s32 cmdq_mdp_flush_async_impl(struct cmdqRecStruct *handle)
 	struct list_head *insert_pos = &mdp_ctx.tasks_wait;
 	struct cmdqRecStruct *entry;
 
-	CMDQ_LOG("dispatch handle:0x%p\n", handle);
+	CMDQ_MSG("dispatch handle:0x%p\n", handle);
 
 	/* set handle life cycle callback */
 	handle->prepare = cmdq_mdp_handle_prepare;
@@ -1535,7 +1492,7 @@ s32 cmdq_mdp_flush_async_impl(struct cmdqRecStruct *handle)
 	handle->state = TASK_STATE_WAITING;
 
 	/* assign handle into waiting list by priority */
-	CMDQ_LOG("assign handle into waiting list:0x%p\n", handle);
+	CMDQ_MSG("assign handle into waiting list:0x%p\n", handle);
 	mutex_lock(&mdp_task_mutex);
 	list_for_each_entry(entry, &mdp_ctx.tasks_wait, list_entry) {
 		if (entry->pkt->priority < handle->pkt->priority)
@@ -1705,7 +1662,8 @@ void cmdq_mdp_suspend(void)
 		CMDQ_ERR("%s smi clk usage:%d\n",
 			__func__, (s32)atomic_read(&mdp_ctx.mdp_smi_usage));
 		cmdq_mdp_dump_thread_usage();
-		cmdq_mdp_dump_engine_usage();
+		cmdq_mdp_get_func()->mdpDumpEngineUsage(
+			(struct EngineStruct *)mdp_ctx.engine);
 	}
 
 	cmdq_mdp_pool_clear();
@@ -1780,27 +1738,7 @@ void cmdq_mdp_dump_thread_usage(void)
 	}
 }
 
-void cmdq_mdp_dump_engine_usage(void)
-{
-	struct EngineStruct *engine;
-	const u32 engine_enum[] =
-		CMDQ_FOREACH_MODULE_PRINT(GENERATE_ENUM);
-	static const char *const engine_names[] =
-		CMDQ_FOREACH_MODULE_PRINT(GENERATE_STRING);
-	u32 i;
 
-	CMDQ_ERR("====== Engine Usage =======\n");
-	for (i = 0; i < ARRAY_SIZE(engine_enum); i++) {
-		engine = &mdp_ctx.engine[engine_enum[i]];
-		if (engine->userCount ||
-			engine->currOwner != CMDQ_INVALID_THREAD ||
-			engine->failCount || engine->resetCount)
-			CMDQ_ERR("%s: count:%d owner:%d fail:%d reset:%d\n",
-				engine_names[i], engine->userCount,
-				engine->currOwner, engine->failCount,
-				engine->resetCount);
-	}
-}
 
 void cmdq_mdp_dump_resource(u32 event)
 {
@@ -1832,7 +1770,7 @@ EXPORT_SYMBOL(cmdq_mdp_dump_resource);
 static s32 cmdq_mdp_dump_common(u64 engineFlag, int level)
 {
 	cmdq_mdp_dump_thread_usage();
-	cmdq_mdp_dump_engine_usage();
+	cmdq_mdp_get_func()->mdpDumpEngineUsage(mdp_ctx.engine);
 
 	return cmdq_mdp_get_func()->mdpDumpInfo(engineFlag, level);
 }
@@ -1992,18 +1930,20 @@ void cmdq_mdp_init(struct platform_device *pdev)
 	CMDQ_LOG("%s\n", __func__);
 
 	/* Register MDP callback */
-	cmdqCoreRegisterCB(CMDQ_GROUP_MDP, cmdq_mdp_clock_enable,
+	cmdqCoreRegisterCB(mdp_func->getGroupMdp(), cmdq_mdp_clock_enable,
 		cmdq_mdp_dump_common, mdp_func->mdpResetEng,
 		cmdq_mdp_clock_disable);
 
-	cmdqCoreRegisterErrorResetCB(CMDQ_GROUP_MDP, mdp_func->errorReset);
+	cmdqCoreRegisterErrorResetCB(mdp_func->getGroupMdp(),
+		mdp_func->errorReset);
 
 	/* Register module dispatch callback */
-	cmdqCoreRegisterDispatchModCB(CMDQ_GROUP_MDP,
+	cmdqCoreRegisterDispatchModCB(mdp_func->getGroupMdp(),
 		mdp_func->dispatchModule);
 
 	/* Register restore task */
-	cmdqCoreRegisterTrackTaskCB(CMDQ_GROUP_MDP, mdp_func->trackTask);
+	cmdqCoreRegisterTrackTaskCB(mdp_func->getGroupMdp(),
+		mdp_func->trackTask);
 
 	init_waitqueue_head(&mdp_thread_dispatch);
 
@@ -2049,7 +1989,7 @@ struct RegDef {
 	const char *name;
 };
 
-void cmdq_mdp_dump_mmsys_config_virtual(void)
+void cmdq_mdp_dump_mmsys_config_virtual(const struct cmdqRecStruct *handle)
 {
 	/* Do Nothing */
 }
@@ -2066,13 +2006,13 @@ void cmdq_mdp_deinit_module_base_VA_virtual(void)
 }
 
 /* query MDP clock is on  */
-bool cmdq_mdp_clock_is_on_virtual(enum CMDQ_ENG_ENUM engine)
+bool cmdq_mdp_clock_is_on_virtual(u32 engine)
 {
 	return false;
 }
 
 /* enable MDP clock  */
-void cmdq_mdp_enable_clock_virtual(bool enable, enum CMDQ_ENG_ENUM engine)
+void cmdq_mdp_enable_clock_virtual(bool enable, u32 engine)
 {
 	/* Do Nothing */
 }
@@ -2182,6 +2122,16 @@ s32 cmdqMdpClockOff_virtual(u64 engineFlag)
 	return 0;
 }
 
+static s32 mdp_engine_dummy(struct EngineStruct *engine_list)
+{
+	return 0;
+}
+
+static bool mdp_check_handle_dummy(struct cmdqRecStruct *handle)
+{
+	return false;
+}
+
 /* MDP Initialization setting */
 void cmdqMdpInitialSetting_virtual(void)
 {
@@ -2242,93 +2192,7 @@ void cmdq_mdp_trackTask_virtual(const struct cmdqRecStruct *task)
 const char *cmdq_mdp_parse_handle_error_module_by_hwflag_virtual(
 	const struct cmdqRecStruct *handle)
 {
-	const char *module = NULL;
-	const u64 ISP_ONLY[2] = {
-		((1LL << CMDQ_ENG_ISP_IMGI) | (1LL << CMDQ_ENG_ISP_IMG2O)),
-		((1LL << CMDQ_ENG_ISP_IMGI2) | (1LL << CMDQ_ENG_ISP_IMG2O2))
-	};
-
-	/* common part for both normal and secure path
-	 * for JPEG scenario, use HW flag is sufficient
-	 */
-	if ((ISP_ONLY[0] == handle->engineFlag) ||
-		(ISP_ONLY[1] == handle->engineFlag))
-		module = "DIP_ONLY";
-
-	/* for secure path, use HW flag is sufficient */
-	do {
-		if (module != NULL)
-			break;
-
-		if (!handle->secData.is_secure) {
-			/* normal path, need parse current running instruciton
-			 * for more detail
-			 */
-			break;
-		} else if (CMDQ_ENG_MDP_GROUP_FLAG(handle->engineFlag)) {
-			module = "MDP";
-			break;
-		} else if (CMDQ_ENG_DPE_GROUP_FLAG(handle->engineFlag)) {
-			module = "DPE";
-			break;
-		} else if (CMDQ_ENG_RSC_GROUP_FLAG(handle->engineFlag)) {
-			module = "RSC";
-			break;
-		} else if (CMDQ_ENG_GEPF_GROUP_FLAG(handle->engineFlag)) {
-			module = "GEPF";
-			break;
-		}
-
-		module = "CMDQ";
-	} while (0);
-
-	return module;
-}
-
-const char *cmdq_mdp_parse_error_module_by_hwflag_virtual(
-	const struct cmdqRecStruct *task)
-{
-	const char *module = NULL;
-	const u64 ISP_ONLY[2] = {
-		((1LL << CMDQ_ENG_ISP_IMGI) | (1LL << CMDQ_ENG_ISP_IMG2O)),
-		((1LL << CMDQ_ENG_ISP_IMGI2) | (1LL << CMDQ_ENG_ISP_IMG2O2))
-	};
-
-	/* common part for both normal and secure path
-	 * for JPEG scenario, use HW flag is sufficient
-	 */
-	if ((ISP_ONLY[0] == task->engineFlag) ||
-		(ISP_ONLY[1] == task->engineFlag))
-		module = "DIP_ONLY";
-
-	/* for secure path, use HW flag is sufficient */
-	do {
-		if (module != NULL)
-			break;
-
-		if (!task->secData.is_secure) {
-			/* normal path, need parse current running instruciton
-			 * for more detail
-			 */
-			break;
-		} else if (CMDQ_ENG_MDP_GROUP_FLAG(task->engineFlag)) {
-			module = "MDP";
-			break;
-		} else if (CMDQ_ENG_DPE_GROUP_FLAG(task->engineFlag)) {
-			module = "DPE";
-			break;
-		} else if (CMDQ_ENG_RSC_GROUP_FLAG(task->engineFlag)) {
-			module = "RSC";
-			break;
-		} else if (CMDQ_ENG_GEPF_GROUP_FLAG(task->engineFlag)) {
-			module = "GEPF";
-			break;
-		}
-
-		module = "CMDQ";
-	} while (0);
-
-	return module;
+	return "MDP";
 }
 
 u64 cmdq_mdp_get_engine_group_bits_virtual(u32 engine_group)
@@ -2381,20 +2245,6 @@ void cmdq_mdp_unmap_mmsys_VA(void)
 	cmdq_dev_free_module_base_VA(cmdq_mmsys_base);
 }
 EXPORT_SYMBOL(cmdq_mdp_unmap_mmsys_VA);
-
-static bool mdp_is_isp_img(struct cmdqRecStruct *handle)
-{
-	return ((handle->engineFlag & (1LL << CMDQ_ENG_ISP_IMGI) &&
-		handle->engineFlag & (1LL << CMDQ_ENG_ISP_IMG2O)) ||
-		(handle->engineFlag & (1LL << CMDQ_ENG_ISP_IMGI2) &&
-		 handle->engineFlag & (1LL << CMDQ_ENG_ISP_IMG2O2)));
-}
-
-static bool mdp_is_isp_camin(struct cmdqRecStruct *handle)
-{
-	return (handle->engineFlag &
-		((1LL << CMDQ_ENG_MDP_CAMIN) | CMDQ_ENG_ISP_GROUP_BITS));
-}
 
 static void mdp_request_voltage(unsigned long frequency, bool is_mdp)
 {
@@ -2635,7 +2485,7 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 		thread_id, mdp_curr_bandwidth, isp_curr_bandwidth,
 		max_throughput);
 
-	if (mdp_is_isp_camin(handle) && isp_pmqos_freq) {
+	if (cmdq_mdp_get_func()->mdpIsIspCamin(handle) && isp_pmqos_freq) {
 		u32 isp_throughput = isp_t((unsigned long long)(max_throughput));
 
 		/*update bandwidth*/
@@ -2722,7 +2572,7 @@ static void cmdq_mdp_isp_begin_task_virtual(struct cmdqRecStruct *handle,
 	struct cmdqRecStruct **handle_list, u32 size)
 {
 
-	if (!mdp_is_isp_img(handle))
+	if (!cmdq_mdp_get_func()->mdpIsIspImg(handle))
 		return;
 
 	CMDQ_LOG_PMQOS("enter %s handle:0x%p engine:0x%llx\n", __func__,
@@ -2786,7 +2636,7 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 		pmqos_list_record =
 			(struct mdp_pmqos_record *)curTask->user_private;
 
-		if (mdp_is_isp_camin(curTask))
+		if (cmdq_mdp_get_func()->mdpIsIspCamin(curTask))
 			update_isp_throughput = true;
 
 		if (first_task) {
@@ -2796,7 +2646,7 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 				mdp_list_pmqos->isp_total_pixel;
 			mdp_data_size = mdp_list_pmqos->mdp_total_datasize;
 			isp_data_size = mdp_list_pmqos->isp_total_datasize;
-			if (mdp_is_isp_camin(curTask))
+			if (cmdq_mdp_get_func()->mdpIsIspCamin(curTask))
 				update_isp_bandwidth = true;
 
 			first_task = false;
@@ -3002,7 +2852,7 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 static void cmdq_mdp_isp_end_task_virtual(struct cmdqRecStruct *handle,
 	struct cmdqRecStruct **handle_list, u32 size)
 {
-	if (!mdp_is_isp_img(handle))
+	if (!cmdq_mdp_get_func()->mdpIsIspImg(handle))
 		return;
 
 	CMDQ_LOG_PMQOS("enter %s with handle:0x%p engine:0x%llx\n", __func__,
@@ -3025,6 +2875,11 @@ void cmdq_mdp_resolve_token_virtual(u64 engine_flag,
 {
 }
 
+const char *mdp_parse_mod(struct cmdqRecStruct *handle)
+{
+	return "MDP";
+}
+
 u32 cmdq_mdp_qos_translate_port_virtual(u32 engine_id)
 {
 	return 0;
@@ -3041,6 +2896,35 @@ static void *mdp_qos_get_path_virtual(u32 thread_id, u32 port)
 
 static void mdp_qos_clear_all_virtual(u32 thread_id)
 {
+}
+
+static u32 mdp_get_dummy(void)
+{
+	CMDQ_ERR("%s not support dummy group\n", __func__);
+	return 0;
+}
+
+static u32 mdp_get_dummy_mdp(void)
+{
+	CMDQ_ERR("%s not support dummy group\n", __func__);
+	return 0;
+}
+
+static u32 mdp_get_dummy_isp(void)
+{
+	CMDQ_ERR("%s not support dummy group\n", __func__);
+	return 0;
+}
+
+static u32 mdp_get_dummy_wpe(void)
+{
+	CMDQ_ERR("%s not support dummy group\n", __func__);
+	return 0;
+}
+
+static const char *const mdp_get_engine_group_name(void)
+{
+	return NULL;
 }
 
 void cmdq_mdp_virtual_function_setting(void)
@@ -3065,7 +2949,12 @@ void cmdq_mdp_virtual_function_setting(void)
 	pFunc->mdpDumpInfo = cmdqMdpDumpInfo_virtual;
 	pFunc->mdpResetEng = cmdqMdpResetEng_virtual;
 	pFunc->mdpClockOff = cmdqMdpClockOff_virtual;
+	pFunc->mdpIsModuleSuspend = mdp_engine_dummy;
+	pFunc->mdpDumpEngineUsage = mdp_engine_dummy;
 
+	pFunc->mdpIsMtee = mdp_check_handle_dummy;
+	pFunc->mdpIsIspImg = mdp_check_handle_dummy;
+	pFunc->mdpIsIspCamin = mdp_check_handle_dummy;
 	pFunc->mdpInitialSet = cmdqMdpInitialSetting_virtual;
 
 	pFunc->rdmaGetRegOffsetSrcAddr =
@@ -3080,8 +2969,6 @@ void cmdq_mdp_virtual_function_setting(void)
 
 	pFunc->trackTask = cmdq_mdp_trackTask_virtual;
 	pFunc->parseErrModByEngFlag =
-		cmdq_mdp_parse_error_module_by_hwflag_virtual;
-	pFunc->parseHandleErrModByEngFlag =
 		cmdq_mdp_parse_handle_error_module_by_hwflag_virtual;
 	pFunc->getEngineGroupBits = cmdq_mdp_get_engine_group_bits_virtual;
 	pFunc->errorReset = cmdq_mdp_error_reset_virtual;
@@ -3093,12 +2980,18 @@ void cmdq_mdp_virtual_function_setting(void)
 	pFunc->CheckHwStatus = cmdq_mdp_check_hw_status_virtual;
 	pFunc->mdpGetSecEngine = cmdq_mdp_get_secure_engine_virtual;
 	pFunc->resolve_token = cmdq_mdp_resolve_token_virtual;
+	pFunc->mdpParseMod = mdp_parse_mod;
 
 	pFunc->qosTransPort = cmdq_mdp_qos_translate_port_virtual;
 	pFunc->qosInit = mdp_qos_init_virtual;
 	pFunc->qosGetPath = mdp_qos_get_path_virtual;
 	pFunc->qosClearAll = mdp_qos_clear_all_virtual;
 	pFunc->qosClearAllIsp = mdp_qos_clear_all_virtual;
+	pFunc->getGroupMax = mdp_get_dummy;
+	pFunc->getGroupIsp = mdp_get_dummy_isp;
+	pFunc->getGroupMdp = mdp_get_dummy_mdp;
+	pFunc->getGroupWpe = mdp_get_dummy_wpe;
+	pFunc->getEngineGroupName = mdp_get_engine_group_name;
 }
 EXPORT_SYMBOL(cmdq_mdp_virtual_function_setting);
 
@@ -3108,7 +3001,7 @@ struct cmdqMDPFuncStruct *cmdq_mdp_get_func(void)
 }
 EXPORT_SYMBOL(cmdq_mdp_get_func);
 
-void cmdq_mdp_enable(u64 engineFlag, enum CMDQ_ENG_ENUM engine)
+void cmdq_mdp_enable(u64 engineFlag, u32 engine)
 {
 #ifdef CMDQ_PWR_AWARE
 	CMDQ_VERBOSE("Test for ENG %d\n", engine);
@@ -3142,7 +3035,7 @@ int cmdq_mdp_loop_reset_impl(const unsigned long resetReg,
 	return 0;
 }
 
-int cmdq_mdp_loop_reset(enum CMDQ_ENG_ENUM engine,
+int cmdq_mdp_loop_reset(u32 engine,
 	const unsigned long resetReg,
 	const unsigned long resetStateReg,
 	const u32 resetMask,
@@ -3192,7 +3085,7 @@ int cmdq_mdp_loop_reset(enum CMDQ_ENG_ENUM engine,
 	return 0;
 };
 
-void cmdq_mdp_loop_off(enum CMDQ_ENG_ENUM engine,
+void cmdq_mdp_loop_off(u32 engine,
 	const unsigned long resetReg,
 	const unsigned long resetStateReg,
 	const u32 resetMask,
@@ -3867,7 +3760,7 @@ void cmdq_mdp_check_TF_address(unsigned int mva, char *module)
 const char *cmdq_mdp_parse_handle_error_module_by_hwflag(
 	const struct cmdqRecStruct *handle)
 {
-	return cmdq_mdp_get_func()->parseHandleErrModByEngFlag(handle);
+	return cmdq_mdp_get_func()->parseErrModByEngFlag(handle);
 }
 EXPORT_SYMBOL(cmdq_mdp_parse_handle_error_module_by_hwflag);
 

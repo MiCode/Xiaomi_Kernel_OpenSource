@@ -641,7 +641,6 @@ struct cmdqRecStruct {
 	void *running_task;
 	bool jump_replace;	/* jump replace or not */
 	bool finalized;		/* set to true after flush() or startLoop() */
-	bool force_inorder;
 	CmdqInterruptCB loop_cb;
 	unsigned long loop_user_data;
 	CmdqAsyncFlushCB async_callback;
@@ -746,30 +745,34 @@ bool cmdq_core_check_pkt_valid(struct cmdq_pkt *pkt);
 
 void cmdq_core_deinit_group_cb(void);
 
-s32 cmdqCoreRegisterCB(enum CMDQ_GROUP_ENUM engGroup,
+u32 mdp_get_group_isp(void);
+
+u32 mdp_get_group_wpe(void);
+
+s32 cmdqCoreRegisterCB(u32 engGroup,
 	CmdqClockOnCB clockOn,
 	CmdqDumpInfoCB dumpInfo,
 	CmdqResetEngCB resetEng, CmdqClockOffCB clockOff);
 
 s32 cmdqCoreRegisterDispatchModCB(
-	enum CMDQ_GROUP_ENUM engGroup,
+	u32 engGroup,
 	CmdqDispatchModuleCB dispatchMod);
 
 s32 cmdqCoreRegisterDebugRegDumpCB(
 	CmdqDebugRegDumpBeginCB beginCB,
 	CmdqDebugRegDumpEndCB endCB);
 
-s32 cmdqCoreRegisterTrackTaskCB(enum CMDQ_GROUP_ENUM engGroup,
+s32 cmdqCoreRegisterTrackTaskCB(u32 engGroup,
 	CmdqTrackTaskCB trackTask);
 
-s32 cmdqCoreRegisterErrorResetCB(enum CMDQ_GROUP_ENUM engGroup,
+s32 cmdqCoreRegisterErrorResetCB(u32 engGroup,
 	CmdqErrorResetCB errorReset);
 
 void cmdq_core_register_status_dump(struct notifier_block *notifier);
 void cmdq_core_remove_status_dump(struct notifier_block *notifier);
 
 /* PMQoS register function */
-s32 cmdq_core_register_task_cycle_cb(enum CMDQ_GROUP_ENUM group,
+s32 cmdq_core_register_task_cycle_cb(u32 group,
 	CmdqBeginTaskCB beginTask, CmdqEndTaskCB endTask);
 
 const char *cmdq_core_parse_op(u32 op_code);
@@ -874,7 +877,7 @@ void cmdq_core_dump_handle_buffer(const struct cmdq_pkt *pkt,
 u32 *cmdq_core_dump_pc(const struct cmdqRecStruct *handle,
 	int thread, const char *tag);
 
-s32 cmdq_core_is_group_flag(enum CMDQ_GROUP_ENUM engGroup, u64 engineFlag);
+s32 cmdq_core_is_group_flag(u32 engGroup, u64 engineFlag);
 s32 cmdq_core_acquire_thread(enum CMDQ_SCENARIO_ENUM scenario, bool exclusive);
 void cmdq_core_release_thread(s32 scenario, s32 thread);
 

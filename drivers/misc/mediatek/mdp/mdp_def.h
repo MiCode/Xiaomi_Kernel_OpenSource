@@ -17,11 +17,10 @@
 /* #define MDP_COMMON_ENG_SUPPORT */
 #ifdef MDP_COMMON_ENG_SUPPORT
 #include "mdp_engine_common.h"
-#else
-#include "mdp_engine_mt6873.h"
 #endif
 
 #define MDP_DEFAULT_MASK_BITS 35
+#define CMDQ_MAX_ENGINE_COUNT 64
 
 #define CMDQ_SPECIAL_SUBSYS_ADDR (99)
 
