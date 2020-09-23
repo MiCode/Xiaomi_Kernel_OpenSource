@@ -20,23 +20,24 @@ VER:=eng
 subdir-ccflags-y += -Wno-error
 #ccflags-y += -DGED_KPI_DEBUG
 
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6873" "mt6885"))
+
+ifneq (,$(filter $(MTK_PLATFORM), mt6873 mt6885))
 ccflags-y += -DMTK_GPUFREQ_V1
 endif
 
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6759" "mt6799" "mt6763" "mt6739" "mt6758" "mt6775" "mt6771" "mt6765" "mt6761" "mt3967" "mt6779" "mt6768" "mt6785" "mt6885" "mt6873"))
+ifneq (,$(filter $(MTK_PLATFORM), mt6759 mt6799 mt6763 mt6739 mt6758 mt6775 mt6771 mt6765 mt6761 mt3967 mt6779 mt6768 mt6785 mt6885 mt6873))
 #ccflags-y += -DGED_KPI_MET_DEBUG
 ccflags-y += -DMTK_GED_KPI
 ccflags-y += -DGED_KPI_CPU_BOOST
 endif
 
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6775" "mt6771" "mt6765" "mt6761" "mt6763" "mt6779" "mt6768" "mt6785" "mt6739" "mt6885" "mt6873"))
+ifneq (,$(filter $(MTK_PLATFORM), mt6775 mt6771 mt6765 mt6761 mt6763 mt6779 mt6768 mt6785 mt6739 mt6885 mt6873))
 ifeq ($(CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT),y)
 ccflags-y += -DGED_ENABLE_FB_DVFS
 endif
 endif
 
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6761" "mt6765" "mt6779" "mt6768" "mt6771" "mt6785" "mt6885" "mt6873"))
+ifneq (,$(filter $(MTK_PLATFORM), mt6761 mt6765 mt6779 mt6768 mt6771 mt6785 mt6885 mt6873))
 ifeq ($(CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT),y)
 ccflags-y += -DGED_ENABLE_DYNAMIC_DVFS_MARGIN
 ccflags-y += -DGED_CONFIGURE_LOADING_BASE_DVFS_STEP
@@ -44,38 +45,38 @@ ccflags-y += -DGED_ENABLE_TIMER_BASED_DVFS_MARGIN
 endif
 endif
 
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6885" "mt6873"))
+ifneq (,$(filter $(MTK_PLATFORM), mt6885 mt6873))
 ifeq ($(CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT),y)
 ccflags-y += -DGED_ENABLE_DVFS_LOADING_MODE
 endif
 endif
 
 
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6775" "mt6771"))
+ifneq (,$(filter $(MTK_PLATFORM), mt6775 mt6771))
 #ccflags-y += -DGED_KPI_CPU_INFO
 endif
 
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6759" "mt6799" "mt6763" "mt6775" "mt6771"))
+ifneq (,$(filter $(MTK_PLATFORM), mt6759 mt6799 mt6763 mt6775 mt6771))
 #ccflags-y += -DGED_KPI_DFRC
 endif
 
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6759" "mt6799"))
+ifneq (,$(filter $(MTK_PLATFORM), mt6759 mt6799))
 #ccflags-y += -DGED_KPI_CPU_TRI_CLUSTER
 endif
 
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6739"))
+ifneq (,$(filter $(MTK_PLATFORM), mt6739))
 #ccflags-y += -DGED_KPI_CPU_SINGLE_CLUSTER
 endif
 
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6765"))
+ifneq (,$(filter $(MTK_PLATFORM), mt6765))
 #ccflags-y += -DCONFIG_MTK_QOS_V1_SUPPORT
 endif
 
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6768" "mt6771"))
+ifneq (,$(filter $(MTK_PLATFORM), mt6768 mt6771))
 ccflags-y += -DCONFIG_MTK_QOS_V1_SUPPORT
 endif
 
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6779"))
+ifneq (,$(filter $(MTK_PLATFORM), mt6779))
 ifeq ($(CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT),y)
 #ccflags-y += -DGED_MODULE_LATE_INIT
 endif
@@ -107,21 +108,21 @@ ccflags-y += \
 	     -I$(srctree)/drivers/gpu/mediatek/gpufreq_v1/include/
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(CONFIG_MTK_PLATFORM)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(MTK_PLATFORM)
 
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6757" "mt8167" "kiboplus"))
+ifneq (,$(filter $(MTK_PLATFORM), "mt6757" "mt8167" "kiboplus"))
 ccflags-y += \
 		 -I$(srctree)/drivers/misc/mediatek/cmdq/v2 \
-		 -I$(srctree)/drivers/misc/mediatek/cmdq/v2/$(subst ",,$(CONFIG_MTK_PLATFORM))
+		 -I$(srctree)/drivers/misc/mediatek/cmdq/v2/$(subst ",,$(MTK_PLATFORM))
 else
-#$(info *CONFIG_MTK_PLATFORM 1 = $(word 1,$(CONFIG_MTK_PLATFORM)))
+#$(info *MTK_PLATFORM 1 = $(word 1,$(MTK_PLATFORM)))
 ccflags-y += \
 		 -I$(srctree)/drivers/misc/mediatek/cmdq/v3
 
 ifeq ($(CONFIG_MACH_MT6761),y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/mt6765/
 else
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/$(subst ",,$(CONFIG_MTK_PLATFORM))
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/$(subst ",,$(MTK_PLATFORM))
 endif
 endif
 
