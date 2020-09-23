@@ -1,0 +1,5 @@
+config USB_CONFIGFS_F_MTP
+	tristate "MTP gadget"
+	depends on USB_CONFIGFS
+	help
+	  USB gadget MTP support
