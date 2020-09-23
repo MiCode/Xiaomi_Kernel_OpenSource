@@ -646,7 +646,7 @@ void cvp_dsp_send_hfi_queue(void)
 	struct msm_cvp_core *core;
 	struct iris_hfi_device *device;
 	struct cvp_dsp_apps *me = &gfa_cv;
-	struct cvp_dsp_rsp_msg rsp;
+	struct cvp_dsp_rsp_msg rsp = {0};
 	uint64_t addr;
 	uint32_t size;
 	int rc;
