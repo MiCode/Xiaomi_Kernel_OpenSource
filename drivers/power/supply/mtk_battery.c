@@ -622,13 +622,18 @@ int force_get_tbat(struct mtk_battery *gm, bool update)
 {
 	int bat_temperature_val = 0;
 
-	if (gm->is_probe_done == false)
+	if (gm->is_probe_done == false) {
+		gm->cur_bat_temp = 25;
 		return 25;
+	}
 
-	if (gm->fixed_bat_tmp != 0xffff)
+	if (gm->fixed_bat_tmp != 0xffff) {
+		gm->cur_bat_temp = gm->fixed_bat_tmp;
 		return gm->fixed_bat_tmp;
+	}
 
 	bat_temperature_val = force_get_tbat_internal(gm, true);
+	gm->cur_bat_temp = bat_temperature_val;
 
 	return bat_temperature_val;
 }
@@ -2834,22 +2839,21 @@ static int mtk_power_misc_psy_event(
 	struct power_supply *psy = v;
 	union power_supply_propval val;
 	struct shutdown_controller *sdc;
+	struct mtk_battery *gm;
 	int ret;
 	int tmp = 0;
 
+	gm = get_mtk_battery();
+
 	if (strcmp(psy->desc->name, "battery") == 0) {
-
-		sdc = container_of(
+		if (gm != NULL) {
+			sdc = container_of(
 				nb, struct shutdown_controller, psy_nb);
-		ret = psy->desc->get_property(
-			psy, POWER_SUPPLY_PROP_TEMP, &val);
-		if (!ret) {
-			tmp = val.intval / 10;
-			if (tmp >= BATTERY_SHUTDOWN_TEMPERATURE) {
-				bm_debug(
-					"battery temperature >= %d,shutdown",
-					tmp);
 
+			if (gm->cur_bat_temp >= BATTERY_SHUTDOWN_TEMPERATURE) {
+				bm_debug(
+					"%d battery temperature >= %d,shutdown",
+					gm->cur_bat_temp, tmp);
 				wake_up_overheat(sdc);
 			}
 		}
