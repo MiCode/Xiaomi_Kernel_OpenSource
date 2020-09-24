@@ -616,6 +616,7 @@ int mhi_device_get_sync(struct mhi_device *mhi_dev, int vote);
  * mhi_device_get_sync_atomic - Asserts device_wait and moves device to M0
  * @mhi_dev: Device associated with the channels
  * @timeout_us: timeout, in micro-seconds
+ * @in_panic: If requested while kernel is in panic state and no ISRs expected
  *
  * The device_wake is asserted to keep device in M0 or bring it to M0.
  * If device is not in M0 state, then this function will wait for device to
@@ -627,6 +628,8 @@ int mhi_device_get_sync(struct mhi_device *mhi_dev, int vote);
  * Clients can ignore that transition after this function returns as the device
  * is expected to immediately  move from M2 to M0 as wake is asserted and
  * wouldn't enter low power state.
+ * If in_panic boolean is set, no ISRs are expected, hence this API will have to
+ * resort to reading the MHI status register and poll on M0 state change.
  *
  * Returns:
  * 0 if operation was successful (however, M0 -> M2 -> M0 is possible later) as
@@ -634,7 +637,9 @@ int mhi_device_get_sync(struct mhi_device *mhi_dev, int vote);
  * -ETIMEDOUT is device faled to move to M0 before @timeout_us elapsed
  * -EIO if the MHI state is one of the ERROR states.
  */
-int mhi_device_get_sync_atomic(struct mhi_device *mhi_dev, int timeout_us);
+int mhi_device_get_sync_atomic(struct mhi_device *mhi_dev,
+			       int timeout_us,
+			       bool in_panic);
 
 /**
  * mhi_device_put - re-enable low power modes
