@@ -5,6 +5,7 @@ obj-$(CONFIG_MTK_CM_MGR) += cm_mgr/
 obj-$(CONFIG_MTK_QOS_FRAMEWORK) += qos/
 obj-$(CONFIG_MTK_CCCI_DEVICES)	+=  ccci_util/
 obj-$(CONFIG_MTK_NET_CCMNI) +=  ccmni/
+obj-$(CONFIG_NFC_CHIP_SUPPORT) += nfc/
 obj-$(CONFIG_MTK_ECCCI_DRIVER) +=  eccci/
 obj-$(CONFIG_MTK_ECCCI_DRIVER) += msg-center/
 obj-$(CONFIG_MTK_PID_MAP) += pidmap/
