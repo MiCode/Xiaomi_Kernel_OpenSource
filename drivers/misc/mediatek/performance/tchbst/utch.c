@@ -45,21 +45,41 @@ struct freq_qos_request *tchbst_rq;
 
 static int policy_num;
 
-static unsigned long __read_mostly mark_addr;
+static int powerhal_tid;
 
-/* macro definition */
-#define event_trace(ip, fmt, args...) \
-do { \
-	__trace_printk_check_format(fmt, ##args);     \
-	{ \
-		static const char *trace_printk_fmt     \
-		__section(__trace_printk_fmt) =  \
-		__builtin_constant_p(fmt) ? fmt : NULL;   \
-		__trace_bprintk(ip, trace_printk_fmt, ##args);    \
-	} \
-} while (0)
 
 /* local function */
+static noinline int tracing_mark_write(const char *buf)
+{
+	trace_printk(buf);
+	return 0;
+}
+
+static void __utch_systrace(int val, const char *fmt, ...)
+{
+	char log[256];
+	va_list args;
+	int len;
+	char buf2[256];
+
+	memset(log, ' ', sizeof(log));
+	va_start(args, fmt);
+	len = vsnprintf(log, sizeof(log), fmt, args);
+	va_end(args);
+
+	if (unlikely(len < 0))
+		return;
+	else if (unlikely(len == 256))
+		log[255] = '\0';
+
+	len = snprintf(buf2, sizeof(buf2), "C|%d|%s|%d\n", powerhal_tid, log, val);
+	if (unlikely(len < 0))
+		return;
+	else if (unlikely(len == 256))
+		buf2[255] = '\0';
+	tracing_mark_write(buf2);
+}
+
 static int cmp_uint(const void *a, const void *b)
 {
 	return *(unsigned int *)b - *(unsigned int *)a;
@@ -162,9 +182,7 @@ int notify_touch(int action)
 		WARN_ON(!mutex_is_locked(&notify_lock));
 #if defined(CONFIG_MTK_FPSGO_V3)
 		isact = is_fstb_active(active_time);
-		preempt_disable();
-		event_trace(mark_addr, "[utch] isact:%d\n", isact);
-		preempt_enable();
+		__utch_systrace(isact, "utch isact");
 #endif
 		if ((isact && ktime_to_ms(delta) < time_to_last_touch) ||
 				usrtch_dbg)
@@ -184,9 +202,7 @@ int notify_touch(int action)
 		if (usrtch_debug)
 			pr_debug("touch down\n");
 
-		preempt_disable();
-		event_trace(mark_addr, "[utch] touch:%d\n", 1);
-		preempt_enable();
+		__utch_systrace(1, "utch touch");
 
 		touch_event = 1;
 	} else if (touch_event == 1 && action == 3) {
@@ -194,9 +210,7 @@ int notify_touch(int action)
 		for (i = 0; i < policy_num; i++)
 			freq_qos_update_request(&(tchbst_rq[i]), 0);
 
-		preempt_disable();
-		event_trace(mark_addr, "[utch] touch:%d\n", 3);
-		preempt_enable();
+		__utch_systrace(3, "utch touch");
 
 		touch_event = 2;
 		if (usrtch_debug)
@@ -216,9 +230,7 @@ static void notify_touch_up_timeout(struct work_struct *work)
 	for (i = 0; i < policy_num; i++)
 		freq_qos_update_request(&(tchbst_rq[i]), 0);
 
-	preempt_disable();
-	event_trace(mark_addr, "[utch] touch:%d\n", 0);
-	preempt_enable();
+	__utch_systrace(0, "utch touch");
 
 	touch_event = 2;
 	if (usrtch_debug)
@@ -300,9 +312,13 @@ int usrtch_ioctl(unsigned long arg)
 {
 	int ret;
 
+	if (unlikely(powerhal_tid == 0))
+		powerhal_tid = current->pid;
+
 	mutex_lock(&notify_lock);
 	ret = notify_touch(arg);
 	mutex_unlock(&notify_lock);
+
 	return ret >= 0 ? ret : 0;
 }
 
