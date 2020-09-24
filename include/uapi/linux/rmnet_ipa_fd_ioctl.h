@@ -35,6 +35,7 @@
 #define WAN_IOCTL_SEND_LAN_CLIENT_MSG        17
 #define WAN_IOCTL_ADD_OFFLOAD_CONNECTION     18
 #define WAN_IOCTL_RMV_OFFLOAD_CONNECTION     19
+#define WAN_IOCTL_GET_WAN_MTU                20
 
 /* User space may not have this defined. */
 #ifndef IFNAMSIZ
@@ -264,4 +265,8 @@ struct wan_ioctl_query_per_client_stats {
 #define WAN_IOC_RMV_OFFLOAD_CONNECTION _IOWR(WAN_IOC_MAGIC, \
 		WAN_IOCTL_RMV_OFFLOAD_CONNECTION, \
 		struct ipa_remove_offload_connection_req_msg_v01 *)
+
+#define WAN_IOC_GET_WAN_MTU _IOWR(WAN_IOC_MAGIC, \
+		WAN_IOCTL_GET_WAN_MTU, \
+		struct ipa_mtu_info *)
 #endif /* _RMNET_IPA_FD_IOCTL_H */
