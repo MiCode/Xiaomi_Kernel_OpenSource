@@ -168,6 +168,7 @@
   cfg80211_vendor_cmd_reply
   check_disk_change
   __check_object_size
+  check_zeroed_user
   __class_create
   class_destroy
   class_find_device
