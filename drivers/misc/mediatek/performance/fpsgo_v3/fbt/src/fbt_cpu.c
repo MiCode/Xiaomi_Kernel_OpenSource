@@ -3010,15 +3010,22 @@ static ssize_t enable_switch_down_throttle_store(struct kobject *kobj,
 		const char *buf, size_t count)
 {
 	int val = -1;
-	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	char *acBuffer;
 	int arg;
+
+	acBuffer =
+		kcalloc(FPSGO_SYSFS_MAX_BUFF_SIZE, sizeof(char), GFP_KERNEL);
+	if (!acBuffer)
+		return count;
 
 	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
 		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
 			if (kstrtoint(acBuffer, 0, &arg) == 0)
 				val = arg;
-			else
+			else {
+				kfree(acBuffer);
 				return count;
+			}
 		}
 	}
 
@@ -3026,6 +3033,7 @@ static ssize_t enable_switch_down_throttle_store(struct kobject *kobj,
 
 	if (!fbt_enable) {
 		mutex_unlock(&fbt_mlock);
+		kfree(acBuffer);
 		return count;
 	}
 
@@ -3036,6 +3044,7 @@ static ssize_t enable_switch_down_throttle_store(struct kobject *kobj,
 
 	mutex_unlock(&fbt_mlock);
 
+	kfree(acBuffer);
 	return count;
 }
 

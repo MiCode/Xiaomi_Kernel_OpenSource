@@ -8,6 +8,8 @@
 #include <linux/sched.h>
 #include <linux/cpufreq.h>
 #include <linux/topology.h>
+#include <linux/arch_topology.h>
+#include <linux/cpumask.h>
 
 #include "mt-plat/fpsgo_common.h"
 #include "fpsgo_base.h"
@@ -18,7 +20,6 @@
 #include "fps_composer.h"
 #include "xgf.h"
 #include "mtk_drm_arr.h"
-#define API_READY 0
 
 #define CREATE_TRACE_POINTS
 
@@ -558,18 +559,17 @@ static int freq_notifier_call(struct notifier_block *self,
 				unsigned long event, void *data)
 {
 	struct cpufreq_freqs *p = data;
-	int cl;
+	int cl, cpu;
 
 	if (event != CPUFREQ_PRECHANGE)
 		return 0;
 
-#if API_READY
-	cl = arch_cpu_cluster_id(p->cpu);
-#else
-	cl = p->policy->cpu % 4;
-#endif
+	cpu = p->policy->cpu;
+	if (cpu >= 0 && cpu < num_possible_cpus()) {
+		cl = topology_physical_package_id(cpu);
 
-	fpsgo_notify_cpufreq(cl, p->new);
+		fpsgo_notify_cpufreq(cl, p->new);
+	}
 
 	return 0;
 }
