@@ -625,10 +625,15 @@
 	};
 
 	pwrap: pwrap@10026000 {
-		compatible = "mediatek,mt6873-pwrap", "syscon";
+		compatible = "mediatek,mt6853-pwrap", "syscon";
 		reg = <0 0x10026000 0 0x1000>;
 		reg-names = "pwrap";
 		interrupts = <GIC_SPI 220 IRQ_TYPE_LEVEL_HIGH 0>;
+		clocks = <&infracfg_ao_clk CLK_IFRAO_PMIC_AP_SET>,
+			     <&infracfg_ao_clk CLK_IFRAO_PMIC_TMR_SET>,
+			     <&topckgen_clk CLK_TOP_FPWRAP_ULPOSC>,
+			     <&topckgen_clk CLK_TOP_OSC_D10>;
+		clock-names = "spi", "wrap", "ulposc", "ulposc_osc";
 	};
 
 	thermal-zones {
