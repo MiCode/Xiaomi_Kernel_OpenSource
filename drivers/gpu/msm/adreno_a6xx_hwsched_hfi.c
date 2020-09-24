@@ -769,7 +769,14 @@ int a6xx_hwsched_hfi_start(struct adreno_device *adreno_dev)
 
 	ret = a6xx_hfi_send_feature_ctrl(adreno_dev, HFI_FEATURE_KPROF, 1, 0);
 	if (ret)
-		return ret;
+		goto err;
+
+	if (adreno_is_preemption_enabled(adreno_dev)) {
+		ret = a6xx_hfi_send_feature_ctrl(adreno_dev,
+			HFI_FEATURE_PREEMPTION, 1, 0);
+		if (ret)
+			goto err;
+	}
 
 	ret = a6xx_hfi_send_core_fw_start(adreno_dev);
 	if (ret)

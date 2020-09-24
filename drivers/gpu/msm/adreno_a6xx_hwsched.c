@@ -987,18 +987,23 @@ static int a6xx_hwsched_bind(struct device *dev, struct device *master,
 	void *data)
 {
 	struct kgsl_device *device = dev_get_drvdata(master);
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	int ret;
 
 	ret = a6xx_gmu_probe(device, to_platform_device(dev));
 	if (ret)
 		goto error;
 
-	ret = a6xx_hwsched_hfi_probe(ADRENO_DEVICE(device));
+	ret = a6xx_hwsched_hfi_probe(adreno_dev);
+	if (ret)
+		goto error;
 
-	if (!ret) {
-		set_bit(GMU_DISPATCH, &device->gmu_core.flags);
-		return 0;
-	}
+	set_bit(GMU_DISPATCH, &device->gmu_core.flags);
+
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION))
+		set_bit(ADRENO_DEVICE_PREEMPTION, &adreno_dev->priv);
+
+	return 0;
 
 error:
 	a6xx_gmu_remove(device);
