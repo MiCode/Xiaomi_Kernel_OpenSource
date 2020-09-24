@@ -1132,6 +1132,163 @@ err:
 }
 
 /**
+ * dwc3_msm_depcfg_params - Set depcfg parameters for MSM eps
+ * @ep: Endpoint being configured
+ * @params: depcmd param being passed to the controller
+ *
+ * Initializes the dwc3_gadget_ep_cmd_params structure being passed as part of
+ * the depcfg command.  This API is explicitly used for initializing the params
+ * for MSM specific HW endpoints.
+ *
+ * Supported EP types:
+ * - USB GSI
+ * - USB BAM
+ */
+static void dwc3_msm_depcfg_params(struct usb_ep *ep, struct dwc3_gadget_ep_cmd_params *params)
+{
+	struct dwc3_ep *dep = to_dwc3_ep(ep);
+	struct dwc3 *dwc = dep->dwc;
+	const struct usb_endpoint_descriptor *desc = ep->desc;
+	const struct usb_ss_ep_comp_descriptor *comp_desc = ep->comp_desc;
+
+	params->param0 = DWC3_DEPCFG_EP_TYPE(usb_endpoint_type(desc))
+		| DWC3_DEPCFG_MAX_PACKET_SIZE(usb_endpoint_maxp(desc));
+
+	/* Burst size is only needed in SuperSpeed mode */
+	if (dwc->gadget->speed >= USB_SPEED_SUPER) {
+		u32 burst = dep->endpoint.maxburst;
+
+		params->param0 |= DWC3_DEPCFG_BURST_SIZE(burst - 1);
+	}
+
+	if (usb_ss_max_streams(comp_desc) && usb_endpoint_xfer_bulk(desc)) {
+		params->param1 |= DWC3_DEPCFG_STREAM_CAPABLE
+					| DWC3_DEPCFG_STREAM_EVENT_EN;
+		dep->stream_capable = true;
+	}
+
+	/* Set EP number */
+	params->param1 |= DWC3_DEPCFG_EP_NUMBER(dep->number);
+	if (dep->direction)
+		params->param0 |= DWC3_DEPCFG_FIFO_NUMBER(dep->number >> 1);
+
+	params->param0 |= DWC3_DEPCFG_ACTION_INIT;
+
+	if (dep->gsi) {
+		/* Enable XferInProgress and XferComplete Interrupts */
+		params->param1 |= DWC3_DEPCFG_XFER_COMPLETE_EN;
+		params->param1 |= DWC3_DEPCFG_XFER_IN_PROGRESS_EN;
+		params->param1 |= DWC3_DEPCFG_FIFO_ERROR_EN;
+	}
+}
+
+static int dwc3_msm_set_ep_config(struct dwc3_ep *dep, unsigned int action)
+{
+	const struct usb_ss_ep_comp_descriptor *comp_desc;
+	const struct usb_endpoint_descriptor *desc;
+	struct dwc3_gadget_ep_cmd_params params;
+	struct usb_ep *ep = &dep->endpoint;
+
+	comp_desc = dep->endpoint.comp_desc;
+	desc = dep->endpoint.desc;
+
+	memset(&params, 0x00, sizeof(params));
+	dwc3_msm_depcfg_params(ep, &params);
+
+	return dwc3_send_gadget_ep_cmd(dep, DWC3_DEPCMD_SETEPCONFIG, &params);
+}
+
+static int __dwc3_msm_ep_enable(struct dwc3_ep *dep, unsigned int action)
+{
+	struct dwc3 *dwc = dep->dwc;
+	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
+	const struct usb_endpoint_descriptor *desc = dep->endpoint.desc;
+	u32 reg;
+	int ret;
+
+	if (!(dep->flags & DWC3_EP_ENABLED)) {
+		ret = dwc3_gadget_resize_tx_fifos(dwc, dep);
+		if (ret)
+			return ret;
+	}
+
+	ret = dwc3_msm_set_ep_config(dep, action);
+	if (ret) {
+		dev_err(dwc->dev, "set_ep_config() failed for %s\n", dep->name);
+		return ret;
+	}
+
+	if (!(dep->flags & DWC3_EP_ENABLED)) {
+		struct dwc3_trb	*trb_st_hw;
+		struct dwc3_trb	*trb_link;
+
+		dep->type = usb_endpoint_type(desc);
+		dep->flags |= DWC3_EP_ENABLED;
+
+		reg = dwc3_msm_read_reg(mdwc->base, DWC3_DALEPENA);
+		reg |= DWC3_DALEPENA_EP(dep->number);
+		dwc3_msm_write_reg(mdwc->base, DWC3_DALEPENA, reg);
+
+		/* Initialize the TRB ring */
+		dep->trb_dequeue = 0;
+		dep->trb_enqueue = 0;
+		memset(dep->trb_pool, 0,
+		       sizeof(struct dwc3_trb) * DWC3_TRB_NUM);
+
+		/* Link TRB. The HWO bit is never reset */
+		trb_st_hw = &dep->trb_pool[0];
+
+		trb_link = &dep->trb_pool[DWC3_TRB_NUM - 1];
+		trb_link->bpl = lower_32_bits(dwc3_trb_dma_offset(dep, trb_st_hw));
+		trb_link->bph = upper_32_bits(dwc3_trb_dma_offset(dep, trb_st_hw));
+		trb_link->ctrl |= DWC3_TRBCTL_LINK_TRB;
+		trb_link->ctrl |= DWC3_TRB_CTRL_HWO;
+	}
+
+	return 0;
+}
+
+static int dwc3_msm_ep_enable(struct usb_ep *ep,
+			      const struct usb_endpoint_descriptor *desc)
+{
+	struct dwc3_ep *dep;
+	struct dwc3 *dwc;
+	unsigned long flags;
+	int ret;
+
+	if (!ep || !desc || desc->bDescriptorType != USB_DT_ENDPOINT) {
+		pr_debug("dwc3: invalid parameters\n");
+		return -EINVAL;
+	}
+
+	if (!desc->wMaxPacketSize) {
+		pr_debug("dwc3: missing wMaxPacketSize\n");
+		return -EINVAL;
+	}
+
+	dep = to_dwc3_ep(ep);
+	dwc = dep->dwc;
+
+	if (dev_WARN_ONCE(dwc->dev, dep->flags & DWC3_EP_ENABLED,
+					"%s is already enabled\n",
+					dep->name))
+		return 0;
+
+	if (pm_runtime_suspended(dwc->sysdev)) {
+		dev_err(dwc->dev, "fail ep_enable %s device is into LPM\n",
+					dep->name);
+		return -EINVAL;
+	}
+
+	spin_lock_irqsave(&dwc->lock, flags);
+	ret = __dwc3_msm_ep_enable(dep, DWC3_DEPCFG_ACTION_INIT);
+	dbg_event(dep->number, "ENABLE", ret);
+	spin_unlock_irqrestore(&dwc->lock, flags);
+
+	return ret;
+}
+
+/**
  * Returns XferRscIndex for the EP. This is stored at StartXfer GSI EP OP
  *
  * @usb_ep - pointer to usb_ep instance.
@@ -1579,42 +1736,10 @@ static void gsi_configure_ep(struct usb_ep *ep, struct usb_gsi_request *request)
 
 	memset(&params, 0x00, sizeof(params));
 
-	/* Configure GSI EP */
-	params.param0 = DWC3_DEPCFG_EP_TYPE(usb_endpoint_type(desc))
-		| DWC3_DEPCFG_MAX_PACKET_SIZE(usb_endpoint_maxp(desc));
-
-	/* Burst size is only needed in SuperSpeed mode */
-	if (dwc->gadget->speed >= USB_SPEED_SUPER) {
-		u32 burst = dep->endpoint.maxburst - 1;
-
-		params.param0 |= DWC3_DEPCFG_BURST_SIZE(burst);
-	}
-
-	if (usb_ss_max_streams(comp_desc) && usb_endpoint_xfer_bulk(desc)) {
-		params.param1 |= DWC3_DEPCFG_STREAM_CAPABLE
-					| DWC3_DEPCFG_STREAM_EVENT_EN;
-		dep->stream_capable = true;
-	}
-
-	/* Set EP number */
-	params.param1 |= DWC3_DEPCFG_EP_NUMBER(dep->number);
+	dwc3_msm_depcfg_params(ep, &params);
 
 	/* Set interrupter number for GSI endpoints */
 	params.param1 |= DWC3_DEPCFG_INT_NUM(request->ep_intr_num);
-
-	/* Enable XferInProgress and XferComplete Interrupts */
-	params.param1 |= DWC3_DEPCFG_XFER_COMPLETE_EN;
-	params.param1 |= DWC3_DEPCFG_XFER_IN_PROGRESS_EN;
-	params.param1 |= DWC3_DEPCFG_FIFO_ERROR_EN;
-	/*
-	 * We must use the lower 16 TX FIFOs even though
-	 * HW might have more
-	 */
-	/* Remove FIFO Number for GSI EP*/
-	if (dep->direction)
-		params.param0 |= DWC3_DEPCFG_FIFO_NUMBER(dep->number >> 1);
-
-	params.param0 |= DWC3_DEPCFG_ACTION_INIT;
 
 	dev_dbg(mdwc->dev, "Set EP config to params = %x %x %x, for %s\n",
 	params.param0, params.param1, params.param2, dep->name);
@@ -2120,6 +2245,8 @@ int msm_ep_update_ops(struct usb_ep *ep)
 
 	(*new_ep_ops) = (*ep->ops);
 	new_ep_ops->queue = dwc3_msm_ep_queue;
+	new_ep_ops->enable = dwc3_msm_ep_enable;
+
 	ep->ops = new_ep_ops;
 
 	spin_unlock_irqrestore(&dwc->lock, flags);
