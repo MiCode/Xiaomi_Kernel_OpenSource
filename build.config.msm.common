@@ -64,7 +64,7 @@ function merge_defconfig_fragments() {
 	local output=$(mktemp)
 	KCONFIG_CONFIG=${KERNEL_DIR}/arch/${ARCH}/configs/${DEFCONFIG} \
 		${KERNEL_DIR}/scripts/kconfig/merge_config.sh \
-		-m -r ${DEFCONFIG_FRAGMENTS} | tee $output
+		-m -r -y ${DEFCONFIG_FRAGMENTS} | tee $output
 	set +x
 	if grep -q -E -e "Previous value: [^=]+=[ym]" $output; then
 		echo "========================================================"
