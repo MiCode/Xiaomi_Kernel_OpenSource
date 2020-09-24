@@ -1,0 +1,38 @@
+config NFC_CHIP_SUPPORT
+	tristate "STMicroelectronics NFC driver solution"
+	help
+	  STMicroelectronics Near Field Communication controller support.
+	  It is the master switch of STMicroelectronics NFC controller drivers.
+	  If configures to be y, NFC_ST21NFC and NFC_ST54_SPI will be
+	  selected.
+
+config NFC_ST21NFC
+	tristate "STMicroelectronics NFC driver solution - NFC Controller Driver"
+	depends on I2C && NFC_CHIP_SUPPORT
+	default m
+	help
+	  STMicroelectronics ST21NFC Near Field Communication controller
+	  support. ST21NFC is standalone NFC and ST54 is combined with secure
+	  element. If configures to be y, means devices supports NFC
+	  functionality. If configures to be n, means devices doesn't support
+	  NFC functionality.
+
+config NFC_ST54_SPI
+	tristate "STMicroelectronics NFC driver solution - SPI Controller Driver"
+	depends on SPI && NFC_ST21NFC
+	default m
+	help
+	  STMicroelectronics ST54 Secure Element controller SPI interface
+	  support. ST21NFC is standalone NFC and ST54 is combined with
+	  secure element. If configures to be y, means devices supports SPI
+	  interface to ST54. If configures to be n, means devices doesn't
+	  support SPI interface (eSE still usable).
+
+config NFC_DEBUG
+	bool "STMicroelectronics NFC driver solution - NFC Driver Debug"
+	depends on NFC_CHIP_SUPPORT
+	help
+	  STMicroelectronics Near Field Communication driver debug support.
+	  This option is for debug only, if configures to be y, it the nfc
+	  controller driver and nfc spi controller driver will dump more
+	  log for debug.
