@@ -800,6 +800,7 @@
 		gauge = <&mtk_gauge>;
 		charger = <&mt6360_chg>;
 		bootmode = <&chosen>;
+		pmic = <&pmic>;
 
 		algorithm_name = "Basic";
 		charger_configuration= <0>;
@@ -903,6 +904,8 @@
 			post_aicc = <1>;
 			batoc_notify = <0>;
 			charger = <&mt6360_chg>;
+			phys = <&u2port0 PHY_TYPE_USB2>;
+			phy-names = "usb2-phy";
 			otg_vbus: usb-otg-vbus {
 				regulator-compatible = "usb-otg-vbus";
 				regulator-name = "usb-otg-vbus";
