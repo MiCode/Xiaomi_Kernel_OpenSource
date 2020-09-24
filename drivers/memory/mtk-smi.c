@@ -290,21 +290,6 @@ static void mtk_smi_larb_config_port_gen1(struct device *dev)
 	}
 }
 
-static void mtk_smi_larb_sleep_ctrl(struct device *dev, bool toslp)
-{
-	struct mtk_smi_larb *larb = dev_get_drvdata(dev);
-	void __iomem *base = larb->base;
-	u32 tmp;
-
-	if (toslp) {
-		writel_relaxed(SLP_PROT_EN, base + SMI_LARB_SLP_CON);
-		if (readl_poll_timeout_atomic(base + SMI_LARB_SLP_CON,
-				tmp, !!(tmp & SLP_PROT_RDY), 10, 10000))
-			dev_notice(dev, "sleep cond not ready(%d)\n", tmp);
-	} else
-		writel_relaxed(0, base + SMI_LARB_SLP_CON);
-}
-
 static void
 mtk_smi_larb_unbind(struct device *dev, struct device *master, void *data)
 {
