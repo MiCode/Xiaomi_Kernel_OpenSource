@@ -753,9 +753,9 @@
 	};
 
 	/* GPU_CC GDSCs */
-	gpu_cc_cx_hw_ctrl: syscon@3d9953d {
+	gpu_cc_cx_hw_ctrl: syscon@3d9953c {
 		compatible = "syscon";
-		reg = <0x3d9953d 0x4>;
+		reg = <0x3d9953c 0x4>;
 	};
 
 	gpu_cc_cx_gdsc: qcom,gdsc@3d99108 {
