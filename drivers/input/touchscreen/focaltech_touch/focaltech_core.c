@@ -2240,7 +2240,6 @@ static void fts_ts_late_resume(struct early_suspend *handler)
 
 static int fts_ts_probe_delayed(struct fts_ts_data *fts_data)
 {
-	int error = 0;
 	int ret = 0;
 
 /* Avoid setting up hardware for TVM during probe */
@@ -2280,24 +2279,24 @@ static int fts_ts_probe_delayed(struct fts_ts_data *fts_data)
 #ifdef CONFIG_ARCH_QTI_VM
 tvm_setup:
 #endif
-	error = fts_irq_registration(fts_data);
-	if (error) {
+	ret = fts_irq_registration(fts_data);
+	if (ret) {
 		FTS_ERROR("request irq failed");
 #ifdef CONFIG_ARCH_QTI_VM
-		return error;
+		return ret;
 #endif
 		goto err_irq_req;
 	}
 
 #ifdef CONFIG_ARCH_QTI_VM
-	return error;
+	return ret;
 #endif
 
 	ret = fts_fwupg_init(fts_data);
 	if (ret)
 		FTS_ERROR("init fw upgrade fail");
 
-	return error;
+	return 0;
 
 err_irq_req:
 	if (gpio_is_valid(fts_data->pdata->reset_gpio))
@@ -2309,7 +2308,7 @@ err_power_init:
 	fts_power_source_exit(fts_data);
 #endif
 err_gpio_config:
-	return error;
+	return ret;
 }
 
 static int fts_ts_probe_entry(struct fts_ts_data *ts_data)
@@ -2401,6 +2400,16 @@ static int fts_ts_probe_entry(struct fts_ts_data *ts_data)
 	}
 #endif
 
+#ifdef CONFIG_FTS_TRUSTED_TOUCH
+	fts_ts_trusted_touch_init(ts_data);
+	mutex_init(&(ts_data->fts_clk_io_ctrl_mutex));
+#endif
+	ret = fts_ts_probe_delayed(ts_data);
+	if (ret) {
+		FTS_ERROR("Failed to enable resources\n");
+		goto err_probe_delayed;
+	}
+
 #if defined(CONFIG_DRM)
 	if (ts_data->ts_workqueue) {
 		INIT_WORK(&ts_data->resume_work, fts_resume_work);
@@ -2427,16 +2436,6 @@ static int fts_ts_probe_entry(struct fts_ts_data *ts_data)
 	ts_data->early_suspend.resume = fts_ts_late_resume;
 	register_early_suspend(&ts_data->early_suspend);
 #endif
-
-#ifdef CONFIG_FTS_TRUSTED_TOUCH
-	fts_ts_trusted_touch_init(ts_data);
-	mutex_init(&(ts_data->fts_clk_io_ctrl_mutex));
-#endif
-	ret = fts_ts_probe_delayed(ts_data);
-	if (ret) {
-		FTS_ERROR("Failed to enable resources\n");
-		goto err_probe_delayed;
-	}
 
 	FTS_FUNC_EXIT();
 	return 0;
