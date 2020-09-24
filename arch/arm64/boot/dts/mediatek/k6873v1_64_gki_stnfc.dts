@@ -368,6 +368,56 @@
 	status = "okay";
 };
 
+&i2c3 {
+	st21nfc: st21nfc@08 {
+		compatible = "st,st21nfc";
+		reg = <0x08>;
+		interrupt-parent = <&pio>;
+		interrupts = <11 0>;
+		reset-gpios = <&pio 10 0x00>;
+		irq-gpios = <&pio 11 0x00>;
+		clkreq-gpios = <&pio 206 0x00>;
+		status = "ok";
+	};
+};
+
+&spi5 {
+	st54spi: st54spi@0 {
+		compatible = "st,st54spi";
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+
+		/* gpio used as SE_PWR_REQ or SE_nRESET */
+		gpio-power_nreset = <13>;
+		gpio-power_nreset-std = <&pio 13 0x00>;
+
+		/* Power management mode: none, ST54H (default), ST54J */
+		power_mode = "ST54J";
+
+		pinctrl-names = "pinctrl_state_mode_idle", "pinctrl_state_mode_spi";
+		pinctrl-0 = <&pinctrl_state_mode_idle>;
+		pinctrl-1 = <&pinctrl_state_mode_spi>;
+
+		status = "okay";
+	};
+};
+
+&pio {
+	pinctrl_state_mode_idle: pinctrl_state_mode_idle {
+		pins_cmd0_dat {
+			pinmux = <PINMUX_GPIO37__FUNC_GPIO37>;
+			input-enable;
+			bias-pull-down;
+		};
+	};
+	pinctrl_state_mode_spi: pinctrl_state_mode_spi {
+		pins_cmd0_dat {
+			pinmux = <PINMUX_GPIO37__FUNC_SPI5_A_CSB>;
+			bias-disable;
+		};
+	};
+};
+
 &i2c6 {
 	tfa9874: tfa9874@34 {
 		compatible = "goodix,tfa9874";
