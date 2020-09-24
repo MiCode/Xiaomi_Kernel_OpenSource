@@ -8,7 +8,7 @@
 #include "mediatek/mt6853.dtsi"
 #include "mediatek/mt6359p.dtsi"
 #include "mediatek/mt6853-clkitg.dtsi"
-#include "mediatek/bat_setting/mt6873_battery_prop.dtsi"
+#include "mediatek/bat_setting/mt6853_battery_prop.dtsi"
 
 / {
 	tboard_thermistor1: thermal-ntc1 {
