@@ -1820,7 +1820,6 @@
 		audio_clk: syscon@11210000 {
 			compatible = "mediatek,mt6853-audiosys", "syscon";
 			reg = <0 0x11210000 0 0x2000>;
-			power-domains = <&scpsys MT6853_POWER_DOMAIN_AUDIO>;
 			#clock-cells = <1>;
 		};
 
@@ -2242,7 +2241,6 @@
 		mfgcfg_clk: syscon@13fbf000 {
 			compatible = "mediatek,mt6853-mfgcfg", "syscon";
 			reg = <0 0x13fbf000 0 0x1000>;
-			power-domains = <&scpsys MT6853_POWER_DOMAIN_MFG1>;
 			#clock-cells = <1>;
 		};
 
@@ -2496,7 +2494,6 @@
 		mmsys_config_clk: syscon@14000000 {
 			compatible = "mediatek,mt6853-mmsys_config", "syscon";
 			reg = <0 0x14000000 0 0x1000>;
-			power-domains = <&scpsys MT6853_POWER_DOMAIN_DISP>;
 			#clock-cells = <1>;
 		};
 
@@ -2573,7 +2570,6 @@
 		imgsys1_clk: syscon@15020000 {
 			compatible = "mediatek,mt6853-imgsys1", "syscon";
 			reg = <0 0x15020000 0 0x1000>;
-			power-domains = <&scpsys MT6853_POWER_DOMAIN_ISP>;
 			#clock-cells = <1>;
 		};
 
@@ -2708,7 +2704,6 @@
 		imgsys2_clk: syscon@15820000 {
 			compatible = "mediatek,mt6853-imgsys2", "syscon";
 			reg = <0 0x15820000 0 0x1000>;
-			power-domains = <&scpsys MT6853_POWER_DOMAIN_ISP2>;
 			#clock-cells = <1>;
 		};
 
@@ -2740,7 +2735,6 @@
 		vdec_gcon_clk: syscon@1602f000 {
 			compatible = "mediatek,mt6853-vdec_gcon", "syscon";
 			reg = <0 0x1602f000 0 0x1000>;
-			power-domains = <&scpsys MT6853_POWER_DOMAIN_VDEC>;
 			#clock-cells = <1>;
 		};
 
@@ -2755,7 +2749,6 @@
 		venc_gcon_clk: syscon@17000000 {
 			compatible = "mediatek,mt6853-venc_gcon", "syscon";
 			reg = <0 0x17000000 0 0x1000>;
-			power-domains = <&scpsys MT6853_POWER_DOMAIN_VENC>;
 			#clock-cells = <1>;
 		};
 
@@ -2794,7 +2787,6 @@
 		apu_conn_clk: syscon@19020000 {
 			compatible = "mediatek,mt6853-apu_conn", "syscon";
 			reg = <0 0x19020000 0 0x1000>;
-			power-domains = <&scpsys MT6853_POWER_DOMAIN_APU>;
 			#clock-cells = <1>;
 		};
 
@@ -2813,14 +2805,12 @@
 		apusys_vcore_clk: syscon@19029000 {
 			compatible = "mediatek,mt6853-apu_vcore", "syscon";
 			reg = <0 0x19029000 0 0x1000>;
-			power-domains = <&scpsys MT6853_POWER_DOMAIN_APU>;
 			#clock-cells = <1>;
 		};
 
 		apu0_clk: syscon@19030000 {
 			compatible = "mediatek,mt6853-apu0", "syscon";
 			reg = <0 0x19030000 0 0x1000>;
-			power-domains = <&scpsys MT6853_POWER_DOMAIN_APU>;
 			#clock-cells = <1>;
 		};
 
@@ -2843,7 +2833,6 @@
 		apu1_clk: syscon@19031000 {
 			compatible = "mediatek,mt6853-apu1", "syscon";
 			reg = <0 0x19031000 0 0x1000>;
-			power-domains = <&scpsys MT6853_POWER_DOMAIN_APU>;
 			#clock-cells = <1>;
 		};
 
@@ -2960,7 +2949,6 @@
 		camsys_main_clk: syscon@1a000000 {
 			compatible = "mediatek,mt6853-camsys_main", "syscon";
 			reg = <0 0x1a000000 0 0x1000>;
-			power-domains = <&scpsys MT6853_POWER_DOMAIN_CAM>;
 			#clock-cells = <1>;
 		};
 
@@ -3022,21 +3010,18 @@
 		camsys_rawa_clk: syscon@1a04f000 {
 			compatible = "mediatek,mt6853-camsys_rawa", "syscon";
 			reg = <0 0x1a04f000 0 0x1000>;
-			power-domains = <&scpsys MT6853_POWER_DOMAIN_CAM_RAWA>;
 			#clock-cells = <1>;
 		};
 
 		camsys_rawb_clk: syscon@1a06f000 {
 			compatible = "mediatek,mt6853-camsys_rawb", "syscon";
 			reg = <0 0x1a06f000 0 0x1000>;
-			power-domains = <&scpsys MT6853_POWER_DOMAIN_CAM_RAWB>;
 			#clock-cells = <1>;
 		};
 
 		ipesys_clk: syscon@1b000000 {
 			compatible = "mediatek,mt6853-ipesys", "syscon";
 			reg = <0 0x1b000000 0 0x1000>;
-			power-domains = <&scpsys MT6853_POWER_DOMAIN_IPE>;
 			#clock-cells = <1>;
 		};
 
@@ -3073,7 +3058,6 @@
 		mdpsys_config_clk: syscon@1f000000 {
 			compatible = "mediatek,mt6853-mdpsys_config", "syscon";
 			reg = <0 0x1f000000 0 0x1000>;
-			power-domains = <&scpsys MT6853_POWER_DOMAIN_DISP>;
 			#clock-cells = <1>;
 		};
 
