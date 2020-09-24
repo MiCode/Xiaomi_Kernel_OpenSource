@@ -716,12 +716,18 @@ enum ipa_coalesce_event {
 #define IPA_COALESCE_EVENT_MAX IPA_COALESCE_EVENT_MAX
 };
 
+enum ipa_mtu_event {
+	IPA_SET_MTU = IPA_COALESCE_EVENT_MAX,
+	IPA_MTU_EVENT_MAX
+#define IPA_MTU_EVENT_MAX IPA_MTU_EVENT_MAX
+};
+
 enum ipa_peripheral_event {
 	IPA_PERIPHERAL_CONNECT = ECM_CONNECT,
 	IPA_PERIPHERAL_DISCONNECT = ECM_DISCONNECT
 };
 
-#define WIGIG_CLIENT_CONNECT (IPA_COALESCE_EVENT_MAX)
+#define WIGIG_CLIENT_CONNECT (IPA_MTU_EVENT_MAX)
 #define WIGIG_FST_SWITCH (WIGIG_CLIENT_CONNECT + 1)
 #define WIGIG_EVENT_MAX (WIGIG_FST_SWITCH + 1)
 
@@ -2629,6 +2635,13 @@ struct ipa_coalesce_info {
 	uint8_t qmap_id;
 	uint8_t tcp_enable;
 	uint8_t udp_enable;
+};
+
+struct ipa_mtu_info {
+	char if_name[IPA_RESOURCE_NAME_MAX];
+	enum ipa_ip_type ip_type;
+	uint16_t mtu_v4;
+	uint16_t mtu_v6;
 };
 
 struct ipa_odl_ep_info {
