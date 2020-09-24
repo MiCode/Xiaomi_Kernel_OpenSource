@@ -1,0 +1,5 @@
+&soc {
+	qcom,dma-heaps {
+		compatible = "qcom,dma-heaps";
+	};
+};

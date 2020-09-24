@@ -5348,6 +5348,7 @@
 #include "lahaina-pinctrl.dtsi"
 #include "lahaina-smp2p.dtsi"
 #include "lahaina-ion.dtsi"
+#include "waipio-dma-heaps.dtsi"
 #include "msm-arm-smmu-lahaina.dtsi"
 #include "lahaina-usb.dtsi"
 #include "lahaina-coresight.dtsi"
