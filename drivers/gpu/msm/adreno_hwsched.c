@@ -1221,6 +1221,9 @@ static void reset_and_snapshot(struct adreno_device *adreno_dev)
 	struct cmd_list_obj *obj = get_fault_cmdobj(adreno_dev);
 	struct adreno_hwsched *hwsched = to_hwsched(adreno_dev);
 
+	if (device->state != KGSL_STATE_ACTIVE)
+		return;
+
 	if (!obj) {
 		kgsl_device_snapshot(device, NULL, false);
 		goto done;
