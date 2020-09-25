@@ -14,3 +14,10 @@ config DRM_MTK_DISABLE_AEE_LAYER
 	  If this value is y, will not produce AEE.
 	  If this value is n, will produce AEE.
 	  If you do not produce AEE, please set it to Y in xxx_defconfig.
+
+config MTK_AAL_SUPPORT
+	bool "Support MTK ambient-light adaptive luma (AAL)"
+	help
+	  Decide whether to support ambient-light adaptive luma and
+	  display visual enhancement.
+	  This feature requires the cowork of AAL user-space algorithm process.
