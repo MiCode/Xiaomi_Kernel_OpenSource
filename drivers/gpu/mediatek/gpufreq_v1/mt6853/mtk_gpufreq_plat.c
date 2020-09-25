@@ -74,6 +74,9 @@ extern GED_LOG_BUF_HANDLE gpufreq_ged_log;
 #include "dbgtop.h"
 #endif
 
+/* TODO: porting*/
+#define EFUSE_READY 0
+
 enum gpu_dvfs_vgpu_step {
 	GPU_DVFS_VGPU_STEP_1 = 0x1,
 	GPU_DVFS_VGPU_STEP_2 = 0x2,
@@ -2637,7 +2640,6 @@ static void __mt_gpufreq_clock_switch(unsigned int freq_new)
 	enum g_posdiv_power_enum real_posdiv_power;
 	unsigned int dds, pll;
 	bool parking = false;
-	int hopping = -1;
 
 	real_posdiv_power = __mt_gpufreq_get_curr_posdiv_power();
 	posdiv_power = __mt_gpufreq_get_posdiv_power(freq_new);
