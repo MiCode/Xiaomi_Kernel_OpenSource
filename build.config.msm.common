@@ -73,7 +73,16 @@ function merge_defconfig_fragments() {
 		rm $output
 		exit 1
 	fi
-	rm $output
+	local temp_config=$(mktemp)
+	(cd ${KERNEL_DIR} && KCONFIG_CONFIG=${temp_config} make "${TOOL_ARGS[@]}" O=${OUT_DIR} ${MAKE_ARGS} ${DEFCONFIG}) 2>&1 | tee $output
+	if grep -q -e "warning:" $output; then
+		echo "========================================================"
+		echo "ERROR! Treating config warnings as errors"
+		grep -e "warning" $output >&2
+		rm $output $temp_config
+		exit 1
+	fi
+	rm $output $temp_config
 	set -x
 
 }
