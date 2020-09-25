@@ -26,6 +26,7 @@
 #include "mtk_cam-regs.h"
 #include "mtk_cam-smem.h"
 #include "mtk_cam-pool.h"
+#include "mtk_cam-meta.h"
 
 #define MTK_CAM_STOP_HW_TIMEOUT			(33 * USEC_PER_MSEC)
 
@@ -33,10 +34,34 @@
 #define MTK_CAM_CIO_PAD_SRC		PAD_SRC_RAW0
 #define MTK_CAM_CIO_PAD_SINK		MTK_RAW_SINK
 
+#define DUMP_HEADER_MAX_SIZE	0x1000
+#define DUMP_CQ_MAX_SIZE	0x4000
+#define DUMP_META_STATS_CFG_MAX_SIZE (48 * SZ_1K)
+#define DUMP_META_STATS_0_MAX_SIZE \
+	ALIGN((MTK_CAM_UAPI_AAO_MAX_BUF_SIZE + MTK_CAM_UAPI_AAHO_MAX_BUF_SIZE + \
+	       MTK_CAM_UAPI_LTMSO_SIZE + MTK_CAM_UAPI_FLK_MAX_BUF_SIZE + \
+	       MTK_CAM_UAPI_TSFSO_SIZE + SZ_1K), (4 * SZ_1K))
+#define DUMP_META_STATS_1_MAX_SIZE \
+	ALIGN((MTK_CAM_UAPI_AFO_MAX_BUF_SIZE + SZ_1K), (4 * SZ_1K))
+
+#define DUMP_META_STATS_2_MAX_SIZE \
+	ALIGN((MTK_CAM_UAPI_LCESO_SIZE + MTK_CAM_UAPI_LCESHO_SIZE + \
+	      MTK_CAM_UAPI_LMVO_SIZE + SZ_1K), (4 * SZ_1K))
+
+#define DUMP_MEM_SIZE	(DUMP_HEADER_MAX_SIZE + DUMP_CQ_MAX_SIZE + \
+			 DUMP_META_STATS_CFG_MAX_SIZE + \
+			 DUMP_META_STATS_0_MAX_SIZE + \
+			 DUMP_META_STATS_1_MAX_SIZE + \
+			 DUMP_META_STATS_2_MAX_SIZE)
+
 static const struct of_device_id mtk_cam_of_ids[] = {
 	{.compatible = "mediatek,camisp",},
 	{}
 };
+
+static uint force_dump;
+static uint max_num_of_dump;
+
 MODULE_DEVICE_TABLE(of, mtk_cam_of_ids);
 
 static void mtk_cam_dev_job_done(struct mtk_cam_device *cam,
@@ -48,7 +73,7 @@ static void mtk_cam_dev_job_done(struct mtk_cam_device *cam,
 	u64 ts_eof = ktime_get_boottime_ns();
 
 	dev_info(cam->dev, "job done request:%s frame_seq:%d state:%d ctx_used:%d\n",
-		req->req.debug_str, req->frame_seq_no, state, req->ctx_used);
+		 req->req.debug_str, req->frame_seq_no, state, req->ctx_used);
 	list_for_each_entry_safe(obj, obj_prev, &req->req.objects, list) {
 		struct vb2_buffer *vb;
 		struct mtk_cam_buffer *buf;
@@ -97,6 +122,114 @@ struct mtk_cam_request *mtk_cam_dev_get_req(struct mtk_cam_device *cam,
 	return NULL;
 }
 
+static void mtk_cam_dev_dump_request(struct mtk_cam_device *cam,
+				     struct mtk_cam_request *req)
+{
+	struct media_request_object *obj, *obj_prev;
+	struct mtk_cam_dump_param  *dump_param = &req->dump_param;
+	int request_fd = -1;
+
+	dump_param->sequence = req->frame_seq_no;
+	dump_param->timestamp = req->timestamp;
+	dump_param->cq_cpu_addr = (void *)(cam->working_buf_mem_va +
+			    req->working_buf->buffer.addr_offset);
+
+	list_for_each_entry_safe(obj, obj_prev, &req->req.objects, list) {
+		struct vb2_buffer *vb;
+		struct vb2_v4l2_buffer *v4l2_buf;
+		struct mtk_cam_buffer *buf;
+		struct mtk_cam_video_device *node;
+
+		if (!vb2_request_object_is_buffer(obj))
+			continue;
+
+		vb = container_of(obj, struct vb2_buffer, req_obj);
+		v4l2_buf = to_vb2_v4l2_buffer(vb);
+		buf = mtk_cam_vb2_buf_to_dev_buf(vb);
+		node = mtk_cam_vbq_to_vdev(vb->vb2_queue);
+
+		if (request_fd < 0)
+			request_fd = v4l2_buf->request_fd;
+
+		if (node->desc.id == MTK_RAW_META_IN) {
+			dump_param->meta_in_cpu_addr = vb2_plane_vaddr(vb, 0);
+			dump_param->meta_in_dump_buf_size =
+				node->active_fmt.fmt.meta.buffersize;
+			dump_param->meta_in_iova = buf->daddr;
+			dev_dbg(cam->dev, "MTK_RAW_META_IN(%s) found: %d\n",
+				node->desc.name,
+				dump_param->meta_in_dump_buf_size);
+		} else if (node->desc.id == MTK_RAW_META_OUT_0) {
+			dump_param->meta_out_0_cpu_addr = vb2_plane_vaddr(vb, 0);
+			dump_param->meta_out_0_dump_buf_size =
+				node->active_fmt.fmt.meta.buffersize;
+			dump_param->meta_out_0_iova = buf->daddr;
+			dev_dbg(cam->dev, "MTK_RAW_META_OUT_0(%s) found: %d\n",
+				node->desc.name,
+				dump_param->meta_out_0_dump_buf_size);
+		} else if (node->desc.id == MTK_RAW_META_OUT_1) {
+			dump_param->meta_out_1_cpu_addr = vb2_plane_vaddr(vb, 0);
+			dump_param->meta_out_1_dump_buf_size =
+				node->active_fmt.fmt.meta.buffersize;
+			dump_param->meta_out_1_iova = buf->daddr;
+			dev_dbg(cam->dev, "MTK_RAW_META_OUT_1 found: %d\n",
+				dump_param->meta_out_1_dump_buf_size);
+		} else if (node->desc.id == MTK_RAW_META_OUT_2) {
+			dump_param->meta_out_2_cpu_addr = vb2_plane_vaddr(vb, 0);
+			dump_param->meta_out_2_dump_buf_size =
+				node->active_fmt.fmt.meta.buffersize;
+			dump_param->meta_out_2_iova = buf->daddr;
+			dev_dbg(cam->dev, "MTK_RAW_META_OUT_2 found: %d\n",
+				dump_param->meta_out_2_dump_buf_size);
+		}
+	}
+
+	dump_param->cq_size = req->working_buf->buffer.size;
+	dump_param->cq_desc_size = req->working_buf->cq_size;
+	dump_param->cq_iova = cam->working_buf_mem_iova + req->working_buf->buffer.addr_offset;
+	dump_param->request_fd = request_fd;
+}
+
+static void mtk_cam_request_dump_work(struct work_struct *work)
+{
+	struct mtk_cam_request *req =
+		container_of(work, struct mtk_cam_request, debug_work);
+	struct mtk_cam_device *cam =
+		container_of(req->req.mdev, struct mtk_cam_device, media_dev);
+	mtk_cam_dev_dump_request(cam, req);
+
+	cam->debug_fs->ops->dump(cam->debug_fs, &req->dump_param);
+
+	/* Return buffer after we finish the dump */
+	mtk_cam_dev_job_done(cam, req, req->dump_param.buffer_state);
+}
+
+static void mtk_cam_request_dump_exp_work(struct work_struct *work)
+{
+	struct mtk_cam_request *req =
+		container_of(work, struct mtk_cam_request, debug_work);
+	struct mtk_cam_device *cam =
+		container_of(req->req.mdev, struct mtk_cam_device, media_dev);
+	mtk_cam_dev_dump_request(cam, req);
+
+	cam->debug_fs->ops->exp_dump(cam->debug_fs, &req->dump_param);
+
+	/* Return buffer after we finish the dump */
+	mtk_cam_dev_job_done(cam, req, req->dump_param.buffer_state);
+}
+
+static void mtk_cam_req_dump(struct mtk_cam_device *cam,
+			     struct mtk_cam_request *req, int buf_state,
+			     char *desc,
+			     void (*work_func)(struct work_struct *))
+{
+	memset(&req->dump_param, 0, sizeof(req->dump_param));
+	snprintf(req->dump_param.desc, MTK_CAM_DEBUG_PARAM_DESC_SIZE - 1, desc);
+	req->dump_param.buffer_state = buf_state;
+	INIT_WORK(&req->debug_work, mtk_cam_request_dump_work);
+	queue_work(cam->debug_wq, &req->debug_work);
+}
+
 void mtk_cam_dequeue_req_frame(struct mtk_cam_device *cam,
 			       struct mtk_cam_ctx *ctx)
 {
@@ -120,15 +253,30 @@ void mtk_cam_dequeue_req_frame(struct mtk_cam_device *cam,
 			if (req->state.estate == E_STATE_DONE_MISMATCH)
 				buf_state = VB2_BUF_STATE_ERROR;
 			mtk_camsys_state_delete(ctx, sensor_ctrl, req);
-			mtk_cam_dev_job_done(cam, req, buf_state);
+
+			if (force_dump && cam->debug_fs)
+				mtk_cam_req_dump(cam, req, buf_state,
+						 "Camsys Force DUMP",
+						 mtk_cam_request_dump_work);
+			else
+				mtk_cam_dev_job_done(cam, req, buf_state);
+
 			list_del(&req->list);
 			break;
 		} else if (req->frame_seq_no < frame_seq_no) {
 			cam->running_job_count--;
 			mtk_camsys_state_delete(ctx, sensor_ctrl, req);
-			mtk_cam_dev_job_done(cam, req, VB2_BUF_STATE_ERROR);
+
 			dev_dbg(cam->dev, "frame_seq:%d time:%lld drop\n",
-				 req->frame_seq_no, req->timestamp);
+				req->frame_seq_no, req->timestamp);
+
+			if (cam->debug_fs)
+				mtk_cam_req_dump(cam, req, VB2_BUF_STATE_ERROR,
+						 "Camsys DUMP for Frame Drop",
+						 mtk_cam_request_dump_exp_work);
+			else
+				mtk_cam_dev_job_done(cam, req, VB2_BUF_STATE_ERROR);
+
 			list_del(&req->list);
 		}
 	}
@@ -330,7 +478,7 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 			sd_height = sd_fmt.format.height;
 
 			out_fmt = &req->frame_params
-					.img_outs[node->desc.id-MTK_RAW_SOURCE_BEGIN];
+					.img_outs[node->desc.id - MTK_RAW_SOURCE_BEGIN];
 			out_fmt->uid.pipe_id = node->uid.pipe_id;
 			out_fmt->uid.id =  node->desc.dma_port;
 
@@ -629,6 +777,7 @@ static void isp_tx_frame_worker(struct work_struct *work)
 	memcpy(frame_data, frame_params, sizeof(*frame_params));
 
 	/* TODO: save to relative ctx using buffer list */
+	req->working_buf = buf_entry;
 	frame_data->cur_workbuf_offset = buf_entry->buffer.addr_offset;
 	frame_data->cur_workbuf_size = buf_entry->buffer.size;
 
@@ -657,7 +806,7 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 				camsys_ctrl->link_change_state = LINK_CHANGE_QUEUED;
 				camsys_ctrl->link_change_req = req;
 				dev_dbg(cam->dev, "link_change ctx:%d, req_no:%d\n",
-						ctx->stream_id, req->frame_seq_no);
+					ctx->stream_id, req->frame_seq_no);
 			}
 			break;
 		}
@@ -1120,7 +1269,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 
 	if (ctx->streaming) {
 		dev_dbg(cam->dev, "ctx-%d is already streaming on\n",
-			 ctx->stream_id);
+			ctx->stream_id);
 		return 0;
 	}
 
@@ -1135,10 +1284,10 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 		}
 	}
 	mtk_cam_seninf_set_camtg(ctx->seninf, PAD_SRC_RAW0,
-		ctx->stream_id);
+				 ctx->stream_id);
 	/* todo: backend support one pixel mode only */
 	mtk_cam_seninf_set_pixelmode(ctx->seninf, PAD_SRC_RAW0,
-		ctx->pipe->res_config.tgo_pxl_mode);
+				     ctx->pipe->res_config.tgo_pxl_mode);
 	ret = v4l2_subdev_call(ctx->seninf, video, s_stream, 1);
 	if (ret) {
 		dev_dbg(cam->dev, "failed to stream on seninf %s:%d\n",
@@ -1163,6 +1312,15 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 	initialize(raw_dev);
 
 	spin_lock_irqsave(&ctx->streaming_lock, flags);
+	if (!cam->streaming_ctx && cam->debug_fs) {
+		max_num_of_dump = cam->debug_fs->ops->realloc(cam->debug_fs,
+							      max_num_of_dump);
+	} else {
+		dev_dbg(cam->dev,
+			"Cam dump disalbed, streaming_ctx(0x%x), debug_fs(%p)\n",
+			cam->streaming_ctx, cam->debug_fs);
+	}
+
 	ctx->streaming = true;
 	cam->streaming_ctx |= 1 << ctx->stream_id;
 	spin_unlock_irqrestore(&ctx->streaming_lock, flags);
@@ -1200,7 +1358,7 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 
 	if (!ctx->streaming) {
 		dev_dbg(cam->dev, "ctx-%d is already streaming off\n",
-			 ctx->stream_id);
+			ctx->stream_id);
 		return 0;
 	}
 
@@ -1552,6 +1710,15 @@ static int mtk_cam_probe(struct platform_device *pdev)
 	if (ret < 0)
 		goto fail_match_remove;
 
+	cam_dev->debug_fs = mtk_cam_get_debugfs();
+	if (cam_dev->debug_fs)
+		cam_dev->debug_fs->ops->init(cam_dev->debug_fs, cam_dev,
+					     DUMP_MEM_SIZE,
+					     MTK_CAM_DEBUG_DUMP_MAX_BUF);
+
+	cam_dev->debug_wq = alloc_ordered_workqueue(dev_name(cam_dev->dev),
+						    __WQ_LEGACY | WQ_MEM_RECLAIM |
+						    WQ_FREEZABLE);
 	return 0;
 
 fail_match_remove:
@@ -1572,6 +1739,9 @@ static int mtk_cam_remove(struct platform_device *pdev)
 	mtk_cam_match_remove(dev);
 
 	mutex_destroy(&cam_dev->op_lock);
+
+	if (cam_dev->debug_fs)
+		cam_dev->debug_fs->ops->deinit(cam_dev->debug_fs);
 
 	platform_driver_unregister(&mtk_cam_raw_driver);
 	platform_driver_unregister(&seninf_core_pdrv);
@@ -1608,6 +1778,9 @@ static void __exit mtk_cam_exit(void)
 {
 	platform_driver_unregister(&mtk_cam_driver);
 }
+
+module_param(force_dump, uint, 0644);
+module_param(max_num_of_dump, uint, 0644);
 
 module_init(mtk_cam_init);
 module_exit(mtk_cam_exit);

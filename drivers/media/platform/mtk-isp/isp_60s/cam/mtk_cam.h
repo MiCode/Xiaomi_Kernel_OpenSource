@@ -20,6 +20,7 @@
 #include "mtk_cam-seninf-drv.h"
 #include "mtk_cam-seninf-if.h"
 #include "mtk_cam-ctrl.h"
+#include "mtk_cam-debug.h"
 
 #define MAX_CONCURRENT_STREAM_NUM 3
 #define MAX_MTKCAM_HW_CONFIG 6
@@ -34,6 +35,7 @@
 
 struct platform_device;
 struct mtk_rpmsg_device;
+struct mtk_cam_debug_fs;
 
 /* Supported image format list */
 #define MTK_CAM_IMG_FMT_UNKNOWN		0x0000
@@ -52,6 +54,8 @@ struct mtk_rpmsg_device;
 #define MTK_CAM_RAW_PXL_ID_GR		2
 #define MTK_CAM_RAW_PXL_ID_R		3
 #define MTK_CAM_RAW_PXL_ID_UNKNOWN	4
+
+#define MTK_CAM_DEBUG_PARAM_DESC_SIZE	64
 
 struct mtk_cam_working_buf {
 	dma_addr_t pa;
@@ -73,6 +77,42 @@ struct mtk_cam_working_buf_list {
 	spinlock_t lock; /* protect the list and cnt */
 };
 
+struct mtk_cam_dump_param {
+	/* Common Debug Information*/
+	__u8 desc[MTK_CAM_DEBUG_PARAM_DESC_SIZE];
+	__u32 request_fd;
+	__u32 buffer_state;
+	__u64 timestamp;
+	__u32 sequence;
+
+	/* CQ dump */
+	void *cq_cpu_addr;
+	__u32 cq_size;
+	__u32 cq_iova;
+	__u32 cq_desc_size;
+
+	/* meta in */
+	void *meta_in_cpu_addr;
+	__u32 meta_in_dump_buf_size;
+	__u32 meta_in_iova;
+
+	/* meta out 0 */
+
+	void *meta_out_0_cpu_addr;
+	__u32 meta_out_0_dump_buf_size;
+	__u32 meta_out_0_iova;
+
+	/* meta out 1 */
+	void *meta_out_1_cpu_addr;
+	__u32 meta_out_1_dump_buf_size;
+	__u32 meta_out_1_iova;
+
+	/* meta out 2 */
+	void *meta_out_2_cpu_addr;
+	__u32 meta_out_2_dump_buf_size;
+	__u32 meta_out_2_iova;
+};
+
 /*
  * struct mtk_cam_request - MTK camera request.
  *
@@ -82,7 +122,7 @@ struct mtk_cam_working_buf_list {
  * @frame_work: work queue entry for frame transmission to SCP.
  * @list: List entry of the object for @struct mtk_cam_device:
  *        pending_job_list or running_job_list.
- * @buf_count: Buffer count in this media request.
+ * @working_buf: command queue buffer associated to this request
  *
  */
 struct mtk_cam_request {
@@ -96,6 +136,9 @@ struct mtk_cam_request {
 	struct work_struct sensor_work;
 	struct work_struct link_work;
 	struct mtk_camsys_ctrl_state state;
+	struct mtk_cam_working_buf_entry *working_buf;
+	struct mtk_cam_dump_param dump_param;
+	struct work_struct debug_work;
 };
 
 static inline struct mtk_cam_request *
@@ -196,6 +239,9 @@ struct mtk_cam_device {
 	unsigned int running_job_count;
 	spinlock_t running_job_lock;
 	struct mtk_camsys_ctrl camsys_ctrl;
+
+	struct mtk_cam_debug_fs *debug_fs;
+	struct workqueue_struct *debug_wq;
 };
 
 //TODO: with spinlock or not? depends on how request works [TBD]
@@ -210,21 +256,21 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx);
 
 // FIXME: refine following
 void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
-			 struct mtk_cam_request *req);
+			     struct mtk_cam_request *req);
 
 void mtk_cam_dev_req_cleanup(struct mtk_cam_device *cam);
 
 void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam);
 
 void mtk_cam_dequeue_req_frame(struct mtk_cam_device *cam,
-				   struct mtk_cam_ctx *ctx);
+			       struct mtk_cam_ctx *ctx);
 int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, unsigned int streaming);
 
 struct mtk_cam_request *mtk_cam_dev_get_req(struct mtk_cam_device *cam,
 					    struct mtk_cam_ctx *ctx,
 					    unsigned int frame_seq_no);
 void isp_composer_create_session(struct mtk_cam_device *cam,
-					struct mtk_cam_ctx *ctx);
+				 struct mtk_cam_ctx *ctx);
 
 s32 get_format_request_fd(struct v4l2_pix_format_mplane *fmt_mp);
 void set_format_request_fd(struct v4l2_pix_format_mplane *fmt_mp, s32 request_fd);
