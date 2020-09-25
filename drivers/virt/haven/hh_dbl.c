@@ -5,8 +5,8 @@
  */
 
 #include <linux/slab.h>
-#include <linux/mutex.h>
 #include <linux/module.h>
+#include <linux/spinlock.h>
 #include <linux/interrupt.h>
 
 #include <linux/haven/hh_dbl.h>
@@ -24,7 +24,7 @@ enum hh_dbl_dir {
 
 struct hh_dbl_cap_table {
 	struct hh_dbl_desc *client_desc;
-	struct mutex cap_entry_lock;
+	spinlock_t cap_entry_lock;
 	hh_capid_t tx_cap_id;
 	int tx_reg_done;
 
@@ -47,6 +47,7 @@ static int hh_dbl_validate_params(struct hh_dbl_desc *client_desc,
 			enum hh_dbl_dir dir, const unsigned long flags)
 {
 	struct hh_dbl_cap_table *cap_table_entry;
+	int ret;
 
 	if (IS_ERR_OR_NULL(client_desc))
 		return -EINVAL;
@@ -56,6 +57,8 @@ static int hh_dbl_validate_params(struct hh_dbl_desc *client_desc,
 		return -EINVAL;
 
 	cap_table_entry = &hh_dbl_cap_table[client_desc->label];
+
+	spin_lock(&cap_table_entry->cap_entry_lock);
 
 	if (cap_table_entry->client_desc != client_desc) {
 		pr_err("%s: Invalid client descriptor\n", __func__);
@@ -69,38 +72,47 @@ static int hh_dbl_validate_params(struct hh_dbl_desc *client_desc,
 	 * There are no doorbell setup for Tx or Rx
 	 */
 	if (dir == HH_DBL_DIRECTION_RX) {
-		if (!cap_table_entry->rx_reg_done)
-			return -EINVAL;
+		if (!cap_table_entry->rx_reg_done) {
+			ret = -EINVAL;
+			goto err;
+		}
 
-		if (cap_table_entry->rx_cap_id != HH_CAPID_INVAL)
-			return 0;
+		if ((cap_table_entry->rx_cap_id == HH_CAPID_INVAL) &&
+			(flags & HH_DBL_NONBLOCK)) {
+			ret = -EAGAIN;
+			goto err;
+		}
 
-		if (flags & HH_DBL_NONBLOCK)
-			return -EAGAIN;
+		spin_unlock(&cap_table_entry->cap_entry_lock);
 
 		if (wait_event_interruptible(cap_table_entry->cap_wq,
 				cap_table_entry->rx_cap_id != HH_CAPID_INVAL))
 			return -ERESTARTSYS;
 
-		return 0;
 	} else {
-		if (!cap_table_entry->tx_reg_done)
-			return -EINVAL;
+		if (!cap_table_entry->tx_reg_done) {
+			ret = -EINVAL;
+			goto err;
+		}
 
-		if (cap_table_entry->tx_cap_id != HH_CAPID_INVAL)
-			return 0;
+		if ((cap_table_entry->tx_cap_id == HH_CAPID_INVAL) &&
+			(flags & HH_DBL_NONBLOCK)) {
+			ret = -EAGAIN;
+			goto err;
+		}
 
-		if (flags & HH_DBL_NONBLOCK)
-			return -EAGAIN;
+		spin_unlock(&cap_table_entry->cap_entry_lock);
 
 		if (wait_event_interruptible(cap_table_entry->cap_wq,
 				cap_table_entry->tx_cap_id != HH_CAPID_INVAL))
 			return -ERESTARTSYS;
 
-		return 0;
 	}
 
 	return 0;
+err:
+	spin_unlock(&cap_table_entry->cap_entry_lock);
+	return ret;
 }
 
 /**
@@ -183,8 +195,6 @@ int hh_dbl_set_mask(void *dbl_client_desc, hh_dbl_flags_t enable_mask,
 	ret = hh_remap_error(hh_ret);
 	if (ret != 0)
 		pr_err("%s: Hypercall failed ret = %d\n", __func__, hh_ret);
-
-	mutex_unlock(&cap_table_entry->cap_entry_lock);
 
 	return ret;
 }
@@ -307,8 +317,7 @@ void *hh_dbl_tx_register(enum hh_dbl_label label)
 
 	cap_table_entry = &hh_dbl_cap_table[label];
 
-	if (mutex_lock_interruptible(&cap_table_entry->cap_entry_lock))
-		return ERR_PTR(-ERESTARTSYS);
+	spin_lock(&cap_table_entry->cap_entry_lock);
 
 	/* Avoid multiple client Tx registration for the same doorbell */
 	if (cap_table_entry->tx_reg_done) {
@@ -333,11 +342,11 @@ void *hh_dbl_tx_register(enum hh_dbl_label label)
 
 	pr_debug("%s: Registered Tx client for label: %d\n", __func__, label);
 
-	mutex_unlock(&cap_table_entry->cap_entry_lock);
+	spin_unlock(&cap_table_entry->cap_entry_lock);
 	return client_desc;
 
 err:
-	mutex_unlock(&cap_table_entry->cap_entry_lock);
+	spin_unlock(&cap_table_entry->cap_entry_lock);
 	return ERR_PTR(ret);
 }
 EXPORT_SYMBOL(hh_dbl_tx_register);
@@ -370,8 +379,7 @@ void *hh_dbl_rx_register(enum hh_dbl_label label, dbl_rx_cb_t rx_cb, void *priv)
 
 	cap_table_entry = &hh_dbl_cap_table[label];
 
-	if (mutex_lock_interruptible(&cap_table_entry->cap_entry_lock))
-		return ERR_PTR(-ERESTARTSYS);
+	spin_lock(&cap_table_entry->cap_entry_lock);
 
 	/* Avoid multiple client Rx registration for the same doorbell */
 	if (cap_table_entry->rx_reg_done) {
@@ -399,13 +407,13 @@ void *hh_dbl_rx_register(enum hh_dbl_label label, dbl_rx_cb_t rx_cb, void *priv)
 
 	pr_debug("%s: Registered Rx client for label: %d\n", __func__, label);
 
-	mutex_unlock(&cap_table_entry->cap_entry_lock);
+	spin_unlock(&cap_table_entry->cap_entry_lock);
 	return client_desc;
 
 err:
 	pr_debug("%s: Registration for Rx client for label failed: %d\n",
 		__func__, label);
-	mutex_unlock(&cap_table_entry->cap_entry_lock);
+	spin_unlock(&cap_table_entry->cap_entry_lock);
 	return ERR_PTR(ret);
 }
 EXPORT_SYMBOL(hh_dbl_rx_register);
@@ -432,14 +440,13 @@ int hh_dbl_tx_unregister(void *dbl_client_desc)
 
 	cap_table_entry = &hh_dbl_cap_table[client_desc->label];
 
-	if (mutex_lock_interruptible(&cap_table_entry->cap_entry_lock))
-		return -ERESTARTSYS;
+	spin_lock(&cap_table_entry->cap_entry_lock);
 
 	/* Is the client trying to free someone else's doorbell? */
 	if (cap_table_entry->client_desc != client_desc) {
 		pr_err("%s: Trying to free invalid client descriptor!\n",
 			__func__);
-		mutex_unlock(&cap_table_entry->cap_entry_lock);
+		spin_unlock(&cap_table_entry->cap_entry_lock);
 		return -EINVAL;
 	}
 
@@ -455,7 +462,7 @@ int hh_dbl_tx_unregister(void *dbl_client_desc)
 	}
 
 	cap_table_entry->tx_reg_done = 0;
-	mutex_unlock(&cap_table_entry->cap_entry_lock);
+	spin_unlock(&cap_table_entry->cap_entry_lock);
 
 	return 0;
 }
@@ -483,14 +490,13 @@ int hh_dbl_rx_unregister(void *dbl_client_desc)
 
 	cap_table_entry = &hh_dbl_cap_table[client_desc->label];
 
-	if (mutex_lock_interruptible(&cap_table_entry->cap_entry_lock))
-		return -ERESTARTSYS;
+	spin_lock(&cap_table_entry->cap_entry_lock);
 
 	/* Is the client trying to free someone else's doorbell? */
 	if (cap_table_entry->client_desc != client_desc) {
 		pr_err("%s: Trying to free invalid client descriptor!\n",
 			__func__);
-		mutex_unlock(&cap_table_entry->cap_entry_lock);
+		spin_unlock(&cap_table_entry->cap_entry_lock);
 		return -EINVAL;
 	}
 
@@ -509,7 +515,7 @@ int hh_dbl_rx_unregister(void *dbl_client_desc)
 	cap_table_entry->rx_priv_data = NULL;
 	cap_table_entry->rx_reg_done = 0;
 
-	mutex_unlock(&cap_table_entry->cap_entry_lock);
+	spin_unlock(&cap_table_entry->cap_entry_lock);
 
 	return 0;
 }
@@ -523,6 +529,9 @@ int hh_dbl_populate_cap_info(enum hh_dbl_label label, u64 cap_id,
 {
 	struct hh_dbl_cap_table *cap_table_entry;
 	int ret = 0;
+
+	if (!hh_dbl_initialized)
+		return -EAGAIN;
 
 	if (label < 0 || label >= HH_DBL_LABEL_MAX) {
 		pr_err("%s: Invalid label passed\n", __func__);
@@ -540,7 +549,10 @@ int hh_dbl_populate_cap_info(enum hh_dbl_label label, u64 cap_id,
 			ret = -ENXIO;
 			goto err;
 		}
+
+		spin_lock(&cap_table_entry->cap_entry_lock);
 		cap_table_entry->tx_cap_id = cap_id;
+		spin_unlock(&cap_table_entry->cap_entry_lock);
 
 		wake_up_interruptible(&cap_table_entry->cap_wq);
 
@@ -554,9 +566,8 @@ int hh_dbl_populate_cap_info(enum hh_dbl_label label, u64 cap_id,
 			ret = -ENXIO;
 			goto err;
 		}
-		cap_table_entry->rx_cap_id = cap_id;
-		cap_table_entry->rx_irq = rx_irq;
 
+		cap_table_entry->rx_irq = rx_irq;
 		ret = request_threaded_irq(cap_table_entry->rx_irq,
 				   NULL,
 				   hh_dbl_rx_callback_thread,
@@ -570,6 +581,11 @@ int hh_dbl_populate_cap_info(enum hh_dbl_label label, u64 cap_id,
 		}
 
 		irq_set_irq_wake(rx_irq, 1);
+
+		spin_lock(&cap_table_entry->cap_entry_lock);
+		cap_table_entry->rx_cap_id = cap_id;
+		spin_unlock(&cap_table_entry->cap_entry_lock);
+
 		wake_up_interruptible(&cap_table_entry->cap_wq);
 
 		pr_debug("%s: label: %d; rx_cap_id: %llu; dir: %d; rx_irq: %d\n",
@@ -597,7 +613,6 @@ static void hh_dbl_cleanup(int begin_idx)
 	for (i = begin_idx; i >= 0; i--) {
 		cap_table_entry = &hh_dbl_cap_table[i];
 		kfree(cap_table_entry->rx_irq_name);
-		mutex_destroy(&cap_table_entry->cap_entry_lock);
 	}
 }
 
@@ -609,7 +624,7 @@ static int __init hh_dbl_init(void)
 
 	for (i = 0; i < HH_DBL_LABEL_MAX; i++) {
 		entry = &hh_dbl_cap_table[i];
-		mutex_init(&entry->cap_entry_lock);
+		spin_lock_init(&entry->cap_entry_lock);
 		init_waitqueue_head(&entry->cap_wq);
 		entry->tx_cap_id = HH_CAPID_INVAL;
 		entry->rx_cap_id = HH_CAPID_INVAL;
