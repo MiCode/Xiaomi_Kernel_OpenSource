@@ -1910,7 +1910,7 @@ static void mtk_crtc_dc_config_color_matrix(struct drm_crtc *crtc,
 
 			if (comp->id == DDP_COMPONENT_CCORR0) {
 				disp_ccorr_set_color_matrix(comp, cmdq_handle,
-							ccorr_matrix, mode);
+							ccorr_matrix, mode, false);
 				set = true;
 				break;
 			}
@@ -4260,7 +4260,8 @@ static void mtk_crtc_dl_config_color_matrix(struct drm_crtc *crtc,
 		if (comp->id == DDP_COMPONENT_CCORR0) {
 			disp_ccorr_set_color_matrix(comp, cmdq_handle,
 					ccorr_config->color_matrix,
-					ccorr_config->mode);
+					ccorr_config->mode,
+					ccorr_config->featureFlag);
 			set = true;
 			break;
 		}
@@ -4835,7 +4836,8 @@ static void mtk_crtc_init_color_matrix_data_slot(
 						 1024, 0, 0, 0,
 						 0, 1024, 0, 0,
 						 0, 0, 1024, 0,
-						 0, 0, 0, 1024} };
+						 0, 0, 0, 1024},
+						 .featureFlag = false };
 
 	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
 			mtk_crtc->gce_obj.client[CLIENT_CFG]);
