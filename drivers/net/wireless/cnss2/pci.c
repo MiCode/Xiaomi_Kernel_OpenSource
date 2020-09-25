@@ -501,7 +501,7 @@ int cnss_pci_debug_reg_read(struct cnss_pci_data *pci_priv, u32 offset,
 	if (ret)
 		goto out;
 
-	ret = cnss_pci_pm_runtime_get_sync(pci_priv);
+	ret = cnss_pci_pm_runtime_get_sync(pci_priv, RTPM_ID_CNSS);
 	if (ret < 0)
 		goto runtime_pm_put;
 
@@ -521,7 +521,7 @@ force_wake_put:
 		cnss_pci_force_wake_put(pci_priv);
 runtime_pm_put:
 	cnss_pci_pm_runtime_mark_last_busy(pci_priv);
-	cnss_pci_pm_runtime_put_autosuspend(pci_priv);
+	cnss_pci_pm_runtime_put_autosuspend(pci_priv, RTPM_ID_CNSS);
 out:
 	return ret;
 }
@@ -536,7 +536,7 @@ int cnss_pci_debug_reg_write(struct cnss_pci_data *pci_priv, u32 offset,
 	if (ret)
 		goto out;
 
-	ret = cnss_pci_pm_runtime_get_sync(pci_priv);
+	ret = cnss_pci_pm_runtime_get_sync(pci_priv, RTPM_ID_CNSS);
 	if (ret < 0)
 		goto runtime_pm_put;
 
@@ -556,7 +556,7 @@ force_wake_put:
 		cnss_pci_force_wake_put(pci_priv);
 runtime_pm_put:
 	cnss_pci_pm_runtime_mark_last_busy(pci_priv);
-	cnss_pci_pm_runtime_put_autosuspend(pci_priv);
+	cnss_pci_pm_runtime_put_autosuspend(pci_priv, RTPM_ID_CNSS);
 out:
 	return ret;
 }
@@ -1375,7 +1375,7 @@ static void cnss_pci_time_sync_work_hdlr(struct work_struct *work)
 	if (cnss_pci_is_device_down(&pci_priv->pci_dev->dev))
 		return;
 
-	if (cnss_pci_pm_runtime_get_sync(pci_priv) < 0)
+	if (cnss_pci_pm_runtime_get_sync(pci_priv, RTPM_ID_CNSS) < 0)
 		goto runtime_pm_put;
 
 	cnss_pci_update_timestamp(pci_priv);
@@ -1384,7 +1384,7 @@ static void cnss_pci_time_sync_work_hdlr(struct work_struct *work)
 
 runtime_pm_put:
 	cnss_pci_pm_runtime_mark_last_busy(pci_priv);
-	cnss_pci_pm_runtime_put_autosuspend(pci_priv);
+	cnss_pci_pm_runtime_put_autosuspend(pci_priv, RTPM_ID_CNSS);
 }
 
 static int cnss_pci_start_time_sync_update(struct cnss_pci_data *pci_priv)
@@ -2840,6 +2840,30 @@ int cnss_wlan_pm_control(struct device *dev, bool vote)
 }
 EXPORT_SYMBOL(cnss_wlan_pm_control);
 
+static void cnss_pci_pm_runtime_get_record(struct cnss_pci_data *pci_priv,
+					   enum cnss_rtpm_id id)
+{
+	if (id >= RTPM_ID_MAX)
+		return;
+
+	atomic_inc(&pci_priv->pm_stats.runtime_get);
+	atomic_inc(&pci_priv->pm_stats.runtime_get_id[id]);
+	pci_priv->pm_stats.runtime_get_timestamp_id[id] =
+		cnss_get_host_timestamp(pci_priv->plat_priv);
+}
+
+static void cnss_pci_pm_runtime_put_record(struct cnss_pci_data *pci_priv,
+					   enum cnss_rtpm_id id)
+{
+	if (id >= RTPM_ID_MAX)
+		return;
+
+	atomic_inc(&pci_priv->pm_stats.runtime_put);
+	atomic_inc(&pci_priv->pm_stats.runtime_put_id[id]);
+	pci_priv->pm_stats.runtime_put_timestamp_id[id] =
+		cnss_get_host_timestamp(pci_priv->plat_priv);
+}
+
 void cnss_pci_pm_runtime_show_usage_count(struct cnss_pci_data *pci_priv)
 {
 	struct device *dev;
@@ -2889,7 +2913,8 @@ int cnss_pci_pm_runtime_resume(struct cnss_pci_data *pci_priv)
 	return pm_runtime_resume(dev);
 }
 
-int cnss_pci_pm_runtime_get(struct cnss_pci_data *pci_priv)
+int cnss_pci_pm_runtime_get(struct cnss_pci_data *pci_priv,
+			    enum cnss_rtpm_id id)
 {
 	struct device *dev;
 	enum rpm_status status;
@@ -2903,11 +2928,14 @@ int cnss_pci_pm_runtime_get(struct cnss_pci_data *pci_priv)
 	if (status == RPM_SUSPENDING || status == RPM_SUSPENDED)
 		cnss_pr_vdbg("Runtime PM resume is requested by %ps\n",
 			     (void *)_RET_IP_);
+
+	cnss_pci_pm_runtime_get_record(pci_priv, id);
 
 	return pm_runtime_get(dev);
 }
 
-int cnss_pci_pm_runtime_get_sync(struct cnss_pci_data *pci_priv)
+int cnss_pci_pm_runtime_get_sync(struct cnss_pci_data *pci_priv,
+				 enum cnss_rtpm_id id)
 {
 	struct device *dev;
 	enum rpm_status status;
@@ -2922,18 +2950,23 @@ int cnss_pci_pm_runtime_get_sync(struct cnss_pci_data *pci_priv)
 		cnss_pr_vdbg("Runtime PM resume is requested by %ps\n",
 			     (void *)_RET_IP_);
 
+	cnss_pci_pm_runtime_get_record(pci_priv, id);
+
 	return pm_runtime_get_sync(dev);
 }
 
-void cnss_pci_pm_runtime_get_noresume(struct cnss_pci_data *pci_priv)
+void cnss_pci_pm_runtime_get_noresume(struct cnss_pci_data *pci_priv,
+				      enum cnss_rtpm_id id)
 {
 	if (!pci_priv)
 		return;
 
+	cnss_pci_pm_runtime_get_record(pci_priv, id);
 	pm_runtime_get_noresume(&pci_priv->pci_dev->dev);
 }
 
-int cnss_pci_pm_runtime_put_autosuspend(struct cnss_pci_data *pci_priv)
+int cnss_pci_pm_runtime_put_autosuspend(struct cnss_pci_data *pci_priv,
+					enum cnss_rtpm_id id)
 {
 	struct device *dev;
 
@@ -2947,10 +2980,13 @@ int cnss_pci_pm_runtime_put_autosuspend(struct cnss_pci_data *pci_priv)
 		return -EINVAL;
 	}
 
+	cnss_pci_pm_runtime_put_record(pci_priv, id);
+
 	return pm_runtime_put_autosuspend(&pci_priv->pci_dev->dev);
 }
 
-void cnss_pci_pm_runtime_put_noidle(struct cnss_pci_data *pci_priv)
+void cnss_pci_pm_runtime_put_noidle(struct cnss_pci_data *pci_priv,
+				    enum cnss_rtpm_id id)
 {
 	struct device *dev;
 
@@ -2964,6 +3000,7 @@ void cnss_pci_pm_runtime_put_noidle(struct cnss_pci_data *pci_priv)
 		return;
 	}
 
+	cnss_pci_pm_runtime_put_record(pci_priv, id);
 	pm_runtime_put_noidle(&pci_priv->pci_dev->dev);
 }
 
@@ -4287,7 +4324,7 @@ static int cnss_mhi_pm_runtime_get(struct mhi_controller *mhi_ctrl, void *priv)
 {
 	struct cnss_pci_data *pci_priv = priv;
 
-	return cnss_pci_pm_runtime_get(pci_priv);
+	return cnss_pci_pm_runtime_get(pci_priv, RTPM_ID_MHI);
 }
 
 static void cnss_mhi_pm_runtime_put_noidle(struct mhi_controller *mhi_ctrl,
@@ -4295,7 +4332,7 @@ static void cnss_mhi_pm_runtime_put_noidle(struct mhi_controller *mhi_ctrl,
 {
 	struct cnss_pci_data *pci_priv = priv;
 
-	cnss_pci_pm_runtime_put_noidle(pci_priv);
+	cnss_pci_pm_runtime_put_noidle(pci_priv, RTPM_ID_MHI);
 }
 
 void cnss_pci_add_fw_prefix_name(struct cnss_pci_data *pci_priv,
