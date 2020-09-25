@@ -227,7 +227,7 @@
 &pio {
 	mtkfb_pins_lcd_bias_enp1: lcd_bias_enp1_gpio {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO28__FUNC_GPIO28>;
+			pinmux = <PINMUX_GPIO137__FUNC_GPIO137>;
 			slew-rate = <1>;
 			output-high;
 		};
@@ -235,7 +235,7 @@
 
 	mtkfb_pins_lcd_bias_enp0: lcd_bias_enp0_gpio {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO28__FUNC_GPIO28>;
+			pinmux = <PINMUX_GPIO137__FUNC_GPIO137>;
 			slew-rate = <1>;
 			output-low;
 		};
@@ -243,7 +243,7 @@
 
 	mtkfb_pins_lcd_bias_enn1: lcd_bias_enn1_gpio {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO29__FUNC_GPIO29>;
+			pinmux = <PINMUX_GPIO138__FUNC_GPIO138>;
 			slew-rate = <1>;
 			output-high;
 		};
@@ -251,7 +251,7 @@
 
 	mtkfb_pins_lcd_bias_enn0: lcd_bias_enn0_gpio {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO29__FUNC_GPIO29>;
+			pinmux = <PINMUX_GPIO138__FUNC_GPIO138>;
 			slew-rate = <1>;
 			output-low;
 		};
@@ -259,7 +259,7 @@
 
 	mtkfb_pins_lcm_rst_out1_gpio: lcm_rst_out1_gpio {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO42__FUNC_GPIO42>;
+			pinmux = <PINMUX_GPIO86__FUNC_GPIO86>;
 			slew-rate = <1>;
 			output-high;
 		};
@@ -267,14 +267,14 @@
 
 	mtkfb_pins_lcm_rst_out0_gpio: lcm_rst_out0_gpio {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO42__FUNC_GPIO42>;
+			pinmux = <PINMUX_GPIO86__FUNC_GPIO86>;
 			slew-rate = <1>;
 			output-low;
 		};
 	};
 	mtkfb_pins_lcm_dsi_te: lcm_dsi_te {
 		pins_cmd_dat {
-			/* pinmux = <PINMUX_GPIO41__FUNC_DSI_TE>; */
+			pinmux = <PINMUX_GPIO84__FUNC_DSI_TE>;
 		};
 	};
 };
@@ -308,16 +308,44 @@
 	status = "okay";
 	#address-cells = <1>;
 	#size-cells = <0>;
-	panel@0 {
-		compatible = "truly,td4330,vdo";
+	panel1@0 {
+		compatible = "nt35695b,auo,vdo";
 		reg = <0>;
 		pm-enable-gpios = <&pio 41 0>;
-		reset-gpios = <&pio 42 0>;
-		bias-gpios = <&pio 28 0>,
-			<&pio 29 0>;
+		reset-gpios = <&pio 86 0>;
+		bias-gpios = <&pio 137 0>,
+			<&pio 138 0>;
 		pinctrl-names = "default";
 		port {
-			panel_in: endpoint {
+			panel_in1: endpoint {
+				remote-endpoint = <&dsi_out>;
+			};
+		};
+	};
+	panel2@0 {
+		compatible = "nt36672a,rt4801,vdo";
+		reg = <1>;
+		pm-enable-gpios = <&pio 41 0>;
+		reset-gpios = <&pio 86 0>;
+		bias-gpios = <&pio 137 0>,
+			<&pio 138 0>;
+		pinctrl-names = "default";
+		port {
+			panel_in2: endpoint {
+				remote-endpoint = <&dsi_out>;
+			};
+		};
+	};
+	panel3@0 {
+		compatible = "truly,td4330,vdo";
+		reg = <2>;
+		pm-enable-gpios = <&pio 41 0>;
+		reset-gpios = <&pio 86 0>;
+		bias-gpios = <&pio 137 0>,
+			<&pio 138 0>;
+		pinctrl-names = "default";
+		port {
+			panel_in3: endpoint {
 				remote-endpoint = <&dsi_out>;
 			};
 		};
@@ -325,17 +353,12 @@
 	ports {
 		port {
 			dsi_out: endpoint {
-				remote-endpoint = <&panel_in>;
+				remote-endpoint = <&panel_in1>;
 			};
 		};
 	};
 };
 
-&dsi_te {
-	interrupt-parent = <&pio>;
-	interrupts = <41 1 41 1>;
-	status = "okay";
-};
 
 &i2c6 {
 	tfa9874: tfa9874@34 {
