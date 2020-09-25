@@ -2487,3 +2487,13 @@
 
 # required by sprd_sip_svc.ko
   __arm_smccc_smc
+
+# required by mali_gondul.ko
+  bpf_trace_run5
+  ktime_get_raw
+  of_machine_is_compatible
+  _totalram_pages
+  trace_output_call
+  trace_print_array_seq
+  trace_print_flags_seq
+  vmf_insert_pfn_prot
