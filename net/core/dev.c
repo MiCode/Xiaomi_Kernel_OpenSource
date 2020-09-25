@@ -4718,6 +4718,18 @@ static inline int nf_ingress(struct sk_buff *skb, struct packet_type **pt_prev,
 	return 0;
 }
 
+static int (*embms_tm_multicast_recv)(struct sk_buff *skb) __rcu __read_mostly;
+EXPORT_SYMBOL(embms_tm_multicast_recv);
+
+void process_embms_receive_skb(struct sk_buff *skb)
+{
+	int (*embms_recv)(struct sk_buff *skb);
+
+	embms_recv = rcu_dereference(embms_tm_multicast_recv);
+	if (embms_recv)
+		embms_recv(skb);
+}
+
 static int __netif_receive_skb_core(struct sk_buff **pskb, bool pfmemalloc,
 				    struct packet_type **ppt_prev)
 {
@@ -4798,6 +4810,8 @@ skip_taps:
 	}
 #endif
 	skb_reset_redirect(skb);
+	process_embms_receive_skb(skb);
+
 skip_classify:
 	if (pfmemalloc && !skb_pfmemalloc_protocol(skb))
 		goto drop;
