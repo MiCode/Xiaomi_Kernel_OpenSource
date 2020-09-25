@@ -192,6 +192,7 @@ int tcpc_dual_role_phy_init(struct tcpc_device *tcpc)
 	tcpc->typec_caps.type = TYPEC_PORT_DRP;
 	tcpc->typec_caps.data = TYPEC_PORT_DRD;
 	tcpc->typec_caps.prefer_role = TYPEC_SINK;
+	tcpc->typec_caps.driver_data = tcpc;
 	tcpc->typec_port = typec_register_port(&tcpc->dev, &tcpc->typec_caps);
 
 	return PTR_ERR_OR_ZERO(tcpc->typec_port);
