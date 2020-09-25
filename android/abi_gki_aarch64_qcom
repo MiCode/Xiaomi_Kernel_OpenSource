@@ -166,6 +166,7 @@
   cfg80211_unlink_bss
   cfg80211_update_owe_info_event
   cfg80211_vendor_cmd_reply
+  __cfi_slowpath
   check_disk_change
   __check_object_size
   check_zeroed_user
@@ -1489,6 +1490,7 @@
   of_drm_find_panel
   of_find_compatible_node
   of_find_device_by_node
+  of_find_i2c_device_by_node
   of_find_matching_node_and_match
   of_find_node_by_name
   of_find_node_by_phandle
