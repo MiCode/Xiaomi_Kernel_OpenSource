@@ -51,7 +51,8 @@ struct tracepoints_table {
 /* Parameters */
 static struct log_t *bootprof[BUF_COUNT];
 static unsigned long log_count;
-static DEFINE_MUTEX(bootprof_lock);
+static DEFINE_SPINLOCK(bootprof_lock);
+
 static bool enabled;
 static int bootprof_lk_t, bootprof_pl_t, bootprof_logo_t;
 static u64 timestamp_on, timestamp_off;
@@ -96,9 +97,9 @@ void bootprof_log_boot(char *str)
 	unsigned long long ts;
 	struct log_t *p = NULL;
 	size_t n;
+	int err = 0;
 
 	if (!str) {
-		pr_info("[BOOTPROF] Null buffer. Skip log.\n");
 		return;
 	}
 
@@ -109,9 +110,11 @@ void bootprof_log_boot(char *str)
 	ts = sched_clock();
 	pr_info("BOOTPROF:%10lld.%06ld:%s\n", msec_high(ts), msec_low(ts), str);
 
-	mutex_lock(&bootprof_lock);
+	spin_lock(&bootprof_lock);
+
 	if (log_count >= (LOGS_PER_BUF * BUF_COUNT)) {
-		pr_info("[BOOTPROF] Skip log, buf is full.\n");
+		enabled = false;
+		err = 1;
 		goto out;
 	} else if (log_count && !(log_count % LOGS_PER_BUF)) {
 		bootprof[log_count / LOGS_PER_BUF] =
@@ -119,7 +122,7 @@ void bootprof_log_boot(char *str)
 				GFP_ATOMIC | __GFP_NORETRY | __GFP_NOWARN);
 	}
 	if (!bootprof[log_count / LOGS_PER_BUF]) {
-		pr_info("[BOOTPROF] no memory for bootprof\n");
+		err = 2;
 		goto out;
 	}
 	p = &bootprof[log_count / LOGS_PER_BUF][log_count % LOGS_PER_BUF];
@@ -132,6 +135,7 @@ void bootprof_log_boot(char *str)
 			  __GFP_NOWARN);
 	if (!p->comm_event) {
 		enabled = false;
+		err = 3;
 		goto out;
 	}
 
@@ -139,7 +143,9 @@ void bootprof_log_boot(char *str)
 	memcpy(p->comm_event + TASK_COMM_LEN, str, n - TASK_COMM_LEN);
 	log_count++;
 out:
-	mutex_unlock(&bootprof_lock);
+	spin_unlock(&bootprof_lock);
+	if (err > 0)
+		pr_info("[BOOTPROF] Error(Ret:%d): Skip log.\n", err);
 }
 EXPORT_SYMBOL_GPL(bootprof_log_boot);
 
@@ -333,7 +339,7 @@ static void tp_init(void)
 
 static void mt_bootprof_switch(int on)
 {
-	mutex_lock(&bootprof_lock);
+	spin_lock(&bootprof_lock);
 	if (enabled ^ on) {
 		unsigned long long ts = sched_clock();
 
@@ -350,7 +356,7 @@ static void mt_bootprof_switch(int on)
 				boot_finish = true;
 		}
 	}
-	mutex_unlock(&bootprof_lock);
+	spin_unlock(&bootprof_lock);
 }
 
 static ssize_t
@@ -474,7 +480,7 @@ static void __exit bootprof_exit(void)
 	tp_deinit();
 
 	if (log_count > 0) {
-		mutex_lock(&bootprof_lock);
+		spin_lock(&bootprof_lock);
 		for (i = 0; i < log_count; i++) {
 			p = &bootprof[i / LOGS_PER_BUF][i % LOGS_PER_BUF];
 			kfree(p->comm_event);
@@ -483,7 +489,7 @@ static void __exit bootprof_exit(void)
 		for (i = 0; i < ((log_count / LOGS_PER_BUF) + 1); i++)
 			kfree(bootprof[i]);
 
-		mutex_unlock(&bootprof_lock);
+		spin_unlock(&bootprof_lock);
 	}
 	remove_proc_entry("bootprof", NULL);
 	pr_info("bootprof module exit.\n");
