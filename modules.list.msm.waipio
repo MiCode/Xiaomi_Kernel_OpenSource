@@ -8,6 +8,7 @@ gcc-waipio.ko
 videocc-waipio.ko
 gpucc-waipio.ko
 dispcc-waipio.ko
+debugcc-waipio.ko
 dwc3.ko
 dwc3-msm.ko
 phy-generic.ko
