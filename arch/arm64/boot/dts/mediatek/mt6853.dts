@@ -798,7 +798,7 @@
 
 &pmic {
 	interrupt-parent = <&pio>;
-	interrupts = <214 IRQ_TYPE_LEVEL_HIGH 214 0>;
+	interrupts = <118 IRQ_TYPE_LEVEL_HIGH 118 0>;
 };
 
 &mt6359p_vemc_reg {
