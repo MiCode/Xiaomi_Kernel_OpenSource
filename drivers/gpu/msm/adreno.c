@@ -1523,9 +1523,7 @@ static void adreno_unbind(struct device *dev)
 
 	kgsl_pwrscale_close(device);
 
-	if (test_bit(GMU_DISPATCH, &device->gmu_core.flags))
-		adreno_hwsched_dispatcher_close(adreno_dev);
-	else {
+	if (!test_bit(GMU_DISPATCH, &device->gmu_core.flags)) {
 		adreno_dispatcher_close(adreno_dev);
 
 		adreno_ringbuffer_close(adreno_dev);

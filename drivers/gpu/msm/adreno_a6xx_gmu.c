@@ -1314,6 +1314,9 @@ void a6xx_gmu_register_config(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	u32 gmu_log_info, chipid = 0;
 
+	/* Clear any previously set cm3 fault */
+	atomic_set(&gmu->cm3_fault, 0);
+
 	/* Vote veto for FAL10 feature if supported*/
 	if (a6xx_core->veto_fal10) {
 		gmu_core_regwrite(device, A6XX_GPU_GMU_CX_GMU_CX_FAL_INTF, 0x1);
@@ -2063,6 +2066,11 @@ static irqreturn_t a6xx_gmu_irq_handler(int irq, void *data)
 
 		dev_err_ratelimited(&gmu->pdev->dev,
 				"GMU watchdog expired interrupt received\n");
+
+		if (test_bit(GMU_DISPATCH, &device->gmu_core.flags)) {
+			adreno_get_gpu_halt(adreno_dev);
+			adreno_hwsched_set_fault(adreno_dev);
+		}
 	}
 	if (status & GMU_INT_HOST_AHB_BUS_ERR)
 		dev_err_ratelimited(&gmu->pdev->dev,
