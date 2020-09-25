@@ -6,7 +6,9 @@ On MediaTek SoCs the PMIC is connected via SPMI and the controller allows
 for multiple SoCs to control a single SPMI master.
 
 Required properties:
-- compatible : "mediatek,mt6873-spmi".
+- compatible :
+     "mediatek,mt6853-spmi" for MT6853 SoCs
+     "mediatek,mt6873-spmi" for MT6873 SoCs
 - reg-names  : must contain:
      "pmif" - pmif registers
      "spmimst" - spmi controller registers
