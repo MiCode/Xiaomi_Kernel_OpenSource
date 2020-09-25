@@ -802,6 +802,14 @@
 		min_charger_voltage_2 = <4200000>;
 		max_dmivr_charger_current = <1800000>;
 	};
+	extcon_usb: extcon_usb {
+		compatible = "mediatek,extcon-usb";
+		dev-conn = <&ssusb>;
+		/*vbus-supply = <&otg_vbus>;*/
+		vbus-volt = <5000000>;
+		/*charger = <&mt6362_chg>;*/
+		mediatek,bypss-typec-sink = <1>;
+	};
 };
 
 &spmi {
