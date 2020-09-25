@@ -919,7 +919,7 @@ static ssize_t _max_clock_mhz_show(struct kgsl_device *device, char *buf)
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 
 	return scnprintf(buf, PAGE_SIZE, "%d\n",
-		pwr->pwrlevels[pwr->thermal_pwrlevel].gpu_freq / 1000000);
+		pwr->pwrlevels[pwr->max_pwrlevel].gpu_freq / 1000000);
 }
 
 static ssize_t max_clock_mhz_show(struct device *dev,
@@ -935,6 +935,7 @@ static ssize_t _max_clock_mhz_store(struct kgsl_device *device,
 {
 	u32 freq;
 	int ret, level;
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 
 	ret = kstrtou32(buf, 0, &freq);
 	if (ret)
@@ -944,11 +945,11 @@ static ssize_t _max_clock_mhz_store(struct kgsl_device *device,
 	if (level < 0)
 		return level;
 
-	/*
-	 * Confusingly this node has been setting the thermal pwrlevel despite
-	 * it's name
-	 */
-	kgsl_pwrctrl_set_thermal_pwrlevel(device, level);
+	mutex_lock(&device->mutex);
+	pwr->max_pwrlevel = min_t(unsigned int, level, pwr->min_pwrlevel);
+	kgsl_pwrctrl_pwrlevel_change(device, pwr->active_pwrlevel);
+	mutex_unlock(&device->mutex);
+
 	return count;
 }
 
