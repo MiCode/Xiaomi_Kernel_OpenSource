@@ -58,6 +58,8 @@
 #define UART_ID			0x90
 #define MAX_FIFO_SIZE		14
 
+#define PORT_EUD_UART		300
+
 struct eud_chip {
 	struct device			*dev;
 	int				eud_irq;
