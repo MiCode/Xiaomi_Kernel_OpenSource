@@ -1218,8 +1218,7 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 		rc = smblib_get_prop_batt_present(chg, pval);
 		break;
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
-		/* For battery, INPUT_CURRENT_LIMIT equates to INPUT_SUSPEND */
-		rc = smblib_get_prop_input_current_limit_usb(chg, pval);
+		rc = smblib_get_prop_input_suspend(chg, pval);
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_TYPE:
 		rc = smblib_get_prop_batt_charge_type(chg, pval);
@@ -1313,7 +1312,7 @@ static int smb5_batt_set_prop(struct power_supply *psy,
 		rc = smblib_set_prop_batt_status(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
-		rc = smblib_set_prop_input_current_limit_usb(chg, val);
+		rc = smblib_set_prop_input_suspend(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT:
 		rc = smblib_set_prop_system_temp_level(chg, val);
