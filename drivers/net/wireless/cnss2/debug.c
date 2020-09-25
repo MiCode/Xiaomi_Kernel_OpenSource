@@ -131,6 +131,9 @@ static int cnss_stats_show_state(struct seq_file *s,
 		case CNSS_IN_REBOOT:
 			seq_puts(s, "IN_REBOOT");
 			continue;
+		case CNSS_QMI_DEL_SERVER:
+			seq_puts(s, "DEL_SERVER_IN_PROGRESS");
+			continue;
 		}
 
 		seq_printf(s, "UNKNOWN-%d", i);
