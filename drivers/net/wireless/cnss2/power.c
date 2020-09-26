@@ -7,9 +7,11 @@
 #include <linux/pinctrl/consumer.h>
 #include <linux/regulator/consumer.h>
 #include <soc/qcom/cmd-db.h>
+#include <linux/of_gpio.h>
 
 #include "main.h"
 #include "debug.h"
+#include "bus.h"
 
 static struct cnss_vreg_cfg cnss_vreg_list[] = {
 	{"vdd-wlan-core", 1300000, 1300000, 0, 0, 0},
@@ -40,6 +42,7 @@ static struct cnss_clk_cfg cnss_clk_list[] = {
 #define BOOTSTRAP_GPIO			"qcom,enable-bootstrap-gpio"
 #define BOOTSTRAP_ACTIVE		"bootstrap_active"
 #define WLAN_EN_GPIO			"wlan-en-gpio"
+#define BT_EN_GPIO			"qcom,bt-en-gpio"
 #define WLAN_EN_ACTIVE			"wlan_en_active"
 #define WLAN_EN_SLEEP			"wlan_en_sleep"
 
@@ -700,6 +703,15 @@ int cnss_get_pinctrl(struct cnss_plat_data *plat_priv)
 		}
 	}
 
+	/* Added for QCA6490/QCA6390 PMU delayed WLAN_EN_GPIO */
+	if (of_find_property(dev->of_node, BT_EN_GPIO, NULL)) {
+		pinctrl_info->bt_en_gpio = of_get_named_gpio(dev->of_node,
+							     BT_EN_GPIO, 0);
+		cnss_pr_dbg("BT GPIO: %d\n", pinctrl_info->bt_en_gpio);
+	} else {
+		pinctrl_info->bt_en_gpio = -EINVAL;
+	}
+
 	return 0;
 out:
 	return ret;
@@ -763,6 +775,48 @@ out:
 	return ret;
 }
 
+/**
+ * cnss_select_pinctrl_enable - select WLAN_GPIO for Active pinctrl status
+ * @plat_priv: Platform private data structure pointer
+ *
+ * For QCA6490/QCA6390, PMU requires minimum 100ms delay between BT_EN_GPIO
+ * off and WLAN_EN_GPIO on. This is done to avoid power up issues.
+ *
+ * Return: Status of pinctrl select operation. 0 - Success.
+ */
+static int cnss_select_pinctrl_enable(struct cnss_plat_data *plat_priv)
+{
+	int ret = 0, bt_en_gpio = plat_priv->pinctrl_info.bt_en_gpio;
+	u8 wlan_en_state = 0;
+
+	if (bt_en_gpio < 0 || plat_priv->device_id != QCA6490_DEVICE_ID ||
+	    plat_priv->device_id != QCA6390_DEVICE_ID)
+		goto set_wlan_en;
+
+	if (gpio_get_value(bt_en_gpio)) {
+		cnss_pr_dbg("BT_EN_GPIO State: On\n");
+		ret = cnss_select_pinctrl_state(plat_priv, true);
+		if (!ret)
+			return ret;
+		wlan_en_state = 1;
+	}
+	if (!gpio_get_value(bt_en_gpio)) {
+		cnss_pr_dbg("BT_EN_GPIO State: Off. Delay WLAN_GPIO enable\n");
+		/* check for BT_EN_GPIO down race during above operation */
+		if (wlan_en_state) {
+			cnss_pr_dbg("Reset WLAN_EN as BT got turned off during enable\n");
+			cnss_select_pinctrl_state(plat_priv, false);
+			wlan_en_state = 0;
+		}
+		/* 100 ms delay for BT_EN and WLAN_EN QCA6490 PMU sequencing */
+		msleep(100);
+	}
+set_wlan_en:
+	if (!wlan_en_state)
+		ret = cnss_select_pinctrl_state(plat_priv, true);
+	return ret;
+}
+
 int cnss_power_on_device(struct cnss_plat_data *plat_priv)
 {
 	int ret = 0;
@@ -784,7 +838,7 @@ int cnss_power_on_device(struct cnss_plat_data *plat_priv)
 		goto vreg_off;
 	}
 
-	ret = cnss_select_pinctrl_state(plat_priv, true);
+	ret = cnss_select_pinctrl_enable(plat_priv);
 	if (ret) {
 		cnss_pr_err("Failed to select pinctrl state, err = %d\n", ret);
 		goto clk_off;
