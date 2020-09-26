@@ -705,8 +705,6 @@ static struct mrdump_mini_extra_misc extra_members[] = {
 	#include "mrdump_mini_extra_misc.h"
 };
 
-void *extra_members_buf;
-
 #define EXTRA_TOTAL_NUM ((sizeof(extra_members)) / (sizeof(extra_members[0])))
 static size_t __maybe_unused dummy_check(void)
 {
@@ -752,15 +750,24 @@ void mrdump_mini_add_extra_misc(void)
 					extra_members[i].dump_name,
 					vaddr, size);
 		}
-		extra_members_buf = kzalloc(sizeof(extra_members), GFP_KERNEL);
-		if (!extra_members_buf)
-			return;
-		memcpy(extra_members_buf, extra_members, sizeof(extra_members));
-		_mrdump_mini_add_extra_misc((unsigned long)extra_members_buf,
-			sizeof(extra_members), "ALL");
 	}
 }
 EXPORT_SYMBOL(mrdump_mini_add_extra_misc);
+
+/*
+ * mrdump_mini_add_extra_file - add a file named SYS_EXTRA_#name#_RAW to KE DB
+ * @vaddr:	start vaddr of target memory
+ * @size:	size of target memory
+ * @name:	file name
+ *
+ * the size sould be no more than 512K, and the less the better.
+ */
+int mrdump_mini_add_extra_file(unsigned long vaddr, unsigned long size,
+	const char *name)
+{
+	return _mrdump_mini_add_extra_misc(vaddr, size, name);
+}
+EXPORT_SYMBOL(mrdump_mini_add_extra_file);
 
 static void mrdump_mini_fatal(const char *str)
 {
