@@ -25,9 +25,9 @@ DECLARE_RESTRICTED_HOOK(android_rvh_select_fallback_rq,
 	TP_ARGS(cpu, p, new_cpu), 1);
 
 struct rq;
-DECLARE_RESTRICTED_HOOK(android_rvh_scheduler_tick,
+DECLARE_HOOK(android_vh_scheduler_tick,
 	TP_PROTO(struct rq *rq),
-	TP_ARGS(rq), 1);
+	TP_ARGS(rq));
 
 DECLARE_RESTRICTED_HOOK(android_rvh_enqueue_task,
 	TP_PROTO(struct rq *rq, struct task_struct *p),
@@ -65,11 +65,16 @@ DECLARE_RESTRICTED_HOOK(android_rvh_set_user_nice,
 DECLARE_RESTRICTED_HOOK(android_rvh_setscheduler,
 	TP_PROTO(struct task_struct *p),
 	TP_ARGS(p), 1);
+
+struct sched_group;
+DECLARE_RESTRICTED_HOOK(android_rvh_find_busiest_group,
+	TP_PROTO(struct sched_group *busiest, struct rq *dst_rq, int *out_balance),
+		TP_ARGS(busiest, dst_rq, out_balance), 1);
 #else
 #define trace_android_rvh_select_task_rq_fair(p, prev_cpu, sd_flag, wake_flags, new_cpu)
 #define trace_android_rvh_select_task_rq_rt(p, prev_cpu, sd_flag, wake_flags, new_cpu)
 #define trace_android_rvh_select_fallback_rq(cpu, p, dest_cpu)
-#define trace_android_rvh_scheduler_tick(rq)
+#define trace_android_vh_scheduler_tick(rq)
 #define trace_android_rvh_enqueue_task(rq, p)
 #define trace_android_rvh_dequeue_task(rq, p)
 #define trace_android_rvh_can_migrate_task(p, dst_cpu, can_migrate)
@@ -79,6 +84,7 @@ DECLARE_RESTRICTED_HOOK(android_rvh_setscheduler,
 #define trace_android_rvh_rtmutex_prepare_setprio(p, pi_task)
 #define trace_android_rvh_set_user_nice(p, nice)
 #define trace_android_rvh_setscheduler(p)
+#define trace_android_rvh_find_busiest_group(busiest, dst_rq, out_balance)
 #endif
 #endif /* _TRACE_HOOK_SCHED_H */
 /* This part must be outside protection */

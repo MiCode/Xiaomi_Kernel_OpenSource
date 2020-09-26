@@ -639,7 +639,7 @@ static void qcom_glink_receive_version(struct qcom_glink *glink,
 		break;
 	case GLINK_VERSION_1:
 		glink->features &= features;
-		/* FALLTHROUGH */
+		fallthrough;
 	default:
 		qcom_glink_send_version_ack(glink);
 		break;
@@ -672,7 +672,7 @@ static void qcom_glink_receive_version_ack(struct qcom_glink *glink,
 			break;
 
 		glink->features &= features;
-		/* FALLTHROUGH */
+		fallthrough;
 	default:
 		qcom_glink_send_version(glink);
 		break;
