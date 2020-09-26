@@ -137,8 +137,8 @@ void mtk_cam_dequeue_req_frame(struct mtk_cam_device *cam,
 			}
 			/* Pass to user space for frame drop */
 			mtk_cam_dev_job_done(cam, req, VB2_BUF_STATE_ERROR);
-			dev_dbg(cam->dev, "frame_seq:%d drop\n",
-				 req->frame_seq_no);
+			dev_dbg(cam->dev, "frame_seq:%d time:%lld drop\n",
+				 req->frame_seq_no, req->timestamp);
 			list_del(&req->list);
 		}
 	}
@@ -573,6 +573,7 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 			apply_cq(raw_dev,
 				 buf_entry->buffer.iova,
 				buf_entry->cq_size, 1);
+			req->timestamp = ktime_get_boottime_ns();
 			return 0;
 		}
 		spin_lock_irqsave(&ctx->composed_buffer_list.lock,

@@ -505,10 +505,9 @@ static int mtk_camsys_state_handle(struct mtk_raw_device *raw_dev,
 						 E_STATE_INNER);
 				sensor_ctrl->isp_request_seq_no =
 					frame_inner_idx;
-				req->timestamp = ktime_get_boottime_ns();
 				dev_dbg(raw_dev->dev,
-					"[SOF-DBLOAD] req:%d, OUTER->INNER state:%d time:%llu\n",
-					req->frame_seq_no, state_outer->estate, req->timestamp);
+					"[SOF-DBLOAD] req:%d, OUTER->INNER state:%d\n",
+					req->frame_seq_no, state_outer->estate);
 			}
 		}
 	}
@@ -606,10 +605,11 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 			state_transition(current_state, E_STATE_SENSOR,
 					 E_STATE_CQ);
 			req_cq = container_of(current_state, struct mtk_cam_request, state);
+			req_cq->timestamp = ktime_get_boottime_ns();
 			dev_dbg(raw_dev->dev,
-			"SOF[ctx:%d-#%d], CQ-%d is update, composed:%d, cq_addr:0x%x\n",
+			"SOF[ctx:%d-#%d], CQ-%d is update, composed:%d, cq_addr:0x%x, time:%lld\n",
 			ctx->stream_id, dequeued_frame_seq_no, req_cq->frame_seq_no,
-			ctx->composed_frame_seq_no, base_addr);
+			ctx->composed_frame_seq_no, base_addr, req_cq->timestamp);
 		}
 	}
 }
@@ -690,9 +690,9 @@ static void mtk_camsys_raw_frame_done(struct mtk_raw_device *raw_dev,
 						 E_STATE_DONE_MISMATCH);
 				state_transition(state_entry, E_STATE_INNER,
 						 E_STATE_DONE_NORMAL);
-				dev_dbg(raw_dev->dev, "[SWD] req:%d/state:%d\n",
+				dev_dbg(raw_dev->dev, "[SWD] req:%d/state:%d/time:%lld\n",
 					state_req->frame_seq_no,
-					state_entry->estate);
+					state_entry->estate, state_req->timestamp);
 				if (camsys_sensor_ctrl->isp_request_seq_no ==
 				    0) {
 					val = readl_relaxed(raw_dev->base +
