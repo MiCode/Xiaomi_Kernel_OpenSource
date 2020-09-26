@@ -104,7 +104,6 @@ static int lc898229_set_position(struct lc898229_device *lc898229, u16 val)
 
 static int lc898229_release(struct lc898229_device *lc898229)
 {
-	struct i2c_client *client = v4l2_get_subdevdata(&lc898229->sd);
 	int ret, val;
 
 	for (val = round_down(lc898229->focus->val, LC898229_MOVE_STEPS);
@@ -132,7 +131,7 @@ static int lc898229_release(struct lc898229_device *lc898229)
 static int lc898229_init(struct lc898229_device *lc898229)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(&lc898229->sd);
-	int ret, val;
+	int ret;
 
 	LOG_INF("+\n");
 
