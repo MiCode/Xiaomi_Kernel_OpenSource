@@ -1,0 +1,16 @@
+#
+# Memory Block
+#
+
+comment "Memory Block"
+
+config MTK_MEMORY_BLOCK
+	tristate "Memory Block"
+	depends on BLOCK
+	help
+	  Memory Block is the method of managing memory regions
+	  during the early bootstrap period while the usual kernel
+	  memory allocators are not up and running yet.
+	  Enable MediaTek memory block feature to provide procedures for
+	  maintaining information about logical memory blocks.
+
