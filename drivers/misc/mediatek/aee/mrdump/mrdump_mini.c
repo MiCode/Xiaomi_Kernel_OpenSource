@@ -872,8 +872,6 @@ static void mrdump_mini_add_loads(void)
 						MRDUMP_MINI_SECTION_SIZE);
 			cpu = prstatus->pr_pid - 100;
 			mrdump_mini_add_tsk_ti(cpu, &regs, tsk, 1);
-			mrdump_mini_add_entry((unsigned long)aee_cpu_rq(cpu),
-					MRDUMP_MINI_SECTION_SIZE);
 		} else if (prstatus->pr_pid <= nr_cpu_ids) {
 			cpu = prstatus->pr_pid - 1;
 			mrdump_mini_add_tsk_ti(cpu, &regs, tsk, 0);
@@ -888,8 +886,6 @@ static void mrdump_mini_add_loads(void)
 		}
 	}
 
-	mrdump_mini_add_entry((unsigned long)__per_cpu_offset,
-			MRDUMP_MINI_SECTION_SIZE);
 	if (dump_all_cpus) {
 		for (cpu = 0; cpu < nr_cpu_ids; cpu++) {
 			tsk = aee_cpu_curr(cpu);
@@ -897,8 +893,6 @@ static void mrdump_mini_add_loads(void)
 				ti = (struct thread_info *)tsk->stack;
 			else
 				ti = NULL;
-			mrdump_mini_add_entry((unsigned long)aee_cpu_rq(cpu),
-					MRDUMP_MINI_SECTION_SIZE);
 			mrdump_mini_add_entry((unsigned long)tsk,
 					MRDUMP_MINI_SECTION_SIZE);
 			mrdump_mini_add_entry((unsigned long)ti,
@@ -1011,7 +1005,7 @@ static void __init mrdump_mini_elf_header_init(void)
 
 int __init mrdump_mini_init(const struct mrdump_params *mparams)
 {
-	int i;
+	int i, cpu;
 	unsigned long size, offset;
 	struct pt_regs regs;
 
@@ -1061,6 +1055,11 @@ int __init mrdump_mini_init(const struct mrdump_params *mparams)
 		  (mrdump_cblock->machdesc.kallsyms.size / 2 - PAGE_SIZE)),
 		  mrdump_cblock->machdesc.kallsyms.size + 2 * PAGE_SIZE);
 	}
+	mrdump_mini_add_entry((unsigned long)__per_cpu_offset,
+			MRDUMP_MINI_SECTION_SIZE);
+	for (cpu = 0; cpu < nr_cpu_ids; cpu++)
+		mrdump_mini_add_entry((unsigned long)aee_cpu_rq(cpu),
+				MRDUMP_MINI_SECTION_SIZE);
 
 	return 0;
 }
