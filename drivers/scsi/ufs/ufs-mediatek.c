@@ -17,6 +17,7 @@
 #include <linux/reset.h>
 #include <linux/soc/mediatek/mtk_sip_svc.h>
 
+#include "mtk_blocktag.h"
 #include "ufshcd.h"
 #include "ufshcd-crypto.h"
 #include "ufshcd-pltfrm.h"
@@ -908,7 +909,29 @@ static void ufs_mtk_fixup_dev_quirks(struct ufs_hba *hba)
 	ufshcd_fixup_dev_quirks(hba, ufs_mtk_dev_fixups);
 }
 
-/*
+static void ufs_mtk_setup_xfer_req(struct ufs_hba *hba, int tag,
+				   bool is_scsi)
+{
+	struct ufshcd_lrb *lrbp;
+
+	if (is_scsi) {
+		lrbp = &hba->lrb[tag];
+		ufs_mtk_biolog_send_command(tag, lrbp->cmd);
+		ufs_mtk_biolog_check(hba->outstanding_reqs | (1 << tag));
+	}
+}
+
+static void ufs_mtk_compl_xfer_req(struct ufs_hba *hba, int tag,
+				   bool is_scsi)
+{
+	if (is_scsi) {
+		ufs_mtk_biolog_transfer_req_compl(tag);
+		ufs_mtk_biolog_check(hba->outstanding_reqs &
+				     ~(1 << tag));
+	}
+}
+
+/**
  * struct ufs_hba_mtk_vops - UFS MTK specific variant operations
  *
  * The variant operations configure the necessary controller and PHY
@@ -921,6 +944,8 @@ static const struct ufs_hba_variant_ops ufs_hba_mtk_vops = {
 	.hce_enable_notify   = ufs_mtk_hce_enable_notify,
 	.link_startup_notify = ufs_mtk_link_startup_notify,
 	.pwr_change_notify   = ufs_mtk_pwr_change_notify,
+	.setup_xfer_req      = ufs_mtk_setup_xfer_req,
+	.compl_xfer_req      = ufs_mtk_compl_xfer_req,
 	.apply_dev_quirks    = ufs_mtk_apply_dev_quirks,
 	.fixup_dev_quirks    = ufs_mtk_fixup_dev_quirks,
 	.suspend             = ufs_mtk_suspend,
@@ -939,6 +964,8 @@ static int ufs_mtk_probe(struct platform_device *pdev)
 {
 	int err;
 	struct device *dev = &pdev->dev;
+
+	ufs_mtk_biolog_init();
 
 	/* perform generic probe */
 	err = ufshcd_pltfrm_init(pdev, &ufs_hba_mtk_vops);
@@ -960,6 +987,7 @@ static int ufs_mtk_remove(struct platform_device *pdev)
 
 	pm_runtime_get_sync(&(pdev)->dev);
 	ufshcd_remove(hba);
+	ufs_mtk_biolog_exit();
 	return 0;
 }
 
