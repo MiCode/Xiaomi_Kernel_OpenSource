@@ -490,7 +490,7 @@ static const char * const spm_parents[] = {
 static const char * const scp_parents[] = {
 	"tck_26m_mx9_ck",
 	"univpll_d4",
-	"adsppll_ck",
+	"npupll_ck",
 	"mainpll_d6",
 	"univpll_d6",
 	"mainpll_d4_d2",
@@ -596,7 +596,7 @@ static const char * const cam_parents[] = {
 	"mmpll_d7",
 	"univpll_d4_d2",
 	"mainpll_d4_d2",
-	"univpll_d6_d2"
+	"npupll_ck"
 };
 
 static const char * const ccu_parents[] = {
@@ -668,8 +668,8 @@ static const char * const ipu_if_parents[] = {
 
 static const char * const mfg_ref_parents[] = {
 	"tck_26m_mx9_ck",
-	"tck_26m_mx9_ck",
-	"univpll_d6",
+	"mainpll_d6_d2",
+	"mainpll_d6",
 	"mainpll_d5_d2"
 };
 
@@ -742,7 +742,11 @@ static const char * const spi_parents[] = {
 	"tck_26m_mx9_ck",
 	"mainpll_d5_d4",
 	"mainpll_d6_d4",
-	"msdcpll_d4"
+	"msdcpll_d4",
+	"msdcpll_d2",
+	"mainpll_d6_d2",
+	"mainpll_d4_d4",
+	"univpll_d5_d4"
 };
 
 static const char * const msdc50_0_h_parents[] = {
@@ -797,11 +801,11 @@ static const char * const atb_parents[] = {
 
 static const char * const sspm_parents[] = {
 	"tck_26m_mx9_ck",
+	"mainpll_d7_d2",
+	"mainpll_d6_d2",
 	"mainpll_d5_d2",
 	"mainpll_d9",
-	"mainpll_d4_d2",
-	"mainpll_d7",
-	"mainpll_d6"
+	"mainpll_d4_d2"
 };
 
 static const char * const scam_parents[] = {
@@ -842,7 +846,7 @@ static const char * const seninf_parents[] = {
 	"univpll_d4_d4",
 	"univpll_d6_d2",
 	"univpll_d4_d2",
-	"mainpll_d4_d2",
+	"npupll_ck",
 	"mmpll_d7",
 	"mmpll_d6",
 	"univpll_d5"
@@ -853,7 +857,7 @@ static const char * const seninf1_parents[] = {
 	"univpll_d4_d4",
 	"univpll_d6_d2",
 	"univpll_d4_d2",
-	"mainpll_d4_d2",
+	"npupll_ck",
 	"mmpll_d7",
 	"mmpll_d6",
 	"univpll_d5"
@@ -864,7 +868,7 @@ static const char * const seninf2_parents[] = {
 	"univpll_d4_d4",
 	"univpll_d6_d2",
 	"univpll_d4_d2",
-	"mainpll_d4_d2",
+	"npupll_ck",
 	"mmpll_d7",
 	"mmpll_d6",
 	"univpll_d5"
@@ -929,7 +933,7 @@ static const char * const adsp_parents[] = {
 	"univpll_d4",
 	"univpll_d6",
 	"osc_ck",
-	"adsppll_ck"
+	"npupll_ck"
 };
 
 static const char * const dpmaif_main_parents[] = {
