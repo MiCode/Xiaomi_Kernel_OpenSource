@@ -3619,7 +3619,6 @@ int ddp_dsi_set_lcm_utils(enum DISP_MODULE_ENUM module,
 	struct LCM_DRIVER *lcm_drv)
 {
 	struct LCM_UTIL_FUNCS *utils = NULL;
-	int i = 0;
 
 	if (lcm_drv == NULL) {
 		DISPERR("lcm_drv is null\n");
@@ -3644,12 +3643,6 @@ int ddp_dsi_set_lcm_utils(enum DISP_MODULE_ENUM module,
 	if (module == DISP_MODULE_DSI0) {
 		utils->dsi_set_cmdq =
 			DSI_set_cmdq_wrapper_DSI0;
-		for (i = 0; i < 5; i++) {
-			if (utils->dsi_set_cmdq)
-				pr_notice("%s, %d %d, correct\n", __func__, __LINE__, i);
-			else
-				pr_notice("%s, %d %d, error\n", __func__, __LINE__, i);
-		}
 		utils->dsi_set_cmdq_V2 =
 			DSI_set_cmdq_V2_Wrapper_DSI0;
 		utils->dsi_set_cmdq_V3 =
