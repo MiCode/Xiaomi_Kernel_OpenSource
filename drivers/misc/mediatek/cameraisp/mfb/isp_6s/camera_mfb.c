@@ -71,7 +71,7 @@
 #include <cmdq-util.h>
 #endif
 
-#define MFB_PMQOS
+//#define MFB_PMQOS wait pmqos ready
 #ifdef MFB_PMQOS
 #include <linux/pm_qos.h>
 #include <mmdvfs_pmqos.h>
