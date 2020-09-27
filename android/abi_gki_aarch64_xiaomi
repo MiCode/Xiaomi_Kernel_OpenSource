@@ -1,0 +1,80 @@
+[abi_symbol_list]
+# required by cs35l41_dlkm.ko
+  regmap_async_complete
+  regmap_multi_reg_write
+  regmap_multi_reg_write_bypassed
+  regmap_raw_write
+  regmap_raw_write_async
+  regulator_bulk_enable
+  snd_pcm_format_physical_width
+  snd_soc_get_volsw_range
+  snd_soc_info_volsw_range
+  snd_soc_put_volsw_range
+
+# required by q6_dlkm.ko
+  down_interruptible
+  __kfifo_alloc
+  __kfifo_free
+  __kfifo_from_user
+  snd_soc_bytes_info_ext
+
+# required by aw8697.ko
+  devm_gpio_free
+
+# required by msm_drm.ko
+  kobject_set_name
+
+# required by exfat.ko
+  block_write_full_page
+  __blockdev_direct_IO
+  __bread_gfp
+  __brelse
+  cont_write_begin
+  d_find_alias
+  d_move
+  filemap_fdatawait_range
+  filemap_fdatawrite_range
+  full_name_hash
+  generic_block_bmap
+  generic_cont_expand_simple
+  generic_fh_to_dentry
+  generic_fh_to_parent
+  generic_file_fsync
+  generic_file_write_iter
+  generic_fillattr
+  generic_write_end
+  __getblk_gfp
+  ilookup
+  in_group_p
+  inc_nlink
+  invalidate_bdev
+  invalidate_inode_buffers
+  iunique
+  __insert_inode_hash
+  kill_block_super
+  load_nls
+  __lock_buffer
+  mark_buffer_dirty
+  match_octal
+  match_strdup
+  mount_bdev
+  mpage_readpage
+  mpage_readpages
+  mpage_writepages
+  __mark_inode_dirty
+  nf_register_net_hooks
+  nf_unregister_net_hooks
+  sb_min_blocksize
+  sb_set_blocksize
+  setattr_copy
+  sync_blockdev
+  sync_dirty_buffer
+  sync_mapping_buffers
+  __remove_inode_hash
+  touch_buffer
+  truncate_pagecache
+  unload_nls
+  unlock_buffer
+  utf16s_to_utf8s
+  utf8s_to_utf16s
+  write_inode_now

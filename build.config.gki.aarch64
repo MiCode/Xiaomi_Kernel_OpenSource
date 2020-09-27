@@ -18,6 +18,7 @@ android/abi_gki_aarch64_sunxi
 android/abi_gki_aarch64_unisoc
 android/abi_gki_aarch64_vivo
 android/abi_gki_aarch64_workarounds
+android/abi_gki_aarch64_xiaomi
 "
 TRIM_NONLISTED_KMI=1
 KMI_SYMBOL_LIST_ADD_ONLY=1
