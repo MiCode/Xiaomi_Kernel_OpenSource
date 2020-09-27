@@ -1159,6 +1159,11 @@ page_owner=on";
 		reg = <0 0x10208000 0 0x1000>;
 	};
 
+	dbgtop@1000d000 {
+		compatible = "mediatek,dbgtop";
+		reg = <0 0x1000d000 0 0x1000>;
+	};
+
 	touch:touch {
 		compatible = "goodix,touch";
 	};
