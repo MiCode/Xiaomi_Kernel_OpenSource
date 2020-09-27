@@ -53,7 +53,7 @@
 #define NO_USE_3HDR 1
 #define LSC_DEBUG 0
 
-#define MULTI_WRITE 1
+#define MULTI_WRITE 0
 #if MULTI_WRITE
 #define I2C_BUFFER_LEN 765 /* trans# max is 255, each 3 bytes */
 #else
