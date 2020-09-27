@@ -5563,7 +5563,8 @@
 		irq-remain = <&edge_keypad &edge_mdwdt>,
 				<&level_mali0 &level_mali1>,
 				<&level_mali2 &level_mali3 &level_mali4>,
-				<&level_mtk_mdla >;
+				<&level_mtk_mdla>,
+				<&level_usb_host>;
 
 		resource-ctrl = <&bus26m &infra &syspll>,
 				<&dram_s0 &dram_s1>;
@@ -5615,6 +5616,10 @@
 			};
 			level_mtk_mdla: level_mtk_mdla {
 				target = <&mtk_mdla>;
+				value = <0 0 0 0>;
+			};
+			level_usb_host: level_usb_host {
+				target = <&usb_host>;
 				value = <0 0 0 0>;
 			};
 		};
