@@ -23,6 +23,7 @@ enum mbox_idx {
 	MBOX_DEBUG_TS_L,
 };
 
+#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
 #if defined(SSPM_V2)
 #include <sspm_mbox_pin.h>
 #else
@@ -31,6 +32,7 @@ enum mbox_idx {
 
 #define SYS_TIMER_MBOX                      SHAREMBOX_NO_MCDI
 #define SYS_TIMER_MBOX_OFFSET_BASE          SHAREMBOX_OFFSET_TIMESTAMP
+#endif
 
 #if defined(CONFIG_MTK_TINYSYS_MCUPM_SUPPORT)
 #include <mcupm_driver.h>
