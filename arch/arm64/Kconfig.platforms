@@ -619,6 +619,7 @@ config MACH_MT6833
 	select MTK_CACHE_PARITY_CHECK
 	select HW_RANDOM
 	select HW_RANDOM_MT67XX
+	select DEVAPC_MT6833
 	help
 	  This enables support for MediaTek MT6833
 	  Support for aarch64 Architecture
