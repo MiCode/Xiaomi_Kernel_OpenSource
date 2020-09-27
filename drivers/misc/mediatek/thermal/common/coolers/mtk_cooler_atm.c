@@ -515,6 +515,11 @@ mt_get_uartlog_status(void)
 {
 	return 0;
 }
+int  __attribute__ ((weak))
+ppm_find_pwr_idx(struct ppm_cluster_status *cluster_status)
+{
+	return 0;
+}
 
 /*=============================================================*/
 

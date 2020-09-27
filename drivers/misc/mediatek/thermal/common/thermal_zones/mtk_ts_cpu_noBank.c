@@ -2571,9 +2571,10 @@ static void init_thermal(void)
 	lvts_enable_all_sensing_points();
 
 	read_all_tc_temperature();
-
+#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
 #if THERMAL_ENABLE_TINYSYS_SSPM || THERMAL_ENABLE_ONLY_TZ_SSPM
 	lvts_ipi_send_efuse_data();
+#endif
 #endif
 #endif
 }
