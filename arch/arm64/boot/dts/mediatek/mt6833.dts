@@ -1202,10 +1202,17 @@ page_owner=on";
 		reg = <0 0x10218000 0 0x1000>;
 	};
 
-	emi@10219000 {
-		compatible = "mediatek,emi";
+	emicen: emicen@10219000 {
+		compatible = "mediatek,mt6833-emicen",
+			     "mediatek,common-emicen";
 		reg = <0 0x10219000 0 0x1000>;
-		interrupts = <GIC_SPI 189 IRQ_TYPE_LEVEL_HIGH>;
+		mediatek,emi-reg = <&emichn>;
+	};
+
+	emiisu {
+		compatible = "mediatek,mt6833-emiisu",
+			     "mediatek,common-emiisu";
+		ctrl_intf = <1>;
 	};
 
 	infra_device_mpu@1021a000 {
@@ -1216,6 +1223,27 @@ page_owner=on";
 	infra_device_mpu@1021b000 {
 		compatible = "mediatek,infra_device_mpu";
 		reg = <0 0x1021b000 0 0x1000>;
+	};
+
+	emimpu@10226000 {
+		compatible = "mediatek,mt6833-emimpu",
+			     "mediatek,common-emimpu";
+		reg = <0 0x10226000 0 0x1000>;
+		mediatek,emi-reg = <&emicen>;
+		interrupts = <GIC_SPI 189 IRQ_TYPE_LEVEL_HIGH>;
+		region_cnt = <32>;
+		domain_cnt = <16>;
+		addr_align = <16>;
+		ap_region = <31>;
+		ap_apc = <0 5 5 5 0 0 6 5>,
+			 <0 0 5 0 0 0 5 5>;
+		dump = <0x1f0 0x1f8 0x1fc>;
+		clear = <0x160 0xffffffff 16>,
+			<0x200 0x00000003 16>,
+			<0x1f0 0x80000000 1>;
+		clear_md = <0x1fc 0x80000000 1>;
+		ctrl_intf = <1>;
+		slverr = <0>;
 	};
 
 	infracfg_mem@1021c000 {
@@ -1281,11 +1309,6 @@ page_owner=on";
 	infra_device_mpu@10225000 {
 		compatible = "mediatek,infra_device_mpu";
 		reg = <0 0x10225000 0 0x1000>;
-	};
-
-	emi_mpu@10226000 {
-		compatible = "mediatek,emi_mpu";
-		reg = <0 0x10226000 0 0x1000>;
 	};
 
 	dvfsp@10227000 {
@@ -1462,6 +1485,13 @@ page_owner=on";
 		reg = <0 0x1023a000 0 0x2000>;
 	};
 */
+	emichn: emichn@10235000 {
+		compatible = "mediatek,mt6833-emichn",
+			     "mediatek,common-emichn";
+		reg = <0 0x10235000 0 0x1000>,
+		      <0 0x10245000 0 0x1000>;
+	};
+
 	ap_ccif2@1023c000 {
 		compatible = "mediatek,ap_ccif2";
 		reg = <0 0x1023c000 0 0x1000>;
