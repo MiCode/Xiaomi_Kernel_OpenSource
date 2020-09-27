@@ -497,21 +497,30 @@ static struct BTSNRPA_TEMPERATURE BTSNRPA_Temperature_Table7[] = {
 
 
 /* convert register to temperature  */
-static __s16 mtkts_btsnrpa_thermistor_conver_temp(__s32 Res)
+static __s32 mtkts_btsnrpa_thermistor_conver_temp(__s32 Res)
 {
 	int i = 0;
 	int asize = 0;
 	__s32 RES1 = 0, RES2 = 0;
 	__s32 TAP_Value = -200, TMP1 = 0, TMP2 = 0;
 
+#ifdef APPLY_PRECISE_BTS_TEMP
+	TAP_Value = TAP_Value * 1000;
+#endif
 	asize = (ntc_tbl_size / sizeof(struct BTSNRPA_TEMPERATURE));
 	/* mtkts_btsnrpa_dprintk("%s() :
 	 * asize = %d, Res = %d\n", __func__,asize,Res);
 	 */
 	if (Res >= BTSNRPA_Temperature_Table[0].TemperatureR) {
 		TAP_Value = -40;	/* min */
+#ifdef APPLY_PRECISE_BTS_TEMP
+		TAP_Value = TAP_Value * 1000;
+#endif
 	} else if (Res <= BTSNRPA_Temperature_Table[asize - 1].TemperatureR) {
 		TAP_Value = 125;	/* max */
+#ifdef APPLY_PRECISE_BTS_TEMP
+		TAP_Value = TAP_Value * 1000;
+#endif
 	} else {
 		RES1 = BTSNRPA_Temperature_Table[0].TemperatureR;
 		TMP1 = BTSNRPA_Temperature_Table[0].BTSNRPA_Temp;
@@ -537,9 +546,13 @@ static __s16 mtkts_btsnrpa_thermistor_conver_temp(__s32 Res)
 			 * TMP1 = %d\n",__LINE__,i,RES1,TMP1);
 			 */
 		}
-
+#ifdef APPLY_PRECISE_BTS_TEMP
+		TAP_Value = mult_frac((((Res - RES2) * TMP1) +
+			((RES1 - Res) * TMP2)), 1000, (RES1 - RES2));
+#else
 		TAP_Value = (((Res - RES2) * TMP1) + ((RES1 - Res) * TMP2))
 								/ (RES1 - RES2);
+#endif
 	}
 
 #if 0
@@ -568,7 +581,7 @@ static __s16 mtkts_btsnrpa_thermistor_conver_temp(__s32 Res)
 
 /* convert ADC_AP_temp_volt to register */
 /*Volt to Temp formula same with 6589*/
-static __s16 mtk_ts_btsnrpa_volt_to_temp(__u32 dwVolt)
+static __s32 mtk_ts_btsnrpa_volt_to_temp(__u32 dwVolt)
 {
 	__s32 TRes;
 	__u64 dwVCriAP = 0;
@@ -718,7 +731,9 @@ int mtkts_btsnrpa_get_hw_temp(void)
 	/* get HW AP temp (TSAP) */
 	/* cat /sys/class/power_supply/AP/AP_temp */
 	t_ret = get_hw_btsnrpa_temp();
+#ifndef APPLY_PRECISE_BTS_TEMP
 	t_ret = t_ret * 1000;
+#endif
 
 #if MTKTS_BTSNRPA_SW_FILTER
 	if ((t_ret > 100000) || (t_ret < -30000)) {

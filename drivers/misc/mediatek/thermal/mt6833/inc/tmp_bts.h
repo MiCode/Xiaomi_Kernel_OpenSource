@@ -15,6 +15,7 @@
 
 #define APPLY_PRECISE_NTC_TABLE
 #define APPLY_AUXADC_CALI_DATA
+#define APPLY_PRECISE_BTS_TEMP
 
 #define AUX_IN0_NTC (0)
 #define AUX_IN1_NTC (1)
