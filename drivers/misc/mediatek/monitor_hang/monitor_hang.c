@@ -1028,15 +1028,6 @@ static void show_task_backtrace(void)
 	}
 	rcu_read_unlock();
 	log_hang_info("dump backtrace end.\n");
-
-	if (Hang_Detect_first == false) {
-		if (system_server_task)
-			send_sig_info(SIGSTOP, SEND_SIG_PRIV,
-				system_server_task);
-		if (monkey_task)
-			send_sig_info(SIGQUIT, SEND_SIG_PRIV,
-				monkey_task);
-	}
 }
 
 static void show_status(int flag)
