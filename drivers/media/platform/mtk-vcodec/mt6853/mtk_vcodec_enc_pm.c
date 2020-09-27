@@ -48,10 +48,6 @@ static struct codec_job *venc_jobs;
 
 #if ENC_EMI_BW
 #include <mtk_smi.h>
-#include <mtk_qos_bound.h>
-#include "vcodec_bw.h"
-static long long venc_start_time;
-static struct vcodec_bw *venc_bw;
 static struct plist_head venc_rlist;
 static struct mm_qos_request venc_rcpu;
 static struct mm_qos_request venc_rec;
@@ -351,20 +347,16 @@ void mtk_venc_emi_bw_begin(struct mtk_vcodec_ctx *ctx)
 {
 #if ENC_EMI_BW
 	int f_type = 1; /* TODO */
-	struct vcodec_bw *cur_bw = 0;
-	int variable_bw = 0;
 	int boost_perc = 0;
-	int rcpu_bw = 2;
+	int rcpu_bw = 5;
 	int rec_bw = 0;
 	int bsdma_bw = 10;
-	int sv_comv_bw = 2;
-	int rd_comv_bw = 8;
+	int sv_comv_bw = 5;
+	int rd_comv_bw = 10;
 	int cur_luma_bw = 0;
 	int cur_chroma_bw = 0;
 	int ref_luma_bw = 0;
 	int ref_chroma_bw = 0;
-
-	cur_bw = add_bw_by_id(&venc_bw, ctx->id);
 
 	if (ctx->async_mode == 1 ||
 		ctx->q_data[MTK_Q_DATA_DST].fmt->fourcc == V4L2_PIX_FMT_H265 ||
@@ -381,36 +373,13 @@ void mtk_venc_emi_bw_begin(struct mtk_vcodec_ctx *ctx)
 	cur_chroma_bw = STD_CHROMA_BW * venc_freq * (100 + boost_perc)
 			/ STD_VENC_FREQ / 100;
 
-	if (validate_bw(cur_bw, f_type) == true) { /* Refer to prev frame */
-		/* BW in STD_VENC_FREQ */
-		if (cur_bw->smi_bw_mon[f_type] > 0) {
-			variable_bw = cur_bw->smi_bw_mon[f_type] -
-					 ((STD_LUMA_BW + STD_CHROMA_BW)
-					* (100 + boost_perc) / 100);
-		} else {
-			variable_bw = (STD_LUMA_BW + STD_CHROMA_BW) * 5
-					* (100 + boost_perc) / 100;
-		}
-
-		/* BW in venc_freq */
-		if (f_type == 0) {
-			rec_bw = variable_bw * venc_freq / STD_VENC_FREQ;
-		} else {
-			rec_bw = variable_bw * venc_freq / STD_VENC_FREQ / 5;
-			ref_luma_bw = variable_bw * 8 * venc_freq /
-					STD_VENC_FREQ / 15;
-			ref_chroma_bw = variable_bw * 4 * venc_freq /
-					STD_VENC_FREQ / 15;
-		}
-	} else { /* First frame estimate */
-		/* BW in venc_freq */
-		if (f_type == 0) {
-			rec_bw = cur_luma_bw + cur_chroma_bw;
-		} else {
-			rec_bw = cur_luma_bw + cur_chroma_bw;
-			ref_luma_bw = rec_bw * 3;
-			ref_chroma_bw = ref_luma_bw / 2;
-		}
+	/* BW in venc_freq */
+	if (f_type == 0) {
+		rec_bw = cur_luma_bw + cur_chroma_bw;
+	} else {
+		rec_bw = cur_luma_bw + cur_chroma_bw;
+		ref_luma_bw = cur_luma_bw * 4;
+		ref_chroma_bw = cur_chroma_bw * 4;
 	}
 
 	if (1) { /* UFO */
@@ -418,23 +387,6 @@ void mtk_venc_emi_bw_begin(struct mtk_vcodec_ctx *ctx)
 		ref_luma_bw = 0;
 	}
 
-	if (ctx->enc_params.operationrate == 60 ||
-		ctx->async_mode == 1 ||
-		(ctx->q_data[MTK_Q_DATA_SRC].visible_width == 3840 &&
-		ctx->q_data[MTK_Q_DATA_SRC].visible_height == 2160)) {
-		/* 60fps / 4K30 / SMVR  recording use theoretical max BW */
-		cur_luma_bw = STD_LUMA_BW * venc_freq * (100 + boost_perc)
-				/ STD_VENC_FREQ / 100;
-		cur_chroma_bw = STD_CHROMA_BW * venc_freq * (100 + boost_perc)
-				/ STD_VENC_FREQ / 100;
-		rec_bw = cur_luma_bw + cur_chroma_bw;
-		ref_luma_bw = cur_luma_bw * 4;
-		ref_chroma_bw = cur_chroma_bw * 4;
-		if (1) { /* UFO */
-			ref_chroma_bw += ref_luma_bw;
-			ref_luma_bw = 0;
-		}
-	}
 	mm_qos_set_request(&venc_rcpu, rcpu_bw, 0, BW_COMP_NONE);
 	mm_qos_set_request(&venc_bsdma, bsdma_bw, 0, BW_COMP_NONE);
 	mm_qos_set_request(&venc_sv_comv, sv_comv_bw, 0, BW_COMP_NONE);
@@ -445,62 +397,12 @@ void mtk_venc_emi_bw_begin(struct mtk_vcodec_ctx *ctx)
 	mm_qos_set_request(&venc_ref_luma, ref_luma_bw, 0, BW_COMP_NONE);
 	mm_qos_set_request(&venc_ref_chroma, ref_chroma_bw, 0, BW_COMP_NONE);
 	mm_qos_update_all_request(&venc_rlist);
-
-	venc_start_time = get_time_us();
 #endif
 }
 
 void mtk_venc_emi_bw_end(struct mtk_vcodec_ctx *ctx)
 {
 #if ENC_EMI_BW
-	/* read */
-	int f_type = 1; /* TODO */
-	struct vcodec_bw *cur_bw = 0;
-	struct qos_bound *bound = 0;
-	long long venc_end_time = 0;
-	int venc_dur = 0;
-	int i = 0;
-	int idx = 0;
-	unsigned short venc_bw_ms = 0;
-	unsigned int venc_bw_sum = 0;
-	u64 target_freq_64 = 0;
-
-	venc_end_time = get_time_us();
-	venc_dur = (int)((venc_end_time - venc_start_time) / 1000);
-	if (venc_dur < 1)
-		venc_dur = 1;
-
-	if (venc_dur > 32)
-		venc_dur = 32;
-
-	bound = get_qos_bound();
-	if (bound != 0) {
-		idx = (bound->idx + QOS_BOUND_BUF_SIZE - venc_dur) & 0x3F;
-		for (i = 0; i < venc_dur; i++, idx = (idx + 1) & 0x3F) {
-			venc_bw_ms =
-			bound->stats[idx].smibw_mon[QOS_SMIBM_VENC];
-			if (venc_bw_ms == 0xFFFF) {
-				venc_bw_sum = 0xFFFFFFFF;
-				break;
-			}
-			venc_bw_sum += (unsigned int)venc_bw_ms;
-		}
-
-		if (venc_bw_sum != 0xFFFFFFFF) {
-			target_freq_64 = match_freq(venc_freq,
-					&venc_freq_steps[0],
-					venc_freq_step_size);
-
-			venc_bw_sum = (unsigned int)((u64)venc_bw_sum *
-					STD_VENC_FREQ / ((u64)venc_dur) /
-					target_freq_64);
-		}
-
-		cur_bw = find_bw_by_id(venc_bw, ctx->id);
-		if (cur_bw != 0)
-			cur_bw->smi_bw_mon[f_type] = venc_bw_sum;
-	}
-
 	mm_qos_set_request(&venc_rcpu, 0, 0, BW_COMP_NONE);
 	mm_qos_set_request(&venc_rec, 0, 0, BW_COMP_NONE);
 	mm_qos_set_request(&venc_bsdma, 0, 0, BW_COMP_NONE);
