@@ -46,6 +46,15 @@
 	pwr_off_seq = [04 00 00 02];
 };
 
+&i2c2 {
+	clock-frequency = <400000>;
+	mtk-usb@60 {
+		compatible = "mediatek,mtk-usb";
+		reg = <0x60>;
+		status = "okay";
+	};
+};
+
 #ifndef CONFIG_FPGA_EARLY_PORTING
 &pio {
 	mtkfb_pins_lcd_bias_enp1: lcd_bias_enp1_gpio {
