@@ -757,9 +757,47 @@ page_owner=on";
 		#clock-cells=<1>;
 	};
 
-	fhctl@1000ce00 {
-		compatible = "mediatek,fhctl";
-		reg = <0 0x1000ce00 0 0x200>;
+	fhctl-new@1000ce00 {
+			compatible = "mediatek,mt6853-fhctl";
+			reg = <0 0x1000ce00 0 0x200>,
+				  <0 0x1000c000 0 0xe00>;
+			num-pll = <8>;
+			map0 {
+				domain = "top";
+				method = "fhctl-mcupm";
+				npupll {
+					fh-id = <4>;
+					pll-id = <999>;
+				};
+				mfgpll {
+					fh-id = <6>;
+					pll-id = <999>;
+				};
+				mpll {
+					fh-id = <8>;
+					pll-id = <999>;
+				};
+				mmpll {
+					fh-id = <9>;
+					pll-id = <999>;
+				};
+				mainpll {
+					fh-id = <10>;
+					pll-id = <999>;
+				};
+				msdcpll {
+					fh-id = <11>;
+					pll-id = <999>;
+				};
+				adsppll {
+					fh-id = <12>;
+					pll-id = <999>;
+				};
+				tvdpll {
+					fh-id = <14>;
+					pll-id = <999>;
+				};
+			};
 	};
 
 	pwrap: pwrap@10026000 {
