@@ -137,7 +137,7 @@ struct lvts_thermal_controller lvts_tscpu_g_tc[LVTS_CONTROLLER_NUM] = {
 		}
 	},
 	[2] = {/*(GPU, GPU, SOC, CONSYS)*/
-		.ts = {L_TS_LVTS3_0, L_TS_LVTS3_1, L_TS_LVTS3_2, L_TS_LVTS3_2},
+		.ts = {L_TS_LVTS3_0, L_TS_LVTS3_1, L_TS_LVTS3_2, L_TS_LVTS3_3},
 		.ts_number = 4,
 		.dominator_ts_idx = 1, //TODO: need confirm dominator sensor
 		.tc_offset = 0x200,
