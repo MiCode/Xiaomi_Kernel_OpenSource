@@ -945,7 +945,9 @@ page_owner=on";
 	sys_timer@10017000 {
 		compatible = "mediatek,sys_timer";
 		reg = <0 0x10017000 0 0x1000>;
+		reg-names = "sys_timer_base";
 		interrupts = <GIC_SPI 233 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clk13m>;
 	};
 
 	timer: timer {
