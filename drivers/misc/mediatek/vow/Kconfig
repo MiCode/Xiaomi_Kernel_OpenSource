@@ -51,3 +51,12 @@ config MTK_VOW_MAX_PDK_NUMBER
 	  support different PDK model number, and work with SCP
 	  and sound trigger HAL. This feature need to work
 	  with MTK_VOW_SUPPORT.
+
+config MTK_VOW_PCMCALLBACK_SUPPORT
+	string "MediaTek VOW open pcm callback support"
+	default "none"
+	help
+	  For VOW kernel driver config. This config can
+	  support transferring voice data since passing phase2
+	  recognition in SCP. This feature need to work
+	  with MTK_VOW_SUPPORT.
