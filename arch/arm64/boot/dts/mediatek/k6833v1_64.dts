@@ -46,15 +46,6 @@
 	pwr_off_seq = [04 00 00 02];
 };
 
-&i2c2 {
-	clock-frequency = <400000>;
-	mtk-usb@60 {
-		compatible = "mediatek,mtk-usb";
-		reg = <0x60>;
-		status = "okay";
-	};
-};
-
 &mt6360_typec {
 	mt6360pd,intr_gpio_num = <11>; /* direct defined GPIO num */
 	mt6360pd,intr_gpio = <&pio 11 0x0>;
