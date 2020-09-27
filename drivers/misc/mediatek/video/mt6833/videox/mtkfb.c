@@ -2686,11 +2686,11 @@ static int mtkfb_probe(struct platform_device *pdev)
 		ret = DAL_Init(fbVA, fbPA);
 		DISPMSG("DAL_Init done\n");
 	}
-
+#if 0
 	if (disp_helper_get_stage() != DISP_HELPER_STAGE_NORMAL)
 		_mtkfb_internal_test((unsigned long)(fbdev->fb_va_base),
 			MTK_FB_XRES, MTK_FB_YRES);
-
+#endif
 	r = mtkfb_register_sysfs(fbdev);
 	if (r) {
 		DISPERR("mtkfb_register_sysfs fail, r = %d\n", r);
