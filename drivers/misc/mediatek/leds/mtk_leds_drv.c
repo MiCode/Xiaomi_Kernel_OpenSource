@@ -182,8 +182,6 @@ static int mt65xx_led_set_cust(struct cust_mt65xx_led *cust, int level)
 	}
 	mutex_unlock(&bl_level_limit_mutex);
 #endif
-	pr_info("The %s's led mode is : %d, led_bits: %d\n",
-			cust->name, cust->mode, cust->led_bits);
 #ifdef LED_INCREASE_LED_LEVEL_MTKPATCH
 	if (cust->mode == MT65XX_LED_MODE_CUST_BLS_PWM) {
 		mt_mt65xx_led_set_cust(cust,
