@@ -63,10 +63,12 @@ static int I2C_SET_FOR_BACKLIGHT  = 350;
 /****************************************************************************
  * DEBUG MACROS
  ***************************************************************************/
+#undef pr_fmt
+#define pr_fmt(fmt) KBUILD_MODNAME " %s(%d) :" fmt, __func__, __LINE__
 static int debug_enable_led = 1;
 #define LEDS_DRV_DEBUG(format, args...) do { \
 	if (debug_enable_led) {	\
-		pr_debug("[LED]"format, ##args);\
+		pr_info("[LED]"format, ##args);\
 	} \
 } while (0)
 
@@ -180,6 +182,8 @@ static int mt65xx_led_set_cust(struct cust_mt65xx_led *cust, int level)
 	}
 	mutex_unlock(&bl_level_limit_mutex);
 #endif
+	pr_info("The %s's led mode is : %d, led_bits: %d\n",
+			cust->name, cust->mode, cust->led_bits);
 #ifdef LED_INCREASE_LED_LEVEL_MTKPATCH
 	if (cust->mode == MT65XX_LED_MODE_CUST_BLS_PWM) {
 		mt_mt65xx_led_set_cust(cust,

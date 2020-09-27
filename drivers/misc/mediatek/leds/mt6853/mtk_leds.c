@@ -98,10 +98,12 @@ char *leds_name[TYPE_TOTAL] = {
 /****************************************************************************
  * DEBUG MACROS
  ***************************************************************************/
+#undef pr_fmt
+#define pr_fmt(fmt) KBUILD_MODNAME " %s(%d) :" fmt, __func__, __LINE__
 static int debug_enable_led_hal = 1;
 #define LEDS_DEBUG(format, args...) do { \
 	if (debug_enable_led_hal) {	\
-		pr_debug("[LED]"format, ##args);\
+		pr_info("[LED]"format, ##args);\
 	} \
 } while (0)
 /*****************PWM *************************************************/
@@ -236,6 +238,8 @@ struct cust_mt65xx_led *get_cust_led_dtsi(void)
 			pr_info("[LED]led dts can not get %s led led_bits\n",
 			    pled_dtsi[i].name);
 		}
+		pr_info("The %s's led mode is : %d, led_bits: %d\n",
+				pled_dtsi[i].name, pled_dtsi[i].mode, pled_dtsi[i].led_bits);
 		ret = of_property_read_u32_array(led_node, "pwm_config",
 				pwm_config, ARRAY_SIZE(pwm_config));
 		if (!ret) {
@@ -883,6 +887,8 @@ void mt_mt65xx_led_set(struct led_classdev *led_cdev, enum led_brightness level)
 	/* spin_lock_irqsave(&leds_lock, flags); */
 
 	/* do something only when level is changed */
+	pr_info("The %s's led mode is : %d, led_bits: %d\n",
+		led_data->cust.name, led_data->cust.mode, led_data->cust.led_bits);
 	if (led_data->level == level) {
 		LEDS_DEBUG("no level change,do nothing\n");
 		return;
@@ -903,8 +909,8 @@ void mt_mt65xx_led_set(struct led_classdev *led_cdev, enum led_brightness level)
 	backlight_debug_log(led_data->level, level);
 	trans_level = ((((1 << MT_LED_INTERNAL_LEVEL_BIT_CNT)
 				- 1) * level +
-				(((1 << led_data->cust.led_bits) - 1) / 2))
-				/ ((1 << led_data->cust.led_bits) - 1));
+				(((1 << 8) - 1) / 2))
+				/ ((1 << 8) - 1));
 
 	pr_info("[LED] disp_pq_notify_backlight_changed: %d-%d(%d)",
 			level, trans_level, led_data->cust.led_bits);
