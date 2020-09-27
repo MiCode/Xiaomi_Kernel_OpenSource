@@ -4687,7 +4687,9 @@ static int ufshcd_link_startup(struct ufs_hba *hba)
 
 link_startup:
 	do {
-		ufshcd_vops_link_startup_notify(hba, PRE_CHANGE);
+		ret = ufshcd_vops_link_startup_notify(hba, PRE_CHANGE);
+		if (ret == -ENODEV)
+			return ret;
 
 		ret = ufshcd_dme_link_startup(hba);
 
