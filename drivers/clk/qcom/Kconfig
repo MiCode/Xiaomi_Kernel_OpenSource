@@ -501,4 +501,13 @@ config SDX_DEBUGCC_LEMUR
 	  Say Y if you want to support the debug clocks such as
 	  clock measurement functionality.
 
+config CLOCK_CPU_SDXLEMUR
+	bool "CPU SDXLEMUR Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the cpu clock controller on SDXLEMUR
+	  based devices.
+	  Say Y if you want to support CPU clock scaling using
+	  CPUfreq drivers for dynamic power management.
+
 endif
