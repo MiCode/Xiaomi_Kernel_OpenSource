@@ -331,7 +331,7 @@ int mtk_drm_mmp_ovl_layer(struct mtk_plane_state *state,
 		   fmt == DRM_FORMAT_XBGR8888 ||
 		   fmt == DRM_FORMAT_ABGR8888 ||
 		   fmt == DRM_FORMAT_ABGR2101010 ||
-		   fmt == DRM_FORMAT_ABGRFP16) {
+		   fmt == DRM_FORMAT_ABGR16161616F) {
 		bitmap.format = MMPROFILE_BITMAP_RGBA8888;
 		bitmap.bpp = 32;
 	} else if (fmt == DRM_FORMAT_BGRA8888 ||
