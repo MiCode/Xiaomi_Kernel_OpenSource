@@ -409,7 +409,6 @@ static int usb_typec_pinctrl_debugfs(struct usbtypc *typec)
 {
 	struct dentry *file;
 
-	root = debugfs_create_dir("usb_c", NULL);
 	if (!root)
 		return -ENOMEM;
 
@@ -417,6 +416,17 @@ static int usb_typec_pinctrl_debugfs(struct usbtypc *typec)
 			typec, &usb_gpio_debugfs_fops);
 	file = debugfs_create_file("smt", 0200, root, typec,
 			&usb_debugfs_fops);
+
+	return 0;
+}
+
+static int usb_typec_cc_debugfs(struct usbtypc *typec)
+{
+	struct dentry *file;
+
+	if (!root)
+		return -ENOMEM;
+
 	file = debugfs_create_file("smt_u2_cc_mode", 0400, root, typec,
 			&usb_cc_smt_fops);
 
@@ -789,7 +799,15 @@ static struct platform_driver usb_switch_pinctrl_driver = {
 int __init usbc_pinctrl_init(void)
 {
 	int ret = 0;
+#if IS_ENABLED(CONFIG_DEBUG_FS)
+	struct usbtypc *typec = get_usbtypec();
 
+	root = debugfs_create_dir("usb_c", NULL);
+	if (!root)
+		ret = -ENOMEM;
+
+	usb_typec_cc_debugfs(typec);
+#endif
 	if (!platform_driver_register(&usb_switch_pinctrl_driver))
 		usbc_dbg(K_DEBUG, "register usbc pinctrl succeed!!\n");
 	else {
