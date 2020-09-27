@@ -255,7 +255,8 @@ void mtk_venc_dvfs_begin(struct mtk_vcodec_ctx *ctx)
 		target_freq_64 = match_freq(target_freq, &venc_freq_steps[0],
 					venc_freq_step_size);
 
-		if (ctx->async_mode == 1 && target_freq_64 > 458)
+		if (ctx->enc_params.operationrate >= 120 &&
+			target_freq_64 > 458)
 			target_freq_64 = 458;
 
 		if (target_freq > 0) {
@@ -295,7 +296,15 @@ void mtk_venc_dvfs_end(struct mtk_vcodec_ctx *ctx)
 	venc_cur_job = venc_jobs;
 	if (venc_cur_job != 0 && (venc_cur_job->handle == &ctx->id)) {
 		venc_cur_job->end = get_time_us();
-		if (ctx->async_mode == 0) {
+		if (ctx->enc_params.operationrate < 120) {
+			if (ctx->enc_params.framerate_denom == 0)
+				ctx->enc_params.framerate_denom = 1;
+
+			if (ctx->enc_params.operationrate == 0 &&
+				ctx->enc_params.framerate_num == 0)
+				ctx->enc_params.framerate_num =
+				ctx->enc_params.framerate_denom * 30;
+
 			if ((ctx->enc_params.operationrate == 60 ||
 				((ctx->enc_params.framerate_num /
 				ctx->enc_params.framerate_denom) >= 59 &&
