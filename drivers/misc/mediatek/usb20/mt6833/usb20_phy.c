@@ -327,6 +327,7 @@ exit:
 
 static void hs_slew_rate_cal(void)
 {
+#if 0
 	unsigned long data;
 	unsigned long x;
 	unsigned char value;
@@ -381,6 +382,7 @@ static void hs_slew_rate_cal(void)
 
 	/* disable usb ring oscillator. */
 	USBPHY_CLR32(0x14, (0x1 << 15));
+#endif
 }
 
 #ifdef CONFIG_MTK_UART_USB_SWITCH
