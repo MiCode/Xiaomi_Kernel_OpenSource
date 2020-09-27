@@ -367,7 +367,7 @@ void mtk_venc_emi_bw_begin(struct mtk_vcodec_ctx *ctx)
 	int ref_luma_bw = 0;
 	int ref_chroma_bw = 0;
 
-	if (ctx->async_mode == 1 ||
+	if (ctx->enc_params.operationrate >= 120 ||
 		ctx->q_data[MTK_Q_DATA_DST].fmt->fourcc == V4L2_PIX_FMT_H265 ||
 		(ctx->q_data[MTK_Q_DATA_SRC].visible_width == 3840 &&
 		ctx->q_data[MTK_Q_DATA_SRC].visible_height == 2160)) {
@@ -402,9 +402,19 @@ void mtk_venc_emi_bw_begin(struct mtk_vcodec_ctx *ctx)
 	mm_qos_set_request(&venc_rd_comv, rd_comv_bw, 0, BW_COMP_NONE);
 	mm_qos_set_request(&venc_cur_luma, cur_luma_bw, 0, BW_COMP_NONE);
 	mm_qos_set_request(&venc_cur_chroma, cur_chroma_bw, 0, BW_COMP_NONE);
-	mm_qos_set_request(&venc_rec, rec_bw, 0, BW_COMP_NONE);
-	mm_qos_set_request(&venc_ref_luma, ref_luma_bw, 0, BW_COMP_NONE);
-	mm_qos_set_request(&venc_ref_chroma, ref_chroma_bw, 0, BW_COMP_NONE);
+	if (1) { /* UFO */
+		mm_qos_set_request(&venc_rec, rec_bw, 0, BW_COMP_VENC);
+		mm_qos_set_request(&venc_ref_luma, ref_luma_bw, 0,
+				BW_COMP_VENC);
+		mm_qos_set_request(&venc_ref_chroma, ref_chroma_bw, 0,
+				BW_COMP_VENC);
+	} else {
+		mm_qos_set_request(&venc_rec, rec_bw, 0, BW_COMP_NONE);
+		mm_qos_set_request(&venc_ref_luma, ref_luma_bw, 0,
+				BW_COMP_NONE);
+		mm_qos_set_request(&venc_ref_chroma, ref_chroma_bw, 0,
+				BW_COMP_NONE);
+	}
 	mm_qos_update_all_request(&venc_rlist);
 #endif
 }
