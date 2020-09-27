@@ -63,6 +63,8 @@ enum FH_DEVCTL_CMD_ID {
 	FH_DBG_CMD_TR_BEGIN_HIGH = 0x2002,
 	FH_DBG_CMD_TR_END_LOW = 0x2003,
 	FH_DBG_CMD_TR_END_HIGH = 0x2004,
+	FH_DBG_CMD_TR_END_ID = 0x2005,
+	FH_DBG_CMD_TR_END_VAL = 0x2006,
 };
 #define FHCTL_D_LEN (sizeof(struct fhctl_ipi_data)/\
 	sizeof(unsigned int))
@@ -173,6 +175,8 @@ static int mcupm_hopping_v1(void *priv_data, char *domain_name, int fh_id,
 		ipi_get_data(FH_DBG_CMD_TR_BEGIN_HIGH);
 		ipi_get_data(FH_DBG_CMD_TR_END_LOW);
 		ipi_get_data(FH_DBG_CMD_TR_END_HIGH);
+		ipi_get_data(FH_DBG_CMD_TR_END_ID);
+		ipi_get_data(FH_DBG_CMD_TR_END_VAL);
 
 		FHDBG("tr_id_local<%x>\n",
 				++tr_id_local);
