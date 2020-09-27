@@ -148,7 +148,9 @@ int mt6833_suspend_prompt(int cpu, const struct mtk_lpm_issuer *issuer)
 #endif
 #endif
 #endif
-
+	pr_info("[name:spm&][%s:%d] - suspend skip\n",
+			 __func__, __LINE__);
+	ret = -1;
 PLAT_LEAVE_SUSPEND:
 	return ret;
 }
