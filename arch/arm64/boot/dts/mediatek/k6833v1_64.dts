@@ -23,7 +23,7 @@
 /* chosen */
 &chosen {
 	bootargs = "console=tty0 console=ttyS0,921600n1 root=/dev/ram \
-		initrd=0x45000000,0x107815 loglevel=8 \
+		loglevel=8 \
 		androidboot.selinux=permissive androidboot.hardware=mt6833 \
 		earlycon=mtk8250,mmio32,0x11002000 \
 		initcall_debug=1";
