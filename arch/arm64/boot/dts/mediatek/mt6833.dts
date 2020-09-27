@@ -4778,3 +4778,6 @@ page_owner=on";
 };
 
 #include "mediatek/mt6315_s3.dtsi"
+#ifdef CONFIG_MTK_ENABLE_GENIEZONE
+#include "mediatek/trusty.dtsi"
+#endif
