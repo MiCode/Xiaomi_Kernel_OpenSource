@@ -983,6 +983,8 @@ static kal_uint32 streaming_control(kal_bool enable)
 }
 
 #if USE_BURST_MODE
+#define MULTI_WRITE 0
+
 #define I2C_BUFFER_LEN 255 /* trans# max is 255, each 3 bytes */
 static kal_uint16 imx586_table_write_cmos_sensor(kal_uint16 *para,
 						 kal_uint32 len)
@@ -1009,6 +1011,7 @@ static kal_uint16 imx586_table_write_cmos_sensor(kal_uint16 *para,
 		/* Write when remain buffer size is less than 3 bytes
 		 * or reach end of data
 		 */
+#if MULTI_WRITE
 		if ((I2C_BUFFER_LEN - tosend) < 3
 			|| IDX == len || addr != addr_last) {
 			iBurstWriteReg_multi(puSendCmd,
@@ -1018,6 +1021,11 @@ static kal_uint16 imx586_table_write_cmos_sensor(kal_uint16 *para,
 						imgsensor_info.i2c_speed);
 			tosend = 0;
 		}
+#else
+		iWriteRegI2C(puSendCmd, 3, imgsensor.i2c_write_id);
+		tosend = 0;
+#endif
+
 	}
 	return 0;
 }
