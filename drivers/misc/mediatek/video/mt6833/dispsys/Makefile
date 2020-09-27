@@ -35,12 +35,12 @@ subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/video/$(MTK_PLATFORM)/m4u
 subdir-ccflags-y += -I$(srctree)/drivers/staging/android/ion \
 		    -I$(srctree)/drivers/staging/android/ion/mtk
 
-subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/video/$(MTK_PLATFORM)/cmdq/v3/
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/
 
 ifeq ($(CONFIG_MACH_MT6761),y)
     subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/mt6765/
 else
-    subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/video/$(MTK_PLATFORM)/cmdq/v3/$(MTK_PLATFORM)/
+    subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/$(MTK_PLATFORM)/
 endif
 
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmp/
