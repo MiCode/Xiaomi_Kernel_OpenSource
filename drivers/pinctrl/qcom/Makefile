@@ -31,3 +31,4 @@ obj-$(CONFIG_PINCTRL_HOLI) += pinctrl-holi.o
 obj-$(CONFIG_PINCTRL_YUPIK) += pinctrl-yupik.o
 obj-$(CONFIG_PINCTRL_SDXLEMUR) += pinctrl-sdxlemur.o
 obj-$(CONFIG_PINCTRL_SDXNIGHTJAR) += pinctrl-sdxnightjar.o
+obj-$(CONFIG_PINCTRL_MONACO) += pinctrl-monaco.o
