@@ -655,8 +655,12 @@ struct task_struct *aee_cpu_curr(int cpu)
 
 unsigned long aee_get_swapper_pg_dir(void)
 {
-	/* FIX ME: symbol in *ABS* section */
-	return 0;
+	struct mm_struct *pim = aee_init_mm();
+
+	if (!pim)
+		return 0;
+
+	return (unsigned long)pim->pgd;
 }
 
 unsigned long aee_get_kallsyms_addresses(void)
