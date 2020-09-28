@@ -47,7 +47,7 @@ static const u16 cpufreq_mtk_offsets[REG_ARRAY_SIZE] = {
 	[REG_FREQ_ENABLE]		= 0x84,
 	[REG_FREQ_PERF_STATE]		= 0x88,
 	[REG_FREQ_HW_STATE]		= 0x8c,
-	[REG_EM_POWER_TBL]		= 0x0,
+	[REG_EM_POWER_TBL]		= 0x3D0,
 };
 
 static struct cpufreq_mtk *mtk_freq_domain_map[NR_CPUS];
@@ -165,7 +165,6 @@ static int mtk_cpufreq_hw_cpu_init(struct cpufreq_policy *policy)
 	}
 
 	em_dev_register_perf_domain(cpu_dev, c->nr_opp, &em_cb, policy->cpus);
-
 	cpu_latency_qos_remove_request(qos_request);
 	kfree(qos_request);
 
@@ -248,11 +247,10 @@ static int mtk_cpu_resources_init(struct platform_device *pdev,
 				  unsigned int cpu, int index)
 {
 	struct cpufreq_mtk *c;
-	struct resource *res;
 	struct device *dev = &pdev->dev;
 	const u16 *offsets;
 	int ret, i, cpu_r, uindex;
-	void __iomem *base, *ubase;
+	void __iomem *base;
 	char unode[DT_STRING_LEN];
 
 	if (mtk_freq_domain_map[cpu])
@@ -266,22 +264,11 @@ static int mtk_cpu_resources_init(struct platform_device *pdev,
 	if (!offsets)
 		return -EINVAL;
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, index);
-	base = devm_ioremap_resource(dev, res);
+	base = of_iomap(pdev->dev.of_node, index);
 	if (IS_ERR(base))
 		return PTR_ERR(base);
 
-	snprintf(unode, sizeof(unode), "%s%d", "em-domain", index);
-	uindex = of_property_match_string(pdev->dev.of_node, "reg-names", unode);
-	res = platform_get_resource(pdev, IORESOURCE_MEM, uindex);
-	ubase = devm_ioremap_resource(dev, res);
-	if (IS_ERR(ubase))
-		return PTR_ERR(ubase);
-
 	for (i = REG_FREQ_LUT_TABLE; i < REG_ARRAY_SIZE; i++) {
-		if (i >= REG_EM_POWER_TBL)
-			c->reg_bases[i] = ubase + offsets[i];
-		else
 			c->reg_bases[i] = base + offsets[i];
 	}
 
