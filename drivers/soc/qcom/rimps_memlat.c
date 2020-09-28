@@ -620,7 +620,8 @@ static void save_cpugrp_pmu_events(struct memlat_cpu_grp *cpu_grp, u8 cpu)
 	for (i = 0; i < NUM_COMMON_EVS; i++) {
 		u8 hw_id = pmu[i].hw_cntr_idx;
 
-		if (hw_id == INVALID_PMU_HW_IDX)
+		if ((hw_id == INVALID_PMU_HW_IDX) ||
+				!cpus_data->common_evs[i])
 			continue;
 		perf_event_read_local(cpus_data->common_evs[i],
 				&ev_count, NULL, NULL);
@@ -639,7 +640,8 @@ static void save_mon_pmu_events(struct memlat_mon *mon, u8 cpu)
 	for (i = 0; i < NUM_MON_EVS; i++) {
 		u8 hw_id = pmu[i].hw_cntr_idx;
 
-		if (hw_id == INVALID_PMU_HW_IDX)
+		if (hw_id == INVALID_PMU_HW_IDX ||
+				!ev_data->mon_evs[i])
 			continue;
 		perf_event_read_local(ev_data->mon_evs[i],
 				&ev_count, NULL, NULL);
@@ -658,6 +660,7 @@ static void free_common_evs(struct memlat_cpu_grp *cpu_grp, cpumask_t *mask)
 			if (!cpus_data->common_evs[i])
 				continue;
 			perf_event_release_kernel(cpus_data->common_evs[i]);
+			cpus_data->common_evs[i] = NULL;
 		}
 	}
 }
@@ -674,6 +677,7 @@ static void free_mon_evs(struct memlat_mon *mon, cpumask_t *mask)
 				continue;
 
 			perf_event_release_kernel(ev_data->mon_evs[i]);
+			ev_data->mon_evs[i] = NULL;
 		}
 	}
 }
@@ -755,8 +759,12 @@ exit:
 
 static int memlat_event_hotplug_coming_up(unsigned int cpu)
 {
-	per_cpu(cpu_is_hp, cpu) = false;
-	return memlat_hp_restart_events(cpu, true);
+	int ret;
+
+	ret = memlat_hp_restart_events(cpu, true);
+	if (!ret)
+		per_cpu(cpu_is_hp, cpu) = false;
+	return ret;
 }
 
 static int memlat_event_hotplug_going_down(unsigned int cpu)
