@@ -800,8 +800,7 @@ static int mtk_spi_probe(struct platform_device *pdev)
 		dev_notice(&pdev->dev, "SPI dma_set_mask(%d) failed, ret:%d\n",
 			   addr_bits, ret);
 
-	pm_qos_add_request(&mdata->spi_qos_request, PM_QOS_CPU_DMA_LATENCY,
-		PM_QOS_DEFAULT_VALUE);
+	cpu_latency_qos_add_request(&mdata->spi_qos_request, PM_QOS_DEFAULT_VALUE);
 
 	return 0;
 
@@ -818,7 +817,7 @@ static int mtk_spi_remove(struct platform_device *pdev)
 	struct spi_master *master = platform_get_drvdata(pdev);
 	struct mtk_spi *mdata = spi_master_get_devdata(master);
 
-	pm_qos_remove_request(&mdata->spi_qos_request);
+	cpu_latency_qos_remove_request(&mdata->spi_qos_request);
 	pm_runtime_disable(&pdev->dev);
 
 	mtk_spi_reset(mdata);
@@ -872,7 +871,7 @@ static int mtk_spi_runtime_suspend(struct device *dev)
 	struct mtk_spi *mdata = spi_master_get_devdata(master);
 
 	clk_disable_unprepare(mdata->spi_clk);
-	pm_qos_update_request(&mdata->spi_qos_request, PM_QOS_DEFAULT_VALUE);
+	cpu_latency_qos_update_request(&mdata->spi_qos_request, PM_QOS_DEFAULT_VALUE);
 
 	return 0;
 }
@@ -888,7 +887,7 @@ static int mtk_spi_runtime_resume(struct device *dev)
 		dev_err(dev, "failed to enable spi_clk (%d)\n", ret);
 		return ret;
 	}
-	pm_qos_update_request(&mdata->spi_qos_request, 500);
+	cpu_latency_qos_update_request(&mdata->spi_qos_request, 500);
 
 	return 0;
 }
