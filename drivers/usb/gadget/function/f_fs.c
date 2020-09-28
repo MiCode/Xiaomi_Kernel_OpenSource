@@ -1117,6 +1117,7 @@ static ssize_t ffs_epfile_io(struct file *file, struct ffs_io_data *io_data)
 			ret = -ENOMEM;
 			goto error_mutex;
 		}
+		io_data->buf = data;
 		if (!io_data->read &&
 		    !copy_from_iter_full(data, data_len, &io_data->data)) {
 			ret = -EFAULT;
@@ -1161,8 +1162,6 @@ static ssize_t ffs_epfile_io(struct file *file, struct ffs_io_data *io_data)
 			req->num_sgs = 0;
 		}
 		req->length = data_len;
-
-		io_data->buf = data;
 
 		req->context  = &done;
 		req->complete = ffs_epfile_io_complete;
@@ -1211,7 +1210,6 @@ static ssize_t ffs_epfile_io(struct file *file, struct ffs_io_data *io_data)
 		}
 		req->length = data_len;
 
-		io_data->buf = data;
 		io_data->ep = ep->ep;
 		io_data->req = req;
 		io_data->ffs = epfile->ffs;
