@@ -239,7 +239,8 @@ struct version_s {
 		uint32_t minor:8;
 		uint32_t build:16;
 	} phy;
-	uint32_t rsvd:32;
+	uint32_t drv_iface_ver:4;
+	uint32_t rsvd:28;
 };
 
 struct link_status_s {
@@ -444,7 +445,7 @@ struct phy_fw_load_status_s {
 	uint32_t rsvd2:2;
 };
 
-struct statistics_s {
+struct statistics_a0_s {
 	struct {
 		uint32_t link_up;
 		uint32_t link_down;
@@ -475,6 +476,33 @@ struct statistics_s {
 	} msm;
 	uint32_t main_loop_cycles;
 	uint32_t reserve_fw_gap;
+};
+
+struct statistics_b0_s {
+	uint64_t rx_good_octets;
+	uint64_t rx_pause_frames;
+	uint64_t rx_good_frames;
+	uint64_t rx_errors;
+	uint64_t rx_unicast_frames;
+	uint64_t rx_multicast_frames;
+	uint64_t rx_broadcast_frames;
+
+	uint64_t tx_good_octets;
+	uint64_t tx_pause_frames;
+	uint64_t tx_good_frames;
+	uint64_t tx_errors;
+	uint64_t tx_unicast_frames;
+	uint64_t tx_multicast_frames;
+	uint64_t tx_broadcast_frames;
+
+	uint32_t main_loop_cycles;
+};
+
+struct statistics_s {
+	union {
+		struct statistics_a0_s a0;
+		struct statistics_b0_s b0;
+	};
 };
 
 struct filter_caps_s {
@@ -590,7 +618,6 @@ struct fw_interface_out {
 	struct core_dump_s core_dump;
 	uint32_t rsvd11:32;
 	struct statistics_s stats;
-	uint32_t rsvd12:32;
 	struct filter_caps_s filter_caps;
 	struct device_caps_s device_caps;
 	uint32_t rsvd13:32;
@@ -626,6 +653,9 @@ struct fw_iti_hdr {
 #define ATL2_HOST_MODE_SLEEP_PROXY  2
 #define ATL2_HOST_MODE_LOW_POWER    3
 #define ATL2_HOST_MODE_SHUTDOWN     4
+
+#define ATL2_FW_INTERFACE_A0     0
+#define ATL2_FW_INTERFACE_B0     1
 
 #define ATL2_FW_CABLE_STATUS_OPEN_CIRCUIT  7
 #define ATL2_FW_CABLE_STATUS_HIGH_MISMATCH 6
@@ -683,7 +713,6 @@ enum ATL2_WAKE_REASON {
 };
 
 int atl2_fw_init(struct atl_hw *hw);
-int atl2_get_fw_version(struct atl_hw *hw, u32 *fw_version);
 int atl2_fw_set_filter_policy(struct atl_hw *hw, bool promisc, bool allmulti);
 
 

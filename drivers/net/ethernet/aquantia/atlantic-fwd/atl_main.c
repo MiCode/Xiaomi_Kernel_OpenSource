@@ -443,6 +443,10 @@ int atl_fw_configure(struct atl_hw *hw)
 			!!(nic->priv_flags & ATL_PF_BIT(MEDIA_DETECT)));
 	if (ret && ret != -EOPNOTSUPP)
 		return ret;
+	ret = hw->mcp.ops->set_downshift(hw,
+			!!(nic->priv_flags & ATL_PF_BIT(DOWNSHIFT)));
+	if (ret && ret != -EOPNOTSUPP)
+		return ret;
 	ret = hw->mcp.ops->set_pad_stripping(hw,
 			!!(nic->priv_flags & ATL_PF_BIT(STRIP_PAD)));
 	if (ret && ret != -EOPNOTSUPP)
@@ -598,6 +602,7 @@ static int atl_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 		goto err_ioremap;
 	}
 
+	nic->priv_flags = ATL_PF_BIT(DOWNSHIFT);
 	ret = atl_hwinit(hw, id->driver_data);
 	if (ret)
 		goto err_hwinit;

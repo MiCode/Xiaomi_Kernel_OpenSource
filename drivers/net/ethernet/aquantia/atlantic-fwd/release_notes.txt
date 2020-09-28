@@ -1,3 +1,9 @@
+Version 1.1.12
+==============
+[ATLDRV-1573] - Crash on enable EEE
+[ATLDRV-1576] - FWD: Add support of Antigua B0 statistics
+[ATLDRV-1577] - Add Downshift feature
+
 Version 1.1.11
 ==============
 [ATLDRV-1567] - forwarding driver issue with adj_freq
