@@ -64,16 +64,9 @@ static void sdhci_dump_state(struct sdhci_host *host)
 {
 	struct mmc_host *mmc = host->mmc;
 
-	#ifdef CONFIG_MMC_CLKGATE
-	pr_info("%s: clk: %d clk-gated: %d claimer: %s pwr: %d host->irq = %d\n",
-		mmc_hostname(mmc), host->clock, mmc->clk_gated,
-		mmc->claimer->task->comm, host->pwr,
-		(host->flags & SDHCI_HOST_IRQ_STATUS));
-	#else
 	pr_info("%s: clk: %d claimer: %s pwr: %d\n",
 		mmc_hostname(mmc), host->clock,
 		mmc->claimer->task->comm, host->pwr);
-	#endif
 	pr_info("%s: rpmstatus[pltfm](runtime-suspend:usage_count:disable_depth)(%d:%d:%d)\n",
 	mmc_hostname(mmc), mmc->parent->power.runtime_status,
 		atomic_read(&mmc->parent->power.usage_count),
