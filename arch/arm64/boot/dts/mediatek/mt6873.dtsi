@@ -3267,7 +3267,10 @@
 				<&iommu0 M4U_PORT_L11_IMG_MFB_RDMA4>,
 				<&iommu0 M4U_PORT_L11_IMG_MFB_RDMA5>,
 				<&iommu0 M4U_PORT_L11_IMG_MFB_WDMA0>,
-				<&iommu0 M4U_PORT_L11_IMG_MFB_WDMA1>;
+				<&iommu0 M4U_PORT_L11_IMG_MFB_WDMA1>,
+				<&iommu0 M4U_PORT_L11_IMG_WPE_RDMA1>,
+				<&iommu0 M4U_PORT_L11_IMG_WPE_RDMA0>,
+				<&iommu0 M4U_PORT_L11_IMG_WPE_WDMA>;
 
 			clocks =
 					<&imgsys CLK_IMG_LARB9>,
