@@ -804,6 +804,35 @@
 &mt6359p_vemc_reg {
 	regulator-min-microvolt = <3000000>;
 	regulator-max-microvolt = <3000000>;
+	regulator-always-on;
+};
+
+&mt6359p_vsram_md_reg {
+	regulator-always-on;
+};
+
+&mt6359p_vaud18_reg {
+	regulator-always-on;
+};
+
+&mt6359p_vbif28_reg {
+	regulator-always-on;
+};
+
+&mt6359p_vproc1_reg {
+	regulator-always-on;
+};
+
+&mt6359p_vproc2_reg {
+	regulator-always-on;
+};
+
+&mt6359p_vcore_reg {
+	regulator-always-on;
+};
+
+&mt6359p_vmodem_reg {
+	regulator-always-on;
 };
 
 &mt6359p_vgpu11_reg {
