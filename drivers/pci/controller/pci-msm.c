@@ -692,6 +692,7 @@ struct msm_pcie_dev_t {
 	uint32_t perst_delay_us_min;
 	uint32_t perst_delay_us_max;
 	uint32_t tlp_rd_size;
+	uint32_t aux_clk_freq;
 	bool linkdown_panic;
 	uint32_t boot_option;
 
@@ -733,7 +734,6 @@ struct msm_pcie_dev_t {
 	void *ipc_log;
 	void *ipc_log_long;
 	void *ipc_log_dump;
-	bool use_19p2mhz_aux_clk;
 	bool use_pinctrl;
 	struct pinctrl *pinctrl;
 	struct pinctrl_state *pins_default;
@@ -1197,8 +1197,8 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->cfg_access ? "" : "not");
 	PCIE_DBG_FS(dev, "use_pinctrl is %d\n",
 		dev->use_pinctrl);
-	PCIE_DBG_FS(dev, "use_19p2mhz_aux_clk is %d\n",
-		dev->use_19p2mhz_aux_clk);
+	PCIE_DBG_FS(dev, "aux_clk_freq is %d\n",
+		dev->aux_clk_freq);
 	PCIE_DBG_FS(dev, "user_suspend is %d\n",
 		dev->user_suspend);
 	PCIE_DBG_FS(dev, "num_ep: %d\n",
@@ -3123,10 +3123,8 @@ static void msm_pcie_config_controller(struct msm_pcie_dev_t *dev)
 		readl_relaxed(dev->dm_core + PCIE20_ACK_F_ASPM_CTRL_REG));
 
 	/* configure AUX clock frequency register for PCIe core */
-	if (dev->use_19p2mhz_aux_clk)
-		msm_pcie_write_reg(dev->dm_core, PCIE20_AUX_CLK_FREQ_REG, 0x14);
-	else
-		msm_pcie_write_reg(dev->dm_core, PCIE20_AUX_CLK_FREQ_REG, 0x01);
+	if (dev->aux_clk_freq)
+		msm_pcie_write_reg(dev->dm_core, PCIE20_AUX_CLK_FREQ_REG, dev->aux_clk_freq);
 
 	/* configure the completion timeout value for PCIe core */
 	if (dev->cpl_timeout && dev->bridge_found)
@@ -5384,11 +5382,6 @@ static int msm_pcie_probe(struct platform_device *pdev)
 	PCIE_DBG(pcie_dev, "AUX clock is %s synchronous to Core clock.\n",
 		pcie_dev->aux_clk_sync ? "" : "not");
 
-	pcie_dev->use_19p2mhz_aux_clk = of_property_read_bool(of_node,
-				"qcom,use-19p2mhz-aux-clk");
-	PCIE_DBG(pcie_dev, "AUX clock frequency is %s 19.2MHz.\n",
-		pcie_dev->use_19p2mhz_aux_clk ? "" : "not");
-
 	of_property_read_u32(of_node, "qcom,smmu-sid-base",
 				&pcie_dev->smmu_sid_base);
 	PCIE_DBG(pcie_dev, "RC%d: qcom,smmu-sid-base: 0x%x.\n",
@@ -5488,6 +5481,15 @@ static int msm_pcie_probe(struct platform_device *pdev)
 				&pcie_dev->tlp_rd_size);
 	PCIE_DBG(pcie_dev, "RC%d: tlp-rd-size: 0x%x.\n", pcie_dev->rc_idx,
 		pcie_dev->tlp_rd_size);
+
+	ret = of_property_read_u32(of_node, "qcom,aux-clk-freq",
+				&pcie_dev->aux_clk_freq);
+	if (ret)
+		PCIE_DBG(pcie_dev, "RC%d: using default aux clock frequency.\n",
+			pcie_dev->rc_idx);
+	else
+		PCIE_DBG(pcie_dev, "RC%d: aux clock frequency: %d.\n",
+			pcie_dev->rc_idx, pcie_dev->aux_clk_freq);
 
 	pcie_dev->shadow_en = true;
 	pcie_dev->aer_enable = true;
