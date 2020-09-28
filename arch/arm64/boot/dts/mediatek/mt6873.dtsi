@@ -900,9 +900,8 @@
 
 		cpufreq_hw: cpufreq@0011bc00 {
 			compatible = "mediatek,cpufreq-hw";
-			reg = <0 0x0011bc10 0 0x8c>, <0 0x0011bca0 0 0x8c>,
-				<0 0x00115c10 0 0x90>, <0 0x00115d30 0 0x90>;
-			reg-names = "freq-domain0", "freq-domain1", "em-domain0", "em-domain1";
+			reg = <0 0x0011bc10 0 0x460>, <0 0x0011bca0 0 0x460>;
+			reg-names = "freq-domain0", "freq-domain1";
 			#freq-domain-cells = <1>;
 		};
 
