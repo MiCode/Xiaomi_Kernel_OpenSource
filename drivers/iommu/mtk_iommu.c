@@ -961,17 +961,6 @@ static int __maybe_unused mtk_iommu_runtime_suspend(struct device *dev)
 	return 0;
 }
 
-static int __maybe_unused mtk_iommu_suspend(struct device *dev)
-{
-	int ret = 0;
-	struct mtk_iommu_data *data = dev_get_drvdata(dev);
-
-	if (!MTK_IOMMU_HAS_FLAG(data->plat_data, HAS_BCLK)) 
-		ret = mtk_iommu_runtime_suspend(dev);
-
-	return ret;
-}
-
 static int __maybe_unused mtk_iommu_runtime_resume(struct device *dev)
 {
 	struct mtk_iommu_data *data = dev_get_drvdata(dev);
@@ -999,15 +988,20 @@ static int __maybe_unused mtk_iommu_runtime_resume(struct device *dev)
 	return 0;
 }
 
+static int __maybe_unused mtk_iommu_suspend(struct device *dev)
+{
+	if (pm_runtime_status_suspended(dev))
+		return 0;
+
+	return mtk_iommu_runtime_suspend(dev);
+}
+
 static int __maybe_unused mtk_iommu_resume(struct device *dev)
 {
-	int ret = 0;
-	struct mtk_iommu_data *data = dev_get_drvdata(dev);
+	if (pm_runtime_status_suspended(dev))
+		return 0;
 
-	if (!MTK_IOMMU_HAS_FLAG(data->plat_data, HAS_BCLK)) 
-		ret = mtk_iommu_resume(dev);
-
-	return ret;
+	return mtk_iommu_runtime_resume(dev);
 }
 
 static const struct dev_pm_ops mtk_iommu_pm_ops = {
