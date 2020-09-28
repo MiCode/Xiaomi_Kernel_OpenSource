@@ -1,5 +1,57 @@
+#include <dt-bindings/arm/msm/qcom_dma_heap_dt_constants.h>
+
 &soc {
 	qcom,dma-heaps {
 		compatible = "qcom,dma-heaps";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,adsp {
+			qcom,dma-heap-name = "qcom,adsp";
+			qcom,dma-heap-type = <HEAP_TYPE_CMA>;
+			memory-region = <&sdsp_mem>;
+		};
+
+		qcom,spss {
+			qcom,dma-heap-name = "qcom,secure-spss";
+			qcom,dma-heap-type = <HEAP_TYPE_CMA>;
+			memory-region = <&sp_mem>;
+		};
+
+		qcom,user_contig {
+			qcom,dma-heap-name = "qcom,user-contig";
+			qcom,dma-heap-type = <HEAP_TYPE_CMA>;
+			memory-region = <&user_contig_mem>;
+		};
+
+		qcom,qseecom {
+			qcom,dma-heap-name = "qcom,secure-qseecom";
+			qcom,dma-heap-type = <HEAP_TYPE_CMA>;
+			memory-region = <&qseecom_mem>;
+		};
+
+		qcom,qseecom_ta {
+			qcom,dma-heap-name = "qcom,secure-qseecom-ta";
+			qcom,dma-heap-type = <HEAP_TYPE_CMA>;
+			memory-region = <&qseecom_ta_mem>;
+		};
+
+		qcom,secure_display {
+			qcom,dma-heap-name = "qcom,secure-display";
+			qcom,dma-heap-type = <HEAP_TYPE_CMA>;
+			memory-region = <&secure_display_memory>;
+		};
+
+		qcom,display {
+			qcom,dma-heap-name = "qcom,display";
+			qcom,dma-heap-type = <HEAP_TYPE_CMA>;
+			memory-region = <&non_secure_display_memory>;
+		};
+
+		qcom,audio_ml {
+			qcom,dma-heap-name = "qcom,audio-ml";
+			qcom,dma-heap-type = <HEAP_TYPE_CMA>;
+			memory-region = <&audio_cma_mem>;
+		};
 	};
 };
