@@ -1806,7 +1806,7 @@ void a6xx_gmu_suspend(struct adreno_device *adreno_dev)
 	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_CX_GDSC))
 		regulator_set_mode(gmu->cx_gdsc, REGULATOR_MODE_IDLE);
 
-	if (!kgsl_regulator_disable_wait(gmu->cx_gdsc, 5000))
+	if (!a6xx_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000))
 		dev_err(&gmu->pdev->dev, "GMU CX gdsc off timeout\n");
 
 	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_CX_GDSC))
@@ -2296,7 +2296,7 @@ clks_gdsc_off:
 
 gdsc_off:
 	/* Pool to make sure that the CX is off */
-	if (!kgsl_regulator_disable_wait(gmu->cx_gdsc, 5000))
+	if (!a6xx_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000))
 		dev_err(&gmu->pdev->dev, "GMU CX gdsc off timeout\n");
 
 	return ret;
@@ -2373,7 +2373,7 @@ clks_gdsc_off:
 
 gdsc_off:
 	/* Pool to make sure that the CX is off */
-	if (!kgsl_regulator_disable_wait(gmu->cx_gdsc, 5000))
+	if (!a6xx_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000))
 		dev_err(&gmu->pdev->dev, "GMU CX gdsc off timeout\n");
 
 	return ret;
@@ -2826,7 +2826,7 @@ static int a6xx_gmu_power_off(struct adreno_device *adreno_dev)
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
 
 	/* Pool to make sure that the CX is off */
-	if (!kgsl_regulator_disable_wait(gmu->cx_gdsc, 5000))
+	if (!a6xx_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000))
 		dev_err(&gmu->pdev->dev, "GMU CX gdsc off timeout\n");
 
 	device->state = KGSL_STATE_NONE;
