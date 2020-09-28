@@ -2137,14 +2137,6 @@ int a6xx_probe_common(struct platform_device *pdev,
 	adreno_dev->gpu_llc_slice_enable = true;
 	adreno_dev->gpuhtw_llc_slice_enable = true;
 
-	if (adreno_has_gbif(adreno_dev)) {
-		gpudev->gbif_client_halt_mask = A6XX_GBIF_CLIENT_HALT_MASK;
-		gpudev->gbif_arb_halt_mask = A6XX_GBIF_ARB_HALT_MASK;
-		gpudev->gbif_gx_halt_mask = A6XX_GBIF_GX_HALT_MASK;
-	} else
-		gpudev->vbif_xin_halt_ctrl0_mask =
-				A6XX_VBIF_XIN_HALT_CTRL0_MASK;
-
 	/* Set the GPU busy counter for frequency scaling */
 	adreno_dev->perfctr_pwr_lo = A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_0_L;
 
@@ -2262,19 +2254,9 @@ static unsigned int a6xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_LOAD_VALUE_HI,
 				A6XX_RBBM_PERFCTR_LOAD_VALUE_HI),
 	ADRENO_REG_DEFINE(ADRENO_REG_VBIF_VERSION, A6XX_VBIF_VERSION),
-	ADRENO_REG_DEFINE(ADRENO_REG_VBIF_XIN_HALT_CTRL0,
-				A6XX_VBIF_XIN_HALT_CTRL0),
-	ADRENO_REG_DEFINE(ADRENO_REG_VBIF_XIN_HALT_CTRL1,
-				A6XX_VBIF_XIN_HALT_CTRL1),
-	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_GPR0_CNTL, A6XX_RBBM_GPR0_CNTL),
-	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_VBIF_GX_RESET_STATUS,
-				A6XX_RBBM_VBIF_GX_RESET_STATUS),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_GBIF_HALT,
 				A6XX_RBBM_GBIF_HALT),
-	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_GBIF_HALT_ACK,
-				A6XX_RBBM_GBIF_HALT_ACK),
 	ADRENO_REG_DEFINE(ADRENO_REG_GBIF_HALT, A6XX_GBIF_HALT),
-	ADRENO_REG_DEFINE(ADRENO_REG_GBIF_HALT_ACK, A6XX_GBIF_HALT_ACK),
 	ADRENO_REG_DEFINE(ADRENO_REG_GMU_AO_HOST_INTERRUPT_MASK,
 				A6XX_GMU_AO_HOST_INTERRUPT_MASK),
 	ADRENO_REG_DEFINE(ADRENO_REG_GMU_AHB_FENCE_STATUS,
@@ -2460,6 +2442,29 @@ void a6xx_do_gbif_halt(struct adreno_device *adreno_dev,
 	dev_err(device->dev, "%s GBIF Halt ack timed out\n", client);
 }
 
+/* This is only defined for non-GMU and non-RGMU targets */
+static int a6xx_clear_pending_transactions(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	int ret;
+
+	if (adreno_is_a619_holi(adreno_dev)) {
+		kgsl_regwrite(device, A6XX_RBBM_GPR0_CNTL, 0x1e0);
+		ret = adreno_wait_for_halt_ack(device,
+			A6XX_RBBM_VBIF_GX_RESET_STATUS, 0xf0);
+	} else {
+		kgsl_regwrite(device, A6XX_RBBM_GBIF_HALT,
+			A6XX_GBIF_GX_HALT_MASK);
+		ret = adreno_wait_for_halt_ack(device, A6XX_RBBM_GBIF_HALT_ACK,
+			A6XX_GBIF_GX_HALT_MASK);
+	}
+
+	if (ret)
+		return ret;
+
+	return a6xx_halt_gbif(adreno_dev);
+}
+
 struct adreno_gpudev adreno_a6xx_gpudev = {
 	.reg_offsets = a6xx_register_offsets,
 	.probe = a6xx_probe,
@@ -2492,6 +2497,7 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 #endif
 	.read_alwayson = a6xx_read_alwayson,
 	.power_ops = &adreno_power_operations,
+	.clear_pending_transactions = a6xx_clear_pending_transactions,
 };
 
 struct adreno_gpudev adreno_a6xx_hwsched_gpudev = {
@@ -2604,6 +2610,7 @@ struct adreno_gpudev adreno_a619_holi_gpudev = {
 #endif
 	.read_alwayson = a6xx_read_alwayson,
 	.power_ops = &adreno_power_operations,
+	.clear_pending_transactions = a6xx_clear_pending_transactions,
 };
 
 struct adreno_gpudev adreno_a630_gpudev = {

@@ -1645,64 +1645,6 @@ static void adreno_fault_detect_init(struct adreno_device *adreno_dev)
 	adreno_fault_detect_start(adreno_dev);
 }
 
-/**
- * adreno_clear_pending_transactions() - Clear transactions in GBIF/VBIF pipe
- * @device: Pointer to the device whose GBIF/VBIF pipe is to be cleared
- */
-int adreno_clear_pending_transactions(struct kgsl_device *device)
-{
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-	int ret = 0;
-
-	if (adreno_has_gbif(adreno_dev)) {
-
-		/* Halt GBIF GX traffic and poll for halt ack */
-		if (adreno_is_a615_family(adreno_dev) &&
-			!adreno_is_a619_holi(adreno_dev)) {
-			adreno_writereg(adreno_dev,
-				ADRENO_REG_RBBM_GPR0_CNTL,
-				GBIF_HALT_REQUEST);
-			ret = adreno_wait_for_halt_ack(device,
-				A6XX_RBBM_VBIF_GX_RESET_STATUS,
-				VBIF_RESET_ACK_MASK);
-		} else {
-			adreno_writereg(adreno_dev,
-				ADRENO_REG_RBBM_GBIF_HALT,
-				gpudev->gbif_gx_halt_mask);
-			ret = adreno_wait_for_halt_ack(device,
-				ADRENO_REG_RBBM_GBIF_HALT_ACK,
-				gpudev->gbif_gx_halt_mask);
-		}
-
-		if (ret)
-			return ret;
-
-		/* Halt new client requests */
-		adreno_writereg(adreno_dev, ADRENO_REG_GBIF_HALT,
-				gpudev->gbif_client_halt_mask);
-		ret = adreno_wait_for_halt_ack(device,
-				ADRENO_REG_GBIF_HALT_ACK,
-				gpudev->gbif_client_halt_mask);
-
-		/* Halt all AXI requests */
-		adreno_writereg(adreno_dev, ADRENO_REG_GBIF_HALT,
-				gpudev->gbif_arb_halt_mask);
-		ret = adreno_wait_for_halt_ack(device,
-				ADRENO_REG_GBIF_HALT_ACK,
-				gpudev->gbif_arb_halt_mask);
-	} else {
-		unsigned int mask = gpudev->vbif_xin_halt_ctrl0_mask;
-
-		adreno_writereg(adreno_dev, ADRENO_REG_VBIF_XIN_HALT_CTRL0,
-			mask);
-		ret = adreno_wait_for_halt_ack(device,
-				ADRENO_REG_VBIF_XIN_HALT_CTRL1, mask);
-		adreno_writereg(adreno_dev, ADRENO_REG_VBIF_XIN_HALT_CTRL0, 0);
-	}
-	return ret;
-}
-
 static int adreno_init(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
@@ -2182,6 +2124,7 @@ int adreno_start(struct kgsl_device *device, int priority)
 static int adreno_stop(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	int error = 0;
 
 	if (!test_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv))
@@ -2197,7 +2140,8 @@ static int adreno_stop(struct kgsl_device *device)
 	/* Save physical performance counter values before GPU power down*/
 	adreno_perfcounter_save(adreno_dev);
 
-	adreno_clear_pending_transactions(device);
+	if (gpudev->clear_pending_transactions)
+		gpudev->clear_pending_transactions(adreno_dev);
 
 	adreno_dispatcher_stop(adreno_dev);
 
@@ -2713,10 +2657,10 @@ static int adreno_soft_reset(struct kgsl_device *device)
 	if (adreno_is_a304(adreno_dev))
 		return -ENODEV;
 
-	ret = adreno_clear_pending_transactions(device);
-	if (ret) {
-		dev_err(device->dev, "Timed out while clearing the VBIF\n");
-		return ret;
+	if (gpudev->clear_pending_transactions) {
+		ret = gpudev->clear_pending_transactions(adreno_dev);
+		if (ret)
+			return ret;
 	}
 
 	kgsl_pwrctrl_change_state(device, KGSL_STATE_AWARE);

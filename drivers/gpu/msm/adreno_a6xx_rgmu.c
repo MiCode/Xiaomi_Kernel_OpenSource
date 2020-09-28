@@ -679,7 +679,7 @@ static void halt_gbif_arb(struct adreno_device *adreno_dev)
 
 	/* Halt all AXI requests */
 	kgsl_regwrite(device, A6XX_GBIF_HALT, A6XX_GBIF_ARB_HALT_MASK);
-	adreno_wait_for_halt_ack(device, ADRENO_REG_GBIF_HALT_ACK,
+	adreno_wait_for_halt_ack(device, A6XX_GBIF_HALT_ACK,
 		A6XX_GBIF_ARB_HALT_MASK);
 
 	/* De-assert the halts */
@@ -1068,7 +1068,7 @@ no_gx_power:
 	/* Halt all gx traffic */
 	kgsl_regwrite(device, A6XX_GBIF_HALT, A6XX_GBIF_CLIENT_HALT_MASK);
 
-	adreno_wait_for_halt_ack(device, ADRENO_REG_GBIF_HALT_ACK,
+	adreno_wait_for_halt_ack(device, A6XX_GBIF_HALT_ACK,
 		A6XX_GBIF_CLIENT_HALT_MASK);
 
 	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
