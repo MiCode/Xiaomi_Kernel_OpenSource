@@ -34,6 +34,7 @@
  *
  */
 
+#include <linux/pm_runtime.h>
 #include <linux/init.h>
 #include <linux/errno.h>
 #include <linux/platform_device.h>
@@ -141,13 +142,32 @@ int fts_readCmd(u8 *cmd, int cmdLength, u8 *outBuf, int byteToRead)
 	while (retry < I2C_RETRY && ret < OK) {
 		ret = i2c_transfer(client->adapter, I2CMsg, 2);
 		retry++;
-		if (ret < OK)
+		if (ret < OK) {
+#ifdef CONFIG_ST_TRUSTED_TOUCH
+#ifdef CONFIG_ARCH_QTI_VM
+			if (atomic_read(&info->trusted_touch_enabled) &&
+					ret == -ECONNRESET){
+				pr_err("failed i2c read reacquiring session\n");
+				pm_runtime_put_sync(
+					info->client->adapter->dev.parent);
+				pm_runtime_get_sync(
+					info->client->adapter->dev.parent);
+			}
+#endif
+#endif
 			msleep(I2C_WAIT_BEFORE_RETRY);
+		}
 	}
 	if (ret < 0) {
+#ifdef CONFIG_ST_TRUSTED_TOUCH
+#ifdef CONFIG_ARCH_QTI_VM
+		pr_err("initiating abort due to i2c xfer failure\n");
+		fts_trusted_touch_tvm_i2c_failure_report(info);
+#endif
+#endif
 		logError(1, "%s %s: ERROR %02X\n",
 			tag, __func__, ERROR_I2C_R);
-		return ERROR_I2C_R;
+		return ret;
 	}
 
 	memcpy(outBuf, buf + cmdLength, byteToRead);
@@ -189,13 +209,34 @@ int fts_writeCmd(u8 *cmd, int cmdLength)
 	while (retry < I2C_RETRY && ret < OK) {
 		ret = i2c_transfer(client->adapter, I2CMsg, 1);
 		retry++;
-		if (ret < OK)
+		if (ret < OK) {
+#ifdef CONFIG_ST_TRUSTED_TOUCH
+#ifdef CONFIG_ARCH_QTI_VM
+			if (atomic_read(&info->trusted_touch_enabled) &&
+					ret == -ECONNRESET){
+				pr_err("failed i2c write reacquiring session\n");
+				pm_runtime_put_sync(
+					info->client->adapter->dev.parent);
+				pm_runtime_get_sync(
+					info->client->adapter->dev.parent);
+
+			}
+#endif
+#endif
 			msleep(I2C_WAIT_BEFORE_RETRY);
+			logError(1, "ERROR: %d\n", ret);
+		}
 		//logError(1,"%s fts_writeCmd: attempt %d\n", tag, retry);
 	}
 	if (ret < 0) {
+#ifdef CONFIG_ST_TRUSTED_TOUCH
+#ifdef CONFIG_ARCH_QTI_VM
+		pr_err("initiating abort due to i2c xfer failure\n");
+		fts_trusted_touch_tvm_i2c_failure_report(info);
+#endif
+#endif
 		logError(1, "%s %s: ERROR %02X\n", tag, __func__, ERROR_I2C_W);
-		return ERROR_I2C_W;
+		return ret;
 	}
 	return OK;
 }

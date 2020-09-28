@@ -251,16 +251,24 @@ enum trusted_touch_tvm_states {
 	TRUSTED_TOUCH_TVM_STATE_MAX
 };
 
+#ifdef CONFIG_ST_TRUSTED_TOUCH
+#define TRUSTED_TOUCH_MEM_LABEL 0x7
+
+#define TOUCH_RESET_GPIO_BASE 0xF116000
+#define TOUCH_RESET_GPIO_SIZE 0x1000
+#define TOUCH_RESET_GPIO_OFFSET 0x4
+#define TOUCH_INTR_GPIO_BASE 0xF117000
+#define TOUCH_INTR_GPIO_SIZE 0x1000
+#define TOUCH_INTR_GPIO_OFFSET 0x8
+
 #define TRUSTED_TOUCH_EVENT_LEND_FAILURE -1
 #define TRUSTED_TOUCH_EVENT_LEND_NOTIFICATION_FAILURE -2
 #define TRUSTED_TOUCH_EVENT_ACCEPT_FAILURE -3
 #define	TRUSTED_TOUCH_EVENT_FUNCTIONAL_FAILURE -4
 #define	TRUSTED_TOUCH_EVENT_RELEASE_FAILURE -5
 #define	TRUSTED_TOUCH_EVENT_RECLAIM_FAILURE -6
+#define	TRUSTED_TOUCH_EVENT_I2C_FAILURE -7
 #define	TRUSTED_TOUCH_EVENT_NOTIFICATIONS_PENDING 5
-
-#ifdef CONFIG_ST_TRUSTED_TOUCH
-#define TRUSTED_TOUCH_MEM_LABEL 0x7
 
 struct trusted_touch_vm_info {
 	enum hh_irq_label irq_label;
@@ -279,6 +287,10 @@ struct trusted_touch_vm_info {
 	atomic_t pvm_state;
 #endif
 };
+
+#ifdef CONFIG_ARCH_QTI_VM
+void fts_trusted_touch_tvm_i2c_failure_report(struct fts_ts_info *info);
+#endif
 #endif
 
 /*

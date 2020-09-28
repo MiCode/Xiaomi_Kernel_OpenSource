@@ -789,11 +789,13 @@ int fts_disableInterrupt(void)
 int fts_enableInterrupt(void)
 {
 	u8 cmd[4] = { FTS_CMD_HW_REG_W, 0x00, 0x00, IER_ENABLE };
+	int ret = 0;
 
 	u16ToU8_be(IER_ADDR, &cmd[1]);
-	if (fts_writeCmd(cmd, 4) < 0) {
-		logError(1, "%s %s: ERROR %02X\n", tag, __func__, ERROR_I2C_W);
-		return ERROR_I2C_W;
+	ret = fts_writeCmd(cmd, 4);
+	if (ret < 0) {
+		logError(1, "%s %s: ERROR %d\n", tag, __func__, ret);
+		return ret;
 	}
 	logError(0, "%s Interrupt Enabled!\n", tag);
 	return OK;
