@@ -339,6 +339,7 @@ static void clear_eps(struct usb_function *f)
 	if (qdss->port.ctrl_out)
 		qdss->port.ctrl_out->driver_data = NULL;
 	if (qdss->port.data) {
+		msm_ep_clear_ops(qdss->port.data);
 		msm_ep_set_endless(qdss->port.data, false);
 		qdss->port.data->driver_data = NULL;
 	}
@@ -410,8 +411,10 @@ static int qdss_bind(struct usb_configuration *c, struct usb_function *f)
 	qdss->port.data = ep;
 	ep->driver_data = qdss;
 
-	if (!strcmp(qdss->ch.name, USB_QDSS_CH_MSM))
+	if (!strcmp(qdss->ch.name, USB_QDSS_CH_MSM)) {
 		msm_ep_set_endless(qdss->port.data, true);
+		msm_ep_update_ops(qdss->port.data);
+	}
 
 	if (qdss->debug_inface_enabled) {
 		ep = usb_ep_autoconfig(gadget, &qdss_fs_ctrl_in_desc);
