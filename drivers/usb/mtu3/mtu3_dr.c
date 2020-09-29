@@ -199,6 +199,7 @@ static void ssusb_set_mailbox(struct otg_switch_mtk *otg_sx,
 		if (ssusb->clk_mgr) {
 			/* unregister host driver */
 			of_platform_depopulate(ssusb->dev);
+			ssusb_host_disable(ssusb, true);
 		}
 		ssusb_set_force_mode(ssusb, MTU3_DR_FORCE_NONE);
 		ssusb->is_host = false;
