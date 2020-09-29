@@ -86,6 +86,7 @@ source "drivers/misc/mediatek/usb_mtp/Kconfig"
 endmenu # Other Peripheral
 
 menu "Performance"
+source "drivers/misc/mediatek/sched/Kconfig"
 source "drivers/misc/mediatek/performance/Kconfig"
 source "drivers/misc/mediatek/perf_common/Kconfig"
 endmenu # Performance
