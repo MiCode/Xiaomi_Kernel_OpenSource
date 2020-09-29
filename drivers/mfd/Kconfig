@@ -932,6 +932,18 @@ config MFD_MT6360
 	  PMIC part includes 2-channel BUCKs and 2-channel LDOs
 	  LDO part includes 4-channel LDOs
 
+config MFD_MT6362
+	tristate "MT6362 SPMI PMIC"
+	depends on OF
+	depends on SPMI
+	select REGMAP_SPMI
+	select REGMAP_IRQ
+	help
+	  This enables support for the Mediatek SPMI PMICs.
+	  These PMICs are currently used with the Mediatek series of
+	  SoCs.  Note, that this will only be useful paired with descriptions
+	  of the independent functions as children nodes in the device tree.
+
 config MFD_MT6397
 	tristate "MediaTek MT6397 PMIC Support"
 	select MFD_CORE
