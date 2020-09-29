@@ -345,11 +345,6 @@ struct v4l2_ioctl_ops {
 				     struct v4l2_format *f);
 	int (*vidioc_g_fmt_meta_out)(struct file *file, void *fh,
 				     struct v4l2_format *f);
-#if IS_ENABLED(CONFIG_I2C_RTC6226_QCA)
-	int (*vidioc_g_fmt_type_private)(struct file *file, void *fh,
-					struct v4l2_format *f);
-#endif
-
 	/* VIDIOC_S_FMT handlers */
 	int (*vidioc_s_fmt_vid_cap)(struct file *file, void *fh,
 				    struct v4l2_format *f);
