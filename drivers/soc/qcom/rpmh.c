@@ -596,3 +596,4 @@ int rpmh_mode_solver_set(const struct device *dev, bool enable)
 
 	return ret;
 }
+EXPORT_SYMBOL(rpmh_mode_solver_set);
