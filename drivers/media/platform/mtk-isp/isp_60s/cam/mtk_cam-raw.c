@@ -2061,7 +2061,7 @@ mtk_cam_dev_node_desc output_queues[] = {
 		.dma_port = MTKCAM_IPI_RAW_META_STATS_CFG,
 		.fmts = meta_fmts,
 		.default_fmt_idx = 0,
-		.max_buf_count = 10,
+		.max_buf_count = 16,
 		.ioctl_ops = &mtk_cam_v4l2_meta_out_ioctl_ops,
 	},
 	{
@@ -2324,7 +2324,7 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		.dma_port = MTKCAM_IPI_RAW_META_STATS_0,
 		.fmts = meta_fmts,
 		.default_fmt_idx = 1,
-		.max_buf_count = 5,
+		.max_buf_count = 16,
 		.ioctl_ops = &mtk_cam_v4l2_meta_cap_ioctl_ops,
 	},
 	{
@@ -2338,7 +2338,7 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		.dma_port = MTKCAM_IPI_RAW_META_STATS_1,
 		.fmts = meta_fmts,
 		.default_fmt_idx = 2,
-		.max_buf_count = 5,
+		.max_buf_count = 16,
 		.ioctl_ops = &mtk_cam_v4l2_meta_cap_ioctl_ops,
 	},
 	{
@@ -2352,7 +2352,7 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		.dma_port = MTKCAM_IPI_RAW_META_STATS_2,
 		.fmts = meta_fmts,
 		.default_fmt_idx = 3,
-		.max_buf_count = 5,
+		.max_buf_count = 16,
 		.ioctl_ops = &mtk_cam_v4l2_meta_cap_ioctl_ops,
 	},
 };
