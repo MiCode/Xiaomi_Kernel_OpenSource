@@ -8,6 +8,15 @@ config MTK_VOW_SUPPORT
 	  IPI interface to communicate with SCP side and
 	  be controlled by sound trigger HAL.
 
+config MTK_VOW_BARGE_IN_SUPPORT
+	bool "Support VOW barge-in"
+	help
+	  Only enable this when we support VOW and barge-in.
+	  This improves the hot word recognition accuracy by
+	  applying echo cancellation to remove speaker output signal.
+	  Select Y to enable CONFIG_MTK_VOW_BARGE_IN_SUPPORT for
+	  barge-in feature.
+
 config MTK_VOW_DUAL_MIC_SUPPORT
 	bool "MediaTek VOW dual mic support"
 	help
