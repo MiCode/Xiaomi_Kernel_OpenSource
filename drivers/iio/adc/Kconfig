@@ -724,6 +724,18 @@ config MEDIATEK_MT6360_AUXADC
 	  Charger and Battery Current, Voltage and
 	  Terperature
 
+config MEDIATEK_MT6362_ADC
+	tristate "Mediatek MT6362 SPMI ADC driver"
+	depends on MFD_MT6362
+	select IIO_BUFFER
+	select IIO_TRIGGERED_BUFFER
+	help
+	  Say yes here to have support for the MT6362 ADC.
+	  Provide VBUS, VSYS, VBAT, IBUS, IBAT several channel.
+
+	  The driver can also be build as a module.
+	  If so, the module will be called mt6362_adc.
+
 config MEDIATEK_MT6577_AUXADC
 	tristate "MediaTek AUXADC driver"
 	depends on ARCH_MEDIATEK || COMPILE_TEST
