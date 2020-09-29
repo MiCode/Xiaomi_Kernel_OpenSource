@@ -2303,8 +2303,6 @@ static void ISP_EnableClock(bool En)
 		spin_unlock(&(IspInfo.SpinLockClock));
 		Prepare_Enable_ccf_clock(); /* !!cannot be used in spinlock!! */
 #endif
-		LOG_INF(
-			"###### NEED UPDATE CAMSYS_HALT1_EN: LSCI & BPCI SETTING #######");
 	} else { /* Disable clock. */
 #if defined(EP_NO_CLKMGR)
 		spin_lock(&(IspInfo.SpinLockClock));
@@ -3628,12 +3626,12 @@ void dumpIonBufferList(unsigned int entry_num, bool TurnOn)
 		list_length++;
 	}
 
-	LOG_NOTICE("## ion buf list length(%d); show %d newer entry ##\n",
+	LOG_DBG("## ion buf list length(%d); show %d newer entry ##\n",
 		list_length, entry_num);
 	list_for_each(pos, &g_ion_buf_list.list) {
 		if (i < entry_num) {
 			entry = list_entry(pos, struct ION_BUFFER_LIST, list);
-			LOG_NOTICE("#%3d: dump: memID(%3d); dev/Port(%2d,%2d);"
+			LOG_DBG("#%3d: dump: memID(%3d); dev/Port(%2d,%2d);"
 				" va/pa(0x%lx/0x%lx); size(0x%x); refCnt(%d); user(%s)\n", i,
 				entry->memID, entry->devNode, entry->dmaPort,
 				entry->va,
@@ -3642,7 +3640,7 @@ void dumpIonBufferList(unsigned int entry_num, bool TurnOn)
 		} else
 			break;
 	}
-	LOG_NOTICE("##################\n");
+	LOG_DBG("##################\n");
 }
 
 /*******************************************************************************
@@ -4927,7 +4925,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				Ret = -EFAULT;
 				break;
 			}
-			LOG_NOTICE("ISP_ION_MAP_PA: IonNode.memID(%d)\n", IonNode.memID);
+
 			mutex_lock(&aosp_ion_mutex);
 
 			/* Check if the memID has been mapped.
@@ -4942,7 +4940,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				bMapped = true;
 				IonNode.dma_pa = entry->dmaAddr;
 				entry->refCnt++;
-				LOG_NOTICE("Mapped: memID(%d),dev/Port(%d,%d);va/pa=(0x%lx/0x%lx);"
+				LOG_DBG("Mapped: memID(%d),dev/Port(%d,%d);va/pa=(0x%lx/0x%lx);"
 					" size(%d); RefCnt(%d); user(%s)\n",
 					entry->memID, IonNode.devNode, IonNode.dmaPort,
 					entry->va, entry->dmaAddr, entry->size, entry->refCnt,
@@ -4952,7 +4950,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 
 			if (!bMapped) {
 				/* Map physical addr. */
-				LOG_NOTICE("ISP_ION_MAP_PA: do map. memID(%d)\n", IonNode.memID);
+				LOG_DBG("ISP_ION_MAP_PA: do map. memID(%d)\n", IonNode.memID);
 				if (isp_mmu_get_dma_buffer(&mmu,
 					IonNode.memID) == false) {
 					LOG_NOTICE(
@@ -4999,21 +4997,22 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				tmp->username[strlen(IonNode.username)] = '\0';
 
 				list_add(&(tmp->list), &(g_ion_buf_list.list));
-				LOG_NOTICE("Add: memID(%d), dev/Port(%d,%d); va/pa=(0x%lx/0x%lx);"
+				LOG_DBG("Add: memID(%d), dev/Port(%d,%d); va/pa=(0x%lx/0x%lx);"
 					" size(%d); RefCnt(%d); user(%s)\n",
 					tmp->memID, IonNode.devNode, IonNode.dmaPort,
 					tmp->va, tmp->dmaAddr, tmp->size, tmp->refCnt,
 					tmp->username);
 			}
 
-			dumpIonBufferList(10, true);
+			dumpIonBufferList(10, false);
 
+			mutex_unlock(&aosp_ion_mutex);
 			if (copy_to_user((void *)Param, &IonNode,
 				sizeof(struct ISP_DEV_ION_NODE_STRUCT)) != 0) {
 				LOG_NOTICE("ISP_ION_MAP_PA: copy to user fail\n");
 				Ret = -EFAULT;
 			}
-			mutex_unlock(&aosp_ion_mutex);
+
 		} else {
 			LOG_NOTICE(
 				"ISP_ION_MAP_PA: copy_from_user failed\n");
@@ -5028,7 +5027,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			struct ION_BUFFER pIonBuf = {NULL, NULL, NULL, 0};
 			bool foundFD = false;
 
-			LOG_NOTICE("unmap: try memID(%d); VA/PA(0x%lx/0x%lx); (%d,%d,%s,0x%x)\n",
+			LOG_DBG("unmap: try memID(%d); VA/PA(0x%lx/0x%lx); (%d,%d,%s,0x%x)\n",
 				IonNode.memID, IonNode.va, IonNode.dma_pa, IonNode.devNode,
 				IonNode.dmaPort, IonNode.username, IonNode.size);
 
@@ -5056,7 +5055,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				foundFD = true;
 				tmp->refCnt--;
 				if (tmp->refCnt > 0) {
-					LOG_NOTICE(
+					LOG_DBG(
 						"unmap: memID(%d):va/pa=(0x%lx/0x%lx);"
 						" (%d,%d,%s); size(0x%x), refCnt(%d)\n",
 						tmp->memID, tmp->va, tmp->dmaAddr,
@@ -5064,7 +5063,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 						tmp->username, tmp->size, tmp->refCnt);
 					break;
 				}
-				LOG_NOTICE(
+				LOG_DBG(
 					"Del: memID(%d): va/pa=(0x%lx/0x%lx);"
 					" (%d,%d,%s); size(0x%x)\n",
 					tmp->memID, tmp->va, tmp->dmaAddr,
@@ -5074,7 +5073,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				pIonBuf.dmaBuf = tmp->dmaBuf;
 				pIonBuf.attach = tmp->attach;
 				pIonBuf.sgt = tmp->sgt;
-				LOG_NOTICE("ISP_ION_UNMAP_PA: do unmap. memID(%d) pa(0x%lx)\n",
+				LOG_DBG("ISP_ION_UNMAP_PA: do unmap. memID(%d) pa(0x%lx)\n",
 					IonNode.memID, IonNode.dma_pa);
 				isp_mmu_put_dma_buffer(&pIonBuf);
 				IonNode.dma_pa = 0;
@@ -5097,7 +5096,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				break;
 			}
 
-			dumpIonBufferList(10, true);
+			dumpIonBufferList(10, false);
 
 			mutex_unlock(&aosp_ion_mutex);
 		} else {
@@ -5215,8 +5214,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				Ret = -EFAULT;
 				break;
 			}
-			LOG_NOTICE("ISP_ION_GET_PA: IonNode.memID(%d); IonNode.va=0x%lx\n",
-				IonNode.memID, IonNode.va);
+
 			mutex_lock(&aosp_ion_mutex);
 
 			if (list_empty(&g_ion_buf_list.list)) {
@@ -5231,7 +5229,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				entry = list_entry(pos, struct ION_BUFFER_LIST, list);
 				if (entry->memID == IonNode.memID) {
 					if (entry->va != IonNode.va)
-						LOG_NOTICE("GET_PA: different va: (0x%lx,0x%lx)\n",
+						LOG_DBG("GET_PA: different va: (0x%lx,0x%lx)\n",
 							entry->va, IonNode.va);
 
 					IonNode.dma_pa = entry->dmaAddr;
@@ -5242,18 +5240,17 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 
 			if (!bMapped) {
 				IonNode.dma_pa = 0;
-				LOG_NOTICE("ISP_ION_GET_PA: never mapped for memID(%d),name(%s)\n",
+				LOG_DBG("ISP_ION_GET_PA: never mapped for memID(%d),name(%s)\n",
 					IonNode.memID, IonNode.username);
 			} else
-				LOG_NOTICE("ISP_ION_GET_PA: memID(%d) get pa(0x%lx), name(%s)\n",
+				LOG_DBG("ISP_ION_GET_PA: memID(%d) get pa(0x%lx), name(%s)\n",
 					IonNode.memID, IonNode.dma_pa, IonNode.username);
-
+			mutex_unlock(&aosp_ion_mutex);
 			if (copy_to_user((void *)Param, &IonNode,
 				sizeof(struct ISP_DEV_ION_NODE_STRUCT)) != 0) {
 				LOG_NOTICE("copy to user fail\n");
 				Ret = -EFAULT;
 			}
-			mutex_unlock(&aosp_ion_mutex);
 		} else {
 			LOG_NOTICE(
 				"[ISP_ION_GET_PA]copy_from_user failed\n");
@@ -6023,7 +6020,7 @@ EXIT:
 			G_u4EnableClockCount);
 	}
 
-	LOG_INF("- X. Ret: %d. UserCount: %d. G_u4EnableClockCount:%d\n", Ret,
+	LOG_DBG("- X. Ret: %d. UserCount: %d. G_u4EnableClockCount:%d\n", Ret,
 		IspInfo.UserCount, G_u4EnableClockCount);
 
 	mutex_unlock(&open_isp_mutex);
@@ -6515,7 +6512,7 @@ static int ISP_release(struct inode *pInode, struct file *pFile)
 
 EXIT:
 
-	LOG_INF("- X. UserCount: %d. G_u4EnableClockCount:%d",
+	LOG_DBG("- X. UserCount: %d. G_u4EnableClockCount:%d",
 		IspInfo.UserCount, G_u4EnableClockCount);
 	mutex_unlock(&open_isp_mutex);
 	return 0;
