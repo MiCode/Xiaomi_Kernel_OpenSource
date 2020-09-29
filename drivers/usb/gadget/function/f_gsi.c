@@ -2716,7 +2716,6 @@ static int gsi_update_function_bind_params(struct f_gsi *gsi,
 		if (!ep)
 			goto fail;
 		gsi->d_port.in_ep = ep;
-		msm_ep_config(gsi->d_port.in_ep, NULL, 0);
 		ep->driver_data = cdev;	/* claim */
 	}
 
@@ -2726,7 +2725,6 @@ static int gsi_update_function_bind_params(struct f_gsi *gsi,
 		if (!ep)
 			goto fail;
 		gsi->d_port.out_ep = ep;
-		msm_ep_config(gsi->d_port.out_ep, NULL, 0);
 		ep->driver_data = cdev;	/* claim */
 	}
 
