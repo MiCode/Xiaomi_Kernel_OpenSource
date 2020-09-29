@@ -1916,6 +1916,25 @@ static const struct file_operations msm_pcie_debugfs_case_ops = {
 	.write = msm_pcie_debugfs_case_select,
 };
 
+static int msm_pcie_debugfs_rc_select_show(struct seq_file *m, void *v)
+{
+	int i;
+
+	seq_printf(m, "Current rc_sel: %d which selects:\n", rc_sel);
+
+	for (i = 0; i < MAX_RC_NUM; i++)
+		if (rc_sel & BIT(i))
+			seq_printf(m, "\tPCIe%d\n", i);
+
+	return 0;
+}
+
+static int msm_pcie_debugfs_rc_select_open(struct inode *inode,
+						struct file *file)
+{
+	return single_open(file, msm_pcie_debugfs_rc_select_show, NULL);
+}
+
 static ssize_t msm_pcie_debugfs_rc_select(struct file *file,
 				const char __user *buf,
 				size_t count, loff_t *ppos)
@@ -1944,8 +1963,31 @@ static ssize_t msm_pcie_debugfs_rc_select(struct file *file,
 }
 
 static const struct file_operations msm_pcie_debugfs_rc_select_ops = {
+	.open = msm_pcie_debugfs_rc_select_open,
+	.release = single_release,
+	.read = seq_read,
 	.write = msm_pcie_debugfs_rc_select,
 };
+
+static int msm_pcie_debugfs_base_select_show(struct seq_file *m, void *v)
+{
+	int i;
+
+	seq_puts(m, "Options:\n");
+	for (i = 0; i < MSM_PCIE_MAX_RES; i++)
+		seq_printf(m, "\t%d: %s\n", i + 1, msm_pcie_res_info[i].name);
+
+	seq_printf(m, "\nCurrent base_sel: %d: %s\n", base_sel, base_sel ?
+			msm_pcie_res_info[base_sel - 1].name : "None");
+
+	return 0;
+}
+
+static int msm_pcie_debugfs_base_select_open(struct inode *inode,
+						struct file *file)
+{
+	return single_open(file, msm_pcie_debugfs_base_select_show, NULL);
+}
 
 static ssize_t msm_pcie_debugfs_base_select(struct file *file,
 				const char __user *buf,
@@ -1972,6 +2014,9 @@ static ssize_t msm_pcie_debugfs_base_select(struct file *file,
 }
 
 static const struct file_operations msm_pcie_debugfs_base_select_ops = {
+	.open = msm_pcie_debugfs_base_select_open,
+	.release = single_release,
+	.read = seq_read,
 	.write = msm_pcie_debugfs_base_select,
 };
 
@@ -2005,6 +2050,19 @@ static const struct file_operations msm_pcie_debugfs_linkdown_panic_ops = {
 	.write = msm_pcie_debugfs_linkdown_panic,
 };
 
+static int msm_pcie_debugfs_wr_offset_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "0x%x\n", wr_offset);
+
+	return 0;
+}
+
+static int msm_pcie_debugfs_wr_offset_open(struct inode *inode,
+						struct file *file)
+{
+	return single_open(file, msm_pcie_debugfs_wr_offset_show, NULL);
+}
+
 static ssize_t msm_pcie_debugfs_wr_offset(struct file *file,
 				const char __user *buf,
 				size_t count, loff_t *ppos)
@@ -2023,8 +2081,23 @@ static ssize_t msm_pcie_debugfs_wr_offset(struct file *file,
 }
 
 static const struct file_operations msm_pcie_debugfs_wr_offset_ops = {
+	.open = msm_pcie_debugfs_wr_offset_open,
+	.release = single_release,
+	.read = seq_read,
 	.write = msm_pcie_debugfs_wr_offset,
 };
+
+static int msm_pcie_debugfs_wr_mask_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "0x%x\n", wr_mask);
+
+	return 0;
+}
+
+static int msm_pcie_debugfs_wr_mask_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, msm_pcie_debugfs_wr_mask_show, NULL);
+}
 
 static ssize_t msm_pcie_debugfs_wr_mask(struct file *file,
 				const char __user *buf,
@@ -2044,8 +2117,25 @@ static ssize_t msm_pcie_debugfs_wr_mask(struct file *file,
 }
 
 static const struct file_operations msm_pcie_debugfs_wr_mask_ops = {
+	.open = msm_pcie_debugfs_wr_mask_open,
+	.release = single_release,
+	.read = seq_read,
 	.write = msm_pcie_debugfs_wr_mask,
 };
+
+static int msm_pcie_debugfs_wr_value_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "0x%x\n", wr_value);
+
+	return 0;
+}
+
+static int msm_pcie_debugfs_wr_value_open(struct inode *inode,
+						struct file *file)
+{
+	return single_open(file, msm_pcie_debugfs_wr_value_show, NULL);
+}
+
 static ssize_t msm_pcie_debugfs_wr_value(struct file *file,
 				const char __user *buf,
 				size_t count, loff_t *ppos)
@@ -2064,6 +2154,9 @@ static ssize_t msm_pcie_debugfs_wr_value(struct file *file,
 }
 
 static const struct file_operations msm_pcie_debugfs_wr_value_ops = {
+	.open = msm_pcie_debugfs_wr_value_open,
+	.release = single_release,
+	.read = seq_read,
 	.write = msm_pcie_debugfs_wr_value,
 };
 
