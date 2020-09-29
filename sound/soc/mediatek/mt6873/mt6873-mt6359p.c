@@ -328,6 +328,63 @@ static int mt6873_i2s_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	return 0;
 }
 
+#if IS_ENABLED(CONFIG_MTK_VOW_SUPPORT)
+static const struct snd_pcm_hardware mt6873_mt6359p_vow_hardware = {
+	.info = (SNDRV_PCM_INFO_MMAP | SNDRV_PCM_INFO_INTERLEAVED |
+		 SNDRV_PCM_INFO_MMAP_VALID),
+	.period_bytes_min = 256,
+	.period_bytes_max = 2 * 1024,
+	.periods_min = 2,
+	.periods_max = 4,
+	.buffer_bytes_max = 2 * 2 * 1024,
+};
+
+static int mt6873_mt6359p_vow_startup(struct snd_pcm_substream *substream)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_component *component =
+			snd_soc_rtdcom_lookup(rtd, AFE_PCM_NAME);
+	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(component);
+	struct snd_soc_rtdcom_list *rtdcom;
+
+	dev_info(afe->dev, "%s(), start\n", __func__);
+	snd_soc_set_runtime_hwparams(substream, &mt6873_mt6359p_vow_hardware);
+
+	mt6873_afe_gpio_request(afe, true, MT6873_DAI_VOW, 0);
+
+	/* ASoC will call pm_runtime_get, but vow don't need */
+	for_each_rtdcom(rtd, rtdcom) {
+		component = rtdcom->component;
+		pm_runtime_put_autosuspend(component->dev);
+	}
+
+	return 0;
+}
+
+static void mt6873_mt6359p_vow_shutdown(struct snd_pcm_substream *substream)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_component *component =
+			snd_soc_rtdcom_lookup(rtd, AFE_PCM_NAME);
+	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(component);
+	struct snd_soc_rtdcom_list *rtdcom;
+
+	dev_info(afe->dev, "%s(), end\n", __func__);
+	mt6873_afe_gpio_request(afe, false, MT6873_DAI_VOW, 0);
+
+	/* restore to fool ASoC */
+	for_each_rtdcom(rtd, rtdcom) {
+		component = rtdcom->component;
+		pm_runtime_get_sync(component->dev);
+	}
+}
+
+static const struct snd_soc_ops mt6873_mt6359p_vow_ops = {
+	.startup = mt6873_mt6359p_vow_startup,
+	.shutdown = mt6873_mt6359p_vow_shutdown,
+};
+#endif  // #if IS_ENABLED(CONFIG_MTK_VOW_SUPPORT)
+
 /* FE */
 SND_SOC_DAILINK_DEFS(playback1,
 	DAILINK_COMP_ARRAY(COMP_CPU("DL1")),
@@ -572,6 +629,12 @@ SND_SOC_DAILINK_DEFS(btcvsd,
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_PLATFORM("18050000.mtk-btcvsd-snd")));
+#endif
+#if IS_ENABLED(CONFIG_MTK_VOW_SUPPORT)
+SND_SOC_DAILINK_DEFS(vow,
+	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+	DAILINK_COMP_ARRAY(COMP_CODEC(NULL, "mt6359-snd-codec-vow")),
+	DAILINK_COMP_ARRAY(COMP_EMPTY()));
 #endif
 
 static struct snd_soc_dai_link mt6873_mt6359p_dai_links[] = {
@@ -1098,6 +1161,16 @@ static struct snd_soc_dai_link mt6873_mt6359p_dai_links[] = {
 		.name = "BTCVSD",
 		.stream_name = "BTCVSD",
 		SND_SOC_DAILINK_REG(btcvsd),
+	},
+#endif
+	/* VoW */
+#if IS_ENABLED(CONFIG_MTK_VOW_SUPPORT)
+	{
+		.name = "VOW_Capture",
+		.stream_name = "VOW_Capture",
+		.ignore_suspend = 1,
+		.ops = &mt6873_mt6359p_vow_ops,
+		SND_SOC_DAILINK_REG(vow),
 	},
 #endif
 };

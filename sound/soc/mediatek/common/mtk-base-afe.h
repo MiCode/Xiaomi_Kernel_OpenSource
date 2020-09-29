@@ -136,6 +136,9 @@ struct mtk_base_afe_memif {
 	size_t dma_bytes;
 	bool ack_enable;
 	int (*ack)(struct snd_pcm_substream *substream);
+#if defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
+	bool vow_barge_in_enable;
+#endif
 };
 
 struct mtk_base_afe_irq {

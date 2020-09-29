@@ -16,6 +16,10 @@
 #include "mtk-afe-fe-dai.h"
 #include "mtk-base-afe.h"
 
+#if IS_ENABLED(CONFIG_MTK_VOW_SUPPORT)
+#include "../vow/mtk-scp-vow.h"
+#endif
+
 #if IS_ENABLED(CONFIG_SND_SOC_MTK_SRAM)
 #include "mtk-sram-manager.h"
 #endif
@@ -174,22 +178,32 @@ int mtk_afe_fe_hw_params(struct snd_pcm_substream *substream,
 				    params_format(params), false) == 0) {
 		memif->using_sram = 1;
 	} else {
-		ret = snd_pcm_lib_malloc_pages(substream,
-					       params_buffer_bytes(params));
+#if IS_ENABLED(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
+		if (memif->vow_barge_in_enable) {
+			ret = mtk_scp_vow_barge_in_allocate_mem(substream,
+							   &substream->runtime->dma_addr,
+							   &substream->runtime->dma_area,
+							   substream->runtime->dma_bytes,
+							   afe);
+		} else
+#endif  // IS_ENABLED(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
+			ret = snd_pcm_lib_malloc_pages(substream,
+						       params_buffer_bytes(params));
 		if (ret < 0)
 			return ret;
 		memif->using_sram = 0;
 	}
-	dev_info(afe->dev, "%s(), %s, using_sram %d, use_dram_only %d, ch %d, rate %d, fmt %d, dma_addr %pad, dma_area %p, dma_bytes 0x%zx\n",
-		 __func__, memif->data->name,
-		 memif->using_sram, memif->use_dram_only,
-		 channels, rate, format,
-		 &substream->runtime->dma_addr,
-		 substream->runtime->dma_area,
-		 substream->runtime->dma_bytes);
 #else
-
-	ret = snd_pcm_lib_malloc_pages(substream, params_buffer_bytes(params));
+#if IS_ENABLED(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
+	if (memif->vow_barge_in_enable) {
+		ret = mtk_scp_vow_barge_in_allocate_mem(substream,
+						   &substream->runtime->dma_addr,
+						   &substream->runtime->dma_area,
+						   substream->runtime->dma_bytes,
+						   afe);
+	} else
+#endif  // IS_ENABLED(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
+		ret = snd_pcm_lib_malloc_pages(substream, params_buffer_bytes(params));
 	if (ret < 0)
 		return ret;
 	memif->using_sram = 0;
@@ -200,6 +214,14 @@ int mtk_afe_fe_hw_params(struct snd_pcm_substream *substream,
 
 	if (memif->using_sram == 0 && afe->request_dram_resource)
 		afe->request_dram_resource(afe->dev);
+
+	dev_info(afe->dev, "%s(), %s, using_sram %d, use_dram_only %d, ch %d, rate %d, fmt %d, dma_addr %pad, dma_area %p, dma_bytes 0x%zx\n",
+		 __func__, memif->data->name,
+		 memif->using_sram, memif->use_dram_only,
+		 channels, rate, format,
+		 &substream->runtime->dma_addr,
+		 substream->runtime->dma_area,
+		 substream->runtime->dma_bytes);
 
 	/* set addr */
 	ret = mtk_memif_set_addr(afe, id,
