@@ -12,7 +12,6 @@ tcpc_class-objs := tcpci_core.o tcpci_typec.o tcpci_timer.o tcpm.o tcpci.o \
 ifdef CONFIG_TCPC_ALERT_V20
 tcpc_class-objs += tcpci_alert_v20.o
 else
-obj-$(CONFIG_TCPC_CLASS)		+= tcpci_alert.o
 tcpc_class-objs += tcpci_alert.o
 endif
 

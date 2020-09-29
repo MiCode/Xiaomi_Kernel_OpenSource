@@ -1,19 +1,21 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2020 MediaTek Inc.
  */
 
+#include <linux/cpu.h>
+#include <linux/iio/consumer.h>
+#include <linux/interrupt.h>
 #include <linux/kernel.h>
+#include <linux/kthread.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_irq.h>
-#include <linux/regmap.h>
 #include <linux/platform_device.h>
-#include <linux/kthread.h>
-#include <linux/cpu.h>
-#include <linux/iio/consumer.h>
-#include <uapi/linux/sched/types.h>
+#include <linux/regmap.h>
+#include <linux/sched/clock.h>
 #include <dt-bindings/mfd/mt6362.h>
+#include <uapi/linux/sched/types.h>
 
 #include "inc/tcpci.h"
 #include "inc/tcpci_typec.h"
@@ -120,9 +122,6 @@
 	(MT6362_MSK_VCON_OVCC1 | MT6362_MSK_VCON_OVCC2 | MT6362_MSK_VCON_RVP | \
 	 MT6362_MSK_VCON_UVP | MT6362_MSK_VCON_SHTGND)
 #define MT6362_MSK_CTD		BIT(4)
-#define MT6362_MSK_FOD_DONE	BIT(0)
-#define MT6362_MSK_FOD_OV	BIT(1)
-#define MT6362_MSK_FOD_DISCHGF	BIT(7)
 #define MT6362_MSK_RPDET_AUTO	BIT(7)
 #define MT6362_MSK_RPDET_MANUAL	BIT(6)
 #define MT6362_MSK_CTD_EN	BIT(1)
@@ -144,14 +143,6 @@
 #define MT6362_MSK_HIDET_CC2_CMPEN	BIT(4)
 #define MT6362_MSK_HIDET_CC_CMPEN \
 	(MT6362_MSK_HIDET_CC1_CMPEN | MT6362_MSK_HIDET_CC2_CMPEN)
-#define MT6362_MSK_FOD_DONE	BIT(0)
-#define MT6362_MSK_FOD_OV	BIT(1)
-#define MT6362_MSK_FOD_LR	BIT(5)
-#define MT6362_MSK_FOD_HR	BIT(6)
-#define MT6362_MSK_FOD_DISCHGF	BIT(7)
-#define MT6362_MSK_FOD_ALL \
-	(MT6362_MSK_FOD_DONE | MT6362_MSK_FOD_OV | MT6362_MSK_FOD_LR | \
-	 MT6362_MSK_FOD_HR | MT6362_MSK_FOD_DISCHGF)
 #define MT6362_MSK_CABLE_TYPEC	BIT(4)
 #define MT6362_MSK_CABLE_TYPEA	BIT(5)
 #define MT6362_MSK_SHIPPING_OFF	BIT(5)
@@ -323,9 +314,6 @@ struct mt6362_tcpc_data {
 	struct iio_channel *adc_iio;
 	int irq;
 	u16 did;
-
-	atomic_t cpu_poll_count;
-	struct delayed_work cpu_poll_dwork;
 
 #ifdef CONFIG_WATER_DETECTION
 	atomic_t wd_protect_rty;
@@ -590,7 +578,7 @@ static int mt6362_get_cable_type(struct mt6362_tcpc_data *tdata,
 }
 #endif /* CONFIG_CABLE_TYPE_DETECTION */
 
-static int mt6362_init_fod_ctd(struct mt6362_tcpc_data *tdata)
+static int mt6362_init_ctd(struct mt6362_tcpc_data *tdata)
 {
 	int ret = 0;
 #ifdef CONFIG_CABLE_TYPE_DETECTION
@@ -1241,7 +1229,6 @@ static int mt6362_init_mask(struct tcpc_device *tcpc)
 	mt6362_init_vend_mask(tdata);
 
 #ifdef CONFIG_CABLE_TYPE_DETECTION
-	/* Init cable type must be done after fod */
 	if (tdata->handle_init_ctd) {
 		/*
 		 * wait 3ms for exit low power mode and
@@ -1837,29 +1824,6 @@ static struct tcpc_ops mt6362_tcpc_ops = {
 #endif /* CONFIG_WATER_DETECTION */
 };
 
-static void mt6362_cpu_poll_ctrl(struct mt6362_tcpc_data *tdata)
-{
-	cancel_delayed_work_sync(&tdata->cpu_poll_dwork);
-
-	if (atomic_read(&tdata->cpu_poll_count) == 0) {
-		atomic_inc(&tdata->cpu_poll_count);
-		cpu_idle_poll_ctrl(true);
-	}
-
-	schedule_delayed_work(&tdata->cpu_poll_dwork, msecs_to_jiffies(40));
-}
-
-static void mt6362_cpu_poll_dwork_handler(struct work_struct *work)
-{
-	struct delayed_work *dwork = to_delayed_work(work);
-	struct mt6362_tcpc_data *tdata = container_of(dwork,
-						      struct mt6362_tcpc_data,
-						      cpu_poll_dwork);
-
-	if (atomic_dec_and_test(&tdata->cpu_poll_count))
-		cpu_idle_poll_ctrl(false);
-}
-
 static void mt6362_irq_work_handler(struct kthread_work *work)
 {
 	struct mt6362_tcpc_data *tdata = container_of(work,
@@ -1867,7 +1831,6 @@ static void mt6362_irq_work_handler(struct kthread_work *work)
 						      irq_work);
 
 	MT6362_DBGINFO("++\n");
-	mt6362_cpu_poll_ctrl(tdata);
 	tcpci_lock_typec(tdata->tcpc);
 	tcpci_alert(tdata->tcpc);
 	tcpci_unlock_typec(tdata->tcpc);
@@ -2172,8 +2135,6 @@ static int mt6362_tcpc_probe(struct platform_device *pdev)
 #if TCPC_ENABLE_ANYMSG
 	check_printk_performance();
 #endif /* TCPC_ENABLE_ANYMSG */
-	INIT_DELAYED_WORK(&tdata->cpu_poll_dwork,
-			  mt6362_cpu_poll_dwork_handler);
 
 #ifdef CONFIG_WATER_DETECTION
 	atomic_set(&tdata->wd_protect_rty, CONFIG_WD_PROTECT_RETRY_COUNT);
@@ -2203,9 +2164,9 @@ static int mt6362_tcpc_probe(struct platform_device *pdev)
 	}
 
 	/* Must init before sw reset */
-	ret = mt6362_init_fod_ctd(tdata);
+	ret = mt6362_init_ctd(tdata);
 	if (ret < 0) {
-		dev_err(tdata->dev, "%s init fod ctd fail(%d)\n", __func__,
+		dev_err(tdata->dev, "%s init ctd fail(%d)\n", __func__,
 			ret);
 		goto err;
 	}
@@ -2239,7 +2200,6 @@ static int mt6362_tcpc_remove(struct platform_device *pdev)
 #ifdef CONFIG_WD_POLLING_ONLY
 	cancel_delayed_work_sync(&tdata->wd_poll_dwork);
 #endif /* CONFIG_WD_POLLING_ONLY */
-	cancel_delayed_work_sync(&tdata->cpu_poll_dwork);
 	if (tdata->tcpc)
 		tcpc_device_unregister(tdata->dev, tdata->tcpc);
 	return 0;
