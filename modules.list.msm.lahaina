@@ -15,6 +15,7 @@ clk-qcom.ko
 clk-aop-qmp.ko
 clk-rpmh.ko
 gcc-lahaina.ko
+dispcc-lahaina.ko
 qnoc-lahaina.ko
 icc-bcm-voter.ko
 pinctrl-msm.ko
