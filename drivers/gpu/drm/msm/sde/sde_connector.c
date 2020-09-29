@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,6 +24,14 @@
 #include "dsi_display.h"
 #include "sde_crtc.h"
 #include "sde_rm.h"
+
+//2019.12.11 longcheer zhaoxiangxiang add for esd check start
+static int esd_irq_count;
+static int tp_update_firmware = 0;
+extern void lcd_esd_handler(bool on);
+extern char *saved_command_line;
+
+//2019.12.11 longcheer zhaoxiangxiang add for esd check start
 
 #define BL_NODE_NAME_SIZE 32
 
@@ -1189,6 +1198,12 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 	/* connector-specific property handling */
 	idx = msm_property_index(&c_conn->property_info, property);
 	switch (idx) {
+	if (strnstr(saved_command_line,"tianma",strlen(saved_command_line)) != NULL){
+	case CONNECTOR_PROP_LP:
+		if (connector->dev)
+			connector->dev->doze_state = val;
+		break;
+	}
 	case CONNECTOR_PROP_OUT_FB:
 		/* clear old fb, if present */
 		if (c_state->out_fb)
@@ -1886,6 +1901,79 @@ static int sde_connector_atomic_check(struct drm_connector *connector,
 	return 0;
 }
 
+//2019.12.11 longcheer zhaoxiangxiang add for esd check start
+void lcd_esd_enable(bool on)
+{
+  if(on)
+    tp_update_firmware = 0;
+  else
+    tp_update_firmware = 1;
+}
+EXPORT_SYMBOL(lcd_esd_enable);
+
+static void esd_recovery(int irq,void *data)
+{
+       struct sde_connector *c_conn = data;
+       struct drm_event event;
+       bool panel_on = true;
+       struct dsi_display *dsi_display;
+       if (!c_conn && !c_conn->display) {
+               SDE_ERROR("not able to get connector object\n");
+		return ;
+       }
+
+       dsi_display = (struct dsi_display *)(c_conn->display);
+
+       if (dsi_display && dsi_display->panel) {
+	       panel_on = dsi_display->panel->panel_initialized;
+       }
+
+       if((strnstr(dsi_display->panel->name,"huaxing",30) != NULL)){
+	if (panel_on) {
+		esd_irq_count ++;
+		if(esd_irq_count == 3){
+	       disable_irq_nosync(irq);
+	       lcd_esd_handler(1);
+               c_conn->panel_dead = true;
+               event.type = DRM_EVENT_PANEL_DEAD;
+               event.length = sizeof(bool);
+               msm_mode_object_event_notify(&c_conn->base.base,
+                       c_conn->base.dev, &event, (u8 *)&c_conn->panel_dead);
+               sde_encoder_display_failure_notification(c_conn->encoder,false);
+		esd_irq_count = 0;
+		}
+	}
+	}else if((strnstr(dsi_display->panel->name,"tianma",30) != NULL)){
+		if (panel_on){
+			lcd_esd_enable(0);
+			c_conn->panel_dead = true;
+			event.type = DRM_EVENT_PANEL_DEAD;
+			event.length = sizeof(bool);
+			msm_mode_object_event_notify(&c_conn->base.base,
+				c_conn->base.dev, &event, (u8 *)&c_conn->panel_dead);
+			sde_encoder_display_failure_notification(c_conn->encoder,false);
+		}
+	}
+       pr_info("esd check irq report panel_status = %d esd_irq = %d panel_name = %s\n",
+	       panel_on,esd_irq_count,dsi_display->panel->name);
+       return ;
+}
+
+static irqreturn_t esd_err_irq_handle(int irq, void *data)
+{
+       pr_info("esd check irq report tp_update_firmware = %d\n",
+	tp_update_firmware);
+
+	if(tp_update_firmware){
+	return IRQ_HANDLED;
+	}
+       esd_recovery(irq,data);
+       return IRQ_HANDLED;
+}
+
+//2019.12.11 longcheer zhaoxiangxiang add for esd check end
+
+
 static void _sde_connector_report_panel_dead(struct sde_connector *conn,
 	bool skip_pre_kickoff)
 {
@@ -2183,7 +2271,7 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 	struct dsi_display *dsi_display;
 	struct msm_display_info display_info;
 	int rc;
-
+	esd_irq_count = 0;
 	if (!dev || !dev->dev_private || !encoder) {
 		SDE_ERROR("invalid argument(s), dev %pK, enc %pK\n",
 				dev, encoder);
@@ -2322,7 +2410,25 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 				sizeof(dsi_display->panel->hdr_props),
 				CONNECTOR_PROP_HDR_INFO);
 		}
+
+               /* register esd irq and enable it after panel enabled */
+               if (dsi_display && dsi_display->panel &&
+                       dsi_display->panel->esd_config.esd_err_irq_gpio > 0) {
+                       rc = request_threaded_irq(dsi_display->panel->esd_config.esd_err_irq,
+                                                       NULL, esd_err_irq_handle,
+                                                       dsi_display->panel->esd_config.esd_err_irq_flags,
+                                                       "esd_err_irq", c_conn);
+                       if (rc < 0) {
+                               pr_err("%s: request irq %d failed\n", __func__, dsi_display->panel->esd_config.esd_err_irq);
+                                       dsi_display->panel->esd_config.esd_err_irq = 0;
+                       } else {
+                               pr_info("%s: Request esd irq succeed!\n", __func__);
+                       }
+               }
+
 	}
+
+
 
 	rc = sde_connector_get_info(&c_conn->base, &display_info);
 	if (!rc && (connector_type == DRM_MODE_CONNECTOR_DSI) &&

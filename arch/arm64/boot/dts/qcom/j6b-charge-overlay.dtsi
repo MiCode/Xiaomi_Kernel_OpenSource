@@ -1,0 +1,113 @@
+
+&soc {
+	onewire_gpio: onewire_gpio {
+		compatible = "xiaomi,onewire_gpio";
+		label = "xm_onewire";
+		xiaomi,version = <1>;
+		xiaomi,ow_gpio = <&tlmm 93 0x00>;
+		xiaomi,gpio_number = <93>;
+		mi,onewire-gpio-cfg-addr = <0x0395D000 0x4>;
+		pinctrl-names = "onewire_active", "onewire_sleep";
+		pinctrl-0 = <&onewire_gpio_active>;
+		pinctrl-1 = <&onewire_gpio_sleep>;
+		status = "ok";
+	};
+
+	maxim_ds28e16: maxim_ds28e16 {
+		compatible = "maxim,ds28e16";
+		label = "max_ds28e16";
+		maxim,version = <1>;
+		status = "ok";
+	};
+};
+
+&tlmm {
+	onewire_gpio_active: onewire_gpio_active {
+		mux {
+			pins = "gpio93";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio93";
+			drive-strength = <2>;
+			bias-pull-up; /* No PULL */
+		};
+	};
+
+	onewire_gpio_sleep: onewire_gpio_sleep {
+		mux {
+			pins = "gpio93";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio93";
+			drive-strength = <2>;
+			bias-pull-up;
+		};
+	};
+};
+
+&pm6150_charger {
+	qcom,fcc-max-ua = <5900000>;
+	qcom,fv-max-uv = <4480000>;
+	qcom,thermal-mitigation = <3500000 3400000 3300000 3200000 3100000 3000000 2900000
+				   2800000 2600000 2400000 2200000 2000000 1800000 1500000
+				   1000000 500000>;
+	qcom,thermal-mitigation-icl
+				= <2800000 2700000 2600000 2400000 2200000 2100000 2000000
+				   2000000 2000000 1900000 1800000 1600000 1500000 1300000
+				   800000 750000>;
+	qcom,thermal-mitigation-dcp
+				= <1800000 1800000 1800000 1800000 1800000 1800000 1800000
+				   1800000 1800000 1700000 1600000 1400000 1200000 1100000
+				   1100000 1000000>;
+	qcom,thermal-mitigation-qc2
+				= <1500000 1500000 1500000 1500000 1450000 1400000 1350000
+				   1300000 1150000 1100000 1000000 900000 850000 750000
+				   650000 500000>;
+	qcom,thermal-fcc-qc3-normal
+				= <3500000 3400000 3300000 3200000 3100000 3000000 2900000
+				   2800000 2700000 2600000 2400000 2200000 2000000 2000000
+				   750000 700000>;
+	qcom,thermal-fcc-qc3-cp
+				= <3500000 3500000 3500000 3500000 3400000 3300000 3200000
+				   3100000 3000000 2800000 2600000 2400000 2200000 2000000
+				   1000000 700000>;
+	qcom,thermal-fcc-qc3-classb-cp
+				= <6000000 5500000 4900000 4600000 4500000 4400000 4200000
+				   3800000 3800000 3600000 3400000 3200000 3000000 2200000
+				   800000 700000>;
+	qcom,thermal-fcc-qc3p5-cp
+				= <4500000 4500000 4500000 4500000 4500000 4400000 4200000
+				   3800000 3800000 3600000 3400000 3200000 3000000 2200000
+				   800000 700000>;
+	qcom,thermal-mitigation-pd-base
+				= <2800000 2700000 2600000 2400000 2200000 2100000 2000000
+				   2000000 2000000 1900000 1800000 1600000 1500000 1300000
+				   800000 750000>;
+	qcom,thermal-fcc-pps-cp
+				= <6000000 5500000 4900000 4600000 4500000 4400000 4200000
+				   3800000 3800000 3600000 3400000 3200000 3000000 2200000
+				   800000 700000>;
+	mi,six-pin-step-chg-params = <4240000  5900000
+				      4440000  4800000
+				      4480000  3800000>;
+	mi,six-pin-step-chg;
+	mi,support-ffc;
+	qcom,temp-27W-enable;
+};
+
+&smb1396_div2_cp_master {
+	mi,six-pin-batt;
+	mi,qc3p5-ffc-batt;
+ };
+
+&pm6150_pdphy {
+	mi,pd_curr_limit = <1>;
+	mi,pd_max_curr_limit = <4000000>;
+	mi,limit_pd_vbus = <1>;
+	mi,pd_vbus_max_limit = <9500000>;
+};
+

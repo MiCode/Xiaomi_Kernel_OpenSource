@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,7 +20,20 @@
 #include "cam_debug_util.h"
 #include "cam_common_util.h"
 #include "cam_packet_util.h"
+/* Get GC sensor id */
+static int cam_eeprom_get_gcsensor_id(struct cam_eeprom_ctrl_t *e_ctrl)
+{
+        uint32_t                           gc_read[2] = {0,0};
+        uint16_t                           sensor_id = 0;
 
+        camera_io_dev_read(&e_ctrl->io_master_info, 0xf0, &gc_read[0],
+		CAMERA_SENSOR_I2C_TYPE_BYTE, CAMERA_SENSOR_I2C_TYPE_BYTE);
+        camera_io_dev_read(&e_ctrl->io_master_info, 0xf1, &gc_read[1],
+		CAMERA_SENSOR_I2C_TYPE_BYTE, CAMERA_SENSOR_I2C_TYPE_BYTE);
+        sensor_id = (gc_read[0] << 8) | gc_read[1];
+
+        return sensor_id;
+}
 /**
  * cam_eeprom_read_memory() - read map data into buffer
  * @e_ctrl:     eeprom control struct
@@ -32,12 +46,15 @@ static int cam_eeprom_read_memory(struct cam_eeprom_ctrl_t *e_ctrl,
 	struct cam_eeprom_memory_block_t *block)
 {
 	int                                rc = 0;
-	int                                j;
+	int                                i,j;
 	struct cam_sensor_i2c_reg_setting  i2c_reg_settings = {0};
 	struct cam_sensor_i2c_reg_array    i2c_reg_array = {0};
 	struct cam_eeprom_memory_map_t    *emap = block->map;
 	struct cam_eeprom_soc_private     *eb_info = NULL;
 	uint8_t                           *memptr = block->mapdata;
+	//GC8034
+	uint16_t                           sensor_id;
+	uint32_t                           gc_read = 0;
 
 	if (!e_ctrl) {
 		CAM_ERR(CAM_EEPROM, "e_ctrl is NULL");
@@ -45,6 +62,8 @@ static int cam_eeprom_read_memory(struct cam_eeprom_ctrl_t *e_ctrl,
 	}
 
 	eb_info = (struct cam_eeprom_soc_private *)e_ctrl->soc_info.soc_private;
+
+	sensor_id = cam_eeprom_get_gcsensor_id(e_ctrl);//for GC8034
 
 	for (j = 0; j < block->num_map; j++) {
 		CAM_DBG(CAM_EEPROM, "slave-addr = 0x%X", emap[j].saddr);
@@ -107,18 +126,37 @@ static int cam_eeprom_read_memory(struct cam_eeprom_ctrl_t *e_ctrl,
 			}
 		}
 
+//GC8034
 		if (emap[j].mem.valid_size) {
-			rc = camera_io_dev_read_seq(&e_ctrl->io_master_info,
-				emap[j].mem.addr, memptr,
-				emap[j].mem.addr_type,
-				emap[j].mem.data_type,
-				emap[j].mem.valid_size);
-			if (rc) {
-				CAM_ERR(CAM_EEPROM, "read failed rc %d",
+			if((0x8044 == sensor_id)&&(e_ctrl->io_master_info.cci_client->sid == 0x37)){
+
+				for(i = 0; i < 0x80; i++){
+                                    rc = camera_io_dev_read(&e_ctrl->io_master_info,
+					    emap[j].mem.addr, &gc_read,
+					    emap[j].mem.addr_type,
+					    emap[j].mem.data_type);
+                                    if (rc) {
+						CAM_ERR(CAM_EEPROM, "read failed rc %d", rc);
+						return rc;
+				     }
+
+				    *memptr = (uint8_t)gc_read;
+                                    memptr++;
+				}
+			}else{
+				rc = camera_io_dev_read_seq(&e_ctrl->io_master_info,
+					emap[j].mem.addr, memptr,
+					emap[j].mem.addr_type,
+					emap[j].mem.data_type,
+					emap[j].mem.valid_size);
+				if (rc) {
+					CAM_ERR(CAM_EEPROM, "read failed rc %d",
 					rc);
-				return rc;
+					return rc;
+				}
+
+				memptr += emap[j].mem.valid_size;
 			}
-			memptr += emap[j].mem.valid_size;
 		}
 
 		if (emap[j].pageen.valid_size) {
@@ -891,8 +929,16 @@ static int32_t cam_eeprom_pkt_parse(struct cam_eeprom_ctrl_t *e_ctrl, void *arg)
 		e_ctrl->cam_eeprom_state = CAM_EEPROM_CONFIG;
 		rc = cam_eeprom_read_memory(e_ctrl, &e_ctrl->cal_data);
 		if (rc) {
+                /*cuixiaojie@xiaomi.com add diff eeprom module compatible 2019-11-12 start*/
 			CAM_ERR(CAM_EEPROM,
-				"read_eeprom_memory failed");
+				"read_eeprom_memory failed, rc = %d", rc);
+			cam_destroy_device_hdl(e_ctrl->bridge_intf.device_hdl);
+			CAM_ERR(CAM_EEPROM, "destroying the device hdl");
+
+			e_ctrl->bridge_intf.device_hdl = -1;
+			e_ctrl->bridge_intf.link_hdl = -1;
+			e_ctrl->bridge_intf.session_hdl = -1;
+                /*cuixiaojie@xiaomi.com add diff eeprom module compatible 2019-11-12 end*/
 			goto power_down;
 		}
 

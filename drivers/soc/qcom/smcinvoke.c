@@ -2,6 +2,7 @@
  * SMC Invoke driver
  *
  * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,6 +27,7 @@
 #include <linux/uaccess.h>
 #include <linux/dma-buf.h>
 #include <linux/kref.h>
+#include <linux/rtmm.h>
 
 #include <soc/qcom/scm.h>
 #include <asm/cacheflush.h>
@@ -1561,6 +1563,11 @@ static long process_invoke_req(struct file *filp, unsigned int cmd,
 	size_t inmsg_size = 0, outmsg_size = SMCINVOKE_TZ_MIN_BUF_SIZE;
 	union  smcinvoke_arg *args_buf = NULL;
 	struct smcinvoke_file_data *tzobj = filp->private_data;
+
+#ifdef CONFIG_RTMM
+	unsigned long order = 0;
+	struct page *page;
+#endif
 	/*
 	 * Hold reference to remote object until invoke op is not
 	 * completed. Release once invoke is done.
@@ -1606,6 +1613,16 @@ static long process_invoke_req(struct file *filp, unsigned int cmd,
 	inmsg_size = compute_in_msg_size(&req, args_buf);
 	in_msg = (void *)__get_free_pages(GFP_KERNEL|__GFP_COMP,
 						get_order(inmsg_size));
+#ifdef CONFIG_RTMM
+	if (!in_msg) {
+		order = get_order(inmsg_size);
+		if (order == DRM_POOL_ORDER) {
+			page = rtmm_alloc(RTMM_POOL_DRM);
+			if (page)
+				in_msg = (void *) page_address(page);
+		}
+	}
+#endif
 	if (!in_msg) {
 		ret = -ENOMEM;
 		goto out;
@@ -1665,7 +1682,12 @@ out:
 	if (ret)
 		release_tzhandles(tzhandles_to_release, OBJECT_COUNTS_MAX_OO);
 	free_pages((long)out_msg, get_order(outmsg_size));
-	free_pages((long)in_msg, get_order(inmsg_size));
+#ifdef CONFIG_RTMM
+	if (order == DRM_POOL_ORDER)
+		rtmm_free(in_msg, RTMM_POOL_DRM);
+	else
+#endif
+		free_pages((long)in_msg, get_order(inmsg_size));
 	kfree(args_buf);
 	return ret;
 }

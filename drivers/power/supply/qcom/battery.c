@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2019 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -49,6 +50,7 @@
 #define FCC_STEPPER_VOTER		"FCC_STEPPER_VOTER"
 #define FCC_VOTER			"FCC_VOTER"
 #define MAIN_FCC_VOTER			"MAIN_FCC_VOTER"
+#define CC_MODE_VOTER			"CC_MODE_VOTER"
 
 struct pl_data {
 	int			pl_mode;
@@ -204,8 +206,9 @@ static int get_hvdcp3_icl_limit(struct pl_data *chip)
 
 	rc = power_supply_get_property(chip->usb_psy,
 				POWER_SUPPLY_PROP_REAL_TYPE, &pval);
-	if ((rc < 0) || (pval.intval != POWER_SUPPLY_TYPE_USB_HVDCP_3))
-		return target_icl;
+        if ((rc < 0) || ((pval.intval != POWER_SUPPLY_TYPE_USB_HVDCP_3)
+                          && (pval.intval != POWER_SUPPLY_TYPE_USB_HVDCP_3P5)))
+		return target_icl = get_effective_result_locked(chip->usb_icl_votable);
 
 	/*
 	 * For HVDCP3 adapters, limit max. ILIM as follows:
@@ -238,6 +241,7 @@ static int get_hvdcp3_icl_limit(struct pl_data *chip)
  * USBIN-VBAT:
  *	SMB1390 ILIM: based on FCC portion of SMB1390 and independent of ICL.
  */
+#define HVDCP3_ICL_UA		3000000
 static void cp_configure_ilim(struct pl_data *chip, const char *voter, int ilim)
 {
 	int rc, fcc, target_icl;
@@ -273,14 +277,14 @@ static void cp_configure_ilim(struct pl_data *chip, const char *voter, int ilim)
 		 * if request_ilim < MIN_ICL cofigure ILIM to MIN_ICL.
 		 * otherwise configure ILIM to requested_ilim.
 		 */
-		if ((fcc >= (pval.intval * 2)) && (ilim < pval.intval))
+		if ((fcc >= (pval.intval * 2)) && (target_icl >= pval.intval)
+						&& (ilim < pval.intval))
 			vote(chip->cp_ilim_votable, voter, true, pval.intval);
 		else
 			vote(chip->cp_ilim_votable, voter, true, ilim);
-
 		pl_dbg(chip, PR_PARALLEL,
-			"ILIM: vote: %d voter:%s min_ilim=%d fcc = %d\n",
-			ilim, voter, pval.intval, fcc);
+			"ILIM: vote: %d voter:%s min_ilim=%d fcc=%d target_icl=%d\n",
+			ilim, voter, pval.intval, fcc, target_icl);
 	}
 }
 
@@ -936,11 +940,23 @@ static int pl_fcc_vote_callback(struct votable *votable, void *data,
 		chip->cp_slave_disable_votable =
 			find_votable("CP_SLAVE_DISABLE");
 
-	/*
-	 * CP charger current = Total FCC - Main charger's FCC.
-	 * Main charger FCC is userspace's override vote on main.
-	 */
-	cp_fcc_ua = total_fcc_ua - chip->chg_param->forced_main_fcc;
+	if (chip->cp_master_psy) {
+		rc = power_supply_get_property(chip->cp_master_psy,
+					POWER_SUPPLY_PROP_MIN_ICL, &pval);
+		if (rc < 0)
+			pr_err("Couldn't get MIN ICL threshold rc=%d\n", rc);
+	}
+
+	if (total_fcc_ua - pval.intval * 2 > 0) {
+		cp_fcc_ua = pval.intval * 2;
+	} else {
+		/*
+		 * CP charger current = Total FCC - Main charger's FCC.
+		 * Main charger FCC is userspace's override vote on main.
+		 */
+		cp_fcc_ua = total_fcc_ua - chip->chg_param->forced_main_fcc;
+	}
+
 	pl_dbg(chip, PR_PARALLEL,
 		"cp_fcc_ua=%d total_fcc_ua=%d forced_main_fcc=%d\n",
 		cp_fcc_ua, total_fcc_ua, chip->chg_param->forced_main_fcc);
@@ -987,6 +1003,10 @@ static int pl_fcc_vote_callback(struct votable *votable, void *data,
 
 	rerun_election(chip->pl_disable_votable);
 	/* When FCC changes, trigger psy changed event for CC mode */
+	if (!chip->cp_master_psy)
+		chip->cp_master_psy =
+			power_supply_get_by_name("charge_pump_master");
+
 	if (chip->cp_master_psy)
 		power_supply_changed(chip->cp_master_psy);
 
@@ -1220,7 +1240,7 @@ static int pl_fv_vote_callback(struct votable *votable, void *data,
 			pr_err("Couldn't get battery status rc=%d\n", rc);
 		} else {
 			if (pval.intval == POWER_SUPPLY_STATUS_FULL) {
-				pr_debug("re-triggering charging\n");
+				pr_info("re-triggering charging\n");
 				pval.intval = 1;
 				rc = power_supply_set_property(chip->batt_psy,
 					POWER_SUPPLY_PROP_FORCE_RECHARGE,
@@ -1326,13 +1346,17 @@ static void pl_disable_forever_work(struct work_struct *work)
 		vote(chip->hvdcp_hw_inov_dis_votable, PL_VOTER, false, 0);
 }
 
+#define CP_ILIM_COMP			1000000
+#define CP_COOL_THRESHOLD		150
+#define CP_WARM_THRESHOLD		450
+#define SOFT_JEITA_HYSTERESIS		5
 static int pl_disable_vote_callback(struct votable *votable,
 		void *data, int pl_disable, const char *client)
 {
 	struct pl_data *chip = data;
 	union power_supply_propval pval = {0, };
 	int master_fcc_ua = 0, total_fcc_ua = 0, slave_fcc_ua = 0;
-	int rc = 0, cp_ilim;
+	int rc = 0, cp_ilim, batt_temp;
 	bool disable = false;
 
 	if (!is_main_available(chip))
@@ -1514,8 +1538,26 @@ static int pl_disable_vote_callback(struct votable *votable,
 								total_fcc_ua);
 			cp_ilim = total_fcc_ua - get_effective_result_locked(
 							chip->fcc_main_votable);
+
+			if (cp_get_parallel_mode(chip, PARALLEL_OUTPUT_MODE)
+					== POWER_SUPPLY_PL_OUTPUT_VBAT) {
+				rc = power_supply_get_property(chip->batt_psy,
+						POWER_SUPPLY_PROP_TEMP, &pval);
+				if (rc < 0) {
+					pr_err("Couldn't read batt temp, rc=%d\n", rc);
+				}
+				batt_temp = pval.intval;
+				/* if temp in cp soft jeita zone(15 to 45 degree), add comp */
+				if ((batt_temp < CP_WARM_THRESHOLD - SOFT_JEITA_HYSTERESIS)
+					&& (batt_temp > CP_COOL_THRESHOLD + SOFT_JEITA_HYSTERESIS))
+					cp_ilim += CP_ILIM_COMP;
+			}
+
+			pl_dbg(chip, PR_PARALLEL, "cp_ilim: %d\n", cp_ilim);
 			if (cp_ilim > 0)
 				cp_configure_ilim(chip, FCC_VOTER, cp_ilim / 2);
+			else
+				cp_configure_ilim(chip, FCC_VOTER, 0);
 
 			/* reset parallel FCC */
 			chip->slave_fcc_ua = 0;

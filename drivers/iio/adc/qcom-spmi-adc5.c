@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -388,11 +389,7 @@ static int adc_pre_configure_usb_in_read(struct adc_chip *adc)
 {
 	int ret;
 	u8 data = ADC_CAL_DELAY_CTL_VAL_256S;
-	bool channel_check = false;
-
-	if (adc->pmic_rev_id)
-		if (adc->pmic_rev_id->pmic_subtype == PMI632_SUBTYPE)
-			channel_check = true;
+	bool channel_check = true;
 
 	/* Increase calibration measurement interval to 256s */
 	ret = regmap_bulk_write(adc->regmap,
@@ -466,11 +463,7 @@ static int adc_configure(struct adc_chip *adc,
 	int ret;
 	u8 buf[ADC5_MULTI_TRANSFER];
 	u8 conv_req = 0;
-	bool channel_check = false;
-
-	if (adc->pmic_rev_id)
-		if (adc->pmic_rev_id->pmic_subtype == PMI632_SUBTYPE)
-			channel_check = true;
+	bool channel_check = true;
 
 	/* Read registers 0x42 through 0x46 */
 	ret = adc_read(adc, ADC_USR_DIG_PARAM, buf, ADC5_MULTI_TRANSFER);
@@ -852,6 +845,11 @@ static int adc_get_dt_channel_data(struct device *dev,
 		prop->avg_samples = VADC_DEF_AVG_SAMPLES;
 	}
 
+	prop->scale_fn_type = -EINVAL;
+	ret = of_property_read_u32(node, "qcom,scale-fn-type", &value);
+	if (!ret && value < SCALE_HW_CALIB_MAX)
+		prop->scale_fn_type = value;
+
 	prop->lut_index = VADC_DEF_LUT_INDEX;
 
 	ret = of_property_read_u32(node, "qcom,lut-index", &value);
@@ -945,8 +943,10 @@ static int adc_get_dt_data(struct adc_chip *adc, struct device_node *node)
 			return ret;
 		}
 
-		prop.scale_fn_type =
-			data->adc_chans[prop.channel].scale_fn_type;
+		if (prop.scale_fn_type == -EINVAL)
+			prop.scale_fn_type =
+				data->adc_chans[prop.channel].scale_fn_type;
+
 		adc->chan_props[index] = prop;
 
 		adc_chan = &data->adc_chans[prop.channel];

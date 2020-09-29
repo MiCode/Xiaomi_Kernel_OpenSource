@@ -3876,7 +3876,7 @@ static void sde_crtc_atomic_flush(struct drm_crtc *crtc,
 		sde_plane_restore(plane);
 
 	/* wait for acquire fences before anything else is done */
-	_sde_crtc_wait_for_fences(crtc);
+	//_sde_crtc_wait_for_fences(crtc);
 
 	/* schedule the idle notify delayed work */
 	if (idle_time && sde_encoder_check_mode(sde_crtc->mixers[0].encoder,
@@ -3900,6 +3900,8 @@ static void sde_crtc_atomic_flush(struct drm_crtc *crtc,
 
 	/* update performance setting before crtc kickoff */
 	sde_core_perf_crtc_update(crtc, 1, false);
+
+	_sde_crtc_wait_for_fences(crtc);
 
 	/*
 	 * Final plane updates: Give each plane a chance to complete all
