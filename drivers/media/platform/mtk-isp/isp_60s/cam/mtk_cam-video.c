@@ -404,7 +404,8 @@ int mtk_cam_fill_img_buf(struct mtkcam_ipi_img_output *img_out,
 	u32 height = f->fmt.pix_mp.height;
 	struct v4l2_plane_pix_format *plane = &f->fmt.pix_mp.plane_fmt[0];
 	u32 stride = plane->bytesperline;
-	unsigned int pre_plane_size = 0;
+	u32 aligned_width;
+	unsigned int addr_offset = 0;
 	int i;
 
 	if (is_mtk_format(pixelformat)) {
@@ -414,17 +415,21 @@ int mtk_cam_fill_img_buf(struct mtkcam_ipi_img_output *img_out,
 		if (!info)
 			return -EINVAL;
 
+		aligned_width = stride / info->bpp[0];
 		if (info->mem_planes == 1) {
 			for (i = 0; i < info->comp_planes; i++) {
 				unsigned int hdiv = (i == 0) ? 1 : info->hdiv;
 				unsigned int vdiv = (i == 0) ? 1 : info->vdiv;
 
-				img_out->buf[i].iova = daddr + pre_plane_size;
-				img_out->fmt.stride[i] = info->bpp[i] * DIV_ROUND_UP(stride, hdiv);
+				img_out->buf[i].iova = daddr + addr_offset;
+				img_out->fmt.stride[i] = info->bpp[i] *
+					DIV_ROUND_UP(aligned_width, hdiv);
 				img_out->buf[i].size = img_out->fmt.stride[i]
 					* DIV_ROUND_UP(height, vdiv);
-				pre_plane_size = img_out->buf[i].size;
-				pr_debug("stride:%d plane_size:%d\n", stride, img_out->buf[i].size);
+				addr_offset += img_out->buf[i].size;
+				pr_debug("stride:%d plane_size:%d addr:0x%x\n",
+					img_out->fmt.stride[i], img_out->buf[i].size,
+					img_out->buf[i].iova);
 			}
 		} else {
 			pr_debug("do not support non contiguous mplane\n");
@@ -436,17 +441,21 @@ int mtk_cam_fill_img_buf(struct mtkcam_ipi_img_output *img_out,
 		if (!info)
 			return -EINVAL;
 
+		aligned_width = stride / info->bpp[0];
 		if (info->mem_planes == 1) {
 			for (i = 0; i < info->comp_planes; i++) {
 				unsigned int hdiv = (i == 0) ? 1 : info->hdiv;
 				unsigned int vdiv = (i == 0) ? 1 : info->vdiv;
 
-				img_out->buf[i].iova = daddr + pre_plane_size;
-				img_out->fmt.stride[i] = info->bpp[i] * DIV_ROUND_UP(stride, hdiv);
+				img_out->buf[i].iova = daddr + addr_offset;
+				img_out->fmt.stride[i] = info->bpp[i] *
+					DIV_ROUND_UP(aligned_width, hdiv);
 				img_out->buf[i].size = img_out->fmt.stride[i]
 					* DIV_ROUND_UP(height, vdiv);
-				pre_plane_size = img_out->buf[i].size;
-				pr_debug("stride:%d plane_size:%d\n", stride, img_out->buf[i].size);
+				addr_offset += img_out->buf[i].size;
+				pr_debug("stride:%d plane_size:%d addr:0x%x\n",
+					img_out->fmt.stride[i], img_out->buf[i].size,
+					img_out->buf[i].iova);
 			}
 		} else {
 			pr_debug("do not support non contiguous mplane\n");
@@ -808,7 +817,7 @@ int mtk_cam_fill_pixfmt_mp(struct v4l2_pix_format_mplane *pixfmt,
 	unsigned int ipi_fmt = mtk_cam_get_img_fmt(pixelformat);
 	u8 pixel_bits = mtk_cam_get_pixel_bits(ipi_fmt);
 	u32 stride;
-	u32 size;
+	u32 aligned_width;
 	u8 pixel_mode_shift = 0; /* todo: should set by resMgr */
 	u8 bus_size;
 	u8 i;
@@ -818,6 +827,7 @@ int mtk_cam_fill_pixfmt_mp(struct v4l2_pix_format_mplane *pixfmt,
 	pixfmt->pixelformat = pixelformat;
 	plane = &pixfmt->plane_fmt[0];
 	bus_size = mtk_cam_yuv_dma_bus_size(pixel_bits, pixel_mode_shift);
+	plane->sizeimage = 0;
 
 	if (is_mtk_format(pixelformat)) {
 		const struct mtk_format_info *info;
@@ -830,8 +840,10 @@ int mtk_cam_fill_pixfmt_mp(struct v4l2_pix_format_mplane *pixfmt,
 
 		if (info->mem_planes == 1) {
 			/* width should be bus_size align */
-			stride = ALIGN(DIV_ROUND_UP(width * info->bpp[0]
+			aligned_width = ALIGN(DIV_ROUND_UP(width
 				* info->bit_r_num, info->bit_r_den), bus_size);
+			stride = aligned_width * info->bpp[0];
+
 			if (plane->bytesperline <= stride)
 				plane->bytesperline = stride;
 
@@ -840,15 +852,17 @@ int mtk_cam_fill_pixfmt_mp(struct v4l2_pix_format_mplane *pixfmt,
 				unsigned int vdiv = (i == 0) ? 1 : info->vdiv;
 
 				plane->sizeimage += info->bpp[i]
-					* DIV_ROUND_UP(plane->bytesperline, hdiv)
+					* DIV_ROUND_UP(aligned_width, hdiv)
 					* DIV_ROUND_UP(height, vdiv);
 			}
+			pr_debug("%s stride %d sizeimage %d\n", __func__,
+				plane->bytesperline, plane->sizeimage);
 		} else {
 			pr_debug("do not support non contiguous mplane\n");
 		}
 	} else {
 		const struct v4l2_format_info *info;
-
+		pr_debug("pixelformat:0x%x sizeimage:%d\n", pixelformat, plane->sizeimage);
 		info = v4l2_format_info(pixelformat);
 		pixfmt->num_planes = info->mem_planes;
 
@@ -856,7 +870,9 @@ int mtk_cam_fill_pixfmt_mp(struct v4l2_pix_format_mplane *pixfmt,
 			return -EINVAL;
 
 		if (info->mem_planes == 1) {
-			stride = ALIGN(width * info->bpp[0], bus_size);
+
+			aligned_width = ALIGN(width, bus_size);
+			stride = aligned_width * info->bpp[0];
 			if (plane->bytesperline <= stride)
 				plane->bytesperline = stride;
 
@@ -865,9 +881,11 @@ int mtk_cam_fill_pixfmt_mp(struct v4l2_pix_format_mplane *pixfmt,
 				unsigned int vdiv = (i == 0) ? 1 : info->vdiv;
 
 				plane->sizeimage += info->bpp[i]
-					* DIV_ROUND_UP(plane->bytesperline, hdiv)
+					* DIV_ROUND_UP(aligned_width, hdiv)
 					* DIV_ROUND_UP(height, vdiv);
 			}
+			pr_debug("%s stride %d sizeimage %d\n", __func__,
+				plane->bytesperline, plane->sizeimage);
 		} else {
 			pr_debug("do not support non contiguous mplane\n");
 		}
@@ -885,6 +903,7 @@ static void cal_image_pix_mp(unsigned int node_id,
 	unsigned int stride;
 	unsigned int pixel_mode_shift = 0; /* todo: depend on resMgr */
 
+	pr_debug("fmt:0x%x ipi_fmt:%d\n", mp->pixelformat, ipi_fmt);
 	switch (ipi_fmt) {
 	case MTKCAM_IPI_IMG_FMT_BAYER8:
 	case MTKCAM_IPI_IMG_FMT_BAYER10:
