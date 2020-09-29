@@ -1010,6 +1010,7 @@
   hrtimer_init
   hrtimer_start_range_ns
   hrtimer_try_to_cancel
+  hrtimer_init_sleeper
   hvc_alloc
   hvc_instantiate
   hvc_kick
