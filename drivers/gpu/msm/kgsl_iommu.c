@@ -7,6 +7,7 @@
 #include <linux/compat.h>
 #include <linux/io.h>
 #include <linux/iommu.h>
+#include <linux/iopoll.h>
 #include <linux/of_platform.h>
 #include <linux/seq_file.h>
 #include <linux/delay.h>
@@ -128,6 +129,16 @@ static u32 KGSL_IOMMU_GET_CTX_REG(struct kgsl_iommu_context *ctx, u32 offset)
 	void __iomem *addr = kgsl_iommu_reg(ctx, offset);
 
 	return readl_relaxed(addr);
+}
+
+static inline int KGSL_IOMMU_READ_POLL_TIMEOUT(struct kgsl_iommu_context *ctx,
+		u32 offset, u32 expected_ret, u32 timeout_ms, u32 mask)
+{
+	u32 val;
+	void __iomem *addr = kgsl_iommu_reg(ctx, offset);
+
+	return readl_poll_timeout(addr, val, (val & mask) == expected_ret,
+				100, timeout_ms * 1000);
 }
 
 static bool kgsl_iommu_is_global_pt(struct kgsl_pagetable *pt)
@@ -1783,6 +1794,7 @@ kgsl_iommu_get_current_ttbr0(struct kgsl_mmu *mmu)
 	return val;
 }
 
+#define KGSL_IOMMU_TLBSYNC_TIMEOUT  1000 /* msec */
 /*
  * kgsl_iommu_set_pt - Change the IOMMU pagetable of the primary context bank
  * @mmu - Pointer to mmu structure
@@ -1799,7 +1811,6 @@ static int kgsl_iommu_set_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 	struct kgsl_iommu_context *ctx = &iommu->user_context;
 	uint64_t ttbr0, temp;
 	unsigned int contextidr;
-	unsigned long wait_for_flush;
 
 	/* Not needed if split tables are enabled */
 	if (kgsl_iommu_split_tables_enabled(mmu))
@@ -1825,22 +1836,17 @@ static int kgsl_iommu_set_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 	mb();
 	/*
 	 * Wait for flush to complete by polling the flush
-	 * status bit of TLBSTATUS register for not more than
-	 * 2 s. After 2s just exit, at that point the SMMU h/w
+	 * status bit of TLBSTATUS register for not more
+	 * than 1sec. After 1sec poll timeout SMMU hardware
 	 * may be stuck and will eventually cause GPU to hang
 	 * or bring the system down.
 	 */
-	wait_for_flush = jiffies + msecs_to_jiffies(2000);
 	KGSL_IOMMU_SET_CTX_REG(ctx, KGSL_IOMMU_CTX_TLBSYNC, 0);
-	while (KGSL_IOMMU_GET_CTX_REG(ctx, KGSL_IOMMU_CTX_TLBSTATUS) &
-		(KGSL_IOMMU_CTX_TLBSTATUS_SACTIVE)) {
-		if (time_after(jiffies, wait_for_flush)) {
-			dev_warn(KGSL_MMU_DEVICE(mmu)->dev,
-				      "Wait limit reached for IOMMU tlb flush\n");
-			break;
-		}
-		cpu_relax();
-	}
+	if (KGSL_IOMMU_READ_POLL_TIMEOUT(ctx, KGSL_IOMMU_CTX_TLBSTATUS,
+				0, KGSL_IOMMU_TLBSYNC_TIMEOUT,
+				KGSL_IOMMU_CTX_TLBSTATUS_SACTIVE))
+		dev_warn(KGSL_MMU_DEVICE(mmu)->dev,
+				"Wait limit reached for IOMMU tlb flush\n");
 
 	kgsl_iommu_disable_clk(mmu);
 	return 0;
