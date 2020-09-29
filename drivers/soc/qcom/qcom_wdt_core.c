@@ -259,7 +259,7 @@ static void boot_log_init(void)
 	else
 		size = BOOT_LOG_SIZE;
 
-	start = kmalloc(size, GFP_KERNEL);
+	start = kzalloc(size, GFP_KERNEL);
 	if (!start)
 		goto out;
 
