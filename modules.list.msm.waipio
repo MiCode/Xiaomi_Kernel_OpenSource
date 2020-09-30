@@ -44,5 +44,6 @@ qcom_sysmon.ko
 qcom_q6v5.ko
 qcom_common.ko
 soc_sleep_stats.ko
+sensors_ssc.ko
 sys_pm_vx.ko
 secure_buffer.ko
