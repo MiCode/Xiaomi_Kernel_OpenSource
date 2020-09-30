@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: GPL-2.0
+
+config MTK_CAMERA_MEM_SUPPORT
+	tristate "Camera memoy driver"
+	depends on MTK_CAMERA_ISP_SUPPORT
+	help
+	  Camera mem driver for aosp ion. Iova map/unmap implementation.
+	  Set Y to enable this feature.
+	  If unsure, set N to don't support this feature.
