@@ -725,6 +725,24 @@ thermal_cooling_device_cur_state_store(struct device *dev,
 	return count;
 }
 
+static ssize_t
+thermal_cooling_device_available_show(struct device *dev,
+				      struct device_attribute *attr, char *buf)
+{
+	struct thermal_cooling_device *cdev = to_cooling_device(dev);
+	char available_state[THERMAL_AVAILABLE_STATE_LENGTH];
+	int ret;
+
+	if (cdev->ops->get_available == NULL)
+		return ret;
+
+	ret = cdev->ops->get_available(cdev, available_state);
+	if (ret)
+		return ret;
+
+	return sprintf(buf, "%s\n", available_state);
+}
+
 static struct device_attribute dev_attr_cdev_type =
 __ATTR(type, 0444, thermal_cooling_device_type_show, NULL);
 static DEVICE_ATTR(max_state, 0444,
@@ -732,11 +750,14 @@ static DEVICE_ATTR(max_state, 0444,
 static DEVICE_ATTR(cur_state, 0644,
 		   thermal_cooling_device_cur_state_show,
 		   thermal_cooling_device_cur_state_store);
+static DEVICE_ATTR(available, 0444,
+		   thermal_cooling_device_available_show, NULL);
 
 static struct attribute *cooling_device_attrs[] = {
 	&dev_attr_cdev_type.attr,
 	&dev_attr_max_state.attr,
 	&dev_attr_cur_state.attr,
+	&dev_attr_available.attr,
 	NULL,
 };
 

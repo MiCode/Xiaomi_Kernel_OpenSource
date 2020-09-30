@@ -119,8 +119,8 @@ static unsigned int tm_wfd_stat;
 static struct task_struct *pg_task;
 
 /* + Cooler info + */
-static int g_num_trip;
-static char g_bind0[20] = { 0 };
+static int g_num_trip = 1;
+static char g_bind0[20] = "mtktswmt-sysrst";
 static char g_bind1[20] = { 0 };
 static char g_bind2[20] = { 0 };
 static char g_bind3[20] = { 0 };
@@ -145,7 +145,7 @@ static int polling_factor2 = 10;
 static unsigned int cl_dev_state;
 static unsigned int cl_pa1_dev_state;
 static unsigned int cl_pa2_dev_state;
-static unsigned int g_trip_temp[COOLER_NUM] = { 125000, 115000, 105000, 85000,
+static unsigned int g_trip_temp[COOLER_NUM] = { 120000, 115000, 105000, 85000,
 							0, 0, 0, 0, 0, 0 };
 
 /* static int g_thro[COOLER_THRO_NUM] =

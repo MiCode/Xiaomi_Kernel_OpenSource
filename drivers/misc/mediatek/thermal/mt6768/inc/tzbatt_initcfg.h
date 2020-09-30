@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2018 MediaTek Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -16,16 +16,16 @@
 #define TZBATT_SET_INIT_CFG				(1)
 
 #define TZBATT_INITCFG_INTERVAL				(1)
-#define TZBATT_INITCFG_NUM_TRIPS			(3)
+#define TZBATT_INITCFG_NUM_TRIPS			(1)
 
-#define TZBATT_INITCFG_TRIP_0_TEMP			(49000)
-#define TZBATT_INITCFG_TRIP_0_COOLER			"mtk-cl-bcct02"
+#define TZBATT_INITCFG_TRIP_0_TEMP			(60000)
+#define TZBATT_INITCFG_TRIP_0_COOLER			"mtktsbattery-sysrst"
 
 #define TZBATT_INITCFG_TRIP_1_TEMP			(48000)
-#define TZBATT_INITCFG_TRIP_1_COOLER			"mtk-cl-bcct01"
+#define TZBATT_INITCFG_TRIP_1_COOLER			""
 
 #define TZBATT_INITCFG_TRIP_2_TEMP			(46000)
-#define TZBATT_INITCFG_TRIP_2_COOLER			"mtk-cl-bcct00"
+#define TZBATT_INITCFG_TRIP_2_COOLER			""
 
 #define TZBATT_INITCFG_TRIP_3_TEMP			(45000)
 #define TZBATT_INITCFG_TRIP_3_COOLER			""
