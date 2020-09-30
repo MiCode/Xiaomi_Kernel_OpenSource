@@ -8,10 +8,12 @@
 #include "adsp_platform.h"
 #include "adsp_mbox.h"
 
-#if IS_ENABLED(CONFIG_MTK_AUDIO_IPI)
-#include "audio_ipi_platform.h"
-#include "adsp_ipi_queue.h"
-#endif
+static int (*ipi_queue_recv_msg_hanlder)(
+	uint32_t core_id, /* enum adsp_core_id */
+	uint32_t ipi_id,  /* enum adsp_ipi_id */
+	void *buf,
+	uint32_t len,
+	void (*ipi_handler)(int ipi_id, void *buf, unsigned int len));
 
 struct adsp_ipi_desc {
 	void (*handler)(int id, void *data, unsigned int len);
@@ -71,6 +73,24 @@ struct mtk_mbox_device adsp_mboxdev = {
 	/*.post_cb = adsp_post_cb, */
 };
 
+void hook_ipi_queue_recv_msg_hanlder(
+	int (*recv_msg_hanlder)(
+		uint32_t core_id, /* enum adsp_core_id */
+		uint32_t ipi_id,  /* enum adsp_ipi_id */
+		void *buf,
+		uint32_t len,
+		void (*ipi_handler)(int ipi_id, void *buf, unsigned int len)))
+{
+	ipi_queue_recv_msg_hanlder = recv_msg_hanlder;
+}
+EXPORT_SYMBOL(hook_ipi_queue_recv_msg_hanlder);
+
+void unhook_ipi_queue_recv_msg_hanlder(void)
+{
+	ipi_queue_recv_msg_hanlder = NULL;
+}
+EXPORT_SYMBOL(unhook_ipi_queue_recv_msg_hanlder);
+
 int adsp_mbox_send(struct mtk_mbox_pin_send *pin_send, void *msg,
 		unsigned int wait)
 {
@@ -129,19 +149,22 @@ int adsp_mbox_send(struct mtk_mbox_pin_send *pin_send, void *msg,
 static int adsp_mbox_pin_cb(unsigned int id, void *prdata, void *buf,
 			    unsigned int len)
 {
-#if IS_ENABLED(CONFIG_MTK_AUDIO_IPI)
-	u32 opendsp_id = *(u32 *)prdata ?
-		AUDIO_OPENDSP_USE_HIFI3_B : AUDIO_OPENDSP_USE_HIFI3_A;
-#endif
-	adsp_mt_clr_spm(*(u32 *)prdata);
+	u32 core_id = *(u32 *)prdata;
+	int ret = -1;
+
+	if (core_id >= ADSP_CORE_TOTAL) {
+		pr_notice("%s() invalid core_id %u\n", __func__, core_id);
+		return ADSP_IPI_ERROR;
+	}
+	adsp_mt_clr_spm(core_id);
 
 	if (id >= ADSP_NR_IPI) {
-		pr_err("%s() invalid ipi_id %d\n", __func__, id);
+		pr_notice("%s() invalid ipi_id %d\n", __func__, id);
 		return ADSP_IPI_ERROR;
 	}
 
 	if (!adsp_ipi_descs[id].handler) {
-		pr_err("%s() invalid ipi handler %d\n", __func__, id);
+		pr_notice("%s() invalid ipi handler %d\n", __func__, id);
 		return ADSP_IPI_ERROR;
 	}
 
@@ -149,16 +172,19 @@ static int adsp_mbox_pin_cb(unsigned int id, void *prdata, void *buf,
 	    id == ADSP_IPI_DVFS_SUSPEND ||
 	    id == ADSP_IPI_LOGGER_INIT)
 		adsp_ipi_descs[id].handler(id, buf, len);
-#if IS_ENABLED(CONFIG_MTK_AUDIO_IPI)
-	else if (is_scp_ipi_queue_init(opendsp_id))
-		scp_dispatch_ipi_hanlder_to_queue(
-			opendsp_id, id, buf, len, adsp_ipi_descs[id].handler);
 	else {
-		pr_info("ipi queue not ready!! core: %u, ipi_id: %u, buf: %p, len: %u, ipi_handler: %p",
-			opendsp_id, id, buf, len, adsp_ipi_descs[id].handler);
-		WARN_ON(1);
+		if (ipi_queue_recv_msg_hanlder != NULL) {
+			ret = ipi_queue_recv_msg_hanlder(
+				core_id, id, buf, len, adsp_ipi_descs[id].handler);
+		}
+
+		if (ret != 0) {
+			pr_info("ipi queue not ready!! core: %u, ipi_id: %u, buf: %p, len: %u, ipi_handler: %p",
+				core_id, id, buf, len, adsp_ipi_descs[id].handler);
+			adsp_ipi_descs[id].handler(id, buf, len);
+		}
 	}
-#endif
+
 	return ADSP_IPI_DONE;
 }
 

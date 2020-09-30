@@ -86,6 +86,7 @@ extern enum adsp_ipi_status adsp_send_message(enum adsp_ipi_id id, void *buf,
 			unsigned int len, unsigned int wait,
 			unsigned int core_id);
 extern int is_adsp_ready(u32 cid);
+extern uint32_t get_adsp_core_total(void);
 
 extern int adsp_feature_in_which_core(enum adsp_feature_id fid);
 extern int adsp_register_feature(enum adsp_feature_id fid);
@@ -105,4 +106,23 @@ extern int release_adsp_semaphore(unsigned int flags);
 
 extern void adsp_register_notify(struct notifier_block *nb);
 extern void adsp_enable_dsp_clk(bool enable);
+
+extern void hook_ipi_queue_send_msg_handler(
+	int (*send_msg_handler)(
+		uint32_t core_id, /* enum adsp_core_id */
+		uint32_t ipi_id,  /* enum adsp_ipi_id */
+		void *buf,
+		uint32_t len,
+		uint32_t wait_ms));
+extern void unhook_ipi_queue_send_msg_handler(void);
+
+extern void hook_ipi_queue_recv_msg_hanlder(
+	int (*recv_msg_hanlder)(
+		uint32_t core_id, /* enum adsp_core_id */
+		uint32_t ipi_id,  /* enum adsp_ipi_id */
+		void *buf,
+		uint32_t len,
+		void (*ipi_handler)(int ipi_id, void *buf, unsigned int len)));
+extern void unhook_ipi_queue_recv_msg_hanlder(void);
+
 #endif

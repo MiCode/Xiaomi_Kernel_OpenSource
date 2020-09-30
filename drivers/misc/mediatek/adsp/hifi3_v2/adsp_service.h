@@ -13,7 +13,7 @@
 #include "adsp_ipi.h"
 
 void adsp_read_status_release(const unsigned long dsp_event);
-void reset_hal_feature_table(void);
+extern void reset_hal_feature_table(void);
 long adsp_driver_ioctl(
 	struct file *file, unsigned int cmd, unsigned long arg);
 long adsp_driver_compat_ioctl(

@@ -69,6 +69,7 @@ phys_addr_t adsp_get_reserve_mem_phys(enum adsp_reserve_mem_id_t id)
 
 	return mblk ? mblk->phys_addr : 0;
 }
+EXPORT_SYMBOL(adsp_get_reserve_mem_phys);
 
 void *adsp_get_reserve_mem_virt(enum adsp_reserve_mem_id_t id)
 {
@@ -76,6 +77,7 @@ void *adsp_get_reserve_mem_virt(enum adsp_reserve_mem_id_t id)
 
 	return mblk ? mblk->virt_addr : NULL;
 }
+EXPORT_SYMBOL(adsp_get_reserve_mem_virt);
 
 size_t adsp_get_reserve_mem_size(enum adsp_reserve_mem_id_t id)
 {
@@ -83,6 +85,7 @@ size_t adsp_get_reserve_mem_size(enum adsp_reserve_mem_id_t id)
 
 	return mblk ? mblk->size : 0;
 }
+EXPORT_SYMBOL(adsp_get_reserve_mem_size);
 
 void adsp_set_emimpu_shared_region(void)
 {

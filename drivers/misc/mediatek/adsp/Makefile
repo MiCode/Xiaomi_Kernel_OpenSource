@@ -9,7 +9,6 @@ obj-$(CONFIG_MTK_AUDIODSP_SUPPORT) += adsp.o
 
 # common include path
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/adsp/common
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/common/framework
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include
 
 # platform include path

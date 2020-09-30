@@ -210,6 +210,7 @@ int adsp_register_feature(enum adsp_feature_id fid)
 
 	return ret;
 }
+EXPORT_SYMBOL(adsp_register_feature);
 
 int adsp_deregister_feature(enum adsp_feature_id fid)
 {
@@ -237,6 +238,7 @@ int adsp_deregister_feature(enum adsp_feature_id fid)
 
 	return ret;
 }
+EXPORT_SYMBOL(adsp_deregister_feature);
 
 static void suspend_work_ws(struct work_struct *work)
 {
