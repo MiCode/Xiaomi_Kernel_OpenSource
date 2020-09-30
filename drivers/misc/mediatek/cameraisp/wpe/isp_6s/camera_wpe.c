@@ -3152,17 +3152,6 @@ static signed int WPE_WaitIrq(struct WPE_WAIT_IRQ_STRUCT *WaitIrq)
 	/* FIX to avoid build warning */
 	unsigned int irqStatus;
 	/*int cnt = 0; */
-	struct timeval time_getrequest;
-	unsigned long long sec = 0;
-	unsigned long usec = 0;
-
-	/* do_gettimeofday(&time_getrequest); */
-
-	do_div(sec, 1000);	/* usec */
-	usec = do_div(sec, 1000000);	/* sec and usec */
-	time_getrequest.tv_usec = usec;
-	time_getrequest.tv_sec = sec;
-
 
 	/* Debug interrupt */
 	if (WPEInfo.DebugMask & WPE_DBG_INT) {
