@@ -14,10 +14,12 @@
 #include "adsp_core.h"
 #include "adsp_mbox.h"
 
-#if IS_ENABLED(CONFIG_MTK_AUDIO_IPI)
-#include "audio_ipi_platform.h"
-#include "adsp_ipi_queue.h"
-#endif
+int (*ipi_queue_send_msg_handler)(
+	uint32_t core_id, /* enum adsp_core_id */
+	uint32_t ipi_id,  /* enum adsp_ipi_id */
+	void *buf,
+	uint32_t len,
+	uint32_t wait_ms);
 
 /* protect access tcm if set reset flag */
 rwlock_t access_rwlock;
@@ -28,6 +30,24 @@ void *adsp_timesync_ptr = &adsp_timesync_dram; /* extern to adsp_help.h */
 
 /* notifier */
 static BLOCKING_NOTIFIER_HEAD(adsp_notifier_list);
+
+void hook_ipi_queue_send_msg_handler(
+	int (*send_msg_handler)(
+		uint32_t core_id, /* enum adsp_core_id */
+		uint32_t ipi_id,  /* enum adsp_ipi_id */
+		void *buf,
+		uint32_t len,
+		uint32_t wait_ms))
+{
+	ipi_queue_send_msg_handler = send_msg_handler;
+}
+EXPORT_SYMBOL(hook_ipi_queue_send_msg_handler);
+
+void unhook_ipi_queue_send_msg_handler(void)
+{
+	ipi_queue_send_msg_handler = NULL;
+}
+EXPORT_SYMBOL(unhook_ipi_queue_send_msg_handler);
 
 struct adsp_priv *_get_adsp_core(void *ptr, int id)
 {
@@ -60,6 +80,13 @@ int is_adsp_ready(u32 cid)
 
 	return (adsp_cores[cid]->state == ADSP_RUNNING);
 }
+EXPORT_SYMBOL(is_adsp_ready);
+
+uint32_t get_adsp_core_total(void)
+{
+	return ADSP_CORE_TOTAL;
+}
+EXPORT_SYMBOL(get_adsp_core_total);
 
 bool is_adsp_system_running(void)
 {
@@ -124,15 +151,17 @@ enum adsp_ipi_status adsp_push_message(enum adsp_ipi_id id, void *buf,
 			unsigned int len, unsigned int wait_ms,
 			unsigned int core_id)
 {
-	int ret = 0;
-#if IS_ENABLED(CONFIG_MTK_AUDIO_IPI)
-	u32 queue_id = core_id + AUDIO_OPENDSP_USE_HIFI3_A;
+	int ret = -1;
 
-	if (is_scp_ipi_queue_init(queue_id))
-		ret = scp_send_msg_to_queue(queue_id, id, buf, len, wait_ms);
-	else
-#endif
+	/* send msg to queue */
+	if (ipi_queue_send_msg_handler)
+		ret = ipi_queue_send_msg_handler(core_id, id, buf, len, wait_ms);
+
+	/* send to mbox directly if handler or queue not inited */
+	if (ret != 0) {
+		pr_notice("%s, ipi queue not ready. id=%d", __func__, id);
 		ret = adsp_send_message(id, buf, len, wait_ms, core_id);
+	}
 
 	return (ret == 0) ? ADSP_IPI_DONE : ADSP_IPI_ERROR;
 }
@@ -141,8 +170,12 @@ enum adsp_ipi_status adsp_send_message(enum adsp_ipi_id id, void *buf,
 			unsigned int len, unsigned int wait,
 			unsigned int core_id)
 {
-	struct adsp_priv *pdata = get_adsp_core_by_id(core_id);
+	struct adsp_priv *pdata = NULL;
 	struct mtk_ipi_msg msg;
+
+	if (core_id >= ADSP_CORE_TOTAL)
+		return ADSP_IPI_ERROR;
+	pdata = get_adsp_core_by_id(core_id);
 
 	if (get_adsp_state(pdata) != ADSP_RUNNING) {
 		pr_notice("%s, adsp not enabled, id=%d", __func__, id);
@@ -162,6 +195,7 @@ enum adsp_ipi_status adsp_send_message(enum adsp_ipi_id id, void *buf,
 
 	return adsp_mbox_send(pdata->send_mbox, &msg, wait);
 }
+EXPORT_SYMBOL(adsp_send_message);
 
 static irqreturn_t adsp_irq_dispatcher(int irq, void *data)
 {
@@ -198,11 +232,13 @@ void adsp_register_notify(struct notifier_block *nb)
 {
 	blocking_notifier_chain_register(&adsp_notifier_list, nb);
 }
+EXPORT_SYMBOL(adsp_register_notify);
 
 void adsp_unregister_notify(struct notifier_block *nb)
 {
 	blocking_notifier_chain_unregister(&adsp_notifier_list, nb);
 }
+EXPORT_SYMBOL(adsp_unregister_notify);
 
 void adsp_extern_notify_chain(enum ADSP_NOTIFY_EVENT event)
 {

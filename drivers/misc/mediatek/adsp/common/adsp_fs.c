@@ -282,6 +282,7 @@ void reset_hal_feature_table(void)
 		}
 	}
 }
+EXPORT_SYMBOL(reset_hal_feature_table);
 
 /* file operations */
 static ssize_t adsp_driver_read(struct file *filp, char __user *data,

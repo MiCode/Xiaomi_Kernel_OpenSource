@@ -47,9 +47,9 @@ struct adsp_mpu_info_t {
 struct adsp_priv;
 
 /* Reserved Memory Method */
-phys_addr_t adsp_get_reserve_mem_phys(enum adsp_reserve_mem_id_t id);
-void *adsp_get_reserve_mem_virt(enum adsp_reserve_mem_id_t id);
-size_t adsp_get_reserve_mem_size(enum adsp_reserve_mem_id_t id);
+extern phys_addr_t adsp_get_reserve_mem_phys(enum adsp_reserve_mem_id_t id);
+extern void *adsp_get_reserve_mem_virt(enum adsp_reserve_mem_id_t id);
+extern size_t adsp_get_reserve_mem_size(enum adsp_reserve_mem_id_t id);
 int adsp_mem_device_probe(struct platform_device *pdev);
 void adsp_init_reserve_memory(void);
 ssize_t adsp_reserve_memory_dump(char *buffer, int size);
