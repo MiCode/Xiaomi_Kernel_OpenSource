@@ -1862,10 +1862,10 @@ static int psy_charger_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_TEMP:
 		if (chg == info->chg1_dev)
 			val->intval =
-				info->chg_data[CHG1_SETTING].junction_temp_max;
+				info->chg_data[CHG1_SETTING].junction_temp_max * 10;
 		else if (chg == info->chg2_dev)
 			val->intval =
-				info->chg_data[CHG2_SETTING].junction_temp_max;
+				info->chg_data[CHG2_SETTING].junction_temp_max * 10;
 		else
 			val->intval = -127;
 		break;
