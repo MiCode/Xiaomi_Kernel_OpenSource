@@ -52,6 +52,15 @@ static bool sdhci_send_command(struct sdhci_host *host, struct mmc_command *cmd)
 
 void sdhci_dumpregs(struct sdhci_host *host)
 {
+	mmc_log_string(host->mmc,
+	"BLOCK_SIZE=0x%08x BLOCK_COUNT=0x%08x COMMAND=0x%08x INT_STATUS=0x%08x INT_ENABLE=0x%08x SIGNAL_ENABLE=0x%08x\n",
+	sdhci_readw(host, SDHCI_BLOCK_SIZE),
+	sdhci_readw(host, SDHCI_BLOCK_COUNT),
+	sdhci_readw(host, SDHCI_COMMAND),
+	sdhci_readl(host, SDHCI_INT_STATUS),
+	sdhci_readl(host, SDHCI_INT_ENABLE),
+	sdhci_readl(host, SDHCI_SIGNAL_ENABLE));
+
 	SDHCI_DUMP("============ SDHCI REGISTER DUMP ===========\n");
 
 	SDHCI_DUMP("Sys addr:  0x%08x | Version:  0x%08x\n",
@@ -113,6 +122,10 @@ void sdhci_dumpregs(struct sdhci_host *host)
 
 	if (host->ops->dump_vendor_regs)
 		host->ops->dump_vendor_regs(host);
+#endif
+
+#ifdef CONFIG_MMC_IPC_LOGGING
+	host->mmc->stop_tracing = true;
 #endif
 
 	SDHCI_DUMP("============================================\n");
@@ -226,6 +239,8 @@ void sdhci_reset(struct sdhci_host *host, u8 mask)
 		if (timedout) {
 			pr_err("%s: Reset 0x%x never completed.\n",
 				mmc_hostname(host->mmc), (int)mask);
+			mmc_log_string(host->mmc, "%s: Reset 0x%x never completed.\n",
+				(int)mask);
 			sdhci_dumpregs(host);
 			return;
 		}
@@ -1486,6 +1501,8 @@ static bool sdhci_send_command_retry(struct sdhci_host *host,
 		if (!timeout--) {
 			pr_err("%s: Controller never released inhibit bit(s).\n",
 			       mmc_hostname(host->mmc));
+			mmc_log_string(host->mmc,
+				"Controller never released inhibit bit(s).\n");
 			sdhci_dumpregs(host);
 			cmd->error = -EIO;
 			return false;
@@ -1732,6 +1749,7 @@ void sdhci_enable_clk(struct sdhci_host *host, u16 clk)
 		if (timedout) {
 			pr_err("%s: Internal clock never stabilised.\n",
 			       mmc_hostname(host->mmc));
+			mmc_log_string(host->mmc, "Internal clock never stabilised.\n");
 			sdhci_dumpregs(host);
 			return;
 		}
@@ -1754,6 +1772,8 @@ void sdhci_enable_clk(struct sdhci_host *host, u16 clk)
 			if (timedout) {
 				pr_err("%s: PLL clock never stabilised.\n",
 				       mmc_hostname(host->mmc));
+				mmc_log_string(host->mmc,
+						"PLL clock never stabilised.\n");
 				sdhci_dumpregs(host);
 				return;
 			}
@@ -2906,6 +2926,8 @@ static void sdhci_timeout_timer(struct timer_list *t)
 #endif
 		pr_err("%s: Timeout waiting for hardware cmd interrupt.\n",
 		       mmc_hostname(host->mmc));
+		mmc_log_string(host->mmc,
+			"Timeout waiting for hardware cmd interrupt.\n");
 		sdhci_dumpregs(host);
 
 		host->cmd->error = -ETIMEDOUT;
@@ -2931,6 +2953,7 @@ static void sdhci_timeout_data_timer(struct timer_list *t)
 #endif
 		pr_err("%s: Timeout waiting for hardware interrupt.\n",
 		       mmc_hostname(host->mmc));
+		mmc_log_string(host->mmc, "Timeout waiting for hardware interrupt.\n");
 		sdhci_dumpregs(host);
 
 		if (host->data) {
@@ -2982,6 +3005,9 @@ static void sdhci_cmd_irq(struct sdhci_host *host, u32 intmask, u32 *intmask_p)
 			return;
 		pr_err("%s: Got command interrupt 0x%08x even though no command operation was in progress.\n",
 		       mmc_hostname(host->mmc), (unsigned)intmask);
+		mmc_log_string(host->mmc,
+			"Got command interrupt 0x%08x even though no command operation was in progress.\n",
+			 (unsigned int)intmask);
 		sdhci_dumpregs(host);
 		return;
 	}
@@ -3123,6 +3149,9 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 
 		pr_err("%s: Got data interrupt 0x%08x even though no data operation was in progress.\n",
 		       mmc_hostname(host->mmc), (unsigned)intmask);
+		mmc_log_string(host->mmc,
+			"Got data interrupt 0x%08x even though no data operation was in progress.\n",
+			(unsigned int)intmask);
 		sdhci_dumpregs(host);
 
 		return;
@@ -3348,6 +3377,9 @@ out:
 	if (unexpected) {
 		pr_err("%s: Unexpected interrupt 0x%08x.\n",
 			   mmc_hostname(host->mmc), unexpected);
+		mmc_log_string(host->mmc,
+			"Unexpected interrupt 0x%08x.\n",
+			unexpected);
 		sdhci_dumpregs(host);
 	}
 
@@ -3698,6 +3730,9 @@ bool sdhci_cqe_irq(struct sdhci_host *host, u32 intmask, int *cmd_error,
 		sdhci_writel(host, intmask, SDHCI_INT_STATUS);
 		pr_err("%s: CQE: Unexpected interrupt 0x%08x.\n",
 		       mmc_hostname(host->mmc), intmask);
+		mmc_log_string(host->mmc,
+			"CQE: Unexpected interrupt 0x%08x.\n",
+			intmask);
 		sdhci_dumpregs(host);
 	}
 

@@ -18,6 +18,7 @@
 #include <linux/mmc/card.h>
 #include <linux/mmc/pm.h>
 #include <linux/dma-direction.h>
+#include <linux/ipc_logging.h>
 
 struct mmc_ios {
 	unsigned int	clock;			/* clock rate */
@@ -537,6 +538,11 @@ struct mmc_host {
 
 	struct led_trigger	*led;		/* activity led */
 
+#ifdef CONFIG_MMC_IPC_LOGGING
+	void *ipc_log_ctxt;
+	bool stop_tracing;
+#endif
+
 #ifdef CONFIG_REGULATOR
 	bool			regulator_enabled; /* regulator state */
 #endif
@@ -589,6 +595,16 @@ void mmc_remove_host(struct mmc_host *);
 void mmc_free_host(struct mmc_host *);
 int mmc_of_parse(struct mmc_host *host);
 int mmc_of_parse_voltage(struct device_node *np, u32 *mask);
+
+#ifdef CONFIG_MMC_IPC_LOGGING
+#define NUM_LOG_PAGES		10
+#define mmc_log_string(mmc_host, fmt, ...)	do {\
+	if ((mmc_host)->ipc_log_ctxt && !(mmc_host)->stop_tracing)	\
+		ipc_log_string((mmc_host)->ipc_log_ctxt, "%s: " fmt, __func__, ##__VA_ARGS__);	\
+	} while (0)
+#else
+#define mmc_log_string(mmc_host, fmt, ...)	do { } while (0)
+#endif
 
 static inline void *mmc_priv(struct mmc_host *host)
 {
