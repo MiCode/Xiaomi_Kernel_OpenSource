@@ -49,19 +49,10 @@
 #include "tee_client_api.h"
 #endif
 
-#if IS_ENABLED(CONFIG_MTK_ENG_BUILD)
-#define DBG_KREE_SYS
-#endif
-
-#ifdef DBG_KREE_SYS
-#define KREE_DEBUG(fmt...) pr_info("[KREE]" fmt)
-#define KREE_INFO(fmt...) pr_info("[KREE]" fmt)
-#define KREE_ERR(fmt...) pr_info("[KREE][ERR]" fmt)
-#else
+/* KREE_DEBUG need define to pr_info manually */
 #define KREE_DEBUG(fmt...)
 #define KREE_INFO(fmt...) pr_info("[KREE]" fmt)
 #define KREE_ERR(fmt...) pr_info("[KREE][ERR]" fmt)
-#endif
 
 #define DYNAMIC_TIPC_LEN
 #define GZ_SYS_SERVICE_NAME_TRUSTY "com.mediatek.geniezone.srv.sys"
