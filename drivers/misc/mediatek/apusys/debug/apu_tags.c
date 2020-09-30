@@ -363,11 +363,7 @@ static void apu_tags_exit_procfs(void)
 	proot = NULL;
 }
 
-#if !defined(USER_BUILD_KERNEL) && defined(CONFIG_MTK_ENG_BUILD)
-#define APU_TAG_PROC_MDOE		0660
-#else
-#define APU_TAG_PROC_MDOE		0440
-#endif
+#define APU_TAG_PROC_MDOE		0640
 
 static int apu_tags_alloc_procfs(struct apu_tags *at)
 {
