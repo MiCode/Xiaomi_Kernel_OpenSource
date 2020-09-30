@@ -145,7 +145,7 @@ void adreno_reglist_write(struct adreno_device *adreno_dev,
 void adreno_readreg64(struct adreno_device *adreno_dev,
 		enum adreno_regs lo, enum adreno_regs hi, uint64_t *val)
 {
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	unsigned int val_lo = 0, val_hi = 0;
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
@@ -168,7 +168,7 @@ void adreno_readreg64(struct adreno_device *adreno_dev,
 void adreno_writereg64(struct adreno_device *adreno_dev,
 		enum adreno_regs lo, enum adreno_regs hi, uint64_t val)
 {
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 
 	if (adreno_checkreg_off(adreno_dev, lo))
 		kgsl_regwrite(KGSL_DEVICE(adreno_dev),
@@ -283,7 +283,7 @@ static int _get_counter(struct adreno_device *adreno_dev,
  */
 void adreno_fault_detect_start(struct adreno_device *adreno_dev)
 {
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	unsigned int i, j = ARRAY_SIZE(adreno_ft_regs_default);
 
 	if (!test_bit(ADRENO_DEVICE_SOFT_FAULT_DETECT, &adreno_dev->priv))
@@ -311,7 +311,7 @@ void adreno_fault_detect_start(struct adreno_device *adreno_dev)
  */
 void adreno_fault_detect_stop(struct adreno_device *adreno_dev)
 {
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	unsigned int i, j = ARRAY_SIZE(adreno_ft_regs_default);
 
 	if (!test_bit(ADRENO_DEVICE_SOFT_FAULT_DETECT, &adreno_dev->priv))
@@ -508,7 +508,7 @@ static struct input_handler adreno_input_handler = {
  */
 static void _soft_reset(struct adreno_device *adreno_dev)
 {
-	struct adreno_gpudev *gpudev  = ADRENO_GPU_DEVICE(adreno_dev);
+	const struct adreno_gpudev *gpudev  = ADRENO_GPU_DEVICE(adreno_dev);
 	unsigned int reg;
 
 	adreno_writereg(adreno_dev, ADRENO_REG_RBBM_SW_RESET_CMD, 1);
@@ -571,7 +571,7 @@ void adreno_cp_callback(struct adreno_device *adreno_dev, int bit)
 static irqreturn_t adreno_irq_handler(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	irqreturn_t ret;
 
 	atomic_inc(&adreno_dev->pending_irq_refcnt);
@@ -590,7 +590,7 @@ static irqreturn_t adreno_irq_handler(struct kgsl_device *device)
 }
 
 irqreturn_t adreno_irq_callbacks(struct adreno_device *adreno_dev,
-		struct adreno_irq_funcs *funcs, u32 status)
+		const struct adreno_irq_funcs *funcs, u32 status)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	irqreturn_t ret = IRQ_NONE;
@@ -1493,7 +1493,7 @@ static void adreno_unbind(struct device *dev)
 {
 	struct adreno_device *adreno_dev;
 	struct kgsl_device *device;
-	struct adreno_gpudev *gpudev;
+	const struct adreno_gpudev *gpudev;
 
 	device = dev_get_drvdata(dev);
 	if (!device)
@@ -1612,7 +1612,7 @@ static int adreno_pm_suspend(struct device *dev)
 
 static void adreno_fault_detect_init(struct adreno_device *adreno_dev)
 {
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	int i;
 
 	if (!ADRENO_FEATURE(adreno_dev, ADRENO_SOFT_FAULT_DETECT))
@@ -1651,7 +1651,7 @@ static void adreno_fault_detect_init(struct adreno_device *adreno_dev)
 static int adreno_init(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	int ret;
 
 	ret = kgsl_pwrctrl_change_state(device, KGSL_STATE_INIT);
@@ -2003,7 +2003,7 @@ void adreno_clear_dcvs_counters(struct adreno_device *adreno_dev)
 static int _adreno_start(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	int status;
 	unsigned int state = device->state;
 	bool regulator_left_on;
@@ -2126,7 +2126,7 @@ int adreno_start(struct kgsl_device *device, int priority)
 static int adreno_stop(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	int error = 0;
 
 	if (!test_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv))
@@ -2174,7 +2174,7 @@ static int adreno_stop(struct kgsl_device *device)
 int adreno_reset(struct kgsl_device *device, int fault)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	int ret = -EINVAL;
 	int i;
 
@@ -2649,7 +2649,7 @@ bool adreno_irq_pending(struct adreno_device *adreno_dev)
 static int adreno_soft_reset(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	int ret;
 
 	/*
@@ -2722,7 +2722,7 @@ static int adreno_soft_reset(struct kgsl_device *device)
 
 static bool adreno_isidle(struct adreno_device *adreno_dev)
 {
-	struct adreno_gpudev *gpudev  = ADRENO_GPU_DEVICE(adreno_dev);
+	const struct adreno_gpudev *gpudev  = ADRENO_GPU_DEVICE(adreno_dev);
 	struct adreno_ringbuffer *rb;
 	int i;
 
@@ -2983,7 +2983,7 @@ int adreno_gmu_fenced_write(struct adreno_device *adreno_dev,
 		unsigned int fence_mask)
 {
 	unsigned int status, i;
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	unsigned int reg_offset = gpudev->reg_offsets[offset];
 
 	adreno_writereg(adreno_dev, offset, val);
@@ -3382,7 +3382,7 @@ static void adreno_power_stats(struct kgsl_device *device,
 				struct kgsl_power_stats *stats)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct adreno_gpudev *gpudev  = ADRENO_GPU_DEVICE(adreno_dev);
+	const struct adreno_gpudev *gpudev  = ADRENO_GPU_DEVICE(adreno_dev);
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct adreno_busy_data *busy = &adreno_dev->busy_data;
 	int64_t adj = 0;
@@ -3504,7 +3504,7 @@ static int adreno_regulator_enable(struct kgsl_device *device)
 {
 	int ret = 0;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct adreno_gpudev *gpudev  = ADRENO_GPU_DEVICE(adreno_dev);
+	const struct adreno_gpudev *gpudev  = ADRENO_GPU_DEVICE(adreno_dev);
 
 	if (gpudev->regulator_enable &&
 		!test_bit(ADRENO_DEVICE_GPU_REGULATOR_ENABLED,
@@ -3520,7 +3520,7 @@ static int adreno_regulator_enable(struct kgsl_device *device)
 static bool adreno_is_hw_collapsible(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct adreno_gpudev *gpudev  = ADRENO_GPU_DEVICE(adreno_dev);
+	const struct adreno_gpudev *gpudev  = ADRENO_GPU_DEVICE(adreno_dev);
 
 	/*
 	 * Skip power collapse for A304, if power ctrl flag is set to
@@ -3538,7 +3538,7 @@ static bool adreno_is_hw_collapsible(struct kgsl_device *device)
 static void adreno_regulator_disable(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct adreno_gpudev *gpudev  = ADRENO_GPU_DEVICE(adreno_dev);
+	const struct adreno_gpudev *gpudev  = ADRENO_GPU_DEVICE(adreno_dev);
 
 	if (gpudev->regulator_disable &&
 		test_bit(ADRENO_DEVICE_GPU_REGULATOR_ENABLED,
@@ -3553,7 +3553,7 @@ static void adreno_pwrlevel_change_settings(struct kgsl_device *device,
 		unsigned int prelevel, unsigned int postlevel, bool post)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct adreno_gpudev *gpudev  = ADRENO_GPU_DEVICE(adreno_dev);
+	const struct adreno_gpudev *gpudev  = ADRENO_GPU_DEVICE(adreno_dev);
 
 	if (gpudev->pwrlevel_change_settings)
 		gpudev->pwrlevel_change_settings(adreno_dev, prelevel,

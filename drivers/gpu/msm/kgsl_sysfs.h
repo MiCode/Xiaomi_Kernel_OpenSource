@@ -22,7 +22,7 @@ struct kgsl_gpu_sysfs_attr {
 };
 
 #define GPU_SYSFS_ATTR(_name, _mode, _show, _store)		\
-struct kgsl_gpu_sysfs_attr gpu_sysfs_attr_##_name = {		\
+const struct kgsl_gpu_sysfs_attr gpu_sysfs_attr_##_name = {		\
 	.attr = { .name = __stringify(_name), .mode = _mode },	\
 	.show = _show,						\
 	.store = _store,					\

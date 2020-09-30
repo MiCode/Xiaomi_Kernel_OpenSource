@@ -1191,7 +1191,7 @@ static void a6xx_rgmu_pm_resume(struct adreno_device *adreno_dev)
 	adreno_dispatcher_start(device);
 }
 
-static struct gmu_dev_ops a6xx_rgmudev = {
+static const struct gmu_dev_ops a6xx_rgmudev = {
 	.oob_set = a6xx_rgmu_oob_set,
 	.oob_clear = a6xx_rgmu_oob_clear,
 	.gx_is_on = a6xx_rgmu_gx_is_on,

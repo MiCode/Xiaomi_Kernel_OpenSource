@@ -570,7 +570,7 @@ static int sendcmd(struct adreno_device *adreno_dev,
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct kgsl_drawobj *drawobj = DRAWOBJ(cmdobj);
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct adreno_dispatcher *dispatcher = &adreno_dev->dispatcher;
 	struct adreno_context *drawctxt = ADRENO_CONTEXT(drawobj->context);
 	struct kgsl_context *context = drawobj->context;
@@ -2055,7 +2055,7 @@ static void do_header_and_snapshot(struct kgsl_device *device, int fault,
 static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct adreno_dispatcher *dispatcher = &adreno_dev->dispatcher;
 	struct adreno_dispatcher_drawqueue *dispatch_q = NULL, *dispatch_q_temp;
 	struct adreno_ringbuffer *rb;
@@ -2495,7 +2495,7 @@ static void adreno_dispatcher_work(struct kthread_work *work)
 	struct adreno_device *adreno_dev =
 		container_of(dispatcher, struct adreno_device, dispatcher);
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	int count = 0;
 	unsigned int i = 0;
 

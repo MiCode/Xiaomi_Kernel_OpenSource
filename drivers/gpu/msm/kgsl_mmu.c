@@ -530,7 +530,7 @@ static int nommu_get_gpuaddr(struct kgsl_pagetable *pagetable,
 	return -ENOMEM;
 }
 
-static struct kgsl_mmu_pt_ops nommu_pt_ops = {
+static const struct kgsl_mmu_pt_ops nommu_pt_ops = {
 	.get_gpuaddr = nommu_get_gpuaddr,
 	.addr_in_range = nommu_gpuaddr_in_range,
 };

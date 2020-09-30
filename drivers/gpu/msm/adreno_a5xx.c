@@ -2343,7 +2343,7 @@ u64 a5xx_read_alwayson(struct adreno_device *adreno_dev)
 }
 
 
-static struct adreno_irq_funcs a5xx_irq_funcs[32] = {
+static const struct adreno_irq_funcs a5xx_irq_funcs[32] = {
 	ADRENO_IRQ_CALLBACK(NULL),              /* 0 - RBBM_GPU_IDLE */
 	ADRENO_IRQ_CALLBACK(a5xx_err_callback), /* 1 - RBBM_AHB_ERROR */
 	ADRENO_IRQ_CALLBACK(a5xx_err_callback), /* 2 - RBBM_TRANSFER_TIMEOUT */
@@ -2646,7 +2646,7 @@ static struct adreno_coresight a5xx_coresight = {
 };
 #endif
 
-struct adreno_gpudev adreno_a5xx_gpudev = {
+const struct adreno_gpudev adreno_a5xx_gpudev = {
 	.reg_offsets = a5xx_register_offsets,
 #ifdef CONFIG_QCOM_KGSL_CORESIGHT
 	.coresight = {&a5xx_coresight},

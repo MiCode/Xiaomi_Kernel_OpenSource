@@ -1732,7 +1732,7 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 		struct kgsl_snapshot *snapshot)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct adreno_ringbuffer *rb;
 	bool sptprac_on = true;
 	unsigned int i, roq_size;

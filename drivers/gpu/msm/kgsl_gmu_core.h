@@ -124,7 +124,7 @@ struct gmu_core_device {
 	unsigned int gmu2gpu_offset;
 	unsigned int reg_len;
 	void __iomem *reg_virt;
-	struct gmu_dev_ops *dev_ops;
+	const struct gmu_dev_ops *dev_ops;
 	unsigned long flags;
 };
 

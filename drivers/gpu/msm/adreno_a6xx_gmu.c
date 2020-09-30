@@ -2351,7 +2351,7 @@ static int a6xx_gmu_acd_set(struct kgsl_device *device, bool val)
 	return adreno_power_cycle(adreno_dev, set_acd, &val);
 }
 
-static struct gmu_dev_ops a6xx_gmudev = {
+static const struct gmu_dev_ops a6xx_gmudev = {
 	.oob_set = a6xx_gmu_oob_set,
 	.oob_clear = a6xx_gmu_oob_clear,
 	.gx_is_on = a6xx_gmu_gx_is_on,

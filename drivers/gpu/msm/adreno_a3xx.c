@@ -793,7 +793,7 @@ static void a3xx_err_callback(struct adreno_device *adreno_dev, int bit)
 	 (1 << A3XX_INT_CP_AHB_ERROR_HALT) |     \
 	 (1 << A3XX_INT_UCHE_OOB_ACCESS))
 
-static struct adreno_irq_funcs a3xx_irq_funcs[32] = {
+static const struct adreno_irq_funcs a3xx_irq_funcs[32] = {
 	ADRENO_IRQ_CALLBACK(NULL),                    /* 0 - RBBM_GPU_IDLE */
 	ADRENO_IRQ_CALLBACK(a3xx_err_callback),  /* 1 - RBBM_AHB_ERROR */
 	ADRENO_IRQ_CALLBACK(NULL),  /* 2 - RBBM_REG_TIMEOUT */
@@ -1241,7 +1241,7 @@ static int a3xx_clear_pending_transactions(struct adreno_device *adreno_dev)
 	return ret;
 }
 
-struct adreno_gpudev adreno_a3xx_gpudev = {
+const struct adreno_gpudev adreno_a3xx_gpudev = {
 	.reg_offsets = a3xx_register_offsets,
 	.ft_perf_counters = a3xx_ft_perf_counters,
 	.ft_perf_counters_count = ARRAY_SIZE(a3xx_ft_perf_counters),

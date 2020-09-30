@@ -957,25 +957,25 @@ static void kgsl_free_system_pages(struct kgsl_memdesc *memdesc)
 	memdesc->pages = NULL;
 }
 
-static struct kgsl_memdesc_ops kgsl_contiguous_ops = {
+static const struct kgsl_memdesc_ops kgsl_contiguous_ops = {
 	.free = kgsl_contiguous_free,
 	.vmflags = VM_DONTDUMP | VM_PFNMAP | VM_DONTEXPAND | VM_DONTCOPY,
 	.vmfault = kgsl_contiguous_vmfault,
 };
 
 #if IS_ENABLED(CONFIG_QCOM_SECURE_BUFFER)
-static struct kgsl_memdesc_ops kgsl_secure_system_ops = {
+static const struct kgsl_memdesc_ops kgsl_secure_system_ops = {
 	.free = kgsl_free_secure_system_pages,
 	/* FIXME: Make sure vmflags / vmfault does the right thing here */
 };
 
-static struct kgsl_memdesc_ops kgsl_secure_pool_ops = {
+static const struct kgsl_memdesc_ops kgsl_secure_pool_ops = {
 	.free = kgsl_free_secure_pool_pages,
 	/* FIXME: Make sure vmflags / vmfault does the right thing here */
 };
 #endif
 
-static struct kgsl_memdesc_ops kgsl_pool_ops = {
+static const struct kgsl_memdesc_ops kgsl_pool_ops = {
 	.free = kgsl_free_pool_pages,
 	.vmflags = VM_DONTDUMP | VM_DONTEXPAND | VM_DONTCOPY | VM_MIXEDMAP,
 	.vmfault = kgsl_paged_vmfault,
@@ -983,7 +983,7 @@ static struct kgsl_memdesc_ops kgsl_pool_ops = {
 	.unmap_kernel = kgsl_paged_unmap_kernel,
 };
 
-static struct kgsl_memdesc_ops kgsl_system_ops = {
+static const struct kgsl_memdesc_ops kgsl_system_ops = {
 	.free = kgsl_free_system_pages,
 	.vmflags = VM_DONTDUMP | VM_DONTEXPAND | VM_DONTCOPY | VM_MIXEDMAP,
 	.vmfault = kgsl_paged_vmfault,

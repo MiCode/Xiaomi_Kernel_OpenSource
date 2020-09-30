@@ -32,7 +32,7 @@ static void adreno_get_submit_time(struct adreno_device *adreno_dev,
 		struct adreno_ringbuffer *rb,
 		struct adreno_submit_time *time)
 {
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	unsigned long flags;
 	struct adreno_context *drawctxt = rb->drawctxt_active;
 	struct kgsl_context *context = &drawctxt->base;
@@ -327,7 +327,7 @@ int adreno_ringbuffer_init(struct adreno_device *adreno_dev)
 	adreno_dev->cur_rb = &(adreno_dev->ringbuffers[0]);
 
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION)) {
-		struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+		const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 		struct adreno_preemption *preempt = &adreno_dev->preempt;
 		int ret;
 
@@ -399,7 +399,7 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 				struct adreno_submit_time *time)
 {
 	struct adreno_device *adreno_dev = ADRENO_RB_DEVICE(rb);
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned int *ringcmds, *start;
 	unsigned int total_sizedwords = sizedwords;
@@ -856,7 +856,7 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 		struct adreno_submit_time *time)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct kgsl_drawobj *drawobj = DRAWOBJ(cmdobj);
 	struct kgsl_memobj_node *ib;
 	unsigned int numibs = 0;
