@@ -284,6 +284,8 @@ struct ufs_pwr_mode_info {
  * @program_key: program or evict an inline encryption key
  * @fill_prdt: called after initializing the standard PRDT fields so that any
  *	       variant-specific PRDT fields can be initialized too
+ * @prepare_command: called when receiving a request in the first place
+ * @update_sysfs: adds vendor-specific sysfs entries
  */
 struct ufs_hba_variant_ops {
 	const char *name;
@@ -321,6 +323,9 @@ struct ufs_hba_variant_ops {
 			       const union ufs_crypto_cfg_entry *cfg, int slot);
 	int	(*fill_prdt)(struct ufs_hba *hba, struct ufshcd_lrb *lrbp,
 			     unsigned int segments);
+	void    (*prepare_command)(struct ufs_hba *hba,
+				struct request *rq, struct ufshcd_lrb *lrbp);
+	int     (*update_sysfs)(struct ufs_hba *hba);
 };
 
 /* clock gating state  */
@@ -413,6 +418,8 @@ struct ufs_err_reg_hist {
 
 /**
  * struct ufs_stats - keeps usage/err statistics
+ * @last_intr_status: record the last interrupt status.
+ * @last_intr_ts: record the last interrupt timestamp.
  * @hibern8_exit_cnt: Counter to keep track of number of exits,
  *		reset this after link-startup.
  * @last_hibern8_exit_tstamp: Set time after the hibern8 exit.
@@ -432,6 +439,9 @@ struct ufs_err_reg_hist {
  * @tsk_abort: tracks task abort events
  */
 struct ufs_stats {
+	u32 last_intr_status;
+	ktime_t last_intr_ts;
+
 	u32 hibern8_exit_cnt;
 	ktime_t last_hibern8_exit_tstamp;
 
@@ -1008,8 +1018,14 @@ int ufshcd_read_desc_param(struct ufs_hba *hba,
 			   u8 param_size);
 int ufshcd_query_attr(struct ufs_hba *hba, enum query_opcode opcode,
 		      enum attr_idn idn, u8 index, u8 selector, u32 *attr_val);
+int ufshcd_query_attr_retry(struct ufs_hba *hba,
+	enum query_opcode opcode, enum attr_idn idn, u8 index, u8 selector,
+	u32 *attr_val);
 int ufshcd_query_flag(struct ufs_hba *hba, enum query_opcode opcode,
 	enum flag_idn idn, u8 index, bool *flag_res);
+int ufshcd_query_flag_retry(struct ufs_hba *hba,
+	enum query_opcode opcode, enum flag_idn idn, u8 index, bool *flag_res);
+int ufshcd_bkops_ctrl(struct ufs_hba *hba, enum bkops_status status);
 
 void ufshcd_auto_hibern8_enable(struct ufs_hba *hba);
 void ufshcd_auto_hibern8_update(struct ufs_hba *hba, u32 ahit);
@@ -1200,6 +1216,20 @@ static inline int ufshcd_vops_fill_prdt(struct ufs_hba *hba,
 	if (hba->vops && hba->vops->fill_prdt)
 		return hba->vops->fill_prdt(hba, lrbp, segments);
 
+	return 0;
+}
+
+static inline void ufshcd_vops_prepare_command(struct ufs_hba *hba,
+		struct request *rq, struct ufshcd_lrb *lrbp)
+{
+	if (hba->vops && hba->vops->prepare_command)
+		hba->vops->prepare_command(hba, rq, lrbp);
+}
+
+static inline int ufshcd_vops_update_sysfs(struct ufs_hba *hba)
+{
+	if (hba->vops && hba->vops->update_sysfs)
+		return hba->vops->update_sysfs(hba);
 	return 0;
 }
 
