@@ -1,0 +1,1059 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2015 MediaTek Inc.
+ */
+
+/******************************************************************************
+ * camera_mem.c - Linux Camera Memory Device Driver
+ *
+ * DESCRIPTION:
+ *     This file provides the other drivers camera memory relative functions
+ *
+ ******************************************************************************/
+
+#include <linux/cdev.h>
+#include <linux/device.h>
+#include <linux/of_platform.h>
+#include <linux/platform_device.h>
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/slab.h>
+#include <linux/dma-buf.h>
+#include <linux/uaccess.h>
+#include <linux/fs.h>
+#include <soc/mediatek/smi.h>
+#include <linux/proc_fs.h>
+#include <linux/seq_file.h>
+
+#include "camera_mem.h"
+
+
+#define CAM_MEM_DEV_NAME "camera-mem"
+
+#define LogTag "[CAM_MEM]"
+
+#define LOG_VRB(format, args...)                                               \
+	pr_debug(LogTag "[%s] " format, __func__, ##args)
+
+#ifdef CAM_MEM_DEBUG
+#define LOG_DBG(format, args...) pr_info(LogTag "[%s] " format, __func__, ##args)
+#else
+#define LOG_DBG(format, args...)
+#endif
+
+#define LOG_INF(format, args...) pr_info(LogTag "[%s] " format, __func__, ##args)
+
+#define LOG_NOTICE(format, args...)                                            \
+	pr_notice(LogTag "[%s] " format, __func__, ##args)
+
+
+#define LARB_NUM (8)
+
+struct cam_mem_device {
+	struct device *dev;
+
+	/* p1: larb13/14, larb16/17/18
+	 * p2: larb9, larb11 and larb20
+	 */
+	struct device *larbs[LARB_NUM];
+};
+
+struct CAM_MEM_USER_INFO_STRUCT {
+	pid_t Pid;
+	pid_t Tid;
+};
+
+struct ION_BUFFER {
+	struct dma_buf        *dmaBuf;
+	struct dma_buf_attachment *attach;
+	struct sg_table *sgt;
+	dma_addr_t dmaAddr;
+};
+
+/* A list to store the ION_BUFFER which mapped the dmaAddr(aka iova or PA) by the ioctl,
+ * "CAM_MEM_ION_MAP_PA". When "CAM_MEM_ION_UNMAP_PA", it could be traversed to unmap
+ * the proper ION_BUFFER.
+ */
+struct ION_BUFFER_LIST {
+	struct list_head list;
+	struct dma_buf        *dmaBuf;
+	struct dma_buf_attachment *attach;
+	struct sg_table *sgt;
+	dma_addr_t dmaAddr; /* physical addr */
+	int memID; /* ion fd */
+	unsigned int refCnt; /* map count */
+	char username[64]; /* userspace user name */
+};
+
+struct CAM_MEM_INFO_STRUCT {
+	spinlock_t SpinLock_CamMemRef; /* SpinLock for UserCount */
+	spinlock_t SpinLock_Larb;
+	unsigned int UserCount; /* Open user count */
+};
+
+static struct CAM_MEM_INFO_STRUCT CamMemInfo;
+
+static struct cam_mem_device cam_mem_dev;
+
+/* prevent cam_mem race condition in vulunerbility test */
+static struct mutex open_cam_mem_mutex;
+
+static struct mutex cam_mem_ion_mutex;
+
+static struct ION_BUFFER_LIST g_ion_buf_list;
+
+static unsigned int G_u4EnableLarbCount;
+static atomic_t G_u4DevNodeCt;
+
+/*******************************************************************************
+ *
+ ******************************************************************************/
+static inline void smi_larbs_get(void)
+{
+	int ret;
+	int i = 0;
+
+	for (i = 0; i < LARB_NUM; i++) {
+		if (cam_mem_dev.larbs[i]) {
+			ret = mtk_smi_larb_get(cam_mem_dev.larbs[i]);
+			if (ret)
+				LOG_NOTICE("mtk_smi_larb_get larbs[%d] fail %d\n", i, ret);
+		} else
+			LOG_NOTICE("No larbs[%d] device\n", i);
+	}
+}
+
+/*******************************************************************************
+ *
+ ******************************************************************************/
+static inline void smi_larbs_put(void)
+{
+	int i = 0;
+
+	for (i = 0; i < LARB_NUM; i++) {
+		if (cam_mem_dev.larbs[LARB_NUM - 1 - i])
+			mtk_smi_larb_put(cam_mem_dev.larbs[LARB_NUM - 1 - i]);
+		else
+			LOG_NOTICE("cam_mem_dev.larbs[%d] is NULL!\n", LARB_NUM - 1 - i);
+	}
+}
+
+/*******************************************************************************
+ *
+ ******************************************************************************/
+static void CamMem_EnableLarb(bool En)
+{
+	if (En) {
+		spin_lock(&(CamMemInfo.SpinLock_Larb));
+		G_u4EnableLarbCount++;
+		spin_unlock(&(CamMemInfo.SpinLock_Larb));
+		smi_larbs_get(); /* !!cannot be used in spinlock!! */
+	} else {
+		spin_lock(&(CamMemInfo.SpinLock_Larb));
+		if (G_u4EnableLarbCount == 0) {
+			spin_unlock(&(CamMemInfo.SpinLock_Larb));
+
+			LOG_INF("G_u4EnableLarbCount aleady be 0, do nothing\n");
+
+			return;
+		}
+
+		G_u4EnableLarbCount--;
+		spin_unlock(&(CamMemInfo.SpinLock_Larb));
+		/* !!cannot be used in spinlock!! */
+		smi_larbs_put();
+
+	}
+}
+
+/*******************************************************************************
+ *
+ ******************************************************************************/
+static int cam_mem_open(struct inode *pInode, struct file *pFile)
+{
+	struct CAM_MEM_USER_INFO_STRUCT *pUserInfo;
+	int Ret = 0;
+
+	mutex_lock(&open_cam_mem_mutex);
+
+	LOG_NOTICE("+: UserCount(%d)\n", CamMemInfo.UserCount);
+
+	pFile->private_data =
+		kmalloc(sizeof(struct CAM_MEM_USER_INFO_STRUCT), GFP_ATOMIC);
+
+	if (pFile->private_data == NULL) {
+		LOG_DBG(
+			"ERROR: kmalloc failed, (process, pid, tgid)=(%s, %d, %d)\n",
+			current->comm, current->pid, current->tgid);
+
+		Ret = -ENOMEM;
+	} else {
+		pUserInfo = (struct CAM_MEM_USER_INFO_STRUCT *)pFile->private_data;
+		pUserInfo->Pid = current->pid;
+		pUserInfo->Tid = current->tgid;
+	}
+
+	spin_lock(&(CamMemInfo.SpinLock_CamMemRef));
+	if (CamMemInfo.UserCount > 0) {
+		CamMemInfo.UserCount++;
+		spin_unlock(&(CamMemInfo.SpinLock_CamMemRef));
+
+		LOG_DBG(
+			"Curr UserCount(%d), (process, pid, tgid)=(%s, %d, %d), users exist\n",
+			CamMemInfo.UserCount,
+			current->comm, current->pid, current->tgid);
+	} else {
+		CamMemInfo.UserCount++;
+		spin_unlock(&(CamMemInfo.SpinLock_CamMemRef));
+
+		LOG_DBG(
+			"Curr UserCount(%d), (process, pid, tgid)=(%s, %d, %d), first user\n",
+			CamMemInfo.UserCount,
+			current->comm, current->pid, current->tgid);
+	}
+
+	if (Ret == 0)
+		CamMem_EnableLarb(true);
+
+	LOG_INF("-: Ret: %d. UserCount: %d\n", Ret, CamMemInfo.UserCount);
+
+	mutex_unlock(&open_cam_mem_mutex);
+
+	return Ret;
+}
+
+/*******************************************************************************
+ *
+ ******************************************************************************/
+static void cam_mem_mmu_put_dma_buffer(struct ION_BUFFER *mmu)
+{
+	if (mmu->dmaBuf) {
+		dma_buf_unmap_attachment(mmu->attach, mmu->sgt,
+			DMA_BIDIRECTIONAL);
+		dma_buf_detach(mmu->dmaBuf, mmu->attach);
+		dma_buf_put(mmu->dmaBuf);
+	} else
+		LOG_NOTICE("mmu->dmaBuf is NULL\n");
+}
+
+/*******************************************************************************
+ *
+ ******************************************************************************/
+static int cam_mem_release(struct inode *pInode, struct file *pFile)
+{
+	unsigned int i = 0;
+	struct ION_BUFFER_LIST *tmp; /* for delete the mapped node */
+	struct list_head *pos, *q;
+	struct ION_BUFFER pIonBuf = {NULL, NULL, NULL, 0};
+
+	mutex_lock(&open_cam_mem_mutex);
+
+	LOG_INF("+. UserCount: %d.\n", CamMemInfo.UserCount);
+
+	if (pFile->private_data != NULL) {
+		kfree(pFile->private_data);
+		pFile->private_data = NULL;
+	}
+
+	spin_lock(&(CamMemInfo.SpinLock_CamMemRef));
+	CamMemInfo.UserCount--;
+	if (CamMemInfo.UserCount > 0) {
+		spin_unlock(&(CamMemInfo.SpinLock_CamMemRef));
+
+		LOG_INF(
+			"Curr UserCount(%d), (process, pid, tgid) = (%s, %d, %d),users exist\n",
+			CamMemInfo.UserCount, current->comm, current->pid,
+			current->tgid);
+
+		goto EXIT;
+	} else {
+		spin_unlock(&(CamMemInfo.SpinLock_CamMemRef));
+
+		/* Clear ion buf list */
+		mutex_lock(&cam_mem_ion_mutex);
+		list_for_each_safe(pos, q, &g_ion_buf_list.list) {
+			tmp = list_entry(pos, struct ION_BUFFER_LIST, list);
+
+			LOG_NOTICE("Del: memID(%d): pa=(0x%lx); refCnt(%d); (%s)\n",
+				tmp->memID, tmp->dmaAddr,  tmp->refCnt,
+				tmp->username);
+
+			pIonBuf.dmaBuf = tmp->dmaBuf;
+			pIonBuf.attach = tmp->attach;
+			pIonBuf.sgt = tmp->sgt;
+
+			cam_mem_mmu_put_dma_buffer(&pIonBuf);
+
+			/* delete a mapped node in the list. */
+			list_del(pos);
+			kfree(tmp);
+		}
+		mutex_unlock(&cam_mem_ion_mutex);
+	}
+
+	spin_lock(&(CamMemInfo.SpinLock_Larb));
+	i = G_u4EnableLarbCount;
+	spin_unlock(&(CamMemInfo.SpinLock_Larb));
+	while (i > 0) {
+		CamMem_EnableLarb(false);
+		i--;
+	}
+
+EXIT:
+	LOG_INF("-. UserCount: %d. G_u4EnableLarbCount:%d\n",
+		CamMemInfo.UserCount, G_u4EnableLarbCount);
+
+	mutex_unlock(&open_cam_mem_mutex);
+
+	return 0;
+}
+
+/*******************************************************************************
+ *
+ ******************************************************************************/
+static void dumpIonBufferList(unsigned int entry_num, bool TurnOn)
+{
+	struct ION_BUFFER_LIST *entry;
+	struct list_head *pos;
+	int i = 0;
+	unsigned int list_length = 0;
+
+	if (TurnOn == false)
+		return;
+
+	if (list_empty(&g_ion_buf_list.list))
+		return;
+
+	list_for_each(pos, &g_ion_buf_list.list) {
+		list_length++;
+	}
+
+	LOG_NOTICE("## ion buf list length(%d); show %d newer entry ##\n",
+		list_length, entry_num);
+	list_for_each(pos, &g_ion_buf_list.list) {
+		if (i < entry_num) {
+			entry = list_entry(pos, struct ION_BUFFER_LIST, list);
+			LOG_NOTICE("#%3d: dump: memID(%3d); pa(0x%lx); refCnt(%d) user(%s)\n", i,
+				entry->memID,
+				entry->dmaAddr, entry->refCnt, entry->username);
+			i++;
+		} else
+			break;
+	}
+	LOG_NOTICE("##################\n");
+}
+
+/*******************************************************************************
+ *
+ ******************************************************************************/
+static bool cam_mem_mmu_get_dma_buffer(struct ION_BUFFER *mmu, int va)
+{
+	struct dma_buf *buf;
+
+	if (va == -1) {
+		LOG_NOTICE("invalid ion fd!\n");
+		return false;
+	}
+	/* va: buffer fd from user space, we get dmabuf from buffer fd. */
+	buf = dma_buf_get(va);
+	if (IS_ERR(buf))
+		return false;
+
+	mmu->dmaBuf = buf;
+	mmu->attach = dma_buf_attach(mmu->dmaBuf, cam_mem_dev.dev);
+	if (IS_ERR(mmu->attach))
+		goto err_attach;
+	/* buffer and iova map */
+	mmu->sgt = dma_buf_map_attachment(mmu->attach, DMA_BIDIRECTIONAL);
+	if (IS_ERR(mmu->sgt))
+		goto err_map;
+	return true;
+
+err_map:
+	dma_buf_detach(mmu->dmaBuf, mmu->attach);
+err_attach:
+	dma_buf_put(mmu->dmaBuf);
+
+	return false;
+}
+
+/*******************************************************************************
+ *
+ ******************************************************************************/
+static long cam_mem_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
+{
+	int Ret = 0;
+
+	struct CAM_MEM_USER_INFO_STRUCT *pUserInfo;
+	struct CAM_MEM_DEV_ION_NODE_STRUCT IonNode;
+
+
+	if (pFile->private_data == NULL) {
+		LOG_NOTICE(
+			"private_data is NULL,(process, pid, tgid)=(%s, %d, %d)\n",
+			current->comm, current->pid, current->tgid);
+
+		return -EFAULT;
+	}
+	/*  */
+	pUserInfo = (struct CAM_MEM_USER_INFO_STRUCT *)(pFile->private_data);
+
+	switch (Cmd) {
+
+	case CAM_MEM_ION_MAP_PA:
+		if (copy_from_user(&IonNode, (void *)Param,
+			sizeof(struct CAM_MEM_DEV_ION_NODE_STRUCT)) == 0) {
+			dma_addr_t dmaPa;
+			struct list_head *pos;
+			/* tmp ION_BUFFER_LIST node to add into the list. */
+			struct ION_BUFFER_LIST *tmp;
+			struct ION_BUFFER_LIST *entry;
+			struct ION_BUFFER mmu = {NULL, NULL, NULL, 0};
+			bool bMapped = false;
+			unsigned int refCnt = 0;
+
+			if (IonNode.memID <= 0) {
+				LOG_NOTICE(
+					"[CAM_MEM_ION_MAP_PA] invalid ion fd(%d)\n",
+					IonNode.memID);
+				Ret = -EFAULT;
+				break;
+			}
+
+			mutex_lock(&cam_mem_ion_mutex);
+			/* Check if already mapped. */
+			list_for_each(pos, &g_ion_buf_list.list) {
+				entry = list_entry(pos, struct ION_BUFFER_LIST, list);
+				if (entry->memID != IonNode.memID)
+					continue;
+
+				entry->refCnt++;
+				refCnt = entry->refCnt;
+				bMapped = true;
+				LOG_NOTICE("Warning:refCnt(%d)>1, memID(%d);pa=(0x%lx);user(%s)\n",
+					entry->refCnt,
+					entry->memID,
+					entry->dmaAddr,
+					entry->username);
+			}
+			mutex_unlock(&cam_mem_ion_mutex);
+
+			/* Map iova. */
+			LOG_NOTICE("CAM_MEM_ION_MAP_PA: do map. memID(%d)\n", IonNode.memID);
+			if (cam_mem_mmu_get_dma_buffer(&mmu, IonNode.memID) == false) {
+				LOG_NOTICE(
+					"CAM_MEM_ION_MAP_PA: map pa failed, memID(%d)\n",
+					IonNode.memID);
+				Ret = -EFAULT;
+				break;
+			}
+			/* get iova. */
+			dmaPa = sg_dma_address(mmu.sgt->sgl);
+			if (!dmaPa) {
+				Ret = -EFAULT;
+				LOG_NOTICE(
+					"CAM_MEM_ION_MAP_PA: sg_dma_address fail, memID(%d)\n",
+					IonNode.memID);
+				break;
+			}
+			IonNode.dma_pa = mmu.dmaAddr = dmaPa;
+			/* Add an entry to global ION_BUFFER list. */
+			tmp = kmalloc(
+				sizeof(struct ION_BUFFER_LIST), GFP_KERNEL);
+			if (tmp == NULL) {
+				LOG_NOTICE("alloc Ion buf list fail, memID(%d)\n",
+					IonNode.memID);
+				Ret = -EFAULT;
+				break;
+			}
+			tmp->attach = mmu.attach;
+			tmp->dmaBuf = mmu.dmaBuf;
+			tmp->sgt = mmu.sgt;
+			tmp->dmaAddr = IonNode.dma_pa;
+			tmp->memID = IonNode.memID;
+			if (!bMapped)
+				tmp->refCnt = 1;
+			else
+				tmp->refCnt = refCnt;
+
+			strncpy(tmp->username, IonNode.username, strlen(IonNode.username));
+			tmp->username[strlen(IonNode.username)] = '\0';
+
+			mutex_lock(&cam_mem_ion_mutex);
+			list_add(&(tmp->list), &(g_ion_buf_list.list));
+			LOG_NOTICE("Add: memID(%d); pa=(0x%lx); refCnt(%d); user(%s)\n",
+				tmp->memID,
+				tmp->dmaAddr,
+				tmp->refCnt,
+				tmp->username);
+
+			dumpIonBufferList(10, true);
+
+			mutex_unlock(&cam_mem_ion_mutex);
+
+			if (copy_to_user((void *)Param, &IonNode,
+				sizeof(struct CAM_MEM_DEV_ION_NODE_STRUCT)) != 0) {
+				LOG_NOTICE("CAM_MEM_ION_MAP_PA: copy to user fail\n");
+				Ret = -EFAULT;
+			}
+		} else {
+			LOG_NOTICE(
+				"CAM_MEM_ION_MAP_PA: copy_from_user failed\n");
+			Ret = -EFAULT;
+		}
+		break;
+	case CAM_MEM_ION_UNMAP_PA:
+		if (copy_from_user(&IonNode, (void *)Param,
+			sizeof(struct CAM_MEM_DEV_ION_NODE_STRUCT)) == 0) {
+			struct ION_BUFFER_LIST *tmp; /* for delete the mapped node */
+			struct list_head *pos, *q;
+			struct ION_BUFFER pIonBuf = {NULL, NULL, NULL, 0};
+			bool foundFD = false;
+			unsigned int refCnt = 0;
+
+			if (IonNode.memID <= 0) {
+				LOG_NOTICE("CAM_MEM_ION_UNMAP_PA: invalid memID(%d)\n",
+					IonNode.memID);
+				Ret = -EFAULT;
+				break;
+			}
+			mutex_lock(&cam_mem_ion_mutex);
+			if (list_empty(&g_ion_buf_list.list)) {
+				LOG_NOTICE("CAM_MEM_ION_UNMAP_PA: fail. list is empty. memID(%d)\n",
+					IonNode.memID);
+				Ret = -EFAULT;
+				mutex_unlock(&cam_mem_ion_mutex);
+				break;
+			}
+
+			/* unmap and delete the node, if find the fd. */
+			list_for_each_safe(pos, q, &g_ion_buf_list.list) {
+				tmp = list_entry(pos, struct ION_BUFFER_LIST, list);
+				if (tmp->memID != IonNode.memID)
+					continue;
+
+				foundFD = true;
+
+				LOG_NOTICE("Del: memID(%d): pa=(0x%lx); refCnt(%d); (%s)\n",
+					tmp->memID, tmp->dmaAddr,  tmp->refCnt,
+					tmp->username);
+
+				refCnt = tmp->refCnt - 1;
+				pIonBuf.dmaBuf = tmp->dmaBuf;
+				pIonBuf.attach = tmp->attach;
+				pIonBuf.sgt = tmp->sgt;
+
+				cam_mem_mmu_put_dma_buffer(&pIonBuf);
+				IonNode.dma_pa = 0;
+
+				/* delete a mapped node in the list. */
+				list_del(pos);
+				kfree(tmp);
+
+				break;
+			}
+
+			if (!foundFD) {
+				LOG_NOTICE("Warning: unmap: memID(%d); PA(0x%lx);"
+					" (%s) not found.\n",
+					IonNode.memID, IonNode.dma_pa,
+					IonNode.username);
+				Ret = -EFAULT;
+				mutex_unlock(&cam_mem_ion_mutex);
+				break;
+			}
+
+			/* If refCnt is still > 0, update the refCnt with the smae fd. */
+			if (refCnt > 0) {
+				struct list_head *pos2;
+				struct ION_BUFFER_LIST *entry;
+
+				list_for_each(pos2, &g_ion_buf_list.list) {
+					entry = list_entry(pos2, struct ION_BUFFER_LIST, list);
+					if (entry->memID != IonNode.memID)
+						continue;
+					entry->refCnt--;
+					LOG_NOTICE("unamp: update refCnt(%d/%d) is still > 0\n",
+						refCnt, entry->refCnt);
+				}
+			}
+
+			dumpIonBufferList(10, true);
+
+			mutex_unlock(&cam_mem_ion_mutex);
+		} else {
+			LOG_NOTICE("CAM_MEM_ION_UNMAP_PA: copy_from_user failed\n");
+			Ret = -EFAULT;
+		}
+		break;
+
+	case CAM_MEM_ION_GET_PA:
+		if (copy_from_user(&IonNode, (void *)Param,
+			sizeof(struct CAM_MEM_DEV_ION_NODE_STRUCT)) == 0) {
+			struct list_head *pos;
+			struct ION_BUFFER_LIST *entry;
+			bool bMapped = false;
+
+			if (IonNode.memID <= 0) {
+				LOG_NOTICE(
+					"CAM_MEM_ION_GET_PA: invalid ion fd(%d)\n",
+					IonNode.memID);
+				Ret = -EFAULT;
+				break;
+			}
+			LOG_NOTICE("CAM_MEM_ION_GET_PA: IonNode.memID(%d)\n",
+				IonNode.memID);
+			mutex_lock(&cam_mem_ion_mutex);
+
+			if (list_empty(&g_ion_buf_list.list)) {
+				LOG_NOTICE(
+					"CAM_MEM_ION_GET_PA: no mapped PA for memID(%d)\n",
+					IonNode.memID);
+				mutex_unlock(&cam_mem_ion_mutex);
+				break;
+			}
+
+			list_for_each(pos, &g_ion_buf_list.list) {
+				entry = list_entry(pos, struct ION_BUFFER_LIST, list);
+				if (entry->memID == IonNode.memID) {
+					IonNode.dma_pa = entry->dmaAddr;
+					bMapped = true;
+					break;
+				}
+			}
+
+			if (!bMapped) {
+				IonNode.dma_pa = 0;
+				LOG_NOTICE("GET_PA: never mapped for memID(%d),name(%s)\n",
+					IonNode.memID, IonNode.username);
+			} else
+				LOG_NOTICE("GET_PA: memID(%d) get pa(0x%lx), name(%s)\n",
+					IonNode.memID, IonNode.dma_pa, IonNode.username);
+
+			mutex_unlock(&cam_mem_ion_mutex);
+
+			if (copy_to_user((void *)Param, &IonNode,
+				sizeof(struct CAM_MEM_DEV_ION_NODE_STRUCT)) != 0) {
+				LOG_NOTICE("copy to user fail\n");
+				Ret = -EFAULT;
+			}
+		} else {
+			LOG_NOTICE(
+				"[CAM_MEM_ION_GET_PA]copy_from_user failed\n");
+			Ret = -EFAULT;
+		}
+		break;
+
+	default:
+		LOG_NOTICE("Unknown Cmd(%d)\n", Cmd);
+		Ret = -EPERM;
+		break;
+	}
+
+	if (Ret != 0)
+		LOG_NOTICE(
+			"Fail, Cmd(%d), Pid(%d), (process, pid, tgid)=(%s, %d, %d)\n",
+			Cmd, pUserInfo->Pid, current->comm, current->pid,
+			current->tgid);
+	/*  */
+	return Ret;
+}
+
+
+/*******************************************************************************
+ *
+ ******************************************************************************/
+static dev_t CamMemDevNo;
+static struct cdev *pCamMemCharDrv;
+static struct class *pCamMemClass;
+
+static const struct file_operations CamMemFileOper = {
+	.owner = THIS_MODULE,
+	.open = cam_mem_open,
+	.release = cam_mem_release,
+	.unlocked_ioctl = cam_mem_ioctl,
+};
+
+/*******************************************************************************
+ *
+ ******************************************************************************/
+static inline void cam_mem_UnregCharDev(void)
+{
+	LOG_NOTICE("+\n");
+
+	/* Release char driver */
+	if (pCamMemCharDrv != NULL) {
+		cdev_del(pCamMemCharDrv);
+		pCamMemCharDrv = NULL;
+	}
+
+	unregister_chrdev_region(CamMemDevNo, 1);
+}
+
+/*******************************************************************************
+ *
+ ******************************************************************************/
+static inline int cam_mem_RegCharDev(void)
+{
+	int Ret = 0;
+
+	/*  */
+	LOG_NOTICE("+\n");
+	/*  */
+	Ret = alloc_chrdev_region(&CamMemDevNo, 0, 1, CAM_MEM_DEV_NAME);
+	if ((Ret) < 0) {
+		LOG_NOTICE("alloc_chrdev_region failed, %d\n", Ret);
+		return Ret;
+	}
+	/* Allocate driver */
+	pCamMemCharDrv = cdev_alloc();
+	if (pCamMemCharDrv == NULL) {
+		LOG_NOTICE("cdev_alloc failed\n");
+		Ret = -ENOMEM;
+		goto EXIT;
+	}
+	/* Attatch file operation. */
+	cdev_init(pCamMemCharDrv, &CamMemFileOper);
+	/*  */
+	pCamMemCharDrv->owner = THIS_MODULE;
+	/* Add to system */
+	Ret = cdev_add(pCamMemCharDrv, CamMemDevNo, 1);
+	if ((Ret) < 0) {
+		LOG_NOTICE("Attatch file operation failed, %d\n", Ret);
+		goto EXIT;
+	}
+/*  */
+EXIT:
+	if (Ret < 0)
+		cam_mem_UnregCharDev();
+
+	LOG_NOTICE("-\n");
+	return Ret;
+}
+
+/*******************************************************************************
+ *
+ ******************************************************************************/
+/*
+ * Before common kernel 5.4 iommu's device link ready.
+ * we need to use SMI API to power on bus directly.
+ */
+static void CamMem_get_larb(struct platform_device *pDev)
+{
+	struct device_node *node;
+	struct platform_device *larb_pdev;
+	unsigned int larb_id = 0;
+	int i = 0;
+
+
+	for (i = 0; i < LARB_NUM; i++) {
+		node = of_parse_phandle(pDev->dev.of_node, "mediatek,larbs", i);
+
+		if (!node) {
+			LOG_NOTICE("%s: no mediatek,larbs found\n",
+				pDev->dev.of_node->name);
+			return;
+		}
+		larb_pdev = of_find_device_by_node(node);
+
+		if (of_property_read_u32(node, "mediatek,larb-id", &larb_id))
+			LOG_NOTICE("Error: get larb id from DTS fail!!\n");
+		else
+			LOG_NOTICE("%s gets larb_id=%d\n",
+				pDev->dev.of_node->name, larb_id);
+
+		of_node_put(node);
+		if (!larb_pdev) {
+			LOG_NOTICE("%s: no mediatek,larb device found\n",
+				pDev->dev.of_node->name);
+			return;
+		}
+
+		cam_mem_dev.larbs[i] = &larb_pdev->dev;
+
+		LOG_NOTICE("%s: get %s\n", pDev->dev.of_node->name,
+			larb_pdev->dev.of_node->name);
+	}
+}
+
+/*******************************************************************************
+ *
+ ******************************************************************************/
+static int cam_mem_buf_list_read(struct seq_file *m, void *v)
+{
+	struct ION_BUFFER_LIST *entry;
+	struct list_head *pos;
+	int i = 0;
+
+	mutex_lock(&cam_mem_ion_mutex);
+
+	if (list_empty(&g_ion_buf_list.list)) {
+		seq_puts(m, "cam_mem buf list is empty\n");
+		mutex_unlock(&cam_mem_ion_mutex);
+		return 0;
+	}
+
+	seq_puts(m, " idx memID        pa     aligned-size   refCnt     user\n");
+	seq_puts(m, "===================================================================\n");
+
+	list_for_each(pos, &g_ion_buf_list.list) {
+		entry = list_entry(pos, struct ION_BUFFER_LIST, list);
+
+		seq_printf(m, "#%03d   %3d   0x%09lx  0x%06x      %2d   %s\n", i,
+			entry->memID,
+			entry->dmaAddr, entry->dmaBuf->size,
+			entry->refCnt, entry->username);
+			i++;
+	}
+
+	mutex_unlock(&cam_mem_ion_mutex);
+
+	return 0;
+};
+
+static int proc_open_cam_mem_buf_list(struct inode *inode, struct file *file)
+{
+	return single_open(file, cam_mem_buf_list_read, NULL);
+};
+
+static const struct file_operations fcam_mem_proc_fops = {
+	.owner = THIS_MODULE,
+	.open = proc_open_cam_mem_buf_list,
+	.read = seq_read,
+};
+
+/*******************************************************************************
+ *
+ ******************************************************************************/
+static int cam_mem_probe(struct platform_device *pDev)
+{
+	int Ret = 0;
+	struct device *dev = NULL;
+
+	LOG_NOTICE("+\n");
+
+	if (pDev == NULL) {
+		LOG_NOTICE("Error: pDev is NULL\n");
+		return -ENXIO;
+	}
+
+	atomic_inc(&G_u4DevNodeCt);
+
+	cam_mem_dev.dev = &pDev->dev;
+
+	Ret = cam_mem_RegCharDev();
+	if ((Ret)) {
+		LOG_NOTICE("Error: register char failed");
+		return Ret;
+	}
+
+	CamMem_get_larb(pDev);
+
+	if (dma_set_mask_and_coherent(&pDev->dev, DMA_BIT_MASK(34)))
+		LOG_NOTICE("%s: No suitable DMA available\n",
+			pDev->dev.of_node->name);
+
+	/* Create class register */
+	pCamMemClass = class_create(THIS_MODULE, "CamMemDrv");
+	if (IS_ERR(pCamMemClass)) {
+		Ret = PTR_ERR(pCamMemClass);
+		LOG_NOTICE("Unable to create class, err = %d\n", Ret);
+		goto EXIT;
+	}
+	dev = device_create(pCamMemClass, NULL, CamMemDevNo, NULL,
+			    CAM_MEM_DEV_NAME);
+
+	if (IS_ERR(dev)) {
+		Ret = PTR_ERR(dev);
+		LOG_NOTICE(
+			"Error: Failed to create device: /dev/%s, err = %d\n",
+			CAM_MEM_DEV_NAME, Ret);
+
+		goto EXIT;
+	}
+
+	spin_lock_init(&(CamMemInfo.SpinLock_CamMemRef));
+	spin_lock_init(&(CamMemInfo.SpinLock_Larb));
+
+	proc_create("driver/cam_mem_buf_list", 0000, NULL, &fcam_mem_proc_fops);
+
+EXIT:
+	if (Ret < 0)
+		cam_mem_UnregCharDev();
+
+	LOG_NOTICE("-\n");
+	return Ret;
+}
+
+
+/*******************************************************************************
+ * Called when the device is being detached from the driver
+ ******************************************************************************/
+static int cam_mem_remove(struct platform_device *pDev)
+{
+	LOG_NOTICE("+\n");
+
+	/* unregister char driver. */
+	cam_mem_UnregCharDev();
+
+	/*  */
+	device_destroy(pCamMemClass, CamMemDevNo);
+	/*  */
+	class_destroy(pCamMemClass);
+	pCamMemClass = NULL;
+
+	remove_proc_entry("driver/cam_mem_buf_list", NULL);
+
+	return 0;
+}
+
+/*******************************************************************************
+ *
+ ******************************************************************************/
+static int cam_mem_suspend(struct platform_device *pDev, pm_message_t Mesg)
+{
+	int ret;
+	char moduleName[128];
+
+	unsigned int loopCnt;
+
+	ret = 0;
+
+	strncpy(moduleName, pDev->dev.of_node->name, 127);
+
+	/* update device node count */
+	atomic_dec(&G_u4DevNodeCt);
+
+	/* Check larb counter instead of check CamMemInfo.UserCount
+	 *  for ensuring current larbs are on or off
+	 */
+	spin_lock(&(CamMemInfo.SpinLock_Larb));
+	if (!G_u4EnableLarbCount) {
+		spin_unlock(&(CamMemInfo.SpinLock_Larb));
+
+		if (CamMemInfo.UserCount != 0) {
+			LOG_INF("%s - X. UserCount=%d,Cnt:%d,devct:%d\n",
+				moduleName, CamMemInfo.UserCount,
+				G_u4EnableLarbCount,
+				atomic_read(&G_u4DevNodeCt));
+		}
+
+		return ret;
+	}
+	spin_unlock(&(CamMemInfo.SpinLock_Larb));
+
+	/* last dev node will disable larb "G_u4EnableLarbCount" times */
+	if (!atomic_read(&G_u4DevNodeCt)) {
+		spin_lock(&(CamMemInfo.SpinLock_Larb));
+		loopCnt = G_u4EnableLarbCount;
+		spin_unlock(&(CamMemInfo.SpinLock_Larb));
+
+		LOG_INF("%s - X. last dev node,disable larb %d time\n",
+			moduleName, loopCnt);
+		while (loopCnt > 0) {
+			CamMem_EnableLarb(false);
+			loopCnt--;
+		}
+	}
+
+	return 0;
+}
+
+/*******************************************************************************
+ *
+ ******************************************************************************/
+static int cam_mem_resume(struct platform_device *pDev)
+{
+	int ret;
+	char moduleName[128];
+
+	ret = 0;
+
+	strncpy(moduleName, pDev->dev.of_node->name, 127);
+
+	/* update device node count */
+	atomic_inc(&G_u4DevNodeCt);
+
+	if (CamMemInfo.UserCount == 0) {
+		LOG_DBG("- X. UserCount=0\n");
+
+		return 0;
+	}
+
+	CamMem_EnableLarb(true);
+
+	LOG_INF("%s_resume,EnableLarbCount:%d,devct:%d\n", moduleName,
+		G_u4EnableLarbCount,
+		atomic_read(&G_u4DevNodeCt));
+
+	return 0;
+}
+
+/*******************************************************************************
+ *
+ ******************************************************************************/
+static const struct of_device_id cam_mem_of_ids[] = {
+	{
+		.compatible = "mediatek,cam_mem",
+	}
+};
+
+static struct platform_driver CamMemDriver = {
+	.probe = cam_mem_probe,
+	.remove = cam_mem_remove,
+	.suspend = cam_mem_suspend,
+	.resume = cam_mem_resume,
+	.driver = {
+		.name = CAM_MEM_DEV_NAME,
+		.owner = THIS_MODULE,
+#ifdef CONFIG_OF
+		.of_match_table = cam_mem_of_ids,
+#endif
+	}
+};
+
+/*******************************************************************************
+ *
+ ******************************************************************************/
+static int __init cam_mem_Init(void)
+{
+	int Ret = 0;
+
+	LOG_NOTICE("+\n");
+
+	mutex_init(&open_cam_mem_mutex);
+
+	atomic_set(&G_u4DevNodeCt, 0);
+
+	Ret = platform_driver_register(&CamMemDriver);
+	if ((Ret) < 0) {
+		LOG_NOTICE("platform_driver_register fail");
+		return Ret;
+	}
+
+	mutex_init(&cam_mem_ion_mutex);
+
+	INIT_LIST_HEAD(&g_ion_buf_list.list);
+
+	LOG_NOTICE("-\n");
+	return Ret;
+}
+
+/*******************************************************************************
+ *
+ ******************************************************************************/
+static void __exit cam_mem_Exit(void)
+{
+	LOG_NOTICE("+\n");
+	/*  */
+	platform_driver_unregister(&CamMemDriver);
+
+	LOG_NOTICE("-\n");
+}
+
+
+module_init(cam_mem_Init);
+module_exit(cam_mem_Exit);
+MODULE_DESCRIPTION("Camera Mem driver");
+MODULE_AUTHOR("SW7");
+MODULE_LICENSE("GPL");
