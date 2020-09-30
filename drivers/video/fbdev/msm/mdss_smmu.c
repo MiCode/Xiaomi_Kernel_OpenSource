@@ -873,6 +873,7 @@ int mdss_smmu_probe(struct platform_device *pdev)
 		mdss_smmu->handoff_pending = true;
 
 	mdss_smmu->base.dev = dev;
+	mdss_smmu->domain_attached = true;
 
 	iommu_set_fault_handler(mdss_smmu->domain,
 			mdss_smmu_fault_handler, mdss_smmu);
