@@ -48,7 +48,7 @@ EOT
 sed 's/ko$/mod/' $modlist |
 xargs -n1 sed -n -e '2{s/ /\n/g;/^$/!p;}' -- |
 cat - $ksym_wls |
-sed 's/^#.*//;s/^ *//;/[[abi_whitelist]]/g' |
+sed 's/^#.*//;s/^ *//;/[[abi_symbol_list]]/g' |
 sort -u |
 sed -e 's/\(.*\)/#define __KSYM_\1 1/' >> "$output_file"
 
@@ -62,7 +62,7 @@ if [ -n "$CONFIG_UNUSED_KSYMS_WHITELIST_ONLY" ] && [ -f "vmlinux" ] ; then
 	syms_from_vmlinux="$(mktemp)"
 
 	cat $ksym_wls |
-	sed 's/^#.*//;s/^ *//;/[[abi_whitelist]]/g' |
+	sed 's/^#.*//;s/^ *//;/[[abi_symbol_list]]/g' |
 	sort -u > "$syms_from_whitelist"
 
 	$NM --defined-only vmlinux |
