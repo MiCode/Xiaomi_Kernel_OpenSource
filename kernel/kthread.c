@@ -886,7 +886,9 @@ static void __kthread_queue_delayed_work(struct kthread_worker *worker,
 	struct timer_list *timer = &dwork->timer;
 	struct kthread_work *work = &dwork->work;
 
+#ifndef CONFIG_CFI_CLANG
 	WARN_ON_ONCE(timer->function != kthread_delayed_work_timer_fn);
+#endif
 
 	/*
 	 * If @delay is 0, queue @dwork->work immediately.  This is for
