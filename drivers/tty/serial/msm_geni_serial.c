@@ -1087,7 +1087,7 @@ static int msm_geni_serial_prep_dma_tx(struct uart_port *uport)
 		xmit_size = UART_XMIT_SIZE - xmit->tail;
 
 	if (!xmit_size)
-		return ret;
+		return -EPERM;
 
 	dump_ipc(msm_port->ipc_log_tx, "DMA Tx",
 		 (char *)&xmit->buf[xmit->tail], 0, xmit_size);
@@ -1217,7 +1217,11 @@ static void msm_geni_serial_start_tx(struct uart_port *uport)
 		if (msm_port->tx_dma)
 			goto check_flow_ctrl;
 
-		msm_geni_serial_prep_dma_tx(uport);
+		if (msm_geni_serial_prep_dma_tx(uport) == -EPERM) {
+			IPC_LOG_MSG(msm_port->ipc_log_tx, "%s: tx_en=0,\n",
+								__func__);
+			goto exit_start_tx;
+		}
 	}
 	return;
 check_flow_ctrl:
