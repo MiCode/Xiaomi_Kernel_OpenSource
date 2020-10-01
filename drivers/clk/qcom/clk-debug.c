@@ -501,7 +501,7 @@ static const struct file_operations list_rates_fops = {
 	.release	= seq_release,
 };
 
-static void clk_debug_print_hw(struct clk_hw *hw, struct seq_file *f)
+void clk_debug_print_hw(struct clk_hw *hw, struct seq_file *f)
 {
 	struct clk_regmap *rclk;
 
@@ -509,7 +509,7 @@ static void clk_debug_print_hw(struct clk_hw *hw, struct seq_file *f)
 		return;
 
 	clk_debug_print_hw(clk_hw_get_parent(hw), f);
-	seq_printf(f, "%s\n", clk_hw_get_name(hw));
+	clock_debug_output(f, "%s\n", clk_hw_get_name(hw));
 
 	if (clk_is_regmap_clk(hw)) {
 		rclk = to_clk_regmap(hw);
