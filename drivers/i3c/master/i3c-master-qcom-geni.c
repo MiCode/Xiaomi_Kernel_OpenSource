@@ -208,6 +208,8 @@ enum geni_i3c_err_code {
 #define IBI_SW_RESET_MIN_SLEEP 1000
 #define IBI_SW_RESET_MAX_SLEEP 2000
 
+#define MAX_I3C_SE		2
+
 enum i3c_trans_dir {
 	WRITE_TRANSACTION = 0,
 	READ_TRANSACTION = 1
@@ -327,6 +329,9 @@ struct geni_i3c_clk_fld {
 
 static void geni_i3c_enable_ibi_ctrl(struct geni_i3c_dev *gi3c, bool enable);
 static void geni_i3c_enable_ibi_irq(struct geni_i3c_dev *gi3c, bool enable);
+
+static struct geni_i3c_dev *i3c_geni_dev[MAX_I3C_SE];
+static int i3c_nos;
 
 static struct geni_i3c_dev*
 to_geni_i3c_master(struct i3c_master_controller *master)
@@ -1996,6 +2001,9 @@ static int geni_i3c_probe(struct platform_device *pdev)
 	if (!gi3c->ipcl)
 		dev_info(&pdev->dev, "Error creating IPC Log\n");
 
+	if (i3c_nos < MAX_I3C_SE)
+		i3c_geni_dev[i3c_nos++] = gi3c;
+
 	ret = i3c_geni_rsrcs_init(gi3c, pdev);
 	if (ret) {
 		GENI_SE_ERR(gi3c->ipcl, false, gi3c->se.dev,
@@ -2117,7 +2125,7 @@ cleanup_init:
 static int geni_i3c_remove(struct platform_device *pdev)
 {
 	struct geni_i3c_dev *gi3c = platform_get_drvdata(pdev);
-	int ret = 0;
+	int ret = 0, i;
 
 	//Disable hot-join, until next probe happens
 	geni_i3c_enable_hotjoin_irq(gi3c, false);
@@ -2143,6 +2151,11 @@ static int geni_i3c_remove(struct platform_device *pdev)
 	/* TBD : If we need debug for previous session, Don't delete logs */
 	if (gi3c->ipcl)
 		ipc_log_context_destroy(gi3c->ipcl);
+
+	for (i = 0; i < i3c_nos; i++)
+		i3c_geni_dev[i] = NULL;
+	i3c_nos = 0;
+
 	return ret;
 }
 
