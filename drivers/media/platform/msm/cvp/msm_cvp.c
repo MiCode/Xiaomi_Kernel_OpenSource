@@ -753,6 +753,10 @@ static void aggregate_power_update(struct msm_cvp_core *core,
 	unsigned long op_fdu_max[2] = {0}, op_od_max[2] = {0};
 	unsigned long op_mpu_max[2] = {0}, op_ica_max[2] = {0};
 	unsigned long op_fw_max[2] = {0}, bw_sum[2] = {0}, op_bw_max[2] = {0};
+	core->dyn_clk.sum_fps[HFI_HW_FDU] = 0;
+	core->dyn_clk.sum_fps[HFI_HW_MPU] = 0;
+	core->dyn_clk.sum_fps[HFI_HW_OD]  = 0;
+	core->dyn_clk.sum_fps[HFI_HW_ICA] = 0;
 
 	list_for_each_entry(inst, &core->instances, list) {
 		if (inst->state == MSM_CVP_CORE_INVALID ||
