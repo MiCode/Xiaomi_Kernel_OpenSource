@@ -396,7 +396,7 @@ static struct cpufreq_driver cpufreq_qcom_hw_driver = {
 static int qcom_cpufreq_hw_read_lut(struct platform_device *pdev,
 				    struct cpufreq_qcom *c, u32 max_cores)
 {
-	struct device *dev = &pdev->dev;
+	struct device *dev = &pdev->dev, *cpu_dev;
 	u32 data, src, lval, i, core_count, prev_cc, prev_freq, freq, volt;
 	unsigned long cpu;
 
@@ -406,6 +406,7 @@ static int qcom_cpufreq_hw_read_lut(struct platform_device *pdev,
 		return -ENOMEM;
 
 	cpu = cpumask_first(&c->related_cpus);
+	cpu_dev = get_cpu_device(cpu);
 
 	prev_cc = 0;
 
@@ -442,15 +443,14 @@ static int qcom_cpufreq_hw_read_lut(struct platform_device *pdev,
 		prev_cc = core_count;
 		prev_freq = freq;
 
-		if (get_cpu_device(cpu))
-			dev_pm_opp_add(get_cpu_device(cpu), freq * 1000, volt);
+		if (cpu_dev)
+			dev_pm_opp_add(cpu_dev, freq * 1000, volt);
 	}
 
 	c->table[i].frequency = CPUFREQ_TABLE_END;
 
-	if (get_cpu_device(cpu))
-		dev_pm_opp_set_sharing_cpus(get_cpu_device(cpu),
-						&c->related_cpus);
+	if (cpu_dev)
+		dev_pm_opp_set_sharing_cpus(cpu_dev, &c->related_cpus);
 
 	return 0;
 }
