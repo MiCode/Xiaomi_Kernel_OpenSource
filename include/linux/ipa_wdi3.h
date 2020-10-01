@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2018 - 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018 - 2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _IPA_WDI3_H_
@@ -204,10 +204,12 @@ struct ipa_wdi_conn_in_params {
  *				to WLAN driver
  * @tx_uc_db_pa: physical address of IPA uC doorbell for TX
  * @rx_uc_db_pa: physical address of IPA uC doorbell for RX
+ * @is_ddr_mapped: flag set to true if address is from DDR
  */
 struct ipa_wdi_conn_out_params {
 	phys_addr_t tx_uc_db_pa;
 	phys_addr_t rx_uc_db_pa;
+	bool is_ddr_mapped;
 };
 
 /**
