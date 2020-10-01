@@ -420,7 +420,7 @@ int hh_msgq_populate_cap_info(enum hh_msgq_label label, u64 cap_id,
 	int ret;
 
 	if (!hh_msgq_initialized)
-		return -EPROBE_DEFER;
+		return -EAGAIN;
 
 	if (label < 0 || label >= HH_MSGQ_LABEL_MAX) {
 		pr_err("%s: Invalid label passed\n", __func__);

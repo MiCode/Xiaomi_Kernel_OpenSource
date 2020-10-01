@@ -776,32 +776,35 @@ int hh_rm_populate_hyp_res(hh_vmid_t vmid)
 				res_entries[i].cap_id_low;
 		label = res_entries[i].resource_label;
 
-		/* Populate MessageQ & DBL's cap tables */
-		switch (res_entries[i].res_type) {
-		case HH_RM_RES_TYPE_MQ_TX:
-			ret = hh_msgq_populate_cap_info(label, cap_id,
+		/* Populate MessageQ, DBL and vCPUs cap tables */
+		do {
+			switch (res_entries[i].res_type) {
+			case HH_RM_RES_TYPE_MQ_TX:
+				ret = hh_msgq_populate_cap_info(label, cap_id,
 					HH_MSGQ_DIRECTION_TX, linux_irq);
-			break;
-		case HH_RM_RES_TYPE_MQ_RX:
-			ret = hh_msgq_populate_cap_info(label, cap_id,
+				break;
+			case HH_RM_RES_TYPE_MQ_RX:
+				ret = hh_msgq_populate_cap_info(label, cap_id,
 					HH_MSGQ_DIRECTION_RX, linux_irq);
-			break;
-		case HH_RM_RES_TYPE_VCPU:
-			ret = hh_vcpu_populate_affinity_info(label, cap_id);
-			break;
-		case HH_RM_RES_TYPE_DB_TX:
-			ret = hh_dbl_populate_cap_info(label, cap_id,
+				break;
+			case HH_RM_RES_TYPE_VCPU:
+				ret = hh_vcpu_populate_affinity_info(label,
+									cap_id);
+				break;
+			case HH_RM_RES_TYPE_DB_TX:
+				ret = hh_dbl_populate_cap_info(label, cap_id,
 					HH_MSGQ_DIRECTION_TX, linux_irq);
-			break;
-		case HH_RM_RES_TYPE_DB_RX:
-			ret = hh_dbl_populate_cap_info(label, cap_id,
+				break;
+			case HH_RM_RES_TYPE_DB_RX:
+				ret = hh_dbl_populate_cap_info(label, cap_id,
 					HH_MSGQ_DIRECTION_RX, linux_irq);
-			break;
-		default:
-			pr_err("%s: Unknown resource type: %u\n",
-				__func__, res_entries[i].res_type);
-			ret = -EINVAL;
-		}
+				break;
+			default:
+				pr_err("%s: Unknown resource type: %u\n",
+					__func__, res_entries[i].res_type);
+				ret = -EINVAL;
+			}
+		} while (ret == -EAGAIN);
 
 		if (ret < 0)
 			goto out;
