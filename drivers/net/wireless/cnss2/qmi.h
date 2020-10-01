@@ -31,6 +31,7 @@ struct cnss_qmi_event_qdss_trace_save_data {
 #ifdef CONFIG_CNSS2_QMI
 #include "coexistence_service_v01.h"
 #include "ip_multimedia_subsystem_private_service_v01.h"
+#include "device_management_service_v01.h"
 
 int cnss_qmi_init(struct cnss_plat_data *plat_priv);
 void cnss_qmi_deinit(struct cnss_plat_data *plat_priv);
@@ -69,6 +70,13 @@ int cnss_register_ims_service(struct cnss_plat_data *plat_priv);
 void cnss_unregister_ims_service(struct cnss_plat_data *plat_priv);
 int cnss_wlfw_send_pcie_gen_speed_sync(struct cnss_plat_data *plat_priv);
 void cnss_ignore_qmi_failure(bool ignore);
+int cnss_qmi_get_dms_mac(struct cnss_plat_data *plat_priv);
+int cnss_wlfw_wlan_mac_req_send_sync(struct cnss_plat_data *plat_priv,
+				     u8 *mac, u32 mac_len);
+int cnss_dms_server_arrive(struct cnss_plat_data *plat_priv, void *data);
+int cnss_dms_server_exit(struct cnss_plat_data *plat_priv);
+int cnss_dms_init(struct cnss_plat_data *plat_priv);
+void cnss_dms_deinit(struct cnss_plat_data *plat_priv);
 #else
 #define QMI_WLFW_TIMEOUT_MS		10000
 
@@ -222,6 +230,34 @@ void cnss_unregister_ims_service(struct cnss_plat_data *plat_priv) {}
 static inline
 int cnss_wlfw_send_pcie_gen_speed_sync(struct cnss_plat_data *plat_priv) {}
 void cnss_ignore_qmi_failure(bool ignore) {};
+static inline int cnss_qmi_get_dms_mac(struct cnss_plat_data *plat_priv)
+{
+	return 0;
+}
+
+int cnss_wlfw_wlan_mac_req_send_sync(struct cnss_plat_data *plat_priv,
+				     u8 *mac, u32 mac_len)
+{
+	return 0;
+}
+
+static inline
+int cnss_dms_server_arrive(struct cnss_plat_data *plat_priv, void *data)
+{
+	return 0;
+}
+
+static inline int cnss_dms_server_exit(struct cnss_plat_data *plat_priv)
+{
+	return 0;
+}
+
+static inline int cnss_dms_init(struct cnss_plat_data *plat_priv)
+{
+	return 0;
+}
+
+static inline void cnss_dms_deinit(struct cnss_plat_data *plat_priv) {}
 #endif /* CONFIG_CNSS2_QMI */
 
 #endif /* _CNSS_QMI_H */
