@@ -10,9 +10,6 @@
 #include "adreno_perfcounter.h"
 #include "adreno_pm4types.h"
 
-/* Bit flag for RBMM_PERFCTR_CTL */
-#define RBBM_PERFCTR_CTL_ENABLE		0x00000001
-
 #define VBIF2_PERF_CNT_SEL_MASK 0x7F
 /* offset of clear register from select register */
 #define VBIF2_PERF_CLR_REG_SEL_OFF 8
@@ -823,20 +820,26 @@ static int _perfcounter_enable_default(struct adreno_device *adreno_dev,
  * Return 0 on success else error code
  */
 static int adreno_perfcounter_enable(struct adreno_device *adreno_dev,
-	unsigned int group, unsigned int counter, unsigned int countable)
+	unsigned int groupid, unsigned int counter, unsigned int countable)
 {
 	struct adreno_perfcounters *counters = ADRENO_PERFCOUNTERS(adreno_dev);
+	struct adreno_perfcount_group *group;
 
 	if (counters == NULL)
 		return -EINVAL;
 
-	if (group >= counters->group_count)
+	if (groupid >= counters->group_count)
 		return -EINVAL;
 
-	if (counter >= counters->groups[group].reg_count)
+	group = &counters->groups[groupid];
+
+	if (counter >= group->reg_count)
 		return -EINVAL;
 
-	switch (group) {
+	if (group->enable)
+		return group->enable(adreno_dev, group, counter, countable);
+
+	switch (groupid) {
 	case KGSL_PERFCOUNTER_GROUP_ALWAYSON:
 		/* alwayson counter is global, so init value is 0 */
 		break;
@@ -858,12 +861,12 @@ static int adreno_perfcounter_enable(struct adreno_device *adreno_dev,
 	case KGSL_PERFCOUNTER_GROUP_CCU_PWR:
 	case KGSL_PERFCOUNTER_GROUP_UCHE_PWR:
 	case KGSL_PERFCOUNTER_GROUP_CP_PWR:
-		_power_counter_enable_default(adreno_dev, counters, group,
+		_power_counter_enable_default(adreno_dev, counters, groupid,
 						counter, countable);
 		break;
 	case KGSL_PERFCOUNTER_GROUP_GPMU_PWR:
-		_power_counter_enable_gpmu(adreno_dev, counters, group, counter,
-				countable);
+		_power_counter_enable_gpmu(adreno_dev, counters, groupid,
+				counter, countable);
 		break;
 	case KGSL_PERFCOUNTER_GROUP_ALWAYSON_PWR:
 		_power_counter_enable_alwayson(adreno_dev, counters);
@@ -875,8 +878,8 @@ static int adreno_perfcounter_enable(struct adreno_device *adreno_dev,
 				return -EINVAL;
 		/* Fall through */
 	default:
-		return _perfcounter_enable_default(adreno_dev, counters, group,
-				counter, countable);
+		return _perfcounter_enable_default(adreno_dev, counters,
+				groupid, counter, countable);
 	}
 
 	return 0;
@@ -890,39 +893,6 @@ static uint64_t _perfcounter_read_alwayson(struct adreno_device *adreno_dev,
 	return gpudev->read_alwayson(adreno_dev) + group->regs[counter].value;
 }
 
-static uint64_t _perfcounter_read_pwr(struct adreno_device *adreno_dev,
-		struct adreno_perfcount_group *group, unsigned int counter)
-{
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct adreno_perfcount_register *reg;
-	unsigned int in = 0, out, lo = 0, hi = 0;
-	unsigned int enable_bit;
-
-	reg = &group->regs[counter];
-
-	if (adreno_is_a3xx(adreno_dev)) {
-		/* On A3XX we need to freeze the counter so we can read it */
-		if (counter == 0)
-			enable_bit = 0x00010000;
-		else
-			enable_bit = 0x00020000;
-
-		/* freeze counter */
-		adreno_readreg(adreno_dev, ADRENO_REG_RBBM_RBBM_CTL, &in);
-		out = (in & ~enable_bit);
-		adreno_writereg(adreno_dev, ADRENO_REG_RBBM_RBBM_CTL, out);
-	}
-
-	kgsl_regread(device, reg->offset, &lo);
-	kgsl_regread(device, reg->offset_hi, &hi);
-
-	/* restore the counter control value */
-	if (adreno_is_a3xx(adreno_dev))
-		adreno_writereg(adreno_dev, ADRENO_REG_RBBM_RBBM_CTL, in);
-
-	return REG_64BIT_VAL(hi, lo, reg->value);
-}
-
 static uint64_t _perfcounter_read_vbif(struct adreno_device *adreno_dev,
 		struct adreno_perfcount_group *group, unsigned int counter)
 {
@@ -932,18 +902,9 @@ static uint64_t _perfcounter_read_vbif(struct adreno_device *adreno_dev,
 
 	reg = &group->regs[counter];
 
-	/* freeze counter */
-	if (adreno_is_a3xx(adreno_dev))
-		kgsl_regwrite(device, reg->select - VBIF2_PERF_EN_REG_SEL_OFF,
-							0);
 
 	kgsl_regread(device, reg->offset, &lo);
 	kgsl_regread(device, reg->offset_hi, &hi);
-
-	/* un-freeze counter */
-	if (adreno_is_a3xx(adreno_dev))
-		kgsl_regwrite(device, reg->select - VBIF2_PERF_EN_REG_SEL_OFF,
-							1);
 
 	return REG_64BIT_VAL(hi, lo, reg->value);
 }
@@ -958,15 +919,8 @@ static uint64_t _perfcounter_read_vbif_pwr(struct adreno_device *adreno_dev,
 	reg = &group->regs[counter];
 
 	/* freeze counter */
-	if (adreno_is_a3xx(adreno_dev))
-		kgsl_regwrite(device, reg->select, 0);
-
 	kgsl_regread(device, reg->offset, &lo);
 	kgsl_regread(device, reg->offset_hi, &hi);
-
-	/* un-freeze counter */
-	if (adreno_is_a3xx(adreno_dev))
-		kgsl_regwrite(device, reg->select, 1);
 
 	return REG_64BIT_VAL(hi, lo, reg->value);
 }
@@ -995,24 +949,12 @@ static uint64_t _perfcounter_read_default(struct adreno_device *adreno_dev,
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_perfcount_register *reg;
 	unsigned int lo = 0, hi = 0;
-	unsigned int in = 0, out;
 
 	reg = &group->regs[counter];
-
-	/* Freeze the counter */
-	if (adreno_is_a3xx(adreno_dev)) {
-		adreno_readreg(adreno_dev, ADRENO_REG_RBBM_PERFCTR_CTL, &in);
-		out = in & ~RBBM_PERFCTR_CTL_ENABLE;
-		adreno_writereg(adreno_dev, ADRENO_REG_RBBM_PERFCTR_CTL, out);
-	}
 
 	/* Read the values */
 	kgsl_regread(device, reg->offset, &lo);
 	kgsl_regread(device, reg->offset_hi, &hi);
-
-	/* Re-Enable the counter */
-	if (adreno_is_a3xx(adreno_dev))
-		adreno_writereg(adreno_dev, ADRENO_REG_RBBM_PERFCTR_CTL, in);
 
 	return REG_64BIT_VAL(hi, lo, 0);
 }
@@ -1044,6 +986,9 @@ uint64_t adreno_perfcounter_read(struct adreno_device *adreno_dev,
 	if (counter >= group->reg_count)
 		return 0;
 
+	if (group->read)
+		return group->read(adreno_dev, group, counter);
+
 	switch (groupid) {
 	case KGSL_PERFCOUNTER_GROUP_ALWAYSON:
 		return _perfcounter_read_alwayson(adreno_dev, group, counter);
@@ -1051,8 +996,6 @@ uint64_t adreno_perfcounter_read(struct adreno_device *adreno_dev,
 		return _perfcounter_read_vbif_pwr(adreno_dev, group, counter);
 	case KGSL_PERFCOUNTER_GROUP_VBIF:
 		return _perfcounter_read_vbif(adreno_dev, group, counter);
-	case KGSL_PERFCOUNTER_GROUP_PWR:
-		return _perfcounter_read_pwr(adreno_dev, group, counter);
 	case KGSL_PERFCOUNTER_GROUP_SP_PWR:
 	case KGSL_PERFCOUNTER_GROUP_TP_PWR:
 	case KGSL_PERFCOUNTER_GROUP_RB_PWR:

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2008-2015,2017,2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2015,2017,2019-2020 The Linux Foundation. All rights reserved.
  */
 #ifndef __ADRENO_PERFCOUNTER_H
 #define __ADRENO_PERFCOUNTER_H
@@ -48,6 +48,11 @@ struct adreno_perfcount_group {
 	unsigned int reg_count;
 	const char *name;
 	unsigned long flags;
+	int (*enable)(struct adreno_device *adreno_dev,
+		struct adreno_perfcount_group *group, unsigned int counter,
+		unsigned int countable);
+	u64 (*read)(struct adreno_device *adreno_dev,
+		struct adreno_perfcount_group *group, unsigned int counter);
 };
 
 /*
@@ -77,12 +82,14 @@ struct adreno_perfcounters {
 	unsigned int group_count;
 };
 
-#define ADRENO_PERFCOUNTER_GROUP_FLAGS(core, offset, name, flags) \
+#define ADRENO_PERFCOUNTER_GROUP_FLAGS(core, offset, name, flags, \
+		enable, read) \
 	[KGSL_PERFCOUNTER_GROUP_##offset] = { core##_perfcounters_##name, \
-	ARRAY_SIZE(core##_perfcounters_##name), __stringify(name), flags }
+	ARRAY_SIZE(core##_perfcounters_##name), __stringify(name), flags, \
+	enable, read }
 
-#define ADRENO_PERFCOUNTER_GROUP(core, offset, name) \
-	ADRENO_PERFCOUNTER_GROUP_FLAGS(core, offset, name, 0)
+#define ADRENO_PERFCOUNTER_GROUP(core, offset, name, enable, read) \
+	ADRENO_PERFCOUNTER_GROUP_FLAGS(core, offset, name, 0, enable, read)
 
 #define ADRENO_POWER_COUNTER_GROUP(core, offset, name) \
 	[KGSL_PERFCOUNTER_GROUP_##offset##_PWR] = { core##_pwrcounters_##name, \
