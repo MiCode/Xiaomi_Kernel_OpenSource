@@ -6,7 +6,7 @@
 #define _MSM_DMA_HEAP_H
 
 #include <linux/bits.h>
-#include <linux/msm_dma_heap_names.h>
+#include <linux/qcom_dma_heap_names.h>
 #include <linux/err.h>
 
 /* Heap flags */

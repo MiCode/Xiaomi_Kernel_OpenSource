@@ -18,7 +18,7 @@
 #define QCOM_QSEECOM_HEAP		"qcom,qseecom-heap"
 #define QCOM_QSEECOM_TA_HEAP		"qcom,qseecom-ta-heap"
 #define QCOM_SECURE_DISPLAY_HEAP	"qcom,secure-display-heap"
-/* TUI? */
+#define QCOM_TUI_CARVEOUT_HEAP		"qcom,tui-carveout-heap"
 #define QCOM_DISPLAY_HEAP		"qcom,display-heap"
 #define QCOM_AUDIO_ML_HEAP		"qcom,audio-ml-heap"
 
