@@ -533,6 +533,18 @@ config KPROBE_EVENTS_ON_NOTRACE
 
 	  If unsure, say N.
 
+config KPROBES_DEBUG
+	bool "support bug on kprobe events"
+	depends on KPROBE_EVENTS
+	select HIST_TRIGGERS
+	default n
+	help
+	  This exports the required function and structures to
+	  allow the kprobe module to search for and use synthetic
+	  events which will aid in debugging.
+
+	  If unsure, say N.
+
 config UPROBE_EVENTS
 	bool "Enable uprobes-based dynamic events"
 	depends on ARCH_SUPPORTS_UPROBES
