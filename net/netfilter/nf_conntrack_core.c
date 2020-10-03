@@ -64,6 +64,12 @@ EXPORT_SYMBOL_GPL(nf_conntrack_expect_lock);
 struct hlist_nulls_head *nf_conntrack_hash __read_mostly;
 EXPORT_SYMBOL_GPL(nf_conntrack_hash);
 
+bool (*nattype_refresh_timer)
+	(unsigned long nattype,
+	unsigned long timeout_value)
+	__rcu __read_mostly;
+EXPORT_SYMBOL(nattype_refresh_timer);
+
 struct conntrack_gc_work {
 	struct delayed_work	dwork;
 	u32			last_bucket;
@@ -1387,6 +1393,9 @@ __nf_conntrack_alloc(struct net *net,
 
 	nf_ct_zone_add(ct, zone);
 
+#if defined(CONFIG_IP_NF_TARGET_NATTYPE_MODULE)
+	ct->nattype_entry = 0;
+#endif
 	/* Because we use RCU lookups, we set ct_general.use to zero before
 	 * this is inserted in any list.
 	 */
@@ -1495,6 +1504,10 @@ init_conntrack(struct net *net, struct nf_conn *tmpl,
 #endif
 #ifdef CONFIG_NF_CONNTRACK_SECMARK
 			ct->secmark = exp->master->secmark;
+#endif
+/* Initialize the NAT type entry. */
+#if defined(CONFIG_IP_NF_TARGET_NATTYPE_MODULE)
+		ct->nattype_entry = 0;
 #endif
 			NF_CT_STAT_INC(net, expect_new);
 		}
@@ -1784,6 +1797,12 @@ void __nf_ct_refresh_acct(struct nf_conn *ct,
 			  u32 extra_jiffies,
 			  bool do_acct)
 {
+#if defined(CONFIG_IP_NF_TARGET_NATTYPE_MODULE)
+	bool (*nattype_ref_timer)
+		(unsigned long nattype,
+		unsigned long timeout_value);
+#endif
+
 	/* Only update if this is not a fixed timeout */
 	if (test_bit(IPS_FIXED_TIMEOUT_BIT, &ct->status))
 		goto acct;
@@ -1794,6 +1813,14 @@ void __nf_ct_refresh_acct(struct nf_conn *ct,
 
 	if (READ_ONCE(ct->timeout) != extra_jiffies)
 		WRITE_ONCE(ct->timeout, extra_jiffies);
+
+/* Refresh the NAT type entry. */
+#if defined(CONFIG_IP_NF_TARGET_NATTYPE_MODULE)
+	nattype_ref_timer = rcu_dereference(nattype_refresh_timer);
+	if (nattype_ref_timer)
+		nattype_ref_timer(ct->nattype_entry, ct->timeout.expires);
+#endif
+
 acct:
 	if (do_acct)
 		nf_ct_acct_update(ct, ctinfo, skb->len);
