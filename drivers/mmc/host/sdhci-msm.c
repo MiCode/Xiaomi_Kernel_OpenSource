@@ -519,6 +519,21 @@ static unsigned int msm_get_clock_rate_for_bus_mode(struct sdhci_host *host,
 	return clock;
 }
 
+#if defined(CONFIG_SDC_QTI)
+static unsigned int sdhci_msm_get_current_limit(struct sdhci_host *host)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
+	struct sdhci_msm_vreg_data *curr_slot = msm_host->vreg_data;
+	u32 max_curr = 0;
+
+	if (curr_slot && curr_slot->vdd_data)
+		max_curr = curr_slot->vdd_data->hpm_uA;
+
+	return max_curr;
+}
+#endif
+
 static void msm_set_clock_rate_for_bus_mode(struct sdhci_host *host,
 					    unsigned int clock)
 {
@@ -3128,6 +3143,9 @@ static const struct sdhci_ops sdhci_msm_ops = {
 	.write_w = sdhci_msm_writew,
 	.write_b = sdhci_msm_writeb,
 	.irq	= sdhci_msm_cqe_irq,
+#if defined(CONFIG_SDC_QTI)
+	.get_current_limit = sdhci_msm_get_current_limit,
+#endif
 };
 
 static const struct sdhci_pltfm_data sdhci_msm_pdata = {
