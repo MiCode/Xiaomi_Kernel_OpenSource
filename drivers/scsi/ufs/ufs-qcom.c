@@ -3595,12 +3595,28 @@ static ssize_t err_count_show(struct device *dev,
 
 static DEVICE_ATTR_RO(err_count);
 
+static ssize_t dbg_state_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	int dbg_en = 0;
+
+#if defined(CONFIG_UFS_DBG)
+	dbg_en = 1;
+#endif
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n", dbg_en);
+}
+
+
+static DEVICE_ATTR_RO(dbg_state);
+
 static struct attribute *ufs_qcom_sysfs_attrs[] = {
 	&dev_attr_err_state.attr,
 	&dev_attr_power_mode.attr,
 	&dev_attr_bus_speed_mode.attr,
 	&dev_attr_clk_status.attr,
 	&dev_attr_err_count.attr,
+	&dev_attr_dbg_state.attr,
 	NULL
 };
 
