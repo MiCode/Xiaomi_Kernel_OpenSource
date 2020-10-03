@@ -171,13 +171,14 @@ static void md_update_ss_toc(const struct md_region *entry)
 bool msm_minidump_enabled(void)
 {
 	bool ret = false;
+	unsigned long flags;
 
-	spin_lock(&mdt_lock);
+	spin_lock_irqsave(&mdt_lock, flags);
 	if (minidump_table.md_ss_toc &&
 		(minidump_table.md_ss_toc->md_ss_enable_status ==
 		 MD_SS_ENABLED))
 		ret = true;
-	spin_unlock(&mdt_lock);
+	spin_unlock_irqrestore(&mdt_lock, flags);
 	return ret;
 }
 EXPORT_SYMBOL(msm_minidump_enabled);
@@ -204,6 +205,7 @@ int msm_minidump_update_region(int regno, const struct md_region *entry)
 	struct elfhdr *hdr = minidump_elfheader.ehdr;
 	struct elf_shdr *shdr;
 	struct elf_phdr *phdr;
+	unsigned long flags;
 
 	/* Ensure that init completes before we update regions */
 	if (!smp_load_acquire(&md_init_done))
@@ -212,7 +214,7 @@ int msm_minidump_update_region(int regno, const struct md_region *entry)
 	if (validate_region(entry) || (regno >= MAX_NUM_ENTRIES))
 		return -EINVAL;
 
-	read_lock(&mdt_remove_lock);
+	read_lock_irqsave(&mdt_remove_lock, flags);
 
 	if (regno >= first_removed_entry) {
 		pr_err("Region:[%s] was moved\n", entry->name);
@@ -241,7 +243,7 @@ int msm_minidump_update_region(int regno, const struct md_region *entry)
 	phdr->p_paddr = entry->phys_addr;
 
 err_unlock:
-	read_unlock(&mdt_remove_lock);
+	read_unlock_irqrestore(&mdt_remove_lock, flags);
 
 	return ret;
 }
@@ -251,21 +253,22 @@ int msm_minidump_add_region(const struct md_region *entry)
 {
 	u32 entries;
 	struct md_region *mdr;
+	unsigned long flags;
 
 	if (validate_region(entry))
 		return -EINVAL;
 
-	spin_lock(&mdt_lock);
+	spin_lock_irqsave(&mdt_lock, flags);
 	if (md_entry_num(entry) >= 0) {
 		pr_err("Entry name already exist.\n");
-		spin_unlock(&mdt_lock);
+		spin_unlock_irqrestore(&mdt_lock, flags);
 		return -EINVAL;
 	}
 
 	entries = minidump_table.num_regions;
 	if (entries >= MAX_NUM_ENTRIES) {
 		pr_err("Maximum entries reached.\n");
-		spin_unlock(&mdt_lock);
+		spin_unlock_irqrestore(&mdt_lock, flags);
 		return -ENOMEM;
 	}
 
@@ -285,7 +288,7 @@ int msm_minidump_add_region(const struct md_region *entry)
 	else
 		pendings++;
 
-	spin_unlock(&mdt_lock);
+	spin_unlock_irqrestore(&mdt_lock, flags);
 
 	return entries;
 }
@@ -369,13 +372,14 @@ int msm_minidump_clear_headers(const struct md_region *entry)
 int msm_minidump_remove_region(const struct md_region *entry)
 {
 	int rcount, ecount, seq = 0, rgno, ret;
+	unsigned long flags;
 
 	if (!entry || !minidump_table.md_ss_toc ||
 		(minidump_table.md_ss_toc->md_ss_enable_status !=
 						MD_SS_ENABLED))
 		return -EINVAL;
 
-	spin_lock(&mdt_lock);
+	spin_lock_irqsave(&mdt_lock, flags);
 	write_lock(&mdt_remove_lock);
 	ecount = minidump_table.num_regions;
 	rcount = minidump_table.md_ss_toc->ss_region_count;
@@ -417,11 +421,11 @@ int msm_minidump_remove_region(const struct md_region *entry)
 
 	minidump_table.num_regions--;
 	write_unlock(&mdt_remove_lock);
-	spin_unlock(&mdt_lock);
+	spin_unlock_irqrestore(&mdt_lock, flags);
 	return 0;
 out:
 	write_unlock(&mdt_remove_lock);
-	spin_unlock(&mdt_lock);
+	spin_unlock_irqrestore(&mdt_lock, flags);
 	pr_err("Minidump is broken..disable Minidump collection\n");
 	return -EINVAL;
 }
@@ -537,6 +541,7 @@ static int __init msm_minidump_init(void)
 	struct md_region *mdr;
 	struct md_global_toc *md_global_toc;
 	struct md_ss_toc *md_ss_toc;
+	unsigned long flags;
 
 	/* Get Minidump table */
 	md_global_toc = qcom_smem_get(QCOM_SMEM_HOST_ANY, SBL_MINIDUMP_SMEM_ID,
@@ -573,7 +578,7 @@ static int __init msm_minidump_init(void)
 	msm_minidump_add_header();
 
 	/* Add pending entries to HLOS TOC */
-	spin_lock(&mdt_lock);
+	spin_lock_irqsave(&mdt_lock, flags);
 	md_ss_toc->md_ss_toc_init = 1;
 	md_ss_toc->md_ss_enable_status = MD_SS_ENABLED;
 	for (i = 0; i < pendings; i++) {
@@ -582,7 +587,7 @@ static int __init msm_minidump_init(void)
 	}
 
 	pendings = 0;
-	spin_unlock(&mdt_lock);
+	spin_unlock_irqrestore(&mdt_lock, flags);
 
 	pr_info("Enabled with max number of regions %d\n",
 		CONFIG_MINIDUMP_MAX_ENTRIES);
