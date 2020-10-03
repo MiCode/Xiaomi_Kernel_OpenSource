@@ -181,6 +181,7 @@ static ssize_t cnss_dev_boot_debug_write(struct file *fp,
 
 	buf[len] = '\0';
 	cmd = buf;
+	cnss_pr_dbg("Received dev_boot debug command: %s\n", cmd);
 
 	if (sysfs_streq(cmd, "on")) {
 		ret = cnss_power_on_device(plat_priv);
@@ -206,6 +207,7 @@ static ssize_t cnss_dev_boot_debug_write(struct file *fp,
 					     0, NULL);
 		clear_bit(CNSS_DRIVER_DEBUG, &plat_priv->driver_state);
 	} else if (sysfs_streq(cmd, "assert")) {
+		cnss_pr_info("FW Assert triggered for debug\n");
 		ret = cnss_force_fw_assert(&pci_priv->pci_dev->dev);
 	} else if (sysfs_streq(cmd, "set_cbc_done")) {
 		cnss_pr_dbg("Force set cold boot cal done status\n");
