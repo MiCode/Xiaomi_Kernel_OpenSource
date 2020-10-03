@@ -367,6 +367,14 @@ config QCOM_RPMH
 	  of hardware components aggregate requests for these resources and
 	  help apply the aggregated state on the resource.
 
+config QCOM_RPMH_QGKI_DEBUG
+	bool "Enhance RPMh debug for QGKI variants"
+	depends on QCOM_RPMH
+	help
+	  Adding debug prints increases latency of handling RPMh requests. This
+	  is specially notable during the boot process. Let's selectively remove
+	  some tracing that are more informative than an actual error.
+
 config QCOM_RPMHPD
 	tristate "Qualcomm RPMh Power domain driver"
 	depends on QCOM_RPMH && QCOM_COMMAND_DB
