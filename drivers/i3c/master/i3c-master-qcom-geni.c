@@ -2164,7 +2164,7 @@ static int geni_i3c_remove(struct platform_device *pdev)
 	return ret;
 }
 
-static int geni_i3c_resume_noirq(struct device *dev)
+static int geni_i3c_resume_early(struct device *dev)
 {
 	return 0;
 }
@@ -2194,9 +2194,13 @@ static int geni_i3c_runtime_resume(struct device *dev)
 	return 0;
 }
 
-static int geni_i3c_suspend_noirq(struct device *dev)
+static int geni_i3c_suspend_late(struct device *dev)
 {
+	struct geni_i3c_dev *gi3c = dev_get_drvdata(dev);
+
 	if (!pm_runtime_status_suspended(dev)) {
+		GENI_SE_DBG(gi3c->ipcl, false, gi3c->se.dev,
+				"%s: Forced suspend\n", __func__);
 		geni_i3c_runtime_suspend(dev);
 		pm_runtime_disable(dev);
 		pm_runtime_put_noidle(dev);
@@ -2216,15 +2220,15 @@ static int geni_i3c_runtime_resume(struct device *dev)
 	return 0;
 }
 
-static int geni_i3c_suspend_noirq(struct device *dev)
+static int geni_i3c_suspend_late(struct device *dev)
 {
 	return 0;
 }
 #endif
 
 static const struct dev_pm_ops geni_i3c_pm_ops = {
-	.suspend_noirq = geni_i3c_suspend_noirq,
-	.resume_noirq = geni_i3c_resume_noirq,
+	.suspend_late = geni_i3c_suspend_late,
+	.resume_early = geni_i3c_resume_early,
 	.runtime_suspend = geni_i3c_runtime_suspend,
 	.runtime_resume  = geni_i3c_runtime_resume,
 };
