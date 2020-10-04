@@ -981,6 +981,8 @@ struct IpaHwStatsWDIInfoData_t {
  * uc is writing (WDI-2.0)
  * @rdy_comp_ring_size: size of the Rx_completion ring in bytes
  * expected to communicate about the Read pointer into the Rx Ring
+ * @is_txr_rn_db_pcie_addr: tx ring PCIE doorbell address
+ * @is_evt_rn_db_pcie_addr: event ring PCIE doorbell address
  */
 struct ipa_wdi_ul_params {
 	phys_addr_t rdy_ring_base_pa;
@@ -991,6 +993,8 @@ struct ipa_wdi_ul_params {
 	u32 rdy_comp_ring_size;
 	u32 *rdy_ring_rp_va;
 	u32 *rdy_comp_ring_wp_va;
+	bool is_txr_rn_db_pcie_addr;
+	bool is_evt_rn_db_pcie_addr;
 };
 
 /**
@@ -999,6 +1003,8 @@ struct ipa_wdi_ul_params {
  * @rdy_ring_size: size of the Rx ring in bytes
  * @rdy_ring_rp_pa: physical address of the location through which IPA uc is
  * expected to communicate about the Read pointer into the Rx Ring
+ * @is_txr_rn_db_pcie_addr: tx ring PCIE doorbell address
+ * @is_evt_rn_db_pcie_addr: event ring PCIE doorbell address
  */
 struct ipa_wdi_ul_params_smmu {
 	struct sg_table rdy_ring;
@@ -1009,6 +1015,8 @@ struct ipa_wdi_ul_params_smmu {
 	u32 rdy_comp_ring_size;
 	u32 *rdy_ring_rp_va;
 	u32 *rdy_comp_ring_wp_va;
+	bool is_txr_rn_db_pcie_addr;
+	bool is_evt_rn_db_pcie_addr;
 };
 
 /**
@@ -1021,6 +1029,8 @@ struct ipa_wdi_ul_params_smmu {
  * write into to trigger the copy engine
  * @ce_ring_size: Copy Engine Ring size in bytes
  * @num_tx_buffers: Number of pkt buffers allocated
+ * @is_txr_rn_db_pcie_addr: tx ring PCIE doorbell address
+ * @is_evt_rn_db_pcie_addr: event ring PCIE doorbell address
  */
 struct ipa_wdi_dl_params {
 	phys_addr_t comp_ring_base_pa;
@@ -1029,6 +1039,8 @@ struct ipa_wdi_dl_params {
 	phys_addr_t ce_door_bell_pa;
 	u32 ce_ring_size;
 	u32 num_tx_buffers;
+	bool is_txr_rn_db_pcie_addr;
+	bool is_evt_rn_db_pcie_addr;
 };
 
 /**
@@ -1040,6 +1052,8 @@ struct ipa_wdi_dl_params {
  * write into to trigger the copy engine
  * @ce_ring_size: Copy Engine Ring size in bytes
  * @num_tx_buffers: Number of pkt buffers allocated
+ * @is_txr_rn_db_pcie_addr: tx ring PCIE doorbell address
+ * @is_evt_rn_db_pcie_addr: event ring PCIE doorbell address
  */
 struct ipa_wdi_dl_params_smmu {
 	struct sg_table comp_ring;
@@ -1048,6 +1062,8 @@ struct ipa_wdi_dl_params_smmu {
 	phys_addr_t ce_door_bell_pa;
 	u32 ce_ring_size;
 	u32 num_tx_buffers;
+	bool is_txr_rn_db_pcie_addr;
+	bool is_evt_rn_db_pcie_addr;
 };
 
 /**
