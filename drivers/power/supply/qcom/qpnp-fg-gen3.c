@@ -5468,12 +5468,7 @@ static int fg_gen3_probe(struct platform_device *pdev)
 	/* Keep BATT_MISSING_IRQ disabled until we require it */
 	vote(fg->batt_miss_irq_en_votable, BATT_MISS_IRQ_VOTER, false, 0);
 
-	rc = fg_debugfs_create(fg);
-	if (rc < 0) {
-		dev_err(fg->dev, "Error in creating debugfs entries, rc:%d\n",
-			rc);
-		goto exit;
-	}
+	fg_debugfs_create(fg);
 
 	rc = sysfs_create_groups(&fg->dev->kobj, fg_groups);
 	if (rc < 0) {

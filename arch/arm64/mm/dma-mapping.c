@@ -41,7 +41,6 @@
 #include <linux/dma-mapping-fast.h>
 #include <linux/msm_dma_iommu_mapping.h>
 
-
 static int swiotlb __ro_after_init;
 
 static pgprot_t __get_dma_pgprot(unsigned long attrs, pgprot_t prot,
@@ -1010,7 +1009,7 @@ void arch_setup_dma_ops(struct device *dev, u64 dma_base, u64 size,
 	}
 #endif
 }
-EXPORT_SYMBOL(arch_setup_dma_ops);
+EXPORT_SYMBOL_GPL(arch_setup_dma_ops);
 
 #ifdef CONFIG_ARM64_DMA_USE_IOMMU
 
@@ -1157,4 +1156,3 @@ static void arm_iommu_setup_dma_ops(struct device *dev, u64 dma_base, u64 size)
 {
 }
 #endif
-

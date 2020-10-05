@@ -7225,10 +7225,27 @@ static void smblib_uusb_otg_work(struct work_struct *work)
 		goto out;
 	}
 	otg = !!(stat & U_USB_GROUND_NOVBUS_BIT);
-	if (chg->otg_present != otg)
+	if (chg->otg_present != otg) {
+		if (otg) {
+			/* otg cable inserted */
+			if (chg->typec_port) {
+				typec_partner_register(chg);
+				typec_set_data_role(chg->typec_port,
+							TYPEC_HOST);
+				typec_set_pwr_role(chg->typec_port,
+							TYPEC_SOURCE);
+			}
+		} else if (chg->typec_port) {
+			/* otg cable removed */
+			typec_set_data_role(chg->typec_port, TYPEC_DEVICE);
+			typec_set_pwr_role(chg->typec_port, TYPEC_SINK);
+			typec_partner_unregister(chg);
+		}
+
 		smblib_notify_usb_host(chg, otg);
-	else
+	} else {
 		goto out;
+	}
 
 	chg->otg_present = otg;
 	if (!otg)

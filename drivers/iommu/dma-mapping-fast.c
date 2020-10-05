@@ -6,6 +6,7 @@
 #include <linux/dma-contiguous.h>
 #include <linux/dma-mapping.h>
 #include <linux/dma-mapping-fast.h>
+#include <linux/io-pgtable.h>
 #include <linux/io-pgtable-fast.h>
 #include <linux/vmalloc.h>
 #include <asm/cacheflush.h>
@@ -17,8 +18,6 @@
 #include <linux/dma-iommu.h>
 #include <linux/iova.h>
 #include <trace/events/iommu.h>
-
-#include <linux/io-pgtable.h>
 
 /* some redundant definitions... :( TODO: move to io-pgtable-fast.h */
 #define FAST_PAGE_SHIFT		12
@@ -1068,6 +1067,7 @@ void fast_smmu_put_dma_cookie(struct iommu_domain *domain)
 	kfree(fast);
 	domain->iova_cookie = NULL;
 }
+EXPORT_SYMBOL_GPL(fast_smmu_put_dma_cookie);
 
 /**
  * fast_smmu_init_mapping

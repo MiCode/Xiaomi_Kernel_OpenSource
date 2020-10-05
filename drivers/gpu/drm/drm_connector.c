@@ -860,8 +860,8 @@ static const struct drm_prop_enum_list dp_colorspaces[] = {
 	{ DRM_MODE_COLORIMETRY_OPRGB, "opRGB" },
 	{ DRM_MODE_COLORIMETRY_DCI_P3_RGB_D65, "DCI-P3_RGB_D65" },
 	/* DP MSA Colorimetry */
-	{ DRM_MODE_DP_COLORIMETRY_BT601_YCC, "BT601_YCC" },
-	{ DRM_MODE_DP_COLORIMETRY_BT709_YCC, "BT709_YCC" },
+	{ DRM_MODE_DP_COLORIMETRY_BT601_YCC, "YCBCR_ITU_601" },
+	{ DRM_MODE_DP_COLORIMETRY_BT709_YCC, "YCBCR_ITU_709" },
 	{ DRM_MODE_DP_COLORIMETRY_SRGB, "sRGB" },
 	{ DRM_MODE_DP_COLORIMETRY_RGB_WIDE_GAMUT, "RGB Wide Gamut" },
 	{ DRM_MODE_DP_COLORIMETRY_SCRGB, "scRGB" },
@@ -1480,7 +1480,7 @@ int drm_mode_create_colorspace_property(struct drm_connector *connector)
 		if (!prop)
 			return -ENOMEM;
 	} else if (connector->connector_type == DRM_MODE_CONNECTOR_eDP ||
-		connector->connector_type == DRM_MODE_CONNECTOR_DisplayPort) {
+		   connector->connector_type == DRM_MODE_CONNECTOR_DisplayPort) {
 		prop = drm_property_create_enum(dev, DRM_MODE_PROP_ENUM,
 						"Colorspace", dp_colorspaces,
 						ARRAY_SIZE(dp_colorspaces));

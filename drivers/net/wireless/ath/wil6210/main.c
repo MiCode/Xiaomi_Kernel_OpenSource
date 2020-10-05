@@ -2113,6 +2113,7 @@ void wil_halp_vote(struct wil6210_priv *wil)
 		if (!rc) {
 			wil_err(wil, "HALP vote timed out\n");
 			/* Mask HALP as done in case the interrupt is raised */
+			atomic_set(&wil->halp.handle_icr, 0);
 			wil6210_mask_halp(wil);
 		} else {
 			wil_dbg_irq(wil,

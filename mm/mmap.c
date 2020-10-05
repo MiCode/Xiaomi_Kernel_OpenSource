@@ -2128,6 +2128,7 @@ found_highest:
 	VM_BUG_ON(gap_end < gap_start);
 	return gap_end;
 }
+EXPORT_SYMBOL_GPL(unmapped_area_topdown);
 
 /* Get an address range which is currently unmapped.
  * For shmat() with addr=0.

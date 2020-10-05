@@ -70,6 +70,7 @@ int coex_antenna_switch_to_mdm_send_sync_msg(struct cnss_plat_data *plat_priv);
 int cnss_wlfw_qdss_trace_mem_info_send_sync(struct cnss_plat_data *plat_priv);
 int cnss_register_ims_service(struct cnss_plat_data *plat_priv);
 void cnss_unregister_ims_service(struct cnss_plat_data *plat_priv);
+void cnss_ignore_qmi_failure(bool ignore);
 #else
 #define QMI_WLFW_TIMEOUT_MS		10000
 
@@ -224,6 +225,7 @@ int cnss_register_ims_service(struct cnss_plat_data *plat_priv)
 static inline
 void cnss_unregister_ims_service(struct cnss_plat_data *plat_priv) {}
 
+void cnss_ignore_qmi_failure(bool ignore) {};
 #endif /* CONFIG_CNSS2_QMI */
 
 #endif /* _CNSS_QMI_H */

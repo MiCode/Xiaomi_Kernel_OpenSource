@@ -1172,9 +1172,9 @@ static int mdss_fb_init_panel_modes(struct msm_fb_data_type *mfd,
 	if (!fbi || !pdata->current_timing || list_empty(&pdata->timings_list))
 		return 0;
 
+	return 0;
 	list_for_each(pos, &pdata->timings_list)
 		num_timings++;
-
 	modedb = devm_kzalloc(fbi->dev, num_timings * sizeof(*modedb),
 			GFP_KERNEL);
 	if (!modedb)

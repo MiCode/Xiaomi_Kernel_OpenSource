@@ -61,6 +61,7 @@ enum print_reason {
 #define USBIN_25UA	25000
 #define USBIN_100UA     100000
 #define USBIN_150UA     150000
+#define USBIN_200UA     200000
 #define USBIN_300UA     300000
 #define USBIN_400UA     400000
 #define USBIN_500UA     500000

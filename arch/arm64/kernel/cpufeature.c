@@ -889,8 +889,7 @@ static bool has_cache_dic(const struct arm64_cpu_capabilities *entry,
 }
 
 static bool __meltdown_safe = true;
-/* 0: not forced, >0: forced on, <0: forced off */
-static int __kpti_forced = -1;
+static int __kpti_forced; /* 0: not forced, >0: forced on, <0: forced off */
 
 static bool unmap_kernel_at_el0(const struct arm64_cpu_capabilities *entry,
 				int scope)

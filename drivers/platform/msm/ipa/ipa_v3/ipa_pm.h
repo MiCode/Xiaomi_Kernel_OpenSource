@@ -13,7 +13,7 @@
 #define IPA_PM_MAX_EX_CL 64
 #define IPA_PM_THRESHOLD_MAX 5
 #define IPA_PM_EXCEPTION_MAX 5
-#define IPA_PM_DEFERRED_TIMEOUT 10
+#define IPA_PM_DEFERRED_TIMEOUT 100
 
 /*
  * ipa_pm group names
