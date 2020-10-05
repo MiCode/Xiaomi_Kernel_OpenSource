@@ -821,8 +821,11 @@ static int icnss_driver_event_fw_init_done(struct icnss_priv *priv, void *data)
 
 	icnss_pr_info("WLAN FW Initialization done: 0x%lx\n", priv->state);
 
-	ret = wlfw_wlan_mode_send_sync_msg(priv,
+	if (test_bit(ICNSS_COLD_BOOT_CAL, &priv->state))
+		ret = wlfw_wlan_mode_send_sync_msg(priv,
 			(enum wlfw_driver_mode_enum_v01)ICNSS_CALIBRATION);
+	else
+		icnss_driver_event_fw_ready_ind(priv, NULL);
 
 	return ret;
 }
@@ -3265,6 +3268,7 @@ static int icnss_probe(struct platform_device *pdev)
 
 		icnss_runtime_pm_init(priv);
 		icnss_get_cpr_info(priv);
+		set_bit(ICNSS_COLD_BOOT_CAL, &priv->state);
 	}
 
 	INIT_LIST_HEAD(&priv->icnss_tcdev_list);
