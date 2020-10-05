@@ -1220,6 +1220,9 @@
 		compatible = "mediatek,mt6315", "mtk,spmi-pmic";
 		reg = <0x3 0 0xb 1>;
 
+		extbuck_debug {
+			compatible = "mediatek,extbuck-debug";
+		};
 		mt6315_3_regulator: mt6315_3_regulator {
 			compatible = "mediatek,mt6315_3-regulator";
 
@@ -1259,6 +1262,9 @@
 		compatible = "mediatek,mt6315", "mtk,spmi-pmic";
 		reg = <0x6 0 0xb 1>;
 
+		extbuck_debug {
+			compatible = "mediatek,extbuck-debug";
+		};
 		mt6315_6_regulator: mt6315_6_regulator {
 			compatible = "mediatek,mt6315_6-regulator";
 
@@ -1288,6 +1294,9 @@
 		compatible = "mediatek,mt6315", "mtk,spmi-pmic";
 		reg = <0x7 0 0xb 1>;
 
+		extbuck_debug {
+			compatible = "mediatek,extbuck-debug";
+		};
 		mt6315_7_regulator: mt6315_7_regulator {
 			compatible = "mediatek,mt6315_7-regulator";
 			mt6315_7_vbuck1: 7_vbuck1 {
