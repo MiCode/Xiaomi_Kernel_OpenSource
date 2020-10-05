@@ -122,7 +122,9 @@
 #define DATA_BYTES_PER_LINE	(32)
 
 #define M_IRQ_BITS		(M_RX_FIFO_WATERMARK_EN | M_RX_FIFO_LAST_EN |\
-				M_CMD_CANCEL_EN | M_CMD_ABORT_EN)
+				M_CMD_CANCEL_EN | M_CMD_ABORT_EN |\
+				M_IO_DATA_ASSERT_EN | M_IO_DATA_DEASSERT_EN)
+
 #define S_IRQ_BITS		(S_RX_FIFO_WATERMARK_EN | S_RX_FIFO_LAST_EN |\
 				S_CMD_CANCEL_EN | S_CMD_ABORT_EN)
 #define DMA_TX_IRQ_BITS		(TX_RESET_DONE | TX_DMA_DONE |\
@@ -2033,6 +2035,13 @@ static void msm_geni_serial_handle_isr(struct uart_port *uport,
 		else
 			WARN_ON(1);
 		goto exit_geni_serial_isr;
+	}
+
+	if (m_irq_status & (M_IO_DATA_ASSERT_EN | M_IO_DATA_DEASSERT_EN)) {
+		uport->icount.cts++;
+		IPC_LOG_MSG(msm_port->ipc_log_misc,
+			"%s. cts counter:%d\n", __func__,
+				uport->icount.cts);
 	}
 
 	if (s_irq_status & S_RX_FIFO_WR_ERR_EN) {
