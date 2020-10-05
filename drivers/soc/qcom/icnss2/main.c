@@ -183,6 +183,8 @@ char *icnss_driver_event_to_str(enum icnss_driver_event_type type)
 		return "QDSS_TRACE_FREE";
 	case ICNSS_DRIVER_EVENT_M3_DUMP_UPLOAD_REQ:
 		return "M3_DUMP_UPLOAD";
+	case ICNSS_DRIVER_EVENT_QDSS_TRACE_REQ_DATA:
+		return "QDSS_TRACE_REQ_DATA";
 	case ICNSS_DRIVER_EVENT_MAX:
 		return "EVENT_MAX";
 	}
@@ -832,6 +834,9 @@ static int icnss_driver_event_fw_init_done(struct icnss_priv *priv, void *data)
 
 	icnss_pr_info("WLAN FW Initialization done: 0x%lx\n", priv->state);
 
+	if (icnss_wlfw_qdss_dnld_send_sync(priv))
+		icnss_pr_info("Failed to download qdss configuration file");
+
 	if (test_bit(ICNSS_COLD_BOOT_CAL, &priv->state))
 		ret = wlfw_wlan_mode_send_sync_msg(priv,
 			(enum wlfw_driver_mode_enum_v01)ICNSS_CALIBRATION);
@@ -1005,6 +1010,25 @@ static inline int icnss_atomic_dec_if_greater_one(atomic_t *v)
 	} while (!atomic_try_cmpxchg(v, &c, dec));
 
 	return dec;
+}
+
+static int icnss_qdss_trace_req_data_hdlr(struct icnss_priv *priv,
+				      void *data)
+{
+	int ret = 0;
+	struct icnss_qmi_event_qdss_trace_save_data *event_data = data;
+
+	if (!priv)
+		return -ENODEV;
+
+	if (!data)
+		return -EINVAL;
+
+	ret = icnss_wlfw_qdss_data_send_sync(priv, event_data->file_name,
+					     event_data->total_size);
+
+	kfree(data);
+	return ret;
 }
 
 static int icnss_event_soc_wake_request(struct icnss_priv *priv, void *data)
@@ -1431,6 +1455,9 @@ static void icnss_driver_event_work(struct work_struct *work)
 			break;
 		case ICNSS_DRIVER_EVENT_M3_DUMP_UPLOAD_REQ:
 			ret = icnss_m3_dump_upload_req_hdlr(priv, event->data);
+		case ICNSS_DRIVER_EVENT_QDSS_TRACE_REQ_DATA:
+			ret = icnss_qdss_trace_req_data_hdlr(priv,
+							     event->data);
 			break;
 		default:
 			icnss_pr_err("Invalid Event type: %d", event->type);
