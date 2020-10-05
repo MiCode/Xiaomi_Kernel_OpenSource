@@ -15,8 +15,6 @@ GED_TOP = $(srctree)/drivers/gpu/mediatek/ged
 MTK_TOP = $(srctree)/drivers/misc/mediatek/
 GPU_TOP = $(srctree)/drivers/gpu/mediatek/
 
-VER:=eng
-
 subdir-ccflags-y += -Wno-error
 #ccflags-y += -DGED_KPI_DEBUG
 
@@ -82,12 +80,9 @@ ifeq ($(CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT),y)
 endif
 endif
 
-ifneq ($(CONFIG_MTK_ENG_BUILD),y)
-VER:=user
 ifeq ($(CONFIG_MTK_ENABLE_GMO), y)
 ccflags-y += -DGED_LOG_SIZE_LIMITED
 ccflags-y += -DGED_BUFFER_LOG_DISABLE
-endif
 endif
 
 ccflags-y += -DMET_USER_EVENT_SUPPORT -DMTK_GPU_DVFS
@@ -151,13 +146,6 @@ ccflags-y += -DENABLE_GED_SYSTRACE_UTIL
 endif
 
 ccflags-y += -DGED_DVFS_DEBUG_BUF
-
-ifeq ($(VER),eng)
-ccflags-y += -DGED_DEBUG_IOCTL_LOCK
-endif
-
-ccflags-y += \
-	-include $(GED_TOP)/include/config_kernel_$(VER).h
 
 obj-$(CONFIG_MTK_GPU_SUPPORT) += ged.o
 

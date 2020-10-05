@@ -74,12 +74,6 @@ static int ged_init(void);
 
 static GED_LOG_BUF_HANDLE ghLogBuf_GPU;
 
-#ifdef GED_DEBUG
-#define GED_LOG_BUF_COMMON_GLES "GLES"
-static GED_LOG_BUF_HANDLE ghLogBuf_GLES;
-GED_LOG_BUF_HANDLE ghLogBuf_GED;
-#endif /* GED_DEBUG */
-
 #define GED_LOG_BUF_COMMON_HWC_ERR "HWC_err"
 static GED_LOG_BUF_HANDLE ghLogBuf_HWC_ERR;
 #define GED_LOG_BUF_COMMON_HWC "HWC"
@@ -427,14 +421,6 @@ static void ged_exit(void)
 	ghLogBuf_HWC = 0;
 	ged_log_buf_free(ghLogBuf_HWC_ERR);
 	ghLogBuf_HWC_ERR = 0;
-
-#ifdef GED_DEBUG
-	ged_log_buf_free(ghLogBuf_GED);
-	ghLogBuf_GED = 0;
-	ged_log_buf_free(ghLogBuf_GLES);
-	ghLogBuf_GLES = 0;
-#endif
-
 	ged_log_buf_free(ghLogBuf_GPU);
 	ghLogBuf_GPU = 0;
 #endif /* GED_BUFFER_LOG_DISABLE */
@@ -538,14 +524,6 @@ static int ged_init(void)
 #ifndef GED_BUFFER_LOG_DISABLE
 	ghLogBuf_GPU = ged_log_buf_alloc(512, 128 * 512,
 		GED_LOG_BUF_TYPE_RINGBUFFER, "GPU_FENCE", NULL);
-
-#ifdef GED_DEBUG
-	ghLogBuf_GLES = ged_log_buf_alloc(160, 128 * 160,
-		GED_LOG_BUF_TYPE_RINGBUFFER, GED_LOG_BUF_COMMON_GLES, NULL);
-	ghLogBuf_GED = ged_log_buf_alloc(32, 64 * 32,
-		GED_LOG_BUF_TYPE_RINGBUFFER, "GED internal", NULL);
-#endif
-
 	ghLogBuf_HWC_ERR = ged_log_buf_alloc(2048, 2048 * 128,
 		GED_LOG_BUF_TYPE_RINGBUFFER, GED_LOG_BUF_COMMON_HWC_ERR, NULL);
 	ghLogBuf_HWC = ged_log_buf_alloc(4096, 128 * 4096,
@@ -566,12 +544,6 @@ static int ged_init(void)
 			GED_LOG_BUF_TYPE_RINGBUFFER, "gfreq", "gfreq");
 #else
 	ghLogBuf_GPU = 0;
-
-#ifdef GED_DEBUG
-	ghLogBuf_GLES = 0;
-	ghLogBuf_GED = 0;
-#endif
-
 	ghLogBuf_HWC_ERR = 0;
 	ghLogBuf_HWC = 0;
 	ghLogBuf_FENCE = 0;
