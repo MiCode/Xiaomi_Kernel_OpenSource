@@ -39,10 +39,8 @@
 #include "tee_impl/tee_invoke.h"
 #include "tee_impl/tee_regions.h"
 
-#if IS_ENABLED(CONFIG_MTK_ENG_BUILD)
+#if IS_ENABLED(CONFIG_TEST_MTK_TRUSTED_MEMORY)
 #define UT_SATURATION_STRESS_ROUNDS (1)
-#else
-#define UT_SATURATION_STRESS_ROUNDS (5)
 #endif
 
 struct test_case {
