@@ -21,6 +21,10 @@ have powered off to facilitate idle power saving. TCS could be classified as -
 	WAKE    /* Triggered by F/W */
 	CONTROL /* Triggered by F/W */
 
+Additionally, an RSC may define a TCS as fast-path TCS, which would be
+populated with data and trigged from Linux. However, access to the dedicated
+fast path TCS is done lock-less from Linux.
+
 The order in which they are described in the DT, should match the hardware
 configuration.
 
@@ -76,6 +80,7 @@ Properties:
 	            SLEEP_TCS
 	            WAKE_TCS
 	            CONTROL_TCS
+	            FAST_PATH_TCS
 	- Cell #2 (Number of TCS): <u32>
 
 - power-domains:
@@ -113,10 +118,11 @@ TCS-OFFSET: 0xD00
 			     <GIC_SPI 5 IRQ_TYPE_LEVEL_HIGH>;
 		qcom,tcs-offset = <0xd00>;
 		qcom,drv-id = <2>;
-		qcom,tcs-config = <ACTIVE_TCS  2>,
-				  <SLEEP_TCS   3>,
-				  <WAKE_TCS    3>,
-				  <CONTROL_TCS 1>;
+		qcom,tcs-config = <ACTIVE_TCS    3>,
+				  <SLEEP_TCS     2>,
+				  <WAKE_TCS      2>,
+				  <FAST_PATH_TCS 1>,
+				  <CONTROL_TCS   0>;
 		power-domains = <&CLUSTER_PD>;
 	};
 
