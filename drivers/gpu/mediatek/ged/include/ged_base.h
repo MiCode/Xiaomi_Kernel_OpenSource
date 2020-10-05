@@ -10,11 +10,7 @@
 #include "ged_type.h"
 
 #define GED_TAG "[GPU/GED]"
-#ifdef GED_DEBUG
 #define GED_LOGD(...) pr_debug(GED_TAG"[DEBUG]" __VA_ARGS__)
-#else
-#define GED_LOGD(...)
-#endif
 #define GED_LOGI(...) pr_info(GED_TAG"[INFO]" __VA_ARGS__)
 #define GED_LOGE(...) pr_err(GED_TAG"[ERROR]" __VA_ARGS__)
 #define GED_CONTAINER_OF(ptr, type, member) \
