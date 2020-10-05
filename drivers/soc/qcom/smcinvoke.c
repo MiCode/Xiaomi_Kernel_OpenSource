@@ -1072,8 +1072,7 @@ static int marshal_out_invoke_req(const uint8_t *buf, uint32_t buf_size,
 					TZHANDLE_GET_SERVER(tz_args->handle),
 				&temp_fd, NO_LOCK);
 
-		if (temp_fd >= 0)
-			args_buf[i].o.fd = temp_fd;
+		args_buf[i].o.fd = temp_fd;
 
 		if (ret)
 			goto out;
@@ -1371,8 +1370,7 @@ static int marshal_in_tzcb_req(const struct smcinvoke_cb_txn *cb_txn,
 		ret = get_uhandle_from_tzhandle(tz_args[i].handle, srvr_id,
 					&temp_fd, TAKE_LOCK);
 
-		if (temp_fd >= 0)
-			tmp_arg.o.fd = temp_fd;
+		tmp_arg.o.fd = temp_fd;
 
 		if (ret) {
 			ret = -EINVAL;
