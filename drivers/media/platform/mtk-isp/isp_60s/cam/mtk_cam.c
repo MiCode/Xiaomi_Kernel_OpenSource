@@ -106,8 +106,8 @@ static void mtk_cam_dev_job_done(struct mtk_cam_device *cam,
 		req->state.time_irq_sof2 - req->state.time_irq_sof1,
 		req->state.time_irq_done - req->state.time_irq_sof2,
 		req->state.time_deque - req->state.time_irq_done);
-
 }
+
 struct mtk_cam_request *mtk_cam_dev_get_req(struct mtk_cam_device *cam,
 					    struct mtk_cam_ctx *ctx,
 					    unsigned int frame_seq_no)
@@ -202,44 +202,100 @@ static void mtk_cam_dev_dump_request(struct mtk_cam_device *cam,
 	dump_param->request_fd = request_fd;
 }
 
-static void mtk_cam_request_dump_work(struct work_struct *work)
+static void mtk_cam_req_dump_work(struct work_struct *work)
 {
-	struct mtk_cam_request *req =
-		container_of(work, struct mtk_cam_request, debug_work);
+	struct mtk_cam_request *req = mtk_cam_req_dbg_work_to_req(work);
 	struct mtk_cam_device *cam =
 		container_of(req->req.mdev, struct mtk_cam_device, media_dev);
+
 	mtk_cam_dev_dump_request(cam, req);
-
-	cam->debug_fs->ops->dump(cam->debug_fs, &req->dump_param);
-
-	/* Return buffer after we finish the dump */
-	mtk_cam_dev_job_done(cam, req, req->dump_param.buffer_state);
-}
-
-static void mtk_cam_request_dump_exp_work(struct work_struct *work)
-{
-	struct mtk_cam_request *req =
-		container_of(work, struct mtk_cam_request, debug_work);
-	struct mtk_cam_device *cam =
-		container_of(req->req.mdev, struct mtk_cam_device, media_dev);
-	mtk_cam_dev_dump_request(cam, req);
-
+	req->dbg_work.state = MTK_CAM_REQ_DBGWORK_S_FINISHED;
 	cam->debug_fs->ops->exp_dump(cam->debug_fs, &req->dump_param);
-
-	/* Return buffer after we finish the dump */
-	mtk_cam_dev_job_done(cam, req, req->dump_param.buffer_state);
 }
 
-static void mtk_cam_req_dump(struct mtk_cam_device *cam,
-			     struct mtk_cam_request *req, int buf_state,
-			     char *desc,
-			     void (*work_func)(struct work_struct *))
+static void mtk_cam_req_dump_release_work(struct work_struct *work)
 {
-	memset(&req->dump_param, 0, sizeof(req->dump_param));
+	unsigned long flags;
+	struct mtk_cam_request *req = mtk_cam_req_dbg_release_work_to_req(work);
+	struct mtk_cam_device *cam =
+		container_of(req->req.mdev, struct mtk_cam_device, media_dev);
+
+	if (req->dbg_release_work.dump_flags)
+		mtk_cam_dev_dump_request(cam, req);
+
+	if (req->dbg_release_work.dump_flags & MTK_CAM_REQ_DUMP_HW_FRAME_DROP)
+		cam->debug_fs->ops->exp_dump(cam->debug_fs, &req->dump_param);
+	else if (req->dbg_release_work.dump_flags & MTK_CAM_REQ_DUMP_FORCE)
+		cam->debug_fs->ops->dump(cam->debug_fs, &req->dump_param);
+
+	spin_lock_irqsave(&cam->running_job_lock, flags);
+	mtk_cam_dev_job_done(cam, req, req->dump_param.buffer_state);
+	spin_unlock_irqrestore(&cam->running_job_lock, flags);
+
+	req->dbg_release_work.state = MTK_CAM_REQ_DBGWORK_S_FINISHED;
+}
+
+int mtk_cam_req_dump(struct mtk_cam_device *cam, struct mtk_cam_request *req,
+		     int buf_state, unsigned int dump_flag, int release_request_,
+		     char *desc)
+{
+	unsigned int update_flag = 0;
+	bool need_release = false;
+	struct mtk_cam_req_dbg_work *dbg_work;
+	void (*work_func)(struct work_struct *work);
+
+	if (!cam->debug_fs)
+		return false;
+
+	if (force_dump && max_num_of_dump &&
+	    dump_flag == MTK_CAM_REQ_DUMP_FORCE)
+		update_flag = MTK_CAM_REQ_DUMP_FORCE;
+	else
+		update_flag = dump_flag;
+
+	/**
+	 * If there is already a exp dump work, we must delay the
+	 * job done or it may access the invalid request.
+	 */
+	if (update_flag == MTK_CAM_REQ_DUMP_HW_FRAME_DROP ||
+	    update_flag == MTK_CAM_REQ_DUMP_FORCE ||
+	    req->dbg_work.state == MTK_CAM_REQ_DBGWORK_S_PREPARED)
+		need_release = true;
+
+	if (!update_flag && !need_release)
+		return false;
+
+	if (need_release) {
+		dbg_work = &req->dbg_release_work;
+		work_func = mtk_cam_req_dump_release_work;
+	} else {
+		dbg_work = &req->dbg_work;
+		work_func = mtk_cam_req_dump_work;
+	}
+
+	if (dbg_work->state == MTK_CAM_REQ_DBGWORK_S_FINISHED) {
+		dev_dbg(cam->dev,
+			"%s: seq(%d) debug work already finished\n",
+			__func__, req->frame_seq_no);
+		return false;
+	}
+
+	if (dbg_work->state == MTK_CAM_REQ_DBGWORK_S_INIT)
+		INIT_WORK(&dbg_work->work, work_func);
+
+	dbg_work->dump_flags |= update_flag;
+	dbg_work->state = MTK_CAM_REQ_DBGWORK_S_PREPARED;
 	snprintf(req->dump_param.desc, MTK_CAM_DEBUG_PARAM_DESC_SIZE - 1, desc);
 	req->dump_param.buffer_state = buf_state;
-	INIT_WORK(&req->debug_work, work_func);
-	queue_work(cam->debug_wq, &req->debug_work);
+
+	if (!queue_work(cam->debug_wq, &dbg_work->work)) {
+		dev_dbg(cam->dev,
+			"%s: seq(%d) debug work already in queue\n",
+			__func__, req->frame_seq_no);
+		return false;
+	}
+
+	return true;
 }
 
 void mtk_cam_dequeue_req_frame(struct mtk_cam_device *cam,
@@ -254,7 +310,8 @@ void mtk_cam_dequeue_req_frame(struct mtk_cam_device *cam,
 
 	spin_lock_irqsave(&cam->running_job_lock, flags);
 	list_for_each_entry_safe(req, req_prev, &cam->running_job_list, list) {
-		dev_dbg(cam->dev, "frame_seq:%d[ctx_used=%d], de-queue frame_seq:%d\n",
+		dev_dbg(cam->dev,
+			"frame_seq:%d[ctx_used=%d], de-queue frame_seq:%d\n",
 			req->frame_seq_no, req->ctx_used, frame_seq_no);
 		if (!(req->ctx_used & (1 << ctx->stream_id)))
 			continue;
@@ -266,11 +323,9 @@ void mtk_cam_dequeue_req_frame(struct mtk_cam_device *cam,
 				buf_state = VB2_BUF_STATE_ERROR;
 			mtk_camsys_state_delete(ctx, sensor_ctrl, req);
 
-			if (force_dump && cam->debug_fs)
-				mtk_cam_req_dump(cam, req, buf_state,
-						 "Camsys Force DUMP",
-						 mtk_cam_request_dump_work);
-			else
+			if (!mtk_cam_req_dump(cam, req, buf_state,
+					      MTK_CAM_REQ_DUMP_FORCE, true,
+					      "Camsys Force DUMP"))
 				mtk_cam_dev_job_done(cam, req, buf_state);
 
 			list_del(&req->list);
@@ -282,12 +337,11 @@ void mtk_cam_dequeue_req_frame(struct mtk_cam_device *cam,
 			dev_dbg(cam->dev, "frame_seq:%d time:%lld drop\n",
 				req->frame_seq_no, req->timestamp);
 
-			if (cam->debug_fs)
-				mtk_cam_req_dump(cam, req, VB2_BUF_STATE_ERROR,
-						 "Camsys DUMP for Frame Drop",
-						 mtk_cam_request_dump_exp_work);
-			else
-				mtk_cam_dev_job_done(cam, req, VB2_BUF_STATE_ERROR);
+			if (!mtk_cam_req_dump(cam, req, VB2_BUF_STATE_ERROR,
+					      MTK_CAM_REQ_DUMP_HW_FRAME_DROP,
+					      true, "Camsys HW Frame Drop"))
+				mtk_cam_dev_job_done(cam, req,
+						     VB2_BUF_STATE_ERROR);
 
 			list_del(&req->list);
 		}
@@ -437,6 +491,12 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 	struct media_request_object *obj, *obj_prev;
 
 	dev_dbg(cam->dev, "update request:%s\n", req->req.debug_str);
+
+	memset(&req->dump_param, 0, sizeof(req->dump_param));
+	req->dbg_work.state = MTK_CAM_REQ_DBGWORK_S_INIT;
+	req->dbg_work.dump_flags = 0;
+	req->dbg_release_work.state = MTK_CAM_REQ_DBGWORK_S_INIT;
+	req->dbg_release_work.dump_flags = 0;
 
 	list_for_each_entry_safe(obj, obj_prev, &req->req.objects, list) {
 		struct vb2_buffer *vb;
@@ -590,6 +650,7 @@ static void mtk_cam_req_queue(struct media_request *req)
 	struct mtk_cam_device *cam =
 		container_of(req->mdev, struct mtk_cam_device, media_dev);
 	unsigned long flags;
+
 	cam_req->state.time_syscall_enque = ktime_get_boottime_ns() / 1000;
 	/* update frame_params's dma_bufs in mtk_cam_vb2_buf_queue */
 	vb2_request_queue(req);
@@ -680,11 +741,12 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 
 	if (ipi_msg->ack_data.ack_cmd_id == CAM_CMD_FRAME) {
 		struct mtk_cam_request *req;
+
 		ctx = &cam->ctxs[ipi_msg->cookie.session_id];
 		spin_lock(&ctx->using_buffer_list.lock);
 		ctx->composed_frame_seq_no = ipi_msg->cookie.frame_no;
 		req = mtk_cam_dev_get_req(cam, ctx,
-						  ctx->composed_frame_seq_no);
+					  ctx->composed_frame_seq_no);
 		req->state.time_swirq_composed = ktime_get_boottime_ns() / 1000;
 		dev_dbg(dev, "ctx:%d ack frame_num:%d\n",
 			ctx->stream_id, ctx->composed_frame_seq_no);
@@ -703,7 +765,6 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 			ipi_msg->ack_data.frame_result.cq_desc_size;
 
 		if (ctx->composed_frame_seq_no == 1) {
-
 			struct mtk_raw_device *raw_dev;
 			struct device *dev;
 
@@ -724,7 +785,7 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 
 			raw_dev = dev_get_drvdata(dev);
 			apply_cq(raw_dev,
-				buf_entry->buffer.iova,
+				 buf_entry->buffer.iova,
 				buf_entry->cq_size, 1);
 			req->timestamp = ktime_get_boottime_ns();
 			req->state.time_cqset = ktime_get_boottime_ns() / 1000;

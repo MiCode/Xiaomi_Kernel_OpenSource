@@ -52,6 +52,11 @@ struct mtk_cam_dump_header {
 	__u32	meta_out_2_dump_buf_offset;
 	__u32	meta_out_2_dump_buf_size;
 	__u32	meta_out_2_iova;
+
+	/* status dump */
+	__u32	status_dump_offset;
+	__u32	status_dump_size;
+
 };
 
 struct mtk_cam_debug_fs;

@@ -5,6 +5,7 @@
 #ifdef CONFIG_DEBUG_FS
 
 #include "mtk_cam.h"
+#include "mtk_cam-raw.h"
 #include "mtk_cam-meta.h"
 #include "mtk_cam-debug.h"
 
@@ -69,7 +70,7 @@ static void *mtk_cam_debug_next_dump_buf(struct mtk_cam_debug_fs *debug_fs)
 
 	buf = debug_fs->dump_buf[debug_fs->dump_buf_head_idx];
 
-	dev_dbg(dev, "%s: buf(%p), head(%d), tail(%d), entry_num(%d)", __func__,
+	dev_dbg(dev, "%s: buf(%p),head(%d),tail(%d),entry_num(%d)", __func__,
 		buf, debug_fs->dump_buf_head_idx, debug_fs->dump_buf_tail_idx,
 		debug_fs->dump_buf_entry_num);
 
@@ -77,7 +78,7 @@ static void *mtk_cam_debug_next_dump_buf(struct mtk_cam_debug_fs *debug_fs)
 }
 
 static void
-mtk_cam_debug_dump_all_conent(struct mtk_cam_debug_fs *debug_fs, void *dump_buf,
+mtk_cam_debug_dump_all_content(struct mtk_cam_debug_fs *debug_fs, void *dump_buf,
 			      struct mtk_cam_dump_param *param)
 {
 	struct mtk_cam_dump_header *header;
@@ -147,12 +148,21 @@ mtk_cam_debug_dump_all_conent(struct mtk_cam_debug_fs *debug_fs, void *dump_buf,
 	header->meta_out_2_dump_buf_size = param->meta_out_2_dump_buf_size;
 	header->meta_out_2_iova = param->meta_out_2_iova;
 
-	header->payload_size = debug_fs->dump_buf_entry_size -
-			       header->header_size;
-
 	dev_dbg(dev, "Meta-out 2 offset:%d, sz:%d, iova:%d\n",
 		header->meta_out_2_dump_buf_offset,
 		header->meta_out_2_dump_buf_size, header->meta_out_2_iova);
+
+	/* Status dump */
+	header->status_dump_offset =
+		header->meta_out_2_dump_buf_offset +
+		header->meta_out_2_dump_buf_size;
+	header->status_dump_size = sizeof(struct mtk_cam_status_dump);
+
+	dev_dbg(dev, "Status-dump offset:%d, sz:%d\n",
+		header->status_dump_offset, header->status_dump_size);
+
+	header->payload_size = debug_fs->dump_buf_entry_size -
+			       header->header_size;
 
 	mtk_cam_dump_buf_content(dev, dump_buf, param->cq_cpu_addr,
 				 header->cq_dump_buf_offset,
@@ -172,6 +182,11 @@ mtk_cam_debug_dump_all_conent(struct mtk_cam_debug_fs *debug_fs, void *dump_buf,
 				 header->meta_out_2_dump_buf_offset,
 				 header->meta_out_2_dump_buf_size,
 				 "Meta-out-2");
+
+	mtk_cam_dump_buf_content(dev, dump_buf, &param->status_dump,
+				 header->status_dump_offset,
+				 header->status_dump_size,
+				 "Status-dump");
 }
 
 /**
@@ -206,14 +221,15 @@ static int mtk_cam_debug_dump(struct mtk_cam_debug_fs *debug_fs,
 	dump_buf = mtk_cam_debug_next_dump_buf(debug_fs);
 	if (!dump_buf) {
 		dev_dbg(dev, "%s: can't get any dump buffer. size(%d), num(%d)\n",
-			__func__, debug_fs->dump_buf_entry_size, debug_fs->dump_buf_entry_num);
+			__func__, debug_fs->dump_buf_entry_size,
+			debug_fs->dump_buf_entry_num);
 
 		mutex_unlock(&debug_fs->dump_buf_lock);
 
 		return -EINVAL;
 	}
 
-	mtk_cam_debug_dump_all_conent(debug_fs, dump_buf, param);
+	mtk_cam_debug_dump_all_content(debug_fs, dump_buf, param);
 
 	dev_dbg(dev, "%s: dbg dump(%p) is ready to read\n", __func__, dump_buf);
 
@@ -233,7 +249,8 @@ static int mtk_cam_debug_exp_dump(struct mtk_cam_debug_fs *debug_fs,
 			__func__, debug_fs->dump_buf_entry_size);
 
 	dev_dbg(dev, "%s: seq:%d, exp dump_state:%d, buf:%p, max sz:%d\n",
-		__func__, param->sequence, atomic_read(&debug_fs->exp_dump_state),
+		__func__, param->sequence,
+		atomic_read(&debug_fs->exp_dump_state),
 		dump_buf, debug_fs->dump_buf_entry_size);
 
 	mutex_lock(&debug_fs->exp_dump_buf_lock);
@@ -245,7 +262,7 @@ static int mtk_cam_debug_exp_dump(struct mtk_cam_debug_fs *debug_fs,
 		return -EINVAL;
 	}
 
-	mtk_cam_debug_dump_all_conent(debug_fs, dump_buf, param);
+	mtk_cam_debug_dump_all_content(debug_fs, dump_buf, param);
 
 	/*
 	 * The dump buffer can't be written until the user open, read and close
@@ -277,7 +294,7 @@ static int mtk_cam_debug_dump_open(struct inode *inode, struct file *file)
 
 	mutex_lock(&debug_fs->dump_buf_lock);
 
-	dev_dbg(dev, "%s: cnt(%d), head(%d), tail(%d), entry_sz(%d), entry_num(%d)\n",
+	dev_dbg(dev, "%s: cnt(%d),head(%d),tail(%d),entry_sz(%d),entry_num(%d)\n",
 		__func__,
 		debug_fs->dump_count, debug_fs->dump_buf_head_idx,
 		debug_fs->dump_buf_tail_idx, debug_fs->dump_buf_entry_size,
@@ -553,7 +570,7 @@ static int mtk_cam_debug_realloc(struct mtk_cam_debug_fs *debug_fs,
 	/* Release the previous buffers */
 	for (i = 0; i < debug_fs->dump_buf_entry_num; i++) {
 		dev_dbg(dev, "%s: free dump buf(%d): %p\n", __func__, i, debug_fs->dump_buf[i]);
-		kfree(debug_fs->dump_buf[i]);
+		vfree(debug_fs->dump_buf[i]);
 		debug_fs->dump_buf[i] = NULL;
 	}
 
@@ -565,7 +582,7 @@ static int mtk_cam_debug_realloc(struct mtk_cam_debug_fs *debug_fs,
 	for (i = 0; i < debug_fs->dump_buf_entry_num; i++) {
 		void *dump_buf;
 
-		dump_buf = kzalloc(debug_fs->dump_buf_entry_size, GFP_KERNEL);
+		dump_buf = vzalloc(debug_fs->dump_buf_entry_size);
 		if (!dump_buf)
 			break;
 
@@ -586,7 +603,7 @@ static int mtk_cam_debug_realloc(struct mtk_cam_debug_fs *debug_fs,
 
 	mutex_unlock(&debug_fs->dump_buf_lock);
 
-	return 0;
+	return num_of_allocated_buffers;
 }
 
 static int mtk_cam_debug_init(struct mtk_cam_debug_fs *debug_fs,
