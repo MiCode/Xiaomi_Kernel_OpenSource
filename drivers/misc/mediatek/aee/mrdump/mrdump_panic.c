@@ -58,44 +58,6 @@ static void aee_flush_reboot(void)
 		aee_exception_reboot();
 }
 
-/*save stack as binary into buf,
- *return value
-
-    -1: bottom unaligned
-    -2: bottom out of kernel addr space
-    -3 top out of kernel addr addr
-    -4: buff len not enough
-    >0: used length of the buf
- */
-int aee_dump_stack_top_binary(char *buf, int buf_len, unsigned long bottom,
-		unsigned long top)
-{
-	/*should check stack address in kernel range */
-	if (bottom & 3)
-		return -1;
-	if (!((bottom >= (PAGE_OFFSET + THREAD_SIZE)) &&
-	      (bottom <= (PAGE_OFFSET + get_linear_memory_size())))) {
-		if (!((bottom >= VMALLOC_START) && (bottom <= VMALLOC_END)))
-			return -2;
-	}
-
-	if (!((top >= (PAGE_OFFSET + THREAD_SIZE)) &&
-	      (top <= (PAGE_OFFSET + get_linear_memory_size())))) {
-		if (!((top >= VMALLOC_START) && (top <= VMALLOC_END)))
-			return -3;
-	}
-
-	if (top > ALIGN(bottom, THREAD_SIZE))
-		top = ALIGN(bottom, THREAD_SIZE);
-
-	if (buf_len < top - bottom)
-		return -4;
-
-	memcpy((void *)buf, (void *)bottom, top - bottom);
-
-	return top - bottom;
-}
-
 #if defined(CONFIG_RANDOMIZE_BASE) && defined(CONFIG_ARM64)
 static inline void show_kaslr(void)
 {
