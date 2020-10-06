@@ -314,7 +314,7 @@ struct rc_dts_predef {
 };
 
 struct srclken_hw {
-	void __iomem **base;
+	void __iomem *base[MAX_BASE_NUM];
 	u32 *val;
 };
 
