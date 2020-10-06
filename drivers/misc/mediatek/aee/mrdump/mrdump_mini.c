@@ -669,15 +669,6 @@ static void mrdump_mini_build_task_info(struct pt_regs *regs)
 
 }
 
-int mrdump_task_info(unsigned char *buffer, size_t sz_buf)
-{
-	if (sz_buf < sizeof(struct aee_process_info))
-		return -1;
-	memcpy(buffer, (void *)mrdump_mini_ehdr + MRDUMP_MINI_HEADER_SIZE,
-	       sizeof(struct aee_process_info));
-	return sizeof(struct aee_process_info);
-}
-
 static int mrdump_modules_info(unsigned char *buffer, size_t sz_buf)
 {
 #ifdef CONFIG_MODULES

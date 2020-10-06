@@ -10,11 +10,6 @@ struct mrdump_mini_extra_misc {
 	unsigned long max_size;
 };
 
-#ifdef CONFIG_STACKTRACE
-extern unsigned long *stack_trace;
-#endif
-extern void get_hang_detect_buffer(unsigned long *addr, unsigned long *size,
-		unsigned long *start);
 #if IS_ENABLED(CONFIG_HAVE_MTK_GZ_LOG)
 extern void get_gz_log_buffer(unsigned long *addr, unsigned long *paddr,
 			unsigned long *size, unsigned long *start);
