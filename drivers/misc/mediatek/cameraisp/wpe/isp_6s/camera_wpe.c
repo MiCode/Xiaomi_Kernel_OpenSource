@@ -3431,8 +3431,8 @@ static long WPE_ioctl(struct file *pFile,
 	unsigned long flags;	/* old: MUINT32 flags; */
 				/* FIX to avoid build warning */
 	signed int restTime = 0;
-	int fd, bufpa, release_flag;
-	struct wpe_fd_list_template *wpe_ion_list, *wpe_ion_list_temp, *wpe_ion_entry, *tmp1;
+	int fd;
+	struct wpe_fd_list_template *wpe_ion_list, *wpe_ion_entry;
 	struct list_head *pos;
 
 
