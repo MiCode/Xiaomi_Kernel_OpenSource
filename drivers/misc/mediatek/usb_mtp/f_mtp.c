@@ -1085,10 +1085,8 @@ static void send_file_work(struct work_struct *data)
 			ret = (xfer - hdr_size);
 			offset += ret;
 		} else
-			ret = kernel_read(filp, &offset, req->buf + hdr_size,
-				xfer - hdr_size);
-
-
+			ret = kernel_read(filp, req->buf + hdr_size, xfer - hdr_size,
+					&offset);
 		monitor_out(MTP_VFS_R);
 
 		if (ret < 0) {
