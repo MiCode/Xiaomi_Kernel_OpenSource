@@ -44,4 +44,6 @@ struct platform_data *parse_heap_dt(struct platform_device *pdev);
 
 void free_pdata(const struct platform_data *pdata);
 
+int qcom_system_heap_create(void);
+
 #endif /* _QCOM_DMA_HEAP_PRIV_H */

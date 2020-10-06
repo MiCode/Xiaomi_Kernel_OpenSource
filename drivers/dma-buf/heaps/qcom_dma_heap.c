@@ -8,10 +8,17 @@
 #include <linux/platform_device.h>
 
 #include <linux/qcom_dma_heap.h>
+#include "qcom_dma_heap_priv.h"
 
 static int qcom_dma_heap_probe(struct platform_device *pdev)
 {
-	return 0;
+	int ret;
+
+	ret = qcom_system_heap_create();
+	if (ret)
+		pr_err("%s: Failed to create 'qcom,system', error is %d\n", __func__, ret);
+
+	return ret;
 }
 
 static const struct of_device_id qcom_dma_heap_match_table[] = {
