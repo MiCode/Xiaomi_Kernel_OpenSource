@@ -1181,11 +1181,17 @@ int srclken_dts_map(struct platform_device *pdev)
 	cnt = of_property_count_strings(node, "subsys");
 	if (cnt > 0) {
 		subsys_num = cnt;
-		sys_cfg = kcalloc(cnt, sizeof(sys_cfg), GFP_KERNEL);
+		sys_cfg = kcalloc(cnt, sizeof(*sys_cfg), GFP_KERNEL);
+		if (!sys_cfg)
+			goto hw_no_mem;
+
 		if (!sys_cfg)
 			goto hw_no_mem;
 
 		for (i = 0; i < cnt; i++) {
+			sys_cfg[i].name = kzalloc(sizeof(char) * 10, GFP_KERNEL);
+			if (!sys_cfg[i].name)
+				goto name_no_mem;
 			ret = of_property_read_string_index(node,
 					"subsys", i, &sys_cfg[i].name);
 			if (ret)
@@ -1197,10 +1203,7 @@ int srclken_dts_map(struct platform_device *pdev)
 	hw = kzalloc(sizeof(*hw), GFP_KERNEL);
 	if (!hw)
 		goto hw_no_mem;
-	hw->base = devm_kmalloc_array(&pdev->dev, MAX_BASE_NUM,
-			sizeof(*hw->base), GFP_KERNEL);
-	if (!hw->base)
-		goto base_no_mem;
+
 	hw->val = kzalloc(sizeof(u32) * DTS_NUM, GFP_KERNEL);
 	if (!hw->val)
 		goto val_no_mem;
@@ -1218,7 +1221,7 @@ int srclken_dts_map(struct platform_device *pdev)
 		for (j = start[i]; j < end[i]; j++) {
 			ret = _srclken_dts_map_internal(node, j);
 			if (ret)
-				goto no_property;
+				goto no_base;
 		}
 	}
 
@@ -1226,10 +1229,11 @@ int srclken_dts_map(struct platform_device *pdev)
 
 	return 0;
 
+no_base:
+	kfree(hw->val);
 val_no_mem:
-	kfree(hw->base);
-base_no_mem:
 	kfree(hw);
+name_no_mem:
 subsys_no_mem:
 	kfree(sys_cfg);
 hw_no_mem:
@@ -1239,7 +1243,7 @@ hw_no_mem:
 no_property:
 	pr_err("%s can't find property %d\n",
 			__func__, ret);
-	return 0;
+	return ret;
 }
 #else /* !CONFIG_OF */
 int srclken_dts_map(struct platform_device *pdev)
@@ -1309,7 +1313,6 @@ int srclken_cfg_init(void)
 			rc_cfg = NOT_SUPPORT_CFG;
 			goto RC_CFG_FAIL;
 		}
-
 		/* set mode for srclken subsys */
 		if ((cfg & SW_MODE) == SW_MODE)
 			sys_cfg[i].mode = SW_MODE;
