@@ -10,7 +10,7 @@ maintainers:
 
 description: |
   DMA-BUF heaps is a memory manager that allows for sharing of buffers between
-  pdifferen trocesses and between user space and kernel space. DMA-BUF heaps
+  different processes and between user space and kernel space. DMA-BUF heaps
   manages different memory spaces by separating the memory spaces into heaps.
 
   All child nodes of a qcom,dma-heaps node are interpreted as DMA-BUF heap
@@ -24,12 +24,6 @@ properties:
   compatible:
     items:
       -const: qcom,dma-heaps
-
-  '#address-cells':
-    const: 1
-
-  '#size-cells':
-    const: 0
 
 patternProperties:
   '^qcom,[a-zA-Z]+$':
@@ -65,8 +59,6 @@ patternProperties:
 
 required:
   - compatible
-  - '#address-cells'
-  - '#size-cells'
 
 examples:
   - |
