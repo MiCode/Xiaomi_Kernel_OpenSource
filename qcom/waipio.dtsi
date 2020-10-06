@@ -292,7 +292,7 @@
 			reg = <0x0 0x80b00000 0x0 0x100000>;
 		};
 
-		cdsp_secure_heap_mem: cdsp_secure_heap_region@0x80c00000 {
+		cdsp_secure_heap: cdsp_secure_heap_region@0x80c00000 {
 			no-map;
 			reg = <0x0 0x80c00000 0x0 0x4600000>;
 		};
@@ -1185,3 +1185,4 @@
 #include "waipio-regulators.dtsi"
 #include "waipio-usb.dtsi"
 #include "waipio-dma-heaps.dtsi"
+#include "lahaina-ion.dtsi"
