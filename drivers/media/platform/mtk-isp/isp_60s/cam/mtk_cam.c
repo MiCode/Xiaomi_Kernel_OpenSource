@@ -120,7 +120,7 @@ void mtk_cam_dequeue_req_frame(struct mtk_cam_device *cam,
 			cam->running_job_count--;
 			if (req->state.estate == E_STATE_DONE_MISMATCH)
 				buf_state = VB2_BUF_STATE_ERROR;
-			if (ctx->sensor && req->state.state_element) {
+			if (ctx->sensor) {
 				spin_lock(&sensor_ctrl->camsys_state_lock);
 				list_del(&req->state.state_element);
 				spin_unlock(&sensor_ctrl->camsys_state_lock);
@@ -130,7 +130,7 @@ void mtk_cam_dequeue_req_frame(struct mtk_cam_device *cam,
 			break;
 		} else if (req->frame_seq_no < frame_seq_no) {
 			cam->running_job_count--;
-			if (ctx->sensor && req->state.state_element) {
+			if (ctx->sensor) {
 				spin_lock(&sensor_ctrl->camsys_state_lock);
 				list_del(&req->state.state_element);
 				spin_unlock(&sensor_ctrl->camsys_state_lock);
