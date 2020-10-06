@@ -982,6 +982,7 @@ config COMMON_CLK_MTK_FREQ_HOPPING
 
 config COMMON_CLK_MTK_FREQ_HOPPING_DEBUG
 	bool "Mediatek Frequency Hopping debug fs"
+	default y
 	depends on DEBUG_FS && COMMON_CLK_MTK_FREQ_HOPPING
 	help
 	  This option is for debugging purpose
