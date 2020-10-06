@@ -692,6 +692,10 @@ int fpsgo_fbt2fstb_update_cpu_frame_info(
 	iter->m_m_time = (iter->m_m_time + mdla_time_ns) / 2;
 	iter->m_m_cap = (iter->m_m_cap + mdla_boost) / 2;
 
+#if defined(CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT)
+	ged_kpi_set_target_FPS_margin(iter->bufid,
+		iter->target_fps, iter->target_fps_margin, (int)cpu_time_ns);
+#endif
 	fpsgo_systrace_c_fstb_man(pid, iter->bufid, (int)cpu_time_ns, "t_cpu");
 	fpsgo_systrace_c_fstb(pid, iter->bufid, (int)max_current_cap,
 			"cur_cpu_cap");
@@ -1324,10 +1328,7 @@ static void fstb_fps_stats(struct work_struct *work)
 			fpsgo_systrace_c_fstb(iter->pid, iter->bufid,
 				iter->target_fps_margin_dbnc_b,
 				"target_fps_margin_dbnc_b");
-#if defined(CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT)
-			ged_kpi_set_target_FPS_margin(iter->bufid,
-			iter->target_fps, iter->target_fps_margin);
-#endif
+
 			mtk_fstb_dprintk(
 			"%s pid:%d target_fps:%d\n",
 			__func__, iter->pid,
