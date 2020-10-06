@@ -79,21 +79,6 @@ static int lc898229_write_smbus(struct lc898229_device *lc898229, unsigned char 
 	return ret;
 }
 
-static int lc898229_write_array(struct lc898229_device *lc898229,
-			      struct regval_list *vals, u32 len)
-{
-	unsigned int i;
-	int ret;
-
-	for (i = 0; i < len; i++) {
-		ret = lc898229_write_smbus(lc898229, vals[i].reg_num,
-					 vals[i].value);
-		if (ret < 0)
-			return ret;
-	}
-	return 0;
-}
-
 static int lc898229_set_position(struct lc898229_device *lc898229, u16 val)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(&lc898229->sd);
