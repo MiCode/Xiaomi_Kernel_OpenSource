@@ -187,6 +187,7 @@ struct st21nfc_device {
  * this routine can be extended to select from multiple
  * sources based on clk_src_name.
  */
+#if (defined(ST21NFCD_QCOM) || defined(ST21NFCD_QCOM54) || defined(ST21NFCD_MTK))
 static int st21nfc_clock_select(struct st21nfc_device *st21nfc_dev)
 {
 #if (defined(ST21NFCD_MTK))
@@ -222,6 +223,7 @@ err_clk:
 	return 0;
 #endif  // ST21NFCD_MTK
 }
+#endif
 
 /*
  * Routine to disable clocks
@@ -601,7 +603,7 @@ static ssize_t st21nfc_dev_write(struct file *filp, const char __user *buf,
 	int ret = count;
 
 	if (enable_debug_log) {
-		pr_debug("%s: st21nfc_dev ptr %p\n", __func__, st21nfc_dev);
+		//pr_debug("%s: st21nfc_dev ptr %p\n", __func__, st21nfc_dev);
 		pr_debug("%s : writing %zu bytes.\n", __func__, count);
 	}
 
@@ -1066,10 +1068,11 @@ static const struct acpi_gpio_mapping acpi_st21nfc_gpios[] = {
 static int st21nfc_probe(struct i2c_client *client,
 						 const struct i2c_device_id *id)
 {
-	int ret, r;
+	int ret;
 	struct st21nfc_device *st21nfc_dev;
 	struct device *dev = &client->dev;
 #ifdef ST21NFCD_MTK
+	int r;
 	struct device_node *np = dev->of_node;
 #endif  // ST21NFCD_MTK
 
@@ -1117,6 +1120,7 @@ static int st21nfc_probe(struct i2c_client *client,
 	st21nfc_dev->r_state_current = ST21NFC_HEADER;
 	client->adapter->retries = 0;
 
+// QCOM and MTK54 use standard GPIO definition
 #ifndef ST21NFCD_MTK
 	ret = acpi_dev_add_driver_gpios(
 		ACPI_COMPANION(dev), acpi_st21nfc_gpios);
@@ -1328,7 +1332,9 @@ err_sysfs_create_group_failed:
 	misc_deregister(&st21nfc_dev->st21nfc_device);
 err_misc_register:
 	mutex_destroy(&st21nfc_dev->read_mutex);
+#if (defined(ST21NFCD_QCOM) || defined(ST21NFCD_QCOM54) || defined(ST21NFCD_MTK))
 err_sysfs_power_stats:
+#endif
 	if (!IS_ERR_OR_NULL(st21nfc_dev->gpiod_pidle)) {
 		sysfs_remove_file(&client->dev.kobj,
 			&dev_attr_power_stats.attr);
@@ -1442,9 +1448,9 @@ static const struct dev_pm_ops st21nfc_pm_ops = {
 #if (defined(ST21NFCD_QCOM) || defined(ST21NFCD_QCOM54))
 static const struct acpi_device_id st21nfc_acpi_match[] = {{"SMO2104"}, {}};
 MODULE_DEVICE_TABLE(acpi, st21nfc_acpi_match);
-#elif (defined(ST21NFCD_MTK54))
-static const struct acpi_device_id st21nfc_acpi_match[] = {{"SMO2104"}, { } };
-MODULE_DEVICE_TABLE(acpi, st21nfc_acpi_match);
+// #elif (defined(ST21NFCD_MTK54))
+// static const struct acpi_device_id st21nfc_acpi_match[] = {{"SMO2104"}, {}};
+// MODULE_DEVICE_TABLE(acpi, st21nfc_acpi_match);
 #endif
 
 static struct i2c_driver st21nfc_driver = {
