@@ -979,6 +979,7 @@ config MFD_I2C_PMIC
 	depends on I2C && OF
 	select IRQ_DOMAIN
 	select REGMAP_I2C
+	select MFD_CORE
 	help
 	  This enables support for controlling Qualcomm Technologies, Inc.
 	  PMICs over I2C. The driver controls interrupts, and provides register
