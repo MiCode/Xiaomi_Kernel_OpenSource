@@ -891,13 +891,9 @@ static void __blk_release_queue(struct work_struct *work)
 
 	blk_free_queue_stats(q->stats);
 
-	if (queue_is_mq(q)) {
-		struct blk_mq_hw_ctx *hctx;
-		int i;
+	if (queue_is_mq(q))
 		cancel_delayed_work_sync(&q->requeue_work);
-		queue_for_each_hw_ctx(q, hctx, i)
-			cancel_delayed_work_sync(&hctx->run_work);
-	}
+
 	blk_exit_queue(q);
 
 	blk_queue_free_zone_bitmaps(q);
