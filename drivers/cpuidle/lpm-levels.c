@@ -149,8 +149,7 @@ static int lpm_cpu_qos_notify(struct notifier_block *nb,
 	int cpu = nb - dev_pm_qos_nb;
 
 	preempt_disable();
-	if (cpu != smp_processor_id() && cpu_online(cpu) &&
-	    !check_cpu_isolated(cpu))
+	if (cpu != smp_processor_id() && cpu_online(cpu))
 		wake_up_if_idle(cpu);
 	preempt_enable();
 
@@ -658,8 +657,6 @@ static inline uint32_t get_cpus_qos(const struct cpumask *mask)
 	uint32_t latency = PM_QOS_CPU_DMA_LAT_DEFAULT_VALUE;
 
 	for_each_cpu(cpu, mask) {
-		if (check_cpu_isolated(cpu))
-			continue;
 		n = cpuidle_governor_latency_req(cpu);
 		if (n < latency)
 			latency = n;
