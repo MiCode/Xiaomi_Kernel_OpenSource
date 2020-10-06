@@ -3,8 +3,6 @@
 &soc {
 	qcom,dma-heaps {
 		compatible = "qcom,dma-heaps";
-		#address-cells = <1>;
-		#size-cells = <0>;
 
 		qcom,adsp {
 			qcom,dma-heap-name = "qcom,adsp";
