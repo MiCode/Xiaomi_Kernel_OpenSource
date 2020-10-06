@@ -916,7 +916,7 @@ int mtk_camsys_ctrl_start(struct mtk_cam_ctx *ctx)
 	}
 	camsys_sensor_ctrl->link_change_state = LINK_CHANGE_IDLE;
 	mtk_cam_dvfs_update_clk(ctx->cam);
-	dev_dbg(ctx->cam->dev, "[camsys:start]  ctx:%d/raw_dev:%d\n",
+	dev_info(ctx->cam->dev, "[camsys:start]  ctx:%d/raw_dev:%d\n",
 		ctx->stream_id, camsys_ctrl->raw_dev[ctx->pipe->id]->id);
 
 	return 0;
@@ -944,7 +944,7 @@ void mtk_camsys_ctrl_stop(struct mtk_cam_ctx *ctx)
 		destroy_workqueue(camsys_sensor_ctrl->sensorsetting_wq);
 		camsys_sensor_ctrl->sensorsetting_wq = NULL;
 	}
-	dev_dbg(ctx->cam->dev, "[camsys:stop]  ctx:%d/raw_dev:%d\n",
+	dev_info(ctx->cam->dev, "[camsys:stop]  ctx:%d/raw_dev:%d\n",
 		ctx->stream_id, camsys_ctrl->raw_dev[ctx->pipe->id]->id);
 }
 

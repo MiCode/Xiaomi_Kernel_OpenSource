@@ -47,7 +47,7 @@ static void mtk_cam_dev_job_done(struct mtk_cam_device *cam,
 	unsigned long flags;
 	u64 ts_eof = ktime_get_boottime_ns();
 
-	dev_dbg(cam->dev, "job done request:%s frame_seq:%d state:%d ctx_used:%d\n",
+	dev_info(cam->dev, "job done request:%s frame_seq:%d state:%d ctx_used:%d\n",
 		req->req.debug_str, req->frame_seq_no, state, req->ctx_used);
 	list_for_each_entry_safe(obj, obj_prev, &req->req.objects, list) {
 		struct vb2_buffer *vb;
@@ -120,7 +120,7 @@ void mtk_cam_dequeue_req_frame(struct mtk_cam_device *cam,
 			cam->running_job_count--;
 			if (req->state.estate == E_STATE_DONE_MISMATCH)
 				buf_state = VB2_BUF_STATE_ERROR;
-			if (ctx->sensor) {
+			if (ctx->sensor && req->state.state_element) {
 				spin_lock(&sensor_ctrl->camsys_state_lock);
 				list_del(&req->state.state_element);
 				spin_unlock(&sensor_ctrl->camsys_state_lock);
@@ -130,7 +130,7 @@ void mtk_cam_dequeue_req_frame(struct mtk_cam_device *cam,
 			break;
 		} else if (req->frame_seq_no < frame_seq_no) {
 			cam->running_job_count--;
-			if (ctx->sensor) {
+			if (ctx->sensor && req->state.state_element) {
 				spin_lock(&sensor_ctrl->camsys_state_lock);
 				list_del(&req->state.state_element);
 				spin_unlock(&sensor_ctrl->camsys_state_lock);
