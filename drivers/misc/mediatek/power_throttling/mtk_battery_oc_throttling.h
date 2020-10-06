@@ -27,10 +27,6 @@ typedef void (*battery_oc_callback)(enum BATTERY_OC_LEVEL_TAG tag);
 #if IS_ENABLED(CONFIG_MTK_BATTERY_OC_POWER_THROTTLING)
 void register_battery_oc_notify(battery_oc_callback oc_cb,
 				enum BATTERY_OC_PRIO_TAG prio_val);
-#else
-static void register_battery_oc_notify(battery_oc_callback oc_cb,
-				       enum BATTERY_OC_PRIO_TAG prio_val)
-{};
 #endif
 
 #endif /* __MTK_BATTERY_OC_THROTTLING_H__ */
