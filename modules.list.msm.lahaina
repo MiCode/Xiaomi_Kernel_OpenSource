@@ -24,6 +24,7 @@ qcom-pdc.ko
 iommu-logger.ko
 arm_smmu.ko
 msm_dma_iommu_mapping.ko
+qcom_dma_heaps.ko
 qcom-arm-smmu-mod.ko
 msm-geni-se.ko
 msm_geni_serial.ko
