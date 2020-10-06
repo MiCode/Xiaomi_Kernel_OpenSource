@@ -188,6 +188,7 @@ struct msm_geni_serial_port {
 	void *ipc_log_pwr;
 	void *ipc_log_misc;
 	void *console_log;
+	void *ipc_log_single;
 	unsigned int cur_baud;
 	int ioctl_count;
 	int edge_count;
@@ -568,6 +569,7 @@ static int msm_geni_serial_ioctl(struct uart_port *uport, unsigned int cmd,
 						unsigned long arg)
 {
 	int ret = -ENOIOCTLCMD;
+	struct msm_geni_serial_port *port = GET_DEV_PORT(uport);
 
 	switch (cmd) {
 	case TIOCPMGET: {
@@ -580,6 +582,16 @@ static int msm_geni_serial_ioctl(struct uart_port *uport, unsigned int cmd,
 	}
 	case TIOCPMACT: {
 		ret = !pm_runtime_status_suspended(uport->dev);
+		break;
+	}
+	case TIOCFAULT: {
+		geni_se_dump_dbg_regs(&port->serial_rsc,
+				uport->membase, port->ipc_log_misc);
+		port->ipc_log_rx = port->ipc_log_single;
+		port->ipc_log_tx = port->ipc_log_single;
+		port->ipc_log_misc = port->ipc_log_single;
+		port->ipc_log_pwr = port->ipc_log_single;
+		ret = 0;
 		break;
 	}
 	default:
@@ -2887,6 +2899,16 @@ static void msm_geni_serial_debug_init(struct uart_port *uport, bool console)
 					IPC_LOG_MISC_PAGES, name, 0);
 			if (!msm_port->ipc_log_misc)
 				dev_info(uport->dev, "Err in Misc IPC Log\n");
+		}
+		/* New set of UART IPC log for RX Invalid case */
+		memset(name, 0, sizeof(name));
+		if (!msm_port->ipc_log_single) {
+			scnprintf(name, sizeof(name), "%s%s",
+					dev_name(uport->dev), "_single");
+			msm_port->ipc_log_single = ipc_log_context_create(
+					IPC_LOG_MISC_PAGES, name, 0);
+			if (!msm_port->ipc_log_single)
+				dev_info(uport->dev, "Err in single IPC Log\n");
 		}
 	} else {
 		memset(name, 0, sizeof(name));
