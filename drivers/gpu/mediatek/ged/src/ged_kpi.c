@@ -45,9 +45,9 @@ EXPORT_SYMBOL(ged_kpi_PushAppSelfFcFp_fbt);
 
 #ifdef MTK_GED_KPI
 
-#define GED_TAG "[GED_KPI]"
+#define GED_KPI_TAG "[GED_KPI]"
 #define GED_PR_DEBUG(fmt, args...)\
-	pr_debug(GED_TAG"%s %d : "fmt, __func__, __LINE__, ##args)
+	pr_debug(GED_KPI_TAG"%s %d : "fmt, __func__, __LINE__, ##args)
 
 #define GED_KPI_MSEC_DIVIDER 1000000
 #define GED_KPI_SEC_DIVIDER 1000000000
