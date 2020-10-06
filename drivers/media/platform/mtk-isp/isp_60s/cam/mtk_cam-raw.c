@@ -242,7 +242,7 @@ static int mtk_raw_get_ctrl(struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_FRZ_LIMITATION:
 		ctrl->val = pipeline->res_config.frz_enable ?
-				pipeline->res_config.frz_ratio:100;
+				pipeline->res_config.frz_ratio : 100;
 		break;
 	default:
 		break;
@@ -833,8 +833,9 @@ static bool mtk_raw_resource_calc(struct mtk_raw_pipeline *pipe,
 
 static void raw_irq_handle_tg_grab_err(struct mtk_raw_device *raw_dev);
 
-static void raw_irq_handle_dma_err(struct mtk_raw_device *raw_dev);
-
+static void raw_irq_handle_dma_err(struct mtk_raw_device *raw_dev,
+				   struct mtk_camsys_irq_info *irq_info, unsigned int frame_seq_no,
+				   struct mtk_cam_status_dump *status_dump);
 static irqreturn_t mtk_irq_raw(int irq, void *data)
 {
 	struct mtk_raw_device *raw_dev = (struct mtk_raw_device *)data;
@@ -846,6 +847,7 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 	unsigned int drop_status, dma_err_status, cq_done_status;
 	unsigned long flags;
 	int ret;
+	struct mtk_cam_status_dump dump_param;
 
 	spin_lock_irqsave(&raw_dev->spinlock_irq, flags);
 	irq_status	= readl_relaxed(raw_dev->base + REG_CTL_RAW_INT_STAT);
@@ -863,7 +865,7 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 	 * TODO: read seq number from outer register.
 	 * This value may be wrong, since
 	 * @sw p1 done: legacy cq is triggered, overwriting this value
-	 * Should replace with the the frame-header implementation.
+	 * Should replace with the frame-header implementation.
 	 */
 	dequeued_frame_seq_no =
 		readl_relaxed(raw_dev->base + REG_FRAME_SEQ_NUM);
@@ -901,16 +903,51 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 		irq_info.irq_type |= 1 << CAMSYS_IRQ_FRAME_START;
 		raw_dev->sof_count++;
 	}
+
+#if MTK_CAM_DUMP_WORK_INT_CONTEXT
+	/**
+	 * UT only and stress test only, trigger dump work in interrupt context
+	 */
+	if (irq_info.irq_type & (1 << CAMSYS_IRQ_FRAME_DONE)) {
+		/* Fill the debug infomration for futher dump */
+		memset(&dump_param, 0, sizeof(dump_param));
+		dump_param.dev_id = raw_dev->id;
+		dump_param.irq_status = irq_status;
+		dump_param.err_status = err_status;
+		dump_param.dma_done_status = dma_done_status;
+		dump_param.dmai_done_status = dmai_done_status;
+		dump_param.drop_status = drop_status;
+		dump_param.dma_err_status = dma_err_status;
+		dump_param.cq_done_status = cq_done_status;
+		raw_irq_handle_dma_err(raw_dev, &irq_info,
+				       dequeued_frame_seq_no_inner,
+				       &dump_param);
+	}
+#endif
+
 	/* inform interrupt information to camsys controller */
 	ret = mtk_camsys_isr_event(raw_dev->cam, &irq_info);
 	if (ret)
 		goto ctx_not_found;
+
 	/* Check ISP error status */
 	if (err_status) {
 		dev_dbg(dev, "int_err:0x%x 0x%x\n", irq_status, err_status);
 		/* Show DMA errors in detail */
-		if (err_status & DMA_ERR_ST)
-			raw_irq_handle_dma_err(raw_dev);
+		if (err_status & DMA_ERR_ST) {
+			memset(&dump_param, 0, sizeof(dump_param));
+			dump_param.dev_id = raw_dev->id;
+			dump_param.irq_status = irq_status;
+			dump_param.err_status = err_status;
+			dump_param.dma_done_status = dma_done_status;
+			dump_param.dmai_done_status = dmai_done_status;
+			dump_param.drop_status = drop_status;
+			dump_param.dma_err_status = dma_err_status;
+			dump_param.cq_done_status = cq_done_status;
+			raw_irq_handle_dma_err(raw_dev, &irq_info,
+					       dequeued_frame_seq_no_inner,
+					       &dump_param);
+		}
 		/* Show TG register for more error detail*/
 		if (err_status & TG_GBERR_ST)
 			raw_irq_handle_tg_grab_err(raw_dev);
@@ -933,43 +970,112 @@ void raw_irq_handle_tg_grab_err(struct mtk_raw_device *raw_dev)
 	writel_relaxed(val2, raw_dev->base + REG_TG_SEN_MODE);
 	wmb(); /* TBC */
 	dev_dbg_ratelimited(raw_dev->dev,
-		"TG PATHCFG/SENMODE/FRMSIZE/RGRABPXL/LIN:%x/%x/%x/%x/%x/%x\n",
-		readl_relaxed(raw_dev->base + REG_TG_PATH_CFG),
-		readl_relaxed(raw_dev->base + REG_TG_SEN_MODE),
-		readl_relaxed(raw_dev->base + REG_TG_FRMSIZE_ST),
-		readl_relaxed(raw_dev->base + REG_TG_FRMSIZE_ST_R),
-		readl_relaxed(raw_dev->base + REG_TG_SEN_GRAB_PXL),
-		readl_relaxed(raw_dev->base + REG_TG_SEN_GRAB_LIN));
+			    "TG PATHCFG/SENMODE/FRMSIZE/RGRABPXL/LIN:%x/%x/%x/%x/%x/%x\n",
+			    readl_relaxed(raw_dev->base + REG_TG_PATH_CFG),
+			    readl_relaxed(raw_dev->base + REG_TG_SEN_MODE),
+			    readl_relaxed(raw_dev->base + REG_TG_FRMSIZE_ST),
+			    readl_relaxed(raw_dev->base + REG_TG_FRMSIZE_ST_R),
+			    readl_relaxed(raw_dev->base + REG_TG_SEN_GRAB_PXL),
+			    readl_relaxed(raw_dev->base + REG_TG_SEN_GRAB_LIN));
 }
 
-void raw_irq_handle_dma_err(struct mtk_raw_device *raw_dev)
+void raw_irq_handle_dma_err(struct mtk_raw_device *raw_dev,
+			    struct mtk_camsys_irq_info *irq_info,
+			    unsigned int frame_seq_no,
+			    struct mtk_cam_status_dump *status_dump)
 {
+	struct mtk_cam_ctx *ctx;
+	struct mtk_cam_device *cam = raw_dev->cam;
+	struct mtk_cam_request *req;
+
 	dev_dbg_ratelimited(raw_dev->dev,
 			    "IMGO:0x%x, RRZO:0x%x, YUVO:0x%x, CRZO_R1:0x%x, RSSO_R2:0x%x, BPCI:0x%x\n",
-		readl_relaxed(raw_dev->base + REG_IMGO_ERR_STAT),
-		readl_relaxed(raw_dev->base + REG_RRZO_ERR_STAT),
-		readl_relaxed(raw_dev->base + REG_YUVO_ERR_STAT),
-		readl_relaxed(raw_dev->base + REG_CRZO_R1_ERR_STAT),
-		readl_relaxed(raw_dev->base + REG_RSSO_R2_ERR_STAT),
-		readl_relaxed(raw_dev->base + REG_BPCI_ERR_STAT));
+			    readl_relaxed(raw_dev->base + REG_IMGO_ERR_STAT),
+			    readl_relaxed(raw_dev->base + REG_RRZO_ERR_STAT),
+			    readl_relaxed(raw_dev->base + REG_YUVO_ERR_STAT),
+			    readl_relaxed(raw_dev->base + REG_CRZO_R1_ERR_STAT),
+			    readl_relaxed(raw_dev->base + REG_RSSO_R2_ERR_STAT),
+			    readl_relaxed(raw_dev->base + REG_BPCI_ERR_STAT));
 
 	dev_dbg_ratelimited(raw_dev->dev,
 			    "LSCI:0x%x, PDI:0x%x, AAO:0x%x, AAHO:0x%x, AFO:0x%x, TSFSO:0x%x\n",
-		readl_relaxed(raw_dev->base + REG_LSCI_ERR_STAT),
-		readl_relaxed(raw_dev->base + REG_PDI_ERR_STAT),
-		readl_relaxed(raw_dev->base + REG_AAO_ERR_STAT),
-		readl_relaxed(raw_dev->base + REG_AAHO_ERR_STAT),
-		readl_relaxed(raw_dev->base + REG_AFO_ERR_STAT),
-		readl_relaxed(raw_dev->base + REG_TSFSO_ERR_STAT));
+			    readl_relaxed(raw_dev->base + REG_LSCI_ERR_STAT),
+			    readl_relaxed(raw_dev->base + REG_PDI_ERR_STAT),
+			    readl_relaxed(raw_dev->base + REG_AAO_ERR_STAT),
+			    readl_relaxed(raw_dev->base + REG_AAHO_ERR_STAT),
+			    readl_relaxed(raw_dev->base + REG_AFO_ERR_STAT),
+			    readl_relaxed(raw_dev->base + REG_TSFSO_ERR_STAT));
 
 	dev_dbg_ratelimited(raw_dev->dev,
 			    " LMVO:0x%x, LTMSO:0x%x, LCSO:0x%x, LCSHO:0x%x, FLKO:0x%x, PDO:0x%x\n",
-		readl_relaxed(raw_dev->base + REG_LMVO_ERR_STAT),
-		readl_relaxed(raw_dev->base + REG_LTMSO_ERR_STAT),
-		readl_relaxed(raw_dev->base + REG_LCSO_ERR_STAT),
-		readl_relaxed(raw_dev->base + REG_LCSHO_ERR_STAT),
-		readl_relaxed(raw_dev->base + REG_FLKO_ERR_STAT),
-		readl_relaxed(raw_dev->base + REG_PDO_ERR_STAT));
+			    readl_relaxed(raw_dev->base + REG_LMVO_ERR_STAT),
+			    readl_relaxed(raw_dev->base + REG_LTMSO_ERR_STAT),
+			    readl_relaxed(raw_dev->base + REG_LCSO_ERR_STAT),
+			    readl_relaxed(raw_dev->base + REG_LCSHO_ERR_STAT),
+			    readl_relaxed(raw_dev->base + REG_FLKO_ERR_STAT),
+			    readl_relaxed(raw_dev->base + REG_PDO_ERR_STAT));
+
+	if (!status_dump)
+		return;
+
+	ctx = mtk_cam_find_ctx(cam, &raw_dev->pipeline->subdev.entity);
+	if (!ctx) {
+		dev_dbg(raw_dev->dev, "cannot find ctx\n");
+		return;
+	}
+
+	req = mtk_cam_dev_get_req(cam, ctx, frame_seq_no);
+	if (!req) {
+		dev_dbg(raw_dev->dev, "cannot find req, frame_seq_no:%d\n",
+			frame_seq_no);
+		return;
+	}
+
+	status_dump->dma_err_imgo = readl_relaxed(raw_dev->base +
+						  REG_IMGO_ERR_STAT);
+	status_dump->dma_err_rrzo = readl_relaxed(raw_dev->base +
+						  REG_RRZO_ERR_STAT);
+	status_dump->dma_err_yuvo = readl_relaxed(raw_dev->base +
+						  REG_YUVO_ERR_STAT);
+	status_dump->dma_err_crzo = readl_relaxed(raw_dev->base +
+						  REG_CRZO_R1_ERR_STAT);
+	status_dump->dma_err_rsso = readl_relaxed(raw_dev->base +
+						  REG_RSSO_R2_ERR_STAT);
+	status_dump->dma_err_bpci = readl_relaxed(raw_dev->base +
+						  REG_BPCI_ERR_STAT);
+	status_dump->dma_err_lsci = readl_relaxed(raw_dev->base +
+						  REG_LSCI_ERR_STAT);
+	status_dump->dma_err_pdi = readl_relaxed(raw_dev->base +
+						 REG_PDI_ERR_STAT);
+	status_dump->dma_err_aao = readl_relaxed(raw_dev->base +
+						 REG_AAO_ERR_STAT);
+	status_dump->dma_err_aaho = readl_relaxed(raw_dev->base +
+						  REG_AAHO_ERR_STAT);
+	status_dump->dma_err_afo = readl_relaxed(raw_dev->base +
+						  REG_AFO_ERR_STAT);
+	status_dump->dma_err_tsfo = readl_relaxed(raw_dev->base +
+						  REG_TSFSO_ERR_STAT);
+	status_dump->dma_err_lmvo = readl_relaxed(raw_dev->base +
+						  REG_LMVO_ERR_STAT);
+	status_dump->dma_err_ltmso = readl_relaxed(raw_dev->base +
+						   REG_LTMSO_ERR_STAT);
+	status_dump->dma_err_lcso = readl_relaxed(raw_dev->base +
+						  REG_LCSO_ERR_STAT);
+	status_dump->dma_err_lcsho = readl_relaxed(raw_dev->base +
+						   REG_LCSHO_ERR_STAT);
+	status_dump->dma_err_flko = readl_relaxed(raw_dev->base +
+						  REG_FLKO_ERR_STAT);
+	status_dump->dma_err_pdo = readl_relaxed(raw_dev->base +
+						  REG_PDO_ERR_STAT);
+
+	req->dump_param.status_dump = *status_dump;
+
+	/**
+	 * Send the wrok to ensure the dump is finished even when the isp
+	 * clk is disabled abnormally.
+	 */
+	mtk_cam_req_dump(cam, req, 0xFFFFFFFF, MTK_CAM_REQ_DUMP_DMA_ERR,
+			 false, "Camsys DUMP for DMA error");
 }
 
 #ifdef CONFIG_MTK_IOMMU_V2
@@ -1401,10 +1507,11 @@ static int mtk_cam_media_link_setup(struct media_entity *entity,
 
 			spin_lock_irqsave(&camsys_ctrl->link_change_lock, flags);
 			if (*state == LINK_CHANGE_IDLE ||
-					*state == LINK_CHANGE_PREPARING) {
+			    *state == LINK_CHANGE_PREPARING) {
 				struct mtk_camsys_link_ctrl *link_ctrl =
 					&camsys_ctrl->link_ctrl;
 				struct media_entity *entity;
+
 				if (*state == LINK_CHANGE_IDLE)
 					*state = LINK_CHANGE_PREPARING;
 

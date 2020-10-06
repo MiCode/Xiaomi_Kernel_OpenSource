@@ -77,6 +77,36 @@ struct mtk_cam_working_buf_list {
 	spinlock_t lock; /* protect the list and cnt */
 };
 
+/* For device staus dump */
+struct mtk_cam_status_dump {
+	__u32	dev_id;
+	__u32	irq_status;
+	__u32	err_status;
+	__u32	dma_done_status;
+	__u32	dmai_done_status;
+	__u32	drop_status;
+	__u32	dma_err_status;
+	__u32	cq_done_status;
+	__u32	dma_err_imgo;
+	__u32	dma_err_rrzo;
+	__u32	dma_err_yuvo;
+	__u32	dma_err_crzo;
+	__u32	dma_err_rsso;
+	__u32	dma_err_bpci;
+	__u32	dma_err_lsci;
+	__u32	dma_err_pdi;
+	__u32	dma_err_aao;
+	__u32	dma_err_aaho;
+	__u32	dma_err_afo;
+	__u32	dma_err_tsfo;
+	__u32	dma_err_lmvo;
+	__u32	dma_err_ltmso;
+	__u32	dma_err_lcso;
+	__u32	dma_err_lcsho;
+	__u32	dma_err_flko;
+	__u32	dma_err_pdo;
+};
+
 struct mtk_cam_dump_param {
 	/* Common Debug Information*/
 	__u8 desc[MTK_CAM_DEBUG_PARAM_DESC_SIZE];
@@ -97,7 +127,6 @@ struct mtk_cam_dump_param {
 	__u32 meta_in_iova;
 
 	/* meta out 0 */
-
 	void *meta_out_0_cpu_addr;
 	__u32 meta_out_0_dump_buf_size;
 	__u32 meta_out_0_iova;
@@ -111,6 +140,25 @@ struct mtk_cam_dump_param {
 	void *meta_out_2_cpu_addr;
 	__u32 meta_out_2_dump_buf_size;
 	__u32 meta_out_2_iova;
+
+	struct mtk_cam_status_dump status_dump;
+};
+
+#define MTK_CAM_REQ_DUMP_FORCE		BIT(0) /* Force dump by user */
+#define MTK_CAM_REQ_DUMP_DMA_ERR	BIT(1) /* Triggered by DMA ERR */
+/**
+ * Triggered by HW Frame Drop found when next SOF coming
+ */
+#define MTK_CAM_REQ_DUMP_HW_FRAME_DROP	BIT(2)
+
+#define MTK_CAM_REQ_DBGWORK_S_INIT	0
+#define MTK_CAM_REQ_DBGWORK_S_PREPARED	1
+#define MTK_CAM_REQ_DBGWORK_S_FINISHED	2
+
+struct mtk_cam_req_dbg_work {
+	struct work_struct work;
+	int state;
+	unsigned int dump_flags;
 };
 
 /*
@@ -123,6 +171,7 @@ struct mtk_cam_dump_param {
  * @list: List entry of the object for @struct mtk_cam_device:
  *        pending_job_list or running_job_list.
  * @working_buf: command queue buffer associated to this request
+ * @dump_flags: record dump reasons.
  *
  */
 struct mtk_cam_request {
@@ -138,8 +187,21 @@ struct mtk_cam_request {
 	struct mtk_camsys_ctrl_state state;
 	struct mtk_cam_working_buf_entry *working_buf;
 	struct mtk_cam_dump_param dump_param;
-	struct work_struct debug_work;
+	struct mtk_cam_req_dbg_work dbg_work;
+	struct mtk_cam_req_dbg_work dbg_release_work;
 };
+
+static inline struct mtk_cam_request*
+mtk_cam_req_dbg_work_to_req(struct work_struct *work)
+{
+	return container_of(work, struct mtk_cam_request, dbg_work.work);
+}
+
+static inline struct mtk_cam_request*
+mtk_cam_req_dbg_release_work_to_req(struct work_struct *work)
+{
+	return container_of(work, struct mtk_cam_request, dbg_release_work.work);
+}
 
 static inline struct mtk_cam_request *
 to_mtk_cam_req(struct media_request *__req)
@@ -269,6 +331,9 @@ int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, unsigned int streaming);
 struct mtk_cam_request *mtk_cam_dev_get_req(struct mtk_cam_device *cam,
 					    struct mtk_cam_ctx *ctx,
 					    unsigned int frame_seq_no);
+int mtk_cam_req_dump(struct mtk_cam_device *cam, struct mtk_cam_request *req,
+		     int buf_state, unsigned int dump_flag, int release_request,
+		     char *desc);
 void isp_composer_create_session(struct mtk_cam_device *cam,
 				 struct mtk_cam_ctx *ctx);
 
