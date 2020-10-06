@@ -10,11 +10,9 @@
 // Options for the kernel driver -- to be unifdef before release optionally.
 //#define ST21NFCD_MTK // MTK platform up to kernel release 4.19
 #define ST21NFCD_MTK54 // MTK platform kernel 5.4
+//#define ST21NFCD_MTK58 // MTK platform kernel 5.8
 //#define ST21NFCD_QCOM // QCOM platform  up to kernel release 4.19
 //#define ST21NFCD_QCOM54 // QCOM platform kernel 5.4
-
-
-
 
 
 #define ST21NFC_MAGIC 0xEA
@@ -23,7 +21,6 @@
 /*
  * ST21NFC power control via ioctl
  * ST21NFC_GET_WAKEUP :  poll gpio-level for Wakeup pin
- * PN544_SET_PWR(>1): power on with firmware download enabled
  */
 #define ST21NFC_GET_WAKEUP _IO(ST21NFC_MAGIC, 0x01)
 #define ST21NFC_PULSE_RESET _IO(ST21NFC_MAGIC, 0x02)
