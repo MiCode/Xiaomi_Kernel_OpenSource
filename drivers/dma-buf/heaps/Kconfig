@@ -12,3 +12,9 @@ config DMABUF_HEAPS_CMA
 	  Choose this option to enable dma-buf CMA heap. This heap is backed
 	  by the Contiguous Memory Allocator (CMA). If your system has these
 	  regions, you should say Y here.
+
+config QCOM_DMABUF_HEAPS
+	tristate "QCOM DMA-BUF Heaps"
+	depends on DMABUF_HEAPS
+	help
+	 Choose this option to build the QCOM DMA-BUF heaps.
