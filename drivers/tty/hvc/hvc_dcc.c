@@ -3,12 +3,10 @@
 
 #include <linux/console.h>
 #include <linux/init.h>
+#include <linux/kfifo.h>
 #include <linux/serial.h>
 #include <linux/serial_core.h>
-#include <linux/kfifo.h>
 #include <linux/spinlock.h>
-#include <linux/moduleparam.h>
-#include <linux/console.h>
 
 #include <asm/dcc.h>
 #include <asm/processor.h>
@@ -76,55 +74,36 @@ static int hvc_dcc_get_chars(uint32_t vt, char *buf, int count)
  * then we assume then this function will be called first on core 0.  That
  * way, dcc_core0_available will be true only if it's available on core 0.
  */
-#ifndef CONFIG_HVC_DCC_SERIALIZE_SMP
 static bool hvc_dcc_check(void)
 {
 	unsigned long time = jiffies + (HZ / 10);
-
-	/* Write a test character to check if it is handled */
-	__dcc_putchar('\n');
-
-	while (time_is_after_jiffies(time)) {
-		if (!(__dcc_getstatus() & DCC_STATUS_TX))
-			return true;
-	}
-
-	return false;
-}
-#endif
-
 #ifdef CONFIG_HVC_DCC_SERIALIZE_SMP
-static bool hvc_dcc_check(void)
-{
-	unsigned long time = jiffies + (HZ / 10);
-
 	static bool dcc_core0_available;
-
-	preempt_disable();
 
 	/*
 	 * If we're not on core 0, but we previously confirmed that DCC is
 	 * active, then just return true.
 	 */
-	if (smp_processor_id() && dcc_core0_available) {
-		preempt_enable();
+	if (smp_processor_id() && dcc_core0_available)
 		return true;
-	}
-
-	preempt_enable();
+#endif
 
 	/* Write a test character to check if it is handled */
 	__dcc_putchar('\n');
 
 	while (time_is_after_jiffies(time)) {
 		if (!(__dcc_getstatus() & DCC_STATUS_TX)) {
+#ifdef CONFIG_HVC_DCC_SERIALIZE_SMP
 			dcc_core0_available = true;
+#endif
 			return true;
 		}
 	}
 
 	return false;
 }
+
+#ifdef CONFIG_HVC_DCC_SERIALIZE_SMP
 
 static void dcc_put_work_fn(struct work_struct *work);
 static void dcc_get_work_fn(struct work_struct *work);
@@ -140,9 +119,8 @@ static DEFINE_KFIFO(outbuf, unsigned char, 1024);
 static void dcc_put_work_fn(struct work_struct *work)
 {
 	unsigned char ch;
-	unsigned long irqflags;
 
-	spin_lock_irqsave(&dcc_lock, irqflags);
+	spin_lock(&dcc_lock);
 
 	/* While there's data in the output FIFO, write it to the DCC */
 	while (kfifo_get(&outbuf, &ch))
@@ -155,7 +133,7 @@ static void dcc_put_work_fn(struct work_struct *work)
 		kfifo_put(&inbuf, ch);
 	}
 
-	spin_unlock_irqrestore(&dcc_lock, irqflags);
+	spin_unlock(&dcc_lock);
 }
 
 /*
@@ -165,20 +143,19 @@ static void dcc_put_work_fn(struct work_struct *work)
 static void dcc_get_work_fn(struct work_struct *work)
 {
 	unsigned char ch;
-	unsigned long irqflags;
 
 	/*
 	 * Read characters from DCC and put them into the input FIFO, as
 	 * long as there is room and we have characters to read.
 	 */
-	spin_lock_irqsave(&dcc_lock, irqflags);
+	spin_lock(&dcc_lock);
 
 	while (!kfifo_is_full(&inbuf)) {
 		if (!hvc_dcc_get_chars(0, &ch, 1))
 			break;
 		kfifo_put(&inbuf, ch);
 	}
-	spin_unlock_irqrestore(&dcc_lock, irqflags);
+	spin_unlock(&dcc_lock);
 }
 
 /*
@@ -189,12 +166,11 @@ static int hvc_dcc0_put_chars(uint32_t vt, const char *buf,
 					     int count)
 {
 	int len;
-	unsigned long irqflags;
 
-	spin_lock_irqsave(&dcc_lock, irqflags);
+	spin_lock(&dcc_lock);
 	if (smp_processor_id() || (!kfifo_is_empty(&outbuf))) {
 		len = kfifo_in(&outbuf, buf, count);
-		spin_unlock_irqrestore(&dcc_lock, irqflags);
+		spin_unlock(&dcc_lock);
 		/*
 		 * We just push data to the output FIFO, so schedule the
 		 * workqueue that will actually write that data to DCC.
@@ -208,7 +184,7 @@ static int hvc_dcc0_put_chars(uint32_t vt, const char *buf,
 	 * write the data to DCC.
 	 */
 	len = hvc_dcc_put_chars(vt, buf, count);
-	spin_unlock_irqrestore(&dcc_lock, irqflags);
+	spin_unlock(&dcc_lock);
 
 	return len;
 }
@@ -220,20 +196,19 @@ static int hvc_dcc0_put_chars(uint32_t vt, const char *buf,
 static int hvc_dcc0_get_chars(uint32_t vt, char *buf, int count)
 {
 	int len;
-	unsigned long irqflags;
 
-	spin_lock_irqsave(&dcc_lock, irqflags);
+	spin_lock(&dcc_lock);
 
 	if (smp_processor_id() || (!kfifo_is_empty(&inbuf))) {
 		len = kfifo_out(&inbuf, buf, count);
-		spin_unlock_irqrestore(&dcc_lock, irqflags);
+		spin_unlock(&dcc_lock);
 
 		/*
 		 * If the FIFO was empty, there may be characters in the DCC
 		 * that we haven't read yet.  Schedule a workqueue to fill
 		 * the input FIFO, so that the next time this function is
 		 * called, we'll have data.
-		 */
+		*/
 		if (!len)
 			schedule_work_on(0, &dcc_gwork);
 
@@ -245,7 +220,7 @@ static int hvc_dcc0_get_chars(uint32_t vt, char *buf, int count)
 	 * read the data from DCC.
 	 */
 	len = hvc_dcc_get_chars(vt, buf, count);
-	spin_unlock_irqrestore(&dcc_lock, irqflags);
+	spin_unlock(&dcc_lock);
 
 	return len;
 }

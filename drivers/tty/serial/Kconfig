@@ -967,17 +967,24 @@ config SERIAL_MSM_GENI
 	tristate "MSM on-chip GENI HW based serial port support"
 	depends on ARCH_QCOM
 	depends on MSM_GENI_SE
+
+config SERIAL_MSM_GENI_EARLY_CONSOLE
+	bool "MSM on-chip GENI HW based early console support"
+	select SERIAL_CORE_CONSOLE
+	select SERIAL_EARLYCON
+	help
+	  Serial early console driver for Qualcomm Technologies Inc's GENI
+	  based QUP hardware.
+
+config SERIAL_QCOM_GENI
+	tristate "QCOM on-chip GENI based serial port support"
+	depends on ARCH_QCOM || COMPILE_TEST
+	depends on QCOM_GENI_SE
 	select SERIAL_CORE
 	help
 	    Serial driver for Qualcomm Technologies Inc's GENI based QUPv3
 	    hardware.
 	    The driver supports console and High speed UART functions.
-
-config SERIAL_MSM_GENI_EARLY_CONSOLE
-	bool "MSM on-chip GENI HW based early console support"
-	help
-	    Serial early console driver for Qualcomm Technologies Inc's GENI
-	    based QUP hardware.
 
 config SERIAL_MSM_GENI_CONSOLE
 	tristate "MSM on-chip GENI HW based console support"

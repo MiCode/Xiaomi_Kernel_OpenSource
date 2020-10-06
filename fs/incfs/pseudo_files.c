@@ -274,6 +274,7 @@ static long ioctl_permit_fill(struct file *f, void __user *arg)
 	struct incfs_permit_fill permit_fill;
 	long error = 0;
 	struct file *file = NULL;
+	struct incfs_file_data *fd;
 
 	if (copy_from_user(&permit_fill, usr_permit_fill, sizeof(permit_fill)))
 		return -EFAULT;
@@ -292,9 +293,11 @@ static long ioctl_permit_fill(struct file *f, void __user *arg)
 		goto out;
 	}
 
-	switch ((uintptr_t)file->private_data) {
+	fd = file->private_data;
+
+	switch (fd->fd_fill_permission) {
 	case CANT_FILL:
-		file->private_data = (void *)CAN_FILL;
+		fd->fd_fill_permission = CAN_FILL;
 		break;
 
 	case CAN_FILL:
@@ -516,6 +519,7 @@ static long ioctl_create_file(struct mount_info *mi,
 	char *file_id_str = NULL;
 	struct dentry *index_file_dentry = NULL;
 	struct dentry *named_file_dentry = NULL;
+	struct dentry *incomplete_file_dentry = NULL;
 	struct path parent_dir_path = {};
 	struct inode *index_dir_inode = NULL;
 	__le64 size_attr_value = 0;
@@ -523,8 +527,11 @@ static long ioctl_create_file(struct mount_info *mi,
 	char *attr_value = NULL;
 	int error = 0;
 	bool locked = false;
+	bool index_linked = false;
+	bool name_linked = false;
+	bool incomplete_linked = false;
 
-	if (!mi || !mi->mi_index_dir) {
+	if (!mi || !mi->mi_index_dir || !mi->mi_incomplete_dir) {
 		error = -EFAULT;
 		goto out;
 	}
@@ -569,6 +576,12 @@ static long ioctl_create_file(struct mount_info *mi,
 		goto out;
 	}
 
+	if (parent_dir_path.dentry == mi->mi_incomplete_dir) {
+		/* Can't create a file directly inside .incomplete */
+		error = -EBUSY;
+		goto out;
+	}
+
 	/* Look up a dentry in the parent dir. It should be negative. */
 	named_file_dentry = incfs_lookup_dentry(parent_dir_path.dentry,
 					file_name);
@@ -586,6 +599,25 @@ static long ioctl_create_file(struct mount_info *mi,
 		error = -EEXIST;
 		goto out;
 	}
+
+	/* Look up a dentry in the incomplete dir. It should be negative. */
+	incomplete_file_dentry = incfs_lookup_dentry(mi->mi_incomplete_dir,
+					file_id_str);
+	if (!incomplete_file_dentry) {
+		error = -EFAULT;
+		goto out;
+	}
+	if (IS_ERR(incomplete_file_dentry)) {
+		error = PTR_ERR(incomplete_file_dentry);
+		incomplete_file_dentry = NULL;
+		goto out;
+	}
+	if (d_really_is_positive(incomplete_file_dentry)) {
+		/* File with this path already exists. */
+		error = -EEXIST;
+		goto out;
+	}
+
 	/* Look up a dentry in the .index dir. It should be negative. */
 	index_file_dentry = incfs_lookup_dentry(mi->mi_index_dir, file_id_str);
 	if (!index_file_dentry) {
@@ -620,7 +652,7 @@ static long ioctl_create_file(struct mount_info *mi,
 	error = chmod(index_file_dentry, args.mode | 0222);
 	if (error) {
 		pr_debug("incfs: chmod err: %d\n", error);
-		goto delete_index_file;
+		goto out;
 	}
 
 	/* Save the file's ID as an xattr for easy fetching in future. */
@@ -628,7 +660,7 @@ static long ioctl_create_file(struct mount_info *mi,
 		file_id_str, strlen(file_id_str), XATTR_CREATE);
 	if (error) {
 		pr_debug("incfs: vfs_setxattr err:%d\n", error);
-		goto delete_index_file;
+		goto out;
 	}
 
 	/* Save the file's size as an xattr for easy fetching in future. */
@@ -638,27 +670,27 @@ static long ioctl_create_file(struct mount_info *mi,
 		XATTR_CREATE);
 	if (error) {
 		pr_debug("incfs: vfs_setxattr err:%d\n", error);
-		goto delete_index_file;
+		goto out;
 	}
 
 	/* Save the file's attribute as an xattr */
 	if (args.file_attr_len && args.file_attr) {
 		if (args.file_attr_len > INCFS_MAX_FILE_ATTR_SIZE) {
 			error = -E2BIG;
-			goto delete_index_file;
+			goto out;
 		}
 
 		attr_value = kmalloc(args.file_attr_len, GFP_NOFS);
 		if (!attr_value) {
 			error = -ENOMEM;
-			goto delete_index_file;
+			goto out;
 		}
 
 		if (copy_from_user(attr_value,
 				u64_to_user_ptr(args.file_attr),
 				args.file_attr_len) > 0) {
 			error = -EFAULT;
-			goto delete_index_file;
+			goto out;
 		}
 
 		error = vfs_setxattr(index_file_dentry,
@@ -667,7 +699,7 @@ static long ioctl_create_file(struct mount_info *mi,
 				XATTR_CREATE);
 
 		if (error)
-			goto delete_index_file;
+			goto out;
 	}
 
 	/* Initializing a newly created file. */
@@ -676,26 +708,40 @@ static long ioctl_create_file(struct mount_info *mi,
 			      (u8 __user *)args.signature_info,
 			      args.signature_size);
 	if (error)
-		goto delete_index_file;
+		goto out;
+	index_linked = true;
 
 	/* Linking a file with its real name from the requested dir. */
 	error = incfs_link(index_file_dentry, named_file_dentry);
-
-	if (!error)
+	if (error)
 		goto out;
+	name_linked = true;
 
-delete_index_file:
-	incfs_unlink(index_file_dentry);
+	if (args.size) {
+		/* Linking a file with its incomplete entry */
+		error = incfs_link(index_file_dentry, incomplete_file_dentry);
+		if (error)
+			goto out;
+		incomplete_linked = true;
+	}
 
 out:
-	if (error)
+	if (error) {
 		pr_debug("incfs: %s err:%d\n", __func__, error);
+		if (index_linked)
+			incfs_unlink(index_file_dentry);
+		if (name_linked)
+			incfs_unlink(named_file_dentry);
+		if (incomplete_linked)
+			incfs_unlink(incomplete_file_dentry);
+	}
 
 	kfree(file_id_str);
 	kfree(file_name);
 	kfree(attr_value);
 	dput(named_file_dentry);
 	dput(index_file_dentry);
+	dput(incomplete_file_dentry);
 	path_put(&parent_dir_path);
 	if (locked)
 		mutex_unlock(&mi->mi_dir_struct_mutex);
@@ -876,7 +922,7 @@ static long ioctl_create_mapped_file(struct mount_info *mi, void __user *arg)
 	}
 
 	error = init_new_mapped_file(mi, file_dentry, &args.source_file_id,
-			size_attr_value, cpu_to_le64(args.source_offset));
+			args.size, args.source_offset);
 	if (error)
 		goto delete_file;
 
@@ -894,6 +940,96 @@ out:
 	return error;
 }
 
+static long ioctl_get_read_timeouts(struct mount_info *mi, void __user *arg)
+{
+	struct incfs_get_read_timeouts_args __user *args_usr_ptr = arg;
+	struct incfs_get_read_timeouts_args args = {};
+	int error = 0;
+	struct incfs_per_uid_read_timeouts *buffer;
+	int size;
+
+	if (copy_from_user(&args, args_usr_ptr, sizeof(args)))
+		return -EINVAL;
+
+	if (args.timeouts_array_size_out > INCFS_DATA_FILE_BLOCK_SIZE)
+		return -EINVAL;
+
+	buffer = kzalloc(args.timeouts_array_size_out, GFP_NOFS);
+	if (!buffer)
+		return -ENOMEM;
+
+	spin_lock(&mi->mi_per_uid_read_timeouts_lock);
+	size = mi->mi_per_uid_read_timeouts_size;
+	if (args.timeouts_array_size < size)
+		error = -E2BIG;
+	else if (size)
+		memcpy(buffer, mi->mi_per_uid_read_timeouts, size);
+	spin_unlock(&mi->mi_per_uid_read_timeouts_lock);
+
+	args.timeouts_array_size_out = size;
+	if (!error && size)
+		if (copy_to_user(u64_to_user_ptr(args.timeouts_array), buffer,
+				 size))
+			error = -EFAULT;
+
+	if (!error || error == -E2BIG)
+		if (copy_to_user(args_usr_ptr, &args, sizeof(args)) > 0)
+			error = -EFAULT;
+
+	kfree(buffer);
+	return error;
+}
+
+static long ioctl_set_read_timeouts(struct mount_info *mi, void __user *arg)
+{
+	struct incfs_set_read_timeouts_args __user *args_usr_ptr = arg;
+	struct incfs_set_read_timeouts_args args = {};
+	int error = 0;
+	int size;
+	struct incfs_per_uid_read_timeouts *buffer = NULL, *tmp;
+	int i;
+
+	if (copy_from_user(&args, args_usr_ptr, sizeof(args)))
+		return -EINVAL;
+
+	size = args.timeouts_array_size;
+	if (size) {
+		if (size > INCFS_DATA_FILE_BLOCK_SIZE ||
+		    size % sizeof(*buffer) != 0)
+			return -EINVAL;
+
+		buffer = kzalloc(size, GFP_NOFS);
+		if (!buffer)
+			return -ENOMEM;
+
+		if (copy_from_user(buffer, u64_to_user_ptr(args.timeouts_array),
+				   size)) {
+			error = -EINVAL;
+			goto out;
+		}
+
+		for (i = 0; i < size / sizeof(*buffer); ++i) {
+			struct incfs_per_uid_read_timeouts *t = &buffer[i];
+
+			if (t->min_pending_time_ms > t->max_pending_time_ms) {
+				error = -EINVAL;
+				goto out;
+			}
+		}
+	}
+
+	spin_lock(&mi->mi_per_uid_read_timeouts_lock);
+	mi->mi_per_uid_read_timeouts_size = size;
+	tmp = mi->mi_per_uid_read_timeouts;
+	mi->mi_per_uid_read_timeouts = buffer;
+	buffer = tmp;
+	spin_unlock(&mi->mi_per_uid_read_timeouts_lock);
+
+out:
+	kfree(buffer);
+	return error;
+}
+
 static long pending_reads_dispatch_ioctl(struct file *f, unsigned int req,
 					unsigned long arg)
 {
@@ -906,6 +1042,10 @@ static long pending_reads_dispatch_ioctl(struct file *f, unsigned int req,
 		return ioctl_permit_fill(f, (void __user *)arg);
 	case INCFS_IOC_CREATE_MAPPED_FILE:
 		return ioctl_create_mapped_file(mi, (void __user *)arg);
+	case INCFS_IOC_GET_READ_TIMEOUTS:
+		return ioctl_get_read_timeouts(mi, (void __user *)arg);
+	case INCFS_IOC_SET_READ_TIMEOUTS:
+		return ioctl_set_read_timeouts(mi, (void __user *)arg);
 	default:
 		return -EINVAL;
 	}
@@ -968,7 +1108,7 @@ static __poll_t blocks_written_poll(struct file *f, poll_table *wait)
 	unsigned long blocks_written;
 
 	if (!mi)
-		return -EFAULT;
+		return 0;
 
 	poll_wait(f, &mi->mi_blocks_written_notif_wq, wait);
 	blocks_written = atomic_read(&mi->mi_blocks_written);
