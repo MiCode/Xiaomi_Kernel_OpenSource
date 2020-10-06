@@ -14,9 +14,6 @@
 #include <linux/string.h>
 #include <linux/sysfs.h>
 
-#if IS_ENABLED(CONFIG_MTK_WATCHDOG)
-#include <mtk_wd_api.h>
-#endif
 #include <mt-plat/aee.h>
 #include <mt-plat/mboot_params.h>
 #include <mt-plat/mrdump.h>

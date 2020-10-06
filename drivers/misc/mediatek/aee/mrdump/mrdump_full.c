@@ -22,9 +22,6 @@
 #include <asm/kexec.h>
 #include <asm/pgtable.h>
 
-#if IS_ENABLED(CONFIG_MTK_WATCHDOG)
-#include <ext_wd_drv.h>
-#endif
 #include <mt-plat/aee.h>
 #if IS_ENABLED(CONFIG_FIQ_GLUE)
 #include <mt-plat/fiq_smp_call.h>
