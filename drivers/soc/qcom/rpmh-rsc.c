@@ -875,6 +875,17 @@ void rpmh_rsc_debug(struct rsc_drv *drv, struct completion *compl)
 	else if (irq_sts)
 		pr_warn("ERROR:Possible lockup in Linux\n");
 
+	/* Show fast path status, if the TCS is busy */
+	if (drv->tcs[FAST_PATH_TCS].num_tcs) {
+		int tcs_id = drv->tcs[FAST_PATH_TCS].offset;
+		bool sts = read_tcs_reg(drv, RSC_DRV_STATUS, tcs_id);
+
+		if (!sts) {
+			pr_err("Fast-path TCS information:\n");
+			print_tcs_info(drv, tcs_id, &accl);
+		}
+	}
+
 	/*
 	 * The TCS(s) are busy waiting, we have no way to recover from this.
 	 * If this debug function is called, we assume it's because timeout
