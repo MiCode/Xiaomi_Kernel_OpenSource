@@ -1210,7 +1210,6 @@ update_count:
 
 static irqreturn_t mxt_interrupt(int irq, void *dev_id)
 {
-	irqreturn_t ret;
 	struct mxt_data *data = dev_id;
 
 	if (data->in_bootloader) {
@@ -1223,12 +1222,10 @@ static irqreturn_t mxt_interrupt(int irq, void *dev_id)
 		return IRQ_HANDLED;
 
 	if (data->T44_address) {
-		ret = mxt_process_messages_t44(data);
+		return mxt_process_messages_t44(data);
 	} else {
-		ret = mxt_process_messages(data);
+		return mxt_process_messages(data);
 	}
-
-	return IRQ_HANDLED;
 }
 
 static int mxt_t6_command(struct mxt_data *data, u16 cmd_offset,
