@@ -62,5 +62,16 @@
 			qcom,ion-heap-type = "HYP_CMA";
 		};
 
+		qcom,ion-heap@5 { /* AUDIO ML HEAP */
+			reg = <ION_AUDIO_ML_HEAP_ID>;
+			memory-region = <&audio_cma_mem>;
+			qcom,ion-heap-type = "DMA";
+		};
+
+		qcom,ion-heap@3 { /* NON SECURE DISPLAY HEAP */
+			reg = <ION_DISPLAY_HEAP_ID>;
+			memory-region = <&non_secure_display_memory>;
+			qcom,ion-heap-type = "DMA";
+		};
 	};
 };
