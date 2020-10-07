@@ -1223,16 +1223,19 @@ static int dma_buf_debug_show(struct seq_file *s, void *unused)
 			continue;
 		}
 
-		if (file_inode(buf_obj->file) == NULL)
-			continue;
-
-		seq_printf(s, "%08zu\t%08x\t%08x\t%08ld\t%s\t%08lu\t%s\n",
-				buf_obj->size,
-				buf_obj->file->f_flags, buf_obj->file->f_mode,
-				file_count(buf_obj->file),
-				buf_obj->exp_name,
-				file_inode(buf_obj->file)->i_ino,
-				buf_obj->name ?: "");
+	/*
+	 *  buf_obj->file is freed by fput(), because dma_buf_release() is moved to
+	 *  dentry_ops, so this part will lead use-after-free issue.
+	 */
+	/*
+	 *	seq_printf(s, "%08zu\t%08x\t%08x\t%08ld\t%s\t%08lu\t%s\n",
+	 *                      buf_obj->size,
+	 *                      buf_obj->file->f_flags, buf_obj->file->f_mode,
+	 *                      file_count(buf_obj->file),
+	 *                      buf_obj->exp_name,
+	 *                      file_inode(buf_obj->file)->i_ino,
+	 *                      buf_obj->name ?: "");
+	 */
 
 		robj = buf_obj->resv;
 		while (true) {
