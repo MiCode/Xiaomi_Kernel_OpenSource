@@ -548,13 +548,22 @@ page_owner=on";
 			<&infracfg_ao CLK_IFRAO_UFS>,
 			<&infracfg_ao CLK_IFRAO_UNIPRO_SYSCLK>,
 			<&infracfg_ao CLK_IFRAO_UFS_MP_SAP_BCLK>,
-			<&infracfg_ao CLK_IFRAO_AES>;
+			<&infracfg_ao CLK_IFRAO_AES>,
+			<&topckgen CLK_TOP_AES_UFSFDE_SEL>,
+			<&topckgen CLK_TOP_UNIVPLL_D6>,
+			<&topckgen CLK_TOP_MAINPLL_D4>;
 		clock-names =
 			"ufs-clk",
 			"ufs-unipro-clk",
 			"ufs-mp-clk",
-			"ufs-crypto-clk";
+			"ufs-crypto-clk",
+			"ufs-vendor-crypto-clk-mux",
+			"ufs-vendor-crypto-normal-parent-clk",
+			"ufs-vendor-crypto-perf-parent-clk";
 		freq-table-hz =
+			<0 0>,
+			<0 0>,
+			<0 0>,
 			<0 0>,
 			<0 0>,
 			<0 0>,
