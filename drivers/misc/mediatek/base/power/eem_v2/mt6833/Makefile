@@ -27,7 +27,7 @@ ccflags-y += \
 	-I$(srctree)/drivers/misc/mediatek/thermal/$(CONFIG_MTK_PLATFORM)/inc/mach	\
 	-I$(srctree)/include/linux/	\
 	-I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)	\
-	-I$(EEM_ROOT_DIR)/$(CONFIG_MTK_PLATFORM)/inc	\
+	-I$(EEM_ROOT_DIR)/mt6833/inc	\
 	-I$(srctree)/drivers/misc/mediatek/base/power/mcdi/include/
 
 ifeq ($(CONFIG_MTK_TINYSYS_MCUPM_SUPPORT), y)

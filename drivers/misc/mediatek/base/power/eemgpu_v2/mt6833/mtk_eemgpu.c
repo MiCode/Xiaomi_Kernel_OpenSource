@@ -257,7 +257,6 @@ static int get_devinfo(void)
 		ret = 1;
 		safeEfuse = 1;
 		eemg_error("No EFUSE (val[%d]), use safe efuse\n", i);
-		break;
 	}
 
 #if (EEMG_FAKE_EFUSE)

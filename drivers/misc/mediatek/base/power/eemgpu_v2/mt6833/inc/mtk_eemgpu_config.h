@@ -14,9 +14,7 @@
 #define _MTK_EEMG_CONFIG_H_
 
 /* CONFIG (SW related) */
-#if defined(CONFIG_MACH_MT6833)
 #define EEMG_NOT_READY		(1)
-#endif
 
 #define CONFIG_EEMG_SHOWLOG	(0)
 #define EN_ISR_LOG		(0)

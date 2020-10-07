@@ -14,11 +14,12 @@
 #ifndef __MTK_STATIC_POWER_MTK6833_H__
 #define __MTK_STATIC_POWER_MTK6833_H__
 
-#if defined(CONFIG_MACH_MT6833)
-#define SPOWER_NOT_READY 1
-
-#define WITHOUT_LKG_EFUSE
-#endif
+/* #if defined(CONFIG_MACH_MT6833)
+ * #define SPOWER_NOT_READY 1
+ *
+ * #define WITHOUT_LKG_EFUSE
+ * #endif
+ */
 #define PRECISE_NODE
 
 /* mv, "Leakage domain" */

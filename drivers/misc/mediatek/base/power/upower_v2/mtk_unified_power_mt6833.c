@@ -97,58 +97,17 @@ struct upower_tbl_info
 				upower_tbl_cci_FY),
 	},
 
-	/* 6833 */
 	[1] = {
 		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_LL,
-				upower_tbl_l_MT6833),
+				upower_tbl_l_B20G),
 		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_L,
-				upower_tbl_b_MT6833),
+				upower_tbl_b_B20G),
 		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CLS_LL,
-				upower_tbl_cluster_l_MT6833),
+				upower_tbl_cluster_l_B20G),
 		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CLS_L,
-				upower_tbl_cluster_b_MT6833),
+				upower_tbl_cluster_b_B20G),
 		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CCI,
-				upower_tbl_cci_MT6833),
-	},
-
-	/* 6833 w MT6360*/
-	[2] = {
-		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_LL,
-				upower_tbl_l_MT6833),
-		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_L,
-				upower_tbl_b_MT6833),
-		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CLS_LL,
-				upower_tbl_cluster_l_MT6833),
-		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CLS_L,
-				upower_tbl_cluster_b_MT6833),
-		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CCI,
-				upower_tbl_cci_MT6833),
-	},
-
-	[3] = {
-		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_LL,
-				upower_tbl_l_B24G),
-		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_L,
-				upower_tbl_b_B24G),
-		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CLS_LL,
-				upower_tbl_cluster_l_B24G),
-		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CLS_L,
-				upower_tbl_cluster_b_B24G),
-		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CCI,
-				upower_tbl_cci_B24G),
-	},
-
-	[4] = {
-		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_LL,
-				upower_tbl_l_B24G),
-		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_L,
-				upower_tbl_b_B24G),
-		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CLS_LL,
-				upower_tbl_cluster_l_B24G),
-		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CLS_L,
-				upower_tbl_cluster_b_B24G),
-		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CCI,
-				upower_tbl_cci_B24G),
+				upower_tbl_cci_B20G),
 	},
 };
 /* Upower will know how to apply voltage that comes from EEM */
