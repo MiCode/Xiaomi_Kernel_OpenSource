@@ -572,6 +572,8 @@ void usb_bypass_notifier(void *priv, unsigned int event,
 
 	case USB_QDSS_DISCONNECT:
 		usb_bypass_stop(drvdata);
+		flush_work(&(drvdata->read_work));
+		usb_qdss_free_req(tmcdrvdata->usbch);
 		break;
 
 	case USB_QDSS_DATA_WRITE_DONE:
