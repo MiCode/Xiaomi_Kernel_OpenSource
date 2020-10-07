@@ -2449,19 +2449,21 @@ static void __mt_gpufreq_set(
 		__mt_gpufreq_clock_switch(freq_new);
 		g_cur_opp_freq = __mt_gpufreq_get_cur_freq();
 
-		if (g_cur_opp_freq < freq_new)
-			gpufreq_pr_info("@%s: Clock switch failed, %d -> %d (target: %d)\n",
-					__func__, freq_old,
-					g_cur_opp_freq, freq_new);
+		gpu_assert(g_cur_opp_freq == freq_new,
+			GPU_FREQ_EXCEPTION,
+			"@%s: Clock switch failed, %d -> %d (target: %d)\n",
+			__func__, freq_old,
+			g_cur_opp_freq, freq_new);
 
 	} else {
 		__mt_gpufreq_clock_switch(freq_new);
 		g_cur_opp_freq = __mt_gpufreq_get_cur_freq();
 
-		if (g_cur_opp_freq > freq_new)
-			gpufreq_pr_info("@%s: Clock switch failed, %d -> %d (target: %d)\n",
-					__func__, freq_old,
-					g_cur_opp_freq, freq_new);
+		gpu_assert(g_cur_opp_freq == freq_new,
+			GPU_FREQ_EXCEPTION,
+			"@%s: Clock switch failed, %d -> %d (target: %d)\n",
+			__func__, freq_old,
+			g_cur_opp_freq, freq_new);
 
 		while (g_cur_opp_vgpu != vgpu_new) {
 			sb_idx = g_opp_sb_idx_down[g_cur_opp_idx] > idx_new ?
@@ -3612,11 +3614,6 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 static int __init __mt_gpufreq_init(void)
 {
 	int ret = 0;
-
-#ifdef MTK_GED_KPI
-	/* Disable for bring-up */
-	ged_kpi_get_limit_user_fp = mt_gpufreq_get_limit_user;
-#endif
 
 	if (mt_gpufreq_bringup()) {
 		__mt_gpufreq_dump_bringup_status();
