@@ -1118,8 +1118,13 @@ void ulposc_cali_init(void)
 	pr_info("%s\n", __func__);
 
 	/* get ULPOSC base address */
+#if defined(CONFIG_MACH_MT6833)
+	node = of_find_compatible_node(NULL, NULL,
+			"mediatek,mt6833-apmixedsys");
+#else
 	node = of_find_compatible_node(NULL, NULL,
 			"mediatek,mt6853-apmixedsys");
+#endif
 	if (!node) {
 		pr_err("error: can't find apmixedsys node\n");
 		WARN_ON(1);
