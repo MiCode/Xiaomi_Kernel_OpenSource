@@ -1,0 +1,8 @@
+config MTK_AMMS
+	tristate "Support Mediatek AP and Modem Sharing Memory techonology"
+	help
+	  Mediatek Memory sharing techonology
+	  It tries to free Modem memory once not
+	  used. Modem should support this as well
+	  or it won't work. If you are not sure
+	  Please select "N"
