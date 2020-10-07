@@ -3104,7 +3104,7 @@ page_owner=on";
 			<0>, /*MTK_DRM_OPT_GAME_PQ*/
 			<0>, /*MTK_DRM_OPT_MMPATH*/
 			<0>, /*MTK_DRM_OPT_HBM*/
-			<0>, /*MTK_DRM_OPT_VDS_PATH_SWITCH*/
+			<1>, /*MTK_DRM_OPT_VDS_PATH_SWITCH*/
 			<0>; /*MTK_DRM_OPT_LAYER_REC*/
 	};
 
