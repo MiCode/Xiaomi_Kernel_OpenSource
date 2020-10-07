@@ -19,11 +19,9 @@
 #include <mtk_lp_plat_apmcu.h>
 #include <mtk_lp_plat_apmcu_mbox.h>
 
-void __iomem *cpu_pm_mcusys_base;
 void __iomem *cpu_pm_syssram_base;
 
-#define plat_node_ready()       (cpu_pm_mcusys_base && cpu_pm_syssram_base)
-#define OF_CPU_PM_CTRL(_offset)	(cpu_pm_mcusys_base + (_offset))
+#define plat_node_ready()       (cpu_pm_syssram_base)
 
 #define BOOT_TIME_LIMIT         60
 
@@ -296,15 +294,7 @@ static int __init mtk_lp_plat_mcusys_ctrl_init(void)
 {
 	struct device_node *node = NULL;
 
-	cpu_pm_mcusys_base = NULL;
 	cpu_pm_syssram_base = NULL;
-
-	node = of_find_compatible_node(NULL, NULL,
-						"mediatek,mcusys-ctrl");
-	if (node) {
-		cpu_pm_mcusys_base = of_iomap(node, 0);
-		of_node_put(node);
-	}
 
 	node = of_find_compatible_node(NULL, NULL,
 						"mediatek,cpupm-sysram");
