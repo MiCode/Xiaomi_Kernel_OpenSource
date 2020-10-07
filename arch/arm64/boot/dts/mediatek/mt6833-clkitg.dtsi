@@ -19,10 +19,6 @@
 		compatible = "mediatek,clk-bring-up";
 		clocks =
 			<&scpsys SCP_SYS_DIS>,
-			<&scpsys SCP_SYS_MFG0>,
-			<&scpsys SCP_SYS_MFG1>,
-			<&scpsys SCP_SYS_MFG2>,
-			<&scpsys SCP_SYS_MFG3>,
 			<&clk26m>;
 	};
 };
