@@ -96,6 +96,18 @@ static inline void __raw_writel(u32 val, volatile void __iomem *addr)
 		     : : "Qo" (*(volatile u32 __force *)addr), "r" (val));
 }
 
+#define __raw_writeq __raw_writeq
+static inline void __raw_writeq(u64 val, volatile void __iomem *addr)
+{
+	register u64 v asm ("r2");
+
+	v = val;
+
+	asm volatile("strd %1, %0"
+		     : "+Qo" (*(volatile u64 __force *)addr)
+		     : "r" (v));
+}
+
 #define __raw_readb __raw_readb
 static inline u8 __raw_readb(const volatile void __iomem *addr)
 {
@@ -113,6 +125,17 @@ static inline u32 __raw_readl(const volatile void __iomem *addr)
 	asm volatile("ldr %0, %1"
 		     : "=r" (val)
 		     : "Qo" (*(volatile u32 __force *)addr));
+	return val;
+}
+
+#define __raw_readq __raw_readq
+static inline u64 __raw_readq(const volatile void __iomem *addr)
+{
+	register u64 val asm ("r2");
+
+	asm volatile("ldrd %1, %0"
+		     : "+Qo" (*(volatile u64 __force *)addr),
+		       "=r" (val));
 	return val;
 }
 
