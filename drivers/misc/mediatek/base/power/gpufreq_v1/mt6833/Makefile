@@ -40,3 +40,7 @@ obj-y += mtk_gpufreq_plat.o
 ifeq ($(findstring aging,$(PROJECT_DTB_NAMES)),aging)
 	subdir-ccflags-y += -DAGING_LOAD
 endif
+
+ifeq ($(findstring k6833v1_64_33m,$(PROJECT_DTB_NAMES)),k6833v1_64_33m)
+	subdir-ccflags-y += -DK6833V1_64_33M
+endif

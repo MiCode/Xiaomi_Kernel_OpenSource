@@ -1801,7 +1801,7 @@ static unsigned int __mt_gpufreq_get_segment_id(void)
 		segment_id = MT6833M_SEGMENT;    /* 5G-CM */
 		break;
 	default:
-		segment_id = MT6833T_SEGMENT;
+		segment_id = MT6833_SEGMENT;
 		gpufreq_pr_info("@%s: invalid efuse_id(0x%x)\n",
 				__func__, efuse_id);
 	}
@@ -3055,21 +3055,9 @@ static void __mt_gpufreq_init_table(void)
 		g_segment_max_opp_idx = 0;
 
 /* Special SW setting */
-#if defined(CONFIG_ARM64) && defined(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES)
-	if (strstr(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES,
-			"turbo") != NULL) {
-		gpufreq_pr_info("@%s: turbo flavor name: %s\n",
-				__func__,
-				CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES);
-		g_segment_max_opp_idx = 0;
-	}
-	if (strstr(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES,
-			"k6833tv1") != NULL) {
-		gpufreq_pr_info("@%s: k6833tv1 flavor name: %s\n",
-				__func__,
-				CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES);
-		g_segment_max_opp_idx = 0;
-	}
+#if defined(K6833V1_64_33M)
+	gpufreq_pr_info("@%s: K6833V1_64_33M load\n", __func__);
+	g_segment_max_opp_idx = 24;
 #endif
 
 	g_segment_min_opp_idx = NUM_OF_OPP_IDX - 1;
