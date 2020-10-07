@@ -996,7 +996,15 @@ static int mtk_dai_adda_hw_params(struct snd_pcm_substream *substream,
 					   AUDIO_SDM_LEVEL_NORMAL <<
 					   ATTGAIN_CTL_SFT);
 
-			/* 2nd sdm */
+			/* Use new 2nd sdm */
+			regmap_update_bits(afe->regmap,
+					   AFE_ADDA_DL_SDM_DITHER_CON,
+					   AFE_DL_SDM_DITHER_64TAP_EN_MASK_SFT,
+					   0x1 << AFE_DL_SDM_DITHER_64TAP_EN_SFT);
+			regmap_update_bits(afe->regmap,
+					   AFE_ADDA_DL_SDM_AUTO_RESET_CON,
+					   AFE_DL_USE_NEW_2ND_SDM_MASK_SFT,
+					   0x1 << AFE_DL_USE_NEW_2ND_SDM_SFT);
 			regmap_update_bits(afe->regmap,
 					   AFE_ADDA_DL_SDM_DCCOMP_CON,
 					   USE_3RD_SDM_MASK_SFT,
@@ -1006,11 +1014,10 @@ static int mtk_dai_adda_hw_params(struct snd_pcm_substream *substream,
 			regmap_write(afe->regmap,
 				     AFE_ADDA_DL_SDM_AUTO_RESET_CON,
 				     SDM_AUTO_RESET_THRESHOLD);
-			regmap_update_bits(
-				afe->regmap,
-				AFE_ADDA_DL_SDM_AUTO_RESET_CON,
-				SDM_AUTO_RESET_TEST_ON_MASK_SFT,
-				0x1 << SDM_AUTO_RESET_TEST_ON_SFT);
+			regmap_update_bits(afe->regmap,
+					   AFE_ADDA_DL_SDM_AUTO_RESET_CON,
+					   SDM_AUTO_RESET_TEST_ON_MASK_SFT,
+					   0x1 << SDM_AUTO_RESET_TEST_ON_SFT);
 		}
 	} else {
 		unsigned int voice_mode = 0;
