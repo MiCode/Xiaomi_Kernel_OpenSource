@@ -48,6 +48,7 @@ struct mddp_u_iquota_ind_t {
 // -----------------------------------------------------------------------------
 int32_t mddp_usage_init(void);
 void mddp_usage_uninit(void);
+void mddp_u_set_wan_iface(uint8_t *devname);
 void mddp_u_get_data_stats(void *buf, uint32_t *buf_len);
 int32_t mddp_u_set_data_limit(uint8_t *buf, uint32_t buf_len);
 int32_t mddp_u_msg_hdlr(uint32_t msg_id, void *buf, uint32_t buf_len);
@@ -65,6 +66,7 @@ int32_t mddp_u_msg_hdlr(uint32_t msg_id, void *buf, uint32_t buf_len);
 		memset(x, 0, *y); \
 	} while (0)
 
+#define mddp_u_set_wan_iface(x) 0
 #define mddp_u_set_data_limit(x, y) 0
 #define mddp_u_msg_hdlr() 0
 
