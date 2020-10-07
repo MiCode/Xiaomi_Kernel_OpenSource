@@ -172,8 +172,7 @@ static struct ion_heap *ion_heap_create(struct ion_platform_heap *heap_data)
 		heap = ion_system_secure_heap_create(heap_data);
 		break;
 	case (enum ion_heap_type)ION_HEAP_TYPE_SECURE_CARVEOUT:
-		pr_err("%s: Heap type is disabled: %d\n", __func__,
-		       heap_data->type);
+		heap = ion_secure_carveout_heap_create(heap_data);
 		break;
 	default:
 		pr_err("%s: Invalid heap type %d\n", __func__,

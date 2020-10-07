@@ -131,20 +131,19 @@ static struct ion_heap_ops carveout_heap_ops = {
 	.free = ion_carveout_heap_free,
 };
 
-static int ion_heap_clear_pages(struct page **pages, int num, pgprot_t pgprot)
+static int ion_heap_clear_pages(struct page **pages, int num)
 {
-	void *addr = vm_map_ram(pages, num, -1, pgprot);
+	void *addr = vmap(pages, num, VM_MAP, pgprot_writecombine(PAGE_KERNEL));
 
 	if (!addr)
 		return -ENOMEM;
 	memset(addr, 0, PAGE_SIZE * num);
-	vm_unmap_ram(addr, num);
+	vunmap(addr);
 
 	return 0;
 }
 
-static int ion_heap_sglist_zero(struct scatterlist *sgl, unsigned int nents,
-				pgprot_t pgprot)
+static int ion_heap_sglist_zero(struct scatterlist *sgl, unsigned int nents)
 {
 	int p = 0;
 	int ret = 0;
@@ -154,26 +153,25 @@ static int ion_heap_sglist_zero(struct scatterlist *sgl, unsigned int nents,
 	for_each_sg_page(sgl, &piter, nents, 0) {
 		pages[p++] = sg_page_iter_page(&piter);
 		if (p == ARRAY_SIZE(pages)) {
-			ret = ion_heap_clear_pages(pages, p, pgprot);
+			ret = ion_heap_clear_pages(pages, p);
 			if (ret)
 				return ret;
 			p = 0;
 		}
 	}
 	if (p)
-		ret = ion_heap_clear_pages(pages, p, pgprot);
+		ret = ion_heap_clear_pages(pages, p);
 
 	return ret;
 }
 
-static int ion_carveout_pages_zero(struct page *page, size_t size,
-				      pgprot_t pgprot)
+static int ion_carveout_pages_zero(struct page *page, size_t size)
 {
 	struct scatterlist sg;
 
 	sg_init_table(&sg, 1);
 	sg_set_page(&sg, page, size, 0);
-	return ion_heap_sglist_zero(&sg, 1, pgprot);
+	return ion_heap_sglist_zero(&sg, 1);
 }
 
 static int ion_carveout_init_heap_memory(struct ion_carveout_heap *co_heap,
@@ -190,8 +188,7 @@ static int ion_carveout_init_heap_memory(struct ion_carveout_heap *co_heap,
 		ion_pages_sync_for_device(dev, page, size, DMA_BIDIRECTIONAL);
 	}
 
-	ret = ion_carveout_pages_zero(page, size,
-				      pgprot_writecombine(PAGE_KERNEL));
+	ret = ion_carveout_pages_zero(page, size);
 	if (ret)
 		return ret;
 
