@@ -472,6 +472,7 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 	struct mtk_cam_request *req = to_mtk_cam_req(vb->request);
 	struct mtk_cam_video_device *node = mtk_cam_vbq_to_vdev(vb->vb2_queue);
 	struct device *dev = cam->dev;
+	struct mtk_cam_uapi_meta_raw_stats_cfg *cfg;
 	unsigned long flags;
 	unsigned int desc_id;
 	void *vaddr;
@@ -521,6 +522,25 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 		req->frame_params.meta_inputs[desc_id]
 			.buf.iova = buf->daddr;
 		req->frame_params.meta_inputs[desc_id].uid.id = node->desc.dma_port;
+		cfg = (struct mtk_cam_uapi_meta_raw_stats_cfg *)vb2_plane_vaddr(vb, 0);
+		dev_dbg(dev, "EN:fd:%d\n", vb->planes[0].m.fd);
+		dev_dbg(dev, "EN:ae_awb(%d),af(%d),dgn(%d),flk(%d),tsf(%d),wb(%d)\n",
+			cfg->ae_awb_enable, cfg->af_enable, cfg->dgn_enable,
+			cfg->flk_enable, cfg->tsf_enable, cfg->wb_enable);
+		dev_dbg(dev, "EN:frz(%d),fus(%d),zfus(%d),lsc(%d),hlr(%d),ltm(%d)\n",
+			cfg->bytes[3], cfg->bytes[7], cfg->bytes[8], cfg->bytes[9],
+			cfg->bytes[10], cfg->bytes[11]);
+		dev_dbg(dev, "EN:ltms(%d),lces(%d),rrz_tuning(%d),slk(%d),dm(%d),flc(%d)\n",
+			cfg->bytes[12], cfg->bytes[13], cfg->bytes[14], cfg->bytes[15],
+			cfg->bytes[16], cfg->bytes[17]);
+		dev_dbg(dev, "EN:bpc(r1:%d/r2:%d/r3:%d),obc(r1:%d/r2:%d/r3:%d)\n",
+			cfg->bytes[0], cfg->bytes[1], cfg->bytes[2], cfg->bytes[4],
+			cfg->bytes[5], cfg->bytes[6]);
+		dev_dbg(dev, "EN:ccm(r1:%d/r2:%d/r3:%d),ggm(r1:%d/r2:%d/r3:%d)\n",
+			cfg->bytes[18], cfg->bytes[19], cfg->bytes[20], cfg->bytes[21],
+			cfg->bytes[22], cfg->bytes[23]);
+		dev_dbg(dev, "EN:g2c(r1:%d/r2:%d/r3:%d)\n",
+			cfg->bytes[24], cfg->bytes[25], cfg->bytes[26]);
 		break;
 
 	case MTKCAM_IPI_RAW_META_STATS_0:
