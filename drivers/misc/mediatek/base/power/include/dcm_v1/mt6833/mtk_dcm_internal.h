@@ -18,7 +18,7 @@
 #include "mtk_dcm_autogen.h"
 
 /* #define DCM_DEFAULT_ALL_OFF */
-#define DCM_BRINGUP
+/* #define DCM_BRINGUP */
 /* BUS DVT only mode */
 /* #define BUSDVT_ONLY_MD */
 
