@@ -13,6 +13,8 @@
 //------------------------------------------------------------------------------
 // Struct definition.
 // -----------------------------------------------------------------------------
+#define MDDP_DETAILED_STATE_ENABLE 19283746
+#define MDDP_DETAILED_STATE_DISABLE 0
 #ifdef CONFIG_MTK_ENG_BUILD
 #define MDDP_EM_SUPPORT	1                   /**< Engineer mode support */
 #endif
@@ -25,5 +27,6 @@ void mddp_dev_uninit(void);
 void mddp_dev_response(enum mddp_app_type_e type,
 		enum mddp_ctrl_msg_e msg, bool is_success,
 		uint8_t *data, uint32_t data_len);
+void mddp_enqueue_dstate(enum mddp_dstate_id_e id, ...);
 
 #endif /* __MDDP_DEV_H */
