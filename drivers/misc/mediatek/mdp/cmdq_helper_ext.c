@@ -4482,6 +4482,7 @@ s32 cmdq_pkt_wait_flush_ex_result(struct cmdqRecStruct *handle)
 				CMDQ_ERR(
 					"task may not execute handle:%p pkt:%p exec:%#x %#x",
 					handle, handle->pkt, va[0], va[1]);
+				cmdq_dump_pkt(handle->pkt, 0, true);
 			} else {
 				u32 cost = va[1] < va[0] ?
 					~va[0] + va[1] : va[1] - va[0];
