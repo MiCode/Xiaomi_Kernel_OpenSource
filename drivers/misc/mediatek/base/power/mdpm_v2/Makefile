@@ -22,7 +22,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/spm/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/mdpm_v2/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/mdpm_v2/$(PDIR)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(PDIR)/include/mach/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/mach/
 
 obj-y += mtk_mdpm_common.o
 obj-y += $(subst ",,$(PDIR))/

@@ -14,7 +14,7 @@
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/mdpm_v2/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/mdpm_v2/mt6833/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/mt6833/include/mach/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/mach/
 ccflags-y += -I$(srctree)/drivers/devfreq
 
 obj-y += mtk_mdpm_platform.o
