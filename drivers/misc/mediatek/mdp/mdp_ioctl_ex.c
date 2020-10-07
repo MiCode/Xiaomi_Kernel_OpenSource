@@ -44,6 +44,14 @@
 #include "cmdq_struct.h"
 #include "mdp_m4u.h"
 
+/* compatible with cmdq legacy driver */
+#ifndef CMDQ_TRACE_FORCE_BEGIN
+#define CMDQ_TRACE_FORCE_BEGIN(...)
+#endif
+#ifndef CMDQ_TRACE_FORCE_END
+#define CMDQ_TRACE_FORCE_END(...)
+#endif
+
 #ifdef MDP_M4U_TEE_SUPPORT
 static atomic_t m4u_init = ATOMIC_INIT(0);
 #endif
@@ -576,22 +584,27 @@ static int mdp_implement_read_v1(struct mdp_submit *user_job,
 
 s32 mdp_ioctl_async_exec(struct file *pf, unsigned long param)
 {
-	struct mdp_submit user_job;
+	struct mdp_submit user_job = {0};
 	struct task_private desc_private = {0};
 	struct cmdqRecStruct *handle = NULL;
 	s32 status;
-	u64 exec_cost;
+	u64 trans_cost, exec_cost = sched_clock();
 	struct cmdq_command_buffer cmd_buf;
 	struct mdp_job_mapping *mapping_job = NULL;
 
+	CMDQ_TRACE_FORCE_BEGIN("%s\n", __func__);
+
 	mapping_job = kzalloc(sizeof(*mapping_job), GFP_KERNEL);
-	if (!mapping_job)
-		return -ENOMEM;
+	if (!mapping_job) {
+		status = -ENOMEM;
+		goto done;
+	}
 
 	if (copy_from_user(&user_job, (void *)param, sizeof(user_job))) {
 		CMDQ_ERR("copy mdp_submit from user fail\n");
 		kfree(mapping_job);
-		return -EFAULT;
+		status = -EFAULT;
+		goto done;
 	}
 
 	if (user_job.read_count_v1 > CMDQ_MAX_DUMP_REG_COUNT ||
@@ -602,14 +615,16 @@ s32 mdp_ioctl_async_exec(struct file *pf, unsigned long param)
 			user_job.read_count_v1,
 			user_job.meta_count, user_job.prop_size);
 		kfree(mapping_job);
-		return -EINVAL;
+		status = -EINVAL;
+		goto done;
 	}
 
 	cmd_buf.va_base = kmalloc(PAGE_SIZE, GFP_KERNEL);
 	if (!cmd_buf.va_base) {
 		CMDQ_ERR("%s allocate cmd_buf fail!\n", __func__);
 		kfree(mapping_job);
-		return -ENOMEM;
+		status = -ENOMEM;
+		goto done;
 	}
 	cmd_buf.avail_buf_size = PAGE_SIZE;
 
@@ -617,7 +632,7 @@ s32 mdp_ioctl_async_exec(struct file *pf, unsigned long param)
 	if (status < 0) {
 		kfree(mapping_job);
 		kfree(cmd_buf.va_base);
-		return status;
+		goto done;
 	}
 
 	status = cmdq_mdp_handle_setup(&user_job, &desc_private, handle);
@@ -626,7 +641,7 @@ s32 mdp_ioctl_async_exec(struct file *pf, unsigned long param)
 		cmdq_task_destroy(handle);
 		kfree(mapping_job);
 		kfree(cmd_buf.va_base);
-		return status;
+		goto done;
 	}
 
 #ifdef MDP_M4U_TEE_SUPPORT
@@ -650,27 +665,22 @@ s32 mdp_ioctl_async_exec(struct file *pf, unsigned long param)
 		cmdq_task_destroy(handle);
 		kfree(mapping_job);
 		kfree(cmd_buf.va_base);
-		return status;
+		goto done;
 	}
 
 	/* Make command from user job */
-	exec_cost = sched_clock();
+	CMDQ_TRACE_FORCE_BEGIN("mdp_translate_user_job\n");
+	trans_cost = sched_clock();
 	status = translate_user_job(&user_job, mapping_job, handle, &cmd_buf);
-	exec_cost = div_s64(sched_clock() - exec_cost, 1000);
-	if (exec_cost > 3000) {
-		CMDQ_ERR("[warn]translate job[%d] cost:%lluus\n",
-			user_job.meta_count, exec_cost);
-	} else {
-		CMDQ_MSG("[log]translate job[%d] cost:%lluus\n",
-			user_job.meta_count, exec_cost);
-	}
+	trans_cost = div_s64(sched_clock() - trans_cost, 1000);
+	CMDQ_TRACE_FORCE_END();
 
 	if (status < 0) {
 		CMDQ_ERR("%s translate fail:%d\n", __func__, status);
 		cmdq_task_destroy(handle);
 		kfree(mapping_job);
 		kfree(cmd_buf.va_base);
-		return status;
+		goto done;
 	}
 
 	status = mdp_implement_read_v1(&user_job, handle, &cmd_buf);
@@ -679,14 +689,15 @@ s32 mdp_ioctl_async_exec(struct file *pf, unsigned long param)
 		cmdq_task_destroy(handle);
 		kfree(mapping_job);
 		kfree(cmd_buf.va_base);
-		return status;
+		goto done;
 	}
 
 	if (cmdq_handle_flush_cmd_buf(handle, &cmd_buf)) {
 		cmdq_task_destroy(handle);
 		kfree(mapping_job);
 		kfree(cmd_buf.va_base);
-		return -EFAULT;
+		status = -EFAULT;
+		goto done;
 	}
 
 	/* cmdq_pkt_dump_command(handle); */
@@ -705,7 +716,7 @@ s32 mdp_ioctl_async_exec(struct file *pf, unsigned long param)
 		}
 
 		kfree(mapping_job);
-		return status;
+		goto done;
 	}
 
 	INIT_LIST_HEAD(&mapping_job->list_entry);
@@ -721,10 +732,22 @@ s32 mdp_ioctl_async_exec(struct file *pf, unsigned long param)
 
 	if (copy_to_user((void *)param, &user_job, sizeof(user_job))) {
 		CMDQ_ERR("CMDQ_IOCTL_ASYNC_EXEC copy_to_user failed\n");
-		return -EFAULT;
+		status = -EFAULT;
+		goto done;
 	}
 
-	return 0;
+done:
+	CMDQ_TRACE_FORCE_END();
+
+	exec_cost = div_s64(sched_clock() - exec_cost, 1000);
+	if (exec_cost > 3000)
+		CMDQ_ERR("%s job:%u cost translate:%lluus exec:%lluus\n",
+			__func__, user_job.meta_count, trans_cost, exec_cost);
+	else
+		CMDQ_MSG("%s job:%u cost translate:%lluus exec:%lluus\n",
+			__func__, user_job.meta_count, trans_cost, exec_cost);
+
+	return status;
 }
 
 s32 mdp_ioctl_async_wait(unsigned long param)
@@ -736,9 +759,12 @@ s32 mdp_ioctl_async_wait(unsigned long param)
 	u64 exec_cost = sched_clock();
 	struct mdp_job_mapping *mapping_job = NULL, *tmp = NULL;
 
+	CMDQ_TRACE_FORCE_BEGIN("%s\n", __func__);
+
 	if (copy_from_user(&job_result, (void *)param, sizeof(job_result))) {
 		CMDQ_ERR("copy_from_user job_result fail\n");
-		return -EFAULT;
+		status = -EFAULT;
+		goto done;
 	}
 
 	/* verify job handle */
@@ -757,7 +783,8 @@ s32 mdp_ioctl_async_wait(unsigned long param)
 
 	if (!handle) {
 		CMDQ_ERR("job not exists:0x%016llx\n", job_result.job_id);
-		return -EFAULT;
+		status = -EFAULT;
+		goto done;
 	}
 
 	do {
@@ -805,6 +832,9 @@ s32 mdp_ioctl_async_wait(unsigned long param)
 	cmdq_task_destroy(handle);
 	CMDQ_SYSTRACE_END();
 
+done:
+	CMDQ_TRACE_FORCE_END();
+
 	return status;
 }
 
@@ -814,6 +844,7 @@ s32 mdp_ioctl_alloc_readback_slots(void *fp, unsigned long param)
 	dma_addr_t paStart = 0;
 	s32 status;
 	u32 free_slot, free_slot_group, alloc_slot_index;
+	u64 exec_cost = sched_clock();
 
 	if (copy_from_user(&rb_req, (void *)param, sizeof(rb_req))) {
 		CMDQ_ERR("%s copy_from_user failed\n", __func__);
@@ -870,6 +901,11 @@ s32 mdp_ioctl_alloc_readback_slots(void *fp, unsigned long param)
 		CMDQ_ERR("%s copy_to_user failed\n", __func__);
 		return -EFAULT;
 	}
+
+	exec_cost = div_s64(sched_clock() - exec_cost, 1000);
+	if (exec_cost > 10000)
+		CMDQ_LOG("[warn]%s cost:%lluus\n",
+			__func__, exec_cost);
 
 	return 0;
 }

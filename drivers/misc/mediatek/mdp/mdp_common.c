@@ -2480,6 +2480,7 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 	u32 mdp_curr_pixel_size = 0;
 	u32 total_pixel = 0;
 	bool first_task = true;
+	bool expired;
 
 #ifdef MDP_MMPATH
 	/* For MMpath */
@@ -2500,13 +2501,21 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 
 	do_gettimeofday(&curr_time);
 
-	CMDQ_LOG_PMQOS("enter %s with handle:0x%p engine:0x%llx thread:%u\n",
-		__func__, handle, handle->engineFlag, handle->thread);
-
 	mdp_curr_pmqos = (struct mdp_pmqos *)handle->prop_addr;
 	pmqos_curr_record->submit_tm = curr_time;
 	pmqos_curr_record->end_tm.tv_sec = mdp_curr_pmqos->tv_sec;
 	pmqos_curr_record->end_tm.tv_usec = mdp_curr_pmqos->tv_usec;
+
+	expired = curr_time.tv_sec > mdp_curr_pmqos->tv_sec ||
+		(curr_time.tv_sec == mdp_curr_pmqos->tv_sec &&
+		curr_time.tv_usec > mdp_curr_pmqos->tv_usec);
+	CMDQ_LOG_PMQOS(
+		"%s%s handle:0x%p engine:0x%llx thread:%u cur:%lu.%lu end:%lu.%lu run:%u\n",
+		__func__, expired ? " expired" : "",
+		handle, handle->engineFlag, handle->thread,
+		curr_time.tv_sec, curr_time.tv_usec,
+		mdp_curr_pmqos->tv_sec, mdp_curr_pmqos->tv_usec,
+		size);
 
 	CMDQ_LOG_PMQOS(
 		"[MDP]mdp %d pixel, mdp %d byte, isp %d pixel, isp %d byte, submit %06ld us, end %06ld us\n",
@@ -2796,22 +2805,31 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 	u32 total_pixel = 0;
 	bool update_isp_throughput = false;
 	bool update_isp_bandwidth = false;
+	bool expired;
 
 #if 0
 #if IS_ENABLED(CONFIG_MTK_SMI_EXT) && IS_ENABLED(CONFIG_MACH_MT6771)
 	smi_larb_mon_act_cnt();
 #endif
 #endif
-	do_gettimeofday(&curr_time);
-	CMDQ_LOG_PMQOS("enter %s with handle:0x%p engine:0x%llx\n", __func__,
-		handle, handle->engineFlag);
-
 	if (!handle->prop_addr)
 		return;
+
+	do_gettimeofday(&curr_time);
 
 	mdp_curr_pmqos = (struct mdp_pmqos *)handle->prop_addr;
 	pmqos_curr_record = (struct mdp_pmqos_record *)handle->user_private;
 	pmqos_curr_record->submit_tm = curr_time;
+
+	expired = curr_time.tv_sec > mdp_curr_pmqos->tv_sec ||
+		(curr_time.tv_sec == mdp_curr_pmqos->tv_sec &&
+		curr_time.tv_usec > mdp_curr_pmqos->tv_usec);
+	CMDQ_LOG_PMQOS("%s%s handle:0x%p engine:0x%llx cur:%lu.%lu end:%lu.%lu run:%u\n",
+		__func__, expired ? " expired" : "",
+		handle, handle->engineFlag,
+		curr_time.tv_sec, curr_time.tv_usec,
+		mdp_curr_pmqos->tv_sec, mdp_curr_pmqos->tv_usec,
+		size);
 
 	for (i = 0; i < size; i++) {
 		struct cmdqRecStruct *curTask = handle_list[i];
