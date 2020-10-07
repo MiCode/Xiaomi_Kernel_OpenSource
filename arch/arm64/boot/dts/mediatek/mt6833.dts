@@ -2204,10 +2204,10 @@ page_owner=on";
 		#clock-cells=<1>;
 	};
 
-	imp_iic_wrap_s: imp_iic_wrap_s@11d04000 {
+	imp_iic_wrap_s: imp_iic_wrap_s@11d02000 {
 		compatible = "mediatek,imp_iic_wrap_s",
 			"mediatek,mt6833-imp_iic_wrap_s", "syscon";
-		reg = <0 0x11d04000 0 0x1000>;
+		reg = <0 0x11d02000 0 0x1000>;
 		pwr-regmap = <&topckgen>;
 		#clock-cells=<1>;
 	};
@@ -2232,10 +2232,10 @@ page_owner=on";
 		};
 	};
 
-	imp_iic_wrap_w: imp_iic_wrap_w@11e01000 {
+	imp_iic_wrap_w: imp_iic_wrap_w@11e03000 {
 		compatible = "mediatek,imp_iic_wrap_w",
 			"mediatek,mt6833-imp_iic_wrap_w", "syscon";
-		reg = <0 0x11e01000 0 0x1000>;
+		reg = <0 0x11e03000 0 0x1000>;
 		pwr-regmap = <&topckgen>;
 		#clock-cells=<1>;
 	};
