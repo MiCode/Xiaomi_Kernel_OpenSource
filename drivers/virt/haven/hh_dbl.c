@@ -61,6 +61,7 @@ static int hh_dbl_validate_params(struct hh_dbl_desc *client_desc,
 	spin_lock(&cap_table_entry->cap_entry_lock);
 
 	if (cap_table_entry->client_desc != client_desc) {
+		spin_unlock(&cap_table_entry->cap_entry_lock);
 		pr_err("%s: Invalid client descriptor\n", __func__);
 		return -EINVAL;
 	}
