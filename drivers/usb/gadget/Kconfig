@@ -595,6 +595,14 @@ config USB_CONFIGFS_F_GSI
 	  related functionalities using GSI hardware accelerated data
 	  path and control path.
 
+config USB_LOW_MEM_VARIANT
+	bool "USB Memory optimization"
+	help
+	  Memory requirement for buffers can vary from target to target.
+	  Enable this option if memory optimization is required for any
+	  low memory variant target. In such case memory needed to be
+	  allocated to buffers of various function drivers can be reduced.
+
 config USB_FUNC_WAKEUP_SUPPORTED
 	bool "USB Function Remote Wakeup support"
 	depends on QGKI
