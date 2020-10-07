@@ -13,7 +13,7 @@
 #include <dt-bindings/pinctrl/mt6853-pinfunc.h>
 #include <dt-bindings/power/mt6853-power.h>
 #include <dt-bindings/interconnect/mtk,mt6873-emi.h>
-#include <dt-bindings/gce/mt6873-gce.h>
+#include <dt-bindings/gce/mt6853-gce.h>
 #include <dt-bindings/reset/ti-syscon.h>
 #include <dt-bindings/soc/mediatek,boot-mode.h>
 
@@ -1378,6 +1378,9 @@
 			mediatek,gce = <&gce>;
 			mmsys_config = <&mmsys_config_clk>;
 			mediatek,gce-subsys = <99>, <SUBSYS_1400XXXX>;
+			mboxes = <&gce 23 0 CMDQ_THR_PRIO_1>,
+				<&gce 22 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>,
+				<&gce 11 0 CMDQ_THR_PRIO_1>;
 			token_user0 = /bits/ 16 <CMDQ_SYNC_TOKEN_USER_0>;
 			token_gpr_set4 = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_4>;
 		};
@@ -1404,7 +1407,7 @@
 		};
 
 		gce: mailbox@10228000 {
-			compatible = "mediatek,mt6873-gce";
+			compatible = "mediatek,mt6853-gce";
 			reg = <0 0x10228000 0 0x4000>;
 			interrupts = <GIC_SPI 203 IRQ_TYPE_LEVEL_HIGH 0>;
 			#mbox-cells = <3>;
@@ -1417,6 +1420,9 @@
 				/bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_4>,
 				/bits/ 16 <CMDQ_SYNC_RESOURCE_WROT0>,
 				/bits/ 16 <CMDQ_SYNC_RESOURCE_WROT1>;
+			clocks = <&infracfg_ao_clk CLK_IFRAO_GCE>,
+				 <&infracfg_ao_clk CLK_IFRAO_GCE_26M_SET>;
+			clock-names = "gce", "gce-timer";
 		};
 
 		dramc: dramc@10230000 {
@@ -3187,42 +3193,14 @@
 				<CMDQ_EVENT_IMG1_DIP_FRAME_DONE_P2_13>;
 			dip_cq_thread14_frame_done =
 				<CMDQ_EVENT_IMG1_DIP_FRAME_DONE_P2_14>;
-			dip_cq_thread21_frame_done =
-				<CMDQ_EVENT_IMG1_MFB_DONE_LINK_MISC>;
-			dip_cq_thread23_frame_done =
-				<CMDQ_EVENT_IMG1_MSS_DONE_LINK_MISC>;
-			wpe_a_frame_done =
-				<CMDQ_EVENT_IMG1_WPE_A_DONE_LINK_MISC>;
-			dip2_cq_thread0_frame_done =
-				<CMDQ_EVENT_IMG2_DIP_FRAME_DONE_P2_0>;
-			dip2_cq_thread1_frame_done =
-				<CMDQ_EVENT_IMG2_DIP_FRAME_DONE_P2_1>;
-			dip2_cq_thread2_frame_done =
-				<CMDQ_EVENT_IMG2_DIP_FRAME_DONE_P2_2>;
-			dip2_cq_thread3_frame_done =
-				<CMDQ_EVENT_IMG2_DIP_FRAME_DONE_P2_3>;
-			dip2_cq_thread4_frame_done =
-				<CMDQ_EVENT_IMG2_DIP_FRAME_DONE_P2_4>;
-			dip2_cq_thread5_frame_done =
-				<CMDQ_EVENT_IMG2_DIP_FRAME_DONE_P2_5>;
-			dip2_cq_thread6_frame_done =
-				<CMDQ_EVENT_IMG2_DIP_FRAME_DONE_P2_6>;
-			dip2_cq_thread7_frame_done =
-				<CMDQ_EVENT_IMG2_DIP_FRAME_DONE_P2_7>;
-			dip2_cq_thread8_frame_done =
-				<CMDQ_EVENT_IMG2_DIP_FRAME_DONE_P2_8>;
-			dip2_cq_thread9_frame_done =
-				<CMDQ_EVENT_IMG2_DIP_FRAME_DONE_P2_9>;
-			dip2_cq_thread10_frame_done =
-				<CMDQ_EVENT_IMG2_DIP_FRAME_DONE_P2_10>;
-			dip2_cq_thread11_frame_done =
-				<CMDQ_EVENT_IMG2_DIP_FRAME_DONE_P2_11>;
-			dip2_cq_thread12_frame_done =
-				<CMDQ_EVENT_IMG2_DIP_FRAME_DONE_P2_12>;
-			dip2_cq_thread13_frame_done =
-				<CMDQ_EVENT_IMG2_DIP_FRAME_DONE_P2_13>;
-			dip2_cq_thread14_frame_done =
-				<CMDQ_EVENT_IMG2_DIP_FRAME_DONE_P2_14>;
+			dip_cq_thread15_frame_done =
+				<CMDQ_EVENT_IMG1_DIP_FRAME_DONE_P2_15>;
+			dip_cq_thread16_frame_done =
+				<CMDQ_EVENT_IMG1_DIP_FRAME_DONE_P2_16>;
+			dip_cq_thread17_frame_done =
+				<CMDQ_EVENT_IMG1_DIP_FRAME_DONE_P2_17>;
+			dip_cq_thread18_frame_done =
+				<CMDQ_EVENT_IMG1_DIP_FRAME_DONE_P2_18>;
 			dip2_cq_thread21_frame_done =
 				<CMDQ_EVENT_IMG2_MFB_DONE_LINK_MISC>;
 			dip2_cq_thread23_frame_done =
@@ -3449,8 +3427,7 @@
 				"disp_wdma0_eof0",
 				"disp_token_stream_block0",
 				"disp_token_cabc_eof0",
-				"disp_wdma0_eof2",
-				"disp_dsi0_sof0";
+				"disp_wdma0_eof2";
 
 			gce-events =
 				<&gce CMDQ_EVENT_DISP_STREAM_DONE_ENG_EVENT_0>,
@@ -3464,8 +3441,7 @@
 				<&gce CMDQ_EVENT_DISP_WDMA0_FRAME_DONE>,
 				<&gce CMDQ_SYNC_TOKEN_STREAM_BLOCK>,
 				<&gce CMDQ_SYNC_TOKEN_CABC_EOF>,
-				<&gce CMDQ_EVENT_DISP_WDMA0_FRAME_DONE>,
-				<&gce CMDQ_EVENT_DSI0_SOF>;
+				<&gce CMDQ_EVENT_DISP_WDMA0_FRAME_DONE>;
 
 			helper-name = "MTK_DRM_OPT_STAGE",
 				"MTK_DRM_OPT_USE_CMDQ",
