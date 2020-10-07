@@ -1761,8 +1761,16 @@ static void *mdp_qos_get_path(u32 thread_id, u32 port)
 		return path_mdp_wrot0[thread_id];
 	case M4U_PORT_L2_MDP_WROT1:
 		return path_mdp_wrot1[thread_id];
+	}
+
+	/* workaround: m4u port def in kernel-5.4 also define domain id
+	 * but not update user space port def, thus ports value must add
+	 * domain bits to match new def.
+	 */
+	port = port | (2 << 16);
 
 	/* isp part */
+	switch (port) {
 	case M4U_PORT_L9_IMG_IMGI_D1:
 		return path_l9_img_imgi_d1[thread_id];
 	case M4U_PORT_L9_IMG_IMGBI_D1:
