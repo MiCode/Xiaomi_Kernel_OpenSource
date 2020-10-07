@@ -863,6 +863,12 @@
 		compatible = "mediatek,pd_adapter";
 		adapter_name = "pd_adapter";
 	};
+
+	mtk_ctd: mtk_ctd {
+		compatible = "mediatek,mtk_ctd";
+		bc12 = <&mt6360_chg>;
+		bc12_sel = <0>;
+	};
 };
 
 &i2c5 {
@@ -906,6 +912,7 @@
 			charger = <&mt6360_chg>;
 			phys = <&u2port0 PHY_TYPE_USB2>;
 			phy-names = "usb2-phy";
+			bc12_ref = <&mtk_ctd>;
 			otg_vbus: usb-otg-vbus {
 				regulator-compatible = "usb-otg-vbus";
 				regulator-name = "usb-otg-vbus";
