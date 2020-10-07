@@ -844,7 +844,7 @@ int mtk_cam_fill_pixfmt_mp(struct v4l2_pix_format_mplane *pixfmt,
 				* info->bit_r_num, info->bit_r_den), bus_size);
 			stride = aligned_width * info->bpp[0];
 
-			if (plane->bytesperline <= stride)
+			if (stride > plane->bytesperline)
 				plane->bytesperline = stride;
 
 			for (i = 0; i < info->comp_planes; i++) {
@@ -873,7 +873,7 @@ int mtk_cam_fill_pixfmt_mp(struct v4l2_pix_format_mplane *pixfmt,
 
 			aligned_width = ALIGN(width, bus_size);
 			stride = aligned_width * info->bpp[0];
-			if (plane->bytesperline <= stride)
+			if (stride > plane->bytesperline)
 				plane->bytesperline = stride;
 
 			for (i = 0; i < info->comp_planes; i++) {
@@ -914,7 +914,7 @@ static void cal_image_pix_mp(unsigned int node_id,
 	case MTKCAM_IPI_IMG_FMT_FG_BAYER12:
 	case MTKCAM_IPI_IMG_FMT_FG_BAYER14:
 		stride = mtk_cam_dmao_xsize(width, ipi_fmt, pixel_mode_shift);
-		if (mp->plane_fmt[0].bytesperline <= stride)
+		if (stride > mp->plane_fmt[0].bytesperline)
 			mp->plane_fmt[0].bytesperline = stride;
 
 		mp->plane_fmt[0].sizeimage = mp->plane_fmt[0].bytesperline * height;
@@ -1230,6 +1230,8 @@ int video_try_fmt(struct mtk_cam_video_device *node, struct v4l2_format *f)
 
 	/* Only support one plane */
 	try_fmt.fmt.pix_mp.num_planes = 1;
+
+	try_fmt.fmt.pix_mp.plane_fmt[0].bytesperline = f->fmt.pix_mp.plane_fmt[0].bytesperline;
 
 	/* bytesperline & sizeimage calculation */
 	cal_image_pix_mp(node->desc.id, &try_fmt.fmt.pix_mp);
