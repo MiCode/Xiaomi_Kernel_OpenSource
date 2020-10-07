@@ -26,12 +26,14 @@
 	(container_of(attr, struct ddr_stats_kobj_attr, ka)->pd)
 
 #ifdef CONFIG_ARM
+#ifndef readq_relaxed
 #define readq_relaxed(a) ({			\
 	u64 val = readl_relaxed((a) + 4);	\
 	val <<= 32;				\
 	val |=  readl_relaxed((a));		\
 	val;					\
 })
+#endif
 #endif
 
 struct ddr_stats_platform_data {
