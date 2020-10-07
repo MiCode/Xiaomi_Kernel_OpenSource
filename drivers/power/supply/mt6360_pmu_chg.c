@@ -113,13 +113,7 @@ struct mt6360_chg_info {
 	/* type_c_port0 */
 	struct tcpc_device *tcpc_dev;
 	struct notifier_block pd_nb;
-	/* chg_det */
-	wait_queue_head_t attach_wq;
-	atomic_t chrdet_start;
-	struct task_struct *attach_task;
-	struct mutex attach_lock;
-	bool typec_attach;
-	bool tcpc_kpoc;
+
 	struct work_struct chgdet_work;
 	/* power supply */
 	struct power_supply_desc psy_desc;
@@ -2754,9 +2748,9 @@ static int mt6360_charger_get_online(struct mt6360_chg_info *mci,
 	bool pwr_rdy;
 
 	if (IS_ENABLED(CONFIG_TCPC_CLASS)) {
-		mutex_lock(&mci->attach_lock);
-		pwr_rdy = mci->attach;
-		mutex_unlock(&mci->attach_lock);
+		mutex_lock(&mci->chgdet_lock);
+		pwr_rdy = mci->tcpc_attach;
+		mutex_unlock(&mci->chgdet_lock);
 	} else {
 		/*uvp_d_stat=true => vbus_on=1*/
 		ret = mt6360_get_chrdet_ext_stat(mci, &pwr_rdy);
@@ -3002,146 +2996,6 @@ static const struct regulator_desc mt6360_otg_rdesc = {
 	.csel_mask = MT6360_MASK_OTG_OC,
 };
 
-static int mt6360_get_charger_type(struct mt6360_chg_info *mci,
-	bool attach)
-{
-	struct mt6360_chg_platform_data *pdata = dev_get_platdata(mci->dev);
-	union power_supply_propval prop, prop2;
-	static struct power_supply *chg_psy;
-	int ret = 0;
-
-	if (chg_psy == NULL) {
-		if (pdata->bc12_sel == 1)
-			chg_psy = power_supply_get_by_name("mtk_charger_type");
-		else if (pdata->bc12_sel == 2)
-			chg_psy = power_supply_get_by_name("ext_charger_type");
-	}
-
-	if (IS_ERR_OR_NULL(chg_psy))
-		pr_notice("%s Couldn't get chg_psy\n", __func__);
-	else {
-		prop.intval = attach;
-		if (attach) {
-			ret = power_supply_set_property(chg_psy,
-					POWER_SUPPLY_PROP_ONLINE, &prop);
-			ret = power_supply_get_property(chg_psy,
-					POWER_SUPPLY_PROP_USB_TYPE, &prop2);
-		} else
-			prop2.intval = POWER_SUPPLY_USB_TYPE_UNKNOWN;
-
-		pr_notice("%s type:%d\n", __func__, prop2.intval);
-
-		switch (prop2.intval) {
-		case POWER_SUPPLY_USB_TYPE_UNKNOWN:
-			mci->psy_desc.type = POWER_SUPPLY_TYPE_UNKNOWN;
-			mci->psy_usb_type = POWER_SUPPLY_USB_TYPE_UNKNOWN;
-			break;
-		case POWER_SUPPLY_USB_TYPE_SDP:
-			mci->psy_desc.type = POWER_SUPPLY_TYPE_USB;
-			mci->psy_usb_type = POWER_SUPPLY_USB_TYPE_SDP;
-			break;
-		case POWER_SUPPLY_USB_TYPE_CDP:
-			mci->psy_desc.type = POWER_SUPPLY_TYPE_USB_CDP;
-			mci->psy_usb_type = POWER_SUPPLY_USB_TYPE_CDP;
-			break;
-		case POWER_SUPPLY_USB_TYPE_DCP:
-			mci->psy_desc.type = POWER_SUPPLY_TYPE_USB_DCP;
-			mci->psy_usb_type = POWER_SUPPLY_USB_TYPE_DCP;
-			break;
-		}
-		power_supply_changed(mci->psy);
-	}
-	return prop2.intval;
-}
-
-static int typec_attach_thread(void *data)
-{
-	struct mt6360_chg_info *mci = data;
-	struct mt6360_chg_platform_data *pdata = dev_get_platdata(mci->dev);
-	int ret = 0;
-	bool attach;
-	union power_supply_propval val;
-
-	pr_info("%s: ++\n", __func__);
-	while (!kthread_should_stop()) {
-		wait_event(mci->attach_wq,
-			   atomic_read(&mci->chrdet_start) > 0 ||
-							 kthread_should_stop());
-		if (kthread_should_stop())
-			break;
-		mutex_lock(&mci->attach_lock);
-		attach = mci->typec_attach;
-		mutex_unlock(&mci->attach_lock);
-		val.intval = attach;
-		pr_notice("%s bc12_sel:%d attach:%d\n", __func__,
-				pdata->bc12_sel, attach);
-		if (pdata->bc12_sel == 0) {
-			ret = power_supply_set_property(mci->chg_psy,
-						POWER_SUPPLY_PROP_ONLINE, &val);
-			if (ret < 0)
-				dev_info(mci->dev, "%s: set online fail(%d)\n",
-					__func__, ret);
-		} else
-			mt6360_get_charger_type(mci, attach);
-		atomic_set(&mci->chrdet_start, 0);
-	}
-	return ret;
-}
-
-static void handle_typec_attach(struct mt6360_chg_info *mci,
-				bool en)
-{
-	mutex_lock(&mci->attach_lock);
-	mci->typec_attach = en;
-	atomic_inc(&mci->chrdet_start);
-	wake_up(&mci->attach_wq);
-	mutex_unlock(&mci->attach_lock);
-}
-
-static int pd_tcp_notifier_call(struct notifier_block *nb,
-				unsigned long event, void *data)
-{
-	struct tcp_notify *noti = data;
-	struct mt6360_chg_info *chg_data =
-		(struct mt6360_chg_info *)container_of(nb,
-		struct mt6360_chg_info, pd_nb);
-
-	switch (event) {
-	case TCP_NOTIFY_TYPEC_STATE:
-		if (noti->typec_state.old_state == TYPEC_UNATTACHED &&
-		    (noti->typec_state.new_state == TYPEC_ATTACHED_SNK ||
-		    noti->typec_state.new_state == TYPEC_ATTACHED_CUSTOM_SRC ||
-		    noti->typec_state.new_state == TYPEC_ATTACHED_NORP_SRC)) {
-			pr_info("%s USB Plug in, pol = %d\n", __func__,
-					noti->typec_state.polarity);
-			handle_typec_attach(chg_data, true);
-		} else if ((noti->typec_state.old_state == TYPEC_ATTACHED_SNK ||
-		    noti->typec_state.old_state == TYPEC_ATTACHED_CUSTOM_SRC ||
-			noti->typec_state.old_state == TYPEC_ATTACHED_NORP_SRC)
-			&& noti->typec_state.new_state == TYPEC_UNATTACHED) {
-			pr_info("%s USB Plug out\n", __func__);
-			if (chg_data->tcpc_kpoc) {
-				pr_info("%s: typec unattached, power off\n",
-					__func__);
-				kernel_power_off();
-			}
-			handle_typec_attach(chg_data, false);
-		} else if (noti->typec_state.old_state == TYPEC_ATTACHED_SRC &&
-			noti->typec_state.new_state == TYPEC_ATTACHED_SNK) {
-			pr_info("%s Source_to_Sink\n", __func__);
-			handle_typec_attach(chg_data, true);
-		}  else if (noti->typec_state.old_state == TYPEC_ATTACHED_SNK &&
-			noti->typec_state.new_state == TYPEC_ATTACHED_SRC) {
-			pr_info("%s Sink_to_Source\n", __func__);
-			handle_typec_attach(chg_data, false);
-		}
-		break;
-	default:
-		break;
-	};
-	return NOTIFY_OK;
-}
-
 static int mt6360_pmu_chg_probe(struct platform_device *pdev)
 {
 	struct mt6360_chg_platform_data *pdata = dev_get_platdata(&pdev->dev);
@@ -3150,6 +3004,7 @@ static int mt6360_pmu_chg_probe(struct platform_device *pdev)
 	struct power_supply_config charger_cfg = {};
 	struct regulator_config config = { };
 	struct device_node *np = pdev->dev.of_node;
+	struct device_node *node;
 	int i, ret = 0;
 
 	dev_info(&pdev->dev, "%s\n", __func__);
@@ -3159,7 +3014,16 @@ static int mt6360_pmu_chg_probe(struct platform_device *pdev)
 			return -ENOMEM;
 		memcpy(pdata, &def_platform_data, sizeof(*pdata));
 		mt6360_dt_parser_helper(np, (void *)pdata,
-					mt6360_val_props, ARRAY_SIZE(mt6360_val_props));
+				mt6360_val_props, ARRAY_SIZE(mt6360_val_props));
+		node = of_parse_phandle(np, "bc12_ref", 0);
+		if (!node)
+			dev_notice(&pdev->dev,
+				"%s: can't parse phandle bc12_ref\n", __func__);
+		if (of_property_read_u32(node, "bc12_sel",
+					 &pdata->bc12_sel) < 0)
+			dev_notice(&pdev->dev,
+				   "%s: can't parse bc12_sel\n", __func__);
+
 		pdev->dev.platform_data = pdata;
 	}
 	if (!pdata) {
@@ -3188,11 +3052,7 @@ static int mt6360_pmu_chg_probe(struct platform_device *pdev)
 	atomic_set(&mci->pe_complete, 0);
 	atomic_set(&mci->mivr_cnt, 0);
 	init_waitqueue_head(&mci->mivr_wq);
-	if (IS_ENABLED(CONFIG_TCPC_CLASS)) {
-		init_waitqueue_head(&mci->attach_wq);
-		atomic_set(&mci->chrdet_start, 0);
-		mutex_init(&mci->attach_lock);
-	} else if (pdata->bc12_sel == 0)
+	if (!IS_ENABLED(CONFIG_TCPC_CLASS) && pdata->bc12_sel == 0)
 		INIT_WORK(&mci->chgdet_work, mt6360_chgdet_work_handler);
 
 	platform_set_drvdata(pdev, mci);
@@ -3295,52 +3155,11 @@ static int mt6360_pmu_chg_probe(struct platform_device *pdev)
 		goto err_register_psy;
 	}
 
-	/* get bc1.2 power supply: chg_psy */
-	mci->chg_psy = devm_power_supply_get_by_phandle(&pdev->dev, "charger");
-	if (IS_ERR(mci->chg_psy)) {
-		dev_notice(&pdev->dev, "Failed to get charger psy\n");
-		ret = PTR_ERR(mci->chg_psy);
-		goto err_psy_get_phandle;
-	}
-
-	if (!IS_ENABLED(CONFIG_TCPC_CLASS))
-		goto bypass_tcpc_init;
-
-	mci->attach_task = kthread_run(typec_attach_thread, mci,
-					"attach_thread");
-	if (IS_ERR(mci->attach_task)) {
-		ret = PTR_ERR(mci->attach_task);
-		goto err_attach_task;
-	}
-
-	mci->tcpc_dev = tcpc_dev_get_by_name("type_c_port0");
-	if (!mci->tcpc_dev) {
-		pr_notice("%s get tcpc device type_c_port0 fail\n", __func__);
-		ret = -ENODEV;
-		goto err_get_tcpcdev;
-	}
-
-	mci->pd_nb.notifier_call = pd_tcp_notifier_call;
-	ret = register_tcp_dev_notifier(mci->tcpc_dev, &mci->pd_nb,
-					TCP_NOTIFY_TYPE_ALL);
-	if (ret < 0) {
-		pr_notice("%s: register tcpc notifer fail\n", __func__);
-		ret = -EINVAL;
-		goto err_register_tcp_notifier;
-	}
-
-bypass_tcpc_init:
 	/* Schedule work for microB's BC1.2 */
 	if (!IS_ENABLED(CONFIG_TCPC_CLASS) && pdata->bc12_sel == 0)
 		schedule_work(&mci->chgdet_work);
 	dev_info(&pdev->dev, "%s: successfully probed\n", __func__);
 	return 0;
-err_register_tcp_notifier:
-err_get_tcpcdev:
-	if (mci->attach_task)
-		kthread_stop(mci->attach_task);
-err_attach_task:
-err_psy_get_phandle:
 err_register_psy:
 err_register_otg:
 	destroy_workqueue(mci->pe_wq);
@@ -3359,7 +3178,6 @@ err_mutex_init:
 	mutex_destroy(&mci->aicr_lock);
 	mutex_destroy(&mci->pe_lock);
 	mutex_destroy(&mci->hidden_mode_lock);
-	mutex_destroy(&mci->attach_lock);
 	return -EPROBE_DEFER;
 }
 
@@ -3375,9 +3193,6 @@ static int mt6360_pmu_chg_remove(struct platform_device *pdev)
 		wake_up(&mci->mivr_wq);
 		kthread_stop(mci->mivr_task);
 	}
-	if (IS_ENABLED(CONFIG_TCPC_CLASS) && mci->attach_task)
-		kthread_stop(mci->attach_task);
-	mutex_destroy(&mci->attach_lock);
 	device_remove_file(mci->dev, &dev_attr_shipping_mode);
 #if IS_ENABLED(CONFIG_MTK_CHARGER)
 	charger_device_unregister(mci->chg_dev);
