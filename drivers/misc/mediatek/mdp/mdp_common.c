@@ -79,6 +79,9 @@ struct plist_head qos_isp_module_request_list[MDP_TOTAL_THREAD];
 #endif	/* CONFIG_MTK_SMI_EXT */
 #endif	/* PMQOS_VERSION2 */
 
+u32 dre30_hist_sram_start;
+#define LEGACY_DRE30_HIST_SRAM_START	1024
+
 #define CMDQ_LOG_PMQOS(string, args...) \
 do {			\
 	if (cmdq_core_should_pmqos_log()) { \
@@ -2007,9 +2010,10 @@ static void cmdq_mdp_init_pmqos(void)
 #endif	/* CONFIG_MTK_SMI_EXT */
 }
 
-void cmdq_mdp_init(void)
+void cmdq_mdp_init(struct platform_device *pdev)
 {
 	struct cmdqMDPFuncStruct *mdp_func = cmdq_mdp_get_func();
+	s32 ret;
 
 	CMDQ_LOG("%s\n", __func__);
 
@@ -2053,6 +2057,11 @@ void cmdq_mdp_init(void)
 
 	mdp_pool.limit = &mdp_pool_limit;
 	mdp_pool.cnt = &mdp_pool_cnt;
+
+	ret = of_property_read_u32(pdev->dev.of_node,
+		"dre30_hist_sram_start", &dre30_hist_sram_start);
+	if (ret != 0 || !dre30_hist_sram_start)
+		dre30_hist_sram_start = LEGACY_DRE30_HIST_SRAM_START;
 
 	cmdq_mdp_pool_create();
 }
@@ -3124,9 +3133,7 @@ void cmdq_mdp_compose_readback_virtual(struct cmdqRecStruct *handle,
 #define MDP_AAL_DUAL_PIPE_00	0x500
 #define MDP_AAL_DUAL_PIPE_08	0x544
 
-#define DRE30_HIST_START	1152
 #define MDP_AAL_SRAM_RW_IF_2_MASK	0x01FFF
-#define MDP_AAL_SRAM_START		4096
 #define MDP_AAL_SRAM_CNT		768
 #define MDP_AAL_SRAM_STATUS_BIT		BIT(17)
 #define MDP_AAL_DRE_BITS(_param)	(_param & 0xF)
@@ -3185,7 +3192,7 @@ static void mdp_readback_aal_virtual(struct cmdqRecStruct *handle,
 	 * spr1 = AAL_SRAM_START
 	 * gpr_p4 = out_pa
 	 */
-	cmdq_pkt_assign_command(pkt, idx_addr, DRE30_HIST_START);
+	cmdq_pkt_assign_command(pkt, idx_addr, dre30_hist_sram_start);
 	cmdq_pkt_move(pkt, idx_gpr_out, pa);
 
 	/* loop again here */
@@ -3209,7 +3216,7 @@ static void mdp_readback_aal_virtual(struct cmdqRecStruct *handle,
 	lop.reg = true;
 	lop.idx = idx_addr;
 	rop.reg = false;
-	rop.value = DRE30_HIST_START + 4 * (MDP_AAL_SRAM_CNT - 1);
+	rop.value = dre30_hist_sram_start + 4 * (MDP_AAL_SRAM_CNT - 1);
 	condi_offset = pkt->cmd_buf_size;
 	cmdq_pkt_assign_command(pkt, CMDQ_THR_SPR_IDX0, 0);
 	condi_inst = (u32 *)cmdq_pkt_get_va_by_offset(pkt, condi_offset);
