@@ -4524,9 +4524,9 @@ page_owner=on";
 		dip2_cq_thread21_frame_done =
 			<CMDQ_EVENT_GCE_IMG2_EVENT21>;
 		dip2_cq_thread23_frame_done =
-			<CMDQ_EVENT_GCE_IMG2_EVENT22>;
-		wpe_b_frame_done =
 			<CMDQ_EVENT_GCE_IMG2_EVENT23>;
+		wpe_b_frame_done =
+			<CMDQ_EVENT_GCE_IMG2_EVENT22>;
 		mdp_rdma0_sof = <256>;
 		mdp_aal_sof = <258>;
 		mdp_hdr0_sof = <260>;
