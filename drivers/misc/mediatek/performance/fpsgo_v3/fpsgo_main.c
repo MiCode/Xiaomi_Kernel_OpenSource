@@ -40,8 +40,6 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/fpsgo.h>
 
-#define API_READY 0
-
 #define TARGET_UNLIMITED_FPS 240
 
 enum FPSGO_NOTIFIER_PUSH_TYPE {
@@ -794,12 +792,10 @@ static void __exit fpsgo_exit(void)
 		destroy_workqueue(g_psNotifyWorkQueue);
 		g_psNotifyWorkQueue = NULL;
 	}
-#ifdef CONFIG_DRM_MEDIATEK
+#if defined(CONFIG_DRM_MEDIATEK)
 	drm_unregister_fps_chg_callback(dfrc_fps_limit_cb);
-#else
-#if API_READY
+#elif defined(CONFIG_MTK_HIGH_FRAME_RATE)
 	disp_unregister_fps_chg_callback(dfrc_fps_limit_cb);
-#endif
 #endif
 	fpsgo_uboost_exit();
 	fbt_cpu_exit();
@@ -847,12 +843,10 @@ static int __init fpsgo_init(void)
 	fpsgo_get_nn_priority_fp = fpsgo_get_nn_priority;
 	fpsgo_get_nn_ttime_fp = fpsgo_get_nn_ttime;
 
-#ifdef CONFIG_DRM_MEDIATEK
+#if defined(CONFIG_DRM_MEDIATEK)
 	drm_register_fps_chg_callback(dfrc_fps_limit_cb);
-#else
-#if API_READY
+#elif defined(CONFIG_MTK_HIGH_FRAME_RATE)
 	disp_register_fps_chg_callback(dfrc_fps_limit_cb);
-#endif
 #endif
 
 	return 0;
