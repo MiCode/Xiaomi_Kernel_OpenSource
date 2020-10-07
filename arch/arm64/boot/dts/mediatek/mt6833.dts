@@ -771,13 +771,38 @@ page_owner=on";
 			compatible = "mediatek,mt6853-fhctl";
 			reg = <0 0x1000ce00 0 0x200>,
 				  <0 0x1000c000 0 0xe00>;
-			num-pll = <8>;
+			num-pll = <13>;
 			map0 {
 				domain = "top";
 				method = "fhctl-mcupm";
+				armpll_ll {
+					fh-id = <0>;
+					pll-id = <999>;
+					perms = <0x18>;
+				};
+				armpll_bl0 {
+					fh-id = <1>;
+					pll-id = <999>;
+					perms = <0x18>;
+				};
+				armpll_bl1 {
+					fh-id = <2>;
+					pll-id = <999>;
+					perms = <0x18>;
+				};
+				armpll_bl2 {
+					fh-id = <3>;
+					pll-id = <999>;
+					perms = <0x18>;
+				};
 				npupll {
 					fh-id = <4>;
 					pll-id = <999>;
+				};
+				ccipll {
+					fh-id = <5>;
+					pll-id = <999>;
+					perms = <0x18>;
 				};
 				mfgpll {
 					fh-id = <6>;
