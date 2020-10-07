@@ -821,7 +821,11 @@ static ssize_t mddpwh_sysfs_callback(
 	char *buf,
 	size_t buf_len)
 {
+#ifdef CONFIG_MTK_MDDP_WH_SUPPORT
 	static uint8_t                  mddpwh_state = 1;
+#else
+	static uint8_t                  mddpwh_state;
+#endif
 	struct mddpw_net_stat_t        *md_stats;
 	uint8_t                         smem_attr;
 	uint32_t                        smem_size;
