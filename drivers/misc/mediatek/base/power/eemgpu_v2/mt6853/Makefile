@@ -90,6 +90,10 @@ ifeq ($(PROJECT_DTB_NAMES),mediatek/k6853tv1_64_mcl)
 subdir-ccflags-y += -DMC50_LOAD
 endif
 
+ifeq ($(PROJECT_DTB_NAMES),mediatek/k6853v1_64_swrgo)
+subdir-ccflags-y += -DDISABLE_EEM
+endif
+
 obj-y += mtk_eemgpu.o
 obj-y += mtk_eemgpu_platform.o
 obj-y += mtk_eemgpu_internal.o

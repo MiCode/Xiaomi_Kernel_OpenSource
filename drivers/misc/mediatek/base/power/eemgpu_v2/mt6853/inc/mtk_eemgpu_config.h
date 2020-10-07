@@ -14,7 +14,10 @@
 #define _MTK_EEMG_CONFIG_H_
 
 /* CONFIG (SW related) */
-/* #define EEMG_NOT_READY		(1) */
+#ifdef DISABLE_EEM
+#define EEMG_NOT_READY		(1)
+#endif
+
 #define CONFIG_EEMG_SHOWLOG	(0)
 #define EN_ISR_LOG		(0)
 #define EEMG_BANK_SOC		(0) /* use voltage bin, so disable it */

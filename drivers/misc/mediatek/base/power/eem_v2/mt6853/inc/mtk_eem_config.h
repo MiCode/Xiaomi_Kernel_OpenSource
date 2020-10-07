@@ -15,7 +15,9 @@
 
 
 /* CONFIG (SW related) */
-/* #define EEM_NOT_READY		(1) */
+#ifdef DISABLE_EEM
+#define EEM_NOT_READY		(1)
+#endif
 
 #define CONFIG_EEM_SHOWLOG	(0)
 #define EN_ISR_LOG		(0)
