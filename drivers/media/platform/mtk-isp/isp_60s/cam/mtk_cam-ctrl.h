@@ -128,7 +128,9 @@ struct mtk_camsys_ctrl {
 	struct mtk_camsys_dvfs dvfs_info;
 
 };
-
+void mtk_camsys_state_delete(struct mtk_cam_ctx *ctx,
+				struct mtk_camsys_sensor_ctrl *sensor_ctrl,
+				struct mtk_cam_request *req);
 void mtk_cam_dvfs_init(struct mtk_cam_device *cam);
 void mtk_cam_dvfs_uninit(struct mtk_cam_device *cam);
 

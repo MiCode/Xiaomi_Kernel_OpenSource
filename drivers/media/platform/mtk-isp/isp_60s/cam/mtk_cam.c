@@ -111,7 +111,6 @@ void mtk_cam_dequeue_req_frame(struct mtk_cam_device *cam,
 	list_for_each_entry_safe(req, req_prev, &cam->running_job_list, list) {
 		dev_dbg(cam->dev, "frame_seq:%d[ctx_used=%d], de-queue frame_seq:%d\n",
 			req->frame_seq_no, req->ctx_used, frame_seq_no);
-
 		if (!(req->ctx_used & (1 << ctx->stream_id)))
 			continue;
 
@@ -120,22 +119,13 @@ void mtk_cam_dequeue_req_frame(struct mtk_cam_device *cam,
 			cam->running_job_count--;
 			if (req->state.estate == E_STATE_DONE_MISMATCH)
 				buf_state = VB2_BUF_STATE_ERROR;
-			if (ctx->sensor) {
-				spin_lock(&sensor_ctrl->camsys_state_lock);
-				list_del(&req->state.state_element);
-				spin_unlock(&sensor_ctrl->camsys_state_lock);
-			}
+			mtk_camsys_state_delete(ctx, sensor_ctrl, req);
 			mtk_cam_dev_job_done(cam, req, buf_state);
 			list_del(&req->list);
 			break;
 		} else if (req->frame_seq_no < frame_seq_no) {
 			cam->running_job_count--;
-			if (ctx->sensor) {
-				spin_lock(&sensor_ctrl->camsys_state_lock);
-				list_del(&req->state.state_element);
-				spin_unlock(&sensor_ctrl->camsys_state_lock);
-			}
-			/* Pass to user space for frame drop */
+			mtk_camsys_state_delete(ctx, sensor_ctrl, req);
 			mtk_cam_dev_job_done(cam, req, VB2_BUF_STATE_ERROR);
 			dev_dbg(cam->dev, "frame_seq:%d time:%lld drop\n",
 				 req->frame_seq_no, req->timestamp);

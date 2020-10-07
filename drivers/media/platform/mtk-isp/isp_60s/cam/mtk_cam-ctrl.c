@@ -551,7 +551,6 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 	struct mtk_cam_working_buf_entry *buf_entry;
 	struct mtk_camsys_ctrl_state *current_state;
 	dma_addr_t base_addr;
-	struct mtk_camsys_ctrl *camsys_ctrl = &cam->camsys_ctrl;
 	enum MTK_CAMSYS_STATE_RESULT state_handle_ret;
 	/* inner register dequeue number */
 	ctx->dequeued_frame_seq_no = dequeued_frame_seq_no;
@@ -765,6 +764,30 @@ static void mtk_camsys_raw_frame_done(struct mtk_raw_device *raw_dev,
 		}
 	}
 	return;
+}
+void mtk_camsys_state_delete(struct mtk_cam_ctx *ctx,
+				struct mtk_camsys_sensor_ctrl *sensor_ctrl,
+				struct mtk_cam_request *req)
+{
+	struct mtk_camsys_ctrl_state *state_entry, *state_entry_prev;
+	int state_found = 0;
+
+	if (ctx->sensor) {
+		spin_lock(&sensor_ctrl->camsys_state_lock);
+		list_for_each_entry_safe(state_entry, state_entry_prev,
+				&sensor_ctrl->camsys_state_list,
+				state_element) {
+			struct mtk_camsys_ctrl_state *req_state =
+				&req->state;
+			if (state_entry == req_state) {
+				list_del(&state_entry->state_element);
+				state_found = 1;
+			}
+		}
+		spin_unlock(&sensor_ctrl->camsys_state_lock);
+		if (state_found == 0)
+			dev_info(ctx->cam->dev, "state not found\n");
+	}
 }
 
 void mtk_cam_dvfs_uninit(struct mtk_cam_device *cam)
