@@ -249,9 +249,8 @@ static int mtk_cpu_resources_init(struct platform_device *pdev,
 	struct cpufreq_mtk *c;
 	struct device *dev = &pdev->dev;
 	const u16 *offsets;
-	int ret, i, cpu_r, uindex;
+	int ret, i, cpu_r;
 	void __iomem *base;
-	char unode[DT_STRING_LEN];
 
 	if (mtk_freq_domain_map[cpu])
 		return 0;
