@@ -503,6 +503,7 @@ endif
 
 ifeq ($(CONFIG_SND_SOC_MT6359),y)
   MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
+  subdir-ccflags-${CONFIG_MACH_MT6833} += -Werror -I$(srctree)/drivers/misc/mediatek/include/mt-plat/mt6833/include
   subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include
   subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/accdet/mt6359
 endif

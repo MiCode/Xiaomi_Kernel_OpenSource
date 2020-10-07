@@ -39,10 +39,6 @@ static const char *const
 				     MTK_SPK_I2S_2_STR,
 				     MTK_SPK_I2S_3_STR,
 				     MTK_SPK_I2S_5_STR,
-				     MTK_SPK_I2S_6_STR,
-				     MTK_SPK_I2S_7_STR,
-				     MTK_SPK_I2S_8_STR,
-				     MTK_SPK_I2S_9_STR,
 				     };
 
 static const struct soc_enum mt6833_spk_type_enum[] = {
@@ -157,9 +153,9 @@ static int mt6833_mt6359_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 	struct mt6833_afe_private *afe_priv = afe->platform_priv;
 	int phase;
 	unsigned int monitor;
-	int test_done_1, test_done_2, test_done_3;
-	int cycle_1, cycle_2, cycle_3;
-	int prev_cycle_1, prev_cycle_2, prev_cycle_3;
+	int test_done_1, test_done_2;
+	int cycle_1, cycle_2;
+	int prev_cycle_1, prev_cycle_2;
 	int counter;
 	int mtkaif_calib_ok;
 
@@ -183,7 +179,7 @@ static int mt6833_mt6359_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 	afe_priv->mtkaif_calibration_num_phase = 42;	/* mt6359: 0 ~ 42 */
 	afe_priv->mtkaif_chosen_phase[0] = -1;
 	afe_priv->mtkaif_chosen_phase[1] = -1;
-	afe_priv->mtkaif_chosen_phase[2] = -1;
+	afe_priv->mtkaif_chosen_phase[2] = 0; /* mtkaif ch3 is not used on mt6833 */
 
 	for (phase = 0;
 	     phase <= afe_priv->mtkaif_calibration_num_phase &&
@@ -197,34 +193,27 @@ static int mt6833_mt6359_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 
 		test_done_1 = 0;
 		test_done_2 = 0;
-		test_done_3 = 0;
 		cycle_1 = -1;
 		cycle_2 = -1;
-		cycle_3 = -1;
 		counter = 0;
 		while (test_done_1 == 0 ||
-		       test_done_2 == 0 ||
-		       test_done_3 == 0) {
+		       test_done_2 == 0) {
 			regmap_read(afe_priv->topckgen,
 				    CKSYS_AUD_TOP_MON, &monitor);
 
 			test_done_1 = (monitor >> 28) & 0x1;
 			test_done_2 = (monitor >> 29) & 0x1;
-			test_done_3 = (monitor >> 30) & 0x1;
 			if (test_done_1 == 1)
 				cycle_1 = monitor & 0xf;
 
 			if (test_done_2 == 1)
 				cycle_2 = (monitor >> 4) & 0xf;
 
-			if (test_done_3 == 1)
-				cycle_3 = (monitor >> 8) & 0xf;
-
 			/* handle if never test done */
 			if (++counter > 10000) {
-				dev_err(afe->dev, "%s(), test fail, cycle_1 %d, cycle_2 %d, cycle_3 %d, monitor 0x%x\n",
+				dev_err(afe->dev, "%s(), test fail, cycle_1 %d, cycle_2 %d, monitor 0x%x\n",
 					__func__,
-					cycle_1, cycle_2, cycle_3, monitor);
+					cycle_1, cycle_2, monitor);
 				mtkaif_calib_ok = false;
 				break;
 			}
@@ -233,7 +222,6 @@ static int mt6833_mt6359_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 		if (phase == 0) {
 			prev_cycle_1 = cycle_1;
 			prev_cycle_2 = cycle_2;
-			prev_cycle_3 = cycle_3;
 		}
 
 		if (cycle_1 != prev_cycle_1 &&
@@ -248,18 +236,11 @@ static int mt6833_mt6359_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 			afe_priv->mtkaif_phase_cycle[1] = prev_cycle_2;
 		}
 
-		if (cycle_3 != prev_cycle_3 &&
-		    afe_priv->mtkaif_chosen_phase[2] < 0) {
-			afe_priv->mtkaif_chosen_phase[2] = phase - 1;
-			afe_priv->mtkaif_phase_cycle[2] = prev_cycle_3;
-		}
-
 		regmap_update_bits(afe_priv->topckgen,
 				   CKSYS_AUD_TOP_CFG, 0x1, 0x0);
 
 		if (afe_priv->mtkaif_chosen_phase[0] >= 0 &&
-		    afe_priv->mtkaif_chosen_phase[1] >= 0 &&
-		    afe_priv->mtkaif_chosen_phase[2] >= 0)
+		    afe_priv->mtkaif_chosen_phase[1] >= 0)
 			break;
 	}
 
@@ -932,88 +913,6 @@ static struct snd_soc_dai_link mt6833_mt6359_dai_links[] = {
 		.platform_name  = "18050000.mtk-btcvsd-snd",
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.codec_name = "snd-soc-dummy",
-	},
-#endif
-#if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP)
-	{
-		.name = "Offload_Playback",
-		.stream_name = "Offload_Playback",
-		.cpu_dai_name = "audio_task_offload_dai",
-		.platform_name = "mt_soc_offload_common",
-		.codec_name = "snd-soc-dummy",
-		.codec_dai_name = "snd-soc-dummy-dai",
-	},
-	{
-		.name = "DSP_Playback_Voip",
-		.stream_name = "DSP_Playback_Voip",
-		.cpu_dai_name = "audio_task_voip_dai",
-		.platform_name = "snd_audio_dsp",
-		.codec_name = "snd-soc-dummy",
-		.codec_dai_name = "snd-soc-dummy-dai",
-	},
-	{
-		.name = "DSP_Playback_Primary",
-		.stream_name = "DSP_Playback_Primary",
-		.cpu_dai_name = "audio_task_primary_dai",
-		.platform_name = "snd_audio_dsp",
-		.codec_name = "snd-soc-dummy",
-		.codec_dai_name = "snd-soc-dummy-dai",
-	},
-	{
-		.name = "DSP_Playback_DeepBuf",
-		.stream_name = "DSP_Playback_DeepBuf",
-		.cpu_dai_name = "audio_task_deepbuf_dai",
-		.platform_name = "snd_audio_dsp",
-		.codec_name = "snd-soc-dummy",
-		.codec_dai_name = "snd-soc-dummy-dai",
-	},
-	{
-		.name = "DSP_Playback_Playback",
-		.stream_name = "DSP_Playback_Playback",
-		.cpu_dai_name = "audio_task_Playback_dai",
-		.platform_name = "snd_audio_dsp",
-		.codec_name = "snd-soc-dummy",
-		.codec_dai_name = "snd-soc-dummy-dai",
-	},
-	{
-		.name = "DSP_Capture_Ul1",
-		.stream_name = "DSP_Capture_Ul1",
-		.cpu_dai_name = "audio_task_capture_ul1_dai",
-		.platform_name = "snd_audio_dsp",
-		.codec_name = "snd-soc-dummy",
-		.codec_dai_name = "snd-soc-dummy-dai",
-	},
-	{
-		.name = "DSP_Call_Final",
-		.stream_name = "DSP_Call_Final",
-		.cpu_dai_name = "audio_task_call_final_dai",
-		.platform_name = "snd_audio_dsp",
-		.codec_name = "snd-soc-dummy",
-		.codec_dai_name = "snd-soc-dummy-dai",
-	},
-	{
-		.name = "DSP_Playback_Fast",
-		.stream_name = "DSP_Playback_Fast",
-		.cpu_dai_name = "audio_task_fast_dai",
-		.platform_name = "snd_audio_dsp",
-		.codec_name = "snd-soc-dummy",
-		.codec_dai_name = "snd-soc-dummy-dai",
-	},
-	{
-		.name = "DSP_Playback_Ktv",
-		.stream_name = "DSP_Playback_Ktv",
-		.cpu_dai_name = "audio_task_ktv_dai",
-		.platform_name = "snd_audio_dsp",
-		.codec_name = "snd-soc-dummy",
-		.codec_dai_name = "snd-soc-dummy-dai",
-	},
-	{
-		.name = "DSP_Playback_A2DP",
-		.stream_name = "DSP_Playback_A2DP",
-		.cpu_dai_name = "audio_task_a2dp_dai",
-		.platform_name = "snd_audio_dsp",
-		.codec_name = "snd-soc-dummy",
-		.codec_dai_name = "snd-soc-dummy-dai",
 	},
 #endif
 #ifdef CONFIG_MTK_VOW_SUPPORT

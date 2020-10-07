@@ -24,13 +24,9 @@ ifeq ($(CONFIG_MTK_ACAO_SUPPORT),y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/mcdi/include/
 endif
 
-ifeq ($(CONFIG_MTK_AUDIODSP_SUPPORT),y)
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/adsp/$(MTK_PLATFORM)
-endif
-
 # spm
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(AUDIO_PLATFORM)/include
 
 # external spk amp
 ifeq ($(CONFIG_SND_SOC_AW87339),y)
