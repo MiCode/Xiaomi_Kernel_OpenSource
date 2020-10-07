@@ -6731,6 +6731,7 @@ void mtk_need_vds_path_switch(struct drm_crtc *crtc)
 			mtk_crtc_attach_ddp_comp(crtc, mtk_crtc->ddp_mode, true);
 			/* Update Switch done flag */
 			priv->vds_path_switch_done = 1;
+			priv->need_vds_path_switch_back = 1;
 		/* Switch main display path, take back ovl0_2l to main display */
 		} else {
 			struct mtk_ddp_comp *comp_ovl0;
@@ -6803,6 +6804,7 @@ void mtk_need_vds_path_switch(struct drm_crtc *crtc)
 			mtk_crtc_attach_ddp_comp(crtc, mtk_crtc->ddp_mode, true);
 			/* Update Switch done flag */
 			priv->vds_path_switch_dirty = 0;
+			priv->need_vds_path_switch_back = 0;
 		}
 
 		DDPMSG("Switch vds: Switch ovl0_2l Done\n");
