@@ -66,7 +66,6 @@ struct reg_config {
 };
 
 struct helio_dvfsrc {
-	struct devfreq		*devfreq;
 	int irq;
 	struct device *dev;
 	bool qos_enabled;
