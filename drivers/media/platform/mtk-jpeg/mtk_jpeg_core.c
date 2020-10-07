@@ -131,8 +131,8 @@ static inline struct mtk_jpeg_src_buf *mtk_jpeg_vb2_to_srcbuf(
 	return container_of(to_vb2_v4l2_buffer(vb), struct mtk_jpeg_src_buf, b);
 }
 
-static int mtk_jpeg_querycap(struct file *file, void *priv,
-			     struct v4l2_capability *cap)
+static int mtk_jpeg_enc_querycap(struct file *file, void *priv,
+				 struct v4l2_capability *cap)
 {
 	struct mtk_jpeg_dev *jpeg = video_drvdata(file);
 
@@ -212,8 +212,16 @@ static int mtk_jpeg_enum_fmt(struct mtk_jpeg_fmt *mtk_jpeg_formats, int n,
 	return 0;
 }
 
-static int mtk_jpeg_enum_fmt_vid_cap(struct file *file, void *priv,
-				     struct v4l2_fmtdesc *f)
+static int mtk_jpeg_enc_enum_fmt_vid_cap(struct file *file, void *priv,
+					 struct v4l2_fmtdesc *f)
+{
+	return mtk_jpeg_enum_fmt(mtk_jpeg_enc_formats,
+				 MTK_JPEG_ENC_NUM_FORMATS, f,
+				 MTK_JPEG_FMT_FLAG_ENC_CAPTURE);
+}
+
+static int mtk_jpeg_dec_enum_fmt_vid_cap(struct file *file, void *priv,
+					 struct v4l2_fmtdesc *f)
 {
 	struct mtk_jpeg_ctx *ctx = mtk_jpeg_fh_to_ctx(priv);
 	struct mtk_jpeg_dev *jpeg = ctx->jpeg;
@@ -223,8 +231,8 @@ static int mtk_jpeg_enum_fmt_vid_cap(struct file *file, void *priv,
 				 MTK_JPEG_FMT_FLAG_CAPTURE);
 }
 
-static int mtk_jpeg_enum_fmt_vid_out(struct file *file, void *priv,
-				     struct v4l2_fmtdesc *f)
+static int mtk_jpeg_enc_enum_fmt_vid_out(struct file *file, void *priv,
+					 struct v4l2_fmtdesc *f)
 {
 	struct mtk_jpeg_ctx *ctx = mtk_jpeg_fh_to_ctx(priv);
 	struct mtk_jpeg_dev *jpeg = ctx->jpeg;
@@ -234,8 +242,15 @@ static int mtk_jpeg_enum_fmt_vid_out(struct file *file, void *priv,
 				 MTK_JPEG_FMT_FLAG_OUTPUT);
 }
 
-static struct mtk_jpeg_q_data *mtk_jpeg_get_q_data(struct mtk_jpeg_ctx *ctx,
-						   enum v4l2_buf_type type)
+static int mtk_jpeg_dec_enum_fmt_vid_out(struct file *file, void *priv,
+					 struct v4l2_fmtdesc *f)
+{
+	return mtk_jpeg_enum_fmt(mtk_jpeg_dec_formats, MTK_JPEG_DEC_NUM_FORMATS,
+				 f, MTK_JPEG_FMT_FLAG_DEC_OUTPUT);
+}
+
+static struct mtk_jpeg_q_data *
+mtk_jpeg_get_q_data(struct mtk_jpeg_ctx *ctx, enum v4l2_buf_type type)
 {
 	if (V4L2_TYPE_IS_OUTPUT(type))
 		return &ctx->out_q;
@@ -351,8 +366,8 @@ static int mtk_jpeg_g_fmt_vid_mplane(struct file *file, void *priv,
 	return 0;
 }
 
-static int mtk_jpeg_try_fmt_vid_cap_mplane(struct file *file, void *priv,
-					   struct v4l2_format *f)
+static int mtk_jpeg_enc_try_fmt_vid_cap_mplane(struct file *file, void *priv,
+					       struct v4l2_format *f)
 {
 	struct mtk_jpeg_ctx *ctx = mtk_jpeg_fh_to_ctx(priv);
 	struct mtk_jpeg_dev *jpeg = ctx->jpeg;
@@ -380,8 +395,8 @@ static int mtk_jpeg_try_fmt_vid_cap_mplane(struct file *file, void *priv,
 	return mtk_jpeg_try_fmt_mplane(&f->fmt.pix_mp, fmt);
 }
 
-static int mtk_jpeg_try_fmt_vid_out_mplane(struct file *file, void *priv,
-					   struct v4l2_format *f)
+static int mtk_jpeg_dec_try_fmt_vid_out_mplane(struct file *file, void *priv,
+					       struct v4l2_format *f)
 {
 	struct mtk_jpeg_ctx *ctx = mtk_jpeg_fh_to_ctx(priv);
 	struct mtk_jpeg_dev *jpeg = ctx->jpeg;
@@ -464,12 +479,12 @@ static int mtk_jpeg_s_fmt_mplane(struct mtk_jpeg_ctx *ctx,
 	return 0;
 }
 
-static int mtk_jpeg_s_fmt_vid_out_mplane(struct file *file, void *priv,
-					 struct v4l2_format *f)
+static int mtk_jpeg_enc_s_fmt_vid_out_mplane(struct file *file, void *priv,
+					     struct v4l2_format *f)
 {
 	int ret;
 
-	ret = mtk_jpeg_try_fmt_vid_out_mplane(file, priv, f);
+	ret = mtk_jpeg_enc_try_fmt_vid_out_mplane(file, priv, f);
 	if (ret)
 		return ret;
 
@@ -477,12 +492,12 @@ static int mtk_jpeg_s_fmt_vid_out_mplane(struct file *file, void *priv,
 				     MTK_JPEG_FMT_FLAG_OUTPUT);
 }
 
-static int mtk_jpeg_s_fmt_vid_cap_mplane(struct file *file, void *priv,
-					 struct v4l2_format *f)
+static int mtk_jpeg_dec_s_fmt_vid_out_mplane(struct file *file, void *priv,
+					     struct v4l2_format *f)
 {
 	int ret;
 
-	ret = mtk_jpeg_try_fmt_vid_cap_mplane(file, priv, f);
+	ret = mtk_jpeg_dec_try_fmt_vid_out_mplane(file, priv, f);
 	if (ret)
 		return ret;
 
@@ -563,6 +578,7 @@ static int mtk_jpeg_dec_g_selection(struct file *file, void *priv,
 	default:
 		return -EINVAL;
 	}
+
 	return 0;
 }
 
@@ -981,7 +997,8 @@ static void mtk_jpeg_dec_device_run(void *priv)
 			      msecs_to_jiffies(MTK_JPEG_HW_TIMEOUT_MSEC));
 
 	mtk_jpeg_set_dec_src(ctx, &src_buf->vb2_buf, &bs);
-	if (mtk_jpeg_set_dec_dst(ctx, &jpeg_src_buf->dec_param, &dst_buf->vb2_buf, &fb))
+	if (mtk_jpeg_set_dec_dst(ctx, &jpeg_src_buf->dec_param,
+				 &dst_buf->vb2_buf, &fb))
 		goto dec_end;
 
 	spin_lock_irqsave(&jpeg->hw_lock, flags);
@@ -1017,8 +1034,8 @@ static const struct v4l2_m2m_ops mtk_jpeg_dec_m2m_ops = {
 	.job_ready  = mtk_jpeg_dec_job_ready,
 };
 
-static int mtk_jpeg_queue_init(void *priv, struct vb2_queue *src_vq,
-			       struct vb2_queue *dst_vq)
+static int mtk_jpeg_dec_queue_init(void *priv, struct vb2_queue *src_vq,
+				   struct vb2_queue *dst_vq)
 {
 	struct mtk_jpeg_ctx *ctx = priv;
 	struct mtk_jpeg_dev *jpeg = ctx->jpeg;
@@ -1051,9 +1068,43 @@ static int mtk_jpeg_queue_init(void *priv, struct vb2_queue *src_vq,
 	return ret;
 }
 
+static int mtk_jpeg_enc_queue_init(void *priv, struct vb2_queue *src_vq,
+				   struct vb2_queue *dst_vq)
+{
+	struct mtk_jpeg_ctx *ctx = priv;
+	int ret;
+
+	src_vq->type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
+	src_vq->io_modes = VB2_DMABUF | VB2_MMAP;
+	src_vq->drv_priv = ctx;
+	src_vq->buf_struct_size = sizeof(struct mtk_jpeg_src_buf);
+	src_vq->ops = &mtk_jpeg_enc_qops;
+	src_vq->mem_ops = &vb2_dma_contig_memops;
+	src_vq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
+	src_vq->lock = &ctx->jpeg->lock;
+	src_vq->dev = ctx->jpeg->dev;
+	ret = vb2_queue_init(src_vq);
+	if (ret)
+		return ret;
+
+	dst_vq->type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+	dst_vq->io_modes = VB2_DMABUF | VB2_MMAP;
+	dst_vq->drv_priv = ctx;
+	dst_vq->buf_struct_size = sizeof(struct v4l2_m2m_buffer);
+	dst_vq->ops = &mtk_jpeg_enc_qops;
+	dst_vq->mem_ops = &vb2_dma_contig_memops;
+	dst_vq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
+	dst_vq->lock = &ctx->jpeg->lock;
+	dst_vq->dev = ctx->jpeg->dev;
+	ret = vb2_queue_init(dst_vq);
+
+	return ret;
+}
+
 static void mtk_jpeg_clk_on(struct mtk_jpeg_dev *jpeg)
 {
-	int ret;
+	int ret, i, larb_port_num, larb_id;
+	//struct M4U_PORT_STRUCT port;
 
 	ret = mtk_smi_larb_get(jpeg->larb);
 	if (ret)
@@ -1127,7 +1178,7 @@ static irqreturn_t mtk_jpeg_dec_irq(int irq, void *priv)
 	struct vb2_v4l2_buffer *src_buf, *dst_buf;
 	struct mtk_jpeg_src_buf *jpeg_src_buf;
 	enum vb2_buffer_state buf_state = VB2_BUF_STATE_ERROR;
-	u32	dec_irq_ret;
+	u32 dec_irq_ret;
 	u32 dec_ret;
 	int i;
 
@@ -1167,7 +1218,7 @@ dec_end:
 	return IRQ_HANDLED;
 }
 
-static void mtk_jpeg_set_default_params(struct mtk_jpeg_ctx *ctx)
+static void mtk_jpeg_set_enc_default_params(struct mtk_jpeg_ctx *ctx)
 {
 	struct mtk_jpeg_q_data *q = &ctx->out_q;
 	struct mtk_jpeg_dev *jpeg = ctx->jpeg;
@@ -1201,7 +1252,7 @@ static void mtk_jpeg_set_default_params(struct mtk_jpeg_ctx *ctx)
 	mtk_jpeg_try_fmt_mplane(&q->pix_mp, q->fmt);
 }
 
-static int mtk_jpeg_open(struct file *file)
+static int mtk_jpeg_dec_open(struct file *file)
 {
 	struct mtk_jpeg_dev *jpeg = video_drvdata(file);
 	struct video_device *vfd = video_devdata(file);
@@ -1223,7 +1274,7 @@ static int mtk_jpeg_open(struct file *file)
 
 	ctx->jpeg = jpeg;
 	ctx->fh.m2m_ctx = v4l2_m2m_ctx_init(jpeg->m2m_dev, ctx,
-					    mtk_jpeg_queue_init);
+					    mtk_jpeg_dec_queue_init);
 	if (IS_ERR(ctx->fh.m2m_ctx)) {
 		ret = PTR_ERR(ctx->fh.m2m_ctx);
 		goto error;
@@ -1245,6 +1296,7 @@ static int mtk_jpeg_open(struct file *file)
 error:
 	v4l2_fh_del(&ctx->fh);
 	v4l2_fh_exit(&ctx->fh);
+	v4l2_ctrl_handler_free(&ctx->ctrl_hdl);
 	mutex_unlock(&jpeg->lock);
 free:
 	kfree(ctx);
@@ -1256,6 +1308,8 @@ static int mtk_jpeg_release(struct file *file)
 	struct mtk_jpeg_dev *jpeg = video_drvdata(file);
 	struct mtk_jpeg_ctx *ctx = mtk_jpeg_fh_to_ctx(file->private_data);
 
+	if (ctx->state == MTK_JPEG_RUNNING && jpeg->variant->is_encoder)
+		pm_runtime_put_sync(ctx->jpeg->dev);
 	mutex_lock(&jpeg->lock);
 	v4l2_m2m_ctx_release(ctx->fh.m2m_ctx);
 	v4l2_ctrl_handler_free(&ctx->ctrl_hdl);
@@ -1266,9 +1320,18 @@ static int mtk_jpeg_release(struct file *file)
 	return 0;
 }
 
-static const struct v4l2_file_operations mtk_jpeg_fops = {
+static const struct v4l2_file_operations mtk_jpeg_enc_fops = {
 	.owner          = THIS_MODULE,
-	.open           = mtk_jpeg_open,
+	.open           = mtk_jpeg_enc_open,
+	.release        = mtk_jpeg_release,
+	.poll           = v4l2_m2m_fop_poll,
+	.unlocked_ioctl = video_ioctl2,
+	.mmap           = v4l2_m2m_fop_mmap,
+};
+
+static const struct v4l2_file_operations mtk_jpeg_dec_fops = {
+	.owner          = THIS_MODULE,
+	.open           = mtk_jpeg_dec_open,
 	.release        = mtk_jpeg_release,
 	.poll           = v4l2_m2m_fop_poll,
 	.unlocked_ioctl = video_ioctl2,
@@ -1298,6 +1361,14 @@ static int mtk_jpeg_clk_init(struct mtk_jpeg_dev *jpeg)
 		of_node_put(node);
 		return -EINVAL;
 	}
+
+	ret = of_property_read_u32(pdev->dev.of_node, "mediatek,larb-id", &id);
+	if (ret)
+		return -EINVAL;
+
+	pr_info("jpeg_clk_init id %d\n", id);
+	jpeg->larb_id = id;
+
 	of_node_put(node);
 
 	jpeg->larb = &pdev->dev;
@@ -1342,6 +1413,8 @@ static int mtk_jpeg_probe(struct platform_device *pdev)
 	if (!jpeg)
 		return -ENOMEM;
 
+	pr_info("%s 1\n", __func__);
+
 	mutex_init(&jpeg->lock);
 	spin_lock_init(&jpeg->hw_lock);
 	jpeg->dev = &pdev->dev;
@@ -1369,11 +1442,16 @@ static int mtk_jpeg_probe(struct platform_device *pdev)
 		goto err_req_irq;
 	}
 
+	pr_info("%s 4\n", __func__);
+	disable_irq(jpeg->irq);
+
 	ret = mtk_jpeg_clk_init(jpeg);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to init clk, err %d\n", ret);
 		goto err_clk_init;
 	}
+
+	pr_info("%s 5\n", __func__);
 
 	ret = v4l2_device_register(&pdev->dev, &jpeg->v4l2_dev);
 	if (ret) {
@@ -1422,7 +1500,16 @@ static int mtk_jpeg_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, jpeg);
 
 	pm_runtime_enable(&pdev->dev);
+	pr_info("%s 9\n", __func__);
 
+	/* Set DMA mask to 64 bits */
+	ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
+	if (ret) {
+		pr_info("mtk-jpeg unable to set coherent mask to 64");
+		ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
+		if (ret)
+			goto err_vfd_jpeg_register;
+	}
 	return 0;
 
 err_vfd_jpeg_register:
@@ -1558,7 +1645,9 @@ static struct platform_driver mtk_jpeg_driver = {
 	},
 };
 
-module_platform_driver(mtk_jpeg_driver);
 
+module_platform_driver(mtk_jpeg_driver);
+//module_init(jpeg_init);
+//module_exit(jpeg_exit);
 MODULE_DESCRIPTION("MediaTek JPEG codec driver");
 MODULE_LICENSE("GPL v2");
