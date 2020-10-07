@@ -24,6 +24,9 @@
 #include <linux/module.h>
 #include <linux/sched/clock.h>
 #include <linux/cpumask.h>
+#include <linux/sched/task.h>
+#include <linux/sched/cputime.h>
+#include <linux/bitops.h>
 
 #include <mt-plat/fpsgo_common.h>
 
@@ -57,6 +60,7 @@ static atomic_t xgf_atomic_val_1 = ATOMIC_INIT(0);
 static unsigned long long last_update2spid_ts;
 static char *xgf_sp_name = SP_ALLOW_NAME;
 static int xgf_extra_sub;
+static int xgf_force_no_extra_sub;
 static int cur_xgf_extra_sub;
 static int xgf_dep_frames = XGF_DEP_FRAMES_MIN;
 static int xgf_prev_dep_frames = XGF_DEP_FRAMES_MIN;
@@ -64,13 +68,18 @@ static int xgf_spid_sub = XGF_DO_SP_SUB;
 static int xgf_ema_dividend = EMA_DIVIDEND;
 static int xgf_spid_ck_period = NSEC_PER_SEC;
 static int xgf_sp_name_id;
+static int xgf_uboost = XGF_UBOOST;
+static int xgf_stddev_multi = XGF_UBOOST_STDDEV_M;
 module_param(xgf_sp_name, charp, 0644);
 module_param(xgf_extra_sub, int, 0644);
+module_param(xgf_force_no_extra_sub, int, 0644);
 module_param(xgf_dep_frames, int, 0644);
 module_param(xgf_spid_sub, int, 0644);
 module_param(xgf_ema_dividend, int, 0644);
 module_param(xgf_spid_ck_period, int, 0644);
 module_param(xgf_sp_name_id, int, 0644);
+module_param(xgf_uboost, int, 0644);
+module_param(xgf_stddev_multi, int, 0644);
 
 HLIST_HEAD(xgf_renders);
 HLIST_HEAD(xgf_hw_events);
@@ -237,6 +246,31 @@ unsigned long long xgf_get_time(void)
 	return temp;
 }
 EXPORT_SYMBOL(xgf_get_time);
+
+static inline int xgf_ull_multi_add_overflow
+	(int cmd, unsigned long long a, unsigned long long b)
+{
+	int ret = 0;
+	unsigned long long result_after_sub, div_after_multi;
+
+	if (!a || !b)
+		goto out;
+
+	if (cmd) {
+		/* check add */
+		result_after_sub = ((a+b)-b);
+		if (a != result_after_sub)
+			ret = 1;
+	} else {
+		/* check multi */
+		div_after_multi = div_u64((a*b), b);
+		if (a != div_after_multi)
+			ret = 1;
+	}
+
+out:
+	return ret;
+}
 
 static void xgf_reset_render_sector(struct xgf_render *render)
 {
@@ -788,11 +822,17 @@ static int xgf_get_render(pid_t rpid, unsigned long long bufID,
 		iter->prev_ts = 0;
 		iter->event_count = 0;
 		iter->frame_count = 0;
+		iter->u_wake_r = 0;
+		iter->u_wake_r_count = 0;
 		iter->queue.start_ts = 0;
 		iter->queue.end_ts = 0;
 		iter->deque.start_ts = 0;
 		iter->deque.end_ts = 0;
 		iter->ema_runtime = 0;
+		iter->pre_u_runtime = 0;
+		iter->u_avg_runtime = 0;
+		iter->u_runtime_sd = 0;
+		iter->u_runtime_idx = 0;
 		iter->spid = 0;
 		iter->dep_frames = xgf_prev_dep_frames;
 	}
@@ -871,6 +911,79 @@ void xgf_epoll_igather_timer(
 	const void * const timer, ktime_t *expires, int fire)
 {}
 
+int xgf_uboost_case(struct xgf_render *render)
+{
+	int quarter, ret = 0,	shift = 2;
+
+	quarter = render->frame_count >> shift;
+	if (quarter < render->u_wake_r_count)
+		ret = 1;
+
+	return ret;
+}
+
+void xgf_add_u2prev_dep(struct xgf_render *render)
+{
+	struct xgf_dep *xd;
+	int curr_frame_index;
+
+	curr_frame_index = xgf_dep_frames_mod(render, PREVI_DEPS);
+	xd = xgf_get_dep(render->parent, render, PREVI_DEPS, 0);
+	if (xd)
+		xd->frame_idx = curr_frame_index;
+	else
+		xd = xgf_get_dep(render->parent, render, PREVI_DEPS, 1);
+}
+
+int uboost2xgf_get_info(int pid, unsigned long long bufID,
+	unsigned long long *timer_period, int *frame_idx)
+{
+	int ret = 0;
+	struct xgf_render *render_iter;
+	struct hlist_node *n;
+
+	if (!xgf_uboost || !pid)
+		goto out;
+
+	xgf_lock(__func__);
+
+	hlist_for_each_entry_safe(render_iter, n, &xgf_renders, hlist) {
+		if (render_iter->render != pid)
+			continue;
+
+		if (render_iter->bufID != bufID)
+			continue;
+
+		if (!xgf_uboost_case(render_iter))
+			continue;
+
+		*frame_idx = render_iter->frame_count;
+
+		fpsgo_systrace_c_xgf(render_iter->render,
+			render_iter->bufID, render_iter->u_avg_runtime, "ub_avg");
+		fpsgo_systrace_c_xgf(render_iter->render,
+			render_iter->bufID, render_iter->u_runtime_sd, "ub_stddev");
+
+		if ((xgf_ull_multi_add_overflow(
+			0, render_iter->u_runtime_sd, xgf_stddev_multi))
+			|| (xgf_ull_multi_add_overflow(
+			1, render_iter->u_avg_runtime,
+			(xgf_stddev_multi*render_iter->u_runtime_sd)))) {
+			*timer_period = 0; /* overflow */
+		} else {
+			*timer_period =
+				render_iter->u_avg_runtime +
+				xgf_stddev_multi*render_iter->u_runtime_sd;
+			ret = 1;
+		}
+	}
+
+	xgf_unlock(__func__);
+
+out:
+	return ret;
+}
+
 int has_xgf_dep(pid_t tid)
 {
 	struct xgf_dep *out_xd, *prev_xd;
@@ -931,6 +1044,9 @@ int gbe2xgf_get_dep_list_num(int pid, unsigned long long bufID)
 
 		if (render_iter->bufID != bufID)
 			continue;
+
+		if (xgf_uboost_case(render_iter) && xgf_uboost)
+			xgf_add_u2prev_dep(render_iter);
 
 		out_rbn = rb_first(&render_iter->out_deps_list);
 		pre_rbn = rb_first(&render_iter->prev_deps_list);
@@ -1000,6 +1116,9 @@ int fpsgo_fbt2xgf_get_dep_list_num(int pid, unsigned long long bufID)
 		if (render_iter->bufID != bufID)
 			continue;
 
+		if (xgf_uboost_case(render_iter) && xgf_uboost)
+			xgf_add_u2prev_dep(render_iter);
+
 		out_rbn = rb_first(&render_iter->out_deps_list);
 		pre_rbn = rb_first(&render_iter->prev_deps_list);
 
@@ -1067,6 +1186,9 @@ int gbe2xgf_get_dep_list(int pid, int count,
 
 		if (render_iter->bufID != bufID)
 			continue;
+
+		if (xgf_uboost_case(render_iter) && xgf_uboost)
+			xgf_add_u2prev_dep(render_iter);
 
 		out_rbn = rb_first(&render_iter->out_deps_list);
 		pre_rbn = rb_first(&render_iter->prev_deps_list);
@@ -1146,6 +1268,9 @@ int fpsgo_fbt2xgf_get_dep_list(int pid, int count,
 
 		if (render_iter->bufID != bufID)
 			continue;
+
+		if (xgf_uboost_case(render_iter) && xgf_uboost)
+			xgf_add_u2prev_dep(render_iter);
 
 		out_rbn = rb_first(&render_iter->out_deps_list);
 		pre_rbn = rb_first(&render_iter->prev_deps_list);
@@ -1519,6 +1644,141 @@ out:
 	return ret;
 }
 
+static void xgf_get_runtime(pid_t tid, u64 *runtime)
+{
+	struct task_struct *p;
+
+	if (unlikely(!tid))
+		return;
+
+	rcu_read_lock();
+	p = find_task_by_vpid(tid);
+	if (!p) {
+		xgf_trace(" %5d not found to erase", tid);
+		rcu_read_unlock();
+		return;
+	}
+	get_task_struct(p);
+	rcu_read_unlock();
+
+	*runtime = (u64)task_sched_runtime(p);
+	put_task_struct(p);
+}
+
+static void xgf_update_u_runtime_list(struct xgf_render *render,
+	unsigned long long prev_qe_ts, unsigned long long qe_ts,
+	unsigned long long pprev_u_runtime, unsigned long long prev_u_runtime)
+{
+	unsigned long long u_runtime;
+	unsigned long long q2q_time;
+	unsigned long long normal_u_runtime;
+
+	if ((qe_ts <= prev_qe_ts) ||
+		(prev_u_runtime <= pprev_u_runtime) || !pprev_u_runtime)
+		goto out;
+
+	if (render->frame_count < UB_SKIP_FRAME)
+		goto out;
+
+	u_runtime = prev_u_runtime - pprev_u_runtime;
+	q2q_time = qe_ts - prev_qe_ts;
+
+	if (u_runtime > q2q_time)
+		goto out;
+
+	render->u_runtime[render->u_runtime_idx] = u_runtime;
+
+	/* handle u_runtime extreme value */
+	normal_u_runtime = render->u_avg_runtime + 2*render->u_runtime_sd;
+	if (u_runtime > normal_u_runtime &&
+		render->u_avg_runtime && render->u_runtime_sd)
+		render->u_runtime[render->u_runtime_idx] = normal_u_runtime;
+
+	render->u_runtime_idx++;
+
+	if (render->u_runtime_idx == XGF_MAX_UFRMAES)
+		render->u_runtime_idx = 0;
+
+out:
+	return;
+}
+
+static unsigned long long xgf_sqrt(unsigned long long x)
+{
+	unsigned long long b, m, y = 0;
+
+	if (x <= 1)
+		return x;
+
+	m = 1UL << (__fls(x) & ~1UL);
+	while (m != 0) {
+		b = y + m;
+		y >>= 1;
+
+		if (x >= b) {
+			x -= b;
+			y += m;
+		}
+		m >>= 2;
+	}
+
+	return y;
+}
+
+static void xgf_calculate_u_avg2sd(struct xgf_render *render)
+{
+	int i, interval, divisor;
+	unsigned long long diff, total, avg, stddev;
+
+	if (render->frame_count < 2)
+		return;
+
+	/* First calculate the average */
+	divisor = 0;
+	total = 0;
+	if (render->frame_count <= XGF_MAX_UFRMAES)
+		interval = render->frame_count - 1;
+	else
+		interval = XGF_MAX_UFRMAES;
+
+	for (i = 0; i < interval; i++) {
+		if (xgf_ull_multi_add_overflow(1, total, render->u_runtime[i])) {
+			total = ULLONG_MAX;
+			divisor++;
+			break;
+		}
+
+		total += render->u_runtime[i];
+		divisor++;
+	}
+	if (divisor > 0) {
+		avg = div_u64(total, divisor);
+		render->u_avg_runtime = avg;
+	}
+
+	/* Then try to determine standard deviation */
+	stddev = 0;
+	for (i = 0; i < interval; i++) {
+		if (render->u_runtime[i] > avg)
+			diff = render->u_runtime[i] - avg;
+		else
+			diff = avg - render->u_runtime[i];
+
+		if ((xgf_ull_multi_add_overflow(0, diff, diff))
+			|| (xgf_ull_multi_add_overflow(1, stddev, (diff * diff)))) {
+			stddev = ULLONG_MAX;
+			break;
+		}
+
+		stddev += diff * diff;
+	}
+	if (divisor > 0) {
+		stddev = div_u64(stddev, divisor);
+		stddev = xgf_sqrt(stddev);
+		render->u_runtime_sd = stddev;
+	}
+}
+
 int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 	unsigned long long *run_time, unsigned long long *mid,
 	unsigned long long ts)
@@ -1528,6 +1788,7 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 	struct xgf_hw_rec *hr_iter;
 	struct hlist_node *hr;
 	unsigned long long raw_runtime = 0;
+	unsigned long long u_runtime = 0;
 	int new_spid;
 	unsigned long long t_dequeue_time = 0;
 	int do_extra_sub = 0;
@@ -1559,6 +1820,15 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 			ret = XGF_THREAD_NOT_FOUND;
 			goto qudeq_notify_err;
 		}
+		if (xgf_uboost) {
+			xgf_get_runtime(r->parent, &u_runtime);
+			/* store pre-frmae u runtime */
+			xgf_update_u_runtime_list(r, r->queue.end_ts,
+				ts, r->pre_u_runtime, u_runtime);
+			xgf_calculate_u_avg2sd(r);
+			r->pre_u_runtime = u_runtime;
+		}
+
 		r->queue.end_ts = ts;
 		cur_xgf_extra_sub = xgf_extra_sub;
 
@@ -1572,7 +1842,7 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 		if (r->deque.start_ts && r->deque.end_ts
 			&& (r->deque.end_ts > r->deque.start_ts)
 			&& (t_dequeue_time > 2500000)
-			&& !cur_xgf_extra_sub) {
+			&& !cur_xgf_extra_sub && !xgf_force_no_extra_sub) {
 			do_extra_sub = 1;
 			cur_xgf_extra_sub = 1;
 			xgf_trace("xgf extra_sub:%d => %llu", rpid, t_dequeue_time);

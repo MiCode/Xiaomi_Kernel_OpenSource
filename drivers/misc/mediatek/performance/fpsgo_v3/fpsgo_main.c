@@ -29,6 +29,7 @@
 #include "xgf.h"
 #include "eara_job.h"
 #include "syslimiter.h"
+#include "uboost.h"
 
 #ifdef CONFIG_DRM_MEDIATEK
 #include "mtk_drm_arr.h"
@@ -120,6 +121,7 @@ static void fpsgo_notifier_wq_cb_vsync(unsigned long long ts)
 		return;
 
 	fpsgo_ctrl2fbt_vsync(ts);
+	fpsgo_uboost_traverse(ts);
 }
 
 static void fpsgo_notifier_wq_cb_dfrc_fps(int dfrc_fps)
@@ -799,6 +801,7 @@ static void __exit fpsgo_exit(void)
 	disp_unregister_fps_chg_callback(dfrc_fps_limit_cb);
 #endif
 #endif
+	fpsgo_uboost_exit();
 	fbt_cpu_exit();
 	mtk_fstb_exit();
 	fpsgo_composer_exit();
@@ -825,6 +828,7 @@ static int __init fpsgo_init(void)
 	fbt_cpu_init();
 	mtk_fstb_init();
 	fpsgo_composer_init();
+	fpsgo_uboost_init();
 
 	fpsgo_switch_enable(1);
 

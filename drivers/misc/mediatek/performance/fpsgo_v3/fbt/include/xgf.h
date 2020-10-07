@@ -30,6 +30,12 @@
 #define XGF_DEP_FRAMES_MIN 2
 #define XGF_DEP_FRAMES_MAX 20
 #define XGF_DO_SP_SUB 0
+#define XGF_MAX_UFRMAES 200
+#define XGF_UBOOST 1
+#define XGF_UBOOST_STDDEV_M 1
+#define TIME_50MS  50000000
+#define UB_SKIP_FRAME 20
+#define UB_BEGIN_FRAME 50
 
 enum XGF_ERROR {
 	XGF_NOTIFY_OK,
@@ -85,6 +91,8 @@ struct xgf_render {
 	int event_count;
 
 	int frame_count;
+	int u_wake_r;
+	int u_wake_r_count;
 
 	struct rb_root deps_list;
 	struct rb_root out_deps_list;
@@ -94,6 +102,11 @@ struct xgf_render {
 	struct xgf_sub_sect queue;
 
 	unsigned long long ema_runtime;
+	unsigned long long pre_u_runtime;
+	unsigned long long u_runtime[XGF_MAX_UFRMAES];
+	unsigned long long u_avg_runtime;
+	unsigned long long u_runtime_sd;
+	int u_runtime_idx;
 
 	int spid;
 	int dep_frames;
@@ -211,6 +224,8 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 void fpsgo_fstb2xgf_do_recycle(int fstb_active);
 void fpsgo_create_render_dep(void);
 int has_xgf_dep(pid_t tid);
+int uboost2xgf_get_info(int pid, unsigned long long bufID,
+	unsigned long long *timer_period, int *frame_idx);
 
 int __init init_xgf(void);
 #endif

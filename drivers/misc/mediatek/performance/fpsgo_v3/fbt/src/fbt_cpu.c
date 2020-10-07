@@ -1425,10 +1425,7 @@ static void fbt_do_jerk(struct work_struct *work)
 	if (jerk->id != proc->active_jerk_id || thr->linger != 0)
 		goto EXIT;
 
-	mutex_lock(&blc_mlock);
-	if (thr->p_blc)
-		temp_blc = thr->p_blc->blc;
-	mutex_unlock(&blc_mlock);
+	temp_blc = thr->boost_info.last_blc;
 
 	if (!temp_blc)
 		goto EXIT;
@@ -1488,14 +1485,16 @@ EXIT:
 		jerk->jerking = 0;
 
 	if (thr->linger)
-		FPSGO_LOGE("%d is linger (%d, %d, %d)\n",
+		FPSGO_LOGE("%d is linger (%d, %d, %d, %d)\n",
 			thr->pid,
 			thr->boost_info.proc.jerks[0].jerking,
 			thr->boost_info.proc.jerks[1].jerking,
-			jerk->postpone);
+			jerk->postpone,
+			thr->uboost_info.uboosting);
 
 	if (thr->boost_info.proc.jerks[0].jerking == 0 &&
 		thr->boost_info.proc.jerks[1].jerking == 0 &&
+		thr->uboost_info.uboosting == 0 &&
 		thr->linger > 0)
 		tofree = 1;
 
@@ -2949,6 +2948,82 @@ void fpsgo_base2fbt_cancel_jerk(struct render_info *thr)
 		if (thr->boost_info.proc.jerks[i].jerking)
 			hrtimer_cancel(&(thr->boost_info.proc.jerks[i].timer));
 	}
+}
+
+static unsigned int fbt_get_uboost_blc(struct ppm_limit_data *pld, int floor)
+{
+	int cluster;
+	unsigned int blc_wt = 0U;
+
+	if (!pld) {
+		FPSGO_LOGE("ERROR %d\n", __LINE__);
+		return 0U;
+	}
+
+	blc_wt = fbt_enhance_floor(floor, rescue_opp_f);
+
+	for (cluster = 0 ; cluster < cluster_num; cluster++) {
+		pld[cluster].min = -1;
+
+		if (suppress_ceiling)
+			pld[cluster].max = cpu_dvfs[cluster].power[0];
+		else
+			pld[cluster].max = -1;
+	}
+
+	return blc_wt;
+}
+
+void fpsgo_uboost2fbt_uboost(struct render_info *thr)
+{
+	int floor, blc_wt = 0, unlimited_blc;
+	int cluster;
+	struct ppm_limit_data *pld;
+
+	if (!thr)
+		return;
+
+	pld = kcalloc(cluster_num, sizeof(struct ppm_limit_data), GFP_KERNEL);
+	if (!pld)
+		return;
+
+	mutex_lock(&fbt_mlock);
+
+	if (boost_ta)
+		floor = max_blc;
+	else
+		floor = thr->boost_info.last_blc;
+
+	if (!floor)
+		goto leave;
+
+	unlimited_blc = fbt_get_uboost_blc(pld, floor);
+	blc_wt = fbt_check_limit(unlimited_blc);
+	if (!blc_wt || (floor == blc_wt))
+		goto leave;
+
+	fbt_set_hard_limit(0, pld);
+
+	update_userlimit_cpu_freq(CPU_KIR_FPSGO, cluster_num, pld);
+	for (cluster = 0; cluster < cluster_num; cluster++) {
+		fpsgo_systrace_c_fbt(thr->pid, thr->buffer_id,
+				pld[cluster].max,
+				"cluster%d ceiling_freq", cluster);
+	}
+
+	if (boost_ta)
+		fbt_set_boost_value(blc_wt);
+	else
+		fbt_set_min_cap_locked(thr, blc_wt, 1, unlimited_blc);
+
+	thr->boost_info.last_blc = blc_wt;
+
+	fpsgo_systrace_c_fbt(thr->pid, thr->buffer_id,
+			blc_wt, "perf idx");
+
+leave:
+	mutex_unlock(&fbt_mlock);
+	kfree(pld);
 }
 
 static void fbt_set_cap_limit(void)

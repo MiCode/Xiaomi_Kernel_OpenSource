@@ -33,7 +33,8 @@ endif
 obj-y += \
 	src/fbt_cpu.o \
 	src/xgf.o \
-	src/mini_top.o
+	src/mini_top.o \
+	src/uboost.o
 
 ccflags-y += \
 	-I$(srctree)/include/ \
