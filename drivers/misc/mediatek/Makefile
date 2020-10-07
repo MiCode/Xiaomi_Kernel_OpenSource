@@ -55,3 +55,4 @@ obj-$(CONFIG_MTK_AUDIO_IPI) += audio_ipi/
 obj-$(CONFIG_MTK_HANG_DETECT) += monitor_hang/
 obj-$(CONFIG_USB_CONFIGFS_F_MTP) += usb_mtp/
 obj-$(CONFIG_MTK_SCHEDULER) += sched/
+obj-$(CONFIG_MTK_AMMS) += memory-amms/
