@@ -3348,11 +3348,11 @@ static int __mt_gpufreq_init_clk(struct platform_device *pdev)
 	}
 
 	// 0x1000d000
-	g_dbgtop = __mt_gpufreq_of_ioremap("mediatek,dbgtop", 0);
-	if (!g_dbgtop) {
-		gpufreq_pr_info("@%s: ioremap failed at dbgtop\n", __func__);
-		return -ENOENT;
-	}
+//	g_dbgtop = __mt_gpufreq_of_ioremap("mediatek,dbgtop", 0);
+//	if (!g_dbgtop) {
+//		gpufreq_pr_info("@%s: ioremap failed at dbgtop\n", __func__);
+//		return -ENOENT;
+//	}
 
 	// 0x10007000
 	g_toprgu = __mt_gpufreq_of_ioremap("mediatek,toprgu", 0);
