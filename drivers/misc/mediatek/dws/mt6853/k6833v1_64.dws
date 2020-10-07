@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!--dct_version="2.5" buid_sn="161102" dws_modification_time="09.18.2020.16:11:09"-->
+<!--dct_version="2.5" buid_sn="161102" dws_modification_time="09.30.2020.18:31:50"-->
 <dct_cfg>
     <general chip="MT6833">
         <proj>P21_Phone1</proj>
@@ -760,7 +760,7 @@
                 <inpull_selhigh>false</inpull_selhigh>
                 <def_dir>IN</def_dir>
                 <out_high>false</out_high>
-                <varName0>GPIO_MSDC0_DSL</varName0>
+                <varName0>GPIO_INIT_NO_COVER</varName0>
                 <smt>false</smt>
                 <ies>true</ies>
             </gpio65>
@@ -771,7 +771,7 @@
                 <inpull_selhigh>false</inpull_selhigh>
                 <def_dir>IN</def_dir>
                 <out_high>false</out_high>
-                <varName0>GPIO_MSDC0_CLK</varName0>
+                <varName0>GPIO_INIT_NO_COVER</varName0>
                 <smt>false</smt>
                 <ies>true</ies>
             </gpio66>
@@ -782,7 +782,7 @@
                 <inpull_selhigh>true</inpull_selhigh>
                 <def_dir>IN</def_dir>
                 <out_high>false</out_high>
-                <varName0>GPIO_MSDC0_CMD</varName0>
+                <varName0>GPIO_INIT_NO_COVER</varName0>
                 <smt>false</smt>
                 <ies>true</ies>
             </gpio67>
@@ -793,7 +793,7 @@
                 <inpull_selhigh>false</inpull_selhigh>
                 <def_dir>IN</def_dir>
                 <out_high>false</out_high>
-                <varName0>GPIO_MSDC0_RSTB</varName0>
+                <varName0>GPIO_INIT_NO_COVER</varName0>
                 <smt>false</smt>
                 <ies>true</ies>
             </gpio68>
@@ -804,7 +804,7 @@
                 <inpull_selhigh>true</inpull_selhigh>
                 <def_dir>IN</def_dir>
                 <out_high>false</out_high>
-                <varName0>GPIO_MSDC0_DAT0</varName0>
+                <varName0>GPIO_INIT_NO_COVER</varName0>
                 <smt>false</smt>
                 <ies>true</ies>
             </gpio69>
@@ -815,7 +815,7 @@
                 <inpull_selhigh>true</inpull_selhigh>
                 <def_dir>IN</def_dir>
                 <out_high>false</out_high>
-                <varName0>GPIO_MSDC0_DAT1</varName0>
+                <varName0>GPIO_INIT_NO_COVER</varName0>
                 <smt>false</smt>
                 <ies>true</ies>
             </gpio70>
@@ -826,7 +826,7 @@
                 <inpull_selhigh>true</inpull_selhigh>
                 <def_dir>IN</def_dir>
                 <out_high>false</out_high>
-                <varName0>GPIO_MSDC0_DAT2</varName0>
+                <varName0>GPIO_INIT_NO_COVER</varName0>
                 <smt>false</smt>
                 <ies>true</ies>
             </gpio71>
@@ -837,7 +837,7 @@
                 <inpull_selhigh>true</inpull_selhigh>
                 <def_dir>IN</def_dir>
                 <out_high>false</out_high>
-                <varName0>GPIO_MSDC0_DAT3</varName0>
+                <varName0>GPIO_INIT_NO_COVER</varName0>
                 <smt>false</smt>
                 <ies>true</ies>
             </gpio72>
@@ -848,7 +848,7 @@
                 <inpull_selhigh>true</inpull_selhigh>
                 <def_dir>IN</def_dir>
                 <out_high>false</out_high>
-                <varName0>GPIO_MSDC0_DAT4</varName0>
+                <varName0>GPIO_INIT_NO_COVER</varName0>
                 <smt>false</smt>
                 <ies>true</ies>
             </gpio73>
@@ -859,7 +859,7 @@
                 <inpull_selhigh>true</inpull_selhigh>
                 <def_dir>IN</def_dir>
                 <out_high>false</out_high>
-                <varName0>GPIO_MSDC0_DAT5</varName0>
+                <varName0>GPIO_INIT_NO_COVER</varName0>
                 <smt>false</smt>
                 <ies>true</ies>
             </gpio74>
@@ -870,7 +870,7 @@
                 <inpull_selhigh>true</inpull_selhigh>
                 <def_dir>IN</def_dir>
                 <out_high>false</out_high>
-                <varName0>GPIO_MSDC0_DAT6</varName0>
+                <varName0>GPIO_INIT_NO_COVER</varName0>
                 <smt>false</smt>
                 <ies>true</ies>
             </gpio75>
@@ -881,7 +881,7 @@
                 <inpull_selhigh>true</inpull_selhigh>
                 <def_dir>IN</def_dir>
                 <out_high>false</out_high>
-                <varName0>GPIO_MSDC0_DAT7</varName0>
+                <varName0>GPIO_INIT_NO_COVER</varName0>
                 <smt>false</smt>
                 <ies>true</ies>
             </gpio76>
