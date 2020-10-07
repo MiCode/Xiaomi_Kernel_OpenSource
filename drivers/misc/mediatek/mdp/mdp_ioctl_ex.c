@@ -741,7 +741,7 @@ done:
 
 	exec_cost = div_s64(sched_clock() - exec_cost, 1000);
 	if (exec_cost > 3000)
-		CMDQ_ERR("%s job:%u cost translate:%lluus exec:%lluus\n",
+		CMDQ_LOG("[warn]%s job:%u cost translate:%lluus exec:%lluus\n",
 			__func__, user_job.meta_count, trans_cost, exec_cost);
 	else
 		CMDQ_MSG("%s job:%u cost translate:%lluus exec:%lluus\n",

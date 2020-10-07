@@ -855,15 +855,26 @@ static s32 cmdq_mdp_find_free_thread(struct cmdqRecStruct *handle)
 	bool conflict;
 	s32 thread = CMDQ_INVALID_THREAD;
 	u32 index;
-	struct mdp_thread *threads;
+	struct mdp_thread *threads = mdp_ctx.thread;
 	const u32 max_thd = cmdq_dev_get_thread_count();
 
 #ifdef CMDQ_SECURE_PATH_SUPPORT
 	if (cmdq_mdp_check_engine_waiting_unlock(handle) < 0)
 		return CMDQ_INVALID_THREAD;
 
-	if (handle->secData.is_secure)
-		return cmdq_mdp_get_sec_thread();
+	if (handle->secData.is_secure) {
+		thread = cmdq_mdp_get_sec_thread();
+
+		if (threads[thread].task_count >=
+			CMDQ_MAX_SECURE_THREAD_COUNT) {
+			CMDQ_LOG(
+				"[warn] too many task for secure path thread:%d count:%u\n",
+				thread, threads[thread].task_count);
+			return CMDQ_INVALID_THREAD;
+		}
+
+		return thread;
+	}
 #endif
 	conflict = cmdq_mdp_check_engine_conflict(handle, &thread);
 	if (conflict) {
@@ -877,7 +888,6 @@ static s32 cmdq_mdp_find_free_thread(struct cmdqRecStruct *handle)
 		return thread;
 
 	/* dispatch from free threads */
-	threads = mdp_ctx.thread;
 	for (index = MDP_THREAD_START; index < max_thd; index++) {
 		if (!threads[index].acquired || threads[index].engine_flag ||
 			threads[index].task_count ||
@@ -3235,12 +3245,8 @@ static void mdp_readback_aal_virtual(struct cmdqRecStruct *handle,
 	lop.idx = idx_addr;
 	rop.reg = false;
 	rop.value = dre30_hist_sram_start + 4 * (MDP_AAL_SRAM_CNT - 1);
-	condi_offset = pkt->cmd_buf_size;
 	cmdq_pkt_assign_command(pkt, CMDQ_THR_SPR_IDX0, 0);
-	condi_inst = (u32 *)cmdq_pkt_get_va_by_offset(pkt, condi_offset);
-	if (condi_inst[1] == 0x10000001)
-		condi_inst = (u32 *)cmdq_pkt_get_va_by_offset(pkt,
-			condi_offset + 8);
+	condi_offset = pkt->cmd_buf_size - CMDQ_INST_SIZE;
 	cmdq_pkt_cond_jump_abs(pkt, CMDQ_THR_SPR_IDX0, &lop, &rop,
 		CMDQ_GREATER_THAN_AND_EQUAL);
 
@@ -3258,6 +3264,11 @@ static void mdp_readback_aal_virtual(struct cmdqRecStruct *handle,
 	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, idx_out_low, &lop, &rop);
 
 	cmdq_pkt_jump_addr(pkt, begin_pa);
+
+	condi_inst = (u32 *)cmdq_pkt_get_va_by_offset(pkt, condi_offset);
+	if (condi_inst[1] == 0x10000001)
+		condi_inst = (u32 *)cmdq_pkt_get_va_by_offset(pkt,
+			condi_offset + CMDQ_INST_SIZE);
 	*condi_inst = (u32)CMDQ_REG_SHIFT_ADDR(cmdq_pkt_get_curr_buf_pa(pkt));
 
 	pa = pa + MDP_AAL_SRAM_CNT * 4;
@@ -3349,12 +3360,8 @@ static void mdp_readback_hdr_virtual(struct cmdqRecStruct *handle,
 	lop.idx = idx_counter;
 	rop.reg = false;
 	rop.value =  MDP_HDR_HIST_CNT - 1;
-	condi_offset = pkt->cmd_buf_size;
 	cmdq_pkt_assign_command(pkt, CMDQ_THR_SPR_IDX0, 0);
-	condi_inst = (u32 *)cmdq_pkt_get_va_by_offset(pkt, condi_offset);
-	if (condi_inst[1] == 0x10000001)
-		condi_inst = (u32 *)cmdq_pkt_get_va_by_offset(pkt,
-			condi_offset + 8);
+	condi_offset = pkt->cmd_buf_size - CMDQ_INST_SIZE;
 	cmdq_pkt_cond_jump_abs(pkt, CMDQ_THR_SPR_IDX0, &lop, &rop,
 		CMDQ_GREATER_THAN_AND_EQUAL);
 
@@ -3372,6 +3379,10 @@ static void mdp_readback_hdr_virtual(struct cmdqRecStruct *handle,
 	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, idx_out_low, &lop, &rop);
 
 	cmdq_pkt_jump_addr(pkt, begin_pa);
+	condi_inst = (u32 *)cmdq_pkt_get_va_by_offset(pkt, condi_offset);
+	if (condi_inst[1] == 0x10000001)
+		condi_inst = (u32 *)cmdq_pkt_get_va_by_offset(pkt,
+			condi_offset + 8);
 	*condi_inst = (u32)CMDQ_REG_SHIFT_ADDR(cmdq_pkt_get_curr_buf_pa(pkt));
 
 	pa = pa + MDP_HDR_HIST_CNT * 4;
