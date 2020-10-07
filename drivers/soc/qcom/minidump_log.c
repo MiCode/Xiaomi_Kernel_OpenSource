@@ -367,7 +367,7 @@ static void update_md_cpu_stack(u32 cpu, u64 sp)
 {
 	struct md_stack_cpu_data *md_stack_cpu_d = &per_cpu(md_stack_data, cpu);
 
-	if (is_idle_task(current) || !md_current_stack_init)
+	if (!md_current_stack_init)
 		return;
 
 	update_md_stack(md_stack_cpu_d->stack_mdr,
@@ -380,6 +380,8 @@ void md_current_stack_notifer(void *ignore, bool preempt,
 	u32 cpu = task_cpu(next);
 	u64 sp = (u64)next->stack;
 
+	if (is_idle_task(next))
+		return;
 	update_md_cpu_stack(cpu, sp);
 }
 
