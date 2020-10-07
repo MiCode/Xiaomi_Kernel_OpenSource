@@ -5069,6 +5069,17 @@ page_owner=on";
 		interrupts = <GIC_SPI 295 IRQ_TYPE_EDGE_RISING>;
 	};
 
+	/* Trustonic Mobicore SW IRQ number 115 = 32 + 83 */
+	mobicore {
+		compatible = "trustonic,mobicore";
+		interrupts = <GIC_SPI 83 IRQ_TYPE_EDGE_RISING>;
+	};
+
+	tee_sanity {
+		compatible = "mediatek,tee_sanity";
+		interrupts = <GIC_SPI 84 IRQ_TYPE_EDGE_RISING>;
+	};
+
 	msdc0: msdc@11230000 {
 		compatible = "mediatek,msdc";
 		reg = <0 0x11230000 0 0x10000>;
