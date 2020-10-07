@@ -6678,6 +6678,7 @@ void mtk_need_vds_path_switch(struct drm_crtc *crtc)
 			struct mtk_ddp_comp *comp_ovl0_2l;
 			struct cmdq_pkt *cmdq_handle;
 			struct mtk_crtc_state *crtc_state = to_mtk_crtc_state(crtc->state);
+			int keep_first_layer = false;
 
 			cmdq_handle =
 				cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_CFG]);
@@ -6691,6 +6692,8 @@ void mtk_need_vds_path_switch(struct drm_crtc *crtc)
 			/* Stop ovl 2l */
 			comp_ovl0_2l = priv->ddp_comp[DDP_COMPONENT_OVL0_2L];
 			mtk_ddp_comp_stop(comp_ovl0_2l, cmdq_handle);
+			mtk_ddp_comp_io_cmd(comp_ovl0_2l, cmdq_handle,
+				OVL_ALL_LAYER_OFF, &keep_first_layer);
 			/* Change ovl0 bg mode frmoe DL mode to const mode */
 			comp_ovl0 = priv->ddp_comp[DDP_COMPONENT_OVL0];
 			cmdq_pkt_write(cmdq_handle, comp_ovl0->cmdq_base,
@@ -6703,23 +6706,28 @@ void mtk_need_vds_path_switch(struct drm_crtc *crtc)
 			cmdq_pkt_flush(cmdq_handle);
 			cmdq_pkt_destroy(cmdq_handle);
 			/* unprepare ovl 2l */
-			mtk_ddp_comp_unprepare(comp_ovl0_2l);
+			if (atomic_read(&mtk_crtc->already_config))
+				mtk_ddp_comp_unprepare(comp_ovl0_2l);
 
 			CRTC_MMP_MARK(index, path_switch, 0xFFFF, 1);
 			DDPMSG("Switch vds: Switch ovl0_2l to vds\n");
 
-			/* Update ddp ctx ddp_comp_nr */
-			mtk_crtc->ddp_ctx[DDP_MAJOR].ddp_comp_nr[DDP_FIRST_PATH]
-				= mtk_crtc->path_data->path_len[
-				DDP_MAJOR][DDP_FIRST_PATH] - 1;
-			/* Update ddp ctx ddp_comp */
-			comp_nr = mtk_crtc->path_data->path_len[
-				DDP_MAJOR][DDP_FIRST_PATH];
-			for (i = 0; i < comp_nr - 1; i++)
-				mtk_crtc->ddp_ctx[
+			if (mtk_crtc->ddp_ctx[
+					DDP_MAJOR].ddp_comp[DDP_FIRST_PATH][0]->id !=
+					DDP_COMPONENT_OVL0) {
+				/* Update ddp ctx ddp_comp_nr */
+				mtk_crtc->ddp_ctx[DDP_MAJOR].ddp_comp_nr[DDP_FIRST_PATH]
+					= mtk_crtc->path_data->path_len[
+					DDP_MAJOR][DDP_FIRST_PATH] - 1;
+				/* Update ddp ctx ddp_comp */
+				comp_nr = mtk_crtc->path_data->path_len[
+					DDP_MAJOR][DDP_FIRST_PATH];
+				for (i = 0; i < comp_nr - 1; i++)
+					mtk_crtc->ddp_ctx[
 					DDP_MAJOR].ddp_comp[DDP_FIRST_PATH][i] =
 					mtk_crtc->ddp_ctx[
 					DDP_MAJOR].ddp_comp[DDP_FIRST_PATH][i+1];
+			}
 			mtk_crtc_attach_ddp_comp(crtc, mtk_crtc->ddp_mode, true);
 			/* Update Switch done flag */
 			priv->vds_path_switch_done = 1;
@@ -6730,6 +6738,7 @@ void mtk_need_vds_path_switch(struct drm_crtc *crtc)
 			int width = crtc->state->adjusted_mode.hdisplay;
 			int height = crtc->state->adjusted_mode.vdisplay;
 			struct cmdq_pkt *cmdq_handle;
+			int keep_first_layer = false;
 
 			cmdq_handle =
 				cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_CFG]);
@@ -6759,6 +6768,12 @@ void mtk_need_vds_path_switch(struct drm_crtc *crtc)
 			/* Switch back need reprepare ovl0_2l */
 			mtk_ddp_comp_prepare(comp_ovl0_2l);
 			mtk_ddp_comp_start(comp_ovl0_2l, cmdq_handle);
+			/* ovl 2l should not have old config, so disable
+			 * all ovl 2l layer when flush first frame after
+			 * switch ovl 2l back to main disp
+			 */
+			mtk_ddp_comp_io_cmd(comp_ovl0_2l, cmdq_handle,
+				OVL_ALL_LAYER_OFF, &keep_first_layer);
 
 			cmdq_pkt_flush(cmdq_handle);
 			cmdq_pkt_destroy(cmdq_handle);
@@ -6766,21 +6781,25 @@ void mtk_need_vds_path_switch(struct drm_crtc *crtc)
 			CRTC_MMP_MARK(index, path_switch, 0xFFFF, 2);
 			DDPMSG("Switch vds: Switch ovl0_2l to main disp\n");
 
-			/* Update ddp ctx ddp_comp_nr */
-			mtk_crtc->ddp_ctx[DDP_MAJOR].ddp_comp_nr[DDP_FIRST_PATH]
-				= mtk_crtc->path_data->path_len[
-				DDP_MAJOR][DDP_FIRST_PATH];
-			/* Update ddp ctx ddp_comp */
-			comp_nr = mtk_crtc->path_data->path_len[
-				DDP_MAJOR][DDP_FIRST_PATH];
-			for (i = comp_nr - 1; i > 0; i--)
-				mtk_crtc->ddp_ctx[
+			if (mtk_crtc->ddp_ctx[
+					DDP_MAJOR].ddp_comp[DDP_FIRST_PATH][0]->id !=
+					DDP_COMPONENT_OVL0_2L) {
+				/* Update ddp ctx ddp_comp_nr */
+				mtk_crtc->ddp_ctx[DDP_MAJOR].ddp_comp_nr[DDP_FIRST_PATH]
+					= mtk_crtc->path_data->path_len[
+					DDP_MAJOR][DDP_FIRST_PATH];
+				/* Update ddp ctx ddp_comp */
+				comp_nr = mtk_crtc->path_data->path_len[
+					DDP_MAJOR][DDP_FIRST_PATH];
+				for (i = comp_nr - 1; i > 0; i--)
+					mtk_crtc->ddp_ctx[
 					DDP_MAJOR].ddp_comp[DDP_FIRST_PATH][i] =
 					mtk_crtc->ddp_ctx[
 					DDP_MAJOR].ddp_comp[DDP_FIRST_PATH][i-1];
-			mtk_crtc->ddp_ctx[
-				DDP_MAJOR].ddp_comp[DDP_FIRST_PATH][0] =
-				priv->ddp_comp[DDP_COMPONENT_OVL0_2L];
+				mtk_crtc->ddp_ctx[
+					DDP_MAJOR].ddp_comp[DDP_FIRST_PATH][0] =
+					priv->ddp_comp[DDP_COMPONENT_OVL0_2L];
+			}
 			mtk_crtc_attach_ddp_comp(crtc, mtk_crtc->ddp_mode, true);
 			/* Update Switch done flag */
 			priv->vds_path_switch_dirty = 0;
