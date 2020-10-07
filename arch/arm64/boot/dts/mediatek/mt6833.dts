@@ -2913,7 +2913,7 @@ page_owner=on";
 			   <&mmsys_config CLK_MM_APB_BUS>,
 			   <&mmsys_config CLK_MM_DISP_MUTEX0>;
 		clock-num = <4>;
-#if 0
+
 		/* define threads, see mt6833-gce.h */
 		mediatek,mailbox-gce = <&gce_mbox>;
 		mboxes = <&gce_mbox 0 0 CMDQ_THR_PRIO_4>,
@@ -2978,7 +2978,7 @@ page_owner=on";
 			<&gce_mbox CMDQ_SYNC_TOKEN_CABC_EOF>,
 			<&gce_mbox CMDQ_EVENT_DISP_WDMA0_FRAME_DONE>,
 			<&gce_mbox CMDQ_EVENT_DSI0_SOF>;
-#endif
+
 		helper-name = "MTK_DRM_OPT_STAGE",
 			"MTK_DRM_OPT_USE_CMDQ",
 			"MTK_DRM_OPT_USE_M4U",
@@ -3019,24 +3019,24 @@ page_owner=on";
 
 		helper-value = <0>, /*MTK_DRM_OPT_STAGE*/
 			<1>, /*MTK_DRM_OPT_USE_CMDQ*/
-			<0>, /*MTK_DRM_OPT_USE_M4U*/
+			<1>, /*MTK_DRM_OPT_USE_M4U*/
 			<0>, /*MTK_DRM_OPT_SODI_SUPPORT*/
-			<0>, /*MTK_DRM_OPT_IDLE_MGR*/
+			<1>, /*MTK_DRM_OPT_IDLE_MGR*/
 			<0>, /*MTK_DRM_OPT_IDLEMGR_SWTCH_DECOUPLE*/
-			<0>, /*MTK_DRM_OPT_IDLEMGR_BY_REPAINT*/
+			<1>, /*MTK_DRM_OPT_IDLEMGR_BY_REPAINT*/
 			<0>, /*MTK_DRM_OPT_IDLEMGR_ENTER_ULPS*/
 			<0>, /*MTK_DRM_OPT_IDLEMGR_KEEP_LP11*/
 			<0>, /*MTK_DRM_OPT_DYNAMIC_RDMA_GOLDEN_SETTING*/
-			<0>, /*MTK_DRM_OPT_IDLEMGR_DISABLE_ROUTINE_IRQ*/
+			<1>, /*MTK_DRM_OPT_IDLEMGR_DISABLE_ROUTINE_IRQ*/
 			<0>, /*MTK_DRM_OPT_MET_LOG*/
-			<0>, /*MTK_DRM_OPT_USE_PQ*/
+			<1>, /*MTK_DRM_OPT_USE_PQ*/
 			<0>, /*MTK_DRM_OPT_ESD_CHECK_RECOVERY*/
 			<0>, /*MTK_DRM_OPT_ESD_CHECK_SWITCH*/
 			<1>, /*MTK_DRM_OPT_PRESENT_FENCE*/
 			<0>, /*MTK_DRM_OPT_RDMA_UNDERFLOW_AEE*/
 			<1>, /*MTK_DRM_OPT_DSI_UNDERRUN_AEE*/
-			<0>, /*MTK_DRM_OPT_HRT*/
-			<0>, /*MTK_DRM_OPT_HRT_MODE*/
+			<1>, /*MTK_DRM_OPT_HRT*/
+			<1>, /*MTK_DRM_OPT_HRT_MODE*/
 			<0>, /*MTK_DRM_OPT_DELAYED_TRIGGER*/
 			<1>, /*MTK_DRM_OPT_OVL_EXT_LAYER*/
 			<0>, /*MTK_DRM_OPT_AOD*/
