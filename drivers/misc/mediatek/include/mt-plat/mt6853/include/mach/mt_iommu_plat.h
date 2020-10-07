@@ -27,10 +27,17 @@
 #define MTK_IOMMU_LOW_POWER_SUPPORT
 #define MTK_DISABLE_DCM_SUPPORT
 #define MTK_WARN_PSEDUO_FIND_SG
+#if IS_ENABLED(CONFIG_MACH_MT6833)
+#include "clk-mt6833-pg.h"
+#else
 #include "clk-mt6853-pg.h"
+#endif
 
 enum subsys_id iommu_mtcmos_subsys[MTK_IOMMU_M4U_COUNT] = {
-	SYS_DIS, SYS_VPU
+	SYS_DIS,
+#ifdef CONFIG_MTK_APUSYS_SUPPORT
+	SYS_VPU
+#endif
 };
 #endif
 #endif
@@ -61,7 +68,12 @@ enum subsys_id iommu_mtcmos_subsys[MTK_IOMMU_M4U_COUNT] = {
 #ifdef CONFIG_FPGA_EARLY_PORTING
 static unsigned int g_tag_count[MTK_IOMMU_M4U_COUNT] = {64};
 #else
-static unsigned int g_tag_count[MTK_IOMMU_M4U_COUNT] = {64, 64};
+static unsigned int g_tag_count[MTK_IOMMU_M4U_COUNT] = {
+		64,
+#ifdef CONFIG_MTK_APUSYS_SUPPORT
+		64,
+#endif
+		};
 #endif
 
 char *smi_clk_name[MTK_IOMMU_LARB_NR] = {
@@ -86,12 +98,17 @@ char *iommu_secure_compatible[MTK_IOMMU_M4U_COUNT] = {
 };
 #else
 char *iommu_secure_compatible[MTK_IOMMU_M4U_COUNT] = {
-	"mediatek,sec_m4u0", "mediatek,sec_m4u1",
+	"mediatek,sec_m4u0",
+#ifdef CONFIG_MTK_APUSYS_SUPPORT
+	"mediatek,sec_m4u1",
+#endif
 };
 
 char *iommu_bank_compatible[MTK_IOMMU_M4U_COUNT][MTK_IOMMU_BANK_NODE_COUNT] = {
 	{"mediatek,bank1_m4u0", "mediatek,bank2_m4u0", "mediatek,bank3_m4u0"},
+#ifdef CONFIG_MTK_APUSYS_SUPPORT
 	{"mediatek,bank1_m4u1", "mediatek,bank2_m4u1", "mediatek,bank3_m4u1"},
+#endif
 };
 #endif
 
@@ -761,6 +778,7 @@ struct mau_config_info mt6853_mau_info[MTK_IOMMU_M4U_COUNT] = {
 		.start_bit32 = 0x4,
 		.end_bit32 = 0x7,
 	},
+#ifdef CONFIG_MTK_APUSYS_SUPPORT
 	{
 		.start = 0x40000000,
 		.end = 0xffffffff,
@@ -772,6 +790,7 @@ struct mau_config_info mt6853_mau_info[MTK_IOMMU_M4U_COUNT] = {
 		.start_bit32 = 0x4,
 		.end_bit32 = 0x7,
 	}
+#endif
 };
 
 struct mau_config_info *get_mau_info(int m4u_id)
