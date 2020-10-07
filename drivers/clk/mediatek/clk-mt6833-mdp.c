@@ -36,9 +36,9 @@ static const struct mtk_gate_regs mdp0_cg_regs = {
 };
 
 static const struct mtk_gate_regs mdp1_cg_regs = {
-	.set_ofs = 0x114,
-	.clr_ofs = 0x118,
-	.sta_ofs = 0x110,
+	.set_ofs = 0x124,
+	.clr_ofs = 0x128,
+	.sta_ofs = 0x120,
 };
 
 #define GATE_MDP0(_id, _name, _parent, _shift) {	\
@@ -100,9 +100,9 @@ static const struct mtk_gate mdp_clks[] = {
 			"mdp_ck"/* parent */, 17),
 	/* MDP1 */
 	GATE_MDP1(CLK_MDP_IMG_DL_RELAY0_ASYNC0, "mdp_img_dl_rel0_as0",
-			"mdp_ck"/* parent */, 21),
+			"mdp_ck"/* parent */, 0),
 	GATE_MDP1(CLK_MDP_IMG_DL_RELAY1_ASYNC1, "mdp_img_dl_rel1_as1",
-			"mdp_ck"/* parent */, 23),
+			"mdp_ck"/* parent */, 8),
 };
 
 static int clk_mt6833_mdp_probe(struct platform_device *pdev)
