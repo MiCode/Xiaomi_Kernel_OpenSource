@@ -3790,6 +3790,11 @@ page_owner=on";
 		reg = <0 0x15012000 0 0x1000>;
 	};
 
+	imgsys2_config: imgsys2_config@15820000 {
+		compatible = "mediatek,imgsys2", "syscon";
+		reg = <0 0x15820000 0 0x1000>;
+	};
+
 	imgsys2: imgsys2@15820000 {
 		compatible = "mediatek,mt6833-imgsys2", "syscon";
 		reg = <0 0x15820000 0 0x1000>;
