@@ -19,5 +19,8 @@ ccflags-y +=	\
 	-I$(srctree)/drivers/misc/mediatek/freqhopping	\
 	-I$(srctree)/drivers/misc/mediatek/freqhopping/$(CONFIG_MTK_PLATFORM)
 
+ifeq ($(findstring k6833v1_64_33m,$(PROJECT_DTB_NAMES)),k6833v1_64_33m)
+subdir-ccflags-y = -DMTK_5GCM_PROJECT
+endif
 
 obj-y += mtk_cpufreq_platform.o

@@ -630,6 +630,10 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 {
 	unsigned int lv = CPU_LEVEL_0;
 
+#ifdef MTK_5GCM_PROJECT
+	lv = CPU_LEVEL_1;
+#endif
+
 	return lv;
 }
 #ifdef DFD_WORKAROUND
