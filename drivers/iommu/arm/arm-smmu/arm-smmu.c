@@ -51,6 +51,7 @@
 
 #include "arm-smmu.h"
 #include "../../iommu-logger.h"
+#include "../../qcom-dma-iommu-generic.h"
 #include <linux/qcom-iommu-util.h>
 
 #define CREATE_TRACE_POINTS
@@ -4154,6 +4155,10 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	int num_irqs, i, err;
 	bool legacy_binding;
 	irqreturn_t (*global_fault)(int irq, void *dev);
+
+	/* We depend on this device for fastmap */
+	if (!qcom_dma_iommu_is_ready())
+		return -EPROBE_DEFER;
 
 	legacy_binding = of_find_property(dev->of_node, "mmu-masters", NULL);
 	if (legacy_binding && !using_generic_binding) {
