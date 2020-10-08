@@ -115,9 +115,6 @@ static int a5xx_probe(struct platform_device *pdev,
 	adreno_dev->lm_enabled =
 		ADRENO_FEATURE(adreno_dev, ADRENO_LM);
 
-	/* Set the GPU busy counter to use for frequency scaling */
-	adreno_dev->perfctr_pwr_lo = A5XX_RBBM_PERFCTR_RBBM_0_LO;
-
 	/* Setup defaults that might get changed by the fuse bits */
 	adreno_dev->lm_leakage = 0x4e001a;
 
@@ -1194,17 +1191,6 @@ static void a5xx_clk_set_options(struct adreno_device *adreno_dev,
 }
 #endif
 
-static void a5xx_count_throttles(struct adreno_device *adreno_dev,
-		uint64_t adj)
-{
-	if (adreno_is_a530(adreno_dev))
-		kgsl_regread(KGSL_DEVICE(adreno_dev),
-				adreno_dev->lm_threshold_count,
-				&adreno_dev->lm_threshold_cross);
-	else if (adreno_is_a540(adreno_dev))
-		adreno_dev->lm_threshold_cross = adj;
-}
-
 /* FW driven idle 10% throttle */
 #define IDLE_10PCT 0
 /* number of cycles when clock is throttled by 50% (CRC) */
@@ -2055,10 +2041,6 @@ static unsigned int a5xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_INT_0_STATUS, A5XX_RBBM_INT_0_STATUS),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_CLOCK_CTL, A5XX_RBBM_CLOCK_CNTL),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_SW_RESET_CMD, A5XX_RBBM_SW_RESET_CMD),
-	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_RBBM_0_LO,
-				A5XX_RBBM_PERFCTR_RBBM_0_LO),
-	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_RBBM_0_HI,
-				A5XX_RBBM_PERFCTR_RBBM_0_HI),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_LOAD_VALUE_LO,
 				A5XX_RBBM_PERFCTR_LOAD_VALUE_LO),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_LOAD_VALUE_HI,
@@ -2481,6 +2463,63 @@ static void a5xx_remove(struct adreno_device *adreno_dev)
 		del_timer(&adreno_dev->preempt.timer);
 }
 
+static void a5xx_power_stats(struct adreno_device *adreno_dev,
+		struct kgsl_power_stats *stats)
+{
+	static u32 rbbm0_hi;
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	s64 freq = kgsl_pwrctrl_active_freq(&device->pwrctrl) / 1000000;
+	struct adreno_busy_data *busy = &adreno_dev->busy_data;
+	u32 gpu_busy = 0;
+	u32 lo, hi;
+	s64 adj;
+
+	/* Sometimes this counter can go backwards, so try to detect that */
+	kgsl_regread(device, A5XX_RBBM_PERFCTR_RBBM_0_LO, &lo);
+	kgsl_regread(device, A5XX_RBBM_PERFCTR_RBBM_0_HI, &hi);
+
+	if (busy->gpu_busy) {
+		if (lo < busy->gpu_busy) {
+			if (hi == rbbm0_hi) {
+				dev_warn_once(device->dev,
+					"abmormal value from RBBM_0 perfcounter: %x %x\n",
+					lo, busy->gpu_busy);
+				gpu_busy = 0;
+			} else {
+				gpu_busy = (UINT_MAX - busy->gpu_busy) + lo;
+				rbbm0_hi = hi;
+			}
+		} else
+			gpu_busy = lo - busy->gpu_busy;
+	} else {
+		gpu_busy = 0;
+		rbbm0_hi = 0;
+	}
+
+	busy->gpu_busy = lo;
+
+	adj = a5xx_read_throttling_counters(adreno_dev);
+	if (adj < 0 || -adj > gpu_busy)
+		gpu_busy += adj;
+
+	stats->busy_time = gpu_busy / freq;
+
+	if (adreno_is_a530(adreno_dev) && adreno_dev->lm_threshold_count)
+		kgsl_regread(device, adreno_dev->lm_threshold_count,
+			&adreno_dev->lm_threshold_cross);
+	else if (adreno_is_a540(adreno_dev))
+		adreno_dev->lm_threshold_cross = adj;
+
+	if (!device->pwrctrl.bus_control)
+		return;
+
+	stats->ram_time = counter_delta(device, adreno_dev->ram_cycles_lo,
+		&busy->bif_ram_cycles);
+
+	stats->ram_wait = counter_delta(device, adreno_dev->starved_ram_lo,
+		&busy->bif_starved_ram);
+}
+
 #ifdef CONFIG_QCOM_KGSL_CORESIGHT
 static struct adreno_coresight_register a5xx_coresight_registers[] = {
 	{ A5XX_RBBM_CFG_DBGBUS_SEL_A },
@@ -2690,8 +2729,6 @@ const struct adreno_gpudev adreno_a5xx_gpudev = {
 	.regulator_enable = a5xx_regulator_enable,
 	.regulator_disable = a5xx_regulator_disable,
 	.pwrlevel_change_settings = a5xx_pwrlevel_change_settings,
-	.read_throttling_counters = a5xx_read_throttling_counters,
-	.count_throttles = a5xx_count_throttles,
 	.preemption_schedule = a5xx_preemption_schedule,
 #if IS_ENABLED(CONFIG_COMMON_CLK_QCOM)
 	.clk_set_options = a5xx_clk_set_options,
@@ -2703,4 +2740,5 @@ const struct adreno_gpudev adreno_a5xx_gpudev = {
 	.remove = a5xx_remove,
 	.ringbuffer_submitcmd = a5xx_ringbuffer_submitcmd,
 	.is_hw_collapsible = a5xx_is_hw_collapsible,
+	.power_stats = a5xx_power_stats,
 };

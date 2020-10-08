@@ -585,8 +585,6 @@ static int a3xx_probe(struct platform_device *pdev,
 
 	adreno_reg_offset_init(gpucore->gpudev->reg_offsets);
 
-	/* Set the GPU busy counter for frequency scaling */
-	adreno_dev->perfctr_pwr_lo = A3XX_RBBM_PERFCTR_PWR_1_LO;
 
 	device = KGSL_DEVICE(adreno_dev);
 
@@ -1064,10 +1062,6 @@ static unsigned int a3xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 				A3XX_SQ_INST_STORE_MANAGEMENT),
 	ADRENO_REG_DEFINE(ADRENO_REG_TP0_CHICKEN, A3XX_TP0_CHICKEN),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_SW_RESET_CMD, A3XX_RBBM_SW_RESET_CMD),
-	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_RBBM_0_LO,
-			A3XX_RBBM_PERFCTR_RBBM_0_LO),
-	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_RBBM_0_HI,
-			A3XX_RBBM_PERFCTR_RBBM_0_HI),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_LOAD_VALUE_LO,
 				A3XX_RBBM_PERFCTR_LOAD_VALUE_LO),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_LOAD_VALUE_HI,
@@ -1288,6 +1282,30 @@ static bool a3xx_is_hw_collapsible(struct adreno_device *adreno_dev)
 	return adreno_isidle(adreno_dev);
 }
 
+static void a3xx_power_stats(struct adreno_device *adreno_dev,
+		struct kgsl_power_stats *stats)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct adreno_busy_data *busy = &adreno_dev->busy_data;
+	s64 freq = kgsl_pwrctrl_active_freq(&device->pwrctrl) / 1000000;
+	u64 gpu_busy;
+
+	/* Set the GPU busy counter for frequency scaling */
+	gpu_busy = counter_delta(device, A3XX_RBBM_PERFCTR_PWR_1_LO,
+		&busy->gpu_busy);
+
+	stats->busy_time = gpu_busy / freq;
+
+	if (!device->pwrctrl.bus_control)
+		return;
+
+	stats->ram_time = counter_delta(device, adreno_dev->ram_cycles_lo,
+		&busy->bif_ram_cycles);
+
+	stats->ram_wait = counter_delta(device, adreno_dev->starved_ram_lo,
+		&busy->bif_starved_ram);
+}
+
 const struct adreno_gpudev adreno_a3xx_gpudev = {
 	.reg_offsets = a3xx_register_offsets,
 	.ft_perf_counters = a3xx_ft_perf_counters,
@@ -1310,4 +1328,5 @@ const struct adreno_gpudev adreno_a3xx_gpudev = {
 	.clear_pending_transactions = a3xx_clear_pending_transactions,
 	.ringbuffer_submitcmd = a3xx_ringbuffer_submitcmd,
 	.is_hw_collapsible = a3xx_is_hw_collapsible,
+	.power_stats = a3xx_power_stats,
 };

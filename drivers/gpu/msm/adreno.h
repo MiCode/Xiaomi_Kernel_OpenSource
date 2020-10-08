@@ -441,8 +441,6 @@ struct adreno_gpu_core {
  * @starved_ram_lo: Number of cycles VBIF/GBIF is stalled by DDR (Only channel 0
  * stall cycles in case of GBIF)
  * @starved_ram_lo_ch1: Number of cycles GBIF is stalled by DDR channel 1
- * @perfctr_pwr_lo: GPU busy cycles
- * @perfctr_ifpc_lo: IFPC count
  * @halt: Atomic variable to check whether the GPU is currently halted
  * @pending_irq_refcnt: Atomic variable to keep track of running IRQ handlers
  * @ctx_d_debugfs: Context debugfs node
@@ -509,8 +507,6 @@ struct adreno_device {
 	unsigned int ram_cycles_lo_ch1_write;
 	unsigned int starved_ram_lo;
 	unsigned int starved_ram_lo_ch1;
-	unsigned int perfctr_pwr_lo;
-	unsigned int perfctr_ifpc_lo;
 	atomic_t halt;
 	atomic_t pending_irq_refcnt;
 	struct dentry *ctx_d_debugfs;
@@ -683,8 +679,6 @@ enum adreno_regs {
 	ADRENO_REG_SQ_GPR_MANAGEMENT,
 	ADRENO_REG_SQ_INST_STORE_MANAGEMENT,
 	ADRENO_REG_TP0_CHICKEN,
-	ADRENO_REG_RBBM_PERFCTR_RBBM_0_LO,
-	ADRENO_REG_RBBM_PERFCTR_RBBM_0_HI,
 	ADRENO_REG_RBBM_PERFCTR_LOAD_VALUE_LO,
 	ADRENO_REG_RBBM_PERFCTR_LOAD_VALUE_HI,
 	ADRENO_REG_VBIF_VERSION,
@@ -762,9 +756,6 @@ struct adreno_gpudev {
 	void (*pwrlevel_change_settings)(struct adreno_device *adreno_dev,
 				unsigned int prelevel, unsigned int postlevel,
 				bool post);
-	int64_t (*read_throttling_counters)(struct adreno_device *adreno_dev);
-	void (*count_throttles)(struct adreno_device *adreno_dev,
-					uint64_t adj);
 	void (*preemption_schedule)(struct adreno_device *adreno_dev);
 	int (*preemption_context_init)(struct kgsl_context *context);
 	void (*context_detach)(struct adreno_context *drawctxt);
@@ -795,6 +786,11 @@ struct adreno_gpudev {
 	 * Only used by non GMU/RGMU targets
 	 */
 	bool (*is_hw_collapsible)(struct adreno_device *adreno_dev);
+	/**
+	 * @power_stats - Return the perfcounter statistics for DCVS
+	 */
+	void (*power_stats)(struct adreno_device *adreno_dev,
+			struct kgsl_power_stats *stats);
 };
 
 /**
@@ -1557,61 +1553,21 @@ static inline void adreno_ringbuffer_set_pagetable(struct adreno_ringbuffer *rb,
 	spin_unlock_irqrestore(&rb->preempt_lock, flags);
 }
 
-static inline bool is_power_counter_overflow(struct adreno_device *adreno_dev,
-	unsigned int reg, unsigned int prev_val, unsigned int *perfctr_pwr_hi)
-{
-	unsigned int val;
-	bool ret = false;
-
-	/*
-	 * If prev_val is zero, it is first read after perf counter reset.
-	 * So set perfctr_pwr_hi register to zero.
-	 */
-	if (prev_val == 0) {
-		*perfctr_pwr_hi = 0;
-		return ret;
-	}
-	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_PERFCTR_RBBM_0_HI, &val);
-	if (val != *perfctr_pwr_hi) {
-		*perfctr_pwr_hi = val;
-		ret = true;
-	}
-	return ret;
-}
-
-static inline unsigned int counter_delta(struct kgsl_device *device,
+static inline u32 counter_delta(struct kgsl_device *device,
 			unsigned int reg, unsigned int *counter)
 {
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	unsigned int val;
-	unsigned int ret = 0;
-	bool overflow = true;
-	static unsigned int perfctr_pwr_hi;
+	u32 val, ret = 0;
 
-	/* Read the value */
+	if (!reg)
+		return 0;
+
 	kgsl_regread(device, reg, &val);
 
-	if (adreno_is_a5xx(adreno_dev) && reg == adreno_getreg
-		(adreno_dev, ADRENO_REG_RBBM_PERFCTR_RBBM_0_LO))
-		overflow = is_power_counter_overflow(adreno_dev, reg,
-				*counter, &perfctr_pwr_hi);
-
-	/* Return 0 for the first read */
-	if (*counter != 0) {
-		if (val >= *counter) {
+	if (*counter) {
+		if (val >= *counter)
 			ret = val - *counter;
-		} else if (overflow) {
-			ret = (0xFFFFFFFF - *counter) + val;
-		} else {
-			/*
-			 * Since KGSL got abnormal value from the counter,
-			 * We will drop the value from being accumulated.
-			 */
-			dev_warn_once(device->dev,
-				"Abnormal value :0x%x (0x%x) from perf counter : 0x%x\n",
-				val, *counter, reg);
-			return 0;
-		}
+		else
+			ret = (UINT_MAX - *counter) + val;
 	}
 
 	*counter = val;
