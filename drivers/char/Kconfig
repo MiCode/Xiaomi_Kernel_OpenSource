@@ -460,7 +460,8 @@ source "drivers/char/xillybus/Kconfig"
 
 config MSM_ADSPRPC
 	tristate "QTI FastRPC driver"
-	depends on RPMSG && QCOM_SECURE_BUFFER && MSM_SERVICE_LOCATOR && MSM_SERVICE_NOTIFIER && PM_SLEEP && HAS_DMA && CMA && MMU
+	select QCOM_PDR_HELPERS
+	depends on RPMSG && QCOM_SECURE_BUFFER && PM_SLEEP && HAS_DMA && CMA && MMU
 	help
 		Provides a communication mechanism that allows clients to
 		make remote method invocations across processor boundary to
