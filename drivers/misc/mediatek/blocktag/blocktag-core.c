@@ -885,13 +885,12 @@ static int mtk_btag_sub_open(struct inode *inode, struct file *file)
 	return rc;
 }
 
-static const struct file_operations mtk_btag_sub_fops = {
-	.owner		= THIS_MODULE,
-	.open		= mtk_btag_sub_open,
-	.read		= seq_read,
-	.llseek		= seq_lseek,
-	.release	= seq_release,
-	.write		= mtk_btag_sub_write,
+static const struct proc_ops mtk_btag_sub_fops = {
+	.proc_open		= mtk_btag_sub_open,
+	.proc_read		= seq_read,
+	.proc_lseek		= seq_lseek,
+	.proc_release		= seq_release,
+	.proc_write		= mtk_btag_sub_write,
 };
 
 static ssize_t mtk_btag_mictx_sub_write(struct file *file,
@@ -948,13 +947,12 @@ static int mtk_btag_mictx_sub_open(struct inode *inode, struct file *file)
 	return single_open(file, mtk_btag_mctx_sub_show, inode->i_private);
 }
 
-static const struct file_operations mtk_btag_mictx_sub_fops = {
-	.owner		= THIS_MODULE,
-	.open		= mtk_btag_mictx_sub_open,
-	.read		= seq_read,
-	.llseek		= seq_lseek,
-	.release	= seq_release,
-	.write		= mtk_btag_mictx_sub_write,
+static const struct proc_ops mtk_btag_mictx_sub_fops = {
+	.proc_open		= mtk_btag_mictx_sub_open,
+	.proc_read		= seq_read,
+	.proc_lseek		= seq_lseek,
+	.proc_release		= seq_release,
+	.proc_write		= mtk_btag_mictx_sub_write,
 };
 
 struct mtk_blocktag *mtk_btag_alloc(const char *name,
@@ -1134,13 +1132,12 @@ static int mtk_btag_main_open(struct inode *inode, struct file *file)
 	return seq_open(file, &mtk_btag_seq_main_ops);
 }
 
-static const struct file_operations mtk_btag_main_fops = {
-	.owner		= THIS_MODULE,
-	.open		= mtk_btag_main_open,
-	.read		= seq_read,
-	.llseek		= seq_lseek,
-	.release	= seq_release,
-	.write		= mtk_btag_main_write,
+static const struct proc_ops mtk_btag_main_fops = {
+	.proc_open		= mtk_btag_main_open,
+	.proc_read		= seq_read,
+	.proc_lseek		= seq_lseek,
+	.proc_release		= seq_release,
+	.proc_write		= mtk_btag_main_write,
 };
 
 static int mtk_btag_init_procfs(void)
