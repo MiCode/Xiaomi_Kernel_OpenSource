@@ -27,6 +27,7 @@
 #include <linux/ipc_logging.h>
 #include "nfc_i2c_drv.h"
 #include "nfc_i3c_drv.h"
+#include "ese_cold_reset.h"
 
 // Max device count for this driver
 #define DEV_COUNT            1
@@ -38,9 +39,10 @@
 #define NFC_CHAR_DEV_NAME	 "nq-nci"
 
 // HDR length of NCI packet
-#define NCI_HDR_LEN				3
+#define NCI_HDR_LEN			3
 #define NCI_PAYLOAD_IDX			3
 #define NCI_PAYLOAD_LEN_IDX		2
+#define NCI_RSP_PKT_TYPE		(0x40)
 
 #define NCI_RESET_CMD_LEN			(4)
 #define NCI_RESET_RSP_LEN			(4)
@@ -53,13 +55,6 @@
 #define NFC_CHIP_TYPE_OFF		(3)
 #define NFC_ROM_VERSION_OFF		(2)
 #define NFC_FW_MAJOR_OFF		(1)
-
-#define COLD_RESET_CMD_LEN		3
-#define COLD_RESET_RSP_LEN		4
-#define COLD_RESET_CMD_GID		0x2F
-#define COLD_RESET_CMD_PAYLOAD_LEN	0x00
-#define COLD_RESET_RSP_GID		0x4F
-#define COLD_RESET_OID			0x1E
 
 #define MAX_NCI_PAYLOAD_LEN		(255)
 /*
@@ -124,8 +119,6 @@ enum ese_ioctl_request {
 	ESE_POWER_ON = 0,
 	/* eSE POWER OFF */
 	ESE_POWER_OFF,
-	/* eSE COLD RESET */
-	ESE_COLD_RESET,
 	/* eSE POWER STATE */
 	ESE_POWER_STATE
 };
@@ -201,14 +194,6 @@ struct platform_ldo {
 	int max_current;
 };
 
-//Features specific Parameters
-struct cold_reset {
-	wait_queue_head_t read_wq;
-	bool rsp_pending;
-	uint8_t status;
-	/* Is NFC enabled from UI */
-	bool is_nfc_enabled;
-};
 
 /* Device specific structure */
 struct nfc_dev {
@@ -261,11 +246,11 @@ int nfc_misc_probe(struct nfc_dev *nfc_dev,
 		      char *devname, char *classname);
 void nfc_misc_remove(struct nfc_dev *nfc_dev, int count);
 int configure_gpio(unsigned int gpio, int flag);
-void read_cold_reset_rsp(struct nfc_dev *nfc_dev, char *header);
 void gpio_set_ven(struct nfc_dev *nfc_dev, int value);
 int nfcc_hw_check(struct nfc_dev *nfc_dev);
 int nfc_ldo_config(struct device *dev, struct nfc_dev *nfc_dev);
 int nfc_ldo_vote(struct nfc_dev *nfc_dev);
 int nfc_ldo_unvote(struct nfc_dev *nfc_dev);
+int is_nfc_data_available_for_read(struct nfc_dev *nfc_dev);
 
 #endif //_NFC_COMMON_H_

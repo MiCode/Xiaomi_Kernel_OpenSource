@@ -196,9 +196,9 @@ ssize_t nfc_i2c_dev_read(struct file *filp, char __user *buf,
 	 * NFC HAL process shouldn't receive this data as
 	 * command was sent by SPI driver
 	 */
-	if (nfc_dev->cold_reset.rsp_pending
-		&& (tmp[0] == COLD_RESET_RSP_GID)
-		&& (tmp[1] == COLD_RESET_OID)) {
+	if (nfc_dev->cold_reset.rsp_pending && nfc_dev->cold_reset.cmd_buf
+		&& (tmp[0] == PROP_NCI_RSP_GID)
+		&& (tmp[1] == nfc_dev->cold_reset.cmd_buf[1])) {
 		read_cold_reset_rsp(nfc_dev, tmp);
 		nfc_dev->cold_reset.rsp_pending = false;
 		wake_up_interruptible(&nfc_dev->cold_reset.read_wq);

@@ -8,7 +8,6 @@
 #include <linux/delay.h>
 #include "nfc_common.h"
 
-
 int nfc_parse_dt(struct device *dev, struct platform_gpio *nfc_gpio,
 		 struct platform_ldo *ldo, uint8_t interface)
 {
@@ -304,109 +303,16 @@ int nfc_misc_probe(struct nfc_dev *nfc_dev,
 
 	nfc_dev->cold_reset.rsp_pending = false;
 	nfc_dev->cold_reset.is_nfc_enabled = false;
+	nfc_dev->cold_reset.is_crp_en = false;
+	nfc_dev->cold_reset.last_src_ese_prot = ESE_COLD_RESET_ORIGIN_NONE;
+
 	init_waitqueue_head(&nfc_dev->cold_reset.read_wq);
 
 	return 0;
 }
 
 
-static int send_cold_reset_cmd(struct nfc_dev *nfc_dev)
-{
-	int ret = 0;
-	char *cold_reset_cmd = NULL;
 
-	cold_reset_cmd = kzalloc(COLD_RESET_CMD_LEN, GFP_DMA | GFP_KERNEL);
-	if (!cold_reset_cmd)
-		return -ENOMEM;
-
-	if (gpio_get_value(nfc_dev->gpio.dwl_req)) {
-		pr_err("FW download in-progress\n");
-		ret = -EBUSY;
-		goto error;
-	}
-	if (!gpio_get_value(nfc_dev->gpio.ven)) {
-		pr_err("VEN LOW - NFCC powered off\n");
-		ret = -ENODEV;
-		goto error;
-	}
-
-	cold_reset_cmd[0] = COLD_RESET_CMD_GID;
-	cold_reset_cmd[1] = COLD_RESET_OID;
-	cold_reset_cmd[2] = COLD_RESET_CMD_PAYLOAD_LEN;
-
-	ret = nfc_dev->nfc_write(nfc_dev, cold_reset_cmd,
-					COLD_RESET_CMD_LEN, MAX_RETRY_COUNT);
-	if (ret <= 0)
-		pr_err("%s: write failed after max retry, ret %d\n",
-			__func__, ret);
-
-error:
-	kfree(cold_reset_cmd);
-	return ret;
-}
-
-void read_cold_reset_rsp(struct nfc_dev *nfc_dev, char *header)
-{
-	int ret = -1;
-	char *cold_reset_rsp = NULL;
-	struct cold_reset *cold_reset = &nfc_dev->cold_reset;
-
-	cold_reset_rsp = kzalloc(COLD_RESET_RSP_LEN, GFP_DMA | GFP_KERNEL);
-	if (!cold_reset_rsp)
-		return;
-
-	/*
-	 * read header also if NFC is disabled
-	 * for enable case, will be taken care by nfc read thread
-	 */
-	if ((!cold_reset->is_nfc_enabled) &&
-		(nfc_dev->interface == PLATFORM_IF_I2C)) {
-
-		ret = nfc_dev->nfc_read(nfc_dev, cold_reset_rsp,
-						NCI_HDR_LEN);
-		if (ret <= 0) {
-			pr_err("%s: failure to read cold reset rsp header\n",
-			       __func__);
-			goto error;
-		}
-	} else {
-
-		/* For I3C driver, header is read by the worker thread */
-		memcpy(cold_reset_rsp, header, NCI_HDR_LEN);
-	}
-
-	if ((cold_reset_rsp[0] != COLD_RESET_RSP_GID)
-	    || (cold_reset_rsp[1] != COLD_RESET_OID)) {
-		pr_err("%s: - invalid response GID or OID for cold_reset\n",
-		       __func__);
-		ret = -EINVAL;
-		goto error;
-	}
-	if ((NCI_HDR_LEN + cold_reset_rsp[2]) > COLD_RESET_RSP_LEN) {
-		pr_err("%s: - invalid response for cold_reset\n", __func__);
-		ret = -EINVAL;
-		goto error;
-	}
-
-	if (nfc_dev->interface == PLATFORM_IF_I2C)
-		ret = nfc_dev->nfc_read(nfc_dev,
-			     &cold_reset_rsp[NCI_PAYLOAD_IDX],
-			     cold_reset_rsp[2]);
-	else
-		ret = nfc_dev->i3c_dev.nfc_read_direct(nfc_dev,
-			     &cold_reset_rsp[NCI_PAYLOAD_IDX],
-			     cold_reset_rsp[2]);
-
-	if (ret <= 0) {
-		pr_err("%s: failure to read cold reset rsp payload\n",
-			__func__);
-		goto error;
-	}
-	cold_reset->status = cold_reset_rsp[NCI_PAYLOAD_IDX];
-
-error:
-	kfree(cold_reset_rsp);
-}
 
 /*
  * Power management of the eSE
@@ -442,57 +348,6 @@ int nfc_ese_pwr(struct nfc_dev *nfc_dev, unsigned long arg)
 			pr_debug("keep ven high as NFC is enabled\n");
 		}
 		nfc_dev->is_ese_session_active = false;
-	} else if (arg == ESE_COLD_RESET) {
-
-		// set default value for status as failure
-		nfc_dev->cold_reset.status = -EIO;
-
-		ret = send_cold_reset_cmd(nfc_dev);
-		if (ret <= 0) {
-			pr_err("failed to send cold reset command\n");
-			return nfc_dev->cold_reset.status;
-		}
-
-		nfc_dev->cold_reset.rsp_pending = true;
-
-		// check if NFC is enabled
-		if (nfc_dev->cold_reset.is_nfc_enabled) {
-
-			/*
-			 * nfc_read thread will initiate cold reset response
-			 * and it will signal for data available
-			 */
-			wait_event_interruptible(nfc_dev->cold_reset.read_wq,
-				!nfc_dev->cold_reset.rsp_pending);
-
-		} else {
-
-			// Read data as NFC thread is not active
-
-			nfc_dev->nfc_enable_intr(nfc_dev);
-
-			if (nfc_dev->interface == PLATFORM_IF_I2C) {
-				ret = wait_event_interruptible_timeout(
-					nfc_dev->read_wq,
-					!nfc_dev->i2c_dev.irq_enabled,
-					msecs_to_jiffies(MAX_IRQ_WAIT_TIME));
-				if (ret <= 0) {
-					nfc_dev->nfc_disable_intr(nfc_dev);
-					nfc_dev->cold_reset.rsp_pending = false;
-					return nfc_dev->cold_reset.status;
-				}
-				read_cold_reset_rsp(nfc_dev, NULL);
-				nfc_dev->cold_reset.rsp_pending = false;
-			} else {
-				wait_event_interruptible(
-					nfc_dev->cold_reset.read_wq,
-					!nfc_dev->cold_reset.rsp_pending);
-				nfc_dev->nfc_disable_intr(nfc_dev);
-			}
-		}
-
-		ret = nfc_dev->cold_reset.status;
-
 	} else if (arg == ESE_POWER_STATE) {
 		// eSE power state
 		ret = gpio_get_value(nfc_dev->gpio.ven);
@@ -673,8 +528,13 @@ long nfc_dev_ioctl(struct file *pfile, unsigned int cmd, unsigned long arg)
 	case NFC_GET_PLATFORM_TYPE:
 		ret = nfc_dev->interface;
 		break;
+	case ESE_COLD_RESET:
+		pr_debug("nfc ese cold reset ioctl\n");
+		ret = ese_cold_reset_ioctl(nfc_dev, arg);
+		break;
 	default:
-		pr_err("%s bad cmd %lu\n", __func__, arg);
+		pr_err("%s Unsupported ioctl 0x%x, arg %lu\n",
+						__func__, cmd, arg);
 		ret = -ENOIOCTLCMD;
 	}
 	return ret;
@@ -740,7 +600,7 @@ int nfc_dev_close(struct inode *inode, struct file *filp)
 	return 0;
 }
 
-int is_data_available_for_read(struct nfc_dev *nfc_dev)
+int is_nfc_data_available_for_read(struct nfc_dev *nfc_dev)
 {
 	int ret;
 
@@ -843,7 +703,7 @@ int nfcc_hw_check(struct nfc_dev *nfc_dev)
 		}
 
 		if (nfc_dev->interface == PLATFORM_IF_I2C) {
-			ret = is_data_available_for_read(nfc_dev);
+			ret = is_nfc_data_available_for_read(nfc_dev);
 			if (ret <= 0) {
 				nfc_dev->nfc_disable_intr(nfc_dev);
 				pr_err("%s: - error waiting for get version rsp ret %d\n",
@@ -875,7 +735,7 @@ int nfcc_hw_check(struct nfc_dev *nfc_dev)
 	}
 
 	if (nfc_dev->interface == PLATFORM_IF_I2C) {
-		ret = is_data_available_for_read(nfc_dev);
+		ret = is_nfc_data_available_for_read(nfc_dev);
 		if (ret <= 0) {
 			nfc_dev->nfc_disable_intr(nfc_dev);
 			pr_err("%s: - error waiting for core reset rsp ret %d\n",
@@ -894,7 +754,7 @@ int nfcc_hw_check(struct nfc_dev *nfc_dev)
 	}
 
 	if (nfc_dev->interface == PLATFORM_IF_I2C) {
-		ret = is_data_available_for_read(nfc_dev);
+		ret = is_nfc_data_available_for_read(nfc_dev);
 		if (ret <= 0) {
 			pr_err("%s: - error waiting for core reset ntf ret %d\n",
 					__func__, ret);
