@@ -14,13 +14,6 @@
  * systems with no controllable regulators.
  */
 
-/*
- * Define QTI_FIXED_REGULATOR here to avoid a loss of proxy-consumer voting
- * regression for existing fixed-regulator device tree devices.  Once such
- * devices are switched to qti-fixed-regulator, this line can be removed.
- */
-#define QTI_FIXED_REGULATOR
-
 #include <linux/err.h>
 #include <linux/mutex.h>
 #include <linux/module.h>

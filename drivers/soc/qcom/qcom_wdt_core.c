@@ -25,6 +25,7 @@
 #include <linux/kernel_stat.h>
 #include <linux/irq_cpustat.h>
 #include <linux/kallsyms.h>
+#include <linux/kdebug.h>
 
 #define MASK_SIZE        32
 #define COMPARE_RET      -1
@@ -397,6 +398,16 @@ static struct syscore_ops qcom_wdt_syscore_ops = {
 #endif
 };
 
+static void qcom_wdt_reset_on_oops(struct msm_watchdog_data *wdog_dd,
+			int timeout)
+{
+	wdog_dd->ops->set_bark_time((timeout + 10) * 1000,
+					wdog_dd);
+	wdog_dd->ops->set_bite_time((timeout + 10) * 1000,
+					wdog_dd);
+	wdog_dd->ops->reset_wdt(wdog_dd);
+}
+
 static int qcom_wdt_panic_handler(struct notifier_block *this,
 			      unsigned long event, void *ptr)
 {
@@ -411,14 +422,31 @@ static int qcom_wdt_panic_handler(struct notifier_block *this,
 	if (panic_timeout == 0) {
 		wdog_dd->ops->disable_wdt(wdog_dd);
 	} else {
-		wdog_dd->ops->set_bark_time((panic_timeout + 10) * 1000,
-						wdog_dd);
-		wdog_dd->ops->set_bite_time((panic_timeout + 10) * 1000,
-						wdog_dd);
-		wdog_dd->ops->reset_wdt(wdog_dd);
+		qcom_wdt_reset_on_oops(wdog_dd, panic_timeout);
 	}
 	return NOTIFY_DONE;
 }
+
+#ifdef CONFIG_QCOM_MINIDUMP_PANIC_DUMP
+static int qcom_wdt_die_handler(struct notifier_block *this,
+				unsigned long val, void *data)
+{
+	struct msm_watchdog_data *wdog_dd = container_of(this,
+				struct msm_watchdog_data, die_blk);
+
+	qcom_wdt_reset_on_oops(wdog_dd, 5);
+	return NOTIFY_DONE;
+}
+
+static void qcom_wdt_register_die_notifier(struct msm_watchdog_data *wdog_dd)
+{
+	wdog_dd->die_blk.notifier_call = qcom_wdt_die_handler;
+	wdog_dd->die_blk.priority = INT_MAX - 1;
+	register_die_notifier(&wdog_dd->die_blk);
+}
+#else
+static void qcom_wdt_register_die_notifier(struct msm_watchdog_data *wdog_dd) { }
+#endif
 
 static void qcom_wdt_disable(struct msm_watchdog_data *wdog_dd)
 {
@@ -797,10 +825,11 @@ static int qcom_wdt_init(struct msm_watchdog_data *wdog_dd,
 	delay_time = msecs_to_jiffies(wdog_dd->pet_time);
 	wdog_dd->ops->set_bark_time(wdog_dd->bark_time, wdog_dd);
 	wdog_dd->ops->set_bite_time(wdog_dd->bark_time + 3 * 1000, wdog_dd);
-	wdog_dd->panic_blk.priority = WDOG_BITE_EARLY_PANIC ? INT_MAX - 1 : 0;
+	wdog_dd->panic_blk.priority = INT_MAX - 1;
 	wdog_dd->panic_blk.notifier_call = qcom_wdt_panic_handler;
 	atomic_notifier_chain_register(&panic_notifier_list,
 				       &wdog_dd->panic_blk);
+	qcom_wdt_register_die_notifier(wdog_dd);
 	wdog_dd->restart_blk.priority = 255;
 	wdog_dd->restart_blk.notifier_call = restart_wdog_handler;
 	register_restart_handler(&wdog_dd->restart_blk);

@@ -513,6 +513,19 @@ config KPROBE_EVENTS
 	  This option is also required by perf-probe subcommand of perf tools.
 	  If you want to use perf tools, this option is strongly recommended.
 
+config KPROBES_QGKI
+	bool "Enable kprobe debug module on QGKI"
+	depends on KPROBES
+	depends on QGKI
+	default y
+	help
+	  This enables the kprobe debug module on QGKI builds
+	  which aids in dynamic debugging.
+
+	  This module can be used to insert kprobe at any offset
+	  within a function and get required data and also provides
+	  additional debug functionalities on top of normal kprobes.
+
 config KPROBE_EVENTS_ON_NOTRACE
 	bool "Do NOT protect notrace function from kprobe events"
 	depends on KPROBE_EVENTS
@@ -530,6 +543,18 @@ config KPROBE_EVENTS_ON_NOTRACE
 	  This option disables such protection and allows you to put kprobe
 	  events on ftrace functions for debugging ftrace by itself.
 	  Note that this might let you shoot yourself in the foot.
+
+	  If unsure, say N.
+
+config KPROBES_DEBUG
+	bool "support bug on kprobe events"
+	depends on KPROBE_EVENTS
+	select HIST_TRIGGERS
+	default n
+	help
+	  This exports the required function and structures to
+	  allow the kprobe module to search for and use synthetic
+	  events which will aid in debugging.
 
 	  If unsure, say N.
 

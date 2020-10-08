@@ -16,6 +16,7 @@ msm_kgsl-y = \
 	kgsl_pwrscale.o \
 	kgsl_sharedmem.o \
 	kgsl_snapshot.o \
+	kgsl_timeline.o \
 	kgsl_trace.o \
 	kgsl_util.o
 
@@ -27,6 +28,7 @@ msm_kgsl-$(CONFIG_SYNC_FILE) += kgsl_sync.o
 msm_kgsl-y += \
 	adreno.o \
 	adreno_a3xx.o \
+	adreno_a3xx_perfcounter.o \
 	adreno_a3xx_snapshot.o \
 	adreno_a5xx.o \
 	adreno_a5xx_preempt.o \

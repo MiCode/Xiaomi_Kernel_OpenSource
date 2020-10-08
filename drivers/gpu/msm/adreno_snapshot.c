@@ -854,6 +854,10 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 			snapshot, adreno_snapshot_global,
 			adreno_dev->pwron_fixup);
 
+	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
+			snapshot, adreno_snapshot_global,
+			adreno_dev->profile_buffer);
+
 	if (kgsl_mmu_get_mmutype(device) == KGSL_MMU_TYPE_IOMMU)
 		adreno_snapshot_iommu(device, snapshot);
 

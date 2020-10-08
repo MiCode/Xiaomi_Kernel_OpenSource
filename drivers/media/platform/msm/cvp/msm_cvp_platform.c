@@ -149,7 +149,11 @@ static struct msm_cvp_common_data sm8350_common_data[] = {
 	{
 		.key = "qcom,debug-timeout",
 		.value = 0,
-	}
+	},
+	{
+		.key = "qcom,domain-attr-non-fatal-faults",
+		.value = 1,
+	},
 };
 
 

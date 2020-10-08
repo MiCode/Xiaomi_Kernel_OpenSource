@@ -1,4 +1,4 @@
-[abi_whitelist]
+[abi_symbol_list]
 # commonly used symbols
   __alloc_disk_node
   alloc_etherdev_mqs

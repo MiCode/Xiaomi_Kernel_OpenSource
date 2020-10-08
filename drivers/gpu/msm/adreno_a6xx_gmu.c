@@ -14,11 +14,13 @@
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
 #include <linux/soc/qcom/llcc-qcom.h>
+#include <linux/mailbox/qmp.h>
 #include <soc/qcom/cmd-db.h>
 
 #include "adreno.h"
 #include "adreno_a6xx.h"
 #include "adreno_hwsched.h"
+#include "adreno_trace.h"
 #include "kgsl_bus.h"
 #include "kgsl_device.h"
 #include "kgsl_trace.h"
@@ -415,12 +417,30 @@ static void a6xx_gmu_power_config(struct adreno_device *adreno_dev)
 				RPMH_ENABLE_MASK);
 }
 
+static void gmu_ao_sync_event(struct adreno_device *adreno_dev)
+{
+	unsigned long flags;
+	u64 ticks;
+
+	local_irq_save(flags);
+
+	/* Read GMU always on register */
+	ticks = a6xx_read_alwayson(adreno_dev);
+
+	/* Trace the GMU time to create a mapping to ftrace time */
+	trace_gmu_ao_sync(ticks);
+
+	local_irq_restore(flags);
+}
+
 int a6xx_gmu_device_start(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
 	u32 val = 0x00000100;
 	u32 mask = 0x000001FF;
+
+	gmu_ao_sync_event(adreno_dev);
 
 	/* Check for 0xBABEFACE on legacy targets */
 	if (gmu->ver.core <= 0x20010004) {
@@ -1786,7 +1806,7 @@ void a6xx_gmu_suspend(struct adreno_device *adreno_dev)
 	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_CX_GDSC))
 		regulator_set_mode(gmu->cx_gdsc, REGULATOR_MODE_IDLE);
 
-	if (!kgsl_regulator_disable_wait(gmu->cx_gdsc, 5000))
+	if (!a6xx_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000))
 		dev_err(&gmu->pdev->dev, "GMU CX gdsc off timeout\n");
 
 	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_CX_GDSC))
@@ -1903,6 +1923,22 @@ static void a6xx_gmu_send_nmi(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	u32 val;
 
+	if (!a6xx_gmu_gx_is_on(device))
+		goto done;
+
+	/*
+	 * Do not send NMI if the SMMU is stalled because GMU will not be able
+	 * to save cm3 state to DDR.
+	 */
+	if (a6xx_is_smmu_stalled(device)) {
+		struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
+
+		dev_err(&gmu->pdev->dev,
+			"Skipping NMI because SMMU is stalled\n");
+		return;
+	}
+
+done:
 	/* Mask so there's no interrupt caused by NMI */
 	gmu_core_regwrite(device, A6XX_GMU_GMU2HOST_INTR_MASK, 0xFFFFFFFF);
 
@@ -2093,19 +2129,20 @@ void a6xx_gmu_snapshot(struct adreno_device *adreno_dev,
 
 void a6xx_gmu_aop_send_acd_state(struct a6xx_gmu_device *gmu, bool flag)
 {
-	char msg_buf[33];
+	struct qmp_pkt msg;
+	char msg_buf[36];
+	u32 size;
 	int ret;
-	struct {
-		u32 len;
-		void *msg;
-	} msg;
 
 	if (IS_ERR_OR_NULL(gmu->mailbox.channel))
 		return;
 
-	msg.len = scnprintf(msg_buf, sizeof(msg_buf),
-			"{class: gpu, res: acd, value: %d}", flag);
-	msg.msg = msg_buf;
+	size = scnprintf(msg_buf, sizeof(msg_buf),
+			"{class: gpu, res: acd, val: %d}", flag);
+
+	/* mailbox controller expects 4-byte aligned buffer */
+	msg.size = ALIGN((size + 1), SZ_4);
+	msg.data = msg_buf;
 
 	ret = mbox_send_message(gmu->mailbox.channel, &msg);
 
@@ -2259,7 +2296,7 @@ clks_gdsc_off:
 
 gdsc_off:
 	/* Pool to make sure that the CX is off */
-	if (!kgsl_regulator_disable_wait(gmu->cx_gdsc, 5000))
+	if (!a6xx_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000))
 		dev_err(&gmu->pdev->dev, "GMU CX gdsc off timeout\n");
 
 	return ret;
@@ -2336,7 +2373,7 @@ clks_gdsc_off:
 
 gdsc_off:
 	/* Pool to make sure that the CX is off */
-	if (!kgsl_regulator_disable_wait(gmu->cx_gdsc, 5000))
+	if (!a6xx_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000))
 		dev_err(&gmu->pdev->dev, "GMU CX gdsc off timeout\n");
 
 	return ret;
@@ -2789,7 +2826,7 @@ static int a6xx_gmu_power_off(struct adreno_device *adreno_dev)
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
 
 	/* Pool to make sure that the CX is off */
-	if (!kgsl_regulator_disable_wait(gmu->cx_gdsc, 5000))
+	if (!a6xx_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000))
 		dev_err(&gmu->pdev->dev, "GMU CX gdsc off timeout\n");
 
 	device->state = KGSL_STATE_NONE;

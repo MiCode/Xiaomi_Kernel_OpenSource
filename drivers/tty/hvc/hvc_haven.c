@@ -85,7 +85,9 @@ static int hh_hvc_notify_console_chars(struct notifier_block *this,
 		pr_warn_ratelimited("dropped %d bytes from VM%d - full fifo\n",
 				    msg->num_bytes - ret, vm_name);
 
-	hvc_kick();
+	if (hvc_poll(hh_hvc_data[vm_name].hvc))
+		hvc_kick();
+
 	return NOTIFY_OK;
 }
 

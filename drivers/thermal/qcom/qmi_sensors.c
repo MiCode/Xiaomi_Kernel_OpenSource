@@ -60,6 +60,7 @@ enum qmi_ts_sensor {
 	QMI_TS_MMW_PA2,
 	QMI_TS_MMW_PA3,
 	QMI_TS_SDR_MMW,
+	QMI_TS_MSM_SKIN,
 	QMI_TS_MAX_NR
 };
 
@@ -121,6 +122,7 @@ static char sensor_clients[QMI_TS_MAX_NR][QMI_CLIENT_NAME_LENGTH] = {
 	{"mmw_pa2"},
 	{"mmw_pa3"},
 	{"sdr_mmw_therm"},
+	{"msm_skin_therm"},
 };
 
 static int32_t encode_qmi(int32_t val)

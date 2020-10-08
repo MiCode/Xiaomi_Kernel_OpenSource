@@ -323,6 +323,9 @@ int cnss_set_pcie_gen_speed(struct device *dev, u8 pcie_gen_speed)
 {
 	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
 
+	if (!plat_priv)
+		return -EINVAL;
+
 	if (plat_priv->device_id != QCA6490_DEVICE_ID ||
 	    !plat_priv->fw_pcie_gen_switch)
 		return -ENOTSUPP;
@@ -402,6 +405,40 @@ static void cnss_release_antenna_sharing(struct cnss_plat_data *plat_priv)
 		coex_antenna_switch_to_mdm_send_sync_msg(plat_priv);
 }
 
+#define CNSS_DMS_QMI_CONNECTION_WAIT_MS 50
+#define CNSS_DMS_QMI_CONNECTION_WAIT_RETRY 200
+static int cnss_setup_dms_mac(struct cnss_plat_data *plat_priv)
+{
+	u32 i;
+	int ret = 0;
+
+	/* DTSI property use-nv-mac is used to force DMS MAC address for WLAN.
+	 * Thus assert on failure to get MAC from DMS even after retries
+	 */
+	if (plat_priv->use_nv_mac) {
+		for (i = 0; i < CNSS_DMS_QMI_CONNECTION_WAIT_RETRY; i++) {
+			if (plat_priv->dms.mac_valid)
+				break;
+
+			ret = cnss_qmi_get_dms_mac(plat_priv);
+			if (ret == 0)
+				break;
+			msleep(CNSS_DMS_QMI_CONNECTION_WAIT_MS);
+		}
+		if (!plat_priv->dms.mac_valid) {
+			cnss_pr_err("Unable to get MAC from DMS\n");
+			CNSS_ASSERT(0);
+			return -EINVAL;
+		}
+	}
+	if (plat_priv->dms.mac_valid)
+		ret =
+		cnss_wlfw_wlan_mac_req_send_sync(plat_priv, plat_priv->dms.mac,
+						 ARRAY_SIZE(plat_priv->dms.mac));
+
+	return ret;
+}
+
 static int cnss_fw_ready_hdlr(struct cnss_plat_data *plat_priv)
 {
 	int ret = 0;
@@ -429,6 +466,7 @@ static int cnss_fw_ready_hdlr(struct cnss_plat_data *plat_priv)
 		ret = cnss_wlfw_wlan_mode_send_sync(plat_priv,
 						    CNSS_CALIBRATION);
 	} else {
+		ret = cnss_setup_dms_mac(plat_priv);
 		ret = cnss_bus_call_driver_probe(plat_priv);
 	}
 
@@ -490,6 +528,10 @@ static char *cnss_driver_event_to_str(enum cnss_driver_event_type type)
 		return "QDSS_TRACE_SAVE";
 	case CNSS_DRIVER_EVENT_QDSS_TRACE_FREE:
 		return "QDSS_TRACE_FREE";
+	case CNSS_DRIVER_EVENT_DMS_SERVER_ARRIVE:
+		return "DMS_SERVER_ARRIVE";
+	case CNSS_DRIVER_EVENT_DMS_SERVER_EXIT:
+		return "DMS_SERVER_EXIT";
 	case CNSS_DRIVER_EVENT_MAX:
 		return "EVENT_MAX";
 	}
@@ -1112,6 +1154,7 @@ static int cnss_do_recovery(struct cnss_plat_data *plat_priv,
 	return 0;
 
 self_recovery:
+	cnss_pr_dbg("Going for self recovery\n");
 	cnss_bus_dev_shutdown(plat_priv);
 	cnss_bus_dev_powerup(plat_priv);
 
@@ -1633,6 +1676,12 @@ static void cnss_driver_event_work(struct work_struct *work)
 			break;
 		case CNSS_DRIVER_EVENT_QDSS_TRACE_FREE:
 			ret = cnss_qdss_trace_free_hdlr(plat_priv);
+			break;
+		case CNSS_DRIVER_EVENT_DMS_SERVER_ARRIVE:
+			ret = cnss_dms_server_arrive(plat_priv, event->data);
+			break;
+		case CNSS_DRIVER_EVENT_DMS_SERVER_EXIT:
+			ret = cnss_dms_server_exit(plat_priv);
 			break;
 		default:
 			cnss_pr_err("Invalid driver event type: %d",
@@ -2245,7 +2294,7 @@ int cnss_minidump_remove_region(struct cnss_plat_data *plat_priv,
 static int cnss_register_bus_scale(struct cnss_plat_data *plat_priv)
 {
 	int ret = -EINVAL;
-	u32 idx, i, j, cfg_arr_size, *cfg_arr;
+	u32 idx, i, j, cfg_arr_size, *cfg_arr = NULL;
 	struct cnss_bus_bw_info *bus_bw_info, *tmp;
 	struct device *dev = &plat_priv->plat_dev->dev;
 
@@ -2618,6 +2667,11 @@ static void cnss_init_control_params(struct cnss_plat_data *plat_priv)
 	plat_priv->cbc_enabled =
 		of_property_read_bool(plat_priv->plat_dev->dev.of_node,
 				      "qcom,wlan-cbc-enabled");
+
+	if (of_property_read_bool(plat_priv->plat_dev->dev.of_node,
+				  "cnss-enable-self-recovery"))
+		plat_priv->ctrl_params.quirks |= BIT(LINK_DOWN_SELF_RECOVERY);
+
 	plat_priv->ctrl_params.mhi_timeout = CNSS_MHI_TIMEOUT_DEFAULT;
 	plat_priv->ctrl_params.mhi_m2_timeout = CNSS_MHI_M2_TIMEOUT_DEFAULT;
 	plat_priv->ctrl_params.qmi_timeout = CNSS_QMI_TIMEOUT_DEFAULT;
@@ -2764,9 +2818,13 @@ static int cnss_probe(struct platform_device *plat_dev)
 	if (ret)
 		goto deinit_event_work;
 
-	ret = cnss_debugfs_create(plat_priv);
+	ret = cnss_dms_init(plat_priv);
 	if (ret)
 		goto deinit_qmi;
+
+	ret = cnss_debugfs_create(plat_priv);
+	if (ret)
+		goto deinit_dms;
 
 	ret = cnss_misc_init(plat_priv);
 	if (ret)
@@ -2785,6 +2843,8 @@ static int cnss_probe(struct platform_device *plat_dev)
 
 destroy_debugfs:
 	cnss_debugfs_destroy(plat_priv);
+deinit_dms:
+	cnss_dms_deinit(plat_priv);
 deinit_qmi:
 	cnss_qmi_deinit(plat_priv);
 deinit_event_work:
@@ -2820,6 +2880,7 @@ static int cnss_remove(struct platform_device *plat_dev)
 	cnss_misc_deinit(plat_priv);
 	cnss_debugfs_destroy(plat_priv);
 	cnss_qmi_deinit(plat_priv);
+	cnss_dms_deinit(plat_priv);
 	cnss_event_work_deinit(plat_priv);
 	cnss_remove_sysfs(plat_priv);
 	cnss_unregister_bus_scale(plat_priv);

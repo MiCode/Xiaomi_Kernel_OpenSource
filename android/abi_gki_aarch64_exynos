@@ -1,4 +1,4 @@
-[abi_whitelist]
+[abi_symbol_list]
   add_timer
   add_timer_on
   add_uevent_var

@@ -11,12 +11,17 @@
 #include <trace/hooks/vendor_hooks.h>
 
 #if defined(CONFIG_TRACEPOINTS) && defined(CONFIG_ANDROID_VENDOR_HOOKS)
-
+struct pt_regs;
 DECLARE_HOOK(android_vh_ipi_stop,
 	TP_PROTO(struct pt_regs *regs),
 	TP_ARGS(regs))
+
+DECLARE_HOOK(android_vh_printk_store,
+	TP_PROTO(int facility, int level),
+	TP_ARGS(facility, level))
 #else
 #define trace_android_vh_ipi_stop(regs)
+#define trace_android_vh_printk_store(facility, level)
 #endif
 
 #endif /* _TRACE_HOOK_DEBUG_H */

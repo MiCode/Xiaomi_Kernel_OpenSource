@@ -8,6 +8,7 @@
 #include <linux/of.h>
 #include <linux/of_fdt.h>
 #include <linux/of_device.h>
+#include <linux/regulator/consumer.h>
 #include <linux/soc/qcom/llcc-qcom.h>
 
 #include "adreno.h"
@@ -241,6 +242,32 @@ static unsigned int __get_gmu_wfi_config(struct adreno_device *adreno_dev)
 		return 0x00000002;
 
 	return 0x00000000;
+}
+
+bool a6xx_cx_regulator_disable_wait(struct regulator *reg,
+				struct kgsl_device *device, u32 timeout)
+{
+	ktime_t tout = ktime_add_us(ktime_get(), timeout * 1000);
+	unsigned int val;
+
+	if (IS_ERR_OR_NULL(reg))
+		return true;
+
+	regulator_disable(reg);
+
+	for (;;) {
+		gmu_core_regread(device, A6XX_GPU_CC_CX_GDSCR, &val);
+
+		if (!(val & BIT(31)))
+			return true;
+
+		if (ktime_compare(ktime_get(), tout) > 0) {
+			gmu_core_regread(device, A6XX_GPU_CC_CX_GDSCR, &val);
+			return (!(val & BIT(31)));
+		}
+
+		usleep_range((100 >> 2) + 1, 100);
+	}
 }
 
 static void a6xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
@@ -1072,13 +1099,14 @@ static void a6xx_gpu_keepalive(struct adreno_device *adreno_dev,
 
 static bool a619_holi_hw_isidle(struct adreno_device *adreno_dev)
 {
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned int reg;
 
-	adreno_read_gmu_wrapper(adreno_dev,
-		A6XX_GPU_GMU_AO_GPU_CX_BUSY_STATUS, &reg);
+	kgsl_regread(device, A6XX_RBBM_STATUS, &reg);
+	if (reg & 0xfffffffe)
+		return false;
 
-	/* Bit 23 is GPUBUSYIGNAHB */
-	return (reg & BIT(23)) ? false : true;
+	return adreno_irq_pending(adreno_dev) ? false : true;
 }
 
 bool a6xx_hw_isidle(struct adreno_device *adreno_dev)
@@ -2430,10 +2458,10 @@ static struct adreno_perfcount_register a6xx_perfcounters_alwayson[] = {
  */
 #define A6XX_PERFCOUNTER_GROUP(offset, name) \
 	ADRENO_PERFCOUNTER_GROUP_FLAGS(a6xx, offset, name, \
-	ADRENO_PERFCOUNTER_GROUP_RESTORE)
+	ADRENO_PERFCOUNTER_GROUP_RESTORE, NULL, NULL)
 
 #define A6XX_PERFCOUNTER_GROUP_FLAGS(offset, name, flags) \
-	ADRENO_PERFCOUNTER_GROUP_FLAGS(a6xx, offset, name, flags)
+	ADRENO_PERFCOUNTER_GROUP_FLAGS(a6xx, offset, name, flags, NULL, NULL)
 
 #define A6XX_POWER_COUNTER_GROUP(offset, name) \
 	ADRENO_POWER_COUNTER_GROUP(a6xx, offset, name)
@@ -2606,7 +2634,6 @@ static unsigned int a6xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 			A6XX_CP_CONTEXT_SWITCH_LEVEL_STATUS),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_STATUS, A6XX_RBBM_STATUS),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_STATUS3, A6XX_RBBM_STATUS3),
-	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_CTL, A6XX_RBBM_PERFCTR_CNTL),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_LOAD_CMD0,
 					A6XX_RBBM_PERFCTR_LOAD_CMD0),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_LOAD_CMD1,

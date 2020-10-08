@@ -10,8 +10,8 @@
 #include <linux/interrupt.h>
 #include <linux/module.h>
 #include <linux/iio/consumer.h>
+#include <linux/iio/iio.h>
 #include <linux/platform_device.h>
-#include <linux/qpnp/qpnp-revid.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/of_irq.h>
@@ -19,9 +19,11 @@
 #include <linux/regulator/machine.h>
 #include <linux/regulator/of_regulator.h>
 #include <linux/power_supply.h>
+#include <linux/qti_power_supply.h>
 #include <linux/workqueue.h>
 #include <linux/pmic-voter.h>
 #include <linux/string.h>
+#include <dt-bindings/iio/qti_power_supply_iio.h>
 
 /* SMB1355 registers, different than mentioned in smb-reg.h */
 
@@ -167,8 +169,8 @@
 #define TR_SCPATH_ICL_1X_GAIN_MASK		GENMASK(5, 0)
 
 #define IS_USBIN(mode)				\
-	((mode == POWER_SUPPLY_PL_USBIN_USBIN) \
-	 || (mode == POWER_SUPPLY_PL_USBIN_USBIN_EXT))
+	((mode == QTI_POWER_SUPPLY_PL_USBIN_USBIN) \
+	 || (mode == QTI_POWER_SUPPLY_PL_USBIN_USBIN_EXT))
 
 #define PARALLEL_ENABLE_VOTER			"PARALLEL_ENABLE_VOTER"
 
@@ -239,7 +241,8 @@ struct smb1355 {
 	struct mutex		suspend_lock;
 
 	struct power_supply	*parallel_psy;
-	struct pmic_revid_data	*pmic_rev_id;
+	struct iio_dev		*indio_dev;
+	struct iio_chan_spec	*iio_chan;
 	int			d_health;
 	int			c_health;
 	int			c_charger_temp_max;
@@ -263,6 +266,63 @@ struct smb1355 {
 enum {
 	CONNECTOR_TEMP = 0,
 	DIE_TEMP,
+};
+
+struct smb1355_iio_channel {
+	const char	*datasheet_name;
+	int		channel_num;
+	enum		iio_chan_type type;
+	long		info_mask;
+};
+
+#define PL_IIO_CHAN(_name, _num, _type, _mask)		\
+	{						\
+		.datasheet_name = _name,		\
+		.channel_num = _num,			\
+		.type = _type,				\
+		.info_mask = _mask,			\
+	},
+
+#define PL_CHAN_ENERGY(_name, _num)			\
+	PL_IIO_CHAN(_name, _num, IIO_ENERGY,		\
+		BIT(IIO_CHAN_INFO_PROCESSED))
+
+#define PL_CHAN_INDEX(_name, _num)			\
+	PL_IIO_CHAN(_name, _num, IIO_INDEX,		\
+		BIT(IIO_CHAN_INFO_PROCESSED))
+
+#define PL_CHAN_TEMP(_name, _num)			\
+	PL_IIO_CHAN(_name, _num, IIO_TEMP,		\
+		BIT(IIO_CHAN_INFO_PROCESSED))
+
+#define PL_CHAN_VOLT(_name, _num)			\
+	PL_IIO_CHAN(_name, _num, IIO_VOLTAGE,		\
+		BIT(IIO_CHAN_INFO_PROCESSED))
+
+#define PL_CHAN_CURR(_name, _num)			\
+	PL_IIO_CHAN(_name, _num, IIO_CURRENT,		\
+		BIT(IIO_CHAN_INFO_PROCESSED))
+
+static const struct smb1355_iio_channel smb1355_iio_channels[] = {
+	PL_CHAN_ENERGY("charge_type", PSY_IIO_CHARGE_TYPE)
+	PL_CHAN_INDEX("online", PSY_IIO_ONLINE)
+	PL_CHAN_INDEX("charging_enabled", PSY_IIO_CHARGING_ENABLED)
+	PL_CHAN_INDEX("pin_enabled", PSY_IIO_PIN_ENABLED)
+	PL_CHAN_INDEX("input_suspend", PSY_IIO_INPUT_SUSPEND)
+	PL_CHAN_TEMP("charger_temp", PSY_IIO_CHARGER_TEMP)
+	PL_CHAN_TEMP("charger_temp_max", PSY_IIO_CHARGER_TEMP_MAX)
+	PL_CHAN_VOLT("voltage_max", PSY_IIO_VOLTAGE_MAX)
+	PL_CHAN_CURR("constant_charge_current_max",
+			PSY_IIO_CONSTANT_CHARGE_CURRENT_MAX)
+	PL_CHAN_INDEX("parallel_mode", PSY_IIO_PARALLEL_MODE)
+	PL_CHAN_INDEX("connector_health", PSY_IIO_CONNECTOR_HEALTH)
+	PL_CHAN_INDEX("parallel_batfet_mode", PSY_IIO_PARALLEL_BATFET_MODE)
+	PL_CHAN_CURR("parallel_fcc_max", PSY_IIO_PARALLEL_FCC_MAX)
+	PL_CHAN_CURR("input_current_limited", PSY_IIO_INPUT_CURRENT_LIMITED)
+	PL_CHAN_CURR("min_icl", PSY_IIO_MIN_ICL)
+	PL_CHAN_CURR("current_max", PSY_IIO_CURRENT_MAX)
+	PL_CHAN_INDEX("set_ship_mode", PSY_IIO_SET_SHIP_MODE)
+	PL_CHAN_INDEX("die_health", PSY_IIO_DIE_HEALTH)
 };
 
 static bool is_secure(struct smb1355 *chip, int addr)
@@ -447,7 +507,7 @@ static void die_temp_work(struct work_struct *work)
 }
 
 static int smb1355_get_prop_input_current_limited(struct smb1355 *chip,
-					union power_supply_propval *pval)
+							int *val)
 {
 	int rc;
 	u8 stat = 0;
@@ -456,7 +516,7 @@ static int smb1355_get_prop_input_current_limited(struct smb1355 *chip,
 	if (rc < 0)
 		pr_err("Couldn't read SMB1355_BATTERY_STATUS_3 rc=%d\n", rc);
 
-	pval->intval = !!(stat & HARD_ILIMIT_RT_STS_BIT);
+	*val = !!(stat & HARD_ILIMIT_RT_STS_BIT);
 
 	return 0;
 }
@@ -521,15 +581,15 @@ static int smb1355_parse_dt(struct smb1355 *chip)
 	rc = of_property_read_u32(node,
 		"qcom,parallel-mode", &chip->dt.pl_mode);
 	if (rc < 0)
-		chip->dt.pl_mode = POWER_SUPPLY_PL_USBMID_USBMID;
+		chip->dt.pl_mode = QTI_POWER_SUPPLY_PL_USBMID_USBMID;
 
 	/*
 	 * If stacked-batfet property is not present default
 	 * configuration is NON-STACKED-BATFET.
 	 */
-	chip->dt.pl_batfet_mode = POWER_SUPPLY_PL_NON_STACKED_BATFET;
+	chip->dt.pl_batfet_mode = QTI_POWER_SUPPLY_PL_NON_STACKED_BATFET;
 	if (of_property_read_bool(node, "qcom,stacked-batfet"))
-		chip->dt.pl_batfet_mode = POWER_SUPPLY_PL_STACKED_BATFET;
+		chip->dt.pl_batfet_mode = QTI_POWER_SUPPLY_PL_STACKED_BATFET;
 
 	chip->dt.hw_die_temp_mitigation = of_property_read_bool(node,
 					"qcom,hw-die-temp-mitigation");
@@ -543,34 +603,8 @@ static int smb1355_parse_dt(struct smb1355 *chip)
 	return 0;
 }
 
-/*****************************
- * PARALLEL PSY REGISTRATION *
- *****************************/
-
-static enum power_supply_property smb1355_parallel_props[] = {
-	POWER_SUPPLY_PROP_CHARGE_TYPE,
-	POWER_SUPPLY_PROP_ONLINE,
-	POWER_SUPPLY_PROP_CHARGING_ENABLED,
-	POWER_SUPPLY_PROP_PIN_ENABLED,
-	POWER_SUPPLY_PROP_INPUT_SUSPEND,
-	POWER_SUPPLY_PROP_CHARGER_TEMP,
-	POWER_SUPPLY_PROP_CHARGER_TEMP_MAX,
-	POWER_SUPPLY_PROP_VOLTAGE_MAX,
-	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
-	POWER_SUPPLY_PROP_MODEL_NAME,
-	POWER_SUPPLY_PROP_PARALLEL_MODE,
-	POWER_SUPPLY_PROP_CONNECTOR_HEALTH,
-	POWER_SUPPLY_PROP_PARALLEL_BATFET_MODE,
-	POWER_SUPPLY_PROP_PARALLEL_FCC_MAX,
-	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED,
-	POWER_SUPPLY_PROP_MIN_ICL,
-	POWER_SUPPLY_PROP_CURRENT_MAX,
-	POWER_SUPPLY_PROP_SET_SHIP_MODE,
-	POWER_SUPPLY_PROP_DIE_HEALTH,
-};
-
 static int smb1355_get_prop_batt_charge_type(struct smb1355 *chip,
-				union power_supply_propval *val)
+					int *val)
 {
 	int rc;
 	u8 stat;
@@ -583,11 +617,11 @@ static int smb1355_get_prop_batt_charge_type(struct smb1355 *chip,
 
 	if (stat & ENABLE_CHARGING_BIT) {
 		if (stat & BATT_GT_PRE_TO_FAST_BIT)
-			val->intval = POWER_SUPPLY_CHARGE_TYPE_FAST;
+			*val = POWER_SUPPLY_CHARGE_TYPE_FAST;
 		else
-			val->intval = POWER_SUPPLY_CHARGE_TYPE_TRICKLE;
+			*val = POWER_SUPPLY_CHARGE_TYPE_TRICKLE;
 	} else {
-		val->intval = POWER_SUPPLY_CHARGE_TYPE_NONE;
+		*val = POWER_SUPPLY_CHARGE_TYPE_NONE;
 	}
 
 	return rc;
@@ -619,60 +653,60 @@ static int smb1355_get_prop_health(struct smb1355 *chip, int type)
 	return POWER_SUPPLY_HEALTH_COOL;
 }
 
-static int smb1355_get_prop_voltage_max(struct smb1355 *chip,
-					union power_supply_propval *val)
+static int smb1355_get_prop_voltage_max(struct smb1355 *chip, int *val)
 {
 	int rc = 0;
 
 	mutex_lock(&chip->suspend_lock);
 	if (chip->suspended) {
-		val->intval = chip->vbatt_uv;
+		*val = chip->vbatt_uv;
 		goto done;
 	}
-	rc = smb1355_get_charge_param(chip, &chip->param.ov, &val->intval);
+	rc = smb1355_get_charge_param(chip, &chip->param.ov, val);
 	if (rc < 0)
 		pr_err("failed to read vbatt rc=%d\n", rc);
 	else
-		chip->vbatt_uv = val->intval;
+		chip->vbatt_uv = *val;
 done:
 	mutex_unlock(&chip->suspend_lock);
 	return rc;
 }
 
-static int smb1355_get_prop_constant_charge_current_max(struct smb1355 *chip,
-					union power_supply_propval *val)
+static int smb1355_get_prop_constant_charge_current_max(
+					struct smb1355 *chip,
+					int *val)
 {
 	int rc = 0;
 
 	mutex_lock(&chip->suspend_lock);
 	if (chip->suspended) {
-		val->intval = chip->fcc_ua;
+		*val = chip->fcc_ua;
 		goto done;
 	}
-	rc = smb1355_get_charge_param(chip, &chip->param.fcc, &val->intval);
+	rc = smb1355_get_charge_param(chip, &chip->param.fcc, val);
 	if (rc < 0)
 		pr_err("failed to read fcc rc=%d\n", rc);
 	else
-		chip->fcc_ua = val->intval;
+		chip->fcc_ua = *val;
 done:
 	mutex_unlock(&chip->suspend_lock);
 	return rc;
 }
 
 static int smb1355_get_prop_health_value(struct smb1355 *chip,
-				union power_supply_propval *val, int type)
+						int *val, int type)
 {
 	mutex_lock(&chip->suspend_lock);
 	if (chip->suspended) {
-		val->intval = (type == DIE_TEMP) ? chip->d_health :
+		*val = (type == DIE_TEMP) ? chip->d_health :
 						chip->c_health;
 	} else {
-		val->intval = smb1355_get_prop_health(chip, (type == DIE_TEMP) ?
+		*val = smb1355_get_prop_health(chip, (type == DIE_TEMP) ?
 						DIE_TEMP : CONNECTOR_TEMP);
 		if (type == DIE_TEMP)
-			chip->d_health = val->intval;
+			chip->d_health = *val;
 		else
-			chip->c_health = val->intval;
+			chip->c_health = *val;
 	}
 
 	mutex_unlock(&chip->suspend_lock);
@@ -680,54 +714,51 @@ static int smb1355_get_prop_health_value(struct smb1355 *chip,
 	return 0;
 }
 
-static int smb1355_get_prop_online(struct smb1355 *chip,
-					union power_supply_propval *val)
+static int smb1355_get_prop_online(struct smb1355 *chip, int *val)
 {
 	int rc = 0;
 	u8 stat;
 
 	mutex_lock(&chip->suspend_lock);
 	if (chip->suspended) {
-		val->intval = chip->charging_enabled;
+		*val = chip->charging_enabled;
 		goto done;
 	}
 	rc = smb1355_read(chip, BATTERY_STATUS_3_REG, &stat);
 	if (rc < 0) {
 		pr_err("failed to read BATTERY_STATUS_3_REG %d\n", rc);
 	} else {
-		val->intval = (bool)(stat & ENABLE_CHARGING_BIT);
-		chip->charging_enabled = val->intval;
+		*val = (bool)(stat & ENABLE_CHARGING_BIT);
+		chip->charging_enabled = *val;
 	}
 done:
 	mutex_unlock(&chip->suspend_lock);
 	return rc;
 }
 
-static int smb1355_get_prop_pin_enabled(struct smb1355 *chip,
-					union power_supply_propval *val)
+static int smb1355_get_prop_pin_enabled(struct smb1355 *chip, int *val)
 {
 	int rc = 0;
 	u8 stat;
 
 	mutex_lock(&chip->suspend_lock);
 	if (chip->suspended) {
-		val->intval = chip->pin_status;
+		*val = chip->pin_status;
 		goto done;
 	}
 	rc = smb1355_read(chip, BATTERY_STATUS_2_REG, &stat);
 	if (rc < 0) {
 		pr_err("failed to read BATTERY_STATUS_2_REG %d\n", rc);
 	} else {
-		val->intval = !(stat & DISABLE_CHARGING_BIT);
-		chip->pin_status = val->intval;
+		*val = !(stat & DISABLE_CHARGING_BIT);
+		chip->pin_status = *val;
 	}
 done:
 	mutex_unlock(&chip->suspend_lock);
 	return rc;
 }
 
-static int smb1355_get_prop_charge_type(struct smb1355 *chip,
-					union power_supply_propval *val)
+static int smb1355_get_prop_charge_type(struct smb1355 *chip, int *val)
 {
 	int rc = 0;
 
@@ -738,14 +769,14 @@ static int smb1355_get_prop_charge_type(struct smb1355 *chip,
 	 */
 	mutex_lock(&chip->suspend_lock);
 	if (chip->suspended) {
-		val->intval = chip->charge_type;
+		*val = chip->charge_type;
 		goto done;
 	}
 	rc = smb1355_get_prop_batt_charge_type(chip, val);
 	if (rc < 0)
 		pr_err("failed to read batt_charge_type %d\n", rc);
 	else
-		chip->charge_type = val->intval;
+		chip->charge_type = *val;
 done:
 	mutex_unlock(&chip->suspend_lock);
 	return rc;
@@ -753,110 +784,6 @@ done:
 
 #define MIN_PARALLEL_ICL_UA		250000
 #define SUSPEND_CURRENT_UA		2000
-static int smb1355_parallel_get_prop(struct power_supply *psy,
-				     enum power_supply_property prop,
-				     union power_supply_propval *val)
-{
-	struct smb1355 *chip = power_supply_get_drvdata(psy);
-	int rc = 0;
-
-	switch (prop) {
-	case POWER_SUPPLY_PROP_CHARGE_TYPE:
-		rc = smb1355_get_prop_charge_type(chip, val);
-		break;
-	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
-	case POWER_SUPPLY_PROP_ONLINE:
-		rc = smb1355_get_prop_online(chip, val);
-		break;
-	case POWER_SUPPLY_PROP_PIN_ENABLED:
-		rc = smb1355_get_prop_pin_enabled(chip, val);
-		break;
-	case POWER_SUPPLY_PROP_CHARGER_TEMP:
-		val->intval = chip->die_temp_deciDegC;
-		break;
-	case POWER_SUPPLY_PROP_CHARGER_TEMP_MAX:
-		/*
-		 * In case of h/w controlled die_temp mitigation,
-		 * die_temp/die_temp_max can not be reported as this
-		 * requires run time manipulation of DIE_TEMP low
-		 * threshold which will interfere with h/w mitigation
-		 * scheme.
-		 */
-		if (chip->dt.hw_die_temp_mitigation)
-			val->intval = -EINVAL;
-		else
-			val->intval = chip->c_charger_temp_max;
-		break;
-	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
-		val->intval = chip->disabled;
-		break;
-	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
-		rc = smb1355_get_prop_voltage_max(chip, val);
-		break;
-	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
-		rc = smb1355_get_prop_constant_charge_current_max(chip, val);
-		break;
-	case POWER_SUPPLY_PROP_MODEL_NAME:
-		val->strval = chip->name;
-		break;
-	case POWER_SUPPLY_PROP_PARALLEL_MODE:
-		val->intval = chip->dt.pl_mode;
-		break;
-	case POWER_SUPPLY_PROP_CONNECTOR_HEALTH:
-		if (chip->c_health == -EINVAL)
-			rc = smb1355_get_prop_health_value(chip, val,
-							CONNECTOR_TEMP);
-		else
-			val->intval = chip->c_health;
-		break;
-	case POWER_SUPPLY_PROP_DIE_HEALTH:
-		rc = smb1355_get_prop_health_value(chip, val, DIE_TEMP);
-		break;
-	case POWER_SUPPLY_PROP_PARALLEL_BATFET_MODE:
-		val->intval = chip->dt.pl_batfet_mode;
-		break;
-	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED:
-		if (IS_USBIN(chip->dt.pl_mode))
-			rc = smb1355_get_prop_input_current_limited(chip, val);
-		else
-			val->intval = 0;
-		break;
-	case POWER_SUPPLY_PROP_CURRENT_MAX:
-		if (IS_USBIN(chip->dt.pl_mode)) {
-			/* Report cached ICL until its configured correctly */
-			if (chip->suspended_usb_icl)
-				val->intval = chip->suspended_usb_icl;
-			else
-				rc = smb1355_get_charge_param(chip,
-					&chip->param.usb_icl, &val->intval);
-		} else {
-			val->intval = 0;
-		}
-		break;
-	case POWER_SUPPLY_PROP_MIN_ICL:
-		val->intval = MIN_PARALLEL_ICL_UA;
-		break;
-	case POWER_SUPPLY_PROP_PARALLEL_FCC_MAX:
-		val->intval = chip->max_fcc;
-		break;
-	case POWER_SUPPLY_PROP_SET_SHIP_MODE:
-		/* Not in ship mode as long as device is active */
-		val->intval = 0;
-		break;
-	default:
-		pr_err_ratelimited("parallel psy get prop %d not supported\n",
-			prop);
-		return -EINVAL;
-	}
-
-	if (rc < 0) {
-		pr_debug("Couldn't get prop %d rc = %d\n", prop, rc);
-		return -ENODATA;
-	}
-
-	return rc;
-}
-
 static int smb1355_set_parallel_charging(struct smb1355 *chip, bool disable)
 {
 	int rc;
@@ -964,75 +891,39 @@ static int smb1355_clk_request(struct smb1355 *chip, bool enable)
 	return rc;
 }
 
-static int smb1355_parallel_set_prop(struct power_supply *psy,
-				     enum power_supply_property prop,
-				     const union power_supply_propval *val)
+static int smb1355_parallel_get_prop(struct power_supply *psy,
+			       enum power_supply_property prop,
+			       union power_supply_propval *pval)
 {
 	struct smb1355 *chip = power_supply_get_drvdata(psy);
-	int rc = 0;
 
-	mutex_lock(&chip->suspend_lock);
-	if (chip->suspended) {
-		pr_debug("parallel power supply set prop %d\n", prop);
-		goto done;
-	}
 	switch (prop) {
-	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
-		rc = smb1355_set_parallel_charging(chip, (bool)val->intval);
-		break;
-	case POWER_SUPPLY_PROP_CURRENT_MAX:
-		rc = smb1355_set_current_max(chip, val->intval);
-		break;
-	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
-		rc = smb1355_set_charge_param(chip, &chip->param.ov,
-						val->intval);
-		break;
-	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
-		rc = smb1355_set_charge_param(chip, &chip->param.fcc,
-						val->intval);
-		break;
-	case POWER_SUPPLY_PROP_CONNECTOR_HEALTH:
-		chip->c_health = val->intval;
-		power_supply_changed(chip->parallel_psy);
-		break;
-	case POWER_SUPPLY_PROP_CHARGER_TEMP_MAX:
-		chip->c_charger_temp_max = val->intval;
-	case POWER_SUPPLY_PROP_SET_SHIP_MODE:
-		if (!val->intval)
-			break;
-		rc = smb1355_clk_request(chip, false);
+	case POWER_SUPPLY_PROP_MODEL_NAME:
+		pval->strval = chip->name;
 		break;
 	default:
-		pr_debug("parallel power supply set prop %d not supported\n",
+		pr_err_ratelimited("parallel psy get prop %d not supported\n",
 			prop);
-		rc = -EINVAL;
-	}
-done:
-	mutex_unlock(&chip->suspend_lock);
-	return rc;
-}
-
-static int smb1355_parallel_prop_is_writeable(struct power_supply *psy,
-					      enum power_supply_property prop)
-{
-	switch (prop) {
-	case POWER_SUPPLY_PROP_CONNECTOR_HEALTH:
-		return 1;
-	default:
-		break;
+		return -EINVAL;
 	}
 
 	return 0;
 }
 
+/*****************************
+ * PARALLEL PSY REGISTRATION *
+ *****************************/
+
+static enum power_supply_property smb1355_parallel_props[] = {
+	POWER_SUPPLY_PROP_MODEL_NAME,
+};
+
 static struct power_supply_desc parallel_psy_desc = {
 	.name			= "parallel",
-	.type			= POWER_SUPPLY_TYPE_PARALLEL,
+	.type			= POWER_SUPPLY_TYPE_MAINS,
 	.properties		= smb1355_parallel_props,
 	.num_properties		= ARRAY_SIZE(smb1355_parallel_props),
 	.get_property		= smb1355_parallel_get_prop,
-	.set_property		= smb1355_parallel_set_prop,
-	.property_is_writeable	= smb1355_parallel_prop_is_writeable,
 };
 
 static int smb1355_init_parallel_psy(struct smb1355 *chip)
@@ -1054,6 +945,228 @@ static int smb1355_init_parallel_psy(struct smb1355 *chip)
 	}
 
 	return 0;
+}
+
+static int smb1355_iio_read_raw(struct iio_dev *indio_dev,
+				     struct iio_chan_spec const *chan,
+				     int *val1, int *val2, long mask)
+{
+	struct smb1355 *chip = iio_priv(indio_dev);
+	int rc = 0;
+
+	*val1 = 0;
+
+	switch (chan->channel) {
+	case PSY_IIO_CHARGE_TYPE:
+		rc = smb1355_get_prop_charge_type(chip, val1);
+		break;
+	case PSY_IIO_CHARGING_ENABLED:
+	case PSY_IIO_ONLINE:
+		rc = smb1355_get_prop_online(chip, val1);
+		break;
+	case PSY_IIO_PIN_ENABLED:
+		rc = smb1355_get_prop_pin_enabled(chip, val1);
+		break;
+	case PSY_IIO_CHARGER_TEMP:
+		*val1 = chip->die_temp_deciDegC;
+		break;
+	case PSY_IIO_CHARGER_TEMP_MAX:
+		/*
+		 * In case of h/w controlled die_temp mitigation,
+		 * die_temp/die_temp_max can not be reported as this
+		 * requires run time manipulation of DIE_TEMP low
+		 * threshold which will interfere with h/w mitigation
+		 * scheme.
+		 */
+		if (chip->dt.hw_die_temp_mitigation)
+			*val1 = -EINVAL;
+		else
+			*val1 = chip->c_charger_temp_max;
+		break;
+	case PSY_IIO_INPUT_SUSPEND:
+		*val1 = chip->disabled;
+		break;
+	case PSY_IIO_VOLTAGE_MAX:
+		rc = smb1355_get_prop_voltage_max(chip, val1);
+		break;
+	case PSY_IIO_CONSTANT_CHARGE_CURRENT_MAX:
+		rc = smb1355_get_prop_constant_charge_current_max(chip, val1);
+		break;
+	case PSY_IIO_PARALLEL_MODE:
+		*val1 = chip->dt.pl_mode;
+		break;
+	case PSY_IIO_CONNECTOR_HEALTH:
+		if (chip->c_health == -EINVAL)
+			rc = smb1355_get_prop_health_value(chip, val1,
+							CONNECTOR_TEMP);
+		else
+			*val1 = chip->c_health;
+		break;
+	case PSY_IIO_DIE_HEALTH:
+		rc = smb1355_get_prop_health_value(chip, val1, DIE_TEMP);
+		break;
+	case PSY_IIO_PARALLEL_BATFET_MODE:
+		*val1 = chip->dt.pl_batfet_mode;
+		break;
+	case PSY_IIO_INPUT_CURRENT_LIMITED:
+		if (IS_USBIN(chip->dt.pl_mode))
+			rc = smb1355_get_prop_input_current_limited(
+						chip, val1);
+		else
+			*val1 = 0;
+		break;
+	case PSY_IIO_CURRENT_MAX:
+		if (IS_USBIN(chip->dt.pl_mode)) {
+			/* Report cached ICL until its configured correctly */
+			if (chip->suspended_usb_icl)
+				*val1 = chip->suspended_usb_icl;
+			else
+				rc = smb1355_get_charge_param(chip,
+					&chip->param.usb_icl, val1);
+		} else {
+			*val1 = 0;
+		}
+		break;
+	case PSY_IIO_MIN_ICL:
+		*val1 = MIN_PARALLEL_ICL_UA;
+		break;
+	case PSY_IIO_PARALLEL_FCC_MAX:
+		*val1 = chip->max_fcc;
+		break;
+	case PSY_IIO_SET_SHIP_MODE:
+		/* Not in ship mode as long as device is active */
+		*val1 = 0;
+		break;
+	default:
+		pr_err_ratelimited("SMB1355 IIO channel %d not supported\n",
+			chan->channel);
+		return -EINVAL;
+	}
+
+	if (rc < 0) {
+		pr_debug("Couldn't read channel %d rc = %d\n",
+				chan->channel, rc);
+		return -ENODATA;
+	}
+
+	return rc ? rc : IIO_VAL_INT;
+}
+
+static int smb1355_iio_write_raw(struct iio_dev *indio_dev,
+				     struct iio_chan_spec const *chan,
+				     int val1, int val2, long mask)
+{
+	struct smb1355 *chip = iio_priv(indio_dev);
+	int rc = 0;
+
+	mutex_lock(&chip->suspend_lock);
+	if (chip->suspended) {
+		pr_debug("SMB1355 IIO write channel %d\n",
+				chan->channel);
+		goto done;
+	}
+	switch (chan->channel) {
+	case PSY_IIO_INPUT_SUSPEND:
+		rc = smb1355_set_parallel_charging(chip, (bool)val1);
+		break;
+	case PSY_IIO_CURRENT_MAX:
+		rc = smb1355_set_current_max(chip, val1);
+		break;
+	case PSY_IIO_VOLTAGE_MAX:
+		rc = smb1355_set_charge_param(chip, &chip->param.ov,
+						val1);
+		break;
+	case PSY_IIO_CONSTANT_CHARGE_CURRENT_MAX:
+		rc = smb1355_set_charge_param(chip, &chip->param.fcc,
+						val1);
+		break;
+	case PSY_IIO_CONNECTOR_HEALTH:
+		chip->c_health = val1;
+		power_supply_changed(chip->parallel_psy);
+		break;
+	case PSY_IIO_CHARGER_TEMP_MAX:
+		chip->c_charger_temp_max = val1;
+		break;
+	case PSY_IIO_SET_SHIP_MODE:
+		if (!val1)
+			break;
+		rc = smb1355_clk_request(chip, false);
+		break;
+	default:
+		pr_debug("SMB1355 IIO write channel %d not supported\n",
+				chan->channel);
+		rc = -EINVAL;
+	}
+done:
+	mutex_unlock(&chip->suspend_lock);
+	return rc;
+}
+
+static int smb1355_iio_of_xlate(struct iio_dev *indio_dev,
+				const struct of_phandle_args *iiospec)
+{
+	struct smb1355 *chip = iio_priv(indio_dev);
+	struct iio_chan_spec *iio_chan = chip->iio_chan;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(smb1355_iio_channels);
+						i++, iio_chan++)
+		if (iio_chan->channel == iiospec->args[0])
+			return i;
+
+	return -EINVAL;
+}
+
+static const struct iio_info smb1355_iio_info = {
+	.read_raw	= smb1355_iio_read_raw,
+	.write_raw	= smb1355_iio_write_raw,
+	.of_xlate	= smb1355_iio_of_xlate,
+};
+
+static int smb1355_init_iio_psy(struct smb1355 *chip)
+{
+	struct iio_dev *indio_dev = chip->indio_dev;
+	struct iio_chan_spec *chan;
+	int smb1355_num_iio_channels = ARRAY_SIZE(smb1355_iio_channels);
+	int rc, i;
+
+	chip->iio_chan = devm_kcalloc(chip->dev,
+				smb1355_num_iio_channels,
+				sizeof(*chip->iio_chan),
+				GFP_KERNEL);
+	if (!chip->iio_chan)
+		return -ENOMEM;
+
+	indio_dev->info = &smb1355_iio_info;
+	indio_dev->dev.parent = chip->dev;
+	indio_dev->dev.of_node = chip->dev->of_node;
+	indio_dev->modes = INDIO_DIRECT_MODE;
+	indio_dev->channels = chip->iio_chan;
+	indio_dev->num_channels = smb1355_num_iio_channels;
+	indio_dev->name = "smb1355-charger";
+
+	for (i = 0; i < smb1355_num_iio_channels; i++) {
+		chan = &chip->iio_chan[i];
+		chan->address = i;
+		chan->channel = smb1355_iio_channels[i].channel_num;
+		chan->type = smb1355_iio_channels[i].type;
+		chan->datasheet_name =
+			smb1355_iio_channels[i].datasheet_name;
+		chan->extend_name =
+			smb1355_iio_channels[i].datasheet_name;
+		chan->info_mask_separate =
+			smb1355_iio_channels[i].info_mask;
+	}
+
+	rc = devm_iio_device_register(chip->dev, indio_dev);
+	if (rc) {
+		pr_err("Failed to register SMB1355 Parallel IIO device, rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	return rc;
+
 }
 
 /***************************
@@ -1540,11 +1653,15 @@ static int smb1355_probe(struct platform_device *pdev)
 {
 	struct smb1355 *chip;
 	const struct of_device_id *id;
+	struct iio_dev *indio_dev;
 	int rc = 0;
 
-	chip = devm_kzalloc(&pdev->dev, sizeof(*chip), GFP_KERNEL);
-	if (!chip)
+	indio_dev = devm_iio_device_alloc(&pdev->dev, sizeof(*chip));
+	if (!indio_dev)
 		return -ENOMEM;
+
+	chip = iio_priv(indio_dev);
+	chip->indio_dev = indio_dev;
 
 	chip->dev = &pdev->dev;
 	chip->param = v1_params;
@@ -1595,6 +1712,12 @@ static int smb1355_probe(struct platform_device *pdev)
 		goto cleanup;
 	}
 
+	rc = smb1355_init_iio_psy(chip);
+	if (rc < 0) {
+		pr_err("Couldn't initialize parallel IIO device rc=%d\n", rc);
+		goto cleanup;
+	}
+
 	rc = smb1355_determine_initial_status(chip);
 	if (rc < 0) {
 		pr_err("Couldn't determine initial status rc=%d\n",
@@ -1620,7 +1743,7 @@ static int smb1355_probe(struct platform_device *pdev)
 	pr_info("%s probed successfully pl_mode=%s batfet_mode=%s\n",
 		chip->name,
 		IS_USBIN(chip->dt.pl_mode) ? "USBIN-USBIN" : "USBMID-USBMID",
-		(chip->dt.pl_batfet_mode == POWER_SUPPLY_PL_STACKED_BATFET)
+		(chip->dt.pl_batfet_mode == QTI_POWER_SUPPLY_PL_STACKED_BATFET)
 			? "STACKED_BATFET" : "NON-STACKED_BATFET");
 	return rc;
 

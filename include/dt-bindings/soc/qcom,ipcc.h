@@ -34,6 +34,7 @@
 #define IPCC_CLIENT_PCIE1		14
 #define IPCC_CLIENT_PCIE2		15
 #define IPCC_CLIENT_SPSS		16
-#define IPCC_CLIENT_MAX			17 /* Used by driver only */
+#define IPCC_CLIENT_WDSP		24
+#define IPCC_CLIENT_MAX			25 /* Used by driver only */
 
 #endif

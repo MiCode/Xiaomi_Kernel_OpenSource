@@ -13,6 +13,7 @@
 #include <linux/notifier.h>
 #include <linux/irqdomain.h>
 #include <linux/workqueue.h>
+#include <linux/delay.h>
 #include <linux/completion.h>
 #include <linux/mod_devicetable.h>
 #include <linux/platform_device.h>
@@ -213,6 +214,15 @@ static int hh_rm_process_notif(void *recv_buff, size_t recv_buff_size)
 		if (recv_buff_size != sizeof(*hdr) +
 			sizeof(struct hh_rm_notif_vm_irq_released_payload)) {
 			pr_err("%s: Invalid size for VM_IRQ_REL notif: %u\n",
+				__func__, recv_buff_size - sizeof(*hdr));
+			ret = -EINVAL;
+			goto err;
+		}
+		break;
+	case HH_RM_NOTIF_VM_IRQ_ACCEPTED:
+		if (recv_buff_size != sizeof(*hdr) +
+			sizeof(struct hh_rm_notif_vm_irq_accepted_payload)) {
+			pr_err("%s: Invalid size for VM_IRQ_ACCEPTED notif: %u\n",
 				__func__, recv_buff_size - sizeof(*hdr));
 			ret = -EINVAL;
 			goto err;
@@ -530,6 +540,11 @@ static int hh_rm_send_request(u32 message_id,
 		 */
 		tx_flags = (i == num_fragments) ? HH_MSGQ_TX_PUSH : 0;
 
+		/* delay sending console characters to RM */
+		if (message_id == HH_RM_RPC_MSG_ID_CALL_VM_CONSOLE_WRITE ||
+		    message_id == HH_RM_RPC_MSG_ID_CALL_VM_CONSOLE_FLUSH)
+			udelay(800);
+
 		ret = hh_msgq_send(hh_rm_msgq_desc, send_buff,
 					sizeof(*hdr) + payload_size, tx_flags);
 
@@ -767,32 +782,35 @@ int hh_rm_populate_hyp_res(hh_vmid_t vmid)
 				res_entries[i].cap_id_low;
 		label = res_entries[i].resource_label;
 
-		/* Populate MessageQ & DBL's cap tables */
-		switch (res_entries[i].res_type) {
-		case HH_RM_RES_TYPE_MQ_TX:
-			ret = hh_msgq_populate_cap_info(label, cap_id,
+		/* Populate MessageQ, DBL and vCPUs cap tables */
+		do {
+			switch (res_entries[i].res_type) {
+			case HH_RM_RES_TYPE_MQ_TX:
+				ret = hh_msgq_populate_cap_info(label, cap_id,
 					HH_MSGQ_DIRECTION_TX, linux_irq);
-			break;
-		case HH_RM_RES_TYPE_MQ_RX:
-			ret = hh_msgq_populate_cap_info(label, cap_id,
+				break;
+			case HH_RM_RES_TYPE_MQ_RX:
+				ret = hh_msgq_populate_cap_info(label, cap_id,
 					HH_MSGQ_DIRECTION_RX, linux_irq);
-			break;
-		case HH_RM_RES_TYPE_VCPU:
-			ret = hh_vcpu_populate_affinity_info(label, cap_id);
-			break;
-		case HH_RM_RES_TYPE_DB_TX:
-			ret = hh_dbl_populate_cap_info(label, cap_id,
+				break;
+			case HH_RM_RES_TYPE_VCPU:
+				ret = hh_vcpu_populate_affinity_info(label,
+									cap_id);
+				break;
+			case HH_RM_RES_TYPE_DB_TX:
+				ret = hh_dbl_populate_cap_info(label, cap_id,
 					HH_MSGQ_DIRECTION_TX, linux_irq);
-			break;
-		case HH_RM_RES_TYPE_DB_RX:
-			ret = hh_dbl_populate_cap_info(label, cap_id,
+				break;
+			case HH_RM_RES_TYPE_DB_RX:
+				ret = hh_dbl_populate_cap_info(label, cap_id,
 					HH_MSGQ_DIRECTION_RX, linux_irq);
-			break;
-		default:
-			pr_err("%s: Unknown resource type: %u\n",
-				__func__, res_entries[i].res_type);
-			ret = -EINVAL;
-		}
+				break;
+			default:
+				pr_err("%s: Unknown resource type: %u\n",
+					__func__, res_entries[i].res_type);
+				ret = -EINVAL;
+			}
+		} while (ret == -EAGAIN);
 
 		if (ret < 0)
 			goto out;

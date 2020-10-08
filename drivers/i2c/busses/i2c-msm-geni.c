@@ -1359,7 +1359,7 @@ static int geni_i2c_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static int geni_i2c_resume_noirq(struct device *device)
+static int geni_i2c_resume_early(struct device *device)
 {
 	struct geni_i2c_dev *gi2c = dev_get_drvdata(device);
 
@@ -1448,11 +1448,12 @@ static int geni_i2c_runtime_resume(struct device *dev)
 	return 0;
 }
 
-static int geni_i2c_suspend_noirq(struct device *device)
+static int geni_i2c_suspend_late(struct device *device)
 {
 	struct geni_i2c_dev *gi2c = dev_get_drvdata(device);
 	int ret;
 
+	GENI_SE_DBG(gi2c->ipcl, false, gi2c->dev, "%s\n", __func__);
 	/* Make sure no transactions are pending */
 	ret = i2c_trylock_bus(&gi2c->adap, I2C_LOCK_SEGMENT);
 	if (!ret) {
@@ -1462,7 +1463,7 @@ static int geni_i2c_suspend_noirq(struct device *device)
 	}
 	if (!pm_runtime_status_suspended(device)) {
 		GENI_SE_DBG(gi2c->ipcl, false, gi2c->dev,
-			"%s\n", __func__);
+			"%s: Force suspend\n", __func__);
 		geni_i2c_runtime_suspend(device);
 		pm_runtime_disable(device);
 		pm_runtime_set_suspended(device);
@@ -1482,15 +1483,15 @@ static int geni_i2c_runtime_resume(struct device *dev)
 	return 0;
 }
 
-static int geni_i2c_suspend_noirq(struct device *device)
+static int geni_i2c_suspend_late(struct device *device)
 {
 	return 0;
 }
 #endif
 
 static const struct dev_pm_ops geni_i2c_pm_ops = {
-	.suspend_noirq		= geni_i2c_suspend_noirq,
-	.resume_noirq		= geni_i2c_resume_noirq,
+	.suspend_late		= geni_i2c_suspend_late,
+	.resume_early		= geni_i2c_resume_early,
 	.runtime_suspend	= geni_i2c_runtime_suspend,
 	.runtime_resume		= geni_i2c_runtime_resume,
 };

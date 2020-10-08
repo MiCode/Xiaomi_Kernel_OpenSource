@@ -120,6 +120,12 @@ void a6xx_hwsched_snapshot(struct adreno_device *adreno_dev,
 				snapshot, adreno_snapshot_global,
 				entry->gpu_md);
 
+		if (entry->desc.mem_kind == MEMKIND_PROFILE)
+			kgsl_snapshot_add_section(device,
+				KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
+				snapshot, adreno_snapshot_global,
+				entry->gpu_md);
+
 		if (entry->desc.mem_kind == MEMKIND_CSW_SMMU_INFO)
 			kgsl_snapshot_add_section(device,
 				KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
@@ -208,7 +214,7 @@ clks_gdsc_off:
 
 gdsc_off:
 	/* Poll to make sure that the CX is off */
-	if (!kgsl_regulator_disable_wait(gmu->cx_gdsc, 5000))
+	if (!a6xx_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000))
 		dev_err(&gmu->pdev->dev, "GMU CX gdsc off timeout\n");
 
 	return ret;
@@ -266,7 +272,7 @@ clks_gdsc_off:
 
 gdsc_off:
 	/* Poll to make sure that the CX is off */
-	if (!kgsl_regulator_disable_wait(gmu->cx_gdsc, 5000))
+	if (!a6xx_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000))
 		dev_err(&gmu->pdev->dev, "GMU CX gdsc off timeout\n");
 
 	return ret;
@@ -364,7 +370,7 @@ static int a6xx_hwsched_gmu_power_off(struct adreno_device *adreno_dev)
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
 
 	/* Poll to make sure that the CX is off */
-	if (!kgsl_regulator_disable_wait(gmu->cx_gdsc, 5000))
+	if (!a6xx_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000))
 		dev_err(&gmu->pdev->dev, "GMU CX gdsc off timeout\n");
 
 	return ret;
