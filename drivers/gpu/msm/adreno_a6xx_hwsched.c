@@ -97,19 +97,124 @@ static void snapshot_preemption_records(struct kgsl_device *device,
 			offset);
 }
 
+static u32 a6xx_copy_gpu_global(struct adreno_device *adreno_dev,
+	void *out, u64 gpuaddr, u32 size)
+{
+	struct a6xx_hwsched_hfi *hw_hfi = to_a6xx_hwsched_hfi(adreno_dev);
+	u64 offset;
+	u32 i;
+
+	for (i = 0; i < hw_hfi->mem_alloc_entries; i++) {
+		struct kgsl_memdesc *md = hw_hfi->mem_alloc_table[i].gpu_md;
+
+		if (gpuaddr >= md->gpuaddr &&
+			((gpuaddr + size) <= (md->gpuaddr + md->size))) {
+			offset = gpuaddr - md->gpuaddr;
+			memcpy(out, md->hostptr + offset, size);
+			return size;
+		}
+	}
+
+	return 0;
+}
+
+static size_t adreno_hwsched_snapshot_rb_payload(struct kgsl_device *device,
+	u8 *buf, size_t remain, void *priv)
+{
+	struct kgsl_snapshot_rb_v2 *header = (struct kgsl_snapshot_rb_v2 *)buf;
+	u32 *data = (u32 *)(buf + sizeof(*header));
+	struct payload_section *payload = (struct payload_section *)priv;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	u32 size = a6xx_hwsched_parse_payload(payload, KEY_RB_SIZEDWORDS) << 2;
+	u64 lo, hi, gpuaddr;
+
+	lo = a6xx_hwsched_parse_payload(payload, KEY_RB_GPUADDR_LO);
+	hi = a6xx_hwsched_parse_payload(payload, KEY_RB_GPUADDR_HI);
+	gpuaddr = hi << 32 | lo;
+
+	/* If the gpuaddress and size don't match any allocation, then abort */
+	if ((remain < size + sizeof(*header)) ||
+		!a6xx_copy_gpu_global(adreno_dev, data, gpuaddr, size)) {
+		SNAPSHOT_ERR_NOMEM(device, "RB");
+		return 0;
+	}
+
+	header->start = 0;
+	header->end = size >> 2;
+	header->rptr = a6xx_hwsched_parse_payload(payload, KEY_RB_RPTR);
+	header->wptr = a6xx_hwsched_parse_payload(payload, KEY_RB_WPTR);
+	header->rbsize = size >> 2;
+	header->count = size >> 2;
+	header->timestamp_queued = a6xx_hwsched_parse_payload(payload,
+			KEY_RB_QUEUED_TS);
+	header->timestamp_retired = a6xx_hwsched_parse_payload(payload,
+			KEY_RB_RETIRED_TS);
+	header->gpuaddr = gpuaddr;
+	header->id = a6xx_hwsched_parse_payload(payload, KEY_RB_ID);
+
+	return size + sizeof(*header);
+}
+
+static bool parse_payload_rb(struct adreno_device *adreno_dev,
+	struct kgsl_snapshot *snapshot)
+{
+	struct a6xx_hwsched_hfi *hfi = to_a6xx_hwsched_hfi(adreno_dev);
+	struct hfi_context_bad_cmd *cmd = hfi->ctxt_bad;
+	u32 i = 0, payload_bytes;
+	void *start;
+	bool ret = false;
+
+	/* Skip if we didn't receive a context bad HFI */
+	if (!cmd->hdr)
+		return false;
+
+	payload_bytes = (MSG_HDR_GET_SIZE(cmd->hdr) << 2) -
+			offsetof(struct hfi_context_bad_cmd, payload);
+
+	start = &cmd->payload[0];
+
+	while (i < payload_bytes) {
+		struct payload_section *payload = start + i;
+
+		if (payload->type == PAYLOAD_RB) {
+			kgsl_snapshot_add_section(KGSL_DEVICE(adreno_dev),
+				KGSL_SNAPSHOT_SECTION_RB_V2,
+				snapshot, adreno_hwsched_snapshot_rb_payload,
+				payload);
+			ret = true;
+		}
+
+		i += sizeof(*payload) + (payload->dwords << 2);
+	}
+
+	return ret;
+}
+
 void a6xx_hwsched_snapshot(struct adreno_device *adreno_dev,
 	struct kgsl_snapshot *snapshot)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct a6xx_hwsched_hfi *hw_hfi = to_a6xx_hwsched_hfi(adreno_dev);
 	u32 i;
+	bool skip_memkind_rb = false;
 
 	a6xx_gmu_snapshot(adreno_dev, snapshot);
+
+	adreno_hwsched_parse_fault_cmdobj(adreno_dev, snapshot);
+
+	/*
+	 * First try to dump ringbuffers using context bad HFI payloads
+	 * because they have all the ringbuffer parameters. If ringbuffer
+	 * payloads are not present, fall back to dumping ringbuffers
+	 * based on MEMKIND_RB
+	 */
+	if (parse_payload_rb(adreno_dev, snapshot))
+		skip_memkind_rb = true;
 
 	for (i = 0; i < hw_hfi->mem_alloc_entries; i++) {
 		struct hfi_mem_alloc_entry *entry = &hw_hfi->mem_alloc_table[i];
 
-		if (entry->desc.mem_kind == HFI_MEMKIND_RB)
+		if (entry->desc.mem_kind == HFI_MEMKIND_RB && !skip_memkind_rb)
 			kgsl_snapshot_add_section(device,
 				KGSL_SNAPSHOT_SECTION_RB_V2,
 				snapshot, adreno_hwsched_snapshot_rb,
@@ -137,8 +242,6 @@ void a6xx_hwsched_snapshot(struct adreno_device *adreno_dev,
 			snapshot_preemption_records(device, snapshot,
 				entry->gpu_md);
 	}
-
-	adreno_hwsched_parse_fault_cmdobj(adreno_dev, snapshot);
 }
 
 static int a6xx_hwsched_gmu_first_boot(struct adreno_device *adreno_dev)
@@ -951,7 +1054,7 @@ int a6xx_hwsched_reset(struct adreno_device *adreno_dev)
 	struct a6xx_hwsched_hfi *hfi = to_a6xx_hwsched_hfi(adreno_dev);
 	int ret;
 
-	memset(&hfi->ctxt_bad, 0x0, sizeof(hfi->ctxt_bad));
+	memset(hfi->ctxt_bad, 0x0, HFI_MAX_MSG_SIZE);
 
 	/*
 	 * Any pending context unregister packets will be lost
@@ -985,9 +1088,10 @@ static bool a6xx_hwsched_drawobj_fault(struct adreno_device *adreno_dev,
 	struct kgsl_drawobj *drawobj)
 {
 	struct a6xx_hwsched_hfi *hfi = to_a6xx_hwsched_hfi(adreno_dev);
+	struct hfi_context_bad_cmd *bad = hfi->ctxt_bad;
 
-	if ((hfi->ctxt_bad.ctxt_id == drawobj->context->id) &&
-		(hfi->ctxt_bad.ts == drawobj->timestamp))
+	if ((bad->ctxt_id == drawobj->context->id) &&
+		(bad->ts == drawobj->timestamp))
 		return true;
 
 	return false;
