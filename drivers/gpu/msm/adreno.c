@@ -2682,7 +2682,7 @@ static int adreno_soft_reset(struct kgsl_device *device)
 	return ret;
 }
 
-static bool adreno_isidle(struct adreno_device *adreno_dev)
+bool adreno_isidle(struct adreno_device *adreno_dev)
 {
 	const struct adreno_gpudev *gpudev  = ADRENO_GPU_DEVICE(adreno_dev);
 	struct adreno_ringbuffer *rb;
@@ -3415,22 +3415,15 @@ static int adreno_regulator_enable(struct kgsl_device *device)
 	return ret;
 }
 
-static bool adreno_prepare_for_power_off(struct kgsl_device *device)
+static bool adreno_is_hw_collapsible(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	const struct adreno_gpudev *gpudev  = ADRENO_GPU_DEVICE(adreno_dev);
 
-	/*
-	 * Skip power collapse for A304, if power ctrl flag is set to
-	 * non zero. As A304 soft_reset will not work, power collapse
-	 * needs to disable to avoid soft_reset.
-	 */
-	if (adreno_is_a304(adreno_dev) &&
-			device->pwrctrl.ctrl_flags)
+	if (WARN_ON(!gpudev->is_hw_collapsible))
 		return false;
 
-	if (!adreno_isidle(adreno_dev) || !(gpudev->is_sptp_idle ?
-				gpudev->is_sptp_idle(adreno_dev) : true))
+	if (!gpudev->is_hw_collapsible(adreno_dev))
 		return false;
 
 	if (gpudev->clear_pending_transactions(adreno_dev))
@@ -3686,7 +3679,7 @@ static const struct kgsl_functable adreno_functable = {
 	.drawctxt_sched = adreno_drawctxt_sched,
 	.resume = adreno_dispatcher_start,
 	.regulator_enable = adreno_regulator_enable,
-	.prepare_for_power_off = adreno_prepare_for_power_off,
+	.is_hw_collapsible = adreno_is_hw_collapsible,
 	.regulator_disable = adreno_regulator_disable,
 	.pwrlevel_change_settings = adreno_pwrlevel_change_settings,
 	.regulator_disable_poll = adreno_regulator_disable_poll,

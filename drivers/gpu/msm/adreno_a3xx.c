@@ -1273,6 +1273,21 @@ static int a3xx_clear_pending_transactions(struct adreno_device *adreno_dev)
 	return ret;
 }
 
+static bool a3xx_is_hw_collapsible(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+
+	/*
+	 * Skip power collapse for A304, if power ctrl flag is set to
+	 * non zero. As A304 soft_reset will not work, power collapse
+	 * needs to disable to avoid soft_reset.
+	 */
+	if (adreno_is_a304(adreno_dev) && device->pwrctrl.ctrl_flags)
+		return false;
+
+	return adreno_isidle(adreno_dev);
+}
+
 const struct adreno_gpudev adreno_a3xx_gpudev = {
 	.reg_offsets = a3xx_register_offsets,
 	.ft_perf_counters = a3xx_ft_perf_counters,
@@ -1294,4 +1309,5 @@ const struct adreno_gpudev adreno_a3xx_gpudev = {
 	.power_ops = &adreno_power_operations,
 	.clear_pending_transactions = a3xx_clear_pending_transactions,
 	.ringbuffer_submitcmd = a3xx_ringbuffer_submitcmd,
+	.is_hw_collapsible = a3xx_is_hw_collapsible,
 };

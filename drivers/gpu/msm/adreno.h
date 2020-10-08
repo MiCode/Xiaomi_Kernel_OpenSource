@@ -757,7 +757,6 @@ struct adreno_gpudev {
 	void (*remove)(struct adreno_device *adreno_dev);
 	int (*rb_start)(struct adreno_device *adreno_dev);
 	void (*start)(struct adreno_device *adreno_dev);
-	bool (*is_sptp_idle)(struct adreno_device *adreno_dev);
 	int (*regulator_enable)(struct adreno_device *adreno_dev);
 	void (*regulator_disable)(struct adreno_device *adreno_dev);
 	void (*pwrlevel_change_settings)(struct adreno_device *adreno_dev,
@@ -792,6 +791,11 @@ struct adreno_gpudev {
 	int (*ringbuffer_submitcmd)(struct adreno_device *adreno_dev,
 			struct kgsl_drawobj_cmd *cmdobj, u32 flags,
 			struct adreno_submit_time *time);
+	/**
+	 * @is_hw_collapsible: Return true if the hardware can be collapsed.
+	 * Only used by non GMU/RGMU targets
+	 */
+	bool (*is_hw_collapsible)(struct adreno_device *adreno_dev);
 };
 
 /**
@@ -1892,5 +1896,13 @@ void adreno_preemption_timer(struct timer_list *t);
  * @adreno_dev: Adreno GPU device handle
  */
 void adreno_create_profile_buffer(struct adreno_device *adreno_dev);
+
+/**
+ * adreno_isidle - return true if the hardware is idle
+ * @adreno_dev: Adreno GPU device handle
+ *
+ * Return: True if the hardware is idle
+ */
+bool adreno_isidle(struct adreno_device *adreno_dev);
 
 #endif /*__ADRENO_H */

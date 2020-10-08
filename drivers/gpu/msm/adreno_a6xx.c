@@ -2569,6 +2569,7 @@ static void a6xx_remove(struct adreno_device *adreno_dev)
 		del_timer(&adreno_dev->preempt.timer);
 }
 
+/* This is a non GMU/RGMU part */
 const struct adreno_gpudev adreno_a6xx_gpudev = {
 	.reg_offsets = a6xx_register_offsets,
 	.probe = a6xx_probe,
@@ -2599,6 +2600,7 @@ const struct adreno_gpudev adreno_a6xx_gpudev = {
 	.deassert_gbif_halt = a6xx_deassert_gbif_halt,
 	.remove = a6xx_remove,
 	.ringbuffer_submitcmd = a6xx_ringbuffer_submitcmd,
+	.is_hw_collapsible = adreno_isidle,
 };
 
 const struct adreno_gpudev adreno_a6xx_hwsched_gpudev = {
@@ -2669,6 +2671,7 @@ const struct adreno_gpudev adreno_a6xx_rgmu_gpudev = {
 	.ringbuffer_submitcmd = a6xx_ringbuffer_submitcmd,
 };
 
+/* This is a non GMU/RGMU part */
 const struct adreno_gpudev adreno_a619_holi_gpudev = {
 	.reg_offsets = a6xx_register_offsets,
 	.probe = a6xx_probe,
@@ -2700,6 +2703,7 @@ const struct adreno_gpudev adreno_a619_holi_gpudev = {
 	.regulator_disable_poll = a619_holi_regulator_disable_poll,
 	.remove = a6xx_remove,
 	.ringbuffer_submitcmd = a6xx_ringbuffer_submitcmd,
+	.is_hw_collapsible = adreno_isidle,
 };
 
 const struct adreno_gpudev adreno_a630_gpudev = {

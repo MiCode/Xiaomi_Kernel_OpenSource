@@ -148,7 +148,7 @@ struct kgsl_functable {
 		struct kgsl_context *context);
 	void (*resume)(struct kgsl_device *device);
 	int (*regulator_enable)(struct kgsl_device *device);
-	bool (*prepare_for_power_off)(struct kgsl_device *device);
+	bool (*is_hw_collapsible)(struct kgsl_device *device);
 	void (*regulator_disable)(struct kgsl_device *device);
 	void (*pwrlevel_change_settings)(struct kgsl_device *device,
 		unsigned int prelevel, unsigned int postlevel, bool post);

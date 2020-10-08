@@ -299,26 +299,6 @@ static void a5xx_protect_init(struct adreno_device *adreno_dev)
 }
 
 /*
- * a5xx_is_sptp_idle() - A530 SP/TP/RAC should be power collapsed to be
- * considered idle
- * @adreno_dev: The adreno_device pointer
- */
-static bool a5xx_is_sptp_idle(struct adreno_device *adreno_dev)
-{
-	unsigned int reg;
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-
-	/* If feature is not supported or enabled, no worry */
-	if (!adreno_dev->sptp_pc_enabled)
-		return true;
-	kgsl_regread(device, A5XX_GPMU_SP_PWR_CLK_STATUS, &reg);
-	if (reg & BIT(20))
-		return false;
-	kgsl_regread(device, A5XX_GPMU_RBCCU_PWR_CLK_STATUS, &reg);
-	return !(reg & BIT(20));
-}
-
-/*
  * _poll_gdsc_status() - Poll the GDSC status register
  * @adreno_dev: The adreno device pointer
  * @status_reg: Offset of the status register
@@ -2477,6 +2457,23 @@ static int a5xx_clear_pending_transactions(struct adreno_device *adreno_dev)
 	return ret;
 }
 
+static bool a5xx_is_hw_collapsible(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	unsigned int reg;
+
+	if (!adreno_isidle(adreno_dev))
+		return false;
+
+	/* If feature is not supported or enabled, no worry */
+	if (!adreno_dev->sptp_pc_enabled)
+		return true;
+	kgsl_regread(device, A5XX_GPMU_SP_PWR_CLK_STATUS, &reg);
+	if (reg & BIT(20))
+		return false;
+	kgsl_regread(device, A5XX_GPMU_RBCCU_PWR_CLK_STATUS, &reg);
+	return !(reg & BIT(20));
+}
 
 static void a5xx_remove(struct adreno_device *adreno_dev)
 {
@@ -2690,7 +2687,6 @@ const struct adreno_gpudev adreno_a5xx_gpudev = {
 	.init = a5xx_init,
 	.irq_handler = a5xx_irq_handler,
 	.rb_start = a5xx_rb_start,
-	.is_sptp_idle = a5xx_is_sptp_idle,
 	.regulator_enable = a5xx_regulator_enable,
 	.regulator_disable = a5xx_regulator_disable,
 	.pwrlevel_change_settings = a5xx_pwrlevel_change_settings,
@@ -2706,4 +2702,5 @@ const struct adreno_gpudev adreno_a5xx_gpudev = {
 	.clear_pending_transactions = a5xx_clear_pending_transactions,
 	.remove = a5xx_remove,
 	.ringbuffer_submitcmd = a5xx_ringbuffer_submitcmd,
+	.is_hw_collapsible = a5xx_is_hw_collapsible,
 };
