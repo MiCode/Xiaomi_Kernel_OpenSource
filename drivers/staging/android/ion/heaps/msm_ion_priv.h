@@ -39,6 +39,8 @@
 #define ION_SECURE_DISPLAY_HEAP_NAME "secure_display"
 #define ION_AUDIO_HEAP_NAME    "audio"
 #define ION_TUI_CARVEOUT_HEAP_NAME "tui_carveout"
+#define ION_DISPLAY_HEAP_NAME "display"
+#define ION_AUDIO_ML_HEAP_NAME "audio_ml"
 
 /**
  * Debug feature. Make ION allocations DMA
