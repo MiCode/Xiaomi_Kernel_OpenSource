@@ -343,6 +343,8 @@ kgsl_mem_entry_destroy(struct kref *kref)
 	/* pull out the memtype before the flags get cleared */
 	memtype = kgsl_memdesc_usermem_type(&entry->memdesc);
 
+	atomic64_sub(entry->memdesc.size, &entry->priv->stats[memtype].cur);
+
 	/* Detach from process list */
 	kgsl_mem_entry_detach_process(entry);
 
@@ -490,8 +492,6 @@ static void kgsl_mem_entry_detach_process(struct kgsl_mem_entry *entry)
 	if (entry->id != 0)
 		idr_remove(&entry->priv->mem_idr, entry->id);
 	entry->id = 0;
-
-	entry->priv->gpumem_mapped -= entry->memdesc.mapsize;
 
 	spin_unlock(&entry->priv->mem_lock);
 
@@ -2676,9 +2676,10 @@ static long _gpuobj_map_dma_buf(struct kgsl_device *device,
 static void kgsl_process_add_stats(struct kgsl_process_private *priv,
 	unsigned int type, uint64_t size)
 {
-	priv->stats[type].cur += size;
-	if (priv->stats[type].max < priv->stats[type].cur)
-		priv->stats[type].max = priv->stats[type].cur;
+	u64 ret = atomic64_add_return(size, &priv->stats[type].cur);
+
+	if (ret > priv->stats[type].max)
+		priv->stats[type].max = ret;
 }
 
 
@@ -3710,18 +3711,13 @@ static vm_fault_t
 kgsl_gpumem_vm_fault(struct vm_fault *vmf)
 {
 	struct kgsl_mem_entry *entry = vmf->vma->vm_private_data;
-	vm_fault_t ret;
 
 	if (!entry)
 		return VM_FAULT_SIGBUS;
 	if (!entry->memdesc.ops || !entry->memdesc.ops->vmfault)
 		return VM_FAULT_SIGBUS;
 
-	ret = entry->memdesc.ops->vmfault(&entry->memdesc, vmf->vma, vmf);
-	if (!ret || ret == VM_FAULT_NOPAGE)
-		entry->priv->gpumem_mapped += PAGE_SIZE;
-
-	return ret;
+	return entry->memdesc.ops->vmfault(&entry->memdesc, vmf->vma, vmf);
 }
 
 static void
@@ -3733,6 +3729,8 @@ kgsl_gpumem_vm_close(struct vm_area_struct *vma)
 		return;
 
 	entry->memdesc.useraddr = 0;
+	atomic64_sub(entry->memdesc.mapsize, &entry->priv->gpumem_mapped);
+	entry->memdesc.mapsize = 0;
 	kgsl_mem_entry_put(entry);
 }
 
@@ -4017,13 +4015,14 @@ static int kgsl_mmap(struct file *file, struct vm_area_struct *vma)
 			vm_insert_page(vma, addr, page);
 			addr += PAGE_SIZE;
 		}
-		m->mapsize = m->size;
-		entry->priv->gpumem_mapped += m->mapsize;
 	}
 
 	vma->vm_file = file;
 
 	entry->memdesc.useraddr = vma->vm_start;
+
+	entry->memdesc.mapsize += entry->memdesc.size;
+	atomic64_add(entry->memdesc.mapsize, &entry->priv->gpumem_mapped);
 
 	trace_kgsl_mem_mmap(entry);
 	return 0;
