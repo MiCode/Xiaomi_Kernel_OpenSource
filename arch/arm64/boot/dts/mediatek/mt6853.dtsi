@@ -49,6 +49,12 @@
 		compatible = "mediatek,atf_logger";
 	};
 
+	/* AMMS */
+	amms_control {
+		compatible = "mediatek,amms";
+		interrupts = <GIC_SPI 295 IRQ_TYPE_EDGE_RISING 0>;
+	};
+
 	/* chosen */
 	chosen: chosen {
 		bootargs = "console=tty0 console=ttyS0,921600n1 root=/dev/ram vmalloc=400M swiotlb=noforce firmware_class.path=/vendor/firmware page_owner=on loop.max_part=7";
