@@ -19,4 +19,7 @@ int qcom_iommu_generate_dma_regions(struct device *dev,
 void qcom_iommu_generate_resv_regions(struct device *dev,
 				      struct list_head *list);
 
+/* Remove once these functions are exported by upstream kernel */
+void qcom_iommu_get_resv_regions(struct device *dev, struct list_head *list);
+void qcom_iommu_put_resv_regions(struct device *dev, struct list_head *list);
 #endif /* __QCOM_IOMMU_UTIL_H */

@@ -201,6 +201,24 @@ void qcom_iommu_generate_resv_regions(struct device *dev,
 }
 EXPORT_SYMBOL(qcom_iommu_generate_resv_regions);
 
+void qcom_iommu_get_resv_regions(struct device *dev, struct list_head *list)
+{
+	const struct iommu_ops *ops = dev->bus->iommu_ops;
+
+	if (ops && ops->get_resv_regions)
+		ops->get_resv_regions(dev, list);
+}
+EXPORT_SYMBOL(qcom_iommu_get_resv_regions);
+
+void qcom_iommu_put_resv_regions(struct device *dev, struct list_head *list)
+{
+	const struct iommu_ops *ops = dev->bus->iommu_ops;
+
+	if (ops && ops->put_resv_regions)
+		ops->put_resv_regions(dev, list);
+}
+EXPORT_SYMBOL(qcom_iommu_put_resv_regions);
+
 static int __init qcom_iommu_util_init(void)
 {
 	/* STUB */
