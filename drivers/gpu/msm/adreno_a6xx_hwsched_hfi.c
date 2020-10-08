@@ -296,7 +296,7 @@ static irqreturn_t a6xx_hwsched_hfi_handler(int irq, void *data)
 	}
 
 	/* Ignore OOB bits */
-	status &= GENMASK(31, 31 - (oob_max - 1));
+	status &= GENMASK(31 - (oob_max - 1), 0);
 
 	if (status & ~hfi->irq_mask)
 		dev_err_ratelimited(&gmu->pdev->dev,
@@ -545,6 +545,9 @@ static struct mem_alloc_entry *get_mem_alloc_entry(
 	if (!(desc->flags & MEMFLAG_GFX_WRITEABLE))
 		flags |= KGSL_MEMFLAGS_GPUREADONLY;
 
+	if (desc->flags & MEMFLAG_GFX_SECURE)
+		flags |= KGSL_MEMFLAGS_SECURE;
+
 	entry->gpu_md = kgsl_allocate_global(device, desc->size, flags, priv,
 		memkind_string);
 	if (IS_ERR(entry->gpu_md)) {
@@ -730,6 +733,26 @@ static void enable_async_hfi(struct adreno_device *adreno_dev)
 		(u32)~hfi->irq_mask);
 }
 
+static int enable_preemption(struct adreno_device *adreno_dev)
+{
+	u32 data;
+
+	if (!adreno_is_preemption_enabled(adreno_dev))
+		return 0;
+
+	/*
+	 * Bits [0:1] contains the preemption level
+	 * Bit 2 is to enable/disable gmem save/restore
+	 * Bit 3 is to enable/disable skipsaverestore
+	 */
+	data = FIELD_PREP(GENMASK(1, 0), adreno_dev->preempt.preempt_level) |
+			FIELD_PREP(BIT(2), adreno_dev->preempt.usesgmem) |
+			FIELD_PREP(BIT(3), adreno_dev->preempt.skipsaverestore);
+
+	return a6xx_hfi_send_feature_ctrl(adreno_dev, HFI_FEATURE_PREEMPTION, 1,
+			data);
+}
+
 int a6xx_hwsched_hfi_start(struct adreno_device *adreno_dev)
 {
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
@@ -766,7 +789,11 @@ int a6xx_hwsched_hfi_start(struct adreno_device *adreno_dev)
 
 	ret = a6xx_hfi_send_feature_ctrl(adreno_dev, HFI_FEATURE_KPROF, 1, 0);
 	if (ret)
-		return ret;
+		goto err;
+
+	ret = enable_preemption(adreno_dev);
+	if (ret)
+		goto err;
 
 	ret = a6xx_hfi_send_core_fw_start(adreno_dev);
 	if (ret)
@@ -1325,4 +1352,41 @@ void a6xx_hwsched_context_detach(struct adreno_context *drawctxt)
 	context->gmu_registered = false;
 
 	mutex_unlock(&device->mutex);
+}
+
+int a6xx_hwsched_preempt_count_get(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct hfi_get_value_cmd cmd;
+	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
+	struct a6xx_hwsched_hfi *hfi = to_a6xx_hwsched_hfi(adreno_dev);
+	u32 seqnum = atomic_inc_return(&gmu->hfi.seqnum);
+	struct pending_cmd pending_ack;
+	int rc;
+
+	if (device->state != KGSL_STATE_ACTIVE)
+		return 0;
+
+	CMD_MSG_HDR(cmd, H2F_MSG_GET_VALUE);
+
+	cmd.hdr = MSG_HDR_SET_SEQNUM(cmd.hdr, seqnum);
+	cmd.type = HFI_VALUE_PREEMPT_COUNT;
+	cmd.subtype = 0;
+
+	add_waiter(hfi, cmd.hdr, &pending_ack);
+
+	rc = a6xx_hfi_cmdq_write(adreno_dev, (u32 *)&cmd);
+	if (rc)
+		goto done;
+
+	rc = wait_ack_completion(adreno_dev, &pending_ack);
+	if (rc)
+		goto done;
+
+	rc = check_ack_failure(adreno_dev, &pending_ack);
+
+done:
+	del_waiter(hfi, &pending_ack);
+
+	return rc ? rc : pending_ack.results[2];
 }

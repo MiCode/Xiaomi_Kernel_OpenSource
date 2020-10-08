@@ -72,11 +72,19 @@ static int globals_print(struct seq_file *s, void *unused)
 
 	list_for_each_entry(md, &device->globals, node) {
 		struct kgsl_memdesc *memdesc = &md->memdesc;
+		char flags[6];
 
-		seq_printf(s, "0x%pK-0x%pK %16llu %s\n",
+		flags[0] = memdesc->priv & KGSL_MEMDESC_PRIVILEGED ?  'p' : '-';
+		flags[1] = !(memdesc->flags & KGSL_MEMFLAGS_GPUREADONLY) ? 'w' : '-';
+		flags[2] = kgsl_memdesc_is_secured(memdesc) ?  's' : '-';
+		flags[3] = memdesc->priv & KGSL_MEMDESC_RANDOM ?  'r' : '-';
+		flags[4] = memdesc->priv & KGSL_MEMDESC_UCODE ? 'u' : '-';
+		flags[5] = '\0';
+
+		seq_printf(s, "0x%pK-0x%pK %16llu %5s %s\n",
 			(u64 *)(uintptr_t) memdesc->gpuaddr,
 			(u64 *)(uintptr_t) (memdesc->gpuaddr +
-			memdesc->size - 1), memdesc->size,
+			memdesc->size - 1), memdesc->size, flags,
 			md->name);
 	}
 
