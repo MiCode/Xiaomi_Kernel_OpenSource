@@ -76,7 +76,7 @@ do { \
 
 /* max dump size is 300KB whitch can be adjusted */
 #define BLOCKIO_AEE_BUFFER_SIZE (300 * 1024)
-char blockio_aee_buffer;
+char *blockio_aee_buffer;
 
 /* procfs dentries */
 struct proc_dir_entry *btag_proc_root;
