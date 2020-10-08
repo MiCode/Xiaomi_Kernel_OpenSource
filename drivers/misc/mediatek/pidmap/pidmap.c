@@ -303,12 +303,12 @@ static int mtk_pidmap_proc_open(struct inode *inode, struct file *file)
 	return single_open(file, mtk_pidmap_seq_show, inode->i_private);
 }
 
-static const struct file_operations mtk_pidmap_proc_fops = {
-	.open = mtk_pidmap_proc_open,
-	.write = mtk_pidmap_proc_write,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = single_release,
+static const struct proc_ops mtk_pidmap_proc_fops = {
+	.proc_open = mtk_pidmap_proc_open,
+	.proc_write = mtk_pidmap_proc_write,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
 };
 
 static int mtk_pidmap_proc_init(void)
