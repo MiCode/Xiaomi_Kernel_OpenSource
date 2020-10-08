@@ -9,6 +9,8 @@
 #include "mediatek/mt6359p.dtsi"
 #include "mediatek/mt6853-clkitg.dtsi"
 #include "mediatek/bat_setting/mt6853_battery_prop.dtsi"
+#include <dt-bindings/spmi/spmi.h>
+#include <dt-bindings/mfd/mt6362.h>
 
 / {
 	tboard_thermistor1: thermal-ntc1 {
@@ -646,151 +648,440 @@
 	};
 };
 
-&i2c5 {
-	status = "okay";
-	clock-frequency = <3400000>;
-	#address-cells = <1>;
-	#size-cells = <0>;
-
-	pmu: mt6360_pmu@34 {
-		status = "ok";
-		compatible = "mediatek,mt6360_pmu";
-		reg = <0x34>;
-		wakeup-source;
-		interrupt-controller;
+&spmi {
+	grpid = <11>;
+	mt6362_9: mt6362@9 {
+		compatible = "mediatek,mt6362";
+		reg = <0x9 SPMI_USID 0x0 SPMI_GSID>;
 		interrupt-parent = <&pio>;
-		interrupts = <24 IRQ_TYPE_EDGE_FALLING>;
+		interrupts = <120 IRQ_TYPE_EDGE_RISING 120 0>;
 		interrupt-names = "IRQB";
-		mt6360_chg: chg {
-			compatible = "mediatek,mt6360_chg";
-			vinovp = <14500000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		interrupt-controller;
+		#interrupt-cells = <1>;
+		/* PMU */
+		mt6362_adc: adc {
+			compatible ="mediatek,mt6362-adc";
+			#io-channel-cells = <1>;
+			interrupts = <MT6362_ADC_DONEI>;
+			interrupt-names = "adc_donei";
+		};
+		mt6362_chg: chg {
+			compatible = "mediatek,mt6362-chg";
+			interrupts = <MT6362_FL_PWR_RDY>,
+				     <MT6362_FL_DETACH>,
+				     <MT6362_FL_VBUS_OV>,
+				     <MT6362_FL_CHG_BATOV>,
+				     <MT6362_FL_CHG_SYSOV>,
+				     <MT6362_FL_CHG_TOUT>,
+				     <MT6362_FL_CHG_THREG>,
+				     <MT6362_FL_CHG_MIVR>,
+				     <MT6362_FL_AICC_DONE>,
+				     <MT6362_FL_PE_DONE>,
+				     <MT6362_FL_WDT>,
+				     <MT6362_FL_BC12_DN>;
+			interrupt-names = "fl_pwr_rdy", "fl_detach",
+					  "fl_vbus_ov", "fl_chg_batov",
+					  "fl_chg_sysov", "fl_chg_tout",
+					  "fl_chg_threg", "fl_chg_mivr",
+					  "fl_aicc_done", "fl_pe_done",
+					  "fl_wdt", "fl_bc12_dn";
+			io-channels = <&mt6362_adc MT6362_ADCCH_CHGVINDIV5>,
+				      <&mt6362_adc MT6362_ADCCH_VSYS>,
+				      <&mt6362_adc MT6362_ADCCH_VBAT>,
+				      <&mt6362_adc MT6362_ADCCH_IBUS>,
+				      <&mt6362_adc MT6362_ADCCH_IBAT>,
+				      <&mt6362_adc MT6362_ADCCH_TEMPJC>,
+				      <&mt6362_adc MT6362_ADCCH_ZCV>;
+			chg_name = "primary_chg";
+			ichg = <2000000>;		/* uA */
+			aicr = <500000>;		/* uA */
+			mivr = <4400000>;		/* uV */
+			cv = <4350000>;			/* uA */
+			ieoc = <150000>;		/* uA */
+			safety_timer = <10>;		/* hour */
+			ircmp_resistor = <25000>;	/* uohm */
+			ircmp_vclamp = <32000>;		/* uV */
+			specta_det = <0>;
+			/* 0: disable, 1: 300ms, 2: 600ms, 3: unlimit */
+			dcdt_sel = <2>;
+			/* 0: 5.8V, 1: 6.5V, 2: 11V, 3: 14.5V */
+			vbusov_sel = <3>;
+			en_te = <1>;
+			en_wdt = <1>;
+			aicc_oneshot = <1>;
+			post_aicc = <1>;
+			post_aicc_thr = <200000>;
+			shipping_dly_en = <1>;
+			batoc_notify = <0>;
+			/* bc12_sel = <&mtk_ctd>; */
+			bootmode = <&chosen>;
 			otg_vbus: usb-otg-vbus {
 				regulator-compatible = "usb-otg-vbus";
 				regulator-name = "usb-otg-vbus";
-				regulator-min-microvolt = <4425000>;
-				regulator-max-microvolt = <5825000>;
+				regulator-min-microvolt = <4350000>;
+				regulator-max-microvolt = <5800000>;
 			};
 		};
-		mt6360_adc: adc {
-			compatible = "mediatek,mt6360_adc";
-			#io-channel-cells = <1>;
-		};
-		mt6360_led: led {
-			compatible = "mediatek,mt6360_led";
-			rgbon_sync = <1>;
-			iled  {
-				#address-cells = <1>;
-				#size-cells = <0>;
-				led@0 {
-					reg = <0>;
-					label = "isink1";
-				};
-				led@1 {
-					reg = <1>;
-					label = "isink2";
-				};
-				led@2 {
-					reg = <2>;
-					label = "isink3";
-				};
-				led@3 {
-					reg = <3>;
-					label = "isink4";
-				};
+		leds {
+			compatible = "mediatek,mt6362-leds";
+			interrupts = <MT6362_FLED_LVF_EVT>,
+				     <MT6362_FLED_LBP_EVT>,
+				     <MT6362_FLED_CHGVINOVP_EVT>,
+				     <MT6362_FLED1_SHORT_EVT>,
+				     <MT6362_FLED2_SHORT_EVT>,
+				     <MT6362_FLED1_STRB_TO_EVT>,
+				     <MT6362_FLED2_STRB_TO_EVT>;
+			interrupt-names = "fled_lvf_evt",
+					  "fled_lbp_evt",
+					  "fled_chgvinovp_evt",
+					  "fled1_short_evt",
+					  "fled2_short_evt",
+					  "fled1_strbto_evt",
+					  "fled2_strbto_evt";
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			indicator@0 {
+				reg = <0>;
+				label = "mt6362_isink1";
+				led-max-microamp = <24000>;
 			};
-			fled {
-				#address-cells = <1>;
-				#size-cells = <0>;
-				flash@0 {
-					reg = <0>;
-					label = "mt6360_flash_ch1";
-					led-max-microamp = <400000>;
-					flash-max-microamp = <1500000>;
-					flash-max-timeout = <1248000>;
-					port@0 {
-						fl_core_0: endpoint {
-						remote-endpoint = <&flashlight_0>;
-						};
-					};
-				};
-				flash@1 {
-					reg = <1>;
-					label = "mt6360_flash_ch2";
-					led-max-microamp = <400000>;
-					flash-max-microamp = <1500000>;
-					flash-max-timeout = <1248000>;
-					port@1 {
-						fl_core_1: endpoint {
-						remote-endpoint = <&flashlight_1>;
-						};
+			indicator@1 {
+				reg = <1>;
+				label = "mt6362_isink4";
+				led-max-microamp = <150000>;
+			};
+
+			flash@0 {
+				reg = <0>;
+				label = "mt6362_flash_ch1";
+				led-max-microamp = <400000>;
+				flash-max-microamp = <1500000>;
+				flash-max-timeout-us = <1248000>;
+				type = <0>;
+				ct = <0>;
+				part = <0>;
+				port@0 {
+					fl_core_0: endpoint {
+					remote-endpoint = <&flashlight_0>;
 					};
 				};
 			};
+			flash@1 {
+				reg = <1>;
+				label = "mt6362_flash_ch2";
+				led-max-microamp = <400000>;
+				flash-max-microamp = <1500000>;
+				flash-max-timeout-us = <1248000>;
+				type = <0>;
+				ct = <1>;
+				part = <0>;
+				port@1 {
+					fl_core_1: endpoint {
+					remote-endpoint = <&flashlight_1>;
+					};
+				};
+			};
 		};
-		pmic {
-			compatible = "mediatek,mt6360_pmic";
-			mt6360_mdla_buck_reg: buck1 {
-				regulator-compatible = "BUCK1";
-				regulator-name = "mt6360,buck1";
+		/* BUCK LDO */
+		regulators {
+			compatible = "mediatek,mt6362-regulator";
+			pwr-off-seq = [24 24 04 22 00 00 00 02 04];
+			buck1 {
+				regulator-name = "mt6362-buck1";
 				regulator-min-microvolt = <300000>;
-				regulator-max-microvolt = <1300000>;
-				regulator-allowed-modes = <0 2 3>;
+				regulator-max-microvolt = <1193750>;
+				regulator-allowed-modes =
+					<MT6362_REGULATOR_MODE_NORMAL>,
+					<MT6362_REGULATOR_MODE_LP>;
+				regulator-initial-mode =
+					<MT6362_REGULATOR_MODE_NORMAL>;
+				interrupts = <MT6362_BUCK1_OC_SDN_EVT>,
+					     <MT6362_BUCK1_PGB_EVT>;
+				interrupt-names = "oc_evt", "pgb_evt";
 				regulator-always-on;
 			};
 			buck2 {
-				regulator-compatible = "BUCK2";
-				regulator-name = "mt6360,buck2";
+				regulator-name = "mt6362-buck2";
 				regulator-min-microvolt = <300000>;
-				regulator-max-microvolt = <1300000>;
-				regulator-allowed-modes = <0 2 3>;
+				regulator-max-microvolt = <1193750>;
+				regulator-allowed-modes =
+					<MT6362_REGULATOR_MODE_NORMAL>,
+					<MT6362_REGULATOR_MODE_LP>;
+				regulator-initial-mode =
+					<MT6362_REGULATOR_MODE_NORMAL>;
+				interrupts = <MT6362_BUCK2_OC_SDN_EVT>,
+					     <MT6362_BUCK2_PGB_EVT>;
+				interrupt-names = "oc_evt", "pgb_evt";
 				regulator-always-on;
 			};
+			buck3 {
+				regulator-name = "mt6362-buck3";
+				regulator-min-microvolt = <300000>;
+				regulator-max-microvolt = <1193750>;
+				regulator-allowed-modes =
+					<MT6362_REGULATOR_MODE_NORMAL>,
+					<MT6362_REGULATOR_MODE_LP>;
+				regulator-initial-mode =
+					<MT6362_REGULATOR_MODE_NORMAL>;
+				interrupts = <MT6362_BUCK3_OC_SDN_EVT>,
+					     <MT6362_BUCK3_PGB_EVT>;
+				interrupt-names = "oc_evt", "pgb_evt";
+				regulator-always-on;
+			};
+			buck4 {
+				regulator-name = "mt6362-buck4";
+				regulator-min-microvolt = <300000>;
+				regulator-max-microvolt = <1193750>;
+				regulator-allowed-modes =
+					<MT6362_REGULATOR_MODE_NORMAL>,
+					<MT6362_REGULATOR_MODE_LP>;
+				regulator-initial-mode =
+					<MT6362_REGULATOR_MODE_NORMAL>;
+				interrupts = <MT6362_BUCK4_OC_SDN_EVT>,
+					     <MT6362_BUCK4_PGB_EVT>;
+				interrupt-names = "oc_evt", "pgb_evt";
+				regulator-always-on;
+			};
+			buck5 {
+				regulator-name = "MD_VRF09";
+				regulator-min-microvolt = <300000>;
+				regulator-max-microvolt = <1193750>;
+				regulator-allowed-modes =
+					<MT6362_REGULATOR_MODE_NORMAL>,
+					<MT6362_REGULATOR_MODE_LP>;
+				regulator-initial-mode =
+					<MT6362_REGULATOR_MODE_NORMAL>;
+				interrupts = <MT6362_BUCK5_OC_SDN_EVT>,
+					     <MT6362_BUCK5_PGB_EVT>;
+				interrupt-names = "oc_evt", "pgb_evt";
+			};
+			buck6 {
+				regulator-name = "MD_VRF13";
+				regulator-min-microvolt = <300000>;
+				regulator-max-microvolt = <1593750>;
+				regulator-allowed-modes =
+					<MT6362_REGULATOR_MODE_NORMAL>,
+					<MT6362_REGULATOR_MODE_LP>;
+				regulator-initial-mode =
+					<MT6362_REGULATOR_MODE_NORMAL>;
+				interrupts = <MT6362_BUCK6_OC_SDN_EVT>,
+					     <MT6362_BUCK6_PGB_EVT>;
+				interrupt-names = "oc_evt", "pgb_evt";
+			};
+			mt_pmic_vfp_ldo_reg: ldo1 {
+				regulator-name = "mt6362-ldo1";
+				regulator-min-microvolt = <1200000>;
+				regulator-max-microvolt = <3600000>;
+				regulator-active-discharge = <1>;
+				regulator-allowed-modes =
+					<MT6362_REGULATOR_MODE_NORMAL>,
+					<MT6362_REGULATOR_MODE_LP>;
+				regulator-initial-mode =
+					<MT6362_REGULATOR_MODE_NORMAL>;
+				interrupts = <MT6362_LDO1_OC_EVT>,
+					     <MT6362_LDO1_PGB_EVT>;
+				interrupt-names = "oc_evt", "pgb_evt";
+			};
+			mt_pmic_vtp_ldo_reg: ldo2 {
+				regulator-name = "mt6362-ldo2";
+				regulator-min-microvolt = <1200000>;
+				regulator-max-microvolt = <3600000>;
+				regulator-active-discharge = <1>;
+				regulator-allowed-modes =
+					<MT6362_REGULATOR_MODE_NORMAL>,
+					<MT6362_REGULATOR_MODE_LP>;
+				regulator-initial-mode =
+					<MT6362_REGULATOR_MODE_NORMAL>;
+				interrupts = <MT6362_LDO2_OC_EVT>,
+					     <MT6362_LDO2_PGB_EVT>;
+				interrupt-names = "oc_evt", "pgb_evt";
+			};
+			mt_pmic_vmc_ldo_reg: ldo3 {
+				regulator-name = "mt6362-ldo3";
+				regulator-min-microvolt = <1200000>;
+				regulator-max-microvolt = <3600000>;
+				regulator-active-discharge = <1>;
+				regulator-allowed-modes =
+					<MT6362_REGULATOR_MODE_NORMAL>,
+					<MT6362_REGULATOR_MODE_LP>;
+				regulator-initial-mode =
+					<MT6362_REGULATOR_MODE_NORMAL>;
+				interrupts = <MT6362_LDO3_OC_EVT>,
+					     <MT6362_LDO3_PGB_EVT>;
+				interrupt-names = "oc_evt", "pgb_evt";
+			};
+			ldo4 {
+				regulator-name = "mt6362-ldo4";
+				regulator-min-microvolt = <1200000>;
+				regulator-max-microvolt = <3600000>;
+				regulator-active-discharge = <1>;
+				regulator-allowed-modes =
+					<MT6362_REGULATOR_MODE_NORMAL>,
+					<MT6362_REGULATOR_MODE_LP>;
+				regulator-initial-mode =
+					<MT6362_REGULATOR_MODE_NORMAL>;
+				interrupts = <MT6362_LDO4_OC_EVT>,
+					     <MT6362_LDO4_PGB_EVT>;
+				interrupt-names = "oc_evt", "pgb_evt";
+				regulator-always-on;
+			};
+			mt_pmic_vmch_ldo_reg: ldo5 {
+				regulator-name = "VMCH";
+				regulator-min-microvolt = <1200000>;
+				regulator-max-microvolt = <3600000>;
+				regulator-active-discharge = <1>;
+				regulator-allowed-modes =
+					<MT6362_REGULATOR_MODE_NORMAL>,
+					<MT6362_REGULATOR_MODE_LP>;
+				regulator-initial-mode =
+					<MT6362_REGULATOR_MODE_NORMAL>;
+				interrupts = <MT6362_LDO5_OC_EVT>,
+					     <MT6362_LDO5_PGB_EVT>;
+				interrupt-names = "oc_evt", "pgb_evt";
+			};
 			ldo6 {
-				regulator-compatible = "LDO6";
-				regulator-name = "mt6360,ldo6";
+				regulator-name = "mt6362-ldo6";
 				regulator-min-microvolt = <500000>;
 				regulator-max-microvolt = <2100000>;
-				regulator-allowed-modes = <0 2>;
+				regulator-active-discharge = <1>;
+				regulator-allowed-modes =
+					<MT6362_REGULATOR_MODE_NORMAL>,
+					<MT6362_REGULATOR_MODE_LP>;
+				regulator-initial-mode =
+					<MT6362_REGULATOR_MODE_NORMAL>;
+				interrupts = <MT6362_LDO6_OC_EVT>,
+					     <MT6362_LDO6_PGB_EVT>;
+				interrupt-names = "oc_evt", "pgb_evt";
 				regulator-always-on;
 			};
 			ldo7 {
-				regulator-compatible = "LDO7";
-				regulator-name = "mt6360,ldo7";
+				regulator-name = "mt6362-ldo7";
 				regulator-min-microvolt = <500000>;
 				regulator-max-microvolt = <2100000>;
-				regulator-allowed-modes = <0 2>;
+				regulator-active-discharge = <1>;
+				regulator-allowed-modes =
+					<MT6362_REGULATOR_MODE_NORMAL>,
+					<MT6362_REGULATOR_MODE_LP>;
+				regulator-initial-mode =
+					<MT6362_REGULATOR_MODE_NORMAL>;
+				interrupts = <MT6362_LDO7_OC_EVT>,
+					     <MT6362_LDO7_PGB_EVT>;
+				interrupt-names = "oc_evt", "pgb_evt";
 				regulator-always-on;
 			};
 		};
-		ldo {
-			compatible = "mediatek,mt6360_ldo";
-			mt_pmic_vfp_ldo_reg: ldo1 {
-				regulator-compatible = "LDO1";
-				regulator-name = "mt6360,ldo1";
-				regulator-min-microvolt = <1200000>;
-				regulator-max-microvolt = <3600000>;
-				regulator-allowed-modes = <0 2>;
+		/* TypeC/USBPD */
+		tcpc {
+			compatible = "mediatek,mt6362-tcpc";
+			/* 0: dfp/ufp, 1: dfp, 2: ufp */
+			tcpc-dual,supported_modes = <0>;
+			/* tcpc_device's name */
+			tcpc,name = "type_c_port0";
+			/* 0: SNK Only, 1: SRC Only, 2: DRP, */
+			/* 3: Try.SRC, 4: Try.SNK */
+			tcpc,role_def = <4>;
+			/* 0: Default, 1: 1.5, 2: 3.0 */
+			tcpc,rp_level = <0>;
+			/* 0: Never, 1: Always, 2: EMarkOnly, 3: StartOnly */
+			tcpc,vconn_supply  = <1>;
+			/* the number of notifier supply */
+			tcpc,notifier_supply_num = <3>;
+			interrupts = <MT6362_PD_EVT>;
+			interrupt-names = "pd_evt";
+			io-channels = <&mt6362_adc MT6362_ADCCH_PDSBU1DIV4>,
+				      <&mt6362_adc MT6362_ADCCH_PDSBU2DIV4>;
+			wd,sbu_calib_init = <1200>;	/* mV */
+			wd,sbu_pl_bound = <200>;	/* mV */
+			wd,sbu_pl_lbound_c2c = <1100>;	/* mV */
+			wd,sbu_pl_ubound_c2c = <2600>;	/* mV */
+			wd,sbu_ph_auddev = <100>;	/* mV */
+			wd,sbu_ph_lbound = <888>;	/* mV */
+			wd,sbu_ph_lbound1_c2c = <2850>;	/* mV */
+			wd,sbu_ph_ubound1_c2c = <3150>;	/* mV */
+			wd,sbu_ph_ubound2_c2c = <3800>;	/* mV */
+			wd,sbu_aud_ubound = <1600>;	/* mV */
+			pd-data {
+				/*
+				 * VSAFE5V = 0, MAX_POWER = 1, CUSTOM = 2,
+				 * MAX_POWER_LV = 0x21, MAX_POWER_LVIC = 0x31
+				 * MAX_POWER_HV = 0x41, MAX_POWER_HVIC = 0x51
+				 */
+				pd,charging_policy= <0x21>;
+				pd,source-pdo-size = <1>;
+				pd,source-pdo-data = <0x00019032>;
+				/* 5V, 500 mA */
+				pd,sink-pdo-size = <2>;
+				pd,sink-pdo-data = <0x000190c8 0x000190c8> ;
+				/* 0x0002d0c8 : 9V, 2A<0x04019032 0x04019064> */
+
+				/*
+				 * No DP, host + device
+				 *	pd,id-vdo-size = <3>;
+				 *	pd,id-vdo-data =
+						<0xd00029cf 0x0 0x00010000>;
+				 * With DP
+				 *	pd,id-vdo-size = <4>;
+				 *	pd,id-vdo-data =
+				 *	<0xec0029cf 0x0 0x00010000 0x11000001>;
+				 */
+				pd,id-vdo-size = <3>;
+				pd,id-vdo-data = <0xd00029cf 0x0 0x00010000>;
 			};
-			mt_pmic_vtp_ldo_reg: ldo2 {
-				regulator-compatible = "LDO2";
-				regulator-name = "vtp";
-				regulator-min-microvolt = <1200000>;
-				regulator-max-microvolt = <3600000>;
-				regulator-allowed-modes = <0 2>;
+			dpm_caps {
+				local_dr_power;
+				local_dr_data;
+				// local_ext_power;
+				local_usb_comm;
+				// local_usb_suspend;
+				// local_high_cap;
+				// local_give_back;
+				local_no_suspend;
+				local_vconn_supply;
+
+				// attemp_discover_cable_dfp;
+				attemp_enter_dp_mode;
+				attemp_discover_cable;
+				attemp_discover_id;
+
+				/* 0: disable, 1: prefer_snk, 2: prefer_src */
+				pr_check = <0>;
+				// pr_reject_as_source;
+				// pr_reject_as_sink;
+				// pr_check_gp_source;
+				// pr_check_gp_sink;
+
+				/* 0: disable, 1: prefer_ufp, 2: prefer_dfp */
+				dr_check = <0>;
+				// dr_reject_as_dfp;
+				// dr_reject_as_ufp;
 			};
-			mt_pmic_vmc_ldo_reg: ldo3 {
-				regulator-compatible = "LDO3";
-				regulator-name = "mt6360,ldo3";
-				regulator-min-microvolt = <1200000>;
-				regulator-max-microvolt = <3600000>;
-				regulator-allowed-modes = <0 2>;
-			};
-			mt_pmic_vmch_ldo_reg: ldo5 {
-				regulator-compatible = "LDO5";
-				regulator-name = "mt6360,ldo5";
-				regulator-min-microvolt = <2700000>;
-				regulator-max-microvolt = <3600000>;
-				regulator-allowed-modes = <0 2>;
+			displayport {
+				/* connection type = "both", "ufp_d", "dfp_d" */
+				1st_connection = "dfp_d";
+				2nd_connection = "dfp_d";
+				signal,dp_v13;
+				//signal,dp_gen2;
+				usbr20_not_used;
+				typec,receptacle;
+				ufp_d {
+					//pin_assignment,mode_a;
+					//pin_assignment,mode_b;
+					//pin_assignment,mode_c;
+					//pin_assignment,mode_d;
+					//pin_assignment,mode_e;
+				};
+				dfp_d {
+					/* Only support mode C & D */
+					//pin_assignment,mode_a;
+					//pin_assignment,mode_b;
+					pin_assignment,mode_c;
+					pin_assignment,mode_d;
+					pin_assignment,mode_e;
+					pin_assignment,mode_f;
+				};
 			};
 		};
 	};
@@ -856,7 +1147,7 @@
 };
 
 &mtk_gauge {
-	charger = <&mt6360_chg>;
+	charger = <&mt6362_chg>;
 };
 
 &mtk_composite_v4l2_1 {
