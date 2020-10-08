@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #include "adreno.h"
@@ -16,6 +16,22 @@
 #define VBIF2_PERF_EN_REG_SEL_OFF 16
 /* offset of clear register from the enable register */
 #define VBIF2_PERF_PWR_CLR_REG_EN_OFF 8
+
+static void a5xx_counter_load(struct adreno_device *adreno_dev,
+		struct adreno_perfcount_register *reg)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	int index = reg->load_bit / 32;
+	u32 enable = BIT(reg->load_bit & 31);
+
+	kgsl_regwrite(device, A5XX_RBBM_PERFCTR_LOAD_VALUE_LO,
+		lower_32_bits(reg->value));
+
+	kgsl_regwrite(device, A5XX_RBBM_PERFCTR_LOAD_VALUE_HI,
+		upper_32_bits(reg->value));
+
+	kgsl_regwrite(device, A5XX_RBBM_PERFCTR_LOAD_CMD0 + index, enable);
+}
 
 static u64 a5xx_counter_read_norestore(struct adreno_device *adreno_dev,
 		const struct adreno_perfcount_group *group,
@@ -111,7 +127,8 @@ static int a5xx_counter_rbbm_enable(struct adreno_device *adreno_dev,
 	if (adreno_is_a540(adreno_dev) && countable == A5XX_RBBM_ALWAYS_COUNT)
 		return -EINVAL;
 
-	return a5xx_counter_inline_enable(adreno_dev, group, counter, countable);
+	return a5xx_counter_inline_enable(adreno_dev, group, counter,
+			countable);
 }
 
 static u64 a5xx_counter_read(struct adreno_device *adreno_dev,
@@ -610,60 +627,50 @@ static struct adreno_perfcount_register a5xx_pwrcounters_alwayson[] = {
 		A5XX_GPMU_ALWAYS_ON_COUNTER_HI, -1 },
 };
 
-#define A5XX_PERFCOUNTER_GROUP(offset, name, enable, read) \
-	ADRENO_PERFCOUNTER_GROUP(a5xx, offset, name, enable, read)
+#define A5XX_PERFCOUNTER_GROUP(offset, name, enable, read, load) \
+	ADRENO_PERFCOUNTER_GROUP(a5xx, offset, name, enable, read, load)
 
-#define A5XX_PERFCOUNTER_GROUP_FLAGS(offset, name, flags, enable, read) \
-	ADRENO_PERFCOUNTER_GROUP_FLAGS(a5xx, offset, name, flags, enable, read)
-
+#define A5XX_PERFCOUNTER_GROUP_FLAGS(offset, name, flags, enable, read, load) \
+	ADRENO_PERFCOUNTER_GROUP_FLAGS(a5xx, offset, name, flags, enable, \
+			read, load)
 
 #define A5XX_POWER_COUNTER_GROUP(offset, name, enable, read) \
 	[KGSL_PERFCOUNTER_GROUP_##offset##_PWR] = { a5xx_pwrcounters_##name, \
 	ARRAY_SIZE(a5xx_pwrcounters_##name), __stringify(name##_pwr), 0, \
-	enable, read }
+	enable, read, NULL }
+
+#define A5XX_REGULAR_PERFCOUNTER_GROUP(offset, name) \
+	A5XX_PERFCOUNTER_GROUP(offset, name, a5xx_counter_inline_enable, \
+			a5xx_counter_read, a5xx_counter_load)
 
 static struct adreno_perfcount_group a5xx_perfcounter_groups
 				[KGSL_PERFCOUNTER_GROUP_MAX] = {
-	A5XX_PERFCOUNTER_GROUP(CP, cp,
-		a5xx_counter_inline_enable, a5xx_counter_read),
+	A5XX_REGULAR_PERFCOUNTER_GROUP(CP, cp),
 	A5XX_PERFCOUNTER_GROUP(RBBM, rbbm,
-		a5xx_counter_rbbm_enable, a5xx_counter_read),
-	A5XX_PERFCOUNTER_GROUP(PC, pc,
-		a5xx_counter_inline_enable, a5xx_counter_read),
-	A5XX_PERFCOUNTER_GROUP(VFD, vfd,
-		a5xx_counter_inline_enable, a5xx_counter_read),
-	A5XX_PERFCOUNTER_GROUP(HLSQ, hlsq,
-		a5xx_counter_inline_enable, a5xx_counter_read),
-	A5XX_PERFCOUNTER_GROUP(VPC, vpc,
-		a5xx_counter_inline_enable, a5xx_counter_read),
-	A5XX_PERFCOUNTER_GROUP(CCU, ccu,
-		a5xx_counter_inline_enable, a5xx_counter_read),
-	A5XX_PERFCOUNTER_GROUP(CMP, cmp,
-		a5xx_counter_inline_enable, a5xx_counter_read),
-	A5XX_PERFCOUNTER_GROUP(TSE, tse,
-		a5xx_counter_inline_enable, a5xx_counter_read),
-	A5XX_PERFCOUNTER_GROUP(RAS, ras,
-		a5xx_counter_inline_enable, a5xx_counter_read),
-	A5XX_PERFCOUNTER_GROUP(LRZ, lrz,
-		a5xx_counter_inline_enable, a5xx_counter_read),
-	A5XX_PERFCOUNTER_GROUP(UCHE, uche,
-		a5xx_counter_inline_enable, a5xx_counter_read),
-	A5XX_PERFCOUNTER_GROUP(TP, tp,
-		a5xx_counter_inline_enable, a5xx_counter_read),
-	A5XX_PERFCOUNTER_GROUP(SP, sp,
-		a5xx_counter_inline_enable, a5xx_counter_read),
-	A5XX_PERFCOUNTER_GROUP(RB, rb,
-		a5xx_counter_inline_enable, a5xx_counter_read),
-	A5XX_PERFCOUNTER_GROUP(VSC, vsc,
-		a5xx_counter_inline_enable, a5xx_counter_read),
+		a5xx_counter_rbbm_enable, a5xx_counter_read, a5xx_counter_load),
+	A5XX_REGULAR_PERFCOUNTER_GROUP(PC, pc),
+	A5XX_REGULAR_PERFCOUNTER_GROUP(VFD, vfd),
+	A5XX_REGULAR_PERFCOUNTER_GROUP(HLSQ, hlsq),
+	A5XX_REGULAR_PERFCOUNTER_GROUP(VPC, vpc),
+	A5XX_REGULAR_PERFCOUNTER_GROUP(CCU, ccu),
+	A5XX_REGULAR_PERFCOUNTER_GROUP(CMP, cmp),
+	A5XX_REGULAR_PERFCOUNTER_GROUP(TSE, tse),
+	A5XX_REGULAR_PERFCOUNTER_GROUP(RAS, ras),
+	A5XX_REGULAR_PERFCOUNTER_GROUP(LRZ, lrz),
+	A5XX_REGULAR_PERFCOUNTER_GROUP(UCHE, uche),
+	A5XX_REGULAR_PERFCOUNTER_GROUP(TP, tp),
+	A5XX_REGULAR_PERFCOUNTER_GROUP(SP, sp),
+	A5XX_REGULAR_PERFCOUNTER_GROUP(RB, rb),
+	A5XX_REGULAR_PERFCOUNTER_GROUP(VSC, vsc),
 	A5XX_PERFCOUNTER_GROUP(VBIF, vbif,
-		a5xx_counter_vbif_enable, a5xx_counter_read_norestore),
+		a5xx_counter_vbif_enable, a5xx_counter_read_norestore, NULL),
 	A5XX_PERFCOUNTER_GROUP_FLAGS(VBIF_PWR, vbif_pwr,
 		ADRENO_PERFCOUNTER_GROUP_FIXED,
-		a5xx_counter_vbif_pwr_enable, a5xx_counter_read_norestore),
+		a5xx_counter_vbif_pwr_enable,
+		a5xx_counter_read_norestore, NULL),
 	A5XX_PERFCOUNTER_GROUP_FLAGS(ALWAYSON, alwayson,
 		ADRENO_PERFCOUNTER_GROUP_FIXED,
-		a5xx_counter_alwayson_enable, a5xx_counter_alwayson_read),
+		a5xx_counter_alwayson_enable, a5xx_counter_alwayson_read, NULL),
 	A5XX_POWER_COUNTER_GROUP(SP, sp,
 		a5xx_counter_pwr_enable, a5xx_counter_read_norestore),
 	A5XX_POWER_COUNTER_GROUP(TP, tp,
