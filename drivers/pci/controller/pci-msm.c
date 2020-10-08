@@ -4407,8 +4407,6 @@ int msm_pcie_enumerate(u32 rc_idx)
 	struct pci_dev *pcidev = NULL;
 	struct pci_host_bridge *bridge;
 	bool found = false;
-	struct pci_bus *bus;
-	resource_size_t iobase = 0;
 	u32 ids, vendor_id, device_id;
 	LIST_HEAD(res);
 
@@ -4450,46 +4448,16 @@ int msm_pcie_enumerate(u32 rc_idx)
 		goto out;
 	}
 
-	ret = devm_of_pci_get_host_bridge_resources(&dev->pdev->dev, 0, 0xff,
-						&res, NULL, &iobase);
-	if (ret) {
-		PCIE_ERR(dev,
-			"PCIe: RC%d: failed to get host bridge resources. ret: %d\n",
-			dev->rc_idx, ret);
-		goto out;
-	}
-
-	ret = devm_request_pci_bus_resources(&dev->pdev->dev, &res);
-	if (ret) {
-		PCIE_ERR(dev,
-			"PCIe: RC%d: failed to request pci bus resources %d\n",
-			dev->rc_idx, ret);
-		goto out;
-	}
-
 	ret = msm_msi_init(&dev->pdev->dev);
 	if (ret)
 		goto out;
 
-	list_splice_init(&res, &bridge->windows);
-	bridge->dev.parent = &dev->pdev->dev;
 	bridge->sysdata = dev;
-	bridge->busnr = 0;
 	bridge->ops = &msm_pcie_ops;
-	bridge->map_irq = of_irq_parse_and_map_pci;
-	bridge->swizzle_irq = pci_common_swizzle;
 
-	ret = pci_scan_root_bus_bridge(bridge);
-	if (ret) {
-		PCIE_ERR(dev, "PCIe: RC%d: failed to scan root bus %d\n",
-			dev->rc_idx, ret);
-		goto out;
-	}
+	pci_host_probe(bridge);
 
-	bus = bridge->bus;
-
-	pci_assign_unassigned_bus_resources(bus);
-	pci_bus_add_devices(bus);
+	msm_pcie_fixup_irqs(dev);
 
 	dev->enumerated = true;
 	schedule_work(&pcie_drv.drv_connect);
@@ -5950,7 +5918,7 @@ void msm_pcie_allow_l1(struct pci_dev *pci_dev)
 	struct pci_dev *root_pci_dev;
 	struct msm_pcie_dev_t *pcie_dev;
 
-	root_pci_dev = pci_find_pcie_root_port(pci_dev);
+	root_pci_dev = pcie_find_root_port(pci_dev);
 	if (!root_pci_dev)
 		return;
 
@@ -5990,7 +5958,7 @@ int msm_pcie_prevent_l1(struct pci_dev *pci_dev)
 	u32 cnt_max = 1000; /* 100ms timeout */
 	int ret = 0;
 
-	root_pci_dev = pci_find_pcie_root_port(pci_dev);
+	root_pci_dev = pcie_find_root_port(pci_dev);
 	if (!root_pci_dev)
 		return -ENODEV;
 
@@ -6071,7 +6039,7 @@ int msm_pcie_set_link_bandwidth(struct pci_dev *pci_dev, u16 target_link_speed,
 	if (!pci_dev)
 		return -EINVAL;
 
-	root_pci_dev = pci_find_pcie_root_port(pci_dev);
+	root_pci_dev = pcie_find_root_port(pci_dev);
 	if (!root_pci_dev)
 		return -ENODEV;
 
