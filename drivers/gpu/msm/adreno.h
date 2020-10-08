@@ -1886,4 +1886,11 @@ void adreno_profile_submit_time(struct adreno_submit_time *time);
 void adreno_mark_guilty_context(struct kgsl_device *device, unsigned int id);
 
 void adreno_preemption_timer(struct timer_list *t);
+
+/**
+ * adreno_create_profile_buffer - Create a buffer to store profiling data
+ * @adreno_dev: Adreno GPU device handle
+ */
+void adreno_create_profile_buffer(struct adreno_device *adreno_dev);
+
 #endif /*__ADRENO_H */

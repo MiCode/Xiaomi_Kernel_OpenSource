@@ -990,13 +990,7 @@ static int a6xx_first_boot(struct adreno_device *adreno_dev)
 
 	adreno_get_bus_counters(adreno_dev);
 
-	adreno_dev->profile_buffer = kgsl_allocate_global(device, PAGE_SIZE, 0,
-				0, 0, "alwayson");
-
-	adreno_dev->profile_index = 0;
-
-	if (!IS_ERR(adreno_dev->profile_buffer))
-		set_bit(ADRENO_DEVICE_DRAWOBJ_PROFILE, &adreno_dev->priv);
+	adreno_create_profile_buffer(adreno_dev);
 
 	set_bit(RGMU_PRIV_FIRST_BOOT_DONE, &rgmu->flags);
 	set_bit(RGMU_PRIV_GPU_STARTED, &rgmu->flags);

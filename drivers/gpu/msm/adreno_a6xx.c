@@ -210,6 +210,8 @@ int a6xx_init(struct adreno_device *adreno_dev)
 			return PTR_ERR(adreno_dev->pwrup_reglist);
 	}
 
+	adreno_create_profile_buffer(adreno_dev);
+
 	return a6xx_get_cp_init_cmds(adreno_dev);
 }
 

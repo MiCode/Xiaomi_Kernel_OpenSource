@@ -2967,7 +2967,6 @@ static int a6xx_first_boot(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
 	int ret;
-	unsigned long priv = 0;
 
 	if (test_bit(GMU_PRIV_FIRST_BOOT_DONE, &gmu->flags))
 		return a6xx_boot(adreno_dev);
@@ -3007,16 +3006,7 @@ static int a6xx_first_boot(struct adreno_device *adreno_dev)
 	adreno_dev->cooperative_reset = ADRENO_FEATURE(adreno_dev,
 						 ADRENO_COOP_RESET);
 
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_APRIV))
-		priv |= KGSL_MEMDESC_PRIVILEGED;
-
-	adreno_dev->profile_buffer = kgsl_allocate_global(device, PAGE_SIZE, 0,
-			0, priv, "alwayson");
-
-	adreno_dev->profile_index = 0;
-
-	if (!IS_ERR(adreno_dev->profile_buffer))
-		set_bit(ADRENO_DEVICE_DRAWOBJ_PROFILE, &adreno_dev->priv);
+	adreno_create_profile_buffer(adreno_dev);
 
 	set_bit(GMU_PRIV_FIRST_BOOT_DONE, &gmu->flags);
 	set_bit(GMU_PRIV_GPU_STARTED, &gmu->flags);

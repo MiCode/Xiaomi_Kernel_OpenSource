@@ -1650,6 +1650,25 @@ static void adreno_fault_detect_init(struct adreno_device *adreno_dev)
 	adreno_fault_detect_start(adreno_dev);
 }
 
+void adreno_create_profile_buffer(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	unsigned int priv = 0;
+
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_APRIV))
+		priv = KGSL_MEMDESC_PRIVILEGED;
+
+	if (IS_ERR_OR_NULL(adreno_dev->profile_buffer))
+		adreno_dev->profile_buffer = kgsl_allocate_global(device,
+			PAGE_SIZE, 0, 0, priv, "alwayson");
+
+	adreno_dev->profile_index = 0;
+
+	if (!IS_ERR(adreno_dev->profile_buffer))
+		set_bit(ADRENO_DEVICE_DRAWOBJ_PROFILE,
+			&adreno_dev->priv);
+}
+
 static int adreno_init(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
@@ -1686,28 +1705,6 @@ static int adreno_init(struct kgsl_device *device)
 		kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
 
 	set_bit(ADRENO_DEVICE_INITIALIZED, &adreno_dev->priv);
-
-	/*
-	 * Allocate a small chunk of memory for precise drawobj profiling for
-	 * those targets that have the always on timer
-	 */
-
-	if (!adreno_is_a3xx(adreno_dev)) {
-		unsigned int priv = 0;
-
-		if (ADRENO_FEATURE(adreno_dev, ADRENO_APRIV))
-			priv |= KGSL_MEMDESC_PRIVILEGED;
-
-		adreno_dev->profile_buffer =
-			kgsl_allocate_global(device, PAGE_SIZE, 0, 0, priv,
-				"alwayson");
-
-		adreno_dev->profile_index = 0;
-
-		if (!IS_ERR(adreno_dev->profile_buffer))
-			set_bit(ADRENO_DEVICE_DRAWOBJ_PROFILE,
-				&adreno_dev->priv);
-	}
 
 	return 0;
 }
