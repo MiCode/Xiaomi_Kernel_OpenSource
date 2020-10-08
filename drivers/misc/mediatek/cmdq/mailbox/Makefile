@@ -30,3 +30,4 @@ endif # $(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) or $(CONFIG_MTK_CAM_SECURITY_SUPPOR
 obj-$(CONFIG_MTK_CMDQ_MBOX_EXT) += cmdq-test.o
 obj-$(CONFIG_MTK_CMDQ_MBOX_EXT) += cmdq-util.o
 obj-$(CONFIG_MTK_CMDQ_MBOX_EXT) += cmdq-platform-mt6873.o
+obj-$(CONFIG_MTK_CMDQ_MBOX_EXT) += cmdq-platform-mt6853.o
