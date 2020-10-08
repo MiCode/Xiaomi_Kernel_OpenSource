@@ -186,6 +186,15 @@ static void add_f2h_packet(struct adreno_device *adreno_dev, u32 *msg)
 	llist_add(&pkt->node, &hfi->f2h_msglist);
 }
 
+static void process_ctx_bad(struct adreno_device *adreno_dev, void *rcvd)
+{
+	struct genc_hwsched_hfi *hfi = to_genc_hwsched_hfi(adreno_dev);
+
+	memcpy(&hfi->ctxt_bad, rcvd, sizeof(hfi->ctxt_bad));
+
+	adreno_hwsched_set_fault(adreno_dev);
+}
+
 static void process_msgq_irq(struct adreno_device *adreno_dev)
 {
 	struct genc_gmu_device *gmu = to_genc_gmu(adreno_dev);
@@ -201,6 +210,8 @@ static void process_msgq_irq(struct adreno_device *adreno_dev)
 		 */
 		if (MSG_HDR_GET_TYPE(rcvd[0]) == HFI_MSG_ACK) {
 			genc_receive_ack_async(adreno_dev, rcvd);
+		} else if (MSG_HDR_GET_ID(rcvd[0]) == F2H_MSG_CONTEXT_BAD) {
+			process_ctx_bad(adreno_dev, rcvd);
 		} else {
 			add_f2h_packet(adreno_dev, rcvd);
 			wake_up_interruptible(&hfi->f2h_wq);
@@ -254,7 +265,6 @@ static void process_dbgq_irq(struct adreno_device *adreno_dev)
 	if (!recovery)
 		return;
 
-	adreno_get_gpu_halt(adreno_dev);
 	adreno_hwsched_set_fault(adreno_dev);
 }
 
@@ -291,7 +301,6 @@ static irqreturn_t genc_hwsched_hfi_handler(int irq, void *data)
 		dev_err_ratelimited(&gmu->pdev->dev,
 				"GMU CM3 fault interrupt received\n");
 
-		adreno_get_gpu_halt(adreno_dev);
 		adreno_hwsched_set_fault(adreno_dev);
 	}
 
@@ -890,16 +899,6 @@ static void process_ts_retire(struct adreno_device *adreno_dev, u32 *rcvd)
 	adreno_hwsched_trigger(adreno_dev);
 }
 
-static void process_ctx_bad(struct adreno_device *adreno_dev, void *rcvd)
-{
-	struct hfi_context_bad_cmd *cmd = rcvd;
-
-	/* Block dispatcher to submit more commands */
-	adreno_get_gpu_halt(adreno_dev);
-
-	adreno_hwsched_mark_drawobj(adreno_dev, cmd->ctxt_id, cmd->ts);
-}
-
 static void process_log_block(struct adreno_device *adreno_dev, void *data)
 {
 	struct genc_gmu_device *gmu = to_genc_gmu(adreno_dev);
@@ -933,9 +932,6 @@ static void process_f2h_list(struct adreno_device *adreno_dev,
 	llist_for_each_entry_safe(pkt, tmp, list, node) {
 		if (MSG_HDR_GET_ID(pkt->rcvd[0]) == F2H_MSG_TS_RETIRE)
 			process_ts_retire(adreno_dev, pkt->rcvd);
-
-		if (MSG_HDR_GET_ID(pkt->rcvd[0]) == F2H_MSG_CONTEXT_BAD)
-			process_ctx_bad(adreno_dev, pkt->rcvd);
 
 		if (MSG_HDR_GET_ID(pkt->rcvd[0]) == F2H_MSG_LOG_BLOCK)
 			process_log_block(adreno_dev, pkt->rcvd);
@@ -1110,6 +1106,7 @@ static int hfi_context_register(struct adreno_device *adreno_dev,
 	struct kgsl_context *context)
 {
 	struct genc_gmu_device *gmu = to_genc_gmu(adreno_dev);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	int ret;
 
 	if (context->gmu_registered)
@@ -1120,6 +1117,10 @@ static int hfi_context_register(struct adreno_device *adreno_dev,
 		dev_err(&gmu->pdev->dev,
 			"Unable to register context %d: %d\n",
 			context->id, ret);
+
+		if (device->gmu_fault)
+			adreno_hwsched_set_fault(adreno_dev);
+
 		return ret;
 	}
 
@@ -1128,6 +1129,10 @@ static int hfi_context_register(struct adreno_device *adreno_dev,
 		dev_err(&gmu->pdev->dev,
 			"Unable to register context %d pointers: %d\n",
 			context->id, ret);
+
+		if (device->gmu_fault)
+			adreno_hwsched_set_fault(adreno_dev);
+
 		return ret;
 	}
 
@@ -1288,8 +1293,6 @@ static int send_context_unregister_hfi(struct adreno_device *adreno_dev,
 		 * replayed after recovery.
 		 */
 		adreno_drawctxt_set_guilty(device, context);
-
-		adreno_get_gpu_halt(adreno_dev);
 
 		adreno_hwsched_set_fault(adreno_dev);
 

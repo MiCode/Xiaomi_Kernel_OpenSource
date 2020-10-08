@@ -757,13 +757,8 @@ static int genc_hwsched_dcvs_set(struct adreno_device *adreno_dev,
 		 * If this was a dcvs request along side an active gpu, request
 		 * dispatcher based reset and recovery.
 		 */
-		if (test_bit(GMU_PRIV_GPU_STARTED, &gmu->flags)) {
-
-			adreno_get_gpu_halt(adreno_dev);
-
+		if (test_bit(GMU_PRIV_GPU_STARTED, &gmu->flags))
 			adreno_hwsched_set_fault(adreno_dev);
-		}
-
 	}
 
 	return ret;
@@ -913,7 +908,6 @@ void genc_hwsched_handle_watchdog(struct adreno_device *adreno_dev)
 	dev_err_ratelimited(&gmu->pdev->dev,
 			"GMU watchdog expired interrupt received\n");
 
-	adreno_get_gpu_halt(adreno_dev);
 	adreno_hwsched_set_fault(adreno_dev);
 }
 
@@ -935,7 +929,10 @@ static void genc_hwsched_drain_ctxt_unregister(struct adreno_device *adreno_dev)
 int genc_hwsched_reset(struct adreno_device *adreno_dev)
 {
 	struct genc_gmu_device *gmu = to_genc_gmu(adreno_dev);
+	struct genc_hwsched_hfi *hfi = to_genc_hwsched_hfi(adreno_dev);
 	int ret;
+
+	memset(&hfi->ctxt_bad, 0x0, sizeof(hfi->ctxt_bad));
 
 	/*
 	 * Any pending context unregister packets will be lost
@@ -965,6 +962,18 @@ int genc_hwsched_reset(struct adreno_device *adreno_dev)
 	return ret;
 }
 
+static bool genc_hwsched_drawobj_fault(struct adreno_device *adreno_dev,
+	struct kgsl_drawobj *drawobj)
+{
+	struct genc_hwsched_hfi *hfi = to_genc_hwsched_hfi(adreno_dev);
+
+	if ((hfi->ctxt_bad.ctxt_id == drawobj->context->id) &&
+		(hfi->ctxt_bad.ts == drawobj->timestamp))
+		return true;
+
+	return false;
+}
+
 const struct adreno_power_ops genc_hwsched_power_ops = {
 	.first_open = genc_hwsched_first_open,
 	.last_close = genc_hwsched_power_off,
@@ -980,6 +989,7 @@ const struct adreno_power_ops genc_hwsched_power_ops = {
 const struct adreno_hwsched_ops genc_hwsched_ops = {
 	.submit_cmdobj = genc_hwsched_submit_cmdobj,
 	.preempt_count = genc_hwsched_preempt_count_get,
+	.is_drawobj_fault = genc_hwsched_drawobj_fault,
 };
 
 int genc_hwsched_probe(struct platform_device *pdev,

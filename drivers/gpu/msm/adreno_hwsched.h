@@ -20,6 +20,12 @@ struct adreno_hwsched_ops {
 	 * @preempt_count - Target specific function to get preemption count
 	 */
 	u32 (*preempt_count)(struct adreno_device *adreno_dev);
+	/**
+	 * @is_drawobj_fault - Target specific function to check if given
+	 * draw object faulted.
+	 */
+	bool (*is_drawobj_fault)(struct adreno_device *adreno_dev,
+			struct kgsl_drawobj *drawobj);
 };
 
 /**
@@ -50,7 +56,6 @@ struct adreno_hwsched {
 enum adreno_hwsched_flags {
 	ADRENO_HWSCHED_POWER = 0,
 	ADRENO_HWSCHED_FAULT_RESTART,
-	ADRENO_HWSCHED_FAULT_REPLAY,
 };
 
 /**
@@ -84,18 +89,6 @@ int adreno_hwsched_init(struct adreno_device *adreno_dev,
  * @adreno_dev: A handle to adreno device
  */
 void adreno_hwsched_set_fault(struct adreno_device *adreno_dev);
-
-/**
- * adreno_hwsched_mark_drawobj() - Get the drawobj that faulted
- * @adreno_dev: pointer to the adreno device
- * @ctxt_id: context id of the faulty submission
- * @ts: timestamp of the faulty submission
- *
- * When we get a context bad hfi, use this function to get to the
- * faulty submission and mark the submission for snapshot purposes
- */
-void adreno_hwsched_mark_drawobj(struct adreno_device *adreno_dev, u32 ctxt_id,
-	u32 ts);
 
 /**
  * adreno_hwsched_parse_fault_ib - Parse the faulty submission
