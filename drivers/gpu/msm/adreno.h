@@ -777,7 +777,6 @@ struct adreno_gpudev {
 	const char *(*iommu_fault_block)(struct kgsl_device *device,
 				unsigned int fsynr1);
 	int (*reset)(struct kgsl_device *device);
-	bool (*sptprac_is_on)(struct adreno_device *adreno_dev);
 	/** @read_alwayson: Return the current value of the alwayson counter */
 	u64 (*read_alwayson)(struct adreno_device *adreno_dev);
 	/**
@@ -1641,14 +1640,6 @@ static inline void adreno_perfcntr_active_oob_put(
 
 	gmu_core_dev_oob_clear(device, oob_perfcntr);
 	adreno_active_count_put(adreno_dev);
-}
-
-static inline bool adreno_has_sptprac_gdsc(struct adreno_device *adreno_dev)
-{
-	if (adreno_is_a630(adreno_dev) || adreno_is_a615_family(adreno_dev))
-		return true;
-	else
-		return false;
 }
 
 static inline bool adreno_has_gbif(struct adreno_device *adreno_dev)

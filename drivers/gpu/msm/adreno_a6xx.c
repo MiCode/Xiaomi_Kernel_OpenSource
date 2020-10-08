@@ -1211,20 +1211,6 @@ static void a6xx_sptprac_disable(struct adreno_device *adreno_dev)
 }
 
 /*
- * a6xx_sptprac_is_on() - Check if SPTP is on using pwr status register
- * @adreno_dev - Pointer to adreno_device
- * This check should only be performed if the keepalive bit is set or it
- * can be guaranteed that the power state of the GPU will remain unchanged
- */
-static bool a6xx_sptprac_is_on(struct adreno_device *adreno_dev)
-{
-	if (!adreno_has_sptprac_gdsc(adreno_dev))
-		return true;
-
-	return a6xx_gmu_sptprac_is_on(adreno_dev);
-}
-
-/*
  * a6xx_gpu_keepalive() - GMU reg write to request GPU stays on
  * @adreno_dev: Pointer to the adreno device that has the GMU
  * @state: State to set: true is ON, false is OFF
@@ -2587,7 +2573,6 @@ const struct adreno_gpudev adreno_a6xx_gpudev = {
 	.reset = a6xx_reset,
 	.preemption_schedule = a6xx_preemption_schedule,
 	.preemption_context_init = a6xx_preemption_context_init,
-	.sptprac_is_on = a6xx_sptprac_is_on,
 #ifdef CONFIG_QCOM_KGSL_CORESIGHT
 	.coresight = {&a6xx_coresight, &a6xx_coresight_cx},
 #endif
@@ -2635,7 +2620,6 @@ const struct adreno_gpudev adreno_a6xx_gmu_gpudev = {
 	.reset = a6xx_gmu_restart,
 	.preemption_schedule = a6xx_preemption_schedule,
 	.preemption_context_init = a6xx_preemption_context_init,
-	.sptprac_is_on = a6xx_sptprac_is_on,
 #ifdef CONFIG_QCOM_KGSL_CORESIGHT
 	.coresight = {&a6xx_coresight, &a6xx_coresight_cx},
 #endif
@@ -2661,7 +2645,6 @@ const struct adreno_gpudev adreno_a6xx_rgmu_gpudev = {
 	.reset = a6xx_rgmu_restart,
 	.preemption_schedule = a6xx_preemption_schedule,
 	.preemption_context_init = a6xx_preemption_context_init,
-	.sptprac_is_on = a6xx_sptprac_is_on,
 #ifdef CONFIG_QCOM_KGSL_CORESIGHT
 	.coresight = {&a6xx_coresight, &a6xx_coresight_cx},
 #endif
@@ -2689,7 +2672,6 @@ const struct adreno_gpudev adreno_a619_holi_gpudev = {
 	.reset = a6xx_reset,
 	.preemption_schedule = a6xx_preemption_schedule,
 	.preemption_context_init = a6xx_preemption_context_init,
-	.sptprac_is_on = a6xx_sptprac_is_on,
 #ifdef CONFIG_QCOM_KGSL_CORESIGHT
 	.coresight = {&a6xx_coresight, &a6xx_coresight_cx},
 #endif
@@ -2722,7 +2704,6 @@ const struct adreno_gpudev adreno_a630_gpudev = {
 	.reset = a6xx_gmu_restart,
 	.preemption_schedule = a6xx_preemption_schedule,
 	.preemption_context_init = a6xx_preemption_context_init,
-	.sptprac_is_on = a6xx_sptprac_is_on,
 #ifdef CONFIG_QCOM_KGSL_CORESIGHT
 	.coresight = {&a6xx_coresight, &a6xx_coresight_cx},
 #endif
