@@ -992,6 +992,7 @@ struct file {
 	struct address_space	*f_mapping;
 	errseq_t		f_wb_err;
 
+	ANDROID_KABI_RESERVE(1);
 	ANDROID_VENDOR_DATA(1);
 } __randomize_layout
   __attribute__((aligned(4)));	/* lest something weird decides that 2 is OK */
