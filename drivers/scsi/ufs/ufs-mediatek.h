@@ -8,6 +8,7 @@
 
 #include <linux/bitops.h>
 #include <linux/soc/mediatek/mtk_sip_svc.h>
+#include <linux/pm_qos.h>
 
 /*
  * Vendor specific UFSHCI Registers
@@ -122,6 +123,8 @@ struct ufs_mtk_host {
 	bool ref_clk_enabled;
 	u16 ref_clk_ungating_wait_us;
 	u16 ref_clk_gating_wait_us;
+	bool pm_qos_init;
+	struct pm_qos_request pm_qos_req;
 };
 
 #endif /* !_UFS_MEDIATEK_H */
