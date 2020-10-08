@@ -12,6 +12,7 @@
 #include <linux/of_address.h>
 #include <linux/phy/phy.h>
 #include <linux/platform_device.h>
+#include <linux/pm_qos.h>
 #include <linux/regulator/consumer.h>
 #include <linux/soc/mediatek/mtk_sip_svc.h>
 
@@ -234,6 +235,21 @@ static int ufs_mtk_wait_link_state(struct ufs_hba *hba, u32 state,
 	return -ETIMEDOUT;
 }
 
+static void ufs_mtk_pm_qos(struct ufs_hba *hba, bool qos_en)
+{
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
+
+	if (host && host->pm_qos_init) {
+		if (qos_en)
+			pm_qos_update_request(
+				&host->pm_qos_req, 0);
+		else
+			pm_qos_update_request(
+				&host->pm_qos_req,
+				PM_QOS_DEFAULT_VALUE);
+	}
+}
+
 static void ufs_mtk_mphy_power_on(struct ufs_hba *hba, bool on)
 {
 	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
@@ -293,12 +309,14 @@ static int ufs_mtk_setup_clocks(struct ufs_hba *hba, bool on,
 		}
 
 		if (clk_pwr_off) {
+			ufs_mtk_pm_qos(hba, on);
 			ufs_mtk_setup_ref_clk(hba, on);
 			ufs_mtk_mphy_power_on(hba, on);
 		}
 	} else if (on && status == POST_CHANGE) {
 		ufs_mtk_mphy_power_on(hba, on);
 		ufs_mtk_setup_ref_clk(hba, on);
+		ufs_mtk_pm_qos(hba, on);
 	}
 
 	return ret;
@@ -355,6 +373,10 @@ static int ufs_mtk_init(struct ufs_hba *hba)
 	 * Enable phy clocks specifically here.
 	 */
 	ufs_mtk_setup_clocks(hba, true, POST_CHANGE);
+
+	pm_qos_add_request(&host->pm_qos_req, PM_QOS_CPU_DMA_LATENCY,
+			   PM_QOS_DEFAULT_VALUE);
+	host->pm_qos_init = true;
 
 #if IS_ENABLED(CONFIG_SCSI_UFS_MEDIATEK_DBG)
 	ufs_mtk_dbg_register(hba);
