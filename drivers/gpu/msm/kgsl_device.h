@@ -437,10 +437,10 @@ struct kgsl_process_private {
 	struct kobject kobj;
 	struct dentry *debug_root;
 	struct {
-		uint64_t cur;
+		atomic64_t cur;
 		uint64_t max;
 	} stats[KGSL_MEM_ENTRY_MAX];
-	uint64_t gpumem_mapped;
+	atomic64_t gpumem_mapped;
 	struct idr syncsource_idr;
 	spinlock_t syncsource_lock;
 	int fd_count;
