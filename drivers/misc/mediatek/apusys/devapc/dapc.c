@@ -208,9 +208,6 @@ static ssize_t dapc_debug_write(struct file *file, const char __user *buf,
 			disable_irq(drv->irq);
 		pr_info("APUSYS devapc %s IRQ\n",
 			drv->enable_irq ? "enable" : "disable");
-	} else if (!strncmp(cmd_str, "restart", sizeof("restart"))) {
-		apusys_devapc_start(NULL);
-		pr_info("APUSYS devapc restarted\n");
 	} else if (!strncmp(cmd_str, "trigger_vio", sizeof("trigger_vio"))) {
 		pr_info("APUSYS devapc trigger vio test %d +\n", param);
 		trigger_vio_test(drv, param);
@@ -583,7 +580,6 @@ static int apusys_devapc_probe(struct platform_device *pdev)
 		disable_irq(drv->irq);
 	}
 
-	apusys_devapc_start(NULL);
 	ret = apu_power_callback_device_register(DEVAPC,
 		apusys_devapc_start, NULL);
 	if (ret) {
