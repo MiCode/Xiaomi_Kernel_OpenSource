@@ -380,7 +380,6 @@ static void __tcs_set_trigger(struct rsc_drv *drv, int tcs_id, bool trigger)
 		write_tcs_reg_sync(drv, RSC_DRV_CONTROL, tcs_id, enable);
 		enable |= TCS_AMC_MODE_TRIGGER;
 		write_tcs_reg(drv, RSC_DRV_CONTROL, tcs_id, enable);
-		ipc_log_string(drv->ipc_log_ctx, "TCS trigger: m=%d", tcs_id);
 	}
 }
 
@@ -661,6 +660,7 @@ static int tcs_write(struct rsc_drv *drv, const struct tcs_request *msg)
 	 */
 	__tcs_buffer_write(drv, tcs_id, 0, msg);
 	__tcs_set_trigger(drv, tcs_id, true);
+	ipc_log_string(drv->ipc_log_ctx, "TCS trigger: m=%d", tcs_id);
 
 	return 0;
 unlock:
