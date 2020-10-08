@@ -1440,7 +1440,7 @@ static void vow_service_CloseDumpFile(void)
 
 static void vow_service_OpenDumpFile_internal(void)
 {
-	struct timespec curr_tm;
+	struct timespec64 curr_tm;
 	char string_time[16];
 #if IS_ENABLED(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
 	char string_input_pcm[16] = "input_pcm.pcm";
@@ -1454,8 +1454,8 @@ static void vow_service_OpenDumpFile_internal(void)
 	char path_recog[64];
 
 	VOWDRV_DEBUG("+%s()\n", __func__);
-	memset(&curr_tm, 0, sizeof(struct timespec));
-	getnstimeofday(&curr_tm);
+	memset(&curr_tm, 0, sizeof(struct timespec64));
+	ktime_get_ts64(&curr_tm);
 
 	memset(string_time, '\0', 16);
 	sprintf(string_time, "%.2lu_%.2lu_%.2lu_%.3lu",

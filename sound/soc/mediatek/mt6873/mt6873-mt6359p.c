@@ -345,7 +345,7 @@ static int mt6873_mt6359p_vow_startup(struct snd_pcm_substream *substream)
 	struct snd_soc_component *component =
 			snd_soc_rtdcom_lookup(rtd, AFE_PCM_NAME);
 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(component);
-	struct snd_soc_rtdcom_list *rtdcom;
+	int i;
 
 	dev_info(afe->dev, "%s(), start\n", __func__);
 	snd_soc_set_runtime_hwparams(substream, &mt6873_mt6359p_vow_hardware);
@@ -353,8 +353,7 @@ static int mt6873_mt6359p_vow_startup(struct snd_pcm_substream *substream)
 	mt6873_afe_gpio_request(afe, true, MT6873_DAI_VOW, 0);
 
 	/* ASoC will call pm_runtime_get, but vow don't need */
-	for_each_rtdcom(rtd, rtdcom) {
-		component = rtdcom->component;
+	for_each_rtd_components(rtd, i, component) {
 		pm_runtime_put_autosuspend(component->dev);
 	}
 
@@ -367,14 +366,13 @@ static void mt6873_mt6359p_vow_shutdown(struct snd_pcm_substream *substream)
 	struct snd_soc_component *component =
 			snd_soc_rtdcom_lookup(rtd, AFE_PCM_NAME);
 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(component);
-	struct snd_soc_rtdcom_list *rtdcom;
+	int i;
 
 	dev_info(afe->dev, "%s(), end\n", __func__);
 	mt6873_afe_gpio_request(afe, false, MT6873_DAI_VOW, 0);
 
 	/* restore to fool ASoC */
-	for_each_rtdcom(rtd, rtdcom) {
-		component = rtdcom->component;
+	for_each_rtd_components(rtd, i, component) {
 		pm_runtime_get_sync(component->dev);
 	}
 }
