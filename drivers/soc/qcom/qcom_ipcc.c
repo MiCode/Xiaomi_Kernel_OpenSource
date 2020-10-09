@@ -7,7 +7,6 @@
 #include <linux/irq.h>
 #include <linux/interrupt.h>
 #include <linux/irqdomain.h>
-#include <linux/syscore_ops.h>
 #include <linux/platform_device.h>
 #include <linux/mailbox_controller.h>
 #include <linux/msm_rtb.h>
@@ -61,8 +60,6 @@ struct ipcc_mbox_chan {
 	struct mbox_chan *chan;
 	struct ipcc_protocol_data *proto_data;
 };
-
-static struct ipcc_protocol_data *ipcc_proto_data;
 
 static inline u32 qcom_ipcc_get_packed_id(u16 client_id, u16 signal_id)
 {
@@ -307,23 +304,23 @@ static int qcom_ipcc_setup_mbox(struct ipcc_protocol_data *proto_data,
 	return mbox_controller_register(mbox);
 }
 
-#ifdef CONFIG_PM
-static int msm_ipcc_suspend(void)
+#ifdef CONFIG_PM_SLEEP
+static int qcom_ipcc_pm_suspend(struct device *dev)
 {
 	return 0;
 }
 
-static void msm_ipcc_resume(void)
+static int qcom_ipcc_pm_resume(struct device *dev)
 {
 	int virq;
 	struct irq_desc *desc;
 	const char *name = "null";
 	u32 packed_id;
-	struct ipcc_protocol_data *proto_data = ipcc_proto_data;
+	struct ipcc_protocol_data *proto_data = dev_get_drvdata(dev);
 
 	packed_id = readl_no_log(proto_data->base + IPCC_REG_RECV_ID);
 	if (packed_id == IPCC_NO_PENDING_IRQ)
-		return;
+		return 0;
 
 	virq = irq_find_mapping(proto_data->irq_domain, packed_id);
 	desc = irq_to_desc(virq);
@@ -332,17 +329,16 @@ static void msm_ipcc_resume(void)
 	else if (desc->action && desc->action->name)
 		name = desc->action->name;
 
-	pr_warn("%s: %d triggered %s\n", __func__, virq, name);
+	pr_warn("%s: %d triggered %s (client-id: %u; signal-id: %u\n",
+		__func__, virq, name, qcom_ipcc_get_client_id(packed_id),
+		qcom_ipcc_get_signal_id(packed_id));
+
+	return 0;
 }
 #else
-#define msm_ipcc_suspend NULL
-#define msm_ipcc_resume NULL
+#define qcom_ipcc_pm_suspend NULL
+#define qcom_ipcc_pm_resume NULL
 #endif
-
-static struct syscore_ops msm_ipcc_pm_ops = {
-	.suspend = msm_ipcc_suspend,
-	.resume = msm_ipcc_resume,
-};
 
 static int qcom_ipcc_probe(struct platform_device *pdev)
 {
@@ -356,7 +352,6 @@ static int qcom_ipcc_probe(struct platform_device *pdev)
 	if (!proto_data)
 		return -ENOMEM;
 
-	ipcc_proto_data = proto_data;
 	proto_data->dev = &pdev->dev;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -404,7 +399,6 @@ static int qcom_ipcc_probe(struct platform_device *pdev)
 
 	enable_irq_wake(proto_data->irq);
 	platform_set_drvdata(pdev, proto_data);
-	register_syscore_ops(&msm_ipcc_pm_ops);
 
 	return 0;
 
@@ -420,7 +414,6 @@ static int qcom_ipcc_remove(struct platform_device *pdev)
 {
 	struct ipcc_protocol_data *proto_data = platform_get_drvdata(pdev);
 
-	unregister_syscore_ops(&msm_ipcc_pm_ops);
 	disable_irq_wake(proto_data->irq);
 	if (proto_data->num_chans)
 		mbox_controller_unregister(&proto_data->mbox);
@@ -435,12 +428,17 @@ static const struct of_device_id qcom_ipcc_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, qcom_ipcc_of_match);
 
+static const struct dev_pm_ops qcom_ipcc_dev_pm_ops = {
+	SET_NOIRQ_SYSTEM_SLEEP_PM_OPS(qcom_ipcc_pm_suspend, qcom_ipcc_pm_resume)
+};
+
 static struct platform_driver qcom_ipcc_driver = {
 	.probe = qcom_ipcc_probe,
 	.remove = qcom_ipcc_remove,
 	.driver = {
 		.name = "qcom_ipcc",
 		.of_match_table = qcom_ipcc_of_match,
+		.pm = &qcom_ipcc_dev_pm_ops,
 	},
 };
 
