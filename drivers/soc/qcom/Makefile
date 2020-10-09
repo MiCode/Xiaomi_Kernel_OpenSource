@@ -9,6 +9,7 @@ obj-$(CONFIG_QCOM_OCMEM)	+= ocmem.o
 obj-$(CONFIG_MSM_PIL)   +=      peripheral-loader.o
 obj-$(CONFIG_MSM_SUBSYSTEM_RESTART) += subsystem_restart.o
 obj-$(CONFIG_MSM_CDSP_LOADER) += qdsp6v2/
+obj-$(CONFIG_QCOM_RAMDUMP) += qcom_ramdump.o
 subsystem_restart-y := msm_subsystem_restart.o subsystem_notif.o ramdump.o sysmon-qmi.o
 obj-$(CONFIG_MSM_PIL_SSR_GENERIC) += subsys-pil-tz.o
 obj-$(CONFIG_MSM_SERVICE_NOTIFIER) += service-notifier.o

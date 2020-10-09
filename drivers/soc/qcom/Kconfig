@@ -273,6 +273,15 @@ config MSM_SERVICE_NOTIFIER
 	  like audio, the identifier for which is provided by the service
 	  locator.
 
+config QCOM_RAMDUMP
+	tristate "Qualcomm Technologies, Inc. Ramdump driver"
+	default n
+	help
+	  This option enables the QTI ramdump driver. The ramdump driver
+	  provides APIs to collect ramdumps which can be extracted from
+	  userspace. Say 'Y' here to enable this driver. It's safe to say
+	  'N' here if you don't plan on collecting ramdumps.
+
 config MSM_BOOT_STATS
 	tristate "Use MSM boot stats reporting"
 	help
