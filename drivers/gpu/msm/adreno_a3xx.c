@@ -700,6 +700,224 @@ static int a3xx_get_cp_init_cmds(struct adreno_device *adreno_dev)
 	return 0;
 }
 
+/*
+ * a3xx soft fault detection
+ *
+ * a3xx targets do not have hardware fault detection so we need to do it the old
+ * fashioned way by periodically reading a set of registers and counters and
+ * checking that they are advancing. There are 6 registers and four 64 bit
+ * counters that we keep an eye on.
+ */
+
+#define A3XX_SOFT_FAULT_DETECT_REGS 6
+#define A3XX_SOFT_FAULT_DETECT_COUNTERS 4
+#define A3XX_SOFT_FAULT_DETECT_COUNT \
+	(A3XX_SOFT_FAULT_DETECT_REGS + (A3XX_SOFT_FAULT_DETECT_COUNTERS * 2))
+
+static bool a3xx_soft_fault_detect_isidle(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	u32 reg;
+
+	if (kgsl_state_is_awake(device)) {
+		if (!adreno_rb_empty(adreno_dev->cur_rb))
+			return false;
+
+		/* only check rbbm status to determine if GPU is idle */
+		kgsl_regread(device, A3XX_RBBM_STATUS, &reg);
+
+		if (reg & 0x7ffffffe)
+			return false;
+	}
+
+	memset(adreno_dev->soft_ft_vals, 0, A3XX_SOFT_FAULT_DETECT_COUNT << 2);
+	return true;
+}
+
+/* Read the fault detect registers and compare them to the stored version */
+static int a3xx_soft_fault_detect_read_compare(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct adreno_ringbuffer *rb = ADRENO_CURRENT_RINGBUFFER(adreno_dev);
+	int i, ret = 0;
+	unsigned int ts;
+
+	if (!test_bit(ADRENO_DEVICE_SOFT_FAULT_DETECT, &adreno_dev->priv))
+		return 1;
+
+	/* Check to see if the device is idle - if so report no hang */
+	if (a3xx_soft_fault_detect_isidle(adreno_dev))
+		ret = 1;
+
+	for (i = 0; i < A3XX_SOFT_FAULT_DETECT_COUNT; i++) {
+		unsigned int val;
+
+		if (!adreno_dev->soft_ft_regs[i])
+			continue;
+
+		kgsl_regread(device, adreno_dev->soft_ft_regs[i], &val);
+		if (val != adreno_dev->soft_ft_vals[i])
+			ret = 1;
+		adreno_dev->soft_ft_vals[i] = val;
+	}
+
+	if (!adreno_rb_readtimestamp(adreno_dev, adreno_dev->cur_rb,
+				KGSL_TIMESTAMP_RETIRED, &ts)) {
+		if (ts != rb->fault_detect_ts)
+			ret = 1;
+
+		rb->fault_detect_ts = ts;
+	}
+
+	return ret;
+}
+
+/*
+ * This is called on a regular basis while cmdobjs are inflight. Fault
+ * detection registers are read and compared to the existing values - if they
+ * changed then the GPU is still running. If they are the same between
+ * subsequent calls then the GPU may have faulted
+ */
+static void a3xx_soft_fault_timer(struct timer_list *t)
+{
+	struct adreno_dispatcher *dispatcher = from_timer(dispatcher,
+							t, fault_timer);
+	struct adreno_device *adreno_dev = container_of(dispatcher,
+					struct adreno_device, dispatcher);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+
+	/* Leave if the user decided to turn off fast hang detection */
+	if (!adreno_soft_fault_detect(adreno_dev))
+		return;
+
+	if (adreno_gpu_fault(adreno_dev)) {
+		adreno_dispatcher_schedule(device);
+		return;
+	}
+
+	/*
+	 * Read the fault registers - if it returns 0 then they haven't changed
+	 * so mark the dispatcher as faulted and schedule the work loop.
+	 */
+
+	if (!a3xx_soft_fault_detect_read_compare(adreno_dev)) {
+		adreno_set_gpu_fault(adreno_dev, ADRENO_SOFT_FAULT);
+		adreno_dispatcher_schedule(device);
+	} else if (dispatcher->inflight > 0)
+		adreno_dispatcher_start_fault_timer(adreno_dev);
+}
+
+/*
+ * Start fault detection. The counters are only assigned while fault detection
+ * is running so that they can be used for other purposes if fault detection is
+ * disabled
+ */
+static void a3xx_soft_fault_detect_start(struct adreno_device *adreno_dev)
+{
+	u32 *regs = &adreno_dev->soft_ft_regs[A3XX_SOFT_FAULT_DETECT_COUNTERS];
+	int ret = 0;
+
+	if (!test_bit(ADRENO_DEVICE_SOFT_FAULT_DETECT, &adreno_dev->priv))
+		return;
+
+	if (adreno_dev->fast_hang_detect == 1)
+		return;
+
+	ret |= adreno_perfcounter_kernel_get(adreno_dev,
+		KGSL_PERFCOUNTER_GROUP_SP, SP_ALU_ACTIVE_CYCLES,
+		&regs[0], &regs[1]);
+
+	ret |= adreno_perfcounter_kernel_get(adreno_dev,
+		KGSL_PERFCOUNTER_GROUP_SP, SP0_ICL1_MISSES,
+		&regs[2], &regs[3]);
+
+	ret |= adreno_perfcounter_kernel_get(adreno_dev,
+		KGSL_PERFCOUNTER_GROUP_SP, SP_FS_CFLOW_INSTRUCTIONS,
+		&regs[4], &regs[5]);
+
+	ret |= adreno_perfcounter_kernel_get(adreno_dev,
+		KGSL_PERFCOUNTER_GROUP_TSE, TSE_INPUT_PRIM_NUM,
+		&regs[6], &regs[7]);
+
+	WARN(ret, "Unable to allocate one or more fault detect counters\n");
+	adreno_dev->fast_hang_detect = 1;
+}
+
+/* Helper function to put back a counter */
+static void put_counter(struct adreno_device *adreno_dev,
+		int group, int countable, u32 *lo, u32 *hi)
+{
+	adreno_perfcounter_put(adreno_dev, group, countable,
+		PERFCOUNTER_FLAG_KERNEL);
+
+	*lo = 0;
+	*hi = 0;
+}
+
+/* Stop fault detection and return the counters */
+static void a3xx_soft_fault_detect_stop(struct adreno_device *adreno_dev)
+{
+	u32 *regs = &adreno_dev->soft_ft_regs[A3XX_SOFT_FAULT_DETECT_COUNTERS];
+
+	if (!test_bit(ADRENO_DEVICE_SOFT_FAULT_DETECT, &adreno_dev->priv))
+		return;
+
+	if (!adreno_dev->fast_hang_detect)
+		return;
+
+	put_counter(adreno_dev, KGSL_PERFCOUNTER_GROUP_SP, SP_ALU_ACTIVE_CYCLES,
+			&regs[0], &regs[1]);
+
+	put_counter(adreno_dev, KGSL_PERFCOUNTER_GROUP_SP, SP0_ICL1_MISSES,
+			&regs[2], &regs[3]);
+
+	put_counter(adreno_dev, KGSL_PERFCOUNTER_GROUP_SP,
+			SP_FS_CFLOW_INSTRUCTIONS, &regs[4], &regs[5]);
+
+	put_counter(adreno_dev, KGSL_PERFCOUNTER_GROUP_TSE, TSE_INPUT_PRIM_NUM,
+			&regs[6], &regs[7]);
+
+	adreno_dev->fast_hang_detect = 0;
+}
+
+/* Initialize the registers and set up the data structures */
+static void a3xx_soft_fault_detect_init(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_SOFT_FAULT_DETECT))
+		return;
+
+	/* Disable the fast hang detect bit until we know its a go */
+	adreno_dev->fast_hang_detect = 0;
+
+	adreno_dev->soft_ft_regs = devm_kcalloc(&device->pdev->dev,
+		A3XX_SOFT_FAULT_DETECT_COUNT, sizeof(u32), GFP_KERNEL);
+
+	adreno_dev->soft_ft_vals = devm_kcalloc(&device->pdev->dev,
+		A3XX_SOFT_FAULT_DETECT_COUNT, sizeof(u32), GFP_KERNEL);
+
+	if (!adreno_dev->soft_ft_regs || !adreno_dev->soft_ft_vals)
+		return;
+
+	adreno_dev->soft_ft_count = A3XX_SOFT_FAULT_DETECT_COUNT;
+
+	adreno_dev->soft_ft_regs[0] = A3XX_RBBM_STATUS;
+	adreno_dev->soft_ft_regs[1] = A3XX_CP_RB_RPTR;
+	adreno_dev->soft_ft_regs[2] = A3XX_CP_IB1_BASE;
+	adreno_dev->soft_ft_regs[3] = A3XX_CP_IB1_BUFSZ;
+	adreno_dev->soft_ft_regs[4] = A3XX_CP_IB2_BASE;
+	adreno_dev->soft_ft_regs[5] = A3XX_CP_IB2_BUFSZ;
+
+	set_bit(ADRENO_DEVICE_SOFT_FAULT_DETECT, &adreno_dev->priv);
+
+	a3xx_soft_fault_detect_start(adreno_dev);
+}
+
+static void a3xx_remove(struct adreno_device *adreno_dev)
+{
+	a3xx_soft_fault_detect_stop(adreno_dev);
+}
 
 static int a3xx_microcode_read(struct adreno_device *adreno_dev);
 
@@ -711,7 +929,15 @@ static int a3xx_init(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
+	struct adreno_dispatcher *dispatcher = &adreno_dev->dispatcher;
 	int ret;
+
+	/*
+	 * Set up the a3xx only soft fault timer before heading into the generic
+	 * dispatcher setup
+	 */
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_SOFT_FAULT_DETECT))
+		timer_setup(&dispatcher->fault_timer, a3xx_soft_fault_timer, 0);
 
 	ret = adreno_dispatcher_init(adreno_dev);
 	if (ret)
@@ -737,6 +963,15 @@ static int a3xx_init(struct adreno_device *adreno_dev)
 	}
 
 	kgsl_mmu_set_feature(device, KGSL_MMU_NEED_GUARD_PAGE);
+
+	/* Put the hardware in a responsive state to set up fault detection*/
+	ret = kgsl_pwrctrl_change_state(device, KGSL_STATE_AWARE);
+	if (ret)
+		return ret;
+
+	a3xx_soft_fault_detect_init(adreno_dev);
+
+	kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
 
 	return a3xx_get_cp_init_cmds(adreno_dev);
 }
@@ -860,13 +1095,6 @@ static const struct adreno_irq_funcs a3xx_irq_funcs[32] = {
 	ADRENO_IRQ_CALLBACK(a3xx_err_callback),  /* 25 - UCHE_OOB_ACCESS */
 };
 
-static struct adreno_ft_perf_counters a3xx_ft_perf_counters[] = {
-	{KGSL_PERFCOUNTER_GROUP_SP, SP_ALU_ACTIVE_CYCLES},
-	{KGSL_PERFCOUNTER_GROUP_SP, SP0_ICL1_MISSES},
-	{KGSL_PERFCOUNTER_GROUP_SP, SP_FS_CFLOW_INSTRUCTIONS},
-	{KGSL_PERFCOUNTER_GROUP_TSE, TSE_INPUT_PRIM_NUM},
-};
-
 static struct {
 	u32 reg;
 	u32 base;
@@ -923,6 +1151,10 @@ static int a3xx_start(struct adreno_device *adreno_dev)
 
 	adreno_get_bus_counters(adreno_dev);
 	adreno_perfcounter_restore(adreno_dev);
+
+	if (adreno_dev->soft_ft_regs)
+		memset(adreno_dev->soft_ft_regs, 0,
+			adreno_dev->soft_ft_count << 2);
 
 	adreno_dev->irq_mask = A3XX_INT_MASK;
 
@@ -1326,7 +1558,7 @@ static int a3xx_setproperty(struct kgsl_device_private *dev_priv,
 		device->pwrctrl.ctrl_flags = 0;
 
 		if (!adreno_active_count_get(adreno_dev)) {
-			adreno_fault_detect_start(adreno_dev);
+			a3xx_soft_fault_detect_start(adreno_dev);
 			adreno_active_count_put(adreno_dev);
 		}
 
@@ -1335,7 +1567,7 @@ static int a3xx_setproperty(struct kgsl_device_private *dev_priv,
 		kgsl_pwrctrl_change_state(device, KGSL_STATE_ACTIVE);
 		device->pwrctrl.ctrl_flags = KGSL_PWR_ON;
 
-		adreno_fault_detect_stop(adreno_dev);
+		a3xx_soft_fault_detect_stop(adreno_dev);
 		kgsl_pwrscale_disable(device, true);
 	}
 	mutex_unlock(&device->mutex);
@@ -1345,8 +1577,6 @@ static int a3xx_setproperty(struct kgsl_device_private *dev_priv,
 
 const struct adreno_gpudev adreno_a3xx_gpudev = {
 	.reg_offsets = a3xx_register_offsets,
-	.ft_perf_counters = a3xx_ft_perf_counters,
-	.ft_perf_counters_count = ARRAY_SIZE(a3xx_ft_perf_counters),
 	.irq_handler = a3xx_irq_handler,
 	.probe = a3xx_probe,
 	.rb_start = a3xx_rb_start,
@@ -1367,4 +1597,5 @@ const struct adreno_gpudev adreno_a3xx_gpudev = {
 	.is_hw_collapsible = a3xx_is_hw_collapsible,
 	.power_stats = a3xx_power_stats,
 	.setproperty = a3xx_setproperty,
+	.remove = a3xx_remove,
 };

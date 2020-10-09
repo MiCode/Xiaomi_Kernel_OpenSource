@@ -562,6 +562,21 @@ struct adreno_device {
 	const void *cp_init_cmds;
 	/** @irq_mask: The current interrupt mask for the GPU device */
 	u32 irq_mask;
+	/*
+	 * @soft_ft_regs: an array of registers for soft fault detection on a3xx
+	 * targets
+	 */
+	u32 *soft_ft_regs;
+	/*
+	 * @soft_ft_vals: an array of register values for soft fault detection
+	 * on a3xx targets
+	 */
+	u32 *soft_ft_vals;
+	/*
+	 * @soft_ft_vals: number of elements in @soft_ft_regs and @soft_ft_vals
+	 */
+	int soft_ft_count;
+
 };
 
 /**
@@ -715,8 +730,6 @@ struct adreno_gpudev {
 	 * so define them in the structure and use them as variables.
 	 */
 	unsigned int *const reg_offsets;
-	const struct adreno_ft_perf_counters *ft_perf_counters;
-	unsigned int ft_perf_counters_count;
 
 	struct adreno_coresight *coresight[2];
 
@@ -828,15 +841,7 @@ enum {
 		(_i) < (_dev)->num_ringbuffers;			\
 		(_i)++, (_rb)++)
 
-struct adreno_ft_perf_counters {
-	unsigned int counter;
-	unsigned int countable;
-};
-
 extern const struct adreno_power_ops adreno_power_operations;
-extern unsigned int *adreno_ft_regs;
-extern unsigned int adreno_ft_regs_num;
-extern unsigned int *adreno_ft_regs_val;
 
 extern const struct adreno_gpudev adreno_a3xx_gpudev;
 extern const struct adreno_gpudev adreno_a5xx_gpudev;
@@ -885,9 +890,6 @@ int adreno_reset(struct kgsl_device *device, int fault);
 void adreno_fault_skipcmd_detached(struct adreno_device *adreno_dev,
 					 struct adreno_context *drawctxt,
 					 struct kgsl_drawobj *drawobj);
-
-void adreno_fault_detect_start(struct adreno_device *adreno_dev);
-void adreno_fault_detect_stop(struct adreno_device *adreno_dev);
 
 void adreno_hang_int_callback(struct adreno_device *adreno_dev, int bit);
 void adreno_cp_callback(struct adreno_device *adreno_dev, int bit);
