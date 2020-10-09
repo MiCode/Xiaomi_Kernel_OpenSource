@@ -1013,6 +1013,20 @@
   rpmsg_set_sigs
   rpmsg_trysend
   rpmsg_unregister_device
+  rproc_va_to_pa
+  rproc_da_to_va
+  rproc_resource_cleanup
+  rproc_boot
+  rproc_shutdown
+  rproc_get_by_phandle
+  rproc_add
+  rproc_alloc
+  rproc_free
+  rproc_put
+  rproc_del
+  rproc_add_subdev
+  rproc_remove_subdev
+  rproc_report_crash
   __rtc_register_device
   rtc_time64_to_tm
   rtc_tm_to_time64
