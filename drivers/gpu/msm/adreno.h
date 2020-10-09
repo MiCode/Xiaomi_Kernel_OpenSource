@@ -729,7 +729,7 @@ struct adreno_gpudev {
 	int (*init)(struct adreno_device *adreno_dev);
 	void (*remove)(struct adreno_device *adreno_dev);
 	int (*rb_start)(struct adreno_device *adreno_dev);
-	void (*start)(struct adreno_device *adreno_dev);
+	int (*start)(struct adreno_device *adreno_dev);
 	int (*regulator_enable)(struct adreno_device *adreno_dev);
 	void (*regulator_disable)(struct adreno_device *adreno_dev);
 	void (*pwrlevel_change_settings)(struct adreno_device *adreno_dev,

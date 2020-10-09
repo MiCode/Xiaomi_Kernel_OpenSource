@@ -1305,11 +1305,19 @@ static void _setup_throttling_counters(struct adreno_device *adreno_dev)
  *
  * a5xx device start
  */
-static void a5xx_start(struct adreno_device *adreno_dev)
+static int a5xx_start(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	const struct adreno_a5xx_core *a5xx_core = to_a5xx_core(adreno_dev);
 	unsigned int bit;
+	int ret;
+
+	ret = kgsl_mmu_start(device);
+	if (ret)
+		return ret;
+
+	adreno_get_bus_counters(adreno_dev);
+	adreno_perfcounter_restore(adreno_dev);
 
 	adreno_dev->irq_mask = A5XX_INT_MASK;
 
@@ -1546,6 +1554,8 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 
 	a5xx_preemption_start(adreno_dev);
 	a5xx_protect_init(adreno_dev);
+
+	return 0;
 }
 
 /*

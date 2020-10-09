@@ -882,6 +882,33 @@ void a6xx_unhalt_sqe(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A6XX_CP_SQE_CNTL, 1);
 }
 
+/* This is the start point for non GMU/RGMU targets */
+static int a6xx_nogmu_start(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	int ret;
+
+	/*
+	 * During adreno_stop() GBIF halt is asserted to ensure that
+	 * no further transactions go through the GPU before the
+	 * GPU headswitch is turned off.
+	 *
+	 * The halt is supposed to be deasserted when the headswitch goes off
+	 * but clear it again during start to be sure
+	 */
+	kgsl_regwrite(device, A6XX_GBIF_HALT, 0x0);
+	kgsl_regwrite(device, A6XX_RBBM_GBIF_HALT, 0x0);
+
+	ret = kgsl_mmu_start(device);
+	if (ret)
+		return ret;
+
+	adreno_get_bus_counters(adreno_dev);
+	adreno_perfcounter_restore(adreno_dev);
+
+	a6xx_start(adreno_dev);
+	return 0;
+}
 
 /*
  * CP_INIT_MAX_CONTEXT bit tells if the multiple hardware contexts can
@@ -2684,7 +2711,7 @@ static int a6xx_setproperty(struct kgsl_device_private *dev_priv,
 const struct adreno_gpudev adreno_a6xx_gpudev = {
 	.reg_offsets = a6xx_register_offsets,
 	.probe = a6xx_probe,
-	.start = a6xx_start,
+	.start = a6xx_nogmu_start,
 	.snapshot = a6xx_snapshot,
 	.init = a6xx_nogmu_init,
 	.irq_handler = a6xx_irq_handler,
@@ -2734,7 +2761,6 @@ const struct adreno_gpudev adreno_a6xx_hwsched_gpudev = {
 const struct adreno_gpudev adreno_a6xx_gmu_gpudev = {
 	.reg_offsets = a6xx_register_offsets,
 	.probe = a6xx_gmu_device_probe,
-	.start = a6xx_start,
 	.snapshot = a6xx_gmu_snapshot,
 	.irq_handler = a6xx_irq_handler,
 	.rb_start = a6xx_rb_start,
@@ -2760,7 +2786,6 @@ const struct adreno_gpudev adreno_a6xx_gmu_gpudev = {
 const struct adreno_gpudev adreno_a6xx_rgmu_gpudev = {
 	.reg_offsets = a6xx_register_offsets,
 	.probe = a6xx_rgmu_device_probe,
-	.start = a6xx_start,
 	.snapshot = a6xx_rgmu_snapshot,
 	.irq_handler = a6xx_irq_handler,
 	.rb_start = a6xx_rb_start,
@@ -2787,7 +2812,7 @@ const struct adreno_gpudev adreno_a6xx_rgmu_gpudev = {
 const struct adreno_gpudev adreno_a619_holi_gpudev = {
 	.reg_offsets = a6xx_register_offsets,
 	.probe = a6xx_probe,
-	.start = a6xx_start,
+	.start = a6xx_nogmu_start,
 	.snapshot = a6xx_snapshot,
 	.init = a6xx_nogmu_init,
 	.irq_handler = a6xx_irq_handler,
@@ -2821,7 +2846,6 @@ const struct adreno_gpudev adreno_a619_holi_gpudev = {
 const struct adreno_gpudev adreno_a630_gpudev = {
 	.reg_offsets = a6xx_register_offsets,
 	.probe = a6xx_gmu_device_probe,
-	.start = a6xx_start,
 	.snapshot = a6xx_gmu_snapshot,
 	.irq_handler = a6xx_irq_handler,
 	.rb_start = a6xx_rb_start,

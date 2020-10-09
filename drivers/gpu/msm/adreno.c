@@ -1968,25 +1968,17 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	/* Set the bit to indicate that we've just powered on */
 	set_bit(ADRENO_DEVICE_PWRON, &adreno_dev->priv);
 
+	adreno_ringbuffer_set_global(adreno_dev, 0);
+	adreno_clear_dcvs_counters(adreno_dev);
+
 	/* Soft reset the GPU if a regulator is stuck on*/
 	if (regulator_left_on)
 		_soft_reset(adreno_dev);
 
-	adreno_ringbuffer_set_global(adreno_dev, 0);
-
-	status = kgsl_mmu_start(device);
+	/* Start the GPU */
+	status = gpudev->start(adreno_dev);
 	if (status)
 		goto error_pwr_off;
-
-	adreno_get_bus_counters(adreno_dev);
-
-	adreno_clear_dcvs_counters(adreno_dev);
-
-	/* Restore performance counter registers with saved values */
-	adreno_perfcounter_restore(adreno_dev);
-
-	/* Start the GPU */
-	gpudev->start(adreno_dev);
 
 	/* Re-initialize the coresight registers if applicable */
 	adreno_coresight_start(adreno_dev);

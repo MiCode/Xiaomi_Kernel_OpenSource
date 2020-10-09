@@ -911,10 +911,18 @@ static void a3xx_protect_init(struct kgsl_device *device)
 	}
 }
 
-static void a3xx_start(struct adreno_device *adreno_dev)
+static int a3xx_start(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	const struct adreno_a3xx_core *a3xx_core = to_a3xx_core(adreno_dev);
+	int ret;
+
+	ret = kgsl_mmu_start(device);
+	if (ret)
+		return ret;
+
+	adreno_get_bus_counters(adreno_dev);
+	adreno_perfcounter_restore(adreno_dev);
 
 	adreno_dev->irq_mask = A3XX_INT_MASK;
 
@@ -968,7 +976,7 @@ static void a3xx_start(struct adreno_device *adreno_dev)
 
 	/* CP ROQ queue sizes (bytes) - RB:16, ST:16, IB1:32, IB2:64 */
 	kgsl_regwrite(device, A3XX_CP_QUEUE_THRESHOLDS, 0x000E0602);
-
+	return 0;
 }
 
 #ifdef CONFIG_QCOM_KGSL_CORESIGHT
