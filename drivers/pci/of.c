@@ -20,8 +20,12 @@ void pci_set_of_node(struct pci_dev *dev)
 {
 	if (!dev->bus->dev.of_node)
 		return;
+#ifdef CONFIG_PCI_QTI
+	dev->dev.of_node = of_pci_find_child_device(dev);
+#else
 	dev->dev.of_node = of_pci_find_child_device(dev->bus->dev.of_node,
 						    dev->devfn);
+#endif
 	if (dev->dev.of_node)
 		dev->dev.fwnode = &dev->dev.of_node->fwnode;
 }
@@ -115,6 +119,50 @@ static inline int __of_pci_pci_compare(struct device_node *node,
 	return devfn == data;
 }
 
+#ifdef CONFIG_PCI_QTI
+static inline bool __of_pci_pci_compare_id(struct device_node *node,
+					   struct pci_dev *dev)
+{
+	char dev_id_str[10];
+	int index;
+
+	scnprintf(dev_id_str, sizeof(dev_id_str), "%04x:%04x", dev->vendor,
+			dev->device);
+
+	index = of_property_match_string(node, "pci-ids", dev_id_str);
+	if (index < 0 && index != -EINVAL)
+		return false;
+
+	return true;
+}
+
+struct device_node *of_pci_find_child_device(struct pci_dev *dev)
+{
+	struct device_node *node, *node2;
+	struct device_node *parent = dev->bus->dev.of_node;
+	unsigned int devfn = dev->devfn;
+
+	for_each_child_of_node(parent, node) {
+		if (__of_pci_pci_compare(node, devfn))
+			if (__of_pci_pci_compare_id(node, dev))
+				return node;
+		/*
+		 * Some OFs create a parent node "multifunc-device" as
+		 * a fake root for all functions of a multi-function
+		 * device we go down them as well.
+		 */
+		if (of_node_name_eq(node, "multifunc-device")) {
+			for_each_child_of_node(node, node2) {
+				if (__of_pci_pci_compare(node2, devfn)) {
+					of_node_put(node);
+					return node2;
+				}
+			}
+		}
+	}
+	return NULL;
+}
+#else
 struct device_node *of_pci_find_child_device(struct device_node *parent,
 					     unsigned int devfn)
 {
@@ -139,6 +187,7 @@ struct device_node *of_pci_find_child_device(struct device_node *parent,
 	}
 	return NULL;
 }
+#endif
 EXPORT_SYMBOL_GPL(of_pci_find_child_device);
 
 /**

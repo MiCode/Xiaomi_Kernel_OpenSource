@@ -122,6 +122,9 @@
 /* PFP waits until the FIFO between the PFP and the ME is empty */
 #define CP_WAIT_FOR_ME		0x13
 
+/* Stall the SQE until the CP processing pipeline is empty */
+#define CP_WAIT_FOR_CP_FLUSH 0x13
+
 #define CP_SET_PROTECTED_MODE  0x5f /* sets the register protection mode */
 
 /* Used to switch GPU between secure and non-secure modes */

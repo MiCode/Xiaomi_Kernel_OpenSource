@@ -159,6 +159,41 @@ TRACE_EVENT(adreno_cmdbatch_retired,
 	 )
 );
 
+TRACE_EVENT(gmu_ao_sync,
+	TP_PROTO(u64 ticks),
+	TP_ARGS(ticks),
+	TP_STRUCT__entry(
+		__field(u64, ticks)
+	),
+	TP_fast_assign(
+		__entry->ticks = ticks;
+	),
+	TP_printk(
+		"ticks=%llu", __entry->ticks
+	)
+);
+
+TRACE_EVENT(gmu_event,
+	TP_PROTO(u32 *event_info),
+	TP_ARGS(event_info),
+	TP_STRUCT__entry(
+		__field(u32, event)
+		__field(u32, ticks)
+		__field(u32, data1)
+		__field(u32, data2)
+	),
+	TP_fast_assign(
+		__entry->event = event_info[0];
+		__entry->ticks = event_info[1];
+		__entry->data1 = event_info[2];
+		__entry->data2 = event_info[3];
+	),
+	TP_printk(
+		"event=%08u ticks=%08u data1=%08x data2=%08x",
+		__entry->event, __entry->ticks, __entry->data1, __entry->data2
+	)
+);
+
 TRACE_EVENT(adreno_cmdbatch_sync,
 	TP_PROTO(unsigned int ctx_id, unsigned int ctx_prio,
 		unsigned int timestamp,	uint64_t ticks),

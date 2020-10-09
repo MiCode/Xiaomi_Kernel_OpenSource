@@ -1566,7 +1566,6 @@ static void _a6xx_do_crashdump(struct kgsl_device *device)
 {
 	unsigned long wait_time;
 	unsigned int reg = 0;
-	unsigned int val;
 
 	crash_dump_valid = false;
 
@@ -1578,8 +1577,7 @@ static void _a6xx_do_crashdump(struct kgsl_device *device)
 		return;
 
 	/* IF the SMMU is stalled we cannot do a crash dump */
-	kgsl_regread(device, A6XX_RBBM_STATUS3, &val);
-	if (val & BIT(24))
+	if (a6xx_is_smmu_stalled(device))
 		return;
 
 	/* Turn on APRIV for legacy targets so we can access the buffers */

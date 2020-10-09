@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  */
 
 #include "kgsl_device.h"
@@ -339,19 +339,33 @@ static const struct kgsl_ioctl kgsl_compat_ioctl_funcs[] = {
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_GPU_COMMAND,
 			kgsl_ioctl_gpu_command),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_GPUOBJ_SET_INFO,
-			kgsl_ioctl_gpuobj_set_info),
+			NULL),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_SPARSE_PHYS_ALLOC,
-			kgsl_ioctl_sparse_phys_alloc),
+			NULL),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_SPARSE_PHYS_FREE,
-			kgsl_ioctl_sparse_phys_free),
+			NULL),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_SPARSE_VIRT_ALLOC,
-			kgsl_ioctl_sparse_virt_alloc),
+			NULL),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_SPARSE_VIRT_FREE,
-			kgsl_ioctl_sparse_virt_free),
+			NULL),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_SPARSE_BIND,
-			kgsl_ioctl_sparse_bind),
+			NULL),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_GPU_SPARSE_COMMAND,
-			kgsl_ioctl_gpu_sparse_command),
+			NULL),
+	KGSL_IOCTL_FUNC(IOCTL_KGSL_GPU_AUX_COMMAND,
+			kgsl_ioctl_gpu_aux_command),
+	KGSL_IOCTL_FUNC(IOCTL_KGSL_TIMELINE_CREATE,
+			kgsl_ioctl_timeline_create),
+	KGSL_IOCTL_FUNC(IOCTL_KGSL_TIMELINE_WAIT,
+			kgsl_ioctl_timeline_wait),
+	KGSL_IOCTL_FUNC(IOCTL_KGSL_TIMELINE_FENCE_GET,
+			kgsl_ioctl_timeline_fence_get),
+	KGSL_IOCTL_FUNC(IOCTL_KGSL_TIMELINE_QUERY,
+			kgsl_ioctl_timeline_query),
+	KGSL_IOCTL_FUNC(IOCTL_KGSL_TIMELINE_SIGNAL,
+			kgsl_ioctl_timeline_signal),
+	KGSL_IOCTL_FUNC(IOCTL_KGSL_TIMELINE_DESTROY,
+			kgsl_ioctl_timeline_destroy),
 };
 
 long kgsl_compat_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)

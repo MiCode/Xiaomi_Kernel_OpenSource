@@ -190,7 +190,7 @@ static int qpnp_tm_update_temp_no_adc(struct qpnp_tm_chip *chip)
 static int qpnp_tm_get_temp(void *data, int *temp)
 {
 	struct qpnp_tm_chip *chip = data;
-	int ret, mili_celsius;
+	int ret, mili_celsius, stage, stage_temp_min;
 
 	if (!temp)
 		return -EINVAL;
@@ -207,9 +207,26 @@ static int qpnp_tm_get_temp(void *data, int *temp)
 		if (ret < 0)
 			return ret;
 	} else {
+		mutex_lock(&chip->lock);
+		stage = qpnp_tm_get_temp_stage(chip);
+		if (stage < 0) {
+			mutex_unlock(&chip->lock);
+			return stage;
+		}
+		if (chip->subtype != QPNP_TM_SUBTYPE_GEN1)
+			stage = alarm_state_map[stage];
+		stage_temp_min = qpnp_tm_decode_temp(chip, stage);
+		mutex_unlock(&chip->lock);
+
 		ret = iio_read_channel_processed(chip->adc, &mili_celsius);
 		if (ret < 0)
 			return ret;
+
+		if (stage_temp_min > mili_celsius && stage_temp_min > 0) {
+			dev_dbg(chip->dev, "replacing ADC temp=%d with min stage[%d] temp=%d\n",
+				mili_celsius, stage, stage_temp_min);
+			mili_celsius = stage_temp_min;
+		}
 
 		chip->temp = mili_celsius;
 	}

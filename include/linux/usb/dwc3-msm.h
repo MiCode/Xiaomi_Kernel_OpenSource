@@ -68,6 +68,9 @@ enum gsi_ep_op {
  * @mapped_db_reg_phs_addr_lsb: doorbell LSB IOVA address mapped with IOMMU
  * @db_reg_phs_addr_msb: IPA channel doorbell register's physical address MSB
  * @ep_intr_num: Interrupter number for EP.
+ * @sgt_trb_xfer_ring: USB TRB ring related sgtable entries
+ * @sgt_data_buff: Data buffer related sgtable entries
+ * @dev: pointer to the DMA-capable dwc device
  */
 struct usb_gsi_request {
 	void *buf_base_addr;
@@ -80,6 +83,7 @@ struct usb_gsi_request {
 	u8 ep_intr_num;
 	struct sg_table sgt_trb_xfer_ring;
 	struct sg_table sgt_data_buff;
+	struct device *dev;
 };
 
 /*
@@ -110,6 +114,14 @@ struct gsi_channel_info {
 	u64 xfer_ring_base_addr;
 	struct usb_gsi_request *ch_req;
 };
+
+#if IS_ENABLED(CONFIG_MSM_QUSB_PHY)
+extern void usb_phy_drive_dp_pulse(void *phy,
+					unsigned int interval_ms);
+#else
+static inline void usb_phy_drive_dp_pulse(void *phy, unsigned int interval_ms)
+{ }
+#endif
 
 #if IS_ENABLED(CONFIG_USB_DWC3_MSM)
 struct usb_ep *usb_ep_autoconfig_by_name(struct usb_gadget *gadget,

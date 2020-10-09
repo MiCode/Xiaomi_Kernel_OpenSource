@@ -469,6 +469,7 @@ int rpmh_rsc_send_data(struct rsc_drv *drv, const struct tcs_request *msg)
 	do {
 		ret = tcs_write(drv, msg);
 		if (ret == -EBUSY) {
+#ifdef QCOM_RPMH_QGKI_DEBUG
 			bool irq_sts;
 
 			irq_get_irqchip_state(drv->irq, IRQCHIP_STATE_PENDING,
@@ -477,6 +478,7 @@ int rpmh_rsc_send_data(struct rsc_drv *drv, const struct tcs_request *msg)
 					    drv->name, msg->cmds[0].addr,
 					    irq_sts ?
 					    "PENDING" : "NOT PENDING");
+#endif /* QCOM_RPMH_QGKI_DEBUG */
 			udelay(10);
 		}
 	} while (ret == -EBUSY);

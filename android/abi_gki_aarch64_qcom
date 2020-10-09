@@ -1,4 +1,4 @@
-[abi_whitelist]
+[abi_symbol_list]
   add_device_randomness
   add_timer
   add_timer_on
@@ -1326,6 +1326,8 @@
   kvmalloc_node
   kzfree
   led_blink_set
+  led_classdev_flash_register_ext
+  led_classdev_flash_unregister
   led_classdev_register_ext
   led_classdev_unregister
   led_get_default_pattern

@@ -534,6 +534,12 @@ struct hfi_submit_cmd {
 	u32 numibs;
 } __packed;
 
+struct hfi_log_block {
+	u32 hdr;
+	u32 version;
+	u32 start_index;
+	u32 stop_index;
+} __packed;
 
 /**
  * struct pending_cmd - data structure to track outstanding HFI
@@ -717,4 +723,6 @@ int a6xx_hfi_process_queue(struct a6xx_gmu_device *gmu,
  * Return: 0 on success or negative error on failure
  */
 int a6xx_hfi_cmdq_write(struct adreno_device *adreno_dev, u32 *msg);
+void adreno_a6xx_receive_err_req(struct a6xx_gmu_device *gmu, void *rcvd);
+void adreno_a6xx_receive_debug_req(struct a6xx_gmu_device *gmu, void *rcvd);
 #endif

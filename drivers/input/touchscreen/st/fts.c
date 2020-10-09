@@ -321,7 +321,9 @@ static int fts_vm_handle_vm_hardware(struct fts_ts_info *info)
 	return rc;
 }
 
-static void fts_vm_irq_on_lend_callback(void *data, enum hh_irq_label label)
+static void fts_vm_irq_on_lend_callback(void *data,
+					unsigned long notif_type,
+					enum hh_irq_label label)
 {
 	struct fts_ts_info *info = data;
 	struct irq_data *irq_data;
@@ -497,6 +499,10 @@ static void fts_trusted_touch_vm_mode_disable(struct fts_ts_info *info)
 			pr_err("Failed to release irq rc:%d\n", rc);
 		else
 			atomic_set(&info->vm_info->tvm_owns_irq, 0);
+
+		rc = hh_irq_release_notify(info->vm_info->irq_label);
+		if (rc)
+			pr_err("Failed to notify release irq rc:%d\n", rc);
 	}
 	atomic_set(&info->trusted_touch_enabled, 0);
 	reinit_completion(&info->resource_checkpoint);
@@ -624,7 +630,9 @@ static void fts_trusted_touch_complete(struct fts_ts_info *info)
 	}
 }
 
-static void fts_vm_irq_on_release_callback(void *data, enum hh_irq_label label)
+static void fts_vm_irq_on_release_callback(void *data,
+					unsigned long notif_type,
+					enum hh_irq_label label)
 {
 	struct fts_ts_info *info = data;
 	int rc = 0;
@@ -755,13 +763,19 @@ static int fts_trusted_touch_vm_mode_enable(struct fts_ts_info *info)
 	}
 	atomic_set(&vm_info->pvm_owns_iomem, 0);
 
-	rc = hh_irq_lend(vm_info->irq_label, vm_info->vm_name,
+	rc = hh_irq_lend_v2(vm_info->irq_label, vm_info->vm_name,
 		info->client->irq, &fts_vm_irq_on_release_callback, info);
 	if (rc) {
 		pr_err("Failed to lend irq\n");
 		return -EINVAL;
 	}
 	atomic_set(&vm_info->pvm_owns_irq, 0);
+
+	rc = hh_irq_lend_notify(vm_info->irq_label);
+	if (rc) {
+		pr_err("Failed to notify irq\n");
+		return -EINVAL;
+	}
 
 	reinit_completion(&info->trusted_touch_powerdown);
 	atomic_set(&info->trusted_touch_enabled, 1);
@@ -833,7 +847,7 @@ static int fts_vm_init(struct fts_ts_info *info)
 		goto init_fail;
 	}
 	vm_info->mem_cookie = mem_cookie;
-	rc = hh_irq_wait_for_lend(vm_info->irq_label, HH_PRIMARY_VM,
+	rc = hh_irq_wait_for_lend_v2(vm_info->irq_label, HH_PRIMARY_VM,
 			&fts_vm_irq_on_lend_callback, info);
 	atomic_set(&vm_info->tvm_owns_irq, 0);
 	atomic_set(&vm_info->tvm_owns_iomem, 0);

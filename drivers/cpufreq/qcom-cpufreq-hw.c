@@ -407,6 +407,8 @@ static int qcom_cpufreq_hw_read_lut(struct platform_device *pdev,
 
 	cpu = cpumask_first(&c->related_cpus);
 
+	prev_cc = 0;
+
 	for (i = 0; i < lut_max_entries; i++) {
 		data = readl_relaxed(c->base + offsets[REG_FREQ_LUT] +
 				      i * lut_row_size);
@@ -440,11 +442,15 @@ static int qcom_cpufreq_hw_read_lut(struct platform_device *pdev,
 		prev_cc = core_count;
 		prev_freq = freq;
 
-		dev_pm_opp_add(get_cpu_device(cpu), freq * 1000, volt);
+		if (get_cpu_device(cpu))
+			dev_pm_opp_add(get_cpu_device(cpu), freq * 1000, volt);
 	}
 
 	c->table[i].frequency = CPUFREQ_TABLE_END;
-	dev_pm_opp_set_sharing_cpus(get_cpu_device(cpu), &c->related_cpus);
+
+	if (get_cpu_device(cpu))
+		dev_pm_opp_set_sharing_cpus(get_cpu_device(cpu),
+						&c->related_cpus);
 
 	return 0;
 }

@@ -680,6 +680,8 @@ int tmc_read_unprepare_etb(struct tmc_drvdata *drvdata)
 		drvdata->buf = NULL;
 	}
 
+	drvdata->reading = false;
+
 	spin_unlock_irqrestore(&drvdata->spinlock, flags);
 
 	/*

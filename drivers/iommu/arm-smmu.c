@@ -110,6 +110,15 @@ struct arm_smmu_cb {
 #define ARM_SMMU_CB_VMID(smmu, cfg) ((u16)(smmu)->cavium_id_base + \
 							(cfg)->cbndx + 1)
 
+#define TCU_TESTBUS_SEL_ALL 0x3
+#define TBU_TESTBUS_SEL_ALL 0xf
+
+int tbu_testbus_sel = TBU_TESTBUS_SEL_ALL;
+int tcu_testbus_sel = TCU_TESTBUS_SEL_ALL;
+
+module_param_named(tcu_testbus_sel, tcu_testbus_sel, int, 0644);
+module_param_named(tbu_testbus_sel, tbu_testbus_sel, int, 0644);
+
 struct arm_smmu_pte_info {
 	void *virt_addr;
 	size_t size;
@@ -212,9 +221,6 @@ static bool is_iommu_pt_coherent(struct arm_smmu_domain *smmu_domain)
 	if (test_bit(DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT,
 		     smmu_domain->attributes))
 		return true;
-	else if (test_bit(DOMAIN_ATTR_PAGE_TABLE_FORCE_NON_COHERENT,
-			  smmu_domain->attributes))
-		return false;
 	else if (smmu_domain->smmu && smmu_domain->smmu->dev)
 		return dev_is_dma_coherent(smmu_domain->smmu->dev);
 	else
@@ -2925,9 +2931,6 @@ static int arm_smmu_setup_default_domain(struct device *dev,
 	if (!strcmp(str, "coherent"))
 		__arm_smmu_domain_set_attr(domain,
 			DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT, &attr);
-	else if (!strcmp(str, "non-coherent"))
-		__arm_smmu_domain_set_attr(domain,
-			DOMAIN_ATTR_PAGE_TABLE_FORCE_NON_COHERENT, &attr);
 	else if (!strcmp(str, "LLC"))
 		__arm_smmu_domain_set_attr(domain,
 			DOMAIN_ATTR_USE_UPSTREAM_HINT, &attr);
@@ -3780,12 +3783,6 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 					  smmu_domain->attributes);
 		ret = 0;
 		break;
-	case DOMAIN_ATTR_PAGE_TABLE_FORCE_NON_COHERENT:
-		*((int *)data) =
-			test_bit(DOMAIN_ATTR_PAGE_TABLE_FORCE_NON_COHERENT,
-				 smmu_domain->attributes);
-		ret = 0;
-		break;
 	case DOMAIN_ATTR_FAULT_MODEL_NO_CFRE:
 	case DOMAIN_ATTR_FAULT_MODEL_NO_STALL:
 	case DOMAIN_ATTR_FAULT_MODEL_HUPCF:
@@ -4029,24 +4026,6 @@ static int __arm_smmu_domain_set_attr2(struct iommu_domain *domain,
 			ret = 0;
 		} else {
 			clear_bit(DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT,
-				  smmu_domain->attributes);
-			ret = 0;
-		}
-		break;
-	}
-	case DOMAIN_ATTR_PAGE_TABLE_FORCE_NON_COHERENT: {
-		int force_non_coherent = *((int *)data);
-
-		if (smmu_domain->smmu != NULL) {
-			dev_err(smmu_domain->smmu->dev,
-				"cannot change force non-coherent attribute while attached\n");
-			ret = -EBUSY;
-		} else if (force_non_coherent) {
-			set_bit(DOMAIN_ATTR_PAGE_TABLE_FORCE_NON_COHERENT,
-				smmu_domain->attributes);
-			ret = 0;
-		} else {
-			clear_bit(DOMAIN_ATTR_PAGE_TABLE_FORCE_NON_COHERENT,
 				  smmu_domain->attributes);
 			ret = 0;
 		}

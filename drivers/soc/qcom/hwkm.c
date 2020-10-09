@@ -76,12 +76,12 @@ static struct hwkm_device *km_device;
 
 #define qti_hwkm_readl(hwkm, reg, dest)				\
 	(((dest) == KM_MASTER) ?				\
-	(readl_relaxed((hwkm)->km_base + (reg))) :		\
-	(readl_relaxed((hwkm)->ice_base + (reg))))
+	(readl_relaxed((void __iomem *)((hwkm)->km_base + (reg)))) :	\
+	(readl_relaxed((void __iomem *)((hwkm)->ice_base + (reg)))))
 #define qti_hwkm_writel(hwkm, val, reg, dest)			\
 	(((dest) == KM_MASTER) ?				\
-	(writel_relaxed((val), (hwkm)->km_base + (reg))) :	\
-	(writel_relaxed((val), (hwkm)->ice_base + (reg))))
+	(writel_relaxed((val), (void __iomem *)((hwkm)->km_base + (reg)))) :\
+	(writel_relaxed((val), (void __iomem *)((hwkm)->ice_base + (reg)))))
 #define qti_hwkm_setb(hwkm, reg, nr, dest) {			\
 	u32 val = qti_hwkm_readl(hwkm, reg, dest);		\
 	val |= (0x1 << nr);					\
@@ -142,6 +142,7 @@ static int qti_hwkm_master_transaction(struct hwkm_device *dev,
 {
 	int i = 0;
 	int err = 0;
+	u32 val = 0;
 
 	// Clear CMD FIFO
 	qti_hwkm_setb(dev, QTI_HWKM_MASTER_RG_BANK2_BANKN_CTL,
@@ -153,8 +154,11 @@ static int qti_hwkm_master_transaction(struct hwkm_device *dev,
 	/* Write memory barrier */
 	wmb();
 
-	// Clear previous CMD errors
-	qti_hwkm_writel(dev, 0x0, QTI_HWKM_MASTER_RG_BANK2_BANKN_ESR,
+	// Clear previous CMD errors, write 1 to err bits
+	val = qti_hwkm_readl(dev, QTI_HWKM_MASTER_RG_BANK2_BANKN_ESR,
+			KM_MASTER);
+	qti_hwkm_writel(dev, val,
+			QTI_HWKM_MASTER_RG_BANK2_BANKN_ESR,
 			KM_MASTER);
 	/* Write memory barrier */
 	wmb();
@@ -253,6 +257,7 @@ static int qti_hwkm_ice_transaction(struct hwkm_device *dev,
 {
 	int i = 0;
 	int err = 0;
+	u32 val = 0;
 
 	// Clear CMD FIFO
 	qti_hwkm_setb(dev, QTI_HWKM_ICE_RG_BANK0_BANKN_CTL,
@@ -264,9 +269,13 @@ static int qti_hwkm_ice_transaction(struct hwkm_device *dev,
 	/* Write memory barrier */
 	wmb();
 
-	// Clear previous CMD errors
-	qti_hwkm_writel(dev, 0x0, QTI_HWKM_ICE_RG_BANK0_BANKN_ESR,
+	// Clear previous CMD errors, write 1 to err bits
+	val = qti_hwkm_readl(dev, QTI_HWKM_ICE_RG_BANK0_BANKN_ESR,
 			ICEMEM_SLAVE);
+	qti_hwkm_writel(dev, val,
+			QTI_HWKM_ICE_RG_BANK0_BANKN_ESR,
+			ICEMEM_SLAVE);
+
 	/* Write memory barrier */
 	wmb();
 

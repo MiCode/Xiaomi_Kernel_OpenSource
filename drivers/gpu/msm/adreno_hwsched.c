@@ -836,6 +836,23 @@ int adreno_hwsched_queue_cmds(struct kgsl_device_private *dev_priv,
 	if (!count)
 		return -EINVAL;
 
+	for (i = 0; i < count; i++) {
+		struct kgsl_drawobj_cmd *cmdobj;
+		struct kgsl_memobj_node *ib;
+		u32 numibs = 0;
+
+		if (drawobj[i]->type != CMDOBJ_TYPE)
+			continue;
+
+		cmdobj = CMDOBJ(drawobj[i]);
+
+		list_for_each_entry(ib, &cmdobj->cmdlist, node)
+			numibs++;
+
+		if (numibs > HWSCHED_MAX_NUMIBS)
+			return -EINVAL;
+	}
+
 	ret = _check_context_state(&drawctxt->base);
 	if (ret)
 		return ret;

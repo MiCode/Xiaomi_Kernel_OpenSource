@@ -402,7 +402,7 @@ static int qdss_bind(struct usb_configuration *c, struct usb_function *f)
 	if (!strcmp(qdss->ch.name, USB_QDSS_CH_MDM))
 		qdss_data_ep_comp_desc.bMaxBurst = 0;
 
-	ep = usb_ep_autoconfig(gadget, &qdss_ss_data_desc);
+	ep = usb_ep_autoconfig(gadget, &qdss_fs_data_desc);
 	if (!ep) {
 		pr_err("%s: ep_autoconfig error\n", __func__);
 		goto clear_ep;
@@ -414,7 +414,7 @@ static int qdss_bind(struct usb_configuration *c, struct usb_function *f)
 		msm_ep_set_endless(qdss->port.data, true);
 
 	if (qdss->debug_inface_enabled) {
-		ep = usb_ep_autoconfig(gadget, &qdss_ss_ctrl_in_desc);
+		ep = usb_ep_autoconfig(gadget, &qdss_fs_ctrl_in_desc);
 		if (!ep) {
 			pr_err("%s: ep_autoconfig error\n", __func__);
 			goto clear_ep;
@@ -423,7 +423,7 @@ static int qdss_bind(struct usb_configuration *c, struct usb_function *f)
 		qdss->port.ctrl_in = ep;
 		ep->driver_data = qdss;
 
-		ep = usb_ep_autoconfig(gadget, &qdss_ss_ctrl_out_desc);
+		ep = usb_ep_autoconfig(gadget, &qdss_fs_ctrl_out_desc);
 		if (!ep) {
 			pr_err("%s: ep_autoconfig error\n", __func__);
 			goto clear_ep;
@@ -441,24 +441,17 @@ static int qdss_bind(struct usb_configuration *c, struct usb_function *f)
 		}
 	}
 
-	/*update fs descriptors*/
-	qdss_fs_data_desc.bEndpointAddress =
-		qdss_ss_data_desc.bEndpointAddress;
-	if (qdss->debug_inface_enabled) {
-		qdss_fs_ctrl_in_desc.bEndpointAddress =
-		qdss_ss_ctrl_in_desc.bEndpointAddress;
-		qdss_fs_ctrl_out_desc.bEndpointAddress =
-		qdss_ss_ctrl_out_desc.bEndpointAddress;
-	}
-
-	/*update descriptors*/
+	/* update hs/ss descriptors */
 	qdss_hs_data_desc.bEndpointAddress =
-		qdss_ss_data_desc.bEndpointAddress;
+		qdss_ss_data_desc.bEndpointAddress =
+			qdss_fs_data_desc.bEndpointAddress;
 	if (qdss->debug_inface_enabled) {
 		qdss_hs_ctrl_in_desc.bEndpointAddress =
-		qdss_ss_ctrl_in_desc.bEndpointAddress;
+			qdss_ss_ctrl_in_desc.bEndpointAddress =
+				qdss_fs_ctrl_in_desc.bEndpointAddress;
 		qdss_hs_ctrl_out_desc.bEndpointAddress =
-		qdss_ss_ctrl_out_desc.bEndpointAddress;
+			qdss_ss_ctrl_out_desc.bEndpointAddress =
+				qdss_fs_ctrl_out_desc.bEndpointAddress;
 	}
 
 	if (qdss->debug_inface_enabled)
@@ -1100,8 +1093,6 @@ static struct usb_function *qdss_alloc(struct usb_function_instance *fi)
 	struct f_qdss *usb_qdss = opts->usb_qdss;
 
 	usb_qdss->port.function.name = "usb_qdss";
-	usb_qdss->port.function.fs_descriptors = qdss_fs_desc;
-	usb_qdss->port.function.hs_descriptors = qdss_hs_desc;
 	usb_qdss->port.function.strings = qdss_strings;
 	usb_qdss->port.function.bind = qdss_bind;
 	usb_qdss->port.function.unbind = qdss_unbind;

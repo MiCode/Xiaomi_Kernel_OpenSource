@@ -11,6 +11,31 @@
 
 #define MMRM_CLK_CLIENT_NAME_SIZE  128
 
+/*
+ * MMRM Client data flags
+ * MMRM_CLIENT_DATA_FLAG_RESERVE_ONLY : Clients can use this flag
+ * to reserve the actual required resource to MMRM (as some clients
+ * have a differnt path to validate the resource availability).
+ * With this flag set for mmrm_set_value, MMRM will skip setting rate
+ * to clk driver & only check if requested clk resource is available.
+ * Client need to call mmrm_set_value again (without this flag) to complete
+ * the rate setting to clk driver. If MMRM driver will not receive
+ * set_value call from client within stipulated time eg: 100ms,
+ * resource will be returned back to pool.
+ */
+#define MMRM_CLIENT_DATA_FLAG_RESERVE_ONLY  0x0001
+
+/**
+ * mmrm_client_domain : MMRM client domain
+ * Clients need to configure this in mmrm_clk_client_desc
+ */
+enum mmrm_client_domain {
+	MMRM_CLIENT_DOMAIN_CAMERA = 0x1,
+	MMRM_CLIENT_DOMAIN_CVP = 0x2,
+	MMRM_CLIENT_DOMAIN_DISPLAY = 0x3,
+	MMRM_CLIENT_DOMAIN_VIDEO = 0x4,
+};
+
 /**
  * mmrm_client_type : MMRM Client type
  */
@@ -98,11 +123,13 @@ struct mmrm_client {
 /**
  * mmrm_clk_client_desc : MMRM clock client descriptor used
  *                        for registering client
- * @client_id: Client provides this info as one of CLK_SRC_XXXX
+ * @client_domain: Client provides MMRM_CLIENT_DOMAIN_XXXX
+ * @client_id: Client provides CLK_SRC_XXXX id
  * @name     : Client name
  * @clk      : Pointer to clock struct
  */
 struct mmrm_clk_client_desc {
+	u32 client_domain;
 	u32 client_id;
 	const char name[MMRM_CLK_CLIENT_NAME_SIZE];
 	struct clk *clk;
@@ -122,7 +149,7 @@ struct mmrm_clk_client_desc {
 struct mmrm_client_desc {
 	enum mmrm_client_type client_type;
 	union {
-		mmrm_clk_client_desc desc;
+		struct mmrm_clk_client_desc desc;
 	} client_info;
 	enum mmrm_client_priority priority;
 	void *pvt_data;
@@ -135,9 +162,12 @@ struct mmrm_client_desc {
  * set value.
  * @num_hw_blocks: Client hw blocks enabled for resource allocation estimation
  *                 Default 1 for each client
+ * @flags: Client flags used to provide additional client info
+ *         Refer flags MMRM_CLIENT_DATA_FLAG_XXXX
  */
 struct mmrm_client_data {
 	u32 num_hw_blocks;
+	u32 flags;
 };
 
 #if IS_ENABLED(CONFIG_MSM_MMRM)
@@ -218,13 +248,13 @@ static inline int mmrm_client_deregister(struct mmrm_client *client)
 }
 
 static inline int mmrm_client_set_value(struct mmrm_client *client,
-	struct mmrm_client_set_data *client_data, unsigned long val)
+	struct mmrm_client_data *client_data, unsigned long val)
 {
 	return -EINVAL;
 }
 
 static inline int mmrm_client_set_value_in_range(struct mmrm_client *client,
-	struct mmrm_client_set_data *client_data,
+	struct mmrm_client_data *client_data,
 	struct mmrm_client_res_value *val)
 {
 	return -EINVAL;

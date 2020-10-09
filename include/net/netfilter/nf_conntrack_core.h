@@ -43,6 +43,10 @@ void nf_conntrack_cleanup_end(void);
 
 bool nf_ct_invert_tuple(struct nf_conntrack_tuple *inverse,
 			const struct nf_conntrack_tuple *orig);
+extern bool (*nattype_refresh_timer)
+			(unsigned long nattype,
+			unsigned long timeout_value)
+			__rcu __read_mostly;
 
 /* Find a connection corresponding to a tuple. */
 struct nf_conntrack_tuple_hash *

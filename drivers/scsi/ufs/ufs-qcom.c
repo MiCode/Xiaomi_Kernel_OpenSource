@@ -38,6 +38,9 @@
 #define UFS_QCOM_DEFAULT_DBG_PRINT_EN	\
 	(UFS_QCOM_DBG_PRINT_REGS_EN | UFS_QCOM_DBG_PRINT_TEST_BUS_EN)
 
+#define	ANDROID_BOOT_DEV_MAX	30
+static char android_boot_dev[ANDROID_BOOT_DEV_MAX];
+
 enum {
 	TSTBUS_UAWM,
 	TSTBUS_UARM,
@@ -975,9 +978,14 @@ static int ufs_qcom_link_startup_notify(struct ufs_hba *hba,
 	int err = 0;
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	struct phy *phy = host->generic_phy;
+	struct device *dev = hba->dev;
 
 	switch (status) {
 	case PRE_CHANGE:
+		if (strlen(android_boot_dev) && strcmp(android_boot_dev, dev_name(dev))) {
+			return -ENODEV;
+		}
+
 		if (ufs_qcom_cfg_timers(hba, UFS_PWM_G1, SLOWAUTO_MODE,
 					0, true)) {
 			dev_err(hba->dev, "%s: ufs_qcom_cfg_timers() failed\n",
@@ -2051,9 +2059,6 @@ static const struct reset_control_ops ufs_qcom_reset_ops = {
 	.deassert = ufs_qcom_reset_deassert,
 };
 
-#define	ANDROID_BOOT_DEV_MAX	30
-static char android_boot_dev[ANDROID_BOOT_DEV_MAX];
-
 #ifndef MODULE
 static int __init get_android_boot_dev(char *str)
 {
@@ -2639,9 +2644,6 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct ufs_qcom_host *host;
 	struct resource *res;
-
-	if (strlen(android_boot_dev) && strcmp(android_boot_dev, dev_name(dev)))
-		return -ENODEV;
 
 	host = devm_kzalloc(dev, sizeof(*host), GFP_KERNEL);
 	if (!host) {
@@ -3593,12 +3595,28 @@ static ssize_t err_count_show(struct device *dev,
 
 static DEVICE_ATTR_RO(err_count);
 
+static ssize_t dbg_state_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	int dbg_en = 0;
+
+#if defined(CONFIG_UFS_DBG)
+	dbg_en = 1;
+#endif
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n", dbg_en);
+}
+
+
+static DEVICE_ATTR_RO(dbg_state);
+
 static struct attribute *ufs_qcom_sysfs_attrs[] = {
 	&dev_attr_err_state.attr,
 	&dev_attr_power_mode.attr,
 	&dev_attr_bus_speed_mode.attr,
 	&dev_attr_clk_status.attr,
 	&dev_attr_err_count.attr,
+	&dev_attr_dbg_state.attr,
 	NULL
 };
 

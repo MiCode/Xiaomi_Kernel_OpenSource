@@ -104,6 +104,8 @@ struct lt9611 {
 	u32 reset_gpio;
 	u32 hdmi_ps_gpio;
 	u32 hdmi_en_gpio;
+	u32 hdmi_3p3_en;
+	u32 hdmi_1p2_en;
 
 	unsigned int num_vreg;
 	struct lt9611_vreg *vreg_config;
@@ -670,18 +672,26 @@ static int lt9611_parse_dt(struct device *dev,
 	pdata->irq_gpio =
 		of_get_named_gpio(np, "lt,irq-gpio", 0);
 	if (!gpio_is_valid(pdata->irq_gpio)) {
-		pr_err("irq gpio not specified\n");
-		ret = -EINVAL;
+		pr_debug("irq gpio not specified\n");
 	}
-	pr_debug("irq_gpio=%d\n", pdata->irq_gpio);
 
 	pdata->reset_gpio =
 		of_get_named_gpio(np, "lt,reset-gpio", 0);
 	if (!gpio_is_valid(pdata->reset_gpio)) {
 		pr_err("reset gpio not specified\n");
-		ret = -EINVAL;
+		return -EINVAL;
 	}
 	pr_debug("reset_gpio=%d\n", pdata->reset_gpio);
+
+	pdata->hdmi_3p3_en =
+		of_get_named_gpio(np, "lt,hdmi-3p3-en", 0);
+	if (!gpio_is_valid(pdata->hdmi_3p3_en))
+		pr_debug("hdmi_3p3_en gpio not specified\n");
+
+	pdata->hdmi_1p2_en =
+		of_get_named_gpio(np, "lt,hdmi-1p2-en", 0);
+	if (!gpio_is_valid(pdata->hdmi_1p2_en))
+		pr_debug("hdmi_1p2_en not specified\n");
 
 	pdata->hdmi_ps_gpio =
 		of_get_named_gpio(np, "lt,hdmi-ps-gpio", 0);
@@ -716,11 +726,41 @@ static int lt9611_gpio_configure(struct lt9611 *pdata, bool on)
 	int ret = 0;
 
 	if (on) {
+		if (gpio_is_valid(pdata->hdmi_3p3_en)) {
+			ret = gpio_request(pdata->hdmi_3p3_en,
+				"lt9611-3p3-en-gpio");
+			if (ret) {
+				pr_err("lt9611 3p3 en gpio request failed\n");
+				goto error;
+			}
+
+			ret = gpio_direction_output(pdata->hdmi_3p3_en, 0);
+			if (ret) {
+				pr_err("lt9611 3p3 en gpio direction failed\n");
+				goto hdmi_3p3_error;
+			}
+		}
+
+		if (gpio_is_valid(pdata->hdmi_1p2_en)) {
+			ret = gpio_request(pdata->hdmi_1p2_en,
+				"lt9611-1p2-en-gpio");
+			if (ret) {
+				pr_err("lt9611 1p2 en gpio request failed\n");
+				goto hdmi_3p3_error;
+			}
+
+			ret = gpio_direction_output(pdata->hdmi_1p2_en, 0);
+			if (ret) {
+				pr_err("lt9611 1p2 en gpio direction failed\n");
+				goto hdmi_1p2_error;
+			}
+		}
+
 		ret = gpio_request(pdata->reset_gpio,
 			"lt9611-reset-gpio");
 		if (ret) {
 			pr_err("lt9611 reset gpio request failed\n");
-			goto error;
+			goto hdmi_1p2_error;
 		}
 
 		ret = gpio_direction_output(pdata->reset_gpio, 0);
@@ -759,16 +799,18 @@ static int lt9611_gpio_configure(struct lt9611 *pdata, bool on)
 			}
 		}
 
-		ret = gpio_request(pdata->irq_gpio, "lt9611-irq-gpio");
-		if (ret) {
-			pr_err("lt9611 irq gpio request failed\n");
-			goto hdmi_ps_error;
-		}
+		if (gpio_is_valid(pdata->irq_gpio)) {
+			ret = gpio_request(pdata->irq_gpio, "lt9611-irq-gpio");
+			if (ret) {
+				pr_err("lt9611 irq gpio request failed\n");
+				goto hdmi_ps_error;
+			}
 
-		ret = gpio_direction_input(pdata->irq_gpio);
-		if (ret) {
-			pr_err("lt9611 irq gpio direction failed\n");
-			goto irq_error;
+			ret = gpio_direction_input(pdata->irq_gpio);
+			if (ret) {
+				pr_err("lt9611 irq gpio direction failed\n");
+				goto irq_error;
+			}
 		}
 	} else {
 		gpio_free(pdata->irq_gpio);
@@ -777,6 +819,10 @@ static int lt9611_gpio_configure(struct lt9611 *pdata, bool on)
 		if (gpio_is_valid(pdata->hdmi_en_gpio))
 			gpio_free(pdata->hdmi_en_gpio);
 		gpio_free(pdata->reset_gpio);
+		if (gpio_is_valid(pdata->hdmi_1p2_en))
+			gpio_free(pdata->hdmi_1p2_en);
+		if (gpio_is_valid(pdata->hdmi_3p3_en))
+			gpio_free(pdata->hdmi_3p3_en);
 	}
 
 	return ret;
@@ -792,6 +838,10 @@ hdmi_en_error:
 		gpio_free(pdata->hdmi_en_gpio);
 reset_error:
 	gpio_free(pdata->reset_gpio);
+hdmi_1p2_error:
+	gpio_free(pdata->hdmi_1p2_en);
+hdmi_3p3_error:
+	gpio_free(pdata->hdmi_3p3_en);
 error:
 	return ret;
 }
@@ -1067,6 +1117,12 @@ static int lt9611_enable_vreg(struct lt9611 *pdata, int enable)
 	int num_vreg = pdata->num_vreg;
 
 	if (enable) {
+		if (gpio_is_valid(pdata->hdmi_3p3_en))
+			gpio_set_value(pdata->hdmi_3p3_en, 1);
+
+		if (gpio_is_valid(pdata->hdmi_1p2_en))
+			gpio_set_value(pdata->hdmi_1p2_en, 1);
+
 		for (i = 0; i < num_vreg; i++) {
 			rc = PTR_RET(in_vreg[i].vreg);
 			if (rc) {
@@ -1112,6 +1168,12 @@ static int lt9611_enable_vreg(struct lt9611 *pdata, int enable)
 				usleep_range(in_vreg[i].post_off_sleep * 1000,
 					in_vreg[i].post_off_sleep * 1000);
 		}
+
+		if (gpio_is_valid(pdata->hdmi_3p3_en))
+			gpio_set_value(pdata->hdmi_3p3_en, 0);
+
+		if (gpio_is_valid(pdata->hdmi_1p2_en))
+			gpio_set_value(pdata->hdmi_1p2_en, 0);
 	}
 	return rc;
 
@@ -1137,7 +1199,7 @@ vreg_set_opt_mode_fail:
 }
 
 static struct lt9611_timing_info *lt9611_get_supported_timing(
-		struct drm_display_mode *mode)
+		const struct drm_display_mode *mode)
 {
 	int i = 0;
 
@@ -1152,6 +1214,86 @@ static struct lt9611_timing_info *lt9611_get_supported_timing(
 	}
 
 	return NULL;
+}
+
+/* TODO: intf/lane number needs info from both DSI host and client */
+static int lt9611_get_intf_num(struct lt9611 *pdata,
+	const struct drm_display_mode *mode)
+{
+	int num_of_intfs = 0;
+	struct lt9611_timing_info *timing =
+		lt9611_get_supported_timing(mode);
+
+	if (timing)
+		num_of_intfs = timing->intfs;
+	else {
+		pr_err("interface number not defined by bridge chip\n");
+		num_of_intfs = 0;
+	}
+
+	return num_of_intfs;
+}
+
+static int lt9611_get_lane_num(struct lt9611 *pdata,
+		const struct drm_display_mode *mode)
+{
+	int num_of_lanes = 0;
+	struct lt9611_timing_info *timing =
+		lt9611_get_supported_timing(mode);
+
+	if (timing)
+		num_of_lanes = timing->lanes;
+	else {
+		pr_err("lane number not defined by bridge chip\n");
+		num_of_lanes = 0;
+	}
+
+	return num_of_lanes;
+}
+
+static void lt9611_get_video_cfg(struct lt9611 *pdata,
+	const struct drm_display_mode *mode,
+	struct lt9611_video_cfg *video_cfg)
+{
+	int rc = 0;
+	struct hdmi_avi_infoframe avi_frame;
+
+	memset(&avi_frame, 0, sizeof(avi_frame));
+
+	video_cfg->h_active = mode->hdisplay;
+	video_cfg->v_active = mode->vdisplay;
+	video_cfg->h_front_porch = mode->hsync_start - mode->hdisplay;
+	video_cfg->v_front_porch = mode->vsync_start - mode->vdisplay;
+	video_cfg->h_back_porch = mode->htotal - mode->hsync_end;
+	video_cfg->v_back_porch = mode->vtotal - mode->vsync_end;
+	video_cfg->h_pulse_width = mode->hsync_end - mode->hsync_start;
+	video_cfg->v_pulse_width = mode->vsync_end - mode->vsync_start;
+	video_cfg->pclk_khz = mode->clock;
+
+	video_cfg->h_polarity = !!(mode->flags & DRM_MODE_FLAG_PHSYNC);
+	video_cfg->v_polarity = !!(mode->flags & DRM_MODE_FLAG_PVSYNC);
+
+	video_cfg->num_of_lanes = lt9611_get_lane_num(pdata, mode);
+	video_cfg->num_of_intfs = lt9611_get_intf_num(pdata, mode);
+
+	pr_debug("video=h[%d,%d,%d,%d] v[%d,%d,%d,%d] pclk=%d lane=%d intf=%d\n",
+		video_cfg->h_active, video_cfg->h_front_porch,
+		video_cfg->h_pulse_width, video_cfg->h_back_porch,
+		video_cfg->v_active, video_cfg->v_front_porch,
+		video_cfg->v_pulse_width, video_cfg->v_back_porch,
+		video_cfg->pclk_khz, video_cfg->num_of_lanes,
+		video_cfg->num_of_intfs);
+
+	rc = drm_hdmi_avi_infoframe_from_display_mode(&avi_frame, &pdata->connector, mode);
+	if (rc) {
+		pr_err("get avi frame failed ret=%d\n", rc);
+	} else {
+		video_cfg->scaninfo = avi_frame.scan_mode;
+		video_cfg->ar = avi_frame.picture_aspect;
+		video_cfg->vic = avi_frame.video_code;
+		pr_debug("scaninfo=%d ar=%d vic=%d\n",
+			video_cfg->scaninfo, video_cfg->ar, video_cfg->vic);
+	}
 }
 
 /* connector funcs */
@@ -1258,7 +1400,6 @@ static void lt9611_bridge_mode_set(struct drm_bridge *bridge,
 {
 	struct lt9611 *pdata = bridge_to_lt9611(bridge);
 	struct lt9611_video_cfg *video_cfg = &pdata->video_cfg;
-	struct hdmi_avi_infoframe avi_frame;
 	int ret = 0;
 
 	pr_debug(" hdisplay=%d, vdisplay=%d, vrefresh=%d, clock=%d\n",
@@ -1266,8 +1407,9 @@ static void lt9611_bridge_mode_set(struct drm_bridge *bridge,
 		adj_mode->vrefresh, adj_mode->clock);
 
 	drm_mode_copy(&pdata->curr_mode, adj_mode);
-	drm_hdmi_avi_infoframe_from_display_mode(&avi_frame,
-					&pdata->connector, mode);
+
+	memset(video_cfg, 0, sizeof(struct lt9611_video_cfg));
+	lt9611_get_video_cfg(pdata, adj_mode, video_cfg);
 
 	/* TODO: update intf number of host */
 	if (video_cfg->num_of_lanes != pdata->dsi->lanes) {

@@ -62,11 +62,16 @@
 #define CAM_CPAS_TRAFFIC_MERGE_SUM 0
 #define CAM_CPAS_TRAFFIC_MERGE_SUM_INTERLEAVE 1
 
+/* Feature bit type */
+#define CAM_CPAS_FEATURE_TYPE_DISABLE 0
+#define CAM_CPAS_FEATURE_TYPE_ENABLE 1
+#define CAM_CPAS_FEATURE_TYPE_VALUE 2
 
 /* Feature support bit positions in feature fuse register*/
 #define CAM_CPAS_QCFA_BINNING_ENABLE 0
 #define CAM_CPAS_SECURE_CAMERA_ENABLE 1
 #define CAM_CPAS_MF_HDR_ENABLE 2
-#define CAM_CPAS_FUSE_FEATURE_MAX 3
+#define CAM_CPAS_MP_LIMIT_FUSE 3
+#define CAM_CPAS_FUSE_FEATURE_MAX 4
 
 #endif

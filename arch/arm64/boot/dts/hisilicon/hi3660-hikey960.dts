@@ -654,12 +654,23 @@
 		status = "ok";
 		compatible = "adi,adv7533";
 		reg = <0x39>;
+		v1p2-supply = <&ldo3>;
+		vdd-supply = <&ldo3>;
+		interrupt-parent = <&gpio1>;
+		interrupts = <1 2>;
+		pd-gpio = <&gpio5 1 0>;
+		sel-gpio = <&gpio2 4 0>;
 		adi,dsi-lanes = <4>;
+		adi,disable-timing-generator;
+		#sound-dai-cells = <0>;
 		ports {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			port@0 {
 				reg = <0>;
+				adv7533_in: endpoint@0 {
+					remote-endpoint = <&dsi_out0>;
+				};
 			};
 			port@1 {
 				reg = <1>;

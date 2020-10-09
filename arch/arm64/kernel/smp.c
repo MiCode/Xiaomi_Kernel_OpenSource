@@ -868,7 +868,6 @@ static void local_cpu_stop(void)
 
 	set_cpu_online(cpu, false);
 
-	flush_cache_all();
 	local_daif_mask();
 	sdei_mask_local_cpu();
 	cpu_park_loop();

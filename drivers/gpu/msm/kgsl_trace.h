@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2020, The Linux Foundation. All rights reserved.
  */
 
 #if !defined(_KGSL_TRACE_H) || defined(TRACE_HEADER_MULTI_READ)
@@ -1054,101 +1054,6 @@ TRACE_EVENT(kgsl_msg,
 	)
 );
 
-DECLARE_EVENT_CLASS(sparse_alloc_template,
-	TP_PROTO(unsigned int id, uint64_t size, unsigned int pagesize),
-	TP_ARGS(id, size, pagesize),
-	TP_STRUCT__entry(
-		__field(unsigned int, id)
-		__field(uint64_t, size)
-		__field(unsigned int, pagesize)
-	),
-	TP_fast_assign(
-		__entry->id = id;
-		__entry->size = size;
-		__entry->pagesize = pagesize;
-	),
-	TP_printk("id=%d size=0x%llX pagesize=0x%X",
-		__entry->id, __entry->size, __entry->pagesize)
-);
-
-DEFINE_EVENT(sparse_alloc_template, sparse_phys_alloc,
-	TP_PROTO(unsigned int id, uint64_t size, unsigned int pagesize),
-	TP_ARGS(id, size, pagesize)
-);
-
-DEFINE_EVENT(sparse_alloc_template, sparse_virt_alloc,
-	TP_PROTO(unsigned int id, uint64_t size, unsigned int pagesize),
-	TP_ARGS(id, size, pagesize)
-);
-
-DECLARE_EVENT_CLASS(sparse_free_template,
-	TP_PROTO(unsigned int id),
-	TP_ARGS(id),
-	TP_STRUCT__entry(
-		__field(unsigned int, id)
-	),
-	TP_fast_assign(
-		__entry->id = id;
-	),
-	TP_printk("id=%d", __entry->id)
-);
-
-DEFINE_EVENT(sparse_free_template, sparse_phys_free,
-	TP_PROTO(unsigned int id),
-	TP_ARGS(id)
-);
-
-DEFINE_EVENT(sparse_free_template, sparse_virt_free,
-	TP_PROTO(unsigned int id),
-	TP_ARGS(id)
-);
-
-TRACE_EVENT(sparse_bind,
-	TP_PROTO(unsigned int v_id, uint64_t v_off,
-		unsigned int p_id, uint64_t p_off,
-		uint64_t size, uint64_t flags),
-	TP_ARGS(v_id, v_off, p_id, p_off, size, flags),
-	TP_STRUCT__entry(
-		__field(unsigned int, v_id)
-		__field(uint64_t, v_off)
-		__field(unsigned int, p_id)
-		__field(uint64_t, p_off)
-		__field(uint64_t, size)
-		__field(uint64_t, flags)
-	),
-	TP_fast_assign(
-		__entry->v_id = v_id;
-		__entry->v_off = v_off;
-		__entry->p_id = p_id;
-		__entry->p_off = p_off;
-		__entry->size = size;
-		__entry->flags = flags;
-	),
-	TP_printk(
-	"v_id=%d v_off=0x%llX p_id=%d p_off=0x%llX size=0x%llX flags=0x%llX",
-		__entry->v_id, __entry->v_off,
-		__entry->p_id, __entry->p_off,
-		__entry->size, __entry->flags)
-);
-
-TRACE_EVENT(sparse_unbind,
-	TP_PROTO(unsigned int v_id, uint64_t v_off, uint64_t size),
-	TP_ARGS(v_id, v_off, size),
-	TP_STRUCT__entry(
-		__field(unsigned int, v_id)
-		__field(uint64_t, v_off)
-		__field(uint64_t, size)
-	),
-	TP_fast_assign(
-		__entry->v_id = v_id;
-		__entry->v_off = v_off;
-		__entry->size = size;
-	),
-	TP_printk("v_id=%d v_off=0x%llX size=0x%llX",
-		__entry->v_id, __entry->v_off, __entry->size)
-);
-
-
 TRACE_EVENT(kgsl_clock_throttling,
 	TP_PROTO(
 		int idle_10pct,
@@ -1254,6 +1159,183 @@ TRACE_EVENT(kgsl_opp_notify,
 		__entry->min_freq, __entry->max_freq
 	)
 );
+
+TRACE_EVENT(kgsl_timeline_alloc,
+	TP_PROTO(
+		u32 id,
+		u64 seqno
+	),
+	TP_ARGS(
+		id,
+		seqno
+	),
+	TP_STRUCT__entry(
+		__field(u32, id)
+		__field(u64, seqno)
+	),
+	TP_fast_assign(
+		__entry->id = id;
+		__entry->seqno = seqno;
+	),
+	TP_printk("id=%u initial=%llu",
+		__entry->id, __entry->seqno
+	)
+);
+
+TRACE_EVENT(kgsl_timeline_destroy,
+	TP_PROTO(
+		u32 id
+	),
+	TP_ARGS(
+		id
+	),
+	TP_STRUCT__entry(
+		__field(u32, id)
+	),
+	TP_fast_assign(
+		__entry->id = id;
+	),
+	TP_printk("id=%u",
+		__entry->id
+	)
+);
+
+
+TRACE_EVENT(kgsl_timeline_signal,
+	TP_PROTO(
+		u32 id,
+		u64 seqno
+	),
+	TP_ARGS(
+		id,
+		seqno
+	),
+	TP_STRUCT__entry(
+		__field(u32, id)
+		__field(u64, seqno)
+	),
+	TP_fast_assign(
+		__entry->id = id;
+		__entry->seqno = seqno;
+	),
+	TP_printk("id=%u seqno=%llu",
+		__entry->id, __entry->seqno
+	)
+);
+
+TRACE_EVENT(kgsl_timeline_fence_alloc,
+	TP_PROTO(
+		u32 timeline,
+		u64 seqno
+	),
+	TP_ARGS(
+		timeline,
+		seqno
+	),
+	TP_STRUCT__entry(
+		__field(u32, timeline)
+		__field(u64, seqno)
+	),
+	TP_fast_assign(
+		__entry->timeline = timeline;
+		__entry->seqno = seqno;
+	),
+	TP_printk("timeline=%u seqno=%llu",
+		__entry->timeline, __entry->seqno
+	)
+);
+
+TRACE_EVENT(kgsl_timeline_fence_release,
+	TP_PROTO(
+		u32 timeline,
+		u64 seqno
+	),
+	TP_ARGS(
+		timeline,
+		seqno
+	),
+	TP_STRUCT__entry(
+		__field(u32, timeline)
+		__field(u64, seqno)
+	),
+	TP_fast_assign(
+		__entry->timeline = timeline;
+		__entry->seqno = seqno;
+	),
+	TP_printk("timeline=%u seqno=%llu",
+		__entry->timeline, __entry->seqno
+	)
+);
+
+
+TRACE_EVENT(kgsl_timeline_wait,
+	TP_PROTO(
+		u32 flags,
+		s64 tv_sec,
+		s64 tv_nsec
+	),
+	TP_ARGS(
+		flags,
+		tv_sec,
+		tv_nsec
+	),
+	TP_STRUCT__entry(
+		__field(u32, flags)
+		__field(s64, tv_sec)
+		__field(s64, tv_nsec)
+	),
+	TP_fast_assign(
+		__entry->flags = flags;
+		__entry->tv_sec = tv_sec;
+		__entry->tv_nsec = tv_nsec;
+	),
+	TP_printk("flags=0x%x tv_sec=%llu tv_nsec=%llu",
+		__entry->flags, __entry->tv_sec, __entry->tv_nsec
+
+	)
+);
+
+TRACE_EVENT(kgsl_aux_command,
+	TP_PROTO(u32 drawctxt_id, u32 numcmds, u32 flags, u32 timestamp
+	),
+	TP_ARGS(drawctxt_id, numcmds, flags, timestamp
+	),
+	TP_STRUCT__entry(
+		__field(u32, drawctxt_id)
+		__field(u32, numcmds)
+		__field(u32, flags)
+		__field(u32, timestamp)
+	),
+	TP_fast_assign(
+		__entry->drawctxt_id = drawctxt_id;
+		__entry->numcmds = numcmds;
+		__entry->flags = flags;
+		__entry->timestamp = timestamp;
+	),
+	TP_printk("context=%u numcmds=%u flags=0x%x timestamp=%u",
+		__entry->drawctxt_id, __entry->numcmds, __entry->flags,
+		__entry->timestamp
+	)
+);
+
+TRACE_EVENT(kgsl_drawobj_timeline,
+	TP_PROTO(u32 timeline, u64 seqno
+	),
+	TP_ARGS(timeline, seqno
+	),
+	TP_STRUCT__entry(
+		__field(u32, timeline)
+		__field(u64, seqno)
+	),
+	TP_fast_assign(
+		__entry->timeline = timeline;
+		__entry->seqno = seqno;
+	),
+	TP_printk("timeline=%u seqno=%llu",
+		__entry->timeline, __entry->seqno
+	)
+);
+
 #endif /* _KGSL_TRACE_H */
 
 /* This part must be outside protection */

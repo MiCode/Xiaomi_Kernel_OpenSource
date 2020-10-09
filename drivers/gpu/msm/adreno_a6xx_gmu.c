@@ -14,21 +14,17 @@
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
 #include <linux/soc/qcom/llcc-qcom.h>
+#include <linux/mailbox/qmp.h>
 #include <soc/qcom/cmd-db.h>
 
 #include "adreno.h"
 #include "adreno_a6xx.h"
 #include "adreno_hwsched.h"
+#include "adreno_trace.h"
 #include "kgsl_bus.h"
 #include "kgsl_device.h"
 #include "kgsl_trace.h"
 #include "kgsl_util.h"
-
-struct gmu_iommu_context {
-	const char *name;
-	struct platform_device *pdev;
-	struct iommu_domain *domain;
-};
 
 #define ARC_VOTE_GET_PRI(_v) ((_v) & 0xFF)
 #define ARC_VOTE_GET_SEC(_v) (((_v) >> 8) & 0xFF)
@@ -61,11 +57,6 @@ static struct gmu_vma_entry a6xx_gmu_vma_legacy[] = {
 			.size = SZ_512M,
 			.next_va = 0x60000000
 		},
-	[GMU_NONCACHED_USER] = {
-			.start = 0x80000000,
-			.size = SZ_1G,
-			.next_va = 0x80000000
-		},
 };
 
 static struct gmu_vma_entry a6xx_gmu_vma[] = {
@@ -91,16 +82,6 @@ static struct gmu_vma_entry a6xx_gmu_vma[] = {
 			.size = SZ_512M,
 			.next_va = 0x60000000
 		},
-	[GMU_NONCACHED_USER] = {
-			.start = 0x80000000,
-			.size = SZ_1G,
-			.next_va = 0x80000000
-		},
-};
-
-static struct gmu_iommu_context a6xx_gmu_ctx[] = {
-	[GMU_CONTEXT_USER] = { .name = "gmu_user" },
-	[GMU_CONTEXT_KERNEL] = { .name = "gmu_kernel" }
 };
 
 static int timed_poll_check_rscc(struct kgsl_device *device,
@@ -436,12 +417,30 @@ static void a6xx_gmu_power_config(struct adreno_device *adreno_dev)
 				RPMH_ENABLE_MASK);
 }
 
+static void gmu_ao_sync_event(struct adreno_device *adreno_dev)
+{
+	unsigned long flags;
+	u64 ticks;
+
+	local_irq_save(flags);
+
+	/* Read GMU always on register */
+	ticks = a6xx_read_alwayson(adreno_dev);
+
+	/* Trace the GMU time to create a mapping to ftrace time */
+	trace_gmu_ao_sync(ticks);
+
+	local_irq_restore(flags);
+}
+
 int a6xx_gmu_device_start(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
 	u32 val = 0x00000100;
 	u32 mask = 0x000001FF;
+
+	gmu_ao_sync_event(adreno_dev);
 
 	/* Check for 0xBABEFACE on legacy targets */
 	if (gmu->ver.core <= 0x20010004) {
@@ -617,17 +616,6 @@ static int find_vma_block(struct a6xx_gmu_device *gmu, u32 addr, u32 size)
 	}
 
 	return -ENOENT;
-}
-
-struct iommu_domain *a6xx_get_gmu_domain(struct a6xx_gmu_device *gmu,
-	u32 gmuaddr, u32 size)
-{
-	u32 vma_id = find_vma_block(gmu, gmuaddr, size);
-
-	if (vma_id == GMU_NONCACHED_USER)
-		return a6xx_gmu_ctx[GMU_CONTEXT_USER].domain;
-
-	return a6xx_gmu_ctx[GMU_CONTEXT_KERNEL].domain;
 }
 
 static int _load_legacy_gmu_fw(struct kgsl_device *device,
@@ -1436,7 +1424,7 @@ struct gmu_memdesc *reserve_gmu_kernel_block(struct a6xx_gmu_device *gmu,
 
 	md->gmuaddr = addr;
 
-	ret = iommu_map(a6xx_get_gmu_domain(gmu, md->gmuaddr, md->size), addr,
+	ret = iommu_map(gmu->domain, addr,
 		md->physaddr, md->size, IOMMU_READ | IOMMU_WRITE | IOMMU_PRIV);
 	if (ret) {
 		dev_err(&gmu->pdev->dev,
@@ -1818,7 +1806,7 @@ void a6xx_gmu_suspend(struct adreno_device *adreno_dev)
 	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_CX_GDSC))
 		regulator_set_mode(gmu->cx_gdsc, REGULATOR_MODE_IDLE);
 
-	if (!kgsl_regulator_disable_wait(gmu->cx_gdsc, 5000))
+	if (!a6xx_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000))
 		dev_err(&gmu->pdev->dev, "GMU CX gdsc off timeout\n");
 
 	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_CX_GDSC))
@@ -1935,6 +1923,22 @@ static void a6xx_gmu_send_nmi(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	u32 val;
 
+	if (!a6xx_gmu_gx_is_on(device))
+		goto done;
+
+	/*
+	 * Do not send NMI if the SMMU is stalled because GMU will not be able
+	 * to save cm3 state to DDR.
+	 */
+	if (a6xx_is_smmu_stalled(device)) {
+		struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
+
+		dev_err(&gmu->pdev->dev,
+			"Skipping NMI because SMMU is stalled\n");
+		return;
+	}
+
+done:
 	/* Mask so there's no interrupt caused by NMI */
 	gmu_core_regwrite(device, A6XX_GMU_GMU2HOST_INTR_MASK, 0xFFFFFFFF);
 
@@ -2125,19 +2129,20 @@ void a6xx_gmu_snapshot(struct adreno_device *adreno_dev,
 
 void a6xx_gmu_aop_send_acd_state(struct a6xx_gmu_device *gmu, bool flag)
 {
-	char msg_buf[33];
+	struct qmp_pkt msg;
+	char msg_buf[36];
+	u32 size;
 	int ret;
-	struct {
-		u32 len;
-		void *msg;
-	} msg;
 
 	if (IS_ERR_OR_NULL(gmu->mailbox.channel))
 		return;
 
-	msg.len = scnprintf(msg_buf, sizeof(msg_buf),
-			"{class: gpu, res: acd, value: %d}", flag);
-	msg.msg = msg_buf;
+	size = scnprintf(msg_buf, sizeof(msg_buf),
+			"{class: gpu, res: acd, val: %d}", flag);
+
+	/* mailbox controller expects 4-byte aligned buffer */
+	msg.size = ALIGN((size + 1), SZ_4);
+	msg.data = msg_buf;
 
 	ret = mbox_send_message(gmu->mailbox.channel, &msg);
 
@@ -2291,7 +2296,7 @@ clks_gdsc_off:
 
 gdsc_off:
 	/* Pool to make sure that the CX is off */
-	if (!kgsl_regulator_disable_wait(gmu->cx_gdsc, 5000))
+	if (!a6xx_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000))
 		dev_err(&gmu->pdev->dev, "GMU CX gdsc off timeout\n");
 
 	return ret;
@@ -2368,7 +2373,7 @@ clks_gdsc_off:
 
 gdsc_off:
 	/* Pool to make sure that the CX is off */
-	if (!kgsl_regulator_disable_wait(gmu->cx_gdsc, 5000))
+	if (!a6xx_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000))
 		dev_err(&gmu->pdev->dev, "GMU CX gdsc off timeout\n");
 
 	return ret;
@@ -2435,18 +2440,6 @@ static int a6xx_gmu_bus_set(struct adreno_device *adreno_dev, int buslevel,
 	return ret;
 }
 
-static void a6xx_gmu_iommu_cb_close(struct gmu_iommu_context *ctx)
-{
-	if (!ctx->domain)
-		return;
-
-	iommu_detach_device(ctx->domain, &ctx->pdev->dev);
-	iommu_domain_free(ctx->domain);
-
-	platform_device_put(ctx->pdev);
-	ctx->domain = NULL;
-}
-
 static void a6xx_free_gmu_globals(struct a6xx_gmu_device *gmu)
 {
 	int i;
@@ -2457,7 +2450,7 @@ static void a6xx_free_gmu_globals(struct a6xx_gmu_device *gmu)
 		if (!md->gmuaddr)
 			continue;
 
-		iommu_unmap(a6xx_get_gmu_domain(gmu, md->gmuaddr, md->size),
+		iommu_unmap(gmu->domain,
 			md->gmuaddr, md->size);
 
 		dma_free_attrs(&gmu->pdev->dev, (size_t) md->size,
@@ -2466,8 +2459,11 @@ static void a6xx_free_gmu_globals(struct a6xx_gmu_device *gmu)
 		memset(md, 0, sizeof(*md));
 	}
 
-	a6xx_gmu_iommu_cb_close(&a6xx_gmu_ctx[GMU_CONTEXT_KERNEL]);
-	a6xx_gmu_iommu_cb_close(&a6xx_gmu_ctx[GMU_CONTEXT_USER]);
+	if (gmu->domain) {
+		iommu_detach_device(gmu->domain, &gmu->pdev->dev);
+		iommu_domain_free(gmu->domain);
+		gmu->domain = NULL;
+	}
 
 	gmu->global_entries = 0;
 }
@@ -2603,8 +2599,7 @@ void a6xx_gmu_remove(struct kgsl_device *device)
 }
 
 static int a6xx_gmu_iommu_fault_handler(struct iommu_domain *domain,
-		struct device *dev, unsigned long addr, int flags, void *token,
-		const char *name)
+		struct device *dev, unsigned long addr, int flags, void *token)
 {
 	char *fault_type = "unknown";
 
@@ -2617,55 +2612,22 @@ static int a6xx_gmu_iommu_fault_handler(struct iommu_domain *domain,
 	else if (flags & IOMMU_FAULT_TRANSACTION_STALLED)
 		fault_type = "transaction stalled";
 
-	dev_err(dev, "GMU fault addr = %lX, context=%s (%s %s fault)\n",
-			addr, name,
+	dev_err(dev, "GMU fault addr = %lX, context=kernel (%s %s fault)\n",
+			addr,
 			(flags & IOMMU_FAULT_WRITE) ? "write" : "read",
 			fault_type);
 
 	return 0;
 }
 
-static int a6xx_gmu_kernel_fault_handler(struct iommu_domain *domain,
-		struct device *dev, unsigned long addr, int flags, void *token)
+static int a6xx_gmu_iommu_init(struct a6xx_gmu_device *gmu)
 {
-	return a6xx_gmu_iommu_fault_handler(domain, dev, addr, flags, token,
-		"gmu_kernel");
-}
-
-static int a6xx_gmu_user_fault_handler(struct iommu_domain *domain,
-		struct device *dev, unsigned long addr, int flags, void *token)
-{
-	return a6xx_gmu_iommu_fault_handler(domain, dev, addr, flags, token,
-		"gmu_user");
-}
-
-static int a6xx_gmu_iommu_cb_probe(struct a6xx_gmu_device *gmu,
-		struct gmu_iommu_context *ctx, struct device_node *parent,
-		iommu_fault_handler_t handler)
-{
-	struct device_node *node = of_get_child_by_name(parent, ctx->name);
-	struct platform_device *pdev;
 	int ret;
 	int no_stall = 1;
 
-	if (!node)
-		return -ENODEV;
-
-	pdev = of_find_device_by_node(node);
-	ret = of_dma_configure(&pdev->dev, node, true);
-	of_node_put(node);
-
-	if (ret) {
-		platform_device_put(pdev);
-		return ret;
-	}
-
-	ctx->pdev = pdev;
-	ctx->domain = iommu_domain_alloc(&platform_bus_type);
-	if (ctx->domain == NULL) {
-		dev_err(&gmu->pdev->dev, "gmu iommu fail to alloc %s domain\n",
-			ctx->name);
-		platform_device_put(pdev);
+	gmu->domain = iommu_domain_alloc(&platform_bus_type);
+	if (gmu->domain == NULL) {
+		dev_err(&gmu->pdev->dev, "Unable to allocate GMU IOMMU domain\n");
 		return -ENODEV;
 	}
 
@@ -2674,38 +2636,22 @@ static int a6xx_gmu_iommu_cb_probe(struct a6xx_gmu_device *gmu,
 	 * This sets SCTLR.CFCFG = 0.
 	 * Also note that, the smmu driver sets SCTLR.HUPCF = 0 by default.
 	 */
-	iommu_domain_set_attr(ctx->domain,
+	iommu_domain_set_attr(gmu->domain,
 		DOMAIN_ATTR_FAULT_MODEL_NO_STALL, &no_stall);
 
-	ret = iommu_attach_device(ctx->domain, &pdev->dev);
+	ret = iommu_attach_device(gmu->domain, &gmu->pdev->dev);
 	if (!ret) {
-		iommu_set_fault_handler(ctx->domain, handler, ctx);
+		iommu_set_fault_handler(gmu->domain,
+			a6xx_gmu_iommu_fault_handler, gmu);
 		return 0;
 	}
 
 	dev_err(&gmu->pdev->dev,
-		"gmu iommu fail to attach %s device\n", ctx->name);
-	iommu_domain_free(ctx->domain);
-	ctx->domain = NULL;
-	platform_device_put(pdev);
+		"Unable to attach GMU IOMMU domain: %d\n", ret);
+	iommu_domain_free(gmu->domain);
+	gmu->domain = NULL;
 
 	return ret;
-}
-
-static int a6xx_gmu_iommu_init(struct a6xx_gmu_device *gmu,
-		struct device_node *node)
-{
-	int ret;
-
-	devm_of_platform_populate(&gmu->pdev->dev);
-
-	ret = a6xx_gmu_iommu_cb_probe(gmu, &a6xx_gmu_ctx[GMU_CONTEXT_USER],
-			node, a6xx_gmu_user_fault_handler);
-	if (ret)
-		return ret;
-
-	return a6xx_gmu_iommu_cb_probe(gmu, &a6xx_gmu_ctx[GMU_CONTEXT_KERNEL],
-			node, a6xx_gmu_kernel_fault_handler);
 }
 
 int a6xx_gmu_probe(struct kgsl_device *device,
@@ -2745,7 +2691,7 @@ int a6xx_gmu_probe(struct kgsl_device *device,
 	gmu->num_clks = ret;
 
 	/* Set up GMU IOMMU and shared memory with GMU */
-	ret = a6xx_gmu_iommu_init(gmu, pdev->dev.of_node);
+	ret = a6xx_gmu_iommu_init(gmu);
 	if (ret)
 		goto error;
 
@@ -2880,7 +2826,7 @@ static int a6xx_gmu_power_off(struct adreno_device *adreno_dev)
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
 
 	/* Pool to make sure that the CX is off */
-	if (!kgsl_regulator_disable_wait(gmu->cx_gdsc, 5000))
+	if (!a6xx_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000))
 		dev_err(&gmu->pdev->dev, "GMU CX gdsc off timeout\n");
 
 	device->state = KGSL_STATE_NONE;
