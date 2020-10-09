@@ -667,7 +667,6 @@ enum adreno_regs {
 	ADRENO_REG_RBBM_PERFCTR_LOAD_CMD3,
 	ADRENO_REG_RBBM_PERFCTR_PWR_1_LO,
 	ADRENO_REG_RBBM_INT_0_MASK,
-	ADRENO_REG_RBBM_INT_0_STATUS,
 	ADRENO_REG_RBBM_PM_OVERRIDE2,
 	ADRENO_REG_RBBM_SW_RESET_CMD,
 	ADRENO_REG_RBBM_CLOCK_CTL,
@@ -921,14 +920,6 @@ void adreno_cx_misc_regrmw(struct adreno_device *adreno_dev,
 		unsigned int mask, unsigned int bits);
 void adreno_isense_regread(struct adreno_device *adreno_dev,
 		unsigned int offsetwords, unsigned int *value);
-
-/**
- * adreno_irq_pending - Return true if an interrupt is pending
- * @adreno_dev: An Adreno GPU device handle
- *
- * Returns: true if interrupts are pending on the device
- */
-bool adreno_irq_pending(struct adreno_device *adreno_dev);
 
 /**
  * adreno_active_count_get - Wrapper for target specific active count get

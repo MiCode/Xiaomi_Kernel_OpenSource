@@ -1045,7 +1045,6 @@ static unsigned int a3xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_PWR_1_LO,
 					A3XX_RBBM_PERFCTR_PWR_1_LO),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_INT_0_MASK, A3XX_RBBM_INT_0_MASK),
-	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_INT_0_STATUS, A3XX_RBBM_INT_0_STATUS),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_CLOCK_CTL, A3XX_RBBM_CLOCK_CTL),
 	ADRENO_REG_DEFINE(ADRENO_REG_PA_SC_AA_CONFIG, A3XX_PA_SC_AA_CONFIG),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PM_OVERRIDE2, A3XX_RBBM_PM_OVERRIDE2),
@@ -1239,7 +1238,11 @@ static bool a3xx_hw_isidle(struct adreno_device *adreno_dev)
 	if (status & 0x7ffffffe)
 		return false;
 
-	return adreno_irq_pending(adreno_dev) ? false : true;
+	kgsl_regread(device, A3XX_RBBM_INT_0_STATUS, &status);
+
+	/* Return busy if a interrupt is pending */
+	return !((status & adreno_dev->irq_mask) ||
+		atomic_read(&adreno_dev->pending_irq_refcnt));
 }
 
 static int a3xx_clear_pending_transactions(struct adreno_device *adreno_dev)

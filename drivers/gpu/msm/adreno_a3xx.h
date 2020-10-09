@@ -39,8 +39,6 @@ to_a3xx_core(struct adreno_device *adreno_dev)
 	return container_of(core, struct adreno_a3xx_core, base);
 }
 
-unsigned int a3xx_irq_pending(struct adreno_device *adreno_dev);
-
 void a3xx_snapshot(struct adreno_device *adreno_dev,
 		struct kgsl_snapshot *snapshot);
 
