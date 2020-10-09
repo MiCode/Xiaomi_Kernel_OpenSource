@@ -253,20 +253,15 @@ static int _get_counter(struct adreno_device *adreno_dev,
 		int group, int countable, unsigned int *lo,
 		unsigned int *hi)
 {
-	int ret = 0;
+	int ret = adreno_perfcounter_kernel_get(adreno_dev, group, countable,
+		lo, hi);
 
-	if (*lo == 0) {
-
-		ret = adreno_perfcounter_get(adreno_dev, group, countable,
-			lo, hi, PERFCOUNTER_FLAG_KERNEL);
-
-		if (ret) {
-			dev_err(KGSL_DEVICE(adreno_dev)->dev,
-				     "Unable to allocate fault detect performance counter %d/%d\n",
-				     group, countable);
-			dev_err(KGSL_DEVICE(adreno_dev)->dev,
-				     "GPU fault detect will be less reliable\n");
-		}
+	if (ret) {
+		dev_err(KGSL_DEVICE(adreno_dev)->dev,
+			     "Unable to allocate fault detect performance counter %d/%d\n",
+			     group, countable);
+		dev_err(KGSL_DEVICE(adreno_dev)->dev,
+			     "GPU fault detect will be less reliable\n");
 	}
 
 	return ret;
@@ -1882,76 +1877,51 @@ void adreno_active_count_put(struct adreno_device *adreno_dev)
 void adreno_get_bus_counters(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	int ret = 0;
 
 	if (!device->pwrctrl.bus_control)
 		return;
 
 	/* VBIF waiting for RAM */
-	if (adreno_dev->starved_ram_lo == 0)
-		if (adreno_perfcounter_get(adreno_dev,
-			KGSL_PERFCOUNTER_GROUP_VBIF_PWR, 0,
-			&adreno_dev->starved_ram_lo, NULL,
-			PERFCOUNTER_FLAG_KERNEL))
-			goto err;
+	ret |= adreno_perfcounter_kernel_get(adreno_dev,
+		KGSL_PERFCOUNTER_GROUP_VBIF_PWR, 0,
+		&adreno_dev->starved_ram_lo, NULL);
 
-	/* VBIF DDR cycles */
-	if (!adreno_has_gbif(adreno_dev) && (adreno_dev->ram_cycles_lo == 0)) {
-		if (adreno_perfcounter_get(adreno_dev,
-			KGSL_PERFCOUNTER_GROUP_VBIF,
-			VBIF_AXI_TOTAL_BEATS,
-			&adreno_dev->ram_cycles_lo, NULL,
-			PERFCOUNTER_FLAG_KERNEL))
-			goto err;
-		return;
-	}
-
-	if (adreno_dev->starved_ram_lo_ch1 == 0)
-		if (adreno_perfcounter_get(adreno_dev,
+	if (adreno_has_gbif(adreno_dev)) {
+		ret |= adreno_perfcounter_kernel_get(adreno_dev,
 			KGSL_PERFCOUNTER_GROUP_VBIF_PWR, 1,
-			&adreno_dev->starved_ram_lo_ch1, NULL,
-			PERFCOUNTER_FLAG_KERNEL))
-			goto err;
+			&adreno_dev->starved_ram_lo_ch1, NULL);
 
-	if (adreno_dev->ram_cycles_lo == 0)
-		if (adreno_perfcounter_get(adreno_dev,
+		ret |= adreno_perfcounter_kernel_get(adreno_dev,
 			KGSL_PERFCOUNTER_GROUP_VBIF,
 			GBIF_AXI0_READ_DATA_TOTAL_BEATS,
-			&adreno_dev->ram_cycles_lo, NULL,
-			PERFCOUNTER_FLAG_KERNEL))
-			goto err;
+			&adreno_dev->ram_cycles_lo, NULL);
 
-	if (adreno_dev->ram_cycles_lo_ch1_read == 0)
-		if (adreno_perfcounter_get(adreno_dev,
+		ret |= adreno_perfcounter_kernel_get(adreno_dev,
 			KGSL_PERFCOUNTER_GROUP_VBIF,
 			GBIF_AXI1_READ_DATA_TOTAL_BEATS,
-			&adreno_dev->ram_cycles_lo_ch1_read,
-			NULL,
-			PERFCOUNTER_FLAG_KERNEL))
-			goto err;
+			&adreno_dev->ram_cycles_lo_ch1_read, NULL);
 
-	if (adreno_dev->ram_cycles_lo_ch0_write == 0)
-		if (adreno_perfcounter_get(adreno_dev,
+		ret |= adreno_perfcounter_kernel_get(adreno_dev,
 			KGSL_PERFCOUNTER_GROUP_VBIF,
 			GBIF_AXI0_WRITE_DATA_TOTAL_BEATS,
-			&adreno_dev->ram_cycles_lo_ch0_write,
-			NULL,
-			PERFCOUNTER_FLAG_KERNEL))
-			goto err;
+			&adreno_dev->ram_cycles_lo_ch0_write, NULL);
 
-	if (adreno_dev->ram_cycles_lo_ch1_write == 0)
-		if (adreno_perfcounter_get(adreno_dev,
+		ret |= adreno_perfcounter_kernel_get(adreno_dev,
 			KGSL_PERFCOUNTER_GROUP_VBIF,
 			GBIF_AXI1_WRITE_DATA_TOTAL_BEATS,
-			&adreno_dev->ram_cycles_lo_ch1_write,
-			NULL,
-			PERFCOUNTER_FLAG_KERNEL))
-			goto err;
+			&adreno_dev->ram_cycles_lo_ch1_write, NULL);
+	} else {
+		/* VBIF DDR cycles */
+		ret |= adreno_perfcounter_kernel_get(adreno_dev,
+			KGSL_PERFCOUNTER_GROUP_VBIF,
+			VBIF_AXI_TOTAL_BEATS,
+			&adreno_dev->ram_cycles_lo, NULL);
+	}
 
-	return;
-err:
-	dev_err(KGSL_DEVICE(adreno_dev)->dev,
-		"Unable to get perf counters for bus DCVS\n");
-
+	if (ret)
+		dev_err(KGSL_DEVICE(adreno_dev)->dev,
+			"Unable to get perf counters for bus DCVS\n");
 }
 
 void adreno_clear_dcvs_counters(struct adreno_device *adreno_dev)

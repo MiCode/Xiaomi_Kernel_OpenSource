@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2008-2015,2017,2019-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2015,2017,2019-2021 The Linux Foundation. All rights reserved.
  */
 #ifndef __ADRENO_PERFCOUNTER_H
 #define __ADRENO_PERFCOUNTER_H
@@ -122,5 +122,16 @@ int adreno_perfcounter_get(struct adreno_device *adreno_dev,
 
 int adreno_perfcounter_put(struct adreno_device *adreno_dev,
 	unsigned int groupid, unsigned int countable, unsigned int flags);
+
+static inline int adreno_perfcounter_kernel_get(
+		struct adreno_device *adreno_dev,
+		int group, int countable, u32 *lo, u32 *hi)
+{
+	if (*lo)
+		return 0;
+
+	return adreno_perfcounter_get(adreno_dev, group, countable, lo, hi,
+		PERFCOUNTER_FLAG_KERNEL);
+}
 
 #endif /* __ADRENO_PERFCOUNTER_H */

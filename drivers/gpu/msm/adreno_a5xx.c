@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/clk/qcom.h>
@@ -1278,7 +1278,7 @@ out:
 
 static void _setup_throttling_counters(struct adreno_device *adreno_dev)
 {
-	int i, ret;
+	int i, ret = 0;
 
 	if (!adreno_is_a540(adreno_dev))
 		return;
@@ -1290,17 +1290,13 @@ static void _setup_throttling_counters(struct adreno_device *adreno_dev)
 		/* reset throttled cycles ivalue */
 		adreno_dev->busy_data.throttle_cycles[i] = 0;
 
-		if (adreno_dev->gpmu_throttle_counters[i] != 0)
-			continue;
-		ret = adreno_perfcounter_get(adreno_dev,
+		ret |= adreno_perfcounter_kernel_get(adreno_dev,
 			KGSL_PERFCOUNTER_GROUP_GPMU_PWR,
 			ADRENO_GPMU_THROTTLE_COUNTERS_BASE_REG + i,
-			&adreno_dev->gpmu_throttle_counters[i],
-			NULL,
-			PERFCOUNTER_FLAG_KERNEL);
-		WARN_ONCE(ret,  "Unable to get clock throttling counter %x\n",
-			ADRENO_GPMU_THROTTLE_COUNTERS_BASE_REG + i);
+			&adreno_dev->gpmu_throttle_counters[i], NULL);
 	}
+
+	WARN_ONCE(ret, "Unable to get one or more clock throttling registers\n");
 }
 
 /*
@@ -1314,21 +1310,14 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	const struct adreno_a5xx_core *a5xx_core = to_a5xx_core(adreno_dev);
 	unsigned int bit;
-	int ret;
 
 	adreno_dev->irq_mask = A5XX_INT_MASK;
 
-	if (adreno_is_a530(adreno_dev) && ADRENO_FEATURE(adreno_dev, ADRENO_LM)
-			&& adreno_dev->lm_threshold_count == 0) {
-
-		ret = adreno_perfcounter_get(adreno_dev,
+	if (adreno_is_a530(adreno_dev) &&
+			ADRENO_FEATURE(adreno_dev, ADRENO_LM))
+		adreno_perfcounter_kernel_get(adreno_dev,
 			KGSL_PERFCOUNTER_GROUP_GPMU_PWR, 27,
-			&adreno_dev->lm_threshold_count, NULL,
-			PERFCOUNTER_FLAG_KERNEL);
-		/* Ignore noncritical ret - used for debugfs */
-		if (ret)
-			adreno_dev->lm_threshold_count = 0;
-	}
+			&adreno_dev->lm_threshold_count, NULL);
 
 	/* Enable 64 bit addressing */
 	kgsl_regwrite(device, A5XX_CP_ADDR_MODE_CNTL, 0x1);
