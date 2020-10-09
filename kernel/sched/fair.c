@@ -177,7 +177,7 @@ unsigned int sysctl_sched_min_task_util_for_boost = 51;
 unsigned int sysctl_sched_min_task_util_for_colocation = 35;
 __read_mostly unsigned int sysctl_sched_prefer_spread;
 unsigned int sysctl_walt_rtg_cfs_boost_prio = 99; /* disabled by default */
-unsigned int sysctl_walt_low_latency_task_boost; /* disabled by default */
+unsigned int sysctl_walt_low_latency_task_threshold; /* disabled by default */
 #endif
 unsigned int sched_small_task_threshold = 102;
 __read_mostly unsigned int sysctl_sched_force_lb_enable = 1;

@@ -2911,7 +2911,8 @@ static inline bool task_rtg_high_prio(struct task_struct *p)
 
 static inline bool walt_low_latency_task(struct task_struct *p)
 {
-	return sysctl_walt_low_latency_task_boost && p->low_latency;
+	return p->low_latency &&
+		(task_util(p) < sysctl_walt_low_latency_task_threshold);
 }
 
 /* Is frequency of two cpus synchronized with each other? */
