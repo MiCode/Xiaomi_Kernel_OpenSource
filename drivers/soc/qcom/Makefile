@@ -59,7 +59,6 @@ obj-$(CONFIG_MSM_GLINK_SSR) += msm_glink_ssr.o
 obj-$(CONFIG_QTI_PMIC_GLINK) += pmic_glink.o
 obj-$(CONFIG_QTI_BATTERY_GLINK_DEBUG) += qti_battery_debug.o
 obj-$(CONFIG_QTI_ALTMODE_GLINK) += altmode-glink.o
-obj-$(CONFIG_QTI_DDR_STATS_LOG) += ddr_stats.o
 obj-$(CONFIG_MSM_REMOTEQDSS) += remoteqdss.o
 obj-$(CONFIG_MSM_SPSS_UTILS) += spss_utils.o
 obj-$(CONFIG_MSM_IDLE_STATS)	+= lpm-stats.o
