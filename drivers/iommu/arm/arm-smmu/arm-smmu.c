@@ -158,11 +158,6 @@ static struct arm_smmu_domain *to_smmu_domain(struct iommu_domain *dom)
 	return container_of(dom, struct arm_smmu_domain, domain);
 }
 
-static struct arm_smmu_domain *cb_cfg_to_smmu_domain(struct arm_smmu_cfg *cfg)
-{
-	return container_of(cfg, struct arm_smmu_domain, cfg);
-}
-
 static void parse_driver_options(struct arm_smmu_device *smmu)
 {
 	int i = 0;
@@ -993,6 +988,7 @@ static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain,
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	struct arm_smmu_cb *cb = &smmu_domain->smmu->cbs[cfg->cbndx];
 	bool stage1 = cfg->cbar != CBAR_TYPE_S2_TRANS;
+	unsigned long *attributes = smmu_domain->attributes;
 
 	cb->cfg = cfg;
 
@@ -1042,16 +1038,41 @@ static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain,
 			cb->mair[1] = pgtbl_cfg->arm_lpae_s1_cfg.mair >> 32;
 		}
 	}
+
+	memset(&cfg->sctlr, 0, sizeof(cfg->sctlr));
+	/*
+	 * Override cacheability, shareability, r/w allocation for
+	 * clients who are io-coherent. Otherwise set NSH to force io-coherency
+	 * to be disabled.
+	 * These settings only take effect during bypass mode, when sctlr.M = 0
+	 */
+	if (of_dma_is_coherent(smmu_domain->dev->of_node)) {
+		cfg->sctlr.wacfg = ARM_SMMU_SCTLR_WACFG_WA;
+		cfg->sctlr.racfg = ARM_SMMU_SCTLR_RACFG_RA;
+		cfg->sctlr.shcfg = ARM_SMMU_SCTLR_SHCFG_OSH;
+		cfg->sctlr.mtcfg = 1;
+		cfg->sctlr.memattr = ARM_SMMU_SCTLR_MEM_ATTR_OISH_WB_CACHE;
+	} else {
+		cfg->sctlr.shcfg = ARM_SMMU_SCTLR_SHCFG_NSH;
+	}
+
+	cfg->sctlr.cfre = !(test_bit(DOMAIN_ATTR_FAULT_MODEL_NO_CFRE, attributes));
+	cfg->sctlr.cfcfg = !(test_bit(DOMAIN_ATTR_FAULT_MODEL_NO_STALL, attributes));
+	cfg->sctlr.hupcf = test_bit(DOMAIN_ATTR_FAULT_MODEL_HUPCF, attributes);
+
+	if ((!test_bit(DOMAIN_ATTR_S1_BYPASS, attributes) &&
+	     !test_bit(DOMAIN_ATTR_EARLY_MAP, attributes)) || !stage1)
+		cfg->sctlr.m = 1;
+
+	cb->sctlr = arm_smmu_lpae_sctlr(cfg);
 }
 
-void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx,
-					unsigned long *attributes)
+void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx)
 {
 	u32 reg;
 	bool stage1;
 	struct arm_smmu_cb *cb = &smmu->cbs[idx];
 	struct arm_smmu_cfg *cfg = cb->cfg;
-	struct arm_smmu_domain *smmu_domain = NULL;
 
 	/* Unassigned context banks only need disabling */
 	if (!cfg) {
@@ -1122,45 +1143,6 @@ void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx,
 	}
 
 	/* SCTLR */
-	smmu_domain = cb_cfg_to_smmu_domain(cfg);
-	memset(&cfg->sctlr, 0, sizeof(cfg->sctlr));
-	/*
-	 * Override cacheability, shareability, r/w allocation for
-	 * clients who are io-coherent. Otherwise set NSH to force io-coherency
-	 * to be disabled.
-	 * These settings only take effect during bypass mode, when sctlr.M = 0
-	 */
-	if (of_dma_is_coherent(smmu_domain->dev->of_node)) {
-		cfg->sctlr.wacfg = ARM_SMMU_SCTLR_WACFG_WA;
-		cfg->sctlr.racfg = ARM_SMMU_SCTLR_RACFG_RA;
-		cfg->sctlr.shcfg = ARM_SMMU_SCTLR_SHCFG_OSH;
-		cfg->sctlr.mtcfg = 1;
-		cfg->sctlr.memattr = ARM_SMMU_SCTLR_MEM_ATTR_OISH_WB_CACHE;
-	} else {
-		cfg->sctlr.shcfg = ARM_SMMU_SCTLR_SHCFG_NSH;
-	}
-
-	if (attributes && test_bit(DOMAIN_ATTR_FAULT_MODEL_NO_CFRE, attributes))
-		cfg->sctlr.cfre = 0;
-	else
-		cfg->sctlr.cfre = 1;
-
-	if (attributes && test_bit(DOMAIN_ATTR_FAULT_MODEL_NO_STALL,
-				   attributes))
-		cfg->sctlr.cfcfg = 0;
-	else
-		cfg->sctlr.cfcfg = 1;
-
-	if (attributes && test_bit(DOMAIN_ATTR_FAULT_MODEL_HUPCF, attributes))
-		cfg->sctlr.hupcf = 1;
-	else
-		cfg->sctlr.hupcf = 0;
-
-	if (!attributes || (!test_bit(DOMAIN_ATTR_S1_BYPASS, attributes) &&
-	     !test_bit(DOMAIN_ATTR_EARLY_MAP, attributes)) || !stage1)
-		cfg->sctlr.m = 1;
-
-	cb->sctlr = arm_smmu_lpae_sctlr(cfg);
 	arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_SCTLR, cb->sctlr);
 }
 
@@ -1552,7 +1534,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 
 	/* Initialise the context bank with our page table cfg */
 	arm_smmu_init_context_bank(smmu_domain, pgtbl_cfg);
-	arm_smmu_write_context_bank(smmu, cfg->cbndx, smmu_domain->attributes);
+	arm_smmu_write_context_bank(smmu, cfg->cbndx);
 
 	/*
 	 * Request context fault interrupt. Do this last to avoid the
@@ -1668,7 +1650,7 @@ static void arm_smmu_destroy_domain_context(struct iommu_domain *domain)
 	 * it.
 	 */
 	smmu->cbs[cfg->cbndx].cfg = NULL;
-	arm_smmu_write_context_bank(smmu, cfg->cbndx, 0);
+	arm_smmu_write_context_bank(smmu, cfg->cbndx);
 
 	if (cfg->irptndx != ARM_SMMU_INVALID_IRPTNDX) {
 		irq = smmu->irqs[smmu->num_global_irqs + cfg->irptndx];
@@ -3225,7 +3207,7 @@ static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
 
 	/* Make sure all context banks are disabled and clear CB_FSR  */
 	for (i = 0; i < smmu->num_context_banks; ++i) {
-		arm_smmu_write_context_bank(smmu, i, 0);
+		arm_smmu_write_context_bank(smmu, i);
 		arm_smmu_cb_write(smmu, i, ARM_SMMU_CB_FSR, ARM_SMMU_FSR_FAULT);
 	}
 

@@ -132,8 +132,7 @@ static int qcom_adreno_smmu_set_ttbr0_cfg(const void *cookie,
 		cb->ttbr[0] |= FIELD_PREP(ARM_SMMU_TTBRn_ASID, cb->cfg->asid);
 	}
 
-	arm_smmu_write_context_bank(smmu_domain->smmu, cb->cfg->cbndx,
-				    smmu_domain->attributes);
+	arm_smmu_write_context_bank(smmu_domain->smmu, cb->cfg->cbndx);
 
 	return 0;
 }
