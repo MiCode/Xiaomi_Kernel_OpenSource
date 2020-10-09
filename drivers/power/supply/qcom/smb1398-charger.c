@@ -345,6 +345,7 @@ struct smb1398_chip {
 	int			cp_isns_master;
 	int			cp_isns_slave;
 	int			cp_ilim;
+	int			adapter_type;
 
 	bool			status_change_running;
 	bool			taper_work_running;
@@ -1023,17 +1024,13 @@ static void smb1398_toggle_switcher(struct smb1398_chip *chip)
 #define DEFAULT_HVDCP3_MIN_ICL_UA 1000000
 static int smb1398_div2_cp_get_min_icl(struct smb1398_chip *chip)
 {
-	int rc, val = 0;
+	int min_ilim = chip->div2_cp_min_ilim_ua;
 
 	/* Use max(dt_min_icl, 1A) for HVDCP3 */
-	if (!IS_ERR_OR_NULL(chip->smb5_iio_chan_list)) {
-		rc = cp_read_iio_prop(chip, QPNP_SMB5, REAL_TYPE, &val);
-		if (rc >= 0 && (val == QTI_POWER_SUPPLY_TYPE_USB_HVDCP_3))
-			return max(chip->div2_cp_min_ilim_ua,
+	if (chip->adapter_type == QTI_POWER_SUPPLY_TYPE_USB_HVDCP_3)
+		min_ilim = max(chip->div2_cp_min_ilim_ua,
 				DEFAULT_HVDCP3_MIN_ICL_UA);
-	}
-
-	return chip->div2_cp_min_ilim_ua;
+	return min_ilim;
 }
 
 static char *div2_cp_get_model_name(struct smb1398_chip *chip)
@@ -1612,6 +1609,12 @@ static void smb1398_status_change_work(struct work_struct *work)
 		vote(chip->div2_cp_ilim_votable, CC_MODE_VOTER, false, 0);
 		vote_override(chip->usb_icl_votable,
 				TAPER_MAIN_ICL_LIMIT_VOTER, false, 0);
+		goto out;
+	}
+
+	rc = cp_read_iio_prop(chip, QPNP_SMB5, REAL_TYPE, &chip->adapter_type);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't get REAL_TYPE, rc=%d\n", rc);
 		goto out;
 	}
 
