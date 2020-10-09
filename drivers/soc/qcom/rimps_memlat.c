@@ -87,6 +87,13 @@ enum mon_type {
 	MAX_MEMLAT_DEVICE_TYPE
 };
 
+enum pmu_cache_status {
+	PMU_CACHE_INVALID,
+	PMU_CACHE_VALID,
+	PMU_MAP_INVALID,
+	PMU_CACHE_STATUS_MAX
+};
+
 struct core_dev_map {
 	u32 core_mhz;
 	u32 target_freq;
@@ -702,6 +709,9 @@ static int memlat_hp_restart_events(unsigned int cpu, bool cpu_up)
 
 	cpumask_set_cpu(cpu, &mask);
 
+	if (cpu_up)
+		set_pmu_cache_flag(PMU_MAP_INVALID, cpu);
+
 	if (cpu_up) {
 		ret = setup_common_pmu_events(cpu_grp, &mask);
 		if (ret < 0) {
@@ -751,7 +761,7 @@ static int memlat_hp_restart_events(unsigned int cpu, bool cpu_up)
 			free_mon_evs(mon, &mask);
 		}
 	}
-	set_pmu_cache_flag(!cpu_up, cpu);
+	set_pmu_cache_flag(cpu_up ? PMU_CACHE_INVALID : PMU_CACHE_VALID, cpu);
 exit:
 	kfree(attr);
 	return ret;
@@ -813,12 +823,12 @@ static int memlat_idle_notif(struct notifier_block *nb,
 				mon = &cpu_grp->mons[i];
 				save_mon_pmu_events(mon, cpu);
 			}
-			set_pmu_cache_flag(true, cpu);
+			set_pmu_cache_flag(PMU_CACHE_VALID, cpu);
 		}
 		break;
 	case CPU_PM_EXIT:
 		__this_cpu_write(cpu_is_idle, false);
-		set_pmu_cache_flag(false, cpu);
+		set_pmu_cache_flag(PMU_CACHE_INVALID, cpu);
 		break;
 	}
 idle_exit:
