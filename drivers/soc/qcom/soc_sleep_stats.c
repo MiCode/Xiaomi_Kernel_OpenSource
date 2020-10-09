@@ -21,6 +21,15 @@
 #define ACCUMULATED_ADDR	0x18
 #define CLIENT_VOTES_ADDR	0x1c
 
+#define DDR_STATS_MAGIC_KEY	0xA1157A75
+#define DDR_STATS_MAX_NUM_MODES	0x14
+
+#define DDR_STATS_MAGIC_KEY_ADDR	0x0
+#define DDR_STATS_NUM_MODES_ADDR	0x4
+#define DDR_STATS_NAME_ADDR		0x0
+#define DDR_STATS_COUNT_ADDR		0x4
+#define DDR_STATS_DURATION_ADDR		0x8
+
 #if IS_ENABLED(CONFIG_QCOM_SMEM)
 struct subsystem_data {
 	const char *name;
@@ -42,13 +51,21 @@ static struct subsystem_data subsystems[] = {
 
 struct stats_config {
 	unsigned int offset_addr;
+	unsigned int ddr_offset_addr;
 	unsigned int num_records;
 	bool appended_stats_avail;
+};
+
+struct stats_entry {
+	uint32_t name;
+	uint32_t count;
+	uint64_t duration;
 };
 
 struct stats_prv_data {
 	const struct stats_config *config;
 	void __iomem *reg;
+	void __iomem *ddr_reg;
 };
 
 struct sleep_stats {
@@ -124,12 +141,78 @@ static int soc_sleep_stats_show(struct seq_file *s, void *d)
 
 DEFINE_SHOW_ATTRIBUTE(soc_sleep_stats);
 
+static void  print_ddr_stats(struct seq_file *s, int *count,
+			     struct stats_entry *data, u64 accumulated_duration)
+{
+
+	u32 cp_idx = 0;
+	u32 name, duration;
+
+	if (accumulated_duration)
+		duration = (data->duration * 100) / accumulated_duration;
+
+	name = (data->name >> 8) & 0xFF;
+	if (name == 0x0) {
+		name = (data->name) & 0xFF;
+		*count = *count + 1;
+		seq_printf(s,
+		"LPM %d:\tName:0x%x\tcount:%u\tDuration (ticks):%ld (~%d%%)\n",
+			*count, name, data->count, data->duration, duration);
+	} else if (name == 0x1) {
+		cp_idx = data->name & 0x1F;
+		name = data->name >> 16;
+
+		if (!name || !data->count)
+			return;
+
+		seq_printf(s,
+		"Freq %dMhz:\tCP IDX:%u\tcount:%u\tDuration (ticks):%ld (~%d%%)\n",
+			name, cp_idx, data->count, data->duration, duration);
+	}
+}
+
+static int ddr_stats_show(struct seq_file *s, void *d)
+{
+	struct stats_prv_data *prv_data = s->private;
+	struct stats_entry data[DDR_STATS_MAX_NUM_MODES];
+	void __iomem *reg = prv_data->ddr_reg;
+	u32 entry_count;
+	u64 accumulated_duration = 0;
+	int i, lpm_count = 0;
+
+	entry_count = readl_relaxed(reg + DDR_STATS_NUM_MODES_ADDR);
+	if (entry_count > DDR_STATS_MAX_NUM_MODES) {
+		pr_err("Invalid entry count\n");
+		return 0;
+	}
+
+	reg += DDR_STATS_NUM_MODES_ADDR + 0x4;
+
+	for (i = 0; i < entry_count; i++) {
+		data[i].count = readl_relaxed(reg + DDR_STATS_COUNT_ADDR);
+
+		data[i].name = readl_relaxed(reg + DDR_STATS_NAME_ADDR);
+
+		data[i].duration = readq_relaxed(reg + DDR_STATS_DURATION_ADDR);
+
+		accumulated_duration += data[i].duration;
+		reg += sizeof(struct stats_entry);
+	}
+
+	for (i = 0; i < entry_count; i++)
+		print_ddr_stats(s, &lpm_count, &data[i], accumulated_duration);
+
+	return 0;
+}
+
+DEFINE_SHOW_ATTRIBUTE(ddr_stats);
+
 static struct dentry *create_debugfs_entries(void __iomem *reg,
 					     struct stats_prv_data *prv_data)
 {
 	struct dentry *root;
 	char stat_type[sizeof(u32) + 1] = {0};
-	u32 offset, type;
+	u32 offset, type, key;
 	int i;
 
 	root = debugfs_create_dir("qcom_sleep_stats", NULL);
@@ -163,6 +246,15 @@ static struct dentry *create_debugfs_entries(void __iomem *reg,
 				    &subsystem_sleep_stats_fops);
 	}
 #endif
+	if (!prv_data->ddr_reg)
+		goto exit;
+
+	key = readl_relaxed(prv_data->ddr_reg + DDR_STATS_MAGIC_KEY_ADDR);
+	if (key == DDR_STATS_MAGIC_KEY)
+		debugfs_create_file("ddr_stats", 0444,
+				     root, prv_data, &ddr_stats_fops);
+
+exit:
 	return root;
 }
 
@@ -206,6 +298,22 @@ static int soc_sleep_stats_probe(struct platform_device *pdev)
 	for (i = 0; i < config->num_records; i++)
 		prv_data[i].config = config;
 
+	if (!config->ddr_offset_addr)
+		goto skip_ddr_stats;
+
+	offset_addr = ioremap(res->start + config->ddr_offset_addr,
+								sizeof(u32));
+	if (IS_ERR(offset_addr))
+		return PTR_ERR(offset_addr);
+
+	stats_base = res->start | readl_relaxed(offset_addr);
+	iounmap(offset_addr);
+
+	prv_data->ddr_reg = devm_ioremap(&pdev->dev, stats_base, stats_size);
+	if (!prv_data->ddr_reg)
+		return -ENOMEM;
+
+skip_ddr_stats:
 	root = create_debugfs_entries(reg, prv_data);
 	platform_set_drvdata(pdev, root);
 
@@ -229,6 +337,7 @@ static const struct stats_config rpm_data = {
 
 static const struct stats_config rpmh_data = {
 	.offset_addr = 0x4,
+	.ddr_offset_addr = 0x1c,
 	.num_records = 3,
 	.appended_stats_avail = false,
 };
