@@ -599,7 +599,7 @@ static void md_register_trace_buf(void)
 	struct md_region md_entry;
 	void *buffer_start;
 
-	buffer_start = kmalloc(MD_FTRACE_BUF_SIZE, GFP_KERNEL);
+	buffer_start = kzalloc(MD_FTRACE_BUF_SIZE, GFP_KERNEL);
 
 	if (!buffer_start)
 		return;
