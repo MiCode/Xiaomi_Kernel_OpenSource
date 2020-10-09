@@ -1,6 +1,5 @@
 BRANCH=android11-5.4
 KMI_GENERATION=0
-KERNEL_DIR=common
 
 CC=clang
 LD=ld.lld

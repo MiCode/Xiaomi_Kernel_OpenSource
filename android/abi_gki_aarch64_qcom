@@ -1011,6 +1011,7 @@
   hrtimer_init_sleeper
   hrtimer_start_range_ns
   hrtimer_try_to_cancel
+  hrtimer_init_sleeper
   hvc_alloc
   hvc_instantiate
   hvc_kick
@@ -1835,6 +1836,7 @@
   __refrigerator
   regcache_cache_bypass
   regcache_cache_only
+  regcache_cache_bypass
   regcache_mark_dirty
   regcache_sync
   regcache_sync_region
