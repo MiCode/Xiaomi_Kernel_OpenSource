@@ -816,6 +816,13 @@ static void dwc3_remove_requests(struct dwc3 *dwc, struct dwc3_ep *dep)
 		dwc->eps[1]->trb_enqueue = 0;
 	}
 
+	if (dep->flags & DWC3_EP_END_TRANSFER_PENDING)
+		udelay(2000);
+
+	if (dep->flags & DWC3_EP_END_TRANSFER_PENDING)
+		dbg_log_string("ep end_xfer cmd completion timeout for %d",
+				dep->number);
+
 	/* - giveback all requests to gadget driver */
 	while (!list_empty(&dep->started_list)) {
 		req = next_request(&dep->started_list);
