@@ -1297,6 +1297,44 @@ static void a3xx_power_stats(struct adreno_device *adreno_dev,
 		&busy->bif_starved_ram);
 }
 
+static int a3xx_setproperty(struct kgsl_device_private *dev_priv,
+		u32 type, void __user *value, u32 sizebytes)
+{
+	struct kgsl_device *device = dev_priv->device;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	u32 enable;
+
+	if (type != KGSL_PROP_PWRCTRL)
+		return -ENODEV;
+
+	if (sizebytes != sizeof(enable))
+		return -EINVAL;
+
+	if (copy_from_user(&enable, value, sizeof(enable)))
+		return -EFAULT;
+
+	mutex_lock(&device->mutex);
+	if (enable) {
+		device->pwrctrl.ctrl_flags = 0;
+
+		if (!adreno_active_count_get(adreno_dev)) {
+			adreno_fault_detect_start(adreno_dev);
+			adreno_active_count_put(adreno_dev);
+		}
+
+		kgsl_pwrscale_enable(device);
+	} else {
+		kgsl_pwrctrl_change_state(device, KGSL_STATE_ACTIVE);
+		device->pwrctrl.ctrl_flags = KGSL_PWR_ON;
+
+		adreno_fault_detect_stop(adreno_dev);
+		kgsl_pwrscale_disable(device, true);
+	}
+	mutex_unlock(&device->mutex);
+
+	return 0;
+}
+
 const struct adreno_gpudev adreno_a3xx_gpudev = {
 	.reg_offsets = a3xx_register_offsets,
 	.ft_perf_counters = a3xx_ft_perf_counters,
@@ -1320,4 +1358,5 @@ const struct adreno_gpudev adreno_a3xx_gpudev = {
 	.ringbuffer_submitcmd = a3xx_ringbuffer_submitcmd,
 	.is_hw_collapsible = a3xx_is_hw_collapsible,
 	.power_stats = a3xx_power_stats,
+	.setproperty = a3xx_setproperty,
 };

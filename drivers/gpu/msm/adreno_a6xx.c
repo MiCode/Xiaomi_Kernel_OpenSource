@@ -2637,6 +2637,49 @@ static void a6xx_power_stats(struct adreno_device *adreno_dev,
 		a6xx_read_bus_stats(device, stats, busy);
 }
 
+static int a6xx_setproperty(struct kgsl_device_private *dev_priv,
+		u32 type, void __user *value, u32 sizebytes)
+{
+	struct kgsl_device *device = dev_priv->device;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	u32 enable;
+
+	if (type != KGSL_PROP_PWRCTRL)
+		return -ENODEV;
+
+	if (sizebytes != sizeof(enable))
+		return -EINVAL;
+
+	if (copy_from_user(&enable, value, sizeof(enable)))
+		return -EFAULT;
+
+	mutex_lock(&device->mutex);
+
+	if (enable) {
+		if (gmu_core_isenabled(device))
+			clear_bit(GMU_DISABLE_SLUMBER, &device->gmu_core.flags);
+		else
+			device->pwrctrl.ctrl_flags = 0;
+
+		kgsl_pwrscale_enable(device);
+	} else {
+		if (gmu_core_isenabled(device)) {
+			set_bit(GMU_DISABLE_SLUMBER, &device->gmu_core.flags);
+
+			if (!adreno_active_count_get(adreno_dev))
+				adreno_active_count_put(adreno_dev);
+		} else {
+			kgsl_pwrctrl_change_state(device, KGSL_STATE_ACTIVE);
+			device->pwrctrl.ctrl_flags = KGSL_PWR_ON;
+		}
+		kgsl_pwrscale_disable(device, true);
+	}
+
+	mutex_unlock(&device->mutex);
+
+	return 0;
+}
+
 /* This is a non GMU/RGMU part */
 const struct adreno_gpudev adreno_a6xx_gpudev = {
 	.reg_offsets = a6xx_register_offsets,
@@ -2668,6 +2711,7 @@ const struct adreno_gpudev adreno_a6xx_gpudev = {
 	.ringbuffer_submitcmd = a6xx_ringbuffer_submitcmd,
 	.is_hw_collapsible = adreno_isidle,
 	.power_stats = a6xx_power_stats,
+	.setproperty = a6xx_setproperty,
 };
 
 const struct adreno_gpudev adreno_a6xx_hwsched_gpudev = {
@@ -2684,6 +2728,7 @@ const struct adreno_gpudev adreno_a6xx_hwsched_gpudev = {
 	.read_alwayson = a6xx_read_alwayson,
 	.power_ops = &a6xx_hwsched_power_ops,
 	.power_stats = a6xx_power_stats,
+	.setproperty = a6xx_setproperty,
 };
 
 const struct adreno_gpudev adreno_a6xx_gmu_gpudev = {
@@ -2709,6 +2754,7 @@ const struct adreno_gpudev adreno_a6xx_gmu_gpudev = {
 	.remove = a6xx_remove,
 	.ringbuffer_submitcmd = a6xx_ringbuffer_submitcmd,
 	.power_stats = a6xx_power_stats,
+	.setproperty = a6xx_setproperty,
 };
 
 const struct adreno_gpudev adreno_a6xx_rgmu_gpudev = {
@@ -2734,6 +2780,7 @@ const struct adreno_gpudev adreno_a6xx_rgmu_gpudev = {
 	.remove = a6xx_remove,
 	.ringbuffer_submitcmd = a6xx_ringbuffer_submitcmd,
 	.power_stats = a6xx_power_stats,
+	.setproperty = a6xx_setproperty,
 };
 
 /* This is a non GMU/RGMU part */
@@ -2768,6 +2815,7 @@ const struct adreno_gpudev adreno_a619_holi_gpudev = {
 	.ringbuffer_submitcmd = a6xx_ringbuffer_submitcmd,
 	.is_hw_collapsible = adreno_isidle,
 	.power_stats = a619_holi_power_stats,
+	.setproperty = a6xx_setproperty,
 };
 
 const struct adreno_gpudev adreno_a630_gpudev = {
@@ -2793,4 +2841,5 @@ const struct adreno_gpudev adreno_a630_gpudev = {
 	.remove = a6xx_remove,
 	.ringbuffer_submitcmd = a6xx_ringbuffer_submitcmd,
 	.power_stats = a6xx_power_stats,
+	.setproperty = a6xx_setproperty,
 };

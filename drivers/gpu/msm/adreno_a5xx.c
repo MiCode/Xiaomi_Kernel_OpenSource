@@ -2494,6 +2494,37 @@ static void a5xx_power_stats(struct adreno_device *adreno_dev,
 		&busy->bif_starved_ram);
 }
 
+static int a5xx_setproperty(struct kgsl_device_private *dev_priv,
+		u32 type, void __user *value, u32 sizebytes)
+{
+	struct kgsl_device *device = dev_priv->device;
+	u32 enable;
+
+	if (type != KGSL_PROP_PWRCTRL)
+		return -ENODEV;
+
+	if (sizebytes != sizeof(enable))
+		return -EINVAL;
+
+	if (copy_from_user(&enable, value, sizeof(enable)))
+		return -EFAULT;
+
+	mutex_lock(&device->mutex);
+
+	if (enable) {
+		device->pwrctrl.ctrl_flags = 0;
+		kgsl_pwrscale_enable(device);
+	} else {
+		kgsl_pwrctrl_change_state(device, KGSL_STATE_ACTIVE);
+		device->pwrctrl.ctrl_flags = KGSL_PWR_ON;
+		kgsl_pwrscale_disable(device, true);
+	}
+
+	mutex_unlock(&device->mutex);
+
+	return 0;
+}
+
 #ifdef CONFIG_QCOM_KGSL_CORESIGHT
 static struct adreno_coresight_register a5xx_coresight_registers[] = {
 	{ A5XX_RBBM_CFG_DBGBUS_SEL_A },
@@ -2715,4 +2746,5 @@ const struct adreno_gpudev adreno_a5xx_gpudev = {
 	.ringbuffer_submitcmd = a5xx_ringbuffer_submitcmd,
 	.is_hw_collapsible = a5xx_is_hw_collapsible,
 	.power_stats = a5xx_power_stats,
+	.setproperty = a5xx_setproperty,
 };

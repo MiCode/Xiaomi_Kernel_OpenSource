@@ -770,6 +770,8 @@ struct adreno_gpudev {
 	 */
 	void (*power_stats)(struct adreno_device *adreno_dev,
 			struct kgsl_power_stats *stats);
+	int (*setproperty)(struct kgsl_device_private *priv, u32 type,
+		void __user *value, u32 sizebytes);
 };
 
 /**
