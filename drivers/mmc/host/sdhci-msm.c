@@ -28,6 +28,7 @@
 #define CORE_VERSION_MAJOR_MASK		(0xf << CORE_VERSION_MAJOR_SHIFT)
 #define CORE_VERSION_MINOR_MASK		0xff
 #define CORE_VERSION_TARGET_MASK        0x000000FF
+#define SDHCI_MSM_VER_420               0x49
 
 #define CORE_MCI_GENERICS		0x70
 #define SWITCHABLE_SIGNALING_VOLTAGE	BIT(29)
@@ -102,6 +103,10 @@
 #define CORE_CALIBRATION_DONE		BIT(0)
 
 #define CORE_CDC_ERROR_CODE_MASK	0x7000000
+
+#define CQ_CMD_DBG_RAM                  0x110
+#define CQ_CMD_DBG_RAM_WA               0x150
+#define CQ_CMD_DBG_RAM_OL               0x154
 
 #define CORE_CSR_CDC_GEN_CFG		0x178
 #define CORE_CDC_SWITCH_BYPASS_OFF	BIT(0)
@@ -405,6 +410,7 @@ struct sdhci_msm_host {
 	unsigned long clk_rate;
 	struct sdhci_msm_vreg_data *vreg_data;
 	struct mmc_host *mmc;
+	struct cqhci_host *cq_host;
 	bool use_14lpp_dll_reset;
 	bool tuning_done;
 	bool calibration_done;
@@ -444,6 +450,7 @@ struct sdhci_msm_host {
 	struct device_attribute pm_qos;
 	u32 clk_gating_delay;
 	u32 pm_qos_delay;
+	bool cqhci_offset_changed;
 };
 
 static struct sdhci_msm_host *sdhci_slot[2];
@@ -3050,6 +3057,8 @@ static int sdhci_msm_cqe_add_host(struct sdhci_host *host,
 
 	msm_host->mmc->caps2 |= MMC_CAP2_CQE | MMC_CAP2_CQE_DCMD;
 	cq_host->ops = &sdhci_msm_cqhci_ops;
+	msm_host->cq_host = cq_host;
+	cq_host->offset_changed = msm_host->cqhci_offset_changed;
 
 	dma64 = host->flags & SDHCI_USE_64_BIT_DMA;
 
@@ -3096,6 +3105,130 @@ static void sdhci_msm_reset(struct sdhci_host *host, u8 mask)
 	sdhci_reset(host, mask);
 }
 
+
+#define MAX_TEST_BUS 60
+#define DRIVER_NAME "sdhci_msm"
+#define SDHCI_MSM_DUMP(f, x...) \
+	pr_err("%s: " DRIVER_NAME ": " f, mmc_hostname(host->mmc), ## x)
+#define DRV_NAME "cqhci-host"
+
+#if defined(CONFIG_SDC_QTI)
+static void sdhci_msm_cqe_dump_debug_ram(struct sdhci_host *host)
+{
+	int i = 0;
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
+	const struct sdhci_msm_offset *msm_offset = msm_host->offset;
+
+	struct cqhci_host *cq_host;
+	u32 version;
+	u16 minor;
+	int offset;
+
+	if (msm_host->cq_host)
+		cq_host = msm_host->cq_host;
+	else
+		return;
+
+	version =  msm_host_readl(msm_host, host,
+				 msm_offset->core_mci_version);
+	minor = version & CORE_VERSION_TARGET_MASK;
+
+	/* registers offset changed starting from 4.2.0 */
+	offset = minor >= SDHCI_MSM_VER_420 ? 0 : 0x48;
+
+	if (cq_host->offset_changed)
+		offset += CQE_V5_VENDOR_CFG;
+	pr_err("---- Debug RAM dump ----\n");
+	pr_err(DRV_NAME ": Debug RAM wrap-around: 0x%08x | Debug RAM overlap: 0x%08x\n",
+	       cqhci_readl(cq_host, CQ_CMD_DBG_RAM_WA + offset),
+	       cqhci_readl(cq_host, CQ_CMD_DBG_RAM_OL + offset));
+
+	while (i < 16) {
+		pr_err(DRV_NAME ": Debug RAM dump [%d]: 0x%08x\n", i,
+		       cqhci_readl(cq_host, CQ_CMD_DBG_RAM + offset + (4 * i)));
+		i++;
+	}
+	pr_err("-------------------------\n");
+}
+
+
+static void sdhci_msm_dump_vendor_regs(struct sdhci_host *host)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
+	const struct sdhci_msm_offset *msm_offset = msm_host->offset;
+
+	int tbsel, tbsel2;
+	int i, index = 0;
+	u32 test_bus_val = 0;
+	u32 debug_reg[MAX_TEST_BUS] = {0};
+
+	SDHCI_MSM_DUMP("----------- VENDOR REGISTER DUMP -----------\n");
+
+	if (msm_host->cq_host)
+		sdhci_msm_cqe_dump_debug_ram(host);
+
+	SDHCI_MSM_DUMP(
+			"Data cnt: 0x%08x | Fifo cnt: 0x%08x | Int sts: 0x%08x\n",
+		readl_relaxed(host->ioaddr + msm_offset->core_mci_data_cnt),
+		readl_relaxed(host->ioaddr + msm_offset->core_mci_fifo_cnt),
+		readl_relaxed(host->ioaddr + msm_offset->core_mci_status));
+	SDHCI_MSM_DUMP(
+			"DLL sts: 0x%08x | DLL cfg:  0x%08x | DLL cfg2: 0x%08x\n",
+		readl_relaxed(host->ioaddr + msm_offset->core_dll_status),
+		readl_relaxed(host->ioaddr + msm_offset->core_dll_config),
+		readl_relaxed(host->ioaddr + msm_offset->core_dll_config_2));
+	SDHCI_MSM_DUMP(
+			"DLL cfg3: 0x%08x | DLL usr ctl:  0x%08x | DDR cfg: 0x%08x\n",
+		readl_relaxed(host->ioaddr + msm_offset->core_dll_config_3),
+		readl_relaxed(host->ioaddr + msm_offset->core_dll_usr_ctl),
+		readl_relaxed(host->ioaddr + msm_offset->core_ddr_config));
+	SDHCI_MSM_DUMP(
+			"SDCC ver: 0x%08x | Vndr adma err : addr0: 0x%08x addr1: 0x%08x\n",
+		readl_relaxed(host->ioaddr + msm_offset->core_mci_version),
+		readl_relaxed(host->ioaddr +
+				msm_offset->core_vendor_spec_adma_err_addr0),
+		readl_relaxed(host->ioaddr +
+				msm_offset->core_vendor_spec_adma_err_addr1));
+	SDHCI_MSM_DUMP(
+			"Vndr func: 0x%08x | Vndr func2 : 0x%08x Vndr func3: 0x%08x\n",
+		readl_relaxed(host->ioaddr + msm_offset->core_vendor_spec),
+		readl_relaxed(host->ioaddr +
+			msm_offset->core_vendor_spec_func2),
+		readl_relaxed(host->ioaddr + msm_offset->core_vendor_spec3));
+
+	/*
+	 * tbsel indicates [2:0] bits and tbsel2 indicates [7:4] bits
+	 * of core_testbus_config register.
+	 *
+	 * To select test bus 0 to 7 use tbsel and to select any test bus
+	 * above 7 use (tbsel2 | tbsel) to get the test bus number. For eg,
+	 * to select test bus 14, write 0x1E to core_testbus_config register
+	 * i.e., tbsel2[7:4] = 0001, tbsel[2:0] = 110.
+	 */
+	for (tbsel2 = 0; tbsel2 < 7; tbsel2++) {
+		for (tbsel = 0; tbsel < 8; tbsel++) {
+			if (index >= MAX_TEST_BUS)
+				break;
+			test_bus_val =
+			(tbsel2 << msm_offset->core_testbus_sel2_bit) |
+				tbsel | msm_offset->core_testbus_ena;
+			writel_relaxed(test_bus_val, host->ioaddr +
+				msm_offset->core_testbus_config);
+			debug_reg[index++] = readl_relaxed(host->ioaddr +
+					msm_offset->core_sdcc_debug_reg);
+		}
+	}
+	for (i = 0; i < MAX_TEST_BUS; i = i + 4)
+		SDHCI_MSM_DUMP(
+				" Test bus[%d to %d]: 0x%08x 0x%08x 0x%08x 0x%08x\n",
+				i, i + 3, debug_reg[i], debug_reg[i+1],
+				debug_reg[i+2], debug_reg[i+3]);
+}
+
+#endif
+
 static const struct sdhci_msm_variant_ops mci_var_ops = {
 	.msm_readl_relaxed = sdhci_msm_mci_variant_readl_relaxed,
 	.msm_writel_relaxed = sdhci_msm_mci_variant_writel_relaxed,
@@ -3140,6 +3273,11 @@ static const struct sdhci_ops sdhci_msm_ops = {
 	.get_max_clock = sdhci_msm_get_max_clock,
 	.set_bus_width = sdhci_set_bus_width,
 	.set_uhs_signaling = sdhci_msm_set_uhs_signaling,
+
+#if defined(CONFIG_SDC_QTI)
+	.dump_vendor_regs = sdhci_msm_dump_vendor_regs,
+#endif
+
 	.write_w = sdhci_msm_writew,
 	.write_b = sdhci_msm_writeb,
 	.irq	= sdhci_msm_cqe_irq,
@@ -3987,6 +4125,13 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 
 	if (core_major == 1 && core_minor >= 0x49)
 		msm_host->updated_ddr_cfg = true;
+
+	/* For SDHC v5.0.0 onwards, ICE 3.0 specific registers are added
+	 * in CQ register space, due to which few CQ registers are
+	 * shifted. Set cqhci_offset_changed boolean to use updated address.
+	 */
+	if (core_major == 1 && core_minor >= 0x6B)
+		msm_host->cqhci_offset_changed = true;
 
 	/*
 	 * Power on reset state may trigger power irq if previous status of

@@ -660,6 +660,7 @@ struct sdhci_ops {
 				struct mmc_request *mrq);
 	#if defined(CONFIG_SDC_QTI)
 	unsigned int    (*get_current_limit)(struct sdhci_host *host);
+	void    (*dump_vendor_regs)(struct sdhci_host *host);
 	#endif
 };
 
