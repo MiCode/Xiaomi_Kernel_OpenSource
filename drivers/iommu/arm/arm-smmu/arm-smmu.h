@@ -468,6 +468,18 @@ struct arm_smmu_cfg {
 		u16			vmid;
 	};
 	u32				procid;
+	struct {
+		u32     wacfg:2;
+		u32     racfg:2;
+		u32     shcfg:2;
+		u32     mtcfg:1;
+		u32     memattr:4;
+		u32     hupcf:1;
+		u32     cfcfg:1;
+		u32     cfre:1;
+		u32     m:1;
+	}       sctlr;
+
 	enum arm_smmu_cbar_type		cbar;
 	enum arm_smmu_context_fmt	fmt;
 };
@@ -477,6 +489,7 @@ struct arm_smmu_cb {
 	u64				ttbr[2];
 	u32				tcr[2];
 	u32				mair[2];
+	u32 sctlr;
 	struct arm_smmu_cfg		*cfg;
 };
 
@@ -562,6 +575,26 @@ static inline u32 arm_smmu_lpae_vtcr(const struct io_pgtable_cfg *cfg)
 	       FIELD_PREP(ARM_SMMU_VTCR_IRGN0, cfg->arm_lpae_s2_cfg.vtcr.irgn) |
 	       FIELD_PREP(ARM_SMMU_VTCR_SL0, cfg->arm_lpae_s2_cfg.vtcr.sl) |
 	       FIELD_PREP(ARM_SMMU_VTCR_T0SZ, cfg->arm_lpae_s2_cfg.vtcr.tsz);
+}
+
+static inline u32 arm_smmu_lpae_sctlr(struct arm_smmu_cfg *cfg)
+{
+	bool stage1 = cfg->cbar != CBAR_TYPE_S2_TRANS;
+
+	return FIELD_PREP(ARM_SMMU_SCTLR_WACFG, cfg->sctlr.wacfg) |
+	FIELD_PREP(ARM_SMMU_SCTLR_RACFG, cfg->sctlr.racfg) |
+	FIELD_PREP(ARM_SMMU_SCTLR_SHCFG, cfg->sctlr.shcfg) |
+	FIELD_PREP(ARM_SMMU_SCTLR_MTCFG, cfg->sctlr.mtcfg) |
+	FIELD_PREP(ARM_SMMU_SCTLR_MEM_ATTR, cfg->sctlr.memattr) |
+	FIELD_PREP(ARM_SMMU_SCTLR_S1_ASIDPNE, stage1) |
+	FIELD_PREP(ARM_SMMU_SCTLR_HUPCF, cfg->sctlr.hupcf) |
+	FIELD_PREP(ARM_SMMU_SCTLR_CFCFG, cfg->sctlr.cfcfg) |
+	ARM_SMMU_SCTLR_CFIE |
+	FIELD_PREP(ARM_SMMU_SCTLR_CFRE, cfg->sctlr.cfre) |
+	FIELD_PREP(ARM_SMMU_SCTLR_E, IS_ENABLED(CONFIG_CPU_BIG_ENDIAN)) |
+	ARM_SMMU_SCTLR_AFE |
+	ARM_SMMU_SCTLR_TRE |
+	FIELD_PREP(ARM_SMMU_SCTLR_M, cfg->sctlr.m);
 }
 
 /* Implementation details, yay! */

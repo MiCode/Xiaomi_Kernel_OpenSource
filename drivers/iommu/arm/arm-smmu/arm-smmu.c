@@ -1122,50 +1122,46 @@ void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx,
 	}
 
 	/* SCTLR */
-	reg = ARM_SMMU_SCTLR_CFIE | ARM_SMMU_SCTLR_CFRE | ARM_SMMU_SCTLR_AFE |
-	      ARM_SMMU_SCTLR_TRE;
-	if (stage1)
-		reg |= ARM_SMMU_SCTLR_S1_ASIDPNE;
-	if (IS_ENABLED(CONFIG_CPU_BIG_ENDIAN))
-		reg |= ARM_SMMU_SCTLR_E;
-
-	/*
-	 * Ensure bypass transactions are Non-shareable only for clients
-	 * who are not io-coherent.
-	 */
 	smmu_domain = cb_cfg_to_smmu_domain(cfg);
-
+	memset(&cfg->sctlr, 0, sizeof(cfg->sctlr));
 	/*
 	 * Override cacheability, shareability, r/w allocation for
-	 * clients who are io-coherent
+	 * clients who are io-coherent. Otherwise set NSH to force io-coherency
+	 * to be disabled.
+	 * These settings only take effect during bypass mode, when sctlr.M = 0
 	 */
 	if (of_dma_is_coherent(smmu_domain->dev->of_node)) {
-
-		reg |= FIELD_PREP(ARM_SMMU_SCTLR_WACFG, ARM_SMMU_SCTLR_WACFG_WA) |
-		       FIELD_PREP(ARM_SMMU_SCTLR_RACFG, ARM_SMMU_SCTLR_RACFG_RA) |
-		       FIELD_PREP(ARM_SMMU_SCTLR_SHCFG, ARM_SMMU_SCTLR_SHCFG_OSH) |
-		       ARM_SMMU_SCTLR_MTCFG |
-		       FIELD_PREP(ARM_SMMU_SCTLR_MEM_ATTR,
-				  ARM_SMMU_SCTLR_MEM_ATTR_OISH_WB_CACHE);
+		cfg->sctlr.wacfg = ARM_SMMU_SCTLR_WACFG_WA;
+		cfg->sctlr.racfg = ARM_SMMU_SCTLR_RACFG_RA;
+		cfg->sctlr.shcfg = ARM_SMMU_SCTLR_SHCFG_OSH;
+		cfg->sctlr.mtcfg = 1;
+		cfg->sctlr.memattr = ARM_SMMU_SCTLR_MEM_ATTR_OISH_WB_CACHE;
 	} else {
-		reg |= FIELD_PREP(ARM_SMMU_SCTLR_SHCFG, ARM_SMMU_SCTLR_SHCFG_NSH);
+		cfg->sctlr.shcfg = ARM_SMMU_SCTLR_SHCFG_NSH;
 	}
 
 	if (attributes && test_bit(DOMAIN_ATTR_FAULT_MODEL_NO_CFRE, attributes))
-		reg &= ~ARM_SMMU_SCTLR_CFRE;
+		cfg->sctlr.cfre = 0;
+	else
+		cfg->sctlr.cfre = 1;
 
 	if (attributes && test_bit(DOMAIN_ATTR_FAULT_MODEL_NO_STALL,
 				   attributes))
-		reg &= ~ARM_SMMU_SCTLR_CFCFG;
+		cfg->sctlr.cfcfg = 0;
+	else
+		cfg->sctlr.cfcfg = 1;
 
 	if (attributes && test_bit(DOMAIN_ATTR_FAULT_MODEL_HUPCF, attributes))
-		reg |= ARM_SMMU_SCTLR_HUPCF;
+		cfg->sctlr.hupcf = 1;
+	else
+		cfg->sctlr.hupcf = 0;
 
 	if (!attributes || (!test_bit(DOMAIN_ATTR_S1_BYPASS, attributes) &&
 	     !test_bit(DOMAIN_ATTR_EARLY_MAP, attributes)) || !stage1)
-		reg |= ARM_SMMU_SCTLR_M;
+		cfg->sctlr.m = 1;
 
-	arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_SCTLR, reg);
+	cb->sctlr = arm_smmu_lpae_sctlr(cfg);
+	arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_SCTLR, cb->sctlr);
 }
 
 static void arm_smmu_free_asid(struct iommu_domain *domain)
@@ -3173,17 +3169,17 @@ static int arm_smmu_enable_s1_translations(struct arm_smmu_domain *smmu_domain)
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	int idx = cfg->cbndx;
-	u32 reg;
+	struct arm_smmu_cb *cb = &smmu->cbs[idx];
 	int ret;
 
 	ret = arm_smmu_rpm_get(smmu);
 	if (ret < 0)
 		return ret;
 
-	reg = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_SCTLR);
-	reg |= ARM_SMMU_SCTLR_M;
+	cfg->sctlr.m = 1;
+	cb->sctlr = arm_smmu_lpae_sctlr(cfg);
 
-	arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_SCTLR, reg);
+	arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_SCTLR, cb->sctlr);
 	arm_smmu_rpm_put(smmu);
 	return ret;
 }
