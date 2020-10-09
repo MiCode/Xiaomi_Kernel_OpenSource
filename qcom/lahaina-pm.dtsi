@@ -117,12 +117,6 @@
 		reg = <0xc3f0000 0x400>;
 	};
 
-	ddr-stats@c300000 {
-		compatible = "qcom,ddr-stats";
-		reg = <0xc300000 0x1000>, <0xc3f001c 0x4>;
-		reg-names = "phys_addr_base", "offset_addr";
-	};
-
 	sys-pm-vx@c320000 {
 		compatible = "qcom,sys-pm-violators", "qcom,sys-pm-lahaina";
 		reg = <0xc320000 0x0400>;
