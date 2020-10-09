@@ -169,6 +169,10 @@ struct icnss_fw_mem {
 	unsigned long attrs;
 };
 
+enum icnss_power_save_mode {
+	ICNSS_POWER_SAVE_ENTER,
+	ICNSS_POWER_SAVE_EXIT,
+};
 struct icnss_stats {
 	struct {
 		uint32_t posted;
@@ -241,6 +245,9 @@ struct icnss_stats {
 	u32 exit_power_save_req;
 	u32 exit_power_save_resp;
 	u32 exit_power_save_err;
+	u32 enter_power_save_req;
+	u32 enter_power_save_resp;
+	u32 enter_power_save_err;
 	u32 soc_wake_req;
 	u32 soc_wake_resp;
 	u32 soc_wake_err;
