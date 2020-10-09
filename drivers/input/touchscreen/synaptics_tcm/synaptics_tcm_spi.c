@@ -649,13 +649,13 @@ static struct spi_driver syna_tcm_spi_driver = {
 	.id_table = syna_tcm_id_table,
 };
 
-int syna_tcm_bus_init(void)
+int syna_tcm_bus_init_spi(void)
 {
 	return spi_register_driver(&syna_tcm_spi_driver);
 }
-EXPORT_SYMBOL(syna_tcm_bus_init);
+EXPORT_SYMBOL(syna_tcm_bus_init_spi);
 
-void syna_tcm_bus_exit(void)
+void syna_tcm_bus_exit_spi(void)
 {
 	kfree(buf);
 
@@ -663,7 +663,7 @@ void syna_tcm_bus_exit(void)
 
 	spi_unregister_driver(&syna_tcm_spi_driver);
 }
-EXPORT_SYMBOL(syna_tcm_bus_exit);
+EXPORT_SYMBOL(syna_tcm_bus_exit_spi);
 
 MODULE_AUTHOR("Synaptics, Inc.");
 MODULE_DESCRIPTION("Synaptics TCM SPI Bus Module");
