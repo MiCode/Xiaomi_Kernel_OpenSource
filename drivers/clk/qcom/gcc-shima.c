@@ -23,7 +23,6 @@
 #include "vdd-level.h"
 
 static DEFINE_VDD_REGULATORS(vdd_cx, VDD_NUM, 1, vdd_corner);
-static DEFINE_VDD_REGULATORS(vdd_cx_ao, VDD_NUM, 1, vdd_corner);
 
 enum {
 	P_BI_TCXO,
@@ -204,13 +203,6 @@ static const struct parent_map gcc_parent_map_0[] = {
 
 static const struct clk_parent_data gcc_parent_data_0[] = {
 	{ .fw_name = "bi_tcxo", },
-	{ .hw = &gcc_gpll0.clkr.hw },
-	{ .hw = &gcc_gpll0_out_even.clkr.hw },
-	{ .fw_name = "core_bi_pll_test_se", .name = "core_bi_pll_test_se" },
-};
-
-static const struct clk_parent_data gcc_parent_data_0_ao[] = {
-	{ .fw_name = "bi_tcxo_ao", },
 	{ .hw = &gcc_gpll0.clkr.hw },
 	{ .hw = &gcc_gpll0_out_even.clkr.hw },
 	{ .fw_name = "core_bi_pll_test_se", .name = "core_bi_pll_test_se" },
@@ -463,34 +455,6 @@ static struct clk_regmap_mux gcc_usb3_prim_phy_pipe_clk_src = {
 			.num_parents = 3,
 			.ops = &clk_regmap_mux_closest_ops,
 		},
-	},
-};
-
-static const struct freq_tbl ftbl_gcc_cpuss_ahb_clk_src[] = {
-	F(19200000, P_BI_TCXO, 1, 0, 0),
-	{ }
-};
-
-static struct clk_rcg2 gcc_cpuss_ahb_clk_src = {
-	.cmd_rcgr = 0x4800c,
-	.mnd_width = 0,
-	.hid_width = 5,
-	.parent_map = gcc_parent_map_0,
-	.freq_tbl = ftbl_gcc_cpuss_ahb_clk_src,
-	.enable_safe_config = true,
-	.clkr.hw.init = &(struct clk_init_data){
-		.name = "gcc_cpuss_ahb_clk_src",
-		.parent_data = gcc_parent_data_0_ao,
-		.num_parents = 4,
-		.ops = &clk_rcg2_ops,
-	},
-	.clkr.vdd_data = {
-		.vdd_class = &vdd_cx_ao,
-		.num_rate_max = VDD_NUM,
-		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_LOWER] = 19200000,
-			[VDD_LOW] = 50000000,
-			[VDD_NOMINAL] = 100000000},
 	},
 };
 
@@ -1423,21 +1387,6 @@ static struct clk_rcg2 gcc_usb3_prim_phy_aux_clk_src = {
 	},
 };
 
-static struct clk_regmap_div gcc_cpuss_ahb_postdiv_clk_src = {
-	.reg = 0x48024,
-	.shift = 0,
-	.width = 4,
-	.clkr.hw.init = &(struct clk_init_data) {
-		.name = "gcc_cpuss_ahb_postdiv_clk_src",
-		.parent_data = &(const struct clk_parent_data){
-			.hw = &gcc_cpuss_ahb_clk_src.clkr.hw,
-		},
-		.num_parents = 1,
-		.flags = CLK_SET_RATE_PARENT,
-		.ops = &clk_regmap_div_ro_ops,
-	},
-};
-
 static struct clk_regmap_div gcc_usb30_prim_mock_utmi_postdiv_clk_src = {
 	.reg = 0xf050,
 	.shift = 0,
@@ -1618,26 +1567,6 @@ static struct clk_branch gcc_cfg_noc_usb3_prim_axi_clk = {
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
-static struct clk_branch gcc_cpuss_ahb_clk = {
-	.halt_reg = 0x48000,
-	.halt_check = BRANCH_HALT_VOTED,
-	.hwcg_reg = 0x48000,
-	.hwcg_bit = 1,
-	.clkr = {
-		.enable_reg = 0x52000,
-		.enable_mask = BIT(21),
-		.hw.init = &(struct clk_init_data){
-			.name = "gcc_cpuss_ahb_clk",
-			.parent_data = &(const struct clk_parent_data){
-				.hw = &gcc_cpuss_ahb_postdiv_clk_src.clkr.hw,
-			},
-			.num_parents = 1,
-			.flags = CLK_IS_CRITICAL | CLK_SET_RATE_PARENT,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -2707,26 +2636,6 @@ static struct clk_branch gcc_sdcc4_apps_clk = {
 	},
 };
 
-static struct clk_branch gcc_sys_noc_cpuss_ahb_clk = {
-	.halt_reg = 0x48178,
-	.halt_check = BRANCH_HALT_VOTED,
-	.hwcg_reg = 0x48178,
-	.hwcg_bit = 1,
-	.clkr = {
-		.enable_reg = 0x52000,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "gcc_sys_noc_cpuss_ahb_clk",
-			.parent_data = &(const struct clk_parent_data){
-				.hw = &gcc_cpuss_ahb_postdiv_clk_src.clkr.hw,
-			},
-			.num_parents = 1,
-			.flags = CLK_IS_CRITICAL | CLK_SET_RATE_PARENT,
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
 static struct clk_branch gcc_throttle_pcie_ahb_clk = {
 	.halt_reg = 0x9034,
 	.halt_check = BRANCH_HALT,
@@ -3220,9 +3129,6 @@ static struct clk_regmap *gcc_shima_clocks[] = {
 	[GCC_CAMERA_SF_AXI_CLK] = &gcc_camera_sf_axi_clk.clkr,
 	[GCC_CAMERA_XO_CLK] = &gcc_camera_xo_clk.clkr,
 	[GCC_CFG_NOC_USB3_PRIM_AXI_CLK] = &gcc_cfg_noc_usb3_prim_axi_clk.clkr,
-	[GCC_CPUSS_AHB_CLK] = &gcc_cpuss_ahb_clk.clkr,
-	[GCC_CPUSS_AHB_CLK_SRC] = &gcc_cpuss_ahb_clk_src.clkr,
-	[GCC_CPUSS_AHB_POSTDIV_CLK_SRC] = &gcc_cpuss_ahb_postdiv_clk_src.clkr,
 	[GCC_DDRSS_GPU_AXI_CLK] = &gcc_ddrss_gpu_axi_clk.clkr,
 	[GCC_DISP_AHB_CLK] = &gcc_disp_ahb_clk.clkr,
 	[GCC_DISP_GPLL0_CLK_SRC] = &gcc_disp_gpll0_clk_src.clkr,
@@ -3325,7 +3231,6 @@ static struct clk_regmap *gcc_shima_clocks[] = {
 	[GCC_SDCC4_AHB_CLK] = &gcc_sdcc4_ahb_clk.clkr,
 	[GCC_SDCC4_APPS_CLK] = &gcc_sdcc4_apps_clk.clkr,
 	[GCC_SDCC4_APPS_CLK_SRC] = &gcc_sdcc4_apps_clk_src.clkr,
-	[GCC_SYS_NOC_CPUSS_AHB_CLK] = &gcc_sys_noc_cpuss_ahb_clk.clkr,
 	[GCC_THROTTLE_PCIE_AHB_CLK] = &gcc_throttle_pcie_ahb_clk.clkr,
 	[GCC_TITAN_NRT_THROTTLE_CORE_CLK] =
 		&gcc_titan_nrt_throttle_core_clk.clkr,
@@ -3452,14 +3357,6 @@ static int gcc_shima_probe(struct platform_device *pdev)
 		return PTR_ERR(vdd_cx.regulator[0]);
 	}
 
-	vdd_cx_ao.regulator[0] = devm_regulator_get(&pdev->dev, "vdd_cx_ao");
-	if (IS_ERR(vdd_cx_ao.regulator[0])) {
-		if (!(PTR_ERR(vdd_cx_ao.regulator[0]) == -EPROBE_DEFER))
-			dev_err(&pdev->dev,
-				"Unable to get vdd_cx_ao regulator\n");
-		return PTR_ERR(vdd_cx_ao.regulator[0]);
-	}
-
 	regmap = qcom_cc_map(pdev, &gcc_shima_desc);
 	if (IS_ERR(regmap))
 		return PTR_ERR(regmap);
@@ -3488,8 +3385,6 @@ static int gcc_shima_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to register GCC clocks\n");
 		return ret;
 	}
-
-	clk_set_rate(gcc_cpuss_ahb_clk.clkr.hw.clk, 19200000);
 
 	dev_info(&pdev->dev, "Registered GCC clocks\n");
 
