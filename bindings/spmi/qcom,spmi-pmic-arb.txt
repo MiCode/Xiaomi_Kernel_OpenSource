@@ -43,6 +43,10 @@ Optional properties:
     cell 3: the requested peripheral interrupt (0-7)
     cell 4: interrupt flags indicating level-sense information, as defined in
             dt-bindings/interrupt-controller/irq.h
+- qcom,bus-id : Specifies which SPMI bus instance to use.  This property is only
+		applicable to PMIC arbiter version 7 and beyond.
+		Support values: 0 = primary bus, 1 = secondary bus
+		Assumed to be 0 if unspecified.
 
 Consumer node optional properties:
 - qcom,pmic-arb : phandle for an spmi-pmic-arb device.  This can be used by
