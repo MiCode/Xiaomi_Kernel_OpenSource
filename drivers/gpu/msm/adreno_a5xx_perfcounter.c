@@ -17,7 +17,7 @@
 #define VBIF2_PERF_PWR_CLR_REG_EN_OFF 8
 
 static u64 a5xx_counter_read_norestore(struct adreno_device *adreno_dev,
-		struct adreno_perfcount_group *group,
+		const struct adreno_perfcount_group *group,
 		unsigned int counter)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -31,7 +31,7 @@ static u64 a5xx_counter_read_norestore(struct adreno_device *adreno_dev,
 }
 
 static int a5xx_counter_enable(struct adreno_device *adreno_dev,
-		struct adreno_perfcount_group *group,
+		const struct adreno_perfcount_group *group,
 		unsigned int counter, unsigned int countable)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -44,7 +44,7 @@ static int a5xx_counter_enable(struct adreno_device *adreno_dev,
 }
 
 static int a5xx_counter_rbbm_enable(struct adreno_device *adreno_dev,
-		struct adreno_perfcount_group *group,
+		const struct adreno_perfcount_group *group,
 		unsigned int counter, unsigned int countable)
 {
 	if (adreno_is_a540(adreno_dev) && countable == A5XX_RBBM_ALWAYS_COUNT)
@@ -54,7 +54,7 @@ static int a5xx_counter_rbbm_enable(struct adreno_device *adreno_dev,
 }
 
 static u64 a5xx_counter_read(struct adreno_device *adreno_dev,
-		struct adreno_perfcount_group *group,
+		const struct adreno_perfcount_group *group,
 		unsigned int counter)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -68,7 +68,7 @@ static u64 a5xx_counter_read(struct adreno_device *adreno_dev,
 }
 
 static int a5xx_counter_vbif_enable(struct adreno_device *adreno_dev,
-		struct adreno_perfcount_group *group,
+		const struct adreno_perfcount_group *group,
 		unsigned int counter, unsigned int countable)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -98,7 +98,7 @@ static int a5xx_counter_vbif_enable(struct adreno_device *adreno_dev,
 }
 
 static int a5xx_counter_vbif_pwr_enable(struct adreno_device *adreno_dev,
-		struct adreno_perfcount_group *group,
+		const struct adreno_perfcount_group *group,
 		unsigned int counter, unsigned int countable)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -120,14 +120,14 @@ static int a5xx_counter_vbif_pwr_enable(struct adreno_device *adreno_dev,
 }
 
 static int a5xx_counter_alwayson_enable(struct adreno_device *adreno_dev,
-		struct adreno_perfcount_group *group,
+		const struct adreno_perfcount_group *group,
 		unsigned int counter, unsigned int countable)
 {
 	return 0;
 }
 
 static u64 a5xx_counter_alwayson_read(struct adreno_device *adreno_dev,
-		struct adreno_perfcount_group *group,
+		const struct adreno_perfcount_group *group,
 		unsigned int counter)
 {
 	struct adreno_perfcount_register *reg = &group->regs[counter];
@@ -136,7 +136,7 @@ static u64 a5xx_counter_alwayson_read(struct adreno_device *adreno_dev,
 }
 
 static int a5xx_counter_pwr_enable(struct adreno_device *adreno_dev,
-		struct adreno_perfcount_group *group,
+		const struct adreno_perfcount_group *group,
 		unsigned int counter, unsigned int countable)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -150,7 +150,7 @@ static int a5xx_counter_pwr_enable(struct adreno_device *adreno_dev,
 }
 
 static int a5xx_counter_pwr_gpmu_enable(struct adreno_device *adreno_dev,
-		struct adreno_perfcount_group *group,
+		const struct adreno_perfcount_group *group,
 		unsigned int counter, unsigned int countable)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -173,7 +173,7 @@ static int a5xx_counter_pwr_gpmu_enable(struct adreno_device *adreno_dev,
 }
 
 static int a5xx_counter_pwr_alwayson_enable(struct adreno_device *adreno_dev,
-		struct adreno_perfcount_group *group,
+		const struct adreno_perfcount_group *group,
 		unsigned int counter, unsigned int countable)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -621,7 +621,7 @@ static struct adreno_perfcount_group a5xx_perfcounter_groups
 		a5xx_counter_pwr_alwayson_enable, a5xx_counter_read_norestore),
 };
 
-struct adreno_perfcounters adreno_a5xx_perfcounters = {
+const struct adreno_perfcounters adreno_a5xx_perfcounters = {
 	a5xx_perfcounter_groups,
 	ARRAY_SIZE(a5xx_perfcounter_groups),
 };

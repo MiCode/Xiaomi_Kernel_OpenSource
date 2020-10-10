@@ -392,6 +392,7 @@ struct adreno_gpu_core {
 	const char *compatible;
 	unsigned long features;
 	struct adreno_gpudev *gpudev;
+	const struct adreno_perfcounters *perfcounters;
 	unsigned long gmem_base;
 	size_t gmem_size;
 	u32 bus_width;
@@ -761,8 +762,6 @@ struct adreno_gpudev {
 	unsigned int *const reg_offsets;
 	const struct adreno_ft_perf_counters *ft_perf_counters;
 	unsigned int ft_perf_counters_count;
-
-	struct adreno_perfcounters *perfcounters;
 
 	struct adreno_coresight *coresight[2];
 
