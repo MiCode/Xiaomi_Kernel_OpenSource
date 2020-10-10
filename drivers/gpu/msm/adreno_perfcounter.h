@@ -91,10 +91,6 @@ struct adreno_perfcounters {
 #define ADRENO_PERFCOUNTER_GROUP(core, offset, name, enable, read) \
 	ADRENO_PERFCOUNTER_GROUP_FLAGS(core, offset, name, 0, enable, read)
 
-#define ADRENO_POWER_COUNTER_GROUP(core, offset, name) \
-	[KGSL_PERFCOUNTER_GROUP_##offset##_PWR] = { core##_pwrcounters_##name, \
-	ARRAY_SIZE(core##_pwrcounters_##name), __stringify(name##_pwr), 0}
-
 int adreno_perfcounter_query_group(struct adreno_device *adreno_dev,
 	unsigned int groupid, unsigned int __user *countables,
 	unsigned int count, unsigned int *max_counters);
