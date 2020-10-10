@@ -292,7 +292,7 @@
 			reg = <0x0 0x80b00000 0x0 0x100000>;
 		};
 
-		cdsp_secure_heap_mem: cdsp_secure_heap_region@0x80c00000 {
+		cdsp_secure_heap: cdsp_secure_heap_region@0x80c00000 {
 			no-map;
 			reg = <0x0 0x80c00000 0x0 0x4600000>;
 		};
@@ -397,6 +397,70 @@
 		trusted_apps_ext_mem: trusted_apps_ext_region@0xed900000 {
 			no-map;
 			reg = <0x0 0xed900000 0x0 0x1700000>;
+		};
+
+		sdsp_mem: sdsp_region {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+			reusable;
+			alignment = <0x0 0x400000>;
+			size = <0x0 0x800000>;
+		};
+
+		sp_mem: sp_region {  /* SPSS-HLOS ION shared mem */
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+			reusable;
+			alignment = <0x0 0x400000>;
+			size = <0x0 0x1000000>;
+		};
+
+		user_contig_mem: user_contig_region {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+			reusable;
+			alignment = <0x0 0x400000>;
+			size = <0x0 0x1000000>;
+		};
+
+		qseecom_mem: qseecom_region {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+			reusable;
+			alignment = <0x0 0x400000>;
+			size = <0x0 0x1400000>;
+		};
+
+		qseecom_ta_mem: qseecom_ta_region {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+			reusable;
+			alignment = <0x0 0x400000>;
+			size = <0x0 0x1000000>;
+		};
+
+		secure_display_memory: secure_display_region { /* Secure UI */
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+			reusable;
+			alignment = <0x0 0x400000>;
+			size = <0x0 0xA400000>;
+		};
+
+		non_secure_display_memory: non_secure_display_region {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+			reusable;
+			alignment = <0x0 0x400000>;
+			size = <0x0 0x6400000>;
+		};
+
+		audio_cma_mem: audio_cma_region {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+			reusable;
+			alignment = <0x0 0x400000>;
+			size = <0x0 0x1C00000>;
 		};
 
 		/* global autoconfigured region for contiguous allocations */
@@ -1122,3 +1186,5 @@
 #include "waipio-smp2p.dtsi"
 #include "waipio-regulators.dtsi"
 #include "waipio-usb.dtsi"
+#include "waipio-dma-heaps.dtsi"
+#include "lahaina-ion.dtsi"
