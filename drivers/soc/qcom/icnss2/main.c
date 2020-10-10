@@ -1551,6 +1551,11 @@ static int icnss_modem_ssr_register_notifier(struct icnss_priv *priv)
 	int ret = 0;
 
 	priv->modem_ssr_nb.notifier_call = icnss_modem_notifier_nb;
+	/*
+	 * Assign priority of icnss modem notifier callback over IPA
+	 * modem notifier callback which is 0
+	 */
+	priv->modem_ssr_nb.priority = 1;
 
 	priv->modem_notify_handler =
 		subsys_notif_register_notifier("modem", &priv->modem_ssr_nb);
