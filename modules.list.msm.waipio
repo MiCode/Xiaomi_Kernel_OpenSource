@@ -51,6 +51,7 @@ qcom_pil_info.ko
 qcom_sysmon.ko
 qcom_q6v5.ko
 qcom_common.ko
+qcom_ramdump.ko
 soc_sleep_stats.ko
 sensors_ssc.ko
 sys_pm_vx.ko
