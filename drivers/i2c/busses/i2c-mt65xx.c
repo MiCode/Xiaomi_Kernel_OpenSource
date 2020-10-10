@@ -1483,20 +1483,10 @@ static int mtk_i2c_resume_noirq(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct mtk_i2c *i2c = platform_get_drvdata(pdev);
-	int ret;
 
 	spin_lock(&i2c->cg_lock);
 	i2c->suspended = false;
 	spin_unlock(&i2c->cg_lock);
-
-	ret = mtk_i2c_clock_enable(i2c);
-	if (ret) {
-		dev_info(&pdev->dev, "clock enable failed!\n");
-		return ret;
-	}
-
-	mtk_i2c_init_hw(i2c);
-	mtk_i2c_clock_disable(i2c);
 
 	return 0;
 }
