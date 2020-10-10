@@ -2063,6 +2063,12 @@ done:
 	/* phy sync delay as per data book */
 	msleep(50);
 
+	/*
+	 * Soft reset clears the block on the doorbell,
+	 * set it back to prevent unwanted writes to the doorbell.
+	 */
+	dwc3_notify_event(dwc, DWC3_CONTROLLER_NOTIFY_CLEAR_DB, 0);
+
 	return 0;
 }
 
@@ -2226,6 +2232,9 @@ static int dwc3_gadget_pullup(struct usb_gadget *g, int is_on)
 
 	/* prevent pending bh to run later */
 	flush_work(&dwc->bh_work);
+
+	if (is_on)
+		dwc3_device_core_soft_reset(dwc);
 
 	spin_lock_irqsave(&dwc->lock, flags);
 	if (dwc->ep0state != EP0_SETUP_PHASE)
@@ -2645,7 +2654,6 @@ static const struct usb_gadget_ops dwc3_gadget_ops = {
 #define NUM_GSI_OUT_EPS	1
 #define NUM_GSI_IN_EPS	2
 
-
 static int dwc3_gadget_init_control_endpoint(struct dwc3_ep *dep)
 {
 	struct dwc3 *dwc = dep->dwc;
@@ -2749,12 +2757,16 @@ static int dwc3_gadget_init_endpoints(struct dwc3 *dwc, u8 total)
 		/* Reserve EPs at the end for GSI */
 		if (!dep->direction && num >
 				out_count - NUM_GSI_OUT_EPS - 1) {
+			/* Allocation of TRBs are handled by GSI EP ops. */
+			dwc3_free_trb_pool(dep);
 			idx = num - (out_count - NUM_GSI_OUT_EPS - 1);
 			snprintf(dep->name, sizeof(dep->name), "gsi-epout%d",
 					idx);
 			dep->gsi = true;
 		} else if (dep->direction && num >
 				in_count - NUM_GSI_IN_EPS - 1) {
+			/* Allocation of TRBs are handled by GSI EP ops. */
+			dwc3_free_trb_pool(dep);
 			idx = num - (in_count - NUM_GSI_IN_EPS - 1);
 			snprintf(dep->name, sizeof(dep->name), "gsi-epin%d",
 					idx);
