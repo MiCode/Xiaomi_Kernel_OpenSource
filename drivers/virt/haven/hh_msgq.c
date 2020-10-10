@@ -434,16 +434,16 @@ int hh_msgq_populate_cap_info(enum hh_msgq_label label, u64 cap_id,
 
 	cap_table_entry = &hh_msgq_cap_table[label];
 
-	spin_lock(&cap_table_entry->cap_entry_lock);
-
 	if (direction == HH_MSGQ_DIRECTION_TX) {
 		ret = request_irq(irq, hh_msgq_tx_isr, 0,
 				cap_table_entry->tx_irq_name, cap_table_entry);
 		if (ret < 0)
 			goto err;
 
-		cap_table_entry->tx_irq = irq;
+		spin_lock(&cap_table_entry->cap_entry_lock);
 		cap_table_entry->tx_cap_id = cap_id;
+		cap_table_entry->tx_irq = irq;
+		spin_unlock(&cap_table_entry->cap_entry_lock);
 
 		wake_up_interruptible(&cap_table_entry->tx_wq);
 	} else if (direction == HH_MSGQ_DIRECTION_RX) {
@@ -452,8 +452,10 @@ int hh_msgq_populate_cap_info(enum hh_msgq_label label, u64 cap_id,
 		if (ret < 0)
 			goto err;
 
+		spin_lock(&cap_table_entry->cap_entry_lock);
 		cap_table_entry->rx_cap_id = cap_id;
 		cap_table_entry->rx_irq = irq;
+		spin_unlock(&cap_table_entry->cap_entry_lock);
 
 		wake_up_interruptible(&cap_table_entry->rx_wq);
 	} else {
@@ -463,7 +465,6 @@ int hh_msgq_populate_cap_info(enum hh_msgq_label label, u64 cap_id,
 	}
 
 	irq_set_irq_wake(irq, 1);
-	spin_unlock(&cap_table_entry->cap_entry_lock);
 
 	pr_debug(
 		"%s: label: %d; cap_id: %llu; dir: %d; irq: %d\n",
@@ -472,7 +473,6 @@ int hh_msgq_populate_cap_info(enum hh_msgq_label label, u64 cap_id,
 	return 0;
 
 err:
-	spin_unlock(&cap_table_entry->cap_entry_lock);
 	return ret;
 }
 EXPORT_SYMBOL(hh_msgq_populate_cap_info);
