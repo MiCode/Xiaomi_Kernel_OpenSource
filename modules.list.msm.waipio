@@ -1,5 +1,6 @@
 clk-dummy.ko
 clk-qcom.ko
+frpc-adsprpc.ko
 qcom_rpmh.ko
 cmd-db.ko
 qnoc-waipio.ko
