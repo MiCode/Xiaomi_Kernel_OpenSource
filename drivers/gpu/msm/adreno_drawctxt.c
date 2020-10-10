@@ -401,6 +401,13 @@ adreno_drawctxt_create(struct kgsl_device_private *dev_priv,
 
 	adreno_context_debugfs_init(ADRENO_DEVICE(device), drawctxt);
 
+	if (!test_bit(GMU_DISPATCH, &device->gmu_core.flags)) {
+		/* set the context ringbuffer */
+		drawctxt->rb = adreno_ctx_get_rb(adreno_dev, drawctxt);
+
+		INIT_LIST_HEAD(&drawctxt->active_node);
+	}
+
 	if (gpudev->preemption_context_init) {
 		ret = gpudev->preemption_context_init(&drawctxt->base);
 		if (ret != 0) {
@@ -411,13 +418,6 @@ adreno_drawctxt_create(struct kgsl_device_private *dev_priv,
 
 	/* copy back whatever flags we dediced were valid */
 	*flags = drawctxt->base.flags;
-
-	if (!test_bit(GMU_DISPATCH, &device->gmu_core.flags)) {
-		/* set the context ringbuffer */
-		drawctxt->rb = adreno_ctx_get_rb(adreno_dev, drawctxt);
-
-		INIT_LIST_HEAD(&drawctxt->active_node);
-	}
 
 	return &drawctxt->base;
 }
