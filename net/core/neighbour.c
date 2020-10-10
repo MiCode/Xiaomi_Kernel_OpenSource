@@ -58,6 +58,7 @@ static void neigh_update_notify(struct neighbour *neigh, u32 nlmsg_pid);
 static int pneigh_ifdown_and_unlock(struct neigh_table *tbl,
 				    struct net_device *dev);
 
+static unsigned int neigh_probe_enable;
 #ifdef CONFIG_PROC_FS
 static const struct seq_operations neigh_stat_seq_ops;
 #endif
@@ -1086,11 +1087,19 @@ static void neigh_timer_handler(struct timer_list *t)
 		if (!mod_timer(&neigh->timer, next))
 			neigh_hold(neigh);
 	}
-	if (neigh->nud_state & (NUD_INCOMPLETE | NUD_PROBE)) {
-		neigh_probe(neigh);
+
+	if (neigh_probe_enable) {
+		if (neigh->nud_state & (NUD_INCOMPLETE | NUD_PROBE | NUD_STALE))
+			neigh_probe(neigh);
+		else
+			write_unlock(&neigh->lock);
 	} else {
+		if (neigh->nud_state & (NUD_INCOMPLETE | NUD_PROBE)) {
+			neigh_probe(neigh);
+		} else {
 out:
-		write_unlock(&neigh->lock);
+			write_unlock(&neigh->lock);
+		}
 	}
 
 	if (notify)
@@ -1437,9 +1446,21 @@ struct neighbour *neigh_event_ns(struct neigh_table *tbl,
 {
 	struct neighbour *neigh = __neigh_lookup(tbl, saddr, dev,
 						 lladdr || !dev->addr_len);
-	if (neigh)
-		neigh_update(neigh, lladdr, NUD_STALE,
-			     NEIGH_UPDATE_F_OVERRIDE, 0);
+	if (neigh) {
+		if (neigh_probe_enable) {
+			if (neigh->nud_state != NUD_REACHABLE &&
+			    neigh->nud_state != NUD_PERMANENT) {
+				neigh_update(neigh, lladdr, NUD_STALE,
+				NEIGH_UPDATE_F_OVERRIDE, 0);
+				write_lock(&neigh->lock);
+				neigh_probe(neigh);
+				neigh_update_notify(neigh, 0);
+			}
+		} else {
+			neigh_update(neigh, lladdr, NUD_STALE,
+				     NEIGH_UPDATE_F_OVERRIDE, 0);
+		}
+	}
 	return neigh;
 }
 EXPORT_SYMBOL(neigh_event_ns);
@@ -3612,6 +3633,12 @@ static struct neigh_sysctl_table {
 			.extra2		= SYSCTL_INT_MAX,
 			.proc_handler	= proc_dointvec_minmax,
 		},
+		[NEIGH_VAR_PROBE] = {
+			.procname	= "neigh_probe",
+			.maxlen		= sizeof(int),
+			.mode		= 0644,
+			.proc_handler	= proc_dointvec,
+		},
 		{},
 	},
 };
@@ -3647,6 +3674,7 @@ int neigh_sysctl_register(struct net_device *dev, struct neigh_parms *p,
 		t->neigh_vars[NEIGH_VAR_GC_THRESH1].data = &tbl->gc_thresh1;
 		t->neigh_vars[NEIGH_VAR_GC_THRESH2].data = &tbl->gc_thresh2;
 		t->neigh_vars[NEIGH_VAR_GC_THRESH3].data = &tbl->gc_thresh3;
+		t->neigh_vars[NEIGH_VAR_PROBE].data  = &neigh_probe_enable;
 	}
 
 	if (handler) {
