@@ -1263,10 +1263,13 @@ static int memlat_cpu_grp_probe(struct platform_device *pdev)
 	}
 
 	if (!rimps_kobj) {
-		rimps_kobj = kobject_create();
-		if (!rimps_kobj)
+		rimps_kobj = kzalloc(sizeof(*rimps_kobj), GFP_KERNEL);
+
+		if (!rimps_kobj) {
 			dev_err(dev, "%s: failed to create rimps_kobj\n",
 						__func__);
+			return -ENOMEM;
+		}
 
 		ret = kobject_init_and_add(rimps_kobj, &ktype_log_level,
 				   &cpu_subsys.dev_root->kobj, "memlat");
