@@ -190,4 +190,5 @@ extern void icnss_thermal_cdev_unregister(struct device *dev, int tcdev_id);
 extern int icnss_get_curr_therm_cdev_state(struct device *dev,
 					    unsigned long *thermal_state,
 					    int tcdev_id);
+extern int icnss_exit_power_save(struct device *dev);
 #endif /* _ICNSS_WLAN_H_ */
