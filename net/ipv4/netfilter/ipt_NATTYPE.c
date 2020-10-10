@@ -31,7 +31,7 @@ struct ipt_nattype {
 	unsigned long timeout_value;
 	unsigned int nattype_cookie;
 	unsigned short proto;		/* Protocol: TCP or UDP */
-	struct nf_nat_range range;	/* LAN side source information */
+	struct nf_nat_range2 range;	/* LAN side source information */
 	unsigned short nat_port;	/* Routed NAT port */
 	unsigned int dest_addr;	/* Original egress packets dst addr */
 	unsigned short dest_port;/* Original egress packets destination port */
@@ -68,7 +68,8 @@ static void nattype_free(struct ipt_nattype *nte)
 /* netfilter NATTYPE nattype_refresh_timer()
  * Refresh the timer for this object.
  */
-bool nattype_refresh_timer(unsigned long nat_type, unsigned long timeout_value)
+bool nattype_refresh_timer_impl(unsigned long nat_type,
+				unsigned long timeout_value)
 {
 	struct ipt_nattype *nte = (struct ipt_nattype *)nat_type;
 
@@ -93,9 +94,9 @@ bool nattype_refresh_timer(unsigned long nat_type, unsigned long timeout_value)
 /* netfilter NATTYPE nattype_timer_timeout()
  * The timer has gone off, self-destruct
  */
-static void nattype_timer_timeout(unsigned long in_nattype)
+static void nattype_timer_timeout(struct timer_list *t)
 {
-	struct ipt_nattype *nte = (void *)in_nattype;
+	struct ipt_nattype *nte = from_timer(nte, t, timeout);
 
 	/* netfilter NATTYPE
 	 * The race with list deletion is solved by ensuring
@@ -259,13 +260,13 @@ static unsigned int nattype_nat(struct sk_buff *skb,
 {
 	struct ipt_nattype *nte;
 
-	if (par->hooknum != NF_INET_PRE_ROUTING)
+	if (xt_hooknum(par) != NF_INET_PRE_ROUTING)
 		return XT_CONTINUE;
 	spin_lock_bh(&nattype_lock);
 	list_for_each_entry(nte, &nattype_list, list) {
 		struct nf_conn *ct;
 		enum ip_conntrack_info ctinfo;
-		struct nf_nat_range newrange;
+		struct nf_nat_range2 newrange;
 		unsigned int ret;
 
 		if (!nattype_packet_in_match(nte, skb, par->targinfo))
@@ -326,7 +327,7 @@ static unsigned int nattype_forward(struct sk_buff *skb,
 	u16 nat_port;
 	enum ip_conntrack_dir dir;
 
-	if (par->hooknum != NF_INET_POST_ROUTING)
+	if (xt_hooknum(par) != NF_INET_POST_ROUTING)
 		return XT_CONTINUE;
 
 	/* netfilter
@@ -357,7 +358,7 @@ static unsigned int nattype_forward(struct sk_buff *skb,
 			 * found the entry.
 			 */
 			if (!nattype_refresh_timer((unsigned long)nte,
-						   ct->timeout.expires))
+						   ct->timeout))
 				break;
 
 			/* netfilter NATTYPE
@@ -412,9 +413,7 @@ static unsigned int nattype_forward(struct sk_buff *skb,
 	/* netfilter NATTYPE
 	 * Initialize the self-destruct timer.
 	 */
-	init_timer(&nte->timeout);
-	nte->timeout.data = (unsigned long)nte;
-	nte->timeout.function = nattype_timer_timeout;
+	timer_setup(&nte->timeout, nattype_timer_timeout, 0);
 
 	/* netfilter NATTYPE
 	 * We have created the new nte; however, it might not be unique.
@@ -449,8 +448,8 @@ static unsigned int nattype_forward(struct sk_buff *skb,
 	/* netfilter NATTYPE
 	 * Add the new entry to the list.
 	 */
-	nte->timeout_value = ct->timeout.expires;
-	nte->timeout.expires = ct->timeout.expires + jiffies;
+	nte->timeout_value = ct->timeout;
+	nte->timeout.expires = ct->timeout + jiffies;
 	add_timer(&nte->timeout);
 	list_add(&nte->list, &nattype_list);
 	ct->nattype_entry = (unsigned long)nte;
@@ -502,7 +501,7 @@ static unsigned int nattype_target(struct sk_buff *skb,
 		return XT_CONTINUE;
 
 	DEBUGP("%s: type = %s, mode = %s\n",
-	       __func_, types[info->type], modes[info->mode]);
+	       __func__, types[info->type], modes[info->mode]);
 
 	switch (info->mode) {
 	case MODE_DNAT:
