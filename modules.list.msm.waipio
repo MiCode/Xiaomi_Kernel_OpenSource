@@ -35,6 +35,7 @@ usb_f_mass_storage.ko
 dcc_v2.ko
 msm-geni-se.ko
 msm_geni_serial.ko
+msm_ion_heaps.ko
 msm_dma_iommu_mapping.ko
 qcom_dma_heaps.ko
 qcom_smem.ko
