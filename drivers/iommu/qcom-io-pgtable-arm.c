@@ -19,6 +19,7 @@
 #include <linux/dma-mapping.h>
 
 #include <asm/barrier.h>
+#include "qcom-io-pgtable.h"
 
 #include "io-pgtable-arm.h"
 
@@ -381,7 +382,7 @@ static arm_lpae_iopte arm_lpae_prot_to_pte(struct arm_lpae_io_pgtable *data,
 {
 	arm_lpae_iopte pte;
 
-	if (data->iop.fmt == ARM_64_LPAE_S1 ||
+	if (data->iop.fmt == QCOM_ARM_64_LPAE_S1 ||
 	    data->iop.fmt == ARM_32_LPAE_S1) {
 		pte = ARM_LPAE_PTE_nG;
 		if (!(prot & IOMMU_WRITE) && (prot & IOMMU_READ))
@@ -1028,27 +1029,27 @@ out_free_data:
 	return NULL;
 }
 
-struct io_pgtable_init_fns io_pgtable_arm_64_lpae_s1_init_fns = {
+struct io_pgtable_init_fns qcom_io_pgtable_arm_64_lpae_s1_init_fns = {
 	.alloc	= arm_64_lpae_alloc_pgtable_s1,
 	.free	= arm_lpae_free_pgtable,
 };
 
-struct io_pgtable_init_fns io_pgtable_arm_64_lpae_s2_init_fns = {
+struct io_pgtable_init_fns qcom_io_pgtable_arm_64_lpae_s2_init_fns = {
 	.alloc	= arm_64_lpae_alloc_pgtable_s2,
 	.free	= arm_lpae_free_pgtable,
 };
 
-struct io_pgtable_init_fns io_pgtable_arm_32_lpae_s1_init_fns = {
+struct io_pgtable_init_fns qcom_io_pgtable_arm_32_lpae_s1_init_fns = {
 	.alloc	= arm_32_lpae_alloc_pgtable_s1,
 	.free	= arm_lpae_free_pgtable,
 };
 
-struct io_pgtable_init_fns io_pgtable_arm_32_lpae_s2_init_fns = {
+struct io_pgtable_init_fns qcom_io_pgtable_arm_32_lpae_s2_init_fns = {
 	.alloc	= arm_32_lpae_alloc_pgtable_s2,
 	.free	= arm_lpae_free_pgtable,
 };
 
-struct io_pgtable_init_fns io_pgtable_arm_mali_lpae_init_fns = {
+struct io_pgtable_init_fns qcom_io_pgtable_arm_mali_lpae_init_fns = {
 	.alloc	= arm_mali_lpae_alloc_pgtable,
 	.free	= arm_lpae_free_pgtable,
 };
@@ -1201,7 +1202,7 @@ static int __init arm_lpae_run_tests(struct io_pgtable_cfg *cfg)
 	return 0;
 }
 
-static int __init arm_lpae_do_selftests(void)
+int __init qcom_arm_lpae_do_selftests(void)
 {
 	static const unsigned long pgsize[] __initconst = {
 		SZ_4K | SZ_2M | SZ_1G,
@@ -1236,5 +1237,9 @@ static int __init arm_lpae_do_selftests(void)
 	pr_info("selftest: completed with %d PASS %d FAIL\n", pass, fail);
 	return fail ? -EFAULT : 0;
 }
-subsys_initcall(arm_lpae_do_selftests);
+#else
+int __init qcom_arm_lpae_do_selftests(void)
+{
+	return 0;
+}
 #endif

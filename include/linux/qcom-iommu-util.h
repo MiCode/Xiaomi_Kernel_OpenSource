@@ -30,4 +30,12 @@ void qcom_iommu_put_resv_regions(struct device *dev, struct list_head *list);
 
 extern int __init qcom_dma_iommu_generic_driver_init(void);
 extern void qcom_dma_iommu_generic_driver_exit(void);
+#ifdef CONFIG_IOMMU_IO_PGTABLE_LPAE
+int __init qcom_arm_lpae_do_selftests(void);
+#else
+static inline int __init qcom_arm_lpae_do_selftests(void)
+{
+	return 0;
+}
+#endif
 #endif /* __QCOM_IOMMU_UTIL_H */
