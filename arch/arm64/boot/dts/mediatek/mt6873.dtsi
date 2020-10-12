@@ -1472,7 +1472,7 @@
 			mediatek,md_id = <0>;
 			mediatek,ap_plat_info = <6873>;
 			mediatek,md_generation = <6297>;
-			mediatek,offset_apon_md1 = <0x1c24>;
+			mediatek,offset_apon_md1 = <0x2844>;
 			mediatek,cldma_capability = <6>;
 			reg = <0 0x10209000 0 0x1000>, /*AP_CCIF_BASE*/
 				<0 0x1020a000 0 0x1000>; /*MD_CCIF_BASE*/
