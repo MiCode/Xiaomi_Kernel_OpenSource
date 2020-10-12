@@ -4646,7 +4646,8 @@ static const struct subdrv_ctx defctx = {
 	.ana_gain_min = 64,
 	.ana_gain_step = 1,
 	.exposure_def = 0x3D0,
-	.exposure_max = 0xffff - 32,
+	/* support long exposure at most 128 times) */
+	.exposure_max = (0xffff * 128) - 32,
 	.exposure_min = 2,
 	.exposure_step = 1,
 	.is_hflip = 1,
