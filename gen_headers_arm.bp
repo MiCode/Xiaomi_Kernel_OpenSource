@@ -384,6 +384,7 @@ gen_headers_out_arm = [
     "linux/msdos_fs.h",
     "linux/msg.h",
     "linux/msm_dsps.h",
+    "linux/msm_geni_serial.h",
     "linux/msm_ion.h",
     "linux/msm_ion_ids.h",
     "linux/msm_ipa.h",
