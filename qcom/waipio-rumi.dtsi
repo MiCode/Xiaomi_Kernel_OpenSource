@@ -1,5 +1,5 @@
 &chosen {
-	bootargs = "console=hvc0 earlycon=hvc0 nokaslr maxcpus=1 root=/dev/ram rw rootwait";
+	bootargs = "no_console_suspend=1 lpm_levels.sleep_disabled=1 msm_rtb.filter=0x237";
 };
 
 &arch_timer {
