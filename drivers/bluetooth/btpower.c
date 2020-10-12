@@ -328,35 +328,43 @@ static int bt_configure_gpios(int on)
 				bt_sw_ctrl_gpio,
 				bt_power_src_status[BT_SW_CTRL_GPIO]);
 		}
-		pr_debug("BTON:Turn Bt On wl-reset-gpio(%d) value(%d)\n",
-			wl_reset_gpio, gpio_get_value(wl_reset_gpio));
+		if (wl_reset_gpio >= 0)
+			pr_info("BTON:Turn Bt On wl-reset-gpio(%d) value(%d)\n",
+				wl_reset_gpio, gpio_get_value(wl_reset_gpio));
 
 		if ((wl_reset_gpio < 0) ||
 			((wl_reset_gpio >= 0) && gpio_get_value(wl_reset_gpio))) {
+			pr_info("%s: BTON: Asserting BT_EN\n", __func__);
 			rc = gpio_direction_output(bt_reset_gpio, 1);
 			if (rc) {
-				pr_debug("%s: Unable to set direction\n", __func__);
+				pr_err("%s: Unable to set direction\n", __func__);
 				return rc;
 			}
+			bt_power_src_status[BT_RESET_GPIO] =
+				gpio_get_value(bt_reset_gpio);
 		}
 		if ((wl_reset_gpio >= 0) && (gpio_get_value(wl_reset_gpio) == 0)) {
 			if (gpio_get_value(bt_reset_gpio)) {
-				pr_debug("%s: Wlan Off and BT On too close\n", __func__);
-				pr_debug("%s: reset BT_EN, enable it after delay\n", __func__);
+				pr_info("%s: Wlan Off and BT On too close\n", __func__);
+				pr_info("%s: reset BT_EN, enable it after delay\n", __func__);
 				rc = gpio_direction_output(bt_reset_gpio, 0);
 				if (rc) {
-					pr_debug("%s: Unable to set direction\n", __func__);
+					pr_err("%s: Unable to set direction\n", __func__);
 					return rc;
 				}
+				bt_power_src_status[BT_RESET_GPIO] =
+					gpio_get_value(bt_reset_gpio);
 			}
-			pr_debug("%s:add 100ms delay for AON output to fully discharge\n",
+			pr_info("%s:add 100ms delay for AON output to fully discharge\n",
 				 __func__);
 			msleep(100);
 			rc = gpio_direction_output(bt_reset_gpio, 1);
 			if (rc) {
-				pr_debug("%s: Unable to set direction\n", __func__);
+				pr_err("%s: Unable to set direction\n", __func__);
 				return rc;
 			}
+			bt_power_src_status[BT_RESET_GPIO] =
+				gpio_get_value(bt_reset_gpio);
 		}
 		msleep(50);
 		/*  Check  if  SW_CTRL  is  asserted  */
