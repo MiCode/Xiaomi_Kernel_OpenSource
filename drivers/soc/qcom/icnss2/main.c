@@ -2347,12 +2347,6 @@ int icnss_force_wake_request(struct device *dev)
 
 	icnss_pr_dbg("Calling SOC Wake request");
 
-	if (atomic_read(&priv->soc_wake_ref_count)) {
-		count = atomic_inc_return(&priv->soc_wake_ref_count);
-		icnss_pr_dbg("SOC already awake, Ref count: %d", count);
-		return 0;
-	}
-
 	icnss_soc_wake_event_post(priv, ICNSS_SOC_WAKE_REQUEST_EVENT,
 				  0, NULL);
 
