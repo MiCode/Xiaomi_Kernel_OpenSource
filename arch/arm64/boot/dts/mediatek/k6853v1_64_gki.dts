@@ -414,5 +414,9 @@
 };
 /* CONSYS end */
 
+&pdc {
+	pd_vbus_upper_bound = <12000000>;
+};
+
 #include "mediatek/cust_mt6853_touch_1080x1920.dtsi"
 /*End of this file, DO NOT ADD ANYTHING HERE*/
