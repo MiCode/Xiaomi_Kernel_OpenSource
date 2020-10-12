@@ -1393,7 +1393,7 @@ void a6xx_gmu_register_config(struct adreno_device *adreno_dev)
 
 	/* Log size is encoded in (number of 4K units - 1) */
 	gmu_log_info = (gmu->gmu_log->gmuaddr & 0xFFFFF000) |
-		((LOGMEM_SIZE/SZ_4K - 1) & 0xFF);
+		((GMU_LOG_SIZE/SZ_4K - 1) & 0xFF);
 	gmu_core_regwrite(device, A6XX_GPU_GMU_CX_GMU_PWR_COL_CP_MSG,
 			gmu_log_info);
 
@@ -1591,7 +1591,7 @@ int a6xx_gmu_memory_init(struct adreno_device *adreno_dev)
 
 	/* GMU master log */
 	if (IS_ERR_OR_NULL(gmu->gmu_log))
-		gmu->gmu_log = reserve_gmu_kernel_block(gmu, 0, SZ_4K,
+		gmu->gmu_log = reserve_gmu_kernel_block(gmu, 0, GMU_LOG_SIZE,
 				GMU_NONCACHED_KERNEL);
 
 	return PTR_ERR_OR_ZERO(gmu->gmu_log);
