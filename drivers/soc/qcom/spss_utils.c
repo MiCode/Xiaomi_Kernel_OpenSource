@@ -34,8 +34,8 @@
 #include <linux/sizes.h>    /* SZ_4K */
 #include <linux/uaccess.h>  /* copy_from_user() */
 
-#include <soc/qcom/subsystem_notif.h>
-#include <soc/qcom/subsystem_restart.h>
+#include <linux/remoteproc.h>
+#include <linux/remoteproc/qcom_rproc.h>
 #include <soc/qcom/secure_buffer.h>     /* VMID_HLOS */
 
 #include <uapi/linux/ioctl.h>       /* ioctl() */
@@ -50,6 +50,8 @@ enum spss_firmware_type {
 	SPSS_FW_TYPE_PROD = 'p',
 	SPSS_FW_TYPE_NONE = 'z',
 };
+
+extern int qcom_spss_set_fw_name(struct rproc *rproc, const char *fw_name)
 
 static enum spss_firmware_type firmware_type = SPSS_FW_TYPE_TEST;
 static const char *dev_firmware_name;
@@ -934,7 +936,7 @@ static int spss_set_saved_uefi_apps_cmac(void)
 	return 0;
 }
 
-static int spss_utils_iar_callback(struct notifier_block *nb,
+static int spss_utils_rproc_callback(struct notifier_block *nb,
 				  unsigned long code,
 				  void *data)
 {
@@ -943,23 +945,20 @@ static int spss_utils_iar_callback(struct notifier_block *nb,
 		return NOTIFY_OK;
 
 	switch (code) {
-	case SUBSYS_BEFORE_SHUTDOWN:
-		pr_debug("[SUBSYS_BEFORE_SHUTDOWN] event.\n");
+	case QCOM_SSR_BEFORE_SHUTDOWN:
+		pr_debug("[QCOM_SSR_BEFORE_SHUTDOWN] event.\n");
 		break;
-	case SUBSYS_AFTER_SHUTDOWN:
-		pr_debug("[SUBSYS_AFTER_SHUTDOWN] event.\n");
+	case QCOM_SSR_AFTER_SHUTDOWN:
+		pr_debug("[QCOM_SSR_AFTER_SHUTDOWN] event.\n");
 		break;
-	case SUBSYS_BEFORE_POWERUP:
-		pr_debug("[SUBSYS_BEFORE_POWERUP] event.\n");
-		break;
-	case SUBSYS_AFTER_POWERUP:
-		pr_debug("[SUBSYS_AFTER_POWERUP] event.\n");
-		break;
-	case SUBSYS_BEFORE_AUTH_AND_RESET:
-		pr_debug("[SUBSYS_BEFORE_AUTH_AND_RESET] event.\n");
+	case QCOM_SSR_BEFORE_POWERUP:
+		pr_debug("[QCOM_SSR_BEFORE_POWERUP] event.\n");
 		/* Called on SSR as spss firmware is loaded by UEFI */
 		spss_set_fw_cmac(cmac_buf, sizeof(cmac_buf));
 		spss_set_saved_uefi_apps_cmac();
+		break;
+	case QCOM_SSR_AFTER_POWERUP:
+		pr_debug("[QCOM_SSR_AFTER_POWERUP] event.\n");
 		break;
 	default:
 		pr_err("unknown code [0x%x] .\n", (int) code);
@@ -978,6 +977,8 @@ static int spss_probe(struct platform_device *pdev)
 	int ret = 0;
 	struct device_node *np = NULL;
 	struct device *dev = &pdev->dev;
+	struct property *prop;
+	struct rproc *rproc;
 
 	np = pdev->dev.of_node;
 	spss_dev = dev;
@@ -1007,12 +1008,18 @@ static int spss_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	ret = subsystem_set_fwname("spss", firmware_name);
+	prop = of_find_property(np, "qcom,rproc-handle", NULL);
+	if (!prop)
+		return -EINVAL;
+
+	rproc = rproc_get_by_phandle(be32_to_cpup(prop->value));
+	ret = qcom_spss_set_fw_name(rproc, firmware_name);
 	if (ret < 0) {
 		if (ret != -EINVAL)
-			pr_err("fail to set firmware name for PIL (%d)\n", ret);
+			pr_err("fail to set firmware name for remoteproc (%d)\n", ret);
 		return -EPROBE_DEFER;
 	}
+	rproc_put(rproc);
 
 	spss_utils_dev = kzalloc(sizeof(*spss_utils_dev), GFP_KERNEL);
 	if (spss_utils_dev == NULL)
@@ -1030,9 +1037,9 @@ static int spss_probe(struct platform_device *pdev)
 	if (!iar_nb)
 		return -ENOMEM;
 
-	iar_nb->notifier_call = spss_utils_iar_callback;
+	iar_nb->notifier_call = spss_utils_rproc_callback;
 
-	iar_notif_handle = subsys_notif_register_notifier("spss", iar_nb);
+	iar_notif_handle = qcom_register_ssr_notifier("spss", iar_nb);
 	if (IS_ERR_OR_NULL(iar_notif_handle)) {
 		pr_err("register fail for IAR notifier\n");
 		kfree(iar_nb);
@@ -1052,7 +1059,7 @@ static int spss_remove(struct platform_device *pdev)
 	spss_destroy_sysfs(spss_dev);
 
 	if (!iar_notif_handle && !iar_nb)
-		subsys_notif_unregister_notifier(iar_notif_handle, iar_nb);
+		qcom_unregister_ssr_notifier(iar_notif_handle, iar_nb);
 
 	kfree(iar_nb);
 	iar_nb = 0;
@@ -1103,6 +1110,5 @@ static void __exit spss_exit(void)
 }
 module_exit(spss_exit)
 
-MODULE_SOFTDEP("pre: subsys-pil-tz");
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("Secure Processor Utilities");
