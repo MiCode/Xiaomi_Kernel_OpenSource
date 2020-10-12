@@ -2391,6 +2391,11 @@ static void mt6358_codec_init_reg(struct mt6358_priv *priv)
 	regmap_update_bits(priv->regmap, MT6358_ACCDET_CON13,
 			   0xFFFF, 0x700E);
 
+	/* Set HP_EINT trigger level to 2.0v */
+	regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON11,
+			   RG_EINTCOMPVTH_MASK_SFT,
+			   0x1 << RG_EINTCOMPVTH_SFT);
+
 	/* gpio miso driving set to 4mA */
 	regmap_write(priv->regmap, MT6358_DRV_CON3, 0x8888);
 
