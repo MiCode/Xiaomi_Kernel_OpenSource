@@ -161,6 +161,9 @@ static int lpm_offline_cpu(unsigned int cpu)
 {
 	struct device *dev = get_cpu_device(cpu);
 
+	if (!dev)
+		return 0;
+
 	dev_pm_qos_remove_notifier(dev, &dev_pm_qos_nb[cpu],
 				   DEV_PM_QOS_RESUME_LATENCY);
 	return 0;
@@ -169,6 +172,9 @@ static int lpm_offline_cpu(unsigned int cpu)
 static int lpm_online_cpu(unsigned int cpu)
 {
 	struct device *dev = get_cpu_device(cpu);
+
+	if (!dev)
+		return 0;
 
 	dev_pm_qos_add_notifier(dev, &dev_pm_qos_nb[cpu],
 				DEV_PM_QOS_RESUME_LATENCY);
