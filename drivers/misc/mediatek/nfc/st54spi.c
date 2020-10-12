@@ -35,9 +35,7 @@
 
 #include "st21nfc/st21nfc.h"
 
-#if (defined(ST21NFCD_MTK) || defined(ST21NFCD_MTK54))
 #include <linux/platform_data/spi-mt65xx.h>
-#endif // ST21NFCD_MTK
 
 /*
  * This supports access to SPI devices using normal userspace I/O calls.
@@ -100,7 +98,11 @@ struct st54spi_data {
 	int sehal_needs_poweron;
 	int se_is_poweron;
 	struct pinctrl *pctrl;
-	struct pinctrl_state *pctrl_mode_spi, *pctrl_mode_idle;
+	struct pinctrl_state *pctrl_mode_spi_csb, *pctrl_mode_spi_clk;
+	struct pinctrl_state *pctrl_mode_spi_mi, *pctrl_mode_spi_mo;
+	struct pinctrl_state *pctrl_mode_spi_csb_idle, *pctrl_mode_spi_clk_idle;
+	struct pinctrl_state *pctrl_mode_spi_mi_idle, *pctrl_mode_spi_mo_idle;
+
 };
 
 #define POWER_MODE_NONE -1
@@ -395,12 +397,25 @@ static void st54spi_power_off(struct st54spi_data *st54spi)
 
 	// Set NSS pin as highZ (ST54H and ST54J).
 
-	// Change NSS polarity to have NSS low.
-	ret = pinctrl_select_state(st54spi->pctrl, st54spi->pctrl_mode_idle);
-
+	ret = pinctrl_select_state(st54spi->pctrl, st54spi->pctrl_mode_spi_csb_idle);
 	if (ret < 0) {
 		dev_err(&st54spi->spi->dev,
-				"%s : change NSS management to High Z failed!\n", __func__);
+				"%s : change SPI management(CSB) to High Z failed!\n", __func__);
+	}
+	ret = pinctrl_select_state(st54spi->pctrl, st54spi->pctrl_mode_spi_clk_idle);
+	if (ret < 0) {
+		dev_err(&st54spi->spi->dev,
+				"%s : change SPI management(CLK) to High Z failed!\n", __func__);
+	}
+	ret = pinctrl_select_state(st54spi->pctrl, st54spi->pctrl_mode_spi_mi_idle);
+	if (ret < 0) {
+		dev_err(&st54spi->spi->dev,
+				"%s : change SPI management(MI) to High Z failed!\n", __func__);
+	}
+	ret = pinctrl_select_state(st54spi->pctrl, st54spi->pctrl_mode_spi_mo_idle);
+	if (ret < 0) {
+		dev_err(&st54spi->spi->dev,
+				"%s : change SPI management(MO) to High Z failed!\n", __func__);
 	}
 
 	// Set SE_PWR_REQ / SE_nRESET to low
@@ -450,11 +465,32 @@ static void st54spi_power_on(struct st54spi_data *st54spi)
 	}
 
 	// Set NSS pin for the SPI function.
-	ret = pinctrl_select_state(st54spi->pctrl, st54spi->pctrl_mode_spi);
+	ret = pinctrl_select_state(st54spi->pctrl, st54spi->pctrl_mode_spi_csb);
 
 	if (ret < 0) {
 		dev_err(&st54spi->spi->dev,
-				"%s : change NSS management to SPI failed!\n", __func__);
+				"%s : change management to SPI-CSB failed!\n", __func__);
+	}
+
+	ret = pinctrl_select_state(st54spi->pctrl, st54spi->pctrl_mode_spi_clk);
+
+	if (ret < 0) {
+		dev_err(&st54spi->spi->dev,
+				"%s : change management to SPI-CLK failed!\n", __func__);
+	}
+
+	ret = pinctrl_select_state(st54spi->pctrl, st54spi->pctrl_mode_spi_mi);
+
+	if (ret < 0) {
+		dev_err(&st54spi->spi->dev,
+				"%s : change management to SPI-MI failed!\n", __func__);
+	}
+
+	ret = pinctrl_select_state(st54spi->pctrl, st54spi->pctrl_mode_spi_mo);
+
+	if (ret < 0) {
+		dev_err(&st54spi->spi->dev,
+				"%s : change management to SPI-MO failed!\n", __func__);
 	}
 
 	usleep_range(4000, 5000);
@@ -981,27 +1017,75 @@ static int st54spi_parse_dt(struct device *dev, struct st54spi_data *pdata)
 		return -1;
 	}
 
-#if (defined(ST21NFCD_MTK) || defined(ST21NFCD_MTK54))
-	pdata->pctrl_mode_spi = pinctrl_lookup_state(pdata->pctrl, "pinctrl_state_mode_spi");
-#else // QCOM, QCOM54
-	pdata->pctrl_mode_spi = pinctrl_lookup_state(pdata->pctrl, "qupv3_se8_spi_active");
-#endif
-	if (IS_ERR(pdata->pctrl_mode_spi)) {
-		dev_err(dev, "%s: Unable to find pinctrl_state_mode_spi: %d\n",
-			__FILE__, PTR_ERR(pdata->pctrl_mode_spi));
+	pdata->pctrl_mode_spi_csb = pinctrl_lookup_state(pdata->pctrl, "pinctrl_nfc_spi_csb");
+
+	if (IS_ERR(pdata->pctrl_mode_spi_csb)) {
+		dev_err(dev, "%s: Unable to find pinctrl_nfc_spi_csb: %d\n",
+			__FILE__, PTR_ERR(pdata->pctrl_mode_spi_csb));
 		return -1;
 	}
 
-#if (defined(ST21NFCD_MTK) || defined(ST21NFCD_MTK54))
-	pdata->pctrl_mode_idle = pinctrl_lookup_state(pdata->pctrl, "pinctrl_state_mode_idle");
-#else // QCOM, QCOM54
-	pdata->pctrl_mode_idle = pinctrl_lookup_state(pdata->pctrl, "qupv3_se8_spi_sleep");
-#endif
-	if (IS_ERR(pdata->pctrl_mode_idle)) {
-		dev_err(dev, "%s: Unable to find pinctrl_state_mode_idle: %d\n",
-			__FILE__, PTR_ERR(pdata->pctrl_mode_idle));
+	pdata->pctrl_mode_spi_clk = pinctrl_lookup_state(pdata->pctrl, "pinctrl_nfc_spi_clk");
+
+	if (IS_ERR(pdata->pctrl_mode_spi_clk)) {
+		dev_err(dev, "%s: Unable to find pinctrl_nfc_spi_clk: %d\n",
+			__FILE__, PTR_ERR(pdata->pctrl_mode_spi_clk));
 		return -1;
 	}
+
+	pdata->pctrl_mode_spi_mi = pinctrl_lookup_state(pdata->pctrl, "pinctrl_nfc_spi_mi");
+
+	if (IS_ERR(pdata->pctrl_mode_spi_mi)) {
+		dev_err(dev, "%s: Unable to find pinctrl_nfc_spi_mi: %d\n",
+			__FILE__, PTR_ERR(pdata->pctrl_mode_spi_mi));
+		return -1;
+	}
+
+	pdata->pctrl_mode_spi_mo = pinctrl_lookup_state(pdata->pctrl, "pinctrl_nfc_spi_mo");
+
+	if (IS_ERR(pdata->pctrl_mode_spi_mo)) {
+		dev_err(dev, "%s: Unable to find pinctrl_nfc_spi_mo: %d\n",
+			__FILE__, PTR_ERR(pdata->pctrl_mode_spi_mo));
+		return -1;
+	}
+
+
+	pdata->pctrl_mode_spi_csb_idle =
+		pinctrl_lookup_state(pdata->pctrl, "pinctrl_nfc_spi_csb_idle");
+
+	if (IS_ERR(pdata->pctrl_mode_spi_csb_idle)) {
+		dev_err(dev, "%s: Unable to find pinctrl_nfc_spi_csb_idle: %d\n",
+			__FILE__, PTR_ERR(pdata->pctrl_mode_spi_csb_idle));
+		return -1;
+	}
+
+	pdata->pctrl_mode_spi_clk_idle =
+		pinctrl_lookup_state(pdata->pctrl, "pinctrl_nfc_spi_clk_idle");
+
+	if (IS_ERR(pdata->pctrl_mode_spi_clk_idle)) {
+		dev_err(dev, "%s: Unable to find pinctrl_nfc_spi_clk_idle: %d\n",
+			__FILE__, PTR_ERR(pdata->pctrl_mode_spi_clk_idle));
+		return -1;
+	}
+
+	pdata->pctrl_mode_spi_mi_idle =
+		pinctrl_lookup_state(pdata->pctrl, "pinctrl_nfc_spi_mi_idle");
+
+	if (IS_ERR(pdata->pctrl_mode_spi_mi_idle)) {
+		dev_err(dev, "%s: Unable to find pinctrl_nfc_spi_mi_idle: %d\n",
+			__FILE__, PTR_ERR(pdata->pctrl_mode_spi_mi_idle));
+		return -1;
+	}
+
+	pdata->pctrl_mode_spi_mo_idle =
+		pinctrl_lookup_state(pdata->pctrl, "pinctrl_nfc_spi_mo_idle");
+
+	if (IS_ERR(pdata->pctrl_mode_spi_mo_idle)) {
+		dev_err(dev, "%s: Unable to find pinctrl_nfc_spi_mo_idle: %d\n",
+			__FILE__, PTR_ERR(pdata->pctrl_mode_spi_mo_idle));
+		return -1;
+	}
+
 	dev_info(dev, "[dsc]%s : pinctrl initialized\n", __func__);
 
 	dev_info(dev, "[dsc]%s : get power_or_nreset_gpio[%d]\n",
@@ -1049,7 +1133,8 @@ static void st54spi_st21nfc_cb(int dir, void *data)
 #endif  // !MODULE
 
 /* Change CS_TIME for ST54 */
-#if (defined(ST21NFCD_MTK) || defined(ST21NFCD_MTK54))
+#if ((defined(ST21NFCD_MTK) || defined(ST21NFCD_MTK54)) && \
+	!defined(ST21NFCD_MTK58))
 // Unit is 1/109.2 us.
 static struct mtk_chip_config st54spi_chip_info = {
 	.sample_sel = 0,
@@ -1058,16 +1143,6 @@ static struct mtk_chip_config st54spi_chip_info = {
 	.cs_holdtime = 0,
 	.cs_idletime = 0,
 };
-#elif (defined(ST21NFCD_MTK58))
-extern static int mtk_spi_set_cs_timing(struct spi_device *spi,
-					struct spi_delay *setup,
-					struct spi_delay *hold,
-					struct spi_delay *inactive);
-
-static struct spi_delay st54spi_delay = {
-	.unit = SPI_DELAY_UNIT_USECS,
-	.value = 20;
-};
 #endif
 
 static int st54spi_probe(struct spi_device *spi)
@@ -1075,11 +1150,7 @@ static int st54spi_probe(struct spi_device *spi)
 	struct st54spi_data *st54spi;
 	int status, ret;
 	unsigned long minor;
-#if (defined(ST21NFCD_MTK))
-	struct mtk_chip_config *chip_config = spi->controller_data;
-#elif (defined(ST21NFCD_MTK54))
 	struct mtk_chip_config *chip_config = NULL;
-#endif
 
 	/*
 	 * st54spi should never be referenced in DT without a specific
@@ -1135,7 +1206,8 @@ static int st54spi_probe(struct spi_device *spi)
 	// st54spi_chip_info.cs_holdtime = period;
 	// }
 
-#if (defined(ST21NFCD_MTK) || defined(ST21NFCD_MTK54))
+#if ((defined(ST21NFCD_MTK) || defined(ST21NFCD_MTK54)) && \
+	!defined(ST21NFCD_MTK58))
 	// set timings for ST54
 	if (chip_config == NULL) {
 		spi->controller_data = (void *)&st54spi_chip_info;
@@ -1146,14 +1218,6 @@ static int st54spi_probe(struct spi_device *spi)
 		chip_config->cs_holdtime = st54spi_chip_info.cs_holdtime;
 		dev_dbg(&spi->dev, "Added into chip_info!\n");
 	}
-#elif (defined(ST21NFCD_QCOM54))
-	// this method exists since kernel 5.3
-	// it uses u8 parameter in kernel 5.4 (clk count) and spi_delay parameter in kernel 5.5 (clk_count fobidden)
-	// target 10us delay ==> use CLK=4MHz and value 31 (even if u8 data, some platforms limit to 0-31)
-	spi_set_cs_timing(spi, 31, 0, 0);
-#elif (defined(ST21NFCD_MTK58))
-	// MTK backported method from 5.5 into 5.4
-	(void)mtk_spi_set_cs_timing(spi, &st54spi_delay, NULL, NULL);
 #else // ST21NFCD_QCOM or ST21NFCD_QCOM54
 	dev_err(&spi->dev, "%s : TSU_NSS configuration be implemented!\n", __func__);
 	// platform-specific method to configure the delay beween NSS slave

@@ -9,7 +9,7 @@
 
 // Options for the kernel driver -- to be unifdef before release optionally.
 //#define ST21NFCD_MTK // MTK platform up to kernel release 4.19
-#define ST21NFCD_MTK54 // MTK platform kernel 5.4
+#define ST21NFCD_MTK // MTK platform up to kernel release 4.19
 //#define ST21NFCD_MTK58 // MTK platform kernel 5.8
 //#define ST21NFCD_QCOM // QCOM platform  up to kernel release 4.19
 //#define ST21NFCD_QCOM54 // QCOM platform kernel 5.4
@@ -46,8 +46,5 @@
 void st21nfc_register_st54spi_cb(void (*cb)(int, void *), void *data);
 void st21nfc_unregister_st54spi_cb(void);
 
-#if (defined(ST21NFCD_MTK54) || defined (ST21NFCD_QCOM54))
 #define ACCESS_OK(x,y,z) access_ok(y,z)
-#else
-#define ACCESS_OK(x,y,z) access_ok(x,y,z)
-#endif
+

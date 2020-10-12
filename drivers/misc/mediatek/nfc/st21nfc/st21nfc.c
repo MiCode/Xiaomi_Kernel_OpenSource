@@ -41,31 +41,6 @@
 #include <linux/of_irq.h>
 #include "st21nfc.h"
 
-#ifdef ST21NFCD_MTK
-
-// Kernel 4.9 on some platforms is using legacy drivers (kernel-4.9-lc)
-// I2C: CONFIG_MACH_MT6735 / 6735M / 6753 / 6580 / 6755 use legacy driver
-// CLOCK: 4.9 has right includes, no need for special handling.
-// GPIO : same as I2C -- we use the same condition at the moment.
-//#if (defined(CONFIG_MACH_MT6735) || defined(CONFIG_MACH_MT6735M) ||
-//    defined(CONFIG_MACH_MT6753) || defined(CONFIG_MACH_MT6580) ||
-//	defined(CONFIG_MACH_MT6755))
-// test on I2C special define instead of listing the platforms
-#ifdef CONFIG_MTK_I2C_EXTENSION
-#define KRNMTKLEGACY_I2C 1
-#define KRNMTKLEGACY_GPIO 1
-#define KRNMTKLEGACY_CLK 1
-#endif
-
-/* Set NO_MTK_CLK_MANAGEMENT if using xtal integration */
-#ifndef NO_MTK_CLK_MANAGEMENT
-#ifdef KRNMTKLEGACY_CLK
-#include <mt_clkbuf_ctl.h>
-#else
-#include <mtk_clkbuf_ctl.h>
-#endif
-#endif
-#endif // ST21NFCD_MTK
 
 #define MAX_BUFFER_SIZE 260
 #define HEADER_LENGTH 3
@@ -187,66 +162,12 @@ struct st21nfc_device {
  * this routine can be extended to select from multiple
  * sources based on clk_src_name.
  */
-#if (defined(ST21NFCD_QCOM) || defined(ST21NFCD_QCOM54) || defined(ST21NFCD_MTK))
-static int st21nfc_clock_select(struct st21nfc_device *st21nfc_dev)
-{
-#if (defined(ST21NFCD_MTK))
-#ifndef NO_MTK_CLK_MANAGEMENT
-	/*If use XTAL mode, please remove this function "clk_buf_ctrl" to
-	 * avoid additional power consumption.
-	 */
-	clk_buf_ctrl(CLK_BUF_NFC, true);
-#endif
-	return 0;
-#elif (defined(ST21NFCD_QCOM) || defined(ST21NFCD_QCOM54))
-	int ret = 0;
-
-	st21nfc_dev->s_clk = clk_get(&st21nfc_dev->client->dev, "nfc_ref_clk");
-
-	/* if NULL we assume external crystal and dont fail */
-	if (IS_ERR_OR_NULL(st21nfc_dev->s_clk))
-		return 0;
-
-	if (st21nfc_dev->clk_run == false) {
-		ret = clk_prepare_enable(st21nfc_dev->s_clk);
-
-		if (ret)
-			goto err_clk;
-
-		st21nfc_dev->clk_run = true;
-	}
-	return ret;
-
-err_clk:
-	return -EINVAL;
-#else  //ST21NFCD_MTK54
-	return 0;
-#endif  // ST21NFCD_MTK
-}
-#endif
 
 /*
  * Routine to disable clocks
  */
 static int st21nfc_clock_deselect(struct st21nfc_device *st21nfc_dev) {
-#if (defined(ST21NFCD_MTK))
-#ifndef NO_MTK_CLK_MANAGEMENT
-	clk_buf_ctrl(CLK_BUF_NFC, false);
-#endif
 	return 0;
-#elif (defined(ST21NFCD_QCOM) || defined(ST21NFCD_QCOM54))
-	/* if NULL we assume external crystal and dont fail */
-	if (IS_ERR_OR_NULL(st21nfc_dev->s_clk))
-		return 0;
-
-	if (st21nfc_dev->clk_run == true) {
-		clk_disable_unprepare(st21nfc_dev->s_clk);
-		st21nfc_dev->clk_run = false;
-	}
-	return 0;
-#else  //ST21NFCD_MTK54
-	return 0;
-#endif  // ST21NFCD_MTK
 }
 
 static void st21nfc_disable_irq(struct st21nfc_device *st21nfc_dev)
@@ -877,25 +798,6 @@ static unsigned int st21nfc_poll(struct file *file, poll_table *wait)
 	return mask;
 }
 
-#ifdef ST21NFCD_MTK
-#ifndef KRNMTKLEGACY_GPIO
-static int st21nfc_platform_probe(struct platform_device *pdev)
-{
-	if (enable_debug_log)
-		pr_debug("%s\n", __func__);
-
-	return 0;
-}
-
-static int st21nfc_platform_remove(struct platform_device *pdev)
-{
-	if (enable_debug_log)
-		pr_debug("%s\n", __func__);
-
-	return 0;
-}
-#endif /* KRNMTKLEGACY_GPIO */
-#endif /* ST21NFCD_MTK */
 
 static const struct file_operations st21nfc_dev_fops = {
 	.owner = THIS_MODULE,
@@ -1051,7 +953,7 @@ static struct attribute_group st21nfc_attr_grp = {
 	.attrs = st21nfc_attrs,
 };
 
-#ifndef ST21NFCD_MTK
+// QCOM and MTK54 use standard GPIO definition
 static const struct acpi_gpio_params irq_gpios = {0, 0, false};
 static const struct acpi_gpio_params reset_gpios = {1, 0, false};
 static const struct acpi_gpio_params pidle_gpios = {2, 0, false};
@@ -1063,7 +965,6 @@ static const struct acpi_gpio_mapping acpi_st21nfc_gpios[] = {
 	{"pidle-gpios", &pidle_gpios, 1},
 	{"clkreq-gpios", &clkreq_gpios, 1},
 };
-#endif
 
 static int st21nfc_probe(struct i2c_client *client,
 						 const struct i2c_device_id *id)
@@ -1071,10 +972,6 @@ static int st21nfc_probe(struct i2c_client *client,
 	int ret;
 	struct st21nfc_device *st21nfc_dev;
 	struct device *dev = &client->dev;
-#ifdef ST21NFCD_MTK
-	int r;
-	struct device_node *np = dev->of_node;
-#endif  // ST21NFCD_MTK
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		pr_err("%s : need I2C_FUNC_I2C\n", __func__);
@@ -1121,92 +1018,27 @@ static int st21nfc_probe(struct i2c_client *client,
 	client->adapter->retries = 0;
 
 // QCOM and MTK54 use standard GPIO definition
-#ifndef ST21NFCD_MTK
 	ret = acpi_dev_add_driver_gpios(
 		ACPI_COMPANION(dev), acpi_st21nfc_gpios);
 	if (ret)
 		pr_debug("Unable to add GPIO mapping table\n");
-#else   // ST21NFCD_MTK
-	np = of_find_compatible_node(NULL, NULL, "mediatek,nfc-gpio-v2");
-	if (!np) {
-		pr_err("%s : cannot find mediatek,nfc-gpio-v2 in DTS.\n",
-			__func__);
-		return -ENODEV;
-	}
-#endif  // ST21NFCD_MTK
 
-#ifndef ST21NFCD_MTK
+// QCOM and MTK54 use standard GPIO definition
 	st21nfc_dev->gpiod_irq = devm_gpiod_get(dev, "irq", GPIOD_IN);
-#else  // ST21NFCD_MTK
-	r = of_get_named_gpio(np, "gpio-irq-std", 0);
-	if (!gpio_is_valid(r)) {
-		pr_err("%s: get NFC IRQ GPIO failed (%d)", __FILE__, r);
-		return -ENODEV;
-	}
-	st21nfc_dev->gpiod_irq = gpio_to_desc(r);
-	ret = gpio_request(r,
-#if (!defined(CONFIG_MTK_GPIO) || defined(CONFIG_MTK_GPIOLIB_STAND))
-					 "gpio-irq-std"
-#else
-					 "gpio-irq"
-#endif
-	);
-	if (ret) {
-		pr_err("%s : gpio_request failed\n", __FILE__);
-		return -ENODEV;
-	}
-	pr_info("%s : IRQ GPIO = %d\n", __func__, r);
-	ret = gpio_direction_input(r);
-	if (ret) {
-		pr_err("%s : gpio_direction_input failed\n", __FILE__);
-		return -ENODEV;
-	}
-#endif  // ST21NFCD_MTK
 	if (IS_ERR_OR_NULL(st21nfc_dev->gpiod_irq)) {
 		pr_err("%s : Unable to request irq-gpios\n", __func__);
 		return -ENODEV;
 	}
 
-#ifndef ST21NFCD_MTK
+// QCOM and MTK54 use standard GPIO definition
 	st21nfc_dev->gpiod_reset = devm_gpiod_get(dev, "reset", GPIOD_OUT_HIGH);
-#else  // ST21NFCD_MTK
-	r = of_get_named_gpio(np, "gpio-rst-std", 0);
-	if (!gpio_is_valid(r)) {
-		pr_err("%s: get NFC RST GPIO failed (%d)", __FILE__, r);
-		return -ENODEV;
-	}
-	st21nfc_dev->gpiod_reset = gpio_to_desc(r);
-	ret = gpio_request(r,
-#if (!defined(CONFIG_MTK_GPIO) || defined(CONFIG_MTK_GPIOLIB_STAND))
-					 "gpio-rst-std"
-#else
-					 "gpio-rst"
-#endif
-	);
-	if (ret) {
-		pr_err("%s : gpio_request failed\n", __FILE__);
-		return -ENODEV;
-	}
-	pr_info("%s : RST GPIO = %d\n", __func__, r);
-	ret = gpio_direction_output(r, 1);
-	if (ret) {
-		pr_err("%s : gpio_direction_output failed\n", __FILE__);
-		return -ENODEV;
-	}
-	gpio_set_value(r, 1);
-#endif  // ST21NFCD_MTK
 	if (IS_ERR_OR_NULL(st21nfc_dev->gpiod_reset)) {
 		pr_warn("%s : Unable to request reset-gpios\n", __func__);
 		return -ENODEV;
 	}
 
-#ifndef ST21NFCD_MTK
+// QCOM and MTK54 use standard GPIO definition
 	st21nfc_dev->gpiod_pidle = devm_gpiod_get(dev, "pidle", GPIOD_IN);
-#else   // ST21NFCD_MTK
-	ret = of_get_named_gpio(np, "gpio-pidle-std", 0);
-	if (gpio_is_valid(ret))
-		st21nfc_dev->gpiod_pidle = gpio_to_desc(ret);
-#endif  // ST21NFCD_MTK
 	if (IS_ERR_OR_NULL(st21nfc_dev->gpiod_pidle)) {
 		pr_warn("[OPTIONAL] %s: Unable to request pidle-gpio\n",
 			__func__);
@@ -1247,50 +1079,8 @@ static int st21nfc_probe(struct i2c_client *client,
 		INIT_WORK(&(st21nfc_dev->st_p_work), st21nfc_pstate_wq);
 	}
 
-#if (defined(ST21NFCD_QCOM) || defined(ST21NFCD_QCOM54))
-	st21nfc_dev->gpiod_clkreq = devm_gpiod_get(dev, "clkreq", GPIOD_IN);
-	if (IS_ERR_OR_NULL(st21nfc_dev->gpiod_clkreq)) {
-		pr_warn("[OPTIONAL] %s : Unable to request clkreq-gpios\n",
-			__func__);
-		ret = 0;
-	} else {
-		if (!device_property_read_bool(dev, "st,clk_pinctrl")) {
-			pr_debug("[dsc]%s:[OPTIONAL] clk_pinctrl not set\n",
-				__func__);
-			st21nfc_dev->pinctrl_en = 0;
-		} else {
-			pr_debug("[dsc]%s:[OPTIONAL] clk_pinctrl set\n",
-				__func__);
-			st21nfc_dev->pinctrl_en = 1;
-		}
 
-		/* Set clk_run when clock pinctrl already enabled */
-		if (st21nfc_dev->pinctrl_en != 0)
-			st21nfc_dev->clk_run = true;
-
-		ret = st21nfc_clock_select(st21nfc_dev);
-		if (ret < 0) {
-			pr_err("%s : st21nfc_clock_select failed\n", __func__);
-			goto err_sysfs_power_stats;
-		}
-	}
-#elif (defined (ST21NFCD_MTK))
-	ret = st21nfc_clock_select(st21nfc_dev);
-	if (ret < 0) {
-		pr_err("%s : st21nfc_clock_select failed\n", __func__);
-		goto err_sysfs_power_stats;
-	}
-#endif  // ST21NFCD_MTK
-
-#ifndef ST21NFCD_MTK // QCOM and MTK54 use standard GPIO definition
 	client->irq = gpiod_to_irq(st21nfc_dev->gpiod_irq);
-#else   // ST21NFCD_MTK
-	np = of_find_compatible_node(NULL, NULL, "mediatek,irq_nfc-eint");
-	if (np) {
-		client->irq = irq_of_parse_and_map(np, 0);
-		pr_info("%s : MT IRQ GPIO = %d\n", __func__, client->irq);
-	}
-#endif  // ST21NFCD_MTK
 
 	/* init mutex and queues */
 	init_waitqueue_head(&st21nfc_dev->read_wq);
@@ -1332,9 +1122,6 @@ err_sysfs_create_group_failed:
 	misc_deregister(&st21nfc_dev->st21nfc_device);
 err_misc_register:
 	mutex_destroy(&st21nfc_dev->read_mutex);
-#if (defined(ST21NFCD_QCOM) || defined(ST21NFCD_QCOM54) || defined(ST21NFCD_MTK))
-err_sysfs_power_stats:
-#endif
 	if (!IS_ERR_OR_NULL(st21nfc_dev->gpiod_pidle)) {
 		sysfs_remove_file(&client->dev.kobj,
 			&dev_attr_power_stats.attr);
@@ -1432,26 +1219,15 @@ static int st21nfc_resume(struct device *device)
 static const struct i2c_device_id st21nfc_id[] = {{"st21nfc", 0}, {} };
 
 static const struct of_device_id st21nfc_of_match[] = {
-#ifndef ST21NFCD_MTK
 	{
 		.compatible = "st,st21nfc",
 	},
-#else
-	{	.compatible = "mediatek,nfc" },
-#endif
 	{ } };
 MODULE_DEVICE_TABLE(of, st21nfc_of_match);
 
 static const struct dev_pm_ops st21nfc_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(st21nfc_suspend, st21nfc_resume)};
 
-#if (defined(ST21NFCD_QCOM) || defined(ST21NFCD_QCOM54))
-static const struct acpi_device_id st21nfc_acpi_match[] = {{"SMO2104"}, {}};
-MODULE_DEVICE_TABLE(acpi, st21nfc_acpi_match);
-// #elif (defined(ST21NFCD_MTK54))
-// static const struct acpi_device_id st21nfc_acpi_match[] = {{"SMO2104"}, {}};
-// MODULE_DEVICE_TABLE(acpi, st21nfc_acpi_match);
-#endif
 
 static struct i2c_driver st21nfc_driver = {
 	.id_table = st21nfc_id,
@@ -1463,45 +1239,15 @@ static struct i2c_driver st21nfc_driver = {
 		.of_match_table = st21nfc_of_match,
 		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
 		.pm = &st21nfc_pm_ops,
-#ifndef ST21NFCD_MTK
 		.acpi_match_table = ACPI_PTR(st21nfc_acpi_match),
-#endif
 		},
 };
 
-#ifdef ST21NFCD_MTK
-#ifndef KRNMTKLEGACY_GPIO
-/*  platform driver */
-static const struct of_device_id nfc_dev_of_match[] = {
-	{
-		.compatible = "mediatek,nfc-gpio-v2",
-	},
-	{ },
-};
-
-static struct platform_driver st21nfc_platform_driver = {
-	.probe = st21nfc_platform_probe,
-	.remove = st21nfc_platform_remove,
-	.driver = {
-			.name = I2C_ID_NAME,
-			.owner = THIS_MODULE,
-			.of_match_table = nfc_dev_of_match,
-		},
-};
-#endif /* KRNMTKLEGACY_GPIO */
-#endif /* ST21NFCD_MTK */
 
 /* module load/unload record keeping */
 static int __init st21nfc_dev_init(void)
 {
 	pr_info("Loading st21nfc driver\n");
-#ifdef ST21NFCD_MTK
-#ifndef KRNMTKLEGACY_GPIO
-	platform_driver_register(&st21nfc_platform_driver);
-	if (enable_debug_log)
-		pr_debug("Loading st21nfc i2c driver\n");
-#endif
-#endif
 	return i2c_add_driver(&st21nfc_driver);
 }
 
