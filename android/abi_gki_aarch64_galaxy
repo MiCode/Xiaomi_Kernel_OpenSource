@@ -558,6 +558,7 @@
   devm_gpio_request
   devm_gpio_request_one
   devm_gpiochip_add_data
+  devm_gpiod_get
   devm_gpiod_get_optional
   devm_iio_channel_get
   devm_iio_device_alloc
@@ -1100,6 +1101,7 @@
   i2c_adapter_type
   i2c_add_adapter
   i2c_add_numbered_adapter
+  i2c_bit_add_numbered_bus
   i2c_bus_type
   i2c_del_adapter
   i2c_del_driver
