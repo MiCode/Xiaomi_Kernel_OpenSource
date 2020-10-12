@@ -23,6 +23,8 @@
 #include <linux/spinlock.h>
 #include <linux/types.h>
 
+#include "../../qcom-io-pgtable.h"
+
 /* Configuration registers */
 #define ARM_SMMU_GR0_sCR0		0x0
 #define ARM_SMMU_sCR0_VMID16EN		BIT(31)
@@ -495,7 +497,7 @@ struct arm_smmu_domain {
 	struct mutex			init_mutex; /* Protects smmu pointer */
 	spinlock_t			cb_lock; /* Serialises ATS1* ops */
 	spinlock_t			sync_lock; /* Serialises TLB syncs */
-	struct io_pgtable_cfg		pgtbl_cfg;
+	struct qcom_io_pgtable_info	pgtbl_info;
 	DECLARE_BITMAP(attributes, DOMAIN_ATTR_EXTENDED_MAX);
 	u32				secure_vmid;
 	struct list_head		pte_info_list;
