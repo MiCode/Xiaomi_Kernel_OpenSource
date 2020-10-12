@@ -653,16 +653,6 @@ config MSM_SUSPEND_STATS_FIRST_BUCKET
 endif # MSM_IDLE_STATS
 endif # MSM_PM
 
-config QTI_DDR_STATS_LOG
-	tristate "Qualcomm Technologies Inc (QTI) DDR Stats Driver"
-	depends on QCOM_RPMH
-	depends on QGKI
-	help
-	  This option enables a driver which reads DDR statistical information
-	  from AOP shared memory location such as DDR low power modes and DDR
-	  frequency residency and counts. The driver outputs information using
-	  sysfs.
-
 config QTI_SYS_PM_VX
 	tristate "Qualcomm Technologies Inc (QTI) System PM Violators Driver"
 	depends on QMP_DEBUGFS_CLIENT
