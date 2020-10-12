@@ -18,6 +18,7 @@
 
 struct crypto_vops_qti_entry {
 	void __iomem *icemmio_base;
+	void __iomem *hwkm_slave_mmio_base;
 	uint32_t ice_hw_version;
 	uint8_t ice_dev_type[QTI_ICE_TYPE_NAME_LEN];
 	uint32_t flags;
@@ -25,7 +26,7 @@ struct crypto_vops_qti_entry {
 
 #if IS_ENABLED(CONFIG_QTI_CRYPTO_COMMON)
 int crypto_qti_init_crypto(struct device *dev, void __iomem *mmio_base,
-			   void **priv_data);
+			   void __iomem *hwkm_slave_mmio_base, void **priv_data);
 int crypto_qti_enable(void *priv_data);
 void crypto_qti_disable(void *priv_data);
 int crypto_qti_resume(void *priv_data);
@@ -43,6 +44,7 @@ int crypto_qti_derive_raw_secret(void *priv_data,
 #else
 static inline int crypto_qti_init_crypto(struct device *dev,
 					 void __iomem *mmio_base,
+					 void __iomem *hwkm_slave_mmio_base,
 					 void **priv_data)
 {
 	return -EOPNOTSUPP;

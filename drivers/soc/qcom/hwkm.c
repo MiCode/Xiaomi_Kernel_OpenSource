@@ -1021,17 +1021,15 @@ static int qti_hwkm_get_device_tree_data(struct platform_device *pdev,
 
 	hwkm_dev->km_res = platform_get_resource_byname(pdev,
 				IORESOURCE_MEM, "km_master");
-	hwkm_dev->ice_res = platform_get_resource_byname(pdev,
-				IORESOURCE_MEM, "ice_slave");
-	if (!hwkm_dev->km_res || !hwkm_dev->ice_res) {
+
+	if (!hwkm_dev->km_res) {
 		pr_err("%s: No memory available for IORESOURCE\n", __func__);
 		return -ENOMEM;
 	}
 
 	hwkm_dev->km_base = devm_ioremap_resource(dev, hwkm_dev->km_res);
-	hwkm_dev->ice_base = devm_ioremap_resource(dev, hwkm_dev->ice_res);
 
-	if (IS_ERR(hwkm_dev->km_base) || IS_ERR(hwkm_dev->ice_base)) {
+	if (IS_ERR(hwkm_dev->km_base)) {
 		ret = PTR_ERR(hwkm_dev->km_base);
 		pr_err("%s: Error = %d mapping HWKM memory\n", __func__, ret);
 		goto out;
@@ -1213,9 +1211,15 @@ static int qti_hwkm_set_tpkey(void)
 	return 0;
 }
 
-int qti_hwkm_init(void)
+int qti_hwkm_init(void __iomem *hwkm_slave_mmio_base)
 {
 	int ret = 0;
+
+	if (!hwkm_slave_mmio_base) {
+		pr_err("%s: HWKM ICE slave mmio invalid\n", __func__);
+		return -EINVAL;
+	}
+	km_device->ice_base = hwkm_slave_mmio_base;
 
 	ret = qti_hwkm_ice_init_sequence(km_device);
 	if (ret) {

@@ -58,7 +58,7 @@ static int ice_check_version(struct crypto_vops_qti_entry *ice_entry)
 }
 
 int crypto_qti_init_crypto(struct device *dev, void __iomem *mmio_base,
-			   void **priv_data)
+			   void __iomem *hwkm_slave_mmio_base, void **priv_data)
 {
 	int err = 0;
 	struct crypto_vops_qti_entry *ice_entry;
@@ -70,6 +70,7 @@ int crypto_qti_init_crypto(struct device *dev, void __iomem *mmio_base,
 		return -ENOMEM;
 
 	ice_entry->icemmio_base = mmio_base;
+	ice_entry->hwkm_slave_mmio_base = hwkm_slave_mmio_base;
 	ice_entry->flags = 0;
 
 	err = ice_check_version(ice_entry);
