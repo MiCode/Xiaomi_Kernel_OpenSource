@@ -581,10 +581,17 @@ static long spss_utils_ioctl(struct file *file,
 		}
 
 		if (is_iar_active) {
-			memcpy(&is_ssr_disabled, data, size);
-			pr_debug("SSR disabled state updated to: %d\n",
+			uint32_t tmp = 0;
+
+			memcpy(&tmp, data, sizeof(tmp));
+			is_ssr_disabled = (bool) tmp; /* u32 to bool */
+
+			pr_info("SSR disabled state updated to: %d\n",
 				 is_ssr_disabled);
 		}
+
+		pr_info("is_iar_active [%d] is_ssr_disabled [%d].\n",
+			is_iar_active, is_ssr_disabled);
 		break;
 
 	default:
@@ -1200,6 +1207,7 @@ static int spss_probe(struct platform_device *pdev)
 	}
 	mutex_init(&event_lock);
 
+	is_iar_active = false;
 	is_ssr_disabled = false;
 
 	pr_info("Probe completed successfully, [%s].\n", firmware_name);
