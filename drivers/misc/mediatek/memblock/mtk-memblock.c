@@ -260,6 +260,7 @@ static int __init mb_init(void)
 {
 	int ret;
 
+	return 0;
 	ret = mb_ka_init();
 	if (ret) {
 		pr_info("mb_ka_init failed: %d", ret);
