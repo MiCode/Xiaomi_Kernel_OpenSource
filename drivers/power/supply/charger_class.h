@@ -50,6 +50,15 @@ struct charger_device {
 	bool is_polling_mode;
 };
 
+enum charger_property {
+	CHARGER_PROP_BLEED_DISCHARGE,
+};
+
+union charger_propval {
+	int intval;
+	const char *strval;
+};
+
 struct charger_ops {
 	int (*suspend)(struct charger_device *dev, pm_message_t state);
 	int (*resume)(struct charger_device *dev);
@@ -157,6 +166,13 @@ struct charger_ops {
 	int (*enable_hidden_mode)(struct charger_device *dev, bool en);
 	int (*get_ctd_dischg_status)(struct charger_device *dev, u8 *status);
 	int (*enable_hz)(struct charger_device *dev, bool en);
+
+	int (*set_property)(struct charger_device *dev,
+			    enum charger_property prop,
+			    union charger_propval *val);
+	int (*get_property)(struct charger_device *dev,
+			    enum charger_property prop,
+			    union charger_propval *val);
 };
 
 static inline void *charger_dev_get_drvdata(
@@ -306,6 +322,13 @@ extern int charger_dev_enable_force_typec_otp(struct charger_device *dev,
 					      bool en);
 extern int charger_dev_get_ctd_dischg_status(struct charger_device *dev,
 					     u8 *status);
+
+extern int charger_dev_set_property(struct charger_device *dev,
+				    enum charger_property prop,
+				    union charger_propval *val);
+extern int charger_dev_get_property(struct charger_device *dev,
+				    enum charger_property prop,
+				    union charger_propval *val);
 
 /* For buck1 FPWM */
 extern int charger_dev_enable_hidden_mode(struct charger_device *dev, bool en);

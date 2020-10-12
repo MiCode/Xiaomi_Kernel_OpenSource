@@ -637,6 +637,30 @@ int charger_dev_enable_hidden_mode(struct charger_device *charger_dev, bool en)
 }
 EXPORT_SYMBOL(charger_dev_enable_hidden_mode);
 
+int charger_dev_set_property(struct charger_device *charger_dev,
+			     enum charger_property prop,
+			     union charger_propval *val)
+{
+	if (charger_dev != NULL && charger_dev->ops != NULL &&
+	    charger_dev->ops->set_property)
+		return charger_dev->ops->set_property(charger_dev, prop, val);
+
+	return -EOPNOTSUPP;
+}
+EXPORT_SYMBOL(charger_dev_set_property);
+
+int charger_dev_get_property(struct charger_device *charger_dev,
+			     enum charger_property prop,
+			     union charger_propval *val)
+{
+	if (charger_dev != NULL && charger_dev->ops != NULL &&
+	    charger_dev->ops->get_property)
+		return charger_dev->ops->get_property(charger_dev, prop, val);
+
+	return -EOPNOTSUPP;
+}
+EXPORT_SYMBOL(charger_dev_get_property);
+
 static DEVICE_ATTR_RO(name);
 
 static struct attribute *charger_class_attrs[] = {
