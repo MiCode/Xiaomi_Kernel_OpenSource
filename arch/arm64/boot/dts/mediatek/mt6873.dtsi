@@ -4085,63 +4085,6 @@
 			compatible = "mediatek,camisp_legacy";
 			reg = <0 0x1a000000 0 0x10000>;
 			dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
-			iommus = <&iommu0 M4U_PORT_L13_CAM_CAMSV1>,
-				 <&iommu0 M4U_PORT_L13_CAM_CAMSV2>,
-				 <&iommu0 M4U_PORT_L13_CAM_CAMSV3>,
-				 <&iommu0 M4U_PORT_L13_CAM_CAMSV4>,
-				 <&iommu0 M4U_PORT_L13_CAM_CAMSV5>,
-				 <&iommu0 M4U_PORT_L13_CAM_CAMSV6>,
-				 <&iommu0 M4U_PORT_L16_CAM_IMGO_R1_A>,
-				 <&iommu0 M4U_PORT_L17_CAM_IMGO_R1_B>,
-				 <&iommu0 M4U_PORT_L18_CAM_IMGO_R1_C>,
-				 <&iommu0 M4U_PORT_L16_CAM_LTMSO_R1_A>,
-				 <&iommu0 M4U_PORT_L17_CAM_LTMSO_R1_B>,
-				 <&iommu0 M4U_PORT_L18_CAM_LTMSO_R1_C>,
-				 <&iommu0 M4U_PORT_L16_CAM_RRZO_R1_A>,
-				 <&iommu0 M4U_PORT_L17_CAM_RRZO_R1_B>,
-				 <&iommu0 M4U_PORT_L18_CAM_RRZO_R1_C>,
-				 <&iommu0 M4U_PORT_L16_CAM_LCESO_R1_A>,
-				 <&iommu0 M4U_PORT_L17_CAM_LCESO_R1_B>,
-				 <&iommu0 M4U_PORT_L18_CAM_LCESO_R1_C>,
-				 <&iommu0 M4U_PORT_L16_CAM_AAHO_R1_A>,
-				 <&iommu0 M4U_PORT_L17_CAM_AAHO_R1_B>,
-				 <&iommu0 M4U_PORT_L18_CAM_AAHO_R1_C>,
-				 <&iommu0 M4U_PORT_L16_CAM_AAO_R1_A>,
-				 <&iommu0 M4U_PORT_L17_CAM_AAO_R1_B>,
-				 <&iommu0 M4U_PORT_L18_CAM_AAO_R1_C>,
-				 <&iommu0 M4U_PORT_L16_CAM_FLKO_R1_A>,
-				 <&iommu0 M4U_PORT_L17_CAM_FLKO_R1_B>,
-				 <&iommu0 M4U_PORT_L18_CAM_FLKO_R1_C>,
-				 <&iommu0 M4U_PORT_L16_CAM_AFO_R1_A>,
-				 <&iommu0 M4U_PORT_L17_CAM_AFO_R1_B>,
-				 <&iommu0 M4U_PORT_L18_CAM_AFO_R1_C>,
-				 <&iommu0 M4U_PORT_L16_CAM_RSSO_R1_A>,
-				 <&iommu0 M4U_PORT_L17_CAM_RSSO_R1_B>,
-				 <&iommu0 M4U_PORT_L18_CAM_RSSO_R1_C>,
-				 <&iommu0 M4U_PORT_L16_CAM_CRZO_R1_A>,
-				 <&iommu0 M4U_PORT_L17_CAM_CRZO_R1_B>,
-				 <&iommu0 M4U_PORT_L18_CAM_CRZO_R1_C>,
-				 <&iommu0 M4U_PORT_L16_CAM_YUVO_R1_A>,
-				 <&iommu0 M4U_PORT_L17_CAM_YUVO_R1_B>,
-				 <&iommu0 M4U_PORT_L18_CAM_YUVO_R1_C>,
-				 <&iommu0 M4U_PORT_L16_CAM_RAWI_R2_A>,
-				 <&iommu0 M4U_PORT_L17_CAM_RAWI_R2_B>,
-				 <&iommu0 M4U_PORT_L18_CAM_RAWI_R2_C>,
-				 <&iommu0 M4U_PORT_L16_CAM_RAWI_R3_A>,
-				 <&iommu0 M4U_PORT_L17_CAM_RAWI_R3_B>,
-				 <&iommu0 M4U_PORT_L18_CAM_RAWI_R3_C>,
-				 <&iommu0 M4U_PORT_L16_CAM_BPCI_R1_A>,
-				 <&iommu0 M4U_PORT_L17_CAM_BPCI_R1_B>,
-				 <&iommu0 M4U_PORT_L18_CAM_BPCI_R1_C>,
-				 <&iommu0 M4U_PORT_L16_CAM_CQI_R1_A>,
-				 <&iommu0 M4U_PORT_L17_CAM_CQI_R1_B>,
-				 <&iommu0 M4U_PORT_L18_CAM_CQI_R1_C>,
-				 <&iommu0 M4U_PORT_L16_CAM_LSCI_R1_A>,
-				 <&iommu0 M4U_PORT_L17_CAM_LSCI_R1_B>,
-				 <&iommu0 M4U_PORT_L18_CAM_LSCI_R1_C>,
-				 <&iommu0 M4U_PORT_L16_CAM_UFDI_R2_A>,
-				 <&iommu0 M4U_PORT_L17_CAM_UFDI_R2_B>,
-				 <&iommu0 M4U_PORT_L18_CAM_UFDI_R2_C>;
 			#clock-cells = <1>;
 			/* Camera CCF */
 			power-domains = <&scpsys MT6873_POWER_DOMAIN_MDP>;
@@ -4189,7 +4132,6 @@
 				      "CAMSYS_RAWCTG_CGPDN",
 				      "TOPCKGEN_TOP_MUX_CCU",
 				      "TOPCKGEN_TOP_MUX_CAMTM";
-			mediatek,larbs = <&larb13 &larb14>;
 		};
 
 		cam1_legacy@1a030000 {
@@ -4198,7 +4140,6 @@
 			reg = <0 0x1a030000 0 0x8000>;
 			interrupts = <GIC_SPI 319 IRQ_TYPE_LEVEL_HIGH 0>;
 			power-domains = <&scpsys MT6873_POWER_DOMAIN_CAM_RAWA>;
-			mediatek,larb = <&larb16>;
 		};
 
 		cam1_inner_legacy@1a038000 {
@@ -4220,7 +4161,6 @@
 			reg = <0 0x1a050000 0 0x8000>;
 			interrupts = <GIC_SPI 320 IRQ_TYPE_LEVEL_HIGH 0>;
 			power-domains = <&scpsys MT6873_POWER_DOMAIN_CAM_RAWB>;
-			mediatek,larb = <&larb17>;
 		};
 
 		cam2_inner_legacy@1a058000 {
@@ -4242,7 +4182,6 @@
 			reg = <0 0x1a070000 0 0x8000>;
 			interrupts = <GIC_SPI 321 IRQ_TYPE_LEVEL_HIGH 0>;
 			power-domains = <&scpsys MT6873_POWER_DOMAIN_CAM_RAWC>;
-			mediatek,larb = <&larb18>;
 		};
 
 		cam3_inner_legacy@1a078000 {
