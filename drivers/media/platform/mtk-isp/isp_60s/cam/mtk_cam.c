@@ -28,7 +28,7 @@
 #include "mtk_cam-pool.h"
 #include "mtk_cam-meta.h"
 
-#define MTK_CAM_STOP_HW_TIMEOUT			(33 * USEC_PER_MSEC)
+#define MTK_CAM_STOP_HW_TIMEOUT			USEC_PER_MSEC
 
 /* FIXME for CIO pad id */
 #define MTK_CAM_CIO_PAD_SRC		PAD_SRC_RAW0
@@ -573,6 +573,7 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 			out_fmt->uid.id =  node->desc.dma_port;
 
 			fd = get_crop_request_fd(&node->pending_crop);
+
 			if (fd > 0) {
 				request = media_request_get_by_fd(
 					&cam->media_dev, fd);
@@ -601,7 +602,8 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 			break;
 
 		default:
-			dev_dbg(cam->dev, "buffer with invalid port\n");
+			dev_dbg(cam->dev, "buffer with invalid port(%d)\n",
+						node->desc.dma_port);
 			break;
 		}
 	}
@@ -714,11 +716,42 @@ static struct device *mtk_cam_find_raw_dev(struct mtk_cam_device *cam,
 		if (raw_mask & (1 << i)) {
 			ctx = cam->ctxs + i;
 			/* FIXME: correct TWIN case */
-			return ctx->pipe->raw->devs[i];
+			return cam->raw.devs[i];
 		}
 	}
 
 	return NULL;
+}
+struct mtk_raw_device *get_master_raw_dev(struct mtk_cam_device *cam,
+				struct mtk_raw_pipeline *pipe)
+{
+	struct device *dev_master;
+	unsigned int i;
+
+	for (i = 0; i < cam->num_mtkcam_sub_drivers; i++) {
+		if (pipe->enabled_raw & (1 << i)) {
+			dev_master = cam->raw.devs[i];
+			break;
+		}
+	}
+
+	return dev_get_drvdata(dev_master);
+}
+
+struct mtk_raw_device *get_slave_raw_dev(struct mtk_cam_device *cam,
+				struct mtk_raw_pipeline *pipe)
+{
+	struct device *dev_slave;
+	unsigned int i;
+
+	for (i = 0; i < cam->num_mtkcam_sub_drivers-1; i++) {
+		if (pipe->enabled_raw & (1 << i)) {
+			dev_slave = cam->raw.devs[i+1];
+			break;
+		}
+	}
+
+	return dev_get_drvdata(dev_slave);
 }
 
 static void isp_composer_uninit(struct mtk_cam_device *cam)
@@ -795,7 +828,7 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 				(&ctx->processing_buffer_list.lock, flags);
 			spin_unlock(&ctx->using_buffer_list.lock);
 
-			dev = mtk_cam_find_raw_dev(cam, req->ctx_used);
+			dev = mtk_cam_find_raw_dev(cam, ctx->pipe->enabled_raw);
 			if (!dev) {
 				dev_dbg(dev, "frm#1 raw device not found\n");
 				return -EINVAL;
@@ -1006,6 +1039,7 @@ mtk_cam_raw_pipeline_config(struct mtk_cam_ctx *ctx,
 	return 0;
 }
 
+
 /* FIXME: modified from v5: should move to raw */
 int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, unsigned int streaming)
 {
@@ -1013,7 +1047,6 @@ int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, unsigned int streaming)
 	struct device *dev = cam->dev;
 	struct mtkcam_ipi_config_param config_param;
 	struct mtkcam_ipi_input_param *cfg_in_param;
-	int pixel_mode;
 	struct mtk_raw_pipeline *pipe = ctx->pipe;
 	struct mtk_raw *raw = pipe->raw;
 	struct v4l2_mbus_framefmt *mf = &pipe->cfg[MTK_RAW_SINK].mbus_fmt;
@@ -1027,8 +1060,7 @@ int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, unsigned int streaming)
 
 	/* Update cfg_in_param */
 	cfg_in_param = &config_param.input;
-	mtk_cam_seninf_get_pixelmode(ctx->seninf, PAD_SRC_RAW0, &pixel_mode);
-	cfg_in_param->pixel_mode = pixel_mode;
+	cfg_in_param->pixel_mode = ctx->pipe->res_config.tgo_pxl_mode;
 	/* TODO: data pattern from meta buffer per frame setting */
 	cfg_in_param->data_pattern = MTKCAM_IPI_SENSOR_PATTERN_NORMAL;
 	img_fmt = &pipe->vdev_nodes[MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM]
@@ -1060,8 +1092,15 @@ int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, unsigned int streaming)
 	raw_dev = dev_get_drvdata(dev_raw);
 	for (i = 0; i < RAW_PIPELINE_NUM; i++)
 		if (raw->pipelines[i].enabled_raw & 1 << raw_dev->id) {
-			/* FIXME: TWIN case */
 			raw_dev->pipeline = &raw->pipelines[i];
+			/* TWIN case */
+			if (raw->pipelines[i].res_config.raw_num_used != 1) {
+				struct mtk_raw_device *raw_dev_slave =
+						get_slave_raw_dev(cam, ctx->pipe);
+				raw_dev_slave->pipeline = &raw->pipelines[i];
+				dev_dbg(dev, "twin master/slave raw_id:%d/%d\n",
+						raw_dev->id, raw_dev_slave->id);
+			}
 			break;
 		}
 
@@ -1379,17 +1418,6 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 			goto fail_pipe_off;
 		}
 	}
-	mtk_cam_seninf_set_camtg(ctx->seninf, PAD_SRC_RAW0,
-				 ctx->stream_id);
-	/* todo: backend support one pixel mode only */
-	mtk_cam_seninf_set_pixelmode(ctx->seninf, PAD_SRC_RAW0,
-				     ctx->pipe->res_config.tgo_pxl_mode);
-	ret = v4l2_subdev_call(ctx->seninf, video, s_stream, 1);
-	if (ret) {
-		dev_dbg(cam->dev, "failed to stream on seninf %s:%d\n",
-			ctx->seninf->name, ret);
-		return ret;
-	}
 
 	/**
 	 * TODO: validate pad's setting of each pipes
@@ -1405,8 +1433,25 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 		goto fail_pipe_off;
 	}
 	raw_dev = dev_get_drvdata(dev);
-	initialize(raw_dev);
 
+	mtk_cam_seninf_set_camtg(ctx->seninf, PAD_SRC_RAW0,
+				 raw_dev->id);
+	/* todo: backend support one pixel mode only */
+	mtk_cam_seninf_set_pixelmode(ctx->seninf, PAD_SRC_RAW0,
+				     ctx->pipe->res_config.tgo_pxl_mode);
+	ret = v4l2_subdev_call(ctx->seninf, video, s_stream, 1);
+	if (ret) {
+		dev_dbg(cam->dev, "failed to stream on seninf %s:%d\n",
+			ctx->seninf->name, ret);
+		return ret;
+	}
+	initialize(raw_dev);
+	/* Twin */
+	if (ctx->pipe->res_config.raw_num_used != 1) {
+		struct mtk_raw_device *raw_dev_slave =
+					get_slave_raw_dev(cam, ctx->pipe);
+		initialize(raw_dev_slave);
+	}
 	spin_lock_irqsave(&ctx->streaming_lock, flags);
 	if (!cam->streaming_ctx && cam->debug_fs)
 		need_dump_mem = true;
@@ -1467,16 +1512,20 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 		dev_dbg(cam->dev, "streamoff raw device not found\n");
 		goto fail_stream_off;
 	}
-	raw_dev = dev_get_drvdata(dev);
-	stream_on(raw_dev, 0);
-
 	ret = v4l2_subdev_call(ctx->seninf, video, s_stream, 0);
 	if (ret) {
 		dev_dbg(cam->dev, "failed to stream off %s:%d\n",
 			ctx->seninf->name, ret);
 		return -EPERM;
 	}
-
+	raw_dev = dev_get_drvdata(dev);
+	stream_on(raw_dev, 0);
+	/* Twin */
+	if (ctx->pipe->res_config.raw_num_used != 1) {
+		struct mtk_raw_device *raw_dev_slave =
+					get_slave_raw_dev(cam, ctx->pipe);
+		stream_on(raw_dev_slave, 0);
+	}
 	for (i = 0; i < MAX_PIPES_PER_STREAM && ctx->pipe_subdevs[i]; i++) {
 		ret = v4l2_subdev_call(ctx->pipe_subdevs[i], video,
 				       s_stream, 0);

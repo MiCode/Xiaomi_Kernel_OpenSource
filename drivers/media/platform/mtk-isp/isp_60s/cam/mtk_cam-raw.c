@@ -36,7 +36,7 @@
 #include "mach/pseudo_m4u.h"
 #endif
 
-#define MTK_RAW_STOP_HW_TIMEOUT			(33 * USEC_PER_MSEC)
+#define MTK_RAW_STOP_HW_TIMEOUT			(33)
 
 #define META_STATS_CFG_MAX_SIZE (48 * SZ_1K)
 /* meta out max size include 1k meta info and dma buffer size */
@@ -346,8 +346,6 @@ void apply_cq(struct mtk_raw_device *dev,
 	writel_relaxed(cq_size, dev->base + REG_CQ_THR0_DESC_SIZE);
 	wmb(); /* TBC */
 	if (initial) {
-		writel_relaxed(CAMCTL_CQ_THR0_DONE_ST,
-			       dev->base + REG_CTL_RAW_INT6_EN);
 		writel_relaxed(CTL_CQ_THR0_START,
 			       dev->base + REG_CTL_START);
 		wmb(); /* TBC */
@@ -580,9 +578,12 @@ void initialize(struct mtk_raw_device *dev)
 	wmb(); /* TBC */
 #endif
 	writel_relaxed(CQ_THR0_MODE_IMMEDIATE | CQ_THR0_EN,
-		       dev->base + REG_CQ_THR0_CTL);
+				dev->base + REG_CQ_THR0_CTL);
+	writel_relaxed(CAMCTL_CQ_THR0_DONE_ST,
+				dev->base + REG_CTL_RAW_INT6_EN);
 	wmb(); /* TBC */
 	dev->sof_count = 0;
+	dev->setting_count = 0;
 	init_dma_fifosize(dev);
 	dev_dbg(dev->dev, "%s - REG_CQ_EN:0x%x ,REG_CQ_THR0_CTL:0x%8x\n",
 		__func__,
@@ -614,6 +615,7 @@ void stream_on(struct mtk_raw_device *dev, int on)
 		val = readl_relaxed(dev->base + REG_TG_VF_CON);
 		val |= TG_VF_CON_VFDATA_EN;
 		writel_relaxed(val, dev->base + REG_TG_VF_CON);
+		writel_relaxed(val, dev->base_inner + REG_TG_VF_CON);
 		wmb(); /* TBC */
 		dev_dbg(dev->dev,
 			"%s - REG_CQ_EN:0x%x, REG_CQ_THR0_CTL:0x%8x, REG_TG_VF_CON:0x%8x\n",
@@ -628,13 +630,18 @@ void stream_on(struct mtk_raw_device *dev, int on)
 		val = readl_relaxed(dev->base + REG_TG_VF_CON);
 		val &= ~TG_VF_CON_VFDATA_EN;
 		writel_relaxed(val, dev->base + REG_TG_VF_CON);
+		writel_relaxed(val, dev->base_inner + REG_TG_VF_CON);
+		writel_relaxed(val, dev->base_inner + REG_CTL_EN);
+		writel_relaxed(val, dev->base_inner + REG_CTL_EN2);
+		writel_relaxed(val, dev->base_inner + REG_CTL_EN3);
 		wmb(); /* TBC */
-
 		/* reset hw after vf off */
 		end = jiffies + msecs_to_jiffies(10);
 		while (time_before(jiffies, end)) {
 			chk_val = readl_relaxed(dev->base + REG_TG_VF_CON);
 			if (chk_val == val) {
+				writel_relaxed(0x0, dev->base + REG_TG_SEN_MODE);
+				wmb(); /* TBC */
 				reset(dev);
 				break;
 			}
@@ -755,7 +762,7 @@ static bool mtk_raw_resource_calc(struct mtk_raw_pipeline *pipe,
 			break;
 		}
 		/* max line buffer check*/
-		lb_chk_res = mtk_raw_linebuf_chk(bin_en, frz_en, twin_en, 0, 0,
+		lb_chk_res = mtk_raw_linebuf_chk(twin_en, bin_en, frz_en, 0, 0,
 						 in_w, &frz_ratio);
 		/* frz ratio*/
 		if (res_step_type == MTK_CAMSYS_RES_FRZ_TAG) {
@@ -787,9 +794,9 @@ static bool mtk_raw_resource_calc(struct mtk_raw_pipeline *pipe,
 				res_found = true;
 			}
 		}
-		dev_dbg(cam->dev, "Res-%d BIN/FRZ/HWN/CLK=%d/%d/%d/%d -> %d/%d/%d/%d:%10llu\n",
+		dev_dbg(cam->dev, "Res-%d BIN/FRZ/HWN/CLK=%d/%d/%d/%d -> %d/%d/%d/%d (%d):%10llu\n",
 			idx, bin_temp, frz_temp, hwn_temp, clk_cur, bin_en,
-			frz_en, twin_en, clk_cur, eq_throughput);
+			frz_en, twin_en, clk_cur, lb_chk_res, eq_throughput);
 	}
 	tgo_pxl_mode = pixel_mode[idx_res];
 	switch (tgo_pxl_mode) {
@@ -836,6 +843,24 @@ static void raw_irq_handle_tg_grab_err(struct mtk_raw_device *raw_dev);
 static void raw_irq_handle_dma_err(struct mtk_raw_device *raw_dev,
 				   struct mtk_camsys_irq_info *irq_info, unsigned int frame_seq_no,
 				   struct mtk_cam_status_dump *status_dump);
+
+bool mtk_raw_dev_is_slave(struct mtk_raw_device *raw_dev)
+{
+	struct device *dev_slave;
+	struct mtk_raw_device *raw_dev_slave;
+	unsigned int i;
+
+	for (i = 0; i < raw_dev->cam->num_mtkcam_sub_drivers - 1; i++) {
+		if (raw_dev->pipeline->enabled_raw & (1 << i)) {
+			dev_slave = raw_dev->cam->raw.devs[i + 1];
+			break;
+		}
+	}
+	raw_dev_slave = dev_get_drvdata(dev_slave);
+
+	return (raw_dev_slave == raw_dev);
+}
+
 static irqreturn_t mtk_irq_raw(int irq, void *data)
 {
 	struct mtk_raw_device *raw_dev = (struct mtk_raw_device *)data;
@@ -890,14 +915,18 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 	irq_info.frame_idx = dequeued_frame_seq_no;
 	irq_info.frame_inner_idx = dequeued_frame_seq_no_inner;
 	irq_info.irq_type = 0;
+	irq_info.slave_engine = mtk_raw_dev_is_slave(raw_dev);
 	if ((irq_status & SOF_INT_ST) && (irq_status & HW_PASS1_DON_ST))
 		dev_dbg(dev, "sof_done block cnt:%d\n", raw_dev->sof_count);
 	/* CQ done */
-	if (cq_done_status & CAMCTL_CQ_THR0_DONE_ST)
+	if (cq_done_status & CAMCTL_CQ_THR0_DONE_ST) {
 		irq_info.irq_type |= 1 << CAMSYS_IRQ_SETTING_DONE;
+		raw_dev->setting_count++;
+	}
 	/* Frame done */
-	if (irq_status & SW_PASS1_DON_ST)
+	if (irq_status & SW_PASS1_DON_ST) {
 		irq_info.irq_type |= 1 << CAMSYS_IRQ_FRAME_DONE;
+	}
 	/* Frame start */
 	if (irq_status & SOF_INT_ST) {
 		irq_info.irq_type |= 1 << CAMSYS_IRQ_FRAME_START;
@@ -1235,22 +1264,57 @@ static int mtk_raw_sd_subscribe_event(struct v4l2_subdev *subdev,
 		return -EINVAL;
 	}
 }
+static int mtk_raw_available_resource(struct mtk_raw *raw)
+{
+	int res_status = 0;
+
+	for (int i = 0; i < RAW_PIPELINE_NUM; i++) {
+		struct mtk_raw_pipeline *pipe = raw->pipelines + i;
+
+		for (int j = 0; j < ARRAY_SIZE(raw->devs); j++) {
+			if (pipe->enabled_raw & 1 << j)
+				res_status |= 1 << j;
+		}
+	}
+	dev_info(raw->cam_dev, "%s raw_status:0x%x Available Engine:A/B/C:%d/%d/%d\n",
+			__func__, res_status,
+			!(res_status & (1 << MTKCAM_SUBDEV_RAW_0)),
+			!(res_status & (1 << MTKCAM_SUBDEV_RAW_1)),
+			!(res_status & (1 << MTKCAM_SUBDEV_RAW_2)));
+
+	return res_status;
+}
 
 int mtk_cam_raw_select(struct mtk_raw_pipeline *pipe,
 		       struct mtkcam_ipi_input_param *cfg_in_param)
 {
-	/**
-	 * FIXME: calculate througput to assign raw dev and update hw map
-	 * by config_param bin sepo
-	 *
-	 * check size, pixel bit, data pattern, tg crop, pixel mode
-	 * master/slave cam selection
-	 */
-	pipe->enabled_raw = 1 << pipe->id;
+	int raw_status = 0;
 
+	raw_status = mtk_raw_available_resource(pipe->raw);
+	if (pipe->res_config.raw_num_used == 2) {
+		for (int m = MTKCAM_SUBDEV_RAW_1; m >= MTKCAM_SUBDEV_RAW_0; m--) {
+			int s = m + 1;
+
+			dev_info(pipe->raw->cam_dev, "%s raw_status:0x%x Twin:%d/%d\n",
+			__func__, raw_status,
+			!(raw_status & (1 << m)),
+			!(raw_status & (1 << s)));
+			if (!(raw_status & (1 << m)) && (!(raw_status & (1 << s)))) {
+				pipe->enabled_raw = 1 << m | 1 << s;
+				break;
+			}
+		}
+	} else {
+		for (int m = MTKCAM_SUBDEV_RAW_0; m < ARRAY_SIZE(pipe->raw->devs); m++) {
+			if (!(raw_status & 1 << m)) {
+				pipe->enabled_raw = 1 << m;
+				break;
+			}
+		}
+	}
+	mtk_raw_available_resource(pipe->raw);
 	/**
-	 * TODO: check duplicate use of same raw in different pipe
-	 * for loop check all pipe with enabled_raw and logic check
+	 * TODO: duplicated using raw case will implement in time sharing isp case
 	 */
 
 	return 0;

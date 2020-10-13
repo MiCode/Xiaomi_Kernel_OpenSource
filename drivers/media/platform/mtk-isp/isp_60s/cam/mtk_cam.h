@@ -340,6 +340,11 @@ struct mtk_cam_request *mtk_cam_dev_get_req(struct mtk_cam_device *cam,
 int mtk_cam_req_dump(struct mtk_cam_device *cam, struct mtk_cam_request *req,
 		     int buf_state, unsigned int dump_flag, int release_request,
 		     char *desc);
+struct mtk_raw_device *get_master_raw_dev(struct mtk_cam_device *cam,
+				struct mtk_raw_pipeline *pipe);
+struct mtk_raw_device *get_slave_raw_dev(struct mtk_cam_device *cam,
+				struct mtk_raw_pipeline *pipe);
+
 void isp_composer_create_session(struct mtk_cam_device *cam,
 				 struct mtk_cam_ctx *ctx);
 

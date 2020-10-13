@@ -69,11 +69,13 @@
 /* Status check */
 #define REG_CTL_EN			0x0004
 #define REG_CTL_EN2			0x0008
+#define REG_CTL_EN3			0x000c
+
 #define REG_CTL_DMA_EN			0x0014
 #define REG_CTL_SW_CTL			0x007C
 #define REG_CTL_START			0x0074
 #define REG_CTL_RAW_INT_STAT		0x0104
-#define REG_CTL_RAW_INT2_EN         0x0110
+#define REG_CTL_RAW_INT2_EN		0x0110
 #define REG_CTL_RAW_INT2_STAT		0x0114
 #define REG_CTL_RAW_INT3_STAT		0x0124
 #define REG_CTL_RAW_INT4_STAT		0x0134

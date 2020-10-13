@@ -15,8 +15,8 @@
 #define MTK_CAMSYS_RES_STEP_NUM	7
 
 /* FIXME: dynamic config image max/min w/h */
-#define IMG_MAX_WIDTH		5376
-#define IMG_MAX_HEIGHT		4032
+#define IMG_MAX_WIDTH		8000
+#define IMG_MAX_HEIGHT		6000
 #define IMG_MIN_WIDTH		80
 #define IMG_MIN_HEIGHT		60
 #define CRZO_R1_MAX_WIDTH	640
@@ -132,7 +132,8 @@ struct mtk_raw_device {
 	struct clk_bulk_data *clks;
 	struct mtk_raw_pipeline *pipeline;
 	spinlock_t spinlock_irq;
-	unsigned int sof_count;
+	u64 sof_count;
+	u64 setting_count;
 };
 
 /*
@@ -152,6 +153,7 @@ int mtk_raw_register_entities(struct mtk_raw *raw,
 void mtk_raw_unregister_entities(struct mtk_raw *raw);
 int mtk_cam_raw_select(struct mtk_raw_pipeline *pipe,
 		       struct mtkcam_ipi_input_param *cfg_in_param);
+bool mtk_raw_dev_is_slave(struct mtk_raw_device *raw_dev);
 
 void initialize(struct mtk_raw_device *dev);
 void stream_on(struct mtk_raw_device *dev, int on);
