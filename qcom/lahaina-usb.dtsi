@@ -1,5 +1,6 @@
 #include <dt-bindings/clock/qcom,gcc-lahaina.h>
-#include <dt-bindings/phy/qcom,lahaina-qmp-usb3.h>
+#include <dt-bindings/phy/qcom,usb3-5nm-qmp-combo.h>
+#include <dt-bindings/phy/qcom,usb3-5nm-qmp-uni.h>
 
 &soc {
 	usb0: ssusb@a600000 {
