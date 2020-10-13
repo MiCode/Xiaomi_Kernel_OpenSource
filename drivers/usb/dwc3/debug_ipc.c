@@ -140,19 +140,39 @@ void dwc3_dbg_print_reg(struct dwc3 *dwc, const char *name, int reg)
 
 void dwc3_dbg_dma_unmap(struct dwc3 *dwc, u8 ep_num, struct dwc3_request *req)
 {
-	ipc_log_string(dwc->dwc_dma_ipc_log_ctxt,
-		"%02X-%-3.3s %-25.25s 0x%pK 0x%lx %u 0x%lx %d", ep_num >> 1,
-		ep_num & 1 ? "IN":"OUT", "UNMAP", &req->request,
-		req->request.dma, req->request.length, req->trb_dma,
-		req->trb->ctrl & DWC3_TRB_CTRL_HWO);
+	if (req->request.num_sgs > 0) {
+		ipc_log_string(dwc->dwc_dma_ipc_log_ctxt,
+			"%02X-%-3.3s %-25.25s 0x%pK 0x%lx %u 0x%lx mapped_sgs:%d queued_sgs:%d %d",
+			ep_num >> 1, ep_num & 1 ? "IN":"OUT", "UNMAP",
+			&req->request, sg_dma_address(req->start_sg),
+			sg_dma_len(req->start_sg), req->trb_dma,
+			req->request.num_mapped_sgs, req->num_queued_sgs,
+			req->trb->ctrl & DWC3_TRB_CTRL_HWO);
+	} else {
+		ipc_log_string(dwc->dwc_dma_ipc_log_ctxt,
+			"%02X-%-3.3s %-25.25s 0x%pK 0x%lx %u 0x%lx %d",
+			ep_num >> 1, ep_num & 1 ? "IN":"OUT", "UNMAP",
+			&req->request, req->request.dma, req->request.length,
+			req->trb_dma, req->trb->ctrl & DWC3_TRB_CTRL_HWO);
+	}
 }
 
 void dwc3_dbg_dma_map(struct dwc3 *dwc, u8 ep_num, struct dwc3_request *req)
 {
-	ipc_log_string(dwc->dwc_dma_ipc_log_ctxt,
-		"%02X-%-3.3s %-25.25s 0x%pK 0x%lx %u 0x%lx", ep_num >> 1,
-		ep_num & 1 ? "IN":"OUT", "MAP", &req->request, req->request.dma,
-		req->request.length, req->trb_dma);
+	if (req->request.num_sgs > 0) {
+		ipc_log_string(dwc->dwc_dma_ipc_log_ctxt,
+			"%02X-%-3.3s %-25.25s 0x%pK 0x%lx %u 0x%lx mapped_sgs:%d queued_sgs:%d",
+			ep_num >> 1, ep_num & 1 ? "IN":"OUT", "MAP",
+			&req->request, sg_dma_address(req->start_sg),
+			sg_dma_len(req->start_sg), req->trb_dma,
+			req->request.num_mapped_sgs, req->num_queued_sgs);
+	} else {
+		ipc_log_string(dwc->dwc_dma_ipc_log_ctxt,
+			"%02X-%-3.3s %-25.25s 0x%pK 0x%lx %u 0x%lx",
+			ep_num >> 1, ep_num & 1 ? "IN":"OUT", "MAP",
+			&req->request, req->request.dma, req->request.length,
+			req->trb_dma);
+	}
 }
 
 void dwc3_dbg_dma_dequeue(struct dwc3 *dwc, u8 ep_num, struct dwc3_request *req)
