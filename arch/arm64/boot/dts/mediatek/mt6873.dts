@@ -1306,7 +1306,6 @@
 				regulator-max-microvolt = <1193750>;
 				regulator-enable-ramp-delay = <256>;
 				regulator-allowed-modes = <0 1 2 4>;
-				regulator-always-on;
 			};
 
 			mt6315_7_vbuck3: 7_vbuck3 {
