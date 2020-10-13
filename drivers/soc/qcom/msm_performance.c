@@ -37,6 +37,7 @@
 #define INST_EV 0x08 /* 0th event*/
 #define CYC_EV 0x11 /* 1st event*/
 #define INIT "Init"
+#define CPU_CYCLE_THRESHOLD 650000
 static DEFINE_PER_CPU(bool, cpu_is_idle);
 static DEFINE_PER_CPU(bool, cpu_is_hp);
 static DEFINE_MUTEX(perfevent_lock);
@@ -588,7 +589,7 @@ static int get_cpu_total_instruction(char *buf, const struct kernel_param *kp)
 		cycles = pmu_events[CYC_EVENT][cpu].cur_delta;
 		/* collecting max inst and ipc for max cap and min cap cpus */
 		if (max_cap_cpus[cpu]) {
-			if (cycles)
+			if (cycles && cycles >= CPU_CYCLE_THRESHOLD)
 				ipc_big = max(ipc_big,
 						((instruction*100)/cycles));
 			total_inst_big += instruction;
