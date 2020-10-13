@@ -32,7 +32,7 @@ int pd_freq_to_opp(int cpu, unsigned long freq)
 	struct em_perf_domain *pd;
 
 	pd = em_cpu_get(cpu);
-	for (idx = 0; idx < pd->nr_cap_states; idx++) {
+	for (idx = 0; idx < pd->nr_perf_states; idx++) {
 		if (pd->table[idx].frequency == freq)
 			return idx;
 	}
@@ -142,7 +142,7 @@ static int alloc_capacity_table(void)
 
 		WARN_ON(cur_tbl >= MAX_PD_COUNT);
 
-		nr_caps = pd->nr_cap_states;
+		nr_caps = pd->nr_perf_states;
 		pd_capacity_tbl[cur_tbl].nr_caps = nr_caps;
 		cpumask_copy(&pd_capacity_tbl[cur_tbl].cpus, to_cpumask(pd->cpus));
 		pd_capacity_tbl[cur_tbl].caps = kcalloc(nr_caps, sizeof(unsigned long),
@@ -204,10 +204,9 @@ static int pd_capacity_tbl_open(struct inode *in, struct file *file)
 	return single_open(file, pd_capacity_tbl_show, NULL);
 }
 
-static const struct file_operations pd_capacity_tbl_ops = {
-	.owner = THIS_MODULE,
-	.open = pd_capacity_tbl_open,
-	.read = seq_read
+static const struct proc_ops pd_capacity_tbl_ops = {
+	.proc_open = pd_capacity_tbl_open,
+	.proc_read = seq_read
 };
 
 static int init_opp_cap_info(struct proc_dir_entry *dir)
