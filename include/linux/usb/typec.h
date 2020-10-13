@@ -53,7 +53,6 @@ enum typec_pwr_opmode {
 	TYPEC_PWR_MODE_1_5A,
 	TYPEC_PWR_MODE_3_0A,
 	TYPEC_PWR_MODE_PD,
-	TYPEC_PWR_MODE_MAX = TYPEC_PWR_MODE_PD,
 };
 
 enum typec_accessory {
