@@ -2450,8 +2450,6 @@ static const struct cp_iio_prop_channels cp_master_chans[] = {
 static int cp_master_iio_set_prop(struct smb1398_chip *chip,
 	int channel, int val)
 {
-	int rc = 0;
-
 	switch (channel) {
 	case PSY_IIO_CP_ENABLE:
 		vote(chip->div2_cp_disable_votable,
@@ -2471,8 +2469,7 @@ static int cp_master_iio_set_prop(struct smb1398_chip *chip,
 		break;
 	default:
 		pr_err("get prop %d is not supported\n", channel);
-		rc = -EINVAL;
-		break;
+		return -EINVAL;
 	}
 
 	return 0;
@@ -2526,11 +2523,11 @@ static int cp_master_iio_get_prop(struct smb1398_chip *chip,
 	 * Return the cached values when the system is in suspend state
 	 * instead of reading the registers to avoid read failures.
 	 */
-
 	if (chip->in_suspend) {
 		rc = cp_master_iio_get_prop_in_suspend(chip, channel, val);
 		if (!rc)
-			return rc;
+			return IIO_VAL_INT;
+		rc = 0;
 	}
 
 	switch (channel) {
@@ -2697,8 +2694,6 @@ static int cp_slave_iio_set_prop(struct smb1398_chip *chip,
 static int cp_slave_iio_get_prop(struct smb1398_chip *chip,
 	int channel, int *val)
 {
-	int rc = 0;
-
 	switch (channel) {
 	case PSY_IIO_CP_ENABLE:
 		*val = chip->switcher_en;
@@ -2716,8 +2711,7 @@ static int cp_slave_iio_get_prop(struct smb1398_chip *chip,
 		break;
 	default:
 		pr_err("get prop %d is not supported\n", channel);
-		rc = -EINVAL;
-		break;
+		return -EINVAL;
 	}
 
 	return IIO_VAL_INT;
