@@ -16,6 +16,7 @@
 #include "vfs.h"
 
 #include "data_mgmt.h"
+#include "format.h"
 #include "internal.h"
 #include "pseudo_files.h"
 
@@ -85,8 +86,6 @@ static const struct file_operations incfs_dir_fops = {
 	.iterate = iterate_incfs_dir,
 	.open = file_open,
 	.release = file_release,
-	.unlocked_ioctl = dispatch_ioctl,
-	.compat_ioctl = dispatch_ioctl
 };
 
 static const struct dentry_operations incfs_dentry_ops = {
@@ -383,9 +382,9 @@ static int incfs_init_dentry(struct dentry *dentry, struct path *path)
 	return 0;
 }
 
-static struct dentry *open_or_create_index_dir(struct dentry *backing_dir)
+static struct dentry *open_or_create_special_dir(struct dentry *backing_dir,
+						 const char *name)
 {
-	static const char name[] = ".index";
 	struct dentry *index_dentry;
 	struct inode *backing_inode = d_inode(backing_dir);
 	int err = 0;
@@ -417,6 +416,39 @@ static struct dentry *open_or_create_index_dir(struct dentry *backing_dir)
 	return index_dentry;
 }
 
+static int read_single_page_timeouts(struct data_file *df, struct file *f,
+				     int block_index, struct mem_range range,
+				     struct mem_range tmp)
+{
+	struct mount_info *mi = df->df_mount_info;
+	u32 min_time_ms = 0;
+	u32 min_pending_time_ms = 0;
+	u32 max_pending_time_ms = U32_MAX;
+	int uid = current_uid().val;
+	int i;
+
+	spin_lock(&mi->mi_per_uid_read_timeouts_lock);
+	for (i = 0; i < mi->mi_per_uid_read_timeouts_size /
+		sizeof(*mi->mi_per_uid_read_timeouts); ++i) {
+		struct incfs_per_uid_read_timeouts *t =
+			&mi->mi_per_uid_read_timeouts[i];
+
+		if(t->uid == uid) {
+			min_time_ms = t->min_time_ms;
+			min_pending_time_ms = t->min_pending_time_ms;
+			max_pending_time_ms = t->max_pending_time_ms;
+			break;
+		}
+	}
+	spin_unlock(&mi->mi_per_uid_read_timeouts_lock);
+	if (max_pending_time_ms == U32_MAX)
+		max_pending_time_ms = mi->mi_options.read_timeout_ms;
+
+	return incfs_read_data_file_block(range, f, block_index,
+		min_time_ms, min_pending_time_ms, max_pending_time_ms,
+		tmp);
+}
+
 static int read_single_page(struct file *f, struct page *page)
 {
 	loff_t offset = 0;
@@ -427,7 +459,6 @@ static int read_single_page(struct file *f, struct page *page)
 	int result = 0;
 	void *page_start;
 	int block_index;
-	int timeout_ms;
 
 	if (!df) {
 		SetPageError(page);
@@ -440,22 +471,20 @@ static int read_single_page(struct file *f, struct page *page)
 	block_index = (offset + df->df_mapped_offset) /
 		INCFS_DATA_FILE_BLOCK_SIZE;
 	size = df->df_size;
-	timeout_ms = df->df_mount_info->mi_options.read_timeout_ms;
 
 	if (offset < size) {
 		struct mem_range tmp = {
 			.len = 2 * INCFS_DATA_FILE_BLOCK_SIZE
 		};
-
 		tmp.data = (u8 *)__get_free_pages(GFP_NOFS, get_order(tmp.len));
 		if (!tmp.data) {
 			read_result = -ENOMEM;
 			goto err;
 		}
 		bytes_to_read = min_t(loff_t, size - offset, PAGE_SIZE);
-		read_result = incfs_read_data_file_block(
-			range(page_start, bytes_to_read), f, block_index,
-			timeout_ms, tmp);
+
+		read_result = read_single_page_timeouts(df, f, block_index,
+					range(page_start, bytes_to_read), tmp);
 
 		free_pages((unsigned long)tmp.data, get_order(tmp.len));
 	} else {
@@ -522,12 +551,45 @@ static int incfs_rmdir(struct dentry *dentry)
 	return error;
 }
 
+static void maybe_delete_incomplete_file(struct data_file *df)
+{
+	char *file_id_str;
+	struct dentry *incomplete_file_dentry;
+
+	if (atomic_read(&df->df_data_blocks_written) < df->df_data_block_count)
+		return;
+
+	/* This is best effort - there is no useful action to take on failure */
+	file_id_str = file_id_to_str(df->df_id);
+	if (!file_id_str)
+		return;
+
+	incomplete_file_dentry = incfs_lookup_dentry(
+					df->df_mount_info->mi_incomplete_dir,
+					file_id_str);
+	if (!incomplete_file_dentry || IS_ERR(incomplete_file_dentry)) {
+		incomplete_file_dentry = NULL;
+		goto out;
+	}
+
+	if (!d_really_is_positive(incomplete_file_dentry))
+		goto out;
+
+	vfs_fsync(df->df_backing_file_context->bc_file, 0);
+	incfs_unlink(incomplete_file_dentry);
+
+out:
+	dput(incomplete_file_dentry);
+	kfree(file_id_str);
+}
+
 static long ioctl_fill_blocks(struct file *f, void __user *arg)
 {
 	struct incfs_fill_blocks __user *usr_fill_blocks = arg;
 	struct incfs_fill_blocks fill_blocks;
 	struct incfs_fill_block __user *usr_fill_block_array;
 	struct data_file *df = get_incfs_data_file(f);
+	struct incfs_file_data *fd = f->private_data;
 	const ssize_t data_buf_size = 2 * INCFS_DATA_FILE_BLOCK_SIZE;
 	u8 *data_buf = NULL;
 	ssize_t error = 0;
@@ -536,7 +598,7 @@ static long ioctl_fill_blocks(struct file *f, void __user *arg)
 	if (!df)
 		return -EBADF;
 
-	if ((uintptr_t)f->private_data != CAN_FILL)
+	if (!fd || fd->fd_fill_permission != CAN_FILL)
 		return -EPERM;
 
 	if (copy_from_user(&fill_blocks, usr_fill_blocks, sizeof(fill_blocks)))
@@ -581,6 +643,8 @@ static long ioctl_fill_blocks(struct file *f, void __user *arg)
 
 	if (data_buf)
 		free_pages((unsigned long)data_buf, get_order(data_buf_size));
+
+	maybe_delete_incomplete_file(df);
 
 	/*
 	 * Only report the error if no records were processed, otherwise
@@ -645,23 +709,45 @@ static long ioctl_get_filled_blocks(struct file *f, void __user *arg)
 	struct incfs_get_filled_blocks_args __user *args_usr_ptr = arg;
 	struct incfs_get_filled_blocks_args args = {};
 	struct data_file *df = get_incfs_data_file(f);
+	struct incfs_file_data *fd = f->private_data;
 	int error;
 
-	if (!df)
+	if (!df || !fd)
 		return -EINVAL;
 
-	if ((uintptr_t)f->private_data != CAN_FILL)
+	if (fd->fd_fill_permission != CAN_FILL)
 		return -EPERM;
 
 	if (copy_from_user(&args, args_usr_ptr, sizeof(args)) > 0)
 		return -EINVAL;
 
-	error = incfs_get_filled_blocks(df, &args);
+	error = incfs_get_filled_blocks(df, fd, &args);
 
 	if (copy_to_user(args_usr_ptr, &args, sizeof(args)))
 		return -EFAULT;
 
 	return error;
+}
+
+static long ioctl_get_block_count(struct file *f, void __user *arg)
+{
+	struct incfs_get_block_count_args __user *args_usr_ptr = arg;
+	struct incfs_get_block_count_args args = {};
+	struct data_file *df = get_incfs_data_file(f);
+
+	if (!df)
+		return -EINVAL;
+
+	args.total_data_blocks_out = df->df_data_block_count;
+	args.filled_data_blocks_out = atomic_read(&df->df_data_blocks_written);
+	args.total_hash_blocks_out = df->df_total_block_count -
+		df->df_data_block_count;
+	args.filled_hash_blocks_out = atomic_read(&df->df_hash_blocks_written);
+
+	if (copy_to_user(args_usr_ptr, &args, sizeof(args)))
+		return -EFAULT;
+
+	return 0;
 }
 
 static long dispatch_ioctl(struct file *f, unsigned int req, unsigned long arg)
@@ -673,6 +759,8 @@ static long dispatch_ioctl(struct file *f, unsigned int req, unsigned long arg)
 		return ioctl_read_file_signature(f, (void __user *)arg);
 	case INCFS_IOC_GET_FILLED_BLOCKS:
 		return ioctl_get_filled_blocks(f, (void __user *)arg);
+	case INCFS_IOC_GET_BLOCK_COUNT:
+		return ioctl_get_block_count(f, (void __user *)arg);
 	default:
 		return -EINVAL;
 	}
@@ -792,6 +880,11 @@ static int dir_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 		goto out;
 	}
 
+	if (backing_dentry->d_parent == mi->mi_incomplete_dir) {
+		/* Can't create a subdir inside .incomplete */
+		err = -EBUSY;
+		goto out;
+	}
 	inode_lock_nested(dir_node->n_backing_inode, I_MUTEX_PARENT);
 	err = vfs_mkdir(dir_node->n_backing_inode, backing_dentry, mode | 0222);
 	inode_unlock(dir_node->n_backing_inode);
@@ -824,17 +917,26 @@ path_err:
 	return err;
 }
 
-/* Delete file referenced by backing_dentry and also its hardlink from .index */
-static int final_file_delete(struct mount_info *mi,
-			struct dentry *backing_dentry)
+/*
+ * Delete file referenced by backing_dentry and if appropriate its hardlink
+ * from .index and .incomplete
+ */
+static int file_delete(struct mount_info *mi,
+			struct dentry *backing_dentry,
+			int nlink)
 {
 	struct dentry *index_file_dentry = NULL;
+	struct dentry *incomplete_file_dentry = NULL;
 	/* 2 chars per byte of file ID + 1 char for \0 */
 	char file_id_str[2 * sizeof(incfs_uuid_t) + 1] = {0};
 	ssize_t uuid_size = 0;
 	int error = 0;
 
 	WARN_ON(!mutex_is_locked(&mi->mi_dir_struct_mutex));
+
+	if (nlink > 3)
+		goto just_unlink;
+
 	uuid_size = vfs_getxattr(backing_dentry, INCFS_XATTR_ID_NAME,
 			file_id_str, 2 * sizeof(incfs_uuid_t));
 	if (uuid_size < 0) {
@@ -850,17 +952,46 @@ static int final_file_delete(struct mount_info *mi,
 	index_file_dentry = incfs_lookup_dentry(mi->mi_index_dir, file_id_str);
 	if (IS_ERR(index_file_dentry)) {
 		error = PTR_ERR(index_file_dentry);
+		index_file_dentry = NULL;
 		goto out;
 	}
 
-	error = incfs_unlink(backing_dentry);
-	if (error)
+	if (d_really_is_positive(index_file_dentry) && nlink > 0)
+		nlink--;
+
+	if (nlink > 2)
+		goto just_unlink;
+
+	incomplete_file_dentry = incfs_lookup_dentry(mi->mi_incomplete_dir,
+						     file_id_str);
+	if (IS_ERR(incomplete_file_dentry)) {
+		error = PTR_ERR(incomplete_file_dentry);
+		incomplete_file_dentry = NULL;
 		goto out;
+	}
+
+	if (d_really_is_positive(incomplete_file_dentry) && nlink > 0)
+		nlink--;
+
+	if (nlink > 1)
+		goto just_unlink;
 
 	if (d_really_is_positive(index_file_dentry))
 		error = incfs_unlink(index_file_dentry);
+	if (error)
+		goto out;
+
+	if (d_really_is_positive(incomplete_file_dentry))
+		error = incfs_unlink(incomplete_file_dentry);
+	if (error)
+		goto out;
+
+just_unlink:
+	error = incfs_unlink(backing_dentry);
+
 out:
 	dput(index_file_dentry);
+	dput(incomplete_file_dentry);
 	if (error)
 		pr_debug("incfs: delete_file_from_index err:%d\n", error);
 	return error;
@@ -892,21 +1023,18 @@ static int dir_unlink(struct inode *dir, struct dentry *dentry)
 		goto out;
 	}
 
+	if (backing_path.dentry->d_parent == mi->mi_incomplete_dir) {
+		/* Direct unlink from .incomplete are not allowed. */
+		err = -EBUSY;
+		goto out;
+	}
+
 	err = vfs_getattr(&backing_path, &stat, STATX_NLINK,
 			  AT_STATX_SYNC_AS_STAT);
 	if (err)
 		goto out;
 
-	if (stat.nlink == 2) {
-		/*
-		 * This is the last named link to this file. The only one left
-		 * is in .index. Remove them both now.
-		 */
-		err = final_file_delete(mi, backing_path.dentry);
-	} else {
-		/* There are other links to this file. Remove just this one. */
-		err = incfs_unlink(backing_path.dentry);
-	}
+	err = file_delete(mi, backing_path.dentry, stat.nlink);
 
 	d_drop(dentry);
 out:
@@ -938,6 +1066,12 @@ static int dir_link(struct dentry *old_dentry, struct inode *dir,
 
 	if (backing_new_path.dentry->d_parent == mi->mi_index_dir) {
 		/* Can't link to .index */
+		error = -EBUSY;
+		goto out;
+	}
+
+	if (backing_new_path.dentry->d_parent == mi->mi_incomplete_dir) {
+		/* Can't link to .incomplete */
 		error = -EBUSY;
 		goto out;
 	}
@@ -994,6 +1128,12 @@ static int dir_rmdir(struct inode *dir, struct dentry *dentry)
 		goto out;
 	}
 
+	if (backing_path.dentry == mi->mi_incomplete_dir) {
+		/* Can't delete .incomplete */
+		err = -EBUSY;
+		goto out;
+	}
+
 	err = incfs_rmdir(backing_path.dentry);
 	if (!err)
 		d_drop(dentry);
@@ -1025,8 +1165,9 @@ static int dir_rename(struct inode *old_dir, struct dentry *old_dentry,
 
 	backing_old_dentry = get_incfs_dentry(old_dentry)->backing_path.dentry;
 
-	if (!backing_old_dentry || backing_old_dentry == mi->mi_index_dir) {
-		/* Renaming .index not allowed */
+	if (!backing_old_dentry || backing_old_dentry == mi->mi_index_dir ||
+	    backing_old_dentry == mi->mi_incomplete_dir) {
+		/* Renaming .index or .incomplete not allowed */
 		error = -EBUSY;
 		goto exit;
 	}
@@ -1039,8 +1180,9 @@ static int dir_rename(struct inode *old_dir, struct dentry *old_dentry,
 	backing_new_dir_dentry = dget_parent(backing_new_dentry);
 	target_inode = d_inode(new_dentry);
 
-	if (backing_old_dir_dentry == mi->mi_index_dir) {
-		/* Direct moves from .index are not allowed. */
+	if (backing_old_dir_dentry == mi->mi_index_dir ||
+	    backing_old_dir_dentry == mi->mi_incomplete_dir) {
+		/* Direct moves from .index or .incomplete are not allowed. */
 		error = -EBUSY;
 		goto out;
 	}
@@ -1094,6 +1236,8 @@ static int file_open(struct inode *inode, struct file *file)
 	int flags = O_NOATIME | O_LARGEFILE |
 		(S_ISDIR(inode->i_mode) ? O_RDONLY : O_RDWR);
 
+	WARN_ON(file->private_data);
+
 	if (!mi)
 		return -EBADF;
 
@@ -1111,8 +1255,20 @@ static int file_open(struct inode *inode, struct file *file)
 	}
 
 	if (S_ISREG(inode->i_mode)) {
+		struct incfs_file_data *fd = kzalloc(sizeof(*fd), GFP_NOFS);
+
+		if (!fd) {
+			err = -ENOMEM;
+			goto out;
+		}
+
+		*fd = (struct incfs_file_data) {
+			.fd_fill_permission = CANT_FILL,
+		};
+		file->private_data = fd;
+
 		err = make_inode_ready_for_data_ops(mi, inode, backing_file);
-		file->private_data = (void *)CANT_FILL;
+
 	} else if (S_ISDIR(inode->i_mode)) {
 		struct dir_file *dir = NULL;
 
@@ -1125,9 +1281,17 @@ static int file_open(struct inode *inode, struct file *file)
 		err = -EBADF;
 
 out:
-	if (err)
-		pr_debug("incfs: %s name:%s err: %d\n", __func__,
-			file->f_path.dentry->d_name.name, err);
+	if (err) {
+		pr_debug("name:%s err: %d\n",
+			 file->f_path.dentry->d_name.name, err);
+		if (S_ISREG(inode->i_mode))
+			kfree(file->private_data);
+		else if (S_ISDIR(inode->i_mode))
+			incfs_free_dir_file(file->private_data);
+
+		file->private_data = NULL;
+	}
+
 	if (backing_file)
 		fput(backing_file);
 	return err;
@@ -1136,9 +1300,8 @@ out:
 static int file_release(struct inode *inode, struct file *file)
 {
 	if (S_ISREG(inode->i_mode)) {
-		/* Do nothing.
-		 * data_file is released only by inode eviction.
-		 */
+		kfree(file->private_data);
+		file->private_data = NULL;
 	} else if (S_ISDIR(inode->i_mode)) {
 		struct dir_file *dir = get_incfs_dir_file(file);
 
@@ -1357,10 +1520,13 @@ static ssize_t incfs_listxattr(struct dentry *d, char *list, size_t size)
 struct dentry *incfs_mount_fs(struct file_system_type *type, int flags,
 			      const char *dev_name, void *data)
 {
+	static const char index_name[] = ".index";
+	static const char incomplete_name[] = ".incomplete";
 	struct mount_options options = {};
 	struct mount_info *mi = NULL;
 	struct path backing_dir_path = {};
-	struct dentry *index_dir;
+	struct dentry *index_dir = NULL;
+	struct dentry *incomplete_dir = NULL;
 	struct super_block *src_fs_sb = NULL;
 	struct inode *root_inode = NULL;
 	struct super_block *sb = sget(type, NULL, set_anon_super, flags, NULL);
@@ -1413,14 +1579,27 @@ struct dentry *incfs_mount_fs(struct file_system_type *type, int flags,
 		goto err;
 	}
 
-	index_dir = open_or_create_index_dir(backing_dir_path.dentry);
+	index_dir = open_or_create_special_dir(backing_dir_path.dentry,
+					       index_name);
 	if (IS_ERR_OR_NULL(index_dir)) {
 		error = PTR_ERR(index_dir);
 		pr_err("incfs: Can't find or create .index dir in %s\n",
 			dev_name);
+		/* No need to null index_dir since we don't put it */
 		goto err;
 	}
 	mi->mi_index_dir = index_dir;
+
+	incomplete_dir = open_or_create_special_dir(backing_dir_path.dentry,
+						    incomplete_name);
+	if (IS_ERR_OR_NULL(incomplete_dir)) {
+		error = PTR_ERR(incomplete_dir);
+		pr_err("incfs: Can't find or create .incomplete dir in %s\n",
+			dev_name);
+		/* No need to null incomplete_dir since we don't put it */
+		goto err;
+	}
+	mi->mi_incomplete_dir = incomplete_dir;
 
 	sb->s_fs_info = mi;
 	root_inode = fetch_regular_inode(sb, backing_dir_path.dentry);

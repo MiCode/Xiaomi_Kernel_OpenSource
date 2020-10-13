@@ -114,6 +114,8 @@ struct mount_info {
 
 	struct dentry *mi_index_dir;
 
+	struct dentry *mi_incomplete_dir;
+
 	const struct cred *mi_owner;
 
 	struct mount_options mi_options;
@@ -162,6 +164,10 @@ struct mount_info {
 	/* Number of blocks written since mount */
 	atomic_t mi_blocks_written;
 
+	/* Per UID read timeouts */
+	spinlock_t mi_per_uid_read_timeouts_lock;
+	struct incfs_per_uid_read_timeouts *mi_per_uid_read_timeouts;
+	int mi_per_uid_read_timeouts_size;
 };
 
 struct data_file_block {
@@ -249,7 +255,20 @@ struct data_file {
 	/* For mapped files, the offset into the actual file */
 	loff_t df_mapped_offset;
 
-	struct file_attr n_attr;
+	/* Number of data blocks written to file */
+	atomic_t df_data_blocks_written;
+
+	/* Number of data blocks in the status block */
+	u32 df_initial_data_blocks_written;
+
+	/* Number of hash blocks written to file */
+	atomic_t df_hash_blocks_written;
+
+	/* Number of hash blocks in the status block */
+	u32 df_initial_hash_blocks_written;
+
+	/* Offset to status metadata header */
+	loff_t df_status_offset;
 
 	struct mtree *df_hash_tree;
 
@@ -276,6 +295,23 @@ struct dentry_info {
 	struct path backing_path;
 };
 
+enum FILL_PERMISSION {
+	CANT_FILL = 0,
+	CAN_FILL = 1,
+};
+
+struct incfs_file_data {
+	/* Does this file handle have INCFS_IOC_FILL_BLOCKS permission */
+	enum FILL_PERMISSION fd_fill_permission;
+
+	/* If INCFS_IOC_GET_FILLED_BLOCKS has been called, where are we */
+	int fd_get_block_pos;
+
+	/* And how many filled blocks are there up to that point */
+	int fd_filled_data_blocks;
+	int fd_filled_hash_blocks;
+};
+
 struct mount_info *incfs_alloc_mount_info(struct super_block *sb,
 					  struct mount_options *options,
 					  struct path *backing_dir_path);
@@ -296,10 +332,12 @@ struct dir_file *incfs_open_dir_file(struct mount_info *mi, struct file *bf);
 void incfs_free_dir_file(struct dir_file *dir);
 
 ssize_t incfs_read_data_file_block(struct mem_range dst, struct file *f,
-				   int index, int timeout_ms,
-				   struct mem_range tmp);
+			int index, int min_time_ms,
+			int min_pending_time_ms, int max_pending_time_ms,
+			struct mem_range tmp);
 
 int incfs_get_filled_blocks(struct data_file *df,
+			    struct incfs_file_data *fd,
 			    struct incfs_get_filled_blocks_args *arg);
 
 int incfs_read_file_signature(struct data_file *df, struct mem_range dst);

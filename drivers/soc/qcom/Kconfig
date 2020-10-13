@@ -678,7 +678,6 @@ config QCOM_FSA4480_I2C
 	bool "Fairchild FSA4480 chip with I2C"
 	select REGMAP_I2C
 	depends on I2C
-	depends on AUDIO_QGKI
 	help
 	  Support for the Fairchild FSA4480 IC switch chip controlled
 	  using I2C. This driver provides common support
