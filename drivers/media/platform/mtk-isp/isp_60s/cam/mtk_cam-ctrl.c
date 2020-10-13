@@ -326,6 +326,7 @@ static void mtk_cam_sensor_worker(struct work_struct *work)
 		}
 	}
 	state_transition(&req->state, E_STATE_READY, E_STATE_SENSOR);
+	req->state.time_sensorset = ktime_get_boottime_ns() / 1000;
 	dev_dbg(cam->dev, "sensor try set done\n");
 }
 
@@ -391,6 +392,7 @@ static enum hrtimer_restart sensor_set_handler(struct hrtimer *t)
 	spin_unlock(&sensor_ctrl->camsys_state_lock);
 	current_req = mtk_cam_dev_get_req(cam, ctx, sensor_seq_no_next);
 	if (current_req) {
+		current_req->state.time_swirq_timer = ktime_get_boottime_ns() / 1000;
 		mtk_cam_set_sensor(current_req,
 				   &camsys->sensor_ctrl[ctx->stream_id]);
 		dev_dbg(cam->dev,
@@ -466,8 +468,12 @@ static int mtk_camsys_state_handle(struct mtk_raw_device *raw_dev,
 			state_rec[stateidx] = state_temp;
 			/* Find outer state element */
 			if (state_temp->estate == E_STATE_OUTER ||
-			    state_temp->estate == E_STATE_OUTER_HW_DELAY)
+			    state_temp->estate == E_STATE_OUTER_HW_DELAY) {
 				state_outer = state_temp;
+				req->state.time_irq_sof2 = ktime_get_boottime_ns() / 1000;
+			}
+			if (state_temp->estate <= E_STATE_SENSOR)
+				req->state.time_irq_sof1 = ktime_get_boottime_ns() / 1000;
 			dev_dbg(raw_dev->dev,
 			"[SOF] STATE_CHECK [N-%d] Req:%d / State:%d\n",
 			stateidx, req->frame_seq_no,
@@ -496,8 +502,7 @@ static int mtk_camsys_state_handle(struct mtk_raw_device *raw_dev,
 		req = container_of(state_outer, struct mtk_cam_request,
 				   state);
 		if (req->frame_seq_no == frame_inner_idx) {
-			if (frame_inner_idx ==
-			   (sensor_ctrl->isp_request_seq_no + 1)) {
+			if (frame_inner_idx > sensor_ctrl->isp_request_seq_no) {
 				state_transition(state_outer,
 						 E_STATE_OUTER_HW_DELAY,
 						 E_STATE_INNER_HW_DELAY);
@@ -605,6 +610,7 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 					 E_STATE_CQ);
 			req_cq = container_of(current_state, struct mtk_cam_request, state);
 			req_cq->timestamp = ktime_get_boottime_ns();
+			req_cq->state.time_cqset = ktime_get_boottime_ns() / 1000;
 			dev_dbg(raw_dev->dev,
 			"SOF[ctx:%d-#%d], CQ-%d is update, composed:%d, cq_addr:0x%x, time:%lld\n",
 			ctx->stream_id, dequeued_frame_seq_no, req_cq->frame_seq_no,
@@ -635,17 +641,17 @@ static void mtk_camsys_raw_cq_done(struct mtk_raw_device *raw_dev,
 			    state_element) {
 		req = container_of(state_entry, struct mtk_cam_request, state);
 		if (req->frame_seq_no == frame_seq_no_outer) {
-			if (frame_seq_no_outer ==
-			    (sensor_ctrl->isp_request_seq_no + 1)) {
+			if (frame_seq_no_outer > sensor_ctrl->isp_request_seq_no) {
 				/**
 				 * outer number is 1 more from last SOF's
 				 * inner number
 				 */
 				state_transition(state_entry, E_STATE_CQ,
-						 E_STATE_OUTER);
+						E_STATE_OUTER);
 				state_transition(state_entry,
-						 E_STATE_CQ_SCQ_DELAY,
-						 E_STATE_OUTER);
+						E_STATE_CQ_SCQ_DELAY,
+						E_STATE_OUTER);
+				req->state.time_irq_outer = ktime_get_boottime_ns() / 1000;
 				dev_dbg(raw_dev->dev,
 					"[CQD] req:%d, CQ->OUTER state:%d\n",
 					req->frame_seq_no, state_entry->estate);
@@ -689,6 +695,9 @@ static void mtk_camsys_raw_frame_done(struct mtk_raw_device *raw_dev,
 						 E_STATE_DONE_MISMATCH);
 				state_transition(state_entry, E_STATE_INNER,
 						 E_STATE_DONE_NORMAL);
+				if (state_entry->estate == E_STATE_DONE_NORMAL)
+					state_req->state.time_irq_done =
+						ktime_get_boottime_ns() / 1000;
 				dev_dbg(raw_dev->dev, "[SWD] req:%d/state:%d/time:%lld\n",
 					state_req->frame_seq_no,
 					state_entry->estate, state_req->timestamp);
@@ -896,6 +905,7 @@ void mtk_cam_initial_sensor_setup(struct mtk_cam_request *initial_req,
 		&cam->camsys_ctrl.sensor_ctrl[ctx->stream_id];
 
 	sensor_ctrl->ctx = ctx;
+	initial_req->state.time_swirq_timer = ktime_get_boottime_ns() / 1000;
 	mtk_cam_set_sensor(initial_req, sensor_ctrl);
 	dev_dbg(ctx->cam->dev, "Initial sensor timer setup\n");
 }
@@ -929,8 +939,7 @@ int mtk_camsys_ctrl_start(struct mtk_cam_ctx *ctx)
 			sensor_deadline_timer_handler;
 		camsys_sensor_ctrl->sensorsetting_wq =
 			alloc_ordered_workqueue(dev_name(ctx->cam->dev),
-						__WQ_LEGACY | WQ_MEM_RECLAIM |
-						WQ_FREEZABLE);
+						WQ_HIGHPRI | WQ_FREEZABLE);
 		if (!camsys_sensor_ctrl->sensorsetting_wq) {
 			dev_dbg(ctx->cam->dev,
 				"failed to alloc sensor setting workqueue\n");
