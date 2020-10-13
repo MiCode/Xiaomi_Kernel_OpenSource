@@ -1717,16 +1717,18 @@ irqreturn_t mhi_intvec_handlr(int irq_number, void *dev)
 
 	struct mhi_controller *mhi_cntrl = dev;
 	u32 in_reset = -1;
+	int ret = 0;
 
 	/* wake up any events waiting for state change */
 	MHI_VERB("Enter\n");
 	if (unlikely(mhi_cntrl->initiate_mhi_reset)) {
-		mhi_read_reg_field(mhi_cntrl, mhi_cntrl->regs, MHICTRL,
+		ret = mhi_read_reg_field(mhi_cntrl, mhi_cntrl->regs, MHICTRL,
 			MHICTRL_RESET_MASK, MHICTRL_RESET_SHIFT, &in_reset);
+
 		mhi_cntrl->initiate_mhi_reset = !!in_reset;
 	}
 	wake_up_all(&mhi_cntrl->state_event);
-	MHI_VERB("Exit\n");
+	MHI_VERB("Exit: ret %d\n", ret);
 
 	if (MHI_IN_MISSION_MODE(mhi_cntrl->ee))
 		queue_work(mhi_cntrl->wq, &mhi_cntrl->special_work);
