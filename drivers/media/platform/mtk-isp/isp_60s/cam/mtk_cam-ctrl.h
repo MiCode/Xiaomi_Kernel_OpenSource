@@ -45,6 +45,7 @@ struct mtk_camsys_irq_info {
 	enum MTK_CAMSYS_ENGINE_IDX engine_id;
 	int frame_idx;
 	int frame_inner_idx;
+	bool slave_engine;
 };
 
 /*For state analysis and controlling for request*/
