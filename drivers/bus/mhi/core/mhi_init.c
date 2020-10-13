@@ -818,8 +818,10 @@ static int mhi_init_timesync(struct mhi_controller *mhi_cntrl)
 
 	/* save time_offset for obtaining time */
 	MHI_CNTRL_LOG("TIME OFFS:0x%x\n", time_offset);
-	mhi_tsync->time_reg = mhi_cntrl->regs + time_offset
+	mhi_tsync->time_reg_lo = mhi_cntrl->regs + time_offset
 			      + TIMESYNC_TIME_LOW_OFFSET;
+	mhi_tsync->time_reg_hi = mhi_cntrl->regs + time_offset
+			      + TIMESYNC_TIME_HIGH_OFFSET;
 
 	mhi_cntrl->mhi_tsync = mhi_tsync;
 

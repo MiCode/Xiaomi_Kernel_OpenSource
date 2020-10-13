@@ -723,7 +723,8 @@ struct tsync_node {
 };
 
 struct mhi_timesync {
-	void __iomem *time_reg;
+	void __iomem *time_reg_lo;
+	void __iomem *time_reg_hi;
 	u32 int_sequence;
 	u64 local_time;
 	u64 remote_time;
@@ -856,10 +857,14 @@ void mhi_write_reg_offload(struct mhi_controller *mhi_cntrl,
 static inline void mhi_timesync_log(struct mhi_controller *mhi_cntrl)
 {
 	struct mhi_timesync *mhi_tsync = mhi_cntrl->mhi_tsync;
+	u64 time_val;
 
-	if (mhi_tsync && mhi_cntrl->tsync_log)
-		mhi_cntrl->tsync_log(mhi_cntrl,
-				     readq_no_log(mhi_tsync->time_reg));
+	if (mhi_tsync && mhi_cntrl->tsync_log) {
+		time_val =
+			(u64)readl_relaxed_no_log(mhi_tsync->time_reg_hi) << 32
+			| readl_relaxed_no_log(mhi_tsync->time_reg_lo);
+		mhi_cntrl->tsync_log(mhi_cntrl, time_val);
+	}
 }
 
 /* memory allocation methods */
