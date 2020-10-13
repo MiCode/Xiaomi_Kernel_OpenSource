@@ -398,8 +398,12 @@ int ufshcd_prepare_lrbp_crypto_spec(struct ufs_hba *hba,
 
 	lrbp->crypto_enable = true;
 	lrbp->crypto_key_slot = bc->bc_keyslot;
-	lrbp->data_unit_num = bc->bc_dun[0];
-
+	if (bc->is_ext4) {
+		lrbp->data_unit_num = (u64)cmd->request->bio->bi_iter.bi_sector;
+		lrbp->data_unit_num >>= 3;
+	} else {
+		lrbp->data_unit_num = bc->bc_dun[0];
+	}
 	return 0;
 }
 EXPORT_SYMBOL_GPL(ufshcd_prepare_lrbp_crypto_spec);

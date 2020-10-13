@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _QCOM_INLINE_CRYPTO_ENGINE_H_
@@ -111,6 +111,8 @@ int disable_ice_setup(struct ice_device *ice_dev);
 int qcom_ice_setup_ice_hw(const char *storage_type, int enable);
 void qcom_ice_set_fde_flag(int flag);
 struct list_head *get_ice_dev_list(void);
+int qcom_ice_config_start(struct request *req,
+			  struct ice_data_setting *setting);
 #else
 static inline int enable_ice_setup(struct ice_device *ice_dev)
 {
@@ -133,18 +135,14 @@ static inline struct list_head *get_ice_dev_list(void)
 
 struct qcom_ice_variant_ops {
 	const char *name;
-	int	(*init)(struct platform_device *device_init, void *init_data,
-				ice_error_cb err);
-	int	(*reset)(struct platform_device *device_reset);
-	int	(*resume)(struct platform_device *device_resume);
-	int	(*suspend)(struct platform_device *device_suspend);
-	int	(*config_start)(struct platform_device *device_start,
-			struct request *req, struct ice_data_setting *setting,
-			bool start);
-	int	(*config_end)(struct platform_device *pdev,
-			struct request *req);
-	int	(*status)(struct platform_device *device_status);
-	void	(*debug)(struct platform_device *device_debug);
+	int (*reset)(struct platform_device *device_reset);
+	int (*resume)(struct platform_device *device_resume);
+	int (*suspend)(struct platform_device *device_suspend);
+	int (*config_start)(struct request *req,
+			    struct ice_data_setting *setting);
+	int (*config_end)(struct platform_device *pdev,
+			  struct request *req);
+	int (*status)(struct platform_device *device_status);
+	void (*debug)(struct platform_device *device_debug);
 };
-
 #endif /* _QCOM_INLINE_CRYPTO_ENGINE_H_ */
