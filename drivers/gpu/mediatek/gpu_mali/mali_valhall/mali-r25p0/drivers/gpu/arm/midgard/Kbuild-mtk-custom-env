@@ -73,3 +73,9 @@ ifeq ($(MTK_PLATFORM), mt6853)
 ccflags-y += -DMTK_GPU_BM_2
 $(info *GPU defined GPU BM QoS 2.0)
 endif
+
+#TODO 6853 GKI Porting disable QOS temporarily
+ifeq ($(MTK_PLATFORM), mt6853)
+ccflags-y += -DMTK_QOS_NOT_READY
+$(info *GPU defined MTK_QOS_NOT_READY)
+endif

@@ -278,8 +278,10 @@ static int mtk_bandwith_resource_init(struct kbase_device *kbdev)
 		kbdev->v1 = gpu_info_ref;
 		kbdev->v1->version = 1;
 		kbdev->job_status_addr.phyaddr = rec_phys_addr;
-
+// TODO: 6853 GKI porting to check MTK QOS STATUS
+#ifndef MTK_QOS_NOT_READY
 		MTKGPUQoS_setup(kbdev->v1, kbdev->job_status_addr.phyaddr, rec_size);
+#endif
 #endif
 		return err;
 }
