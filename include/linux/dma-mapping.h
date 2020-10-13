@@ -11,7 +11,6 @@
 #include <linux/scatterlist.h>
 #include <linux/bug.h>
 #include <linux/mem_encrypt.h>
-#include <linux/genalloc.h>
 #include <linux/android_kabi.h>
 
 /**
