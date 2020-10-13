@@ -267,7 +267,7 @@ int get_charger_type(struct mtk_charger *info)
 			POWER_SUPPLY_PROP_ONLINE, &prop);
 
 		ret = power_supply_get_property(chg_psy,
-			POWER_SUPPLY_PROP_USB_TYPE, &prop2);
+			POWER_SUPPLY_PROP_TYPE, &prop2);
 	}
 
 	pr_notice("%s online:%d type:%d\n", __func__,
