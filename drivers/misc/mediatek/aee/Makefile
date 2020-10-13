@@ -10,16 +10,7 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
-ifeq ($(CONFIG_MTK_PLATFORM), "mt6761")
-MTK_PLATFORM := mt6765
-else ifneq ($(CONFIG_MTK_PLATFORM), "")
-MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
-else
-MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_DISP_PLATFORM))
-endif
 subdir-ccflags-y += -I$(srctree)/drivers/gpu/drm/mediatek/mediatek_v2/
-subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/$(MTK_PLATFORM)
-subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/video/$(MTK_PLATFORM)/videox/
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/aee/mrdump
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/aee/aed
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/aee
