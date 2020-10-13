@@ -1212,7 +1212,7 @@ int kgsl_drawobj_cmd_add_cmdlist(struct kgsl_device *device,
 		/* Sanity check the flags */
 		if (!(obj.flags & CMDLIST_FLAGS)) {
 			dev_err(device->dev,
-				     "invalid cmdobj ctxt %d flags %d id %d offset %lld addr %lld size %lld\n",
+				     "invalid cmdobj ctxt %d flags %d id %d offset %llu addr %llx size %llu\n",
 				     baseobj->context->id, obj.flags, obj.id,
 				     obj.offset, obj.gpuaddr, obj.size);
 			return -EINVAL;
