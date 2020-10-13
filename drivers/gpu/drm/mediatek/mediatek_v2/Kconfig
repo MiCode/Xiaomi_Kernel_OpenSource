@@ -21,3 +21,10 @@ config MTK_AAL_SUPPORT
 	  Decide whether to support ambient-light adaptive luma and
 	  display visual enhancement.
 	  This feature requires the cowork of AAL user-space algorithm process.
+
+config MTK_DRE30_SUPPORT
+	bool "Support DRE 30"
+	help
+	  Decide whether to support ambient-light adaptive luma and
+	  display visual enhancement ver.3.
+	  This feature requires the cowork of AAL user-space algorithm process.
