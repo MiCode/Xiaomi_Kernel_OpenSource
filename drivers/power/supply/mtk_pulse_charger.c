@@ -141,15 +141,15 @@ static bool pchr_select_charging_current_limit(struct mtk_charger *info,
 	}
 
 	if (info->atm_enabled == true
-		&& (info->chr_type == POWER_SUPPLY_USB_TYPE_SDP ||
-		info->chr_type == POWER_SUPPLY_USB_TYPE_CDP)
+		&& (info->chr_type == POWER_SUPPLY_TYPE_USB ||
+		info->chr_type == POWER_SUPPLY_TYPE_USB_CDP)
 		) {
 		pdata->input_current_limit = 100000; /* 100mA */
 		is_basic = true;
 		goto done;
 	}
 
-	if (info->chr_type == POWER_SUPPLY_USB_TYPE_SDP) {
+	if (info->chr_type == POWER_SUPPLY_TYPE_USB) {
 		pdata->input_current_limit =
 				info->data.usb_charger_current;
 		/* it can be larger */
@@ -157,12 +157,12 @@ static bool pchr_select_charging_current_limit(struct mtk_charger *info,
 				info->data.usb_charger_current;
 		is_basic = true;
 
-	} else if (info->chr_type == POWER_SUPPLY_USB_TYPE_DCP) {
+	} else if (info->chr_type == POWER_SUPPLY_TYPE_USB_DCP) {
 		pdata->input_current_limit =
 			info->data.ac_charger_input_current;
 		pdata->charging_current_limit =
 			info->data.ac_charger_current;
-	} else if (info->chr_type == POWER_SUPPLY_USB_TYPE_CDP) {
+	} else if (info->chr_type == POWER_SUPPLY_TYPE_USB_CDP) {
 		pdata->input_current_limit =
 			info->data.charging_host_charger_current;
 		pdata->charging_current_limit =
@@ -172,7 +172,7 @@ static bool pchr_select_charging_current_limit(struct mtk_charger *info,
 
 	if (info->enable_sw_jeita) {
 		if (IS_ENABLED(CONFIG_USBIF_COMPLIANCE)
-			&& info->chr_type == POWER_SUPPLY_USB_TYPE_SDP)
+			&& info->chr_type == POWER_SUPPLY_TYPE_USB)
 			chr_debug("USBIF & STAND_HOST skip current check\n");
 		else {
 			if (info->sw_jeita.sm == TEMP_T0_TO_T1) {

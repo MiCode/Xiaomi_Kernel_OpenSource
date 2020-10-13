@@ -146,7 +146,7 @@ int __pe_increase_ta_vchr(struct chg_alg_device *alg)
 	bool increase = true; /* Increase */
 
 	if (pe_hal_get_charger_type(alg) !=
-		POWER_SUPPLY_USB_TYPE_UNKNOWN) {
+		POWER_SUPPLY_TYPE_UNKNOWN) {
 		ret = pe_hal_send_ta_current_pattern(alg,
 							increase);
 
@@ -199,7 +199,7 @@ static int pe_increase_ta_vchr(struct chg_alg_device *alg, u32 vchr_target)
 
 		retry_cnt++;
 	} while (pe_hal_get_charger_type(alg) !=
-		POWER_SUPPLY_USB_TYPE_UNKNOWN && retry_cnt < 3);
+		POWER_SUPPLY_TYPE_UNKNOWN && retry_cnt < 3);
 
 	ret = -EHAL;
 	pe_dbg("%s: failed, vchr = (%d, %d), vchr_target = %d\n",
@@ -304,7 +304,7 @@ int __pe_check_charger(struct chg_alg_device *alg)
 		pe->ta_stop_battery_soc,
 		pe_hal_get_charger_type(alg));
 
-	if (pe_hal_get_charger_type(alg) != POWER_SUPPLY_USB_TYPE_DCP) {
+	if (pe_hal_get_charger_type(alg) != POWER_SUPPLY_TYPE_USB_DCP) {
 		ret_value = ALG_TA_NOT_SUPPORT;
 		goto out;
 	}
@@ -445,7 +445,7 @@ static int _pe_is_algo_ready(struct chg_alg_device *alg)
 	case PE_HW_READY:
 		uisoc = pe_hal_get_uisoc(alg);
 		if (pe_hal_get_charger_type(alg) !=
-			POWER_SUPPLY_USB_TYPE_DCP) {
+			POWER_SUPPLY_TYPE_USB_DCP) {
 			ret_value = ALG_TA_NOT_SUPPORT;
 		} else if (uisoc < pe->ta_start_battery_soc ||
 			uisoc >= pe->ta_stop_battery_soc) {

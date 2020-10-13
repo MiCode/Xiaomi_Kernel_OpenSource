@@ -630,8 +630,8 @@ static int mt6360_chgdet_post_process(struct mt6360_chg_info *mci)
 	case MT6360_CHG_TYPE_SDPNSTD:
 		dev_info(mci->dev,
 			  "%s: Charger Type: NONSTANDARD_CHARGER\n", __func__);
-		mci->psy_desc.type = POWER_SUPPLY_TYPE_USB_DCP;
-		mci->psy_usb_type = POWER_SUPPLY_USB_TYPE_DCP;
+		mci->psy_desc.type = POWER_SUPPLY_TYPE_USB_FLOAT;
+		mci->psy_usb_type = POWER_SUPPLY_USB_TYPE_SDP;
 		break;
 	case MT6360_CHG_TYPE_CDP:
 		dev_info(mci->dev,
@@ -652,7 +652,7 @@ out:
 		if (ret < 0)
 			dev_notice(mci->dev, "%s: disable chgdet fail\n",
 				   __func__);
-	} else if (mci->psy_usb_type != POWER_SUPPLY_USB_TYPE_DCP)
+	} else if (mci->psy_desc.type != POWER_SUPPLY_TYPE_USB_DCP)
 		mt6360_set_usbsw_state(mci, MT6360_USBSW_USB);
 	if (!inform_psy)
 		return ret;
@@ -2785,6 +2785,9 @@ static int mt6360_charger_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_ONLINE:
 		ret = mt6360_charger_get_online(mci, &pwr_rdy);
 		val->intval = pwr_rdy;
+		break;
+	case POWER_SUPPLY_PROP_TYPE:
+		val->intval = mci->psy_desc.type;
 		break;
 	case POWER_SUPPLY_PROP_USB_TYPE:
 		val->intval = mci->psy_usb_type;
