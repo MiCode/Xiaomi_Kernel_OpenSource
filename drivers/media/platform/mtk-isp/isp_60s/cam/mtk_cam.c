@@ -94,8 +94,20 @@ static void mtk_cam_dev_job_done(struct mtk_cam_device *cam,
 			vb->timestamp = req->timestamp;
 		vb2_buffer_done(&buf->vbb.vb2_buf, state);
 	}
-}
+	req->state.time_deque = ktime_get_boottime_ns() / 1000;
+	dev_dbg(cam->dev, "[ctx/no:%d/%4d(us)] %6lld,%6lld,%6lld,%6lld,%6lld,%6lld,%6lld,%6lld,%6lld\n",
+		req->ctx_used, req->frame_seq_no,
+		req->state.time_composing - req->state.time_syscall_enque,
+		req->state.time_swirq_composed - req->state.time_composing,
+		req->state.time_sensorset - req->state.time_swirq_timer,
+		req->state.time_irq_sof1 - req->state.time_sensorset,
+		req->state.time_cqset - req->state.time_irq_sof1,
+		req->state.time_irq_outer - req->state.time_cqset,
+		req->state.time_irq_sof2 - req->state.time_irq_sof1,
+		req->state.time_irq_done - req->state.time_irq_sof2,
+		req->state.time_deque - req->state.time_irq_done);
 
+}
 struct mtk_cam_request *mtk_cam_dev_get_req(struct mtk_cam_device *cam,
 					    struct mtk_cam_ctx *ctx,
 					    unsigned int frame_seq_no)
@@ -578,6 +590,7 @@ static void mtk_cam_req_queue(struct media_request *req)
 	struct mtk_cam_device *cam =
 		container_of(req->mdev, struct mtk_cam_device, media_dev);
 	unsigned long flags;
+	cam_req->state.time_syscall_enque = ktime_get_boottime_ns() / 1000;
 	/* update frame_params's dma_bufs in mtk_cam_vb2_buf_queue */
 	vb2_request_queue(req);
 
@@ -666,9 +679,13 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 		return -EINVAL;
 
 	if (ipi_msg->ack_data.ack_cmd_id == CAM_CMD_FRAME) {
+		struct mtk_cam_request *req;
 		ctx = &cam->ctxs[ipi_msg->cookie.session_id];
 		spin_lock(&ctx->using_buffer_list.lock);
 		ctx->composed_frame_seq_no = ipi_msg->cookie.frame_no;
+		req = mtk_cam_dev_get_req(cam, ctx,
+						  ctx->composed_frame_seq_no);
+		req->state.time_swirq_composed = ktime_get_boottime_ns() / 1000;
 		dev_dbg(dev, "ctx:%d ack frame_num:%d\n",
 			ctx->stream_id, ctx->composed_frame_seq_no);
 
@@ -686,7 +703,7 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 			ipi_msg->ack_data.frame_result.cq_desc_size;
 
 		if (ctx->composed_frame_seq_no == 1) {
-			struct mtk_cam_request *req;
+
 			struct mtk_raw_device *raw_dev;
 			struct device *dev;
 
@@ -698,8 +715,6 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 			spin_unlock_irqrestore
 				(&ctx->processing_buffer_list.lock, flags);
 			spin_unlock(&ctx->using_buffer_list.lock);
-			req = mtk_cam_dev_get_req(cam, ctx,
-						  ctx->composed_frame_seq_no);
 
 			dev = mtk_cam_find_raw_dev(cam, req->ctx_used);
 			if (!dev) {
@@ -709,9 +724,11 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 
 			raw_dev = dev_get_drvdata(dev);
 			apply_cq(raw_dev,
-				 buf_entry->buffer.iova,
+				buf_entry->buffer.iova,
 				buf_entry->cq_size, 1);
 			req->timestamp = ktime_get_boottime_ns();
+			req->state.time_cqset = ktime_get_boottime_ns() / 1000;
+
 			return 0;
 		}
 		spin_lock_irqsave(&ctx->composed_buffer_list.lock,
@@ -780,7 +797,7 @@ static void isp_tx_frame_worker(struct work_struct *work)
 	req->working_buf = buf_entry;
 	frame_data->cur_workbuf_offset = buf_entry->buffer.addr_offset;
 	frame_data->cur_workbuf_size = buf_entry->buffer.size;
-
+	req->state.time_composing = ktime_get_boottime_ns() / 1000;
 	rpmsg_send(cam->rpmsg_dev->rpdev.ept, &event, sizeof(event));
 	dev_dbg(cam->dev, "rpmsg_send id: %d\n", event.cmd_id);
 }
@@ -1024,8 +1041,7 @@ static int isp_composer_init(struct mtk_cam_device *cam)
 
 	cam->composer_wq =
 		alloc_ordered_workqueue(dev_name(cam->dev),
-					__WQ_LEGACY | WQ_MEM_RECLAIM |
-					WQ_FREEZABLE);
+					WQ_HIGHPRI | WQ_FREEZABLE);
 	if (!cam->composer_wq) {
 		dev_dbg(dev, "failed to alloc composer workqueue\n");
 		ret = -ENOMEM;
