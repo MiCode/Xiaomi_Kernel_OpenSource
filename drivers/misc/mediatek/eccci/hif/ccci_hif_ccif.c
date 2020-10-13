@@ -2092,7 +2092,7 @@ static void ccci_ccif_sysresume(void)
 		ccif_write32(md_ctrl->ccif_ap_base, APCCIF_CON, 0x01);
 	else
 		CCCI_ERROR_LOG(-1, TAG,
-			"[%s] error: ccci_hif_get_by_id failed.");
+			"[%s] error: ccci_hif_get_by_id failed.", __func__);
 }
 
 static struct syscore_ops ccci_ccif_sysops = {
