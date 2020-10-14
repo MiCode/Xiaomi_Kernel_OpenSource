@@ -177,8 +177,9 @@ static int build_unified_table(struct cc_limits_data *cc_cdev,
 static struct cc_limits_data *opp_init(int *cpus)
 {
 	int cpu1, cpu2;
-	struct device *cpu1_dev, *cpu2_dev;
-	struct limits_freq_table *cpu1_freq_table, *cpu2_freq_table;
+	struct device *cpu1_dev = NULL, *cpu2_dev = NULL;
+	struct limits_freq_table *cpu1_freq_table = NULL;
+	struct limits_freq_table *cpu2_freq_table = NULL;
 	struct limits_freq_table *cpu_freq_table[CPU_MAP_CT];
 	int table_ct[CPU_MAP_CT], ret = 0;
 	struct cc_limits_data *cc_cdev = NULL;
