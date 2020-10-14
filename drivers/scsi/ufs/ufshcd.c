@@ -287,7 +287,14 @@ static int ufshcd_wb_buf_flush_disable(struct ufs_hba *hba);
 int ufshcd_wb_ctrl(struct ufs_hba *hba, bool enable);
 static int ufshcd_wb_toggle_flush_during_h8(struct ufs_hba *hba, bool set);
 static inline void ufshcd_wb_toggle_flush(struct ufs_hba *hba, bool enable);
-
+#if defined(CONFIG_SCSI_UFSHCD_QTI)
+static int ufshcd_set_dev_pwr_mode(struct ufs_hba *hba,
+				enum ufs_dev_pwr_mode pwr_mode);
+static int ufshcd_config_vreg(struct device *dev,
+				struct ufs_vreg *vreg, bool on);
+static int ufshcd_enable_vreg(struct device *dev, struct ufs_vreg *vreg);
+static int ufshcd_disable_vreg(struct device *dev, struct ufs_vreg *vreg);
+#endif
 static inline bool ufshcd_valid_tag(struct ufs_hba *hba, int tag)
 {
 	return tag >= 0 && tag < hba->nutrs;
@@ -7152,6 +7159,40 @@ static inline void ufshcd_blk_pm_runtime_init(struct scsi_device *sdev)
 	scsi_autopm_put_device(sdev);
 }
 
+ #if defined(CONFIG_SCSI_UFSHCD_QTI)
+static int ufshcd_set_low_vcc_level(struct ufs_hba *hba)
+{
+	int ret;
+	struct ufs_vreg *vreg = hba->vreg_info.vcc;
+
+	/* Check if device supports the low voltage VCC feature */
+	if (hba->dev_info.wspecversion < 0x300)
+		return 0;
+	/*
+	 * Check if host has support for low VCC voltage?
+	 * In addition, also check if we have already set the low VCC level
+	 * or not?
+	 */
+	if (!vreg->low_voltage_sup || vreg->low_voltage_active)
+		return 0;
+
+	/* Put the device in sleep before lowering VCC level */
+	ret = ufshcd_set_dev_pwr_mode(hba, UFS_SLEEP_PWR_MODE);
+
+	/* Switch off VCC before switching it ON at 2.5v */
+	ret = ufshcd_disable_vreg(hba->dev, vreg);
+	/* add ~2ms delay before renabling VCC at lower voltage */
+	usleep_range(2000, 2100);
+	/* Now turn back VCC ON at low voltage */
+	vreg->low_voltage_active = true;
+	ret = ufshcd_enable_vreg(hba->dev, vreg);
+
+	/* Bring the device in active now */
+	ret = ufshcd_set_dev_pwr_mode(hba, UFS_ACTIVE_PWR_MODE);
+
+	return ret;
+}
+#endif
 /**
  * ufshcd_scsi_add_wlus - Adds required W-LUs
  * @hba: per-adapter instance
@@ -7711,6 +7752,10 @@ static int ufshcd_add_lus(struct ufs_hba *hba)
 	if (ret)
 		goto out;
 
+#if defined(CONFIG_SCSI_UFSHCD_QTI)
+	ufshcd_set_low_vcc_level(hba);
+#endif
+
 	/* Initialize devfreq after UFS device is detected */
 	if (ufshcd_is_clkscaling_supported(hba)) {
 		memcpy(&hba->clk_scaling.saved_pwr_info.info,
@@ -8011,6 +8056,10 @@ static int ufshcd_config_vreg(struct device *dev,
 
 		if (vreg->min_uV && vreg->max_uV) {
 			min_uV = on ? vreg->min_uV : 0;
+#if defined(CONFIG_SCSI_UFSHCD_QTI)
+			if (vreg->low_voltage_sup && !vreg->low_voltage_active && on)
+				min_uV = vreg->max_uV;
+#endif
 			ret = regulator_set_voltage(reg, min_uV, vreg->max_uV);
 			if (ret) {
 				dev_err(dev,
