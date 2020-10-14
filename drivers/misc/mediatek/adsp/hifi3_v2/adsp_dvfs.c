@@ -30,7 +30,7 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #endif
-#ifdef CONFIG_MTK_AEE_FEATURE
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #include <mt-plat/aee.h>
 #endif
 
@@ -549,7 +549,7 @@ int adsp_sram_gtable_check(void)
 			  __func__, ret);
 	}
 #endif
-#ifdef CONFIG_MTK_AEE_FEATURE
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 	if (need_assert)
 		aee_kernel_exception_api(__FILE__,
 					 __LINE__,
