@@ -84,6 +84,7 @@ struct llcc_edac_reg_data {
  * @bitmap: Bit map to track the active slice ids
  * @offsets: Pointer to the bank offsets array
  * @ecc_irq: interrupt for llcc cache error detection and reporting
+ * @llcc_ver: hardware version (20 for V2.0)
  */
 struct llcc_drv_data {
 	struct regmap *regmap;
@@ -96,6 +97,7 @@ struct llcc_drv_data {
 	unsigned long *bitmap;
 	u32 *offsets;
 	int ecc_irq;
+	int llcc_ver;
 	bool cap_based_alloc_and_pwr_collapse;
 };
 

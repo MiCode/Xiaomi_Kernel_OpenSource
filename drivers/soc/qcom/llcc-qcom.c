@@ -35,7 +35,9 @@
 
 #define CACHE_LINE_SIZE_SHIFT         6
 
-#define LLCC_COMMON_STATUS0           0x0003000c
+#define LLCC_COMMON_STATUS0_V2        0x0003000c
+#define LLCC_COMMON_STATUS0_V21       0x0003400c
+#define LLCC_COMMON_STATUS0           llcc_regs[LLCC_COMMON_STATUS0_num]
 #define LLCC_LB_CNT_MASK              GENMASK(31, 28)
 #define LLCC_LB_CNT_SHIFT             28
 
@@ -45,17 +47,20 @@
 #define LLCC_TRP_ATTR0_CFGn(n)        (0x21000 + SZ_8 * n)
 #define LLCC_TRP_ATTR1_CFGn(n)        (0x21004 + SZ_8 * n)
 
-#define LLCC_TRP_C_AS_NC	      0x22890
-#define LLCC_TRP_NC_AS_C	      0x22894
-#define LLCC_FEAC_C_AS_NC	      0x35030
-#define LLCC_FEAC_NC_AS_C	      0x35034
+#define LLCC_TRP_C_AS_N               0x22890
+#define LLCC_TRP_NC_AS_C              0x22894
+#define LLCC_FEAC_C_AS_NC_V2          0x35030
+#define LLCC_FEAC_C_AS_NC_V21         0x41030
+#define LLCC_FEAC_C_AS_NC             llcc_regs[LLCC_FEAC_C_AS_NC_num]
+#define LLCC_FEAC_NC_AS_C_V2          0x35034
+#define LLCC_FEAC_NC_AS_C_V21         0x41034
+#define LLCC_FEAC_NC_AS_C             llcc_regs[LLCC_FEAC_NC_AS_C_num]
+
 #define LLCC_TRP_WRSC_EN              0x21F20
 #define LLCC_WRSC_SCID_EN(n)          BIT(n)
 
-#define LLCC_TRP_PCB_ACT	      0x21F04
+#define LLCC_TRP_PCB_ACT              0x21F04
 #define LLCC_TRP_SCID_DIS_CAP_ALLOC   0x21F00
-
-#define BANK_OFFSET_STRIDE            0x80000
 
 /**
  * llcc_slice_config - Data associated with the llcc slice
@@ -95,6 +100,41 @@ struct llcc_slice_config {
 	bool retain_on_pc;
 	bool activate_on_init;
 };
+
+static u32 llcc_offsets_v2[] = {
+	0x0,
+	0x80000,
+	0x100000,
+	0x180000
+};
+
+static u32 llcc_offsets_v21[] = {
+	0x0,
+	0x400000,
+	0x100000,
+	0x500000
+};
+
+enum {
+	LLCC_COMMON_STATUS0_num = 0,
+	LLCC_FEAC_C_AS_NC_num,
+	LLCC_FEAC_NC_AS_C_num,
+	LLCC_REGS_MAX,
+};
+
+static u32 llcc_regs_v2[LLCC_REGS_MAX] = {
+	LLCC_COMMON_STATUS0_V2,
+	LLCC_FEAC_C_AS_NC_V2,
+	LLCC_FEAC_NC_AS_C_V2,
+};
+
+static u32 llcc_regs_v21[LLCC_REGS_MAX] = {
+	LLCC_COMMON_STATUS0_V21,
+	LLCC_FEAC_C_AS_NC_V21,
+	LLCC_FEAC_NC_AS_C_V21,
+};
+
+static u32 *llcc_regs = llcc_regs_v2;
 
 struct qcom_llcc_config {
 	const struct llcc_slice_config *sct_data;
@@ -545,6 +585,17 @@ static int qcom_llcc_probe(struct platform_device *pdev)
 		goto err;
 	}
 
+	if (of_property_match_string(dev->of_node,
+				    "compatible", "qcom,llcc-v21") == 0) {
+		drv_data->llcc_ver = 21;
+		llcc_regs = llcc_regs_v21;
+		drv_data->offsets = llcc_offsets_v21;
+	} else {
+		drv_data->llcc_ver = 20;
+		llcc_regs = llcc_regs_v2;
+		drv_data->offsets = llcc_offsets_v2;
+	}
+
 	ret = regmap_read(drv_data->regmap, LLCC_COMMON_STATUS0,
 						&num_banks);
 	if (ret)
@@ -572,9 +623,6 @@ static int qcom_llcc_probe(struct platform_device *pdev)
 	drv_data->cap_based_alloc_and_pwr_collapse =
 		of_property_read_bool(pdev->dev.of_node,
 				      "cap-based-alloc-and-pwr-collapse");
-
-	for (i = 0; i < num_banks; i++)
-		drv_data->offsets[i] = i * BANK_OFFSET_STRIDE;
 
 	drv_data->bitmap = devm_kcalloc(dev,
 	BITS_TO_LONGS(drv_data->max_slices), sizeof(unsigned long),
