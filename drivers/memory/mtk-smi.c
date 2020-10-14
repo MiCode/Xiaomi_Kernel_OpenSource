@@ -500,7 +500,7 @@ static int mtk_smi_larb_probe(struct platform_device *pdev)
 			return -EPROBE_DEFER;
 		larb->smi_common_dev = &smi_pdev->dev;
 		link = device_link_add(dev, larb->smi_common_dev,
-				       DL_FLAG_PM_RUNTIME);
+				       DL_FLAG_PM_RUNTIME | DL_FLAG_STATELESS);
 		if (!link) {
 			dev_notice(dev, "Unable to link smi_common device\n");
 			return -ENODEV;
