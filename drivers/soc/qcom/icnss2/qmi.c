@@ -1021,6 +1021,7 @@ int icnss_wlfw_qdss_dnld_send_sync(struct icnss_priv *priv)
 	struct wlfw_qdss_trace_config_download_req_msg_v01 *req;
 	struct wlfw_qdss_trace_config_download_resp_msg_v01 *resp;
 	struct qmi_txn txn;
+	char filename[ICNSS_MAX_FILE_NAME];
 	const struct firmware *fw_entry = NULL;
 	const u8 *temp;
 	unsigned int remaining;
@@ -1039,11 +1040,12 @@ int icnss_wlfw_qdss_dnld_send_sync(struct icnss_priv *priv)
 		return -ENOMEM;
 	}
 
-	ret = request_firmware(&fw_entry, QDSS_TRACE_CONFIG_FILE,
+	icnss_add_fw_prefix_name(priv, filename, QDSS_TRACE_CONFIG_FILE);
+	ret = request_firmware(&fw_entry, filename,
 			       &priv->pdev->dev);
 	if (ret) {
 		icnss_pr_err("Failed to load QDSS: %s\n",
-			     QDSS_TRACE_CONFIG_FILE);
+			     filename);
 		goto err_req_fw;
 	}
 
@@ -1051,7 +1053,7 @@ int icnss_wlfw_qdss_dnld_send_sync(struct icnss_priv *priv)
 	remaining = fw_entry->size;
 
 	icnss_pr_dbg("Downloading QDSS: %s, size: %u\n",
-		     QDSS_TRACE_CONFIG_FILE, remaining);
+		     filename, remaining);
 
 	while (remaining) {
 		req->total_size_valid = 1;
@@ -1213,8 +1215,96 @@ out:
 	return ret;
 }
 
+static int wlfw_send_qdss_trace_mode_req
+		(struct icnss_priv *priv,
+		 enum wlfw_qdss_trace_mode_enum_v01 mode,
+		 unsigned long long option)
+{
+	int rc = 0;
+	int tmp = 0;
+	struct wlfw_qdss_trace_mode_req_msg_v01 *req;
+	struct wlfw_qdss_trace_mode_resp_msg_v01 *resp;
+	struct qmi_txn txn;
+
+	if (!priv)
+		return -ENODEV;
+
+	req = kzalloc(sizeof(*req), GFP_KERNEL);
+	if (!req)
+		return -ENOMEM;
+
+	resp = kzalloc(sizeof(*resp), GFP_KERNEL);
+	if (!resp) {
+		kfree(req);
+		return -ENOMEM;
+	}
+
+	req->mode_valid = 1;
+	req->mode = mode;
+	req->option_valid = 1;
+	req->option = option;
+
+	tmp = priv->hw_trc_override;
+
+	req->hw_trc_disable_override_valid = 1;
+	req->hw_trc_disable_override =
+	(tmp > QMI_PARAM_DISABLE_V01 ? QMI_PARAM_DISABLE_V01 :
+		 (tmp < 0 ? QMI_PARAM_INVALID_V01 : tmp));
+
+	icnss_pr_dbg("%s: mode %u, option %llu, hw_trc_disable_override: %u",
+		     __func__, mode, option, req->hw_trc_disable_override);
+
+	rc = qmi_txn_init(&priv->qmi, &txn,
+			  wlfw_qdss_trace_mode_resp_msg_v01_ei, resp);
+	if (rc < 0) {
+		icnss_qmi_fatal_err("Fail to init txn for QDSS Mode resp %d\n",
+				    rc);
+		goto out;
+	}
+
+	rc = qmi_send_request(&priv->qmi, NULL, &txn,
+			      QMI_WLFW_QDSS_TRACE_MODE_REQ_V01,
+			      WLFW_QDSS_TRACE_MODE_REQ_MSG_V01_MAX_MSG_LEN,
+			      wlfw_qdss_trace_mode_req_msg_v01_ei, req);
+	if (rc < 0) {
+		qmi_txn_cancel(&txn);
+		icnss_qmi_fatal_err("Fail to send QDSS Mode req %d\n", rc);
+		goto out;
+	}
+
+	rc = qmi_txn_wait(&txn, priv->ctrl_params.qmi_timeout);
+	if (rc < 0) {
+		icnss_qmi_fatal_err("QDSS Mode resp wait failed with rc %d\n",
+				    rc);
+		goto out;
+	} else if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
+		icnss_qmi_fatal_err(
+			"QMI QDSS Mode request rejected, result:%d error:%d\n",
+			resp->resp.result, resp->resp.error);
+		rc = -resp->resp.result;
+		goto out;
+	}
+
+out:
+	kfree(resp);
+	kfree(req);
+	return rc;
+}
+
+int wlfw_qdss_trace_start(struct icnss_priv *priv)
+{
+	return wlfw_send_qdss_trace_mode_req(priv,
+					     QMI_WLFW_QDSS_TRACE_ON_V01, 0);
+}
+
+int wlfw_qdss_trace_stop(struct icnss_priv *priv, unsigned long long option)
+{
+	return wlfw_send_qdss_trace_mode_req(priv, QMI_WLFW_QDSS_TRACE_OFF_V01,
+					     option);
+}
+
 int wlfw_wlan_cfg_send_sync_msg(struct icnss_priv *priv,
-		struct wlfw_wlan_cfg_req_msg_v01 *data)
+				struct wlfw_wlan_cfg_req_msg_v01 *data)
 {
 	int ret;
 	struct wlfw_wlan_cfg_req_msg_v01 *req;

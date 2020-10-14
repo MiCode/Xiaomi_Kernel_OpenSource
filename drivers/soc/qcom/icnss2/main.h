@@ -433,6 +433,7 @@ struct icnss_priv {
 	struct mutex tcdev_lock;
 	bool is_chain1_supported;
 	bool chain_reg_info_updated;
+	u32 hw_trc_override;
 };
 
 struct icnss_reg_info {
