@@ -18,6 +18,7 @@
 #include <trace/hooks/topology.h>
 #include <trace/hooks/debug.h>
 #include <trace/hooks/minidump.h>
+#include <trace/hooks/wqlockup.h>
 
 /*
  * Export tracepoints that act as a bare tracehook (ie: have no trace event
@@ -58,3 +59,4 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_is_fpsimd_save);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_ipi_stop);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_printk_store);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_show_regs);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_wq_lockup_pool);

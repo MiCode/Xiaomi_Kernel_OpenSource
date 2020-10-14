@@ -1834,6 +1834,7 @@
   refcount_inc_not_zero_checked
   __refrigerator
   regcache_cache_only
+  regcache_cache_bypass
   regcache_mark_dirty
   regcache_sync
   regcache_sync_region
@@ -1866,6 +1867,7 @@
   regmap_mmio_detach_clk
   regmap_raw_read
   regmap_read
+  regmap_register_patch
   regmap_update_bits_base
   regmap_write
   regulator_bulk_disable
