@@ -1254,7 +1254,7 @@
 	regulator-always-on;
 };
 
-&mt6359p_vsram_md_reg {
+&mt6359p_vsram_others_reg {
 	regulator-always-on;
 };
 
