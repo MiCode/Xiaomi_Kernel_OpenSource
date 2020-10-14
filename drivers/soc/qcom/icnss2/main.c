@@ -2970,33 +2970,160 @@ void icnss_disallow_recursive_recovery(struct device *dev)
 	icnss_pr_info("Recursive recovery disallowed for WLAN\n");
 }
 
-static void icnss_sysfs_create(struct icnss_priv *priv)
+static int icnss_create_shutdown_sysfs(struct icnss_priv *priv)
 {
 	struct kobject *icnss_kobject;
-	int error = 0;
+	int ret = 0;
 
 	atomic_set(&priv->is_shutdown, false);
 
 	icnss_kobject = kobject_create_and_add("shutdown_wlan", kernel_kobj);
 	if (!icnss_kobject) {
 		icnss_pr_err("Unable to create kernel object");
-		return;
+		return -EINVAL;
 	}
 
 	priv->icnss_kobject = icnss_kobject;
 
-	error = sysfs_create_file(icnss_kobject, &icnss_sysfs_attribute.attr);
-	if (error)
-		icnss_pr_err("Unable to create icnss sysfs file");
+	ret = sysfs_create_file(icnss_kobject, &icnss_sysfs_attribute.attr);
+	if (ret) {
+		icnss_pr_err("Unable to create icnss sysfs file err:%d", ret);
+		return ret;
+	}
+
+	return ret;
 }
 
-static void icnss_sysfs_destroy(struct icnss_priv *priv)
+static void icnss_destroy_shutdown_sysfs(struct icnss_priv *priv)
 {
 	struct kobject *icnss_kobject;
 
 	icnss_kobject = priv->icnss_kobject;
 	if (icnss_kobject)
 		kobject_put(icnss_kobject);
+}
+
+static ssize_t qdss_tr_start_store(struct device *dev,
+				   struct device_attribute *attr,
+				   const char *buf, size_t count)
+{
+	struct icnss_priv *priv = dev_get_drvdata(dev);
+
+	wlfw_qdss_trace_start(priv);
+	icnss_pr_dbg("Received QDSS start command\n");
+	return count;
+}
+
+static ssize_t qdss_tr_stop_store(struct device *dev,
+				  struct device_attribute *attr,
+				  const char *user_buf, size_t count)
+{
+	struct icnss_priv *priv = dev_get_drvdata(dev);
+	u32 option = 0;
+
+	if (sscanf(user_buf, "%du", &option) != 1)
+		return -EINVAL;
+
+	wlfw_qdss_trace_stop(priv, option);
+	icnss_pr_dbg("Received QDSS stop command\n");
+	return count;
+}
+
+static ssize_t qdss_conf_download_store(struct device *dev,
+					struct device_attribute *attr,
+					const char *buf, size_t count)
+{
+	struct icnss_priv *priv = dev_get_drvdata(dev);
+
+	icnss_wlfw_qdss_dnld_send_sync(priv);
+	icnss_pr_dbg("Received QDSS download config command\n");
+	return count;
+}
+
+static ssize_t hw_trc_override_store(struct device *dev,
+				     struct device_attribute *attr,
+				     const char *buf, size_t count)
+{
+	struct icnss_priv *priv = dev_get_drvdata(dev);
+	int tmp = 0;
+
+	if (sscanf(buf, "%du", &tmp) != 1)
+		return -EINVAL;
+
+	priv->hw_trc_override = tmp;
+	icnss_pr_dbg("Received QDSS hw_trc_override indication\n");
+	return count;
+}
+
+static DEVICE_ATTR_WO(qdss_tr_start);
+static DEVICE_ATTR_WO(qdss_tr_stop);
+static DEVICE_ATTR_WO(qdss_conf_download);
+static DEVICE_ATTR_WO(hw_trc_override);
+
+static struct attribute *icnss_attrs[] = {
+	&dev_attr_qdss_tr_start.attr,
+	&dev_attr_qdss_tr_stop.attr,
+	&dev_attr_qdss_conf_download.attr,
+	&dev_attr_hw_trc_override.attr,
+	NULL,
+};
+
+static struct attribute_group icnss_attr_group = {
+	.attrs = icnss_attrs,
+};
+
+static int icnss_create_sysfs_link(struct icnss_priv *priv)
+{
+	struct device *dev = &priv->pdev->dev;
+	int ret;
+
+	ret = sysfs_create_link(kernel_kobj, &dev->kobj, "icnss");
+	if (ret) {
+		icnss_pr_err("Failed to create icnss link, err = %d\n",
+			     ret);
+		goto out;
+	}
+
+	return 0;
+out:
+	return ret;
+}
+
+static void icnss_remove_sysfs_link(struct icnss_priv *priv)
+{
+	sysfs_remove_link(kernel_kobj, "icnss");
+}
+
+int icnss_sysfs_create(struct icnss_priv *priv)
+{
+	int ret = 0;
+
+	ret = devm_device_add_group(&priv->pdev->dev,
+				    &icnss_attr_group);
+	if (ret) {
+		icnss_pr_err("Failed to create icnss device group, err = %d\n",
+			     ret);
+		goto out;
+	}
+
+	icnss_create_sysfs_link(priv);
+
+	ret = icnss_create_shutdown_sysfs(priv);
+	if (ret)
+		goto remove_icnss_group;
+
+	return 0;
+remove_icnss_group:
+	devm_device_remove_group(&priv->pdev->dev, &icnss_attr_group);
+out:
+	return ret;
+}
+
+void icnss_sysfs_destroy(struct icnss_priv *priv)
+{
+	icnss_destroy_shutdown_sysfs(priv);
+	icnss_remove_sysfs_link(priv);
+	devm_device_remove_group(&priv->pdev->dev, &icnss_attr_group);
 }
 
 static int icnss_get_vbatt_info(struct icnss_priv *priv)
