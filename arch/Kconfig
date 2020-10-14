@@ -549,6 +549,7 @@ config SHADOW_CALL_STACK
 config SHADOW_CALL_STACK_VMAP
 	bool "Use virtually mapped shadow call stacks"
 	depends on SHADOW_CALL_STACK
+	default y
 	help
 	  Use virtually mapped shadow call stacks. Selecting this option
 	  provides better stack exhaustion protection, but increases per-thread
