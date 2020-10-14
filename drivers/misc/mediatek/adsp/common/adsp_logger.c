@@ -13,6 +13,9 @@
 #include "adsp_platform_driver.h"
 #include "adsp_core.h"
 #include "adsp_logger.h"
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+#include <mt-plat/aee.h>
+#endif
 
 #define PLT_LOG_ENABLE              0x504C5402 /* magic */
 #define MINIMUM_LOG_BUF_SIZE        0x10000 /* 64k */
@@ -86,7 +89,7 @@ ssize_t adsp_log_read(struct log_ctrl_s *ctrl, char __user *userbuf, size_t len)
 	if (r_pos >= log_info->buff_size)
 		r_pos -= log_info->buff_size;
 
-#ifdef CONFIG_MTK_AEE_FEATURE
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 	if (r_pos >= log_info->buff_size) {
 		aee_kernel_exception("ADSP", "logger overflow r_pos:%u >= %u\n",
 				     r_pos, log_info->buff_size);
