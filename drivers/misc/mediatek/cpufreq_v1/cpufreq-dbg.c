@@ -287,7 +287,7 @@ static int create_cpufreq_debug_fs(void)
 
 	struct pentry {
 		const char *name;
-		const struct file_operations *fops;
+		const struct proc_ops *fops;
 		void *data;
 	};
 
