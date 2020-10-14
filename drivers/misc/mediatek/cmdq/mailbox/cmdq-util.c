@@ -21,7 +21,7 @@
 #include "smi_public.h"
 #endif
 #ifdef CONFIG_MTK_DEVAPC
-#include <devapc_public.h>
+#include <linux/soc/mediatek/devapc_public.h>
 #endif
 
 #define CMDQ_MBOX_NUM			2
