@@ -229,7 +229,7 @@ static int set_cpu_min_freq(const char *buf, const struct kernel_param *kp)
 		if (cpufreq_get_policy(&policy, i))
 			continue;
 
-		if (cpu_online(i) && (policy.min != i_cpu_stats->min)) {
+		if (cpu_online(i)) {
 			req = &per_cpu(qos_req_min, i);
 			if (freq_qos_update_request(req, i_cpu_stats->min) < 0)
 				break;
@@ -312,7 +312,7 @@ static int set_cpu_max_freq(const char *buf, const struct kernel_param *kp)
 		if (cpufreq_get_policy(&policy, i))
 			continue;
 
-		if (cpu_online(i) && (policy.max != i_cpu_stats->max)) {
+		if (cpu_online(i)) {
 			req = &per_cpu(qos_req_max, i);
 			if (freq_qos_update_request(req, i_cpu_stats->max) < 0)
 				break;
