@@ -286,6 +286,8 @@ struct ufs_pwr_mode_info {
  *	       variant-specific PRDT fields can be initialized too
  * @prepare_command: called when receiving a request in the first place
  * @update_sysfs: adds vendor-specific sysfs entries
+ * @send_command: adds vendor-specific work when sending a command
+ * @compl_command: adds vendor-specific work when completing a command
  */
 struct ufs_hba_variant_ops {
 	const char *name;
@@ -327,6 +329,8 @@ struct ufs_hba_variant_ops {
 	void    (*prepare_command)(struct ufs_hba *hba,
 				struct request *rq, struct ufshcd_lrb *lrbp);
 	int     (*update_sysfs)(struct ufs_hba *hba);
+	void	(*send_command)(struct ufs_hba *hba, struct ufshcd_lrb *lrbp);
+	void	(*compl_command)(struct ufs_hba *hba, struct ufshcd_lrb *lrbp);
 };
 
 /* clock gating state  */
@@ -544,19 +548,25 @@ enum ufshcd_quirks {
 
 	/*
 	 * This quirk needs to be enabled if the host controller supports inline
-	 * encryption, but it uses a nonstandard mechanism where the standard
-	 * crypto registers aren't used and there is no concept of keyslots.
-	 * ufs_hba_variant_ops::init() is expected to initialize ufs_hba::ksm as
-	 * a passthrough keyslot manager.
+	 * encryption, but it doesn't use the standard crypto capability
+	 * registers.  If enabled, the standard code won't initialize the
+	 * keyslot manager; ufs_hba_variant_ops::init() must do it instead.
 	 */
-	UFSHCD_QUIRK_NO_KEYSLOTS			= 1 << 12,
+	UFSHCD_QUIRK_BROKEN_CRYPTO_CAPS			= 1 << 20,
+
+	/*
+	 * This quirk needs to be enabled if the host controller supports inline
+	 * encryption, but the CRYPTO_GENERAL_ENABLE bit is not implemented and
+	 * breaks the HCE sequence if used.
+	 */
+	UFSHCD_QUIRK_BROKEN_CRYPTO_ENABLE		= 1 << 21,
 
 	/*
 	 * This quirk needs to be enabled if the host controller requires that
 	 * the PRDT be cleared after each encrypted request because encryption
 	 * keys were stored in it.
 	 */
-	UFSHCD_QUIRK_KEYS_IN_PRDT			= 1 << 13,
+	UFSHCD_QUIRK_KEYS_IN_PRDT			= 1 << 22,
 };
 
 enum ufshcd_caps {
@@ -1240,6 +1250,20 @@ static inline int ufshcd_vops_update_sysfs(struct ufs_hba *hba)
 	if (hba->vops && hba->vops->update_sysfs)
 		return hba->vops->update_sysfs(hba);
 	return 0;
+}
+
+static inline void ufshcd_vops_send_command(struct ufs_hba *hba,
+				struct ufshcd_lrb *lrbp)
+{
+	if (hba->vops && hba->vops->send_command)
+		hba->vops->send_command(hba, lrbp);
+}
+
+static inline void ufshcd_vops_compl_command(struct ufs_hba *hba,
+				struct ufshcd_lrb *lrbp)
+{
+	if (hba->vops && hba->vops->compl_command)
+		hba->vops->compl_command(hba, lrbp);
 }
 
 extern struct ufs_pm_lvl_states ufs_pm_lvl_states[];
