@@ -58,6 +58,7 @@
 	#include "mtk_ptp3_fll.h"
 	#include "mtk_ptp3_cinst.h"
 	#include "mtk_ptp3_drcc.h"
+	#include "mtk_ptp3_iglre.h"
 #ifdef PICACHU_DUMP_DRAM_SUPPORT
 	#include "mtk_picachu.h"
 #endif
@@ -110,6 +111,7 @@
 #define PTP3_FLL_MEM_OFFSET 0x0
 #define PTP3_CINST_MEM_OFFSET 0x10000
 #define PTP3_DRCC_MEM_OFFSET 0x20000
+#define PTP3_IGLRE_MEM_OFFSET 0x30000
 
 #endif /* CONFIG_OF_RESERVED_MEM */
 #endif /* CONFIG_FPGA_EARLY_PORTING */
@@ -171,6 +173,7 @@ static int create_procfs(void)
 	fll_create_procfs(proc_name, dir);
 	cinst_create_procfs(proc_name, dir);
 	drcc_create_procfs(proc_name, dir);
+	iglre_create_procfs(proc_name, dir);
 	return 0;
 }
 
@@ -198,17 +201,22 @@ static int ptp3_probe(struct platform_device *pdev)
 		/* FLL: save register status for reserved memory */
 		fll_save_memory_info(
 			(char *)(uintptr_t)
-			(ptp3_mem_base_virt+PTP3_FLL_MEM_OFFSET),
+			(ptp3_mem_base_virt + PTP3_FLL_MEM_OFFSET),
 			ptp3_mem_size);
 		/* CINST: save register status for reserved memory */
 		cinst_save_memory_info(
 			(char *)(uintptr_t)
-			(ptp3_mem_base_virt+PTP3_CINST_MEM_OFFSET),
+			(ptp3_mem_base_virt + PTP3_CINST_MEM_OFFSET),
 			ptp3_mem_size);
 		/* DRCC: save register status for reserved memory */
 		drcc_save_memory_info(
 			(char *)(uintptr_t)
-			(ptp3_mem_base_virt+PTP3_DRCC_MEM_OFFSET),
+			(ptp3_mem_base_virt + PTP3_DRCC_MEM_OFFSET),
+			ptp3_mem_size);
+		/* IGLRE: save register status for reserved memory */
+		iglre_save_memory_info(
+			(char *)(uintptr_t)
+			(ptp3_mem_base_virt + PTP3_IGLRE_MEM_OFFSET),
 			ptp3_mem_size);
 	} else
 		ptp3_msg("[PTP3][warning] ptp3_mem_base_virt is null !\n");
@@ -218,6 +226,7 @@ static int ptp3_probe(struct platform_device *pdev)
 	fll_probe(pdev);
 	cinst_probe(pdev);
 	drcc_probe(pdev);
+	iglre_probe(pdev);
 
 	return 0;
 }
@@ -226,6 +235,7 @@ static int ptp3_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	fll_suspend(pdev, state);
 	cinst_suspend(pdev, state);
+	iglre_suspend(pdev, state);
 	return 0;
 }
 
@@ -233,6 +243,7 @@ static int ptp3_resume(struct platform_device *pdev)
 {
 	fll_resume(pdev);
 	cinst_resume(pdev);
+	iglre_resume(pdev);
 	return 0;
 }
 
