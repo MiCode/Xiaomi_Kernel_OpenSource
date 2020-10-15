@@ -11,7 +11,7 @@
 #ifndef __MTK_SRCLKEN_RC_HW_H__
 #define __MTK_SRCLKEN_RC_HW_H__
 
-#define SRCLKEN_DBG				1
+#define SRCLKEN_DBG				0
 #define RC_GPIO_DBG_ENABLE			0
 
 #define SRCLKEN_RC_EN_SHFT			0

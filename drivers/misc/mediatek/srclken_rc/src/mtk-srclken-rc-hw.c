@@ -1185,9 +1185,6 @@ int srclken_dts_map(struct platform_device *pdev)
 		if (!sys_cfg)
 			goto hw_no_mem;
 
-		if (!sys_cfg)
-			goto hw_no_mem;
-
 		for (i = 0; i < cnt; i++) {
 			sys_cfg[i].name = kzalloc(sizeof(char) * 10, GFP_KERNEL);
 			if (!sys_cfg[i].name)
@@ -1213,8 +1210,10 @@ int srclken_dts_map(struct platform_device *pdev)
 		int end[] = {SCP_END, GPIO_END};
 
 		hw->base[i] = of_iomap(node, i);
-		if (IS_ERR(hw->base[i]))
-			return PTR_ERR(hw->base[i]);
+		if (IS_ERR(hw->base[i])) {
+			ret = PTR_ERR(hw->base[i]);
+			goto no_base;
+		}
 
 		pr_info("base[%d]0x%pR\n", i, hw->base[i]);
 
@@ -1233,10 +1232,11 @@ no_base:
 	kfree(hw->val);
 val_no_mem:
 	kfree(hw);
-name_no_mem:
-subsys_no_mem:
-	kfree(sys_cfg);
 hw_no_mem:
+subsys_no_mem:
+	kfree(sys_cfg->name);
+name_no_mem:
+	kfree(sys_cfg);
 	pr_err("%s can't allocate memory %d\n",
 			__func__, ret);
 	return -ENOMEM;
