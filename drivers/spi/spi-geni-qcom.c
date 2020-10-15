@@ -167,6 +167,7 @@ struct spi_geni_master {
 	u32 miso_sampling_ctrl_val;
 	int set_cs_sb_delay; /*SB PIPE Delay */
 	int set_pre_cmd_dly; /*Pre command Delay */
+	bool use_fixed_timeout;
 };
 
 static struct spi_master *get_spi_master(struct device *dev)
@@ -1258,7 +1259,7 @@ static int spi_geni_transfer_one(struct spi_master *spi,
 {
 	int ret = 0;
 	struct spi_geni_master *mas = spi_master_get_devdata(spi);
-	unsigned long timeout;
+	unsigned long timeout, xfer_timeout;
 
 	if ((xfer->tx_buf == NULL) && (xfer->rx_buf == NULL)) {
 		dev_err(mas->dev, "Invalid xfer both tx rx are NULL\n");
@@ -1271,6 +1272,15 @@ static int spi_geni_transfer_one(struct spi_master *spi,
 		return -EINVAL;
 	}
 
+	if (mas->use_fixed_timeout)
+		xfer_timeout = msecs_to_jiffies(SPI_XFER_TIMEOUT_MS);
+	else
+		xfer_timeout =
+			100 * msecs_to_jiffies(DIV_ROUND_UP(xfer->len * 8,
+				DIV_ROUND_UP(xfer->speed_hz, MSEC_PER_SEC)));
+	GENI_SE_DBG(mas->ipc, false, mas->dev,
+			"current xfer_timeout:%lu ms.\n", xfer_timeout);
+
 	if (mas->cur_xfer_mode != GSI_DMA) {
 		reinit_completion(&mas->xfer_done);
 		ret = setup_fifo_xfer(xfer, mas, slv->mode, spi);
@@ -1282,7 +1292,8 @@ static int spi_geni_transfer_one(struct spi_master *spi,
 		}
 
 		timeout = wait_for_completion_timeout(&mas->xfer_done,
-					msecs_to_jiffies(SPI_XFER_TIMEOUT_MS));
+				xfer_timeout);
+
 		if (!timeout) {
 			GENI_SE_ERR(mas->ipc, true, mas->dev,
 				"Xfer[len %d tx %pK rx %pK n %d] timed out.\n",
@@ -1322,10 +1333,8 @@ static int spi_geni_transfer_one(struct spi_master *spi,
 			int i;
 
 			for (i = 0 ; i < mas->num_tx_eot; i++) {
-				timeout =
-				wait_for_completion_timeout(
-					&mas->tx_cb,
-					msecs_to_jiffies(SPI_XFER_TIMEOUT_MS));
+				timeout = wait_for_completion_timeout(
+					&mas->tx_cb, xfer_timeout);
 				if (timeout <= 0) {
 					GENI_SE_ERR(mas->ipc, true, mas->dev,
 					"Tx[%d] timeout%lu\n", i, timeout);
@@ -1334,10 +1343,8 @@ static int spi_geni_transfer_one(struct spi_master *spi,
 				}
 			}
 			for (i = 0 ; i < mas->num_rx_eot; i++) {
-				timeout =
-				wait_for_completion_timeout(
-					&mas->rx_cb,
-					msecs_to_jiffies(SPI_XFER_TIMEOUT_MS));
+				timeout = wait_for_completion_timeout(
+					&mas->rx_cb, xfer_timeout);
 				if (timeout <= 0) {
 					GENI_SE_ERR(mas->ipc, true, mas->dev,
 					 "Rx[%d] timeout%lu\n", i, timeout);
@@ -1673,6 +1680,9 @@ static int spi_geni_probe(struct platform_device *pdev)
 		of_property_read_bool(pdev->dev.of_node,
 				"qcom,shared_ee");
 
+	geni_mas->use_fixed_timeout =
+		of_property_read_bool(pdev->dev.of_node,
+				"qcom,use-fixed-timeout");
 	geni_mas->set_miso_sampling = of_property_read_bool(pdev->dev.of_node,
 				"qcom,set-miso-sampling");
 	if (geni_mas->set_miso_sampling) {
