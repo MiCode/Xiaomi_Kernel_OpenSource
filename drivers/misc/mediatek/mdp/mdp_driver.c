@@ -1207,6 +1207,15 @@ static int cmdq_probe(struct platform_device *pDevice)
 
 	mdp_limit_dev_create(pDevice);
 
+	/* Register PMQoS */
+	cmdq_core_register_task_cycle_cb(cmdq_mdp_get_func()->getGroupMdp(),
+		cmdq_mdp_get_func()->beginTask,
+		cmdq_mdp_get_func()->endTask);
+
+	cmdq_core_register_task_cycle_cb(cmdq_mdp_get_func()->getGroupIsp(),
+		cmdq_mdp_get_func()->beginISPTask,
+		cmdq_mdp_get_func()->endISPTask);
+
 	CMDQ_LOG("MDP driver probe end\n");
 
 	return 0;
@@ -1268,15 +1277,6 @@ static int __init cmdq_init(void)
 	/* MDP function link */
 	cmdq_mdp_virtual_function_setting();
 	cmdq_mdp_platform_function_setting();
-
-	/* Register PMQoS */
-	cmdq_core_register_task_cycle_cb(cmdq_mdp_get_func()->getGroupMdp(),
-			cmdq_mdp_get_func()->beginTask,
-			cmdq_mdp_get_func()->endTask);
-
-	cmdq_core_register_task_cycle_cb(cmdq_mdp_get_func()->getGroupIsp(),
-			cmdq_mdp_get_func()->beginISPTask,
-			cmdq_mdp_get_func()->endISPTask);
 
 	status = platform_driver_register(&gCmdqDriver);
 	if (status != 0) {
