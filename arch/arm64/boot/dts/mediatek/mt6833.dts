@@ -216,6 +216,11 @@ page_owner=on";
 		};
 	};
 
+	mcucfg_mp0_counter {
+		compatible = "mediatek,mcucfg_mp0_counter";
+		reg_mp0_counter_base = <&mcucfg>;
+	};
+
 	psci {
 		compatible = "arm,psci-1.0";
 		method = "smc";
@@ -1316,6 +1321,11 @@ page_owner=on";
 	devapc_ao_infra_peri@10025000 {
 		compatible = "mediatek,devapc_ao_infra_peri";
 		reg = <0 0x10025000 0 0x1000>;
+	};
+
+	mcucfg: mcucfg@0c530000 {
+		compatible = "mediatek,mcucfg";
+		reg = <0 0x0c530000 0 0x10000>;
 	};
 
 	sys_cirq@10204000 {
