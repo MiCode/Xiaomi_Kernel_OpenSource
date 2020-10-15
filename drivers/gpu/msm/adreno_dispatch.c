@@ -2454,8 +2454,7 @@ static void _dispatcher_update_timers(struct adreno_device *adreno_dev)
 	/* Kick the idle timer */
 	mutex_lock(&device->mutex);
 	kgsl_pwrscale_update(device);
-	mod_timer(&device->idle_timer,
-		jiffies + device->pwrctrl.interval_timeout);
+	kgsl_start_idle_timer(device);
 	mutex_unlock(&device->mutex);
 
 	/* Check to see if we need to update the command timer */

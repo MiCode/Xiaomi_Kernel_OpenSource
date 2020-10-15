@@ -96,7 +96,7 @@ struct kgsl_pwrlevel {
  * @min_pwrlevel - minimum allowable powerlevel per the user
  * @num_pwrlevels - number of available power levels
  * @throttle_mask - LM throttle mask
- * @interval_timeout - timeout in jiffies to be idle before a power event
+ * @interval_timeout - timeout to be idle before a power event
  * @clock_times - Each GPU frequency's accumulated active time in us
  * @clk_stats - structure of clock statistics
  * @input_disable - To disable GPU wakeup on touch input event

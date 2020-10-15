@@ -273,14 +273,14 @@ void kgsl_pwrctrl_set_constraint(struct kgsl_device *device,
 		pwrc_old->sub_type = pwrc->sub_type;
 		pwrc_old->hint.pwrlevel.level = constraint;
 		pwrc_old->owner_id = id;
-		pwrc_old->expires = jiffies + device->pwrctrl.interval_timeout;
+		pwrc_old->expires = jiffies + msecs_to_jiffies(device->pwrctrl.interval_timeout);
 		kgsl_pwrctrl_pwrlevel_change(device, constraint);
 		/* Trace the constraint being set by the driver */
 		trace_kgsl_constraint(device, pwrc_old->type, constraint, 1);
 	} else if ((pwrc_old->type == pwrc->type) &&
 		(pwrc_old->hint.pwrlevel.level == constraint)) {
 		pwrc_old->owner_id = id;
-		pwrc_old->expires = jiffies + device->pwrctrl.interval_timeout;
+		pwrc_old->expires = jiffies + msecs_to_jiffies(device->pwrctrl.interval_timeout);
 	}
 }
 
@@ -528,7 +528,7 @@ static ssize_t __timer_store(struct device *dev, struct device_attribute *attr,
 	mutex_lock(&device->mutex);
 	/* Let the timeout be requested in ms, but convert to jiffies. */
 	if (timer == KGSL_PWR_IDLE_TIMER)
-		device->pwrctrl.interval_timeout = msecs_to_jiffies(val);
+		device->pwrctrl.interval_timeout = val;
 
 	mutex_unlock(&device->mutex);
 
@@ -548,8 +548,7 @@ static ssize_t idle_timer_show(struct device *dev,
 	struct kgsl_device *device = dev_get_drvdata(dev);
 
 	/* Show the idle_timeout converted to msec */
-	return scnprintf(buf, PAGE_SIZE, "%u\n",
-		jiffies_to_msecs(device->pwrctrl.interval_timeout));
+	return scnprintf(buf, PAGE_SIZE, "%u\n", device->pwrctrl.interval_timeout);
 }
 
 static ssize_t minbw_timer_store(struct device *dev,
@@ -1653,9 +1652,7 @@ done:
 			kgsl_pwrctrl_request_state(device, KGSL_STATE_NONE);
 
 		if (device->state == KGSL_STATE_ACTIVE)
-			mod_timer(&device->idle_timer,
-					jiffies +
-					device->pwrctrl.interval_timeout);
+			kgsl_start_idle_timer(device);
 	}
 
 	if (device->state != KGSL_STATE_MINBW)
@@ -1851,8 +1848,7 @@ static int _wake(struct kgsl_device *device)
 		kgsl_pwrctrl_pwrlevel_change_settings(device, 1);
 		/* All settings for power level transitions are complete*/
 		pwr->previous_pwrlevel = pwr->active_pwrlevel;
-		mod_timer(&device->idle_timer, jiffies +
-				device->pwrctrl.interval_timeout);
+		kgsl_start_idle_timer(device);
 		del_timer_sync(&device->pwrctrl.minbw_timer);
 		break;
 	case KGSL_STATE_AWARE:
@@ -1860,8 +1856,7 @@ static int _wake(struct kgsl_device *device)
 		/* Enable state before turning on irq */
 		kgsl_pwrctrl_set_state(device, KGSL_STATE_ACTIVE);
 		kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_ON);
-		mod_timer(&device->idle_timer, jiffies +
-				device->pwrctrl.interval_timeout);
+		kgsl_start_idle_timer(device);
 		del_timer_sync(&device->pwrctrl.minbw_timer);
 		break;
 	default:

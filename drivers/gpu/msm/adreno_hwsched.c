@@ -1307,8 +1307,7 @@ static void adreno_hwsched_work(struct kthread_work *work)
 	} else {
 		mutex_lock(&device->mutex);
 		kgsl_pwrscale_update(device);
-		mod_timer(&device->idle_timer,
-			jiffies + device->pwrctrl.interval_timeout);
+		kgsl_start_idle_timer(device);
 		mutex_unlock(&device->mutex);
 	}
 
