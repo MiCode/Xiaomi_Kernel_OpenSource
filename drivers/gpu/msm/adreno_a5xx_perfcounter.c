@@ -6,6 +6,7 @@
 #include "adreno.h"
 #include "adreno_a5xx.h"
 #include "adreno_perfcounter.h"
+#include "adreno_pm4types.h"
 #include "kgsl_device.h"
 
 #define VBIF2_PERF_CNT_SEL_MASK 0x7F
@@ -43,6 +44,65 @@ static int a5xx_counter_enable(struct adreno_device *adreno_dev,
 	return 0;
 }
 
+static int a5xx_counter_inline_enable(struct adreno_device *adreno_dev,
+		const struct adreno_perfcount_group *group,
+		unsigned int counter, unsigned int countable)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct adreno_perfcount_register *reg = &group->regs[counter];
+	struct adreno_ringbuffer *rb = &adreno_dev->ringbuffers[0];
+	u32 cmds[3];
+	int ret;
+
+	if (!(device->state == KGSL_STATE_ACTIVE))
+		return a5xx_counter_enable(adreno_dev, group, counter,
+			countable);
+
+	cmds[0]  = cp_type7_packet(CP_WAIT_FOR_IDLE, 0);
+	cmds[1] = cp_type4_packet(reg->select, 1);
+	cmds[2] = countable;
+
+	/* submit to highest priority RB always */
+	ret = adreno_ringbuffer_issue_internal_cmds(rb,
+			KGSL_CMD_FLAGS_PMODE, cmds, 3);
+	if (ret)
+		return ret;
+
+	/*
+	 * schedule dispatcher to make sure rb[0] is run, because
+	 * if the current RB is not rb[0] and gpu is idle then
+	 * rb[0] will not get scheduled to run
+	 */
+	if (adreno_dev->cur_rb != rb)
+		adreno_dispatcher_schedule(device);
+
+	/* wait for the above commands submitted to complete */
+	ret = adreno_ringbuffer_waittimestamp(rb, rb->timestamp,
+		ADRENO_IDLE_TIMEOUT);
+
+	if (ret) {
+		/*
+		 * If we were woken up because of cancelling rb events
+		 * either due to soft reset or adreno_stop, ignore the
+		 * error and return 0 here. The perfcounter is already
+		 * set up in software and it will be programmed in
+		 * hardware when we wake up or come up after soft reset,
+		 * by adreno_perfcounter_restore.
+		 */
+		if (ret == -EAGAIN)
+			ret = 0;
+		else
+			dev_err(device->dev,
+				     "Perfcounter %s/%u/%u start via commands failed %d\n",
+				     group->name, counter, countable, ret);
+	}
+
+	if (!ret)
+		reg->value = 0;
+
+	return ret;
+}
+
 static int a5xx_counter_rbbm_enable(struct adreno_device *adreno_dev,
 		const struct adreno_perfcount_group *group,
 		unsigned int counter, unsigned int countable)
@@ -50,7 +110,7 @@ static int a5xx_counter_rbbm_enable(struct adreno_device *adreno_dev,
 	if (adreno_is_a540(adreno_dev) && countable == A5XX_RBBM_ALWAYS_COUNT)
 		return -EINVAL;
 
-	return a5xx_counter_enable(adreno_dev, group, counter, countable);
+	return a5xx_counter_inline_enable(adreno_dev, group, counter, countable);
 }
 
 static u64 a5xx_counter_read(struct adreno_device *adreno_dev,
@@ -564,37 +624,37 @@ static struct adreno_perfcount_register a5xx_pwrcounters_alwayson[] = {
 static struct adreno_perfcount_group a5xx_perfcounter_groups
 				[KGSL_PERFCOUNTER_GROUP_MAX] = {
 	A5XX_PERFCOUNTER_GROUP(CP, cp,
-		a5xx_counter_enable, a5xx_counter_read),
+		a5xx_counter_inline_enable, a5xx_counter_read),
 	A5XX_PERFCOUNTER_GROUP(RBBM, rbbm,
 		a5xx_counter_rbbm_enable, a5xx_counter_read),
 	A5XX_PERFCOUNTER_GROUP(PC, pc,
-		a5xx_counter_enable, a5xx_counter_read),
+		a5xx_counter_inline_enable, a5xx_counter_read),
 	A5XX_PERFCOUNTER_GROUP(VFD, vfd,
-		a5xx_counter_enable, a5xx_counter_read),
+		a5xx_counter_inline_enable, a5xx_counter_read),
 	A5XX_PERFCOUNTER_GROUP(HLSQ, hlsq,
-		a5xx_counter_enable, a5xx_counter_read),
+		a5xx_counter_inline_enable, a5xx_counter_read),
 	A5XX_PERFCOUNTER_GROUP(VPC, vpc,
-		a5xx_counter_enable, a5xx_counter_read),
+		a5xx_counter_inline_enable, a5xx_counter_read),
 	A5XX_PERFCOUNTER_GROUP(CCU, ccu,
-		a5xx_counter_enable, a5xx_counter_read),
+		a5xx_counter_inline_enable, a5xx_counter_read),
 	A5XX_PERFCOUNTER_GROUP(CMP, cmp,
-		a5xx_counter_enable, a5xx_counter_read),
+		a5xx_counter_inline_enable, a5xx_counter_read),
 	A5XX_PERFCOUNTER_GROUP(TSE, tse,
-		a5xx_counter_enable, a5xx_counter_read),
+		a5xx_counter_inline_enable, a5xx_counter_read),
 	A5XX_PERFCOUNTER_GROUP(RAS, ras,
-		a5xx_counter_enable, a5xx_counter_read),
+		a5xx_counter_inline_enable, a5xx_counter_read),
 	A5XX_PERFCOUNTER_GROUP(LRZ, lrz,
-		a5xx_counter_enable, a5xx_counter_read),
+		a5xx_counter_inline_enable, a5xx_counter_read),
 	A5XX_PERFCOUNTER_GROUP(UCHE, uche,
-		a5xx_counter_enable, a5xx_counter_read),
+		a5xx_counter_inline_enable, a5xx_counter_read),
 	A5XX_PERFCOUNTER_GROUP(TP, tp,
-		a5xx_counter_enable, a5xx_counter_read),
+		a5xx_counter_inline_enable, a5xx_counter_read),
 	A5XX_PERFCOUNTER_GROUP(SP, sp,
-		a5xx_counter_enable, a5xx_counter_read),
+		a5xx_counter_inline_enable, a5xx_counter_read),
 	A5XX_PERFCOUNTER_GROUP(RB, rb,
-		a5xx_counter_enable, a5xx_counter_read),
+		a5xx_counter_inline_enable, a5xx_counter_read),
 	A5XX_PERFCOUNTER_GROUP(VSC, vsc,
-		a5xx_counter_enable, a5xx_counter_read),
+		a5xx_counter_inline_enable, a5xx_counter_read),
 	A5XX_PERFCOUNTER_GROUP(VBIF, vbif,
 		a5xx_counter_vbif_enable, a5xx_counter_read_norestore),
 	A5XX_PERFCOUNTER_GROUP_FLAGS(VBIF_PWR, vbif_pwr,
