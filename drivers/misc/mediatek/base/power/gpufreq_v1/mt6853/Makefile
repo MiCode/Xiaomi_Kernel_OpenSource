@@ -35,3 +35,11 @@ endif
 ifeq ($(findstring aging,$(PROJECT_DTB_NAMES)),aging)
 	subdir-ccflags-y += -DAGING_LOAD
 endif
+
+ifeq ($(findstring k6853v1_64_swrgo,$(PROJECT_DTB_NAMES)),k6853v1_64_swrgo)
+	subdir-ccflags-y += -DK6853V1_64_SWRGO
+endif
+
+ifeq ($(findstring k6853v1_64_swrgo_5gc,$(PROJECT_DTB_NAMES)),k6853v1_64_swrgo_5gc)
+	subdir-ccflags-y += -DK6853V1_64_SWRGO_5GC
+endif

@@ -275,6 +275,12 @@ unsigned int mt_gpufreq_get_shader_present(void)
 	gpufreq_pr_info("@%s: segment_id: %d, shader_present: %d\n",
 					__func__, segment_id, shader_present);
 
+/* Special SW setting */
+#if defined(K6853V1_64_SWRGO)
+	gpufreq_pr_info("@%s: K6853V1_64_SWRGO_* load\n", __func__);
+	shader_present = MT_GPU_SHADER_PRESENT_2;
+#endif
+
 	return shader_present;
 }
 
@@ -3006,6 +3012,15 @@ static void __mt_gpufreq_init_table(void)
 #if defined(TURBO)
 	g_segment_max_opp_idx = 0;
 #endif
+#endif
+
+#if defined(K6853V1_64_SWRGO)
+	gpufreq_pr_info("@%s: K6853V1_64_SWRGO_* load\n", __func__);
+	g_segment_max_opp_idx = 14;
+#endif
+#if defined(K6853V1_64_SWRGO_5GC)
+	gpufreq_pr_info("@%s: K6853V1_64_SWRGO_5GC load\n", __func__);
+	g_segment_max_opp_idx = 0;
 #endif
 
 	g_segment_min_opp_idx = NUM_OF_OPP_IDX - 1;

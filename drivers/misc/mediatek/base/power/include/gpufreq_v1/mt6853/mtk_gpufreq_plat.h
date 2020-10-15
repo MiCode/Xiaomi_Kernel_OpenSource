@@ -67,6 +67,7 @@ do {							\
 #define MFG3_SHADER_STACK2         (T2C0)
 #define MFG5_SHADER_STACK4         (T4C0)
 #define MT_GPU_SHADER_PRESENT_3    (T0C0 | T2C0 | T4C0)
+#define MT_GPU_SHADER_PRESENT_2    (T0C0 | T2C0)
 
 struct mt_gpufreq_power_table_info {
 	unsigned int gpufreq_khz;
