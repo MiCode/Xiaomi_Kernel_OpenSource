@@ -170,7 +170,7 @@
 #define GEN2_U3_EXIT_RSP_RX_CLK_MASK	GEN2_U3_EXIT_RSP_RX_CLK(0xff)
 #define GEN1_U3_EXIT_RSP_RX_CLK(n)	(n)
 #define GEN1_U3_EXIT_RSP_RX_CLK_MASK	GEN1_U3_EXIT_RSP_RX_CLK(0xff)
-#define DWC31_LINK_GDBGLTSSM	0xd050
+#define DWC31_LINK_GDBGLTSSM(n)		(0xd050 + ((n) * 0x80))
 
 /* DWC 3.1 Tx De-emphasis Registers */
 #define DWC31_LCSR_TX_DEEMPH(n)	(0xd060 + ((n) * 0x80))
