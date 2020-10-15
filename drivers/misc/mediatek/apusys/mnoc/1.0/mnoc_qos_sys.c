@@ -33,6 +33,8 @@ static ssize_t mnoc_apu_qos_boost_show(struct kobject *kobj,
 #if MNOC_QOS_BOOST_ENABLE
 	ret = sprintf(buf, "apu_qos_boost_flag = %d\n", apu_qos_boost_flag);
 #endif
+	if (ret < 0)
+		LOG_ERR("%s failed, ret %d\n", __func__, ret);
 	return ret;
 }
 
