@@ -3964,7 +3964,7 @@
 			compatible = "mediatek,cam_mem";
 			dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
 
-			iommus = /* imgsys_config and msf_b */
+			iommus = /* imgsys_config, msf_b and wpe */
 				<&iommu0 M4U_PORT_L9_IMG_IMGI_D1>,
 				<&iommu0 M4U_PORT_L9_IMG_IMGBI_D1>,
 				<&iommu0 M4U_PORT_L9_IMG_DMGI_D1>,
@@ -4003,6 +4003,9 @@
 				<&iommu0 M4U_PORT_L11_IMG_MFB_RDMA5>,
 				<&iommu0 M4U_PORT_L11_IMG_MFB_WDMA0>,
 				<&iommu0 M4U_PORT_L11_IMG_MFB_WDMA1>,
+				<&iommu0 M4U_PORT_L11_IMG_WPE_RDMA1>,
+				<&iommu0 M4U_PORT_L11_IMG_WPE_RDMA0>,
+				<&iommu0 M4U_PORT_L11_IMG_WPE_WDMA>,
 
 				/* ccu */
 				<&iommu0 M4U_PORT_L13_CAM_CCUI>,
