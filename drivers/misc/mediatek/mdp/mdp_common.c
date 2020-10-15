@@ -1503,7 +1503,7 @@ s32 cmdq_mdp_flush_async_impl(struct cmdqRecStruct *handle)
 	mutex_unlock(&mdp_task_mutex);
 
 	/* run consume to run task in thread */
-	CMDQ_LOG("cmdq_mdp_consume_handle:0x%p\n", handle);
+	CMDQ_MSG("cmdq_mdp_consume_handle:0x%p\n", handle);
 	cmdq_mdp_consume_handle();
 
 	return 0;
