@@ -548,7 +548,7 @@ static int mtk_cam_debug_realloc(struct mtk_cam_debug_fs *debug_fs,
 	int i;
 	struct device *dev = debug_fs->cam_dev->dev;
 
-	mutex_lock(&debug_fs->exp_dump_buf_lock);
+	mutex_lock(&debug_fs->dump_buf_lock);
 
 	/* Release the previous buffers */
 	for (i = 0; i < debug_fs->dump_buf_entry_num; i++) {
@@ -584,7 +584,7 @@ static int mtk_cam_debug_realloc(struct mtk_cam_debug_fs *debug_fs,
 		debug_fs->dump_buf_tail_idx, debug_fs->dump_buf_entry_size,
 		debug_fs->dump_buf_entry_num);
 
-	mutex_unlock(&debug_fs->exp_dump_buf_lock);
+	mutex_unlock(&debug_fs->dump_buf_lock);
 
 	return 0;
 }
