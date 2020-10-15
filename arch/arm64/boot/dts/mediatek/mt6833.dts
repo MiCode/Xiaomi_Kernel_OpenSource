@@ -2288,9 +2288,11 @@ page_owner=on";
 			<0 0x11e40000 0 0x10000>;
 		interrupts = <GIC_SPI 96 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&infracfg_ao CLK_IFRAO_SSUSB>,
+			<&apmixed CLK_APMIXED_USBPLL>,
 			<&topckgen CLK_TOP_USB_TOP_SEL>,
 			<&topckgen CLK_TOP_UNIVPLL_D5_D4>;
 		clock-names = "usb0",
+			"usb0_ref",
 			"usb0_clk_top_sel",
 			"usb0_clk_univpll5_d4";
 		mode = <2>;
