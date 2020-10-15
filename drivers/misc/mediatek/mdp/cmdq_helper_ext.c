@@ -435,6 +435,11 @@ s32 cmdq_core_register_task_cycle_cb(u32 group,
 {
 	struct CmdqCBkStruct *callback;
 
+	if (!cmdq_group_cb) {
+		CMDQ_ERR("%s callback group not ready\n", __func__);
+		return -EFAULT;
+	}
+
 	if (!cmdq_core_is_valid_group(group))
 		return -EFAULT;
 
