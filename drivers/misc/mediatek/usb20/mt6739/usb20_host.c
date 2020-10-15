@@ -630,7 +630,7 @@ static void musb_host_work(struct work_struct *data)
 #endif
 		/* setup fifo for host mode */
 		ep_config_from_table_for_host(mtk_musb);
-		__pm_stay_awake(&mtk_musb->usb_lock);
+		__pm_stay_awake(mtk_musb->usb_lock);
 
 		/* this make PHY operation workable */
 		musb_platform_enable(mtk_musb);
@@ -679,8 +679,8 @@ static void musb_host_work(struct work_struct *data)
 
 		DBG(1, "devctl is %x\n", musb_readb(mtk_musb->mregs, MUSB_DEVCTL));
 		musb_writeb(mtk_musb->mregs, MUSB_DEVCTL, 0);
-		if (mtk_musb->usb_lock.active)
-			__pm_relax(&mtk_musb->usb_lock);
+		if (mtk_musb->usb_lock->active)
+			__pm_relax(mtk_musb->usb_lock);
 		mt_usb_set_vbus(mtk_musb, 0);
 
 		/* for no VBUS sensing IP */

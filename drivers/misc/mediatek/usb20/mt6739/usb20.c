@@ -464,8 +464,8 @@ void do_connection_work(struct work_struct *data)
 
 	if (!mtk_musb->power && (usb_in == true)) {
 		/* enable usb */
-		if (!mtk_musb->usb_lock.active) {
-			__pm_stay_awake(&mtk_musb->usb_lock);
+		if (!mtk_musb->usb_lock->active) {
+			__pm_stay_awake(mtk_musb->usb_lock);
 			DBG(0, "lock\n");
 		} else
 			DBG(0, "already lock\n");
@@ -477,9 +477,9 @@ void do_connection_work(struct work_struct *data)
 	} else if (mtk_musb->power && (usb_in == false)) {
 		/* disable usb */
 		musb_stop(mtk_musb);
-		if (mtk_musb->usb_lock.active) {
+		if (mtk_musb->usb_lock->active) {
 			DBG(0, "unlock\n");
-			__pm_relax(&mtk_musb->usb_lock);
+			__pm_relax(mtk_musb->usb_lock);
 		} else {
 			DBG(0, "lock not active\n");
 		}
@@ -1347,7 +1347,7 @@ static int __init mt_usb_init(struct musb *musb)
 	musb->usb_rev6_setting = usb_rev6_setting;
 #endif
 
-	wakeup_source_init(&musb->usb_lock, "USB suspend lock");
+	musb->usb_lock = wakeup_source_register(NULL, "USB suspend lock");
 
 #ifndef CONFIG_FPGA_EARLY_PORTING
 	reg_vusb = regulator_get(musb->controller, "vusb33");
