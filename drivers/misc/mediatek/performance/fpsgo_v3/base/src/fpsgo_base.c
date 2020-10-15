@@ -110,7 +110,7 @@ int fpsgo_arch_nr_clusters(void)
 	for_each_possible_cpu(cpu) {
 		policy = cpufreq_cpu_get(cpu);
 		if (!policy) {
-			num = 2;
+			num = 0;
 			break;
 		}
 
@@ -123,20 +123,23 @@ int fpsgo_arch_nr_clusters(void)
 }
 
 unsigned int fpsgo_cpufreq_get_freq_by_idx(
-	unsigned int cluster, unsigned int opp)
+	int cpu, unsigned int opp)
 {
 	struct cpufreq_policy curr_policy;
 	struct cpufreq_frequency_table *pos, *table;
 	int idx;
+	unsigned int max_freq = 0;
 
-	cpufreq_get_policy(&curr_policy, cluster * 4);
+	cpufreq_get_policy(&curr_policy, cpu);
 	table = curr_policy.freq_table;
 
-	cpufreq_for_each_valid_entry_idx(pos, table, idx)
+	cpufreq_for_each_valid_entry_idx(pos, table, idx) {
+		max_freq = max(pos->frequency, max_freq);
 		if (idx == opp)
 			return pos->frequency;
+	}
 
-	return 5000000;
+	return max_freq;
 }
 
 static struct miscdevice fpsgo_object;

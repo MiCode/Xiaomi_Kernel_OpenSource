@@ -18,6 +18,7 @@ ccflags-y += \
         -I$(FSTB_TOP)/ \
         -I$(COM_TOP)/include/ \
 				-I$(srctree)/kernel/ \
+				-I$(srctree)/drivers/misc/mediatek/sched/ \
 
 subdir-ccflags-y += \
         -I$(srctree)/include/ \
@@ -28,6 +29,8 @@ subdir-ccflags-y += \
         -I$(FSTB_TOP)/ \
         -I$(COM_TOP)/include/ \
 				-I$(srctree)/kernel/ \
+				-I$(srctree)/drivers/misc/mediatek/sched/ \
+
 
 #fpsgo_main
 MTK_FPSGO_MAIN += fpsgo_main.o
@@ -42,7 +45,7 @@ MTK_FPSGO_COMPOSER = $(mtk_fpsgo_composer_objs:%.o=composer/%.o)
 
 #fbt
 include $(FPSGO_TOP)/fbt/build.mk
-ccflags-y += -DNR_FREQ_CPU=16
+ccflags-y += -DNR_FREQ_CPU=17
 MTK_FPSGO_FBT = $(mtk_fpsgo_fbt_objs:%.o=fbt/%.o)
 
 #fstb
