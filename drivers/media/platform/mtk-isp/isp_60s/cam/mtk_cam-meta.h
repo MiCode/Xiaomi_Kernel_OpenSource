@@ -390,6 +390,21 @@ struct mtk_cam_uapi_tsf_stats {
 };
 
 /**
+ * struct mtk_cam_uapi_pd_stats - statistics of pd
+ *
+ * @stats_src:     source width and heitgh of the statistics.
+ * @stride:	   stride value used by
+ * @pdo_buf:	   The buffer for PD statistic hardware output.
+ *
+ * This is the PD statistic returned to user.
+ */
+struct mtk_cam_uapi_pd_stats {
+	struct	mtk_cam_uapi_meta_size stats_src;
+	__u32	stride;
+	struct	mtk_cam_uapi_meta_hw_buf pdo_buf;
+};
+
+/**
  *	T O N E
  */
 #define MTK_CAM_UAPI_LTMSO_SIZE		18036
@@ -418,7 +433,6 @@ struct mtk_cam_uapi_ltm_stats {
  * struct mtk_cam_uapi_lce_stats - Tone2 statistic data
  *
  * @stats_out:	The x_size and y_size of the lcseo output in lceso_buf
- * @stride:	The stride of the lcseo output in lceso_buf
  * @lceso_buf:	The buffer for lceso statistic hardware output. The buffer size
  *		is defined in MTK_CAM_UAPI_LCESO_SIZE.
  *
@@ -426,7 +440,6 @@ struct mtk_cam_uapi_ltm_stats {
  */
 struct mtk_cam_uapi_lce_stats {
 	struct mtk_cam_uapi_meta_size stats_out;
-	__u32  stride;
 	struct mtk_cam_uapi_meta_hw_buf lceso_buf;
 };
 
@@ -486,6 +499,10 @@ struct mtk_cam_uapi_lmv_stats {
  *  @flk_param:	    Flicker statistic configuration
  *  @tsf_param:	    tsf statistic configuration
  *  @wb_param:	    WB settings
+ *  @pd_enable:     To indicate if pd should be enabled or not. Since pdi
+ *		    buffer is generate by kernel, it is not included in
+ *		    mtk_cam_uapi_meta_raw_stats_cfg and is carried with ipi
+ *		    command.
  */
 struct mtk_cam_uapi_meta_raw_stats_cfg {
 	__s8   ae_awb_enable;
@@ -494,6 +511,7 @@ struct mtk_cam_uapi_meta_raw_stats_cfg {
 	__s8   flk_enable;
 	__s8   tsf_enable;
 	__s8   wb_enable;
+	__s8   pd_enable;
 
 	struct mtk_cam_uapi_ae_param  ae_param;
 	struct mtk_cam_uapi_awb_param awb_param;
@@ -520,18 +538,21 @@ struct mtk_cam_uapi_meta_raw_stats_cfg {
  *			 this buffer
  * @tsf_stats_enabled:	 indicate that tsf_stats is ready or not in
  *			 this buffer
- *
+ * @pd_stats_enabled:	 indicate that pd_stats is ready or not in
+ *			 this buffer
  */
 struct mtk_cam_uapi_meta_raw_stats_0 {
 	__u8   ae_awb_stats_enabled;
 	__u8   ltm_stats_enabled;
 	__u8   flk_stats_enabled;
 	__u8   tsf_stats_enabled;
+	__u8   pd_stats_enabled;
 
 	struct mtk_cam_uapi_ae_awb_stats ae_awb_stats;
 	struct mtk_cam_uapi_ltm_stats ltm_stats;
 	struct mtk_cam_uapi_flk_stats flk_stats;
 	struct mtk_cam_uapi_tsf_stats tsf_stats;
+	struct mtk_cam_uapi_pd_stats pd_stats;
 };
 
 /**
@@ -575,8 +596,24 @@ struct mtk_cam_uapi_meta_raw_stats_2 {
 	struct mtk_cam_uapi_lmv_stats lmv_stats;
 };
 
+/**
+ * struct mtk_cam_uapi_meta_camsv_stats_0 - capture buffer returns from
+ *	 camsys's camsv module after the frame is done. The buffer are
+ *	 not be pushed the other driver such as dip.
+ *
+ * @pd_stats_enabled:	 indicate that pd_stats is ready or not in
+ *			 this buffer
+ */
+struct mtk_cam_uapi_meta_camsv_stats_0 {
+	__u8   pd_stats_enabled;
+
+	struct mtk_cam_uapi_pd_stats pd_stats;
+};
+
 #define MTK_CAM_META_VERSION_MAJOR 3
-#define MTK_CAM_META_VERSION_MINOR 3
+#define MTK_CAM_META_VERSION_MINOR 4
+#define MTK_CAM_META_PLATFORM_NAME "isp6s"
+#define MTK_CAM_META_CHIP_NAME "mt6873"
 
 
 #endif /* __MTK_CAM_META_H__ */
