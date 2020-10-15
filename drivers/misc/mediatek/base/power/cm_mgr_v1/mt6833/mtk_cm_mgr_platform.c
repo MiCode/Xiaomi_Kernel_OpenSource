@@ -891,6 +891,7 @@ int cm_mgr_platform_init(void)
 	r = cm_mgr_register_init();
 	if (r) {
 		pr_info("FAILED TO CREATE REGISTER(%d)\n", r);
+		WARN_ON(1);
 		return r;
 	}
 
