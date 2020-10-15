@@ -161,6 +161,10 @@ static DEFINE_SPINLOCK(mt6833_clk_lock);
 
 static void __iomem *apmixed_base;
 
+static const struct mtk_fixed_clk top_fixed_clks[] = {
+	FIXED_CLK(CLK_TOP_OSC, "ulposc", NULL, 260000000),
+};
+
 static const struct mtk_fixed_factor top_divs[] = {
 	FACTOR(CLK_TOP_MAINPLL, "mainpll_ck",
 			"mainpll", 1, 1),
@@ -316,8 +320,6 @@ static const struct mtk_fixed_factor top_divs[] = {
 			"msdcpll", 1, 8),
 	FACTOR(CLK_TOP_MSDCPLL_D16, "msdcpll_d16",
 			"msdcpll", 1, 16),
-	FACTOR(CLK_TOP_OSC, "osc_ck",
-			"ulposc", 1, 1),
 	FACTOR(CLK_TOP_OSC_D2, "osc_d2",
 			"ulposc", 1, 2),
 	FACTOR(CLK_TOP_OSC_D4, "osc_d4",
@@ -2424,6 +2426,8 @@ static int clk_mt6833_top_probe(struct platform_device *pdev)
 
 	mt6833_top_clk_data = mtk_alloc_clk_data(CLK_TOP_NR_CLK);
 
+	mtk_clk_register_fixed_clks(top_fixed_clks, ARRAY_SIZE(top_fixed_clks),
+			mt6833_top_clk_data);
 	mtk_clk_register_factors(top_divs, ARRAY_SIZE(top_divs),
 			mt6833_top_clk_data);
 
