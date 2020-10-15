@@ -1200,6 +1200,10 @@ static s32 cmdq_mdp_setup_sec(struct cmdqCommandStruct *desc,
 	 * and it is necessary to know client first before append backup code.
 	 */
 	cl = cmdq_helper_mbox_client(handle->thread);
+	if (unlikely(!cl)) {
+		CMDQ_ERR("%s no client for thread:%d\n", handle->thread);
+		return -EINVAL;
+	}
 	handle->pkt->cl = (void *)cl;
 	handle->pkt->dev = cl->chan->mbox->dev;
 
@@ -1279,7 +1283,7 @@ s32 cmdq_mdp_handle_sec_setup(struct cmdqSecDataStruct *secData,
 #ifdef CMDQ_SECURE_PATH_SUPPORT
 	u64 dapc, port;
 	enum cmdq_sec_meta_type meta_type = CMDQ_METAEX_NONE;
-	void *user_addr_meta = CMDQ_U32_PTR(secData->addrMetadatas);
+	void *user_addr_meta;
 	void *addr_meta;
 	u32 addr_meta_size;
 	struct cmdq_client *cl;
@@ -1288,6 +1292,8 @@ s32 cmdq_mdp_handle_sec_setup(struct cmdqSecDataStruct *secData,
 	handle->secStatus = NULL;
 	if (!secData || !secData->is_secure)
 		return 0;
+
+	user_addr_meta = CMDQ_U32_PTR(secData->addrMetadatas);
 
 	CMDQ_MSG("%s start:%d, %d\n", __func__,
 		secData->is_secure, secData->addrMetadataCount);
@@ -1310,6 +1316,10 @@ s32 cmdq_mdp_handle_sec_setup(struct cmdqSecDataStruct *secData,
 	 * and it is necessary to know client first before append backup code.
 	 */
 	cl = cmdq_helper_mbox_client(handle->thread);
+	if (unlikely(!cl)) {
+		CMDQ_ERR("%s no client for thread:%d\n", handle->thread);
+		return -EINVAL;
+	}
 	handle->pkt->cl = (void *)cl;
 	handle->pkt->dev = cl->chan->mbox->dev;
 
@@ -3266,6 +3276,10 @@ static void mdp_readback_aal_virtual(struct cmdqRecStruct *handle,
 	cmdq_pkt_jump_addr(pkt, begin_pa);
 
 	condi_inst = (u32 *)cmdq_pkt_get_va_by_offset(pkt, condi_offset);
+	if (unlikely(!condi_inst)) {
+		CMDQ_ERR("%s wrong offset %u\n", condi_offset);
+		return;
+	}
 	if (condi_inst[1] == 0x10000001)
 		condi_inst = (u32 *)cmdq_pkt_get_va_by_offset(pkt,
 			condi_offset + CMDQ_INST_SIZE);
@@ -3380,6 +3394,10 @@ static void mdp_readback_hdr_virtual(struct cmdqRecStruct *handle,
 
 	cmdq_pkt_jump_addr(pkt, begin_pa);
 	condi_inst = (u32 *)cmdq_pkt_get_va_by_offset(pkt, condi_offset);
+	if (unlikely(!condi_inst)) {
+		CMDQ_ERR("%s wrong offset %u\n", condi_offset);
+		return;
+	}
 	if (condi_inst[1] == 0x10000001)
 		condi_inst = (u32 *)cmdq_pkt_get_va_by_offset(pkt,
 			condi_offset + 8);
