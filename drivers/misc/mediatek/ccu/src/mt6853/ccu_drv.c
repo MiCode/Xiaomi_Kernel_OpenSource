@@ -653,7 +653,7 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd,
 		}
 
 		ret = copy_from_user(indata,
-			(void *)msg.inDataPtr, msg.inDataSize);
+			msg.inDataPtr, msg.inDataSize);
 		if (ret != 0) {
 			LOG_ERR(
 			"CCU_IOCTL_IPC_SEND_CMD copy_to_user 2 failed: %d\n",
@@ -919,6 +919,11 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd,
 		ret = copy_from_user(&type,
 			(void *)arg, sizeof(enum CCU_BIN_TYPE));
 		LOG_INF_MUST("load ccu bin %d\n", type);
+		powert_stat = ccu_query_power_status();
+		if (type == 0 && powert_stat == 0) {
+			LOG_WARN("ccuk: ioctl without powered on\n");
+			return -EFAULT;
+		}
 		ret = ccu_load_bin(g_ccu_device, type);
 
 		break;
@@ -928,6 +933,7 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd,
 	{
 		struct CcuMemHandle handle;
 
+		handle.ionHandleKd = 0;
 		ret = copy_from_user(&(handle.meminfo),
 			(void *)arg, sizeof(struct CcuMemInfo));
 		if (ret != 0) {
