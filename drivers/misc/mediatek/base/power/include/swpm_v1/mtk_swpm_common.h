@@ -84,6 +84,9 @@
 #define swpm_clr_status(type)  (swpm_status &= ~(1 << type))
 #define for_each_pwr_mtr(i)    for (i = 0; i < NR_POWER_METER; i++)
 
+/* SWPM command dispatcher with user bits */
+#define SWPM_CODE_USER_BIT (16)
+
 struct swpm_entry {
 	const char *name;
 	const struct file_operations *fops;
@@ -104,15 +107,23 @@ enum swpm_num_type {
 enum swpm_cmd_type {
 	SYNC_DATA,
 	SET_INTERVAL,
+	SET_PMU,
+};
+
+struct swpm_core_internal_ops {
+	void (*const cmd)(unsigned int type,
+			  unsigned int val);
 };
 
 /* swpm extension internal ops structure */
 struct swpm_internal_ops {
 	void (*const cmd)(unsigned int type,
 			  unsigned int val);
-	int32_t (*const ddr_times_get)
+	int32_t (*const ddr_act_times_get)
 		(int32_t freq_num,
-		 struct ddr_times *ddr_times);
+		 struct ddr_act_times *ddr_times);
+	int32_t (*const ddr_sr_pd_times_get)
+		(struct ddr_sr_pd_times *ddr_times);
 	int32_t (*const ddr_freq_data_ip_stats_get)
 		(int32_t data_ip_num,
 		 int32_t freq_num,
@@ -123,7 +134,7 @@ struct swpm_internal_ops {
 		 void *stats);
 	int32_t (*const vcore_vol_duration_get)
 		(int32_t vol_num,
-		 int64_t *duration);
+		 struct vol_duration *duration);
 	int32_t (*const num_get)
 		(enum swpm_num_type type);
 };
@@ -134,6 +145,7 @@ extern struct mutex swpm_mutex;
 extern unsigned int swpm_log_mask;
 extern struct timer_list swpm_timer;
 
+extern int swpm_core_ops_register(struct swpm_core_internal_ops *ops);
 extern int swpm_append_procfs(struct swpm_entry *p);
 extern int swpm_create_procfs(void);
 extern void swpm_update_periodic_timer(void);
