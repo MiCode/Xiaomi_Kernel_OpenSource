@@ -621,6 +621,7 @@ config MACH_MT6833
 	select HW_RANDOM
 	select HW_RANDOM_MT67XX
 	select DEVAPC_MT6833
+	select DEVMPU_MT6833
 	select MTK_DBGTOP
 	select MTK_PID_MAP
 	help
