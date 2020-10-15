@@ -1537,6 +1537,8 @@ static const struct snd_soc_dapm_route mt6833_memif_routes[] = {
 
 	{"HW_GAIN2_IN_CH1", "ADDA_UL_CH1", "ADDA_UL_Mux"},
 	{"HW_GAIN2_IN_CH2", "ADDA_UL_CH2", "ADDA_UL_Mux"},
+	{"UL7_CH1", "HW_GAIN2_OUT_CH1", "HW Gain 2 Out"},
+	{"UL7_CH2", "HW_GAIN2_OUT_CH2", "HW Gain 2 Out"},
 };
 
 static const struct mtk_base_memif_data memif_data[MT6833_MEMIF_NUM] = {
