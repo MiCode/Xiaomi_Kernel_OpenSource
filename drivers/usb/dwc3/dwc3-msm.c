@@ -428,6 +428,7 @@ struct dwc3_msm {
 	struct regulator	*dwc3_gdsc;
 
 	struct usb_phy		*hs_phy, *ss_phy;
+	struct usb_phy		*hs_phy1, *ss_phy1;
 
 	const struct dbm_reg_data *dbm_reg_table;
 	int			dbm_num_eps;
@@ -502,6 +503,7 @@ struct dwc3_msm {
 	int			orientation_override;
 
 	struct device_node	*ss_redriver_node;
+	bool			dual_port;
 };
 
 #define USB_HSPHY_3P3_VOL_MIN		3050000 /* uV */
@@ -703,17 +705,37 @@ static bool dwc3_msm_is_host_superspeed(struct dwc3_msm *mdwc)
 {
 	int i, num_ports;
 	u32 reg;
+	bool is_host_ss = false;
 
 	reg = dwc3_msm_read_reg(mdwc->base, USB3_HCSPARAMS1);
 	num_ports = HCS_MAX_PORTS(reg);
 
+	/*
+	 * For single port controller, PORTSC register 1 is for SS bus, hence it
+	 * maps to the only SSPHY. But for dual port controllers, PORTSC
+	 * registers 2 and 3 are for SS busses 0 and 1 respectively. Hence,
+	 * PORTSC register 2 maps to SSPHY0 and 3 maps to SSPHY1. Handle the
+	 * flag setting using the below logic which will also maintain single
+	 * port core.
+	 *       num_ports = 2 (or) 4 (depending on no. of ports)
+	 *   ->num_ports/2 = 1 (or) 2
+	 * So, for single port core, i % (num_ports/2) = 0, hence we will always
+	 * be updating SSPHY0 flags.
+	 * For dual port, i % (num_ports/2) = 0 for port 0 (or) 1 for port 1.
+	 * Hence we update SSPHY0 for reg 0 and 2; and SSPHY1 for reg 1 and 3.
+	 */
 	for (i = 0; i < num_ports; i++) {
 		reg = dwc3_msm_read_reg(mdwc->base, USB3_PORTSC + i*0x10);
-		if ((reg & PORT_PE) && DEV_SUPERSPEED_ANY(reg))
-			return true;
+		if ((reg & PORT_PE) && DEV_SUPERSPEED_ANY(reg)) {
+			is_host_ss = true;
+			if (i % (num_ports / 2))
+				mdwc->ss_phy1->flags |= DEVICE_IN_SS_MODE;
+			else
+				mdwc->ss_phy->flags |= DEVICE_IN_SS_MODE;
+		}
 	}
 
-	return false;
+	return is_host_ss;
 }
 
 static inline bool dwc3_msm_is_dev_superspeed(struct dwc3_msm *mdwc)
@@ -722,8 +744,10 @@ static inline bool dwc3_msm_is_dev_superspeed(struct dwc3_msm *mdwc)
 
 	speed = dwc3_msm_read_reg(mdwc->base, DWC3_DSTS) & DWC3_DSTS_CONNECTSPD;
 	if ((speed & DWC3_DSTS_SUPERSPEED) ||
-			(speed & DWC3_DSTS_SUPERSPEED_PLUS))
+			(speed & DWC3_DSTS_SUPERSPEED_PLUS)) {
+		mdwc->ss_phy->flags |= DEVICE_IN_SS_MODE;
 		return true;
+	}
 
 	return false;
 }
@@ -2651,13 +2675,58 @@ static int dwc3_msm_prepare_suspend(struct dwc3_msm *mdwc, bool ignore_p3_state)
 	return 0;
 }
 
+/* Generic functions to set/clear PHY flags */
+static void dwc3_msm_set_hsphy_flags(struct dwc3_msm *mdwc, int set)
+{
+	mdwc->hs_phy->flags |= set;
+	if (mdwc->hs_phy1)
+		mdwc->hs_phy1->flags |= set;
+}
+
+static void dwc3_msm_clear_hsphy_flags(struct dwc3_msm *mdwc, int clear)
+{
+	mdwc->hs_phy->flags &= ~clear;
+	if (mdwc->hs_phy1)
+		mdwc->hs_phy1->flags &= ~clear;
+}
+
+static void dwc3_msm_set_ssphy_flags(struct dwc3_msm *mdwc, int set)
+{
+	mdwc->ss_phy->flags |= set;
+	if (mdwc->ss_phy1)
+		mdwc->ss_phy1->flags |= set;
+}
+
+static void dwc3_msm_clear_ssphy_flags(struct dwc3_msm *mdwc, int clear)
+{
+	mdwc->ss_phy->flags &= ~clear;
+	if (mdwc->ss_phy1)
+		mdwc->ss_phy1->flags &= ~clear;
+}
+
 static void dwc3_set_phy_speed_flags(struct dwc3_msm *mdwc)
 {
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 	int i, num_ports;
 	u32 reg;
 
-	mdwc->hs_phy->flags &= ~(PHY_HSFS_MODE | PHY_LS_MODE);
+	dwc3_msm_clear_hsphy_flags(mdwc, PHY_HSFS_MODE | PHY_LS_MODE);
+
+	/*
+	 * For single port controller, there are 2 PORTSC registers, one for
+	 * HS bus and other for SS bus, hence both mapping to the only HSPHY.
+	 * But for dual port controllers, there are 4 PORTSC registers: 0 and 1
+	 * for HS busses 0 and 1 respectively; and registers 2 and 3 for SS
+	 * busses 0 and 1 respectively. Hence, PORTSC registers 0 and 2 map to
+	 * HSPHY 0 and registers 1 and 3 map to HSPHY1. Handle the flag setting
+	 * using the below logic which will also maintain single port core.
+	 *       num_ports = 2 (or) 4 (depending on no. of ports)
+	 *   ->num_ports/2 = 1 (or) 2
+	 * So, for single port core, i % (num_ports/2) = 0, hence we will always
+	 * be updating HSPHY0 flags.
+	 * For dual port, i % (num_ports/2) = 0 for port 0 (or) 1 for port 1.
+	 * Hence we update HSPHY0 for reg 0 and 2; and HSPHY1 for reg 1 and 3.
+	 */
 	if (mdwc->in_host_mode) {
 		reg = dwc3_msm_read_reg(mdwc->base, USB3_HCSPARAMS1);
 		num_ports = HCS_MAX_PORTS(reg);
@@ -2665,10 +2734,21 @@ static void dwc3_set_phy_speed_flags(struct dwc3_msm *mdwc)
 			reg = dwc3_msm_read_reg(mdwc->base,
 					USB3_PORTSC + i*0x10);
 			if (reg & PORT_CONNECT) {
-				if (DEV_HIGHSPEED(reg) || DEV_FULLSPEED(reg))
-					mdwc->hs_phy->flags |= PHY_HSFS_MODE;
-				else if (DEV_LOWSPEED(reg))
-					mdwc->hs_phy->flags |= PHY_LS_MODE;
+				if (DEV_HIGHSPEED(reg) || DEV_FULLSPEED(reg)) {
+					if (i % (num_ports / 2))
+						mdwc->hs_phy1->flags |=
+								PHY_HSFS_MODE;
+					else
+						mdwc->hs_phy->flags |=
+								PHY_HSFS_MODE;
+				} else if (DEV_LOWSPEED(reg)) {
+					if (i % (num_ports / 2))
+						mdwc->hs_phy1->flags |=
+								PHY_LS_MODE;
+					else
+						mdwc->hs_phy->flags |=
+								PHY_LS_MODE;
+				}
 			}
 		}
 	} else {
@@ -2688,7 +2768,7 @@ static void dwc3_set_ssphy_orientation_flag(struct dwc3_msm *mdwc)
 	unsigned int extcon_id;
 	int ret;
 
-	mdwc->ss_phy->flags &= ~(PHY_LANE_A | PHY_LANE_B);
+	dwc3_msm_clear_ssphy_flags(mdwc, PHY_LANE_A | PHY_LANE_B);
 
 	if (mdwc->orientation_override) {
 		mdwc->ss_phy->flags |= mdwc->orientation_override;
@@ -2938,6 +3018,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc, bool force_power_collapse,
 	dwc3_set_phy_speed_flags(mdwc);
 	/* Suspend HS PHY */
 	usb_phy_set_suspend(mdwc->hs_phy, 1);
+	usb_phy_set_suspend(mdwc->hs_phy1, 1);
 
 	/*
 	 * Synopsys Superspeed PHY does not support ss_phy_irq, so to detect
@@ -2963,9 +3044,10 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc, bool force_power_collapse,
 					reg);
 		}
 		/* indicate phy about SS mode */
-		if (dwc3_msm_is_superspeed(mdwc))
-			mdwc->ss_phy->flags |= DEVICE_IN_SS_MODE;
+		dwc3_msm_is_superspeed(mdwc);
+
 		usb_phy_set_suspend(mdwc->ss_phy, 1);
+		usb_phy_set_suspend(mdwc->ss_phy1, 1);
 		mdwc->lpm_flags |= MDWC3_SS_PHY_SUSPEND;
 	} else if (mdwc->use_pwr_event_for_wakeup) {
 		dwc3_msm_set_ss_pwr_events(mdwc, true);
@@ -3133,8 +3215,9 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	if (dwc->maximum_speed >= USB_SPEED_SUPER &&
 			mdwc->lpm_flags & MDWC3_SS_PHY_SUSPEND) {
 		dwc3_set_ssphy_orientation_flag(mdwc);
+		usb_phy_set_suspend(mdwc->ss_phy1, 0);
 		usb_phy_set_suspend(mdwc->ss_phy, 0);
-		mdwc->ss_phy->flags &= ~DEVICE_IN_SS_MODE;
+		dwc3_msm_clear_ssphy_flags(mdwc, DEVICE_IN_SS_MODE);
 		mdwc->lpm_flags &= ~MDWC3_SS_PHY_SUSPEND;
 
 		if (mdwc->in_host_mode) {
@@ -3147,8 +3230,9 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 		}
 	}
 
-	mdwc->hs_phy->flags &= ~(PHY_HSFS_MODE | PHY_LS_MODE);
+	dwc3_msm_clear_hsphy_flags(mdwc, PHY_HSFS_MODE | PHY_LS_MODE);
 	/* Resume HS PHY */
+	usb_phy_set_suspend(mdwc->hs_phy1, 0);
 	usb_phy_set_suspend(mdwc->hs_phy, 0);
 
 	/* Recover from controller power collapse */
@@ -4256,6 +4340,8 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	mdwc->id_state = DWC3_ID_FLOAT;
 	set_bit(ID, &mdwc->inputs);
 
+	mdwc->dual_port = of_property_read_bool(node, "qcom,dual-port");
+
 	ret = of_property_read_u32(node, "qcom,lpm-to-suspend-delay-ms",
 				&mdwc->lpm_to_suspend_delay);
 	if (ret) {
@@ -4433,6 +4519,24 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		goto put_dwc3;
 	}
 
+	if (mdwc->dual_port) {
+		mdwc->hs_phy1 = devm_usb_get_phy_by_phandle(&mdwc->dwc3->dev,
+							"usb-phy", 2);
+		if (IS_ERR(mdwc->hs_phy1)) {
+			dev_err(&pdev->dev, "unable to get hsphy1 device\n");
+			ret = PTR_ERR(mdwc->hs_phy1);
+			goto put_dwc3;
+		}
+
+		mdwc->ss_phy1 = devm_usb_get_phy_by_phandle(&mdwc->dwc3->dev,
+							"usb-phy", 3);
+		if (IS_ERR(mdwc->ss_phy1)) {
+			dev_err(&pdev->dev, "unable to get ssphy1 device\n");
+			ret = PTR_ERR(mdwc->ss_phy1);
+			goto put_dwc3;
+		}
+	}
+
 	ret = dwc3_msm_interconnect_vote_populate(mdwc);
 	if (ret)
 		dev_err(&pdev->dev, "Dynamic voting failed\n");
@@ -4494,6 +4598,13 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		dev_dbg(&pdev->dev, "setting pm-qos-latency to zero.\n");
 		mdwc->pm_qos_latency = 0;
 	}
+
+	if (mdwc->dual_port && dwc->dr_mode != USB_DR_MODE_HOST) {
+		dev_err(&pdev->dev, "Dual port not allowed for DRD core\n");
+		goto put_dwc3;
+	}
+
+	dwc->dual_port = mdwc->dual_port;
 
 	mutex_init(&mdwc->suspend_resume_mutex);
 
@@ -4643,8 +4754,7 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 	cancel_delayed_work_sync(&mdwc->perf_vote_work);
 	cancel_delayed_work_sync(&mdwc->sm_work);
 
-	if (mdwc->hs_phy)
-		mdwc->hs_phy->flags &= ~PHY_HOST_MODE;
+	dwc3_msm_clear_hsphy_flags(mdwc, PHY_HOST_MODE);
 	dbg_event(0xFF, "Remov put", 0);
 	platform_device_put(mdwc->dwc3);
 	of_platform_depopulate(&pdev->dev);
@@ -4694,6 +4804,18 @@ static int dwc3_msm_host_notifier(struct notifier_block *nb,
 	struct usb_device *udev = ptr;
 
 	if (event != USB_DEVICE_ADD && event != USB_DEVICE_REMOVE)
+		return NOTIFY_DONE;
+
+	/*
+	 * STAR: 9001378493: SSPHY1 going in and out of P3 when HS transfers
+	 * being done on port 0. We do not need the below workaround of
+	 * corresponding SSPHY powerdown for multiport controller. Instead, we
+	 * will keep the SSPHY autosuspend disabled when USB is in resumed
+	 * state. Since dual port controller is present only on automotive
+	 * platforms, power leakage is not a concern. Also, as a part of USB
+	 * suspend sequence, we will enable autosuspend for SSPHYs to go to P3.
+	 */
+	if (mdwc->dual_port)
 		return NOTIFY_DONE;
 
 	/*
@@ -4806,25 +4928,28 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 
 	if (on) {
 		dev_dbg(mdwc->dev, "%s: turn on host\n", __func__);
-		mdwc->hs_phy->flags |= PHY_HOST_MODE;
+		dwc3_msm_set_hsphy_flags(mdwc, PHY_HOST_MODE);
 		dbg_event(0xFF, "hs_phy_flag:%x", mdwc->hs_phy->flags);
 		pm_runtime_get_sync(mdwc->dev);
 		dbg_event(0xFF, "StrtHost gync",
 			atomic_read(&mdwc->dev->power.usage_count));
 		redriver_notify_connect(mdwc->ss_redriver_node);
 		if (dwc->maximum_speed >= USB_SPEED_SUPER) {
-			mdwc->ss_phy->flags |= PHY_HOST_MODE;
+			dwc3_msm_set_ssphy_flags(mdwc, PHY_HOST_MODE);
 			usb_phy_notify_connect(mdwc->ss_phy,
+						USB_SPEED_SUPER);
+			usb_phy_notify_connect(mdwc->ss_phy1,
 						USB_SPEED_SUPER);
 		}
 
 		usb_phy_notify_connect(mdwc->hs_phy, USB_SPEED_HIGH);
+		usb_phy_notify_connect(mdwc->hs_phy1, USB_SPEED_HIGH);
 		if (!IS_ERR_OR_NULL(mdwc->vbus_reg))
 			ret = regulator_enable(mdwc->vbus_reg);
 		if (ret) {
 			dev_err(mdwc->dev, "unable to enable vbus_reg\n");
-			mdwc->hs_phy->flags &= ~PHY_HOST_MODE;
-			mdwc->ss_phy->flags &= ~PHY_HOST_MODE;
+			dwc3_msm_clear_hsphy_flags(mdwc, PHY_HOST_MODE);
+			dwc3_msm_clear_ssphy_flags(mdwc, PHY_HOST_MODE);
 			pm_runtime_put_sync(mdwc->dev);
 			dbg_event(0xFF, "vregerr psync",
 				atomic_read(&mdwc->dev->power.usage_count));
@@ -4848,8 +4973,8 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 			if (!IS_ERR_OR_NULL(mdwc->vbus_reg))
 				regulator_disable(mdwc->vbus_reg);
 
-			mdwc->hs_phy->flags &= ~PHY_HOST_MODE;
-			mdwc->ss_phy->flags &= ~PHY_HOST_MODE;
+			dwc3_msm_clear_hsphy_flags(mdwc, PHY_HOST_MODE);
+			dwc3_msm_clear_ssphy_flags(mdwc, PHY_HOST_MODE);
 			pm_runtime_put_sync(mdwc->dev);
 			dbg_event(0xFF, "pdeverr psync",
 				atomic_read(&mdwc->dev->power.usage_count));
@@ -4904,15 +5029,18 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		pm_runtime_get_sync(mdwc->dev);
 		dbg_event(0xFF, "StopHost gsync",
 			atomic_read(&mdwc->dev->power.usage_count));
+		usb_phy_notify_disconnect(mdwc->hs_phy1, USB_SPEED_HIGH);
 		usb_phy_notify_disconnect(mdwc->hs_phy, USB_SPEED_HIGH);
-		if (mdwc->ss_phy->flags & PHY_HOST_MODE) {
+		if (dwc->maximum_speed >= USB_SPEED_SUPER) {
+			usb_phy_notify_disconnect(mdwc->ss_phy1,
+					USB_SPEED_SUPER);
 			usb_phy_notify_disconnect(mdwc->ss_phy,
 					USB_SPEED_SUPER);
-			mdwc->ss_phy->flags &= ~PHY_HOST_MODE;
 		}
 		redriver_notify_disconnect(mdwc->ss_redriver_node);
 
-		mdwc->hs_phy->flags &= ~PHY_HOST_MODE;
+		dwc3_msm_clear_ssphy_flags(mdwc, PHY_HOST_MODE);
+		dwc3_msm_clear_hsphy_flags(mdwc, PHY_HOST_MODE);
 		dwc3_host_exit(dwc);
 #ifdef USB_CONFIG
 		usb_unregister_notify(&mdwc->host_nb);
@@ -5443,10 +5571,12 @@ static int dwc3_msm_pm_freeze(struct device *dev)
 	 * PHYs also need to be power collapsed, so call notify_disconnect
 	 * before suspend to ensure it.
 	 */
+	usb_phy_notify_disconnect(mdwc->hs_phy1, USB_SPEED_HIGH);
 	usb_phy_notify_disconnect(mdwc->hs_phy, USB_SPEED_HIGH);
-	mdwc->hs_phy->flags &= ~PHY_HOST_MODE;
+	dwc3_msm_clear_hsphy_flags(mdwc, PHY_HOST_MODE);
+	usb_phy_notify_disconnect(mdwc->ss_phy1, USB_SPEED_SUPER);
 	usb_phy_notify_disconnect(mdwc->ss_phy, USB_SPEED_SUPER);
-	mdwc->ss_phy->flags &= ~PHY_HOST_MODE;
+	dwc3_msm_clear_ssphy_flags(mdwc, PHY_HOST_MODE);
 
 	/*
 	 * Power collapse the core. Hence call dwc3_msm_suspend with
@@ -5481,11 +5611,15 @@ static int dwc3_msm_pm_restore(struct device *dev)
 	dwc3_msm_resume(mdwc);
 
 	/* Restore PHY flags if hibernated in host mode */
-	mdwc->hs_phy->flags |= PHY_HOST_MODE;
+	dwc3_msm_set_hsphy_flags(mdwc, PHY_HOST_MODE);
 	usb_phy_notify_connect(mdwc->hs_phy, USB_SPEED_HIGH);
+	usb_phy_notify_connect(mdwc->hs_phy1, USB_SPEED_HIGH);
+
 	if (dwc->maximum_speed >= USB_SPEED_SUPER) {
-		mdwc->ss_phy->flags |= PHY_HOST_MODE;
+		dwc3_msm_set_ssphy_flags(mdwc, PHY_HOST_MODE);
 		usb_phy_notify_connect(mdwc->ss_phy,
+					USB_SPEED_SUPER);
+		usb_phy_notify_connect(mdwc->ss_phy1,
 					USB_SPEED_SUPER);
 	}
 
