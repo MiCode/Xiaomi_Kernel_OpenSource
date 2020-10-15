@@ -23,12 +23,6 @@
 /* have 5 banks */
 enum eemg_ctrl_id {
 	EEMG_CTRL_GPU,
-#if ENABLE_MDLA
-	EEMG_CTRL_MDLA,
-#endif
-#if ENABLE_VPU
-	EEMG_CTRL_VPU,
-#endif
 #if ENABLE_LOO_G
 	EEMG_CTRL_GPU_HI,
 #endif
@@ -38,12 +32,6 @@ enum eemg_ctrl_id {
 
 enum eemg_det_id {
 	EEMG_DET_GPU     =       EEMG_CTRL_GPU,
-#if ENABLE_MDLA
-	EEMG_DET_MDLA	=	EEMG_CTRL_MDLA,
-#endif
-#if ENABLE_VPU
-	EEMG_DET_VPU	=	EEMG_CTRL_VPU,
-#endif
 #if ENABLE_LOO_G
 	EEMG_DET_GPU_HI  =       EEMG_CTRL_GPU_HI,
 #endif

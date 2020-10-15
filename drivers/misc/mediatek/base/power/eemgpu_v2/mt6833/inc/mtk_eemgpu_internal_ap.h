@@ -316,12 +316,6 @@ extern unsigned int record_tbl_locked[NR_FREQ];
  ***************************************************
  */
 extern struct eemg_det_ops gpu_det_ops;
-#if ENABLE_VPU
-extern struct eemg_det_ops vpu_det_ops;
-#endif
-#if ENABLE_MDLA
-extern struct eemg_det_ops mdla_det_ops;
-#endif
 extern struct eemg_det_ops cpu_det_ops;
 extern struct eemg_det_ops cci_det_ops;
 
@@ -335,16 +329,6 @@ extern int set_volt_gpu(struct eemg_det *det);
 extern void restore_default_volt_gpu(struct eemg_det *det);
 extern void get_freq_table_gpu(struct eemg_det *det);
 extern void get_orig_volt_table_gpu(struct eemg_det *det);
-#if ENABLE_VPU
-extern int get_volt_vpu(struct eemg_det *det);
-extern int set_volt_vpu(struct eemg_det *det);
-extern void restore_default_volt_vpu(struct eemg_det *det);
-extern void get_freq_table_vpu(struct eemg_det *det);
-extern void get_orig_volt_table_vpu(struct eemg_det *det);
-#endif
-#if ENABLE_MDLA
-extern int get_volt_mdla(struct eemg_det *det);
-#endif
 /*********************************************
  *extern operations defined at mtk_eem.c
  *********************************************
