@@ -14,8 +14,7 @@
 #include "vow.h"
 #include "vow_assert.h"
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
-#include "scp_ipi_pin.h"
-#include "scp_mbox_layout.h"  /* for IPI mbox size */
+#include "scp.h"
 #endif
 
 static int vow_ipi_recv_handler(unsigned int id,
