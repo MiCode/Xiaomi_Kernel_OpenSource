@@ -19,9 +19,13 @@
 #include <linux/cpumask.h>
 #include <linux/interrupt.h>
 #include <linux/of.h>
+#include <linux/reset.h>
 
 #include "sdhci-pltfm.h"
 #include "cqhci.h"
+#if defined(CONFIG_SDC_QTI)
+#include "../core/core.h"
+#endif
 
 #define CORE_MCI_VERSION		0x50
 #define CORE_VERSION_MAJOR_SHIFT	28
@@ -451,6 +455,8 @@ struct sdhci_msm_host {
 	u32 clk_gating_delay;
 	u32 pm_qos_delay;
 	bool cqhci_offset_changed;
+	bool reg_store;
+	struct reset_control *core_reset;
 };
 
 static struct sdhci_msm_host *sdhci_slot[2];
@@ -1708,6 +1714,23 @@ skip_hsr:
 	return ret;
 }
 
+static int sdhci_msm_parse_reset_data(struct device *dev,
+			struct sdhci_msm_host *msm_host)
+{
+	int ret = 0;
+
+	msm_host->core_reset = devm_reset_control_get(dev,
+					"core_reset");
+	if (IS_ERR(msm_host->core_reset)) {
+		ret = PTR_ERR(msm_host->core_reset);
+		dev_err(dev, "core_reset unavailable,err = %d\n",
+				ret);
+		msm_host->core_reset = NULL;
+	}
+
+	return ret;
+}
+
 /* Parse platform data */
 static bool sdhci_msm_populate_pdata(struct device *dev,
 						struct sdhci_msm_host *msm_host)
@@ -1760,6 +1783,8 @@ static bool sdhci_msm_populate_pdata(struct device *dev,
 				msm_host->ice_clk_max, msm_host->ice_clk_min);
 		}
 	}
+
+	sdhci_msm_parse_reset_data(dev, msm_host);
 
 	return false;
 out:
@@ -2428,7 +2453,8 @@ static void sdhci_msm_registers_save(struct sdhci_host *host)
 	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
 	const struct sdhci_msm_offset *msm_offset = msm_host->offset;
 
-	if (!msm_host->regs_restore.is_supported)
+	if (!msm_host->regs_restore.is_supported &&
+			!msm_host->reg_store)
 		return;
 
 	msm_host->regs_restore.vendor_func = readl_relaxed(host->ioaddr +
@@ -2491,8 +2517,9 @@ static void sdhci_msm_registers_restore(struct sdhci_host *host)
 	u32 irq_status;
 	struct mmc_ios ios = host->mmc->ios;
 
-	if (!msm_host->regs_restore.is_supported ||
-		!msm_host->regs_restore.is_valid)
+	if ((!msm_host->regs_restore.is_supported ||
+		!msm_host->regs_restore.is_valid) &&
+		!msm_host->reg_store)
 		return;
 
 	writel_relaxed(0, host->ioaddr + msm_offset->core_pwrctl_mask);
@@ -3266,6 +3293,56 @@ static const struct of_device_id sdhci_msm_dt_match[] = {
 
 MODULE_DEVICE_TABLE(of, sdhci_msm_dt_match);
 
+static void sdhci_msm_hw_reset(struct sdhci_host *host)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
+	struct platform_device *pdev = msm_host->pdev;
+	int ret = -EOPNOTSUPP;
+
+	if (!msm_host->core_reset) {
+		dev_err(&pdev->dev, "%s: failed, err = %d\n", __func__,
+				ret);
+		return;
+	}
+
+	msm_host->reg_store = true;
+	sdhci_msm_registers_save(host);
+	if (host->mmc->caps2 & MMC_CAP2_CQE) {
+		host->mmc->cqe_ops->cqe_disable(host->mmc);
+		host->mmc->cqe_enabled = false;
+	}
+
+	ret = reset_control_assert(msm_host->core_reset);
+	if (ret) {
+		dev_err(&pdev->dev, "%s: core_reset assert failed, err = %d\n",
+				__func__, ret);
+		goto out;
+	}
+
+	/*
+	 * The hardware requirement for delay between assert/deassert
+	 * is at least 3-4 sleep clock (32.7KHz) cycles, which comes to
+	 * ~125us (4/32768). To be on the safe side add 200us delay.
+	 */
+	usleep_range(200, 210);
+
+	ret = reset_control_deassert(msm_host->core_reset);
+	if (ret)
+		dev_err(&pdev->dev, "%s: core_reset deassert failed, err = %d\n",
+				__func__, ret);
+
+	sdhci_msm_registers_restore(host);
+	msm_host->reg_store = false;
+
+#if defined(CONFIG_SDC_QTI)
+	if (host->mmc->card)
+		mmc_power_cycle(host->mmc, host->mmc->card->ocr);
+#endif
+out:
+	return;
+}
+
 static const struct sdhci_ops sdhci_msm_ops = {
 	.reset = sdhci_msm_reset,
 	.set_clock = sdhci_msm_set_clock,
@@ -3284,6 +3361,7 @@ static const struct sdhci_ops sdhci_msm_ops = {
 #if defined(CONFIG_SDC_QTI)
 	.get_current_limit = sdhci_msm_get_current_limit,
 #endif
+	.hw_reset = sdhci_msm_hw_reset,
 };
 
 static const struct sdhci_pltfm_data sdhci_msm_pdata = {
@@ -3918,6 +3996,12 @@ static int sdhci_msm_init_sysfs(struct platform_device *pdev)
 }
 #endif
 
+static void sdhci_msm_set_caps(struct sdhci_msm_host *msm_host)
+{
+	msm_host->mmc->caps |= MMC_CAP_AGGRESSIVE_PM | MMC_CAP_SYNC_RUNTIME_PM;
+	msm_host->mmc->caps |= MMC_CAP_WAIT_WHILE_BUSY | MMC_CAP_NEED_RSP_BUSY;
+}
+
 static int sdhci_msm_probe(struct platform_device *pdev)
 {
 	struct sdhci_host *host;
@@ -4168,8 +4252,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		goto vreg_deinit;
 	}
 
-	msm_host->mmc->caps |= MMC_CAP_AGGRESSIVE_PM | MMC_CAP_SYNC_RUNTIME_PM;
-	msm_host->mmc->caps |= MMC_CAP_WAIT_WHILE_BUSY | MMC_CAP_NEED_RSP_BUSY;
+	sdhci_msm_set_caps(msm_host);
 
 #if defined(CONFIG_SDC_QTI)
 	host->timeout_clk_div = 4;
