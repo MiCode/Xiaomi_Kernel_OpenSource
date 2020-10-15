@@ -1431,7 +1431,7 @@ static int cmdq_sec_mbox_startup(struct mbox_chan *chan)
 	init_timer(&thread->timeout);
 
 	INIT_WORK(&thread->timeout_work, cmdq_sec_task_timeout_work);
-	snprintf(name, sizeof(name), "task_exec_wq_%u", thread->idx);
+	len = snprintf(name, sizeof(name), "task_exec_wq_%u", thread->idx);
 	if (len >= sizeof(name))
 		cmdq_log("len:%d over name size:%d", len, sizeof(name));
 
