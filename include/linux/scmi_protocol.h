@@ -207,6 +207,7 @@ struct scmi_reset_ops {
 	int (*deassert)(const struct scmi_handle *handle, u32 domain);
 };
 
+#ifdef CONFIG_QTI_SCMI_MEMLAT_PROTOCOL
 /**
  * struct scmi_memlat_vendor_ops - represents the various operations provided
  *	by SCMI HW Memlat Protocol
@@ -263,7 +264,7 @@ struct scmi_memlat_vendor_ops {
 	int (*set_log_level)(const struct scmi_handle *handle, u32 val);
 	int (*get_data)(const struct scmi_handle *handle, u8 *buf);
 };
-
+#endif
 
 /**
  * struct scmi_handle - Handle returned to ARM SCMI clients for usage.
@@ -294,7 +295,9 @@ struct scmi_handle {
 	struct scmi_power_ops *power_ops;
 	struct scmi_sensor_ops *sensor_ops;
 	struct scmi_reset_ops *reset_ops;
+#ifdef CONFIG_QTI_SCMI_MEMLAT_PROTOCOL
 	struct scmi_memlat_vendor_ops *memlat_ops;
+#endif
 	/* for protocol internal use */
 	void *perf_priv;
 	void *clk_priv;
@@ -311,7 +314,9 @@ enum scmi_std_protocol {
 	SCMI_PROTOCOL_CLOCK = 0x14,
 	SCMI_PROTOCOL_SENSOR = 0x15,
 	SCMI_PROTOCOL_RESET = 0x16,
+#ifdef CONFIG_QTI_SCMI_MEMLAT_PROTOCOL
 	SCMI_PROTOCOL_MEMLAT = 0x80,
+#endif
 };
 
 struct scmi_device {
