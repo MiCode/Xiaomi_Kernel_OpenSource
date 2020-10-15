@@ -904,7 +904,7 @@ static void ram_console_update(void)
 #endif
 
 	if (log_timeout)
-		WARN_ON(1);
+		BUG_ON(1);
 }
 
 #ifdef CONFIG_OF
