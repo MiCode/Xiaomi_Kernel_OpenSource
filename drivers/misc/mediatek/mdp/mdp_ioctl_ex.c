@@ -707,14 +707,11 @@ s32 mdp_ioctl_async_exec(struct file *pf, unsigned long param)
 
 	if (status < 0) {
 		CMDQ_ERR("%s flush fail:%d\n", __func__, status);
-		if (handle) {
 #ifndef MDP_META_IN_LEGACY_V2
-			if (handle->thread != CMDQ_INVALID_THREAD)
-				cmdq_mdp_unlock_thread(handle);
+		if (handle->thread != CMDQ_INVALID_THREAD)
+			cmdq_mdp_unlock_thread(handle);
 #endif
-			cmdq_task_destroy(handle);
-		}
-
+		cmdq_task_destroy(handle);
 		kfree(mapping_job);
 		goto done;
 	}
