@@ -711,6 +711,7 @@
 
 		/* Outputs to turing */
 		qcom,smem-states = <&adsp_smp2p_out 0>;
+		qcom,smem-state-names = "stop";
 	};
 
 	cdsp_pas: remoteproc-cdsp@32300000 {
