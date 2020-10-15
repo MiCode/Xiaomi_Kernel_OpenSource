@@ -247,9 +247,9 @@ static int mdw_dispr_exec_multi(struct mdw_disp_item *di)
 			list_del(&d->r_item);
 			ret = d->exec(d, sc);
 		}
-		if (!d || ret)
-			mdw_drv_err("sc(0x%llx-#%d) fail(%p/%d)\n",
-				sc->parent->kid, sc->idx, d, ret);
+		if (ret)
+			mdw_drv_err("sc(0x%llx-#%d) fail(%d)\n",
+				sc->parent->kid, sc->idx, ret);
 	}
 
 out:
