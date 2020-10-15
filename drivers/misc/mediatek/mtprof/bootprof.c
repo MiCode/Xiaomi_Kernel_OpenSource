@@ -48,6 +48,17 @@ struct tracepoints_table {
 	bool init;
 };
 
+/**
+ * Data structures to store initcall start time info
+ */
+struct initcall_list_t {
+	pid_t pid;
+	pid_t tid;
+	u64 timestamp;
+	struct list_head dev_entry;
+};
+static void tp_deinit(void);
+
 /* Parameters */
 static struct log_t *bootprof[BUF_COUNT];
 static unsigned long log_count;
@@ -57,7 +68,10 @@ static bool enabled;
 static int bootprof_lk_t, bootprof_pl_t, bootprof_logo_t;
 static u64 timestamp_on, timestamp_off;
 static bool boot_finish;
-static unsigned long long start_time;
+
+static struct list_head initcall_list;
+static DEFINE_SPINLOCK(initcall_lock);
+atomic_t initcall_num = ATOMIC_INIT(0);
 
 #ifndef MODULE
 /*Get info form cmdline (Build-in only)*/
@@ -102,16 +116,14 @@ void bootprof_log_boot(char *str)
 	if (!str) {
 		return;
 	}
-
-	if (!enabled)
-		return;
 	n = strlen(str) + 1;
-
 	ts = sched_clock();
-	pr_info("BOOTPROF:%10lld.%06ld:%s\n", msec_high(ts), msec_low(ts), str);
 
 	spin_lock(&bootprof_lock);
-
+	if (!enabled) {
+		spin_unlock(&bootprof_lock);
+		return;
+	}
 	if (log_count >= (LOGS_PER_BUF * BUF_COUNT)) {
 		enabled = false;
 		err = 1;
@@ -144,6 +156,7 @@ void bootprof_log_boot(char *str)
 	log_count++;
 out:
 	spin_unlock(&bootprof_lock);
+	pr_info("BOOTPROF:%10lld.%06ld:%s\n", msec_high(ts), msec_low(ts), str);
 	if (err > 0)
 		pr_info("[BOOTPROF] Error(Ret:%d): Skip log.\n", err);
 }
@@ -172,6 +185,8 @@ void bootprof_initcall(initcall_t fn, unsigned long long ts)
 	unsigned long msec_rem;
 	char msgbuf[MSG_SIZE];
 	int len;
+
+	atomic_inc(&initcall_num);
 
 	if (ts > BOOTPROF_THRESHOLD) {
 		msec_rem = do_div(ts, NSEC_PER_MSEC);
@@ -249,38 +264,92 @@ EXPORT_SYMBOL_GPL(bootprof_pdev_register);
 static __init_or_module void
 tp_initcall_start_cb(void *data, initcall_t fn)
 {
-	unsigned long long *start_ts  = (unsigned long long *)data;
-	*start_ts  = sched_clock();
+	struct initcall_list_t *obj;
+	struct initcall_list_t *pos, *next;
+	struct list_head err_list;
+
+	INIT_LIST_HEAD(&err_list);
+
+	obj = kzalloc(sizeof(struct initcall_list_t),
+			GFP_ATOMIC | __GFP_NORETRY | __GFP_NOWARN);
+	if (!obj)
+		return;
+
+	obj->pid = task_pid_nr(current);
+	obj->tid = task_pid_vnr(current);
+	obj->timestamp = sched_clock();
+
+	/*Check if there is duplicated enrty.*/
+	spin_lock(&initcall_lock);
+	if (!list_empty(&initcall_list)) {
+		list_for_each_entry_safe(pos, next, &initcall_list, dev_entry) {
+			if ((pos->pid == obj->pid) && (pos->tid == obj->tid)) {
+				list_del(&pos->dev_entry);
+				/*Add duplicated enrty into err list*/
+				list_add_tail(&pos->dev_entry, &err_list);
+			}
+		}
+	}
+	list_add_tail(&obj->dev_entry, &initcall_list);
+	spin_unlock(&initcall_lock);
+
+	/*release entry of err list*/
+	if (!list_empty(&err_list)) {
+		list_for_each_entry_safe(pos, next, &err_list, dev_entry) {
+			pr_info("[BOOTPROF] Warn:duplicated entry.(pid:%d, tid:%d)\n",
+				pos->pid, pos->tid);
+			list_del(&pos->dev_entry);
+			kfree(pos);
+		}
+	}
 }
 
 static __init_or_module void
 tp_initcall_finish_cb(void *data, initcall_t fn, int ret)
 {
-	unsigned long long *start_ts = (unsigned long long *)data;
-	unsigned long long end_ts, duration;
+	struct initcall_list_t *pos, *next;
+	unsigned long long start_ts = 0;
+	struct list_head memfree_list;
+	unsigned long long end_ts = sched_clock();
+	unsigned long long duration;
 
-	 /* initcall_start is 0 under probing bootprof.*/
-	if (*start_ts == 0) {
-#ifdef MODULE
-		/* Under bootprof is modularized,the timming */
-		/* is close to kernel init done,if the first */
-		/* loading module is bootprof.               */
-		bootprof_log_boot("Kernel_init_done");
-#endif
-		return;
+	INIT_LIST_HEAD(&memfree_list);
+
+	spin_lock(&initcall_lock);
+	list_for_each_entry_safe(pos, next, &initcall_list, dev_entry) {
+		if ((pos->pid == task_pid_nr(current)) &&
+		    (pos->tid == task_pid_vnr(current))) {
+			start_ts = pos->timestamp;
+			list_del(&pos->dev_entry);
+			list_add_tail(&pos->dev_entry, &memfree_list);
+			break;
+		}
+	}
+	spin_unlock(&initcall_lock);
+
+	/*release entry*/
+	if (!list_empty(&memfree_list)) {
+		list_for_each_entry_safe(pos, next, &memfree_list, dev_entry) {
+			list_del(&pos->dev_entry);
+			kfree(pos);
+		}
 	}
 
-	end_ts = sched_clock();
-	duration = end_ts - *start_ts;
+	/* start time of current module is 0.*/
+	if (start_ts == 0) {
+		#ifdef MODULE
+		/* if bootprof is first loading module.*/
+		bootprof_log_boot("Kernel_init_done");
+		#endif
+		return;
+	}
+	duration = end_ts - start_ts;
 	bootprof_initcall(fn, duration);
-	*start_ts = 0;
 }
 
 static struct tracepoints_table interests[] = {
-	{.name = "initcall_start", .func = tp_initcall_start_cb,
-	.data = &start_time},
-	{.name = "initcall_finish", .func = tp_initcall_finish_cb,
-	.data = &start_time},
+	{.name = "initcall_start", .func = tp_initcall_start_cb},
+	{.name = "initcall_finish", .func = tp_initcall_finish_cb},
 };
 
 #define FOR_EACH_INTEREST(i) \
@@ -291,7 +360,7 @@ static struct tracepoints_table interests[] = {
 /* with a given tracepointname.          */
 static void tp_lookup(struct tracepoint *tp, void *ignore)
 {
-	int i;
+	unsigned int i;
 
 	if (!tp || !tp->name)
 		return;
@@ -302,9 +371,11 @@ static void tp_lookup(struct tracepoint *tp, void *ignore)
 	}
 }
 
+/* Unregister initcalls tracepoints */
 static void tp_deinit(void)
 {
-	int i;
+	unsigned int i;
+	struct initcall_list_t *pos, *next;
 
 	FOR_EACH_INTEREST(i) {
 		if (interests[i].init) {
@@ -313,12 +384,27 @@ static void tp_deinit(void)
 			interests[i].init = false;
 		}
 	}
+
+	spin_lock(&initcall_lock);
+	if (!list_empty(&initcall_list)) {
+		list_for_each_entry_safe(pos, next, &initcall_list, dev_entry) {
+			if (pos) {
+				list_del(&pos->dev_entry);
+				kfree(pos);
+			}
+		}
+	}
+	spin_unlock(&initcall_lock);
+	pr_info("BOOTPROF: Unregister initcalls tracepoint.\n");
 }
 
 /* Register initcalls tracepoints */
 static void tp_init(void)
 {
-	int i;
+	unsigned int i;
+
+	INIT_LIST_HEAD(&initcall_list);
+
 	/* Install the tracepoints */
 	for_each_kernel_tracepoint(tp_lookup, NULL);
 
@@ -336,27 +422,37 @@ static void tp_init(void)
 	}
 }
 
-
 static void mt_bootprof_switch(int on)
 {
+	bool tmp;
+	unsigned long long ts = sched_clock();
+
 	spin_lock(&bootprof_lock);
-	if (enabled ^ on) {
-		unsigned long long ts = sched_clock();
-
-		pr_info("BOOTPROF:%10lld.%06ld: %s\n",
-		       msec_high(ts), msec_low(ts), on ? "ON" : "OFF");
-
-		if (on) {
+	tmp = enabled ^ on;
+	if (tmp) {
+		if (on)
 			enabled = 1;
-			timestamp_on = ts;
-		} else {
+		else
 			enabled = 0;
-			timestamp_off = ts;
-			if (!boot_finish)
-				boot_finish = true;
-		}
 	}
 	spin_unlock(&bootprof_lock);
+
+	if (tmp) {
+		pr_info("BOOTPROF:%10lld.%06ld: %s%d)\n",
+			msec_high(ts), msec_low(ts), on ? "ON (TH:" : "OFF (KO:",
+			on ? msec_high(BOOTPROF_THRESHOLD) : atomic_read(&initcall_num));
+
+		if (on) {
+			timestamp_on = ts;
+		} else {
+			timestamp_off = ts;
+			if (!boot_finish) {
+				boot_finish = true;
+				/* Unregister Initcall tracepointsk while boot finish */
+				tp_deinit();
+			}
+		}
+	}
 }
 
 static ssize_t
@@ -387,7 +483,7 @@ mt_bootprof_write(struct file *filp, const char *ubuf, size_t cnt, loff_t *data)
 
 static int mt_bootprof_show(struct seq_file *m, void *v)
 {
-	int i;
+	unsigned long i;
 	struct log_t *p;
 
 	if (!m) {
@@ -395,7 +491,8 @@ static int mt_bootprof_show(struct seq_file *m, void *v)
 		return 0;
 	}
 	seq_puts(m, "----------------------------------------\n");
-	seq_printf(m, "%d	    BOOT PROF (unit:msec)\n", enabled);
+	seq_printf(m, "%-10d BOOT PROF (unit:msec)\n", enabled);
+	seq_printf(m, "%-10d Kernel Module Total\n", atomic_read(&initcall_num));
 	seq_puts(m, "----------------------------------------\n");
 
 	if (bootprof_pl_t > 0 && bootprof_lk_t > 0) {
@@ -474,13 +571,13 @@ static int __init bootprof_init(void)
 static void __exit bootprof_exit(void)
 {
 	struct log_t *p = NULL;
-	int i;
+	unsigned int i;
 
-	enabled = 0;
 	tp_deinit();
 
 	if (log_count > 0) {
 		spin_lock(&bootprof_lock);
+		enabled = 0;
 		for (i = 0; i < log_count; i++) {
 			p = &bootprof[i / LOGS_PER_BUF][i % LOGS_PER_BUF];
 			kfree(p->comm_event);
