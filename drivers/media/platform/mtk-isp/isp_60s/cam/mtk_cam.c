@@ -226,7 +226,7 @@ static void mtk_cam_req_dump(struct mtk_cam_device *cam,
 	memset(&req->dump_param, 0, sizeof(req->dump_param));
 	snprintf(req->dump_param.desc, MTK_CAM_DEBUG_PARAM_DESC_SIZE - 1, desc);
 	req->dump_param.buffer_state = buf_state;
-	INIT_WORK(&req->debug_work, mtk_cam_request_dump_work);
+	INIT_WORK(&req->debug_work, work_func);
 	queue_work(cam->debug_wq, &req->debug_work);
 }
 
