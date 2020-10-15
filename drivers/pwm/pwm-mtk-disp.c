@@ -178,8 +178,6 @@ static int mtk_disp_pwm_config_impl(struct mtk_disp_pwm *mdp,
 	 */
 	dev_notice(mdp->chip.dev, "duty=%d period=%d\n", duty_ns, period_ns);
 	rate = clk_get_rate(mdp->clk_main);
-	if (rate == 0)
-		rate = 260000000;
 
 	clk_div = div_u64(rate * period_ns, NSEC_PER_SEC) >>
 			  PWM_PERIOD_BIT_WIDTH;
