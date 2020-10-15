@@ -50,7 +50,6 @@ static long mtk_lpm_registry_work(void *pData)
 		mtk_lpm_system_lock(flags);
 		lpm_wk->cb(smp_processor_id(), lpm_wk->priv);
 		mtk_lpm_system_unlock(flags);
-		synchronize_rcu();
 		break;
 	case MTK_LPM_REG_ALL_ONLINE:
 		mtk_lpm_system_lock(flags);
@@ -58,7 +57,6 @@ static long mtk_lpm_registry_work(void *pData)
 		if (IS_MTK_LPM_REG_WAKEALL(&lpm_wk->cpus))
 			lpm_wk->cb(smp_processor_id(), lpm_wk->priv);
 		mtk_lpm_system_unlock(flags);
-		synchronize_rcu();
 		break;
 	default:
 		break;
