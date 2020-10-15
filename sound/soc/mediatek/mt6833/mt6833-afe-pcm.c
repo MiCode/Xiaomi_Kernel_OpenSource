@@ -186,16 +186,11 @@ int mt6833_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 				       << irq_data->irq_fs_shift,
 				       fs << irq_data->irq_fs_shift);
 		/* enable interrupt */
-#if defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
-		if (runtime->stop_threshold != ~(0U))
-			mtk_dsp_irq_set_enable(afe, irq_data);
-#else
 		if (runtime->stop_threshold != ~(0U))
 			mtk_regmap_update_bits(afe->regmap,
 					       irq_data->irq_en_reg,
 					       1 << irq_data->irq_en_shift,
 					       1 << irq_data->irq_en_shift);
-#endif
 		return 0;
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
@@ -224,17 +219,12 @@ int mt6833_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 		}
 
 		/* disable interrupt */
-#if defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
-		if (runtime->stop_threshold != ~(0U))
-			mtk_dsp_irq_set_disable(afe, irq_data);
-#else
 		if (runtime->stop_threshold != ~(0U))
 			mtk_regmap_update_bits(afe->regmap,
 					       irq_data->irq_en_reg,
 					       1 << irq_data->irq_en_shift,
 					       0 << irq_data->irq_en_shift);
 
-#endif
 		/* and clear pending IRQ */
 #if defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
 		if (runtime->stop_threshold != ~(0U))
