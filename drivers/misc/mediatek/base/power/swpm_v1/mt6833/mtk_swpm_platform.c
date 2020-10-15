@@ -1319,4 +1319,3 @@ static void __exit swpm_platform_exit(void)
 	swpm_set_enable(ALL_METER_TYPE, 0);
 
 }
-module_exit(swpm_platform_exit)
