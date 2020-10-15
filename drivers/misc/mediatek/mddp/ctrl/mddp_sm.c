@@ -318,11 +318,11 @@ int32_t mddp_sm_msg_hdlr(
 		ret = mddp_sm_ctrl_msg_hdlr(msg_id, buf, buf_len);
 		goto _done;
 
-#ifdef CONFIG_MTK_MDDP_WH_SUPPORT
 	case MDFPM_USER_ID_WFPM:
 		app = mddp_get_app_inst(MDDP_APP_TYPE_WH);
 		break;
 
+#ifdef CONFIG_MTK_MDDP_WH_SUPPORT
 	case MDFPM_USER_ID_DPFM:
 		ret = mddp_f_msg_hdlr(msg_id, buf, buf_len);
 		if (ret)
