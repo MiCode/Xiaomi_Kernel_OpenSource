@@ -865,4 +865,27 @@ void usb_phy_context_restore(void)
 #endif
 }
 
+void usb_dpdm_pulldown(bool enable)
+{
+	DBG(0, "%s: enable=%d\n", __func__, enable);
+	usb_prepare_enable_clock(true);
+
+	/* wait 50 usec. */
+	udelay(50);
+	if (enable) {
+		/* RG_DPPULLDOWN, 1'b1, RG_DMPULLDOWN, 1'b1 */
+		USBPHY_SET32(0x68, (0x1 << 6) | (0x1 << 7));
+		/* RG_USB20_PHY_REV */
+		USBPHY_CLR32(0x18, (0x2 << 24));
+	} else {
+		/* RG_DPPULLDOWN, 1'b0, RG_DMPULLDOWN, 1'b0 */
+		USBPHY_CLR32(0x68, (0x1 << 6) | (0x1 << 7));
+		/* RG_USB20_PHY_REV */
+		USBPHY_SET32(0x18, (0x2 << 24));
+	}
+
+	usb_prepare_enable_clock(false);
+
+	DBG(0, "%s\n", __func__);
+}
 #endif
