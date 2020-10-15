@@ -613,6 +613,10 @@ static int dwc3_phy_setup(struct dwc3 *dwc)
 	u32 reg;
 
 	reg = dwc3_readl(dwc->regs, DWC3_GUSB3PIPECTL(0));
+	if (dwc->dual_port) {
+		if (reg != dwc3_readl(dwc->regs, DWC3_GUSB3PIPECTL(1)))
+			dev_warn(dwc->dev, "Reset values of pipectl registers are different!\n");
+	}
 
 	/*
 	 * Make sure UX_EXIT_PX is cleared as that causes issues with some
@@ -664,8 +668,14 @@ static int dwc3_phy_setup(struct dwc3 *dwc)
 			DWC3_GUSB3PIPECTL_P3EXSIGP2);
 
 	dwc3_writel(dwc->regs, DWC3_GUSB3PIPECTL(0), reg);
+	if (dwc->dual_port)
+		dwc3_writel(dwc->regs, DWC3_GUSB3PIPECTL(1), reg);
 
 	reg = dwc3_readl(dwc->regs, DWC3_GUSB2PHYCFG(0));
+	if (dwc->dual_port) {
+		if (reg != dwc3_readl(dwc->regs, DWC3_GUSB2PHYCFG(1)))
+			dev_warn(dwc->dev, "Reset values of usb2phycfg registers are different!\n");
+	}
 
 	/* Select the HS PHY interface */
 	switch (DWC3_GHWPARAMS3_HSPHY_IFC(dwc->hwparams.hwparams3)) {
@@ -728,6 +738,8 @@ static int dwc3_phy_setup(struct dwc3 *dwc)
 		reg &= ~DWC3_GUSB2PHYCFG_U2_FREECLK_EXISTS;
 
 	dwc3_writel(dwc->regs, DWC3_GUSB2PHYCFG(0), reg);
+	if (dwc->dual_port)
+		dwc3_writel(dwc->regs, DWC3_GUSB2PHYCFG(1), reg);
 
 	return 0;
 }

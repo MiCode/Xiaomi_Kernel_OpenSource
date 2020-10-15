@@ -2560,6 +2560,12 @@ static void dwc3_en_sleep_mode(struct dwc3_msm *mdwc)
 	reg |= DWC3_GUSB2PHYCFG_ENBLSLPM;
 	dwc3_msm_write_reg(mdwc->base, DWC3_GUSB2PHYCFG(0), reg);
 
+	if (mdwc->dual_port) {
+		reg = dwc3_msm_read_reg(mdwc->base, DWC3_GUSB2PHYCFG(1));
+		reg |= DWC3_GUSB2PHYCFG_ENBLSLPM;
+		dwc3_msm_write_reg(mdwc->base, DWC3_GUSB2PHYCFG(1), reg);
+	}
+
 	reg = dwc3_msm_read_reg(mdwc->base, DWC3_GUCTL1);
 	reg |= DWC3_GUCTL1_L1_SUSP_THRLD_EN_FOR_HOST;
 	dwc3_msm_write_reg(mdwc->base, DWC3_GUCTL1, reg);
@@ -3171,6 +3177,14 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc, bool force_power_collapse,
 			reg |= DWC3_GUSB3PIPECTL_DISRXDETU3;
 			dwc3_msm_write_reg(mdwc->base, DWC3_GUSB3PIPECTL(0),
 					reg);
+
+			if (mdwc->dual_port) {
+				reg = dwc3_msm_read_reg(mdwc->base,
+						DWC3_GUSB3PIPECTL(1));
+				reg |= DWC3_GUSB3PIPECTL_DISRXDETU3;
+				dwc3_msm_write_reg(mdwc->base, DWC3_GUSB3PIPECTL(1),
+						reg);
+			}
 		}
 		/* indicate phy about SS mode */
 		dwc3_msm_is_superspeed(mdwc);
@@ -3356,6 +3370,14 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 			reg &= ~DWC3_GUSB3PIPECTL_DISRXDETU3;
 			dwc3_msm_write_reg(mdwc->base, DWC3_GUSB3PIPECTL(0),
 					reg);
+
+			if (mdwc->dual_port) {
+				reg = dwc3_msm_read_reg(mdwc->base,
+						DWC3_GUSB3PIPECTL(1));
+				reg &= ~DWC3_GUSB3PIPECTL_DISRXDETU3;
+				dwc3_msm_write_reg(mdwc->base, DWC3_GUSB3PIPECTL(1),
+						reg);
+			}
 		}
 	}
 
@@ -5135,8 +5157,14 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		}
 
 		mdwc->in_host_mode = true;
-		dwc3_msm_write_reg_field(mdwc->base, DWC3_GUSB3PIPECTL(0),
-				DWC3_GUSB3PIPECTL_SUSPHY, 1);
+		if (!dwc->dis_u3_susphy_quirk) {
+			dwc3_msm_write_reg_field(mdwc->base, DWC3_GUSB3PIPECTL(0),
+					DWC3_GUSB3PIPECTL_SUSPHY, 1);
+			if (mdwc->dual_port) {
+				dwc3_msm_write_reg_field(mdwc->base, DWC3_GUSB3PIPECTL(1),
+						DWC3_GUSB3PIPECTL_SUSPHY, 1);
+			}
+		}
 
 		/* Reduce the U3 exit handshake timer from 8us to approximately
 		 * 300ns to avoid lfps handshake interoperability issues
@@ -5148,9 +5176,21 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 			dwc3_msm_write_reg_field(mdwc->base,
 					DWC31_LINK_LU3LFPSRXTIM(0),
 					GEN1_U3_EXIT_RSP_RX_CLK_MASK, 5);
-			dev_dbg(mdwc->dev, "LU3:%08x\n",
+			dev_dbg(mdwc->dev, "link0 LU3:%08x\n",
 				dwc3_msm_read_reg(mdwc->base,
 					DWC31_LINK_LU3LFPSRXTIM(0)));
+
+			if (mdwc->dual_port) {
+				dwc3_msm_write_reg_field(mdwc->base,
+					       DWC31_LINK_LU3LFPSRXTIM(1),
+					       GEN2_U3_EXIT_RSP_RX_CLK_MASK, 6);
+				dwc3_msm_write_reg_field(mdwc->base,
+					       DWC31_LINK_LU3LFPSRXTIM(1),
+					       GEN1_U3_EXIT_RSP_RX_CLK_MASK, 5);
+				dev_dbg(mdwc->dev, "link1 LU3:%08x\n",
+					dwc3_msm_read_reg(mdwc->base,
+					       DWC31_LINK_LU3LFPSRXTIM(1)));
+			}
 		}
 
 		/* xHCI should have incremented child count as necessary */
@@ -5199,8 +5239,14 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 #endif
 
 		dwc3_set_prtcap(dwc, DWC3_GCTL_PRTCAP_DEVICE);
-		dwc3_msm_write_reg_field(mdwc->base, DWC3_GUSB3PIPECTL(0),
-				DWC3_GUSB3PIPECTL_SUSPHY, 0);
+		if (!dwc->dis_u3_susphy_quirk) {
+			dwc3_msm_write_reg_field(mdwc->base, DWC3_GUSB3PIPECTL(0),
+					DWC3_GUSB3PIPECTL_SUSPHY, 0);
+			if (mdwc->dual_port) {
+				dwc3_msm_write_reg_field(mdwc->base, DWC3_GUSB3PIPECTL(1),
+						DWC3_GUSB3PIPECTL_SUSPHY, 0);
+			}
+		}
 		mdwc->in_host_mode = false;
 
 		/* wait for LPM, to ensure h/w is reset after stop_host */
