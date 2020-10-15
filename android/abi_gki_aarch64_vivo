@@ -6,6 +6,7 @@
   adjust_managed_page_count
   alarm_cancel
   alarm_init
+  alarm_start
   alarm_start_relative
   alloc_chrdev_region
   __alloc_disk_node
@@ -858,7 +859,9 @@
   i2c_put_dma_safe_msg_buf
   i2c_register_driver
   i2c_smbus_read_byte_data
+  i2c_smbus_read_word_data
   i2c_smbus_write_byte_data
+  i2c_smbus_write_word_data
   i2c_transfer
   i2c_transfer_buffer_flags
   i2c_unregister_device
