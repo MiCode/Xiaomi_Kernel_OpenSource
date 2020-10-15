@@ -146,6 +146,8 @@ static int normal_tx_ring2queue[NORMAL_TXQ_NUM] = {
 
 #define TAG "cldma"
 
+static unsigned int g_cd_uid_mask_count;
+
 /*for mt6763 ao_misc_cfg RW type set/clear register issue*/
 static inline void cldma_write32_ao_misc(struct md_cd_ctrl *md_ctrl,
 	u32 reg, u32 val)
@@ -378,6 +380,10 @@ void md_cd_traffic_monitor_func(unsigned long data)
 	struct ccci_hif_traffic *tinfo = &md_ctrl->traffic_info;
 	unsigned long q_rx_rem_nsec[CLDMA_RXQ_NUM] = {0};
 	unsigned long isr_rem_nsec;
+
+	CCCI_ERROR_LOG(-1, TAG,
+		"[%s] g_cd_uid_mask_count = %u\n",
+		__func__, g_cd_uid_mask_count);
 
 	ccci_port_dump_status(md_ctrl->md_id);
 	CCCI_REPEAT_LOG(md_ctrl->md_id, TAG,
@@ -2776,8 +2782,11 @@ static int cldma_gpd_bd_handle_tx_request(struct md_cd_queue *queue,
 	cldma_write8(&tgpd->netif, 0, ccci_h->data[0]);
 #endif
 	/* mp1 1, mp2 0, ro 1 */
-	if (skb->mark & UIDMASK)
+	if (skb->mark & UIDMASK) {
+		g_cd_uid_mask_count++;
 		tgpd->psn = 0x1000;
+	}
+
 	tgpd->non_used = 1;
 	/* set HWO */
 	spin_lock(&md_ctrl->cldma_timeout_lock);
