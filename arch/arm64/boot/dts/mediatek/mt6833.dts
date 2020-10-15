@@ -4548,6 +4548,12 @@ page_owner=on";
 		drcc5_Code = <255>;
 		drcc6_Code = <255>;
 		drcc7_Code = <255>;
+
+		/* iglre */
+		igEn = <2>;
+		lreEn = <1>;
+		byteEn = <1>;
+		rcanEn = <2>;
 	};
 
 	ipesys_config@1b000000 {
