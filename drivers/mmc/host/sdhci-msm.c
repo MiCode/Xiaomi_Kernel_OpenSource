@@ -4064,6 +4064,22 @@ static ssize_t err_stats_show(struct device *dev,
 		host->mmc->err_stats[MMC_ERR_TUNING]);
 	strlcat(buf, tmp, PAGE_SIZE);
 
+	scnprintf(tmp, sizeof(tmp), "# CMDQ RED Errors: %d\n",
+		host->mmc->err_stats[MMC_ERR_CMDQ_RED]);
+	strlcat(buf, tmp, PAGE_SIZE);
+
+	scnprintf(tmp, sizeof(tmp), "# CMDQ GCE Errors: %d\n",
+		host->mmc->err_stats[MMC_ERR_CMDQ_GCE]);
+	strlcat(buf, tmp, PAGE_SIZE);
+
+	scnprintf(tmp, sizeof(tmp), "# CMDQ ICCE Errors: %d\n",
+		host->mmc->err_stats[MMC_ERR_CMDQ_ICCE]);
+	strlcat(buf, tmp, PAGE_SIZE);
+
+	scnprintf(tmp, sizeof(tmp), "# CMDQ Request Timedout: %d\n",
+		host->mmc->err_stats[MMC_ERR_CMDQ_REQ_TIMEOUT]);
+	strlcat(buf, tmp, PAGE_SIZE);
+
 	scnprintf(tmp, sizeof(tmp), "# Request Timedout Error: %d\n",
 		host->mmc->err_stats[MMC_ERR_REQ_TIMEOUT]);
 	strlcat(buf, tmp, PAGE_SIZE);
