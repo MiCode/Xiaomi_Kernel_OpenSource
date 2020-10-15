@@ -93,7 +93,7 @@ static struct mtk_device_info mt6853_devices_infra[] = {
 	{0, 63, 65, "MCUSYS_CFGREG_APB_S-4", true},
 	{0, 64, 66, "L3C_S", true},
 	{0, 65, 67, "L3C_S-2", true},
-	{1, 0, 68, "MMSYS", true},
+	{1, 0, 68, "MMSYS_DISP", true},
 	{1, 1, 69, "MMSYS_DISP", true},
 	{1, 2, 70, "SMI", true},
 	{1, 3, 71, "SMI", true},
