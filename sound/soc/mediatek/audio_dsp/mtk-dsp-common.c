@@ -271,42 +271,37 @@ int get_dsp_task_id_from_str(const char *task_name)
 static int set_aud_buf_attr(struct audio_hw_buffer *audio_hwbuf,
 			    struct snd_pcm_substream *substream,
 			    struct snd_pcm_hw_params *params,
-			    struct mtk_base_dsp_mem *dsp_memif,
-			    struct mtk_base_afe_memif *memif,
+			    int irq_usage,
 			    struct snd_soc_dai *dai)
 {
 	int ret = 0;
 
-	ret = set_afe_audio_pcmbuf(&dsp_memif->audio_afepcm_buf,
-				   substream, params);
+	ret = set_afe_audio_pcmbuf(audio_hwbuf, substream, params);
 	if (ret < 0) {
 		pr_info("set_afe_audio_pcmbuf fail\n");
 		return -1;
 	}
-	ret = set_audiobuffer_hw(&dsp_memif->audio_afepcm_buf,
-				 BUFFER_TYPE_HW_MEM);
+
+	ret = set_audiobuffer_hw(audio_hwbuf, BUFFER_TYPE_HW_MEM);
 	if (ret < 0) {
 		pr_info("set_audiobuffer_hw fail\n");
 		return -1;
 	}
 
-	ret = set_audiobuffer_audio_irq_num(
-		&dsp_memif->audio_afepcm_buf,
-		memif->irq_usage);
+	ret = set_audiobuffer_audio_irq_num(audio_hwbuf, irq_usage);
 	if (ret < 0) {
 		pr_info("set_audiobuffer_audio_irq_num fail\n");
 		return -1;
 	}
 
-	ret = set_audiobuffer_audio_memiftype(
-		&dsp_memif->audio_afepcm_buf, dai->id);
+	ret = set_audiobuffer_audio_memiftype(audio_hwbuf, dai->id);
 	if (ret < 0) {
 		pr_info("set_audiobuffer_audio_memiftype fail\n");
 		return -1;
 	}
 
 	ret = set_audiobuffer_memorytype(
-		&dsp_memif->audio_afepcm_buf,
+		audio_hwbuf,
 		get_audio_memery_type(substream));
 	if (ret < 0) {
 		pr_info("set_audiobuffer_memorytype fail\n");
@@ -314,21 +309,32 @@ static int set_aud_buf_attr(struct audio_hw_buffer *audio_hwbuf,
 	}
 
 	ret = set_audiobuffer_attribute(
-		&dsp_memif->audio_afepcm_buf,
+		audio_hwbuf,
 		substream, params,
-		afe_get_pcmdir(substream->stream,
-		dsp_memif->audio_afepcm_buf));
+		afe_get_pcmdir(substream->stream, *audio_hwbuf));
 	if (ret < 0) {
 		pr_info("set_audiobuffer_attribute fail\n");
 		return -1;
 	}
 
-	ret = set_audiobuffer_threshold(
-		&dsp_memif->audio_afepcm_buf, substream);
+	ret = set_audiobuffer_threshold(audio_hwbuf, substream);
 	if (ret < 0) {
 		pr_info("set_audiobuffer_threshold fail\n");
 		return -1;
 	}
+
+	pr_info("%s() memiftype: %d ch: %u fmt: %u rate: %u dir: %d, start_thres: %u stop_thres: %u period_size: %d period_cnt: %d\n",
+		__func__,
+		audio_hwbuf->audio_memiftype,
+		audio_hwbuf->aud_buffer.buffer_attr.channel,
+		audio_hwbuf->aud_buffer.buffer_attr.format,
+		audio_hwbuf->aud_buffer.buffer_attr.rate,
+		audio_hwbuf->aud_buffer.buffer_attr.direction,
+		audio_hwbuf->aud_buffer.start_threshold,
+		audio_hwbuf->aud_buffer.stop_threshold,
+		audio_hwbuf->aud_buffer.period_size,
+		audio_hwbuf->aud_buffer.period_count);
+
 	return 0;
 }
 
@@ -345,14 +351,14 @@ int afe_pcm_ipi_to_dsp(int command, struct snd_pcm_substream *substream,
 	struct mtk_base_afe_memif *memif = &afe->memif[dai->id];
 
 	task_id = get_taskid_by_afe_daiid(dai->id);
-	if (task_id < 0 || task_id >= AUDIO_TASK_DAI_NUM) {
-		pr_debug("%s() not support\n", __func__);
+	if (task_id < 0 || task_id >= AUDIO_TASK_DAI_NUM)
 		return -1;
-	}
 
 	if (get_task_attr(task_id, ADSP_TASK_ATTR_RUMTIME) <= 0 ||
 	    get_task_attr(task_id, ADSP_TASK_ATTR_DEFAULT) <= 0)
 		return -1;
+
+	pr_info("%s(), command 0x%x\n", __func__, command);
 
 	dsp_memif = (struct mtk_base_dsp_mem *)&dsp->dsp_mem[task_id];
 
@@ -362,8 +368,7 @@ int afe_pcm_ipi_to_dsp(int command, struct snd_pcm_substream *substream,
 		set_aud_buf_attr(&dsp_memif->audio_afepcm_buf,
 				 substream,
 				 params,
-				 dsp_memif,
-				 memif,
+				 memif->irq_usage,
 				 dai);
 
 		/* send audio_afepcm_buf to SCP side*/
@@ -394,8 +399,7 @@ int afe_pcm_ipi_to_dsp(int command, struct snd_pcm_substream *substream,
 		set_aud_buf_attr(&dsp_memif->audio_afepcm_buf,
 				 substream,
 				 params,
-				 dsp_memif,
-				 memif,
+				 memif->irq_usage,
 				 dai);
 
 		/* send audio_afepcm_buf to SCP side*/
@@ -424,8 +428,7 @@ int afe_pcm_ipi_to_dsp(int command, struct snd_pcm_substream *substream,
 		set_aud_buf_attr(&dsp_memif->audio_afepcm_buf,
 				 substream,
 				 params,
-				 dsp_memif,
-				 memif,
+				 memif->irq_usage,
 				 dai);
 		/* send to task with prepare status*/
 		ret = mtk_scp_ipi_send(get_dspscene_by_dspdaiid(task_id),
@@ -438,7 +441,7 @@ int afe_pcm_ipi_to_dsp(int command, struct snd_pcm_substream *substream,
 				       NULL);
 		break;
 	default:
-		pr_warn("%s command = %d\n", __func__, command);
+		pr_warn("%s error command: %d\n", __func__, command);
 		return -1;
 	}
 	return ret;

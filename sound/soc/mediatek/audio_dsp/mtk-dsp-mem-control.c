@@ -435,8 +435,10 @@ int get_task_attr(int dsp_id, int task_enum)
 		pr_warn("%s task_enum %d\n", __func__, task_enum);
 		return -1;
 	}
-	if (task_attr == NULL)
+	if (task_attr == NULL) {
+		pr_warn("%s task_attr NULL\n", __func__);
 		return -1;
+	}
 
 	switch (task_enum) {
 	case ADSP_TASK_ATTR_DEFAULT:
@@ -553,7 +555,7 @@ int get_taskid_by_afe_daiid(int task_dai_id)
 			return i;
 	}
 
-	pr_err("%s(), err, afe_dai_id: %d", __func__, task_dai_id);
+	pr_err("%s(), afe_dai_id not support: %d", __func__, task_dai_id);
 
 	return -1;
 }
