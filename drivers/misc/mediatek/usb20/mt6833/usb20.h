@@ -81,6 +81,7 @@ extern u8 USB_PHY_Read_Register8(u8 addr);
 #endif
 
 extern struct clk *musb_clk;
+extern struct clk *musb_ref_clk;
 extern struct clk *musb_clk_top_sel;
 extern struct clk *musb_clk_univpll5_d4;
 
