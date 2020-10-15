@@ -500,18 +500,16 @@
 		reg = <0x51>;
 		status = "okay";
 	};
-};
-&i2c8 {
-	mtk_camera_eeprom0:camera_eeprom0@50 {
+	mtk_camera_eeprom4:camera_eeprom4@50 {
 		compatible = "mediatek,camera_eeprom";
 		reg = <0x50>;
 		status = "okay";
 	};
 };
-&i2c9 {
-	mtk_camera_eeprom4:camera_eeprom4@51 {
+&i2c8 {
+	mtk_camera_eeprom0:camera_eeprom0@50 {
 		compatible = "mediatek,camera_eeprom";
-		reg = <0x51>;
+		reg = <0x50>;
 		status = "okay";
 	};
 };
