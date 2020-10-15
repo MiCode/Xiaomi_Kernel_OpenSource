@@ -52,8 +52,7 @@
 #include <linux/pinctrl/consumer.h>
 #include <uapi/linux/sched/types.h>
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
-#include "scp_helper.h"
-#include "scp_excep.h"
+#include "scp.h"
 #endif  /* #if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT) */
 #include "vow.h"
 #include "vow_assert.h"
@@ -1647,7 +1646,7 @@ static int vow_pcm_dump_kthread(void *data)
 				    !IS_ERR(file_bargein_pcm_input)) {
 					old_fs = get_fs();
 					set_fs(KERNEL_DS);
-					ret = vfs_write(file_bargein_pcm_input,
+					ret = kernel_write(file_bargein_pcm_input,
 					    (char __user *)out_buf,
 					    writedata,
 					    &file_bargein_pcm_input->f_pos);
@@ -1672,7 +1671,7 @@ static int vow_pcm_dump_kthread(void *data)
 				    !IS_ERR(file_bargein_pcm_input)) {
 					old_fs = get_fs();
 					set_fs(KERNEL_DS);
-					ret = vfs_write(file_bargein_pcm_input,
+					ret = kernel_write(file_bargein_pcm_input,
 					    (char __user *)pcm_dump->decode_pcm,
 					    writedata,
 					    &file_bargein_pcm_input->f_pos);
@@ -1701,7 +1700,7 @@ static int vow_pcm_dump_kthread(void *data)
 				    !IS_ERR(file_bargein_echo_ref)) {
 					old_fs = get_fs();
 					set_fs(KERNEL_DS);
-					ret = vfs_write(file_bargein_echo_ref,
+					ret = kernel_write(file_bargein_echo_ref,
 					    (char __user *)pcm_dump->decode_pcm,
 					    writedata,
 					    &file_bargein_echo_ref->f_pos);
@@ -1723,14 +1722,14 @@ static int vow_pcm_dump_kthread(void *data)
 				old_fs = get_fs();
 				set_fs(KERNEL_DS);
 				ptr32 = &vowserv.dump_frm_cnt;
-				ret = vfs_write(file_bargein_delay_info,
+				ret = kernel_write(file_bargein_delay_info,
 					    (char __user *)ptr32,
 					    sizeof(uint32_t),
 					    &file_bargein_delay_info->f_pos);
 				if (!ret)
 					VOWDRV_DEBUG("vfs write failed\n");
 				ptr32 = &vowserv.voice_sample_delay;
-				ret = vfs_write(file_bargein_delay_info,
+				ret = kernel_write(file_bargein_delay_info,
 					    (char __user *)ptr32,
 					    sizeof(uint32_t),
 					    &file_bargein_delay_info->f_pos);
@@ -1763,7 +1762,7 @@ static int vow_pcm_dump_kthread(void *data)
 				    !IS_ERR(file_recog_data)) {
 					old_fs = get_fs();
 					set_fs(KERNEL_DS);
-					ret = vfs_write(file_recog_data,
+					ret = kernel_write(file_recog_data,
 					    (char __user *)out_buf,
 					    writedata,
 					    &file_recog_data->f_pos);
@@ -1788,7 +1787,7 @@ static int vow_pcm_dump_kthread(void *data)
 				    !IS_ERR(file_recog_data)) {
 					old_fs = get_fs();
 					set_fs(KERNEL_DS);
-					ret = vfs_write(file_recog_data,
+					ret = kernel_write(file_recog_data,
 					    (char __user *)pcm_dump->decode_pcm,
 					    writedata,
 					    &file_recog_data->f_pos);

@@ -13,7 +13,7 @@
 #include "mtk-scp-vow.h"
 
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
-#include "scp_helper.h"
+#include "scp.h"
 #endif
 
 int mtk_scp_vow_barge_in_allocate_mem(struct snd_pcm_substream *substream,

@@ -60,3 +60,4 @@ obj-$(CONFIG_MTK_SCHEDULER) += sched/
 obj-$(CONFIG_MTK_AMMS) += memory-amms/
 obj-$(CONFIG_MTK_SDA) += sda/
 obj-$(CONFIG_MTK_MDDP_SUPPORT) += mddp/
+obj-$(CONFIG_MTK_TINYSYS_SCP_SUPPORT) += scp/
