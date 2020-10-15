@@ -159,7 +159,7 @@ void fpsgo_free(void *pvBuf, int i32Size);
 unsigned long long fpsgo_get_time(void);
 int fpsgo_arch_nr_clusters(void);
 unsigned int fpsgo_cpufreq_get_freq_by_idx(
-	unsigned int cluster, unsigned int opp);
+	int cpu, unsigned int opp);
 bool fpsgo_sentuevent(const char *src);
 
 int fpsgo_get_tgid(int pid);

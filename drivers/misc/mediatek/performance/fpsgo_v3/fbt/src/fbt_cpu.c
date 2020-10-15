@@ -34,7 +34,7 @@
 #include <linux/sched/task.h>
 #include <sched/sched.h>
 #include <linux/cpufreq.h>
-
+#include "scheduler.h"
 
 #include <mt-plat/fpsgo_common.h>
 
@@ -2553,47 +2553,40 @@ static int cmp_uint(const void *a, const void *b)
 
 static void fbt_update_pwd_tbl(void)
 {
-	int cluster, opp;
+	int cpu, cluster = 0, opp;
 	unsigned long long max_cap = 0ULL;
-	int cpu;
-	unsigned long long cap_orig = 0ULL;
-	unsigned long long cap = 0ULL;
+	struct cpufreq_policy *policy;
 
-	for (cluster = 0; cluster < cluster_num ; cluster++) {
 
-		for_each_possible_cpu(cpu) {
-			if (cpu % 4 == cluster)
-#if API_READY
-				cap_orig = capacity_orig_of(cpu);
-#else
-				cap_orig = cluster ? 1024 : 369;
-#endif
-		}
-
+#ifdef CONFIG_MTK_OPP_CAP_INFO
+	for_each_possible_cpu(cpu) {
+		if (cluster_num <= 0 || cluster >= cluster_num)
+			break;
+		policy = cpufreq_cpu_get(cpu);
+		if (!policy)
+			break;
 
 		for (opp = 0; opp < NR_FREQ_CPU; opp++) {
+			cpu_dvfs[cluster].capacity_ratio[opp] =
+				pd_get_opp_capacity(cpu, opp) * 100 >> 10;
 			cpu_dvfs[cluster].power[opp] =
-				fpsgo_cpufreq_get_freq_by_idx(cluster, opp);
+				fpsgo_cpufreq_get_freq_by_idx(cpu, opp);
 		}
 
+		sort(cpu_dvfs[cluster].capacity_ratio,
+				NR_FREQ_CPU,
+				sizeof(unsigned int),
+				cmp_uint, NULL);
 		sort(cpu_dvfs[cluster].power,
 				NR_FREQ_CPU,
 				sizeof(unsigned int),
 				cmp_uint, NULL);
 
-		for (opp = 0; opp < NR_FREQ_CPU; opp++) {
-			unsigned int temp;
-
-			cap = cap_orig * cpu_dvfs[cluster].power[opp];
-			if (cpu_dvfs[cluster].power[0])
-				do_div(cap, cpu_dvfs[cluster].power[0]);
-
-			cap = (cap * 100) >> 10;
-			temp = (unsigned int)cap;
-			temp = clamp(temp, 1U, 100U);
-			cpu_dvfs[cluster].capacity_ratio[opp] = temp;
-		}
+		cluster++;
+		cpu = cpumask_last(policy->related_cpus);
 	}
+#endif
+
 
 	for (cluster = 0; cluster < cluster_num ; cluster++) {
 		if (cpu_dvfs[cluster].capacity_ratio[0] > max_cap) {
@@ -3364,6 +3357,8 @@ int __init fbt_cpu_init(void)
 	adjust_loading = fbt_get_default_adj_loading();
 
 	cluster_num = fpsgo_arch_nr_clusters();
+	if (cluster_num <= 0)
+		FPSGO_LOGE("cpufreq policy not found");
 
 	max_cap_cluster = min((cluster_num - 1), 0);
 
