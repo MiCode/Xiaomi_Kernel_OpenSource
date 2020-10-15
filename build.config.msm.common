@@ -64,7 +64,7 @@ function merge_defconfig_fragments() {
 	local output=$(mktemp)
 	KCONFIG_CONFIG=${KERNEL_DIR}/arch/${ARCH}/configs/${DEFCONFIG} \
 		${KERNEL_DIR}/scripts/kconfig/merge_config.sh \
-		-m -r ${DEFCONFIG_FRAGMENTS} | tee $output
+		-m -r -y ${DEFCONFIG_FRAGMENTS} | tee $output
 	set +x
 	if grep -q -E -e "Previous value: [^=]+=[ym]" $output; then
 		echo "========================================================"
@@ -73,11 +73,40 @@ function merge_defconfig_fragments() {
 		rm $output
 		exit 1
 	fi
-	rm $output
+	local temp_config=$(mktemp)
+	(cd ${KERNEL_DIR} && KCONFIG_CONFIG=${temp_config} make "${TOOL_ARGS[@]}" O=${OUT_DIR} ${MAKE_ARGS} ${DEFCONFIG}) 2>&1 | tee $output
+	if grep -q -e "warning:" $output; then
+		echo "========================================================"
+		echo "ERROR! Treating config warnings as errors"
+		grep -e "warning" $output >&2
+		rm $output $temp_config
+		exit 1
+	fi
+	rm $output $temp_config
 	set -x
 
 }
 append_cmd PRE_DEFCONFIG_CMDS "merge_defconfig_fragments"
+
+function check_merged_defconfig() {
+	if ( [ -z "${DEFCONFIG_FRAGMENTS}" ] ||
+	   [ "${DEFCONFIG_FRAGMENTS}" = "${DEFCONFIG}" ] ); then
+		return
+	fi
+	local output=$(mktemp)
+	${KERNEL_DIR}/scripts/diffconfig "${KERNEL_DIR}/arch/${ARCH}/configs/${DEFCONFIG}" ${OUT_DIR}/.config > $output
+	set +x
+	if grep -q -v -E -e "^[+-]" $output; then
+		echo "========================================================"
+		echo "ERROR! Defconfig fragment did not apply as expected"
+		grep -v -E -e "^[+-]" $output
+		rm $output
+		exit 1
+	fi
+	rm $output
+	set -x
+}
+append_cmd POST_DEFCONFIG_CMDS "check_merged_defconfig"
 
 # Wrapper function around merge_defconfig_fragment to reduce repeated logic
 # Usage: apply_defconfig_fragment ${KERNEL_DIR}/cuttlefish.fragment cuttlefish-gki_defconfig
