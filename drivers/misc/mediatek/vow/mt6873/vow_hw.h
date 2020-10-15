@@ -19,8 +19,8 @@
 /* if IPI expand, need to modify maximum data length(unit: int) */
 
 #define VOW_IPI_HEADER_LENGTH         2  /* 2 * 4byte = 8 */
-#define VOW_IPI_SEND_BUFFER_LENGTH    5  /* 5 * 4byte = 20 */
-#define VOW_IPI_RECEIVE_LENGTH        18 /* 18 * 4byte = 72 */
+#define VOW_IPI_SEND_BUFFER_LENGTH    7  /* 7 * 4byte = 28 */
+#define VOW_IPI_RECEIVE_LENGTH        24 /* 24 * 4byte = 96 */
 #define VOW_IPI_ACK_LENGTH            2  /* 2 * 4byte = 8 */
 
 #define VOW_IPI_WAIT_ACK_TIMEOUT      10
