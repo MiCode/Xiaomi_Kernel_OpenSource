@@ -57,6 +57,8 @@
 
 #define PCIE_GEN3_MISC_CONTROL (0x08bc)
 
+#define PCIE_PL_16GT_CAP (0x168)
+
 #define PCIE20_PARF_SYS_CTRL (0x00)
 #define PCIE20_PARF_PM_CTRL (0x20)
 #define PCIE20_PARF_PM_STTS (0x24)
@@ -3870,12 +3872,7 @@ static int msm_pcie_link_train(struct msm_pcie_dev_t *dev)
 	msm_pcie_config_controller_phy(dev);
 
 	/* configure PCIe preset */
-	msm_pcie_write_reg_field(dev->dm_core,
-		PCIE_GEN3_MISC_CONTROL, BIT(0), 1);
-	msm_pcie_write_reg(dev->dm_core,
-		PCIE_GEN3_SPCIE_CAP, dev->core_preset);
-	msm_pcie_write_reg_field(dev->dm_core,
-		PCIE_GEN3_MISC_CONTROL, BIT(0), 0);
+	msm_pcie_config_core_preset(dev);
 
 	if (dev->target_link_speed)
 		msm_pcie_write_reg_field(dev->dm_core,
