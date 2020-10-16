@@ -51,6 +51,8 @@
 #define PCIE_GEN3_EQ_FB_MODE_DIR_CHANGE (0x08ac)
 #define PCIE_GEN3_MISC_CONTROL (0x08bc)
 
+#define PCIE_PL_16GT_CAP (0x168)
+
 #define PCIE20_PARF_SYS_CTRL (0x00)
 #define PCIE20_PARF_PM_CTRL (0x20)
 #define PCIE20_PARF_PM_STTS (0x24)
@@ -3239,6 +3241,31 @@ static void msm_pcie_iatu_config_all_ep(struct msm_pcie_dev_t *dev)
 	}
 }
 
+static void msm_pcie_config_core_preset(struct msm_pcie_dev_t *pcie_dev)
+{
+	u32 supported_link_speed =
+		readl_relaxed(pcie_dev->dm_core + PCIE20_CAP + PCI_EXP_LNKCAP) &
+		PCI_EXP_LNKCAP_SLS;
+
+	/* enable write access to RO register */
+	msm_pcie_write_mask(pcie_dev->dm_core + PCIE_GEN3_MISC_CONTROL, 0,
+				BIT(0));
+
+	/* Gen3 */
+	if (supported_link_speed >= PCI_EXP_LNKCAP_SLS_8_0GB)
+		msm_pcie_write_reg(pcie_dev->dm_core, PCIE_GEN3_SPCIE_CAP,
+				pcie_dev->core_preset);
+
+	/* Gen4 */
+	if (supported_link_speed >= PCI_EXP_LNKCAP_SLS_16_0GB)
+		msm_pcie_write_reg(pcie_dev->dm_core, PCIE_PL_16GT_CAP +
+				PCI_PL_16GT_LE_CTRL, pcie_dev->core_preset);
+
+	/* disable write access to RO register */
+	msm_pcie_write_mask(pcie_dev->dm_core + PCIE_GEN3_MISC_CONTROL, BIT(0),
+				0);
+}
+
 static void msm_pcie_config_controller(struct msm_pcie_dev_t *dev)
 {
 	PCIE_DBG(dev, "RC%d\n", dev->rc_idx);
@@ -3813,12 +3840,7 @@ static int msm_pcie_link_train(struct msm_pcie_dev_t *dev)
 		PCIE_GEN3_RELATED, BIT(0), 0);
 
 	/* configure PCIe preset */
-	msm_pcie_write_reg_field(dev->dm_core,
-		PCIE_GEN3_MISC_CONTROL, BIT(0), 1);
-	msm_pcie_write_reg(dev->dm_core,
-		PCIE_GEN3_SPCIE_CAP, dev->core_preset);
-	msm_pcie_write_reg_field(dev->dm_core,
-		PCIE_GEN3_MISC_CONTROL, BIT(0), 0);
+	msm_pcie_config_core_preset(dev);
 
 	if (dev->target_link_speed)
 		msm_pcie_write_reg_field(dev->dm_core,
