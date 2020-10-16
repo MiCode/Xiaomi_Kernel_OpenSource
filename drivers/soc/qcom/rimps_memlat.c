@@ -827,6 +827,7 @@ static int memlat_idle_notif(struct notifier_block *nb,
 		}
 		break;
 	case CPU_PM_EXIT:
+	case CPU_PM_ENTER_FAILED:
 		__this_cpu_write(cpu_is_idle, false);
 		set_pmu_cache_flag(PMU_CACHE_INVALID, cpu);
 		break;
