@@ -300,7 +300,7 @@ static void _retire_timestamp(struct kgsl_drawobj *drawobj)
 	info.timestamp = drawobj->timestamp;
 
 	msm_perf_events_update(MSM_PERF_GFX, MSM_PERF_RETIRED,
-				context->proc_priv->pid,
+				pid_nr(context->proc_priv->pid),
 				context->id, drawobj->timestamp);
 
 	/*
@@ -696,7 +696,7 @@ static int sendcmd(struct adreno_device *adreno_dev,
 	info.gmu_dispatch_queue = -1;
 
 	msm_perf_events_update(MSM_PERF_GFX, MSM_PERF_SUBMIT,
-			       context->proc_priv->pid,
+			       pid_nr(context->proc_priv->pid),
 			       context->id, drawobj->timestamp);
 
 	trace_adreno_cmdbatch_submitted(drawobj, &info,
@@ -1219,7 +1219,7 @@ static void _queue_drawobj(struct adreno_context *drawctxt,
 			ADRENO_CONTEXT_DRAWQUEUE_SIZE;
 	drawctxt->queued++;
 	msm_perf_events_update(MSM_PERF_GFX, MSM_PERF_QUEUE,
-				context->proc_priv->pid,
+				pid_nr(context->proc_priv->pid),
 				context->id, drawobj->timestamp);
 	trace_adreno_cmdbatch_queued(drawobj, drawctxt->queued);
 }
@@ -1643,7 +1643,7 @@ static inline const char *_kgsl_context_comm(struct kgsl_context *context)
 #define pr_fault(_d, _c, fmt, args...) \
 		dev_err((_d)->dev, "%s[%d]: " fmt, \
 		_kgsl_context_comm((_c)->context), \
-		(_c)->context->proc_priv->pid, ##args)
+		pid_nr((_c)->context->proc_priv->pid), ##args)
 
 
 static void adreno_fault_header(struct kgsl_device *device,
@@ -2321,7 +2321,7 @@ static void retire_cmdobj(struct adreno_device *adreno_dev,
 	info.eop = end;
 
 	msm_perf_events_update(MSM_PERF_GFX, MSM_PERF_RETIRED,
-			       context->proc_priv->pid,
+			       pid_nr(context->proc_priv->pid),
 			       context->id, drawobj->timestamp);
 
 	/*
