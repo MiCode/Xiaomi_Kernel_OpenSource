@@ -242,13 +242,14 @@ static void cam_mem_mmu_put_dma_buffer(struct ION_BUFFER *mmu)
 static int cam_mem_release(struct inode *pInode, struct file *pFile)
 {
 	unsigned int i = 0;
+#ifdef CLEAR_ALL_ION_BUF_LIST
 	struct ION_BUFFER_LIST *tmp; /* for delete the mapped node */
 	struct list_head *pos, *q;
 	struct ION_BUFFER pIonBuf = {NULL, NULL, NULL, 0};
-
+#endif
 	mutex_lock(&open_cam_mem_mutex);
 
-	LOG_INF("+. UserCount: %d.\n", CamMemInfo.UserCount);
+	LOG_NOTICE("+. UserCount: %d.\n", CamMemInfo.UserCount);
 
 	if (pFile->private_data != NULL) {
 		kfree(pFile->private_data);
@@ -268,7 +269,7 @@ static int cam_mem_release(struct inode *pInode, struct file *pFile)
 		goto EXIT;
 	} else {
 		spin_unlock(&(CamMemInfo.SpinLock_CamMemRef));
-
+#ifdef CLEAR_ALL_ION_BUF_LIST
 		/* Clear ion buf list */
 		mutex_lock(&cam_mem_ion_mutex);
 		list_for_each_safe(pos, q, &g_ion_buf_list.list) {
@@ -289,6 +290,7 @@ static int cam_mem_release(struct inode *pInode, struct file *pFile)
 			kfree(tmp);
 		}
 		mutex_unlock(&cam_mem_ion_mutex);
+#endif
 	}
 
 	spin_lock(&(CamMemInfo.SpinLock_Larb));
@@ -300,7 +302,7 @@ static int cam_mem_release(struct inode *pInode, struct file *pFile)
 	}
 
 EXIT:
-	LOG_INF("-. UserCount: %d. G_u4EnableLarbCount:%d\n",
+	LOG_NOTICE("-. UserCount: %d. G_u4EnableLarbCount:%d\n",
 		CamMemInfo.UserCount, G_u4EnableLarbCount);
 
 	mutex_unlock(&open_cam_mem_mutex);
@@ -430,16 +432,18 @@ static long cam_mem_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Pa
 				entry->refCnt++;
 				refCnt = entry->refCnt;
 				bMapped = true;
-				LOG_NOTICE("Warning:refCnt(%d)>1, memID(%d);pa=(0x%lx);user(%s)\n",
+				LOG_NOTICE("Warning:refCnt(%d)>1, memID(%d);pa(0x%lx);"
+					"dmaBuf(0x%lx);user(%s)\n",
 					entry->refCnt,
 					entry->memID,
 					entry->dmaAddr,
+					entry->dmaBuf,
 					entry->username);
 			}
 			mutex_unlock(&cam_mem_ion_mutex);
 
 			/* Map iova. */
-			LOG_NOTICE("CAM_MEM_ION_MAP_PA: do map. memID(%d)\n", IonNode.memID);
+			LOG_DBG("CAM_MEM_ION_MAP_PA: do map. memID(%d)\n", IonNode.memID);
 			if (cam_mem_mmu_get_dma_buffer(&mmu, IonNode.memID) == false) {
 				LOG_NOTICE(
 					"CAM_MEM_ION_MAP_PA: map pa failed, memID(%d)\n",
@@ -481,13 +485,14 @@ static long cam_mem_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Pa
 
 			mutex_lock(&cam_mem_ion_mutex);
 			list_add(&(tmp->list), &(g_ion_buf_list.list));
-			LOG_NOTICE("Add: memID(%d); pa=(0x%lx); refCnt(%d); user(%s)\n",
+			LOG_DBG("Add: memID(%d); pa(0x%lx);dmaBuf(0x%lx);refCnt(%d); user(%s)\n",
 				tmp->memID,
 				tmp->dmaAddr,
+				tmp->dmaBuf,
 				tmp->refCnt,
 				tmp->username);
 
-			dumpIonBufferList(10, true);
+			dumpIonBufferList(10, false);
 
 			mutex_unlock(&cam_mem_ion_mutex);
 
@@ -534,7 +539,7 @@ static long cam_mem_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Pa
 
 				foundFD = true;
 
-				LOG_NOTICE("Del: memID(%d): pa=(0x%lx); refCnt(%d); (%s)\n",
+				LOG_DBG("Del: memID(%d): pa=(0x%lx); refCnt(%d); (%s)\n",
 					tmp->memID, tmp->dmaAddr,  tmp->refCnt,
 					tmp->username);
 
@@ -578,7 +583,7 @@ static long cam_mem_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Pa
 				}
 			}
 
-			dumpIonBufferList(10, true);
+			dumpIonBufferList(10, false);
 
 			mutex_unlock(&cam_mem_ion_mutex);
 		} else {
