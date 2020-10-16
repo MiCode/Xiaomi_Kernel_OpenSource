@@ -39,6 +39,9 @@ static int is_critical_lock_held(void)
 	for (i = 0; i < current->lockdep_depth; i++) {
 		struct lockdep_map *instance = (hlock + i)->instance;
 
+		if (!instance->name)
+			continue;
+
 		for (j = 0; j < ARRAY_SIZE(critical_lock_list); j++)
 			if (!strcmp(instance->name, critical_lock_list[j]))
 				return true;
