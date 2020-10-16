@@ -1321,13 +1321,13 @@ int cnss_force_collect_rddm(struct device *dev)
 	}
 
 	if (cnss_bus_is_device_down(plat_priv)) {
-		cnss_pr_info("Device is already in bad state, ignore force collect rddm\n");
-		return 0;
+		cnss_pr_info("Device is already in bad state, wait to collect rddm\n");
+		goto wait_rddm;
 	}
 
 	if (test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state)) {
-		cnss_pr_info("Recovery is already in progress, ignore forced collect rddm\n");
-		return 0;
+		cnss_pr_info("Recovery is already in progress, wait to collect rddm\n");
+		goto wait_rddm;
 	}
 
 	if (test_bit(CNSS_DRIVER_LOADING, &plat_priv->driver_state) ||
@@ -1342,6 +1342,7 @@ int cnss_force_collect_rddm(struct device *dev)
 	if (ret)
 		return ret;
 
+wait_rddm:
 	reinit_completion(&plat_priv->rddm_complete);
 	ret = wait_for_completion_timeout
 		(&plat_priv->rddm_complete,
