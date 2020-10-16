@@ -57,6 +57,14 @@ struct mtk_cam_dump_header {
 	__u32	status_dump_offset;
 	__u32	status_dump_size;
 
+	/* ipi frame param */
+	__u32	frame_dump_offset;
+	__u32	frame_dump_size;
+
+	/* ipi config param */
+	__u32	config_dump_offset;
+	__u32	config_dump_size;
+	__u32	used_stream_num;
 };
 
 struct mtk_cam_debug_fs;

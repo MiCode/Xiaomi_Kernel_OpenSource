@@ -25,8 +25,8 @@ static void mtk_cam_dump_buf_content(struct device *dev, void *buf, void *src,
 
 	dest = buf + offset;
 
-	dev_dbg(dev, "%s: dump:(%p --> %p), offset:%d, size: %d",
-		__func__, src, dest, offset, size);
+	dev_dbg(dev, "%s: dump:%s(%p --> %p), offset:%d, size: %d",
+		__func__, buf_name, src, dest, offset, size);
 	memcpy(dest, src, size);
 }
 
@@ -83,6 +83,7 @@ mtk_cam_debug_dump_all_content(struct mtk_cam_debug_fs *debug_fs, void *dump_buf
 {
 	struct mtk_cam_dump_header *header;
 	struct device *dev = debug_fs->cam_dev->dev;
+	int i;
 
 	header = (struct mtk_cam_dump_header *)dump_buf;
 	strncpy(header->desc, param->desc, MTK_CAM_DEBUG_DUMP_DESC_SIZE - 1);
@@ -92,9 +93,12 @@ mtk_cam_debug_dump_all_content(struct mtk_cam_debug_fs *debug_fs, void *dump_buf
 	header->sequence = param->sequence;
 	header->header_size = sizeof(*header);
 	header->payload_offset = header->header_size;
-	dev_dbg(dev, "req:%d, ts:%lu, seq:%d, header sz:%d, payload_offset%d",
+	header->payload_size = debug_fs->dump_buf_entry_size -
+			       header->header_size;
+	dev_dbg(dev, "req:%d, ts:%lu, seq:%d, header sz:%d, payload_offset:%d, payload sz:%d",
 		header->request_fd, header->timestamp, header->sequence,
-		header->header_size, header->payload_offset);
+		header->header_size, header->payload_offset,
+		header->payload_size);
 
 	/* meta file information */
 	header->meta_version_major = MTK_CAM_META_VERSION_MAJOR;
@@ -107,8 +111,7 @@ mtk_cam_debug_dump_all_content(struct mtk_cam_debug_fs *debug_fs, void *dump_buf
 	header->cq_size = param->cq_size;
 	header->cq_iova = param->cq_iova;
 	header->cq_desc_size = param->cq_desc_size;
-
-	dev_dbg(dev, "CQ offset:%d, sz:%d, iova:%d, desc_sz:%d\n",
+	dev_dbg(dev, "CQ offset:%d, sz:%d, iova:%x, desc_sz:%d\n",
 		header->cq_dump_buf_offset, header->cq_size, header->cq_iova,
 		header->cq_desc_size);
 
@@ -117,8 +120,7 @@ mtk_cam_debug_dump_all_content(struct mtk_cam_debug_fs *debug_fs, void *dump_buf
 					       header->cq_size;
 	header->meta_in_dump_buf_size = param->meta_in_dump_buf_size;
 	header->meta_in_iova = param->meta_in_iova;
-
-	dev_dbg(dev, "Meta-in offset:%d, sz:%d, iova:%d\n",
+	dev_dbg(dev, "Meta-in offset:%d, sz:%d, iova:%x\n",
 		header->meta_in_dump_buf_offset, header->meta_in_dump_buf_size,
 		header->meta_in_iova);
 
@@ -127,7 +129,7 @@ mtk_cam_debug_dump_all_content(struct mtk_cam_debug_fs *debug_fs, void *dump_buf
 		header->meta_in_dump_buf_size;
 	header->meta_out_0_dump_buf_size = param->meta_out_0_dump_buf_size;
 	header->meta_out_0_iova = param->meta_out_0_iova;
-	dev_dbg(dev, "Meta-out 0 offset:%d, sz:%d, iova:%d\n",
+	dev_dbg(dev, "Meta-out 0 offset:%d, sz:%d, iova:%x\n",
 		header->meta_out_0_dump_buf_offset,
 		header->meta_out_0_dump_buf_size, header->meta_out_0_iova);
 
@@ -137,7 +139,7 @@ mtk_cam_debug_dump_all_content(struct mtk_cam_debug_fs *debug_fs, void *dump_buf
 		header->meta_out_0_dump_buf_size;
 	header->meta_out_1_dump_buf_size = param->meta_out_1_dump_buf_size;
 	header->meta_out_1_iova = param->meta_out_1_iova;
-	dev_dbg(dev, "Meta-out 1 offset:%d, sz:%d, iova:%d\n",
+	dev_dbg(dev, "Meta-out 1 offset:%d, sz:%d, iova:%x\n",
 		header->meta_out_1_dump_buf_offset,
 		header->meta_out_1_dump_buf_size, header->meta_out_1_iova);
 
@@ -147,22 +149,38 @@ mtk_cam_debug_dump_all_content(struct mtk_cam_debug_fs *debug_fs, void *dump_buf
 		header->meta_out_1_dump_buf_size;
 	header->meta_out_2_dump_buf_size = param->meta_out_2_dump_buf_size;
 	header->meta_out_2_iova = param->meta_out_2_iova;
-
-	dev_dbg(dev, "Meta-out 2 offset:%d, sz:%d, iova:%d\n",
+	dev_dbg(dev, "Meta-out 2 offset:%d, sz:%d, iova:%x\n",
 		header->meta_out_2_dump_buf_offset,
 		header->meta_out_2_dump_buf_size, header->meta_out_2_iova);
 
-	/* Status dump */
+	/* DMA Status dump */
 	header->status_dump_offset =
 		header->meta_out_2_dump_buf_offset +
 		header->meta_out_2_dump_buf_size;
 	header->status_dump_size = sizeof(struct mtk_cam_status_dump);
-
 	dev_dbg(dev, "Status-dump offset:%d, sz:%d\n",
 		header->status_dump_offset, header->status_dump_size);
 
-	header->payload_size = debug_fs->dump_buf_entry_size -
-			       header->header_size;
+	/* ipi frame param */
+	header->frame_dump_offset =
+		header->status_dump_offset +
+		header->status_dump_size;
+	header->frame_dump_size = param->frame_param_size;
+	dev_dbg(dev, "Ipi frame param offset:%d, sz:%d\n",
+		header->frame_dump_offset,
+		header->frame_dump_size);
+
+	/* ipi config param */
+	header->config_dump_offset =
+		header->frame_dump_offset +
+		header->frame_dump_size;
+	header->config_dump_size = param->config_param_size *
+				   param->used_stream_num;
+	header->used_stream_num = param->used_stream_num;
+	dev_dbg(dev, "Ipi config param offset:%d, total sz:%d, num:%d\n",
+		header->config_dump_offset,
+		header->config_dump_size,
+		header->used_stream_num);
 
 	mtk_cam_dump_buf_content(dev, dump_buf, param->cq_cpu_addr,
 				 header->cq_dump_buf_offset,
@@ -171,7 +189,12 @@ mtk_cam_debug_dump_all_content(struct mtk_cam_debug_fs *debug_fs, void *dump_buf
 	mtk_cam_dump_buf_content(dev, dump_buf, param->meta_in_cpu_addr,
 				 header->meta_in_dump_buf_offset,
 				 header->meta_in_dump_buf_size,
-				 "Meta-in-0");
+				 "Meta-in");
+
+	mtk_cam_dump_buf_content(dev, dump_buf, param->meta_out_0_cpu_addr,
+				 header->meta_out_0_dump_buf_offset,
+				 header->meta_out_0_dump_buf_size,
+				 "Meta-out-0");
 
 	mtk_cam_dump_buf_content(dev, dump_buf, param->meta_out_1_cpu_addr,
 				 header->meta_out_1_dump_buf_offset,
@@ -187,6 +210,19 @@ mtk_cam_debug_dump_all_content(struct mtk_cam_debug_fs *debug_fs, void *dump_buf
 				 header->status_dump_offset,
 				 header->status_dump_size,
 				 "Status-dump");
+
+	mtk_cam_dump_buf_content(dev, dump_buf, param->frame_params,
+				 header->frame_dump_offset,
+				 header->frame_dump_size,
+				 "Ipi-frame-params");
+
+	for (i = 0; i < header->used_stream_num; i++) {
+		mtk_cam_dump_buf_content(dev, dump_buf, param->config_params[i],
+					 header->config_dump_offset +
+					 header->config_dump_size*i,
+					 header->config_dump_size,
+					 "Ipi-config-params");
+	}
 }
 
 /**
@@ -270,8 +306,7 @@ static int mtk_cam_debug_exp_dump(struct mtk_cam_debug_fs *debug_fs,
 	 */
 	atomic_set(&debug_fs->exp_dump_state, CAMSYS_DUMP_SATATE_READY);
 
-	dev_dbg(dev, "%s dbg dump is ready to read\n",
-		__func__);
+	dev_dbg(dev, "%s exp dump is ready to read\n", __func__);
 
 	mutex_unlock(&debug_fs->exp_dump_buf_lock);
 	wake_up(&debug_fs->exp_dump_waitq);

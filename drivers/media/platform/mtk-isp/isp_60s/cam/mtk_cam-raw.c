@@ -1017,6 +1017,8 @@ void raw_irq_handle_dma_err(struct mtk_raw_device *raw_dev,
 	struct mtk_cam_device *cam = raw_dev->cam;
 	struct mtk_cam_request *req;
 
+	dev_dbg(raw_dev->dev, "%s: seq(%d)\n", __func__, frame_seq_no);
+
 	dev_dbg_ratelimited(raw_dev->dev,
 			    "IMGO:0x%x, RRZO:0x%x, YUVO:0x%x, CRZO_R1:0x%x, RSSO_R2:0x%x, BPCI:0x%x\n",
 			    readl_relaxed(raw_dev->base + REG_IMGO_ERR_STAT),
@@ -1036,7 +1038,7 @@ void raw_irq_handle_dma_err(struct mtk_raw_device *raw_dev,
 			    readl_relaxed(raw_dev->base + REG_TSFSO_ERR_STAT));
 
 	dev_dbg_ratelimited(raw_dev->dev,
-			    " LMVO:0x%x, LTMSO:0x%x, LCSO:0x%x, LCSHO:0x%x, FLKO:0x%x, PDO:0x%x\n",
+			    "LMVO:0x%x, LTMSO:0x%x, LCSO:0x%x, LCSHO:0x%x, FLKO:0x%x, PDO:0x%x\n",
 			    readl_relaxed(raw_dev->base + REG_LMVO_ERR_STAT),
 			    readl_relaxed(raw_dev->base + REG_LTMSO_ERR_STAT),
 			    readl_relaxed(raw_dev->base + REG_LCSO_ERR_STAT),
