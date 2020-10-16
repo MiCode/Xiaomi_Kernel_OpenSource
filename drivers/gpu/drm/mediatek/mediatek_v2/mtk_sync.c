@@ -115,7 +115,8 @@ static struct sync_pt *mtk_sync_pt_create(struct sync_timeline *obj,
 				p = &parent->rb_left;
 			} else {
 				if (dma_fence_get_rcu(&other->base)) {
-					dma_fence_put(&pt->base);
+					mtk_sync_timeline_put(obj);
+					kfree(pt);
 					pt = other;
 					goto unlock;
 				}
@@ -155,17 +156,14 @@ static void mtk_sync_timeline_fence_release(struct dma_fence *fence)
 {
 	struct sync_pt *pt = fence_to_sync_pt(fence);
 	struct sync_timeline *parent = dma_fence_parent(fence);
+	unsigned long flags;
 
+	spin_lock_irqsave(fence->lock, flags);
 	if (!list_empty(&pt->link)) {
-		unsigned long flags;
-
-		spin_lock_irqsave(fence->lock, flags);
-		if (!list_empty(&pt->link)) {
-			list_del(&pt->link);
-			rb_erase(&pt->node, &parent->pt_tree);
-		}
-		spin_unlock_irqrestore(fence->lock, flags);
+		list_del(&pt->link);
+		rb_erase(&pt->node, &parent->pt_tree);
 	}
+	spin_unlock_irqrestore(fence->lock, flags);
 
 	mtk_sync_timeline_put(parent);
 	dma_fence_free(fence);
@@ -188,7 +186,7 @@ static void mtk_sync_timeline_fence_value_str(
 					      char *str,
 					      int size)
 {
-	snprintf(str, size, "%d", fence->seqno);
+	snprintf(str, size, "%lld", fence->seqno);
 }
 
 static void mtk_sync_timeline_fence_timeline_value_str(struct dma_fence *fence,
@@ -204,7 +202,6 @@ static struct dma_fence_ops mtk_sync_timeline_fence_ops = {
 	.get_timeline_name = mtk_sync_timeline_fence_get_timeline_name,
 	.enable_signaling = mtk_sync_timeline_fence_enable_signaling,
 	.signaled = mtk_sync_timeline_fence_signaled,
-	.wait = dma_fence_default_wait,
 	.release = mtk_sync_timeline_fence_release,
 	.fence_value_str = mtk_sync_timeline_fence_value_str,
 	.timeline_value_str = mtk_sync_timeline_fence_timeline_value_str,
