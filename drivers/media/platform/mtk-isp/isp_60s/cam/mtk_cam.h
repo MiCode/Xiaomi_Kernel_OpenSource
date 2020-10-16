@@ -143,8 +143,17 @@ struct mtk_cam_dump_param {
 	__u32 meta_out_2_dump_buf_size;
 	__u32 meta_out_2_iova;
 
+	/* DMA status */
 	struct mtk_cam_status_dump *status_dump;
 
+	/* ipi frame param */
+	struct mtkcam_ipi_frame_param *frame_params;
+	__u32 frame_param_size;
+
+	/* ipi config param */
+	struct mtkcam_ipi_config_param *config_params[MAX_STREAM_NUM];
+	__u32 config_param_size;
+	__u32 used_stream_num;
 };
 
 #define MTK_CAM_REQ_DUMP_FORCE_FRAME_DONE	BIT(0) /* Force dump by user */
@@ -246,6 +255,9 @@ struct mtk_cam_ctx {
 	unsigned int dequeued_frame_seq_no;
 
 	spinlock_t streaming_lock;
+
+	/* For debug dunp file only */
+	struct mtkcam_ipi_config_param config_params;
 };
 
 struct mtk_cam_device {

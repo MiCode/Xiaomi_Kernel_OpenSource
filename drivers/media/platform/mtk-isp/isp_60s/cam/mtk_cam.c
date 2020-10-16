@@ -144,12 +144,16 @@ static void mtk_cam_dev_dump_request(struct mtk_cam_device *cam,
 {
 	struct media_request_object *obj, *obj_prev;
 	int request_fd = -1;
+	int count = 0;
+	int i;
 
 	memset(dump_param, 0, sizeof(*dump_param));
 	dump_param->sequence = req->frame_seq_no;
 	dump_param->timestamp = req->timestamp;
 	dump_param->cq_cpu_addr = (void *)(cam->working_buf_mem_va +
 			    req->working_buf->buffer.addr_offset);
+
+	dev_dbg(cam->dev, "%s:(%d)\n", dump_param->sequence);
 
 	list_for_each_entry_safe(obj, obj_prev, &req->req.objects, list) {
 		struct vb2_buffer *vb;
@@ -208,6 +212,27 @@ static void mtk_cam_dev_dump_request(struct mtk_cam_device *cam,
 	dump_param->desc = desc;
 	dump_param->buffer_state = buffer_state;
 	dump_param->status_dump = &req->status_dump;
+
+	/* mtkcam_ipi_frame_param */
+	dump_param->frame_params = &req->frame_params;
+	dump_param->frame_param_size = sizeof(req->frame_params);
+	dev_dbg(cam->dev, "frame_param found: size(%d)\n",
+		dump_param->frame_param_size);
+
+	/* mtkcam_ipi_config_param */
+	for (i = 0; i < cam->max_stream_num; i++) {
+		if (req->ctx_used & (1 << cam->ctxs[i].stream_id)) {
+			dump_param->config_params[count] = &cam->ctxs[i].config_params;
+			dump_param->config_param_size =
+				sizeof(cam->ctxs[i].config_params);
+			dev_dbg(cam->dev,
+				"cofig_param(%d) found: ctx(%d), size(%d)\n",
+				count, cam->ctxs[i].stream_id,
+				dump_param->config_param_size);
+			count++;
+		}
+	}
+	dump_param->used_stream_num = count;
 }
 
 static void mtk_cam_req_dump_work(struct work_struct *work)
@@ -305,6 +330,9 @@ int mtk_cam_req_dump(struct mtk_cam_device *cam, struct mtk_cam_request *req,
 	dbg_work->state = MTK_CAM_REQ_DBGWORK_S_PREPARED;
 	snprintf(req->dbg_work.desc, MTK_CAM_DEBUG_PARAM_DESC_SIZE - 1, desc);
 	dbg_work->buffer_state = buf_state;
+
+	dev_dbg(cam->dev, "%s: seq(%d) dump type:%s",
+		__func__, req->frame_seq_no, desc);
 
 	if (!queue_work(cam->debug_wq, &dbg_work->work)) {
 		dev_dbg(cam->dev,
@@ -1001,6 +1029,11 @@ isp_composer_hw_config(struct mtk_cam_device *cam,
 	memcpy(config, config_param, sizeof(*config_param));
 	rpmsg_send(cam->rpmsg_dev->rpdev.ept, &event, sizeof(event));
 	dev_dbg(cam->dev, "rpmsg_send id: %d\n", event.cmd_id);
+
+	/* For debug dump file */
+	memcpy(&ctx->config_params, config_param, sizeof(*config_param));
+	dev_dbg(cam->dev, "copy cofig_param to ctx(%d), sz:%d\n",
+		ctx->stream_id, sizeof(*config_param));
 }
 
 static int
