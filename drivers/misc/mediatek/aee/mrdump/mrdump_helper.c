@@ -131,6 +131,7 @@ static u16 *mrdump_kti_addr(void)
 	return (u16 *)round_up((unsigned long)pch, 8);
 }
 
+static void aee_base_addrs_init(void);
 int mrdump_ka_init(void)
 {
 	unsigned int kns;
@@ -148,6 +149,7 @@ int mrdump_ka_init(void)
 				    (round_up(kns, 256) / 256)), 8);
 	mrdump_kti = mrdump_kti_addr();
 
+	aee_base_addrs_init();
 	return 0;
 }
 
@@ -778,6 +780,76 @@ const char *aee_arch_vma_name(struct vm_area_struct *vma)
 #endif
 #endif
 EXPORT_SYMBOL(aee_arch_vma_name);
+
+/* find the addrs needed during driver init stage */
+static void aee_base_addrs_init(void)
+{
+	char strbuf[NAME_LEN];
+	unsigned long i;
+	unsigned int off;
+	unsigned int search_num = 8;
+
+#ifndef CONFIG_SYSFS
+	search_num--;
+#endif
+	for (i = 0, off = 0; i < *mrdump_kns; i++) {
+		if (!search_num)
+			return;
+		off = mrdump_checking_names(off, strbuf, ARRAY_SIZE(strbuf));
+
+#ifdef CONFIG_SYSFS
+		if (!p_module_kset && strcmp(strbuf, "module_kset") == 0) {
+			p_module_kset = (void *)mrdump_idx2addr(i);
+			search_num--;
+			continue;
+		}
+#endif
+
+		if (!p_memblock && strcmp(strbuf, "memblock") == 0) {
+			p_memblock = (void *)mrdump_idx2addr(i);
+			search_num--;
+			continue;
+		}
+
+		if (!p_etext && strcmp(strbuf, "_etext") == 0) {
+			p_etext = mrdump_idx2addr(i);
+			search_num--;
+			continue;
+		}
+
+		if (!p_stext && strcmp(strbuf, "_stext") == 0) {
+			p_stext = mrdump_idx2addr(i);
+			search_num--;
+			continue;
+		}
+
+		if (!p_text && strcmp(strbuf, "_text") == 0) {
+			p_text = mrdump_idx2addr(i);
+			search_num--;
+			continue;
+		}
+
+		if (!p_init_mm && strcmp(strbuf, "init_mm") == 0) {
+			p_init_mm = (void *)mrdump_idx2addr(i);
+			search_num--;
+			continue;
+		}
+
+		if (!p__log_buf && strcmp(strbuf, "__log_buf") == 0) {
+			p__log_buf = (void *)mrdump_idx2addr(i);
+			search_num--;
+			continue;
+		}
+
+		if (!p_runqueues && strcmp(strbuf, "runqueues") == 0) {
+			p_runqueues = (void *)mrdump_idx2addr(i);
+			search_num--;
+			continue;
+		}
+	}
+	if (search_num)
+		pr_info("mrdump addr init incomplete %d\n", search_num);
+}
 
 #else /* #ifdef MODULE*/
 /* for mrdump.ko */
