@@ -307,6 +307,10 @@ struct sdhci_msm_dll_hsr {
 	u32 ddr_config;
 };
 
+struct cqe_regs_restore {
+	u32 cqe_vendor_cfg1;
+};
+
 struct sdhci_msm_regs_restore {
 	bool is_supported;
 	bool is_valid;
@@ -442,6 +446,7 @@ struct sdhci_msm_host {
 	bool use_7nm_dll;
 	struct sdhci_msm_dll_hsr *dll_hsr;
 	struct sdhci_msm_regs_restore regs_restore;
+	struct cqe_regs_restore cqe_regs;
 	u32 *sup_ice_clk_table;
 	unsigned char sup_ice_clk_cnt;
 	u32 ice_clk_max;
@@ -2452,6 +2457,7 @@ static void sdhci_msm_registers_save(struct sdhci_host *host)
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
 	const struct sdhci_msm_offset *msm_offset = msm_host->offset;
+	struct cqhci_host *cq_host = host->mmc->cqe_private;
 
 	if (!msm_host->regs_restore.is_supported &&
 			!msm_host->reg_store)
@@ -2500,6 +2506,9 @@ static void sdhci_msm_registers_save(struct sdhci_host *host)
 		msm_offset->core_dll_config_3);
 	msm_host->regs_restore.dll_usr_ctl = readl_relaxed(host->ioaddr +
 		msm_offset->core_dll_usr_ctl);
+	if (cq_host)
+		msm_host->cqe_regs.cqe_vendor_cfg1 =
+			cqhci_readl(cq_host, CQHCI_VENDOR_CFG1);
 
 	msm_host->regs_restore.is_valid = true;
 
@@ -2516,6 +2525,7 @@ static void sdhci_msm_registers_restore(struct sdhci_host *host)
 	const struct sdhci_msm_offset *msm_offset = msm_host->offset;
 	u32 irq_status;
 	struct mmc_ios ios = host->mmc->ios;
+	struct cqhci_host *cq_host = host->mmc->cqe_private;
 
 	if ((!msm_host->regs_restore.is_supported ||
 		!msm_host->regs_restore.is_valid) &&
@@ -2568,6 +2578,10 @@ static void sdhci_msm_registers_restore(struct sdhci_host *host)
 			host->ioaddr + msm_offset->core_pwrctl_ctl);
 	writel_relaxed(msm_host->regs_restore.vendor_pwrctl_mask,
 			host->ioaddr + msm_offset->core_pwrctl_mask);
+
+	if (cq_host)
+		cqhci_writel(cq_host, msm_host->cqe_regs.cqe_vendor_cfg1,
+				CQHCI_VENDOR_CFG1);
 
 	if (((ios.timing == MMC_TIMING_MMC_HS400) ||
 			(ios.timing == MMC_TIMING_MMC_HS200) ||
