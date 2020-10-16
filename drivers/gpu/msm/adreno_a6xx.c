@@ -2134,9 +2134,6 @@ int a6xx_probe_common(struct platform_device *pdev,
 	adreno_dev->preempt.skipsaverestore = true;
 	adreno_dev->preempt.usesgmem = true;
 
-	adreno_dev->gpu_llc_slice_enable = true;
-	adreno_dev->gpuhtw_llc_slice_enable = true;
-
 	/* Set the GPU busy counter for frequency scaling */
 	adreno_dev->perfctr_pwr_lo = A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_0_L;
 

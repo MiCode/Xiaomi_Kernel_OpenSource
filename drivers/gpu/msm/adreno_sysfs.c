@@ -49,7 +49,8 @@ static unsigned int _ft_pagefault_policy_show(struct adreno_device *adreno_dev)
 static int _gpu_llc_slice_enable_store(struct adreno_device *adreno_dev,
 		bool val)
 {
-	adreno_dev->gpu_llc_slice_enable = val;
+	if (!IS_ERR_OR_NULL(adreno_dev->gpu_llc_slice))
+		adreno_dev->gpu_llc_slice_enable = val;
 	return 0;
 }
 
@@ -61,7 +62,8 @@ static bool _gpu_llc_slice_enable_show(struct adreno_device *adreno_dev)
 static int _gpuhtw_llc_slice_enable_store(struct adreno_device *adreno_dev,
 		bool val)
 {
-	adreno_dev->gpuhtw_llc_slice_enable = val;
+	if (!IS_ERR_OR_NULL(adreno_dev->gpuhtw_llc_slice))
+		adreno_dev->gpuhtw_llc_slice_enable = val;
 	return 0;
 }
 
