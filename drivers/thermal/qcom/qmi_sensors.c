@@ -482,6 +482,29 @@ static int verify_sensor_and_register(struct qmi_ts_instance *ts)
 		}
 	}
 
+	/* Check and get sensor list extended */
+	for (i = 0; ts_resp->sensor_list_ext01_valid &&
+		 (i < ts_resp->sensor_list_ext01_len); i++) {
+		struct qmi_sensor *qmi_sens = NULL;
+
+		list_for_each_entry(qmi_sens, &ts->ts_sensor_list,
+					ts_node) {
+			if ((strncasecmp(qmi_sens->qmi_name,
+				ts_resp->sensor_list_ext01[i].sensor_id,
+				QMI_TS_SENSOR_ID_LENGTH_MAX_V01)))
+				continue;
+
+			qmi_sens->connection_active = true;
+			/*
+			 * Send a temperature request notification.
+			 */
+			qmi_ts_request(qmi_sens, true);
+			if (!qmi_sens->tz_dev)
+				ret = qmi_register_sensor_device(qmi_sens);
+			break;
+		}
+	}
+
 	kfree(ts_resp);
 	return ret;
 

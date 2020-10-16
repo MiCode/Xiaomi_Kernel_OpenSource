@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef THERMAL_SENSOR_SERVICE_V01_H
@@ -21,6 +21,7 @@
 
 #define QMI_TS_SENSOR_ID_LENGTH_MAX_V01 32
 #define QMI_TS_SENSOR_LIST_MAX_V01 32
+#define QMI_TS_SENSOR_LIST_EXT01_MAX_V01 64
 
 struct ts_sensor_type_v01 {
 	char sensor_id[QMI_TS_SENSOR_ID_LENGTH_MAX_V01 + 1];
@@ -34,22 +35,25 @@ extern struct qmi_elem_info ts_get_sensor_list_req_msg_v01_ei[];
 
 struct ts_get_sensor_list_resp_msg_v01 {
 	struct qmi_response_type_v01 resp;
-	uint8_t sensor_list_valid;
-	uint32_t sensor_list_len;
+	u8 sensor_list_valid;
+	u32 sensor_list_len;
 	struct ts_sensor_type_v01 sensor_list[QMI_TS_SENSOR_LIST_MAX_V01];
+	u8 sensor_list_ext01_valid;
+	u32 sensor_list_ext01_len;
+	struct ts_sensor_type_v01 sensor_list_ext01[QMI_TS_SENSOR_LIST_EXT01_MAX_V01];
 };
-#define TS_GET_SENSOR_LIST_RESP_MSG_V01_MAX_MSG_LEN 1067
+#define TS_GET_SENSOR_LIST_RESP_MSG_V01_MAX_MSG_LEN 3183
 extern struct qmi_elem_info ts_get_sensor_list_resp_msg_v01_ei[];
 
 struct ts_register_notification_temp_req_msg_v01 {
 	struct ts_sensor_type_v01 sensor_id;
-	uint8_t send_current_temp_report;
-	uint8_t temp_threshold_high_valid;
+	u8 send_current_temp_report;
+	u8 temp_threshold_high_valid;
 	int temp_threshold_high;
-	uint8_t temp_threshold_low_valid;
+	u8 temp_threshold_low_valid;
 	int temp_threshold_low;
-	uint8_t seq_num_valid;
-	uint32_t seq_num;
+	u8 seq_num_valid;
+	u32 seq_num;
 };
 #define TS_REGISTER_NOTIFICATION_TEMP_REQ_MSG_V01_MAX_MSG_LEN 61
 extern struct qmi_elem_info ts_register_notification_temp_req_msg_v01_ei[];
@@ -71,10 +75,10 @@ enum ts_temp_report_type_enum_v01 {
 struct ts_temp_report_ind_msg_v01 {
 	struct ts_sensor_type_v01 sensor_id;
 	enum ts_temp_report_type_enum_v01 report_type;
-	uint8_t temp_valid;
-	long temp;
-	uint8_t seq_num_valid;
-	uint32_t seq_num;
+	u8 temp_valid;
+	int temp;
+	u8 seq_num_valid;
+	u32 seq_num;
 };
 #define TS_TEMP_REPORT_IND_MSG_V01_MAX_MSG_LEN 57
 extern struct qmi_elem_info ts_temp_report_ind_msg_v01_ei[];
