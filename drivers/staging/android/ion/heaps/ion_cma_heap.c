@@ -47,6 +47,8 @@ static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
 	int ret;
 	struct device *dev = cma_heap->heap.dev;
 
+	buffer->flags |= ION_FLAG_CACHED;
+
 	if (ion_heap_is_cma_heap_type(buffer->heap->type) &&
 	    is_secure_allocation(buffer->flags)) {
 		pr_err("%s: CMA heap doesn't support secure allocations\n",

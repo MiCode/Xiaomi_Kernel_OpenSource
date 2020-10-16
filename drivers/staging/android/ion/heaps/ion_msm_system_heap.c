@@ -284,6 +284,8 @@ static int ion_msm_system_heap_allocate(struct ion_heap *heap,
 	unsigned int sz;
 	int vmid = get_secure_vmid(buffer->flags);
 
+	buffer->flags |= ION_FLAG_CACHED;
+
 	if (size / PAGE_SIZE > totalram_pages() / 2)
 		return -ENOMEM;
 
