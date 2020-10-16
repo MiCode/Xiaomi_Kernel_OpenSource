@@ -39,6 +39,15 @@ do {									     \
 			       ch->lcid, ch->rcid, __func__, ##__VA_ARGS__); \
 } while (0)
 
+#define CH_ERR(ch, x, ...)						     \
+do {									     \
+	if (ch->glink) {						     \
+		ipc_log_string(ch->glink->ilc, "%s[%d:%d] %s: "x, ch->name,  \
+			       ch->lcid, ch->rcid, __func__, ##__VA_ARGS__); \
+		dev_err(ch->glink->dev, "[%s]: "x, __func__, ##__VA_ARGS__); \
+	}								     \
+} while (0)
+
 #define GLINK_NAME_SIZE		32
 #define GLINK_VERSION_1		1
 
@@ -1043,12 +1052,14 @@ static int qcom_glink_rx_data(struct qcom_glink *glink, size_t avail)
 					intent->offset,
 					channel->ept.priv,
 					RPMSG_ADDR_ANY);
-			if (ret < 0)
-				CH_INFO(channel,
-					"glink:callback error ret = %d\n", ret);
+
+			if (ret < 0) {
+				CH_ERR(channel,
+					"callback error ret = %d\n", ret);
+				ret = 0;
+			}
 		} else {
-			CH_INFO(channel, "callback not present\n");
-			dev_err(glink->dev, "glink:callback not present\n");
+			CH_ERR(channel, "callback not present\n");
 		}
 		spin_unlock(&channel->recv_lock);
 
