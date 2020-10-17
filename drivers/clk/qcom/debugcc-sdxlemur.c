@@ -20,9 +20,9 @@
 #include "common.h"
 
 static struct measure_clk_data debug_mux_priv = {
-	.ctl_reg = 0x69004,
-	.status_reg = 0x69008,
-	.xo_div4_cbcr = 0x1E010,
+	.ctl_reg = 0x79004,
+	.status_reg = 0x79008,
+	.xo_div4_cbcr = 0x2E010,
 };
 
 static const char *const apss_cc_debug_mux_parent_names[] = {
@@ -39,8 +39,8 @@ static int apss_cc_debug_mux_pre_divs[] = {
 
 static struct clk_debug_mux apss_cc_debug_mux = {
 	.priv = &debug_mux_priv,
-	.debug_offset = 0x18,
-	.post_div_offset = 0x18,
+	.debug_offset = 0xc,
+	.post_div_offset = 0x0,
 	.cbcr_offset = 0x0,
 	.src_sel_mask = 0x38,
 	.src_sel_shift = 3,
@@ -162,9 +162,9 @@ static int gcc_debug_mux_sels[] = {
 
 static struct clk_debug_mux gcc_debug_mux = {
 	.priv = &debug_mux_priv,
-	.debug_offset = 0x69000,
-	.post_div_offset = 0x25000,
-	.cbcr_offset = 0x25004,
+	.debug_offset = 0x79000,
+	.post_div_offset = 0x35000,
+	.cbcr_offset = 0x35004,
 	.src_sel_mask = 0x3FF,
 	.src_sel_shift = 0,
 	.post_div_mask = 0xF,
