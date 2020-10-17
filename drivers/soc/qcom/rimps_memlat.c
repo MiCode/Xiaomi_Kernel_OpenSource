@@ -479,7 +479,7 @@ static struct perf_event *set_event(int event_id, unsigned int cpu,
 }
 
 static int setup_common_pmu_events(struct memlat_cpu_grp *cpu_grp,
-				cpumask_t *mask)
+				cpumask_t *mask, bool cpu_online)
 {
 	struct perf_event_attr *attr = alloc_attr();
 	struct perf_event *pevent;
@@ -489,7 +489,7 @@ static int setup_common_pmu_events(struct memlat_cpu_grp *cpu_grp,
 		struct pmu_map *pmu = to_common_pmu_map(cpu_grp, cpu);
 		struct cpu_data *cpus_data = to_cpu_data(cpu_grp, cpu);
 
-		if (per_cpu(cpu_is_hp, cpu))
+		if (!cpu_online && per_cpu(cpu_is_hp, cpu))
 			continue;
 
 		pevent = set_event(cpu_grp->common_ev_ids[INST_IDX],
@@ -533,7 +533,8 @@ static int setup_common_pmu_events(struct memlat_cpu_grp *cpu_grp,
 	return 0;
 }
 
-static int setup_mon_pmu_events(struct memlat_mon *mon, cpumask_t *mask)
+static int setup_mon_pmu_events(struct memlat_mon *mon,
+					cpumask_t *mask, bool cpu_online)
 {
 	struct perf_event_attr *attr = alloc_attr();
 	struct perf_event *pevent;
@@ -543,7 +544,7 @@ static int setup_mon_pmu_events(struct memlat_mon *mon, cpumask_t *mask)
 		struct pmu_map *pmu = to_mon_pmu_map(mon, cpu);
 		struct mon_data *ev_data = to_mon_ev_data(mon, cpu);
 
-		if (per_cpu(cpu_is_hp, cpu))
+		if (!cpu_online && per_cpu(cpu_is_hp, cpu))
 			continue;
 
 		pevent = set_event(mon->mon_ev_ids[MISS_IDX], cpu, attr);
@@ -708,7 +709,7 @@ static int memlat_hp_restart_events(unsigned int cpu, bool cpu_up)
 		set_pmu_cache_flag(PMU_MAP_INVALID, cpu);
 
 	if (cpu_up) {
-		ret = setup_common_pmu_events(cpu_grp, &mask);
+		ret = setup_common_pmu_events(cpu_grp, &mask, true);
 		if (ret < 0) {
 			pr_err("failed to setup common PMU cpu = %d ret %d\n",
 					cpu, ret);
@@ -735,7 +736,7 @@ static int memlat_hp_restart_events(unsigned int cpu, bool cpu_up)
 		if (!cpumask_test_cpu(cpu, &mon->cpus))
 			continue;
 		if (cpu_up) {
-			ret = setup_mon_pmu_events(mon, &mask);
+			ret = setup_mon_pmu_events(mon, &mask, true);
 			if (ret < 0) {
 				pr_err("mon events failed on cpu %d ret %d\n",
 						cpu, ret);
@@ -1261,7 +1262,7 @@ static int memlat_cpu_grp_probe(struct platform_device *pdev)
 		put_online_cpus();
 	}
 
-	ret = setup_common_pmu_events(cpu_grp, &cpu_grp->cpus);
+	ret = setup_common_pmu_events(cpu_grp, &cpu_grp->cpus, false);
 	if (ret < 0) {
 		dev_err(dev, "failed to setup common evs = %d\n", ret);
 		return ret;
@@ -1377,7 +1378,7 @@ static int memlat_mon_probe(struct platform_device *pdev, u32 mon_type)
 	} else {
 		mon->mon_ev_ids[L3_ACCESS_IDX] = event_id;
 	}
-	setup_mon_pmu_events(mon, &mon->cpus);
+	setup_mon_pmu_events(mon, &mon->cpus, false);
 	if (mon->mon_type == L3_MEMLAT) {
 		if (!use_cached_l3_freqs) {
 			ret = populate_opp_table(dev);
