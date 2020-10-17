@@ -101,6 +101,7 @@ struct ipi_history {
 	ktime_t cpu_idle_resched_ts;
 };
 
+static DEFINE_PER_CPU(ktime_t, next_hrtimer);
 static DEFINE_PER_CPU(struct lpm_history, hist);
 static DEFINE_PER_CPU(struct ipi_history, cpu_ipi_history);
 static DEFINE_PER_CPU(struct lpm_cpu*, cpu_lpm);
@@ -264,7 +265,7 @@ static uint32_t get_next_event(struct lpm_cpu *cpu)
 		return 0;
 
 	for_each_cpu(next_cpu, &cpu_lpm_mask) {
-		ktime_t next_event_c = per_cpu(cpu_lpm, next_cpu)->next_hrtimer;
+		ktime_t next_event_c = per_cpu(next_hrtimer, next_cpu);
 
 		if (next_event > next_event_c)
 			next_event = next_event_c;
@@ -775,7 +776,7 @@ static unsigned int get_next_online_cpu(bool from_idle)
 		return next_cpu;
 	next_event = KTIME_MAX;
 	for_each_online_cpu(cpu) {
-		ktime_t next_event_c = per_cpu(cpu_lpm, cpu)->next_hrtimer;
+		ktime_t next_event_c = per_cpu(next_hrtimer, cpu);
 
 		if (next_event_c < next_event) {
 			next_event = next_event_c;
@@ -802,7 +803,7 @@ static uint64_t get_cluster_sleep_time(struct lpm_cluster *cluster,
 			&cluster->num_children_in_sync, cpu_online_mask);
 
 	for_each_cpu(cpu, &online_cpus_in_cluster) {
-		ktime_t next_event_c = per_cpu(cpu_lpm, cpu)->next_hrtimer;
+		ktime_t next_event_c = per_cpu(next_hrtimer, cpu);
 
 		if (next_event_c < next_event)
 			next_event = next_event_c;
@@ -1448,7 +1449,7 @@ static int lpm_cpuidle_enter(struct cpuidle_device *dev,
 	int ret = -EBUSY;
 
 	/* Read the timer from the CPU that is entering idle */
-	cpu->next_hrtimer = tick_nohz_get_next_hrtimer();
+	per_cpu(next_hrtimer, dev->cpu) = tick_nohz_get_next_hrtimer();
 
 	cpu_prepare(cpu, idx, true);
 	cluster_prepare(cpu->parent, cpumask, idx, true, start_time);
