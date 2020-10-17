@@ -691,16 +691,12 @@ static void free_mon_evs(struct memlat_mon *mon, cpumask_t *mask)
 
 static int memlat_hp_restart_events(unsigned int cpu, bool cpu_up)
 {
-	struct perf_event_attr *attr = alloc_attr();
 	struct memlat_cpu_grp *cpu_grp = per_cpu(per_cpu_grp, cpu);
 	struct scmi_memlat_vendor_ops *ops;
 	struct memlat_mon *mon;
 	int ret = 0;
 	unsigned int i = 0;
 	cpumask_t mask = CPU_MASK_NONE;
-
-	if (!attr)
-		return -ENOMEM;
 
 	if (!cpu_grp)
 		goto exit;
@@ -763,7 +759,6 @@ static int memlat_hp_restart_events(unsigned int cpu, bool cpu_up)
 	}
 	set_pmu_cache_flag(cpu_up ? PMU_CACHE_INVALID : PMU_CACHE_VALID, cpu);
 exit:
-	kfree(attr);
 	return ret;
 }
 
