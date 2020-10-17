@@ -6,6 +6,7 @@
 
 #include <linux/iommu.h>
 #include <linux/mhi.h>
+#include <linux/mhi_misc.h>
 #include <linux/msm_pcie.h>
 #include <linux/pci.h>
 

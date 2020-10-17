@@ -30,6 +30,7 @@
 	(MSM_PCIE_CONFIG_NO_CFG_RESTORE | MSM_PCIE_CONFIG_LINKDOWN)
 
 #define PCI_BAR_NUM			0
+#define PCI_INVALID_READ(val)		((val) == U32_MAX)
 
 #define PCI_DMA_MASK_32_BIT		DMA_BIT_MASK(32)
 #define PCI_DMA_MASK_36_BIT		DMA_BIT_MASK(36)
@@ -82,6 +83,139 @@ static DEFINE_SPINLOCK(time_sync_lock);
 #define HANG_DATA_LENGTH		384
 #define HST_HANG_DATA_OFFSET		((3 * 1024 * 1024) - HANG_DATA_LENGTH)
 #define HSP_HANG_DATA_OFFSET		((2 * 1024 * 1024) - HANG_DATA_LENGTH)
+
+static const struct mhi_channel_config cnss_mhi_channels[] = {
+	{
+		.num = 0,
+		.name = "LOOPBACK",
+		.num_elements = 32,
+		.event_ring = 1,
+		.dir = DMA_TO_DEVICE,
+		.ee_mask = 0x4,
+		.pollcfg = 0,
+		.doorbell = MHI_DB_BRST_DISABLE,
+		.lpm_notify = false,
+		.offload_channel = false,
+		.doorbell_mode_switch = false,
+		.auto_queue = false,
+	},
+	{
+		.num = 1,
+		.name = "LOOPBACK",
+		.num_elements = 32,
+		.event_ring = 1,
+		.dir = DMA_FROM_DEVICE,
+		.ee_mask = 0x4,
+		.pollcfg = 0,
+		.doorbell = MHI_DB_BRST_DISABLE,
+		.lpm_notify = false,
+		.offload_channel = false,
+		.doorbell_mode_switch = false,
+		.auto_queue = false,
+	},
+	{
+		.num = 4,
+		.name = "DIAG",
+		.num_elements = 64,
+		.event_ring = 1,
+		.dir = DMA_TO_DEVICE,
+		.ee_mask = 0x4,
+		.pollcfg = 0,
+		.doorbell = MHI_DB_BRST_DISABLE,
+		.lpm_notify = false,
+		.offload_channel = false,
+		.doorbell_mode_switch = false,
+		.auto_queue = false,
+	},
+	{
+		.num = 5,
+		.name = "DIAG",
+		.num_elements = 64,
+		.event_ring = 1,
+		.dir = DMA_FROM_DEVICE,
+		.ee_mask = 0x4,
+		.pollcfg = 0,
+		.doorbell = MHI_DB_BRST_DISABLE,
+		.lpm_notify = false,
+		.offload_channel = false,
+		.doorbell_mode_switch = false,
+		.auto_queue = false,
+	},
+	{
+		.num = 20,
+		.name = "IPCR",
+		.num_elements = 64,
+		.event_ring = 1,
+		.dir = DMA_TO_DEVICE,
+		.ee_mask = 0x4,
+		.pollcfg = 0,
+		.doorbell = MHI_DB_BRST_DISABLE,
+		.lpm_notify = false,
+		.offload_channel = false,
+		.doorbell_mode_switch = false,
+		.auto_queue = false,
+	},
+	{
+		.num = 21,
+		.name = "IPCR",
+		.num_elements = 64,
+		.event_ring = 1,
+		.dir = DMA_FROM_DEVICE,
+		.ee_mask = 0x4,
+		.pollcfg = 0,
+		.doorbell = MHI_DB_BRST_DISABLE,
+		.lpm_notify = false,
+		.offload_channel = false,
+		.doorbell_mode_switch = false,
+		.auto_queue = true,
+	},
+};
+
+static const struct mhi_event_config cnss_mhi_events[] = {
+	{
+		.num_elements = 32,
+		.irq_moderation_ms = 0,
+		.irq = 1,
+		.mode = MHI_DB_BRST_DISABLE,
+		.data_type = MHI_ER_CTRL,
+		.priority = 0,
+		.hardware_event = false,
+		.client_managed = false,
+		.offload_channel = false,
+	},
+	{
+		.num_elements = 256,
+		.irq_moderation_ms = 0,
+		.irq = 2,
+		.mode = MHI_DB_BRST_DISABLE,
+		.priority = 1,
+		.hardware_event = false,
+		.client_managed = false,
+		.offload_channel = false,
+	},
+	{
+		.num_elements = 32,
+		.irq_moderation_ms = 0,
+		.irq = 1,
+		.mode = MHI_DB_BRST_DISABLE,
+		.data_type = MHI_ER_BW_SCALE,
+		.priority = 2,
+		.hardware_event = false,
+		.client_managed = false,
+		.offload_channel = false,
+	},
+};
+
+static const struct mhi_controller_config cnss_mhi_config = {
+	.max_channels = 32,
+	.timeout_ms = 10000,
+	.use_bounce_buf = false,
+	.buf_len = 0x8000,
+	.num_channels = ARRAY_SIZE(cnss_mhi_channels),
+	.ch_cfg = cnss_mhi_channels,
+	.num_events = ARRAY_SIZE(cnss_mhi_events),
+	.event_cfg = cnss_mhi_events,
+};
 
 static struct cnss_pci_reg ce_src[] = {
 	{ "SRC_RING_BASE_LSB", QCA6390_CE_SRC_RING_BASE_LSB_OFFSET },
@@ -1489,7 +1623,7 @@ int cnss_pci_start_mhi(struct cnss_pci_data *pci_priv)
 
 	if (MHI_TIMEOUT_OVERWRITE_MS)
 		pci_priv->mhi_ctrl->timeout_ms = MHI_TIMEOUT_OVERWRITE_MS;
-	pci_priv->mhi_ctrl->m2_timeout_ms = MHI_M2_TIMEOUT_MS;
+	mhi_set_m2_timeout_ms(pci_priv->mhi_ctrl, MHI_M2_TIMEOUT_MS);
 
 	ret = cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_INIT);
 	if (ret)
@@ -2141,7 +2275,10 @@ static int cnss_qca6290_powerup(struct cnss_pci_data *pci_priv)
 
 	if (plat_priv->ramdump_info_v2.dump_data_valid) {
 		cnss_pci_clear_dump_info(pci_priv);
+		cnss_pci_power_off_mhi(pci_priv);
+		cnss_suspend_pci_link(pci_priv);
 		cnss_pci_deinit_mhi(pci_priv);
+		cnss_power_off_device(plat_priv);
 	}
 
 	/* Clear QMI send usage count during every power up */
@@ -2257,15 +2394,19 @@ static int cnss_qca6290_shutdown(struct cnss_pci_data *pci_priv)
 
 	if (test_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state))
 		do_force_wake = false;
-
 	cnss_pci_set_wlaon_pwr_ctrl(pci_priv, false, true, do_force_wake);
+
+	/* FBC image will be freed after powering off MHI, so skip
+	 * if RAM dump data is still valid.
+	 */
+	if (plat_priv->ramdump_info_v2.dump_data_valid)
+		goto skip_power_off;
+
 	cnss_pci_power_off_mhi(pci_priv);
 	ret = cnss_suspend_pci_link(pci_priv);
 	if (ret)
 		cnss_pr_err("Failed to suspend PCI link, err = %d\n", ret);
-	if (!plat_priv->ramdump_info_v2.dump_data_valid)
-		cnss_pci_deinit_mhi(pci_priv);
-
+	cnss_pci_deinit_mhi(pci_priv);
 	cnss_power_off_device(plat_priv);
 
 skip_power_off:
@@ -2310,7 +2451,10 @@ static int cnss_qca6290_ramdump(struct cnss_pci_data *pci_priv)
 	ret = cnss_do_elf_ramdump(plat_priv);
 
 	cnss_pci_clear_dump_info(pci_priv);
+	cnss_pci_power_off_mhi(pci_priv);
+	cnss_suspend_pci_link(pci_priv);
 	cnss_pci_deinit_mhi(pci_priv);
+	cnss_power_off_device(plat_priv);
 
 	return ret;
 }
@@ -3341,7 +3485,7 @@ int cnss_pci_force_wake_request_sync(struct device *dev, int timeout_us)
 						  timeout_us, false);
 	} else {
 		/* Sleep wait for mhi_ctrl->timeout_ms */
-		return mhi_device_get_sync(mhi_ctrl->mhi_dev, MHI_VOTE_DEVICE);
+		return mhi_device_get_sync(mhi_ctrl->mhi_dev);
 	}
 }
 EXPORT_SYMBOL(cnss_pci_force_wake_request_sync);
@@ -3376,7 +3520,7 @@ int cnss_pci_force_wake_request(struct device *dev)
 	if (test_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state))
 		return -EAGAIN;
 
-	mhi_device_get(mhi_ctrl->mhi_dev, MHI_VOTE_DEVICE);
+	mhi_device_get(mhi_ctrl->mhi_dev);
 
 	return 0;
 }
@@ -3438,7 +3582,7 @@ int cnss_pci_force_wake_release(struct device *dev)
 	if (test_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state))
 		return -EAGAIN;
 
-	mhi_device_put(mhi_ctrl->mhi_dev, MHI_VOTE_DEVICE);
+	mhi_device_put(mhi_ctrl->mhi_dev);
 
 	return 0;
 }
@@ -4487,7 +4631,7 @@ void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv, bool in_panic)
 	cnss_pci_dump_shadow_reg(pci_priv);
 	cnss_pci_dump_qdss_reg(pci_priv);
 
-	ret = mhi_download_rddm_img(pci_priv->mhi_ctrl, in_panic);
+	ret = mhi_download_rddm_image(pci_priv->mhi_ctrl, in_panic);
 	if (ret) {
 		cnss_fatal_err("Failed to download RDDM image, err = %d\n",
 			       ret);
@@ -4609,17 +4753,16 @@ void cnss_pci_device_crashed(struct cnss_pci_data *pci_priv)
 	cnss_device_crashed(&pci_priv->pci_dev->dev);
 }
 
-static int cnss_mhi_pm_runtime_get(struct mhi_controller *mhi_ctrl, void *priv)
+static int cnss_mhi_pm_runtime_get(struct mhi_controller *mhi_ctrl)
 {
-	struct cnss_pci_data *pci_priv = priv;
+	struct cnss_pci_data *pci_priv = dev_get_drvdata(mhi_ctrl->cntrl_dev);
 
 	return cnss_pci_pm_runtime_get(pci_priv, RTPM_ID_MHI);
 }
 
-static void cnss_mhi_pm_runtime_put_noidle(struct mhi_controller *mhi_ctrl,
-					   void *priv)
+static void cnss_mhi_pm_runtime_put_noidle(struct mhi_controller *mhi_ctrl)
 {
-	struct cnss_pci_data *pci_priv = priv;
+	struct cnss_pci_data *pci_priv = dev_get_drvdata(mhi_ctrl->cntrl_dev);
 
 	cnss_pci_pm_runtime_put_noidle(pci_priv, RTPM_ID_MHI);
 }
@@ -4718,12 +4861,12 @@ static int cnss_pci_update_fw_name(struct cnss_pci_data *pci_priv)
 	}
 
 	cnss_pr_dbg("FW name is %s, FW fallback name is %s\n",
-		    mhi_ctrl->fw_image, mhi_ctrl->fw_image_fallback);
+		    mhi_ctrl->fw_image, mhi_ctrl->fallback_fw_image);
 
 	return 0;
 }
 
-static char *cnss_mhi_notify_status_to_str(enum MHI_CB status)
+static char *cnss_mhi_notify_status_to_str(enum mhi_callback status)
 {
 	switch (status) {
 	case MHI_CB_IDLE:
@@ -4736,7 +4879,7 @@ static char *cnss_mhi_notify_status_to_str(enum MHI_CB status)
 		return "FATAL_ERROR";
 	case MHI_CB_EE_MISSION_MODE:
 		return "MISSION_MODE";
-	case MHI_CB_FW_FALLBACK_IMG:
+	case MHI_CB_FALLBACK_IMG:
 		return "FW_FALLBACK";
 	default:
 		return "UNKNOWN";
@@ -4761,22 +4904,10 @@ static void cnss_dev_rddm_timeout_hdlr(struct timer_list *t)
 	cnss_schedule_recovery(&pci_priv->pci_dev->dev, CNSS_REASON_TIMEOUT);
 }
 
-static int cnss_mhi_link_status(struct mhi_controller *mhi_ctrl, void *priv)
+static void cnss_mhi_notify_status(struct mhi_controller *mhi_ctrl,
+				   enum mhi_callback reason)
 {
-	struct cnss_pci_data *pci_priv = priv;
-
-	if (!pci_priv) {
-		cnss_pr_err("pci_priv is NULL\n");
-		return -EINVAL;
-	}
-
-	return cnss_pci_check_link_status(pci_priv);
-}
-
-static void cnss_mhi_notify_status(struct mhi_controller *mhi_ctrl, void *priv,
-				   enum MHI_CB reason)
-{
-	struct cnss_pci_data *pci_priv = priv;
+	struct cnss_pci_data *pci_priv = dev_get_drvdata(mhi_ctrl->cntrl_dev);
 	struct cnss_plat_data *plat_priv;
 	enum cnss_recovery_reason cnss_reason;
 
@@ -4818,7 +4949,7 @@ static void cnss_mhi_notify_status(struct mhi_controller *mhi_ctrl, void *priv,
 		cnss_pci_update_status(pci_priv, CNSS_FW_DOWN);
 		cnss_reason = CNSS_REASON_RDDM;
 		break;
-	case MHI_CB_FW_FALLBACK_IMG:
+	case MHI_CB_FALLBACK_IMG:
 		plat_priv->use_fw_path_with_prefix = false;
 		cnss_pci_update_fw_name(pci_priv);
 		return;
@@ -4854,7 +4985,7 @@ static int cnss_pci_get_mhi_msi(struct cnss_pci_data *pci_priv)
 					  base_vector + i);
 
 	pci_priv->mhi_ctrl->irq = irq;
-	pci_priv->mhi_ctrl->msi_allocated = num_vectors;
+	pci_priv->mhi_ctrl->nr_irqs = num_vectors;
 
 	return 0;
 }
@@ -4862,7 +4993,7 @@ static int cnss_pci_get_mhi_msi(struct cnss_pci_data *pci_priv)
 static int cnss_mhi_bw_scale(struct mhi_controller *mhi_ctrl,
 			     struct mhi_link_info *link_info)
 {
-	struct cnss_pci_data *pci_priv = mhi_ctrl->priv_data;
+	struct cnss_pci_data *pci_priv = dev_get_drvdata(mhi_ctrl->cntrl_dev);
 	int ret = 0;
 
 	ret = msm_pcie_set_link_bandwidth(pci_priv->pci_dev,
@@ -4882,6 +5013,29 @@ static int cnss_mhi_bw_scale(struct mhi_controller *mhi_ctrl,
 	return 0;
 }
 
+static int cnss_mhi_read_reg(struct mhi_controller *mhi_ctrl,
+			     void __iomem *addr, u32 *out)
+{
+	struct cnss_pci_data *pci_priv = dev_get_drvdata(mhi_ctrl->cntrl_dev);
+
+	u32 tmp = readl_relaxed(addr);
+
+	/* Unexpected value, query the link status */
+	if (PCI_INVALID_READ(tmp) &&
+	    cnss_pci_check_link_status(pci_priv))
+		return -EIO;
+
+	*out = tmp;
+
+	return 0;
+}
+
+static void cnss_mhi_write_reg(struct mhi_controller *mhi_ctrl,
+			       void __iomem *addr, u32 val)
+{
+	writel_relaxed(val, addr);
+}
+
 static int cnss_pci_register_mhi(struct cnss_pci_data *pci_priv)
 {
 	int ret = 0;
@@ -4892,30 +5046,23 @@ static int cnss_pci_register_mhi(struct cnss_pci_data *pci_priv)
 	if (pci_priv->device_id == QCA6174_DEVICE_ID)
 		return 0;
 
-	mhi_ctrl = mhi_alloc_controller(0);
+	mhi_ctrl = mhi_alloc_controller();
 	if (!mhi_ctrl) {
 		cnss_pr_err("Invalid MHI controller context\n");
 		return -EINVAL;
 	}
 
 	pci_priv->mhi_ctrl = mhi_ctrl;
-
-	mhi_ctrl->priv_data = pci_priv;
-	mhi_ctrl->dev = &pci_dev->dev;
-	mhi_ctrl->of_node = (&plat_priv->plat_dev->dev)->of_node;
-	mhi_ctrl->dev_id = pci_priv->device_id;
-	mhi_ctrl->domain = pci_domain_nr(pci_dev->bus);
-	mhi_ctrl->bus = pci_dev->bus->number;
-	mhi_ctrl->slot = PCI_SLOT(pci_dev->devfn);
+	mhi_ctrl->cntrl_dev = &pci_dev->dev;
 
 	mhi_ctrl->fw_image = plat_priv->firmware_name;
-	mhi_ctrl->fw_image_fallback = plat_priv->fw_fallback_name;
+	mhi_ctrl->fallback_fw_image = plat_priv->fw_fallback_name;
 
 	mhi_ctrl->regs = pci_priv->bar;
-	mhi_ctrl->len = pci_resource_len(pci_priv->pci_dev, PCI_BAR_NUM);
-	cnss_pr_dbg("BAR starts at %pa, len-%x\n",
+	mhi_ctrl->regs_len = pci_resource_len(pci_priv->pci_dev, PCI_BAR_NUM);
+	cnss_pr_dbg("BAR starts at %pa, length is %x\n",
 		    &pci_resource_start(pci_priv->pci_dev, PCI_BAR_NUM),
-		    mhi_ctrl->len);
+		    mhi_ctrl->regs_len);
 
 	ret = cnss_pci_get_mhi_msi(pci_priv);
 	if (ret) {
@@ -4932,33 +5079,25 @@ static int cnss_pci_register_mhi(struct cnss_pci_data *pci_priv)
 		mhi_ctrl->iova_stop = pci_priv->dma_bit_mask;
 	}
 
-	mhi_ctrl->link_status = cnss_mhi_link_status;
 	mhi_ctrl->status_cb = cnss_mhi_notify_status;
 	mhi_ctrl->runtime_get = cnss_mhi_pm_runtime_get;
 	mhi_ctrl->runtime_put = cnss_mhi_pm_runtime_put_noidle;
-	mhi_ctrl->bw_scale = cnss_mhi_bw_scale;
+	mhi_ctrl->read_reg = cnss_mhi_read_reg;
+	mhi_ctrl->write_reg = cnss_mhi_write_reg;
 
 	mhi_ctrl->rddm_size = pci_priv->plat_priv->ramdump_info_v2.ramdump_size;
 	mhi_ctrl->sbl_size = SZ_512K;
 	mhi_ctrl->seg_len = SZ_512K;
 	mhi_ctrl->fbc_download = true;
-	mhi_ctrl->rddm_supported = true;
 
-	mhi_ctrl->log_buf = ipc_log_context_create(CNSS_IPC_LOG_PAGES,
-						   "cnss-mhi", 0);
-	if (!mhi_ctrl->log_buf)
-		cnss_pr_err("Unable to create CNSS MHI IPC log context\n");
-
-	mhi_ctrl->cntrl_log_buf = ipc_log_context_create(CNSS_IPC_LOG_PAGES,
-							 "cnss-mhi-cntrl", 0);
-	if (!mhi_ctrl->cntrl_log_buf)
-		cnss_pr_err("Unable to create CNSS MHICNTRL IPC log context\n");
-
-	ret = of_register_mhi_controller(mhi_ctrl);
+	ret = mhi_register_controller(mhi_ctrl, &cnss_mhi_config);
 	if (ret) {
 		cnss_pr_err("Failed to register to MHI bus, err = %d\n", ret);
-		goto destroy_ipc;
+		goto free_mhi_irq;
 	}
+
+	/* BW scale CB needs to be set after registering MHI per requirement */
+	mhi_controller_set_bw_scale_cb(mhi_ctrl, cnss_mhi_bw_scale);
 
 	ret = cnss_pci_update_fw_name(pci_priv);
 	if (ret)
@@ -4967,12 +5106,8 @@ static int cnss_pci_register_mhi(struct cnss_pci_data *pci_priv)
 	return 0;
 
 unreg_mhi:
-	mhi_unregister_mhi_controller(mhi_ctrl);
-destroy_ipc:
-	if (mhi_ctrl->log_buf)
-		ipc_log_context_destroy(mhi_ctrl->log_buf);
-	if (mhi_ctrl->cntrl_log_buf)
-		ipc_log_context_destroy(mhi_ctrl->cntrl_log_buf);
+	mhi_unregister_controller(mhi_ctrl);
+free_mhi_irq:
 	kfree(mhi_ctrl->irq);
 free_mhi_ctrl:
 	mhi_free_controller(mhi_ctrl);
@@ -4987,11 +5122,7 @@ static void cnss_pci_unregister_mhi(struct cnss_pci_data *pci_priv)
 	if (pci_priv->device_id == QCA6174_DEVICE_ID)
 		return;
 
-	mhi_unregister_mhi_controller(mhi_ctrl);
-	if (mhi_ctrl->log_buf)
-		ipc_log_context_destroy(mhi_ctrl->log_buf);
-	if (mhi_ctrl->cntrl_log_buf)
-		ipc_log_context_destroy(mhi_ctrl->cntrl_log_buf);
+	mhi_unregister_controller(mhi_ctrl);
 	kfree(mhi_ctrl->irq);
 	mhi_free_controller(mhi_ctrl);
 }
