@@ -176,6 +176,15 @@ config QCOM_LAHAINA_LLCC
 	  can start using the LLCC slices.
 	  If unsure, say n.
 
+config QCOM_SDXLEMUR_LLCC
+	tristate "Qualcomm Technologies, Inc. SDXLEMUR LLCC driver"
+	depends on QCOM_LLCC
+	help
+	  Say y or m here to enable the LLCC driver for SDXLEMUR platform.
+	  This provides data required to configure LLCC so that clients
+	  can start using the LLCC slices.
+	  If unsure, say n.
+
 config QCOM_SHIMA_LLCC
 	tristate "Qualcomm Technologies, Inc. SHIMA LLCC driver"
 	depends on QCOM_LLCC

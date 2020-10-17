@@ -34,6 +34,7 @@
 #define LLCC_CVPFW       32
 #define LLCC_CPUSS1      33
 #define LLCC_CPUHWT      36
+#define LLCC_MDMCLD2     37
 
 /**
  * llcc_slice_desc - Cache slice descriptor
