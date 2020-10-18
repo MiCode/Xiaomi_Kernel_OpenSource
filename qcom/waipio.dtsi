@@ -1334,10 +1334,11 @@
 			     /* No interrupt into GIC for DRV3 */
 		qcom,tcs-offset = <0xd00>;
 		qcom,drv-id = <2>;
-		qcom,tcs-config = <ACTIVE_TCS  2>, /* TODO:1 for fastpath */
-				  <SLEEP_TCS   3>,
-				  <WAKE_TCS    3>,
-				  <CONTROL_TCS 0>; /* PDC wakeup values will be written from TZ */
+		qcom,tcs-config = <ACTIVE_TCS    3>,
+				  <SLEEP_TCS     2>,
+				  <WAKE_TCS      2>,
+				  <CONTROL_TCS   0>, /* PDC wakeup values will be written from TZ */
+				  <FAST_PATH_TCS 1>;
 		power-domains = <&CLUSTER_PD>;
 	};
 
@@ -1350,10 +1351,11 @@
 		interrupts = <GIC_SPI 129 IRQ_TYPE_LEVEL_HIGH>;
 		qcom,tcs-offset = <0x1c00>;
 		qcom,drv-id = <0>;
-		qcom,tcs-config = <ACTIVE_TCS  0>,
-				  <SLEEP_TCS   1>,
-				  <WAKE_TCS    1>,
-				  <CONTROL_TCS 0>;
+		qcom,tcs-config = <ACTIVE_TCS    0>,
+				  <SLEEP_TCS     1>,
+				  <WAKE_TCS      1>,
+				  <CONTROL_TCS   0>,
+				  <FAST_PATH_TCS 0>;
 	};
 
 	soc-sleep-stats@c3f0000 {
