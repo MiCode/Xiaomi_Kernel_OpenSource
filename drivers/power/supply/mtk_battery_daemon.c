@@ -2444,7 +2444,7 @@ static void mtk_battery_daemon_handler(struct mtk_battery *gm, void *nl_data,
 			ctime = ktime_get_boottime();
 			tmp_time = ktime_to_timespec64(ctime);
 			end_time.tv_sec = tmp_time.tv_sec + secs;
-			end_time.tv_sec = 0;
+			end_time.tv_nsec = 0;
 			ktime = ktime_set(end_time.tv_sec, end_time.tv_nsec);
 
 			if (msg->fgd_subcmd_para1 == 0)
