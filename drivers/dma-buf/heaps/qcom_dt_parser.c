@@ -8,6 +8,7 @@
 #include <linux/slab.h>
 #include <linux/of_platform.h>
 #include <linux/of_address.h>
+#include <linux/of_reserved_mem.h>
 
 #include <linux/qcom_dma_heap.h>
 #include "qcom_dma_heap_priv.h"
@@ -37,34 +38,73 @@ void free_pdata(const struct platform_data *pdata)
 	kfree(pdata);
 }
 
-static int get_heap_dt_data(struct device_node *node,
+static int heap_dt_init(struct device_node *mem_node,
 			    struct platform_heap *heap)
 {
-	struct device_node *pnode;
 	const __be32 *basep;
 	u64 base, size;
+	struct device *dev = heap->dev;
+	struct reserved_mem *rmem;
 	int ret = 0;
 
-	pnode = of_parse_phandle(node, "memory-region", 0);
-	if (pnode) {
-		basep = of_get_address(pnode, 0, &size, NULL);
-		if (basep) {
-			base = of_translate_address(pnode, basep);
-			if (base != OF_BAD_ADDR) {
-				heap->base = base;
-				heap->size = size;
-			} else {
-				ret = -EINVAL;
-				dev_err(heap->dev,
-					"Failed to get heap base/size\n");
 
-			}
+	rmem = of_reserved_mem_lookup(mem_node);
+
+	if (!rmem) {
+		dev_err(dev, "Failed to find reserved memory region\n");
+		return -EINVAL;
+	}
+
+	/*
+	 * We only need to call this when the memory-region is managed by
+	 * a reserved memory region driver (e.g. CMA, coherent, etc). In that
+	 * case, they will have ops for device specific initialization for
+	 * the memory region. Otherwise, we have a pure carveout, which needs
+	 * not be initialized.
+	 */
+	if (rmem->ops) {
+		ret = of_reserved_mem_device_init_by_idx(dev, dev->of_node, 0);
+		if (ret) {
+			dev_err(dev,
+				"Failed to initialize memory region rc: %d\n",
+				ret);
+			return ret;
 		}
+	}
 
-		of_node_put(pnode);
+	basep = of_get_address(mem_node, 0, &size, NULL);
+	if (basep) {
+		base = of_translate_address(mem_node, basep);
+		if (base != OF_BAD_ADDR) {
+			heap->base = base;
+			heap->size = size;
+		} else {
+			ret = -EINVAL;
+			dev_err(heap->dev,
+				"Failed to get heap base/size\n");
+			of_reserved_mem_device_release(dev);
+		}
 	}
 
 	return ret;
+}
+
+static void release_reserved_memory_regions(struct platform_heap *heaps,
+					    int idx)
+{
+	struct device *dev;
+	struct device_node *node, *mem_node;
+
+	for (idx = idx - 1; idx >= 0; idx--) {
+		dev = heaps[idx].dev;
+		node = dev->of_node;
+		mem_node = of_parse_phandle(node, "memory-region", 0);
+
+		if (mem_node)
+			of_reserved_mem_device_release(dev);
+
+		of_node_put(mem_node);
+	}
 }
 
 struct platform_data *parse_heap_dt(struct platform_device *pdev)
@@ -72,6 +112,7 @@ struct platform_data *parse_heap_dt(struct platform_device *pdev)
 	struct platform_data *pdata = NULL;
 	struct platform_heap *heaps = NULL;
 	struct device_node *node;
+	struct device_node *mem_node;
 	struct platform_device *new_dev = NULL;
 	const struct device_node *dt_node = pdev->dev.of_node;
 	int ret;
@@ -113,9 +154,14 @@ struct platform_data *parse_heap_dt(struct platform_device *pdev)
 		if (ret)
 			goto free_heaps;
 
-		ret = get_heap_dt_data(node, &pdata->heaps[idx]);
-		if (ret)
-			goto free_heaps;
+		mem_node = of_parse_phandle(node, "memory-region", 0);
+		if (mem_node) {
+			ret = heap_dt_init(mem_node, &pdata->heaps[idx]);
+			if (ret)
+				goto free_heaps;
+
+			of_node_put(mem_node);
+		}
 
 		++idx;
 	}
@@ -123,6 +169,7 @@ struct platform_data *parse_heap_dt(struct platform_device *pdev)
 
 free_heaps:
 	of_node_put(node);
+	release_reserved_memory_regions(pdata->heaps, idx);
 	free_pdata(pdata);
 	return ERR_PTR(ret);
 }
