@@ -982,11 +982,11 @@
 			     <GIC_SPI 5 IRQ_TYPE_LEVEL_HIGH>;
 		qcom,tcs-offset = <0xd00>;
 		qcom,drv-id = <2>;
-		qcom,tcs-config = <ACTIVE_TCS  2>,
-				  <SLEEP_TCS   3>,
-				  <WAKE_TCS    3>,
-				  <CONTROL_TCS 1>;
-
+		qcom,tcs-config = <ACTIVE_TCS    2>,
+				  <SLEEP_TCS     3>,
+				  <WAKE_TCS      3>,
+				  <CONTROL_TCS   1>,
+				  <FAST_PATH_TCS 0>;
 		rpmhcc: qcom,rpmhclk {
 			compatible = "qcom,shima-rpmh-clk";
 			#clock-cells = <1>;
@@ -1005,10 +1005,11 @@
 		interrupts = <GIC_SPI 129 IRQ_TYPE_LEVEL_HIGH>;
 		qcom,tcs-offset = <0x1c00>;
 		qcom,drv-id = <0>;
-		qcom,tcs-config = <ACTIVE_TCS  0>,
-				  <SLEEP_TCS   1>,
-				  <WAKE_TCS    1>,
-				  <CONTROL_TCS 0>;
+		qcom,tcs-config = <ACTIVE_TCS    0>,
+				  <SLEEP_TCS     1>,
+				  <WAKE_TCS      1>,
+				  <CONTROL_TCS   0>,
+				  <FAST_PATH_TCS 0>;
 	};
 
 	qcom,chd {
