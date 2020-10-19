@@ -3990,7 +3990,6 @@ static int __maybe_unused arm_smmu_runtime_resume(struct device *dev)
 	if (ret)
 		return ret;
 
-	arm_smmu_device_reset(smmu);
 	return 0;
 }
 
@@ -4004,10 +4003,23 @@ static int __maybe_unused arm_smmu_runtime_suspend(struct device *dev)
 
 static int __maybe_unused arm_smmu_pm_resume(struct device *dev)
 {
+	struct arm_smmu_device *smmu = dev_get_drvdata(dev);
+	int ret;
+
 	if (pm_runtime_suspended(dev))
 		return 0;
 
-	return arm_smmu_runtime_resume(dev);
+	ret = arm_smmu_runtime_resume(dev);
+	if (ret)
+		return ret;
+
+	/*
+	 * QCOM HW supports register retention. So we really only need to
+	 * re-program the registers for hibernation. Don't do this during
+	 * runtime_resume to avoid latency.
+	 */
+	arm_smmu_device_reset(smmu);
+	return 0;
 }
 
 static int __maybe_unused arm_smmu_pm_suspend(struct device *dev)
