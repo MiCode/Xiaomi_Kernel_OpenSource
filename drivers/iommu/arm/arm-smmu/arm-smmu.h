@@ -498,7 +498,11 @@ struct arm_smmu_domain {
 	struct mutex			init_mutex; /* Protects smmu pointer */
 	spinlock_t			cb_lock; /* Serialises ATS1* ops */
 	spinlock_t			sync_lock; /* Serialises TLB syncs */
-	struct qcom_io_pgtable_info	pgtbl_info;
+	/*
+	 * This field is required for retrieving ttbr for dynamic domains
+	 * and will be removed soon.
+	 */
+	struct io_pgtable_cfg		pgtbl_cfg;
 	DECLARE_BITMAP(attributes, DOMAIN_ATTR_EXTENDED_MAX);
 	u32				secure_vmid;
 	struct list_head		pte_info_list;

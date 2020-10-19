@@ -450,20 +450,6 @@ int __arm_smmu_alloc_cb(unsigned long *map, int start, int end,
 	struct arm_smmu_device *smmu = cfg->smmu;
 	int idx;
 	int i;
-	bool dynamic;
-
-	/*
-	 * Dynamic domains have already set cbndx through domain attribute.
-	 * Verify that they picked a valid value.
-	 */
-	dynamic = is_dynamic_domain(&smmu_domain->domain);
-	if (dynamic) {
-		idx = smmu_domain->cfg.cbndx;
-		if (idx < smmu->num_context_banks)
-			return idx;
-		else
-			return -EINVAL;
-	}
 
 	for_each_cfg_sme(cfg, fwspec, i, idx) {
 		if (smmu->s2crs[idx].pinned)
@@ -1183,33 +1169,6 @@ void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx,
 	arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_SCTLR, reg);
 }
 
-static int arm_smmu_init_asid(struct iommu_domain *domain,
-				struct arm_smmu_device *smmu)
-{
-	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
-	bool dynamic = is_dynamic_domain(domain);
-	int ret;
-
-	if (!dynamic) {
-		cfg->asid = cfg->cbndx + 1;
-	} else {
-		mutex_lock(&smmu->idr_mutex);
-		ret = idr_alloc_cyclic(&smmu->asid_idr, domain,
-				smmu->num_context_banks + 2,
-				MAX_ASID + 1, GFP_KERNEL);
-
-		mutex_unlock(&smmu->idr_mutex);
-		if (ret < 0) {
-			dev_err(smmu->dev, "dynamic ASID allocation failed: %d\n",
-				ret);
-			return ret;
-		}
-		cfg->asid = ret;
-	}
-	return 0;
-}
-
 static void arm_smmu_free_asid(struct iommu_domain *domain)
 {
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
@@ -1227,11 +1186,11 @@ static void arm_smmu_free_asid(struct iommu_domain *domain)
 
 /* This function assumes that the domain's init mutex is held */
 static int arm_smmu_get_dma_cookie(struct device *dev,
-				    struct arm_smmu_domain *smmu_domain)
+				    struct arm_smmu_domain *smmu_domain,
+				    struct io_pgtable_ops *pgtbl_ops)
 {
 	bool is_fast = test_bit(DOMAIN_ATTR_FAST, smmu_domain->attributes);
 	struct iommu_domain *domain = &smmu_domain->domain;
-	struct io_pgtable_ops *pgtbl_ops = smmu_domain->pgtbl_ops;
 	int ret;
 
 	if (domain->type == IOMMU_DOMAIN_DMA)
@@ -1257,67 +1216,128 @@ static void arm_smmu_put_dma_cookie(struct iommu_domain *domain)
 		fast_smmu_put_dma_cookie(domain);
 }
 
-static void arm_smmu_domain_get_qcom_quirks(struct arm_smmu_domain *smmu_domain,
-					    struct arm_smmu_device *smmu,
-					    unsigned long *quirks)
+static unsigned long arm_smmu_domain_get_qcom_quirks(
+			struct arm_smmu_domain *smmu_domain,
+			struct arm_smmu_device *smmu)
 {
-	/* TODO: re-add
+	/* These TCR register options are mutually exclusive */
+	if (is_iommu_pt_coherent(smmu_domain))
+		return 0;
 	if (test_bit(DOMAIN_ATTR_USE_UPSTREAM_HINT, smmu_domain->attributes))
-		*quirks |= IO_PGTABLE_QUIRK_QCOM_USE_UPSTREAM_HINT;
+		return IO_PGTABLE_QUIRK_QCOM_USE_UPSTREAM_HINT;
 	if (test_bit(DOMAIN_ATTR_USE_LLC_NWA, smmu_domain->attributes))
-		*quirks |= IO_PGTABLE_QUIRK_QCOM_USE_LLC_NWA;*/
+		return IO_PGTABLE_QUIRK_QCOM_USE_LLC_NWA;
+
+	return 0;
 }
 
-static int arm_smmu_setup_context_bank(struct arm_smmu_domain *smmu_domain,
-				       struct arm_smmu_device *smmu,
-				       struct device *dev)
+static int arm_smmu_init_dynamic_domain(struct iommu_domain *domain,
+					struct arm_smmu_device *smmu,
+					struct device *dev)
 {
-	struct iommu_domain *domain = &smmu_domain->domain;
+	unsigned long ias, oas;
+	struct io_pgtable_ops *pgtbl_ops;
+	struct qcom_io_pgtable_info pgtbl_info;
+	struct io_pgtable_cfg *pgtbl_cfg = &pgtbl_info.cfg;
+	enum io_pgtable_fmt fmt;
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
-	struct io_pgtable_cfg *pgtbl_cfg = &smmu_domain->pgtbl_info.cfg;
-	bool dynamic = is_dynamic_domain(domain);
-	int irq, ret = 0;
-	irqreturn_t (*context_fault)(int irq, void *dev);
+	int ret;
 
-	if (!dynamic) {
-		/* Initialise the context bank with our page table cfg */
-		arm_smmu_init_context_bank(smmu_domain, pgtbl_cfg);
-		arm_smmu_write_context_bank(smmu, cfg->cbndx,
-					    smmu_domain->attributes);
+	smmu_domain->stage = ARM_SMMU_DOMAIN_S1;
+	cfg->fmt = ARM_SMMU_CTX_FMT_AARCH64;
+	cfg->cbar = CBAR_TYPE_S1_TRANS_S2_BYPASS;
+	ias = smmu->va_size;
+	oas = smmu->ipa_size;
+	fmt = ARM_64_LPAE_S1;
+	if (smmu->options & ARM_SMMU_OPT_3LVL_TABLES)
+		ias = min(ias, 39UL);
+	smmu_domain->flush_ops = &arm_smmu_s1_tlb_ops;
 
-		if (smmu->impl && smmu->impl->init_context_bank)
-			smmu->impl->init_context_bank(smmu_domain, dev);
+	/*
+	 * Dynamic domains have already set cbndx through domain attribute.
+	 * Verify that they picked a valid value.
+	 */
+	ret = smmu_domain->cfg.cbndx;
+	if (ret >= smmu->num_context_banks)
+		return -EINVAL;
+	cfg->cbndx = ret;
 
-		if (smmu->version < ARM_SMMU_V2) {
-			cfg->irptndx = atomic_inc_return(&smmu->irptndx);
-			cfg->irptndx %= smmu->num_context_irqs;
-		} else {
-			cfg->irptndx = cfg->cbndx;
-		}
+	mutex_lock(&smmu->idr_mutex);
+	ret = idr_alloc_cyclic(&smmu->asid_idr, domain,
+				smmu->num_context_banks + 2,
+				MAX_ASID + 1, GFP_KERNEL);
+	mutex_unlock(&smmu->idr_mutex);
+	if (ret < 0) {
+		dev_err(smmu->dev, "dynamic ASID allocation failed: %d\n",
+			ret);
+		return ret;
+	}
+	cfg->asid = ret;
 
-		/*
-		 * Request context fault interrupt. Do this last to avoid the
-		 * handler seeing a half-initialised domain state.
-		 */
-		irq = smmu->irqs[smmu->num_global_irqs + cfg->irptndx];
+	smmu_domain->smmu = smmu;
+	/*
+	 * Dynamic domain don't need to program actlr, so skip calling
+	 * impl->init_context
+	 */
 
-		if (smmu->impl && smmu->impl->context_fault)
-			context_fault = smmu->impl->context_fault;
-		else
-			context_fault = arm_smmu_context_fault;
+	pgtbl_info.cfg = (struct io_pgtable_cfg) {
+		.pgsize_bitmap	= smmu->pgsize_bitmap,
+		.ias		= ias,
+		.oas		= oas,
+		.coherent_walk	= is_iommu_pt_coherent(smmu_domain),
+		.tlb		= smmu_domain->flush_ops,
+		.iommu_dev	= smmu->dev,
+	};
 
-		ret = devm_request_threaded_irq(smmu->dev, irq, NULL,
-			context_fault, IRQF_ONESHOT | IRQF_SHARED,
-			"arm-smmu-context-fault", domain);
-		if (ret < 0) {
-			dev_err(smmu->dev, "failed to request context IRQ %d (%u)\n",
-				cfg->irptndx, irq);
-			cfg->irptndx = ARM_SMMU_INVALID_IRPTNDX;
-		}
-	} else {
-		cfg->irptndx = ARM_SMMU_INVALID_IRPTNDX;
+	pgtbl_cfg->quirks |= arm_smmu_domain_get_qcom_quirks(smmu_domain, smmu);
+
+	pgtbl_ops = qcom_alloc_io_pgtable_ops(fmt, &pgtbl_info, smmu_domain);
+	if (!pgtbl_ops) {
+		ret = -ENOMEM;
+		goto out_clear_smmu;
 	}
 
+	/* Dynamic domains don't write to context bank registers */
+
+	/* Update the domain's page sizes to reflect the page table format */
+	domain->pgsize_bitmap = pgtbl_cfg->pgsize_bitmap;
+
+	if (pgtbl_cfg->quirks & IO_PGTABLE_QUIRK_ARM_TTBR1) {
+		domain->geometry.aperture_start = ~0UL << ias;
+		domain->geometry.aperture_end = ~0UL;
+	} else {
+		domain->geometry.aperture_end = (1UL << ias) - 1;
+	}
+
+	domain->geometry.force_aperture = true;
+
+	/* Dynamic domains don't use interrupts */
+	cfg->irptndx = ARM_SMMU_INVALID_IRPTNDX;
+
+	/*
+	 * assign any page table memory that might have been allocated
+	 * during alloc_io_pgtable_ops
+	 */
+	arm_smmu_secure_domain_lock(smmu_domain);
+	arm_smmu_assign_table(smmu_domain);
+	arm_smmu_secure_domain_unlock(smmu_domain);
+
+	/*
+	 * Dynamic domains don't use the dma layer, so skip
+	 * getting a dma cookie.
+	 */
+
+	/* Save pagetable_cfg for gpu */
+	smmu_domain->pgtbl_cfg = *pgtbl_cfg;
+
+	/* Publish page table ops for map/unmap */
+	smmu_domain->pgtbl_ops = pgtbl_ops;
+	return 0;
+
+out_clear_smmu:
+	arm_smmu_destroy_domain_context(domain);
+	smmu_domain->smmu = NULL;
 	return ret;
 }
 
@@ -1336,22 +1356,31 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 					struct arm_smmu_device *smmu,
 					struct device *dev)
 {
-	int start, ret = 0;
+	int irq, start, ret = 0;
 	unsigned long ias, oas;
+	struct io_pgtable_ops *pgtbl_ops;
+	struct qcom_io_pgtable_info pgtbl_info;
+	struct io_pgtable_cfg *pgtbl_cfg = &pgtbl_info.cfg;
 	enum io_pgtable_fmt fmt;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
-	unsigned long quirks = 0;
+	irqreturn_t (*context_fault)(int irq, void *dev);
 	struct io_pgtable *iop;
 
 	mutex_lock(&smmu_domain->init_mutex);
 	if (smmu_domain->smmu)
 		goto out_unlock;
 
+	smmu_domain->dev = dev;
 	ret = arm_smmu_setup_default_domain(dev, domain);
 	if (ret) {
 		dev_err(dev, "%s: default domain setup failed\n",
 			__func__);
+		goto out_unlock;
+	}
+
+	if (is_dynamic_domain(domain)) {
+		ret = arm_smmu_init_dynamic_domain(domain, smmu, dev);
 		goto out_unlock;
 	}
 
@@ -1461,15 +1490,11 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	if (test_bit(DOMAIN_ATTR_FAST, smmu_domain->attributes)) {
 		fmt = ARM_V8L_FAST;
 		ret = qcom_iommu_get_fast_iova_range(dev,
-					&smmu_domain->pgtbl_info.iova_base,
-					&smmu_domain->pgtbl_info.iova_end);
+					&pgtbl_info.iova_base,
+					&pgtbl_info.iova_end);
 		if (ret < 0)
 			goto out_unlock;
 	}
-
-	if (smmu_domain->non_strict)
-		quirks |= IO_PGTABLE_QUIRK_NON_STRICT;
-	arm_smmu_domain_get_qcom_quirks(smmu_domain, smmu, &quirks);
 
 	ret = arm_smmu_alloc_context_bank(smmu_domain, smmu, dev, start);
 	if (ret < 0) {
@@ -1479,9 +1504,19 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	smmu_domain->smmu = smmu;
 
 	cfg->cbndx = ret;
+	if (smmu->version < ARM_SMMU_V2) {
+		cfg->irptndx = atomic_inc_return(&smmu->irptndx);
+		cfg->irptndx %= smmu->num_context_irqs;
+	} else {
+		cfg->irptndx = cfg->cbndx;
+	}
 
-	smmu_domain->pgtbl_info.cfg = (struct io_pgtable_cfg) {
-		.quirks		= quirks,
+	if (smmu_domain->stage == ARM_SMMU_DOMAIN_S2)
+		cfg->vmid = cfg->cbndx + 1;
+	else
+		cfg->asid = cfg->cbndx;
+
+	pgtbl_info.cfg = (struct io_pgtable_cfg) {
 		.pgsize_bitmap	= smmu->pgsize_bitmap,
 		.ias		= ias,
 		.oas		= oas,
@@ -1492,26 +1527,57 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 
 	if (smmu->impl && smmu->impl->init_context) {
 		ret = smmu->impl->init_context(smmu_domain,
-					       &smmu_domain->pgtbl_info.cfg,
+					       pgtbl_cfg,
 					       dev);
 		if (ret)
 			goto out_clear_smmu;
 	}
 
-	smmu_domain->dev = dev;
-	smmu_domain->pgtbl_ops = qcom_alloc_io_pgtable_ops(fmt,
-						      &smmu_domain->pgtbl_info,
-						      smmu_domain);
-	if (!smmu_domain->pgtbl_ops) {
+	if (smmu_domain->non_strict)
+		pgtbl_cfg->quirks |= IO_PGTABLE_QUIRK_NON_STRICT;
+	pgtbl_cfg->quirks |= arm_smmu_domain_get_qcom_quirks(smmu_domain, smmu);
+
+	pgtbl_ops = qcom_alloc_io_pgtable_ops(fmt, &pgtbl_info, smmu_domain);
+	if (!pgtbl_ops) {
 		ret = -ENOMEM;
 		goto out_clear_smmu;
 	}
 
-	iop = container_of(smmu_domain->pgtbl_ops, struct io_pgtable, ops);
-	ret = iommu_logger_register(&smmu_domain->logger, domain,
-				    smmu_domain->dev, iop);
-	if (ret)
-		goto out_clear_smmu;
+	/* Update the domain's page sizes to reflect the page table format */
+	domain->pgsize_bitmap = pgtbl_cfg->pgsize_bitmap;
+
+	if (pgtbl_cfg->quirks & IO_PGTABLE_QUIRK_ARM_TTBR1) {
+		domain->geometry.aperture_start = ~0UL << ias;
+		domain->geometry.aperture_end = ~0UL;
+	} else {
+		domain->geometry.aperture_end = (1UL << ias) - 1;
+	}
+
+	domain->geometry.force_aperture = true;
+
+	/* Initialise the context bank with our page table cfg */
+	arm_smmu_init_context_bank(smmu_domain, pgtbl_cfg);
+	arm_smmu_write_context_bank(smmu, cfg->cbndx, smmu_domain->attributes);
+
+	/*
+	 * Request context fault interrupt. Do this last to avoid the
+	 * handler seeing a half-initialised domain state.
+	 */
+	irq = smmu->irqs[smmu->num_global_irqs + cfg->irptndx];
+
+	if (smmu->impl && smmu->impl->context_fault)
+		context_fault = smmu->impl->context_fault;
+	else
+		context_fault = arm_smmu_context_fault;
+
+	ret = devm_request_threaded_irq(smmu->dev, irq, NULL,
+			context_fault, IRQF_ONESHOT | IRQF_SHARED,
+			"arm-smmu-context-fault", domain);
+	if (ret < 0) {
+		dev_err(smmu->dev, "failed to request context IRQ %d (%u)\n",
+			cfg->irptndx, irq);
+		cfg->irptndx = ARM_SMMU_INVALID_IRPTNDX;
+	}
 
 	/*
 	 * assign any page table memory that might have been allocated
@@ -1521,29 +1587,18 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	arm_smmu_assign_table(smmu_domain);
 	arm_smmu_secure_domain_unlock(smmu_domain);
 
-	/* Update the domain's page sizes to reflect the page table format */
-	domain->pgsize_bitmap = smmu_domain->pgtbl_info.cfg.pgsize_bitmap;
-	if (smmu_domain->pgtbl_info.cfg.quirks & IO_PGTABLE_QUIRK_ARM_TTBR1) {
-		domain->geometry.aperture_start = ~0UL << ias;
-		domain->geometry.aperture_end = ~0UL;
-	} else {
-		domain->geometry.aperture_end = (1UL << ias) - 1;
-	}
+	iop = container_of(pgtbl_ops, struct io_pgtable, ops);
+	ret = iommu_logger_register(&smmu_domain->logger, domain,
+				    smmu_domain->dev, iop);
+	if (ret)
+		goto out_clear_smmu;
 
-	domain->geometry.force_aperture = true;
-
-	ret = arm_smmu_get_dma_cookie(dev, smmu_domain);
+	ret = arm_smmu_get_dma_cookie(dev, smmu_domain, pgtbl_ops);
 	if (ret)
 		goto out_logger;
 
-	/* Assign an asid */
-	ret = arm_smmu_init_asid(domain, smmu);
-	if (ret)
-		goto out_logger;
-
-	ret = arm_smmu_setup_context_bank(smmu_domain, smmu, dev);
-	if (ret)
-		goto out_logger;
+	/* Save pagetable_cfg for gpu */
+	smmu_domain->pgtbl_cfg = *pgtbl_cfg;
 
 	/*
 	 * Matches with call to arm_smmu_rpm_put in
@@ -1556,6 +1611,8 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 
 	mutex_unlock(&smmu_domain->init_mutex);
 
+	/* Publish page table ops for map/unmap */
+	smmu_domain->pgtbl_ops = pgtbl_ops;
 	return 0;
 
 out_logger:
@@ -1889,9 +1946,6 @@ static void arm_smmu_domain_remove_master(struct arm_smmu_domain *smmu_domain,
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	struct arm_smmu_s2cr *s2cr = smmu->s2crs;
 	int i, idx;
-	const struct iommu_flush_ops *tlb;
-
-	tlb = smmu_domain->pgtbl_info.cfg.tlb;
 
 	mutex_lock(&smmu->stream_map_mutex);
 	for_each_cfg_sme(cfg, fwspec, i, idx) {
@@ -1910,7 +1964,7 @@ static void arm_smmu_domain_remove_master(struct arm_smmu_domain *smmu_domain,
 	mutex_unlock(&smmu->stream_map_mutex);
 
 	/* Ensure there are no stale mappings for this context bank */
-	tlb->tlb_flush_all(smmu_domain);
+	iommu_flush_iotlb_all(&smmu_domain->domain);
 }
 
 static int arm_smmu_domain_add_master(struct arm_smmu_domain *smmu_domain,
@@ -2693,7 +2747,7 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 				    enum iommu_attr attr, void *data)
 {
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	struct io_pgtable_cfg *pgtbl_cfg = &smmu_domain->pgtbl_info.cfg;
+	struct io_pgtable_cfg *pgtbl_cfg = &smmu_domain->pgtbl_cfg;
 	int ret = 0;
 	unsigned long iommu_attr = (unsigned long)attr;
 
