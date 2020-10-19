@@ -208,3 +208,11 @@ config GKI_HACKS_TO_FIX
 
 	  Unless you are building a GKI kernel to be used with modules
 	  built from a different config, say N here.
+
+config GKI_OPT_FEATURES
+	bool "Optional GKI features"
+	help
+	  Config option that should be enabled in GKI kernels to allow optional
+	  GKI features be enabled or disabled without ABI breakage.
+
+	  If you are not building a GKI kernel, say N here.
