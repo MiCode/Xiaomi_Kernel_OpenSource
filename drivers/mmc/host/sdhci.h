@@ -658,10 +658,11 @@ struct sdhci_ops {
 				   dma_addr_t addr, int len, unsigned int cmd);
 	void	(*request_done)(struct sdhci_host *host,
 				struct mmc_request *mrq);
-	#if defined(CONFIG_SDC_QTI)
+#if defined(CONFIG_SDC_QTI)
 	unsigned int    (*get_current_limit)(struct sdhci_host *host);
 	void    (*dump_vendor_regs)(struct sdhci_host *host);
-	#endif
+	int     (*notify_load)(struct sdhci_host *host, enum mmc_load state);
+#endif
 };
 
 #ifdef CONFIG_MMC_SDHCI_IO_ACCESSORS
