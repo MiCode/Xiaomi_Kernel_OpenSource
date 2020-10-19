@@ -810,6 +810,17 @@
 		/*charger = <&mt6362_chg>;*/
 		mediatek,bypss-typec-sink = <1>;
 	};
+
+	pd_adapter: pd_adapter {
+		compatible = "mediatek,pd_adapter";
+		adapter_name = "pd_adapter";
+	};
+
+	mtk_ctd: mtk_ctd {
+		compatible = "mediatek,mtk_ctd";
+		bc12 = <&mt6362_chg>;
+		bc12_sel = <0>;
+	};
 };
 
 &spmi {
@@ -879,7 +890,7 @@
 			post_aicc_thr = <200000>;
 			shipping_dly_en = <1>;
 			batoc_notify = <0>;
-			/* bc12_sel = <&mtk_ctd>; */
+			bc12_sel = <&mtk_ctd>;
 			bootmode = <&chosen>;
 			otg_vbus: usb-otg-vbus {
 				regulator-compatible = "usb-otg-vbus";
@@ -1167,6 +1178,7 @@
 			wd,sbu_ph_ubound1_c2c = <3150>;	/* mV */
 			wd,sbu_ph_ubound2_c2c = <3800>;	/* mV */
 			wd,sbu_aud_ubound = <1600>;	/* mV */
+			charger = <&mt6362_chg>;
 			pd-data {
 				/*
 				 * VSAFE5V = 0, MAX_POWER = 1, CUSTOM = 2,
