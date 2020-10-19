@@ -968,10 +968,7 @@ static int show_white_list_bt(struct task_struct *p)
 	while (pList) {
 		if (!strcmp(p->comm, pList->name)) {
 			raw_spin_unlock(&white_list_lock);
-			rcu_read_unlock();
 			show_bt_by_pid(p->pid);
-			rcu_read_lock();
-			put_task_struct(p);
 			return 0;
 		}
 		pList = pList->next;
@@ -984,6 +981,7 @@ static void show_task_backtrace(void)
 {
 	struct task_struct *p, *t, *system_server_task = NULL;
 	struct task_struct *monkey_task = NULL;
+	struct task_struct *aee_aed_task = NULL;
 
 #ifdef CONFIG_MTK_HANG_DETECT_DB
 	watchdog_thread_exist = false;
@@ -999,6 +997,8 @@ static void show_task_backtrace(void)
 				system_server_task = p;
 			if (strstr(p->comm, "monkey"))
 				monkey_task = p;
+			if (!strcmp(p->comm, "aee_aed"))
+				aee_aed_task = p;
 		}
 		/* specify process, need dump maps file and native backtrace */
 		if (!strcmp(p->comm, "surfaceflinger") ||
@@ -1009,14 +1009,14 @@ static void show_task_backtrace(void)
 			!strcmp(p->comm, "mmcqd/1") ||
 			!strcmp(p->comm, "vdc") ||
 			!strcmp(p->comm, "debuggerd")) {
-			rcu_read_unlock();
 			show_bt_by_pid(p->pid);
-			rcu_read_lock();
 			put_task_struct(p);
 			continue;
 		}
-		if (!show_white_list_bt(p))
+		if (!show_white_list_bt(p)) {
+			put_task_struct(p);
 			continue;
+		}
 		for_each_thread(p, t) {
 			if (try_get_task_stack(t)) {
 				get_task_struct(t);
@@ -1027,7 +1027,12 @@ static void show_task_backtrace(void)
 		put_task_struct(p);
 	}
 	rcu_read_unlock();
-	log_hang_info("dump backtrace end.\n");
+	log_hang_info("dump backtrace end: %llu\n", local_clock());
+	if (Hang_Detect_first == false) {
+		if (aee_aed_task)
+			send_sig_info(SIGUSR1, SEND_SIG_PRIV,
+				aee_aed_task);
+	}
 }
 
 static void show_status(int flag)
