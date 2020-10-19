@@ -69,7 +69,7 @@ PLAT_LEAVE_SUSPEND:
 	return ret;
 }
 
-static void __nocfi __mt6873_suspend_reflect(int type, int cpu,
+static void __mt6873_suspend_reflect(int type, int cpu,
 					const struct mtk_lpm_issuer *issuer)
 {
 	mt6873_suspend_common_resume(mt6873_suspend_status);
