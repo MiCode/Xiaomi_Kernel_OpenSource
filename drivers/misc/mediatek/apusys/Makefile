@@ -64,7 +64,9 @@ apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_mem_dmy.o
 apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_mem_aosp.o
 apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_import.o
 apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_fence.o
+ifeq ($(CONFIG_MTK_APUSYS_DEBUG),y)
 apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_tag.o
+endif
 ifeq ($(CONFIG_MTK_ION), y)
 apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_mem_ion.o
 endif
@@ -130,13 +132,13 @@ apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/common/mnoc_qos_sys.o
 endif
 
 # debug makefile
-ifeq ($(CONFIG_MTK_APUSYS_DEBUG),y)
-apusys-objs += debug/apu_tags.o
-apusys-objs += debug/apu_tp.o
-
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/debug/$(APUSYS_VERSION_DEBUG)/common/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/debug/$(APUSYS_VERSION_DEBUG)/interface/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/debug/$(APUSYS_VERSION_DEBUG)/platform/
+
+ifeq ($(CONFIG_MTK_APUSYS_DEBUG),y)
+apusys-objs += debug/apu_tags.o
+apusys-objs += debug/apu_tp.o
 
 apusys-objs += debug/$(APUSYS_VERSION_DEBUG)/common/debug_drv.o
 apusys-objs += debug/$(APUSYS_VERSION_DEBUG)/platform/debug_plat_device.o

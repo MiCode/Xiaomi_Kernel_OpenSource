@@ -46,7 +46,7 @@ struct dump_data {
 };
 
 
-struct dump_data data;
+static struct dump_data data;
 
 int debug_log_level;
 bool apusys_dump_force;

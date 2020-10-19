@@ -48,7 +48,9 @@ static int (*apusys_init_func[])(struct apusys_core_info *) = {
 #if IS_ENABLED(CONFIG_MTK_APUSYS_VPU)
 	vpu_init,
 #endif
+#if IS_ENABLED(CONFIG_MTK_APUSYS_DEBUG)
 	debug_init,
+#endif
 };
 
 /*
@@ -56,7 +58,9 @@ static int (*apusys_init_func[])(struct apusys_core_info *) = {
  * call exit function in order at apusys.ko exit stage
  */
 static void (*apusys_exit_func[])(void) = {
+#if IS_ENABLED(CONFIG_MTK_APUSYS_DEBUG)
 	debug_exit,
+#endif
 #if IS_ENABLED(CONFIG_MTK_APUSYS_VPU)
 	vpu_exit,
 #endif
