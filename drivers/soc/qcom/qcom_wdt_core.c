@@ -81,7 +81,7 @@ static struct qcom_irq_info *search(struct qcom_irq_info *key,
 				    struct qcom_irq_info *base,
 				    size_t num, compare_t cmp)
 {
-	struct qcom_irq_info *pivot;
+	struct qcom_irq_info *pivot = NULL;
 	int result;
 
 	while (num > 0) {
@@ -101,6 +101,10 @@ static struct qcom_irq_info *search(struct qcom_irq_info *key,
 	}
 
 out:
+	if (pivot)
+		pr_debug("*pivot:%u key:%u\n",
+			pivot->total_count, key->total_count);
+
 	return pivot;
 }
 
@@ -183,9 +187,6 @@ static void compute_irq_stat(struct work_struct *work)
 		start = wdog_dd->irq_counts + (arr_size - 1);
 		pos = search(&key, wdog_dd->irq_counts,
 			     arr_size, cmp_irq_info_fn);
-
-		pr_debug("*pos:%u key:%u\n",
-			  pos->total_count, key.total_count);
 
 		if (pos && (pos->total_count >= key.total_count)) {
 			if (pos < start)
