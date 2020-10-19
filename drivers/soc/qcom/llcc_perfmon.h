@@ -1,39 +1,49 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _SOC_QCOM_LLCC_PERFMON_H_
 #define _SOC_QCOM_LLCC_PERFMON_H_
 
-#define LLCC_COMMON_HW_INFO		(0x30000)
-#define LLCC_COMMON_STATUS0		(0x3000C)
+#define LLCC_VER2			(0x21)
+#define VER_CHK(v)			(v == LLCC_VER2)
+
+/* COMMON */
+#define LLCC_COMMON_HW_INFO(v)		((v == LLCC_VER2) ? 0x34000 : 0x30000)
+#define LLCC_COMMON_STATUS0(v)		((v == LLCC_VER2) ? 0x3400C : 0x3000C)
+
 /* FEAC */
-#define FEAC_PROF_FILTER_0_CFG3		(0x03700C)
-#define FEAC_PROF_FILTER_0_CFG5		(0x037014)
-#define FEAC_PROF_FILTER_0_CFG6		(0x037018)
-#define FEAC_PROF_EVENT_n_CFG(n)	(0x037060 + 4 * (n))
-#define FEAC_PROF_CFG			(0x0370A0)
+#define FEAC_PROF_FILTER_0_CFG3(v)	(VER_CHK(v) ? 0x4300C : 0x03700C)
+#define FEAC_PROF_FILTER_0_CFG5(v)	(VER_CHK(v) ? 0x43014 : 0x037014)
+#define FEAC_PROF_FILTER_0_CFG6(v)	(VER_CHK(v) ? 0x43018 : 0x037018)
+#define FEAC_PROF_EVENT_n_CFG(v, n)	((VER_CHK(v) ? 0x43060 : 0x037060) \
+					+ 4 * (n))
+#define FEAC_PROF_CFG(v)		(VER_CHK(v) ? 0x430A0 : 0x0370A0)
 
 /* FERC */
-#define FERC_PROF_FILTER_0_CFG0		(0x03B000)
-#define FERC_PROF_EVENT_n_CFG(n)	(0x03B020 + 4 * (n))
-#define FERC_PROF_CFG			(0x03B060)
+#define FERC_PROF_FILTER_0_CFG0(v)	(VER_CHK(v) ? 0x49000 : 0x03B000)
+#define FERC_PROF_EVENT_n_CFG(v, n)	((VER_CHK(v) ? 0x49020 : 0x03B020) \
+					+ 4 * (n))
+#define FERC_PROF_CFG(v)		(VER_CHK(v) ? 0x49060 : 0x03B060)
 
 /* FEWC */
-#define FEWC_PROF_FILTER_0_CFG0		(0x033000)
-#define FEWC_PROF_EVENT_n_CFG(n)	(0x033020 + 4 * (n))
+#define FEWC_PROF_FILTER_0_CFG0(v)	(VER_CHK(v) ? 0x39000 : 0x033000)
+#define FEWC_PROF_EVENT_n_CFG(v, n)	((VER_CHK(v) ? 0x39020 : 0x033020) \
+					+ 4 * (n))
 
 /* BEAC */
-#define BEAC_PROF_FILTER_0_CFG5		(0x049014)
-#define BEAC_PROF_EVENT_n_CFG(n)	(0x049040 + 4 * (n))
-#define BEAC_PROF_CFG			(0x049080)
+#define BEAC0_PROF_FILTER_0_CFG5(v)	(VER_CHK(v) ? 0x61014 : 0x049014)
+#define BEAC0_PROF_EVENT_n_CFG(v, n)	((VER_CHK(v) ? 0x61040 : 0x049040) \
+					+ 4 * (n))
+#define BEAC0_PROF_CFG(v)		(VER_CHK(v) ? 0x61080 : 0x049080)
 #define BEAC_INST_OFF			(0x4000)
 
 /* BERC */
-#define BERC_PROF_FILTER_0_CFG0		(0x039000)
-#define BERC_PROF_EVENT_n_CFG(n)	(0x039020 + 4 * (n))
-#define BERC_PROF_CFG			(0x039060)
+#define BERC_PROF_FILTER_0_CFG0(v)	(VER_CHK(v) ? 0x3D000 : 0x039000)
+#define BERC_PROF_EVENT_n_CFG(v, n)	((VER_CHK(v) ? 0x3D020 : 0x039020) \
+					+ 4 * (n))
+#define BERC_PROF_CFG(v)		(VER_CHK(v) ? 0x3D060 : 0x039060)
 
 /* TRP */
 #define TRP_PROF_FILTER_0_CFG1		(0x024004)
@@ -42,18 +52,20 @@
 #define TRP_SCID_n_STATUS(n)		(0x000004 + 0x1000 * (n))
 
 /* DRP */
-#define DRP_PROF_EVENT_n_CFG(n)		(0x044010 + 4 * (n))
-#define DRP_PROF_CFG			(0x044050)
+#define DRP_PROF_EVENT_n_CFG(v, n)	((VER_CHK(v) ? 0x51010 : 0x044010) \
+					+ 4 * (n))
+#define DRP_PROF_CFG(v)			(VER_CHK(v) ? 0x51050 : 0x044050)
 
 /* PMGR */
-#define PMGR_PROF_EVENT_n_CFG(n)	(0x03F000 + 4 * (n))
+#define PMGR_PROF_EVENT_n_CFG(v, n)	((VER_CHK(v) ? 0x4D000 : 0x03F000) \
+					+ 4 * (n))
 
-#define PERFMON_COUNTER_n_CONFIG(n)	(0x031020 + 4 * (n))
+#define PERFMON_COUNTER_n_CONFIG(v, n)	((VER_CHK(v) ? 0x36020 : 0x031020) \
+					+ 4 * (n))
 #define PERFMON_MODE			(0x03100C)
 #define PERFMON_DUMP			(0x031010)
-#define BROADCAST_COUNTER_n_VALUE(n)	(0x031060 + 4 * (n))
-
-#define LLCC_COUNTER_n_VALUE(n)		(0x031060 + 4 * (n))
+#define LLCC_COUNTER_n_VALUE(v, n)	((VER_CHK(v) ? 0x36060 : 0x031060) \
+					+ 4 * (n))
 
 #define EVENT_NUM_MAX			(128)
 #define SCID_MAX			(32)
@@ -266,10 +278,12 @@
 					+ 13, \
 					TRP_SCID_STATUS_CURRENT_CAP_SHIFT)
 
+#define MAJOR_VER_MASK			(0xFF000000)
 #define LLCC_VERSION_1			(0x01010200)
 #define LLCC_VERSION_2			(0x02000000)
 #define REV_0				(0x0)
 #define REV_1				(0x1)
 #define REV_2				(0x2)
 #define BANK_OFFSET			(0x80000)
+
 #endif /* _SOC_QCOM_LLCC_PERFMON_H_ */
