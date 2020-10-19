@@ -3123,6 +3123,34 @@ static int mt_ul_gpio_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static int mt_vaud18_event(struct snd_soc_dapm_widget *w,
+			   struct snd_kcontrol *kcontrol,
+			   int event)
+{
+	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
+	struct mt6359_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+	int ret = 0;
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		ret = regulator_enable(priv->avdd_reg);
+		if (ret)
+			dev_err(priv->dev,
+				"regulator_enable err: %d\n", ret);
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		ret = regulator_disable(priv->avdd_reg);
+		if (ret)
+			dev_err(priv->dev,
+				"regulator_disable err: %d\n", ret);
+		break;
+	default:
+		break;
+	}
+
+	return ret;
+}
+
 /* DAPM Widgets */
 static const struct snd_soc_dapm_widget mt6359_dapm_widgets[] = {
 	/* Global Supply*/
@@ -3130,8 +3158,9 @@ static const struct snd_soc_dapm_widget mt6359_dapm_widgets[] = {
 			      MT6359_DCXO_CW12,
 			      RG_XO_AUDIO_EN_M_SFT, 0, NULL, 0),
 	SND_SOC_DAPM_SUPPLY_S("LDO_VAUD18", SUPPLY_SEQ_LDO_VAUD18,
-			      MT6359_LDO_VAUD18_CON0,
-			      RG_LDO_VAUD18_EN_SFT, 0, NULL, 0),
+			      SND_SOC_NOPM, 0, 0,
+			      mt_vaud18_event,
+			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_SUPPLY_S("AUDGLB", SUPPLY_SEQ_AUD_GLB,
 			      MT6359_AUDDEC_ANA_CON13,
 			      RG_AUDGLB_PWRDN_VA32_SFT, 1, NULL, 0),
@@ -4358,7 +4387,6 @@ static int mt6359_codec_init_reg(struct mt6359_priv *priv)
 static int mt6359_codec_probe(struct snd_soc_component *cmpnt)
 {
 	struct mt6359_priv *priv = snd_soc_component_get_drvdata(cmpnt);
-	int ret;
 
 	snd_soc_component_init_regmap(cmpnt, priv->regmap);
 
@@ -4383,10 +4411,6 @@ static int mt6359_codec_probe(struct snd_soc_component *cmpnt)
 		dev_err(priv->dev, "%s(), have no vaud18 supply", __func__);
 		return PTR_ERR(priv->avdd_reg);
 	}
-
-	ret = regulator_enable(priv->avdd_reg);
-	if (ret)
-		return ret;
 
 	return 0;
 }
