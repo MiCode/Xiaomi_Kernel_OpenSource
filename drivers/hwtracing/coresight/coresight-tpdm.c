@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -17,6 +17,7 @@
 #include <linux/qcom_scm.h>
 
 #include "coresight-priv.h"
+#include "coresight-common.h"
 
 #define tpdm_writel(drvdata, val, off)	__raw_writel((val), drvdata->base + off)
 #define tpdm_readl(drvdata, off)		__raw_readl(drvdata->base + off)

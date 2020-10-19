@@ -17,6 +17,7 @@
 #include <linux/mutex.h>
 
 #include "coresight-priv.h"
+#include "coresight-common.h"
 
 #define csr_writel(drvdata, val, off)	__raw_writel((val), drvdata->base + off)
 #define csr_readl(drvdata, off)		__raw_readl(drvdata->base + off)
