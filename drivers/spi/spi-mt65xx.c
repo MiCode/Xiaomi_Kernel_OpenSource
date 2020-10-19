@@ -778,6 +778,8 @@ static int mtk_spi_probe(struct platform_device *pdev)
 
 	pm_runtime_enable(&pdev->dev);
 
+	cpu_latency_qos_add_request(&mdata->spi_qos_request, PM_QOS_DEFAULT_VALUE);
+
 	ret = devm_spi_register_master(&pdev->dev, master);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to register master (%d)\n", ret);
@@ -822,8 +824,6 @@ static int mtk_spi_probe(struct platform_device *pdev)
 	if (ret)
 		dev_notice(&pdev->dev, "SPI dma_set_mask(%d) failed, ret:%d\n",
 			   addr_bits, ret);
-
-	cpu_latency_qos_add_request(&mdata->spi_qos_request, PM_QOS_DEFAULT_VALUE);
 
 	return 0;
 
