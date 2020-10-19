@@ -6,7 +6,7 @@
 #include <linux/slab.h>
 #include <linux/sched/clock.h>
 #include <linux/seq_file.h>
-// #include <apusys_dbg.h>  // TODO: add apusys regdump
+#include <apusys_debug_api.h>
 #include "vpu_cfg.h"
 #include "vpu_debug.h"
 #include "vpu_reg.h"
@@ -154,7 +154,7 @@ int vpu_dmp_create_locked(struct vpu_device *vd, struct vpu_request *req,
 		goto out;
 
 	VPU_DMP_TRACE("alloc");
-//	apusys_reg_dump();  // TODO: add apusys regdump
+	apusys_reg_dump("vpu_dump", true);
 	VPU_DMP_TRACE("apusys_reg_dump");
 
 	d = vd->dmp;
