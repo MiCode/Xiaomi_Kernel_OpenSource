@@ -6,7 +6,7 @@
 #ifndef _PERF_TRACKER_H
 #define _PERF_TRACKER_H
 
-#if  IS_ENABLED(CONFIG_MTK_GPU_SWPM_SUPPORT)
+#if IS_ENABLED(CONFIG_MTK_GPU_SWPM_SUPPORT)
 void perf_update_gpu_counter(unsigned int gpu_pmu[], unsigned int len);
 #endif
 

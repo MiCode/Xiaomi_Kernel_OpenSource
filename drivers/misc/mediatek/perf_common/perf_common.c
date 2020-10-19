@@ -179,6 +179,10 @@ static struct attribute *perf_attrs[] = {
 	&perf_charger_enable_attr.attr,
 	&perf_charger_period_attr.attr,
 #endif
+#if IS_ENABLED(CONFIG_MTK_GPU_SWPM_SUPPORT)
+	&perf_gpu_pmu_enable_attr.attr,
+	&perf_gpu_pmu_period_attr.attr,
+#endif
 
 #endif
 
