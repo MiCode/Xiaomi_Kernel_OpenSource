@@ -1749,7 +1749,8 @@ int cvp_comm_set_arp_buffers(struct msm_cvp_inst *inst)
 	return rc;
 
 error:
-	cvp_comm_release_persist_buffers(inst);
+	if (rc != -ENOMEM)
+		cvp_comm_release_persist_buffers(inst);
 	return rc;
 }
 
