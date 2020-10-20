@@ -130,7 +130,7 @@ static int scm_pas_enable_bw(void)
 {
 	int ret = 0;
 
-	if (!scm_perf_client)
+	if (IS_ERR(scm_perf_client))
 		return -EINVAL;
 
 	mutex_lock(&scm_pas_bw_mutex);
@@ -155,6 +155,9 @@ err_bus:
 
 static void scm_pas_disable_bw(void)
 {
+	if (IS_ERR(scm_perf_client))
+		return;
+
 	mutex_lock(&scm_pas_bw_mutex);
 	if (scm_pas_bw_count-- == 1)
 		icc_set_bw(scm_perf_client, 0, 0);
@@ -209,21 +212,19 @@ err_enable:
 
 static int do_bus_scaling(struct qcom_adsp *adsp, bool enable)
 {
-	int rc;
+	int rc = 0;
 	u32 avg_bw = enable ? PIL_TZ_AVG_BW : 0;
 	u32 peak_bw = enable ? PIL_TZ_PEAK_BW : 0;
 
-	if (adsp->bus_client) {
-		rc = icc_set_bw(adsp->bus_client, avg_bw, peak_bw);
-		if (rc) {
-			dev_err(adsp->dev, "bandwidth request failed(rc:%d)\n",
-									rc);
-			return rc;
-		}
-	} else
+	if (IS_ERR(adsp->bus_client))
 		dev_err(adsp->dev, "Bus scaling not setup for %s\n",
 			adsp->rproc->name);
-	return 0;
+	else
+		rc = icc_set_bw(adsp->bus_client, avg_bw, peak_bw);
+		if (rc)
+			dev_err(adsp->dev, "bandwidth request failed(rc:%d)\n",
+									rc);
+	return rc;
 }
 
 static int adsp_start(struct rproc *rproc)
@@ -285,10 +286,10 @@ disable_proxy_pds:
 	adsp_pds_disable(adsp, adsp->proxy_pds, adsp->proxy_pd_count);
 disable_active_pds:
 	adsp_pds_disable(adsp, adsp->active_pds, adsp->active_pd_count);
-disable_irqs:
-	qcom_q6v5_unprepare(&adsp->q6v5);
 unscale_bus:
 	do_bus_scaling(adsp, false);
+disable_irqs:
+	qcom_q6v5_unprepare(&adsp->q6v5);
 	return ret;
 }
 
@@ -433,10 +434,21 @@ static int adsp_init_regulator(struct qcom_adsp *adsp)
 
 static void adsp_init_bus_scaling(struct qcom_adsp *adsp)
 {
-	adsp->bus_client = of_icc_get(adsp->dev, NULL);
-	if (!adsp->bus_client)
+	if (scm_perf_client)
+		goto get_rproc_client;
+
+	scm_perf_client = of_icc_get(adsp->dev, "crypto_ddr");
+	if (IS_ERR(scm_perf_client))
+		dev_warn(adsp->dev, "Crypto scaling not setup\n");
+
+get_rproc_client:
+	adsp->bus_client = of_icc_get(adsp->dev, "rproc_ddr");
+	if (IS_ERR(adsp->bus_client))
 		dev_warn(adsp->dev, "%s: No bus client\n", __func__);
+
+	return;
 }
+
 
 static int adsp_pds_attach(struct device *dev, struct device **devs,
 			   char **pd_names)
@@ -519,30 +531,6 @@ static int adsp_alloc_memory_region(struct qcom_adsp *adsp)
 	return 0;
 }
 
-static int crypto_pas_init(struct qcom_adsp *adsp)
-{
-	struct device_node *crypto_node;
-	struct platform_device *pas;
-
-	if (scm_perf_client)
-		return 0;
-
-	crypto_node = of_parse_phandle(adsp->dev->of_node, "crypto_pas", 0);
-	if (!crypto_node) {
-		dev_err(adsp->dev, "Crypto pas node not available\n");
-		return 0;
-	}
-
-	pas = of_find_device_by_node(crypto_node);
-	scm_perf_client = of_icc_get(&pas->dev, NULL);
-	if (IS_ERR(scm_perf_client)) {
-		dev_err(adsp->dev, "Crypto scaling not setup\n");
-		return PTR_ERR(scm_perf_client);
-	}
-
-	return 0;
-}
-
 
 static int adsp_probe(struct platform_device *pdev)
 {
@@ -584,12 +572,6 @@ static int adsp_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, adsp);
 
 	device_wakeup_enable(adsp->dev);
-
-	ret = crypto_pas_init(adsp);
-	if (ret) {
-		scm_perf_client = NULL;
-		goto free_rproc;
-	}
 
 	ret = adsp_alloc_memory_region(adsp);
 	if (ret)
