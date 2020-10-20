@@ -21,6 +21,7 @@ pinctrl-waipio.ko
 qcom-scm.ko
 qcom-hwspinlock.ko
 smem.ko
+smp2p.ko
 socinfo.ko
 stub-regulator.ko
 debug-regulator.ko
