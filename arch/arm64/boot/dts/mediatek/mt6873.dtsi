@@ -53,7 +53,7 @@
 
 	/* chosen */
 	chosen: chosen {
-		bootargs = "console=tty0 console=ttyS0,921600n1 root=/dev/ram vmalloc=400M swiotlb=noforce firmware_class.path=/vendor/firmware page_owner=on loop.max_part=7";
+		bootargs = "console=tty0 console=ttyS0,921600n1 root=/dev/ram vmalloc=400M swiotlb=noforce firmware_class.path=/vendor/firmware page_owner=on loop.max_part=7 watchdog_thresh=7";
 		kaslr-seed = <0 0>;
 	};
 
