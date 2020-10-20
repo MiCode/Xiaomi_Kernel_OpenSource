@@ -1896,6 +1896,10 @@ static int arm_smmu_master_alloc_smes(struct device *dev)
 	mutex_unlock(&smmu->stream_map_mutex);
 
 	/* It worked! Now, poke the actual hardware */
+	for_each_cfg_sme(cfg, fwspec, i, idx) {
+		arm_smmu_write_sme(smmu, idx);
+	}
+
 	mutex_unlock(&smmu->iommu_group_mutex);
 	return 0;
 
@@ -1924,34 +1928,6 @@ static void arm_smmu_master_free_smes(struct arm_smmu_master_cfg *cfg,
 	mutex_unlock(&smmu->stream_map_mutex);
 }
 
-static void arm_smmu_domain_remove_master(struct arm_smmu_domain *smmu_domain,
-					  struct arm_smmu_master_cfg *cfg,
-					  struct iommu_fwspec *fwspec)
-{
-	struct arm_smmu_device *smmu = smmu_domain->smmu;
-	struct arm_smmu_s2cr *s2cr = smmu->s2crs;
-	int i, idx;
-
-	mutex_lock(&smmu->stream_map_mutex);
-	for_each_cfg_sme(cfg, fwspec, i, idx) {
-		if (WARN_ON(s2cr[idx].attach_count == 0)) {
-			mutex_unlock(&smmu->stream_map_mutex);
-			return;
-		}
-		s2cr[idx].attach_count -= 1;
-
-		if (s2cr[idx].attach_count > 0)
-			continue;
-
-		arm_smmu_gr0_write(smmu, ARM_SMMU_GR0_SMR(idx), 0);
-		arm_smmu_gr0_write(smmu, ARM_SMMU_GR0_S2CR(idx), 0);
-	}
-	mutex_unlock(&smmu->stream_map_mutex);
-
-	/* Ensure there are no stale mappings for this context bank */
-	iommu_flush_iotlb_all(&smmu_domain->domain);
-}
-
 static int arm_smmu_domain_add_master(struct arm_smmu_domain *smmu_domain,
 				      struct arm_smmu_master_cfg *cfg,
 				      struct iommu_fwspec *fwspec)
@@ -1969,7 +1945,7 @@ static int arm_smmu_domain_add_master(struct arm_smmu_domain *smmu_domain,
 
 	mutex_lock(&smmu->stream_map_mutex);
 	for_each_cfg_sme(cfg, fwspec, i, idx) {
-		if (s2cr[idx].attach_count++ > 0)
+		if (type == s2cr[idx].type && cbndx == s2cr[idx].cbndx)
 			continue;
 
 		/* Don't bypasss pinned streams; leave them as they are */
@@ -1979,33 +1955,11 @@ static int arm_smmu_domain_add_master(struct arm_smmu_domain *smmu_domain,
 		s2cr[idx].type = type;
 		s2cr[idx].privcfg = S2CR_PRIVCFG_DEFAULT;
 		s2cr[idx].cbndx = cbndx;
-		arm_smmu_write_sme(smmu, idx);
+		arm_smmu_write_s2cr(smmu, idx);
 	}
 	mutex_unlock(&smmu->stream_map_mutex);
 
 	return 0;
-}
-
-static void arm_smmu_detach_dev(struct iommu_domain *domain,
-				struct device *dev)
-{
-	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	struct arm_smmu_device *smmu = smmu_domain->smmu;
-	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
-	bool dynamic = is_dynamic_domain(domain);
-	struct arm_smmu_master_cfg *cfg = dev_iommu_priv_get(dev);
-
-	if (dynamic)
-		return;
-
-	if (!smmu) {
-		dev_err(dev, "Domain not attached; cannot detach!\n");
-		return;
-	}
-
-	arm_smmu_rpm_get(smmu);
-	arm_smmu_domain_remove_master(smmu_domain, cfg, fwspec);
-	arm_smmu_rpm_put(smmu);
 }
 
 static int arm_smmu_assign_table(struct arm_smmu_domain *smmu_domain)
@@ -3173,14 +3127,55 @@ static int arm_smmu_enable_s1_translations(struct arm_smmu_domain *smmu_domain)
 	return ret;
 }
 
+static int __arm_smmu_sid_switch(struct device *dev, void *data)
+{
+	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
+	struct arm_smmu_master_cfg *cfg = dev_iommu_priv_get(dev);
+	struct arm_smmu_device *smmu = cfg->smmu;
+	enum sid_switch_direction dir = (typeof(dir))data;
+	int i, idx;
+
+	for_each_cfg_sme(cfg, fwspec, i, idx) {
+		if (dir == SID_SWITCH_HLOS_TO_SECURE) {
+			arm_smmu_gr0_write(smmu, ARM_SMMU_GR0_SMR(idx), 0);
+			arm_smmu_gr0_write(smmu, ARM_SMMU_GR0_S2CR(idx), 0);
+		} else {
+			arm_smmu_write_sme(smmu, idx);
+		}
+	}
+	return 0;
+}
+
+/*
+ * Some devices support operation with different levels of security. In some
+ * modes, HLOS is no longer responsible for managing the S1 translations for
+ * a device. Unfortunately, the device may still use the same set of SIDS, so
+ * to prevent a potential stream-match conflict fault, HLOS needs to remove
+ * the SIDs fromits SMRs. Enforcement of this policy is implemented through
+ * virtualization of the SMR/S2CR regigisters.
+ */
+static int arm_smmu_sid_switch(struct device *dev,
+			       enum sid_switch_direction dir)
+{
+	struct iommu_group *group;
+	int ret;
+
+	group = iommu_group_get(dev);
+	ret = iommu_group_for_each_dev(group, (void *)dir,
+			__arm_smmu_sid_switch);
+	iommu_group_put(group);
+
+	return ret;
+}
+
 static struct qcom_iommu_ops arm_smmu_ops = {
 	.iova_to_phys_hard = arm_smmu_iova_to_phys_hard,
+	.sid_switch		= arm_smmu_sid_switch,
 	.iommu_ops = {
 		.capable		= arm_smmu_capable,
 		.domain_alloc		= arm_smmu_domain_alloc,
 		.domain_free		= arm_smmu_domain_free,
 		.attach_dev		= arm_smmu_attach_dev,
-		.detach_dev		= arm_smmu_detach_dev,
 		.map			= arm_smmu_map,
 		.unmap			= arm_smmu_unmap,
 		.flush_iotlb_all	= arm_smmu_flush_iotlb_all,

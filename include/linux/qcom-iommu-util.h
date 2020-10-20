@@ -26,9 +26,19 @@ struct qcom_iommu_atos_txn {
 	u32 id;
 };
 
+enum sid_switch_direction {
+	SID_SWITCH_HLOS_TO_SECURE,
+	SID_SWITCH_SECURE_TO_HLOS,
+};
+
+/*
+ * @sid_switch: add/remove all SIDS in the iommu domain containing dev from
+ *              iommu registers.
+ */
 struct qcom_iommu_ops {
 	phys_addr_t (*iova_to_phys_hard)(struct iommu_domain *domain,
 					struct qcom_iommu_atos_txn *txn);
+	int (*sid_switch)(struct device *dev, enum sid_switch_direction dir);
 	struct iommu_ops iommu_ops;
 };
 #define to_qcom_iommu_ops(x) (container_of(x, struct qcom_iommu_ops, iommu_ops))

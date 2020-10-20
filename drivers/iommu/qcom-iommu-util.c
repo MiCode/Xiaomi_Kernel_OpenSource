@@ -341,6 +341,23 @@ phys_addr_t qcom_iommu_iova_to_phys_hard(struct iommu_domain *domain,
 }
 EXPORT_SYMBOL(qcom_iommu_iova_to_phys_hard);
 
+int qcom_iommu_sid_switch(struct device *dev, enum sid_switch_direction dir)
+{
+	struct qcom_iommu_ops *ops;
+	struct iommu_domain *domain;
+
+	domain = iommu_get_domain_for_dev(dev);
+	if (!domain)
+		return -EINVAL;
+
+	ops = to_qcom_iommu_ops(domain->ops);
+	if (unlikely(ops->sid_switch == NULL))
+		return -EINVAL;
+
+	return ops->sid_switch(dev, dir);
+}
+EXPORT_SYMBOL(qcom_iommu_sid_switch);
+
 struct io_pgtable_ops *qcom_alloc_io_pgtable_ops(enum io_pgtable_fmt fmt,
 				struct qcom_io_pgtable_info *pgtbl_info,
 				void *cookie)
