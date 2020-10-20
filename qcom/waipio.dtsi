@@ -677,10 +677,6 @@
 		#interrupt-cells = <2>;
 	};
 
-	scm_pas: pil_scm_pas {
-		interconnects = <&aggre2_noc MASTER_CRYPTO &mc_virt SLAVE_EBI1>;
-	};
-
 	adsp_pas: remoteproc-adsp@03000000 {
 		compatible = "qcom,waipio-adsp-pas";
 		reg = <0x03000000 0x10000>;
@@ -695,8 +691,10 @@
 		clocks = <&clock_rpmh RPMH_CXO_CLK>;
 		clock-names = "xo";
 
+		interconnects = <&aggre2_noc MASTER_CRYPTO &mc_virt SLAVE_EBI1>;
+		interconnect-names = "crypto_ddr";
+
 		memory-region = <&adsp_mem>;
-		crypto_pas = <&scm_pas>;
 
 		/* Inputs from ssc */
 		interrupts-extended = <&pdc 6 IRQ_TYPE_LEVEL_HIGH>,
@@ -750,12 +748,13 @@
 		reg-names = "cx","mx";
 
 		memory-region = <&cdsp_mem>;
-		crypto_pas = <&scm_pas>;
 
 		clocks = <&clock_rpmh RPMH_CXO_CLK>;
 		clock-names = "xo";
 
-		interconnects = <&nsp_noc MASTER_CDSP_PROC &mc_virt SLAVE_EBI1>;
+		interconnects = <&nsp_noc MASTER_CDSP_PROC &mc_virt SLAVE_EBI1>,
+				<&aggre2_noc MASTER_CRYPTO &mc_virt SLAVE_EBI1>;
+		interconnect-names = "rproc_ddr", "crypto_ddr";
 
 		/* Inputs from turing */
 		interrupts-extended = <&intc GIC_SPI 578 IRQ_TYPE_LEVEL_HIGH>,
@@ -811,8 +810,10 @@
 		clocks = <&clock_rpmh RPMH_CXO_CLK>;
 		clock-names = "xo";
 
+		interconnects = <&aggre2_noc MASTER_CRYPTO &mc_virt SLAVE_EBI1>;
+		interconnect-names = "crypto_ddr";
+
 		memory-region = <&slpi_mem>;
-		crypto_pas = <&scm_pas>;
 
 		/* Inputs from ssc */
 		interrupts-extended = <&pdc 9 IRQ_TYPE_LEVEL_HIGH>,
@@ -870,8 +871,10 @@
 		mx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
 		reg-names = "cx", "mx";
 
+		interconnects = <&aggre2_noc MASTER_CRYPTO &mc_virt SLAVE_EBI1>;
+		interconnect-names = "crypto_ddr";
+
 		memory-region = <&mpss_mem>;
-		crypto_pas = <&scm_pas>;
 
 		/* Inputs from mss */
 		interrupts-extended = <&intc GIC_SPI 264 IRQ_TYPE_LEVEL_HIGH>,
