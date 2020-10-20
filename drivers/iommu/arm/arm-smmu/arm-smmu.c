@@ -1598,25 +1598,17 @@ static int arm_smmu_adjust_domain_geometry(struct device *dev,
 static int arm_smmu_get_dma_cookie(struct device *dev,
 				    struct arm_smmu_domain *smmu_domain)
 {
-	bool s1_bypass = test_bit(DOMAIN_ATTR_S1_BYPASS,
-				 smmu_domain->attributes);
 	struct iommu_domain *domain = &smmu_domain->domain;
-	
-	if (s1_bypass)
-		return 0;
 
-	return iommu_get_dma_cookie(domain);
+	if (domain->type == IOMMU_DOMAIN_DMA)
+		return iommu_get_dma_cookie(domain);
+
+	return 0;
 }
 
 static void arm_smmu_put_dma_cookie(struct iommu_domain *domain)
 {
-	int s1_bypass = 0, is_fast = 0;
-
-	iommu_domain_get_attr(domain, DOMAIN_ATTR_S1_BYPASS,
-					&s1_bypass);
-	iommu_domain_get_attr(domain, DOMAIN_ATTR_FAST, &is_fast);
-
-	if (!s1_bypass)
+	if (domain->type == IOMMU_DOMAIN_DMA)
 		iommu_put_dma_cookie(domain);
 }
 
@@ -1701,20 +1693,17 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	if (smmu_domain->smmu)
 		goto out_unlock;
 
-	if (domain->type == IOMMU_DOMAIN_DMA) {
-		ret = arm_smmu_setup_default_domain(dev, domain);
-		if (ret) {
-			dev_err(dev, "%s: default domain setup failed\n",
-				__func__);
-			goto out_unlock;
-		}
+	ret = arm_smmu_setup_default_domain(dev, domain);
+	if (ret) {
+		dev_err(dev, "%s: default domain setup failed\n",
+			__func__);
+		goto out_unlock;
 	}
 
 	if (domain->type == IOMMU_DOMAIN_IDENTITY) {
 		smmu_domain->stage = ARM_SMMU_DOMAIN_BYPASS;
 		smmu_domain->smmu = smmu;
-		smmu_domain->cfg.irptndx = ARM_SMMU_INVALID_IRPTNDX;
-		smmu_domain->cfg.asid = INVALID_ASID;
+		goto out_unlock;
 	}
 
 	/*
@@ -1873,11 +1862,9 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		goto out_logger;
 	domain->geometry.force_aperture = true;
 
-	if (domain->type == IOMMU_DOMAIN_DMA) {
-		ret = arm_smmu_get_dma_cookie(dev, smmu_domain);
-		if (ret)
-			goto out_logger;
-	}
+	ret = arm_smmu_get_dma_cookie(dev, smmu_domain);
+	if (ret)
+		goto out_logger;
 
 	/* Assign an asid */
 	ret = arm_smmu_init_asid(domain, smmu);
@@ -2437,15 +2424,23 @@ static int arm_smmu_setup_default_domain(struct device *dev,
 			domain, DOMAIN_ATTR_ATOMIC, &attr);
 	} else if (!strcmp(str, "disabled")) {
 		/*
+		 * This is required for testing on lahaina, which
+		 * uses the dynamic domains feature.
+		 *
 		 * Don't touch hw, and don't allocate irqs or other resources.
 		 * Ensure the context bank is set to a valid value per dynamic
 		 * attr requirement.
 		 */
-		__arm_smmu_domain_set_attr(
-			domain, DOMAIN_ATTR_DYNAMIC, &attr);
-		val = 0;
-		__arm_smmu_domain_set_attr(
-			domain, DOMAIN_ATTR_CONTEXT_BANK, &val);
+		if (domain->type == IOMMU_DOMAIN_IDENTITY) {
+			__arm_smmu_domain_set_attr(
+				domain, DOMAIN_ATTR_DYNAMIC, &attr);
+			val = 0;
+			__arm_smmu_domain_set_attr(
+				domain, DOMAIN_ATTR_CONTEXT_BANK, &val);
+		}
+
+		/* DT properties only intended for use by default-domains */
+		return 0;
 	}
 
 	/*
@@ -2564,7 +2559,6 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	struct arm_smmu_master_cfg *cfg;
 	struct arm_smmu_device *smmu;
 	int ret;
-	int s1_bypass = 0;
 
 	if (!fwspec || fwspec->ops != &arm_smmu_ops) {
 		dev_err(dev, "cannot attach to SMMU, is it on the same bus?\n");
@@ -2599,11 +2593,6 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	ret = arm_smmu_init_domain_context(domain, smmu, dev);
 	if (ret < 0)
 		goto out_power_off;
-
-	ret = arm_smmu_domain_get_attr(domain, DOMAIN_ATTR_S1_BYPASS,
-					&s1_bypass);
-	if (s1_bypass)
-		domain->type = IOMMU_DOMAIN_UNMANAGED;
 
 	/* Do not modify the SIDs, HW is still running */
 	if (is_dynamic_domain(domain)) {
