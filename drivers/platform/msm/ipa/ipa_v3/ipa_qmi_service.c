@@ -1580,6 +1580,7 @@ static void ipa3_q6_clnt_svc_arrive(struct work_struct *work)
 		IPAWANERR(
 		"ipa3_qmi_init_modem_send_sync_msg failed due to SSR!\n");
 		/* Cleanup when ipa3_wwan_remove is called */
+		qmi_handle_release(ipa_q6_clnt);
 		vfree(ipa_q6_clnt);
 		ipa_q6_clnt = NULL;
 		return;
