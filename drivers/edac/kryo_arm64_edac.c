@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -96,6 +96,15 @@ static inline void clear_errxstatus_valid(u64 val)
 	asm volatile("msr s3_0_c5_c4_2, %0" : : "r" (val));
 }
 
+static void kryo_edac_handle_ce(struct edac_device_ctl_info *edac_dev,
+				int inst_nr, int block_nr, const char *msg)
+{
+	edac_device_handle_ce(edac_dev, inst_nr, block_nr, msg);
+#ifdef CONFIG_EDAC_KRYO_ARM64_PANIC_ON_CE
+	panic("EDAC %s CE: %s\n", edac_dev->ctl_name, msg);
+#endif
+}
+
 struct errors_edac {
 	const char * const msg;
 	void (*func)(struct edac_device_ctl_info *edac_dev,
@@ -103,11 +112,11 @@ struct errors_edac {
 };
 
 static const struct errors_edac errors[] = {
-	{"Kryo L1 Correctable Error", edac_device_handle_ce },
+	{"Kryo L1 Correctable Error", kryo_edac_handle_ce },
 	{"Kryo L1 Uncorrectable Error", edac_device_handle_ue },
-	{"Kryo L2 Correctable Error", edac_device_handle_ce },
+	{"Kryo L2 Correctable Error", kryo_edac_handle_ce },
 	{"Kryo L2 Uncorrectable Error", edac_device_handle_ue },
-	{"L3 Correctable Error", edac_device_handle_ce },
+	{"L3 Correctable Error", kryo_edac_handle_ce },
 	{"L3 Uncorrectable Error", edac_device_handle_ue },
 };
 
@@ -475,9 +484,6 @@ static int kryo_cpu_erp_probe(struct platform_device *pdev)
 	drv->edev_ctl->mod_name = dev_name(dev);
 	drv->edev_ctl->dev_name = dev_name(dev);
 	drv->edev_ctl->ctl_name = "cache";
-#ifdef CONFIG_EDAC_KRYO_ARM64_PANIC_ON_CE
-	drv->edev_ctl->panic_on_ce = ARM64_ERP_PANIC_ON_CE;
-#endif
 	drv->edev_ctl->panic_on_ue = ARM64_ERP_PANIC_ON_UE;
 	drv->nb_pm.notifier_call = kryo_pmu_cpu_pm_notify;
 	platform_set_drvdata(pdev, drv);
@@ -531,7 +537,6 @@ static int kryo_cpu_erp_remove(struct platform_device *pdev)
 {
 	struct erp_drvdata *drv = dev_get_drvdata(&pdev->dev);
 	struct edac_device_ctl_info *edac_ctl = drv->edev_ctl;
-
 
 	if (drv->erp_cpu_drvdata != NULL) {
 		on_each_cpu(l1_l2_irq_disable, &(drv->ppi), 1);
