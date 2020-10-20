@@ -262,8 +262,6 @@ static ssize_t ramdump_read(struct file *filep, char __user *buf, size_t count,
 	}
 
 	kfree(finalbuf);
-	if (!vaddr && origdevice_mem)
-		iounmap(origdevice_mem);
 
 	*pos += copy_size;
 
@@ -277,8 +275,6 @@ static ssize_t ramdump_read(struct file *filep, char __user *buf, size_t count,
 ramdump_done:
 	srcu_read_unlock(&rd_dev->rd_srcu, srcu_idx);
 	kfree(finalbuf);
-	if (!vaddr && origdevice_mem)
-		iounmap(origdevice_mem);
 	*pos = 0;
 	reset_ramdump_entry(entry);
 	return ret;
