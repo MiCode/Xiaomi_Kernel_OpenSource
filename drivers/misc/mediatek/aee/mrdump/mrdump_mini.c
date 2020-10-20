@@ -684,6 +684,12 @@ static int mrdump_modules_info(unsigned char *buffer, size_t sz_buf)
 #endif
 }
 
+void mrdump_modules_info_early(void)
+{
+	mrdump_modules_info(NULL, -1);
+}
+EXPORT_SYMBOL(mrdump_modules_info_early);
+
 #define EXTRA_MISC(func, name, max_size) \
 	extern void func(unsigned long *vaddr, unsigned long *size);
 #include "mrdump_mini_extra_misc.h"
