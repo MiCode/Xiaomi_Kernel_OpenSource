@@ -7,6 +7,7 @@
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
 #include <linux/delay.h>
+#include <linux/device.h>
 #include <linux/ktime.h>
 #include <linux/regulator/consumer.h>
 #include <linux/string.h>
@@ -43,4 +44,19 @@ struct clk *kgsl_of_clk_by_name(struct clk_bulk_data *clks, int count,
 			return clks[i].clk;
 
 	return NULL;
+}
+
+int kgsl_regulator_set_voltage(struct device *dev,
+		struct regulator *reg, u32 voltage)
+{
+	int ret;
+
+	if (IS_ERR_OR_NULL(reg))
+		return 0;
+
+	ret = regulator_set_voltage(reg, voltage, INT_MAX);
+	if (ret)
+		dev_err(dev, "Regulator set voltage:%d failed:%d\n", voltage, ret);
+
+	return ret;
 }

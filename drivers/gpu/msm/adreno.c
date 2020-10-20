@@ -3574,8 +3574,15 @@ static void adreno_regulator_disable_poll(struct kgsl_device *device)
 {
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 
+	/* Set the parent in retention voltage to disable CPR interrupts */
+	kgsl_regulator_set_voltage(device->dev, pwr->gx_gdsc_parent,
+			pwr->gx_gdsc_parent_min_corner);
+
 	if (!kgsl_regulator_disable_wait(pwr->gx_gdsc, 200))
 		dev_err(device->dev, "Regulator vdd is stuck on\n");
+
+	/* Remove the vote for the vdd parent supply */
+	kgsl_regulator_set_voltage(device->dev, pwr->gx_gdsc_parent, 0);
 
 	if (!kgsl_regulator_disable_wait(pwr->cx_gdsc, 200))
 		dev_err(device->dev, "Regulator vddcx is stuck on\n");
