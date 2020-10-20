@@ -284,22 +284,12 @@ int aed_proc_debug_done(struct proc_dir_entry *aed_proc_dir);
 void aee_rr_proc_init(struct proc_dir_entry *aed_proc_dir);
 void aee_rr_proc_done(struct proc_dir_entry *aed_proc_dir);
 
-void dram_console_init(struct proc_dir_entry *aed_proc_dir);
-void dram_console_done(struct proc_dir_entry *aed_proc_dir);
-
 extern struct atomic_notifier_head panic_notifier_list;
 extern int ksysfs_bootinfo_init(void);
 extern void ksysfs_bootinfo_exit(void);
 extern int aee_dump_ccci_debug_info(int md_id, void **addr, int *size);
-extern void show_stack(struct task_struct *tsk, unsigned long *sp,
-		const char *loglvl);
 extern int aee_get_mode(void);
-extern void aee_kernel_RT_Monitor_api(int lParam);
-extern void show_task_mem(void);
-void show_native_bt_by_pid(int task_pid);
 void aee_register_api(struct aee_kernel_api *aee_api);
-
-extern int register_warn_notifier(struct notifier_block *nb);
-extern int unregister_warn_notifier(struct notifier_block *nb);
+extern void mrdump_modules_info_early(void);
 
 #endif
