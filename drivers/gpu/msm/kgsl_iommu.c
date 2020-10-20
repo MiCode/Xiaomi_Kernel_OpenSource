@@ -2379,6 +2379,8 @@ int kgsl_iommu_probe(struct kgsl_device *device)
 	struct device_node *node;
 
 	node = of_find_compatible_node(NULL, NULL, "qcom,kgsl-smmu-v2");
+	if (!node)
+		return -ENODEV;
 
 	/* Create a kmem cache for the pagetable address objects */
 	if (!addr_entry_cache) {
@@ -2410,6 +2412,12 @@ int kgsl_iommu_probe(struct kgsl_device *device)
 
 	iommu->clks = devm_kcalloc(&pdev->dev, ARRAY_SIZE(kgsl_iommu_clocks),
 				sizeof(struct clk **), GFP_KERNEL);
+	if (!iommu->clks) {
+		platform_device_put(pdev);
+		ret = -ENOMEM;
+		goto err;
+	}
+
 
 	/* Get the clock from the KGSL device */
 	for (i = 0; i < ARRAY_SIZE(kgsl_iommu_clocks); i++) {
