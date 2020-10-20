@@ -15,6 +15,7 @@
 #include <dt-bindings/soc/qcom,ipcc.h>
 #include <dt-bindings/spmi/spmi.h>
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/power/qcom-aoss-qmp.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. Waipio";
@@ -875,6 +876,9 @@
 		clocks = <&clock_rpmh RPMH_CXO_CLK>;
 		clock-names = "xo";
 
+		power-domains = <&aoss_qmp AOSS_QMP_LS_LPASS>;
+		power-domain-names = "load_state";
+
 		interconnects = <&aggre2_noc MASTER_CRYPTO &mc_virt SLAVE_EBI1>;
 		interconnect-names = "crypto_ddr";
 
@@ -965,6 +969,9 @@
 		clocks = <&clock_rpmh RPMH_CXO_CLK>;
 		clock-names = "xo";
 
+		power-domains = <&aoss_qmp AOSS_QMP_LS_CDSP>;
+		power-domain-names = "load_state";
+
 		interconnects = <&nsp_noc MASTER_CDSP_PROC &mc_virt SLAVE_EBI1>,
 				<&aggre2_noc MASTER_CRYPTO &mc_virt SLAVE_EBI1>;
 		interconnect-names = "rproc_ddr", "crypto_ddr";
@@ -1028,6 +1035,9 @@
 
 		clocks = <&clock_rpmh RPMH_CXO_CLK>;
 		clock-names = "xo";
+
+		power-domains = <&aoss_qmp AOSS_QMP_LS_SLPI>;
+		power-domain-names = "load_state";
 
 		interconnects = <&aggre2_noc MASTER_CRYPTO &mc_virt SLAVE_EBI1>;
 		interconnect-names = "crypto_ddr";
@@ -1109,6 +1119,9 @@
 		mx-supply = <&VDD_MODEM_LEVEL>;
 		mx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
 		reg-names = "cx", "mx";
+
+		power-domains = <&aoss_qmp AOSS_QMP_LS_MODEM>;
+		power-domain-names = "load_state";
 
 		interconnects = <&aggre2_noc MASTER_CRYPTO &mc_virt SLAVE_EBI1>;
 		interconnect-names = "crypto_ddr";
