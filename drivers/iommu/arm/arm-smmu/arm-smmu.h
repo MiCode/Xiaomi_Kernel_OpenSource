@@ -683,6 +683,16 @@ int arm_mmu500_reset(struct arm_smmu_device *smmu);
 int arm_smmu_power_on(struct arm_smmu_power_resources *pwr);
 void arm_smmu_power_off(struct arm_smmu_device *smmu,
 			struct arm_smmu_power_resources *pwr);
+int arm_smmu_domain_power_on(struct iommu_domain *domain,
+				struct arm_smmu_device *smmu);
+void arm_smmu_domain_power_off(struct iommu_domain *domain,
+				struct arm_smmu_device *smmu);
+int arm_smmu_power_on_atomic(struct arm_smmu_power_resources *pwr);
+void arm_smmu_power_off_atomic(struct arm_smmu_device *smmu,
+				      struct arm_smmu_power_resources *pwr);
+struct arm_smmu_power_resources *arm_smmu_init_power_resources(
+			struct platform_device *pdev);
+void arm_smmu_exit_power_resources(struct arm_smmu_power_resources *pwr);
 
 /* Misc. constants */
 #define TBUID_SHIFT                     10
