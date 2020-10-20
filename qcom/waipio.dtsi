@@ -10,6 +10,7 @@
 #include <dt-bindings/interconnect/qcom,waipio.h>
 #include <dt-bindings/soc/qcom,ipcc.h>
 #include <dt-bindings/soc/qcom,rpmh-rsc.h>
+#include <dt-bindings/soc/qcom,ipcc.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. Waipio";
@@ -946,6 +947,19 @@
 		interrupt-controller;
 		#interrupt-cells = <3>;
 		#mbox-cells = <2>;
+	};
+
+	aoss_qmp: power-controller@c300000 {
+		compatible = "qcom,waipio-aoss-qmp";
+		reg = <0x0 0x0c300000 0x0 0x400>;
+		interrupts = <IPCC_CLIENT_AOP
+			      IPCC_MPROC_SIGNAL_GLINK_QMP
+			      IRQ_TYPE_EDGE_RISING>;
+		mboxes = <&ipcc_mproc IPCC_CLIENT_AOP
+			  IPCC_MPROC_SIGNAL_GLINK_QMP>;
+
+		#clock-cells = <0>;
+		#power-domain-cells = <1>;
 	};
 
 	cxo: bi_tcxo {
