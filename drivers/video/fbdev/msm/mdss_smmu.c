@@ -370,6 +370,7 @@ err:
 	for (i--; i >= 0; i--) {
 		mdss_smmu = mdss_smmu_get_cb(i);
 		if (mdss_smmu && mdss_smmu->base.dev) {
+			msm_dma_unmap_all_for_dev(mdss_smmu->base.dev);
 			iommu_detach_device(mdss_smmu->domain,
 						mdss_smmu->base.dev);
 			mdss_smmu_enable_power(mdss_smmu, false);
@@ -402,6 +403,8 @@ static int mdss_smmu_detach_v2(struct mdss_data_type *mdata)
 				mdss_smmu->domain_attached &&
 				mdss_smmu_is_valid_domain_condition(mdata,
 					i, false)) {
+				MDSS_XLOG(0x100);
+				msm_dma_unmap_all_for_dev(mdss_smmu->base.dev);
 				/*
 				 * if entering in secure display or
 				 * secure camera use case(for secured contexts
@@ -873,6 +876,7 @@ int mdss_smmu_probe(struct platform_device *pdev)
 		mdss_smmu->handoff_pending = true;
 
 	mdss_smmu->base.dev = dev;
+	mdss_smmu->domain_attached = true;
 
 	iommu_set_fault_handler(mdss_smmu->domain,
 			mdss_smmu_fault_handler, mdss_smmu);

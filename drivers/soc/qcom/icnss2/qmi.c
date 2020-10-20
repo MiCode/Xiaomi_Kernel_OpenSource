@@ -341,11 +341,11 @@ out:
 	return ret;
 }
 
-int wlfw_exit_power_save_send_msg(struct icnss_priv *priv)
+int wlfw_power_save_send_msg(struct icnss_priv *priv,
+			     enum wlfw_power_save_mode_v01 mode)
 {
 	int ret;
-	struct wlfw_exit_power_save_req_msg_v01 *req;
-	struct wlfw_exit_power_save_resp_msg_v01 *resp;
+	struct wlfw_power_save_req_msg_v01 *req;
 	struct qmi_txn txn;
 
 	if (!priv)
@@ -354,23 +354,27 @@ int wlfw_exit_power_save_send_msg(struct icnss_priv *priv)
 	if (test_bit(ICNSS_FW_DOWN, &priv->state))
 		return -EINVAL;
 
-	icnss_pr_dbg("Sending exit power save, state: 0x%lx\n",
-		     priv->state);
+	if (test_bit(ICNSS_PD_RESTART, &priv->state) ||
+	    !test_bit(ICNSS_MODE_ON, &priv->state))
+		return 0;
+
+	icnss_pr_dbg("Sending power save mode: %d, state: 0x%lx\n",
+		     mode, priv->state);
 
 	req = kzalloc(sizeof(*req), GFP_KERNEL);
 	if (!req)
 		return -ENOMEM;
 
-	resp = kzalloc(sizeof(*resp), GFP_KERNEL);
-	if (!resp) {
-		kfree(req);
-		return -ENOMEM;
-	}
+	req->power_save_mode_valid = 1;
+	req->power_save_mode = mode;
 
-	priv->stats.exit_power_save_req++;
+	if (mode == WLFW_POWER_SAVE_EXIT_V01)
+		priv->stats.exit_power_save_req++;
+	else
+		priv->stats.enter_power_save_req++;
 
 	ret = qmi_txn_init(&priv->qmi, &txn,
-			   wlfw_exit_power_save_resp_msg_v01_ei, resp);
+			   NULL, NULL);
 	if (ret < 0) {
 		icnss_qmi_fatal_err("Fail to init txn for exit power save%d\n",
 				    ret);
@@ -378,9 +382,9 @@ int wlfw_exit_power_save_send_msg(struct icnss_priv *priv)
 	}
 
 	ret = qmi_send_request(&priv->qmi, NULL, &txn,
-			       QMI_WLFW_EXIT_POWER_SAVE_REQ_V01,
-			       WLFW_EXIT_POWER_SAVE_REQ_MSG_V01_MAX_MSG_LEN,
-			       wlfw_exit_power_save_req_msg_v01_ei, req);
+			       QMI_WLFW_POWER_SAVE_REQ_V01,
+			       WLFW_POWER_SAVE_REQ_MSG_V01_MAX_MSG_LEN,
+			       wlfw_power_save_req_msg_v01_ei, req);
 	if (ret < 0) {
 		qmi_txn_cancel(&txn);
 		icnss_qmi_fatal_err("Fail to send exit power save req %d\n",
@@ -388,29 +392,23 @@ int wlfw_exit_power_save_send_msg(struct icnss_priv *priv)
 		goto out;
 	}
 
-	ret = qmi_txn_wait(&txn, priv->ctrl_params.qmi_timeout);
-	if (ret < 0) {
-		icnss_qmi_fatal_err("Exit power save wait failed with ret %d\n",
-				    ret);
-		goto out;
-	} else if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
-		icnss_qmi_fatal_err(
-		    "QMI exit power save request rejected,result:%d error:%d\n",
-				    resp->resp.result, resp->resp.error);
-		ret = -resp->resp.result;
-		goto out;
-	}
+	qmi_txn_cancel(&txn);
 
-	priv->stats.exit_power_save_resp++;
+	if (mode == WLFW_POWER_SAVE_EXIT_V01)
+		priv->stats.exit_power_save_resp++;
+	else
+		priv->stats.enter_power_save_resp++;
 
-	kfree(resp);
 	kfree(req);
 	return 0;
 
 out:
-	kfree(resp);
 	kfree(req);
-	priv->stats.exit_power_save_err++;
+
+	if (mode == WLFW_POWER_SAVE_EXIT_V01)
+		priv->stats.exit_power_save_err++;
+	else
+		priv->stats.enter_power_save_err++;
 	return ret;
 }
 
@@ -1726,12 +1724,17 @@ static void rejuvenate_ind_cb(struct qmi_handle *qmi, struct sockaddr_qrtr *sq,
 static void cal_done_ind_cb(struct qmi_handle *qmi, struct sockaddr_qrtr *sq,
 			    struct qmi_txn *txn, const void *data)
 {
+	struct icnss_priv *priv = container_of(qmi, struct icnss_priv, qmi);
+
 	icnss_pr_dbg("Received QMI WLFW calibration done indication\n");
 
 	if (!txn) {
 		icnss_pr_err("Spurious indication\n");
 		return;
 	}
+
+	priv->cal_done = true;
+	clear_bit(ICNSS_COLD_BOOT_CAL, &priv->state);
 }
 
 static void fw_init_done_ind_cb(struct qmi_handle *qmi,

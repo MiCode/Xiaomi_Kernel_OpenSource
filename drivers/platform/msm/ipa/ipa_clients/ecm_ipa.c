@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/debugfs.h>
@@ -659,13 +659,21 @@ static void ecm_ipa_packet_receive_notify
 	packet_len = skb->len;
 	ECM_IPA_DEBUG("packet RX, len=%d\n", skb->len);
 
+	if (unlikely(ecm_ipa_ctx == NULL)) {
+		ECM_IPA_DEBUG("Private context is NULL. Drop SKB.\n");
+		dev_kfree_skb_any(skb);
+		return;
+	}
+
 	if (unlikely(ecm_ipa_ctx->state != ECM_IPA_CONNECTED_AND_UP)) {
 		ECM_IPA_DEBUG("Missing pipe connected and/or iface up\n");
+		dev_kfree_skb_any(skb);
 		return;
 	}
 
 	if (unlikely(evt != IPA_RECEIVE)) {
 		ECM_IPA_ERROR("A none IPA_RECEIVE event in ecm_ipa_receive\n");
+		dev_kfree_skb_any(skb);
 		return;
 	}
 

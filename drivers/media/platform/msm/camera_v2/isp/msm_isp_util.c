@@ -1544,8 +1544,10 @@ int msm_isp_proc_cmd(struct vfe_device *vfe_dev, void *arg)
 			proc_cmd->cmd_len <= UINT16_MAX) {
 		cfg_data = memdup_user((void __user *)(proc_cmd->cfg_data),
 			proc_cmd->cmd_len);
-		if (IS_ERR(cfg_data))
+		if (IS_ERR(cfg_data)) {
+			kfree(reg_cfg_cmd);
 			return PTR_ERR(cfg_data);
+		}
 	} else {
 		pr_debug("%s: Passed cmd_len as 0\n", __func__);
 	}
@@ -1562,6 +1564,7 @@ int msm_isp_proc_cmd(struct vfe_device *vfe_dev, void *arg)
 copy_cmd_failed:
 	kfree(cfg_data);
 reg_cfg_failed:
+	kfree(reg_cfg_cmd);
 	return rc;
 }
 

@@ -214,6 +214,9 @@ out:
 static void dump_err_reg(int errorcode, int level, u64 errxstatus, u64 errxmisc,
 	struct edac_device_ctl_info *edev_ctl)
 {
+	u32 part_num;
+	int way;
+
 	edac_printk(KERN_CRIT, EDAC_CPU, "ERRXSTATUS_EL1: %llx\n", errxstatus);
 	edac_printk(KERN_CRIT, EDAC_CPU, "ERRXMISC_EL1: %llx\n", errxmisc);
 	edac_printk(KERN_CRIT, EDAC_CPU, "Cache level: L%d\n", level + 1);
@@ -244,12 +247,27 @@ static void dump_err_reg(int errorcode, int level, u64 errxstatus, u64 errxmisc,
 		break;
 	}
 
-	if (level == L3)
-		edac_printk(KERN_CRIT, EDAC_CPU,
-			"Way: %d\n", (int) KRYO_ERRXMISC_WAY(errxmisc));
-	else
-		edac_printk(KERN_CRIT, EDAC_CPU,
-			"Way: %d\n", (int) KRYO_ERRXMISC_WAY(errxmisc) >> 2);
+	if (level == L3) {
+		way = (int) KRYO_ERRXMISC_WAY(errxmisc);
+	} else {
+		part_num = read_cpuid_part_number();
+		switch (part_num) {
+		case QCOM_CPU_PART_KRYO4XX_SILVER_V1:
+		case QCOM_CPU_PART_KRYO4XX_SILVER_V2:
+			way = (int) KRYO_ERRXMISC_WAY(errxmisc) >> 2;
+			break;
+		case QCOM_CPU_PART_KRYO4XX_GOLD:
+		case QCOM_CPU_PART_KRYO5XX_GOLD:
+			way = (int) KRYO_ERRXMISC_WAY(errxmisc);
+			break;
+		default:
+			edac_printk(KERN_CRIT, EDAC_CPU,
+				"Error in matching part num:%u\n", part_num);
+			return;
+		}
+	}
+
+	edac_printk(KERN_CRIT, EDAC_CPU, "Way: %d\n", way);
 	errors[errorcode].func(edev_ctl, smp_processor_id(),
 				level, errors[errorcode].msg);
 }
