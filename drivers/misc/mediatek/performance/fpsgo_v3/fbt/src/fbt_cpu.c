@@ -1896,6 +1896,9 @@ static unsigned int fbt_get_max_userlimit_freq(void)
 
 	mutex_lock(&fbt_mlock);
 	for (i = 0; i < cluster_num; i++) {
+		if (clus_max_idx[i] < 0 || clus_max_idx[i] >= NR_FREQ_CPU)
+			continue;
+
 		clus_max_cap[i] = cpu_dvfs[i].capacity_ratio[clus_max_idx[i]];
 		if (clus_max_cap[i] > max_cap) {
 			max_cap = clus_max_cap[i];
