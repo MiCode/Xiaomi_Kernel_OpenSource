@@ -3549,8 +3549,8 @@ page_owner=on";
 		reg = <0 0x14014000 0 0x1000>;
 		interrupts = <GIC_SPI 270 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&mmsys_config CLK_MM_DISP_WDMA0>;
-		mediatek,larb = <&smi_larb0>;
-		mediatek,smi-id = <0>;
+		mediatek,larb = <&smi_larb1>;
+		mediatek,smi-id = <1>;
 		iommus = <&iommu0 M4U_PORT_L1_DISP_WDMA0>;
 	};
 
