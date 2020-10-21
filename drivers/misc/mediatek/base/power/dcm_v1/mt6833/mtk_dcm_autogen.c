@@ -18,7 +18,7 @@
 #include <mtk_dcm_internal.h>
 #include <mtk_dcm_autogen.h>
 #include <mtk_dcm.h>
-/*====================auto gen code 20200827_101815=====================*/
+/*====================auto gen code 20201013_225344=====================*/
 #define INFRACFG_AO_AXIMEM_BUS_DCM_REG0_MASK ((0x1f << 12) | \
 			(0x1 << 17) | \
 			(0x1 << 18))
@@ -122,6 +122,44 @@ void dcm_infracfg_ao_infra_bus_dcm(int on)
 			(reg_read(INFRA_BUS_DCM_CTRL) &
 			~INFRACFG_AO_INFRA_BUS_DCM_REG0_MASK) |
 			INFRACFG_AO_INFRA_BUS_DCM_REG0_OFF);
+	}
+}
+
+#define INFRACFG_AO_INFRA_CONN_BUS_DCM_REG0_MASK ((0x1 << 8))
+#define INFRACFG_AO_INFRA_CONN_BUS_DCM_REG1_MASK ((0x1 << 8))
+#define INFRACFG_AO_INFRA_CONN_BUS_DCM_REG2_MASK ((0x1 << 8))
+#define INFRACFG_AO_INFRA_CONN_BUS_DCM_REG0_ON ((0x1 << 8))
+#define INFRACFG_AO_INFRA_CONN_BUS_DCM_REG1_ON ((0x0 << 8))
+#define INFRACFG_AO_INFRA_CONN_BUS_DCM_REG2_ON ((0x1 << 8))
+#define INFRACFG_AO_INFRA_CONN_BUS_DCM_REG0_OFF ((0x0 << 8))
+#define INFRACFG_AO_INFRA_CONN_BUS_DCM_REG1_OFF ((0x1 << 8))
+#define INFRACFG_AO_INFRA_CONN_BUS_DCM_REG2_OFF ((0x0 << 8))
+
+bool dcm_infracfg_ao_infra_conn_bus_dcm_is_on(void)
+{
+	bool ret = true;
+
+	ret &= ((reg_read(MODULE_SW_CG_2_STA) &
+		INFRACFG_AO_INFRA_CONN_BUS_DCM_REG2_MASK) ==
+		(unsigned int) INFRACFG_AO_INFRA_CONN_BUS_DCM_REG2_ON);
+
+	return ret;
+}
+
+void dcm_infracfg_ao_infra_conn_bus_dcm(int on)
+{
+	if (on) {
+		/* TINFO = "Turn ON DCM 'infracfg_ao_infra_conn_bus_dcm'" */
+		reg_write(MODULE_SW_CG_2_SET,
+			(reg_read(MODULE_SW_CG_2_SET) &
+			~INFRACFG_AO_INFRA_CONN_BUS_DCM_REG0_MASK) |
+			INFRACFG_AO_INFRA_CONN_BUS_DCM_REG0_ON);
+	} else {
+		/* TINFO = "Turn OFF DCM 'infracfg_ao_infra_conn_bus_dcm'" */
+		reg_write(MODULE_SW_CG_2_CLR,
+			(reg_read(MODULE_SW_CG_2_CLR) &
+			~INFRACFG_AO_INFRA_CONN_BUS_DCM_REG1_MASK) |
+			INFRACFG_AO_INFRA_CONN_BUS_DCM_REG1_OFF);
 	}
 }
 
@@ -520,17 +558,11 @@ void dcm_infra_ao_bcrm_peri_bus_dcm(int on)
 }
 
 #define MCUSYS_PAR_WRAP_BIG_DCM_REG0_MASK ((0x1 << 0) | \
-			(0x1 << 1) | \
-			(0x1 << 0) | \
-			(0x1 << 1))
-#define MCUSYS_PAR_WRAP_BIG_DCM_REG0_ON ((0x0 << 0) | \
-			(0x0 << 1) | \
-			(0x0 << 0) | \
-			(0x0 << 1))
-#define MCUSYS_PAR_WRAP_BIG_DCM_REG0_OFF ((0x1 << 0) | \
-			(0x1 << 1) | \
-			(0x1 << 0) | \
-			(0x1 << 1))
+			(0x1 << 0))
+#define MCUSYS_PAR_WRAP_BIG_DCM_REG0_ON ((0x1 << 0) | \
+			(0x1 << 0))
+#define MCUSYS_PAR_WRAP_BIG_DCM_REG0_OFF ((0x0 << 0) | \
+			(0x0 << 0))
 
 bool dcm_mcusys_par_wrap_big_dcm_is_on(void)
 {
@@ -566,18 +598,18 @@ void dcm_mcusys_par_wrap_big_dcm(int on)
 			(0x1 << 0) | \
 			(0x1 << 0) | \
 			(0x1 << 0))
-#define MCUSYS_PAR_WRAP_LITTLE_DCM_REG0_ON ((0x0 << 0) | \
-			(0x0 << 0) | \
-			(0x0 << 0) | \
-			(0x0 << 0) | \
-			(0x0 << 0) | \
-			(0x0 << 0))
-#define MCUSYS_PAR_WRAP_LITTLE_DCM_REG0_OFF ((0x1 << 0) | \
+#define MCUSYS_PAR_WRAP_LITTLE_DCM_REG0_ON ((0x1 << 0) | \
 			(0x1 << 0) | \
 			(0x1 << 0) | \
 			(0x1 << 0) | \
 			(0x1 << 0) | \
 			(0x1 << 0))
+#define MCUSYS_PAR_WRAP_LITTLE_DCM_REG0_OFF ((0x0 << 0) | \
+			(0x0 << 0) | \
+			(0x0 << 0) | \
+			(0x0 << 0) | \
+			(0x0 << 0) | \
+			(0x0 << 0))
 
 bool dcm_mcusys_par_wrap_little_dcm_is_on(void)
 {
@@ -731,6 +763,38 @@ void dcm_mp_cpusys_top_apb_dcm(int on)
 			(reg_read(MP_CPUSYS_TOP_MCUSYS_DCM_CFG0) &
 			~MP_CPUSYS_TOP_APB_DCM_REG1_MASK) |
 			MP_CPUSYS_TOP_APB_DCM_REG1_OFF);
+	}
+}
+
+#define MP_CPUSYS_TOP_BUS_PLL_DIV_DCM_REG0_MASK ((0x1 << 11))
+#define MP_CPUSYS_TOP_BUS_PLL_DIV_DCM_REG0_ON ((0x1 << 11))
+#define MP_CPUSYS_TOP_BUS_PLL_DIV_DCM_REG0_OFF ((0x0 << 11))
+
+bool dcm_mp_cpusys_top_bus_pll_div_dcm_is_on(void)
+{
+	bool ret = true;
+
+	ret &= ((reg_read(MP_CPUSYS_TOP_BUS_PLLDIV_CFG) &
+		MP_CPUSYS_TOP_BUS_PLL_DIV_DCM_REG0_MASK) ==
+		(unsigned int) MP_CPUSYS_TOP_BUS_PLL_DIV_DCM_REG0_ON);
+
+	return ret;
+}
+
+void dcm_mp_cpusys_top_bus_pll_div_dcm(int on)
+{
+	if (on) {
+		/* TINFO = "Turn ON DCM 'mp_cpusys_top_bus_pll_div_dcm'" */
+		reg_write(MP_CPUSYS_TOP_BUS_PLLDIV_CFG,
+			(reg_read(MP_CPUSYS_TOP_BUS_PLLDIV_CFG) &
+			~MP_CPUSYS_TOP_BUS_PLL_DIV_DCM_REG0_MASK) |
+			MP_CPUSYS_TOP_BUS_PLL_DIV_DCM_REG0_ON);
+	} else {
+		/* TINFO = "Turn OFF DCM 'mp_cpusys_top_bus_pll_div_dcm'" */
+		reg_write(MP_CPUSYS_TOP_BUS_PLLDIV_CFG,
+			(reg_read(MP_CPUSYS_TOP_BUS_PLLDIV_CFG) &
+			~MP_CPUSYS_TOP_BUS_PLL_DIV_DCM_REG0_MASK) |
+			MP_CPUSYS_TOP_BUS_PLL_DIV_DCM_REG0_OFF);
 	}
 }
 
@@ -1042,4 +1106,5 @@ void dcm_mcusys_cfg_reg_mp0_qdcm(int on)
 			MCUSYS_CFG_REG_MP0_QDCM_REG0_OFF);
 	}
 }
+
 

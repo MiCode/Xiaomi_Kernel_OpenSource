@@ -72,6 +72,9 @@ extern unsigned long dcm_ddrphy1_ao_base;
 #define MCUSYS_CFG_REG_MP0_DCM_CFG7             (MCUSYS_CFG_REG_BASE + 0x89c)
 #define MCUSYS_PAR_WRAP_CPU_STALL_DCM_CTRL      (MCUSYS_PAR_WRAP_BASE + 0x230)
 #define MCUSYS_PAR_WRAP_STALL_DCM_CONF          (MCUSYS_PAR_WRAP_BASE + 0x3230)
+#define MODULE_SW_CG_2_CLR                      (INFRACFG_AO_BASE + 0xa8)
+#define MODULE_SW_CG_2_SET                      (INFRACFG_AO_BASE + 0xa4)
+#define MODULE_SW_CG_2_STA                      (INFRACFG_AO_BASE + 0xac)
 #define MP_CPUSYS_TOP_BUS_PLLDIV_CFG            (MP_CPUSYS_TOP_BASE + 0x22e0)
 #define MP_CPUSYS_TOP_MCSIC_DCM0                (MP_CPUSYS_TOP_BASE + 0x2440)
 #define MP_CPUSYS_TOP_MCUSYS_DCM_CFG0           (MP_CPUSYS_TOP_BASE + 0x25c0)
@@ -92,12 +95,12 @@ extern unsigned long dcm_ddrphy1_ao_base;
 #define VDNR_DCM_TOP_INFRA_PAR_BUS_u_INFRA_PAR_BUS_CTRL_9 \
 		(INFRA_AO_BCRM_BASE + 0x58)
 
-
-/* INFRACFG_AO */
 bool dcm_infracfg_ao_aximem_bus_dcm_is_on(void);
 void dcm_infracfg_ao_aximem_bus_dcm(int on);
 bool dcm_infracfg_ao_infra_bus_dcm_is_on(void);
 void dcm_infracfg_ao_infra_bus_dcm(int on);
+bool dcm_infracfg_ao_infra_conn_bus_dcm_is_on(void);
+void dcm_infracfg_ao_infra_conn_bus_dcm(int on);
 bool dcm_infracfg_ao_infra_rx_p2p_dcm_is_on(void);
 void dcm_infracfg_ao_infra_rx_p2p_dcm(int on);
 bool dcm_infracfg_ao_mts_bus_dcm_is_on(void);
@@ -106,24 +109,22 @@ bool dcm_infracfg_ao_peri_bus_dcm_is_on(void);
 void dcm_infracfg_ao_peri_bus_dcm(int on);
 bool dcm_infracfg_ao_peri_module_dcm_is_on(void);
 void dcm_infracfg_ao_peri_module_dcm(int on);
-/* INFRACFG_AO_MEM */
 bool dcm_infracfg_ao_mem_dcm_emi_group_is_on(void);
 void dcm_infracfg_ao_mem_dcm_emi_group(int on);
-/* INFRA_AO_BCRM */
 bool dcm_infra_ao_bcrm_infra_bus_dcm_is_on(void);
 void dcm_infra_ao_bcrm_infra_bus_dcm(int on);
 bool dcm_infra_ao_bcrm_peri_bus_dcm_is_on(void);
 void dcm_infra_ao_bcrm_peri_bus_dcm(int on);
-/* MCUSYS_PAR_WRAP */
 bool dcm_mcusys_par_wrap_big_dcm_is_on(void);
 void dcm_mcusys_par_wrap_big_dcm(int on);
 bool dcm_mcusys_par_wrap_little_dcm_is_on(void);
 void dcm_mcusys_par_wrap_little_dcm(int on);
-/* MP_CPUSYS_TOP */
 bool dcm_mp_cpusys_top_adb_dcm_is_on(void);
 void dcm_mp_cpusys_top_adb_dcm(int on);
 bool dcm_mp_cpusys_top_apb_dcm_is_on(void);
 void dcm_mp_cpusys_top_apb_dcm(int on);
+bool dcm_mp_cpusys_top_bus_pll_div_dcm_is_on(void);
+void dcm_mp_cpusys_top_bus_pll_div_dcm(int on);
 bool dcm_mp_cpusys_top_cpubiu_dcm_is_on(void);
 void dcm_mp_cpusys_top_cpubiu_dcm(int on);
 bool dcm_mp_cpusys_top_last_cor_idle_dcm_is_on(void);
@@ -132,10 +133,8 @@ bool dcm_mp_cpusys_top_misc_dcm_is_on(void);
 void dcm_mp_cpusys_top_misc_dcm(int on);
 bool dcm_mp_cpusys_top_mp0_qdcm_is_on(void);
 void dcm_mp_cpusys_top_mp0_qdcm(int on);
-/* CPCCFG_REG */
 bool dcm_cpccfg_reg_emi_wfifo_is_on(void);
 void dcm_cpccfg_reg_emi_wfifo(int on);
-/* MCUSYS_CFG_REG */
 bool dcm_mcusys_cfg_reg_apb_dcm_is_on(void);
 void dcm_mcusys_cfg_reg_apb_dcm(int on);
 bool dcm_mcusys_cfg_reg_core_stall_dcm_is_on(void);
@@ -144,6 +143,5 @@ bool dcm_mcusys_cfg_reg_fcm_stall_dcm_is_on(void);
 void dcm_mcusys_cfg_reg_fcm_stall_dcm(int on);
 bool dcm_mcusys_cfg_reg_mp0_qdcm_is_on(void);
 void dcm_mcusys_cfg_reg_mp0_qdcm(int on);
-
 #endif /* __MTK_DCM_AUTOGEN_H__ */
 
