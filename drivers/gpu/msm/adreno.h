@@ -83,42 +83,38 @@
 
 /* Adreno core features */
 /* The core supports SP/TP hw controlled power collapse */
-#define ADRENO_SPTP_PC BIT(3)
+#define ADRENO_SPTP_PC BIT(0)
 /* The GPU supports content protection */
-#define ADRENO_CONTENT_PROTECTION BIT(5)
+#define ADRENO_CONTENT_PROTECTION BIT(1)
 /* The GPU supports preemption */
-#define ADRENO_PREEMPTION BIT(6)
-/* The core uses GPMU for power and limit management */
-#define ADRENO_GPMU BIT(7)
+#define ADRENO_PREEMPTION BIT(2)
 /* The GPMU supports Limits Management */
-#define ADRENO_LM BIT(8)
+#define ADRENO_LM BIT(3)
 /* The GPU supports retention for cpz registers */
-#define ADRENO_CPZ_RETENTION BIT(10)
+#define ADRENO_CPZ_RETENTION BIT(4)
 /* The core has soft fault detection available */
-#define ADRENO_SOFT_FAULT_DETECT BIT(11)
-/* The GMU supports RPMh for power management*/
-#define ADRENO_RPMH BIT(12)
+#define ADRENO_SOFT_FAULT_DETECT BIT(5)
 /* The GMU supports IFPC power management*/
-#define ADRENO_IFPC BIT(13)
+#define ADRENO_IFPC BIT(6)
 /* The GMU supports HW based NAP */
-#define ADRENO_HW_NAP BIT(14)
+#define ADRENO_HW_NAP BIT(7)
 /* The GMU supports min voltage*/
-#define ADRENO_MIN_VOLT BIT(15)
+#define ADRENO_MIN_VOLT BIT(8)
 /* The core supports IO-coherent memory */
-#define ADRENO_IOCOHERENT BIT(16)
+#define ADRENO_IOCOHERENT BIT(9)
 /*
  * The GMU supports Adaptive Clock Distribution (ACD)
  * for droop mitigation
  */
-#define ADRENO_ACD BIT(17)
+#define ADRENO_ACD BIT(10)
 /* Cooperative reset enabled GMU */
-#define ADRENO_COOP_RESET BIT(18)
+#define ADRENO_COOP_RESET BIT(11)
 /* Indicates that the specific target is no longer supported */
-#define ADRENO_DEPRECATED BIT(19)
+#define ADRENO_DEPRECATED BIT(12)
 /* The target supports ringbuffer level APRIV */
-#define ADRENO_APRIV BIT(20)
+#define ADRENO_APRIV BIT(13)
 /* The GMU supports Battery Current Limiting */
-#define ADRENO_BCL BIT(21)
+#define ADRENO_BCL BIT(14)
 /*
  * Adreno GPU quirks - control bits for various workarounds
  */

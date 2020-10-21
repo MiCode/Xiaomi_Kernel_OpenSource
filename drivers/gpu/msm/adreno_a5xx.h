@@ -299,4 +299,9 @@ int a5xx_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 int a5xx_ringbuffer_submit(struct adreno_ringbuffer *rb,
 		struct adreno_submit_time *time, bool sync);
 
+static inline bool a5xx_has_gpmu(struct adreno_device *adreno_dev)
+{
+	return (adreno_is_a530(adreno_dev) || adreno_is_a540(adreno_dev));
+}
+
 #endif

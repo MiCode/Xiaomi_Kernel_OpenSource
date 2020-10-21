@@ -393,9 +393,8 @@ static void a6xx_gmu_power_config(struct adreno_device *adreno_dev)
 	}
 
 	/* Enable RPMh GPU client */
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_RPMH))
-		gmu_core_regrmw(device, A6XX_GMU_RPMH_CTRL, RPMH_ENABLE_MASK,
-				RPMH_ENABLE_MASK);
+	gmu_core_regrmw(device, A6XX_GMU_RPMH_CTRL, RPMH_ENABLE_MASK,
+		RPMH_ENABLE_MASK);
 }
 
 static void gmu_ao_sync_event(struct adreno_device *adreno_dev)

@@ -214,7 +214,7 @@ static int a5xx_init(struct adreno_device *adreno_dev)
 	if (ret)
 		return ret;
 
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_GPMU))
+	if (a5xx_has_gpmu(adreno_dev))
 		INIT_WORK(&adreno_dev->gpmu_work, a5xx_gpmu_reset);
 
 	adreno_dev->highest_bank_bit = a5xx_core->highest_bank_bit;
@@ -566,7 +566,7 @@ static int _load_gpmu_firmware(struct adreno_device *adreno_dev)
 	int ret =  -EINVAL;
 	u32 gmu_major = 1;
 
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_GPMU))
+	if (!a5xx_has_gpmu(adreno_dev))
 		return 0;
 
 	/* a530 used GMU major 1 and A540 used GMU major 3 */
@@ -692,7 +692,7 @@ static int a5xx_gpmu_start(struct adreno_device *adreno_dev)
 	unsigned int reg, retry = GPMU_FW_INIT_RETRY;
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_GPMU))
+	if (!a5xx_has_gpmu(adreno_dev))
 		return 0;
 
 	ret = _gpmu_send_init_cmds(adreno_dev);
@@ -1281,9 +1281,6 @@ static void _setup_throttling_counters(struct adreno_device *adreno_dev)
 	int i, ret = 0;
 
 	if (!adreno_is_a540(adreno_dev))
-		return;
-
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_GPMU))
 		return;
 
 	for (i = 0; i < ADRENO_GPMU_THROTTLE_COUNTERS; i++) {

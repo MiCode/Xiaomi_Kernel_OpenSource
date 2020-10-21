@@ -981,7 +981,7 @@ void a5xx_snapshot(struct adreno_device *adreno_dev,
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS, snapshot,
 			a5xx_snapshot_registers, &regs);
 
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_GPMU)) {
+	if (a5xx_has_gpmu(adreno_dev)) {
 		regs.regs = a5xx_gpmu_registers;
 		regs.size = ARRAY_SIZE(a5xx_gpmu_registers);
 
@@ -1140,7 +1140,7 @@ void a5xx_crashdump_init(struct adreno_device *adreno_dev)
 		data_size += REG_PAIR_COUNT(a5xx_registers, j) *
 			sizeof(unsigned int);
 
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_GPMU)) {
+	if (a5xx_has_gpmu(adreno_dev)) {
 		/* Each pair needs 16 bytes (2 qwords) */
 		script_size += (ARRAY_SIZE(a5xx_gpmu_registers) / 2) * 16;
 
@@ -1199,7 +1199,7 @@ void a5xx_crashdump_init(struct adreno_device *adreno_dev)
 		offset += r * sizeof(unsigned int);
 	}
 
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_GPMU)) {
+	if (a5xx_has_gpmu(adreno_dev)) {
 		for (j = 0; j < ARRAY_SIZE(a5xx_gpmu_registers) / 2; j++) {
 			unsigned int r = REG_PAIR_COUNT(a5xx_gpmu_registers, j);
 			*ptr++ = registers->gpuaddr + offset;
