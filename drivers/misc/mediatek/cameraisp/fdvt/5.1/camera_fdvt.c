@@ -179,7 +179,7 @@ struct FDVT_CLK_STRUCT fdvt_clk;
 #define BYPASS_REG (0)
 /* #define FDVT_WAITIRQ_LOG */
 #define FDVT_USE_GCE
-//#define FDVT_DEBUG_USE
+/* #define FDVT_DEBUG_USE */
 #define DUMMY_FDVT (0)
 /* #define FDVT_MULTIPROCESS_TIMEING_ISSUE */
 /*I can' test the situation in FPGA due to slow FPGA. */
@@ -1444,6 +1444,10 @@ static signed int config_fdvt_hw(struct fdvt_config *basic_config)
 			(unsigned int)basic_config->FDVT_YUV2RGBCON_BASE_ADR);
 		log_dbg("FD_MODE:0x%x!\n",
 			(unsigned int)basic_config->FD_MODE);
+		log_dbg("FDVT_LOOPS_OF_FDMODE:0x%x!\n",
+			(unsigned int)basic_config->FDVT_LOOPS_OF_FDMODE);
+		log_dbg("FDVT_NUMBERS_OF_PYRAMID:0x%x!\n",
+			(unsigned int)basic_config->FDVT_NUMBERS_OF_PYRAMID);
 	}
 
 #ifdef FDVT_USE_GCE
@@ -1479,8 +1483,15 @@ static signed int config_fdvt_hw(struct fdvt_config *basic_config)
 	if (basic_config->FD_MODE == 0) {
 		cmdq_pkt_write(pkt, NULL, FDVT_ENABLE_HW, 0x00000111,
 			       CMDQ_REG_MASK);
+#if 0
 		cmdq_pkt_write(pkt, NULL, FDVT_LOOP_HW, 0x00006002,
 			       CMDQ_REG_MASK);
+#endif
+		cmdq_pkt_write(pkt, NULL, FDVT_LOOP_HW,
+			       (basic_config->FDVT_LOOPS_OF_FDMODE << 8) |
+			       (basic_config->FDVT_NUMBERS_OF_PYRAMID - 1),
+			       CMDQ_REG_MASK);
+
 		cmdq_pkt_write(pkt, NULL, FDVT_INT_EN_HW, 0x0, CMDQ_REG_MASK);
 		cmdq_pkt_write(pkt, NULL, FDVT_RS_CON_BASE_ADR_HW,
 			       basic_config->FDVT_RSCON_BASE_ADR,
@@ -1500,7 +1511,12 @@ static signed int config_fdvt_hw(struct fdvt_config *basic_config)
 
 		cmdq_pkt_write(pkt, NULL, FDVT_ENABLE_HW, 0x00000100,
 			       CMDQ_REG_MASK);
+#if 0
 		cmdq_pkt_write(pkt, NULL, FDVT_LOOP_HW, 0x00000300,
+			       CMDQ_REG_MASK);
+#endif
+		cmdq_pkt_write(pkt, NULL, FDVT_LOOP_HW,
+			       basic_config->FDVT_NUMBERS_OF_PYRAMID << 8,
 			       CMDQ_REG_MASK);
 
 		cmdq_pkt_write(pkt, NULL, FDVT_INT_EN_HW, 0x1, CMDQ_REG_MASK);
@@ -1657,6 +1673,8 @@ static signed int config_secure_fdvt_hw(struct fdvt_config *basic_config)
 			(unsigned int)basic_config->FDVT_YUV2RGBCON_BASE_ADR);
 		log_dbg("FD_MODE:0x%x!\n",
 			(unsigned int)basic_config->FD_MODE);
+		log_dbg("FDVT_LOOPS_OF_FDMODE:0x%x!\n",
+			(unsigned int)basic_config->FDVT_LOOPS_OF_FDMODE);
 	}
 
 #ifdef FDVT_USE_GCE
@@ -1947,6 +1965,10 @@ static signed int fdvt_dump_reg(void)
 		(unsigned int)FDVT_RD32(FDVT_KERNEL_BASE_ADR_0_REG));
 	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_KERNEL_BASE_ADR_1_HW),
 		(unsigned int)FDVT_RD32(FDVT_KERNEL_BASE_ADR_1_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_RESULT_0_HW),
+		(unsigned int)FDVT_RD32(FDVT_RESULT_0_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_RESULT_1_HW),
+		(unsigned int)FDVT_RD32(FDVT_RESULT_1_REG));
 #if 0
 	log_inf("FDVT:hw_process_idx:%d, write_idx:%d, read_idx:%d\n",
 		*hw_process_idx,
