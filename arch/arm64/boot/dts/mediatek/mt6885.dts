@@ -239,6 +239,7 @@ page_owner=on loop.max_part=7";
 			     <&level_vpu_core0 &level_vpu_core1>,
 			     <&level_vpu_core2>,
 			     <&level_mtk_mdla0 &level_mtk_mdla1>,
+			     <&level_edma0 &level_edma1>,
 			     <&level_mali0 &level_mali1 &level_mali2>,
 			     <&level_mali3 &level_mali4>,
 			     <&level_i2c0>;
