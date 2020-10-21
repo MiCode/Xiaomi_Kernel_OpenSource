@@ -929,14 +929,13 @@ static int a3xx_init(struct adreno_device *adreno_dev)
 
 	_a3xx_pwron_fixup(adreno_dev);
 
-	if (IS_ERR_OR_NULL(iommu->setstate)) {
-		iommu->setstate = kgsl_allocate_global(device, PAGE_SIZE,
+	ret = adreno_allocate_global(device, &iommu->setstate, PAGE_SIZE,
 			0, KGSL_MEMFLAGS_GPUREADONLY, 0, "setstate");
 
+	if (!ret)
 		kgsl_sharedmem_writel(iommu->setstate,
 			KGSL_IOMMU_SETSTATE_NOP_OFFSET,
 			cp_type3_packet(CP_NOP, 1));
-	}
 
 	kgsl_mmu_set_feature(device, KGSL_MMU_NEED_GUARD_PAGE);
 

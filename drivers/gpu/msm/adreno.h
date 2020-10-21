@@ -1835,4 +1835,28 @@ void adreno_create_profile_buffer(struct adreno_device *adreno_dev);
  */
 bool adreno_isidle(struct adreno_device *adreno_dev);
 
+/**
+ * adreno_allocate_global - Helper function to allocate a global GPU object
+ * @device: A GPU device handle
+ * @memdesc: Pointer to a &struct kgsl_memdesc pointer
+ * @size: Size of the allocation in bytes
+ * @padding: Amount of extra adding to add to the VA allocation
+ * @flags: Control flags for the allocation
+ * @priv: Internal flags for the allocation
+ * @name: Name of the allocation (for the debugfs file)
+ *
+ * Allocate a global object if it hasn't already been alllocated and put it in
+ * the pointer pointed to by @memdesc.
+ * Return: 0 on success or negative on error
+ */
+static inline int adreno_allocate_global(struct kgsl_device *device,
+		struct kgsl_memdesc **memdesc, u64 size, u32 padding, u64 flags,
+		u32 priv, const char *name)
+{
+	if (!IS_ERR_OR_NULL(*memdesc))
+		return 0;
+
+	*memdesc = kgsl_allocate_global(device, size, padding, flags, priv, name);
+	return PTR_ERR_OR_ZERO(*memdesc);
+}
 #endif /*__ADRENO_H */

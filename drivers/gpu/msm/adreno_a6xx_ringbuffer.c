@@ -157,15 +157,13 @@ int a6xx_ringbuffer_submit(struct adreno_ringbuffer *rb,
 int a6xx_ringbuffer_init(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	int i;
+	int i, ret;
 
-	if (IS_ERR_OR_NULL(device->scratch))
-		device->scratch = kgsl_allocate_global(device, PAGE_SIZE,
-			0, 0, KGSL_MEMDESC_RANDOM | KGSL_MEMDESC_PRIVILEGED,
-			"scratch");
-
-	if (IS_ERR(device->scratch))
-		return PTR_ERR(device->scratch);
+	ret = adreno_allocate_global(device, &device->scratch, PAGE_SIZE,
+		0, 0, KGSL_MEMDESC_RANDOM | KGSL_MEMDESC_PRIVILEGED,
+		"scratch");
+	if (ret)
+		return ret;
 
 	adreno_dev->cur_rb = &(adreno_dev->ringbuffers[0]);
 

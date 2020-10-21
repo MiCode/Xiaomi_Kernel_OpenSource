@@ -1522,9 +1522,8 @@ void adreno_create_profile_buffer(struct adreno_device *adreno_dev)
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_APRIV))
 		priv = KGSL_MEMDESC_PRIVILEGED;
 
-	if (IS_ERR_OR_NULL(adreno_dev->profile_buffer))
-		adreno_dev->profile_buffer = kgsl_allocate_global(device,
-			PAGE_SIZE, 0, 0, priv, "alwayson");
+	adreno_allocate_global(device, &adreno_dev->profile_buffer,
+		PAGE_SIZE, 0, 0, priv, "alwayson");
 
 	adreno_dev->profile_index = 0;
 
