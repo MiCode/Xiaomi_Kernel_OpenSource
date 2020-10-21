@@ -473,12 +473,16 @@ static struct mtk_panel_params ext_params = {
 	.data_rate = 1075,
 	.dyn_fps = {
 		.switch_en = 1,
+#if HFP_SUPPORT
 		.dfps_cmd_table[0] = {0, 2, {0xFF, 0x25} },
 		.dfps_cmd_table[1] = {0, 2, {0xFB, 0x01} },
 		.dfps_cmd_table[2] = {0, 2, {0x18, 0x21} },
 		/*switch page for esd check*/
 		.dfps_cmd_table[3] = {0, 2, {0xFF, 0x10} },
 		.dfps_cmd_table[4] = {0, 2, {0xFB, 0x01} },
+#else
+		.vact_timing_fps = 90,
+#endif
 	},
 	.dyn = {
 		.switch_en = 1,
@@ -502,12 +506,16 @@ static struct mtk_panel_params ext_params_90hz = {
 	.data_rate = 1075,
 	.dyn_fps = {
 		.switch_en = 1,
+#if HFP_SUPPORT
 		.dfps_cmd_table[0] = {0, 2, {0xFF, 0x25} },
 		.dfps_cmd_table[1] = {0, 2, {0xFB, 0x01} },
-		.dfps_cmd_table[2] = {0, 2, {0x18, 0x20} },
+		.dfps_cmd_table[2] = {0, 2, {0x18, 0x21} },
 		/*switch page for esd check*/
 		.dfps_cmd_table[3] = {0, 2, {0xFF, 0x10} },
 		.dfps_cmd_table[4] = {0, 2, {0xFB, 0x01} },
+#else
+		.vact_timing_fps = 90,
+#endif
 	},
 	.dyn = {
 		.switch_en = 1,
