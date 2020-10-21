@@ -376,32 +376,14 @@ static void process_msgq_irq(struct adreno_device *adreno_dev)
 		 */
 		if (MSG_HDR_GET_TYPE(rcvd[0]) == HFI_MSG_ACK) {
 			a6xx_receive_ack_async(adreno_dev, rcvd);
+		} else if (MSG_HDR_GET_ID(rcvd[0]) == F2H_MSG_TS_RETIRE) {
+			adreno_hwsched_trigger(adreno_dev);
+			log_profiling_info(adreno_dev, rcvd);
 		} else {
 			add_f2h_packet(adreno_dev, rcvd);
 			wake_up_interruptible(&hfi->f2h_wq);
 		}
 	}
-}
-
-static void adreno_a6xx_add_log_block(struct adreno_device *adreno_dev, u32 *msg)
-{
-	struct f2h_packet *pkt = kmem_cache_alloc(f2h_cache, GFP_ATOMIC);
-	struct a6xx_hwsched_hfi *hfi = to_a6xx_hwsched_hfi(adreno_dev);
-	u32 size = MSG_HDR_GET_SIZE(msg[0]) << 2;
-
-	if (!pkt)
-		return;
-
-	memcpy(pkt->rcvd, msg, min_t(u32, size, sizeof(pkt->rcvd)));
-
-	/*
-	 * Add the log block packets from GMU to a secondary list to ensure
-	 * the time critical TS_RETIRE packet processing on the primary list
-	 * is not delayed
-	 */
-	llist_add(&pkt->node, &hfi->f2h_secondary_list);
-
-	wake_up_interruptible(&hfi->f2h_wq);
 }
 
 static void process_dbgq_irq(struct adreno_device *adreno_dev)
@@ -422,7 +404,7 @@ static void process_dbgq_irq(struct adreno_device *adreno_dev)
 			adreno_a6xx_receive_debug_req(gmu, rcvd);
 
 		if (MSG_HDR_GET_ID(rcvd[0]) == F2H_MSG_LOG_BLOCK)
-			adreno_a6xx_add_log_block(adreno_dev, rcvd);
+			add_f2h_packet(adreno_dev, rcvd);
 	}
 
 	if (!recovery)
@@ -1070,12 +1052,6 @@ int a6xx_hwsched_cp_init(struct adreno_device *adreno_dev)
 	return ret;
 }
 
-static void process_ts_retire(struct adreno_device *adreno_dev, u32 *rcvd)
-{
-	log_profiling_info(adreno_dev, rcvd);
-	adreno_hwsched_trigger(adreno_dev);
-}
-
 static void process_log_block(struct adreno_device *adreno_dev, void *data)
 {
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
@@ -1107,9 +1083,6 @@ static void process_f2h_list(struct adreno_device *adreno_dev,
 	list = llist_reverse_order(list);
 
 	llist_for_each_entry_safe(pkt, tmp, list, node) {
-		if (MSG_HDR_GET_ID(pkt->rcvd[0]) == F2H_MSG_TS_RETIRE)
-			process_ts_retire(adreno_dev, pkt->rcvd);
-
 		if (MSG_HDR_GET_ID(pkt->rcvd[0]) == F2H_MSG_LOG_BLOCK)
 			process_log_block(adreno_dev, pkt->rcvd);
 
@@ -1124,17 +1097,13 @@ static int hfi_f2h_main(void *arg)
 
 	while (!kthread_should_stop()) {
 		wait_event_interruptible(hfi->f2h_wq,
-			((!llist_empty(&hfi->f2h_msglist) ||
-			  !llist_empty(&hfi->f2h_secondary_list))
-			 && !kthread_should_stop()));
+			!llist_empty(&hfi->f2h_msglist)
+			 && !kthread_should_stop());
 
 		if (kthread_should_stop())
 			break;
 
 		process_f2h_list(adreno_dev, &hfi->f2h_msglist);
-
-		/* Process packets on the secondary list after the primary list */
-		process_f2h_list(adreno_dev, &hfi->f2h_secondary_list);
 	}
 
 	return 0;
