@@ -6194,7 +6194,7 @@ static long DIP_ioctl(
 					LOG_ERR("DIP_SET_BUF_PA copy to user failed\n");
 				}
 				mutex_unlock(&(DipMutexbuf));
-
+				Ret = 0;
 			} else {
 				LOG_ERR("DIP_SET_BUF_PA failed\n");
 				Ret = -EFAULT;
@@ -6232,6 +6232,7 @@ static long DIP_ioctl(
 			}
 			LOG_AST("unmap dma successful\n");
 			mutex_unlock(&(DipMutexbuf));
+			Ret = 0;
 		} else {
 			LOG_ERR("DIP_GET_BUF_PA failed\n");
 			Ret = -EFAULT;
@@ -6250,7 +6251,7 @@ EXIT:
 	if (Ret != 0)
 		LOG_ERR("Fail, Cmd(%d), Pid(%d),",
 			Cmd, pUserInfo->Pid);
-		LOG_ERR("(process, pid, tgid) = (%s, %d, %d)\n",
+		LOG_AST("(process, pid, tgid) = (%s, %d, %d)\n",
 			current->comm,
 			current->pid,
 			current->tgid);
