@@ -35,6 +35,25 @@
 #define QCOM_DMA_HEAP_FLAGS_CP_MASK	GENMASK(30, 15)
 
 /**
+ * carveout_heap_add_memory - Dynamically add reserved heap memory
+ * @heap_name:	The name of the DMA-BUF Heap we're giving memory to
+ * @sgt:	An SGT corresponding to the memory adding to the heap
+ *
+ * Return: 0 on success, a negative error value otherwise.
+ */
+int carveout_heap_remove_memory(char *heap_name, struct sg_table *sgt);
+
+
+/**
+ * carveout_heap_remove_memory - Dynamically remove reserved heap memory
+ * @heap_name:	The name of the DMA-BUF Heap we're taking memory away from
+ * @sgt:	An SGT corresponding to the memory we're removing from the heap
+ *
+ * Return: 0 on success, a negative error value otherwise.
+ */
+int carveout_heap_remove_memory(char *heap_name, struct sg_table *sgt);
+
+/**
  * dma_buf_heap_hyp_assign - wrapper function for hyp-assigning a dma_buf
  * @buf:		dma_buf to hyp-assign away from HLOS
  * @dest_vmids:		array of QCOM_DMA_HEAP_FLAG VMIDs (as defined above)

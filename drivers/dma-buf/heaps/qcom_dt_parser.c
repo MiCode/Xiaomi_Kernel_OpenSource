@@ -14,7 +14,7 @@
 #include "qcom_dt_parser.h"
 
 static int populate_heap(struct device_node *node,
-				 struct platform_heap *heap)
+			 struct platform_heap *heap)
 {
 	int ret;
 
@@ -25,6 +25,10 @@ static int populate_heap(struct device_node *node,
 	ret = of_property_read_u32(node, "qcom,dma-heap-type", &heap->type);
 	if (ret)
 		goto out;
+
+	heap->is_dynamic = of_property_read_bool(node, "qcom,dynamic-heap");
+
+	of_property_read_u32(node, "qcom,token", &heap->token);
 out:
 	if (ret)
 		pr_err("%s: Unable to populate heap, error: %d\n", __func__,
@@ -39,7 +43,7 @@ void free_pdata(const struct platform_data *pdata)
 }
 
 static int heap_dt_init(struct device_node *mem_node,
-			    struct platform_heap *heap)
+			struct platform_heap *heap)
 {
 	const __be32 *basep;
 	u64 base, size;
