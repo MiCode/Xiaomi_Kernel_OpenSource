@@ -9,8 +9,8 @@
 
 #include "mtk_vcodec_drv.h"
 
-#define ENC_DVFS	0
-#define ENC_EMI_BW	0
+#define ENC_DVFS	1
+#define ENC_EMI_BW	1
 
 void mtk_venc_init_ctx_pm(struct mtk_vcodec_ctx *ctx);
 int mtk_vcodec_init_enc_pm(struct mtk_vcodec_dev *dev);

@@ -22,16 +22,14 @@
 #endif
 
 #if DEC_DVFS
-#include <linux/pm_qos.h>
-#include <mmdvfs_pmqos.h>
+#include <linux/pm_opp.h>
+#include <linux/regulator/consumer.h>
 #define STD_VDEC_FREQ 218
 #endif
 
 #define VDEC_DRV_UFO_AUO_ON (1 << 1)
 #if DEC_EMI_BW
-#include <mtk_smi.h>
-#include <dt-bindings/memory/mt6873-larb-port.h>
-#define DEC_MAX_PORT 12
+#include <linux/interconnect-provider.h>
 /* LARB4, mostly core */
 /* LARB5, mostly lat */
 #endif
@@ -130,7 +128,6 @@ void mtk_vcodec_release_dec_pm(struct mtk_vcodec_dev *dev)
 {
 #if DEC_DVFS
 	mutex_lock(&dev->dec_dvfs_mutex);
-	free_hist(&vdec_hists, 0);
 	mutex_unlock(&dev->dec_dvfs_mutex);
 #endif
 	pm_runtime_disable(dev->pm.dev);
@@ -307,141 +304,110 @@ void mtk_prepare_vdec_dvfs(struct mtk_vcodec_dev *dev)
 {
 #if DEC_DVFS
 	int ret;
+	struct dev_pm_opp *opp = 0;
+	unsigned long freq = 0;
+	int i = 0;
 
-	pm_qos_add_request(&(dev->vdec_qos_req_f), PM_QOS_VDEC_FREQ,
-				PM_QOS_DEFAULT_VALUE);
-	dev->vdec_freq_step_size = 1;
-	ret = mmdvfs_qos_get_freq_steps(PM_QOS_VDEC_FREQ,
-					&dev->vdec_freq_steps[0],
-					&dev->vdec_freq_step_size);
-	if (ret < 0)
-		pr_debug("Failed to get vdec freq steps (%d)\n", ret);
+	ret = dev_pm_opp_of_add_table(&dev->plat_dev->dev);
+	if (ret < 0) {
+		pr_debug("Failed to get opp table (%d)\n", ret);
+		return;
+	}
+
+	dev->vdec_reg = devm_regulator_get(&dev->plat_dev->dev,
+						"dvfsrc-vcore");
+	if (dev->vdec_reg == 0) {
+		pr_debug("Failed to get regulator\n");
+		return;
+	}
+
+	dev->vdec_freq_cnt = dev_pm_opp_get_opp_count(&dev->plat_dev->dev);
+	freq = 0;
+	while (!IS_ERR(opp =
+		dev_pm_opp_find_freq_ceil(&dev->plat_dev->dev, &freq))) {
+		dev->vdec_freqs[i] = freq;
+		freq++;
+		i++;
+		dev_pm_opp_put(opp);
+	}
 #endif
 }
 
 void mtk_unprepare_vdec_dvfs(struct mtk_vcodec_dev *dev)
 {
-#if DEC_DVFS
-	int freq_idx = 0;
-
-	freq_idx = (dev->vdec_freq_step_size == 0) ?
-			0 : (dev->vdec_freq_step_size - 1);
-	pm_qos_update_request(&dev->vdec_qos_req_f,
-				dev->vdec_freq_steps[freq_idx]);
-	pm_qos_remove_request(&dev->vdec_qos_req_f);
-	free_hist(&dev->vdec_hists, 0);
-	/* TODO: jobs error handle */
-#endif
+	/* Set to lowest clock before leaving */
 }
 
 void mtk_prepare_vdec_emi_bw(struct mtk_vcodec_dev *dev)
 {
 #if DEC_EMI_BW
 	int i = 0;
-	int j = 0;
-	struct mm_qos_request *req[MAX_VDEC_HW_NUM];
+	struct platform_device *pdev = 0;
 
-	dev->dec_hw_cnt = MAX_VDEC_HW_NUM; /* TODO: Get from DTSI */
-	for (i = 0; i < dev_dec_hw_cnt; i++) {
-		/* ClClear request data structure  */
-		dev->vdec_qos_req_b[i] = 0;
-	}
+	pdev = dev->plat_dev;
+	for (i = 0; i < MTK_VDEC_PORT_NUM; i++)
+		dev->vdec_qos_req[i] = 0;
 
-	for (i = 0; i < dev->dec_hw_cnt; i++) {
-		req[i] = (struct mm_qos_request *)
-			kmalloc(sizeof(struct mm_qos_request) * DEC_MAX_PORT);
-		if (req[i] == 0) {
-			pr_info("%s allocate qos %d failed\n", __func__, i);
-			for (j = 0; j < i; j++) {
-				/* Free all allocated */
-				kfree(req[j]);
-			}
-		}
-		return;
-	}
-
-	for (i = 0; i < dev_dec_hw_cnt; i++) {
-		/* Save req to device struct */
-		dev->vdec_qos_req_b[i] = req[i];
-	}
-
-	/* TODO: Read port from DTSI */
-	plist_head_init(&dev->vdec_rlist[1]);
-	mm_qos_add_request(&dev->vdec_rlist[1], req[1]++,
-				M4U_PORT_L4_VDEC_MC_EXT);
-	mm_qos_add_request(&dev->vdec_rlist[1], req[1]++,
-				M4U_PORT_L4_VDEC_UFO_EXT);
-	mm_qos_add_request(&dev->vdec_rlist[1], req[1]++,
-				M4U_PORT_L4_VDEC_PP_EXT);
-	mm_qos_add_request(&dev->vdec_rlist[1], req[1]++,
-				M4U_PORT_L4_VDEC_PRED_RD_EXT);
-	mm_qos_add_request(&dev->vdec_rlist[1], req[1]++,
-				M4U_PORT_L4_VDEC_PRED_WR_EXT);
-	mm_qos_add_request(&dev->vdec_rlist[1], req[1]++,
-				M4U_PORT_L4_VDEC_PPWRAP_EXT);
-	mm_qos_add_request(&dev->vdec_rlist[1], req[1]++,
-				M4U_PORT_L4_VDEC_TILE_EXT);
-	mm_qos_add_request(&dev->vdec_rlist[1], req[1]++,
-				M4U_PORT_L4_VDEC_VLD_EXT);
-	mm_qos_add_request(&dev->vdec_rlist[1], req[1]++,
-				M4U_PORT_L4_VDEC_VLD2_EXT);
-	mm_qos_add_request(&dev->vdec_rlist[1], req[1]++,
-				M4U_PORT_L4_VDEC_AVC_MV_EXT);
-	mm_qos_add_request(&dev->vdec_rlist[1], req[1]++,
-				M4U_PORT_L4_VDEC_RG_CTRL_DMA_EXT);
-	mm_qos_add_request(&dev->vdec_rlist[1], req[1]++,
-				M4U_PORT_L5_VDEC_UFO_ENC_EXT);
-
-	plist_head_init(&dev->vdec_rlist[0]);
-	mm_qos_add_request(&dev->vdec_rlist[0], req[0]++,
-				M4U_PORT_L5_VDEC_LAT0_VLD_EXT);
-	mm_qos_add_request(&dev->vdec_rlist[0], req[0]++,
-				M4U_PORT_L5_VDEC_LAT0_VLD2_EXT);
-	mm_qos_add_request(&dev->vdec_rlist[0], req[0]++,
-				M4U_PORT_L5_VDEC_LAT0_AVC_MV_EXT);
-	mm_qos_add_request(&dev->vdec_rlist[0], req[0]++,
-				M4U_PORT_L5_VDEC_LAT0_PRED_RD_EXT);
-	mm_qos_add_request(&dev->vdec_rlist[0], req[0]++,
-				M4U_PORT_L5_VDEC_LAT0_TILE_EXT);
-	mm_qos_add_request(&dev->vdec_rlist[0], req[0]++,
-				M4U_PORT_L5_VDEC_LAT0_WDMA_EXT);
-	mm_qos_add_request(&dev->vdec_rlist[0], req[0]++,
-				M4U_PORT_L5_VDEC_LAT0_RG_CTRL_DMA_EXT);
+	i = 0;
+	dev->vdec_qos_req[i++] = of_icc_get(&pdev->dev, "path_vdec_mc");
+	dev->vdec_qos_req[i++] = of_icc_get(&pdev->dev, "path_vdec_ufo");
+	dev->vdec_qos_req[i++] = of_icc_get(&pdev->dev, "path_vdec_pp");
+	dev->vdec_qos_req[i++] = of_icc_get(&pdev->dev, "path_vdec_pred_rd");
+	dev->vdec_qos_req[i++] = of_icc_get(&pdev->dev, "path_vdec_pred_wr");
+	dev->vdec_qos_req[i++] = of_icc_get(&pdev->dev, "path_vdec_ppwrap");
+	dev->vdec_qos_req[i++] = of_icc_get(&pdev->dev, "path_vdec_tile");
+	dev->vdec_qos_req[i++] = of_icc_get(&pdev->dev, "path_vdec_vld");
+	dev->vdec_qos_req[i++] = of_icc_get(&pdev->dev, "path_vdec_vld2");
+	dev->vdec_qos_req[i++] = of_icc_get(&pdev->dev, "path_vdec_avc_mv");
+	dev->vdec_qos_req[i++] = of_icc_get(&pdev->dev,
+					"path_vdec_rg_ctrl_dma");
+	dev->vdec_qos_req[i++] = of_icc_get(&pdev->dev, "path_vdec_ufo_enc");
+	dev->vdec_qos_req[i++] = of_icc_get(&pdev->dev, "path_lat0_vld");
+	dev->vdec_qos_req[i++] = of_icc_get(&pdev->dev, "path_lat0_vld2");
+	dev->vdec_qos_req[i++] = of_icc_get(&pdev->dev, "path_lat0_avc_mv");
+	dev->vdec_qos_req[i++] = of_icc_get(&pdev->dev, "path_lat0_pred_rd");
+	dev->vdec_qos_req[i++] = of_icc_get(&pdev->dev, "path_lat0_tile");
+	dev->vdec_qos_req[i++] = of_icc_get(&pdev->dev, "path_lat0_wdma");
+	dev->vdec_qos_req[i++] = of_icc_get(&pdev->dev, "path_lat0_rg_ctrl");
 #endif
 }
 
 void mtk_unprepare_vdec_emi_bw(struct mtk_vcodec_dev *dev)
 {
 #if DEC_EMI_BW
-	int i = 0;
-
-	if (dev->vdec_qos_req_b[0] != 0) {
-		for (i = 0; i < dev->dec_hw_cnt; i++) {
-			mm_qos_remove_all_request(&dev->vdec_rlist[i]);
-			if (dev->vdec_qos_req_b[i] != 0) {
-				kfree(dev->vdec_qos_req_b[i]);
-				dev->vdec_qos_req_b[i] = 0;
-			}
-		}
-	}
 #endif
 }
 
 void mtk_vdec_dvfs_begin(struct mtk_vcodec_ctx *ctx, int hw_id)
 {
 #if DEC_DVFS
+	struct dev_pm_opp *opp = 0;
+	int volt = 0;
+	int ret = 0;
+
 	mutex_lock(&ctx->dev->dec_dvfs_mutex);
-	ctx->dev->vdec_freq->freq[hw_id] = 416;
+	ctx->dev->vdec_freq.freq[hw_id] = 416000000UL;
 
 	if (ctx->dev->dec_cnt > 1)
-		ctx->dev->vdec_freq->freq[hw_id] = 546;
+		ctx->dev->vdec_freq.freq[hw_id] = 546000000UL;
 
 	ctx->dev->vdec_freq.active_freq =
 		ctx->dev->vdec_freq.freq[0] > ctx->dev->vdec_freq.freq[1] ?
 		ctx->dev->vdec_freq.freq[0] : ctx->dev->vdec_freq.freq[1];
 
-	pm_qos_update_request(&ctx->dev->vdec_qos_req_f,
-				ctx->dev->vdec_freq.active_freq);
+	if (ctx->dev->vdec_reg != 0) {
+		opp = dev_pm_opp_find_freq_ceil(&ctx->dev->plat_dev->dev,
+					&ctx->dev->vdec_freq.active_freq);
+		volt = dev_pm_opp_get_voltage(opp);
+		dev_pm_opp_put(opp);
+
+		ret = regulator_set_voltage(ctx->dev->vdec_reg, volt, INT_MAX);
+		if (ret) {
+			pr_debug("%s Failed to set regulator voltage %d\n",
+				 __func__, volt);
+		}
+	}
+
 	mutex_unlock(&ctx->dev->dec_dvfs_mutex);
 #endif
 }
@@ -449,15 +415,29 @@ void mtk_vdec_dvfs_begin(struct mtk_vcodec_ctx *ctx, int hw_id)
 void mtk_vdec_dvfs_end(struct mtk_vcodec_ctx *ctx, int hw_id)
 {
 #if DEC_DVFS
+	struct dev_pm_opp *opp = 0;
+	int volt = 0;
+	int ret = 0;
+
 	mutex_lock(&ctx->dev->dec_dvfs_mutex);
 
-	ctx->dev->vdec_req_freq->freq[hw_id] = 0;
+	ctx->dev->vdec_freq.freq[hw_id] = 218000000UL;
 	ctx->dev->vdec_freq.active_freq =
 		ctx->dev->vdec_freq.freq[0] > ctx->dev->vdec_freq.freq[1] ?
 		ctx->dev->vdec_freq.freq[0] : ctx->dev->vdec_freq.freq[1];
 
-	pm_qos_update_request(&ctx->dev->vdec_qos_req_f,
-				ctx->dev->vdec_freq.active_freq);
+	if (ctx->dev->vdec_reg != 0) {
+		opp = dev_pm_opp_find_freq_ceil(&ctx->dev->plat_dev->dev,
+					&ctx->dev->vdec_freq.active_freq);
+		volt = dev_pm_opp_get_voltage(opp);
+		dev_pm_opp_put(opp);
+
+		ret = regulator_set_voltage(ctx->dev->vdec_reg, volt, INT_MAX);
+		if (ret) {
+			pr_debug("%s Failed to set regulator voltage %d\n",
+				 __func__, volt);
+		}
+	}
 	mutex_unlock(&ctx->dev->dec_dvfs_mutex);
 #endif
 }
@@ -465,69 +445,77 @@ void mtk_vdec_dvfs_end(struct mtk_vcodec_ctx *ctx, int hw_id)
 void mtk_vdec_emi_bw_begin(struct mtk_vcodec_ctx *ctx, int hw_id)
 {
 #if DEC_EMI_BW
-	int f_type = 1;
 	long emi_bw = 0;
 	long emi_bw_input = 0;
 	long emi_bw_output = 0;
-	struct mm_qos_request *req = 0;
+	struct mtk_vcodec_dev *pdev = 0;
 
+	pdev = ctx->dev;
 	if (hw_id == MTK_VDEC_LAT) {
 		switch (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc) {
 		case V4L2_PIX_FMT_H264:
 		case V4L2_PIX_FMT_H265:
-			emi_bw_input = 31 * vdec_freq / STD_VDEC_FREQ;
+			emi_bw_input = 31 * pdev->vdec_freq.active_freq /
+					STD_VDEC_FREQ;
 			break;
 		case V4L2_PIX_FMT_VP9:
 		case V4L2_PIX_FMT_AV1:
-			emi_bw_input = 13 * vdec_freq / STD_VDEC_FREQ;
+			emi_bw_input = 13 * pdev->vdec_freq.active_freq /
+					STD_VDEC_FREQ;
 			break;
 		default:
-			emi_bw_input = 31 * vdec_freq / STD_VDEC_FREQ;
+			emi_bw_input = 31 * pdev->vdec_freq.active_freq /
+					STD_VDEC_FREQ;
 		}
 
-		if (ctx->dev->vdec_qos_req_b[hw_id] != 0) {
-			req = ctx->dev->vdec_qos_req_b[hw_id];
-			mm_qos_set_request(req++, emi_bw_input, 0,
-					BW_COMP_NONE);
-			mm_qos_set_request(req++, 0, 0, BW_COMP_NONE);
-			mm_qos_set_request(req++, emi_bw_input * 2, 0,
-					BW_COMP_NONE);
-			mm_qos_set_request(req++, 10, 0, BW_COMP_NONE);
-			mm_qos_set_request(req++, 0, 0, BW_COMP_NONE);
-			mm_qos_set_request(req++, 0, emi_bw_input * 2,
-					BW_COMP_NONE);
-			mm_qos_set_request(req++, 0, 0, BW_COMP_NONE);
-			mm_qos_update_all_request(&ctx->dev->vdec_rlist[0]);
+		if (pdev->vdec_qos_req[0] != 0) {
+			icc_set_bw(pdev->vdec_qos_req[12],
+					Mbps_to_icc(emi_bw_input), 0);
+			icc_set_bw(pdev->vdec_qos_req[13], Mbps_to_icc(0), 0);
+			icc_set_bw(pdev->vdec_qos_req[14],
+					Mbps_to_icc(emi_bw_input * 2), 0);
+			icc_set_bw(pdev->vdec_qos_req[15], Mbps_to_icc(10), 0);
+			icc_set_bw(pdev->vdec_qos_req[16], Mbps_to_icc(0), 0);
+			icc_set_bw(pdev->vdec_qos_req[17],
+					Mbps_to_icc(emi_bw_input * 2), 0);
+			icc_set_bw(pdev->vdec_qos_req[18], Mbps_to_icc(0), 0);
 		}
 	} else if (hw_id == MTK_VDEC_CORE) {
-		emi_bw = 8L * 1920 * 1080 * 9 * 9 * 5 * vdec_freq / 2 / 3;
-		emi_bw_output = 1920L * 1088 * 9 * 30 * 9 * 5 * vdec_freq /
+		emi_bw = 8L * 1920 * 1080 * 9 * 9 * 5 *
+			pdev->vdec_freq.active_freq / 2 / 3;
+		emi_bw_output = 1920L * 1088 * 9 * 30 * 9 * 5 *
+				pdev->vdec_freq.active_freq /
 				4 / 3 / 3 / STD_VDEC_FREQ / 1024 / 1024;
 
 		switch (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc) {
 		case V4L2_PIX_FMT_H264:
-			emi_bw_input = 62 * vdec_freq / STD_VDEC_FREQ;
-			emi_bw = emi_bw * h264_frm_scale[f_type] /
+			emi_bw_input = 62 * pdev->vdec_freq.active_freq /
+					STD_VDEC_FREQ;
+			emi_bw = emi_bw * 24 /
 					(2 * STD_VDEC_FREQ);
 			break;
 		case V4L2_PIX_FMT_H265:
-			emi_bw_input = 62 * vdec_freq / STD_VDEC_FREQ;
-			emi_bw = emi_bw * h265_frm_scale[f_type] /
+			emi_bw_input = 62 * pdev->vdec_freq.active_freq /
+					STD_VDEC_FREQ;
+			emi_bw = emi_bw * 24 /
 					(2 * STD_VDEC_FREQ);
 			break;
 		case V4L2_PIX_FMT_VP8:
-			emi_bw_input = 13 * vdec_freq / STD_VDEC_FREQ;
-			emi_bw = emi_bw * vp8_frm_scale[f_type] /
+			emi_bw_input = 13 * pdev->vdec_freq.active_freq /
+					STD_VDEC_FREQ;
+			emi_bw = emi_bw * 24 /
 					(2 * STD_VDEC_FREQ);
 			break;
 		case V4L2_PIX_FMT_VP9:
-			emi_bw_input = 26 * vdec_freq / STD_VDEC_FREQ;
-			emi_bw = emi_bw * vp9_frm_scale[f_type] /
+			emi_bw_input = 26 * pdev->vdec_freq.active_freq /
+					STD_VDEC_FREQ;
+			emi_bw = emi_bw * 24 /
 					(2 * STD_VDEC_FREQ);
 			break;
 		case V4L2_PIX_FMT_AV1:
-			emi_bw_input = 26 * vdec_freq / STD_VDEC_FREQ;
-			emi_bw = emi_bw * vp9_frm_scale[f_type] /
+			emi_bw_input = 26 * pdev->vdec_freq.active_freq /
+					STD_VDEC_FREQ;
+			emi_bw = emi_bw * 24 /
 					(2 * STD_VDEC_FREQ);
 			break;
 		case V4L2_PIX_FMT_MPEG4:
@@ -536,8 +524,9 @@ void mtk_vdec_emi_bw_begin(struct mtk_vcodec_ctx *ctx, int hw_id)
 		case V4L2_PIX_FMT_XVID:
 		case V4L2_PIX_FMT_MPEG1:
 		case V4L2_PIX_FMT_MPEG2:
-			emi_bw_input = 13 * vdec_freq / STD_VDEC_FREQ;
-			emi_bw = emi_bw * mp24_frm_scale[f_type] /
+			emi_bw_input = 13 * pdev->vdec_freq.active_freq /
+					STD_VDEC_FREQ;
+			emi_bw = emi_bw * 20 /
 					(2 * STD_VDEC_FREQ);
 			break;
 		}
@@ -546,37 +535,40 @@ void mtk_vdec_emi_bw_begin(struct mtk_vcodec_ctx *ctx, int hw_id)
 		if (emi_bw < 0)
 			emi_bw = 0;
 
-		if (ctx->dev->vdec_qos_req_b[hw_id] != 0) {
-			req = ctx->dev->vdec_qos_req_b[hw_id];
+		if (pdev->vdec_qos_req[0] != 0) {
 			if (ctx->picinfo.layout_mode == VDEC_DRV_UFO_AUO_ON) {
-				mm_qos_set_request((req+1), emi_bw, 0,
-						BW_COMP_NONE);
-				mm_qos_set_request((req+11), emi_bw_output, 0,
-						BW_COMP_NONE);
+				icc_set_bw(pdev->vdec_qos_req[1],
+						Mbps_to_icc(emi_bw), 0);
+				icc_set_bw(pdev->vdec_qos_req[11],
+						Mbps_to_icc(emi_bw), 0);
+				icc_set_bw(pdev->vdec_qos_req[0],
+						Mbps_to_icc(emi_bw), 0);
 			} else {
-				mm_qos_set_request(req, emi_bw, 0,
-						BW_COMP_NONE);
-				mm_qos_set_request((req+2), emi_bw_output, 0,
-						BW_COMP_NONE);
+				icc_set_bw(pdev->vdec_qos_req[0],
+						Mbps_to_icc(emi_bw), 0);
+				icc_set_bw(pdev->vdec_qos_req[2],
+						Mbps_to_icc(emi_bw), 0);
 			}
-			mm_qos_set_request((req+3), 1, 0, BW_COMP_NONE);
+			icc_set_bw(pdev->vdec_qos_req[3],
+						Mbps_to_icc(1), 0);
 			if ((ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc ==
 				V4L2_PIX_FMT_AV1) ||
 				(ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc ==
-				V4L2_PIX_FMT_VP9))
-				mm_qos_set_request((req+4), emi_bw, 0,
-					BW_COMP_NONE);
-			else
-				mm_qos_set_request((req+4), 1, 0, BW_COMP_NONE);
-			mm_qos_set_request((req+5), 0, 0, BW_COMP_NONE);
-			mm_qos_set_request((req+6), 0, 0, BW_COMP_NONE);
-			mm_qos_set_request((req+7), emi_bw_input, 0,
-					BW_COMP_NONE);
-			mm_qos_set_request((req+8), 0, 0, BW_COMP_NONE);
-			mm_qos_set_request((req+9), emi_bw_input, 0,
-					BW_COMP_NONE);
-			mm_qos_set_request((req+10), 0, 0, BW_COMP_NONE);
-			mm_qos_update_all_request(&ctx->dev->vdec_rlist[1]);
+				V4L2_PIX_FMT_VP9)) {
+				icc_set_bw(pdev->vdec_qos_req[4],
+						Mbps_to_icc(emi_bw), 0);
+			} else {
+				icc_set_bw(pdev->vdec_qos_req[4],
+						Mbps_to_icc(1), 0);
+			}
+			icc_set_bw(pdev->vdec_qos_req[5], Mbps_to_icc(0), 0);
+			icc_set_bw(pdev->vdec_qos_req[6], Mbps_to_icc(0), 0);
+			icc_set_bw(pdev->vdec_qos_req[7],
+					Mbps_to_icc(emi_bw_input), 0);
+			icc_set_bw(pdev->vdec_qos_req[8], Mbps_to_icc(0), 0);
+			icc_set_bw(pdev->vdec_qos_req[9],
+					Mbps_to_icc(emi_bw_input), 0);
+			icc_set_bw(pdev->vdec_qos_req[10], Mbps_to_icc(0), 0);
 		}
 	} else {
 		pr_debug("%s unknown hw_id %d\n", __func__, hw_id);
@@ -588,36 +580,23 @@ void mtk_vdec_emi_bw_begin(struct mtk_vcodec_ctx *ctx, int hw_id)
 static void mtk_vdec_emi_bw_end(struct mtk_vcodec_ctx *ctx, int hw_id)
 {
 #if DEC_EMI_BW
-	struct pm_qos_request *req = 0;
+	int i = 0;
+	struct mtk_vcodec_dev *pdev = 0;
 
+	pdev = ctx->dev;
 	if (hw_id == MTK_VDEC_LAT) {
-		if (ctx->dev->vdec_qos_req_b[hw_id] != 0) {
-			req = ctx->dev->vdec_qos_req_b[hw_id];
-			mm_qos_set_request(req++, 0, 0, BW_COMP_NONE);
-			mm_qos_set_request(req++, 0, 0, BW_COMP_NONE);
-			mm_qos_set_request(req++, 0, 0, BW_COMP_NONE);
-			mm_qos_set_request(req++, 0, 0, BW_COMP_NONE);
-			mm_qos_set_request(req++, 0, 0, BW_COMP_NONE);
-			mm_qos_set_request(req++, 0, 0, BW_COMP_NONE);
-			mm_qos_set_request(req++, 0, 0, BW_COMP_NONE);
-			mm_qos_update_all_request(&ctx->dev->vdec_rlist[0]);
+		if (pdev->vdec_qos_req[0] != 0) {
+			for (i = 12; i < 19; i++) {
+				icc_set_bw(pdev->vdec_qos_req[i],
+					MBps_to_icc(0), 0);
+			}
 		}
 	} else if (hw_id == MTK_VDEC_CORE) {
-		if (ctx->dev->vdec_qos_req_b[hw_id] != 0) {
-			req = ctx->dev->vdec_qos_req_b[hw_id];
-			mm_qos_set_request(req++, 0, 0, BW_COMP_NONE);
-			mm_qos_set_request(req++, 0, 0, BW_COMP_NONE);
-			mm_qos_set_request(req++, 0, 0, BW_COMP_NONE);
-			mm_qos_set_request(req++, 0, 0, BW_COMP_NONE);
-			mm_qos_set_request(req++, 0, 0, BW_COMP_NONE);
-			mm_qos_set_request(req++, 0, 0, BW_COMP_NONE);
-			mm_qos_set_request(req++, 0, 0, BW_COMP_NONE);
-			mm_qos_set_request(req++, 0, 0, BW_COMP_NONE);
-			mm_qos_set_request(req++, 0, 0, BW_COMP_NONE);
-			mm_qos_set_request(req++, 0, 0, BW_COMP_NONE);
-			mm_qos_set_request(req++, 0, 0, BW_COMP_NONE);
-			mm_qos_set_request(req++, 0, 0, BW_COMP_NONE);
-			mm_qos_update_all_request(&ctx->dev->vdec_rlist[1]);
+		if (pdev->vdec_qos_req[0] != 0) {
+			for (i = 0; i < 12; i++) {
+				icc_set_bw(pdev->vdec_qos_req[i],
+					MBps_to_icc(0), 0);
+			}
 		}
 	} else {
 		pr_debug("%s unknown hw_id %d\n", __func__, hw_id);

@@ -11,7 +11,8 @@
 #include <linux/platform_device.h>
 #include <linux/videodev2.h>
 #include <linux/semaphore.h>
-#include <linux/pm_qos.h>
+#include <linux/regulator/consumer.h>
+#include <linux/interconnect-provider.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-ioctl.h>
@@ -40,7 +41,9 @@
 #define SUSPEND_TIMEOUT_CNT     5000
 #define MTK_MAX_CTRLS_HINT      64
 
-#define MAX_CODEC_FREQ_STEP	6
+#define MAX_CODEC_FREQ_STEP	10
+#define MTK_VDEC_PORT_NUM	25
+#define MTK_VENC_PORT_NUM	25
 
 /**
  * enum mtk_instance_type - The type of an MTK Vcodec instance.
@@ -501,18 +504,18 @@ struct mtk_vcodec_dev {
 	int dec_hw_cnt;
 	int enc_hw_cnt;
 
-	struct pm_qos_request vdec_qos_req_f;
-	struct pm_qos_request venc_qos_req_f;
-
 	struct plist_head vdec_rlist[MTK_VDEC_HW_NUM];
 	struct plist_head venc_rlist[MTK_VENC_HW_NUM];
-	struct mm_qos_request *vdec_qos_req_b[MTK_VDEC_HW_NUM];
-	struct mm_qos_request *venc_qos_req_b[MTK_VENC_HW_NUM];
+	struct icc_path *vdec_qos_req[MTK_VDEC_PORT_NUM];
+	struct icc_path *venc_qos_req[MTK_VENC_PORT_NUM];
 
-	unsigned int vdec_freq_step_size;
-	unsigned int venc_freq_step_size;
-	unsigned long long vdec_freq_steps[MAX_CODEC_FREQ_STEP];
-	unsigned long long venc_freq_steps[MAX_CODEC_FREQ_STEP];
+	int vdec_freq_cnt;
+	int venc_freq_cnt;
+	unsigned long vdec_freqs[MAX_CODEC_FREQ_STEP];
+	unsigned long venc_freqs[MAX_CODEC_FREQ_STEP];
+
+	struct regulator *vdec_reg;
+	struct regulator *venc_reg;
 
 /**
  *	struct ion_client *ion_vdec_client;

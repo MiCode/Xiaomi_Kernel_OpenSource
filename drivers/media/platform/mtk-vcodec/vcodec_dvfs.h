@@ -38,8 +38,8 @@ struct codec_job {
 };
 
 struct codec_freq {
-	int freq[MODULE];
-	int active_freq;
+	unsigned long freq[MODULE];
+	unsigned long active_freq;
 };
 
 
