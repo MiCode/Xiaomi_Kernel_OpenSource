@@ -236,15 +236,14 @@ extern void __iomem *eem_base;
 #define MCUSYS_CPU6_BASEADDR             0x0C533000
 #define MCUSYS_CPU7_BASEADDR             0x0C533800
 #else
-#define MCUSYS_CPU0_BASEADDR             0x1C530000
-#define MCUSYS_CPU1_BASEADDR             0x1C530800
-#define MCUSYS_CPU2_BASEADDR             0x1C531000
-#define MCUSYS_CPU3_BASEADDR             0x1C531800
-#define MCUSYS_CPU4_BASEADDR             0x1C532000
-#define MCUSYS_CPU5_BASEADDR             0x1C532800
-#define MCUSYS_CPU6_BASEADDR             0x1C533000
-#define MCUSYS_CPU7_BASEADDR             0x1C533800
-
+#define MCUSYS_CPU0_BASEADDR             0x02010000
+#define MCUSYS_CPU1_BASEADDR             0x02010800
+#define MCUSYS_CPU2_BASEADDR             0x02011000
+#define MCUSYS_CPU3_BASEADDR             0x02011800
+#define MCUSYS_CPU4_BASEADDR             0x02012000
+#define MCUSYS_CPU5_BASEADDR             0x02012800
+#define MCUSYS_CPU6_BASEADDR             0x02013000
+#define MCUSYS_CPU7_BASEADDR             0x02013800
 #endif
 
 

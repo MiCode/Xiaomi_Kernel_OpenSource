@@ -1465,7 +1465,7 @@ static int eem_probe(struct platform_device *pdev)
 		eem_dconfig_set_det(det, node);
 #endif
 
-#ifdef EEM_NOT_READY
+#if EEM_NOT_READY
 	ctrl_EEMSN_Enable = 0;
 	ctrl_SN_Enable = 0;
 #endif
@@ -1888,60 +1888,6 @@ out:
 	return ret;
 }
 
-/*
- * show current EEM data
- */
-#if 0
-void eem_dump_reg_by_det(struct eemsn_det *det, struct seq_file *m)
-{
-	unsigned int i, k;
-#if DUMP_DATA_TO_DE
-	unsigned int j;
-#endif
-
-	for (i = EEM_PHASE_INIT01; i <= EEM_PHASE_MON; i++) {
-		seq_printf(m, "Bank_number = %d\n", det->det_id);
-		if (i < EEM_PHASE_MON)
-			seq_printf(m, "mode = init%d\n", i+1);
-		else
-			seq_puts(m, "mode = mon\n");
-		if (eem_log_en) {
-			seq_printf(m, "0x%08X, 0x%08X, 0x%08X, 0x%08X, 0x%08X\n",
-				det->dcvalues[i],
-				det->freqpct30[i],
-				det->eem_26c[i],
-				det->vop30[i],
-				det->eem_eemEn[i]
-			);
-
-			if (det->eem_eemEn[i] == (0x5 | SEC_MOD_SEL)) {
-				seq_printf(m, "EEM_LOG: Bank_number = [%d] (%d) - (",
-				det->det_id, det->ops->get_temp(det));
-
-				for (k = 0; k < NR_FREQ - 1; k++)
-					seq_printf(m, "%d, ",
-					det->ops->pmic_2_volt(det,
-					det->volt_tbl_pmic[k]));
-				seq_printf(m, "%d) - (",
-						det->ops->pmic_2_volt(det,
-						det->volt_tbl_pmic[k]));
-
-				for (k = 0; k < NR_FREQ - 1; k++)
-					seq_printf(m, "%d, ", det->freq_tbl[k]);
-				seq_printf(m, "%d)\n", det->freq_tbl[k]);
-			}
-		} /* if (eem_log_en) */
-#if DUMP_DATA_TO_DE
-		for (j = 0; j < ARRAY_SIZE(reg_dump_addr_off); j++)
-			seq_printf(m, "0x%08lx = 0x%08x\n",
-			(unsigned long)EEM_BASEADDR + reg_dump_addr_off[j],
-			det->reg_dump_data[j][i]
-			);
-#endif
-	}
-}
-#endif
-
 static void dump_sndata_to_de(struct seq_file *m)
 {
 	int *val = (int *)&eem_devinfo;
@@ -2332,31 +2278,6 @@ static int eem_freq_proc_show(struct seq_file *m, void *v)
 	FUNC_EXIT(FUNC_LV_HELP);
 	return 0;
 }
-
-static int eem_mar_proc_show(struct seq_file *m, void *v)
-{
-	FUNC_ENTER(FUNC_LV_HELP);
-
-	seq_printf(m, "%s[CPU_BIG][HIGH] 1:%d, 2:%d, 3:%d, 5:%d\n",
-			EEM_TAG, LOW_TEMP_OFF, 0,
-			HIGH_TEMP_OFF, AGING_VAL_CPU_B);
-
-	seq_printf(m, "%s[CPU_BIG][MID] 1:%d, 2:%d, 3:%d, 5:%d\n",
-			EEM_TAG, LOW_TEMP_OFF, 0,
-			HIGH_TEMP_OFF, AGING_VAL_CPU_B);
-
-	seq_printf(m, "%s[CPU_L][HIGH] 1:%d, 2:%d, 3:%d, 5:%d\n",
-			EEM_TAG, LOW_TEMP_OFF, 0,
-			HIGH_TEMP_OFF, AGING_VAL_CPU);
-
-	seq_printf(m, "%s[CPU_CCI][HIGH] 1:%d, 2:%d, 3:%d, 5:%d\n",
-			EEM_TAG, LOW_TEMP_OFF, 0,
-			HIGH_TEMP_OFF, AGING_VAL_CPU);
-
-	FUNC_EXIT(FUNC_LV_HELP);
-	return 0;
-}
-
 
 /*
  * show current voltage
@@ -2779,7 +2700,6 @@ PROC_FOPS_RO(eem_sn_sram);
 PROC_FOPS_RO(eem_hrid);
 PROC_FOPS_RO(eem_efuse);
 PROC_FOPS_RO(eem_freq);
-PROC_FOPS_RO(eem_mar);
 PROC_FOPS_RW(eem_log_en);
 PROC_FOPS_RW(eem_en);
 PROC_FOPS_RW(eem_sn_en);
@@ -2814,7 +2734,6 @@ static int create_procfs(void)
 		PROC_ENTRY(eem_hrid),
 		PROC_ENTRY(eem_efuse),
 		PROC_ENTRY(eem_freq),
-		PROC_ENTRY(eem_mar),
 		PROC_ENTRY(eem_log_en),
 		PROC_ENTRY(eem_en),
 		PROC_ENTRY(eem_sn_en),
