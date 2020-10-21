@@ -33,7 +33,7 @@
 #include "debug_drv.h"
 #include "apusys_debug_api.h"
 
-#define FORCE_REG_DUMP_ENABLE (1)
+#define FORCE_REG_DUMP_ENABLE (0)
 
 
 struct debug_plat_drv debug_drv;
@@ -48,18 +48,14 @@ struct dump_data {
 
 struct dump_data data;
 
-
 int debug_log_level;
 bool apusys_dump_force;
 bool apusys_dump_skip_gals;
 static void *apu_top;
-static struct mutex dbg_lock;
 static struct mutex dump_lock;
 
 struct dentry *apusys_dump_root;
-
 struct apusys_core_info *dbg_core_info;
-
 
 void apusys_reg_dump_skip_gals(int onoff)
 {
@@ -77,31 +73,28 @@ void apusys_reg_dump(char *module_name, bool dump_vpu)
 {
 	LOG_DEBUG("+\n");
 
-	LOG_DEBUG("name:%s dump_vpu:%d", module_name, dump_vpu);
+	LOG_DEBUG("caller name:%s dump_vpu:%d", module_name, dump_vpu);
 
 	mutex_lock(&dump_lock);
 
-	if (data.reg_all_mem == NULL) {
-
-		data.reg_all_mem = vzalloc(debug_drv.apusys_reg_size);
-		if (data.reg_all_mem == NULL)
-			goto out;
-
-		data.gals_reg = vzalloc(debug_drv.total_dbg_mux_count);
-		if (data.gals_reg == NULL)
-			goto out;
-
-		if (module_name != NULL)
-			strncpy(data.module_name, module_name, STRMAX);
-
-	} else {
-		LOG_INFO("dump is in process, skip this dump!\n");
+	if (data.reg_all_mem != NULL) {
+		LOG_INFO("dump is in process, skip this dump call\n");
 		goto out;
-
 	}
 
+	data.reg_all_mem = vzalloc(debug_drv.apusys_reg_size);
+	if (data.reg_all_mem == NULL)
+		goto out;
+
+	data.gals_reg = vzalloc(debug_drv.total_dbg_mux_count);
+	if (data.gals_reg == NULL)
+		goto out;
+
+	if (module_name != NULL)
+		strncpy(data.module_name, module_name, STRMAX);
+
 	debug_drv.reg_dump(apu_top, dump_vpu, data.reg_all_mem,
-				apusys_dump_skip_gals, data.gals_reg, debug_drv.platform_idx);
+		apusys_dump_skip_gals, data.gals_reg, debug_drv.platform_idx);
 
 out:
 	mutex_unlock(&dump_lock);
@@ -113,47 +106,60 @@ int dump_show(struct seq_file *sfile, void *v)
 {
 	LOG_DEBUG("+\n");
 
-	mutex_lock(&dbg_lock);
+	if (data.reg_all_mem != NULL)
+		debug_drv.dump_show(sfile, v, data.reg_all_mem,
+		data.gals_reg, data.module_name, debug_drv.platform_idx);
+
+	LOG_DEBUG("-\n");
+
+	return 0;
+}
+
+static int dump_open(struct inode *inode, struct file *file)
+{
+	LOG_DEBUG("+\n");
 
 	if (apusys_dump_force)
 		apusys_reg_dump("force_dump", true);
 
 	mutex_lock(&dump_lock);
 
-	if (data.reg_all_mem == NULL)
-		goto out;
+	LOG_DEBUG("-\n");
 
-	debug_drv.dump_show(sfile, v, data.reg_all_mem,
-				data.gals_reg, data.module_name, debug_drv.platform_idx);
+	return single_open(file, dump_show, NULL);
+}
 
 
-	vfree(data.reg_all_mem);
-	data.reg_all_mem = NULL;
+static int dump_release(struct inode *inode, struct file *file)
+{
+	LOG_DEBUG("+\n");
 
-	vfree(data.gals_reg);
-	data.gals_reg = NULL;
+	if (data.reg_all_mem != NULL) {
+		vfree(data.reg_all_mem);
+		data.reg_all_mem = NULL;
+		LOG_DEBUG("free reg_all_mem\n");
+	}
 
-out:
+	if (data.gals_reg != NULL) {
+		vfree(data.gals_reg);
+		data.gals_reg = NULL;
+		LOG_DEBUG("free gals_reg\n");
+	}
+
 	mutex_unlock(&dump_lock);
-	mutex_unlock(&dbg_lock);
 
 	LOG_DEBUG("-\n");
 
-	return 0;
-
+	return single_release(inode, file);
 }
 
-static int dump_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, dump_show, NULL);
-}
 
 static const struct file_operations apu_dump_debug_fops = {
 	.owner = THIS_MODULE,
 	.open = dump_open,
 	.read = seq_read,
 	.llseek = seq_lseek,
-	.release = single_release
+	.release = dump_release
 };
 
 static int debug_probe(struct platform_device *pdev)
@@ -166,7 +172,6 @@ static int debug_probe(struct platform_device *pdev)
 
 	debug_drv = *(struct debug_plat_drv *)of_device_get_match_data(&pdev->dev);
 
-	mutex_init(&dbg_lock);
 	mutex_init(&dump_lock);
 
 	apusys_dump_root = debugfs_create_dir("dump", dbg_core_info->dbg_root);
@@ -230,8 +235,8 @@ static struct platform_driver debug_driver = {
 	.suspend	= debug_suspend,
 	.resume		= debug_resume,
 	.driver		= {
-		.name   = APUSYS_DEBUG_DEV_NAME,
-		.owner = THIS_MODULE,
+		.name	= APUSYS_DEBUG_DEV_NAME,
+		.owner	= THIS_MODULE,
 	},
 };
 
