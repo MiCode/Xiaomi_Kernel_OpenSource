@@ -187,6 +187,7 @@
 #define EP_PCIE_OATU_INDEX_MSI 1
 #define EP_PCIE_OATU_INDEX_CTRL 2
 #define EP_PCIE_OATU_INDEX_DATA 3
+#define EP_PCIE_OATU_INDEX_IPA_MSI 4
 
 #define EP_PCIE_OATU_UPPER 0x100
 
@@ -402,6 +403,7 @@ struct ep_pcie_dev_t {
 	atomic_t		     ep_pcie_dev_wake;
 	atomic_t                     perst_deast;
 	atomic_t                     host_wake_pending;
+	bool			     conf_ipa_msi_iatu;
 
 	struct ep_pcie_register_event *event_reg;
 	struct work_struct	     handle_perst_work;
