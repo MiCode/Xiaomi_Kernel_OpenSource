@@ -588,9 +588,6 @@ static void mddp_f_out_nf_ipv6(
 	case IPPROTO_TCP:
 		tcp = (struct tcpheader *) (skb->data + l4_off);
 		nat_ip_conntrack = nf_ct_get(skb, &ctinfo);
-		tcp_state = nat_ip_conntrack->proto.tcp.state;
-		ext_offset = nat_ip_conntrack->ext->offset[NF_CT_EXT_HELPER];
-
 		if (!nat_ip_conntrack) {
 			MDDP_F_LOG(MDDP_LL_NOTICE,
 					"%s: Null ip conntrack, skb[%p] is filtered out.\n",
@@ -598,12 +595,16 @@ static void mddp_f_out_nf_ipv6(
 			goto out;
 		}
 
-		if (nat_ip_conntrack->ext && ext_offset) { /* helper */
-			MDDP_F_LOG(MDDP_LL_DEBUG,
+		tcp_state = nat_ip_conntrack->proto.tcp.state;
+		if (nat_ip_conntrack->ext) { /* helper */
+			ext_offset = nat_ip_conntrack->ext->offset[NF_CT_EXT_HELPER];
+			if (ext_offset) {
+				MDDP_F_LOG(MDDP_LL_DEBUG,
 					"%s: skb[%p] is filtered out, ext[%p], ext_offset[%d].\n",
 					__func__, skb,
 					nat_ip_conntrack->ext, ext_offset);
-			goto out;
+				goto out;
+			}
 		}
 
 		if (mddp_f_contentfilter
@@ -669,8 +670,6 @@ static void mddp_f_out_nf_ipv6(
 			t.out.tcp.port = cb->dport;
 			t.dev_src = cb->dev;
 		} else {
-			is_uplink = false;
-
 			/* Do not tag TCP DL packet */
 			MDDP_F_LOG(MDDP_LL_DEBUG,
 					"%s: Do not tag IPv6 TCP DL.\n",
@@ -704,9 +703,28 @@ static void mddp_f_out_nf_ipv6(
 						__func__, is_uplink,
 						skb, tcp->th_sum);
 
-				goto out;
 			} else {
 				MDDP_F_ROUTER_TUPLE_UNLOCK(&mddp_f_router_tuple_lock, flag);
+
+				/* Save tuple to avoid tag many packets */
+				found_router_tuple = kmem_cache_alloc(
+							mddp_f_router_tuple_cache, GFP_ATOMIC);
+				if (found_router_tuple == NULL) {
+					MDDP_F_LOG(MDDP_LL_NOTICE,
+							"%s: kmem_cache_alloc() failed\n",
+							__func__);
+					goto out;
+				}
+
+				found_router_tuple->dev_src = cb->dev;
+				found_router_tuple->dev_dst = out;
+				ipv6_addr_copy(&found_router_tuple->saddr, &ip6->saddr);
+				ipv6_addr_copy(&found_router_tuple->daddr, &ip6->daddr);
+				found_router_tuple->in.tcp.port = tcp->th_sport;
+				found_router_tuple->out.tcp.port = tcp->th_dport;
+				found_router_tuple->proto = nexthdr;
+
+				mddp_f_add_router_tuple_tcpudp(found_router_tuple);
 
 				ret = mddp_f_tag_packet(is_uplink,
 						skb, out, cb, nexthdr,
@@ -717,19 +735,6 @@ static void mddp_f_out_nf_ipv6(
 						__func__, is_uplink,
 						skb, tcp->th_sum);
 			}
-
-			/* Save tuple to avoid tag many packets */
-			found_router_tuple = kmem_cache_alloc(
-					mddp_f_router_tuple_cache, GFP_ATOMIC);
-			found_router_tuple->dev_src = cb->dev;
-			found_router_tuple->dev_dst = out;
-			ipv6_addr_copy(&found_router_tuple->saddr, &ip6->saddr);
-			ipv6_addr_copy(&found_router_tuple->daddr, &ip6->daddr);
-			found_router_tuple->in.tcp.port = tcp->th_sport;
-			found_router_tuple->out.tcp.port = tcp->th_dport;
-			found_router_tuple->proto = nexthdr;
-
-			mddp_f_add_router_tuple_tcpudp(found_router_tuple);
 		} else {
 			MDDP_F_LOG(MDDP_LL_NOTICE,
 					"%s: Headroom of skb[%p] is not enough to add MDDP tag, headroom[%d].\n",
@@ -739,8 +744,6 @@ static void mddp_f_out_nf_ipv6(
 	case IPPROTO_UDP:
 		udp = (struct udpheader *)(skb->data + l4_off);
 		nat_ip_conntrack = nf_ct_get(skb, &ctinfo);
-		ext_offset = nat_ip_conntrack->ext->offset[NF_CT_EXT_HELPER];
-
 		if (!nat_ip_conntrack) {
 			MDDP_F_LOG(MDDP_LL_NOTICE,
 					"%s: Null ip conntrack, skb[%p] is filtered out.\n",
@@ -748,12 +751,15 @@ static void mddp_f_out_nf_ipv6(
 			goto out;
 		}
 
-		if (nat_ip_conntrack->ext && ext_offset) { /* helper */
-			MDDP_F_LOG(MDDP_LL_NOTICE,
+		if (nat_ip_conntrack->ext) { /* helper */
+			ext_offset = nat_ip_conntrack->ext->offset[NF_CT_EXT_HELPER];
+			if (ext_offset) {
+				MDDP_F_LOG(MDDP_LL_NOTICE,
 					"%s: skb[%p] is filtered out, ext[%p], ext_offset[%d].\n",
 					__func__, skb,
-				nat_ip_conntrack->ext, ext_offset);
-			goto out;
+					nat_ip_conntrack->ext, ext_offset);
+				goto out;
+			}
 		}
 
 		if (cb->dev == out)	{
@@ -857,10 +863,29 @@ static void mddp_f_out_nf_ipv6(
 							__func__, is_uplink,
 							skb, udp->uh_check);
 
-					goto out;
 				} else {
 					MDDP_F_ROUTER_TUPLE_UNLOCK(&mddp_f_router_tuple_lock,
 							flag);
+
+					/* Save tuple to avoid tag many packets */
+					found_router_tuple = kmem_cache_alloc(
+							mddp_f_router_tuple_cache, GFP_ATOMIC);
+					if (found_router_tuple == NULL) {
+						MDDP_F_LOG(MDDP_LL_NOTICE,
+								"%s: kmem_cache_alloc() failed\n",
+								__func__);
+						goto out;
+					}
+
+					found_router_tuple->dev_src = cb->dev;
+					found_router_tuple->dev_dst = out;
+					ipv6_addr_copy(&found_router_tuple->saddr, &ip6->saddr);
+					ipv6_addr_copy(&found_router_tuple->daddr, &ip6->daddr);
+					found_router_tuple->in.udp.port = udp->uh_sport;
+					found_router_tuple->out.udp.port = udp->uh_dport;
+					found_router_tuple->proto = nexthdr;
+
+					mddp_f_add_router_tuple_tcpudp(found_router_tuple);
 
 					ret = mddp_f_tag_packet(is_uplink, skb,
 								out, cb,
@@ -873,24 +898,6 @@ static void mddp_f_out_nf_ipv6(
 							__func__, is_uplink,
 							skb, udp->uh_check);
 				}
-
-				/* Save tuple to avoid tag many packets */
-				found_router_tuple = kmem_cache_alloc(
-						mddp_f_router_tuple_cache,
-						GFP_ATOMIC);
-				found_router_tuple->dev_src = cb->dev;
-				found_router_tuple->dev_dst = out;
-				ipv6_addr_copy(&found_router_tuple->saddr,
-						&ip6->saddr);
-				ipv6_addr_copy(&found_router_tuple->daddr,
-						&ip6->daddr);
-				found_router_tuple->in.udp.port = udp->uh_sport;
-				found_router_tuple->out.udp.port =
-						udp->uh_dport;
-				found_router_tuple->proto = nexthdr;
-
-				mddp_f_add_router_tuple_tcpudp(
-						found_router_tuple);
 			} else {
 				MDDP_F_LOG(MDDP_LL_NOTICE,
 						"%s: Headroom of skb[%p] is not enough to add MDDP tag, headroom[%d].\n",

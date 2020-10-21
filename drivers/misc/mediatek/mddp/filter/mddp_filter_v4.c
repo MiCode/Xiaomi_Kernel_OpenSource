@@ -628,9 +628,6 @@ static void mddp_f_out_nf_ipv4(
 	case IPPROTO_TCP:
 		tcp = (struct tcpheader *) offset2;
 		nat_ip_conntrack = nf_ct_get(skb, &ctinfo);
-		tcp_state = nat_ip_conntrack->proto.tcp.state;
-		ext_offset = nat_ip_conntrack->ext->offset[NF_CT_EXT_HELPER];
-
 		if (!nat_ip_conntrack) {
 			MDDP_F_LOG(MDDP_LL_NOTICE,
 					"%s: Null ip conntrack, skb[%p] is filtered out.\n",
@@ -638,12 +635,16 @@ static void mddp_f_out_nf_ipv4(
 			goto out;
 		}
 
-		if (nat_ip_conntrack->ext && ext_offset) { /* helper */
-			MDDP_F_LOG(MDDP_LL_DEBUG,
+		tcp_state = nat_ip_conntrack->proto.tcp.state;
+		if (nat_ip_conntrack->ext) { /* helper */
+			ext_offset = nat_ip_conntrack->ext->offset[NF_CT_EXT_HELPER];
+			if (ext_offset) {
+				MDDP_F_LOG(MDDP_LL_DEBUG,
 					"%s: skb[%p] is filtered out, ext[%p], ext_offset[%d].\n",
 					__func__, skb,
 					nat_ip_conntrack->ext, ext_offset);
-			goto out;
+				goto out;
+			}
 		}
 
 		if (mddp_f_contentfilter
@@ -698,8 +699,6 @@ static void mddp_f_out_nf_ipv4(
 			t.nat.d.tcp.port = cb->dport;
 			t.dev_in = cb->dev;
 		} else {
-			is_uplink = false;
-
 			/* Do not tag TCP DL packet */
 			MDDP_F_LOG(MDDP_LL_DEBUG,
 					"%s: Do not tag IPv4 TCP DL.\n",
@@ -736,6 +735,30 @@ static void mddp_f_out_nf_ipv4(
 			} else {
 				MDDP_F_NAT_TUPLE_UNLOCK(&mddp_f_nat_tuple_lock, flag);
 
+				/* Save tuple to avoid tag many packets */
+				found_nat_tuple = kmem_cache_alloc(
+							mddp_f_nat_tuple_cache, GFP_ATOMIC);
+				if (found_nat_tuple == NULL) {
+					MDDP_F_LOG(MDDP_LL_NOTICE,
+							"%s: kmem_cache_alloc() failed\n",
+							__func__);
+					goto out;
+				}
+
+				found_nat_tuple->src_ip = cb->src[0];
+				found_nat_tuple->dst_ip = cb->dst[0];
+				found_nat_tuple->nat_src_ip = ip->ip_src;
+				found_nat_tuple->nat_dst_ip = ip->ip_dst;
+				found_nat_tuple->src.tcp.port = cb->sport;
+				found_nat_tuple->dst.tcp.port = cb->dport;
+				found_nat_tuple->nat_src.tcp.port = tcp->th_sport;
+				found_nat_tuple->nat_dst.tcp.port = tcp->th_dport;
+				found_nat_tuple->proto = ip->ip_p;
+				found_nat_tuple->dev_src = cb->dev;
+				found_nat_tuple->dev_dst = out;
+
+				mddp_f_add_nat_tuple(found_nat_tuple);
+
 				ret = mddp_f_tag_packet(is_uplink,
 						skb, out, cb, ip->ip_p,
 						ip->ip_v, tuple_hit_cnt);
@@ -746,28 +769,6 @@ static void mddp_f_out_nf_ipv4(
 							skb, ip->ip_id,
 							ip->ip_sum);
 			}
-
-			/* Save tuple to avoid tag many packets */
-			if (!found_nat_tuple) {
-				found_nat_tuple = kmem_cache_alloc(
-						mddp_f_nat_tuple_cache,
-						GFP_ATOMIC);
-				found_nat_tuple->src_ip = cb->src[0];
-				found_nat_tuple->dst_ip = cb->dst[0];
-				found_nat_tuple->nat_src_ip = ip->ip_src;
-				found_nat_tuple->nat_dst_ip = ip->ip_dst;
-				found_nat_tuple->src.tcp.port = cb->sport;
-				found_nat_tuple->dst.tcp.port = cb->dport;
-				found_nat_tuple->nat_src.tcp.port =
-					tcp->th_sport;
-				found_nat_tuple->nat_dst.tcp.port =
-					tcp->th_dport;
-				found_nat_tuple->proto = ip->ip_p;
-				found_nat_tuple->dev_src = cb->dev;
-				found_nat_tuple->dev_dst = out;
-
-				mddp_f_add_nat_tuple(found_nat_tuple);
-			}
 		} else {
 			MDDP_F_LOG(MDDP_LL_NOTICE,
 					"%s: Headroom of skb[%p] is not enough to add MDDP tag, headroom[%d].\n",
@@ -777,8 +778,6 @@ static void mddp_f_out_nf_ipv4(
 	case IPPROTO_UDP:
 		udp = (struct udpheader *) offset2;
 		nat_ip_conntrack = nf_ct_get(skb, &ctinfo);
-		ext_offset = nat_ip_conntrack->ext->offset[NF_CT_EXT_HELPER];
-
 		if (!nat_ip_conntrack) {
 			MDDP_F_LOG(MDDP_LL_NOTICE,
 					"%s: Null ip conntrack, skb[%p] is filtered out.\n",
@@ -786,12 +785,15 @@ static void mddp_f_out_nf_ipv4(
 			goto out;
 		}
 
-		if (nat_ip_conntrack->ext && ext_offset) { /* helper */
-			MDDP_F_LOG(MDDP_LL_NOTICE,
+		if (nat_ip_conntrack->ext) { /* helper */
+			ext_offset = nat_ip_conntrack->ext->offset[NF_CT_EXT_HELPER];
+			if (ext_offset) {
+				MDDP_F_LOG(MDDP_LL_NOTICE,
 					"%s: skb[%p] is filtered out, ext[%p], ext_offset[%d].\n",
 					__func__, skb,
 					nat_ip_conntrack->ext, ext_offset);
-			goto out;
+				goto out;
+			}
 		}
 
 		if (mddp_f_is_support_wan_dev(out->name) == true) {
@@ -885,6 +887,30 @@ static void mddp_f_out_nf_ipv4(
 					MDDP_F_NAT_TUPLE_UNLOCK(&mddp_f_nat_tuple_lock,
 							flag);
 
+					/* Save tuple to avoid tag many packets */
+					found_nat_tuple = kmem_cache_alloc(
+								mddp_f_nat_tuple_cache, GFP_ATOMIC);
+					if (found_nat_tuple == NULL) {
+						MDDP_F_LOG(MDDP_LL_NOTICE,
+								"%s: kmem_cache_alloc() failed\n",
+								__func__);
+						goto out;
+					}
+
+					found_nat_tuple->src_ip = cb->src[0];
+					found_nat_tuple->dst_ip = cb->dst[0];
+					found_nat_tuple->nat_src_ip = ip->ip_src;
+					found_nat_tuple->nat_dst_ip = ip->ip_dst;
+					found_nat_tuple->src.udp.port = cb->sport;
+					found_nat_tuple->dst.udp.port = cb->dport;
+					found_nat_tuple->nat_src.udp.port = udp->uh_sport;
+					found_nat_tuple->nat_dst.udp.port = udp->uh_dport;
+					found_nat_tuple->proto = ip->ip_p;
+					found_nat_tuple->dev_src = cb->dev;
+					found_nat_tuple->dev_dst = out;
+
+					mddp_f_add_nat_tuple(found_nat_tuple);
+
 					ret = mddp_f_tag_packet(is_uplink,
 							skb, out, cb, ip->ip_p,
 							ip->ip_v,
@@ -896,26 +922,6 @@ static void mddp_f_out_nf_ipv4(
 							skb, ip->ip_id,
 							ip->ip_sum);
 				}
-
-				/* Save tuple to avoid tag many packets */
-				found_nat_tuple = kmem_cache_alloc(
-							mddp_f_nat_tuple_cache,
-							GFP_ATOMIC);
-				found_nat_tuple->src_ip = cb->src[0];
-				found_nat_tuple->dst_ip = cb->dst[0];
-				found_nat_tuple->nat_src_ip = ip->ip_src;
-				found_nat_tuple->nat_dst_ip = ip->ip_dst;
-				found_nat_tuple->src.udp.port = cb->sport;
-				found_nat_tuple->dst.udp.port = cb->dport;
-				found_nat_tuple->nat_src.udp.port =
-					udp->uh_sport;
-				found_nat_tuple->nat_dst.udp.port =
-					udp->uh_dport;
-				found_nat_tuple->proto = ip->ip_p;
-				found_nat_tuple->dev_src = cb->dev;
-				found_nat_tuple->dev_dst = out;
-
-				mddp_f_add_nat_tuple(found_nat_tuple);
 			} else {
 				MDDP_F_LOG(MDDP_LL_NOTICE,
 						"%s: Headroom of skb[%p] is not enough to add MDDP tag, headroom[%d].\n",

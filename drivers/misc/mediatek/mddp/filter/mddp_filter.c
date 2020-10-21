@@ -675,6 +675,11 @@ static int mddp_f_tag_packet(
 		}
 
 		fake_skb = skb_copy(skb, GFP_ATOMIC);
+		if (fake_skb == NULL) {
+			MDDP_F_LOG(MDDP_LL_NOTICE, "%s: skb_copy() failed\n", __func__);
+			return -ENOMEM;
+		}
+
 		fake_skb->dev = cb->dev;
 		skb_tag = (struct mddp_f_tag_packet_t *)fake_skb->head;
 		skb_tag->guard_pattern = MDDP_TAG_PATTERN;
