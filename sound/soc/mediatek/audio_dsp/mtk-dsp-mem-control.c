@@ -518,20 +518,6 @@ int get_afememref_by_afe_taskid(int task_id)
 	return ret;
 }
 
-int get_aferefmem_by_afe_taskid(int task_id)
-{
-	int ret = 0;
-	struct mtk_adsp_task_attr *task_attr =
-		mtk_get_adsp_task_attr(task_id);
-
-	if (task_id > AUDIO_TASK_DAI_NUM || !task_attr) {
-		pr_info("%s id = %d\n", __func__, task_id);
-		return -1;
-	}
-	ret = task_attr->afe_memif_ref;
-	return ret;
-}
-
 int get_taskid_by_afe_daiid(int task_dai_id)
 {
 	int i = 0;

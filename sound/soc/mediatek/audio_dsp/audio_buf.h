@@ -226,8 +226,7 @@ int set_audiobuffer_threshold(struct audio_hw_buffer *audio_hwbuf,
 
 /* using afe substream to set audio_hw_buffer */
 int set_afe_audio_pcmbuf(struct audio_hw_buffer *audio_hwbuf,
-			 struct snd_pcm_substream *substream,
-			 struct snd_pcm_hw_params *params);
+			 struct snd_pcm_substream *substream);
 
 /* set audio buffer by substream and snd_pcm_params */
 int set_audiobuffer_attribute(struct audio_hw_buffer *audio_buf,
