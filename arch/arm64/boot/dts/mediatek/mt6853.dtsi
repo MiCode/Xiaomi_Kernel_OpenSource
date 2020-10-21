@@ -451,7 +451,7 @@
 	};
 
 	dcm: dcm@10001000 {
-		compatible = "mediatek,mt6873-dcm";
+		compatible = "mediatek,mt6853-dcm";
 		reg = <0 0x10001000 0 0x1000>,
 			<0 0x10002000 0 0x1000>,
 			<0 0x10022000 0 0x1000>,
