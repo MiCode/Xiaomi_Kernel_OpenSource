@@ -758,7 +758,6 @@ static void aggregate_power_update(struct msm_cvp_core *core,
 	core->dyn_clk.sum_fps[HFI_HW_OD]  = 0;
 	core->dyn_clk.sum_fps[HFI_HW_ICA] = 0;
 
-	mutex_lock(&core->lock);
 	list_for_each_entry(inst, &core->instances, list) {
 		if (inst->state == MSM_CVP_CORE_INVALID ||
 			inst->state == MSM_CVP_CORE_UNINIT ||
@@ -828,8 +827,6 @@ static void aggregate_power_update(struct msm_cvp_core *core,
 			core->dyn_clk.sum_fps[HFI_HW_OD],
 			core->dyn_clk.sum_fps[HFI_HW_ICA]);
 	}
-
-	mutex_unlock(&core->lock);
 
 	for (i = 0; i < 2; i++) {
 		fdu_sum[i] = max_3(fdu_sum[i], od_sum[i], mpu_sum[i]);
