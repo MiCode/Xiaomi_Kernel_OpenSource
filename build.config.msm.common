@@ -219,3 +219,10 @@ function determine_result_image {
 	fi
 }
 append_cmd DIST_CMDS 'determine_result_image'
+
+if [ -n "${EXTRA_CONFIGS}" ]; then
+	for extra_config in "${EXTRA_CONFIGS}"
+	do
+		. ${extra_config}
+	done
+fi
