@@ -1448,6 +1448,10 @@ page_owner=on";
 		interrupts = <GIC_SPI 194 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
+	goodix_fp: fingerprint {
+		compatible = "mediatek,goodix-fp";
+	};
+
 	accdet: accdet {
 		compatible = "mediatek,pmic-accdet";
 	};
