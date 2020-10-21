@@ -1,13 +1,155 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #include "adreno.h"
 #include "adreno_a3xx.h"
 #include "adreno_pm4types.h"
 #include "adreno_ringbuffer.h"
+#include "adreno_trace.h"
 #include "kgsl_trace.h"
+
+static int a3xx_wait_reg(unsigned int *cmds, unsigned int addr,
+			unsigned int val, unsigned int mask,
+			unsigned int interval)
+{
+	cmds[0] = cp_type3_packet(CP_WAIT_REG_EQ, 4);
+	cmds[1] = addr;
+	cmds[2] = val;
+	cmds[3] = mask;
+	cmds[4] = interval;
+
+	return 5;
+}
+
+static int a3xx_vbif_lock(unsigned int *cmds)
+{
+	int count;
+
+	/*
+	 * glue commands together until next
+	 * WAIT_FOR_ME
+	 */
+	count = a3xx_wait_reg(cmds, A3XX_CP_WFI_PEND_CTR,
+			1, 0xFFFFFFFF, 0xF);
+
+	/* MMU-500 VBIF stall */
+	cmds[count++] = cp_type3_packet(CP_REG_RMW, 3);
+	cmds[count++] = A3XX_VBIF_DDR_OUTPUT_RECOVERABLE_HALT_CTRL0;
+	/* AND to unmask the HALT bit */
+	cmds[count++] = ~(VBIF_RECOVERABLE_HALT_CTRL);
+	/* OR to set the HALT bit */
+	cmds[count++] = 0x1;
+
+	/* Wait for acknowledgment */
+	count += a3xx_wait_reg(&cmds[count],
+			A3XX_VBIF_DDR_OUTPUT_RECOVERABLE_HALT_CTRL1,
+			1, 0xFFFFFFFF, 0xF);
+
+	return count;
+}
+
+static int a3xx_vbif_unlock(unsigned int *cmds)
+{
+	/* MMU-500 VBIF unstall */
+	cmds[0] = cp_type3_packet(CP_REG_RMW, 3);
+	cmds[1] = A3XX_VBIF_DDR_OUTPUT_RECOVERABLE_HALT_CTRL0;
+	/* AND to unmask the HALT bit */
+	cmds[2] = ~(VBIF_RECOVERABLE_HALT_CTRL);
+	/* OR to reset the HALT bit */
+	cmds[3] = 0;
+
+	/* release all commands since _vbif_lock() with wait_for_me */
+	cmds[4] = cp_type3_packet(CP_WAIT_FOR_ME, 1);
+	cmds[5] = 0;
+
+	return 6;
+}
+
+#define A3XX_GPU_OFFSET 0xa000
+
+static int a3xx_cp_smmu_reg(unsigned int *cmds,
+				u32 reg,
+				unsigned int num)
+{
+	cmds[0] = cp_type3_packet(CP_REG_WR_NO_CTXT, num + 1);
+	cmds[1] = (A3XX_GPU_OFFSET + reg) >> 2;
+
+	return 2;
+}
+
+/* This function is only needed for A3xx targets */
+static int a3xx_tlbiall(unsigned int *cmds)
+{
+	unsigned int tlbstatus = (A3XX_GPU_OFFSET +
+		KGSL_IOMMU_CTX_TLBSTATUS) >> 2;
+	int count;
+
+	count = a3xx_cp_smmu_reg(cmds, KGSL_IOMMU_CTX_TLBIALL, 1);
+	cmds[count++] = 1;
+
+	count += a3xx_cp_smmu_reg(&cmds[count], KGSL_IOMMU_CTX_TLBSYNC, 1);
+	cmds[count++] = 0;
+
+	count += a3xx_wait_reg(&cmds[count], tlbstatus, 0,
+			KGSL_IOMMU_CTX_TLBSTATUS_SACTIVE, 0xF);
+
+	return count;
+}
+
+/* offset at which a nop command is placed in setstate */
+#define KGSL_IOMMU_SETSTATE_NOP_OFFSET	1024
+
+static int a3xx_rb_pagetable_switch(struct adreno_device *adreno_dev,
+		struct kgsl_pagetable *pagetable, u32 *cmds)
+{
+	u64 ttbr0 = kgsl_mmu_pagetable_get_ttbr0(pagetable);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
+	int count = 0;
+
+	/*
+	 * Adding an indirect buffer ensures that the prefetch stalls until
+	 * the commands in indirect buffer have completed. We need to stall
+	 * prefetch with a nop indirect buffer when updating pagetables
+	 * because it provides stabler synchronization.
+	 */
+	cmds[count++] = cp_type3_packet(CP_WAIT_FOR_ME, 1);
+	cmds[count++] = 0;
+
+	cmds[count++] = cp_type3_packet(CP_INDIRECT_BUFFER_PFE, 2);
+	cmds[count++] = lower_32_bits(iommu->setstate->gpuaddr);
+	cmds[count++] = 2;
+
+	cmds[count++] = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
+	cmds[count++] = 0;
+
+	cmds[count++] = cp_type3_packet(CP_WAIT_FOR_ME, 1);
+	cmds[count++] = 0;
+
+	count += a3xx_vbif_lock(&cmds[count]);
+
+	count += a3xx_cp_smmu_reg(&cmds[count], KGSL_IOMMU_CTX_TTBR0, 2);
+	cmds[count++] = lower_32_bits(ttbr0);
+	cmds[count++] = upper_32_bits(ttbr0);
+
+	count += a3xx_vbif_unlock(&cmds[count]);
+
+	count += a3xx_tlbiall(&cmds[count]);
+
+	/* wait for me to finish the TLBI */
+	cmds[count++] = cp_type3_packet(CP_WAIT_FOR_ME, 1);
+	cmds[count++] = 0;
+	cmds[count++] = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
+	cmds[count++] = 0;
+
+	/* Invalidate the state */
+	cmds[count++] = cp_type3_packet(CP_INVALIDATE_STATE, 1);
+	cmds[count++] = 0x7ffff;
+
+	return count;
+}
 
 #define RB_SOPTIMESTAMP(device, rb) \
 	       MEMSTORE_RB_GPU_ADDR(device, rb, soptimestamp)
@@ -41,6 +183,17 @@ int a3xx_ringbuffer_addcmds(struct adreno_device *adreno_dev,
 	u32 *cmds, index = 0;
 	u64 profile_gpuaddr;
 	u32 profile_dwords;
+
+	if (adreno_drawctxt_detached(drawctxt))
+		return -ENOENT;
+
+	if (adreno_gpu_fault(adreno_dev) != 0)
+		return -EPROTO;
+
+	rb->timestamp++;
+
+	if (drawctxt)
+		drawctxt->internal_timestamp = rb->timestamp;
 
 	cmds = adreno_ringbuffer_allocspace(rb, size);
 	if (IS_ERR(cmds))
@@ -159,6 +312,67 @@ int a3xx_ringbuffer_addcmds(struct adreno_device *adreno_dev,
 	return 0;
 }
 
+static int a3xx_rb_context_switch(struct adreno_device *adreno_dev,
+		struct adreno_ringbuffer *rb,
+		struct adreno_context *drawctxt)
+{
+	struct kgsl_pagetable *pagetable =
+		adreno_drawctxt_get_pagetable(drawctxt);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	int count = 0;
+	u32 cmds[64];
+
+	if (adreno_drawctxt_get_pagetable(rb->drawctxt_active) != pagetable)
+		count += a3xx_rb_pagetable_switch(adreno_dev, pagetable, cmds);
+
+	cmds[count++] = cp_type3_packet(CP_NOP, 1);
+	cmds[count++] = CONTEXT_TO_MEM_IDENTIFIER;
+
+	cmds[count++] = cp_type3_packet(CP_MEM_WRITE, 2);
+	cmds[count++] = lower_32_bits(MEMSTORE_RB_GPU_ADDR(device, rb,
+				current_context));
+	cmds[count++] = drawctxt->base.id;
+
+	cmds[count++] = cp_type3_packet(CP_MEM_WRITE, 2);
+	cmds[count++] = lower_32_bits(MEMSTORE_ID_GPU_ADDR(device,
+		KGSL_MEMSTORE_GLOBAL, current_context));
+	cmds[count++] = drawctxt->base.id;
+
+	cmds[count++] = cp_type0_packet(A3XX_UCHE_CACHE_INVALIDATE0_REG, 2);
+	cmds[count++] = 0;
+	cmds[count++] = 0x90000000;
+
+	return a3xx_ringbuffer_addcmds(adreno_dev, rb, NULL, F_NOTPROTECTED,
+			cmds, count, 0, NULL);
+}
+
+int a3xx_drawctxt_switch(struct adreno_device *adreno_dev,
+		struct adreno_ringbuffer *rb,
+		struct adreno_context *drawctxt)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+
+	if (rb->drawctxt_active == drawctxt)
+		return 0;
+
+	if (kgsl_context_detached(&drawctxt->base))
+		return -ENOENT;
+
+	if (!_kgsl_context_get(&drawctxt->base))
+		return -ENOENT;
+
+	trace_adreno_drawctxt_switch(rb, drawctxt);
+
+	a3xx_rb_context_switch(adreno_dev, rb, drawctxt);
+
+	/* Release the current drawctxt as soon as the new one is switched */
+	adreno_put_drawctxt_on_timestamp(device, rb->drawctxt_active,
+		rb, rb->timestamp);
+
+	rb->drawctxt_active = drawctxt;
+	return 0;
+}
+
 #define A3XX_COMMAND_DWORDS 4
 
 int a3xx_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
@@ -207,7 +421,7 @@ int a3xx_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 	cmds[index++] = cp_type3_packet(CP_NOP, 1);
 	cmds[index++] = END_IB_IDENTIFIER;
 
-	ret = adreno_drawctxt_switch(adreno_dev, rb, drawctxt);
+	ret = a3xx_drawctxt_switch(adreno_dev, rb, drawctxt);
 
 	/*
 	 * In the unlikely event of an error in the drawctxt switch,
@@ -227,8 +441,8 @@ int a3xx_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 
 	adreno_ringbuffer_set_constraint(device, drawobj);
 
-	ret = adreno_ringbuffer_addcmds(adreno_dev, drawctxt->rb, drawctxt,
-		flags, cmds, index, drawobj->timestamp, time);
+	ret = a3xx_ringbuffer_addcmds(adreno_dev, drawctxt->rb, drawctxt,
+		flags, cmds, index, drawobj->timestamp, NULL);
 
 done:
 	trace_kgsl_issueibcmds(device, drawctxt->base.id, numibs,

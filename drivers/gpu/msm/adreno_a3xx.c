@@ -711,8 +711,11 @@ static int a3xx_microcode_read(struct adreno_device *adreno_dev);
  */
 static int a3xx_init(struct adreno_device *adreno_dev)
 {
-	int ret = adreno_dispatcher_init(adreno_dev);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
+	int ret;
 
+	ret = adreno_dispatcher_init(adreno_dev);
 	if (ret)
 		return ret;
 
@@ -725,6 +728,17 @@ static int a3xx_init(struct adreno_device *adreno_dev)
 		return ret;
 
 	_a3xx_pwron_fixup(adreno_dev);
+
+	if (IS_ERR_OR_NULL(iommu->setstate)) {
+		iommu->setstate = kgsl_allocate_global(device, PAGE_SIZE,
+			0, KGSL_MEMFLAGS_GPUREADONLY, 0, "setstate");
+
+		kgsl_sharedmem_writel(iommu->setstate,
+			KGSL_IOMMU_SETSTATE_NOP_OFFSET,
+			cp_type3_packet(CP_NOP, 1));
+	}
+
+	kgsl_mmu_set_feature(device, KGSL_MMU_NEED_GUARD_PAGE);
 
 	return a3xx_get_cp_init_cmds(adreno_dev);
 }
@@ -1050,10 +1064,6 @@ static unsigned int a3xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 				A3XX_SQ_INST_STORE_MANAGEMENT),
 	ADRENO_REG_DEFINE(ADRENO_REG_TP0_CHICKEN, A3XX_TP0_CHICKEN),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_SW_RESET_CMD, A3XX_RBBM_SW_RESET_CMD),
-	ADRENO_REG_DEFINE(ADRENO_REG_UCHE_INVALIDATE0,
-			A3XX_UCHE_CACHE_INVALIDATE0_REG),
-	ADRENO_REG_DEFINE(ADRENO_REG_UCHE_INVALIDATE1,
-			A3XX_UCHE_CACHE_INVALIDATE1_REG),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_RBBM_0_LO,
 			A3XX_RBBM_PERFCTR_RBBM_0_LO),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_RBBM_0_HI,
@@ -1283,6 +1293,5 @@ const struct adreno_gpudev adreno_a3xx_gpudev = {
 	.hw_isidle = a3xx_hw_isidle,
 	.power_ops = &adreno_power_operations,
 	.clear_pending_transactions = a3xx_clear_pending_transactions,
-	.ringbuffer_addcmds = a3xx_ringbuffer_addcmds,
 	.ringbuffer_submitcmd = a3xx_ringbuffer_submitcmd,
 };

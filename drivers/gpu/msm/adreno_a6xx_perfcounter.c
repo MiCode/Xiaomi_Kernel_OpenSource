@@ -89,7 +89,8 @@ static int a6xx_counter_inline_enable(struct adreno_device *adreno_dev,
 	cmds[2] = countable;
 
 	/* submit to highest priority RB always */
-	ret = adreno_ringbuffer_issue_internal_cmds(rb, cmds, 3);
+	ret = a6xx_ringbuffer_addcmds(adreno_dev, rb, NULL,
+		F_NOTPROTECTED, cmds, 3, 0, NULL);
 	if (ret)
 		return ret;
 

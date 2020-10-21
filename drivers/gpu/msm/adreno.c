@@ -22,7 +22,6 @@
 #include "adreno_a6xx.h"
 #include "adreno_compat.h"
 #include "adreno_hwsched.h"
-#include "adreno_iommu.h"
 #include "adreno_pm4types.h"
 #include "adreno_trace.h"
 #include "kgsl_bus.h"
@@ -1679,8 +1678,6 @@ static int adreno_init(struct kgsl_device *device)
 		if (ret)
 			return ret;
 	}
-
-	 adreno_iommu_init(adreno_dev);
 
 	adreno_fault_detect_init(adreno_dev);
 

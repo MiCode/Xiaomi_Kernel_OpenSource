@@ -683,8 +683,6 @@ enum adreno_regs {
 	ADRENO_REG_SQ_GPR_MANAGEMENT,
 	ADRENO_REG_SQ_INST_STORE_MANAGEMENT,
 	ADRENO_REG_TP0_CHICKEN,
-	ADRENO_REG_UCHE_INVALIDATE0,
-	ADRENO_REG_UCHE_INVALIDATE1,
 	ADRENO_REG_RBBM_PERFCTR_RBBM_0_LO,
 	ADRENO_REG_RBBM_PERFCTR_RBBM_0_HI,
 	ADRENO_REG_RBBM_PERFCTR_LOAD_VALUE_LO,
@@ -791,11 +789,6 @@ struct adreno_gpudev {
 	int (*clear_pending_transactions)(struct adreno_device *adreno_dev);
 	void (*deassert_gbif_halt)(struct adreno_device *adreno_dev);
 	void (*regulator_disable_poll)(struct kgsl_device *device);
-	/** @ringbuffer_addcmds: Add a command to the ringbuffer */
-	int (*ringbuffer_addcmds)(struct adreno_device *adreno_dev,
-		struct adreno_ringbuffer *rb, struct adreno_context *drawctxt,
-		u32 flags, u32 *cmds, u32 sizedwords, u32 timestamp,
-		struct adreno_submit_time *time);
 	int (*ringbuffer_submitcmd)(struct adreno_device *adreno_dev,
 			struct kgsl_drawobj_cmd *cmdobj, u32 flags,
 			struct adreno_submit_time *time);

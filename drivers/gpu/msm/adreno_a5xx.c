@@ -2074,7 +2074,6 @@ static unsigned int a5xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_INT_0_STATUS, A5XX_RBBM_INT_0_STATUS),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_CLOCK_CTL, A5XX_RBBM_CLOCK_CNTL),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_SW_RESET_CMD, A5XX_RBBM_SW_RESET_CMD),
-	ADRENO_REG_DEFINE(ADRENO_REG_UCHE_INVALIDATE0, A5XX_UCHE_INVALIDATE0),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_RBBM_0_LO,
 				A5XX_RBBM_PERFCTR_RBBM_0_LO),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_RBBM_0_HI,
@@ -2705,6 +2704,5 @@ const struct adreno_gpudev adreno_a5xx_gpudev = {
 	.power_ops = &adreno_power_operations,
 	.clear_pending_transactions = a5xx_clear_pending_transactions,
 	.remove = a5xx_remove,
-	.ringbuffer_addcmds = a5xx_ringbuffer_addcmds,
 	.ringbuffer_submitcmd = a5xx_ringbuffer_submitcmd,
 };

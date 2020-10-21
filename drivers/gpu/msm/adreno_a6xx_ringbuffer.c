@@ -1,13 +1,94 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #include "adreno.h"
 #include "adreno_a6xx.h"
 #include "adreno_pm4types.h"
 #include "adreno_ringbuffer.h"
+#include "adreno_trace.h"
 #include "kgsl_trace.h"
+
+static int a6xx_rb_pagetable_switch(struct adreno_device *adreno_dev,
+		struct adreno_ringbuffer *rb,
+		struct kgsl_pagetable *pagetable, u32 *cmds)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	u64 ttbr0 = kgsl_mmu_pagetable_get_ttbr0(pagetable);
+	int count = 0;
+
+	if (pagetable == device->mmu.defaultpagetable)
+		return 0;
+
+	cmds[count++] = cp_type7_packet(CP_SMMU_TABLE_UPDATE, 3);
+	cmds[count++] = lower_32_bits(ttbr0);
+	cmds[count++] = upper_32_bits(ttbr0);
+	cmds[count++] = 0;
+
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_APRIV)) {
+		cmds[count++] = cp_type7_packet(CP_WAIT_FOR_IDLE, 0);
+		cmds[count++] = cp_type7_packet(CP_WAIT_FOR_ME, 0);
+		cmds[count++] = cp_type4_packet(A6XX_CP_MISC_CNTL, 1);
+		cmds[count++] = 1;
+	}
+
+	cmds[count++] = cp_type7_packet(CP_MEM_WRITE, 5);
+	cmds[count++] = lower_32_bits(rb->pagetable_desc->gpuaddr +
+			PT_INFO_OFFSET(ttbr0));
+	cmds[count++] = upper_32_bits(rb->pagetable_desc->gpuaddr +
+			PT_INFO_OFFSET(ttbr0));
+	cmds[count++] = lower_32_bits(ttbr0);
+	cmds[count++] = upper_32_bits(ttbr0);
+	cmds[count++] = 0;
+
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_APRIV)) {
+		cmds[count++] = cp_type7_packet(CP_WAIT_FOR_IDLE, 0);
+		cmds[count++] = cp_type7_packet(CP_WAIT_FOR_ME, 0);
+		cmds[count++] = cp_type4_packet(A6XX_CP_MISC_CNTL, 1);
+		cmds[count++] = 0;
+	}
+
+	return count;
+}
+
+static int a6xx_rb_context_switch(struct adreno_device *adreno_dev,
+		struct adreno_ringbuffer *rb,
+		struct adreno_context *drawctxt)
+{
+	struct kgsl_pagetable *pagetable =
+		adreno_drawctxt_get_pagetable(drawctxt);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	int count = 0;
+	u32 cmds[32];
+
+	if (adreno_drawctxt_get_pagetable(rb->drawctxt_active) != pagetable)
+		count += a6xx_rb_pagetable_switch(adreno_dev, rb, pagetable,
+				cmds);
+
+	cmds[count++] = cp_type7_packet(CP_NOP, 1);
+	cmds[count++] = CONTEXT_TO_MEM_IDENTIFIER;
+
+	cmds[count++] = cp_type7_packet(CP_MEM_WRITE, 3);
+	cmds[count++] = lower_32_bits(MEMSTORE_RB_GPU_ADDR(device, rb,
+				current_context));
+	cmds[count++] = upper_32_bits(MEMSTORE_RB_GPU_ADDR(device, rb,
+				current_context));
+	cmds[count++] = drawctxt->base.id;
+
+	cmds[count++] = cp_type7_packet(CP_MEM_WRITE, 3);
+	cmds[count++] = lower_32_bits(MEMSTORE_ID_GPU_ADDR(device,
+		KGSL_MEMSTORE_GLOBAL, current_context));
+	cmds[count++] = upper_32_bits(MEMSTORE_ID_GPU_ADDR(device,
+		KGSL_MEMSTORE_GLOBAL, current_context));
+	cmds[count++] = drawctxt->base.id;
+
+	cmds[count++] = cp_type7_packet(CP_EVENT_WRITE, 1);
+	cmds[count++] = 0x31;
+
+	return a6xx_ringbuffer_addcmds(adreno_dev, rb, NULL, F_NOTPROTECTED,
+			cmds, count, 0, NULL);
+}
 
 #define RB_SOPTIMESTAMP(device, rb) \
 	       MEMSTORE_RB_GPU_ADDR(device, rb, soptimestamp)
@@ -121,6 +202,17 @@ int a6xx_ringbuffer_addcmds(struct adreno_device *adreno_dev,
 	u32 *cmds, index = 0;
 	u64 profile_gpuaddr;
 	u32 profile_dwords;
+
+	if (adreno_drawctxt_detached(drawctxt))
+		return -ENOENT;
+
+	if (adreno_gpu_fault(adreno_dev) != 0)
+		return -EPROTO;
+
+	rb->timestamp++;
+
+	if (drawctxt)
+		drawctxt->internal_timestamp = rb->timestamp;
 
 	/*
 	 * if APRIV is enabled we assume all submissions are run with protected
@@ -279,6 +371,33 @@ static u64 a6xx_get_user_profiling_ib(struct adreno_ringbuffer *rb,
 	return 4;
 }
 
+static int a6xx_drawctxt_switch(struct adreno_device *adreno_dev,
+		struct adreno_ringbuffer *rb,
+		struct adreno_context *drawctxt)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+
+	if (rb->drawctxt_active == drawctxt)
+		return 0;
+
+	if (kgsl_context_detached(&drawctxt->base))
+		return -ENOENT;
+
+	if (!_kgsl_context_get(&drawctxt->base))
+		return -ENOENT;
+
+	trace_adreno_drawctxt_switch(rb, drawctxt);
+
+	a6xx_rb_context_switch(adreno_dev, rb, drawctxt);
+
+	/* Release the current drawctxt as soon as the new one is switched */
+	adreno_put_drawctxt_on_timestamp(device, rb->drawctxt_active,
+		rb, rb->timestamp);
+
+	rb->drawctxt_active = drawctxt;
+	return 0;
+}
+
 #define A6XX_USER_PROFILE_IB(rb, cmdobj, cmds, field) \
 	a6xx_get_user_profiling_ib((rb), (cmdobj), \
 		offsetof(struct kgsl_drawobj_profiling_buffer, field), \
@@ -374,8 +493,7 @@ int a6xx_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 	cmds[index++] = cp_type7_packet(CP_NOP, 1);
 	cmds[index++] = END_IB_IDENTIFIER;
 
-	/* Context switches commands should *always* be on the GPU */
-	ret = adreno_drawctxt_switch(adreno_dev, rb, drawctxt);
+	ret = a6xx_drawctxt_switch(adreno_dev, rb, drawctxt);
 
 	/*
 	 * In the unlikely event of an error in the drawctxt switch,
@@ -395,7 +513,7 @@ int a6xx_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 
 	adreno_ringbuffer_set_constraint(device, drawobj);
 
-	ret = adreno_ringbuffer_addcmds(adreno_dev, drawctxt->rb, drawctxt,
+	ret = a6xx_ringbuffer_addcmds(adreno_dev, drawctxt->rb, drawctxt,
 		flags, cmds, index, drawobj->timestamp, time);
 
 done:

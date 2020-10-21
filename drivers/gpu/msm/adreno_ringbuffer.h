@@ -251,26 +251,6 @@ static inline unsigned int adreno_ringbuffer_dec_wrapped(unsigned int val,
 void adreno_ringbuffer_set_constraint(struct kgsl_device *device,
 		struct kgsl_drawobj *drawobj);
 
-/**
- * adreno_ringbuffer_addcmds - Submit a buffer of opcodes to the ringbuffer
- * @adreno_dev: An Adreno GPU handle
- * @rb: Ringbuffer to submit to
- * @drawctxt: Draw context that is being submitted (or NULL for internal)
- * @flags: Submission flags
- * @cmds: List of commands to put on the ringbuffer
- * @sizedwords: Number of dwords in @cmds
- * @timestamp: Timestamp to use for the submission
- * @time: Pointer to a &struct adreno_submit_time if applicable
- *
- * Make a submission on the ringbuffer. Return 0 for success or negative for
- * failure.
- */
-int adreno_ringbuffer_addcmds(struct adreno_device *adreno_dev,
-		struct adreno_ringbuffer *rb, struct adreno_context *drawctxt,
-		u32 flags, u32 *cmds, u32 sizedwords, u32 timestamp,
-		struct adreno_submit_time *time);
-
-
 void adreno_get_submit_time(struct adreno_device *adreno_dev,
 		struct adreno_ringbuffer *rb,
 		struct adreno_submit_time *time);

@@ -2596,7 +2596,6 @@ const struct adreno_gpudev adreno_a6xx_gpudev = {
 	.clear_pending_transactions = a6xx_clear_pending_transactions,
 	.deassert_gbif_halt = a6xx_deassert_gbif_halt,
 	.remove = a6xx_remove,
-	.ringbuffer_addcmds = a6xx_ringbuffer_addcmds,
 	.ringbuffer_submitcmd = a6xx_ringbuffer_submitcmd,
 };
 
@@ -2639,7 +2638,6 @@ const struct adreno_gpudev adreno_a6xx_gmu_gpudev = {
 	.read_alwayson = a6xx_read_alwayson,
 	.power_ops = &a6xx_gmu_power_ops,
 	.remove = a6xx_remove,
-	.ringbuffer_addcmds = a6xx_ringbuffer_addcmds,
 	.ringbuffer_submitcmd = a6xx_ringbuffer_submitcmd,
 };
 
@@ -2666,7 +2664,6 @@ const struct adreno_gpudev adreno_a6xx_rgmu_gpudev = {
 	.read_alwayson = a6xx_read_alwayson,
 	.power_ops = &a6xx_rgmu_power_ops,
 	.remove = a6xx_remove,
-	.ringbuffer_addcmds = a6xx_ringbuffer_addcmds,
 	.ringbuffer_submitcmd = a6xx_ringbuffer_submitcmd,
 };
 
@@ -2700,7 +2697,6 @@ const struct adreno_gpudev adreno_a619_holi_gpudev = {
 	.deassert_gbif_halt = a6xx_deassert_gbif_halt,
 	.regulator_disable_poll = a619_holi_regulator_disable_poll,
 	.remove = a6xx_remove,
-	.ringbuffer_addcmds = a6xx_ringbuffer_addcmds,
 	.ringbuffer_submitcmd = a6xx_ringbuffer_submitcmd,
 };
 
@@ -2727,6 +2723,5 @@ const struct adreno_gpudev adreno_a630_gpudev = {
 	.read_alwayson = a6xx_read_alwayson,
 	.power_ops = &a630_gmu_power_ops,
 	.remove = a6xx_remove,
-	.ringbuffer_addcmds = a6xx_ringbuffer_addcmds,
 	.ringbuffer_submitcmd = a6xx_ringbuffer_submitcmd,
 };
