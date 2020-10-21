@@ -172,7 +172,7 @@
 #define XMLH_LINK_UP (0x400)
 #define MAX_PROP_SIZE (32)
 #define MAX_RC_NAME_LEN (15)
-#define MSM_PCIE_MAX_VREG (4)
+#define MSM_PCIE_MAX_VREG (5)
 #define MSM_PCIE_MAX_CLK (18)
 #define MSM_PCIE_MAX_PIPE_CLK (1)
 #define MAX_RC_NUM (3)
@@ -529,6 +529,7 @@ struct msm_pcie_irq_info_t {
 /* bandwidth info structure */
 struct msm_pcie_bw_scale_info_t {
 	u32 cx_vreg_min;
+	u32 mx_vreg_min;
 	u32 rate_change_freq;
 };
 
@@ -653,6 +654,7 @@ struct msm_pcie_dev_t {
 
 	struct msm_pcie_vreg_info_t *cx_vreg;
 	struct msm_pcie_clk_info_t *rate_change_clk;
+	struct msm_pcie_vreg_info_t *mx_vreg;
 	struct msm_pcie_bw_scale_info_t *bw_scale;
 	u32 bw_gen_max;
 
@@ -815,7 +817,8 @@ static struct msm_pcie_vreg_info_t msm_pcie_vreg_info[MSM_PCIE_MAX_VREG] = {
 	{NULL, "vreg-3p3", 0, 0, 0, false},
 	{NULL, "vreg-1p8", 1800000, 1800000, 14000, true},
 	{NULL, "vreg-0p9", 1000000, 1000000, 40000, true},
-	{NULL, "vreg-cx", 0, 0, 0, false}
+	{NULL, "vreg-cx", 0, 0, 0, false},
+	{NULL, "vreg-mx", 0, 0, 0, false},
 };
 
 /* GPIOs */
@@ -2858,7 +2861,8 @@ static int msm_pcie_vreg_init(struct msm_pcie_dev_t *dev)
 
 			if (hdl) {
 				regulator_disable(hdl);
-				if (!strcmp(dev->vreg[i].name, "vreg-cx")) {
+				if (!strcmp(dev->vreg[i].name, "vreg-cx") ||
+					!strcmp(dev->vreg[i].name, "vreg-mx")) {
 					PCIE_DBG(dev,
 						"RC%d: Removing %s vote.\n",
 						dev->rc_idx,
@@ -2897,7 +2901,8 @@ static void msm_pcie_vreg_deinit(struct msm_pcie_dev_t *dev)
 				dev->vreg[i].name);
 			regulator_disable(dev->vreg[i].hdl);
 
-			if (!strcmp(dev->vreg[i].name, "vreg-cx")) {
+			if (!strcmp(dev->vreg[i].name, "vreg-cx") ||
+				!strcmp(dev->vreg[i].name, "vreg-mx")) {
 				PCIE_DBG(dev,
 					"RC%d: Removing %s vote.\n",
 					dev->rc_idx,
@@ -3507,6 +3512,9 @@ static int msm_pcie_get_vreg(struct msm_pcie_dev_t *pcie_dev)
 
 			if (!strcmp(vreg_info->name, "vreg-cx"))
 				pcie_dev->cx_vreg = vreg_info;
+
+			if (!strcmp(vreg_info->name, "vreg-mx"))
+				pcie_dev->mx_vreg = vreg_info;
 		}
 	}
 
@@ -3857,6 +3865,11 @@ static void msm_pcie_scale_link_bandwidth(struct msm_pcie_dev_t *pcie_dev,
 		regulator_set_voltage(pcie_dev->cx_vreg->hdl,
 					bw_scale->cx_vreg_min,
 					pcie_dev->cx_vreg->max_v);
+
+	if (pcie_dev->mx_vreg)
+		regulator_set_voltage(pcie_dev->mx_vreg->hdl,
+					bw_scale->mx_vreg_min,
+					pcie_dev->mx_vreg->max_v);
 
 	if (pcie_dev->rate_change_clk)
 		clk_set_rate(pcie_dev->rate_change_clk->hdl,
