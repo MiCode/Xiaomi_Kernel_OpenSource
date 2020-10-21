@@ -21,6 +21,8 @@
   alloc_skb_with_frags
   alloc_workqueue
   amba_bustype
+  amba_driver_register
+  amba_driver_unregister
   anon_inode_getfile
   arch_bpf_jit_check_func
   __arch_clear_user
