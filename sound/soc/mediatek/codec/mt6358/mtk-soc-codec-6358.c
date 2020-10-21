@@ -7673,6 +7673,9 @@ static void mt6358_codec_init_reg(struct snd_soc_codec *codec)
 	/* Enable mtkaif gpio SMT mode */
 	Ana_Set_Reg(SMT_CON1, 0x0ff0, 0x0ff0);
 
+	/* Set HP_EINT trigger level to 2.0v */
+	Ana_Set_Reg(AUDENC_ANA_CON11, 0x1 << 10, 0x1 << 10);
+
 	/* set gpio */
 	set_playback_gpio(false);
 	set_capture_gpio(false);
