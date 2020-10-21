@@ -196,8 +196,10 @@ void gbe_boost(enum GBE_KICKER kicker, int boost)
 		update_eas_uclamp_min(EAS_UCLAMP_KIR_GBE,
 			CGROUP_TA, uclamp_pct);
 
-	if (test_bit(GBE_BOOST_VCORE, &policy_mask))
-		pm_qos_update_request(&dram_req, pm_req);
+	if (test_bit(GBE_BOOST_VCORE, &policy_mask)) {
+		if (pm_qos_request_active(&dram_req))
+			pm_qos_update_request(&dram_req, pm_req);
+	}
 
 	if (test_bit(GBE_BOOST_IO, &policy_mask))
 		sentuevent(u_io_string);
@@ -262,7 +264,8 @@ static ssize_t gbe_policy_mask_store(struct kobject *kobj,
 
 		update_userlimit_cpu_freq(CPU_KIR_GBE, cluster_num, pld);
 		update_eas_uclamp_min(EAS_UCLAMP_KIR_GBE, CGROUP_TA, 0);
-		pm_qos_update_request(&dram_req, PM_QOS_DDR_OPP_DEFAULT_VALUE);
+		if (pm_qos_request_active(&dram_req))
+			pm_qos_update_request(&dram_req, PM_QOS_DDR_OPP_DEFAULT_VALUE);
 		sentuevent(u_io_string);
 		sentuevent(u_gpu_string);
 		sentuevent(u_boost_string);
