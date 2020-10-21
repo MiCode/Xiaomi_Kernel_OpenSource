@@ -23,6 +23,7 @@
 #include "adreno_compat.h"
 #include "adreno_hwsched.h"
 #include "adreno_iommu.h"
+#include "adreno_pm4types.h"
 #include "adreno_trace.h"
 #include "kgsl_bus.h"
 #include "kgsl_trace.h"
@@ -1533,8 +1534,6 @@ static void adreno_unbind(struct device *dev)
 	if (!test_bit(GMU_DISPATCH, &device->gmu_core.flags)) {
 		adreno_dispatcher_close(adreno_dev);
 
-		adreno_ringbuffer_close(adreno_dev);
-
 		adreno_fault_detect_stop(adreno_dev);
 	}
 
@@ -1669,29 +1668,9 @@ static int adreno_init(struct kgsl_device *device)
 	if (test_bit(ADRENO_DEVICE_INITIALIZED, &adreno_dev->priv))
 		return 0;
 
-	ret = adreno_dispatcher_init(adreno_dev);
+	ret = gpudev->init(adreno_dev);
 	if (ret)
 		return ret;
-
-	ret = adreno_ringbuffer_init(adreno_dev);
-	if (ret)
-		return ret;
-
-	/*
-	 * Either the microcode read failed because the usermodehelper isn't
-	 * available or the microcode was corrupted. Fail the init and force
-	 * the user to try the open() again
-	 */
-
-	ret = gpudev->microcode_read(adreno_dev);
-	if (ret)
-		return ret;
-
-	if (gpudev->init != NULL) {
-		ret = gpudev->init(adreno_dev);
-		if (ret)
-			return ret;
-	}
 
 	/* Put the GPU in a responsive state */
 	if (ADRENO_GPUREV(adreno_dev) < 600) {
@@ -1704,9 +1683,6 @@ static int adreno_init(struct kgsl_device *device)
 	 adreno_iommu_init(adreno_dev);
 
 	adreno_fault_detect_init(adreno_dev);
-
-	adreno_dev->cooperative_reset = ADRENO_FEATURE(adreno_dev,
-							ADRENO_COOP_RESET);
 
 	/* Power down the device */
 	if (ADRENO_GPUREV(adreno_dev) < 600)
@@ -2959,73 +2935,6 @@ void adreno_write_gmu_wrapper(struct adreno_device *adreno_dev,
 			(offsetwords << 2) - adreno_dev->gmu_wrapper_base);
 }
 
-/*
- * adreno_gmu_fenced_write() - Check if there is a GMU and it is enabled
- * @adreno_dev: Pointer to the Adreno device that owns the GMU
- * @offset: 32bit register enum that is to be written
- * @val: The value to be written to the register
- * @fence_mask: The value to poll the fence status register
- *
- * Check the WRITEDROPPED0/1 bit in the FENCE_STATUS register to check if
- * the write to the fenced register went through. If it didn't then we retry
- * the write until it goes through or we time out.
- */
-int adreno_gmu_fenced_write(struct adreno_device *adreno_dev,
-		enum adreno_regs offset, unsigned int val,
-		unsigned int fence_mask)
-{
-	unsigned int status, i;
-	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-	unsigned int reg_offset = gpudev->reg_offsets[offset];
-
-	adreno_writereg(adreno_dev, offset, val);
-
-	if (!gmu_core_isenabled(KGSL_DEVICE(adreno_dev)))
-		return 0;
-
-	for (i = 0; i < GMU_CORE_LONG_WAKEUP_RETRY_LIMIT; i++) {
-		/*
-		 * Make sure the previous register write is posted before
-		 * checking the fence status
-		 */
-		mb();
-
-		adreno_read_gmureg(adreno_dev, ADRENO_REG_GMU_AHB_FENCE_STATUS,
-			&status);
-
-		/*
-		 * If !writedropped0/1, then the write to fenced register
-		 * was successful
-		 */
-		if (!(status & fence_mask))
-			break;
-
-		/* Wait a small amount of time before trying again */
-		udelay(GMU_CORE_WAKEUP_DELAY_US);
-
-		/* Try to write the fenced register again */
-		adreno_writereg(adreno_dev, offset, val);
-	}
-
-	if (i < GMU_CORE_SHORT_WAKEUP_RETRY_LIMIT)
-		return 0;
-
-	if (i == GMU_CORE_LONG_WAKEUP_RETRY_LIMIT) {
-		dev_err(adreno_dev->dev.dev,
-			"Timed out waiting %d usecs to write fenced register 0x%x\n",
-			i * GMU_CORE_WAKEUP_DELAY_US,
-			reg_offset);
-		return -ETIMEDOUT;
-	}
-
-	dev_err(adreno_dev->dev.dev,
-		"Waited %d usecs to write fenced register 0x%x\n",
-		i * GMU_CORE_WAKEUP_DELAY_US,
-		reg_offset);
-
-	return 0;
-}
-
 bool adreno_is_cx_dbgc_register(struct kgsl_device *device,
 		unsigned int offsetwords)
 {
@@ -3149,6 +3058,9 @@ void adreno_profile_submit_time(struct adreno_submit_time *time)
 	struct kgsl_drawobj_cmd *cmdobj;
 	struct kgsl_mem_entry *entry;
 	struct kgsl_drawobj_profiling_buffer *profile_buffer;
+
+	if (!time)
+		return;
 
 	drawobj = time->drawobj;
 	if (drawobj == NULL)

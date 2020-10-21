@@ -198,9 +198,24 @@ static int a5xx_critical_packet_construct(struct adreno_device *adreno_dev)
 	return 0;
 }
 
+static int a5xx_microcode_read(struct adreno_device *adreno_dev);
+
 static int a5xx_init(struct adreno_device *adreno_dev)
 {
 	const struct adreno_a5xx_core *a5xx_core = to_a5xx_core(adreno_dev);
+	int ret;
+
+	ret = adreno_dispatcher_init(adreno_dev);
+	if (ret)
+		return ret;
+
+	ret = a5xx_ringbuffer_init(adreno_dev);
+	if (ret)
+		return ret;
+
+	ret = a5xx_microcode_read(adreno_dev);
+	if (ret)
+		return ret;
 
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_GPMU))
 		INIT_WORK(&adreno_dev->gpmu_work, a5xx_gpmu_reset);
@@ -676,11 +691,13 @@ static int _gpmu_send_init_cmds(struct adreno_device *adreno_dev)
 	/* Copy to the RB the predefined fw sequence cmds */
 	memcpy(cmds, adreno_dev->gpmu_cmds, size << 2);
 
-	ret = adreno_ringbuffer_submit_spin(rb, NULL, 2000);
-	if (ret != 0)
-		a5xx_spin_idle_debug(adreno_dev,
+	ret = a5xx_ringbuffer_submit(rb, NULL, true);
+	if (!ret) {
+		ret = adreno_spin_idle(adreno_dev, 2000);
+		if (ret)
+			a5xx_spin_idle_debug(adreno_dev,
 				"gpmu initialization failed to idle\n");
-
+	}
 	return ret;
 }
 
@@ -1652,15 +1669,18 @@ static int a5xx_post_start(struct adreno_device *adreno_dev)
 	if (adreno_is_preemption_enabled(adreno_dev)) {
 		cmds += _preemption_init(adreno_dev, rb, cmds, NULL);
 		rb->_wptr = rb->_wptr - (42 - (cmds - start));
-		ret = adreno_ringbuffer_submit_spin_nosync(rb, NULL, 2000);
+		ret = a5xx_ringbuffer_submit(rb, NULL, false);
 	} else {
 		rb->_wptr = rb->_wptr - (42 - (cmds - start));
-		ret = adreno_ringbuffer_submit_spin(rb, NULL, 2000);
+		ret = a5xx_ringbuffer_submit(rb, NULL, true);
 	}
 
-	if (ret)
-		a5xx_spin_idle_debug(adreno_dev,
+	if (!ret) {
+		ret = adreno_spin_idle(adreno_dev, 2000);
+		if (ret)
+			a5xx_spin_idle_debug(adreno_dev,
 				"hw initialization failed to idle\n");
+	}
 
 	return ret;
 }
@@ -1796,10 +1816,13 @@ static int a5xx_critical_packet_submit(struct adreno_device *adreno_dev,
 	cmds += cp_gpuaddr(adreno_dev, cmds, adreno_dev->critpkts->gpuaddr);
 	*cmds++ = crit_pkts_dwords;
 
-	ret = adreno_ringbuffer_submit_spin(rb, NULL, 20);
-	if (ret)
-		a5xx_spin_idle_debug(adreno_dev,
-			"Critical packet submission failed to idle\n");
+	ret = a5xx_ringbuffer_submit(rb, NULL, true);
+	if (!ret) {
+		ret = adreno_spin_idle(adreno_dev, 20);
+		if (ret)
+			a5xx_spin_idle_debug(adreno_dev,
+				"Critical packet submission failed to idle\n");
+	}
 
 	return ret;
 }
@@ -1867,15 +1890,16 @@ static int a5xx_send_me_init(struct adreno_device *adreno_dev,
 	cmds = adreno_ringbuffer_allocspace(rb, 9);
 	if (IS_ERR(cmds))
 		return PTR_ERR(cmds);
-	if (cmds == NULL)
-		return -ENOSPC;
 
 	memcpy(cmds, adreno_dev->cp_init_cmds, 9 << 2);
 
-	ret = adreno_ringbuffer_submit_spin(rb, NULL, 2000);
-	if (ret)
-		a5xx_spin_idle_debug(adreno_dev,
+	ret = a5xx_ringbuffer_submit(rb, NULL, true);
+	if (!ret) {
+		ret = adreno_spin_idle(adreno_dev, 2000);
+		if (ret)
+			a5xx_spin_idle_debug(adreno_dev,
 				"CP initialization failed to idle\n");
+	}
 
 	return ret;
 }
@@ -1958,11 +1982,14 @@ static int a5xx_rb_start(struct adreno_device *adreno_dev)
 		*cmds++ = cp_packet(adreno_dev, CP_SET_SECURE_MODE, 1);
 		*cmds++ = 0;
 
-		ret = adreno_ringbuffer_submit_spin(rb, NULL, 2000);
-		if (ret) {
-			a5xx_spin_idle_debug(adreno_dev,
-				"Switch to unsecure failed to idle\n");
-			return ret;
+		ret = a5xx_ringbuffer_submit(rb, NULL, true);
+		if (!ret) {
+			ret = adreno_spin_idle(adreno_dev, 2000);
+			if (ret) {
+				a5xx_spin_idle_debug(adreno_dev,
+					"Switch to unsecure failed to idle\n");
+				return ret;
+			}
 		}
 	}
 
@@ -2451,6 +2478,12 @@ static int a5xx_clear_pending_transactions(struct adreno_device *adreno_dev)
 }
 
 
+static void a5xx_remove(struct adreno_device *adreno_dev)
+{
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION))
+		del_timer(&adreno_dev->preempt.timer);
+}
+
 #ifdef CONFIG_QCOM_KGSL_CORESIGHT
 static struct adreno_coresight_register a5xx_coresight_registers[] = {
 	{ A5XX_RBBM_CFG_DBGBUS_SEL_A },
@@ -2657,19 +2690,12 @@ const struct adreno_gpudev adreno_a5xx_gpudev = {
 	.init = a5xx_init,
 	.irq_handler = a5xx_irq_handler,
 	.rb_start = a5xx_rb_start,
-	.microcode_read = a5xx_microcode_read,
 	.is_sptp_idle = a5xx_is_sptp_idle,
 	.regulator_enable = a5xx_regulator_enable,
 	.regulator_disable = a5xx_regulator_disable,
 	.pwrlevel_change_settings = a5xx_pwrlevel_change_settings,
 	.read_throttling_counters = a5xx_read_throttling_counters,
 	.count_throttles = a5xx_count_throttles,
-	.preemption_pre_ibsubmit = a5xx_preemption_pre_ibsubmit,
-	.preemption_yield_enable =
-				a5xx_preemption_yield_enable,
-	.preemption_post_ibsubmit =
-			a5xx_preemption_post_ibsubmit,
-	.preemption_init = a5xx_preemption_init,
 	.preemption_schedule = a5xx_preemption_schedule,
 #if IS_ENABLED(CONFIG_COMMON_CLK_QCOM)
 	.clk_set_options = a5xx_clk_set_options,
@@ -2678,4 +2704,7 @@ const struct adreno_gpudev adreno_a5xx_gpudev = {
 	.hw_isidle = a5xx_hw_isidle,
 	.power_ops = &adreno_power_operations,
 	.clear_pending_transactions = a5xx_clear_pending_transactions,
+	.remove = a5xx_remove,
+	.ringbuffer_addcmds = a5xx_ringbuffer_addcmds,
+	.ringbuffer_submitcmd = a5xx_ringbuffer_submitcmd,
 };

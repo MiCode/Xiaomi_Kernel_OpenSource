@@ -295,11 +295,27 @@ void a6xx_preemption_schedule(struct adreno_device *adreno_dev);
 void a6xx_preemption_start(struct adreno_device *adreno_dev);
 int a6xx_preemption_init(struct adreno_device *adreno_dev);
 
-unsigned int a6xx_preemption_post_ibsubmit(struct adreno_device *adreno_dev,
-		unsigned int *cmds);
-unsigned int a6xx_preemption_pre_ibsubmit(struct adreno_device *adreno_dev,
-		struct adreno_ringbuffer *rb,
-		unsigned int *cmds, struct kgsl_context *context);
+/**
+ * a6xx_preemption_post_ibsubmit - Insert commands following a submission
+ * @adreno_dev: Adreno GPU handle
+ * @cmds: Pointer to the ringbuffer to insert opcodes
+ *
+ * Return: The number of dwords written to @cmds
+ */
+u32 a6xx_preemption_post_ibsubmit(struct adreno_device *adreno_dev, u32 *cmds);
+
+/**
+ * a6xx_preemption_post_ibsubmit - Insert opcodes before a submission
+ * @adreno_dev: Adreno GPU handle
+ * @rb: The ringbuffer being written
+ * @drawctxt: The draw context being written
+ * @cmds: Pointer to the ringbuffer to insert opcodes
+ *
+ * Return: The number of dwords written to @cmds
+ */
+u32 a6xx_preemption_pre_ibsubmit(struct adreno_device *adreno_dev,
+		struct adreno_ringbuffer *rb, struct adreno_context *drawctxt,
+		u32 *cmds);
 
 unsigned int a6xx_set_marker(unsigned int *cmds,
 		enum adreno_cp_marker_type type);
@@ -419,6 +435,15 @@ void a6xx_spin_idle_debug(struct adreno_device *adreno_dev,
 int a6xx_perfcounter_update(struct adreno_device *adreno_dev,
 	struct adreno_perfcount_register *reg, bool update_reg);
 
+/*
+ * a6xx_ringbuffer_init - Initialize the ringbuffers
+ * @adreno_dev: An Adreno GPU handle
+ *
+ * Initialize the ringbuffer(s) for a6xx.
+ * Return: 0 on success or negative on failure
+ */
+int a6xx_ringbuffer_init(struct adreno_device *adreno_dev);
+
 extern const struct adreno_perfcounters adreno_a630_perfcounters;
 extern const struct adreno_perfcounters adreno_a6xx_perfcounters;
 extern const struct adreno_perfcounters adreno_a6xx_legacy_perfcounters;
@@ -440,4 +465,43 @@ void a6xx_rdpm_mx_freq_update(struct a6xx_gmu_device *gmu, u32 freq);
  * This function communicates GPU cx frequency(in Mhz) changes to rdpm.
  */
 void a6xx_rdpm_cx_freq_update(struct a6xx_gmu_device *gmu, u32 freq);
+
+/**
+ * a6xx_ringbuffer_addcmds - Submit a command to the ringbuffer
+ * @adreno_dev: An Adreno GPU handle
+ * @rb: Pointer to the ringbuffer to submit on
+ * @drawctxt: Pointer to the draw context for the submission, or NULL for
+ * internal submissions
+ * @flags: Flags for the submission
+ * @in: Commands to write to the ringbuffer
+ * @dwords: Size of @in (in dwords)
+ * @timestamp: Timestamp for the submission
+ * @time: Optional pointer to a submit time structure
+ *
+ * Submit a command to the ringbuffer.
+ * Return: 0 on success or negative on failure
+ */
+int a6xx_ringbuffer_addcmds(struct adreno_device *adreno_dev,
+		struct adreno_ringbuffer *rb, struct adreno_context *drawctxt,
+		u32 flags, u32 *in, u32 dwords, u32 timestamp,
+		struct adreno_submit_time *time);
+/**
+ * a6xx_ringbuffer_submitcmd - Submit a user command to the ringbuffer
+ * @adreno_dev: An Adreno GPU handle
+ * @cmdobj: Pointer to a user command object
+ * @flags: Internal submit flags
+ * @time: Optional pointer to a adreno_submit_time container
+ *
+ * Return: 0 on success or negative on failure
+ */
+int a6xx_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
+		struct kgsl_drawobj_cmd *cmdobj, u32 flags,
+		struct adreno_submit_time *time);
+
+
+int a6xx_fenced_write(struct adreno_device *adreno_dev, u32 offset,
+		u32 value, u32 mask);
+
+int a6xx_ringbuffer_submit(struct adreno_ringbuffer *rb,
+		struct adreno_submit_time *time, bool sync);
 #endif

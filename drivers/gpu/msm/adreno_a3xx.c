@@ -600,6 +600,7 @@ static int a3xx_probe(struct platform_device *pdev,
 static int a3xx_send_me_init(struct adreno_device *adreno_dev,
 			 struct adreno_ringbuffer *rb)
 {
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned int *cmds;
 	int ret;
 
@@ -611,7 +612,12 @@ static int a3xx_send_me_init(struct adreno_device *adreno_dev,
 
 	memcpy(cmds, adreno_dev->cp_init_cmds, 18 << 2);
 
-	ret = adreno_ringbuffer_submit_spin(rb, NULL, 2000);
+	/* Submit the command to the ringbuffer */
+	kgsl_pwrscale_busy(device);
+	kgsl_regwrite(device, A3XX_CP_RB_WPTR, rb->_wptr);
+	rb->wptr = rb->_wptr;
+
+	ret = adreno_spin_idle(adreno_dev, 2000);
 	if (ret) {
 		struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
@@ -696,12 +702,28 @@ static int a3xx_get_cp_init_cmds(struct adreno_device *adreno_dev)
 	return 0;
 }
 
+
+static int a3xx_microcode_read(struct adreno_device *adreno_dev);
+
 /*
  * a3xx_init() - Initialize gpu specific data
  * @adreno_dev: Pointer to adreno device
  */
 static int a3xx_init(struct adreno_device *adreno_dev)
 {
+	int ret = adreno_dispatcher_init(adreno_dev);
+
+	if (ret)
+		return ret;
+
+	ret = a3xx_ringbuffer_init(adreno_dev);
+	if (ret)
+		return ret;
+
+	ret = a3xx_microcode_read(adreno_dev);
+	if (ret)
+		return ret;
+
 	_a3xx_pwron_fixup(adreno_dev);
 
 	return a3xx_get_cp_init_cmds(adreno_dev);
@@ -1249,7 +1271,6 @@ const struct adreno_gpudev adreno_a3xx_gpudev = {
 	.probe = a3xx_probe,
 	.rb_start = a3xx_rb_start,
 	.init = a3xx_init,
-	.microcode_read = a3xx_microcode_read,
 	.start = a3xx_start,
 	.snapshot = a3xx_snapshot,
 #ifdef CONFIG_QCOM_KGSL_CORESIGHT
@@ -1262,4 +1283,6 @@ const struct adreno_gpudev adreno_a3xx_gpudev = {
 	.hw_isidle = a3xx_hw_isidle,
 	.power_ops = &adreno_power_operations,
 	.clear_pending_transactions = a3xx_clear_pending_transactions,
+	.ringbuffer_addcmds = a3xx_ringbuffer_addcmds,
+	.ringbuffer_submitcmd = a3xx_ringbuffer_submitcmd,
 };

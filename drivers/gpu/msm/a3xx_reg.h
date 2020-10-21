@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2012-2017,2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2017,2019-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _A300_REG_H
@@ -32,9 +32,6 @@
 #define A3XX_INT_CP_AHB_ERROR_HALT 21
 #define A3XX_INT_MISC_HANG_DETECT 24
 #define A3XX_INT_UCHE_OOB_ACCESS 25
-
-/* CP_EVENT_WRITE events */
-#define CACHE_FLUSH_TS 4
 
 /* Register definitions */
 
