@@ -2988,6 +2988,40 @@ done:
 			ext->params->dyn.pll_clk);
 }
 
+int mtk_mipi_clk_change(struct drm_crtc *crtc, unsigned int data_rate)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_ddp_comp *comp;
+	struct cmdq_pkt *cmdq_handle;
+	struct mtk_dsi *dsi;
+
+	DDPMSG("%s, set rate %u\n", __func__, data_rate);
+
+	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
+
+	comp = mtk_ddp_comp_request_output(mtk_crtc);
+	if (!comp) {
+		DDPPR_ERR("request output fail\n");
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+		return -EINVAL;
+	}
+
+	dsi = container_of(comp, struct mtk_dsi, ddp_comp);
+
+	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
+			mtk_crtc->gce_obj.client[CLIENT_CFG]);
+
+	mtk_mipi_tx_pll_rate_switch_gce(dsi->phy, cmdq_handle, data_rate);
+
+	cmdq_pkt_flush(cmdq_handle);
+	cmdq_pkt_destroy(cmdq_handle);
+
+	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+
+	return 0;
+
+}
+
 static int mtk_dsi_host_attach(struct mipi_dsi_host *host,
 			       struct mipi_dsi_device *device)
 {
