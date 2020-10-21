@@ -53,6 +53,8 @@
 #define PCIE_GEN3_EQ_PSET_REQ_VEC_MASK (GENMASK(23, 8))
 
 #define PCIE_GEN3_EQ_FB_MODE_DIR_CHANGE (0x08ac)
+#define PCIE_GEN3_EQ_FMDC_T_MIN_PHASE23_MASK (0x1f)
+
 #define PCIE_GEN3_MISC_CONTROL (0x08bc)
 
 #define PCIE_PL_16GT_CAP (0x168)
@@ -701,6 +703,7 @@ struct msm_pcie_dev_t {
 	uint32_t phy_power_down_offset;
 	uint32_t eq_pset_req_vec;
 	uint32_t core_preset;
+	uint32_t eq_fmdc_t_min_phase23;
 	uint32_t cpl_timeout;
 	uint32_t current_bdf;
 	uint32_t perst_delay_us_min;
@@ -1321,6 +1324,8 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->eq_pset_req_vec);
 	PCIE_DBG_FS(dev, "core_preset: 0x%x\n",
 		dev->core_preset);
+	PCIE_DBG_FS(dev, "eq_fmdc_t_min_phase23: 0x%x\n",
+		dev->eq_fmdc_t_min_phase23);
 	PCIE_DBG_FS(dev, "cpl_timeout: 0x%x\n",
 		dev->cpl_timeout);
 	PCIE_DBG_FS(dev, "current_bdf: 0x%x\n",
@@ -3292,6 +3297,11 @@ static void msm_pcie_config_controller_phy(struct msm_pcie_dev_t *pcie_dev)
 		/* GEN3_ZRXDC_NONCOMPL */
 		msm_pcie_write_mask(pcie_dev->dm_core +
 					PCIE_GEN3_RELATED, BIT(0), 0);
+
+		msm_pcie_write_reg_field(pcie_dev->dm_core,
+				PCIE_GEN3_EQ_FB_MODE_DIR_CHANGE,
+				PCIE_GEN3_EQ_FMDC_T_MIN_PHASE23_MASK,
+				pcie_dev->eq_fmdc_t_min_phase23);
 	}
 }
 
@@ -5675,6 +5685,12 @@ static int msm_pcie_probe(struct platform_device *pdev)
 				&pcie_dev->core_preset);
 	PCIE_DBG(pcie_dev, "RC%d: core-preset: 0x%x.\n",
 		pcie_dev->rc_idx, pcie_dev->core_preset);
+
+	of_property_read_u32(pdev->dev.of_node,
+				"qcom,eq-fmdc-t-min-phase23",
+				&pcie_dev->eq_fmdc_t_min_phase23);
+	PCIE_DBG(pcie_dev, "RC%d: qcom,eq-fmdc-t-min-phase23: 0x%x.\n",
+		pcie_dev->rc_idx, pcie_dev->eq_fmdc_t_min_phase23);
 
 	of_property_read_u32(of_node, "qcom,cpl-timeout",
 				&pcie_dev->cpl_timeout);
