@@ -4145,10 +4145,6 @@
 				<&iommu0 M4U_PORT_L11_IMG_WPE_RDMA0>,
 				<&iommu0 M4U_PORT_L11_IMG_WPE_WDMA>,
 
-				/* ccu */
-				<&iommu0 M4U_PORT_L13_CAM_CCUI>,
-				<&iommu0 M4U_PORT_L13_CAM_CCUO>,
-
 				/* camsv */
 				<&iommu0 M4U_PORT_L13_CAM_CAMSV1>,
 				<&iommu0 M4U_PORT_L13_CAM_CAMSV2>,
