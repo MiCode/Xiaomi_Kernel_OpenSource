@@ -49,6 +49,7 @@ void fpsgo_base2fbt_set_min_cap(struct render_info *thr, int min_cap);
 void fpsgo_base2fbt_clear_llf_policy(struct render_info *thr,
 						int orig_policy);
 void fpsgo_base2fbt_cancel_jerk(struct render_info *thr);
+int fpsgo_base2fbt_is_finished(struct render_info *thr);
 void fpsgo_uboost2fbt_uboost(struct render_info *thr);
 
 int __init fbt_cpu_init(void);
@@ -92,6 +93,7 @@ static inline void fpsgo_base2fbt_set_min_cap(struct render_info *thr,
 static inline void fpsgo_base2fbt_clear_llf_policy(struct render_info *thr,
 				int orig_policy) { }
 static inline void fpsgo_base2fbt_cancel_jerk(struct render_info *thr) { }
+static inline int fpsgo_base2fbt_is_finished(struct render_info *thr) { return 0; }
 static inline void fpsgo_uboost2fbt_uboost(struct render_info *thr) { }
 
 #endif

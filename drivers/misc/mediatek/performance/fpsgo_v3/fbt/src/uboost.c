@@ -155,21 +155,10 @@ static void do_uboost(struct work_struct *work)
 out:
 	boost->uboosting = 0;
 
-	if (render->linger)
-		FPSGO_LOGE("%d is uboost linger (%d, %d, %d)\n",
-			render->pid,
-			render->boost_info.proc.jerks[0].jerking,
-			render->boost_info.proc.jerks[1].jerking,
-			render->uboost_info.uboosting);
-
-	if (render->boost_info.proc.jerks[0].jerking == 0 &&
-		render->boost_info.proc.jerks[1].jerking == 0 &&
-		render->uboost_info.uboosting == 0 &&
-		render->linger > 0)
+	if (render->linger > 0 && fpsgo_base_is_finished(render)) {
 		tofree = 1;
-
-	if (tofree)
 		fpsgo_del_linger(render);
+	}
 
 	fpsgo_thread_unlock(&(render->thr_mlock));
 

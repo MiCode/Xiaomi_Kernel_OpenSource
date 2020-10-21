@@ -320,6 +320,24 @@ void fpsgo_traverse_linger(unsigned long long cur_ts)
 	}
 }
 
+int fpsgo_base_is_finished(struct render_info *thr)
+{
+	fpsgo_lockprove(__func__);
+	fpsgo_thread_lockprove(__func__, &(thr->thr_mlock));
+
+	if (!fpsgo_base2fbt_is_finished(thr))
+		return 0;
+
+	if (thr->uboost_info.uboosting) {
+		FPSGO_LOGE("(%d, %llu)(%p)(%d, %d)\n",
+			thr->pid, thr->buffer_id, thr, thr->linger,
+			thr->uboost_info.uboosting);
+		return 0;
+	}
+
+	return 1;
+}
+
 struct render_info *fpsgo_search_and_add_render_info(int pid,
 	unsigned long long identifier, int force)
 {
@@ -396,18 +414,11 @@ void fpsgo_delete_render_info(int pid,
 	data->p_blc = NULL;
 	data->dep_arr = NULL;
 
-	if (data->boost_info.proc.jerks[0].jerking == 0
-		&& data->boost_info.proc.jerks[1].jerking == 0
-		&& data->uboost_info.uboosting == 0)
+	if (fpsgo_base_is_finished(data))
 		delete = 1;
 	else {
 		delete = 0;
 		data->linger = 1;
-		FPSGO_LOGE("set %d linger since (%d, %d, %d) is rescuing.\n",
-			data->pid,
-			data->boost_info.proc.jerks[0].jerking,
-			data->boost_info.proc.jerks[1].jerking,
-			data->uboost_info.uboosting);
 		fpsgo_add_linger(data);
 	}
 	fpsgo_thread_unlock(&data->thr_mlock);
@@ -549,19 +560,11 @@ void fpsgo_check_thread_status(void)
 			iter->dep_arr = NULL;
 			n = rb_first(&render_pid_tree);
 
-			if (iter->boost_info.proc.jerks[0].jerking == 0
-				&& iter->boost_info.proc.jerks[1].jerking == 0
-				&& iter->uboost_info.uboosting == 0)
+			if (fpsgo_base_is_finished(iter))
 				delete = 1;
 			else {
 				delete = 0;
 				iter->linger = 1;
-				FPSGO_LOGE(
-				"set %d linger since (%d, %d, %d) is rescuing\n",
-				iter->pid,
-				iter->boost_info.proc.jerks[0].jerking,
-				iter->boost_info.proc.jerks[1].jerking,
-				iter->uboost_info.uboosting);
 				fpsgo_add_linger(iter);
 			}
 
@@ -623,19 +626,11 @@ void fpsgo_clear(void)
 		iter->dep_arr = NULL;
 		n = rb_first(&render_pid_tree);
 
-		if (iter->boost_info.proc.jerks[0].jerking == 0
-			&& iter->boost_info.proc.jerks[1].jerking == 0
-			&& iter->uboost_info.uboosting == 0)
+		if (fpsgo_base_is_finished(iter))
 			delete = 1;
 		else {
 			delete = 0;
 			iter->linger = 1;
-			FPSGO_LOGE(
-				"set %d linger since (%d, %d, %d) is rescuing\n",
-				iter->pid,
-				iter->boost_info.proc.jerks[0].jerking,
-				iter->boost_info.proc.jerks[1].jerking,
-				iter->uboost_info.uboosting);
 			fpsgo_add_linger(iter);
 		}
 

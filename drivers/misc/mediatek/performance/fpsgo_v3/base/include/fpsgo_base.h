@@ -24,7 +24,7 @@
 #include <linux/workqueue.h>
 
 #define WINDOW 20
-#define RESCUE_TIMER_NUM 2
+#define RESCUE_TIMER_NUM 3
 
 /* EARA job type */
 enum HW_EVENT4RENDER {
@@ -202,6 +202,7 @@ void fpsgo_clear_uclamp_boost(void);
 void fpsgo_clear_llf_cpu_policy(int orig_llf);
 void fpsgo_del_linger(struct render_info *thr);
 int fpsgo_uboost_traverse(unsigned long long ts);
+int fpsgo_base_is_finished(struct render_info *thr);
 
 int init_fpsgo_common(void);
 
