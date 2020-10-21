@@ -3105,9 +3105,6 @@ static int mt6360_pmu_chg_probe(struct platform_device *pdev)
 	}
 #endif /* CONFIG_MTK_CHARGER */
 
-	/* irq register */
-	mt6360_pmu_chg_irq_register(pdev);
-	device_init_wakeup(&pdev->dev, true);
 	/* mivr task */
 	mci->mivr_task = kthread_run(mt6360_chg_mivr_task_threadfn, mci,
 				      devm_kasprintf(mci->dev, GFP_KERNEL,
@@ -3157,6 +3154,10 @@ static int mt6360_pmu_chg_probe(struct platform_device *pdev)
 		ret = PTR_ERR(mci->psy);
 		goto err_register_psy;
 	}
+
+	/* irq register */
+	mt6360_pmu_chg_irq_register(pdev);
+	device_init_wakeup(&pdev->dev, true);
 
 	/* Schedule work for microB's BC1.2 */
 	if (!IS_ENABLED(CONFIG_TCPC_CLASS) && pdata->bc12_sel == 0)
