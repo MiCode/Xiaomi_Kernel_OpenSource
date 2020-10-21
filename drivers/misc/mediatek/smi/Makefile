@@ -66,9 +66,7 @@ ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6873" "mt6885"))
 ccflags-y += -DSMI_5G
 endif
 
-ifeq ($(CONFIG_MACH_MT6833),y)
-ccflags-y += -DPMQOS_USE_IOMMU_PORT
-else ifneq (,$(filter $(SMI_PLATFORM), "mt6873" "mt6885" "mt6853"))
+ifneq (,$(filter $(SMI_PLATFORM), "mt6873" "mt6885" "mt6853" "mt6833"))
 ccflags-y += -DSMI_SSPM
 ccflags-y += -DPMQOS_USE_IOMMU_PORT
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v2/
