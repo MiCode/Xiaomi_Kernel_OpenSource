@@ -128,7 +128,7 @@ enum FPSGO_TASK_POLICY {
 
 enum FPSGO_LIMIT_POLICY {
 	FPSGO_LIMIT_NONE = 0,
-	FPSGO_LIMIT_CEILING,
+	FPSGO_LIMIT_CAPACITY,
 	FPSGO_LIMIT_CORE,
 	FPSGO_LIMIT_MAX,
 };
@@ -220,6 +220,7 @@ static unsigned int def_capacity_margin;
 static int limit_cluster;
 static int limit_opp; /* for ceiling limit */
 static int limit_cpu; /* for core limit */
+static int limit_fopp; /* for floor limit */
 
 /* set dynamically when policy changes*/
 static int limit_policy;
@@ -635,7 +636,7 @@ static void fbt_set_hard_limit(int input, struct ppm_limit_data *pld)
 
 	if (limit_policy == FPSGO_LIMIT_CORE)
 		fbt_set_isolation_locked(input);
-	else if (input && limit_policy == FPSGO_LIMIT_CEILING)
+	else if (input && limit_policy == FPSGO_LIMIT_CAPACITY)
 		fbt_set_ceiling_locked(pld);
 
 	if (!input)
@@ -3049,7 +3050,7 @@ int fpsgo_base2fbt_is_finished(struct render_info *thr)
 
 static void fbt_set_cap_limit(void)
 {
-	int limit_freq = 0, limit_ret;
+	int limit_freq = 0, limit_ret, limit_floor = 0;
 	int opp;
 	int cluster;
 	struct cpumask cluster_cpus;
@@ -3058,11 +3059,12 @@ static void fbt_set_cap_limit(void)
 
 	limit_cluster = INVALID_NUM;
 	limit_opp = INVALID_NUM;
+	limit_fopp = INVALID_NUM;
 	limit_cpu = INVALID_NUM;
 	limit_cap = 0;
 	limit_policy = FPSGO_LIMIT_NONE;
 
-	limit_ret = fbt_get_cluster_limit(&cluster, &limit_freq);
+	limit_ret = fbt_get_cluster_limit(&cluster, &limit_freq, &limit_floor);
 	if (!limit_ret)
 		return;
 
@@ -3097,13 +3099,30 @@ static void fbt_set_cap_limit(void)
 			break;
 	}
 
-	if (opp >= 0 && opp < NR_FREQ_CPU) {
-		limit_policy = FPSGO_LIMIT_CEILING;
-		limit_cap = cpu_dvfs[cluster].capacity_ratio[opp];
-		limit_opp = opp;
+	if (opp < 0 || opp >= NR_FREQ_CPU)
+		goto ERROR;
+
+	limit_policy = FPSGO_LIMIT_CAPACITY;
+	limit_cap = cpu_dvfs[cluster].capacity_ratio[opp];
+	limit_opp = opp;
+
+	if (!limit_floor)
 		return;
+
+	for (opp = (NR_FREQ_CPU - 1); opp > 0; opp--) {
+		if (cpu_dvfs[cluster].power[opp] >= limit_floor)
+			break;
 	}
 
+	if (opp >= 0 && opp < NR_FREQ_CPU) {
+		limit_cap =
+			MIN(limit_cap, cpu_dvfs[cluster].capacity_ratio[opp]);
+		limit_fopp = opp;
+	}
+
+	return;
+
+ERROR:
 	limit_cluster = INVALID_NUM;
 }
 
@@ -3833,11 +3852,13 @@ static ssize_t limit_policy_store(struct kobject *kobj,
 	case FPSGO_LIMIT_NONE:
 		limit_cap = 0;
 		break;
-	case FPSGO_LIMIT_CEILING:
+	case FPSGO_LIMIT_CAPACITY:
 		if (limit_opp < 0 || limit_opp >= NR_FREQ_CPU)
 			goto EXIT;
 
-		limit_cap = cpu_dvfs[limit_cluster].capacity_ratio[limit_opp];
+		limit_cap = MIN(
+			cpu_dvfs[limit_cluster].capacity_ratio[limit_opp],
+			cpu_dvfs[limit_cluster].capacity_ratio[limit_fopp]);
 		break;
 	case FPSGO_LIMIT_CORE:
 		cluster = limit_cluster;

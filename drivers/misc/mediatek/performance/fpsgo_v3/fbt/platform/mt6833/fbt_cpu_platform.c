@@ -164,7 +164,7 @@ int fbt_get_default_adj_loading(void)
 	return 1;
 }
 
-int fbt_get_cluster_limit(int *cluster, int *freq)
+int fbt_get_cluster_limit(int *cluster, int *freq, int *limit_floor)
 {
 	return 0;
 }
