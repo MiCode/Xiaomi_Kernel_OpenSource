@@ -43,7 +43,12 @@ struct blk_crypto_key {
 	unsigned int data_unit_size;
 	unsigned int data_unit_size_bits;
 	unsigned int size;
-
+	/*
+	 * Seems no need to add it, but for coding safety.
+	 * BOOL should be more sensible, but maybe needs
+	 * size in somewhere in future.
+	 */
+	unsigned int hie_duint_size;
 	/*
 	 * Hack to avoid breaking KMI: pack both hash and dun_bytes into the
 	 * hash field...
@@ -155,7 +160,8 @@ static inline bool bio_crypt_dun_is_contiguous(const struct bio_crypt_ctx *bc,
 
 	/* eMMC + F2FS OTA only */
 #ifdef CONFIG_MMC_CRYPTO_LEGACY
-	if (fscrypt_force_iv_ino_lblk_32() && !bc->hie_ext4)
+	if (fscrypt_force_iv_ino_lblk_32() && !bc->hie_ext4 &&
+		(bc->bc_key->hie_duint_size != 4096))
 		inc = inc * 8;
 #endif
 
@@ -191,9 +197,11 @@ static inline void bio_crypt_advance(struct bio *bio, unsigned int bytes)
 		return;
 
 	inc = bytes >> bc->bc_key->data_unit_size_bits;
+
 	/* eMMC + F2FS OTA only */
 #ifdef CONFIG_MMC_CRYPTO_LEGACY
-	if (fscrypt_force_iv_ino_lblk_32() && !bc->hie_ext4)
+	if (fscrypt_force_iv_ino_lblk_32() && !bc->hie_ext4 &&
+		(bc->bc_key->hie_duint_size != 4096))
 		inc = inc * 8;
 #endif
 
