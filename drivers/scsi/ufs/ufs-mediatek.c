@@ -309,10 +309,10 @@ static void ufs_mtk_pm_qos(struct ufs_hba *hba, bool qos_en)
 
 	if (host && host->pm_qos_init) {
 		if (qos_en)
-			pm_qos_update_request(
+			cpu_latency_qos_update_request(
 				&host->pm_qos_req, 0);
 		else
-			pm_qos_update_request(
+			cpu_latency_qos_update_request(
 				&host->pm_qos_req,
 				PM_QOS_DEFAULT_VALUE);
 	}
@@ -597,8 +597,7 @@ static int ufs_mtk_init(struct ufs_hba *hba)
 	 */
 	ufs_mtk_setup_clocks(hba, true, POST_CHANGE);
 
-	pm_qos_add_request(&host->pm_qos_req, PM_QOS_CPU_DMA_LATENCY,
-			   PM_QOS_DEFAULT_VALUE);
+	cpu_latency_qos_add_request(&host->pm_qos_req, PM_QOS_DEFAULT_VALUE);
 	host->pm_qos_init = true;
 
 #if IS_ENABLED(CONFIG_SCSI_UFS_MEDIATEK_DBG)
