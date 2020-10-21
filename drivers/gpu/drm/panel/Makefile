@@ -31,6 +31,7 @@ obj-$(CONFIG_DRM_PANEL_TIANMA_R66451_CMD_120HZ_NO_MIPI_SWITCH) += panel-tianma-r
 obj-$(CONFIG_DRM_PANEL_TRULY_TD4330_VDO_FAKE_WCG) += panel-truly-td4330-vdo-fake-wcg.o
 obj-$(CONFIG_DRM_PANEL_TIANMA_R66451_CMD_120HZ) += panel-tianma-r66451-cmd-120hz.o
 obj-$(CONFIG_DRM_PANEL_TIANMA_NT36672C_CPHY_VDO) += panel-tianma-nt36672c-cphy-vdo.o
+obj-$(CONFIG_DRM_PANEL_TIANMA_NT36672C_CPHY_VDO_90HZ_RT4801) += panel-tianma-nt36672c-cphy-vdo-90hz-rt4801.o
 obj-$(CONFIG_DRM_PANEL_JDI_NT36672C_CPHY_VDO) += panel-jdi-nt36672c-cphy-vdo.o
 obj-$(CONFIG_DRM_PANEL_ALPHA_TIANMA_NT36672C_CPHY_VDO) += panel-alpha-tianma-nt36672c-cphy-vdo.o
 obj-$(CONFIG_DRM_PANEL_ALPHA_JDI_NT36672C_CPHY_VDO) += panel-alpha-jdi-nt36672c-cphy-vdo.o

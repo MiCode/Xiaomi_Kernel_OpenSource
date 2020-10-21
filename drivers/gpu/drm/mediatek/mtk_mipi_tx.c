@@ -2161,6 +2161,12 @@ static const struct mtk_mipitx_data mt6833_mipitx_data = {
 	.pll_unprepare = mtk_mipi_tx_pll_unprepare_mt6833,
 };
 
+static const struct mtk_mipitx_data mt6833_mipitx_cphy_data = {
+	.mppll_preserve = (0 << 8),
+	.pll_prepare = mtk_mipi_tx_pll_cphy_prepare_mt6873,
+	.pll_unprepare = mtk_mipi_tx_pll_cphy_unprepare_mt6873,
+};
+
 static const struct mtk_mipitx_data mt8173_mipitx_data = {
 	.mppll_preserve = (0 << 8),
 	.pll_prepare = mtk_mipi_tx_pll_prepare,
@@ -2180,6 +2186,8 @@ static const struct of_device_id mtk_mipi_tx_match[] = {
 		.data = &mt6873_mipitx_cphy_data},
 	{.compatible = "mediatek,mt6885-mipi-tx-cphy",
 		.data = &mt6885_mipitx_cphy_data},
+	{.compatible = "mediatek,mt6833-mipi-tx-cphy",
+		.data = &mt6833_mipitx_cphy_data},
 	{},
 };
 
