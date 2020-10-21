@@ -2394,6 +2394,7 @@ static int dpmaif_tx_release(unsigned char q_num, unsigned short budget)
 	}
 }
 
+
 #ifdef USING_TX_DONE_KERNEL_THREAD
 
 static enum hrtimer_restart tx_done_action(struct hrtimer *timer)
@@ -2705,6 +2706,7 @@ static int dpmaif_tx_send_skb(unsigned char hif_id, int qno,
 	unsigned long flags;
 	unsigned short prio_count = 0;
 	s64 curr_tick;
+	int total_size = 0;
 
 	/* 1. parameters check*/
 	if (!skb)
@@ -2932,6 +2934,7 @@ retry:
 		record_drb_skb(txq->index, cur_idx, skb, 0, is_frag,
 			is_last_one, phy_addr, data_len);
 		cur_idx = ringbuf_get_next_idx(txq->drb_size_cnt, cur_idx, 1);
+		total_size += data_len;
 	}
 	/* debug: tx on ccci_channel && HW Q */
 	ccci_channel_update_packet_counter(
@@ -2963,6 +2966,8 @@ retry:
 		tx_force_md_assert("HW_REG_CHK_FAIL");
 		ret = 0;
 	}
+	if (ret == 0)
+		mtk_ccci_add_ul_pkt_size(total_size);
 
 	spin_unlock_irqrestore(&txq->tx_lock, flags);
 __EXIT_FUN:
