@@ -176,6 +176,15 @@ config QCOM_LAHAINA_LLCC
 	  can start using the LLCC slices.
 	  If unsure, say n.
 
+config QCOM_SDXLEMUR_LLCC
+	tristate "Qualcomm Technologies, Inc. SDXLEMUR LLCC driver"
+	depends on QCOM_LLCC
+	help
+	  Say y or m here to enable the LLCC driver for SDXLEMUR platform.
+	  This provides data required to configure LLCC so that clients
+	  can start using the LLCC slices.
+	  If unsure, say n.
+
 config QCOM_SHIMA_LLCC
 	tristate "Qualcomm Technologies, Inc. SHIMA LLCC driver"
 	depends on QCOM_LLCC
@@ -336,6 +345,16 @@ config QCOM_QMI_HELPERS
 	depends on NET
 
 source "drivers/soc/qcom/memshare/Kconfig"
+
+config QCOM_QFPROM_SYS
+	tristate "Qualcomm Technologies, Inc. QFPROM_SYS driver "
+	depends on QCOM_QFPROM
+	help
+	  Qualcomm Technologies, Inc. QFPROM_SYS driver. The QFPROM SYS driver
+	  provides access to the child nodes of QFPROM to user space. The cell
+	  values are exported as sysfs entries.
+
+	  Say y here to enable QFPROM SYS support.
 
 config QCOM_RMTFS_MEM
 	tristate "Qualcomm Remote Filesystem memory driver"

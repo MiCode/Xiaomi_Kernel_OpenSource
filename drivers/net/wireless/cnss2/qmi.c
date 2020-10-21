@@ -165,18 +165,6 @@ qmi_registered:
 	return ret;
 }
 
-#ifdef CONFIG_CNSS2_DEBUG
-static inline u32 cnss_get_host_build_type(void)
-{
-	return QMI_HOST_BUILD_TYPE_PRIMARY_V01;
-}
-#else
-static inline u32 cnss_get_host_build_type(void)
-{
-	return QMI_HOST_BUILD_TYPE_SECONDARY_V01;
-}
-#endif
-
 static int cnss_wlfw_host_cap_send_sync(struct cnss_plat_data *plat_priv)
 {
 	struct wlfw_host_cap_req_msg_v01 *req;
@@ -2115,6 +2103,17 @@ out:
 	return ret;
 }
 
+int cnss_process_twt_cfg_ind_event(struct cnss_plat_data *plat_priv,
+				   void *data)
+{
+	int ret;
+	struct wlfw_wfc_call_twt_config_ind_msg_v01 *ind_msg = data;
+
+	ret = cnss_ims_wfc_call_twt_cfg_send_sync(plat_priv, ind_msg);
+	kfree(data);
+	return ret;
+}
+
 static void cnss_wlfw_process_twt_cfg_ind(struct qmi_handle *qmi_wlfw,
 					  struct sockaddr_qrtr *sq,
 					  struct qmi_txn *txn,
@@ -2123,6 +2122,7 @@ static void cnss_wlfw_process_twt_cfg_ind(struct qmi_handle *qmi_wlfw,
 	struct cnss_plat_data *plat_priv =
 		container_of(qmi_wlfw, struct cnss_plat_data, qmi_wlfw);
 	const struct wlfw_wfc_call_twt_config_ind_msg_v01 *ind_msg = data;
+	struct wlfw_wfc_call_twt_config_ind_msg_v01 *event_data;
 
 	if (!txn) {
 		cnss_pr_err("FW->CNSS: TWT_CFG_IND: Spurious indication\n");
@@ -2142,7 +2142,11 @@ static void cnss_wlfw_process_twt_cfg_ind(struct qmi_handle *qmi_wlfw,
 		    ind_msg->twt_sta_config_changed_valid,
 		    ind_msg->twt_sta_config_changed);
 
-	cnss_ims_wfc_call_twt_cfg_send_sync(plat_priv, ind_msg);
+	event_data = kmemdup(ind_msg, sizeof(*event_data), GFP_KERNEL);
+	if (!event_data)
+		return;
+	cnss_driver_event_post(plat_priv, CNSS_DRIVER_EVENT_WLFW_TWT_CFG_IND, 0,
+			       event_data);
 }
 
 static struct qmi_msg_handler qmi_wlfw_msg_handlers[] = {
@@ -2855,6 +2859,17 @@ static void ims_subscribe_for_indication_resp_cb(struct qmi_handle *qmi,
 	}
 }
 
+int cnss_process_wfc_call_ind_event(struct cnss_plat_data *plat_priv,
+				    void *data)
+{
+	int ret;
+	struct ims_private_service_wfc_call_status_ind_msg_v01 *ind_msg = data;
+
+	ret = cnss_wlfw_wfc_call_status_send_sync(plat_priv, ind_msg);
+	kfree(data);
+	return ret;
+}
+
 static void
 cnss_ims_process_wfc_call_ind_cb(struct qmi_handle *ims_qmi,
 				 struct sockaddr_qrtr *sq,
@@ -2864,6 +2879,7 @@ cnss_ims_process_wfc_call_ind_cb(struct qmi_handle *ims_qmi,
 		container_of(ims_qmi, struct cnss_plat_data, ims_qmi);
 	const
 	struct ims_private_service_wfc_call_status_ind_msg_v01 *ind_msg = data;
+	struct ims_private_service_wfc_call_status_ind_msg_v01 *event_data;
 
 	if (!txn) {
 		cnss_pr_err("IMS->CNSS: WFC_CALL_IND: Spurious indication\n");
@@ -2882,7 +2898,11 @@ cnss_ims_process_wfc_call_ind_cb(struct qmi_handle *ims_qmi,
 		    ind_msg->twt_ims_int_valid, ind_msg->twt_ims_int,
 		    ind_msg->media_quality_valid, ind_msg->media_quality);
 
-	cnss_wlfw_wfc_call_status_send_sync(plat_priv, ind_msg);
+	event_data = kmemdup(ind_msg, sizeof(*event_data), GFP_KERNEL);
+	if (!event_data)
+		return;
+	cnss_driver_event_post(plat_priv, CNSS_DRIVER_EVENT_IMS_WFC_CALL_IND,
+			       0, event_data);
 }
 
 static struct qmi_msg_handler qmi_ims_msg_handlers[] = {

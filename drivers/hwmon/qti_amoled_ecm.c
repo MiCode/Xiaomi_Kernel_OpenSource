@@ -759,7 +759,7 @@ static int amoled_ecm_parse_dt(struct amoled_ecm *ecm)
 	}
 
 	rc = amoled_ecm_parse_panel_dt(ecm);
-	if (rc < 0)
+	if (rc && rc != -EPROBE_DEFER)
 		pr_err("failed to get active panel, rc=%d\n", rc);
 
 	return rc;
@@ -866,7 +866,9 @@ static int qti_amoled_ecm_probe(struct platform_device *pdev)
 
 	rc = amoled_ecm_parse_dt(ecm);
 	if (rc < 0) {
-		dev_err(&pdev->dev, "Failed to parse AMOLED ECM rc=%d\n", rc);
+		if (rc != -EPROBE_DEFER)
+			dev_err(&pdev->dev, "Failed to parse AMOLED ECM rc=%d\n",
+				rc);
 		return rc;
 	}
 

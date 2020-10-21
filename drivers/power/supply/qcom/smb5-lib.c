@@ -867,7 +867,7 @@ int smblib_set_aicl_cont_threshold(struct smb_chg_param *param,
 
 /* CP channels */
 static const char * const smblib_cp_ext_iio_chan[] = {
-	[CP_PARALLEL_OUTPUT_MODE] = "parallel_output_mode",
+	[CP_PARALLEL_OUTPUT_MODE] = "cp_parallel_output_mode",
 	[CP_MASTER_ENABLE] = "cp_enable",
 	[CP_ILIM] = "cp_ilim",
 	[CP_DIE_TEMP] = "cp_die_temp",

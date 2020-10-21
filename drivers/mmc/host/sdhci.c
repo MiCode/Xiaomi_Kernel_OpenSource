@@ -110,7 +110,11 @@ void sdhci_dumpregs(struct sdhci_host *host)
 	}
 #if defined(CONFIG_SDC_QTI)
 	host->mmc->err_occurred = true;
+
+	if (host->ops->dump_vendor_regs)
+		host->ops->dump_vendor_regs(host);
 #endif
+
 	SDHCI_DUMP("============================================\n");
 }
 EXPORT_SYMBOL_GPL(sdhci_dumpregs);

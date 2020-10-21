@@ -150,9 +150,9 @@ enum {
 
 /* CP Channels */
 static const char * const bat_cp_ext_iio_chan[] = {
-	[BAT_CP_PARALLEL_MODE] = "parallel_mode",
-	[BAT_CP_PARALLEL_OUTPUT_MODE] = "parallel_output_mode",
-	[BAT_CP_MIN_ICL] = "min_icl",
+	[BAT_CP_PARALLEL_MODE] = "cp_parallel_mode",
+	[BAT_CP_PARALLEL_OUTPUT_MODE] = "cp_parallel_output_mode",
+	[BAT_CP_MIN_ICL] = "cp_min_icl",
 	[BAT_CP_SWITCHER_EN] = "cp_switcher_en",
 };
 

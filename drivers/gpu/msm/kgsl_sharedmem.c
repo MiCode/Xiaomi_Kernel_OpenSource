@@ -113,18 +113,21 @@ static ssize_t
 gpumem_mapped_show(struct kgsl_process_private *priv,
 				int type, char *buf)
 {
-	return scnprintf(buf, PAGE_SIZE, "%llu\n",
-			priv->gpumem_mapped);
+	return scnprintf(buf, PAGE_SIZE, "%lld\n",
+			atomic64_read(&priv->gpumem_mapped));
 }
 
 static ssize_t
 gpumem_unmapped_show(struct kgsl_process_private *priv, int type, char *buf)
 {
-	if (priv->gpumem_mapped > priv->stats[type].cur)
+	u64 gpumem_total = atomic64_read(&priv->stats[type].cur);
+	u64 gpumem_mapped = atomic64_read(&priv->gpumem_mapped);
+
+	if (gpumem_mapped > gpumem_total)
 		return -EIO;
 
 	return scnprintf(buf, PAGE_SIZE, "%llu\n",
-			priv->stats[type].cur - priv->gpumem_mapped);
+			gpumem_total - gpumem_mapped);
 }
 
 static struct kgsl_mem_entry_attribute debug_memstats[] = {
@@ -141,7 +144,8 @@ static struct kgsl_mem_entry_attribute debug_memstats[] = {
 static ssize_t
 mem_entry_show(struct kgsl_process_private *priv, int type, char *buf)
 {
-	return scnprintf(buf, PAGE_SIZE, "%llu\n", priv->stats[type].cur);
+	return scnprintf(buf, PAGE_SIZE, "%lld\n",
+			atomic64_read(&priv->stats[type].cur));
 }
 
 /**
@@ -862,6 +866,38 @@ static void kgsl_contiguous_free(struct kgsl_memdesc *memdesc)
 }
 
 #if IS_ENABLED(CONFIG_QCOM_SECURE_BUFFER)
+static void kgsl_free_secure_system_pages(struct kgsl_memdesc *memdesc)
+{
+	int i;
+	struct scatterlist *sg;
+	int ret = unlock_sgt(memdesc->sgt);
+
+	if (ret) {
+		/*
+		 * Unlock of the secure buffer failed. This buffer will
+		 * be stuck in secure side forever and is unrecoverable.
+		 * Give up on the buffer and don't return it to the
+		 * pool.
+		 */
+		pr_err("kgsl: secure buf unlock failed: gpuaddr: %llx size: %llx ret: %d\n",
+			memdesc->gpuaddr, memdesc->size, ret);
+		return;
+	}
+
+	atomic_long_sub(memdesc->size, &kgsl_driver.stats.secure);
+
+	for_each_sg(memdesc->sgt->sgl, sg, memdesc->sgt->nents, i) {
+		struct page *page = sg_page(sg);
+
+		__free_pages(page, get_order(PAGE_SIZE));
+	}
+
+	sg_free_table(memdesc->sgt);
+	kfree(memdesc->sgt);
+
+	memdesc->sgt = NULL;
+}
+
 static void kgsl_free_secure_pool_pages(struct kgsl_memdesc *memdesc)
 {
 	int ret = unlock_sgt(memdesc->sgt);
@@ -904,6 +940,23 @@ static void kgsl_free_pool_pages(struct kgsl_memdesc *memdesc)
 	memdesc->pages = NULL;
 }
 
+static void kgsl_free_system_pages(struct kgsl_memdesc *memdesc)
+{
+	int i;
+
+	kgsl_paged_unmap_kernel(memdesc);
+	WARN_ON(memdesc->hostptr);
+
+	atomic_long_sub(memdesc->size, &kgsl_driver.stats.page_alloc);
+
+	for (i = 0; i < memdesc->page_count; i++)
+		__free_pages(memdesc->pages[i], get_order(PAGE_SIZE));
+
+	memdesc->page_count = 0;
+	kvfree(memdesc->pages);
+	memdesc->pages = NULL;
+}
+
 static struct kgsl_memdesc_ops kgsl_contiguous_ops = {
 	.free = kgsl_contiguous_free,
 	.vmflags = VM_DONTDUMP | VM_PFNMAP | VM_DONTEXPAND | VM_DONTCOPY,
@@ -911,6 +964,11 @@ static struct kgsl_memdesc_ops kgsl_contiguous_ops = {
 };
 
 #if IS_ENABLED(CONFIG_QCOM_SECURE_BUFFER)
+static struct kgsl_memdesc_ops kgsl_secure_system_ops = {
+	.free = kgsl_free_secure_system_pages,
+	/* FIXME: Make sure vmflags / vmfault does the right thing here */
+};
+
 static struct kgsl_memdesc_ops kgsl_secure_pool_ops = {
 	.free = kgsl_free_secure_pool_pages,
 	/* FIXME: Make sure vmflags / vmfault does the right thing here */
@@ -924,6 +982,49 @@ static struct kgsl_memdesc_ops kgsl_pool_ops = {
 	.map_kernel = kgsl_paged_map_kernel,
 	.unmap_kernel = kgsl_paged_unmap_kernel,
 };
+
+static struct kgsl_memdesc_ops kgsl_system_ops = {
+	.free = kgsl_free_system_pages,
+	.vmflags = VM_DONTDUMP | VM_DONTEXPAND | VM_DONTCOPY | VM_MIXEDMAP,
+	.vmfault = kgsl_paged_vmfault,
+	.map_kernel = kgsl_paged_map_kernel,
+	.unmap_kernel = kgsl_paged_unmap_kernel,
+};
+
+static int kgsl_system_alloc_pages(u64 size, struct page ***pages,
+		struct device *dev)
+{
+	struct scatterlist sg;
+	struct page **local;
+	int i, npages = size >> PAGE_SHIFT;
+
+	local = kvcalloc(npages, sizeof(*pages), GFP_KERNEL | __GFP_NORETRY);
+	if (!local)
+		return -ENOMEM;
+
+	for (i = 0; i < npages; i++) {
+		gfp_t gfp = __GFP_ZERO | __GFP_HIGHMEM |
+			GFP_KERNEL | __GFP_NORETRY;
+
+		local[i] = alloc_pages(gfp, get_order(PAGE_SIZE));
+		if (!local[i]) {
+			for (i = i - 1; i >= 0; i--)
+				__free_pages(local[i], get_order(PAGE_SIZE));
+			kvfree(local);
+			return -ENOMEM;
+		}
+
+		/* Make sure the cache is clean */
+		sg_init_table(&sg, 1);
+		sg_set_page(&sg, local[i], PAGE_SIZE, 0);
+		sg_dma_address(&sg) = page_to_phys(local[i]);
+
+		dma_sync_sg_for_device(dev, &sg, 1, DMA_BIDIRECTIONAL);
+	}
+
+	*pages = local;
+	return npages;
+}
 
 #if IS_ENABLED(CONFIG_QCOM_SECURE_BUFFER)
 static int kgsl_alloc_secure_pages(struct kgsl_device *device,
@@ -942,8 +1043,13 @@ static int kgsl_alloc_secure_pages(struct kgsl_device *device,
 	kgsl_memdesc_init(device, memdesc, flags);
 	memdesc->priv |= priv;
 
-	memdesc->ops = &kgsl_secure_pool_ops;
-	count = kgsl_pool_alloc_pages(size, &pages, device->dev);
+	if (priv & KGSL_MEMDESC_SYSMEM) {
+		memdesc->ops = &kgsl_secure_system_ops;
+		count = kgsl_system_alloc_pages(size, &pages, device->dev);
+	} else {
+		memdesc->ops = &kgsl_secure_pool_ops;
+		count = kgsl_pool_alloc_pages(size, &pages, device->dev);
+	}
 
 	if (count < 0)
 		return count;
@@ -997,8 +1103,13 @@ static int kgsl_alloc_pages(struct kgsl_device *device,
 	kgsl_memdesc_init(device, memdesc, flags);
 	memdesc->priv |= priv;
 
-	memdesc->ops = &kgsl_pool_ops;
-	count = kgsl_pool_alloc_pages(size, &pages, device->dev);
+	if (priv & KGSL_MEMDESC_SYSMEM) {
+		memdesc->ops = &kgsl_system_ops;
+		count = kgsl_system_alloc_pages(size, &pages, device->dev);
+	} else {
+		memdesc->ops = &kgsl_pool_ops;
+		count = kgsl_pool_alloc_pages(size, &pages, device->dev);
+	}
 
 	if (count < 0)
 		return count;
@@ -1158,7 +1269,8 @@ kgsl_allocate_secure_global(struct kgsl_device *device,
 	if (!md)
 		return ERR_PTR(-ENOMEM);
 
-	priv |= KGSL_MEMDESC_GLOBAL;
+	/* Make sure that we get global memory from system memory */
+	priv |= KGSL_MEMDESC_GLOBAL | KGSL_MEMDESC_SYSMEM;
 
 	ret = kgsl_allocate_secure(device, &md->memdesc, size, flags, priv);
 	if (ret) {
@@ -1197,7 +1309,11 @@ struct kgsl_memdesc *kgsl_allocate_global(struct kgsl_device *device,
 	if (!md)
 		return ERR_PTR(-ENOMEM);
 
-	priv |= KGSL_MEMDESC_GLOBAL;
+	/*
+	 * Make sure that we get global memory from system memory to keep from
+	 * taking up pool memory for the life of the driver
+	 */
+	priv |= KGSL_MEMDESC_GLOBAL | KGSL_MEMDESC_SYSMEM;
 
 	ret = kgsl_allocate_kernel(device, &md->memdesc, size, flags, priv);
 	if (ret) {

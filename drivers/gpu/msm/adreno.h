@@ -392,6 +392,7 @@ struct adreno_gpu_core {
 	const char *compatible;
 	unsigned long features;
 	struct adreno_gpudev *gpudev;
+	const struct adreno_perfcounters *perfcounters;
 	unsigned long gmem_base;
 	size_t gmem_size;
 	u32 bus_width;
@@ -762,8 +763,6 @@ struct adreno_gpudev {
 	const struct adreno_ft_perf_counters *ft_perf_counters;
 	unsigned int ft_perf_counters_count;
 
-	struct adreno_perfcounters *perfcounters;
-
 	struct adreno_coresight *coresight[2];
 
 	unsigned int vbif_xin_halt_ctrl0_mask;
@@ -817,9 +816,6 @@ struct adreno_gpudev {
 	bool (*sptprac_is_on)(struct adreno_device *adreno_dev);
 	unsigned int (*ccu_invalidate)(struct adreno_device *adreno_dev,
 				unsigned int *cmds);
-	int (*perfcounter_update)(struct adreno_device *adreno_dev,
-				struct adreno_perfcount_register *reg,
-				bool update_reg);
 	/** @read_alwayson: Return the current value of the alwayson counter */
 	u64 (*read_alwayson)(struct adreno_device *adreno_dev);
 	/**
@@ -1062,12 +1058,6 @@ static inline int adreno_is_a6xx(struct adreno_device *adreno_dev)
 {
 	return ADRENO_GPUREV(adreno_dev) >= 600 &&
 			ADRENO_GPUREV(adreno_dev) < 700;
-}
-
-static inline int adreno_is_a660v1(struct adreno_device *adreno_dev)
-{
-	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A660) &&
-		(ADRENO_CHIPID_PATCH(adreno_dev->chipid) == 0);
 }
 
 static inline int adreno_is_a660_shima(struct adreno_device *adreno_dev)

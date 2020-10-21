@@ -499,7 +499,9 @@ struct mmc_host {
 
 	int			rescan_disable;	/* disable card detection */
 	int			rescan_entered;	/* used with nonremovable devices */
-
+#if defined(CONFIG_SDC_QTI)
+	bool			corrupted_card; /* good/bad associated card */
+#endif
 	int			need_retune;	/* re-tuning is needed */
 	int			hold_retune;	/* hold off re-tuning */
 	unsigned int		retune_period;	/* re-tuning period in secs */

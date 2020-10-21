@@ -364,6 +364,7 @@ static struct platform_driver rimps_log_driver = {
 	.driver = {
 		.name = "rimps-log",
 		.of_match_table = rimps_log,
+		.suppress_bind_attrs = true,
 	},
 	.probe = rimps_log_probe,
 	.remove = rimps_log_remove,

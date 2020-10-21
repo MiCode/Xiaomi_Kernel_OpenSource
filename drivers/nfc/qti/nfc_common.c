@@ -248,6 +248,8 @@ void nfc_misc_remove(struct nfc_dev *nfc_dev, int count)
 	cdev_del(&nfc_dev->c_dev);
 	class_destroy(nfc_dev->nfc_class);
 	unregister_chrdev_region(nfc_dev->devno, count);
+	if (nfc_dev->ipcl)
+		ipc_log_context_destroy(nfc_dev->ipcl);
 }
 
 int nfc_misc_probe(struct nfc_dev *nfc_dev,
@@ -290,10 +292,23 @@ int nfc_misc_probe(struct nfc_dev *nfc_dev,
 		return ret;
 	}
 
+	nfc_dev->ipcl = ipc_log_context_create(NUM_OF_IPC_LOG_PAGES,
+						dev_name(nfc_dev->nfc_device), 0);
+	if (!nfc_dev->ipcl) {
+		pr_err("nfc ipc log create failed\n");
+		device_destroy(nfc_dev->nfc_class, nfc_dev->devno);
+		cdev_del(&nfc_dev->c_dev);
+		class_destroy(nfc_dev->nfc_class);
+		unregister_chrdev_region(nfc_dev->devno, count);
+		return -ENXIO;
+	}
+
 	nfc_dev->kbuflen = MAX_BUFFER_SIZE;
 	nfc_dev->kbuf = kzalloc(MAX_BUFFER_SIZE, GFP_KERNEL | GFP_DMA);
-	if (!nfc_dev->kbuf)
+	if (!nfc_dev->kbuf) {
+		nfc_misc_remove(nfc_dev, count);
 		return -ENOMEM;
+	}
 
 	nfc_dev->cold_reset.rsp_pending = false;
 	nfc_dev->cold_reset.is_nfc_enabled = false;
@@ -755,6 +770,8 @@ int nfcc_hw_check(struct nfc_dev *nfc_dev)
 	char *nci_reset_ntf = NULL;
 	char *nci_get_version_cmd = NULL;
 	char *nci_get_version_rsp = NULL;
+
+	NFCLOG_IPC(nfc_dev, false, "%s", __func__);
 
 	nci_reset_cmd = kzalloc(NCI_RESET_CMD_LEN + 1, GFP_DMA | GFP_KERNEL);
 	if (!nci_reset_cmd)

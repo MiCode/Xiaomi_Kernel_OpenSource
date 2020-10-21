@@ -672,9 +672,8 @@ done:
 	return rc;
 }
 
-static int smb1355_get_prop_constant_charge_current_max(
-					struct smb1355 *chip,
-					int *val)
+static int smb1355_get_prop_constant_charge_current_max(struct smb1355 *chip,
+							int *val)
 {
 	int rc = 0;
 
@@ -1038,18 +1037,18 @@ static int smb1355_iio_read_raw(struct iio_dev *indio_dev,
 		*val1 = 0;
 		break;
 	default:
-		pr_err_ratelimited("SMB1355 IIO channel %d not supported\n",
+		pr_err_ratelimited("SMB1355 IIO channel %x not supported\n",
 			chan->channel);
 		return -EINVAL;
 	}
 
 	if (rc < 0) {
-		pr_debug("Couldn't read channel %d rc = %d\n",
+		pr_debug("Couldn't read channel %x rc = %d\n",
 				chan->channel, rc);
 		return -ENODATA;
 	}
 
-	return rc ? rc : IIO_VAL_INT;
+	return IIO_VAL_INT;
 }
 
 static int smb1355_iio_write_raw(struct iio_dev *indio_dev,
@@ -1093,10 +1092,12 @@ static int smb1355_iio_write_raw(struct iio_dev *indio_dev,
 		rc = smb1355_clk_request(chip, false);
 		break;
 	default:
-		pr_debug("SMB1355 IIO write channel %d not supported\n",
-				chan->channel);
 		rc = -EINVAL;
 	}
+
+	if (rc < 0)
+		pr_debug("Couldn't write to channel %x rc = %d\n",
+				chan->channel, rc);
 done:
 	mutex_unlock(&chip->suspend_lock);
 	return rc;

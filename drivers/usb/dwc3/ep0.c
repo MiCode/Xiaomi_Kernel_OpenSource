@@ -1027,6 +1027,7 @@ static void __dwc3_ep0_do_control_data(struct dwc3 *dwc,
 					 true);
 
 		req->trb = &dwc->ep0_trb[dep->trb_enqueue - 1];
+		dbg_ep_map(dep->number, req);
 
 		/* Now prepare one extra TRB to align transfer size */
 		dwc3_ep0_prepare_one_trb(dep, dwc->bounce_addr,
@@ -1049,6 +1050,7 @@ static void __dwc3_ep0_do_control_data(struct dwc3 *dwc,
 					 true);
 
 		req->trb = &dwc->ep0_trb[dep->trb_enqueue - 1];
+		dbg_ep_map(dep->number, req);
 
 		/* Now prepare one extra TRB to align transfer size */
 		dwc3_ep0_prepare_one_trb(dep, dwc->bounce_addr,
@@ -1066,6 +1068,7 @@ static void __dwc3_ep0_do_control_data(struct dwc3 *dwc,
 				false);
 
 		req->trb = &dwc->ep0_trb[dep->trb_enqueue];
+		dbg_ep_map(dep->number, req);
 
 		ret = dwc3_ep0_start_trans(dep);
 	}

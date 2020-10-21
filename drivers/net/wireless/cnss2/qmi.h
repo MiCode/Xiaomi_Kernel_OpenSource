@@ -61,6 +61,10 @@ int cnss_wlfw_antenna_grant_send_sync(struct cnss_plat_data *plat_priv);
 int cnss_wlfw_dynamic_feature_mask_send_sync(struct cnss_plat_data *plat_priv);
 int cnss_wlfw_get_info_send_sync(struct cnss_plat_data *plat_priv, int type,
 				 void *cmd, int cmd_len);
+int cnss_process_wfc_call_ind_event(struct cnss_plat_data *plat_priv,
+				    void *data);
+int cnss_process_twt_cfg_ind_event(struct cnss_plat_data *plat_priv,
+				   void *data);
 int cnss_register_coex_service(struct cnss_plat_data *plat_priv);
 void cnss_unregister_coex_service(struct cnss_plat_data *plat_priv);
 int coex_antenna_switch_to_wlan_send_sync_msg(struct cnss_plat_data *plat_priv);
@@ -192,6 +196,20 @@ int cnss_wlfw_get_info_send_sync(struct cnss_plat_data *plat_priv, int type,
 }
 
 static inline
+int cnss_process_wfc_call_ind_event(struct cnss_plat_data *plat_priv,
+				    void *data)
+{
+	return 0;
+}
+
+static inline
+int cnss_process_twt_cfg_ind_event(struct cnss_plat_data *plat_priv,
+				   void *data)
+{
+	return 0;
+}
+
+static inline
 int cnss_register_coex_service(struct cnss_plat_data *plat_priv)
 {
 	return 0;
@@ -259,5 +277,17 @@ static inline int cnss_dms_init(struct cnss_plat_data *plat_priv)
 
 static inline void cnss_dms_deinit(struct cnss_plat_data *plat_priv) {}
 #endif /* CONFIG_CNSS2_QMI */
+
+#ifdef CONFIG_CNSS2_DEBUG
+static inline u32 cnss_get_host_build_type(void)
+{
+	return QMI_HOST_BUILD_TYPE_PRIMARY_V01;
+}
+#else
+static inline u32 cnss_get_host_build_type(void)
+{
+	return QMI_HOST_BUILD_TYPE_SECONDARY_V01;
+}
+#endif
 
 #endif /* _CNSS_QMI_H */

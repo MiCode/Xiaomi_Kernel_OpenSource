@@ -39,6 +39,7 @@
 #define INIT "Init"
 static DEFINE_PER_CPU(bool, cpu_is_idle);
 static DEFINE_PER_CPU(bool, cpu_is_hp);
+static DEFINE_MUTEX(perfevent_lock);
 
 enum event_idx {
 	INST_EVENT,
@@ -105,7 +106,6 @@ static bool max_cap_cpus[NR_CPUS];
 static cpumask_var_t limit_mask_min;
 static cpumask_var_t limit_mask_max;
 
-static atomic_t game_status;
 static atomic_t game_status_pid;
 
 static bool ready_for_freq_updates;
@@ -228,7 +228,7 @@ static int set_cpu_min_freq(const char *buf, const struct kernel_param *kp)
 		if (cpufreq_get_policy(&policy, i))
 			continue;
 
-		if (cpu_online(i) && (policy.min != i_cpu_stats->min)) {
+		if (cpu_online(i)) {
 			req = &per_cpu(qos_req_min, i);
 			if (freq_qos_update_request(req, i_cpu_stats->min) < 0)
 				break;
@@ -311,7 +311,7 @@ static int set_cpu_max_freq(const char *buf, const struct kernel_param *kp)
 		if (cpufreq_get_policy(&policy, i))
 			continue;
 
-		if (cpu_online(i) && (policy.max != i_cpu_stats->max)) {
+		if (cpu_online(i)) {
 			req = &per_cpu(qos_req_max, i);
 			if (freq_qos_update_request(req, i_cpu_stats->max) < 0)
 				break;
@@ -464,31 +464,25 @@ static struct kobject *notify_kobj;
 /*******************************sysfs ends************************************/
 
 /*****************PMU Data Collection*****************/
-static struct perf_event_attr *msm_perf_alloc_attr(void)
+static struct perf_event_attr attr;
+static void msm_perf_init_attr(void)
 {
-	struct perf_event_attr *attr = NULL;
+	memset(&attr, 0, sizeof(struct perf_event_attr));
 
-	attr = kzalloc(sizeof(struct perf_event_attr), GFP_KERNEL);
-	if (!attr)
-		return attr;
-
-	attr->type = PERF_TYPE_RAW;
-	attr->size = sizeof(struct perf_event_attr);
-	attr->pinned = 1;
-
-	return attr;
+	attr.type = PERF_TYPE_RAW;
+	attr.size = sizeof(struct perf_event_attr);
+	attr.pinned = 1;
 }
 
-static int set_event(struct event_data *ev, int cpu,
-					 struct perf_event_attr *attr)
+static int set_event(struct event_data *ev, int cpu)
 {
 	struct perf_event *pevent;
 
-	pevent = perf_event_create_kernel_counter(attr,
+	pevent = perf_event_create_kernel_counter(&attr,
 				cpu, NULL, NULL, NULL);
 	if (IS_ERR(pevent)) {
 		pr_err("msm_perf: %s failed, eventId:0x%x, cpu:%d, error code:%ld\n",
-				__func__, attr->config, cpu, PTR_ERR(pevent));
+				__func__, attr.config, cpu, PTR_ERR(pevent));
 		return PTR_ERR(pevent);
 	}
 	ev->pevent = pevent;
@@ -515,30 +509,26 @@ static void free_pmu_counters(unsigned int cpu)
 
 static int init_pmu_counter(void)
 {
-	struct perf_event_attr *attr = msm_perf_alloc_attr();
 	int cpu;
 	unsigned long cpu_capacity[NR_CPUS];
 	unsigned long min_cpu_capacity = ULONG_MAX;
 	int ret = 0;
 
-	if (!attr)
-		return -ENOMEM;
+	msm_perf_init_attr();
 
 	/* Create events per CPU */
 	for_each_possible_cpu(cpu) {
 		/* create Instruction event */
-		attr->config = INST_EV;
-		ret = set_event(&pmu_events[INST_EVENT][cpu], cpu, attr);
+		attr.config = INST_EV;
+		ret = set_event(&pmu_events[INST_EVENT][cpu], cpu);
 		if (ret < 0) {
-			kfree(attr);
 			return ret;
 		}
 		/* create cycle event */
-		attr->config = CYC_EV;
-		ret = set_event(&pmu_events[CYC_EVENT][cpu], cpu, attr);
+		attr.config = CYC_EV;
+		ret = set_event(&pmu_events[CYC_EVENT][cpu], cpu);
 		if (ret < 0) {
 			free_pmu_counters(cpu);
-			kfree(attr);
 			return ret;
 		}
 		/* find capacity per cpu */
@@ -553,7 +543,6 @@ static int init_pmu_counter(void)
 			max_cap_cpus[cpu] = true;
 	}
 
-	kfree(attr);
 	return 0;
 }
 
@@ -562,8 +551,11 @@ static inline void msm_perf_read_event(struct event_data *event)
 	u64 ev_count = 0;
 	u64 total, enabled, running;
 
-	if (!event->pevent)
+	mutex_lock(&perfevent_lock);
+	if (!event->pevent) {
+		mutex_unlock(&perfevent_lock);
 		return;
+	}
 
 	if (!per_cpu(cpu_is_idle, event->pevent->cpu) &&
 				!per_cpu(cpu_is_hp, event->pevent->cpu))
@@ -574,7 +566,7 @@ static inline void msm_perf_read_event(struct event_data *event)
 	ev_count = total - event->prev_count;
 	event->prev_count = total;
 	event->cur_delta = ev_count;
-
+	mutex_unlock(&perfevent_lock);
 }
 
 static int get_cpu_total_instruction(char *buf, const struct kernel_param *kp)
@@ -624,46 +616,37 @@ module_param_cb(inst, &param_ops_cpu_total_instruction, NULL, 0444);
 
 static int restart_events(unsigned int cpu, bool cpu_up)
 {
-	struct perf_event_attr *attr = msm_perf_alloc_attr();
 	int ret = 0;
 
-	if (!attr)
-		return -ENOMEM;
+	msm_perf_init_attr();
 
 	if (cpu_up) {
 		/* create Instruction event */
-		attr->config = INST_EV;
-		ret = set_event(&pmu_events[INST_EVENT][cpu], cpu, attr);
+		attr.config = INST_EV;
+		ret = set_event(&pmu_events[INST_EVENT][cpu], cpu);
 		if (ret < 0) {
-			kfree(attr);
 			return ret;
 		}
 		/* create cycle event */
-		attr->config = CYC_EV;
-		ret = set_event(&pmu_events[CYC_EVENT][cpu], cpu, attr);
+		attr.config = CYC_EV;
+		ret = set_event(&pmu_events[CYC_EVENT][cpu], cpu);
 		if (ret < 0) {
 			free_pmu_counters(cpu);
-			kfree(attr);
 			return ret;
 		}
 	} else {
 		free_pmu_counters(cpu);
 	}
 
-	kfree(attr);
 	return 0;
 }
 
 static int hotplug_notify_down(unsigned int cpu)
 {
-	unsigned long flags;
-
-	if (events_group.init_success) {
-		spin_lock_irqsave(&(events_group.cpu_hotplug_lock), flags);
-		per_cpu(cpu_is_hp, cpu) = true;
-		restart_events(cpu, false);
-		spin_unlock_irqrestore(&(events_group.cpu_hotplug_lock), flags);
-	}
+	mutex_lock(&perfevent_lock);
+	per_cpu(cpu_is_hp, cpu) = true;
+	restart_events(cpu, false);
+	mutex_unlock(&perfevent_lock);
 
 	return 0;
 }
@@ -672,11 +655,14 @@ static int hotplug_notify_up(unsigned int cpu)
 {
 	unsigned long flags;
 
+	mutex_lock(&perfevent_lock);
+	restart_events(cpu, true);
+	per_cpu(cpu_is_hp, cpu) = false;
+	mutex_unlock(&perfevent_lock);
+
 	if (events_group.init_success) {
 		spin_lock_irqsave(&(events_group.cpu_hotplug_lock), flags);
 		events_group.cpu_hotplug = true;
-		restart_events(cpu, true);
-		per_cpu(cpu_is_hp, cpu) = false;
 		spin_unlock_irqrestore(&(events_group.cpu_hotplug_lock), flags);
 		wake_up_process(events_notify_thread);
 	}
@@ -897,8 +883,7 @@ void  msm_perf_events_update(enum evt_update_t update_typ,
 	if (update_typ != MSM_PERF_GFX)
 		return;
 
-	if (!atomic_read(&game_status) ||
-	(pid != atomic_read(&game_status_pid)))
+	if (pid != atomic_read(&game_status_pid) || (timestamp == 0))
 		return;
 
 	spin_lock_irqsave(&gfx_circ_buff_lock, flags);
@@ -915,30 +900,6 @@ void  msm_perf_events_update(enum evt_update_t update_typ,
 		complete(&gfx_evt_arrival);
 }
 
-
-
-static int set_game_start_event(const char *buf, const struct kernel_param *kp)
-{
-	long usr_val = 0;
-	int ret = strlen(buf);
-
-	kstrtol(buf, 0, &usr_val);
-	atomic_set(&game_status, usr_val);
-	return ret;
-}
-
-static int get_game_start_event(char *buf, const struct kernel_param *kp)
-{
-	long usr_val  = atomic_read(&game_status);
-
-	return scnprintf(buf, PAGE_SIZE, "%ld\n", usr_val);
-}
-
-static const struct kernel_param_ops param_ops_game_start_evt = {
-	.set = set_game_start_event,
-	.get = get_game_start_event,
-};
-module_param_cb(evnt_gplaf_status, &param_ops_game_start_evt, NULL, 0644);
 
 static int set_game_start_pid(const char *buf, const struct kernel_param *kp)
 {

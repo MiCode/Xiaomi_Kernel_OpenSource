@@ -1003,12 +1003,12 @@ static int rpm_smd_clk_probe(struct platform_device *pdev)
 		clk_prepare_enable(holi_bi_tcxo_ao.hw.clk);
 
 		/* Hold an active set vote for the cnoc_keepalive_a_clk */
-		clk_set_rate(holi_cnoc_a_clk.hw.clk, 19200000);
 		clk_prepare_enable(holi_cnoc_a_clk.hw.clk);
+		clk_set_rate(holi_cnoc_a_clk.hw.clk, 19200000);
 
 		/* Hold an active set vote for the snoc_keepalive_a_clk */
-		clk_set_rate(holi_snoc_a_clk.hw.clk, 19200000);
 		clk_prepare_enable(holi_snoc_a_clk.hw.clk);
+		clk_set_rate(holi_snoc_a_clk.hw.clk, 19200000);
 	}
 
 	if (of_property_read_bool(pdev->dev.of_node, "qcom,bimc-log-stop"))

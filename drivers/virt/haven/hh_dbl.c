@@ -61,6 +61,7 @@ static int hh_dbl_validate_params(struct hh_dbl_desc *client_desc,
 	spin_lock(&cap_table_entry->cap_entry_lock);
 
 	if (cap_table_entry->client_desc != client_desc) {
+		spin_unlock(&cap_table_entry->cap_entry_lock);
 		pr_err("%s: Invalid client descriptor\n", __func__);
 		return -EINVAL;
 	}
@@ -328,7 +329,7 @@ void *hh_dbl_tx_register(enum hh_dbl_label label)
 	if (cap_table_entry->client_desc) {
 		client_desc = cap_table_entry->client_desc;
 	} else {
-		client_desc = kzalloc(sizeof(*client_desc), GFP_KERNEL);
+		client_desc = kzalloc(sizeof(*client_desc), GFP_ATOMIC);
 		if (!client_desc) {
 			ret = -ENOMEM;
 			goto err;
@@ -390,7 +391,7 @@ void *hh_dbl_rx_register(enum hh_dbl_label label, dbl_rx_cb_t rx_cb, void *priv)
 	if (cap_table_entry->client_desc) {
 		client_desc = cap_table_entry->client_desc;
 	} else {
-		client_desc = kzalloc(sizeof(*client_desc), GFP_KERNEL);
+		client_desc = kzalloc(sizeof(*client_desc), GFP_ATOMIC);
 		if (!client_desc) {
 			ret = -ENOMEM;
 			goto err;

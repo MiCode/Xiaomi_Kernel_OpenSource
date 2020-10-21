@@ -3340,8 +3340,8 @@ static void ufs_qcom_dump_dbg_regs(struct ufs_hba *hba)
 		ufs_qcom_print_utp_hci_testbus(hba);
 		usleep_range(1000, 1100);
 		ufs_qcom_phy_dbg_register_dump(phy);
+		ufshcd_print_fsm_state(hba);
 	}
-	ufshcd_print_fsm_state(hba);
 }
 
 /*

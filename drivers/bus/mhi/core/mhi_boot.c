@@ -210,10 +210,10 @@ static int __mhi_download_rddm_in_panic(struct mhi_controller *mhi_cntrl)
 	int ret;
 	u32 rx_status;
 	enum mhi_ee ee;
-	const u32 delayus = 5000;
-	u32 retry = (mhi_cntrl->timeout_ms * 1000) / delayus;
-	const u32 rddm_timeout_us = 200000;
-	int rddm_retry = rddm_timeout_us / delayus; /* time to enter rddm */
+	const u32 delayms = 5;
+	u32 retry = (mhi_cntrl->timeout_ms) / delayms;
+	const u32 rddm_timeout_ms = 200;
+	int rddm_retry = rddm_timeout_ms / delayms; /* time to enter rddm */
 	void __iomem *base = mhi_cntrl->bhie;
 
 	MHI_CNTRL_LOG("Entered with pm_state:%s dev_state:%s ee:%s\n",
@@ -256,7 +256,7 @@ static int __mhi_download_rddm_in_panic(struct mhi_controller *mhi_cntrl)
 			if (ee == MHI_EE_RDDM)
 				break;
 
-			udelay(delayus);
+			mdelay(delayms);
 		}
 
 		if (rddm_retry <= 0) {
@@ -266,7 +266,7 @@ static int __mhi_download_rddm_in_panic(struct mhi_controller *mhi_cntrl)
 			mhi_cntrl->write_reg(mhi_cntrl, mhi_cntrl->regs,
 				      MHI_SOC_RESET_REQ_OFFSET,
 				      MHI_SOC_RESET_REQ);
-			udelay(delayus);
+			mdelay(delayms);
 		}
 
 		ee = mhi_get_exec_env(mhi_cntrl);
@@ -287,7 +287,7 @@ static int __mhi_download_rddm_in_panic(struct mhi_controller *mhi_cntrl)
 			return 0;
 		}
 
-		udelay(delayus);
+		mdelay(delayms);
 	}
 
 	ee = mhi_get_exec_env(mhi_cntrl);

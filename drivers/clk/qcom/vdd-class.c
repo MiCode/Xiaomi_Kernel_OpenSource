@@ -9,6 +9,8 @@
 #include "vdd-class.h"
 #include "clk-regmap.h"
 
+static DEFINE_MUTEX(vdd_lock);
+
 /*
  * Aggregate the vdd_class level votes and call regulator framework functions
  * to enforce the highest vote.
@@ -87,11 +89,14 @@ int clk_vote_vdd_level(struct clk_vdd_class_data *vdd_data, int level)
 	if (level >= vdd_class->num_levels)
 		return -EINVAL;
 
+	mutex_lock(&vdd_lock);
 	vdd_class->level_votes[level]++;
 
 	ret = clk_aggregate_vdd(vdd_class);
 	if (ret)
 		vdd_class->level_votes[level]--;
+
+	mutex_unlock(&vdd_lock);
 
 	return ret;
 }
@@ -122,11 +127,14 @@ int clk_unvote_vdd_level(struct clk_vdd_class_data *vdd_data, int level)
 		return -EINVAL;
 	}
 
+	mutex_lock(&vdd_lock);
 	vdd_class->level_votes[level]--;
 
 	ret = clk_aggregate_vdd(vdd_class);
 	if (ret)
 		vdd_class->level_votes[level]++;
+
+	mutex_unlock(&vdd_lock);
 
 	return ret;
 }

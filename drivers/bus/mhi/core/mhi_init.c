@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved. */
 
+#include <asm/arch_timer.h>
 #include <linux/debugfs.h>
 #include <linux/device.h>
 #include <linux/dma-direction.h>
@@ -324,10 +325,19 @@ static const struct attribute_group mhi_sysfs_group = {
 
 void mhi_create_sysfs(struct mhi_controller *mhi_cntrl)
 {
-	sysfs_create_group(&mhi_cntrl->mhi_dev->dev.kobj, &mhi_sysfs_group);
-	if (mhi_cntrl->mhi_tsync)
-		sysfs_create_group(&mhi_cntrl->mhi_dev->dev.kobj,
+	int ret;
+
+	ret = sysfs_create_group(&mhi_cntrl->mhi_dev->dev.kobj,
+			&mhi_sysfs_group);
+	if (ret)
+		MHI_CNTRL_LOG("Failed to create mhi_sysfs_group");
+
+	if (mhi_cntrl->mhi_tsync) {
+		ret = sysfs_create_group(&mhi_cntrl->mhi_dev->dev.kobj,
 				   &mhi_tsync_group);
+		if (ret)
+			MHI_CNTRL_LOG("Failed to create mhi_tsync_group");
+	}
 }
 
 void mhi_destroy_sysfs(struct mhi_controller *mhi_cntrl)
@@ -808,8 +818,10 @@ static int mhi_init_timesync(struct mhi_controller *mhi_cntrl)
 
 	/* save time_offset for obtaining time */
 	MHI_CNTRL_LOG("TIME OFFS:0x%x\n", time_offset);
-	mhi_tsync->time_reg = mhi_cntrl->regs + time_offset
+	mhi_tsync->time_reg_lo = mhi_cntrl->regs + time_offset
 			      + TIMESYNC_TIME_LOW_OFFSET;
+	mhi_tsync->time_reg_hi = mhi_cntrl->regs + time_offset
+			      + TIMESYNC_TIME_HIGH_OFFSET;
 
 	mhi_cntrl->mhi_tsync = mhi_tsync;
 

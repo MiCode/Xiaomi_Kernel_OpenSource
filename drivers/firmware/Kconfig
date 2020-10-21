@@ -30,7 +30,7 @@ config ARM_SCMI_PROTOCOL
 config QTI_SCMI_MEMLAT_PROTOCOL
 	tristate "Qualcomm Technologies, Inc. SCMI MEMLAT vendor Protocol"
 	depends on ARM || ARM64 || COMPILE_TEST
-	depends on ARM_SCMI_PROTOCOL && QCOM_RIMPS
+	depends on ARM_SCMI_PROTOCOL && QCOM_RIMPS && QGKI
 	help
 	  System Control and Management Interface (SCMI) memlat vendor protocol
 	  this protocol provides interface to communicate with micro controller

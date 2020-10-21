@@ -581,10 +581,17 @@ static long spss_utils_ioctl(struct file *file,
 		}
 
 		if (is_iar_active) {
-			memcpy(&is_ssr_disabled, data, size);
-			pr_debug("SSR disabled state updated to: %d\n",
+			uint32_t tmp = 0;
+
+			memcpy(&tmp, data, sizeof(tmp));
+			is_ssr_disabled = (bool) tmp; /* u32 to bool */
+
+			pr_info("SSR disabled state updated to: %d\n",
 				 is_ssr_disabled);
 		}
+
+		pr_info("is_iar_active [%d] is_ssr_disabled [%d].\n",
+			is_iar_active, is_ssr_disabled);
 		break;
 
 	default:
@@ -920,6 +927,7 @@ static int spss_get_fw_calc_cmac(void)
 	u8 __iomem *reg = NULL;
 	int i;
 	u32 val;
+	u32 cmac[CMAC_SIZE_IN_DWORDS] = {0};
 
 	if (cmac_mem == NULL) {
 		pr_err("invalid cmac_mem.\n");
@@ -938,6 +946,12 @@ static int spss_get_fw_calc_cmac(void)
 		reg += sizeof(u32);
 	}
 
+	/* check for any pattern to mark invalid cmac */
+	if (cmac[0] == cmac[1])
+		return -EINVAL; /* not valid cmac */
+
+	memcpy(calc_fw_cmac, cmac, sizeof(calc_fw_cmac));
+
 	pr_debug("calc_fw_cmac : 0x%08x,0x%08x,0x%08x,0x%08x\n",
 	    calc_fw_cmac[0], calc_fw_cmac[1],
 	    calc_fw_cmac[2], calc_fw_cmac[3]);
@@ -951,8 +965,10 @@ static int spss_get_apps_calc_cmac(void)
 	int i, j;
 	u32 val;
 
-	if (cmac_mem == NULL)
+	if (cmac_mem == NULL) {
+		pr_err("invalid cmac_mem.\n");
 		return -EFAULT;
+	}
 
 	reg = cmac_mem; /* IAR buffer base */
 	reg += CMAC_SIZE_IN_BYTES; /* skip the saved fw cmac */
@@ -963,18 +979,23 @@ static int spss_get_apps_calc_cmac(void)
 
 	/* get apps cmac from ddr */
 	for (j = 0; j < ARRAY_SIZE(calc_apps_cmac); j++) {
-		for (i = 0; i < CMAC_SIZE_IN_DWORDS; i++) {
+		u32 cmac[CMAC_SIZE_IN_DWORDS] = {0};
+
+		memset(cmac, 0, sizeof(cmac));
+
+		for (i = 0; i < ARRAY_SIZE(cmac); i++) {
 			val = readl_relaxed(reg);
-			calc_apps_cmac[j][i] = val;
+			cmac[i] = val;
 			reg += sizeof(u32);
 		}
 		reg += CMAC_SIZE_IN_BYTES; /* skip the saved cmac */
 
 		/* check for any pattern to mark end of cmacs */
-		if (saved_apps_cmac[j][0] == saved_apps_cmac[j][1]) {
-			memset(calc_apps_cmac[j], 0, sizeof(calc_apps_cmac[j]));
-			break; /* no more cmacs */
-		}
+		if (cmac[0] == cmac[1])
+			break; /* no more valid cmacs */
+
+		memcpy(calc_apps_cmac[j], cmac, sizeof(calc_apps_cmac[j]));
+
 		pr_debug("app [%d] cmac : 0x%08x,0x%08x,0x%08x,0x%08x\n", j,
 			calc_apps_cmac[j][0], calc_apps_cmac[j][1],
 			calc_apps_cmac[j][2], calc_apps_cmac[j][3]);
@@ -989,8 +1010,10 @@ static int spss_set_saved_uefi_apps_cmac(void)
 	int i, j;
 	u32 val;
 
-	if (cmac_mem == NULL)
+	if (cmac_mem == NULL) {
+		pr_err("invalid cmac_mem.\n");
 		return -EFAULT;
+	}
 
 	reg = cmac_mem; /* IAR buffer base */
 	reg += (2*CMAC_SIZE_IN_BYTES); /* skip the saved and calc fw cmac */
@@ -1047,14 +1070,14 @@ static int spss_utils_pil_callback(struct notifier_block *nb,
 		mutex_unlock(&event_lock);
 		break;
 	case SUBSYS_BEFORE_POWERUP:
-		pr_debug("[SUBSYS_BEFORE_POWERUP] event.\n");
+		pr_info("[SUBSYS_BEFORE_POWERUP] event.\n");
 		if (is_iar_active && is_ssr_disabled) {
 			pr_err("SPSS SSR disabled, requesting reboot\n");
 			kernel_restart("SPSS SSR disabled, requesting reboot");
 		}
 		break;
 	case SUBSYS_AFTER_POWERUP:
-		pr_debug("[SUBSYS_AFTER_POWERUP] event.\n");
+		pr_info("[SUBSYS_AFTER_POWERUP] event.\n");
 		mutex_lock(&event_lock);
 		event_id = SPSS_EVENT_ID_SPU_POWER_UP;
 		complete_all(&spss_events[event_id]);
@@ -1064,6 +1087,21 @@ static int spss_utils_pil_callback(struct notifier_block *nb,
 		reinit_completion(&spss_events[event_id]);
 		spss_events_signaled[event_id] = false;
 		mutex_unlock(&event_lock);
+
+		/*
+		 * For IAR-DB-Recovery, read cmac regadless of is_iar_active.
+		 * please notice that HYP unmap this area, it is a race.
+		 */
+		if (cmac_mem == NULL) {
+			cmac_mem = ioremap_nocache(cmac_mem_addr, CMAC_MEM_SIZE);
+			if (!cmac_mem) {
+				pr_err("can't map cmac_mem.\n");
+				return -EFAULT;
+			}
+		}
+
+		spss_get_fw_calc_cmac();
+		spss_get_apps_calc_cmac();
 		break;
 	case SUBSYS_RAMDUMP_NOTIFICATION:
 		pr_debug("[SUBSYS_RAMDUMP_NOTIFICATION] event.\n");
@@ -1169,6 +1207,7 @@ static int spss_probe(struct platform_device *pdev)
 	}
 	mutex_init(&event_lock);
 
+	is_iar_active = false;
 	is_ssr_disabled = false;
 
 	pr_info("Probe completed successfully, [%s].\n", firmware_name);

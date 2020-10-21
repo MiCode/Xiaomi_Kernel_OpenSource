@@ -237,4 +237,8 @@ unsigned int a5xx_preemption_pre_ibsubmit(
 
 void a5xx_preempt_callback(struct adreno_device *adreno_dev, int bit);
 
+u64 a5xx_read_alwayson(struct adreno_device *adreno_dev);
+
+extern const struct adreno_perfcounters adreno_a5xx_perfcounters;
+
 #endif

@@ -392,7 +392,10 @@ int qcom_llcc_probe(struct platform_device *pdev,
 
 	drv_data->bcast_regmap =
 		qcom_llcc_init_mmio(pdev, "llcc_broadcast_base");
-	if (IS_ERR(drv_data->bcast_regmap)) {
+
+	if (PTR_ERR(drv_data->bcast_regmap) == -ENODEV)
+		drv_data->bcast_regmap = drv_data->regmap;
+	else if (IS_ERR(drv_data->bcast_regmap)) {
 		ret = PTR_ERR(drv_data->bcast_regmap);
 		goto err;
 	}
