@@ -401,6 +401,7 @@ struct ep_pcie_dev_t {
 	bool                         client_ready;
 	atomic_t		     ep_pcie_dev_wake;
 	atomic_t                     perst_deast;
+	atomic_t                     host_wake_pending;
 
 	struct ep_pcie_register_event *event_reg;
 	struct work_struct	     handle_perst_work;

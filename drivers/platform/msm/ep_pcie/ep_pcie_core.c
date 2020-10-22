@@ -113,6 +113,8 @@ static const struct ep_pcie_irq_info_t ep_pcie_irq_info[EP_PCIE_MAX_IRQ] = {
 	{"int_global",	0},
 };
 
+static int ep_pcie_core_wakeup_host_internal(enum ep_pcie_event event);
+
 int ep_pcie_get_debug_mask(void)
 {
 	return ep_pcie_debug_mask;
@@ -1615,6 +1617,35 @@ disable_clkreq:
 }
 EXPORT_SYMBOL(ep_pcie_core_l1ss_sleep_config_enable);
 
+static void ep_pcie_core_toggle_wake_gpio(bool is_on)
+{
+	struct ep_pcie_dev_t *dev = &ep_pcie_dev;
+	u32 val = dev->gpio[EP_PCIE_GPIO_WAKE].on;
+
+	if (!is_on) {
+		val = !dev->gpio[EP_PCIE_GPIO_WAKE].on;
+		EP_PCIE_DBG(dev,
+			"PCIe V%d: deassert PCIe WAKE# after PERST# is deasserted\n",
+				dev->rev);
+	} else {
+		dev->wake_counter++;
+	}
+
+	/*
+	 * Toggle WAKE# GPIO until to prosed state
+	 */
+	gpio_set_value(dev->gpio[EP_PCIE_GPIO_WAKE].num, val);
+
+	EP_PCIE_DBG(dev,
+		"PCIe V%d: No. %ld to %sassert PCIe WAKE#; perst is %sasserted; D3hot is %s received, WAKE GPIO state:%d\n",
+		dev->rev, dev->wake_counter,
+			is_on ? "":"de-",
+			atomic_read(&dev->perst_deast) ? "de-" : "",
+			dev->l23_ready ? "" : "not",
+			gpio_get_value(dev->gpio[EP_PCIE_GPIO_WAKE].num));
+
+}
+
 int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 {
 	int ret = 0;
@@ -1773,18 +1804,8 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 		EP_PCIE_DBG(dev, "PCIe V%d: WAKE GPIO initial:%d\n",
 			dev->rev,
 			gpio_get_value(dev->gpio[EP_PCIE_GPIO_WAKE].num));
-		gpio_set_value(dev->gpio[EP_PCIE_GPIO_WAKE].num,
-				1 - dev->gpio[EP_PCIE_GPIO_WAKE].on);
-		EP_PCIE_DBG(dev,
-			"PCIe V%d: WAKE GPIO after deassertion:%d\n",
-			dev->rev,
-			gpio_get_value(dev->gpio[EP_PCIE_GPIO_WAKE].num));
-		gpio_set_value(dev->gpio[EP_PCIE_GPIO_WAKE].num,
-				dev->gpio[EP_PCIE_GPIO_WAKE].on);
-		EP_PCIE_DBG(dev,
-			"PCIe V%d: WAKE GPIO after assertion:%d\n",
-			dev->rev,
-			gpio_get_value(dev->gpio[EP_PCIE_GPIO_WAKE].num));
+		ep_pcie_core_toggle_wake_gpio(false);
+		ep_pcie_core_toggle_wake_gpio(true);
 	}
 
 	/* wait for host side to deassert PERST */
@@ -1805,16 +1826,11 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 			dev->rev);
 		ret = EP_PCIE_ERROR;
 		goto link_fail;
-	} else {
-		atomic_set(&dev->perst_deast, 1);
-		if (opt & EP_PCIE_OPT_AST_WAKE) {
-			/* deassert PCIe WAKE# */
-			EP_PCIE_DBG(dev,
-				"PCIe V%d: deassert PCIe WAKE# after PERST# is deasserted\n",
-				dev->rev);
-			gpio_set_value(dev->gpio[EP_PCIE_GPIO_WAKE].num,
-				1 - dev->gpio[EP_PCIE_GPIO_WAKE].on);
-		}
+	}
+	atomic_set(&dev->perst_deast, 1);
+	if (opt & EP_PCIE_OPT_AST_WAKE) {
+		/* deassert PCIe WAKE# */
+		ep_pcie_core_toggle_wake_gpio(false);
 	}
 
 	/* init PCIe PHY */
@@ -1907,8 +1923,7 @@ checkbme:
 	 * is triggered to send data from device to host at which point
 	 * it will assert WAKE#.
 	 */
-	gpio_set_value(dev->gpio[EP_PCIE_GPIO_WAKE].num,
-			1 - dev->gpio[EP_PCIE_GPIO_WAKE].on);
+	ep_pcie_core_toggle_wake_gpio(false);
 
 	if (dev->active_config)
 		ep_pcie_write_reg(dev->dm_core, PCIE20_AUX_CLK_FREQ_REG, 0x14);
@@ -2019,6 +2034,18 @@ int ep_pcie_core_disable_endpoint(void)
 			dev->rev, atomic_read(&dev->perst_deast),
 				atomic_read(&dev->ep_pcie_dev_wake));
 	}
+
+	/*
+	 * In some caes though device requested to do an inband PME
+	 * the host might still proceed with PERST assertion, below
+	 * code is to toggle WAKE in such sceanrios.
+	 */
+	if (atomic_read(&dev->host_wake_pending)) {
+		EP_PCIE_DBG(dev, "PCIe V%d: %s: wake pending, init wakeup\n",
+			dev->rev);
+		ep_pcie_core_wakeup_host_internal(EP_PCIE_EVENT_PM_D3_COLD);
+	}
+
 	spin_unlock_irqrestore(&dev->isr_lock, irqsave_flags);
 out:
 	mutex_unlock(&dev->setup_mtx);
@@ -2202,12 +2229,18 @@ static irqreturn_t ep_pcie_handle_dstate_change_irq(int irq, void *data)
 			EP_PCIE_DBG(dev,
 				"PCIe V%d: do not notify client about this D3 hot event since enumeration by HLOS is not done yet\n",
 				dev->rev);
+		if (atomic_read(&dev->host_wake_pending))
+			ep_pcie_core_wakeup_host_internal(
+				EP_PCIE_EVENT_PM_D3_HOT);
+
 	} else if (dstate == 0) {
 		dev->l23_ready = false;
 		dev->d0_counter++;
+		atomic_set(&dev->host_wake_pending, 0);
 		EP_PCIE_DBG(dev,
-			"PCIe V%d: No. %ld change to D0 state\n",
-			dev->rev, dev->d0_counter);
+			"PCIe V%d: No. %ld change to D0 state, clearing wake pending:%d\n",
+			dev->rev, dev->d0_counter,
+			atomic_read(&dev->host_wake_pending));
 		/*
 		 * During device bootup, there will not be any PERT-deassert,
 		 * so aquire wakelock from D0 event
@@ -2997,10 +3030,7 @@ int ep_pcie_core_trigger_msi(u32 idx)
 static void ep_pcie_core_issue_inband_pme(void)
 {
 	struct ep_pcie_dev_t *dev = &ep_pcie_dev;
-	unsigned long irqsave_flags;
 	u32 pm_ctrl = 0;
-
-	spin_lock_irqsave(&dev->isr_lock, irqsave_flags);
 
 	EP_PCIE_DBG(dev,
 		"PCIe V%d: request to assert inband wake\n",
@@ -3014,35 +3044,44 @@ static void ep_pcie_core_issue_inband_pme(void)
 	EP_PCIE_DBG(dev,
 		"PCIe V%d: completed assert for inband wake\n",
 		dev->rev);
-
-	spin_unlock_irqrestore(&dev->isr_lock, irqsave_flags);
 }
-
-static int ep_pcie_core_wakeup_host(enum ep_pcie_event event)
+static int ep_pcie_core_wakeup_host_internal(enum ep_pcie_event event)
 {
 	struct ep_pcie_dev_t *dev = &ep_pcie_dev;
 
-	if (event == EP_PCIE_EVENT_PM_D3_HOT)
-		ep_pcie_core_issue_inband_pme();
-
-	if (atomic_read(&dev->perst_deast) && !dev->l23_ready) {
+	if (!atomic_read(&dev->perst_deast)) {
+		/*D3 cold handling*/
+		ep_pcie_core_toggle_wake_gpio(true);
+	} else if (dev->l23_ready) {
 		EP_PCIE_ERR(dev,
-			"PCIe V%d: request to assert WAKE# when PERST is de-asserted and D3hot is not received\n",
+			"PCIe V%d: request to assert WAKE# when in D3hot\n",
 			dev->rev);
-		return EP_PCIE_ERROR;
+		/*D3 hot handling*/
+		ep_pcie_core_issue_inband_pme();
+	} else {
+		/*D0 handling*/
+		EP_PCIE_ERR(dev,
+			"PCIe V%d: request to assert WAKE# when in D0\n",
+			dev->rev);
 	}
 
-	dev->wake_counter++;
+	atomic_set(&dev->host_wake_pending, 1);
 	EP_PCIE_DBG(dev,
-		"PCIe V%d: No. %ld to assert PCIe WAKE#; perst is %s de-asserted; D3hot is %s received\n",
-		dev->rev, dev->wake_counter,
+		"PCIe V%d: Set wake pending : %d and return ; perst is %s de-asserted; D3hot is %s set\n",
+		dev->rev, atomic_read(&dev->host_wake_pending),
 		atomic_read(&dev->perst_deast) ? "" : "not",
 		dev->l23_ready ? "" : "not");
-	/*
-	 * Assert WAKE# GPIO until link is back to L0.
-	 */
-	gpio_set_value(dev->gpio[EP_PCIE_GPIO_WAKE].num,
-			dev->gpio[EP_PCIE_GPIO_WAKE].on);
+	return 0;
+
+}
+static int ep_pcie_core_wakeup_host(enum ep_pcie_event event)
+{
+	unsigned long irqsave_flags;
+	struct ep_pcie_dev_t *dev = &ep_pcie_dev;
+
+	spin_lock_irqsave(&dev->isr_lock, irqsave_flags);
+	ep_pcie_core_wakeup_host_internal(event);
+	spin_unlock_irqrestore(&dev->isr_lock, irqsave_flags);
 	return 0;
 }
 
