@@ -69,8 +69,18 @@ static const struct fsa4480_reg_val fsa_reg_i2c_defaults[] = {
 static void fsa4480_usbc_update_settings(struct fsa4480_priv *fsa_priv,
 		u32 switch_control, u32 switch_enable)
 {
+	u32 prev_control, prev_enable;
+
 	if (!fsa_priv->regmap) {
 		dev_err(fsa_priv->dev, "%s: regmap invalid\n", __func__);
+		return;
+	}
+
+	regmap_read(fsa_priv->regmap, FSA4480_SWITCH_CONTROL, &prev_control);
+	regmap_read(fsa_priv->regmap, FSA4480_SWITCH_SETTINGS, &prev_enable);
+
+	if (prev_control == switch_control && prev_enable == switch_enable) {
+		dev_dbg(fsa_priv->dev, "%s: settings unchanged\n", __func__);
 		return;
 	}
 
@@ -181,8 +191,6 @@ static int fsa4480_usbc_analog_setup_switches_psupply(
 
 	dev_dbg(dev, "%s: setting GPIOs active = %d rcvd intval 0x%X\n",
 		__func__, mode.intval != TYPEC_ACCESSORY_NONE, mode.intval);
-	if (atomic_read(&(fsa_priv->usbc_mode)) == mode.intval)
-		goto done; /* filter notifications received before */
 	atomic_set(&(fsa_priv->usbc_mode), mode.intval);
 
 	switch (mode.intval) {
@@ -321,8 +329,6 @@ int fsa4480_unreg_notifier(struct notifier_block *nb,
 	int rc = 0;
 	struct i2c_client *client = of_find_i2c_device_by_node(node);
 	struct fsa4480_priv *fsa_priv;
-	struct device *dev;
-	union power_supply_propval mode;
 
 	if (!client)
 		return -EINVAL;
@@ -330,33 +336,14 @@ int fsa4480_unreg_notifier(struct notifier_block *nb,
 	fsa_priv = (struct fsa4480_priv *)i2c_get_clientdata(client);
 	if (!fsa_priv)
 		return -EINVAL;
-	if (fsa_priv->use_powersupply) {
-		dev = fsa_priv->dev;
-		if (!dev)
-			return -EINVAL;
 
-		mutex_lock(&fsa_priv->notification_lock);
-		/* get latest mode within locked context */
+	mutex_lock(&fsa_priv->notification_lock);
 
-		rc = iio_read_channel_processed(fsa_priv->iio_ch, &mode.intval);
-
-		if (rc) {
-			dev_dbg(dev, "%s: Unable to read USB TYPEC_MODE: %d\n",
-				__func__, rc);
-			mutex_unlock(&fsa_priv->notification_lock);
-			return rc;
-		}
-		/* Do not reset switch settings for usb digital hs */
-		if (mode.intval == TYPEC_ACCESSORY_AUDIO)
-			fsa4480_usbc_update_settings(fsa_priv, 0x18, 0x98);
-		rc = blocking_notifier_chain_unregister
-					(&fsa_priv->fsa4480_notifier, nb);
-		mutex_unlock(&fsa_priv->notification_lock);
-	} else {
-		fsa4480_usbc_update_settings(fsa_priv, 0x18, 0x98);
-		rc = blocking_notifier_chain_unregister
+	fsa4480_usbc_update_settings(fsa_priv, 0x18, 0x98);
+	rc = blocking_notifier_chain_unregister
 				(&fsa_priv->fsa4480_notifier, nb);
-	}
+	mutex_unlock(&fsa_priv->notification_lock);
+
 	return rc;
 }
 EXPORT_SYMBOL(fsa4480_unreg_notifier);
