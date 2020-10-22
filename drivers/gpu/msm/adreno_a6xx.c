@@ -1394,10 +1394,12 @@ static void a6xx_llc_configure_gpu_scid(struct adreno_device *adreno_dev)
 	/*
 	 * On A660, the SCID programming for UCHE traffic is done in
 	 * A6XX_GBIF_SCACHE_CNTL0[14:10]
+	 * GFO ENABLE BIT(8) : LLC uses a 64 byte cache line size enabling
+	 * GFO allows it allocate partial cache lines
 	 */
 	if (adreno_is_a660(adreno_dev))
-		kgsl_regrmw(device, A6XX_GBIF_SCACHE_CNTL0, 0x1f << 10,
-			gpu_scid << 10);
+		kgsl_regrmw(device, A6XX_GBIF_SCACHE_CNTL0, (0x1f << 10) |
+				BIT(8), (gpu_scid << 10) | BIT(8));
 }
 
 /*
