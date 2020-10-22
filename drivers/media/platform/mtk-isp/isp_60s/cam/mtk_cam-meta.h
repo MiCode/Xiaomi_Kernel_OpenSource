@@ -60,6 +60,17 @@ struct mtk_cam_uapi_meta_size {
 	__u32   height;
 };
 
+#define MTK_CAM_UAPI_MAX_CORE_NUM	3
+/**
+ * struct mtk_cam_uapi_pipeline_config - pipeline configuration
+ *
+ * @num_of_core: The number of isp cores
+ */
+struct mtk_cam_uapi_pipeline_config {
+	__u32	num_of_core;
+	struct	mtk_cam_uapi_meta_size core_data_size;
+};
+
 /**
  *	A U T O  E X P O S U R E
  */
@@ -72,14 +83,10 @@ struct mtk_cam_uapi_meta_size {
  *  @hist_opt:	 color mode config for current histogram (0/1/2/3/4:
  *		 R/G/B/RGB mix/Y)
  *  @hist_bin:	 bin mode config for current histogram (1/4: 256/1024 bin)
- *  @hist_y_hi:  ROI Y range high bound ratio for current histogram,
- *		 range [0,100]
- *  @hist_y_low: ROI Y range low bound ratio for current histogram,
- *		 range [0,100]
- *  @hist_x_hi:	 ROI X range high bound ratio for current histogram,
- *               range [0,100]
- *  @hist_x_low: ROI X range low bound ratio for current histogram,
- *		 range [0,100]
+ *  @hist_y_hi:  ROI Y range high bound for current histogram
+ *  @hist_y_low: ROI Y range low bound for current histogram
+ *  @hist_x_hi:	 ROI X range high bound for current histogram
+ *  @hist_x_low: ROI X range low bound for current histogram
  */
 struct mtk_cam_uapi_ae_hist_cfg {
 	__s32	hist_en;
@@ -94,7 +101,6 @@ struct mtk_cam_uapi_ae_hist_cfg {
 /*
  *  struct mtk_cam_uapi_ae_param - parameters for AE configurtion
  *
- *  @stats_src:		    source width and height of the statistics
  *  @pixel_hist_win_cfg_le: window config for le histogram 0~5
  *			    separately, uAEHistBin shold be the same
  *			    for these 6 histograms
@@ -106,15 +112,10 @@ struct mtk_cam_uapi_ae_hist_cfg {
  *			    default non-HDR scenario ratio=100
  */
 struct mtk_cam_uapi_ae_param {
-	struct	mtk_cam_uapi_meta_size stats_src;
 	struct	mtk_cam_uapi_ae_hist_cfg pixel_hist_win_cfg_le[6];
 	struct	mtk_cam_uapi_ae_hist_cfg pixel_hist_win_cfg_se[6];
 	__u16	hdr_ratio; /* base 1 x= 100 */
 };
-
-/* maximum width/height in pixel that platform supports */
-#define MTK_CAM_UAPI_AE_STATS_MAX_WIDTH		120
-#define MTK_CAM_UAPI_AE_STATS_MAX_HEIGHT	90
 
 /* TODO: Need to check the size of MTK_CAM_AE_HIST_MAX_BIN*/
 #define MTK_CAM_UAPI_AE_STATS_HIST_MAX_BIN	1024
@@ -205,22 +206,21 @@ struct mtk_cam_uapi_awb_param {
  */
 
 #define MTK_CAM_UAPI_AAO_BLK_SIZE	32
-#define MTK_CAM_UAPI_AAO_MAX_BLK_NUM	(128 * 128)
+#define MTK_CAM_UAPI_AAO_MAX_BLK_X	128
+#define MTK_CAM_UAPI_AAO_MAX_BLK_Y	128
 #define MTK_CAM_UAPI_AAO_MAX_BUF_SIZE	(MTK_CAM_UAPI_AAO_BLK_SIZE \
-					 * MTK_CAM_UAPI_AAO_MAX_BLK_NUM)
+					 * MTK_CAM_UAPI_AAO_MAX_BLK_X \
+					 * MTK_CAM_UAPI_AAO_MAX_BLK_Y)
 
 #define MTK_CAM_UAPI_AHO_BLK_SIZE	3
-#define MTK_CAM_UAPI_AAHO_MAX_BUF_SIZE	(6 * 1024 * MTK_CAM_UAPI_AHO_BLK_SIZE \
+#define MTK_CAM_UAPI_AAHO_HIST_SIZE	(6 * 1024 * MTK_CAM_UAPI_AHO_BLK_SIZE \
 					 + 6 * 256 * MTK_CAM_UAPI_AHO_BLK_SIZE)
+#define MTK_CAM_UAPI_AAHO_MAX_BUF_SIZE	(MTK_CAM_UAPI_MAX_CORE_NUM * \
+					 MTK_CAM_UAPI_AAHO_HIST_SIZE)
 
 /**
  * struct mtk_cam_uapi_ae_awb_stats - statistics of ae and awb
  *
- * @window_width:  source width and heitgh of the statistics. The final input
- *		   size to ae and awb module is determined by driver according
- *		   the crop, resize, bining configuration in the pipeline for
- *		   sensor to AE/AWB block. This field let user get the
- *		   real input size.
  * @aao_buf:	   The buffer for AAHO statistic hardware output.
  *		   The maximum size of the buffer is defined with
  *		   MTK_CAM_UAPI_AAO_MAX_BUF_SIZE
@@ -233,7 +233,6 @@ struct mtk_cam_uapi_awb_param {
  * a struct to retutn them.
  */
 struct mtk_cam_uapi_ae_awb_stats {
-	struct	mtk_cam_uapi_meta_size stats_src;
 	struct	mtk_cam_uapi_meta_hw_buf aao_buf;
 	struct	mtk_cam_uapi_meta_hw_buf aaho_buf;
 };
@@ -324,12 +323,8 @@ struct mtk_cam_uapi_af_stats {
  *  struct mtk_cam_uapi_flk_param
  *
  *  @input_bit_sel: maximum pixel value of flicker statistic input
- *  @offset_x: initial position for flicker statistic calculation in x direction
  *  @offset_y: initial position for flicker statistic calculation in y direction
- *  @crop_x: number of columns which will be cropped from right
  *  @crop_y: number of rows which will be cropped from bottom
- *  @num_x: number of blocks in x direction
- *  @num_y: number of blocks in y direction
  *  @sgg_val[8]: Simple Gain and Gamma for noise reduction, sgg_val[0] is
  *               gain and sgg_val[1] - sgg_val[7] are gamma table
  *  @noise_thr: the noise threshold of pixel value, pixel value lower than
@@ -339,12 +334,8 @@ struct mtk_cam_uapi_af_stats {
  */
 struct mtk_cam_uapi_flk_param {
 	__u32 input_bit_sel;
-	__u32 offset_x;
 	__u32 offset_y;
-	__u32 crop_x;
 	__u32 crop_y;
-	__u32 num_x;
-	__u32 num_y;
 	__u32 sgg_val[8];
 	__u32 noise_thr;
 	__u32 saturate_thr;
@@ -540,6 +531,7 @@ struct mtk_cam_uapi_meta_raw_stats_cfg {
  *			 this buffer
  * @pd_stats_enabled:	 indicate that pd_stats is ready or not in
  *			 this buffer
+ * @pipeline_config:	 the pipeline configuration during processing
  */
 struct mtk_cam_uapi_meta_raw_stats_0 {
 	__u8   ae_awb_stats_enabled;
@@ -547,6 +539,8 @@ struct mtk_cam_uapi_meta_raw_stats_0 {
 	__u8   flk_stats_enabled;
 	__u8   tsf_stats_enabled;
 	__u8   pd_stats_enabled;
+
+	struct mtk_cam_uapi_pipeline_config pipeline_config;
 
 	struct mtk_cam_uapi_ae_awb_stats ae_awb_stats;
 	struct mtk_cam_uapi_ltm_stats ltm_stats;
@@ -611,7 +605,7 @@ struct mtk_cam_uapi_meta_camsv_stats_0 {
 };
 
 #define MTK_CAM_META_VERSION_MAJOR 3
-#define MTK_CAM_META_VERSION_MINOR 4
+#define MTK_CAM_META_VERSION_MINOR 5
 #define MTK_CAM_META_PLATFORM_NAME "isp6s"
 #define MTK_CAM_META_CHIP_NAME "mt6873"
 
