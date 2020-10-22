@@ -129,7 +129,8 @@ int wlfw_qdss_trace_mem_info_send_sync(struct icnss_priv *priv)
 	return 0;
 }
 
-int wlfw_exit_power_save_send_msg(struct icnss_priv *priv)
+int wlfw_power_save_send_msg(struct icnss_priv *priv,
+			     enum wlfw_power_save_mode_v01 mode)
 {
 	return 0;
 }
@@ -180,7 +181,8 @@ int wlfw_wlan_mode_send_sync_msg(struct icnss_priv *priv,
 				 enum wlfw_driver_mode_enum_v01 mode);
 int icnss_wlfw_bdf_dnld_send_sync(struct icnss_priv *priv, u32 bdf_type);
 int wlfw_qdss_trace_mem_info_send_sync(struct icnss_priv *priv);
-int wlfw_exit_power_save_send_msg(struct icnss_priv *priv);
+int wlfw_power_save_send_msg(struct icnss_priv *priv,
+			     enum wlfw_power_save_mode_v01 mode);
 int icnss_wlfw_get_info_send_sync(struct icnss_priv *priv, int type,
 				  void *cmd, int cmd_len);
 int wlfw_send_soc_wake_msg(struct icnss_priv *priv,

@@ -3056,14 +3056,21 @@ extern struct walt_sched_cluster *rq_cluster(struct rq *rq);
 #ifdef CONFIG_UCLAMP_TASK_GROUP
 static inline bool task_sched_boost(struct task_struct *p)
 {
-	struct cgroup_subsys_state *css = task_css(p, cpu_cgrp_id);
+	struct cgroup_subsys_state *css;
 	struct task_group *tg;
+	bool sched_boost_enabled;
 
-	if (!css)
+	rcu_read_lock();
+	css = task_css(p, cpu_cgrp_id);
+	if (!css) {
+		rcu_read_unlock();
 		return false;
+	}
 	tg = container_of(css, struct task_group, css);
+	sched_boost_enabled = tg->wtg.sched_boost_enabled;
+	rcu_read_unlock();
 
-	return tg->wtg.sched_boost_enabled;
+	return sched_boost_enabled;
 }
 
 extern int sync_cgroup_colocation(struct task_struct *p, bool insert);
@@ -3133,17 +3140,20 @@ void note_task_waking(struct task_struct *p, u64 wallclock);
 
 static inline bool task_placement_boost_enabled(struct task_struct *p)
 {
-	if (task_sched_boost(p))
-		return sched_boost_policy() != SCHED_BOOST_NONE;
+	if (likely(sched_boost_policy() == SCHED_BOOST_NONE))
+		return false;
 
-	return false;
+	return task_sched_boost(p);
 }
 
 static inline enum sched_boost_policy task_boost_policy(struct task_struct *p)
 {
-	enum sched_boost_policy policy = task_sched_boost(p) ?
-						sched_boost_policy() :
-						SCHED_BOOST_NONE;
+	enum sched_boost_policy policy;
+
+	if (likely(sched_boost_policy() == SCHED_BOOST_NONE))
+		return SCHED_BOOST_NONE;
+
+	policy = task_sched_boost(p) ? sched_boost_policy() : SCHED_BOOST_NONE;
 	if (policy == SCHED_BOOST_ON_BIG) {
 		/*
 		 * Filter out tasks less than min task util threshold

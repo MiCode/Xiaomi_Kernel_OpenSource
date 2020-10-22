@@ -1314,11 +1314,14 @@ void a6xx_gmu_register_config(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	u32 gmu_log_info, chipid = 0;
 
+	/* Clear any previously set cm3 fault */
+	atomic_set(&gmu->cm3_fault, 0);
+
 	/* Vote veto for FAL10 feature if supported*/
 	if (a6xx_core->veto_fal10) {
-		gmu_core_regwrite(device, A6XX_GPU_GMU_CX_GMU_CX_FAL_INTF, 0x1);
 		gmu_core_regwrite(device,
 			A6XX_GPU_GMU_CX_GMU_CX_FALNEXT_INTF, 0x1);
+		gmu_core_regwrite(device, A6XX_GPU_GMU_CX_GMU_CX_FAL_INTF, 0x1);
 	}
 
 	/* Turn on TCM retention */
@@ -1613,40 +1616,6 @@ static int a6xx_gmu_init(struct adreno_device *adreno_dev)
 
 #define A6XX_VBIF_XIN_HALT_CTRL1_ACKS   (BIT(0) | BIT(1) | BIT(2) | BIT(3))
 
-static void do_gbif_halt(struct kgsl_device *device, u32 reg, u32 ack_reg,
-	u32 mask, const char *client)
-{
-	u32 ack;
-	unsigned long t;
-
-	kgsl_regwrite(device, reg, mask);
-
-	t = jiffies + msecs_to_jiffies(100);
-	do {
-		kgsl_regread(device, ack_reg, &ack);
-		if ((ack & mask) == mask)
-			return;
-
-		/*
-		 * If we are attempting recovery in case of stall-on-fault
-		 * then the halt sequence will not complete as long as SMMU
-		 * is stalled.
-		 */
-		kgsl_mmu_pagefault_resume(&device->mmu);
-
-		usleep_range(10, 100);
-	} while (!time_after(jiffies, t));
-
-	/* Check one last time */
-	kgsl_mmu_pagefault_resume(&device->mmu);
-
-	kgsl_regread(device, ack_reg, &ack);
-	if ((ack & mask) == mask)
-		return;
-
-	dev_err(device->dev, "%s GBIF halt timed out\n", client);
-}
-
 static void a6xx_gmu_pwrctrl_suspend(struct adreno_device *adreno_dev)
 {
 	int ret = 0;
@@ -1673,13 +1642,13 @@ static void a6xx_gmu_pwrctrl_suspend(struct adreno_device *adreno_dev)
 	if (adreno_has_gbif(adreno_dev)) {
 		/* Halt GX traffic */
 		if (a6xx_gmu_gx_is_on(device))
-			do_gbif_halt(device, A6XX_RBBM_GBIF_HALT,
+			a6xx_do_gbif_halt(adreno_dev, A6XX_RBBM_GBIF_HALT,
 				A6XX_RBBM_GBIF_HALT_ACK,
 				A6XX_GBIF_GX_HALT_MASK,
 				"GX");
 
 		/* Halt CX traffic */
-		do_gbif_halt(device, A6XX_GBIF_HALT, A6XX_GBIF_HALT_ACK,
+		a6xx_do_gbif_halt(adreno_dev, A6XX_GBIF_HALT, A6XX_GBIF_HALT_ACK,
 			A6XX_GBIF_ARB_HALT_MASK, "CX");
 	}
 
@@ -2063,6 +2032,11 @@ static irqreturn_t a6xx_gmu_irq_handler(int irq, void *data)
 
 		dev_err_ratelimited(&gmu->pdev->dev,
 				"GMU watchdog expired interrupt received\n");
+
+		if (test_bit(GMU_DISPATCH, &device->gmu_core.flags)) {
+			adreno_get_gpu_halt(adreno_dev);
+			adreno_hwsched_set_fault(adreno_dev);
+		}
 	}
 	if (status & GMU_INT_HOST_AHB_BUS_ERR)
 		dev_err_ratelimited(&gmu->pdev->dev,
@@ -2281,6 +2255,9 @@ static int a6xx_gmu_first_boot(struct adreno_device *adreno_dev)
 
 	device->gmu_fault = false;
 
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_BCL))
+		adreno_dev->bcl_enabled = true;
+
 	trace_kgsl_pwr_set_state(device, KGSL_STATE_AWARE);
 
 	return 0;
@@ -2290,6 +2267,8 @@ err:
 		a6xx_gmu_suspend(adreno_dev);
 		return ret;
 	}
+
+	a6xx_gmu_irq_disable(adreno_dev);
 
 clks_gdsc_off:
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
@@ -2367,6 +2346,8 @@ err:
 		a6xx_gmu_suspend(adreno_dev);
 		return ret;
 	}
+
+	a6xx_gmu_irq_disable(adreno_dev);
 
 clks_gdsc_off:
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
@@ -2715,9 +2696,6 @@ int a6xx_gmu_probe(struct kgsl_device *device,
 		gmu->idle_level = GPU_HW_IFPC;
 	else
 		gmu->idle_level = GPU_HW_ACTIVE;
-
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_BCL))
-		adreno_dev->bcl_enabled = true;
 
 	a6xx_gmu_acd_probe(device, gmu, pdev->dev.of_node);
 

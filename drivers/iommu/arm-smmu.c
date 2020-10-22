@@ -1373,7 +1373,6 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 	iova = arm_smmu_cb_readq(smmu, idx, ARM_SMMU_CB_FAR);
 	phys_soft = arm_smmu_iova_to_phys(domain, iova);
 	frsynra = arm_smmu_gr1_read(smmu, ARM_SMMU_GR1_CBFRSYNRA(cfg->cbndx));
-	frsynra &= CBFRSYNRA_SID_MASK;
 	tmp = report_iommu_fault(domain, smmu->dev, iova, flags);
 	if (!tmp || (tmp == -EBUSY)) {
 		dev_dbg(smmu->dev,
@@ -1398,6 +1397,11 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 			dev_err(smmu->dev,
 				"Unhandled context fault: iova=0x%08lx, cb=%d, fsr=0x%x, fsynr0=0x%x, fsynr1=0x%x\n",
 				iova, cfg->cbndx, fsr, fsynr0, fsynr1);
+
+			dev_err(smmu->dev, "SSD=0x%x SID=0x%x\n",
+				FIELD_GET(CBFRSYNRA_SSD, frsynra),
+				FIELD_GET(CBFRSYNRA_SID, frsynra));
+
 			dev_err(smmu->dev,
 				"Client info: BID=0x%lx, PID=0x%lx, MID=0x%lx\n",
 				FIELD_GET(FSYNR1_BID, fsynr1),
@@ -1419,7 +1423,6 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 					&phys_atos);
 			else
 				dev_err(smmu->dev, "hard iova-to-phys (ATOS) failed\n");
-			dev_err(smmu->dev, "SID=0x%x\n", frsynra);
 		}
 		ret = IRQ_HANDLED;
 		resume = RESUME_TERMINATE;
@@ -3146,6 +3149,13 @@ static int arm_smmu_map(struct iommu_domain *domain, unsigned long iova,
 		return PTR_ERR(ops);
 	else if (!ops)
 		return -EINVAL;
+
+	if (!IS_ENABLED(CONFIG_ARM_SMMU_SKIP_MAP_POWER_ON)) {
+		ret = arm_smmu_domain_power_on(domain, smmu_domain->smmu);
+		if (ret)
+			return ret;
+	}
+
 	iova = arm_smmu_mask_iova(smmu_domain, iova);
 	arm_smmu_secure_domain_lock(smmu_domain);
 	arm_smmu_rpm_get(smmu);
@@ -3170,6 +3180,9 @@ static int arm_smmu_map(struct iommu_domain *domain, unsigned long iova,
 		arm_smmu_release_prealloc_memory(smmu_domain, &nonsecure_pool);
 
 	}
+
+	if (!IS_ENABLED(CONFIG_ARM_SMMU_SKIP_MAP_POWER_ON))
+		arm_smmu_domain_power_off(domain, smmu_domain->smmu);
 
 	arm_smmu_assign_table(smmu_domain);
 	arm_smmu_secure_domain_unlock(smmu_domain);
@@ -3297,6 +3310,12 @@ static size_t arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
 		return 0;
 	iova = arm_smmu_mask_iova(smmu_domain, iova);
 
+	if (!IS_ENABLED(CONFIG_ARM_SMMU_SKIP_MAP_POWER_ON)) {
+		ret = arm_smmu_domain_power_on(domain, smmu_domain->smmu);
+		if (ret)
+			return ret;
+	}
+
 	arm_smmu_secure_domain_lock(smmu_domain);
 
 	__saved_iova_start = iova;
@@ -3354,6 +3373,9 @@ static size_t arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
 	}
 
 out:
+	if (!IS_ENABLED(CONFIG_ARM_SMMU_SKIP_MAP_POWER_ON))
+		arm_smmu_domain_power_off(domain, smmu_domain->smmu);
+
 	arm_smmu_assign_table(smmu_domain);
 	arm_smmu_secure_domain_unlock(smmu_domain);
 

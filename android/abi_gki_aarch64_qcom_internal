@@ -1,6 +1,6 @@
 # List of symbols exported by QCOM in-kernel drivers and used by external DLKMs
 # QCOM internal whitelist
-[abi_whitelist]
+[abi_symbol_list]
   cnss_lock_pm_sem
   cnss_release_pm_sem
   cnss_get_fw_files_for_target

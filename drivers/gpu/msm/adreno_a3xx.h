@@ -44,6 +44,6 @@ unsigned int a3xx_irq_pending(struct adreno_device *adreno_dev);
 void a3xx_snapshot(struct adreno_device *adreno_dev,
 		struct kgsl_snapshot *snapshot);
 
-extern struct adreno_perfcounters adreno_a3xx_perfcounters;
+extern const struct adreno_perfcounters adreno_a3xx_perfcounters;
 
 #endif /*__A3XX_H */

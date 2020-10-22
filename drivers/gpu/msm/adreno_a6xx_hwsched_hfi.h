@@ -104,6 +104,9 @@ enum mem_kind {
 /* Host initializes the buffer */
 #define MEMFLAG_HOST_INIT       BIT(9)
 
+/* Gfx buffer needs to be secure */
+#define MEMFLAG_GFX_SECURE      BIT(12)
+
 struct mem_alloc_entry {
 	struct hfi_mem_alloc_desc desc;
 	struct kgsl_memdesc *gpu_md;
@@ -214,4 +217,15 @@ void a6xx_hwsched_context_detach(struct adreno_context *drawctxt);
 
 /* Helper function to get to a6xx hwsched hfi device from adreno device */
 struct a6xx_hwsched_hfi *to_a6xx_hwsched_hfi(struct adreno_device *adreno_dev);
+
+/**
+ * a6xx_hwsched_preempt_count_get - Get preemption count from GMU
+ * @adreno_dev: Pointer to adreno device
+ *
+ * This function sends a GET_VALUE HFI packet to get the number of
+ * preemptions completed since last SLUMBER exit.
+ *
+ * Return: Preemption count on success or negative error on failure
+ */
+int a6xx_hwsched_preempt_count_get(struct adreno_device *adreno_dev);
 #endif

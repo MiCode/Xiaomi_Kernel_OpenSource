@@ -31,6 +31,7 @@ msm_kgsl-y += \
 	adreno_a3xx_perfcounter.o \
 	adreno_a3xx_snapshot.o \
 	adreno_a5xx.o \
+	adreno_a5xx_perfcounter.o \
 	adreno_a5xx_preempt.o \
 	adreno_a5xx_snapshot.o \
 	adreno_a6xx.o \
@@ -39,6 +40,7 @@ msm_kgsl-y += \
 	adreno_a6xx_hfi.o \
 	adreno_a6xx_hwsched.o \
 	adreno_a6xx_hwsched_hfi.o \
+	adreno_a6xx_perfcounter.o \
 	adreno_a6xx_preempt.o \
 	adreno_a6xx_rgmu.o \
 	adreno_a6xx_rpmh.o \

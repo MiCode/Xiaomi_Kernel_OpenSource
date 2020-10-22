@@ -522,6 +522,10 @@ static char *cnss_driver_event_to_str(enum cnss_driver_event_type type)
 		return "IDLE_RESTART";
 	case CNSS_DRIVER_EVENT_IDLE_SHUTDOWN:
 		return "IDLE_SHUTDOWN";
+	case CNSS_DRIVER_EVENT_IMS_WFC_CALL_IND:
+		return "IMS_WFC_CALL_IND";
+	case CNSS_DRIVER_EVENT_WLFW_TWT_CFG_IND:
+		return "WLFW_TWC_CFG_IND";
 	case CNSS_DRIVER_EVENT_QDSS_TRACE_REQ_MEM:
 		return "QDSS_TRACE_REQ_MEM";
 	case CNSS_DRIVER_EVENT_QDSS_TRACE_SAVE:
@@ -1156,6 +1160,11 @@ static int cnss_do_recovery(struct cnss_plat_data *plat_priv,
 self_recovery:
 	cnss_pr_dbg("Going for self recovery\n");
 	cnss_bus_dev_shutdown(plat_priv);
+
+	if (test_bit(LINK_DOWN_SELF_RECOVERY, &plat_priv->ctrl_params.quirks))
+		clear_bit(LINK_DOWN_SELF_RECOVERY,
+			  &plat_priv->ctrl_params.quirks);
+
 	cnss_bus_dev_powerup(plat_priv);
 
 	return 0;
@@ -1312,13 +1321,13 @@ int cnss_force_collect_rddm(struct device *dev)
 	}
 
 	if (cnss_bus_is_device_down(plat_priv)) {
-		cnss_pr_info("Device is already in bad state, ignore force collect rddm\n");
-		return 0;
+		cnss_pr_info("Device is already in bad state, wait to collect rddm\n");
+		goto wait_rddm;
 	}
 
 	if (test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state)) {
-		cnss_pr_info("Recovery is already in progress, ignore forced collect rddm\n");
-		return 0;
+		cnss_pr_info("Recovery is already in progress, wait to collect rddm\n");
+		goto wait_rddm;
 	}
 
 	if (test_bit(CNSS_DRIVER_LOADING, &plat_priv->driver_state) ||
@@ -1333,6 +1342,7 @@ int cnss_force_collect_rddm(struct device *dev)
 	if (ret)
 		return ret;
 
+wait_rddm:
 	reinit_completion(&plat_priv->rddm_complete);
 	ret = wait_for_completion_timeout
 		(&plat_priv->rddm_complete,
@@ -1666,6 +1676,14 @@ static void cnss_driver_event_work(struct work_struct *work)
 			/* fall through */
 		case CNSS_DRIVER_EVENT_POWER_DOWN:
 			ret = cnss_power_down_hdlr(plat_priv);
+			break;
+		case CNSS_DRIVER_EVENT_IMS_WFC_CALL_IND:
+			ret = cnss_process_wfc_call_ind_event(plat_priv,
+							      event->data);
+			break;
+		case CNSS_DRIVER_EVENT_WLFW_TWT_CFG_IND:
+			ret = cnss_process_twt_cfg_ind_event(plat_priv,
+							     event->data);
 			break;
 		case CNSS_DRIVER_EVENT_QDSS_TRACE_REQ_MEM:
 			ret = cnss_qdss_trace_req_mem_hdlr(plat_priv);
@@ -2667,10 +2685,6 @@ static void cnss_init_control_params(struct cnss_plat_data *plat_priv)
 	plat_priv->cbc_enabled =
 		of_property_read_bool(plat_priv->plat_dev->dev.of_node,
 				      "qcom,wlan-cbc-enabled");
-
-	if (of_property_read_bool(plat_priv->plat_dev->dev.of_node,
-				  "cnss-enable-self-recovery"))
-		plat_priv->ctrl_params.quirks |= BIT(LINK_DOWN_SELF_RECOVERY);
 
 	plat_priv->ctrl_params.mhi_timeout = CNSS_MHI_TIMEOUT_DEFAULT;
 	plat_priv->ctrl_params.mhi_m2_timeout = CNSS_MHI_M2_TIMEOUT_DEFAULT;

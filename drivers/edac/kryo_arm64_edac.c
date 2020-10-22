@@ -36,6 +36,7 @@
 #define QCOM_CPU_PART_KRYO4XX_SILVER_V2 0x805
 
 #define QCOM_CPU_PART_KRYO6XX_SILVER_V1 0xD05
+#define QCOM_CPU_PART_KRYO6XX_GOLD 0xD41
 #define QCOM_CPU_PART_KRYO6XX_GOLDPLUS 0xD44
 
 #define L1_GOLD_IC_BIT 0x1
@@ -262,6 +263,7 @@ static void dump_err_reg(int errorcode, int level, u64 errxstatus, u64 errxmisc,
 			break;
 		case QCOM_CPU_PART_KRYO4XX_GOLD:
 		case QCOM_CPU_PART_KRYO5XX_GOLD:
+		case QCOM_CPU_PART_KRYO6XX_GOLD:
 		case QCOM_CPU_PART_KRYO6XX_GOLDPLUS:
 			way = (int) KRYO_ERRXMISC_WAY(errxmisc);
 			break;
@@ -303,6 +305,7 @@ static void kryo_parse_l1_l2_cache_error(u64 errxstatus, u64 errxmisc,
 		break;
 	case QCOM_CPU_PART_KRYO4XX_GOLD:
 	case QCOM_CPU_PART_KRYO5XX_GOLD:
+	case QCOM_CPU_PART_KRYO6XX_GOLD:
 	case QCOM_CPU_PART_KRYO6XX_GOLDPLUS:
 		switch (KRYO_ERRXMISC_LVL_GOLD(errxmisc)) {
 		case L1_GOLD_DC_BIT:
@@ -516,6 +519,10 @@ static int kryo_cpu_erp_probe(struct platform_device *pdev)
 	drv->edev_ctl->ctl_name = "cache";
 #ifdef CONFIG_EDAC_KRYO_ARM64_PANIC_ON_CE
 	drv->edev_ctl->panic_on_ce = ARM64_ERP_PANIC_ON_CE;
+	if (of_property_read_bool(pdev->dev.of_node,
+			"qcom,disable-panic-on-ce"))
+		drv->edev_ctl->panic_on_ce = 0;
+
 #endif
 	drv->edev_ctl->panic_on_ue = ARM64_ERP_PANIC_ON_UE;
 	drv->nb_pm.notifier_call = kryo_pmu_cpu_pm_notify;

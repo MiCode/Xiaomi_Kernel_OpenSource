@@ -247,11 +247,14 @@ static void process_dbgq_irq(struct adreno_device *adreno_dev)
 {
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
 	u32 rcvd[MAX_RCVD_SIZE];
+	bool recovery = false;
 
 	while (a6xx_hfi_queue_read(gmu, HFI_DBG_ID, rcvd, sizeof(rcvd)) > 0) {
 
-		if (MSG_HDR_GET_ID(rcvd[0]) == F2H_MSG_ERR)
+		if (MSG_HDR_GET_ID(rcvd[0]) == F2H_MSG_ERR) {
 			adreno_a6xx_receive_err_req(gmu, rcvd);
+			recovery = true;
+		}
 
 		if (MSG_HDR_GET_ID(rcvd[0]) == F2H_MSG_DEBUG)
 			adreno_a6xx_receive_debug_req(gmu, rcvd);
@@ -259,6 +262,12 @@ static void process_dbgq_irq(struct adreno_device *adreno_dev)
 		if (MSG_HDR_GET_ID(rcvd[0]) == F2H_MSG_LOG_BLOCK)
 			adreno_a6xx_add_log_block(adreno_dev, rcvd);
 	}
+
+	if (!recovery)
+		return;
+
+	adreno_get_gpu_halt(adreno_dev);
+	adreno_hwsched_set_fault(adreno_dev);
 }
 
 /* HFI interrupt handler */
@@ -293,10 +302,13 @@ static irqreturn_t a6xx_hwsched_hfi_handler(int irq, void *data)
 
 		dev_err_ratelimited(&gmu->pdev->dev,
 				"GMU CM3 fault interrupt received\n");
+
+		adreno_get_gpu_halt(adreno_dev);
+		adreno_hwsched_set_fault(adreno_dev);
 	}
 
 	/* Ignore OOB bits */
-	status &= GENMASK(31, 31 - (oob_max - 1));
+	status &= GENMASK(31 - (oob_max - 1), 0);
 
 	if (status & ~hfi->irq_mask)
 		dev_err_ratelimited(&gmu->pdev->dev,
@@ -545,6 +557,9 @@ static struct mem_alloc_entry *get_mem_alloc_entry(
 	if (!(desc->flags & MEMFLAG_GFX_WRITEABLE))
 		flags |= KGSL_MEMFLAGS_GPUREADONLY;
 
+	if (desc->flags & MEMFLAG_GFX_SECURE)
+		flags |= KGSL_MEMFLAGS_SECURE;
+
 	entry->gpu_md = kgsl_allocate_global(device, desc->size, flags, priv,
 		memkind_string);
 	if (IS_ERR(entry->gpu_md)) {
@@ -730,6 +745,26 @@ static void enable_async_hfi(struct adreno_device *adreno_dev)
 		(u32)~hfi->irq_mask);
 }
 
+static int enable_preemption(struct adreno_device *adreno_dev)
+{
+	u32 data;
+
+	if (!adreno_is_preemption_enabled(adreno_dev))
+		return 0;
+
+	/*
+	 * Bits [0:1] contains the preemption level
+	 * Bit 2 is to enable/disable gmem save/restore
+	 * Bit 3 is to enable/disable skipsaverestore
+	 */
+	data = FIELD_PREP(GENMASK(1, 0), adreno_dev->preempt.preempt_level) |
+			FIELD_PREP(BIT(2), adreno_dev->preempt.usesgmem) |
+			FIELD_PREP(BIT(3), adreno_dev->preempt.skipsaverestore);
+
+	return a6xx_hfi_send_feature_ctrl(adreno_dev, HFI_FEATURE_PREEMPTION, 1,
+			data);
+}
+
 int a6xx_hwsched_hfi_start(struct adreno_device *adreno_dev)
 {
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
@@ -766,7 +801,11 @@ int a6xx_hwsched_hfi_start(struct adreno_device *adreno_dev)
 
 	ret = a6xx_hfi_send_feature_ctrl(adreno_dev, HFI_FEATURE_KPROF, 1, 0);
 	if (ret)
-		return ret;
+		goto err;
+
+	ret = enable_preemption(adreno_dev);
+	if (ret)
+		goto err;
 
 	ret = a6xx_hfi_send_core_fw_start(adreno_dev);
 	if (ret)
@@ -1161,7 +1200,7 @@ int a6xx_hwsched_submit_cmdobj(struct adreno_device *adreno_dev,
 	if (WARN_ON(cmd_sizebytes > HFI_MAX_MSG_SIZE))
 		return -EMSGSIZE;
 
-	cmd = kvmalloc(cmd_sizebytes, GFP_KERNEL);
+	cmd = kmalloc(cmd_sizebytes, GFP_KERNEL);
 	if (cmd == NULL)
 		return -ENOMEM;
 
@@ -1225,7 +1264,7 @@ skipib:
 	adreno_profile_submit_time(&time);
 
 free:
-	kvfree(cmd);
+	kfree(cmd);
 
 	return ret;
 }
@@ -1325,4 +1364,41 @@ void a6xx_hwsched_context_detach(struct adreno_context *drawctxt)
 	context->gmu_registered = false;
 
 	mutex_unlock(&device->mutex);
+}
+
+int a6xx_hwsched_preempt_count_get(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct hfi_get_value_cmd cmd;
+	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
+	struct a6xx_hwsched_hfi *hfi = to_a6xx_hwsched_hfi(adreno_dev);
+	u32 seqnum = atomic_inc_return(&gmu->hfi.seqnum);
+	struct pending_cmd pending_ack;
+	int rc;
+
+	if (device->state != KGSL_STATE_ACTIVE)
+		return 0;
+
+	CMD_MSG_HDR(cmd, H2F_MSG_GET_VALUE);
+
+	cmd.hdr = MSG_HDR_SET_SEQNUM(cmd.hdr, seqnum);
+	cmd.type = HFI_VALUE_PREEMPT_COUNT;
+	cmd.subtype = 0;
+
+	add_waiter(hfi, cmd.hdr, &pending_ack);
+
+	rc = a6xx_hfi_cmdq_write(adreno_dev, (u32 *)&cmd);
+	if (rc)
+		goto done;
+
+	rc = wait_ack_completion(adreno_dev, &pending_ack);
+	if (rc)
+		goto done;
+
+	rc = check_ack_failure(adreno_dev, &pending_ack);
+
+done:
+	del_waiter(hfi, &pending_ack);
+
+	return rc ? rc : pending_ack.results[2];
 }

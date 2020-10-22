@@ -143,6 +143,7 @@ static int qti_hwkm_master_transaction(struct hwkm_device *dev,
 	int i = 0;
 	int err = 0;
 	u32 val = 0;
+	uint32_t rsp_discard;
 
 	// Clear CMD FIFO
 	qti_hwkm_setb(dev, QTI_HWKM_MASTER_RG_BANK2_BANKN_CTL,
@@ -175,6 +176,22 @@ static int qti_hwkm_master_transaction(struct hwkm_device *dev,
 		pr_err("%s: CMD_FIFO_CLEAR_BIT not set\n", __func__);
 		err = -1;
 		return -err;
+	}
+
+	if (qti_hwkm_testb(dev, QTI_HWKM_MASTER_RG_BANK2_BANKN_IRQ_STATUS,
+			RSP_FIFO_NOT_EMPTY, KM_MASTER)) {
+		while (qti_hwkm_get_reg_data(dev,
+			QTI_HWKM_MASTER_RG_BANK2_BANKN_STATUS,
+			RSP_FIFO_AVAILABLE_DATA, RSP_FIFO_AVAILABLE_DATA_MASK,
+			KM_MASTER) > 0) {
+			rsp_discard = qti_hwkm_readl(dev,
+				QTI_HWKM_MASTER_RG_BANK2_RSP_0, KM_MASTER);
+		}
+		// Clear RSP_FIFO_NOT_EMPTY status bit
+		qti_hwkm_setb(dev, QTI_HWKM_MASTER_RG_BANK2_BANKN_IRQ_STATUS,
+			RSP_FIFO_NOT_EMPTY, KM_MASTER);
+		/* Write memory barrier */
+		wmb();
 	}
 
 	for (i = 0; i < cmd_words; i++) {
@@ -258,6 +275,7 @@ static int qti_hwkm_ice_transaction(struct hwkm_device *dev,
 	int i = 0;
 	int err = 0;
 	u32 val = 0;
+	uint32_t rsp_discard;
 
 	// Clear CMD FIFO
 	qti_hwkm_setb(dev, QTI_HWKM_ICE_RG_BANK0_BANKN_CTL,
@@ -291,6 +309,22 @@ static int qti_hwkm_ice_transaction(struct hwkm_device *dev,
 		pr_err("%s: CMD_FIFO_CLEAR_BIT not set\n", __func__);
 		err = -1;
 		return err;
+	}
+
+	if (qti_hwkm_testb(dev, QTI_HWKM_ICE_RG_BANK0_BANKN_IRQ_STATUS,
+			RSP_FIFO_NOT_EMPTY, ICEMEM_SLAVE)) {
+		while (qti_hwkm_get_reg_data(dev,
+			QTI_HWKM_ICE_RG_BANK0_BANKN_STATUS,
+			RSP_FIFO_AVAILABLE_DATA, RSP_FIFO_AVAILABLE_DATA_MASK,
+			ICEMEM_SLAVE) > 0) {
+			rsp_discard = qti_hwkm_readl(dev,
+				QTI_HWKM_ICE_RG_BANK0_RSP_0, ICEMEM_SLAVE);
+		}
+		// Clear RSP_FIFO_NOT_EMPTY status bit
+		qti_hwkm_setb(dev, QTI_HWKM_ICE_RG_BANK0_BANKN_IRQ_STATUS,
+			RSP_FIFO_NOT_EMPTY, ICEMEM_SLAVE);
+		/* Write memory barrier */
+		wmb();
 	}
 
 	for (i = 0; i < cmd_words; i++) {

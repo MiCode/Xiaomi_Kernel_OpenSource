@@ -81,7 +81,7 @@ static struct qcom_irq_info *search(struct qcom_irq_info *key,
 				    struct qcom_irq_info *base,
 				    size_t num, compare_t cmp)
 {
-	struct qcom_irq_info *pivot;
+	struct qcom_irq_info *pivot = NULL;
 	int result;
 
 	while (num > 0) {
@@ -101,6 +101,10 @@ static struct qcom_irq_info *search(struct qcom_irq_info *key,
 	}
 
 out:
+	if (pivot)
+		pr_debug("*pivot:%u key:%u\n",
+			pivot->total_count, key->total_count);
+
 	return pivot;
 }
 
@@ -184,9 +188,6 @@ static void compute_irq_stat(struct work_struct *work)
 		pos = search(&key, wdog_dd->irq_counts,
 			     arr_size, cmp_irq_info_fn);
 
-		pr_debug("*pos:%u key:%u\n",
-			  pos->total_count, key.total_count);
-
 		if (pos && (pos->total_count >= key.total_count)) {
 			if (pos < start)
 				pos++;
@@ -259,7 +260,7 @@ static void boot_log_init(void)
 	else
 		size = BOOT_LOG_SIZE;
 
-	start = kmalloc(size, GFP_KERNEL);
+	start = kzalloc(size, GFP_KERNEL);
 	if (!start)
 		goto out;
 
@@ -444,8 +445,14 @@ static void qcom_wdt_register_die_notifier(struct msm_watchdog_data *wdog_dd)
 	wdog_dd->die_blk.priority = INT_MAX - 1;
 	register_die_notifier(&wdog_dd->die_blk);
 }
+
+static void qcom_wdt_unregister_die_notifier(struct msm_watchdog_data *wdog_dd)
+{
+	unregister_die_notifier(&wdog_dd->die_blk);
+}
 #else
 static void qcom_wdt_register_die_notifier(struct msm_watchdog_data *wdog_dd) { }
+static void qcom_wdt_unregister_die_notifier(struct msm_watchdog_data *wdog_dd) { }
 #endif
 
 static void qcom_wdt_disable(struct msm_watchdog_data *wdog_dd)
@@ -457,6 +464,8 @@ static void qcom_wdt_disable(struct msm_watchdog_data *wdog_dd)
 	smp_mb();
 	atomic_notifier_chain_unregister(&panic_notifier_list,
 						&wdog_dd->panic_blk);
+	qcom_wdt_unregister_die_notifier(wdog_dd);
+	unregister_restart_handler(&wdog_dd->restart_blk);
 	del_timer_sync(&wdog_dd->pet_timer);
 	wdog_dd->ops->disable_wdt(wdog_dd);
 	dev_err(wdog_dd->dev, "QCOM Apps Watchdog deactivated\n");
@@ -847,11 +856,19 @@ static int qcom_wdt_init(struct msm_watchdog_data *wdog_dd,
 	val = BIT(EN);
 	if (wdog_dd->wakeup_irq_enable)
 		val |= BIT(UNMASKED_INT_EN);
+
 	ret = wdog_dd->ops->enable_wdt(val, wdog_dd);
 	if (ret) {
+		atomic_notifier_chain_unregister(&panic_notifier_list,
+						 &wdog_dd->panic_blk);
+		qcom_wdt_unregister_die_notifier(wdog_dd);
+		unregister_restart_handler(&wdog_dd->restart_blk);
+		del_timer_sync(&wdog_dd->pet_timer);
+		flush_work(&wdog_dd->irq_counts_work);
 		dev_err(wdog_dd->dev, "Failed Initializing QCOM Apps Watchdog\n");
 		return ret;
 	}
+
 	wdog_dd->ops->reset_wdt(wdog_dd);
 	wdog_dd->last_pet = sched_clock();
 	wdog_dd->enabled = true;
@@ -917,8 +934,10 @@ int qcom_wdt_register(struct platform_device *pdev,
 		goto err;
 	}
 	ret = qcom_wdt_init(wdog_dd, pdev);
-	if (ret)
+	if (ret) {
+		kthread_stop(wdog_dd->watchdog_task);
 		goto err;
+	}
 
 	boot_log_init();
 

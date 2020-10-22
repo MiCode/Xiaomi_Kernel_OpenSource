@@ -318,6 +318,17 @@ void a6xx_gmu_sptprac_disable(struct adreno_device *adreno_dev);
 bool a6xx_gmu_sptprac_is_on(struct adreno_device *adreno_dev);
 
 /**
+ * a6xx_do_gbif_halt - halt gbif traffic and wait for ack
+ * @adreno_dev: An Adreno GPU handle
+ * @halt_reg: reg to trigger gbif halt
+ * @ack_reg: status register to check for ack
+ * @mask: mask for ack
+ * @client: client name - "GX" or "CX"
+ */
+void a6xx_do_gbif_halt(struct adreno_device *adreno_dev,
+	u32 halt_reg, u32 ack_reg, u32 mask, const char *client);
+
+/**
  * a6xx_read_alwayson - Read the current always on clock value
  * @adreno_dev: An Adreno GPU handle
  *
@@ -407,4 +418,19 @@ bool a6xx_hw_isidle(struct adreno_device *adreno_dev);
  */
 void a6xx_spin_idle_debug(struct adreno_device *adreno_dev,
 	const char *str);
+
+/**
+ * a6xx_perfcounter_update - Update the IFPC perfcounter list
+ * @adreno_dev: An Adreno GPU handle
+ * @reg: Perfcounter reg struct to add/remove to the list
+ * @update_reg: true if the perfcounter needs to be programmed by the CPU
+ *
+ * Return: 0 on success or -EBUSY if the lock couldn't be taken
+ */
+int a6xx_perfcounter_update(struct adreno_device *adreno_dev,
+	struct adreno_perfcount_register *reg, bool update_reg);
+
+extern const struct adreno_perfcounters adreno_a630_perfcounters;
+extern const struct adreno_perfcounters adreno_a6xx_perfcounters;
+extern const struct adreno_perfcounters adreno_a6xx_legacy_perfcounters;
 #endif

@@ -2126,13 +2126,19 @@ static void fts_resume_work(struct work_struct *work)
 	fts_ts_resume(ts_data->dev);
 }
 
+static void fts_suspend_work(struct work_struct *work)
+{
+	struct fts_ts_data *ts_data = container_of(work, struct fts_ts_data,
+					resume_work);
+
+	fts_ts_suspend(ts_data->dev);
+}
+
 static int fb_notifier_callback(struct notifier_block *self,
 				unsigned long event, void *data)
 {
 	struct drm_panel_notifier *evdata = data;
 	int *blank = NULL;
-	struct fts_ts_data *ts_data = container_of(self, struct fts_ts_data,
-			fb_notif);
 
 	if (!evdata)
 		return 0;
@@ -2156,8 +2162,8 @@ static int fb_notifier_callback(struct notifier_block *self,
 
 	case DRM_PANEL_BLANK_POWERDOWN:
 		if (event == DRM_PANEL_EARLY_EVENT_BLANK) {
-			cancel_work_sync(&fts_data->resume_work);
-			fts_ts_suspend(ts_data->dev);
+			queue_work(fts_data->ts_workqueue,
+					&fts_data->suspend_work);
 		} else if (event == DRM_PANEL_EVENT_BLANK) {
 			FTS_DEBUG("suspend: event = %lu, not care\n", event);
 		}
@@ -2180,13 +2186,19 @@ static void fts_resume_work(struct work_struct *work)
 	fts_ts_resume(ts_data->dev);
 }
 
+static void fts_suspend_work(struct work_struct *work)
+{
+	struct fts_ts_data *ts_data = container_of(work, struct fts_ts_data,
+					resume_work);
+
+	fts_ts_suspend(ts_data->dev);
+}
+
 static int fb_notifier_callback(struct notifier_block *self,
 				unsigned long event, void *data)
 {
 	struct fb_event *evdata = data;
 	int *blank = NULL;
-	struct fts_ts_data *ts_data = container_of(self, struct fts_ts_data,
-					fb_notif);
 
 	if (!(event == FB_EARLY_EVENT_BLANK || event == FB_EVENT_BLANK)) {
 		FTS_INFO("event(%lu) do not need process\n", event);
@@ -2413,6 +2425,7 @@ static int fts_ts_probe_entry(struct fts_ts_data *ts_data)
 #if defined(CONFIG_DRM)
 	if (ts_data->ts_workqueue) {
 		INIT_WORK(&ts_data->resume_work, fts_resume_work);
+		INIT_WORK(&ts_data->suspend_work, fts_suspend_work);
 	}
 	ts_data->fb_notif.notifier_call = fb_notifier_callback;
 
@@ -2424,6 +2437,7 @@ static int fts_ts_probe_entry(struct fts_ts_data *ts_data)
 #elif defined(CONFIG_FB)
 	if (ts_data->ts_workqueue) {
 		INIT_WORK(&ts_data->resume_work, fts_resume_work);
+		INIT_WORK(&ts_data->suspend_work, fts_suspend_work);
 	}
 	ts_data->fb_notif.notifier_call = fb_notifier_callback;
 	ret = fb_register_client(&ts_data->fb_notif);

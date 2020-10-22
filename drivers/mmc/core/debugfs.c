@@ -222,6 +222,83 @@ static int mmc_clock_opt_set(void *data, u64 val)
 DEFINE_SIMPLE_ATTRIBUTE(mmc_clock_fops, mmc_clock_opt_get, mmc_clock_opt_set,
 	"%llu\n");
 
+#if defined(CONFIG_SDC_QTI)
+static int mmc_scale_get(void *data, u64 *val)
+{
+	struct mmc_host *host = data;
+
+	*val = host->clk_scaling.curr_freq;
+
+	return 0;
+}
+
+static int mmc_scale_set(void *data, u64 val)
+{
+	int err = 0;
+	struct mmc_host *host = data;
+
+	mmc_claim_host(host);
+
+	/* change frequency from sysfs manually */
+	err = mmc_clk_update_freq(host, val, host->clk_scaling.state);
+	if (err == -EAGAIN)
+		err = 0;
+	else if (err)
+		pr_err("%s: clock scale to %llu failed with error %d\n",
+			mmc_hostname(host), val, err);
+	else
+		pr_debug("%s: clock change to %llu finished successfully (%s)\n",
+			mmc_hostname(host), val, current->comm);
+
+	mmc_release_host(host);
+
+	return err;
+}
+
+DEFINE_DEBUGFS_ATTRIBUTE(mmc_scale_fops, mmc_scale_get, mmc_scale_set,
+	"%llu\n");
+
+static int mmc_max_clock_get(void *data, u64 *val)
+{
+	struct mmc_host *host = data;
+
+	if (!host)
+		return -EINVAL;
+
+	*val = host->f_max;
+
+	return 0;
+}
+
+static int mmc_max_clock_set(void *data, u64 val)
+{
+	struct mmc_host *host = data;
+	int err = -EINVAL;
+	unsigned long freq = val;
+	unsigned int old_freq;
+
+	if (!host || (val < host->f_min))
+		goto out;
+
+	mmc_claim_host(host);
+	if (host->bus_ops && host->bus_ops->change_bus_speed) {
+		old_freq = host->f_max;
+		host->f_max = freq;
+
+		err = host->bus_ops->change_bus_speed(host, &freq);
+
+		if (err)
+			host->f_max = old_freq;
+	}
+	mmc_release_host(host);
+out:
+	return err;
+}
+
+DEFINE_DEBUGFS_ATTRIBUTE(mmc_max_clock_fops, mmc_max_clock_get,
+		mmc_max_clock_set, "%llu\n");
+#endif
+
 void mmc_add_host_debugfs(struct mmc_host *host)
 {
 	struct dentry *root;
@@ -234,6 +311,15 @@ void mmc_add_host_debugfs(struct mmc_host *host)
 	debugfs_create_x32("caps2", S_IRUSR, root, &host->caps2);
 	debugfs_create_file("clock", S_IRUSR | S_IWUSR, root, host,
 			    &mmc_clock_fops);
+#if defined(CONFIG_SDC_QTI)
+	debugfs_create_file("max_clock", 0600, root, host,
+		&mmc_max_clock_fops);
+	debugfs_create_file("scale", 0600, root, host,
+		&mmc_scale_fops);
+	debugfs_create_bool("skip_clk_scale_freq_update",
+		0600, root,
+		&host->clk_scaling.skip_clk_scale_freq_update);
+#endif
 
 #ifdef CONFIG_FAIL_MMC_REQUEST
 	if (fail_request)

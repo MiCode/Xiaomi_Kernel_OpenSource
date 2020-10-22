@@ -3,6 +3,8 @@
  * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  */
 
+#include <linux/iopoll.h>
+
 #include "adreno.h"
 #include "adreno_a6xx.h"
 #include "adreno_snapshot.h"
@@ -327,8 +329,10 @@ static const unsigned int a6xx_pre_crashdumper_registers[] = {
 };
 
 static const unsigned int a6xx_gmu_wrapper_registers[] = {
+	/* GMU SPTPRAC */
+	0x1a880, 0x1a881,
 	/* GMU CX */
-	0x1f840, 0x1f840, 0x1f844, 0x1f845, 0x1f887, 0x1f889,
+	0x1f840, 0x1f840, 0x1f844, 0x1f845, 0x1f887, 0x1f889, 0x1f8d0, 0x1f8d0,
 	/* GMU AO*/
 	0x23b0C, 0x23b0E, 0x23b15, 0x23b15,
 	/* GPU CC */
@@ -533,7 +537,6 @@ static struct a6xx_shader_block a6xx_shader_blocks[] = {
 	{A6XX_TP1_TMO_DATA,               0x200},
 	{A6XX_TP1_SMO_DATA,               0x80,},
 	{A6XX_TP1_MIPMAP_BASE_DATA,       0x3C0},
-	{A6XX_SP_INST_DATA,               0x800},
 	{A6XX_SP_LB_0_DATA,               0x800},
 	{A6XX_SP_LB_1_DATA,               0x800},
 	{A6XX_SP_LB_2_DATA,               0x800},
@@ -543,7 +546,6 @@ static struct a6xx_shader_block a6xx_shader_blocks[] = {
 	{A6XX_SP_CB_BINDLESS_DATA,        0x800},
 	{A6XX_SP_CB_LEGACY_DATA,          0x280,},
 	{A6XX_SP_UAV_DATA,                0x80,},
-	{A6XX_SP_INST_TAG,                0x80,},
 	{A6XX_SP_CB_BINDLESS_TAG,         0x80,},
 	{A6XX_SP_TMO_UMO_TAG,             0x80,},
 	{A6XX_SP_SMO_TAG,                 0x80},
@@ -1564,8 +1566,8 @@ static size_t a6xx_snapshot_sqe(struct kgsl_device *device, u8 *buf,
 
 static void _a6xx_do_crashdump(struct kgsl_device *device)
 {
-	unsigned long wait_time;
-	unsigned int reg = 0;
+	u32 val = 0;
+	int ret;
 
 	crash_dump_valid = false;
 
@@ -1590,19 +1592,21 @@ static void _a6xx_do_crashdump(struct kgsl_device *device)
 			upper_32_bits(a6xx_capturescript->gpuaddr));
 	kgsl_regwrite(device, A6XX_CP_CRASH_DUMP_CNTL, 1);
 
-	wait_time = jiffies + msecs_to_jiffies(CP_CRASH_DUMPER_TIMEOUT);
-	while (!time_after(jiffies, wait_time)) {
-		kgsl_regread(device, A6XX_CP_CRASH_DUMP_STATUS, &reg);
-		if (reg & 0x2)
-			break;
-		cpu_relax();
-	}
+	/* wait 100 ms before starting the loop */
+	 schedule_timeout_interruptible(HZ/10);
+
+	 /* Read every 10ms for 900ms */
+	 ret = readl_poll_timeout(device->reg_virt +
+			 (A6XX_CP_CRASH_DUMP_STATUS << 2),
+			  val, val & 0x02, 10000, 900 * 1000);
+	if (ret)
+		kgsl_regread(device, A6XX_CP_CRASH_DUMP_STATUS, &val);
 
 	if (!ADRENO_FEATURE(ADRENO_DEVICE(device), ADRENO_APRIV))
 		kgsl_regwrite(device, A6XX_CP_MISC_CNTL, 0);
 
-	if (!(reg & 0x2)) {
-		dev_err(device->dev, "Crash dump timed out: 0x%X\n", reg);
+	if (ret) {
+		dev_err(device->dev, "Crash dump timed out: 0x%X\n", val);
 		return;
 	}
 
