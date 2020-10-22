@@ -28,6 +28,7 @@
 struct mdla_pwr_ctrl {
 	int mdla_id;
 	struct mutex lock;
+	struct lock_class_key lock_key;
 	struct wakeup_source *wakeup;
 	struct timer_list power_off_timer;
 	struct work_struct power_off_work;
@@ -293,19 +294,6 @@ int mdla_pwr_device_register(struct platform_device *pdev,
 	platform_set_drvdata(pdev, pwr_data);
 
 	for_each_mdla_core(i) {
-
-		pwr_ctrl = kzalloc(sizeof(struct mdla_pwr_ctrl), GFP_KERNEL);
-		if (!pwr_ctrl)
-			goto out;
-
-		pwr_ctrl->mdla_id = i;
-		mutex_init(&pwr_ctrl->lock);
-		timer_setup(&pwr_ctrl->power_off_timer, mdla_pwr_timeup, 0);
-
-		pwr_ctrl->power_off_cb_func = mdla_pwr_off;
-		INIT_WORK(&pwr_ctrl->power_off_work,
-				pwr_ctrl->power_off_cb_func);
-
 		user_mdla = get_pwr_id(i);
 		ret = apu_power_device_register(user_mdla, pdev);
 		if (!ret) {
@@ -316,12 +304,29 @@ int mdla_pwr_device_register(struct platform_device *pdev,
 			mdla_err("%s register power device %d fail\n",
 							__func__,
 							user_mdla);
-			kfree(pwr_ctrl);
-			goto out;
+			goto reg_pwr_err;
 		}
+	}
 
-		if (snprintf(ws_str, sizeof(ws_str), "mdla_%d", i) > 0)
-			pwr_ctrl->wakeup = wakeup_source_register(NULL, ws_str);
+	if ((on == NULL) && (off == NULL))
+		return 0;
+
+	for_each_mdla_core(i) {
+
+		pwr_ctrl = kzalloc(sizeof(struct mdla_pwr_ctrl), GFP_KERNEL);
+		if (!pwr_ctrl)
+			goto alloc_err;
+
+		pwr_ctrl->mdla_id = i;
+		mutex_init(&pwr_ctrl->lock);
+		lockdep_set_class(&pwr_ctrl->lock, &pwr_ctrl->lock_key);
+		timer_setup(&pwr_ctrl->power_off_timer, mdla_pwr_timeup, 0);
+
+		pwr_ctrl->power_off_cb_func = mdla_pwr_off;
+		INIT_WORK(&pwr_ctrl->power_off_work,
+				pwr_ctrl->power_off_cb_func);
+
+		pwr_ctrl->wakeup = wakeup_source_register(NULL, "mdla");
 
 		if (!pwr_ctrl->wakeup)
 			mdla_err("mdla%d wakelock register fail!\n", i);
@@ -351,15 +356,20 @@ int mdla_pwr_device_register(struct platform_device *pdev,
 
 	return 0;
 
-out:
+alloc_err:
 	for (i = i - 1;  i >= 0; i--) {
 		pwr_ctrl = mdla_get_device(i)->power;
 		wakeup_source_unregister(pwr_ctrl->wakeup);
 		mutex_destroy(&pwr_ctrl->lock);
 		kfree(pwr_ctrl);
 		mdla_get_device(i)->power = NULL;
-		apu_power_device_unregister(get_pwr_id(i));
 	}
+	i = mdla_util_get_core_num();
+
+reg_pwr_err:
+	for (i = i - 1;  i >= 0; i--)
+		apu_power_device_unregister(get_pwr_id(i));
+
 	kfree(pwr_data);
 
 	return -1;
@@ -368,18 +378,15 @@ out:
 int mdla_pwr_device_unregister(struct platform_device *pdev)
 {
 	struct mdla_pwr_ctrl *pwr_ctrl;
-	enum DVFS_USER user_mdla;
 	int i;
 
 	for_each_mdla_core(i)
 		mdla_power.off(i, 0, true);
 
 	for_each_mdla_core(i) {
-		user_mdla = get_pwr_id(i);
-		apu_power_device_unregister(user_mdla);
+		apu_power_device_unregister(get_pwr_id(i));
 
 		pwr_ctrl = mdla_get_device(i)->power;
-
 		if (!pwr_ctrl)
 			continue;
 

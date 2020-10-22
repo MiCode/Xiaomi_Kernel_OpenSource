@@ -28,8 +28,8 @@ struct mdla_dbgfs_file {
 };
 
 static struct mdla_dbgfs_file ull_dbgfs_file[NF_MDLA_DEBUG_FS_U64 + 1] = {
-	[FS_CFG_PMU_PERIOD] = { .mode = 0660, .str = "period"},
-	[NF_MDLA_DEBUG_FS_U64] = { .str = "unknown"},
+	[FS_CFG_PMU_PERIOD]     = { .mode = 0660, .str = "period"},
+	[NF_MDLA_DEBUG_FS_U64]  = { .str = "unknown"},
 };
 
 static struct mdla_dbgfs_file u_dbgfs_file[NF_MDLA_DEBUG_FS_U32 + 1] = {
@@ -105,10 +105,7 @@ static int mdla_dbg_dummy_create(struct mdla_dev *a0, struct command_entry *a1)
 {
 	return -1;
 }
-static void mdla_dbg_dummy_dump(u32 core_id,
-		struct seq_file *s)
-{
-}
+static void mdla_dbg_dummy_dump(u32 core_id, struct seq_file *s) {}
 static void mdla_dbg_dummy_mem_show(struct seq_file *s) {}
 static bool mdla_dbg_dummy_enable(int node)
 {

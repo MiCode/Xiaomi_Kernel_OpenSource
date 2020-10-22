@@ -54,7 +54,8 @@ void mdla_exit(void)
 	pr_info("%s()!!\n", __func__);
 }
 
-#if ONLY_MDLA_MODULE
+#ifdef INIT_MDLA_BY_SELF
+#ifdef BUILD_MODULE
 static int mdla_mod_init(void)
 {
 	return mdla_init(NULL);
@@ -70,5 +71,12 @@ module_exit(mdla_mod_exit);
 MODULE_DESCRIPTION("MDLA Driver");
 MODULE_AUTHOR("SPT1/SS5");
 MODULE_LICENSE("GPL");
+#else
+static int mdla_mod_init(void)
+{
+	return mdla_init(NULL);
+}
+late_initcall(mdla_mod_init);
+#endif
 #endif
 
