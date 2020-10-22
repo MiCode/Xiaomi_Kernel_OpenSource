@@ -450,6 +450,9 @@ static int mdla_sw_multi_devices_init(struct device *dev)
 		INIT_LIST_HEAD(&mdla_plat_devices[i].cmd_list);
 		init_completion(&mdla_plat_devices[i].command_done);
 		spin_lock_init(&mdla_plat_devices[i].hw_lock);
+		lockdep_set_class(
+				&mdla_plat_devices[i].hw_lock,
+				&mdla_plat_devices[i].hw_lock_key);
 		mutex_init(&mdla_plat_devices[i].cmd_lock);
 		mutex_init(&mdla_plat_devices[i].cmd_list_lock);
 		mutex_init(&mdla_plat_devices[i].cmd_buf_dmp_lock);

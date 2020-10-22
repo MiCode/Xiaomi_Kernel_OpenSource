@@ -73,14 +73,12 @@ int mdla_pwr_off_v2_0(u32 core_id,
 				int suspend, bool force)
 {
 	int ret = 0;
-	int i;
 	struct mdla_dev *mdla_device = mdla_get_device(core_id);
 
 	if (unlikely(!mdla_device))
 		return -1;
 
-	for_each_mdla_core(i)
-		mdla_pwr_ops_get()->lock(i);
+	mdla_pwr_ops_get()->lock(core_id);
 
 	if (force == true)
 		mdla_device->cmd_list_cnt = 0;
@@ -92,35 +90,24 @@ int mdla_pwr_off_v2_0(u32 core_id,
 
 	mdla_pwr_ops_get()->off_timer_cancel(core_id);
 
-	for_each_mdla_core(i) {
-		if (mdla_get_device(i)->cmd_list_cnt >= 1)
-			goto power_off_done;
-	}
+	if (mdla_get_device(core_id)->cmd_list_cnt >= 1)
+		goto power_off_done;
 
-	/* avoid multi core power down pollute, pdn multi core simultaneously */
-	for_each_mdla_core(i) {
-		if (mdla_get_device(i)->sw_power_is_on)
-			goto power_off_done;
-	}
+	if (mdla_get_device(core_id)->sw_power_is_on)
+		goto power_off_done;
 
-	for_each_mdla_core(i) {
-		if (mdla_get_device(i)->power_is_on == false)
-			continue;
-
-		ret = apu_device_power_suspend(MDLA0 + i, suspend);
-		if (!ret) {
-			mdla_pwr_debug("%s power off device %d (mdla-%d) success\n",
-						__func__, MDLA0 + i, i);
-			mdla_get_device(i)->power_is_on = false;
-		} else {
-			mdla_err("%s power off device %d (mdla-%d) fail(%d)\n",
-						__func__, MDLA0 + i, i, ret);
-		}
+	ret = apu_device_power_suspend(MDLA0 + core_id, suspend);
+	if (!ret) {
+		mdla_pwr_debug("%s power off device %d (mdla-%d) success\n",
+					__func__, MDLA0 + core_id, core_id);
+		mdla_get_device(core_id)->power_is_on = false;
+	} else {
+		mdla_err("%s power off device %d (mdla-%d) fail(%d)\n",
+					__func__, MDLA0 + core_id, core_id, ret);
 	}
 
 power_off_done:
-	for_each_mdla_core(i)
-		mdla_pwr_ops_get()->unlock(i);
+	mdla_pwr_ops_get()->unlock(core_id);
 
 	return ret;
 }

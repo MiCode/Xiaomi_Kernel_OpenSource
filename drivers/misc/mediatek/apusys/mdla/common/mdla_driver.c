@@ -178,7 +178,7 @@ out:
 	return ret;
 }
 
-static int mdla_drv_create_device_node(struct device *dev)
+int mdla_drv_create_device_node(struct device *dev)
 {
 	int ret = 0;
 
@@ -233,7 +233,7 @@ out:
 	return ret;
 }
 
-static void mdla_drv_destroy_device_node(void)
+void mdla_drv_destroy_device_node(void)
 {
 	if (mdlactl_device) {
 		device_destroy(mdlactl_class, mdlactl_dev_num);
@@ -258,11 +258,6 @@ static int mdla_probe(struct platform_device *pdev)
 	struct apusys_device *adev_mdla;
 	struct apusys_device *adev_mdla_rt;
 	struct mdla_dev *mdev;
-
-	ret = mdla_drv_create_device_node(dev);
-
-	if (ret)
-		return ret;
 
 	if (mdla_pwr_apusys_disabled())
 		return -1;
@@ -368,8 +363,6 @@ static int mdla_remove(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, NULL);
 
-	mdla_drv_destroy_device_node();
-
 	dev_info(&pdev->dev, "%s done -\n", __func__);
 
 	return 0;
@@ -405,15 +398,9 @@ static struct platform_driver mdla_driver = {
 
 int mdla_drv_init(void)
 {
-	int ret;
-
 	mdla_driver.driver.of_match_table = mdla_util_get_device_id();
 
-	ret = platform_driver_register(&mdla_driver);
-	if (ret)
-		mdla_drv_destroy_device_node();
-
-	return ret;
+	return platform_driver_register(&mdla_driver);
 }
 
 void mdla_drv_exit(void)

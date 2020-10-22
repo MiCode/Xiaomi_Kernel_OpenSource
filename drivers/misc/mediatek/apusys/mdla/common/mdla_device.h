@@ -103,6 +103,7 @@ struct mdla_dev {
 	struct mutex cmd_list_lock;
 	struct completion command_done;
 	spinlock_t hw_lock;
+	struct lock_class_key hw_lock_key;
 
 	/* power */
 	struct mdla_pwr_ctrl *power;

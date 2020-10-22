@@ -49,7 +49,20 @@ static struct mdla_plat_drv mt6885_drv = {
 	.profile_ver    = PROF_V1,
 };
 
-static struct mdla_plat_drv mt8195_drv = {
+static struct mdla_plat_drv mt6893_drv = {
+	.init           = mdla_v1_x_init,
+	.deinit         = mdla_v1_x_deinit,
+	.sw_cfg         = BIT(CFG_NN_PMU_SUPPORT)
+				| BIT(CFG_SW_PREEMPTION_SUPPORT),
+	.klog           = (MDLA_DBG_CMD | MDLA_DBG_TIMEOUT),
+	.timeout_ms     = 6000,
+	.off_delay_ms   = 2000,
+	.polling_cmd_ms = 5,
+	.pmu_period_us  = 1000,
+	.profile_ver    = PROF_V1,
+};
+
+static struct mdla_plat_drv mt6877_drv = {
 	.init           = mdla_v2_0_init,
 	.deinit         = mdla_v2_0_deinit,
 	.sw_cfg         = BIT(CFG_DUMMY_MMU),
@@ -58,16 +71,13 @@ static struct mdla_plat_drv mt8195_drv = {
 	.off_delay_ms   = 2000,
 	.polling_cmd_ms = 5,
 	.pmu_period_us  = 1000,
-	.profile_ver    = PROF_V2,
+	.profile_ver    = PROF_V1,
 };
 
 static struct mdla_plat_drv rv_drv = {
 	.init           = mdla_rv_init,
 	.deinit         = mdla_rv_deinit,
 	.sw_cfg         = BIT(CFG_MICRO_P_SUPPORT),
-	.timeout_ms     = 6000,
-	.off_delay_ms   = 2000,
-	.pmu_period_us  = 1000,
 	.profile_ver    = PROF_NONE,
 };
 
@@ -76,7 +86,8 @@ static const struct of_device_id mdla_of_match[] = {
 	{ .compatible = "mediatek, mt6779-mdla", .data = &mt6779_drv},
 	{ .compatible = "mediatek, mt6873-mdla", .data = &mt6873_drv},
 	{ .compatible = "mediatek, mt6885-mdla", .data = &mt6885_drv},
-	{ .compatible = "mediatek, mt8195-mdla", .data = &mt8195_drv},
+	{ .compatible = "mediatek, mt6893-mdla", .data = &mt6893_drv},
+	{ .compatible = "mediatek, mt6877-mdla", .data = &mt6877_drv},
 	{ .compatible = "mediatek, mdla-rv", .data = &rv_drv},
 	{ /* end of list */},
 };
