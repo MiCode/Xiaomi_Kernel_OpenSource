@@ -20,7 +20,9 @@
 
 #include "heap-helpers.h"
 
-void init_heap_helper_buffer(struct heap_helper_buffer *buffer,
+static const struct dma_buf_ops qcom_heap_helper_ops;
+
+void qcom_init_heap_helper_buffer(struct heap_helper_buffer *buffer,
 			     void (*free)(struct heap_helper_buffer *))
 {
 	buffer->priv_virt = NULL;
@@ -33,12 +35,12 @@ void init_heap_helper_buffer(struct heap_helper_buffer *buffer,
 	buffer->free = free;
 }
 
-struct dma_buf *heap_helper_export_dmabuf(struct heap_helper_buffer *buffer,
+struct dma_buf *qcom_heap_helper_export_dmabuf(struct heap_helper_buffer *buffer,
 					  int fd_flags)
 {
 	DEFINE_DMA_BUF_EXPORT_INFO(exp_info);
 
-	exp_info.ops = &heap_helper_ops;
+	exp_info.ops = &qcom_heap_helper_ops;
 	exp_info.size = buffer->size;
 	exp_info.flags = fd_flags;
 	exp_info.priv = buffer;
@@ -265,7 +267,7 @@ static void dma_heap_dma_buf_vunmap(struct dma_buf *dmabuf, void *vaddr)
 	mutex_unlock(&buffer->lock);
 }
 
-const struct dma_buf_ops heap_helper_ops = {
+static const struct dma_buf_ops qcom_heap_helper_ops = {
 	.map_dma_buf = dma_heap_map_dma_buf,
 	.unmap_dma_buf = dma_heap_unmap_dma_buf,
 	.mmap = dma_heap_mmap,
