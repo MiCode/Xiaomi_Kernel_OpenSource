@@ -3797,7 +3797,7 @@ static int msm_pcie_link_train(struct msm_pcie_dev_t *dev)
 	if (dev->target_link_speed)
 		msm_pcie_write_reg_field(dev->dm_core,
 			PCIE20_CAP + PCI_EXP_LNKCTL2,
-			PCI_EXP_LNKCAP_SLS, dev->target_link_speed);
+			PCI_EXP_LNKCTL2_TLS, dev->target_link_speed);
 
 	/* set max tlp read size */
 	msm_pcie_write_reg_field(dev->dm_core, PCIE20_DEVICE_CONTROL_STATUS,
@@ -3861,7 +3861,7 @@ static int msm_pcie_link_train(struct msm_pcie_dev_t *dev)
 		if (bw_scale->cx_vreg_min < dev->cx_vreg->min_v) {
 			msm_pcie_write_reg_field(dev->dm_core,
 				PCIE20_CAP + PCI_EXP_LNKCTL2,
-				PCI_EXP_LNKCAP_SLS, current_link_speed);
+				PCI_EXP_LNKCTL2_TLS, current_link_speed);
 			msm_pcie_scale_link_bandwidth(dev, current_link_speed);
 		}
 	}
@@ -6025,7 +6025,7 @@ int msm_pcie_set_link_bandwidth(struct pci_dev *pci_dev, u16 target_link_speed,
 		msm_pcie_config_clear_set_dword(root_pci_dev,
 						root_pci_dev->pcie_cap +
 						PCI_EXP_LNKCTL2,
-						PCI_EXP_LNKSTA_CLS,
+						PCI_EXP_LNKCTL2_TLS,
 						target_link_speed);
 
 	/* need to be in L0 for gen switch */
