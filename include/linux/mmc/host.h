@@ -574,6 +574,9 @@ struct mmc_host {
 
 	/* Host Software Queue support */
 	bool			hsq_enabled;
+#if defined(CONFIG_SDC_QTI)
+	bool                    need_hw_reset;
+#endif
 
 #if defined(CONFIG_SDC_QTI)
 	atomic_t active_reqs;

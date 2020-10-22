@@ -759,17 +759,22 @@ static void cqhci_finish_mrq(struct mmc_host *mmc, unsigned int tag)
 irqreturn_t cqhci_irq(struct mmc_host *mmc, u32 intmask, int cmd_error,
 		      int data_error)
 {
-	u32 status;
+	u32 status, ice_err;
 	unsigned long tag = 0, comp_status;
 	struct cqhci_host *cq_host = mmc->cqe_private;
 
 	status = cqhci_readl(cq_host, CQHCI_IS);
 	cqhci_writel(cq_host, status, CQHCI_IS);
+	ice_err = status & (CQHCI_IS_GCE | CQHCI_IS_ICCE);
 
 	pr_debug("%s: cqhci: IRQ status: 0x%08x\n", mmc_hostname(mmc), status);
 
-	if ((status & CQHCI_IS_RED) || cmd_error || data_error)
+	if ((status & CQHCI_IS_RED) || cmd_error || data_error || ice_err) {
+#if defined(CONFIG_SDC_QTI)
+		mmc->need_hw_reset = true;
+#endif
 		cqhci_error_irq(mmc, status, cmd_error, data_error);
+	}
 
 	if (status & CQHCI_IS_TCC) {
 		/* read TCN and complete the request */
