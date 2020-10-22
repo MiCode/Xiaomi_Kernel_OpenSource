@@ -2529,10 +2529,10 @@
 			clock-names = "apb", "smi", "gals0", "gals1";
 		};
 
-		iommu0: iommu@1401d000 {
+		iommu0: iommu@14016000 {
 			compatible = "mediatek,mt6873-m4u";
-			reg = <0 0x1401d000 0 0x1000>;
-			interrupts = <GIC_SPI 277 IRQ_TYPE_LEVEL_HIGH 0>;
+			reg = <0 0x14016000 0 0x1000>;
+			interrupts = <GIC_SPI 271 IRQ_TYPE_LEVEL_HIGH 0>;
 			mediatek,larbs = <&larb0 &larb1 &larb2
 					  &larb4 &larb7
 					  &larb9 &larb11 &larb13
@@ -2801,7 +2801,7 @@
 		iommu1: iommu@19010000 {
 			compatible = "mediatek,mt6873-apu-iommu";
 			reg = <0 0x19010000 0 0x1000>;
-			interrupts = <GIC_SPI 394 IRQ_TYPE_LEVEL_HIGH 0>;
+			interrupts = <GIC_SPI 395 IRQ_TYPE_LEVEL_HIGH 0>;
 			#iommu-cells = <1>;
 		};
 
