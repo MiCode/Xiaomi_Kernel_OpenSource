@@ -56,7 +56,7 @@ extern int tcpc_typec_handle_ctd(struct tcpc_device *tcpc_dev,
 				 enum tcpc_cable_type cable_type);
 #endif /* CONFIG_CABLE_TYPEC_DETECTION */
 
-#if IS_ENABLED(CONFIG_MTK_CHARGER)
+#ifdef CONFIG_MTK_CHARGER
 extern int tcpc_get_charger_type(struct tcpc_device *tcpc_dev);
 #endif /* CONFIG_MTK_CHARGER */
 #endif /* #ifndef __LINUX_TCPCI_TYPEC_H */
