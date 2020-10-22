@@ -77,8 +77,6 @@ void cnss_ignore_qmi_failure(bool ignore);
 int cnss_qmi_get_dms_mac(struct cnss_plat_data *plat_priv);
 int cnss_wlfw_wlan_mac_req_send_sync(struct cnss_plat_data *plat_priv,
 				     u8 *mac, u32 mac_len);
-int cnss_dms_server_arrive(struct cnss_plat_data *plat_priv, void *data);
-int cnss_dms_server_exit(struct cnss_plat_data *plat_priv);
 int cnss_dms_init(struct cnss_plat_data *plat_priv);
 void cnss_dms_deinit(struct cnss_plat_data *plat_priv);
 #else
@@ -255,17 +253,6 @@ static inline int cnss_qmi_get_dms_mac(struct cnss_plat_data *plat_priv)
 
 int cnss_wlfw_wlan_mac_req_send_sync(struct cnss_plat_data *plat_priv,
 				     u8 *mac, u32 mac_len)
-{
-	return 0;
-}
-
-static inline
-int cnss_dms_server_arrive(struct cnss_plat_data *plat_priv, void *data)
-{
-	return 0;
-}
-
-static inline int cnss_dms_server_exit(struct cnss_plat_data *plat_priv)
 {
 	return 0;
 }
