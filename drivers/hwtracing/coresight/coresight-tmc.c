@@ -611,11 +611,23 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 			dev_err(dev, "failed to get flush cti, defer probe\n");
 			return -EPROBE_DEFER;
 		}
+		ret = of_property_read_u32(adev->dev.of_node, "cti-flush-trig-num",
+				&drvdata->cti_flush_trig_num);
+		if (ret) {
+			dev_err(dev, "failed to get flush cti trigger number, defer probe\n");
+			return ret;
+		}
 
 		drvdata->cti_reset = coresight_cti_get(ctidata->names[1]);
 		if (IS_ERR(drvdata->cti_reset)) {
 			dev_err(dev, "failed to get reset cti, defer probe\n");
 			return -EPROBE_DEFER;
+		}
+		ret = of_property_read_u32(adev->dev.of_node, "cti-reset-trig-num",
+				&drvdata->cti_reset_trig_num);
+		if (ret) {
+			dev_err(dev, "failed to get reset cti trigger number, defer probe\n");
+			return ret;
 		}
 	}
 
