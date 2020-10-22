@@ -2475,57 +2475,29 @@ out:
 }
 
 static int cnss_dms_connect_to_server(struct cnss_plat_data *plat_priv,
-				      void *data)
+				      unsigned int node, unsigned int port)
 {
-	struct cnss_qmi_event_server_arrive_data *event_data = data;
 	struct qmi_handle *qmi_dms = &plat_priv->qmi_dms;
 	struct sockaddr_qrtr sq = {0};
 	int ret = 0;
 
-	if (!event_data)
-		return -EINVAL;
-
 	sq.sq_family = AF_QIPCRTR;
-	sq.sq_node = event_data->node;
-	sq.sq_port = event_data->port;
-	kfree(data);
+	sq.sq_node = node;
+	sq.sq_port = port;
 
 	ret = kernel_connect(qmi_dms->sock, (struct sockaddr *)&sq,
 			     sizeof(sq), 0);
 	if (ret < 0) {
-		cnss_pr_err("Failed to connect to QMI DMS remote service port\n");
+		cnss_pr_err("Failed to connect to QMI DMS remote service Node: %d Port: %d\n",
+			    node, port);
 		goto out;
 	}
 
 	set_bit(CNSS_QMI_DMS_CONNECTED, &plat_priv->driver_state);
 	cnss_pr_info("QMI DMS service connected, state: 0x%lx\n",
 		     plat_priv->driver_state);
-	cnss_qmi_get_dms_mac(plat_priv);
 out:
 	return ret;
-}
-
-int cnss_dms_server_arrive(struct cnss_plat_data *plat_priv, void *data)
-{
-	int ret = 0;
-
-	if (!plat_priv) {
-		cnss_pr_err("Platform not initialized on DMS server arrive\n");
-		return -ENODEV;
-	}
-	ret = cnss_dms_connect_to_server(plat_priv, data);
-	return ret;
-}
-
-int cnss_dms_server_exit(struct cnss_plat_data *plat_priv)
-{
-	if (!plat_priv)
-		return -ENODEV;
-
-	clear_bit(CNSS_QMI_DMS_CONNECTED, &plat_priv->driver_state);
-	cnss_pr_info("QMI DMS service disconnected, state: 0x%lx\n",
-		     plat_priv->driver_state);
-	return 0;
 }
 
 static int dms_new_server(struct qmi_handle *qmi_dms,
@@ -2533,22 +2505,12 @@ static int dms_new_server(struct qmi_handle *qmi_dms,
 {
 	struct cnss_plat_data *plat_priv =
 		container_of(qmi_dms, struct cnss_plat_data, qmi_dms);
-	struct cnss_qmi_event_server_arrive_data *event_data;
 
-	cnss_pr_err("DMS server arriving: node %u port %u\n",
-		    service->node, service->port);
+	if (!service)
+		return -EINVAL;
 
-	event_data = kzalloc(sizeof(*event_data), GFP_KERNEL);
-	if (!event_data)
-		return -ENOMEM;
-
-	event_data->node = service->node;
-	event_data->port = service->port;
-
-	cnss_driver_event_post(plat_priv, CNSS_DRIVER_EVENT_DMS_SERVER_ARRIVE,
-			       0, event_data);
-
-	return 0;
+	return cnss_dms_connect_to_server(plat_priv, service->node,
+					  service->port);
 }
 
 static void dms_del_server(struct qmi_handle *qmi_dms,
@@ -2557,9 +2519,9 @@ static void dms_del_server(struct qmi_handle *qmi_dms,
 	struct cnss_plat_data *plat_priv =
 		container_of(qmi_dms, struct cnss_plat_data, qmi_dms);
 
-	cnss_pr_dbg("DMS server exiting\n");
-	cnss_driver_event_post(plat_priv, CNSS_DRIVER_EVENT_DMS_SERVER_EXIT, 0,
-			       NULL);
+	clear_bit(CNSS_QMI_DMS_CONNECTED, &plat_priv->driver_state);
+	cnss_pr_info("QMI DMS service disconnected, state: 0x%lx\n",
+		     plat_priv->driver_state);
 }
 
 static struct qmi_ops qmi_dms_ops = {
