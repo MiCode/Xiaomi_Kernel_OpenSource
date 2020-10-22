@@ -107,13 +107,12 @@ static int msm_eud_hw_is_enabled(struct platform_device *pdev)
 		if (ret) {
 			dev_err(&pdev->dev,
 				"qcom_scm_io_readl failed with rc: %d\n", ret);
-			return 0;
+			sec_eud_enabled = 0;
 		}
-
-		return sec_eud_enabled;
 	}
 
-	return readl_relaxed(chip->eud_reg_base + EUD_REG_CSR_EUD_EN) & BIT(0);
+	return (sec_eud_enabled & BIT(0)) ||
+	(readl_relaxed(chip->eud_reg_base + EUD_REG_CSR_EUD_EN) & BIT(0));
 }
 
 static int check_eud_mode_mgr2(struct eud_chip *chip)
