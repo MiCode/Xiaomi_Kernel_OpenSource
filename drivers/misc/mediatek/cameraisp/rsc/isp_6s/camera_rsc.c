@@ -1026,7 +1026,7 @@ static bool mmu_get_dma_buffer(struct tee_mmu *mmu, int va)
 	struct dma_buf *buf;
 
 	buf = dma_buf_get(va);
-	LOG_INF("RSC_mmu_get_buffer:%x /BUF:%x\n", va, buf);
+	//LOG_INF("RSC_mmu_get_buffer:%x /BUF:%x\n", va, buf);
 	if (IS_ERR(buf)) {
 		LOG_INF("[error buf]");
 		return false;
