@@ -2792,6 +2792,10 @@ static int mt6360_charger_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_USB_TYPE:
 		val->intval = mci->psy_usb_type;
 		break;
+	case POWER_SUPPLY_PROP_CURRENT_MAX:
+		if (mci->psy_desc.type == POWER_SUPPLY_TYPE_USB)
+			val->intval = 500000;
+		break;
 	case POWER_SUPPLY_PROP_STATUS:
 		ret = mt6360_charger_get_online(mci, &pwr_rdy);
 		ret |= __mt6360_is_enabled(mci, &chg_en);
@@ -2862,6 +2866,7 @@ static enum power_supply_property mt6360_charger_properties[] = {
 	POWER_SUPPLY_PROP_ONLINE,
 	POWER_SUPPLY_PROP_TYPE,
 	POWER_SUPPLY_PROP_USB_TYPE,
+	POWER_SUPPLY_PROP_CURRENT_MAX,
 };
 
 static const struct power_supply_desc mt6360_charger_desc = {
