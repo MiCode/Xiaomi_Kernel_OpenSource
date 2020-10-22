@@ -341,10 +341,7 @@ static int mtk_cam_seninf_set_fmt(struct v4l2_subdev *sd,
 		*v4l2_subdev_get_try_format(sd, cfg, fmt->pad) = fmt->format;
 	} else {
 		/* NOTE: update vcinfo once the SINK format changed */
-		if (fmt->pad == PAD_SINK &&
-		    format->code != fmt->format.code &&
-			format->width != fmt->format.width &&
-			format->height != fmt->format.height)
+		if (fmt->pad == PAD_SINK)
 			bSinkFormatChanged = 1;
 
 		format->code = fmt->format.code;
