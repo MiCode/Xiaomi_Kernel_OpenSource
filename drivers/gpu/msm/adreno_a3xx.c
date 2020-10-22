@@ -126,8 +126,6 @@ static const unsigned int _a3xx_pwron_fixup_fs_instructions[] = {
 	0x00000000, 0x03000000, 0x00000000, 0x00000000,
 };
 
-static int a3xx_get_cp_init_cmds(struct adreno_device *adreno_dev);
-
 /**
  * _a3xx_pwron_fixup() - Initialize a special command buffer to run a
  * post-power collapse shader workaround
@@ -605,10 +603,29 @@ static int a3xx_send_me_init(struct adreno_device *adreno_dev,
 	cmds = adreno_ringbuffer_allocspace(rb, 18);
 	if (IS_ERR(cmds))
 		return PTR_ERR(cmds);
-	if (cmds == NULL)
-		return -ENOSPC;
 
-	memcpy(cmds, adreno_dev->cp_init_cmds, 18 << 2);
+	*cmds++ = cp_type3_packet(CP_ME_INIT, 17);
+
+	*cmds++ = 0x000003f7;
+	*cmds++ = 0x00000000;
+	*cmds++ = 0x00000000;
+	*cmds++ = 0x00000000;
+	*cmds++ = 0x00000080;
+	*cmds++ = 0x00000100;
+	*cmds++ = 0x00000180;
+	*cmds++ = 0x00006600;
+	*cmds++ = 0x00000150;
+	*cmds++ = 0x0000014e;
+	*cmds++ = 0x00000154;
+	*cmds++ = 0x00000001;
+	*cmds++ = 0x00000000;
+	*cmds++ = 0x00000000;
+
+	/* Enable protected mode registers for A3XX */
+	*cmds++ = 0x20000000;
+
+	*cmds++ = 0x00000000;
+	*cmds++ = 0x00000000;
 
 	/* Submit the command to the ringbuffer */
 	kgsl_pwrscale_busy(device);
@@ -657,47 +674,6 @@ static int a3xx_rb_start(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A3XX_CP_ME_CNTL, 0);
 
 	return a3xx_send_me_init(adreno_dev, rb);
-}
-
-static int a3xx_get_cp_init_cmds(struct adreno_device *adreno_dev)
-{
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	u32 *cmds;
-
-	if (adreno_dev->cp_init_cmds)
-		return 0;
-
-	adreno_dev->cp_init_cmds = devm_kzalloc(&device->pdev->dev, 18 << 2,
-			GFP_KERNEL);
-	if (!adreno_dev->cp_init_cmds)
-		return -ENOMEM;
-
-	cmds = (u32 *)adreno_dev->cp_init_cmds;
-
-	*cmds++ = cp_type3_packet(CP_ME_INIT, 17);
-
-	*cmds++ = 0x000003f7;
-	*cmds++ = 0x00000000;
-	*cmds++ = 0x00000000;
-	*cmds++ = 0x00000000;
-	*cmds++ = 0x00000080;
-	*cmds++ = 0x00000100;
-	*cmds++ = 0x00000180;
-	*cmds++ = 0x00006600;
-	*cmds++ = 0x00000150;
-	*cmds++ = 0x0000014e;
-	*cmds++ = 0x00000154;
-	*cmds++ = 0x00000001;
-	*cmds++ = 0x00000000;
-	*cmds++ = 0x00000000;
-
-	/* Enable protected mode registers for A3XX */
-	*cmds++ = 0x20000000;
-
-	*cmds++ = 0x00000000;
-	*cmds++ = 0x00000000;
-
-	return 0;
 }
 
 /*
@@ -972,8 +948,7 @@ static int a3xx_init(struct adreno_device *adreno_dev)
 	a3xx_soft_fault_detect_init(adreno_dev);
 
 	kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
-
-	return a3xx_get_cp_init_cmds(adreno_dev);
+	return 0;
 }
 
 /*

@@ -434,4 +434,7 @@ int a6xx_fenced_write(struct adreno_device *adreno_dev, u32 offset,
 
 int a6xx_ringbuffer_submit(struct adreno_ringbuffer *rb,
 		struct adreno_submit_time *time, bool sync);
+
+void a6xx_cp_init_cmds(struct adreno_device *adreno_dev, u32 *cmds);
+
 #endif

@@ -846,7 +846,7 @@ static int cp_init(struct adreno_device *adreno_dev)
 	cmds[0] = CREATE_MSG_HDR(H2F_MSG_ISSUE_CMD_RAW,
 		(A6XX_CP_INIT_DWORDS + 1) << 2, HFI_MSG_CMD);
 
-	memcpy(&cmds[1], adreno_dev->cp_init_cmds, A6XX_CP_INIT_DWORDS << 2);
+	a6xx_cp_init_cmds(adreno_dev, &cmds[1]);
 
 	return submit_raw_cmds(adreno_dev, cmds,
 			"CP initialization failed to idle\n");

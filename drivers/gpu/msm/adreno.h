@@ -594,8 +594,6 @@ struct adreno_device {
 	 * @critpkts: Memory descriptor for 5xx secure critical packets
 	 */
 	struct kgsl_memdesc *critpkts_secure;
-	/** @cp_init_cmds: A copy of the CP INIT commands */
-	const void *cp_init_cmds;
 	/** @irq_mask: The current interrupt mask for the GPU device */
 	u32 irq_mask;
 	/*

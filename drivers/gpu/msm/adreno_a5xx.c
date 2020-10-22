@@ -27,7 +27,6 @@ static int _read_fw2_block_header(struct kgsl_device *device,
 		uint32_t id, uint32_t major, uint32_t minor);
 static void a5xx_gpmu_reset(struct work_struct *work);
 static int a5xx_gpmu_init(struct adreno_device *adreno_dev);
-static int a5xx_get_cp_init_cmds(struct adreno_device *adreno_dev);
 
 /**
  * Number of times to check if the regulator enabled before
@@ -227,7 +226,7 @@ static int a5xx_init(struct adreno_device *adreno_dev)
 	adreno_create_profile_buffer(adreno_dev);
 	a5xx_crashdump_init(adreno_dev);
 
-	return a5xx_get_cp_init_cmds(adreno_dev);
+	return 0;
 }
 
 const static struct {
@@ -1790,21 +1789,22 @@ static int a5xx_critical_packet_submit(struct adreno_device *adreno_dev,
 	return ret;
 }
 
-static int a5xx_get_cp_init_cmds(struct adreno_device *adreno_dev)
+/*
+ * a5xx_send_me_init() - Initialize ringbuffer
+ * @adreno_dev: Pointer to adreno device
+ * @rb: Pointer to the ringbuffer of device
+ *
+ * Submit commands for ME initialization,
+ */
+static int a5xx_send_me_init(struct adreno_device *adreno_dev,
+			 struct adreno_ringbuffer *rb)
 {
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	u32 *cmds, i = 0;
+	unsigned int *cmds;
+	int i = 0, ret;
 
-	if (adreno_dev->cp_init_cmds)
-		return 0;
-
-	adreno_dev->cp_init_cmds = devm_kzalloc(&device->pdev->dev, 9 << 2,
-				GFP_KERNEL);
-
-	if (!adreno_dev->cp_init_cmds)
-		return -ENOMEM;
-
-	cmds = (u32 *)adreno_dev->cp_init_cmds;
+	cmds = adreno_ringbuffer_allocspace(rb, 9);
+	if (IS_ERR(cmds))
+		return PTR_ERR(cmds);
 
 	cmds[i++] = cp_type7_packet(CP_ME_INIT, 8);
 
@@ -1833,28 +1833,6 @@ static int a5xx_get_cp_init_cmds(struct adreno_device *adreno_dev)
 
 	if (CP_INIT_MASK & CP_INIT_UCODE_WORKAROUND_MASK)
 		cmds[i++] = _me_init_ucode_workarounds(adreno_dev);
-
-	return 0;
-}
-
-/*
- * a5xx_send_me_init() - Initialize ringbuffer
- * @adreno_dev: Pointer to adreno device
- * @rb: Pointer to the ringbuffer of device
- *
- * Submit commands for ME initialization,
- */
-static int a5xx_send_me_init(struct adreno_device *adreno_dev,
-			 struct adreno_ringbuffer *rb)
-{
-	unsigned int *cmds;
-	int ret;
-
-	cmds = adreno_ringbuffer_allocspace(rb, 9);
-	if (IS_ERR(cmds))
-		return PTR_ERR(cmds);
-
-	memcpy(cmds, adreno_dev->cp_init_cmds, 9 << 2);
 
 	ret = a5xx_ringbuffer_submit(rb, NULL, true);
 	if (!ret) {
