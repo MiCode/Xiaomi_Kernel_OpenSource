@@ -259,15 +259,13 @@ void ccu_clock_disable(void);
 #define LOG_DBG(format, args...) \
 	pr_info(CCU_TAG "[%s] " format, __func__, ##args)
 #else
-#define LOG_DBG(format, args...) \
-	pr_info(CCU_TAG "[%s] " format, __func__, ##args)
+#define LOG_DBG(format, args...)
 #endif
 #ifdef CCU_LDVT
 #define LOG_INF(format, args...) \
 	pr_info(CCU_TAG "[%s] " format, __func__, ##args)
 #else
-#define LOG_INF(format, args...) \
-	pr_info(CCU_TAG "[%s] " format, __func__, ##args)
+#define LOG_INF(format, args...)
 #endif
 #define LOG_WARN(format, args...) \
 	pr##_##warn(CCU_TAG "[%s] " format, __func__, ##args)
