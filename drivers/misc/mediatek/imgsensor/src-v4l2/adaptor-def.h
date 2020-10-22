@@ -90,4 +90,27 @@ enum {
 	"dovdd", \
 	"afvdd", \
 
+/* Format code util */
+
+#define to_std_fmt_code(code) \
+	((code) & 0xFFFF)
+
+#define to_mtk_ext_fmt_code(stdcode, mode) \
+	(0x10000000 | (((mode) & 0xF) << 16) | to_std_fmt_code(stdcode))
+
+#define set_std_parts_fmt_code(code, stdcode) \
+{ \
+	code = (((code) & 0xFFFF0000) | to_std_fmt_code(stdcode)); \
+}
+
+#define is_mtk_ext_fmt_code(code) \
+	(((code) >> 28) == 0x1)
+
+#define get_sensor_mode_from_fmt_code(code) \
+({ \
+	int __val = 0; \
+	__val = ((code) >> 16) & 0xF; \
+	__val; \
+})
+
 #endif

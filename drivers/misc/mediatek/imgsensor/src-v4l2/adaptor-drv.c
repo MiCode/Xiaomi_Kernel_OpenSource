@@ -381,11 +381,11 @@ static int imgsensor_enum_mbus_code(struct v4l2_subdev *sd,
 {
 	struct adaptor_ctx *ctx = to_ctx(sd);
 
-	/* Only one bayer order(GRBG) is supported */
-	if (code->index > 0)
+	if (code->index >= ctx->mode_cnt)
 		return -EINVAL;
 
-	code->code = ctx->fmt_code;
+	code->code = to_mtk_ext_fmt_code(ctx->fmt_code, ctx->mode[code->index].id);
+	dev_info(ctx->dev, "enum mbus fmt code = 0x%x\n", code->code);
 
 	return 0;
 }
@@ -397,9 +397,6 @@ static int imgsensor_enum_frame_size(struct v4l2_subdev *sd,
 	struct adaptor_ctx *ctx = to_ctx(sd);
 
 	if (fse->index >= ctx->mode_cnt)
-		return -EINVAL;
-
-	if (fse->code != ctx->fmt_code)
 		return -EINVAL;
 
 	fse->min_width = ctx->mode[fse->index].width;
@@ -462,7 +459,7 @@ static void update_pad_format(struct adaptor_ctx *ctx,
 {
 	fmt->format.width = mode->width;
 	fmt->format.height = mode->height;
-	fmt->format.code = ctx->fmt_code;
+	fmt->format.code = to_mtk_ext_fmt_code(ctx->fmt_code, mode->id);
 	fmt->format.field = V4L2_FIELD_NONE;
 }
 
@@ -500,20 +497,32 @@ static int imgsensor_set_pad_format(struct v4l2_subdev *sd,
 	struct adaptor_ctx *ctx = to_ctx(sd);
 	struct sensor_mode *mode;
 	struct v4l2_mbus_framefmt *framefmt;
+	int sensor_mode_id = 0;
 
 	mutex_lock(&ctx->mutex);
 
 	/* Only one raw bayer order is supported */
-	fmt->format.code = ctx->fmt_code;
+	set_std_parts_fmt_code(fmt->format.code, ctx->fmt_code);
+
+	dev_info(ctx->dev, "set fmt code = 0x%x\n", fmt->format.code);
 
 	mode = v4l2_find_nearest_size(ctx->mode,
 		ctx->mode_cnt, width, height,
 		fmt->format.width, fmt->format.height);
+
+	/* Override mode when fmt code specified sensor mode */
+	if (is_mtk_ext_fmt_code(fmt->format.code)) {
+		sensor_mode_id = get_sensor_mode_from_fmt_code(fmt->format.code);
+		if (sensor_mode_id >= 0 && sensor_mode_id < ctx->mode_cnt)
+			mode = &ctx->mode[sensor_mode_id];
+	}
+	dev_info(ctx->dev, "sensor_mode_id = %u\n", mode->id);
+
 	update_pad_format(ctx, mode, fmt);
 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
 		framefmt = v4l2_subdev_get_try_format(sd, cfg, fmt->pad);
 		*framefmt = fmt->format;
-	} else
+	} // else // FIXME: should not set sensor mode while TRY FMT
 		set_sensor_mode(ctx, mode, 1);
 
 	mutex_unlock(&ctx->mutex);
@@ -621,27 +630,10 @@ static int imgsensor_set_frame_interval(struct v4l2_subdev *sd,
 		struct v4l2_subdev_frame_interval *fi)
 {
 	struct adaptor_ctx *ctx = to_ctx(sd);
-	struct sensor_mode *mode;
-	u32 i, w, h, fps;
 
-	mutex_lock(&ctx->mutex);
+	dev_info(ctx->dev, "set_frame_interval = %u\n", fi->interval.denominator);
 
-	w = ctx->cur_mode->width;
-	h = ctx->cur_mode->height;
-	fps = fi->interval.denominator * 10 / fi->interval.numerator;
-
-	for (i = 0; i < ctx->mode_cnt; i++) {
-		mode = &ctx->mode[i];
-		if (mode->width == w && mode->height == h &&
-			mode->max_framerate == fps) {
-			set_sensor_mode(ctx, mode, 1);
-			break;
-		}
-	}
-
-	mutex_unlock(&ctx->mutex);
-
-	return 0;
+	return imgsensor_get_frame_interval(sd, fi);
 }
 
 static int imgsensor_set_stream(struct v4l2_subdev *sd, int enable)

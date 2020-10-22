@@ -21,6 +21,9 @@
 #include "mtk_cam-seninf-if.h"
 #include "mtk_cam-seninf-hw.h"
 
+#define to_std_fmt_code(code) \
+	((code) & 0xFFFF)
+
 void mtk_cam_seninf_init_res(struct seninf_core *core)
 {
 	int i;
@@ -127,7 +130,7 @@ static int get_vcinfo_by_pad_fmt(struct seninf_ctx *ctx)
 
 	vcinfo->cnt = 0;
 
-	switch (ctx->fmt[PAD_SINK].format.code) {
+	switch (to_std_fmt_code(ctx->fmt[PAD_SINK].format.code)) {
 	case MEDIA_BUS_FMT_SBGGR10_1X10:
 	case MEDIA_BUS_FMT_SGBRG10_1X10:
 	case MEDIA_BUS_FMT_SGRBG10_1X10:
