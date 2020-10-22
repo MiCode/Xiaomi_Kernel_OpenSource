@@ -506,7 +506,7 @@ static void _print_entry(struct kgsl_device *device, struct _mem_entry *entry)
 	dev_err(device->dev,
 		      "[%016llX - %016llX] %s %s (pid = %d) (%s)\n",
 		      entry->gpuaddr,
-		      entry->gpuaddr + entry->size,
+		      entry->gpuaddr + entry->size - 1,
 		      entry->priv & KGSL_MEMDESC_GUARD_PAGE ? "(+guard)" : "",
 		      entry->pending_free ? "(pending free)" : "",
 		      entry->pid, entry->name);
