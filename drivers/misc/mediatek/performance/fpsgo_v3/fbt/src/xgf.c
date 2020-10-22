@@ -87,6 +87,18 @@ void xgf_lockprove(const char *tag)
 }
 EXPORT_SYMBOL(xgf_lockprove);
 
+int xgf_tracepoint_probe_register(struct tracepoint *tp, void *probe, void *data)
+{
+	return tracepoint_probe_register(tp, probe, data);
+}
+EXPORT_SYMBOL(xgf_tracepoint_probe_register);
+
+int xgf_tracepoint_probe_unregister(struct tracepoint *tp, void *probe, void *data)
+{
+	return tracepoint_probe_unregister(tp, probe, data);
+}
+EXPORT_SYMBOL(xgf_tracepoint_probe_unregister);
+
 void xgf_trace(const char *fmt, ...)
 {
 	char log[256];

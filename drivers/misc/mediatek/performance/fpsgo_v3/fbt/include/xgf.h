@@ -163,6 +163,8 @@ extern int (*xgf_est_runtime_fp)(pid_t r_pid,
 extern int (*xgf_stat_xchg_fp)(int enable);
 
 void xgf_lockprove(const char *tag);
+int xgf_tracepoint_probe_register(struct tracepoint *tp, void *probe, void *data);
+int xgf_tracepoint_probe_unregister(struct tracepoint *tp, void *probe, void *data);
 void xgf_trace(const char *fmt, ...);
 void xgf_reset_renders(void);
 int xgf_est_runtime(pid_t r_pid, struct xgf_render *render,
