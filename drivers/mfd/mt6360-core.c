@@ -230,10 +230,20 @@ static struct regmap_irq_chip mt6360_pmu_irq_chip = {
 	.handle_post_irq = mt6360_pmu_handle_post_irq,
 };
 
+static bool mt6360_is_volatile_reg(struct device *dev, unsigned int reg)
+{
+	if (reg >= MT6360_PMU_CHG_MASK1 && reg <= MT6360_PMU_LDO_MASK2)
+		return false;
+	return true;
+}
+
 static struct regmap_config mt6360_pmu_regmap_config = {
 	.reg_bits = 8,
 	.val_bits = 8,
 	.max_register = MT6360_PMU_MAXREG,
+
+	.cache_type = REGCACHE_FLAT,
+	.volatile_reg = mt6360_is_volatile_reg,
 };
 
 static const struct resource mt6360_adc_resources[] = {
