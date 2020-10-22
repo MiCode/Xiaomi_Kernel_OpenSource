@@ -311,7 +311,7 @@
 	panel1@0 {
 		compatible = "nt35695b,auo,vdo";
 		reg = <0>;
-		pm-enable-gpios = <&pio 41 0>;
+		pm-enable-gpios = <&pio 84 0>;
 		reset-gpios = <&pio 86 0>;
 		bias-gpios = <&pio 137 0>,
 			<&pio 138 0>;
@@ -325,7 +325,7 @@
 	panel2@0 {
 		compatible = "nt36672a,rt4801,vdo";
 		reg = <1>;
-		pm-enable-gpios = <&pio 41 0>;
+		pm-enable-gpios = <&pio 84 0>;
 		reset-gpios = <&pio 86 0>;
 		bias-gpios = <&pio 137 0>,
 			<&pio 138 0>;
@@ -339,7 +339,7 @@
 	panel3@0 {
 		compatible = "truly,td4330,vdo";
 		reg = <2>;
-		pm-enable-gpios = <&pio 41 0>;
+		pm-enable-gpios = <&pio 84 0>;
 		reset-gpios = <&pio 86 0>;
 		bias-gpios = <&pio 137 0>,
 			<&pio 138 0>;
@@ -359,6 +359,11 @@
 	};
 };
 
+&dsi_te {
+	interrupt-parent = <&pio>;
+	interrupts = <84 1 84 1>;
+	status = "okay";
+};
 
 &i2c6 {
 	tfa9874: tfa9874@34 {

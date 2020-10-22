@@ -3409,16 +3409,15 @@
 			reg = <0 0x1100e000 0 0x1000>;
 			interrupts = <GIC_SPI 171 IRQ_TYPE_LEVEL_HIGH>;
 			#pwm-cells = <2>;
-			clocks = <&infracfg_ao_clk CLK_IFRAO_DISP_PWM>,
+			clocks = <&infracfg_ao_clk CLK_IFRAO_DISP_PWM 0>,
 				<&topckgen_clk CLK_TOP_DISP_PWM_SEL>,
 				<&topckgen_clk CLK_TOP_OSC_D4>;
 			clock-names = "main", "mm", "pwm_src";
 		};
 
 		dispsys_config: dispsys_config@14000000 {
-			compatible = "mediatek,dispsys_config",
-						"syscon",
-						"mediatek,mt6853-mmsys";
+			compatible = "mediatek,mt6853-mmsys";
+			power-domains = <&scpsys MT6853_POWER_DOMAIN_DISP>;
 			reg = <0 0x14000000 0 0x1000>;
 			iommus = <&iommu0 M4U_PORT_L1_OVL_2L_RDMA0>;
 			mediatek,larb = <&larb1>;
@@ -3479,7 +3478,8 @@
 				"disp_wdma0_eof0",
 				"disp_token_stream_block0",
 				"disp_token_cabc_eof0",
-				"disp_wdma0_eof2";
+				"disp_wdma0_eof2",
+				"disp_dsi0_sof0";
 
 			gce-events =
 				<&gce CMDQ_EVENT_DISP_STREAM_DONE_ENG_EVENT_0>,
@@ -3493,7 +3493,8 @@
 				<&gce CMDQ_EVENT_DISP_WDMA0_FRAME_DONE>,
 				<&gce CMDQ_SYNC_TOKEN_STREAM_BLOCK>,
 				<&gce CMDQ_SYNC_TOKEN_CABC_EOF>,
-				<&gce CMDQ_EVENT_DISP_WDMA0_FRAME_DONE>;
+				<&gce CMDQ_EVENT_DISP_WDMA0_FRAME_DONE>,
+				<&gce CMDQ_EVENT_DSI0_SOF>;
 
 			helper-name = "MTK_DRM_OPT_STAGE",
 				"MTK_DRM_OPT_USE_CMDQ",
