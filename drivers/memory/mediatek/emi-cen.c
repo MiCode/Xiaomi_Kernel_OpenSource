@@ -373,10 +373,10 @@ static int mtk_emicen_addr2dram_v1(unsigned long addr,
 		return -1;
 	if (addr < global_emi_cen->offset)
 		return -1;
-	if (addr > global_emi_cen->max)
-		return -1;
 
 	addr -= global_emi_cen->offset;
+	if (addr > global_emi_cen->max)
+		return -1;
 
 	map->emi = -1;
 	map->channel = -1;
