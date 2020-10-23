@@ -6,15 +6,11 @@ curr := platform/mtk_platform_common
 
 mali_kbase-y += $(curr)/mtk_platform_common.o
 
-ifeq ($(CONFIG_MFG_COUNTER), y)
-obj-y += $(curr)/mtk_mfg_counter.o
+mali_kbase-y += $(curr)/mtk_mfg_counter.o
 ccflags-y += -DMFG_COUNTER
-endif
 
-ifeq ($(CONFIG_GPU_PWR_SSPM_IPI), y)
-obj-y += $(curr)/mtk_gpu_power_sspm_ipi.o
+mali_kbase-y += $(curr)/mtk_gpu_power_sspm_ipi.o
 ccflags-y += -DGPU_PWR_SSPM_IPI
-endif
 
 ccflags-y += -I$(srctree)/drivers/devfreq/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/swpm_v1/
@@ -24,5 +20,3 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v2
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(CONFIG_MTK_PLATFORM)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/qos/$(CONFIG_MTK_PLATFORM)
 endif
-
-ccflags-$(CONFIG_MTK_PERF_TRACKER) += -I$(srctree)/drivers/misc/mediatek/perf_common/
