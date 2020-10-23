@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2014, 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, 2017-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/init.h>
@@ -11,7 +11,7 @@
 #include <linux/platform_device.h>
 #include <linux/of_device.h>
 #include <linux/sysfs.h>
-#include <soc/qcom/subsystem_restart.h>
+#include <linux/remoteproc.h>
 
 #define BOOT_CMD 1
 #define IMAGE_UNLOAD_CMD 0
@@ -44,8 +44,8 @@ static void cdsp_loader_unload(struct platform_device *pdev);
 static int cdsp_loader_do(struct platform_device *pdev)
 {
 	struct cdsp_loader_private *priv = NULL;
-
-	int rc = 0;
+	phandle rproc_phandle;
+	int rc = 0, sz = 0;
 	const char *img_name;
 
 	if (!pdev) {
@@ -56,7 +56,6 @@ static int cdsp_loader_do(struct platform_device *pdev)
 	if (!pdev->dev.of_node) {
 		dev_err(&pdev->dev,
 			"%s: Device tree information missing\n", __func__);
-
 		goto fail;
 	}
 
@@ -72,16 +71,31 @@ static int cdsp_loader_do(struct platform_device *pdev)
 			priv = platform_get_drvdata(pdev);
 			if (!priv) {
 				dev_err(&pdev->dev,
-				"%s: Private data get failed\n", __func__);
+					"%s: Private data get failed\n", __func__);
 				goto fail;
 			}
 
-			dev_dbg(&pdev->dev, "%s: calling subsystem_get on %s\n",
+			sz = of_property_read_u32(pdev->dev.of_node, "qcom,rproc-handle",
+					&rproc_phandle);
+			if (sz) {
+				pr_err("%s: of_property_read failed, returned value %d\n",
+						__func__, sz);
+				dev_err(&pdev->dev, "error reading rproc phandle\n");
+				goto fail;
+			}
+
+			priv->pil_h = rproc_get_by_phandle(rproc_phandle);
+			if (!priv->pil_h) {
+				dev_err(&pdev->dev, "rproc not found\n");
+				goto fail;
+			}
+
+			dev_dbg(&pdev->dev, "%s: calling rproc_boot on %s\n",
 					__func__, img_name);
-			priv->pil_h = subsystem_get("cdsp");
-			if (IS_ERR(priv->pil_h)) {
-				dev_err(&pdev->dev, "%s: subsystem_get failed with error %d\n",
-					__func__, (int)(PTR_ERR(priv->pil_h)));
+			rc = rproc_boot(priv->pil_h);
+			if (rc) {
+				dev_err(&pdev->dev, "%s: rproc_boot failed with error %d\n",
+					__func__, rc);
 				goto fail;
 			}
 
@@ -139,7 +153,7 @@ static void cdsp_loader_unload(struct platform_device *pdev)
 
 	if (priv->pil_h) {
 		dev_dbg(&pdev->dev, "%s: calling subsystem_put\n", __func__);
-		subsystem_put(priv->pil_h);
+		rproc_shutdown(priv->pil_h);
 		priv->pil_h = NULL;
 	}
 }
@@ -212,7 +226,7 @@ static int cdsp_loader_remove(struct platform_device *pdev)
 		return 0;
 
 	if (priv->pil_h) {
-		subsystem_put(priv->pil_h);
+		rproc_shutdown(priv->pil_h);
 		priv->pil_h = NULL;
 	}
 
