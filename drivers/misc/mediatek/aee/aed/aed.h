@@ -250,7 +250,6 @@ struct aee_siginfo {
 #define AEEIOCTL_SET_FORECE_RED_SCREEN _IOR('p', 0x0B, int)
 #define AEEIOCTL_SET_SF_STATE _IOR('p', 0x0C, long long)
 #define AEEIOCTL_GET_SF_STATE _IOW('p', 0x0D, long long)
-#define AEEIOCTL_USER_IOCTL_TO_KERNEL_WANING _IOR('p', 0x0E, int)
 #define AEEIOCTL_SET_AEE_FORCE_EXP _IOR('p', 0x0F, int)
 #define AEEIOCTL_GET_AEE_SIGINFO _IOW('p', 0x10, struct aee_siginfo)
 #define AEEIOCTL_SET_HANG_FLAG _IOW('p', 0x11, int)
