@@ -29,6 +29,9 @@ ns.ko
 qrtr-smd.ko
 socinfo.ko
 spmi-pmic-arb.ko
+qcom-spmi-pmic.ko
+regmap-spmi.ko
+qti-regmap-debugfs.ko
 stub-regulator.ko
 debug-regulator.ko
 proxy-consumer.ko
