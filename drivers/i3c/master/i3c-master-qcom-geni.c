@@ -580,6 +580,26 @@ static irqreturn_t geni_i3c_ibi_irq(int irq, void *dev)
 	return IRQ_HANDLED;
 }
 
+static void geni_i3c_handle_err(struct geni_i3c_dev *gi3c, u32 status)
+{
+	if (status & M_GP_IRQ_0_EN)
+		geni_i3c_err(gi3c, RD_TERM);
+	if (status & M_GP_IRQ_1_EN)
+		geni_i3c_err(gi3c, NACK);
+	if (status & M_GP_IRQ_2_EN)
+		geni_i3c_err(gi3c, CRC_ERR);
+	if (status & M_GP_IRQ_3_EN)
+		geni_i3c_err(gi3c, BUS_PROTO);
+	if (status & M_GP_IRQ_4_EN)
+		geni_i3c_err(gi3c, NACK_7E);
+	if (status & M_CMD_OVERRUN_EN)
+		geni_i3c_err(gi3c, GENI_OVERRUN);
+	if (status & M_ILLEGAL_CMD_EN)
+		geni_i3c_err(gi3c, GENI_ILLEGAL_CMD);
+	if (status & M_CMD_ABORT_EN)
+		geni_i3c_err(gi3c, GENI_ABORT_DONE);
+}
+
 static irqreturn_t geni_i3c_irq(int irq, void *dev)
 {
 	struct geni_i3c_dev *gi3c = dev;
@@ -597,24 +617,8 @@ static irqreturn_t geni_i3c_irq(int irq, void *dev)
 	dm_rx_st = readl_relaxed(gi3c->se.base + SE_DMA_RX_IRQ_STAT);
 	dma = readl_relaxed(gi3c->se.base + SE_GENI_DMA_MODE_EN);
 
-	if ((m_stat   & SE_I3C_ERR) ||
-		(dm_rx_st & DM_I3C_CB_ERR)) {
-		if (m_stat & M_GP_IRQ_0_EN)
-			geni_i3c_err(gi3c, RD_TERM);
-		if (m_stat & M_GP_IRQ_1_EN)
-			geni_i3c_err(gi3c, NACK);
-		if (m_stat & M_GP_IRQ_2_EN)
-			geni_i3c_err(gi3c, CRC_ERR);
-		if (m_stat & M_GP_IRQ_3_EN)
-			geni_i3c_err(gi3c, BUS_PROTO);
-		if (m_stat & M_GP_IRQ_4_EN)
-			geni_i3c_err(gi3c, NACK_7E);
-		if (m_stat & M_CMD_OVERRUN_EN)
-			geni_i3c_err(gi3c, GENI_OVERRUN);
-		if (m_stat & M_ILLEGAL_CMD_EN)
-			geni_i3c_err(gi3c, GENI_ILLEGAL_CMD);
-		if (m_stat & M_CMD_ABORT_EN)
-			geni_i3c_err(gi3c, GENI_ABORT_DONE);
+	if ((m_stat & SE_I3C_ERR) || (dm_rx_st & DM_I3C_CB_ERR)) {
+		geni_i3c_handle_err(gi3c, m_stat);
 
 		/* Disable the TX Watermark interrupt to stop TX */
 		if (!dma)
@@ -688,8 +692,11 @@ irqret:
 		complete(&gi3c->done);
 	} else if ((dm_tx_st & TX_DMA_DONE) ||
 		(dm_rx_st & RX_DMA_DONE) ||
-		(dm_rx_st & RX_RESET_DONE))
+		(dm_rx_st & RX_RESET_DONE) ||
+		(dm_tx_st & TX_RESET_DONE)) {
+
 		complete(&gi3c->done);
+	}
 
 	spin_unlock_irqrestore(&gi3c->spinlock, flags);
 	return IRQ_HANDLED;
@@ -792,18 +799,37 @@ static int _i3c_geni_execute_command
 
 		GENI_SE_ERR(gi3c->ipcl, true, gi3c->se.dev,
 			"got wait_for_completion timeout\n");
-		spin_lock_irqsave(&gi3c->spinlock, flags);
 		geni_i3c_err(gi3c, GENI_TIMEOUT);
 		gi3c->cur_buf = NULL;
 		gi3c->cur_len = gi3c->cur_idx = 0;
 		gi3c->cur_rnw = 0;
-		geni_abort_m_cmd(gi3c->se.base);
+
+		reinit_completion(&gi3c->done);
+
+		spin_lock_irqsave(&gi3c->spinlock, flags);
+		geni_cancel_m_cmd(gi3c->se.base);
 		spin_unlock_irqrestore(&gi3c->spinlock, flags);
-		time_remaining = wait_for_completion_timeout(&gi3c->done,
-							XFER_TIMEOUT);
+
+		time_remaining = wait_for_completion_timeout(&gi3c->done, HZ);
+		if (!time_remaining) {
+			GENI_SE_ERR(gi3c->ipcl, true, gi3c->se.dev,
+				"%s:Cancel cmd failed : Aborting\n", __func__);
+
+			reinit_completion(&gi3c->done);
+			spin_lock_irqsave(&gi3c->spinlock, flags);
+			geni_abort_m_cmd(gi3c->se.base);
+			spin_unlock_irqrestore(&gi3c->spinlock, flags);
+			time_remaining =
+			wait_for_completion_timeout(&gi3c->done, XFER_TIMEOUT);
+			if (!time_remaining)
+				GENI_SE_ERR(gi3c->ipcl, true, gi3c->se.dev,
+				"%s:Abort Failed\n", __func__);
+		}
 	}
+
 	if (xfer->mode == SE_DMA) {
 		if (gi3c->err) {
+			reinit_completion(&gi3c->done);
 			if (rnw == READ_TRANSACTION)
 				writel_relaxed(1, gi3c->se.base +
 					SE_DMA_RX_FSM_RST);
