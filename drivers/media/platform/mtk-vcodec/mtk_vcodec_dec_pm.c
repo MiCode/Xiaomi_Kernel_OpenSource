@@ -191,7 +191,6 @@ void mtk_vcodec_dec_clock_on(struct mtk_vcodec_pm *pm, int hw_id)
 		mtk_v4l2_err("clk_set_parent fail %d", ret);
 
 	if (hw_id == MTK_VDEC_CORE) {
-		//smi_bus_prepare_enable(SMI_LARB4, "VDEC_CORE");
 		ret = clk_prepare_enable(pm->clk_MT_CG_SOC);
 		if (ret)
 			mtk_v4l2_err("clk_prepare_enable VDEC_SOC fail %d",
@@ -201,7 +200,6 @@ void mtk_vcodec_dec_clock_on(struct mtk_vcodec_pm *pm, int hw_id)
 			mtk_v4l2_err("clk_prepare_enable VDEC_CORE fail %d",
 				ret);
 	} else if (hw_id == MTK_VDEC_LAT) {
-		//smi_bus_prepare_enable(SMI_LARB5, "VDEC_LAT");
 		ret = clk_prepare_enable(pm->clk_MT_CG_VDEC1);
 		if (ret)
 			mtk_v4l2_err("clk_prepare_enable VDEC_LAT fail %d",
@@ -284,10 +282,8 @@ void mtk_vcodec_dec_clock_off(struct mtk_vcodec_pm *pm, int hw_id)
 	if (hw_id == MTK_VDEC_CORE) {
 		clk_disable_unprepare(pm->clk_MT_CG_VDEC0);
 		clk_disable_unprepare(pm->clk_MT_CG_SOC);
-		//smi_bus_disable_unprepare(SMI_LARB4, "VDEC_CORE");
 	} else if (hw_id == MTK_VDEC_LAT) {
 		clk_disable_unprepare(pm->clk_MT_CG_VDEC1);
-		//smi_bus_disable_unprepare(SMI_LARB5, "VDEC_LAT");
 	} else
 		mtk_v4l2_err("invalid hw_id %d", hw_id);
 

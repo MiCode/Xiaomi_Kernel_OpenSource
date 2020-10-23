@@ -84,6 +84,7 @@ static int vdec_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 {
 	struct vdec_inst *inst = NULL;
 	int err = 0;
+	struct vcu_v4l2_callback_func cb;
 
 	inst = kzalloc(sizeof(*inst), GFP_KERNEL);
 	if (!inst)
@@ -162,6 +163,10 @@ static int vdec_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 		mtk_vcodec_err(inst, "%s err=%d", __func__, err);
 		goto error_free_inst;
 	}
+
+	memset(&cb, 0, sizeof(struct vcu_v4l2_callback_func));
+	cb.gce_timeout_dump = mtk_vcodec_gce_timeout_dump;
+	vcu_set_gce_v4l2_callback(inst->vcu.dev, &cb);
 
 	inst->vsi = (struct vdec_vsi *)inst->vcu.vsi;
 	ctx->input_driven = inst->vsi->input_driven;

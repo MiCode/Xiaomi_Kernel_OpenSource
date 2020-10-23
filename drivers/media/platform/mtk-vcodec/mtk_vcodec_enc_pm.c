@@ -9,7 +9,7 @@
 #include <linux/of_platform.h>
 #include <linux/pm_runtime.h>
 #include <linux/delay.h>
-//#include <soc/mediatek/smi.h>
+#include <soc/mediatek/smi.h>
 
 #include "mtk_vcodec_enc_pm.h"
 #include "mtk_vcodec_util.h"
@@ -153,6 +153,7 @@ int mtk_vcodec_init_enc_pm(struct mtk_vcodec_dev *mtkdev)
 		ret = PTR_ERR(pm->clk_MT_CG_VENC0);
 	}
 
+	pm_runtime_enable(&pdev->dev);
 #endif
 	ion_venc_client = NULL;
 
@@ -164,6 +165,7 @@ void mtk_vcodec_release_enc_pm(struct mtk_vcodec_dev *mtkdev)
 #if ENC_EMI_BW
 	/* do nothing */
 #endif
+	pm_runtime_disable(mtkdev->pm.dev);
 }
 
 void mtk_venc_deinit_ctx_pm(struct mtk_vcodec_ctx *ctx)
@@ -181,8 +183,13 @@ void mtk_vcodec_enc_clock_on(struct mtk_vcodec_ctx *ctx, int core_id)
 
 #ifndef FPGA_PWRCLK_API_DISABLE
 	time_check_start(MTK_FMT_ENC, core_id);
+
+	if (pm->larbvenc) {
+		ret = mtk_smi_larb_get(pm->larbvenc);
+		if (ret)
+			mtk_v4l2_err("Failed to get venc larb.");
+	}
 	if (core_id == MTK_VENC_CORE_0) {
-		//smi_bus_prepare_enable(SMI_LARB7, "VENC0");
 		ret = clk_prepare_enable(pm->clk_MT_CG_VENC0);
 		if (ret)
 			mtk_v4l2_err("clk_prepare_enable CG_VENC fail %d", ret);
@@ -224,11 +231,11 @@ void mtk_vcodec_enc_clock_off(struct mtk_vcodec_ctx *ctx, int core_id)
 #ifndef FPGA_PWRCLK_API_DISABLE
 	if (core_id == MTK_VENC_CORE_0) {
 		clk_disable_unprepare(pm->clk_MT_CG_VENC0);
-		//smi_bus_disable_unprepare(SMI_LARB7, "VENC0");
-
 	} else
 		mtk_v4l2_err("invalid core_id %d", core_id);
 
+	if (pm->larbvenc)
+		mtk_smi_larb_put(pm->larbvenc);
 #endif
 }
 

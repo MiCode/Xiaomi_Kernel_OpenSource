@@ -45,7 +45,6 @@
 #include <linux/mtk_vcu_controls.h>
 #include "mtk_vcu.h"
 
-#define DISABLE_GCE_CALLBACK
 /**
  * VCU (Video Communication/Controller Unit) is a tiny processor
  * controlling video hardware related to video codec, scaling and color
@@ -310,6 +309,7 @@ struct mtk_vcu {
 	wait_queue_head_t gce_wq[VCU_CODEC_MAX];
 	struct gce_ctx_info gce_info[VCODEC_INST_MAX];
 	atomic_t gce_job_cnt[VCU_CODEC_MAX][GCE_THNUM_MAX];
+	struct vcu_v4l2_callback_func cbf;
 	unsigned long flags[VCU_CODEC_MAX];
 	int open_cnt;
 	bool abort;
@@ -748,16 +748,15 @@ static void vcu_gce_flush_callback(struct cmdq_cb_data data)
 	atomic_dec(&vcu->gce_info[j].flush_pending);
 
 	mutex_lock(&vcu->vcu_gce_mutex[i]);
-#ifndef DISABLE_GCE_CALLBACK
-	venc_encode_pmqos_gce_end(vcu->gce_info[j].v4l2_ctx, core_id,
+	if (vcu->cbf.enc_pmqos_gce_end != NULL)
+		vcu->cbf.enc_pmqos_gce_end(vcu->gce_info[j].v4l2_ctx, core_id,
 				vcu->gce_job_cnt[i][core_id].counter);
 	if (atomic_dec_and_test(&vcu->gce_job_cnt[i][core_id]) &&
 		vcu->gce_info[j].v4l2_ctx != NULL){
-		if (i == VCU_VENC)
-			venc_encode_unprepare(vcu->gce_info[j].v4l2_ctx,
+		if (i == VCU_VENC && vcu->cbf.enc_unprepare != NULL)
+			vcu->cbf.enc_unprepare(vcu->gce_info[j].v4l2_ctx,
 				buff->cmdq_buff.core_id, &vcu->flags[i]);
 	}
-#endif
 
 	mutex_unlock(&vcu->vcu_gce_mutex[i]);
 
@@ -784,12 +783,13 @@ static void vcu_gce_timeout_callback(struct cmdq_cb_data data)
 	vcu_dbg_log("%s: buff %p vcu: %p, codec_typ: %d\n",
 		__func__, buff, vcu, buff->cmdq_buff.codec_type);
 
-#ifndef DISABLE_GCE_CALLBACK
-	if (buff->cmdq_buff.codec_type == VCU_VENC)
-		mtk_vcodec_gce_timeout_dump(vcu->curr_ctx[VCU_VENC]);
-	else if (buff->cmdq_buff.codec_type == VCU_VDEC)
-		mtk_vcodec_gce_timeout_dump(vcu->curr_ctx[VCU_VDEC]);
-#endif
+	if (buff->cmdq_buff.codec_type == VCU_VENC
+		&& vcu->cbf.gce_timeout_dump != NULL)
+		vcu->cbf.gce_timeout_dump(vcu->curr_ctx[VCU_VENC]);
+	else if (buff->cmdq_buff.codec_type == VCU_VDEC
+		&& vcu->cbf.gce_timeout_dump != NULL)
+		vcu->cbf.gce_timeout_dump(vcu->curr_ctx[VCU_VDEC]);
+
 	list_for_each_safe(p, q, &vcu_queue->pa_pages.list) {
 		tmp = list_entry(p, struct vcu_pa_pages, list);
 		pr_info("%s: vcu_pa_pages %lx kva %lx data %lx\n",
@@ -889,22 +889,20 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu,
 
 	time_check_start();
 	mutex_lock(&vcu->vcu_gce_mutex[i]);
-#ifndef DISABLE_GCE_CALLBACK
 	if (atomic_read(&vcu->gce_job_cnt[i][core_id]) == 0 &&
 		vcu->gce_info[j].v4l2_ctx != NULL){
-		if (i == VCU_VENC) {
-			venc_encode_prepare(vcu->gce_info[j].v4l2_ctx,
+		if (i == VCU_VENC && vcu->cbf.enc_prepare != NULL) {
+			vcu->cbf.enc_prepare(vcu->gce_info[j].v4l2_ctx,
 				core_id, &vcu->flags[i]);
 		}
 	}
 	vcu_dbg_log("vcu gce_info[%d].v4l2_ctx %p\n",
 		j, vcu->gce_info[j].v4l2_ctx);
 
-	if (i == VCU_VENC) {
-		venc_encode_pmqos_gce_begin(vcu->gce_info[j].v4l2_ctx, core_id,
+	if (i == VCU_VENC && vcu->cbf.enc_pmqos_gce_begin != NULL) {
+		vcu->cbf.enc_pmqos_gce_begin(vcu->gce_info[j].v4l2_ctx, core_id,
 			vcu->gce_job_cnt[i][core_id].counter);
 	}
-#endif
 	atomic_inc(&vcu->gce_job_cnt[i][core_id]);
 	mutex_unlock(&vcu->vcu_gce_mutex[i]);
 	time_check_end(100, strlen(vcodec_param_string));
@@ -1026,6 +1024,26 @@ static int vcu_wait_gce_callback(struct mtk_vcu *vcu, unsigned long arg)
 
 	return ret;
 }
+
+int vcu_set_gce_v4l2_callback(struct platform_device *pdev,
+	struct vcu_v4l2_callback_func *call_back)
+{
+	struct mtk_vcu *vcu = platform_get_drvdata(pdev);
+
+	if (call_back->enc_prepare != NULL)
+		vcu->cbf.enc_prepare = call_back->enc_prepare;
+	if (call_back->enc_unprepare != NULL)
+		vcu->cbf.enc_unprepare = call_back->enc_unprepare;
+	if (call_back->enc_pmqos_gce_begin != NULL)
+		vcu->cbf.enc_pmqos_gce_begin = call_back->enc_pmqos_gce_begin;
+	if (call_back->enc_pmqos_gce_end != NULL)
+		vcu->cbf.enc_pmqos_gce_end = call_back->enc_pmqos_gce_end;
+	if (call_back->gce_timeout_dump != NULL)
+		vcu->cbf.gce_timeout_dump = call_back->gce_timeout_dump;
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(vcu_set_gce_v4l2_callback);
 
 int vcu_get_ctx_ipi_binding_lock(struct platform_device *pdev,
 	struct mutex **mutex, unsigned long type)

@@ -221,6 +221,7 @@ static int venc_init(struct mtk_vcodec_ctx *ctx, unsigned long *handle)
 	int ret = 0;
 	struct venc_inst *inst;
 	u32 fourcc = ctx->q_data[MTK_Q_DATA_DST].fmt->fourcc;
+	struct vcu_v4l2_callback_func cb;
 
 	inst = kzalloc(sizeof(*inst), GFP_KERNEL);
 	if (!inst) {
@@ -278,6 +279,14 @@ static int venc_init(struct mtk_vcodec_ctx *ctx, unsigned long *handle)
 	ret = vcu_enc_init(&inst->vcu_inst);
 
 	inst->vsi = (struct venc_vsi *)inst->vcu_inst.vsi;
+
+	memset(&cb, 0, sizeof(struct vcu_v4l2_callback_func));
+	cb.enc_prepare = venc_encode_prepare;
+	cb.enc_unprepare = venc_encode_unprepare;
+	cb.enc_pmqos_gce_begin = venc_encode_pmqos_gce_begin;
+	cb.enc_pmqos_gce_end = venc_encode_pmqos_gce_end;
+	cb.gce_timeout_dump = mtk_vcodec_gce_timeout_dump;
+	vcu_set_gce_v4l2_callback(inst->vcu_inst.dev, &cb);
 
 	mtk_vcodec_debug_leave(inst);
 

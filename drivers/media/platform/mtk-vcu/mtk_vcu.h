@@ -149,6 +149,18 @@ enum vcu_codec_type {
 	VCU_CODEC_MAX
 };
 
+struct vcu_v4l2_callback_func {
+	void (*enc_prepare)(void *ctx_prepare,
+		unsigned int core_id, unsigned long *flags);
+	void (*enc_unprepare)(void *ctx_unprepare,
+		unsigned int core_id, unsigned long *flags);
+	void (*enc_pmqos_gce_begin)(void *ctx_begin,
+		unsigned int core_id, int job_cnt);
+	void (*enc_pmqos_gce_end)(void *ctx_end,
+		unsigned int core_id, int job_cnt);
+	void (*gce_timeout_dump)(void *ctx);
+};
+
 /**
  * vcu_ipi_register - register an ipi function
  *
@@ -270,6 +282,8 @@ int vcu_get_sig_lock(unsigned long *flags);
 void vcu_put_sig_lock(unsigned long flags);
 int vcu_check_vpud_alive(void);
 extern void smp_inner_dcache_flush_all(void);
+int vcu_set_gce_v4l2_callback(struct platform_device *pdev,
+	struct vcu_v4l2_callback_func *call_back);
 int vcu_get_ctx_ipi_binding_lock(struct platform_device *pdev,
 	struct mutex **mutex, unsigned long type);
 int vcu_set_codec_ctx(struct platform_device *pdev,

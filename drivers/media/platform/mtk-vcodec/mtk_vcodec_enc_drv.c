@@ -358,15 +358,13 @@ static int mtk_vcodec_enc_probe(struct platform_device *pdev)
 		goto err_enc_reg;
 	}
 
-	mtk_v4l2_debug(0, "encoder registered as /dev/video%d",
-				   vfd_enc->num);
-
 #if IS_ENABLED(CONFIG_MTK_IOMMU)
 	dev->io_domain = iommu_get_domain_for_dev(&pdev->dev);
 	if (dev->io_domain == NULL) {
 		mtk_v4l2_err("Failed to get io_domain\n");
 		return -EPROBE_DEFER;
 	}
+
 	ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(34));
 	if (ret) {
 		ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(34));
@@ -376,6 +374,8 @@ static int mtk_vcodec_enc_probe(struct platform_device *pdev)
 		}
 	}
 #endif
+	mtk_v4l2_debug(0, "encoder registered as /dev/video%d",
+				   vfd_enc->num);
 
 	mtk_prepare_venc_dvfs(dev);
 	mtk_prepare_venc_emi_bw(dev);
