@@ -87,7 +87,7 @@ config OVERRIDE_MEMORY_LIMIT
 	  If unsure, say N
 
 config MSM_SPSS_UTILS
-	depends on MSM_PIL
+	depends on QCOM_SPSS
 	tristate "Secure Processor Utilities"
 	help
 	  spss-utils driver selects Secure Processor firmware file name.name

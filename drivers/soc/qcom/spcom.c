@@ -61,7 +61,7 @@
 #include <linux/atomic.h>
 #include <linux/list.h>
 #include <uapi/linux/spcom.h>
-#include <soc/qcom/subsystem_restart.h>
+#include <linux/remoteproc.h>
 #include <linux/ioctl.h>
 #include <linux/ipc_logging.h>
 
@@ -272,6 +272,7 @@ struct spcom_device {
 	int32_t nvm_ion_fd;
 	struct mutex ioctl_lock;
 	atomic_t subsys_req;
+	struct rproc *spss_rproc;
 };
 
 /* Device Driver State */
@@ -636,8 +637,8 @@ static int spcom_handle_create_channel_command(void *cmd_buf, int cmd_size)
  */
 static int spcom_handle_restart_sp_command(void *cmd_buf, int cmd_size)
 {
-	void *subsystem_get_retval = NULL;
 	struct spcom_user_restart_sp_command *cmd = cmd_buf;
+	int ret;
 
 	if (!cmd) {
 		spcom_pr_err("NULL cmd_buf\n");
@@ -653,12 +654,12 @@ static int spcom_handle_restart_sp_command(void *cmd_buf, int cmd_size)
 	spcom_pr_dbg("restart - PIL FW loading initiated: preloaded=%d\n",
 		cmd->arg);
 
-	subsystem_get_retval = subsystem_get("spss");
-	if (IS_ERR_OR_NULL(subsystem_get_retval)) {
+	ret = rproc_boot(spcom_dev->spss_rproc);
+	if (ret) {
 		spcom_pr_err("restart - spss crashed during device bootup\n");
 		if (atomic_cmpxchg(&spcom_dev->subsys_req, 1, 0)) {
-			subsystem_get_retval = subsystem_get("spss");
-			if (IS_ERR_OR_NULL(subsystem_get_retval)) {
+			ret = rproc_boot(spcom_dev->spss_rproc);
+			if (ret) {
 				spcom_pr_err("spss - restart - Failed start\n");
 				return -ENODEV;
 			}
@@ -2399,6 +2400,7 @@ static int spcom_probe(struct platform_device *pdev)
 	int ret;
 	struct spcom_device *dev = NULL;
 	struct device_node *np;
+	struct property *prop;
 
 	if (!pdev) {
 		pr_err("invalid pdev\n");
@@ -2417,6 +2419,17 @@ static int spcom_probe(struct platform_device *pdev)
 
 	spcom_dev = dev;
 	spcom_dev->pdev = pdev;
+
+	prop = of_find_property(np, "qcom,rproc-handle", NULL);
+	if (!prop)
+		return -EINVAL;
+
+	spcom_dev->spss_rproc = rproc_get_by_phandle(be32_to_cpup(prop->value));
+	if (!spcom_dev->spss_rproc) {
+		pr_err("device not found\n");
+		return -EPROBE_DEFER;
+	}
+
 	/* start counting exposed channel char devices from 1 */
 	atomic_set(&spcom_dev->chdev_count, 1);
 	init_completion(&spcom_dev->rpmsg_state_change);
@@ -2468,7 +2481,6 @@ fail_while_chardev_reg:
 static int spcom_remove(struct platform_device *pdev)
 {
 	int ret;
-	void *subsystem_get_retval = NULL;
 	struct rx_buff_list *rx_item;
 	unsigned long flags;
 	int i;
@@ -2476,12 +2488,8 @@ static int spcom_remove(struct platform_device *pdev)
 	atomic_inc(&spcom_dev->remove_in_progress);
 
 	/* trigger SSR to release all connected channels */
-	subsystem_get_retval = subsystem_get("spss");
-	if (!subsystem_get_retval) {
-		spcom_pr_err("unable to trigger spss SSR\n");
-		atomic_dec(&spcom_dev->remove_in_progress);
-		return -EINVAL;
-	}
+	rproc_report_crash(spcom_dev->spss_rproc, RPROC_FATAL_ERROR);
+	rproc_put(spcom_dev->spss_rproc);
 
 	pr_debug("wait for remove of %d rpmsg devices\n",
 		 atomic_read(&spcom_dev->rpmsg_dev_count));
