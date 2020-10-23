@@ -1248,16 +1248,20 @@ static void md_register_panic_data(void)
 				  &md_meminfo_seq_buf);
 	md_register_panic_entries(MD_SLABINFO_PAGES, "SLABINFO",
 				  &md_slabinfo_seq_buf);
+#ifdef CONFIG_PAGE_OWNER
 	if (is_page_owner_enabled()) {
 		md_register_memory_dump(md_pageowner_dump_size, "PAGEOWNER");
 		debugfs_create_file("page_owner_dump_size_mb", 0400, NULL, NULL,
 			    &proc_page_owner_dump_size_ops);
 	}
+#endif
+#ifdef CONFIG_SLUB_DEBUG
 	if (is_slub_debug_enabled()) {
 		md_register_memory_dump(md_slabowner_dump_size, "SLABOWNER");
 		debugfs_create_file("slab_owner_dump_size_mb", 0400, NULL, NULL,
 			    &proc_slab_owner_dump_size_ops);
 	}
+#endif
 }
 
 #ifdef CONFIG_MODULES
