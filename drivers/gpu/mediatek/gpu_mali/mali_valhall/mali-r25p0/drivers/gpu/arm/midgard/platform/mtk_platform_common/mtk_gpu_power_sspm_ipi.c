@@ -13,7 +13,7 @@
 #include "mali_kbase.h"
 #include "mali_kbase_ioctl.h"
 #include "mali_kbase_vinstr.h"
-#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
 #include <sspm_ipi_id.h>
 #include <sspm_define.h>
 #endif
@@ -28,7 +28,7 @@ int gpu_pm_ipi_ackdata;
 static DEFINE_MUTEX(gpu_pmu_info_lock);
 static void gpu_send_enable_ipi(unsigned int type, unsigned int enable)
 {
-#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
 	int cmd_len, ret;
 	struct gpu_pm_ipi_cmds ipi_cmd;
 	if (!ipi_register_flag) {
@@ -112,6 +112,7 @@ void MTKGPUPower_model_start(unsigned int interval_ns) {
 EXPORT_SYMBOL(MTKGPUPower_model_start);
 
 void MTKGPUPower_model_start_swpm(unsigned int interval_ns){
+
 	int pm_tool = MTK_get_mtk_pm();
 
 	mutex_lock(&gpu_pmu_info_lock);
@@ -180,7 +181,7 @@ void MTKGPUPower_model_resume(void){
 EXPORT_SYMBOL(MTKGPUPower_model_resume);
 
 int MTKGPUPower_model_init(void) {
-#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
 	int ret;
 
 	ret = mtk_ipi_register(&sspm_ipidev, IPIS_C_GPU_PM, NULL, NULL,

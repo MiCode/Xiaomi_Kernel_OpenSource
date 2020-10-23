@@ -40,12 +40,14 @@
 #include <linux/workqueue.h>
 
 #include <platform/mtk_mfg_counter.h>
-#ifdef CONFIG_MTK_PERF_TRACKER
-#include <perf_tracker.h>
-#endif
-#if defined(CONFIG_MTK_SWPM)
+#if IS_ENABLED(CONFIG_MTK_SWPM)
 #include <mtk_swpm_interface.h>
 #include <mtk_gpu_swpm_plat.h>
+#endif
+
+#if IS_ENABLED(CONFIG_MTK_GPU_SWPM_SUPPORT)
+#define CREATE_TRACE_POINTS
+#include <platform/mtk_platform_common/mtk_gpu_trace.h>
 #endif
 
 
@@ -233,7 +235,7 @@ static int kbasep_vinstr_client_dump(
 		kernel_dump = dump_buf->dump_buf;
 		MTK_update_gpu_LTR();
 	}
-#if defined(CONFIG_MTK_SWPM)
+#if IS_ENABLED(CONFIG_MTK_SWPM)
 	else if (mtk_pm_tool == pm_swpm && ds5_used == 0) {
 		kernel_dump = dump_buf->dump_buf;
 		MTK_update_gpu_swpm();
@@ -561,7 +563,7 @@ void kbase_vinstr_suspend(struct kbase_vinstr_context *vctx)
 	hrtimer_cancel(&vctx->dump_timer);
 	cancel_work_sync(&vctx->dump_work);
 
-#if defined(CONFIG_MTK_SWPM)
+#if IS_ENABLED(CONFIG_MTK_SWPM)
 	/* mtk reset urate of shared memory */
 	if (mtk_pm_tool == pm_ltr || mtk_pm_tool == pm_swpm)
 		MTK_reset_urate();
@@ -1151,7 +1153,7 @@ int MTK_kbase_vinstr_hwcnt_reader_setup(
 	int errcode;
 	int fd;
 	struct kbase_vinstr_client *vcli = NULL;
-#if defined(CONFIG_MTK_SWPM)
+#if IS_ENABLED(CONFIG_MTK_SWPM)
 	//use swpm share memory
 	phys_addr_t *ptr = NULL;
 	struct gpu_swpm_rec_data *gpu_ptr;
@@ -1175,7 +1177,7 @@ int MTK_kbase_vinstr_hwcnt_reader_setup(
 	vctx->client_count++;
 	list_add(&vcli->node, &vctx->clients);
 	mtk_cli = vcli;
-#if defined(CONFIG_MTK_SWPM)
+#if IS_ENABLED(CONFIG_MTK_SWPM)
 	//set swpm gpu_enable
 	if (mtk_pm_tool == pm_swpm) {
 		swpm_mem_addr_request(GPU_SWPM_TYPE, &ptr);
@@ -1201,7 +1203,7 @@ void MTK_kbasep_vinstr_hwcnt_set_interval(unsigned int interval)
 
 void MTK_kbasep_vinstr_hwcnt_release(void)
 {
-#if defined(CONFIG_MTK_SWPM)
+#if IS_ENABLED(CONFIG_MTK_SWPM)
 	//use swpm share memory
 	phys_addr_t *ptr = NULL;
 	struct gpu_swpm_rec_data *gpu_ptr;
@@ -1211,7 +1213,7 @@ void MTK_kbasep_vinstr_hwcnt_release(void)
 	ds5_used = 1;
 	if (mtk_cli != NULL) {
 		mutex_lock(&mtk_cli->vctx->lock);
-#if defined(CONFIG_MTK_SWPM)
+#if IS_ENABLED(CONFIG_MTK_SWPM)
 		//set swpm gpu_enable
 		swpm_mem_addr_request(GPU_SWPM_TYPE, &ptr);
 		gpu_ptr = (struct gpu_swpm_rec_data *)ptr;
@@ -1226,7 +1228,7 @@ void MTK_kbasep_vinstr_hwcnt_release(void)
 	}
 }
 
-#if defined(CONFIG_MTK_SWPM)
+#if IS_ENABLED(CONFIG_MTK_SWPM)
 void MTK_reset_urate(void)
 {
 	//use share memory of swpm
@@ -1364,15 +1366,13 @@ void MTK_update_gpu_LTR(void)
 	gpu_perf_counter.counter[VINSTR_JS0_ACTIVE] = kernel_dump[10];
 	gpu_perf_counter.counter[VINSTR_JS1_ACTIVE] = kernel_dump[18];
 #endif
-#ifdef CONFIG_MFG_COUNTER
 	mtk_GPU_STALL_RAW(stall_counter, 4);
-#endif
 	gpu_perf_counter.counter[VINSTR_STALL0] = stall_counter[0];
 	gpu_perf_counter.counter[VINSTR_STALL1] = stall_counter[1];
 	gpu_perf_counter.counter[VINSTR_STALL2] = stall_counter[2];
 	gpu_perf_counter.counter[VINSTR_STALL3] = stall_counter[3];
-#if defined(CONFIG_MTK_PERF_TRACKER) && defined(CONFIG_MTK_GPU_SWPM_SUPPORT)
-	perf_update_gpu_counter(gpu_perf_counter.counter, VINSTR_PERF_COUNTER_LAST);
+#if IS_ENABLED(CONFIG_MTK_GPU_SWPM_SUPPORT)
+	trace_perf_index_gpu(gpu_perf_counter.counter, VINSTR_PERF_COUNTER_LAST);
 #endif
 
 
