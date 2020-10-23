@@ -2202,7 +2202,7 @@
 				reg = <0 0x11200000 0 0x1000>;
 				reg-names = "mac";
 				interrupts = <GIC_SPI 97 IRQ_TYPE_LEVEL_HIGH 0>;
-				clocks = <&clk26m>;
+				clocks = <&infracfg CLK_INFRA_SSUSB_XHCI>;
 				clock-names = "sys_ck";
 				status = "okay";
 			};
