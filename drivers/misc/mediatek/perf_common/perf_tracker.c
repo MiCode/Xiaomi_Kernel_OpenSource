@@ -22,6 +22,10 @@
 #include <mtk_gpu_power_sspm_ipi.h>
 #endif
 
+#if IS_ENABLED(CONFIG_MTK_DVFSRC)
+#include <dvfsrc-exp.h>
+#endif
+
 #include <perf_tracker.h>
 #include <perf_tracker_internal.h>
 
@@ -99,6 +103,7 @@ void perf_tracker(u64 wallclock,
 	int dram_rate = 0;
 	struct mtk_btag_mictx_iostat_struct *iostat_ptr = &iostat;
 	int bw_c = 0, bw_g = 0, bw_mm = 0, bw_total = 0;
+	int vcore_uv = 0;
 	int i;
 	int stall[max_cpus] = {0};
 	unsigned int sched_freq[3] = {0};
@@ -108,8 +113,16 @@ void perf_tracker(u64 wallclock,
 		return;
 
 	/* dram freq */
+#if IS_ENABLED(CONFIG_MTK_DVFSRC)
+	dram_rate = mtk_dvfsrc_query_opp_info(MTK_DVFSRC_CURR_DRAM_KHZ);
+	dram_rate = dram_rate / 1000;
+	/* vcore  */
+	vcore_uv = mtk_dvfsrc_query_opp_info(MTK_DVFSRC_CURR_VCORE_UV);
+#endif
+
 #if IS_ENABLED(CONFIG_MTK_DRAMC)
-	dram_rate = mtk_dramc_get_data_rate();
+	if (dram_rate <= 0)
+		dram_rate = mtk_dramc_get_data_rate();
 #endif
 
 #if IS_ENABLED(CONFIG_MTK_QOS_FRAMEWORK)
@@ -126,8 +139,8 @@ void perf_tracker(u64 wallclock,
 	/* trace for short msg */
 	trace_perf_index_s(
 			sched_freq[0], sched_freq[1], sched_freq[2],
-			dram_rate, bw_c, bw_g, bw_mm, bw_total
-			);
+			dram_rate, bw_c, bw_g, bw_mm, bw_total,
+			vcore_uv);
 
 	if (!hit_long_check)
 		return;
