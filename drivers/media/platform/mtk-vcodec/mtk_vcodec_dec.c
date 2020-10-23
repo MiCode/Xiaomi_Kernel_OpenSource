@@ -1922,12 +1922,25 @@ static int vb2ops_vdec_buf_prepare(struct vb2_buffer *vb)
 	mtkbuf = container_of(vb2_v4l2, struct mtk_video_dec_buf, vb);
 	if (vb->vb2_queue->type != V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		if (mtkbuf->general_user_fd > -1) {
-			mtkbuf->frame_buffer.dma_general_addr =
-				mtk_vcu_get_dma_iova(mtkbuf->general_user_fd);
-			if (mtkbuf->frame_buffer.dma_general_addr < 0) {
+			mtkbuf->frame_buffer.dma_general_buf =
+				dma_buf_get(mtkbuf->general_user_fd);
+
+			if (IS_ERR(mtkbuf->frame_buffer.dma_general_buf)) {
+				mtk_v4l2_err("%s dma_general_buf is err 0x%p.\n",
+					__func__,
+					mtkbuf->frame_buffer.dma_general_buf);
+
 				mtk_vdec_queue_error_event(ctx);
 				return -EINVAL;
 			}
+
+			mtkbuf->frame_buffer.buf_att = dma_buf_attach(
+				mtkbuf->frame_buffer.dma_general_buf,
+				&ctx->dev->plat_dev->dev);
+			mtkbuf->frame_buffer.sgt =
+				dma_buf_map_attachment(mtkbuf->frame_buffer.buf_att, DMA_TO_DEVICE);
+			mtkbuf->frame_buffer.dma_general_addr =
+				sg_dma_address(mtkbuf->frame_buffer.sgt->sgl);
 		} else
 			mtkbuf->frame_buffer.dma_general_buf = 0;
 		mtk_v4l2_debug(4,
@@ -2265,6 +2278,10 @@ static void vb2ops_vdec_buf_finish(struct vb2_buffer *vb)
 	mtkbuf = container_of(vb2_v4l2, struct mtk_video_dec_buf, vb);
 
 	if (mtkbuf->frame_buffer.dma_general_buf != 0) {
+		dma_buf_unmap_attachment(mtkbuf->frame_buffer.buf_att,
+			mtkbuf->frame_buffer.sgt, DMA_TO_DEVICE);
+		dma_buf_detach(mtkbuf->frame_buffer.dma_general_buf,
+			mtkbuf->frame_buffer.buf_att);
 		dma_buf_put(mtkbuf->frame_buffer.dma_general_buf);
 		mtkbuf->frame_buffer.dma_general_buf = 0;
 		mtk_v4l2_debug(4,

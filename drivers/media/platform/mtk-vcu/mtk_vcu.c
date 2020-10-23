@@ -1268,36 +1268,6 @@ void vcu_get_task(struct task_struct **task, struct files_struct **f,
 }
 EXPORT_SYMBOL_GPL(vcu_get_task);
 
-dma_addr_t mtk_vcu_get_dma_iova(int general_user_fd)
-{
-	struct dma_buf_attachment *buf_att;
-	struct sg_table *sgt;
-	struct	dma_buf *dma_general_buf;
-	dma_addr_t dma_general_addr;
-
-	dma_general_buf =
-		dma_buf_get(general_user_fd);
-
-	if (IS_ERR(dma_general_buf)) {
-		pr_info("%s dma_general_buf is err 0x%p.\n",
-			__func__,
-			dma_general_buf);
-
-		return -EINVAL;
-	}
-
-	buf_att = dma_buf_attach(
-		dma_general_buf, vcu_mtkdev[0]->dev);
-	sgt = dma_buf_map_attachment(buf_att, DMA_TO_DEVICE);
-	dma_general_addr =
-		sg_dma_address(sgt->sgl);
-	dma_buf_unmap_attachment(buf_att, sgt, DMA_TO_DEVICE);
-	dma_buf_detach(dma_general_buf,	buf_att);
-
-	return dma_general_addr;
-}
-EXPORT_SYMBOL_GPL(mtk_vcu_get_dma_iova);
-
 static int vcu_ipi_handler(struct mtk_vcu *vcu, struct share_obj *rcv_obj)
 {
 	struct vcu_ipi_desc *ipi_desc = vcu->ipi_desc;

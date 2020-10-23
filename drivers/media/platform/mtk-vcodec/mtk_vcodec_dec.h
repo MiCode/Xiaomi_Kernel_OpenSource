@@ -33,6 +33,8 @@ struct vdec_fb {
 	unsigned int    index;
 	int             general_buf_fd;
 	struct  dma_buf *dma_general_buf;
+	struct dma_buf_attachment *buf_att;
+	struct sg_table *sgt;
 	dma_addr_t dma_general_addr;
 };
 

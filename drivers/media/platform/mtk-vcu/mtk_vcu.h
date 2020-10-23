@@ -300,5 +300,4 @@ extern void venc_encode_pmqos_gce_begin(void *ctx_begin,
 extern void venc_encode_pmqos_gce_end(void *ctx_end,
 		unsigned int core_id, int job_cnt);
 extern void mtk_vcodec_gce_timeout_dump(void *ctx);
-extern dma_addr_t mtk_vcu_get_dma_iova(int general_user_fd);
 #endif /* _MTK_VCU_H */

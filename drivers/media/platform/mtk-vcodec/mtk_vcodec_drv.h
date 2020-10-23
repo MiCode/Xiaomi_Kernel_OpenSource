@@ -302,6 +302,8 @@ struct venc_frm_buf {
 	unsigned int roimap;
 	bool has_meta;
 	struct dma_buf *meta_dma;
+	struct dma_buf_attachment *buf_att;
+	struct sg_table *sgt;
 	dma_addr_t meta_addr;
 };
 
