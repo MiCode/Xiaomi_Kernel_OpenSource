@@ -87,6 +87,12 @@ void xgf_lockprove(const char *tag)
 }
 EXPORT_SYMBOL(xgf_lockprove);
 
+void xgf_for_each_kernel_tracepoint(void *fct, void *priv)
+{
+	for_each_kernel_tracepoint(fct, priv);
+}
+EXPORT_SYMBOL(xgf_for_each_kernel_tracepoint);
+
 int xgf_tracepoint_probe_register(struct tracepoint *tp, void *probe, void *data)
 {
 	return tracepoint_probe_register(tp, probe, data);
