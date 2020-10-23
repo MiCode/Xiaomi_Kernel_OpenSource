@@ -1382,6 +1382,8 @@ int genc_hwsched_submit_cmdobj(struct adreno_device *adreno_dev,
 	}
 
 skipib:
+	adreno_drawobj_set_constraint(KGSL_DEVICE(adreno_dev), drawobj);
+
 	ret = genc_hfi_queue_write(adreno_dev,
 		HFI_DSP_ID_0 + drawobj->context->gmu_dispatch_queue,
 		(u32 *)cmd);

@@ -507,7 +507,7 @@ int a5xx_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 		goto done;
 	}
 
-	adreno_ringbuffer_set_constraint(device, drawobj);
+	adreno_drawobj_set_constraint(device, drawobj);
 
 	ret = a5xx_ringbuffer_addcmds(adreno_dev, drawctxt->rb, drawctxt,
 		flags, cmds, index, drawobj->timestamp, time);

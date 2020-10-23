@@ -50,6 +50,7 @@ struct kgsl_pwr_constraint {
 	} hint;
 	unsigned long expires;
 	uint32_t owner_id;
+	u32 owner_timestamp;
 };
 
 /**
@@ -195,8 +196,21 @@ kgsl_pwrctrl_active_freq(struct kgsl_pwrctrl *pwr)
 int kgsl_active_count_wait(struct kgsl_device *device, int count,
 	unsigned long wait_jiffies);
 void kgsl_pwrctrl_busy_time(struct kgsl_device *device, u64 time, u64 busy);
+
+/**
+ * kgsl_pwrctrl_set_constraint() - Validate and change enforced constraint
+ * @device: Pointer to the kgsl_device struct
+ * @pwrc: Pointer to requested constraint
+ * @id: Context id which owns the constraint
+ * @ts: The timestamp for which this constraint is enforced
+ *
+ * Accept the new constraint if no previous constraint existed or if the
+ * new constraint is faster than the previous one.  If the new and previous
+ * constraints are equal, update the timestamp and ownership to make sure
+ * the constraint expires at the correct time.
+ */
 void kgsl_pwrctrl_set_constraint(struct kgsl_device *device,
-			struct kgsl_pwr_constraint *pwrc, uint32_t id);
+			struct kgsl_pwr_constraint *pwrc, u32 id, u32 ts);
 int kgsl_pwrctrl_set_default_gpu_pwrlevel(struct kgsl_device *device);
 void kgsl_pwrctrl_update_thermal_pwrlevel(struct kgsl_device *device);
 
