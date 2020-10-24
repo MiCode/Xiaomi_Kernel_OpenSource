@@ -124,7 +124,7 @@
 	tpd-filter-pixel-density = <168>;
 	tpd-filter-custom-prameters = <0 0 0 0 0 0 0 0 0 0 0 0>;
 	tpd-filter-custom-speed = <0 0 0>;
-	status = "disabled"; /*workaround: disable gt1151, original valule:okay*/
+	status = "okay";
 };
 
 &pio {
