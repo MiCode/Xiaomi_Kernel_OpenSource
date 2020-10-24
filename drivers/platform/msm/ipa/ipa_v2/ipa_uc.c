@@ -200,7 +200,7 @@ union IpaHwUpdateFlagsCmdData_t {
 	u32 raw32b;
 };
 
-struct ipa_uc_hdlrs uc_hdlrs[IPA_HW_NUM_FEATURES] = { { 0 } };
+static struct ipa_uc_hdlrs uc_hdlrs[IPA_HW_NUM_FEATURES] = { { NULL } };
 
 static inline const char *ipa_hw_error_str(enum ipa_hw_errors err_type)
 {
@@ -269,7 +269,6 @@ static void ipa_log_evt_hdlr(void)
 				ipa_ctx->uc_ctx.uc_event_top_ofst);
 		}
 	}
-
 	return;
 
 bad_uc_top_ofst:
@@ -522,9 +521,8 @@ int ipa_uc_interface_init(void)
 			IPA_SRAM_DIRECT_ACCESS_N_OFST_v2_0(
 			ipa_ctx->smem_restricted_bytes / 4);
 	}
-
 	ipa_ctx->uc_ctx.uc_sram_mmio = ioremap(phys_addr,
-					       IPA_RAM_UC_SMEM_SIZE);
+						IPA_RAM_UC_SMEM_SIZE);
 	if (!ipa_ctx->uc_ctx.uc_sram_mmio) {
 		IPAERR("Fail to ioremap IPA uC SRAM\n");
 		result = -ENOMEM;
@@ -642,9 +640,9 @@ send_cmd:
 			timeout_jiffies) == 0) {
 			IPAERR("uC timed out\n");
 			if (ipa_ctx->uc_ctx.uc_failed) {
-				IPAERR("uC reported on Error,
-				errorType = %s\n", ipa_hw_error_str(
-				ipa_ctx->uc_ctx.uc_error_type));
+				IPAERR("uC reported on Error,errorType = %s\n",
+				ipa_hw_error_str(
+					ipa_ctx->uc_ctx.uc_error_type));
 			}
 			mutex_unlock(&ipa_ctx->uc_ctx.uc_lock);
 			ipa_assert();
