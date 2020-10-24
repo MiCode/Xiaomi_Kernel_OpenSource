@@ -1815,7 +1815,12 @@ static void msm_geni_serial_handle_isr(struct uart_port *uport,
 						SE_GENI_S_IRQ_CLEAR);
 	m_irq_en = geni_read_reg_nolog(uport->membase, SE_GENI_M_IRQ_EN);
 	if ((m_irq_status & M_ILLEGAL_CMD_EN)) {
-		WARN_ON(1);
+		if (uart_console(uport))
+			IPC_LOG_MSG(msm_port->console_log,
+				"%s.Illegal interrupt. sirq 0x%x mirq:0x%x\n",
+				 __func__, s_irq_status, m_irq_status);
+		else
+			WARN_ON(1);
 		goto exit_geni_serial_isr;
 	}
 

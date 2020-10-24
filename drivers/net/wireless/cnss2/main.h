@@ -239,6 +239,7 @@ enum cnss_driver_state {
 	CNSS_IMS_CONNECTED,
 	CNSS_IN_SUSPEND_RESUME,
 	CNSS_IN_REBOOT,
+	CNSS_QMI_DEL_SERVER,
 };
 
 struct cnss_recovery_data {
@@ -402,6 +403,8 @@ struct cnss_plat_data {
 	int (*get_info_cb)(void *ctx, void *event, int event_len);
 	u8 use_nv_mac;
 	u8 set_wlaon_pwr_ctrl;
+	u8 fw_pcie_gen_switch;
+	u8 pcie_gen_speed;
 };
 
 #ifdef CONFIG_ARCH_QCOM

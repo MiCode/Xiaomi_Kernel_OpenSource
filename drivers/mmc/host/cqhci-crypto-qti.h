@@ -22,5 +22,10 @@ int cqhci_crypto_qti_debug(struct cqhci_host *host);
 void cqhci_crypto_qti_set_vops(struct cqhci_host *host);
 
 int cqhci_crypto_qti_resume(struct cqhci_host *host);
+int cqhci_crypto_qti_prep_desc(struct cqhci_host *host,
+				struct mmc_request *mrq,
+				u64 *ice_ctx);
+
+int cqhci_crypto_qti_reset(struct cqhci_host *host);
 
 #endif /* _UFSHCD_ICE_QTI_H */

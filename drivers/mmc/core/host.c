@@ -27,6 +27,7 @@
 #include <linux/mmc/slot-gpio.h>
 
 #include "core.h"
+#include "crypto.h"
 #include "host.h"
 #include "slot-gpio.h"
 #include "pwrseq.h"
@@ -170,6 +171,16 @@ int mmc_retune(struct mmc_host *host)
 		return_to_hs400 = true;
 	}
 
+	/*
+	 * Timing should be adjusted to the HS400 target
+	 * operation frequency for tuning process.
+	 * Similar handling is also done in mmc_hs200_tuning()
+	 * This is handled properly in sdhci-msm.c from msm-5.4 onwards.
+	 */
+	if (host->card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS400 &&
+		host->ios.bus_width == MMC_BUS_WIDTH_8)
+		mmc_set_timing(host, MMC_TIMING_MMC_HS400);
+
 	err = mmc_execute_tuning(host->card);
 	if (err)
 		goto out;
@@ -180,6 +191,34 @@ out:
 	host->doing_retune = 0;
 
 	return err;
+}
+
+/**
+ *	mmc_host_may_gate_card - check if this card may be gated
+ *	@card: card to check.
+ */
+bool mmc_host_may_gate_card(struct mmc_card *card)
+{
+	/* If there is no card we may gate it */
+	if (!card)
+		return true;
+
+	/*
+	 * SDIO3.0 card allows the clock to be gated off so check if
+	 * that is the case or not
+	 */
+	if (mmc_card_sdio(card) && card->cccr.async_intr_sup)
+		return true;
+
+	/*
+	 * Don't gate SDIO cards! These need to be clocked at all times
+	 * since they may be independent systems generating interrupts
+	 * and other events. The clock requests counter from the core will
+	 * go down to zero since the core does not need it, but we will not
+	 * gate the clock, because there is somebody out there that may still
+	 * be using it.
+	 */
+	return !(card->quirks & MMC_QUIRK_BROKEN_CLK_GATING);
 }
 
 static void mmc_retune_timer(struct timer_list *t)
@@ -676,6 +715,7 @@ EXPORT_SYMBOL(mmc_remove_host);
  */
 void mmc_free_host(struct mmc_host *host)
 {
+	mmc_crypto_free_host(host);
 	mmc_pwrseq_free(host);
 	put_device(&host->class_dev);
 }

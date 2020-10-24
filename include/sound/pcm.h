@@ -128,7 +128,6 @@ struct snd_pcm_ops {
 #define SNDRV_RENDER_STOPPED    (1 << 1)
 #define SNDRV_RENDER_RUNNING    (1 << 2)
 
-
 /* If you change this don't forget to change rates[] table in pcm_native.c */
 #define SNDRV_PCM_RATE_5512		(1<<0)		/* 5512Hz */
 #define SNDRV_PCM_RATE_8000		(1<<1)		/* 8000Hz */

@@ -37,13 +37,13 @@ dma_addr_t dma_get_device_base(struct device *dev,
 	else
 		return mem->device_base;
 }
-EXPORT_SYMBOL(dma_get_device_base);
+EXPORT_SYMBOL_GPL(dma_get_device_base);
 
 unsigned long dma_get_size(struct dma_coherent_mem *mem)
 {
 	return mem->size << PAGE_SHIFT;
 }
-EXPORT_SYMBOL(dma_get_size);
+EXPORT_SYMBOL_GPL(dma_get_size);
 
 static int dma_init_coherent_memory(
 	phys_addr_t phys_addr, dma_addr_t device_addr, size_t size, int flags,

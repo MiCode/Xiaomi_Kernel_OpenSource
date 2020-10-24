@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: GPL-2.0-only
+config SDE_ROTATOR
+	bool "QTI V4L2 based SDE Rotator"
+	depends on ARCH_QCOM && VIDEO_V4L2
+	select V4L2_MEM2MEM_DEV
+	select VIDEOBUF2_CORE
+	select SYNC_FILE
+	help
+	  Enable support of V4L2 rotator driver.
+	  This feature enables the MSM SDE rotator v4l2
+	  video driver for Qualcomm Technologies, Inc.
+	  SYNC_FILE objects are used to help manage buffer
+	  synchronization.
+
+config SDE_ROTATOR_EVTLOG_DEBUG
+	depends on SDE_ROTATOR
+	bool "Enable sde rotator debugging"
+	help
+	The SDE rotator debugging provides support to enable rotator debugging
+	features to: Dump rotator registers during driver errors, panic
+	driver during fatal errors and enable some rotator driver logging
+	into an internal buffer (this avoids logging overhead).

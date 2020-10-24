@@ -479,6 +479,9 @@ void msm_vidc_debugfs_deinit_inst(struct msm_vidc_inst *inst)
 		return;
 
 	dentry = inst->debugfs_root;
+	if (IS_ERR_OR_NULL(dentry))
+		return;
+
 	if (dentry->d_inode) {
 		dprintk(VIDC_INFO, "Destroy %pK\n", dentry->d_inode->i_private);
 		kfree(dentry->d_inode->i_private);

@@ -267,7 +267,7 @@ struct iommu_ops {
 	size_t (*unmap)(struct iommu_domain *domain, unsigned long iova,
 		     size_t size);
 	size_t (*map_sg)(struct iommu_domain *domain, unsigned long iova,
-                        struct scatterlist *sg, unsigned int nents, int prot);
+			 struct scatterlist *sg, unsigned int nents, int prot);
 	void (*flush_iotlb_all)(struct iommu_domain *domain);
 	void (*iotlb_range_add)(struct iommu_domain *domain,
 				unsigned long iova, size_t size);

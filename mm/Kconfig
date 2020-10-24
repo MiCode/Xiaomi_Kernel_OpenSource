@@ -652,6 +652,21 @@ config VMAP_LAZY_PURGING_FACTOR
 	  single attempt. For 32-bit in order to reduce fragmentation
 	  of vmalloc space, we decrease the default value to "8".
 
+config MM_EVENT_STAT
+	bool "Track per-process MM event"
+	depends on MMU
+	help
+	  This option enables per-process mm event stat(e.g., fault, reclaim,
+	  compaction and so on ) with some interval(Default is 0.5sec).
+	  Admin can see the stat from trace file via debugfs(e.g.,
+	  /sys/kernel/debug/tracing/trace)
+
+	  It includes max/average memory allocation latency for the interval
+	  as well as event count so that admin can see what happens in VM side
+	  (how many each event happens and how much processes spent time for
+	  the MM event). If it's too large, that would be not good situation.
+
+	  System can dump the trace into bugreport when user allows the dump.
 
 config GENERIC_EARLY_IOREMAP
 	bool
@@ -860,3 +875,13 @@ config PROCESS_RECLAIM
 	 (addr, addr + size-bytes) of the process.
 
 	 Any other value is ignored.
+
+config FORCE_ALLOC_FROM_DMA_ZONE
+	bool "Force certain memory allocators to always return ZONE_DMA32 memory"
+	depends on ZONE_DMA32
+	help
+	  Ensure certain memory allocators always return memory from ZONE_DMA32.
+	  This option helps ensure that clients who require ZONE_DMA32 memory are
+	  always using ZONE_DMA32 memory.
+
+	  If unsure, say "n".

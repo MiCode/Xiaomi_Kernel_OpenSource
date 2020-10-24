@@ -65,6 +65,8 @@ void thermal_cooling_device_setup_sysfs(struct thermal_cooling_device *);
 void thermal_cooling_device_destroy_sysfs(struct thermal_cooling_device *cdev);
 /* used only at binding time */
 ssize_t trip_point_show(struct device *, struct device_attribute *, char *);
+ssize_t trip_point_store(struct device *, struct device_attribute *,
+			 const char *, size_t);
 ssize_t weight_show(struct device *, struct device_attribute *, char *);
 ssize_t lower_limit_show(struct device *dev, struct device_attribute *attr,
 			char *buf);

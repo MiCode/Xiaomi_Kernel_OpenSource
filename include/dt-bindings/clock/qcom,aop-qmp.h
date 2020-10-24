@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2018, 2020, The Linux Foundation. All rights reserved. */
 
 #ifndef _DT_BINDINGS_CLK_QCOM_AOP_QMP_H
 #define _DT_BINDINGS_CLK_QCOM_AOP_QMP_H
@@ -16,4 +16,5 @@
 /* clocks id */
 #define QDSS_CLK			0
 #define QDSS_AO_CLK			1
+#define BIMC_CLK			2
 #endif

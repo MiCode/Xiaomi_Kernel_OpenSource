@@ -821,8 +821,11 @@ static int icnss_driver_event_fw_init_done(struct icnss_priv *priv, void *data)
 
 	icnss_pr_info("WLAN FW Initialization done: 0x%lx\n", priv->state);
 
-	ret = wlfw_wlan_mode_send_sync_msg(priv,
+	if (test_bit(ICNSS_COLD_BOOT_CAL, &priv->state))
+		ret = wlfw_wlan_mode_send_sync_msg(priv,
 			(enum wlfw_driver_mode_enum_v01)ICNSS_CALIBRATION);
+	else
+		icnss_driver_event_fw_ready_ind(priv, NULL);
 
 	return ret;
 }
@@ -2336,13 +2339,13 @@ int icnss_force_wake_request(struct device *dev)
 		return -EINVAL;
 	}
 
-	icnss_pr_dbg("Calling SOC Wake request");
-
 	if (atomic_read(&priv->soc_wake_ref_count)) {
 		count = atomic_inc_return(&priv->soc_wake_ref_count);
 		icnss_pr_dbg("SOC already awake, Ref count: %d", count);
 		return 0;
 	}
+
+	icnss_pr_dbg("Calling SOC Wake request");
 
 	icnss_soc_wake_event_post(priv, ICNSS_SOC_WAKE_REQUEST_EVENT,
 				  0, NULL);
@@ -2354,6 +2357,7 @@ EXPORT_SYMBOL(icnss_force_wake_request);
 int icnss_force_wake_release(struct device *dev)
 {
 	struct icnss_priv *priv = dev_get_drvdata(dev);
+	int count = 0;
 
 	if (!dev)
 		return -ENODEV;
@@ -2361,6 +2365,13 @@ int icnss_force_wake_release(struct device *dev)
 	if (!priv) {
 		icnss_pr_err("Platform driver not initialized\n");
 		return -EINVAL;
+	}
+
+	if (atomic_read(&priv->soc_wake_ref_count) > 1) {
+		count = atomic_dec_return(&priv->soc_wake_ref_count);
+		icnss_pr_dbg("SOC previous release pending, Ref count: %d",
+			     count);
+		return 0;
 	}
 
 	icnss_pr_dbg("Calling SOC Wake response");
@@ -2742,6 +2753,21 @@ int icnss_idle_restart(struct device *dev)
 					ICNSS_EVENT_SYNC_UNINTERRUPTIBLE, NULL);
 }
 EXPORT_SYMBOL(icnss_idle_restart);
+
+int icnss_exit_power_save(struct device *dev)
+{
+	struct icnss_priv *priv = dev_get_drvdata(dev);
+
+	icnss_pr_dbg("Calling Exit Power Save\n");
+
+	if (test_bit(ICNSS_PD_RESTART, &priv->state) ||
+	    !test_bit(ICNSS_MODE_ON, &priv->state))
+		return 0;
+
+	return wlfw_power_save_send_msg(priv,
+			(enum wlfw_power_save_mode_v01)ICNSS_POWER_SAVE_EXIT);
+}
+EXPORT_SYMBOL(icnss_exit_power_save);
 
 void icnss_allow_recursive_recovery(struct device *dev)
 {
@@ -3245,6 +3271,7 @@ static int icnss_probe(struct platform_device *pdev)
 
 		icnss_runtime_pm_init(priv);
 		icnss_get_cpr_info(priv);
+		set_bit(ICNSS_COLD_BOOT_CAL, &priv->state);
 	}
 
 	INIT_LIST_HEAD(&priv->icnss_tcdev_list);
@@ -3325,12 +3352,18 @@ static int icnss_pm_suspend(struct device *dev)
 
 	if (!priv->ops || !priv->ops->pm_suspend ||
 	    !test_bit(ICNSS_DRIVER_PROBED, &priv->state))
-		goto out;
+		return 0;
 
 	ret = priv->ops->pm_suspend(dev);
 
-out:
 	if (ret == 0) {
+		if (priv->device_id == WCN6750_DEVICE_ID) {
+			ret = wlfw_power_save_send_msg(priv,
+				(enum wlfw_power_save_mode_v01)
+				ICNSS_POWER_SAVE_ENTER);
+			if (ret)
+				return priv->ops->pm_resume(dev);
+		}
 		priv->stats.pm_suspend++;
 		set_bit(ICNSS_PM_SUSPEND, &priv->state);
 	} else {
@@ -3355,18 +3388,6 @@ static int icnss_pm_resume(struct device *dev)
 	if (!priv->ops || !priv->ops->pm_resume ||
 	    !test_bit(ICNSS_DRIVER_PROBED, &priv->state))
 		goto out;
-
-	if (priv->device_id == WCN6750_DEVICE_ID) {
-		if (test_bit(ICNSS_PD_RESTART, &priv->state) ||
-		    !test_bit(ICNSS_MODE_ON, &priv->state))
-			goto out;
-
-		ret = wlfw_exit_power_save_send_msg(priv);
-		if (ret) {
-			priv->stats.pm_resume_err++;
-			return ret;
-		}
-	}
 
 	ret = priv->ops->pm_resume(dev);
 
@@ -3454,7 +3475,13 @@ static int icnss_pm_runtime_suspend(struct device *dev)
 
 	icnss_pr_vdbg("Runtime suspend\n");
 	ret = priv->ops->runtime_suspend(dev);
-
+	if (!ret) {
+		ret = wlfw_power_save_send_msg(priv,
+				(enum wlfw_power_save_mode_v01)
+				ICNSS_POWER_SAVE_ENTER);
+		if (ret)
+			return priv->ops->runtime_resume(dev);
+	}
 out:
 	return ret;
 }
@@ -3474,16 +3501,6 @@ static int icnss_pm_runtime_resume(struct device *dev)
 		goto out;
 
 	icnss_pr_vdbg("Runtime resume, state: 0x%lx\n", priv->state);
-
-	if (test_bit(ICNSS_PD_RESTART, &priv->state) ||
-	    !test_bit(ICNSS_MODE_ON, &priv->state))
-		goto out;
-
-	ret = wlfw_exit_power_save_send_msg(priv);
-	if (ret) {
-		priv->stats.pm_resume_err++;
-		return ret;
-	}
 
 	ret = priv->ops->runtime_resume(dev);
 

@@ -1,22 +1,22 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2017, 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"io-pgtable-fast: " fmt
 
 #include <linux/iommu.h>
 #include <linux/kernel.h>
+#include <linux/io-pgtable.h>
 #include <linux/scatterlist.h>
 #include <linux/sizes.h>
 #include <linux/slab.h>
 #include <linux/types.h>
 #include <linux/io-pgtable-fast.h>
-#include <linux/io-pgtable.h>
 #include <linux/mm.h>
 #include <asm/cacheflush.h>
 #include <linux/vmalloc.h>
-
 
 #define AV8L_FAST_MAX_ADDR_BITS		48
 

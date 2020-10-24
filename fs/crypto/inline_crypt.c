@@ -42,11 +42,32 @@ static void fscrypt_get_devices(struct super_block *sb, int num_devs,
 		sb->s_cop->get_devices(sb, devs);
 }
 
+#define SDHCI "sdhci"
+
+static int fscrypt_find_storage_type(char **device)
+{
+	char boot[20] = {'\0'};
+	char *match = (char *)strnstr(saved_command_line,
+				      "androidboot.bootdevice=",
+				      strlen(saved_command_line));
+	if (match) {
+		memcpy(boot, (match + strlen("androidboot.bootdevice=")),
+			sizeof(boot) - 1);
+
+		if (strnstr(boot, "sdhci", strlen(boot)))
+			*device = SDHCI;
+
+		return 0;
+	}
+	return -EINVAL;
+}
+
 static unsigned int fscrypt_get_dun_bytes(const struct fscrypt_info *ci)
 {
 	struct super_block *sb = ci->ci_inode->i_sb;
 	unsigned int flags = fscrypt_policy_flags(&ci->ci_policy);
 	int ino_bits = 64, lblk_bits = 64;
+	char *s_type = "ufs";
 
 	if (flags & FSCRYPT_POLICY_FLAG_DIRECT_KEY)
 		return offsetofend(union fscrypt_iv, nonce);
@@ -56,6 +77,15 @@ static unsigned int fscrypt_get_dun_bytes(const struct fscrypt_info *ci)
 
 	if (flags & FSCRYPT_POLICY_FLAG_IV_INO_LBLK_32)
 		return sizeof(__le32);
+
+	if (fscrypt_policy_contents_mode(&ci->ci_policy) ==
+	    FSCRYPT_MODE_PRIVATE) {
+		fscrypt_find_storage_type(&s_type);
+		if (!strcmp(s_type, "sdhci"))
+			return sizeof(__le32);
+		else
+			return sizeof(__le64);
+	}
 
 	/* Default case: IVs are just the file logical block number */
 	if (sb->s_cop->get_ino_and_lblk_bits)
@@ -86,6 +116,19 @@ int fscrypt_select_encryption_impl(struct fscrypt_info *ci,
 	/* The filesystem must be mounted with -o inlinecrypt */
 	if (!sb->s_cop->inline_crypt_enabled ||
 	    !sb->s_cop->inline_crypt_enabled(sb))
+		return 0;
+
+	/*
+	 * When a page contains multiple logically contiguous filesystem blocks,
+	 * some filesystem code only calls fscrypt_mergeable_bio() for the first
+	 * block in the page. This is fine for most of fscrypt's IV generation
+	 * strategies, where contiguous blocks imply contiguous IVs. But it
+	 * doesn't work with IV_INO_LBLK_32. For now, simply exclude
+	 * IV_INO_LBLK_32 with blocksize != PAGE_SIZE from inline encryption.
+	 */
+	if ((fscrypt_policy_flags(&ci->ci_policy) &
+	     FSCRYPT_POLICY_FLAG_IV_INO_LBLK_32) &&
+	    sb->s_blocksize != PAGE_SIZE)
 		return 0;
 
 	/*
@@ -310,6 +353,10 @@ void fscrypt_set_bio_crypt_ctx(struct bio *bio, const struct inode *inode,
 
 	fscrypt_generate_dun(ci, first_lblk, dun);
 	bio_crypt_set_ctx(bio, &ci->ci_key.blk_key->base, dun, gfp_mask);
+	if ((fscrypt_policy_contents_mode(&ci->ci_policy) ==
+	    FSCRYPT_MODE_PRIVATE) &&
+	    (!strcmp(inode->i_sb->s_type->name, "ext4")))
+		bio->bi_crypt_context->is_ext4 = true;
 }
 EXPORT_SYMBOL_GPL(fscrypt_set_bio_crypt_ctx);
 
@@ -441,7 +488,6 @@ EXPORT_SYMBOL_GPL(fscrypt_mergeable_bio_bh);
 bool fscrypt_dio_supported(struct kiocb *iocb, struct iov_iter *iter)
 {
 	const struct inode *inode = file_inode(iocb->ki_filp);
-	const struct fscrypt_info *ci = inode->i_crypt_info;
 	const unsigned int blocksize = i_blocksize(inode);
 
 	/* If the file is unencrypted, no veto from us. */
@@ -459,15 +505,6 @@ bool fscrypt_dio_supported(struct kiocb *iocb, struct iov_iter *iter)
 	if (!IS_ALIGNED(iocb->ki_pos | iov_iter_alignment(iter), blocksize))
 		return false;
 
-	/*
-	 * With IV_INO_LBLK_32 and sub-page blocks, the DUN can wrap around in
-	 * the middle of a page.  This isn't handled by the direct I/O code yet.
-	 */
-	if (blocksize != PAGE_SIZE &&
-	    (fscrypt_policy_flags(&ci->ci_policy) &
-	     FSCRYPT_POLICY_FLAG_IV_INO_LBLK_32))
-		return false;
-
 	return true;
 }
 EXPORT_SYMBOL_GPL(fscrypt_dio_supported);
@@ -481,8 +518,6 @@ EXPORT_SYMBOL_GPL(fscrypt_dio_supported);
  * For direct I/O: limit the number of pages that will be submitted in the bio
  * targeting @pos, in order to avoid crossing a data unit number (DUN)
  * discontinuity.  This is only needed for certain IV generation methods.
- *
- * This assumes block_size == PAGE_SIZE; see fscrypt_dio_supported().
  *
  * Return: the actual number of pages that can be submitted
  */
@@ -501,6 +536,10 @@ int fscrypt_limit_dio_pages(const struct inode *inode, loff_t pos, int nr_pages)
 	      FSCRYPT_POLICY_FLAG_IV_INO_LBLK_32))
 		return nr_pages;
 
+	/*
+	 * fscrypt_select_encryption_impl() ensures that block_size == PAGE_SIZE
+	 * when using FSCRYPT_POLICY_FLAG_IV_INO_LBLK_32.
+	 */
 	if (WARN_ON_ONCE(i_blocksize(inode) != PAGE_SIZE))
 		return 1;
 

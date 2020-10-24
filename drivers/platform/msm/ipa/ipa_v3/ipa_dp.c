@@ -3259,14 +3259,18 @@ void ipa3_lan_rx_cb(void *priv, enum ipa_dp_evt_type evt, unsigned long data)
 	unsigned int src_pipe;
 	u32 metadata;
 	u8 ucp;
+	void (*client_notify)(void *client_priv, enum ipa_dp_evt_type evt,
+		       unsigned long data);
+	void *client_priv;
 
 	ipahal_pkt_status_parse_thin(rx_skb->data, &status);
 	src_pipe = status.endp_src_idx;
 	metadata = status.metadata;
 	ucp = status.ucp;
 	ep = &ipa3_ctx->ep[src_pipe];
-	if (unlikely(src_pipe >= ipa3_ctx->ipa_num_pipes)) {
-		IPAERR_RL("drop pipe=%d\n", src_pipe);
+	if (unlikely(src_pipe >= ipa3_ctx->ipa_num_pipes) ||
+		unlikely(atomic_read(&ep->disconnect_in_progress))) {
+		IPAERR("drop pipe=%d\n", src_pipe);
 		dev_kfree_skb_any(rx_skb);
 		return;
 	}
@@ -3288,12 +3292,19 @@ void ipa3_lan_rx_cb(void *priv, enum ipa_dp_evt_type evt, unsigned long data)
 			metadata, *(u32 *)rx_skb->cb);
 	IPADBG_LOW("ucp: %d\n", *(u8 *)(rx_skb->cb + 4));
 
+	spin_lock(&ipa3_ctx->disconnect_lock);
 	if (likely((!atomic_read(&ep->disconnect_in_progress)) &&
-				ep->valid && ep->client_notify))
-		ep->client_notify(ep->priv, IPA_RECEIVE,
+				ep->valid && ep->client_notify)) {
+		client_notify = ep->client_notify;
+		client_priv = ep->priv;
+		spin_unlock(&ipa3_ctx->disconnect_lock);
+		client_notify(client_priv, IPA_RECEIVE,
 				(unsigned long)(rx_skb));
-	else
+	} else {
+		spin_unlock(&ipa3_ctx->disconnect_lock);
 		dev_kfree_skb_any(rx_skb);
+	}
+
 }
 
 static void ipa3_recycle_rx_wrapper(struct ipa3_rx_pkt_wrapper *rx_pkt)
@@ -3345,6 +3356,25 @@ static struct sk_buff *handle_skb_completion(struct gsi_chan_xfer_notify
 	if (notify->bytes_xfered)
 		rx_pkt->len = notify->bytes_xfered;
 
+	/*Drop packets when WAN consumer channel receive EOB event*/
+	if ((notify->evt_id == GSI_CHAN_EVT_EOB ||
+		sys->skip_eot) &&
+		sys->ep->client == IPA_CLIENT_APPS_WAN_CONS) {
+		dma_unmap_single(ipa3_ctx->pdev, rx_pkt->data.dma_addr,
+			sys->rx_buff_sz, DMA_FROM_DEVICE);
+		sys->free_skb(rx_pkt->data.skb);
+		sys->free_rx_wrapper(rx_pkt);
+		sys->eob_drop_cnt++;
+		if (notify->evt_id == GSI_CHAN_EVT_EOB) {
+			IPADBG("EOB event on WAN consumer channel, drop\n");
+			sys->skip_eot = true;
+		} else {
+			IPADBG("Reset skip eot flag.\n");
+			sys->skip_eot = false;
+		}
+		return NULL;
+	}
+
 	rx_skb = rx_pkt->data.skb;
 	skb_set_tail_pointer(rx_skb, rx_pkt->len);
 	rx_skb->len = rx_pkt->len;
@@ -3357,13 +3387,6 @@ static struct sk_buff *handle_skb_completion(struct gsi_chan_xfer_notify
 	if (unlikely(notify->veid >= GSI_VEID_MAX)) {
 		WARN_ON(1);
 		return NULL;
-	}
-
-	/*Assesrt when WAN consumer channel receive EOB event*/
-	if (unlikely(notify->evt_id == GSI_CHAN_EVT_EOB &&
-		sys->ep->client == IPA_CLIENT_APPS_WAN_CONS)) {
-		IPAERR("EOB event received on WAN consumer channel\n");
-		ipa_assert();
 	}
 
 	head = &rx_pkt->sys->pending_pkts[notify->veid];
@@ -4997,10 +5020,12 @@ start_poll:
 int ipa3_rx_poll(u32 clnt_hdl, int weight)
 {
 	struct ipa3_ep_context *ep;
+	struct ipa3_sys_context *wan_def_sys;
 	int ret;
 	int cnt = 0;
 	int num = 0;
 	int remain_aggr_weight;
+	int ipa_ep_idx;
 	struct ipa_active_client_logging_info log;
 	struct gsi_chan_xfer_notify notify[IPA_WAN_NAPI_MAX_FRAMES];
 
@@ -5012,6 +5037,13 @@ int ipa3_rx_poll(u32 clnt_hdl, int weight)
 		return cnt;
 	}
 
+	ipa_ep_idx = ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS);
+	if (ipa_ep_idx == IPA_EP_NOT_ALLOCATED) {
+		IPAERR("Invalid client.\n");
+		return cnt;
+	}
+
+	wan_def_sys = ipa3_ctx->ep[ipa_ep_idx].sys;
 	remain_aggr_weight = weight / IPA_WAN_AGGR_PKT_CNT;
 
 	if (remain_aggr_weight > IPA_WAN_NAPI_MAX_FRAMES) {
@@ -5051,10 +5083,11 @@ start_poll:
 	/* call repl_hdlr before napi_reschedule / napi_complete */
 	ep->sys->repl_hdlr(ep->sys);
 
-	/* When not able to replenish enough descriptors pipe wait
-	 * until minimum number descripotrs to replish.
+	/* When not able to replenish enough descriptors, keep in polling
+	 * mode, wait for napi-poll and replenish again.
 	 */
-	if (cnt < weight && ep->sys->len > IPA_DEFAULT_SYS_YELLOW_WM) {
+	if (cnt < weight && ep->sys->len > IPA_DEFAULT_SYS_YELLOW_WM &&
+		wan_def_sys->len > IPA_DEFAULT_SYS_YELLOW_WM) {
 		napi_complete(ep->sys->napi_obj);
 		IPA_STATS_INC_CNT(ep->sys->napi_comp_cnt);
 		ret = ipa3_rx_switch_to_intr_mode(ep->sys);

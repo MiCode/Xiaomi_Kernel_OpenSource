@@ -280,4 +280,18 @@ enum arm_smmu_s2cr_privcfg {
 #define FSYNR1_PID			GENMASK(12, 8)
 #define FSYNR1_MID			GENMASK(7, 0)
 
+#define IMPL_DEF1_MICRO_MMU_CTRL	0
+#define MICRO_MMU_CTRL_LOCAL_HALT_REQ	(1 << 2)
+#define MICRO_MMU_CTRL_IDLE		(1 << 3)
+
+/* Definitions for implementation-defined registers */
+#define ACTLR_QCOM_OSH_SHIFT		28
+#define ACTLR_QCOM_OSH			1
+
+#define ACTLR_QCOM_ISH_SHIFT		29
+#define ACTLR_QCOM_ISH			1
+
+#define ACTLR_QCOM_NSH_SHIFT		30
+#define ACTLR_QCOM_NSH			1
+
 #endif /* _ARM_SMMU_REGS_H */
