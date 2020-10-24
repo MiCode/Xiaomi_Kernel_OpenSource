@@ -610,6 +610,16 @@ config QTI_PLH
 	  This interface is responsible for handling the communication
 	  with RIMPS PLH such as passing tunables, enable and disable.
 
+config MSM_PERFORMANCE_QGKI
+	bool "Enable QGKI features"
+        depends on QGKI
+        help
+          This option enables full functionality of MSM_PERFORMANCE for
+          QGKI flavor. This is not defined in GKI builds wherein the driver
+          offers minimal functionality of changing the min and max frequency
+          of a given cluster. The user space can request  the cpu freq change
+          by writing cpu#:freq values
+
 config QMP_DEBUGFS_CLIENT
 	bool "Debugfs Client to communicate with AOP using QMP protocol"
 	depends on DEBUG_FS
