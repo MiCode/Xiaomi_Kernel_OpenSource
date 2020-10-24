@@ -154,6 +154,7 @@
   dev_driver_string
   _dev_emerg
   _dev_err
+  dev_coredumpv
   dev_fwnode
   dev_get_by_name
   dev_get_regmap
