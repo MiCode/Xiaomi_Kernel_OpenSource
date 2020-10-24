@@ -18,6 +18,7 @@ void dw_pcie_ep_linkup(struct dw_pcie_ep *ep)
 
 	pci_epc_linkup(epc);
 }
+EXPORT_SYMBOL_GPL(dw_pcie_ep_linkup);
 
 static void __dw_pcie_ep_reset_bar(struct dw_pcie *pci, enum pci_barno bar,
 				   int flags)
@@ -607,3 +608,4 @@ int dw_pcie_ep_init(struct dw_pcie_ep *ep)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(dw_pcie_ep_init);

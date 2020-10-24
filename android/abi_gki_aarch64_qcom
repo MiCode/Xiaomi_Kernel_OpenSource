@@ -21,6 +21,8 @@
   alloc_skb_with_frags
   alloc_workqueue
   amba_bustype
+  amba_driver_register
+  amba_driver_unregister
   anon_inode_getfile
   arch_bpf_jit_check_func
   __arch_clear_user
@@ -870,6 +872,7 @@
   find_next_zero_bit
   find_snd_usb_substream
   find_vma
+  find_vpid
   finish_wait
   firmware_request_nowarn
   flow_keys_basic_dissector
@@ -1665,6 +1668,7 @@
   phy_start
   phy_stop
   physvirt_offset
+  pid_task
   pinconf_generic_dt_node_to_map
   pinctrl_dev_get_drvdata
   pinctrl_force_default
@@ -1975,6 +1979,7 @@
   sched_clock
   sched_setattr
   sched_setscheduler
+  sched_setscheduler_nocheck
   schedule
   schedule_timeout
   schedule_timeout_interruptible
