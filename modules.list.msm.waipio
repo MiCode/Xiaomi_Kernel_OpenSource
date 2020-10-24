@@ -16,6 +16,7 @@ dwc3-msm.ko
 phy-generic.ko
 phy-qcom-emu.ko
 arm_smmu.ko
+qcom_iommu_util.ko
 pinctrl-msm.ko
 pinctrl-waipio.ko
 qcom-scm.ko
