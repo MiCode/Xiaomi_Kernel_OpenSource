@@ -353,6 +353,7 @@ struct mhi_controller_config {
  * @write_reg: Write a MHI register via the physical link (required)
  * @buffer_len: Bounce buffer length
  * @index: Index of the MHI controller instance
+ * @img_pre_alloc: allocate rddm and fbc image buffers one time
  * @bounce_buf: Use of bounce buffer
  * @fbc_download: MHI host needs to do complete image transfer (optional)
  * @wake_set: Device wakeup set flag
@@ -445,6 +446,7 @@ struct mhi_controller {
 
 	size_t buffer_len;
 	int index;
+	bool img_pre_alloc;
 	bool bounce_buf;
 	bool fbc_download;
 	bool wake_set;

@@ -1147,10 +1147,8 @@ void mhi_power_down(struct mhi_controller *mhi_cntrl, bool graceful)
 
 	free_irq(mhi_cntrl->irq[0], mhi_cntrl);
 
-	if (mhi_cntrl->fbc_image) {
-		mhi_free_bhie_table(mhi_cntrl, mhi_cntrl->fbc_image);
-		mhi_cntrl->fbc_image = NULL;
-	}
+	if (mhi_cntrl->fbc_image)
+		mhi_free_bhie_table(mhi_cntrl, &mhi_cntrl->fbc_image);
 }
 EXPORT_SYMBOL_GPL(mhi_power_down);
 
