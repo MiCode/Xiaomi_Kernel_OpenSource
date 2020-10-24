@@ -4,6 +4,7 @@ frpc-adsprpc.ko
 qcom_rpmh.ko
 cmd-db.ko
 qnoc-waipio.ko
+icc-test.ko
 icc-bcm-voter.ko
 gcc-waipio.ko
 videocc-waipio.ko
