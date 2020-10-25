@@ -51,6 +51,7 @@
 
 #include "arm-smmu.h"
 #include "../../iommu-logger.h"
+#include <linux/qcom-iommu-util.h>
 
 #define CREATE_TRACE_POINTS
 #include "arm-smmu-trace.h"
@@ -1523,77 +1524,6 @@ static void arm_smmu_free_asid(struct iommu_domain *domain)
 	mutex_unlock(&smmu->idr_mutex);
 }
 
-/*
- * Checks for "qcom,iommu-dma-addr-pool" property to specify the IOVA range
- * for the domain. If not present, and the domain doesn't use fastmap,
- * the domain geometry is unmodified.
- */
-static int arm_smmu_adjust_domain_geometry(struct device *dev,
-					   struct iommu_domain *domain)
-{
-	struct device_node *np;
-	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	int naddr, nsize, len;
-	u64 dma_base, dma_size, dma_end;
-	const __be32 *ranges;
-	dma_addr_t hw_base = domain->geometry.aperture_start;
-	dma_addr_t hw_end = domain->geometry.aperture_end;
-	bool is_fast = test_bit(DOMAIN_ATTR_FAST, smmu_domain->attributes);
-
-	if (!dev->of_node)
-		return 0;
-
-	np = of_parse_phandle(dev->of_node, "qcom,iommu-group", 0);
-	if (!np)
-		np = dev->of_node;
-
-	ranges = of_get_property(np, "qcom,iommu-dma-addr-pool", &len);
-
-	if (!ranges && !is_fast)
-		return 0;
-
-	if (ranges) {
-		len /= sizeof(u32);
-		naddr = of_n_addr_cells(np);
-		nsize = of_n_size_cells(np);
-		if (len < naddr + nsize) {
-			dev_err(dev, "Invalid length for qcom,iommu-dma-addr-pool, expected %d cells\n",
-				naddr + nsize);
-			return -EINVAL;
-		}
-		if (naddr == 0 || nsize == 0) {
-			dev_err(dev, "Invalid #address-cells %d or #size-cells %d\n",
-				naddr, nsize);
-			return -EINVAL;
-		}
-
-		dma_base = of_read_number(ranges, naddr);
-		dma_size = of_read_number(ranges + naddr, nsize);
-		dma_end = dma_base + dma_size - 1;
-	} else {
-		/*
-		 * This domain uses fastmap, but doesn't have any domain
-		 * geometry limitations, as implied by the absence of the
-		 * qcom,iommu-dma-addr-pool property, so impose the default
-		 * fastmap geometry requirement.
-		 */
-		dma_base = 0;
-		dma_end = SZ_4G - 1;
-	}
-
-	/*
-	 * The original geometry describes the IOVA limitations of the hardware,
-	 * so lets make sure that the IOVA range for this device is at least
-	 * within those bounds.
-	 */
-	if (!((hw_base <= dma_base) && (dma_end <= hw_end)))
-		return -EINVAL;
-
-	domain->geometry.aperture_start = dma_base;
-	domain->geometry.aperture_end = dma_end;
-	return 0;
-}
-
 /* This function assumes that the domain's init mutex is held */
 static int arm_smmu_get_dma_cookie(struct device *dev,
 				    struct arm_smmu_domain *smmu_domain)
@@ -1857,9 +1787,6 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	/* Update the domain's page sizes to reflect the page table format */
 	domain->pgsize_bitmap = smmu_domain->pgtbl_cfg.pgsize_bitmap;
 	domain->geometry.aperture_end = (1UL << ias) - 1;
-	ret = arm_smmu_adjust_domain_geometry(dev, domain);
-	if (ret)
-		goto out_logger;
 	domain->geometry.force_aperture = true;
 
 	ret = arm_smmu_get_dma_cookie(dev, smmu_domain);
@@ -3486,6 +3413,8 @@ static void arm_smmu_get_resv_regions(struct device *dev,
 	list_add_tail(&region->list, head);
 
 	iommu_dma_get_resv_regions(dev, head);
+
+	qcom_iommu_generate_resv_regions(dev, head);
 }
 
 static int arm_smmu_def_domain_type(struct device *dev)
