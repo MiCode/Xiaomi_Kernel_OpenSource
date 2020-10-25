@@ -11,7 +11,7 @@
 #include <linux/of_reserved_mem.h>
 
 #include <linux/qcom_dma_heap.h>
-#include "qcom_dma_heap_priv.h"
+#include "qcom_dt_parser.h"
 
 static int populate_heap(struct device_node *node,
 				 struct platform_heap *heap)

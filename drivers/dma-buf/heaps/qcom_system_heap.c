@@ -23,6 +23,7 @@
 
 #include <linux/qcom_dma_heap.h>
 #include "heap-helpers.h"
+#include "qcom_system_heap.h"
 #include "qcom_dma_heap_priv.h"
 
 static struct dma_heap *sys_heap;
@@ -117,4 +118,3 @@ int qcom_system_heap_create(void)
 
 	return ret;
 }
-

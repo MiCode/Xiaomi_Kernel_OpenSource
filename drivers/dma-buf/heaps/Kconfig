@@ -17,4 +17,22 @@ config QCOM_DMABUF_HEAPS
 	tristate "QCOM DMA-BUF Heaps"
 	depends on DMABUF_HEAPS
 	help
-	 Choose this option to build the QCOM DMA-BUF heaps.
+	  Choose this option to build the dma-buf heap module. Other
+	  heaps can subsequently be compiled into this module by enabling
+	  the appropriate defconfig option.  If in doubt, say M here.
+
+config QCOM_DMABUF_HEAPS_SYSTEM
+	bool "QCOM DMA-BUF System Heap"
+	depends on QCOM_DMABUF_HEAPS
+	help
+	  Choose this option to build the QCOM DMA-BUF system
+	  heap. This heap combines the built-in system heap
+	  along with other optimizatons. If in doubt, say Y
+	  here.
+
+config QCOM_DMABUF_HEAPS_CMA
+	bool "QCOM DMA-BUF CMA Heap"
+	depends on QCOM_DMABUF_HEAPS && DMA_CMA
+	help
+	  Choose this option to build the QCOM DMA-BUF CMA heap.
+	  If in doubt, say Y here.

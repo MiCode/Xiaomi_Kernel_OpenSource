@@ -25,6 +25,7 @@
 
 #include "heap-helpers.h"
 #include "qcom_dma_heap_priv.h"
+#include "qcom_cma_heap.h"
 
 struct cma_heap {
 	struct dma_heap *heap;
