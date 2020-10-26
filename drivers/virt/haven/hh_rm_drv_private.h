@@ -133,6 +133,7 @@ struct hh_vm_console_write_req_payload {
 #define HH_RM_RES_TYPE_MQ_TX	2
 #define HH_RM_RES_TYPE_MQ_RX	3
 #define HH_RM_RES_TYPE_VCPU	4
+#define HH_RM_RES_TYPE_VPMGRP	5
 
 struct hh_vm_get_hyp_res_req_payload {
 	hh_vmid_t vmid;
