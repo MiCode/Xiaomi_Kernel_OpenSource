@@ -1,5 +1,6 @@
 [abi_symbol_list]
   add_device_randomness
+  add_taint
   add_timer
   add_uevent_var
   alloc_chrdev_region
@@ -137,11 +138,13 @@
   debugfs_create_regset32
   debugfs_create_u32
   debugfs_create_u8
+  debugfs_create_x32
   debugfs_create_x8
   debugfs_create_x32
   debugfs_lookup
   debugfs_print_regs32
   debugfs_remove
+  default_llseek
   delayed_work_timer_fn
   del_timer
   del_timer_sync
@@ -154,6 +157,7 @@
   dev_fwnode
   dev_get_by_name
   dev_get_regmap
+  dev_printk
   device_add
   device_create
   device_create_file
@@ -914,6 +918,7 @@
   __register_rpmsg_driver
   regmap_bulk_read
   regmap_bulk_write
+  regmap_check_range_table
   regmap_field_read
   regmap_field_update_bits_base
   __regmap_init
