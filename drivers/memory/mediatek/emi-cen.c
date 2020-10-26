@@ -471,9 +471,8 @@ static int mtk_emicen_addr2dram_v1(unsigned long addr,
 				return -1;
 			}
 			map->channel = (bfraddr >> tmp) % 4;
-		} else {
+		} else
 			return -1;
-		}
 	}
 
 	if (map->channel > 1)
@@ -519,9 +518,8 @@ static int mtk_emicen_addr2dram_v1(unsigned long addr,
 		chnaddr = bfraddr >> (tmp + (global_emi_cen->channels - 1));
 		chnaddr = chnaddr << tmp;
 		chnaddr += bfraddr & ((1 << tmp) - 1);
-	} else {
+	} else
 		return -1;
-	}
 
 	if ((map->channel) ?
 		!global_emi_cen->dualrk_ch1 :
@@ -773,6 +771,11 @@ static struct platform_driver emicen_drv = {
 	},
 };
 
+__weak int emiisu_init(void)
+{
+	return 0;
+}
+
 static __init int emicen_init(void)
 {
 	int ret;
@@ -792,13 +795,20 @@ static __init int emicen_init(void)
 		return ret;
 	}
 
+	ret = emiisu_init();
+	if (ret) {
+		pr_err("emicen: failed to init isu\n");
+		return ret;
+	}
+
 #if defined(MODULE)
 	emimpu_ap_region_init();
 #endif
+
 	return 0;
 }
 
 module_init(emicen_init);
 
-MODULE_DESCRIPTION("MediaTek EMI Central Driver");
+MODULE_DESCRIPTION("MediaTek EMI Driver");
 MODULE_LICENSE("GPL v2");
