@@ -3763,7 +3763,9 @@ static void ipa3_set_aggr_limit(struct ipa_sys_connect_params *in,
 	sys->ep->status.status_en = false;
 	sys->rx_buff_sz = IPA_GENERIC_RX_BUFF_SZ(adjusted_sz);
 
-	if (in->client == IPA_CLIENT_APPS_WAN_COAL_CONS)
+	if (in->client == IPA_CLIENT_APPS_WAN_COAL_CONS ||
+		(in->client == IPA_CLIENT_APPS_WAN_CONS &&
+			ipa3_ctx->ipa_hw_type <= IPA_HW_v4_2))
 		in->ipa_ep_cfg.aggr.aggr_hard_byte_limit_en = 1;
 
 	*aggr_byte_limit = sys->rx_buff_sz < *aggr_byte_limit ?
