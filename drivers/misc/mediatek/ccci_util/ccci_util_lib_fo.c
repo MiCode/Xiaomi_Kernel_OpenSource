@@ -34,9 +34,6 @@
 #include <asm/setup.h>
 #include <linux/atomic.h>
 #include "mt-plat/mtk_ccci_common.h"
-#ifndef DISABLE_MTK_BOOT_MODE
-#include <mt-plat/mtk_boot_common.h>
-#endif
 
 //mtk099077: #include <memory-amms.h>
 #include "ccci_util_log.h"
@@ -97,9 +94,6 @@ struct _ccci_tag_v2 {
 static unsigned int s_g_md_env_rdy_flag;
 static unsigned int s_g_md_usage_case;
 static unsigned int md_support[MAX_MD_NUM_AT_LK];
-#ifndef DISABLE_MTK_BOOT_MODE
-static unsigned int meta_md_support[MAX_MD_NUM_AT_LK];
-#endif
 static unsigned int meta_boot_arguments[MAX_MD_NUM_AT_LK];
 static unsigned int md_type_at_lk[MAX_MD_NUM_AT_LK];
 
@@ -1679,19 +1673,8 @@ int get_modem_support_cap(int md_id)
 {
 	int ret = -1;
 
-	if (md_id < MAX_MD_NUM_AT_LK) {
-#ifndef DISABLE_MTK_BOOT_MODE
-		if ((get_boot_mode() == META_BOOT)
-			|| (get_boot_mode() == ADVMETA_BOOT)) {
-			/* using priority */
-			if (meta_boot_arguments[md_id])
-				ret = meta_boot_arguments[md_id];
-			else
-				ret = meta_md_support[md_id];
-		} else
-#endif
-			ret = md_support[md_id];
-	}
+	if (md_id < MAX_MD_NUM_AT_LK)
+		ret = md_support[md_id];
 
 	return ret;
 }
@@ -1706,19 +1689,9 @@ void clear_meta_1st_boot_arg(int md_id)
 int set_modem_support_cap(int md_id, int new_val)
 {
 	if (md_id < MAX_MD_NUM_AT_LK) {
-#ifndef DISABLE_MTK_BOOT_MODE
-		if ((get_boot_mode() == META_BOOT)
-			|| (get_boot_mode() == ADVMETA_BOOT)) {
-			meta_md_support[md_id] = new_val;
-			CCCI_UTIL_INF_MSG("md%d: meta md type:[0x%x]\n",
-				md_id + 1, new_val);
-		} else
-#endif
-		{
-			CCCI_UTIL_INF_MSG("md%d: new mdtype(/wmid):0x%x\n",
-				md_id + 1, new_val);
-			md_support[md_id] = new_val;
-		}
+		CCCI_UTIL_INF_MSG("md%d: new mdtype(/wmid):0x%x\n",
+			md_id + 1, new_val);
+		md_support[md_id] = new_val;
 		return 0;
 	}
 	return -1;

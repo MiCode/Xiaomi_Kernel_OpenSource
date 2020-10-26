@@ -21,9 +21,6 @@
 #endif
 
 #include "mt-plat/mtk_ccci_common.h"
-#ifndef DISABLE_MTK_BOOT_MODE
-#include <mt-plat/mtk_boot_common.h>
-#endif
 
 #include "ccci_config.h"
 #include "ccci_common_config.h"
@@ -1186,8 +1183,7 @@ static inline int proxy_check_critical_user(struct port_proxy *proxy_p)
 	int md_id = proxy_p->md_id;
 
 	if (proxy_get_critical_user(proxy_p, CRIT_USR_MUXD) == 0) {
-#ifndef DISABLE_MTK_BOOT_MODE
-		if (is_meta_mode() || is_advanced_meta_mode()) {
+		if (get_boot_mode_from_dts() == META_BOOT_ID) {
 			if (proxy_get_critical_user(proxy_p,
 				CRIT_USR_META) == 0) {
 				CCCI_NORMAL_LOG(md_id, TAG,
@@ -1199,7 +1195,6 @@ static inline int proxy_check_critical_user(struct port_proxy *proxy_p)
 			CCCI_ERROR_LOG(md_id, TAG,
 				"DHL ctrl is still open in META mode\n");
 		} else {
-#endif
 			if (proxy_get_critical_user(proxy_p,
 				CRIT_USR_MDLOG) == 0 &&
 				proxy_get_critical_user(proxy_p,
@@ -1209,9 +1204,7 @@ static inline int proxy_check_critical_user(struct port_proxy *proxy_p)
 				ret = 0;
 				goto __EXIT_FUN__;
 			}
-#ifndef DISABLE_MTK_BOOT_MODE
 		}
-#endif
 	}
 __EXIT_FUN__:
 	return ret;

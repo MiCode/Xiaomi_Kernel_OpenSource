@@ -45,10 +45,6 @@ enum LOGGING_MODE {
 	MODE_WAITSD,			/* 4 */
 };
 
-#define NORMAL_BOOT_ID 0
-#define META_BOOT_ID 1
-#define FACTORY_BOOT_ID	2
-
 #define MD_SETTING_ENABLE (1<<0)
 #define MD_SETTING_RELOAD (1<<1)
 #define MD_SETTING_FIRST_BOOT (1<<2)	/* this is the first time of boot up */
