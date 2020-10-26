@@ -893,6 +893,21 @@
 		bc12 = <&mt6360_chg>;
 		bc12_sel = <0>;
 	};
+
+	typec_mux_switch: typec_mux_switch {
+		compatible = "mediatek,typec_mux_switch";
+		status = "okay";
+	};
+
+	fusb304: fusb304 {
+		compatible = "mediatek,fusb304";
+		status = "okay";
+	};
+
+	ptn36241g: ptn36241g {
+		compatible = "mediatek,ptn36241g";
+		status = "okay";
+	};
 };
 
 &i2c5 {
@@ -1094,6 +1109,7 @@
 		interrupt-names = "usbid_evt";
 		charger = <&mt6360_chg>;
 		bootmode = <&chosen>;
+		switch = <&typec_mux_switch>;
 		pd-data {
 			pd,vid = <0x29cf>;
 			pd,pid = <0x6360>;
