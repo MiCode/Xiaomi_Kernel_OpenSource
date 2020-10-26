@@ -42,20 +42,5 @@ void mtk_emidbg_dump(void)
 }
 EXPORT_SYMBOL(mtk_emidbg_dump);
 
-static __init int emidbg_init(void)
-{
-	pr_info("emidbg was loaded\n");
-
-	return 0;
-}
-
-static __exit void emidbg_exit(void)
-{
-	pr_info("emidbg was unloaded\n");
-}
-
-module_init(emidbg_init);
-module_exit(emidbg_exit);
-
-MODULE_DESCRIPTION("MediaTek EMI Debug Driver");
+MODULE_DESCRIPTION("MediaTek EMI Driver");
 MODULE_LICENSE("GPL v2");

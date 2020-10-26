@@ -251,7 +251,7 @@ static struct platform_driver emiisu_drv = {
 	},
 };
 
-static int __init emiisu_init(void)
+int emiisu_init(void)
 {
 	int ret;
 
@@ -273,17 +273,5 @@ static int __init emiisu_init(void)
 	return 0;
 }
 
-static __exit void emiisu_exit(void)
-{
-	pr_info("emiisu wad un-loaded\n");
-
-	driver_remove_file(&emiisu_drv.driver, &driver_attr_emiisu_ctrl);
-
-	platform_driver_unregister(&emiisu_drv);
-}
-
-module_init(emiisu_init);
-module_exit(emiisu_exit);
-
-MODULE_DESCRIPTION("MediaTek EMI ISU Driver");
+MODULE_DESCRIPTION("MediaTek EMI Driver");
 MODULE_LICENSE("GPL v2");
