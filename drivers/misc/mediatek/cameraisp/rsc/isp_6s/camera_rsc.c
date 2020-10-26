@@ -1020,13 +1020,13 @@ signed int rsc_deque_cb(struct frame *frames, void *req)
 }
 
 
-static bool mmu_get_dma_buffer(struct tee_mmu *mmu, int va)
+static bool mmu_get_dma_buffer(struct tee_mmu *mmu, int fd)
 {
 
 	struct dma_buf *buf;
 
-	buf = dma_buf_get(va);
-	//LOG_INF("RSC_mmu_get_buffer:%x /BUF:%x\n", va, buf);
+	buf = dma_buf_get(fd);
+	//LOG_INF("RSC_mmu_get_buffer:%x /BUF:%x\n", fd, buf);
 	if (IS_ERR(buf)) {
 		LOG_INF("[error buf]");
 		return false;
@@ -1064,16 +1064,18 @@ static void mmu_release(struct tee_mmu *mmu)
 
 void rsc_cmdq_cb_destroy(struct cmdq_cb_data data)
 {
-	int i = 0;
-	unsigned long *pkt_ptr = NULL;
+	if (data.data) {
+		int i = 0;
+		unsigned long *pkt_ptr = NULL;
 
-	for (i = 0; i < NUM_BASEADDR; i++)
-		mmu_release(((struct tee_mmu *)(data.data))+i);
+		for (i = 0; i < NUM_BASEADDR; i++)
+			mmu_release(((struct tee_mmu *)(data.data))+i);
 
-	pkt_ptr = (unsigned long *)(((struct tee_mmu *)data.data)+NUM_BASEADDR);
+		pkt_ptr = (unsigned long *)(((struct tee_mmu *)data.data)+NUM_BASEADDR);
 
-	cmdq_pkt_destroy((struct cmdq_pkt *)(*pkt_ptr));
-	kfree((struct tee_mmu *)data.data);
+		cmdq_pkt_destroy((struct cmdq_pkt *)(*pkt_ptr));
+		kfree((struct tee_mmu *)data.data);
+	}
 #if defined(RSC_PMQOS_EN) && defined(CONFIG_MTK_QOS_SUPPORT)
 	pm_qos_update_request(&rsc_pm_qos_request, 0);
 #endif
@@ -1139,45 +1141,62 @@ signed int CmdqRSCHW(struct frame *frame)
 	cmdq_pkt_write(pkt, cmdq_base, RSC_INT_CTL_HW, 0x1, ~0);
 	cmdq_pkt_write(pkt, cmdq_base, RSC_CTRL_HW, pRscConfig->RSC_CTRL, ~0);
 	cmdq_pkt_write(pkt, cmdq_base, RSC_SIZE_HW, pRscConfig->RSC_SIZE, ~0);
-
-	records = kzalloc(sizeof(struct tee_mmu) * NUM_BASEADDR
+	if (!pRscConfig->IS_LEGACY) {
+		records = kzalloc(sizeof(struct tee_mmu) * NUM_BASEADDR
 					+ sizeof(unsigned long), GFP_KERNEL);
 
-	hw_array[0] = RSC_APLI_C_BASE_ADDR_HW;
-	hw_array[1] = RSC_APLI_P_BASE_ADDR_HW;
-	hw_array[2] = RSC_IMGI_C_BASE_ADDR_HW;
-	hw_array[3] = RSC_IMGI_P_BASE_ADDR_HW;
-	hw_array[4] = RSC_MVI_BASE_ADDR_HW;
-	hw_array[5] = RSC_MVO_BASE_ADDR_HW;
-	hw_array[6] = RSC_BVO_BASE_ADDR_HW;
+		hw_array[0] = RSC_APLI_C_BASE_ADDR_HW;
+		hw_array[1] = RSC_APLI_P_BASE_ADDR_HW;
+		hw_array[2] = RSC_IMGI_C_BASE_ADDR_HW;
+		hw_array[3] = RSC_IMGI_P_BASE_ADDR_HW;
+		hw_array[4] = RSC_MVI_BASE_ADDR_HW;
+		hw_array[5] = RSC_MVO_BASE_ADDR_HW;
+		hw_array[6] = RSC_BVO_BASE_ADDR_HW;
 
-	fd_array[0] = pRscConfig->RSC_APLI_C_FD;
-	fd_array[1] = pRscConfig->RSC_APLI_P_FD;
-	fd_array[2] = pRscConfig->RSC_IMGI_C_FD;
-	fd_array[3] = pRscConfig->RSC_IMGI_P_FD;
-	fd_array[4] = pRscConfig->RSC_MVI_FD;
-	fd_array[5] = pRscConfig->RSC_MVO_FD;
-	fd_array[6] = pRscConfig->RSC_BVO_FD;
+		fd_array[0] = pRscConfig->RSC_APLI_C_FD;
+		fd_array[1] = pRscConfig->RSC_APLI_P_FD;
+		fd_array[2] = pRscConfig->RSC_IMGI_C_FD;
+		fd_array[3] = pRscConfig->RSC_IMGI_P_FD;
+		fd_array[4] = pRscConfig->RSC_MVI_FD;
+		fd_array[5] = pRscConfig->RSC_MVO_FD;
+		fd_array[6] = pRscConfig->RSC_BVO_FD;
 
-	offset_array[0] = pRscConfig->RSC_APLI_C_OFFSET;
-	offset_array[1] = pRscConfig->RSC_APLI_P_OFFSET;
-	offset_array[2] = pRscConfig->RSC_IMGI_C_OFFSET;
-	offset_array[3] = pRscConfig->RSC_IMGI_P_OFFSET;
-	offset_array[4] = pRscConfig->RSC_MVI_OFFSET;
-	offset_array[5] = pRscConfig->RSC_MVO_OFFSET;
-	offset_array[6] = pRscConfig->RSC_BVO_OFFSET;
+		offset_array[0] = pRscConfig->RSC_APLI_C_OFFSET;
+		offset_array[1] = pRscConfig->RSC_APLI_P_OFFSET;
+		offset_array[2] = pRscConfig->RSC_IMGI_C_OFFSET;
+		offset_array[3] = pRscConfig->RSC_IMGI_P_OFFSET;
+		offset_array[4] = pRscConfig->RSC_MVI_OFFSET;
+		offset_array[5] = pRscConfig->RSC_MVO_OFFSET;
+		offset_array[6] = pRscConfig->RSC_BVO_OFFSET;
 
-	for (i = 0; i < NUM_BASEADDR; i++) {
-		unsigned int success = mmu_get_dma_buffer(&mmu, fd_array[i]);
+		for (i = 0; i < NUM_BASEADDR; i++) {
+			unsigned int success = mmu_get_dma_buffer(&mmu, fd_array[i]);
 
-		if (success) {
-			dma_addr_t dma_addr;
+			if (success) {
+				dma_addr_t dma_addr;
 
-			dma_addr = sg_dma_address(mmu.sgt->sgl);
-			cmdq_pkt_write(pkt, cmdq_base, hw_array[i], dma_addr + offset_array[i], ~0);
-			FD_OFFSET_ADDR[i] = dma_addr + offset_array[i];
-			memcpy(&records[i], &mmu, sizeof(struct tee_mmu));
+				dma_addr = sg_dma_address(mmu.sgt->sgl);
+				cmdq_pkt_write(pkt, cmdq_base, hw_array[i],
+					dma_addr + offset_array[i], ~0);
+				FD_OFFSET_ADDR[i] = dma_addr + offset_array[i];
+				memcpy(&records[i], &mmu, sizeof(struct tee_mmu));
+			}
 		}
+	} else {
+		cmdq_pkt_write(pkt, cmdq_base, RSC_APLI_C_BASE_ADDR_HW,
+				pRscConfig->RSC_APLI_C_BASE_ADDR, ~0);
+		cmdq_pkt_write(pkt, cmdq_base, RSC_APLI_P_BASE_ADDR_HW,
+				pRscConfig->RSC_APLI_P_BASE_ADDR, ~0);
+		cmdq_pkt_write(pkt, cmdq_base, RSC_IMGI_C_BASE_ADDR_HW,
+				pRscConfig->RSC_IMGI_C_BASE_ADDR, ~0);
+		cmdq_pkt_write(pkt, cmdq_base, RSC_IMGI_P_BASE_ADDR_HW,
+				pRscConfig->RSC_IMGI_P_BASE_ADDR, ~0);
+		cmdq_pkt_write(pkt, cmdq_base, RSC_MVI_BASE_ADDR_HW,
+				pRscConfig->RSC_MVI_BASE_ADDR, ~0);
+		cmdq_pkt_write(pkt, cmdq_base, RSC_MVO_BASE_ADDR_HW,
+				pRscConfig->RSC_MVO_BASE_ADDR, ~0);
+		cmdq_pkt_write(pkt, cmdq_base, RSC_BVO_BASE_ADDR_HW,
+				pRscConfig->RSC_BVO_BASE_ADDR, ~0);
 	}
 
 	cmdq_pkt_write(pkt, cmdq_base, RSC_IMGI_C_STRIDE_HW,
@@ -1248,8 +1267,8 @@ signed int CmdqRSCHW(struct frame *frame)
 	/* non-blocking API, Please  use cmdqRecFlushAsync() */
 	//cmdq_task_flush_async_destroy(handle);
 	/* flush and destroy in cmdq */
-	pkt_addr = (unsigned long *)&records[NUM_BASEADDR];
-	*pkt_addr = (unsigned long)pkt;
+	//pkt_addr = (unsigned long *)&records[NUM_BASEADDR];
+	//*pkt_addr = (unsigned long)pkt;
 	cmdq_pkt_flush_threaded(pkt, rsc_cmdq_cb_destroy, (void *)records);
 
 #else  // old cmdq function
