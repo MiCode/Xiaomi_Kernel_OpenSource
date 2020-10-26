@@ -36,7 +36,7 @@ config QCOM_CPUSS_SLEEP_STATS
 	 provision to read those counters.
 
 config QCOM_MEM_OFFLINE
-	bool "Dynamic Memory Region Offline driver"
+	tristate "Dynamic Memory Region Offline driver"
 	depends on MEMORY_HOTPLUG
 	help
 	  Add support for DDR Self-Refresh power management through the dynamic
