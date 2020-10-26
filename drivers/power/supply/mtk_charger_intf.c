@@ -253,7 +253,7 @@ bool is_charger_exist(struct mtk_charger *info)
 
 int get_charger_type(struct mtk_charger *info)
 {
-	union power_supply_propval prop, prop2;
+	union power_supply_propval prop, prop2, prop3;
 	static struct power_supply *chg_psy;
 	int ret;
 
@@ -268,11 +268,18 @@ int get_charger_type(struct mtk_charger *info)
 
 		ret = power_supply_get_property(chg_psy,
 			POWER_SUPPLY_PROP_TYPE, &prop2);
+
+		ret = power_supply_get_property(chg_psy,
+			POWER_SUPPLY_PROP_USB_TYPE, &prop3);
+		if (prop2.intval == POWER_SUPPLY_TYPE_USB &&
+		    prop3.intval == POWER_SUPPLY_USB_TYPE_DCP)
+			prop2.intval = POWER_SUPPLY_TYPE_USB_FLOAT;
 	}
 
-	pr_notice("%s online:%d type:%d\n", __func__,
+	pr_notice("%s online:%d type:%d usb_type:%d\n", __func__,
 		prop.intval,
-		prop2.intval);
+		prop2.intval,
+		prop3.intval);
 
 	return prop2.intval;
 }
@@ -330,6 +337,25 @@ int get_charger_input_current(struct mtk_charger *info,
 	else
 		ret = olduA;
 
+	chr_debug("%s:%d\n", __func__,
+		ret);
+	return ret;
+}
+
+int get_charger_zcv(struct mtk_charger *info,
+	struct charger_device *chg)
+{
+	int ret = 0;
+	int zcv = 0;
+
+	if (info == NULL)
+		return 0;
+
+	ret = charger_dev_get_zcv(chg, &zcv);
+	if (ret < 0)
+		chr_err("%s: get charger zcv failed: %d\n", __func__, ret);
+	else
+		ret = zcv;
 	chr_debug("%s:%d\n", __func__,
 		ret);
 	return ret;
