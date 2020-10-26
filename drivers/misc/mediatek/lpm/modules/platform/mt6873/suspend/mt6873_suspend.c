@@ -15,6 +15,7 @@
 #include <linux/rtc.h>
 #include <asm/cpuidle.h>
 #include <asm/suspend.h>
+#include <linux/rcupdate.h>
 
 #include <mtk_lpm.h>
 #include <mtk_lpm_module.h>
@@ -99,20 +100,24 @@ int mt6873_suspend_s2idle_prompt(int cpu,
 
 	cpumask_set_cpu(cpu, &s2idle_cpumask);
 	if (cpumask_weight(&s2idle_cpumask) == num_online_cpus()) {
+		rcu_idle_exit();
 #if IS_ENABLED(CONFIG_PM_SLEEP)
 		/* TODO
 		 * Need to fix the rcu_idle workaround later.
 		 * There are many rcu behaviors in syscore callback.
 		 * In s2idle framework, the rcu enter idle before cpu
-		 * enter idle state. So we need to using RCU_NONIDLE()
-		 * with syscore. But anyway in s2idle, when lastest cpu
+		 * enter idle state. So we need to use rcu_idle_exit to
+		 * wake up RCU.
+		 * Or using RCU_NONIDLE() with syscore.
+		 * But anyway in s2idle, when lastest cpu
 		 * enter idle state means there won't care r/w sync problem
-		 * and RCU_NOIDLE maybe the right solution.
+		 * and RCU_NONIDLE() maybe the right solution.
 		 */
 		syscore_suspend();
 #endif
 		ret = __mt6873_suspend_prompt(MTK_LPM_SUSPEND_S2IDLE,
 					      cpu, issuer);
+		rcu_idle_enter();
 	}
 	return ret;
 }
@@ -121,6 +126,7 @@ void mt6873_suspend_s2idle_reflect(int cpu,
 					const struct mtk_lpm_issuer *issuer)
 {
 	if (cpumask_weight(&s2idle_cpumask) == num_online_cpus()) {
+		rcu_idle_exit();
 		__mt6873_suspend_reflect(MTK_LPM_SUSPEND_S2IDLE,
 					 cpu, issuer);
 #if IS_ENABLED(CONFIG_PM_SLEEP)
@@ -128,12 +134,17 @@ void mt6873_suspend_s2idle_reflect(int cpu,
 		 * Need to fix the rcu_idle/timekeeping later.
 		 * There are many rcu behaviors in syscore callback.
 		 * In s2idle framework, the rcu enter idle before cpu
-		 * enter idle state. So we need to using RCU_NONIDLE()
-		 * with syscore.
+		 * enter idle state. So we need to use rcu_idle_exit to
+		 * wake up RCU.
+		 * Or using RCU_NONIDLE() with syscore.
+		 * But anyway in s2idle, when lastest cpu
+		 * enter idle state means there won't care r/w sync problem
+		 * and RCU_NONIDLE() maybe the right solution.
 		 */
 		syscore_resume();
 		pm_system_wakeup();
 #endif
+		rcu_idle_enter();
 	}
 	cpumask_clear_cpu(cpu, &s2idle_cpumask);
 }
