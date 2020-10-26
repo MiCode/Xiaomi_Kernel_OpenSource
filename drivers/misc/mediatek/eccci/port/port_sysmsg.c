@@ -5,6 +5,7 @@
 #include <linux/device.h>
 #include <linux/wait.h>
 #include <linux/module.h>
+#include <linux/power_supply.h>
 #include <linux/sched/clock.h> /* local_clock() */
 #include <linux/kthread.h>
 #include <linux/kernel.h>
@@ -166,17 +167,34 @@ void exec_ccci_sys_call_back(int md_id, int cb_id, int data)
 			cb_id);
 }
 
-signed int __weak battery_get_bat_voltage(void)
+static int battery_get_bat_voltage(void)
 {
-	pr_debug("[ccci/dummy] %s is not supported!\n", __func__);
-	return 0;
+	union power_supply_propval prop;
+	struct power_supply *psy;
+	int ret;
+
+	psy = power_supply_get_by_name("battery");
+	if (psy == NULL) {
+		CCCI_ERROR_LOG(-1, SYS, "%s can't get battery node\n",
+			__func__);
+		return 0;
+	}
+	ret = power_supply_get_property(psy,
+		POWER_SUPPLY_PROP_VOLTAGE_NOW, &prop);
+	if (ret < 0) {
+		CCCI_ERROR_LOG(-1, SYS, "%s get battery fail\n",
+			__func__);
+		return 0;
+	}
+
+	return prop.intval;
 }
 
 static int sys_msg_send_battery(struct port_t *port)
 {
 	int data;
 
-	data = (int)battery_get_bat_voltage();
+	data = battery_get_bat_voltage();
 	CCCI_REPEAT_LOG(port->md_id, SYS, "get bat voltage %d\n", data);
 	port_send_msg_to_md(port, MD_GET_BATTERY_INFO, data, 1);
 	return 0;

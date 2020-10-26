@@ -11,6 +11,4 @@ int ccci_get_adc_num(void);
 int ccci_get_adc_val(void);
 #endif
 
-signed int battery_get_bat_voltage(void);
-
 #endif
