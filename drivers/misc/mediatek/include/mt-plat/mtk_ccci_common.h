@@ -318,9 +318,6 @@ enum{
 #define CCCI_ERR_LOAD_IMG_NOT_FOUND \
 	(CCCI_ERR_LOAD_IMG_START_ID+13)
 
-/* -- boot mode  -- */
-#define DISABLE_MTK_BOOT_MODE 1
-
 /* export to other kernel modules, */
 /*better not let other module include ECCCI header directly (except IPC...) */
 enum MD_STATE_FOR_USER {

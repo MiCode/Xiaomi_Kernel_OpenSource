@@ -8,6 +8,26 @@
 
 #include "mt-plat/mtk_ccci_common.h"
 
+#define NORMAL_BOOT_ID 0
+#define META_BOOT_ID 1
+#define FACTORY_BOOT_ID	2
+
+/* boot type definitions */
+enum boot_mode_t {
+	NORMAL_BOOT = 0,
+	META_BOOT = 1,
+	RECOVERY_BOOT = 2,
+	SW_REBOOT = 3,
+	FACTORY_BOOT = 4,
+	ADVMETA_BOOT = 5,
+	ATE_FACTORY_BOOT = 6,
+	ALARM_BOOT = 7,
+	KERNEL_POWER_OFF_CHARGING_BOOT = 8,
+	LOW_POWER_OFF_CHARGING_BOOT = 9,
+	DONGLE_BOOT = 10,
+	UNKNOWN_BOOT
+};
+
 enum MD_FORCE_ASSERT_TYPE {
 	MD_FORCE_ASSERT_RESERVE = 0x000,
 	MD_FORCE_ASSERT_BY_MD_NO_RESPONSE	= 0x100,
@@ -380,6 +400,7 @@ int ccci_md_send_ccb_tx_notify(unsigned char md_id, int core_id);
 int ccci_md_set_boot_data(unsigned char md_id, unsigned int data[], int len);
 int ccci_md_pre_start(unsigned char md_id);
 int ccci_md_post_start(unsigned char md_id);
+unsigned int get_boot_mode_from_dts(void);
 
 struct ccci_modem_cfg {
 	unsigned int load_type;
