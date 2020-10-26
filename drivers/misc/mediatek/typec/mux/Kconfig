@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: GPL-2.0
+
+config MTK_USB_TYPEC_MUX
+	tristate "Mediatek USB TYPE-C Mux Driver"
+        select MTK_USB_TYPEC
+	help
+	  Say Y or M to support Mediatek USB Type-c mux switch
+	  driver. MTK Type-c mux driver is a simple architecture
+	  mux driver and  control multiple mux switch IC. Works
+	  with Type-C Port Controller Manager
+
+config TYPEC_MUX_FUSB304
+	tristate "TI FUSB304 Type-C cross switch driver"
+	depends on MTK_USB_TYPEC_MUX
+	help
+	  Say Y or M if your system has a TI FUSB304
+	  Type-C cross switch / mux chip found on some
+	  devices with a Type-C port. Works with Type-C
+	  Port Controller Manager.
+
+config TYPEC_MUX_PTN36241G
+	tristate "NXP PTN36241G USB3 Redriver"
+	depends on MTK_USB_TYPEC_MUX
+	help
+	  Say Y or M if your system has a NXP PTN36241G USB3.0 Redriver.
+	  Works with Type-C Port Controller Manager.
+
