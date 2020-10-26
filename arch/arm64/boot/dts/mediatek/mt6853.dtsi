@@ -3426,7 +3426,7 @@
 			reg = <0 0x1100e000 0 0x1000>;
 			interrupts = <GIC_SPI 171 IRQ_TYPE_LEVEL_HIGH>;
 			#pwm-cells = <2>;
-			clocks = <&infracfg_ao_clk CLK_IFRAO_DISP_PWM 0>,
+			clocks = <&infracfg_ao_clk CLK_IFRAO_DISP_PWM>,
 				<&topckgen_clk CLK_TOP_DISP_PWM_SEL>,
 				<&topckgen_clk CLK_TOP_OSC_D4>;
 			clock-names = "main", "mm", "pwm_src";
