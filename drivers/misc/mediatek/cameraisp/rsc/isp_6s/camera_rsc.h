@@ -123,6 +123,7 @@ struct RSC_Config {
 	unsigned int RSC_BVO_FD;
 	unsigned int RSC_BVO_OFFSET;
 	unsigned int RSC_BVO_STRIDE;
+	unsigned int IS_LEGACY;
 #define RSC_TUNABLE
 #ifdef RSC_TUNABLE
 	unsigned int RSC_MV_OFFSET;
