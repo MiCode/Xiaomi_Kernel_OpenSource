@@ -468,16 +468,6 @@ config MSM_ADSPRPC
 		applications/compute DSP processor.
 		Say M if you want to enable this module.
 
-config ADSPRPC_QGKI
-	bool "Enable QGKI specific features in fastrpc driver"
-	depends on QGKI
-	help
-		Certain features in the fastrpc driver are supported only on the
-		QGKI kernel (like I/O coherency for the fastrpc context banks). This
-		config is used in the driver to detect whether it is being compiled
-		in a GKI kernel or not.
-		Say Y if the driver is being compiled in a QGKI kernel.
-
 config ADI
 	tristate "SPARC Privileged ADI driver"
 	depends on SPARC64
