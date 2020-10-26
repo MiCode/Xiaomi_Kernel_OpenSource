@@ -54,19 +54,19 @@ static void get_pic_info(struct vdec_inst *inst,
 	mtk_vcodec_debug(inst, "Y/C(%d, %d)", pic->fb_sz[0], pic->fb_sz[1]);
 }
 
-static void get_crop_info(struct vdec_inst *inst, struct v4l2_crop *cr)
+static void get_crop_info(struct vdec_inst *inst, struct v4l2_rect *r)
 {
 	if (inst == NULL)
 		return;
 	if (inst->vsi == NULL)
 		return;
 
-	cr->c.left      = inst->vsi->crop.left;
-	cr->c.top       = inst->vsi->crop.top;
-	cr->c.width     = inst->vsi->crop.width;
-	cr->c.height    = inst->vsi->crop.height;
+	r->left      = inst->vsi->crop.left;
+	r->top       = inst->vsi->crop.top;
+	r->width     = inst->vsi->crop.width;
+	r->height    = inst->vsi->crop.height;
 	mtk_vcodec_debug(inst, "l=%d, t=%d, w=%d, h=%d",
-		cr->c.left, cr->c.top, cr->c.width, cr->c.height);
+		r->left, r->top, r->width, r->height);
 }
 
 static void get_dpb_size(struct vdec_inst *inst, unsigned int *dpb_sz)
