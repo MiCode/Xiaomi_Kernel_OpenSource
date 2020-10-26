@@ -692,6 +692,30 @@
 		};
 	};
 
+	lk_charger: lk_charger {
+		compatible = "mediatek,lk_charger";
+		enable_anime;
+		/* enable_pe_plus; */
+		enable_pd20_reset;
+		power_path_support;
+		max_charger_voltage = <6500000>;
+		fast_charge_voltage = <3000000>;
+
+		/* charging current */
+		usb_charger_current = <500000>;
+		ac_charger_current = <2050000>;
+		ac_charger_input_current = <3200000>;
+		non_std_ac_charger_current = <500000>;
+		charging_host_charger_current = <1500000>;
+		ta_ac_charger_current = <3000000>;
+		pd_charger_current = <500000>;
+
+		/* battery temperature protection */
+		temp_t4_threshold = <50>;
+		temp_t3_threshold = <45>;
+		temp_t1_threshold = <0>;
+	};
+
 	pe: pe {
 		compatible = "mediatek,charger,pe";
 		gauge = <&mtk_gauge>;
