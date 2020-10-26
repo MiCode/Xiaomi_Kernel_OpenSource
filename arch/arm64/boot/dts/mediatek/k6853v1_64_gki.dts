@@ -366,8 +366,8 @@
 };
 
 &i2c6 {
-	tfa9874: tfa9874@34 {
-		compatible = "goodix,tfa9874";
+	mt6660: mt6660@34 {
+		compatible = "mediatek,mt6660";
 		#sound-dai-cells = <0>;
 		reg = <0x34>;
 		status = "okay";
@@ -376,7 +376,7 @@
 
 &sound {
 	mediatek,speaker-codec {
-		sound-dai = <&tfa9874>;
+		sound-dai = <&mt6660>;
 	};
 };
 
