@@ -2754,14 +2754,12 @@ int a6xx_halt_gbif(struct adreno_device *adreno_dev)
 	/* Halt new client requests */
 	kgsl_regwrite(device, A6XX_GBIF_HALT, A6XX_GBIF_CLIENT_HALT_MASK);
 	ret = adreno_wait_for_halt_ack(device,
-		ADRENO_REG_GBIF_HALT_ACK,
-		A6XX_GBIF_CLIENT_HALT_MASK);
+		A6XX_GBIF_HALT_ACK, A6XX_GBIF_CLIENT_HALT_MASK);
 
 	/* Halt all AXI requests */
 	kgsl_regwrite(device, A6XX_GBIF_HALT, A6XX_GBIF_ARB_HALT_MASK);
 	ret = adreno_wait_for_halt_ack(device,
-		ADRENO_REG_GBIF_HALT_ACK,
-		A6XX_GBIF_ARB_HALT_MASK);
+		A6XX_GBIF_HALT_ACK, A6XX_GBIF_ARB_HALT_MASK);
 
 	/* De-assert the halts */
 	kgsl_regwrite(device, A6XX_GBIF_HALT, 0x0);
@@ -3023,7 +3021,7 @@ static int a630_vbif_halt(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A6XX_VBIF_XIN_HALT_CTRL0,
 		A6XX_VBIF_XIN_HALT_CTRL0_MASK);
 	ret = adreno_wait_for_halt_ack(device,
-			ADRENO_REG_VBIF_XIN_HALT_CTRL1,
+			A6XX_VBIF_XIN_HALT_CTRL1,
 			A6XX_VBIF_XIN_HALT_CTRL0_MASK);
 	kgsl_regwrite(device, A6XX_VBIF_XIN_HALT_CTRL0, 0);
 
