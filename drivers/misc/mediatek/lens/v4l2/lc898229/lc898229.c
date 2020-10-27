@@ -64,21 +64,6 @@ struct regval_list {
 	unsigned char value;
 };
 
-
-static int lc898229_write_smbus(struct lc898229_device *lc898229, unsigned char reg,
-			      unsigned char value)
-{
-	struct i2c_client *client = v4l2_get_subdevdata(&lc898229->sd);
-	int ret = 0;
-
-	if (reg == LC898229_CMD_DELAY  && value == LC898229_CMD_DELAY)
-		usleep_range(LC898229_CTRL_DELAY_US,
-			     LC898229_CTRL_DELAY_US + 100);
-	else
-		ret = i2c_smbus_write_byte_data(client, reg, value);
-	return ret;
-}
-
 static int lc898229_set_position(struct lc898229_device *lc898229, u16 val)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(&lc898229->sd);
