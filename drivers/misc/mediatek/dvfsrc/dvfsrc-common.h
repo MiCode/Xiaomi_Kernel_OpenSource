@@ -43,3 +43,7 @@ static inline int unregister_dvfsrc_debug_notifier(struct notifier_block *nb)
 { return 0; }
 #endif /* CONFIG_MTK_DVFSRC */
 #endif
+
+extern int __init mtk_dvfsrc_met_init(void);
+extern void __exit mtk_dvfsrc_met_exit(void);
+

@@ -700,13 +700,27 @@ static struct platform_driver mtk_dvfsrc_helper_driver = {
 
 static int __init mtk_dvfsrc_helper_init(void)
 {
-	return platform_driver_register(&mtk_dvfsrc_helper_driver);
+	int ret;
+
+	ret = platform_driver_register(&mtk_dvfsrc_helper_driver);
+	if (ret)
+		return ret;
+#if IS_ENABLED(CONFIG_MTK_DVFSRC_MET)
+	ret = mtk_dvfsrc_met_init();
+	if (ret) {
+		platform_driver_unregister(&mtk_dvfsrc_helper_driver);
+		return ret;
+	}
+#endif
 }
 late_initcall_sync(mtk_dvfsrc_helper_init)
 
 static void __exit mtk_dvfsrc_helper_exit(void)
 {
 	platform_driver_unregister(&mtk_dvfsrc_helper_driver);
+#if IS_ENABLED(CONFIG_MTK_DVFSRC_MET)
+	mtk_dvfsrc_met_exit();
+#endif
 }
 module_exit(mtk_dvfsrc_helper_exit);
 
