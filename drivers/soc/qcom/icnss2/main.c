@@ -2329,7 +2329,6 @@ EXPORT_SYMBOL(icnss_set_fw_log_mode);
 int icnss_force_wake_request(struct device *dev)
 {
 	struct icnss_priv *priv = dev_get_drvdata(dev);
-	int count = 0;
 
 	if (!dev)
 		return -ENODEV;
@@ -2339,9 +2338,9 @@ int icnss_force_wake_request(struct device *dev)
 		return -EINVAL;
 	}
 
-	if (atomic_read(&priv->soc_wake_ref_count)) {
-		count = atomic_inc_return(&priv->soc_wake_ref_count);
-		icnss_pr_dbg("SOC already awake, Ref count: %d", count);
+	if (atomic_inc_not_zero(&priv->soc_wake_ref_count)) {
+		icnss_pr_dbg("SOC already awake, Ref count: %d",
+			     atomic_read(&priv->soc_wake_ref_count));
 		return 0;
 	}
 
