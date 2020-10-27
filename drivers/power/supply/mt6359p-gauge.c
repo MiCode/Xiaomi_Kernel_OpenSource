@@ -3410,8 +3410,9 @@ static int mt6359_gauge_resume(struct platform_device *pdev)
 
 	gauge = dev_get_drvdata(&pdev->dev);
 	gm = gauge->gm;
-if (gm->resume != NULL)
-	gm->resume(gm);
+
+	if (gm->resume != NULL)
+		gm->resume(gm);
 
 	return 0;
 }
