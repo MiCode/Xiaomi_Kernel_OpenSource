@@ -504,7 +504,6 @@ static int dump_native_maps(pid_t pid, struct task_struct *current_task)
 		return -1;
 	}
 
-	down_read(&current_task->mm->mmap_lock);
 	vma = current_task->mm->mmap;
 	log_hang_info("Dump native maps files:\n");
 	hang_log("Dump native maps files:\n");
@@ -571,7 +570,6 @@ static int dump_native_maps(pid_t pid, struct task_struct *current_task)
 		vma = vma->vm_next;
 		mapcount++;
 	}
-	up_read(&current_task->mm->mmap_lock);
 
 	return 0;
 }
@@ -630,7 +628,6 @@ static int dump_native_info_by_tid(pid_t tid,
 
 	userstack_start = (unsigned long)user_ret->ARM_sp;
 
-	down_read(&current_task->mm->mmap_lock);
 	vma = current_task->mm->mmap;
 	while (vma) {
 		if (vma->vm_start <= userstack_start &&
@@ -642,7 +639,6 @@ static int dump_native_info_by_tid(pid_t tid,
 		if (vma == current_task->mm->mmap)
 			break;
 	}
-	up_read(&current_task->mm->mmap_lock);
 
 	if (!userstack_end) {
 		pr_info(" %s,%d:%s,userstack_end == 0", __func__,
@@ -735,7 +731,6 @@ static int dump_native_info_by_tid(pid_t tid,
 			(long)(user_ret->user_regs.regs[1]),
 			(long)(user_ret->user_regs.regs[0]));
 		userstack_start = (unsigned long)user_ret->user_regs.regs[13];
-		down_read(&current_task->mm->mmap_lock);
 		vma = current_task->mm->mmap;
 		while (vma) {
 			if (vma->vm_start <= userstack_start &&
@@ -747,7 +742,6 @@ static int dump_native_info_by_tid(pid_t tid,
 			if (vma == current_task->mm->mmap)
 				break;
 		}
-		up_read(&current_task->mm->mmap_lock);
 
 		if (!userstack_end) {
 			pr_info("Dump native stack failed:\n");
@@ -800,7 +794,6 @@ static int dump_native_info_by_tid(pid_t tid,
 	} else {		/*K64+U64 */
 		userstack_start = (unsigned long)user_ret->user_regs.sp;
 
-		down_read(&current_task->mm->mmap_lock);
 		vma = current_task->mm->mmap;
 		while (vma) {
 			if (vma->vm_start <= userstack_start &&
@@ -812,7 +805,6 @@ static int dump_native_info_by_tid(pid_t tid,
 			if (vma == current_task->mm->mmap)
 				break;
 		}
-		up_read(&current_task->mm->mmap_lock);
 		if (!userstack_end) {
 			pr_info("Dump native stack failed:\n");
 			return ret;
