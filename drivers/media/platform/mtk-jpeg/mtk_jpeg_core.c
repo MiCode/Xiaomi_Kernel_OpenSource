@@ -175,7 +175,6 @@ static int mtk_jpeg_dec_querycap(struct file *file, void *priv,
 static int vidioc_jpeg_enc_s_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct mtk_jpeg_ctx *ctx = ctrl_to_ctx(ctrl);
-	struct mtk_jpeg_dev *jpeg = ctx->jpeg;
 
 	pr_info("%s config id 0x%x", __func__, ctrl->id);
 
@@ -1307,7 +1306,7 @@ static int mtk_jpeg_enc_queue_init(void *priv, struct vb2_queue *src_vq,
 
 static void mtk_jpeg_clk_on(struct mtk_jpeg_dev *jpeg)
 {
-	int ret, i, larb_port_num, larb_id;
+	int ret, i;
 	//struct M4U_PORT_STRUCT port;
 
 	ret = mtk_smi_larb_get(jpeg->larb);
