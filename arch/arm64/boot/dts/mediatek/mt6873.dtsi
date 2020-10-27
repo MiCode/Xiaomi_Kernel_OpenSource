@@ -1105,7 +1105,7 @@
 		};
 
 		pio: pinctrl@10005000 {
-			compatible = "mediatek,mt6873-pinctrl";
+			compatible = "mediatek,mt6873-pinctrl", "syscon";
 			reg = <0 0x10005000 0 0x1000>,
 			      <0 0x11c20000 0 0x1000>,
 			      <0 0x11d10000 0 0x1000>,
@@ -1186,6 +1186,7 @@
 				      "cam_rawc-0";
 			infracfg = <&infracfg>;
 		};
+
 		scp_infra: scp_infra@10001000 {
 		    compatible = "mediatek,scpinfra";
 		    reg = <0 0x10001000 0 0x1000>,		/* infracfg_ao */
@@ -1866,6 +1867,72 @@
 				      <2 0x180000>, /* logger */
 				      <3 0x19000>; /* audio */
 		};
+
+		scp_clk_ctrl: scp_clk_ctrl@10721000 {
+			compatible = "mediatek,scp_clk_ctrl", "syscon";
+			reg = <0 0x10721000 0 0x1000>;	 /* clk*/
+		};
+
+		scp_dvfs {
+			compatible = "mediatek,scp_dvfs";
+			clocks = <&topckgen CLK_TOP_SCP_SEL>,
+				<&clk26m>,
+				<&topckgen CLK_TOP_UNIVPLL_D5>,
+				<&topckgen CLK_TOP_MAINPLL_D6_D2>,
+				<&topckgen CLK_TOP_MAINPLL_D6>,
+				<&topckgen CLK_TOP_UNIVPLL_D6>,
+				<&topckgen CLK_TOP_MAINPLL_D4_D2>,
+				<&topckgen CLK_TOP_MAINPLL_D5_D2>,
+				<&topckgen CLK_TOP_UNIVPLL_D4_D2>;
+
+			clock-names = "clk_mux",
+				"clk_pll_0",
+				"clk_pll_1",
+				"clk_pll_2",
+				"clk_pll_3",
+				"clk_pll_4",
+				"clk_pll_5",
+				"clk_pll_6",
+				"clk_pll_7";
+
+			vow-lp-en-gear = <2>;
+			scp-cores = <2>;
+
+			dvfs-opp =
+			/* vcore	vsram	opp spm    freq mux resource */
+			< 575000	750000	0x0 0x8    196  2	0>,
+			< 600000	750000	0x1 0x104  260  6	0>,
+			< 650000	750000	0x2 0x202  280  7	0>,
+			< 725000	750000	0x3 0x301  360  3	0>,
+			< 725000	750000	0x3 0x301  416  4	0x3>;
+
+			pmic = <&pmic>;
+			pmic-sshub-support;
+
+			gpio = <&pio>;
+			gpio-vreq-mode = <1>;
+			gpio-vreq = <0x410 0x7 24>;
+
+			dvfsrc-vscp-supply = <&dvfsrc_vscp>;
+			sshub-vcore-supply = <&mt6359p_vcore_sshub_reg>;
+			sshub-vsram-supply = <&mt6359p_vsram_others_sshub_ldo>;
+
+			do-ulposc-cali;
+			topckgen = <&topckgen>;
+			apmixedsys = <&apmixedsys>;
+			scp_clk_ctrl = <&scp_clk_ctrl>;
+			scp-clk-hw-ver = "v1";
+			ulposc-cali-ver = "v1";
+			ulposc-cali-num = <3>;
+			ulposc-cali-target = <196 280 360>;
+			ulposc-cali-config =
+				/* con0		con1		con2 */
+				<0x5aa940	0x3002900	0x40>,
+				<0x3ca940	0x2900		0x40>,
+				<0x52a940	0x2900		0x40>;
+			clk-dbg-ver = "v1";
+		};
+
 		adsp_common: adsp_common@10800000 {
 			compatible = "mediatek,adsp_common";
 			reg = <0 0x1080b000 0 0x50>, /* CFG SECURE */
