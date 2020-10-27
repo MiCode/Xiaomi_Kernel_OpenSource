@@ -971,8 +971,11 @@ int ISP_SetPMQOS(
 				while (!IS_ERR(opp =
 					dev_pm_opp_find_freq_ceil(
 						mmdvfsDev, &freq))) {
-				/* available freq is stored in speeds[i]*/
-					speeds[i] = freq;
+				/* available freq is stored in speeds[i].
+				 * The clock freq should be stored from high to low in pvalue
+				 * for user space usage.
+				 */
+					speeds[num_available - i - 1] = freq;
 					freq++;
 					i++;
 					dev_pm_opp_put(opp);
@@ -987,7 +990,7 @@ int ISP_SetPMQOS(
 			target_clk = pvalue[num_available - 1];
 
 		for (i = 0 ; i < num_available; i++)
-			LOG_DBG("2:DFS Clk_%d:%d MHz\n", i, pvalue[i]);
+			LOG_INF("2:DFS Clk_%d:%d MHz\n", i, pvalue[i]);
 
 		return (int)num_available;
 #endif
@@ -1117,8 +1120,11 @@ int SV_SetPMQOS(
 				while (!IS_ERR(opp =
 					dev_pm_opp_find_freq_ceil(
 						mmdvfsDev, &freq))) {
-				/* available freq is stored in speeds[i]*/
-					speeds[i] = freq;
+				/* available freq is stored in speeds[i].
+				 * The clock freq should be stored from high to low in pvalue
+				 * for user space usage.
+				 */
+					speeds[num_available - i - 1] = freq;
 					freq++;
 					i++;
 					dev_pm_opp_put(opp);
