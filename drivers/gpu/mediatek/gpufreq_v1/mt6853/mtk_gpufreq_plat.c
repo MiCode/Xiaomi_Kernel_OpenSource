@@ -332,9 +332,10 @@ static void __iomem *g_infra_peri_debug2;
 static void __iomem *g_infra_peri_debug3;
 static void __iomem *g_infra_peri_debug4;
 static void __iomem *g_infra_peri_debug5;
-static void __iomem *g_infracfg_ao;
+
 //TODO: GKI porting
 #if MT_GPUFREQ_DFD_ENABLE
+static void __iomem *g_infracfg_ao;
 static void __iomem *g_dbgtop;
 #endif
 static void __iomem *g_sleep;
@@ -953,9 +954,9 @@ static int __mt_gpufreq_is_dfd_completed(void)
 }
 #endif
 
+#if MT_GPUFREQ_DFD_ENABLE
 static void __mt_gpufreq_dbgtop_pwr_on(bool enable)
 {
-#if MT_GPUFREQ_DFD_ENABLE
 	unsigned int rgu_pwr;
 	int ret;
 	int retry = 10;
@@ -973,12 +974,11 @@ static void __mt_gpufreq_dbgtop_pwr_on(bool enable)
 		gpufreq_pr_info("[GPU_DFD] mtk_dbgtop_mfg_pwr_on(%d) fail:0x%0x ret:%d retry_remain:%d\n",
 			enable, rgu_pwr, ret, retry);
 	}
-#endif
 }
+
 
 static void __mt_gpufreq_config_dfd(bool enable)
 {
-#if MT_GPUFREQ_DFD_ENABLE
 	if (enable) {
 		// debug monitor
 		if (mt_gpufreq_is_dfd_force_dump())
@@ -1015,8 +1015,9 @@ static void __mt_gpufreq_config_dfd(bool enable)
 		writel(0x00000000, g_mfg_base + 0xA2C);
 		writel(0x00000000, g_mfg_base + 0x8F8);
 	}
-#endif
 }
+
+#endif
 
 void mt_gpufreq_power_control(enum mt_power_state power, enum mt_cg_state cg,
 			enum mt_mtcmos_state mtcmos, enum mt_buck_state buck)
@@ -3432,6 +3433,7 @@ static void __mt_gpufreq_gpu_dfd_trigger_simulate(void)
 }
 #endif
 
+#if MT_GPUFREQ_DFD_ENABLE
 static void __mt_gpufreq_gpu_hard_reset(void)
 {
 	/*
@@ -3445,6 +3447,7 @@ static void __mt_gpufreq_gpu_hard_reset(void)
 	udelay(10);
 	writel(0x88000000, g_toprgu + 0x018);
 }
+#endif
 
 #if MT_GPUFREQ_DFD_ENABLE
 /*
