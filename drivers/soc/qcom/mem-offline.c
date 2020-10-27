@@ -40,6 +40,8 @@ static unsigned int sections_per_block;
 static u32 offline_granule;
 static bool is_rpm_controller;
 #define MODULE_CLASS_NAME	"mem-offline"
+#define MEMBLOCK_NAME		"memory%lu"
+#define BUF_LEN			100
 
 struct section_stat {
 	unsigned long success_count;
@@ -314,6 +316,41 @@ out:
 	return 0;
 }
 
+static unsigned long get_section_allocated_memory(unsigned long sec_nr)
+{
+	unsigned long block_sz = memory_block_size_bytes();
+	unsigned long pages_per_blk = block_sz / PAGE_SIZE;
+	unsigned long tot_free_pages = 0, pfn, end_pfn, flags;
+	unsigned long used;
+	struct zone *movable_zone = &NODE_DATA(numa_node_id())->node_zones[ZONE_MOVABLE];
+	struct page *page;
+
+	if (!populated_zone(movable_zone))
+		return 0;
+
+	pfn = section_nr_to_pfn(sec_nr);
+	end_pfn = pfn + pages_per_blk;
+
+	if (!zone_intersects(movable_zone, pfn, pages_per_blk))
+		return 0;
+
+	spin_lock_irqsave(&movable_zone->lock, flags);
+	while (pfn < end_pfn) {
+		if (!pfn_valid(pfn) || !PageBuddy(pfn_to_page(pfn))) {
+			pfn++;
+			continue;
+		}
+		page = pfn_to_page(pfn);
+		tot_free_pages += 1 << page_private(page);
+		pfn += 1 << page_private(page);
+	}
+	spin_unlock_irqrestore(&movable_zone->lock, flags);
+
+	used = block_sz - (tot_free_pages * PAGE_SIZE);
+
+	return used;
+}
+
 static int mem_event_callback(struct notifier_block *self,
 				unsigned long action, void *arg)
 {
@@ -436,6 +473,24 @@ static int mem_online_remaining_blocks(void)
 	}
 
 	return fail;
+}
+
+static ssize_t show_block_allocated_bytes(struct kobject *kobj,
+				struct kobj_attribute *attr, char *buf)
+{
+	unsigned long allocd_mem = 0;
+	unsigned long sec_nr;
+	int ret;
+
+	ret = sscanf(kobject_name(kobj), MEMBLOCK_NAME, &sec_nr);
+	if (ret != 1) {
+		pr_err("mem-offline: couldn't get memory block number! ret %d\n", ret);
+		return 0;
+	}
+
+	allocd_mem = get_section_allocated_memory(sec_nr);
+
+	return scnprintf(buf, BUF_LEN, "%lu\n", allocd_mem);
 }
 
 static ssize_t show_mem_offline_granule(struct kobject *kobj,
@@ -627,6 +682,40 @@ static struct attribute_group mem_attr_group = {
 	.attrs = mem_root_attrs,
 };
 
+static struct kobj_attribute block_allocated_bytes_attr =
+		__ATTR(allocated_bytes, 0444, show_block_allocated_bytes, NULL);
+
+static struct attribute *mem_block_attrs[] = {
+		&block_allocated_bytes_attr.attr,
+		NULL,
+};
+
+static struct attribute_group mem_block_attr_group = {
+	.attrs = mem_block_attrs,
+};
+
+static int mem_sysfs_create_memblocks(struct kobject *parent_kobj)
+{
+	struct kobject *memblk_kobj;
+	char memblkstr[BUF_LEN];
+	unsigned long memblock;
+	int ret;
+
+	for (memblock = start_section_nr; memblock <= end_section_nr;
+			memblock += sections_per_block) {
+		ret = scnprintf(memblkstr, sizeof(memblkstr), MEMBLOCK_NAME, memblock);
+		if (ret <= 0)
+			return -EINVAL;
+		memblk_kobj = kobject_create_and_add(memblkstr, parent_kobj);
+		if (!memblk_kobj)
+			return -ENOMEM;
+		if (sysfs_create_group(memblk_kobj, &mem_block_attr_group))
+			kobject_put(memblk_kobj);
+	}
+
+	return 0;
+}
+
 static int mem_sysfs_init(void)
 {
 	if (start_section_nr == end_section_nr)
@@ -638,6 +727,11 @@ static int mem_sysfs_init(void)
 
 	if (sysfs_create_group(kobj, &mem_attr_group))
 		kobject_put(kobj);
+
+	if (mem_sysfs_create_memblocks(kobj)) {
+		pr_err("mem-offline: failed to create memblock sysfs nodes\n");
+		return -EINVAL;
+	}
 
 	return 0;
 }
