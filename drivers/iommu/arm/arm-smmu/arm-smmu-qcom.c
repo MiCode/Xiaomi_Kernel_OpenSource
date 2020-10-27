@@ -373,22 +373,13 @@ static void qsmmuv500_device_remove(struct arm_smmu_device *smmu)
 	cancel_work_sync(&data->outstanding_tnx_work);
 }
 
-static bool arm_smmu_fwspec_match_smr(struct iommu_fwspec *fwspec,
-				      struct arm_smmu_master_cfg *cfg,
-				      struct arm_smmu_smr *smr)
+/*
+ * Checks whether smr2 is a subset of smr
+ */
+static bool smr_is_subset(struct arm_smmu_smr *smr2, struct arm_smmu_smr *smr)
 {
-	struct arm_smmu_smr *smr2;
-	struct arm_smmu_device *smmu = cfg->smmu;
-	int i, idx;
-
-	for_each_cfg_sme(cfg, fwspec, i, idx) {
-		smr2 = &smmu->smrs[idx];
-		/* Continue if table entry does not match */
-		if ((smr->id ^ smr2->id) & ~(smr->mask | smr2->mask))
-			continue;
-		return true;
-	}
-	return false;
+	return (smr->mask & smr2->mask) == smr2->mask &&
+	    !((smr->id ^ smr2->id) & ~smr->mask);
 }
 
 static int qsmmuv500_tbu_halt(struct qsmmuv500_tbu_device *tbu,
@@ -752,8 +743,8 @@ static int qsmmuv500_device_group(struct device *dev,
 	struct arm_smmu_device *smmu = cfg->smmu;
 	struct qsmmuv500_archdata *data = to_qsmmuv500_archdata(smmu);
 	struct qsmmuv500_group_iommudata *iommudata;
-	u32 actlr, i;
-	struct arm_smmu_smr *smr;
+	u32 actlr, i, j, idx;
+	struct arm_smmu_smr *smr, *smr2;
 
 	iommudata = to_qsmmuv500_group_iommudata(group);
 	if (!iommudata) {
@@ -769,14 +760,21 @@ static int qsmmuv500_device_group(struct device *dev,
 		smr = &data->actlrs[i].smr;
 		actlr = data->actlrs[i].actlr;
 
-		if (!arm_smmu_fwspec_match_smr(fwspec, cfg, smr))
-			continue;
+		for_each_cfg_sme(cfg, fwspec, j, idx) {
+			smr2 = &smmu->smrs[idx];
+			if (!smr_is_subset(smr2, smr))
+				continue;
 
-		if (!iommudata->has_actlr) {
-			iommudata->actlr = actlr;
-			iommudata->has_actlr = true;
-		} else if (iommudata->actlr != actlr) {
-			return -EINVAL;
+			dev_dbg(dev, "Matched actlr sid=%x mask=%x actlr=%x\n",
+				smr->id, smr->mask, actlr);
+
+			if (!iommudata->has_actlr) {
+				iommudata->actlr = actlr;
+				iommudata->has_actlr = true;
+			} else if (iommudata->actlr != actlr) {
+				dev_err(dev, "Invalid actlr setting\n");
+				return -EINVAL;
+			}
 		}
 	}
 
