@@ -247,6 +247,49 @@ static void fts_ts_trusted_touch_tvm_vm_mode_disable(struct fts_ts_data *fts_dat
 static void fts_ts_trusted_touch_abort_tvm(struct fts_ts_data *fts_data);
 static void fts_ts_trusted_touch_event_notify(struct fts_ts_data *fts_data, int event);
 
+void fts_ts_trusted_touch_tvm_i2c_failure_report(struct fts_ts_data *fts_data)
+{
+	pr_err("initiating trusted touch abort due to i2c failure\n");
+	fts_ts_trusted_touch_abort_handler(fts_data,
+			TRUSTED_TOUCH_EVENT_I2C_FAILURE);
+}
+
+static void fts_ts_trusted_touch_reset_gpio_toggle(struct fts_ts_data *fts_data)
+{
+	void __iomem *base;
+
+	base = ioremap(TOUCH_RESET_GPIO_BASE, TOUCH_RESET_GPIO_SIZE);
+	writel_relaxed(0x1, base + TOUCH_RESET_GPIO_OFFSET);
+	/* wait until toggle to finish*/
+	wmb();
+	writel_relaxed(0x0, base + TOUCH_RESET_GPIO_OFFSET);
+	/* wait until toggle to finish*/
+	wmb();
+	iounmap(base);
+}
+
+static void fts_trusted_touch_intr_gpio_toggle(struct fts_ts_data *fts_data,
+		bool enable)
+{
+	void __iomem *base;
+	u32 val;
+
+	base = ioremap(TOUCH_INTR_GPIO_BASE, TOUCH_INTR_GPIO_SIZE);
+	val = readl_relaxed(base + TOUCH_RESET_GPIO_OFFSET);
+	if (enable) {
+		val |= BIT(0);
+		writel_relaxed(val, base + TOUCH_INTR_GPIO_OFFSET);
+		/* wait until toggle to finish*/
+		wmb();
+	} else {
+		val &= ~BIT(0);
+		writel_relaxed(val, base + TOUCH_INTR_GPIO_OFFSET);
+		/* wait until toggle to finish*/
+		wmb();
+	}
+	iounmap(base);
+}
+
 static int fts_ts_trusted_touch_get_tvm_driver_state(struct fts_ts_data *fts_data)
 {
 	int state;
@@ -376,6 +419,7 @@ static void fts_ts_trusted_touch_tvm_vm_mode_enable(struct fts_ts_data *fts_data
 	kfree(acl_desc);
 
 	irq = hh_irq_accept(fts_data->vm_info->irq_label, -1, IRQ_TYPE_EDGE_RISING);
+	fts_trusted_touch_intr_gpio_toggle(fts_data, false);
 	if (irq < 0) {
 		pr_err("failed to accept irq\n");
 		goto accept_fail;
@@ -1040,6 +1084,14 @@ static void fts_ts_trusted_touch_abort_handler(struct fts_ts_data *fts_data, int
 	atomic_set(&fts_data->trusted_touch_abort_status, error);
 	pr_err("TUI session aborted with failure:%d\n", error);
 	fts_ts_trusted_touch_event_notify(fts_data, error);
+#ifdef CONFIG_ARCH_QTI_VM
+	pr_err("Resetting touch controller\n");
+	if (fts_ts_trusted_touch_get_tvm_driver_state(fts_data) >= TVM_IOMEM_ACCEPTED
+			&& error == TRUSTED_TOUCH_EVENT_I2C_FAILURE) {
+		pr_err("Resetting touch controller\n");
+		fts_ts_trusted_touch_reset_gpio_toggle(fts_data);
+	}
+#endif
 }
 
 static int fts_ts_vm_init(struct fts_ts_data *fts_data)
