@@ -102,8 +102,10 @@ static void vow_ipi_reg_ok(short uuid,
 			   unsigned int extradata_len);
 static bool VowDrv_SetFlag(int type, unsigned int set);
 static int VowDrv_GetHWStatus(void);
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
 static void vow_service_OpenDumpFile(void);
 static void vow_service_CloseDumpFile(void);
+#endif  /* #if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT) */
 static void vow_service_OpenDumpFile_internal(void);
 static void vow_service_CloseDumpFile_internal(void);
 static void vow_pcm_dump_init(void);
@@ -683,8 +685,8 @@ static int vow_service_SearchSpeakerModelWithKeyword(int keyword)
 static bool vow_service_SendSpeakerModel(int slot, bool release_flag)
 {
 	bool ret = false;
-	unsigned int vow_ipi_buf[5];
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
+	unsigned int vow_ipi_buf[5];
 	if (slot >= MAX_VOW_SPEAKER_MODEL) {
 		VOWDRV_DEBUG("%s(), slot id=%d, over range\n", __func__, slot);
 		return ret;
@@ -1228,6 +1230,7 @@ static void vow_service_reset(void)
 	VOWDRV_DEBUG("-%s()\n", __func__);
 }
 
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
 static bool vow_stop_dump_wait(void)
 {
 	int timeout = 0;
@@ -1239,6 +1242,7 @@ static bool vow_stop_dump_wait(void)
 	}
 	return true;
 }
+#endif  /* #if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT) */
 
 static int vow_pcm_dump_notify(bool enable)
 {
@@ -1369,6 +1373,7 @@ static int vow_pcm_dump_set(bool enable)
 	return 0;
 }
 
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
 static void vow_service_OpenDumpFile(void)
 {
 	VOWDRV_DEBUG("+%s() %d\n", __func__, b_enable_dump);
@@ -1436,6 +1441,7 @@ static void vow_service_CloseDumpFile(void)
 	__pm_relax(&pcm_dump_wake_lock);
 	VOWDRV_DEBUG("-%s() %d\n", __func__, b_enable_dump);
 }
+#endif  /* #if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT) */
 
 static void vow_service_OpenDumpFile_internal(void)
 {
