@@ -1103,7 +1103,7 @@ static int mtk_jpeg_enc_queue_init(void *priv, struct vb2_queue *src_vq,
 
 static void mtk_jpeg_clk_on(struct mtk_jpeg_dev *jpeg)
 {
-	int ret, i, larb_port_num, larb_id;
+	int ret, i;
 	//struct M4U_PORT_STRUCT port;
 
 	ret = mtk_smi_larb_get(jpeg->larb);
