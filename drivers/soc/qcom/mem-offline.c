@@ -79,60 +79,6 @@ struct memory_refresh_request {
 
 static struct section_stat *mem_info;
 
-static void clear_pgtable_mapping(phys_addr_t start, phys_addr_t end)
-{
-	unsigned long size = end - start;
-	unsigned long virt = (unsigned long)phys_to_virt(start);
-	unsigned long addr_end = virt + size;
-	pgd_t *pgd;
-	pud_t *pud;
-	pmd_t *pmd;
-
-	pgd = pgd_offset_k(virt);
-
-	while (virt < addr_end) {
-
-		/* Check if we have PUD section mapping */
-		pud = pud_offset(pgd, virt);
-		if (pud_sect(*pud)) {
-			pud_clear(pud);
-			virt += PUD_SIZE;
-			continue;
-		}
-
-		/* Check if we have PMD section mapping */
-		pmd = pmd_offset(pud, virt);
-		if (pmd_sect(*pmd)) {
-			pmd_clear(pmd);
-			virt += PMD_SIZE;
-			continue;
-		}
-
-		/* Clear mapping for page entry */
-		set_memory_valid(virt, 1, (int)false);
-		virt += PAGE_SIZE;
-	}
-
-	virt = (unsigned long)phys_to_virt(start);
-	flush_tlb_kernel_range(virt, addr_end);
-}
-
-static void init_pgtable_mapping(phys_addr_t start, phys_addr_t end)
-{
-	unsigned long size = end - start;
-
-	/*
-	 * When rodata_full is enabled, memory is mapped at a page size
-	 * granule, as opposed to a block mapping, so restore the attribute
-	 * of each PTE when rodata_full is enabled.
-	 */
-	if (rodata_full)
-		set_memory_valid((unsigned long)phys_to_virt(start),
-				 size >> PAGE_SHIFT, (int)true);
-	else
-		create_pgtable_mapping(start, end);
-}
-
 static void record_stat(unsigned long sec, ktime_t delay, int mode)
 {
 	unsigned int total_sec = end_section_nr - start_section_nr + 1;
@@ -410,11 +356,6 @@ static int mem_event_callback(struct notifier_block *self,
 		if (mem_change_refresh_state(mn, MEMORY_ONLINE))
 			return NOTIFY_BAD;
 
-		if (!debug_pagealloc_enabled()) {
-			/* Create kernel page-tables */
-			init_pgtable_mapping(start_addr, end_addr);
-		}
-
 		break;
 	case MEM_ONLINE:
 		delay = ktime_ms_delta(ktime_get(), cur);
@@ -431,10 +372,6 @@ static int mem_event_callback(struct notifier_block *self,
 		cur = ktime_get();
 		break;
 	case MEM_OFFLINE:
-		if (!debug_pagealloc_enabled()) {
-			/* Clear kernel page-tables */
-			clear_pgtable_mapping(start_addr, end_addr);
-		}
 		mem_change_refresh_state(mn, MEMORY_OFFLINE);
 		/*
 		 * Notifying that something went bad at this stage won't
@@ -498,7 +435,6 @@ static int mem_online_remaining_blocks(void)
 		}
 	}
 
-	max_pfn = PFN_DOWN(memblock_end_of_DRAM());
 	return fail;
 }
 
@@ -873,6 +809,8 @@ static const struct of_device_id mem_offline_match_table[] = {
 	{}
 };
 
+MODULE_DEVICE_TABLE(of, mem_offline_match_table);
+
 static struct platform_driver mem_offline_driver = {
 	.probe = mem_offline_driver_probe,
 	.driver = {
@@ -885,5 +823,13 @@ static int __init mem_module_init(void)
 {
 	return platform_driver_register(&mem_offline_driver);
 }
-
 subsys_initcall(mem_module_init);
+
+static void __exit mem_module_exit(void)
+{
+	platform_driver_unregister(&mem_offline_driver);
+}
+module_exit(mem_module_exit);
+
+MODULE_DESCRIPTION("Qualcomm Technologies, Inc. Memory Offlining Driver");
+MODULE_LICENSE("GPL v2");
