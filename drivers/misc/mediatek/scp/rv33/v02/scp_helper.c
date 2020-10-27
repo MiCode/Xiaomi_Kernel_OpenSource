@@ -380,9 +380,7 @@ static void scp_A_notify_ws(struct work_struct *ws)
 		scp_ready[SCP_A_ID] = 1;
 
 #if SCP_DVFS_INIT_ENABLE
-#ifdef ULPOSC_CALI_BY_AP
 		sync_ulposc_cali_data_to_scp();
-#endif
 		/* release pll clock after scp ulposc calibration */
 		scp_pll_ctrl_set(PLL_DISABLE, CLK_26M);
 #endif
@@ -1844,10 +1842,6 @@ static int scp_device_probe(struct platform_device *pdev)
 	}
 #endif
 
-#if SCP_DVFS_INIT_ENABLE && defined(ULPOSC_CALI_BY_AP)
-	ulposc_cali_init();
-#endif
-
 	return ret;
 }
 
@@ -1943,12 +1937,9 @@ static int __init scp_init(void)
 
 	/* pll maybe gate, request pll before access any scp reg/sram */
 	scp_pll_ctrl_set(PLL_ENABLE, CLK_26M);
-#endif
-
-#if SCP_DVFS_INIT_ENABLE
 	/* keep Univpll */
 	scp_resource_req(SCP_REQ_26M);
-#endif
+#endif /* SCP_DVFS_INIT_ENABLE */
 
 	if (platform_driver_register(&mtk_scp_device))
 		pr_err("[SCP] scp probe fail\n");
@@ -2037,10 +2028,8 @@ static int __init scp_init(void)
 	reset_scp(SCP_ALL_ENABLE);
 
 #if SCP_DVFS_INIT_ENABLE
-	/* set default VCORE request if SCP DVFS feature is OFF */
-	if (scp_dvfs_flag != 1)
-		scp_vcore_request(CLK_OPP0);
-#endif
+	scp_init_vcore_request();
+#endif /* SCP_DVFS_INIT_ENABLE */
 
 	return ret;
 err:
