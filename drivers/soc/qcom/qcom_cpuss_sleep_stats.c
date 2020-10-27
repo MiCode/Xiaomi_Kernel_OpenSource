@@ -17,6 +17,7 @@
 #define MIN_POSSIBLE_CPUS	1
 #define SEQ_LPM_STR_SZ		22
 #define CPUNAME_SZ		6
+#define STATS_NAME_SZ		25
 #define OFFSET_8BYTES		0x08
 #define OFFSET_4BYTES		0x04
 
@@ -58,6 +59,12 @@
 #define RESIDENCY_CNTR_D2_EN	BIT(0)
 #define RESIDENCY_CNTR_D4_EN	BIT(2)
 
+struct qcom_cpuss_stats {
+	char mode_name[20];
+	void __iomem *reg;	/* iomapped reg */
+	struct list_head node;
+};
+
 struct qcom_target_info {
 	struct platform_device *pdev;
 	int ncpu;
@@ -67,6 +74,7 @@ struct qcom_target_info {
 	u32 apss_seq_mem_size;
 	phys_addr_t l3_seq_lpm_cfg;
 	u32 l3_seq_lpm_size;
+	struct qcom_cpuss_stats complete_stats;
 
 	struct dentry *stats_rootdir;
 	struct dentry *cpu_dir[MAX_POSSIBLE_CPUS];
@@ -236,6 +244,36 @@ static int qcom_cpuss_sleep_stats_show(struct seq_file *s, void *d)
 
 DEFINE_SHOW_ATTRIBUTE(qcom_cpuss_sleep_stats);
 
+static int qcom_cpuss_all_stats_show(struct seq_file *s, void *d)
+{
+	struct list_head *node1 = (struct list_head *)s->private;
+	struct qcom_cpuss_stats *data;
+	u64 count;
+
+	list_for_each_entry(data, node1, node) {
+		count = readq_relaxed(data->reg);
+		seq_printf(s, "%s: %ld\n", data->mode_name, count);
+	}
+
+	return 0;
+}
+
+DEFINE_SHOW_ATTRIBUTE(qcom_cpuss_all_stats);
+
+static void store_stats_data(struct qcom_target_info *t_info, char *str,
+			     void __iomem *reg)
+{
+	struct qcom_cpuss_stats *store_stats_data;
+
+	store_stats_data = devm_kzalloc(&t_info->pdev->dev, sizeof(*store_stats_data),
+					GFP_KERNEL);
+	store_stats_data->reg = reg;
+	strlcpy(store_stats_data->mode_name, str,
+		sizeof(store_stats_data->mode_name));
+
+	list_add_tail(&store_stats_data->node, &t_info->complete_stats.node);
+}
+
 static int qcom_cpuss_sleep_stats_create_cpu_debugfs(struct qcom_target_info *t_info,
 					     int cpu, u32 lpm_cfg)
 {
@@ -243,7 +281,7 @@ static int qcom_cpuss_sleep_stats_create_cpu_debugfs(struct qcom_target_info *t_
 	struct platform_device *pdev = t_info->pdev;
 	u32 offset;
 	int bit;
-	char cpu_name[CPUNAME_SZ] = {0};
+	char cpu_name[CPUNAME_SZ] = {0}, stats_name[STATS_NAME_SZ] = {0}, *state;
 
 	snprintf(cpu_name, sizeof(cpu_name), "pcpu%u", cpu);
 	t_info->cpu_dir[cpu] = debugfs_create_dir(cpu_name,
@@ -261,11 +299,16 @@ static int qcom_cpuss_sleep_stats_create_cpu_debugfs(struct qcom_target_info *t_
 				return offset;
 
 			reg = base + offset;
-			if (get_str_cpu_lpm_state(1 << bit))
-				debugfs_create_file(get_str_cpu_lpm_state(1 << bit),
-						    0444, t_info->cpu_dir[cpu],
+			state = get_str_cpu_lpm_state(1 << bit);
+			if (state) {
+				debugfs_create_file(state, 0444,
+						    t_info->cpu_dir[cpu],
 						    (void *) reg,
 						    &qcom_cpuss_sleep_stats_fops);
+				snprintf(stats_name, sizeof(stats_name),
+					 "pcpu%u: %s", cpu, state);
+				store_stats_data(t_info, stats_name, reg);
+			}
 		}
 	}
 
@@ -279,6 +322,7 @@ static int qcom_cpuss_sleep_stats_create_cluster_debugfs(struct qcom_target_info
 	struct platform_device *pdev = t_info->pdev;
 	u32 offset;
 	int bit;
+	char *state;
 
 	t_info->cl_rootdir = debugfs_create_dir("L3", t_info->stats_rootdir);
 	if (!t_info->cl_rootdir)
@@ -296,11 +340,14 @@ static int qcom_cpuss_sleep_stats_create_cluster_debugfs(struct qcom_target_info
 				return offset;
 
 			reg = base + offset;
-			if (get_str_cl_lpm_state(1 << bit))
-				debugfs_create_file(get_str_cl_lpm_state(1 << bit),
-						    0444, t_info->cl_rootdir,
+			state = get_str_cl_lpm_state(1 << bit);
+			if (state) {
+				debugfs_create_file(state, 0444,
+						    t_info->cl_rootdir,
 						    (void *) reg,
 						    &qcom_cpuss_sleep_stats_fops);
+				store_stats_data(t_info, state, reg);
+			}
 		}
 	}
 
@@ -314,6 +361,7 @@ static int qcom_cpuss_sleep_stats_create_cpu_residency_debugfs(struct qcom_targe
 	struct platform_device *pdev = t_info->pdev;
 	u32 offset;
 	int bit;
+	char stats_name[STATS_NAME_SZ] = {0}, *state;
 
 	base = devm_ioremap(&pdev->dev, t_info->apss_seq_mem_base,
 			    t_info->apss_seq_mem_size);
@@ -327,11 +375,16 @@ static int qcom_cpuss_sleep_stats_create_cpu_residency_debugfs(struct qcom_targe
 				return offset;
 
 			reg = base + offset;
-			if (get_str_cpu_res(1 << bit))
-				debugfs_create_file(get_str_cpu_res(1 << bit),
-						    0444, t_info->cpu_dir[cpu],
+			state = get_str_cpu_res(1 << bit);
+			if (state) {
+				debugfs_create_file(state, 0444,
+						    t_info->cpu_dir[cpu],
 						    (void *) reg,
 						    &qcom_cpuss_sleep_stats_fops);
+				snprintf(stats_name, sizeof(stats_name),
+					 "pcpu%u: %s", cpu, state);
+				store_stats_data(t_info, stats_name, reg);
+			}
 		}
 	}
 
@@ -345,6 +398,7 @@ static int qcom_cpuss_sleep_stats_create_cl_residency_debugfs(struct qcom_target
 	struct platform_device *pdev = t_info->pdev;
 	u32 offset;
 	int bit;
+	char *state;
 
 	for (bit = 0; bit < MAX_CL_RESIDENCY_BITS; bit += 2) {
 		if (cl_residency_cfg & BIT(bit)) {
@@ -357,11 +411,13 @@ static int qcom_cpuss_sleep_stats_create_cl_residency_debugfs(struct qcom_target
 				   offset, 0x4);
 		if (!reg)
 			return -ENOMEM;
-
-		if (get_str_cl_res(1 << bit))
-			debugfs_create_file(get_str_cl_res(1 << bit), 0444,
-					    t_info->cl_rootdir, (void *) reg,
+		state = get_str_cl_res(1 << bit);
+		if (state) {
+			debugfs_create_file(state, 0444, t_info->cl_rootdir,
+					    (void *) reg,
 					    &qcom_cpuss_sleep_stats_fops);
+			store_stats_data(t_info, state, reg);
+		}
 		}
 	}
 
@@ -432,6 +488,8 @@ static int qcom_cpuss_sleep_stats_probe(struct platform_device *pdev)
 	if (!t_info)
 		return -ENOMEM;
 
+	INIT_LIST_HEAD(&t_info->complete_stats.node);
+
 	root_dir = debugfs_create_dir("qcom_cpuss_sleep_stats", NULL);
 	t_info->stats_rootdir = root_dir;
 	t_info->pdev = pdev;
@@ -477,6 +535,10 @@ static int qcom_cpuss_sleep_stats_probe(struct platform_device *pdev)
 	ret = qcom_cpuss_read_lpm_and_residency_cfg_informaion(t_info);
 	if (ret)
 		return ret;
+
+	debugfs_create_file("stats", 0444, root_dir,
+				(void *) &t_info->complete_stats.node,
+				&qcom_cpuss_all_stats_fops);
 
 	platform_set_drvdata(pdev, root_dir);
 
