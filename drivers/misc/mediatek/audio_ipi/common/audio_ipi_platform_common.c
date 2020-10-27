@@ -352,7 +352,7 @@ phys_addr_t get_reserve_mem_phys(const uint32_t dsp_id, const uint32_t mem_id)
 	phys_addr_t addr_mem_phys = 0;
 
 	if (!is_audio_dsp_support(dsp_id))
-		return NULL;
+		return 0;
 
 	switch (dsp_id) {
 	case AUDIO_OPENDSP_USE_CM4_A:
