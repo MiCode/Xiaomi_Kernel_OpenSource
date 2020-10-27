@@ -229,4 +229,13 @@ config CORESIGHT_OST
 	  This is primarily intended to be used as a layer on top of underlying
 	  physical byte transport mechanisms.The additional header can be used
 	  to provide more information.
+
+config CORESIGHT_FUSE
+	bool "CoreSight FUSE framework"
+	help
+	  This driver provides support for CoreSight Fuse state checks that
+	  other CoreSight drivers can query to determine existence of
+	  Hardware functionality they support. Drivers can then take necessary
+	  actions like failing the probe if the Hardware they manage is
+	  functionally disabled.
 endif
