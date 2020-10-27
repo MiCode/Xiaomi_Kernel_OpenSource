@@ -17,7 +17,6 @@
 #include <linux/soc/mediatek/mtk_dvfsrc.h>
 
 #include "dvfsrc-met.h"
-#include "dvfsrc-met.h"
 
 static struct mtk_dvfsrc_met *dvfsrc_drv;
 
@@ -305,18 +304,13 @@ static struct platform_driver mtk_dvfsrc_met_driver = {
 	},
 };
 
-static int __init mtk_dvfsrc_met_init(void)
+int __init mtk_dvfsrc_met_init(void)
 {
 	return platform_driver_register(&mtk_dvfsrc_met_driver);
 }
-late_initcall_sync(mtk_dvfsrc_met_init)
 
-static void __exit mtk_dvfsrc_met_exit(void)
+void __exit mtk_dvfsrc_met_exit(void)
 {
 	platform_driver_unregister(&mtk_dvfsrc_met_driver);
 }
-module_exit(mtk_dvfsrc_met_exit);
-
-MODULE_LICENSE("GPL v2");
-MODULE_DESCRIPTION("MTK DVFSRC met driver");
 
