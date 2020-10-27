@@ -975,6 +975,14 @@ int genc_hwsched_hfi_start(struct adreno_device *adreno_dev)
 	if (ret)
 		goto err;
 
+	/* Enable the long ib timeout detection */
+	if (adreno_long_ib_detect(adreno_dev)) {
+		ret = genc_hfi_send_feature_ctrl(adreno_dev,
+			HFI_FEATURE_BAIL_OUT_TIMER, 1, 0);
+		if (ret)
+			goto err;
+	}
+
 	ret = enable_preemption(adreno_dev);
 	if (ret)
 		goto err;

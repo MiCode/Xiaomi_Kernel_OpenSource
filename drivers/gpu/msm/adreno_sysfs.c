@@ -98,17 +98,6 @@ static bool _gpuhtw_llc_slice_enable_show(struct adreno_device *adreno_dev)
 	return adreno_dev->gpuhtw_llc_slice_enable;
 }
 
-static int _ft_long_ib_detect_store(struct adreno_device *adreno_dev, bool val)
-{
-	adreno_dev->long_ib_detect = val ? true : false;
-	return 0;
-}
-
-static bool _ft_long_ib_detect_show(struct adreno_device *adreno_dev)
-{
-	return adreno_dev->long_ib_detect;
-}
-
 static bool _ft_hang_intr_status_show(struct adreno_device *adreno_dev)
 {
 	/* Hang interrupt is always on on all targets */
@@ -276,7 +265,6 @@ ssize_t adreno_sysfs_show_bool(struct device *dev,
 
 static ADRENO_SYSFS_U32(ft_policy);
 static ADRENO_SYSFS_U32(ft_pagefault_policy);
-static ADRENO_SYSFS_BOOL(ft_long_ib_detect);
 static ADRENO_SYSFS_RO_BOOL(ft_hang_intr_status);
 static ADRENO_SYSFS_BOOL(gpu_llc_slice_enable);
 static ADRENO_SYSFS_BOOL(gpuhtw_llc_slice_enable);
@@ -298,7 +286,6 @@ static DEVICE_ATTR_RO(gpu_model);
 static const struct attribute *_attr_list[] = {
 	&adreno_attr_ft_policy.attr.attr,
 	&adreno_attr_ft_pagefault_policy.attr.attr,
-	&adreno_attr_ft_long_ib_detect.attr.attr,
 	&adreno_attr_ft_hang_intr_status.attr.attr,
 	&dev_attr_wake_nice.attr.attr,
 	&dev_attr_wake_timeout.attr.attr,

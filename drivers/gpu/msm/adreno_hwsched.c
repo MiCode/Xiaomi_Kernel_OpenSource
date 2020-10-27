@@ -1065,11 +1065,23 @@ static unsigned int _preempt_count_show(struct adreno_device *adreno_dev)
 	return hwsched_ops->preempt_count(adreno_dev);
 }
 
+static int _ft_long_ib_detect_store(struct adreno_device *adreno_dev, bool val)
+{
+	return adreno_power_cycle_bool(adreno_dev, &adreno_dev->long_ib_detect,
+			val);
+}
+
+static bool _ft_long_ib_detect_show(struct adreno_device *adreno_dev)
+{
+	return adreno_dev->long_ib_detect;
+}
+
 static ADRENO_SYSFS_BOOL(preemption);
 static ADRENO_SYSFS_U32(preempt_level);
 static ADRENO_SYSFS_BOOL(usesgmem);
 static ADRENO_SYSFS_BOOL(skipsaverestore);
 static ADRENO_SYSFS_RO_U32(preempt_count);
+static ADRENO_SYSFS_BOOL(ft_long_ib_detect);
 
 static const struct attribute *_hwsched_attr_list[] = {
 	&adreno_attr_preemption.attr.attr,
@@ -1077,6 +1089,7 @@ static const struct attribute *_hwsched_attr_list[] = {
 	&adreno_attr_usesgmem.attr.attr,
 	&adreno_attr_skipsaverestore.attr.attr,
 	&adreno_attr_preempt_count.attr.attr,
+	&adreno_attr_ft_long_ib_detect.attr.attr,
 	NULL,
 };
 
