@@ -4537,7 +4537,8 @@ int smblib_set_prop_typec_power_role(struct smb_charger *chg, int val)
 	smblib_dbg(chg, PR_MISC, "power role change: %d --> %d!",
 			chg->power_role, val);
 
-	if (chg->power_role == val) {
+	/* Force the power-role if the initial value is NONE, for the legacy cable detection WA. */
+	if (chg->power_role == val && chg->power_role != QTI_POWER_SUPPLY_TYPEC_PR_NONE) {
 		smblib_dbg(chg, PR_MISC, "power role already in %d, ignore!",
 				chg->power_role);
 		return 0;
