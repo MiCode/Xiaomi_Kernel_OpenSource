@@ -5,10 +5,11 @@
 #ifndef __KGSL_GMU_CORE_H
 #define __KGSL_GMU_CORE_H
 
+#include <linux/mailbox_client.h>
+
 /* GMU_DEVICE - Given an KGSL device return the GMU specific struct */
 #define GMU_DEVICE_OPS(_a) ((_a)->gmu_core.dev_ops)
 
-#define NUM_BW_LEVELS		100
 #define MAX_GX_LEVELS		16
 #define MAX_CX_LEVELS		4
 #define MAX_CNOC_LEVELS		2
@@ -91,6 +92,120 @@ enum gmu_pwrctrl_mode {
 #define FENCE_STATUS_WRITEDROPPED0_MASK 0x1
 #define FENCE_STATUS_WRITEDROPPED1_MASK 0x2
 
+#define GMU_FREQUENCY   200000000
+
+#define GMU_VER_MAJOR(ver) (((ver) >> 28) & 0xF)
+#define GMU_VER_MINOR(ver) (((ver) >> 16) & 0xFFF)
+#define GMU_VER_STEP(ver) ((ver) & 0xFFFF)
+#define GMU_VERSION(major, minor) \
+	((((major) & 0xF) << 28) | (((minor) & 0xFFF) << 16))
+
+#define GMU_INT_WDOG_BITE		BIT(0)
+#define GMU_INT_RSCC_COMP		BIT(1)
+#define GMU_INT_FENCE_ERR		BIT(3)
+#define GMU_INT_DBD_WAKEUP		BIT(4)
+#define GMU_INT_HOST_AHB_BUS_ERR	BIT(5)
+#define GMU_AO_INT_MASK		\
+		(GMU_INT_WDOG_BITE |	\
+		GMU_INT_FENCE_ERR |	\
+		GMU_INT_HOST_AHB_BUS_ERR)
+
+/* Bitmask for GPU low power mode enabling and hysterisis*/
+#define SPTP_ENABLE_MASK (BIT(2) | BIT(0))
+#define IFPC_ENABLE_MASK (BIT(1) | BIT(0))
+
+/* Bitmask for RPMH capability enabling */
+#define RPMH_INTERFACE_ENABLE	BIT(0)
+#define LLC_VOTE_ENABLE			BIT(4)
+#define DDR_VOTE_ENABLE			BIT(8)
+#define MX_VOTE_ENABLE			BIT(9)
+#define CX_VOTE_ENABLE			BIT(10)
+#define GFX_VOTE_ENABLE			BIT(11)
+#define RPMH_ENABLE_MASK	(RPMH_INTERFACE_ENABLE	| \
+				LLC_VOTE_ENABLE		| \
+				DDR_VOTE_ENABLE		| \
+				MX_VOTE_ENABLE		| \
+				CX_VOTE_ENABLE		| \
+				GFX_VOTE_ENABLE)
+
+/* Constants for GMU OOBs */
+#define OOB_BOOT_OPTION         0
+#define OOB_SLUMBER_OPTION      1
+
+/* Gmu FW block header format */
+struct gmu_block_header {
+	u32 addr;
+	u32 size;
+	u32 type;
+	u32 value;
+};
+
+/* GMU Block types */
+#define GMU_BLK_TYPE_DATA 0
+#define GMU_BLK_TYPE_PREALLOC_REQ 1
+#define GMU_BLK_TYPE_CORE_VER 2
+#define GMU_BLK_TYPE_CORE_DEV_VER 3
+#define GMU_BLK_TYPE_PWR_VER 4
+#define GMU_BLK_TYPE_PWR_DEV_VER 5
+#define GMU_BLK_TYPE_HFI_VER 6
+#define GMU_BLK_TYPE_PREALLOC_PERSIST_REQ 7
+
+/* For GMU Logs*/
+#define GMU_LOG_SIZE  SZ_16K
+
+/* GMU memdesc entries */
+#define GMU_KERNEL_ENTRIES		16
+
+enum gmu_mem_type {
+	GMU_ITCM = 0,
+	GMU_ICACHE,
+	GMU_CACHE = GMU_ICACHE,
+	GMU_DTCM,
+	GMU_DCACHE,
+	GMU_NONCACHED_KERNEL,
+	GMU_NONCACHED_USER,
+	GMU_MEM_TYPE_MAX,
+};
+
+/**
+ * struct gmu_memdesc - Gmu shared memory object descriptor
+ * @hostptr: Kernel virtual address
+ * @gmuaddr: GPU virtual address
+ * @physaddr: Physical address of the memory object
+ * @size: Size of the memory object
+ */
+struct gmu_memdesc {
+	void *hostptr;
+	u32 gmuaddr;
+	phys_addr_t physaddr;
+	u32 size;
+};
+
+struct kgsl_mailbox {
+	struct mbox_client client;
+	struct mbox_chan *channel;
+};
+
+struct icc_path;
+
+struct gmu_vma_entry {
+	/** @start: Starting virtual address of the vma */
+	u32 start;
+	/** @size: Size of this vma */
+	u32 size;
+	/** @next_va: Next available virtual address in this vma */
+	u32 next_va;
+};
+
+enum {
+	GMU_PRIV_FIRST_BOOT_DONE = 0,
+	GMU_PRIV_GPU_STARTED,
+	GMU_PRIV_HFI_STARTED,
+	GMU_PRIV_RSCC_SLEEP_DONE,
+	GMU_PRIV_PM_SUSPEND,
+	GMU_PRIV_PDC_RSC_LOADED,
+};
+
 struct device_node;
 struct kgsl_device;
 struct kgsl_snapshot;
@@ -131,6 +246,8 @@ struct gmu_core_device {
 extern struct platform_driver a6xx_gmu_driver;
 extern struct platform_driver a6xx_rgmu_driver;
 extern struct platform_driver a6xx_hwsched_driver;
+extern struct platform_driver genc_gmu_driver;
+extern struct platform_driver genc_hwsched_driver;
 
 /* GMU core functions */
 

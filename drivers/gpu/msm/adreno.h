@@ -203,6 +203,7 @@ enum adreno_gpurev {
 	ADRENO_REV_A650 = 650,
 	ADRENO_REV_A660 = 660,
 	ADRENO_REV_A680 = 680,
+	ADRENO_REV_C500 = 10000,
 };
 
 #define ADRENO_SOFT_FAULT BIT(0)
@@ -345,6 +346,17 @@ struct adreno_reglist {
 	u32 offset;
 	/** @value: Default value of the register to write */
 	u32 value;
+};
+
+/**
+ * struct adreno_reglist_list - A container for list of registers and
+ * number of registers in the list
+ */
+struct adreno_reglist_list {
+	/** @reg: List of register **/
+	const u32 *regs;
+	/** @count: Number of registers in the list **/
+	u32 count;
 };
 
 /**
@@ -813,6 +825,11 @@ struct adreno_gpudev {
 			struct kgsl_power_stats *stats);
 	int (*setproperty)(struct kgsl_device_private *priv, u32 type,
 		void __user *value, u32 sizebytes);
+	/**
+	 * @gpu_model - Copy the gpu model string into the provided buffer
+	 */
+	void (*gpu_model)(struct adreno_device *adreno_dev,
+			char *str, size_t bufsz);
 };
 
 /**
@@ -879,6 +896,7 @@ extern const struct adreno_gpudev adreno_a6xx_rgmu_gpudev;
 extern const struct adreno_gpudev adreno_a619_holi_gpudev;
 extern const struct adreno_gpudev adreno_a630_gpudev;
 extern const struct adreno_gpudev adreno_a6xx_hwsched_gpudev;
+extern const struct adreno_gpudev adreno_genc_gmu_gpudev;
 
 extern int adreno_wake_nice;
 extern unsigned int adreno_wake_timeout;
@@ -1113,6 +1131,14 @@ static inline int adreno_is_a640v2(struct adreno_device *adreno_dev)
 	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A640) &&
 		(ADRENO_CHIPID_PATCH(adreno_dev->chipid) == 1);
 }
+
+static inline int adreno_is_genc(struct adreno_device *adreno_dev)
+{
+	return ADRENO_GPUREV(adreno_dev) >= 10000 &&
+			ADRENO_GPUREV(adreno_dev) < 11000;
+}
+
+ADRENO_TARGET(c500, ADRENO_REV_C500)
 
 /*
  * adreno_checkreg_off() - Checks the validity of a register enum

@@ -8,6 +8,7 @@
 
 #include "adreno.h"
 #include "adreno_a6xx.h"
+#include "adreno_a6xx_hfi.h"
 #include "kgsl_device.h"
 #include "kgsl_trace.h"
 

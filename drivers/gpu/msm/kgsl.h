@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2008-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2021, The Linux Foundation. All rights reserved.
  */
 #ifndef __KGSL_H
 #define __KGSL_H
@@ -70,6 +70,9 @@
 #define SCRATCH_RPTR_OFFSET(id) ((id) * sizeof(unsigned int))
 #define SCRATCH_RPTR_GPU_ADDR(dev, id) \
 	((dev)->scratch->gpuaddr + SCRATCH_RPTR_OFFSET(id))
+#define SCRATCH_BV_RPTR_OFFSET(id) (0x40 + (id) * sizeof(unsigned int))
+#define SCRATCH_BV_RPTR_GPU_ADDR(dev, id) \
+	((dev)->scratch->gpuaddr + SCRATCH_BV_RPTR_OFFSET(id))
 
 /* Timestamp window used to detect rollovers (half of integer range) */
 #define KGSL_TIMESTAMP_WINDOW 0x80000000
