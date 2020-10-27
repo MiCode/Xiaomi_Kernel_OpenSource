@@ -254,6 +254,7 @@
   cpufreq_freq_attr_scaling_boost_freqs
   cpufreq_generic_attr
   cpufreq_generic_frequency_table_verify
+  cpufreq_get_policy
   cpufreq_quick_get_max
   cpufreq_register_driver
   cpufreq_register_notifier
