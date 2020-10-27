@@ -176,7 +176,7 @@ static int cam_mem_open(struct inode *pInode, struct file *pFile)
 
 	mutex_lock(&open_cam_mem_mutex);
 
-	LOG_NOTICE("+: UserCount(%d)\n", CamMemInfo.UserCount);
+	LOG_DBG("+: UserCount(%d)\n", CamMemInfo.UserCount);
 
 	pFile->private_data =
 		kmalloc(sizeof(struct CAM_MEM_USER_INFO_STRUCT), GFP_ATOMIC);
@@ -215,7 +215,7 @@ static int cam_mem_open(struct inode *pInode, struct file *pFile)
 	if (Ret == 0)
 		CamMem_EnableLarb(true);
 
-	LOG_INF("-: Ret: %d. UserCount: %d\n", Ret, CamMemInfo.UserCount);
+	LOG_DBG("-: Ret: %d. UserCount: %d\n", Ret, CamMemInfo.UserCount);
 
 	mutex_unlock(&open_cam_mem_mutex);
 
@@ -249,7 +249,7 @@ static int cam_mem_release(struct inode *pInode, struct file *pFile)
 #endif
 	mutex_lock(&open_cam_mem_mutex);
 
-	LOG_NOTICE("+. UserCount: %d.\n", CamMemInfo.UserCount);
+	LOG_DBG("+. UserCount: %d.\n", CamMemInfo.UserCount);
 
 	if (pFile->private_data != NULL) {
 		kfree(pFile->private_data);
@@ -261,7 +261,7 @@ static int cam_mem_release(struct inode *pInode, struct file *pFile)
 	if (CamMemInfo.UserCount > 0) {
 		spin_unlock(&(CamMemInfo.SpinLock_CamMemRef));
 
-		LOG_INF(
+		LOG_DBG(
 			"Curr UserCount(%d), (process, pid, tgid) = (%s, %d, %d),users exist\n",
 			CamMemInfo.UserCount, current->comm, current->pid,
 			current->tgid);
@@ -302,7 +302,7 @@ static int cam_mem_release(struct inode *pInode, struct file *pFile)
 	}
 
 EXIT:
-	LOG_NOTICE("-. UserCount: %d. G_u4EnableLarbCount:%d\n",
+	LOG_DBG("-. UserCount: %d. G_u4EnableLarbCount:%d\n",
 		CamMemInfo.UserCount, G_u4EnableLarbCount);
 
 	mutex_unlock(&open_cam_mem_mutex);
@@ -548,15 +548,12 @@ static long cam_mem_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Pa
 				pIonBuf.attach = tmp->attach;
 				pIonBuf.sgt = tmp->sgt;
 
-				cam_mem_mmu_put_dma_buffer(&pIonBuf);
-				IonNode.dma_pa = 0;
-
 				/* delete a mapped node in the list. */
 				list_del(pos);
-				kfree(tmp);
-
 				break;
 			}
+
+			mutex_unlock(&cam_mem_ion_mutex);
 
 			if (!foundFD) {
 				LOG_NOTICE("Warning: unmap: memID(%d); PA(0x%lx);"
@@ -564,15 +561,19 @@ static long cam_mem_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Pa
 					IonNode.memID, IonNode.dma_pa,
 					IonNode.username);
 				Ret = -EFAULT;
-				mutex_unlock(&cam_mem_ion_mutex);
 				break;
+			} else {
+				cam_mem_mmu_put_dma_buffer(&pIonBuf);
+				IonNode.dma_pa = 0;
+				kfree(tmp);
 			}
 
-			/* If refCnt is still > 0, update the refCnt with the smae fd. */
+			/* If refCnt is still > 0, update the refCnt with the same fd. */
 			if (refCnt > 0) {
 				struct list_head *pos2;
 				struct ION_BUFFER_LIST *entry;
 
+				mutex_lock(&cam_mem_ion_mutex);
 				list_for_each(pos2, &g_ion_buf_list.list) {
 					entry = list_entry(pos2, struct ION_BUFFER_LIST, list);
 					if (entry->memID != IonNode.memID)
@@ -581,11 +582,13 @@ static long cam_mem_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Pa
 					LOG_NOTICE("unamp: update refCnt(%d/%d) is still > 0\n",
 						refCnt, entry->refCnt);
 				}
+				mutex_unlock(&cam_mem_ion_mutex);
 			}
-
+#ifdef CAM_MEM_DEBUG
+			mutex_lock(&cam_mem_ion_mutex);
 			dumpIonBufferList(10, false);
-
 			mutex_unlock(&cam_mem_ion_mutex);
+#endif
 		} else {
 			LOG_NOTICE("CAM_MEM_ION_UNMAP_PA: copy_from_user failed\n");
 			Ret = -EFAULT;
