@@ -709,7 +709,7 @@ static struct kgsl_process_private *kgsl_iommu_get_process(u64 ptbase)
 
 static void kgsl_iommu_print_fault(struct kgsl_mmu *mmu,
 		struct kgsl_iommu_context *context, unsigned long addr,
-		u64 ptbase, u64 contextidr,
+		u64 ptbase, u32 contextid,
 		int flags, struct kgsl_process_private *private)
 {
 	struct kgsl_device *device = KGSL_MMU_DEVICE(mmu);
@@ -747,11 +747,11 @@ static void kgsl_iommu_print_fault(struct kgsl_mmu *mmu,
 		return;
 
 	dev_crit(device->dev,
-		"GPU PAGE FAULT: addr = %lX pid= %d name=%s\n", addr,
-		ptname, comm);
+		"GPU PAGE FAULT: addr = %lX pid= %d name=%s drawctxt=%d\n", addr,
+		ptname, comm, contextid);
 	dev_crit(device->dev,
-		"context=%s TTBR0=0x%llx CIDR=0x%llx (%s %s fault)\n",
-		context->name, ptbase, contextidr,
+		"context=%s TTBR0=0x%llx (%s %s fault)\n",
+		context->name, ptbase,
 		(flags & IOMMU_WRITE) ? "write" : "read", fault_type);
 
 	if (gpudev->iommu_fault_block) {
