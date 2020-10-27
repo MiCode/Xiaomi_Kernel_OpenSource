@@ -619,7 +619,7 @@ static const struct v4l2_file_operations mtk_cam_v4l2_fops = {
 
 unsigned int mtk_cam_get_sensor_pixel_id(unsigned int fmt)
 {
-	switch (fmt) {
+	switch (fmt & SENSOR_FMT_MASK) {
 	case MEDIA_BUS_FMT_SBGGR8_1X8:
 	case MEDIA_BUS_FMT_SBGGR10_1X10:
 	case MEDIA_BUS_FMT_SBGGR12_1X12:
@@ -647,7 +647,7 @@ unsigned int mtk_cam_get_sensor_pixel_id(unsigned int fmt)
 
 unsigned int mtk_cam_get_sensor_fmt(unsigned int fmt)
 {
-	switch (fmt) {
+	switch (fmt & SENSOR_FMT_MASK) {
 	case MEDIA_BUS_FMT_SBGGR8_1X8:
 	case MEDIA_BUS_FMT_SGBRG8_1X8:
 	case MEDIA_BUS_FMT_SGRBG8_1X8:

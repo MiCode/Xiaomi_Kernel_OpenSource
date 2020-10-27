@@ -37,6 +37,8 @@ struct platform_device;
 struct mtk_rpmsg_device;
 struct mtk_cam_debug_fs;
 
+#define SENSOR_FMT_MASK			0xFFFF
+
 /* Supported image format list */
 #define MTK_CAM_IMG_FMT_UNKNOWN		0x0000
 #define MTK_CAM_IMG_FMT_BAYER8		0x2200
