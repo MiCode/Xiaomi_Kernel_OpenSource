@@ -120,6 +120,7 @@ void set_boot_phase(u32 step)
 		return;
 	}
 
+	memset(&pEmmc, 0, sizeof(struct log_emmc_header));
 	file_size  = sys_lseek(fd, 0, SEEK_END);
 	sys_lseek(fd, file_size - sram_header->reserve[1], 0);
 	sys_read(fd, (char *)&pEmmc, sizeof(struct log_emmc_header));
