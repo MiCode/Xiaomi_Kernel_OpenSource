@@ -251,12 +251,14 @@ unsigned int mt_cpufreq_get_cur_freq(unsigned int id)
 	return 0;
 #else
 #ifdef CONFIG_HYBRID_CPU_DVFS
-	int freq_idx = cpuhvfs_get_cur_dvfs_freq_idx((enum mt_cpu_dvfs_id)id);
-
+	int freq_idx;
 #ifdef ENABLE_DOE
 	if (!dvfs_doe.state)
 		return 0;
 #endif
+
+	freq_idx = cpuhvfs_get_cur_dvfs_freq_idx((enum mt_cpu_dvfs_id)id);
+
 	if (freq_idx < 0)
 		freq_idx = 0;
 
@@ -285,12 +287,14 @@ unsigned int mt_cpufreq_get_cur_freq_idx(enum mt_cpu_dvfs_id id)
 	return 0;
 #else
 #ifdef CONFIG_HYBRID_CPU_DVFS
-	int freq_idx = cpuhvfs_get_cur_dvfs_freq_idx(id);
-
+	int freq_idx;
 #ifdef ENABLE_DOE
 	if (!dvfs_doe.state)
 		return 0;
 #endif
+
+	freq_idx = cpuhvfs_get_cur_dvfs_freq_idx(id);
+
 	if (freq_idx < 0)
 		freq_idx = 0;
 
