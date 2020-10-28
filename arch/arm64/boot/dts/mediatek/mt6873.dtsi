@@ -2197,6 +2197,7 @@
 			maximum-speed = "high-speed";
 			mediatek,force-vbus;
 			mediatek,clk-mgr;
+			mediatek,usb3-drd;
 			usb-role-switch;
 
 			usb_host: xhci0@11200000 {
