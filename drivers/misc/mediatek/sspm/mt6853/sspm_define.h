@@ -27,11 +27,7 @@
 #define SSPM_SHARE_BUFFER_SUPPORT
 
 #define SSPM_PLT_SERV_SUPPORT       (1)
-#if defined(CONFIG_MACH_MT6833)
-#define SSPM_LOGGER_SUPPORT         (0)
-#else
 #define SSPM_LOGGER_SUPPORT         (1)
-#endif
 
 #ifdef CONFIG_MEDIATEK_EMI
 #define SSPM_EMI_PROTECTION_SUPPORT (1)
