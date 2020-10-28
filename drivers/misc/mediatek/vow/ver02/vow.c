@@ -3330,6 +3330,7 @@ static void __exit VowDrv_mod_exit(void)
 module_init(VowDrv_mod_init);
 module_exit(VowDrv_mod_exit);
 
+MODULE_IMPORT_NS(ANDROID_GKI_VFS_EXPORT_ONLY);
 
 /*****************************************************************************
  * License
