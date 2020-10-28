@@ -199,6 +199,11 @@ int devmpu_print_violation(uint64_t vio_addr, uint32_t vio_id,
 		 * to be consistent with EMI MPU violation handling
 		 */
 		vio_rw = (vio.is_write) ? 1 : 2;
+
+#ifdef CONFIG_MTK_ENABLE_GENIEZONE
+		if (vio_rw == 2 && vio_domain == 0)
+			return 0;
+#endif
 	}
 
 	vio_addr += devmpu_ctx->prot_base;
