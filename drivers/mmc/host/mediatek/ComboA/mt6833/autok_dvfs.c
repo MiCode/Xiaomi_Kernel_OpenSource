@@ -454,7 +454,7 @@ int sd_execute_dvfs_autok(struct msdc_host *host, u32 opcode)
 int emmc_execute_dvfs_autok(struct msdc_host *host, u32 opcode)
 {
 	int ret = 0;
-	int vcore = 0;
+	int vcore = AUTOK_VCORE_MERGE;
 	u8 *res;
 
 #if defined(VCOREFS_READY)
