@@ -217,18 +217,15 @@ void mmc_cqe_clk_scaling_stop_busy(struct mmc_host *host,
 	bool lock_needed, bool is_cqe_dcmd)
 {
 	unsigned int cqe_active_reqs = 0;
+	unsigned long flags;
 
 	if (!host->clk_scaling.enable)
 		return;
 
 	cqe_active_reqs = atomic_read(&host->active_reqs);
 
-	/*
-	 * This gets invoked from CQE completion path which is hard IRQ context
-	 * So use spin_lock() instread of spin_lock_irqsave()
-	 */
 	if (lock_needed)
-		spin_lock(&host->clk_scaling.lock);
+		spin_lock_irqsave(&host->clk_scaling.lock, flags);
 
 	/*
 	 *  For CQ mode: In completion of DCMD request, start busy time in
@@ -254,7 +251,7 @@ void mmc_cqe_clk_scaling_stop_busy(struct mmc_host *host,
 	}
 out:
 	if (lock_needed)
-		spin_unlock(&host->clk_scaling.lock);
+		spin_unlock_irqrestore(&host->clk_scaling.lock, flags);
 
 }
 EXPORT_SYMBOL(mmc_cqe_clk_scaling_stop_busy);
