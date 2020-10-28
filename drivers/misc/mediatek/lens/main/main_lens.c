@@ -260,7 +260,7 @@ static int af_pinctrl_set(int pin, int state)
 static struct regulator *regVCAMAF;
 static int g_regVCAMAFEn;
 
-void AFRegulatorCtrl(int Stage)
+static void AFRegulatorCtrl(int Stage)
 {
 	LOG_INF("AFIOC_S_SETPOWERCTRL regulator_put %p\n", regVCAMAF);
 
@@ -291,8 +291,15 @@ void AFRegulatorCtrl(int Stage)
 					regVCAMAF =
 					regulator_get(lens_device, "vmch");
 				} else {
+					#if defined(CONFIG_REGULATOR_MT6317)
+					regVCAMAF =
+					regulator_get(lens_device, "mt6317-ldo3");
+					LOG_INF("regulator_get(%s)\n", "mt6317-ldo3");
+					#else
 					regVCAMAF =
 					regulator_get(lens_device, "vcamio");
+					LOG_INF("regulator_get(%s)\n", "vcamio");
+					#endif
 				}
 				#elif defined(CONFIG_MACH_MT6853)
 				if (strncmp(CONFIG_ARCH_MTK_PROJECT,
