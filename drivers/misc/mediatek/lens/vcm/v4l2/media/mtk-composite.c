@@ -203,7 +203,7 @@ static int mtk_composite_probe(struct platform_device *dev)
 		pr_info("failed to allocate  media_device\n");
 		goto mdev_end;
 	}
-	strlcpy(pfdev->v4l2_dev.mdev->model, "mtk_V4L2_misc_core",
+	strlcpy(pfdev->v4l2_dev.mdev->model, "mtk-camera-af",
 			sizeof(pfdev->v4l2_dev.mdev->model));
 	pfdev->v4l2_dev.mdev->dev = &(dev->dev);
 

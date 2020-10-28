@@ -40,10 +40,6 @@ static unsigned long g_u4CurrPosition;
 #define Min_Pos 0
 #define Max_Pos 1023
 
-#ifndef CONFIG_ARCH_MTK_PROJECT
-#define CONFIG_ARCH_MTK_PROJECT "null_project"
-#endif
-
 /* LiteOn : Hall calibration range : 0xA800 - 0x5800 */
 static signed short Hall_Max =
 	0x5800; /* Please read INF position from EEPROM or OTP */
@@ -263,58 +259,6 @@ static void LC898212XD_init(void)
 						Hall_Bias = val1;
 					}
 				}
-			}
-		}
-	}
-
-	if (strncmp(CONFIG_ARCH_MTK_PROJECT, "k57v1", 5) == 0 ||
-	    Hall_Off == 0 || Hall_Bias == 0) {
-
-		s4EEPROM_ReadReg_LC898212XDAF_F(0x0F63, &val2);
-		s4EEPROM_ReadReg_LC898212XDAF_F(0x0F64, &val1);
-		HallMinCheck = ((val1 << 8) | (val2 & 0x00FF)) & 0xFFFF;
-
-		s4EEPROM_ReadReg_LC898212XDAF_F(0x0F65, &val2);
-		s4EEPROM_ReadReg_LC898212XDAF_F(0x0F66, &val1);
-		HallMaxCheck = ((val1 << 8) | (val2 & 0x00FF)) & 0xFFFF;
-
-		s4EEPROM_ReadReg_LC898212XDAF_F(0x0F67, &val1);
-		s4EEPROM_ReadReg_LC898212XDAF_F(0x0F68, &val2);
-
-		if ((val1 != 0) && (val2 != 0) &&
-		    (HallMaxCheck >= 0x1FFF && HallMaxCheck <= 0x7FFF) &&
-		    (HallMinCheck >= 0x8001 && HallMinCheck <= 0xEFFF)) {
-
-			Hall_Min = HallMinCheck;
-			Hall_Max = HallMaxCheck;
-
-			/* s4EEPROM_ReadReg_LC898212XDAF_F(0x0F67, &val1); */
-			Hall_Off = val1;
-			/* s4EEPROM_ReadReg_LC898212XDAF_F(0x0F68, &val2); */
-			Hall_Bias = val2;
-		} else {
-			s4EEPROM_ReadReg_LC898212XDAF_F(0x0CC1, &val2);
-			s4EEPROM_ReadReg_LC898212XDAF_F(0x0CC2, &val1);
-			HallMinCheck = ((val1 << 8) | (val2 & 0x00FF)) & 0xFFFF;
-
-			s4EEPROM_ReadReg_LC898212XDAF_F(0x0CC3, &val2);
-			s4EEPROM_ReadReg_LC898212XDAF_F(0x0CC4, &val1);
-			HallMaxCheck = ((val1 << 8) | (val2 & 0x00FF)) & 0xFFFF;
-
-			s4EEPROM_ReadReg_LC898212XDAF_F(0x0CC5, &val1);
-			s4EEPROM_ReadReg_LC898212XDAF_F(0x0CC6, &val2);
-
-			if ((val1 != 0) && (val2 != 0) &&
-			    (HallMaxCheck >= 0x1FFF &&
-			     HallMaxCheck <= 0x7FFF) &&
-			    (HallMinCheck >= 0x8001 &&
-			     HallMinCheck <= 0xEFFF)) {
-
-				Hall_Min = HallMinCheck;
-				Hall_Max = HallMaxCheck;
-
-				Hall_Off = val1;
-				Hall_Bias = val2;
 			}
 		}
 	}

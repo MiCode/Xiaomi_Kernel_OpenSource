@@ -18,16 +18,10 @@
 MTK_CUSTOM_PATH  := $(srctree)/drivers/misc/mediatek
 
 
-subdir-ccflags-y += -I$(MTK_CUSTOM_PATH)/lens/proprietary/sub/inc
+subdir-ccflags-y += -I$(MTK_CUSTOM_PATH)/lens/vcm/proprietary/main3/inc
 
-obj-$(CONFIG_MTK_LENS)    += subaf.o
+obj-$(CONFIG_MTK_LENS)    += main3af.o
 
-subaf-y  += sub_lens.o
-subaf-y  += common/bu6424af/BU6424AF.o
-subaf-y  += common/bu6429af/BU6429AF.o
-subaf-y  += common/dw9714af/DW9714AF.o
-subaf-y  += common/dw9814af/DW9814AF.o
-subaf-y  += common/dw9718af/DW9718AF.o
-subaf-y  += common/lc898214af/LC898214AF.o
-subaf-y  += common/wv511aaf/WV511AAF.o
-subaf-y  += common/ak7371af/AK7371AF.o
+main3af-y  += main3_lens.o
+main3af-y  += common/bu24253af/BU24253AF.o
+main3af-y  += common/gt9772af/GT9772AF.o
