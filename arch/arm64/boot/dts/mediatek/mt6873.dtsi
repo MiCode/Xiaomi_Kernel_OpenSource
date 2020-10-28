@@ -2518,6 +2518,8 @@
 			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 			boost-crypt-vcore-min = <600000>;
 
+			mediatek,ufs-disable-ah8;
+
 			/* Reference clock control mode */
 			/* SW mode: 0, Half-HW mode: 1, HW mode: 2 */
 			mediatek,refclk_ctrl = <1>;
