@@ -94,6 +94,9 @@
 #include "mcupm_driver.h"
 #endif
 
+#include "mtk_picachu.h"
+#include "mtk_picachu_reservedmem.h"
+
 
 /****************************************
  * define variables for legacy and eem
@@ -410,65 +413,23 @@ static struct eemsn_det *id_to_eem_det(enum eemsn_det_id id)
 #if SUPPORT_PICACHU
 static void get_picachu_efuse(void)
 {
-	/* int *val; */
-	phys_addr_t picachu_mem_base_phys;
-	phys_addr_t picachu_mem_size;
-	phys_addr_t picachu_mem_base_virt = 0;
 	unsigned int sig;
 	void __iomem *addr_ptr;
-	void __iomem *spare1phys;
 
-	/* val = (int *)&eem_devinfo; */
+	addr_ptr = (void __iomem *) picachu_reserve_mem_get_virt(PICACHU_EEM_ID);
 
-	picachu_mem_size = 0x80000;
-	spare1phys = ioremap(EEM_PHY_TEMPSPARE0, 0);
-	picachu_mem_base_phys = eem_read(spare1phys);
-	if ((void __iomem *)picachu_mem_base_phys != NULL)
-		picachu_mem_base_virt =
-			(phys_addr_t)(uintptr_t)ioremap_wc(
-			picachu_mem_base_phys,
-			picachu_mem_size);
+	/* check signature */
+	sig = (eem_read(addr_ptr) >> PICACHU_SIGNATURE_SHIFT_BIT) & 0xff;
 
-#if 0
-	eem_error("phys:0x%llx, size:0x%llx, virt:0x%llx\n",
-		(unsigned long long)picachu_mem_base_phys,
-		(unsigned long long)picachu_mem_size,
-		(unsigned long long)picachu_mem_base_virt);
-#endif
-	if ((void __iomem *)(picachu_mem_base_virt) != NULL) {
-		/* 0x60000 was reserved for eem efuse using */
-		addr_ptr = (void __iomem *)(picachu_mem_base_virt
-			+ 0x60000);
-
-		/* check signature */
-		sig = (eem_read(addr_ptr) >>
-			PICACHU_SIGNATURE_SHIFT_BIT) & 0xff;
-
-		if (sig == PICACHU_SIG) {
-			ctrl_agingload_enable = eem_read(addr_ptr) & 0x1;
-			addr_ptr += 4;
-			memcpy(eemsn_log->vf_tbl_det,
-				addr_ptr, sizeof(eemsn_log->vf_tbl_det));
-
-#if 0
-			/* check efuse data */
-			for (i = 1; i < cnt; i++) {
-				if (((i == 3) || (i == 4) || (i == 7)) &&
-				(eem_read(addr_ptr + i * 4) == 0)) {
-					eem_error("Wrong PI-OD%d: 0x%x\n",
-						i, eem_read(addr_ptr + i * 4));
-					return;
-				}
-			}
-
-			for (i = 1; i < cnt; i++)
-				val[i] = eem_read(addr_ptr + i * 4);
-#endif
-		}
+	if (sig == PICACHU_SIG) {
+		ctrl_agingload_enable = eem_read(addr_ptr) & 0x1;
+		addr_ptr += 4;
+		memcpy(eemsn_log->vf_tbl_det,
+			addr_ptr, sizeof(eemsn_log->vf_tbl_det));
 	}
 }
-
 #endif
+
 static int get_devinfo(void)
 {
 
@@ -2284,6 +2245,8 @@ static int eem_freq_proc_show(struct seq_file *m, void *v)
  */
 static int eem_cur_volt_proc_show(struct seq_file *m, void *v)
 {
+	struct eem_ipi_data eem_data;
+	unsigned int ipi_ret = 0;
 	struct eemsn_det *det = (struct eemsn_det *)m->private;
 	u32 rdata = 0, i;
 
@@ -2296,10 +2259,16 @@ static int eem_cur_volt_proc_show(struct seq_file *m, void *v)
 	else
 		seq_printf(m, "EEM[%s] read current voltage fail\n", det->name);
 
+	/* update volt_tbl_pmic info from mcupm */
+	memset(&eem_data, 0, sizeof(struct eem_ipi_data));
+	ipi_ret = eem_to_cpueb(IPI_EEMSN_PULL_DATA, &eem_data);
+	seq_printf(m, "ret:%d\n", ipi_ret);
+
 	if (det->features != 0) {
 		for (i = 0; i < NR_FREQ; i++)
-			seq_printf(m, "[%d],eem = [%x], pmic = [%x], volt = [%d]\n",
+			seq_printf(m, "[%d],freq = [%hu], eem = [%x], pmic = [%x], volt = [%d]\n",
 			i,
+			det->freq_tbl[i],
 			eemsn_log->det_log[det->det_id].volt_tbl_init2[i],
 			eemsn_log->det_log[det->det_id].volt_tbl_pmic[i],
 			det->ops->pmic_2_volt(det,
