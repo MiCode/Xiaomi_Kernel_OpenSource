@@ -629,7 +629,7 @@ void mtk_ddp_comp_clk_unprepare(struct mtk_ddp_comp *comp)
 }
 
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
-static int mtk_ddp_m4u_callback(int port, unsigned long mva, void *data)
+static int mtk_ddp_m4u_callback(int port, dma_addr_t mva, void *data)
 {
 	struct mtk_ddp_comp *comp = data;
 
@@ -664,7 +664,7 @@ void mtk_ddp_comp_iommu_enable(struct mtk_ddp_comp *comp,
 
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
 		mtk_iommu_register_fault_callback(
-			port, (mtk_iommu_fault_callback_t)mtk_ddp_m4u_callback,
+			port, mtk_ddp_m4u_callback,
 			comp, false);
 #endif
 
