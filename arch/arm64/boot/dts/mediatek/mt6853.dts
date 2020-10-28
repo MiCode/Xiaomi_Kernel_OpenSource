@@ -830,9 +830,9 @@
 	extcon_usb: extcon_usb {
 		compatible = "mediatek,extcon-usb";
 		dev-conn = <&ssusb>;
-		/*vbus-supply = <&otg_vbus>;*/
+		vbus-supply = <&otg_vbus>;
 		vbus-volt = <5000000>;
-		/*charger = <&mt6362_chg>;*/
+		charger = <&mt6362_chg>;
 		mediatek,bypss-typec-sink = <1>;
 	};
 
@@ -917,6 +917,8 @@
 			batoc_notify = <0>;
 			bc12_sel = <&mtk_ctd>;
 			bootmode = <&chosen>;
+			phys = <&u2port0 PHY_TYPE_USB2>;
+			phy-names = "usb2-phy";
 			otg_vbus: usb-otg-vbus {
 				regulator-compatible = "usb-otg-vbus";
 				regulator-name = "usb-otg-vbus";
