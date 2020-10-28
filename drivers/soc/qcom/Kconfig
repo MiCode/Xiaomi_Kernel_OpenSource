@@ -623,45 +623,6 @@ config QGKI
 	  This flag is absent if the build is a GKI build. If this flag is
 	  enabled, all the ABI compatibilities are not applicable.
 
-config MSM_PM
-	bool
-	select MSM_IDLE_STATS if DEBUG_FS
-
-if MSM_PM
-menuconfig MSM_IDLE_STATS
-	bool "Collect idle statistics"
-	help
-	  Collect cores various low power mode idle statistics
-	  and export them in proc/msm_pm_stats. User can read
-	  this data and determine what low power modes and how
-	  many times cores have entered into LPM modes.
-
-if MSM_IDLE_STATS
-
-config MSM_IDLE_STATS_FIRST_BUCKET
-	int "First bucket time"
-	default 62500
-	help
-	  Upper time limit in nanoseconds of first bucket.
-
-config MSM_IDLE_STATS_BUCKET_SHIFT
-	int "Bucket shift"
-	default 2
-
-config MSM_IDLE_STATS_BUCKET_COUNT
-	int "Bucket count"
-	default 10
-
-config MSM_SUSPEND_STATS_FIRST_BUCKET
-	int "First bucket time for suspend"
-	default 1000000000
-	help
-	  Upper time limit in nanoseconds of first bucket of the
-	  histogram.  This is for collecting statistics on suspend.
-
-endif # MSM_IDLE_STATS
-endif # MSM_PM
-
 config QTI_SYS_PM_VX
 	tristate "Qualcomm Technologies Inc (QTI) System PM Violators Driver"
 	depends on QMP_DEBUGFS_CLIENT
