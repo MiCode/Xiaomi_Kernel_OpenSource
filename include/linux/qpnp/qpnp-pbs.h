@@ -13,11 +13,20 @@ struct device_node;
 
 #if IS_ENABLED(CONFIG_QPNP_PBS)
 int qpnp_pbs_trigger_event(struct device_node *dev_node, u8 bitmap);
+int qpnp_pbs_trigger_single_event(struct device_node *dev_node);
 #else
 static inline int qpnp_pbs_trigger_event(struct device_node *dev_node,
-						 u8 bitmap) {
+						 u8 bitmap)
+{
 	return -ENODEV;
 }
+
+static inline int qpnp_pbs_trigger_single_event(
+					struct device_node *dev_node)
+{
+	return -ENODEV;
+}
+
 #endif
 
 #endif
