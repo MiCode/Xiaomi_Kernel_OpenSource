@@ -2278,7 +2278,7 @@
             </device26>
             <device27>
                 <varName>CAMERA_MAIN_TWO_AF</varName>
-                <channel>I2C_CHANNEL_2</channel>
+                <channel>I2C_CHANNEL_4</channel>
                 <address>0x0C</address>
             </device27>
             <device29>
@@ -2288,7 +2288,7 @@
             </device29>
             <device31>
                 <varName>CAMERA_MAIN_THREE_AF</varName>
-                <channel>I2C_CHANNEL_4</channel>
+                <channel>I2C_CHANNEL_2</channel>
                 <address>0x0C</address>
             </device31>
         </module>
