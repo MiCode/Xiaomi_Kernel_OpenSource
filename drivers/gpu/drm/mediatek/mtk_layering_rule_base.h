@@ -223,6 +223,10 @@ bool mtk_is_layer_id_valid(struct drm_mtk_layering_info *disp_info,
 			   int disp_idx, int i);
 int mtk_layering_rule_ioctl(struct drm_device *drm, void *data,
 	struct drm_file *file_priv);
+#if IS_ENABLED(CONFIG_COMPAT)
+int mtk_layering_rule_ioctl_compat(struct file *file, unsigned int cmd,
+	unsigned long arg);
+#endif
 
 bool is_triple_disp(struct drm_mtk_layering_info *disp_info);
 #endif
