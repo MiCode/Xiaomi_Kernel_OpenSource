@@ -2492,23 +2492,31 @@
 			compatible = "mediatek,mt8183-ufshci";
 			reg = <0 0x11270000 0 0x2300>;
 			interrupts = <GIC_SPI 105 IRQ_TYPE_LEVEL_HIGH 0>;
-			phys = <&ufsphy>;
 
 			clocks = <&infracfg CLK_INFRA_UFS>,
 				 <&infracfg CLK_INFRA_UFS_TICK>,
 				 <&infracfg CLK_INFRA_UFS_AXI>,
+				 <&infracfg CLK_INFRA_UFS_MP_SAP_B>,
 				 <&infracfg CLK_INFRA_UNIPRO_TICK>,
 				 <&infracfg CLK_INFRA_UNIPRO_MBIST>,
+				 <&infracfg CLK_INFRA_UNIPRO_SYS>,
+				 <&infracfg CLK_INFRA_AES_UFSFDE>,
 				 <&topckgen CLK_TOP_AES_UFSFDE_SEL>,
-				 <&infracfg CLK_INFRA_AES_UFSFDE>;
-			clock-names = "ufs", "ufs_tick", "ufs_axi",
-				      "unipro_tick", "unipro_mbist",
-				      "aes_top", "aes_infra";
+				 <&topckgen CLK_TOP_UNIVPLL_D6>,
+				 <&topckgen CLK_TOP_MAINPLL_D4>;
+			clock-names = "ufs", "ufs_tick", "ufs_axi", "ufs_mp",
+				      "unipro_tick", "unipro_mbist", "unipro_sys",
+				      "crypt_infra", "crypt_mux",
+				      "crypt_lp", "crypt_perf";
 
-			freq-table-hz = <0 0>, <0 0>, <0 0>,
-					<0 0>, <0 0>, <0 0>, <0 0>;
+			freq-table-hz = <0 0>, <0 0>, <0 0>, <0 0>, <0 0>,
+					<0 0>, <0 0>, <0 0>, <0 0>, <0 0>, <0 0>;
 
 			vcc-supply = <&mt6359p_vemc_reg>;
+
+			mediatek,ufs-boost-crypt;
+			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+			boost-crypt-vcore-min = <600000>;
 
 			/* Reference clock control mode */
 			/* SW mode: 0, Half-HW mode: 1, HW mode: 2 */
@@ -2762,16 +2770,6 @@
 				 <&msdc_top CLK_MSDC_TOP_AHB2AXI_BRG_AXI>;
 			clock-names = "source", "hclk", "source_cg",
 					"p_clk", "axi_clk", "ahb_clk";
-		};
-
-		ufsphy: phy@11fa0000 {
-			compatible = "mediatek,mt8183-ufsphy";
-			reg = <0 0x11fa0000 0 0xc000>;
-			#phy-cells = <0>;
-
-			clocks = <&infracfg CLK_INFRA_UNIPRO_SYS>,
-				 <&infracfg CLK_INFRA_UFS_MP_SAP_B>;
-			clock-names = "unipro", "mp";
 		};
 
 		mali: mali@13000000 {
