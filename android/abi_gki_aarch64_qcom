@@ -254,6 +254,7 @@
   cpufreq_freq_attr_scaling_boost_freqs
   cpufreq_generic_attr
   cpufreq_generic_frequency_table_verify
+  cpufreq_get_policy
   cpufreq_quick_get_max
   cpufreq_register_driver
   cpufreq_register_notifier
@@ -957,6 +958,7 @@
   get_random_bytes
   get_random_u32
   __get_task_comm
+  get_task_pid
   get_tree_single
   get_unmapped_area
   get_unused_fd_flags
@@ -1776,6 +1778,7 @@
   put_device
   put_disk
   __put_page
+  put_pid
   __put_task_struct
   put_unused_fd
   put_vaddr_frames
