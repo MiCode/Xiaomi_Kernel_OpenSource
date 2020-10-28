@@ -1418,8 +1418,11 @@ void scp_reset_wait_timeout(void)
 		mdelay(20);
 	}
 
-	if (timeout == 0)
+	if (timeout < 0) {
 		pr_notice("[SCP] reset timeout, still reset scp\n");
+		pr_notice("[SCP] core0_status = %x, core1_status = %x\n",
+		readl(R_CORE0_STATUS), readl(R_CORE1_STATUS));
+	}
 
 }
 
