@@ -1068,9 +1068,9 @@ void dbg_cm_mgr_platform_show(struct seq_file *m)
 	seq_puts(m, "\n");
 }
 
-void dbg_cm_mgr_platform_write(int len, char *cmd, u32 val_1, u32 val_2)
+void dbg_cm_mgr_platform_write(int len, const char *cmd, u32 val_1, u32 val_2)
 {
-	int i;
+	unsigned int i;
 
 	if (!strcmp(cmd, "x_ratio_enable")) {
 		x_ratio_enable = val_1;
