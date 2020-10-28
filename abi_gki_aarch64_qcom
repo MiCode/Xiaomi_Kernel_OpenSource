@@ -7,6 +7,8 @@
   alloc_io_pgtable_ops
   __alloc_pages_nodemask
   __alloc_percpu
+  __alloc_skb
+  alloc_skb_with_frags
   alloc_workqueue
   amba_bustype
   __arch_copy_from_user
@@ -46,6 +48,7 @@
   cancel_delayed_work
   cancel_delayed_work_sync
   cancel_work_sync
+  capable
   cdev_add
   cdev_alloc
   cdev_del
@@ -103,7 +106,9 @@
   console_stop
   console_suspend_enabled
   __const_udelay
+  consume_skb
   contig_page_data
+  _copy_from_iter_full
   cpu_hwcap_keys
   cpu_hwcaps
   cpu_latency_qos_add_request
@@ -120,6 +125,7 @@
   cpu_subsys
   crypto_register_rngs
   crypto_unregister_rngs
+  datagram_poll
   debugfs_attr_read
   debugfs_attr_write
   debugfs_create_bool
@@ -439,6 +445,7 @@
   idr_remove
   iio_read_channel_processed
   import_iovec
+  in_egroup_p
   init_net
   __init_rwsem
   __init_swait_queue_head
@@ -544,6 +551,7 @@
   kfree
   kfree_const
   kfree_sensitive
+  kfree_skb
   kill_fasync
   kimage_voffset
   __kmalloc
@@ -586,6 +594,7 @@
   __list_add_valid
   __list_del_entry_valid
   list_sort
+  lock_sock_nested
   mbox_chan_received_data
   mbox_chan_txdone
   mbox_client_txdone
@@ -621,6 +630,8 @@
   mutex_lock_interruptible
   mutex_trylock
   mutex_unlock
+  netlink_capable
+  __nla_parse
   no_llseek
   nonseekable_open
   nr_cpu_ids
@@ -804,6 +815,8 @@
   prepare_to_wait_event
   print_hex_dump
   printk
+  proto_register
+  proto_unregister
   put_device
   put_disk
   put_sg_io_hdr
@@ -819,8 +832,10 @@
   queue_work_on
   radix_tree_delete
   radix_tree_insert
+  radix_tree_iter_delete
   radix_tree_lookup
   radix_tree_maybe_preload
+  radix_tree_next_chunk
   ___ratelimit
   rational_best_approximation
   _raw_read_lock
@@ -855,6 +870,7 @@
   rdev_get_drvdata
   reboot_mode
   refcount_dec_and_lock
+  refcount_dec_not_one
   refcount_warn_saturate
   __register_chrdev
   register_chrdev_region
@@ -896,6 +912,7 @@
   regulator_unlock
   regulator_unregister_notifier
   release_firmware
+  release_sock
   remap_pfn_range
   report_iommu_fault
   request_any_context_irq
@@ -943,6 +960,9 @@
   rtc_time64_to_tm
   rtc_tm_to_time64
   rtc_update_irq
+  rtnl_is_locked
+  rtnl_register_module
+  rtnl_unregister
   save_stack_trace
   sched_clock
   sched_setscheduler
@@ -1001,6 +1021,21 @@
   simple_read_from_buffer
   single_open
   single_release
+  sk_alloc
+  sk_free
+  skb_clone
+  skb_copy_bits
+  skb_copy_datagram_iter
+  skb_dequeue
+  skb_free_datagram
+  __skb_pad
+  skb_push
+  skb_put
+  skb_queue_purge
+  skb_queue_tail
+  skb_recv_datagram
+  skb_set_owner_w
+  skb_store_bits
   smp_call_function_single
   snd_soc_add_component_controls
   snd_soc_info_volsw
@@ -1010,8 +1045,20 @@
   snprintf
   soc_device_register
   soc_device_unregister
+  sock_alloc_send_skb
   sock_create_kern
+  sock_gettstamp
+  sock_init_data
+  sock_no_accept
+  sock_no_listen
+  sock_no_mmap
+  sock_no_sendpage
+  sock_no_shutdown
+  sock_no_socketpair
+  sock_queue_rcv_skb
+  sock_register
   sock_release
+  sock_unregister
   sort
   __spi_alloc_controller
   spi_register_controller
