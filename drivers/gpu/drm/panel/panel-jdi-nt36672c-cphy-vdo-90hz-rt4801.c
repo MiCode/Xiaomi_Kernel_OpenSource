@@ -44,6 +44,9 @@
 #define AVDD_REG 0x00
 #define AVDD_REG 0x01
 #define HFP_SUPPORT 0
+#if HFP_SUPPORT
+static int current_fps = 60;
+#endif
 
 /* i2c control start */
 #define LCM_I2C_ID_NAME "I2C_LCD_BIAS"
@@ -256,6 +259,7 @@ static void jdi_panel_init(struct jdi *ctx)
 	msleep(100);
 	jdi_dcs_write_seq_static(ctx, 0xFB, 0x01);
 #if HFP_SUPPORT
+	pr_info("%s, fps:%d\n", __func__, current_fps);
 	jdi_dcs_write_seq_static(ctx, 0xB0, 0x00);
 	jdi_dcs_write_seq_static(ctx, 0xC0, 0x00);
 	jdi_dcs_write_seq_static(ctx, 0xC2, 0x1B, 0xA0);
@@ -514,7 +518,12 @@ static void jdi_panel_init(struct jdi *ctx)
 	jdi_dcs_write_seq_static(ctx, 0xFF, 0x25);
 	msleep(100);
 	jdi_dcs_write_seq_static(ctx, 0xFB, 0x01);
-	jdi_dcs_write_seq_static(ctx, 0x18, 0x21);
+	if (current_fps == 60)
+		jdi_dcs_write_seq_static(ctx, 0x18, 0x21);
+	else if (current_fps == 90)
+		jdi_dcs_write_seq_static(ctx, 0x18, 0x20);
+	else
+		jdi_dcs_write_seq_static(ctx, 0x18, 0x21);
 
 	jdi_dcs_write_seq_static(ctx, 0xFF, 0x10);
 	msleep(100);
@@ -729,7 +738,7 @@ static const struct drm_display_mode performance_mode = {
 static struct mtk_panel_params ext_params = {
 	.pll_clk = 538,
 	.vfp_low_power = VFP_45HZ,
-	.cust_esd_check = 0,
+	.cust_esd_check = 1,
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
 		.cmd = 0x0A, .count = 1, .para_list[0] = 0x9C,
@@ -754,7 +763,7 @@ static struct mtk_panel_params ext_params = {
 static struct mtk_panel_params ext_params_90hz = {
 	.pll_clk = 538,
 	.vfp_low_power = VFP_60HZ,
-	.cust_esd_check = 0,
+	.cust_esd_check = 1,
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
 
@@ -828,11 +837,17 @@ static int jdi_panel_ext_param_set(struct drm_panel *panel, unsigned int mode)
 	int ret = 0;
 	struct drm_display_mode *m = jdi_get_mode_by_id_hfp(panel, mode);
 
-	if (m->vrefresh == 60)
+	if (m->vrefresh == 60) {
 		ext->params = &ext_params;
-	else if (m->vrefresh == 90)
+#if HFP_SUPPORT
+		current_fps = 60;
+#endif
+	} else if (m->vrefresh == 90) {
 		ext->params = &ext_params_90hz;
-	else
+#if HFP_SUPPORT
+		current_fps = 90;
+#endif
+	} else
 		ret = 1;
 
 	return ret;
