@@ -26,7 +26,8 @@ static struct m4u_sec_ty_context m4u_ty_ctx = {
 };
 struct m4u_gz_sec_context m4u_gz_ta_ctx;
 struct gz_m4u_msg *shared_buf;
-int _shm_size = PAGE_ALIGN(sizeof(struct gz_m4u_msg));
+unsigned int _shm_size = PAGE_ALIGN(sizeof(struct gz_m4u_msg));
+unsigned int _shm_order;
 int _num_PA;
 
 TZ_RESULT _reg_shmem(KREE_SESSION_HANDLE mem_sn,
@@ -70,17 +71,20 @@ TZ_RESULT _prepare_region(KREE_SHAREDMEM_PARAM *shm_param)
 		num_Pa++;
 
 	_num_PA = num_Pa;
-	shared_buf = kmalloc(_shm_size, GFP_KERNEL);
+	_shm_order = get_order(_shm_size);
+	shared_buf = (struct gz_m4u_msg *)__get_free_pages(GFP_KERNEL,
+			_shm_order);
 	if (!shared_buf) {
-		M4ULOG_HIGH("[MTEE][%s] con_buf kmalloc Fail.\n", __func__);
+		M4ULOG_HIGH("[MTEE][%s] shared_buf alloc Fail.\n", __func__);
 		return TZ_RESULT_ERROR_OUT_OF_MEMORY;
 	}
 
 	pa = (uint64_t)virt_to_phys((void *)shared_buf);
 
 	M4ULOG_HIGH
-	    ("[MTEE][%s]: size=%d, &buf=%llx, PA=%llx, num_Pa = %d",
-	     __func__, _shm_size, (uint64_t) shared_buf, pa, _num_PA);
+	    ("[MTEE][%s]: size=%u, &buf=%llx, PA=%llx, num_Pa=%d, order=%u",
+	     __func__, _shm_size, (uint64_t)shared_buf, pa, _num_PA,
+	     _shm_order);
 
 	shm_param->buffer = (void *)pa;
 	shm_param->size = _shm_size;
@@ -97,7 +101,7 @@ TZ_RESULT _prepare_region(KREE_SHAREDMEM_PARAM *shm_param)
 TZ_RESULT _release_region(void)
 {
 	if (!shared_buf)
-		kfree(shared_buf);
+		free_pages((unsigned long)shared_buf, _shm_order);
 	return TZ_RESULT_SUCCESS;
 }
 
