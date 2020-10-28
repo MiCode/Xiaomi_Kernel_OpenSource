@@ -664,15 +664,15 @@ static int jdi_enable(struct drm_panel *panel)
 #define HFP_90HZ (256)
 #define HSA (20)
 #define HBP (22)
-#define VFP (58)
-#define VFP_45HZ (880)
-#define VFP_60HZ (1298)
+#define VFP (50)
+#define VFP_45HZ (870)
+#define VFP_60HZ (1280)
 #define VSA (10)
-#define VBP (10)
+#define VBP (4)
 #define VAC (2400)
 #define HAC (1080)
 static const struct drm_display_mode default_mode = {
-	.clock = 307173,
+	.clock = 305420,
 	.hdisplay = HAC,
 	.hsync_start = HAC + HFP_60HZ,
 	.hsync_end = HAC + HFP_60HZ + HSA,
@@ -685,7 +685,7 @@ static const struct drm_display_mode default_mode = {
 };
 
 static const struct drm_display_mode performance_mode = {
-	.clock = 307322,
+	.clock = 305586,
 	.hdisplay = HAC,
 	.hsync_start = HAC + HFP_90HZ,
 	.hsync_end = HAC + HFP_90HZ + HSA,
@@ -700,15 +700,15 @@ static const struct drm_display_mode performance_mode = {
 #define HFP (256)
 #define HSA (20)
 #define HBP (22)
-#define VFP_45HZ (2530)
-#define VFP_60HZ (1298)
-#define VFP_90HZ (58)
+#define VFP_45HZ (2500)
+#define VFP_60HZ (1280)
+#define VFP_90HZ (50)
 #define VSA (10)
-#define VBP (10)
+#define VBP (4)
 #define VAC (2400)
 #define HAC (1080)
 static const struct drm_display_mode default_mode = {
-	.clock = 307404,
+	.clock = 305420,
 	.hdisplay = HAC,
 	.hsync_start = HAC + HFP,
 	.hsync_end = HAC + HFP + HSA,
@@ -721,7 +721,7 @@ static const struct drm_display_mode default_mode = {
 };
 
 static const struct drm_display_mode performance_mode = {
-	.clock = 307322,
+	.clock = 305586,
 	.hdisplay = HAC,
 	.hsync_start = HAC + HFP,
 	.hsync_end = HAC + HFP + HSA,

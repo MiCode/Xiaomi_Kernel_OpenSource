@@ -688,15 +688,15 @@ static int lcm_enable(struct drm_panel *panel)
 
 #define HFP (10)
 #define HSA (6)
-#define HBP (43)
+#define HBP (40)
 #define VFP (30)
 #define VSA (4)
-#define VBP (24)
+#define VBP (20)
 #define VAC (2300)
 #define HAC (1080)
 
 static struct drm_display_mode default_mode = {
-	.clock = 161707,
+	.clock = 160872,
 	.hdisplay = HAC,
 	.hsync_start = HAC + HFP,
 	.hsync_end = HAC + HFP + HSA,
