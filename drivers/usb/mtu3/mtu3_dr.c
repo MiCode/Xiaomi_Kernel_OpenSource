@@ -504,8 +504,47 @@ static ssize_t mode_show(struct device *dev,
 }
 static DEVICE_ATTR_RW(mode);
 
+static ssize_t max_speed_store(struct device *dev,
+				 struct device_attribute *attr,
+				 const char *buf, size_t count)
+{
+	struct ssusb_mtk *ssusb = dev_get_drvdata(dev);
+	struct mtu3 *mtu = ssusb->u3d;
+	int speed;
+
+	if (!strncmp(buf, "super-speed-plus", 16))
+		speed = USB_SPEED_SUPER_PLUS;
+	else if (!strncmp(buf, "super-speed", 11))
+		speed = USB_SPEED_SUPER;
+	else if (!strncmp(buf, "high-speed", 10))
+		speed = USB_SPEED_HIGH;
+	else if (!strncmp(buf, "full-speed", 10))
+		speed = USB_SPEED_FULL;
+	else
+		return -EFAULT;
+
+	dev_info(dev, "store speed %s\n", buf);
+
+	mtu->max_speed = speed;
+	mtu->g.max_speed = speed;
+
+	return count;
+}
+
+static ssize_t max_speed_show(struct device *dev,
+				struct device_attribute *attr,
+				char *buf)
+{
+	struct ssusb_mtk *ssusb = dev_get_drvdata(dev);
+	struct mtu3 *mtu = ssusb->u3d;
+
+	return sprintf(buf, "%s\n", usb_speed_string(mtu->max_speed));
+}
+static DEVICE_ATTR_RW(max_speed);
+
 static struct attribute *ssusb_dr_attrs[] = {
 	&dev_attr_mode.attr,
+	&dev_attr_max_speed.attr,
 	NULL
 };
 
