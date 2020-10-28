@@ -23,6 +23,11 @@
 #include "modem_secure_base.h"
 #endif
 
+#ifndef CREATE_TRACE_POINTS
+#define CREATE_TRACE_POINTS
+#endif
+#include <mt-plat/ccci_events.h>
+
 static struct ccci_fsm_ctl *ccci_fsm_entries[MAX_MD_NUM];
 
 static void fsm_finish_command(struct ccci_fsm_ctl *ctl,
@@ -199,6 +204,7 @@ static void fsm_routine_exception(struct ccci_fsm_ctl *ctl,
 		reason, __builtin_return_address(0));
 	fsm_monitor_send_message(ctl->md_id,
 		CCCI_MD_MSG_EXCEPTION, 0);
+	trace_ccci_event("ccci", "ap_md_reason", (unsigned int)reason, 0);
 	/* 1. state sanity check */
 	if (ctl->curr_state == CCCI_FSM_GATED) {
 		if (cmd)

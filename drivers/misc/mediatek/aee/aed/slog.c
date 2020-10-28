@@ -12,11 +12,7 @@
  */
 
 #include <linux/module.h>
-#include <linux/proc_fs.h>
-#include <linux/sched.h>
-#include <linux/seq_file.h>
 #include <linux/tracepoint.h>
-#include <linux/uaccess.h>
 
 #define CREATE_TRACE_POINTS
 #include <mt-plat/slog.h>
@@ -49,8 +45,15 @@ static void probe_signal_devliver(void *data, int sig,
 	slog("#$#%s#@#%s#sig:%d", "signal", "devliver", sig);
 }
 
+static void __nocfi probe_ccci_event(void *data, char *string, char *sub_string,
+	unsigned int sub_type, unsigned int resv)
+{
+	slog("#$#%s#@#%s#%d:%d", string, sub_string, sub_type, resv);
+}
+
 static struct tracepoints_table interests[] = {
 	{.name = "signal_deliver", .func = probe_signal_devliver},
+	{.name = "ccci_event", .func = probe_ccci_event},
 };
 
 #define FOR_EACH_INTEREST(i) \
