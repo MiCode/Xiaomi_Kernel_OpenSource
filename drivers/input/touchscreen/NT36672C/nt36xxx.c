@@ -1695,6 +1695,14 @@ static int32_t nvt_ts_probe(struct spi_device *client)
 			strcmp("nt36672c_fhdp_dsi_vdo_60hz_shenchao_lcm_drv",
 			videolfb_tag->lcmname) == 0)
 			strncpy(novatek_firmware, firmware_name, sizeof(firmware_name));
+		else if (strcmp("nt36672c_fhdp_dsi_vdo_90hz_jdi_rt4801_lcm_drv",
+			videolfb_tag->lcmname) == 0 ||
+			strcmp("nt36672c_fhdp_dsi_vdo_cphy_90hz_jdi_rt4801_lcm_drv",
+			videolfb_tag->lcmname) == 0)
+			strncpy(novatek_firmware, firmware_name_jdi, sizeof(firmware_name_jdi));
+		else if (strcmp("nt36672c_fhdp_dsi_vdo_cphy_90hz_tianma_rt4801_lcm_drv",
+			videolfb_tag->lcmname) == 0)
+			strncpy(novatek_firmware, firmware_name_tm, sizeof(firmware_name_tm));
 		else
 			strncpy(novatek_firmware, firmware_name, sizeof(firmware_name));
 		NVT_LOG("nt36672c touch fw name : %s", BOOT_UPDATE_FIRMWARE_NAME);
