@@ -1097,9 +1097,9 @@ static int btpower_get_tcs_table_info(struct platform_device *dev,
 	pr_info("TCS CMD base address is %pa with length %pa\n",
 		    &tcs_table_info->tcs_cmd_base_addr, &addr_len);
 
-	tcs_cmd_base_addr = devm_ioremap_resource(&plat_dev->dev, res);
-	if (IS_ERR(tcs_cmd_base_addr)) {
-		ret = PTR_ERR(tcs_cmd_base_addr);
+	tcs_cmd_base_addr = devm_ioremap(&plat_dev->dev, res->start, addr_len);
+	if (!tcs_cmd_base_addr) {
+		ret = -EINVAL;
 		pr_err("Failed to map TCS CMD address, err = %d\n",
 			    ret);
 		goto out;
@@ -1142,7 +1142,7 @@ static int btpower_enable_ipa_vreg(struct platform_device *dev,
 	writel_relaxed(1, tcs_cmd);
 
 	data_val = readl_relaxed(tcs_cmd);
-	pr_info("Configure S3E TCS Addr : %x with Data: %d\n"
+	pr_info("Configure S3E TCS Addr for iPA: %x with Data: %d\n"
 		, addr_val, data_val);
 	return 0;
 }
