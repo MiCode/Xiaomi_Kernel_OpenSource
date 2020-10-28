@@ -32,7 +32,7 @@
 #define SENINF_CLK_CONTROL 1
 #endif
 
-#undef IMGSENSOR_DFS_CTRL_ENABLE
+#define IMGSENSOR_DFS_CTRL_ENABLE
 #ifdef IMGSENSOR_DFS_CTRL_ENABLE
 #include <linux/pm_qos.h>
 #include <mmdvfs_pmqos.h>
