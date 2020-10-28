@@ -19,16 +19,6 @@
 #define TEE_OP_ID_NONE                  (0xFFFF0000)
 #define TEE_OP_ID_SET_PENDING           (0xFFFF0001)
 
-/* TEE tracing */
-int32_t mtk_tee_log_tracing(u32 cpuid, u16 tee_pid, char *line, u32 line_len);
-
-struct tee_trace_struct {
-	u32 cpuid;
-	char *ktimestamp;
-	u32 tee_pid;
-	char *tee_postfix;
-};
-
 /* TEE tracing log prefix */
 #define TEE_BEGIN_TRACE         "tee_trace_begin"
 #define TEE_END_TRACE           "tee_trace_end"
@@ -40,5 +30,21 @@ struct tee_trace_struct {
 #define TEE_TRACE_OK			0
 #define TEE_TRACE_PREFIX_NOT_MATCH	(-1)
 #define TEE_TRACE_PARSE_FAILED		(-2)
+
+/* TEE tracing */
+int32_t mtk_tee_log_tracing(u32 cpuid, u16 tee_pid, char *line, u32 line_len);
+void mtk_set_prefer_bigcore(struct task_struct *current_task);
+void mtk_set_task_basic_util(struct task_struct *current_task);
+
+/* Extern API */
+extern int sched_set_cpuprefer(pid_t pid, unsigned int prefer_type);
+extern int set_task_util_min_pct(pid_t pid, unsigned int min);
+
+struct tee_trace_struct {
+	u32 cpuid;
+	char *ktimestamp;
+	u32 tee_pid;
+	char *tee_postfix;
+};
 
 #endif /* __TEE_SANITY_H__ */
