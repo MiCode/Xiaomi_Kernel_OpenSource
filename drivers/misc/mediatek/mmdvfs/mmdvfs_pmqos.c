@@ -1564,10 +1564,6 @@ static s32 get_total_hrt_bw(void)
 	s32 io_width = get_io_width();
 
 	result = MULTIPLY_BW_THRESH_HIGH(max_freq * ch_num * io_width);
-#if defined(CONFIG_MACH_MT6833)
-	if (result < 0)
-		result = 8532;
-#endif
 #elif defined(USE_MTK_DRAMC)
 	s32 max_freq = dram_steps_freq(0);
 	s32 ch_num = get_emi_ch_num();
