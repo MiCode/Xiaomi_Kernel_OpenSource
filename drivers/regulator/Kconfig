@@ -559,6 +559,20 @@ config REGULATOR_MT6315
 	  This driver supports the control of different power rails of device
 	  through regulator interface.
 
+config REGULATOR_MT6317
+	tristate "Mediatek MT6317 regulator driver"
+	depends on I2C && GPIOLIB
+	select REGMAP
+	select CRC8
+	select OF_GPIO
+	select REGULATOR_FIXED_VOLTAGE
+	help
+	  MT6317 is an integrated chip. It includes 8 LDOs and 3 GPIOs that
+	  can be used to drive output high/low purpose. The dependency of the
+	  GPIO block is internally LDO1 voltage. If LDO1 voltage output disabled,
+	  GPIO cannot be used to drive output high. It need to pay more
+	  attention on the usage.
+
 config REGULATOR_MT6323
 	tristate "MediaTek MT6323 PMIC"
 	depends on MFD_MT6397
