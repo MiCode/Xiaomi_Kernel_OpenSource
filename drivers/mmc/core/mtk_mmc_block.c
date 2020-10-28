@@ -275,9 +275,12 @@ static void mt_bio_context_eval(struct mt_bio_context *ctx)
 		ctx->workload.percent = 1;
 	} else {
 		period = ctx->workload.period;
-		do_div(period, 100);
-		ctx->workload.percent =
-			(__u32)ctx->workload.usage / (__u32)period;
+		if (period > 0) {
+			ctx->workload.percent =
+				((__u32)ctx->workload.usage * 100) / (__u32)period;
+		} else {
+			ctx->workload.percent = 0;
+		}
 	}
 
 	mtk_btag_throughput_eval(&ctx->throughput);
