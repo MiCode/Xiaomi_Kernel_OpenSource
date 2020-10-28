@@ -35,7 +35,10 @@
  * @bam_producer_pipe_index BAM producer pipe
  * @rt_priority true if RT thread
  * @use_pinctrl true if pinctrl library is used
- * @is_shared true when qup is shared between ee's
+ * @is_shared true when qup is shared between ee's and client driver is not
+	in control of spi pm_runtime_get_sync/put_sync.
+ * @shared_ee true when qup is shared between ee's and client driver is in
+	control of spi pm_runtime_get_sync/put_sync.
  */
 struct msm_spi_platform_data {
 	u32 max_clock_speed;
@@ -54,4 +57,5 @@ struct msm_spi_platform_data {
 	bool rt_priority;
 	bool use_pinctrl;
 	bool is_shared;
+	bool shared_ee;
 };
