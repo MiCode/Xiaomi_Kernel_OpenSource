@@ -43,7 +43,7 @@
 
 #define AVDD_REG 0x00
 #define AVDD_REG 0x01
-#define HFP_SUPPORT 0
+#define HFP_SUPPORT 1
 
 /* i2c control start */
 #define LCM_I2C_ID_NAME "I2C_LCD_BIAS"
@@ -838,7 +838,7 @@ static int tianma_remove(struct mipi_dsi_device *dsi)
 
 static const struct of_device_id tianma_of_match[] = {
 	{
-	    .compatible = "tianma,nt36672c,cphy,vdo,90hz,rt4801",
+	    .compatible = "tianma,nt36672c,cphy,vdo,90hz,rt4801,hfp",
 	},
 	{}
 };
@@ -849,7 +849,7 @@ static struct mipi_dsi_driver tianma_driver = {
 	.probe = tianma_probe,
 	.remove = tianma_remove,
 	.driver = {
-		.name = "panel-tianma-nt36672c-cphy-vdo-90hz-rt4801",
+		.name = "panel-tianma-nt36672c-cphy-vdo-90hz-rt4801-hfp",
 		.owner = THIS_MODULE,
 		.of_match_table = tianma_of_match,
 	},

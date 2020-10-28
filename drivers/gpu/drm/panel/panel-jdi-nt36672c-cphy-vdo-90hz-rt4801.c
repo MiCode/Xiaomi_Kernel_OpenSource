@@ -250,11 +250,13 @@ static void jdi_panel_init(struct jdi *ctx)
 	gpiod_set_value(ctx->reset_gpio, 1);
 	usleep_range(10 * 1000, 15 * 1000);
 	devm_gpiod_put(ctx->dev, ctx->reset_gpio);
+
 	pr_info("%s+\n", __func__);
-	//jdi_dcs_write_seq_static(ctx, 0xFF, 0x25);
-	//msleep(100);
-	//jdi_dcs_write_seq_static(ctx, 0xFB, 0x01);
-	//jdi_dcs_write_seq_static(ctx, 0x18, 0x21);
+#if HFP_SUPPORT
+	jdi_dcs_write_seq_static(ctx, 0xFF, 0x25);
+	jdi_dcs_write_seq_static(ctx, 0xFB, 0x01);
+	jdi_dcs_write_seq_static(ctx, 0x18, 0x21);
+#endif
 
 	jdi_dcs_write_seq_static(ctx, 0xFF, 0x10);
 	msleep(100);
@@ -390,17 +392,19 @@ static int jdi_enable(struct drm_panel *panel)
 	return 0;
 }
 #if HFP_SUPPORT
-#define HFP_60HZ (983)
-#define HFP_90HZ (510)
-#define HSA (12)
-#define HBP (56)
+#define HFP_60HZ (944)
+#define HFP_90HZ (256)
+#define HSA (20)
+#define HBP (22)
 #define VFP (58)
+#define VFP_45HZ (880)
+#define VFP_60HZ (1298)
 #define VSA (10)
 #define VBP (10)
 #define VAC (2400)
 #define HAC (1080)
 static const struct drm_display_mode default_mode = {
-	.clock = 316325,
+	.clock = 307173,
 	.hdisplay = HAC,
 	.hsync_start = HAC + HFP_60HZ,
 	.hsync_end = HAC + HFP_60HZ + HSA,
@@ -413,7 +417,7 @@ static const struct drm_display_mode default_mode = {
 };
 
 static const struct drm_display_mode performance_mode = {
-	.clock = 369170,
+	.clock = 307322,
 	.hdisplay = HAC,
 	.hsync_start = HAC + HFP_90HZ,
 	.hsync_end = HAC + HFP_90HZ + HSA,
@@ -428,6 +432,7 @@ static const struct drm_display_mode performance_mode = {
 #define HFP (256)
 #define HSA (20)
 #define HBP (22)
+#define VFP_45HZ (2530)
 #define VFP_60HZ (1298)
 #define VFP_90HZ (58)
 #define VSA (10)
@@ -464,14 +469,14 @@ static const struct drm_display_mode performance_mode = {
 #if defined(CONFIG_MTK_PANEL_EXT)
 static struct mtk_panel_params ext_params = {
 	.pll_clk = 538,
-	.vfp_low_power = 879,//45hz
+	.vfp_low_power = VFP_45HZ,
 	.cust_esd_check = 0,
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
 		.cmd = 0x0A, .count = 1, .para_list[0] = 0x9C,
 	},
 	.is_cphy = 1,
-	.data_rate = 1075,
+	.data_rate = 1076,
 	.dyn_fps = {
 		.switch_en = 1,
 #if HFP_SUPPORT
@@ -484,19 +489,12 @@ static struct mtk_panel_params ext_params = {
 #else
 		.vact_timing_fps = 90,
 #endif
-	},
-	.dyn = {
-		.switch_en = 1,
-		.pll_clk = 550,
-		.vfp_lp_dyn = 4178,
-		.hfp = 288,
-		.vfp = 1298,
 	},
 };
 
 static struct mtk_panel_params ext_params_90hz = {
 	.pll_clk = 538,
-	.vfp_low_power = 1298, //60hz
+	.vfp_low_power = VFP_60HZ,
 	.cust_esd_check = 0,
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
@@ -504,26 +502,19 @@ static struct mtk_panel_params ext_params_90hz = {
 		.cmd = 0x0A, .count = 1, .para_list[0] = 0x9C,
 	},
 	.is_cphy = 1,
-	.data_rate = 1075,
+	.data_rate = 1076,
 	.dyn_fps = {
 		.switch_en = 1,
 #if HFP_SUPPORT
 		.dfps_cmd_table[0] = {0, 2, {0xFF, 0x25} },
 		.dfps_cmd_table[1] = {0, 2, {0xFB, 0x01} },
-		.dfps_cmd_table[2] = {0, 2, {0x18, 0x21} },
+		.dfps_cmd_table[2] = {0, 2, {0x18, 0x20} },
 		/*switch page for esd check*/
 		.dfps_cmd_table[3] = {0, 2, {0xFF, 0x10} },
 		.dfps_cmd_table[4] = {0, 2, {0xFB, 0x01} },
 #else
 		.vact_timing_fps = 90,
 #endif
-	},
-	.dyn = {
-		.switch_en = 1,
-		.pll_clk = 550,
-		.vfp_lp_dyn = 1298,
-		.hfp = 288,
-		.vfp = 54,
 	},
 };
 
