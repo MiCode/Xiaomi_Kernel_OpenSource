@@ -1248,7 +1248,7 @@ void MTK_reset_urate(void)
 
 void MTK_update_gpu_swpm(void)
 {
-	unsigned int pm_gpu_loading;
+	unsigned int pm_gpu_loading = 0;
 	unsigned int exec_active;
 	unsigned int exec_instr_fma, exec_instr_cvt, exec_instr_sfu;
 	unsigned int tfilt_num;
@@ -1304,7 +1304,7 @@ void MTK_update_gpu_swpm(void)
 
 void MTK_update_gpu_LTR(void)
 {
-	unsigned int pm_gpu_loading;
+	unsigned int pm_gpu_loading = 0;
 	struct mtk_gpu_perf gpu_perf_counter;
 	unsigned int stall_counter[4] = {0};
 	mtk_get_gpu_loading(&pm_gpu_loading);
