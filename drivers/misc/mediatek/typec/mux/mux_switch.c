@@ -97,7 +97,7 @@ void mtk_typec_mux_unregister(struct typec_mux *mux)
 }
 EXPORT_SYMBOL_GPL(mtk_typec_mux_unregister);
 
-static int mtk_typec_mux_set(struct typec_mux *mux, int state)
+static int mtk_typec_mux_set(struct typec_mux *mux, struct typec_mux_state *state)
 {
 	struct typec_mux_switch *mux_sw = typec_mux_get_drvdata(mux);
 	struct mtk_typec_mux *typec_mux;
@@ -106,7 +106,7 @@ static int mtk_typec_mux_set(struct typec_mux *mux, int state)
 	dev_info(mux_sw->dev, "%s %d %d\n", __func__,
 		 mux_sw->state, state);
 
-	if (mux_sw->state == state)
+	if (mux_sw->state == state->mode)
 		return ret;
 
 	mutex_lock(&mux_lock);
@@ -116,7 +116,7 @@ static int mtk_typec_mux_set(struct typec_mux *mux, int state)
 			typec_mux->mux->set(typec_mux->mux, state);
 	}
 
-	mux_sw->state = state;
+	mux_sw->state = state->mode;
 
 	mutex_unlock(&mux_lock);
 
