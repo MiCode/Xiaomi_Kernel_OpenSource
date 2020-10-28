@@ -956,6 +956,8 @@ int emmc_runtime_autok_merge(u32 opcode)
 			TUNING_PARA_SCAN_COUNT);
 
 	ret = emmc_execute_dvfs_autok(host, opcode);
+	if (opcode == MMC_SEND_STATUS)
+		goto skip_autok_merge;
 	if (host->use_hw_dvfs == 0)
 		memcpy(host->autok_res[AUTOK_VCORE_LEVEL1],
 			host->autok_res[AUTOK_VCORE_MERGE],
@@ -998,6 +1000,7 @@ int emmc_runtime_autok_merge(u32 opcode)
 		pr_info("[AUTOK]restore legacy window\n");
 	}
 
+skip_autok_merge:
 #ifdef CONFIG_MTK_EMMC_HW_CQ
 	if (emmc_autok_switch_cqe(host, 1))
 		pr_notice("WARN:%s:cqe enable fail", __func__);
