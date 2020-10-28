@@ -24,6 +24,7 @@ qcom-hwspinlock.ko
 smem.ko
 smp2p.ko
 socinfo.ko
+spmi-pmic-arb.ko
 stub-regulator.ko
 debug-regulator.ko
 proxy-consumer.ko
