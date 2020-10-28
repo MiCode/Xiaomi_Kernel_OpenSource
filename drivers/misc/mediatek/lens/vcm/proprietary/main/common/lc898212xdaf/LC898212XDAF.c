@@ -48,10 +48,6 @@ unsigned int g_LC898212_SearchDir;
 #define Min_Pos 0
 #define Max_Pos 1023
 
-#ifndef CONFIG_ARCH_MTK_PROJECT
-#define CONFIG_ARCH_MTK_PROJECT "null_project"
-#endif
-
 /* LiteOn : Hall calibration range : 0xA800 - 0x5800 */
 static signed short Hall_Max =
 	0x5800; /* Please read INF position from EEPROM or OTP */
@@ -168,277 +164,26 @@ static void LC898212XD_init(void)
 
 	g_LC898212_SearchDir = 1;
 
-	if (strcmp(CONFIG_ARCH_MTK_PROJECT, "k55v2_64_stereo") == 0) {
+	s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F63, &val2);
+	s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F64, &val1);
+	HallMinCheck = ((val1 << 8) | (val2 & 0x00FF)) & 0xFFFF;
 
-		LOG_INF("CONFIG_ARCH_MTK_PROJECT = %s\n",
-			CONFIG_ARCH_MTK_PROJECT);
+	s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F65, &val2);
+	s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F66, &val1);
+	HallMaxCheck = ((val1 << 8) | (val2 & 0x00FF)) & 0xFFFF;
 
-		/* Ja Stereo IMX258 - Error Version */
-		s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0016, &val1);
-		s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0015, &val2);
-		HallMinCheck = ((val1 << 8) | (val2 & 0x00FF)) & 0xFFFF;
+	s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F67, &val1);
+	s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F68, &val2);
 
-		s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0018, &val1);
-		s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0017, &val2);
-		HallMaxCheck = ((val1 << 8) | (val2 & 0x00FF)) & 0xFFFF;
+	if ((val1 != 0) && (val2 != 0) &&
+	    (HallMaxCheck >= 0x1FFF && HallMaxCheck <= 0x7FFF) &&
+	    (HallMinCheck >= 0x8001 && HallMinCheck <= 0xEFFF)) {
 
-		if ((HallMaxCheck >= 0x1FFF && HallMaxCheck <= 0x7FFF) &&
-		    (HallMinCheck >= 0x8001 && HallMinCheck <= 0xEFFF)) {
+		Hall_Min = HallMinCheck;
+		Hall_Max = HallMaxCheck;
 
-			Hall_Min = HallMinCheck;
-			Hall_Max = HallMaxCheck;
-
-			s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x001A, &val1);
-			s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0019, &val2);
-			Hall_Off = val2;
-			Hall_Bias = val1;
-		}
-
-	} else if (strncmp(CONFIG_ARCH_MTK_PROJECT, "demo97v1", 6) == 0) {
-
-		LOG_INF("CONFIG_ARCH_MTK_PROJECT = %s\n",
-			CONFIG_ARCH_MTK_PROJECT);
-
-		s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0003, &val1);
-		LOG_INF("Addr = 0x0003 , Data = %x\n", val1);
-		s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0004, &val2);
-		LOG_INF("Addr = 0x0004 , Data = %x\n", val2);
-
-		if (val1 == 0xb && val2 == 0x2) { /* EEPROM Version */
-
-			s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F33, &val2);
-			s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F34, &val1);
-			Hall_Min = ((val1 << 8) | (val2 & 0x00FF)) & 0xFFFF;
-
-			s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F35, &val2);
-			s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F36, &val1);
-			Hall_Max = ((val1 << 8) | (val2 & 0x00FF)) & 0xFFFF;
-
-			s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F37, &val1);
-			Hall_Off = val1;
-			s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F38, &val2);
-			Hall_Bias = val2;
-
-		} else {
-
-			s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F63, &val2);
-			s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F64, &val1);
-			HallMinCheck = ((val1 << 8) | (val2 & 0x00FF)) & 0xFFFF;
-
-			s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F65, &val2);
-			s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F66, &val1);
-			HallMaxCheck = ((val1 << 8) | (val2 & 0x00FF)) & 0xFFFF;
-
-			s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F67, &val1);
-			s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F68, &val2);
-
-			if ((val1 != 0) && (val2 != 0) &&
-			    (HallMaxCheck >= 0x1FFF &&
-			     HallMaxCheck <= 0x7FFF) &&
-			    (HallMinCheck >= 0x8001 &&
-			     HallMinCheck <= 0xEFFF)) {
-
-				Hall_Min = HallMinCheck;
-				Hall_Max = HallMaxCheck;
-
-				Hall_Off = val1;
-				Hall_Bias = val2;
-			} else {
-				s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F33,
-								     &val2);
-				s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F34,
-								     &val1);
-				HallMinCheck = ((val1 << 8) | (val2 & 0x00FF)) &
-					       0xFFFF;
-
-				s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F35,
-								     &val2);
-				s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F36,
-								     &val1);
-				HallMaxCheck = ((val1 << 8) | (val2 & 0x00FF)) &
-					       0xFFFF;
-
-				s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F37,
-								     &val1);
-				s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F38,
-								     &val2);
-
-				if ((val1 != 0) && (val2 != 0) &&
-				    (HallMaxCheck >= 0x1FFF &&
-				     HallMaxCheck <= 0x7FFF) &&
-				    (HallMinCheck >= 0x8001 &&
-				     HallMinCheck <= 0xEFFF)) {
-
-					Hall_Min = HallMinCheck;
-					Hall_Max = HallMaxCheck;
-
-					Hall_Off = val1;
-					Hall_Bias = val2;
-				}
-			}
-		}
-	} else if (strncmp(CONFIG_ARCH_MTK_PROJECT, "k97v1", 5) == 0 ||
-		   strncmp(CONFIG_ARCH_MTK_PROJECT, "evb6797", 7) == 0 ||
-		   strncmp(CONFIG_ARCH_MTK_PROJECT, "muse6797", 8) == 0) {
-
-		LOG_INF("CONFIG_ARCH_MTK_PROJECT = %s\n",
-			CONFIG_ARCH_MTK_PROJECT);
-
-		if (g_SelectEEPROM == 0) { /* IMX258 PDAF */
-
-			/* Li define format - Ev IMX258 PDAF - remove Koli */
-			s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F67, &val1);
-			s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F68, &val2);
-			HallMaxCheck = ((val1 << 8) | (val2 & 0x00FF)) & 0xFFFF;
-
-			s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F69, &val1);
-			s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F70, &val2);
-			HallMinCheck = ((val1 << 8) | (val2 & 0x00FF)) & 0xFFFF;
-
-			s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F63, &val1);
-			HallCheck = val1;
-
-			if ((HallCheck == 0) && (HallMaxCheck >= 0x1FFF &&
-						 HallMaxCheck <= 0x7FFF) &&
-			    (HallMinCheck >= 0x8001 &&
-			     HallMinCheck <= 0xEFFF)) {
-
-				s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F63,
-								     &val1);
-				s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F64,
-								     &val2);
-				Hall_Bias = ((val1 << 8) | (val2 & 0x00FF)) &
-					    0xFFFF;
-
-				s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F65,
-								     &val1);
-				s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F66,
-								     &val2);
-				Hall_Off = ((val1 << 8) | (val2 & 0x00FF)) &
-					   0xFFFF;
-
-				Hall_Min = 0x8001; /* HallMinCheck; */
-
-				Hall_Max = 0x7FFF; /* HallMaxCheck; */
-				/* Li define format - Ev IMX258 PDAF - end */
-			} else {
-				/* Li define format - Ev MVHDR */
-				s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F33,
-								     &val1);
-				s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F34,
-								     &val2);
-				Hall_Min = ((val1 << 8) | (val2 & 0x00FF)) &
-					   0xFFFF;
-
-				s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F35,
-								     &val1);
-				s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F36,
-								     &val2);
-				Hall_Max = ((val1 << 8) | (val2 & 0x00FF)) &
-					   0xFFFF;
-
-				s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F37,
-								     &val1);
-				Hall_Off = val1;
-				s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F38,
-								     &val2);
-				Hall_Bias = val2;
-				g_LC898212_SearchDir = 0;
-				/* Li define format - Ev MVHDR end */
-			}
-
-		} else {
-
-			LOG_INF("Select ov23850 e2prom!!\n");
-
-			s4EEPROM_ReadReg_LC898212XDAF_OV23850(0x0F63, &val1);
-			s4EEPROM_ReadReg_LC898212XDAF_OV23850(0x0F64, &val2);
-			Hall_Bias = ((val1 << 8) | (val2 & 0x00FF)) & 0xFFFF;
-
-			s4EEPROM_ReadReg_LC898212XDAF_OV23850(0x0F65, &val1);
-			s4EEPROM_ReadReg_LC898212XDAF_OV23850(0x0F66, &val2);
-			Hall_Off = ((val1 << 8) | (val2 & 0x00FF)) & 0xFFFF;
-
-			s4EEPROM_ReadReg_LC898212XDAF_OV23850(0x0F67, &val1);
-			s4EEPROM_ReadReg_LC898212XDAF_OV23850(0x0F68, &val2);
-			Hall_Min = ((val1 << 8) | (val2 & 0x00FF)) & 0xFFFF;
-
-			s4EEPROM_ReadReg_LC898212XDAF_OV23850(0x0F69, &val1);
-			s4EEPROM_ReadReg_LC898212XDAF_OV23850(0x0F70, &val2);
-			Hall_Max = ((val1 << 8) | (val2 & 0x00FF)) & 0xFFFF;
-			g_LC898212_SearchDir = 0;
-		}
-	} else if (strncmp(CONFIG_ARCH_MTK_PROJECT, "k57v1", 5) == 0) {
-
-		s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F63, &val2);
-		s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F64, &val1);
-		HallMinCheck = ((val1 << 8) | (val2 & 0x00FF)) & 0xFFFF;
-
-		s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F65, &val2);
-		s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F66, &val1);
-		HallMaxCheck = ((val1 << 8) | (val2 & 0x00FF)) & 0xFFFF;
-
-		s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F67, &val1);
-		s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F68, &val2);
-
-		if ((val1 != 0) && (val2 != 0) &&
-		    (HallMaxCheck >= 0x1FFF && HallMaxCheck <= 0x7FFF) &&
-		    (HallMinCheck >= 0x8001 && HallMinCheck <= 0xEFFF)) {
-
-			Hall_Min = HallMinCheck;
-			Hall_Max = HallMaxCheck;
-
-			Hall_Off = val1;
-			Hall_Bias = val2;
-
-		} else {
-			s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0CC1, &val2);
-			s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0CC2, &val1);
-			HallMinCheck = ((val1 << 8) | (val2 & 0x00FF)) & 0xFFFF;
-
-			s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0CC3, &val2);
-			s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0CC4, &val1);
-			HallMaxCheck = ((val1 << 8) | (val2 & 0x00FF)) & 0xFFFF;
-
-			s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0CC5, &val1);
-			s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0CC6, &val2);
-
-			if ((val1 != 0) && (val2 != 0) &&
-			    (HallMaxCheck >= 0x1FFF &&
-			     HallMaxCheck <= 0x7FFF) &&
-			    (HallMinCheck >= 0x8001 &&
-			     HallMinCheck <= 0xEFFF)) {
-
-				Hall_Min = HallMinCheck;
-				Hall_Max = HallMaxCheck;
-
-				Hall_Off = val1;
-				Hall_Bias = val2;
-			}
-		}
-
-	} else {
-		s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F63, &val2);
-		s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F64, &val1);
-		HallMinCheck = ((val1 << 8) | (val2 & 0x00FF)) & 0xFFFF;
-
-		s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F65, &val2);
-		s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F66, &val1);
-		HallMaxCheck = ((val1 << 8) | (val2 & 0x00FF)) & 0xFFFF;
-
-		s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F67, &val1);
-		s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0F68, &val2);
-
-		if ((val1 != 0) && (val2 != 0) &&
-		    (HallMaxCheck >= 0x1FFF && HallMaxCheck <= 0x7FFF) &&
-		    (HallMinCheck >= 0x8001 && HallMinCheck <= 0xEFFF)) {
-
-			Hall_Min = HallMinCheck;
-			Hall_Max = HallMaxCheck;
-
-			Hall_Off = val1;
-			Hall_Bias = val2;
-		}
+		Hall_Off = val1;
+		Hall_Bias = val2;
 	}
 
 	/* Range Protection : Min = 0x8001 , Max = 0x7FFF */
@@ -643,43 +388,6 @@ static inline int getAFCalPos(__user struct stAF_MotorCalPos *pstMotorCalPos)
 
 	LOG_INF("AF_CalibData_INF : %d\n", u4AF_CalibData_INF);
 	LOG_INF("AF_CalibData_MACRO : %d\n", u4AF_CalibData_MACRO);
-
-	if (strncmp(CONFIG_ARCH_MTK_PROJECT, "k57v1", 5) == 0) {
-		u8 val1 = 0, val2 = 0;
-		unsigned int AF_Infi = 0x00;
-		unsigned int AF_Marco = 0x00;
-
-		s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0011,
-						     &val2); /* low byte */
-		s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0012, &val1);
-		AF_Infi = ((val1 << 8) | (val2 & 0x00FF)) & 0xFFFF;
-		LOG_INF("AF_Infi : %x\n", AF_Infi);
-
-		s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0013, &val2);
-		s4EEPROM_ReadReg_LC898212XDAF_IMX258(0x0014, &val1);
-		AF_Marco = ((val1 << 8) | (val2 & 0x00FF)) & 0xFFFF;
-		LOG_INF("AF_Infi : %x\n", AF_Marco);
-
-		/* Hall_Min = 0x8001; */
-		/* Hall_Max = 0x7FFF; */
-
-		if (AF_Marco > 1023 || AF_Infi > 1023 || AF_Infi > AF_Marco) {
-			u4AF_CalibData_INF = convertAF_DAC(AF_Infi);
-			LOG_INF("u4AF_CalibData_INF : %d\n",
-				u4AF_CalibData_INF);
-			u4AF_CalibData_MACRO = convertAF_DAC(AF_Marco);
-			LOG_INF("u4AF_CalibData_MACRO : %d\n",
-				u4AF_CalibData_MACRO);
-
-			if (u4AF_CalibData_MACRO > 0 &&
-			    u4AF_CalibData_INF < 1024 &&
-			    u4AF_CalibData_INF > u4AF_CalibData_MACRO) {
-				u4AF_CalibData_INF = 1023 - u4AF_CalibData_INF;
-				u4AF_CalibData_MACRO =
-					1023 - u4AF_CalibData_MACRO;
-			}
-		}
-	}
 
 	if (u4AF_CalibData_INF > 0 && u4AF_CalibData_MACRO < 1024 &&
 	    u4AF_CalibData_INF < u4AF_CalibData_MACRO) {
