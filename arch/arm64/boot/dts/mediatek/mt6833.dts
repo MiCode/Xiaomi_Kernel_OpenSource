@@ -1762,6 +1762,10 @@ page_owner=on";
 		eemg-offset-gpu = <0xff>;
 	};
 
+	upower: upower {
+		compatible = "mediatek,mt6833-upower";
+	};
+
 	cpumssv: cpumssv {
 		compatible = "mediatek,cpumssv";
 		state = <0>;
