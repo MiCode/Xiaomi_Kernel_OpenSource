@@ -30,6 +30,15 @@ config QCOM_DMABUF_HEAPS_SYSTEM
 	  along with other optimizatons. If in doubt, say Y
 	  here.
 
+config QCOM_DMABUF_HEAPS_SYSTEM_UNCACHED
+	bool "QCOM DMA-BUF Uncached System Heap"
+	depends on QCOM_DMABUF_HEAPS && QCOM_DMABUF_HEAPS_SYSTEM
+	help
+	  Choose this option to create an uncached QCOM DMA-BUF
+	  system heap. This heap is equivalent to our system heap,
+	  such that the memory is mapped as uncached. If in doubt,
+	  say Y here.
+
 config QCOM_DMABUF_HEAPS_CMA
 	bool "QCOM DMA-BUF CMA Heap"
 	depends on QCOM_DMABUF_HEAPS && DMA_CMA

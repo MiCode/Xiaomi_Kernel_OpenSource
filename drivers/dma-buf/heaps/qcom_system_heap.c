@@ -503,6 +503,9 @@ int qcom_system_heap_create(void)
 	if (IS_ERR(sys_heap))
 		return PTR_ERR(sys_heap);
 
+	if (!IS_ENABLED(CONFIG_QCOM_DMABUF_HEAPS_SYSTEM_UNCACHED))
+		goto out;
+
 	exp_info.name = "qcom,system-uncached";
 	exp_info.ops = &system_uncached_heap_ops;
 	exp_info.priv = NULL;
@@ -517,5 +520,6 @@ int qcom_system_heap_create(void)
 	heap_dev->coherent_dma_mask = DMA_BIT_MASK(64);
 	heap_dev->dma_mask = &heap_dev->coherent_dma_mask;
 
+out:
 	return 0;
 }
