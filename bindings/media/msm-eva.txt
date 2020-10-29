@@ -1,0 +1,154 @@
+* Qualcomm Technologies, Inc. MSM CVP
+
+[Root level node]
+cvp
+=====
+Required properties:
+- compatible : one of:
+	- "qcom,msm-cvp"
+	- "qcom,waipio-cvp" : Invokes driver specific data for waipio
+	- "qcom,lahaina-cvp" : Invokes driver specific data for Lahaina.
+	- "qcom,kona-cvp" : Invokes driver specific data for kona.
+
+Optional properties:
+- reg : offset and length of the CSR register set for the device.
+- interrupts : should contain the cvp interrupt.
+- qcom,reg-presets : list of offset-value pairs for registers to be written.
+  The offsets are from the base offset specified in 'reg'. This is mainly
+  used for QoS, VBIF, etc. presets for video.
+- qcom,qdss-presets : list of physical address and memory allocation size pairs.
+  when fw_debug_mode is set as HFI_DEBUG_MODE_QDSS, all firmware messages will be
+  written to QDSS memory.
+- *-supply: A phandle pointing to the appropriate regulator. Number of
+  regulators vary across targets.
+- clock-names: an array of clocks that the driver is supposed to be
+  manipulating. The clocks names here correspond to the clock names used in
+  clk_get(<name>).
+- qcom,clock-configs = an array of bitmaps of clocks' configurations. The index
+  of the bitmap corresponds to the clock at the same index in qcom,clock-names.
+  The bitmaps describes the actions that the device needs to take regarding the
+  clock (i.e. scale it based on load).
+
+  The bitmap is defined as:
+  scalable = 0x1 (if the driver should vary the clock's frequency based on load)
+- qcom,allowed-clock-rates = an array of supported clock rates by the chipset.
+- qcom,use-non-secure-pil = A bool indicating which type of pil to use to load
+  the fw.
+- qcom,fw-bias = The address at which cvp fw is loaded (manually).
+
+[Second level nodes]
+Context Banks
+=============
+Required properties:
+- compatible : one of:
+	- "qcom,msm-cvp,context-bank"
+- iommus : A phandle parsed by smmu driver. Number of entries will vary
+  across targets.
+
+Optional properties:
+- label - string describing iommu domain usage.
+- buffer-types : bitmap of buffer types that can be mapped into the current
+	IOMMU domain.
+        - Buffer types are defined as the following:
+          input = 0x1
+          output = 0x2
+          output2 = 0x4
+          extradata input = 0x8
+          extradata output = 0x10
+          extradata output2 = 0x20
+          internal scratch = 0x40
+          internal scratch1 = 0x80
+          internal scratch2 = 0x100
+          internal persist = 0x200
+          internal persist1 = 0x400
+          internal cmd queue = 0x800
+- virtual-addr-pool : offset and length of virtual address pool.
+- qcom,fw-context-bank : bool indicating firmware context bank.
+- qcom,secure-context-bank : bool indicating secure context bank.
+
+Buses
+=====
+Required properties:
+- compatible : one of:
+	- "qcom,msm-cvp,bus"
+- label : an arbitrary name
+- qcom,bus-master : an integer descriptor of the bus master. Refer to arch/arm/\
+  boot/dts/include/dt-bindings/msm/msm-bus-ids.h for list of acceptable masters
+- qcom,bus-slave : an integer descriptor of the bus slave. Refer to arch/arm/\
+  boot/dts/include/dt-bindings/msm/msm-bus-ids.h for list of acceptable slaves
+
+Optional properties:
+- qcom,bus-governor : governor to use when scaling bus, generally any commonly
+  found devfreq governor might be used.  In addition to those governors, the
+  custom Venus governors, "msm-vidc-ddr" or "msm-vidc-llcc" are also
+  acceptable values.
+  In the absence of this property the "performance" governor is used.
+- qcom,bus-rage-kbps : an array of two items (<min max>) that indicate the
+  minimum and maximum acceptable votes for the bus.
+  In the absence of this property <0 INT_MAX> is used.
+- qcom,ubwc-10bit : UBWC 10 bit content has different bus requirements,
+  this tag will be used to pick the appropriate bus as per the session profile
+  as shown below in example.
+
+Memory Heaps
+============
+Required properties:
+- compatible : one of:
+	- "qcom,msm-vidc,mem-cdsp"
+- memory-region : phandle to the memory heap/region.
+
+Example:
+	msm_cvp: qcom,cvp@ab00000 {
+		 compatible = "qcom,msm-cvp", "qcom,Lahaina-cvp";
+		 status = "ok";
+		 reg = <0xab00000 0x100000>;
+		 interrupts = <GIC_SPI 234 IRQ_TYPE_LEVEL_HIGH>;
+
+		 /* FIXME: LLCC Info */
+		 /* cache-slice-names = "vidsc0", "vidsc1"; */
+		 /* cache-slices = <&llcc 2>, <&llcc 3>; */
+
+		 /* Supply */
+		 cvp-supply = <&mvs1_gdsc>;
+
+		 /* Clocks */
+		 clock-names =  "gcc_video_axi0",
+			 "gcc_video_axi1", "cvp_clk";
+		 clocks = <&clock_gcc GCC_VIDEO_AXI0_CLK>,
+			<&clock_gcc GCC_VIDEO_AXI1_CLK>,
+			<&clock_videocc VIDEO_CC_MVS1_CLK>;
+		 qcom,proxy-clock-names = "gcc_video_axi0", "gcc_video_axi1",
+			 "cvp_clk";
+
+		 qcom,clock-configs = <0x0 0x0 0x1>;
+		 qcom,allowed-clock-rates = <403000000 520000000
+			 549000000 666000000 800000000>;
+
+		 /* Buses */
+		 bus_cnoc {
+			 compatible = "qcom,msm-cvp,bus";
+			 label = "cnoc";
+			 qcom,bus-master = <MSM_BUS_MASTER_AMPSS_M0>;
+			 qcom,bus-slave = <MSM_BUS_SLAVE_VENUS_CFG>;
+			 qcom,bus-governor = "performance";
+			 qcom,bus-range-kbps = <1000 1000>;
+		 };
+
+		 /* MMUs */
+		 non_secure_cb {
+			 compatible = "qcom,msm-cvp,context-bank";
+			 label = "cvp_hlos";
+			 iommus =
+				 <&apps_smmu 0x2120 0x400>;
+			 qcom,iommu-dma = "disabled";
+			 buffer-types = <0xfff>;
+			 virtual-addr-pool = <0x4b000000 0xe0000000>;
+		 };
+
+		 /* Memory Heaps */
+		 qcom,msm-cvp,mem_cdsp {
+			 compatible = "qcom,msm-cvp,mem-cdsp";
+			 memory-region = <&cdsp_mem>;
+		 };
+	};
+

@@ -1782,6 +1782,7 @@
 #include "waipio-usb.dtsi"
 #include "waipio-dma-heaps.dtsi"
 #include "lahaina-ion.dtsi"
+#include "waipio-eva.dtsi"
 
 &qupv3_se7_2uart {
 	status = "ok";
