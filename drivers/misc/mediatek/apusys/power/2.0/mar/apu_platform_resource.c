@@ -50,9 +50,7 @@ struct hal_param_init_power *init_power_data)
 						pdev->id, pdev->name,
 						pdev->dev.of_node->name);
 	init_power_data->dev = apusys_dev;
-#ifdef APUSYS_POWER_BRINGUP
 	apu_dev = &pdev->dev;
-#endif
 
 	for (i = 0; i < APUSYS_EFUSE_NUM; i++) {
 		cell[i] = nvmem_cell_get(apusys_dev, efuse_field[i]);

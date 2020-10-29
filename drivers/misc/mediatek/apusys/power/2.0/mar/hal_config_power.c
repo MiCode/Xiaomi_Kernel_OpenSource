@@ -319,9 +319,7 @@ static void prepare_apu_regulator(struct device *dev, int prepare)
 
 static void hw_init_setting(void)
 {
-#ifdef APUSYS_POWER_BRINGUP
 	enable_apu_mtcmos(0);
-#endif
 
 #if !BYPASS_POWER_OFF
 	//rpc_power_status_check(0, 0);
@@ -335,10 +333,6 @@ static int init_power_resource(void *param)
 {
 	struct hal_param_init_power *init_data = NULL;
 	struct device *dev = NULL;
-
-#ifdef APUSYS_POWER_BRINGUP
-	g_pwr_log_level = APUSYS_PWR_LOG_DEBUG;
-#endif
 
 	init_data = (struct hal_param_init_power *)param;
 
@@ -379,9 +373,7 @@ static int init_power_resource(void *param)
 	}
 	enable_apu_vcore_clksrc();
 	enable_apu_conn_clksrc();
-#ifdef APUSYS_POWER_BRINGUP
 	enable_apu_mtcmos(1);
-#endif
 	hw_init_setting();
 	set_apu_clock_source(VCORE_OFF_FREQ, V_VCORE);
 	disable_apu_conn_clksrc();

@@ -61,7 +61,6 @@ int enable_apu_mtcmos(int enable)
 	LOG_DBG("%s+ enable: %d, ret = %d\n",
 		__func__, enable, ret_all);
 
-#ifdef APUSYS_POWER_BRINGUP
 	if (enable) {
 		LOG_DBG("%s pm_runtime_get_sync +\n", __func__);
 		pm_runtime_get_sync(apu_dev);
@@ -71,7 +70,6 @@ int enable_apu_mtcmos(int enable)
 		pm_runtime_put(apu_dev);
 		LOG_DBG("%s pm_runtime_put_sync -\n", __func__);
 	}
-#endif
 
 	LOG_DBG("%s- enable:%d, ret = %d\n",
 		__func__, enable, ret_all);
@@ -82,12 +80,9 @@ int prepare_apu_clock(struct device *dev)
 {
 	int ret = 0;
 
-#ifdef APUSYS_POWER_BRINGUP
 	LOG_DBG("%s pm_runtime_enable +\n", __func__);
 	pm_runtime_enable(apu_dev);
 	LOG_DBG("%s pm_runtime_enable -\n", __func__);
-#endif
-
 
 	PREPARE_CLK(clk_top_dsp_sel);
 	PREPARE_CLK(clk_top_dsp1_sel);
