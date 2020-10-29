@@ -127,13 +127,6 @@
 				regulator-enable-ramp-delay = <240>;
 			};
 
-			mt6359p_vsim1_reg: ldo_vsim1 {
-				regulator-name = "vsim1";
-				regulator-min-microvolt = <1700000>;
-				regulator-max-microvolt = <3100000>;
-				regulator-enable-ramp-delay = <480>;
-			};
-
 			mt6359p_vibr_reg: ldo_vibr {
 				regulator-name = "vibr";
 				regulator-min-microvolt = <1200000>;
@@ -348,13 +341,6 @@
 				regulator-ramp-delay = <7500>;
 				regulator-enable-ramp-delay = <240>;
 				regulator-always-on;
-			};
-
-			mt6359p_vsim2_reg: ldo_vsim2 {
-				regulator-name = "vsim2";
-				regulator-min-microvolt = <1700000>;
-				regulator-max-microvolt = <3100000>;
-				regulator-enable-ramp-delay = <480>;
 			};
 
 			mt6359p_vsram_others_sshub_ldo: ldo_vsram_others_sshub {
