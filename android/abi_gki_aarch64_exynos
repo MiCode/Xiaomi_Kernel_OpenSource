@@ -19,6 +19,7 @@
   amba_driver_register
   amba_driver_unregister
   anon_inode_getfd
+  __arch_clear_user
   __arch_copy_from_user
   __arch_copy_in_user
   __arch_copy_to_user
@@ -165,6 +166,7 @@
   config_ep_by_speed
   config_group_init_type_name
   console_lock
+  console_stop
   console_trylock
   console_unlock
   __const_udelay
@@ -1547,6 +1549,7 @@
   __tracepoint_android_vh_is_fpsimd_save
   __tracepoint_device_pm_callback_end
   __tracepoint_device_pm_callback_start
+  __tracepoint_gpu_mem_total
   __tracepoint_pelt_cfs_tp
   tracepoint_probe_register
   __tracepoint_suspend_resume
@@ -1596,6 +1599,7 @@
   ufshcd_dme_get_attr
   ufshcd_dme_set_attr
   ufshcd_pltfrm_init
+  ufshcd_query_descriptor_retry
   ufshcd_remove
   ufshcd_shutdown
   ufshcd_system_resume

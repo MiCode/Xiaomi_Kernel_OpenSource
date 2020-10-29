@@ -4352,10 +4352,10 @@ int module_kallsyms_on_each_symbol(int (*fn)(void *, const char *,
 static void cfi_init(struct module *mod)
 {
 #ifdef CONFIG_CFI_CLANG
-	rcu_read_lock();
+	rcu_read_lock_sched();
 	mod->cfi_check = (cfi_check_fn)find_kallsyms_symbol_value(mod,
 						CFI_CHECK_FN_NAME);
-	rcu_read_unlock();
+	rcu_read_unlock_sched();
 	cfi_module_add(mod, module_addr_min, module_addr_max);
 #endif
 }
