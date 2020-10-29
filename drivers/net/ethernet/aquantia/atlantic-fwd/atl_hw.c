@@ -1255,6 +1255,13 @@ static int __atl_fetch_msm1_stats(struct atl_hw *hw,
 	__READ_MSM_OR_GOTO(ret, hw, ATL_MSM_CTR_TX_PAUSE, &reg, hwsem_put);
 	stats->tx_pause = reg;
 
+	__READ_MSM_OR_GOTO(ret, hw, ATL_MSM_CTR_TX_PKTS_GOOD, &reg, hwsem_put);
+	stats->tx_ether_pkts = reg;
+
+	__READ_MSM_OR_GOTO(ret, hw, ATL_MSM_CTR_TX_OCTETS_LO, &reg, hwsem_put);
+	__READ_MSM_OR_GOTO(ret, hw, ATL_MSM_CTR_TX_OCTETS_HI, &reg2, hwsem_put);
+	stats->tx_ether_octets = ((uint64_t)reg2 << 32) | reg;
+
 	__READ_MSM_OR_GOTO(ret, hw, ATL_MSM_CTR_RX_PAUSE, &reg, hwsem_put);
 	stats->rx_pause = reg;
 
@@ -1294,6 +1301,14 @@ static int __atl_fetch_msm2_stats(struct atl_hw *hw,
 	__READ_MSM_OR_GOTO(ret, hw, ATL_MSM2_CTR_TX_PAUSE_LO, &reg, hwsem_put);
 	__READ_MSM_OR_GOTO(ret, hw, ATL_MSM2_CTR_TX_PAUSE_HI, &reg2, hwsem_put);
 	stats->tx_pause =  ((uint64_t)reg2 << 32) | reg;
+
+	__READ_MSM_OR_GOTO(ret, hw, ATL_MSM2_CTR_TX_PKTS_LO, &reg, hwsem_put);
+	__READ_MSM_OR_GOTO(ret, hw, ATL_MSM2_CTR_TX_PKTS_HI, &reg2, hwsem_put);
+	stats->tx_ether_pkts = ((uint64_t)reg2 << 32) | reg;
+
+	__READ_MSM_OR_GOTO(ret, hw, ATL_MSM2_CTR_TX_OCTETS_LO, &reg, hwsem_put);
+	__READ_MSM_OR_GOTO(ret, hw, ATL_MSM2_CTR_TX_OCTETS_HI, &reg2, hwsem_put);
+	stats->tx_ether_octets = ((uint64_t)reg2 << 32) | reg;
 
 	__READ_MSM_OR_GOTO(ret, hw, ATL_MSM2_CTR_RX_PAUSE_LO, &reg, hwsem_put);
 	__READ_MSM_OR_GOTO(ret, hw, ATL_MSM2_CTR_RX_PAUSE_HI, &reg2, hwsem_put);

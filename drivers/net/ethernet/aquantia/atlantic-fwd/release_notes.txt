@@ -1,3 +1,8 @@
+Version 1.1.13
+==============
+[ATLDRV-1581] - AQ091: AQC DMA stats in Ethtool
+A2: report FW bundle ver instead of mac FW ver
+
 Version 1.1.12
 ==============
 [ATLDRV-1573] - Crash on enable EEE

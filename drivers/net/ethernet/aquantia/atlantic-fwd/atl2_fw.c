@@ -925,8 +925,8 @@ int atl2_get_fw_version(struct atl_hw *hw)
 	struct version_s version;
 
 	atl2_shared_buffer_read_safe(hw, version, &version);
-	mcp->fw_rev = version.mac.major << 24 | version.mac.minor << 16 |
-		      version.mac.build;
+	mcp->fw_rev = version.bundle.major << 24 | version.bundle.minor << 16 |
+		      version.bundle.build;
 
 	mcp->interface_ver = version.drv_iface_ver;
 	return 0;

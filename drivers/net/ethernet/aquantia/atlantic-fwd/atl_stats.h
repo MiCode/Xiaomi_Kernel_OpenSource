@@ -52,8 +52,10 @@ struct atl_ring_stats {
 };
 
 struct atl_ether_stats {
-	uint64_t rx_pause;
 	uint64_t tx_pause;
+	uint64_t tx_ether_pkts;
+	uint64_t tx_ether_octets;
+	uint64_t rx_pause;
 	uint64_t rx_ether_drops;
 	uint64_t rx_ether_octets;
 	uint64_t rx_ether_pkts;
