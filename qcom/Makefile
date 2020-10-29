@@ -34,10 +34,22 @@ dtb-$(CONFIG_ARCH_LAHAINA) += lahaina-rumi.dtb \
 	lahainap-qrd.dtb
 endif
 
+ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
+dtbo-$(CONFIG_ARCH_WAIPIO) += waipio-rumi-overlay.dtbo \
+	waipio-mtp-overlay.dtbo \
+	waipio-cdp-overlay.dtbo \
+	waipio-qrd-overlay.dtbo
+
+waipio-rumi-overlay.dtbo-base := waipio.dtb
+waipio-mtp-overlay.dtbo-base := waipio.dtb
+waipio-cdp-overlay.dtbo-base := waipio.dtb
+waipio-qrd-overlay.dtbo-base := waipio.dtb
+else
 dtb-$(CONFIG_ARCH_WAIPIO) += waipio-rumi.dtb \
 	waipio-mtp.dtb \
 	waipio-cdp.dtb \
 	waipio-qrd.dtb
+endif
 
 dtb-$(CONFIG_ARCH_QTI_VM) += trustedvm.dtb
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
