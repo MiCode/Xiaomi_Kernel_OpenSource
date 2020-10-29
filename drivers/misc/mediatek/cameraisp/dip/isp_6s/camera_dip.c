@@ -6156,7 +6156,6 @@ static long DIP_ioctl(
 				Ret = -EFAULT;
 				goto EXIT;
 			}
-			LOG_AST("gki add list fd:%d\n", ion_mem_info.buf_fd);
 			mutex_lock(&(DipMutexbuf));
 
 			dip_ion_list = kzalloc(sizeof(struct dip_fd_list_template), GFP_KERNEL);
@@ -6166,7 +6165,6 @@ static long DIP_ioctl(
 					dip_ion_entry = list_entry(pos,
 							struct dip_fd_list_template, list);
 					if (ion_mem_info.buf_fd == dip_ion_entry->fd) {
-						LOG_AST("fd:%d\n", ion_mem_info.buf_fd);
 						ion_mem_info.buf_pa = dip_ion_entry->dma_addr;
 					}
 				}
@@ -6184,8 +6182,6 @@ static long DIP_ioctl(
 					(unsigned int)sg_dma_address(dip_ion_list->sgt->sgl);
 				ion_mem_info.buf_pa =
 					(unsigned int)sg_dma_address(dip_ion_list->sgt->sgl);
-				LOG_AST("gki add list cnt:%d,fd:%d, pa:%x\n", get_cnt,
-						ion_mem_info.buf_fd, ion_mem_info.buf_pa);
 				list_add_tail(&dip_ion_list->list, &dip_fd_head);
 			}
 				if (copy_to_user((void *)Param,
@@ -6230,7 +6226,6 @@ static long DIP_ioctl(
 					break;
 				}
 			}
-			LOG_AST("unmap dma successful\n");
 			mutex_unlock(&(DipMutexbuf));
 			Ret = 0;
 		} else {
@@ -6251,10 +6246,6 @@ EXIT:
 	if (Ret != 0)
 		LOG_ERR("Fail, Cmd(%d), Pid(%d),",
 			Cmd, pUserInfo->Pid);
-		LOG_AST("(process, pid, tgid) = (%s, %d, %d)\n",
-			current->comm,
-			current->pid,
-			current->tgid);
 	/*  */
 	return Ret;
 }
