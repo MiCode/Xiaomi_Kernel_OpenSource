@@ -136,6 +136,7 @@
   debugfs_create_u32
   debugfs_create_u8
   debugfs_create_x8
+  debugfs_create_x32
   debugfs_lookup
   debugfs_print_regs32
   debugfs_remove
@@ -275,6 +276,8 @@
   dma_buf_map_attachment
   dma_buf_put
   dma_buf_unmap_attachment
+  dma_buf_vmap
+  dma_buf_vunmap
   dma_fence_array_create
   dma_fence_array_ops
   dma_fence_context_alloc
@@ -289,6 +292,9 @@
   dma_get_sgtable_attrs
   dma_get_slave_channel
   dma_heap_add
+  dma_heap_buffer_alloc
+  dma_heap_buffer_free
+  dma_heap_find
   dmam_alloc_attrs
   dma_map_page_attrs
   dma_map_resource
@@ -308,6 +314,7 @@
   dma_sync_single_for_device
   dma_unmap_page_attrs
   dma_unmap_sg_attrs
+  do_exit
   down_read
   down_write
   dput
@@ -479,6 +486,7 @@
   iommu_fwspec_add_ids
   iommu_fwspec_free
   iommu_get_dma_cookie
+  iommu_get_domain_for_dev
   iommu_group_get
   iommu_group_get_iommudata
   iommu_group_put
@@ -487,6 +495,7 @@
   iommu_map
   iommu_present
   iommu_put_dma_cookie
+  iommu_set_fault_handler
   iommu_unmap
   ion_buffer_zero
   __ion_device_add_heap
@@ -558,7 +567,11 @@
   __kmalloc
   kmalloc_caches
   kmalloc_order_trace
+  kmem_cache_alloc
   kmem_cache_alloc_trace
+  kmem_cache_create
+  kmem_cache_destroy
+  kmem_cache_free
   kmemdup
   kmemdup_nul
   kobject_create_and_add
@@ -609,6 +622,8 @@
   __memcpy_fromio
   __memcpy_toio
   memmove
+  memremap
+  memunmap
   memset
   __memset_io
   mmc_cqe_request_done
@@ -1318,6 +1333,7 @@
   vmap
   vmemmap
   vsnprintf
+  vscnprintf
   vunmap
   vzalloc
   wait_for_completion
