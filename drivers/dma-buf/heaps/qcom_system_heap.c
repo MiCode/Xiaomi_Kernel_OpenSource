@@ -23,6 +23,7 @@
 
 #include <linux/qcom_dma_heap.h>
 #include "heap-helpers.h"
+#include "qcom_dma_heap_priv.h"
 
 static struct dma_heap *sys_heap;
 
@@ -50,7 +51,7 @@ static struct dma_buf *system_heap_allocate(struct dma_heap *heap,
 	if (!helper_buffer)
 		return ERR_PTR(-ENOMEM);
 
-	init_heap_helper_buffer(helper_buffer, system_heap_free);
+	qcom_init_heap_helper_buffer(helper_buffer, system_heap_free);
 	helper_buffer->heap = heap;
 	helper_buffer->size = len;
 
@@ -77,7 +78,7 @@ static struct dma_buf *system_heap_allocate(struct dma_heap *heap,
 	}
 
 	/* create the dmabuf */
-	dmabuf = heap_helper_export_dmabuf(helper_buffer, fd_flags);
+	dmabuf = qcom_heap_helper_export_dmabuf(helper_buffer, fd_flags);
 	if (IS_ERR(dmabuf)) {
 		ret = PTR_ERR(dmabuf);
 		goto err1;

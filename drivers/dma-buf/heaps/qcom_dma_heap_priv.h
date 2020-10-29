@@ -10,6 +10,8 @@
 #include <linux/platform_device.h>
 #include <linux/device.h>
 
+#include "heap-helpers.h"
+
 /**
  * struct platform_heap - defines a heap in the given platform
  * @type:	type of the heap
@@ -47,5 +49,11 @@ void free_pdata(const struct platform_data *pdata);
 int qcom_system_heap_create(void);
 
 int qcom_add_cma_heap(struct platform_heap *heap_data);
+
+void qcom_init_heap_helper_buffer(struct heap_helper_buffer *buffer,
+				  void (*free)(struct heap_helper_buffer *));
+
+struct dma_buf *qcom_heap_helper_export_dmabuf(struct heap_helper_buffer *buffer,
+					       int fd_flags);
 
 #endif /* _QCOM_DMA_HEAP_PRIV_H */

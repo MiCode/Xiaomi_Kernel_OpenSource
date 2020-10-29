@@ -99,7 +99,7 @@ struct dma_buf *cma_heap_allocate(struct dma_heap *heap,
 	if (!helper_buffer)
 		return ERR_PTR(-ENOMEM);
 
-	init_heap_helper_buffer(helper_buffer, cma_heap_free);
+	qcom_init_heap_helper_buffer(helper_buffer, cma_heap_free);
 	helper_buffer->heap = heap;
 	helper_buffer->size = len;
 
@@ -143,7 +143,7 @@ struct dma_buf *cma_heap_allocate(struct dma_heap *heap,
 		helper_buffer->pages[pg] = &cma_pages[pg];
 
 	/* create the dmabuf */
-	dmabuf = heap_helper_export_dmabuf(helper_buffer, fd_flags);
+	dmabuf = qcom_heap_helper_export_dmabuf(helper_buffer, fd_flags);
 	if (IS_ERR(dmabuf)) {
 		ret = PTR_ERR(dmabuf);
 		goto free_pages;
