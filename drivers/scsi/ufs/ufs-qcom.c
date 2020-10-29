@@ -1596,14 +1596,10 @@ static void ufs_qcom_set_caps(struct ufs_hba *hba)
 		hba->caps |= UFSHCD_CAP_CRYPTO;
 	}
 
-	if (host->hw_ver.major >= 0x2) {
-#ifdef CONFIG_SCSI_UFSHCD_QTI
-		if (!host->disable_lpm)
-			hba->caps |= UFSHCD_CAP_POWER_COLLAPSE_DURING_HIBERN8;
-#endif
+	if (host->hw_ver.major >= 0x2)
 		host->caps = UFS_QCOM_CAP_QUNIPRO |
 			     UFS_QCOM_CAP_RETAIN_SEC_CFG_AFTER_PWR_COLLAPSE;
-	}
+
 	if (host->hw_ver.major >= 0x3) {
 		host->caps |= UFS_QCOM_CAP_QUNIPRO_CLK_GATING;
 		/*
