@@ -71,6 +71,7 @@
   __ioread32_copy
   __ioremap
   __iowrite32_copy
+  __ipv6_addr_type
   __irq_alloc_descs
   __irq_domain_add
   __irq_set_handler
@@ -1188,6 +1189,7 @@
   import_iovec
   in_aton
   in_egroup_p
+  in6_pton
   init_dummy_netdev
   init_net
   init_task
@@ -1270,6 +1272,7 @@
   ion_query_heaps_kernel
   iounmap
   iput
+  ipv6_stub
   irq_chip_ack_parent
   irq_chip_disable_parent
   irq_chip_enable_parent
@@ -1372,6 +1375,7 @@
   kset_unregister
   kstat
   kstrdup
+  kstrdup_quotable
   kstrndup
   kstrtobool
   kstrtobool_from_user
@@ -1517,6 +1521,7 @@
   napi_schedule_prep
   netdev_err
   netdev_info
+  netdev_state_change
   netdev_update_features
   netdev_warn
   netif_carrier_off
@@ -1664,6 +1669,7 @@
   panic_timeout
   param_array_ops
   param_get_int
+  param_get_uint
   param_ops_bool
   param_ops_byte
   param_ops_charp
@@ -1820,6 +1826,7 @@
   proto_register
   proto_unregister
   pskb_expand_head
+  public_key_verify_signature
   put_device
   put_disk
   put_pid
@@ -1979,6 +1986,8 @@
   rtnl_is_locked
   rtnl_lock
   rtnl_unlock
+  rt_mutex_lock
+  rt_mutex_unlock
   save_stack_trace
   save_stack_trace_tsk
   sched_clock
@@ -2373,6 +2382,7 @@
   truncate_inode_pages
   try_module_get
   try_wait_for_completion
+  tty_encode_baud_rate
   tty_flip_buffer_push
   tty_hangup
   tty_insert_flip_string_fixed_flag
@@ -2395,6 +2405,7 @@
   tty_std_termios
   tty_termios_baud_rate
   tty_termios_copy_hw
+  tty_termios_hw_change
   tty_unregister_device
   tty_unregister_driver
   tty_vhangup
@@ -2612,9 +2623,12 @@
   usb_unregister_notify
   usb_wait_anchor_empty_timeout
   usb_wakeup_notification
+  usbnet_cdc_unbind
   usbnet_change_mtu
   usbnet_defer_kevent
+  usbnet_device_suggests_idle
   usbnet_disconnect
+  usbnet_generic_cdc_bind
   usbnet_get_drvinfo
   usbnet_get_endpoints
   usbnet_get_ethernet_addr
