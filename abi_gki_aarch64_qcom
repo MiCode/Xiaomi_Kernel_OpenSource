@@ -22,6 +22,7 @@
   atomic_notifier_chain_unregister
   bcmp
   bitmap_find_next_zero_area_off
+  __bitmap_clear
   __bitmap_set
   blk_execute_rq_nowait
   blk_get_request
@@ -371,7 +372,9 @@
   gen_pool_best_fit
   gen_pool_create
   gen_pool_destroy
+  gen_pool_first_fit_order_align
   gen_pool_free_owner
+  gen_pool_has_addr
   gen_pool_set_algo
   gen_pool_size
   gen_pool_virt_to_phys
@@ -453,6 +456,7 @@
   iio_read_channel_processed
   import_iovec
   in_egroup_p
+  init_iova_domain
   init_net
   __init_rwsem
   __init_swait_queue_head
@@ -602,6 +606,7 @@
   ktime_get_mono_fast_ns
   ktime_get_real_ts64
   ktime_get_with_offset
+  kvfree
   led_classdev_flash_register_ext
   led_classdev_flash_unregister
   led_classdev_unregister
@@ -835,6 +840,7 @@
   proto_unregister
   put_device
   put_disk
+  put_iova_domain
   put_sg_io_hdr
   __put_task_struct
   pwm_apply_state
@@ -1025,6 +1031,9 @@
   sg_alloc_table_from_pages
   sg_free_table
   sg_init_table
+  sg_miter_next
+  sg_miter_start
+  sg_miter_stop
   sg_next
   __sg_page_iter_next
   __sg_page_iter_start
@@ -1329,7 +1338,10 @@
   video_ioctl2
   __video_register_device
   video_unregister_device
+  vm_map_pages
   vmalloc
+  vmalloc_to_page
+  vmalloc_to_pfn
   vmap
   vmemmap
   vsnprintf
