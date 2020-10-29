@@ -2,7 +2,6 @@ BRANCH=android-mainline
 KMI_GENERATION=0
 
 LLVM=1
-LLVM_IAS=1
 DEPMOD=depmod
 DTC=dtc
 CLANG_PREBUILT_BIN=prebuilts-master/clang/host/linux-x86/clang-r383902/bin
