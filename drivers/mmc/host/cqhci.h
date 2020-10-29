@@ -118,6 +118,8 @@
  * register address for SDHC v5.0 onwards.
  */
 #define CQE_V5_VENDOR_CFG		0x900
+#define CQHCI_VENDOR_CFG   0x100
+#define CMDQ_SEND_STATUS_TRIGGER (1 << 31)
 
 #define CQHCI_INT_ALL			0xF
 #define CQHCI_IC_DEFAULT_ICCTH		31
