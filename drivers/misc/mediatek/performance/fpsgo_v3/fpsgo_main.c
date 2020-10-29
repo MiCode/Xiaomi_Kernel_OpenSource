@@ -20,6 +20,7 @@
 #include "fps_composer.h"
 #include "xgf.h"
 #include "mtk_drm_arr.h"
+#include "utch.h"
 
 #define CREATE_TRACE_POINTS
 
@@ -594,6 +595,9 @@ static void __exit fpsgo_exit(void)
 	mtk_fstb_exit();
 	fpsgo_composer_exit();
 	fpsgo_sysfs_exit();
+
+	/* touch boost */
+	exit_utch_mod();
 }
 
 static int __init fpsgo_init(void)
@@ -618,6 +622,9 @@ static int __init fpsgo_init(void)
 	fbt_cpu_init();
 	mtk_fstb_init();
 	fpsgo_composer_init();
+
+	/* touch boost */
+	init_utch_mod();
 
 	fpsgo_switch_enable(1);
 

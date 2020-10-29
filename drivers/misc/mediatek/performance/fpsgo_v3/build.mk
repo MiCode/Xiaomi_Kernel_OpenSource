@@ -19,6 +19,7 @@ BASE_TOP = $(FPSGO_TOP)/base
 FBT_TOP = $(FPSGO_TOP)/fbt
 FSTB_TOP = $(FPSGO_TOP)/fstb
 COM_TOP = $(FPSGO_TOP)/composer
+UTCH_TOP = $(FPSGO_TOP)/utch
 
 mtk_fpsgo_objs += fpsgo_main.o
 mtk_fpsgo_objs += base/
@@ -27,13 +28,16 @@ mtk_fpsgo_objs += composer/
 mtk_fpsgo_objs += fbt/
 mtk_fpsgo_objs += fstb/
 
+mtk_fpsgo_objs += utch/
+
 ccflags-y += \
         -I$(srctree)/include/ \
         -I$(MTK_TOP)/include/ \
-	-I$(MTK_TOP)/dfrc/ \
-	-I$(BASE_TOP)/include/ \
+        -I$(MTK_TOP)/dfrc/ \
+        -I$(BASE_TOP)/include/ \
         -I$(FBT_TOP)/include/ \
         -I$(FSTB_TOP)/ \
         -I$(COM_TOP)/include/ \
         -I$(EARA_JOB_TOP)/include/ \
         -I$(VIDEOX_TOP)/ \
+        -I$(UTCH_TOP)/ \
