@@ -15,7 +15,8 @@
 #include <linux/pm_qos.h>
 #include <linux/sort.h>
 
-#include "tchbst.h"
+#include "utch.h"
+#include "fstb.h"
 
 #define DEBUG_LOG	0
 
@@ -434,7 +435,7 @@ out_chrdev:
 }
 
 
-static void __exit exit_utch_mod(void)
+void exit_utch_mod(void)
 {
 	int i;
 
@@ -450,7 +451,7 @@ static void __exit exit_utch_mod(void)
 	kfree(opp_tbl);
 }
 
-static int __init init_utch_mod(void)
+int init_utch_mod(void)
 {
 	int cpu;
 	int num = 0, count;
@@ -535,12 +536,4 @@ static int __init init_utch_mod(void)
 
 	return 0;
 }
-
-module_init(init_utch_mod);
-module_exit(exit_utch_mod);
-
-MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("MediaTek touch boost");
-MODULE_AUTHOR("MediaTek Inc.");
-
 

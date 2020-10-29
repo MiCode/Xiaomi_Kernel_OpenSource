@@ -28,7 +28,9 @@ extern int (*usrtch_ioctl_fp)(unsigned long arg);
 extern struct proc_dir_entry *perfmgr_root;
 
 /* mtk_fpsgo.ko */
-extern int is_fstb_active(long long time_diff);
+//extern int is_fstb_active(long long time_diff);
+extern void exit_utch_mod(void);
+extern int init_utch_mod(void);
 
 #endif /* _TCHBST_H */
 
