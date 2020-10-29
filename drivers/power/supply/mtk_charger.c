@@ -2083,6 +2083,7 @@ static int mtk_charger_probe(struct platform_device *pdev)
 	for (i = 0; i < CHGS_SETTING_MAX; i++) {
 		info->chg_data[i].thermal_charging_current_limit = -1;
 		info->chg_data[i].thermal_input_current_limit = -1;
+		info->chg_data[i].input_current_limit_by_aicl = -1;
 	}
 	info->enable_hv_charging = true;
 
