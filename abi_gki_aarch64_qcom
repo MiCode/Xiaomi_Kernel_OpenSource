@@ -540,6 +540,7 @@
   jiffies
   jiffies_to_msecs
   kasprintf
+  kernel_bind
   kernel_connect
   kernel_getsockname
   kernel_kobj
@@ -1128,6 +1129,7 @@
   thermal_zone_device_update
   time64_to_tm
   _totalram_pages
+  __trace_bprintk
   trace_event_buffer_commit
   trace_event_buffer_reserve
   trace_event_ignore_this_pid
@@ -1328,3 +1330,8 @@
   wakeup_source_unregister
   __warn_printk
   work_busy
+  xa_erase
+  xa_find
+  xa_find_after
+  xa_load
+  xa_store
