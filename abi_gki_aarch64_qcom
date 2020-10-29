@@ -838,6 +838,7 @@
   printk
   proto_register
   proto_unregister
+  __pskb_pull_tail
   put_device
   put_disk
   put_iova_domain
