@@ -7,9 +7,6 @@
 #define _HAL_CONFIG_POWER_H_
 
 #include "apusys_power_cust.h"
-#ifndef APUSYS_POWER_BRINGUP //NO_HELIO_DVFSRC
-#include <helio-dvfsrc-opp.h>
-#else
 enum vcore_opp {
 	VCORE_OPP_0 = 0,
 	VCORE_OPP_1,
@@ -17,7 +14,6 @@ enum vcore_opp {
 	VCORE_OPP_3,
 	VCORE_OPP_NUM
 };
-#endif
 
 extern int conn_mtcmos_on;
 
