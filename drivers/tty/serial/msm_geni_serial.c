@@ -2995,6 +2995,8 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 	struct uart_driver *drv;
 	const struct of_device_id *id;
 	bool is_console = false;
+	struct platform_device *wrapper_pdev;
+	struct device_node *wrapper_ph_node;
 
 	id = of_match_device(msm_geni_device_tbl, &pdev->dev);
 	if (!id) {
@@ -3033,6 +3035,19 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 
 	if (drv->cons && !con_enabled) {
 		dev_err(&pdev->dev, "%s, Console Disabled\n", __func__);
+		wrapper_ph_node = of_parse_phandle(pdev->dev.of_node,
+						"qcom,wrapper-core", 0);
+		if (IS_ERR_OR_NULL(wrapper_ph_node))
+			return PTR_ERR(wrapper_ph_node);
+
+		wrapper_pdev = of_find_device_by_node(wrapper_ph_node);
+		of_node_put(wrapper_ph_node);
+		if (IS_ERR_OR_NULL(wrapper_pdev))
+			return PTR_ERR(wrapper_pdev);
+
+		dev_port->wrapper_dev = &wrapper_pdev->dev;
+		dev_port->serial_rsc.wrapper_dev = &wrapper_pdev->dev;
+		geni_se_remove_earlycon_icc_vote(dev_port->wrapper_dev);
 		platform_set_drvdata(pdev, dev_port);
 		return 0;
 	}
@@ -3101,6 +3116,16 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 	}
 
 	ret = uart_add_one_port(drv, uport);
+	if (ret)
+		dev_err(&pdev->dev, "Failed to register uart_port: %d\n",
+				ret);
+	/*
+	 * Remove proxy vote from QUP core which was kept from common driver
+	 * probe on behalf of earlycon
+	 */
+	if (uart_console(uport))
+		geni_se_remove_earlycon_icc_vote(dev_port->wrapper_dev);
+
 exit_geni_serial_probe:
 	IPC_LOG_MSG(dev_port->ipc_log_misc, "%s: ret:%d\n",
 		    __func__, ret);
