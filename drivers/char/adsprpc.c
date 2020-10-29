@@ -5386,15 +5386,8 @@ static int fastrpc_cb_probe(struct device *dev)
 	}
 	sess = &chan->session[chan->sesscount];
 	sess->used = 0;
-#if IS_ENABLED(CONFIG_ADSPRPC_QGKI)
-	/*
-	 * On a GKI kernel, the DMA driver does not support I/O coherency and
-	 * the fastrpc driver needs to do the cache maintenance. So this
-	 * device-tree property needs to be read only on a QGKI kernel.
-	 */
 	sess->smmu.coherent = of_property_read_bool(dev->of_node,
-						"dma-coherent-hint-cached");
-#endif
+						"dma-coherent");
 	sess->smmu.secure = of_property_read_bool(dev->of_node,
 						"qcom,secure-context-bank");
 	sess->smmu.cb = iommuspec.args[0] & 0xf;
