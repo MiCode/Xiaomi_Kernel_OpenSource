@@ -64,10 +64,13 @@ static void ufs_mtk_dbg_print_err_hist(char **buff, unsigned long *size,
 void ufs_mtk_dbg_print_info(char **buff, unsigned long *size,
 			    struct seq_file *m)
 {
+	struct ufs_mtk_host *host;
 	struct ufs_hba *hba = ufshba;
 
 	if (!hba)
 		return;
+
+	host = ufshcd_get_variant(hba);
 
 	/* Host state */
 	SPREAD_PRINTF(buff, size, m,
@@ -108,8 +111,8 @@ void ufs_mtk_dbg_print_info(char **buff, unsigned long *size,
 		      "error handling flags=0x%x, req. abort count=%d\n",
 		      hba->eh_flags, hba->req_abort_count);
 	SPREAD_PRINTF(buff, size, m,
-		      "Host capabilities=0x%x, caps=0x%x\n",
-		      hba->capabilities, hba->caps);
+		      "Host capabilities=0x%x, hba-caps=0x%x, mtk-caps:0x%x\n",
+		      hba->capabilities, hba->caps, host->caps);
 	SPREAD_PRINTF(buff, size, m,
 		      "quirks=0x%x, dev. quirks=0x%x\n", hba->quirks,
 		      hba->dev_quirks);
