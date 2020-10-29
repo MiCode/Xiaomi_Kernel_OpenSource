@@ -7,7 +7,6 @@
 #     All files in this list are sourced
 
 CONFIG_DIR=arch/${ARCH}/configs
-CC="${ROOT_DIR}/common/scripts/gcc-wrapper.py ${CC}"
 
 BRANCH=msm-waipio
 CONFIG_TARGET=msm.${MSM_ARCH}
