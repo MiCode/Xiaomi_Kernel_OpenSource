@@ -95,6 +95,30 @@ static bool is_typec_adapter(struct mtk_charger *info)
 	return false;
 }
 
+static bool support_fast_charging(struct mtk_charger *info)
+{
+	struct chg_alg_device *alg;
+	int i = 0, state = 0;
+	bool ret = false;
+
+	for (i = 0; i < MAX_ALG_NO; i++) {
+		alg = info->alg[i];
+		if (alg == NULL)
+			continue;
+
+		chg_alg_set_current_limit(alg, &info->setting);
+		state = chg_alg_is_algo_ready(alg);
+		chr_debug("%s %s ret:%s\n", __func__, dev_name(&alg->dev),
+			chg_alg_state_to_str(state));
+
+		if (state == ALG_READY || state == ALG_RUNNING) {
+			ret = true;
+			break;
+		}
+	}
+	return ret;
+}
+
 static bool select_charging_current_limit(struct mtk_charger *info,
 	struct chg_limit_setting *setting)
 {
@@ -234,9 +258,7 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 		info->setting.charging_current_limit2 == -1)
 		info->enable_hv_charging = true;
 
-	if (info->pd_type == MTK_PD_CONNECT_PE_READY_SNK ||
-		info->pd_type == MTK_PD_CONNECT_PE_READY_SNK_PD30 ||
-		info->pd_type == MTK_PD_CONNECT_PE_READY_SNK_APDO)
+	if (support_fast_charging(info))
 		is_basic = false;
 	else {
 		is_basic = true;

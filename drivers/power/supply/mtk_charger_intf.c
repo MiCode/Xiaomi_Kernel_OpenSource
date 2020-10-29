@@ -271,7 +271,10 @@ int get_charger_type(struct mtk_charger *info)
 
 		ret = power_supply_get_property(chg_psy,
 			POWER_SUPPLY_PROP_USB_TYPE, &prop3);
-		if (prop2.intval == POWER_SUPPLY_TYPE_USB &&
+
+		if (prop.intval == 0)
+			prop2.intval = POWER_SUPPLY_TYPE_UNKNOWN;
+		else if (prop2.intval == POWER_SUPPLY_TYPE_USB &&
 		    prop3.intval == POWER_SUPPLY_USB_TYPE_DCP)
 			prop2.intval = POWER_SUPPLY_TYPE_USB_FLOAT;
 	}
