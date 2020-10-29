@@ -221,9 +221,10 @@ static int do_bus_scaling(struct qcom_adsp *adsp, bool enable)
 			adsp->rproc->name);
 	else
 		rc = icc_set_bw(adsp->bus_client, avg_bw, peak_bw);
-		if (rc)
-			dev_err(adsp->dev, "bandwidth request failed(rc:%d)\n",
-									rc);
+
+	if (rc)
+		dev_err(adsp->dev, "bandwidth request failed(rc:%d)\n", rc);
+
 	return rc;
 }
 
