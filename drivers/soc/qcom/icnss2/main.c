@@ -1834,6 +1834,30 @@ enable_pdr:
 	return 0;
 }
 
+static int icnss_trigger_ssr_smp2p(struct icnss_priv *priv)
+{
+	unsigned int value = 0;
+	int ret;
+
+	if (IS_ERR(priv->smp2p_info.smem_state))
+		return -EINVAL;
+
+	value |= priv->smp2p_info.seq++;
+	value <<= ICNSS_SMEM_SEQ_NO_POS;
+	value |= ICNSS_TRIGGER_SSR;
+	ret = qcom_smem_state_update_bits(
+			priv->smp2p_info.smem_state,
+			ICNSS_SMEM_VALUE_MASK,
+			value);
+	if (ret)
+		icnss_pr_dbg("Error in SMP2P sent ret: %d\n", ret);
+
+	icnss_pr_dbg("Initiate Root PD restart. SMP2P sent value: 0x%X\n",
+		     value);
+	set_bit(ICNSS_HOST_TRIGGERED_PDR, &priv->state);
+	return ret;
+}
+
 static int icnss_tcdev_get_max_state(struct thermal_cooling_device *tcdev,
 					unsigned long *thermal_state)
 {
@@ -2680,6 +2704,9 @@ int icnss_trigger_recovery(struct device *dev)
 		ret = -EPERM;
 		goto out;
 	}
+
+	if (priv->device_id == WCN6750_DEVICE_ID)
+		return icnss_trigger_ssr_smp2p(priv);
 
 	if (!test_bit(ICNSS_PDR_REGISTERED, &priv->state)) {
 		icnss_pr_err("PD restart not enabled to trigger recovery: state: 0x%lx\n",

@@ -172,10 +172,12 @@ struct icnss_fw_mem {
 	unsigned long attrs;
 };
 
-enum icnss_power_save_mode {
+enum icnss_smp2p_msg_id {
 	ICNSS_POWER_SAVE_ENTER = 1,
 	ICNSS_POWER_SAVE_EXIT,
+	ICNSS_TRIGGER_SSR,
 };
+
 struct icnss_stats {
 	struct {
 		uint32_t posted;
