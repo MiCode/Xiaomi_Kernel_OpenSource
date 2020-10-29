@@ -6,5 +6,6 @@
 / {
 	model = "Qualcomm Technologies, Inc. Waipio QRD";
 	compatible = "qcom,waipio-qrd", "qcom,waipio", "qcom,qrd";
+	qcom,msm-id = <457 0x10000>;
 	qcom,board-id = <0x1000B 0>;
 };
