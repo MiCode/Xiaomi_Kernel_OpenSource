@@ -88,6 +88,8 @@ config INTERCONNECT_QCOM_WAIPIO
 	depends on INTERCONNECT_QCOM
 	depends on QCOM_RPMH && QCOM_COMMAND_DB && OF
 	select INTERCONNECT_QCOM_BCM_VOTER
+	select INTERCONNECT_QCOM_RPMH
+	select INTERCONNECT_QCOM_QOS
 	help
 	  This is a driver for the Qualcomm Technologies, Inc. Network-on-Chip
 	  on Waipio-based platforms. Interconnect driver provides interfaces
@@ -97,3 +99,5 @@ config INTERCONNECT_QCOM_WAIPIO
 config INTERCONNECT_QCOM_SMD_RPM
 	tristate
 
+config INTERCONNECT_QCOM_QOS
+	tristate
