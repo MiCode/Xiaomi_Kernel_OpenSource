@@ -5559,6 +5559,13 @@ static int mt6853_afe_pcm_dev_probe(struct platform_device *pdev)
 	if (!pm_runtime_enabled(&pdev->dev))
 		goto err_pm_disable;
 
+	/* Audio device is part of genpd.
+	 * Set audio as syscore device to prevent
+	 * genpd automatically power off audio
+	 * device when suspend
+	 */
+	dev_pm_syscore_device(&pdev->dev, true);
+
 	/* regmap init */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 
