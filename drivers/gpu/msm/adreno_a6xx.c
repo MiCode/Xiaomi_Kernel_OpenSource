@@ -300,32 +300,6 @@ static unsigned int __get_gmu_wfi_config(struct adreno_device *adreno_dev)
 	return 0x00000000;
 }
 
-bool a6xx_cx_regulator_disable_wait(struct regulator *reg,
-				struct kgsl_device *device, u32 timeout)
-{
-	ktime_t tout = ktime_add_us(ktime_get(), timeout * 1000);
-	unsigned int val;
-
-	if (IS_ERR_OR_NULL(reg))
-		return true;
-
-	regulator_disable(reg);
-
-	for (;;) {
-		kgsl_regread(device, A6XX_GPU_CC_CX_GDSCR, &val);
-
-		if (!(val & BIT(31)))
-			return true;
-
-		if (ktime_compare(ktime_get(), tout) > 0) {
-			kgsl_regread(device, A6XX_GPU_CC_CX_GDSCR,
-							&val);
-			return (!(val & BIT(31)));
-		}
-
-		usleep_range((100 >> 2) + 1, 100);
-	}
-}
 
 static void set_holi_sptprac_clock(struct kgsl_device *device, bool enable)
 {
@@ -2439,24 +2413,6 @@ u64 a6xx_read_alwayson(struct adreno_device *adreno_dev)
 	return (((u64) hi) << 32) | lo;
 }
 
-static void a619_holi_regulator_disable_poll(struct kgsl_device *device)
-{
-	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-
-	/* Set the parent in retention voltage to disable CPR interrupts */
-	kgsl_regulator_set_voltage(device->dev, pwr->gx_gdsc_parent,
-			pwr->gx_gdsc_parent_min_corner);
-
-	if (!kgsl_regulator_disable_wait(pwr->gx_gdsc, 200))
-		dev_err(device->dev, "Regulator vdd is stuck on\n");
-
-	/* Remove the vote for the vdd parent supply */
-	kgsl_regulator_set_voltage(device->dev, pwr->gx_gdsc_parent, 0);
-
-	if (!a6xx_cx_regulator_disable_wait(pwr->cx_gdsc, device, 200))
-		dev_err(device->dev, "Regulator vddcx is stuck on\n");
-}
-
 static void a6xx_remove(struct adreno_device *adreno_dev)
 {
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION))
@@ -2702,7 +2658,6 @@ const struct adreno_gpudev adreno_a619_holi_gpudev = {
 	.power_ops = &adreno_power_operations,
 	.clear_pending_transactions = a6xx_clear_pending_transactions,
 	.deassert_gbif_halt = a6xx_deassert_gbif_halt,
-	.regulator_disable_poll = a619_holi_regulator_disable_poll,
 	.remove = a6xx_remove,
 	.ringbuffer_submitcmd = a6xx_ringbuffer_submitcmd,
 	.is_hw_collapsible = adreno_isidle,

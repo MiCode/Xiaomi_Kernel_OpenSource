@@ -44,6 +44,23 @@ int adreno_wake_nice = -7;
 /* Number of milliseconds to stay active active after a wake on touch */
 unsigned int adreno_wake_timeout = 100;
 
+bool adreno_regulator_disable_poll(struct kgsl_device *device,
+		struct regulator *reg, u32 offset, u32 timeout)
+{
+	u32 val;
+	int ret;
+
+	if (IS_ERR_OR_NULL(reg))
+		return true;
+
+	regulator_disable(reg);
+
+	ret = kgsl_regmap_read_poll_timeout(&device->regmap, offset,
+		val, (val & BIT(31)), 100, timeout * 1000);
+
+	return ret ? false : true;
+}
+
 static u32 get_ucode_version(const u32 *data)
 {
 	u32 version;
@@ -2968,22 +2985,6 @@ static void adreno_clk_set_options(struct kgsl_device *device, const char *name,
 			ADRENO_DEVICE(device), name, clk, on);
 }
 
-static void adreno_regulator_disable_poll(struct kgsl_device *device)
-{
-	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(
-						ADRENO_DEVICE(device));
-
-	if (gpudev->regulator_disable_poll)
-		return gpudev->regulator_disable_poll(device);
-
-	if (!kgsl_regulator_disable_wait(pwr->gx_gdsc, 200))
-		dev_err(device->dev, "Regulator vdd is stuck on\n");
-
-	if (!kgsl_regulator_disable_wait(pwr->cx_gdsc, 200))
-		dev_err(device->dev, "Regulator vddcx is stuck on\n");
-}
-
 static void adreno_gpu_model(struct kgsl_device *device, char *str,
 				size_t bufsz)
 {
@@ -3181,7 +3182,6 @@ static const struct kgsl_functable adreno_functable = {
 	.is_hw_collapsible = adreno_is_hw_collapsible,
 	.regulator_disable = adreno_regulator_disable,
 	.pwrlevel_change_settings = adreno_pwrlevel_change_settings,
-	.regulator_disable_poll = adreno_regulator_disable_poll,
 	.clk_set_options = adreno_clk_set_options,
 	.gpu_model = adreno_gpu_model,
 	.query_property_list = adreno_query_property_list,

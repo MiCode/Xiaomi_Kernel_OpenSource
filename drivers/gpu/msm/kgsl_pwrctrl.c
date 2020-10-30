@@ -1368,7 +1368,10 @@ static int kgsl_pwrctrl_pwrrail(struct kgsl_device *device, int state)
 		if (test_and_clear_bit(KGSL_PWRFLAGS_POWER_ON,
 			&pwr->power_flags)) {
 			trace_kgsl_rail(device, state);
-			device->ftbl->regulator_disable_poll(device);
+			if (!kgsl_regulator_disable_wait(pwr->gx_gdsc, 200))
+				dev_err(device->dev, "Regulator vdd is stuck on\n");
+			if (!kgsl_regulator_disable_wait(pwr->cx_gdsc, 200))
+				dev_err(device->dev, "Regulator vddcx is stuck on\n");
 		}
 	} else if (state == KGSL_PWRFLAGS_ON)
 		status = enable_regulators(device);
