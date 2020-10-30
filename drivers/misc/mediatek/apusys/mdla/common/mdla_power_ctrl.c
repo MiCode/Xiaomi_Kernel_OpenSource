@@ -319,7 +319,6 @@ int mdla_pwr_device_register(struct platform_device *pdev,
 
 		pwr_ctrl->mdla_id = i;
 		mutex_init(&pwr_ctrl->lock);
-		lockdep_set_class(&pwr_ctrl->lock, &pwr_ctrl->lock_key);
 		timer_setup(&pwr_ctrl->power_off_timer, mdla_pwr_timeup, 0);
 
 		pwr_ctrl->power_off_cb_func = mdla_pwr_off;
