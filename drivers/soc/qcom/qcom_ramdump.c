@@ -16,6 +16,13 @@
 #include <linux/devcoredump.h>
 #include <linux/soc/qcom/mdt_loader.h>
 
+static int enable_dump_collection;
+module_param(enable_dump_collection, int, 0644);
+
+bool dump_enabled(void)
+{
+	return enable_dump_collection;
+}
 
 int qcom_dump(struct list_head *segs, struct device *dev)
 {

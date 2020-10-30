@@ -21,6 +21,7 @@ struct qcom_dump_segment {
 extern int qcom_elf_dump(struct list_head *segs, struct device *dev);
 extern int qcom_dump(struct list_head *head, struct device *dev);
 extern int qcom_fw_elf_dump(struct firmware *fw, struct device *dev);
+extern bool dump_enabled(void);
 #else
 static inline int qcom_elf_dump(struct list_head *segs, struct device *dev)
 {
@@ -33,6 +34,10 @@ static inline int qcom_dump(struct list_head *head, struct device *dev)
 static inline int qcom_fw_elf_dump(struct firmware *fw, struct device *dev)
 {
 	return -ENODEV;
+}
+static inline bool dump_enabled(void)
+{
+	return false;
 }
 #endif /* CONFIG_QCOM_RAMDUMP */
 
