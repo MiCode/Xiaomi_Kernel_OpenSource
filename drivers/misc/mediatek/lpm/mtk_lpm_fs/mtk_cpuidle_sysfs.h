@@ -24,14 +24,7 @@
 		sz -= l; \
 	} while (0)
 
-struct MT6873_CPUIDLE_NODE {
-	const char *name;
-	int type;
-	struct mtk_lp_sysfs_handle handle;
-	struct mtk_lp_sysfs_op op;
-};
-
-struct MT6853_CPUIDLE_NODE {
+struct MTK_CPUIDLE_NODE {
 	const char *name;
 	int type;
 	struct mtk_lp_sysfs_handle handle;
@@ -66,10 +59,5 @@ int mtk_cpuidle_sysfs_sub_entry_node_add(const char *name
 		, int mode, const struct mtk_lp_sysfs_op *op
 		, struct mtk_lp_sysfs_handle *parent
 		, struct mtk_lp_sysfs_handle *handle);
-
-void mtk_cpuidle_control_init(void);
-void mtk_cpuidle_cpc_init(void);
-void mtk_cpuidle_profile_init(void);
-void mtk_cpuidle_state_init(void);
 
 #endif

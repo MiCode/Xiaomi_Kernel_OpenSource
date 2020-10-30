@@ -5,22 +5,23 @@
 
 #include <linux/fs.h>
 
-#include <mt6853_dbg_fs_common.h>
+#include <lpm_dbg_fs_common.h>
 
+#include <lpm_spm_comm.h>
 void __exit mt6853_dbg_fs_exit(void)
 {
-	mt6853_dbg_cpuidle_fs_deinit();
-	mt6853_dbg_spm_fs_deinit();
-	mt6853_dbg_lpm_fs_deinit();
-	mt6853_dbg_lpm_deinit();
+	lpm_cpuidle_fs_deinit();
+	lpm_spm_fs_deinit();
+	lpm_rc_fs_deinit();
+	lpm_dbg_deinit();
 }
 
 int __init mt6853_dbg_fs_init(void)
 {
-	mt6853_dbg_lpm_init();
-	mt6853_dbg_lpm_fs_init();
-	mt6853_dbg_spm_fs_init();
-	mt6853_dbg_cpuidle_fs_init();
+	lpm_dbg_init();
+	lpm_rc_fs_init();
+	lpm_spm_fs_init();
+	lpm_cpuidle_fs_init();
 	pr_info("%s %d: finish", __func__, __LINE__);
 	return 0;
 }

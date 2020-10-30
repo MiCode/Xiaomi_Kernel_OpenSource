@@ -1,10 +1,5 @@
-
-# Add cflags as bellow
-#mtk_lpm_platform_cflags += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
-
-
-mtk_lpm_platform_objs += mtk_lpm_platform.o
-mtk_lpm_platform_objs += mtk_lpm_irqremain.o
-mtk_lpm_platform_objs += mtk_lpm_resource_ctrl.o
-mtk_lpm_platform_objs += mtk_lpm_rc.o
-mtk_lpm_platform_objs += mtk_lpm_trace.o
+lpm_platform_objs += lpm_platform.o
+lpm_platform_objs += lpm_irqremain.o
+lpm_platform_objs += lpm_resource_ctrl.o
+lpm_platform_objs += lpm_rc.o
+lpm_platform_objs += lpm_trace.o
