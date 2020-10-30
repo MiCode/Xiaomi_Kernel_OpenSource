@@ -337,9 +337,10 @@ static void __iomem *g_infra_peri_debug5;
 #if MT_GPUFREQ_DFD_ENABLE
 static void __iomem *g_infracfg_ao;
 static void __iomem *g_dbgtop;
+static void __iomem *g_toprgu;
 #endif
 static void __iomem *g_sleep;
-static void __iomem *g_toprgu;
+
 
 unsigned int mt_gpufreq_get_shader_present(void)
 {
