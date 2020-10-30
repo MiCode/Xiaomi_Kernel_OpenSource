@@ -767,13 +767,13 @@
 	thermal_zones: thermal-zones {
 		soc_max {
 			polling-delay = <100>; /* milliseconds */
-			polling-delay-passive = <5>; /* milliseconds */
+			polling-delay-passive = <25>; /* milliseconds */
 			thermal-sensors = <&lvts 0>;
 			sustainable-power = <3000>; /* milliwatts */
 
 			trips {
 				threshold: trip-point@0 {
-					temperature = <55000>;
+					temperature = <75000>;
 					hysteresis = <2000>;
 					type = "passive";
 				};
@@ -783,7 +783,7 @@
 					type = "passive";
 				};
 				soc_max_crit: soc_max_crit@0 {
-					temperature = <117000>;
+					temperature = <115000>;
 					hysteresis = <2000>;
 					type = "critical";
 				};
@@ -806,11 +806,6 @@
 						<&cpu5 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
 						<&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
 						<&cpu7 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
-					contribution = <1024>;
-				};
-				map2 {
-					trip = <&target>;
-					cooling-device = <&mali THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
 					contribution = <1024>;
 				};
 			};
@@ -907,7 +902,7 @@
 
 			trips {
 				consys_crit: consys_crit@0 {
-					temperature = <120000>;
+					temperature = <110000>;
 					hysteresis = <2000>;
 					type = "critical";
 				};

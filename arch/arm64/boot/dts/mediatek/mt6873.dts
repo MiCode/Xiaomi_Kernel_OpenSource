@@ -607,12 +607,12 @@
 					type = "passive";
 				};
 				ltepa_ntc_no_ims: ltepa_ntc_trip@1 {
-					temperature = <90000>;
+					temperature = <100000>;
 					hysteresis = <2000>;
 					type = "passive";
 				};
 				ltepa_ntc_crit: ltepa_ntc_trip@2 {
-					temperature = <100000>;
+					temperature = <120000>;
 					hysteresis = <2000>;
 					type = "critical";
 				};
@@ -642,12 +642,12 @@
 					type = "passive";
 				};
 				nrpa_ntc_no_ims: nrpa_ntc_trip@1 {
-					temperature = <90000>;
+					temperature = <100000>;
 					hysteresis = <2000>;
 					type = "passive";
 				};
 				nrpa_ntc_crit: nrpa_ntc_trip@2 {
-					temperature = <100000>;
+					temperature = <120000>;
 					hysteresis = <2000>;
 					type = "critical";
 				};
@@ -673,7 +673,7 @@
 
 			trips {
 				pmic_temp_crit: pmic_temp_crit@0 {
-					temperature = <130000>;
+					temperature = <125000>;
 					hysteresis = <2000>;
 					type = "critical";
 				};
