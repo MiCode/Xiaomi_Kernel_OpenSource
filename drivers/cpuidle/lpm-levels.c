@@ -274,6 +274,23 @@ static uint32_t get_next_event(struct lpm_cpu *cpu)
 	return ktime_to_us(ktime_sub(next_event, ktime_get()));
 }
 
+static void disable_rimps_timer(struct lpm_cpu *cpu)
+{
+	uint32_t ctrl_val;
+
+	if (!cpu->rimps_tmr_base)
+		return;
+
+	spin_lock(&cpu->cpu_lock);
+	ctrl_val = readl_relaxed(cpu->rimps_tmr_base + TIMER_CTRL);
+	writel_relaxed(ctrl_val & ~(TIMER_CONTROL_EN),
+				cpu->rimps_tmr_base + TIMER_CTRL);
+	/* Ensure the write is complete before returning. */
+	wmb();
+	spin_unlock(&cpu->cpu_lock);
+
+}
+
 static void program_rimps_timer(struct lpm_cpu *cpu)
 {
 	uint32_t ctrl_val, next_event;
@@ -1467,6 +1484,8 @@ static int lpm_cpuidle_enter(struct cpuidle_device *dev,
 	success = (ret == 0);
 
 exit:
+	if (idx == cpu->nlevels - 1)
+		disable_rimps_timer(cpu);
 	end_time = ktime_to_ns(ktime_get());
 	lpm_stats_cpu_exit(idx, end_time, success);
 
@@ -1729,6 +1748,7 @@ static int lpm_suspend_enter(suspend_state_t state)
 	cpu_prepare(lpm_cpu, idx, false);
 	cluster_prepare(cluster, cpumask, idx, false, 0);
 
+	disable_rimps_timer(lpm_cpu);
 	ret = psci_enter_sleep(lpm_cpu, idx, false);
 	success = (ret == 0);
 
