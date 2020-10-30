@@ -13,19 +13,17 @@ struct cnss_qmi_event_server_arrive_data {
 	unsigned int port;
 };
 
-#define QDSS_TRACE_SEG_LEN_MAX 32
-#define QDSS_TRACE_FILE_NAME_MAX 16
-
 struct cnss_mem_seg {
 	u64 addr;
 	u32 size;
 };
 
-struct cnss_qmi_event_qdss_trace_save_data {
+struct cnss_qmi_event_fw_mem_file_save_data {
 	u32 total_size;
 	u32 mem_seg_len;
-	struct cnss_mem_seg mem_seg[QDSS_TRACE_SEG_LEN_MAX];
-	char file_name[QDSS_TRACE_FILE_NAME_MAX + 1];
+	enum wlfw_mem_type_enum_v01 mem_type;
+	struct cnss_mem_seg mem_seg[QMI_WLFW_MAX_NUM_MEM_SEG_V01];
+	char file_name[QMI_WLFW_MAX_STR_LEN_V01 + 1];
 };
 
 #ifdef CONFIG_CNSS2_QMI
