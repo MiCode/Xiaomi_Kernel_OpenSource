@@ -60,9 +60,9 @@ static void for_each_apu_tracepoint(
 	struct module *mod;
 	int i;
 
-	preempt_disable();
+	mutex_lock(&module_mutex);
 	mod = find_module("apusys");
-	preempt_enable();
+	mutex_unlock(&module_mutex);
 
 	if (!mod || !fct)
 		return;
