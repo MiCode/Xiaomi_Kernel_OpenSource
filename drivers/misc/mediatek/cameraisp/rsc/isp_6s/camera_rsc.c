@@ -1085,7 +1085,6 @@ signed int CmdqRSCHW(struct frame *frame)
 {
 	struct tee_mmu mmu;
 	struct tee_mmu *records = NULL;
-	unsigned long *pkt_addr = NULL;
 	struct RSC_Config *pRscConfig = NULL;
 	unsigned int hw_array[NUM_BASEADDR];
 	unsigned int fd_array[NUM_BASEADDR];
