@@ -253,9 +253,7 @@ static int __init mtk_scheduler_init(void)
 	if (!dir)
 		return -ENOMEM;
 
-	ret = init_opp_cap_info(dir);
-
-	return ret;
+	return init_opp_cap_info(dir);
 }
 
 static void __exit mtk_scheduler_exit(void)
