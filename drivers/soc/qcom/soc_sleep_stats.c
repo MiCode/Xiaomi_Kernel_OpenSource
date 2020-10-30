@@ -227,6 +227,8 @@ static struct dentry *create_debugfs_entries(void __iomem *reg,
 
 		type = readl_relaxed(prv_data[i].reg);
 		memcpy(stat_type, &type, sizeof(u32));
+		strim(stat_type);
+
 		debugfs_create_file(stat_type, 0444, root,
 				    &prv_data[i],
 				    &soc_sleep_stats_fops);
