@@ -76,7 +76,7 @@
 #define SMI_DUMMY			0x444
 #define SMI_LARB_PORT_NR_MAX		32
 #define SMI_COMMON_LARB_NR_MAX		8
-#define SMI_LARB_MISC_NR		2
+#define SMI_LARB_MISC_NR		3
 #define SMI_COMMON_MISC_NR		6
 struct mtk_smi_reg_pair {
 	u16	offset;
