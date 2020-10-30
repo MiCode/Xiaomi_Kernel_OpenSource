@@ -1549,7 +1549,6 @@
 	};
 
 	disp_rsc: rsc@af20000 {
-		status = "disabled"; /* TODO: Remove after initializing SDE clock in UEFI */
 		label = "disp_rsc";
 		compatible = "qcom,rpmh-rsc";
 		reg = <0xaf20000 0x10000>;
