@@ -1239,6 +1239,8 @@ static int adreno_probe_llcc(struct adreno_device *adreno_dev,
 				"Unable to get the GPU LLC slice: %d\n", ret);
 	}
 
+	adreno_dev->gpu_llc_slice_enable = true;
+
 	/* Get the system cache slice descriptor for GPU pagetables */
 	adreno_dev->gpuhtw_llc_slice = llcc_slice_getd(LLCC_GPUHTW);
 	ret = PTR_ERR_OR_ZERO(adreno_dev->gpuhtw_llc_slice);
@@ -1252,6 +1254,8 @@ static int adreno_probe_llcc(struct adreno_device *adreno_dev,
 			dev_warn(&pdev->dev,
 				"Unable to get GPU HTW LLC slice: %d\n", ret);
 	}
+
+	adreno_dev->gpuhtw_llc_slice_enable = true;
 
 	return 0;
 }
