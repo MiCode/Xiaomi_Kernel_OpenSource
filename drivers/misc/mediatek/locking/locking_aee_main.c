@@ -12,6 +12,9 @@
 #include <linux/sched.h>
 #include <mt-plat/aee.h>
 
+//lockdep_test.c
+int lockdep_test_init(void);
+
 static const char * const critical_lock_list[] = {
 	/* runqueue */
 	"&(&rq->lock)->rlock"
@@ -85,7 +88,9 @@ static int __init locking_aee_init(void)
 		pr_info("register debug_locks_off kretprobe failed, returned %d\n", ret);
 		return -1;
 	}
-	pr_info("%register debug_locks_off kretprobe succeeded.\n");
+	pr_info("register debug_locks_off kretprobe succeeded.\n");
+
+	lockdep_test_init();
 	return 0;
 }
 
