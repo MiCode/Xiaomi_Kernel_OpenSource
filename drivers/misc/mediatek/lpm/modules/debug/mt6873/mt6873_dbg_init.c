@@ -7,12 +7,15 @@
 #include <linux/module.h>
 #include <linux/of_device.h>
 
-
-#include <mt6873_dbg_fs_common.h>
-#include <mt6873_logger.h>
 #include <mtk_cpupm_dbg.h>
-#include <mtk_dbg_common_v1.h>
-#include <mtk_lpm_module.h>
+#include <lpm_dbg_common_v1.h>
+#include <lpm_module.h>
+
+#include <lpm_dbg_fs_common.h>
+#include <lpm_dbg_logger.h>
+
+#include <mt6873_lpm_trace_event.h>
+#include <mt6873_dbg_fs.h>
 
 static int __init mt6873_dbg_early_initcall(void)
 {
@@ -24,7 +27,7 @@ subsys_initcall(mt6873_dbg_early_initcall);
 
 static int __init mt6873_dbg_device_initcall(void)
 {
-	mtk_dbg_common_fs_init();
+	lpm_dbg_common_fs_init();
 	mt6873_dbg_fs_init();
 	mtk_cpupm_dbg_init();
 	return 0;
@@ -33,7 +36,7 @@ static int __init mt6873_dbg_device_initcall(void)
 static int __init mt6873_dbg_late_initcall(void)
 {
 	mt6873_lpm_trace_init();
-	mt6873_logger_init();
+	lpm_logger_init();
 	return 0;
 }
 #ifndef MTK_LPM_MODE_MODULE
@@ -68,11 +71,11 @@ mt6873_dbg_init_fail:
 
 void __exit mt6873_dbg_exit(void)
 {
-	mtk_dbg_common_fs_exit();
+	lpm_dbg_common_fs_exit();
 	mt6873_dbg_fs_exit();
 	mtk_cpupm_dbg_exit();
 	mt6873_lpm_trace_deinit();
-	mt6873_logger_deinit();
+	lpm_logger_deinit();
 }
 
 module_init(mt6873_dbg_init);

@@ -1,0 +1,11 @@
+lpm_modules_debug_common_objs += lpm_dbg_cpuidle_status.o
+lpm_modules_debug_common_objs += mtk_cpupm_dbg.o
+lpm_modules_debug_common_objs += lpm_dbg_cpuidle_control.o
+lpm_modules_debug_common_objs += lpm_dbg_cpuidle_fs.o
+lpm_modules_debug_common_objs += lpm_dbg_cpuidle_profile.o
+lpm_modules_debug_common_objs += lpm_dbg_cpuidle_state.o
+lpm_modules_debug_common_objs += lpm_dbg_fs_common.o
+lpm_modules_debug_common_objs += lpm_dbg_trace.o
+lpm_modules_debug_common_objs += lpm_dbg_logger.o
+lpm_modules_debug_common_objs += lpm_dbg_rc_fs.o
+lpm_modules_debug_common_objs += lpm_dbg_timer.o

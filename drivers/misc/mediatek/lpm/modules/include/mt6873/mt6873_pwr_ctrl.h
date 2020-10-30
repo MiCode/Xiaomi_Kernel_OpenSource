@@ -3,8 +3,8 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
-#ifndef __PWR_CTRL_H__
-#define __PWR_CTRL_H__
+#ifndef __MT6873_PWR_CTRL_H__
+#define __MT6873_PWR_CTRL_H__
 
 /* SPM_WAKEUP_MISC */
 #define WAKE_MISC_GIC_WAKEUP              0x3FF  /* bit0 ~ bit9 */
