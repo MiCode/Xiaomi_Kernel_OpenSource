@@ -72,6 +72,8 @@ static struct ep_pcie_clk_info_t
 	{NULL, "pcie_ldo", 0, true},
 	{NULL, "pcie_sleep_clk", 0, false},
 	{NULL, "pcie_slv_q2a_axi_clk", 0, false},
+	{NULL, "pcie_pipe_clk_mux", 0, false},
+	{NULL, "pcie_pipe_clk_ext_src", 0, false},
 };
 
 static struct ep_pcie_clk_info_t
@@ -349,6 +351,10 @@ static int ep_pcie_clk_init(struct ep_pcie_dev_t *dev)
 		return rc;
 	}
 
+	/* switch pipe clock source after gdsc is turned on */
+	if (dev->pipe_clk_mux && dev->pipe_clk_ext_src)
+		clk_set_parent(dev->pipe_clk_mux, dev->pipe_clk_ext_src);
+
 	if (dev->icc_path) {
 		rc = icc_set_bw(dev->icc_path, ICC_AVG_BW, ICC_PEAK_BW);
 		if (rc) {
@@ -406,6 +412,10 @@ static int ep_pcie_clk_init(struct ep_pcie_dev_t *dev)
 				clk_disable_unprepare(hdl);
 		}
 
+		/* switch pipe clock mux to xo before turning off gdsc */
+		if (dev->pipe_clk_mux && dev->ref_clk_src)
+			clk_set_parent(dev->pipe_clk_mux, dev->ref_clk_src);
+
 		regulator_disable(dev->gdsc);
 	}
 
@@ -430,16 +440,36 @@ static void ep_pcie_clk_deinit(struct ep_pcie_dev_t *dev)
 				dev->rev);
 	}
 
-	if (!m2_enabled)
+	if (!m2_enabled) {
+		/* switch pipe clock mux to xo before turning off gdsc */
+		if (dev->pipe_clk_mux && dev->ref_clk_src)
+			clk_set_parent(dev->pipe_clk_mux, dev->ref_clk_src);
+
 		regulator_disable(dev->gdsc);
+	}
 }
 
 static int ep_pcie_pipe_clk_init(struct ep_pcie_dev_t *dev)
 {
 	int i, rc = 0;
 	struct ep_pcie_clk_info_t *info;
+	char ref_clk_src[MAX_PROP_SIZE];
 
 	EP_PCIE_DBG(dev, "PCIe V%d\n", dev->rev);
+
+	dev->pipe_clk_mux = devm_clk_get(&dev->pdev->dev, "pcie_pipe_clk_mux");
+	if (IS_ERR(dev->pipe_clk_mux))
+		dev->pipe_clk_mux = NULL;
+
+	dev->pipe_clk_ext_src = devm_clk_get(&dev->pdev->dev,
+					"pcie_pipe_clk_ext_src");
+	if (IS_ERR(dev->pipe_clk_ext_src))
+		dev->pipe_clk_ext_src = NULL;
+
+	scnprintf(ref_clk_src, MAX_PROP_SIZE, "pcie_0_ref_clk_src");
+	dev->ref_clk_src = devm_clk_get(&dev->pdev->dev, ref_clk_src);
+	if (IS_ERR(dev->ref_clk_src))
+		dev->ref_clk_src = NULL;
 
 	for (i = 0; i < EP_PCIE_MAX_PIPE_CLK; i++) {
 		info = &dev->pipeclk[i];

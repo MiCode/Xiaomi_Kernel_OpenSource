@@ -177,7 +177,7 @@
 
 #define EP_PCIE_LOG_PAGES 50
 #define EP_PCIE_MAX_VREG 3
-#define EP_PCIE_MAX_CLK 7
+#define EP_PCIE_MAX_CLK 9
 #define EP_PCIE_MAX_PIPE_CLK 1
 #define EP_PCIE_MAX_RESET 2
 
@@ -404,6 +404,10 @@ struct ep_pcie_dev_t {
 	struct work_struct	     handle_perst_work;
 	struct work_struct           handle_bme_work;
 	struct work_struct           handle_d3cold_work;
+
+	struct clk		     *pipe_clk_mux;
+	struct clk		     *pipe_clk_ext_src;
+	struct clk		     *ref_clk_src;
 };
 
 extern struct ep_pcie_dev_t ep_pcie_dev;
