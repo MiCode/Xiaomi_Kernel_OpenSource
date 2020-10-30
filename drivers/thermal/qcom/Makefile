@@ -23,3 +23,4 @@ obj-${CONFIG_QTI_SDPM_CLOCK_MONITOR} += sdpm_clk.o
 obj-$(CONFIG_REGULATOR_COOLING_DEVICE) += regulator_cdev.o
 obj-$(CONFIG_QTI_RPM_SMD_COOLING_DEVICE) += rpm_smd_cooling_device.o
 obj-$(CONFIG_QTI_LIMITS_ISENSE_CDSP) += msm_isense_cdsp.o
+obj-$(CONFIG_QTI_DDR_COOLING_DEVICE) += ddr_cdev.o
