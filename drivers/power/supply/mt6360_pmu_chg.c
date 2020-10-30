@@ -105,7 +105,7 @@ struct mt6360_chg_info {
 	bool pwr_rdy;
 	bool bc12_en;
 	int psy_usb_type;
-	bool tcpc_attach;
+	atomic_t tcpc_attach;
 
 	/* dts: charger */
 	struct power_supply *chg_psy;
@@ -517,7 +517,7 @@ static int __mt6360_enable_usbchgen(struct mt6360_chg_info *mci, bool en)
 			}
 			dev_info(mci->dev, "%s: CDP block\n", __func__);
 			if (IS_ENABLED(CONFIG_TCPC_CLASS)) {
-				if (!(mci->tcpc_attach)) {
+				if (!atomic_read(&mci->tcpc_attach)) {
 					dev_info(mci->dev,
 						 "%s: plug out\n", __func__);
 					return 0;
@@ -570,7 +570,7 @@ static int mt6360_chgdet_pre_process(struct mt6360_chg_info *mci)
 	bool attach = false;
 
 	if (IS_ENABLED(CONFIG_TCPC_CLASS))
-		attach = mci->tcpc_attach;
+		attach = atomic_read(&mci->tcpc_attach);
 	else
 		attach = mci->pwr_rdy;
 	if (attach && (mci->bootmode == 5)) {
@@ -594,7 +594,7 @@ static int mt6360_chgdet_post_process(struct mt6360_chg_info *mci)
 	unsigned int regval;
 
 	if (IS_ENABLED(CONFIG_TCPC_CLASS))
-		attach = mci->tcpc_attach;
+		attach = atomic_read(&mci->tcpc_attach);
 	else
 		attach = mci->pwr_rdy;
 	if (mci->attach == attach) {
@@ -948,12 +948,12 @@ static int __mt6360_enable_chg_type_det(struct mt6360_chg_info *mci, bool en)
 		return ret;
 
 	mutex_lock(&mci->chgdet_lock);
-	if (mci->tcpc_attach == en) {
+	if (atomic_read(&mci->tcpc_attach) == en) {
 		dev_info(mci->dev, "%s attach(%d) is the same\n",
-			 __func__, mci->tcpc_attach);
+			 __func__, atomic_read(&mci->tcpc_attach));
 		goto out;
 	}
-	mci->tcpc_attach = en;
+	atomic_set(&mci->tcpc_attach, en);
 	ret = (en ? mt6360_chgdet_pre_process :
 		    mt6360_chgdet_post_process)(mci);
 out:
@@ -2748,9 +2748,7 @@ static int mt6360_charger_get_online(struct mt6360_chg_info *mci,
 	bool pwr_rdy;
 
 	if (IS_ENABLED(CONFIG_TCPC_CLASS)) {
-		mutex_lock(&mci->chgdet_lock);
-		pwr_rdy = mci->tcpc_attach;
-		mutex_unlock(&mci->chgdet_lock);
+		pwr_rdy = atomic_read(&mci->tcpc_attach);
 	} else {
 		/*uvp_d_stat=true => vbus_on=1*/
 		ret = mt6360_get_chrdet_ext_stat(mci, &pwr_rdy);
@@ -3059,6 +3057,7 @@ static int mt6360_pmu_chg_probe(struct platform_device *pdev)
 	init_completion(&mci->pumpx_done);
 	atomic_set(&mci->pe_complete, 0);
 	atomic_set(&mci->mivr_cnt, 0);
+	atomic_set(&mci->tcpc_attach, 0);
 	init_waitqueue_head(&mci->mivr_wq);
 	if (!IS_ENABLED(CONFIG_TCPC_CLASS) && pdata->bc12_sel == 0)
 		INIT_WORK(&mci->chgdet_work, mt6360_chgdet_work_handler);
