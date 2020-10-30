@@ -137,11 +137,12 @@ static void mdla_irq_intr(struct mdla_dev *mdla_device)
 
 	core_id = mdla_device->mdla_id;
 	status_int = io->cmde.read(core_id, MREG_TOP_G_INTP0);
+
+	spin_lock_irqsave(&mdla_device->hw_lock, flags);
+
 	mask = io->cmde.read(core_id, MREG_TOP_G_INTP2) | MDLA_IRQ_SWCMD_DONE;
 	io->cmde.write(core_id, MREG_TOP_G_INTP2, mask);
 	io->cmde.write(core_id, MREG_TOP_G_INTP0, mask);
-
-	spin_lock_irqsave(&mdla_device->hw_lock, flags);
 
 	/* Toggle for Latch Fin1 Tile ID */
 	io->cmde.read(core_id, MREG_TOP_G_FIN0);

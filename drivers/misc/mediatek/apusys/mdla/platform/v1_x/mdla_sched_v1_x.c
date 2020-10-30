@@ -488,7 +488,6 @@ int mdla_v1_x_sched_init(void)
 		mdla_get_device(i)->sched = sched;
 
 		spin_lock_init(&sched->lock);
-		lockdep_set_class(&sched->lock, &sched->sched_lock_key);
 
 		for (j = 0; j < PRIORITY_LEVEL; j++)
 			INIT_LIST_HEAD(&sched->ce_list[j]);
@@ -503,10 +502,8 @@ int mdla_v1_x_sched_init(void)
 		sched->preempt_ce       = mdla_preempt_ce;
 	}
 
-	for (i = 0; i < PRIORITY_LEVEL; i++) {
+	for (i = 0; i < PRIORITY_LEVEL; i++)
 		spin_lock_init(&smp_ce[i].lock);
-		lockdep_set_class(&smp_ce[i].lock, &smp_ce[i].lock_key);
-	}
 
 	/* set scheduler callback */
 	sched_cb->split_alloc_cmd_batch = mdla_split_alloc_command_batch;

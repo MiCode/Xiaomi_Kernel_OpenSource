@@ -169,26 +169,38 @@ static int mdla_prof_pmu_polling_stop(struct mdla_prof_dev *prof, int wait)
 	return ret;
 }
 
-static void mdla_prof_pmu_timer_enable(u32 core_id, bool en)
+static void mdla_prof_pmu_timer_enable(u32 core_id)
 {
-	struct mdla_dev *mdla_device;
+	struct mdla_prof_dev *prof = mdla_get_device(core_id)->prof;
 
-	mdla_device = mdla_get_device(core_id);
-
-	if (!mdla_device->prof)
+	if (!prof)
 		return;
 
-	mutex_lock(&mdla_device->prof->lock);
+	mutex_lock(&prof->lock);
 
-	if (en && !mdla_device->prof->timer_started) {
-		mdla_prof_pmu_polling_start(mdla_device->prof);
-		mdla_device->prof->timer_started = 1;
-	} else if (!en && mdla_device->prof->timer_started) {
-		mdla_device->prof->timer_started = 0;
-		mdla_prof_pmu_polling_stop(mdla_device->prof, 1);
+	if (!prof->timer_started) {
+		mdla_prof_pmu_polling_start(prof);
+		prof->timer_started = 1;
 	}
 
-	mutex_unlock(&mdla_device->prof->lock);
+	mutex_unlock(&prof->lock);
+}
+
+static void mdla_prof_pmu_timer_disable(u32 core_id)
+{
+	struct mdla_prof_dev *prof = mdla_get_device(core_id)->prof;
+
+	if (!prof)
+		return;
+
+	mutex_lock(&prof->lock);
+
+	if (prof->timer_started) {
+		prof->timer_started = 0;
+		mdla_prof_pmu_polling_stop(prof, 1);
+	}
+
+	mutex_unlock(&prof->lock);
 }
 
 bool mdla_prof_pmu_timer_is_running(u32 core_id)
@@ -200,52 +212,48 @@ bool mdla_prof_pmu_timer_is_running(u32 core_id)
 
 static void mdla_prof_v1_start(u32 core_id)
 {
-	struct mdla_dev *mdla_device;
+	struct mdla_prof_dev *prof = mdla_get_device(core_id)->prof;
+
+	if (!prof)
+		return;
 
 	if (!mdla_trace_get_cfg_pmu_tmr_en())
 		return;
 
-	mdla_device = mdla_get_device(core_id);
+	mutex_lock(&prof->lock);
 
-	if (!mdla_device->prof)
-		return;
-
-	mutex_lock(&mdla_device->prof->lock);
-
-	if (mdla_device->prof->timer_started)
+	if (prof->timer_started)
 		goto out;
 
 	mdla_prof_trace_core_set(core_id);
-	mdla_prof_pmu_polling_start(mdla_device->prof);
-	mdla_device->prof->timer_started = 1;
+	mdla_prof_pmu_polling_start(prof);
+	prof->timer_started = 1;
 
 out:
-	mutex_unlock(&mdla_device->prof->lock);
+	mutex_unlock(&prof->lock);
 }
 
 static void mdla_prof_v1_stop(u32 core_id, int wait)
 {
-	struct mdla_dev *mdla_device;
+	struct mdla_prof_dev *prof = mdla_get_device(core_id)->prof;
+
+	if (!prof)
+		return;
 
 	if (!mdla_trace_get_cfg_pmu_tmr_en())
 		return;
 
-	mdla_device = mdla_get_device(core_id);
+	mutex_lock(&prof->lock);
 
-	if (!mdla_device->prof)
-		return;
-
-	mutex_lock(&mdla_device->prof->lock);
-
-	if (!mdla_device->prof->timer_started)
+	if (!prof->timer_started)
 		goto out;
 
 	mdla_prof_trace_core_clr(core_id);
-	mdla_prof_pmu_polling_stop(mdla_device->prof, wait);
-	mdla_device->prof->timer_started = 0;
+	mdla_prof_pmu_polling_stop(prof, wait);
+	prof->timer_started = 0;
 
 out:
-	mutex_unlock(&mdla_device->prof->lock);
+	mutex_unlock(&prof->lock);
 }
 
 static void mdla_prof_v1_iter(u32 core_id)
@@ -484,12 +492,12 @@ static ssize_t mdla_prof_v2_write(struct file *flip,
 	switch (param) {
 	case PROF_PMU_TIMER_STOP:
 		for_each_mdla_core(i)
-			mdla_prof_pmu_timer_enable(i, false);
+			mdla_prof_pmu_timer_disable(i);
 		break;
 
 	case PROF_PMU_TIMER_START:
 		for_each_mdla_core(i)
-			mdla_prof_pmu_timer_enable(i, false);
+			mdla_prof_pmu_timer_disable(i);
 
 		pmu_ops = mdla_util_pmu_ops_get();
 
@@ -510,7 +518,7 @@ static ssize_t mdla_prof_v2_write(struct file *flip,
 		}
 
 		for_each_mdla_core(i)
-			mdla_prof_pmu_timer_enable(i, true);
+			mdla_prof_pmu_timer_enable(i);
 		break;
 
 	case PROF_LATENCY_ENABLE:
@@ -677,6 +685,7 @@ void mdla_prof_deinit(void)
 	mdla_prof_core_bitmask = 0;
 
 	for_each_mdla_core(i) {
+		mdla_prof_pmu_timer_disable(i);
 		mdla_device = mdla_get_device(i);
 		mutex_destroy(&mdla_device->prof->lock);
 		kfree(mdla_device->prof);
