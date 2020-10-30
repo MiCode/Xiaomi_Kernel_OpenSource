@@ -1658,50 +1658,6 @@ static size_t a6xx_snapshot_isense_registers(struct kgsl_device *device,
 	return (count * 8) + sizeof(*header);
 }
 
-/* Snapshot gmu wrapper registers */
-static size_t a6xx_snapshot_gmu_wrapper_registers(struct kgsl_device *device,
-		u8 *buf, size_t remain, void *priv)
-{
-	struct kgsl_snapshot_regs *header = (struct kgsl_snapshot_regs *)buf;
-	struct kgsl_snapshot_registers *regs = priv;
-	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
-	int count = 0, j, k;
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-
-	/* Figure out how many registers we are going to dump */
-
-	for (j = 0; j < regs->count; j++) {
-		int start = regs->regs[j * 2];
-		int end = regs->regs[j * 2 + 1];
-
-		count += (end - start + 1);
-	}
-
-	if (remain < (count * 8) + sizeof(*header)) {
-		SNAPSHOT_ERR_NOMEM(device, "GMU WRAPPER REGS");
-		return 0;
-	}
-
-	for (j = 0; j < regs->count; j++) {
-		unsigned int start = regs->regs[j * 2];
-		unsigned int end = regs->regs[j * 2 + 1];
-
-		for (k = start; k <= end; k++) {
-			unsigned int val;
-
-			adreno_read_gmu_wrapper(adreno_dev, k, &val);
-			*data++ = k;
-			*data++ = val;
-		}
-	}
-
-	header->count = count;
-
-	/* Return the size of the section */
-	return (count * 8) + sizeof(*header);
-}
-
-
 /* Snapshot the preemption related buffers */
 static size_t snapshot_preemption_record(struct kgsl_device *device,
 	u8 *buf, size_t remain, void *priv)
@@ -1790,15 +1746,7 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 			snapshot, a6xx_snapshot_isense_registers, &r);
 	}
 
-	if (adreno_is_a619_holi(adreno_dev)) {
-		struct kgsl_snapshot_registers r;
-
-		r.regs = a6xx_gmu_wrapper_registers;
-		r.count = ARRAY_SIZE(a6xx_gmu_wrapper_registers) / 2;
-
-		kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS,
-			snapshot, a6xx_snapshot_gmu_wrapper_registers, &r);
-	} else if (!gmu_core_isenabled(device)) {
+	if (!gmu_core_isenabled(device)) {
 		adreno_snapshot_registers(device, snapshot,
 				a6xx_gmu_wrapper_registers,
 				ARRAY_SIZE(a6xx_gmu_wrapper_registers) / 2);

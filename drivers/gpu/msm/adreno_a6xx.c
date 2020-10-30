@@ -106,27 +106,6 @@ static u32 a615_pwrup_reglist[] = {
 	A6XX_UCHE_GBIF_GX_CONFIG,
 };
 
-static void a6xx_gmu_wrapper_init(struct adreno_device *adreno_dev)
-{
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct resource *res;
-
-	if (adreno_dev->gmu_wrapper_virt)
-		return;
-
-	res = platform_get_resource_byname(device->pdev,
-		IORESOURCE_MEM, "gmu_wrapper");
-	if (!res)
-		return;
-
-	adreno_dev->gmu_wrapper_base = res->start - device->reg_phys;
-	adreno_dev->gmu_wrapper_virt = devm_ioremap(&device->pdev->dev,
-		res->start, resource_size(res));
-
-	if (!adreno_dev->gmu_wrapper_virt)
-		dev_warn(device->dev, "gmu_wrapper ioremap failed\n");
-}
-
 int a6xx_fenced_write(struct adreno_device *adreno_dev, u32 offset,
 		u32 value, u32 mask)
 {
@@ -145,7 +124,7 @@ int a6xx_fenced_write(struct adreno_device *adreno_dev, u32 offset,
 		 */
 		mb();
 
-		gmu_core_regread(device, A6XX_GMU_AHB_FENCE_STATUS, &status);
+		kgsl_regread(device, A6XX_GMU_AHB_FENCE_STATUS, &status);
 
 		/*
 		 * If !writedropped0/1, then the write to fenced register
@@ -211,6 +190,7 @@ int a6xx_init(struct adreno_device *adreno_dev)
 
 int a6xx_nogmu_init(struct adreno_device *adreno_dev)
 {
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	int ret;
 
 	ret = adreno_dispatcher_init(adreno_dev);
@@ -225,7 +205,11 @@ int a6xx_nogmu_init(struct adreno_device *adreno_dev)
 	if (ret)
 		return ret;
 
-	a6xx_gmu_wrapper_init(adreno_dev);
+	/* Try to map the GMU wrapper region if applicable */
+	ret = kgsl_regmap_add_region(&device->regmap, device->pdev,
+		"gmu_wrapper", NULL, NULL);
+	if (ret && ret != -ENODEV)
+		dev_err(device->dev, "Couldn't map the GMU wrapper registers\n");
 
 	return a6xx_init(adreno_dev);
 }
@@ -321,7 +305,6 @@ bool a6xx_cx_regulator_disable_wait(struct regulator *reg,
 {
 	ktime_t tout = ktime_add_us(ktime_get(), timeout * 1000);
 	unsigned int val;
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
 	if (IS_ERR_OR_NULL(reg))
 		return true;
@@ -329,21 +312,13 @@ bool a6xx_cx_regulator_disable_wait(struct regulator *reg,
 	regulator_disable(reg);
 
 	for (;;) {
-		if (adreno_is_a619_holi(adreno_dev))
-			adreno_read_gmu_wrapper(adreno_dev,
-					A6XX_GPU_CC_CX_GDSCR, &val);
-		else
-			gmu_core_regread(device, A6XX_GPU_CC_CX_GDSCR, &val);
+		kgsl_regread(device, A6XX_GPU_CC_CX_GDSCR, &val);
 
 		if (!(val & BIT(31)))
 			return true;
 
 		if (ktime_compare(ktime_get(), tout) > 0) {
-			if (adreno_is_a619_holi(adreno_dev))
-				adreno_read_gmu_wrapper(adreno_dev,
-						A6XX_GPU_CC_CX_GDSCR, &val);
-			else
-				gmu_core_regread(device, A6XX_GPU_CC_CX_GDSCR,
+			kgsl_regread(device, A6XX_GPU_CC_CX_GDSCR,
 							&val);
 			return (!(val & BIT(31)));
 		}
@@ -352,15 +327,13 @@ bool a6xx_cx_regulator_disable_wait(struct regulator *reg,
 	}
 }
 
-static void set_holi_sptprac_clock(struct adreno_device *adreno_dev, bool enable)
+static void set_holi_sptprac_clock(struct kgsl_device *device, bool enable)
 {
 	u32 val = 0;
 
-	adreno_read_gmu_wrapper(adreno_dev,
-			A6XX_GPU_GMU_GX_SPTPRAC_CLOCK_CONTROL, &val);
+	kgsl_regread(device, A6XX_GPU_GMU_GX_SPTPRAC_CLOCK_CONTROL, &val);
 	val &= ~1;
-	adreno_write_gmu_wrapper(adreno_dev,
-			A6XX_GPU_GMU_GX_SPTPRAC_CLOCK_CONTROL,
+	kgsl_regwrite(device, A6XX_GPU_GMU_GX_SPTPRAC_CLOCK_CONTROL,
 			val | (enable ? 1 : 0));
 }
 
@@ -404,11 +377,11 @@ static void a6xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
 		gmu_core_regrmw(device,
 			A6XX_GPU_GMU_GX_SPTPRAC_CLOCK_CONTROL, 1, 0);
 	else if (adreno_is_a619_holi(adreno_dev))
-		set_holi_sptprac_clock(adreno_dev, false);
+		set_holi_sptprac_clock(device, false);
 
 	for (i = 0; i < a6xx_core->hwcg_count; i++)
 		kgsl_regwrite(device, a6xx_core->hwcg[i].offset,
-			on ? a6xx_core->hwcg[i].value : 0);
+			on ? a6xx_core->hwcg[i].val : 0);
 
 	/*
 	 * Enable SP clock after programming HWCG registers.
@@ -420,7 +393,7 @@ static void a6xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
 		gmu_core_regrmw(device,
 			A6XX_GPU_GMU_GX_SPTPRAC_CLOCK_CONTROL, 0, 1);
 	else if (adreno_is_a619_holi(adreno_dev))
-		set_holi_sptprac_clock(adreno_dev, true);
+		set_holi_sptprac_clock(device, true);
 
 	/* enable top level HWCG */
 	kgsl_regwrite(device, A6XX_RBBM_CLOCK_CNTL,
@@ -575,7 +548,7 @@ void a6xx_start(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A6XX_RBBM_SECVID_TSB_ADDR_MODE_CNTL, 0x1);
 
 	/* Set up VBIF registers from the GPU core definition */
-	adreno_reglist_write(adreno_dev, a6xx_core->vbif,
+	kgsl_regmap_multi_write(&device->regmap, a6xx_core->vbif,
 		a6xx_core->vbif_count);
 
 	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_LIMIT_UCHE_GBIF_RW))
@@ -744,27 +717,10 @@ void a6xx_start(struct adreno_device *adreno_dev)
 	 * Enable GMU power counter 0 to count GPU busy. This is applicable to
 	 * all a6xx targets
 	 */
-	if (adreno_is_a619_holi(adreno_dev)) {
-		unsigned int val;
+	kgsl_regwrite(device, A6XX_GPU_GMU_AO_GPU_CX_BUSY_MASK, 0xff000000);
+	kgsl_regrmw(device, A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_0, 0xff, 0x20);
+	kgsl_regwrite(device, A6XX_GMU_CX_GMU_POWER_COUNTER_ENABLE, 0x1);
 
-		adreno_write_gmu_wrapper(adreno_dev,
-			A6XX_GPU_GMU_AO_GPU_CX_BUSY_MASK, 0xff000000);
-		adreno_read_gmu_wrapper(adreno_dev,
-			A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_0, &val);
-		adreno_write_gmu_wrapper(adreno_dev,
-			A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_0,
-			(val & 0xff) | 0x20);
-		adreno_write_gmu_wrapper(adreno_dev,
-			A6XX_GMU_CX_GMU_POWER_COUNTER_ENABLE, 0x1);
-
-	} else {
-		kgsl_regwrite(device, A6XX_GPU_GMU_AO_GPU_CX_BUSY_MASK,
-			0xff000000);
-		kgsl_regrmw(device, A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_0,
-			0xff, 0x20);
-		kgsl_regwrite(device, A6XX_GMU_CX_GMU_POWER_COUNTER_ENABLE,
-			0x1);
-	}
 	a6xx_protect_init(adreno_dev);
 	/*
 	 * We start LM here because we want all the following to be up
@@ -2542,33 +2498,6 @@ static void a6xx_read_bus_stats(struct kgsl_device *device,
 	stats->ram_wait = starved_ram;
 }
 
-static void a619_holi_power_stats(struct adreno_device *adreno_dev,
-		struct kgsl_power_stats *stats)
-{
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct adreno_busy_data *busy = &adreno_dev->busy_data;
-	u64 gpu_busy = 0;
-	u32 lo;
-
-	adreno_read_gmu_wrapper(adreno_dev,
-		A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_0_L, &lo);
-
-	if (busy->gpu_busy) {
-		if (lo > busy->gpu_busy)
-			gpu_busy = lo - busy->gpu_busy;
-		else
-			gpu_busy = (UINT_MAX - busy->gpu_busy) + lo;
-	}
-
-	busy->gpu_busy = lo;
-
-	stats->busy_time = gpu_busy * 10;
-	do_div(stats->busy_time, 192);
-
-	if (device->pwrctrl.bus_control)
-		a6xx_read_bus_stats(device, stats, busy);
-}
-
 static void a6xx_power_stats(struct adreno_device *adreno_dev,
 		struct kgsl_power_stats *stats)
 {
@@ -2777,7 +2706,7 @@ const struct adreno_gpudev adreno_a619_holi_gpudev = {
 	.remove = a6xx_remove,
 	.ringbuffer_submitcmd = a6xx_ringbuffer_submitcmd,
 	.is_hw_collapsible = adreno_isidle,
-	.power_stats = a619_holi_power_stats,
+	.power_stats = a6xx_power_stats,
 	.setproperty = a6xx_setproperty,
 };
 

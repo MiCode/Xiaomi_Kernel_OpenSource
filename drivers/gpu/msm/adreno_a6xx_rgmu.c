@@ -313,6 +313,7 @@ static int a6xx_rgmu_wait_for_lowest_idle(struct adreno_device *adreno_dev)
 
 	ts1 = a6xx_read_alwayson(adreno_dev);
 
+	/* FIXME: readl_poll_timeout? */
 	t = jiffies + msecs_to_jiffies(RGMU_IDLE_TIMEOUT);
 	do {
 		gmu_core_regread(device,
@@ -1312,7 +1313,6 @@ static int a6xx_rgmu_probe(struct kgsl_device *device,
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct a6xx_rgmu_device *rgmu = to_a6xx_rgmu(adreno_dev);
-	struct resource *res;
 	int ret;
 
 	rgmu->pdev = pdev;
@@ -1327,20 +1327,11 @@ static int a6xx_rgmu_probe(struct kgsl_device *device,
 	if (ret)
 		return ret;
 
-	/* Map and reserve RGMU CSRs registers */
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "kgsl_rgmu");
-	if (!res) {
-		dev_err(&pdev->dev, "The RGMU register region isn't defined\n");
-		return -ENODEV;
-	}
-
-	device->gmu_core.gmu2gpu_offset = (res->start - device->reg_phys) >> 2;
-	device->gmu_core.reg_len = resource_size(res);
-	device->gmu_core.reg_virt = devm_ioremap_resource(&pdev->dev, res);
-
-	if (IS_ERR(device->gmu_core.reg_virt)) {
+	ret = kgsl_regmap_add_region(&device->regmap, pdev,
+		"kgsl_rgmu", NULL, NULL);
+	if (ret) {
 		dev_err(&pdev->dev, "Unable to map the RGMU registers\n");
-		return PTR_ERR(device->gmu_core.reg_virt);
+		return ret;
 	}
 
 	/* Initialize OOB and RGMU interrupts */

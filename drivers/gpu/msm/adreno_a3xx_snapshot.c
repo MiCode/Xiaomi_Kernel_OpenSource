@@ -280,7 +280,6 @@ static size_t a3xx_snapshot_cp_pm4_ram(struct kgsl_device *device, u8 *buf,
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct kgsl_snapshot_debug *header = (struct kgsl_snapshot_debug *)buf;
 	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
-	int i;
 	struct adreno_firmware *fw = ADRENO_FW(adreno_dev, ADRENO_FW_PM4);
 	size_t size = fw->size - 1;
 
@@ -298,10 +297,8 @@ static size_t a3xx_snapshot_cp_pm4_ram(struct kgsl_device *device, u8 *buf,
 	 * use the cached version of the size, however, instead of trying to
 	 * maintain always changing hardcoded constants
 	 */
-
-	kgsl_regwrite(device, A3XX_CP_ME_RAM_RADDR, 0x0);
-	for (i = 0; i < size; i++)
-		kgsl_regread(device, A3XX_CP_ME_RAM_DATA, &data[i]);
+	kgsl_regmap_read_indexed(&device->regmap, A3XX_CP_ME_RAM_RADDR,
+		A3XX_CP_ME_RAM_DATA, data, size);
 
 	return DEBUG_SECTION_SZ(size);
 }
@@ -312,7 +309,6 @@ static size_t a3xx_snapshot_cp_pfp_ram(struct kgsl_device *device, u8 *buf,
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct kgsl_snapshot_debug *header = (struct kgsl_snapshot_debug *)buf;
 	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
-	int i;
 	struct adreno_firmware *fw = ADRENO_FW(adreno_dev, ADRENO_FW_PFP);
 	int size = fw->size - 1;
 
@@ -330,9 +326,8 @@ static size_t a3xx_snapshot_cp_pfp_ram(struct kgsl_device *device, u8 *buf,
 	 * use the cached version of the size, however, instead of trying to
 	 * maintain always changing hardcoded constants
 	 */
-	kgsl_regwrite(device, A3XX_CP_PFP_UCODE_ADDR, 0x0);
-	for (i = 0; i < size; i++)
-		kgsl_regread(device, A3XX_CP_PFP_UCODE_DATA, &data[i]);
+	kgsl_regmap_read_indexed(&device->regmap, A3XX_CP_PFP_UCODE_ADDR,
+		A3XX_CP_PFP_UCODE_DATA, data, size);
 
 	return DEBUG_SECTION_SZ(size);
 }
@@ -342,7 +337,6 @@ static size_t a3xx_snapshot_cp_roq(struct kgsl_device *device, u8 *buf,
 {
 	struct kgsl_snapshot_debug *header = (struct kgsl_snapshot_debug *) buf;
 	u32 *data = (u32 *) (buf + sizeof(*header));
-	int i;
 
 	if (remain < DEBUG_SECTION_SZ(128)) {
 		SNAPSHOT_ERR_NOMEM(device, "CP ROQ DEBUG");
@@ -352,9 +346,8 @@ static size_t a3xx_snapshot_cp_roq(struct kgsl_device *device, u8 *buf,
 	header->type = SNAPSHOT_DEBUG_CP_ROQ;
 	header->size = 128;
 
-	kgsl_regwrite(device, A3XX_CP_ROQ_ADDR, 0x0);
-	for (i = 0; i < 128; i++)
-		kgsl_regread(device, A3XX_CP_ROQ_DATA, &data[i]);
+	kgsl_regmap_read_indexed(&device->regmap, A3XX_CP_ROQ_ADDR,
+		A3XX_CP_ROQ_DATA, data, 128);
 
 	return DEBUG_SECTION_SZ(128);
 }
@@ -364,7 +357,6 @@ static size_t a3xx_snapshot_cp_meq(struct kgsl_device *device, u8 *buf,
 {
 	struct kgsl_snapshot_debug *header = (struct kgsl_snapshot_debug *) buf;
 	u32 *data = (u32 *) (buf + sizeof(*header));
-	int i;
 
 	if (remain < DEBUG_SECTION_SZ(16)) {
 		SNAPSHOT_ERR_NOMEM(device, "CP MEQ DEBUG");
@@ -374,9 +366,8 @@ static size_t a3xx_snapshot_cp_meq(struct kgsl_device *device, u8 *buf,
 	header->type = SNAPSHOT_DEBUG_CP_MEQ;
 	header->size = 16;
 
-	kgsl_regwrite(device, A3XX_CP_MEQ_ADDR, 0x0);
-	for (i = 0; i < 16; i++)
-		kgsl_regread(device, A3XX_CP_MEQ_DATA, &data[i]);
+	kgsl_regmap_read_indexed(&device->regmap, A3XX_CP_MEQ_ADDR,
+		A3XX_CP_MEQ_DATA, data, 16);
 
 	return DEBUG_SECTION_SZ(16);
 }

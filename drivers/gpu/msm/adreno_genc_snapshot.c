@@ -714,6 +714,7 @@ static void genc_snapshot_mempool(struct kgsl_device *device,
 	u32 val;
 
 	/* set CP_CHICKEN_DBG[StabilizeMVC] to stabilize it while dumping */
+	/* FIXME: read-modify-write */
 	kgsl_regread(device, GENC_CP_CHICKEN_DBG, &val);
 	kgsl_regwrite(device, GENC_CP_CHICKEN_DBG, val | BIT(2));
 

@@ -352,10 +352,9 @@ static void load_tcm(struct adreno_device *adreno_dev, const u8 *src,
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	u32 tcm_offset = tcm_start + ((blk->addr - base)/sizeof(u32));
-	void __iomem *addr = device->gmu_core.reg_virt +
-		((tcm_offset - device->gmu_core.gmu2gpu_offset) << 2);
 
-	memcpy_toio(addr, src, blk->size);
+	kgsl_regmap_bulk_write(&device->regmap, tcm_offset, src,
+		blk->size >> 2);
 }
 
 int genc_gmu_load_fw(struct adreno_device *adreno_dev)
@@ -1746,30 +1745,14 @@ static int genc_gmu_reg_probe(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct genc_gmu_device *gmu = to_genc_gmu(adreno_dev);
-	struct resource *res;
+	int ret;
 
-	res = platform_get_resource_byname(gmu->pdev, IORESOURCE_MEM, "gmu");
-	if (!res) {
-		dev_err(&gmu->pdev->dev, "The GMU register region isn't defined\n");
-		return -ENODEV;
-	}
-
-	device->gmu_core.gmu2gpu_offset = (res->start - device->reg_phys) >> 2;
-	device->gmu_core.reg_len = resource_size(res);
-
-	/*
-	 * We can't use devm_ioremap_resource here because we purposely double
-	 * map the gpu_cc registers for debugging purposes
-	 */
-	device->gmu_core.reg_virt = devm_ioremap(&gmu->pdev->dev, res->start,
-		resource_size(res));
-
-	if (!device->gmu_core.reg_virt) {
+	ret = kgsl_regmap_add_region(&device->regmap, gmu->pdev,
+		"gmu", NULL, NULL);
+	if (ret)
 		dev_err(&gmu->pdev->dev, "Unable to map the GMU registers\n");
-		return -ENOMEM;
-	}
 
-	return 0;
+	return ret;
 }
 
 static int genc_gmu_regulators_probe(struct genc_gmu_device *gmu,

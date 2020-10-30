@@ -758,7 +758,7 @@ void a5xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
 
 	for (i = 0; i < a5xx_core->hwcg_count; i++)
 		kgsl_regwrite(device, a5xx_core->hwcg[i].offset,
-			on ? a5xx_core->hwcg[i].value : 0);
+			on ? a5xx_core->hwcg[i].val : 0);
 
 	/* enable top level HWCG */
 	kgsl_regwrite(device, A5XX_RBBM_CLOCK_CNTL, on ? 0xAAA8AA00 : 0);
@@ -1340,7 +1340,7 @@ static int a5xx_start(struct adreno_device *adreno_dev)
 	_setup_throttling_counters(adreno_dev);
 
 	/* Set up VBIF registers from the GPU core definition */
-	adreno_reglist_write(adreno_dev, a5xx_core->vbif,
+	kgsl_regmap_multi_write(&device->regmap, a5xx_core->vbif,
 		a5xx_core->vbif_count);
 
 	/* Make all blocks contribute to the GPU BUSY perf counter */

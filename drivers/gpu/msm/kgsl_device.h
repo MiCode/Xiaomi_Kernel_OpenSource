@@ -11,6 +11,7 @@
 #include "kgsl.h"
 #include "kgsl_drawobj.h"
 #include "kgsl_mmu.h"
+#include "kgsl_regmap.h"
 
 #define KGSL_IOCTL_FUNC(_cmd, _func) \
 	[_IOC_NR((_cmd))] = \
@@ -91,10 +92,6 @@ struct kgsl_functable {
 	 * by the client device.  The driver will not check for a NULL
 	 * pointer before calling the hook.
 	 */
-	void (*regread)(struct kgsl_device *device,
-		unsigned int offsetwords, unsigned int *value);
-	void (*regwrite)(struct kgsl_device *device,
-		unsigned int offsetwords, unsigned int value);
 	int (*idle)(struct kgsl_device *device);
 	int (*suspend_context)(struct kgsl_device *device);
 	int (*first_open)(struct kgsl_device *device);
@@ -212,15 +209,6 @@ struct kgsl_device {
 	uint32_t flags;
 	u32 id;
 
-	/* Starting physical address for GPU registers */
-	unsigned long reg_phys;
-
-	/* Starting Kernel virtual address for GPU registers */
-	void __iomem *reg_virt;
-
-	/* Total memory size for all GPU registers */
-	unsigned int reg_len;
-
 	/* Kernel virtual address for GPU shader memory */
 	void __iomem *shader_mem_virt;
 
@@ -311,6 +299,8 @@ struct kgsl_device {
 	bool gmu_fault;
 	/** @timelines: xarray for the timelines */
 	struct xarray timelines;
+	/** @regmap: GPU register map */
+	struct kgsl_regmap regmap;
 };
 
 #define KGSL_MMU_DEVICE(_mmu) \
@@ -530,47 +520,25 @@ struct kgsl_snapshot_object {
 
 struct kgsl_device *kgsl_get_device(int dev_idx);
 
-static inline bool kgsl_is_register_offset(struct kgsl_device *device,
-				unsigned int offsetwords)
-{
-	return ((offsetwords * sizeof(uint32_t)) < device->reg_len);
-}
-
 static inline void kgsl_regread(struct kgsl_device *device,
 				unsigned int offsetwords,
 				unsigned int *value)
 {
-	if (kgsl_is_register_offset(device, offsetwords))
-		device->ftbl->regread(device, offsetwords, value);
-	else if (gmu_core_is_register_offset(device, offsetwords))
-		gmu_core_regread(device, offsetwords, value);
-	else {
-		WARN(1, "Out of bounds register read: 0x%x\n", offsetwords);
-		*value = 0;
-	}
+	*value = kgsl_regmap_read(&device->regmap, offsetwords);
 }
 
 static inline void kgsl_regwrite(struct kgsl_device *device,
 				 unsigned int offsetwords,
 				 unsigned int value)
 {
-	if (kgsl_is_register_offset(device, offsetwords))
-		device->ftbl->regwrite(device, offsetwords, value);
-	else if (gmu_core_is_register_offset(device, offsetwords))
-		gmu_core_regwrite(device, offsetwords, value);
-	else
-		WARN(1, "Out of bounds register write: 0x%x\n", offsetwords);
+	kgsl_regmap_write(&device->regmap, value, offsetwords);
 }
 
 static inline void kgsl_regrmw(struct kgsl_device *device,
 		unsigned int offsetwords,
 		unsigned int mask, unsigned int bits)
 {
-	unsigned int val = 0;
-
-	kgsl_regread(device, offsetwords, &val);
-	val &= ~mask;
-	kgsl_regwrite(device, offsetwords, val | bits);
+	kgsl_regmap_rmw(&device->regmap, offsetwords, mask, bits);
 }
 
 static inline int kgsl_idle(struct kgsl_device *device)

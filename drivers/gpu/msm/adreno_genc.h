@@ -61,11 +61,11 @@ struct adreno_genc_core {
 	/** @zap_name: Name of the CPZ zap file */
 	const char *zap_name;
 	/** @hwcg: List of registers and values to write for HWCG */
-	const struct adreno_reglist *hwcg;
+	const struct kgsl_regmap_list *hwcg;
 	/** @hwcg_count: Number of registers in @hwcg */
 	u32 hwcg_count;
 	/** @gbif: List of registers and values to write for GBIF */
-	const struct adreno_reglist *gbif;
+	const struct kgsl_regmap_list *gbif;
 	/** @gbif_count: Number of registers in @gbif */
 	u32 gbif_count;
 	/** @hang_detect_cycles: Hang detect counter timeout value */
