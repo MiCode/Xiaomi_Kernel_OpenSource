@@ -84,7 +84,6 @@ static int scp_dvfs_flag = 1;
  * 3: SCP Sleep: force to sleep
  */
 static int scp_resrc_current_req = -1;
-static int scp_resrc_req_cmd = -1;
 
 static struct mt_scp_pll_t mt_scp_pll;
 static struct wakeup_source *scp_suspend_lock;
