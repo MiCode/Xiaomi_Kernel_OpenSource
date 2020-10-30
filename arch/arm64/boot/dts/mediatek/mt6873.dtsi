@@ -2274,6 +2274,7 @@
 				interrupts = <GIC_SPI 97 IRQ_TYPE_LEVEL_HIGH 0>;
 				clocks = <&infracfg CLK_INFRA_SSUSB_XHCI>;
 				clock-names = "sys_ck";
+				mediatek,keep-clock-on;
 				status = "okay";
 			};
 		};
