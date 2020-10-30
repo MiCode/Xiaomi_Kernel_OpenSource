@@ -30,6 +30,7 @@ stub-regulator.ko
 debug-regulator.ko
 proxy-consumer.ko
 qti-fixed-regulator.ko
+pdr_interface.ko
 phy-qcom-ufs.ko
 phy-qcom-ufs-qrbtc-sdm845.ko
 ufs_qcom.ko

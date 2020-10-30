@@ -23,6 +23,7 @@ bool dump_enabled(void)
 {
 	return enable_dump_collection;
 }
+EXPORT_SYMBOL(dump_enabled);
 
 int qcom_dump(struct list_head *segs, struct device *dev)
 {
