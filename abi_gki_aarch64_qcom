@@ -94,7 +94,6 @@
   clk_unprepare
   cma_alloc
   cma_release
-  cmd_db_is_standalone
   cmd_db_read_addr
   cmd_db_read_aux_data
   cmd_db_read_slave_id

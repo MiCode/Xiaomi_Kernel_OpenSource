@@ -4,8 +4,6 @@ DEFCONFIG="gki_defconfig"
 
 ABI_DEFINITION=abi_gki_aarch64.xml
 KMI_SYMBOL_LIST=abi_gki_aarch64_qcom
-TRIM_NONLISTED_KMI=1
-KMI_SYMBOL_LIST_STRICT_MODE=1
 
 function build_defconfig_fragments() {
 	if [[ "${VARIANT}" =~ ^(gki|consolidate)$ ]]; then
@@ -15,9 +13,6 @@ function build_defconfig_fragments() {
 		fi
 		# ABI comparison isn't applicable on consolidate variant
 		unset ABI_DEFINITION
-		unset KMI_SYMBOL_LIST
-		unset TRIM_NONLISTED_KMI
-		unset KMI_SYMBOL_LIST_STRICT_MODE
 		apply_defconfig_fragment ${KERNEL_DIR}/arch/${ARCH}/configs/vendor/${MSM_ARCH}_consolidate.config vendor/${MSM_ARCH}-consolidate_defconfig
 	elif [ "${VARIANT}" = gki-ack ]; then
 		# In gki-only, then using ACK's GKI config directly
