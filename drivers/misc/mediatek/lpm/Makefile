@@ -14,21 +14,21 @@ endif
 
 
 #mtk-lpm fs source files
-include $(MTK_LPM_BUILD_FOLDER)/mtk_lpm_fs/build.mk
+include $(MTK_LPM_BUILD_FOLDER)/mtk_lpm_fs/Makefile
 ccflags-y += -I$(MTK_LPM_BUILD_FOLDER)/mtk_lpm_fs/
 ccflags-y += ${mtk_lpm_mtk_lpm_fs_cflags}
 MTK_LPM_FS = $(mtk_lpm_mtk_lpm_fs_objs:%.o=mtk_lpm_fs/%.o)
 
 
 #mtk-lpm platform source files
-include $(MTK_LPM_BUILD_FOLDER)/platform/build.mk
+include $(MTK_LPM_BUILD_FOLDER)/platform/Makefile
 ccflags-y += -I$(MTK_LPM_BUILD_FOLDER)/platform/
 ccflags-y += ${mtk_lpm_platform_cflags}
 MTK_LPM_PLATFORM = $(mtk_lpm_platform_objs:%.o=platform/%.o)
 
 
 #mtk-lpm trace evetn source files
-include $(MTK_LPM_BUILD_FOLDER)/mtk_lpm_trace_event/build.mk
+include $(MTK_LPM_BUILD_FOLDER)/mtk_lpm_trace_event/Makefile
 ccflags-y += -I$(MTK_LPM_BUILD_FOLDER)/mtk_lpm_trace_event/
 ccflags-y += -I$(MTK_LPM_BUILD_FOLDER)/inc/mtk_lpm_trace_event/
 ccflags-y += ${mtk_lpm_trace_event_cflags}
