@@ -572,7 +572,7 @@ static int mt6873_afe_vow_barge_in_get(struct snd_kcontrol *kcontrol,
 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
 	int id;
 
-	id = MT6873_MEMIF_AWB;
+	id = MT6873_BARGE_IN_MEMIF;
 	ucontrol->value.integer.value[0] = afe->memif[id].vow_barge_in_enable;
 
 	return 0;
@@ -586,7 +586,7 @@ static int mt6873_afe_vow_barge_in_set(struct snd_kcontrol *kcontrol,
 	int id;
 	int val;
 
-	id = MT6873_MEMIF_AWB;
+	id = MT6873_BARGE_IN_MEMIF;
 	val = ucontrol->value.integer.value[0];
 	dev_info(afe->dev, "%s(), %d\n", __func__, val);
 
