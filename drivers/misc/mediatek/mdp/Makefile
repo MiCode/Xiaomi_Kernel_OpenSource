@@ -69,6 +69,7 @@ mdp_core-y := mdp_common.o \
 	cmdq_mmp.o
 
 mdp_core-$(CONFIG_MTK_MDP_MT6873) += mdp_mt6873.o
+mdp_core-$(CONFIG_MTK_MDP_MT6853) += mdp_mt6853.o
 #obj-y += cmdq_prof.o
 #obj-y += cmdq_test.o
 
