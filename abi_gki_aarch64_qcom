@@ -80,7 +80,9 @@
   clk_hw_get_rate
   clk_hw_is_enabled
   clk_hw_is_prepared
+  clk_hw_register
   clk_hw_round_rate
+  clk_hw_unregister
   __clk_is_enabled
   __clk_mux_determine_rate_closest
   clk_prepare
@@ -234,6 +236,7 @@
   __devm_reset_control_get
   devm_reset_controller_register
   devm_rtc_allocate_device
+  devm_thermal_of_cooling_device_register
   devm_thermal_zone_of_sensor_register
   devm_usb_get_phy
   devm_usb_get_phy_by_phandle
@@ -662,10 +665,12 @@
   nvmem_device_write
   of_address_to_resource
   of_alias_get_id
+  of_clk_add_hw_provider
   of_clk_add_provider
   of_clk_del_provider
   of_clk_get
   of_clk_get_parent_count
+  of_clk_hw_simple_get
   of_clk_src_onecell_get
   of_clk_src_simple_get
   of_count_phandle_with_args
@@ -802,6 +807,7 @@
   pm_generic_suspend
   pm_genpd_add_subdomain
   pm_genpd_init
+  pm_genpd_remove
   pm_genpd_remove_subdomain
   pm_power_off
   __pm_relax
@@ -1151,6 +1157,7 @@
   tasklet_kill
   __tasklet_schedule
   __task_pid_nr_ns
+  thermal_cooling_device_unregister
   thermal_zone_device_update
   time64_to_tm
   _totalram_pages
