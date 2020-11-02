@@ -1160,6 +1160,10 @@ bool out_of_memory(struct oom_control *oc)
 					CONFIG_OOM_TASK_PRIORITY_ADJ_LIMIT);
 			oc->min_kill_adj = prev_min_kill_adj;
 			oc->chosen_points = 0;
+			if (tsk_is_oom_victim(current)) {
+				pr_warn_ratelimited("current killed, retry\n");
+				return true;
+			}
 		}
 
 	}
