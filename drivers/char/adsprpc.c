@@ -18,11 +18,7 @@
 #include <soc/qcom/secure_buffer.h>
 #include <linux/rpmsg.h>
 #include <linux/ipc_logging.h>
-#include <soc/qcom/subsystem_notif.h>
-#include <soc/qcom/subsystem_restart.h>
 #include <linux/remoteproc/qcom_rproc.h>
-#include <soc/qcom/service-notifier.h>
-#include <soc/qcom/service-locator.h>
 #include <linux/scatterlist.h>
 #include <linux/uaccess.h>
 #include <linux/device.h>
@@ -45,6 +41,8 @@
 #include <linux/stat.h>
 #include <linux/preempt.h>
 #include <linux/of_reserved_mem.h>
+#include <linux/soc/qcom/pdr.h>
+#include <linux/soc/qcom/qmi.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/fastrpc.h>
@@ -214,9 +212,6 @@ enum fastrpc_proc_attr {
 
 #define IS_ASYNC_FASTRPC_AVAILABLE (1)
 
-static int fastrpc_pdr_notifier_cb(struct notifier_block *nb,
-					unsigned long code,
-					void *data);
 static struct dentry *debugfs_root;
 static struct dentry *debugfs_global_file;
 
@@ -363,8 +358,6 @@ struct fastrpc_session_ctx {
 struct fastrpc_static_pd {
 	char *servloc_name;
 	char *spdname;
-	struct notifier_block pdrnb;
-	struct notifier_block get_service_nb;
 	void *pdrhandle;
 	uint64_t pdrcount;
 	uint64_t prevpdrcount;
@@ -537,16 +530,12 @@ static struct fastrpc_channel_ctx gcinfo[NUM_CHANNELS] = {
 				.servloc_name =
 					AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME,
 				.spdname = ADSP_AUDIOPD_NAME,
-				.pdrnb.notifier_call =
-						fastrpc_pdr_notifier_cb,
 				.cid = ADSP_DOMAIN_ID,
 			},
 			{
 				.servloc_name =
 				SENSORS_PDR_ADSP_SERVICE_LOCATION_CLIENT_NAME,
 				.spdname = ADSP_SENSORPD_NAME,
-				.pdrnb.notifier_call =
-						fastrpc_pdr_notifier_cb,
 				.cid = ADSP_DOMAIN_ID,
 			}
 		},
@@ -572,8 +561,6 @@ static struct fastrpc_channel_ctx gcinfo[NUM_CHANNELS] = {
 				.servloc_name =
 				SENSORS_PDR_SLPI_SERVICE_LOCATION_CLIENT_NAME,
 				.spdname = SLPI_SENSORPD_NAME,
-				.pdrnb.notifier_call =
-						fastrpc_pdr_notifier_cb,
 				.cid = SDSP_DOMAIN_ID,
 			}
 		},
@@ -5187,17 +5174,23 @@ static int fastrpc_restart_notifier_cb(struct notifier_block *nb,
 	return NOTIFY_DONE;
 }
 
-static int fastrpc_pdr_notifier_cb(struct notifier_block *pdrnb,
-					unsigned long code,
-					void *data)
+
+static void fastrpc_pdr_cb(int state, char *service_path, void *priv)
 {
 	struct fastrpc_apps *me = &gfa;
 	struct fastrpc_static_pd *spd;
+	int err = 0;
 
-	spd = container_of(pdrnb, struct fastrpc_static_pd, pdrnb);
-	if (code == SERVREG_NOTIF_SERVICE_STATE_DOWN_V01) {
+	spd = priv;
+	VERIFY(err, spd);
+	if (err)
+		goto bail;
+
+	switch (state) {
+	case SERVREG_SERVICE_STATE_DOWN:
 		pr_info("adsprpc: %s: %s (%s) is down for PDR on %s\n",
-			__func__, spd->spdname, spd->servloc_name,
+			__func__, spd->spdname,
+			spd->servloc_name,
 			gcinfo[spd->cid].subsys);
 		mutex_lock(&me->channel[spd->cid].smd_mutex);
 		spd->pdrcount++;
@@ -5207,85 +5200,22 @@ static int fastrpc_pdr_notifier_cb(struct notifier_block *pdrnb,
 				AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME))
 			me->staticpd_flags = 0;
 		fastrpc_notify_pdr_drivers(me, spd->servloc_name);
-	} else if (code == SERVREG_NOTIF_SERVICE_STATE_UP_V01) {
-		pr_info("adsprpc: %s: %s (%s) is up on %s\n",
-			__func__, spd->spdname, spd->servloc_name,
+		break;
+	case SERVREG_SERVICE_STATE_UP:
+		pr_info("adsprpc: %s: %s (%s) is up for PDR on %s\n",
+			__func__, spd->spdname,
+			spd->servloc_name,
 			gcinfo[spd->cid].subsys);
 		spd->ispdup = 1;
+		break;
+	default:
+		break;
 	}
-
-	return NOTIFY_DONE;
-}
-
-/*
- * The service locator callback function where the PDR notification
- * callback functions are registered.
- * (like audioPD on ADSP, sensorPD on SLPI/ADSP)
- */
-static int fastrpc_get_service_location_notify(struct notifier_block *nb,
-				unsigned long opcode, void *data)
-{
-	struct fastrpc_static_pd *spd;
-	struct pd_qmi_client_data *pdr = data;
-	int curr_state = 0, i = 0;
-	char *cb_pdname = NULL, *subsys = NULL;
-	uint32_t instance_id = 0;
-
-	spd = container_of(nb, struct fastrpc_static_pd, get_service_nb);
-	subsys = gcinfo[spd->cid].subsys;
-	if (opcode == LOCATOR_DOWN) {
-		pr_warn("adsprpc: %s: PDR notifier locator for %s is down for %s\n",
-				__func__, subsys, spd->servloc_name);
-		return NOTIFY_DONE;
+bail:
+	if (err) {
+		pr_err("adsprpc: %s: failed for path %s, state %d, spd %pK\n",
+			__func__, service_path, state, spd);
 	}
-	for (i = 0; i < pdr->total_domains; i++) {
-		cb_pdname = pdr->domain_list[i].name;
-		instance_id = pdr->domain_list[i].instance_id;
-
-		/* Check the client and staticPD in the callback */
-		if (COMPARE_SERVICE_LOCATOR_NAMES(spd->servloc_name,
-				AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME,
-				cb_pdname, ADSP_AUDIOPD_NAME) ||
-
-			COMPARE_SERVICE_LOCATOR_NAMES(spd->servloc_name,
-				SENSORS_PDR_ADSP_SERVICE_LOCATION_CLIENT_NAME,
-				cb_pdname, ADSP_SENSORPD_NAME) ||
-
-			COMPARE_SERVICE_LOCATOR_NAMES(spd->servloc_name,
-				SENSORS_PDR_SLPI_SERVICE_LOCATION_CLIENT_NAME,
-				cb_pdname, SLPI_SENSORPD_NAME)) {
-
-			goto pdr_register;
-		}
-	}
-	return NOTIFY_DONE;
-
-pdr_register:
-	if (!spd->pdrhandle) {
-		/* Register the PDR notifier callback function */
-		spd->pdrhandle = service_notif_register_notifier(cb_pdname,
-			instance_id, &spd->pdrnb, &curr_state);
-		if (IS_ERR_OR_NULL(spd->pdrhandle))
-			pr_warn("adsprpc: %s: PDR notifier for %s register failed for %s (%s) with err %ld\n",
-				__func__, subsys, cb_pdname, spd->servloc_name,
-				PTR_ERR(spd->pdrhandle));
-		else
-			pr_info("adsprpc: %s: PDR notifier for %s registered for %s (%s)\n",
-			__func__, subsys, cb_pdname, spd->servloc_name);
-	} else {
-		pr_warn("adsprpc: %s: %s (%s) notifier is already registered for %s\n",
-			__func__, cb_pdname, spd->servloc_name, subsys);
-	}
-
-	if (curr_state == SERVREG_NOTIF_SERVICE_STATE_UP_V01) {
-		pr_info("adsprpc: %s: %s (%s) PDR service for %s is up\n",
-			__func__, spd->servloc_name, cb_pdname, subsys);
-		spd->ispdup = 1;
-	} else if (curr_state == SERVREG_NOTIF_SERVICE_STATE_UNINIT_V01) {
-		pr_info("adsprpc: %s: %s (%s) PDR service for %s is uninitialized\n",
-			__func__, spd->servloc_name, cb_pdname, subsys);
-	}
-	return NOTIFY_DONE;
 }
 
 static const struct file_operations fops = {
@@ -5480,28 +5410,40 @@ static void configure_secure_channels(uint32_t secure_domains)
  * PDR property has been enabled in the fastrpc node on the DTSI.
  */
 static int fastrpc_setup_service_locator(struct device *dev,
-	const char *propname, char *client_name, char *service_name)
+					 const char *propname,
+					 char *client_name, char *service_name,
+					 char *service_path)
 {
 	int err = 0, session = -1, cid = -1;
 	struct fastrpc_apps *me = &gfa;
+	struct pdr_handle *handle = NULL;
+	struct pdr_service *service = NULL;
 
 	if (of_property_read_bool(dev->of_node, propname)) {
 		err = fastrpc_get_spd_session(client_name, &session, &cid);
 		if (err)
 			goto bail;
 		/* Register the service locator's callback function */
-		me->channel[cid].spd[session].get_service_nb.notifier_call =
-					fastrpc_get_service_location_notify;
-		err = get_service_location(client_name, service_name,
-				&me->channel[cid].spd[session].get_service_nb);
-		if (err)
-			pr_warn("adsprpc: %s: get service location failed with %d for %s (%s)\n",
-				__func__, err, service_name, client_name);
-		else
-			pr_info("adsprpc: %s: service location enabled for %s (%s)\n",
-				__func__, service_name, client_name);
+		handle = pdr_handle_alloc(fastrpc_pdr_cb, &me->channel[cid].spd[session]);
+		if (!handle) {
+			err = -ENOMEM;
+			goto bail;
+		}
+		me->channel[cid].spd[session].pdrhandle = handle;
+		service = pdr_add_lookup(handle, service_name, service_path);
+		if (!service) {
+			err = -EPERM;
+			goto bail;
+		}
+		pr_info("adsprpc: %s: pdr_add_lookup enabled for %s (%s, %s), DTSI (%s)\n",
+			__func__, service_name, client_name, service_path, propname);
 	}
+
 bail:
+	if (err) {
+		pr_warn("adsprpc: %s: failed for %s (%s, %s), DTSI (%s) with err %d\n",
+				__func__, service_name, client_name, service_path, propname, err);
+	}
 	return err;
 }
 
@@ -5552,13 +5494,13 @@ static int fastrpc_probe(struct platform_device *pdev)
 
 	fastrpc_setup_service_locator(dev, AUDIO_PDR_ADSP_DTSI_PROPERTY_NAME,
 		AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME,
-		AUDIO_PDR_ADSP_SERVICE_NAME);
+		AUDIO_PDR_ADSP_SERVICE_NAME, ADSP_AUDIOPD_NAME);
 	fastrpc_setup_service_locator(dev, SENSORS_PDR_ADSP_DTSI_PROPERTY_NAME,
 		SENSORS_PDR_ADSP_SERVICE_LOCATION_CLIENT_NAME,
-		SENSORS_PDR_ADSP_SERVICE_NAME);
+		SENSORS_PDR_ADSP_SERVICE_NAME, ADSP_SENSORPD_NAME);
 	fastrpc_setup_service_locator(dev, SENSORS_PDR_SLPI_DTSI_PROPERTY_NAME,
 		SENSORS_PDR_SLPI_SERVICE_LOCATION_CLIENT_NAME,
-		SENSORS_PDR_SLPI_SERVICE_NAME);
+		SENSORS_PDR_SLPI_SERVICE_NAME, SLPI_SENSORPD_NAME);
 
 	err = of_platform_populate(pdev->dev.of_node,
 					  fastrpc_match_table,
