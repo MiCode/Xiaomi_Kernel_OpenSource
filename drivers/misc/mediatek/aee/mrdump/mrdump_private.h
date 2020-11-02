@@ -54,13 +54,7 @@ void mrdump_save_control_register(void *creg);
 
 extern void mrdump_mini_add_entry(unsigned long addr, unsigned long size);
 
-extern void mrdump_mini_per_cpu_regs(int cpu, struct pt_regs *regs,
-		struct task_struct *tsk);
 extern void mrdump_mini_ke_cpu_regs(struct pt_regs *regs);
-
-#if IS_ENABLED(CONFIG_MTK_WQ_DEBUG)
-extern void wq_debug_dump(void);
-#endif
 
 #if defined(__arm__)
 static inline void crash_setup_regs(struct pt_regs *newregs,

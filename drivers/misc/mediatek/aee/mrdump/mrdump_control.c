@@ -72,7 +72,7 @@ __init void mrdump_cblock_init(phys_addr_t cb_addr, phys_addr_t cb_size)
 		return;
 	}
 
-	mrdump_cblock = ioremap_wc(cb_addr, cb_size);
+	mrdump_cblock = ioremap(cb_addr, cb_size);
 	if (!mrdump_cblock) {
 		pr_notice("%s: mrdump_cb not mapped\n", __func__);
 		return;
@@ -129,8 +129,4 @@ __init void mrdump_cblock_init(phys_addr_t cb_addr, phys_addr_t cb_size)
 			sizeof(struct mrdump_machdesc));
 
 	pr_notice("%s: done.\n", __func__);
-
-	/* TODO: remove flush APIs after full ramdump support  HW_Reboot*/
-	aee__flush_dcache_area(mrdump_cblock,
-			sizeof(struct mrdump_control_block));
 }

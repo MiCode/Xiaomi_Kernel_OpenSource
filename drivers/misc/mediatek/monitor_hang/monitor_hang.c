@@ -376,11 +376,10 @@ void trigger_hang_db(void)
 		mrdump_mini_add_hang_raw((unsigned long)Hang_Info,
 			MaxHangInfoSize);
 		mrdump_mini_add_extra_misc();
-		mrdump_common_die(AEE_FIQ_STEP_HANG_DETECT,
-			AEE_REBOOT_MODE_HANG_DETECT,
+		mrdump_common_die(AEE_REBOOT_MODE_HANG_DETECT,
 		"	Hang Detect", NULL);
 #else
-		mrdump_common_die(0, AEE_REBOOT_MODE_HANG_DETECT,
+		mrdump_common_die(AEE_REBOOT_MODE_HANG_DETECT,
 			"Hang Detect", NULL);
 #endif
 
