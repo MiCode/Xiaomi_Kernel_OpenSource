@@ -1654,7 +1654,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a660_shima = {
 		.compatible = "qcom,adreno-gpu-a660-shima",
 		.features = ADRENO_RPMH | ADRENO_GPMU | ADRENO_APRIV |
 				ADRENO_IOCOHERENT | ADRENO_CONTENT_PROTECTION |
-				ADRENO_IFPC | ADRENO_PREEMPTION,
+				ADRENO_IFPC | ADRENO_PREEMPTION | ADRENO_ACD,
 		.gpudev = &adreno_a6xx_gmu_gpudev,
 		.perfcounters = &adreno_a6xx_perfcounters,
 		.gmem_base = 0,
