@@ -34,8 +34,8 @@ DECLARE_RESTRICTED_HOOK(android_rvh_nf_conn_free,
 #define trace_android_vh_kfree_skb(skb)
 #define trace_android_rvh_sk_alloc(sock)
 #define trace_android_rvh_sk_free(sock)
-#define trace_android_rvh_sk_alloc(nf_conn)
-#define trace_android_rvh_sk_free(nf_conn)
+#define trace_android_rvh_nf_conn_alloc(nf_conn)
+#define trace_android_rvh_nf_conn_free(nf_conn)
 #endif
 #endif /* _TRACE_HOOK_NET_VH_H */
 /* This part must be outside protection */
