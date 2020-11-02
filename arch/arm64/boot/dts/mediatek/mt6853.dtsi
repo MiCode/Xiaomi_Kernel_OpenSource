@@ -1724,6 +1724,11 @@
 				<GIC_SPI 152 IRQ_TYPE_LEVEL_HIGH 0>,
 				/*btif rx dma irq*/
 				<GIC_SPI 153 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&infracfg_ao_clk CLK_IFRAO_BTIF>,
+				/*btif clock*/
+				<&infracfg_ao_clk CLK_IFRAO_AP_DMA>;
+				/*ap dma clock*/
+			clock-names = "btifc","apdmac";
 		};
 
 		spi1: spi@11010000 {
@@ -3841,7 +3846,8 @@
 		};
 
 		consys: consys@18002000 {
-			compatible = "mediatek,mt6873-consys";
+			compatible = "mediatek,mt6853-consys";
+			#thermal-sensor-cells = <0>;
 			#address-cells = <2>;
 			#size-cells = <2>;
 				/*CONN_MCU_CONFIG_BASE */
@@ -3869,13 +3875,16 @@
 				/*INFRA_AO_PERICFG_BASE */
 			    <0 0x10003000 0 0x1000>;
 				/*BGF_EINT */
-			interrupts = <GIC_SPI 377 IRQ_TYPE_LEVEL_HIGH 0>,
+			interrupts = <GIC_SPI 378 IRQ_TYPE_LEVEL_HIGH 0>,
 				/*WDT_EINT */
 				   <GIC_SPI 79 IRQ_TYPE_LEVEL_HIGH 0>,
 				/*conn2ap_sw_irq*/
-				   <GIC_SPI 378 IRQ_TYPE_LEVEL_HIGH 0>;
+				   <GIC_SPI 379 IRQ_TYPE_LEVEL_HIGH 0>;
+			power-domains = <&scpsys MT6853_POWER_DOMAIN_CONN>;
 			pmic = <&pmic>;
 			memory-region = <&consys_mem>;
+			clocks = <&infracfg_ao_clk CLK_IFRAO_CCIF4_AP>;
+			clock-names = "ccif";
 		};
 
 		clock_buffer_ctrl: clock_buffer_ctrl {
