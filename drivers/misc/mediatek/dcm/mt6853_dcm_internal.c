@@ -303,9 +303,6 @@ void dcm_dump_regs(void)
 	REG_DUMP(DRAMC_CH1_TOP5_SHU_CA_CMD8);
 	REG_DUMP(DRAMC_CH1_TOP5_MISC_SHU_RX_CG_CTRL);
 	REG_DUMP(DRAMC_CH1_TOP5_MISC_SHU_CG_CTRL0);
-	REG_DUMP(SSPM_MCLK_DIV);
-	REG_DUMP(SSPM_DCM_CTRL);
-	REG_DUMP(AUDIO_TOP_CON0);
 }
 
 void get_default(unsigned int *type, int *state)
