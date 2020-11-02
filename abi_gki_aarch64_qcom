@@ -1118,6 +1118,7 @@
   stack_trace_print
   strcmp
   strcpy
+  strim
   strlcat
   strlcpy
   strlen
