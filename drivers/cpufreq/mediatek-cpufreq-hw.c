@@ -66,7 +66,8 @@ static int look_up_cpu(struct device *cpu_dev)
 }
 
 
-static int mtk_cpufreq_get_cpu_power(unsigned long *power, unsigned long *KHz,
+static int __maybe_unused
+mtk_cpufreq_get_cpu_power(unsigned long *power, unsigned long *KHz,
 		struct device *cpu_dev)
 {
 	int cpu = look_up_cpu(cpu_dev);
