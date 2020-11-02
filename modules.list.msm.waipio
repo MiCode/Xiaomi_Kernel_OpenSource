@@ -21,7 +21,7 @@ qcom_iommu_util.ko
 pinctrl-msm.ko
 pinctrl-waipio.ko
 qcom-scm.ko
-qcom-hwspinlock.ko
+qcom_hwspinlock.ko
 smem.ko
 smp2p.ko
 qrtr.ko
