@@ -733,7 +733,6 @@ void aee_rr_rec_fiq_step(u8 step)
 		return;
 	LAST_RR_SET(fiq_step, step);
 }
-EXPORT_SYMBOL(aee_rr_rec_fiq_step);
 
 int aee_rr_curr_fiq_step(void)
 {

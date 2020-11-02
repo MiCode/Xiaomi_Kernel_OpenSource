@@ -205,14 +205,11 @@ struct mrdump_mini_elf_header {
 #define MRDUMP_MINI_BUF_SIZE (MRDUMP_MINI_HEADER_SIZE + MRDUMP_MINI_DATA_SIZE)
 
 int mrdump_init(void);
-void __mrdump_create_oops_dump(enum AEE_REBOOT_MODE reboot_mode,
-		struct pt_regs *regs, const char *msg, ...);
 void mrdump_save_ctrlreg(int cpu);
 void mrdump_save_per_cpu_reg(int cpu, struct pt_regs *regs);
 extern const char *mrdump_get_cmd(void);
 
-int mrdump_common_die(int fiq_step, int reboot_reason, const char *msg,
-		      struct pt_regs *regs);
+int mrdump_common_die(int reboot_reason, const char *msg, struct pt_regs *regs);
 void mrdump_mini_add_hang_raw(unsigned long vaddr, unsigned long size);
 void mrdump_mini_add_extra_misc(void);
 int mrdump_mini_add_extra_file(unsigned long vaddr, unsigned long size,

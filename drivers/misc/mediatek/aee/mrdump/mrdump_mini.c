@@ -541,13 +541,6 @@ static int mrdump_mini_cpu_regs(int cpu, struct pt_regs *regs,
 	return 0;
 }
 
-void mrdump_mini_per_cpu_regs(int cpu, struct pt_regs *regs,
-		struct task_struct *tsk)
-{
-	mrdump_mini_cpu_regs(cpu, regs, tsk, 0);
-}
-EXPORT_SYMBOL(mrdump_mini_per_cpu_regs);
-
 static void mrdump_mini_build_task_info(struct pt_regs *regs)
 {
 #define MAX_STACK_TRACE_DEPTH 64
@@ -934,7 +927,6 @@ void mrdump_mini_ke_cpu_regs(struct pt_regs *regs)
 	mrdump_modules_info(NULL, -1);
 	mrdump_mini_add_extra_misc();
 }
-EXPORT_SYMBOL(mrdump_mini_ke_cpu_regs);
 
 static void *remap_lowmem(phys_addr_t start, phys_addr_t size)
 {

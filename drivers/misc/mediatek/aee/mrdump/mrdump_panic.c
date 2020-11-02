@@ -12,6 +12,7 @@
 #include <linux/reboot.h>
 #include <linux/sched/clock.h>
 #include <linux/slab.h>
+#include <linux/smp.h>
 #include <asm/cacheflush.h>
 #include <asm/kexec.h>
 #include <asm/memory.h>
@@ -27,10 +28,7 @@
 #include <linux/arm-smccc.h>
 #include <uapi/linux/psci.h>
 
-static inline unsigned long get_linear_memory_size(void)
-{
-	return (unsigned long)high_memory - PAGE_OFFSET;
-}
+static struct pt_regs saved_regs;
 
 /* no export symbol to aee_exception_reboot, only used in exception flow */
 /* PSCI v1.1 extended power state encoding for SYSTEM_RESET2 function */
@@ -48,15 +46,6 @@ static void aee_exception_reboot(void)
 		opt2, 0, 0, 0, 0, 0, &res);
 }
 
-static void aee_flush_reboot(void)
-{
-#if IS_ENABLED(CONFIG_MEDIATEK_CACHE_API)
-		dis_D_inner_flush_all();
-#else
-		pr_info("dis_D_inner_flush_all invalid");
-#endif
-		aee_exception_reboot();
-}
 
 #if defined(CONFIG_RANDOMIZE_BASE) && defined(CONFIG_ARM64)
 static inline void show_kaslr(void)
@@ -92,8 +81,62 @@ int aee_nested_printf(const char *fmt, ...)
 	return total_len;
 }
 
+static void mrdump_cblock_update(enum AEE_REBOOT_MODE reboot_mode,
+				 struct pt_regs *regs, const char *msg, ...)
+{
+	va_list ap;
+	struct mrdump_crash_record *crash_record;
+	void *creg;
+	int cpu;
+
+	local_irq_disable();
+
+	switch (reboot_mode) {
+	case AEE_REBOOT_MODE_KERNEL_OOPS:
+		aee_rr_rec_exp_type(AEE_EXP_TYPE_KE);
+		break;
+	case AEE_REBOOT_MODE_KERNEL_PANIC:
+		aee_rr_rec_exp_type(AEE_EXP_TYPE_KE);
+		break;
+	case AEE_REBOOT_MODE_HANG_DETECT:
+		aee_rr_rec_exp_type(AEE_EXP_TYPE_HANG_DETECT);
+		break;
+	default:
+		/* Don't print anything */
+		aee_rr_rec_exp_type(AEE_EXP_TYPE_KE);
+		break;
+	}
+	if (mrdump_cblock) {
+		crash_record = &mrdump_cblock->crash_record;
+
+		cpu = get_HW_cpuid();
+		if (cpu >= 0 && cpu < nr_cpu_ids) {
+			/* null regs, no register dump */
+			if (regs) {
+				elf_core_copy_kernel_regs(
+					(elf_gregset_t *)
+					&crash_record->cpu_regs[cpu],
+					regs);
+			}
+
+			creg = (void *)&crash_record->cpu_creg[cpu];
+			mrdump_save_control_register(creg);
+		}
+
+		va_start(ap, msg);
+		vsnprintf(crash_record->msg, sizeof(crash_record->msg), msg,
+				ap);
+		va_end(ap);
+
+		crash_record->fault_cpu = cpu;
+
+		/* FIXME: Check reboot_mode is valid */
+		crash_record->reboot_mode = reboot_mode;
+	}
+}
+
 static int num_die;
-int mrdump_common_die(int fiq_step, int reboot_reason, const char *msg,
+int mrdump_common_die(int reboot_reason, const char *msg,
 		      struct pt_regs *regs)
 {
 	int last_step;
@@ -106,8 +149,8 @@ int mrdump_common_die(int fiq_step, int reboot_reason, const char *msg,
 		/* NESTED KE */
 		aee_reinit_die_lock();
 	}
-	aee_nested_printf("num_die-%d, fiq_step-%d last_step-%d\n",
-			  num_die, fiq_step, last_step);
+	aee_nested_printf("num_die-%d, last_step-%d\n",
+			  num_die, last_step);
 	/* if we were in nested ke now, then the if condition would be false */
 	if (last_step < AEE_FIQ_STEP_COMMON_DIE_START)
 		last_step = AEE_FIQ_STEP_COMMON_DIE_START - 1;
@@ -118,8 +161,7 @@ int mrdump_common_die(int fiq_step, int reboot_reason, const char *msg,
 	switch (next_step) {
 	case AEE_FIQ_STEP_COMMON_DIE_START:
 		aee_rr_rec_fiq_step(AEE_FIQ_STEP_COMMON_DIE_START);
-		__mrdump_create_oops_dump(reboot_reason, regs, msg);
-		mdelay(1000);
+		mrdump_cblock_update(reboot_reason, regs, msg);
 	case AEE_FIQ_STEP_COMMON_DIE_LOCK:
 		aee_rr_rec_fiq_step(AEE_FIQ_STEP_COMMON_DIE_LOCK);
 		/* release locks after stopping other cpus */
@@ -143,9 +185,6 @@ int mrdump_common_die(int fiq_step, int reboot_reason, const char *msg,
 			dump_stack();
 #endif
 			break;
-		case AEE_REBOOT_MODE_HANG_DETECT:
-			aee_rr_rec_exp_type(AEE_EXP_TYPE_HANG_DETECT);
-			break;
 		default:
 			/* Don't print anything */
 			break;
@@ -159,10 +198,9 @@ int mrdump_common_die(int fiq_step, int reboot_reason, const char *msg,
 	case AEE_FIQ_STEP_COMMON_DIE_DONE:
 		aee_rr_rec_fiq_step(AEE_FIQ_STEP_COMMON_DIE_DONE);
 	default:
-		aee_nested_printf("num_die-%d, fiq_step-%d, last_step-%d, next_step-%d\n",
-				  num_die, fiq_step,
-				  last_step, next_step);
-		aee_flush_reboot();
+		aee_nested_printf("num_die-%d, last_step-%d, next_step-%d\n",
+				  num_die, last_step, next_step);
+		aee_exception_reboot();
 		break;
 	}
 
@@ -172,26 +210,15 @@ EXPORT_SYMBOL(mrdump_common_die);
 
 int ipanic(struct notifier_block *this, unsigned long event, void *ptr)
 {
-	struct pt_regs saved_regs;
-	int fiq_step;
-
-	aee_rr_rec_exp_type(AEE_EXP_TYPE_KE);
-	fiq_step = AEE_FIQ_STEP_KE_IPANIC_START;
 	crash_setup_regs(&saved_regs, NULL);
-	return mrdump_common_die(fiq_step,
-				 AEE_REBOOT_MODE_KERNEL_PANIC,
+	return mrdump_common_die(AEE_REBOOT_MODE_KERNEL_PANIC,
 				 "Kernel Panic", &saved_regs);
 }
 
 static int ipanic_die(struct notifier_block *self, unsigned long cmd, void *ptr)
 {
 	struct die_args *dargs = (struct die_args *)ptr;
-	int fiq_step;
-
-	aee_rr_rec_exp_type(AEE_EXP_TYPE_KE);
-	fiq_step = AEE_FIQ_STEP_KE_IPANIC_DIE;
-	return mrdump_common_die(fiq_step,
-				 AEE_REBOOT_MODE_KERNEL_OOPS,
+	return mrdump_common_die(AEE_REBOOT_MODE_KERNEL_OOPS,
 				 "Kernel Oops", dargs->regs);
 }
 

@@ -670,32 +670,6 @@ unsigned long aee_get_kallsyms_addresses(void)
 	return (unsigned long)mrdump_ka;
 }
 
-typedef void (*p_fda_t)(void *addr, size_t len);
-#ifndef CONFIG_CFI_CLANG
-static p_fda_t p__flush_dcache_area;
-#endif
-void aee__flush_dcache_area(void *addr, size_t len)
-{
-#ifndef CONFIG_CFI_CLANG
-	if (p__flush_dcache_area) {
-		p__flush_dcache_area(addr, len);
-		return;
-	}
-
-	p__flush_dcache_area =
-		(p_fda_t)(aee_addr_find("__flush_dcache_area"));
-
-	if (!p__flush_dcache_area) {
-		pr_info("%s failed", __func__);
-		return;
-	}
-
-	p__flush_dcache_area(addr, len);
-#else
-	pr_info("failed to flush dcache area");
-#endif
-}
-
 raw_spinlock_t *p_logbuf_lock;
 struct semaphore *p_console_sem;
 void aee_zap_locks(void)
@@ -1011,12 +985,6 @@ extern const unsigned long kallsyms_addresses[] __weak;
 unsigned long aee_get_kallsyms_addresses(void)
 {
 	return (unsigned long)kallsyms_addresses;
-}
-
-extern void __flush_dcache_area(void *addr, size_t len);
-void aee__flush_dcache_area(void *addr, size_t len)
-{
-	__flush_dcache_area(addr, len);
 }
 
 raw_spinlock_t *p_logbuf_lock;

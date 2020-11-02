@@ -36,7 +36,6 @@ extern unsigned long aee_cpu_rq(int cpu);
 extern struct task_struct *aee_cpu_curr(int cpu);
 extern int get_HW_cpuid(void);
 extern unsigned long aee_get_kallsyms_addresses(void);
-extern void aee__flush_dcache_area(void *addr, size_t len);
 extern void aee_zap_locks(void);
 extern void aee_reinit_die_lock(void);
 #ifdef MODULE
