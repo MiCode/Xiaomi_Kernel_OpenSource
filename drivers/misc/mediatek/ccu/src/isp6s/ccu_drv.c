@@ -1294,6 +1294,7 @@ EXIT:
 static int ccu_release(struct inode *inode, struct file *flip)
 {
 	struct ccu_user_s *user = flip->private_data;
+	struct CcuMemHandle handle;
 	int i = 0;
 
 	LOG_INF_MUST("%s +\n", __func__);
@@ -1306,6 +1307,12 @@ static int ccu_release(struct inode *inode, struct file *flip)
 			dma_buf_put(ccu_iova[i].dma_buf);
 		}
 	}
+
+	handle.meminfo.cached = 0;
+	ccu_deallocate_mem(g_ccu_device, &handle);
+	handle.meminfo.cached = 1;
+	ccu_deallocate_mem(g_ccu_device, &handle);
+
 	iova_buf_count = 0;
 	// for (i = 0; i < CCU_IMPORT_BUF_NUM; i++) {
 	//	if (import_buffer_handle[i] ==

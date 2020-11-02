@@ -45,8 +45,10 @@ int ccu_deallocate_mem(struct ccu_device_s *dev, struct CcuMemHandle *memHandle)
 {
 	struct CcuMemHandle *handle = &ccu_buffer_handle[memHandle->meminfo.cached];
 
-	dma_free_attrs(dev->dev, handle->meminfo.size, handle->meminfo.va,
-		handle->mva, DMA_ATTR_WRITE_COMBINE);
+	if (handle->meminfo.va != NULL) {
+		dma_free_attrs(dev->dev, handle->meminfo.size,
+		handle->meminfo.va, handle->mva, DMA_ATTR_WRITE_COMBINE);
+	}
 	memset(handle, 0, sizeof(struct CcuMemHandle));
 
 	return 0;
