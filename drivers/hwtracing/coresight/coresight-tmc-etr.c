@@ -2013,6 +2013,7 @@ static int _tmc_disable_etr_sink(struct coresight_device *csdev,
 	/* Complain if we (somehow) got out of sync */
 	WARN_ON_ONCE(drvdata->mode == CS_MODE_DISABLED);
 	if (drvdata->mode != CS_MODE_DISABLED) {
+		drvdata->mode = CS_MODE_DISABLED;
 		if (drvdata->out_mode == TMC_ETR_OUT_MODE_USB) {
 			if (!drvdata->byte_cntr->sw_usb) {
 				__tmc_etr_disable_to_bam(drvdata);
@@ -2021,7 +2022,6 @@ static int _tmc_disable_etr_sink(struct coresight_device *csdev,
 				tmc_etr_bam_disable(drvdata);
 				usb_qdss_close(drvdata->usbch);
 				drvdata->usbch = NULL;
-				drvdata->mode = CS_MODE_DISABLED;
 				goto out;
 			} else {
 				spin_unlock_irqrestore(&drvdata->spinlock,
@@ -2033,11 +2033,9 @@ static int _tmc_disable_etr_sink(struct coresight_device *csdev,
 		} else {
 			tmc_etr_disable_hw(drvdata);
 		}
-		drvdata->mode = CS_MODE_DISABLED;
 	}
 	/* Dissociate from monitored process. */
 	drvdata->pid = -1;
-	drvdata->mode = CS_MODE_DISABLED;
 	/* Reset perf specific data */
 	drvdata->perf_buf = NULL;
 
