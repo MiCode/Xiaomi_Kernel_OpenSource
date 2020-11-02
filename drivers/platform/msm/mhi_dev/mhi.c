@@ -1713,8 +1713,10 @@ static void mhi_dev_process_cmd_ring(struct mhi_dev *mhi,
 					return;
 				}
 			}
+			mutex_lock(&mhi->ch[ch_id].ch_lock);
 			mhi_dev_alloc_evt_buf_evt_req(mhi, &mhi->ch[ch_id],
 					evt_ring);
+			mutex_unlock(&mhi->ch[ch_id].ch_lock);
 		}
 
 		if (MHI_USE_DMA(mhi))
