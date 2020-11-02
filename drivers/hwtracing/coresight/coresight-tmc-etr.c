@@ -1470,8 +1470,10 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 			free_buf = new_buf = tmc_etr_setup_sysfs_buf(drvdata);
 			if (IS_ERR(new_buf))
 				return -ENOMEM;
-			coresight_cti_map_trigout(drvdata->cti_flush, 3, 0);
-			coresight_cti_map_trigin(drvdata->cti_reset, 5, 0);
+			coresight_cti_map_trigout(drvdata->cti_flush,
+					drvdata->cti_flush_trig_num, 0);
+			coresight_cti_map_trigin(drvdata->cti_reset,
+					drvdata->cti_reset_trig_num, 0);
 		}
 		spin_lock_irqsave(&drvdata->spinlock, flags);
 	}
@@ -2051,8 +2053,10 @@ static int _tmc_disable_etr_sink(struct coresight_device *csdev,
 			flush_workqueue(drvdata->byte_cntr->usb_wq);
 			drvdata->usbch = NULL;
 		}
-		coresight_cti_unmap_trigin(drvdata->cti_reset, 0, 0);
-		coresight_cti_unmap_trigout(drvdata->cti_flush, 3, 0);
+		coresight_cti_unmap_trigin(drvdata->cti_reset,
+				drvdata->cti_reset_trig_num, 0);
+		coresight_cti_unmap_trigout(drvdata->cti_flush,
+				drvdata->cti_flush_trig_num, 0);
 	}
 out:
 	dev_info(&csdev->dev, "TMC-ETR disabled\n");
