@@ -58,6 +58,7 @@ void topology_set_freq_scale(const struct cpumask *cpus, unsigned long cur_freq,
 	for_each_cpu(i, cpus)
 		per_cpu(freq_scale, i) = scale;
 }
+EXPORT_SYMBOL_GPL(topology_set_freq_scale);
 
 DEFINE_PER_CPU(unsigned long, cpu_scale) = SCHED_CAPACITY_SCALE;
 
