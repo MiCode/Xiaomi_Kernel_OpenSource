@@ -420,9 +420,8 @@ static void adreno_input_event(struct input_handle *handle, unsigned int type,
 		 */
 
 		device->flags |= KGSL_FLAG_WAKE_ON_TOUCH;
+		kgsl_start_idle_timer(device);
 
-		mod_timer(&device->idle_timer,
-			jiffies + device->pwrctrl.interval_timeout);
 	} else if (device->state == KGSL_STATE_SLUMBER) {
 		schedule_work(&adreno_dev->input_work);
 	}
@@ -1076,7 +1075,7 @@ static int adreno_of_get_power(struct adreno_device *adreno_dev,
 	l3_pwrlevel_probe(device, pdev->dev.of_node);
 
 	/* Default timeout is 80 ms across all targets */
-	device->pwrctrl.interval_timeout = msecs_to_jiffies(80);
+	device->pwrctrl.interval_timeout = 80;
 
 	device->pwrctrl.minbw_timeout = 10;
 
@@ -1883,8 +1882,7 @@ static void adreno_pwrctrl_active_count_put(struct adreno_device *adreno_dev)
 			kgsl_pwrscale_update(device);
 		}
 
-		mod_timer(&device->idle_timer,
-			jiffies + device->pwrctrl.interval_timeout);
+		kgsl_start_idle_timer(device);
 	}
 
 	trace_kgsl_active_count(device,

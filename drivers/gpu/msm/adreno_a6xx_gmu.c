@@ -2736,8 +2736,7 @@ static void a6xx_gmu_active_count_put(struct adreno_device *adreno_dev)
 	if (atomic_dec_and_test(&device->active_cnt)) {
 		kgsl_pwrscale_update_stats(device);
 		kgsl_pwrscale_update(device);
-		mod_timer(&device->idle_timer,
-			jiffies + device->pwrctrl.interval_timeout);
+		kgsl_start_idle_timer(device);
 	}
 
 	trace_kgsl_active_count(device,
@@ -2933,8 +2932,7 @@ static int a6xx_boot(struct adreno_device *adreno_dev)
 	if (ret)
 		return ret;
 
-	mod_timer(&device->idle_timer, jiffies +
-			device->pwrctrl.interval_timeout);
+	kgsl_start_idle_timer(device);
 
 	kgsl_pwrscale_wake(device);
 
@@ -3110,8 +3108,7 @@ static void gmu_idle_check(struct work_struct *work)
 			a6xx_power_off(adreno_dev);
 	} else {
 		kgsl_pwrscale_update(device);
-		mod_timer(&device->idle_timer,
-			jiffies + device->pwrctrl.interval_timeout);
+		kgsl_start_idle_timer(device);
 	}
 
 done:
