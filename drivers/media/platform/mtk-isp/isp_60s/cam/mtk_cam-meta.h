@@ -605,7 +605,7 @@ struct mtk_cam_uapi_meta_camsv_stats_0 {
 };
 
 #define MTK_CAM_META_VERSION_MAJOR 3
-#define MTK_CAM_META_VERSION_MINOR 5
+#define MTK_CAM_META_VERSION_MINOR 6
 #define MTK_CAM_META_PLATFORM_NAME "isp6s"
 #define MTK_CAM_META_CHIP_NAME "mt6873"
 
