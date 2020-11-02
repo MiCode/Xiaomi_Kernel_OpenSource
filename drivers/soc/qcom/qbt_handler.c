@@ -511,6 +511,7 @@ static long qbt_ioctl(
 	{
 		struct qbt_wuhb_connected_status wuhb_connected_status;
 
+		memset(&wuhb_connected_status, 0, sizeof(wuhb_connected_status));
 		wuhb_connected_status.is_wuhb_connected =
 				drvdata->is_wuhb_connected;
 		rc = copy_to_user((void __user *)priv_arg,
