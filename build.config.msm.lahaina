@@ -15,6 +15,10 @@ BOOT_IMAGE_HEADER_VERSION=3
 BASE_ADDRESS=0x80000000
 PAGE_SIZE=4096
 
+if [ "${KERNEL_CMDLINE_CONSOLE_AUTO}" != "0" ]; then
+	KERNEL_VENDOR_CMDLINE+=' console=ttyMSM0,115200n8 earlycon=msm_geni_serial,0x0098C000'
+fi
+
 ################################################################################
 ## Inheriting MSM configs
 . ${KERNEL_DIR}/build.config.msm.common
