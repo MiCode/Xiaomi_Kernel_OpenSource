@@ -760,7 +760,7 @@
 
 		trips {
 			cam_main_crit: cam_main_crit@0 {
-				temperature = <100000>;
+				temperature = <120000>;
 				hysteresis = <2000>;
 				type = "critical";
 			};
@@ -773,7 +773,7 @@
 
 		trips {
 			cam_sub_crit: cam_sub_crit@0 {
-				temperature = <100000>;
+				temperature = <120000>;
 				hysteresis = <2000>;
 				type = "critical";
 			};
@@ -786,7 +786,7 @@
 
 		trips {
 			cam_main2_crit: cam_main2_crit@0 {
-				temperature = <100000>;
+				temperature = <120000>;
 				hysteresis = <2000>;
 				type = "critical";
 			};
@@ -799,7 +799,7 @@
 
 		trips {
 			cam_main3_crit: cam_main3_crit@0 {
-				temperature = <100000>;
+				temperature = <120000>;
 				hysteresis = <2000>;
 				type = "critical";
 			};
