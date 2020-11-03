@@ -1576,6 +1576,7 @@
 	qcom,msm-cdsp-loader {
 		compatible = "qcom,cdsp-loader";
 		qcom,proc-img-to-load = "cdsp";
+		qcom,rproc-handle = <&cdsp_pas>;
 	};
 
 	qcom,msm-adsprpc-mem {
