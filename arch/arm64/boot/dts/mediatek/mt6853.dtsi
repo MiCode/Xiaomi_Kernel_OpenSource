@@ -1244,7 +1244,7 @@
 				<0 0x1022e000 0 0x1000>; /*SRAM*/
 			interrupts = <GIC_SPI 209 IRQ_TYPE_LEVEL_HIGH 0>;
 			mediatek,dpmaif_capability = <6>;
-			clocks = <&infracfg_ao_clk CLK_TOP_DPMAIF_MAIN>,
+			clocks = <&topckgen_clk CLK_TOP_DPMAIF_MAIN_SEL>,
 				<&infracfg_ao_clk CLK_IFRAO_CLDMA_BCLK>;
 			clock-names = "infra-dpmaif-clk",
 					"infra-dpmaif-blk-clk";
@@ -1319,7 +1319,7 @@
 			mediatek,md_id = <0>;
 			mediatek,ap_plat_info = <6853>;
 			mediatek,md_generation = <6297>;
-			mediatek,offset_apon_md1 = <0x1c24>;
+			mediatek,offset_apon_md1 = <0x2844>;
 			mediatek,cldma_capability = <6>;
 			reg = <0 0x10209000 0 0x1000>, /*AP_CCIF_BASE*/
 				<0 0x1020a000 0 0x1000>; /*MD_CCIF_BASE*/
