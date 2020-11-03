@@ -569,6 +569,45 @@ static const struct snd_kcontrol_new mt6853_afe_speech_controls[] = {
 		       speech_property_get, speech_property_set),
 };
 
+#if IS_ENABLED(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
+/* VOW barge in control */
+static int mt6853_afe_vow_barge_in_get(struct snd_kcontrol *kcontrol,
+				      struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+	int id;
+
+	id = MT6853_BARGE_IN_MEMIF;
+	ucontrol->value.integer.value[0] = afe->memif[id].vow_barge_in_enable;
+
+	return 0;
+}
+
+static int mt6853_afe_vow_barge_in_set(struct snd_kcontrol *kcontrol,
+				      struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+	int id;
+	int val;
+
+	id = MT6853_BARGE_IN_MEMIF;
+	val = ucontrol->value.integer.value[0];
+	dev_info(afe->dev, "%s(), %d\n", __func__, val);
+
+	afe->memif[id].vow_barge_in_enable = (val > 0) ? true : false;
+
+	return 0;
+}
+
+static const struct snd_kcontrol_new mt6853_afe_barge_in_controls[] = {
+	SOC_SINGLE_EXT("Vow_bargein_echo_ref", SND_SOC_NOPM, 0, 0x1, 0,
+		       mt6853_afe_vow_barge_in_get,
+		       mt6853_afe_vow_barge_in_set),
+};
+#endif
+
 int mt6853_add_misc_control(struct snd_soc_component *component)
 {
 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(component);
@@ -586,5 +625,12 @@ int mt6853_add_misc_control(struct snd_soc_component *component)
 	snd_soc_add_component_controls(component,
 				      mt6853_afe_speech_controls,
 				      ARRAY_SIZE(mt6853_afe_speech_controls));
+
+#if IS_ENABLED(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
+	snd_soc_add_component_controls(component,
+					  mt6853_afe_barge_in_controls,
+					  ARRAY_SIZE(mt6853_afe_barge_in_controls));
+#endif
+
 	return 0;
 }
