@@ -304,7 +304,7 @@ void mt_print_scp_ipi_id(unsigned int mbox)
 	irq_status = mtk_mbox_read_recv_irq(&scp_mboxdev, mbox);
 	for (i = 0; i < SCP_TOTAL_RECV_PIN; i++) {
 		if (scp_mbox_pin_recv[i].mbox == mbox) {
-			if (irq_status && 1 << scp_mbox_pin_recv[i].pin_index) {
+			if (irq_status & 1 << scp_mbox_pin_recv[i].pin_index) {
 				if (scp_mbox_pin_recv[i].chan_id
 						== IPI_IN_SCP_MPOOL_0) {
 					/* only read 1st, 2nd, 3rd slot for

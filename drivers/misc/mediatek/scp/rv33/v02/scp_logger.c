@@ -453,7 +453,7 @@ static ssize_t scp_A_logger_wakeup_AP_store(struct device *kobj,
 	return n;
 }
 
-DEVICE_ATTR_WO(scp_A_logger_wakeup_AP);
+DEVICE_ATTR_RW(scp_A_logger_wakeup_AP);
 
 /*
  * create device sysfs, scp last log show
