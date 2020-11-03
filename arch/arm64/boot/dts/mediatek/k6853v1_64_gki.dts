@@ -10,6 +10,20 @@
 #include <dt-bindings/pinctrl/mt6853-pinfunc.h>
 #include <dt-bindings/clock/mt6873-clk.h>
 
+&gpio_usage_mapping {
+	GPIO_FDD_BAND_SUPPORT_DETECT_1ST_PIN = <&pio 37 0>;
+	GPIO_FDD_BAND_SUPPORT_DETECT_2ND_PIN = <&pio 38 0>;
+	GPIO_FDD_BAND_SUPPORT_DETECT_3RD_PIN = <&pio 39 0>;
+	GPIO_SIM1_HOT_PLUG = <&pio 77 0>;
+	GPIO_SIM2_SCLK = <&pio 119 0>;
+	GPIO_SIM2_SRST = <&pio 120 0>;
+	GPIO_SIM2_SIO = <&pio 121 0>;
+	GPIO_SIM1_SIO = <&pio 122 0>;
+	GPIO_SIM1_SRST = <&pio 123 0>;
+	GPIO_SIM1_SCLK = <&pio 124 0>;
+	GPIO_RF_PWREN_RST_PIN = <&pio 171 0>;
+};
+
 &gpio{
 	gpio_init_default = <0 0 0 0 1 0 1>,
 		<1 0 0 0 1 1 1>,
