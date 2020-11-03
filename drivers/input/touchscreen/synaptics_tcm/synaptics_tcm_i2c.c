@@ -53,7 +53,7 @@ struct drm_panel *tcm_get_panel(void)
 {
 	return active_tcm_panel;
 }
-
+EXPORT_SYMBOL(tcm_get_panel);
 
 #ifdef CONFIG_OF
 static int parse_dt(struct device *dev, struct syna_tcm_board_data *bdata)
