@@ -553,10 +553,9 @@ void usb_bypass_notifier(void *priv, unsigned int event,
 	if (!drvdata)
 		return;
 
-	if (tmcdrvdata->out_mode != TMC_ETR_OUT_MODE_USB
-				|| tmcdrvdata->mode == CS_MODE_DISABLED) {
+	if (tmcdrvdata->out_mode != TMC_ETR_OUT_MODE_USB) {
 		dev_err(&tmcdrvdata->csdev->dev,
-		"%s: ETR is not USB mode, or ETR is disabled.\n", __func__);
+		"%s: ETR is not USB mode\n", __func__);
 		return;
 	}
 
@@ -571,6 +570,11 @@ void usb_bypass_notifier(void *priv, unsigned int event,
 		break;
 
 	case USB_QDSS_DISCONNECT:
+		if (tmcdrvdata->mode == CS_MODE_DISABLED) {
+			dev_err(&tmcdrvdata->csdev->dev,
+			 "%s: ETR is disabled.\n", __func__);
+			return;
+		}
 		usb_bypass_stop(drvdata);
 		flush_work(&(drvdata->read_work));
 		usb_qdss_free_req(tmcdrvdata->usbch);
