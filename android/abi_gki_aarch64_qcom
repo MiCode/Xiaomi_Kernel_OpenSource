@@ -254,6 +254,7 @@
   cpufreq_freq_attr_scaling_boost_freqs
   cpufreq_generic_attr
   cpufreq_generic_frequency_table_verify
+  cpufreq_get_policy
   cpufreq_quick_get_max
   cpufreq_register_driver
   cpufreq_register_notifier
@@ -872,6 +873,7 @@
   find_next_zero_bit
   find_snd_usb_substream
   find_vma
+  find_vpid
   finish_wait
   firmware_request_nowarn
   flow_keys_basic_dissector
@@ -956,6 +958,7 @@
   get_random_bytes
   get_random_u32
   __get_task_comm
+  get_task_pid
   get_tree_single
   get_unmapped_area
   get_unused_fd_flags
@@ -1668,6 +1671,7 @@
   phy_start
   phy_stop
   physvirt_offset
+  pid_task
   pinconf_generic_dt_node_to_map
   pinctrl_dev_get_drvdata
   pinctrl_force_default
@@ -1775,6 +1779,7 @@
   put_device
   put_disk
   __put_page
+  put_pid
   __put_task_struct
   put_unused_fd
   put_vaddr_frames
@@ -1979,6 +1984,7 @@
   sched_clock
   sched_setattr
   sched_setscheduler
+  sched_setscheduler_nocheck
   schedule
   schedule_timeout
   schedule_timeout_interruptible
