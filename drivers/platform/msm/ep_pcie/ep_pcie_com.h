@@ -245,6 +245,7 @@ enum ep_pcie_res {
 	EP_PCIE_RES_IATU,
 	EP_PCIE_RES_EDMA,
 	EP_PCIE_RES_TCSR_PERST,
+	EP_PCIE_RES_AOSS_CC_RESET,
 	EP_PCIE_MAX_RES,
 };
 
@@ -339,6 +340,7 @@ struct ep_pcie_dev_t {
 	void __iomem                 *elbi;
 	void __iomem                 *iatu;
 	void __iomem		     *tcsr_perst_en;
+	void __iomem		     *aoss_rst_perst;
 
 	struct msm_bus_scale_pdata   *bus_scale_table;
 	struct icc_path		     *icc_path;
@@ -353,6 +355,7 @@ struct ep_pcie_dev_t {
 	bool                         tcsr_not_supported;
 	bool			     m2_autonomous;
 	bool			     mhi_soc_reset_en;
+	bool			     aoss_rst_clear;
 	u32                          dbi_base_reg;
 	u32                          slv_space_reg;
 	u32                          phy_status_reg;

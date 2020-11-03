@@ -40,6 +40,7 @@
 
 #define ICC_AVG_BW				500
 #define ICC_PEAK_BW				800
+#define PERST_RAW_RESET_STATUS			BIT(11)
 
 /* debug mask sys interface */
 static int ep_pcie_debug_mask;
@@ -97,6 +98,7 @@ static const struct ep_pcie_res_info_t ep_pcie_res_info[EP_PCIE_MAX_RES] = {
 	{"iatu",	NULL, NULL},
 	{"edma",	NULL, NULL},
 	{"tcsr_pcie_perst_en",	NULL, NULL},
+	{"aoss_cc_reset", NULL, NULL},
 };
 
 static const struct ep_pcie_irq_info_t ep_pcie_irq_info[EP_PCIE_MAX_IRQ] = {
@@ -1270,13 +1272,14 @@ static int ep_pcie_get_resources(struct ep_pcie_dev_t *dev,
 			EP_PCIE_ERR(dev,
 				"PCIe V%d: can't get resource for %s\n",
 					dev->rev, res_info->name);
-			if (!strcmp(res_info->name, "tcsr_pcie_perst_en")) {
-				if (!dev->tcsr_not_supported) {
+			if (!strcmp(res_info->name, "tcsr_pcie_perst_en") ||
+				(!strcmp(res_info->name, "aoss_reset_perst_raw"))) {
+				if (!dev->tcsr_not_supported && !dev->aoss_rst_clear) {
 					ret = -ENOMEM;
 					goto out;
 				}
 			}
-		dev->mmio_res_size = res->end = res->start;
+			dev->mmio_res_size = res->end = res->start;
 		} else {
 			EP_PCIE_DBG(dev, "start addr for %s is %pa\n",
 				res_info->name,	&res->start);
@@ -1321,6 +1324,7 @@ static int ep_pcie_get_resources(struct ep_pcie_dev_t *dev,
 	dev->elbi = dev->res[EP_PCIE_RES_ELBI].base;
 	dev->iatu = dev->res[EP_PCIE_RES_IATU].base;
 	dev->tcsr_perst_en = dev->res[EP_PCIE_RES_TCSR_PERST].base;
+	dev->aoss_rst_perst = dev->res[EP_PCIE_RES_AOSS_CC_RESET].base;
 
 out:
 	kfree(clkfreq);
@@ -1896,6 +1900,10 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 	}
 
 checkbme:
+	/* Clear AOSS_CC_RESET_STATUS::PERST_RAW_RESET_STATUS when linking up */
+	if (dev->aoss_rst_clear)
+		writel_relaxed(PERST_RAW_RESET_STATUS, dev->aoss_rst_perst);
+
 	/*
 	 * De-assert WAKE# GPIO following link until L2/3 and WAKE#
 	 * is triggered to send data from device to host at which point
@@ -3194,6 +3202,12 @@ static int ep_pcie_probe(struct platform_device *pdev)
 	EP_PCIE_DBG(&ep_pcie_dev,
 		"PCIe V%d: tcsr pcie perst is %s supported\n",
 		ep_pcie_dev.rev, ep_pcie_dev.tcsr_not_supported ? "not" : "");
+
+	ep_pcie_dev.aoss_rst_clear = of_property_read_bool
+		((&pdev->dev)->of_node,
+				"qcom,aoss-rst-clr");
+	EP_PCIE_DBG(&ep_pcie_dev,
+		"PCIe V%d: AOSS reset for perst needed\n", ep_pcie_dev.rev);
 
 	ep_pcie_dev.rev = 1711211;
 	ep_pcie_dev.pdev = pdev;
