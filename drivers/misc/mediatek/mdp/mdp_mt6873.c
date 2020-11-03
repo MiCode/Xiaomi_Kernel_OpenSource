@@ -119,6 +119,14 @@ struct CmdqMdpModuleBaseVA {
 };
 static struct CmdqMdpModuleBaseVA gCmdqMdpModuleBaseVA;
 
+struct mdp_base_pa {
+	u32 aal0;
+	u32 aal1;
+	u32 hdr0;
+	u32 hdr1;
+};
+static struct mdp_base_pa mdp_module_pa;
+
 struct CmdqMdpModuleClock {
 	struct clk *clk_APB;
 	struct clk *clk_MDP_MUTEX0;
@@ -647,17 +655,21 @@ void cmdq_mdp_init_module_base_VA(void)
 	gCmdqMdpModuleBaseVA.MDP_TDSHP1 =
 		cmdq_dev_alloc_reference_VA_by_name("mdp_tdshp1");
 	gCmdqMdpModuleBaseVA.MDP_AAL0 =
-		cmdq_dev_alloc_reference_VA_by_name("mdp_aal0");
+		cmdq_dev_alloc_reference_by_name("mdp_aal0",
+		&mdp_module_pa.aal0);
 	gCmdqMdpModuleBaseVA.MDP_AAL1 =
-		cmdq_dev_alloc_reference_VA_by_name("mdp_aal1");
+		cmdq_dev_alloc_reference_by_name("mdp_aal1",
+		&mdp_module_pa.aal1);
 	gCmdqMdpModuleBaseVA.MDP_COLOR0 =
 		cmdq_dev_alloc_reference_VA_by_name("mdp_color0");
 	gCmdqMdpModuleBaseVA.MDP_COLOR1 =
 		cmdq_dev_alloc_reference_VA_by_name("mdp_color1");
 	gCmdqMdpModuleBaseVA.MDP_HDR0 =
-		cmdq_dev_alloc_reference_VA_by_name("mdp_hdr0");
+		cmdq_dev_alloc_reference_by_name("mdp_hdr0",
+		&mdp_module_pa.hdr0);
 	gCmdqMdpModuleBaseVA.MDP_HDR1 =
-		cmdq_dev_alloc_reference_VA_by_name("mdp_hdr1");
+		cmdq_dev_alloc_reference_by_name("mdp_hdr1",
+		&mdp_module_pa.hdr1);
 	gCmdqMdpModuleBaseVA.VENC =
 		cmdq_dev_alloc_reference_VA_by_name("venc");
 	gCmdqMdpModuleBaseVA.MM_MUTEX =
@@ -2046,6 +2058,74 @@ static const char *const mdp_get_engine_group_name(void)
 	return (const char *const)engineGroupName;
 }
 
+static u32 *mdp_engine_base_get(void)
+{
+	return (u32 *)mdp_base;
+}
+
+static u32 mdp_engine_base_count(void)
+{
+	return (u32)ENGBASE_COUNT;
+}
+
+static void mdp_readback_aal_by_engine(struct cmdqRecStruct *handle,
+	u16 engine, dma_addr_t pa, u32 param)
+{
+	phys_addr_t base;
+
+	switch (engine) {
+	case CMDQ_ENG_MDP_AAL0:
+		base = mdp_module_pa.aal0;
+		break;
+	case CMDQ_ENG_MDP_AAL1:
+		base = mdp_module_pa.aal1;
+		break;
+	default:
+		CMDQ_ERR("%s not support\n", __func__);
+		return;
+	}
+
+	cmdq_mdp_get_func()->mdpReadbackAal(handle, engine, base, pa, param);
+}
+
+static void mdp_readback_hdr_by_engine(struct cmdqRecStruct *handle,
+	u16 engine, dma_addr_t pa, u32 param)
+{
+	phys_addr_t base;
+
+	switch (engine) {
+	case CMDQ_ENG_MDP_HDR0:
+		base = mdp_module_pa.hdr0;
+		break;
+	case CMDQ_ENG_MDP_HDR1:
+		base = mdp_module_pa.hdr1;
+		break;
+	default:
+		CMDQ_ERR("%s not support\n", __func__);
+		return;
+	}
+
+	cmdq_mdp_get_func()->mdpReadbackHdr(handle, engine, base, pa, param);
+}
+
+void cmdq_mdp_compose_readback(struct cmdqRecStruct *handle,
+	u16 engine, dma_addr_t addr, u32 param)
+{
+	switch (engine) {
+	case CMDQ_ENG_MDP_AAL0:
+	case CMDQ_ENG_MDP_AAL1:
+		mdp_readback_aal_by_engine(handle, engine, addr, param);
+		break;
+	case CMDQ_ENG_MDP_HDR0:
+	case CMDQ_ENG_MDP_HDR1:
+		mdp_readback_hdr_by_engine(handle, engine, addr, param);
+		break;
+	default:
+		CMDQ_ERR("%s engine not support:%hu\n", __func__, engine);
+		break;
+	}
+}
+
 void cmdq_mdp_platform_function_setting(void)
 {
 	struct cmdqMDPFuncStruct *pFunc = cmdq_mdp_get_func();
@@ -2092,18 +2172,10 @@ void cmdq_mdp_platform_function_setting(void)
 	pFunc->getGroupIsp = mdp_get_group_isp_plat;
 	pFunc->getGroupMdp = mdp_get_group_mdp;
 	pFunc->getGroupWpe = mdp_get_group_wpe_plat;
+	pFunc->getEngineBase = mdp_engine_base_get;
+	pFunc->getEngineBaseCount = mdp_engine_base_count;
 	pFunc->getEngineGroupName = mdp_get_engine_group_name;
+	pFunc->mdpComposeReadback = cmdq_mdp_compose_readback;
 }
 EXPORT_SYMBOL(cmdq_mdp_platform_function_setting);
 
-u32 *mdp_engine_base_get(void)
-{
-	return (u32 *)mdp_base;
-}
-EXPORT_SYMBOL(mdp_engine_base_get);
-
-u32 mdp_engine_base_count(void)
-{
-	return (u32)ENGBASE_COUNT;
-}
-EXPORT_SYMBOL(mdp_engine_base_count);

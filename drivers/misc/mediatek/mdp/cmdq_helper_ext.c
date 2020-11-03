@@ -1682,20 +1682,6 @@ int cmdqCoreAllocWriteAddress(u32 count, dma_addr_t *paStart,
 			break;
 		}
 
-		/* clear buffer content */
-		do {
-			u32 *pInt = (u32 *) pWriteAddr->va;
-			int i = 0;
-
-			for (i = 0; i < count; ++i) {
-				*(pInt + i) = 0xcdcdabab;
-				/* make sure instructions are really in DRAM */
-				mb();
-				/* make sure instructions are really in DRAM */
-				smp_mb();
-			}
-		} while (0);
-
 		/* assign output pa */
 		*paStart = pWriteAddr->pa;
 
@@ -4456,16 +4442,17 @@ s32 cmdq_helper_mbox_register(struct device *dev)
 	u32 i;
 	s32 chan_id;
 	struct cmdq_client *clt;
-	u32 channel_cnt = 0;
 	s32 ret;
+	int thread_cnt;
 
-	ret = of_property_read_u32(dev->of_node, "channel_count",
-		&channel_cnt);
-	if (ret != 0 || !channel_cnt)
-		channel_cnt = CMDQ_MAX_THREAD_COUNT;
+	thread_cnt = of_count_phandle_with_args(
+		dev->of_node, "mboxes", "#mbox-cells");
+	CMDQ_LOG("thread count:%d\n", thread_cnt);
+	if (thread_cnt <= 0)
+		thread_cnt = CMDQ_MAX_THREAD_COUNT;
 
 	/* for display we start from thread 0 */
-	for (i = 0; i < channel_cnt; i++) {
+	for (i = 0; i < thread_cnt; i++) {
 		clt = cmdq_mbox_create(dev, i);
 		if (!clt || IS_ERR(clt)) {
 			CMDQ_MSG("register mbox stop:0x%p idx:%u\n", clt, i);
@@ -4612,18 +4599,17 @@ static struct devapc_vio_callbacks devapc_vio_handle = {
 };
 #endif
 
-static int __init cmdq_core_late_init(void)
+void cmdq_core_late_init(void)
 {
-	CMDQ_LOG("CMDQ driver late init begin\n");
+	CMDQ_LOG("CMDQ driver late init\n");
 
 #ifdef CMDQ_DAPC_DEBUG
 	register_devapc_vio_callback(&devapc_vio_handle);
 #endif
 
 	CMDQ_MSG("CMDQ driver late init end\n");
-
-	return 0;
 }
+EXPORT_SYMBOL(cmdq_core_late_init);
 
 void cmdq_core_deinitialize(void)
 {
@@ -4649,5 +4635,3 @@ unsigned long cmdq_get_tracing_mark(void)
 	return tracing_mark_write_addr;
 }
 EXPORT_SYMBOL(cmdq_get_tracing_mark);
-
-late_initcall(cmdq_core_late_init);
