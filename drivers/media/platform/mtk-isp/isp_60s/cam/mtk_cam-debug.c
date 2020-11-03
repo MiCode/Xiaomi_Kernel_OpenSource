@@ -79,7 +79,7 @@ static void *mtk_cam_debug_next_dump_buf(struct mtk_cam_debug_fs *debug_fs)
 
 static void
 mtk_cam_debug_dump_all_content(struct mtk_cam_debug_fs *debug_fs, void *dump_buf,
-			      struct mtk_cam_dump_param *param)
+			       struct mtk_cam_dump_param *param)
 {
 	struct mtk_cam_dump_header *header;
 	struct device *dev = debug_fs->cam_dev->dev;
@@ -183,7 +183,7 @@ mtk_cam_debug_dump_all_content(struct mtk_cam_debug_fs *debug_fs, void *dump_buf
 				 header->meta_out_2_dump_buf_size,
 				 "Meta-out-2");
 
-	mtk_cam_dump_buf_content(dev, dump_buf, &param->status_dump,
+	mtk_cam_dump_buf_content(dev, dump_buf, param->status_dump,
 				 header->status_dump_offset,
 				 header->status_dump_size,
 				 "Status-dump");

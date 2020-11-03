@@ -54,6 +54,9 @@
 			 DUMP_META_STATS_1_MAX_SIZE + \
 			 DUMP_META_STATS_2_MAX_SIZE)
 
+#define MTK_CAM_FORCE_DUMP_SOF		1
+#define MTK_CAM_FORCE_DUMP_SW_DONE	2
+
 static const struct of_device_id mtk_cam_of_ids[] = {
 	{.compatible = "mediatek,camisp",},
 	{}
@@ -135,12 +138,14 @@ struct mtk_cam_request *mtk_cam_dev_get_req(struct mtk_cam_device *cam,
 }
 
 static void mtk_cam_dev_dump_request(struct mtk_cam_device *cam,
-				     struct mtk_cam_request *req)
+				     struct mtk_cam_dump_param  *dump_param,
+				     struct mtk_cam_request *req,
+				     char *desc, int buffer_state)
 {
 	struct media_request_object *obj, *obj_prev;
-	struct mtk_cam_dump_param  *dump_param = &req->dump_param;
 	int request_fd = -1;
 
+	memset(dump_param, 0, sizeof(*dump_param));
 	dump_param->sequence = req->frame_seq_no;
 	dump_param->timestamp = req->timestamp;
 	dump_param->cq_cpu_addr = (void *)(cam->working_buf_mem_va +
@@ -200,6 +205,9 @@ static void mtk_cam_dev_dump_request(struct mtk_cam_device *cam,
 	dump_param->cq_desc_size = req->working_buf->cq_size;
 	dump_param->cq_iova = cam->working_buf_mem_iova + req->working_buf->buffer.addr_offset;
 	dump_param->request_fd = request_fd;
+	dump_param->desc = desc;
+	dump_param->buffer_state = buffer_state;
+	dump_param->status_dump = &req->status_dump;
 }
 
 static void mtk_cam_req_dump_work(struct work_struct *work)
@@ -207,10 +215,16 @@ static void mtk_cam_req_dump_work(struct work_struct *work)
 	struct mtk_cam_request *req = mtk_cam_req_dbg_work_to_req(work);
 	struct mtk_cam_device *cam =
 		container_of(req->req.mdev, struct mtk_cam_device, media_dev);
+	struct mtk_cam_dump_param dump_param;
 
-	mtk_cam_dev_dump_request(cam, req);
+	mtk_cam_dev_dump_request(cam, &dump_param, req, req->dbg_work.desc,
+				 req->dbg_work.buffer_state);
 	req->dbg_work.state = MTK_CAM_REQ_DBGWORK_S_FINISHED;
-	cam->debug_fs->ops->exp_dump(cam->debug_fs, &req->dump_param);
+
+	if (req->dbg_work.dump_flags & MTK_CAM_REQ_DUMP_FORCE_SOF)
+		cam->debug_fs->ops->dump(cam->debug_fs, &dump_param);
+	else
+		cam->debug_fs->ops->exp_dump(cam->debug_fs, &dump_param);
 }
 
 static void mtk_cam_req_dump_release_work(struct work_struct *work)
@@ -219,17 +233,20 @@ static void mtk_cam_req_dump_release_work(struct work_struct *work)
 	struct mtk_cam_request *req = mtk_cam_req_dbg_release_work_to_req(work);
 	struct mtk_cam_device *cam =
 		container_of(req->req.mdev, struct mtk_cam_device, media_dev);
+	struct mtk_cam_dump_param dump_param;
 
 	if (req->dbg_release_work.dump_flags)
-		mtk_cam_dev_dump_request(cam, req);
+		mtk_cam_dev_dump_request(cam, &dump_param, req, req->dbg_work.desc,
+					 req->dbg_work.buffer_state);
 
 	if (req->dbg_release_work.dump_flags & MTK_CAM_REQ_DUMP_HW_FRAME_DROP)
-		cam->debug_fs->ops->exp_dump(cam->debug_fs, &req->dump_param);
-	else if (req->dbg_release_work.dump_flags & MTK_CAM_REQ_DUMP_FORCE)
-		cam->debug_fs->ops->dump(cam->debug_fs, &req->dump_param);
+		cam->debug_fs->ops->exp_dump(cam->debug_fs, &dump_param);
+
+	if (req->dbg_release_work.dump_flags & MTK_CAM_REQ_DUMP_FORCE_FRAME_DONE)
+		cam->debug_fs->ops->dump(cam->debug_fs, &dump_param);
 
 	spin_lock_irqsave(&cam->running_job_lock, flags);
-	mtk_cam_dev_job_done(cam, req, req->dump_param.buffer_state);
+	mtk_cam_dev_job_done(cam, req, req->dbg_release_work.buffer_state);
 	spin_unlock_irqrestore(&cam->running_job_lock, flags);
 
 	req->dbg_release_work.state = MTK_CAM_REQ_DBGWORK_S_FINISHED;
@@ -247,18 +264,19 @@ int mtk_cam_req_dump(struct mtk_cam_device *cam, struct mtk_cam_request *req,
 	if (!cam->debug_fs)
 		return false;
 
-	if (force_dump && max_num_of_dump &&
-	    dump_flag == MTK_CAM_REQ_DUMP_FORCE)
-		update_flag = MTK_CAM_REQ_DUMP_FORCE;
-	else
-		update_flag = dump_flag;
+	if (force_dump && max_num_of_dump) {
+		if (force_dump == MTK_CAM_FORCE_DUMP_SOF)
+			update_flag = MTK_CAM_REQ_DUMP_FORCE_SOF;
+		else
+			update_flag = MTK_CAM_REQ_DUMP_FORCE_FRAME_DONE;
+	}
 
 	/**
 	 * If there is already a exp dump work, we must delay the
 	 * job done or it may access the invalid request.
 	 */
 	if (update_flag == MTK_CAM_REQ_DUMP_HW_FRAME_DROP ||
-	    update_flag == MTK_CAM_REQ_DUMP_FORCE ||
+	    update_flag == MTK_CAM_REQ_DUMP_FORCE_FRAME_DONE ||
 	    req->dbg_work.state == MTK_CAM_REQ_DBGWORK_S_PREPARED)
 		need_release = true;
 
@@ -273,10 +291,10 @@ int mtk_cam_req_dump(struct mtk_cam_device *cam, struct mtk_cam_request *req,
 		work_func = mtk_cam_req_dump_work;
 	}
 
-	if (dbg_work->state == MTK_CAM_REQ_DBGWORK_S_FINISHED) {
+	if (dbg_work->state != MTK_CAM_REQ_DBGWORK_S_INIT) {
 		dev_dbg(cam->dev,
-			"%s: seq(%d) debug work already finished\n",
-			__func__, req->frame_seq_no);
+			"%s: seq(%d) debug work already started (%d)\n",
+			__func__, req->frame_seq_no, dbg_work->state);
 		return false;
 	}
 
@@ -285,8 +303,8 @@ int mtk_cam_req_dump(struct mtk_cam_device *cam, struct mtk_cam_request *req,
 
 	dbg_work->dump_flags |= update_flag;
 	dbg_work->state = MTK_CAM_REQ_DBGWORK_S_PREPARED;
-	snprintf(req->dump_param.desc, MTK_CAM_DEBUG_PARAM_DESC_SIZE - 1, desc);
-	req->dump_param.buffer_state = buf_state;
+	snprintf(req->dbg_work.desc, MTK_CAM_DEBUG_PARAM_DESC_SIZE - 1, desc);
+	dbg_work->buffer_state = buf_state;
 
 	if (!queue_work(cam->debug_wq, &dbg_work->work)) {
 		dev_dbg(cam->dev,
@@ -324,7 +342,7 @@ void mtk_cam_dequeue_req_frame(struct mtk_cam_device *cam,
 			mtk_camsys_state_delete(ctx, sensor_ctrl, req);
 
 			if (!mtk_cam_req_dump(cam, req, buf_state,
-					      MTK_CAM_REQ_DUMP_FORCE, true,
+					      MTK_CAM_REQ_DUMP_FORCE_FRAME_DONE, true,
 					      "Camsys Force DUMP"))
 				mtk_cam_dev_job_done(cam, req, buf_state);
 
@@ -492,7 +510,7 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 
 	dev_dbg(cam->dev, "update request:%s\n", req->req.debug_str);
 
-	memset(&req->dump_param, 0, sizeof(req->dump_param));
+	memset(&req->status_dump, 0, sizeof(req->status_dump));
 	req->dbg_work.state = MTK_CAM_REQ_DBGWORK_S_INIT;
 	req->dbg_work.dump_flags = 0;
 	req->dbg_release_work.state = MTK_CAM_REQ_DBGWORK_S_INIT;
@@ -1341,6 +1359,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 	struct mtk_raw_device *raw_dev;
 	int i, ret;
 	unsigned long flags;
+	bool need_dump_mem = false;
 
 	dev_info(cam->dev, "ctx %d stream on\n", ctx->stream_id);
 
@@ -1389,19 +1408,20 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 	initialize(raw_dev);
 
 	spin_lock_irqsave(&ctx->streaming_lock, flags);
-	if (!cam->streaming_ctx && cam->debug_fs) {
-		max_num_of_dump = cam->debug_fs->ops->realloc(cam->debug_fs,
-							      max_num_of_dump);
-	} else {
+	if (!cam->streaming_ctx && cam->debug_fs)
+		need_dump_mem = true;
+	else
 		dev_dbg(cam->dev,
-			"Cam dump disalbed, streaming_ctx(0x%x), debug_fs(%p)\n",
+			"No need to alloc mem for ctx: streaming_ctx(0x%x), debug_fs(%p)\n",
 			cam->streaming_ctx, cam->debug_fs);
-	}
 
 	ctx->streaming = true;
 	cam->streaming_ctx |= 1 << ctx->stream_id;
 	spin_unlock_irqrestore(&ctx->streaming_lock, flags);
 
+	if (need_dump_mem)
+		max_num_of_dump = cam->debug_fs->ops->realloc(cam->debug_fs,
+								  max_num_of_dump);
 	ret = mtk_camsys_ctrl_start(ctx);
 	if (ret) {
 		ctx->streaming = false;

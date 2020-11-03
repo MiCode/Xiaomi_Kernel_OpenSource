@@ -1068,7 +1068,7 @@ void raw_irq_handle_dma_err(struct mtk_raw_device *raw_dev,
 	status_dump->dma_err_pdo = readl_relaxed(raw_dev->base +
 						  REG_PDO_ERR_STAT);
 
-	req->dump_param.status_dump = *status_dump;
+	req->status_dump = *status_dump;
 
 	/**
 	 * Send the wrok to ensure the dump is finished even when the isp
