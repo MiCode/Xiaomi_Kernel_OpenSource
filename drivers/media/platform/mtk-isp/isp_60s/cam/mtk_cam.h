@@ -111,7 +111,7 @@ struct mtk_cam_status_dump {
 
 struct mtk_cam_dump_param {
 	/* Common Debug Information*/
-	__u8 desc[MTK_CAM_DEBUG_PARAM_DESC_SIZE];
+	char *desc;
 	__u32 request_fd;
 	__u32 buffer_state;
 	__u64 timestamp;
@@ -143,24 +143,28 @@ struct mtk_cam_dump_param {
 	__u32 meta_out_2_dump_buf_size;
 	__u32 meta_out_2_iova;
 
-	struct mtk_cam_status_dump status_dump;
+	struct mtk_cam_status_dump *status_dump;
+
 };
 
-#define MTK_CAM_REQ_DUMP_FORCE		BIT(0) /* Force dump by user */
-#define MTK_CAM_REQ_DUMP_DMA_ERR	BIT(1) /* Triggered by DMA ERR */
+#define MTK_CAM_REQ_DUMP_FORCE_FRAME_DONE	BIT(0) /* Force dump by user */
+#define MTK_CAM_REQ_DUMP_FORCE_SOF	BIT(1) /* Force dump by user */
+#define MTK_CAM_REQ_DUMP_DMA_ERR	BIT(2) /* Triggered by DMA ERR */
 /**
  * Triggered by HW Frame Drop found when next SOF coming
  */
-#define MTK_CAM_REQ_DUMP_HW_FRAME_DROP	BIT(2)
+#define MTK_CAM_REQ_DUMP_HW_FRAME_DROP	BIT(3)
 
 #define MTK_CAM_REQ_DBGWORK_S_INIT	0
 #define MTK_CAM_REQ_DBGWORK_S_PREPARED	1
 #define MTK_CAM_REQ_DBGWORK_S_FINISHED	2
 
 struct mtk_cam_req_dbg_work {
+	char desc[MTK_CAM_DEBUG_PARAM_DESC_SIZE];
 	struct work_struct work;
 	int state;
 	unsigned int dump_flags;
+	int buffer_state;
 };
 
 /*
@@ -188,9 +192,9 @@ struct mtk_cam_request {
 	struct work_struct link_work;
 	struct mtk_camsys_ctrl_state state;
 	struct mtk_cam_working_buf_entry *working_buf;
-	struct mtk_cam_dump_param dump_param;
 	struct mtk_cam_req_dbg_work dbg_work;
 	struct mtk_cam_req_dbg_work dbg_release_work;
+	struct mtk_cam_status_dump status_dump;
 };
 
 static inline struct mtk_cam_request*
