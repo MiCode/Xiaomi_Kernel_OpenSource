@@ -33,6 +33,7 @@ struct qcom_sysmon {
 	struct notifier_block nb;
 
 	struct device *dev;
+	uint32_t transaction_id;
 
 	struct rpmsg_endpoint *ept;
 	struct completion comp;
@@ -164,6 +165,7 @@ static int sysmon_callback(struct rpmsg_device *rpdev, void *data, int count,
 #define SSCTL_SHUTDOWN_REQ		0x21
 #define SSCTL_SHUTDOWN_READY_IND	0x21
 #define SSCTL_SUBSYS_EVENT_REQ		0x23
+#define SSCTL_SUBSYS_EVENT_WITH_TID_REQ		0x25
 
 #define SSCTL_MAX_MSG_LEN		7
 
@@ -191,22 +193,23 @@ static struct qmi_elem_info ssctl_shutdown_resp_ei[] = {
 	{}
 };
 
-struct ssctl_subsys_event_req {
+struct ssctl_subsys_event_with_tid_req {
 	u8 subsys_name_len;
 	char subsys_name[SSCTL_SUBSYS_NAME_LENGTH];
 	u32 event;
+	uint32_t transaction_id;
 	u8 evt_driven_valid;
 	u32 evt_driven;
 };
 
-static struct qmi_elem_info ssctl_subsys_event_req_ei[] = {
+static struct qmi_elem_info ssctl_subsys_event_with_tid_req_ei[] = {
 	{
 		.data_type	= QMI_DATA_LEN,
 		.elem_len	= 1,
 		.elem_size	= sizeof(uint8_t),
 		.array_type	= NO_ARRAY,
 		.tlv_type	= 0x01,
-		.offset		= offsetof(struct ssctl_subsys_event_req,
+		.offset		= offsetof(struct ssctl_subsys_event_with_tid_req,
 					   subsys_name_len),
 		.ei_array	= NULL,
 	},
@@ -216,7 +219,7 @@ static struct qmi_elem_info ssctl_subsys_event_req_ei[] = {
 		.elem_size	= sizeof(char),
 		.array_type	= VAR_LEN_ARRAY,
 		.tlv_type	= 0x01,
-		.offset		= offsetof(struct ssctl_subsys_event_req,
+		.offset		= offsetof(struct ssctl_subsys_event_with_tid_req,
 					   subsys_name),
 		.ei_array	= NULL,
 	},
@@ -226,8 +229,18 @@ static struct qmi_elem_info ssctl_subsys_event_req_ei[] = {
 		.elem_size	= sizeof(uint32_t),
 		.array_type	= NO_ARRAY,
 		.tlv_type	= 0x02,
-		.offset		= offsetof(struct ssctl_subsys_event_req,
+		.offset		= offsetof(struct ssctl_subsys_event_with_tid_req,
 					   event),
+		.ei_array	= NULL,
+	},
+	{
+		.data_type	= QMI_UNSIGNED_4_BYTE,
+		.elem_len	= 1,
+		.elem_size	= sizeof(uint32_t),
+		.array_type	= NO_ARRAY,
+		.tlv_type	= 0x03,
+		.offset		= offsetof(struct ssctl_subsys_event_with_tid_req,
+					   transaction_id),
 		.ei_array	= NULL,
 	},
 	{
@@ -236,7 +249,7 @@ static struct qmi_elem_info ssctl_subsys_event_req_ei[] = {
 		.elem_size	= sizeof(uint8_t),
 		.array_type	= NO_ARRAY,
 		.tlv_type	= 0x10,
-		.offset		= offsetof(struct ssctl_subsys_event_req,
+		.offset		= offsetof(struct ssctl_subsys_event_with_tid_req,
 					   evt_driven_valid),
 		.ei_array	= NULL,
 	},
@@ -246,30 +259,31 @@ static struct qmi_elem_info ssctl_subsys_event_req_ei[] = {
 		.elem_size	= sizeof(uint32_t),
 		.array_type	= NO_ARRAY,
 		.tlv_type	= 0x10,
-		.offset		= offsetof(struct ssctl_subsys_event_req,
+		.offset		= offsetof(struct ssctl_subsys_event_with_tid_req,
 					   evt_driven),
 		.ei_array	= NULL,
 	},
 	{}
 };
 
-struct ssctl_subsys_event_resp {
+struct ssctl_subsys_event_with_tid_resp {
 	struct qmi_response_type_v01 resp;
 };
 
-static struct qmi_elem_info ssctl_subsys_event_resp_ei[] = {
+static struct qmi_elem_info ssctl_subsys_event_with_tid_resp_ei[] = {
 	{
 		.data_type	= QMI_STRUCT,
 		.elem_len	= 1,
 		.elem_size	= sizeof(struct qmi_response_type_v01),
 		.array_type	= NO_ARRAY,
 		.tlv_type	= 0x02,
-		.offset		= offsetof(struct ssctl_subsys_event_resp,
+		.offset		= offsetof(struct ssctl_subsys_event_with_tid_resp,
 					   resp),
 		.ei_array	= qmi_response_type_v01_ei,
 	},
 	{}
 };
+
 
 static struct qmi_elem_info ssctl_shutdown_ind_ei[] = {
 	{}
@@ -348,13 +362,13 @@ static void ssctl_request_shutdown(struct qcom_sysmon *sysmon)
 static void ssctl_send_event(struct qcom_sysmon *sysmon,
 			     const struct sysmon_event *event)
 {
-	struct ssctl_subsys_event_resp resp;
-	struct ssctl_subsys_event_req req;
+	struct ssctl_subsys_event_with_tid_resp resp;
+	struct ssctl_subsys_event_with_tid_req req;
 	struct qmi_txn txn;
 	int ret;
 
 	memset(&resp, 0, sizeof(resp));
-	ret = qmi_txn_init(&sysmon->qmi, &txn, ssctl_subsys_event_resp_ei, &resp);
+	ret = qmi_txn_init(&sysmon->qmi, &txn, ssctl_subsys_event_with_tid_resp_ei, &resp);
 	if (ret < 0) {
 		dev_err(sysmon->dev, "failed to allocate QMI txn\n");
 		return;
@@ -366,10 +380,11 @@ static void ssctl_send_event(struct qcom_sysmon *sysmon,
 	req.event = event->ssr_event;
 	req.evt_driven_valid = true;
 	req.evt_driven = SSCTL_SSR_EVENT_FORCED;
+	req.transaction_id = sysmon->transaction_id;
 
 	ret = qmi_send_request(&sysmon->qmi, &sysmon->ssctl, &txn,
-			       SSCTL_SUBSYS_EVENT_REQ, 40,
-			       ssctl_subsys_event_req_ei, &req);
+			       SSCTL_SUBSYS_EVENT_WITH_TID_REQ, 40,
+			       ssctl_subsys_event_with_tid_req_ei, &req);
 	if (ret < 0) {
 		dev_err(sysmon->dev, "failed to send shutdown request\n");
 		qmi_txn_cancel(&txn);
@@ -499,6 +514,10 @@ static void sysmon_stop(struct rproc_subdev *subdev, bool crashed)
 		.subsys_name = sysmon->name,
 		.ssr_event = SSCTL_SSR_EVENT_BEFORE_SHUTDOWN
 	};
+
+	sysmon->transaction_id++;
+	dev_info(sysmon->dev, "Incrementing tid for %s to %d\n", sysmon->name,
+		 sysmon->transaction_id);
 
 	blocking_notifier_call_chain(&sysmon_notifiers, 0, (void *)&event);
 
