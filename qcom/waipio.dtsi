@@ -29,6 +29,7 @@
 
 	aliases {
 		serial0 = &qupv3_se7_2uart;
+		sdhc2 = &sdhc_2;
 		ufshc1 = &ufshc_mem; /* Embedded UFS Slot */
 	};
 
@@ -1458,6 +1459,35 @@
 
 		iommus = <&apps_smmu 0xE0 0x0>;
 		dma-coherent;
+
+		status = "disabled";
+	};
+
+	sdhc_2: sdhci@8804000 {
+		compatible = "qcom,sdhci-msm-v5";
+		reg = <0x08804000 0x1000>;
+		reg-names = "hc_mem";
+
+		interrupts = <GIC_SPI 207 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 223 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "hc_irq", "pwr_irq";
+
+		bus-width = <4>;
+		no-sdio;
+		no-mmc;
+		qcom,restore-after-cx-collapse;
+
+		clocks = <&clock_gcc GCC_SDCC2_AHB_CLK>,
+			<&clock_gcc GCC_SDCC2_APPS_CLK>;
+		clock-names = "iface", "core";
+
+		/* DLL HSR settings. Refer go/hsr - <Target> DLL settings */
+		qcom,dll-hsr-list = <0x0007642C 0xA800 0x10
+					0x2C010800 0x80040868>;
+
+		iommus = <&apps_smmu 0x4a0 0x0>;
+		dma-coherent;
+		qcom,iommu-dma = "bypass";
 
 		status = "disabled";
 	};
