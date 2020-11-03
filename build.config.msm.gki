@@ -2,10 +2,6 @@
 # Common MSM configuration for building GKI-based kernels
 DEFCONFIG="gki_defconfig"
 
-if [ -z "${GKI_RAMDISK_PREBUILT_BINARY}" ]; then
-	GKI_RAMDISK_PREBUILT_BINARY=prebuilts/boot-artifacts/${ARCH}/gki-ramdisk.cpio
-fi
-
 ABI_DEFINITION=abi_gki_aarch64.xml
 KMI_SYMBOL_LIST=abi_gki_aarch64_qcom
 TRIM_NONLISTED_KMI=1
