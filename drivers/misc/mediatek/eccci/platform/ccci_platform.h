@@ -36,6 +36,13 @@ do { \
 #define ccci_read16(b, a)               ioread16((void __iomem *)((b)+(a)))
 #define ccci_read8(b, a)                ioread8((void __iomem *)((b)+(a)))
 
+extern struct regmap *syscon_regmap_lookup_by_phandle(
+		struct device_node *np, const char *property);
+extern int regmap_write(struct regmap *map,
+		unsigned int reg, unsigned int val);
+extern int regmap_read(struct regmap *map,
+		unsigned int reg, unsigned int *val);
+
 #ifdef FEATURE_LOW_BATTERY_SUPPORT
 enum LOW_POEWR_NOTIFY_TYPE {
 	LOW_BATTERY,

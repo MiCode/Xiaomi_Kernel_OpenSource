@@ -156,7 +156,6 @@ static int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 	struct ccci_dev_cfg *dev_cfg, struct md_hw_info *hw_info)
 {
 	struct device_node *node = NULL;
-	struct device_node *node_infrao = NULL;
 	int idx = 0;
 #ifdef USING_PM_RUNTIME
 	int retval = 0;
@@ -211,22 +210,16 @@ static int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 		hw_info->md_boot_slave_En = MD_BOOT_VECTOR_EN;
 		of_property_read_u32(dev_ptr->dev.of_node,
 			"mediatek,md_generation", &md_cd_plat_val_ptr.md_gen);
-		node_infrao = of_find_compatible_node(NULL, NULL,
-			"mediatek,mt8192-infracfg"); /* ccci-infracfg */
-		if (node_infrao) {
-			md_cd_plat_val_ptr.infra_ao_base =
-				of_iomap(node_infrao, 0);
 
-			if (!md_cd_plat_val_ptr.infra_ao_base) {
-				CCCI_ERROR_LOG(dev_cfg->index, TAG,
-					"infra_ao fail: NULL!\n");
-					return -1;
-			}
-		} else {
+		md_cd_plat_val_ptr.infra_ao_base =
+				syscon_regmap_lookup_by_phandle(dev_ptr->dev.of_node,
+				"ccci-infracfg");
+		if (!md_cd_plat_val_ptr.infra_ao_base) {
 			CCCI_ERROR_LOG(dev_cfg->index, TAG,
-					"infra_ao fail: mt6873-infracfg!\n");
+				"infra_ao fail: NULL!\n");
 			return -1;
 		}
+
 		hw_info->plat_ptr = &md_cd_plat_ptr;
 		hw_info->plat_val = &md_cd_plat_val_ptr;
 		if ((hw_info->plat_ptr == NULL) || (hw_info->plat_val == NULL))
@@ -245,6 +238,13 @@ static int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 		}
 		node = of_find_compatible_node(NULL, NULL,
 			"mediatek,mt8192-topckgen");//"mediatek,mt6873-topckgen"
+		if (!node) {
+			CCCI_ERROR_LOG(-1, TAG,
+				"%s: find node: 'mediatek,mt8192-topckgen' fail.\n",
+				__func__);
+			node = of_find_compatible_node(NULL, NULL,
+				"mediatek,mt6853-topckgen");
+		}
 		if (node)
 			hw_info->ap_topclkgen_base = of_iomap(node, 0);
 
@@ -648,6 +648,20 @@ static int md_start_platform(struct ccci_modem *md)
 	return ret;
 }
 
+static int md_cd_topclkgen_on(struct ccci_modem *md)
+{
+	unsigned int reg_value;
+
+	reg_value = ccci_read32(md->hw_info->ap_topclkgen_base, 0);
+	reg_value &= ~((1<<8) | (1<<9));
+	ccci_write32(md->hw_info->ap_topclkgen_base, 0, reg_value);
+
+	CCCI_BOOTUP_LOG(md->index, CORE, "%s: set md1_clk_mod = 0x%x\n",
+		__func__, ccci_read32(md->hw_info->ap_topclkgen_base, 0));
+
+	return 0;
+}
+
 static int md_cd_power_on(struct ccci_modem *md)
 {
 	int ret = 0;
@@ -656,18 +670,21 @@ static int md_cd_power_on(struct ccci_modem *md)
 	/* step 1: PMIC setting */
 	md1_pmic_setting_on();
 
+	/* modem topclkgen on setting */
+	md_cd_topclkgen_on(md);
+
 	/* step 2: MD srcclkena setting */
-	reg_value = ccci_read32(md->hw_info->plat_val->infra_ao_base,
-		INFRA_AO_MD_SRCCLKENA);
+	reg_value = regmap_read(md->hw_info->plat_val->infra_ao_base,
+		INFRA_AO_MD_SRCCLKENA, &reg_value);
 	reg_value &= ~(0xFF);
 	reg_value |= 0x21;
-	ccci_write32(md->hw_info->plat_val->infra_ao_base,
+	regmap_write(md->hw_info->plat_val->infra_ao_base,
 		INFRA_AO_MD_SRCCLKENA, reg_value);
 	CCCI_BOOTUP_LOG(md->index, CORE,
 		"%s: set md1_srcclkena bit(0x1000_0F0C)=0x%x\n",
 		__func__,
-		ccci_read32(md->hw_info->plat_val->infra_ao_base,
-		INFRA_AO_MD_SRCCLKENA));
+		regmap_read(md->hw_info->plat_val->infra_ao_base,
+		INFRA_AO_MD_SRCCLKENA, &reg_value));
 
 	/* steip 3: power on MD_INFRA and MODEM_TOP */
 	switch (md->index) {
@@ -717,6 +734,20 @@ static int md_cd_let_md_go(struct ccci_modem *md)
 	return 0;
 }
 
+static int md_cd_topclkgen_off(struct ccci_modem *md)
+{
+	unsigned int reg_value;
+
+	reg_value = ccci_read32(md->hw_info->ap_topclkgen_base, 0);
+	reg_value |= ((1<<8) | (1<<9));
+	ccci_write32(md->hw_info->ap_topclkgen_base, 0, reg_value);
+
+	CCCI_BOOTUP_LOG(md->index, CORE, "%s: set md1_clk_mod = 0x%x\n",
+		__func__, ccci_read32(md->hw_info->ap_topclkgen_base, 0));
+
+	return 0;
+}
+
 static int md_cd_power_off(struct ccci_modem *md, unsigned int timeout)
 {
 	int ret = 0;
@@ -743,19 +774,23 @@ static int md_cd_power_off(struct ccci_modem *md, unsigned int timeout)
 
 		CCCI_BOOTUP_LOG(md->index, TAG, "disable md1 clk\n");
 		reg_value =
-			ccci_read32(md->hw_info->plat_val->infra_ao_base,
-			INFRA_AO_MD_SRCCLKENA);
+			regmap_read(md->hw_info->plat_val->infra_ao_base,
+			INFRA_AO_MD_SRCCLKENA, &reg_value);
 		reg_value &= ~(0xFF);
-		ccci_write32(md->hw_info->plat_val->infra_ao_base,
+		regmap_write(md->hw_info->plat_val->infra_ao_base,
 			INFRA_AO_MD_SRCCLKENA, reg_value);
 		CCCI_BOOTUP_LOG(md->index, CORE,
 			"%s: set md1_srcclkena=0x%x\n", __func__,
-			ccci_read32(md->hw_info->plat_val->infra_ao_base,
-			INFRA_AO_MD_SRCCLKENA));
+			regmap_read(md->hw_info->plat_val->infra_ao_base,
+			INFRA_AO_MD_SRCCLKENA, &reg_value));
 		CCCI_BOOTUP_LOG(md->index, TAG, "Call md1_pmic_setting_off\n");
 #ifdef mtk09077_clkbuf
 		clk_buf_set_by_flightmode(true);
 #endif
+
+		/* modem topclkgen off setting */
+		md_cd_topclkgen_off(md);
+
 		/* 5. DLPT */
 		//xuxin-pbm//kicker_pbm_by_md(KR_MD1, false);
 		CCCI_BOOTUP_LOG(md->index, TAG,
