@@ -446,11 +446,32 @@ static int __maybe_unused mtk8250_runtime_resume(struct device *dev)
 static void
 mtk8250_do_pm(struct uart_port *port, unsigned int state, unsigned int old)
 {
+	unsigned char lcr = 0, efr = 0;
+	struct uart_8250_port *up = up_to_u8250p(port);
+
 	if (!state)
 		if (!mtk8250_runtime_resume(port->dev))
 			pm_runtime_get_sync(port->dev);
 
-	serial8250_do_pm(port, state, old);
+	serial8250_rpm_get(up);
+
+	if (up->capabilities & UART_CAP_SLEEP) {
+		if (up->capabilities & UART_CAP_EFR) {
+			lcr = serial_in(up, UART_LCR);
+			serial_out(up, UART_LCR, UART_LCR_CONF_MODE_B);
+			efr = serial_in(up, UART_EFR);
+			serial_out(up, UART_EFR, UART_EFR_ECB);
+			serial_out(up, UART_LCR, 0);
+		}
+		serial_out(up, UART_IER, (state != 0) ? UART_IERX_SLEEP : 0);
+		if (up->capabilities & UART_CAP_EFR) {
+			serial_out(up, UART_LCR, UART_LCR_CONF_MODE_B);
+			serial_out(up, UART_EFR, efr);
+			serial_out(up, UART_LCR, lcr);
+		}
+	}
+
+	serial8250_rpm_put(up);
 
 	if (state)
 		if (!pm_runtime_put_sync_suspend(port->dev))
