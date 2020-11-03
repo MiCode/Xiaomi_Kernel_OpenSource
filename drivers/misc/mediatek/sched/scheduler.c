@@ -237,6 +237,26 @@ static void clear_opp_cap_info(void)
 {
 	free_capacity_table();
 }
+
+#if defined(CONFIG_NONLINEAR_FREQ_CTL)
+static void mtk_arch_set_freq_scale(void *data, struct cpumask *cpus,
+		unsigned long freq, unsigned long max, unsigned long *scale)
+{
+	int cpu = cpumask_first(cpus);
+	int opp;
+	unsigned long cap, max_cap;
+
+	opp = pd_freq_to_opp(cpu, freq);
+
+	if (opp < 0)
+		return;
+
+	cap = pd_get_opp_capacity(cpu, opp);
+	max_cap = pd_get_opp_capacity(cpu, 0);
+
+	*scale = SCHED_CAPACITY_SCALE * cap / max_cap;
+}
+#endif
 #else
 
 static int init_opp_cap_info(struct proc_dir_entry *dir) { return 0; }
@@ -253,7 +273,17 @@ static int __init mtk_scheduler_init(void)
 	if (!dir)
 		return -ENOMEM;
 
-	return init_opp_cap_info(dir);
+	ret = init_opp_cap_info(dir);
+	if (ret)
+		return ret;
+#if defined(CONFIG_NONLINEAR_FREQ_CTL)
+	ret = register_trace_android_vh_arch_set_freq_scale(
+			mtk_arch_set_freq_scale, NULL);
+	if (ret)
+		pr_info("register android_vh_arch_set_freq_scale failed\n");
+#endif
+	return ret;
+
 }
 
 static void __exit mtk_scheduler_exit(void)

@@ -15,3 +15,12 @@ config MTK_OPP_CAP_INFO
 	  initialize opp capacity table. This config is used by
 	  performance tuning framework and non-linear frequency control.
 
+config NONLINEAR_FREQ_CTL
+	bool "Non-linear frequency control"
+	depends on MTK_OPP_CAP_INFO
+	help
+	  Choose this option to enable non-linear frequency control.
+	  This will change per-opp capacity from linear scaled by
+	  freuqency to evaluated by benchmark. This makes capacity
+	  more accurate and will let scheduler/schedutil use more
+	  suitable frequency.
