@@ -28,17 +28,18 @@
 #define GPU_CC_GX_GFX3D_CLK_SRC					18
 #define GPU_CC_GX_GMU_CLK					19
 #define GPU_CC_GX_VSENSE_CLK					20
-#define GPU_CC_HUB_AHB_DIV_CLK_SRC				21
-#define GPU_CC_HUB_AON_CLK					22
-#define GPU_CC_HUB_CLK_SRC					23
-#define GPU_CC_HUB_CX_INT_CLK					24
-#define GPU_CC_HUB_CX_INT_DIV_CLK_SRC				25
-#define GPU_CC_MND1X_0_GFX3D_CLK				26
-#define GPU_CC_MND1X_1_GFX3D_CLK				27
-#define GPU_CC_RBCPR_AHB_CLK					28
-#define GPU_CC_RBCPR_CLK					29
-#define GPU_CC_RBCPR_CLK_SRC					30
-#define GPU_CC_SLEEP_CLK					31
+#define GPU_CC_HLOS1_VOTE_GPU_SMMU_CLK				21
+#define GPU_CC_HUB_AHB_DIV_CLK_SRC				22
+#define GPU_CC_HUB_AON_CLK					23
+#define GPU_CC_HUB_CLK_SRC					24
+#define GPU_CC_HUB_CX_INT_CLK					25
+#define GPU_CC_HUB_CX_INT_DIV_CLK_SRC				26
+#define GPU_CC_MND1X_0_GFX3D_CLK				27
+#define GPU_CC_MND1X_1_GFX3D_CLK				28
+#define GPU_CC_RBCPR_AHB_CLK					29
+#define GPU_CC_RBCPR_CLK					30
+#define GPU_CC_RBCPR_CLK_SRC					31
+#define GPU_CC_SLEEP_CLK					32
 
 /* GPU_CC power domains */
 #define GPU_CC_CX_GDSC						0
