@@ -1563,7 +1563,7 @@
 		};
 
 		apdma: dma-controller@10217a80 {
-			compatible = "mediatek,mt6577-uart-dma";
+			compatible = "mediatek,mt6779-uart-dma";
 			reg =   <0 0x10217a80 0 0x80>,
 				<0 0x10217b00 0 0x80>,
 				<0 0x10217b80 0 0x80>,
@@ -1575,7 +1575,6 @@
 			clocks = <&infracfg CLK_INFRA_AP_DMA>;
 			clock-names = "apdma";
 			dma-requests = <4>;
-			dma-bits = <34>;
 			#dma-cells = <1>;
 		};
 
