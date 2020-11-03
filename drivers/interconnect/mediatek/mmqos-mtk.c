@@ -164,10 +164,14 @@ static int mtk_mmqos_set(struct icc_node *src, struct icc_node *dst)
 	switch (dst->id >> 16) {
 	case MTK_MMQOS_NODE_COMMON:
 		comm_node = (struct common_node *)dst->data;
+		if (!comm_node)
+			break;
 		queue_work(mmqos->wq, &comm_node->work);
 		break;
 	case MTK_MMQOS_NODE_COMMON_PORT:
 		comm_port_node = (struct common_port_node *)dst->data;
+		if (!comm_port_node)
+			break;
 		mutex_lock(&comm_port_node->bw_lock);
 		comm_port_node->latest_mix_bw = comm_port_node->base->mix_bw;
 		comm_port_node->latest_peak_bw = dst->peak_bw;
@@ -182,6 +186,8 @@ static int mtk_mmqos_set(struct icc_node *src, struct icc_node *dst)
 	case MTK_MMQOS_NODE_LARB:
 		larb_port_node = (struct larb_port_node *)src->data;
 		larb_node = (struct larb_node *)dst->data;
+		if (!larb_port_node || !larb_node)
+			break;
 		if (larb_port_node->base->mix_bw)
 			value = SHIFT_ROUND(
 				icc_to_MBps(larb_port_node->base->mix_bw),
