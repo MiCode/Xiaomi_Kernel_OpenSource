@@ -11,16 +11,6 @@
 # GNU General Public License for more details.
 #
 
-obj-y := cameraisp_dummy.o
-
-ifeq ($(CONFIG_MTK_CAMERA_ISP_PLATFORM),"mt6775")
-  obj-y += isp_50/
-endif
-
-ifeq ($(CONFIG_MTK_CAMERA_ISP_PLATFORM),"mt6739")
-  obj-y += $(subst ",,$(CONFIG_MTK_CAMERA_ISP_PLATFORM))/
-endif
-
 ifeq ($(CONFIG_MTK_CAMERA_ISP_PLATFORM),"mt6885")
   obj-y += isp_6s/
 endif
@@ -32,8 +22,4 @@ endif
 
 ifeq ($(CONFIG_MTK_CAMERA_ISP_PLATFORM),"mt6853")
   obj-y += isp_6s/
-endif
-
-ifeq ($(CONFIG_MTK_CAMERA_ISP_PLATFORM),"mt6771")
-  obj-y += isp_50/
 endif
