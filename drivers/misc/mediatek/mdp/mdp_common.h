@@ -110,6 +110,16 @@ typedef u32 (*MdpGetGroup) (void);
 
 typedef const char *const (*MdpGetEngineGroupName) (void);
 
+typedef u32 *(*MdpGetEngineBase) (void);
+
+typedef u32 (*MdpGetEngineBaseCount) (void);
+
+typedef void (*CmdqMdpComposeReadback) (struct cmdqRecStruct *handle,
+	u16 engine, dma_addr_t dma, u32 param);
+
+typedef void (*CmdqMdpReadbackEngine) (struct cmdqRecStruct *handle,
+	u16 engine, phys_addr_t base, dma_addr_t pa, u32 param);
+
 struct cmdqMDPFuncStruct {
 #ifdef CONFIG_MTK_SMI_EXT
 	CmdqGetRequest getRequest;
@@ -163,6 +173,11 @@ struct cmdqMDPFuncStruct {
 	MdpGetGroup getGroupMdp;
 	MdpGetGroup getGroupWpe;
 	MdpGetEngineGroupName getEngineGroupName;
+	MdpGetEngineBase getEngineBase;
+	MdpGetEngineBaseCount getEngineBaseCount;
+	CmdqMdpComposeReadback mdpComposeReadback;
+	CmdqMdpReadbackEngine mdpReadbackAal;
+	CmdqMdpReadbackEngine mdpReadbackHdr;
 };
 
 struct mdp_pmqos_record {
@@ -211,6 +226,8 @@ void cmdq_mdp_set_resource_callback(enum cmdq_event res_event,
 	CmdqResourceAvailableCB res_available,
 	CmdqResourceReleaseCB res_release);
 void cmdq_mdp_unlock_thread(struct cmdqRecStruct *handle);
+void cmdq_mdp_op_readback(struct cmdqRecStruct *handle, u16 engine,
+	dma_addr_t dma, u32 param);
 s32 cmdq_mdp_flush_async(struct cmdqCommandStruct *desc, bool user_space,
 	struct cmdqRecStruct **handle_out);
 s32 cmdq_mdp_flush_async_impl(struct cmdqRecStruct *handle);
@@ -294,10 +311,5 @@ struct device *mdp_larb_dev_get(void);
 void cmdq_mdp_platform_function_setting(void);
 
 long cmdq_mdp_get_module_base_VA_MDP_WROT0(void);
-
-u32 *mdp_engine_base_get(void);
-
-u32 mdp_engine_base_count(void);
-
 
 #endif				/* __MDP_COMMON_H__ */

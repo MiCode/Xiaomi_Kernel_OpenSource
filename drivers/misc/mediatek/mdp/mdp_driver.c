@@ -1292,6 +1292,10 @@ static int __init cmdq_init(void)
 	}
 
 	mdpsyscon_init();
+	cmdq_core_late_init();
+	status = mdp_sync_device_init();
+	if (status != 0)
+		CMDQ_ERR("fence init fail:%d\n", status);
 
 	CMDQ_LOG("MDP driver init end\n");
 

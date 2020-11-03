@@ -213,6 +213,13 @@ enum CMDQ_MDP_PA_BASE_ENUM {
 	CMDQ_MAX_MDP_PA_BASE_COUNT,	/* ALWAYS keep at the end */
 };
 
+enum DP_CMD_EXT {
+	DP_CMDEXT_AAL_DRE,
+	DP_CMDEXT_AAL_MULTIPIPE,
+	DP_CMDEXT_HDR,
+	DP_CMDEXT_VERIFY,
+};
+
 #define CMDQ_SUBSYS_GRPNAME_MAX		(30)
 /* GCE subsys information */
 struct SubsysStruct {
@@ -256,6 +263,15 @@ struct cmdqRegValueStruct {
 	/* array of 32-bit register values (uint32_t). */
 	/* in the same order as cmdqReadRegStruct */
 	cmdqU32Ptr_t regValues;
+};
+
+#define CMDQ_MAX_READBACK_ENG	8
+
+struct cmdqReadbackEngine {
+	uint32_t engine;
+	uint32_t start;
+	uint32_t count;
+	uint32_t param;
 };
 
 struct cmdqReadAddressStruct {

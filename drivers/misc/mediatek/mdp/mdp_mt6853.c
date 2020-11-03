@@ -117,6 +117,13 @@ struct CmdqMdpModuleBaseVA {
 };
 static struct CmdqMdpModuleBaseVA gCmdqMdpModuleBaseVA;
 
+struct mdp_base_pa {
+	u32 aal0;
+	u32 aal1;
+	u32 hdr0;
+};
+static struct mdp_base_pa mdp_module_pa;
+
 struct CmdqMdpModuleClock {
 	struct clk *clk_APB;
 	struct clk *clk_MDP_MUTEX0;
@@ -656,13 +663,16 @@ void cmdq_mdp_init_module_base_VA(void)
 	gCmdqMdpModuleBaseVA.MDP_TDSHP1 =
 		cmdq_dev_alloc_reference_VA_by_name("mdp_tdshp1");
 	gCmdqMdpModuleBaseVA.MDP_AAL0 =
-		cmdq_dev_alloc_reference_VA_by_name("mdp_aal0");
+		cmdq_dev_alloc_reference_by_name("mdp_aal0",
+		&mdp_module_pa.aal0);
 	gCmdqMdpModuleBaseVA.MDP_AAL1 =
-		cmdq_dev_alloc_reference_VA_by_name("mdp_aal1");
+		cmdq_dev_alloc_reference_by_name("mdp_aal1",
+		&mdp_module_pa.aal1);
 	gCmdqMdpModuleBaseVA.MDP_COLOR0 =
 		cmdq_dev_alloc_reference_VA_by_name("mdp_color0");
 	gCmdqMdpModuleBaseVA.MDP_HDR0 =
-		cmdq_dev_alloc_reference_VA_by_name("mdp_hdr0");
+		cmdq_dev_alloc_reference_by_name("mdp_hdr0",
+		&mdp_module_pa.hdr0);
 	gCmdqMdpModuleBaseVA.VENC =
 		cmdq_dev_alloc_reference_VA_by_name("venc");
 	gCmdqMdpModuleBaseVA.MM_MUTEX =
@@ -2022,64 +2032,119 @@ static const char *const mdp_get_engine_group_name(void)
 	return (const char *const)engineGroupName;
 }
 
-void cmdq_mdp_platform_function_setting(void)
-{
-		struct cmdqMDPFuncStruct *pFunc = cmdq_mdp_get_func();
-
-		pFunc->dumpMMSYSConfig = cmdq_mdp_dump_mmsys_config;
-
-		pFunc->initModuleBaseVA = cmdq_mdp_init_module_base_VA;
-		pFunc->deinitModuleBaseVA = cmdq_mdp_deinit_module_base_VA;
-
-		pFunc->mdpClockIsOn = cmdq_mdp_clock_is_on;
-		pFunc->enableMdpClock = cmdq_mdp_enable_clock;
-		pFunc->initModuleCLK = cmdq_mdp_init_module_clk;
-		pFunc->mdpDumpRsz = cmdq_mdp_dump_rsz;
-		pFunc->mdpDumpTdshp = cmdq_mdp_dump_tdshp;
-		pFunc->mdpClockOn = cmdqMdpClockOn;
-		pFunc->mdpDumpInfo = cmdqMdpDumpInfo;
-		pFunc->mdpResetEng = cmdqMdpResetEng;
-		pFunc->mdpClockOff = cmdqMdpClockOff;
-		pFunc->mdpIsModuleSuspend = mdp_is_mod_suspend;
-		pFunc->mdpDumpEngineUsage = mdp_dump_engine_usage;
-
-		pFunc->mdpIsMtee = mdp_is_mtee;
-		pFunc->mdpIsIspImg = mdp_is_isp_img;
-		pFunc->mdpIsIspCamin = mdp_is_isp_camin;
-		pFunc->mdpInitialSet = cmdqMdpInitialSetting;
-
-		pFunc->rdmaGetRegOffsetSrcAddr = cmdq_mdp_rdma_get_reg_offset_src_addr;
-		pFunc->wrotGetRegOffsetDstAddr = cmdq_mdp_wrot_get_reg_offset_dst_addr;
-		pFunc->wdmaGetRegOffsetDstAddr = cmdq_mdp_wdma_get_reg_offset_dst_addr;
-		pFunc->parseErrModByEngFlag = cmdq_mdp_parse_error_module;
-		pFunc->getEngineGroupBits = cmdq_mdp_get_engine_group_bits;
-		pFunc->mdpEnableCommonClock = cmdq_mdp_enable_common_clock;
-		pFunc->CheckHwStatus = cmdq_mdp_check_hw_status;
-#ifdef CMDQ_SECURE_PATH_SUPPORT
-		pFunc->mdpGetSecEngine = cmdq_mdp_get_secure_engine;
-#endif
-
-		pFunc->qosTransPort = cmdq_mdp_qos_translate_port;
-		pFunc->qosInit = mdp_qos_init;
-		pFunc->qosGetPath = mdp_qos_get_path;
-		pFunc->qosClearAll = mdp_qos_clear_all;
-		pFunc->qosClearAllIsp = mdp_qos_clear_all_isp;
-		pFunc->getGroupMax = mdp_get_group_max;
-		pFunc->getGroupIsp = mdp_get_group_isp_plat;
-		pFunc->getGroupMdp = mdp_get_group_mdp;
-		pFunc->getGroupWpe = mdp_get_group_wpe_plat;
-		pFunc->getEngineGroupName = mdp_get_engine_group_name;
-}
-EXPORT_SYMBOL(cmdq_mdp_platform_function_setting);
-
-u32 *mdp_engine_base_get(void)
+static u32 *mdp_engine_base_get(void)
 {
 	return (u32 *)mdp_base;
 }
-EXPORT_SYMBOL(mdp_engine_base_get);
 
-u32 mdp_engine_base_count(void)
+static u32 mdp_engine_base_count(void)
 {
 	return (u32)ENGBASE_COUNT;
 }
-EXPORT_SYMBOL(mdp_engine_base_count);
+
+static void mdp_readback_aal_by_engine(struct cmdqRecStruct *handle,
+	u16 engine, dma_addr_t pa, u32 param)
+{
+	phys_addr_t base;
+
+	switch (engine) {
+	case CMDQ_ENG_MDP_AAL0:
+		base = mdp_module_pa.aal0;
+		break;
+	case CMDQ_ENG_MDP_AAL1:
+		base = mdp_module_pa.aal1;
+		break;
+	default:
+		CMDQ_ERR("%s not support\n", __func__);
+		return;
+	}
+
+	cmdq_mdp_get_func()->mdpReadbackAal(handle, engine, base, pa, param);
+}
+
+static void mdp_readback_hdr_by_engine(struct cmdqRecStruct *handle,
+	u16 engine, dma_addr_t pa, u32 param)
+{
+	phys_addr_t base;
+
+	switch (engine) {
+	case CMDQ_ENG_MDP_HDR0:
+		base = mdp_module_pa.hdr0;
+		break;
+	default:
+		CMDQ_ERR("%s not support\n", __func__);
+		return;
+	}
+
+	cmdq_mdp_get_func()->mdpReadbackHdr(handle, engine, base, pa, param);
+}
+
+void cmdq_mdp_compose_readback(struct cmdqRecStruct *handle,
+	u16 engine, dma_addr_t addr, u32 param)
+{
+	switch (engine) {
+	case CMDQ_ENG_MDP_AAL0:
+	case CMDQ_ENG_MDP_AAL1:
+		mdp_readback_aal_by_engine(handle, engine, addr, param);
+		break;
+	case CMDQ_ENG_MDP_HDR0:
+		mdp_readback_hdr_by_engine(handle, engine, addr, param);
+		break;
+	default:
+		CMDQ_ERR("%s engine not support:%hu\n", __func__, engine);
+		break;
+	}
+}
+
+void cmdq_mdp_platform_function_setting(void)
+{
+	struct cmdqMDPFuncStruct *pFunc = cmdq_mdp_get_func();
+
+	pFunc->dumpMMSYSConfig = cmdq_mdp_dump_mmsys_config;
+
+	pFunc->initModuleBaseVA = cmdq_mdp_init_module_base_VA;
+	pFunc->deinitModuleBaseVA = cmdq_mdp_deinit_module_base_VA;
+
+	pFunc->mdpClockIsOn = cmdq_mdp_clock_is_on;
+	pFunc->enableMdpClock = cmdq_mdp_enable_clock;
+	pFunc->initModuleCLK = cmdq_mdp_init_module_clk;
+	pFunc->mdpDumpRsz = cmdq_mdp_dump_rsz;
+	pFunc->mdpDumpTdshp = cmdq_mdp_dump_tdshp;
+	pFunc->mdpClockOn = cmdqMdpClockOn;
+	pFunc->mdpDumpInfo = cmdqMdpDumpInfo;
+	pFunc->mdpResetEng = cmdqMdpResetEng;
+	pFunc->mdpClockOff = cmdqMdpClockOff;
+	pFunc->mdpIsModuleSuspend = mdp_is_mod_suspend;
+	pFunc->mdpDumpEngineUsage = mdp_dump_engine_usage;
+
+	pFunc->mdpIsMtee = mdp_is_mtee;
+	pFunc->mdpIsIspImg = mdp_is_isp_img;
+	pFunc->mdpIsIspCamin = mdp_is_isp_camin;
+	pFunc->mdpInitialSet = cmdqMdpInitialSetting;
+
+	pFunc->rdmaGetRegOffsetSrcAddr = cmdq_mdp_rdma_get_reg_offset_src_addr;
+	pFunc->wrotGetRegOffsetDstAddr = cmdq_mdp_wrot_get_reg_offset_dst_addr;
+	pFunc->wdmaGetRegOffsetDstAddr = cmdq_mdp_wdma_get_reg_offset_dst_addr;
+	pFunc->parseErrModByEngFlag = cmdq_mdp_parse_error_module;
+	pFunc->getEngineGroupBits = cmdq_mdp_get_engine_group_bits;
+	pFunc->mdpEnableCommonClock = cmdq_mdp_enable_common_clock;
+	pFunc->CheckHwStatus = cmdq_mdp_check_hw_status;
+#ifdef CMDQ_SECURE_PATH_SUPPORT
+	pFunc->mdpGetSecEngine = cmdq_mdp_get_secure_engine;
+#endif
+
+	pFunc->qosTransPort = cmdq_mdp_qos_translate_port;
+	pFunc->qosInit = mdp_qos_init;
+	pFunc->qosGetPath = mdp_qos_get_path;
+	pFunc->qosClearAll = mdp_qos_clear_all;
+	pFunc->qosClearAllIsp = mdp_qos_clear_all_isp;
+	pFunc->getGroupMax = mdp_get_group_max;
+	pFunc->getGroupIsp = mdp_get_group_isp_plat;
+	pFunc->getGroupMdp = mdp_get_group_mdp;
+	pFunc->getGroupWpe = mdp_get_group_wpe_plat;
+	pFunc->getEngineBase = mdp_engine_base_get;
+	pFunc->getEngineBaseCount = mdp_engine_base_count;
+	pFunc->getEngineGroupName = mdp_get_engine_group_name;
+	pFunc->mdpComposeReadback = cmdq_mdp_compose_readback;
+}
+EXPORT_SYMBOL(cmdq_mdp_platform_function_setting);

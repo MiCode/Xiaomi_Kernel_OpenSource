@@ -56,27 +56,23 @@ endif
 # driver module
 obj-$(CONFIG_MTK_MDP) += mdp_drv.o
 mdp_drv-y := mdp_driver.o \
-	mdp_ioctl_ex.o
-
-obj-$(CONFIG_MTK_MDP) += mdp_core.o
-mdp_core-y := mdp_common.o \
+	mdp_ioctl_ex.o \
+	mdp_common.o \
 	cmdq_record.o \
 	cmdq_virtual.o \
 	cmdq_device.o \
 	mdp_event_common.o \
 	cmdq_subsys_common.o \
 	cmdq_helper_ext.o \
-	cmdq_mmp.o
+	cmdq_mmp.o \
+	mdp_fence.o
 
-mdp_core-$(CONFIG_MTK_MDP_MT6873) += mdp_mt6873.o
-mdp_core-$(CONFIG_MTK_MDP_MT6853) += mdp_mt6853.o
+mdp_drv-$(CONFIG_MTK_MDP_MT6873) += mdp_mt6873.o
+mdp_drv-$(CONFIG_MTK_MDP_MT6853) += mdp_mt6853.o
 #obj-y += cmdq_prof.o
 #obj-y += cmdq_test.o
 
 #ifeq ($(strip $(CONFIG_MMPROFILE)),y)
 #obj-y += cmdq_mmp.o
 #endif
-
-# mdp_sw_sync
-obj-$(CONFIG_MTK_MDP) += sync/
 
