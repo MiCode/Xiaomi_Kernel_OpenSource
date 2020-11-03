@@ -1819,6 +1819,12 @@
 		qcom,ee = <0>;
 		qcom,bus-id = <1>;
 	};
+
+	qcom,sps {
+		compatible = "qcom,msm-sps-4k";
+		qcom,pipe-attr-ee;
+	};
+
 };
 
 #include "waipio-qupv3.dtsi"
