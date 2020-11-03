@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _UFS_QUIRKS_H_
@@ -38,23 +38,6 @@ struct ufs_dev_fix {
 	.quirk = (_quirk),		   \
 }
 
-#ifdef CONFIG_SCSI_UFSHCD_QTI
-/*
- * If UFS device is having issue in processing LCC (Line Control
- * Command) coming from UFS host controller then enable this quirk.
- * When this quirk is enabled, host controller driver should disable
- * the LCC transmission on UFS host controller (by clearing
- * TX_LCC_ENABLE attribute of host to 0).
- */
-#define UFS_DEVICE_QUIRK_BROKEN_LCC (1 << 0)
-
-/*
- * Some UFS devices don't need VCCQ rail for device operations. Enabling this
- * quirk for such devices will make sure that VCCQ rail is not voted.
- */
-#define UFS_DEVICE_NO_VCCQ (1 << 1)
-#endif
-
 /*
  * Some vendor's UFS device sends back to back NACs for the DL data frames
  * causing the host controller to raise the DFES error status. Sometimes
@@ -88,15 +71,6 @@ struct ufs_dev_fix {
  * if device advertises RX_MIN_ACTIVATETIME_CAPABILITY less than 1ms.
  */
 #define UFS_DEVICE_QUIRK_PA_TACTIVATE	(1 << 4)
-
-#ifdef CONFIG_SCSI_UFSHCD_QTI
-/*
- * Some UFS memory devices may have really low read/write throughput in
- * FAST AUTO mode, enable this quirk to make sure that FAST AUTO mode is
- * never enabled for such devices.
- */
-#define UFS_DEVICE_NO_FASTAUTO		(1 << 5)
-#endif
 
 /*
  * It seems some UFS devices may keep drawing more than sleep current
@@ -134,32 +108,6 @@ struct ufs_dev_fix {
  * supported features on such devices.
  */
 #define UFS_DEVICE_QUIRK_SUPPORT_EXTENDED_FEATURES (1 << 10)
-
-#ifdef CONFIG_SCSI_UFSHCD_QTI
-/*
- * Some UFS devices may stop responding after switching from HS-G1 to HS-G3.
- * Also, it is found that these devices work fine if we do 2 steps switch:
- * HS-G1 to HS-G2 followed by HS-G2 to HS-G3. Enabling this quirk for such
- * device would apply this 2 steps gear switch workaround.
- */
-#define UFS_DEVICE_QUIRK_HS_G1_TO_HS_G3_SWITCH		(1 << 11)
-
-/*
- * Some UFS devices need more delay after device reference clk is turned on
- * but before initiation of the state transition to STALL from a LS-MODE or
- * from the HIBERN8 state. Enable this quirk to give UFS devices 50us delay
- * instead of the default delay.
- */
-#define UFS_DEVICE_QUIRK_WAIT_AFTER_REF_CLK_UNGATE	(1 << 12)
-
-/*
- * Some UFS devices may not work properly after resume if the link was kept
- * in off state during suspend. Enabling this quirk will not allow the
- * link to be kept in off state during suspend.
- */
-#define UFS_DEVICE_QUIRK_NO_LINK_OFF	(1 << 13)
-
-#endif
 
 /*
  * Some UFS devices require delay after VCC power rail is turned-off.

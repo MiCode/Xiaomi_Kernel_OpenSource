@@ -9,9 +9,7 @@
 #include <linux/reset.h>
 #include <linux/phy/phy.h>
 #include "ufshcd.h"
-#ifdef CONFIG_SCSI_UFSHCD_QTI
 #include "unipro.h"
-#endif
 
 #define MAX_UFS_QCOM_HOSTS	2
 #define MAX_U32                 (~(u32)0)
