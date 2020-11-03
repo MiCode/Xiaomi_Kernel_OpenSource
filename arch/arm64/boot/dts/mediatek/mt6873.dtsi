@@ -342,8 +342,9 @@
 			clock-frequency = <1701000000>;
 			operating-points-v2 = <&cluster0_opp>;
 			capacity-dmips-mhz = <365>;
-			cpu-idle-states = <&cpuoff_l &clusteroff_l
-						&mcusysoff &s2idle>;
+			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff
+						&system_mem &system_pll &system_bus
+						&s2idle>;
 			#cooling-cells = <2>;
 		};
 
@@ -356,8 +357,9 @@
 			clock-frequency = <1701000000>;
 			operating-points-v2 = <&cluster0_opp>;
 			capacity-dmips-mhz = <365>;
-			cpu-idle-states = <&cpuoff_l &clusteroff_l
-						&mcusysoff &s2idle>;
+			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff
+						&system_mem &system_pll &system_bus
+						&s2idle>;
 			#cooling-cells = <2>;
 		};
 
@@ -370,8 +372,9 @@
 			clock-frequency = <1701000000>;
 			operating-points-v2 = <&cluster0_opp>;
 			capacity-dmips-mhz = <365>;
-			cpu-idle-states = <&cpuoff_l &clusteroff_l
-						&mcusysoff &s2idle>;
+			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff
+						&system_mem &system_pll &system_bus
+						&s2idle>;
 			#cooling-cells = <2>;
 		};
 
@@ -384,8 +387,9 @@
 			clock-frequency = <1701000000>;
 			operating-points-v2 = <&cluster0_opp>;
 			capacity-dmips-mhz = <365>;
-			cpu-idle-states = <&cpuoff_l &clusteroff_l
-						&mcusysoff &s2idle>;
+			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff
+						&system_mem &system_pll &system_bus
+						&s2idle>;
 			#cooling-cells = <2>;
 		};
 
@@ -398,8 +402,9 @@
 			clock-frequency = <2171000000>;
 			operating-points-v2 = <&cluster1_opp>;
 			capacity-dmips-mhz = <1024>;
-			cpu-idle-states = <&cpuoff_b &clusteroff_b
-						&mcusysoff &s2idle>;
+			cpu-idle-states = <&cpuoff_b &clusteroff_b &mcusysoff
+						&system_mem &system_pll &system_bus
+						&s2idle>;
 			#cooling-cells = <2>;
 		};
 
@@ -412,8 +417,9 @@
 			clock-frequency = <2171000000>;
 			operating-points-v2 = <&cluster1_opp>;
 			capacity-dmips-mhz = <1024>;
-			cpu-idle-states = <&cpuoff_b &clusteroff_b
-						&mcusysoff &s2idle>;
+			cpu-idle-states = <&cpuoff_b &clusteroff_b &mcusysoff
+						&system_mem &system_pll &system_bus
+						&s2idle>;
 			#cooling-cells = <2>;
 		};
 
@@ -426,8 +432,9 @@
 			clock-frequency = <2171000000>;
 			operating-points-v2 = <&cluster1_opp>;
 			capacity-dmips-mhz = <1024>;
-			cpu-idle-states = <&cpuoff_b &clusteroff_b
-						&mcusysoff &s2idle>;
+			cpu-idle-states = <&cpuoff_b &clusteroff_b &mcusysoff
+						&system_mem &system_pll &system_bus
+						&s2idle>;
 			#cooling-cells = <2>;
 		};
 
@@ -440,8 +447,9 @@
 			clock-frequency = <2171000000>;
 			operating-points-v2 = <&cluster1_opp>;
 			capacity-dmips-mhz = <1024>;
-			cpu-idle-states = <&cpuoff_b &clusteroff_b
-						&mcusysoff &s2idle>;
+			cpu-idle-states = <&cpuoff_b &clusteroff_b &mcusysoff
+						&system_mem &system_pll &system_bus
+						&s2idle>;
 			#cooling-cells = <2>;
 		};
 
@@ -489,7 +497,7 @@
 			};
 			cpuoff_b: cpuoff_b {
 				compatible = "arm,idle-state";
-				arm,psci-suspend-param = <0x00010001>;
+				arm,psci-suspend-param = <0x00010002>;
 				local-timer-stop;
 				entry-latency-us = <50>;
 				exit-latency-us = <100>;
@@ -497,7 +505,7 @@
 			};
 			clusteroff_l: clusteroff_l {
 				compatible = "arm,idle-state";
-				arm,psci-suspend-param = <0x01010001>;
+				arm,psci-suspend-param = <0x01010101>;
 				local-timer-stop;
 				entry-latency-us = <100>;
 				exit-latency-us = <250>;
@@ -505,7 +513,7 @@
 			};
 			clusteroff_b: clusteroff_b {
 				compatible = "arm,idle-state";
-				arm,psci-suspend-param = <0x01010001>;
+				arm,psci-suspend-param = <0x01010102>;
 				local-timer-stop;
 				entry-latency-us = <100>;
 				exit-latency-us = <250>;
@@ -513,18 +521,42 @@
 			};
 			mcusysoff: mcusysoff {
 				compatible = "arm,idle-state";
-				arm,psci-suspend-param = <0x01010002>;
+				arm,psci-suspend-param = <0x01010701>;
 				local-timer-stop;
-				entry-latency-us = <300>;
-				exit-latency-us = <1200>;
+				entry-latency-us = <450>;
+				exit-latency-us = <600>;
+				min-residency-us = <4000>;
+			};
+			system_mem: system_mem {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x01010f01>;
+				local-timer-stop;
+				entry-latency-us = <700>;
+				exit-latency-us = <850>;
+				min-residency-us = <4000>;
+			};
+			system_pll: system_pll {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x01010f02>;
+				local-timer-stop;
+				entry-latency-us = <800>;
+				exit-latency-us = <950>;
+				min-residency-us = <4000>;
+			};
+			system_bus: system_bus {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x01010f03>;
+				local-timer-stop;
+				entry-latency-us = <1300>;
+				exit-latency-us = <2800>;
 				min-residency-us = <4000>;
 			};
 			s2idle: s2idle {
 				compatible = "arm,idle-state";
-				arm,psci-suspend-param = <0x01010100>;
+				arm,psci-suspend-param = <0x01011f01>;
 				local-timer-stop;
-				entry-latency-us = <500>;
-				exit-latency-us = <1400>;
+				entry-latency-us = <10000>;
+				exit-latency-us = <10000>;
 				min-residency-us = <4294967295>;
 			};
 		};
@@ -5984,6 +6016,8 @@
 		#size-cells = <2>;
 		ranges;
 		suspend-method = "enable";
+		logger-enable-states = "mcusysoff", "system_mem",
+					"system_pll", "system_bus";
 		irq-remain = <&edge_keypad &edge_mdwdt>,
 				<&level_mali0 &level_mali1>,
 				<&level_mali2 &level_mali3 &level_mali4>,
