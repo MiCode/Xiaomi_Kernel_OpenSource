@@ -1181,6 +1181,10 @@ static int mt6362_charger_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CHARGE_TERM_CURRENT:
 		ret = mt6362_charger_get_ieoc(data, val);
 		break;
+	case POWER_SUPPLY_PROP_CURRENT_MAX:
+		if (data->psy_desc.type == POWER_SUPPLY_TYPE_USB)
+			val->intval = 500000;
+		break;
 	default:
 		ret = -ENODATA;
 	}
@@ -1243,6 +1247,8 @@ static enum power_supply_property mt6362_charger_properties[] = {
 	POWER_SUPPLY_PROP_ONLINE,
 	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_CHARGE_TYPE,
+	POWER_SUPPLY_PROP_TYPE,
+	POWER_SUPPLY_PROP_USB_TYPE,
 	POWER_SUPPLY_PROP_VOLTAGE_OCV,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
@@ -1251,15 +1257,29 @@ static enum power_supply_property mt6362_charger_properties[] = {
 	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT,
 	POWER_SUPPLY_PROP_PRECHARGE_CURRENT,
 	POWER_SUPPLY_PROP_CHARGE_TERM_CURRENT,
+	POWER_SUPPLY_PROP_CURRENT_MAX,
+};
+
+static enum power_supply_usb_type mt6362_charger_usb_types[] = {
+	POWER_SUPPLY_USB_TYPE_UNKNOWN,
+	POWER_SUPPLY_USB_TYPE_SDP,
+	POWER_SUPPLY_USB_TYPE_DCP,
+	POWER_SUPPLY_USB_TYPE_CDP,
+	POWER_SUPPLY_USB_TYPE_C,
+	POWER_SUPPLY_USB_TYPE_PD,
+	POWER_SUPPLY_USB_TYPE_PD_DRP,
+	POWER_SUPPLY_USB_TYPE_APPLE_BRICK_ID
 };
 
 static const struct power_supply_desc mt6362_charger_desc = {
-	.type			= POWER_SUPPLY_TYPE_UNKNOWN,
+	.type			= POWER_SUPPLY_TYPE_USB,
 	.properties		= mt6362_charger_properties,
 	.num_properties		= ARRAY_SIZE(mt6362_charger_properties),
 	.get_property		= mt6362_charger_get_property,
 	.set_property		= mt6362_charger_set_property,
 	.property_is_writeable	= mt6362_charger_property_is_writeable,
+	.usb_types		= mt6362_charger_usb_types,
+	.num_usb_types		= ARRAY_SIZE(mt6362_charger_usb_types),
 };
 
 static char *mt6362_charger_supplied_to[] = {
@@ -2643,8 +2663,8 @@ static irqreturn_t mt6362_fl_bc12_dn_evt_handler(int irq, void *data)
 		dev_info(cdata->dev, "%s: no information\n", __func__);
 		return IRQ_HANDLED;
 	case MT6362_CHG_TYPE_UNKNOWN_TA:
-		cdata->psy_desc.type = POWER_SUPPLY_TYPE_USB_FLOAT;
-		cdata->psy_usb_type = POWER_SUPPLY_USB_TYPE_SDP;
+		cdata->psy_desc.type = POWER_SUPPLY_TYPE_USB;
+		cdata->psy_usb_type = POWER_SUPPLY_USB_TYPE_DCP;
 		break;
 	case MT6362_CHG_TYPE_SDP:
 		cdata->psy_desc.type = POWER_SUPPLY_TYPE_USB;
