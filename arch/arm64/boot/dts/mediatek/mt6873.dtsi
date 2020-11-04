@@ -56,7 +56,7 @@
 	chosen: chosen {
 		bootargs = "console=tty0 root=/dev/ram vmalloc=400M swiotlb=noforce \
 		firmware_class.path=/vendor/firmware page_owner=on \
-		loop.max_part=7 watchdog_thresh=7";
+		loop.max_part=7";
 		kaslr-seed = <0 0>;
 	};
 
