@@ -14,9 +14,6 @@
 #include "ccci_config.h"
 #include "ccci_common_config.h"
 #include <linux/clk.h>
-#ifdef mtk09077_clkbuf
-#include <mt-plat/mtk-clkbuf-bridge.h>
-#endif
 #ifdef USING_PM_RUNTIME
 #include <linux/pm_runtime.h>
 #else
@@ -564,19 +561,28 @@ static void md1_pmic_setting_on(void)
 
 }
 
+static void flight_mode_set_by_atf(struct ccci_modem *md,
+		unsigned int flightMode)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_FLIGHT_MODE_SET,
+		flightMode, 0, 0, 0, 0, 0, &res);
+
+	CCCI_BOOTUP_LOG(md->index, TAG,
+		"[%s] flag_1=%lu, flag_2=%lu, flag_3=%lu, flag_4=%lu\n",
+		__func__, res.a0, res.a1, res.a2, res.a3);
+}
+
 static int md_cd_soft_power_off(struct ccci_modem *md, unsigned int mode)
 {
-#ifdef mtk09077_clkbuf
-	clk_buf_set_by_flightmode(true);
-#endif
+	flight_mode_set_by_atf(md, true);
 	return 0;
 }
 
 static int md_cd_soft_power_on(struct ccci_modem *md, unsigned int mode)
 {
-#ifdef mtk09077_clkbuf
-	clk_buf_set_by_flightmode(false);
-#endif
+	flight_mode_set_by_atf(md, false);
 	return 0;
 }
 
@@ -689,9 +695,7 @@ static int md_cd_power_on(struct ccci_modem *md)
 	/* steip 3: power on MD_INFRA and MODEM_TOP */
 	switch (md->index) {
 	case MD_SYS1:
-#ifdef mtk09077_clkbuf
-		clk_buf_set_by_flightmode(false);
-#endif
+		flight_mode_set_by_atf(md, false);
 		CCCI_BOOTUP_LOG(md->index, TAG, "enable md sys clk\n");
 #ifdef USING_PM_RUNTIME
 		pm_runtime_get_sync(&md->plat_dev->dev);
@@ -784,9 +788,7 @@ static int md_cd_power_off(struct ccci_modem *md, unsigned int timeout)
 			regmap_read(md->hw_info->plat_val->infra_ao_base,
 			INFRA_AO_MD_SRCCLKENA, &reg_value));
 		CCCI_BOOTUP_LOG(md->index, TAG, "Call md1_pmic_setting_off\n");
-#ifdef mtk09077_clkbuf
-		clk_buf_set_by_flightmode(true);
-#endif
+		flight_mode_set_by_atf(md, true);
 
 		/* modem topclkgen off setting */
 		md_cd_topclkgen_off(md);
