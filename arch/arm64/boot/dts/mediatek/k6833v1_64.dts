@@ -22,9 +22,6 @@
 
 /* chosen */
 &chosen {
-	bootargs = "console=tty0 console=ttyS0,921600n1 root=/dev/ram \
-		loglevel=8 \
-		androidboot.selinux=permissive androidboot.hardware=mt6833";
 	atag,videolfb-fb_base_l = <0x7e605000>;
 	atag,videolfb-fb_base_h = <0x0>;
 	atag,videolfb-islcmfound = <1>;
