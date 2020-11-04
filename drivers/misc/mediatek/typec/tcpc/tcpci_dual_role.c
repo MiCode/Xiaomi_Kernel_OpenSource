@@ -198,6 +198,8 @@ int tcpc_dual_role_phy_init(struct tcpc_device *tcpc)
 
 	switch_np = of_parse_phandle(tcpc->dev.parent->of_node, "switch", 0);
 	if (switch_np) {
+		/* fix me */
+#if 0
 		tcpc->dev_conn.endpoint[0] = kasprintf(GFP_KERNEL,
 				"%s-switch", switch_np->name);
 		/* 0 is typec port id */
@@ -206,6 +208,7 @@ int tcpc_dual_role_phy_init(struct tcpc_device *tcpc)
 		tcpc->dev_conn.id = "orientation-switch";
 		device_connection_add(&tcpc->dev_conn);
 		dev_info(&tcpc->dev, "add %s\n", tcpc->dev_conn.endpoint[0]);
+#endif
 	} else
 		dev_info(&tcpc->dev, "can't find switch\n");
 
