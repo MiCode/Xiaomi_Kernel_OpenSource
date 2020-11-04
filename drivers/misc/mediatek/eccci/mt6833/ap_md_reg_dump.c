@@ -24,9 +24,13 @@
 #define RAnd2W(a, b, c)  ccci_write32(a, b, (ccci_read32(a, b)&c))
 static unsigned int ioremap_dump_flag;
 
-/* ioremap table ,for internal dump. */
-static void __iomem *AP_MDSRC_REQ;
-static void __iomem *DBGSYS_TIME;
+/*
+ * This file is generated.
+ * From 20200921_MT6833_MDReg_remap.xlsx
+ * With ap_md_reg_dump_code_gentool.py v0.1
+ * Date 2020-09-21 09:52:13.202006
+ */
+static void __iomem *DBGSYS_Time;
 static void __iomem *PC_Monitor;
 static void __iomem *PLL_reg;
 static void __iomem *BUS_reg;
@@ -40,8 +44,7 @@ static void __iomem *ELM_reg;
 static void __iomem *USIP_reg;
 
 struct dump_reg_ioremap dump_reg_tab[] = {
-	{&AP_MDSRC_REQ, 0x10006434, 0x4},	/* dump AP_MDSRC_REQ */
-	{&DBGSYS_TIME,	0x0D10111C, 0x4},	/* DBGSYS Time out */
+	{&DBGSYS_Time,	0x0D10111C, 0x4},	/* DBGSYS Time out */
 	{&PC_Monitor,	0x0D11C000, 0x21B0},	/* PC Monitor */
 	{&PLL_reg,	0x0D103800, 0x248A0},	/* PLL reg (clock control) */
 	{&BUS_reg,	0x0D102000, 0x37140},	/* BUS */
@@ -51,7 +54,7 @@ struct dump_reg_ioremap dump_reg_tab[] = {
 	{&MD_RGU_reg,	0x0D112100, 0x25C},	/* MD RGU reg */
 	{&OST_status,	0x0D111000, 0x20C},	/* OST status */
 	{&CSC_reg,	0x0D113000, 0x224},	/* CSC reg */
-	{&ELM_reg,	0x20350000, 0x721},	/* ELM reg */
+	{&ELM_reg,	0x20350000, 0xF01},	/* ELM reg */
 	{&USIP_reg,	0x0D104400, 0x52478}	/* USIP */
 };
 
@@ -76,12 +79,6 @@ void md_io_remap_internal_dump_register(struct ccci_modem *md)
 	}
 	ioremap_dump_flag = 1;
 }
-/*
- * This file is generated.
- * From 20190924_MT6885_MDReg_remap.xlsx
- * With ap_md_reg_dump_code_gentool.py v0.1
- * Date 2019-10-04 09:48:58.843141
- */
 void internal_md_dump_debug_register(unsigned int md_index)
 {
 	/* ioremap reg from dump_reg_tab,check ioremap result */
@@ -91,15 +88,15 @@ void internal_md_dump_debug_register(unsigned int md_index)
 			ioremap_dump_flag, __func__);
 		return;
 	}
-	/* dump AP_MDSRC_REQ, 0x1000_6434 - 0x1000_6437 */
-	CCCI_MEM_LOG_TAG(md_index, TAG,
-		"md_dbg_sys: 0x%X\n", ccci_read32(AP_MDSRC_REQ, 0x0));
 
+	/* module_in_order */
+
+	/* DBGSYS_Time */
 	/* Set DBGSYS Time Out Config */
-	mdreg_write32(MD_REG_SET_DBGSYS_TIME_OUT_ADDR, 0x8001E848); /*D10111C*/
+	mdreg_write32(MD_REG_DBGSYS_TIME_ADDR, 0x8001E848); /* addr 0xD10111C */
 	/* 0xA060_111C – 0xA060_111F */
 	CCCI_MEM_LOG_TAG(md_index, TAG,
-		"md_dbg_sys time out: 0x%X\n", ccci_read32(DBGSYS_TIME, 0x0));
+		"md_dbg_sys time out: 0x%X\n", ccci_read32(DBGSYS_Time, 0x0));
 
 	/* PC Monitor */
 	/* Stop PCMon */
@@ -133,7 +130,7 @@ void internal_md_dump_debug_register(unsigned int md_index)
 	/* Re-Start PCMon */
 	mdreg_write32(MD_REG_PC_MONITOR_ADDR, 0x1111); /* addr 0xD11DC00 */
 
-	/* PLL reg (clock control) */
+	/* PLL_reg */
 	CCCI_MEM_LOG_TAG(md_index, TAG,
 		"Dump MD PLL\n");
 	CCCI_MEM_LOG_TAG(md_index, TAG,
@@ -201,7 +198,7 @@ void internal_md_dump_debug_register(unsigned int md_index)
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(PLL_reg + 0x00024898), 0x8);
 
-	/* BUS */
+	/* BUS_reg */
 	CCCI_MEM_LOG_TAG(md_index, TAG,
 		"Dump MD Bus status: [0]0x0D102000, [1]0x0D102100, [2]0x0D102600, [3]0x0D11F000, [4]0x0D139000, [5]0x0D109000, [6]0x0D128000\n");
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
@@ -423,7 +420,7 @@ void internal_md_dump_debug_register(unsigned int md_index)
 #if defined(__MD_DEBUG_DUMP__)
 	/* This dump might cause bus hang so enable it only when needed */
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
-		(ELM_reg + 0x00000000), 0x721);
+		(ELM_reg + 0x00000000), 0xF01);
 #endif
 
 	/* USIP */
@@ -514,16 +511,6 @@ void internal_md_dump_debug_register(unsigned int md_index)
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(USIP_reg + 0x00044400), 0x120);
 	CCCI_MEM_LOG_TAG(md_index, TAG,
-		"Dump mcore th3 reg: [0]0x0D148C00\n");
-	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
-		(USIP_reg + 0x00044800), 0x120);
-	/* [Pre-Action] force-on mcore bus clock */
-	mdreg_write32(MD_REG_USIP_ADDR_2, 0xAA5); /* addr 0xD148094 */
-	/*  */
-	mdreg_write32(MD_REG_USIP_ADDR_3, 0xA8300418); /* addr 0xD1480DC */
-	/*  */
-	mdreg_write32(MD_REG_USIP_ADDR_4, 0x1); /* addr 0xD148218 */
-	CCCI_MEM_LOG_TAG(md_index, TAG,
 		"Dump vcore hram reg: [0]0x0D153000\n");
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(USIP_reg + 0x0004EC00), 0x7C);
@@ -536,19 +523,11 @@ void internal_md_dump_debug_register(unsigned int md_index)
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(USIP_reg + 0x0004C000), 0x120);
 	CCCI_MEM_LOG_TAG(md_index, TAG,
-		"Dump vcore th2 reg: [0]0x0D150800\n");
-	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
-		(USIP_reg + 0x0004C400), 0x120);
-	CCCI_MEM_LOG_TAG(md_index, TAG,
-		"Dump vcore th3 reg: [0]0x0D150C00\n");
-	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
-		(USIP_reg + 0x0004C800), 0x120);
-	CCCI_MEM_LOG_TAG(md_index, TAG,
 		"Dump mcore and vcore PC trace: [0]0x0D14A000, [1]0x0D152000\n");
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
-		(USIP_reg + 0x00045C00), 0x800);
+		(USIP_reg + 0x00045C00), 0x600);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
-		(USIP_reg + 0x0004DC00), 0x800);
+		(USIP_reg + 0x0004DC00), 0x400);
 	CCCI_MEM_LOG_TAG(md_index, TAG,
 		"Dump vcore0 dbus recorder: [0]0x0D152800, [1]0x0D152890, [2]0x0D152900\n");
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
@@ -586,9 +565,9 @@ void internal_md_dump_debug_register(unsigned int md_index)
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(USIP_reg + 0x00051400), 0x1B0);
 	CCCI_MEM_LOG_TAG(md_index, TAG,
-		"Dump vcore0 internal dbus: [0]0x0D151024\n");
+		"Dump vcore0 internal dbus: [0]0x0D151000\n");
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
-		(USIP_reg + 0x0004CC24), 0x654);
+		(USIP_reg + 0x0004CC00), 0x678);
 	CCCI_MEM_LOG_TAG(md_index, TAG,
 		"Dump mcore0 dbus recorder: [0]0x0D14A800, [1]0x0D14A890, [2]0x0D14A900\n");
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
@@ -598,9 +577,9 @@ void internal_md_dump_debug_register(unsigned int md_index)
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(USIP_reg + 0x00046500), 0x200);
 	CCCI_MEM_LOG_TAG(md_index, TAG,
-		"Dump mcore0 internal dbus: [0]0x0D149024\n");
+		"Dump mcore0 internal dbus: [0]0x0D149000\n");
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
-		(USIP_reg + 0x00044C24), 0x5D8);
+		(USIP_reg + 0x00044C00), 0x5FC);
 	CCCI_MEM_LOG_TAG(md_index, TAG,
 		"Dump mcoresys dbus recorder 0: [0]0x0D145000, [1]0x0D145090, [2]0x0D145100\n");
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
@@ -654,49 +633,49 @@ void internal_md_dump_debug_register(unsigned int md_index)
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(USIP_reg + 0x00043700), 0x424);
 	/* [Pre-Action] Disable bus his rec & select entry 0 */
-	mdreg_write32(MD_REG_USIP_ADDR_5, 0x0); /* addr 0xD147408 */
+	mdreg_write32(MD_REG_USIP_ADDR_2, 0x0); /* addr 0xD147408 */
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(USIP_reg + 0x00043430), 0xC);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(USIP_reg + 0x00043460), 0xC);
 	/* [Pre-Action] Select entry 1 */
-	mdreg_write32(MD_REG_USIP_ADDR_5, 0x100010); /* addr 0xD147408 */
+	mdreg_write32(MD_REG_USIP_ADDR_2, 0x100010); /* addr 0xD147408 */
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(USIP_reg + 0x00043430), 0xC);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(USIP_reg + 0x00043460), 0xC);
 	/* [Pre-Action] Select entry 2 */
-	mdreg_write32(MD_REG_USIP_ADDR_5, 0x200020); /* addr 0xD147408 */
+	mdreg_write32(MD_REG_USIP_ADDR_2, 0x200020); /* addr 0xD147408 */
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(USIP_reg + 0x00043430), 0xC);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(USIP_reg + 0x00043460), 0xC);
 	/* [Pre-Action] Select entry 3 */
-	mdreg_write32(MD_REG_USIP_ADDR_5, 0x300030); /* addr 0xD147408 */
+	mdreg_write32(MD_REG_USIP_ADDR_2, 0x300030); /* addr 0xD147408 */
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(USIP_reg + 0x00043430), 0xC);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(USIP_reg + 0x00043460), 0xC);
 	/* [Pre-Action] Select entry 4 */
-	mdreg_write32(MD_REG_USIP_ADDR_5, 0x400040); /* addr 0xD147408 */
+	mdreg_write32(MD_REG_USIP_ADDR_2, 0x400040); /* addr 0xD147408 */
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(USIP_reg + 0x00043430), 0xC);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(USIP_reg + 0x00043460), 0xC);
 	/* [Pre-Action] Select entry 5 */
-	mdreg_write32(MD_REG_USIP_ADDR_5, 0x500050); /* addr 0xD147408 */
+	mdreg_write32(MD_REG_USIP_ADDR_2, 0x500050); /* addr 0xD147408 */
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(USIP_reg + 0x00043430), 0xC);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(USIP_reg + 0x00043460), 0xC);
 	/* [Pre-Action] Select entry 6 */
-	mdreg_write32(MD_REG_USIP_ADDR_5, 0x600060); /* addr 0xD147408 */
+	mdreg_write32(MD_REG_USIP_ADDR_2, 0x600060); /* addr 0xD147408 */
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(USIP_reg + 0x00043430), 0xC);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(USIP_reg + 0x00043460), 0xC);
 	/* [Pre-Action] Select entry 7 */
-	mdreg_write32(MD_REG_USIP_ADDR_5, 0x700070); /* addr 0xD147408 */
+	mdreg_write32(MD_REG_USIP_ADDR_2, 0x700070); /* addr 0xD147408 */
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(USIP_reg + 0x00043430), 0xC);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
