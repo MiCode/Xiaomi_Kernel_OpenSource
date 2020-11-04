@@ -261,7 +261,9 @@
   dev_pm_domain_detach
   dev_pm_genpd_set_performance_state
   dev_pm_opp_get_level
+  dev_pm_opp_get_voltage
   dev_pm_opp_of_add_table
+  dev_pm_opp_find_freq_ceil
   dev_pm_opp_of_find_icc_paths
   dev_pm_opp_of_remove_table
   dev_pm_opp_put_clkname
@@ -293,6 +295,7 @@
   dma_buf_end_cpu_access
   dma_buf_end_cpu_access_partial
   dma_buf_export
+  dma_buf_fd
   dma_buf_get
   dma_buf_get_flags
   dma_buf_map_attachment
@@ -337,6 +340,7 @@
   dma_unmap_page_attrs
   dma_unmap_sg_attrs
   do_exit
+  down
   down_read
   down_write
   dput
@@ -383,6 +387,7 @@
   fwnode_usb_role_switch_get
   gcd
   generic_device_group
+  generic_file_llseek
   generic_handle_irq
   generic_iommu_put_resv_regions
   genl_register_family
@@ -424,11 +429,14 @@
   gpiod_get_value_cansleep
   gpiod_set_debounce
   gpiod_set_raw_value
+  gpiod_set_raw_value_cansleep
   gpiod_set_value
   gpiod_set_value_cansleep
   gpiod_to_irq
   gpio_free
+  gpio_free_array
   gpio_request
+  gpio_request_one
   gpio_to_desc
   handle_bad_irq
   handle_edge_irq
@@ -504,6 +512,7 @@
   input_set_abs_params
   input_set_capability
   input_unregister_device
+  iomem_resource
   iommu_alloc_resv_region
   iommu_attach_device
   iommu_detach_device
@@ -511,7 +520,9 @@
   iommu_device_sysfs_add
   iommu_device_sysfs_remove
   iommu_device_unregister
+  iommu_dma_enable_best_fit_algo
   iommu_dma_get_resv_regions
+  iommu_dma_reserve_iova
   iommu_domain_alloc
   iommu_domain_free
   iommu_domain_get_attr
@@ -525,6 +536,7 @@
   iommu_group_ref_get
   iommu_group_set_iommudata
   iommu_map
+  iommu_map_sg
   iommu_present
   iommu_put_dma_cookie
   iommu_set_fault_handler
@@ -644,6 +656,9 @@
   led_classdev_flash_register_ext
   led_classdev_flash_unregister
   led_classdev_unregister
+  led_trigger_event
+  led_trigger_register_simple
+  led_trigger_unregister_simple
   __list_add_valid
   __list_del_entry_valid
   list_sort
@@ -656,6 +671,11 @@
   mbox_free_channel
   mbox_request_channel
   mbox_send_message
+  media_device_cleanup
+  media_device_init
+  media_entity_pads_init
+  __media_device_register
+  media_device_unregister
   memchr
   memcpy
   memdup_user
@@ -693,6 +713,7 @@
   no_llseek
   nonseekable_open
   nr_cpu_ids
+  ns_to_timespec64
   __num_online_cpus
   nvmem_cell_get
   nvmem_cell_put
@@ -706,6 +727,7 @@
   of_clk_add_provider
   of_clk_del_provider
   of_clk_get
+  of_clk_get_from_provider
   of_clk_get_parent_count
   of_clk_hw_simple_get
   of_clk_src_onecell_get
@@ -722,6 +744,7 @@
   of_drm_find_panel
   of_find_compatible_node
   of_find_device_by_node
+  of_find_node_by_name
   of_find_node_opts_by_path
   of_find_node_with_property
   of_find_property
@@ -734,6 +757,7 @@
   of_get_named_gpio_flags
   of_get_next_available_child
   of_get_next_child
+  of_get_parent
   of_get_property
   of_get_regulator_init_data
   of_graph_get_remote_node
@@ -990,6 +1014,7 @@
   regulator_unlock
   regulator_unregister_notifier
   release_firmware
+  __release_region
   release_sock
   remap_pfn_range
   report_iommu_fault
@@ -998,6 +1023,7 @@
   request_firmware_into_buf
   request_firmware_nowait
   __request_percpu_irq
+  __request_region
   request_threaded_irq
   reset_control_assert
   reset_control_deassert
@@ -1099,7 +1125,9 @@
   sg_pcopy_to_buffer
   sg_scsi_ioctl
   simple_attr_open
+  simple_attr_read
   simple_attr_release
+  simple_attr_write
   simple_open
   simple_read_from_buffer
   single_open
@@ -1188,7 +1216,10 @@
   sort
   __spi_alloc_controller
   spi_register_controller
+  __spi_register_driver
   spi_unregister_controller
+  spi_setup
+  spi_sync
   split_page
   spmi_controller_add
   spmi_controller_alloc
@@ -1254,6 +1285,7 @@
   system_wq
   tasklet_init
   tasklet_kill
+  __tasklet_hi_schedule
   __tasklet_schedule
   tasklet_setup
   __task_pid_nr_ns
@@ -1336,6 +1368,7 @@
   unregister_restart_handler
   unregister_rpmsg_driver
   unregister_syscore_ops
+  up
   up_read
   up_write
   usb_add_gadget
@@ -1445,7 +1478,10 @@
   v4l2_ctrl_new_std
   v4l2_ctrl_new_std_menu
   v4l2_device_register
+  v4l2_device_register_subdev
+  __v4l2_device_register_subdev_nodes
   v4l2_device_unregister
+  v4l2_device_unregister_subdev
   v4l2_event_dequeue
   v4l2_event_pending
   v4l2_event_queue_fh
@@ -1453,7 +1489,12 @@
   v4l2_event_unsubscribe
   v4l2_fh_add
   v4l2_fh_init
+  v4l2_fh_open
+  v4l2_fh_release
+  v4l2_event_queue
   v4l2_s_ctrl
+  v4l2_subdev_call_wrappers
+  v4l2_subdev_init
   vabits_actual
   vb2_buffer_done
   vb2_dqbuf
@@ -1464,6 +1505,8 @@
   vb2_streamon
   vfree
   video_devdata
+  video_device_alloc
+  video_device_release
   video_device_release_empty
   video_ioctl2
   __video_register_device
