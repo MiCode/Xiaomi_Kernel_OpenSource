@@ -31,6 +31,13 @@ struct MT6873_CPUIDLE_NODE {
 	struct mtk_lp_sysfs_op op;
 };
 
+struct MT6853_CPUIDLE_NODE {
+	const char *name;
+	int type;
+	struct mtk_lp_sysfs_handle handle;
+	struct mtk_lp_sysfs_op op;
+};
+
 /*Get the mtk idle system fs root entry handle*/
 int mtk_cpuidle_sysfs_entry_root_get(struct mtk_lp_sysfs_handle **handle);
 
