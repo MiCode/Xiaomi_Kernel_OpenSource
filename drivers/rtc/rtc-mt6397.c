@@ -175,7 +175,7 @@ static void mtk_rtc_set_pwron_time(struct mt6397_rtc *rtc, struct rtc_time *tm)
 	}
 	return;
 exit:
-	dev_err(rtc->dev, "%s error\n", __func__);
+	dev_err(rtc->rtc_dev->dev.parent, "%s error\n", __func__);
 }
 
 void mtk_rtc_save_pwron_time(struct mt6397_rtc *rtc,
@@ -201,7 +201,7 @@ void mtk_rtc_save_pwron_time(struct mt6397_rtc *rtc,
 	return;
 
 exit:
-	dev_err(rtc->dev, "%s error\n", __func__);
+	dev_err(rtc->rtc_dev->dev.parent, "%s error\n", __func__);
 }
 
 static int mtk_rtc_read_time(struct device *dev, struct rtc_time *tm)
@@ -471,11 +471,11 @@ static int mtk_rtc_set_spare(struct device *dev)
 
 	for (i = 0; i < SPARE_RG_MAX; i++) {
 		tmp[i].reg += rtc->addr_base;
-		rtc->spare[i] = devm_regmap_field_alloc(rtc->dev,
+		rtc->spare[i] = devm_regmap_field_alloc(rtc->rtc_dev->dev.parent,
 							rtc->regmap,
 							tmp[i]);
 		if (IS_ERR(rtc->spare[i])) {
-			dev_err(rtc->dev, "spare regmap field[%d] err= %ld\n",
+			dev_err(rtc->rtc_dev->dev.parent, "spare regmap field[%d] err= %ld\n",
 						i, PTR_ERR(rtc->spare[i]));
 			return PTR_ERR(rtc->spare[i]);
 		}
@@ -483,7 +483,7 @@ static int mtk_rtc_set_spare(struct device *dev)
 
 	ret = rtc_nvmem_register(rtc->rtc_dev, &nvmem_cfg);
 	if (ret)
-		dev_err(rtc->dev, "nvmem register failed\n");
+		dev_err(rtc->rtc_dev->dev.parent, "nvmem register failed\n");
 
 	return ret;
 }
@@ -500,7 +500,6 @@ static int mtk_rtc_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	rtc->dev = &pdev->dev;
 	rtc->addr_base = res->start;
 
 	rtc->data = of_device_get_match_data(&pdev->dev);
