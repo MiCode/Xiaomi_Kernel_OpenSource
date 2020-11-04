@@ -555,8 +555,8 @@ static void mrdump_mini_build_task_info(struct pt_regs *regs)
 	char symbol[96] = {'\0'};
 	int sz;
 #ifdef CONFIG_STACKTRACE
+	unsigned int nr_entries;
 	int off, plen;
-	struct stack_trace trace;
 	int i;
 #endif
 	struct task_struct *tsk, *cur;
@@ -614,15 +614,8 @@ static void mrdump_mini_build_task_info(struct pt_regs *regs)
 		cur_proc->ke_frame.lr = (__u64) regs->reg_lr;
 	}
 #ifdef CONFIG_STACKTRACE
-	/* Grab kernel task stack trace */
-	trace.nr_entries = 0;
-	trace.max_entries = MAX_STACK_TRACE_DEPTH;
-	trace.entries = ipanic_stack_entries;
-	/* the value is only from experience and without strict rules
-	 * need to pay attention to the value
-	 */
-	trace.skip = 4;
-	save_stack_trace_tsk(cur, &trace);
+	nr_entries = stack_trace_save_tsk(cur, ipanic_stack_entries,
+			ARRAY_SIZE(ipanic_stack_entries), 4);
 	if (!regs) {
 		/* in case panic() is called without die */
 		/* Todo: a UT for this */
@@ -632,7 +625,7 @@ static void mrdump_mini_build_task_info(struct pt_regs *regs)
 	/* Skip the entries -
 	 * ipanic_save_current_tsk_info/save_stack_trace_tsk
 	 */
-	for (i = 0; i < trace.nr_entries; i++) {
+	for (i = 0; i < nr_entries; i++) {
 		off = strlen(cur_proc->backtrace);
 		plen = AEE_BACKTRACE_LENGTH - ALIGN(off, 8);
 		if (plen > 16) {

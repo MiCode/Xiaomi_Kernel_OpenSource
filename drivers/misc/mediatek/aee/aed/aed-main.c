@@ -1979,22 +1979,17 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 static void aed_get_traces(char *msg)
 {
 #ifdef CONFIG_STACKTRACE
-	struct stack_trace trace;
 	unsigned long stacks[32];
+	int nr_entries;
 	int i;
 	int offset;
 
-	trace.entries = stacks;
-	/*save backtraces */
-	trace.nr_entries = 0;
-	trace.max_entries = 32;
-	trace.skip = 2;
-	save_stack_trace_tsk(current, &trace);
+	nr_entries = stack_trace_save_tsk(current, stacks, ARRAY_SIZE(stacks), 2);
 	offset = strlen(msg);
-	for (i = 0; i < trace.nr_entries; i++) {
+	for (i = 0; i < nr_entries; i++) {
 		offset += snprintf(msg + offset, AEE_BACKTRACE_LENGTH - offset,
-				"[<%px>] %pS\n", (void *)trace.entries[i],
-				(void *)trace.entries[i]);
+				"[<%px>] %pS\n", (void *)stacks[i],
+				(void *)stacks[i]);
 	}
 #else
 	pr_info("kernel config of STACKTRACE is disabled\n");
