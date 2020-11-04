@@ -6083,7 +6083,7 @@ static void dump_task_stack(struct task_struct *tsk, int output) {}
 #endif
 #endif
 
-static bool lock_mon_aee = 1;
+static bool lock_mon_aee;
 #ifdef CONFIG_PROVE_LOCKING
 static bool is_critical_lock_held(void);
 static void lock_monitor_aee(void)
