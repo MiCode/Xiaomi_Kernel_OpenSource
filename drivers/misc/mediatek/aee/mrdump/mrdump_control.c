@@ -89,9 +89,6 @@ __init void mrdump_cblock_init(phys_addr_t cb_addr, phys_addr_t cb_size)
 #if defined(KIMAGE_VADDR)
 	machdesc_p->kimage_vaddr = KIMAGE_VADDR;
 #endif
-#if defined(TEXT_OFFSET)
-	machdesc_p->kimage_vaddr += TEXT_OFFSET;
-#endif
 	machdesc_p->dram_start = (uint64_t)aee_memblock_start_of_DRAM();
 	machdesc_p->dram_end = (uint64_t)aee_memblock_end_of_DRAM();
 	machdesc_p->kimage_stext = (uint64_t)aee_get_text();
