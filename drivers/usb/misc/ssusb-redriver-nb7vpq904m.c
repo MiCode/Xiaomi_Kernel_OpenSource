@@ -507,13 +507,17 @@ static int ssusb_redriver_ucsi_notifier(struct notifier_block *nb,
 	if (info->connect && !info->partner_change)
 		return NOTIFY_DONE;
 
-	/*
-	 * when connect a DP only cable,
-	 * ucsi set usb flag first, then set usb and alternate mode
-	 * after dp start link training.
-	 * it should only set alternate_mode flag ???
-	 */
-	if (info->partner_usb && info->partner_alternate_mode) {
+	if (!info->connect) {
+		if (info->partner_usb || info->partner_alternate_mode)
+			dev_err(redriver->dev, "set partner when no connection\n");
+		op_mode = OP_MODE_NONE;
+	} else if (info->partner_usb && info->partner_alternate_mode) {
+		/*
+		 * when connect a DP only cable,
+		 * ucsi set usb flag first, then set usb and alternate mode
+		 * after dp start link training.
+		 * it should only set alternate_mode flag ???
+		 */
 		if (redriver->op_mode == OP_MODE_DP)
 			return NOTIFY_OK;
 		op_mode = OP_MODE_USB_AND_DP;
@@ -521,10 +525,9 @@ static int ssusb_redriver_ucsi_notifier(struct notifier_block *nb,
 		if (redriver->op_mode == OP_MODE_DP)
 			return NOTIFY_OK;
 		op_mode = OP_MODE_USB;
-	}
-	else if (info->partner_alternate_mode)
+	} else if (info->partner_alternate_mode) {
 		op_mode = OP_MODE_DP;
-	else
+	} else
 		op_mode = OP_MODE_NONE;
 
 	if (redriver->op_mode == op_mode)
