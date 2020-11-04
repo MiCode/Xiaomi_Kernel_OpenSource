@@ -204,9 +204,15 @@ bool _resolveCmdIOBuf(struct CcuIOBufInfo *inDataBufInfo,
 	struct CcuIOBufInfo *outDataBufInfo,
 	uint32_t inDataSize, uint32_t outDataSize)
 {
-	ccu_ipc_getIObuffer((void **)&inDataBufInfo->addr_ap,
+	bool ret;
+
+	ret = ccu_ipc_getIObuffer((void **)&inDataBufInfo->addr_ap,
 		(void **)&outDataBufInfo->addr_ap,
 		&inDataBufInfo->addr_ccu, &outDataBufInfo->addr_ccu);
+	if (!ret) {
+		LOG_ERR("IPC not initialized");
+		return false;
+	}
 
 	LOG_DBG("inDataSize(%d), sramInBufCapacity(%d)",
 		inDataSize, CCU_IPC_IBUF_CAPACITY);
