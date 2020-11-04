@@ -392,21 +392,16 @@ void trigger_hang_db(void)
 
 static void get_kernel_bt(struct task_struct *tsk)
 {
-	struct stack_trace trace;
 	unsigned long stacks[32];
+	int nr_entries;
 	int i;
 
-	trace.entries = stacks;
-	/*save backtraces */
-	trace.nr_entries = 0;
-	trace.max_entries = 32;
-	trace.skip = 0;
-	save_stack_trace_tsk(tsk, &trace);
-	for (i = 0; i < trace.nr_entries; i++) {
-		log_hang_info("<%lx> %pS\n", (long)trace.entries[i],
-				(void *)trace.entries[i]);
-		hang_log("<%lx> %pS\n", (long)trace.entries[i],
-				(void *)trace.entries[i]);
+	stack_trace_save_tsk(tsk, stacks, ARRAY_SIZE(stacks), 0);
+	for (i = 0; i < nr_entries; i++) {
+		log_hang_info("<%lx> %pS\n", (long)stacks[i],
+				(void *)stacks[i]);
+		hang_log("<%lx> %pS\n", (long)stacks[i],
+				(void *)stacks[i]);
 	}
 }
 
