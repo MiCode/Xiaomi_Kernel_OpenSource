@@ -39,6 +39,17 @@ config QTI_SCMI_MEMLAT_PROTOCOL
 	  This driver defines the comands or message ID's used for this
 	  communication and also exposes the ops used by clients.
 
+config QTI_SCMI_PLH_PROTOCOL
+	tristate "Qualcomm Technologies, Inc. SCMI PLH vendor Protocol"
+	depends on ARM_SCMI_PROTOCOL && QCOM_RIMPS && QGKI
+	help
+	  System Control and Management Interface (SCMI) plh vendor protocol
+	  this protocol provides interface to communicate with micro controller
+	  which is executing the plh algorithm
+
+	  This driver defines the comands or message ID's used for this
+	  communication and also exposes the ops used by clients.
+
 config ARM_SCMI_POWER_DOMAIN
 	tristate "SCMI power domain driver"
 	depends on ARM_SCMI_PROTOCOL || (COMPILE_TEST && OF)
