@@ -175,6 +175,18 @@ int mt6833_suspend_s2idle_prompt(int cpu,
 
 	cpumask_set_cpu(cpu, &s2idle_cpumask);
 	if (cpumask_weight(&s2idle_cpumask) == num_online_cpus()) {
+		ret = __mt6833_suspend_prompt(MTK_LPM_SUSPEND_S2IDLE,
+					      cpu, issuer);
+	}
+	return ret;
+}
+
+int mt6833_suspend_s2idle_prepare_enter(int prompt, int cpu,
+					const struct mtk_lpm_issuer *issuer)
+{
+	int ret = 0;
+
+	if (cpumask_weight(&s2idle_cpumask) == num_online_cpus()) {
 #ifdef CONFIG_PM_SLEEP
 		/* Notice
 		 * Fix the rcu_idle workaround later.
@@ -185,14 +197,13 @@ int mt6833_suspend_s2idle_prompt(int cpu,
 		 * enter idle state means there won't care r/w sync problem
 		 * and RCU_NOIDLE maybe the right solution.
 		 */
-		RCU_NONIDLE(syscore_suspend());
+		RCU_NONIDLE({
+			ret = syscore_suspend();
+		});
 #endif
-		ret = __mt6833_suspend_prompt(MTK_LPM_SUSPEND_S2IDLE,
-					      cpu, issuer);
 	}
 	return ret;
 }
-
 void mt6833_suspend_s2idle_reflect(int cpu,
 					const struct mtk_lpm_issuer *issuer)
 {
@@ -279,7 +290,7 @@ int __init mt6833_model_suspend_init(void)
 
 	if (suspend_type == MTK_LPM_SUSPEND_S2IDLE) {
 		MT6833_SUSPEND_OP_INIT(mt6833_suspend_s2idle_prompt,
-					NULL,
+					mt6833_suspend_s2idle_prepare_enter,
 					NULL,
 					mt6833_suspend_s2idle_reflect);
 		mtk_lpm_suspend_registry("s2idle", &mt6833_model_suspend);
