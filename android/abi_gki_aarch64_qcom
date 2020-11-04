@@ -1727,6 +1727,7 @@
   __pm_relax
   pm_relax
   pm_runtime_allow
+  pm_runtime_autosuspend_expiration
   pm_runtime_barrier
   __pm_runtime_disable
   pm_runtime_enable
