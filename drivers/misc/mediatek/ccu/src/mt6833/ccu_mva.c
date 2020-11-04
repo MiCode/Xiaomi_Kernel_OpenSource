@@ -115,9 +115,9 @@ int ccu_allocate_mva(uint32_t *mva, void *va,
 		return ret;
 	}
 
-	*handle = _ccu_ion_alloc(_ccu_ion_client,
-			ION_HEAP_MULTIMEDIA_MAP_MVA_MASK,
-			(unsigned long)va, buffer_size, false, false);
+	// *handle = _ccu_ion_alloc(_ccu_ion_client,
+	// ION_HEAP_MULTIMEDIA_MAP_MVA_MASK,
+	// (unsigned long)va, buffer_size, false, false);
 
 	/*i2c dma buffer is PAGE_SIZE(4096B)*/
 
