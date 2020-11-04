@@ -24,6 +24,8 @@ qcom-scm.ko
 qcom-hwspinlock.ko
 smem.ko
 smp2p.ko
+qrtr.ko
+qrtr-smd.ko
 socinfo.ko
 spmi-pmic-arb.ko
 stub-regulator.ko
