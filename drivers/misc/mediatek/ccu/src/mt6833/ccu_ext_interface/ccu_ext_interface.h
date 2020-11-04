@@ -80,9 +80,9 @@ struct ccu_control_info {
 	enum ccu_feature_type feature_type;
 	uint32_t sensor_idx; //new
 	uint32_t msg_id;
-	MUINT32 inDataPtr;
+	unsigned long long inDataPtr;
 	uint32_t inDataSize;
-	MUINT32 outDataPtr;
+	unsigned long long outDataPtr;
 	uint32_t outDataSize;
 };
 

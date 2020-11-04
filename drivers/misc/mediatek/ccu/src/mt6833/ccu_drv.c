@@ -652,8 +652,7 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd,
 			break;
 		}
 
-		ret = copy_from_user(indata,
-			(void *)((unsigned long long)(msg.inDataPtr)), msg.inDataSize);
+		ret = copy_from_user(indata, (void *)msg.inDataPtr, msg.inDataSize);
 		if (ret != 0) {
 			LOG_ERR(
 			"CCU_IOCTL_IPC_SEND_CMD copy_to_user 2 failed: %d\n",
@@ -667,8 +666,7 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd,
 		(enum IMGSENSOR_SENSOR_IDX)msg.sensor_idx,
 		msg.msg_id, indata, msg.inDataSize, outdata, msg.outDataSize);
 
-		ret = copy_to_user((void *)((unsigned long long)(msg.outDataPtr)),
-				    outdata, msg.outDataSize);
+		ret = copy_to_user((void *)msg.outDataPtr, outdata, msg.outDataSize);
 		kfree(indata);
 		kfree(outdata);
 		break;
