@@ -571,10 +571,12 @@ long ion_dma_op(struct ion_client *client, struct ion_dma_param *param,
 
 	start = (unsigned long)param->va;
 	size = (size_t)param->size;
+	mutex_lock(&client->lock);
 	kernel_handle = ion_drv_get_handle(client, param->handle,
 					   param->kernel_handle, from_kernel);
 	if (IS_ERR(kernel_handle)) {
 		IONMSG("ion cache sync fail, user handle %d\n", param->handle);
+		mutex_unlock(&client->lock);
 		return -EINVAL;
 	}
 
@@ -601,6 +603,7 @@ long ion_dma_op(struct ion_client *client, struct ion_dma_param *param,
 
 out:
 	ion_drv_put_kernel_handle(kernel_handle);
+	mutex_unlock(&client->lock);
 
 	return 0;
 }
@@ -644,7 +647,7 @@ static long ion_sys_dma_op(struct ion_client *client,
 	//address check
 	if (dma_type == ION_DMA_MAP_AREA_VA ||
 	    dma_type == ION_DMA_UNMAP_AREA_VA ||
-	    dma_type == ION_DMA_FLUSH_BY_RANGE_USE_VA) {
+	    dma_type == ION_DMA_FLUSH_BY_RANGE_USE_VA){
 		ret = __ion_is_kernel_va((unsigned long)param->va,
 					 (size_t)param->size);
 		if (unlikely(ret == 0)) {
@@ -708,15 +711,20 @@ static long ion_sys_ioctl(struct ion_client *client, unsigned int cmd,
 
 	switch (param.sys_cmd) {
 	case ION_SYS_CACHE_SYNC:
+		mutex_lock(&client->lock);
+
 		ret =
 		    ion_sys_cache_sync(client, &param.cache_sync_param,
 				       from_kernel);
+
+		mutex_unlock(&client->lock);
 		break;
 	case ION_SYS_GET_PHYS:
 		{
 			struct ion_handle *kernel_handle;
 
 			phy_addr = param.get_phys_param.phy_addr;
+			mutex_lock(&client->lock);
 			kernel_handle =
 			    ion_drv_get_handle(
 					client,
@@ -728,6 +736,7 @@ static long ion_sys_ioctl(struct ion_client *client, unsigned int cmd,
 				       client->name, client->dbg_name,
 				       client->pid, from_kernel);
 				ret = -EINVAL;
+				mutex_unlock(&client->lock);
 				break;
 			}
 
@@ -742,14 +751,12 @@ static long ion_sys_ioctl(struct ion_client *client, unsigned int cmd,
 			}
 			param.get_phys_param.phy_addr = phy_addr;
 			ion_drv_put_kernel_handle(kernel_handle);
+			mutex_unlock(&client->lock);
 		}
 		break;
 	case ION_SYS_SET_CLIENT_NAME:
 		ion_sys_copy_client_name(param.client_name_param.name,
 					 client->dbg_name);
-		break;
-	case ION_SYS_DMA_OP:
-		ion_sys_dma_op(client, &param.dma_param, from_kernel);
 		break;
 	default:
 		IONMSG(
@@ -1185,24 +1192,6 @@ static struct ion_platform_heap ion_drv_platform_heaps[] = {
 	 .type = (unsigned int)ION_HEAP_TYPE_MULTIMEDIA_SEC,
 	 .id = ION_HEAP_TYPE_MULTIMEDIA_SDSP_SHARED,
 	 .name = "ion_sec_heap_sdsp_shared",
-	 .base = 0,
-	 .size = 0,
-	 .align = 0,
-	 .priv = NULL,
-	 },
-	{
-	 .type = (unsigned int)ION_HEAP_TYPE_MULTIMEDIA,
-	 .id = ION_HEAP_TYPE_MULTIMEDIA_MAP_MVA,
-	 .name = "ion_mm_heap_for_va2mva",
-	 .base = 0,
-	 .size = 0,
-	 .align = 0,
-	 .priv = NULL,
-	 },
-	{
-	 .type = (unsigned int)ION_HEAP_TYPE_MULTIMEDIA,
-	 .id = ION_HEAP_TYPE_MULTIMEDIA_PA2MVA,
-	 .name = "ion_mm_heap_for_pa2mva",
 	 .base = 0,
 	 .size = 0,
 	 .align = 0,

@@ -171,6 +171,8 @@ static int ion_fb_heap_allocate(struct ion_heap *heap,
 		return -EINVAL;
 
 	paddr = ion_fb_allocate(heap, size, align);
+	if (paddr)
+		memset((void *)paddr, 0, size);
 
 	/*create fb buffer info for it */
 	buffer_info = kzalloc(sizeof(*buffer_info), GFP_KERNEL);
