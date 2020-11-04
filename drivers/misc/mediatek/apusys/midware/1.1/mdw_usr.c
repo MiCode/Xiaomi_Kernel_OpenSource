@@ -598,6 +598,7 @@ int mdw_usr_dev_sec_alloc(int type, struct mdw_usr *u)
 	}
 
 	/* power off & on device */
+	mutex_lock(&req.mtx);
 	list_for_each_safe(list_ptr, tmp, &req.d_list) {
 		d = list_entry(list_ptr, struct mdw_dev_info, r_item);
 		mdw_flw_debug("pwn on dev(%s%d)\n", d->name, d->idx);
@@ -636,6 +637,8 @@ next:
 		goto fail_sec_on;
 	}
 
+	mutex_unlock(&req.mtx);
+
 	goto out;
 
 fail_sec_on:
@@ -661,6 +664,7 @@ fail_pwr_down:
 		list_del(&d->u_item);
 		mdw_rsc_put_dev(d);
 	}
+	mutex_unlock(&req.mtx);
 out:
 	mutex_unlock(&u->mtx);
 	mdw_drv_info("alloc dev(%d) done(%d)\n", type, ret);

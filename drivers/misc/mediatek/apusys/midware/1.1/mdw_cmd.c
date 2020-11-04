@@ -746,14 +746,24 @@ int mdw_cmd_get_ctx(struct mdw_apu_sc *sc)
 		sc->parent->kid, sc->idx);
 
 	mutex_lock(&c->mtx);
+	// if tcm usage from user == 0, set by debug prop
+	tcm_usage = sc->hdr->tcm_usage == 0 ?
+		mdw_dbg_get_prop(MDW_DBG_PROP_TCM_DEFAULT) : sc->hdr->tcm_usage;
+
+	/* if indicated ctx == NONE, get vlm directly */
+	if (sc->hdr->mem_ctx == VALUE_SUBGRAPH_CTX_ID_NONE &&
+		sc->multi_total <= 1) {
+		ret = reviser_get_vlm(tcm_usage, sc->hdr->tcm_force,
+			&sc->ctx, &sc->real_tcm_usage);
+		mdw_flw_debug("sc(0x%llx-#%d) get ctx(%lu/%u/%u)\n",
+			c->kid, sc->idx, sc->ctx, sc->hdr->mem_ctx, tcm_usage);
+		goto out;
+	}
+
 	if (c->ctx_repo[sc->hdr->mem_ctx] != MDW_CMD_EMPTY_NUM) {
 		sc->ctx = (uint32_t)c->ctx_repo[sc->hdr->mem_ctx];
 		goto out;
 	}
-
-	// if tcm usage from user == 0, set by debug prop
-	tcm_usage = sc->hdr->tcm_usage == 0 ?
-		mdw_dbg_get_prop(MDW_DBG_PROP_TCM_DEFAULT) : sc->hdr->tcm_usage;
 
 	ret = reviser_get_vlm(tcm_usage, sc->hdr->tcm_force,
 		&sc->ctx, &sc->real_tcm_usage);
@@ -777,7 +787,8 @@ void mdw_cmd_put_ctx(struct mdw_apu_sc *sc)
 		sc->parent->kid, sc->idx, sc->ctx);
 
 	mutex_lock(&c->mtx);
-	if (sc->hdr->mem_ctx == VALUE_SUBGRAPH_CTX_ID_NONE) {
+	if (sc->hdr->mem_ctx == VALUE_SUBGRAPH_CTX_ID_NONE &&
+		sc->multi_total <= 1) {
 		reviser_free_vlm(sc->ctx);
 		mdw_flw_debug("sc(0x%llx-#%d) put ctx(%lu/%u)\n",
 			c->kid, sc->idx, sc->ctx, sc->hdr->mem_ctx);
