@@ -7,7 +7,7 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
-#include <asm-generic/io.h>
+#include <linux/io.h>
 
 #include "devapc-mt6873.h"
 #include "devapc-mtk-multi-ao.h"
