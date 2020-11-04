@@ -1218,6 +1218,7 @@ void MTK_kbasep_vinstr_hwcnt_release(void)
 		gpu_ptr->gpu_enable = 0;
 		MTK_reset_urate();
 #endif
+		mtk_cli->vctx->suspend_count = 0;
 		mtk_cli->vctx->client_count--;
 		list_del(&mtk_cli->node);
 		mutex_unlock(&mtk_cli->vctx->lock);

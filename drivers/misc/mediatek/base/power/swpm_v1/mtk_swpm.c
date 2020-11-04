@@ -188,7 +188,7 @@ static ssize_t gpu_debug_proc_write(struct file *file,
 
 	if (!kstrtouint(buf, 10, &enable_time)) {
 		swpm_gpu_debug = (enable_time) ? true : false;
-#if 0
+#if 1
 		if (swpm_gpu_debug) {
 			if (enable_time < 1000000) {
 				if (enable_time == 1)
