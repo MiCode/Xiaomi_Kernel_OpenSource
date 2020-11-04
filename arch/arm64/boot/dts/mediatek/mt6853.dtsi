@@ -2994,6 +2994,12 @@
 			interconnect-names = "apu-bw";
 		};
 
+		apusys_devapc@19064000 {
+			compatible = "mediatek,mt6853-apusys_devapc";
+			reg = <0 0x19064000 0 0x1000>;
+			interrupts = <GIC_SPI 408 IRQ_TYPE_LEVEL_HIGH 0>;
+		};
+
 		apu_top: apu_top@0x190f0000 {
 			compatible = "mediatek,apu_top";
 			reg = <0 0x190f0000 0 0x1000>;
