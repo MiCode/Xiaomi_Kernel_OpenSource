@@ -254,7 +254,7 @@ static int mtk_composite_probe(struct platform_device *dev)
 	return 0;
 
 mdev_end:
-	kzfree(pfdev->vdev);
+	kfree_sensitive(pfdev->vdev);
 vdec_end:
 	kfree(pfdev);
 
