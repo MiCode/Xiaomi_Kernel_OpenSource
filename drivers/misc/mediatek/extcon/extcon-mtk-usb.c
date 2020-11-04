@@ -334,12 +334,15 @@ static int mtk_usb_extcon_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	/* fix me */
+#if 0
 	extcon->dev_conn.endpoint[0] = kasprintf(GFP_KERNEL,
 				"%s-role-switch", dev_name(&conn_pdev->dev));
 	extcon->dev_conn.endpoint[1] = dev_name(extcon->dev);
 	extcon->dev_conn.id = "usb-role-switch";
 
 	device_connection_add(&extcon->dev_conn);
+#endif
 
 	extcon->role_sw = usb_role_switch_get(extcon->dev);
 	if (IS_ERR(extcon->role_sw)) {
@@ -393,10 +396,13 @@ static int mtk_usb_extcon_probe(struct platform_device *pdev)
 
 static int mtk_usb_extcon_remove(struct platform_device *pdev)
 {
+	/* fix me */
+#if 0
 	struct mtk_extcon_info *extcon = platform_get_drvdata(pdev);
 
 	if (extcon->dev_conn.id)
 		device_connection_remove(&extcon->dev_conn);
+#endif
 
 	return 0;
 }
