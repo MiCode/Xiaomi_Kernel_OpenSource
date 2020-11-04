@@ -2299,6 +2299,7 @@ static unsigned short dpmaif_relase_tx_buffer(unsigned char q_num,
 				return DATA_CHECK_FAIL;
 			}
 			ccci_free_skb(skb_free);
+			cur_drb_skb->time = local_clock();
 			cur_drb_skb->skb = NULL;
 #if DPMAIF_TRAFFIC_MONITOR_INTERVAL
 			dpmaif_ctrl->tx_traffic_monitor[txq->index]++;
@@ -2655,6 +2656,8 @@ static void record_drb_skb(unsigned char q_num, unsigned short cur_idx,
 	drb_skb->is_msg = is_msg;
 	drb_skb->is_frag = is_frag;
 	drb_skb->is_last_one = is_last_one;
+	if (is_msg)
+		drb_skb->time = local_clock();
 #ifdef DPMAIF_DEBUG_LOG
 	temp = (unsigned int *)drb_skb;
 	CCCI_HISTORY_LOG(dpmaif_ctrl->md_id, TAG,

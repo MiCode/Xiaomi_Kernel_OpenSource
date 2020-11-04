@@ -322,6 +322,7 @@ struct dpmaif_drb_skb {
 	unsigned short is_msg:1;
 	unsigned short is_frag:1;
 	unsigned short is_last_one:1;
+	unsigned long long time;
 };
 
 struct dpmaif_tx_queue {
