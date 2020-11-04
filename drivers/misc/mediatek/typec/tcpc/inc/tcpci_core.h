@@ -407,7 +407,6 @@ struct tcpc_device {
 	uint8_t dual_role_vconn;
 	struct typec_capability typec_caps;
 	struct typec_port *typec_port;
-	struct device_connection dev_conn;
 	struct usb_pd_identity partner_ident;
 	struct typec_partner_desc partner_desc;
 	struct typec_partner *partner;
