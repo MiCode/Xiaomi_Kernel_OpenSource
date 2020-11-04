@@ -71,6 +71,10 @@ enum cmdq_code {
 	CMDQ_CODE_JUMP = 0x10,
 	CMDQ_CODE_WFE = 0x20,
 	CMDQ_CODE_EOC = 0x40,
+	CMDQ_CODE_READ_S = 0x80,
+	CMDQ_CODE_WRITE_S = 0x90,
+	CMDQ_CODE_WRITE_S_MASK = 0x91,
+	CMDQ_CODE_LOGIC = 0xa0,
 
 	/* these are pseudo op code defined by SW */
 	/* for instruction generation */
@@ -83,11 +87,8 @@ enum cmdq_code {
 	CMDQ_CODE_PREFETCH_ENABLE = 0x41,	/* enable prefetch marker */
 	CMDQ_CODE_PREFETCH_DISABLE = 0x42,	/* disable prefetch marker */
 
-	CMDQ_CODE_READ_S = 0x80,	/* read operation (v3 only) */
-	CMDQ_CODE_WRITE_S = 0x90,	/* write operation (v3 only) */
 	/* write with mask operation (v3 only) */
 	CMDQ_CODE_WRITE_S_W_MASK = 0x91,
-	CMDQ_CODE_LOGIC = 0xa0,	/* logic operation */
 	CMDQ_CODE_JUMP_C_ABSOLUTE = 0xb0, /* conditional jump (absolute) */
 	CMDQ_CODE_JUMP_C_RELATIVE = 0xb1, /* conditional jump (related) */
 };
