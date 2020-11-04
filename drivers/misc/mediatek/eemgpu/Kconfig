@@ -1,0 +1,9 @@
+config MTK_PTPOD_GPU
+	tristate "MediaTek GPU Voltage Scaling Module"
+	help
+	  This driver provides optimized voltage for
+	  GPU DVFS. Those voltages are calculated by
+	  a piece of hardware according to temperature
+	  and chip process corner.
+	  Select "y" if you want to enable this features.
+	  Select "n" if unsure.

@@ -1422,6 +1422,7 @@ void aee_rr_rec_ptp_vboot(u64 val)
 		return;
 	LAST_RR_SET(ptp_vboot, val);
 }
+EXPORT_SYMBOL(aee_rr_rec_ptp_vboot);
 
 void aee_rr_rec_ptp_cpu_big_volt(u64 val)
 {
@@ -1541,6 +1542,7 @@ void aee_rr_rec_ptp_gpu_volt(u64 val)
 		return;
 	LAST_RR_SET(ptp_gpu_volt, val);
 }
+EXPORT_SYMBOL(aee_rr_rec_ptp_gpu_volt);
 
 void aee_rr_rec_ptp_gpu_volt_1(u64 val)
 {
@@ -1548,6 +1550,7 @@ void aee_rr_rec_ptp_gpu_volt_1(u64 val)
 		return;
 	LAST_RR_SET(ptp_gpu_volt_1, val);
 }
+EXPORT_SYMBOL(aee_rr_rec_ptp_gpu_volt_1);
 
 void aee_rr_rec_ptp_gpu_volt_2(u64 val)
 {
@@ -1555,6 +1558,7 @@ void aee_rr_rec_ptp_gpu_volt_2(u64 val)
 		return;
 	LAST_RR_SET(ptp_gpu_volt_2, val);
 }
+EXPORT_SYMBOL(aee_rr_rec_ptp_gpu_volt_2);
 
 void aee_rr_rec_ptp_gpu_volt_3(u64 val)
 {
@@ -1562,6 +1566,7 @@ void aee_rr_rec_ptp_gpu_volt_3(u64 val)
 		return;
 	LAST_RR_SET(ptp_gpu_volt_3, val);
 }
+EXPORT_SYMBOL(aee_rr_rec_ptp_gpu_volt_3);
 
 void aee_rr_rec_ptp_temp(u64 val)
 {
@@ -1569,6 +1574,7 @@ void aee_rr_rec_ptp_temp(u64 val)
 		return;
 	LAST_RR_SET(ptp_temp, val);
 }
+EXPORT_SYMBOL(aee_rr_rec_ptp_temp);
 
 void aee_rr_rec_ptp_status(u8 val)
 {
@@ -1576,6 +1582,7 @@ void aee_rr_rec_ptp_status(u8 val)
 		return;
 	LAST_RR_SET(ptp_status, val);
 }
+EXPORT_SYMBOL(aee_rr_rec_ptp_status);
 
 void aee_rr_rec_eem_pi_offset(u8 val)
 {
@@ -1936,21 +1943,25 @@ u64 aee_rr_curr_ptp_gpu_volt(void)
 {
 	return LAST_RR_VAL(ptp_gpu_volt);
 }
+EXPORT_SYMBOL(aee_rr_curr_ptp_gpu_volt);
 
 u64 aee_rr_curr_ptp_gpu_volt_1(void)
 {
 	return LAST_RR_VAL(ptp_gpu_volt_1);
 }
+EXPORT_SYMBOL(aee_rr_curr_ptp_gpu_volt_1);
 
 u64 aee_rr_curr_ptp_gpu_volt_2(void)
 {
 	return LAST_RR_VAL(ptp_gpu_volt_2);
 }
+EXPORT_SYMBOL(aee_rr_curr_ptp_gpu_volt_2);
 
 u64 aee_rr_curr_ptp_gpu_volt_3(void)
 {
 	return LAST_RR_VAL(ptp_gpu_volt_3);
 }
+EXPORT_SYMBOL(aee_rr_curr_ptp_gpu_volt_3);
 
 u64 aee_rr_curr_ptp_temp(void)
 {
@@ -1961,6 +1972,7 @@ u8 aee_rr_curr_ptp_status(void)
 {
 	return LAST_RR_VAL(ptp_status);
 }
+EXPORT_SYMBOL(aee_rr_curr_ptp_status);
 
 u8 aee_rr_curr_eem_pi_offset(void)
 {
