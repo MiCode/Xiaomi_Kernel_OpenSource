@@ -2309,7 +2309,7 @@ page_owner=on loop.max_part=7";
 	dfd: dfd@0c600000 {
 		compatible = "mediatek,dfd";
 		mediatek,enabled = <1>;
-		mediatek,chain_length = <0x9c40>;
+		mediatek,chain_length = <0x91fe>;
 		mediatek,rg_dfd_timeout = <0xa0>;
 	};
 
