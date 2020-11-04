@@ -94,6 +94,11 @@ int reviser_set_context(int type,
 		ret = -EINVAL;
 		return ret;
 	}
+	if (!reviser_is_power(g_reviser_device)) {
+		LOG_ERR("Can Not set contxet when power disable\n");
+		ret = -EINVAL;
+		return ret;
+	}
 
 	if (reviser_set_context_ID(g_reviser_device,
 			reviser_type, index, ctxid)) {
