@@ -29,13 +29,13 @@
 
 struct CcuMemInfo {
 	int shareFd;
-	char *va;
 	unsigned int align_mva;
 	unsigned int mva;
 	unsigned int size;
 	unsigned int occupiedSize;
 	bool cached;
 	bool ion_log;
+	char *va;
 };
 
 struct CcuMemHandle {
