@@ -29,7 +29,11 @@ REQUIRED_DEFCONFIG=`echo $1 | sed "s/vendor\///g"`
 
 # We should be in the kernel root after the envsetup
 if [[  "${REQUIRED_DEFCONFIG}" != *"gki"* ]]; then
-	source ${SCRIPTS_ROOT}/envsetup.sh $PLATFORM_NAME generic_defconfig
+	if [[  "${REQUIRED_DEFCONFIG}" == *"vm"* ]]; then
+		source ${SCRIPTS_ROOT}/envsetup.sh $PLATFORM_NAME generic_vm_defconfig
+	else
+		source ${SCRIPTS_ROOT}/envsetup.sh $PLATFORM_NAME generic_defconfig
+	fi
 else
 	source ${SCRIPTS_ROOT}/envsetup.sh $PLATFORM_NAME
 fi
