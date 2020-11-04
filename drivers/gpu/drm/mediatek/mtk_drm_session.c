@@ -83,7 +83,6 @@ done:
 		private->vds_path_switch_dirty = 1;
 		private->vds_path_switch_done = 0;
 		private->vds_path_enable = 0;
-		private->need_vds_path_switch_back = 0;
 
 		DDPMSG("Switch vds: crtc2 vds session create\n");
 		/* Close RPO */
