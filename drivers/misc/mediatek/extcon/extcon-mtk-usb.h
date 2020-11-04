@@ -13,7 +13,6 @@ struct mtk_extcon_info {
 	unsigned int vbus_vol;
 	unsigned int vbus_cur;
 	bool vbus_on;
-	struct device_connection dev_conn;
 	struct power_supply *usb_psy;
 	struct notifier_block psy_nb;
 #if IS_ENABLED(CONFIG_TCPC_CLASS)
