@@ -901,7 +901,7 @@ static void genc_cp_callback(struct adreno_device *adreno_dev, int bit)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
 	if (adreno_is_preemption_enabled(adreno_dev))
-		genc_preemption_trigger(adreno_dev);
+		genc_preemption_trigger(adreno_dev, true);
 
 	adreno_dispatcher_schedule(device);
 }
