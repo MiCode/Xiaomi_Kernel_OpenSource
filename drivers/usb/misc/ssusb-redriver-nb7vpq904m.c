@@ -504,6 +504,9 @@ static int ssusb_redriver_ucsi_notifier(struct notifier_block *nb,
 	struct ucsi_glink_constat_info *info = data;
 	enum operation_mode op_mode;
 
+	if (info->connect && !info->partner_change)
+		return NOTIFY_DONE;
+
 	/*
 	 * when connect a DP only cable,
 	 * ucsi set usb flag first, then set usb and alternate mode
