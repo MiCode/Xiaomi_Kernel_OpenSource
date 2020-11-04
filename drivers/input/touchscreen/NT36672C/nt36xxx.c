@@ -1680,27 +1680,16 @@ static int32_t nvt_ts_probe(struct spi_device *client)
 		if (!videolfb_tag)
 			NVT_ERR("Invalid lcm name\n");
 			NVT_LOG("read lcm name : %s\n", videolfb_tag->lcmname);
-		if (strcmp("nt36672c_fhdp_dsi_vdo_auo_cphy_90hz_jdi_lcm_drv",
-			videolfb_tag->lcmname) == 0 ||
-			strcmp("nt36672c_fhdp_dsi_vdo_auo_cphy_90hz_jdi_hfp_lcm_drv",
-			videolfb_tag->lcmname) == 0)
-			strncpy(novatek_firmware, firmware_name_jdi, sizeof(firmware_name_jdi));
-		else if (strcmp("nt36672c_fhdp_dsi_vdo_auo_cphy_90hz_tianma_lcm_drv",
-			videolfb_tag->lcmname) == 0)
-			strncpy(novatek_firmware, firmware_name_tm, sizeof(firmware_name_tm));
-		else if (strcmp("nt36672c_fhdp_dsi_vdo_120hz_shenchao_lcm_drv",
-			videolfb_tag->lcmname) == 0 ||
-			strcmp("nt36672c_fhdp_dsi_vdo_90hz_shenchao_lcm_drv",
-			videolfb_tag->lcmname) == 0 ||
-			strcmp("nt36672c_fhdp_dsi_vdo_60hz_shenchao_lcm_drv",
-			videolfb_tag->lcmname) == 0)
-			strncpy(novatek_firmware, firmware_name, sizeof(firmware_name));
-		else if (strcmp("nt36672c_fhdp_dsi_vdo_90hz_jdi_rt4801_lcm_drv",
+		if (strcmp("nt36672c_fhdp_dsi_vdo_90hz_jdi_rt4801_lcm_drv",
 			videolfb_tag->lcmname) == 0 ||
 			strcmp("nt36672c_fhdp_dsi_vdo_cphy_90hz_jdi_rt4801_lcm_drv",
+			videolfb_tag->lcmname) == 0 ||
+			strcmp("nt36672c_fhdp_dsi_vdo_cphy_90hz_jdi_rt4801_hfp_lcm_drv",
 			videolfb_tag->lcmname) == 0)
 			strncpy(novatek_firmware, firmware_name_jdi, sizeof(firmware_name_jdi));
 		else if (strcmp("nt36672c_fhdp_dsi_vdo_cphy_90hz_tianma_rt4801_lcm_drv",
+			videolfb_tag->lcmname) == 0 ||
+			strcmp("nt36672c_fhdp_dsi_vdo_cphy_90hz_tianma_rt4801_hfp_lcm_drv",
 			videolfb_tag->lcmname) == 0)
 			strncpy(novatek_firmware, firmware_name_tm, sizeof(firmware_name_tm));
 		else
