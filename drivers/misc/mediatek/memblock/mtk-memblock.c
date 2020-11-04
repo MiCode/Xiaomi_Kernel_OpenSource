@@ -46,7 +46,7 @@ static u16 *mb_kti;
 
 static void *mb_abt_addr(void)
 {
-	void *ssa = (void *)(KV + TEXT_OFFSET);
+	void *ssa = (void *)(KV);
 	void *pos;
 	u8 abt[SM_SIZE];
 	int i;
@@ -92,7 +92,7 @@ static unsigned long *mb_krb_addr(void)
 	ssa = (unsigned long *)round_up((unsigned long)abt_addr, 8);
 
 	for (i = 0; i < SZ_1M ; i++) {
-		if (*ssa == KV + TEXT_OFFSET)
+		if (*ssa == KV)
 			return ssa;
 		ssa--;
 	}
