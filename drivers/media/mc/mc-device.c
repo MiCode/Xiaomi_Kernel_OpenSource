@@ -370,8 +370,7 @@ static long media_device_get_topology(struct media_device *mdev, void *arg)
 	return ret;
 }
 
-static long media_device_request_alloc(struct media_device *mdev,
-				       void *arg)
+static long media_device_request_alloc(struct media_device *mdev, void *arg)
 {
 #ifdef CONFIG_MEDIA_CONTROLLER_REQUEST_API
 	int *alloc_fd = arg;

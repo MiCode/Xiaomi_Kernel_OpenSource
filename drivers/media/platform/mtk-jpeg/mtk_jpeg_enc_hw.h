@@ -13,12 +13,9 @@
 #include "mtk_jpeg_core.h"
 
 #define JPEG_ENC_INT_STATUS_DONE	BIT(0)
-#define JPEG_ENC_INT_STATUS_STALL	BIT(1)
-#define JPEG_ENC_INT_STATUS_VCODEC_IRQ	BIT(4)
 #define JPEG_ENC_INT_STATUS_MASK_ALLIRQ	0x13
 
 #define JPEG_ENC_DST_ADDR_OFFSET_MASK	GENMASK(3, 0)
-#define JPEG_ENC_QUALITY_MASK		GENMASK(31, 16)
 
 #define JPEG_ENC_CTRL_YUV_FORMAT_MASK	0x18
 #define JPEG_ENC_CTRL_RESTART_EN_BIT	BIT(10)
@@ -72,12 +69,6 @@
 #define JPEG_ENC_CODEC_SEL		0x314
 #define JPEG_ENC_ULTRA_THRES		0x318
 
-enum {
-	MTK_JPEG_ENC_RESULT_DONE,
-	MTK_JPEG_ENC_RESULT_STALL,
-	MTK_JPEG_ENC_RESULT_VCODEC_IRQ
-};
-
 /**
  * struct mtk_jpeg_enc_qlt - JPEG encoder quality data
  * @quality_param:	quality value
@@ -88,36 +79,13 @@ struct mtk_jpeg_enc_qlt {
 	u8	hardware_value;
 };
 
-/**
- * struct mt_jpeg_enc_bs - JPEG encoder bitstream  buffer
- * @dma_addr:			JPEG encoder destination address
- * @size:			JPEG encoder bistream size
- * @dma_addr_offset:		JPEG encoder offset address
- * @dma_addr_offsetmask:	JPEG encoder destination address offset mask
- */
-struct mtk_jpeg_enc_bs {
-	dma_addr_t	dma_addr;
-	size_t		size;
-	u32		dma_addr_offset;
-	u32		dma_addr_offsetmask;
-};
-
 void mtk_jpeg_enc_reset(void __iomem *base);
-u32 mtk_jpeg_enc_get_and_clear_int_status(void __iomem *base);
 u32 mtk_jpeg_enc_get_file_size(void __iomem *base);
-u32 mtk_jpeg_enc_enum_result(void __iomem *base, u32 irq_status);
-void mtk_jpeg_enc_set_img_size(void __iomem *base, u32 width, u32 height);
-void mtk_jpeg_enc_set_blk_num(void __iomem *base, u32 enc_format, u32 width,
-			      u32 height);
-void mtk_jpeg_enc_set_stride(void __iomem *base, u32 enc_format, u32 width,
-			     u32 height, u32 bytesperline);
-void mtk_jpeg_enc_set_src_addr(void __iomem *base, u32 src_addr,
-			       u32 plane_index);
-void mtk_jpeg_enc_set_dst_addr(void __iomem *base, u32 dst_addr,
-			       u32 stall_size, u32 init_offset,
-			       u32 offset_mask);
-void mtk_jpeg_enc_set_config(void __iomem *base, u32 enc_format, bool exif_en,
-			     u32 quality, u32 restart_interval);
 void mtk_jpeg_enc_start(void __iomem *enc_reg_base);
+void mtk_jpeg_set_enc_src(struct mtk_jpeg_ctx *ctx,  void __iomem *base,
+			  struct vb2_buffer *src_buf);
+void mtk_jpeg_set_enc_dst(struct mtk_jpeg_ctx *ctx, void __iomem *base,
+			  struct vb2_buffer *dst_buf);
+void mtk_jpeg_set_enc_params(struct mtk_jpeg_ctx *ctx,  void __iomem *base);
 
 #endif /* _MTK_JPEG_ENC_HW_H */

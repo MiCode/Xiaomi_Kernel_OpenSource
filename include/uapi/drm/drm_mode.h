@@ -41,6 +41,7 @@ extern "C" {
  * Userspace can refer to these structure definitions and UAPI formats
  * to communicate to driver
  */
+
 #define DRM_CONNECTOR_NAME_LEN	32
 #define DRM_DISPLAY_MODE_LEN	32
 #define DRM_PROP_NAME_LEN	32
@@ -123,13 +124,6 @@ extern "C" {
 #define  DRM_MODE_FLAG_PIC_AR_256_135 \
 			(DRM_MODE_PICTURE_ASPECT_256_135<<19)
 
-#define  DRM_MODE_FLAG_SUPPORTS_RGB		(1<<27)
-
-#define  DRM_MODE_FLAG_SUPPORTS_YUV		(1<<28)
-#define  DRM_MODE_FLAG_VID_MODE_PANEL	(1<<29)
-#define  DRM_MODE_FLAG_CMD_MODE_PANEL	(1<<30)
-#define  DRM_MODE_FLAG_SEAMLESS			(1<<31)
-
 #define  DRM_MODE_FLAG_ALL	(DRM_MODE_FLAG_PHSYNC |		\
 				 DRM_MODE_FLAG_NHSYNC |		\
 				 DRM_MODE_FLAG_PVSYNC |		\
@@ -142,10 +136,6 @@ extern "C" {
 				 DRM_MODE_FLAG_HSKEW |		\
 				 DRM_MODE_FLAG_DBLCLK |		\
 				 DRM_MODE_FLAG_CLKDIV2 |	\
-				 DRM_MODE_FLAG_SUPPORTS_RGB |	\
-				 DRM_MODE_FLAG_SUPPORTS_YUV |	\
-				 DRM_MODE_FLAG_VID_MODE_PANEL |	\
-				 DRM_MODE_FLAG_CMD_MODE_PANEL |	\
 				 DRM_MODE_FLAG_3D_MASK)
 
 /* DPMS flags */
@@ -342,14 +332,19 @@ struct drm_mode_get_encoder {
 /* This is for connectors with multiple signal types. */
 /* Try to match DRM_MODE_CONNECTOR_X as closely as possible. */
 enum drm_mode_subconnector {
-	DRM_MODE_SUBCONNECTOR_Automatic = 0,
-	DRM_MODE_SUBCONNECTOR_Unknown = 0,
-	DRM_MODE_SUBCONNECTOR_DVID = 3,
-	DRM_MODE_SUBCONNECTOR_DVIA = 4,
-	DRM_MODE_SUBCONNECTOR_Composite = 5,
-	DRM_MODE_SUBCONNECTOR_SVIDEO = 6,
-	DRM_MODE_SUBCONNECTOR_Component = 8,
-	DRM_MODE_SUBCONNECTOR_SCART = 9,
+	DRM_MODE_SUBCONNECTOR_Automatic   = 0,  /* DVI-I, TV     */
+	DRM_MODE_SUBCONNECTOR_Unknown     = 0,  /* DVI-I, TV, DP */
+	DRM_MODE_SUBCONNECTOR_VGA	  = 1,  /*            DP */
+	DRM_MODE_SUBCONNECTOR_DVID	  = 3,  /* DVI-I      DP */
+	DRM_MODE_SUBCONNECTOR_DVIA	  = 4,  /* DVI-I         */
+	DRM_MODE_SUBCONNECTOR_Composite   = 5,  /*        TV     */
+	DRM_MODE_SUBCONNECTOR_SVIDEO	  = 6,  /*        TV     */
+	DRM_MODE_SUBCONNECTOR_Component   = 8,  /*        TV     */
+	DRM_MODE_SUBCONNECTOR_SCART	  = 9,  /*        TV     */
+	DRM_MODE_SUBCONNECTOR_DisplayPort = 10, /*            DP */
+	DRM_MODE_SUBCONNECTOR_HDMIA       = 11, /*            DP */
+	DRM_MODE_SUBCONNECTOR_Native      = 15, /*            DP */
+	DRM_MODE_SUBCONNECTOR_Wireless    = 18, /*            DP */
 };
 
 #define DRM_MODE_CONNECTOR_Unknown	0
@@ -495,7 +490,6 @@ struct drm_mode_fb_cmd {
 
 #define DRM_MODE_FB_INTERLACED	(1<<0) /* for interlaced framebuffers */
 #define DRM_MODE_FB_MODIFIERS	(1<<1) /* enables ->modifer[] */
-#define DRM_MODE_FB_SECURE	(1<<2) /* for secure framebuffers */
 
 struct drm_mode_fb_cmd2 {
 	__u32 fb_id;

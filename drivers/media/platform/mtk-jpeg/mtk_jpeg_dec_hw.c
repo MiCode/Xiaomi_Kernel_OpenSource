@@ -26,7 +26,7 @@ enum mtk_jpeg_color {
 static inline int mtk_jpeg_verify_align(u32 val, int align, u32 reg)
 {
 	if (val & (align - 1)) {
-		pr_info("mtk-jpeg: write reg %x without %d align\n", reg, align);
+		pr_err("mtk-jpeg: write reg %x without %d align\n", reg, align);
 		return -1;
 	}
 
