@@ -319,6 +319,8 @@ struct fastrpc_buf {
 	uint32_t flags;
 	int type;		/* One of "fastrpc_buf_type" */
 	bool in_use;	/* Used only for persistent header buffers */
+	struct timespec64 buf_start_time;
+	struct timespec64 buf_end_time;
 };
 
 struct fastrpc_ctx_lst;
@@ -518,6 +520,8 @@ struct fastrpc_mmap {
 	int uncached;
 	int secure;
 	uintptr_t attr;
+	struct timespec64 map_start_time;
+	struct timespec64 map_end_time;
 };
 
 enum fastrpc_perfkeys {
@@ -1246,6 +1250,7 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 	map->fl = fl;
 	map->fd = fd;
 	map->attr = attr;
+	ktime_get_real_ts64(&map->map_start_time);
 	if (mflags == ADSP_MMAP_HEAP_ADDR ||
 				mflags == ADSP_MMAP_REMOTE_HEAP_ADDR) {
 		map->apps = me;
@@ -1455,6 +1460,8 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 	*ppmap = map;
 
 bail:
+	if (map)
+		ktime_get_real_ts64(&map->map_end_time);
 	if (err && map)
 		fastrpc_mmap_free(map, 0);
 	return err;
@@ -1569,6 +1576,7 @@ static int fastrpc_buf_alloc(struct fastrpc_file *fl, size_t size,
 	buf->flags = rflags;
 	buf->raddr = 0;
 	buf->type = buf_type;
+	ktime_get_real_ts64(&buf->buf_start_time);
 	buf->virt = dma_alloc_attrs(fl->sctx->smmu.dev, buf->size,
 						(dma_addr_t *)&buf->phys,
 						GFP_KERNEL, buf->dma_attr);
@@ -1618,6 +1626,8 @@ static int fastrpc_buf_alloc(struct fastrpc_file *fl, size_t size,
 	}
 	*obuf = buf;
  bail:
+	if (buf)
+		ktime_get_real_ts64(&buf->buf_end_time);
 	if (err && buf)
 		fastrpc_buf_free(buf, 0);
 	return err;
