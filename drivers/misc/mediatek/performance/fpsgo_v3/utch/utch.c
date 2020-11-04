@@ -16,6 +16,7 @@
 #include <linux/sort.h>
 
 #include "utch.h"
+#include <mt-plat/fpsgo_common.h>
 #include "fstb.h"
 
 #define DEBUG_LOG	0
