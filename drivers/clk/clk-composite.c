@@ -380,7 +380,6 @@ struct clk *clk_register_composite_pdata(struct device *dev, const char *name,
 		return ERR_CAST(hw);
 	return hw->clk;
 }
-EXPORT_SYMBOL(clk_register_composite);
 
 void clk_unregister_composite(struct clk *clk)
 {
