@@ -15,6 +15,7 @@
 #include <linux/pm_opp.h>
 #include <linux/pm_qos.h>
 #include <linux/slab.h>
+#include <linux/arch_topology.h>
 
 #define LUT_MAX_ENTRIES			32U
 #define LUT_FREQ			GENMASK(11, 0)
