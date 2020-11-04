@@ -361,13 +361,14 @@ void mtk_vdec_dvfs_end(struct mtk_vcodec_ctx *ctx)
 	/* vdec dvfs */
 	mutex_lock(&ctx->dev->dec_dvfs_mutex);
 	vdec_cur_job = vdec_jobs;
-	if (vdec_cur_job->handle == &ctx->id) {
+	if (vdec_cur_job != 0 && vdec_cur_job->handle == &ctx->id) {
 		vdec_cur_job->end = get_time_us();
 		update_hist(vdec_cur_job, &vdec_hists, 0);
 		vdec_jobs = vdec_jobs->next;
 		kfree(vdec_cur_job);
 	} else {
 		/* print error log */
+		pr_debug("no vdec job, probably error handling path\n");
 	}
 
 	freq_idx = (vdec_freq_step_size == 0) ? 0 : (vdec_freq_step_size - 1);
