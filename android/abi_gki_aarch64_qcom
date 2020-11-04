@@ -1521,6 +1521,7 @@
   of_get_named_gpio_flags
   of_get_next_available_child
   of_get_next_child
+  of_get_next_parent
   of_get_parent
   of_get_property
   of_get_regulator_init_data
