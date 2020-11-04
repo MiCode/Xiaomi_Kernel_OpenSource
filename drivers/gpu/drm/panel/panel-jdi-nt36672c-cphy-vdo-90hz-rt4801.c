@@ -661,7 +661,7 @@ static int jdi_enable(struct drm_panel *panel)
 }
 #if HFP_SUPPORT
 #define HFP_60HZ (944)
-#define HFP_90HZ (256)
+#define HFP_90HZ (252)
 #define HSA (20)
 #define HBP (22)
 #define VFP (50)
@@ -697,7 +697,7 @@ static const struct drm_display_mode performance_mode = {
 	.vrefresh = 90,
 };
 #else
-#define HFP (256)
+#define HFP (252)
 #define HSA (20)
 #define HBP (22)
 #define VFP_45HZ (2500)
