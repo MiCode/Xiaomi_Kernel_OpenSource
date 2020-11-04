@@ -220,6 +220,8 @@ gdsc_off:
 	if (!a6xx_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000))
 		dev_err(&gmu->pdev->dev, "GMU CX gdsc off timeout\n");
 
+	a6xx_rdpm_cx_freq_update(gmu, 0);
+
 	return ret;
 }
 
@@ -280,6 +282,8 @@ gdsc_off:
 	/* Poll to make sure that the CX is off */
 	if (!a6xx_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000))
 		dev_err(&gmu->pdev->dev, "GMU CX gdsc off timeout\n");
+
+	a6xx_rdpm_cx_freq_update(gmu, 0);
 
 	return ret;
 }
@@ -365,6 +369,8 @@ static int a6xx_hwsched_gmu_power_off(struct adreno_device *adreno_dev)
 
 	ret = a6xx_rscc_sleep_sequence(adreno_dev);
 
+	a6xx_rdpm_mx_freq_update(gmu, 0);
+
 	/* Now that we are done with GMU and GPU, Clear the GBIF */
 	ret = a6xx_halt_gbif(adreno_dev);
 
@@ -377,6 +383,8 @@ static int a6xx_hwsched_gmu_power_off(struct adreno_device *adreno_dev)
 	/* Poll to make sure that the CX is off */
 	if (!a6xx_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000))
 		dev_err(&gmu->pdev->dev, "GMU CX gdsc off timeout\n");
+
+	a6xx_rdpm_cx_freq_update(gmu, 0);
 
 	return ret;
 
@@ -775,6 +783,10 @@ static int a6xx_hwsched_dcvs_set(struct adreno_device *adreno_dev,
 		}
 
 	}
+
+	if (req.freq != INVALID_DCVS_IDX)
+		a6xx_rdpm_mx_freq_update(gmu,
+			gmu->hfi.dcvs_table.gx_votes[req.freq].freq);
 
 	return ret;
 }
