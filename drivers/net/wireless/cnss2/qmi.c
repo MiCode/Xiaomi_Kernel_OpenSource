@@ -1919,63 +1919,73 @@ static void cnss_wlfw_qdss_trace_req_mem_ind_cb(struct qmi_handle *qmi_wlfw,
 			       0, NULL);
 }
 
-static void cnss_wlfw_qdss_trace_save_ind_cb(struct qmi_handle *qmi_wlfw,
-					     struct sockaddr_qrtr *sq,
-					     struct qmi_txn *txn,
-					     const void *data)
+/**
+ * cnss_wlfw_fw_mem_file_save_ind_cb: Save given FW mem to filesystem
+ *
+ * QDSS_TRACE_SAVE_IND feature is overloaded to provide any host allocated
+ * fw memory segment for dumping to file system. Only one type of mem can be
+ * saved per indication and is provided in mem seg index 0.
+ *
+ * Return: None
+ */
+static void cnss_wlfw_fw_mem_file_save_ind_cb(struct qmi_handle *qmi_wlfw,
+					      struct sockaddr_qrtr *sq,
+					      struct qmi_txn *txn,
+					      const void *data)
 {
 	struct cnss_plat_data *plat_priv =
 		container_of(qmi_wlfw, struct cnss_plat_data, qmi_wlfw);
 	const struct wlfw_qdss_trace_save_ind_msg_v01 *ind_msg = data;
-	struct cnss_qmi_event_qdss_trace_save_data *event_data;
+	struct cnss_qmi_event_fw_mem_file_save_data *event_data;
 	int i = 0;
 
-	cnss_pr_dbg("Received QMI WLFW QDSS trace save indication\n");
-
-	if (!txn) {
+	if (!txn || !data) {
 		cnss_pr_err("Spurious indication\n");
 		return;
 	}
-
-	cnss_pr_dbg("QDSS_trace_save info: source %u, total_size %u, file_name_valid %u, file_name %s\n",
-		    ind_msg->source, ind_msg->total_size,
-		    ind_msg->file_name_valid, ind_msg->file_name);
-
-	if (ind_msg->source == 1)
+	cnss_pr_dbg("QMI fw_mem_file_save: source: %d  mem_seg: %d type: %u len: %u\n",
+		    ind_msg->source, ind_msg->mem_seg_valid,
+		    ind_msg->mem_seg[0].type, ind_msg->mem_seg_len);
+	if (ind_msg->source == 1 || !ind_msg->mem_seg_valid ||
+	    !ind_msg->mem_seg_len ||
+	    ind_msg->mem_seg_len > QMI_WLFW_MAX_STR_LEN_V01) {
+		cnss_pr_err("Invalid FW mem file save indication\n");
 		return;
+	}
 
 	event_data = kzalloc(sizeof(*event_data), GFP_KERNEL);
 	if (!event_data)
 		return;
 
-	if (ind_msg->mem_seg_valid) {
-		if (ind_msg->mem_seg_len > QDSS_TRACE_SEG_LEN_MAX) {
-			cnss_pr_err("Invalid seg len %u\n",
-				    ind_msg->mem_seg_len);
-			goto free_event_data;
-		}
-		cnss_pr_dbg("QDSS_trace_save seg len %u\n",
-			    ind_msg->mem_seg_len);
-		event_data->mem_seg_len = ind_msg->mem_seg_len;
-		for (i = 0; i < ind_msg->mem_seg_len; i++) {
-			event_data->mem_seg[i].addr = ind_msg->mem_seg[i].addr;
-			event_data->mem_seg[i].size = ind_msg->mem_seg[i].size;
-			cnss_pr_dbg("seg-%d: addr 0x%llx size 0x%x\n",
-				    i, ind_msg->mem_seg[i].addr,
-				    ind_msg->mem_seg[i].size);
-		}
-	}
-
+	event_data->mem_type = ind_msg->mem_seg[0].type;
+	event_data->mem_seg_len = ind_msg->mem_seg_len;
 	event_data->total_size = ind_msg->total_size;
 
-	if (ind_msg->file_name_valid)
-		strlcpy(event_data->file_name, ind_msg->file_name,
-			QDSS_TRACE_FILE_NAME_MAX + 1);
-	else
-		strlcpy(event_data->file_name, "qdss_trace",
-			QDSS_TRACE_FILE_NAME_MAX + 1);
+	for (i = 0; i < ind_msg->mem_seg_len; i++) {
+		event_data->mem_seg[i].addr = ind_msg->mem_seg[i].addr;
+		event_data->mem_seg[i].size = ind_msg->mem_seg[i].size;
+		if (event_data->mem_type != ind_msg->mem_seg[i].type) {
+			cnss_pr_err("FW Mem file save ind cannot have multiple mem types\n");
+			goto free_event_data;
+		}
+		cnss_pr_dbg("seg-%d: addr 0x%llx size 0x%x\n",
+			    i, ind_msg->mem_seg[i].addr,
+			    ind_msg->mem_seg[i].size);
+	}
 
-	cnss_driver_event_post(plat_priv, CNSS_DRIVER_EVENT_QDSS_TRACE_SAVE,
+	if (ind_msg->file_name_valid) {
+		strlcpy(event_data->file_name, ind_msg->file_name,
+			QMI_WLFW_MAX_STR_LEN_V01 + 1);
+	} else {
+		if (event_data->mem_type == QMI_WLFW_MEM_QDSS_V01)
+			strlcpy(event_data->file_name, "qdss_trace",
+				QMI_WLFW_MAX_STR_LEN_V01 + 1);
+		else
+			strlcpy(event_data->file_name, "fw_mem_dump",
+				QMI_WLFW_MAX_STR_LEN_V01 + 1);
+	}
+
+	cnss_driver_event_post(plat_priv, CNSS_DRIVER_EVENT_FW_MEM_FILE_SAVE,
 			       0, event_data);
 
 	return;
@@ -2207,7 +2217,7 @@ static struct qmi_msg_handler qmi_wlfw_msg_handlers[] = {
 		.ei = wlfw_qdss_trace_save_ind_msg_v01_ei,
 		.decoded_size =
 		sizeof(struct wlfw_qdss_trace_save_ind_msg_v01),
-		.fn = cnss_wlfw_qdss_trace_save_ind_cb
+		.fn = cnss_wlfw_fw_mem_file_save_ind_cb
 	},
 	{
 		.type = QMI_INDICATION,
