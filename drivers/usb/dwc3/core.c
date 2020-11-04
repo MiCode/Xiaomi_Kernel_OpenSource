@@ -1997,12 +1997,13 @@ static int dwc3_resume(struct device *dev)
 	/* Check if platform glue driver handling PM, if not then handle here */
 	if (!dwc3_notify_event(dwc, DWC3_CORE_PM_RESUME_EVENT, 0)) {
 		/*
-		 * If the core was in host mode during suspend, then set the
-		 * runtime PM state as active to reflect actual state of device
-		 * which is now out of LPM. This allows runtime_suspend later.
+		 * If the core was in host mode during suspend, then perform
+		 * runtime resume which will do resume and set the runtime PM
+		 * state as active to reflect actual state of device which
+		 * is now out of LPM. This allows runtime_suspend later.
 		 */
 		if (dwc->current_dr_role == DWC3_GCTL_PRTCAP_HOST)
-			goto runtime_set_active;
+			pm_runtime_resume(dev);
 
 		return 0;
 	}
@@ -2012,11 +2013,6 @@ static int dwc3_resume(struct device *dev)
 	ret = dwc3_resume_common(dwc, PMSG_RESUME);
 	if (ret)
 		return ret;
-
-runtime_set_active:
-	pm_runtime_disable(dev);
-	pm_runtime_set_active(dev);
-	pm_runtime_enable(dev);
 
 	return 0;
 }
