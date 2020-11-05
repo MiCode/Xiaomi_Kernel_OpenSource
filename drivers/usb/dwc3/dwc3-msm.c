@@ -1614,16 +1614,10 @@ static void gsi_configure_ep(struct usb_ep *ep, struct usb_gsi_request *request)
 
 	dwc3_send_gadget_ep_cmd(dep, DWC3_DEPCMD_SETEPCONFIG, &params);
 
-	/* Set XferRsc Index for GSI EP */
 	if (!(dep->flags & DWC3_EP_ENABLED)) {
 		ret = dwc3_gadget_resize_tx_fifos(dwc, dep);
 		if (ret)
 			return;
-
-		memset(&params, 0x00, sizeof(params));
-		params.param0 = DWC3_DEPXFERCFG_NUM_XFER_RES(1);
-		dwc3_send_gadget_ep_cmd(dep,
-				DWC3_DEPCMD_SETTRANSFRESOURCE, &params);
 
 		dep->endpoint.desc = desc;
 		dep->endpoint.comp_desc = comp_desc;
