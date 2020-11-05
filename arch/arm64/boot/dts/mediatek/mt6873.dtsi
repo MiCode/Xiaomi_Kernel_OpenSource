@@ -2131,13 +2131,15 @@
 		};
 
 		disp_pwm: pwm@1100e000 {
-			compatible = "mediatek,mt6873-disp-pwm";
+			compatible = "mediatek,disp_pwm0",
+					"mediatek,mt6873-disp-pwm";
 			reg = <0 0x1100e000 0 0x1000>;
 			interrupts = <GIC_SPI 171 IRQ_TYPE_LEVEL_HIGH 0>;
 			#pwm-cells = <2>;
 			clocks = <&infracfg  CLK_INFRA_DISP_PWM>,
-				<&topckgen CLK_TOP_DISP_PWM_SEL>;
-			clock-names = "main", "mm";
+				<&topckgen CLK_TOP_DISP_PWM_SEL>,
+				<&topckgen CLK_TOP_OSC_D4>;
+			clock-names = "main", "mm", "pwm_src";
 		};
 
 		spi1: spi@11010000 {
