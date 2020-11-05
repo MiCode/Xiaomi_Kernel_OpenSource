@@ -45,8 +45,6 @@ static struct mrdump_mini_elf_header *mrdump_mini_ehdr;
 static char *modules_info_buf;
 #endif
 
-static bool dump_all_cpus;
-
 #ifdef MODULE
 static char __aee_cmdline[COMMAND_LINE_SIZE];
 static char *aee_cmdline = __aee_cmdline;
@@ -869,19 +867,6 @@ static void mrdump_mini_add_loads(void)
 		}
 	}
 
-	if (dump_all_cpus) {
-		for (cpu = 0; cpu < nr_cpu_ids; cpu++) {
-			tsk = aee_cpu_curr(cpu);
-			if (mrdump_virt_addr_valid(tsk))
-				ti = (struct thread_info *)tsk->stack;
-			else
-				ti = NULL;
-			mrdump_mini_add_entry((unsigned long)tsk,
-					MRDUMP_MINI_SECTION_SIZE);
-			mrdump_mini_add_entry((unsigned long)ti,
-					MRDUMP_MINI_SECTION_SIZE);
-		}
-	}
 }
 
 static void mrdump_mini_clear_loads(void)
@@ -1059,6 +1044,3 @@ int mini_rdump_reserve_memory(struct reserved_mem *rmem)
 
 RESERVEDMEM_OF_DECLARE(reserve_memory_minirdump, "mediatek,minirdump",
 		       mini_rdump_reserve_memory);
-
-/* 0644: S_IRUGO | S_IWUSR */
-module_param(dump_all_cpus, bool, 0644);
