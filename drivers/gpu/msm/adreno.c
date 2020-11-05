@@ -1074,8 +1074,7 @@ static int adreno_of_get_power(struct adreno_device *adreno_dev,
 
 	l3_pwrlevel_probe(device, pdev->dev.of_node);
 
-	/* Default timeout is 80 ms across all targets */
-	device->pwrctrl.interval_timeout = 80;
+	device->pwrctrl.interval_timeout = CONFIG_QCOM_KGSL_IDLE_TIMEOUT;
 
 	device->pwrctrl.minbw_timeout = 10;
 

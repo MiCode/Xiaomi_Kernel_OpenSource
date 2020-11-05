@@ -51,3 +51,13 @@ config QCOM_KGSL_IOCOHERENCY_DEFAULT
 	 support hardware I/O coherency. If enabled all cached GPU memory
 	 will use I/O coherency regardless of the user flags. If not enabled
 	 the user can still selectively enable I/O coherency with a flag.
+
+config QCOM_KGSL_IDLE_TIMEOUT
+	int
+	default 100000 if !QGKI
+	default 80
+	help
+	  GPU idle timeout for Adreno GPU. This value decides after how
+	  long the GPU will go into slumber. A higher value will mean that
+	  the GPU is powered ON for a longer duration which will have
+	  power costs.
