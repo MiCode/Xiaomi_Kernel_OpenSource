@@ -325,27 +325,6 @@ void sram_log_save(const char *msg, int count)
 	}
 }
 
-#ifdef __aarch64__
-#define FORMAT_LONG "%016lx "
-#else
-#define FORMAT_LONG "%08lx "
-#endif
-void aee_sram_fiq_save_bin(const char *msg, size_t len)
-{
-	int i;
-	char buf[20];
-
-	for (i = 0; i < len;) {
-		snprintf(buf, sizeof(long) * 2 + 2,
-				FORMAT_LONG, *(long *)(msg + i));
-		sram_log_save(buf, sizeof(long) * 2 + 1);
-		i += sizeof(long);
-		if (i % 32 == 0)
-			sram_log_save("\n", 1);
-	}
-}
-EXPORT_SYMBOL(aee_sram_fiq_save_bin);
-
 void aee_disable_mboot_params_write(void)
 {
 	atomic_set(&mp_in_fiq, 1);

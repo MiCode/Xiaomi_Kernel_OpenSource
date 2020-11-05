@@ -206,11 +206,7 @@ extern void aee_rr_rec_cpu_dying_ktime(u64 val);
 extern void aee_rr_rec_cpu_dead_ktime(u64 val);
 extern void aee_rr_rec_cpu_post_dead_ktime(u64 val);
 extern void aee_sram_fiq_log(const char *msg);
-extern void aee_sram_fiq_save_bin(const char *buffer, size_t len);
 
-extern int ipanic_kmsg_write(unsigned int part, const char *buf, size_t size);
-extern int ipanic_kmsg_get_next(int *count, u64 *id, enum pstore_type_id *type,
-		struct timespec *time, char **buf, struct pstore_info *psi);
 #else
 static inline void aee_rr_rec_clk(int id, u32 val)
 {
@@ -992,22 +988,6 @@ static inline void aee_sram_fiq_log(const char *msg)
 {
 }
 
-static inline void aee_sram_fiq_save_bin(unsigned char *buffer, size_t len)
-{
-}
-
-static inline int ipanic_kmsg_write(unsigned int part, const char *buf,
-				size_t size)
-{
-	return 0;
-}
-
-static inline int ipanic_kmsg_get_next(int *count, u64 *id,
-			enum pstore_type_id *type, struct timespec *time,
-			char **buf, struct pstore_info *psi)
-{
-	return 0;
-}
 #endif /* CONFIG_MTK_AEE_IPANIC */
 
 #endif
