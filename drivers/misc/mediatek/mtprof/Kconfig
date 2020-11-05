@@ -16,3 +16,12 @@ config BOOTPROF_THRESHOLD_MS
 	  duration.If init duration is larger than threshold, bootprof will
 	  record the driver info and init time for boot time profiling.
 	  (Unit: millisecond)
+
+config MTK_IRQ_MONITOR
+	tristate "Enable MTK IRQ Monitor"
+	select TRACE_IRQFLAGS
+	help
+	  MTK_IRQ_MONITOR can monitor ISR/SOFTIRQ processing duration,
+	  IRQ disabled duration and burst IRQ. Say Y here to enable MTK
+	  IRQ monitor. If you are not sure about whether to enable it or not,
+	  please set n.
