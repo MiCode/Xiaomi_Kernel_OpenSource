@@ -3231,8 +3231,8 @@
 			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 
 			mediatek,support_hopping = "clk_mmpll_ck";
-			mediatek,hopping_clk_mmpll_ck = <229000000 275000000
-				 275000000 275000000>;
+			mediatek,hopping_clk_mmpll_ck = <2290000000 2750000000
+				 2750000000 2750000000>;
 			mediatek,action = <1>;
 
 			clocks = <&topckgen CLK_TOP_DISP_SEL>,	/* 0 */
