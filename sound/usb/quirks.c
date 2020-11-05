@@ -1203,6 +1203,7 @@ bool snd_usb_get_sample_rate_quirk(struct snd_usb_audio *chip)
 static bool is_itf_usb_dsd_dac(unsigned int id)
 {
 	switch (id) {
+	case USB_ID(0x154e, 0x1002): /* Denon DCD-1500RE */
 	case USB_ID(0x154e, 0x1003): /* Denon DA-300USB */
 	case USB_ID(0x154e, 0x3005): /* Marantz HD-DAC1 */
 	case USB_ID(0x154e, 0x3006): /* Marantz SA-14S1 */
@@ -1344,6 +1345,14 @@ void snd_usb_ctl_msg_quirk(struct usb_device *dev, unsigned int pipe,
 	     chip->usb_id == USB_ID(0x0951, 0x16ad)) &&
 	    (requesttype & USB_TYPE_MASK) == USB_TYPE_CLASS)
 		usleep_range(1000, 2000);
+
+	/*
+	 * Samsung USBC Headset (AKG) need a tiny delay after each
+	 * class compliant request. (Model number: AAM625R or AAM627R)
+	 */
+	if (chip->usb_id == USB_ID(0x04e8, 0xa051) &&
+	    (requesttype & USB_TYPE_MASK) == USB_TYPE_CLASS)
+		usleep_range(5000, 6000);
 }
 
 /*
@@ -1498,4 +1507,40 @@ void snd_usb_audioformat_attributes_quirk(struct snd_usb_audio *chip,
 			fp->ep_attr |= USB_ENDPOINT_SYNC_SYNC;
 		break;
 	}
+}
+
+/*
+ * registration quirk:
+ * the registration is skipped if a device matches with the given ID,
+ * unless the interface reaches to the defined one.  This is for delaying
+ * the registration until the last known interface, so that the card and
+ * devices appear at the same time.
+ */
+
+struct registration_quirk {
+	unsigned int usb_id;	/* composed via USB_ID() */
+	unsigned int interface;	/* the interface to trigger register */
+};
+
+#define REG_QUIRK_ENTRY(vendor, product, iface) \
+	{ .usb_id = USB_ID(vendor, product), .interface = (iface) }
+
+static const struct registration_quirk registration_quirks[] = {
+	REG_QUIRK_ENTRY(0x0951, 0x16d8, 2),	/* Kingston HyperX AMP */
+	REG_QUIRK_ENTRY(0x0951, 0x16ed, 2),	/* Kingston HyperX Cloud Alpha S */
+	REG_QUIRK_ENTRY(0x0951, 0x16ea, 2),	/* Kingston HyperX Cloud Flight S */
+	{ 0 }					/* terminator */
+};
+
+/* return true if skipping registration */
+bool snd_usb_registration_quirk(struct snd_usb_audio *chip, int iface)
+{
+	const struct registration_quirk *q;
+
+	for (q = registration_quirks; q->usb_id; q++)
+		if (chip->usb_id == q->usb_id)
+			return iface != q->interface;
+
+	/* Register as normal */
+	return false;
 }

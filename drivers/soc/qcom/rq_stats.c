@@ -8,6 +8,7 @@
 #include <linux/kobject.h>
 #include <linux/sysfs.h>
 #include <linux/rq_stats.h>
+#include <linux/tick.h>
 
 #define MAX_LONG_SIZE 24
 #define DEFAULT_DEF_TIMER_JIFFIES 5
@@ -79,6 +80,17 @@ static int init_rq_attribs(void)
 	return err;
 }
 
+static void wakeup_user(void)
+{
+	unsigned long jiffy_gap;
+
+	jiffy_gap = jiffies - rq_info.def_timer_last_jiffy;
+	if (jiffy_gap >= rq_info.def_timer_jiffies) {
+		rq_info.def_timer_last_jiffy = jiffies;
+		queue_work(rq_wq, &rq_info.def_timer_work);
+	}
+}
+
 static int __init msm_rq_stats_init(void)
 {
 	int ret;
@@ -96,6 +108,7 @@ static int __init msm_rq_stats_init(void)
 	rq_info.def_timer_jiffies = DEFAULT_DEF_TIMER_JIFFIES;
 	rq_info.def_timer_last_jiffy = 0;
 	ret = init_rq_attribs();
+	register_tick_sched_wakeup_callback(wakeup_user);
 
 	rq_info.init = 1;
 
