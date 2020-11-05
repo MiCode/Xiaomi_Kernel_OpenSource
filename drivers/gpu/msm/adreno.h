@@ -807,7 +807,7 @@ struct adreno_gpudev {
 	/**
 	 * @gpu_model - Copy the gpu model string into the provided buffer
 	 */
-	void (*gpu_model)(struct adreno_device *adreno_dev,
+	size_t (*gpu_model)(struct adreno_device *adreno_dev,
 			char *str, size_t bufsz);
 };
 

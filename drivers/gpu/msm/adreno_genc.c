@@ -1249,7 +1249,7 @@ static int genc_setproperty(struct kgsl_device_private *dev_priv,
 	return 0;
 }
 
-static void genc_gpu_model(struct adreno_device *adreno_dev,
+static size_t genc_gpu_model(struct adreno_device *adreno_dev,
 		char *str, size_t bufsz)
 {
 	int ver = 0;
@@ -1262,7 +1262,7 @@ static void genc_gpu_model(struct adreno_device *adreno_dev,
 	if (adreno_is_c500(adreno_dev))
 		ver = 500;
 
-	snprintf(str, bufsz, "AdrenoC%dv%ld", ver,
+	return scnprintf(str, bufsz, "AdrenoC%dv%ld", ver,
 			ADRENO_CHIPID_PATCH(adreno_dev->chipid) + 1);
 }
 

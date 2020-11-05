@@ -151,8 +151,6 @@ struct kgsl_functable {
 		unsigned int prelevel, unsigned int postlevel, bool post);
 	void (*clk_set_options)(struct kgsl_device *device,
 		const char *name, struct clk *clk, bool on);
-	void (*gpu_model)(struct kgsl_device *device, char *str,
-		size_t bufsz);
 	/**
 	 * @query_property_list: query the list of properties
 	 * supported by the device. If 'list' is NULL just return the total

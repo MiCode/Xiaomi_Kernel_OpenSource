@@ -821,23 +821,6 @@ static ssize_t popp_show(struct device *dev,
 	return scnprintf(buf, PAGE_SIZE, "0\n");
 }
 
-static ssize_t _gpu_model_show(struct kgsl_device *device, char *buf)
-{
-	char model_str[32] = {0};
-
-	device->ftbl->gpu_model(device, model_str, sizeof(model_str));
-
-	return scnprintf(buf, PAGE_SIZE, "%s\n", model_str);
-}
-
-static ssize_t gpu_model_show(struct device *dev,
-			struct device_attribute *attr, char *buf)
-{
-	struct kgsl_device *device = dev_get_drvdata(dev);
-
-	return _gpu_model_show(device, buf);
-}
-
 static ssize_t _gpu_busy_show(struct kgsl_device *device,
 					char *buf)
 {
@@ -1094,7 +1077,6 @@ static DEVICE_ATTR_RW(bus_split);
 static DEVICE_ATTR_RW(default_pwrlevel);
 static DEVICE_ATTR_RO(popp);
 static DEVICE_ATTR_RW(force_no_nap);
-static DEVICE_ATTR_RO(gpu_model);
 static DEVICE_ATTR_RO(gpu_busy_percentage);
 static DEVICE_ATTR_RW(min_clock_mhz);
 static DEVICE_ATTR_RW(max_clock_mhz);
@@ -1122,7 +1104,6 @@ static const struct attribute *pwrctrl_attr_list[] = {
 	&dev_attr_bus_split.attr,
 	&dev_attr_default_pwrlevel.attr,
 	&dev_attr_popp.attr,
-	&dev_attr_gpu_model.attr,
 	&dev_attr_gpu_busy_percentage.attr,
 	&dev_attr_min_clock_mhz.attr,
 	&dev_attr_max_clock_mhz.attr,
@@ -1133,7 +1114,6 @@ static const struct attribute *pwrctrl_attr_list[] = {
 	NULL,
 };
 
-static GPU_SYSFS_ATTR(gpu_model, 0444, _gpu_model_show, NULL);
 static GPU_SYSFS_ATTR(gpu_busy, 0444, _gpu_busy_show, NULL);
 static GPU_SYSFS_ATTR(gpu_min_clock, 0644, _min_clock_mhz_show,
 		_min_clock_mhz_store);
@@ -1144,7 +1124,6 @@ static GPU_SYSFS_ATTR(gpu_freq_table, 0444, _freq_table_mhz_show, NULL);
 static GPU_SYSFS_ATTR(gpu_tmu, 0444, _gpu_tmu_show, NULL);
 
 static const struct attribute *gpu_sysfs_attr_list[] = {
-	&gpu_sysfs_attr_gpu_model.attr,
 	&gpu_sysfs_attr_gpu_busy.attr,
 	&gpu_sysfs_attr_gpu_min_clock.attr,
 	&gpu_sysfs_attr_gpu_max_clock.attr,
