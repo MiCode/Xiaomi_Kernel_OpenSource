@@ -5824,7 +5824,16 @@ void msm_pcie_allow_l1(struct pci_dev *pci_dev)
 
 	pcie_dev = PCIE_BUS_PRIV_DATA(root_pci_dev->bus);
 
-	mutex_lock(&pcie_dev->aspm_lock);
+	mutex_lock(&pcie_dev->setup_lock);
+
+	if (pcie_dev->link_status != MSM_PCIE_LINK_ENABLED) {
+		PCIE_DBG(pcie_dev,
+			 "RC%d: PCIE Link is already disabled\n",
+			 pcie_dev->rc_idx);
+		mutex_unlock(&pcie_dev->setup_lock);
+		return;
+	}
+
 	if (unlikely(--pcie_dev->prevent_l1 < 0))
 		PCIE_ERR(pcie_dev,
 			"PCIe: RC%d: %02x:%02x.%01x: unbalanced prevent_l1: %d < 0\n",
@@ -5833,7 +5842,7 @@ void msm_pcie_allow_l1(struct pci_dev *pci_dev)
 			pcie_dev->prevent_l1);
 
 	if (pcie_dev->prevent_l1) {
-		mutex_unlock(&pcie_dev->aspm_lock);
+		mutex_unlock(&pcie_dev->setup_lock);
 		return;
 	}
 
@@ -5846,7 +5855,7 @@ void msm_pcie_allow_l1(struct pci_dev *pci_dev)
 	PCIE_DBG2(pcie_dev, "PCIe: RC%d: %02x:%02x.%01x: exit\n",
 		pcie_dev->rc_idx, pci_dev->bus->number,
 		PCI_SLOT(pci_dev->devfn), PCI_FUNC(pci_dev->devfn));
-	mutex_unlock(&pcie_dev->aspm_lock);
+	mutex_unlock(&pcie_dev->setup_lock);
 }
 EXPORT_SYMBOL(msm_pcie_allow_l1);
 
@@ -5865,9 +5874,18 @@ int msm_pcie_prevent_l1(struct pci_dev *pci_dev)
 	pcie_dev = PCIE_BUS_PRIV_DATA(root_pci_dev->bus);
 
 	/* disable L1 */
-	mutex_lock(&pcie_dev->aspm_lock);
+	mutex_lock(&pcie_dev->setup_lock);
+
+	if (pcie_dev->link_status != MSM_PCIE_LINK_ENABLED) {
+		PCIE_DBG(pcie_dev,
+			 "RC%d: PCIE Link is already disabled\n",
+			 pcie_dev->rc_idx);
+		mutex_unlock(&pcie_dev->setup_lock);
+		return -EIO;
+	}
+
 	if (pcie_dev->prevent_l1++) {
-		mutex_unlock(&pcie_dev->aspm_lock);
+		mutex_unlock(&pcie_dev->setup_lock);
 		return 0;
 	}
 
@@ -5895,11 +5913,11 @@ int msm_pcie_prevent_l1(struct pci_dev *pci_dev)
 	PCIE_DBG2(pcie_dev, "PCIe: RC%d: %02x:%02x.%01x: exit\n",
 		pcie_dev->rc_idx, pci_dev->bus->number,
 		PCI_SLOT(pci_dev->devfn), PCI_FUNC(pci_dev->devfn));
-	mutex_unlock(&pcie_dev->aspm_lock);
+	mutex_unlock(&pcie_dev->setup_lock);
 
 	return 0;
 err:
-	mutex_unlock(&pcie_dev->aspm_lock);
+	mutex_unlock(&pcie_dev->setup_lock);
 	msm_pcie_allow_l1(pci_dev);
 
 	return ret;
