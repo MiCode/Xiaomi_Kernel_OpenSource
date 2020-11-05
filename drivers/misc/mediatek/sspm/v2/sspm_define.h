@@ -20,6 +20,7 @@
 
 #define SSPM_PLT_SERV_SUPPORT       (1)
 #define SSPM_LOGGER_SUPPORT         (1)
+#define SSPM_TIMESYNC_SUPPORT       (1)
 #define SSPM_EMI_PROTECTION_SUPPORT (0)
 
 #define PLT_INIT		0x504C5401
@@ -43,9 +44,6 @@ struct plt_ipi_data_s {
 		struct {
 			unsigned int enable;
 		} logger;
-		struct {
-			unsigned int mode;
-		} ts;
 	} u;
 };
 
