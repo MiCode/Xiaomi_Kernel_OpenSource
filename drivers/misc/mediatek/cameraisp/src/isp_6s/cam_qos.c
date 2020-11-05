@@ -737,9 +737,14 @@ unsigned int mtk_dfs_get_cur_freq(void)
 	LOG_NOTICE("mtk_dfs_add is not supported\n")
 
 #define mtk_dfs_remove()	\
-	cpu_latency_qos_remove_request(&isp_qos)
-#define mtk_dfs_clr()		\
-	cpu_latency_qos_update_request(&isp_qos, 0)
+	LOG_NOTICE("mtk_dfs_remove is not supported\n")
+#define mtk_dfs_clr()	do { \
+	int volt = 0, ret = 0; \
+	ret = regulator_set_voltage(mmdvfsRegulator, volt, INT_MAX);\
+	if (ret) \
+		LOG_NOTICE("Error: E_CLK_UPDATE fail\n"); \
+} while (0)
+
 
 #define mtk_dfs_set()
 
