@@ -3108,16 +3108,17 @@ static int cam_cc_waipio_probe(struct platform_device *pdev)
 	struct clk *clk;
 	int ret;
 
-	clk = devm_clk_get(&pdev->dev, "cfg_ahb_clk");
+	regmap = qcom_cc_map(pdev, &cam_cc_waipio_desc);
+	if (IS_ERR(regmap))
+		return PTR_ERR(regmap);
+
+	clk = clk_get(&pdev->dev, "cfg_ahb_clk");
 	if (IS_ERR(clk)) {
 		if (PTR_ERR(clk) != -EPROBE_DEFER)
 			dev_err(&pdev->dev, "Unable to get ahb clock handle\n");
 		return PTR_ERR(clk);
 	}
-
-	regmap = qcom_cc_map(pdev, &cam_cc_waipio_desc);
-	if (IS_ERR(regmap))
-		return PTR_ERR(regmap);
+	clk_put(clk);
 
 	clk_lucid_evo_pll_configure(&cam_cc_pll0, regmap, &cam_cc_pll0_config);
 	clk_lucid_evo_pll_configure(&cam_cc_pll1, regmap, &cam_cc_pll1_config);
