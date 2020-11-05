@@ -6045,7 +6045,7 @@
 				<&level_mali0 &level_mali1>,
 				<&level_mali2 &level_mali3 &level_mali4>,
 				<&level_mtk_mdla>,
-				<&level_usb_host>;
+				<&level_usb_host &level_ufshci>;
 
 		resource-ctrl = <&bus26m &infra &syspll>,
 				<&dram_s0 &dram_s1>;
@@ -6067,6 +6067,10 @@
 		};
 
 		irq-remain-list {
+			level_ufshci: level_ufshci {
+				target = <&ufshci>;
+				value = <0 0 0 0>;
+			};
 			edge_keypad: edge_keypad {
 				target = <&keypad>;
 				value = <1 0 0 0x04>;
