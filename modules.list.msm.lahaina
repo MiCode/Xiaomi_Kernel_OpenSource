@@ -61,3 +61,11 @@ typec.ko
 soc_sleep_stats.ko
 sys_pm_vx.ko
 secure_buffer.ko
+spmi-pmic-arb.ko
+regmap-spmi.ko
+qcom-spmi-pmic.ko
+qpnp-power-on.ko
+nvmem_qcom-spmi-sdam.ko
+msm-poweroff.ko
+qcom_watchdog.ko
+msm_qmp.ko

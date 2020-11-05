@@ -61,9 +61,7 @@ static int download_mode = 1;
 static struct kobject dload_kobj;
 
 static int in_panic;
-#ifdef CONFIG_QCOM_MINIDUMP
 static int dload_type = SCM_DLOAD_FULLDUMP;
-#endif
 static void *dload_mode_addr;
 static bool dload_mode_enabled;
 static void *emergency_dload_mode_addr;

@@ -570,6 +570,7 @@
   kfree_sensitive
   kfree_skb
   kill_fasync
+  kimage_vaddr
   kimage_voffset
   __kmalloc
   kmalloc_caches
@@ -749,6 +750,7 @@
   param_ops_uint
   param_ops_ullong
   param_set_bool
+  param_set_int
   pci_alloc_irq_vectors_affinity
   pci_bus_type
   pci_d3cold_disable
