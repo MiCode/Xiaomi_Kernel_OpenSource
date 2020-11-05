@@ -46,6 +46,8 @@
 #define PCIE_GEN3_GEN2_CTRL (0x080c)
 #define PCIE_GEN3_RELATED (0x0890)
 #define PCIE_GEN3_EQ_CONTROL (0x08a8)
+#define PCIE_GEN3_EQ_PSET_REQ_VEC_MASK (GENMASK(23, 8))
+
 #define PCIE_GEN3_EQ_FB_MODE_DIR_CHANGE (0x08ac)
 #define PCIE_GEN3_MISC_CONTROL (0x08bc)
 
@@ -690,6 +692,7 @@ struct msm_pcie_dev_t {
 	uint32_t phy_status_offset;
 	uint32_t phy_status_bit;
 	uint32_t phy_power_down_offset;
+	uint32_t eq_pset_req_vec;
 	uint32_t core_preset;
 	uint32_t cpl_timeout;
 	uint32_t current_bdf;
@@ -1284,6 +1287,8 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->phy_status_bit);
 	PCIE_DBG_FS(dev, "phy_power_down_offset: 0x%x\n",
 		dev->phy_power_down_offset);
+	PCIE_DBG_FS(dev, "eq_pset_req_vec: 0x%x\n",
+		dev->eq_pset_req_vec);
 	PCIE_DBG_FS(dev, "core_preset: 0x%x\n",
 		dev->core_preset);
 	PCIE_DBG_FS(dev, "cpl_timeout: 0x%x\n",
@@ -3774,6 +3779,10 @@ static int msm_pcie_link_train(struct msm_pcie_dev_t *dev)
 	msm_pcie_write_mask(dev->dm_core,
 		PCIE_GEN3_EQ_CONTROL, 0x20);
 
+	msm_pcie_write_mask(dev->dm_core + PCIE_GEN3_EQ_CONTROL,
+				PCIE_GEN3_EQ_PSET_REQ_VEC_MASK,
+				dev->eq_pset_req_vec);
+
 	msm_pcie_write_mask(dev->dm_core +
 		PCIE_GEN3_RELATED, BIT(0), 0);
 
@@ -5579,6 +5588,12 @@ static int msm_pcie_probe(struct platform_device *pdev)
 				&pcie_dev->phy_power_down_offset);
 	PCIE_DBG(pcie_dev, "RC%d: phy-power-down-offset: 0x%x.\n",
 		pcie_dev->rc_idx, pcie_dev->phy_power_down_offset);
+
+	of_property_read_u32(pdev->dev.of_node,
+				"qcom,eq-pset-req-vec",
+				&pcie_dev->eq_pset_req_vec);
+	PCIE_DBG(pcie_dev, "RC%d: eq-pset-req-vec: 0x%x.\n",
+		pcie_dev->rc_idx, pcie_dev->eq_pset_req_vec);
 
 	pcie_dev->core_preset = PCIE_GEN3_PRESET_DEFAULT;
 	of_property_read_u32(pdev->dev.of_node,
