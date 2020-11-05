@@ -3,6 +3,8 @@
  * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  */
 
+#include <linux/utsname.h>
+
 #include "adreno.h"
 #include "adreno_cp_parser.h"
 #include "adreno_pm4types.h"
@@ -803,6 +805,83 @@ static void adreno_snapshot_ringbuffer(struct kgsl_device *device,
 		snapshot_rb, &params);
 }
 
+static void adreno_snapshot_os(struct kgsl_device *device,
+		struct kgsl_snapshot *snapshot, struct kgsl_context *guilty,
+		bool dump_contexts)
+{
+	struct kgsl_snapshot_section_header *sect =
+		(struct kgsl_snapshot_section_header *) snapshot->ptr;
+	struct kgsl_snapshot_linux_v2 *header = (struct kgsl_snapshot_linux_v2 *)
+		(snapshot->ptr + sizeof(*sect));
+
+	if (snapshot->remain < (sizeof(*sect) + sizeof(*header))) {
+		SNAPSHOT_ERR_NOMEM(device, "OS");
+		return;
+	}
+
+	header->osid = KGSL_SNAPSHOT_OS_LINUX_V3;
+
+	strlcpy(header->release, init_utsname()->release, sizeof(header->release));
+	strlcpy(header->version, init_utsname()->version, sizeof(header->version));
+
+	header->seconds = get_seconds();
+	header->power_flags = device->pwrctrl.power_flags;
+	header->power_level = device->pwrctrl.active_pwrlevel;
+	header->power_interval_timeout = device->pwrctrl.interval_timeout;
+	header->grpclk = kgsl_get_clkrate(device->pwrctrl.grp_clks[0]);
+
+	/* Get the current PT base */
+	header->ptbase = kgsl_mmu_get_current_ttbr0(&device->mmu);
+	header->ctxtcount = 0;
+
+	/* If we know the guilty context then dump it */
+	if (guilty) {
+		header->pid = guilty->tid;
+		strlcpy(header->comm, guilty->proc_priv->comm,
+			sizeof(header->comm));
+	}
+
+	if (dump_contexts) {
+		u32 remain = snapshot->remain - sizeof(*sect) + sizeof(*header);
+		void *mem = snapshot->ptr + sizeof(*sect) + sizeof(*header);
+		struct kgsl_context *context;
+		int id;
+
+		read_lock(&device->context_lock);
+		idr_for_each_entry(&device->context_idr, context, id) {
+			struct kgsl_snapshot_linux_context_v2 *c = mem;
+
+			if (remain < sizeof(*c))
+				break;
+
+			kgsl_readtimestamp(device, context, KGSL_TIMESTAMP_QUEUED,
+				&c->timestamp_queued);
+
+			kgsl_readtimestamp(device, context, KGSL_TIMESTAMP_CONSUMED,
+				&c->timestamp_consumed);
+
+			kgsl_readtimestamp(device, context, KGSL_TIMESTAMP_RETIRED,
+				&c->timestamp_retired);
+
+			header->ctxtcount++;
+
+			mem += sizeof(*c);
+			remain -= sizeof(*c);
+
+		}
+		read_unlock(&device->context_lock);
+	}
+
+	sect->magic = SNAPSHOT_SECTION_MAGIC;
+	sect->id = KGSL_SNAPSHOT_SECTION_OS;
+	sect->size = sizeof(*sect) + sizeof(*header) +
+		header->ctxtcount * sizeof(struct kgsl_snapshot_linux_context_v2);
+
+	snapshot->ptr += sect->size;
+	snapshot->remain -= sect->size;
+	snapshot->size += sect->size;
+}
+
 /* adreno_snapshot - Snapshot the Adreno GPU state
  * @device - KGSL device to snapshot
  * @snapshot - Pointer to the snapshot instance
@@ -817,6 +896,21 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 	unsigned int i;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	struct kgsl_snapshot_header *header = (struct kgsl_snapshot_header *)
+		snapshot->ptr;
+
+	/* Set up the master header */
+	header->magic = SNAPSHOT_MAGIC;
+	/* gpuid is deprecated so initialize it to an obviously wrong value */
+	header->gpuid = UINT_MAX;
+	header->chipid = adreno_dev->chipid;
+
+	snapshot->ptr += sizeof(*header);
+	snapshot->remain -= sizeof(*header);
+	snapshot->size += sizeof(*header);
+
+	/* Write the OS section */
+	adreno_snapshot_os(device, snapshot, context, device->gmu_fault);
 
 	ib_max_objs = 0;
 	/* Reset the list of objects */
