@@ -548,6 +548,18 @@ config ARM_SMMU_SKIP_MAP_POWER_ON
 
 	  If unsure, say N here.
 
+config ARM_SMMU_POWER_ALWAYS_ON
+	bool "Never remove SMMU power resource votes"
+	depends on ARM_SMMU && !QGKI
+	help
+	  Support for never removing SMMU power resource votes (i.e.
+	  regulator, clocks, and interconnect votes). Never removing the
+	  power resource votes allows for less time to be spent by the SMMU
+	  driver in voting for power resources when it is actively working for
+	  an extended period of time.
+
+	  If unsure, say N here.
+
 config ARM_SMMU_V3
 	tristate "ARM Ltd. System MMU Version 3 (SMMUv3) Support"
 	depends on ARM64
