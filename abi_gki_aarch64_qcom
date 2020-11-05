@@ -210,6 +210,7 @@
   devm_kmalloc
   devm_kstrdup
   devm_led_classdev_register_ext
+  devm_mbox_controller_register
   devm_nvmem_cell_get
   devm_nvmem_device_get
   devm_nvmem_register
@@ -915,6 +916,7 @@
   register_chrdev_region
   register_pm_notifier
   register_restart_handler
+  register_syscore_ops
   __register_rpmsg_driver
   regmap_bulk_read
   regmap_bulk_write
@@ -1248,6 +1250,7 @@
   unregister_pm_notifier
   unregister_restart_handler
   unregister_rpmsg_driver
+  unregister_syscore_ops
   up_read
   up_write
   usb_add_gadget_udc
