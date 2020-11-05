@@ -5,9 +5,15 @@
  * 263e38f82cbb ("dma-buf: heaps: Remove redundant heap identifier from system
  * heap name")
  *
+ * Additions taken from modifications to drivers/dma-buf/heaps/system-heap.c,
+ * from patches submitted, are listed below:
+ *
  * Addition that modifies dma_buf ops to use SG tables taken from
  * drivers/dma-buf/heaps/system-heap.c in:
  * https://lore.kernel.org/lkml/20201017013255.43568-2-john.stultz@linaro.org/
+ *
+ * Addition that skips unneeded syncs in the dma_buf ops taken from
+ * https://lore.kernel.org/lkml/20201017013255.43568-5-john.stultz@linaro.org/
  *
  * Copyright (C) 2011 Google, Inc.
  * Copyright (C) 2019, 2020 Linaro Ltd.
@@ -49,6 +55,7 @@ struct dma_heap_attachment {
 	struct device *dev;
 	struct sg_table *table;
 	struct list_head list;
+	bool mapped;
 };
 
 static struct sg_table *dup_sg_table(struct sg_table *table)
@@ -96,6 +103,7 @@ static int system_heap_attach(struct dma_buf *dmabuf,
 	a->table = table;
 	a->dev = attachment->dev;
 	INIT_LIST_HEAD(&a->list);
+	a->mapped = false;
 
 	attachment->priv = a;
 
@@ -132,6 +140,7 @@ static struct sg_table *system_heap_map_dma_buf(struct dma_buf_attachment *attac
 	if (ret)
 		return ERR_PTR(ret);
 
+	a->mapped = true;
 	return table;
 }
 
@@ -139,6 +148,9 @@ static void system_heap_unmap_dma_buf(struct dma_buf_attachment *attachment,
 				      struct sg_table *table,
 				      enum dma_data_direction direction)
 {
+	struct dma_heap_attachment *a = attachment->priv;
+
+	a->mapped = false;
 	dma_unmap_sgtable(attachment->dev, table, direction, 0);
 }
 
@@ -154,6 +166,8 @@ static int system_heap_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
 		invalidate_kernel_vmap_range(buffer->vaddr, buffer->len);
 
 	list_for_each_entry(a, &buffer->attachments, list) {
+		if (!a->mapped)
+			continue;
 		dma_sync_sgtable_for_cpu(a->dev, a->table, direction);
 	}
 	mutex_unlock(&buffer->lock);
@@ -173,6 +187,8 @@ static int system_heap_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
 		flush_kernel_vmap_range(buffer->vaddr, buffer->len);
 
 	list_for_each_entry(a, &buffer->attachments, list) {
+		if (!a->mapped)
+			continue;
 		dma_sync_sgtable_for_device(a->dev, a->table, direction);
 	}
 	mutex_unlock(&buffer->lock);

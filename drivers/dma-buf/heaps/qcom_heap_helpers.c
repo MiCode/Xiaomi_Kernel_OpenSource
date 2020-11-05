@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copied from drivers/dma-buf/heaps/heap-helpers.c as of commit
+ * Orignally copied from drivers/dma-buf/heaps/heap-helpers.c as of commit
  * 5248eb12fea8 ("dma-buf: heaps: Add heap helpers")
+ *
+ * Addition that skips unneeded syncs in the dma_buf ops taken from
+ * drivers/dma-buf/heaps/heap-helpers.c in:
+ * https://lore.kernel.org/lkml/20201017013255.43568-5-john.stultz@linaro.org/
  *
  * Copyright (c) 2020, The Linux Foundation. All rights reserved.
  */
@@ -97,6 +101,7 @@ struct dma_heaps_attachment {
 	struct device *dev;
 	struct sg_table table;
 	struct list_head list;
+	bool mapped;
 };
 
 static int dma_heap_attach(struct dma_buf *dmabuf,
@@ -121,6 +126,7 @@ static int dma_heap_attach(struct dma_buf *dmabuf,
 
 	a->dev = attachment->dev;
 	INIT_LIST_HEAD(&a->list);
+	a->mapped = false;
 
 	attachment->priv = a;
 
@@ -157,6 +163,8 @@ struct sg_table *dma_heap_map_dma_buf(struct dma_buf_attachment *attachment,
 	if (!dma_map_sg(attachment->dev, table->sgl, table->nents,
 			direction))
 		table = ERR_PTR(-ENOMEM);
+
+	a->mapped = true;
 	return table;
 }
 
@@ -164,6 +172,9 @@ static void dma_heap_unmap_dma_buf(struct dma_buf_attachment *attachment,
 				   struct sg_table *table,
 				   enum dma_data_direction direction)
 {
+	struct dma_heaps_attachment *a = attachment->priv;
+
+	a->mapped = false;
 	dma_unmap_sg(attachment->dev, table->sgl, table->nents, direction);
 }
 
@@ -218,6 +229,8 @@ static int dma_heap_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
 		invalidate_kernel_vmap_range(buffer->vaddr, buffer->size);
 
 	list_for_each_entry(a, &buffer->attachments, list) {
+		if (!a->mapped)
+			continue;
 		dma_sync_sg_for_cpu(a->dev, a->table.sgl, a->table.nents,
 				    direction);
 	}
@@ -238,6 +251,8 @@ static int dma_heap_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
 		flush_kernel_vmap_range(buffer->vaddr, buffer->size);
 
 	list_for_each_entry(a, &buffer->attachments, list) {
+		if (!a->mapped)
+			continue;
 		dma_sync_sg_for_device(a->dev, a->table.sgl, a->table.nents,
 				       direction);
 	}
