@@ -94,6 +94,13 @@
 #define P2C_DTM0_PART_MASK \
 		(P2C_FORCE_DATAIN | P2C_FORCE_DM_PULLDOWN | \
 		P2C_FORCE_DP_PULLDOWN | P2C_FORCE_XCVRSEL | \
+		P2C_FORCE_SUSPENDM | P2C_FORCE_TERMSEL | \
+		P2C_RG_DMPULLDOWN | P2C_RG_DPPULLDOWN | \
+		P2C_RG_TERMSEL)
+
+#define P2C_DTM0_PART_MASK2 \
+		(P2C_FORCE_DM_PULLDOWN | P2C_FORCE_DP_PULLDOWN | \
+		P2C_FORCE_XCVRSEL | P2C_FORCE_SUSPENDM | \
 		P2C_FORCE_TERMSEL | P2C_RG_DMPULLDOWN | \
 		P2C_RG_DPPULLDOWN | P2C_RG_TERMSEL)
 
@@ -552,7 +559,7 @@ static void u2_phy_instance_power_on(struct mtk_tphy *tphy,
 		tmp |= P2C_RG_SUSPENDM | P2C_FORCE_SUSPENDM;
 		writel(tmp, com + U3P_U2PHYDTM0);
 	}
-	dev_dbg(tphy->dev, "%s(%d)\n", __func__, index);
+	dev_info(tphy->dev, "%s(%d)\n", __func__, index);
 }
 
 static void u2_phy_instance_power_off(struct mtk_tphy *tphy,
@@ -565,6 +572,7 @@ static void u2_phy_instance_power_off(struct mtk_tphy *tphy,
 
 	tmp = readl(com + U3P_U2PHYDTM0);
 	tmp &= ~(P2C_RG_XCVRSEL | P2C_RG_DATAIN);
+	tmp |= P2C_RG_XCVRSEL_VAL(1) | P2C_DTM0_PART_MASK2;
 	writel(tmp, com + U3P_U2PHYDTM0);
 
 	/* OTG Disable */
@@ -587,7 +595,7 @@ static void u2_phy_instance_power_off(struct mtk_tphy *tphy,
 		writel(tmp, com + U3D_U2PHYDCR0);
 	}
 
-	dev_dbg(tphy->dev, "%s(%d)\n", __func__, index);
+	dev_info(tphy->dev, "%s(%d)\n", __func__, index);
 }
 
 static void u2_phy_instance_exit(struct mtk_tphy *tphy,
