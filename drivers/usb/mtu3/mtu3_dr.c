@@ -87,6 +87,21 @@ static int ssusb_port0_switch(struct ssusb_mtk *ssusb,
 	return 0;
 }
 
+static void ssusb_ip_sleep(struct ssusb_mtk *ssusb)
+{
+	void __iomem *ibase = ssusb->ippc_base;
+
+	mtu3_setbits(ibase, SSUSB_U2_CTRL(0),
+		SSUSB_U2_PORT_DIS | SSUSB_U2_PORT_PDN);
+	mtu3_clrbits(ibase, SSUSB_U2_CTRL(0), SSUSB_U2_PORT_OTG_SEL);
+	mtu3_setbits(ibase, SSUSB_U3_CTRL(0),
+		(SSUSB_U3_PORT_DIS | SSUSB_U3_PORT_PDN));
+	mtu3_clrbits(ibase, SSUSB_U3_CTRL(0), SSUSB_U3_PORT_DUAL_MODE);
+	mtu3_setbits(ibase, U3D_SSUSB_IP_PW_CTRL1, SSUSB_IP_HOST_PDN);
+	mtu3_setbits(ibase, U3D_SSUSB_IP_PW_CTRL2, SSUSB_IP_DEV_PDN);
+	mtu3_setbits(ibase, U3D_SSUSB_IP_PW_CTRL0, SSUSB_IP_SW_RST);
+}
+
 static void switch_port_to_on(struct ssusb_mtk *ssusb, bool is_on)
 {
 	if (!ssusb->clk_mgr)
@@ -99,6 +114,7 @@ static void switch_port_to_on(struct ssusb_mtk *ssusb, bool is_on)
 		ssusb_phy_power_on(ssusb);
 		ssusb_ip_sw_reset(ssusb);
 	} else {
+		ssusb_ip_sleep(ssusb);
 		ssusb_phy_power_off(ssusb);
 		ssusb_clks_disable(ssusb);
 	}
