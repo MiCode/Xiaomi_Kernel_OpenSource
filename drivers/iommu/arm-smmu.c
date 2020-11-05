@@ -3257,25 +3257,9 @@ static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
 	spin_lock_irqsave(&smmu_domain->cb_lock, flags);
 	ret = ops->unmap(ops, iova, size, gather);
 	spin_unlock_irqrestore(&smmu_domain->cb_lock, flags);
-	/*
-	 * The votes for power resources can only be removed if there are no
-	 * outstanding TLB invalidation operations. This is true when the
-	 * downstream io-pgtable-arm optimizations are in use, as the code that
-	 * unmaps the memory from the IOMMU page tables ensures that all TLB
-	 * operations are complete before returning.
-	 *
-	 * However, the upstream io-pgtable-arm implementation allows for a TLB
-	 * invalidation to be in progress when control is returned back here,
-	 * and the votes for the power resources will be removed, which has been
-	 * observed to cause problems where unmapping buffers takes a long time.
-	 * For those scenarios, leave the votes for power resources in place,
-	 * and rely on the subsequent sync operation to remove the votes.
-	 */
-#ifdef CONFIG_ARM_SMMU_POWER_OFF_AFTER_UNMAP
 	arm_smmu_rpm_put(smmu);
 
 	arm_smmu_domain_power_off(domain, smmu_domain->smmu);
-#endif
 	/*
 	 * While splitting up block mappings, we might allocate page table
 	 * memory during unmap, so the vmids needs to be assigned to the
@@ -3313,20 +3297,12 @@ static void arm_smmu_iotlb_sync(struct iommu_domain *domain,
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 
 	if (smmu_domain->flush_ops) {
-		/*
-		 * Voting for power resources when
-		 * CONFIG_ARM_SMMU_POWER_OFF_AFTER_UNMAP is enabled, is required
-		 * as the unmap call has removed the votes for the power
-		 * resources.
-		 */
-#ifdef CONFIG_ARM_SMMU_POWER_OFF_AFTER_UNMAP
 		arm_smmu_rpm_get(smmu);
 		if (arm_smmu_domain_power_on(domain, smmu)) {
 			WARN_ON(1);
 			arm_smmu_rpm_put(smmu);
 			return;
 		}
-#endif
 		smmu_domain->flush_ops->tlb_sync(smmu_domain);
 		arm_smmu_domain_power_off(domain, smmu);
 		arm_smmu_rpm_put(smmu);

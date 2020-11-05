@@ -548,15 +548,6 @@ config ARM_SMMU_SKIP_MAP_POWER_ON
 
 	  If unsure, say N here.
 
-config ARM_SMMU_POWER_OFF_AFTER_UNMAP
-	bool "Remove power votes after unmapping memory"
-	depends on ARM_SMMU && QGKI
-	help
-	  Support for ensuring that votes for power resources are removed
-	  after memory is unmapped. This should be enabled when it is guaranteed
-	  that there are no outstanding TLB invalidations after the memory
-	  has been unmapped from the IOMMU page tables.
-
 config ARM_SMMU_V3
 	tristate "ARM Ltd. System MMU Version 3 (SMMUv3) Support"
 	depends on ARM64
