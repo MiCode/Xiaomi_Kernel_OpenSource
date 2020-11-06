@@ -119,8 +119,9 @@ static DEFINE_KFIFO(outbuf, unsigned char, 1024);
 static void dcc_put_work_fn(struct work_struct *work)
 {
 	unsigned char ch;
+	unsigned long irqflags;
 
-	spin_lock(&dcc_lock);
+	spin_lock_irqsave(&dcc_lock, irqflags);
 
 	/* While there's data in the output FIFO, write it to the DCC */
 	while (kfifo_get(&outbuf, &ch))
@@ -133,7 +134,7 @@ static void dcc_put_work_fn(struct work_struct *work)
 		kfifo_put(&inbuf, ch);
 	}
 
-	spin_unlock(&dcc_lock);
+	spin_unlock_irqrestore(&dcc_lock, irqflags);
 }
 
 /*
@@ -143,19 +144,20 @@ static void dcc_put_work_fn(struct work_struct *work)
 static void dcc_get_work_fn(struct work_struct *work)
 {
 	unsigned char ch;
+	unsigned long irqflags;
 
 	/*
 	 * Read characters from DCC and put them into the input FIFO, as
 	 * long as there is room and we have characters to read.
 	 */
-	spin_lock(&dcc_lock);
+	spin_lock_irqsave(&dcc_lock, irqflags);
 
 	while (!kfifo_is_full(&inbuf)) {
 		if (!hvc_dcc_get_chars(0, &ch, 1))
 			break;
 		kfifo_put(&inbuf, ch);
 	}
-	spin_unlock(&dcc_lock);
+	spin_unlock_irqrestore(&dcc_lock, irqflags);
 }
 
 /*
@@ -166,11 +168,12 @@ static int hvc_dcc0_put_chars(uint32_t vt, const char *buf,
 					     int count)
 {
 	int len;
+	unsigned long irqflags;
 
-	spin_lock(&dcc_lock);
+	spin_lock_irqsave(&dcc_lock, irqflags);
 	if (smp_processor_id() || (!kfifo_is_empty(&outbuf))) {
 		len = kfifo_in(&outbuf, buf, count);
-		spin_unlock(&dcc_lock);
+		spin_unlock_irqrestore(&dcc_lock, irqflags);
 		/*
 		 * We just push data to the output FIFO, so schedule the
 		 * workqueue that will actually write that data to DCC.
@@ -184,7 +187,7 @@ static int hvc_dcc0_put_chars(uint32_t vt, const char *buf,
 	 * write the data to DCC.
 	 */
 	len = hvc_dcc_put_chars(vt, buf, count);
-	spin_unlock(&dcc_lock);
+	spin_unlock_irqrestore(&dcc_lock, irqflags);
 
 	return len;
 }
@@ -196,12 +199,13 @@ static int hvc_dcc0_put_chars(uint32_t vt, const char *buf,
 static int hvc_dcc0_get_chars(uint32_t vt, char *buf, int count)
 {
 	int len;
+	unsigned long irqflags;
 
-	spin_lock(&dcc_lock);
+	spin_lock_irqsave(&dcc_lock, irqflags);
 
 	if (smp_processor_id() || (!kfifo_is_empty(&inbuf))) {
 		len = kfifo_out(&inbuf, buf, count);
-		spin_unlock(&dcc_lock);
+		spin_unlock_irqrestore(&dcc_lock, irqflags);
 
 		/*
 		 * If the FIFO was empty, there may be characters in the DCC
@@ -220,7 +224,7 @@ static int hvc_dcc0_get_chars(uint32_t vt, char *buf, int count)
 	 * read the data from DCC.
 	 */
 	len = hvc_dcc_get_chars(vt, buf, count);
-	spin_unlock(&dcc_lock);
+	spin_unlock_irqrestore(&dcc_lock, irqflags);
 
 	return len;
 }

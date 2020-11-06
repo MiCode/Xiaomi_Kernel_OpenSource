@@ -40,7 +40,7 @@ crypto-qti-hwkm.ko
 hwkm.ko
 #ufs-qcom.ko
 qbt_handler.ko
-qcom-hwspinlock.ko
+qcom_hwspinlock.ko
 smem.ko
 socinfo.ko
 eud.ko
