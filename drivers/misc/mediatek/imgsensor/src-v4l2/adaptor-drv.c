@@ -233,15 +233,34 @@ static int init_sensor_mode(struct adaptor_ctx *ctx)
 	return 0;
 }
 
+static void control_sensor(struct adaptor_ctx *ctx)
+{
+	MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT image_window;
+	MSDK_SENSOR_CONFIG_STRUCT sensor_config_data;
+
+	if (!ctx->is_sensor_scenario_inited) {
+		subdrv_call(ctx, control,
+				ctx->cur_mode->id,
+				&image_window,
+				&sensor_config_data);
+		ctx->is_sensor_scenario_inited = 1;
+	}
+
+}
+
 static int set_sensor_mode(struct adaptor_ctx *ctx,
 		struct sensor_mode *mode, char update_ctrl_defs)
 {
 	s64 min, max, def;
 
-	if (ctx->cur_mode == mode)
+	if (ctx->cur_mode == mode) {
+		if (update_ctrl_defs)
+			control_sensor(ctx);
 		return 0;
+	}
 
 	ctx->cur_mode = mode;
+	ctx->is_sensor_scenario_inited = 0;
 
 	subdrv_call(ctx, get_info,
 			mode->id,
@@ -262,6 +281,9 @@ static int set_sensor_mode(struct adaptor_ctx *ctx,
 		max = ctx->subctx.max_frame_length - mode->height;
 		__v4l2_ctrl_modify_range(ctx->vblank, min, max, 1, def);
 		__v4l2_ctrl_s_ctrl(ctx->vblank, def);
+
+		/* init sensor scenario setting */
+		control_sensor(ctx);
 	}
 
 	dev_info(ctx->dev, "select %dx%d@%d %dx%d px %d\n",
@@ -349,9 +371,9 @@ static int imgsensor_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 #ifdef POWERON_ONCE_OPENED
 	pm_runtime_get_sync(ctx->dev);
 
-	if (!ctx->is_sensor_init) {
+	if (!ctx->is_sensor_inited) {
 		subdrv_call(ctx, open);
-		ctx->is_sensor_init = 1;
+		ctx->is_sensor_inited = 1;
 	}
 #endif
 
@@ -546,7 +568,8 @@ static int imgsensor_runtime_suspend(struct device *dev)
 	struct adaptor_ctx *ctx = to_ctx(sd);
 
 	/* clear flags once power-off */
-	ctx->is_sensor_init = 0;
+	ctx->is_sensor_inited = 0;
+	ctx->is_sensor_scenario_inited = 0;
 
 	return adaptor_hw_power_off(ctx);
 }
@@ -572,18 +595,13 @@ static int imgsensor_start_streaming(struct adaptor_ctx *ctx)
 //	int ret;
 	u64 data[4];
 	u32 len;
-	MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT image_window;
-	MSDK_SENSOR_CONFIG_STRUCT sensor_config_data;
 
-	if (!ctx->is_sensor_init) {
+	if (!ctx->is_sensor_inited) {
 		subdrv_call(ctx, open);
-		ctx->is_sensor_init = 1;
+		ctx->is_sensor_inited = 1;
 	}
 
-	subdrv_call(ctx, control,
-			ctx->cur_mode->id,
-			&image_window,
-			&sensor_config_data);
+	control_sensor(ctx);
 
 #ifdef APPLY_CUSTOMIZED_VALUES_FROM_USER
 	/* Apply customized values from user */
@@ -642,7 +660,7 @@ static int imgsensor_set_stream(struct v4l2_subdev *sd, int enable)
 	struct adaptor_ctx *ctx = to_ctx(sd);
 
 	mutex_lock(&ctx->mutex);
-	if (ctx->streaming == enable) {
+	if (ctx->is_streaming == enable) {
 		mutex_unlock(&ctx->mutex);
 		return 0;
 	}
@@ -666,7 +684,7 @@ static int imgsensor_set_stream(struct v4l2_subdev *sd, int enable)
 		pm_runtime_put(ctx->dev);
 	}
 
-	ctx->streaming = enable;
+	ctx->is_streaming = enable;
 	mutex_unlock(&ctx->mutex);
 
 	dev_info(ctx->dev, "%s: en %d\n", __func__, enable);
@@ -769,7 +787,7 @@ static int __maybe_unused imgsensor_suspend(struct device *dev)
 	if (pm_runtime_suspended(dev))
 		return 0;
 
-	if (ctx->streaming)
+	if (ctx->is_streaming)
 		imgsensor_stop_streaming(ctx);
 
 	return imgsensor_runtime_suspend(dev);
@@ -789,7 +807,7 @@ static int __maybe_unused imgsensor_resume(struct device *dev)
 	if (ret)
 		return ret;
 
-	if (ctx->streaming) {
+	if (ctx->is_streaming) {
 		ret = imgsensor_start_streaming(ctx);
 		if (ret)
 			goto error;
@@ -799,7 +817,7 @@ static int __maybe_unused imgsensor_resume(struct device *dev)
 
 error:
 	imgsensor_stop_streaming(ctx);
-	ctx->streaming = 0;
+	ctx->is_streaming = 0;
 	return ret;
 }
 
