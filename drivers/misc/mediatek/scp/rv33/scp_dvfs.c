@@ -558,7 +558,8 @@ int scp_pll_ctrl_set(unsigned int pll_ctrl_flag, unsigned int pll_sel)
 			WARN_ON(1);
 		}
 
-		if (dvfs.opp[idx].resource_req != 0)
+		if (pll_sel == CLK_26M || ((idx >= 0)
+				&& dvfs.opp[idx].resource_req != 0))
 			dvfs.pre_mux_en = true;
 	} else if ((pll_ctrl_flag == PLL_DISABLE) &&
 			(dvfs.opp[idx].resource_req == 0)) {
