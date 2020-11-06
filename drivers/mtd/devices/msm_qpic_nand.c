@@ -611,10 +611,12 @@ static int msm_nand_flash_onfi_probe(struct msm_nand_info *info)
 	struct version nandc_version = {0};
 
 	ret = msm_nand_version_check(info, &nandc_version);
-	if (!ret && !(nandc_version.nand_major == 1 &&
+	if (!ret && !((nandc_version.nand_major == 1 &&
 			nandc_version.nand_minor >= 5 &&
 			nandc_version.qpic_major == 1 &&
-			nandc_version.qpic_minor >= 5)) {
+			nandc_version.qpic_minor >= 5) ||
+			(nandc_version.nand_major >= 2 &&
+			nandc_version.qpic_major >= 2))) {
 		ret = -EPERM;
 		goto out;
 	}
@@ -781,8 +783,9 @@ static int msm_nand_flash_onfi_probe(struct msm_nand_info *info)
 	flash->blksize  = onfi_param_page_ptr->number_of_pages_per_block *
 					flash->pagesize;
 	flash->oobsize  = onfi_param_page_ptr->number_of_spare_bytes_per_page;
-	flash->density  = onfi_param_page_ptr->number_of_blocks_per_logical_unit
-					* flash->blksize;
+	flash->density  = onfi_param_page_ptr->number_of_logical_units *
+		onfi_param_page_ptr->number_of_blocks_per_logical_unit *
+					flash->blksize;
 	flash->ecc_correctability =
 			onfi_param_page_ptr->number_of_bits_ecc_correctability;
 

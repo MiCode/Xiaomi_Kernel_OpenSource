@@ -907,9 +907,9 @@ int cnss_get_tcs_info(struct cnss_plat_data *plat_priv)
 	cnss_pr_dbg("TCS CMD base address is %pa with length %pa\n",
 		    &plat_priv->tcs_info.cmd_base_addr, &addr_len);
 
-	tcs_cmd_base_addr = devm_ioremap_resource(&plat_dev->dev, res);
-	if (IS_ERR(tcs_cmd_base_addr)) {
-		ret = PTR_ERR(tcs_cmd_base_addr);
+	tcs_cmd_base_addr = devm_ioremap(&plat_dev->dev, res->start, addr_len);
+	if (!tcs_cmd_base_addr) {
+		ret = -EINVAL;
 		cnss_pr_err("Failed to map TCS CMD address, err = %d\n",
 			    ret);
 		goto out;

@@ -260,6 +260,8 @@ struct tmc_drvdata {
 	bool			enable_to_bam;
 	struct coresight_cti	*cti_flush;
 	struct coresight_cti	*cti_reset;
+	u32			cti_flush_trig_num;
+	u32			cti_reset_trig_num;
 	enum tmc_etr_out_mode	out_mode;
 };
 

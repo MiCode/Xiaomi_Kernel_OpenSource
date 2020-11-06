@@ -21,6 +21,8 @@
   alloc_skb_with_frags
   alloc_workqueue
   amba_bustype
+  amba_driver_register
+  amba_driver_unregister
   anon_inode_getfile
   arch_bpf_jit_check_func
   __arch_clear_user
@@ -252,6 +254,7 @@
   cpufreq_freq_attr_scaling_boost_freqs
   cpufreq_generic_attr
   cpufreq_generic_frequency_table_verify
+  cpufreq_get_policy
   cpufreq_quick_get_max
   cpufreq_register_driver
   cpufreq_register_notifier
@@ -574,6 +577,7 @@
   dma_resv_test_signaled_rcu
   dma_resv_wait_timeout_rcu
   dma_set_coherent_mask
+  __dma_request_channel
   dma_set_mask
   do_exit
   do_wait_intr
@@ -869,6 +873,7 @@
   find_next_zero_bit
   find_snd_usb_substream
   find_vma
+  find_vpid
   finish_wait
   firmware_request_nowarn
   flow_keys_basic_dissector
@@ -953,6 +958,7 @@
   get_random_bytes
   get_random_u32
   __get_task_comm
+  get_task_pid
   get_tree_single
   get_unmapped_area
   get_unused_fd_flags
@@ -1334,11 +1340,18 @@
   __mdiobus_register
   mdiobus_unregister
   media_create_pad_link
+  media_create_intf_link
   media_device_cleanup
   media_device_init
   __media_device_register
+  media_device_register_entity
   media_device_unregister
+  media_device_unregister_entity
+  media_devnode_create
+  media_devnode_remove
   media_entity_pads_init
+  media_entity_remove_links
+  media_remove_intf_links
   memblock_free
   memchr
   memcmp
@@ -1658,6 +1671,7 @@
   phy_start
   phy_stop
   physvirt_offset
+  pid_task
   pinconf_generic_dt_node_to_map
   pinctrl_dev_get_drvdata
   pinctrl_force_default
@@ -1765,6 +1779,7 @@
   put_device
   put_disk
   __put_page
+  put_pid
   __put_task_struct
   put_unused_fd
   put_vaddr_frames
@@ -1969,6 +1984,7 @@
   sched_clock
   sched_setattr
   sched_setscheduler
+  sched_setscheduler_nocheck
   schedule
   schedule_timeout
   schedule_timeout_interruptible
@@ -2681,7 +2697,9 @@
   vb2_mmap
   vb2_ops_wait_finish
   vb2_ops_wait_prepare
+  vb2_plane_cookie
   vb2_plane_vaddr
+  vb2_prepare_buf
   vb2_poll
   vb2_qbuf
   vb2_querybuf
@@ -2689,6 +2707,7 @@
   vb2_queue_init
   vb2_queue_release
   vb2_reqbufs
+  vb2_request_object_is_buffer
   vb2_streamoff
   vb2_streamon
   vb2_vmalloc_memops

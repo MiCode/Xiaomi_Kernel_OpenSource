@@ -375,6 +375,7 @@ static struct platform_driver aop_qmp_clk_driver = {
 	.driver = {
 		.name = "qmp-aop-clk",
 		.of_match_table = aop_qmp_clk_of_match,
+		.sync_state = clk_sync_state,
 	},
 	.probe = aop_qmp_clk_probe,
 };

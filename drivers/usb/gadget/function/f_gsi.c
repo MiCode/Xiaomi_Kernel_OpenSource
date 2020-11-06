@@ -34,7 +34,7 @@ static void gsi_ctrl_pkt_free(struct gsi_ctrl_pkt *pkt);
 
 static inline bool usb_gsi_remote_wakeup_allowed(struct usb_function *f)
 {
-	bool remote_wakeup_allowed = true;
+	bool remote_wakeup_allowed = false;
 	struct f_gsi *gsi = func_to_gsi(f);
 
 	if (f->config->cdev->gadget->speed >= USB_SPEED_SUPER)

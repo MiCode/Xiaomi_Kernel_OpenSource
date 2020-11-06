@@ -602,6 +602,18 @@ static inline bool kgsl_state_is_nap_or_minbw(struct kgsl_device *device)
 	return false;
 }
 
+/**
+ * kgsl_start_idle_timer - Start the idle timer
+ * @device: A KGSL device handle
+ *
+ * Start the idle timer to expire in 'interval_timeout' milliseconds
+ */
+static inline void kgsl_start_idle_timer(struct kgsl_device *device)
+{
+	mod_timer(&device->idle_timer,
+			jiffies + msecs_to_jiffies(device->pwrctrl.interval_timeout));
+}
+
 int kgsl_readtimestamp(struct kgsl_device *device, void *priv,
 		enum kgsl_timestamp_type type, unsigned int *timestamp);
 

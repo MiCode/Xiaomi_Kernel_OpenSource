@@ -6,6 +6,7 @@
   adjust_managed_page_count
   alarm_cancel
   alarm_init
+  alarm_start
   alarm_start_relative
   alloc_chrdev_region
   __alloc_disk_node
@@ -186,6 +187,7 @@
   config_ep_by_speed
   config_group_init_type_name
   config_item_put
+  console_printk
   console_stop
   console_suspend_enabled
   __const_udelay
@@ -365,6 +367,7 @@
   devm_reset_controller_register
   devm_rtc_device_register
   devm_snd_soc_register_card
+  devm_snd_soc_register_component
   devm_thermal_zone_of_sensor_register
   devm_usb_get_phy
   devm_usb_get_phy_by_phandle
@@ -720,6 +723,7 @@
   find_next_zero_bit
   find_snd_usb_substream
   find_vma
+  find_vpid
   finish_wait
   firmware_request_nowarn
   fixed_phy_register
@@ -784,9 +788,11 @@
   gether_set_host_addr
   gether_set_qmult
   gether_setup_name_default
+  get_pid_task
   get_random_bytes
   get_random_u32
   __get_task_comm
+  get_task_mm
   get_unmapped_area
   get_unused_fd_flags
   get_user_pages
@@ -852,6 +858,10 @@
   i2c_get_dma_safe_msg_buf
   i2c_put_dma_safe_msg_buf
   i2c_register_driver
+  i2c_smbus_read_byte_data
+  i2c_smbus_read_word_data
+  i2c_smbus_write_byte_data
+  i2c_smbus_write_word_data
   i2c_transfer
   i2c_transfer_buffer_flags
   i2c_unregister_device
@@ -886,6 +896,7 @@
   init_dummy_netdev
   init_net
   __init_rwsem
+  init_task
   init_timer_key
   init_uts_ns
   init_wait_entry
@@ -1051,6 +1062,7 @@
   kstrtou8
   kstrtouint
   kstrtoull
+  kstrtoull_from_user
   kthread_cancel_delayed_work_sync
   kthread_cancel_work_sync
   kthread_create_on_node
@@ -1147,6 +1159,7 @@
   misc_register
   mmc_of_parse
   mmc_send_tuning
+  mmput
   mod_delayed_work_on
   mod_node_page_state
   mod_timer
@@ -1400,6 +1413,7 @@
   physvirt_offset
   phy_unregister_fixup_for_uid
   phy_write_mmd
+  pid_task
   pinconf_generic_dt_node_to_map
   pinctrl_dev_get_drvdata
   pinctrl_get
@@ -1466,8 +1480,10 @@
   power_supply_get_drvdata
   power_supply_get_property
   power_supply_put
+  power_supply_register
   power_supply_reg_notifier
   power_supply_set_property
+  power_supply_unregister
   power_supply_unreg_notifier
   prandom_u32
   preempt_schedule
@@ -1647,6 +1663,7 @@
   rndis_set_param_vendor
   rndis_signal_connect
   rndis_uninit
+  round_jiffies_relative
   rpmsg_create_ept
   rpmsg_destroy_ept
   rpmsg_poll
@@ -1671,6 +1688,7 @@
   sched_clock
   sched_setattr
   sched_setscheduler
+  sched_show_task
   schedule
   schedule_timeout
   schedule_timeout_interruptible
@@ -2336,7 +2354,9 @@
   __wake_up
   __wake_up_locked
   wake_up_process
+  wakeup_source_add
   wakeup_source_register
+  wakeup_source_remove
   wakeup_source_unregister
   __warn_printk
   wiphy_free

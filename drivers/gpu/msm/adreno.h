@@ -5,6 +5,7 @@
 #ifndef __ADRENO_H
 #define __ADRENO_H
 
+#include <linux/iopoll.h>
 #include <linux/of.h>
 #include "adreno_coresight.h"
 #include "adreno_dispatch.h"
@@ -215,8 +216,6 @@ enum adreno_gpurev {
 #define ADRENO_GMU_FAULT_SKIP_SNAPSHOT BIT(7)
 
 /* VBIF,  GBIF halt request and ack mask */
-#define GBIF_HALT_REQUEST       0x1E0
-#define VBIF_RESET_ACK_MASK     0x00f0
 #define VBIF_RESET_ACK_TIMEOUT  100
 
 /* number of throttle counters for DCVS adjustment */
@@ -697,15 +696,9 @@ enum adreno_regs {
 	ADRENO_REG_RBBM_PERFCTR_RBBM_0_HI,
 	ADRENO_REG_RBBM_PERFCTR_LOAD_VALUE_LO,
 	ADRENO_REG_RBBM_PERFCTR_LOAD_VALUE_HI,
-	ADRENO_REG_RBBM_GPR0_CNTL,
-	ADRENO_REG_RBBM_GBIF_HALT,
-	ADRENO_REG_RBBM_GBIF_HALT_ACK,
-	ADRENO_REG_RBBM_VBIF_GX_RESET_STATUS,
-	ADRENO_REG_VBIF_XIN_HALT_CTRL0,
-	ADRENO_REG_VBIF_XIN_HALT_CTRL1,
-	ADRENO_REG_VBIF_VERSION,
 	ADRENO_REG_GBIF_HALT,
-	ADRENO_REG_GBIF_HALT_ACK,
+	ADRENO_REG_VBIF_VERSION,
+	ADRENO_REG_RBBM_GBIF_HALT,
 	ADRENO_REG_GMU_AO_HOST_INTERRUPT_MASK,
 	ADRENO_REG_GMU_AHB_FENCE_STATUS,
 	ADRENO_REG_GMU_GMU2HOST_INTR_MASK,
@@ -765,10 +758,6 @@ struct adreno_gpudev {
 
 	struct adreno_coresight *coresight[2];
 
-	unsigned int vbif_xin_halt_ctrl0_mask;
-	unsigned int gbif_client_halt_mask;
-	unsigned int gbif_arb_halt_mask;
-	unsigned int gbif_gx_halt_mask;
 	/* GPU specific function hooks */
 	int (*probe)(struct platform_device *pdev, u32 chipid,
 		const struct adreno_gpu_core *gpucore);
@@ -823,6 +812,7 @@ struct adreno_gpudev {
 	 * gpu
 	 */
 	const struct adreno_power_ops *power_ops;
+	int (*clear_pending_transactions)(struct adreno_device *adreno_dev);
 };
 
 /**
@@ -1679,35 +1669,27 @@ static inline bool adreno_has_gbif(struct adreno_device *adreno_dev)
 }
 
 /**
- * adreno_wait_for_halt_ack() - wait for GBIF/VBIF acknowledgment
- * for given HALT request.
+ * adreno_wait_for_halt_ack - wait for acknowlegement for a bus halt request
  * @ack_reg: register offset to wait for acknowledge
+ * @mask: A mask value to wait for
+ *
+ * Return: 0 on success or -ETIMEDOUT if the request timed out
  */
 static inline int adreno_wait_for_halt_ack(struct kgsl_device *device,
 	int ack_reg, unsigned int mask)
 {
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	unsigned long wait_for_vbif;
-	unsigned int val;
-	int ret = 0;
+	void __iomem *addr = device->reg_virt + (ack_reg << 2);
+	u32 val;
 
-	/* wait for the transactions to clear */
-	wait_for_vbif = jiffies + msecs_to_jiffies(VBIF_RESET_ACK_TIMEOUT);
-	while (1) {
-		adreno_readreg(adreno_dev, ack_reg,
-			&val);
-		if ((val & mask) == mask)
-			break;
-		if (time_after(jiffies, wait_for_vbif)) {
-			dev_err(device->dev,
-				"GBIF/VBIF Halt ack timeout: reg=%08X mask=%08X status=%08X\n",
-				ack_reg, mask, val);
-			ret = -ETIMEDOUT;
-			break;
-		}
+	if (readl_poll_timeout(addr, val, (val & mask) == mask, 100,
+		VBIF_RESET_ACK_TIMEOUT  * 1000)) {
+		dev_err(device->dev,
+			"GBIF/VBIF Halt ack timeout: reg=%08x mask=%08x status=%08x\n",
+			ack_reg, mask, val);
+		return -ETIMEDOUT;
 	}
 
-	return ret;
+	return 0;
 }
 
 static inline void adreno_deassert_gbif_halt(struct adreno_device *adreno_dev)

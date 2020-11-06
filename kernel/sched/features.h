@@ -94,3 +94,4 @@ SCHED_FEAT(UTIL_EST, true)
  * Request max frequency from schedutil whenever a RT task is running.
  */
 SCHED_FEAT(SUGOV_RT_MAX_FREQ, false)
+SCHED_FEAT(UTIL_EST_FASTUP, true)

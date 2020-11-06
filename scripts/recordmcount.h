@@ -529,6 +529,9 @@ static int find_secsym_ndx(unsigned const txtndx,
 		if (txtndx == get_symindex(symp, symtab, symtab_shndx)
 			/* avoid STB_WEAK */
 		    && (STB_LOCAL == st_bind || STB_GLOBAL == st_bind)) {
+			/* avoid file symbols */
+			if (ELF_ST_TYPE(symp->st_info) == STT_FILE)
+				continue;
 			/* function symbols on ARM have quirks, avoid them */
 			if (w2(ehdr->e_machine) == EM_ARM
 			    && ELF_ST_TYPE(symp->st_info) == STT_FUNC)

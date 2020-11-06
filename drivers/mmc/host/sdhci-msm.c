@@ -23,6 +23,7 @@
 
 #include "sdhci-pltfm.h"
 #include "cqhci.h"
+#include "cqhci-crypto-qti.h"
 #if defined(CONFIG_SDC_QTI)
 #include "../core/core.h"
 #endif
@@ -128,6 +129,7 @@
 #define FINE_TUNE_MODE_EN		BIT(27)
 #define BIAS_OK_SIGNAL			BIT(29)
 #define DLL_CONFIG_3_POR_VAL		0x10
+#define DLL_CONFIG_POR_VAL		0x6007642C
 
 
 #define INVALID_TUNING_PHASE	-1
@@ -890,7 +892,7 @@ static int msm_init_cm_dll(struct sdhci_host *host,
 	else
 		ddr_cfg_offset = msm_offset->core_ddr_config_old;
 
-	if (msm_host->dll_hsr->ddr_config)
+	if (msm_host->dll_hsr && msm_host->dll_hsr->ddr_config)
 		writel_relaxed(msm_host->dll_hsr->ddr_config, host->ioaddr +
 			ddr_cfg_offset);
 	else
@@ -929,16 +931,14 @@ static int msm_init_cm_dll(struct sdhci_host *host,
 		udelay(5);
 	}
 
-	/*
-	 * Step 10 - Update the lower two bytes of DLL_CONFIG only with
-	 * HSR values. Since these are the static settings.
-	 */
-	if (msm_host->dll_hsr) {
-		writel_relaxed((readl_relaxed(host->ioaddr +
-			msm_offset->core_dll_config) |
-			(msm_host->dll_hsr->dll_config & 0xffff)),
-			host->ioaddr + msm_offset->core_dll_config);
-	}
+	/* Step 10 - Config DLL_CONFIG with HSR values */
+	if (msm_host->dll_hsr && msm_host->dll_hsr->dll_config)
+		writel_relaxed(msm_host->dll_hsr->dll_config |
+			CORE_DLL_RST | CORE_DLL_PDN, host->ioaddr +
+			msm_offset->core_dll_config);
+	else
+		writel_relaxed(DLL_CONFIG_POR_VAL, host->ioaddr +
+			msm_offset->core_dll_config);
 
 	/* Step 11 - Wait for 52us */
 	spin_unlock_irqrestore(&host->lock, flags);
@@ -975,27 +975,22 @@ static int msm_init_cm_dll(struct sdhci_host *host,
 				msm_offset->core_dll_config_2);
 	}
 
-	/* Step 16 - Set DLL_EN bit to 1. */
-	writel_relaxed((readl_relaxed(host->ioaddr +
-			msm_offset->core_dll_config) | CORE_DLL_EN),
-			host->ioaddr + msm_offset->core_dll_config);
-
 	/*
-	 * Step 17 - Wait for 8000 input clock. Here we calculate the
+	 * Step 16 - Wait for 8000 input clock. Here we calculate the
 	 * delay from fixed clock freq 192MHz, which turns out 42us.
 	 */
 	spin_unlock_irqrestore(&host->lock, flags);
 	usleep_range(45, 50);
 	spin_lock_irqsave(&host->lock, flags);
 
-	/* Step 18 - Set CK_OUT_EN bit to 1. */
+	/* Step 17 - Set CK_OUT_EN bit to 1. */
 	writel_relaxed((readl_relaxed(host->ioaddr +
 			msm_offset->core_dll_config)
 			| CORE_CK_OUT_EN), host->ioaddr +
 			msm_offset->core_dll_config);
 
 	/*
-	 * Step 19 - Wait until DLL_LOCK bit of DLL_STATUS register
+	 * Step 18 - Wait until DLL_LOCK bit of DLL_STATUS register
 	 * becomes '1'.
 	 */
 	while (!(readl_relaxed(host->ioaddr + msm_offset->core_dll_status) &
@@ -1013,7 +1008,7 @@ static int msm_init_cm_dll(struct sdhci_host *host,
 
 out:
 	if (core_vendor_spec & CORE_CLK_PWRSAVE) {
-		/* Step 20 - Reenable PWRSAVE as needed */
+		/* Step 19 - Reenable PWRSAVE as needed */
 		writel_relaxed((readl_relaxed(host->ioaddr +
 			msm_offset->core_vendor_spec)
 			| CORE_CLK_PWRSAVE), host->ioaddr +
@@ -1273,7 +1268,7 @@ static int sdhci_msm_cm_dll_sdc4_calibration(struct sdhci_host *host)
 	else
 		ddr_cfg_offset = msm_offset->core_ddr_config_old;
 
-	if (msm_host->dll_hsr->ddr_config)
+	if (msm_host->dll_hsr && msm_host->dll_hsr->ddr_config)
 		config = msm_host->dll_hsr->ddr_config;
 	else
 		config = DDR_CONFIG_POR_VAL;
@@ -3102,6 +3097,14 @@ static int sdhci_msm_cqe_add_host(struct sdhci_host *host,
 	cq_host->offset_changed = msm_host->cqhci_offset_changed;
 
 	dma64 = host->flags & SDHCI_USE_64_BIT_DMA;
+
+	/*
+	 * Set the vendor specific ops needed for ICE.
+	 * Default implementation if the ops are not set.
+	 */
+#ifdef CONFIG_MMC_CQHCI_CRYPTO_QTI
+	cqhci_crypto_qti_set_vops(cq_host);
+#endif
 
 	ret = cqhci_init(cq_host, host->mmc, dma64);
 	if (ret) {

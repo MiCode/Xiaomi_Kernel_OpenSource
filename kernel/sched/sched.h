@@ -3368,3 +3368,18 @@ extern void walt_init_sched_boost(struct task_group *tg);
 #else
 static inline void walt_init_sched_boost(struct task_group *tg) {}
 #endif
+
+#ifdef CONFIG_SCHED_WALT
+static inline void walt_irq_work_queue(struct irq_work *work)
+{
+	if (likely(cpu_online(raw_smp_processor_id())))
+		irq_work_queue(work);
+	else
+		irq_work_queue_on(work, cpumask_any(cpu_online_mask));
+}
+#else
+static inline void walt_irq_work_queue(struct irq_work *work)
+{
+	irq_work_queue(work);
+}
+#endif

@@ -1092,6 +1092,9 @@ static int a6xx_gmu_gfx_rail_on(struct adreno_device *adreno_dev)
 	gmu_core_regwrite(device, A6XX_GMU_MX_VOTE_IDX,
 			ARC_VOTE_GET_SEC(default_opp));
 
+	a6xx_rdpm_mx_freq_update(gmu,
+			gmu->hfi.dcvs_table.gx_votes[perf_idx].freq);
+
 	return a6xx_gmu_oob_set(device, oob_boot_slumber);
 }
 
@@ -1529,18 +1532,18 @@ int a6xx_gmu_parse_fw(struct adreno_device *adreno_dev)
 	int ret, offset = 0;
 
 	/* GMU fw already saved and verified so do nothing new */
-	if (gmu->fw_image)
-		return 0;
+	if (!gmu->fw_image) {
 
-	if (a6xx_core->gmufw_name == NULL)
-		return -EINVAL;
+		if (a6xx_core->gmufw_name == NULL)
+			return -EINVAL;
 
-	ret = request_firmware(&gmu->fw_image, a6xx_core->gmufw_name,
-			&gmu->pdev->dev);
-	if (ret) {
-		dev_err(&gmu->pdev->dev, "request_firmware (%s) failed: %d\n",
-				a6xx_core->gmufw_name, ret);
-		return ret;
+		ret = request_firmware(&gmu->fw_image, a6xx_core->gmufw_name,
+				&gmu->pdev->dev);
+		if (ret) {
+			dev_err(&gmu->pdev->dev, "request_firmware (%s) failed: %d\n",
+					a6xx_core->gmufw_name, ret);
+			return ret;
+		}
 	}
 
 	/*
@@ -1781,6 +1784,8 @@ void a6xx_gmu_suspend(struct adreno_device *adreno_dev)
 	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_CX_GDSC))
 		regulator_set_mode(gmu->cx_gdsc, REGULATOR_MODE_NORMAL);
 
+	a6xx_rdpm_cx_freq_update(gmu, 0);
+
 	dev_err(&gmu->pdev->dev, "Suspended GMU\n");
 
 	device->state = KGSL_STATE_NONE;
@@ -1842,6 +1847,10 @@ static int a6xx_gmu_dcvs_set(struct adreno_device *adreno_dev,
 			adreno_dispatcher_schedule(device);
 		}
 	}
+
+	if (req.freq != INVALID_DCVS_IDX)
+		a6xx_rdpm_mx_freq_update(gmu,
+			gmu->hfi.dcvs_table.gx_votes[req.freq].freq);
 
 	return ret;
 }
@@ -2156,6 +2165,8 @@ int a6xx_gmu_enable_clks(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	int ret;
 
+	a6xx_rdpm_cx_freq_update(gmu, GMU_FREQUENCY / 1000);
+
 	ret = a6xx_gmu_clk_set_rate(gmu, "gmu_clk", GMU_FREQUENCY);
 	if (ret) {
 		dev_err(&gmu->pdev->dev, "Unable to set the GMU clock\n");
@@ -2278,6 +2289,8 @@ gdsc_off:
 	if (!a6xx_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000))
 		dev_err(&gmu->pdev->dev, "GMU CX gdsc off timeout\n");
 
+	a6xx_rdpm_cx_freq_update(gmu, 0);
+
 	return ret;
 }
 
@@ -2356,6 +2369,8 @@ gdsc_off:
 	/* Pool to make sure that the CX is off */
 	if (!a6xx_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000))
 		dev_err(&gmu->pdev->dev, "GMU CX gdsc off timeout\n");
+
+	a6xx_rdpm_cx_freq_update(gmu, 0);
 
 	return ret;
 }
@@ -2541,6 +2556,24 @@ static int a6xx_gmu_reg_probe(struct adreno_device *adreno_dev)
 	return 0;
 }
 
+static void a6xx_gmu_rdpm_probe(struct a6xx_gmu_device *gmu,
+		struct kgsl_device *device)
+{
+	struct resource *res;
+
+	res = platform_get_resource_byname(device->pdev, IORESOURCE_MEM,
+			"rdpm_cx");
+	if (res)
+		gmu->rdpm_cx_virt = devm_ioremap(&device->pdev->dev,
+				res->start, resource_size(res));
+
+	res = platform_get_resource_byname(device->pdev, IORESOURCE_MEM,
+			"rdpm_mx");
+	if (res)
+		gmu->rdpm_mx_virt = devm_ioremap(&device->pdev->dev,
+				res->start, resource_size(res));
+}
+
 static int a6xx_gmu_regulators_probe(struct a6xx_gmu_device *gmu,
 		struct platform_device *pdev)
 {
@@ -2660,6 +2693,9 @@ int a6xx_gmu_probe(struct kgsl_device *device,
 		}
 	}
 
+	/* Setup any rdpm register ranges */
+	a6xx_gmu_rdpm_probe(gmu, device);
+
 	/* Set up GMU regulators */
 	ret = a6xx_gmu_regulators_probe(gmu, pdev);
 	if (ret)
@@ -2736,8 +2772,7 @@ static void a6xx_gmu_active_count_put(struct adreno_device *adreno_dev)
 	if (atomic_dec_and_test(&device->active_cnt)) {
 		kgsl_pwrscale_update_stats(device);
 		kgsl_pwrscale_update(device);
-		mod_timer(&device->idle_timer,
-			jiffies + device->pwrctrl.interval_timeout);
+		kgsl_start_idle_timer(device);
 	}
 
 	trace_kgsl_active_count(device,
@@ -2754,14 +2789,12 @@ int a6xx_halt_gbif(struct adreno_device *adreno_dev)
 	/* Halt new client requests */
 	kgsl_regwrite(device, A6XX_GBIF_HALT, A6XX_GBIF_CLIENT_HALT_MASK);
 	ret = adreno_wait_for_halt_ack(device,
-		ADRENO_REG_GBIF_HALT_ACK,
-		A6XX_GBIF_CLIENT_HALT_MASK);
+		A6XX_GBIF_HALT_ACK, A6XX_GBIF_CLIENT_HALT_MASK);
 
 	/* Halt all AXI requests */
 	kgsl_regwrite(device, A6XX_GBIF_HALT, A6XX_GBIF_ARB_HALT_MASK);
 	ret = adreno_wait_for_halt_ack(device,
-		ADRENO_REG_GBIF_HALT_ACK,
-		A6XX_GBIF_ARB_HALT_MASK);
+		A6XX_GBIF_HALT_ACK, A6XX_GBIF_ARB_HALT_MASK);
 
 	/* De-assert the halts */
 	kgsl_regwrite(device, A6XX_GBIF_HALT, 0x0);
@@ -2793,6 +2826,8 @@ static int a6xx_gmu_power_off(struct adreno_device *adreno_dev)
 
 	ret = a6xx_rscc_sleep_sequence(adreno_dev);
 
+	a6xx_rdpm_mx_freq_update(gmu, 0);
+
 	/* Now that we are done with GMU and GPU, Clear the GBIF */
 	if (!adreno_is_a630(adreno_dev))
 		ret = a6xx_halt_gbif(adreno_dev);
@@ -2806,6 +2841,8 @@ static int a6xx_gmu_power_off(struct adreno_device *adreno_dev)
 	/* Pool to make sure that the CX is off */
 	if (!a6xx_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000))
 		dev_err(&gmu->pdev->dev, "GMU CX gdsc off timeout\n");
+
+	a6xx_rdpm_cx_freq_update(gmu, 0);
 
 	device->state = KGSL_STATE_NONE;
 
@@ -2935,8 +2972,7 @@ static int a6xx_boot(struct adreno_device *adreno_dev)
 	if (ret)
 		return ret;
 
-	mod_timer(&device->idle_timer, jiffies +
-			device->pwrctrl.interval_timeout);
+	kgsl_start_idle_timer(device);
 
 	kgsl_pwrscale_wake(device);
 
@@ -3023,7 +3059,7 @@ static int a630_vbif_halt(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A6XX_VBIF_XIN_HALT_CTRL0,
 		A6XX_VBIF_XIN_HALT_CTRL0_MASK);
 	ret = adreno_wait_for_halt_ack(device,
-			ADRENO_REG_VBIF_XIN_HALT_CTRL1,
+			A6XX_VBIF_XIN_HALT_CTRL1,
 			A6XX_VBIF_XIN_HALT_CTRL0_MASK);
 	kgsl_regwrite(device, A6XX_VBIF_XIN_HALT_CTRL0, 0);
 
@@ -3112,8 +3148,7 @@ static void gmu_idle_check(struct work_struct *work)
 			a6xx_power_off(adreno_dev);
 	} else {
 		kgsl_pwrscale_update(device);
-		mod_timer(&device->idle_timer,
-			jiffies + device->pwrctrl.interval_timeout);
+		kgsl_start_idle_timer(device);
 	}
 
 done:

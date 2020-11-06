@@ -4568,6 +4568,9 @@ struct location {
 	long max_pid;
 	DECLARE_BITMAP(cpus, NR_CPUS);
 	nodemask_t nodes;
+#ifdef CONFIG_STACKTRACE
+	unsigned long addrs[TRACK_ADDRS_COUNT]; /* Called from address */
+#endif
 };
 
 struct loc_track {
@@ -4610,6 +4613,7 @@ static int add_location(struct loc_track *t, struct kmem_cache *s,
 	struct location *l;
 	unsigned long caddr;
 	unsigned long age = jiffies - track->when;
+	unsigned int i = 0;
 
 	start = -1;
 	end = t->count;
@@ -4667,6 +4671,15 @@ static int add_location(struct loc_track *t, struct kmem_cache *s,
 	t->count++;
 	l->count = 1;
 	l->addr = track->addr;
+#ifdef CONFIG_STACKTRACE
+	for (i = 0; i < TRACK_ADDRS_COUNT; i++)
+		if (l->addrs[i]) {
+			l->addrs[i] = track->addrs[i];
+			continue;
+		} else
+			break;
+
+#endif
 	l->sum_time = age;
 	l->min_time = age;
 	l->max_time = age;
@@ -6126,10 +6139,19 @@ static int alloc_trace_locations(struct seq_file *seq, struct kmem_cache *s,
 
 	for (i = 0; i < t.count; i++) {
 		struct location *l = &t.loc[i];
+		unsigned int j = 0;
 
 		seq_printf(seq,
 		"alloc_list: call_site=%pS count=%zu object_size=%zu slab_size=%zu slab_name=%s\n",
 			l->addr, l->count, s->object_size, s->size, s->name);
+#ifdef CONFIG_STACKTRACE
+		for (j = 0; j < TRACK_ADDRS_COUNT; j++)
+			if (l->addrs[j]) {
+				seq_printf(seq, "%pS\n", l->addrs[j]);
+				continue;
+			} else
+				break;
+#endif
 	}
 
 	free_loc_track(&t);

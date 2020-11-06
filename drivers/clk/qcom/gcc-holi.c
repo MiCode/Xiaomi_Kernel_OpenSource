@@ -3574,24 +3574,6 @@ static struct clk_branch gcc_qupv3_wrap1_s3_clk = {
 	},
 };
 
-static struct clk_branch gcc_qupv3_wrap1_s4_clk = {
-	.halt_reg = 0x534d8,
-	.halt_check = BRANCH_HALT_VOTED,
-	.clkr = {
-		.enable_reg = 0x7900c,
-		.enable_mask = BIT(25),
-		.hw.init = &(struct clk_init_data){
-			.name = "gcc_qupv3_wrap1_s4_clk",
-			.parent_data = &(const struct clk_parent_data){
-				.hw = &gcc_qupv3_wrap1_s4_clk_src.clkr.hw,
-			},
-			.num_parents = 1,
-			.flags = CLK_SET_RATE_PARENT,
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
 static struct clk_branch gcc_qupv3_wrap1_s5_clk = {
 	.halt_reg = 0x53608,
 	.halt_check = BRANCH_HALT_VOTED,
@@ -3635,36 +3617,6 @@ static struct clk_branch gcc_qupv3_wrap_0_s_ahb_clk = {
 		.enable_mask = BIT(7),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_qupv3_wrap_0_s_ahb_clk",
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
-static struct clk_branch gcc_qupv3_wrap_1_m_ahb_clk = {
-	.halt_reg = 0x53004,
-	.halt_check = BRANCH_HALT_VOTED,
-	.hwcg_reg = 0x53004,
-	.hwcg_bit = 1,
-	.clkr = {
-		.enable_reg = 0x7900c,
-		.enable_mask = BIT(17),
-		.hw.init = &(struct clk_init_data){
-			.name = "gcc_qupv3_wrap_1_m_ahb_clk",
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
-static struct clk_branch gcc_qupv3_wrap_1_s_ahb_clk = {
-	.halt_reg = 0x53008,
-	.halt_check = BRANCH_HALT_VOTED,
-	.hwcg_reg = 0x53008,
-	.hwcg_bit = 1,
-	.clkr = {
-		.enable_reg = 0x7900c,
-		.enable_mask = BIT(18),
-		.hw.init = &(struct clk_init_data){
-			.name = "gcc_qupv3_wrap_1_s_ahb_clk",
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -4309,14 +4261,11 @@ static struct clk_regmap *gcc_holi_clocks[] = {
 	[GCC_QUPV3_WRAP1_S2_CLK_SRC] = &gcc_qupv3_wrap1_s2_clk_src.clkr,
 	[GCC_QUPV3_WRAP1_S3_CLK] = &gcc_qupv3_wrap1_s3_clk.clkr,
 	[GCC_QUPV3_WRAP1_S3_CLK_SRC] = &gcc_qupv3_wrap1_s3_clk_src.clkr,
-	[GCC_QUPV3_WRAP1_S4_CLK] = &gcc_qupv3_wrap1_s4_clk.clkr,
 	[GCC_QUPV3_WRAP1_S4_CLK_SRC] = &gcc_qupv3_wrap1_s4_clk_src.clkr,
 	[GCC_QUPV3_WRAP1_S5_CLK] = &gcc_qupv3_wrap1_s5_clk.clkr,
 	[GCC_QUPV3_WRAP1_S5_CLK_SRC] = &gcc_qupv3_wrap1_s5_clk_src.clkr,
 	[GCC_QUPV3_WRAP_0_M_AHB_CLK] = &gcc_qupv3_wrap_0_m_ahb_clk.clkr,
 	[GCC_QUPV3_WRAP_0_S_AHB_CLK] = &gcc_qupv3_wrap_0_s_ahb_clk.clkr,
-	[GCC_QUPV3_WRAP_1_M_AHB_CLK] = &gcc_qupv3_wrap_1_m_ahb_clk.clkr,
-	[GCC_QUPV3_WRAP_1_S_AHB_CLK] = &gcc_qupv3_wrap_1_s_ahb_clk.clkr,
 	[GCC_SDCC1_AHB_CLK] = &gcc_sdcc1_ahb_clk.clkr,
 	[GCC_SDCC1_APPS_CLK] = &gcc_sdcc1_apps_clk.clkr,
 	[GCC_SDCC1_APPS_CLK_SRC] = &gcc_sdcc1_apps_clk_src.clkr,
@@ -4475,6 +4424,20 @@ static int gcc_holi_probe(struct platform_device *pdev)
 
 	/* GCC_DISP_GPLL0_CDIVR__CLK_DIV */
 	regmap_update_bits(regmap, 0x17058, 0x1, 0x1);
+
+	/*
+	 * Enable clocks required by the i2c-connected pm8008 regulators. Don't
+	 * register them with the clock framework so that client requests are
+	 * short-circuited before grabbing the enable/prepare locks. This
+	 * prevents deadlocks between the clk/regulator frameworks.
+	 *
+	 *      gcc_qupv3_wrap_1_m_ahb_clk
+	 *      gcc_qupv3_wrap_1_s_ahb_clk
+	 *      gcc_qupv3_wrap1_s4_clk
+	 */
+	regmap_update_bits(regmap, 0x7900c, BIT(17), BIT(17));
+	regmap_update_bits(regmap, 0x7900c, BIT(18), BIT(18));
+	regmap_update_bits(regmap, 0x7900c, BIT(25), BIT(25));
 
 	clk_fabia_pll_configure(&gpll10, regmap, &gpll10_config);
 	clk_fabia_pll_configure(&gpll11, regmap, &gpll11_config);
