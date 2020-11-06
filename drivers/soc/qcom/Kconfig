@@ -747,19 +747,6 @@ config QTI_SYSTEM_PM
 config QTI_SYSTEM_PM_RPM
 	bool
 
-config QTI_PLH_SCMI_CLIENT
-	tristate "Qualcomm Technologies Inc. SCMI client driver for PLH"
-	depends on QTI_PLH
-	default n
-	help
-	  SCMI client driver registers itself with SCMI framework for PLH
-	  vendor protocol, and also registers with the plh interface driver
-	  msm_performance.
-
-	  This driver deliver the PLH vendor protocol handle to interface
-	  driver, and interface driver will use this handle to communicate
-	  with RIMPS PLH.
-
 config QTI_HW_MEMLAT
 	tristate "Qualcomm Technologies Inc. RIMPS memlat interface driver"
 	depends on PERF_EVENTS
