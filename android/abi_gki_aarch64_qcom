@@ -1521,6 +1521,7 @@
   of_get_named_gpio_flags
   of_get_next_available_child
   of_get_next_child
+  of_get_next_parent
   of_get_parent
   of_get_property
   of_get_regulator_init_data
@@ -1727,6 +1728,7 @@
   __pm_relax
   pm_relax
   pm_runtime_allow
+  pm_runtime_autosuspend_expiration
   pm_runtime_barrier
   __pm_runtime_disable
   pm_runtime_enable
