@@ -698,6 +698,40 @@ void a6xx_start(struct adreno_device *adreno_dev)
 	}
 }
 
+/* Offsets into the MX/CX mapped register regions */
+#define RDPM_MX_OFFSET 0xf00
+#define RDPM_CX_OFFSET 0xf18
+
+void a6xx_rdpm_mx_freq_update(struct a6xx_gmu_device *gmu,
+		u32 freq)
+{
+	if (gmu->rdpm_mx_virt) {
+		writel_relaxed(freq/1000,
+			(gmu->rdpm_mx_virt + RDPM_MX_OFFSET));
+
+		/*
+		 * ensure previous writes post before this one,
+		 * i.e. act like normal writel()
+		 */
+		wmb();
+	}
+}
+
+void a6xx_rdpm_cx_freq_update(struct a6xx_gmu_device *gmu,
+		u32 freq)
+{
+	if (gmu->rdpm_cx_virt) {
+		writel_relaxed(freq/1000,
+			(gmu->rdpm_cx_virt + RDPM_CX_OFFSET));
+
+		/*
+		 * ensure previous writes post before this one,
+		 * i.e. act like normal writel()
+		 */
+		wmb();
+	}
+}
+
 void a6xx_unhalt_sqe(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -1243,6 +1277,20 @@ static int a6xx_reset(struct kgsl_device *device)
 	int ret;
 	unsigned long flags = device->pwrctrl.ctrl_flags;
 
+	/*
+	 * Stall on fault needs GBIF halt sequences for robust recovery.
+	 * Because in a worst-case scenario, if any of the GPU blocks is
+	 * generating a stream of un-ending faulting transactions, SMMU will
+	 * process those transactions when we try to resume it and enter
+	 * stall-on-fault mode again. GBIF halt sequences make sure that all
+	 * GPU transactions are halted at GBIF which ensures that SMMU
+	 * can resume safely.
+	 */
+	a6xx_do_gbif_halt(adreno_dev, A6XX_RBBM_GBIF_HALT,
+		A6XX_RBBM_GBIF_HALT_ACK, A6XX_GBIF_GX_HALT_MASK, "GX");
+	a6xx_do_gbif_halt(adreno_dev, A6XX_GBIF_HALT, A6XX_GBIF_HALT_ACK,
+		A6XX_GBIF_ARB_HALT_MASK, "CX");
+
 	/* Clear ctrl_flags to ensure clocks and regulators are turned off */
 	device->pwrctrl.ctrl_flags = 0;
 
@@ -1380,10 +1428,12 @@ static void a6xx_llc_configure_gpu_scid(struct adreno_device *adreno_dev)
 	/*
 	 * On A660, the SCID programming for UCHE traffic is done in
 	 * A6XX_GBIF_SCACHE_CNTL0[14:10]
+	 * GFO ENABLE BIT(8) : LLC uses a 64 byte cache line size enabling
+	 * GFO allows it allocate partial cache lines
 	 */
 	if (adreno_is_a660(adreno_dev))
-		kgsl_regrmw(device, A6XX_GBIF_SCACHE_CNTL0, 0x1f << 10,
-			gpu_scid << 10);
+		kgsl_regrmw(device, A6XX_GBIF_SCACHE_CNTL0, (0x1f << 10) |
+				BIT(8), (gpu_scid << 10) | BIT(8));
 }
 
 /*
@@ -2120,17 +2170,6 @@ int a6xx_probe_common(struct platform_device *pdev,
 	adreno_dev->preempt.skipsaverestore = true;
 	adreno_dev->preempt.usesgmem = true;
 
-	adreno_dev->gpu_llc_slice_enable = true;
-	adreno_dev->gpuhtw_llc_slice_enable = true;
-
-	if (adreno_has_gbif(adreno_dev)) {
-		gpudev->gbif_client_halt_mask = A6XX_GBIF_CLIENT_HALT_MASK;
-		gpudev->gbif_arb_halt_mask = A6XX_GBIF_ARB_HALT_MASK;
-		gpudev->gbif_gx_halt_mask = A6XX_GBIF_GX_HALT_MASK;
-	} else
-		gpudev->vbif_xin_halt_ctrl0_mask =
-				A6XX_VBIF_XIN_HALT_CTRL0_MASK;
-
 	/* Set the GPU busy counter for frequency scaling */
 	adreno_dev->perfctr_pwr_lo = A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_0_L;
 
@@ -2248,19 +2287,9 @@ static unsigned int a6xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_LOAD_VALUE_HI,
 				A6XX_RBBM_PERFCTR_LOAD_VALUE_HI),
 	ADRENO_REG_DEFINE(ADRENO_REG_VBIF_VERSION, A6XX_VBIF_VERSION),
-	ADRENO_REG_DEFINE(ADRENO_REG_VBIF_XIN_HALT_CTRL0,
-				A6XX_VBIF_XIN_HALT_CTRL0),
-	ADRENO_REG_DEFINE(ADRENO_REG_VBIF_XIN_HALT_CTRL1,
-				A6XX_VBIF_XIN_HALT_CTRL1),
-	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_GPR0_CNTL, A6XX_RBBM_GPR0_CNTL),
-	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_VBIF_GX_RESET_STATUS,
-				A6XX_RBBM_VBIF_GX_RESET_STATUS),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_GBIF_HALT,
 				A6XX_RBBM_GBIF_HALT),
-	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_GBIF_HALT_ACK,
-				A6XX_RBBM_GBIF_HALT_ACK),
 	ADRENO_REG_DEFINE(ADRENO_REG_GBIF_HALT, A6XX_GBIF_HALT),
-	ADRENO_REG_DEFINE(ADRENO_REG_GBIF_HALT_ACK, A6XX_GBIF_HALT_ACK),
 	ADRENO_REG_DEFINE(ADRENO_REG_GMU_AO_HOST_INTERRUPT_MASK,
 				A6XX_GMU_AO_HOST_INTERRUPT_MASK),
 	ADRENO_REG_DEFINE(ADRENO_REG_GMU_AHB_FENCE_STATUS,
@@ -2412,6 +2441,63 @@ u64 a6xx_read_alwayson(struct adreno_device *adreno_dev)
 	return (((u64) hi) << 32) | lo;
 }
 
+void a6xx_do_gbif_halt(struct adreno_device *adreno_dev,
+	u32 halt_reg, u32 ack_reg, u32 mask, const char *client)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	unsigned long t;
+	u32 val;
+
+	kgsl_regwrite(device, halt_reg, mask);
+
+	t = jiffies + msecs_to_jiffies(100);
+	do {
+		kgsl_regread(device, ack_reg, &val);
+		if ((val & mask) == mask)
+			return;
+
+		/*
+		 * If we are attempting GBIF halt in case of stall-on-fault
+		 * then the halt sequence will not complete as long as SMMU
+		 * is stalled.
+		 */
+		kgsl_mmu_pagefault_resume(&device->mmu);
+		usleep_range(10, 100);
+	} while (!time_after(jiffies, t));
+
+	/* Check one last time */
+	kgsl_mmu_pagefault_resume(&device->mmu);
+
+	kgsl_regread(device, ack_reg, &val);
+	if ((val & mask) == mask)
+		return;
+
+	dev_err(device->dev, "%s GBIF Halt ack timed out\n", client);
+}
+
+/* This is only defined for non-GMU and non-RGMU targets */
+static int a6xx_clear_pending_transactions(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	int ret;
+
+	if (adreno_is_a619_holi(adreno_dev)) {
+		kgsl_regwrite(device, A6XX_RBBM_GPR0_CNTL, 0x1e0);
+		ret = adreno_wait_for_halt_ack(device,
+			A6XX_RBBM_VBIF_GX_RESET_STATUS, 0xf0);
+	} else {
+		kgsl_regwrite(device, A6XX_RBBM_GBIF_HALT,
+			A6XX_GBIF_GX_HALT_MASK);
+		ret = adreno_wait_for_halt_ack(device, A6XX_RBBM_GBIF_HALT_ACK,
+			A6XX_GBIF_GX_HALT_MASK);
+	}
+
+	if (ret)
+		return ret;
+
+	return a6xx_halt_gbif(adreno_dev);
+}
+
 struct adreno_gpudev adreno_a6xx_gpudev = {
 	.reg_offsets = a6xx_register_offsets,
 	.probe = a6xx_probe,
@@ -2444,6 +2530,7 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 #endif
 	.read_alwayson = a6xx_read_alwayson,
 	.power_ops = &adreno_power_operations,
+	.clear_pending_transactions = a6xx_clear_pending_transactions,
 };
 
 struct adreno_gpudev adreno_a6xx_hwsched_gpudev = {
@@ -2556,6 +2643,7 @@ struct adreno_gpudev adreno_a619_holi_gpudev = {
 #endif
 	.read_alwayson = a6xx_read_alwayson,
 	.power_ops = &adreno_power_operations,
+	.clear_pending_transactions = a6xx_clear_pending_transactions,
 };
 
 struct adreno_gpudev adreno_a630_gpudev = {

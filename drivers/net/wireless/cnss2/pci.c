@@ -740,7 +740,6 @@ static int cnss_set_pci_link(struct cnss_pci_data *pci_priv, bool link_up)
 		if (pci_priv->drv_connected_last) {
 			cnss_pr_vdbg("Use PCIe DRV suspend\n");
 			pm_ops = MSM_PCIE_DRV_SUSPEND;
-			pm_options |= MSM_PCIE_CONFIG_NO_DRV_PC;
 			if (pci_priv->device_id != QCA6390_DEVICE_ID &&
 			    pci_priv->device_id != QCA6490_DEVICE_ID)
 				cnss_set_pci_link_status(pci_priv, PCI_GEN1);
@@ -1040,6 +1039,73 @@ void cnss_pci_unlock_reg_window(struct device *dev, unsigned long *flags)
 EXPORT_SYMBOL(cnss_pci_unlock_reg_window);
 
 /**
+ * cnss_pci_dump_qca6390_sram_mem - Dump WLAN FW bootloader debug log
+ * @pci_priv: PCI device private data structure of cnss platform driver
+ *
+ * Dump Primary and secondary bootloader debug log data. For SBL check the
+ * log struct address and size for validity.
+ *
+ * Supported only on QCA6390
+ *
+ * Return: None
+ */
+static void cnss_pci_dump_qca6390_sram_mem(struct cnss_pci_data *pci_priv)
+{
+	int i;
+	u32 mem_addr, val, pbl_stage, sbl_log_start, sbl_log_size;
+	u32 pbl_wlan_boot_cfg, pbl_bootstrap_status;
+	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
+
+	if (plat_priv->device_id != QCA6390_DEVICE_ID)
+		return;
+
+	if (cnss_pci_check_link_status(pci_priv))
+		return;
+
+	cnss_pci_reg_read(pci_priv, QCA6390_TCSR_PBL_LOGGING_REG, &pbl_stage);
+	cnss_pci_reg_read(pci_priv, QCA6390_PCIE_BHI_ERRDBG2_REG,
+			  &sbl_log_start);
+	cnss_pci_reg_read(pci_priv, QCA6390_PCIE_BHI_ERRDBG3_REG,
+			  &sbl_log_size);
+	cnss_pci_reg_read(pci_priv, QCA6390_PBL_WLAN_BOOT_CFG,
+			  &pbl_wlan_boot_cfg);
+	cnss_pci_reg_read(pci_priv, QCA6390_PBL_BOOTSTRAP_STATUS,
+			  &pbl_bootstrap_status);
+	cnss_pr_dbg("TCSR_PBL_LOGGING: 0x%08x PCIE_BHI_ERRDBG: Start: 0x%08x Size:0x%08x\n",
+		    pbl_stage, sbl_log_start, sbl_log_size);
+	cnss_pr_dbg("PBL_WLAN_BOOT_CFG: 0x%08x PBL_BOOTSTRAP_STATUS: 0x%08x\n",
+		    pbl_wlan_boot_cfg, pbl_bootstrap_status);
+
+	cnss_pr_dbg("Dumping PBL log data\n");
+	/* cnss_pci_reg_read provides 32bit register values */
+	for (i = 0; i < QCA6390_DEBUG_PBL_LOG_SRAM_MAX_SIZE; i += sizeof(val)) {
+		mem_addr = QCA6390_DEBUG_PBL_LOG_SRAM_START + i;
+		if (cnss_pci_reg_read(pci_priv, mem_addr, &val))
+			break;
+		cnss_pr_dbg("SRAM[0x%x] = 0x%x\n", mem_addr, val);
+	}
+
+	sbl_log_size = (sbl_log_size > QCA6390_DEBUG_SBL_LOG_SRAM_MAX_SIZE ?
+			QCA6390_DEBUG_SBL_LOG_SRAM_MAX_SIZE : sbl_log_size);
+
+	if (sbl_log_start < QCA6390_V2_SBL_DATA_START ||
+	    sbl_log_start > QCA6390_V2_SBL_DATA_END ||
+	    (sbl_log_start + sbl_log_size) > QCA6390_V2_SBL_DATA_END)
+		goto out;
+
+	cnss_pr_dbg("Dumping SBL log data\n");
+	for (i = 0; i < sbl_log_size; i += sizeof(val)) {
+		mem_addr = sbl_log_start + i;
+		if (cnss_pci_reg_read(pci_priv, mem_addr, &val))
+			break;
+		cnss_pr_dbg("SRAM[0x%x] = 0x%x\n", mem_addr, val);
+	}
+	return;
+out:
+	cnss_pr_err("Invalid SBL log data\n");
+}
+
+/**
  * cnss_pci_dump_bl_sram_mem - Dump WLAN FW bootloader debug log
  * @pci_priv: PCI device private data structure of cnss platform driver
  *
@@ -1057,8 +1123,12 @@ static void cnss_pci_dump_bl_sram_mem(struct cnss_pci_data *pci_priv)
 	u32 pbl_wlan_boot_cfg, pbl_bootstrap_status;
 	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
 
-	if (plat_priv->device_id != QCA6490_DEVICE_ID)
+	if (plat_priv->device_id == QCA6390_DEVICE_ID) {
+		cnss_pci_dump_qca6390_sram_mem(pci_priv);
 		return;
+	} else if (plat_priv->device_id != QCA6490_DEVICE_ID) {
+		return;
+	}
 
 	if (cnss_pci_check_link_status(pci_priv))
 		return;
@@ -1339,6 +1409,40 @@ out:
 	return ret;
 }
 
+/**
+ * cnss_wlan_adsp_pc_enable: Control ADSP power collapse setup
+ * @dev: Platform driver pci private data structure
+ * @control: Power collapse enable / disable
+ *
+ * This function controls ADSP power collapse (PC). It must be called
+ * based on wlan state.  ADSP power collapse during wlan RTPM suspend state
+ * results in delay during periodic QMI stats PCI link up/down. This delay
+ * causes additional power consumption.
+ * Introduced in SM8350.
+ *
+ * Result: 0 Success. negative error codes.
+ */
+static int cnss_wlan_adsp_pc_enable(struct cnss_pci_data *pci_priv,
+				    bool control)
+{
+	struct pci_dev *pci_dev = pci_priv->pci_dev;
+	int ret = 0;
+	u32 pm_options = PM_OPTIONS_DEFAULT;
+
+	if (control)
+		pm_options &= ~MSM_PCIE_CONFIG_NO_DRV_PC;
+	else
+		pm_options |= MSM_PCIE_CONFIG_NO_DRV_PC;
+
+	ret = msm_pcie_pm_control(MSM_PCIE_DRV_PC_CTRL, pci_dev->bus->number,
+				  pci_dev, NULL, pm_options);
+	if (ret)
+		return ret;
+
+	cnss_pr_dbg("%s ADSP power collapse\n", control ? "Enable" : "Disable");
+	return 0;
+}
+
 int cnss_pci_start_mhi(struct cnss_pci_data *pci_priv)
 {
 	int ret = 0;
@@ -1368,6 +1472,8 @@ int cnss_pci_start_mhi(struct cnss_pci_data *pci_priv)
 	}
 
 	ret = cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_POWER_ON);
+	if (ret == 0)
+		cnss_wlan_adsp_pc_enable(pci_priv, false);
 
 	if (cnss_get_host_build_type() == QMI_HOST_BUILD_TYPE_PRIMARY_V01)
 		pci_priv->mhi_ctrl->timeout_ms = timeout;
@@ -1392,7 +1498,7 @@ static void cnss_pci_power_off_mhi(struct cnss_pci_data *pci_priv)
 		cnss_pr_dbg("MHI is already powered off\n");
 		return;
 	}
-
+	cnss_wlan_adsp_pc_enable(pci_priv, true);
 	cnss_pci_set_mhi_state_bit(pci_priv, CNSS_MHI_RESUME);
 	cnss_pci_set_mhi_state_bit(pci_priv, CNSS_MHI_POWERING_OFF);
 
@@ -2088,7 +2194,8 @@ static int cnss_qca6290_shutdown(struct cnss_pci_data *pci_priv)
 	if ((test_bit(CNSS_DRIVER_LOADING, &plat_priv->driver_state) ||
 	     test_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state) ||
 	     test_bit(CNSS_DRIVER_IDLE_RESTART, &plat_priv->driver_state) ||
-	     test_bit(CNSS_DRIVER_IDLE_SHUTDOWN, &plat_priv->driver_state)) &&
+	     test_bit(CNSS_DRIVER_IDLE_SHUTDOWN, &plat_priv->driver_state) ||
+	     test_bit(CNSS_IN_COLD_BOOT_CAL, &plat_priv->driver_state)) &&
 	    test_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state)) {
 		del_timer(&pci_priv->dev_rddm_timer);
 		cnss_pci_collect_dump(pci_priv);
@@ -4252,6 +4359,11 @@ void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv, bool in_panic)
 
 	if (test_bit(CNSS_MHI_RDDM_DONE, &pci_priv->mhi_state)) {
 		cnss_pr_dbg("RAM dump is already collected, skip\n");
+		return;
+	}
+
+	if (!cnss_is_device_powered_on(plat_priv)) {
+		cnss_pr_dbg("Device is already powered off, skip\n");
 		return;
 	}
 

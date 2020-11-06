@@ -201,6 +201,10 @@ struct a6xx_gmu_device {
 	void __iomem *rscc_virt;
 	/** @domain: IOMMU domain for the kernel context */
 	struct iommu_domain *domain;
+	/** @rdpm_cx_virt: Pointer where the RDPM CX block is mapped */
+	void __iomem *rdpm_cx_virt;
+	/** @rdpm_mx_virt: Pointer where the RDPM MX block is mapped */
+	void __iomem *rdpm_mx_virt;
 };
 
 /* Helper function to get to a6xx gmu device from adreno device */

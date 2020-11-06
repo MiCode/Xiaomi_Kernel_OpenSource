@@ -1884,6 +1884,18 @@ EXPORT_SYMBOL_GPL(sdhci_set_power);
  * MMC callbacks                                                             *
  *                                                                           *
 \*****************************************************************************/
+#if defined(CONFIG_SDC_QTI)
+static int sdhci_notify_load(struct mmc_host *mmc, enum mmc_load state)
+{
+	int err = 0;
+	struct sdhci_host *host = mmc_priv(mmc);
+
+	if (host->ops->notify_load)
+		err = host->ops->notify_load(host, state);
+
+	return err;
+}
+#endif
 
 void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 {
@@ -2747,6 +2759,9 @@ static const struct mmc_host_ops sdhci_ops = {
 	.execute_tuning			= sdhci_execute_tuning,
 	.card_event			= sdhci_card_event,
 	.card_busy	= sdhci_card_busy,
+#if defined(CONFIG_SDC_QTI)
+	.notify_load	= sdhci_notify_load,
+#endif
 };
 
 /*****************************************************************************\

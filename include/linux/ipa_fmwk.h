@@ -166,6 +166,8 @@ struct ipa_wdi3_data {
 	int (*ipa_wdi_bw_monitor)(struct ipa_wdi_bw_info *info);
 
 	int (*ipa_wdi_sw_stats)(struct ipa_wdi_tx_info *info);
+
+	int (*ipa_get_wdi_version)(void);
 };
 
 struct ipa_gsb_data {

@@ -2056,10 +2056,6 @@ static unsigned int a5xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 				A5XX_RBBM_PERFCTR_LOAD_VALUE_LO),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_LOAD_VALUE_HI,
 				A5XX_RBBM_PERFCTR_LOAD_VALUE_HI),
-	ADRENO_REG_DEFINE(ADRENO_REG_VBIF_XIN_HALT_CTRL0,
-				A5XX_VBIF_XIN_HALT_CTRL0),
-	ADRENO_REG_DEFINE(ADRENO_REG_VBIF_XIN_HALT_CTRL1,
-				A5XX_VBIF_XIN_HALT_CTRL1),
 	ADRENO_REG_DEFINE(ADRENO_REG_VBIF_VERSION,
 				A5XX_VBIF_VERSION),
 	ADRENO_REG_DEFINE(ADRENO_REG_GPMU_POWER_COUNTER_ENABLE,
@@ -2441,6 +2437,20 @@ static bool a5xx_hw_isidle(struct adreno_device *adreno_dev)
 	return adreno_irq_pending(adreno_dev) ? false : true;
 }
 
+static int a5xx_clear_pending_transactions(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	u32 mask = A5XX_VBIF_XIN_HALT_CTRL0_MASK;
+	int ret;
+
+	kgsl_regwrite(device, A5XX_VBIF_XIN_HALT_CTRL0, mask);
+	ret = adreno_wait_for_halt_ack(device, A5XX_VBIF_XIN_HALT_CTRL1, mask);
+	kgsl_regwrite(device, A5XX_VBIF_XIN_HALT_CTRL0, 0);
+
+	return ret;
+}
+
+
 #ifdef CONFIG_QCOM_KGSL_CORESIGHT
 static struct adreno_coresight_register a5xx_coresight_registers[] = {
 	{ A5XX_RBBM_CFG_DBGBUS_SEL_A },
@@ -2648,7 +2658,6 @@ struct adreno_gpudev adreno_a5xx_gpudev = {
 	.irq_handler = a5xx_irq_handler,
 	.rb_start = a5xx_rb_start,
 	.microcode_read = a5xx_microcode_read,
-	.vbif_xin_halt_ctrl0_mask = A5XX_VBIF_XIN_HALT_CTRL0_MASK,
 	.is_sptp_idle = a5xx_is_sptp_idle,
 	.regulator_enable = a5xx_regulator_enable,
 	.regulator_disable = a5xx_regulator_disable,
@@ -2668,4 +2677,5 @@ struct adreno_gpudev adreno_a5xx_gpudev = {
 	.read_alwayson = a5xx_read_alwayson,
 	.hw_isidle = a5xx_hw_isidle,
 	.power_ops = &adreno_power_operations,
+	.clear_pending_transactions = a5xx_clear_pending_transactions,
 };

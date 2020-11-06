@@ -214,6 +214,8 @@ static int tmc_pages_alloc(struct tmc_pages *tmc_pages,
 			page = alloc_pages_node(node,
 						GFP_KERNEL | __GFP_ZERO, 0);
 		}
+		if (!page)
+			goto err;
 		paddr = dma_map_page(real_dev, page, 0, PAGE_SIZE, dir);
 		if (dma_mapping_error(real_dev, paddr))
 			goto err;
@@ -1470,8 +1472,10 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 			free_buf = new_buf = tmc_etr_setup_sysfs_buf(drvdata);
 			if (IS_ERR(new_buf))
 				return -ENOMEM;
-			coresight_cti_map_trigout(drvdata->cti_flush, 3, 0);
-			coresight_cti_map_trigin(drvdata->cti_reset, 5, 0);
+			coresight_cti_map_trigout(drvdata->cti_flush,
+					drvdata->cti_flush_trig_num, 0);
+			coresight_cti_map_trigin(drvdata->cti_reset,
+					drvdata->cti_reset_trig_num, 0);
 		}
 		spin_lock_irqsave(&drvdata->spinlock, flags);
 	}
@@ -2013,6 +2017,7 @@ static int _tmc_disable_etr_sink(struct coresight_device *csdev,
 	/* Complain if we (somehow) got out of sync */
 	WARN_ON_ONCE(drvdata->mode == CS_MODE_DISABLED);
 	if (drvdata->mode != CS_MODE_DISABLED) {
+		drvdata->mode = CS_MODE_DISABLED;
 		if (drvdata->out_mode == TMC_ETR_OUT_MODE_USB) {
 			if (!drvdata->byte_cntr->sw_usb) {
 				__tmc_etr_disable_to_bam(drvdata);
@@ -2021,7 +2026,6 @@ static int _tmc_disable_etr_sink(struct coresight_device *csdev,
 				tmc_etr_bam_disable(drvdata);
 				usb_qdss_close(drvdata->usbch);
 				drvdata->usbch = NULL;
-				drvdata->mode = CS_MODE_DISABLED;
 				goto out;
 			} else {
 				spin_unlock_irqrestore(&drvdata->spinlock,
@@ -2033,11 +2037,9 @@ static int _tmc_disable_etr_sink(struct coresight_device *csdev,
 		} else {
 			tmc_etr_disable_hw(drvdata);
 		}
-		drvdata->mode = CS_MODE_DISABLED;
 	}
 	/* Dissociate from monitored process. */
 	drvdata->pid = -1;
-	drvdata->mode = CS_MODE_DISABLED;
 	/* Reset perf specific data */
 	drvdata->perf_buf = NULL;
 
@@ -2053,8 +2055,10 @@ static int _tmc_disable_etr_sink(struct coresight_device *csdev,
 			flush_workqueue(drvdata->byte_cntr->usb_wq);
 			drvdata->usbch = NULL;
 		}
-		coresight_cti_unmap_trigin(drvdata->cti_reset, 0, 0);
-		coresight_cti_unmap_trigout(drvdata->cti_flush, 3, 0);
+		coresight_cti_unmap_trigin(drvdata->cti_reset,
+				drvdata->cti_reset_trig_num, 0);
+		coresight_cti_unmap_trigout(drvdata->cti_flush,
+				drvdata->cti_flush_trig_num, 0);
 	}
 out:
 	dev_info(&csdev->dev, "TMC-ETR disabled\n");

@@ -260,7 +260,8 @@ struct spcom_device {
 
 	/* rpmsg channels */
 	struct spcom_channel channels[SPCOM_MAX_CHANNELS];
-	atomic_t chdev_count;
+	unsigned int chdev_count;
+	struct mutex chdev_count_lock;
 
 	struct completion rpmsg_state_change;
 	atomic_t rpmsg_dev_count;
@@ -1980,7 +1981,8 @@ static int spcom_create_channel_chardev(const char *name, bool is_sharable)
 		goto exit_unregister_drv;
 	}
 
-	devt = spcom_dev->device_no + atomic_read(&spcom_dev->chdev_count);
+	mutex_lock(&spcom_dev->chdev_count_lock);
+	devt = spcom_dev->device_no + spcom_dev->chdev_count;
 	priv = ch;
 	dev = device_create(cls, parent, devt, priv, name);
 	if (IS_ERR(dev)) {
@@ -1998,7 +2000,9 @@ static int spcom_create_channel_chardev(const char *name, bool is_sharable)
 		ret = -ENODEV;
 		goto exit_destroy_device;
 	}
-	atomic_inc(&spcom_dev->chdev_count);
+	spcom_dev->chdev_count++;
+	mutex_unlock(&spcom_dev->chdev_count_lock);
+
 	mutex_lock(&ch->lock);
 	ch->cdev = cdev;
 	ch->dev = dev;
@@ -2011,6 +2015,7 @@ exit_destroy_device:
 	device_destroy(spcom_dev->driver_class, devt);
 exit_free_cdev:
 	kfree(cdev);
+	mutex_unlock(&spcom_dev->chdev_count_lock);
 exit_unregister_drv:
 	ret = spcom_unregister_rpmsg_drv(ch);
 	if (ret != 0)
@@ -2048,7 +2053,9 @@ static int spcom_destroy_channel_chardev(const char *name)
 	kfree(ch->cdev);
 	mutex_unlock(&ch->lock);
 
-	atomic_dec(&spcom_dev->chdev_count);
+	mutex_lock(&spcom_dev->chdev_count_lock);
+	spcom_dev->chdev_count--;
+	mutex_unlock(&spcom_dev->chdev_count_lock);
 
 
 	return 0;
@@ -2114,10 +2121,12 @@ static void spcom_unregister_chrdev(void)
 	cdev_del(&spcom_dev->cdev);
 	device_destroy(spcom_dev->driver_class, spcom_dev->device_no);
 	class_destroy(spcom_dev->driver_class);
-	unregister_chrdev_region(spcom_dev->device_no,
-				 atomic_read(&spcom_dev->chdev_count));
-	spcom_pr_dbg("control spcom device removed\n");
 
+	mutex_lock(&spcom_dev->chdev_count_lock);
+	unregister_chrdev_region(spcom_dev->device_no, spcom_dev->chdev_count);
+	mutex_unlock(&spcom_dev->chdev_count_lock);
+
+	spcom_pr_dbg("control spcom device removed\n");
 }
 
 static int spcom_parse_dt(struct device_node *np)
@@ -2462,7 +2471,8 @@ static int spcom_probe(struct platform_device *pdev)
 	spcom_dev->pdev = pdev;
 	atomic_set(&spcom_dev->rx_active_count, 0);
 	/* start counting exposed channel char devices from 1 */
-	atomic_set(&spcom_dev->chdev_count, 1);
+	spcom_dev->chdev_count = 1;
+	mutex_init(&spcom_dev->chdev_count_lock);
 	init_completion(&spcom_dev->rpmsg_state_change);
 	atomic_set(&spcom_dev->rpmsg_dev_count, 0);
 	atomic_set(&spcom_dev->remove_in_progress, 0);

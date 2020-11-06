@@ -2392,14 +2392,30 @@ static void arm_smmu_domain_free(struct iommu_domain *domain)
 	kfree(smmu_domain);
 }
 
-static void arm_smmu_write_smr(struct arm_smmu_device *smmu, int idx)
+static int arm_smmu_write_smr(struct arm_smmu_device *smmu, int idx)
 {
 	struct arm_smmu_smr *smr = smmu->smrs + idx;
 	u32 reg = FIELD_PREP(SMR_ID, smr->id) | FIELD_PREP(SMR_MASK, smr->mask);
+	u32 val;
 
 	if (!(smmu->features & ARM_SMMU_FEAT_EXIDS) && smr->valid)
 		reg |= SMR_VALID;
 	arm_smmu_gr0_write(smmu, ARM_SMMU_GR0_SMR(idx), reg);
+
+	/*
+	 * Check if the write went properly. If failed, we would have to fail
+	 * the attach sequence to avoid any USF faults being generated in the
+	 * future due to device transactions, since this SID entry would not
+	 * be present in the stream mapping table.
+	 */
+	val = arm_smmu_gr0_read(smmu, ARM_SMMU_GR0_SMR(idx));
+	if (val != reg) {
+		dev_err(smmu->dev, "SMR[%d] write err write:0x%lx, read:0x%lx\n",
+				idx, reg, val);
+		return -EINVAL;
+	}
+
+	return 0;
 }
 
 static void arm_smmu_write_s2cr(struct arm_smmu_device *smmu, int idx)
@@ -2416,11 +2432,14 @@ static void arm_smmu_write_s2cr(struct arm_smmu_device *smmu, int idx)
 	arm_smmu_gr0_write(smmu, ARM_SMMU_GR0_S2CR(idx), reg);
 }
 
-static void arm_smmu_write_sme(struct arm_smmu_device *smmu, int idx)
+static int arm_smmu_write_sme(struct arm_smmu_device *smmu, int idx)
 {
 	arm_smmu_write_s2cr(smmu, idx);
 	if (smmu->smrs)
-		arm_smmu_write_smr(smmu, idx);
+		if (arm_smmu_write_smr(smmu, idx))
+			return -EINVAL;
+
+	return 0;
 }
 
 /*
@@ -2674,7 +2693,10 @@ static int arm_smmu_domain_add_master(struct arm_smmu_domain *smmu_domain,
 		s2cr[idx].type = type;
 		s2cr[idx].privcfg = S2CR_PRIVCFG_DEFAULT;
 		s2cr[idx].cbndx = cbndx;
-		arm_smmu_write_sme(smmu, idx);
+		if (arm_smmu_write_sme(smmu, idx)) {
+			mutex_unlock(&smmu->stream_map_mutex);
+			return -EINVAL;
+		}
 	}
 	mutex_unlock(&smmu->stream_map_mutex);
 
@@ -3235,9 +3257,25 @@ static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
 	spin_lock_irqsave(&smmu_domain->cb_lock, flags);
 	ret = ops->unmap(ops, iova, size, gather);
 	spin_unlock_irqrestore(&smmu_domain->cb_lock, flags);
+	/*
+	 * The votes for power resources can only be removed if there are no
+	 * outstanding TLB invalidation operations. This is true when the
+	 * downstream io-pgtable-arm optimizations are in use, as the code that
+	 * unmaps the memory from the IOMMU page tables ensures that all TLB
+	 * operations are complete before returning.
+	 *
+	 * However, the upstream io-pgtable-arm implementation allows for a TLB
+	 * invalidation to be in progress when control is returned back here,
+	 * and the votes for the power resources will be removed, which has been
+	 * observed to cause problems where unmapping buffers takes a long time.
+	 * For those scenarios, leave the votes for power resources in place,
+	 * and rely on the subsequent sync operation to remove the votes.
+	 */
+#ifdef CONFIG_ARM_SMMU_POWER_OFF_AFTER_UNMAP
 	arm_smmu_rpm_put(smmu);
 
 	arm_smmu_domain_power_off(domain, smmu_domain->smmu);
+#endif
 	/*
 	 * While splitting up block mappings, we might allocate page table
 	 * memory during unmap, so the vmids needs to be assigned to the
@@ -3275,12 +3313,20 @@ static void arm_smmu_iotlb_sync(struct iommu_domain *domain,
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 
 	if (smmu_domain->flush_ops) {
+		/*
+		 * Voting for power resources when
+		 * CONFIG_ARM_SMMU_POWER_OFF_AFTER_UNMAP is enabled, is required
+		 * as the unmap call has removed the votes for the power
+		 * resources.
+		 */
+#ifdef CONFIG_ARM_SMMU_POWER_OFF_AFTER_UNMAP
 		arm_smmu_rpm_get(smmu);
 		if (arm_smmu_domain_power_on(domain, smmu)) {
 			WARN_ON(1);
 			arm_smmu_rpm_put(smmu);
 			return;
 		}
+#endif
 		smmu_domain->flush_ops->tlb_sync(smmu_domain);
 		arm_smmu_domain_power_off(domain, smmu);
 		arm_smmu_rpm_put(smmu);

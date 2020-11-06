@@ -81,6 +81,12 @@ struct mmc_ios {
 };
 
 struct mmc_host;
+#if defined(CONFIG_SDC_QTI)
+enum mmc_load {
+	MMC_LOAD_HIGH,
+	MMC_LOAD_LOW,
+};
+#endif
 
 #if defined(CONFIG_SDC_QTI)
 enum {
@@ -194,6 +200,9 @@ struct mmc_host_ops {
 	 */
 	int	(*multi_io_quirk)(struct mmc_card *card,
 				  unsigned int direction, int blk_size);
+#if defined(CONFIG_SDC_QTI)
+	int     (*notify_load)(struct mmc_host *host, enum mmc_load);
+#endif
 };
 
 struct mmc_cqe_ops {
@@ -238,6 +247,15 @@ struct mmc_cqe_ops {
 	 * will have zero data bytes transferred.
 	 */
 	void	(*cqe_recovery_finish)(struct mmc_host *host);
+#if defined(CONFIG_SDC_QTI)
+	/*
+	 * Update the request queue with keyslot manager details. This keyslot
+	 * manager will be used by block crypto to configure the crypto Engine
+	 * for data encryption.
+	 */
+	void	(*cqe_crypto_update_queue)(struct mmc_host *host,
+					struct request_queue *queue);
+#endif
 };
 
 struct mmc_async_req {
@@ -298,11 +316,6 @@ enum dev_state {
 	DEV_SUSPENDING = 1,
 	DEV_SUSPENDED,
 	DEV_RESUMED,
-};
-
-enum mmc_load {
-	MMC_LOAD_HIGH,
-	MMC_LOAD_LOW,
 };
 
 /**

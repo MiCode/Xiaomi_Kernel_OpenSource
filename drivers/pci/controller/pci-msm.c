@@ -559,6 +559,8 @@ enum msm_pcie_drv_cmds {
 	MSM_PCIE_DRV_CMD_DISABLE = 0xc0000001,
 	MSM_PCIE_DRV_CMD_ENABLE_L1SS_SLEEP = 0xc0000005,
 	MSM_PCIE_DRV_CMD_DISABLE_L1SS_SLEEP = 0xc0000006,
+	MSM_PCIE_DRV_CMD_DISABLE_PC = 0xc0000007,
+	MSM_PCIE_DRV_CMD_ENABLE_PC = 0xc0000008,
 };
 
 /* DRV IPC message type */
@@ -596,6 +598,8 @@ struct msm_pcie_drv_info {
 	struct msm_pcie_drv_msg drv_disable; /* payload to request back */
 	struct msm_pcie_drv_msg drv_enable_l1ss_sleep; /* enable l1ss sleep */
 	struct msm_pcie_drv_msg drv_disable_l1ss_sleep; /* disable l1ss sleep */
+	struct msm_pcie_drv_msg drv_enable_pc; /* enable drv pc */
+	struct msm_pcie_drv_msg drv_disable_pc; /* disable drv pc */
 	int dev_id;
 	u16 seq;
 	u16 reply_seq;
@@ -741,6 +745,12 @@ struct msm_pcie_dev_t {
 	struct msm_pcie_device_info pcidev_table[MAX_DEVICE_NUM];
 
 	struct msm_pcie_drv_info *drv_info;
+	struct work_struct drv_enable_pc_work;
+	struct work_struct drv_disable_pc_work;
+
+	/* cache drv pc req from RC client, by default drv pc is enabled */
+	int drv_disable_pc_vote;
+	struct mutex drv_pc_lock;
 
 	void (*rumi_init)(struct msm_pcie_dev_t *pcie_dev);
 };
@@ -751,6 +761,9 @@ struct msm_root_dev_t {
 };
 
 static u32 msm_pcie_keep_resources_on;
+
+/* high prio WQ */
+static struct workqueue_struct *mpcie_wq;
 
 /* debugfs values */
 static u32 rc_sel = BIT(0);
@@ -938,6 +951,8 @@ static const struct msm_pcie_irq_info_t msm_pcie_irq_info[MSM_PCIE_MAX_IRQ] = {
 	{"int_global_int", 0}
 };
 
+static int msm_pcie_drv_send_rpmsg(struct msm_pcie_dev_t *pcie_dev,
+				   struct msm_pcie_drv_msg *msg);
 static void msm_pcie_config_sid(struct msm_pcie_dev_t *dev);
 static void msm_pcie_config_l0s_disable_all(struct msm_pcie_dev_t *dev,
 				struct pci_bus *bus);
@@ -5405,6 +5420,12 @@ static int msm_pcie_setup_drv(struct msm_pcie_dev_t *pcie_dev,
 				drv_info->dev_id,
 				MSM_PCIE_DRV_CMD_DISABLE_L1SS_SLEEP);
 
+	msm_pcie_setup_drv_msg(&drv_info->drv_enable_pc, drv_info->dev_id,
+				MSM_PCIE_DRV_CMD_ENABLE_PC);
+
+	msm_pcie_setup_drv_msg(&drv_info->drv_disable_pc, drv_info->dev_id,
+				MSM_PCIE_DRV_CMD_DISABLE_PC);
+
 	init_completion(&drv_info->completion);
 	drv_info->timeout_ms = IPC_TIMEOUT_MS;
 	pcie_dev->drv_info = drv_info;
@@ -6125,8 +6146,13 @@ static void msm_pcie_drv_notify_client(struct pcie_drv_sta *pcie_drv,
 
 		if (drv_info->ep_connected) {
 			msm_pcie_notify_client(pcie_dev, event);
-			if (event & MSM_PCIE_EVENT_DRV_DISCONNECT)
+			if (event & MSM_PCIE_EVENT_DRV_DISCONNECT) {
+				mutex_lock(&pcie_dev->drv_pc_lock);
 				drv_info->ep_connected = false;
+				cancel_work_sync(&pcie_dev->drv_disable_pc_work);
+				cancel_work_sync(&pcie_dev->drv_enable_pc_work);
+				mutex_unlock(&pcie_dev->drv_pc_lock);
+			}
 		}
 	}
 }
@@ -6259,6 +6285,22 @@ static void msm_pcie_early_notifier(void *data)
 	msm_pcie_drv_notify_client(pcie_drv, MSM_PCIE_EVENT_WAKEUP);
 };
 
+static void msm_pcie_drv_disable_pc(struct work_struct *w)
+{
+	struct msm_pcie_dev_t *pcie_dev = container_of(w, struct msm_pcie_dev_t,
+						drv_disable_pc_work);
+
+	msm_pcie_drv_send_rpmsg(pcie_dev, &pcie_dev->drv_info->drv_disable_pc);
+}
+
+static void msm_pcie_drv_enable_pc(struct work_struct *w)
+{
+	struct msm_pcie_dev_t *pcie_dev = container_of(w, struct msm_pcie_dev_t,
+						drv_enable_pc_work);
+
+	msm_pcie_drv_send_rpmsg(pcie_dev, &pcie_dev->drv_info->drv_enable_pc);
+}
+
 static void msm_pcie_drv_connect_worker(struct work_struct *work)
 {
 	struct pcie_drv_sta *pcie_drv = container_of(work, struct pcie_drv_sta,
@@ -6289,7 +6331,13 @@ static void msm_pcie_drv_connect_worker(struct work_struct *work)
 
 		msm_pcie_notify_client(pcie_dev,
 				       MSM_PCIE_EVENT_DRV_CONNECT);
+
+		mutex_lock(&pcie_dev->drv_pc_lock);
 		drv_info->ep_connected = true;
+
+		if (pcie_dev->drv_disable_pc_vote)
+			queue_work(mpcie_wq, &pcie_dev->drv_disable_pc_work);
+		mutex_unlock(&pcie_dev->drv_pc_lock);
 	}
 
 	subsys_register_early_notifier("adsp", PCIE_DRV_LAYER_NOTIF,
@@ -6344,10 +6392,15 @@ static int __init pcie_init(void)
 		mutex_init(&msm_pcie_dev[i].setup_lock);
 		mutex_init(&msm_pcie_dev[i].recovery_lock);
 		mutex_init(&msm_pcie_dev[i].aspm_lock);
+		mutex_init(&msm_pcie_dev[i].drv_pc_lock);
 		spin_lock_init(&msm_pcie_dev[i].wakeup_lock);
 		spin_lock_init(&msm_pcie_dev[i].irq_lock);
 		msm_pcie_dev[i].drv_ready = false;
 		msm_pcie_dev[i].l23_rdy_poll_timeout = L23_READY_POLL_TIMEOUT;
+		INIT_WORK(&msm_pcie_dev[i].drv_disable_pc_work,
+				msm_pcie_drv_disable_pc);
+		INIT_WORK(&msm_pcie_dev[i].drv_enable_pc_work,
+				msm_pcie_drv_enable_pc);
 	}
 	for (i = 0; i < MAX_RC_NUM * MAX_DEVICE_NUM; i++) {
 		msm_pcie_dev_tbl[i].bdf = 0;
@@ -6370,6 +6423,11 @@ static int __init pcie_init(void)
 	if (ret)
 		return ret;
 
+	mpcie_wq = alloc_ordered_workqueue("mpcie_wq",
+						WQ_MEM_RECLAIM | WQ_HIGHPRI);
+	if (!mpcie_wq)
+		return -ENOMEM;
+
 	INIT_WORK(&pcie_drv.drv_connect, msm_pcie_drv_connect_worker);
 	pcie_drv.msm_pcie_dev = msm_pcie_dev;
 
@@ -6379,6 +6437,8 @@ static int __init pcie_init(void)
 			ret);
 
 	ret = platform_driver_register(&msm_pcie_driver);
+	if (ret)
+		destroy_workqueue(mpcie_wq);
 
 	return ret;
 }
@@ -6388,6 +6448,9 @@ static void __exit pcie_exit(void)
 	int i;
 
 	pr_info("PCIe: %s\n", __func__);
+
+	if (mpcie_wq)
+		destroy_workqueue(mpcie_wq);
 
 	platform_driver_unregister(&msm_pcie_driver);
 
@@ -6881,8 +6944,6 @@ static int msm_pcie_drv_suspend(struct msm_pcie_dev_t *pcie_dev,
 	/* disable global irq - no more linkdown/aer detection */
 	disable_irq(pcie_dev->irq[MSM_PCIE_INT_GLOBAL_INT].num);
 
-	drv_info->drv_enable.pkt.dword[2] = options & MSM_PCIE_CONFIG_NO_DRV_PC;
-
 	ret = msm_pcie_drv_send_rpmsg(pcie_dev, &drv_info->drv_enable);
 	if (ret) {
 		ret = -EBUSY;
@@ -6986,6 +7047,10 @@ int msm_pcie_pm_control(enum msm_pcie_pm_opt pm_opt, u32 busnr, void *user,
 		PCIE_DBG(pcie_dev,
 			"PCIe: RC%d: DRV: user requests for DRV suspend\n",
 			rc_idx);
+
+		/* make sure disable pc is done before enabling drv */
+		flush_work(&pcie_dev->drv_disable_pc_work);
+
 		ret = msm_pcie_drv_suspend(pcie_dev, options);
 		break;
 	case MSM_PCIE_SUSPEND:
@@ -7041,12 +7106,10 @@ int msm_pcie_pm_control(enum msm_pcie_pm_opt pm_opt, u32 busnr, void *user,
 			break;
 		}
 
-		if (msm_pcie_dev[rc_idx].link_status !=
-					MSM_PCIE_LINK_DISABLED) {
+		if (msm_pcie_dev[rc_idx].power_on) {
 			PCIE_ERR(&msm_pcie_dev[rc_idx],
-				"PCIe: RC%d: requested to resume when link is not disabled:%d. Number of active EP(s): %d\n",
-				rc_idx, msm_pcie_dev[rc_idx].link_status,
-				msm_pcie_dev[rc_idx].num_active_ep);
+				"PCIe: RC%d: requested to resume when link is already powered on. Number of active EP(s): %d\n",
+				rc_idx, msm_pcie_dev[rc_idx].num_active_ep);
 			break;
 		}
 
@@ -7100,6 +7163,30 @@ int msm_pcie_pm_control(enum msm_pcie_pm_opt pm_opt, u32 busnr, void *user,
 		spin_lock_irqsave(&msm_pcie_dev[rc_idx].irq_lock, flags);
 		msm_pcie_handle_linkdown(pcie_dev);
 		spin_unlock_irqrestore(&msm_pcie_dev[rc_idx].irq_lock, flags);
+		break;
+	case MSM_PCIE_DRV_PC_CTRL:
+		PCIE_DBG(&msm_pcie_dev[rc_idx],
+			"User of RC%d requests handling drv pc options %u.\n",
+			rc_idx, options);
+
+		mutex_lock(&pcie_dev->drv_pc_lock);
+		pcie_dev->drv_disable_pc_vote =
+				options & MSM_PCIE_CONFIG_NO_DRV_PC;
+
+		if (!pcie_dev->drv_info || !pcie_dev->drv_info->ep_connected) {
+			mutex_unlock(&pcie_dev->drv_pc_lock);
+			break;
+		}
+
+		if (pcie_dev->drv_disable_pc_vote) {
+			queue_work(mpcie_wq, &pcie_dev->drv_disable_pc_work);
+		} else {
+			queue_work(mpcie_wq, &pcie_dev->drv_enable_pc_work);
+
+			/* make sure enable pc happens asap */
+			flush_work(&pcie_dev->drv_enable_pc_work);
+		}
+		mutex_unlock(&pcie_dev->drv_pc_lock);
 		break;
 	default:
 		PCIE_ERR(&msm_pcie_dev[rc_idx],

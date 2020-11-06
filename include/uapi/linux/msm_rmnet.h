@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _UAPI_MSM_RMNET_H_
@@ -66,6 +66,8 @@
 #define RMNET_IOCTL_DEREGISTER_DEV             0x0016   /* Dereg a net dev */
 #define RMNET_IOCTL_GET_SG_SUPPORT             0x0017   /* Query sg support*/
 #define RMNET_IOCTL_SET_OFFLOAD                0x0018   /* Set IPA offload */
+#define RMNET_IOCTL_GET_MTU                    0x0019   /* Get v4/v6 MTU   */
+#define RMNET_IOCTL_SET_MTU                    0x0020   /* Set v4/v6 MTU   */
 
 /* Return values for the RMNET_IOCTL_GET_SUPPORTED_FEATURES IOCTL */
 #define RMNET_IOCTL_FEAT_NOTIFY_MUX_CHANNEL              (1<<0)
@@ -142,6 +144,14 @@ struct rmnet_ioctl_extended_s {
 			__u32   flags;
 			__u8    mux_id;
 		} offload_params;
+
+		/* Input values for the RMNET_IOCTL_SET_MTU */
+		struct {
+			__s8    if_name[IFNAMSIZ];
+			/* if given non-zero value, mtu has changed */
+			__u16   mtu_v4;
+			__u16   mtu_v6;
+		} mtu_params;
 	} u;
 };
 

@@ -1166,6 +1166,12 @@ static int ufs_qcom_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 			err = ufs_qcom_unvote_qos_all(hba);
 	}
 
+#if defined(CONFIG_SCSI_UFSHCD_QTI)
+	/* reset the connected UFS device during power down */
+	if (!err && ufs_qcom_is_link_off(hba) && host->device_reset)
+		gpiod_set_value_cansleep(host->device_reset, 1);
+#endif
+
 	return err;
 }
 

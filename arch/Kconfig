@@ -549,6 +549,7 @@ config SHADOW_CALL_STACK
 config SHADOW_CALL_STACK_VMAP
 	bool "Use virtually mapped shadow call stacks"
 	depends on SHADOW_CALL_STACK
+	default y
 	help
 	  Use virtually mapped shadow call stacks. Selecting this option
 	  provides better stack exhaustion protection, but increases per-thread
@@ -605,6 +606,7 @@ endchoice
 config CFI_CLANG
 	bool "Use Clang's Control Flow Integrity (CFI)"
 	depends on LTO_CLANG && KALLSYMS
+	depends on !GCOV_KERNEL
 	help
 	  This option enables Clang's Control Flow Integrity (CFI), which adds
 	  runtime checking for indirect function calls.

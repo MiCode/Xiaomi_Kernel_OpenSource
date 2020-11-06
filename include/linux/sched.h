@@ -537,8 +537,13 @@ DECLARE_PER_CPU_READ_MOSTLY(int, sched_load_boost);
 
 #ifdef CONFIG_QCOM_HYP_CORE_CTL
 extern int hh_vcpu_populate_affinity_info(u32 cpu_index, u64 cap_id);
+extern int hh_vpm_grp_populate_info(u64 cap_id, int virq_num);
 #else
 static inline int hh_vcpu_populate_affinity_info(u32 cpu_index, u64 cap_id)
+{
+	return 0;
+}
+static inline int  hh_vpm_grp_populate_info(u64 cap_id, int virq_num)
 {
 	return 0;
 }
@@ -1452,7 +1457,7 @@ struct task_struct {
 	unsigned long			prev_lowest_stack;
 #endif
 
-	ANDROID_VENDOR_DATA_ARRAY(1, 2);
+	ANDROID_VENDOR_DATA_ARRAY(1, 3);
 
 	ANDROID_KABI_RESERVE(1);
 	ANDROID_KABI_RESERVE(2);
