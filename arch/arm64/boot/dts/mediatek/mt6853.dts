@@ -991,7 +991,7 @@
 		regulators {
 			compatible = "mediatek,mt6362-regulator";
 			pwr-off-seq = [24 24 04 22 00 00 00 02 04];
-			buck1 {
+			mt6362_buck1: buck1 {
 				regulator-name = "mt6362-buck1";
 				regulator-min-microvolt = <300000>;
 				regulator-max-microvolt = <1193750>;
@@ -1005,7 +1005,7 @@
 				interrupt-names = "oc_evt", "pgb_evt";
 				regulator-always-on;
 			};
-			buck2 {
+			mt6362_buck2: buck2 {
 				regulator-name = "mt6362-buck2";
 				regulator-min-microvolt = <300000>;
 				regulator-max-microvolt = <1193750>;
@@ -1019,7 +1019,7 @@
 				interrupt-names = "oc_evt", "pgb_evt";
 				regulator-always-on;
 			};
-			buck3 {
+			mt6362_buck3: buck3 {
 				regulator-name = "mt6362-buck3";
 				regulator-min-microvolt = <300000>;
 				regulator-max-microvolt = <1193750>;
@@ -1033,7 +1033,7 @@
 				interrupt-names = "oc_evt", "pgb_evt";
 				regulator-always-on;
 			};
-			buck4 {
+			mt6362_buck4: buck4 {
 				regulator-name = "mt6362-buck4";
 				regulator-min-microvolt = <300000>;
 				regulator-max-microvolt = <1193750>;
@@ -1047,7 +1047,7 @@
 				interrupt-names = "oc_evt", "pgb_evt";
 				regulator-always-on;
 			};
-			buck5 {
+			mt6362_buck5: buck5 {
 				regulator-name = "MD_VRF09";
 				regulator-min-microvolt = <300000>;
 				regulator-max-microvolt = <1193750>;
@@ -1060,7 +1060,7 @@
 					     <MT6362_BUCK5_PGB_EVT>;
 				interrupt-names = "oc_evt", "pgb_evt";
 			};
-			buck6 {
+			mt6362_buck6: buck6 {
 				regulator-name = "MD_VRF13";
 				regulator-min-microvolt = <300000>;
 				regulator-max-microvolt = <1593750>;
