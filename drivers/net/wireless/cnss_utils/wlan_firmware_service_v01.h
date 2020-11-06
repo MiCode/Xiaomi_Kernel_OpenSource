@@ -69,6 +69,7 @@
 #define QMI_WLFW_GET_INFO_RESP_V01 0x004A
 #define QMI_WLFW_PCIE_GEN_SWITCH_RESP_V01 0x0053
 #define QMI_WLFW_INI_REQ_V01 0x002F
+#define QMI_WLFW_M3_DUMP_UPLOAD_SEGMENTS_REQ_IND_V01 0x0054
 #define QMI_WLFW_MSA_READY_REQ_V01 0x002E
 #define QMI_WLFW_M3_DUMP_UPLOAD_DONE_REQ_V01 0x004E
 #define QMI_WLFW_CAP_RESP_V01 0x0024
@@ -96,6 +97,7 @@
 #define QMI_WLFW_QDSS_TRACE_FREE_IND_V01 0x0046
 #define QMI_WLFW_QDSS_MEM_READY_IND_V01 0x0052
 
+#define QMI_WLFW_MAX_M3_SEGMENTS_SIZE_V01 10
 #define QMI_WLFW_MAX_NUM_MEMORY_REGIONS_V01 2
 #define QMI_WLFW_MAX_NUM_MEM_SEG_V01 32
 #define QMI_WLFW_MAX_NUM_CAL_V01 5
@@ -225,6 +227,18 @@ enum wlfw_power_save_mode_v01 {
 	WLFW_POWER_SAVE_MODE_MAX_VAL_V01 = INT_MAX,
 };
 
+enum wlfw_m3_segment_type_v01 {
+	WLFW_M3_SEGMENT_TYPE_MIN_VAL_V01 = INT_MIN,
+	QMI_M3_SEGMENT_INVALID_V01 = 0,
+	QMI_M3_SEGMENT_PHYAREG_V01 = 1,
+	QMI_M3_SEGMENT_PHYDBG_V01 = 2,
+	QMI_M3_SEGMENT_WMAC0_REG_V01 = 3,
+	QMI_M3_SEGMENT_WCSSDBG_V01 = 4,
+	QMI_M3_SEGMENT_PHYAPDMEM_V01 = 5,
+	QMI_M3_SEGMENT_MAX_V01 = 6,
+	WLFW_M3_SEGMENT_TYPE_MAX_VAL_V01 = INT_MAX,
+};
+
 #define QMI_WLFW_CE_ATTR_FLAGS_V01 ((u32)0x00)
 #define QMI_WLFW_CE_ATTR_NO_SNOOP_V01 ((u32)0x01)
 #define QMI_WLFW_CE_ATTR_BYTE_SWAP_DATA_V01 ((u32)0x02)
@@ -327,6 +341,13 @@ struct wlfw_host_ddr_range_s_v01 {
 	u64 size;
 };
 
+struct wlfw_m3_segment_info_s_v01 {
+	enum wlfw_m3_segment_type_v01 type;
+	u64 addr;
+	u64 size;
+	char name[QMI_WLFW_MAX_STR_LEN_V01 + 1];
+};
+
 struct wlfw_ind_register_req_msg_v01 {
 	u8 fw_ready_enable_valid;
 	u8 fw_ready_enable;
@@ -366,9 +387,11 @@ struct wlfw_ind_register_req_msg_v01 {
 	u8 wfc_call_twt_config_enable;
 	u8 qdss_mem_ready_enable_valid;
 	u8 qdss_mem_ready_enable;
+	u8 m3_dump_upload_segments_req_enable_valid;
+	u8 m3_dump_upload_segments_req_enable;
 };
 
-#define WLFW_IND_REGISTER_REQ_MSG_V01_MAX_MSG_LEN 82
+#define WLFW_IND_REGISTER_REQ_MSG_V01_MAX_MSG_LEN 86
 extern struct qmi_elem_info wlfw_ind_register_req_msg_v01_ei[];
 
 struct wlfw_ind_register_resp_msg_v01 {
@@ -1140,5 +1163,15 @@ struct wlfw_pcie_gen_switch_resp_msg_v01 {
 
 #define WLFW_PCIE_GEN_SWITCH_RESP_MSG_V01_MAX_MSG_LEN 7
 extern struct qmi_elem_info wlfw_pcie_gen_switch_resp_msg_v01_ei[];
+
+struct wlfw_m3_dump_upload_segments_req_ind_msg_v01 {
+	u32 pdev_id;
+	u32 no_of_valid_segments;
+	struct wlfw_m3_segment_info_s_v01
+		m3_segment[QMI_WLFW_MAX_M3_SEGMENTS_SIZE_V01];
+};
+
+#define WLFW_M3_DUMP_UPLOAD_SEGMENTS_REQ_IND_MSG_V01_MAX_MSG_LEN 387
+extern struct qmi_elem_info wlfw_m3_dump_upload_segments_req_ind_msg_v01_ei[];
 
 #endif
