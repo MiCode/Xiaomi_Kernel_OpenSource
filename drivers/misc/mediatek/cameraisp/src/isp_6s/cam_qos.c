@@ -597,9 +597,14 @@ void mtk_pmqos_set(enum ISP_IRQ_TYPE_ENUM module, u32 portID, struct ISP_BW bw)
 		case _ufgo_:
 		case _ufdi_r2_:
 		{//BW_COMP_DEFAULT
-			icc_set_bw(
-				gCAM_BW_REQ[module][portID],
-				Bps_to_icc(bw.avg), Bps_to_icc(bw.peak));
+			int ret;
+
+			ret = icc_set_bw(gCAM_BW_REQ[module][portID],
+				MBps_to_icc(bw.avg), MBps_to_icc(bw.peak));
+
+			if (ret)
+				LOG_NOTICE("icc_set_bw(%d,%d) failed(%d)\n",
+					MBps_to_icc(bw.avg), MBps_to_icc(bw.peak), ret);
 		}
 			break;
 		case _imgo_:
@@ -632,9 +637,14 @@ void mtk_pmqos_set(enum ISP_IRQ_TYPE_ENUM module, u32 portID, struct ISP_BW bw)
 		case _cqi_r1_:
 		case _cqi_r2_:
 		{//BW_COMP_NONE
-			icc_set_bw(
-				gCAM_BW_REQ[module][portID],
-				Bps_to_icc(bw.avg), Bps_to_icc(bw.peak));
+			int ret;
+
+			ret = icc_set_bw(gCAM_BW_REQ[module][portID],
+				MBps_to_icc(bw.avg), MBps_to_icc(bw.peak));
+
+			if (ret)
+				LOG_NOTICE("icc_set_bw(%d,%d) failed(%d)\n",
+					MBps_to_icc(bw.avg), MBps_to_icc(bw.peak), ret);
 		}
 			break;
 		default:
@@ -652,16 +662,30 @@ void mtk_pmqos_set(enum ISP_IRQ_TYPE_ENUM module, u32 portID, struct ISP_BW bw)
 	case ISP_IRQ_TYPE_INT_CAMSV_7_ST:
 		switch (portID) {
 		case _camsv_ufeo_:
+		{
 			//BW_COMP_DEFAULT
-			icc_set_bw(
-				gSV_BW_REQ[module][portID],
-				Bps_to_icc(bw.avg), Bps_to_icc(bw.peak));
+			int ret;
+
+			ret = icc_set_bw(gSV_BW_REQ[module][portID],
+				MBps_to_icc(bw.avg), MBps_to_icc(bw.peak));
+
+			if (ret)
+				LOG_NOTICE("icc_set_bw(%d,%d) failed(%d)\n",
+					MBps_to_icc(bw.avg), MBps_to_icc(bw.peak), ret);
+		}
 			break;
 		case _camsv_imgo_:
+		{
 			//BW_COMP_NONE
-			icc_set_bw(
-				gSV_BW_REQ[module][portID],
-				Bps_to_icc(bw.avg), Bps_to_icc(bw.peak));
+			int ret;
+
+			ret = icc_set_bw(gSV_BW_REQ[module][portID],
+				MBps_to_icc(bw.avg), MBps_to_icc(bw.peak));
+
+			if (ret)
+				LOG_NOTICE("icc_set_bw(%d,%d) failed(%d)\n",
+					MBps_to_icc(bw.avg), MBps_to_icc(bw.peak), ret);
+		}
 			break;
 		default:
 			LOG_NOTICE("unsupported port:%d\n", portID);
@@ -688,9 +712,13 @@ void mtk_pmqos_clr(enum ISP_IRQ_TYPE_ENUM module)
 	case ISP_IRQ_TYPE_INT_CAM_B_ST:
 	case ISP_IRQ_TYPE_INT_CAM_C_ST:
 	{
+		int ret;
+
 		for (portID = 0; portID < _cam_max_; portID++) {
-			icc_set_bw(
-				gCAM_BW_REQ[module][portID], 0, 0);
+			ret = icc_set_bw(gCAM_BW_REQ[module][portID], 0, 0);
+
+			if (ret)
+				LOG_NOTICE("icc_set_bw(0, 0) failed(%d)\n", ret);
 		}
 	}
 		break;
@@ -703,9 +731,13 @@ void mtk_pmqos_clr(enum ISP_IRQ_TYPE_ENUM module)
 	case ISP_IRQ_TYPE_INT_CAMSV_6_ST:
 	case ISP_IRQ_TYPE_INT_CAMSV_7_ST:
 	{
+		int ret;
+
 		for (portID = _camsv_imgo_; portID < _camsv_max_; portID++) {
-			icc_set_bw(
-				gSV_BW_REQ[module][portID], 0, 0);
+			ret = icc_set_bw(gSV_BW_REQ[module][portID], 0, 0);
+
+			if (ret)
+				LOG_NOTICE("icc_set_bw(0, 0) failed(%d)\n", ret);
 		}
 	}
 		break;
