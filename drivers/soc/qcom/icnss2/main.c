@@ -58,6 +58,13 @@
 #define ICNSS_WLAN_SERVICE_NAME					"wlan/fw"
 #define ICNSS_DEFAULT_FEATURE_MASK 0x01
 
+#define ICNSS_M3_SEGMENT(segment)		"wcnss_"segment
+#define ICNSS_M3_SEGMENT_PHYAREG		"phyareg"
+#define ICNSS_M3_SEGMENT_PHYA			"phydbg"
+#define ICNSS_M3_SEGMENT_WMACREG		"wmac0reg"
+#define ICNSS_M3_SEGMENT_WCSSDBG		"WCSSDBG"
+#define ICNSS_M3_SEGMENT_PHYAM3			"PHYAPDMEM"
+
 #define ICNSS_QUIRKS_DEFAULT		BIT(FW_REJUVENATE_ENABLE)
 #define ICNSS_MAX_PROBE_CNT		2
 
@@ -174,6 +181,8 @@ char *icnss_driver_event_to_str(enum icnss_driver_event_type type)
 		return "QDSS_TRACE_SAVE";
 	case ICNSS_DRIVER_EVENT_QDSS_TRACE_FREE:
 		return "QDSS_TRACE_FREE";
+	case ICNSS_DRIVER_EVENT_M3_DUMP_UPLOAD_REQ:
+		return "M3_DUMP_UPLOAD";
 	case ICNSS_DRIVER_EVENT_MAX:
 		return "EVENT_MAX";
 	}
@@ -1284,6 +1293,61 @@ static int icnss_qdss_trace_free_hdlr(struct icnss_priv *priv)
 	return 0;
 }
 
+static int icnss_m3_dump_upload_req_hdlr(struct icnss_priv *priv,
+					 void *data)
+{
+	struct icnss_m3_upload_segments_req_data *event_data = data;
+	struct ramdump_segment segment;
+	int i, status = 0, ret = 0;
+
+	for (i = 0; i < event_data->no_of_valid_segments; i++) {
+		memset(&segment, 0, sizeof(segment));
+		segment.v_address = devm_ioremap(&priv->pdev->dev,
+						event_data->m3_segment[i].addr,
+						event_data->m3_segment[i].size);
+		if (!segment.v_address) {
+			icnss_pr_err("Failed to ioremap M3 Dump region");
+			ret = -ENOMEM;
+			goto send_resp;
+		}
+
+		segment.size = event_data->m3_segment[i].size;
+		segment.name = event_data->m3_segment[i].name;
+
+		switch (event_data->m3_segment[i].type) {
+		case QMI_M3_SEGMENT_PHYAREG_V01:
+			ret = do_ramdump(priv->m3_dump_dev_seg1, &segment, 1);
+			break;
+		case QMI_M3_SEGMENT_PHYDBG_V01:
+			ret = do_ramdump(priv->m3_dump_dev_seg2, &segment, 1);
+			break;
+		case QMI_M3_SEGMENT_WMAC0_REG_V01:
+			ret = do_ramdump(priv->m3_dump_dev_seg3, &segment, 1);
+			break;
+		case QMI_M3_SEGMENT_WCSSDBG_V01:
+			ret = do_ramdump(priv->m3_dump_dev_seg4, &segment, 1);
+			break;
+		case QMI_M3_SEGMENT_PHYAPDMEM_V01:
+			ret = do_ramdump(priv->m3_dump_dev_seg5, &segment, 1);
+			break;
+		default:
+			icnss_pr_err("Invalid Segment type: %d",
+				     event_data->m3_segment[i].type);
+		}
+
+		if (ret) {
+			status = ret;
+			icnss_pr_err("Failed to dump m3 %s segment, err = %d\n",
+				     event_data->m3_segment[i].name, ret);
+		}
+	}
+send_resp:
+	icnss_wlfw_m3_dump_upload_done_send_sync(priv, event_data->pdev_id,
+						 status);
+
+	return ret;
+}
+
 static void icnss_driver_event_work(struct work_struct *work)
 {
 	struct icnss_priv *priv =
@@ -1356,6 +1420,9 @@ static void icnss_driver_event_work(struct work_struct *work)
 			break;
 		case ICNSS_DRIVER_EVENT_QDSS_TRACE_FREE:
 			ret = icnss_qdss_trace_free_hdlr(priv);
+			break;
+		case ICNSS_DRIVER_EVENT_M3_DUMP_UPLOAD_REQ:
+			ret = icnss_m3_dump_upload_req_hdlr(priv, event->data);
 			break;
 		default:
 			icnss_pr_err("Invalid Event type: %d", event->type);
@@ -1819,6 +1886,58 @@ out:
 
 }
 
+static int icnss_create_ramdump_devices(struct icnss_priv *priv)
+{
+
+	if (!priv || !priv->pdev) {
+		icnss_pr_err("Platform priv or pdev is NULL\n");
+		return -EINVAL;
+	}
+
+	priv->msa0_dump_dev = create_ramdump_device("wcss_msa0",
+						    &priv->pdev->dev);
+	if (!priv->msa0_dump_dev)
+		return -ENOMEM;
+
+	if (priv->device_id == WCN6750_DEVICE_ID) {
+		priv->m3_dump_dev_seg1 = create_ramdump_device(
+					    ICNSS_M3_SEGMENT(
+						ICNSS_M3_SEGMENT_PHYAREG),
+					    &priv->pdev->dev);
+		if (!priv->m3_dump_dev_seg1)
+			return -ENOMEM;
+
+		priv->m3_dump_dev_seg2 = create_ramdump_device(
+					    ICNSS_M3_SEGMENT(
+						ICNSS_M3_SEGMENT_PHYA),
+					    &priv->pdev->dev);
+		if (!priv->m3_dump_dev_seg2)
+			return -ENOMEM;
+
+		priv->m3_dump_dev_seg3 = create_ramdump_device(
+					    ICNSS_M3_SEGMENT(
+						ICNSS_M3_SEGMENT_WMACREG),
+					    &priv->pdev->dev);
+		if (!priv->m3_dump_dev_seg3)
+			return -ENOMEM;
+
+		priv->m3_dump_dev_seg4 = create_ramdump_device(
+					    ICNSS_M3_SEGMENT(
+						ICNSS_M3_SEGMENT_WCSSDBG),
+					    &priv->pdev->dev);
+		if (!priv->m3_dump_dev_seg4)
+			return -ENOMEM;
+
+		priv->m3_dump_dev_seg5 = create_ramdump_device(
+					     ICNSS_M3_SEGMENT(
+						ICNSS_M3_SEGMENT_PHYAM3),
+					     &priv->pdev->dev);
+		if (!priv->m3_dump_dev_seg5)
+			return -ENOMEM;
+	}
+
+	return 0;
+}
 
 static int icnss_enable_recovery(struct icnss_priv *priv)
 {
@@ -1834,10 +1953,9 @@ static int icnss_enable_recovery(struct icnss_priv *priv)
 		goto enable_pdr;
 	}
 
-	priv->msa0_dump_dev = create_ramdump_device("wcss_msa0",
-						    &priv->pdev->dev);
-	if (!priv->msa0_dump_dev)
-		return -ENOMEM;
+	ret = icnss_create_ramdump_devices(priv);
+	if (ret)
+		return ret;
 
 	icnss_modem_ssr_register_notifier(priv);
 	if (test_bit(SSR_ONLY, &priv->ctrl_params.quirks)) {
@@ -3385,6 +3503,14 @@ static int icnss_remove(struct platform_device *pdev)
 	icnss_modem_ssr_unregister_notifier(priv);
 
 	destroy_ramdump_device(priv->msa0_dump_dev);
+
+	if (priv->device_id == WCN6750_DEVICE_ID) {
+		destroy_ramdump_device(priv->m3_dump_dev_seg1);
+		destroy_ramdump_device(priv->m3_dump_dev_seg2);
+		destroy_ramdump_device(priv->m3_dump_dev_seg3);
+		destroy_ramdump_device(priv->m3_dump_dev_seg4);
+		destroy_ramdump_device(priv->m3_dump_dev_seg5);
+	}
 
 	icnss_pdr_unregister_notifier(priv);
 
