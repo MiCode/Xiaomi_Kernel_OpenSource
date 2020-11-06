@@ -1259,6 +1259,7 @@ void mt_gpufreq_restore_default_volt(void)
 
 	mutex_unlock(&mt_gpufreq_lock);
 }
+EXPORT_SYMBOL(mt_gpufreq_restore_default_volt);
 
 /*
  * interpolation none PTPOP.
@@ -1384,6 +1385,7 @@ unsigned int mt_gpufreq_update_volt(
 
 	return 0;
 }
+EXPORT_SYMBOL(mt_gpufreq_update_volt);
 
 unsigned int mt_gpufreq_bringup(void)
 {
@@ -1460,6 +1462,7 @@ unsigned int mt_gpufreq_get_freq_by_real_idx(unsigned int idx)
 	else
 		return 0;
 }
+EXPORT_SYMBOL(mt_gpufreq_get_freq_by_real_idx);
 
 /* API : get vgpu via OPP table index */
 unsigned int mt_gpufreq_get_volt_by_idx(unsigned int idx)
@@ -1479,6 +1482,7 @@ unsigned int mt_gpufreq_get_volt_by_real_idx(unsigned int idx)
 	else
 		return 0;
 }
+EXPORT_SYMBOL(mt_gpufreq_get_volt_by_real_idx);
 
 /* API : get vsram via OPP table index */
 unsigned int mt_gpufreq_get_vsram_by_idx(unsigned int idx)
@@ -1513,6 +1517,7 @@ unsigned int mt_gpufreq_get_ori_opp_idx(unsigned int idx)
 		return idx;
 
 }
+EXPORT_SYMBOL(mt_gpufreq_get_ori_opp_idx);
 
 /* API: pass GPU power table to EARA-QoS */
 struct mt_gpufreq_power_table_info *pass_gpu_table_to_eara(void)
