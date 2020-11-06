@@ -121,6 +121,7 @@ enum ipi_id {
 	IPI_CHRE,
 	IPI_CHREX,
 	IPI_SENSOR,
+	IPI_SENSOR_INIT_START,
 	SCP_NR_IPI,
 };
 
