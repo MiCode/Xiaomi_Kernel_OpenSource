@@ -6,9 +6,12 @@
 #include <linux/module.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
+#include <linux/err.h>
 
 #include <linux/qcom_dma_heap.h>
-#include "qcom_dma_heap_priv.h"
+#include "qcom_cma_heap.h"
+#include "qcom_dt_parser.h"
+#include "qcom_system_heap.h"
 
 static int qcom_dma_heap_probe(struct platform_device *pdev)
 {
@@ -17,15 +20,13 @@ static int qcom_dma_heap_probe(struct platform_device *pdev)
 	struct platform_data *heaps;
 
 	ret = qcom_system_heap_create();
-	if (ret) {
+	if (IS_ERR(ERR_PTR(ret)))
 		pr_err("%s: Failed to create 'qcom,system', error is %d\n", __func__, ret);
-		goto out;
-	} else {
+	else if (!ret)
 		pr_info("%s: DMA-BUF Heap: Created 'qcom,system'\n", __func__);
-	}
 
 	heaps = parse_heap_dt(pdev);
-	if (IS_ERR(heaps))
+	if (IS_ERR_OR_NULL(heaps))
 		return PTR_ERR(heaps);
 
 	for (i = 0; i < heaps->nr; i++) {
@@ -34,10 +35,10 @@ static int qcom_dma_heap_probe(struct platform_device *pdev)
 		switch (heap_data->type) {
 		case HEAP_TYPE_CMA:
 			ret = qcom_add_cma_heap(heap_data);
-			if (ret)
+			if (IS_ERR(ERR_PTR(ret)))
 				pr_err("%s: DMA-BUF Heap: Failed to create %s, error is %d\n",
 				       __func__, heap_data->name, ret);
-			else
+			else if (!ret)
 				pr_info("%s: DMA-BUF Heap: Created %s\n", __func__,
 					heap_data->name);
 			break;
@@ -48,8 +49,8 @@ static int qcom_dma_heap_probe(struct platform_device *pdev)
 	}
 
 	free_pdata(heaps);
-out:
-	return ret;
+
+	return 0;
 }
 
 static const struct of_device_id qcom_dma_heap_match_table[] = {
