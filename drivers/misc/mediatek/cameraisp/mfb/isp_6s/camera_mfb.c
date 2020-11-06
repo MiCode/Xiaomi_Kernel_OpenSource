@@ -278,7 +278,7 @@ static unsigned int g_SuspendCnt;
 /* maximum number for supporting user to do interrupt operation */
 /* index 0 is for all the user that do not do register irq first */
 #define IRQ_USER_NUM_MAX 31
-#define GKI_BUF_NUM_MAX 4000
+#define GKI_BUF_NUM_MAX 200
 
 #ifdef MFB_PMQOS
 static struct pm_qos_request mfb_pmqos_request;
