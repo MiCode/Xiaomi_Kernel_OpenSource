@@ -120,10 +120,6 @@ struct subdrv_entry {
 	unsigned int id;
 	const struct subdrv_pw_seq_entry *pw_seq;
 	const struct subdrv_ops *ops;
-	unsigned int is_hflip:1;
-	unsigned int is_vflip:1;
-	unsigned int hdr_cap;
-	unsigned int pdaf_cap;
 	int pw_seq_cnt;
 };
 
