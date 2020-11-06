@@ -600,15 +600,6 @@ config MSM_PERFORMANCE
           fmin and fmax. The user space can request  the cpu freq change by
           writing cpu#:freq values
 
-config QTI_PLH
-	tristate "Qualcomm Technologies Inc. RIMPS PLH interface"
-	depends on MSM_PERFORMANCE
-	default n
-	help
-	  Interface between RIMPS PLH and userspace, this interface is
-	  responsible for handling the communication with RIMPS PLH
-	  such as passing tunables and enable/disable PLH.
-
 config QMP_DEBUGFS_CLIENT
 	bool "Debugfs Client to communicate with AOP using QMP protocol"
 	depends on DEBUG_FS
