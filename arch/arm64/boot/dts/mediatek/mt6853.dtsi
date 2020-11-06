@@ -3353,8 +3353,8 @@
 				<&mdpsys_config_clk CLK_MDP_APB_BUS>;
 			clock-names = "MDP_IMG_DL_ASYNC0",
 					"MDP_IMG_DL_ASYNC1",
-					"MDP_IMG0_IMG_DL_ASYNC0",
-					"MDP_IMG0_IMG_DL_ASYNC1",
+					"MDP_IMG_DL_RELAY0_ASYNC0",
+					"MDP_IMG_DL_RELAY1_ASYNC1",
 					"MDP_APB_BUS";
 			dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
 			iommus = <&iommu0 M4U_PORT_L2_MDP_RDMA0>,
@@ -3387,6 +3387,7 @@
 			mdp_aal1   = <&mdp_aal1>;
 			mdp_color0 = <&mdp_color0>;
 			mdp_hdr0   = <&mdp_hdr0>;
+			mediatek,larb = <&larb2>;
 			g3d_config_base = <0x13000000 0 0xffff0000>;
 			mmsys_config_base = <0x14000000 1 0xffff0000>;
 			disp_dither_base = <0x14010000 2 0xffff0000>;
