@@ -140,6 +140,8 @@
   debugfs_create_x32
   debugfs_create_x8
   debugfs_create_x32
+  debugfs_file_get
+  debugfs_file_put
   debugfs_lookup
   debugfs_print_regs32
   debugfs_remove
