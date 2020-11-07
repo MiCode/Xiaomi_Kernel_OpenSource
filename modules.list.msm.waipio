@@ -87,3 +87,4 @@ spi-msm-geni.ko
 smp2p_sleepstate.ko
 qcom-pdc.ko
 bam_dma.ko
+qcom_ipc_logging.ko
