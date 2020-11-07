@@ -663,6 +663,7 @@
   drm_connector_list_iter_end
   drm_connector_list_iter_next
   drm_connector_register
+  drm_connector_set_tile_property
   drm_connector_unregister
   drm_connector_update_edid_property
   drm_crtc_cleanup
@@ -781,9 +782,11 @@
   drm_mode_copy
   drm_mode_create
   drm_mode_create_dp_colorspace_property
+  drm_mode_create_tile_group
   drm_mode_debug_printmodeline
   drm_mode_duplicate
   drm_mode_equal
+  drm_mode_get_tile_group
   drm_mode_object_find
   drm_mode_object_get
   drm_mode_object_put
