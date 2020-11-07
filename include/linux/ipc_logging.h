@@ -35,7 +35,7 @@ struct decode_context {
 	int size;               /* size of output buffer */
 };
 
-#if defined(CONFIG_IPC_LOGGING)
+#if IS_ENABLED(CONFIG_IPC_LOGGING)
 /*
  * ipc_log_context_create: Create a debug log context
  *                         Should not be called from atomic context
