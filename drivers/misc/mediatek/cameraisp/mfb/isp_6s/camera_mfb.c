@@ -84,6 +84,7 @@ struct MFB_CLK_STRUCT {
 	struct clk *CG_IMG2_LARB11;
 	struct clk *CG_IMG2_MSS;
 	struct clk *CG_IMG2_MFB;
+	struct clk *CG_IMG2_GALS;
 	struct clk *CG_IMG1_GALS;
 };
 struct MFB_CLK_STRUCT mfb_clk;
@@ -1728,6 +1729,10 @@ static inline void MFB_Prepare_Enable_ccf_clock(void)
 	if (ret)
 		LOG_ERR("cannot prepare and enable CG_IMG2_MFB clock\n");
 
+	ret = clk_prepare_enable(mfb_clk.CG_IMG2_GALS);
+	if (ret)
+		LOG_ERR("cannot prepare and enable CG_IMG2_GALS clock\n");
+
 	ret = clk_prepare_enable(mfb_clk.CG_IMG1_GALS);
 	if (ret)
 		LOG_ERR("cannot prepare and enable CG_IMG1_GALS clock\n");
@@ -1771,6 +1776,7 @@ static inline void MFB_Disable_Unprepare_ccf_clock(void)
 	 */
 #if (MTK_MFB_REG_VERSION == 3)
 	clk_disable_unprepare(mfb_clk.CG_IMG1_GALS);
+	clk_disable_unprepare(mfb_clk.CG_IMG2_GALS);
 	clk_disable_unprepare(mfb_clk.CG_IMG2_MFB);
 	clk_disable_unprepare(mfb_clk.CG_IMG2_MSS);
 	clk_disable_unprepare(mfb_clk.CG_IMG2_LARB11);
@@ -4175,6 +4181,8 @@ static signed int MFB_probe(struct platform_device *pDev)
 				"MFB_CG_IMG2_MSS");
 		mfb_clk.CG_IMG2_MFB = devm_clk_get(&pDev->dev,
 				"MFB_CG_IMG2_MFB");
+		mfb_clk.CG_IMG2_GALS = devm_clk_get(&pDev->dev,
+				"MFB_CG_IMG2_GALS");
 		mfb_clk.CG_IMG1_GALS = devm_clk_get(&pDev->dev,
 				"MFB_CG_IMG1_GALS");
 
@@ -4189,6 +4197,10 @@ static signed int MFB_probe(struct platform_device *pDev)
 		if (IS_ERR(mfb_clk.CG_IMG2_MFB)) {
 			LOG_ERR("cannot get CG_IMG2_MFB clock\n");
 			return PTR_ERR(mfb_clk.CG_IMG2_MFB);
+		}
+		if (IS_ERR(mfb_clk.CG_IMG2_GALS)) {
+			LOG_ERR("cannot get CG_IMG2_GALS clock\n");
+			return PTR_ERR(mfb_clk.CG_IMG2_GALS);
 		}
 		if (IS_ERR(mfb_clk.CG_IMG1_GALS)) {
 			LOG_ERR("cannot get CG_IMG1_GALS clock\n");

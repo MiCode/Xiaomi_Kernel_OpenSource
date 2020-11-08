@@ -23,5 +23,12 @@ obj-$(CONFIG_MTK_CAMERA_ISP_MFB_SUPPORT) += camera_mfb.o
 camera_mfb-objs += isp_6s/engine_request.o
 camera_mfb-objs += isp_6s/camera_mfb.o
 
+ifeq ($(CONFIG_MTK_CAMERA_ISP_PLATFORM),"mt6873")
 MTK_MFB_REG_VERSION := 2
+endif
+
+ifeq ($(CONFIG_MTK_CAMERA_ISP_PLATFORM),"mt6853")
+MTK_MFB_REG_VERSION := 3
+endif
+
 subdir-ccflags-y += -DMTK_MFB_REG_VERSION=$(MTK_MFB_REG_VERSION)
