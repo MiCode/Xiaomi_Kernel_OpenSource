@@ -1,0 +1,46 @@
+%YAML 1.2
+---
+$id: "http://devicetree.org/schemas/soc/qcom/cpuss_sleep_stats.yaml#"
+$schema: "http://devicetree.org/meta-schemas/core.yaml#"
+
+title: Qualcomm Technologies, Inc. cpuss sleep stats bindings
+
+maintainers:
+        - Tushar Nimkar <tnimkar@qti.qualcomm.com>
+
+description:
+ The low power mode counts and residency in the low power mode is maintained in
+ the hardware. The cpu sleep stats allows to read this configuration and display
+ the same.
+ This driver creates debugfs entry for all enabled lpm and provide LPM count and
+ Residency.
+
+properties:
+  compatible:
+  enum:
+    - cpuss-sleep-stats
+
+reg:
+  maxItems: 10
+
+reguired:
+  - compatible
+  - reg
+  - reg-names
+  - num-cpus
+
+example:
+  - |
+    cpuss-sleep-stats@18000054 {
+        compatible = "qcom,cpuss-sleep-stats";
+        reg = <0x18000054 0x4>, <0x18010054 0x4>, <0x18020054 0x4>,
+              <0x18030054 0x4>, <0x18040054 0x4>, <0x18050054 0x4>,
+              <0x18060054 0x4>, <0x18070054 0x4>, <0x18080098 0x4>,
+              <0x180C0000 0x10000>;
+        reg-names = "seq_lpm_cntr_cfg_cpu0", "seq_lpm_cntr_cfg_cpu1",
+                    "seq_lpm_cntr_cfg_cpu2", "seq_lpm_cntr_cfg_cpu3",
+                    "seq_lpm_cntr_cfg_cpu4", "seq_lpm_cntr_cfg_cpu5",
+                    "seq_lpm_cntr_cfg_cpu6", "seq_lpm_cntr_cfg_cpu7",
+                    "l3_seq_lpm_cntr_cfg", "apss_seq_mem_base";
+        num-cpus = <8>;
+     };
