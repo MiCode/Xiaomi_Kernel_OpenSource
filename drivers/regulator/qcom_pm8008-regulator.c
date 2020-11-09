@@ -538,10 +538,8 @@ static int pm8008_ldo_cb(struct notifier_block *nb, ulong event, void *data)
 	}
 
 	/* Notify the consumers about the OCP event */
-	regulator_lock(pm8008_reg->rdev);
 	regulator_notifier_call_chain(pm8008_reg->rdev,
 				REGULATOR_EVENT_OVER_CURRENT, NULL);
-	regulator_unlock(pm8008_reg->rdev);
 
 error:
 	return NOTIFY_OK;
@@ -862,10 +860,8 @@ static irqreturn_t pm8008_ocp_irq(int irq, void *_chip)
 {
 	struct pm8008_chip *chip = _chip;
 
-	regulator_lock(chip->rdev);
 	regulator_notifier_call_chain(chip->rdev, REGULATOR_EVENT_OVER_CURRENT,
 				      NULL);
-	regulator_unlock(chip->rdev);
 
 	return IRQ_HANDLED;
 }
