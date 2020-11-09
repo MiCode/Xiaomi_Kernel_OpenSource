@@ -57,7 +57,9 @@
 
 	/* chosen */
 	chosen: chosen {
-		bootargs = "console=tty0 console=ttyS0,921600n1 root=/dev/ram vmalloc=400M swiotlb=noforce firmware_class.path=/vendor/firmware page_owner=on loop.max_part=7";
+		bootargs = "console=tty0 root=/dev/ram vmalloc=400M swiotlb=noforce \
+		firmware_class.path=/vendor/firmware page_owner=on \
+		loop.max_part=7";
 		kaslr-seed = <0 0>;
 	};
 
@@ -1355,7 +1357,7 @@
 		};
 
 		apdma: dma-controller@10217a80 {
-			compatible = "mediatek,mt6577-uart-dma";
+			compatible = "mediatek,mt6779-uart-dma";
 			reg =   <0 0x10217a80 0 0x80>,
 				<0 0x10217b00 0 0x80>,
 				<0 0x10217b80 0 0x80>,
@@ -1367,7 +1369,6 @@
 			clocks = <&infracfg_ao_clk CLK_IFRAO_AP_DMA>;
 			clock-names = "apdma";
 			dma-requests = <4>;
-			dma-bits = <34>;
 			#dma-cells = <1>;
 		};
 
