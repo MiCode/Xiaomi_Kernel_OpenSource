@@ -188,27 +188,34 @@ int mtk_afe_fe_hw_params(struct snd_pcm_substream *substream,
 		memif->using_sram = 1;
 	} else {
 #if (IS_ENABLED(CONFIG_MTK_VOW_BARGE_IN_SUPPORT) || IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP))
+#if IS_ENABLED(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
 		if (memif->vow_barge_in_enable) {
 			ret = mtk_scp_vow_barge_in_allocate_mem(substream,
-							   &substream->runtime->dma_addr,
-							   &substream->runtime->dma_area,
-							   substream->runtime->dma_bytes,
-							   afe);
+						   &substream->runtime->dma_addr,
+						   &substream->runtime->dma_area,
+						   substream->runtime->dma_bytes,
+						   afe);
+			goto MALLOC_DONE_SRAM;
 		}
+#endif
 #if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
-		else if (memif->use_adsp_share_mem == true) {
+		if (memif->use_adsp_share_mem == true) {
 			ret = mtk_adsp_allocate_mem(substream,
 						    params_buffer_bytes(params),
 						    id);
+			goto MALLOC_DONE_SRAM;
 		}
 #endif
-		else {
-			ret = snd_pcm_lib_malloc_pages(substream,
-				params_buffer_bytes(params));
-		}
+		ret = snd_pcm_lib_malloc_pages(substream,
+			params_buffer_bytes(params));
+
 #else
 		ret = snd_pcm_lib_malloc_pages(substream,
 					       params_buffer_bytes(params));
+#endif
+
+#if (IS_ENABLED(CONFIG_MTK_VOW_BARGE_IN_SUPPORT) || IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP))
+MALLOC_DONE_SRAM:
 #endif
 		if (ret < 0)
 			return ret;
@@ -221,28 +228,35 @@ int mtk_afe_fe_hw_params(struct snd_pcm_substream *substream,
 		 &substream->runtime->dma_addr,
 		 substream->runtime->dma_area,
 		 substream->runtime->dma_bytes);
+
 #else
 #if (IS_ENABLED(CONFIG_MTK_VOW_BARGE_IN_SUPPORT) || IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP))
+#if IS_ENABLED(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
 	if (memif->vow_barge_in_enable) {
 		ret = mtk_scp_vow_barge_in_allocate_mem(substream,
 						   &substream->runtime->dma_addr,
 						   &substream->runtime->dma_area,
 						   substream->runtime->dma_bytes,
 						   afe);
+		goto MALLOC_DONE;
 	}
+#endif
 #if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
-	else if (memif->use_adsp_share_mem == true) {
+	if (memif->use_adsp_share_mem == true) {
 		ret = mtk_adsp_allocate_mem(substream,
 					    params_buffer_bytes(params),
 					    id);
+		goto MALLOC_DONE;
 	}
 #endif
-	else {
-		ret = snd_pcm_lib_malloc_pages(substream,
-						params_buffer_bytes(params));
-	}
+	ret = snd_pcm_lib_malloc_pages(substream,
+					params_buffer_bytes(params));
 #else
 	ret = snd_pcm_lib_malloc_pages(substream, params_buffer_bytes(params));
+#endif
+
+#if (IS_ENABLED(CONFIG_MTK_VOW_BARGE_IN_SUPPORT) || IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP))
+MALLOC_DONE:
 #endif
 	if (ret < 0)
 		return ret;
