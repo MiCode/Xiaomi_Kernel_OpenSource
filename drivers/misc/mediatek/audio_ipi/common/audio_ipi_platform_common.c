@@ -227,6 +227,7 @@ bool is_audio_task_dsp_ready(const uint8_t task)
 {
 	return is_audio_dsp_ready(audio_get_dsp_id(task));
 }
+EXPORT_SYMBOL_GPL(is_audio_task_dsp_ready);
 
 uint32_t audio_get_audio_ipi_id_by_dsp(const uint32_t dsp_id)
 {

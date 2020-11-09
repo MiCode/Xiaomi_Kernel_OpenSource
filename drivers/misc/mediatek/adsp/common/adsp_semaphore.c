@@ -83,6 +83,7 @@ int get_adsp_semaphore(unsigned int flags)
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(get_adsp_semaphore);
 
 /*
  * release a hardware semaphore
@@ -115,3 +116,5 @@ int release_adsp_semaphore(unsigned int flags)
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(release_adsp_semaphore);
+

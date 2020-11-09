@@ -17,6 +17,9 @@ snd-soc-mt6873-afe-objs := \
 
 obj-$(CONFIG_SND_SOC_MT6873) += snd-soc-mt6873-afe.o
 
+# platform code
+obj-$(CONFIG_SND_SOC_MTK_AUDIO_DSP) += dsp-platform-mem-control.o
+
 # machine driver
 obj-$(CONFIG_SND_SOC_MT6873_MT6359P) += mt6873-mt6359p.o
 
@@ -25,9 +28,10 @@ ifeq ($(CONFIG_MTK_ACAO_SUPPORT),y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/mcdi/include/
 endif
 
-ifeq ($(CONFIG_MTK_AUDIODSP_SUPPORT),y)
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/adsp/$(MTK_PLATFORM)
-endif
+# adsp
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/include
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/adsp/hifi3_v2
+ccflags-y += -I$(srctree)/sound/soc/mediatek/audio_dsp
 
 # spm
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include

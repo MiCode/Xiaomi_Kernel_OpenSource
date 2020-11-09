@@ -47,6 +47,8 @@ int audio_task_register_callback(
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(audio_task_register_callback);
+
 
 void audio_task_manager_init(void)
 {

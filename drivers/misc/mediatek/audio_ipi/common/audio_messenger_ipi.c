@@ -379,6 +379,7 @@ int audio_send_ipi_msg(
 
 	return send_message(handler, p_ipi_msg);
 }
+EXPORT_SYMBOL_GPL(audio_send_ipi_msg);
 
 
 int audio_send_ipi_filled_msg(struct ipi_msg_t *p_ipi_msg)

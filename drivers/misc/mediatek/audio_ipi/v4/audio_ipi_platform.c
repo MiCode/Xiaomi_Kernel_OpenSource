@@ -70,4 +70,6 @@ uint32_t audio_get_dsp_id(const uint8_t task)
 
 	return dsp_id;
 }
+EXPORT_SYMBOL_GPL(audio_get_dsp_id);
+
 
