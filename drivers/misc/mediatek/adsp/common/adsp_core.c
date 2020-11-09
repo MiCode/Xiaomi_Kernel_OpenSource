@@ -225,8 +225,17 @@ int adsp_irq_registration(u32 core_id, u32 irq_id, void *handler, void *data)
 			  IRQF_TRIGGER_HIGH,
 			  pdata->name,
 			  &pdata->irq[irq_id]);
+
+	ret = enable_irq_wake(pdata->irq[irq_id].seq);
+	if (ret < 0) {
+		pr_info("enable_irq_wake %d err: %d\n",
+			pdata->irq[irq_id].seq, ret);
+		return ret;
+	}
+
 	return ret;
 }
+EXPORT_SYMBOL_GPL(adsp_irq_registration);
 
 void adsp_register_notify(struct notifier_block *nb)
 {

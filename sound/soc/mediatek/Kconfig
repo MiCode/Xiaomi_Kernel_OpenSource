@@ -218,3 +218,13 @@ config SND_SOC_MTK_BTCVSD
 	  BT encoded data to/from BT firmware.
 	  Select Y if you have such device.
 	  If unsure select "N".
+
+config SND_SOC_MTK_AUDIO_DSP
+	tristate "ASoC support for Mediatek audiodsp chip"
+	depends on MTK_AUDIODSP_SUPPORT
+	select SND_SOC_COMPRESS
+	help
+	  This adds dsp driver for Mediatek boards
+	  that can be used with other platforms
+	  Select Y if you have such device.
+	  If unsure select "N".

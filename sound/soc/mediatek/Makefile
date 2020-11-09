@@ -10,5 +10,9 @@ obj-$(CONFIG_SND_SOC_MT8183) += mt8183/
 # vow related code
 obj-$(CONFIG_MTK_VOW_SUPPORT) += vow/
 
+# audio sound dsp related code
+obj-$(CONFIG_SND_SOC_MTK_AUDIO_DSP) += audio_dsp/
+
 # include path
 subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/include/mt-plat
+subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/include

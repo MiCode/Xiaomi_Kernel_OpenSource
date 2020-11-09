@@ -134,6 +134,7 @@ struct mtk_base_afe_memif {
 	unsigned char *dma_area;
 	dma_addr_t dma_addr;
 	size_t dma_bytes;
+	int use_adsp_share_mem;
 	bool ack_enable;
 	int (*ack)(struct snd_pcm_substream *substream);
 #if defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)

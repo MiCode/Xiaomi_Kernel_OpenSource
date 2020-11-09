@@ -634,6 +634,44 @@ SND_SOC_DAILINK_DEFS(vow,
 	DAILINK_COMP_ARRAY(COMP_CODEC(NULL, "mt6359-snd-codec-vow")),
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));
 #endif
+#if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
+SND_SOC_DAILINK_DEFS(dspvoip,
+	DAILINK_COMP_ARRAY(COMP_CPU("audio_task_voip_dai")),
+	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd_audio_dsp")));
+SND_SOC_DAILINK_DEFS(dspprimary,
+	DAILINK_COMP_ARRAY(COMP_CPU("audio_task_primary_dai")),
+	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd_audio_dsp")));
+SND_SOC_DAILINK_DEFS(dspdeepbuf,
+	DAILINK_COMP_ARRAY(COMP_CPU("audio_task_deepbuf_dai")),
+	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd_audio_dsp")));
+SND_SOC_DAILINK_DEFS(dspfast,
+	DAILINK_COMP_ARRAY(COMP_CPU("audio_task_fast_dai")),
+	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd_audio_dsp")));
+SND_SOC_DAILINK_DEFS(dspplayback,
+	DAILINK_COMP_ARRAY(COMP_CPU("audio_task_Playback_dai")),
+	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd_audio_dsp")));
+SND_SOC_DAILINK_DEFS(dspcapture1,
+	DAILINK_COMP_ARRAY(COMP_CPU("audio_task_capture_ul1_dai")),
+	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd_audio_dsp")));
+SND_SOC_DAILINK_DEFS(dspcallfinal,
+	DAILINK_COMP_ARRAY(COMP_CPU("audio_task_call_final_dai")),
+	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd_audio_dsp")));
+SND_SOC_DAILINK_DEFS(dspktv,
+	DAILINK_COMP_ARRAY(COMP_CPU("audio_task_ktv_dai")),
+	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd_audio_dsp")));
+SND_SOC_DAILINK_DEFS(dspcaptureraw,
+	DAILINK_COMP_ARRAY(COMP_CPU("audio_task_capture_raw_dai")),
+	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd_audio_dsp")));
+#endif
 
 static struct snd_soc_dai_link mt6873_mt6359p_dai_links[] = {
 	/* Front End DAI links */
@@ -1169,6 +1207,53 @@ static struct snd_soc_dai_link mt6873_mt6359p_dai_links[] = {
 		.ignore_suspend = 1,
 		.ops = &mt6873_mt6359p_vow_ops,
 		SND_SOC_DAILINK_REG(vow),
+	},
+#endif
+#if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
+	{
+		.name = "DSP_Playback_Voip",
+		.stream_name = "DSP_Playback_Voip",
+		SND_SOC_DAILINK_REG(dspvoip),
+	},
+	{
+		.name = "DSP_Playback_Primary",
+		.stream_name = "DSP_Playback_Primary",
+		SND_SOC_DAILINK_REG(dspprimary),
+	},
+	{
+		.name = "DSP_Playback_DeepBuf",
+		.stream_name = "DSP_Playback_DeepBuf",
+		SND_SOC_DAILINK_REG(dspdeepbuf),
+	},
+	{
+		.name = "DSP_Playback_Fast",
+		.stream_name = "DSP_Playback_Fast",
+		SND_SOC_DAILINK_REG(dspfast),
+	},
+	{
+		.name = "DSP_Playback_Playback",
+		.stream_name = "DSP_Playback_Playback",
+		SND_SOC_DAILINK_REG(dspplayback),
+	},
+	{
+		.name = "DSP_Capture_Ul1",
+		.stream_name = "DSP_Capture_Ul1",
+		SND_SOC_DAILINK_REG(dspcapture1),
+	},
+	{
+		.name = "DSP_Call_Final",
+		.stream_name = "DSP_Call_Final",
+		SND_SOC_DAILINK_REG(dspcallfinal),
+	},
+	{
+		.name = "DSP_Playback_Ktv",
+		.stream_name = "DSP_Playback_Ktv",
+		SND_SOC_DAILINK_REG(dspktv),
+	},
+	{
+		.name = "DSP_Capture_Raw",
+		.stream_name = "DSP_Capture_Raw",
+		SND_SOC_DAILINK_REG(dspcaptureraw),
 	},
 #endif
 };
