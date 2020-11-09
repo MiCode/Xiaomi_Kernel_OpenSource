@@ -315,7 +315,6 @@ static int mt_fh_dumpregs_read(struct seq_file *m, void *data)
 void mt_fhctl_init_debugfs(struct mtk_fhctl *fhctl)
 {
 	struct dentry *root;
-	struct dentry *fh_dumpregs_dir;
 	struct dentry *fh_ctrl_dir;
 	struct device *dev = fhctl->dev;
 
@@ -328,12 +327,8 @@ void mt_fhctl_init_debugfs(struct mtk_fhctl *fhctl)
 	fhctl->debugfs_root = root;
 
 	/* /sys/kernel/debug/fhctl/dumpregs */
-	fh_dumpregs_dir = debugfs_create_devm_seqfile(dev,
+	debugfs_create_devm_seqfile(dev,
 				"dumpregs", root, mt_fh_dumpregs_read);
-	if (IS_ERR(fh_dumpregs_dir)) {
-		dev_info(dev, "failed to create dumpregs debugfs");
-		return;
-	}
 
 	/* /sys/kernel/debug/fhctl/ctrl */
 	fh_ctrl_dir = debugfs_create_file("ctrl", 0664,
