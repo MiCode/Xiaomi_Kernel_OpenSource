@@ -211,6 +211,9 @@ static int mtk_mmqos_aggregate(struct icc_node *node,
 	struct mmqos_base_node *base_node = NULL;
 	u32 mix_bw = peak_bw;
 
+	if (!node || !node->data)
+		return 0;
+
 	switch (node->id >> 16) {
 	case MTK_MMQOS_NODE_LARB_PORT:
 		base_node = ((struct larb_node *)node->data)->base;
