@@ -4018,18 +4018,25 @@ static int fastrpc_session_alloc_locked(struct fastrpc_channel_ctx *chan,
 static inline int get_cid_from_rpdev(struct rpmsg_device *rpdev)
 {
 	int err = 0, cid = -1;
+	const char *label = 0;
 
 	VERIFY(err, !IS_ERR_OR_NULL(rpdev));
 	if (err)
 		return -EINVAL;
 
-	if (!strcmp(rpdev->dev.parent->of_node->name, "cdsp"))
+	err = of_property_read_string(rpdev->dev.parent->of_node, "label",
+					&label);
+
+	if (err)
+		label = rpdev->dev.parent->of_node->name;
+
+	if (!strcmp(label, "cdsp"))
 		cid = CDSP_DOMAIN_ID;
-	else if (!strcmp(rpdev->dev.parent->of_node->name, "adsp"))
+	else if (!strcmp(label, "adsp"))
 		cid = ADSP_DOMAIN_ID;
-	else if (!strcmp(rpdev->dev.parent->of_node->name, "dsps"))
+	else if (!strcmp(label, "slpi"))
 		cid = SDSP_DOMAIN_ID;
-	else if (!strcmp(rpdev->dev.parent->of_node->name, "mdsp"))
+	else if (!strcmp(label, "mdsp"))
 		cid = MDSP_DOMAIN_ID;
 
 	return cid;
