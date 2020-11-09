@@ -252,12 +252,6 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 	} else
 		info->setting.input_current_limit2 = -1;
 
-	if (info->setting.input_current_limit1 == -1 &&
-		info->setting.input_current_limit2 == -1 &&
-		info->setting.charging_current_limit1 == -1 &&
-		info->setting.charging_current_limit2 == -1)
-		info->enable_hv_charging = true;
-
 	if (support_fast_charging(info))
 		is_basic = false;
 	else {
@@ -307,7 +301,6 @@ done:
 		chr_err("min_charging_current is too low %d %d\n",
 			pdata->charging_current_limit, ichg1_min);
 		is_basic = true;
-		info->enable_hv_charging = false;
 	}
 
 	ret = charger_dev_get_min_input_current(info->chg1_dev, &aicr1_min);
@@ -316,7 +309,6 @@ done:
 		chr_err("min_input_current is too low %d %d\n",
 			pdata->input_current_limit, aicr1_min);
 		is_basic = true;
-		info->enable_hv_charging = false;
 	}
 
 	chr_err("m:%d chg1:%d,%d,%d,%d chg2:%d,%d,%d,%d type:%d:%d usb_unlimited:%d usbif:%d usbsm:%d aicl:%d atm:%d bm:%d b:%d\n",
@@ -371,7 +363,9 @@ static int do_algorithm(struct mtk_charger *info)
 			if (alg == NULL)
 				continue;
 
-			if (!info->enable_hv_charging) {
+			if (!info->enable_hv_charging ||
+			    pdata->charging_current_limit == 0 ||
+			    pdata->input_current_limit == 0) {
 				chg_alg_get_prop(alg, ALG_MAX_VBUS, &val);
 				if (val > 5000)
 					chg_alg_stop_algo(alg);
@@ -418,7 +412,9 @@ static int do_algorithm(struct mtk_charger *info)
 			}
 		}
 	} else {
-		if (info->enable_hv_charging != true) {
+		if (info->enable_hv_charging != true ||
+		    pdata->charging_current_limit == 0 ||
+		    pdata->input_current_limit == 0) {
 			for (i = 0; i < MAX_ALG_NO; i++) {
 				alg = info->alg[i];
 				if (alg == NULL)
