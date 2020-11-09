@@ -2644,7 +2644,6 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 		ufshcd_release(hba);
 		lrbp->cmd = NULL;
 		clear_bit_unlock(tag, &hba->lrb_in_use);
-		ufshcd_release(hba);
 		goto out;
 	}
 	lrbp->req_abort_skip = false;
