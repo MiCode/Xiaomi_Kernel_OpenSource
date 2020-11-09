@@ -2378,7 +2378,7 @@ static irqreturn_t ep_pcie_handle_perst_irq(int irq, void *data)
 					dev->rev);
 			}
 			/* start work for link enumeration with the host side */
-			schedule_work(&dev->handle_perst_work);
+			queue_work(system_highpri_wq, &dev->handle_perst_work);
 		} else {
 			dev->no_notify = true;
 			/* shutdown the link if the link is already on */
