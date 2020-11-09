@@ -2330,6 +2330,18 @@ static irqreturn_t ep_pcie_handle_perst_irq(int irq, void *data)
 			"PCIe V%d: PCIe is not enumerated yet; PERST is %sasserted\n",
 			dev->rev, perst ? "de" : "");
 		if (perst) {
+			/*
+			 * Hold a wakelock to avoid delay during
+			 * link enablement in PCIE layer in non
+			 * enumerated scenario.
+			 */
+			if (!atomic_read(&dev->ep_pcie_dev_wake)) {
+				pm_stay_awake(&dev->pdev->dev);
+				atomic_set(&dev->ep_pcie_dev_wake, 1);
+				EP_PCIE_DBG(dev,
+					"PCIe V%d: Acquired wakelock\n",
+					dev->rev);
+			}
 			/* start work for link enumeration with the host side */
 			schedule_work(&dev->handle_perst_work);
 		} else {
