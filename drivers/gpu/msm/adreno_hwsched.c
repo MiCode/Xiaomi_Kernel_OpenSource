@@ -832,6 +832,8 @@ int adreno_hwsched_queue_cmds(struct kgsl_device_private *dev_priv,
 	struct kgsl_device *device = dev_priv->device;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_context *drawctxt = ADRENO_CONTEXT(context);
+	struct adreno_hwsched *hwsched = to_hwsched(adreno_dev);
+	struct adreno_dispatch_job *job;
 	int ret;
 	unsigned int i, user_ts;
 
@@ -866,11 +868,18 @@ int adreno_hwsched_queue_cmds(struct kgsl_device_private *dev_priv,
 	/* wait for the suspend gate */
 	wait_for_completion(&device->halt_gate);
 
+	job = kmem_cache_alloc(jobs_cache, GFP_KERNEL);
+	if (!job)
+		return -ENOMEM;
+
+	job->drawctxt = drawctxt;
+
 	spin_lock(&drawctxt->lock);
 
 	ret = _check_context_state_to_queue_cmds(drawctxt);
 	if (ret) {
 		spin_unlock(&drawctxt->lock);
+		kmem_cache_free(jobs_cache, job);
 		return ret;
 	}
 
@@ -885,9 +894,11 @@ int adreno_hwsched_queue_cmds(struct kgsl_device_private *dev_priv,
 					timestamp, user_ts);
 			if (ret == 1) {
 				spin_unlock(&drawctxt->lock);
+				kmem_cache_free(jobs_cache, job);
 				return 0;
 			} else if (ret) {
 				spin_unlock(&drawctxt->lock);
+				kmem_cache_free(jobs_cache, job);
 				return ret;
 			}
 			break;
@@ -897,6 +908,7 @@ int adreno_hwsched_queue_cmds(struct kgsl_device_private *dev_priv,
 						timestamp, user_ts);
 			if (ret) {
 				spin_unlock(&drawctxt->lock);
+				kmem_cache_free(jobs_cache, job);
 				return ret;
 			}
 			break;
@@ -906,6 +918,7 @@ int adreno_hwsched_queue_cmds(struct kgsl_device_private *dev_priv,
 			break;
 		default:
 			spin_unlock(&drawctxt->lock);
+			kmem_cache_free(jobs_cache, job);
 			return -EINVAL;
 		}
 
@@ -914,11 +927,13 @@ int adreno_hwsched_queue_cmds(struct kgsl_device_private *dev_priv,
 	spin_unlock(&drawctxt->lock);
 
 	/* Add the context to the dispatcher pending list */
-	ret = hwsched_queue_context(adreno_dev, drawctxt);
-	if (ret)
-		return ret;
+	if (_kgsl_context_get(&drawctxt->base)) {
+		trace_dispatch_queue_context(drawctxt);
+		llist_add(&job->node, &hwsched->jobs[drawctxt->base.priority]);
+		adreno_hwsched_issuecmds(adreno_dev);
 
-	adreno_hwsched_issuecmds(adreno_dev);
+	} else
+		kmem_cache_free(jobs_cache, job);
 
 	return 0;
 }
