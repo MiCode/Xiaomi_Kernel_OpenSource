@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _KGSL_UTIL_H_
@@ -32,4 +32,14 @@ bool kgsl_regulator_disable_wait(struct regulator *reg, u32 timeout);
  */
 struct clk *kgsl_of_clk_by_name(struct clk_bulk_data *clks, int count,
 		const char *id);
+/**
+ * kgsl_regulator_set_voltage - Set voltage level for regulator
+ * @dev: A &struct device pointer
+ * @reg: A &struct regulator handle
+ * @voltage: Voltage value to set regulator
+ *
+ * Return: 0 on success and negative error on failure.
+ */
+int kgsl_regulator_set_voltage(struct device *dev,
+		struct regulator *reg, u32 voltage);
 #endif
