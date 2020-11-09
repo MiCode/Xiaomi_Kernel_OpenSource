@@ -1548,11 +1548,30 @@ static void ISP_DumpDmaDbgPort(enum ISP_DEV_NODE_ENUM module,
 	ISP_WR32(CAM_REG_DMA_DEBUG_SEL(module), addr_dbg_sel_6 + 0x30000);
 	fifo_case_3 = ISP_RD32(CAM_REG_DBG_PORT(module));
 
-	LOG_INF("mod:%d dma:%d|0x%x_0x%x_0x%x_0x%x_0x%x_0x%x_0x%x",
+	IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_ERR,
+			"mod:%d dma:%d|0x%x_0x%x_0x%x_0x%x_0x%x_0x%x_0x%x\n",
 			module, dma_port, checksum,
 			pix_cnt_tmp, pix_cnt, data_cnt,
 			smi_dbg_data, fifo_case_1, fifo_case_3);
 }
+
+#define DMA_ERR_STR_LEN (512)
+#define update_dma_err_str(dma_err_str, _dma_, DMA_STR)	do { \
+	if (dmaerr[_dma_] != 0xffff0000) { \
+		if ((size_remain <= 0) || (c_num >= DMA_ERR_STR_LEN)) { \
+			LOG_NOTICE("dma_err_str buf size is not enough\n"); \
+		} else {\
+			int tmp = 0; \
+			tmp = snprintf(dma_err_str + c_num, size_remain, DMA_STR, dmaerr[_dma_]); \
+			if (tmp < 0) \
+				LOG_NOTICE("snprintf failed\n"); \
+			else { \
+				c_num += tmp; \
+				size_remain -= c_num; \
+			} \
+		} \
+	} \
+} while (0)
 
 static void ISP_DumpDmaDeepDbg(enum ISP_IRQ_TYPE_ENUM module)
 {
@@ -1569,6 +1588,10 @@ static void ISP_DumpDmaDeepDbg(enum ISP_IRQ_TYPE_ENUM module)
 	unsigned int dma_en = 0, dma2_en = 0;
 	unsigned int int3_en = 0, int4_en = 0;
 	unsigned int Irq3StatusX = 0, Irq4StatusX = 0;
+	char dmao_err_str[DMA_ERR_STR_LEN];
+	int c_num = 0;
+	int size_remain = DMA_ERR_STR_LEN;
+	char dmai_err_str[DMA_ERR_STR_LEN];
 
 	switch (module) {
 	case ISP_IRQ_TYPE_INT_CAM_A_ST:
@@ -1594,91 +1617,122 @@ static void ISP_DumpDmaDeepDbg(enum ISP_IRQ_TYPE_ENUM module)
 	/* DMAO */
 	dmaerr[_imgo_] =
 		(unsigned int)ISP_RD32(CAM_REG_IMGO_ERR_STAT(regModule));
+	update_dma_err_str(dmao_err_str, _imgo_, "IMGO:0x%x,");
 
 	dmaerr[_ltmso_] =
 		(unsigned int)ISP_RD32(CAM_REG_LTMSO_ERR_STAT(regModule));
+	update_dma_err_str(dmao_err_str, _ltmso_, "LTMSO:0x%x,");
 
 	dmaerr[_rrzo_] =
 		(unsigned int)ISP_RD32(CAM_REG_RRZO_ERR_STAT(regModule));
+	update_dma_err_str(dmao_err_str, _rrzo_, "RRZO:0x%x,");
 
 	dmaerr[_lcso_] =
 		(unsigned int)ISP_RD32(CAM_REG_LCESO_ERR_STAT(regModule));
+	update_dma_err_str(dmao_err_str, _lcso_, "LCSO:0x%x,");
 
 	dmaerr[_lcesho_] =
 		(unsigned int)ISP_RD32(CAM_REG_LCESHO_ERR_STAT(regModule));
+	update_dma_err_str(dmao_err_str, _lcesho_, "LCESHO:0x%x,");
 
 	dmaerr[_aao_] =
 		(unsigned int)ISP_RD32(CAM_REG_AAO_ERR_STAT(regModule));
+	update_dma_err_str(dmao_err_str, _aao_, "AAO:0x%x,");
 
 	dmaerr[_aaho_] =
 		(unsigned int)ISP_RD32(CAM_REG_AAHO_ERR_STAT(regModule));
+	update_dma_err_str(dmao_err_str, _aaho_, "AAHO:0x%x,");
 
 	dmaerr[_flko_] =
 		(unsigned int)ISP_RD32(CAM_REG_FLKO_ERR_STAT(regModule));
+	update_dma_err_str(dmao_err_str, _flko_, "FLKO:0x%x,");
 
 	dmaerr[_ufeo_] =
 		(unsigned int)ISP_RD32(CAM_REG_UFEO_ERR_STAT(regModule));
+	update_dma_err_str(dmao_err_str, _ufeo_, "UFEO:0x%x,");
 
 	dmaerr[_afo_] =
 		(unsigned int)ISP_RD32(CAM_REG_AFO_ERR_STAT(regModule));
+	update_dma_err_str(dmao_err_str, _afo_, "AFO:0x%x,");
 
 	dmaerr[_ufgo_] =
 		(unsigned int)ISP_RD32(CAM_REG_UFGO_ERR_STAT(regModule));
+	update_dma_err_str(dmao_err_str, _ufgo_, "UFGO:0x%x,");
 
 	dmaerr[_rsso_] =
 		(unsigned int)ISP_RD32(CAM_REG_RSSO_A_ERR_STAT(regModule));
+	update_dma_err_str(dmao_err_str, _rsso_, "RSSO:0x%x,");
 
 	dmaerr[_lmvo_] =
 		(unsigned int)ISP_RD32(CAM_REG_LMVO_ERR_STAT(regModule));
+	update_dma_err_str(dmao_err_str, _lmvo_, "LMVO:0x%x,");
 
 	dmaerr[_yuvbo_] =
 		(unsigned int)ISP_RD32(CAM_REG_YUVBO_ERR_STAT(regModule));
+	update_dma_err_str(dmao_err_str, _yuvbo_, "YUVBO:0x%x,");
 
 	dmaerr[_tsfso_] =
 		(unsigned int)ISP_RD32(CAM_REG_TSFSO_ERR_STAT(regModule));
+	update_dma_err_str(dmao_err_str, _tsfso_, "TSFSO:0x%x,");
 
 	dmaerr[_pdo_] =
 		(unsigned int)ISP_RD32(CAM_REG_PDO_ERR_STAT(regModule));
+	update_dma_err_str(dmao_err_str, _pdo_, "PDO:0x%x,");
 
 	dmaerr[_crzo_] =
 		(unsigned int)ISP_RD32(CAM_REG_CRZO_ERR_STAT(regModule));
+	update_dma_err_str(dmao_err_str, _crzo_, "CRZO:0x%x,");
 
 	dmaerr[_crzbo_] =
 		(unsigned int)ISP_RD32(CAM_REG_CRZBO_ERR_STAT(regModule));
+	update_dma_err_str(dmao_err_str, _crzbo_, "CRZBO:0x%x,");
 
 	dmaerr[_yuvco_] =
 		(unsigned int)ISP_RD32(CAM_REG_YUVCO_ERR_STAT(regModule));
+	update_dma_err_str(dmao_err_str, _yuvco_, "YUVCO:0x%x,");
 
 	dmaerr[_crzo_r2_] =
 		(unsigned int)ISP_RD32(CAM_REG_CRZO_R2_ERR_STAT(regModule));
+	update_dma_err_str(dmao_err_str, _crzo_r2_, "CRZO_R2:0x%x,");
 
 	dmaerr[_rsso_r2_] =
 		(unsigned int)ISP_RD32(CAM_REG_RSSO_R2_ERR_STAT(regModule));
+	update_dma_err_str(dmao_err_str, _rsso_r2_, "RSSO_R2:0x%x,");
 
 	dmaerr[_yuvo_] =
 		(unsigned int)ISP_RD32(CAM_REG_YUVO_ERR_STAT(regModule));
+	update_dma_err_str(dmao_err_str, _yuvo_, "YUVO:0x%x,");
 
 	/* DMAI */
+	c_num = 0;
+	size_remain = DMA_ERR_STR_LEN;
 	dmaerr[_rawi_] =
 		(unsigned int)ISP_RD32(CAM_REG_RAWI_R2_ERR_STAT(regModule));
+	update_dma_err_str(dmai_err_str, _rawi_, "RAWI:0x%x,");
 
 	dmaerr[_bpci_] =
 		(unsigned int)ISP_RD32(CAM_REG_BPCI_ERR_STAT(regModule));
+	update_dma_err_str(dmai_err_str, _bpci_, "BPCI:0x%x,");
 
 	dmaerr[_lsci_] =
 		(unsigned int)ISP_RD32(CAM_REG_LSCI_ERR_STAT(regModule));
+	update_dma_err_str(dmai_err_str, _lsci_, "LSCI:0x%x,");
 
 	dmaerr[_bpci_r2_] =
 		(unsigned int)ISP_RD32(CAM_REG_BPCI_R2_ERR_STAT(regModule));
+	update_dma_err_str(dmai_err_str, _bpci_r2_, "BPCI_R2:0x%x,");
 
 	dmaerr[_bpci_r3_] =
 		(unsigned int)ISP_RD32(CAM_REG_BPCI_R3_ERR_STAT(regModule));
+	update_dma_err_str(dmai_err_str, _bpci_r3_, "BPCI_R3:0x%x,");
 
 	dmaerr[_pdi_] =
 		(unsigned int)ISP_RD32(CAM_REG_PDI_ERR_STAT(regModule));
+	update_dma_err_str(dmai_err_str, _pdi_, "PDI:0x%x,");
 
 	dmaerr[_ufdi_r2_] =
 		(unsigned int)ISP_RD32(CAM_REG_UFDI_R2_ERR_STAT(regModule));
+	update_dma_err_str(dmai_err_str, _ufdi_r2_, "UFDI_R2:0x%x,");
 
 	int3_en = ISP_RD32(CAM_REG_CTL_RAW_INT3_EN(regModule));
 	int4_en = ISP_RD32(CAM_REG_CTL_RAW_INT4_EN(regModule));
@@ -1695,40 +1749,22 @@ static void ISP_DumpDmaDeepDbg(enum ISP_IRQ_TYPE_ENUM module)
 	IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_ERR, "camsys:0x%x",
 		       ISP_RD32(ISP_CAMSYS_CONFIG_BASE));
 
+	/* print dmao err. */
 	IRQ_LOG_KEEPER(
 		module, m_CurrentPPB, _LOG_ERR,
-		"%s:IMGO:0x%x,LTMSO:0x%x,RRZO:0x%x,LCSO=0x%x,LCESHO=0x%x,AAO=0x%x,",
-		cam, dmaerr[_imgo_], dmaerr[_ltmso_], dmaerr[_rrzo_],
-		dmaerr[_lcso_], dmaerr[_lcesho_], dmaerr[_aao_]);
-
-	IRQ_LOG_KEEPER(
-		module, m_CurrentPPB, _LOG_ERR,
-		"AAHO=0x%x,FLKO=0x%x,UFEO=0x%x,AFO=0x%x,UFGO=0x%x,RSSO=0x%x\n",
-		dmaerr[_aaho_], dmaerr[_flko_], dmaerr[_ufeo_], dmaerr[_afo_],
-		dmaerr[_ufgo_], dmaerr[_rsso_]);
-
-	IRQ_LOG_KEEPER(
-		module, m_CurrentPPB, _LOG_ERR,
-		"EISO=0x%x,YUVBO=0x%x,TSFSO=0x%x,PDO=0x%x,CRZO=0x%x,CRZBO=0x%x\n",
-		dmaerr[_lmvo_], dmaerr[_yuvbo_], dmaerr[_tsfso_], dmaerr[_pdo_],
-		dmaerr[_crzo_], dmaerr[_crzbo_]);
-
-	IRQ_LOG_KEEPER(
-		module, m_CurrentPPB, _LOG_ERR,
-		"YUVCO=0x%x,CRZO_R2=0x%x,RSSO_R2=0x%x,YUVO=0x%x\n",
-		dmaerr[_yuvco_], dmaerr[_crzo_r2_],	dmaerr[_rsso_r2_],
-		dmaerr[_yuvo_]);
+		"%s:%s\n",
+		cam, dmao_err_str);
 
 	IRQ_LOG_KEEPER(
 		module, m_CurrentPPB, _LOG_ERR,
 		"DMA_DBG_SEL=0x%x,TOP_DBG_PORT=0x%x\n",
 		(unsigned int)ISP_RD32(CAM_REG_DMA_DEBUG_SEL(regModule)), 0);
 
+	/* print dmai err. */
 	IRQ_LOG_KEEPER(
 		module, m_CurrentPPB, _LOG_ERR,
-		"%s:RAWI=0x%x,BPCI:0x%x,LSCI=0x%x,BPCI_R2=0x%x,PDI=0x%x,UFDI_R2=0x%x,\n",
-		cam, dmaerr[_rawi_], dmaerr[_bpci_], dmaerr[_lsci_],
-		dmaerr[_bpci_r2_], dmaerr[_pdi_], dmaerr[_ufdi_r2_]);
+		"%s:%s\n",
+		cam, dmai_err_str);
 
 	if (sec_on) {
 		dma_en = lock_reg.CAM_REG_CTL_DMA_EN[regModule];
