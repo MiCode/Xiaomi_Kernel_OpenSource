@@ -1077,7 +1077,7 @@
 		};
 
 		fhctl: fhctl@1000ce00 {
-			compatible = "mediatek,mt6873-fhctl";
+			compatible = "mediatek,mt6853-fhctl";
 			reg = <0 0x1000ce00 0 0x200>;
 			mediatek,apmixed = <&apmixedsys_clk>;
 
