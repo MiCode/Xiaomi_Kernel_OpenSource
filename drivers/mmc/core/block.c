@@ -38,6 +38,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/idr.h>
 #include <linux/debugfs.h>
+#include <linux/math64.h>
 
 #include <linux/mmc/ioctl.h>
 #include <linux/mmc/card.h>
@@ -1008,7 +1009,7 @@ static int mmc_blk_check_disk_range_wp(struct gendisk *disk,
 
 	start = part_start;
 	quot = start;
-	remain = do_div(quot, card->wp_grp_size);
+	quot = div_u64_rem(quot, card->wp_grp_size, &remain);
 	if (remain) {
 		pr_notice("Start 0x%llx of disk %s not write group aligned\n",
 			(unsigned long long)part_start, disk->disk_name);
@@ -1017,15 +1018,14 @@ static int mmc_blk_check_disk_range_wp(struct gendisk *disk,
 
 	end = part_start + part_nr_sects;
 	quot = end;
-	remain = do_div(quot, card->wp_grp_size);
+	quot = div_u64_rem(quot, card->wp_grp_size, &remain);
 	if (remain) {
 		pr_notice("End 0x%llx of disk %s not write group aligned\n",
 			(unsigned long long)part_start, disk->disk_name);
 		end += card->wp_grp_size - remain;
 	}
 	wp_grp_total = end - start;
-	do_div(wp_grp_total, card->wp_grp_size);
-	wp_grp_rem = wp_grp_total;
+	wp_grp_rem = div_u64(wp_grp_total, card->wp_grp_size);
 	wp_grp_found = 0;
 
 	cmd.opcode = MMC_SEND_WRITE_PROT_TYPE;
