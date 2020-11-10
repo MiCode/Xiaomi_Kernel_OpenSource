@@ -4974,7 +4974,7 @@ int mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 
 			crtc_state = ((struct mtk_cmdq_cb_data *)cb_data)->state;
 			atomic_state = crtc_state->state;
-			mtk_atomic_state_put(atomic_state);
+			drm_atomic_state_put(atomic_state);
 		}
 		cmdq_pkt_destroy(cmdq_handle);
 		kfree(cb_data);
@@ -5278,7 +5278,7 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	cb_data->misc = mtk_crtc->ddp_mode;
 
 	/* This refcnt would be release in ddp_cmdq_cb */
-	mtk_atomic_state_get(old_crtc_state->state);
+	drm_atomic_state_get(old_crtc_state->state);
 	mtk_drm_crtc_lfr_update(crtc, cmdq_handle);
 
 	/* backup ovl0 2l status for crtc0
