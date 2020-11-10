@@ -1111,7 +1111,8 @@ int reviser_dram_remap_init(void *drvinfo)
 	reviser_device = (struct reviser_dev_info *)drvinfo;
 
 	//g_mem_sys.size = REMAP_DRAM_SIZE;
-	g_mem_sys.size = VLM_SIZE * VLM_CTXT_CTX_ID_COUNT;
+	//Reserve memory for IP device + Preemption device
+	g_mem_sys.size = VLM_SIZE * VLM_CTXT_CTX_ID_COUNT * 2;
 	if (reviser_mem_alloc(reviser_device->dev, &g_mem_sys)) {
 		LOG_ERR("alloc fail\n");
 		return -ENOMEM;
