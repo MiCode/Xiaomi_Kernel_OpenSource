@@ -1194,8 +1194,8 @@ static const char *mt6833_bus_id_to_master(uint32_t bus_id, uint32_t vio_addr,
 	}
 
 	if (slave_type == SLAVE_TYPE_INFRA) {
-		if (vio_addr <= 0x1FFFFF || shift_sta_bit == 7) {
-			pr_info(PFX "vio_addr is from SRAMROM\n");
+		if (vio_addr <= 0x1FFFFF || shift_sta_bit == 6) {
+			pr_info(PFX "vio_addr might from SRAMROM\n");
 			if ((bus_id & 0x1) == 0x0)
 				return "EMI_L2C_M";
 
@@ -1204,10 +1204,10 @@ static const char *mt6833_bus_id_to_master(uint32_t bus_id, uint32_t vio_addr,
 		} else if (shift_sta_bit >= 0 && shift_sta_bit <= 3) {
 			return peri_mi_trans(bus_id);
 
-		} else if (shift_sta_bit >= 4 && shift_sta_bit <= 6) {
+		} else if (shift_sta_bit >= 4 && shift_sta_bit <= 5) {
 			return infra_mi_trans(bus_id);
 
-		} else if (shift_sta_bit == 8) {
+		} else if (shift_sta_bit == 7) {
 			pr_info(PFX "vio_addr is from MMSYS_MALI\n");
 			if ((bus_id & 0x1) == 0x1)
 				return "GCE_M";
