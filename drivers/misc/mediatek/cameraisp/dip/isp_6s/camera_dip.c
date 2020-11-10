@@ -7853,6 +7853,18 @@ enum m4u_callback_ret_t ISP_M4U_TranslationFault_callback(int port,
 			DIP_RD32(DIP_A_BASE + 0x700c),
 			DIP_RD32(DIP_A_BASE + 0x7010),
 			DIP_RD32(DIP_A_BASE + 0x7014));
+		pr_info("nr3d int1:0x%08x, int2:0x%08x, int3:0x%08x\n",
+			DIP_RD32(DIP_A_BASE + 0x7218),
+			DIP_RD32(DIP_A_BASE + 0x721c),
+			DIP_RD32(DIP_A_BASE + 0x7220));
+		pr_info("nr3d out_cnt:0x%08x, status:0x%08x\n",
+			DIP_RD32(DIP_A_BASE + 0x7224),
+			DIP_RD32(DIP_A_BASE + 0x7228));
+		pr_info("mix_d2 ctl0:0x%08x, cltl1:0x%08x\n",
+			DIP_RD32(DIP_A_BASE + 0x6b40),
+			DIP_RD32(DIP_A_BASE + 0x6b44));
+
+
 
 		pr_info("TDRI:0x%08x, CQ0_EN(0x%08x)_BA(0x%08x),",
 			DIP_RD32(DIP_A_BASE + 0x004),
