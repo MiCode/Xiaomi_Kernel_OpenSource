@@ -23,14 +23,33 @@
 #include <mt6833_pcm_def.h>
 #include <mtk_dbg_common_v1.h>
 #include <mt-plat/mtk_ccci_common.h>
+#include <mtk_lpm_call.h>
+#include <mtk_lpm_call_type.h>
 #include <mtk_lpm_timer.h>
 #include <mtk_lpm_sysfs.h>
+#include <gs/v1/mtk_power_gs.h>
 
 #define MT6833_LOG_MONITOR_STATE_NAME	"mcusysoff"
 #define MT6833_LOG_DEFAULT_MS		5000
 
 #define PCM_32K_TICKS_PER_SEC		(32768)
 #define PCM_TICK_TO_SEC(TICK)	(TICK / PCM_32K_TICKS_PER_SEC)
+
+#ifdef CONFIG_MTK_LPM_GS_DUMP_SUPPORT
+struct MT6886_LOGGER_NODE mt6833_log_gs_idle;
+struct MTK_LPM_GS_IDLE_INFO {
+	unsigned short limit;
+	unsigned short limit_set;
+	unsigned int dump_type;
+};
+struct MTK_LPM_GS_IDLE_INFO mt6833_log_gs_info;
+struct cpumask mtk_lpm_gs_idle_cpumask;
+
+#define IS_MTK_LPM_GS_UPDATE(x)	\
+	((cpumask_weight(&mtk_lpm_gs_idle_cpumask)\
+	== num_online_cpus()) &&\
+	(x.limit != x.limit_set))
+#endif
 
 static struct mt6833_spm_wake_status mt6833_wake;
 void __iomem *mt6833_spm_base;
@@ -678,6 +697,12 @@ static int mt6833_log_timer_func(unsigned long long dur, void *priv)
 	return 0;
 }
 
+#ifdef CONFIG_MTK_LPM_GS_DUMP_SUPPORT
+struct mtk_lpm_gs_idleinfo {
+	unsigned int type[2];
+};
+#endif
+
 static int mt6833_logger_nb_func(struct notifier_block *nb,
 			unsigned long action, void *data)
 {
@@ -685,9 +710,31 @@ static int mt6833_logger_nb_func(struct notifier_block *nb,
 	struct mt6833_logger_fired_info *info = &mt6833_logger_fired;
 
 	if (nb_data && (action == MTK_LPM_NB_BEFORE_REFLECT)
-	    && (nb_data->index == info->state_index))
+	    && (nb_data->index == info->state_index)) {
 		info->fired++;
+#ifdef CONFIG_MTK_LPM_GS_DUMP_SUPPORT
+		cpumask_clear_cpu(nb_data->cpu, &mtk_lpm_gs_idle_cpumask);
+#endif
+	}
 
+#ifdef CONFIG_MTK_LPM_GS_DUMP_SUPPORT
+	if (nb_data && (action == MTK_LPM_NB_AFTER_PROMPT)
+	    && (nb_data->index == info->state_index)) {
+		cpumask_set_cpu(nb_data->cpu, &mtk_lpm_gs_idle_cpumask);
+
+		if (IS_MTK_LPM_GS_UPDATE(mt6833_log_gs_info)) {
+			struct mtk_lpm_callee_simple *callee = NULL;
+			struct mtk_lpm_data val;
+
+			val.d.v_u32 = mt6833_log_gs_info.dump_type;
+			if (!mtk_lpm_callee_get(MTK_LPM_CALLEE_PWR_GS, &callee))
+				callee->set(MTK_LPM_PWR_GS_TYPE_VCORELP_26M, &val);
+
+			mt6833_log_gs_info.limit =
+				mt6833_log_gs_info.limit_set;
+		}
+	}
+#endif
 	return NOTIFY_OK;
 }
 
@@ -706,7 +753,12 @@ static ssize_t mt6833_logger_debugfs_read(char *ToUserBuf,
 			mtk_lpm_timer_interval(&mt6833_log_timer.tm));
 		p += len;
 	}
-
+#ifdef CONFIG_MTK_LPM_GS_DUMP_SUPPORT
+	else if (priv == ((void *)&mt6833_log_gs_info)) {
+		len = scnprintf(p, sz, "golden_type:u\n",
+				mt6833_log_gs_info.dump_type);
+	}
+#endif
 	return (p - ToUserBuf);
 }
 
@@ -724,6 +776,21 @@ static ssize_t mt6833_logger_debugfs_write(char *FromUserBuf,
 						&mt6833_log_timer.tm, val);
 		}
 	}
+#ifdef CONFIG_MTK_LPM_GS_DUMP_SUPPORT
+	else if (priv == ((void *)&mt6833_log_gs_info)) {
+		char cmd[64];
+		unsigned int param;
+
+		memset(cmd, 0, sizeof(cmd));
+		if (sscanf(FromUserBuf, "%127s %u", cmd, &param) == 2) {
+			if (!strcmp(cmd, "golden_dump")) {
+				if (param)
+					mt6833_log_gs_info.limit_set += 1;
+			} else if (!strcmp(cmd, "golden_type"))
+				mt6833_log_gs_info.dump_type = param;
+		}
+	}
+#endif
 	return sz;
 }
 
@@ -740,6 +807,7 @@ struct MT6886_LOGGER_NODE {
 struct mtk_lp_sysfs_handle mt6833_log_tm_node;
 struct MT6886_LOGGER_NODE mt6833_log_tm_interval;
 
+
 int mt6833_logger_timer_debugfs_init(void)
 {
 	mtk_lpm_sysfs_sub_entry_add("logger", 0644,
@@ -751,6 +819,16 @@ int mt6833_logger_timer_debugfs_init(void)
 				&mt6833_log_tm_interval.op,
 				&mt6833_log_tm_node,
 				&mt6833_log_tm_interval.handle);
+
+#ifdef CONFIG_MTK_LPM_GS_DUMP_SUPPORT
+	MT6833_LOGGER_NODE_INIT(mt6833_log_gs_idle,
+				&mt6833_log_gs_info);
+
+	mtk_lpm_sysfs_sub_entry_node_add("gs", 0644,
+				&mt6833_log_gs_idle.op,
+				&mt6833_log_tm_node,
+				&mt6833_log_gs_idle.handle);
+#endif
 	return 0;
 }
 
