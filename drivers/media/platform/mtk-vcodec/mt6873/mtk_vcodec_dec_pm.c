@@ -265,6 +265,9 @@ void mtk_vcodec_dec_clock_off(struct mtk_vcodec_pm *pm, int hw_id)
 	}
 	mutex_unlock(&pm->dec_racing_info_mutex);
 
+	dev = container_of(pm, struct mtk_vcodec_dev, pm);
+	mtk_vdec_hw_break(dev, hw_id);
+
 	if (hw_id == MTK_VDEC_CORE) {
 		clk_disable_unprepare(pm->clk_MT_CG_VDEC0);
 		clk_disable_unprepare(pm->clk_MT_CG_SOC);
@@ -276,6 +279,68 @@ void mtk_vcodec_dec_clock_off(struct mtk_vcodec_pm *pm, int hw_id)
 		mtk_v4l2_err("invalid hw_id %d", hw_id);
 
 #endif
+}
+
+void mtk_vdec_hw_break(struct mtk_vcodec_dev *dev, int hw_id)
+{
+	u32 cg_status = 0;
+	void __iomem *vdec_misc_addr = dev->dec_reg_base[VDEC_MISC];
+	void __iomem *vdec_vld_addr = dev->dec_reg_base[VDEC_VLD];
+	void __iomem *vdec_lat_misc_addr = dev->dec_reg_base[VDEC_LAT_MISC];
+	void __iomem *vdec_lat_vld_addr = dev->dec_reg_base[VDEC_LAT_VLD];
+	struct mtk_vcodec_ctx *ctx = dev->curr_dec_ctx[hw_id];
+
+	struct timeval tv_start;
+	struct timeval tv_end;
+	u32 usec;
+
+	if (hw_id == MTK_VDEC_CORE) {
+		/* hw break */
+		writel((readl(vdec_misc_addr + 0x0100) | 0x1),
+			vdec_misc_addr + 0x0100);
+
+		do_gettimeofday(&tv_start);
+		cg_status = readl(vdec_misc_addr + 0x0104);
+		while (!((cg_status & 0x1) && (cg_status & 0x10))) {
+			do_gettimeofday(&tv_end);
+			usec = (tv_end.tv_sec - tv_start.tv_sec) * 1000000 +
+				   (tv_end.tv_usec - tv_start.tv_usec);
+			if (usec > 20000) {
+				mtk_v4l2_err("VDEC HW break timeout. codec:0x%08x",
+				  ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc);
+				//smi_debug_bus_hang_detect(0, "VCODEC");
+			}
+			cg_status = readl(vdec_misc_addr + 0x0104);
+		}
+
+		/* sw reset */
+		writel(0x1, vdec_vld_addr + 0x0108);
+		writel(0x0, vdec_vld_addr + 0x0108);
+	} else if (hw_id == MTK_VDEC_LAT) {
+		/* hw break */
+		writel((readl(vdec_lat_misc_addr + 0x0100) | 0x1),
+			vdec_lat_misc_addr + 0x0100);
+
+		do_gettimeofday(&tv_start);
+		cg_status = readl(vdec_lat_misc_addr + 0x0104);
+		while (!((cg_status & 0x1) && (cg_status & 0x10))) {
+			do_gettimeofday(&tv_end);
+			usec = (tv_end.tv_sec - tv_start.tv_sec) * 1000000 +
+				   (tv_end.tv_usec - tv_start.tv_usec);
+			if (usec > 20000) {
+				mtk_v4l2_err("VDEC HW break timeout. codec:0x%08x",
+				  ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc);
+				//smi_debug_bus_hang_detect(0, "VCODEC");
+			}
+			cg_status = readl(vdec_lat_misc_addr + 0x0104);
+		}
+
+		/* sw reset */
+		writel(0x1, vdec_lat_vld_addr + 0x0108);
+		writel(0x0, vdec_lat_vld_addr + 0x0108);
+	} else {
+		mtk_v4l2_err("hw_id (%d) is unknown\n", hw_id);
+	}
 }
 
 void mtk_prepare_vdec_dvfs(void)
