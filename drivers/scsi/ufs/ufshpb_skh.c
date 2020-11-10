@@ -586,10 +586,10 @@ static void skhpb_map_req_compl_fn(struct request *req, blk_status_t error)
 			SKHPB_DRIVER_E("retry rb %d - %d",
 					map_req->region, map_req->subregion);
 
-			spin_lock(&hpb->map_list_lock);
+			spin_lock_irqsave(&hpb->map_list_lock, flags);
 			INIT_LIST_HEAD(&map_req->list_map_req);
 			list_add_tail(&map_req->list_map_req, &hpb->lh_map_req_retry);
-			spin_unlock(&hpb->map_list_lock);
+			spin_unlock_irqrestore(&hpb->map_list_lock, flags);
 
 			schedule_delayed_work(&hpb->skhpb_map_req_retry_work,
 								  msecs_to_jiffies(5000));
@@ -602,10 +602,10 @@ static void skhpb_map_req_compl_fn(struct request *req, blk_status_t error)
 	skhpb_error_active_subregion(hpb, cb->subregion_tbl + map_req->subregion);
 	spin_unlock_irqrestore(&hpb->hpb_lock, flags);
 free_map_req:
-	spin_lock(&hpb->map_list_lock);
+	spin_lock_irqsave(&hpb->map_list_lock, flags);
 	INIT_LIST_HEAD(&map_req->list_map_req);
 	list_add_tail(&map_req->list_map_req, &hpb->lh_map_req_free);
-	spin_unlock(&hpb->map_list_lock);
+	spin_unlock_irqrestore(&hpb->map_list_lock, flags);
 	atomic64_dec(&hpb->alloc_map_req_cnt);
 }
 
@@ -723,6 +723,7 @@ static int skhpb_map_req_issue(
 	struct scsi_request *scsireq;
 	unsigned char cmd[10] = { 0 };
 	int ret;
+	unsigned long flags;
 
 	skhpb_set_read_buf_cmd(cmd, map_req->region, map_req->subregion,
 										map_req->subregion_mem_size);
@@ -740,9 +741,9 @@ static int skhpb_map_req_issue(
 			return rv;
 		}
 
-		spin_lock_bh(&hpb->map_list_lock);
+		spin_lock_irqsave(&hpb->map_list_lock, flags);
 		list_add_tail(&map_req->list_map_req, &hpb->lh_map_req_retry);
-		spin_unlock_bh(&hpb->map_list_lock);
+		spin_unlock_irqrestore(&hpb->map_list_lock, flags);
 
 		schedule_delayed_work(&hpb->skhpb_map_req_retry_work, msecs_to_jiffies(10));
 
@@ -790,18 +791,19 @@ static int skhpb_set_map_req(struct skhpb_lu *hpb,
 {
 	bool last = hpb->region_tbl[region].subregion_tbl[subregion].last;
 	struct skhpb_map_req *map_req;
+	unsigned long flags;
 
-	spin_lock_bh(&hpb->map_list_lock);
+	spin_lock_irqsave(&hpb->map_list_lock, flags);
 	map_req = list_first_entry_or_null(&hpb->lh_map_req_free,
 					    struct skhpb_map_req,
 					    list_map_req);
 	if (!map_req) {
 		SKHPB_DRIVER_E("There is no map_req\n");
-		spin_unlock_bh(&hpb->map_list_lock);
+		spin_unlock_irqrestore(&hpb->map_list_lock, flags);
 		return -ENOMEM;
 	}
 	list_del(&map_req->list_map_req);
-	spin_unlock_bh(&hpb->map_list_lock);
+	spin_unlock_irqrestore(&hpb->map_list_lock, flags);
 	atomic64_inc(&hpb->alloc_map_req_cnt);
 
 	memset(map_req, 0x00, sizeof(struct skhpb_map_req));
@@ -1482,15 +1484,16 @@ static void skhpb_map_req_retry_work_handler(struct work_struct *work)
 	struct delayed_work *dwork = to_delayed_work(work);
 	struct skhpb_map_req *map_req;
 	int ret = 0;
+	unsigned long flags;
 
 	LIST_HEAD(retry_list);
 
 	hpb = container_of(dwork, struct skhpb_lu, skhpb_map_req_retry_work);
 	SKHPB_DRIVER_D("retry worker start");
 
-	spin_lock_bh(&hpb->map_list_lock);
+	spin_lock_irqsave(&hpb->map_list_lock, flags);
 	list_splice_init(&hpb->lh_map_req_retry, &retry_list);
-	spin_unlock_bh(&hpb->map_list_lock);
+	spin_unlock_irqrestore(&hpb->map_list_lock, flags);
 
 	while (1) {
 		map_req = list_first_entry_or_null(&retry_list,
@@ -2491,17 +2494,17 @@ void skhpb_suspend(struct ufs_hba *hba)
 				spin_unlock_irqrestore(&hpb->rsp_list_lock, flags);
 			}
 			while (1) {
-				spin_lock_bh(&hpb->map_list_lock);
+				spin_lock_irqsave(&hpb->map_list_lock, flags);
 				map_req = list_first_entry_or_null(&hpb->lh_map_req_retry,
 												   struct skhpb_map_req, list_map_req);
 				if (!map_req) {
-					spin_unlock_bh(&hpb->map_list_lock);
+					spin_unlock_irqrestore(&hpb->map_list_lock, flags);
 					break;
 				}
 				list_del_init(&map_req->list_map_req);
 				list_add_tail(&map_req->list_map_req, &hpb->lh_map_req_free);
 				atomic64_inc(&hpb->canceled_map_req);
-				spin_unlock_bh(&hpb->map_list_lock);
+				spin_unlock_irqrestore(&hpb->map_list_lock, flags);
 			}
 		}
 	}
@@ -2516,15 +2519,16 @@ void skhpb_suspend(struct ufs_hba *hba)
 void skhpb_resume(struct ufs_hba *hba) {
 	int lun;
 	struct skhpb_lu *hpb;
+	unsigned long flags;
 
 	for (lun = 0 ; lun < UFS_UPIU_MAX_GENERAL_LUN ; lun++) {
 		hpb = hba->skhpb_lup[lun];
 		if (!hpb)
 			continue;
-		spin_lock_bh(&hpb->map_list_lock);
+		spin_lock_irqsave(&hpb->map_list_lock, flags);
 		if (!list_empty(&hpb->lh_map_req_retry))
 			schedule_delayed_work(&hpb->skhpb_map_req_retry_work, msecs_to_jiffies(1000));
-		spin_unlock_bh(&hpb->map_list_lock);
+		spin_unlock_irqrestore(&hpb->map_list_lock, flags);
 	}
 }
 
