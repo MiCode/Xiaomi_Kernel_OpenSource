@@ -20,6 +20,7 @@
 #include <linux/ipc_logging.h>
 #include <soc/qcom/subsystem_notif.h>
 #include <soc/qcom/subsystem_restart.h>
+#include <linux/remoteproc/qcom_rproc.h>
 #include <soc/qcom/service-notifier.h>
 #include <soc/qcom/service-locator.h>
 #include <linux/scatterlist.h>
@@ -37,6 +38,7 @@
 #include "adsprpc_compat.h"
 #include "adsprpc_shared.h"
 #include <soc/qcom/ramdump.h>
+#include <soc/qcom/qcom_ramdump.h>
 #include <linux/delay.h>
 #include <linux/debugfs.h>
 #include <linux/pm_qos.h>
@@ -3615,8 +3617,10 @@ static int fastrpc_mmap_remove_ssr(struct fastrpc_file *fl)
 	struct hlist_node *n = NULL;
 	int err = 0, ret = 0;
 	struct fastrpc_apps *me = &gfa;
-	struct ramdump_segment *ramdump_segments_rh = NULL;
+	struct qcom_dump_segment *ramdump_segments_rh = NULL;
+	struct list_head head;
 
+	INIT_LIST_HEAD(&head);
 	VERIFY(err, fl->cid == RH_CID);
 	if (err)
 		goto bail;
@@ -3637,14 +3641,13 @@ static int fastrpc_mmap_remove_ssr(struct fastrpc_file *fl)
 				goto bail;
 			if (me->channel[RH_CID].ramdumpenabled) {
 				ramdump_segments_rh = kcalloc(1,
-				sizeof(struct ramdump_segment), GFP_KERNEL);
+				sizeof(struct qcom_dump_segment), GFP_KERNEL);
 				if (ramdump_segments_rh) {
-					ramdump_segments_rh->address =
+					ramdump_segments_rh->da =
 					match->phys;
 					ramdump_segments_rh->size = match->size;
-					ret = do_elf_ramdump(
-					 me->channel[RH_CID].rh_dump_dev,
-					 ramdump_segments_rh, 1);
+					list_add(&ramdump_segments_rh->node, &head);
+					ret = qcom_elf_dump(&head, me->channel[RH_CID].rh_dump_dev);
 					if (ret < 0)
 						pr_err("adsprpc: %s: unable to dump heap (err %d)\n",
 							__func__, ret);
@@ -5154,12 +5157,11 @@ static int fastrpc_restart_notifier_cb(struct notifier_block *nb,
 {
 	struct fastrpc_apps *me = &gfa;
 	struct fastrpc_channel_ctx *ctx;
-	struct notif_data *notifdata = (struct notif_data *)data;
 	int cid = -1;
 
 	ctx = container_of(nb, struct fastrpc_channel_ctx, nb);
 	cid = ctx - &me->channel[0];
-	if (code == SUBSYS_BEFORE_SHUTDOWN) {
+	if (code == QCOM_SSR_BEFORE_SHUTDOWN) {
 		pr_info("adsprpc: %s: %s subsystem is restarting\n",
 			__func__, gcinfo[cid].subsys);
 		mutex_lock(&me->channel[cid].smd_mutex);
@@ -5168,16 +5170,16 @@ static int fastrpc_restart_notifier_cb(struct notifier_block *nb,
 		mutex_unlock(&me->channel[cid].smd_mutex);
 		if (cid == RH_CID)
 			me->staticpd_flags = 0;
-	} else if (code == SUBSYS_RAMDUMP_NOTIFICATION) {
+	} else if (code == QCOM_SSR_AFTER_SHUTDOWN) {
 		if (cid == RH_CID) {
 			if (me->channel[RH_CID].rh_dump_dev &&
-					notifdata->enable_ramdump) {
+					dump_enabled()) {
 				me->channel[RH_CID].ramdumpenabled = 1;
 			}
 		}
 		pr_info("adsprpc: %s: received RAMDUMP notification for %s\n",
 			__func__, gcinfo[cid].subsys);
-	} else if (code == SUBSYS_AFTER_POWERUP) {
+	} else if (code == QCOM_SSR_AFTER_POWERUP) {
 		pr_info("adsprpc: %s: %s subsystem is up\n",
 			__func__, gcinfo[cid].subsys);
 		ctx->issubsystemup = 1;
@@ -5191,7 +5193,6 @@ static int fastrpc_pdr_notifier_cb(struct notifier_block *pdrnb,
 {
 	struct fastrpc_apps *me = &gfa;
 	struct fastrpc_static_pd *spd;
-	struct notif_data *notifdata = (struct notif_data *)data;
 
 	spd = container_of(pdrnb, struct fastrpc_static_pd, pdrnb);
 	if (code == SERVREG_NOTIF_SERVICE_STATE_DOWN_V01) {
@@ -5206,16 +5207,6 @@ static int fastrpc_pdr_notifier_cb(struct notifier_block *pdrnb,
 				AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME))
 			me->staticpd_flags = 0;
 		fastrpc_notify_pdr_drivers(me, spd->servloc_name);
-	} else if (code == SUBSYS_RAMDUMP_NOTIFICATION) {
-		if (spd->cid == RH_CID) {
-			if (me->channel[RH_CID].rh_dump_dev &&
-					notifdata->enable_ramdump) {
-				me->channel[RH_CID].ramdumpenabled = 1;
-			}
-		}
-		pr_info("adsprpc: %s: received %s RAMDUMP notification for %s (%s)\n",
-			__func__, gcinfo[spd->cid].subsys,
-			spd->spdname, spd->servloc_name);
 	} else if (code == SERVREG_NOTIF_SERVICE_STATE_UP_V01) {
 		pr_info("adsprpc: %s: %s (%s) is up on %s\n",
 			__func__, spd->spdname, spd->servloc_name,
@@ -5687,7 +5678,7 @@ static int __init fastrpc_device_init(void)
 		me->channel[i].ramdumpenabled = 0;
 		me->channel[i].rh_dump_dev = NULL;
 		me->channel[i].nb.notifier_call = fastrpc_restart_notifier_cb;
-		me->channel[i].handle = subsys_notif_register_notifier(
+		me->channel[i].handle = qcom_register_ssr_notifier(
 							gcinfo[i].subsys,
 							&me->channel[i].nb);
 		if (IS_ERR_OR_NULL(me->channel[i].handle))
@@ -5718,7 +5709,7 @@ static int __init fastrpc_device_init(void)
 device_create_bail:
 	for (i = 0; i < NUM_CHANNELS; i++) {
 		if (me->channel[i].handle)
-			subsys_notif_unregister_notifier(me->channel[i].handle,
+			qcom_unregister_ssr_notifier(me->channel[i].handle,
 							&me->channel[i].nb);
 	}
 	if (!IS_ERR_OR_NULL(me->non_secure_dev))
@@ -5750,7 +5741,7 @@ static void __exit fastrpc_device_exit(void)
 	for (i = 0; i < NUM_CHANNELS; i++) {
 		if (!gcinfo[i].name)
 			continue;
-		subsys_notif_unregister_notifier(me->channel[i].handle,
+		qcom_unregister_ssr_notifier(me->channel[i].handle,
 						&me->channel[i].nb);
 	}
 
