@@ -319,6 +319,8 @@ struct ipa_fmwk_contex {
 	int (*ipa_mhi_handle_ipa_config_req)(
 		struct ipa_config_req_msg_v01 *config_req);
 
+	int (*ipa_mhi_update_mstate)(enum ipa_mhi_mstate mstate_info);
+
 	/* ipa_wigig APIs */
 	int (*ipa_wigig_init)(struct ipa_wigig_init_in_params *in,
 		struct ipa_wigig_init_out_params *out);
@@ -1451,7 +1453,8 @@ int ipa_fmwk_register_ipa_mhi(const struct ipa_mhi_data *in)
 		|| ipa_fmwk_ctx->ipa_mhi_suspend
 		|| ipa_fmwk_ctx->ipa_mhi_resume
 		|| ipa_fmwk_ctx->ipa_mhi_destroy
-		|| ipa_fmwk_ctx->ipa_mhi_handle_ipa_config_req) {
+		|| ipa_fmwk_ctx->ipa_mhi_handle_ipa_config_req
+		|| ipa_fmwk_ctx->ipa_mhi_update_mstate) {
 		pr_err("ipa_mhi APIs were already initialized\n");
 		return -EPERM;
 	}
@@ -1465,6 +1468,7 @@ int ipa_fmwk_register_ipa_mhi(const struct ipa_mhi_data *in)
 	ipa_fmwk_ctx->ipa_mhi_destroy = in->ipa_mhi_destroy;
 	ipa_fmwk_ctx->ipa_mhi_handle_ipa_config_req =
 		in->ipa_mhi_handle_ipa_config_req;
+	ipa_fmwk_ctx->ipa_mhi_update_mstate = in->ipa_mhi_update_mstate;
 
 	pr_info("ipa_mhi registered successfully\n");
 
@@ -1554,6 +1558,16 @@ int ipa_mhi_handle_ipa_config_req(struct ipa_config_req_msg_v01 *config_req)
 	return ret;
 }
 EXPORT_SYMBOL(ipa_mhi_handle_ipa_config_req);
+
+int ipa_mhi_update_mstate(enum ipa_mhi_mstate mstate_info)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN(ipa_mhi_update_mstate, mstate_info);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_mhi_update_mstate);
 
 /* registration API for IPA wigig module */
 int ipa_fmwk_register_ipa_wigig(const struct ipa_wigig_data *in)
