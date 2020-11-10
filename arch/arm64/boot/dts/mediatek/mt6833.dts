@@ -680,6 +680,8 @@ page_owner=on loop.max_part=7";
 			"mp_cpusys_top",
 			"cpccfg_reg",
 			"mcusys_cfg_reg";
+		mcu_disable=<0x0>;
+		infra_disable=<0x0>;
 	};
 
 	infracfg_ao: infracfg_ao@10001000 {
