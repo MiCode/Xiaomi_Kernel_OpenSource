@@ -100,6 +100,8 @@ struct helio_dvfsrc {
 };
 
 extern int is_dvfsrc_enabled(void);
+extern int is_dvfsrc_qos_enabled(void);
+extern void helio_dvfsrc_qos_init_done(void);
 extern void helio_dvfsrc_enable(int dvfsrc_en);
 extern void helio_dvfsrc_flag_set(int flag);
 extern int helio_dvfsrc_flag_get(void);
