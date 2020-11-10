@@ -180,18 +180,7 @@ int mt6833_suspend_s2idle_prompt(int cpu,
 
 	cpumask_set_cpu(cpu, &s2idle_cpumask);
 	if (cpumask_weight(&s2idle_cpumask) == num_online_cpus()) {
-		ret = __mt6833_suspend_prompt(MTK_LPM_SUSPEND_S2IDLE,
-					      cpu, issuer);
-	}
-	return ret;
-}
 
-int mt6833_suspend_s2idle_prepare_enter(int prompt, int cpu,
-					const struct mtk_lpm_issuer *issuer)
-{
-	int ret = 0;
-
-	if (cpumask_weight(&s2idle_cpumask) == num_online_cpus()) {
 #ifdef CONFIG_PM_SLEEP
 		/* Notice
 		 * Fix the rcu_idle workaround later.
@@ -208,7 +197,21 @@ int mt6833_suspend_s2idle_prepare_enter(int prompt, int cpu,
 #endif
 		if (ret < 0)
 			mt6833_model_suspend.flag |= MTK_LP_PREPARE_FAIL;
+
+		ret = __mt6833_suspend_prompt(MTK_LPM_SUSPEND_S2IDLE,
+					      cpu, issuer);
 	}
+	return ret;
+}
+
+int mt6833_suspend_s2idle_prepare_enter(int prompt, int cpu,
+					const struct mtk_lpm_issuer *issuer)
+{
+	int ret = 0;
+
+	if (mt6833_model_suspend.flag & MTK_LP_PREPARE_FAIL)
+		ret = -1;
+
 	return ret;
 }
 void mt6833_suspend_s2idle_reflect(int cpu,
