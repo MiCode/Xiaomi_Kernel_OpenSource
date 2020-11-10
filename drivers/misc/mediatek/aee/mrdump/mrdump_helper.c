@@ -655,16 +655,6 @@ struct task_struct *aee_cpu_curr(int cpu)
 	return NULL;
 }
 
-unsigned long aee_get_swapper_pg_dir(void)
-{
-	struct mm_struct *pim = aee_init_mm();
-
-	if (!pim)
-		return 0;
-
-	return (unsigned long)pim->pgd;
-}
-
 unsigned long aee_get_kallsyms_addresses(void)
 {
 	return (unsigned long)mrdump_ka;
@@ -974,11 +964,6 @@ unsigned long aee_cpu_rq(int cpu)
 struct task_struct *aee_cpu_curr(int cpu)
 {
 	return (struct task_struct *)cpu_curr(cpu);
-}
-
-unsigned long aee_get_swapper_pg_dir(void)
-{
-	return (unsigned long)(&swapper_pg_dir);
 }
 
 extern const unsigned long kallsyms_addresses[] __weak;

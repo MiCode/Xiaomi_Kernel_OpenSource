@@ -11,6 +11,14 @@
 #include <mt-plat/mrdump.h>
 #include "mrdump_private.h"
 
+uint64_t mrdump_get_mpt(void)
+{
+	u32 ttbr0;
+	asm volatile ("mrc p15, 0, %0, c2, c0, 1\n\t"
+		      :"=r"(ttbr0) : : "memory");
+	return ttbr0;
+}
+
 void mrdump_save_control_register(void *creg)
 {
 	struct arm32_ctrl_regs *cregs = (struct arm32_ctrl_regs *)creg;

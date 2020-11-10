@@ -50,6 +50,7 @@ void mrdump_cblock_init(phys_addr_t cb_addr, phys_addr_t cb_size);
 int mrdump_full_init(void);
 int mrdump_mini_init(const struct mrdump_params *mparams);
 
+uint64_t mrdump_get_mpt(void);
 void mrdump_save_control_register(void *creg);
 
 extern void mrdump_mini_add_entry(unsigned long addr, unsigned long size);
