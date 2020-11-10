@@ -86,12 +86,6 @@ void mtk_disp_mutex_acquire(struct mtk_disp_mutex *mutex);
 void mtk_disp_mutex_release(struct mtk_disp_mutex *mutex);
 void mtk_disp_mutex_trigger(struct mtk_disp_mutex *mutex, void *handle);
 
-void mutex_dump_reg(struct mtk_disp_mutex *mutex);
-void mutex_dump_analysis(struct mtk_disp_mutex *mutex);
-
-void mmsys_config_dump_reg(void __iomem *config_regs);
-void mmsys_config_dump_analysis(void __iomem *config_regs);
-
 void mtk_disp_mutex_enable_cmdq(struct mtk_disp_mutex *mutex,
 				struct cmdq_pkt *cmdq_handle,
 				struct cmdq_base *cmdq_base);
