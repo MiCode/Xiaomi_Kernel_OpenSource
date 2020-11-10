@@ -68,3 +68,4 @@ i2c-msm-geni.ko
 spi-msm-geni.ko
 smp2p_sleepstate.ko
 qcom-pdc.ko
+bam_dma.ko
