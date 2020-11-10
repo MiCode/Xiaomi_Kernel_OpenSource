@@ -6741,8 +6741,8 @@ static int msm_pcie_drv_send_rpmsg(struct msm_pcie_dev_t *pcie_dev,
 
 	mutex_lock(&pcie_drv.rpmsg_lock);
 	if (!pcie_drv.rpdev) {
-		mutex_unlock(&pcie_drv.rpmsg_lock);
-		return -EIO;
+		ret = -EIO;
+		goto out;
 	}
 
 	reinit_completion(&drv_info->completion);
@@ -6760,10 +6760,8 @@ static int msm_pcie_drv_send_rpmsg(struct msm_pcie_dev_t *pcie_dev,
 	if (ret) {
 		PCIE_ERR(pcie_dev, "PCIe: RC%d: DRV: failed to send rpmsg\n",
 			pcie_dev->rc_idx);
-		mutex_unlock(&pcie_drv.rpmsg_lock);
-		return ret;
+		goto out;
 	}
-	mutex_unlock(&pcie_drv.rpmsg_lock);
 
 	ret = wait_for_completion_timeout(&drv_info->completion,
 					msecs_to_jiffies(drv_info->timeout_ms));
@@ -6771,13 +6769,19 @@ static int msm_pcie_drv_send_rpmsg(struct msm_pcie_dev_t *pcie_dev,
 		PCIE_ERR(pcie_dev,
 			"PCIe: RC%d: DRV: completion timeout for rpmsg\n",
 			pcie_dev->rc_idx);
-		return -ETIMEDOUT;
+		ret = -ETIMEDOUT;
+		goto out;
 	}
+
+	ret = 0;
 
 	PCIE_DBG(pcie_dev, "PCIe: RC%d: DRV: rpmsg successfully sent\n",
 		pcie_dev->rc_idx);
 
-	return 0;
+out:
+	mutex_unlock(&pcie_drv.rpmsg_lock);
+
+	return ret;
 }
 
 static int msm_pcie_drv_resume(struct msm_pcie_dev_t *pcie_dev)
