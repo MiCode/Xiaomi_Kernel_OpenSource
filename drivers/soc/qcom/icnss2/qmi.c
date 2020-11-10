@@ -1048,6 +1048,9 @@ int wlfw_send_modem_shutdown_msg(struct icnss_priv *priv)
 	if (!priv)
 		return -ENODEV;
 
+	if (test_bit(ICNSS_FW_DOWN, &priv->state))
+		return -EINVAL;
+
 	icnss_pr_dbg("Sending modem shutdown request, state: 0x%lx\n",
 		     priv->state);
 
