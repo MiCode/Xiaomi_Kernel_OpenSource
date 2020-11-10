@@ -740,9 +740,9 @@ static long ion_sys_ioctl(struct ion_client *client, unsigned int cmd,
 				break;
 			}
 
-			if (ion_phys(client, kernel_handle, &phy_addr,
-				     (size_t *)&param.get_phys_param.len) <
-			    0) {
+			if (ion_phys_nolock_client(client, kernel_handle,
+						   &phy_addr,
+				(size_t *)&param.get_phys_param.len) < 0) {
 				param.get_phys_param.phy_addr = 0;
 				param.get_phys_param.len = 0;
 				IONMSG(" %s: Error. Cannot get PA.\n",

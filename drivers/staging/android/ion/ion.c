@@ -2532,8 +2532,8 @@ void ion_device_destroy(struct ion_device *dev)
 }
 EXPORT_SYMBOL(ion_device_destroy);
 
-int ion_phys(struct ion_client *client, struct ion_handle *handle,
-	     ion_phys_addr_t *addr, size_t *len)
+int __ion_phys(struct ion_client *client, struct ion_handle *handle,
+	       ion_phys_addr_t *addr, size_t *len, bool lock_client)
 {
 	struct ion_buffer *buffer;
 	int ret;
@@ -2541,9 +2541,11 @@ int ion_phys(struct ion_client *client, struct ion_handle *handle,
 	/*avoid camelcase, will modify in a letter*/
 	mmprofile_log_ex(ion_mmp_events[PROFILE_GET_PHYS], MMPROFILE_FLAG_START,
 			 (unsigned long)client, (unsigned long)handle);
-	mutex_lock(&client->lock);
+	if (lock_client)
+		mutex_lock(&client->lock);
 	if (!ion_handle_validate(client, handle)) {
-		mutex_unlock(&client->lock);
+		if (lock_client)
+			mutex_unlock(&client->lock);
 		IONMSG("ion: %s invalid handle pass to phys.\n", __func__);
 		return -EINVAL;
 	}
@@ -2554,10 +2556,12 @@ int ion_phys(struct ion_client *client, struct ion_handle *handle,
 		IONMSG(
 			"%s is not impl by heap (name=%s, type=%d).\n",
 		       __func__, buffer->heap->name, buffer->heap->type);
-		mutex_unlock(&client->lock);
+		if (lock_client)
+			mutex_unlock(&client->lock);
 		return -ENODEV;
 	}
-	mutex_unlock(&client->lock);
+	if (lock_client)
+		mutex_unlock(&client->lock);
 	mutex_lock(&buffer->lock);
 	ret = buffer->heap->ops->phys(buffer->heap, buffer, addr, len);
 	mutex_unlock(&buffer->lock);
@@ -2572,7 +2576,20 @@ int ion_phys(struct ion_client *client, struct ion_handle *handle,
 			 buffer->size, (unsigned long)*addr);
 	return ret;
 }
+
+int ion_phys(struct ion_client *client, struct ion_handle *handle,
+	     ion_phys_addr_t *addr, size_t *len)
+{
+	return __ion_phys(client, handle, addr, len, true);
+}
+
 EXPORT_SYMBOL(ion_phys);
+
+int ion_phys_nolock_client(struct ion_client *client, struct ion_handle *handle,
+			   ion_phys_addr_t *addr, size_t *len)
+{
+	return __ion_phys(client, handle, addr, len, false);
+}
 
 /* ===================================== */
 /* helper functions */

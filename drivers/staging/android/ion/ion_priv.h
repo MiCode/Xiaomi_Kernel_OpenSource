@@ -539,4 +539,8 @@ extern atomic64_t page_sz_cnt;
 
 int ion_share_dma_buf_fd_nolock(struct ion_client *client,
 				struct ion_handle *handle);
+
+int ion_phys_nolock_client(struct ion_client *client, struct ion_handle *handle,
+			   ion_phys_addr_t *addr, size_t *len);
+
 #endif /* _ION_PRIV_H */
