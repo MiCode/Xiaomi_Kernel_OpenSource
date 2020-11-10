@@ -315,7 +315,14 @@ void mtk_vdec_dvfs_begin(struct mtk_vcodec_ctx *ctx)
 	mutex_lock(&ctx->dev->dec_dvfs_mutex);
 	vdec_cur_job = move_job_to_head(&ctx->id, &vdec_jobs);
 
-	if (ctx->dec_params.operating_rate > 0) {
+	if (ctx->dec_params.operating_rate > 0 &&
+		(ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc ==
+		V4L2_PIX_FMT_H264 ||
+		ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc ==
+		V4L2_PIX_FMT_H265 ||
+		ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc ==
+		V4L2_PIX_FMT_VP9)) {
+
 		op_rate_to_freq = 312LL *
 				ctx->q_data[MTK_Q_DATA_DST].coded_width *
 				ctx->q_data[MTK_Q_DATA_DST].coded_height *
@@ -334,6 +341,13 @@ void mtk_vdec_dvfs_begin(struct mtk_vcodec_ctx *ctx)
 		vdec_cur_job->start = get_time_us();
 		target_freq = est_freq(vdec_cur_job->handle, &vdec_jobs,
 					vdec_hists);
+		if (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc ==
+			V4L2_PIX_FMT_MPEG4 ||
+			ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc ==
+			V4L2_PIX_FMT_MPEG2 ||
+			ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc ==
+			V4L2_PIX_FMT_VP8)
+			target_freq = (target_freq * 110) / 100;
 		target_freq_64 = match_freq(target_freq, &vdec_freq_steps[0],
 					vdec_freq_step_size);
 		if (target_freq > 0) {
