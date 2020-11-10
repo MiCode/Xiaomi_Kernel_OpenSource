@@ -2878,10 +2878,10 @@ struct eemsn_det *det;
 		eem_error("@%s: AGING flavor name: %s\n",
 			__func__, CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES);
 		ctrl_agingload_enable = 1;
-		eemsn_log->ctrl_aging_Enable = ctrl_agingload_enable;
 	}
 #endif
 
+	eemsn_log->ctrl_aging_Enable = ctrl_agingload_enable;
 	eem_to_cpueb(IPI_EEMSN_SHARERAM_INIT, &eem_data);
 #else
 	return 0;
