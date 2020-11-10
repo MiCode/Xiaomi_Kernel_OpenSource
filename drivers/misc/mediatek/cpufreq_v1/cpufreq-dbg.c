@@ -44,6 +44,11 @@
 #define MCUCFG_BASE	0x0c53a2a0
 #define MCUCFG_SIZE	0x10
 
+#define	LL_OFF	4
+#define	L_OFF	40
+#define	CCI_OFF	76
+#define get_volt(offs, repo) ((repo[offs] >> 12) & 0x1FFFF)
+#define get_freq(offs, repo) ((repo[offs] & 0xFFF) * 1000)
 
 
 static DEFINE_MUTEX(cpufreq_mutex);
@@ -55,6 +60,9 @@ u32 *g_dbg_repo;
 u32 *g_usram_repo;
 u32 *g_cpufreq_debug;
 u32 *g_phyclk;
+u32 *g_CCI_opp_idx;
+u32 *g_LL_opp_idx;
+u32 *g_L_opp_idx;
 unsigned int seq;
 
 struct pll_addr pll_addr[CLUSTER_NRS];
@@ -268,6 +276,45 @@ static int usram_repo_proc_show(struct seq_file *m, void *v)
 
 PROC_FOPS_RO(usram_repo);
 
+static int opp_idx_show(struct seq_file *m, void *v, u32 pos)
+{
+	u32 *repo = m->private;
+	u32 opp = 0;
+	u32 temp = 0xFF;
+
+	while (repo[pos] != 0xDEADBA5E && repo[pos] != temp) {
+		temp = repo[pos];
+		seq_printf(m, "\t%-2d (%u, %u)\n", opp,
+			get_freq(pos, repo), get_volt(pos, repo));
+		pos++;
+		opp++;
+	}
+
+	return 0;
+
+}
+
+static int CCI_opp_idx_proc_show(struct seq_file *m, void *v)
+{
+	return opp_idx_show(m, v, CCI_OFF);
+}
+
+PROC_FOPS_RO(CCI_opp_idx);
+
+static int LL_opp_idx_proc_show(struct seq_file *m, void *v)
+{
+	return opp_idx_show(m, v, LL_OFF);
+}
+
+PROC_FOPS_RO(LL_opp_idx);
+
+static int L_opp_idx_proc_show(struct seq_file *m, void *v)
+{
+	return opp_idx_show(m, v, L_OFF);
+}
+
+PROC_FOPS_RO(L_opp_idx);
+
 static int phyclk_proc_show(struct seq_file *m, void *v)
 {
 	int i;
@@ -284,6 +331,7 @@ PROC_FOPS_RO(phyclk);
 static int create_cpufreq_debug_fs(void)
 {
 	struct proc_dir_entry *dir = NULL;
+	int i;
 
 	struct pentry {
 		const char *name;
@@ -296,6 +344,9 @@ static int create_cpufreq_debug_fs(void)
 		PROC_ENTRY_DATA(usram_repo),
 		PROC_ENTRY_DATA(cpufreq_debug),
 		PROC_ENTRY_DATA(phyclk),
+		PROC_ENTRY_DATA(CCI_opp_idx),
+		PROC_ENTRY_DATA(L_opp_idx),
+		PROC_ENTRY_DATA(LL_opp_idx),
 	};
 
 
@@ -307,22 +358,13 @@ static int create_cpufreq_debug_fs(void)
 		return -ENOMEM;
 	}
 
-	if (!proc_create_data("dbg_repo", 0664,
-	    dir, &dbg_repo_proc_fops, csram_base))
-		pr_info("%s(), create /proc/cpuhvfs/%s failed\n",
+	for (i = 0; i < ARRAY_SIZE(entries); i++) {
+		if (!proc_create_data
+			(entries[i].name, 0664,
+			dir, entries[i].fops, csram_base))
+			pr_info("%s(), create /proc/cpuhvfs/%s failed\n",
 						__func__, entries[0].name);
-	if (!proc_create_data("usram_repo", 0664,
-	    dir, &usram_repo_proc_fops, csram_base))
-		pr_info("%s(), create /proc/cpuhvfs/%s failed\n",
-						__func__, entries[1].name);
-	if (!proc_create_data("cpufreq_debug", 0664,
-	    dir, &cpufreq_debug_proc_fops, NULL))
-		pr_info("%s(), create /proc/cpuhvfs/%s failed\n",
-						__func__, entries[2].name);
-	if (!proc_create_data("phyclk", 0664,
-	    dir, &phyclk_proc_fops, NULL))
-		pr_info("%s(), create /proc/cpuhvfs/%s failed\n",
-						__func__, entries[3].name);
+	}
 
 	return 0;
 }
