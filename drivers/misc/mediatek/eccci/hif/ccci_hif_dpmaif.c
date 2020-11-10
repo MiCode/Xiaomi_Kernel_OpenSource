@@ -2692,6 +2692,49 @@ static void tx_force_md_assert(char buf[])
 	}
 }
 
+//#ifdef DPMAIF_DEBUG_LOG
+static struct sk_buff *skb_backup[DPMAIF_TXQ_NUM];
+static char *buff;
+static void *skb_data[DPMAIF_TXQ_NUM];
+#define MAX_STACK_TRACE_DEPTH   64
+#define MAX_DUM_BUFF_LEN  1024
+
+static void dump_backtrace(int md_id)
+{
+
+	unsigned long stack_entries[MAX_STACK_TRACE_DEPTH];
+	struct stack_trace trace;
+	int i, offset, ret;
+
+	if (!buff) {
+		buff = kzalloc(MAX_DUM_BUFF_LEN, GFP_ATOMIC);
+		if (buff == NULL) {
+			CCCI_ERROR_LOG(-1, FSM, "Fail alloc Mem for buff!\n");
+			return;
+		}
+	} else
+		buff[0] = '\0';
+
+	/* Grab kernel task stack trace */
+	trace.nr_entries = 0;
+	trace.max_entries = MAX_STACK_TRACE_DEPTH;
+	trace.entries = stack_entries;
+	trace.skip = 0;
+	save_stack_trace_tsk(current, &trace);
+
+	for (i = 0; i < trace.nr_entries; i++) {
+		offset = strlen(buff);
+		ret = snprintf(buff + offset, MAX_DUM_BUFF_LEN - offset,
+			"[<%p>]%pS\n",
+			(void *)trace.entries[i], (void *)trace.entries[i]);
+		if (ret < 0 || ret >= MAX_DUM_BUFF_LEN - offset)
+			break;
+	}
+	buff[MAX_DUM_BUFF_LEN - 1] = '\0';
+	CCCI_MEM_LOG_TAG(md_id, TAG, "dpmaif:dump backtrace\n");
+	CCCI_MEM_LOG(md_id, TAG, "%s\n", buff);
+}
+//#endif
 
 static int dpmaif_tx_send_skb(unsigned char hif_id, int qno,
 	struct sk_buff *skb, int skb_from_pool, int blocking)
@@ -2867,6 +2910,30 @@ retry:
 
 	}
 	spin_lock_irqsave(&txq->tx_lock, flags);
+//#ifdef DPMAIF_DEBUG_LOG
+	if (skb_backup[txq->index] && skb_data[txq->index]) {
+		if (skb_backup[txq->index] == skb &&
+			skb_data[txq->index] == skb->data) {
+			dump_backtrace(dpmaif_ctrl->md_id);//dump_stack();
+			CCCI_MEM_LOG_TAG(-1, TAG,
+				"Current txq%d pos: w/r/rel=%x, %x, %x\n",
+				txq->index, txq->drb_wr_idx, txq->drb_rd_idx,
+				txq->drb_rel_rd_idx);
+			/*
+			 * CCCI_MEM_LOG_TAG(-1, TAG,
+			 *	"dpmaif: drb(%d) skb base: 0x%p(%d*%d)\n",
+			 *	 txq->index, txq->drb_skb_base,
+			 *	 (int)sizeof(struct dpmaif_drb_skb),
+			 *	 txq->drb_size_cnt);
+			 * ccci_util_mem_dump(-1, CCCI_DUMP_MEM_DUMP,
+			 *	txq->drb_skb_base,
+			 *(txq->drb_size_cnt * sizeof(struct dpmaif_drb_skb)));
+			 */
+		}
+	}
+	skb_backup[txq->index] = skb;
+	skb_data[txq->index] = skb->data;
+//#endif
 
 	if (atomic_read(&s_tx_busy_assert_on)) {
 		spin_unlock_irqrestore(&txq->tx_lock, flags);
