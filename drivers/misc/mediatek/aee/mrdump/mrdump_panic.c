@@ -5,6 +5,7 @@
 
 #include <linux/delay.h>
 #include <linux/of.h>
+#include <linux/io.h>
 #include <linux/kdebug.h>
 #include <linux/kernel.h>
 #include <linux/mm.h>
@@ -84,10 +85,10 @@ int aee_nested_printf(const char *fmt, ...)
 static void mrdump_cblock_update(enum AEE_REBOOT_MODE reboot_mode,
 				 struct pt_regs *regs, const char *msg, ...)
 {
-	va_list ap;
 	struct mrdump_crash_record *crash_record;
 	void *creg;
 	int cpu;
+	size_t msg_count;
 
 	local_irq_disable();
 
@@ -122,11 +123,11 @@ static void mrdump_cblock_update(enum AEE_REBOOT_MODE reboot_mode,
 			creg = (void *)&crash_record->cpu_creg[cpu];
 			mrdump_save_control_register(creg);
 		}
-
-		va_start(ap, msg);
-		vsnprintf(crash_record->msg, sizeof(crash_record->msg), msg,
-				ap);
-		va_end(ap);
+		msg_count = strlen(msg);
+		if (msg_count >= sizeof(crash_record->msg))
+			msg_count = sizeof(crash_record->msg) - 1;
+		memcpy_toio(crash_record->msg, msg, msg_count);
+		__raw_writeb(0, &crash_record->msg[msg_count]);
 
 		crash_record->fault_cpu = cpu;
 
