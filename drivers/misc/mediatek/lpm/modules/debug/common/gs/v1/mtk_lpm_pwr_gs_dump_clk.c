@@ -241,13 +241,13 @@ struct mtk_lpm_gs_cmp mtk_lpm_gs_cmp_clk = {
 	.cmp_by_type = mtk_lpm_gs_clk_cmp_by_type,
 };
 
-int __init mtk_lpm_gs_dump_dcm_init(void)
+int mtk_lpm_gs_dump_dcm_init(void)
 {
 	mtk_lpm_pwr_gs_compare_register(MTK_LPM_GS_CMP_CLK, &mtk_lpm_gs_cmp_clk);
 	return 0;
 }
 
-void __exit mtk_lpm_gs_dump_dcm_deinit(void)
+void mtk_lpm_gs_dump_dcm_deinit(void)
 {
 	mtk_lpm_pwr_gs_compare_unregister(MTK_LPM_GS_CMP_CLK);
 }
