@@ -8,7 +8,16 @@
 #include <asm/system_misc.h>
 
 #include <mt-plat/mrdump.h>
+
 #include "mrdump_private.h"
+
+uint64_t mrdump_get_mpt(void)
+{
+	unsigned long ttbr1;
+	asm volatile ("mrs %0, ttbr1_el1\n\t"
+		      : "=&r"(ttbr1) : : "memory");
+	return ttbr1 & ~(TTBR_ASID_MASK | TTBR_CNP_BIT);
+}
 
 void mrdump_save_control_register(void *creg)
 {

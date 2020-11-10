@@ -107,13 +107,7 @@ __init void mrdump_cblock_init(phys_addr_t cb_addr, phys_addr_t cb_size)
 	machdesc_p->modules_end = (uint64_t)MODULES_END;
 
 	machdesc_p->phys_offset = (uint64_t)(phys_addr_t)PHYS_OFFSET;
-	if (virt_addr_valid(aee_get_swapper_pg_dir())) {
-		machdesc_p->master_page_table =
-			(uintptr_t)__pa(aee_get_swapper_pg_dir());
-	} else if (aee_get_swapper_pg_dir()) {
-		machdesc_p->master_page_table =
-			(uintptr_t)__pa_symbol(aee_get_swapper_pg_dir());
-	}
+	machdesc_p->master_page_table = mrdump_get_mpt();
 
 #if defined(CONFIG_SPARSEMEM_VMEMMAP)
 	machdesc_p->memmap = (uintptr_t)vmemmap;
