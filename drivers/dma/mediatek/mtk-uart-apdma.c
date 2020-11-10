@@ -534,6 +534,8 @@ static int mtk_uart_apdma_probe(struct platform_device *pdev)
 		if (of_property_read_bool(pdev->dev.of_node,
 				"mediatek,dma-33bits"))
 			mtkd->support_bits = 33;
+		else
+			mtkd->support_bits = 32;
 	} else
 		mtkd->support_bits = comp->addr_bits;
 
