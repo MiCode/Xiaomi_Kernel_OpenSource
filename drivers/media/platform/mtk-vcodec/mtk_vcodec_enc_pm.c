@@ -28,8 +28,8 @@
 #include <linux/regulator/consumer.h>
 #include "vcodec_dvfs.h"
 #define STD_VENC_FREQ 250
-#define STD_LUMA_BW 100
-#define STD_CHROMA_BW 50
+#define STD_LUMA_BW 100L
+#define STD_CHROMA_BW 50L
 #endif
 
 #if ENC_EMI_BW
@@ -403,10 +403,10 @@ void mtk_venc_emi_bw_begin(struct mtk_vcodec_ctx *ctx, int core_id)
 	int bsdma_bw = 20 * 4 / 3;
 	int sv_comv_bw = 4 * 4 / 3;
 	int rd_comv_bw = 16 * 4 / 3;
-	int cur_luma_bw = 0;
-	int cur_chroma_bw = 0;
-	int ref_luma_bw = 0;
-	int ref_chroma_bw = 0;
+	long cur_luma_bw = 0;
+	long cur_chroma_bw = 0;
+	long ref_luma_bw = 0;
+	long ref_chroma_bw = 0;
 
 	int i = 0;
 	struct mtk_vcodec_dev *pdev = 0;
@@ -429,10 +429,10 @@ void mtk_venc_emi_bw_begin(struct mtk_vcodec_ctx *ctx, int core_id)
 		boost_perc = 150;
 	}
 
-	cur_luma_bw = STD_LUMA_BW * pdev->venc_freq.active_freq *
+	cur_luma_bw = STD_LUMA_BW * (pdev->venc_freq.active_freq / 1000000) *
 			(100 + boost_perc) * 4 / STD_VENC_FREQ / 100 / 3;
-	cur_chroma_bw = STD_CHROMA_BW * pdev->venc_freq.active_freq *
-			(100 + boost_perc) * 4 / STD_VENC_FREQ / 100 / 3;
+	cur_chroma_bw = STD_CHROMA_BW * (pdev->venc_freq.active_freq / 1000000)
+			* (100 + boost_perc) * 4 / STD_VENC_FREQ / 100 / 3;
 
 	rec_bw = cur_luma_bw + cur_chroma_bw;
 	if (0) { /* no UFO */
@@ -440,25 +440,25 @@ void mtk_venc_emi_bw_begin(struct mtk_vcodec_ctx *ctx, int core_id)
 		ref_chroma_bw = cur_chroma_bw * 1;
 	} else {
 		ref_luma_bw = 0;
-		ref_chroma_bw = (cur_luma_bw * 1) + (cur_chroma_bw * 1);
+		ref_chroma_bw = (cur_luma_bw * 4) + (cur_chroma_bw * 4);
 	}
 
 	if (pdev->venc_qos_req[0] != 0) {
-		icc_set_bw(pdev->venc_qos_req[i++], Mbps_to_icc(rcpu_bw), 0);
-		icc_set_bw(pdev->venc_qos_req[i++], Mbps_to_icc(rec_bw), 0);
-		icc_set_bw(pdev->venc_qos_req[i++], Mbps_to_icc(bsdma_bw), 0);
-		icc_set_bw(pdev->venc_qos_req[i++], Mbps_to_icc(sv_comv_bw), 0);
-		icc_set_bw(pdev->venc_qos_req[i++], Mbps_to_icc(rd_comv_bw), 0);
+		icc_set_bw(pdev->venc_qos_req[i++], MBps_to_icc(rcpu_bw), 0);
+		icc_set_bw(pdev->venc_qos_req[i++], MBps_to_icc(rec_bw), 0);
+		icc_set_bw(pdev->venc_qos_req[i++], MBps_to_icc(bsdma_bw), 0);
+		icc_set_bw(pdev->venc_qos_req[i++], MBps_to_icc(sv_comv_bw), 0);
+		icc_set_bw(pdev->venc_qos_req[i++], MBps_to_icc(rd_comv_bw), 0);
 		icc_set_bw(pdev->venc_qos_req[i++],
-					Mbps_to_icc(cur_luma_bw), 0);
+					MBps_to_icc(cur_luma_bw), 0);
 		icc_set_bw(pdev->venc_qos_req[i++],
-					Mbps_to_icc(cur_chroma_bw), 0);
+					MBps_to_icc(cur_chroma_bw), 0);
 		icc_set_bw(pdev->venc_qos_req[i++],
-					Mbps_to_icc(ref_luma_bw), 0);
+					MBps_to_icc(ref_luma_bw), 0);
 		icc_set_bw(pdev->venc_qos_req[i++],
-					Mbps_to_icc(ref_chroma_bw), 0);
-		icc_set_bw(pdev->venc_qos_req[i++], Mbps_to_icc(0), 0);
-		icc_set_bw(pdev->venc_qos_req[i++], Mbps_to_icc(0), 0);
+					MBps_to_icc(ref_chroma_bw), 0);
+		icc_set_bw(pdev->venc_qos_req[i++], MBps_to_icc(0), 0);
+		icc_set_bw(pdev->venc_qos_req[i++], MBps_to_icc(0), 0);
 	}
 #endif
 }
@@ -474,7 +474,7 @@ void mtk_venc_emi_bw_end(struct mtk_vcodec_ctx *ctx, struct temp_job *job)
 	if (pdev->venc_qos_req[0] != 0) {
 		for (i = 0; i < 11; i++) {
 			/* TODO: Support 2 core */
-			icc_set_bw(pdev->venc_qos_req[i], Mbps_to_icc(0), 0);
+			icc_set_bw(pdev->venc_qos_req[i], MBps_to_icc(0), 0);
 		}
 	}
 #endif
@@ -609,4 +609,3 @@ int mtk_venc_ion_config_buff(struct dma_buf *dmabuf)
 #endif
 	return 0;
 }
-
