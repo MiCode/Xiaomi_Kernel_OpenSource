@@ -310,17 +310,13 @@ struct cqhci_host {
 	struct cqhci_slot *slot;
 	const struct cqhci_host_crypto_variant_ops *crypto_vops;
 
-#ifdef CONFIG_MMC_CQHCI_CRYPTO
 	union cqhci_crypto_capabilities crypto_capabilities;
 	union cqhci_crypto_cap_entry *crypto_cap_array;
 	u32 crypto_cfg_register;
 #ifdef CONFIG_BLK_INLINE_ENCRYPTION
 	struct keyslot_manager *ksm;
 #endif /* CONFIG_BLK_INLINE_ENCRYPTION */
-#endif /* CONFIG_MMC_CQHCI_CRYPTO */
-#ifdef CONFIG_MMC_CQHCI_CRYPTO_QTI
 	struct platform_device *pdev;
-#endif /* CONFIG_MMC_CQHCI_CRYPTO_QTI */
 };
 
 struct cqhci_host_ops {
