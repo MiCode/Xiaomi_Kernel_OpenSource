@@ -498,6 +498,7 @@ int adaptor_init_ctrls(struct adaptor_ctx *ctx)
 	const struct sensor_mode *cur_mode;
 	struct v4l2_ctrl_handler *ctrl_hdlr;
 	struct v4l2_ctrl_config cfg;
+	struct v4l2_ctrl *ctrl;
 
 	ctrl_hdlr = &ctx->ctrls;
 	ret = v4l2_ctrl_handler_init(ctrl_hdlr, 8);
@@ -534,6 +535,8 @@ int adaptor_init_ctrls(struct adaptor_ctx *ctx)
 	def = ctx->subctx.exposure_def;
 	ctx->exposure = v4l2_ctrl_new_std(ctrl_hdlr, &ctrl_ops,
 			V4L2_CID_EXPOSURE, min, max, step, def);
+	if (ctx->exposure)
+		ctx->exposure->flags |= V4L2_CTRL_FLAG_EXECUTE_ON_WRITE;
 
 	/* exposure_absolute: in 100 us */
 	min = min * cur_mode->linetime_in_ns;
@@ -544,14 +547,18 @@ int adaptor_init_ctrls(struct adaptor_ctx *ctx)
 	do_div(def, 100000);
 	ctx->exposure_abs = v4l2_ctrl_new_std(ctrl_hdlr, &ctrl_ops,
 			V4L2_CID_EXPOSURE_ABSOLUTE, min, max, 1, def);
+	if (ctx->exposure_abs)
+		ctx->exposure_abs->flags |= V4L2_CTRL_FLAG_EXECUTE_ON_WRITE;
 
 	/* analog gain */
-	v4l2_ctrl_new_std(ctrl_hdlr, &ctrl_ops,
+	ctrl = v4l2_ctrl_new_std(ctrl_hdlr, &ctrl_ops,
 			V4L2_CID_ANALOGUE_GAIN,
 			ctx->subctx.ana_gain_min,
 			ctx->subctx.ana_gain_max,
 			ctx->subctx.ana_gain_step,
 			ctx->subctx.ana_gain_def);
+	if (ctrl)
+		ctrl->flags |= V4L2_CTRL_FLAG_EXECUTE_ON_WRITE;
 
 	/* test pattern */
 	v4l2_ctrl_new_std_menu_items(ctrl_hdlr, &ctrl_ops,
