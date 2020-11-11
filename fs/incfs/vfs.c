@@ -153,8 +153,6 @@ struct inode_search {
 enum parse_parameter {
 	Opt_read_timeout,
 	Opt_readahead_pages,
-	Opt_no_backing_file_cache,
-	Opt_no_backing_file_readahead,
 	Opt_rlog_pages,
 	Opt_rlog_wakeup_cnt,
 	Opt_report_uid,
@@ -164,8 +162,6 @@ enum parse_parameter {
 static const match_table_t option_tokens = {
 	{ Opt_read_timeout, "read_timeout_ms=%u" },
 	{ Opt_readahead_pages, "readahead=%u" },
-	{ Opt_no_backing_file_cache, "no_bf_cache=%u" },
-	{ Opt_no_backing_file_readahead, "no_bf_readahead=%u" },
 	{ Opt_rlog_pages, "rlog_pages=%u" },
 	{ Opt_rlog_wakeup_cnt, "rlog_wakeup_cnt=%u" },
 	{ Opt_report_uid, "report_uid" },
@@ -181,12 +177,13 @@ static int parse_options(struct mount_options *opts, char *str)
 	if (opts == NULL)
 		return -EFAULT;
 
-	opts->read_timeout_ms = 1000; /* Default: 1s */
-	opts->readahead_pages = 10;
-	opts->read_log_pages = 2;
-	opts->read_log_wakeup_count = 10;
-	opts->no_backing_file_cache = false;
-	opts->no_backing_file_readahead = false;
+	*opts = (struct mount_options) {
+		.read_timeout_ms = 1000, /* Default: 1s */
+		.readahead_pages = 10,
+		.read_log_pages = 2,
+		.read_log_wakeup_count = 10,
+	};
+
 	if (str == NULL || *str == 0)
 		return 0;
 
@@ -208,16 +205,6 @@ static int parse_options(struct mount_options *opts, char *str)
 			if (match_int(&args[0], &value))
 				return -EINVAL;
 			opts->readahead_pages = value;
-			break;
-		case Opt_no_backing_file_cache:
-			if (match_int(&args[0], &value))
-				return -EINVAL;
-			opts->no_backing_file_cache = (value != 0);
-			break;
-		case Opt_no_backing_file_readahead:
-			if (match_int(&args[0], &value))
-				return -EINVAL;
-			opts->no_backing_file_readahead = (value != 0);
 			break;
 		case Opt_rlog_pages:
 			if (match_int(&args[0], &value))
@@ -1674,10 +1661,6 @@ static int show_options(struct seq_file *m, struct dentry *root)
 		seq_printf(m, ",rlog_wakeup_cnt=%u",
 			   mi->mi_options.read_log_wakeup_count);
 	}
-	if (mi->mi_options.no_backing_file_cache)
-		seq_puts(m, ",no_bf_cache");
-	if (mi->mi_options.no_backing_file_readahead)
-		seq_puts(m, ",no_bf_readahead");
 	if (mi->mi_options.report_uid)
 		seq_puts(m, ",report_uid");
 	return 0;

@@ -195,7 +195,11 @@ struct incfs_file_header {
 } __packed;
 
 enum incfs_block_map_entry_flags {
-	INCFS_BLOCK_COMPRESSED_LZ4 = (1 << 0),
+	INCFS_BLOCK_COMPRESSED_LZ4 = 1,
+	INCFS_BLOCK_COMPRESSED_ZSTD = 2,
+
+	/* Reserve 3 bits for compression alg */
+	INCFS_BLOCK_COMPRESSED_MASK = 7,
 };
 
 /* Block map entry pointing to an actual location of the data block. */
@@ -292,8 +296,6 @@ struct metadata_handler {
 #define INCFS_MAX_METADATA_RECORD_SIZE \
 	sizeof_field(struct metadata_handler, md_buffer)
 
-loff_t incfs_get_end_offset(struct file *f);
-
 /* Backing file context management */
 struct backing_file_context *incfs_alloc_bfc(struct file *backing_file);
 
@@ -328,9 +330,6 @@ int incfs_write_status_to_backing_file(struct backing_file_context *bfc,
 				       loff_t status_offset,
 				       u32 data_blocks_written,
 				       u32 hash_blocks_written);
-
-int incfs_make_empty_backing_file(struct backing_file_context *bfc,
-				  incfs_uuid_t *uuid, u64 file_size);
 
 /* Reading stuff */
 int incfs_read_file_header(struct backing_file_context *bfc,
