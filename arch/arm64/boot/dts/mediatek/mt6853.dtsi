@@ -4555,4 +4555,4 @@
 	};
 };
 
-
+#include "trusty.dtsi"
