@@ -232,6 +232,8 @@ static void mtk_iommu_tlb_flush_all(void *cookie)
 	struct mtk_iommu_data *data = cookie;
 
 	for_each_m4u(data) {
+		if (!pm_runtime_active(data->dev))
+			continue;
 		writel_relaxed(F_INVLD_EN1 | F_INVLD_EN0,
 			       data->base + data->plat_data->inv_sel_reg);
 		writel_relaxed(F_ALL_INVLD, data->base + REG_MMU_INVALIDATE);
