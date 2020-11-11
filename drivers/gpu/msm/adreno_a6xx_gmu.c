@@ -1617,15 +1617,15 @@ static void a6xx_gmu_pwrctrl_suspend(struct adreno_device *adreno_dev)
 
 	if (adreno_has_gbif(adreno_dev)) {
 		/* Halt GX traffic */
-		if (a6xx_gmu_gx_is_on(device))
-			a6xx_do_gbif_halt(adreno_dev, A6XX_RBBM_GBIF_HALT,
-				A6XX_RBBM_GBIF_HALT_ACK,
-				A6XX_GBIF_GX_HALT_MASK,
-				"GX");
-
+		if (a6xx_gmu_gx_is_on(device)) {
+			kgsl_regwrite(device, A6XX_RBBM_GBIF_HALT,
+				A6XX_GBIF_GX_HALT_MASK);
+			adreno_wait_for_halt_ack(device,
+					A6XX_RBBM_GBIF_HALT_ACK,
+					A6XX_GBIF_GX_HALT_MASK);
+		}
 		/* Halt CX traffic */
-		a6xx_do_gbif_halt(adreno_dev, A6XX_GBIF_HALT, A6XX_GBIF_HALT_ACK,
-			A6XX_GBIF_ARB_HALT_MASK, "CX");
+		a6xx_halt_gbif(adreno_dev);
 	}
 
 	if (a6xx_gmu_gx_is_on(device))
