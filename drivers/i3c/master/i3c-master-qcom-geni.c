@@ -208,6 +208,8 @@ enum geni_i3c_err_code {
 #define IBI_SW_RESET_MIN_SLEEP 1000
 #define IBI_SW_RESET_MAX_SLEEP 2000
 
+#define MAX_I3C_SE		2
+
 enum i3c_trans_dir {
 	WRITE_TRANSACTION = 0,
 	READ_TRANSACTION = 1
@@ -327,6 +329,9 @@ struct geni_i3c_clk_fld {
 
 static void geni_i3c_enable_ibi_ctrl(struct geni_i3c_dev *gi3c, bool enable);
 static void geni_i3c_enable_ibi_irq(struct geni_i3c_dev *gi3c, bool enable);
+
+static struct geni_i3c_dev *i3c_geni_dev[MAX_I3C_SE];
+static int i3c_nos;
 
 static struct geni_i3c_dev*
 to_geni_i3c_master(struct i3c_master_controller *master)
@@ -756,6 +761,7 @@ static int _i3c_geni_execute_command
 	enum i3c_trans_dir rnw = gi3c->cur_rnw;
 	u32 len = gi3c->cur_len;
 
+	reinit_completion(&gi3c->done);
 	geni_se_select_mode(gi3c->se.base, xfer->mode);
 
 	gi3c->err = 0;
@@ -805,8 +811,8 @@ static int _i3c_geni_execute_command
 			writel_relaxed(1, gi3c->se.base +
 				SE_GENI_TX_WATERMARK_REG);
 	}
-	time_remaining = wait_for_completion_timeout(&gi3c->done,
-						XFER_TIMEOUT);
+
+	time_remaining = wait_for_completion_timeout(&gi3c->done, XFER_TIMEOUT);
 	if (!time_remaining) {
 		unsigned long flags;
 
@@ -849,7 +855,11 @@ static int _i3c_geni_execute_command
 			else
 				writel_relaxed(1, gi3c->se.base +
 					SE_DMA_TX_FSM_RST);
+			time_remaining =
 			wait_for_completion_timeout(&gi3c->done, XFER_TIMEOUT);
+			if (!time_remaining)
+				GENI_SE_ERR(gi3c->ipcl, true, gi3c->se.dev,
+					"Timeout:FSM Reset, rnw:%d\n", rnw);
 		}
 		geni_se_rx_dma_unprep(gi3c->se.i3c_rsc.wrapper_dev,
 				rx_dma, len);
@@ -1996,6 +2006,9 @@ static int geni_i3c_probe(struct platform_device *pdev)
 	if (!gi3c->ipcl)
 		dev_info(&pdev->dev, "Error creating IPC Log\n");
 
+	if (i3c_nos < MAX_I3C_SE)
+		i3c_geni_dev[i3c_nos++] = gi3c;
+
 	ret = i3c_geni_rsrcs_init(gi3c, pdev);
 	if (ret) {
 		GENI_SE_ERR(gi3c->ipcl, false, gi3c->se.dev,
@@ -2117,7 +2130,7 @@ cleanup_init:
 static int geni_i3c_remove(struct platform_device *pdev)
 {
 	struct geni_i3c_dev *gi3c = platform_get_drvdata(pdev);
-	int ret = 0;
+	int ret = 0, i;
 
 	//Disable hot-join, until next probe happens
 	geni_i3c_enable_hotjoin_irq(gi3c, false);
@@ -2143,6 +2156,11 @@ static int geni_i3c_remove(struct platform_device *pdev)
 	/* TBD : If we need debug for previous session, Don't delete logs */
 	if (gi3c->ipcl)
 		ipc_log_context_destroy(gi3c->ipcl);
+
+	for (i = 0; i < i3c_nos; i++)
+		i3c_geni_dev[i] = NULL;
+	i3c_nos = 0;
+
 	return ret;
 }
 
