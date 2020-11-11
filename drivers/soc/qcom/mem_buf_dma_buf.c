@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #include "mem-buf-private.h"
@@ -285,30 +285,6 @@ static void mem_buf_dma_buf_vunmap(struct dma_buf *dmabuf, void *vaddr)
 	mutex_unlock(&import_buf->lock);
 }
 
-static void *mem_buf_dma_buf_kmap(struct dma_buf *dmabuf, unsigned long offset)
-{
-	/*
-	 * TODO: Once clients remove their hacks where they assume kmap(ed)
-	 * addresses are virtually contiguous implement this properly
-	 */
-	void *vaddr = mem_buf_dma_buf_vmap(dmabuf);
-
-	if (IS_ERR(vaddr))
-		return vaddr;
-
-	return vaddr + offset * PAGE_SIZE;
-}
-
-static void mem_buf_dma_buf_kunmap(struct dma_buf *dmabuf, unsigned long offset,
-			       void *ptr)
-{
-	/*
-	 * TODO: Once clients remove their hacks where they assume kmap(ed)
-	 * addresses are virtually contiguous implement this properly
-	 */
-	mem_buf_dma_buf_vunmap(dmabuf, ptr);
-}
-
 static int mem_buf_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
 					    enum dma_data_direction direction)
 {
@@ -454,8 +430,6 @@ const struct dma_buf_ops mem_buf_dma_buf_ops = {
 	.end_cpu_access = mem_buf_dma_buf_end_cpu_access,
 	.begin_cpu_access_partial = mem_buf_dma_buf_begin_cpu_access_partial,
 	.end_cpu_access_partial = mem_buf_dma_buf_end_cpu_access_partial,
-	.map = mem_buf_dma_buf_kmap,
-	.unmap = mem_buf_dma_buf_kunmap,
 	.vmap = mem_buf_dma_buf_vmap,
 	.vunmap = mem_buf_dma_buf_vunmap,
 };
