@@ -36,8 +36,8 @@ struct md_status_event {
 #ifdef CONFIG_COMPAT
 struct md_status_compat_event {
 	struct {
-		compat_s64              tv_sec;
-		compat_s64              tv_nsec;
+		int tv_sec;
+		int tv_usec;
 	} time_stamp;
 	int md_id;
 	int event_type;
@@ -377,7 +377,7 @@ static int cpy_compat_event_to_user(char __user *buf, size_t size,
 		if (size < event_size)
 			return -EINVAL;
 		compat_event.time_stamp.tv_sec = event->time_stamp.tv_sec;
-		compat_event.time_stamp.tv_nsec = event->time_stamp.tv_nsec;
+		compat_event.time_stamp.tv_usec = event->time_stamp.tv_nsec/NSEC_PER_USEC;
 		compat_event.md_id = event->md_id;
 		compat_event.event_type = event->event_type;
 		memcpy(compat_event.reason, event->reason, 32);
