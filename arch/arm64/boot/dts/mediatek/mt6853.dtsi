@@ -2988,7 +2988,13 @@
 		};
 
 		apusys_mnoc: apusys_mnoc {
-			compatible = "mediatek,apusys_mnoc";
+			compatible = "mediatek,mt6853-mnoc";
+			reg = <0 0x1906e000 0 0x2000>,	/* mnoc reg  */
+				<0 0x19001000 0 0x1000>,	/* apusys int */
+				<0 0x19020000 0 0x1000>,	/* apu_conn_config */
+				<0 0x10001000 0 0x1000>,	/* slp prot 1 */
+				<0 0x10215000 0 0x1000>;	/* slp prot 2 */
+			interrupts = <GIC_SPI 408 IRQ_TYPE_LEVEL_HIGH 0>;
 			interconnects = <&dvfsrc MT6873_MASTER_VPUSYS
 					 &dvfsrc MT6873_SLAVE_DDR_EMI>;
 			interconnect-names = "apu-bw";
