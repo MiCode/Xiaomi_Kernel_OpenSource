@@ -1283,18 +1283,14 @@ static int _load_firmware(struct kgsl_device *device, const char *fwfile,
 		return ret;
 	}
 
-	if (fw)
-		*buf = kmalloc(fw->size, GFP_KERNEL);
-	else
+	if (!fw)
 		return -EINVAL;
 
-	if (*buf) {
-		memcpy(*buf, fw->data, fw->size);
-		*len = fw->size;
-	}
+	*buf = devm_kmemdup(&device->pdev->dev, fw->data, fw->size, GFP_KERNEL);
+	*len = fw->size;
 
 	release_firmware(fw);
-	return (*buf != NULL) ? 0 : -ENOMEM;
+	return (*buf) ? 0 : -ENOMEM;
 }
 
 static int a3xx_microcode_read(struct adreno_device *adreno_dev)
@@ -1382,7 +1378,7 @@ static void a3xx_microcode_load(struct adreno_device *adreno_dev)
 static void a3xx_clk_set_options(struct adreno_device *adreno_dev,
 	const char *name, struct clk *clk, bool on)
 {
-	if (!adreno_is_a306a(adreno_dev))
+	if (!clk || !adreno_is_a306a(adreno_dev))
 		return;
 
 	/* Handle clock settings for GFX PSCBCs */

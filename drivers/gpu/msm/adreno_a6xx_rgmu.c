@@ -693,7 +693,7 @@ static void a6xx_rgmu_power_off(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	int ret;
 
-	kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_OFF);
+	kgsl_pwrctrl_axi(device, false);
 
 	if (device->gmu_fault)
 		return a6xx_rgmu_suspend(adreno_dev);
@@ -824,7 +824,7 @@ static int a6xx_rgmu_boot(struct adreno_device *adreno_dev)
 	if (ret)
 		goto err;
 
-	ret = kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_ON);
+	ret = kgsl_pwrctrl_axi(device, true);
 	if (ret)
 		goto err;
 
@@ -1064,7 +1064,7 @@ no_gx_power:
 	adreno_wait_for_halt_ack(device, A6XX_GBIF_HALT_ACK,
 		A6XX_GBIF_CLIENT_HALT_MASK);
 
-	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
+	kgsl_pwrctrl_irq(device, false);
 
 	a6xx_rgmu_power_off(adreno_dev);
 
@@ -1338,11 +1338,6 @@ static int a6xx_rgmu_probe(struct kgsl_device *device,
 	ret = a6xx_rgmu_irq_probe(device);
 	if (ret)
 		return ret;
-
-	/* Don't enable RGMU interrupts until RGMU started */
-	/* We cannot use rgmu_irq_disable because it writes registers */
-	disable_irq(rgmu->rgmu_interrupt_num);
-	disable_irq(rgmu->oob_interrupt_num);
 
 	/* Set up RGMU idle states */
 	if (ADRENO_FEATURE(ADRENO_DEVICE(device), ADRENO_IFPC))

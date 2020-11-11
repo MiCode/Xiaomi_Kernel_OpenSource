@@ -680,7 +680,7 @@ static inline int _verify_cmdobj(struct kgsl_device_private *dev_priv,
 			 * been submitted since the last time we set it.
 			 * But only clear it when we have rendering commands.
 			 */
-			device->flags &= ~KGSL_FLAG_WAKE_ON_TOUCH;
+			ADRENO_DEVICE(device)->wake_on_touch = false;
 		}
 	}
 
@@ -1275,10 +1275,8 @@ static void reset_and_snapshot(struct adreno_device *adreno_dev)
 
 	force_retire_timestamp(device, drawobj);
 
-	if (context->flags & KGSL_CONTEXT_INVALIDATE_ON_FAULT) {
-		adreno_mark_guilty_context(device, context->id);
-		adreno_drawctxt_invalidate(device, context);
-	}
+	if (context->flags & KGSL_CONTEXT_INVALIDATE_ON_FAULT)
+		adreno_drawctxt_set_guilty(device, context);
 
 	/* This must always happen after taking snapshot */
 	clear_bit(CMDOBJ_FAULT, &obj->cmdobj->priv);

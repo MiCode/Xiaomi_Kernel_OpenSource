@@ -412,16 +412,12 @@ int a6xx_hfi_send_core_fw_start(struct adreno_device *adreno_dev)
 	return a6xx_hfi_send_generic_req(adreno_dev, &cmd);
 }
 
-static const char * const a6xx_hfi_features[] = {
-	[HFI_FEATURE_ACD] = "ACD",
-	[HFI_FEATURE_LM] = "LM",
-};
-
 static const char *feature_to_string(uint32_t feature)
 {
-	if (feature < ARRAY_SIZE(a6xx_hfi_features) &&
-		a6xx_hfi_features[feature])
-		return a6xx_hfi_features[feature];
+	if (feature == HFI_FEATURE_ACD)
+		return "ACD";
+	else if (feature == HFI_FEATURE_LM)
+		return "LM";
 
 	return "unknown";
 }
@@ -779,7 +775,7 @@ int a6xx_hfi_start(struct adreno_device *adreno_dev)
 		goto err;
 
 	/* Request default BW vote */
-	result = kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_ON);
+	result = kgsl_pwrctrl_axi(device, true);
 
 err:
 	if (result)
@@ -810,7 +806,7 @@ void a6xx_hfi_stop(struct adreno_device *adreno_dev)
 				i, hdr->read_index, hdr->write_index);
 	}
 
-	kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_OFF);
+	kgsl_pwrctrl_axi(device, false);
 
 	clear_bit(GMU_PRIV_HFI_STARTED, &gmu->flags);
 

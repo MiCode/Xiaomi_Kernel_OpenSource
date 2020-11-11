@@ -586,41 +586,6 @@ static inline bool kgsl_addr_range_overlap(uint64_t gpuaddr1,
 		(gpuaddr1 >= (gpuaddr2 + size2)));
 }
 
-static inline int kgsl_copy_from_user(void *dest, void __user *src,
-		unsigned int ksize, unsigned int usize)
-{
-	unsigned int copy = ksize < usize ? ksize : usize;
-
-	if (copy == 0)
-		return -EINVAL;
-
-	return copy_from_user(dest, src, copy) ? -EFAULT : 0;
-}
-
-#ifndef MODULE
-static inline void kgsl_gpu_sysfs_add_link(struct kobject *dst,
-			struct kobject *src, const char *src_name,
-			const char *dst_name)
-{
-	struct kernfs_node *old;
-
-	if (dst == NULL || src == NULL)
-		return;
-
-	old = sysfs_get_dirent(src->sd, src_name);
-	if (IS_ERR_OR_NULL(old))
-		return;
-
-	kernfs_create_link(dst->sd, dst_name, old);
-}
-#else
-static inline void kgsl_gpu_sysfs_add_link(struct kobject *dst,
-			struct kobject *src, const char *src_name,
-			const char *dst_name)
-{
-}
-#endif
-
 static inline bool kgsl_is_compat_task(void)
 {
 	return (BITS_PER_LONG == 32) || is_compat_task();

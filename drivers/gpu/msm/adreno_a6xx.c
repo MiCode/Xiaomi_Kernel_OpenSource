@@ -188,7 +188,7 @@ int a6xx_init(struct adreno_device *adreno_dev)
 	return 0;
 }
 
-int a6xx_nogmu_init(struct adreno_device *adreno_dev)
+static int a6xx_nogmu_init(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	int ret;
@@ -1264,7 +1264,7 @@ static int64_t a6xx_read_throttling_counters(struct adreno_device *adreno_dev)
 	return adj;
 }
 #define GPU_CPR_FSM_CTL_OFFSET	 0x4
-void a6xx_gx_cpr_toggle(struct kgsl_device *device)
+static void a6xx_gx_cpr_toggle(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	const struct adreno_a6xx_core *a6xx_core = to_a6xx_core(adreno_dev);
@@ -2369,6 +2369,9 @@ update:
 static void a6xx_clk_set_options(struct adreno_device *adreno_dev,
 	const char *name, struct clk *clk, bool on)
 {
+	if (!clk)
+		return;
+
 	/* Handle clock settings for GFX PSCBCs */
 	if (on) {
 		if (!strcmp(name, "mem_iface_clk")) {

@@ -495,6 +495,9 @@ static int dispatcher_queue_context(struct adreno_device *adreno_dev,
 	return 0;
 }
 
+#define ADRENO_DRAWOBJ_PROFILE_COUNT \
+	(PAGE_SIZE / sizeof(struct adreno_drawobj_profile_entry))
+
 /**
  * sendcmd() - Send a drawobj to the GPU hardware
  * @dispatcher: Pointer to the adreno dispatcher struct
@@ -511,8 +514,7 @@ static int sendcmd(struct adreno_device *adreno_dev,
 	struct adreno_dispatcher *dispatcher = &adreno_dev->dispatcher;
 	struct adreno_context *drawctxt = ADRENO_CONTEXT(drawobj->context);
 	struct kgsl_context *context = drawobj->context;
-	struct adreno_dispatcher_drawqueue *dispatch_q =
-				ADRENO_DRAWOBJ_DISPATCH_DRAWQUEUE(drawobj);
+	struct adreno_dispatcher_drawqueue *dispatch_q = &drawctxt->rb->dispatch_q;
 	struct adreno_submit_time time;
 	uint64_t secs = 0;
 	unsigned long nsecs = 0;
@@ -1089,7 +1091,7 @@ static inline int _verify_cmdobj(struct kgsl_device_private *dev_priv,
 			 * been submitted since the last time we set it.
 			 * But only clear it when we have rendering commands.
 			 */
-			device->flags &= ~KGSL_FLAG_WAKE_ON_TOUCH;
+			ADRENO_DEVICE(device)->wake_on_touch = false;
 		}
 
 		/* A3XX does not have support for drawobj profiling */
@@ -1378,7 +1380,7 @@ int adreno_dispatcher_queue_cmds(struct kgsl_device_private *dev_priv,
 
 	}
 
-	dispatch_q = ADRENO_DRAWOBJ_DISPATCH_DRAWQUEUE(drawobj[0]);
+	dispatch_q = &(ADRENO_CONTEXT(drawobj[0]->context)->rb->dispatch_q);
 
 	_track_context(adreno_dev, dispatch_q, drawctxt);
 
@@ -1410,37 +1412,6 @@ done:
 		return -EPROTO;
 
 	return 0;
-}
-
-static int _mark_context(int id, void *ptr, void *data)
-{
-	unsigned int guilty = *((unsigned int *) data);
-	struct kgsl_context *context = ptr;
-
-	/*
-	 * If the context is guilty mark it as such.  Otherwise mark it as
-	 * innocent if it had not already been marked as guilty.  If id is
-	 * passed as 0 then mark EVERYBODY guilty (recovery failed)
-	 */
-
-	if (guilty == 0 || guilty == context->id)
-		context->reset_status =
-			KGSL_CTX_STAT_GUILTY_CONTEXT_RESET_EXT;
-	else if (context->reset_status !=
-		KGSL_CTX_STAT_GUILTY_CONTEXT_RESET_EXT)
-		context->reset_status =
-			KGSL_CTX_STAT_INNOCENT_CONTEXT_RESET_EXT;
-
-	return 0;
-}
-
-void adreno_mark_guilty_context(struct kgsl_device *device, unsigned int id)
-{
-	/* Mark the status for all the contexts in the device */
-
-	read_lock(&device->context_lock);
-	idr_for_each(&device->context_idr, _mark_context, &id);
-	read_unlock(&device->context_lock);
 }
 
 /*
@@ -1584,23 +1555,8 @@ static void remove_invalidated_cmdobjs(struct kgsl_device *device,
 	}
 }
 
-static char _pidname[TASK_COMM_LEN];
-
-static inline const char *_kgsl_context_comm(struct kgsl_context *context)
-{
-	if (context && context->proc_priv)
-		strlcpy(_pidname, context->proc_priv->comm, sizeof(_pidname));
-	else
-		snprintf(_pidname, TASK_COMM_LEN, "unknown");
-
-	return _pidname;
-}
-
 #define pr_fault(_d, _c, fmt, args...) \
-		dev_err((_d)->dev, "%s[%d]: " fmt, \
-		_kgsl_context_comm((_c)->context), \
-		pid_nr((_c)->context->proc_priv->pid), ##args)
-
+		pr_context(_d, (_c)->context, fmt, ##args)
 
 static void adreno_fault_header(struct kgsl_device *device,
 		struct adreno_ringbuffer *rb, struct kgsl_drawobj_cmd *cmdobj,
@@ -1855,11 +1811,8 @@ static void process_cmdobj_fault(struct kgsl_device *device,
 	pr_context(device, drawobj->context, "gpu %s ctx %d ts %d\n",
 		state, drawobj->context->id, drawobj->timestamp);
 
-	/* Mark the context as failed */
-	adreno_mark_guilty_context(device, drawobj->context->id);
-
-	/* Invalidate the context */
-	adreno_drawctxt_invalidate(device, drawobj->context);
+	/* Mark the context as failed and invalidate it */
+	adreno_drawctxt_set_guilty(device, drawobj->context);
 }
 
 /**
@@ -1894,9 +1847,7 @@ static void recover_dispatch_q(struct kgsl_device *device,
 						dispatch_q->cmd_q[ptr];
 			struct kgsl_drawobj *drawobj = DRAWOBJ(cmdobj);
 
-			adreno_mark_guilty_context(device,
-				drawobj->context->id);
-			adreno_drawctxt_invalidate(device, drawobj->context);
+			adreno_drawctxt_set_guilty(device, drawobj->context);
 			kgsl_drawobj_destroy(drawobj);
 
 			ptr = DRAWQUEUE_NEXT(ptr,
@@ -1968,11 +1919,7 @@ replay:
 				replay[i]->base.timestamp);
 
 			/* Mark this context as guilty (failed recovery) */
-			adreno_mark_guilty_context(device,
-				replay[i]->base.context->id);
-
-			adreno_drawctxt_invalidate(device,
-				replay[i]->base.context);
+			adreno_drawctxt_set_guilty(device, replay[i]->base.context);
 			remove_invalidated_cmdobjs(device, &replay[i],
 				count - i);
 		}
@@ -2741,7 +2688,7 @@ static ssize_t _store_uint(struct adreno_dispatcher *dispatcher,
 	unsigned int val = 0;
 	int ret;
 
-	ret = kgsl_sysfs_store(buf, &val);
+	ret = kstrtou32(buf, 0, &val);
 	if (ret)
 		return ret;
 

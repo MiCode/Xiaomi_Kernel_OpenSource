@@ -637,7 +637,7 @@ static int a6xx_hwsched_power_off(struct adreno_device *adreno_dev)
 	a6xx_gmu_oob_clear(device, oob_gpu);
 
 no_gx_power:
-	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
+	kgsl_pwrctrl_irq(device, false);
 
 	a6xx_hwsched_gmu_power_off(adreno_dev);
 

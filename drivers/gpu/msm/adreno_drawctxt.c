@@ -294,6 +294,17 @@ void adreno_drawctxt_invalidate(struct kgsl_device *device,
 	wake_up_all(&drawctxt->timeout);
 }
 
+void adreno_drawctxt_set_guilty(struct kgsl_device *device,
+		struct kgsl_context *context)
+{
+	if (!context)
+		return;
+
+	context->reset_status = KGSL_CTX_STAT_GUILTY_CONTEXT_RESET_EXT;
+
+	adreno_drawctxt_invalidate(device, context);
+}
+
 #define KGSL_CONTEXT_PRIORITY_MED	0x8
 
 /**

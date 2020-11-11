@@ -1920,16 +1920,10 @@ int genc_gmu_probe(struct kgsl_device *device,
 	gmu->irq = kgsl_request_irq(gmu->pdev, "gmu",
 		genc_gmu_irq_handler, device);
 
-	if (gmu->irq < 0) {
-		ret = gmu->irq;
-		goto error;
-	}
+	if (gmu->irq >= 0)
+		return 0;
 
-	/* Don't enable GMU interrupts until GMU started */
-	/* We cannot use irq_disable because it writes registers */
-	disable_irq(gmu->irq);
-
-	return 0;
+	ret = gmu->irq;
 
 error:
 	genc_gmu_remove(device);
@@ -2037,7 +2031,7 @@ void genc_enable_gpu_irq(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
-	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_ON);
+	kgsl_pwrctrl_irq(device, true);
 
 	adreno_irqctrl(adreno_dev, 1);
 }
@@ -2046,7 +2040,7 @@ void genc_disable_gpu_irq(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
-	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
+	kgsl_pwrctrl_irq(device, false);
 
 	if (genc_gmu_gx_is_on(device))
 		adreno_irqctrl(adreno_dev, 0);
@@ -2243,7 +2237,7 @@ static int genc_power_off(struct adreno_device *adreno_dev)
 
 	genc_gmu_oob_clear(device, oob_gpu);
 
-	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
+	kgsl_pwrctrl_irq(device, false);
 
 	genc_gmu_power_off(adreno_dev);
 
@@ -2538,8 +2532,6 @@ static int genc_gmu_bind(struct device *dev, struct device *master, void *data)
 		genc_gmu_remove(device);
 		return hfi->irq;
 	}
-
-	disable_irq(gmu->hfi.irq);
 
 	return 0;
 }

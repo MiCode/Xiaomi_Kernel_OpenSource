@@ -62,23 +62,6 @@
 #define ADRENO_QUIRK(_dev, _bit) \
 	((_dev)->quirks & (_bit))
 
-/*
- * ADRENO_PREEMPT_STYLE - return preemption style
- */
-#define ADRENO_PREEMPT_STYLE(flags) \
-	((flags & KGSL_CONTEXT_PREEMPT_STYLE_MASK) >> \
-		  KGSL_CONTEXT_PREEMPT_STYLE_SHIFT)
-
-/*
- * return the dispatcher drawqueue in which the given drawobj should
- * be submitted
- */
-#define ADRENO_DRAWOBJ_DISPATCH_DRAWQUEUE(c)	\
-	(&((ADRENO_CONTEXT(c->context))->rb->dispatch_q))
-
-#define ADRENO_DRAWOBJ_RB(c)			\
-	((ADRENO_CONTEXT(c->context))->rb)
-
 #define ADRENO_FW(a, f)		(&(a->fw[f]))
 
 /* Adreno core features */
@@ -96,25 +79,21 @@
 #define ADRENO_SOFT_FAULT_DETECT BIT(5)
 /* The GMU supports IFPC power management*/
 #define ADRENO_IFPC BIT(6)
-/* The GMU supports HW based NAP */
-#define ADRENO_HW_NAP BIT(7)
-/* The GMU supports min voltage*/
-#define ADRENO_MIN_VOLT BIT(8)
 /* The core supports IO-coherent memory */
-#define ADRENO_IOCOHERENT BIT(9)
+#define ADRENO_IOCOHERENT BIT(7)
 /*
  * The GMU supports Adaptive Clock Distribution (ACD)
  * for droop mitigation
  */
-#define ADRENO_ACD BIT(10)
+#define ADRENO_ACD BIT(8)
 /* Cooperative reset enabled GMU */
-#define ADRENO_COOP_RESET BIT(11)
+#define ADRENO_COOP_RESET BIT(9)
 /* Indicates that the specific target is no longer supported */
-#define ADRENO_DEPRECATED BIT(12)
+#define ADRENO_DEPRECATED BIT(10)
 /* The target supports ringbuffer level APRIV */
-#define ADRENO_APRIV BIT(13)
+#define ADRENO_APRIV BIT(11)
 /* The GMU supports Battery Current Limiting */
-#define ADRENO_BCL BIT(14)
+#define ADRENO_BCL BIT(12)
 /*
  * Adreno GPU quirks - control bits for various workarounds
  */
@@ -151,9 +130,6 @@
 #define START_PROFILE_IDENTIFIER	0x2DEFADE1
 #define END_PROFILE_IDENTIFIER		0x2DEFADE2
 #define PWRON_FIXUP_IDENTIFIER		0x2AFAFAFA
-
-/* Number of times to try hard reset for pre-a6xx GPUs */
-#define NUM_TIMES_RESET_RETRY 4
 
 /* One cannot wait forever for the core to idle, so set an upper limit to the
  * amount of time to wait for the core to go idle
@@ -211,13 +187,8 @@ enum adreno_gpurev {
 #define ADRENO_CTX_DETATCH_TIMEOUT_FAULT BIT(6)
 #define ADRENO_GMU_FAULT_SKIP_SNAPSHOT BIT(7)
 
-/* VBIF,  GBIF halt request and ack mask */
-#define VBIF_RESET_ACK_TIMEOUT  100
-
 /* number of throttle counters for DCVS adjustment */
 #define ADRENO_GPMU_THROTTLE_COUNTERS 4
-/* base for throttle counters */
-#define ADRENO_GPMU_THROTTLE_COUNTERS_BASE_REG 43
 
 struct adreno_gpudev;
 
@@ -596,7 +567,8 @@ struct adreno_device {
 	 * @soft_ft_vals: number of elements in @soft_ft_regs and @soft_ft_vals
 	 */
 	int soft_ft_count;
-
+	/** @wake_on_touch: If true our last wakeup was due to a touch event */
+	bool wake_on_touch;
 };
 
 /**
@@ -646,9 +618,6 @@ struct adreno_drawobj_profile_entry {
 	uint64_t started;
 	uint64_t retired;
 };
-
-#define ADRENO_DRAWOBJ_PROFILE_COUNT \
-	(PAGE_SIZE / sizeof(struct adreno_drawobj_profile_entry))
 
 #define ADRENO_DRAWOBJ_PROFILE_OFFSET(_index, _member) \
 	 ((_index) * sizeof(struct adreno_drawobj_profile_entry) \
@@ -1180,25 +1149,6 @@ static inline unsigned int adreno_getreg(struct adreno_device *adreno_dev,
 }
 
 /*
- * adreno_read_gmureg() - Read a GMU register by getting its offset from the
- * offset array defined in gpudev node
- * @adreno_dev:		Pointer to the the adreno device
- * @offset_name:	The register enum that is to be read
- * @val:		Register value read is placed here
- */
-static inline void adreno_read_gmureg(struct adreno_device *adreno_dev,
-				enum adreno_regs offset_name, unsigned int *val)
-{
-	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-
-	if (adreno_checkreg_off(adreno_dev, offset_name))
-		gmu_core_regread(KGSL_DEVICE(adreno_dev),
-				gpudev->reg_offsets[offset_name], val);
-	else
-		*val = 0;
-}
-
-/*
  * adreno_write_gmureg() - Write a GMU register by getting its offset from the
  * offset array defined in gpudev node
  * @adreno_dev:		Pointer to the the adreno device
@@ -1576,7 +1526,7 @@ static inline int adreno_wait_for_halt_ack(struct kgsl_device *device,
 {
 	u32 val;
 	int ret = kgsl_regmap_read_poll_timeout(&device->regmap, ack_reg,
-		val, (val & mask) == mask, 100, VBIF_RESET_ACK_TIMEOUT * 1000);
+		val, (val & mask) == mask, 100, 100 * 1000);
 
 	if (ret)
 		dev_err(device->dev,
@@ -1764,16 +1714,6 @@ int adreno_suspend_context(struct kgsl_device *device);
  * submission.
  */
 void adreno_profile_submit_time(struct adreno_submit_time *time);
-
-/**
- * adreno_mark_guilty_context - Mark the given context as guilty
- * (failed recovery)
- * @device: Pointer to a KGSL device structure
- * @id: Context ID of the guilty context (or 0 to mark all as guilty)
- *
- * Mark the given (or all) context(s) as guilty (failed recovery)
- */
-void adreno_mark_guilty_context(struct kgsl_device *device, unsigned int id);
 
 void adreno_preemption_timer(struct timer_list *t);
 

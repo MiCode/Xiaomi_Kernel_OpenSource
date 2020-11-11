@@ -65,12 +65,6 @@ static const unsigned int a3xx_hlsq_registers[] = {
 	0x2600, 0x2612, 0x2614, 0x2617, 0x261a, 0x261a,
 };
 
-/* The set of additional registers to be dumped for A330 */
-
-static const unsigned int a330_registers[] = {
-	0x1d0, 0x1d0, 0x1d4, 0x1d4, 0x453, 0x453,
-};
-
 /* Shader memory size in words */
 #define SHADER_MEMORY_SIZE 0x4000
 

@@ -920,6 +920,9 @@ int a6xx_gmu_sptprac_enable(struct adreno_device *adreno_dev)
 	if (!adreno_is_a630(adreno_dev) && !adreno_is_a615_family(adreno_dev))
 		return 0;
 
+	if (test_bit(ADRENO_DEVICE_GPU_REGULATOR_ENABLED, &adreno_dev->priv))
+		return 0;
+
 	if (adreno_is_a619_holi(adreno_dev)) {
 		u32 val;
 		void __iomem *addr = kgsl_regmap_virt(&device->regmap,
@@ -935,6 +938,8 @@ int a6xx_gmu_sptprac_enable(struct adreno_device *adreno_dev)
 			dev_err(device->dev, "power on SPTPRAC fail\n");
 			return -EINVAL;
 		}
+
+		set_bit(ADRENO_DEVICE_GPU_REGULATOR_ENABLED, &adreno_dev->priv);
 		return 0;
 	}
 
@@ -952,6 +957,7 @@ int a6xx_gmu_sptprac_enable(struct adreno_device *adreno_dev)
 		return -ETIMEDOUT;
 	}
 
+	set_bit(ADRENO_DEVICE_GPU_REGULATOR_ENABLED, &adreno_dev->priv);
 	return 0;
 }
 
@@ -966,6 +972,10 @@ void a6xx_gmu_sptprac_disable(struct adreno_device *adreno_dev)
 
 	/* Only certain targets have sptprac */
 	if (!adreno_is_a630(adreno_dev) && !adreno_is_a615_family(adreno_dev))
+		return;
+
+	if (!test_and_clear_bit(ADRENO_DEVICE_GPU_REGULATOR_ENABLED,
+		&adreno_dev->priv))
 		return;
 
 	if (adreno_is_a619_holi(adreno_dev)) {
@@ -2662,16 +2672,10 @@ int a6xx_gmu_probe(struct kgsl_device *device,
 	gmu->irq = kgsl_request_irq(gmu->pdev, "kgsl_gmu_irq",
 		a6xx_gmu_irq_handler, device);
 
-	if (gmu->irq < 0) {
-		ret = gmu->irq;
-		goto error;
-	}
+	if (gmu->irq >= 0)
+		return 0;
 
-	/* Don't enable GMU interrupts until GMU started */
-	/* We cannot use irq_disable because it writes registers */
-	disable_irq(gmu->irq);
-
-	return 0;
+	ret = gmu->irq;
 
 error:
 	a6xx_gmu_remove(device);
@@ -2779,7 +2783,7 @@ void a6xx_enable_gpu_irq(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
-	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_ON);
+	kgsl_pwrctrl_irq(device, true);
 
 	adreno_irqctrl(adreno_dev, 1);
 }
@@ -2788,7 +2792,7 @@ void a6xx_disable_gpu_irq(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
-	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
+	kgsl_pwrctrl_irq(device, false);
 
 	if (a6xx_gmu_gx_is_on(device))
 		adreno_irqctrl(adreno_dev, 0);
@@ -3015,7 +3019,7 @@ static int a6xx_power_off(struct adreno_device *adreno_dev)
 	a6xx_gmu_oob_clear(device, oob_gpu);
 
 no_gx_power:
-	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
+	kgsl_pwrctrl_irq(device, false);
 
 	a6xx_gmu_power_off(adreno_dev);
 
@@ -3321,8 +3325,6 @@ static int a6xx_gmu_bind(struct device *dev, struct device *master, void *data)
 		a6xx_gmu_remove(device);
 		return hfi->irq;
 	}
-
-	disable_irq(gmu->hfi.irq);
 
 	return 0;
 }

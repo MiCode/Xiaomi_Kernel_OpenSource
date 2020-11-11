@@ -827,7 +827,7 @@ static bool kgsl_iommu_check_stall_on_fault(struct kgsl_mmu *mmu, int flags)
 	 * The device mutex must be held to change power state
 	 */
 	if (gmu_core_isenabled(device))
-		kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
+		kgsl_pwrctrl_irq(device, false);
 	else
 		kgsl_pwrctrl_change_state(device, KGSL_STATE_AWARE);
 

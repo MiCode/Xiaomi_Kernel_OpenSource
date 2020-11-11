@@ -306,7 +306,7 @@ static ssize_t full_cache_threshold_store(struct device *dev,
 	int ret;
 	unsigned int thresh = 0;
 
-	ret = kgsl_sysfs_store(buf, &thresh);
+	ret = kstrtou32(buf, 0, &thresh);
 	if (ret)
 		return ret;
 

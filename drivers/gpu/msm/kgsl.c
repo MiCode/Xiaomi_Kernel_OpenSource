@@ -778,24 +778,6 @@ kgsl_context_destroy(struct kref *kref)
 	device->ftbl->drawctxt_destroy(context);
 }
 
-struct kgsl_device *kgsl_get_device(int dev_idx)
-{
-	int i;
-	struct kgsl_device *ret = NULL;
-
-	mutex_lock(&kgsl_driver.devlock);
-
-	for (i = 0; i < ARRAY_SIZE(kgsl_driver.devp); i++) {
-		if (kgsl_driver.devp[i] && kgsl_driver.devp[i]->id == dev_idx) {
-			ret = kgsl_driver.devp[i];
-			break;
-		}
-	}
-
-	mutex_unlock(&kgsl_driver.devlock);
-	return ret;
-}
-
 static struct kgsl_device *kgsl_get_minor(int minor)
 {
 	struct kgsl_device *ret = NULL;
@@ -816,7 +798,7 @@ static struct kgsl_device *kgsl_get_minor(int minor)
  * @context: Pointer to the context for the timestamp
  * @timestamp: The timestamp to compare
  */
-int kgsl_check_timestamp(struct kgsl_device *device,
+bool kgsl_check_timestamp(struct kgsl_device *device,
 	struct kgsl_context *context, unsigned int timestamp)
 {
 	unsigned int ts_processed;
@@ -2222,12 +2204,9 @@ static long gpuobj_free_on_timestamp(struct kgsl_device_private *dev_priv,
 	struct kgsl_context *context;
 	long ret;
 
-	memset(&event, 0, sizeof(event));
-
-	ret = kgsl_copy_from_user(&event, u64_to_user_ptr(param->priv),
-		sizeof(event), param->len);
-	if (ret)
-		return ret;
+	if (copy_struct_from_user(&event, sizeof(event),
+		u64_to_user_ptr(param->priv), param->len))
+		return -EFAULT;
 
 	if (event.context_id == 0)
 		return -EINVAL;
@@ -2264,18 +2243,14 @@ static long gpuobj_free_on_fence(struct kgsl_device_private *dev_priv,
 {
 	struct kgsl_sync_fence_cb *handle;
 	struct kgsl_gpu_event_fence event;
-	long ret;
 
 	if (!kgsl_mem_entry_set_pend(entry))
 		return -EBUSY;
 
-	memset(&event, 0, sizeof(event));
-
-	ret = kgsl_copy_from_user(&event, u64_to_user_ptr(param->priv),
-		sizeof(event), param->len);
-	if (ret) {
+	if (copy_struct_from_user(&event, sizeof(event),
+		u64_to_user_ptr(param->priv), param->len)) {
 		kgsl_mem_entry_unset_pend(entry);
-		return ret;
+		return -EFAULT;
 	}
 
 	if (event.fd < 0) {
@@ -2608,8 +2583,7 @@ static long _gpuobj_map_useraddr(struct kgsl_device *device,
 		struct kgsl_mem_entry *entry,
 		struct kgsl_gpuobj_import *param)
 {
-	struct kgsl_gpuobj_import_useraddr useraddr = {0};
-	int ret;
+	struct kgsl_gpuobj_import_useraddr useraddr;
 
 	param->flags &= KGSL_MEMFLAGS_GPUREADONLY
 		| KGSL_CACHEMODE_MASK
@@ -2624,11 +2598,9 @@ static long _gpuobj_map_useraddr(struct kgsl_device *device,
 
 	kgsl_memdesc_init(device, &entry->memdesc, param->flags);
 
-	ret = kgsl_copy_from_user(&useraddr,
-		u64_to_user_ptr(param->priv), sizeof(useraddr),
-		param->priv_len);
-	if (ret)
-		return ret;
+	if (copy_struct_from_user(&useraddr, sizeof(useraddr),
+		u64_to_user_ptr(param->priv), param->priv_len))
+		return -EINVAL;
 
 	/* Verify that the virtaddr and len are within bounds */
 	if (useraddr.virtaddr > ULONG_MAX)
@@ -2674,10 +2646,9 @@ static long _gpuobj_map_dma_buf(struct kgsl_device *device,
 		entry->memdesc.priv |= KGSL_MEMDESC_SECURE;
 	}
 
-	ret = kgsl_copy_from_user(&buf, u64_to_user_ptr(param->priv),
-			sizeof(buf), param->priv_len);
-	if (ret)
-		return ret;
+	if (copy_struct_from_user(&buf, sizeof(buf),
+		u64_to_user_ptr(param->priv), param->priv_len))
+		return -EFAULT;
 
 	if (buf.fd < 0)
 		return -EINVAL;
@@ -3347,7 +3318,7 @@ long kgsl_ioctl_gpuobj_sync(struct kgsl_device_private *dev_priv,
 	ptr = u64_to_user_ptr(param->objs);
 
 	for (i = 0; i < param->count; i++) {
-		ret = kgsl_copy_from_user(&objs[i], ptr, sizeof(*objs),
+		ret = copy_struct_from_user(&objs[i], sizeof(*objs), ptr,
 			param->obj_len);
 		if (ret)
 			goto out;
@@ -4123,14 +4094,6 @@ static int kgsl_mmap(struct file *file, struct vm_area_struct *vma)
 	return 0;
 }
 
-static irqreturn_t kgsl_irq_handler(int irq, void *data)
-{
-	struct kgsl_device *device = data;
-
-	return device->ftbl->irq_handler(device);
-
-}
-
 #define KGSL_READ_MESSAGE "OH HAI GPU\n"
 
 static ssize_t kgsl_read(struct file *filep, char __user *buf, size_t count,
@@ -4297,11 +4260,14 @@ int kgsl_request_irq(struct platform_device *pdev, const  char *name,
 	ret = devm_request_irq(&pdev->dev, num, handler, IRQF_TRIGGER_HIGH,
 		name, data);
 
-	if (ret)
+	if (ret) {
 		dev_err(&pdev->dev, "Unable to get interrupt %s: %d\n",
 			name, ret);
+		return ret;
+	}
 
-	return ret ? ret : num;
+	disable_irq(num);
+	return num;
 }
 
 int kgsl_of_property_read_ddrtype(struct device_node *node, const char *base,
@@ -4348,15 +4314,6 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 	status = kgsl_mmu_probe(device);
 	if (status != 0)
 		goto error_pwrctrl_close;
-
-
-	status = kgsl_request_irq(pdev, "kgsl_3d0_irq",
-		kgsl_irq_handler, device);
-	if (status < 0)
-		goto error_pwrctrl_close;
-
-	device->pwrctrl.interrupt_num = status;
-	disable_irq(device->pwrctrl.interrupt_num);
 
 	rwlock_init(&device->context_lock);
 	spin_lock_init(&device->submit_lock);

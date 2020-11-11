@@ -344,8 +344,8 @@ u32 a5xx_preemption_pre_ibsubmit(struct adreno_device *adreno_dev,
 		if (drawctxt->base.flags & KGSL_CONTEXT_SECURE)
 			preempt_style = KGSL_CONTEXT_PREEMPT_STYLE_RINGBUFFER;
 		else
-			preempt_style =
-				ADRENO_PREEMPT_STYLE(drawctxt->base.flags);
+			preempt_style = FIELD_GET(KGSL_CONTEXT_PREEMPT_STYLE_MASK,
+				drawctxt->base.flags);
 	}
 
 	/*

@@ -700,7 +700,7 @@ void genc_hwsched_hfi_stop(struct adreno_device *adreno_dev)
 
 	reset_hfi_queues(adreno_dev);
 
-	kgsl_pwrctrl_axi(KGSL_DEVICE(adreno_dev), KGSL_PWRFLAGS_OFF);
+	kgsl_pwrctrl_axi(KGSL_DEVICE(adreno_dev), false);
 
 	clear_bit(GMU_PRIV_HFI_STARTED, &gmu->flags);
 
@@ -768,7 +768,7 @@ int genc_hwsched_hfi_start(struct adreno_device *adreno_dev)
 		goto err;
 
 	/* Request default BW vote */
-	ret = kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_ON);
+	ret = kgsl_pwrctrl_axi(device, true);
 
 err:
 	if (ret)
@@ -938,8 +938,6 @@ int genc_hwsched_hfi_probe(struct adreno_device *adreno_dev)
 		return gmu->hfi.irq;
 
 	hw_hfi->irq_mask = HFI_IRQ_MASK;
-
-	disable_irq(gmu->hfi.irq);
 
 	rwlock_init(&hw_hfi->msglock);
 
@@ -1245,9 +1243,7 @@ static int send_context_unregister_hfi(struct adreno_device *adreno_dev,
 		 * context so that any un-finished inflight submissions are not
 		 * replayed after recovery.
 		 */
-		adreno_mark_guilty_context(device, context->id);
-
-		adreno_drawctxt_invalidate(device, context);
+		adreno_drawctxt_set_guilty(device, context);
 
 		adreno_get_gpu_halt(adreno_dev);
 

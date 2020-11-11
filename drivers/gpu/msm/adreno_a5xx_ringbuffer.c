@@ -445,7 +445,8 @@ int a5xx_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 
 		list_for_each_entry(ib, &cmdobj->cmdlist, node) {
 			if (ib->priv & MEMOBJ_SKIP ||
-			    (ib->priv & MEMOBJ_PREAMBLE && !IS_PREAMBLE(flags)))
+			    (ib->flags & KGSL_CMDLIST_CTXTSWITCH_PREAMBLE
+			     && !IS_PREAMBLE(flags)))
 				cmds[index++] = cp_type7_packet(CP_NOP, 4);
 
 			cmds[index++] =
