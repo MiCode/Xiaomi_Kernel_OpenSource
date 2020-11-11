@@ -466,8 +466,7 @@ static void _dma_cache_op(struct device *dev, struct page *page,
 int kgsl_cache_range_op(struct kgsl_memdesc *memdesc, uint64_t offset,
 		uint64_t size, unsigned int op)
 {
-	struct sg_table *sgt = NULL;
-	struct sg_page_iter sg_iter;
+	int i;
 
 	if (memdesc->flags & KGSL_MEMFLAGS_IOCOHERENT)
 		return 0;
@@ -483,26 +482,28 @@ int kgsl_cache_range_op(struct kgsl_memdesc *memdesc, uint64_t offset,
 	if (offset + size > memdesc->size)
 		return -ERANGE;
 
-	if (memdesc->sgt != NULL)
-		sgt = memdesc->sgt;
-	else {
-		if (memdesc->pages == NULL)
-			return  0;
-
-		sgt = kgsl_alloc_sgt_from_pages(memdesc);
-		if (IS_ERR(sgt))
-			return PTR_ERR(sgt);
-	}
-
 	size += offset & PAGE_MASK;
 	offset &= ~PAGE_MASK;
 
-	for_each_sg_page(sgt->sgl, &sg_iter, PAGE_ALIGN(size) >> PAGE_SHIFT,
-			offset >> PAGE_SHIFT)
-		_dma_cache_op(memdesc->dev, sg_page_iter_page(&sg_iter), op);
+	/* If there is a sgt, use for_each_sg_page to walk it */
+	if (memdesc->sgt) {
+		struct sg_page_iter sg_iter;
 
-	if (memdesc->sgt == NULL)
-		kgsl_free_sgt(sgt);
+		for_each_sg_page(memdesc->sgt->sgl, &sg_iter,
+			PAGE_ALIGN(size) >> PAGE_SHIFT, offset >> PAGE_SHIFT)
+			_dma_cache_op(memdesc->dev, sg_page_iter_page(&sg_iter), op);
+		return 0;
+	}
+
+	/* Otherwise just walk through the list of pages */
+	for (i = 0; i < memdesc->page_count; i++) {
+		u64 cur = (i << PAGE_SHIFT);
+
+		if ((cur < offset) || (cur >= (offset + size)))
+			continue;
+
+		_dma_cache_op(memdesc->dev, memdesc->pages[i], op);
+	}
 
 	return 0;
 }

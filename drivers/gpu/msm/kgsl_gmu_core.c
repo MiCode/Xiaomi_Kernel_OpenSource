@@ -188,3 +188,28 @@ int gmu_core_timed_poll_check(struct kgsl_device *device,
 	return kgsl_regmap_read_poll_timeout(&device->regmap, offset,
 		val, (val & mask) == expected_ret, 100, timeout_ms * 1000);
 }
+
+int gmu_core_map_memdesc(struct iommu_domain *domain, struct kgsl_memdesc *memdesc,
+		u64 gmuaddr, int attrs)
+{
+	size_t mapped;
+
+	if (!memdesc->pages) {
+		mapped = iommu_map_sg(domain, gmuaddr, memdesc->sgt->sgl,
+			memdesc->sgt->nents, attrs);
+	} else {
+		struct sg_table sgt = { 0 };
+		int ret;
+
+		ret = sg_alloc_table_from_pages(&sgt, memdesc->pages,
+			memdesc->page_count, 0, memdesc->size, GFP_KERNEL);
+
+		if (ret)
+			return ret;
+
+		mapped = iommu_map_sg(domain, gmuaddr, sgt.sgl, sgt.nents, attrs);
+		sg_free_table(&sgt);
+	}
+
+	return mapped == 0 ? -ENOMEM : 0;
+}

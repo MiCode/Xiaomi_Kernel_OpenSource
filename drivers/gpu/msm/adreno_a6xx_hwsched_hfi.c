@@ -445,11 +445,10 @@ static int gmu_import_buffer(struct adreno_device *adreno_dev,
 {
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
 	int attrs = get_attrs(flags);
-	struct sg_table *sgt;
 	struct kgsl_memdesc *gpu_md = entry->gpu_md;
-	size_t mapped;
 	struct gmu_vma_entry *vma = &gmu->vma[GMU_NONCACHED_KERNEL];
 	struct hfi_mem_alloc_desc *desc = &entry->desc;
+	int ret;
 
 	if (flags & HFI_MEMFLAG_GMU_CACHEABLE)
 		vma = &gmu->vma[GMU_CACHE];
@@ -461,29 +460,17 @@ static int gmu_import_buffer(struct adreno_device *adreno_dev,
 		return -ENOMEM;
 	}
 
-	/* Alloc sgt for map and then free it */
-	if (gpu_md->pages != NULL)
-		sgt = kgsl_alloc_sgt_from_pages(gpu_md);
-	else
-		sgt = gpu_md->sgt;
-
-	if (IS_ERR(sgt))
-		return -ENOMEM;
-
 	desc->gmu_addr = vma->next_va;
 
-	mapped = iommu_map_sg(gmu->domain,
-			desc->gmu_addr, sgt->sgl, sgt->nents, attrs);
-	if (mapped == 0)
-		dev_err(&gmu->pdev->dev, "gmu map sg err: 0x%08x, %u, %x, %zu\n",
-			desc->gmu_addr, sgt->nents, attrs, mapped);
-	else
-		vma->next_va += desc->size;
+	ret = gmu_core_map_memdesc(gmu->domain, gpu_md, desc->gmu_addr, attrs);
+	if (ret) {
+		dev_err(&gmu->pdev->dev, "gmu map err: 0x%08x, %x\n",
+			desc->gmu_addr, attrs);
+		return ret;
+	}
 
-	if (gpu_md->pages != NULL)
-		kgsl_free_sgt(sgt);
-
-	return ((mapped == 0) ? -ENOMEM : 0);
+	vma->next_va += desc->size;
+	return 0;
 }
 
 static struct hfi_mem_alloc_entry *lookup_mem_alloc_table(
