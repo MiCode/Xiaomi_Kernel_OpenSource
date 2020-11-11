@@ -84,5 +84,5 @@ static struct platform_driver orchid_qcom_llcc_driver = {
 };
 module_platform_driver(orchid_qcom_llcc_driver);
 
-MODULE_DESCRIPTION("QCOM orchid LLCC driver");
+MODULE_DESCRIPTION("QTI orchid LLCC driver");
 MODULE_LICENSE("GPL v2");
