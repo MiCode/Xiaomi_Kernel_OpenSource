@@ -419,13 +419,12 @@ static ssize_t pl_lk_file_write(struct file *filp,
 	return cnt;
 }
 
-static const struct file_operations pl_lk_file_ops = {
-	.owner = THIS_MODULE,
-	.open = pl_lk_file_open,
-	.write = pl_lk_file_write,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = single_release,
+static const struct proc_ops pl_lk_file_ops = {
+	.proc_open = pl_lk_file_open,
+	.proc_write = pl_lk_file_write,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
 };
 
 
