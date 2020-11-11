@@ -551,8 +551,7 @@ void kgsl_memdesc_init(struct kgsl_device *device,
 	memdesc->dev = &device->pdev->dev;
 
 	align = max_t(unsigned int,
-		(memdesc->flags & KGSL_MEMALIGN_MASK) >> KGSL_MEMALIGN_SHIFT,
-		ilog2(PAGE_SIZE));
+		kgsl_memdesc_get_align(memdesc), ilog2(PAGE_SIZE));
 	kgsl_memdesc_set_align(memdesc, align);
 
 	spin_lock_init(&memdesc->lock);
@@ -758,8 +757,7 @@ static const char * const memtype_str[] = {
 
 void kgsl_get_memory_usage(char *name, size_t name_size, uint64_t memflags)
 {
-	unsigned int type = MEMFLAGS(memflags, KGSL_MEMTYPE_MASK,
-		KGSL_MEMTYPE_SHIFT);
+	unsigned int type = FIELD_GET(KGSL_MEMTYPE_MASK, memflags);
 
 	if (type == KGSL_MEMTYPE_KERNEL)
 		strlcpy(name, "kernel", name_size);

@@ -2471,7 +2471,7 @@ static void _setup_cache_mode(struct kgsl_mem_entry *entry,
 	else
 		mode = KGSL_CACHEMODE_WRITEBACK;
 
-	entry->memdesc.flags |= (mode << KGSL_CACHEMODE_SHIFT);
+	entry->memdesc.flags |= FIELD_PREP(KGSL_CACHEMODE_MASK, mode);
 }
 
 static int kgsl_setup_dma_buf(struct kgsl_device *device,
@@ -2666,7 +2666,7 @@ static long _gpuobj_map_dma_buf(struct kgsl_device *device,
 	dma_buf_get_flags(dmabuf, &flags);
 	if (flags & ION_FLAG_CACHED) {
 		entry->memdesc.flags |=
-			KGSL_CACHEMODE_WRITEBACK << KGSL_CACHEMODE_SHIFT;
+			FIELD_PREP(KGSL_CACHEMODE_MASK, KGSL_CACHEMODE_WRITEBACK);
 
 		/*
 		 * Enable I/O coherency if it is 1) a thing, and either
@@ -3362,12 +3362,9 @@ static uint64_t kgsl_filter_cachemode(uint64_t flags)
 	 * WRITETHROUGH is not supported in arm64, so we tell the user that we
 	 * use WRITEBACK which is the default caching policy.
 	 */
-	if ((flags & KGSL_CACHEMODE_MASK) >> KGSL_CACHEMODE_SHIFT ==
-					KGSL_CACHEMODE_WRITETHROUGH) {
+	if (FIELD_GET(KGSL_CACHEMODE_MASK, flags) == KGSL_CACHEMODE_WRITETHROUGH) {
 		flags &= ~((uint64_t) KGSL_CACHEMODE_MASK);
-		flags |= (uint64_t)((KGSL_CACHEMODE_WRITEBACK <<
-						KGSL_CACHEMODE_SHIFT) &
-					KGSL_CACHEMODE_MASK);
+		flags |= FIELD_PREP(KGSL_CACHEMODE_MASK, KGSL_CACHEMODE_WRITEBACK);
 	}
 	return flags;
 }
@@ -3410,16 +3407,14 @@ struct kgsl_mem_entry *gpumem_alloc_entry(
 	}
 
 	/* Cap the alignment bits to the highest number we can handle */
-	align = MEMFLAGS(flags, KGSL_MEMALIGN_MASK, KGSL_MEMALIGN_SHIFT);
+	align = FIELD_GET(KGSL_MEMALIGN_MASK, flags);
 	if (align >= ilog2(KGSL_MAX_ALIGN)) {
 		dev_err(dev_priv->device->dev,
 			"Alignment too large; restricting to %dK\n",
 			KGSL_MAX_ALIGN >> 10);
 
 		flags &= ~((uint64_t) KGSL_MEMALIGN_MASK);
-		flags |= (uint64_t)((ilog2(KGSL_MAX_ALIGN) <<
-						KGSL_MEMALIGN_SHIFT) &
-					KGSL_MEMALIGN_MASK);
+		flags |= FIELD_PREP(KGSL_MEMALIGN_MASK, ilog2(KGSL_MAX_ALIGN));
 	}
 
 	/* For now only allow allocations up to 4G */
@@ -3649,10 +3644,10 @@ long kgsl_ioctl_gpuobj_set_info(struct kgsl_device_private *dev_priv,
 		copy_metadata(entry, param->metadata, param->metadata_len);
 
 	if (param->flags & KGSL_GPUOBJ_SET_INFO_TYPE) {
-		if (param->type <= (KGSL_MEMTYPE_MASK >> KGSL_MEMTYPE_SHIFT)) {
+		if (FIELD_FIT(KGSL_MEMTYPE_MASK, param->type)) {
 			entry->memdesc.flags &= ~((uint64_t) KGSL_MEMTYPE_MASK);
-			entry->memdesc.flags |= (uint64_t)((param->type <<
-				KGSL_MEMTYPE_SHIFT) & KGSL_MEMTYPE_MASK);
+			entry->memdesc.flags |=
+				FIELD_PREP(KGSL_MEMTYPE_MASK, param->type);
 		} else
 			ret = -EINVAL;
 	}
