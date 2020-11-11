@@ -80,6 +80,14 @@ static const char * const drv_names_lahaina[] = {
 	""
 };
 
+static const char * const drv_names_waipio[] = {
+	"TZ", "HYP", "HLOS", "L3", "SECPROC", "AUDIO", "SENSOR", "AOP",
+	"DEBUG", "GPU", "DISPLAY", "COMPUTE_DSP", "TIME_SW", "TIME_HW",
+	"MDM SW", "MDM HW", "WLAN RF", "WLAN BB", "DDR AUX", "ARC CPRF",
+	"ARC_DEP", "BCM",
+	""
+};
+
 static int read_vx_data(struct vx_platform_data *pd, struct vx_log *log)
 {
 	void __iomem *base = pd->base;
@@ -232,6 +240,8 @@ static int vx_create_debug_nodes(struct vx_platform_data *pd)
 static const struct of_device_id drv_match_table[] = {
 	{ .compatible = "qcom,sys-pm-lahaina",
 	  .data = drv_names_lahaina },
+	{ .compatible = "qcom,sys-pm-waipio",
+	  .data = drv_names_waipio },
 	{ }
 };
 

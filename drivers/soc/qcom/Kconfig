@@ -662,7 +662,7 @@ config QGKI
 
 config QTI_SYS_PM_VX
 	tristate "Qualcomm Technologies Inc (QTI) System PM Violators Driver"
-	depends on QMP_DEBUGFS_CLIENT
+	depends on QCOM_AOSS_QMP
 	help
 	  This option enables debug subystems that prevent system low power
 	  modes. The user sends a QMP message to AOP to record subsystems
