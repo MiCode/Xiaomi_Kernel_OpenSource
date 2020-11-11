@@ -657,8 +657,17 @@ static int ufs_mtk_init(struct ufs_hba *hba)
 	ufs_mtk_mphy_power_on(hba, true);
 	ufs_mtk_setup_clocks(hba, true, POST_CHANGE);
 
-	cpu_latency_qos_add_request(&host->pm_qos_req, PM_QOS_DEFAULT_VALUE);
-	host->pm_qos_init = true;
+	/*
+	 * Disable requesting PM_QOS_CPU_DMA_LATENCY and use
+	 * CIRQ for UFS instead. Here we first mark code to
+	 * watch if any performance issues and then remove the
+	 * feature after a period of time without issues.
+	 */
+	/*
+	 * cpu_latency_qos_add_request(&host->pm_qos_req,
+	 *		   PM_QOS_DEFAULT_VALUE);
+	 * host->pm_qos_init = true;
+	 */
 
 #if IS_ENABLED(CONFIG_SCSI_UFS_MEDIATEK_DBG)
 	ufs_mtk_dbg_register(hba);
