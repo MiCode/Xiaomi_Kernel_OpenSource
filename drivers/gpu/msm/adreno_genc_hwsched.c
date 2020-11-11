@@ -388,7 +388,7 @@ gdsc_off:
 	return ret;
 }
 
-static void genc_hwsched_active_count_put(struct adreno_device *adreno_dev)
+void genc_hwsched_active_count_put(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
@@ -787,7 +787,7 @@ static int genc_hwsched_first_open(struct adreno_device *adreno_dev)
 	return 0;
 }
 
-static int genc_hwsched_active_count_get(struct adreno_device *adreno_dev)
+int genc_hwsched_active_count_get(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct genc_gmu_device *gmu = to_genc_gmu(adreno_dev);

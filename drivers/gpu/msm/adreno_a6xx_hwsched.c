@@ -391,7 +391,7 @@ gdsc_off:
 	return ret;
 }
 
-static void a6xx_hwsched_active_count_put(struct adreno_device *adreno_dev)
+void a6xx_hwsched_active_count_put(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
@@ -800,7 +800,7 @@ static int a6xx_hwsched_first_open(struct adreno_device *adreno_dev)
 	return 0;
 }
 
-static int a6xx_hwsched_active_count_get(struct adreno_device *adreno_dev)
+int a6xx_hwsched_active_count_get(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);

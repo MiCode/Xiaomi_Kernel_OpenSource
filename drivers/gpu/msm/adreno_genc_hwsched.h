@@ -54,4 +54,24 @@ void genc_hwsched_snapshot(struct adreno_device *adreno_dev,
  * @adreno_dev: Pointer to the adreno device
  */
 void genc_hwsched_handle_watchdog(struct adreno_device *adreno_dev);
+
+/**
+ * genc_hwsched_active_count_get - Increment the active count
+ * @adreno_dev: Pointer to the adreno device
+ *
+ * This function increments the active count. If active count
+ * is 0, this function also powers up the device.
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int genc_hwsched_active_count_get(struct adreno_device *adreno_dev);
+
+/**
+ * genc_hwsched_active_count_put - Put back the active count
+ * @adreno_dev: Pointer to the adreno device
+ *
+ * This function decrements the active count sets the idle
+ * timer if active count is zero.
+ */
+void genc_hwsched_active_count_put(struct adreno_device *adreno_dev);
 #endif
