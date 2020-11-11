@@ -712,6 +712,7 @@ static int __init mtk_dvfsrc_helper_init(void)
 		return ret;
 	}
 #endif
+	return ret;
 }
 late_initcall_sync(mtk_dvfsrc_helper_init)
 
