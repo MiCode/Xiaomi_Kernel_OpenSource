@@ -831,7 +831,9 @@ void ecm_ipa_cleanup(void *priv)
 	ecm_ipa_rules_destroy(ecm_ipa_ctx);
 	ecm_ipa_debugfs_destroy(ecm_ipa_ctx);
 
+	ECM_IPA_DEBUG("ECM_IPA unregister_netdev started\n");
 	unregister_netdev(ecm_ipa_ctx->net);
+	ECM_IPA_DEBUG("ECM_IPA unregister_netdev completed\n");
 	free_netdev(ecm_ipa_ctx->net);
 
 	ECM_IPA_INFO("ECM_IPA was destroyed successfully\n");
