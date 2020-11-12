@@ -231,8 +231,8 @@ int reviser_dram_remap_init(void *drvinfo)
 
 	ctx_max = rdv->plat.mdla_max + rdv->plat.vpu_max
 			+ rdv->plat.edma_max + rdv->plat.up_max;
-	//g_mem_sys.size = REMAP_DRAM_SIZE;
-	g_mem_sys.size = rdv->plat.vlm_size * ctx_max;
+	//ctx_max * 2 = ctx_max + ctx_preemption_max
+	g_mem_sys.size = rdv->plat.vlm_size * ctx_max * 2;
 	if (reviser_mem_alloc(rdv->dev, &g_mem_sys)) {
 		LOG_ERR("alloc fail\n");
 		return -ENOMEM;
