@@ -1967,6 +1967,7 @@ u64 aee_rr_curr_ptp_temp(void)
 {
 	return LAST_RR_VAL(ptp_temp);
 }
+EXPORT_SYMBOL(aee_rr_curr_ptp_temp);
 
 u8 aee_rr_curr_ptp_status(void)
 {
