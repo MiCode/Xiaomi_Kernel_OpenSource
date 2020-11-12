@@ -2262,7 +2262,7 @@ static int veth_ipa_remove(struct platform_device *pdev)
 		pr_err("%s: failed\n");
 		return ret;
 	}
-
+	habmm_socket_close(pdata->veth_emac_mem.vc_id);
 	veth_ipa_cleanup(pdata);
 	return 0;
 }
