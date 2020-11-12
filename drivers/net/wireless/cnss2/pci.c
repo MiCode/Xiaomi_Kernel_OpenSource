@@ -2567,6 +2567,7 @@ static void cnss_pci_event_cb(struct msm_pcie_notify *notify)
 {
 	struct pci_dev *pci_dev;
 	struct cnss_pci_data *pci_priv;
+	struct device *dev;
 
 	if (!notify)
 		return;
@@ -2578,6 +2579,7 @@ static void cnss_pci_event_cb(struct msm_pcie_notify *notify)
 	pci_priv = cnss_get_pci_priv(pci_dev);
 	if (!pci_priv)
 		return;
+	dev = &pci_priv->pci_dev->dev;
 
 	switch (notify->event) {
 	case MSM_PCIE_EVENT_LINKDOWN:
@@ -2586,8 +2588,9 @@ static void cnss_pci_event_cb(struct msm_pcie_notify *notify)
 		break;
 	case MSM_PCIE_EVENT_WAKEUP:
 		complete(&pci_priv->wake_event);
-		if (cnss_pci_get_monitor_wake_intr(pci_priv) &&
-		    cnss_pci_get_auto_suspended(pci_priv)) {
+		if ((cnss_pci_get_monitor_wake_intr(pci_priv) &&
+		     cnss_pci_get_auto_suspended(pci_priv)) ||
+		     dev->power.runtime_status == RPM_SUSPENDING) {
 			cnss_pci_set_monitor_wake_intr(pci_priv, false);
 			cnss_pci_pm_request_resume(pci_priv);
 		}
