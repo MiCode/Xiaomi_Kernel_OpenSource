@@ -73,10 +73,9 @@ static irqreturn_t reviser_interrupt(int irq, void *private_data)
 	rdv = (struct reviser_dev_info *)private_data;
 
 	ret = reviser_mgt_isr_cb(rdv);
-	if (ret) {
-		LOG_ERR("ISR Error ret(%d)\n", ret);
+	if (ret)
 		return IRQ_NONE;
-	}
+
 	return IRQ_HANDLED;
 
 }
