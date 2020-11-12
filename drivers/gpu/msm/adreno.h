@@ -869,7 +869,6 @@ void adreno_hang_int_callback(struct adreno_device *adreno_dev, int bit);
 void adreno_cp_callback(struct adreno_device *adreno_dev, int bit);
 
 int adreno_sysfs_init(struct adreno_device *adreno_dev);
-void adreno_sysfs_close(struct adreno_device *adreno_dev);
 
 void adreno_irqctrl(struct adreno_device *adreno_dev, int state);
 

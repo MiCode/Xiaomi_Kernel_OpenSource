@@ -42,28 +42,9 @@ container_of(a, struct kgsl_mem_entry_attribute, attr)
 	.show = _show, \
 }
 
-/*
- * A structure to hold the attributes for a particular memory type.
- * For each memory type in each process we store the current and maximum
- * memory usage and display the counts in sysfs.  This structure and
- * the following macro allow us to simplify the definition for those
- * adding new memory types
- */
-
-struct mem_entry_stats {
-	int memtype;
-	struct kgsl_mem_entry_attribute attr;
-	struct kgsl_mem_entry_attribute max_attr;
-};
-
-
-#define MEM_ENTRY_STAT(_type, _name) \
-{ \
-	.memtype = _type, \
-	.attr = __MEM_ENTRY_ATTR(_type, _name, mem_entry_show), \
-	.max_attr = __MEM_ENTRY_ATTR(_type, _name##_max, \
-		mem_entry_max_show), \
-}
+#define MEM_ENTRY_ATTR(_type, _name, _show)  \
+	static struct kgsl_mem_entry_attribute mem_entry_##_name = \
+		__MEM_ENTRY_ATTR(_type, _name, _show)
 
 static ssize_t
 imported_mem_show(struct kgsl_process_private *priv,
@@ -130,13 +111,6 @@ gpumem_unmapped_show(struct kgsl_process_private *priv, int type, char *buf)
 			gpumem_total - gpumem_mapped);
 }
 
-static struct kgsl_mem_entry_attribute debug_memstats[] = {
-	__MEM_ENTRY_ATTR(0, imported_mem, imported_mem_show),
-	__MEM_ENTRY_ATTR(0, gpumem_mapped, gpumem_mapped_show),
-	__MEM_ENTRY_ATTR(KGSL_MEM_ENTRY_KERNEL, gpumem_unmapped,
-				gpumem_unmapped_show),
-};
-
 /**
  * Show the current amount of memory allocated for the given memtype
  */
@@ -164,7 +138,6 @@ static ssize_t mem_entry_sysfs_show(struct kobject *kobj,
 {
 	struct kgsl_mem_entry_attribute *pattr = to_mem_entry_attr(attr);
 	struct kgsl_process_private *priv;
-	ssize_t ret;
 
 	/*
 	 * kgsl_process_init_sysfs takes a refcount to the process_private,
@@ -172,15 +145,9 @@ static ssize_t mem_entry_sysfs_show(struct kobject *kobj,
 	 * not be freed until this function completes, and no further locking
 	 * is needed.
 	 */
-	priv = kobj ? container_of(kobj, struct kgsl_process_private, kobj) :
-			NULL;
+	priv = container_of(kobj, struct kgsl_process_private, kobj);
 
-	if (priv && pattr->show)
-		ret = pattr->show(priv, pattr->memtype, buf);
-	else
-		ret = -EIO;
-
-	return ret;
+	return pattr->show(priv, pattr->memtype, buf);
 }
 
 static void mem_entry_release(struct kobject *kobj)
@@ -196,32 +163,39 @@ static const struct sysfs_ops mem_entry_sysfs_ops = {
 	.show = mem_entry_sysfs_show,
 };
 
+MEM_ENTRY_ATTR(KGSL_MEM_ENTRY_KERNEL, kernel, mem_entry_show);
+MEM_ENTRY_ATTR(KGSL_MEM_ENTRY_KERNEL, kernel_max, mem_entry_max_show);
+MEM_ENTRY_ATTR(KGSL_MEM_ENTRY_USER, user, mem_entry_show);
+MEM_ENTRY_ATTR(KGSL_MEM_ENTRY_USER, user_max, mem_entry_max_show);
+#ifdef CONFIG_ION
+MEM_ENTRY_ATTR(KGSL_MEM_ENTRY_USER, ion, mem_entry_show);
+MEM_ENTRY_ATTR(KGSL_MEM_ENTRY_USER, ion_max, mem_entry_max_show);
+#endif
+MEM_ENTRY_ATTR(0, imported_mem, imported_mem_show);
+MEM_ENTRY_ATTR(0, gpumem_mapped, gpumem_mapped_show);
+MEM_ENTRY_ATTR(KGSL_MEM_ENTRY_KERNEL, gpumem_unmapped, gpumem_unmapped_show);
+
+static struct attribute *mem_entry_attrs[] = {
+	&mem_entry_kernel.attr,
+	&mem_entry_kernel_max.attr,
+	&mem_entry_user.attr,
+	&mem_entry_user_max.attr,
+#ifdef CONFIG_ION
+	&mem_entry_ion.attr,
+	&mem_entry_ion_max.attr,
+#endif
+	&mem_entry_imported_mem.attr,
+	&mem_entry_gpumem_mapped.attr,
+	&mem_entry_gpumem_unmapped.attr,
+	NULL,
+};
+ATTRIBUTE_GROUPS(mem_entry);
+
 static struct kobj_type ktype_mem_entry = {
 	.sysfs_ops = &mem_entry_sysfs_ops,
 	.release = &mem_entry_release,
+	.default_groups = mem_entry_groups,
 };
-
-static struct mem_entry_stats mem_stats[] = {
-	MEM_ENTRY_STAT(KGSL_MEM_ENTRY_KERNEL, kernel),
-	MEM_ENTRY_STAT(KGSL_MEM_ENTRY_USER, user),
-#ifdef CONFIG_ION
-	MEM_ENTRY_STAT(KGSL_MEM_ENTRY_ION, ion),
-#endif
-};
-
-void
-kgsl_process_uninit_sysfs(struct kgsl_process_private *private)
-{
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(mem_stats); i++) {
-		sysfs_remove_file(&private->kobj, &mem_stats[i].attr.attr);
-		sysfs_remove_file(&private->kobj,
-			&mem_stats[i].max_attr.attr);
-	}
-
-	kobject_put(&private->kobj);
-}
 
 /**
  * kgsl_process_init_sysfs() - Initialize and create sysfs files for a process
@@ -236,8 +210,6 @@ kgsl_process_uninit_sysfs(struct kgsl_process_private *private)
 void kgsl_process_init_sysfs(struct kgsl_device *device,
 		struct kgsl_process_private *private)
 {
-	int i;
-
 	/* Keep private valid until the sysfs enries are removed. */
 	kgsl_process_private_get(private);
 
@@ -245,28 +217,7 @@ void kgsl_process_init_sysfs(struct kgsl_device *device,
 		kgsl_driver.prockobj, "%d", pid_nr(private->pid))) {
 		dev_err(device->dev, "Unable to add sysfs for process %d\n",
 			pid_nr(private->pid));
-		return;
-	}
-
-	for (i = 0; i < ARRAY_SIZE(mem_stats); i++) {
-		int ret;
-
-		ret = sysfs_create_file(&private->kobj,
-			&mem_stats[i].attr.attr);
-		ret |= sysfs_create_file(&private->kobj,
-			&mem_stats[i].max_attr.attr);
-
-		if (ret)
-			dev_err(device->dev,
-				"Unable to create sysfs files for process %d\n",
-				pid_nr(private->pid));
-	}
-
-	for (i = 0; i < ARRAY_SIZE(debug_memstats); i++) {
-		if (sysfs_create_file(&private->kobj,
-			&debug_memstats[i].attr))
-			WARN(1, "Couldn't create sysfs file '%s'\n",
-				debug_memstats[i].attr.name);
+		kgsl_process_private_put(private);
 	}
 }
 
@@ -348,12 +299,6 @@ static const struct attribute *drv_attr_list[] = {
 	&dev_attr_full_cache_threshold.attr,
 	NULL,
 };
-
-void
-kgsl_sharedmem_uninit_sysfs(void)
-{
-	sysfs_remove_files(&kgsl_driver.virtdev.kobj, drv_attr_list);
-}
 
 int
 kgsl_sharedmem_init_sysfs(void)

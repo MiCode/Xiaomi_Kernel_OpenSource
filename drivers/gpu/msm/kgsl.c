@@ -965,8 +965,7 @@ static void kgsl_process_private_close(struct kgsl_device_private *dev_priv,
 	 * If this is the last file on the process take down the debug
 	 * directories and garbage collect any outstanding resources
 	 */
-
-	kgsl_process_uninit_sysfs(private);
+	kobject_put(&private->kobj);
 
 	/* Release all syncsource objects from process private */
 	kgsl_syncsource_process_release_syncsources(private);
@@ -4378,15 +4377,13 @@ void kgsl_core_exit(void)
 	kgsl_core_debugfs_close();
 
 	/*
-	 * We call kgsl_sharedmem_uninit_sysfs() and device_unregister()
+	 * We call device_unregister()
 	 * only if kgsl_driver.virtdev has been populated.
 	 * We check at least one member of kgsl_driver.virtdev to
 	 * see if it is not NULL (and thus, has been populated).
 	 */
-	if (kgsl_driver.virtdev.class) {
-		kgsl_sharedmem_uninit_sysfs();
+	if (kgsl_driver.virtdev.class)
 		device_unregister(&kgsl_driver.virtdev);
-	}
 
 	if (kgsl_driver.class) {
 		class_destroy(kgsl_driver.class);

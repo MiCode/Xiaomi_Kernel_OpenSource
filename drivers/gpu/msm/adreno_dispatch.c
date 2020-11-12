@@ -2630,7 +2630,6 @@ void adreno_dispatcher_close(struct adreno_device *adreno_dev)
 	struct adreno_dispatcher *dispatcher = &adreno_dev->dispatcher;
 	int i;
 	struct adreno_ringbuffer *rb;
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
 	mutex_lock(&dispatcher->mutex);
 	del_timer_sync(&dispatcher->timer);
@@ -2653,8 +2652,6 @@ void adreno_dispatcher_close(struct adreno_device *adreno_dev)
 	kobject_put(&dispatcher->kobj);
 
 	kmem_cache_destroy(jobs_cache);
-
-	sysfs_remove_files(&device->dev->kobj, _preempt_attr_list);
 }
 
 struct dispatcher_attribute {

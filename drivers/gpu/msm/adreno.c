@@ -1394,7 +1394,6 @@ static void adreno_unbind(struct device *dev)
 	if (adreno_input_handler.private)
 		input_unregister_handler(&adreno_input_handler);
 #endif
-	adreno_sysfs_close(adreno_dev);
 
 	adreno_coresight_remove(adreno_dev);
 	adreno_profile_close(adreno_dev);

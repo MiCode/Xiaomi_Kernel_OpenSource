@@ -63,10 +63,8 @@ void kgsl_memdesc_init(struct kgsl_device *device,
 
 void kgsl_process_init_sysfs(struct kgsl_device *device,
 		struct kgsl_process_private *private);
-void kgsl_process_uninit_sysfs(struct kgsl_process_private *private);
 
 int kgsl_sharedmem_init_sysfs(void);
-void kgsl_sharedmem_uninit_sysfs(void);
 
 void kgsl_get_memory_usage(char *str, size_t len, uint64_t memflags);
 
