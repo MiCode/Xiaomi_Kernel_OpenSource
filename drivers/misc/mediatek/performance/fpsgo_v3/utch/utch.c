@@ -462,10 +462,11 @@ int init_utch_mod(void)
 	/* query policy number */
 	for_each_possible_cpu(cpu) {
 		policy = cpufreq_cpu_get(cpu);
-		pr_info("%s, policy[%d]: first:%d, min:%d, max:%d",
-			__func__, num, cpu, policy->min, policy->max);
 
 		if (policy) {
+			pr_info("%s, policy[%d]: first:%d, min:%d, max:%d",
+				__func__, num, cpu, policy->min, policy->max);
+
 			num++;
 			cpu = cpumask_last(policy->related_cpus);
 		}
