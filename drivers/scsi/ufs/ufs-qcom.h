@@ -390,6 +390,7 @@ struct ufs_qcom_host {
 	struct ufs_vreg *vccq_parent;
 	bool work_pending;
 	bool bypass_g4_cfgready;
+	bool is_dt_pm_level_read;
 	bool is_phy_pwr_on;
 	/* Protect the usage of is_phy_pwr_on against racing */
 	struct mutex phy_mutex;
