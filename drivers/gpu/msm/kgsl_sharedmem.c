@@ -13,15 +13,6 @@
 #include "kgsl_pool.h"
 #include "kgsl_sharedmem.h"
 
-/*
- * The user can set this from debugfs to force failed memory allocations to
- * fail without trying OOM first.  This is a debug setting useful for
- * stress applications that want to test failure cases without pushing the
- * system into unrecoverable OOM panics
- */
-
-static bool sharedmem_noretry_flag;
-
 static DEFINE_MUTEX(kernel_map_global_lock);
 
 /* An attribute for showing per-process memory statistics */
@@ -1289,14 +1280,4 @@ void kgsl_free_globals(struct kgsl_device *device)
 		list_del(&md->node);
 		kfree(md);
 	}
-}
-
-void kgsl_sharedmem_set_noretry(bool val)
-{
-	sharedmem_noretry_flag = val;
-}
-
-bool kgsl_sharedmem_get_noretry(void)
-{
-	return sharedmem_noretry_flag;
 }

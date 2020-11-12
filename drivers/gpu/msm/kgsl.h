@@ -147,6 +147,8 @@ struct kgsl_driver {
 	struct workqueue_struct *mem_workqueue;
 	struct kthread_worker worker;
 	struct task_struct *worker_thread;
+	/** @debugfs_debug_dir - Pointer to the debugfs/debug directory */
+	struct dentry *debugfs_debug_dir;
 };
 
 extern struct kgsl_driver kgsl_driver;

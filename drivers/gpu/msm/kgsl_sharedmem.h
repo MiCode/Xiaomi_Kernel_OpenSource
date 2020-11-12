@@ -270,9 +270,6 @@ kgsl_memdesc_footprint(const struct kgsl_memdesc *memdesc)
 	return PAGE_ALIGN(memdesc->size + PAGE_SIZE);
 }
 
-void kgsl_sharedmem_set_noretry(bool val);
-bool kgsl_sharedmem_get_noretry(void);
-
 /**
  * kgsl_cachemode_is_cached - Return true if the passed flags indicate a cached
  * buffer
