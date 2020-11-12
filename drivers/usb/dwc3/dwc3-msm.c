@@ -417,7 +417,6 @@ struct dwc3_msm {
 	const struct dbm_reg_data *dbm_reg_table;
 	int			dbm_num_eps;
 	u8			dbm_ep_num_mapping[DBM_1_5_NUM_EP];
-	bool			dbm_reset_ep_after_lpm;
 	bool			dbm_is_1p4;
 
 	/* VBUS regulator for host mode */
@@ -854,8 +853,7 @@ static void dwc3_msm_req_complete_func(struct usb_ep *ep,
 	 * in which case the event buffer only gets reset during the
 	 * block reset.
 	 */
-	if (dbm_get_num_of_eps_configured(mdwc) == 0 &&
-		!mdwc->dbm_reset_ep_after_lpm)
+	if (dbm_get_num_of_eps_configured(mdwc) == 0)
 		dbm_event_buffer_config(mdwc, 0, 0, 0);
 
 	/*
@@ -2076,8 +2074,7 @@ int msm_ep_unconfig(struct usb_ep *ep)
 		 * in which case the event buffer only gets reset during the
 		 * block reset.
 		 */
-		if (dbm_get_num_of_eps_configured(mdwc) == 0 &&
-				!mdwc->dbm_reset_ep_after_lpm)
+		if (dbm_get_num_of_eps_configured(mdwc) == 0)
 			dbm_event_buffer_config(mdwc, 0, 0, 0);
 	}
 
@@ -2147,19 +2144,6 @@ static void dwc3_restart_usb_work(struct work_struct *w)
 	dwc->err_evt_seen = false;
 	flush_delayed_work(&mdwc->sm_work);
 }
-
-/*
- * Check whether the DWC3 requires resetting the ep
- * after going to Low Power Mode (lpm)
- */
-bool msm_dwc3_reset_ep_after_lpm(struct usb_gadget *gadget)
-{
-	struct dwc3 *dwc = container_of(gadget, struct dwc3, gadget);
-	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
-
-	return mdwc->dbm_reset_ep_after_lpm;
-}
-EXPORT_SYMBOL(msm_dwc3_reset_ep_after_lpm);
 
 /*
  * Config Global Distributed Switch Controller (GDSC)
@@ -3893,9 +3877,6 @@ static void dwc3_init_dbm(struct dwc3_msm *mdwc)
 		mdwc->dbm_reg_table = dbm_1_5_regtable;
 		mdwc->dbm_num_eps = DBM_1_5_NUM_EP;
 	}
-
-	mdwc->dbm_reset_ep_after_lpm = of_property_read_bool(mdwc->dev->of_node,
-			"qcom,reset-ep-after-lpm-resume");
 }
 
 static void dwc3_start_stop_host(struct dwc3_msm *mdwc, bool start)
