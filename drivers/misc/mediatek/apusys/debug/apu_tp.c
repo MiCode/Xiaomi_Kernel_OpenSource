@@ -61,7 +61,7 @@ static void for_each_apu_tracepoint(
 	int i;
 
 	mutex_lock(&module_mutex);
-	mod = find_module("apusys");
+	mod = 0;
 	mutex_unlock(&module_mutex);
 
 	if (!mod || !fct)
