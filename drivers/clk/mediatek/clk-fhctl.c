@@ -530,6 +530,37 @@ static const u16 mt_fhctl_regs_v3[] = {
 	[OFFSET_FHCTL_DSSC_CFG] = 0x18,
 };
 
+//MT6853
+
+static const char * const mt6853_pll_names[] = {
+			"armpll_ll", "armpll_bl0", "armpll_b1",
+			"armpll_b12", "armpll_b13", "ccipll",
+			"mfgpll", "mempll", "mpll", "mmpll", "mainpll",
+			"msdcpll", "adsppll", "apupll", "tvdpll"};
+
+
+static const u16 mt6853_pll_regs[] = {
+			0x003C, 0x0050, 0x0064,
+			0x0078, 0x008C, 0x00A0,
+			0x00B4, 0x00C8, 0x00DC, 0x00F0, 0x0104,
+			0x0118, 0x012C, 0x0140, 0x0154};
+
+static const u16 mt6853_pll_con0_regs[] = {
+			0x0208, 0x0218, 0x0228,
+			0x0238, 0x03B4, 0x0258,
+			0x0268, 0xdead, 0x0390, 0x0360, 0x0340,
+			0x0350, 0x0370, 0x03A0, 0x0380};
+
+static const struct mtk_fhctl_compatible mt6853_fhctl_compat = {
+	.common_regs = mt_fhctl_regs_v3,
+	.pll_num = 15,
+	.pll_names = mt6853_pll_names,
+	.pll_dds_reg_field_size = 22,
+	.pll_regs = mt6853_pll_regs,
+	.pll_con0_regs = mt6853_pll_con0_regs,
+	.pll_slope0_reg_setting = 0x06003C97, //modify from 0x06003D2C
+	.pll_slope1_reg_setting = 0x06003C97, //modify from 0x06003D2C
+};
 
 //MT6873
 
@@ -619,6 +650,7 @@ static const struct mtk_fhctl_compatible mt6761_fhctl_compat = {
 };
 
 static const struct of_device_id mtk_fhctl_of_match[] = {
+	{ .compatible = "mediatek,mt6853-fhctl", .data = &mt6853_fhctl_compat },
 	{ .compatible = "mediatek,mt6873-fhctl", .data = &mt6873_fhctl_compat },
 	{ .compatible = "mediatek,mt6779-fhctl", .data = &mt6779_fhctl_compat },
 	{ .compatible = "mediatek,mt6761-fhctl", .data = &mt6761_fhctl_compat },
