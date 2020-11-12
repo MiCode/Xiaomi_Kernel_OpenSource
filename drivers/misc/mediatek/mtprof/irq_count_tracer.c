@@ -85,24 +85,6 @@ const unsigned int sched_mon_irqs_cpu(unsigned int irq, int cpu)
 #define sched_mon_irqs_cpu(irq, cpu) kstat_irqs_cpu(irq, cpu)
 #endif
 
-#define TO_FTRACE     1
-#define TO_KERNEL_LOG 2
-#define TO_BOTH (TO_FTRACE | TO_KERNEL_LOG)
-
-void sched_mon_msg(int out, char *buf, ...)
-{
-	char str[128];
-	va_list args;
-
-	va_start(args, buf);
-	vsnprintf(str, sizeof(str), buf, args);
-	va_end(args);
-
-	if (out & TO_KERNEL_LOG)
-		pr_info("%s\n", str);
-}
-
-
 #define MAX_IRQ_NUM 1024
 
 struct irq_count_stat {
@@ -131,7 +113,7 @@ static void __show_irq_count_info(int output)
 {
 	int cpu;
 
-	sched_mon_msg(output, "===== IRQ Status =====");
+	irq_mon_msg(output, "===== IRQ Status =====");
 
 	for_each_possible_cpu(cpu) {
 		struct irq_count_stat *irq_cnt;
@@ -139,8 +121,8 @@ static void __show_irq_count_info(int output)
 
 		irq_cnt = per_cpu_ptr(&irq_count_data, cpu);
 
-		sched_mon_msg(output, "CPU: %d", cpu);
-		sched_mon_msg(output, "from %lld.%06lu to %lld.%06lu, %lld ms",
+		irq_mon_msg(output, "CPU: %d", cpu);
+		irq_mon_msg(output, "from %lld.%06lu to %lld.%06lu, %lld ms",
 			      sec_high(irq_cnt->t_start),
 			      sec_low(irq_cnt->t_start),
 			      sec_high(irq_cnt->t_end), sec_low(irq_cnt->t_end),
@@ -153,11 +135,11 @@ static void __show_irq_count_info(int output)
 			if (!count)
 				continue;
 
-			sched_mon_msg(output, "    %d:%s +%d(%d)",
+			irq_mon_msg(output, "    %d:%s +%d(%d)",
 				      irq, irq_to_name(irq),
 				      count - irq_cnt->count[irq], count);
 		}
-		sched_mon_msg(output, "");
+		irq_mon_msg(output, "");
 	}
 }
 
@@ -247,7 +229,7 @@ static enum hrtimer_restart irq_count_tracer_hrtimer_fn(struct hrtimer *hrtimer)
 			 sec_high(irq_cnt->t_start), sec_low(irq_cnt->t_start),
 			 sec_high(irq_cnt->t_end), sec_low(irq_cnt->t_end),
 			 raw_smp_processor_id());
-		sched_mon_msg(TO_BOTH, msg);
+		irq_mon_msg(TO_BOTH, msg);
 
 		for (i = 0; i < REC_NUM; i++) {
 			spin_lock(&irq_cpus[i].lock);
@@ -269,7 +251,7 @@ static enum hrtimer_restart irq_count_tracer_hrtimer_fn(struct hrtimer *hrtimer)
 				 sec_low(irq_cpus[i].ts),
 				 sec_high(irq_cpus[i].te),
 				 sec_low(irq_cpus[i].te));
-			sched_mon_msg(TO_BOTH, msg);
+			irq_mon_msg(TO_BOTH, msg);
 
 			spin_unlock(&irq_cpus[i].lock);
 		}
