@@ -12,6 +12,7 @@
 #include <linux/irq.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/rcutree.h>
 #include <linux/proc_fs.h>
 #include <linux/sched/clock.h>
 #include <linux/slab.h>
@@ -24,6 +25,9 @@
 
 #include "internal.h"
 
+#define CREATE_TRACE_POINTS
+#include "irq_monitor_trace.h"
+
 #ifdef MODULE
 const char * const softirq_to_name[NR_SOFTIRQS] = {
 	"HI", "TIMER", "NET_TX", "NET_RX", "BLOCK", "IRQ_POLL",
@@ -31,10 +35,30 @@ const char * const softirq_to_name[NR_SOFTIRQS] = {
 };
 #endif
 
+void irq_mon_msg(int out, char *buf, ...)
+{
+	char str[128];
+	va_list args;
+
+	va_start(args, buf);
+	vsnprintf(str, sizeof(str), buf, args);
+	va_end(args);
+
+#ifdef MODULE
+	if ((out & TO_FTRACE) && rcu_is_watching())
+		trace_irq_mon_msg(str);
+#else
+	if (out & TO_FTRACE)
+		trace_irq_mon_msg_rcuidle(str);
+#endif
+	if (out & TO_KERNEL_LOG)
+		pr_info("%s\n", str);
+}
+
 struct irq_mon_tracer {
 	bool tracing;
 	unsigned int th1_ms;          /* ftrace */
-	unsigned int th2_ms;          /* kernel log */
+	unsigned int th2_ms;          /* ftrace + kernel log */
 	unsigned int th3_ms;          /* aee */
 	unsigned int aee_limit;
 	unsigned int aee_debounce_ms;
@@ -97,48 +121,58 @@ static void irq_mon_save_stack_trace(struct preemptirq_stat *pi_stat)
 						MAX_STACK_TRACE_DEPTH * sizeof(unsigned long), 2);
 }
 
-static void irq_mon_dump_stack_trace(struct preemptirq_stat *pi_stat)
+static void irq_mon_dump_stack_trace(int out, struct preemptirq_stat *pi_stat)
 {
 	char msg2[128];
 	int i;
 
-	pr_info("disable call trace:\n");
+	irq_mon_msg(out, "disable call trace:");
 	for (i = 0; i < pi_stat->nr_entries; i++) {
 		scnprintf(msg2, sizeof(msg2), "[<%p>] %pS",
 			 (void *)pi_stat->trace_entries[i],
 			 (void *)pi_stat->trace_entries[i]);
-		pr_info("%s\n", msg2);
+		irq_mon_msg(out, "%s", msg2);
 	}
 }
 
 /* irq: 1 = irq, 0 = preempt*/
 static void check_preemptirq_stat(struct preemptirq_stat *pi_stat, int irq)
 {
-	unsigned long long threshold = irq ?
-				irq_off_tracer.th2_ms : preempt_off_tracer.th2_ms;
-	unsigned long long duration = pi_stat->enable_timestamp - pi_stat->disable_timestamp;
+	unsigned long long threshold, duration;
+	int out;
 
 	/* skip <idle-0> task */
 	if (current->pid == 0)
 		return;
 
-	if (duration < threshold * 1000000ULL)
+	duration = pi_stat->enable_timestamp - pi_stat->disable_timestamp;
+
+	/* threshold 1: ftrace */
+	threshold = irq ? irq_off_tracer.th1_ms : preempt_off_tracer.th1_ms;
+	if (likely(duration < threshold * 1000000ULL))
 		return;
-	pr_info("%s off, duration %llu ms, from %llu ns to %llu ns\n",
+
+	/* threshold 2: ftrace + kernel log */
+	threshold = irq ? irq_off_tracer.th2_ms : preempt_off_tracer.th2_ms;
+	out = (duration >= threshold * 1000000ULL) ? TO_BOTH : TO_FTRACE;
+
+	irq_mon_msg(out, "%s off, duration %llu ms, from %llu ns to %llu ns",
 			irq ? "irq" : "preempt",
 			msec_high(duration),
 			pi_stat->disable_timestamp,
 			pi_stat->enable_timestamp);
-	pr_info("disable_ip       : [<%p>] %pS\n",
+	irq_mon_msg(out, "disable_ip       : [<%p>] %pS",
 			(void *)pi_stat->disable_ip, (void *)pi_stat->disable_ip);
-	pr_info("disable_parent_ip: [<%p>] %pS\n",
+	irq_mon_msg(out, "disable_parent_ip: [<%p>] %pS",
 			(void *)pi_stat->disable_parent_ip, (void *)pi_stat->disable_parent_ip);
-	pr_info("enable_ip        : [<%p>] %pS\n",
+	irq_mon_msg(out, "enable_ip        : [<%p>] %pS",
 			(void *)pi_stat->enable_ip, (void *)pi_stat->enable_ip);
-	pr_info("enable_parent_ip : [<%p>] %pS\n",
+	irq_mon_msg(out, "enable_parent_ip : [<%p>] %pS",
 			(void *)pi_stat->enable_parent_ip, (void *)pi_stat->enable_parent_ip);
-	dump_stack();
-	irq_mon_dump_stack_trace(pi_stat);
+	irq_mon_dump_stack_trace(out, pi_stat);
+
+	if (out & TO_KERNEL_LOG)
+		dump_stack();
 }
 
 /* probe functions*/
@@ -167,6 +201,7 @@ static void probe_irq_handler_exit(void *ignore,
 {
 	struct trace_stat *trace_stat = raw_cpu_ptr(&irq_trace_stat);
 	unsigned long long ts, duration;
+	int out;
 
 	if (!__this_cpu_read(irq_trace_stat.tracing))
 		return;
@@ -175,12 +210,16 @@ static void probe_irq_handler_exit(void *ignore,
 	trace_stat->end_timestamp = ts;
 
 	duration = stat_dur(trace_stat);
-	if (th_exceeded(th2_ms, duration, irq_handler_tracer))
-		pr_info("irq: %d %pS, duration %llu ms, from %llu ns to %llu ns\n",
+	if (th_exceeded(th1_ms, duration, irq_handler_tracer)) {
+		out = th_exceeded(th2_ms, duration, irq_handler_tracer) ?
+			TO_BOTH : TO_FTRACE;
+
+		irq_mon_msg(out, "irq: %d %pS, duration %llu ms, from %llu ns to %llu ns",
 				irq, (void *)action->handler,
 				msec_high(duration),
 				trace_stat->start_timestamp,
 				trace_stat->end_timestamp);
+	}
 
 	this_cpu_write(irq_trace_stat.tracing, 0);
 }
@@ -200,6 +239,7 @@ static void probe_softirq_exit(void *ignore, unsigned int vec_nr)
 {
 	struct trace_stat *trace_stat = raw_cpu_ptr(&softirq_trace_stat);
 	unsigned long long ts, duration;
+	int out;
 
 	if (!__this_cpu_read(softirq_trace_stat.tracing))
 		return;
@@ -208,12 +248,16 @@ static void probe_softirq_exit(void *ignore, unsigned int vec_nr)
 	trace_stat->end_timestamp = ts;
 
 	duration = stat_dur(trace_stat);
-	if (th_exceeded(th2_ms, duration, irq_handler_tracer))
-		pr_info("softirq: %u %s, duration %llu ms, from %llu ns to %llu ns\n",
+	if (th_exceeded(th1_ms, duration, irq_handler_tracer)) {
+		out = th_exceeded(th2_ms, duration, irq_handler_tracer) ?
+			TO_BOTH : TO_FTRACE;
+
+		irq_mon_msg(out, "softirq: %u %s, duration %llu ms, from %llu ns to %llu ns",
 				vec_nr, softirq_to_name[vec_nr],
 				msec_high(duration),
 				trace_stat->start_timestamp,
 				trace_stat->end_timestamp);
+	}
 
 	this_cpu_write(softirq_trace_stat.tracing, 0);
 }
@@ -234,6 +278,7 @@ static void probe_ipi_exit(void *ignore, const char *reason)
 {
 	struct trace_stat *trace_stat = raw_cpu_ptr(&ipi_trace_stat);
 	unsigned long long ts, duration;
+	int out;
 
 	if (!__this_cpu_read(ipi_trace_stat.tracing))
 		return;
@@ -242,12 +287,16 @@ static void probe_ipi_exit(void *ignore, const char *reason)
 	trace_stat->end_timestamp = ts;
 
 	duration = stat_dur(trace_stat);
-	if (th_exceeded(th2_ms, duration, irq_handler_tracer))
-		pr_info("ipi: %s, duration %llu ms, from %llu ns to %llu ns\n",
-				reason,
-				msec_high(duration),
-				trace_stat->start_timestamp,
-				trace_stat->end_timestamp);
+	if (th_exceeded(th1_ms, duration, irq_handler_tracer)) {
+		out = th_exceeded(th2_ms, duration, irq_handler_tracer) ?
+			TO_BOTH : TO_FTRACE;
+
+		irq_mon_msg(out, "ipi: %s, duration %llu ms, from %llu ns to %llu ns",
+			reason,
+			msec_high(duration),
+			trace_stat->start_timestamp,
+			trace_stat->end_timestamp);
+	}
 
 	this_cpu_write(ipi_trace_stat.tracing, 0);
 }

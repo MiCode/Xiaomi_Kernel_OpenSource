@@ -13,3 +13,9 @@ unsigned long sec_low(unsigned long long nsec);
 void mt_irq_monitor_test_init(struct proc_dir_entry *dir);
 void irq_count_tracer_init(void);
 const char *irq_to_name(int irq);
+
+#define TO_FTRACE     1
+#define TO_KERNEL_LOG 2
+#define TO_BOTH       (TO_FTRACE | TO_KERNEL_LOG)
+
+void irq_mon_msg(int out, char *buf, ...);
