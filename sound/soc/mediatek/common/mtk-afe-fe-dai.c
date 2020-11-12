@@ -351,7 +351,7 @@ int mtk_afe_fe_hw_free(struct snd_pcm_substream *substream,
 	if (memif->use_adsp_share_mem == true)
 		return mtk_adsp_free_mem(substream,
 					 substream->runtime->dma_bytes,
-					 rtd->cpu_dai->id);
+					 cpu_dai->id);
 
 	return snd_pcm_lib_free_pages(substream);
 #else
@@ -362,7 +362,7 @@ int mtk_afe_fe_hw_free(struct snd_pcm_substream *substream,
 	if (memif->use_adsp_share_mem == true)
 		return mtk_adsp_free_mem(substream,
 					 substream->runtime->dma_bytes,
-					 rtd->cpu_dai->id);
+					 cpu_dai->id);
 
 	return snd_pcm_lib_free_pages(substream);
 #else

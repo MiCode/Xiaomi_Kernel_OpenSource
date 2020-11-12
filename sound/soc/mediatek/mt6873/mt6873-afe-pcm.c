@@ -299,7 +299,8 @@ int mt6873_fe_prepare(struct snd_pcm_substream *substream,
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_pcm_runtime * const runtime = substream->runtime;
 	struct mtk_base_afe *afe = snd_soc_dai_get_drvdata(dai);
-	int id = rtd->cpu_dai->id;
+	struct snd_soc_dai *cpu_dai = asoc_rtd_to_cpu(rtd, 0);
+	int id = cpu_dai->id;
 	struct mtk_base_afe_memif *memif = &afe->memif[id];
 	int irq_id = memif->irq_usage;
 	struct mtk_base_afe_irq *irqs = &afe->irqs[irq_id];
