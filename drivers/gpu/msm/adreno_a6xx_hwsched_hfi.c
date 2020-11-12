@@ -1323,7 +1323,7 @@ void a6xx_hwsched_context_detach(struct adreno_context *drawctxt)
 	mutex_unlock(&device->mutex);
 }
 
-int a6xx_hwsched_preempt_count_get(struct adreno_device *adreno_dev)
+u32 a6xx_hwsched_preempt_count_get(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct hfi_get_value_cmd cmd;
@@ -1338,7 +1338,7 @@ int a6xx_hwsched_preempt_count_get(struct adreno_device *adreno_dev)
 
 	rc = CMD_MSG_HDR(cmd, H2F_MSG_GET_VALUE);
 	if (rc)
-		return rc;
+		return 0;
 
 	cmd.hdr = MSG_HDR_SET_SEQNUM(cmd.hdr, seqnum);
 	cmd.type = HFI_VALUE_PREEMPT_COUNT;
@@ -1359,5 +1359,5 @@ int a6xx_hwsched_preempt_count_get(struct adreno_device *adreno_dev)
 done:
 	del_waiter(hfi, &pending_ack);
 
-	return rc ? rc : pending_ack.results[2];
+	return rc ? 0 : pending_ack.results[2];
 }
