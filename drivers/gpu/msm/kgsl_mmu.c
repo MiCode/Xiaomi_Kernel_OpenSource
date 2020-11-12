@@ -16,10 +16,9 @@ static void _deferred_destroy(struct work_struct *ws)
 	struct kgsl_pagetable *pagetable = container_of(ws,
 					struct kgsl_pagetable, destroy_ws);
 
-	if (PT_OP_VALID(pagetable, mmu_destroy_pagetable))
-		pagetable->pt_ops->mmu_destroy_pagetable(pagetable);
+	WARN_ON(!list_empty(&pagetable->list));
 
-	kfree(pagetable);
+	pagetable->pt_ops->mmu_destroy_pagetable(pagetable);
 }
 
 static void kgsl_destroy_pagetable(struct kref *kref)
@@ -204,23 +203,6 @@ kgsl_mmu_detach_pagetable(struct kgsl_pagetable *pagetable)
 	pagetable_remove_sysfs_objects(pagetable);
 }
 
-struct kgsl_pagetable *kgsl_mmu_get_pt_from_ptname(struct kgsl_mmu *mmu,
-						int ptname)
-{
-	struct kgsl_pagetable *pt;
-
-	spin_lock(&kgsl_driver.ptlock);
-	list_for_each_entry(pt, &kgsl_driver.pagetable_list, list) {
-		if (pt->name == ptname) {
-			spin_unlock(&kgsl_driver.ptlock);
-			return pt;
-		}
-	}
-	spin_unlock(&kgsl_driver.ptlock);
-	return NULL;
-
-}
-
 unsigned int
 kgsl_mmu_log_fault_addr(struct kgsl_mmu *mmu, u64 pt_base,
 		uint64_t addr)
@@ -228,12 +210,9 @@ kgsl_mmu_log_fault_addr(struct kgsl_mmu *mmu, u64 pt_base,
 	struct kgsl_pagetable *pt;
 	unsigned int ret = 0;
 
-	if (!MMU_OP_VALID(mmu, mmu_pt_equal))
-		return 0;
-
 	spin_lock(&kgsl_driver.ptlock);
 	list_for_each_entry(pt, &kgsl_driver.pagetable_list, list) {
-		if (mmu->mmu_ops->mmu_pt_equal(mmu, pt, pt_base)) {
+		if (kgsl_mmu_pagetable_get_ttbr0(pt) == pt_base) {
 			if ((addr & ~(PAGE_SIZE-1)) == pt->fault_addr) {
 				ret = 1;
 				break;
@@ -258,17 +237,9 @@ int kgsl_mmu_start(struct kgsl_device *device)
 	return 0;
 }
 
-struct kgsl_pagetable *
-kgsl_mmu_createpagetableobject(struct kgsl_mmu *mmu, unsigned int name)
+void kgsl_mmu_pagetable_init(struct kgsl_mmu *mmu,
+		struct kgsl_pagetable *pagetable, u32 name)
 {
-	int status = 0;
-	struct kgsl_pagetable *pagetable = NULL;
-	unsigned long flags;
-
-	pagetable = kzalloc(sizeof(struct kgsl_pagetable), GFP_KERNEL);
-	if (pagetable == NULL)
-		return ERR_PTR(-ENOMEM);
-
 	kref_init(&pagetable->refcount);
 
 	spin_lock_init(&pagetable->lock);
@@ -280,14 +251,11 @@ kgsl_mmu_createpagetableobject(struct kgsl_mmu *mmu, unsigned int name)
 	atomic_set(&pagetable->stats.entries, 0);
 	atomic_long_set(&pagetable->stats.mapped, 0);
 	atomic_long_set(&pagetable->stats.max_mapped, 0);
+}
 
-	if (MMU_OP_VALID(mmu, mmu_init_pt)) {
-		status = mmu->mmu_ops->mmu_init_pt(mmu, pagetable);
-		if (status) {
-			kfree(pagetable);
-			return ERR_PTR(status);
-		}
-	}
+void kgsl_mmu_pagetable_add(struct kgsl_mmu *mmu, struct kgsl_pagetable *pagetable)
+{
+	unsigned long flags;
 
 	spin_lock_irqsave(&kgsl_driver.ptlock, flags);
 	list_add(&pagetable->list, &kgsl_driver.pagetable_list);
@@ -295,8 +263,6 @@ kgsl_mmu_createpagetableobject(struct kgsl_mmu *mmu, unsigned int name)
 
 	/* Create the sysfs entries */
 	pagetable_add_sysfs_objects(pagetable);
-
-	return pagetable;
 }
 
 void kgsl_mmu_putpagetable(struct kgsl_pagetable *pagetable)
@@ -537,44 +503,45 @@ static int nommu_get_gpuaddr(struct kgsl_pagetable *pagetable,
 	return -ENOMEM;
 }
 
+static void nommu_destroy_pagetable(struct kgsl_pagetable *pt)
+{
+	kfree(pt);
+}
+
 static const struct kgsl_mmu_pt_ops nommu_pt_ops = {
 	.get_gpuaddr = nommu_get_gpuaddr,
 	.addr_in_range = nommu_gpuaddr_in_range,
+	.mmu_destroy_pagetable = nommu_destroy_pagetable,
 };
-
-static int nommu_init_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
-{
-	struct kgsl_device *device = KGSL_MMU_DEVICE(mmu);
-	struct kgsl_global_memdesc *md;
-
-	if (pt == NULL)
-		return -EINVAL;
-
-	pt->pt_ops = &nommu_pt_ops;
-
-	list_for_each_entry(md, &device->globals, node)
-		md->memdesc.gpuaddr =
-			(uint64_t) sg_phys(md->memdesc.sgt->sgl);
-
-	return 0;
-}
 
 static struct kgsl_pagetable *nommu_getpagetable(struct kgsl_mmu *mmu,
 		unsigned long name)
 {
+	struct kgsl_device *device = KGSL_MMU_DEVICE(mmu);
 	struct kgsl_pagetable *pagetable;
+	struct kgsl_global_memdesc *md;
 
 	pagetable = kgsl_get_pagetable(KGSL_MMU_GLOBAL_PT);
 
-	if (pagetable == NULL)
-		pagetable = kgsl_mmu_createpagetableobject(mmu,
-			KGSL_MMU_GLOBAL_PT);
+	if (pagetable == NULL) {
+		pagetable = kzalloc(sizeof(*pagetable), GFP_KERNEL);
+		if (!pagetable)
+			return ERR_PTR(-ENOMEM);
+
+		kgsl_mmu_pagetable_init(mmu, pagetable, KGSL_MMU_GLOBAL_PT);
+		pagetable->pt_ops = &nommu_pt_ops;
+
+		list_for_each_entry(md, &device->globals, node)
+			md->memdesc.gpuaddr =
+				(uint64_t) sg_phys(md->memdesc.sgt->sgl);
+
+		kgsl_mmu_pagetable_add(mmu, pagetable);
+	}
 
 	return pagetable;
 }
 
 static struct kgsl_mmu_ops kgsl_nommu_ops = {
-	.mmu_init_pt = nommu_init_pt,
 	.mmu_getpagetable = nommu_getpagetable,
 };
 
@@ -590,9 +557,6 @@ int kgsl_mmu_probe(struct kgsl_device *device)
 	ret = kgsl_iommu_probe(device);
 	if (!ret || ret == -EPROBE_DEFER)
 		return ret;
-
-	/* set up for NOMMU */
-	set_bit(KGSL_MMU_GLOBAL_PAGETABLE, &mmu->features);
 
 	mmu->mmu_ops = &kgsl_nommu_ops;
 	mmu->type = KGSL_MMU_TYPE_NONE;

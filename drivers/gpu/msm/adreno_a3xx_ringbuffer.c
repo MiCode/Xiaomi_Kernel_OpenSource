@@ -106,7 +106,7 @@ static int a3xx_rb_pagetable_switch(struct adreno_device *adreno_dev,
 {
 	u64 ttbr0 = kgsl_mmu_pagetable_get_ttbr0(pagetable);
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
+	struct kgsl_iommu *iommu = KGSL_IOMMU(device);
 	int count = 0;
 
 	/*

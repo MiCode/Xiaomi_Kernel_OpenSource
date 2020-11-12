@@ -5,8 +5,8 @@
 #ifndef __KGSL_IOMMU_H
 #define __KGSL_IOMMU_H
 
-#include "kgsl_mmu.h"
-
+#include <linux/adreno-smmu-priv.h>
+#include <linux/io-pgtable.h>
 /*
  * These defines control the address range for allocations that
  * are mapped into all pagetables.
@@ -83,8 +83,6 @@
  * @kgsldev: The kgsl device that uses this context.
  * @stalled_on_fault: Flag when set indicates that this iommu device is stalled
  * on a page fault
- * @default_pt: The default pagetable for this context,
- *		it may be changed by self programming.
  */
 struct kgsl_iommu_context {
 	struct platform_device *pdev;
@@ -92,7 +90,10 @@ struct kgsl_iommu_context {
 	int cb_num;
 	struct kgsl_device *kgsldev;
 	bool stalled_on_fault;
-	struct kgsl_pagetable *default_pt;
+	/** ratelimit: Ratelimit state for the context */
+	struct ratelimit_state ratelimit;
+	struct iommu_domain *domain;
+	struct adreno_smmu_priv adreno_smmu;
 };
 
 /*
@@ -115,7 +116,7 @@ struct kgsl_iommu {
 	void __iomem *regbase;
 	struct kgsl_memdesc *setstate;
 	atomic_t clk_enable_count;
-	struct clk **clks;
+	struct clk_bulk_data *clks;
 	int num_clks;
 	struct kgsl_memdesc *smmu_info;
 	/** @pdev: Pointer to the platform device for the IOMMU device */
@@ -138,31 +139,13 @@ struct kgsl_iommu {
  * struct kgsl_iommu_pt - Iommu pagetable structure private to kgsl driver
  * @domain: Pointer to the iommu domain that contains the iommu pagetable
  * @ttbr0: register value to set when using this pagetable
- * @contextidr: register value to set when using this pagetable
- * @attached: is the pagetable attached?
- * @rbtree: all buffers mapped into the pagetable, indexed by gpuaddr
- * @va_start: Start of virtual range used in this pagetable.
- * @va_end: End of virtual range.
- * @svm_start: Start of shared virtual memory range. Addresses in this
- *		range are also valid in the process's CPU address space.
- * @svm_end: End of the shared virtual memory range.
- * @svm_start: 32 bit compatible range, for old clients who lack bits
- * @svm_end: end of 32 bit compatible range
  */
 struct kgsl_iommu_pt {
-	struct iommu_domain *domain;
+	struct kgsl_pagetable base;
 	u64 ttbr0;
-	u32 contextidr;
-	bool attached;
 
-	struct rb_root rbtree;
-
-	uint64_t va_start;
-	uint64_t va_end;
-	uint64_t svm_start;
-	uint64_t svm_end;
-	uint64_t compat_va_start;
-	uint64_t compat_va_end;
+	struct io_pgtable_ops *pgtbl_ops;
+	struct io_pgtable_cfg cfg;
 };
 
 #endif

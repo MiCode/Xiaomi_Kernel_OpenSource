@@ -7,8 +7,6 @@
 
 #include <linux/platform_device.h>
 
-#include "kgsl_iommu.h"
-
 /* Identifier for the global page table */
 /*
  * Per process page tables will probably pass in the thread group
@@ -16,13 +14,29 @@
  */
 #define KGSL_MMU_GLOBAL_PT 0
 #define KGSL_MMU_SECURE_PT 1
-#define KGSL_MMU_GLOBAL_LPAC_PT 2
 
 #define MMU_DEFAULT_TTBR0(_d) \
 	(kgsl_mmu_pagetable_get_ttbr0((_d)->mmu.defaultpagetable))
 
-#define MMU_DEFAULT_CONTEXTIDR(_d) \
-	(kgsl_mmu_pagetable_get_contextidr((_d)->mmu.defaultpagetable))
+/**
+ * enum kgsl_ft_pagefault_policy_bits - KGSL pagefault policy bits
+ * @KGSL_FT_PAGEFAULT_INT_ENABLE: No longer used, but retained for compatibility
+ * @KGSL_FT_PAGEFAULT_GPUHALT_ENABLE: enable GPU halt on pagefaults
+ * @KGSL_FT_PAGEFAULT_LOG_ONE_PER_PAGE: log one pagefault per page
+ * @KGSL_FT_PAGEFAULT_LOG_ONE_PER_INT: log one pagefault per interrupt
+ */
+enum {
+	KGSL_FT_PAGEFAULT_INT_ENABLE = 0,
+	KGSL_FT_PAGEFAULT_GPUHALT_ENABLE = 1,
+	KGSL_FT_PAGEFAULT_LOG_ONE_PER_PAGE = 2,
+	KGSL_FT_PAGEFAULT_LOG_ONE_PER_INT = 3,
+	/* KGSL_FT_PAGEFAULT_MAX_BITS is used to calculate the mask */
+	KGSL_FT_PAGEFAULT_MAX_BITS,
+};
+
+#define KGSL_FT_PAGEFAULT_MASK GENMASK(KGSL_FT_PAGEFAULT_MAX_BITS - 1, 0)
+
+#define KGSL_FT_PAGEFAULT_DEFAULT_POLICY 0
 
 struct kgsl_device;
 
@@ -48,8 +62,31 @@ struct kgsl_pagetable {
 	} stats;
 	const struct kgsl_mmu_pt_ops *pt_ops;
 	uint64_t fault_addr;
-	void *priv;
 	struct kgsl_mmu *mmu;
+	/** @rbtree: all buffers mapped into the pagetable, indexed by gpuaddr */
+	struct rb_root rbtree;
+	/** @va_start: Start of virtual range used in this pagetable */
+	u64 va_start;
+	/** @va_end: End of virtual range */
+	u64 va_end;
+	/**
+	 * @svm_start: Start of shared virtual memory range. Addresses in this
+	 * range are also valid in the process's CPU address space.
+	 */
+	u64 svm_start;
+	/** @svm_end: end of 32 bit compatible range */
+	u64 svm_end;
+	/**
+	 * @compat_va_start - Start of the "compat" virtual address range for
+	 * forced 32 bit allocations
+	 */
+	u64 compat_va_start;
+	/**
+	 * @compat_va_end - End of the "compat" virtual address range for
+	 * forced 32 bit allocations
+	 */
+	u64 compat_va_end;
+	u64 global_base;
 };
 
 struct kgsl_mmu;
@@ -57,14 +94,11 @@ struct kgsl_mmu;
 struct kgsl_mmu_ops {
 	void (*mmu_close)(struct kgsl_mmu *mmu);
 	int (*mmu_start)(struct kgsl_mmu *mmu);
-	int (*mmu_set_pt)(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt);
 	uint64_t (*mmu_get_current_ttbr0)(struct kgsl_mmu *mmu);
 	void (*mmu_pagefault_resume)(struct kgsl_mmu *mmu);
 	void (*mmu_clear_fsr)(struct kgsl_mmu *mmu);
 	void (*mmu_enable_clk)(struct kgsl_mmu *mmu);
 	void (*mmu_disable_clk)(struct kgsl_mmu *mmu);
-	bool (*mmu_pt_equal)(struct kgsl_mmu *mmu,
-			struct kgsl_pagetable *pt, u64 ttbr0);
 	int (*mmu_set_pf_policy)(struct kgsl_mmu *mmu, unsigned long pf_policy);
 	int (*mmu_init_pt)(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt);
 	struct kgsl_pagetable * (*mmu_getpagetable)(struct kgsl_mmu *mmu,
@@ -80,7 +114,6 @@ struct kgsl_mmu_pt_ops {
 			struct kgsl_memdesc *memdesc);
 	void (*mmu_destroy_pagetable)(struct kgsl_pagetable *pt);
 	u64 (*get_ttbr0)(struct kgsl_pagetable *pt);
-	u32 (*get_contextidr)(struct kgsl_pagetable *pt);
 	int (*get_context_bank)(struct kgsl_pagetable *pt);
 	int (*get_gpuaddr)(struct kgsl_pagetable *pt,
 				struct kgsl_memdesc *memdesc);
@@ -96,8 +129,6 @@ struct kgsl_mmu_pt_ops {
 };
 
 enum kgsl_mmu_feature {
-	/* @KGSL_MMU_GLOBAL_PAGETABLE: Do not use per process pagetables */
-	KGSL_MMU_GLOBAL_PAGETABLE = 0,
 	/* @KGSL_MMU_64BIT: Use 64 bit virtual address space */
 	KGSL_MMU_64BIT,
 	/* @KGSL_MMU_PAGED: Support paged memory */
@@ -109,22 +140,18 @@ enum kgsl_mmu_feature {
 	KGSL_MMU_NEED_GUARD_PAGE,
 	/** @KGSL_MMU_IO_COHERENT: Set if a device supports I/O coherency */
 	KGSL_MMU_IO_COHERENT,
-	/**
-	 * @KGSL_MMU_SECURE_CB_ALT: Set if the device should use the
-	 * "alternate" secure context name
-	 */
-	KGSL_MMU_SECURE_CB_ALT,
 	/** @KGSL_MMU_LLC_ENABLE: Set if LLC is activated for the target */
 	KGSL_MMU_LLCC_ENABLE,
 	/** @KGSL_MMU_SMMU_APERTURE: Set the SMMU aperture */
 	KGSL_MMU_SMMU_APERTURE,
-	/** @KGSL_MMU_SPLIT_TABLES_GC: Split pagetables are enabled for GC */
-	KGSL_MMU_SPLIT_TABLES_GC,
 	/**
-	 * @KGSL_MMU_SPLIT_TABLES_LPAC: Split pagetables are enabled for LPAC
+	 * @KGSL_MMU_IOPGTABLE: Set if the qcom,adreno-smmu implementation is
+	 * available. Implies split address space and per-process pagetables
 	 */
-	KGSL_MMU_SPLIT_TABLES_LPAC,
+	KGSL_MMU_IOPGTABLE,
 };
+
+#include "kgsl_iommu.h"
 
 /**
  * struct kgsl_mmu - Master definition for KGSL MMU devices
@@ -136,30 +163,26 @@ enum kgsl_mmu_feature {
  * @mmu_ops: Function pointers for the MMU sub-type
  * @secured: True if the MMU needs to be secured
  * @feature: Static list of MMU features
- * @priv: Union of sub-device specific members
  */
 struct kgsl_mmu {
 	unsigned long flags;
 	enum kgsl_mmutype type;
 	u32 subtype;
 	struct kgsl_pagetable *defaultpagetable;
-	/** @lpac_pagetable: Default lpac pagetable object for the MMU */
-	struct kgsl_pagetable *lpac_pagetable;
 	struct kgsl_pagetable *securepagetable;
 	const struct kgsl_mmu_ops *mmu_ops;
 	bool secured;
 	unsigned long features;
-	union {
-		struct kgsl_iommu iommu;
-	} priv;
+	/** @pfpolicy: The current pagefault policy for the device */
+	unsigned long pfpolicy;
+	/** mmu: Pointer to the IOMMU sub-device */
+	struct kgsl_iommu iommu;
 };
 
-#define KGSL_IOMMU_PRIV(_device) (&((_device)->mmu.priv.iommu))
+#define KGSL_IOMMU(d) (&((d)->mmu.iommu))
 
 int kgsl_mmu_probe(struct kgsl_device *device);
 int kgsl_mmu_start(struct kgsl_device *device);
-struct kgsl_pagetable *kgsl_mmu_getpagetable_ptbase(struct kgsl_mmu *mmu,
-						u64 ptbase);
 
 void kgsl_print_global_pt_entries(struct seq_file *s);
 void kgsl_mmu_putpagetable(struct kgsl_pagetable *pagetable);
@@ -171,7 +194,6 @@ int kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 int kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
 		    struct kgsl_memdesc *memdesc);
 void kgsl_mmu_put_gpuaddr(struct kgsl_memdesc *memdesc);
-unsigned int kgsl_virtaddr_to_physaddr(void *virtaddr);
 unsigned int kgsl_mmu_log_fault_addr(struct kgsl_mmu *mmu,
 		u64 ttbr0, uint64_t addr);
 bool kgsl_mmu_gpuaddr_in_range(struct kgsl_pagetable *pt, uint64_t gpuaddr);
@@ -183,8 +205,6 @@ int kgsl_mmu_find_region(struct kgsl_pagetable *pagetable,
 		uint64_t region_start, uint64_t region_end,
 		uint64_t *gpuaddr, uint64_t size, unsigned int align);
 
-struct kgsl_pagetable *kgsl_mmu_get_pt_from_ptname(struct kgsl_mmu *mmu,
-							int ptname);
 void kgsl_mmu_close(struct kgsl_device *device);
 
 uint64_t kgsl_mmu_find_svm_region(struct kgsl_pagetable *pagetable,
@@ -200,9 +220,6 @@ int kgsl_mmu_svm_range(struct kgsl_pagetable *pagetable,
 		uint64_t *lo, uint64_t *hi, uint64_t memflags);
 
 struct kgsl_pagetable *kgsl_get_pagetable(unsigned long name);
-
-struct kgsl_pagetable *
-kgsl_mmu_createpagetableobject(struct kgsl_mmu *mmu, unsigned int name);
 
 /*
  * Static inline functions of MMU that simply call the SMMU specific
@@ -235,24 +252,6 @@ static inline struct kgsl_pagetable *kgsl_mmu_getpagetable(struct kgsl_mmu *mmu,
 		return mmu->mmu_ops->mmu_getpagetable(mmu, name);
 
 	return NULL;
-}
-
-static inline int kgsl_mmu_set_pt(struct kgsl_mmu *mmu,
-					struct kgsl_pagetable *pagetable)
-{
-	if (MMU_OP_VALID(mmu, mmu_set_pt))
-		return mmu->mmu_ops->mmu_set_pt(mmu, pagetable);
-
-	return 0;
-}
-
-static inline bool kgsl_mmu_pt_equal(struct kgsl_mmu *mmu,
-			struct kgsl_pagetable *pt, u64 ttbr0)
-{
-	if (MMU_OP_VALID(mmu, mmu_pt_equal))
-		return mmu->mmu_ops->mmu_pt_equal(mmu, pt, ttbr0);
-
-	return false;
 }
 
 static inline void kgsl_mmu_enable_clk(struct kgsl_mmu *mmu)
@@ -290,12 +289,7 @@ static inline void kgsl_mmu_clear_fsr(struct kgsl_mmu *mmu)
 
 static inline bool kgsl_mmu_is_perprocess(struct kgsl_mmu *mmu)
 {
-	return !test_bit(KGSL_MMU_GLOBAL_PAGETABLE, &mmu->features);
-}
-
-static inline bool kgsl_mmu_use_cpu_map(struct kgsl_mmu *mmu)
-{
-	return kgsl_mmu_is_perprocess(mmu);
+	return test_bit(KGSL_MMU_IOPGTABLE, &mmu->features);
 }
 
 static inline bool kgsl_mmu_is_secured(struct kgsl_mmu *mmu)
@@ -308,15 +302,6 @@ kgsl_mmu_pagetable_get_ttbr0(struct kgsl_pagetable *pagetable)
 {
 	if (PT_OP_VALID(pagetable, get_ttbr0))
 		return pagetable->pt_ops->get_ttbr0(pagetable);
-
-	return 0;
-}
-
-static inline u32
-kgsl_mmu_pagetable_get_contextidr(struct kgsl_pagetable *pagetable)
-{
-	if (PT_OP_VALID(pagetable, get_contextidr))
-		return pagetable->pt_ops->get_contextidr(pagetable);
 
 	return 0;
 }
@@ -342,6 +327,11 @@ void kgsl_mmu_map_global(struct kgsl_device *device,
  * negative error on failure.
  */
 int kgsl_mmu_pagetable_get_context_bank(struct kgsl_pagetable *pagetable);
+
+void kgsl_mmu_pagetable_init(struct kgsl_mmu *mmu,
+		struct kgsl_pagetable *pagetable, u32 name);
+
+void kgsl_mmu_pagetable_add(struct kgsl_mmu *mmu, struct kgsl_pagetable *pagetable);
 
 #if IS_ENABLED(CONFIG_ARM_SMMU)
 int kgsl_iommu_probe(struct kgsl_device *device);

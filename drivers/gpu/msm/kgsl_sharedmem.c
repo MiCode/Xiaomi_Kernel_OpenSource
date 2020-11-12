@@ -570,7 +570,7 @@ void kgsl_memdesc_init(struct kgsl_device *device,
 
 	memset(memdesc, 0, sizeof(*memdesc));
 	/* Turn off SVM if the system doesn't support it */
-	if (!kgsl_mmu_use_cpu_map(mmu))
+	if (!kgsl_mmu_is_perprocess(mmu))
 		flags &= ~((uint64_t) KGSL_MEMFLAGS_USE_CPU_MAP);
 
 	/* Secure memory disables advanced addressing modes */

@@ -34,7 +34,7 @@ static int _ft_pagefault_policy_store(struct adreno_device *adreno_dev,
 			(unsigned long) val);
 
 	if (ret == 0)
-		adreno_dev->ft_pf_policy = val;
+		device->mmu.pfpolicy = val;
 
 	mutex_unlock(&device->mutex);
 
@@ -43,7 +43,9 @@ static int _ft_pagefault_policy_store(struct adreno_device *adreno_dev,
 
 static unsigned int _ft_pagefault_policy_show(struct adreno_device *adreno_dev)
 {
-	return adreno_dev->ft_pf_policy;
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+
+	return device->mmu.pfpolicy;
 }
 
 static int _gpu_llc_slice_enable_store(struct adreno_device *adreno_dev,

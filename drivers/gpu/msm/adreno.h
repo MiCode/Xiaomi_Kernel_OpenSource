@@ -457,7 +457,6 @@ struct adreno_gpu_core {
  * @fast_hang_detect: Software fault detection availability
  * @ft_policy: Defines the fault tolerance policy
  * @long_ib_detect: Long IB detection availability
- * @ft_pf_policy: Defines the fault policy for page faults
  * @cooperative_reset: Indicates if graceful death handshake is enabled
  * between GMU and GPU
  * @profile: Container for adreno profiler information
@@ -529,7 +528,6 @@ struct adreno_device {
 	unsigned int fast_hang_detect;
 	unsigned long ft_policy;
 	bool long_ib_detect;
-	unsigned long ft_pf_policy;
 	bool cooperative_reset;
 	struct adreno_profile profile;
 	struct adreno_dispatcher dispatcher;
@@ -854,26 +852,6 @@ enum kgsl_ft_policy_bits {
 };
 
 #define KGSL_FT_POLICY_MASK GENMASK(KGSL_FT_MAX_BITS - 1, 0)
-
-/**
- * enum kgsl_ft_pagefault_policy_bits - KGSL pagefault policy bits
- * @KGSL_FT_PAGEFAULT_INT_ENABLE: No longer used, but retained for compatibility
- * @KGSL_FT_PAGEFAULT_GPUHALT_ENABLE: enable GPU halt on pagefaults
- * @KGSL_FT_PAGEFAULT_LOG_ONE_PER_PAGE: log one pagefault per page
- * @KGSL_FT_PAGEFAULT_LOG_ONE_PER_INT: log one pagefault per interrupt
- */
-enum {
-	KGSL_FT_PAGEFAULT_INT_ENABLE = 0,
-	KGSL_FT_PAGEFAULT_GPUHALT_ENABLE = 1,
-	KGSL_FT_PAGEFAULT_LOG_ONE_PER_PAGE = 2,
-	KGSL_FT_PAGEFAULT_LOG_ONE_PER_INT = 3,
-	/* KGSL_FT_PAGEFAULT_MAX_BITS is used to calculate the mask */
-	KGSL_FT_PAGEFAULT_MAX_BITS,
-};
-
-#define KGSL_FT_PAGEFAULT_MASK GENMASK(KGSL_FT_PAGEFAULT_MAX_BITS - 1, 0)
-
-#define KGSL_FT_PAGEFAULT_DEFAULT_POLICY 0
 
 #define FOR_EACH_RINGBUFFER(_dev, _rb, _i)			\
 	for ((_i) = 0, (_rb) = &((_dev)->ringbuffers[0]);	\
@@ -1570,8 +1548,7 @@ static inline void adreno_ringbuffer_set_pagetable(struct adreno_ringbuffer *rb,
 		PT_INFO_OFFSET(ttbr0), kgsl_mmu_pagetable_get_ttbr0(pt));
 
 	kgsl_sharedmem_writel(rb->pagetable_desc,
-		PT_INFO_OFFSET(contextidr),
-		kgsl_mmu_pagetable_get_contextidr(pt));
+		PT_INFO_OFFSET(contextidr), 0);
 
 	spin_unlock_irqrestore(&rb->preempt_lock, flags);
 }

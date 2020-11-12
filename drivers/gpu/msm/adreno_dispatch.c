@@ -2125,8 +2125,8 @@ static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 		adreno_readreg64(adreno_dev, ADRENO_REG_CP_IB1_BASE,
 			ADRENO_REG_CP_IB1_BASE_HI, &base);
 
-	if (!test_bit(KGSL_FT_PAGEFAULT_GPUHALT_ENABLE,
-		&adreno_dev->ft_pf_policy) && adreno_dev->cooperative_reset)
+	if (!test_bit(KGSL_FT_PAGEFAULT_GPUHALT_ENABLE, &device->mmu.pfpolicy)
+		&& adreno_dev->cooperative_reset)
 		gmu_core_dev_cooperative_reset(device);
 
 	if (!(fault & ADRENO_GMU_FAULT_SKIP_SNAPSHOT))

@@ -250,8 +250,7 @@ int genc_ringbuffer_addcmds(struct adreno_device *adreno_dev,
 		cmds[index++] = profile_dwords;
 	}
 
-	if (test_bit(KGSL_FT_PAGEFAULT_GPUHALT_ENABLE,
-				&adreno_dev->ft_pf_policy))
+	if (test_bit(KGSL_FT_PAGEFAULT_GPUHALT_ENABLE, &device->mmu.pfpolicy))
 		cmds[index++] = cp_type7_packet(CP_WAIT_MEM_WRITES, 0);
 
 	/*

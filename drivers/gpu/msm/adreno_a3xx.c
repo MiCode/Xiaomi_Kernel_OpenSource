@@ -904,7 +904,7 @@ static int a3xx_microcode_read(struct adreno_device *adreno_dev);
 static int a3xx_init(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
+	struct kgsl_iommu *iommu = KGSL_IOMMU(device);
 	struct adreno_dispatcher *dispatcher = &adreno_dev->dispatcher;
 	int ret;
 

@@ -238,7 +238,7 @@ static struct adreno_ringbuffer *a6xx_next_ringbuffer(
 void a6xx_preemption_trigger(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
+	struct kgsl_iommu *iommu = KGSL_IOMMU(device);
 	struct adreno_ringbuffer *next;
 	uint64_t ttbr0, gpuaddr;
 	unsigned int contextidr, cntl;
@@ -589,7 +589,7 @@ u32 a6xx_preemption_post_ibsubmit(struct adreno_device *adreno_dev,
 void a6xx_preemption_start(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
+	struct kgsl_iommu *iommu = KGSL_IOMMU(device);
 	struct adreno_ringbuffer *rb;
 	unsigned int i;
 
@@ -610,8 +610,7 @@ void a6xx_preemption_start(struct adreno_device *adreno_dev)
 		kgsl_sharedmem_writel(iommu->smmu_info,
 			PREEMPT_SMMU_RECORD(asid), 0xDECAFBAD);
 		kgsl_sharedmem_writel(iommu->smmu_info,
-			PREEMPT_SMMU_RECORD(context_idr),
-			MMU_DEFAULT_CONTEXTIDR(device));
+			PREEMPT_SMMU_RECORD(context_idr), 0);
 
 		kgsl_regwrite(device, A6XX_CP_CONTEXT_SWITCH_SMMU_INFO_LO,
 			lower_32_bits(iommu->smmu_info->gpuaddr));
@@ -694,7 +693,7 @@ static int a6xx_preemption_ringbuffer_init(struct adreno_device *adreno_dev,
 int a6xx_preemption_init(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
+	struct kgsl_iommu *iommu = KGSL_IOMMU(device);
 	struct adreno_preemption *preempt = &adreno_dev->preempt;
 	struct adreno_ringbuffer *rb;
 	int ret;

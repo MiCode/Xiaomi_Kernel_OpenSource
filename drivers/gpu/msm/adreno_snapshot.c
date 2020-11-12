@@ -209,7 +209,7 @@ static void dump_all_ibs(struct kgsl_device *device,
 	int index = 0;
 	unsigned int *rbptr;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
+	struct kgsl_iommu *iommu = KGSL_IOMMU(device);
 
 	rbptr = rb->buffer_desc->hostptr;
 
@@ -368,7 +368,7 @@ static void snapshot_rb_ibs(struct kgsl_device *device,
 			parse_ibs = 0;
 
 		if (parse_ibs && adreno_cmd_is_ib(adreno_dev, rbptr[index])) {
-			struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
+			struct kgsl_iommu *iommu = KGSL_IOMMU(device);
 			uint64_t ibaddr;
 			uint64_t ibsize;
 
@@ -777,7 +777,7 @@ static void adreno_snapshot_iommu(struct kgsl_device *device,
 		struct kgsl_snapshot *snapshot)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
+	struct kgsl_iommu *iommu = KGSL_IOMMU(device);
 
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
 		snapshot, adreno_snapshot_global, iommu->setstate);

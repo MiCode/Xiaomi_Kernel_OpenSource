@@ -220,7 +220,7 @@ int a5xx_ringbuffer_addcmds(struct adreno_device *adreno_dev,
 
 	if (!adreno_is_a510(adreno_dev) &&
 		test_bit(KGSL_FT_PAGEFAULT_GPUHALT_ENABLE,
-			&adreno_dev->ft_pf_policy))
+			&device->mmu.pfpolicy))
 		cmds[index++] = cp_type7_packet(CP_WAIT_MEM_WRITES, 0);
 
 	/*

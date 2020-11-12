@@ -676,11 +676,6 @@ adreno_update_soc_hw_revision_quirks(struct adreno_device *adreno_dev,
 			adreno_dev->quirks |= adreno_quirks[i].quirk;
 	}
 
-	/* Set a quirk in the MMU */
-	if (of_property_read_bool(node, "qcom,gpu-quirk-mmu-secure-cb-alt"))
-		kgsl_mmu_set_feature(KGSL_DEVICE(adreno_dev),
-			KGSL_MMU_SECURE_CB_ALT);
-
 	of_node_put(node);
 }
 
@@ -2382,7 +2377,6 @@ static int adreno_soft_reset(struct kgsl_device *device)
 
 	/* Set the page table back to the default page table */
 	adreno_ringbuffer_set_global(adreno_dev, 0);
-	kgsl_mmu_set_pt(&device->mmu, device->mmu.defaultpagetable);
 
 	/* Reinitialize the GPU */
 	gpudev->start(adreno_dev);
