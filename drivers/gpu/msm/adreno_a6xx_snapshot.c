@@ -1582,6 +1582,9 @@ static void _a6xx_do_crashdump(struct kgsl_device *device)
 	if (a6xx_is_smmu_stalled(device))
 		return;
 
+	memset(a6xx_crashdump_registers->hostptr, 0xaa,
+			a6xx_crashdump_registers->size);
+
 	/* Turn on APRIV for legacy targets so we can access the buffers */
 	if (!ADRENO_FEATURE(ADRENO_DEVICE(device), ADRENO_APRIV))
 		kgsl_regwrite(device, A6XX_CP_MISC_CNTL, 1);
