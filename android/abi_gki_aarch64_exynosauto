@@ -8,6 +8,7 @@
   arm64_const_caps_ready
   atomic_notifier_call_chain
   atomic_notifier_chain_register
+  __bitmap_and
   __bitmap_andnot
   blocking_notifier_call_chain
   blocking_notifier_chain_register
@@ -79,6 +80,7 @@
   _dev_warn
   disable_irq
   disable_irq_nosync
+  display_timings_release
   dma_alloc_attrs
   dma_buf_attach
   dma_buf_begin_cpu_access
@@ -263,6 +265,7 @@
   of_find_node_by_name
   of_find_property
   of_get_child_by_name
+  of_get_display_timings
   of_get_drm_display_mode
   of_get_named_gpio_flags
   of_get_next_child
@@ -297,6 +300,8 @@
   phy_ethtool_ksettings_get
   phy_ethtool_ksettings_set
   phy_ethtool_set_eee
+  phy_get_eee_err
+  phy_init_eee
   phy_mii_ioctl
   phy_power_off
   phy_power_on
@@ -572,8 +577,10 @@
   extcon_unregister_notifier
   of_usb_get_phy_mode
   phy_calibrate
+  phy_create_lookup
   phy_exit
   phy_init
+  phy_remove_lookup
   phy_reset
   phy_set_mode_ext
   platform_device_add_data
@@ -661,6 +668,7 @@
   console_trylock
   console_unlock
   device_rename
+  drm_atomic_helper_async_check
   drm_atomic_helper_check
   drm_atomic_helper_cleanup_planes
   drm_atomic_helper_commit
@@ -671,19 +679,24 @@
   drm_atomic_helper_crtc_duplicate_state
   drm_atomic_helper_crtc_reset
   drm_atomic_helper_disable_plane
+  drm_atomic_helper_disable_planes_on_crtc
+  drm_atomic_helper_fake_vblank
   drm_atomic_helper_page_flip
   __drm_atomic_helper_plane_destroy_state
   __drm_atomic_helper_plane_duplicate_state
+  __drm_atomic_helper_plane_reset
   drm_atomic_helper_set_config
   drm_atomic_helper_shutdown
   drm_atomic_helper_update_plane
   drm_atomic_helper_wait_for_vblanks
+  drm_atomic_normalize_zpos
   drm_atomic_private_obj_init
   drm_bridge_attach
   drm_compat_ioctl
   drm_connector_list_iter_begin
   drm_connector_list_iter_end
   drm_connector_list_iter_next
+  drm_connector_set_path_property
   drm_connector_set_tile_property
   drm_connector_unregister
   drm_crtc_arm_vblank_event
@@ -716,6 +729,8 @@
   drm_dp_dpcd_read
   drm_dp_dpcd_read_link_status
   drm_dp_dpcd_write
+  drm_dp_dsc_sink_line_buf_depth
+  drm_dp_dsc_sink_max_slice_count
   drm_dp_find_vcpi_slots
   drm_dp_link_train_channel_eq_delay
   drm_dp_link_train_clock_recovery_delay
@@ -727,14 +742,18 @@
   drm_dp_mst_reset_vcpi_slots
   drm_dp_mst_topology_mgr_init
   drm_dp_mst_topology_mgr_set_mst
+  drm_dp_mst_topology_state_funcs
   drm_dp_update_payload_part1
   drm_dp_update_payload_part2
+  drm_dsc_compute_rc_parameters
+  drm_dsc_pps_payload_pack
   drm_encoder_cleanup
   drm_encoder_init
   drm_flip_work_cleanup
   drm_flip_work_commit
   drm_flip_work_init
   drm_flip_work_queue
+  drm_framebuffer_cleanup
   drm_framebuffer_init
   drm_gem_create_mmap_offset
   drm_gem_handle_create
@@ -751,12 +770,15 @@
   drm_get_connector_status_name
   drm_get_edid
   drm_get_format_info
+  drm_helper_connector_dpms
   drm_helper_hpd_irq_event
   drm_helper_mode_fill_fb_struct
   drm_ioctl
   drm_kms_helper_poll_fini
   drm_kms_helper_poll_init
   drm_mode_config_cleanup
+  drm_mode_config_helper_resume
+  drm_mode_config_helper_suspend
   drm_mode_config_init
   drm_mode_config_reset
   drm_mode_object_find
@@ -777,8 +799,10 @@
   drm_plane_create_zpos_property
   drm_poll
   drm_prime_gem_destroy
+  drm_property_add_enum
   drm_property_create
   drm_property_create_range
+  drm_property_destroy
   drm_read
   drm_release
   drm_universal_plane_init
@@ -791,13 +815,18 @@
   of_drm_find_panel
   of_get_next_available_child
   of_graph_get_endpoint_by_regs
+  of_graph_get_endpoint_count
   of_graph_get_next_endpoint
+  of_graph_get_port_by_id
+  of_graph_get_remote_port
   of_graph_get_remote_port_parent
   of_graph_parse_endpoint
   of_io_request_and_map
   of_platform_device_create
+  of_platform_device_destroy
   of_property_match_string
   strlcat
+  videomode_from_timings
 
 # required by exynos_devfreq.ko
   devfreq_add_device
@@ -985,15 +1014,27 @@
 
 # required by marvell.ko
   __genphy_config_aneg
+  genphy_loopback
   genphy_read_status
+  genphy_restart_aneg
   genphy_resume
+  genphy_setup_forced
+  genphy_soft_reset
   genphy_suspend
+  genphy_update_link
   __mdiobus_read
   __mdiobus_write
   phy_drivers_register
   phy_drivers_unregister
+  phy_gbit_fibre_features
+  __phy_modify
+  phy_modify
+  phy_modify_paged
+  phy_read_paged
   phy_restore_page
   phy_save_page
+  phy_select_page
+  phy_write_paged
 
 # required by mcDrvModule.ko
   alloc_chrdev_region
@@ -1023,8 +1064,11 @@
   drm_panel_add
   drm_panel_init
   drm_panel_remove
+  videomode_from_timing
 
 # required by pcie-exynos-dw-rc.ko
+  bitmap_find_free_region
+  bitmap_release_region
   dw_pcie_host_init
   dw_pcie_msi_init
   dw_pcie_read
@@ -1036,6 +1080,7 @@
   irq_domain_get_irq_data
   irq_domain_set_info
   irq_domain_update_bus_token
+  pcie_set_mps
   pci_find_bus
   pci_get_device
   pci_load_saved_state
@@ -1050,16 +1095,31 @@
 # required by phylink.ko
   __bitmap_or
   dev_printk
+  fwnode_get_named_child_node
+  fwnode_get_named_gpiod
   fwnode_handle_put
+  fwnode_property_get_reference_args
   fwnode_property_present
   fwnode_property_read_string
   fwnode_property_read_u32_array
   gpiod_get_value_cansleep
+  gpiod_put
   netdev_printk
   netif_carrier_on
+  of_phy_attach
+  phy_attach_direct
+  phy_detach
+  phy_duplex_to_str
+  phy_ethtool_get_wol
   phy_ethtool_set_wol
+  phy_lookup_setting
+  phy_request_interrupt
+  phy_restart_aneg
+  phy_set_asym_pause
+  phy_speed_to_str
   phy_start
   rtnl_is_locked
+  swphy_read_reg
   system_power_efficient_wq
 
 # required by pinctrl-samsung-core.ko
@@ -1125,6 +1185,8 @@
   device_set_wakeup_enable
   __dev_kfree_skb_any
   dev_open
+  dql_completed
+  dql_reset
   eth_mac_addr
   ethtool_op_get_link
   ethtool_op_get_ts_info
@@ -1136,6 +1198,7 @@
   jiffies_to_usecs
   mdiobus_alloc_size
   mdiobus_free
+  mdiobus_get_phy
   __mdiobus_register
   mdiobus_unregister
   napi_complete_done
@@ -1144,6 +1207,7 @@
   __napi_schedule
   __napi_schedule_irqoff
   napi_schedule_prep
+  netdev_alert
   __netdev_alloc_skb
   netdev_err
   netdev_info
@@ -1160,8 +1224,17 @@
   net_ratelimit
   ns_to_timespec64
   of_get_mac_address
+  of_get_phy_mode
   of_mdiobus_register
+  of_phy_deregister_fixed_link
+  of_phy_is_fixed_link
+  of_phy_register_fixed_link
+  phy_attached_info
   phy_ethtool_nway_reset
+  phy_mac_interrupt
+  phy_resume
+  phy_start_aneg
+  phy_suspend
   pinctrl_pm_select_default_state
   platform_get_irq_byname
   pm_wakeup_dev_event
@@ -1233,6 +1306,7 @@
   spi_unregister_controller
 
 # required by ufs-exynos-core.ko
+  ufshcd_config_pwr_mode
   ufshcd_dme_get_attr
   ufshcd_dme_set_attr
   ufshcd_pltfrm_init
