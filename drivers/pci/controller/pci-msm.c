@@ -3779,7 +3779,7 @@ static int msm_pcie_link_train(struct msm_pcie_dev_t *dev)
 	msm_pcie_write_mask(dev->dm_core,
 		PCIE_GEN3_EQ_CONTROL, 0x20);
 
-	msm_pcie_write_mask(dev->dm_core + PCIE_GEN3_EQ_CONTROL,
+	msm_pcie_write_reg_field(dev->dm_core, PCIE_GEN3_EQ_CONTROL,
 				PCIE_GEN3_EQ_PSET_REQ_VEC_MASK,
 				dev->eq_pset_req_vec);
 
