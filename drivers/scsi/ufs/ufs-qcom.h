@@ -376,6 +376,7 @@ struct ufs_qcom_host {
 	atomic_t clks_on;
 	struct ufs_qcom_qos_req *ufs_qos;
 	bool bypass_g4_cfgready;
+	bool is_dt_pm_level_read;
 };
 
 static inline u32
