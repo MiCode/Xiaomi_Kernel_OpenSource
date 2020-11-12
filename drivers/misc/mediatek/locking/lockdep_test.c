@@ -348,9 +348,9 @@ lockdep_test_write(struct file *file, const char *ubuf,
 	return count;
 }
 
-static const struct file_operations proc_lockdep_test_fops = {
-	.open  = simple_open,
-	.write = lockdep_test_write,
+static const struct proc_ops proc_lockdep_test_fops = {
+	.proc_open  = simple_open,
+	.proc_write = lockdep_test_write,
 };
 
 int lockdep_test_init(void)
