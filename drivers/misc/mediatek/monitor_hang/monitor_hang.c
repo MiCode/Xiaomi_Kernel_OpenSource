@@ -81,10 +81,6 @@ static void monitor_hang_kick(int lParam);
 static void reset_hang_info(void)
 {
 	Hang_Detect_first = false;
-#ifdef CONFIG_MTK_HANG_DETECT_DB
-	memset(Hang_Info, 0, MaxHangInfoSize);
-	Hang_Info_Size = 0;
-#endif
 }
 
 int add_white_list(char *name)
@@ -1018,6 +1014,12 @@ static void show_task_backtrace(void)
 		if (aee_aed_task)
 			send_sig_info(SIGUSR1, SEND_SIG_PRIV,
 				aee_aed_task);
+		if (system_server_task)
+			send_sig_info(SIGQUIT, SEND_SIG_PRIV,
+				system_server_task);
+		if (monkey_task)
+			send_sig_info(SIGQUIT, SEND_SIG_PRIV,
+				monkey_task);
 	}
 }
 
@@ -1151,6 +1153,12 @@ static int hang_detect_thread(void *arg)
 				log_hang_info(
 					"[Hang_detect]Dump the %d time process bt.\n",
 					Hang_Detect_first ? 2 : 1);
+#ifdef CONFIG_MTK_HANG_DETECT_DB
+				if (!Hang_Detect_first) {
+					memset(Hang_Info, 0, MaxHangInfoSize);
+					Hang_Info_Size = 0;
+				}
+#endif
 				if (Hang_Detect_first == true
 					&& dump_bt_done != 1) {
 		/* some time dump thread will block in dumping native bt */
