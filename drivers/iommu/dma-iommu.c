@@ -959,6 +959,7 @@ static int iommu_dma_map_sg(struct device *dev, struct scatterlist *sg,
 	struct iommu_dma_cookie *cookie;
 	struct iova_domain *iovad;
 	int prot = dma_info_to_prot(dir, is_dma_coherent(dev, attrs), attrs);
+	int ret;
 	dma_addr_t iova;
 	size_t iova_len;
 
@@ -967,9 +968,6 @@ static int iommu_dma_map_sg(struct device *dev, struct scatterlist *sg,
 		return 0;
 	cookie = domain->iova_cookie;
 	iovad = &cookie->iovad;
-
-	if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
-		iommu_dma_sync_sg_for_device(dev, sg, nents, dir);
 
 	iova_len = iommu_dma_prepare_map_sg(dev, iovad, sg, nents);
 
@@ -984,7 +982,12 @@ static int iommu_dma_map_sg(struct device *dev, struct scatterlist *sg,
 	if (iommu_map_sg(domain, iova, sg, nents, prot) < iova_len)
 		goto out_free_iova;
 
-	return iommu_dma_finalise_sg(dev, sg, nents, iova);
+	ret = iommu_dma_finalise_sg(dev, sg, nents, iova);
+
+	if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
+		iommu_dma_sync_sg_for_device(dev, sg, nents, dir);
+
+	return ret;
 
 out_free_iova:
 	iommu_dma_free_iova(cookie, iova, iova_len);
