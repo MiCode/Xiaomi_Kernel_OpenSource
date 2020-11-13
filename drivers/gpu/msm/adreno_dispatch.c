@@ -432,8 +432,7 @@ static inline int adreno_dispatcher_requeue_cmdobj(
 
 	spin_lock(&drawctxt->lock);
 
-	if (kgsl_context_detached(&drawctxt->base) ||
-		kgsl_context_invalid(&drawctxt->base)) {
+	if (kgsl_context_is_bad(&drawctxt->base)) {
 		spin_unlock(&drawctxt->lock);
 		/* get rid of this drawobj since the context is bad */
 		kgsl_drawobj_destroy(drawobj);
@@ -773,12 +772,6 @@ static int dispatcher_context_sendcmds(struct adreno_device *adreno_dev,
 	return ret;
 }
 
-static bool adreno_drawctxt_bad(struct adreno_context *drawctxt)
-{
-	return (kgsl_context_detached(&drawctxt->base) ||
-		kgsl_context_invalid(&drawctxt->base));
-}
-
 static bool adreno_gpu_stopped(struct adreno_device *adreno_dev)
 {
 	return (adreno_gpu_fault(adreno_dev) || adreno_gpu_halt(adreno_dev));
@@ -799,7 +792,7 @@ static void dispatcher_handle_jobs_list(struct adreno_device *adreno_dev,
 	llist_for_each_entry_safe(job, next, list, node) {
 		int ret;
 
-		if (adreno_drawctxt_bad(job->drawctxt)) {
+		if (kgsl_context_is_bad(&job->drawctxt->base)) {
 			kgsl_context_put(&job->drawctxt->base);
 			kmem_cache_free(jobs_cache, job);
 			continue;
@@ -1541,8 +1534,7 @@ static void remove_invalidated_cmdobjs(struct kgsl_device *device,
 		if (cmdobj == NULL)
 			continue;
 
-		if (kgsl_context_detached(drawobj->context) ||
-			kgsl_context_invalid(drawobj->context)) {
+		if (kgsl_context_is_bad(drawobj->context)) {
 			replay[i] = NULL;
 
 			mutex_lock(&device->mutex);

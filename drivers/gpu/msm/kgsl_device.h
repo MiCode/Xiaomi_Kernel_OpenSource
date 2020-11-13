@@ -697,6 +697,16 @@ static inline bool kgsl_context_invalid(struct kgsl_context *context)
 						&context->priv));
 }
 
+/** kgsl_context_is_bad - Check if a context is detached or invalid
+ * @context: Pointer to a KGSL context handle
+ *
+ * Return: True if the context has been detached or is invalid
+ */
+static inline bool kgsl_context_is_bad(struct kgsl_context *context)
+{
+	return (kgsl_context_detached(context) ||
+		kgsl_context_invalid(context));
+}
 
 /**
  * kgsl_context_get() - get a pointer to a KGSL context

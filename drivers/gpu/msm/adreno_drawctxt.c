@@ -20,7 +20,7 @@ static int _check_context_timestamp(struct kgsl_device *device,
 		struct kgsl_context *context, unsigned int timestamp)
 {
 	/* Bail if the drawctxt has been invalidated or destroyed */
-	if (kgsl_context_detached(context) || kgsl_context_invalid(context))
+	if (kgsl_context_is_bad(context))
 		return 1;
 
 	return kgsl_check_timestamp(device, context, timestamp);
