@@ -1219,6 +1219,7 @@ static int adreno_read_speed_bin(struct platform_device *pdev)
 	return val;
 }
 
+#if IS_ENABLED(CONFIG_QCOM_LLCC)
 static int adreno_probe_llcc(struct adreno_device *adreno_dev,
 		struct platform_device *pdev)
 {
@@ -1236,9 +1237,8 @@ static int adreno_probe_llcc(struct adreno_device *adreno_dev,
 		if (ret != -ENOENT)
 			dev_warn(&pdev->dev,
 				"Unable to get the GPU LLC slice: %d\n", ret);
-	}
-
-	adreno_dev->gpu_llc_slice_enable = true;
+	} else
+		adreno_dev->gpu_llc_slice_enable = true;
 
 	/* Get the system cache slice descriptor for GPU pagetables */
 	adreno_dev->gpuhtw_llc_slice = llcc_slice_getd(LLCC_GPUHTW);
@@ -1252,12 +1252,18 @@ static int adreno_probe_llcc(struct adreno_device *adreno_dev,
 		if (ret != -ENOENT)
 			dev_warn(&pdev->dev,
 				"Unable to get GPU HTW LLC slice: %d\n", ret);
-	}
-
-	adreno_dev->gpuhtw_llc_slice_enable = true;
+	} else
+		adreno_dev->gpuhtw_llc_slice_enable = true;
 
 	return 0;
 }
+#else
+static int adreno_probe_llcc(struct adreno_device *adreno_dev,
+		struct platform_device *pdev)
+{
+	return 0;
+}
+#endif
 
 static const struct kgsl_functable adreno_functable;
 
