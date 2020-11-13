@@ -51,7 +51,7 @@ static int _isdb_get(void *data, u64 *val)
 
 DEFINE_DEBUGFS_ATTRIBUTE(_isdb_fops, _isdb_get, _isdb_set, "%llu\n");
 
-static int globals_print(struct seq_file *s, void *unused)
+static int globals_show(struct seq_file *s, void *unused)
 {
 	struct kgsl_device *device = s->private;
 	struct kgsl_global_memdesc *md;
@@ -77,23 +77,7 @@ static int globals_print(struct seq_file *s, void *unused)
 	return 0;
 }
 
-static int globals_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, globals_print, inode->i_private);
-}
-
-static int globals_release(struct inode *inode, struct file *file)
-{
-	return single_release(inode, file);
-}
-
-static const struct file_operations global_fops = {
-	.open = globals_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = globals_release,
-};
-
+DEFINE_SHOW_ATTRIBUTE(globals);
 
 void kgsl_device_debugfs_init(struct kgsl_device *device)
 {
@@ -106,7 +90,7 @@ void kgsl_device_debugfs_init(struct kgsl_device *device)
 						       kgsl_debugfs_dir);
 
 	debugfs_create_file("globals", 0444, device->d_debugfs, device,
-		&global_fops);
+		&globals_fops);
 
 	snapshot_dir = debugfs_create_dir("snapshot", kgsl_debugfs_dir);
 	debugfs_create_file("break_isdb", 0644, snapshot_dir, device,
