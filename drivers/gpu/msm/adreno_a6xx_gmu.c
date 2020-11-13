@@ -1538,11 +1538,12 @@ int a6xx_gmu_parse_fw(struct adreno_device *adreno_dev)
 		offset += sizeof(*blk);
 
 		if (blk->type == GMU_BLK_TYPE_PREALLOC_REQ ||
-				blk->type == GMU_BLK_TYPE_PREALLOC_PERSIST_REQ)
+				blk->type == GMU_BLK_TYPE_PREALLOC_PERSIST_REQ) {
 			ret = a6xx_gmu_process_prealloc(gmu, blk);
 
-		if (ret)
-			return ret;
+			if (ret)
+				return ret;
+		}
 	}
 
 	return 0;
