@@ -51,6 +51,14 @@ static inline ssize_t dev_dump_show(struct device *dev,
 }
 DEVICE_ATTR_RO(dev_dump);
 
+static void ipi_test_handler(int id, void *data, unsigned int len)
+{
+	unsigned long long ns = *(unsigned long long *)data;
+
+	pr_info("%s, receive ipi_test from adsp, adsp_time[%llu.%llu]",
+		__func__, ns / 1000000000, (ns / 1000000) % 1000);
+}
+
 static inline ssize_t ipi_test_store(struct device *dev,
 				struct device_attribute *attr,
 				const char *buf, size_t count)
@@ -81,10 +89,11 @@ static inline ssize_t ipi_test_show(struct device *dev,
 	unsigned int value = 0x5A5A;
 	int ret;
 
-	if (!is_adsp_ready(pdata->id))
-		return scnprintf(buf, PAGE_SIZE, "ADSP is not ready\n");
+	adsp_ipi_registration(ADSP_IPI_TEST1, ipi_test_handler, "ipi_test");
 
 	if (_adsp_register_feature(pdata->id, SYSTEM_FEATURE_ID, 0) == 0) {
+		pr_info("%s, send ipi_test to adsp%d", __func__, pdata->id);
+
 		ret = adsp_push_message(ADSP_IPI_TEST1, &value,
 					sizeof(value), 20, pdata->id);
 		_adsp_deregister_feature(pdata->id,

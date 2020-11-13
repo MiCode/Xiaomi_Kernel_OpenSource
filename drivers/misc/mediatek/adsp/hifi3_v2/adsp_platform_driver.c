@@ -16,6 +16,7 @@
 #include "adsp_mbox.h"
 #include "adsp_reserved_mem.h"
 #include "adsp_logger.h"
+#include "adsp_timesync.h"
 #include "adsp_excep.h"
 #include "adsp_reg.h"
 #include "adsp_platform.h"
@@ -237,6 +238,8 @@ int adsp_core0_suspend(void)
 
 	if (get_adsp_state(pdata) == ADSP_RUNNING) {
 		reinit_completion(&pdata->done);
+		adsp_timesync_suspend(APTIME_UNFREEZE);
+
 		if (adsp_push_message(ADSP_IPI_DVFS_SUSPEND, &status,
 				      sizeof(status), 2000, pdata->id)) {
 			ret = -EPIPE;
@@ -294,7 +297,6 @@ int adsp_core0_resume(void)
 		set_adsp_dram_remapping(pdata->sysram_phys,
 					pdata->sysram_size +
 					adsp_cores[ADSP_B_ID]->sysram_size);
-		timesync_to_adsp(pdata, APTIME_UNFREEZE);
 
 		reinit_completion(&pdata->done);
 		adsp_mt_run(pdata->id);
@@ -305,6 +307,8 @@ int adsp_core0_resume(void)
 			adsp_aed_dispatch(EXCEP_KERNEL, pdata);
 			return -ETIME;
 		}
+
+		adsp_timesync_resume();
 	}
 	pr_info("%s(), done elapse %lld us", __func__,
 		ktime_us_delta(ktime_get(), start));
@@ -574,13 +578,13 @@ static int adsp_common_drv_probe(struct platform_device *pdev)
 	if (!pm_runtime_enabled(&pdev->dev))
 		pr_warn("%s(), pm_runtime_enable fail, %d\n", __func__, ret);
 
-	adsp_register_notify(&adsp_uevent_notifier);
-
 #ifdef CONFIG_PM
 	ret = register_pm_notifier(&adsp_pm_notifier_block);
 	if (ret)
 		pr_warn("[ADSP] failed to register PM notifier %d\n", ret);
 #endif
+	adsp_register_notify(&adsp_uevent_notifier);
+	adsp_timesync_init();
 
 	pr_info("%s, success\n", __func__);
 ERROR:
@@ -712,23 +716,20 @@ static int adsp_ap_suspend(struct device *dev)
 		}
 	}
 
-#ifdef CONFIG_MTK_TIMER_TIMESYNC
 	if (is_adsp_system_running()) {
-		timesync_to_adsp(adsp_cores[ADSP_A_ID], APTIME_FREEZE);
+		adsp_timesync_suspend(APTIME_FREEZE);
 		pr_info("%s, time sync freeze", __func__);
 	}
-#endif
 	return 0;
 }
 
 static int adsp_ap_resume(struct device *dev)
 {
-#ifdef CONFIG_MTK_TIMER_TIMESYNC
 	if (is_adsp_system_running()) {
-		timesync_to_adsp(adsp_cores[ADSP_A_ID], APTIME_UNFREEZE);
+		adsp_timesync_resume();
 		pr_info("%s, time sync unfreeze", __func__);
 	}
-#endif
+
 	return 0;
 }
 

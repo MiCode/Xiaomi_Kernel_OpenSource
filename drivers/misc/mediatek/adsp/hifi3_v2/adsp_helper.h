@@ -72,9 +72,6 @@ enum semaphore_3way_flag {
 
 #define SEMA_AUDIO             SEMA_3WAY_AUDIO
 #define SEMA_AUDIOREG          SEMA_3WAY_AUDIOREG
-#define ADSP_OSTIMER_BUFFER    (adsp_timesync_ptr)
-
-extern void *adsp_timesync_ptr;
 
 extern enum adsp_ipi_status adsp_ipi_registration(enum adsp_ipi_id id,
 						  void (*ipi_handler)(int id,
