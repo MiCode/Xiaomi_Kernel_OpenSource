@@ -8305,10 +8305,10 @@ static signed int __init DIP_Init(void)
 	/* Register DIP callback */
 	LOG_INF("register dip callback for MDP");
 	cmdqCoreRegisterCB(mdp_get_group_isp(),
-			   DIP_MDPClockOnCallback,
+			   NULL,
 			   DIP_MDPDumpCallback,
 			   DIP_MDPResetCallback,
-			   DIP_MDPClockOffCallback);
+			   NULL);
 	/* Register GCE callback for dumping DIP register */
 	LOG_DBG("register dip callback for GCE");
 	cmdqCoreRegisterDebugRegDumpCB
