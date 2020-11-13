@@ -20,6 +20,7 @@ adsp-objs += common/adsp_fs.o
 adsp-objs += common/adsp_semaphore.o
 adsp-objs += common/adsp_logger.o
 adsp-objs += common/adsp_feature_table.o
+adsp-objs += common/adsp_timesync.o
 
 adsp-objs += $(DSP_VERSION)/adsp_awake.o
 adsp-objs += $(DSP_VERSION)/adsp_clk.o
