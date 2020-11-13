@@ -47,6 +47,7 @@
 #include "scp_helper.h"
 #include "scp_excep.h"
 #include "scp_dvfs.h"
+#include "scp.h"
 
 #ifdef pr_fmt
 #undef pr_fmt
@@ -431,6 +432,8 @@ int scp_request_freq(void)
 
 	if (scp_current_freq != scp_expected_freq) {
 
+		scp_awake_lock((void *)SCP_A_ID);
+
 		/* do DVS before DFS if increasing frequency */
 		if (scp_current_freq < scp_expected_freq) {
 			scp_vcore_request(scp_expected_freq);
@@ -477,6 +480,8 @@ int scp_request_freq(void)
 		/* do DVS after DFS if decreasing frequency */
 		if (is_increasing_freq == 0)
 			scp_vcore_request(scp_expected_freq);
+
+		scp_awake_unlock((void *)SCP_A_ID);
 
 		opp_idx = scp_get_freq_idx(scp_current_freq);
 		if (dvfs.opp[opp_idx].resource_req)
