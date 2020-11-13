@@ -154,7 +154,7 @@ static struct eemg_det *id_to_eemg_det(enum eemg_det_id id)
 
 static int get_devinfo(struct platform_device *pdev)
 {
-	int ret = 0, i = 0;
+	int ret = 1, i = 0;
 	int *val;
 	unsigned int safeEfuse = 0;
 	struct nvmem_device *nvmem_dev;
@@ -227,7 +227,6 @@ static int get_devinfo(struct platform_device *pdev)
 			(i == 11) || (i == 12) || (i == 15))
 			continue;
 		else if (val[i] == 0) {
-			ret = 1;
 			safeEfuse = 1;
 			eemg_error("No EFUSE (val[%d]), use safe efuse\n", i);
 			break;
