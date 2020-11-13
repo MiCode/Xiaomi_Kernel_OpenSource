@@ -209,7 +209,7 @@ struct kgsl_memdesc {
 	uint64_t mapsize;
 	unsigned int priv;
 	struct sg_table *sgt;
-	struct kgsl_memdesc_ops *ops;
+	const struct kgsl_memdesc_ops *ops;
 	uint64_t flags;
 	struct device *dev;
 	unsigned long attrs;

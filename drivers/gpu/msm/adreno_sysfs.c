@@ -192,7 +192,7 @@ ssize_t adreno_sysfs_store_u32(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(dev_get_drvdata(dev));
-	struct adreno_sysfs_attribute_u32 *_attr =
+	const struct adreno_sysfs_attribute_u32 *_attr =
 		container_of(attr, struct adreno_sysfs_attribute_u32, attr);
 	u32 val;
 	int ret;
@@ -212,7 +212,7 @@ ssize_t adreno_sysfs_show_u32(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(dev_get_drvdata(dev));
-	struct adreno_sysfs_attribute_u32 *_attr =
+	const struct adreno_sysfs_attribute_u32 *_attr =
 		container_of(attr, struct adreno_sysfs_attribute_u32, attr);
 
 	return scnprintf(buf, PAGE_SIZE, "0x%X\n", _attr->show(adreno_dev));
@@ -222,7 +222,7 @@ ssize_t adreno_sysfs_store_bool(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(dev_get_drvdata(dev));
-	struct adreno_sysfs_attribute_bool *_attr =
+	const struct adreno_sysfs_attribute_bool *_attr =
 		container_of(attr, struct adreno_sysfs_attribute_bool, attr);
 	bool val;
 	int ret;
@@ -242,11 +242,12 @@ ssize_t adreno_sysfs_show_bool(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(dev_get_drvdata(dev));
-	struct adreno_sysfs_attribute_bool *_attr =
+	const struct adreno_sysfs_attribute_bool *_attr =
 		container_of(attr, struct adreno_sysfs_attribute_bool, attr);
 
 	return scnprintf(buf, PAGE_SIZE, "%d\n", _attr->show(adreno_dev));
 }
+
 static ADRENO_SYSFS_U32(ft_policy);
 static ADRENO_SYSFS_U32(ft_pagefault_policy);
 static ADRENO_SYSFS_BOOL(ft_long_ib_detect);

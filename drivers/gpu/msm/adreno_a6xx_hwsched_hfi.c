@@ -560,7 +560,7 @@ static struct mem_alloc_entry *get_mem_alloc_entry(
 	if (desc->flags & MEMFLAG_GFX_SECURE)
 		flags |= KGSL_MEMFLAGS_SECURE;
 
-	entry->gpu_md = kgsl_allocate_global(device, desc->size, flags, priv,
+	entry->gpu_md = kgsl_allocate_global(device, desc->size, 0, flags, priv,
 		memkind_string);
 	if (IS_ERR(entry->gpu_md)) {
 		int ret = PTR_ERR(entry->gpu_md);

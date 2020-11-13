@@ -625,14 +625,14 @@ static int a6xx_preemption_ringbuffer_init(struct adreno_device *adreno_dev,
 
 	if (IS_ERR_OR_NULL(rb->preemption_desc))
 		rb->preemption_desc = kgsl_allocate_global(device,
-			ctxt_record_size, 0,
+			ctxt_record_size, SZ_16K, 0,
 			KGSL_MEMDESC_PRIVILEGED, "preemption_desc");
 	if (IS_ERR(rb->preemption_desc))
 		return PTR_ERR(rb->preemption_desc);
 
 	if (IS_ERR_OR_NULL(rb->secure_preemption_desc))
 		rb->secure_preemption_desc = kgsl_allocate_global(device,
-			ctxt_record_size,
+			ctxt_record_size, 0,
 			KGSL_MEMFLAGS_SECURE, KGSL_MEMDESC_PRIVILEGED,
 			"secure_preemption_desc");
 
@@ -641,7 +641,7 @@ static int a6xx_preemption_ringbuffer_init(struct adreno_device *adreno_dev,
 
 	if (IS_ERR_OR_NULL(rb->perfcounter_save_restore_desc))
 		rb->perfcounter_save_restore_desc = kgsl_allocate_global(device,
-			A6XX_CP_PERFCOUNTER_SAVE_RESTORE_SIZE, 0,
+			A6XX_CP_PERFCOUNTER_SAVE_RESTORE_SIZE, 0, 0,
 			KGSL_MEMDESC_PRIVILEGED,
 			"perfcounter_save_restore_desc");
 
@@ -695,14 +695,14 @@ int a6xx_preemption_init(struct adreno_device *adreno_dev)
 
 	if (IS_ERR_OR_NULL(preempt->scratch)) {
 		preempt->scratch = kgsl_allocate_global(device, PAGE_SIZE,
-			0, 0, "preempt_scratch");
+			0, 0, 0, "preempt_scratch");
 		if (IS_ERR(preempt->scratch))
 			return PTR_ERR(preempt->scratch);
 	}
 
 	/* Allocate mem for storing preemption smmu record */
 	if (IS_ERR_OR_NULL(iommu->smmu_info))
-		iommu->smmu_info = kgsl_allocate_global(device, PAGE_SIZE,
+		iommu->smmu_info = kgsl_allocate_global(device, PAGE_SIZE, 0,
 			KGSL_MEMFLAGS_GPUREADONLY, KGSL_MEMDESC_PRIVILEGED,
 			"smmu_info");
 

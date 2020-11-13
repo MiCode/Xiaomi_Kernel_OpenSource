@@ -413,7 +413,7 @@ void adreno_iommu_init(struct adreno_device *adreno_dev)
 	 */
 	if (IS_ERR_OR_NULL(iommu->setstate)) {
 		iommu->setstate = kgsl_allocate_global(device, PAGE_SIZE,
-			KGSL_MEMFLAGS_GPUREADONLY, 0, "setstate");
+			0, KGSL_MEMFLAGS_GPUREADONLY, 0, "setstate");
 
 		kgsl_sharedmem_writel(iommu->setstate,
 			KGSL_IOMMU_SETSTATE_NOP_OFFSET,

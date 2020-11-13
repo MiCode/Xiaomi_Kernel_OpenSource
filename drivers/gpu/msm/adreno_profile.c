@@ -1024,7 +1024,7 @@ void adreno_profile_init(struct adreno_device *adreno_dev)
 	profile->shared_size = ADRENO_PROFILE_SHARED_BUF_SIZE_DWORDS;
 	profile->shared_buffer =  kgsl_allocate_global(device,
 			profile->shared_size * sizeof(unsigned int),
-			0, 0, "profile");
+			0, 0, 0, "profile");
 	if (IS_ERR(profile->shared_buffer)) {
 		profile->shared_size = 0;
 		return;

@@ -56,7 +56,7 @@ bool gmu_core_gpmu_isenabled(struct kgsl_device *device)
 
 bool gmu_core_scales_bandwidth(struct kgsl_device *device)
 {
-	struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);
+	const struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);
 
 	if (ops && ops->scales_bandwidth)
 		return ops->scales_bandwidth(device);
@@ -66,7 +66,7 @@ bool gmu_core_scales_bandwidth(struct kgsl_device *device)
 
 int gmu_core_dev_acd_set(struct kgsl_device *device, bool val)
 {
-	struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);
+	const struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);
 
 	if (ops && ops->acd_set)
 		return ops->acd_set(device, val);
@@ -158,7 +158,7 @@ void gmu_core_regrmw(struct kgsl_device *device,
 
 int gmu_core_dev_oob_set(struct kgsl_device *device, enum oob_request req)
 {
-	struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);
+	const struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);
 
 	if (ops && ops->oob_set)
 		return ops->oob_set(device, req);
@@ -168,7 +168,7 @@ int gmu_core_dev_oob_set(struct kgsl_device *device, enum oob_request req)
 
 void gmu_core_dev_oob_clear(struct kgsl_device *device, enum oob_request req)
 {
-	struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);
+	const struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);
 
 	if (ops && ops->oob_clear)
 		ops->oob_clear(device, req);
@@ -177,7 +177,7 @@ void gmu_core_dev_oob_clear(struct kgsl_device *device, enum oob_request req)
 void gmu_core_dev_cooperative_reset(struct kgsl_device *device)
 {
 
-	struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);
+	const struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);
 
 	if (ops && ops->cooperative_reset)
 		ops->cooperative_reset(device);
@@ -185,7 +185,7 @@ void gmu_core_dev_cooperative_reset(struct kgsl_device *device)
 
 bool gmu_core_dev_gx_is_on(struct kgsl_device *device)
 {
-	struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);
+	const struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);
 
 	if (ops && ops->gx_is_on)
 		return ops->gx_is_on(device);
@@ -195,7 +195,7 @@ bool gmu_core_dev_gx_is_on(struct kgsl_device *device)
 
 int gmu_core_dev_ifpc_show(struct kgsl_device *device)
 {
-	struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);
+	const struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);
 
 	if (ops && ops->ifpc_show)
 		return ops->ifpc_show(device);
@@ -205,7 +205,7 @@ int gmu_core_dev_ifpc_show(struct kgsl_device *device)
 
 int gmu_core_dev_ifpc_store(struct kgsl_device *device, unsigned int val)
 {
-	struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);
+	const struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);
 
 	if (ops && ops->ifpc_store)
 		return ops->ifpc_store(device, val);
@@ -215,7 +215,7 @@ int gmu_core_dev_ifpc_store(struct kgsl_device *device, unsigned int val)
 
 int gmu_core_dev_wait_for_active_transition(struct kgsl_device *device)
 {
-	struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);
+	const struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);
 
 	if (ops && ops->wait_for_active_transition)
 		return ops->wait_for_active_transition(device);

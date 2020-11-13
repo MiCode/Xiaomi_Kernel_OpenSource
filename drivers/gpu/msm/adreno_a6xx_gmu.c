@@ -384,31 +384,16 @@ static void a6xx_gmu_power_config(struct adreno_device *adreno_dev)
 	gmu_core_regwrite(device,
 		A6XX_GMU_PWR_COL_INTER_FRAME_CTRL,  0x9C40400);
 
-	switch (gmu->idle_level) {
-	case GPU_HW_MIN_VOLT:
-		gmu_core_regrmw(device, A6XX_GMU_RPMH_CTRL, MIN_BW_ENABLE_MASK,
-				MIN_BW_ENABLE_MASK);
-		gmu_core_regrmw(device, A6XX_GMU_RPMH_HYST_CTRL, 0xFFFF,
-				MIN_BW_HYST);
-		/* fall through */
-	case GPU_HW_NAP:
-		gmu_core_regrmw(device, A6XX_GMU_GPU_NAP_CTRL,
-				HW_NAP_ENABLE_MASK, HW_NAP_ENABLE_MASK);
-		/* fall through */
-	case GPU_HW_IFPC:
+	if (gmu->idle_level == GPU_HW_IFPC) {
 		gmu_core_regwrite(device, A6XX_GMU_PWR_COL_INTER_FRAME_HYST,
 				GMU_PWR_COL_HYST);
 		gmu_core_regrmw(device, A6XX_GMU_PWR_COL_INTER_FRAME_CTRL,
 				IFPC_ENABLE_MASK, IFPC_ENABLE_MASK);
-		/* fall through */
-	case GPU_HW_SPTP_PC:
+
 		gmu_core_regwrite(device, A6XX_GMU_PWR_COL_SPTPRAC_HYST,
 				GMU_PWR_COL_HYST);
 		gmu_core_regrmw(device, A6XX_GMU_PWR_COL_INTER_FRAME_CTRL,
 				SPTP_ENABLE_MASK, SPTP_ENABLE_MASK);
-		/* fall through */
-	default:
-		break;
 	}
 
 	/* Enable RPMh GPU client */
@@ -1105,16 +1090,9 @@ static bool idle_trandition_complete(unsigned int idle_level,
 	if (idle_level != gmu_power_reg)
 		return false;
 
-	switch (idle_level) {
-	case GPU_HW_IFPC:
-		if (is_on(sptprac_clk_reg))
-			return false;
-		break;
-	/* other GMU idle levels can be added here */
-	case GPU_HW_ACTIVE:
-	default:
-		break;
-	}
+	if (idle_level == GPU_HW_IFPC && is_on(sptprac_clk_reg))
+		return false;
+
 	return true;
 }
 
@@ -1122,14 +1100,8 @@ static const char *idle_level_name(int level)
 {
 	if (level == GPU_HW_ACTIVE)
 		return "GPU_HW_ACTIVE";
-	else if (level == GPU_HW_SPTP_PC)
-		return "GPU_HW_SPTP_PC";
 	else if (level == GPU_HW_IFPC)
 		return "GPU_HW_IFPC";
-	else if (level == GPU_HW_NAP)
-		return "GPU_HW_NAP";
-	else if (level == GPU_HW_MIN_VOLT)
-		return "GPU_HW_MIN_VOLT";
 
 	return "";
 }
@@ -1724,7 +1696,7 @@ static int a6xx_gmu_notify_slumber(struct adreno_device *adreno_dev)
 	gmu_core_regwrite(device, A6XX_GMU_CX_GMU_POWER_COUNTER_ENABLE, 0);
 
 	/* Turn off SPTPRAC if we own it */
-	if (gmu->idle_level < GPU_HW_SPTP_PC)
+	if (gmu->idle_level == GPU_HW_ACTIVE)
 		a6xx_gmu_sptprac_disable(adreno_dev);
 
 	if (!ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG)) {
@@ -1870,18 +1842,13 @@ static int a6xx_gmu_ifpc_store(struct kgsl_device *device,
 	if (!ADRENO_FEATURE(adreno_dev, ADRENO_IFPC))
 		return -EINVAL;
 
-	if ((val && gmu->idle_level >= GPU_HW_IFPC) ||
-			(!val && gmu->idle_level < GPU_HW_IFPC))
-		return 0;
-
 	if (val)
 		requested_idle_level = GPU_HW_IFPC;
-	else {
-		if (ADRENO_FEATURE(adreno_dev, ADRENO_SPTP_PC))
-			requested_idle_level = GPU_HW_SPTP_PC;
-		else
-			requested_idle_level = GPU_HW_ACTIVE;
-	}
+	else
+		requested_idle_level = GPU_HW_ACTIVE;
+
+	if (gmu->idle_level == requested_idle_level)
+		return 0;
 
 	/* Power down the GPU before changing the idle level */
 	return adreno_power_cycle_u32(adreno_dev, &gmu->idle_level,
@@ -1892,7 +1859,7 @@ static unsigned int a6xx_gmu_ifpc_show(struct kgsl_device *device)
 {
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(ADRENO_DEVICE(device));
 
-	return gmu->idle_level >= GPU_HW_IFPC;
+	return gmu->idle_level == GPU_HW_IFPC;
 }
 
 /* Send an NMI to the GMU */
@@ -2239,7 +2206,7 @@ static int a6xx_gmu_first_boot(struct adreno_device *adreno_dev)
 		}
 	}
 
-	if (gmu->idle_level < GPU_HW_SPTP_PC) {
+	if (gmu->idle_level == GPU_HW_ACTIVE) {
 		ret = a6xx_gmu_sptprac_enable(adreno_dev);
 		if (ret)
 			goto err;
@@ -2334,7 +2301,7 @@ static int a6xx_gmu_boot(struct adreno_device *adreno_dev)
 		}
 	}
 
-	if (gmu->idle_level < GPU_HW_SPTP_PC) {
+	if (gmu->idle_level == GPU_HW_ACTIVE) {
 		ret = a6xx_gmu_sptprac_enable(adreno_dev);
 		if (ret)
 			goto err;
@@ -2399,7 +2366,7 @@ static int a6xx_gmu_acd_set(struct kgsl_device *device, bool val)
 	return adreno_power_cycle(adreno_dev, set_acd, &val);
 }
 
-static struct gmu_dev_ops a6xx_gmudev = {
+static const struct gmu_dev_ops a6xx_gmudev = {
 	.oob_set = a6xx_gmu_oob_set,
 	.oob_clear = a6xx_gmu_oob_clear,
 	.gx_is_on = a6xx_gmu_gx_is_on,
@@ -3033,7 +3000,7 @@ static int a6xx_first_boot(struct adreno_device *adreno_dev)
 		priv |= KGSL_MEMDESC_PRIVILEGED;
 
 	adreno_dev->profile_buffer = kgsl_allocate_global(device, PAGE_SIZE, 0,
-				priv, "alwayson");
+			0, priv, "alwayson");
 
 	adreno_dev->profile_index = 0;
 
