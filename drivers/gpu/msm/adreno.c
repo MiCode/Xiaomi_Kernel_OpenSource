@@ -2965,44 +2965,39 @@ int adreno_power_cycle(struct adreno_device *adreno_dev,
 	return ret;
 }
 
+struct cycle_data {
+	void *ptr;
+	void *val;
+};
+
+static void cycle_set_bool(struct adreno_device *adreno_dev, void *priv)
+{
+	struct cycle_data *data = priv;
+
+	*((bool *) data->ptr) = *((bool *) data->val);
+}
+
 int adreno_power_cycle_bool(struct adreno_device *adreno_dev,
 	bool *flag, bool val)
 {
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	const struct adreno_power_ops *ops = ADRENO_POWER_OPS(adreno_dev);
-	int ret;
+	struct cycle_data data = { .ptr = flag, .val = &val };
 
-	mutex_lock(&device->mutex);
-	ret = ops->pm_suspend(adreno_dev);
+	return adreno_power_cycle(adreno_dev, cycle_set_bool, &data);
+}
 
-	if (!ret) {
-		*flag = val;
-		ops->pm_resume(adreno_dev);
-	}
+static void cycle_set_u32(struct adreno_device *adreno_dev, void *priv)
+{
+	struct cycle_data *data = priv;
 
-	mutex_unlock(&device->mutex);
-
-	return ret;
+	*((u32 *) data->ptr) = *((u32 *) data->val);
 }
 
 int adreno_power_cycle_u32(struct adreno_device *adreno_dev,
 	u32 *flag, u32 val)
 {
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	const struct adreno_power_ops *ops = ADRENO_POWER_OPS(adreno_dev);
-	int ret;
+	struct cycle_data data = { .ptr = flag, .val = &val };
 
-	mutex_lock(&device->mutex);
-	ret = ops->pm_suspend(adreno_dev);
-
-	if (!ret) {
-		*flag = val;
-		ops->pm_resume(adreno_dev);
-	}
-
-	mutex_unlock(&device->mutex);
-
-	return ret;
+	return adreno_power_cycle(adreno_dev, cycle_set_u32, &data);
 }
 
 static int adreno_gpu_clock_set(struct kgsl_device *device, u32 pwrlevel)
