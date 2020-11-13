@@ -1857,14 +1857,6 @@ static void sdhci_msm_check_power_status(struct sdhci_host *host, u32 req_type)
 		return;
 	}
 
-	if (mmc->card && mmc->ops->get_cd && !mmc->ops->get_cd(mmc) &&
-			(req_type & REQ_BUS_ON)) {
-		pr_debug(
-			"%s: Regulators are never turned on when SD card is removed so do not wait for pwr irq\n",
-				mmc_hostname(host->mmc));
-		return;
-	}
-
 	if ((req_type & msm_host->curr_pwr_state) ||
 			(req_type & msm_host->curr_io_level))
 		done = true;
@@ -1882,6 +1874,13 @@ static void sdhci_msm_check_power_status(struct sdhci_host *host, u32 req_type)
 				 "%s: pwr_irq for req: (%d) timed out\n",
 				 mmc_hostname(host->mmc), req_type);
 	}
+
+	if (mmc->card && mmc->ops->get_cd && !mmc->ops->get_cd(mmc) &&
+			(req_type & REQ_BUS_ON)) {
+		host->pwr = 0;
+		sdhci_writeb(host, 0, SDHCI_POWER_CONTROL);
+	}
+
 	pr_debug("%s: %s: request %d done\n", mmc_hostname(host->mmc),
 			__func__, req_type);
 }
