@@ -1,5 +1,5 @@
 BRANCH=android11-5.4
-KMI_GENERATION=1
+KMI_GENERATION=2
 
 CC=clang
 LD=ld.lld

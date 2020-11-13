@@ -1197,6 +1197,8 @@
   irq_set_chained_handler_and_data
   irq_set_chip_and_handler_name
   irq_set_chip_data
+  __irq_set_handler
+  irq_set_handler_data
   irq_set_irqchip_state
   irq_set_irq_type
   irq_set_irq_wake
@@ -1225,6 +1227,9 @@
   kern_path
   keyslot_manager_create
   keyslot_manager_private
+  keyslot_manager_set_max_dun_bytes
+  keyslot_manager_reprogram_all_keys
+  keyslot_manager_destroy
   __kfifo_in
   __kfifo_out
   kfree
@@ -1522,6 +1527,7 @@
   of_get_named_gpio_flags
   of_get_next_available_child
   of_get_next_child
+  of_get_next_parent
   of_get_parent
   of_get_property
   of_get_regulator_init_data
@@ -1728,6 +1734,7 @@
   __pm_relax
   pm_relax
   pm_runtime_allow
+  pm_runtime_autosuspend_expiration
   pm_runtime_barrier
   __pm_runtime_disable
   pm_runtime_enable

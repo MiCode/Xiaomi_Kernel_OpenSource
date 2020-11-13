@@ -21,6 +21,7 @@ DECLARE_HOOK(android_vh_printk_store,
 	TP_ARGS(facility, level))
 #else
 #define trace_android_vh_ipi_stop(regs)
+#define trace_android_vh_ipi_stop_rcuidle(regs)
 #define trace_android_vh_printk_store(facility, level)
 #endif
 
