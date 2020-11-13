@@ -120,11 +120,14 @@ _kgsl_pool_get_page(struct kgsl_page_pool *pool)
 	struct page *p = NULL;
 
 	spin_lock(&pool->list_lock);
-	if (pool->page_count) {
-		p = list_first_entry(&pool->page_list, struct page, lru);
-		pool->page_count--;
-		list_del(&p->lru);
+
+	p = list_first_entry_or_null(&pool->page_list, struct page, lru);
+	if (p == NULL) {
+		spin_unlock(&pool->list_lock);
+		return NULL;
 	}
+	pool->page_count--;
+	list_del(&p->lru);
 	spin_unlock(&pool->list_lock);
 	mod_node_page_state(page_pgdat(p), NR_KERNEL_MISC_RECLAIMABLE,
 				-(1 << pool->pool_order));
