@@ -807,6 +807,10 @@ int a6xx_hwsched_hfi_start(struct adreno_device *adreno_dev)
 	if (ret)
 		goto err;
 
+	if (gmu->log_stream_enable)
+		a6xx_hfi_send_set_value(adreno_dev,
+			HFI_VALUE_LOG_STREAM_ENABLE, 0, 1);
+
 	ret = a6xx_hfi_send_core_fw_start(adreno_dev);
 	if (ret)
 		goto err;

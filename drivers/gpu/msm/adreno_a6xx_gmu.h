@@ -75,7 +75,7 @@ struct gmu_block_header {
 #define GMU_BLK_TYPE_PREALLOC_PERSIST_REQ 7
 
 /* For GMU Logs*/
-#define LOGMEM_SIZE  SZ_4K
+#define GMU_LOG_SIZE  SZ_16K
 
 /* GMU memdesc entries */
 #define GMU_KERNEL_ENTRIES		16
@@ -205,6 +205,8 @@ struct a6xx_gmu_device {
 	void __iomem *rdpm_cx_virt;
 	/** @rdpm_mx_virt: Pointer where the RDPM MX block is mapped */
 	void __iomem *rdpm_mx_virt;
+	/** @log_stream_enable: GMU log streaming enable */
+	bool log_stream_enable;
 };
 
 /* Helper function to get to a6xx gmu device from adreno device */

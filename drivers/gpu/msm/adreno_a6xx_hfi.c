@@ -439,6 +439,27 @@ int a6xx_hfi_send_feature_ctrl(struct adreno_device *adreno_dev,
 	return ret;
 }
 
+int a6xx_hfi_send_set_value(struct adreno_device *adreno_dev,
+		u32 type, u32 subtype, u32 data)
+{
+	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
+	struct hfi_set_value_cmd cmd = {
+		.type = type,
+		.subtype = subtype,
+		.data = data,
+	};
+	int ret;
+
+	CMD_MSG_HDR(cmd, H2F_MSG_SET_VALUE);
+
+	ret = a6xx_hfi_send_generic_req(adreno_dev, &cmd);
+	if (ret)
+		dev_err(&gmu->pdev->dev,
+			"Unable to set HFI Value %d, %d to %d, error = %d\n",
+			type, subtype, data, ret);
+	return ret;
+}
+
 static int a6xx_hfi_send_dcvstbl_v1(struct adreno_device *adreno_dev)
 {
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
