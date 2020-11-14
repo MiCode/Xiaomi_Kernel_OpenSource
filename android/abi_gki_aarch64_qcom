@@ -663,6 +663,7 @@
   drm_connector_list_iter_end
   drm_connector_list_iter_next
   drm_connector_register
+  drm_connector_set_tile_property
   drm_connector_unregister
   drm_connector_update_edid_property
   drm_crtc_cleanup
@@ -781,9 +782,11 @@
   drm_mode_copy
   drm_mode_create
   drm_mode_create_dp_colorspace_property
+  drm_mode_create_tile_group
   drm_mode_debug_printmodeline
   drm_mode_duplicate
   drm_mode_equal
+  drm_mode_get_tile_group
   drm_mode_object_find
   drm_mode_object_get
   drm_mode_object_put
@@ -1196,6 +1199,8 @@
   irq_set_chained_handler_and_data
   irq_set_chip_and_handler_name
   irq_set_chip_data
+  __irq_set_handler
+  irq_set_handler_data
   irq_set_irqchip_state
   irq_set_irq_type
   irq_set_irq_wake
@@ -1224,6 +1229,9 @@
   kern_path
   keyslot_manager_create
   keyslot_manager_private
+  keyslot_manager_set_max_dun_bytes
+  keyslot_manager_reprogram_all_keys
+  keyslot_manager_destroy
   __kfifo_in
   __kfifo_out
   kfree
