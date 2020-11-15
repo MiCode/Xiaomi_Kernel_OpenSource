@@ -581,6 +581,8 @@ static void fts_trusted_touch_tvm_vm_mode_disable(struct fts_ts_info *info)
 		fts_trusted_touch_abort_tvm(info);
 		return;
 	}
+	/* cancel firmware update work if pending */
+	cancel_delayed_work_sync(&info->fwu_work);
 
 	fts_interrupt_disable(info);
 	fts_trusted_touch_set_tvm_driver_state(info,
