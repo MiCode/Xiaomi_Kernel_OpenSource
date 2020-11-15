@@ -1567,6 +1567,8 @@ static void disp_cc_lahaina_sync_state(struct device *dev)
 
 static const struct dev_pm_ops disp_cc_lahaina_pm_ops = {
 	SET_RUNTIME_PM_OPS(qcom_cc_runtime_suspend, qcom_cc_runtime_resume, NULL)
+	SET_LATE_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend,
+				     pm_runtime_force_resume)
 };
 
 static struct platform_driver disp_cc_lahaina_driver = {
