@@ -657,8 +657,13 @@ static void stop_hwmon(struct memlat_hwmon *hw)
 		unsigned int idx = cpu - cpumask_first(&mon->cpus);
 		struct dev_stats *devstats = to_devstats(mon, cpu);
 
-		if (mon->miss_ev)
+		if (mon->miss_ev) {
 			delete_event(&mon->miss_ev[idx]);
+			if (mon->wb_ev)
+				delete_event(&mon->wb_ev[idx]);
+			if (mon->access_ev)
+				delete_event(&mon->access_ev[idx]);
+		}
 		devstats->inst_count = 0;
 		devstats->mem_count = 0;
 		devstats->freq = 0;

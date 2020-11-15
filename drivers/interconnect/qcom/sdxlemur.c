@@ -789,6 +789,7 @@ static struct qcom_icc_bcm bcm_ce0 = {
 static struct qcom_icc_bcm bcm_mc0 = {
 	.name = "MC0",
 	.voter_idx = 0,
+	.keepalive = true,
 	.num_nodes = 1,
 	.nodes = { &ebi },
 };
@@ -796,6 +797,7 @@ static struct qcom_icc_bcm bcm_mc0 = {
 static struct qcom_icc_bcm bcm_pn0 = {
 	.name = "PN0",
 	.voter_idx = 0,
+	.keepalive = true,
 	.num_nodes = 26,
 	.nodes = { &qhm_snoc_cfg, &qhs_aoss,
 		   &qhs_apss, &qhs_audio,
@@ -843,6 +845,7 @@ static struct qcom_icc_bcm bcm_pn4 = {
 static struct qcom_icc_bcm bcm_sh0 = {
 	.name = "SH0",
 	.voter_idx = 0,
+	.keepalive = true,
 	.num_nodes = 1,
 	.nodes = { &qns_llcc },
 };
@@ -864,6 +867,7 @@ static struct qcom_icc_bcm bcm_sh3 = {
 static struct qcom_icc_bcm bcm_sn0 = {
 	.name = "SN0",
 	.voter_idx = 0,
+	.keepalive = true,
 	.num_nodes = 1,
 	.nodes = { &qns_snoc_memnoc },
 };
