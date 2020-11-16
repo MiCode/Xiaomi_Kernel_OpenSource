@@ -819,6 +819,7 @@
   drm_mode_object_put
   drm_object_attach_property
   drm_of_component_match_add
+  drm_of_crtc_port_mask
   drm_of_find_possible_crtcs
   drm_open
   drm_panel_attach
@@ -1081,6 +1082,17 @@
   drm_panel_init
   drm_panel_remove
   videomode_from_timing
+
+# required by pcie-exynos-dw-ep.ko
+  dw_pcie_ep_init
+  dw_pcie_read_dbi
+  dw_pcie_write_dbi
+  pci_epc_clear_bar
+  pci_epc_map_addr
+  pci_epc_mem_alloc_addr
+  pci_epc_mem_free_addr
+  pci_epc_set_bar
+  pci_epc_unmap_addr
 
 # required by pcie-exynos-dw-rc.ko
   bitmap_find_free_region
