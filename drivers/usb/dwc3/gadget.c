@@ -2232,6 +2232,8 @@ static int dwc3_gadget_pullup(struct usb_gadget *g, int is_on)
 	if (is_on)
 		dwc3_device_core_soft_reset(dwc);
 
+	dwc3_notify_event(dwc, DWC3_CONTROLLER_PULLUP, is_on);
+
 	spin_lock_irqsave(&dwc->lock, flags);
 	if (dwc->ep0state != EP0_SETUP_PHASE)
 		dbg_event(0xFF, "EP0 is not in SETUP phase\n", dwc->ep0state);
