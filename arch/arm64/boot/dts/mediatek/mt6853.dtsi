@@ -2198,14 +2198,29 @@
 			clocks = <&infracfg_ao_clk CLK_IFRAO_UFS>,
 				 <&infracfg_ao_clk CLK_IFRAO_UNIPRO_SYSCLK>,
 				 <&infracfg_ao_clk CLK_IFRAO_UFS_MP_SAP_BCLK>,
-				 <&infracfg_ao_clk CLK_IFRAO_UFS_AES>;
+				 <&infracfg_ao_clk CLK_IFRAO_UFS_AES>,
+				 <&topckgen_clk CLK_TOP_AES_UFSFDE_SEL>,
+				 <&topckgen_clk CLK_TOP_UNIVPLL_D6>,
+				 <&topckgen_clk CLK_TOP_MAINPLL_D4>;
 			clock-names = "ufs", "unipro_sysclk", "ufs_mp_sap_bclk",
-				      "aes";
+						  "crypt_infra", "crypt_mux", "crypt_lp",
+						  "crypt_perf";
 
 			freq-table-hz = <0 0>, <0 0>, <0 0>,
-					<0 0>;
+							<0 0>, <0 0>, <0 0>,
+							<0 0>;
 
 			vcc-supply = <&mt6359p_vemc_reg>;
+
+			mediatek,ufs-boost-crypt;
+			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+			boost-crypt-vcore-min = <600000>;
+
+			mediatek,ufs-disable-ah8;
+
+			/* Reference clock control mode */
+			/* SW mode: 0, Half-HW mode: 1, HW mode: 2 */
+			mediatek,refclk_ctrl = <1>;
 		};
 
 		efuse: efuse@11c10000 {
