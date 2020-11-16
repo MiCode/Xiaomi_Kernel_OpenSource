@@ -41,8 +41,130 @@
 
 static struct mrdump_mini_elf_header *mrdump_mini_ehdr;
 
+
 #ifdef CONFIG_MODULES
-static char *modules_info_buf;
+#define MAX_KO_NAME_LEN 40
+#define MAX_KO_NUM 300
+
+struct module_sect_attr {
+	struct bin_attribute battr;
+	unsigned long address;
+};
+
+struct module_sect_attrs {
+	struct attribute_group grp;
+	unsigned int nsections;
+	struct module_sect_attr attrs[0];
+};
+
+struct ko_info {
+	char name[MAX_KO_NAME_LEN];
+	unsigned long text_addr;
+	unsigned long init_text_addr;
+	unsigned int core_size;
+	unsigned int init_size;
+};
+
+static struct ko_info *ko_info_list;
+
+#define KO_INFO_SIZE (MAX_KO_NUM * sizeof(struct ko_info))
+
+static void fill_ko_list(unsigned int idx, struct module *mod)
+{
+	unsigned long text_addr = 0;
+	unsigned long init_addr = 0;
+	int i, search_nm;
+
+	if (idx >= MAX_KO_NUM)
+		return;
+
+	search_nm = 2;
+	for (i = 0; i < mod->sect_attrs->nsections; i++) {
+		if (!strcmp(mod->sect_attrs->attrs[i].battr.attr.name,
+			    ".text")) {
+			text_addr = mod->sect_attrs->attrs[i].address;
+			search_nm--;
+		} else if (!strcmp(mod->sect_attrs->attrs[i].battr.attr.name,
+				   ".init.text")) {
+			init_addr = mod->sect_attrs->attrs[i].address;
+			search_nm--;
+		}
+		if (!search_nm)
+			break;
+	}
+
+	snprintf(ko_info_list[idx].name, MAX_KO_NAME_LEN, "%s", mod->name);
+	ko_info_list[idx].text_addr = text_addr;
+	ko_info_list[idx].init_text_addr = init_addr;
+	ko_info_list[idx].core_size = mod->core_layout.size;
+	ko_info_list[idx].init_size = mod->init_layout.size;
+}
+
+static void init_ko_addr_list(void)
+{
+	struct module *mod;
+	unsigned int list_idx = 0;
+	struct list_head *p_modules = aee_get_modules();
+
+	ko_info_list = kzalloc(KO_INFO_SIZE, GFP_KERNEL);
+	if (!ko_info_list)
+		return;
+
+	if (!p_modules) {
+		pr_info("%s failed", __func__);
+		return;
+	}
+
+	list_for_each_entry_rcu(mod, p_modules, list) {
+		if (mod->state == MODULE_STATE_UNFORMED)
+			continue;
+		if (list_idx >= MAX_KO_NUM) {
+			pr_info("mrdump: ko info list full(idx:%d)\n",
+					list_idx);
+			break;
+		}
+		fill_ko_list(list_idx, mod);
+		list_idx++;
+	}
+}
+
+void load_ko_addr_list(struct module *module)
+{
+	unsigned int i;
+
+	if (!ko_info_list)
+		return;
+
+	for (i = 0; i < MAX_KO_NUM; i++)
+		if (!ko_info_list[i].text_addr)
+			break;
+
+	if (i >= MAX_KO_NUM) {
+		pr_info("no spare room for new ko: %s", module->name);
+		return;
+	}
+
+	fill_ko_list(i, module);
+}
+
+void unload_ko_addr_list(struct module *module)
+{
+	unsigned int i;
+
+	if (!ko_info_list)
+		return;
+
+	for (i = 0; i < MAX_KO_NUM; i++)
+		if (!strcmp(ko_info_list[i].name, module->name))
+			break;
+
+	if (i >= MAX_KO_NUM) {
+		pr_info("un-recorded module: %s", module->name);
+		return;
+	}
+
+	memset(&ko_info_list[i], 0, sizeof(struct ko_info));
+}
 #endif
 
 #ifdef MODULE
@@ -653,26 +775,6 @@ static void mrdump_mini_build_task_info(struct pt_regs *regs)
 
 }
 
-static int mrdump_modules_info(unsigned char *buffer, size_t sz_buf)
-{
-#ifdef CONFIG_MODULES
-	int sz;
-
-	sz = aee_save_modules(modules_info_buf, MODULES_INFO_BUF_SIZE);
-	if (sz <= 0 || sz_buf < sz || !buffer)
-		return -1;
-	memcpy(buffer, modules_info_buf, sz);
-	return sz;
-#else
-	return -1;
-#endif
-}
-
-void mrdump_modules_info_early(void)
-{
-	mrdump_modules_info(NULL, -1);
-}
-EXPORT_SYMBOL(mrdump_modules_info_early);
 
 #define EXTRA_MISC(func, name, max_size) \
 	extern void func(unsigned long *vaddr, unsigned long *size);
@@ -815,12 +917,13 @@ static void mrdump_mini_build_elf_misc(void)
 	get_disp_dbg_buffer(&misc.vaddr, &misc.size, &misc.start);
 	mrdump_mini_add_misc(misc.vaddr, misc.size, misc.start, "_DISP_DBG_");
 #ifdef CONFIG_MODULES
-	modules_info_buf = kzalloc(MODULES_INFO_BUF_SIZE, GFP_KERNEL);
-	if (modules_info_buf)
-		mrdump_mini_add_misc_pa((unsigned long)modules_info_buf,
+	init_ko_addr_list();
+	if (ko_info_list)
+		mrdump_mini_add_misc_pa((unsigned long)ko_info_list,
 			(unsigned long)__pa_nodebug(
-					(unsigned long)modules_info_buf),
-			MODULES_INFO_BUF_SIZE, 0, "SYS_MODULES_INFO");
+					(unsigned long)ko_info_list),
+			KO_INFO_SIZE, 0, "SYS_MODULES_INFO_RAW");
+
 #endif
 
 	memset_io(&misc, 0, sizeof(struct mrdump_mini_elf_misc));
@@ -835,7 +938,6 @@ static void mrdump_mini_add_loads(void)
 	struct pt_regs regs;
 	struct elf_prstatus *prstatus;
 	struct task_struct *tsk;
-	struct thread_info *ti;
 
 	if (!mrdump_mini_ehdr)
 		return;
@@ -909,7 +1011,6 @@ void mrdump_mini_ke_cpu_regs(struct pt_regs *regs)
 	mrdump_mini_cpu_regs(cpu, regs, current, 1);
 	mrdump_mini_add_loads();
 	mrdump_mini_build_task_info(regs);
-	mrdump_modules_info(NULL, -1);
 	mrdump_mini_add_extra_misc();
 }
 

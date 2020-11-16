@@ -270,6 +270,26 @@ static __init int mrdump_parse_chosen(struct mrdump_params *mparams)
 	return -1;
 }
 
+#ifdef CONFIG_MODULES
+/* Module notifier call back, update module info list */
+static int mrdump_module_callback(struct notifier_block *nb,
+				  unsigned long val, void *data)
+{
+	struct module *mod = data;
+
+	if (val == MODULE_STATE_LIVE)
+		load_ko_addr_list(mod);
+	else if (val == MODULE_STATE_GOING)
+		unload_ko_addr_list(mod);
+
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block mrdump_module_nb = {
+	.notifier_call = mrdump_module_callback,
+};
+#endif
+
 static int __init mrdump_panic_init(void)
 {
 	struct mrdump_params mparams = {};
@@ -302,6 +322,9 @@ static int __init mrdump_panic_init(void)
 
 	atomic_notifier_chain_register(&panic_notifier_list, &panic_blk);
 	register_die_notifier(&die_blk);
+#ifdef CONFIG_MODULES
+	register_module_notifier(&mrdump_module_nb);
+#endif
 	pr_debug("ipanic: startup\n");
 	return 0;
 }
@@ -313,6 +336,9 @@ static void __exit mrdump_panic_exit(void)
 {
 	atomic_notifier_chain_unregister(&panic_notifier_list, &panic_blk);
 	unregister_die_notifier(&die_blk);
+#ifdef CONFIG_MODULES
+	unregister_module_notifier(&mrdump_module_nb);
+#endif
 	pr_debug("ipanic: exit\n");
 }
 module_exit(mrdump_panic_exit);

@@ -1527,8 +1527,6 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			pr_info("unexpected user: %s", current->comm);
 			goto EXIT;
 		}
-		if (aee_mode == AEE_MODE_NOT_INIT)
-			mrdump_modules_info_early();
 
 		if (copy_from_user(&aee_mode_tmp, (void __user *)arg,
 				sizeof(aee_mode_tmp))) {
