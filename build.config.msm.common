@@ -1,3 +1,11 @@
+# The following additional environment variables are considered when build.config.msm.common is
+# included:
+#
+#   DT_OVERLAY_SUPPORT
+#     If set, then create a dtbo.img
+#   EXTRA_CONFIGS
+#     All files in this list are sourced
+
 CONFIG_DIR=arch/${ARCH}/configs
 CC="${ROOT_DIR}/common/scripts/gcc-wrapper.py ${CC}"
 
