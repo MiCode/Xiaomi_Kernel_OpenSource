@@ -320,10 +320,11 @@ static void md_ccif_queue_dump(unsigned char hif_id)
 		md_ctrl->txq[idx].ringbuf->tx_control.length,
 		md_ctrl->txq[idx].ringbuf);
 		CCCI_MEM_LOG_TAG(md_ctrl->md_id, TAG,
-		"Q%d RX: w=%d, r=%d, len=%d\n",
+		"Q%d RX: w=%d, r=%d, len=%d, isr_cnt=%d\n",
 		idx, md_ctrl->rxq[idx].ringbuf->rx_control.write,
 		md_ctrl->rxq[idx].ringbuf->rx_control.read,
-		md_ctrl->rxq[idx].ringbuf->rx_control.length);
+		md_ctrl->rxq[idx].ringbuf->rx_control.length,
+		md_ctrl->isr_cnt[idx]);
 		ts = md_ctrl->traffic_info.latest_q_rx_isr_time[idx];
 		nsec_rem = do_div(ts, NSEC_PER_SEC);
 		CCCI_MEM_LOG_TAG(md_ctrl->md_id, TAG,
@@ -750,6 +751,9 @@ static void md_ccif_traffic_work_func(struct work_struct *work)
 			traffic_work_struct);
 	struct md_ccif_ctrl *md_ctrl =
 		container_of(traffic_inf, struct md_ccif_ctrl, traffic_info);
+	char *string = NULL;
+	char *string_temp = NULL;
+	int idx, ret;
 
 	ccci_port_dump_status(md_ctrl->md_id);
 	ccci_channel_dump_packet_counter(md_ctrl->md_id,
@@ -792,7 +796,43 @@ static void md_ccif_traffic_work_func(struct work_struct *work)
 		md_ctrl->traffic_info.logic_ch_pkt_cnt[CCCI_C2K_AT7],
 		CCCI_C2K_AT8,
 		md_ctrl->traffic_info.logic_ch_pkt_cnt[CCCI_C2K_AT8]);
+	} else {
+		string = kmalloc(1024, GFP_ATOMIC);
+		string_temp = kmalloc(1024, GFP_ATOMIC);
+		if (string == NULL || string_temp == NULL) {
+			CCCI_ERROR_LOG(md_ctrl->md_id, TAG,
+				"Fail alloc traffic Mem for isr cnt!\n");
+			goto err_exit1;
+		}
+
+		ret = snprintf(string, 1024, "total cnt=%d;",
+			md_ctrl->traffic_info.isr_cnt);
+		if (ret < 0 || ret >= 1024) {
+			CCCI_NORMAL_LOG(md_ctrl->md_id, TAG,
+				"string buffer fail %d", ret);
+		}
+		for (idx = 0; idx < CCIF_CH_NUM; idx++) {
+			ret = snprintf(string_temp, 1024,
+				"%srxq%d isr_cnt=%d;",	string, idx,
+				md_ctrl->isr_cnt[idx]);
+			if (ret < 0 || ret >= 1024) {
+				CCCI_DEBUG_LOG(md_ctrl->md_id, TAG,
+					"string_temp buffer full %d", ret);
+			}
+			ret = snprintf(string, 1024, "%s", string_temp);
+			if (ret < 0 || ret >= 1024) {
+				CCCI_NORMAL_LOG(md_ctrl->md_id, TAG,
+					"string buffer full %d", ret);
+				break;
+			}
+		}
+		CCCI_NORMAL_LOG(md_ctrl->md_id, TAG, "%s\n", string);
+
 	}
+err_exit1:
+	kfree(string);
+	kfree(string_temp);
+
 	mod_timer(&md_ctrl->traffic_monitor,
 		jiffies + CCIF_TRAFFIC_MONITOR_INTERVAL * HZ);
 }
@@ -1122,7 +1162,7 @@ void md_ccif_reset_queue(unsigned char hif_id, unsigned char for_start)
 	}
 	ccif_reset_busy_queue(md_ctrl);
 	ccci_reset_seq_num(&md_ctrl->traffic_info);
-
+	memset(md_ctrl->isr_cnt, 0, sizeof(md_ctrl->isr_cnt));
 }
 
 void md_ccif_switch_ringbuf(unsigned char hif_id, enum ringbuf_id rb_id)
@@ -1225,6 +1265,9 @@ static void md_ccif_launch_work(struct md_ccif_ctrl *md_ctrl)
 			md_ctrl->wakeup_count);
 		}
 #ifdef DEBUG_FOR_CCB
+		/* CCB count here for channel_id of ccb is clear in this if */
+		md_ctrl->traffic_info.latest_q_rx_isr_time[AP_MD_CCB_WAKEUP]
+				= local_clock();
 		md_ctrl->traffic_info.latest_ccb_isr_time
 			= local_clock();
 #endif
@@ -1259,8 +1302,10 @@ static irqreturn_t md_ccif_isr(int irq, void *data)
 	ch_id = ccif_read32(md_ctrl->ccif_ap_base, APCCIF_RCHNUM);
 
 	for (i = 0; i < CCIF_CH_NUM; i++)
-		if (ch_id & 0x1 << i)
+		if (ch_id & 0x1 << i) {
 			set_bit(i, &md_ctrl->channel_id);
+			md_ctrl->isr_cnt[i]++;
+		}
 	/* for 91/92, HIF CCIF is for C2K, only 16 CH;
 	 * for 93, only lower 16 CH is for data
 	 */
@@ -1270,6 +1315,7 @@ static irqreturn_t md_ccif_isr(int irq, void *data)
 		"%s ch_id = 0x%lX\n", __func__, md_ctrl->channel_id);
 	/* igore exception queue */
 	if (ch_id >> RINGQ_BASE) {
+		md_ctrl->traffic_info.isr_cnt++;
 		md_ctrl->traffic_info.latest_isr_time
 			= local_clock();
 #ifdef DEBUG_FOR_CCB
