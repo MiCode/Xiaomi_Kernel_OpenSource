@@ -75,6 +75,7 @@
 #endif
 
 #define VOW_RECOGDATA_SIZE             0x2800
+#define VOW_VFFPDATA_SIZE              0x1400
 #define VOW_PCM_DUMP_BYTE_SIZE         0xA00 /* 320 * 8 */
 #define VOW_EXTRA_DATA_SIZE            0x100 /* 256 */
 
@@ -85,7 +86,8 @@
 #else
 #define VOW_RECOGDATA_OFFSET        (VOW_VOICEDATA_OFFSET + VOW_VOICEDATA_SIZE)
 #endif
-#define VOW_EXTRA_DATA_OFFSET       (VOW_RECOGDATA_OFFSET + VOW_RECOGDATA_SIZE)
+#define VOW_VFFPDATA_OFFSET         (VOW_RECOGDATA_OFFSET + VOW_RECOGDATA_SIZE)
+#define VOW_EXTRA_DATA_OFFSET       (VOW_VFFPDATA_OFFSET + VOW_VFFPDATA_SIZE)
 
 /* below is control message */
 #define VOW_SET_CONTROL               _IOW(VOW_IOC_MAGIC, 0x03, unsigned int)
@@ -102,6 +104,7 @@
 #define VOW_GET_ALEXA_ENGINE_VER      _IOW(VOW_IOC_MAGIC, 0x11, unsigned int)
 #define VOW_GET_GOOGLE_ENGINE_VER     _IOW(VOW_IOC_MAGIC, 0x12, unsigned int)
 #define VOW_GET_GOOGLE_ARCH           _IOW(VOW_IOC_MAGIC, 0x13, unsigned int)
+#define VOW_SET_PAYLOADDUMP_INFO      _IOW(VOW_IOC_MAGIC, 0x16, unsigned int)
 
 #if IS_ENABLED(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
 
@@ -110,10 +113,11 @@
 #else
 #define VOW_BARGEIN_DUMP_OFFSET 0xA00
 #endif
-#define VOW_BARGEIN_DUMP_SIZE    0x3C00
-#endif  /* #if IS_ENABLED(CONFIG_MTK_VOW_BARGE_IN_SUPPORT) */
+#define VOW_BARGEIN_DUMP_SIZE   0x3C00
+#define VOW_BARGEIN_IRQ_MAX_NUM 32
+#endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
 
-#define KERNEL_VOW_DRV_VER "2.1.1"
+#define KERNEL_VOW_DRV_VER "2.1.2"
 struct dump_package_t {
 	uint32_t dump_data_type;
 	uint32_t mic_offset;
@@ -128,6 +132,8 @@ struct dump_package_t {
 #endif  /* #if IS_ENABLED(CONFIG_MTK_VOW_DUAL_MIC_SUPPORT) */
 	uint32_t echo_offset;
 	uint32_t echo_data_size;
+	uint32_t vffp_data_offset;
+	uint32_t vffp_data_size;
 };
 
 struct dump_queue_t {
@@ -150,10 +156,13 @@ struct dump_work_t {
 #endif  /* #if IS_ENABLED(CONFIG_MTK_VOW_DUAL_MIC_SUPPORT) */
 	uint32_t echo_offset;
 	uint32_t echo_data_size;
+	uint32_t vffp_data_offset;
+	uint32_t vffp_data_size;
 };
 
 enum { /* dump_data_t */
 	DUMP_RECOG = 0,
+	DUMP_VFFP,
 #if IS_ENABLED(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
 	DUMP_BARGEIN,
 	DUMP_INPUT,
@@ -257,11 +266,13 @@ enum vow_mtkif_type_t {
 	VOW_MTKIF_AMIC = 1,
 	VOW_MTKIF_DMIC = 2,
 	VOW_MTKIF_DMIC_LP = 3,
+	VOW_MTKIF_MAX
 };
 
 enum vow_channel_t {
 	VOW_MONO = 0,
 	VOW_STEREO = 1,
+	VOW_CH_MAX
 };
 
 enum vow_model_status_t {
@@ -362,6 +373,18 @@ struct vow_engine_info_kernel_t {
 	compat_size_t data_addr;
 };
 
+struct vow_payloaddump_info_t {
+	long return_payloaddump_addr;
+	long return_payloaddump_size_addr;
+	long max_payloaddump_size;
+};
+
+struct vow_payloaddump_info_kernel_t {
+	compat_size_t return_payloaddump_addr;
+	compat_size_t return_payloaddump_size_addr;
+	compat_size_t max_payloaddump_size;
+};
+
 #else  /* #if IS_ENABLED(CONFIG_COMPAT) */
 
 struct vow_speaker_model_t {
@@ -397,6 +420,13 @@ struct vow_engine_info_t {
 	long return_size_addr;
 	long data_addr;
 };
+
+struct vow_payloaddump_info_t {
+	long return_payloaddump_addr;
+	long return_payloaddump_size_addr;
+	long max_payloaddump_size;
+};
+
 #endif  /* #if IS_ENABLED(CONFIG_COMPAT) */
 
 enum ipi_type_flag_t {
@@ -405,7 +435,8 @@ enum ipi_type_flag_t {
 	RECOG_DUMP_IDX = 2,
 	BARGEIN_DUMP_INFO_IDX = 3,
 	BARGEIN_DUMP_IDX = 4,
-	INPUT_DUMP_IDX = 5
+	INPUT_DUMP_IDX = 5,
+	VFFP_DUMP_IDX = 6
 };
 
 #define RECOG_OK_IDX_MASK           (0x01 << RECOG_OK_IDX)
@@ -414,6 +445,7 @@ enum ipi_type_flag_t {
 #define BARGEIN_DUMP_INFO_IDX_MASK  (0x01 << BARGEIN_DUMP_INFO_IDX)
 #define BARGEIN_DUMP_IDX_MASK       (0x01 << BARGEIN_DUMP_IDX)
 #define INPUT_DUMP_IDX_MASK         (0x01 << INPUT_DUMP_IDX)
+#define VFFP_DUMP_IDX_MASK          (0x01 << VFFP_DUMP_IDX)
 
 struct vow_ipi_combined_info_t {
 	unsigned short ipi_type_flag;
@@ -446,6 +478,9 @@ struct vow_ipi_combined_info_t {
 //	unsigned int recog_dump_size_R;
 	unsigned int recog_dump_offset_R;
 #endif  /* #if IS_ENABLED(CONFIG_MTK_VOW_DUAL_MIC_SUPPORT) */
+	unsigned int payloaddump_len;
+	unsigned int vffp_dump_size;
+	unsigned int vffp_dump_offset;
 };
 
 
