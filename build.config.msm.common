@@ -23,7 +23,7 @@ DTB_DIR=vendor/qcom
 MAKE_GOALS+=" dtbs"
 
 function clean_dtbs() {
-  rm -rf ${OUT_DIR}/arch/${ARCH}/boot/dts
+  rm -rf ${OUT_DIR}/arch/${ARCH}/boot/dts/${DTB_DIR}/*
 }
 append_cmd POST_DEFCONFIG_CMDS 'clean_dtbs'
 
