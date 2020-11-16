@@ -9,10 +9,16 @@
 #ifdef CONFIG_USB_REDRIVER
 
 int redriver_release_usb_lanes(struct device_node *node);
+int redriver_gadget_pullup(struct device_node *node, int is_on);
 
 #else
 
 static inline int redriver_release_usb_lanes(struct device_node *node)
+{
+	return 0;
+}
+
+static inline int redriver_gadget_pullup(struct device_node *node, int is_on)
 {
 	return 0;
 }
