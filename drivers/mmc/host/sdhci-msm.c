@@ -1908,6 +1908,9 @@ static void sdhci_msm_check_power_status(struct sdhci_host *host, u32 req_type)
 			dev_warn(&msm_host->pdev->dev,
 				 "%s: pwr_irq for req: (%d) timed out\n",
 				 mmc_hostname(host->mmc), req_type);
+			mmc_log_string(host->mmc,
+				"request(%d) timed out waiting for pwr_irq\n",
+				req_type);
 	}
 
 	if (mmc->card && mmc->ops->get_cd && !mmc->ops->get_cd(mmc) &&
@@ -1929,6 +1932,11 @@ static void sdhci_msm_dump_pwr_ctrl_regs(struct sdhci_host *host)
 
 	pr_err("%s: PWRCTL_STATUS: 0x%08x | PWRCTL_MASK: 0x%08x | PWRCTL_CTL: 0x%08x\n",
 		mmc_hostname(host->mmc),
+		msm_host_readl(msm_host, host, msm_offset->core_pwrctl_status),
+		msm_host_readl(msm_host, host, msm_offset->core_pwrctl_mask),
+		msm_host_readl(msm_host, host, msm_offset->core_pwrctl_ctl));
+	mmc_log_string(host->mmc,
+		"Sts: 0x%08x | Mask: 0x%08x | Ctrl: 0x%08x\n",
 		msm_host_readl(msm_host, host, msm_offset->core_pwrctl_status),
 		msm_host_readl(msm_host, host, msm_offset->core_pwrctl_mask),
 		msm_host_readl(msm_host, host, msm_offset->core_pwrctl_ctl));
@@ -3245,6 +3253,10 @@ static void sdhci_msm_dump_vendor_regs(struct sdhci_host *host)
 
 	if (msm_host->cq_host)
 		sdhci_msm_cqe_dump_debug_ram(host);
+
+	mmc_log_string(host->mmc, "Data cnt: 0x%08x | Fifo cnt: 0x%08x\n",
+		readl_relaxed(host->ioaddr + msm_offset->core_mci_data_cnt),
+		readl_relaxed(host->ioaddr + msm_offset->core_mci_fifo_cnt));
 
 	SDHCI_MSM_DUMP(
 			"Data cnt: 0x%08x | Fifo cnt: 0x%08x | Int sts: 0x%08x\n",
