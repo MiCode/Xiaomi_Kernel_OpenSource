@@ -47,7 +47,6 @@ struct ccci_hif_traffic {
 		unsigned long long latest_q_rx_time[MAX_RXQ_NUM];
 #ifdef DPMAIF_DEBUG_LOG
 		unsigned long long isr_time_bak;
-		unsigned long long isr_cnt;
 		unsigned long long rx_done_isr_cnt[MAX_RXQ_NUM];
 		unsigned long long rx_other_isr_cnt[MAX_RXQ_NUM];
 		unsigned long long rx_full_cnt;
@@ -55,6 +54,7 @@ struct ccci_hif_traffic {
 		unsigned long long tx_done_isr_cnt[MAX_TXQ_NUM];
 		unsigned long long tx_other_isr_cnt[MAX_TXQ_NUM];
 #endif
+		unsigned long long isr_cnt;
 #ifdef DEBUG_FOR_CCB
 		unsigned long long latest_ccb_isr_time;
 		unsigned int last_ccif_r_ch;
@@ -143,6 +143,7 @@ static inline void ccci_reset_seq_num(struct ccci_hif_traffic *traffic_info)
 		sizeof(traffic_info->seq_nums[OUT]));
 	memset(traffic_info->seq_nums[IN], -1,
 		sizeof(traffic_info->seq_nums[IN]));
+	traffic_info->isr_cnt = 0;
 }
 
 /*

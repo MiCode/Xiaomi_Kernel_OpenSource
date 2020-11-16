@@ -120,6 +120,7 @@ struct md_ccif_ctrl {
 	struct ccci_hif_ops *ops;
 	struct platform_device *plat_dev;
 	struct ccci_hif_ccif_val plat_val;
+	unsigned long long isr_cnt[CCIF_CH_NUM];
 };
 
 static inline void ccif_set_busy_queue(struct md_ccif_ctrl *md_ctrl,
