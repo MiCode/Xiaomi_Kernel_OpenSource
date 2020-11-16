@@ -289,6 +289,5 @@ extern void ksysfs_bootinfo_exit(void);
 extern int aee_dump_ccci_debug_info(int md_id, void **addr, int *size);
 extern int aee_get_mode(void);
 void aee_register_api(struct aee_kernel_api *aee_api);
-extern void mrdump_modules_info_early(void);
 
 #endif

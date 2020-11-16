@@ -28,7 +28,7 @@ extern struct kset *aee_get_module_kset(void);
 #ifdef __aarch64__
 extern bool aee_on_irq_stack(unsigned long sp, struct stack_info *info);
 #endif
-extern int aee_save_modules(char *mbuf, int mbufsize);
+extern struct list_head *aee_get_modules(void);
 extern void aee_show_regs(struct pt_regs *regs);
 extern pgd_t *aee_pgd_offset_k(unsigned long addr);
 extern unsigned long aee_cpu_rq(int cpu);

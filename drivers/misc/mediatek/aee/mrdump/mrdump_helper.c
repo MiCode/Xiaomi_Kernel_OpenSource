@@ -21,17 +21,6 @@
 
 #include <mt-plat/aee.h>
 
-struct module_sect_attr {
-	struct bin_attribute battr;
-	unsigned long address;
-};
-
-struct module_sect_attrs {
-	struct attribute_group grp;
-	unsigned int nsections;
-	struct module_sect_attr attrs[0];
-};
-
 #ifdef MODULE
 
 #define KV		kimage_vaddr
@@ -428,71 +417,27 @@ phys_addr_t aee_memblock_end_of_DRAM(void)
 		memblockp->memory.regions[idx].size);
 }
 
+#ifdef CONFIG_MODULES
 static struct list_head *p_modules;
-/* MUST ensure called when preempt disabled already */
-int aee_save_modules(char *mbuf, int mbufsize)
+struct list_head *aee_get_modules(void)
 {
-	struct module *mod;
-	int sz = 0;
-	unsigned long text_addr = 0;
-	unsigned long init_addr = 0;
-	int i, search_nm;
 
-	if (!mbuf || mbufsize <= 0) {
-		pr_info("mrdump: module info buffer wrong(sz:%d)\n", mbufsize);
-		return sz;
-	}
+	if (p_modules)
+		return p_modules;
 
-	if (!p_modules)
-		p_modules = (void *)aee_addr_find("modules");
+	p_modules = (void *)aee_addr_find("modules");
 
 	if (!p_modules) {
 		pr_info("%s failed", __func__);
-		return sz;
+		return NULL;
 	}
 
-	memset(mbuf, '\0', mbufsize);
-	sz += snprintf(mbuf + sz, mbufsize - sz, "Modules linked in:");
-	list_for_each_entry_rcu(mod, p_modules, list) {
-		if (mod->state == MODULE_STATE_UNFORMED)
-			continue;
-		if (sz >= mbufsize) {
-			pr_info("mrdump: module info buffer full(sz:%d)\n",
-					mbufsize);
-			break;
-		}
-		text_addr = (unsigned long)mod->core_layout.base;
-		init_addr = (unsigned long)mod->init_layout.base;
-		search_nm = 2;
-		for (i = 0; i < mod->sect_attrs->nsections; i++) {
-			if (!strcmp(mod->sect_attrs->attrs[i].battr.attr.name,
-					   ".text")) {
-				text_addr = mod->sect_attrs->attrs[i].address;
-				search_nm--;
-			} else if (!strcmp(mod->sect_attrs->attrs[i].battr.attr.name,
-					   ".init.text")) {
-				init_addr = mod->sect_attrs->attrs[i].address;
-				search_nm--;
-			}
-			if (!search_nm)
-				break;
-		}
-		sz += snprintf(mbuf + sz, mbufsize - sz,
-				" %s %lx %lx %d %d",
-				mod->name,
-				text_addr,
-				init_addr,
-				mod->core_layout.size,
-				mod->init_layout.size);
-	}
-	if (sz < mbufsize)
-		sz += snprintf(mbuf + sz, mbufsize - sz, "\n");
-	return sz;
+	return p_modules;
 }
+#endif
 
-
-static u64 *p__cpu_logical_map;
-static u64 *aee_cpu_logical_map(void)
+static phys_addr_t *p__cpu_logical_map;
+static phys_addr_t *aee_cpu_logical_map(void)
 {
 	if (p__cpu_logical_map)
 		return p__cpu_logical_map;
@@ -751,11 +696,15 @@ static void aee_base_addrs_init(void)
 	char strbuf[NAME_LEN];
 	unsigned long i;
 	unsigned int off;
-	unsigned int search_num = 8;
+	unsigned int search_num = 9;
 
 #ifndef CONFIG_SYSFS
 	search_num--;
 #endif
+#ifndef CONFIG_MODULES
+	search_num--;
+#endif
+
 	for (i = 0, off = 0; i < *mrdump_kns; i++) {
 		if (!search_num)
 			return;
@@ -768,7 +717,13 @@ static void aee_base_addrs_init(void)
 			continue;
 		}
 #endif
-
+#ifdef CONFIG_MODULES
+		if (!p_modules && strcmp(strbuf, "modules") == 0) {
+			p_modules = (void *)mrdump_idx2addr(i);
+			search_num--;
+			continue;
+		}
+#endif
 		if (!p_memblock && strcmp(strbuf, "memblock") == 0) {
 			p_memblock = (void *)mrdump_idx2addr(i);
 			search_num--;
@@ -864,67 +819,24 @@ phys_addr_t aee_memblock_end_of_DRAM(void)
 	return memblock_end_of_DRAM();
 }
 
+#ifdef CONFIG_MODULES
 static struct list_head *p_modules;
-/* MUST ensure called when preempt disabled already */
-int aee_save_modules(char *mbuf, int mbufsize)
+struct list_head *aee_get_modules(void)
 {
-	struct module *mod;
-	int sz = 0;
-	unsigned long text_addr = 0;
-	unsigned long init_addr = 0;
-	int i, search_nm;
 
-	if (!mbuf || mbufsize <= 0) {
-		pr_info("mrdump: module info buffer wrong(sz:%d)\n", mbufsize);
-		return sz;
-	}
+	if (p_modules)
+		return p_modules;
 
-	if (!p_modules)
-		p_modules = (void *)kallsyms_lookup_name("modules");
+	p_modules = (void *)kallsyms_lookup_name("modules");
 
 	if (!p_modules) {
 		pr_info("%s failed", __func__);
-		return sz;
+		return NULL;
 	}
 
-	memset(mbuf, '\0', mbufsize);
-	sz += snprintf(mbuf + sz, mbufsize - sz, "Modules linked in:");
-	list_for_each_entry_rcu(mod, p_modules, list) {
-		if (mod->state == MODULE_STATE_UNFORMED)
-			continue;
-		if (sz >= mbufsize) {
-			pr_info("mrdump: module info buffer full(sz:%d)\n",
-					mbufsize);
-			break;
-		}
-		text_addr = (unsigned long)mod->core_layout.base;
-		init_addr = (unsigned long)mod->init_layout.base;
-		search_nm = 2;
-		for (i = 0; i < mod->sect_attrs->nsections; i++) {
-			if (!strcmp(mod->sect_attrs->attrs[i].battr.attr.name,
-					   ".text")) {
-				text_addr = mod->sect_attrs->attrs[i].address;
-				search_nm--;
-			} else if (!strcmp(mod->sect_attrs->attrs[i].battr.attr.name,
-					   ".init.text")) {
-				init_addr = mod->sect_attrs->attrs[i].address;
-				search_nm--;
-			}
-			if (!search_nm)
-				break;
-		}
-		sz += snprintf(mbuf + sz, mbufsize - sz,
-				" %s %lx %lx %d %d",
-				mod->name,
-				text_addr,
-				init_addr,
-				mod->core_layout.size,
-				mod->init_layout.size);
-	}
-	if (sz < mbufsize)
-		sz += snprintf(mbuf + sz, mbufsize - sz, "\n");
-	return sz;
+	return p_modules;
 }
+#endif
 
 int get_HW_cpuid(void)
 {
