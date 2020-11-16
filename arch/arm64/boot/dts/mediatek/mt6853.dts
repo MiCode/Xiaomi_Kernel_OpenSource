@@ -1298,7 +1298,6 @@
 &mt6359p_vemc_reg {
 	regulator-min-microvolt = <3000000>;
 	regulator-max-microvolt = <3000000>;
-	regulator-always-on;
 };
 
 &mt6359p_vsram_others_reg {
