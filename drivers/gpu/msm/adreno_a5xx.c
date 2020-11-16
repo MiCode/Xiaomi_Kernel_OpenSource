@@ -61,33 +61,6 @@ static int a5xx_gpmu_init(struct adreno_device *adreno_dev);
 	 (1 << A5XX_INT_GPMU_FIRMWARE) |                \
 	 (1 << A5XX_INT_GPMU_VOLTAGE_DROOP))
 
-static void a530_efuse_leakage(struct adreno_device *adreno_dev)
-{
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	unsigned int row0, row2;
-	unsigned int multiplier, gfx_active, leakage_pwr_on, coeff;
-
-	if (of_property_read_u32(device->pdev->dev.of_node,
-		"qcom,base-leakage-coefficient", &coeff))
-		return;
-
-	if (adreno_efuse_map(device->pdev))
-		return;
-
-	adreno_efuse_read_u32(A530_QFPROM_RAW_PTE_ROW0_MSB, &row0);
-	adreno_efuse_read_u32(A530_QFPROM_RAW_PTE_ROW2_MSB, &row2);
-
-	multiplier = (row0 >> 1) & 0x3;
-	gfx_active = (row2 >> 2) & 0xFF;
-
-	leakage_pwr_on = gfx_active * (1 << multiplier);
-
-	adreno_dev->lm_leakage = (leakage_pwr_on << 16) |
-		((leakage_pwr_on * coeff) / 100);
-
-	adreno_efuse_unmap();
-}
-
 static int a5xx_probe(struct platform_device *pdev,
 	u32 chipid, const struct adreno_gpu_core *gpucore)
 {
@@ -116,9 +89,6 @@ static int a5xx_probe(struct platform_device *pdev,
 
 	/* Setup defaults that might get changed by the fuse bits */
 	adreno_dev->lm_leakage = 0x4e001a;
-
-	if (adreno_is_a530(adreno_dev))
-		a530_efuse_leakage(adreno_dev);
 
 	device = KGSL_DEVICE(adreno_dev);
 
