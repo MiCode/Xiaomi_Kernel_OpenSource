@@ -312,7 +312,9 @@ static void usb_read_work_fn(struct work_struct *work)
 		atomic_set(&ch->read_pending, 1);
 		req->buf = ch->read_buf;
 		req->length = USB_MAX_OUT_BUF;
+		spin_unlock_irqrestore(&ch->lock, flags);
 		err = usb_diag_read(ch->hdl, req);
+		spin_lock_irqsave(&ch->lock, flags);
 		if (err) {
 			pr_debug("diag: In %s, error in reading from USB %s, err: %d\n",
 				 __func__, ch->name, err);
