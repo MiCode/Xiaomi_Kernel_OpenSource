@@ -468,12 +468,18 @@ static const struct mtk_fixed_factor top_divs[] = {
 			"dsp_sel", 1, 1),
 	FACTOR(CLK_TOP_DSP1, "dsp1_ck",
 			"dsp1_npupll_sel", 1, 1),
+	FACTOR(CLK_TOP_DSP1_SEL_CK, "dsp1_sel_ck",
+			"dsp1_sel", 1, 1),
 	FACTOR(CLK_TOP_DSP2, "dsp2_ck",
 			"dsp2_npupll_sel", 1, 1),
+	FACTOR(CLK_TOP_DSP2_SEL_CK, "dsp2_sel_ck",
+			"dsp2_sel", 1, 1),
 	FACTOR(CLK_TOP_IPU_IF, "ipu_if_ck",
 			"ipu_if_sel", 1, 1),
 	FACTOR(CLK_TOP_MFG_REF, "mfg_ref_ck",
 			"mfg_pll_sel", 1, 1),
+	FACTOR(CLK_TOP_MFG_REF_SEL_CK, "mfg_ref_sel_ck",
+			"mfg_ref_sel", 1, 1),
 	FACTOR(CLK_TOP_FCAMTG, "fcamtg_ck",
 			"camtg_sel", 1, 1),
 	FACTOR(CLK_TOP_FCAMTG2, "fcamtg2_ck",
@@ -739,8 +745,8 @@ static const char * const dsp1_parents[] = {
 };
 
 static const char * const dsp1_npupll_parents[] = {
-	"dsp1_sel",
-	"npupll"
+	"dsp1_sel_ck",
+	"npupll_ck"
 };
 
 static const char * const dsp2_parents[] = {
@@ -755,8 +761,8 @@ static const char * const dsp2_parents[] = {
 };
 
 static const char * const dsp2_npupll_parents[] = {
-	"dsp2_sel",
-	"npupll"
+	"dsp2_sel_ck",
+	"npupll_ck"
 };
 
 static const char * const ipu_if_parents[] = {
@@ -778,8 +784,8 @@ static const char * const mfg_ref_parents[] = {
 };
 
 static const char * const mfg_pll_parents[] = {
-	"mfg_ref_sel",
-	"mfgpll"
+	"mfg_ref_sel_ck",
+	"mfgpll_ck"
 };
 
 static const char * const camtg_parents[] = {
