@@ -2611,9 +2611,9 @@ static int qnoc_probe(struct platform_device *pdev)
 
 	provider = &qp->provider;
 	provider->dev = &pdev->dev;
-	provider->set = qcom_icc_set;
+	provider->set = qcom_icc_set_stub;
 	provider->pre_aggregate = qcom_icc_pre_aggregate;
-	provider->aggregate = qcom_icc_aggregate;
+	provider->aggregate = qcom_icc_aggregate_stub;
 	provider->xlate = of_icc_xlate_onecell;
 	INIT_LIST_HEAD(&provider->nodes);
 	provider->data = data;
@@ -2682,6 +2682,9 @@ static int qnoc_probe(struct platform_device *pdev)
 	data->num_nodes = num_nodes;
 
 	platform_set_drvdata(pdev, qp);
+
+	provider->set = qcom_icc_set;
+	provider->aggregate = qcom_icc_aggregate;
 
 	dev_dbg(&pdev->dev, "Registered WAIPIO ICC\n");
 
