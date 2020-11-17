@@ -15,7 +15,6 @@
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
-#include <linux/syscore_ops.h>
 
 #include "mtk-srclken-rc.h"
 #include "mtk-srclken-rc-common.h"
@@ -102,7 +101,7 @@ int srclken_dump_last_sta_log(void)
 }
 EXPORT_SYMBOL(srclken_dump_last_sta_log);
 
-static int srclken_chk_syscore_suspend(void)
+static int srclken_dev_pm_suspend(struct device *dev)
 {
 	if (srclken_hw_get_debug_cfg()) {
 		srclken_hw_dump_cfg_log();
@@ -112,7 +111,7 @@ static int srclken_chk_syscore_suspend(void)
 	return 0;
 }
 
-static void srclken_chk_syscore_resume(void)
+static int srclken_dev_pm_resume(struct device *dev)
 {
 	if (srclken_get_debug_cfg()) {
 		srclken_hw_dump_cfg_log();
@@ -121,9 +120,9 @@ static void srclken_chk_syscore_resume(void)
 	}
 }
 
-static struct syscore_ops srclken_chk_syscore_ops = {
-	.suspend = srclken_chk_syscore_suspend,
-	.resume = srclken_chk_syscore_resume,
+static const struct dev_pm_ops srclken_dev_pm_ops = {
+	.suspend_noirq = srclken_dev_pm_suspend,
+	.resume_noirq = srclken_dev_pm_resume,
 };
 
 static int mtk_srclken_probe(struct platform_device *pdev)
@@ -152,8 +151,6 @@ static int mtk_srclken_probe(struct platform_device *pdev)
 	if (srclken_fs_init())
 		return -1;
 
-	register_syscore_ops(&srclken_chk_syscore_ops);
-
 	is_srclken_initiated = true;
 
 	pr_notice("%s: init done\n", __func__);
@@ -179,6 +176,7 @@ static struct platform_driver mtk_srclken_driver = {
 	.driver = {
 		.name = "mtk-srclken-rc",
 		.of_match_table = of_match_ptr(mtk_srclken_of_match),
+		.pm = &srclken_dev_pm_ops,
 	},
 	.probe = mtk_srclken_probe,
 	.id_table = mtk_srclken_ids,
