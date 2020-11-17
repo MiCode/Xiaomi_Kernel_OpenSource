@@ -231,7 +231,9 @@ EXPORT_SYMBOL(emimpu_ap_region_init);
  * @rg_info:	the target region for init
  * @rg_num:	the region id for the rg_info
  *
- * Returns 0 for success and 1 for abort
+ * Returns 0 on success, -EINVAL if rg_info or rg_num is invalid,
+ * -ENODEV if the emi-mpu driver is not probed successfully,
+ * -ENOMEM if out of memory
  */
 int mtk_emimpu_init_region(
 	struct emimpu_region_t *rg_info, unsigned int rg_num)
@@ -240,26 +242,28 @@ int mtk_emimpu_init_region(
 	unsigned int size;
 	unsigned int i;
 
+	if (rg_info)
+		memset(rg_info, 0, sizeof(struct emimpu_region_t));
+	else
+		return -EINVAL;
+
 	mpu = global_emi_mpu;
 	if (!mpu)
-		return -1;
+		return -ENODEV;
 
 	if (rg_num >= mpu->region_cnt) {
 		pr_info("%s: fail, out-of-range region\n", __func__);
-		return -1;
+		return -EINVAL;
 	}
-
-	rg_info->start = 0;
-	rg_info->end = 0;
-	rg_info->rg_num = rg_num;
-	rg_info->lock = false;
 
 	size = sizeof(unsigned int) * mpu->domain_cnt;
 	rg_info->apc = kmalloc(size, GFP_KERNEL);
 	if (!(rg_info->apc))
-		return -1;
+		return -ENOMEM;
 	for (i = 0; i < mpu->domain_cnt; i++)
 		rg_info->apc[i] = MTK_EMIMPU_FORBIDDEN;
+
+	rg_info->rg_num = rg_num;
 
 	return 0;
 }
@@ -269,12 +273,15 @@ EXPORT_SYMBOL(mtk_emimpu_init_region);
  * mtk_emi_mpu_free_region - free the apc data in rg_info
  * @rg_info:	the target region for free
  *
- * Returns 0 for success
+ * Returns 0 on success, -EINVAL if rg_info is invalid
  */
 int mtk_emimpu_free_region(struct emimpu_region_t *rg_info)
 {
-	kfree(rg_info->apc);
-	return 0;
+	if (rg_info && rg_info->apc) {
+		kfree(rg_info->apc);
+		return 0;
+	} else
+		return -EINVAL;
 }
 EXPORT_SYMBOL(mtk_emimpu_free_region);
 
@@ -284,14 +291,17 @@ EXPORT_SYMBOL(mtk_emimpu_free_region);
  * @start:	the start address
  * @end:	the end address
  *
- * Returns 0 for success
+ * Returns 0 on success, -EINVAL if rg_info is invalid
  */
 int mtk_emimpu_set_addr(struct emimpu_region_t *rg_info,
 	unsigned long long start, unsigned long long end)
 {
-	rg_info->start = start;
-	rg_info->end = end;
-	return 0;
+	if (rg_info) {
+		rg_info->start = start;
+		rg_info->end = end;
+		return 0;
+	} else
+		return -EINVAL;
 }
 EXPORT_SYMBOL(mtk_emimpu_set_addr);
 
@@ -301,23 +311,28 @@ EXPORT_SYMBOL(mtk_emimpu_set_addr);
  * @d_num:	the target domain id
  * @apc:	the access permission setting
  *
- * Returns 0 for success
+ * Returns 0 on success, -EINVAL if rg_info or d_num is invalid,
+ * -ENODEV if the emi-mpu driver is not probed successfully
  */
 int mtk_emimpu_set_apc(struct emimpu_region_t *rg_info,
 	unsigned int d_num, unsigned int apc)
 {
 	struct emi_mpu *mpu;
 
+	if (!rg_info)
+		return -EINVAL;
+
 	mpu = global_emi_mpu;
 	if (!mpu)
-		return -1;
+		return -ENODEV;
 
 	if (d_num >= mpu->domain_cnt) {
 		pr_info("%s: fail, out-of-range domain\n", __func__);
-		return -1;
+		return -EINVAL;
 	}
 
 	rg_info->apc[d_num] = apc & 0x7;
+
 	return 0;
 }
 EXPORT_SYMBOL(mtk_emimpu_set_apc);
@@ -327,12 +342,15 @@ EXPORT_SYMBOL(mtk_emimpu_set_apc);
  * @rg_info:	the target region for lock
  * @lock:	enable/disable lock
  *
- * Returns 0 for success
+ * Returns 0 on success, -EINVAL if rg_info is invalid
  */
 int mtk_emimpu_lock_region(struct emimpu_region_t *rg_info, bool lock)
 {
-	rg_info->lock = lock;
-	return 0;
+	if (rg_info) {
+		rg_info->lock = lock;
+		return 0;
+	} else
+		return -EINVAL;
 }
 EXPORT_SYMBOL(mtk_emimpu_lock_region);
 
@@ -340,7 +358,9 @@ EXPORT_SYMBOL(mtk_emimpu_lock_region);
  * mtk_emimpu_set_protection - set emimpu protect into device
  * @rg_info:	the target region information
  *
- * Return 0 for success, -1 for fail
+ * Returns 0 on success, -EINVAL if rg_info is invalid,
+ * -ENODEV if the emi-mpu driver is not probed successfully,
+ * -EPERM if the SMC call returned failure
  */
 int mtk_emimpu_set_protection(struct emimpu_region_t *rg_info)
 {
@@ -351,14 +371,17 @@ int mtk_emimpu_set_protection(struct emimpu_region_t *rg_info)
 	struct arm_smccc_res smc_res;
 	int i, j;
 
-	mpu = global_emi_mpu;
-	if (!mpu)
-		return -1;
+	if (!rg_info)
+		return -EINVAL;
 
 	if (!(rg_info->apc)) {
 		pr_info("%s: fail, protect without init\n", __func__);
-		return -1;
+		return -EINVAL;
 	}
+
+	mpu = global_emi_mpu;
+	if (!mpu)
+		return -ENODEV;
 
 	d_group = mpu->domain_cnt / 8;
 
@@ -382,7 +405,7 @@ int mtk_emimpu_set_protection(struct emimpu_region_t *rg_info)
 		if (smc_res.a0) {
 			pr_info("%s:%d failed to set region permission, ret=0x%lx\n",
 				__func__, __LINE__, smc_res.a0);
-			return -1;
+			return -EPERM;
 		}
 
 	}
@@ -395,20 +418,25 @@ EXPORT_SYMBOL(mtk_emimpu_set_protection);
  * mtk_emimpu_clear_protection - clear emimpu protection
  * @rg_info:	the target region information
  *
- * Return 0 for success, -1 for fail
+ * Returns 0 on success, -EINVAL if rg_info is invalid,
+ * -ENODEV if the emi-mpu driver is not probed successfully,
+ * -EPERM if the SMC call returned failure
  */
 int mtk_emimpu_clear_protection(struct emimpu_region_t *rg_info)
 {
 	struct emi_mpu *mpu;
 	struct arm_smccc_res smc_res;
 
+	if (!rg_info)
+		return -EINVAL;
+
 	mpu = global_emi_mpu;
 	if (!mpu)
-		return -1;
+		return -ENODEV;
 
 	if (rg_info->rg_num > mpu->region_cnt) {
 		pr_info("%s: region %u overflow\n", __func__, rg_info->rg_num);
-		return -1;
+		return -EINVAL;
 	}
 
 	arm_smccc_smc(MTK_SIP_EMIMPU_CONTROL, MTK_EMIMPU_CLEAR,
@@ -416,7 +444,7 @@ int mtk_emimpu_clear_protection(struct emimpu_region_t *rg_info)
 	if (smc_res.a0) {
 		pr_info("%s:%d failed to clear region permission, ret=0x%lx\n",
 			__func__, __LINE__, smc_res.a0);
-		return -1;
+		return -EPERM;
 	}
 	return 0;
 }
