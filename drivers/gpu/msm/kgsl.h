@@ -145,8 +145,6 @@ struct kgsl_driver {
 	unsigned int full_cache_threshold;
 	struct workqueue_struct *workqueue;
 	struct workqueue_struct *mem_workqueue;
-	struct kthread_worker worker;
-	struct task_struct *worker_thread;
 	/** @debugfs_debug_dir - Pointer to the debugfs/debug directory */
 	struct dentry *debugfs_debug_dir;
 };

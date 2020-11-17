@@ -273,6 +273,13 @@ static int hwsched_queue_context(struct adreno_device *adreno_dev,
 	return 0;
 }
 
+void adreno_hwsched_flush(struct adreno_device *adreno_dev)
+{
+	struct adreno_hwsched *hwsched = to_hwsched(adreno_dev);
+
+	kthread_flush_worker(hwsched->worker);
+}
+
 void adreno_hwsched_set_fault(struct adreno_device *adreno_dev)
 {
 	struct adreno_hwsched *hwsched = to_hwsched(adreno_dev);
@@ -558,7 +565,7 @@ void adreno_hwsched_trigger(struct adreno_device *adreno_dev)
 {
 	struct adreno_hwsched *hwsched = to_hwsched(adreno_dev);
 
-	kthread_queue_work(&kgsl_driver.worker, &hwsched->work);
+	kthread_queue_work(hwsched->worker, &hwsched->work);
 }
 
 /**
@@ -1112,7 +1119,11 @@ static const struct attribute *_hwsched_attr_list[] = {
 
 void adreno_hwsched_dispatcher_close(struct adreno_device *adreno_dev)
 {
+	struct adreno_hwsched *hwsched = to_hwsched(adreno_dev);
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+
+	if (!IS_ERR_OR_NULL(hwsched->worker))
+		kthread_destroy_worker(hwsched->worker);
 
 	kmem_cache_destroy(jobs_cache);
 	kmem_cache_destroy(obj_cache);
@@ -1336,7 +1347,7 @@ static void adreno_hwsched_work(struct kthread_work *work)
 	mutex_unlock(&hwsched->mutex);
 }
 
-void adreno_hwsched_init(struct adreno_device *adreno_dev)
+int adreno_hwsched_init(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_hwsched *hwsched = to_hwsched(adreno_dev);
@@ -1358,7 +1369,14 @@ void adreno_hwsched_init(struct adreno_device *adreno_dev)
 		init_llist_head(&hwsched->requeue[i]);
 	}
 
+	hwsched->worker = kthread_create_worker(0, "kgsl_hwsched");
+	if (IS_ERR(hwsched->worker))
+		return PTR_ERR(hwsched->worker);
+
+	sched_set_fifo(hwsched->worker->task);
+
 	sysfs_create_files(&device->dev->kobj, _hwsched_attr_list);
+	return 0;
 }
 
 void adreno_hwsched_mark_drawobj(struct adreno_device *adreno_dev,

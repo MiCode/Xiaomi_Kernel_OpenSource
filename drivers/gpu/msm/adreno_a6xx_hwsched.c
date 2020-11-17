@@ -852,7 +852,7 @@ static int a6xx_hwsched_pm_suspend(struct adreno_device *adreno_dev)
 	mutex_unlock(&device->mutex);
 
 	/* Flush any currently running instances of the dispatcher */
-	kthread_flush_worker(&kgsl_driver.worker);
+	adreno_hwsched_flush(adreno_dev);
 
 	mutex_lock(&device->mutex);
 
@@ -1005,7 +1005,5 @@ int a6xx_hwsched_probe(struct platform_device *pdev,
 
 	adreno_dev->irq_mask = A6XX_HWSCHED_INT_MASK;
 
-	adreno_hwsched_init(adreno_dev);
-
-	return 0;
+	return adreno_hwsched_init(adreno_dev);
 }

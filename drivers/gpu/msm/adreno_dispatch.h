@@ -81,6 +81,7 @@ struct adreno_dispatcher {
 	struct kthread_work work;
 	struct kobject kobj;
 	struct completion idle_gate;
+	struct kthread_worker *worker;
 };
 
 enum adreno_dispatcher_flags {

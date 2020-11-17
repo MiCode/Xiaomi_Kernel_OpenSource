@@ -26,6 +26,7 @@ struct adreno_hwsched {
 	struct list_head cmd_list;
 	/** @fault: Atomic to record a fault */
 	atomic_t fault;
+	struct kthread_worker *worker;
 };
 
 enum adreno_hwsched_flags {
@@ -80,9 +81,10 @@ void adreno_hwsched_start(struct adreno_device *adreno_dev);
  * adreno_hwsched_dispatcher_init() - Initialize the hwsched dispatcher
  * @adreno_dev: pointer to the adreno device
  *
- * Set up the dispatcher resources
+ * Set up the dispatcher resources.
+ * Return: 0 on success or negative on failure.
  */
-void adreno_hwsched_init(struct adreno_device *adreno_dev);
+int adreno_hwsched_init(struct adreno_device *adreno_dev);
 
 /**
  * adreno_hwsched_dispatcher_close() - close the hwsched dispatcher
@@ -120,4 +122,6 @@ void adreno_hwsched_mark_drawobj(struct adreno_device *adreno_dev, u32 ctxt_id,
  */
 void adreno_hwsched_parse_fault_cmdobj(struct adreno_device *adreno_dev,
 	struct kgsl_snapshot *snapshot);
+
+void adreno_hwsched_flush(struct adreno_device *adreno_dev);
 #endif
