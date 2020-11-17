@@ -2100,6 +2100,9 @@ static int cnss_qca6290_powerup(struct cnss_pci_data *pci_priv)
 		cnss_pci_deinit_mhi(pci_priv);
 	}
 
+	/* Clear QMI send usage count during every power up */
+	pci_priv->qmi_send_usage_count = 0;
+
 retry:
 	ret = cnss_power_on_device(plat_priv);
 	if (ret) {
@@ -3201,10 +3204,12 @@ int cnss_auto_suspend(struct device *dev)
 		return -ENODEV;
 
 	mutex_lock(&pci_priv->bus_lock);
-	ret = cnss_pci_suspend_bus(pci_priv);
-	if (ret) {
-		mutex_unlock(&pci_priv->bus_lock);
-		return ret;
+	if (!pci_priv->qmi_send_usage_count) {
+		ret = cnss_pci_suspend_bus(pci_priv);
+		if (ret) {
+			mutex_unlock(&pci_priv->bus_lock);
+			return ret;
+		}
 	}
 
 	cnss_pci_set_auto_suspended(pci_priv, 1);
@@ -3378,15 +3383,14 @@ int cnss_pci_qmi_send_get(struct cnss_pci_data *pci_priv)
 		return -ENODEV;
 
 	mutex_lock(&pci_priv->bus_lock);
-	if (!cnss_pci_get_auto_suspended(pci_priv))
-		goto out;
-
-	cnss_pr_vdbg("Starting to handle get info prepare\n");
-
-	ret = cnss_pci_resume_bus(pci_priv);
-
-out:
+	if (cnss_pci_get_auto_suspended(pci_priv) &&
+	    !pci_priv->qmi_send_usage_count)
+		ret = cnss_pci_resume_bus(pci_priv);
+	pci_priv->qmi_send_usage_count++;
+	cnss_pr_vdbg("Increased QMI send usage count to %d\n",
+		     pci_priv->qmi_send_usage_count);
 	mutex_unlock(&pci_priv->bus_lock);
+
 	return ret;
 }
 
@@ -3398,15 +3402,15 @@ int cnss_pci_qmi_send_put(struct cnss_pci_data *pci_priv)
 		return -ENODEV;
 
 	mutex_lock(&pci_priv->bus_lock);
-	if (!cnss_pci_get_auto_suspended(pci_priv))
-		goto out;
-
-	cnss_pr_vdbg("Starting to handle get info done\n");
-
-	ret = cnss_pci_suspend_bus(pci_priv);
-
-out:
+	if (pci_priv->qmi_send_usage_count)
+		pci_priv->qmi_send_usage_count--;
+	cnss_pr_vdbg("Decreased QMI send usage count to %d\n",
+		     pci_priv->qmi_send_usage_count);
+	if (cnss_pci_get_auto_suspended(pci_priv) &&
+	    !pci_priv->qmi_send_usage_count)
+		ret = cnss_pci_suspend_bus(pci_priv);
 	mutex_unlock(&pci_priv->bus_lock);
+
 	return ret;
 }
 
