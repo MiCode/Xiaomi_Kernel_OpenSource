@@ -431,10 +431,6 @@ int srclken_hw_dump_sta_log(void)
 	int ret = 0;
 	u8 id = 0;
 
-	ret = clk_buf_dump_log();
-	if (ret)
-		return ret;
-
 	for (id = 0; id < XO_NUMBER; id++) {
 		ret = clk_buf_get_xo_en_sta(id);
 		if (ret > 0) {
@@ -540,9 +536,8 @@ int srclken_hw_dump_last_sta_log(void)
 		if (ret < 0)
 			return ret;
 		len += ret;
-
-		pr_notice("%s", buf);
 	}
+	pr_notice("%s", buf);
 
 	return ret;
 }
