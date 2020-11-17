@@ -9,9 +9,10 @@
 #ifndef _CQHCI_CRYPTO_H
 #define _CQHCI_CRYPTO_H
 
-#ifdef CONFIG_MMC_CQHCI_CRYPTO
 #include <linux/mmc/host.h>
 #include "cqhci.h"
+
+#ifdef CONFIG_MMC_CQHCI_CRYPTO
 
 static inline int cqhci_num_keyslots(struct cqhci_host *host)
 {

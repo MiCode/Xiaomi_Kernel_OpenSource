@@ -1043,7 +1043,7 @@ config SDC_QTI
 	  MMC upstream driver.
 
 config MMC_CQHCI_CRYPTO
-	bool "CQHCI Crypto Engine Support"
+	tristate "CQHCI Crypto Engine Support"
 	depends on MMC_CQHCI && BLK_INLINE_ENCRYPTION
 	help
 	  Enable Crypto Engine Support in CQHCI.
@@ -1052,7 +1052,7 @@ config MMC_CQHCI_CRYPTO
 	  operations on data being transferred to/from the device.
 
 config MMC_CQHCI_CRYPTO_QTI
-	bool "Vendor specific CQHCI Crypto Engine Support"
+	tristate "Vendor specific CQHCI Crypto Engine Support"
 	depends on MMC_CQHCI_CRYPTO
 	help
 	 Enable Vendor Crypto Engine Support in CQHCI

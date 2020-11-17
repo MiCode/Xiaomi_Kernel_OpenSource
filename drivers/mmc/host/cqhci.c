@@ -276,10 +276,8 @@ static void __cqhci_enable(struct cqhci_host *cq_host)
 	if (cq_host->caps & CQHCI_TASK_DESC_SZ_128)
 		cqcfg |= CQHCI_TASK_DESC_SZ;
 
-	if (cqhci_host_is_crypto_supported(cq_host)) {
-		cqhci_crypto_enable(cq_host);
+	if (cqhci_host_is_crypto_supported(cq_host))
 		cqcfg |= CQHCI_ICE_ENABLE;
-	}
 
 	cqhci_writel(cq_host, cqcfg, CQHCI_CFG);
 
@@ -313,9 +311,6 @@ static void __cqhci_enable(struct cqhci_host *cq_host)
 static void __cqhci_disable(struct cqhci_host *cq_host)
 {
 	u32 cqcfg;
-
-	if (cqhci_host_is_crypto_supported(cq_host))
-		cqhci_crypto_disable(cq_host);
 
 	cqcfg = cqhci_readl(cq_host, CQHCI_CFG);
 	cqcfg &= ~CQHCI_ENABLE;
@@ -367,6 +362,9 @@ static int cqhci_enable(struct mmc_host *mmc, struct mmc_card *card)
 		return err;
 	}
 
+	if (cqhci_host_is_crypto_supported(cq_host))
+		cqhci_crypto_enable(cq_host);
+
 	__cqhci_enable(cq_host);
 
 	cq_host->enabled = true;
@@ -417,6 +415,9 @@ static void cqhci_disable(struct mmc_host *mmc)
 		return;
 
 	cqhci_off(mmc);
+
+	if (cqhci_host_is_crypto_supported(cq_host))
+		cqhci_crypto_disable(cq_host);
 
 	__cqhci_disable(cq_host);
 
