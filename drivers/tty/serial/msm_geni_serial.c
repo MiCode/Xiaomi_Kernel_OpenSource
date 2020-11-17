@@ -114,9 +114,9 @@
 #define WAIT_XFER_MAX_ITER	(2)
 #define WAIT_XFER_MAX_TIMEOUT_US	(10000)
 #define WAIT_XFER_MIN_TIMEOUT_US	(9000)
-#define IPC_LOG_PWR_PAGES	(6)
-#define IPC_LOG_MISC_PAGES	(10)
-#define IPC_LOG_TX_RX_PAGES	(10)
+#define IPC_LOG_PWR_PAGES	(10)
+#define IPC_LOG_MISC_PAGES	(30)
+#define IPC_LOG_TX_RX_PAGES	(30)
 #define DATA_BYTES_PER_LINE	(32)
 
 #define M_IRQ_BITS		(M_RX_FIFO_WATERMARK_EN | M_RX_FIFO_LAST_EN |\
@@ -188,6 +188,8 @@ struct msm_geni_serial_port {
 	void *ipc_log_pwr;
 	void *ipc_log_misc;
 	void *console_log;
+	void *ipc_log_single;
+	void *ipc_log_irqstatus;
 	unsigned int cur_baud;
 	int ioctl_count;
 	int edge_count;
@@ -568,6 +570,7 @@ static int msm_geni_serial_ioctl(struct uart_port *uport, unsigned int cmd,
 						unsigned long arg)
 {
 	int ret = -ENOIOCTLCMD;
+	struct msm_geni_serial_port *port = GET_DEV_PORT(uport);
 
 	switch (cmd) {
 	case TIOCPMGET: {
@@ -580,6 +583,16 @@ static int msm_geni_serial_ioctl(struct uart_port *uport, unsigned int cmd,
 	}
 	case TIOCPMACT: {
 		ret = !pm_runtime_status_suspended(uport->dev);
+		break;
+	}
+	case TIOCFAULT: {
+		geni_se_dump_dbg_regs(&port->serial_rsc,
+				uport->membase, port->ipc_log_misc);
+		port->ipc_log_rx = port->ipc_log_single;
+		port->ipc_log_tx = port->ipc_log_single;
+		port->ipc_log_misc = port->ipc_log_single;
+		port->ipc_log_pwr = port->ipc_log_single;
+		ret = 0;
 		break;
 	}
 	default:
@@ -1700,6 +1713,40 @@ exit_handle_tx:
 	return 0;
 }
 
+static void check_rx_buf(char *buf, struct uart_port *uport, int size)
+{
+	struct msm_geni_serial_port *msm_port = GET_DEV_PORT(uport);
+	unsigned int rx_data;
+	bool fault = false;
+
+	rx_data = *(u32 *)buf;
+	/* check for first 4 bytes of RX data for faulty zero pattern */
+	if (rx_data == 0x0) {
+		if (size <= 4) {
+			fault = true;
+		} else {
+			/*
+			 * check for last 4 bytes of data in RX buffer for
+			 * faulty pattern
+			 */
+			if (memcmp(buf+(size-4), "\x0\x0\x0\x0", 4) == 0)
+				fault = true;
+		}
+
+		if (fault) {
+			IPC_LOG_MSG(msm_port->ipc_log_rx,
+				"RX Invalid packet %s\n", __func__);
+			geni_se_dump_dbg_regs(&msm_port->serial_rsc,
+				uport->membase, msm_port->ipc_log_misc);
+			/*
+			 * Add 2 msecs delay in order for dma rx transfer
+			 * to be actually completed.
+			 */
+			udelay(2000);
+		}
+	}
+}
+
 static int msm_geni_serial_handle_dma_rx(struct uart_port *uport, bool drop_rx)
 {
 	struct msm_geni_serial_port *msm_port = GET_DEV_PORT(uport);
@@ -1728,6 +1775,10 @@ static int msm_geni_serial_handle_dma_rx(struct uart_port *uport, bool drop_rx)
 					__func__, rx_bytes);
 		goto exit_handle_dma_rx;
 	}
+
+	/* Check RX buffer data for faulty pattern*/
+	check_rx_buf((char *)msm_port->rx_buf, uport, rx_bytes);
+
 	if (drop_rx)
 		goto exit_handle_dma_rx;
 
@@ -1743,6 +1794,14 @@ static int msm_geni_serial_handle_dma_rx(struct uart_port *uport, bool drop_rx)
 	tty_flip_buffer_push(tport);
 	dump_ipc(msm_port->ipc_log_rx, "DMA Rx", (char *)msm_port->rx_buf, 0,
 								rx_bytes);
+
+	/*
+	 * DMA_DONE interrupt doesn't confirm that the DATA is copied to
+	 * DDR memory, sometimes we are queuing the stale data from previous
+	 * transfer to tty flip_buffer, adding memset to zero
+	 * change to idenetify such scenario.
+	 */
+	memset(msm_port->rx_buf, 0, rx_bytes);
 exit_handle_dma_rx:
 
 	return ret;
@@ -1886,6 +1945,12 @@ static void msm_geni_serial_handle_isr(struct uart_port *uport,
 		dma_rx_status = geni_read_reg_nolog(uport->membase,
 							SE_DMA_RX_IRQ_STAT);
 
+		if (m_irq_status || s_irq_status ||
+				dma_tx_status || dma_rx_status)
+			IPC_LOG_MSG(msm_port->ipc_log_irqstatus,
+				    "%s: sirq:0x%x mirq:0x%x dma_txirq:0x%x dma_rxirq:0x%x\n",
+				    __func__, s_irq_status, m_irq_status,
+				    dma_tx_status, dma_rx_status);
 		if (dma_tx_status) {
 
 			geni_write_reg_nolog(dma_tx_status, uport->membase,
@@ -2837,7 +2902,7 @@ static void console_unregister(struct uart_driver *drv)
 static void msm_geni_serial_debug_init(struct uart_port *uport, bool console)
 {
 	struct msm_geni_serial_port *msm_port = GET_DEV_PORT(uport);
-	char name[30];
+	char name[35];
 
 	msm_port->dbg = debugfs_create_dir(dev_name(uport->dev), NULL);
 	if (IS_ERR_OR_NULL(msm_port->dbg))
@@ -2879,6 +2944,25 @@ static void msm_geni_serial_debug_init(struct uart_port *uport, bool console)
 					IPC_LOG_MISC_PAGES, name, 0);
 			if (!msm_port->ipc_log_misc)
 				dev_info(uport->dev, "Err in Misc IPC Log\n");
+		}
+		/* New set of UART IPC log for RX Invalid case */
+		memset(name, 0, sizeof(name));
+		if (!msm_port->ipc_log_single) {
+			scnprintf(name, sizeof(name), "%s%s",
+					dev_name(uport->dev), "_single");
+			msm_port->ipc_log_single = ipc_log_context_create(
+					IPC_LOG_MISC_PAGES, name, 0);
+			if (!msm_port->ipc_log_single)
+				dev_info(uport->dev, "Err in single IPC Log\n");
+		}
+		memset(name, 0, sizeof(name));
+		if (!msm_port->ipc_log_irqstatus) {
+			scnprintf(name, sizeof(name), "%s%s",
+					dev_name(uport->dev), "_irqstatus");
+			msm_port->ipc_log_irqstatus = ipc_log_context_create(
+					IPC_LOG_MISC_PAGES, name, 0);
+			if (!msm_port->ipc_log_irqstatus)
+				dev_info(uport->dev, "Err in irqstatus IPC Log\n");
 		}
 	} else {
 		memset(name, 0, sizeof(name));

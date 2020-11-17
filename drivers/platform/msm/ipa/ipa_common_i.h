@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/ipa_mhi.h>
@@ -427,6 +427,8 @@ int ipa_disable_wdi_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx);
 
 const char *ipa_get_version_string(enum ipa_hw_type ver);
 int ipa_start_gsi_channel(u32 clnt_hdl);
+
+bool ipa_pm_is_used(void);
 
 int ipa_smmu_store_sgt(struct sg_table **out_ch_ptr,
 		struct sg_table *in_sgt_ptr);

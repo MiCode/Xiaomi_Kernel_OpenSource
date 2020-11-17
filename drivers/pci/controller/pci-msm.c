@@ -7298,12 +7298,10 @@ int msm_pcie_pm_control(enum msm_pcie_pm_opt pm_opt, u32 busnr, void *user,
 			break;
 		}
 
-		if (msm_pcie_dev[rc_idx].link_status !=
-					MSM_PCIE_LINK_DISABLED) {
+		if (msm_pcie_dev[rc_idx].power_on) {
 			PCIE_ERR(&msm_pcie_dev[rc_idx],
-				"PCIe: RC%d: requested to resume when link is not disabled:%d. Number of active EP(s): %d\n",
-				rc_idx, msm_pcie_dev[rc_idx].link_status,
-				msm_pcie_dev[rc_idx].num_active_ep);
+				"PCIe: RC%d: requested to resume when link is already powered on. Number of active EP(s): %d\n",
+				rc_idx, msm_pcie_dev[rc_idx].num_active_ep);
 			break;
 		}
 

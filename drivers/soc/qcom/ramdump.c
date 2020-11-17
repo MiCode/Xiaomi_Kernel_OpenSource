@@ -241,6 +241,8 @@ static ssize_t ramdump_read(struct file *filep, char __user *buf, size_t count,
 
 	if ((unsigned long)device_mem & 0x7) {
 		bytes_before = 8 - ((unsigned long)device_mem & 0x7);
+		bytes_before = min_t(unsigned long, (unsigned long)copy_size,
+				     bytes_before);
 		memcpy_fromio(alignbuf, device_mem, bytes_before);
 		device_mem += bytes_before;
 		alignbuf += bytes_before;

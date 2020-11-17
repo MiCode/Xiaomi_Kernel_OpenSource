@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/ipa_mhi.h>
@@ -12,6 +12,12 @@
 #define _IPA_API_H_
 
 struct ipa_api_controller {
+
+	int (*ipa_connect)(const struct ipa_connect_params *in,
+		struct ipa_sps_params *sps, u32 *clnt_hdl);
+
+	int (*ipa_disconnect)(u32 clnt_hdl);
+
 	int (*ipa_reset_endpoint)(u32 clnt_hdl);
 
 	int (*ipa_clear_endpoint_delay)(u32 clnt_hdl);
@@ -344,6 +350,8 @@ struct ipa_api_controller {
 
 	enum ipa_client_type (*ipa_get_client_mapping)(int pipe_idx);
 
+	enum ipa_rm_resource_name (*ipa_get_rm_resource_from_ep)(int pipe_idx);
+
 	bool (*ipa_get_modem_cfg_emb_pipe_flt)(void);
 
 	enum ipa_transport_type (*ipa_get_transport_type)(void);
@@ -436,6 +444,7 @@ struct ipa_api_controller {
 		struct ipa_smmu_out_params *out);
 	int (*ipa_is_vlan_mode)(enum ipa_vlan_ifaces iface, bool *res);
 
+	bool (*ipa_pm_is_used)(void);
 	int (*ipa_wigig_internal_init)(
 		struct ipa_wdi_uc_ready_params *inout,
 		ipa_wigig_misc_int_cb int_notify,
@@ -483,6 +492,19 @@ struct ipa_api_controller {
 
 	int (*ipa_get_prot_id)(enum ipa_client_type client);
 };
+
+#ifdef CONFIG_IPA
+int ipa_plat_drv_probe(struct platform_device *pdev_p,
+	struct ipa_api_controller *api_ctrl,
+	const struct of_device_id *pdrv_match);
+#else
+static inline int ipa_plat_drv_probe(struct platform_device *pdev_p,
+	struct ipa_api_controller *api_ctrl,
+	const struct of_device_id *pdrv_match)
+{
+	return -ENODEV;
+}
+#endif /* (CONFIG_IPA) */
 
 #ifdef CONFIG_IPA3
 int ipa3_plat_drv_probe(struct platform_device *pdev_p,

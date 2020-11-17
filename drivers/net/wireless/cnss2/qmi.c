@@ -461,6 +461,10 @@ int cnss_wlfw_tgt_cap_send_sync(struct cnss_plat_data *plat_priv)
 	if (resp->otp_version_valid)
 		plat_priv->otp_version = resp->otp_version;
 
+	if (resp->fw_caps_valid)
+		plat_priv->fw_pcie_gen_switch =
+			!!(resp->fw_caps & QMI_WLFW_HOST_PCIE_GEN_SWITCH_V01);
+
 	cnss_pr_dbg("Target capability: chip_id: 0x%x, chip_family: 0x%x, board_id: 0x%x, soc_id: 0x%x, fw_version: 0x%x, fw_build_timestamp: %s, fw_build_id: %s, otp_version: 0x%x\n",
 		    plat_priv->chip_info.chip_id,
 		    plat_priv->chip_info.chip_family,
@@ -1293,6 +1297,64 @@ int cnss_wlfw_ini_send_sync(struct cnss_plat_data *plat_priv,
 out:
 	kfree(req);
 	kfree(resp);
+	return ret;
+}
+
+int cnss_wlfw_send_pcie_gen_speed_sync(struct cnss_plat_data *plat_priv)
+{
+	struct wlfw_pcie_gen_switch_req_msg_v01 req;
+	struct wlfw_pcie_gen_switch_resp_msg_v01 resp;
+	struct qmi_txn txn;
+	int ret = 0;
+
+	if (!plat_priv)
+		return -ENODEV;
+
+	if (plat_priv->pcie_gen_speed == QMI_PCIE_GEN_SPEED_INVALID_V01 ||
+	    !plat_priv->fw_pcie_gen_switch) {
+		cnss_pr_dbg("PCIE Gen speed not setup\n");
+		return 0;
+	}
+
+	cnss_pr_dbg("Sending PCIE Gen speed: %d state: 0x%lx\n",
+		    plat_priv->pcie_gen_speed, plat_priv->driver_state);
+	req.pcie_speed = (enum wlfw_pcie_gen_speed_v01)
+			plat_priv->pcie_gen_speed;
+
+	ret = qmi_txn_init(&plat_priv->qmi_wlfw, &txn,
+			   wlfw_pcie_gen_switch_resp_msg_v01_ei, &resp);
+	if (ret < 0) {
+		cnss_pr_err("Failed to initialize txn for PCIE speed switch err: %d\n",
+			    ret);
+		goto out;
+	}
+
+	ret = qmi_send_request(&plat_priv->qmi_wlfw, NULL, &txn,
+			       QMI_WLFW_PCIE_GEN_SWITCH_REQ_V01,
+			       WLFW_PCIE_GEN_SWITCH_REQ_MSG_V01_MAX_MSG_LEN,
+			       wlfw_pcie_gen_switch_req_msg_v01_ei, &req);
+	if (ret < 0) {
+		qmi_txn_cancel(&txn);
+		cnss_pr_err("Failed to send PCIE speed switch, err: %d\n", ret);
+		goto out;
+	}
+
+	ret = qmi_txn_wait(&txn, QMI_WLFW_TIMEOUT_JF);
+	if (ret < 0) {
+		cnss_pr_err("Failed to wait for PCIE Gen switch resp, err: %d\n",
+			    ret);
+		goto out;
+	}
+
+	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
+		cnss_pr_err("PCIE Gen Switch req failed, Speed: %d, result: %d, err: %d\n",
+			    plat_priv->pcie_gen_speed, resp.resp.result,
+			    resp.resp.error);
+		ret = -resp.resp.result;
+	}
+out:
+	/* Reset PCIE Gen speed after one time use */
+	plat_priv->pcie_gen_speed = QMI_PCIE_GEN_SPEED_INVALID_V01;
 	return ret;
 }
 
