@@ -35,7 +35,7 @@
 * Included header files
 *****************************************************************************/
 #include "focaltech_core.h"
-
+#include <linux/pm_runtime.h>
 /*****************************************************************************
 * Private constant and macro definitions using #define
 *****************************************************************************/
@@ -101,11 +101,32 @@ int fts_read(u8 *cmd, u32 cmdlen, u8 *data, u32 datalen)
 	for (i = 0; i < I2C_RETRY_NUMBER; i++) {
 		ret = i2c_transfer(ts_data->client->adapter, msg, msg_num);
 		if (ret < 0) {
+#ifdef CONFIG_ST_TRUSTED_TOUCH
+#ifdef CONFIG_ARCH_QTI_VM
+			if (atomic_read(&ts_data->trusted_touch_enabled) &&
+					ret == -ECONNRESET) {
+				pr_err("failed i2c read reacquiring session\n");
+				pm_runtime_put_sync(
+					ts_data->client->adapter->dev.parent);
+				pm_runtime_get_sync(
+					ts_data->client->adapter->dev.parent);
+			}
+#endif
+#endif
 			FTS_ERROR("i2c_transfer(read) fail,ret:%d", ret);
 		} else {
 			memcpy(data, ts_data->bus_rx_buf, datalen);
 			break;
 		}
+	}
+
+	if (ret < 0) {
+#ifdef CONFIG_ST_TRUSTED_TOUCH
+#ifdef CONFIG_ARCH_QTI_VM
+		pr_err("initiating abort due to i2c xfer failure\n");
+		fts_ts_trusted_touch_tvm_i2c_failure_report(ts_data);
+#endif
+#endif
 	}
 
 	mutex_unlock(&ts_data->bus_lock);
@@ -135,10 +156,31 @@ int fts_write(u8 *writebuf, u32 writelen)
 	for (i = 0; i < I2C_RETRY_NUMBER; i++) {
 		ret = i2c_transfer(ts_data->client->adapter, &msgs, 1);
 		if (ret < 0) {
+#ifdef CONFIG_ST_TRUSTED_TOUCH
+#ifdef CONFIG_ARCH_QTI_VM
+			if (atomic_read(&ts_data->trusted_touch_enabled) &&
+				ret == -ECONNRESET){
+				pr_err("failed i2c write reacquiring session\n");
+				pm_runtime_put_sync(
+					ts_data->client->adapter->dev.parent);
+				pm_runtime_get_sync(
+					ts_data->client->adapter->dev.parent);
+			}
+#endif
+#endif
 			FTS_ERROR("i2c_transfer(write) fail,ret:%d", ret);
 		} else {
 			break;
 		}
+	}
+
+	if (ret < 0) {
+#ifdef CONFIG_ST_TRUSTED_TOUCH
+#ifdef CONFIG_ARCH_QTI_VM
+		pr_err("initiating abort due to i2c xfer failure\n");
+		fts_ts_trusted_touch_tvm_i2c_failure_report(ts_data);
+#endif
+#endif
 	}
 	mutex_unlock(&ts_data->bus_lock);
 	return ret;

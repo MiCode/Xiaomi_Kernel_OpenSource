@@ -1120,6 +1120,58 @@ static ssize_t trusted_touch_enable_store(struct device *dev,
 	return err;
 }
 
+static ssize_t trusted_touch_event_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct fts_ts_data *info;
+
+	if (!client)
+		return scnprintf(buf, PAGE_SIZE, "client is null\n");
+
+	info = i2c_get_clientdata(client);
+	if (!info) {
+		FTS_ERROR("info is null\n");
+		return scnprintf(buf, PAGE_SIZE, "info is null\n");
+	}
+
+	return scnprintf(buf, PAGE_SIZE, "%d",
+			atomic_read(&info->trusted_touch_event));
+}
+
+static ssize_t trusted_touch_event_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct fts_ts_data *info;
+	unsigned long value;
+	int err = 0;
+
+	if (!client)
+		return -EIO;
+	info = i2c_get_clientdata(client);
+	if (!info) {
+		FTS_ERROR("info is null\n");
+		return -EIO;
+	}
+	if (count > 2)
+		return -EINVAL;
+
+	err = kstrtoul(buf, 10, &value);
+	if (err != 0)
+		return err;
+
+	if (!atomic_read(&info->trusted_touch_initialized))
+		return -EIO;
+
+	if (value)
+		return -EIO;
+
+	atomic_set(&info->trusted_touch_event, value);
+
+	return count;
+}
+
 #endif
 
 /* get the fw version  example:cat fw_version */
@@ -1148,6 +1200,7 @@ static DEVICE_ATTR(fts_touch_point, S_IRUGO | S_IWUSR, fts_tpbuf_show, fts_tpbuf
 static DEVICE_ATTR(fts_log_level, S_IRUGO | S_IWUSR, fts_log_level_show, fts_log_level_store);
 #ifdef CONFIG_FTS_TRUSTED_TOUCH
 static DEVICE_ATTR_RW(trusted_touch_enable);
+static DEVICE_ATTR_RW(trusted_touch_event);
 #endif
 
 /* add your attr in here*/
@@ -1163,6 +1216,7 @@ static struct attribute *fts_attributes[] = {
 	&dev_attr_fts_log_level.attr,
 #ifdef CONFIG_FTS_TRUSTED_TOUCH
 	&dev_attr_trusted_touch_enable.attr,
+	&dev_attr_trusted_touch_event.attr,
 #endif
 	NULL
 };
