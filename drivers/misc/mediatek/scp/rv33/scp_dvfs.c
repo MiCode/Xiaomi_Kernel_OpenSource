@@ -30,7 +30,6 @@
 #include <linux/spinlock.h>
 #include <linux/string.h>
 #include <linux/suspend.h>
-#include <linux/syscore_ops.h>
 #include <linux/uaccess.h>
 
 #if IS_ENABLED(CONFIG_MFD_MT6397)
@@ -590,22 +589,6 @@ void mt_scp_dvfs_state_dump(void)
 		: ((scp_state & IN_ACTIVE) == IN_ACTIVE) ?
 			"active mode" : "none of state");
 }
-
-int mt_scp_dvfs_syscore_suspend(void)
-{
-	mt_scp_dvfs_state_dump();
-	return 0;
-}
-
-void mt_scp_dvfs_syscore_resume(void)
-{
-	mt_scp_dvfs_state_dump();
-}
-
-static struct syscore_ops mt_scp_dvfs_syscore_ops = {
-	.suspend = mt_scp_dvfs_syscore_suspend,
-	.resume = mt_scp_dvfs_syscore_resume,
-};
 
 #ifdef CONFIG_PROC_FS
 /*
@@ -2100,6 +2083,7 @@ static int scp_pm_event(struct notifier_block *notifier,
 		return NOTIFY_DONE;
 	case PM_SUSPEND_PREPARE:
 	case PM_POST_SUSPEND:
+		mt_scp_dvfs_state_dump();
 		mt_scp_dump_sleep_count();
 		return NOTIFY_DONE;
 	}
@@ -2158,8 +2142,6 @@ int __init scp_dvfs_init(void)
 	}
 
 	scp_suspend_lock = wakeup_source_register(NULL, "scp wakelock");
-
-	register_syscore_ops(&mt_scp_dvfs_syscore_ops);
 
 #if IS_ENABLED(CONFIG_PM)
 	ret = register_pm_notifier(&scp_pm_notifier_func);
