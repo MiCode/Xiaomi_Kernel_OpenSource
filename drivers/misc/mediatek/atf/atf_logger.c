@@ -339,21 +339,24 @@ static void show_data(unsigned long addr,
 }
 #endif
 
-static void atf_time_sync_resume(void)
+
+static int atf_time_sync_resume(struct device *dev)
 {
-	/* Get local_clock and sync to ATF */
+	/* Get local_clock and sync to TF-A */
 	u64 time_to_sync = local_clock();
 	struct arm_smccc_res res;
 
+#ifdef ATF_LOGGER_DEBUG
+	/* make sure atf logger do the time sync with TF-A */
+	pr_notice("atf time sync when resume\n");
+#endif
 	/* always separate time_to_sync into two 32 bits args */
 	arm_smccc_smc(MTK_SIP_KERNEL_TIME_SYNC,
 		(u32)time_to_sync, (u32)(time_to_sync >> 32), 0, 0,
 		0, 0, 0, &res);
-}
 
-static struct syscore_ops atf_time_sync_syscore_ops = {
-	.resume = atf_time_sync_resume,
-};
+	return 0;
+}
 
 static const struct proc_ops atf_log_proc_fops = {
 	.proc_ioctl = atf_log_ioctl,
@@ -483,9 +486,6 @@ static int __init atf_logger_probe(struct platform_device *pdev)
 	struct proc_dir_entry *atf_log_proc_dir = NULL;
 	struct proc_dir_entry *atf_log_proc_file = NULL;
 	struct proc_dir_entry *atf_raw_buf_proc_file = NULL;
-	/* register module driver */
-	u64 time_to_sync;
-	struct arm_smccc_res res;
 
 	pr_notice("atf_log: inited");
 	err = dt_parse_atf_logger_buf();
@@ -519,13 +519,7 @@ static int __init atf_logger_probe(struct platform_device *pdev)
 #endif
 
 	/* Synchronize timestamp in Kernel and ATF */
-	register_syscore_ops(&atf_time_sync_syscore_ops);
-	/* Get local_clock and sync to ATF */
-	time_to_sync = local_clock();
-	/* always separate time_to_sync into two 32 bits args */
-	arm_smccc_smc(MTK_SIP_KERNEL_TIME_SYNC,
-		(u32)time_to_sync, (u32)(time_to_sync >> 32), 0, 0,
-		0, 0, 0, &res);
+	atf_time_sync_resume(NULL);
 
 	/* initial wait queue */
 	init_waitqueue_head(&atf_log_wq);
@@ -536,6 +530,7 @@ static int __init atf_logger_probe(struct platform_device *pdev)
 		pr_info("atf_log proc_mkdir failed\n");
 		return -ENOMEM;
 	}
+
 	/* create /proc/atf_log/atf_log */
 	atf_log_proc_file = proc_create("atf_log", 0440,
 		atf_log_proc_dir, &atf_log_proc_fops);
@@ -560,10 +555,15 @@ static void __exit atf_log_exit(void)
 	misc_deregister(&atf_log_dev);
 	pr_notice("atf_log: exited");
 }
+
 static int atf_logger_remove(struct platform_device *dev)
 {
 	return 0;
 }
+
+static const struct dev_pm_ops atf_pm_ops = {
+	.resume_noirq = atf_time_sync_resume,
+};
 
 static struct platform_driver atf_logger_driver_probe = {
 	.probe = atf_logger_probe,
@@ -574,6 +574,7 @@ static struct platform_driver atf_logger_driver_probe = {
 #ifdef CONFIG_OF
 		.of_match_table = atf_logger_of_ids,
 #endif
+		.pm = &atf_pm_ops,
 	},
 };
 
