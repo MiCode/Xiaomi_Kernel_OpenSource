@@ -549,7 +549,13 @@
 			alloc-ranges = <0 0x40000000 0 0x40000000>;
 			alignment = <0 0x10000>; /* EMI 64KB Align */
 		};
-
+		reserve-memory-scp_share {
+			compatible = "mediatek,reserve-memory-scp_share";
+			no-map;
+			size = <0 0x00300000>; /*3 MB share mem size */
+			alignment = <0 0x1000000>;
+			alloc-ranges = <0 0x50000000 0 0x40000000>;
+		};
 		ssmr_cma_mem: ssmr-reserved-cma_memory {
 			compatible = "shared-dma-pool";
 			reusable;
@@ -1009,7 +1015,10 @@
 				"cam-2", "cam-3", "cam_rawa-0", "cam_rawb-0";
 			infracfg = <&infracfg_ao_clk>;
 		};
-
+		scp_infra: scp_infra@10001000 {
+			compatible = "mediatek,scp_infra", "syscon";
+			reg = <0 0x10001000 0 0x1000>;	/* infracfg_ao */
+		};
 		sleep: sleep@10006000 {
 			compatible = "mediatek,sleep", "syscon";
 			reg = <0 0x10006000 0 0x100>;
@@ -1563,6 +1572,125 @@
 				"mbox2",
 				"mbox3",
 				"mbox4";
+		};
+
+		scp@10500000 {
+			compatible = "mediatek,scp";
+			status = "okay";
+			reg = <0 0x10500000 0 0xc0000>, /* tcm */
+			<0 0x10724000 0 0x1000>,	 /* cfg */
+			<0 0x10721000 0 0x1000>,	 /* clk*/
+			<0 0x10730000 0 0x1000>,	 /* cfg core0 */
+			<0 0x10740000 0 0x1000>,	 /* cfg core1 */
+			<0 0x10752000 0 0x1000>,	 /* bus tracker */
+			<0 0x10760000 0 0x40000>,	 /* llc */
+			<0 0x107a5000 0 0x4>,		 /* cfg_sec */
+			<0 0x107fb000 0 0x100>,		 /* mbox0 base */
+			<0 0x107fb100 0 0x4>,		 /* mbox0 set */
+			<0 0x107fb10c 0 0x4>,		 /* mbox0 clr */
+			<0 0x107a5020 0 0x4>,		 /* mbox0 init */
+			<0 0x107fc000 0 0x100>,		 /* mbox1 base */
+			<0 0x107fc100 0 0x4>,		 /* mbox1 set */
+			<0 0x107fc10c 0 0x4>,		 /* mbox1 clr */
+			<0 0x107a5024 0 0x4>,		 /* mbox1 init */
+			<0 0x107fd000 0 0x100>,		 /* mbox2 base */
+			<0 0x107fd100 0 0x4>,		 /* mbox2 set */
+			<0 0x107fd10c 0 0x4>,		 /* mbox2 clr */
+			<0 0x107a5028 0 0x4>,		 /* mbox2 init */
+			<0 0x107fe000 0 0x100>,		 /* mbox3 base */
+			<0 0x107fe100 0 0x4>,		 /* mbox3 set */
+			<0 0x107fe10c 0 0x4>,		 /* mbox3 clr */
+			<0 0x107a502c 0 0x4>,		 /* mbox3 init */
+			<0 0x107ff000 0 0x100>,		 /* mbox4 base */
+			<0 0x107ff100 0 0x4>,		 /* mbox4 set */
+			<0 0x107ff10c 0 0x4>,		 /* mbox4 clr */
+			<0 0x107a5030 0 0x4>;		 /* mbox4 init */
+
+			reg-names = "scp_sram_base",
+				"scp_cfgreg",
+				"scp_clkreg",
+				"scp_cfgreg_core0",
+				"scp_cfgreg_core1",
+				"scp_bus_tracker",
+				"scp_l1creg",
+				"scp_cfgreg_sec",
+				"mbox0_base",
+				"mbox0_set",
+				"mbox0_clr",
+				"mbox0_init",
+				"mbox1_base",
+				"mbox1_set",
+				"mbox1_clr",
+				"mbox1_init",
+				"mbox2_base",
+				"mbox2_set",
+				"mbox2_clr",
+				"mbox2_init",
+				"mbox3_base",
+				"mbox3_set",
+				"mbox3_clr",
+				"mbox3_init",
+				"mbox4_base",
+				"mbox4_set",
+				"mbox4_clr",
+				"mbox4_init";
+
+			interrupts = <GIC_SPI 434 IRQ_TYPE_LEVEL_HIGH 0>,
+				     <GIC_SPI 435 IRQ_TYPE_LEVEL_HIGH 0>,
+				     <GIC_SPI 436 IRQ_TYPE_LEVEL_HIGH 0>,
+				     <GIC_SPI 437 IRQ_TYPE_LEVEL_HIGH 0>,
+				     <GIC_SPI 438 IRQ_TYPE_LEVEL_HIGH 0>,
+				     <GIC_SPI 439 IRQ_TYPE_LEVEL_HIGH 0>,
+				     <GIC_SPI 440 IRQ_TYPE_LEVEL_HIGH 0>;
+
+			 interrupt-names = "ipc0",
+				"ipc1",
+				"mbox0",
+				"mbox1",
+				"mbox2",
+				"mbox3",
+				"mbox4";
+
+			core_0 = "enable";
+			scp_sramSize = <0x000c0000>;
+			scp_feature_tbl = <0 5>,   /* vow */
+					  <1 29>,  /* sensor */
+					  <2 26>,  /* flp */
+					  <3 0>,   /* rtos */
+					  <4 200>, /* speaker */
+					  <5 77>,  /* vcore */
+					  <6 200>, /* barge in */
+					  <7 10>;  /* vow dump */
+			scp_mem_key = "mediatek,reserve-memory-scp_share";
+			scp_mem_tbl = <0 0x4A700>, /* vow */
+				      <1 0x100000>, /* sensor */
+				      <2 0x180000>, /* logger */
+				      <3 0x19000>; /* audio */
+		};
+
+		scp_dvfs {
+			compatible = "mediatek,scp_dvfs";
+			clocks =
+				<&topckgen_clk CLK_TOP_SCP_SEL>,
+				<&topckgen_clk CLK_TOP_TCK_26M_MX9>,
+				<&topckgen_clk CLK_TOP_UNIVPLL_D4>,
+				<&topckgen_clk CLK_TOP_ADSPPLL>,
+				<&topckgen_clk CLK_TOP_MAINPLL_D6>,
+				<&topckgen_clk CLK_TOP_UNIVPLL_D6>,
+				<&topckgen_clk CLK_TOP_MAINPLL_D4_D2>,
+				<&topckgen_clk CLK_TOP_MAINPLL_D4>,
+				<&topckgen_clk CLK_TOP_MAINPLL_D7>;
+
+			clock-names =
+				"clk_mux",
+				"clk_pll_0",
+				"clk_pll_1",
+				"clk_pll_2",
+				"clk_pll_3",
+				"clk_pll_4",
+				"clk_pll_5",
+				"clk_pll_6",
+				"clk_pll_7";
 		};
 
 		scp_par_top_clk: syscon@10720000 {
