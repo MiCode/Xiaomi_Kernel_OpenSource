@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/utsname.h>
@@ -1046,4 +1046,59 @@ void adreno_snapshot_registers(struct kgsl_device *device,
 
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS, snapshot,
 		kgsl_snapshot_dump_registers, &r);
+}
+
+int adreno_snapshot_regs_count(const u32 *ptr)
+{
+	unsigned int count = 0;
+	unsigned int group_count;
+
+	for ( ; ptr[0] != UINT_MAX; ptr += 2) {
+		group_count = REG_COUNT(ptr);
+		if (group_count == 1)
+			count += group_count + 1;
+		else
+			count += group_count + 2;
+	}
+	return count;
+}
+
+/*
+ * This is a new format for dumping the registers, where we dump just the first
+ * address of the register along with the count of the contiguous registers
+ * which we going to dump. This helps us save memory by not dumping the
+ * address for each register
+ */
+size_t adreno_snapshot_registers_v2(struct kgsl_device *device, u8 *buf,
+				size_t remain, void *priv)
+{
+	const u32 *ptr = (const u32 *)priv;
+	unsigned int *data = (unsigned int *)buf;
+	int count = 0, k;
+
+	/* Figure out how many registers we are going to dump */
+	count = adreno_snapshot_regs_count(ptr);
+
+	if (remain < (count * 4)) {
+		SNAPSHOT_ERR_NOMEM(device, "REGISTERS");
+		return 0;
+	}
+
+	for (ptr = (const u32 *)priv; ptr[0] != UINT_MAX; ptr += 2) {
+		int cnt = REG_COUNT(ptr);
+
+		if (cnt == 1)
+			*data++ = BIT(31) | ptr[0];
+		else {
+			*data++ = ptr[0];
+			*data++ = cnt;
+		}
+		for (k = ptr[0]; k <= ptr[1]; k++) {
+			kgsl_regread(device, k, data);
+			data++;
+		}
+	}
+
+	/* Return the size of the section */
+	return (count * 4);
 }

@@ -7,7 +7,7 @@
 
 #include "kgsl_snapshot.h"
 
-#define CP_CRASH_DUMPER_TIMEOUT 1000
+#define CP_CRASH_DUMPER_TIMEOUT 200
 
 #define DEBUG_SECTION_SZ(_dwords) (((_dwords) * sizeof(unsigned int)) \
 		+ sizeof(struct kgsl_snapshot_debug))
@@ -20,9 +20,39 @@
 	adreno_snapshot_registers((_d), (_s), \
 		(unsigned int *) _r, ARRAY_SIZE(_r) /  2)
 
+#define REG_COUNT(_ptr) ((_ptr[1] - _ptr[0]) + 1)
+
 void adreno_snapshot_registers(struct kgsl_device *device,
 		struct kgsl_snapshot *snapshot,
 		const unsigned int *regs, unsigned int count);
+
+/**
+ * adreno_snapshot_regs_count - Helper function to calculate register and
+ * header size
+ * @ptr: Pointer to the register array
+ *
+ * Return: Number of registers in the array
+ *
+ * Helper function to count the total number of regsiters
+ * in a given array plus the header space needed for each group.
+ */
+int adreno_snapshot_regs_count(const u32 *ptr);
+
+/**
+ * adreno_snapshot_registers_v2 - Dump a series of registers
+ * @device: Pointer to the kgsl device
+ * @buf: The snapshot buffer
+ * @remain: The size remaining in the snapshot buffer
+ * @priv: Pointer to the register array to be dumped
+ *
+ * Return: Number of bytes written to the snapshot
+ *
+ * This function dumps the registers in a way that we need to
+ * only dump the start address and count for each pair of register
+ * in the array. This helps us save some memory in snapshot.
+ */
+size_t adreno_snapshot_registers_v2(struct kgsl_device *device,
+		u8 *buf, size_t remain, void *priv);
 
 /**
  * adreno_parse_ib - Parse the given IB

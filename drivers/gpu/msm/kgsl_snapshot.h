@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _KGSL_SNAPSHOT_H_
@@ -37,6 +37,7 @@ struct kgsl_snapshot_section_header {
 /* Section identifiers */
 #define KGSL_SNAPSHOT_SECTION_OS           0x0101
 #define KGSL_SNAPSHOT_SECTION_REGS         0x0201
+#define KGSL_SNAPSHOT_SECTION_REGS_V2      0x0202
 #define KGSL_SNAPSHOT_SECTION_RB           0x0301
 #define KGSL_SNAPSHOT_SECTION_RB_V2        0x0302
 #define KGSL_SNAPSHOT_SECTION_IB           0x0401
@@ -50,7 +51,9 @@ struct kgsl_snapshot_section_header {
 #define KGSL_SNAPSHOT_SECTION_MEMLIST      0x0E01
 #define KGSL_SNAPSHOT_SECTION_MEMLIST_V2   0x0E02
 #define KGSL_SNAPSHOT_SECTION_SHADER       0x1201
+#define KGSL_SNAPSHOT_SECTION_SHADER_V2    0x1202
 #define KGSL_SNAPSHOT_SECTION_MVC          0x1501
+#define KGSL_SNAPSHOT_SECTION_MVC_V2       0x1502
 #define KGSL_SNAPSHOT_SECTION_GMU          0x1601
 #define KGSL_SNAPSHOT_SECTION_GMU_MEMORY   0x1701
 
@@ -212,6 +215,13 @@ struct kgsl_snapshot_mvc_regs {
 	int cluster_id;
 } __packed;
 
+struct kgsl_snapshot_mvc_regs_v2 {
+	int ctxt_id;
+	int cluster_id;
+	int pipe_id;
+	int location_id;
+} __packed;
+
 /* Istore sub-section header */
 struct kgsl_snapshot_istore {
 	int count;   /* Number of instructions in the istore */
@@ -257,6 +267,15 @@ struct kgsl_snapshot_shader {
 	int type;  /* SP/TP statetype */
 	int index; /* SP/TP index */
 	int size;  /* Number of dwords in the dump */
+} __packed;
+
+struct kgsl_snapshot_shader_v2 {
+	int type;  /* SP/TP statetype */
+	int index; /* SP/TP index */
+	int usptp; /* USPTP index */
+	int pipe_id; /* Pipe id */
+	int location; /* Location value */
+	u32 size;  /* Number of dwords in the dump */
 } __packed;
 
 #define SNAPSHOT_GPU_OBJECT_SHADER  1

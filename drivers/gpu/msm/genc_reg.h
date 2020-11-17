@@ -104,9 +104,22 @@
 #define GENC_CP_AHB_CNTL                 0x98d
 #define GENC_CP_APERTURE_CNTL_HOST       0xa00
 #define GENC_CP_APERTURE_CNTL_CD         0xa03
+#define GENC_CP_BV_DRAW_STATE_ADDR       0xa81
+#define GENC_CP_BV_DRAW_STATE_DATA       0xa82
+#define GENC_CP_BV_ROQ_DBG_ADDR          0xa83
+#define GENC_CP_BV_ROQ_DBG_DATA          0xa84
+#define GENC_CP_BV_SQE_UCODE_DBG_ADDR    0xa85
+#define GENC_CP_BV_SQE_UCODE_DBG_DATA    0xa86
+#define GENC_CP_BV_SQE_STAT_ADDR         0xa87
+#define GENC_CP_BV_SQE_STAT_DATA         0xa88
 #define GENC_CP_BV_RB_RPTR_ADDR_LO       0xa98
 #define GENC_CP_BV_RB_RPTR_ADDR_HI       0xa99
+#define GENC_CP_RESOURCE_TBL_DBG_ADDR    0xa9a
+#define GENC_CP_RESOURCE_TBL_DBG_DATA    0xa9b
+#define GENC_CP_BV_MEM_POOL_DBG_ADDR     0xa96
+#define GENC_CP_BV_MEM_POOL_DBG_DATA     0xa97
 #define GENC_CP_BV_APRIV_CNTL            0xad0
+#define GENC_CP_BV_CHICKEN_DBG           0xada
 
 /* LPAC registers */
 #define GENC_CP_LPAC_DRAW_STATE_ADDR     0xb0a
@@ -637,6 +650,8 @@
 #define GENC_VFD_PERFCTR_VFD_SEL_5          0xa615
 #define GENC_VFD_PERFCTR_VFD_SEL_6          0xa616
 #define GENC_VFD_PERFCTR_VFD_SEL_7          0xa617
+#define GENC_SP_READ_SEL                    0xae6d
+#define GENC_SP_AHB_READ_APERTURE           0xc000
 
 /* VPC registers */
 #define GENC_VPC_PERFCTR_VPC_SEL_0          0x960b

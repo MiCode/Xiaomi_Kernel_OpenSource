@@ -233,6 +233,7 @@ struct kgsl_device {
 
 	struct {
 		void *ptr;
+		dma_addr_t dma_handle;
 		u32 size;
 	} snapshot_memory;
 
