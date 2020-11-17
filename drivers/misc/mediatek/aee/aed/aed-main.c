@@ -69,6 +69,9 @@ static struct proc_dir_entry *aed_proc_dir;
 #define MaxStackSize 8100
 #define MaxMapsSize 65536
 
+static int ee_num;
+static int kernelapi_num;
+
 /******************************************************************************
  * DEBUG UTILITIES
  *****************************************************************************/
@@ -1994,8 +1997,12 @@ static void kernel_reportAPI(const enum AE_DEFECT_ATTR attr, const int db_opt,
 
 	if ((aee_mode >= AEE_MODE_CUSTOMER_USER || (aee_mode ==
 		AEE_MODE_CUSTOMER_ENG && attr == AE_DEFECT_WARNING))
-		&& (attr != AE_DEFECT_FATAL))
-		return;
+		&& (attr != AE_DEFECT_FATAL)) {
+		if (!aed_get_status() && (kernelapi_num < 5))
+			kernelapi_num++;
+		else
+			return;
+	}
 	oops = aee_oops_create(attr, AE_KERNEL_PROBLEM_REPORT, module);
 	if (oops) {
 		n += snprintf(oops->backtrace, AEE_BACKTRACE_LENGTH, msg);
@@ -2036,8 +2043,12 @@ static void external_exception(const char *assert_type, const int *log,
 #endif
 
 	if ((aee_mode >= AEE_MODE_CUSTOMER_USER) &&
-		(aee_force_exp == AEE_FORCE_EXP_NOT_SET))
-		return;
+		(aee_force_exp == AEE_FORCE_EXP_NOT_SET)) {
+		if (!aed_get_status() && (ee_num < 5))
+			ee_num++;
+		else
+			return;
+	}
 	eerec = kzalloc(sizeof(struct aed_eerec), GFP_ATOMIC);
 	if (!eerec)
 		return;
