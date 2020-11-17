@@ -49,4 +49,10 @@ void genc_hwsched_restart(struct adreno_device *adreno_dev);
  */
 void genc_hwsched_snapshot(struct adreno_device *adreno_dev,
 		struct kgsl_snapshot *snapshot);
+
+/**
+ * genc_hwsched_handle_watchdog - Handle watchdog interrupt
+ * @adreno_dev: Pointer to the adreno device
+ */
+void genc_hwsched_handle_watchdog(struct adreno_device *adreno_dev);
 #endif

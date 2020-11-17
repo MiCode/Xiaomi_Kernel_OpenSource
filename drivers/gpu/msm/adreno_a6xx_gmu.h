@@ -395,4 +395,16 @@ int a6xx_gmu_enable_clks(struct adreno_device *adreno_dev);
  */
 int a6xx_gmu_enable_gdsc(struct adreno_device *adreno_dev);
 
+/**
+ * a6xx_gmu_handle_watchdog - Handle watchdog interrupt
+ * @adreno_dev: Pointer to the adreno device
+ */
+void a6xx_gmu_handle_watchdog(struct adreno_device *adreno_dev);
+
+/**
+ * a6xx_gmu_send_nmi - Send NMI to GMU
+ * @adreno_dev: Pointer to the adreno device
+ */
+void a6xx_gmu_send_nmi(struct adreno_device *adreno_dev);
+
 #endif

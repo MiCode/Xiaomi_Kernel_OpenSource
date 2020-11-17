@@ -94,8 +94,6 @@
 #define ADRENO_APRIV BIT(11)
 /* The GMU supports Battery Current Limiting */
 #define ADRENO_BCL BIT(12)
-/* The GPU supports HW scheduling */
-#define ADRENO_HWSCHED BIT(13)
 
 /*
  * Adreno GPU quirks - control bits for various workarounds

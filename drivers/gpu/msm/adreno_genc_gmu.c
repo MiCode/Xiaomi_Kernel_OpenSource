@@ -1183,7 +1183,7 @@ static unsigned int genc_gmu_ifpc_show(struct kgsl_device *device)
 }
 
 /* Send an NMI to the GMU */
-static void genc_gmu_send_nmi(struct adreno_device *adreno_dev)
+void genc_gmu_send_nmi(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
@@ -1271,47 +1271,57 @@ static bool genc_gmu_scales_bandwidth(struct kgsl_device *device)
 	return true;
 }
 
+void genc_gmu_handle_watchdog(struct adreno_device *adreno_dev)
+{
+	struct genc_gmu_device *gmu = to_genc_gmu(adreno_dev);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	u32 mask;
+
+	/* Temporarily mask the watchdog interrupt to prevent a storm */
+	gmu_core_regread(device, GENC_GMU_AO_HOST_INTERRUPT_MASK, &mask);
+	gmu_core_regwrite(device, GENC_GMU_AO_HOST_INTERRUPT_MASK,
+			(mask | GMU_INT_WDOG_BITE));
+
+	/* make sure we're reading the latest cm3_fault */
+	smp_rmb();
+
+	/*
+	 * We should not send NMI if there was a CM3 fault reported
+	 * because we don't want to overwrite the critical CM3 state
+	 * captured by gmu before it sent the CM3 fault interrupt.
+	 */
+	if (!atomic_read(&gmu->cm3_fault))
+		genc_gmu_send_nmi(adreno_dev);
+
+	/*
+	 * There is sufficient delay for the GMU to have finished
+	 * handling the NMI before snapshot is taken, as the fault
+	 * worker is scheduled below.
+	 */
+
+	dev_err_ratelimited(&gmu->pdev->dev,
+			"GMU watchdog expired interrupt received\n");
+}
+
 static irqreturn_t genc_gmu_irq_handler(int irq, void *data)
 {
 	struct kgsl_device *device = data;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct genc_gmu_device *gmu = to_genc_gmu(adreno_dev);
-	unsigned int mask, status = 0;
+	const struct genc_gpudev *genc_gpudev =
+		to_genc_gpudev(ADRENO_GPU_DEVICE(adreno_dev));
+	unsigned int status = 0;
 
 	gmu_core_regread(device, GENC_GMU_AO_HOST_INTERRUPT_STATUS, &status);
 	gmu_core_regwrite(device, GENC_GMU_AO_HOST_INTERRUPT_CLR, status);
 
-	/* Ignore GMU_INT_RSCC_COMP and GMU_INT_DBD WAKEUP interrupts */
-	if (status & GMU_INT_WDOG_BITE) {
-		/* Temporarily mask the watchdog interrupt to prevent a storm */
-		gmu_core_regread(device, GENC_GMU_AO_HOST_INTERRUPT_MASK,
-			&mask);
-		gmu_core_regwrite(device, GENC_GMU_AO_HOST_INTERRUPT_MASK,
-				(mask | GMU_INT_WDOG_BITE));
-
-		/* make sure we're reading the latest cm3_fault */
-		smp_rmb();
-
-		/*
-		 * We should not send NMI if there was a CM3 fault reported
-		 * because we don't want to overwrite the critical CM3 state
-		 * captured by gmu before it sent the CM3 fault interrupt.
-		 */
-		if (!atomic_read(&gmu->cm3_fault))
-			genc_gmu_send_nmi(adreno_dev);
-
-		/*
-		 * There is sufficient delay for the GMU to have finished
-		 * handling the NMI before snapshot is taken, as the fault
-		 * worker is scheduled below.
-		 */
-
-		dev_err_ratelimited(&gmu->pdev->dev,
-				"GMU watchdog expired interrupt received\n");
-	}
 	if (status & GMU_INT_HOST_AHB_BUS_ERR)
 		dev_err_ratelimited(&gmu->pdev->dev,
 				"AHB bus error interrupt received\n");
+
+	if (status & GMU_INT_WDOG_BITE)
+		genc_gpudev->handle_watchdog(adreno_dev);
+
 	if (status & GMU_INT_FENCE_ERR) {
 		unsigned int fence_status;
 

@@ -23,6 +23,7 @@ extern const struct adreno_power_ops a6xx_hwsched_power_ops;
 struct a6xx_gpudev {
 	struct adreno_gpudev base;
 	int (*hfi_probe)(struct adreno_device *adreno_dev);
+	void (*handle_watchdog)(struct adreno_device *adreno_dev);
 };
 
 extern const struct a6xx_gpudev adreno_a630_gpudev;

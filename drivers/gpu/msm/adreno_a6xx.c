@@ -2585,6 +2585,7 @@ const struct a6xx_gpudev adreno_a6xx_hwsched_gpudev = {
 		.setproperty = a6xx_setproperty,
 	},
 	.hfi_probe = a6xx_hwsched_hfi_probe,
+	.handle_watchdog = a6xx_hwsched_handle_watchdog,
 };
 
 const struct a6xx_gpudev adreno_a6xx_gmu_gpudev = {
@@ -2613,6 +2614,7 @@ const struct a6xx_gpudev adreno_a6xx_gmu_gpudev = {
 		.setproperty = a6xx_setproperty,
 	},
 	.hfi_probe = a6xx_gmu_hfi_probe,
+	.handle_watchdog = a6xx_gmu_handle_watchdog,
 };
 
 const struct adreno_gpudev adreno_a6xx_rgmu_gpudev = {
@@ -2700,4 +2702,5 @@ const struct a6xx_gpudev adreno_a630_gpudev = {
 		.setproperty = a6xx_setproperty,
 	},
 	.hfi_probe = a6xx_gmu_hfi_probe,
+	.handle_watchdog = a6xx_gmu_handle_watchdog,
 };

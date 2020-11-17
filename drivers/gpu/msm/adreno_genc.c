@@ -1282,6 +1282,7 @@ const struct genc_gpudev adreno_genc_hwsched_gpudev = {
 		.gpu_model = genc_gpu_model,
 	},
 	.hfi_probe = genc_hwsched_hfi_probe,
+	.handle_watchdog = genc_hwsched_handle_watchdog,
 };
 
 const struct genc_gpudev adreno_genc_gmu_gpudev = {
@@ -1306,4 +1307,5 @@ const struct genc_gpudev adreno_genc_gmu_gpudev = {
 		.gpu_model = genc_gpu_model,
 	},
 	.hfi_probe = genc_gmu_hfi_probe,
+	.handle_watchdog = genc_gmu_handle_watchdog,
 };
