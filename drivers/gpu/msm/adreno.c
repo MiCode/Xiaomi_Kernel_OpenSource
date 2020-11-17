@@ -1249,7 +1249,7 @@ static void adreno_resume(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
 	if (device->state == KGSL_STATE_SUSPEND) {
-		adreno_dispatcher_unhalt(device);
+		adreno_put_gpu_halt(adreno_dev);
 		kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
 	} else if (device->state != KGSL_STATE_INIT) {
 		/*
@@ -1283,7 +1283,7 @@ static int adreno_suspend(struct adreno_device *adreno_dev)
 	int status = kgsl_pwrctrl_change_state(device, KGSL_STATE_SUSPEND);
 
 	if (!status && device->state == KGSL_STATE_SUSPEND)
-		adreno_dispatcher_halt(device);
+		adreno_get_gpu_halt(adreno_dev);
 
 	return status;
 }

@@ -60,6 +60,11 @@ static struct kmem_cache *jobs_cache;
 
 #define DRAWQUEUE(_ringbuffer) (&(_ringbuffer)->dispatch_q)
 
+static bool adreno_drawqueue_is_empty(struct adreno_dispatcher_drawqueue *drawqueue)
+{
+	return (drawqueue && drawqueue->head == drawqueue->tail);
+}
+
 static int adreno_dispatch_retire_drawqueue(struct adreno_device *adreno_dev,
 		struct adreno_dispatcher_drawqueue *drawqueue);
 
@@ -2821,16 +2826,6 @@ int adreno_dispatcher_init(struct adreno_device *adreno_dev)
 	sched_set_fifo(dispatcher->worker->task);
 
 	return 0;
-}
-
-void adreno_dispatcher_halt(struct kgsl_device *device)
-{
-	adreno_get_gpu_halt(ADRENO_DEVICE(device));
-}
-
-void adreno_dispatcher_unhalt(struct kgsl_device *device)
-{
-	adreno_put_gpu_halt(ADRENO_DEVICE(device));
 }
 
 /*

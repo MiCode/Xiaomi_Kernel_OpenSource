@@ -840,7 +840,7 @@ static int genc_hwsched_pm_suspend(struct adreno_device *adreno_dev)
 	mutex_lock(&device->mutex);
 
 	/* This ensures that dispatcher doesn't submit any new work */
-	adreno_dispatcher_halt(device);
+	adreno_get_gpu_halt(adreno_dev);
 
 	/**
 	 * Wait for the dispatcher to retire everything by waiting
@@ -877,7 +877,7 @@ static int genc_hwsched_pm_suspend(struct adreno_device *adreno_dev)
 	return 0;
 
 err:
-	adreno_dispatcher_unhalt(device);
+	adreno_put_gpu_halt(adreno_dev);
 	adreno_hwsched_start(adreno_dev);
 
 	return ret;
@@ -885,14 +885,13 @@ err:
 
 static void genc_hwsched_pm_resume(struct adreno_device *adreno_dev)
 {
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct genc_gmu_device *gmu = to_genc_gmu(adreno_dev);
 
 	if (WARN(!test_bit(GMU_PRIV_PM_SUSPEND, &gmu->flags),
 		"resume invoked without a suspend\n"))
 		return;
 
-	adreno_dispatcher_unhalt(device);
+	adreno_put_gpu_halt(adreno_dev);
 
 	adreno_hwsched_start(adreno_dev);
 

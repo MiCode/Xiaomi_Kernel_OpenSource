@@ -3160,7 +3160,7 @@ static int a6xx_gmu_pm_suspend(struct adreno_device *adreno_dev)
 
 	set_bit(GMU_PRIV_PM_SUSPEND, &gmu->flags);
 
-	adreno_dispatcher_halt(device);
+	adreno_get_gpu_halt(adreno_dev);
 
 	trace_kgsl_pwr_set_state(device, KGSL_STATE_SUSPEND);
 
@@ -3179,7 +3179,7 @@ static void a6xx_gmu_pm_resume(struct adreno_device *adreno_dev)
 		"resume invoked without a suspend\n"))
 		return;
 
-	adreno_dispatcher_unhalt(device);
+	adreno_put_gpu_halt(adreno_dev);
 
 	adreno_dispatcher_start(device);
 
