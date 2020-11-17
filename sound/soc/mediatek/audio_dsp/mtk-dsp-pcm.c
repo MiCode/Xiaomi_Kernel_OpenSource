@@ -14,7 +14,6 @@
 
 #include "mtk-dsp-common.h"
 #include "mtk-dsp-mem-control.h"
-#include "../mt6873/dsp-platform-mem-control.h"
 
 #define SND_DSP_DTS_SIZE (4)
 #define MTK_PCM_RATES (SNDRV_PCM_RATE_8000_48000 |\
@@ -60,16 +59,6 @@ static char *dsp_task_dsp_name[AUDIO_TASK_DAI_NUM] = {
 	[AUDIO_TASK_KTV_ID]         = "mtk_dsp_ktv",
 	[AUDIO_TASK_CAPTURE_RAW_ID] = "mtk_dsp_capture_raw",
 };
-
-static int dsp_runtime_suspend(struct device *dev)
-{
-	return 0;
-}
-
-static int dsp_runtime_resume(struct device *dev)
-{
-	return 0;
-}
 
 static int dsp_pcm_taskattr_init(struct platform_device *pdev)
 {
@@ -120,8 +109,17 @@ static int dsp_pcm_taskattr_init(struct platform_device *pdev)
 			&(task_attr.spk_protect_in_dsp));
 		if (ret)
 			task_attr.spk_protect_in_dsp = 0;
+
 		set_task_attr(AUDIO_TASK_PLAYBACK_ID, ADSP_TASK_ATTR_SMARTPA,
 			      task_attr.spk_protect_in_dsp);
+
+		ret = of_property_read_u32(pdev->dev.of_node,
+					   "is_shared_dram_mpu",
+					   &dsp->is_shared_dram_mpu);
+		if (ret) {
+			pr_err("%s is_shared_dram_mpu error: %d\n", ret);
+			dsp->is_shared_dram_mpu = 0;
+		}
 	}
 	return 0;
 }
@@ -142,9 +140,6 @@ static int dsp_pcm_dev_probe(struct platform_device *pdev)
 
 	dsp->dev = &pdev->dev;
 	dev = dsp->dev;
-
-	dsp->runtime_resume = dsp_runtime_resume;
-	dsp->runtime_suspend = dsp_runtime_suspend;
 
 	dsp->request_dram_resource = dsp_dram_request;
 	dsp->release_dram_resource = dsp_dram_release;
@@ -189,7 +184,7 @@ static int dsp_pcm_dev_probe(struct platform_device *pdev)
 	}
 
 	/* set mpu with adsp common memory*/
-	if (get_mtk_enable_common_mem_mpu())
+	if (dsp->is_shared_dram_mpu)
 		ret = set_mtk_adsp_mpu_sharedram(AUDIO_DSP_AFE_SHARE_MEM_ID);
 	if (ret)
 		pr_info("set_mtk_adsp_mpu_sharedram fail\n");
@@ -211,33 +206,19 @@ err_platform:
 	return ret;
 }
 
-static int dsp_pcm_dev_remove(struct platform_device *pdev)
-{
-	return 0;
-}
-
 static const struct of_device_id dsp_pcm_dt_match[] = {
 	{ .compatible = "mediatek,snd_audio_dsp", },
 	{},
 };
 MODULE_DEVICE_TABLE(of, dsp_pcm_dt_match);
 
-static const struct dev_pm_ops audio_dsp_pm_ops = {
-	SET_RUNTIME_PM_OPS(dsp_runtime_suspend,
-			   dsp_runtime_resume, NULL)
-};
-
 static struct platform_driver dsp_pcm_driver = {
 	.driver = {
 		   .name = "snd_audio_dsp",
 		   .owner = THIS_MODULE,
 		   .of_match_table = dsp_pcm_dt_match,
-#ifdef CONFIG_PM
-		   .pm = &audio_dsp_pm_ops,
-#endif
 	},
 	.probe = dsp_pcm_dev_probe,
-	.remove = dsp_pcm_dev_remove,
 };
 
 module_platform_driver(dsp_pcm_driver);
