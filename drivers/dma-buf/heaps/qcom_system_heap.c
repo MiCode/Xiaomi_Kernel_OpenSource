@@ -27,6 +27,7 @@
  * Git-repo: https://git.linaro.org/people/john.stultz/android-dev.git
  * Branch: dma-buf-heap-perf
  * Git-commit: 6f080eb67dce63c6efa57ef564ca4cd762ccebb0
+ * Git-commit: 6fb9593b928c4cb485bef4e88c59c6b9fdf11352
  *
  * Copyright (C) 2011 Google, Inc.
  * Copyright (C) 2019, 2020 Linaro Ltd.
@@ -48,9 +49,9 @@
 #include <linux/scatterlist.h>
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
-#include <net/page_pool.h>
 #include <linux/qcom_dma_heap.h>
 
+#include "qcom_dynamic_page_pool.h"
 #include "qcom_system_heap.h"
 
 static struct dma_heap *sys_heap;
@@ -85,7 +86,7 @@ struct dma_heap_attachment {
 static gfp_t order_flags[] = {HIGH_ORDER_GFP, LOW_ORDER_GFP, LOW_ORDER_GFP};
 static const unsigned int orders[] = {8, 4, 0};
 #define NUM_ORDERS ARRAY_SIZE(orders)
-struct page_pool *pools[NUM_ORDERS];
+struct dynamic_page_pool *pools[NUM_ORDERS];
 
 static struct sg_table *dup_sg_table(struct sg_table *table)
 {
@@ -380,7 +381,7 @@ static void system_heap_dma_buf_release(struct dma_buf *dmabuf)
 			if (compound_order(page) == orders[j])
 				break;
 		}
-		page_pool_put_full_page(pools[j], page, false);
+		dynamic_page_pool_free(pools[j], page);
 	}
 	sg_free_table(table);
 	kfree(buffer);
@@ -410,7 +411,7 @@ static struct page *alloc_largest_available(unsigned long size,
 			continue;
 		if (max_order < orders[i])
 			continue;
-		page = page_pool_alloc_pages(pools[i], order_flags[i]);
+		page = dynamic_page_pool_alloc(pools[i]);
 		if (!page)
 			continue;
 		return page;
@@ -543,24 +544,24 @@ int qcom_system_heap_create(void)
 {
 	struct dma_heap_export_info exp_info;
 	int i;
+	int ret;
+
+	ret = dynamic_page_pool_init_shrinker();
+	if (IS_ERR(ret))
+		return ret;
 
 	for (i = 0; i < NUM_ORDERS; i++) {
-		struct page_pool_params pp;
-
-		memset(&pp, 0, sizeof(pp));
-		pp.order = orders[i];
-		pools[i] = page_pool_create(&pp);
+		pools[i] = dynamic_page_pool_create(order_flags[i], orders[i]);
 
 		if (IS_ERR(pools[i])) {
 			int j;
 
 			pr_err("%s: page pool creation failed!\n", __func__);
 			for (j = 0; j < i; j++)
-				page_pool_destroy(pools[j]);
+				dynamic_page_pool_destroy(pools[j]);
 			return PTR_ERR(pools[i]);
 		}
 	}
-
 
 	exp_info.name = "qcom,system";
 	exp_info.ops = &system_heap_ops;
