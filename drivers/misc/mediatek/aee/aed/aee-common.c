@@ -198,3 +198,14 @@ void aed_common_exception_api(const char *assert_type, const int *log,
 	pr_debug("%s out\n", __func__);
 }
 EXPORT_SYMBOL(aed_common_exception_api);
+
+int aed_get_status(void)
+{
+	int mode;
+
+	mode = aee_get_mode();
+	if ((mode >= AEE_MODE_MTK_ENG) && (mode <= AEE_MODE_CUSTOMER_USER))
+		return 1;
+	return 0;
+}
+EXPORT_SYMBOL(aed_get_status);
