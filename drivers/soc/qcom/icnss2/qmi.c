@@ -1496,6 +1496,9 @@ int wlfw_qdss_trace_mem_info_send_sync(struct icnss_priv *priv)
 	int ret = 0;
 	int i;
 
+	if (test_bit(ICNSS_FW_DOWN, &priv->state))
+		return -EINVAL;
+
 	icnss_pr_dbg("Sending QDSS trace mem info, state: 0x%lx\n",
 		     priv->state);
 
