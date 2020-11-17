@@ -411,12 +411,10 @@ adreno_drawctxt_create(struct kgsl_device_private *dev_priv,
 
 	adreno_context_debugfs_init(ADRENO_DEVICE(device), drawctxt);
 
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_HWSCHED)) {
-		/* set the context ringbuffer */
-		drawctxt->rb = adreno_ctx_get_rb(adreno_dev, drawctxt);
+	INIT_LIST_HEAD(&drawctxt->active_node);
 
-		INIT_LIST_HEAD(&drawctxt->active_node);
-	}
+	if (adreno_dev->dispatch_ops && adreno_dev->dispatch_ops->setup_context)
+		adreno_dev->dispatch_ops->setup_context(adreno_dev, drawctxt);
 
 	if (gpudev->preemption_context_init) {
 		ret = gpudev->preemption_context_init(&drawctxt->base);
@@ -516,11 +514,9 @@ void adreno_drawctxt_detach(struct kgsl_context *context)
 
 	spin_lock(&drawctxt->lock);
 
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_HWSCHED)) {
-		spin_lock(&adreno_dev->active_list_lock);
-		list_del_init(&drawctxt->active_node);
-		spin_unlock(&adreno_dev->active_list_lock);
-	}
+	spin_lock(&adreno_dev->active_list_lock);
+	list_del_init(&drawctxt->active_node);
+	spin_unlock(&adreno_dev->active_list_lock);
 
 	count = drawctxt_detach_drawobjs(drawctxt, list);
 	spin_unlock(&drawctxt->lock);

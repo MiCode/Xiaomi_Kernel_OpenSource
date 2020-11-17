@@ -1230,10 +1230,8 @@ static void adreno_unbind(struct device *dev)
 
 	kgsl_pwrscale_close(device);
 
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_HWSCHED))
-		adreno_hwsched_dispatcher_close(adreno_dev);
-	else
-		adreno_dispatcher_close(adreno_dev);
+	if (adreno_dev->dispatch_ops && adreno_dev->dispatch_ops->close)
+		adreno_dev->dispatch_ops->close(adreno_dev);
 
 	kgsl_device_platform_remove(device);
 
@@ -2747,12 +2745,11 @@ static int adreno_queue_cmds(struct kgsl_device_private *dev_priv,
 	struct kgsl_device *device = dev_priv->device;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_HWSCHED))
-		return adreno_hwsched_queue_cmds(dev_priv, context, drawobj,
-				count, timestamp);
+	if (WARN_ON(!adreno_dev->dispatch_ops || !adreno_dev->dispatch_ops->queue_cmds))
+		return -ENODEV;
 
-	return adreno_dispatcher_queue_cmds(dev_priv, context, drawobj, count,
-			timestamp);
+	return adreno_dev->dispatch_ops->queue_cmds(dev_priv, context, drawobj,
+		count, timestamp);
 }
 
 static void adreno_drawctxt_sched(struct kgsl_device *device,
@@ -2760,11 +2757,11 @@ static void adreno_drawctxt_sched(struct kgsl_device *device,
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_HWSCHED))
-		return adreno_hwsched_queue_context(device,
-			ADRENO_CONTEXT(context));
+	if (WARN_ON(!adreno_dev->dispatch_ops || !adreno_dev->dispatch_ops->queue_context))
+		return;
 
-	adreno_dispatcher_queue_context(device, ADRENO_CONTEXT(context));
+	adreno_dev->dispatch_ops->queue_context(adreno_dev,
+		ADRENO_CONTEXT(context));
 }
 
 int adreno_power_cycle(struct adreno_device *adreno_dev,

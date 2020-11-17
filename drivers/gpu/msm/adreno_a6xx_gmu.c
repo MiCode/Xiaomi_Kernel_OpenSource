@@ -701,8 +701,6 @@ static const char *oob_to_str(enum oob_request req)
 static void trigger_reset_recovery(struct adreno_device *adreno_dev,
 	enum oob_request req)
 {
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-
 	/*
 	 * Trigger recovery for perfcounter oob only since only
 	 * perfcounter oob can happen alongside an actively rendering gpu.
@@ -710,15 +708,9 @@ static void trigger_reset_recovery(struct adreno_device *adreno_dev,
 	if (req != oob_perfcntr)
 		return;
 
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_HWSCHED)) {
-		adreno_get_gpu_halt(adreno_dev);
-
-		adreno_hwsched_set_fault(adreno_dev);
-	} else {
-		adreno_set_gpu_fault(adreno_dev,
+	if (adreno_dev->dispatch_ops && adreno_dev->dispatch_ops->fault)
+		adreno_dev->dispatch_ops->fault(adreno_dev,
 			ADRENO_GMU_FAULT_SKIP_SNAPSHOT);
-		adreno_dispatcher_schedule(device);
-	}
 }
 
 int a6xx_gmu_oob_set(struct kgsl_device *device,

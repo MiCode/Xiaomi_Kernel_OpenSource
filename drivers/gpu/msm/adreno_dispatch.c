@@ -1261,18 +1261,11 @@ static void drawctxt_queue_syncobj(struct adreno_context *drawctxt,
 	_queue_drawobj(drawctxt, drawobj);
 }
 
-/**
- * adreno_dispactcher_queue_cmds() - Queue a new draw object in the context
- * @dev_priv: Pointer to the device private struct
- * @context: Pointer to the kgsl draw context
- * @drawobj: Pointer to the array of drawobj's being submitted
- * @count: Number of drawobj's being submitted
- * @timestamp: Pointer to the requested timestamp
- *
+/*
  * Queue a command in the context - if there isn't any room in the queue, then
  * block until there is
  */
-int adreno_dispatcher_queue_cmds(struct kgsl_device_private *dev_priv,
+static int adreno_dispatcher_queue_cmds(struct kgsl_device_private *dev_priv,
 		struct kgsl_context *context, struct kgsl_drawobj *drawobj[],
 		uint32_t count, uint32_t *timestamp)
 
@@ -2447,22 +2440,23 @@ void adreno_dispatcher_schedule(struct kgsl_device *device)
 	kthread_queue_work(dispatcher->worker, &dispatcher->work);
 }
 
-/**
- * adreno_dispatcher_queue_context() - schedule a drawctxt in the dispatcher
- * device: pointer to the KGSL device
- * drawctxt: pointer to the drawctxt to schedule
- *
+/*
  * Put a draw context on the dispatcher pending queue and schedule the
  * dispatcher. This is used to reschedule changes that might have been blocked
  * for sync points or other concerns
  */
-void adreno_dispatcher_queue_context(struct kgsl_device *device,
+static void adreno_dispatcher_queue_context(struct adreno_device *adreno_dev,
 	struct adreno_context *drawctxt)
 {
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-
 	dispatcher_queue_context(adreno_dev, drawctxt);
-	adreno_dispatcher_schedule(device);
+	adreno_dispatcher_schedule(KGSL_DEVICE(adreno_dev));
+}
+
+static void adreno_dispatcher_fault(struct adreno_device *adreno_dev,
+		u32 fault)
+{
+	adreno_set_gpu_fault(adreno_dev, fault);
+	adreno_dispatcher_schedule(KGSL_DEVICE(adreno_dev));
 }
 
 /*
@@ -2504,6 +2498,32 @@ void adreno_dispatcher_stop(struct adreno_device *adreno_dev)
 	del_timer_sync(&dispatcher->timer);
 
 	adreno_dispatcher_stop_fault_timer(KGSL_DEVICE(adreno_dev));
+}
+
+/* Return the ringbuffer that matches the draw context priority */
+static struct adreno_ringbuffer *dispatch_get_rb(struct adreno_device *adreno_dev,
+		struct adreno_context *drawctxt)
+{
+	int level;
+
+	/* If preemption is disabled everybody goes on the same ringbuffer */
+	if (!adreno_is_preemption_enabled(adreno_dev))
+		return &adreno_dev->ringbuffers[0];
+
+	/*
+	 * Math to convert the priority field in context structure to an RB ID.
+	 * Divide up the context priority based on number of ringbuffer levels.
+	 */
+	level = min_t(int, drawctxt->base.priority / adreno_dev->num_ringbuffers,
+		adreno_dev->num_ringbuffers - 1);
+
+	return &adreno_dev->ringbuffers[level];
+}
+
+static void adreno_dispatcher_setup_context(struct adreno_device *adreno_dev,
+		struct adreno_context *drawctxt)
+{
+	drawctxt->rb = dispatch_get_rb(adreno_dev, drawctxt);
 }
 
 static int _skipsaverestore_store(struct adreno_device *adreno_dev, bool val)
@@ -2569,7 +2589,7 @@ static void change_preemption(struct adreno_device *adreno_dev, void *priv)
 	write_lock(&device->context_lock);
 	idr_for_each_entry(&device->context_idr, context, id) {
 		drawctxt = ADRENO_CONTEXT(context);
-		drawctxt->rb = adreno_ctx_get_rb(adreno_dev, drawctxt);
+		drawctxt->rb = dispatch_get_rb(adreno_dev, drawctxt);
 
 		/*
 		 * Make sure context destroy checks against the correct
@@ -2616,13 +2636,7 @@ static const struct attribute *_preempt_attr_list[] = {
 	NULL,
 };
 
-/**
- * adreno_dispatcher_close() - close the dispatcher
- * @adreno_dev: pointer to the adreno device structure
- *
- * Close the dispatcher and free all the outstanding commands and memory
- */
-void adreno_dispatcher_close(struct adreno_device *adreno_dev)
+static void adreno_dispatcher_close(struct adreno_device *adreno_dev)
 {
 	struct adreno_dispatcher *dispatcher = &adreno_dev->dispatcher;
 	int i;
@@ -2647,6 +2661,8 @@ void adreno_dispatcher_close(struct adreno_device *adreno_dev)
 	mutex_unlock(&dispatcher->mutex);
 
 	kthread_destroy_worker(dispatcher->worker);
+
+	adreno_set_dispatch_ops(adreno_dev, NULL);
 
 	kobject_put(&dispatcher->kobj);
 
@@ -2778,6 +2794,14 @@ static struct kobj_type ktype_dispatcher = {
 	.default_attrs = dispatcher_attrs,
 };
 
+static const struct adreno_dispatch_ops swsched_ops = {
+	.close = adreno_dispatcher_close,
+	.queue_cmds = adreno_dispatcher_queue_cmds,
+	.setup_context = adreno_dispatcher_setup_context,
+	.queue_context = adreno_dispatcher_queue_context,
+	.fault = adreno_dispatcher_fault,
+};
+
 /**
  * adreno_dispatcher_init() - Initialize the dispatcher
  * @adreno_dev: pointer to the adreno device structure
@@ -2804,7 +2828,6 @@ int adreno_dispatcher_init(struct adreno_device *adreno_dev)
 
 	timer_setup(&dispatcher->timer, adreno_dispatcher_timer, 0);
 
-
 	kthread_init_work(&dispatcher->work, adreno_dispatcher_work);
 
 	init_completion(&dispatcher->idle_gate);
@@ -2818,6 +2841,8 @@ int adreno_dispatcher_init(struct adreno_device *adreno_dev)
 	}
 
 	set_bit(ADRENO_DISPATCHER_INIT, &dispatcher->priv);
+
+	adreno_set_dispatch_ops(adreno_dev, &swsched_ops);
 
 	dispatcher->worker = kthread_create_worker(0, "kgsl_dispatcher");
 	if (IS_ERR(dispatcher->worker))

@@ -823,7 +823,7 @@ static int _queue_markerobj(struct adreno_device *adreno_dev,
 	return 0;
 }
 
-int adreno_hwsched_queue_cmds(struct kgsl_device_private *dev_priv,
+static int adreno_hwsched_queue_cmds(struct kgsl_device_private *dev_priv,
 	struct kgsl_context *context, struct kgsl_drawobj *drawobj[],
 	u32 count, u32 *timestamp)
 
@@ -1004,11 +1004,9 @@ static void hwsched_power_down(struct adreno_device *adreno_dev)
 	mutex_unlock(&device->mutex);
 }
 
-void adreno_hwsched_queue_context(struct kgsl_device *device,
+static void adreno_hwsched_queue_context(struct adreno_device *adreno_dev,
 	struct adreno_context *drawctxt)
 {
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-
 	hwsched_queue_context(adreno_dev, drawctxt);
 	adreno_hwsched_trigger(adreno_dev);
 }
@@ -1117,13 +1115,15 @@ static const struct attribute *_hwsched_attr_list[] = {
 	NULL,
 };
 
-void adreno_hwsched_dispatcher_close(struct adreno_device *adreno_dev)
+static void adreno_hwsched_dispatcher_close(struct adreno_device *adreno_dev)
 {
 	struct adreno_hwsched *hwsched = to_hwsched(adreno_dev);
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
 	if (!IS_ERR_OR_NULL(hwsched->worker))
 		kthread_destroy_worker(hwsched->worker);
+
+	adreno_set_dispatch_ops(adreno_dev, NULL);
 
 	kmem_cache_destroy(jobs_cache);
 	kmem_cache_destroy(obj_cache);
@@ -1347,6 +1347,20 @@ static void adreno_hwsched_work(struct kthread_work *work)
 	mutex_unlock(&hwsched->mutex);
 }
 
+static void adreno_hwsched_fault(struct adreno_device *adreno_dev,
+		u32 fault)
+{
+	adreno_get_gpu_halt(adreno_dev);
+	adreno_hwsched_set_fault(adreno_dev);
+}
+
+static const struct adreno_dispatch_ops hwsched_ops = {
+	.close = adreno_hwsched_dispatcher_close,
+	.queue_cmds = adreno_hwsched_queue_cmds,
+	.queue_context = adreno_hwsched_queue_context,
+	.fault = adreno_hwsched_fault,
+};
+
 int adreno_hwsched_init(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -1376,6 +1390,7 @@ int adreno_hwsched_init(struct adreno_device *adreno_dev)
 	sched_set_fifo(hwsched->worker->task);
 
 	sysfs_create_files(&device->dev->kobj, _hwsched_attr_list);
+	adreno_set_dispatch_ops(adreno_dev, &hwsched_ops);
 	return 0;
 }
 

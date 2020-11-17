@@ -393,6 +393,24 @@ struct adreno_gpu_core {
 };
 
 /**
+ * struct adreno_dispatch_ops - Common functions for dispatcher operations
+ */
+struct adreno_dispatch_ops {
+	/* @close: Shut down the dispatcher */
+	void (*close)(struct adreno_device *adreno_dev);
+	/* @queue_cmds: Queue a command on the context */
+	int (*queue_cmds)(struct kgsl_device_private *dev_priv,
+		struct kgsl_context *context, struct kgsl_drawobj *drawobj[],
+		u32 count, u32 *timestamp);
+	/* @queue_context: Queue a context to be dispatched */
+	void (*queue_context)(struct adreno_device *adreno_dev,
+			struct adreno_context *drawctxt);
+	void (*setup_context)(struct adreno_device *adreno_dev,
+			struct adreno_context *drawctxt);
+	void (*fault)(struct adreno_device *adreno_dev, u32 fault);
+};
+
+/**
  * struct adreno_device - The mothership structure for all adreno related info
  * @dev: Reference to struct kgsl_device
  * @priv: Holds the private flags specific to the adreno_device
@@ -572,6 +590,8 @@ struct adreno_device {
 	int soft_ft_count;
 	/** @wake_on_touch: If true our last wakeup was due to a touch event */
 	bool wake_on_touch;
+	/* @dispatch_ops: A pointer to a set of adreno dispatch ops */
+	const struct adreno_dispatch_ops *dispatch_ops;
 };
 
 /**
@@ -1336,43 +1356,6 @@ static inline bool adreno_is_preemption_enabled(
 {
 	return test_bit(ADRENO_DEVICE_PREEMPTION, &adreno_dev->priv);
 }
-/**
- * adreno_ctx_get_rb() - Return the ringbuffer that a context should
- * use based on priority
- * @adreno_dev: The adreno device that context is using
- * @drawctxt: The context pointer
- */
-static inline struct adreno_ringbuffer *adreno_ctx_get_rb(
-				struct adreno_device *adreno_dev,
-				struct adreno_context *drawctxt)
-{
-	struct kgsl_context *context;
-	int level;
-
-	if (!drawctxt)
-		return NULL;
-
-	context = &(drawctxt->base);
-
-	/*
-	 * If preemption is disabled then everybody needs to go on the same
-	 * ringbuffer
-	 */
-
-	if (!adreno_is_preemption_enabled(adreno_dev))
-		return &(adreno_dev->ringbuffers[0]);
-
-	/*
-	 * Math to convert the priority field in context structure to an RB ID.
-	 * Divide up the context priority based on number of ringbuffer levels.
-	 */
-	level = context->priority / adreno_dev->num_ringbuffers;
-	if (level < adreno_dev->num_ringbuffers)
-		return &(adreno_dev->ringbuffers[level]);
-	else
-		return &(adreno_dev->ringbuffers[
-				adreno_dev->num_ringbuffers - 1]);
-}
 
 /*
  * adreno_compare_prio_level() - Compares 2 priority levels based on enum values
@@ -1762,4 +1745,11 @@ static inline int adreno_allocate_global(struct kgsl_device *device,
  */
 bool adreno_regulator_disable_poll(struct kgsl_device *device,
 		struct regulator *reg, u32 offset, u32 timeout);
+
+static inline void adreno_set_dispatch_ops(struct adreno_device *adreno_dev,
+		const struct adreno_dispatch_ops *ops)
+{
+	adreno_dev->dispatch_ops = ops;
+}
+
 #endif /*__ADRENO_H */

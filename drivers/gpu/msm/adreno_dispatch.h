@@ -91,28 +91,15 @@ enum adreno_dispatcher_flags {
 };
 
 struct adreno_device;
-struct adreno_context;
-struct kgsl_context;
 struct kgsl_device;
-struct kgsl_device_private;
 
 void adreno_dispatcher_start(struct kgsl_device *device);
 int adreno_dispatcher_init(struct adreno_device *adreno_dev);
-void adreno_dispatcher_close(struct adreno_device *adreno_dev);
 int adreno_dispatcher_idle(struct adreno_device *adreno_dev);
 void adreno_dispatcher_stop(struct adreno_device *adreno_dev);
 
 void adreno_dispatcher_start_fault_timer(struct adreno_device *adreno_dev);
 void adreno_dispatcher_stop_fault_timer(struct kgsl_device *device);
 
-struct kgsl_drawobj;
-
-int adreno_dispatcher_queue_cmds(struct kgsl_device_private *dev_priv,
-		struct kgsl_context *context, struct kgsl_drawobj *drawobj[],
-		uint32_t count, uint32_t *timestamp);
-
 void adreno_dispatcher_schedule(struct kgsl_device *device);
-void adreno_dispatcher_queue_context(struct kgsl_device *device,
-		struct adreno_context *drawctxt);
-
 #endif /* __ADRENO_DISPATCHER_H */
