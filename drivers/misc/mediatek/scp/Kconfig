@@ -16,3 +16,9 @@ config MTK_TINYSYS_SCP_LOGGER_SUPPORT
 	  Set N to disable this feature.
 	  If unsure, Set Y to have debug log.
 
+config MTK_TINYSYS_SCP_VERSION
+	string "Support MTK SCP Driver Version"
+	depends on MTK_TINYSYS_SCP_SUPPORT
+	default ""
+	help
+	  MTK_TINYSYS_SCP_VERSION define which scp version will be used
