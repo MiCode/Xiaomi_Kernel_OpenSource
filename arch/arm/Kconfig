@@ -1644,6 +1644,7 @@ choice
 
 config ENABLE_VMALLOC_SAVING
 	bool "Reclaim memory for each subsystem"
+	depends on QGKI
 	help
 	  Enable this config to reclaim the virtual space belonging
 	  to any subsystem which is expected to have a lifetime of
