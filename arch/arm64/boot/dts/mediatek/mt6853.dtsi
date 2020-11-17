@@ -3034,7 +3034,9 @@
 		iommu1: iommu@19010000 {
 			compatible = "mediatek,mt6873-apu-iommu";
 			reg = <0 0x19010000 0 0x1000>;
+			mediatek,apu_power = <&apusys_power>;
 			interrupts = <GIC_SPI 395 IRQ_TYPE_LEVEL_HIGH 0>;
+			power-domains = <&scpsys MT6853_POWER_DOMAIN_APU>;
 			#iommu-cells = <1>;
 		};
 
