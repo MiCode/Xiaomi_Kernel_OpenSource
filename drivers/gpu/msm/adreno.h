@@ -822,12 +822,8 @@ extern const struct adreno_power_ops adreno_power_operations;
 extern const struct adreno_gpudev adreno_a3xx_gpudev;
 extern const struct adreno_gpudev adreno_a5xx_gpudev;
 extern const struct adreno_gpudev adreno_a6xx_gpudev;
-extern const struct adreno_gpudev adreno_a6xx_gmu_gpudev;
 extern const struct adreno_gpudev adreno_a6xx_rgmu_gpudev;
 extern const struct adreno_gpudev adreno_a619_holi_gpudev;
-extern const struct adreno_gpudev adreno_a630_gpudev;
-extern const struct adreno_gpudev adreno_a6xx_hwsched_gpudev;
-extern const struct adreno_gpudev adreno_genc_gmu_gpudev;
 
 extern int adreno_wake_nice;
 extern unsigned int adreno_wake_timeout;

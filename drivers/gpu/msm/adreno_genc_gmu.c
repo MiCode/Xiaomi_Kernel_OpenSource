@@ -2510,27 +2510,36 @@ int genc_gmu_restart(struct kgsl_device *device)
 	return genc_boot(adreno_dev);
 }
 
+int genc_gmu_hfi_probe(struct adreno_device *adreno_dev)
+{
+	struct genc_gmu_device *gmu = to_genc_gmu(adreno_dev);
+	struct genc_hfi *hfi = &gmu->hfi;
+
+	hfi->irq = kgsl_request_irq(gmu->pdev, "hfi",
+		genc_hfi_irq_handler, KGSL_DEVICE(adreno_dev));
+
+	return hfi->irq < 0 ? hfi->irq : 0;
+}
+
 static int genc_gmu_bind(struct device *dev, struct device *master, void *data)
 {
 	struct kgsl_device *device = dev_get_drvdata(master);
-	struct genc_gmu_device *gmu = to_genc_gmu(ADRENO_DEVICE(device));
-	struct genc_hfi *hfi = &gmu->hfi;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	const struct genc_gpudev *genc_gpudev = to_genc_gpudev(gpudev);
 	int ret;
 
 	ret = genc_gmu_probe(device, to_platform_device(dev));
 	if (ret)
 		return ret;
 
-	/*
-	 * genc_gmu_probe() is also called by hwscheduling probe. However,
-	 * since HFI interrupts are handled differently in hwscheduling, move
-	 * out HFI interrupt setup from genc_gmu_probe().
-	 */
-	hfi->irq = kgsl_request_irq(gmu->pdev, "hfi",
-		genc_hfi_irq_handler, device);
-	if (hfi->irq < 0) {
-		genc_gmu_remove(device);
-		return hfi->irq;
+	if (genc_gpudev->hfi_probe) {
+		ret = genc_gpudev->hfi_probe(adreno_dev);
+
+		if (ret) {
+			genc_gmu_remove(device);
+			return ret;
+		}
 	}
 
 	return 0;

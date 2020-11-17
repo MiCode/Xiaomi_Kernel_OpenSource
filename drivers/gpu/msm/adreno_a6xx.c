@@ -2567,46 +2567,52 @@ const struct adreno_gpudev adreno_a6xx_gpudev = {
 	.setproperty = a6xx_setproperty,
 };
 
-const struct adreno_gpudev adreno_a6xx_hwsched_gpudev = {
-	.reg_offsets = a6xx_register_offsets,
-	.probe = a6xx_hwsched_probe,
-	.snapshot = a6xx_hwsched_snapshot,
-	.irq_handler = a6xx_irq_handler,
-	.iommu_fault_block = a6xx_iommu_fault_block,
-	.preemption_context_init = a6xx_preemption_context_init,
-	.context_detach = a6xx_hwsched_context_detach,
+const struct a6xx_gpudev adreno_a6xx_hwsched_gpudev = {
+	.base = {
+		.reg_offsets = a6xx_register_offsets,
+		.probe = a6xx_hwsched_probe,
+		.snapshot = a6xx_hwsched_snapshot,
+		.irq_handler = a6xx_irq_handler,
+		.iommu_fault_block = a6xx_iommu_fault_block,
+		.preemption_context_init = a6xx_preemption_context_init,
+		.context_detach = a6xx_hwsched_context_detach,
 #ifdef CONFIG_QCOM_KGSL_CORESIGHT
-	.coresight = {&a6xx_coresight, &a6xx_coresight_cx},
+		.coresight = {&a6xx_coresight, &a6xx_coresight_cx},
 #endif
-	.read_alwayson = a6xx_read_alwayson,
-	.power_ops = &a6xx_hwsched_power_ops,
-	.power_stats = a6xx_power_stats,
-	.setproperty = a6xx_setproperty,
+		.read_alwayson = a6xx_read_alwayson,
+		.power_ops = &a6xx_hwsched_power_ops,
+		.power_stats = a6xx_power_stats,
+		.setproperty = a6xx_setproperty,
+	},
+	.hfi_probe = a6xx_hwsched_hfi_probe,
 };
 
-const struct adreno_gpudev adreno_a6xx_gmu_gpudev = {
-	.reg_offsets = a6xx_register_offsets,
-	.probe = a6xx_gmu_device_probe,
-	.snapshot = a6xx_gmu_snapshot,
-	.irq_handler = a6xx_irq_handler,
-	.rb_start = a6xx_rb_start,
-	.regulator_enable = a6xx_sptprac_enable,
-	.regulator_disable = a6xx_sptprac_disable,
-	.gpu_keepalive = a6xx_gpu_keepalive,
-	.hw_isidle = a6xx_hw_isidle,
-	.iommu_fault_block = a6xx_iommu_fault_block,
-	.reset = a6xx_gmu_restart,
-	.preemption_schedule = a6xx_preemption_schedule,
-	.preemption_context_init = a6xx_preemption_context_init,
+const struct a6xx_gpudev adreno_a6xx_gmu_gpudev = {
+	.base = {
+		.reg_offsets = a6xx_register_offsets,
+		.probe = a6xx_gmu_device_probe,
+		.snapshot = a6xx_gmu_snapshot,
+		.irq_handler = a6xx_irq_handler,
+		.rb_start = a6xx_rb_start,
+		.regulator_enable = a6xx_sptprac_enable,
+		.regulator_disable = a6xx_sptprac_disable,
+		.gpu_keepalive = a6xx_gpu_keepalive,
+		.hw_isidle = a6xx_hw_isidle,
+		.iommu_fault_block = a6xx_iommu_fault_block,
+		.reset = a6xx_gmu_restart,
+		.preemption_schedule = a6xx_preemption_schedule,
+		.preemption_context_init = a6xx_preemption_context_init,
 #ifdef CONFIG_QCOM_KGSL_CORESIGHT
-	.coresight = {&a6xx_coresight, &a6xx_coresight_cx},
+		.coresight = {&a6xx_coresight, &a6xx_coresight_cx},
 #endif
-	.read_alwayson = a6xx_read_alwayson,
-	.power_ops = &a6xx_gmu_power_ops,
-	.remove = a6xx_remove,
-	.ringbuffer_submitcmd = a6xx_ringbuffer_submitcmd,
-	.power_stats = a6xx_power_stats,
-	.setproperty = a6xx_setproperty,
+		.read_alwayson = a6xx_read_alwayson,
+		.power_ops = &a6xx_gmu_power_ops,
+		.remove = a6xx_remove,
+		.ringbuffer_submitcmd = a6xx_ringbuffer_submitcmd,
+		.power_stats = a6xx_power_stats,
+		.setproperty = a6xx_setproperty,
+	},
+	.hfi_probe = a6xx_gmu_hfi_probe,
 };
 
 const struct adreno_gpudev adreno_a6xx_rgmu_gpudev = {
@@ -2668,27 +2674,30 @@ const struct adreno_gpudev adreno_a619_holi_gpudev = {
 	.setproperty = a6xx_setproperty,
 };
 
-const struct adreno_gpudev adreno_a630_gpudev = {
-	.reg_offsets = a6xx_register_offsets,
-	.probe = a6xx_gmu_device_probe,
-	.snapshot = a6xx_gmu_snapshot,
-	.irq_handler = a6xx_irq_handler,
-	.rb_start = a6xx_rb_start,
-	.regulator_enable = a6xx_sptprac_enable,
-	.regulator_disable = a6xx_sptprac_disable,
-	.gpu_keepalive = a6xx_gpu_keepalive,
-	.hw_isidle = a6xx_hw_isidle,
-	.iommu_fault_block = a6xx_iommu_fault_block,
-	.reset = a6xx_gmu_restart,
-	.preemption_schedule = a6xx_preemption_schedule,
-	.preemption_context_init = a6xx_preemption_context_init,
+const struct a6xx_gpudev adreno_a630_gpudev = {
+	.base = {
+		.reg_offsets = a6xx_register_offsets,
+		.probe = a6xx_gmu_device_probe,
+		.snapshot = a6xx_gmu_snapshot,
+		.irq_handler = a6xx_irq_handler,
+		.rb_start = a6xx_rb_start,
+		.regulator_enable = a6xx_sptprac_enable,
+		.regulator_disable = a6xx_sptprac_disable,
+		.gpu_keepalive = a6xx_gpu_keepalive,
+		.hw_isidle = a6xx_hw_isidle,
+		.iommu_fault_block = a6xx_iommu_fault_block,
+		.reset = a6xx_gmu_restart,
+		.preemption_schedule = a6xx_preemption_schedule,
+		.preemption_context_init = a6xx_preemption_context_init,
 #ifdef CONFIG_QCOM_KGSL_CORESIGHT
-	.coresight = {&a6xx_coresight, &a6xx_coresight_cx},
+		.coresight = {&a6xx_coresight, &a6xx_coresight_cx},
 #endif
-	.read_alwayson = a6xx_read_alwayson,
-	.power_ops = &a630_gmu_power_ops,
-	.remove = a6xx_remove,
-	.ringbuffer_submitcmd = a6xx_ringbuffer_submitcmd,
-	.power_stats = a6xx_power_stats,
-	.setproperty = a6xx_setproperty,
+		.read_alwayson = a6xx_read_alwayson,
+		.power_ops = &a630_gmu_power_ops,
+		.remove = a6xx_remove,
+		.ringbuffer_submitcmd = a6xx_ringbuffer_submitcmd,
+		.power_stats = a6xx_power_stats,
+		.setproperty = a6xx_setproperty,
+	},
+	.hfi_probe = a6xx_gmu_hfi_probe,
 };

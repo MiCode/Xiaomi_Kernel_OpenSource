@@ -20,6 +20,15 @@ extern const struct adreno_power_ops a6xx_rgmu_power_ops;
 extern const struct adreno_power_ops a630_gmu_power_ops;
 extern const struct adreno_power_ops a6xx_hwsched_power_ops;
 
+struct a6xx_gpudev {
+	struct adreno_gpudev base;
+	int (*hfi_probe)(struct adreno_device *adreno_dev);
+};
+
+extern const struct a6xx_gpudev adreno_a630_gpudev;
+extern const struct a6xx_gpudev adreno_a6xx_gmu_gpudev;
+extern const struct a6xx_gpudev adreno_a6xx_hwsched_gpudev;
+
 /**
  * struct a6xx_device - Container for the a6xx_device
  */
@@ -440,5 +449,13 @@ int a6xx_ringbuffer_submit(struct adreno_ringbuffer *rb,
 		struct adreno_submit_time *time, bool sync);
 
 void a6xx_cp_init_cmds(struct adreno_device *adreno_dev, u32 *cmds);
+
+int a6xx_gmu_hfi_probe(struct adreno_device *adreno_dev);
+
+static inline const struct a6xx_gpudev *
+to_a6xx_gpudev(const struct adreno_gpudev *gpudev)
+{
+	return container_of(gpudev, struct a6xx_gpudev, base);
+}
 
 #endif

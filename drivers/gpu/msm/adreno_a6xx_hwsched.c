@@ -562,6 +562,9 @@ static int a6xx_hwsched_first_boot(struct adreno_device *adreno_dev)
 	if (test_bit(GMU_PRIV_FIRST_BOOT_DONE, &gmu->flags))
 		return a6xx_hwsched_boot(adreno_dev);
 
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION))
+		set_bit(ADRENO_DEVICE_PREEMPTION, &adreno_dev->priv);
+
 	adreno_hwsched_start(adreno_dev);
 
 	ret = a6xx_microcode_read(adreno_dev);
@@ -1006,69 +1009,3 @@ int a6xx_hwsched_probe(struct platform_device *pdev,
 
 	return 0;
 }
-
-static int a6xx_hwsched_bind(struct device *dev, struct device *master,
-	void *data)
-{
-	struct kgsl_device *device = dev_get_drvdata(master);
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	int ret;
-
-	ret = a6xx_gmu_probe(device, to_platform_device(dev));
-	if (ret)
-		goto error;
-
-	ret = a6xx_hwsched_hfi_probe(adreno_dev);
-	if (ret)
-		goto error;
-
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION))
-		set_bit(ADRENO_DEVICE_PREEMPTION, &adreno_dev->priv);
-
-	return 0;
-
-error:
-	a6xx_gmu_remove(device);
-
-	return ret;
-}
-
-static void a6xx_hwsched_unbind(struct device *dev, struct device *master,
-		void *data)
-{
-	struct kgsl_device *device = dev_get_drvdata(master);
-
-	a6xx_gmu_remove(device);
-
-	adreno_hwsched_dispatcher_close(ADRENO_DEVICE(device));
-}
-
-static const struct component_ops a6xx_hwsched_component_ops = {
-	.bind = a6xx_hwsched_bind,
-	.unbind = a6xx_hwsched_unbind,
-};
-
-static int a6xx_hwsched_probe_dev(struct platform_device *pdev)
-{
-	return component_add(&pdev->dev, &a6xx_hwsched_component_ops);
-}
-
-static int a6xx_hwsched_remove_dev(struct platform_device *pdev)
-{
-	component_del(&pdev->dev, &a6xx_hwsched_component_ops);
-	return 0;
-}
-
-static const struct of_device_id a6xx_gmu_match_table[] = {
-	{ .compatible = "qcom,gpu-gmu" },
-	{ },
-};
-
-struct platform_driver a6xx_hwsched_driver = {
-	.probe = a6xx_hwsched_probe_dev,
-	.remove = a6xx_hwsched_remove_dev,
-	.driver = {
-		.name = "adreno-a6xx-gmu",
-		.of_match_table = a6xx_gmu_match_table,
-	},
-};
