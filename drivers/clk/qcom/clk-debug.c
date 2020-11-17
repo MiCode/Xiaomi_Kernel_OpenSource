@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2016, 2019, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2016, 2019-2020 The Linux Foundation. All rights reserved. */
 
 #include <linux/clk.h>
 #include <linux/export.h>
@@ -14,6 +14,7 @@
 
 #include "clk-regmap.h"
 #include "clk-debug.h"
+#include "common.h"
 
 static struct clk_hw *measure;
 
@@ -409,3 +410,49 @@ int map_debug_bases(struct platform_device *pdev, const char *base,
 	return 0;
 }
 EXPORT_SYMBOL(map_debug_bases);
+
+/**
+ * qcom_clk_dump - dump the HW specific registers associated with this clock
+ * @clk: clock source
+ * @calltrace: indicates whether calltrace is required
+ *
+ * This function attempts to print all the registers associated with the
+ * clock and it's parents.
+ */
+void qcom_clk_dump(struct clk *clk, bool calltrace)
+{
+	struct clk_hw *hw;
+
+	if (IS_ERR_OR_NULL(clk))
+		return;
+
+	hw = __clk_get_hw(clk);
+	if (IS_ERR_OR_NULL(hw))
+		return;
+
+	pr_info("Dumping %s Registers:\n", clk_hw_get_name(hw));
+	WARN_CLK(hw->core, clk_hw_get_name(hw), calltrace, "");
+}
+EXPORT_SYMBOL(qcom_clk_dump);
+
+/**
+ * qcom_clk_bulk_dump - dump the HW specific registers associated with clocks
+ * @clks: the clk_bulk_data table of consumer
+ * @num_clks: the number of clk_bulk_data
+ * @calltrace: indicates whether calltrace is required
+ *
+ * This function attempts to print all the registers associated with the
+ * clock and it's parents for all the clocks in the list.
+ */
+void qcom_clk_bulk_dump(int num_clks, struct clk_bulk_data *clks,
+			bool calltrace)
+{
+	int i;
+
+	if (IS_ERR_OR_NULL(clks))
+		return;
+
+	for (i = 0; i < num_clks; i++)
+		qcom_clk_dump(clks[i].clk, calltrace);
+}
+EXPORT_SYMBOL(qcom_clk_bulk_dump);
