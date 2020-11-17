@@ -441,7 +441,7 @@ static void trigger_reset_recovery(struct adreno_device *adreno_dev,
 	if (req != oob_perfcntr)
 		return;
 
-	if (test_bit(GMU_DISPATCH, &device->gmu_core.flags)) {
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_HWSCHED)) {
 		adreno_get_gpu_halt(adreno_dev);
 
 		adreno_hwsched_set_fault(adreno_dev);

@@ -411,7 +411,7 @@ adreno_drawctxt_create(struct kgsl_device_private *dev_priv,
 
 	adreno_context_debugfs_init(ADRENO_DEVICE(device), drawctxt);
 
-	if (!test_bit(GMU_DISPATCH, &device->gmu_core.flags)) {
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_HWSCHED)) {
 		/* set the context ringbuffer */
 		drawctxt->rb = adreno_ctx_get_rb(adreno_dev, drawctxt);
 
@@ -516,7 +516,7 @@ void adreno_drawctxt_detach(struct kgsl_context *context)
 
 	spin_lock(&drawctxt->lock);
 
-	if (!test_bit(GMU_DISPATCH, &device->gmu_core.flags)) {
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_HWSCHED)) {
 		spin_lock(&adreno_dev->active_list_lock);
 		list_del_init(&drawctxt->active_node);
 		spin_unlock(&adreno_dev->active_list_lock);

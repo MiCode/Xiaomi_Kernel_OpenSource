@@ -1005,8 +1005,6 @@ static int genc_hwsched_bind(struct device *dev, struct device *master,
 		return ret;
 	}
 
-	set_bit(GMU_DISPATCH, &device->gmu_core.flags);
-
 	return 0;
 }
 

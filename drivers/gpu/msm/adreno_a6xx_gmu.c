@@ -710,7 +710,7 @@ static void trigger_reset_recovery(struct adreno_device *adreno_dev,
 	if (req != oob_perfcntr)
 		return;
 
-	if (test_bit(GMU_DISPATCH, &device->gmu_core.flags)) {
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_HWSCHED)) {
 		adreno_get_gpu_halt(adreno_dev);
 
 		adreno_hwsched_set_fault(adreno_dev);
@@ -1999,7 +1999,7 @@ static irqreturn_t a6xx_gmu_irq_handler(int irq, void *data)
 		dev_err_ratelimited(&gmu->pdev->dev,
 				"GMU watchdog expired interrupt received\n");
 
-		if (test_bit(GMU_DISPATCH, &device->gmu_core.flags)) {
+		if (ADRENO_FEATURE(adreno_dev, ADRENO_HWSCHED)) {
 			adreno_get_gpu_halt(adreno_dev);
 			adreno_hwsched_set_fault(adreno_dev);
 		}

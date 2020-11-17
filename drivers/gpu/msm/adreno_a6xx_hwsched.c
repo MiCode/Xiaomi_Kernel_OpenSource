@@ -1022,8 +1022,6 @@ static int a6xx_hwsched_bind(struct device *dev, struct device *master,
 	if (ret)
 		goto error;
 
-	set_bit(GMU_DISPATCH, &device->gmu_core.flags);
-
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION))
 		set_bit(ADRENO_DEVICE_PREEMPTION, &adreno_dev->priv);
 
