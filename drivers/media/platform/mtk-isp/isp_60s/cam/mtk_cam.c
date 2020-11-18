@@ -798,6 +798,13 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 		ctx->composed_frame_seq_no = ipi_msg->cookie.frame_no;
 		req = mtk_cam_dev_get_req(cam, ctx,
 					  ctx->composed_frame_seq_no);
+		if (!req) {
+			dev_dbg(dev, "ctx:%d no req for ack frame_num:%d\n",
+				ctx->stream_id, ctx->composed_frame_seq_no);
+			spin_unlock(&ctx->using_buffer_list.lock);
+			return -EINVAL;
+		}
+
 		req->state.time_swirq_composed = ktime_get_boottime_ns() / 1000;
 		dev_dbg(dev, "ctx:%d ack frame_num:%d\n",
 			ctx->stream_id, ctx->composed_frame_seq_no);
