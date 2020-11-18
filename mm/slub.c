@@ -6323,16 +6323,9 @@ static int __init slab_sysfs_init(void)
 #ifdef CONFIG_SLUB_DEBUG
 	if (slub_debug) {
 		slab_debugfs_top = debugfs_create_dir("slab", NULL);
-		if (!slab_debugfs_top) {
-			pr_err("Couldn't create slab debugfs directory\n");
-			return -ENODEV;
-		}
-
-		if (!debugfs_create_file("alloc_trace", 0400, slab_debugfs_top,
-					NULL, &slab_debug_alloc_fops)) {
-			pr_err("Couldn't create slab/tests debugfs directory\n");
-			return -ENODEV;
-		}
+		if (!IS_ERR(slab_debugfs_top))
+			debugfs_create_file("alloc_trace", 0400, slab_debugfs_top,
+					NULL, &slab_debug_alloc_fops);
 	}
 #endif
 
