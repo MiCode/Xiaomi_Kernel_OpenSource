@@ -426,6 +426,18 @@ static void a6xx_set_secvid(struct kgsl_device *device)
 		set = true;
 }
 
+static void a6xx_deassert_gbif_halt(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+
+	kgsl_regwrite(device, A6XX_GBIF_HALT, 0x0);
+
+	if (adreno_is_a619_holi(adreno_dev))
+		kgsl_regwrite(device, A6XX_RBBM_GPR0_CNTL, 0x0);
+	else
+		kgsl_regwrite(device, A6XX_RBBM_GBIF_HALT, 0x0);
+}
+
 /*
  * Some targets support marking certain transactions as always privileged which
  * allows us to mark more memory as privileged without having to explicitly set
@@ -696,6 +708,19 @@ void a6xx_start(struct adreno_device *adreno_dev)
 		a6xx_patch_pwrup_reglist(adreno_dev);
 		patch_reglist = true;
 	}
+
+	/*
+	 * During adreno_stop, GBIF halt is asserted to ensure
+	 * no further transaction can go through GPU before GPU
+	 * headswitch is turned off.
+	 *
+	 * This halt is deasserted once headswitch goes off but
+	 * incase headswitch doesn't goes off clear GBIF halt
+	 * here to ensure GPU wake-up doesn't fail because of
+	 * halted GPU transactions.
+	 */
+	a6xx_deassert_gbif_halt(adreno_dev);
+
 }
 
 /* Offsets into the MX/CX mapped register regions */
@@ -2300,9 +2325,6 @@ static unsigned int a6xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_LOAD_VALUE_HI,
 				A6XX_RBBM_PERFCTR_LOAD_VALUE_HI),
 	ADRENO_REG_DEFINE(ADRENO_REG_VBIF_VERSION, A6XX_VBIF_VERSION),
-	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_GBIF_HALT,
-				A6XX_RBBM_GBIF_HALT),
-	ADRENO_REG_DEFINE(ADRENO_REG_GBIF_HALT, A6XX_GBIF_HALT),
 	ADRENO_REG_DEFINE(ADRENO_REG_GMU_AO_HOST_INTERRUPT_MASK,
 				A6XX_GMU_AO_HOST_INTERRUPT_MASK),
 	ADRENO_REG_DEFINE(ADRENO_REG_GMU_AHB_FENCE_STATUS,
