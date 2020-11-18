@@ -2509,6 +2509,7 @@ const struct adreno_gpudev adreno_a6xx_gpudev = {
 	.read_alwayson = a6xx_read_alwayson,
 	.power_ops = &adreno_power_operations,
 	.clear_pending_transactions = a6xx_clear_pending_transactions,
+	.deassert_gbif_halt = a6xx_deassert_gbif_halt,
 };
 
 const struct adreno_gpudev adreno_a6xx_hwsched_gpudev = {
@@ -2622,6 +2623,7 @@ const struct adreno_gpudev adreno_a619_holi_gpudev = {
 	.read_alwayson = a6xx_read_alwayson,
 	.power_ops = &adreno_power_operations,
 	.clear_pending_transactions = a6xx_clear_pending_transactions,
+	.deassert_gbif_halt = a6xx_deassert_gbif_halt,
 };
 
 const struct adreno_gpudev adreno_a630_gpudev = {

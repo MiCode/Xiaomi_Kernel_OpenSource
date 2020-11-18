@@ -148,7 +148,7 @@ struct kgsl_functable {
 		struct kgsl_context *context);
 	void (*resume)(struct kgsl_device *device);
 	int (*regulator_enable)(struct kgsl_device *device);
-	bool (*is_hw_collapsible)(struct kgsl_device *device);
+	bool (*prepare_for_power_off)(struct kgsl_device *device);
 	void (*regulator_disable)(struct kgsl_device *device);
 	void (*pwrlevel_change_settings)(struct kgsl_device *device,
 		unsigned int prelevel, unsigned int postlevel, bool post);
@@ -157,7 +157,6 @@ struct kgsl_functable {
 		const char *name, struct clk *clk, bool on);
 	void (*gpu_model)(struct kgsl_device *device, char *str,
 		size_t bufsz);
-	void (*stop_fault_timer)(struct kgsl_device *device);
 	/**
 	 * @query_property_list: query the list of properties
 	 * supported by the device. If 'list' is NULL just return the total
@@ -171,6 +170,7 @@ struct kgsl_functable {
 	int (*gpu_clock_set)(struct kgsl_device *device, u32 pwrlevel);
 	/** @gpu_bus_set: Target specific function to set gpu bandwidth */
 	int (*gpu_bus_set)(struct kgsl_device *device, int bus_level, u32 ab);
+	void (*deassert_gbif_halt)(struct kgsl_device *device);
 };
 
 struct kgsl_ioctl {

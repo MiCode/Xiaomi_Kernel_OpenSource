@@ -811,6 +811,7 @@ struct adreno_gpudev {
 	 */
 	const struct adreno_power_ops *power_ops;
 	int (*clear_pending_transactions)(struct adreno_device *adreno_dev);
+	void (*deassert_gbif_halt)(struct adreno_device *adreno_dev);
 };
 
 /**
@@ -1735,8 +1736,6 @@ static inline u32 adreno_get_level(u32 priority)
 int adreno_gmu_fenced_write(struct adreno_device *adreno_dev,
 	enum adreno_regs offset, unsigned int val,
 	unsigned int fence_mask);
-int adreno_clear_pending_transactions(struct kgsl_device *device);
-
 
 /**
  * adreno_get_firwmare - Load firmware into a adreno_firmware struct
