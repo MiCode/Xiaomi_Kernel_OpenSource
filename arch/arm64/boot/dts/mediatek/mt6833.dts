@@ -242,8 +242,8 @@ page_owner=on loop.max_part=7";
 
 		backlight {
 			label = "lcd-backlight";
-			max-brightness = <255>;
-			led-bits = <8>;
+			max-brightness = <4095>;
+			led-bits = <12>;
 			default-state = "on";
 		};
 	};
@@ -254,8 +254,8 @@ page_owner=on loop.max_part=7";
 		backlight {
 			label = "lcd-backlight";
 			pwms = <&disp_pwm 0 39385>;
-			max-brightness = <255>;
-			led-bits = <8>;
+			max-brightness = <4095>;
+			led-bits = <12>;
 			pwm-names = "lcd-backlight";
 		};
 	};
