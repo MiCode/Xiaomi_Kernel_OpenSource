@@ -985,6 +985,19 @@ static int icnss_qdss_trace_save_hdlr(struct icnss_priv *priv,
 	return ret;
 }
 
+static inline int icnss_atomic_dec_if_greater_one(atomic_t *v)
+{
+	int dec, c = atomic_read(v);
+
+	do {
+		dec = c - 1;
+		if (unlikely(dec < 1))
+			break;
+	} while (!atomic_try_cmpxchg(v, &c, dec));
+
+	return dec;
+}
+
 static int icnss_event_soc_wake_request(struct icnss_priv *priv, void *data)
 {
 	int ret = 0;
@@ -2382,7 +2395,6 @@ EXPORT_SYMBOL(icnss_force_wake_request);
 int icnss_force_wake_release(struct device *dev)
 {
 	struct icnss_priv *priv = dev_get_drvdata(dev);
-	int count = 0;
 
 	if (!dev)
 		return -ENODEV;
@@ -2392,14 +2404,13 @@ int icnss_force_wake_release(struct device *dev)
 		return -EINVAL;
 	}
 
-	if (atomic_read(&priv->soc_wake_ref_count) > 1) {
-		count = atomic_dec_return(&priv->soc_wake_ref_count);
+	icnss_pr_dbg("Calling SOC Wake response");
+
+	if (icnss_atomic_dec_if_greater_one(&priv->soc_wake_ref_count)) {
 		icnss_pr_dbg("SOC previous release pending, Ref count: %d",
-			     count);
+			     atomic_read(&priv->soc_wake_ref_count));
 		return 0;
 	}
-
-	icnss_pr_dbg("Calling SOC Wake response");
 
 	icnss_soc_wake_event_post(priv, ICNSS_SOC_WAKE_RELEASE_EVENT,
 				  0, NULL);
