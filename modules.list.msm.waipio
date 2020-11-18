@@ -29,6 +29,7 @@ ns.ko
 qrtr-smd.ko
 socinfo.ko
 spmi-pmic-arb.ko
+spmi-pmic-arb-debug.ko
 qcom-spmi-pmic.ko
 regmap-spmi.ko
 qti-regmap-debugfs.ko
