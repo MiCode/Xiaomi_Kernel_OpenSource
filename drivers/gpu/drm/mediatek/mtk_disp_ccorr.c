@@ -623,12 +623,12 @@ int disp_ccorr_set_color_matrix(struct mtk_ddp_comp *comp,
 		hint, identity_matrix, fte_flag, bypass_color);
 	if (((hint == 0) || ((hint == 1) && identity_matrix)) && (!fte_flag)) {
 		if (bypass_color == true) {
-			mtk_color_setbypass(comp, false);
+			mtk_color_setbypass(comp, handle, false);
 			bypass_color = false;
 		}
 	} else {
 		if (bypass_color == false) {
-			mtk_color_setbypass(comp, true);
+			mtk_color_setbypass(comp, handle, true);
 			bypass_color = true;
 		}
 	}
