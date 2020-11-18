@@ -3168,6 +3168,16 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 	}
 
 	ret = uart_add_one_port(drv, uport);
+	if (ret)
+		dev_err(&pdev->dev, "Failed to register uart_port: %d\n",
+				ret);
+	/*
+	 * Remove proxy vote from QUP core which was kept from common driver
+	 * probe on behalf of earlycon
+	 */
+	if (uart_console(uport))
+		geni_se_remove_earlycon_icc_vote(dev_port->wrapper_dev);
+
 exit_geni_serial_probe:
 	IPC_LOG_MSG(dev_port->ipc_log_misc, "%s: ret:%d\n",
 		    __func__, ret);
