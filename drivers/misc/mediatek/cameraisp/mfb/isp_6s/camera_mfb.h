@@ -350,6 +350,8 @@ enum MFB_CMD_ENUM {
 	MFB_CMD_MSF_ENQUE_REQ,	/* MSF Enque Request */
 	MFB_CMD_MSS_DEQUE_REQ,	/* MSS Deque Request */
 	MFB_CMD_MSF_DEQUE_REQ,	/* MSF Deque Request */
+	MFB_CMD_MAP,
+	MFB_CMD_UNMAP,
 	MFB_CMD_TOTAL,
 };
 
@@ -410,11 +412,13 @@ struct compat_MFB_REG_IO_STRUCT {
 struct compat_MFB_MSSRequest {
 	unsigned int m_ReqNum;
 	compat_uptr_t m_pMssConfig;
+	enum exec_mode exec;
 };
 
 struct compat_MFB_MSFRequest {
 	unsigned int m_ReqNum;
 	compat_uptr_t m_pMsfConfig;
+	enum exec_mode exec;
 };
 
 #endif
