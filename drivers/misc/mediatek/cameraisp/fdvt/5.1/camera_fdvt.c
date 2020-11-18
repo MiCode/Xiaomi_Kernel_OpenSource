@@ -1840,7 +1840,7 @@ static signed int config_secure_fdvt_hw(struct fdvt_config *basic_config)
 	log_dbg("FDVT CMDQ Task flush\n");
 
 	cmdq_pkt_flush(pkt);
-	cmdq_dump_pkt(pkt, 0, true);
+	/* cmdq_dump_pkt(pkt, 0, true); */
 	/* release resource */
 	cmdq_pkt_destroy(pkt);
 
