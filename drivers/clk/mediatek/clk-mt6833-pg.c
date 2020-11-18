@@ -2869,8 +2869,8 @@ int spm_mtcmos_ctrl_cam_bus_prot(int state)
 		INCREASE_STEPS;
 #endif
 		/* TINFO="Release bus protect - step2 : 0" */
-		spm_write(INFRA_TOPAXI_PROTECTEN_VDNR_CLR,
-				CAM_PROT_STEP2_2_MASK);
+		spm_write(INFRA_TOPAXI_PROTECTEN_1_CLR,
+				CAM_PROT_STEP2_0_MASK);
 #ifndef IGNORE_MTCMOS_CHECK
 		/* Note that this protect ack check after
 		 * releasing protect has been ignored
