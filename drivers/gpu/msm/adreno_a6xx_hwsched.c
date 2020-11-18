@@ -373,6 +373,8 @@ static int a6xx_hwsched_gmu_power_off(struct adreno_device *adreno_dev)
 
 	/* Now that we are done with GMU and GPU, Clear the GBIF */
 	ret = a6xx_halt_gbif(adreno_dev);
+	/* De-assert the halts */
+	kgsl_regwrite(device, A6XX_GBIF_HALT, 0x0);
 
 	a6xx_gmu_irq_disable(adreno_dev);
 
