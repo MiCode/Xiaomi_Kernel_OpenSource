@@ -1006,6 +1006,7 @@ static int ccu_release(struct inode *inode, struct file *flip)
 {
 	struct ccu_user_s *user = flip->private_data;
 	int i = 0;
+	struct CcuMemHandle handle;
 
 	LOG_INF_MUST("%s +\n", __func__);
 	ccu_force_powerdown();
@@ -1020,6 +1021,11 @@ static int ccu_release(struct inode *inode, struct file *flip)
 		/*can't in spin_lock*/
 		ccu_ion_free_import_handle(import_buffer_handle[i]);
 	}
+
+	handle.meminfo.cached = 0;
+	ccu_deallocate_mem(&handle);
+	handle.meminfo.cached = 1;
+	ccu_deallocate_mem(&handle);
 
 	ccu_delete_user(user);
 
