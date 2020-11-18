@@ -811,6 +811,7 @@ int wil_priv_init(struct wil6210_priv *wil)
 
 	wil->amsdu_en = true;
 	wil->fw_state = WIL_FW_STATE_DOWN;
+	wil->max_mcs = 0;
 
 	return 0;
 
