@@ -180,6 +180,9 @@ enum {
 	NLA_S32,
 	NLA_S64,
 	NLA_BITFIELD32,
+	NLA_REJECT,
+	NLA_EXACT_LEN,
+	NLA_EXACT_LEN_WARN,
 	__NLA_TYPE_MAX,
 };
 
@@ -208,8 +211,22 @@ enum {
  *    NLA_MSECS            Leaving the length field zero will verify the
  *                         given type fits, using it verifies minimum length
  *                         just like "All other"
- *    NLA_BITFIELD32      A 32-bit bitmap/bitselector attribute
+ *    NLA_BITFIELD32       Unused
+ *    NLA_REJECT           Unused
+ *    NLA_EXACT_LEN        Attribute must have exactly this length, otherwise
+ *                         it is rejected.
+ *    NLA_EXACT_LEN_WARN   Attribute should have exactly this length, a warning
+ *                         is logged if it is longer, shorter is rejected.
  *    All other            Minimum length of attribute payload
+ *
+ * Meaning of `validation_data' field:
+ *    NLA_BITFIELD32       This is a 32-bit bitmap/bitselector attribute and
+ *                         validation data must point to a u32 value of valid
+ *                         flags
+ *    NLA_REJECT           This attribute is always rejected and validation data
+ *                         may point to a string to report as the error instead
+ *                         of the generic one in extended ACK.
+ *    All other            Unused
  *
  * Example:
  * static const struct nla_policy my_policy[ATTR_MAX+1] = {
@@ -224,6 +241,13 @@ struct nla_policy {
 	u16		len;
 	void            *validation_data;
 };
+
+#define NLA_POLICY_EXACT_LEN(_len)	{ .type = NLA_EXACT_LEN, .len = _len }
+#define NLA_POLICY_EXACT_LEN_WARN(_len)	{ .type = NLA_EXACT_LEN_WARN, \
+					  .len = _len }
+
+#define NLA_POLICY_ETH_ADDR		NLA_POLICY_EXACT_LEN(ETH_ALEN)
+#define NLA_POLICY_ETH_ADDR_COMPAT	NLA_POLICY_EXACT_LEN_WARN(ETH_ALEN)
 
 /**
  * struct nl_info - netlink source information
