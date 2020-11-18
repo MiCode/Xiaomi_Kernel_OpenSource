@@ -29,6 +29,7 @@
   clk_bulk_unprepare
   clk_disable
   clk_enable
+  clk_get
   clk_get_rate
   clk_prepare
   clk_put
@@ -37,12 +38,14 @@
   complete
   complete_all
   __const_udelay
+  cpu_bit_bitmap
   cpu_hwcap_keys
   cpu_hwcaps
   cpumask_next
   cpu_number
   __cpu_online_mask
   __cpu_possible_mask
+  crc32_le
   delayed_work_timer_fn
   del_timer
   del_timer_sync
@@ -50,7 +53,9 @@
   dev_driver_string
   _dev_emerg
   _dev_err
+  device_create
   device_create_file
+  device_destroy
   device_for_each_child
   device_initialize
   device_init_wakeup
@@ -64,6 +69,7 @@
   devm_gpiod_get_optional
   devm_gpio_request_one
   devm_ioremap
+  devm_ioremap_nocache
   devm_ioremap_resource
   devm_kfree
   devm_kmalloc
@@ -116,7 +122,9 @@
   dma_request_slave_channel
   dma_set_coherent_mask
   dma_set_mask
+  down
   down_read
+  down_trylock
   drm_add_edid_modes
   drm_atomic_helper_connector_destroy_state
   drm_atomic_helper_connector_duplicate_state
@@ -156,6 +164,7 @@
   generic_handle_irq
   get_device
   __get_free_pages
+  get_random_bytes
   get_task_mm
   get_unused_fd_flags
   get_user_pages
@@ -167,12 +176,14 @@
   gpiod_to_irq
   gpio_free
   gpio_request
+  gpio_request_one
   gpio_to_desc
   handle_edge_irq
   handle_level_irq
   handle_nested_irq
   i2c_add_numbered_adapter
   i2c_del_driver
+  i2c_get_adapter
   i2c_new_dummy
   i2c_register_driver
   i2c_transfer
@@ -209,17 +220,23 @@
   __kmalloc
   kmalloc_caches
   kmalloc_order_trace
+  kmem_cache_alloc
   kmem_cache_alloc_trace
+  kmem_cache_free
   kmemdup
   kobject_create_and_add
   krealloc
   kstrdup
   kstrtobool
   kstrtoint
+  kstrtou8
   kstrtouint
   kstrtoull
   kthread_create_on_node
+  __kthread_init_worker
+  kthread_queue_work
   kthread_stop
+  kthread_worker_fn
   ktime_get
   ktime_get_mono_fast_ns
   ktime_get_raw_ts64
@@ -229,6 +246,7 @@
   mdiobus_read
   mdiobus_write
   memcpy
+  memdup_user
   memset
   mfd_add_devices
   mfd_remove_devices
@@ -247,9 +265,12 @@
   __msecs_to_jiffies
   msleep
   __mutex_init
+  mutex_is_locked
   mutex_lock
   mutex_unlock
+  names_cachep
   netif_carrier_off
+  no_llseek
   nr_cpu_ids
   __num_online_cpus
   of_address_to_resource
@@ -360,6 +381,7 @@
   refcount_inc_not_zero_checked
   __refrigerator
   register_pm_notifier
+  register_reboot_notifier
   register_restart_handler
   register_syscore_ops
   regmap_read
@@ -367,8 +389,10 @@
   regmap_write
   regulator_disable
   regulator_enable
+  regulator_get_optional
   regulator_list_voltage_linear
   regulator_map_voltage_linear
+  regulator_put
   regulator_register
   regulator_unregister
   release_firmware
@@ -382,6 +406,7 @@
   schedule_timeout
   scnprintf
   seq_printf
+  set_cpus_allowed_ptr
   set_page_dirty_lock
   sg_alloc_table
   sg_alloc_table_from_pages
@@ -417,6 +442,9 @@
   sysfs_remove_group
   system_freezing_cnt
   system_wq
+  tasklet_init
+  tasklet_kill
+  __tasklet_schedule
   _totalram_pages
   trace_define_field
   trace_event_buffer_commit
@@ -431,6 +459,7 @@
   __udelay
   unregister_chrdev_region
   unregister_pm_notifier
+  up
   up_read
   usb_add_hcd
   usb_disabled
@@ -445,11 +474,15 @@
   v4l2_fh_del
   v4l2_fh_exit
   v4l2_fh_init
+  v4l2_subdev_init
   vabits_actual
   vb2_buffer_done
   vb2_dqbuf
   vb2_mmap
   vb2_plane_cookie
+  vb2_plane_vaddr
+  vb2_poll
+  vb2_prepare_buf
   vb2_qbuf
   vb2_querybuf
   vb2_queue_init
@@ -786,6 +819,7 @@
   drm_mode_object_put
   drm_object_attach_property
   drm_of_component_match_add
+  drm_of_crtc_port_mask
   drm_of_find_possible_crtcs
   drm_open
   drm_panel_attach
@@ -807,10 +841,8 @@
   drm_release
   drm_universal_plane_init
   drm_vblank_init
-  kstrtou8
   mipi_dsi_host_register
   mipi_dsi_host_unregister
-  mutex_is_locked
   of_drm_find_bridge
   of_drm_find_panel
   of_get_next_available_child
@@ -838,20 +870,16 @@
   dev_pm_opp_disable
   dev_pm_opp_get_freq
   dev_pm_opp_put
-  register_reboot_notifier
   unregister_reboot_notifier
   update_devfreq
 
 # required by exynos_mfc.ko
-  clk_get
   iommu_dma_reserve_iova
   iommu_get_domain_for_dev
   iommu_map_sg
   iommu_unmap
   mutex_lock_interruptible
   ns_to_timeval
-  vb2_plane_vaddr
-  vb2_poll
 
 # required by exynos_pm_qos.ko
   kstrtoint_from_user
@@ -891,7 +919,6 @@
 
 # required by exynosauto9-itmon.ko
   atomic_notifier_chain_unregister
-  devm_ioremap_nocache
 
 # required by g2d.ko
   __arch_copy_in_user
@@ -911,17 +938,13 @@
   i2c_adapter_type
   i2c_bus_type
   i2c_for_each_dev
-  i2c_get_adapter
   i2c_put_adapter
   i2c_smbus_xfer
   i2c_transfer_buffer_flags
   i2c_verify_client
-  memdup_user
-  no_llseek
   register_chrdev_region
 
 # required by i2c-exynosauto.ko
-  cpu_bit_bitmap
   i2c_del_adapter
 
 # required by ion_exynos_mod.ko
@@ -954,6 +977,7 @@
 
 # required by mali_kbase.ko
   anon_inode_getfd
+  __arch_clear_user
   __bitmap_weight
   bpf_trace_run5
   cache_line_size
@@ -965,9 +989,7 @@
   dev_pm_opp_put_regulators
   dev_pm_opp_set_regulators
   dma_fence_get_status
-  down
   downgrade_write
-  down_trylock
   down_write
   dump_stack
   __get_task_comm
@@ -978,6 +1000,7 @@
   hrtimer_forward
   hrtimer_init
   hrtimer_start_range_ns
+  kfree_call_rcu
   kobject_put
   ktime_get_raw
   __mmdrop
@@ -991,10 +1014,10 @@
   rb_prev
   rb_replace_node
   register_shrinker
-  regulator_get_optional
-  regulator_put
   remap_pfn_range
   remap_vmalloc_range
+  static_key_slow_dec
+  static_key_slow_inc
   strcspn
   strncasecmp
   synchronize_rcu
@@ -1002,12 +1025,12 @@
   sysfs_streq
   system_highpri_wq
   trace_output_call
+  __tracepoint_gpu_mem_total
   trace_print_array_seq
   trace_print_flags_seq
   try_module_get
   unmap_mapping_range
   unregister_shrinker
-  up
   up_write
   vmalloc_user
   vmf_insert_pfn_prot
@@ -1044,16 +1067,10 @@
   crypto_destroy_tfm
   crypto_shash_final
   crypto_shash_update
-  device_create
-  device_destroy
   d_path
   get_task_exe_file
   get_zeroed_page
-  __kthread_init_worker
-  kthread_queue_work
-  kthread_worker_fn
   release_pages
-  set_cpus_allowed_ptr
   sg_miter_next
   sg_miter_start
   sg_miter_stop
@@ -1065,6 +1082,17 @@
   drm_panel_init
   drm_panel_remove
   videomode_from_timing
+
+# required by pcie-exynos-dw-ep.ko
+  dw_pcie_ep_init
+  dw_pcie_read_dbi
+  dw_pcie_write_dbi
+  pci_epc_clear_bar
+  pci_epc_map_addr
+  pci_epc_mem_alloc_addr
+  pci_epc_mem_free_addr
+  pci_epc_set_bar
+  pci_epc_unmap_addr
 
 # required by pcie-exynos-dw-rc.ko
   bitmap_find_free_region
@@ -1150,9 +1178,6 @@
   of_dma_controller_free
   of_dma_controller_register
   pm_runtime_irq_safe
-  tasklet_init
-  tasklet_kill
-  __tasklet_schedule
 
 # required by rtc-s2vps01.ko
   devm_rtc_device_register
@@ -1171,6 +1196,38 @@
   watchdog_set_restart_priority
   watchdog_unregister_device
 
+# required by sam-is-cis-4ec.ko
+  v4l2_i2c_subdev_init
+
+# required by sam-is.ko
+  down_interruptible
+  filp_close
+  filp_open
+  get_random_u32
+  get_task_pid
+  i2c_new_device
+  jiffies_to_msecs
+  kstrtou16
+  kthread_flush_work
+  kthread_flush_worker
+  ktime_get_ts64
+  ktime_get_with_offset
+  mutex_trylock
+  ns_to_timespec
+  param_ops_string
+  phy_configure
+  pm_relax
+  pm_stay_awake
+  regulator_get_voltage
+  regulator_is_enabled
+  regulator_set_voltage
+  sched_setscheduler_nocheck
+  v4l2_device_register_subdev
+  v4l2_device_set_name
+  v4l2_device_unregister_subdev
+  v4l2_subdev_call_wrappers
+  vscnprintf
+
 # required by samsung-iommu-group.ko
   iommu_group_alloc
   iommu_group_set_name
@@ -1179,7 +1236,6 @@
   alloc_etherdev_mqs
   capable
   consume_skb
-  crc32_le
   dev_close
   device_set_wakeup_capable
   device_set_wakeup_enable
@@ -1192,7 +1248,6 @@
   ethtool_op_get_ts_info
   eth_type_trans
   free_netdev
-  get_random_bytes
   in4_pton
   in6_pton
   jiffies_to_usecs
@@ -1274,10 +1329,8 @@
   iommu_group_set_iommudata
   iommu_put_dma_cookie
   iommu_report_device_fault
-  kmem_cache_alloc
   kmem_cache_create
   kmem_cache_destroy
-  kmem_cache_free
   of_get_dma_window
   pm_runtime_get_if_in_use
 
@@ -1292,11 +1345,7 @@
   v4l2_ctrl_new_std
   v4l_bound_align_image
 
-# required by sfi_ipc_test.ko
-  nsecs_to_jiffies
-
 # required by spi-exynosauto.ko
-  gpio_request_one
   loops_per_jiffy
   __spi_alloc_controller
   spi_controller_resume
@@ -1304,6 +1353,16 @@
   spi_finalize_current_message
   spi_register_controller
   spi_unregister_controller
+
+# required by spidev.ko
+  driver_unregister
+  find_next_zero_bit
+  __register_chrdev
+  __spi_register_driver
+  spi_setup
+  spi_sync
+  stream_open
+  __unregister_chrdev
 
 # required by ufs-exynos-core.ko
   ufshcd_config_pwr_mode
@@ -1328,7 +1387,6 @@
   v4l2_event_pending
   vb2_create_bufs
   vb2_expbuf
-  vb2_prepare_buf
   vb2_request_object_is_buffer
 
 # required by videobuf2-dma-sg.ko

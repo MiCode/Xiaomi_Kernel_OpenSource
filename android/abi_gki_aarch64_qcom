@@ -1883,6 +1883,8 @@
   register_shrinker
   register_syscore_ops
   register_sysctl_table
+  register_virtio_device
+  register_virtio_driver
   regmap_bulk_read
   regmap_bulk_write
   regmap_field_read
@@ -2486,6 +2488,8 @@
   unregister_shrinker
   unregister_syscore_ops
   unregister_sysctl_table
+  unregister_virtio_device
+  unregister_virtio_driver
   up
   update_devfreq
   up_read
@@ -2742,6 +2746,29 @@
   video_ioctl2
   __video_register_device
   video_unregister_device
+  virtio_check_driver_offered_feature
+  virtio_config_changed
+  virtio_max_dma_size
+  virtqueue_add_inbuf
+  virtqueue_add_inbuf_ctx
+  virtqueue_add_outbuf
+  virtqueue_add_sgs
+  virtqueue_detach_unused_buf
+  virtqueue_disable_cb
+  virtqueue_enable_cb
+  virtqueue_enable_cb_delayed
+  virtqueue_enable_cb_prepare
+  virtqueue_get_avail_addr
+  virtqueue_get_buf
+  virtqueue_get_buf_ctx
+  virtqueue_get_desc_addr
+  virtqueue_get_used_addr
+  virtqueue_get_vring_size
+  virtqueue_is_broken
+  virtqueue_kick
+  virtqueue_kick_prepare
+  virtqueue_notify
+  virtqueue_poll
   vmalloc
   vmalloc_to_page
   vmalloc_user
@@ -2755,6 +2782,10 @@
   vm_map_ram
   vm_unmap_ram
   vprintk
+  vring_create_virtqueue
+  vring_del_virtqueue
+  vring_interrupt
+  vring_transport_features
   vscnprintf
   vsnprintf
   vunmap
