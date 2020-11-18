@@ -326,6 +326,9 @@ static struct IspWorkqueTable isp_workque[ISP_IRQ_TYPE_AMOUNT] = {
 	{ISP_IRQ_TYPE_INT_CAMSV_5_ST}, {ISP_IRQ_TYPE_INT_CAMSV_6_ST},
 	{ISP_IRQ_TYPE_INT_CAMSV_7_ST},
 };
+
+/* isr log workqueue. */
+struct workqueue_struct *isr_log_wq;
 #endif
 
 #ifdef CONFIG_OF
@@ -7033,6 +7036,11 @@ static int ISP_probe(struct platform_device *pDev)
 			INIT_WORK(&(isp_workque[i].isp_bh_work),
 				  ISP_BH_Workqueue);
 		}
+
+		isr_log_wq = alloc_ordered_workqueue("ISP_BH_Workqueue",
+			WQ_UNBOUND | __WQ_ORDERED | __WQ_ORDERED_EXPLICIT);
+		if (!isr_log_wq)
+			LOG_NOTICE("Error: allocate workqueue failed!\n");
 #endif
 
 		/* Init IspInfo */
@@ -7195,6 +7203,10 @@ static int ISP_remove(struct platform_device *pDev)
 	/*  */
 #ifdef ENABLE_AOSP_ION
 	remove_proc_entry("driver/isp_ion_buf_list", NULL);
+#endif
+
+#if (ISP_BOTTOMHALF_WORKQ == 1)
+	destroy_workqueue(isr_log_wq);
 #endif
 	return 0;
 }
@@ -9522,7 +9534,7 @@ irqreturn_t ISP_Irq_CAMSV(enum ISP_IRQ_TYPE_ENUM irq_module,
 	/* dump log, use workq */
 	if (IrqStatus & (SV_SOF_INT_ST | SV_SW_PASS1_DON_ST | SV_VS1_ST)) {
 #if (ISP_BOTTOMHALF_WORKQ == 1)
-		schedule_work(&isp_workque[module].isp_bh_work);
+		queue_work(isr_log_wq, &isp_workque[module].isp_bh_work);
 #endif
 	}
 
@@ -11740,7 +11752,7 @@ LB_CAM_SOF_IGNORE:
 	if ((IrqStatus & (SOF_INT_ST | SW_PASS1_DON_ST | VS_INT_ST)) ||
 		ErrStatus) {
 #if (ISP_BOTTOMHALF_WORKQ == 1)
-		schedule_work(&isp_workque[module].isp_bh_work);
+		queue_work(isr_log_wq, &isp_workque[module].isp_bh_work);
 #endif
 	}
 
