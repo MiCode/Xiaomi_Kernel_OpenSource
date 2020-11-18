@@ -1859,6 +1859,7 @@ static int _wake(struct kgsl_device *device)
 		/* Turn on the core clocks */
 		kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_ON, KGSL_STATE_ACTIVE);
 
+		device->ftbl->deassert_gbif_halt(device);
 		/*
 		 * No need to turn on/off irq here as it no longer affects
 		 * power collapse
@@ -1943,12 +1944,11 @@ _nap(struct kgsl_device *device)
 {
 	switch (device->state) {
 	case KGSL_STATE_ACTIVE:
-		if (!device->ftbl->is_hw_collapsible(device)) {
+		if (!device->ftbl->prepare_for_power_off(device)) {
 			kgsl_pwrctrl_request_state(device, KGSL_STATE_NONE);
 			return -EBUSY;
 		}
 
-		device->ftbl->stop_fault_timer(device);
 		kgsl_pwrscale_midframe_timer_cancel(device);
 
 		/*
@@ -2006,7 +2006,7 @@ _slumber(struct kgsl_device *device)
 
 	switch (device->state) {
 	case KGSL_STATE_ACTIVE:
-		if (!device->ftbl->is_hw_collapsible(device)) {
+		if (!device->ftbl->prepare_for_power_off(device)) {
 			kgsl_pwrctrl_request_state(device, KGSL_STATE_NONE);
 			return -EBUSY;
 		}
