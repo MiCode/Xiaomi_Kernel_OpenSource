@@ -400,19 +400,19 @@ static int tianma_enable(struct drm_panel *panel)
 	return 0;
 }
 #if HFP_SUPPORT
-#define HFP_60HZ (944)
+#define HFP_60HZ (940)
 #define HFP_90HZ (252)
 #define HSA (20)
 #define HBP (22)
-#define VFP (50)
+#define VFP (66)
 #define VFP_45HZ (870)
-#define VFP_60HZ (1280)
+#define VFP_60HZ (1306)
 #define VSA (10)
 #define VBP (4)
 #define VAC (2400)
 #define HAC (1080)
 static const struct drm_display_mode default_mode = {
-	.clock = 305420,
+	.clock = 306826,
 	.hdisplay = HAC,
 	.hsync_start = HAC + HFP_60HZ,
 	.hsync_end = HAC + HFP_60HZ + HSA,
@@ -425,7 +425,7 @@ static const struct drm_display_mode default_mode = {
 };
 
 static const struct drm_display_mode performance_mode = {
-	.clock = 305586,
+	.clock = 306677,
 	.hdisplay = HAC,
 	.hsync_start = HAC + HFP_90HZ,
 	.hsync_end = HAC + HFP_90HZ + HSA,
@@ -441,14 +441,14 @@ static const struct drm_display_mode performance_mode = {
 #define HSA (20)
 #define HBP (22)
 #define VFP_45HZ (2500)
-#define VFP_60HZ (1280)
-#define VFP_90HZ (50)
+#define VFP_60HZ (1306)
+#define VFP_90HZ (66)
 #define VSA (10)
 #define VBP (4)
 #define VAC (2400)
 #define HAC (1080)
 static const struct drm_display_mode default_mode = {
-	.clock = 305420,
+	.clock = 306842,
 	.hdisplay = HAC,
 	.hsync_start = HAC + HFP,
 	.hsync_end = HAC + HFP + HSA,
@@ -461,7 +461,7 @@ static const struct drm_display_mode default_mode = {
 };
 
 static const struct drm_display_mode performance_mode = {
-	.clock = 305586,
+	.clock = 306677,
 	.hdisplay = HAC,
 	.hsync_start = HAC + HFP,
 	.hsync_end = HAC + HFP + HSA,
@@ -498,6 +498,10 @@ static struct mtk_panel_params ext_params = {
 		.vact_timing_fps = 90,
 #endif
 	},
+	.phy_timcon = {
+		.hs_zero = 35,
+		.hs_trail = 26,
+	},
 };
 
 static struct mtk_panel_params ext_params_90hz = {
@@ -523,6 +527,10 @@ static struct mtk_panel_params ext_params_90hz = {
 #else
 		.vact_timing_fps = 90,
 #endif
+	},
+	.phy_timcon = {
+		.hs_zero = 35,
+		.hs_trail = 26,
 	},
 };
 
