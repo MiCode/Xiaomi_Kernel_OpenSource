@@ -1917,6 +1917,7 @@ static int eem_dump_proc_show(struct seq_file *m, void *v)
 	seq_printf(m, "ipi_ret:%d\n", ipi_ret);
 
 	/* Print initial data */
+	seq_printf(m, "ctrl_agingload_enable=%d\n", ctrl_agingload_enable);
 	eem_aging_dump_proc_show(m, v);
 
 	seq_printf(m, "[%d]========Start sn_trigger_sensing!\n", seq++);
