@@ -488,6 +488,8 @@ static void dump_disp_trace(struct drm_mtk_layering_info *disp_info)
 			     disp_info->gles_tail[i]);
 
 		for (j = 0; j < disp_info->layer_num[i]; j++) {
+			if (n >= len)
+				break;
 			c = &disp_info->input_config[i][j];
 			n += snprintf(msg + n, len - n,
 				      "|L%d->%d(%u,%u,%ux%u),f:0x%x,c:%d",
@@ -1987,7 +1989,8 @@ static int set_disp_info(struct drm_mtk_layering_info *disp_info_user,
 		sizeof(struct drm_mtk_layering_info));
 
 	for (i = 0; i < HRT_TYPE_NUM; i++)
-		_copy_layer_info_from_disp(disp_info_user, debug_mode, i);
+		if (_copy_layer_info_from_disp(disp_info_user, debug_mode, i))
+			return -EFAULT;
 
 	memset(l_rule_info->addon_scn, 0x0, sizeof(l_rule_info->addon_scn));
 	return 0;
