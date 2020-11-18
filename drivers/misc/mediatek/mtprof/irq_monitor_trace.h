@@ -6,7 +6,7 @@
 #undef TRACE_SYSTEM
 #define TRACE_SYSTEM irq_mon
 
-#if !defined(_TRACE_SCHED_MON_H) || defined(TRACE_HEADER_MULTI_READ)
+#if !defined(_TRACE_IRQ_MON_H) || defined(TRACE_HEADER_MULTI_READ)
 #define _TRACE_IRQ_MON_H
 
 #include <linux/tracepoint.h>

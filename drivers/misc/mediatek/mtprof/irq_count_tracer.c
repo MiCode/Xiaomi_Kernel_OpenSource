@@ -59,7 +59,7 @@ const char *irq_to_name(int irq)
 
 #ifdef MODULE
 // workaround for kstat_irqs_cpu & kstat_irqs
-const unsigned int sched_mon_irqs(unsigned int irq)
+const unsigned int irq_mon_irqs(unsigned int irq)
 {
 	struct irq_desc *desc = irq_to_desc(irq);
 	unsigned int sum = 0;
@@ -73,7 +73,7 @@ const unsigned int sched_mon_irqs(unsigned int irq)
 	return sum;
 }
 
-const unsigned int sched_mon_irqs_cpu(unsigned int irq, int cpu)
+const unsigned int irq_mon_irqs_cpu(unsigned int irq, int cpu)
 {
 	struct irq_desc *desc = irq_to_desc(irq);
 
@@ -81,8 +81,8 @@ const unsigned int sched_mon_irqs_cpu(unsigned int irq, int cpu)
 			*per_cpu_ptr(desc->kstat_irqs, cpu) : 0;
 }
 #else
-#define sched_mon_irqs(irq) kstat_irqs(irq)
-#define sched_mon_irqs_cpu(irq, cpu) kstat_irqs_cpu(irq, cpu)
+#define irq_mon_irqs(irq) kstat_irqs(irq)
+#define irq_mon_irqs_cpu(irq, cpu) kstat_irqs_cpu(irq, cpu)
 #endif
 
 #define MAX_IRQ_NUM 1024
@@ -131,7 +131,7 @@ static void __show_irq_count_info(int output)
 		for (irq = 0; irq < min_t(int, nr_irqs, MAX_IRQ_NUM); irq++) {
 			unsigned int count;
 
-			count = sched_mon_irqs_cpu(irq, cpu);
+			count = irq_mon_irqs_cpu(irq, cpu);
 			if (!count)
 				continue;
 
@@ -173,7 +173,7 @@ static enum hrtimer_restart irq_count_tracer_hrtimer_fn(struct hrtimer *hrtimer)
 		irq_cpus[rec_indx].te = sched_clock();
 
 		for (irq = 0; irq < min_t(int, nr_irqs, MAX_IRQ_NUM); irq++) {
-			irq_num = sched_mon_irqs(irq);
+			irq_num = irq_mon_irqs(irq);
 			pre_num = irq_cpus[pre_idx].num[irq];
 			irq_cpus[rec_indx].num[irq] = irq_num;
 			irq_cpus[rec_indx].diff[irq] = irq_num - pre_num;
@@ -195,7 +195,7 @@ static enum hrtimer_restart irq_count_tracer_hrtimer_fn(struct hrtimer *hrtimer)
 	t_diff = irq_cnt->t_end - irq_cnt->t_start;
 
 	for (irq = 0; irq < min_t(int, nr_irqs, MAX_IRQ_NUM); irq++) {
-		irq_num = sched_mon_irqs_cpu(irq, cpu);
+		irq_num = irq_mon_irqs_cpu(irq, cpu);
 		count = irq_num - irq_cnt->count[irq];
 
 		/* The irq is not triggered in this period */
