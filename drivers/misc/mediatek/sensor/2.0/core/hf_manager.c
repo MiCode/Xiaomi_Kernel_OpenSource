@@ -969,6 +969,7 @@ err_free:
 err_out:
 	return NULL;
 }
+EXPORT_SYMBOL_GPL(hf_client_create);
 
 void hf_client_destroy(struct hf_client *client)
 {
