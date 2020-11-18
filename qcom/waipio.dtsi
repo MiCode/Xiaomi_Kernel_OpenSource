@@ -1498,6 +1498,9 @@
 			<0 0>,
 			<0 0>;
 
+		iommus = <&apps_smmu 0xE0 0x0>;
+		dma-coherent;
+
 		status = "disabled";
 	};
 

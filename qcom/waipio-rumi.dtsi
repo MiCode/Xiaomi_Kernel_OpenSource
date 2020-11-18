@@ -70,5 +70,7 @@
 	rpm-level = <0>;
 	spm-level = <0>;
 
+	qcom,iommu-dma = "bypass";
+
 	status = "ok";
 };
