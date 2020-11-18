@@ -221,8 +221,6 @@ void mt6833_suspend_s2idle_reflect(int cpu,
 		__mt6833_suspend_reflect(MTK_LPM_SUSPEND_S2IDLE,
 					 cpu, issuer);
 
-		if (mt6833_model_suspend.flag & MTK_LP_PREPARE_FAIL)
-			mt6833_model_suspend.flag &= (~MTK_LP_PREPARE_FAIL);
 
 #ifdef CONFIG_PM_SLEEP
 		/* Notice
@@ -232,8 +230,11 @@ void mt6833_suspend_s2idle_reflect(int cpu,
 		 * enter idle state. So we need to using RCU_NONIDLE()
 		 * with syscore.
 		 */
-		RCU_NONIDLE(syscore_resume());
-		RCU_NONIDLE(pm_system_wakeup());
+		if (!(mt6833_model_suspend.flag & MTK_LP_PREPARE_FAIL))
+			RCU_NONIDLE(syscore_resume());
+
+		if (mt6833_model_suspend.flag & MTK_LP_PREPARE_FAIL)
+			mt6833_model_suspend.flag &= (~MTK_LP_PREPARE_FAIL);
 #endif
 	}
 	cpumask_clear_cpu(cpu, &s2idle_cpumask);
