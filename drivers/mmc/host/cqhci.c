@@ -401,8 +401,10 @@ static void cqhci_off(struct mmc_host *mmc)
 				 reg & CQHCI_HALT, 0, CQHCI_OFF_TIMEOUT);
 	if (err < 0)
 		pr_err("%s: cqhci: CQE stuck on\n", mmc_hostname(mmc));
-	else
+	else {
 		pr_debug("%s: cqhci: CQE off\n", mmc_hostname(mmc));
+		mmc_log_string(mmc, "cqhci: CQE off\n");
+	}
 
 	mmc->cqe_on = false;
 }
@@ -638,6 +640,7 @@ static int cqhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	if (!mmc->cqe_on) {
 		cqhci_writel(cq_host, 0, CQHCI_CTL);
 		mmc->cqe_on = true;
+		mmc_log_string(mmc, "cqhci: CQE on\n");
 		pr_debug("%s: cqhci: CQE on\n", mmc_hostname(mmc));
 		if (cqhci_readl(cq_host, CQHCI_CTL) && CQHCI_HALT) {
 			pr_err("%s: cqhci: CQE failed to exit halt state\n",
@@ -757,6 +760,8 @@ static void cqhci_error_irq(struct mmc_host *mmc, u32 status, int cmd_error,
 
 	pr_debug("%s: cqhci: error IRQ status: 0x%08x cmd error %d data error %d TERRI: 0x%08x\n",
 		 mmc_hostname(mmc), status, cmd_error, data_error, terri);
+	mmc_log_string(mmc, "cqhci: status:0x%08x TERRI:0x%08x\n",
+		status, terri);
 
 	/* Forget about errors when recovery has already been triggered */
 	if (cq_host->recovery_halt)
