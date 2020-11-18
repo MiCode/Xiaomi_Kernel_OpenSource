@@ -606,7 +606,8 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 				request = media_request_get_by_fd(
 					&cam->media_dev, fd);
 
-				if (request == &req->req) {
+				if (request == &req->req ||
+					node->ctx->enqueued_frame_seq_no == 0) {
 					out_fmt->crop.p.x =
 						node->pending_crop.r.left;
 					out_fmt->crop.p.y =
@@ -775,6 +776,22 @@ struct mtk_raw_device *get_slave_raw_dev(struct mtk_cam_device *cam,
 	for (i = 0; i < cam->num_mtkcam_sub_drivers-1; i++) {
 		if (pipe->enabled_raw & (1 << i)) {
 			dev_slave = cam->raw.devs[i+1];
+			break;
+		}
+	}
+
+	return dev_get_drvdata(dev_slave);
+}
+
+struct mtk_raw_device *get_slave2_raw_dev(struct mtk_cam_device *cam,
+				struct mtk_raw_pipeline *pipe)
+{
+	struct device *dev_slave;
+	unsigned int i;
+
+	for (i = 0; i < cam->num_mtkcam_sub_drivers; i++) {
+		if (pipe->enabled_raw & (1 << i)) {
+			dev_slave = cam->raw.devs[i + 2];
 			break;
 		}
 	}
@@ -1140,6 +1157,13 @@ int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, unsigned int streaming)
 				raw_dev_slave->pipeline = &raw->pipelines[i];
 				dev_dbg(dev, "twin master/slave raw_id:%d/%d\n",
 						raw_dev->id, raw_dev_slave->id);
+				if (raw->pipelines[i].res_config.raw_num_used == 3) {
+					struct mtk_raw_device *raw_dev_slave2 =
+						get_slave2_raw_dev(cam, ctx->pipe);
+					raw_dev_slave2->pipeline = &raw->pipelines[i];
+					dev_dbg(dev, "triplet m/s/s2 raw_id:%d/%d/%d\n",
+						raw_dev->id, raw_dev_slave->id, raw_dev_slave2->id);
+				}
 			}
 			break;
 		}
@@ -1491,6 +1515,11 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 		struct mtk_raw_device *raw_dev_slave =
 					get_slave_raw_dev(cam, ctx->pipe);
 		initialize(raw_dev_slave);
+		if (ctx->pipe->res_config.raw_num_used == 3) {
+			struct mtk_raw_device *raw_dev_slave2 =
+				get_slave2_raw_dev(cam, ctx->pipe);
+			initialize(raw_dev_slave2);
+		}
 	}
 	spin_lock_irqsave(&ctx->streaming_lock, flags);
 	if (!cam->streaming_ctx && cam->debug_fs)
@@ -1565,6 +1594,11 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 		struct mtk_raw_device *raw_dev_slave =
 					get_slave_raw_dev(cam, ctx->pipe);
 		stream_on(raw_dev_slave, 0);
+		if (ctx->pipe->res_config.raw_num_used == 3) {
+			struct mtk_raw_device *raw_dev_slave2 =
+				get_slave2_raw_dev(cam, ctx->pipe);
+			stream_on(raw_dev_slave2, 0);
+		}
 	}
 	for (i = 0; i < MAX_PIPES_PER_STREAM && ctx->pipe_subdevs[i]; i++) {
 		ret = v4l2_subdev_call(ctx->pipe_subdevs[i], video,

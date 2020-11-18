@@ -12,7 +12,7 @@
 #define SCQ_DEADLINE_MS  15 // ~1/2 frame length
 #define SCQ_DEFAULT_CLK_RATE 208 // default 208MHz
 #define USINGSCQ 1
-#define MTK_CAMSYS_RES_STEP_NUM	7
+#define MTK_CAMSYS_RES_STEP_NUM	8
 
 /* FIXME: dynamic config image max/min w/h */
 #define IMG_MAX_WIDTH		8000
@@ -155,6 +155,7 @@ int mtk_cam_raw_select(struct mtk_raw_pipeline *pipe,
 		       struct mtkcam_ipi_input_param *cfg_in_param);
 bool mtk_raw_dev_is_slave(struct mtk_raw_device *raw_dev);
 
+void write_readcount(struct mtk_raw_device *dev);
 void initialize(struct mtk_raw_device *dev);
 void stream_on(struct mtk_raw_device *dev, int on);
 void apply_cq(struct mtk_raw_device *dev,

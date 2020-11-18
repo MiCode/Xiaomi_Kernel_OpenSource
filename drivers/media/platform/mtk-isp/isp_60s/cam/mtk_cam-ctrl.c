@@ -670,7 +670,7 @@ static void mtk_camsys_raw_frame_done(struct mtk_raw_device *raw_dev,
 	struct mtk_cam_request *req;
 	struct mtk_cam_ctx *ctx_swap;
 	struct mtk_camsys_sensor_ctrl *sensor_ctrl_swap;
-	int val;
+	int raw_num = raw_dev->pipeline->res_config.raw_num_used;
 
 	if (ctx->sensor) {
 		spin_lock(&camsys_sensor_ctrl->camsys_state_lock);
@@ -693,42 +693,30 @@ static void mtk_camsys_raw_frame_done(struct mtk_raw_device *raw_dev,
 				if (state_entry->estate == E_STATE_DONE_NORMAL)
 					state_req->state.time_irq_done =
 						ktime_get_boottime_ns() / 1000;
+				if (camsys_sensor_ctrl->isp_request_seq_no == 0)
+					state_transition(state_entry,
+					 E_STATE_CQ,
+					 E_STATE_OUTER);
 				dev_dbg(raw_dev->dev, "[SWD] req:%d/state:%d/time:%lld\n",
 					state_req->frame_seq_no,
 					state_entry->estate, state_req->timestamp);
-				if (camsys_sensor_ctrl->isp_request_seq_no ==
-				    0) {
-					val = readl_relaxed(raw_dev->base +
-						REG_CTL_DMA_EN);
-					writel_relaxed(val |
-						       CAMCTL_IMGO_R1_RCNT_INC,
-						       raw_dev->base +
-						       REG_CAMCTL_FBC_RCNT_INC);
-					if (raw_dev->pipeline->res_config.raw_num_used != 1) {
-						int val_slave;
-						struct mtk_raw_device *raw_dev_slave =
-							get_slave_raw_dev(cam, raw_dev->pipeline);
-						val_slave = readl_relaxed(raw_dev_slave->base +
-							REG_CTL_DMA_EN);
-						writel_relaxed(val_slave |
-						       CAMCTL_IMGO_R1_RCNT_INC,
-						       raw_dev_slave->base +
-						       REG_CAMCTL_FBC_RCNT_INC);
-						dev_dbg(raw_dev->dev,
-							"[SWD] slave READCNT:0x%x\n", val_slave);
-					}
-					wmb(); /* TBC */
-					state_transition(state_entry,
-							 E_STATE_CQ,
-							 E_STATE_OUTER);
-					dev_dbg(raw_dev->dev,
-						"[SWD] master READCNT:0x%x\n", val);
-				}
 			}
 		}
 		spin_unlock(&camsys_sensor_ctrl->camsys_state_lock);
 		/* Initial request readout will be delayed 1 frame*/
 		if (camsys_sensor_ctrl->isp_request_seq_no == 0) {
+			write_readcount(raw_dev);
+			if (raw_num != 1) {
+				struct mtk_raw_device *raw_dev_slave =
+					get_slave_raw_dev(cam, raw_dev->pipeline);
+				write_readcount(raw_dev_slave);
+				if (raw_num == 3) {
+					struct mtk_raw_device *raw_dev_slave2 =
+						get_slave2_raw_dev(cam,
+							raw_dev->pipeline);
+					write_readcount(raw_dev_slave2);
+				}
+			}
 			dev_dbg(dev,
 				"1st SWD passed for initial request setting\n");
 			return;
@@ -859,6 +847,7 @@ int mtk_camsys_isr_event(struct mtk_cam_device *cam,
 	struct mtk_cam_ctx *ctx;
 	int sub_engine_type = irq_info->engine_id & MTK_CAMSYS_ENGINE_IDXMASK;
 	int ret = 0;
+
 	raw_dev = cam->camsys_ctrl.raw_dev[irq_info->engine_id - CAMSYS_ENGINE_RAW_BEGIN];
 	/**
 	 * Here it will be implemented dispatch rules for some scenarios
@@ -879,7 +868,7 @@ int mtk_camsys_isr_event(struct mtk_cam_device *cam,
 			break;
 		}
 		/* Twin only handle cq done case, sw done and sof will not be handled */
-		if (raw_dev->pipeline->res_config.raw_num_used != 1) {
+		if (raw_dev->pipeline->res_config.raw_num_used == 2) {
 			/* twin - master/slave's CQ done */
 			if (irq_info->irq_type & (1 << CAMSYS_IRQ_SETTING_DONE)) {
 				struct mtk_raw_device *raw_dev_master =
@@ -895,6 +884,34 @@ int mtk_camsys_isr_event(struct mtk_cam_device *cam,
 					return ret;
 			}
 			/* twin - slave's SOF and SW done */
+			if (irq_info->slave_engine) {
+				if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_DONE))
+					return ret;
+				if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_START))
+					return ret;
+			}
+		} else if (raw_dev->pipeline->res_config.raw_num_used == 3) {
+			/* triplet - master/slave/slave2's CQ done */
+			if (irq_info->irq_type & (1 << CAMSYS_IRQ_SETTING_DONE)) {
+				struct mtk_raw_device *raw_dev_master =
+					get_master_raw_dev(cam, raw_dev->pipeline);
+				struct mtk_raw_device *raw_dev_slave =
+					get_slave_raw_dev(cam, raw_dev->pipeline);
+				struct mtk_raw_device *raw_dev_slave2 =
+					get_slave2_raw_dev(cam, raw_dev->pipeline);
+				dev_dbg(raw_dev->dev, "[triplet-cq] cnt m=%d/s=%d/s2=%d\n",
+					raw_dev_master->setting_count,
+					raw_dev_slave->setting_count,
+					raw_dev_slave2->setting_count);
+				if ((raw_dev_master->setting_count ==
+					raw_dev_slave->setting_count)
+					&& (raw_dev_master->setting_count ==
+					raw_dev_slave2->setting_count))
+					raw_dev = raw_dev_master;
+				else
+					return ret;
+			}
+			/* triplet - slave's SOF and SW done */
 			if (irq_info->slave_engine) {
 				if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_DONE))
 					return ret;
@@ -950,13 +967,17 @@ int mtk_camsys_ctrl_start(struct mtk_cam_ctx *ctx)
 	int fps_factor = ctx->pipe->res_config.pixel_rate /
 			 ctx->pipe->cfg[MTK_RAW_SINK].mbus_fmt.width /
 			 ctx->pipe->cfg[MTK_RAW_SINK].mbus_fmt.height / 30;
-	struct mtk_raw_device *raw_dev, *raw_dev_slave;
+	struct mtk_raw_device *raw_dev, *raw_dev_slave, *raw_dev_slave2;
 
 	raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
 	camsys_ctrl->raw_dev[raw_dev->id] = raw_dev;
 	if (ctx->pipe->res_config.raw_num_used != 1) {
 		raw_dev_slave = get_slave_raw_dev(ctx->cam, ctx->pipe);
 		camsys_ctrl->raw_dev[raw_dev_slave->id] = raw_dev_slave;
+		if (ctx->pipe->res_config.raw_num_used == 3) {
+			raw_dev_slave2 = get_slave2_raw_dev(ctx->cam, ctx->pipe);
+			camsys_ctrl->raw_dev[raw_dev_slave2->id] = raw_dev_slave2;
+		}
 	}
 	camsys_sensor_ctrl->sensor_request_seq_no = 0;
 	camsys_sensor_ctrl->isp_request_seq_no = 0;

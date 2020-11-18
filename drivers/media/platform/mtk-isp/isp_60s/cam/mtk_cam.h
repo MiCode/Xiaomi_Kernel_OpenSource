@@ -356,6 +356,8 @@ struct mtk_raw_device *get_master_raw_dev(struct mtk_cam_device *cam,
 				struct mtk_raw_pipeline *pipe);
 struct mtk_raw_device *get_slave_raw_dev(struct mtk_cam_device *cam,
 				struct mtk_raw_pipeline *pipe);
+struct mtk_raw_device *get_slave2_raw_dev(struct mtk_cam_device *cam,
+				struct mtk_raw_pipeline *pipe);
 
 void isp_composer_create_session(struct mtk_cam_device *cam,
 				 struct mtk_cam_ctx *ctx);
