@@ -1142,6 +1142,11 @@ struct wil6210_priv {
 
 	u32 tx_reserved_entries; /* Used only in Talyn code-path */
 	s32 cqm_rssi_thold;
+
+	/* For now, this applies to VR mode only. Can be extended
+	 * in the future to apply also to other modes.
+	 */
+	u8 max_mcs;
 };
 
 #define wil_to_wiphy(i) (i->wiphy)
