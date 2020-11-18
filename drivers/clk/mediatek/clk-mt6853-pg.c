@@ -709,7 +709,14 @@ enum dbg_id {
 #define STEP_MASK 0x000000FF
 
 #define INCREASE_STEPS \
-	do { DBG_STEP++; hang_release = true; } while (0)
+	do { \
+		DBG_STEP++; \
+		first_enter = true; \
+		loop_cnt = 0; \
+		log_over_cnt = false; \
+		log_timeout = false; \
+		log_dump = false; \
+	} while (0)
 
 static int DBG_ID;
 static int DBG_STA;
@@ -717,7 +724,12 @@ static int DBG_STEP;
 
 static unsigned long long block_time;
 static unsigned long long upd_block_time;
-static bool hang_release;
+static u32 loop_cnt;
+static bool log_over_cnt;
+static bool log_timeout;
+static bool log_dump;
+static bool first_enter = true;
+
 /*
  * ram console data0 define
  * [31:24] : DBG_ID
@@ -728,10 +740,6 @@ static void ram_console_update(void)
 {
 	unsigned long spinlock_save_flags;
 	struct pg_callbacks *pgcb;
-	static u32 pre_data;
-	static s32 loop_cnt = -1;
-	static bool log_over_cnt;
-	static bool log_timeout;
 	u32 data[8] = {0x0};
 	u32 i = 0;
 
@@ -747,35 +755,28 @@ static void ram_console_update(void)
 	data[++i] = clk_readl(PWR_STATUS_2ND);
 	data[++i] = clk_readl(CAM_PWR_CON);
 
-	if (pre_data == data[0]) {
-		upd_block_time = sched_clock();
-		if (loop_cnt >= 0)
-			loop_cnt++;
-	}
-
-	if (pre_data != data[0] || hang_release) {
-		hang_release = false;
-		pre_data = data[0];
+	if (first_enter) {
+		first_enter = false;
 		block_time = sched_clock();
-		loop_cnt = 0;
-		log_over_cnt = false;
 	}
+	upd_block_time = sched_clock();
+	loop_cnt++;
 
-	if (loop_cnt > 5000) {
+	if (loop_cnt > 5000)
 		log_over_cnt = true;
-		loop_cnt = -1;
-	}
 
 	if ((upd_block_time > 0  && block_time > 0)
 			&& (upd_block_time > block_time)
 			&& (upd_block_time - block_time > 5000000000))
 		log_timeout = true;
 
-	if (log_over_cnt || log_timeout) {
+	if ((log_over_cnt && !log_dump) || (log_over_cnt && log_timeout)) {
 		pr_notice("%s: upd(%llu ns), ori(%llu ns)\n", __func__,
 				upd_block_time, block_time);
+		pr_notice("%s: over_cnt: %d, time_out: %d, log_dump: %d\n",
+				__func__, log_over_cnt, log_timeout, log_dump);
 
-		log_over_cnt = false;
+		log_dump = true;
 
 		print_enabled_clks_once();
 
@@ -892,7 +893,7 @@ static void ram_console_update(void)
 	/*todo: add each domain's debug register to ram console*/
 #endif
 
-	if (log_timeout)
+	if (log_over_cnt && log_timeout)
 		BUG_ON(1);
 }
 
