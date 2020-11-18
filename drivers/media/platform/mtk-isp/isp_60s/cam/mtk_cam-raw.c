@@ -82,6 +82,7 @@ enum MTK_CAMSYS_RES_STEP {
 	E_RES_HWN_S = MTK_CAMSYS_RES_HWN_TAG,
 	E_RES_HWN0 = E_RES_HWN_S,
 	E_RES_HWN1,
+	E_RES_HWN2,
 	E_RES_HWN_E,
 	E_RES_CLK_S = MTK_CAMSYS_RES_CLK_TAG,
 	E_RES_CLK0 = E_RES_CLK_S,
@@ -135,19 +136,19 @@ static const struct cam_resource_plan raw_resource_strategy_plan[] = {
 	[RESOURCE_STRATEGY_QPR] = {
 		.cam_resource = {
 			E_RES_BASIC, E_RES_HWN1, E_RES_CLK1, E_RES_CLK2,
-			E_RES_CLK3, E_RES_FRZ1, E_RES_BIN1} },
+			E_RES_CLK3, E_RES_FRZ1, E_RES_BIN1, E_RES_HWN2} },
 	[RESOURCE_STRATEGY_PQR] = {
 		.cam_resource = {
-			E_RES_BASIC, E_RES_HWN1, E_RES_FRZ1, E_RES_BIN1,
-			E_RES_CLK1, E_RES_CLK2, E_RES_CLK3} },
+			E_RES_BASIC, E_RES_HWN1, E_RES_HWN2, E_RES_FRZ1,
+			E_RES_BIN1, E_RES_CLK1, E_RES_CLK2, E_RES_CLK3} },
 	[RESOURCE_STRATEGY_RPQ] = {
 		.cam_resource = {
 			E_RES_BASIC, E_RES_FRZ1, E_RES_BIN1, E_RES_CLK1,
-			E_RES_CLK2, E_RES_CLK3, E_RES_HWN1} },
+			E_RES_CLK2, E_RES_CLK3, E_RES_HWN1, E_RES_HWN2} },
 	[RESOURCE_STRATEGY_QRP] = {
 		.cam_resource = {
 			E_RES_BASIC, E_RES_CLK1, E_RES_CLK2, E_RES_CLK3,
-			E_RES_HWN1, E_RES_FRZ1, E_RES_BIN1} },
+			E_RES_HWN1, E_RES_HWN2, E_RES_FRZ1, E_RES_BIN1} },
 };
 
 struct raw_resource {
@@ -297,7 +298,7 @@ static const struct v4l2_ctrl_config hwn_limit = {
 	.name = "Engine resource limitation",
 	.type = V4L2_CTRL_TYPE_INTEGER,
 	.min = 1,
-	.max = 2,
+	.max = 3,
 	.step = 1,
 	.def = 2,
 };
@@ -566,6 +567,15 @@ static void init_dma_fifosize(struct mtk_raw_device *dev)
 	dev_dbg(dev->dev, "try read REG_CQI_R2_DRS:0x%x\n",
 		readl_relaxed(dev->base + REG_CQI_R2_DRS));
 }
+void write_readcount(struct mtk_raw_device *dev)
+{
+	int val;
+
+	val = readl_relaxed(dev->base + REG_CTL_DMA_EN);
+	writel_relaxed(val, dev->base + REG_CAMCTL_FBC_RCNT_INC);
+	wmb(); /* TBC */
+	dev_dbg(dev->dev, "val:0x%x\n", val);
+}
 
 void initialize(struct mtk_raw_device *dev)
 {
@@ -689,12 +699,13 @@ static int mtk_raw_linebuf_chk(bool b_twin, bool b_bin, bool b_frz, bool b_qbn,
 	}
 }
 
-static int mtk_raw_pixelmode_calc(bool b_twin, bool b_bin,
+static int mtk_raw_pixelmode_calc(int b_twin, bool b_bin,
 				  bool b_frz, int min_ratio)
 {
 	int pixelmode = 1;
 
-	pixelmode = b_twin ? pixelmode << 1 : pixelmode;
+	pixelmode = (b_twin == 2) ? pixelmode << 2 : pixelmode;
+	pixelmode = (b_twin == 1) ? pixelmode << 1 : pixelmode;
 	pixelmode = b_bin ? pixelmode << 2 : pixelmode;
 	pixelmode = (b_frz && (min_ratio < FRZ_PXLMODE_THRES))
 			? pixelmode << 1 : pixelmode;
@@ -787,7 +798,7 @@ static bool mtk_raw_resource_calc(struct mtk_raw_pipeline *pipe,
 			if (!res_found) {
 				res->bin_enable = bin_en;
 				res->frz_enable = frz_en;
-				res->raw_num_used = twin_en ? 2 : 1;
+				res->raw_num_used = twin_en + 1;
 				clk_res = clk_cur;
 				idx_res = idx;
 				res->clk_target = clk->clklv[clk_res];
@@ -806,10 +817,10 @@ static bool mtk_raw_resource_calc(struct mtk_raw_pipeline *pipe,
 	case 2:
 		res->tgo_pxl_mode = 1;
 		break;
-	case 3:
+	case 4:
 		res->tgo_pxl_mode = 2;
 		break;
-	case 4:
+	case 8:
 		res->tgo_pxl_mode = 3;
 		break;
 	default:
@@ -848,17 +859,30 @@ bool mtk_raw_dev_is_slave(struct mtk_raw_device *raw_dev)
 {
 	struct device *dev_slave;
 	struct mtk_raw_device *raw_dev_slave;
+	struct device *dev_slave2;
+	struct mtk_raw_device *raw_dev_slave2;
 	unsigned int i;
+	bool res = false;
 
-	for (i = 0; i < raw_dev->cam->num_mtkcam_sub_drivers - 1; i++) {
-		if (raw_dev->pipeline->enabled_raw & (1 << i)) {
-			dev_slave = raw_dev->cam->raw.devs[i + 1];
-			break;
+	if (raw_dev->pipeline->res_config.raw_num_used == 2) {
+		for (i = 0; i < raw_dev->cam->num_mtkcam_sub_drivers - 1; i++) {
+			if (raw_dev->pipeline->enabled_raw & (1 << i)) {
+				dev_slave = raw_dev->cam->raw.devs[i + 1];
+				break;
+			}
 		}
+		raw_dev_slave = dev_get_drvdata(dev_slave);
+		return (raw_dev_slave == raw_dev);
 	}
-	raw_dev_slave = dev_get_drvdata(dev_slave);
+	if (raw_dev->pipeline->res_config.raw_num_used == 3) {
+		dev_slave = raw_dev->cam->raw.devs[RAW_B];
+		dev_slave2 = raw_dev->cam->raw.devs[RAW_C];
+		raw_dev_slave = dev_get_drvdata(dev_slave);
+		raw_dev_slave2 = dev_get_drvdata(dev_slave2);
+		return (raw_dev_slave == raw_dev) || (raw_dev_slave2 == raw_dev);
+	}
 
-	return (raw_dev_slave == raw_dev);
+	return false;
 }
 
 static irqreturn_t mtk_irq_raw(int irq, void *data)
@@ -873,7 +897,8 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 	unsigned long flags;
 	int ret;
 	struct mtk_cam_status_dump dump_param;
-
+	if (raw_dev->pipeline->enabled_raw == 0)
+		goto ctx_not_found;
 	spin_lock_irqsave(&raw_dev->spinlock_irq, flags);
 	irq_status	= readl_relaxed(raw_dev->base + REG_CTL_RAW_INT_STAT);
 	dma_done_status = readl_relaxed(raw_dev->base + REG_CTL_RAW_INT2_STAT);
@@ -1291,30 +1316,39 @@ int mtk_cam_raw_select(struct mtk_raw_pipeline *pipe,
 		       struct mtkcam_ipi_input_param *cfg_in_param)
 {
 	int raw_status = 0;
+	int mask = 0x0;
+	bool selected = false;
 
 	raw_status = mtk_raw_available_resource(pipe->raw);
-	if (pipe->res_config.raw_num_used == 2) {
+	if (pipe->res_config.raw_num_used == 3) {
+		mask = 1 << MTKCAM_SUBDEV_RAW_0
+			| 1 << MTKCAM_SUBDEV_RAW_1 | 1 << MTKCAM_SUBDEV_RAW_2;
+		if (!(raw_status & mask)) {
+			pipe->enabled_raw |= mask;
+			selected = true;
+		}
+	} else if (pipe->res_config.raw_num_used == 2) {
 		for (int m = MTKCAM_SUBDEV_RAW_1; m >= MTKCAM_SUBDEV_RAW_0; m--) {
-			int s = m + 1;
-
-			dev_info(pipe->raw->cam_dev, "%s raw_status:0x%x Twin:%d/%d\n",
-			__func__, raw_status,
-			!(raw_status & (1 << m)),
-			!(raw_status & (1 << s)));
-			if (!(raw_status & (1 << m)) && (!(raw_status & (1 << s)))) {
-				pipe->enabled_raw = 1 << m | 1 << s;
+			mask = (1 << m) | (1 << (m + 1));
+			if (!(raw_status & mask)) {
+				pipe->enabled_raw |= mask;
+				selected = true;
 				break;
 			}
 		}
 	} else {
 		for (int m = MTKCAM_SUBDEV_RAW_0; m < ARRAY_SIZE(pipe->raw->devs); m++) {
-			if (!(raw_status & 1 << m)) {
-				pipe->enabled_raw = 1 << m;
+			mask = 1 << m;
+			if (!(raw_status & mask)) {
+				pipe->enabled_raw |= mask;
+				selected = true;
 				break;
 			}
 		}
 	}
 	mtk_raw_available_resource(pipe->raw);
+	if (!selected)
+		return -EINVAL;
 	/**
 	 * TODO: duplicated using raw case will implement in time sharing isp case
 	 */
