@@ -670,6 +670,17 @@ config DRM_PANEL_SC_NT36672C_VDO_90HZ
 	  resolution and uses 24-bits RGB per pixel. It provides a
 	  MIPI DSI interface to host.
 
+config DRM_PANEL_BOE_NT35625B3_VDO
+	tristate "6883v1 panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for SC DPHY
+	  vdo mode Full HD Plus 90HZ panel. The panel has a 720x1600
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
 config DRM_PANEL_SC_NT36672C_VDO_60HZ
 	tristate "SC FHD+ vdo mode 60 HZ panel"
 	depends on OF
