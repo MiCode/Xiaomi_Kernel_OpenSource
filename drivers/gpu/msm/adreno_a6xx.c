@@ -17,6 +17,7 @@
 #include "adreno_pm4types.h"
 #include "adreno_trace.h"
 #include "kgsl_trace.h"
+#include "kgsl_util.h"
 
 /* IFPC & Preemption static powerup restore list */
 static u32 a6xx_pwrup_reglist[] = {
@@ -249,6 +250,7 @@ bool a6xx_cx_regulator_disable_wait(struct regulator *reg,
 {
 	ktime_t tout = ktime_add_us(ktime_get(), timeout * 1000);
 	unsigned int val;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
 	if (IS_ERR_OR_NULL(reg))
 		return true;
@@ -256,13 +258,22 @@ bool a6xx_cx_regulator_disable_wait(struct regulator *reg,
 	regulator_disable(reg);
 
 	for (;;) {
-		gmu_core_regread(device, A6XX_GPU_CC_CX_GDSCR, &val);
+		if (adreno_is_a619_holi(adreno_dev))
+			adreno_read_gmu_wrapper(adreno_dev,
+					A6XX_GPU_CC_CX_GDSCR, &val);
+		else
+			gmu_core_regread(device, A6XX_GPU_CC_CX_GDSCR, &val);
 
 		if (!(val & BIT(31)))
 			return true;
 
 		if (ktime_compare(ktime_get(), tout) > 0) {
-			gmu_core_regread(device, A6XX_GPU_CC_CX_GDSCR, &val);
+			if (adreno_is_a619_holi(adreno_dev))
+				adreno_read_gmu_wrapper(adreno_dev,
+						A6XX_GPU_CC_CX_GDSCR, &val);
+			else
+				gmu_core_regread(device, A6XX_GPU_CC_CX_GDSCR,
+							&val);
 			return (!(val & BIT(31)));
 		}
 
@@ -2476,6 +2487,24 @@ u64 a6xx_read_alwayson(struct adreno_device *adreno_dev)
 	return (((u64) hi) << 32) | lo;
 }
 
+static void a619_holi_regulator_disable_poll(struct kgsl_device *device)
+{
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+
+	/* Set the parent in retention voltage to disable CPR interrupts */
+	kgsl_regulator_set_voltage(device->dev, pwr->gx_gdsc_parent,
+			pwr->gx_gdsc_parent_min_corner);
+
+	if (!kgsl_regulator_disable_wait(pwr->gx_gdsc, 200))
+		dev_err(device->dev, "Regulator vdd is stuck on\n");
+
+	/* Remove the vote for the vdd parent supply */
+	kgsl_regulator_set_voltage(device->dev, pwr->gx_gdsc_parent, 0);
+
+	if (!a6xx_cx_regulator_disable_wait(pwr->cx_gdsc, device, 200))
+		dev_err(device->dev, "Regulator vddcx is stuck on\n");
+}
+
 const struct adreno_gpudev adreno_a6xx_gpudev = {
 	.reg_offsets = a6xx_register_offsets,
 	.probe = a6xx_probe,
@@ -2624,6 +2653,7 @@ const struct adreno_gpudev adreno_a619_holi_gpudev = {
 	.power_ops = &adreno_power_operations,
 	.clear_pending_transactions = a6xx_clear_pending_transactions,
 	.deassert_gbif_halt = a6xx_deassert_gbif_halt,
+	.regulator_disable_poll = a619_holi_regulator_disable_poll,
 };
 
 const struct adreno_gpudev adreno_a630_gpudev = {

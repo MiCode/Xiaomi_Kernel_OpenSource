@@ -812,6 +812,7 @@ struct adreno_gpudev {
 	const struct adreno_power_ops *power_ops;
 	int (*clear_pending_transactions)(struct adreno_device *adreno_dev);
 	void (*deassert_gbif_halt)(struct adreno_device *adreno_dev);
+	void (*regulator_disable_poll)(struct kgsl_device *device);
 };
 
 /**
