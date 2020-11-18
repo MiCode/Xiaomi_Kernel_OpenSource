@@ -158,7 +158,7 @@ static int mdw_dispr_pwron_dev(struct mdw_rsc_req *r, struct mdw_apu_sc *sc)
 		d = list_entry(list_ptr, struct mdw_dev_info, r_item);
 		ret = d->pwr_on(d, sc->boost, MDW_RSC_SET_PWR_TIMEOUT);
 		if (ret) {
-			mdw_drv_err("pwn on(%s-#d) fail\n", d->name, d->idx);
+			mdw_drv_err("pwn on(%s-#%d) fail\n", d->name, d->idx);
 			break;
 		}
 		sc->multi_bmp |= (1ULL << d->idx);
