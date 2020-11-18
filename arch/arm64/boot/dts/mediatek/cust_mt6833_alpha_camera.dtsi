@@ -342,7 +342,7 @@
 		status = "okay";
 	};
 };
-&i2c8 {
+&i2c4 {
 	mtk_camera_eeprom3:camera_eeprom3@52 {
 		compatible = "mediatek,camera_eeprom";
 		reg = <0x52>;
