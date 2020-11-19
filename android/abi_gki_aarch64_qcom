@@ -1234,6 +1234,7 @@
   keyslot_manager_set_max_dun_bytes
   keyslot_manager_reprogram_all_keys
   keyslot_manager_destroy
+  bio_crypt_should_process
   __kfifo_in
   __kfifo_out
   kfree
