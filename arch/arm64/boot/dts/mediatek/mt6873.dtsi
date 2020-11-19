@@ -6153,6 +6153,8 @@
 		cg-shift = <0>; /* cg blocking index */
 		pll-shift = <16>; /* pll blocking index */
 
+		power-gs = <&gs_6359p &gs_6315_1 &gs_6315_2 &gs_6315_3>;
+
 		cpupm_sysram: cpupm-sysram@0011b000 {
 			compatible = "mediatek,cpupm-sysram";
 			reg = <0 0x0011b000 0 0x500>;
@@ -6283,6 +6285,24 @@
 					"APLL2",
 					"APUPLL",
 					"NPUPLL";
+			};
+		};
+		power-gs-list {
+			gs_6359p: gs_6359p {
+				target = <&pmic>;
+				value = "mediatek,mt6359p-regulator";
+			};
+			gs_6315_1: gs_6315_1 {
+				target = <&spmi>;
+				value = "mediatek,mt6315_6-regulator";
+			};
+			gs_6315_2: gs_6315_2 {
+				target = <&spmi>;
+				value = "mediatek,mt6315_7-regulator";
+			};
+			gs_6315_3: gs_6315_3 {
+				target = <&spmi>;
+				value = "mediatek,mt6315_3-regulator";
 			};
 		};
 	};
