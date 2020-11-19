@@ -31,7 +31,7 @@
 
 #include "apusys_core.h"
 #include "apusys_power.h"
-#include "apusys_power_cust.h"
+//#include "apusys_power_cust.h"
 #include "apusys_debug_api.h"
 
 #include "mnoc_drv.h"

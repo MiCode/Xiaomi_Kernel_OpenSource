@@ -7,6 +7,27 @@
 
 #include "mnoc_plat_internal.h"
 
+static unsigned int mt6873_vcore_bw_opp[] = {
+	10200, /* 4266 Mhz -> 0.725v */
+	7600,  /* 3200 Mhz -> 0.65v */
+	5120,  /* 1866 Mhz -> 0.6v */
+	0,     /* 800~1600 Mhz -> 0.575v */
+};
+
+static unsigned int mt6885_vcore_bw_opp[] = {
+	20400, /* 3733 Mhz -> 0.725v */
+	15300, /* 3068 Mhz -> 0.65v */
+	11900, /* 2366 Mhz -> 0.6v */
+	0,     /* 800~1866 Mhz -> 0.575v */
+};
+
+static unsigned int mt6853_vcore_bw_opp[] = {
+	10200, /* 4266 Mhz -> 0.725v */
+	7600,  /* 3200 Mhz -> 0.65v */
+	5100,  /* 1866 Mhz -> 0.6v */
+	0,     /* 800~1600 Mhz -> 0.55v */
+};
+
 
 static struct mnoc_plat_drv mt6853_drv = {
 	.init             = mnoc_hw_v1_52_init,
@@ -25,6 +46,8 @@ static struct mnoc_plat_drv mt6853_drv = {
 	.set_lt_guardian_pre_ultra = mnoc_set_lt_guardian_pre_ultra_v1_52,
 
 	.apu_qos_engine_count = 3,
+	.vcore_bw_opp_tab = mt6853_vcore_bw_opp,
+	.nr_vcore_opp = ARRAY_SIZE(mt6853_vcore_bw_opp),
 
 //	.met_pmu_reg_init = mnoc_met_pmu_reg_init_v1_52,
 //	.met_pmu_reg_uninit = mnoc_met_pmu_reg_uninit_v1_52,
@@ -48,6 +71,9 @@ static struct mnoc_plat_drv mt6873_drv = {
 	.set_lt_guardian_pre_ultra = mnoc_set_lt_guardian_pre_ultra_v1_51,
 
 	.apu_qos_engine_count = 5,
+	.vcore_bw_opp_tab = mt6873_vcore_bw_opp,
+	.nr_vcore_opp = ARRAY_SIZE(mt6873_vcore_bw_opp),
+
 //	.met_pmu_reg_init = NULL,
 //	.met_pmu_reg_uninit = NULL,
 };
@@ -69,6 +95,8 @@ static struct mnoc_plat_drv mt6885_drv = {
 	.set_lt_guardian_pre_ultra = mnoc_set_lt_guardian_pre_ultra_v1_50,
 
 	.apu_qos_engine_count = 8,
+	.vcore_bw_opp_tab = mt6885_vcore_bw_opp,
+	.nr_vcore_opp = ARRAY_SIZE(mt6885_vcore_bw_opp),
 //	.met_pmu_reg_init = NULL,
 //	.met_pmu_reg_uninit = NULL,
 };
