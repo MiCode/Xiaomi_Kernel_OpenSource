@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2016, 2019, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2016, 2019-2020, The Linux Foundation. All rights reserved. */
 
 #ifndef __QCOM_CLK_DEBUG_H__
 #define __QCOM_CLK_DEBUG_H__
@@ -91,5 +91,20 @@ int map_debug_bases(struct platform_device *pdev, const char *base,
 		    struct clk_debug_mux *mux);
 
 void clk_common_debug_init(struct clk_hw *hw, struct dentry *dentry);
+
+extern void clk_debug_print_hw(struct clk_hw *hw, struct seq_file *f);
+
+#define WARN_CLK(hw, cond, fmt, ...) do {				\
+	clk_debug_print_hw(hw, NULL);					\
+	WARN(cond, "%s: " fmt, clk_hw_get_name(hw), ##__VA_ARGS__);	\
+} while (0)
+
+#define clock_debug_output(m, fmt, ...)		\
+	do {							\
+		if (m)                                          \
+			seq_printf(m, fmt, ##__VA_ARGS__);      \
+		else                                            \
+			pr_info(fmt, ##__VA_ARGS__);            \
+	} while (0)
 
 #endif
