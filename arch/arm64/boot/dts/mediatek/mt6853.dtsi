@@ -1064,10 +1064,10 @@
 			reg = <0 0x10006000 0 0x100>;
 		};
 
-		srclken-ctrl@10006500 {
+		srclken-ctrl@1000F800 {
 			compatible = "mediatek,srclken-spm";
-			reg = <0 0x10006500 0 0x100>,
-				<0 0x10006E00 0 0x100>;
+			reg = <0 0x1000F800 0 0x100>,
+				<0 0x1000F900 0 0x100>;
 			reg-names = "cfg", "sta";
 
 			cfg-ext = "central-4", "sw-con", "protocol-chk",
@@ -1078,10 +1078,10 @@
 			trace-m-offset = <0x0 0x4 0x8 0x8 0x8 0x8 0x8 0x8>;
 		};
 
-		srclken: srclken@10006500 {
+		srclken: srclken@1000F800 {
 			compatible = "mediatek,srclken";
-			reg = <0 0x105c4000 0 0x1000>,
-				<0 0x10005000 0 0x1000>;
+			reg = <0 0x1000F800 0 0x1000>,
+				<0 0x1000F900 0 0x1000>;
 			reg-names = "scpdvfs", "gpio";
 			mediatek,bring-up = "disable";
 			srclken-mode = "full-set";
