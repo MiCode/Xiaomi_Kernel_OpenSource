@@ -73,7 +73,7 @@ void *mtk_ccd_get_buffer(struct mtk_ccd *ccd,
 		dev_err(ccd_memory->dev, "%s: CQ buf allocation failed\n",
 			__func__);
 		mutex_unlock(&ccd_memory->mmap_lock);
-		goto free;
+		return ERR_PTR(-ENOMEM);
 	}
 
 	va = ccd_memory->mem_ops->vaddr(ccd_buffer->mem_priv);
@@ -94,9 +94,6 @@ void *mtk_ccd_get_buffer(struct mtk_ccd *ccd,
 		 (unsigned long)ccd_buffer->mem_priv);
 
 	return ccd_buffer->mem_priv;
-free:
-	ccd_memory->mem_ops->put(ccd_buffer->mem_priv);
-	return ERR_PTR(-ENOMEM);
 }
 EXPORT_SYMBOL_GPL(mtk_ccd_get_buffer);
 
