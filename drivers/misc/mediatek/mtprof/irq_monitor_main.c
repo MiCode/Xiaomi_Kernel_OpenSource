@@ -18,6 +18,7 @@
 #include <linux/slab.h>
 #include <linux/stacktrace.h>
 #include <linux/tracepoint.h>
+#include <mt-plat/mboot_params.h>
 
 #include <trace/events/ipi.h>
 #include <trace/events/irq.h>
@@ -33,6 +34,20 @@ const char * const softirq_to_name[NR_SOFTIRQS] = {
 	"HI", "TIMER", "NET_TX", "NET_RX", "BLOCK", "IRQ_POLL",
 	"TASKLET", "SCHED", "HRTIMER", "RCU"
 };
+
+static inline void irq_mon_msg_ftrace(const char *str)
+{
+	if (rcu_is_watching())
+		trace_irq_mon_msg(str);
+}
+#else
+#define irq_mon_msg_ftrace(str) trace_irq_mon_msg_rcuidle(str)
+#endif
+
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
+#define pr_aee_sram(msg) aee_sram_fiq_log(msg)
+#else
+#define pr_aee_sram(msg) do {} while (0)
 #endif
 
 void irq_mon_msg(int out, char *buf, ...)
@@ -44,15 +59,14 @@ void irq_mon_msg(int out, char *buf, ...)
 	vsnprintf(str, sizeof(str), buf, args);
 	va_end(args);
 
-#ifdef MODULE
-	if ((out & TO_FTRACE) && rcu_is_watching())
-		trace_irq_mon_msg(str);
-#else
 	if (out & TO_FTRACE)
-		trace_irq_mon_msg_rcuidle(str);
-#endif
+		irq_mon_msg_ftrace(str);
 	if (out & TO_KERNEL_LOG)
 		pr_info("%s\n", str);
+	if (out & TO_SRAM) {
+		pr_aee_sram(str);
+		pr_aee_sram("\n");
+	}
 }
 
 struct irq_mon_tracer {
@@ -175,7 +189,6 @@ static void check_preemptirq_stat(struct preemptirq_stat *pi_stat, int irq)
 		dump_stack();
 }
 
-/* probe functions*/
 static DEFINE_PER_CPU(struct trace_stat, irq_trace_stat);
 static DEFINE_PER_CPU(struct trace_stat, softirq_trace_stat);
 static DEFINE_PER_CPU(struct trace_stat, ipi_trace_stat);
@@ -183,6 +196,45 @@ static DEFINE_PER_CPU(struct trace_stat, ipi_trace_stat);
 #define stat_dur(stat) (stat->end_timestamp - stat->start_timestamp)
 #define th_exceeded(threshold, duration, tracer) \
 	(duration > (unsigned long long)tracer.threshold * 1000000ULL)
+
+#define dur_fmt "duration: %lld us, start: %llu.%06lu, end:%llu.%06lu"
+
+#define show_irq_handle(out, type, stat) \
+	irq_mon_msg(out, "%s%s, " dur_fmt,\
+		stat->end_timestamp ? "In " : "", type, \
+		stat->end_timestamp ? msec_high(stat_dur(stat)) : 0, \
+		sec_high(stat->start_timestamp), \
+		sec_low(stat->start_timestamp), \
+		sec_high(stat->end_timestamp), \
+		sec_low(stat->end_timestamp))
+
+static void __show_irq_handle_info(int out)
+{
+	int cpu;
+
+	for_each_possible_cpu(cpu) {
+		irq_mon_msg(out, "CPU: %d", cpu);
+		show_irq_handle(out, "irq handler", per_cpu_ptr(&irq_trace_stat, cpu));
+		show_irq_handle(out, "softirq", per_cpu_ptr(&softirq_trace_stat, cpu));
+		show_irq_handle(out, "IPI", per_cpu_ptr(&ipi_trace_stat, cpu));
+		irq_mon_msg(out, "");
+	}
+}
+
+static void show_irq_handle_info(int out)
+{
+	if (irq_handler_tracer.tracing)
+		__show_irq_handle_info(out);
+}
+
+void mt_aee_dump_irq_info(void)
+{
+	show_irq_handle_info(TO_SRAM);
+	show_irq_count_info(TO_SRAM);
+}
+EXPORT_SYMBOL_GPL(mt_aee_dump_irq_info);
+
+/* probe functions*/
 
 static void probe_irq_handler_entry(void *ignore,
 		int irq, struct irqaction *action)
@@ -194,6 +246,7 @@ static void probe_irq_handler_entry(void *ignore,
 
 	ts = sched_clock();
 	this_cpu_write(irq_trace_stat.start_timestamp, ts);
+	this_cpu_write(irq_trace_stat.end_timestamp, 0);
 }
 
 static void probe_irq_handler_exit(void *ignore,
@@ -233,6 +286,7 @@ static void probe_softirq_entry(void *ignore, unsigned int vec_nr)
 
 	ts = sched_clock();
 	this_cpu_write(softirq_trace_stat.start_timestamp, ts);
+	this_cpu_write(softirq_trace_stat.end_timestamp, 0);
 }
 
 static void probe_softirq_exit(void *ignore, unsigned int vec_nr)
@@ -271,6 +325,7 @@ static void probe_ipi_entry(void *ignore, const char *reason)
 
 	ts = sched_clock();
 	this_cpu_write(ipi_trace_stat.start_timestamp, ts);
+	this_cpu_write(ipi_trace_stat.end_timestamp, 0);
 }
 
 
