@@ -1350,6 +1350,8 @@ wait_rddm:
 		 msecs_to_jiffies(CNSS_RDDM_TIMEOUT_MS));
 	if (!ret)
 		ret = -ETIMEDOUT;
+	else if (ret > 0)
+		ret = 0;
 
 	return ret;
 }
