@@ -532,6 +532,7 @@
 
 		CLUSTER_PD: cluster-pd {
 			#power-domain-cells = <0>;
+			domain-idle-states = <&CLUSTER_PWR_DN>;
 		};
 	};
 
@@ -1602,6 +1603,7 @@
 				  <WAKE_TCS      2>,
 				  <CONTROL_TCS   0>, /* PDC wakeup values will be written from TZ */
 				  <FAST_PATH_TCS 1>;
+		power-domains = <&CLUSTER_PD>;
 
 		apps_bcm_voter: bcm_voter {
 			compatible = "qcom,bcm-voter";
