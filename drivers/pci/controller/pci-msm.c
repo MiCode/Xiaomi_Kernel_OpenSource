@@ -1204,6 +1204,29 @@ static void pcie_parf_dump(struct msm_pcie_dev_t *dev)
 	}
 }
 
+static void pcie_dm_core_dump(struct msm_pcie_dev_t *dev)
+{
+	int i, size;
+
+	PCIE_DUMP(dev, "PCIe: RC%d DBI/dm_core register dump\n", dev->rc_idx);
+
+	size = resource_size(dev->res[MSM_PCIE_RES_DM_CORE].resource);
+
+	for (i = 0; i < size; i += 32) {
+		PCIE_DUMP(dev,
+			"RC%d: 0x%04x %08x %08x %08x %08x %08x %08x %08x %08x\n",
+			dev->rc_idx, i,
+			readl_relaxed(dev->dm_core + i),
+			readl_relaxed(dev->dm_core + (i + 4)),
+			readl_relaxed(dev->dm_core + (i + 8)),
+			readl_relaxed(dev->dm_core + (i + 12)),
+			readl_relaxed(dev->dm_core + (i + 16)),
+			readl_relaxed(dev->dm_core + (i + 20)),
+			readl_relaxed(dev->dm_core + (i + 24)),
+			readl_relaxed(dev->dm_core + (i + 28)));
+	}
+}
+
 static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 {
 	PCIE_DBG_FS(dev, "PCIe: RC%d is %s enumerated\n",
@@ -4750,6 +4773,13 @@ static void msm_pcie_handle_linkdown(struct msm_pcie_dev_t *dev)
 
 	dev->link_status = MSM_PCIE_LINK_DOWN;
 	dev->shadow_en = false;
+
+	/* PCIe registers dump on link down */
+	PCIE_DUMP(dev, "PCIe:Linkdown IRQ for RC%d Dumping PCIe registers\n",
+		dev->rc_idx);
+	pcie_phy_dump(dev);
+	pcie_parf_dump(dev);
+	pcie_dm_core_dump(dev);
 
 	/* assert PERST */
 	if (!(msm_pcie_keep_resources_on & BIT(dev->rc_idx)))
