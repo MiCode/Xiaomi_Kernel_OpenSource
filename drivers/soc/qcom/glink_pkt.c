@@ -33,37 +33,6 @@ do {									     \
 			##__VA_ARGS__);\
 } while (0)
 
-#define SMD_DTR_SIG BIT(31)
-#define SMD_CTS_SIG BIT(30)
-#define SMD_CD_SIG BIT(29)
-#define SMD_RI_SIG BIT(28)
-
-#define to_smd_signal(sigs) \
-do { \
-	sigs &= 0x0fff; \
-	if (sigs & TIOCM_DTR) \
-		sigs |= SMD_DTR_SIG; \
-	if (sigs & TIOCM_RTS) \
-		sigs |= SMD_CTS_SIG; \
-	if (sigs & TIOCM_CD) \
-		sigs |= SMD_CD_SIG; \
-	if (sigs & TIOCM_RI) \
-		sigs |= SMD_RI_SIG; \
-} while (0)
-
-#define from_smd_signal(sigs) \
-do { \
-	if (sigs & SMD_DTR_SIG) \
-		sigs |= TIOCM_DSR; \
-	if (sigs & SMD_CTS_SIG) \
-		sigs |= TIOCM_CTS; \
-	if (sigs & SMD_CD_SIG) \
-		sigs |= TIOCM_CD; \
-	if (sigs & SMD_RI_SIG) \
-		sigs |= TIOCM_RI; \
-	sigs &= 0x0fff; \
-} while (0)
-
 #define GLINK_PKT_IOCTL_MAGIC (0xC3)
 
 #define GLINK_PKT_IOCTL_QUEUE_RX_INTENT \
@@ -195,7 +164,8 @@ static int glink_pkt_rpdev_cb(struct rpmsg_device *rpdev, void *buf, int len,
 	return 0;
 }
 
-static int glink_pkt_rpdev_sigs(struct rpmsg_device *rpdev, u32 old, u32 new)
+static int glink_pkt_rpdev_sigs(struct rpmsg_device *rpdev, void *priv,
+				u32 old, u32 new)
 {
 	struct device_driver *drv = rpdev->dev.driver;
 	struct rpmsg_driver *rpdrv = drv_to_rpdrv(drv);
@@ -493,35 +463,33 @@ static __poll_t glink_pkt_poll(struct file *file, poll_table *wait)
  * TIOCMBIC and TICOMSET.
  */
 static int glink_pkt_tiocmset(struct glink_pkt_device *gpdev, unsigned int cmd,
-			      unsigned long arg)
+			      int __user *arg)
 {
-	u32 lsigs, rsigs, val;
+	u32 set, clear, val;
 	int ret;
 
-	ret = get_user(val, (u32 *)arg);
+	ret = get_user(val, arg);
 	if (ret)
 		return ret;
-
-	to_smd_signal(val);
-	ret = rpmsg_get_sigs(gpdev->rpdev->ept, &lsigs, &rsigs);
-	if (ret < 0) {
-		GLINK_PKT_ERR("%s: Get signals failed[%d]\n", __func__, ret);
-		return ret;
-	}
+	set = clear = 0;
 	switch (cmd) {
 	case TIOCMBIS:
-		lsigs |= val;
+		set = val;
 		break;
 	case TIOCMBIC:
-		lsigs &= ~val;
+		clear = val;
 		break;
 	case TIOCMSET:
-		lsigs = val;
+		set = val;
+		clear = ~val;
 		break;
 	}
-	ret = rpmsg_set_sigs(gpdev->rpdev->ept, lsigs);
-	GLINK_PKT_INFO("sigs[0x%x] ret[%d]\n", lsigs, ret);
-	return ret;
+
+	set &= TIOCM_DTR | TIOCM_RTS | TIOCM_CD | TIOCM_RI;
+	clear &= TIOCM_DTR | TIOCM_RTS | TIOCM_CD | TIOCM_RI;
+	GLINK_PKT_INFO("set[0x%x] clear[0x%x]\n", set, clear);
+
+	return rpmsg_set_signals(gpdev->rpdev->ept, set, clear);
 }
 
 /**
@@ -539,7 +507,6 @@ static long glink_pkt_ioctl(struct file *file, unsigned int cmd,
 {
 	struct glink_pkt_device *gpdev;
 	unsigned long flags;
-	u32 lsigs, rsigs;
 	int ret;
 
 	gpdev = file->private_data;
@@ -562,15 +529,14 @@ static long glink_pkt_ioctl(struct file *file, unsigned int cmd,
 		gpdev->sig_change = false;
 		spin_unlock_irqrestore(&gpdev->queue_lock, flags);
 
-		ret = rpmsg_get_sigs(gpdev->rpdev->ept, &lsigs, &rsigs);
-		from_smd_signal(rsigs);
-		if (!ret)
-			ret = put_user(rsigs, (uint32_t *)arg);
+		ret = rpmsg_get_signals(gpdev->rpdev->ept);
+		if (ret >= 0)
+			ret = put_user(ret, (int __user *)arg);
 		break;
 	case TIOCMSET:
 	case TIOCMBIS:
 	case TIOCMBIC:
-		ret = glink_pkt_tiocmset(gpdev, cmd, arg);
+		ret = glink_pkt_tiocmset(gpdev, cmd, (int __user *)arg);
 		break;
 	case GLINK_PKT_IOCTL_QUEUE_RX_INTENT:
 		/* Return success to not break userspace client logic */
