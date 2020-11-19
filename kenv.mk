@@ -24,52 +24,30 @@ ifneq ($(strip $(TARGET_NO_KERNEL)),true)
   current_dir := $(notdir $(patsubst %/,%,$(dir $(mkfile_path))))
 
   ifeq ($(KERNEL_TARGET_ARCH),arm64)
-    ifeq ($(strip $(TARGET_KERNEL_USE_CLANG)),true)
-      include $(current_dir)/build.config.mtk.aarch64
-    else
-      include $(current_dir)/build.config.mtk.aarch64.gcc
-    endif
+    include $(current_dir)/build.config.mtk.aarch64
   else
-    ifeq ($(strip $(TARGET_KERNEL_USE_CLANG)),true)
-      include $(current_dir)/build.config.mtk.arm
-    else
-      $(error TARGET_KERNEL_USE_CLANG is not set)
-    endif
+    include $(current_dir)/build.config.mtk.arm
   endif
 
   ARGS := CROSS_COMPILE=$(CROSS_COMPILE)
-  ifneq ($(CLANG_TRIPLE),)
-    ARGS += CLANG_TRIPLE=$(CLANG_TRIPLE)
-  endif
-  ifneq ($(LD),)
-    ARGS += LD=$(LD)
-  endif
-  ifneq ($(LD_LIBRARY_PATH),)
-    ARGS += LD_LIBRARY_PATH=$(KERNEL_ROOT_DIR)/$(LD_LIBRARY_PATH)
-  endif
-  ifneq ($(NM),)
-    ARGS += NM=$(NM)
-  endif
-  ifneq ($(OBJCOPY),)
-    ARGS += OBJCOPY=$(OBJCOPY)
-  endif
-  ifeq ("$(CC)", "gcc")
-    CC :=
-  endif
-
-  ifneq ($(filter-out false,$(USE_CCACHE)),)
-    CCACHE_EXEC ?= /usr/bin/ccache
-    CCACHE_EXEC := $(abspath $(wildcard $(CCACHE_EXEC)))
-  else
-    CCACHE_EXEC :=
-  endif
-  ifneq ($(CCACHE_EXEC),)
-    ifneq ($(CC),)
-      ARGS += CCACHE_CPP2=yes CC='$(CCACHE_EXEC) $(CC)'
+  ifneq ($(LLVM),)
+    ARGS += LLVM=1
+    ifneq ($(filter-out false,$(USE_CCACHE)),)
+      CCACHE_EXEC ?= /usr/bin/ccache
+      CCACHE_EXEC := $(abspath $(wildcard $(CCACHE_EXEC)))
+    else
+      CCACHE_EXEC :=
     endif
-  else
-    ifneq ($(CC),)
-      ARGS += CC=$(CC)
+    ifneq ($(CCACHE_EXEC),)
+      ARGS += CCACHE_CPP2=yes CC='$(CCACHE_EXEC) clang'
+    else
+      ARGS += CC=clang
+    endif
+    ifneq ($(LLVM_IAS),)
+      ARGS += LLVM_IAS=$(LLVM_IAS)
+    endif
+    ifneq ($(LD_LIBRARY_PATH),)
+      ARGS += LD_LIBRARY_PATH=$(KERNEL_ROOT_DIR)/$(LD_LIBRARY_PATH)
     endif
   endif
 
