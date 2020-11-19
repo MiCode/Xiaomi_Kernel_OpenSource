@@ -27,6 +27,7 @@ struct notifier_block;		/* in notifier.h */
  * vfree_atomic().
  */
 #define VM_FLUSH_RESET_PERMS	0x00000100      /* Reset direct map and flush TLB on unmap */
+#define VM_LOWMEM	0x00000200      /* Tracking of direct mapped lowmem */
 
 /* bits [20..32] reserved for arch specific ioremap internals */
 
@@ -203,6 +204,13 @@ extern long vwrite(char *buf, char *addr, unsigned long count);
 extern struct list_head vmap_area_list;
 extern __init void vm_area_add_early(struct vm_struct *vm);
 extern __init void vm_area_register_early(struct vm_struct *vm, size_t align);
+extern __init int vm_area_check_early(struct vm_struct *vm);
+#ifdef CONFIG_ENABLE_VMALLOC_SAVING
+extern void mark_vmalloc_reserved_area(void *addr, unsigned long size);
+#else
+static inline void mark_vmalloc_reserved_area(void *addr, unsigned long size)
+{ };
+#endif
 
 #ifdef CONFIG_SMP
 # ifdef CONFIG_MMU
@@ -228,7 +236,12 @@ pcpu_free_vm_areas(struct vm_struct **vms, int nr_vms)
 #endif
 
 #ifdef CONFIG_MMU
+#ifdef CONFIG_ENABLE_VMALLOC_SAVING
+extern unsigned long total_vmalloc_size;
+#define VMALLOC_TOTAL total_vmalloc_size
+#else
 #define VMALLOC_TOTAL (VMALLOC_END - VMALLOC_START)
+#endif
 #else
 #define VMALLOC_TOTAL 0UL
 #endif
