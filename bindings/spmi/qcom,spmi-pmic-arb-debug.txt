@@ -58,11 +58,23 @@ Supported Properties:
 	Value type: <u32>
 	Definition: Must be 0.
 
-- qcom,fuse-disable-bit
-	Usage:      required if "fuse" is listed in reg-names property
+- qcom,fuse-enable-bit
+	Usage:      optional
 	Value type: <u32>
 	Definition: The bit within the fuse register which is set when the debug
-		    bus is not available.  Supported values are 0 to 31.
+		    bus is available.  Only one of qcom,fuse-enable-bit and
+		    qcom,fuse-disable-bit should be specified if "fuse" is
+		    listed in the reg-names property.
+		    Supported values are 0 to 31.
+
+- qcom,fuse-disable-bit
+	Usage:      optional
+	Value type: <u32>
+	Definition: The bit within the fuse register which is set when the debug
+		    bus is not available.  Only one of qcom,fuse-enable-bit and
+		    qcom,fuse-disable-bit should be specified if "fuse" is
+		    listed in the reg-names property.
+		    Supported values are 0 to 31.
 
 Example:
 
