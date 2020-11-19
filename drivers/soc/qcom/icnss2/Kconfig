@@ -20,7 +20,6 @@ config ICNSS2_DEBUG
 config ICNSS2_QMI
 	bool "ICNSS2 Platform Driver QMI support"
 	depends on ICNSS2
-	select CNSS_QMI_SVC
 	help
 	  Say 'Y' here to enable ICNSS QMI support. ICNSS driver will use
 	  QMI framework to communicate with WLAN FW. It will send coldboot
