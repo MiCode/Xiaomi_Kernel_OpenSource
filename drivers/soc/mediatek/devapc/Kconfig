@@ -14,6 +14,16 @@ config DEVAPC_ARCH_MULTI
 	  architecture version 2.
 	  This architecture supports multiple Infra AO.
 
+config DEVAPC_MT6853
+	tristate "Mediatek MT6853 Device APC driver"
+	select MTK_DEVAPC
+	select DEVAPC_ARCH_MULTI
+	help
+	  Say yes here to enable support Mediatek MT6853
+	  Device APC driver.
+	  This driver is combined with DEVAPC_ARCH_MULTI for
+	  common handle flow.
+
 config DEVAPC_MT6873
 	tristate "Mediatek MT6873 Device APC driver"
 	select MTK_DEVAPC
