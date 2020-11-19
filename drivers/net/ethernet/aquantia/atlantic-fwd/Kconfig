@@ -50,3 +50,12 @@ config ATLFWD_FWD_NETLINK
           Expose forwarding engine APIs over the netlink socket.
 
 endif
+
+config AQFWD_QCOM_IPA
+	bool "QTI IPA offload support"
+	depends on IPA_ETH
+	depends on AQFWD
+	select ATLFWD_FWD
+	help
+	  Enable support for Qualcomm Technologies, Inc. IPA (Internet Protocol Accelerator).
+	  If unsure, say N.
