@@ -1110,7 +1110,7 @@ int fg_dma_mem_req(struct fg_dev *chip, bool request)
 				break;
 			msleep(20);
 		}
-		if (!retry_count && !(val & MEM_GNT_BIT)) {
+		if ((retry_count < 0) && !(val & MEM_GNT_BIT)) {
 			pr_err("failed to get memory access\n");
 			rc = -ETIMEDOUT;
 			goto release_mem;
