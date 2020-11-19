@@ -19,6 +19,7 @@
 #include <linux/platform_device.h>
 #include <linux/interconnect.h>
 #include <linux/seq_file.h>
+#include <linux/of_device.h>
 
 #include "mnoc_drv.h"
 #include "mnoc_qos.h"
@@ -45,49 +46,11 @@ static struct engine_pm_qos_counter engine_pm_qos_counter[NR_APU_QOS_ENGINE];
 
 
 #if MNOC_QOS_BOOST_ENABLE || MNOC_QOS_BOOST_ENABLE
-#define NR_APU_VCORE_OPP (4)
+static int nr_apu_vcore_opp;
 unsigned int apu_bw_vcore_opp;
 #endif
 
-
-#if MNOC_QOS_BOOST_ENABLE
-#if IS_ENABLED(CONFIG_MACH_MT6873)
-static unsigned int apu_vcore_bw_opp_tab[NR_APU_VCORE_OPP] = {
-	10200, /* 4266 Mhz -> 0.725v */
-	7600,  /* 3200 Mhz -> 0.65v */
-	5120,  /* 1866 Mhz -> 0.6v */
-	0,     /* 800~1600 Mhz -> 0.575v */
-};
-#endif /* CONFIG_MACH_MT6873 */
-#if IS_ENABLED(CONFIG_MACH_MT6885)
-static unsigned int apu_vcore_bw_opp_tab[NR_APU_VCORE_OPP] = {
-	20400, /* 3733 Mhz -> 0.725v */
-	15300, /* 3068 Mhz -> 0.65v */
-	11900, /* 2366 Mhz -> 0.6v */
-	0,     /* 800~1866 Mhz -> 0.575v */
-};
-#endif /* CONFIG_MACH_MT6885 */
-#endif /* MNOC_QOS_BOOST_ENABLE */
-
-#if MNOC_QOS_BOOST_ENABLE
-#if IS_ENABLED(CONFIG_MACH_MT6873)
-enum DVFS_VOLTAGE vcore_opp_map[NR_APU_VCORE_OPP] = {
-	DVFS_VOLT_00_725000_V,	// VCORE_OPP_0
-	DVFS_VOLT_00_650000_V,	// VCORE_OPP_1
-	DVFS_VOLT_00_600000_V,  // VCORE_OPP_2
-	DVFS_VOLT_00_575000_V   // VCORE_OPP_3
-};
-#endif /* CONFIG_MACH_MT6873 */
-#if IS_ENABLED(CONFIG_MACH_MT6885)
-enum DVFS_VOLTAGE vcore_opp_map[NR_APU_VCORE_OPP] = {
-	DVFS_VOLT_00_725000_V,	// VCORE_OPP_0
-	DVFS_VOLT_00_650000_V,	// VCORE_OPP_1
-	DVFS_VOLT_00_600000_V,  // VCORE_OPP_2
-	DVFS_VOLT_00_575000_V   // VCORE_OPP_3
-};
-#endif /* CONFIG_MACH_MT6885 */
-#endif /* APU_QOS_IPUIF_ADJUST */
-
+static unsigned int *apu_vcore_bw_opp_tab;
 
 enum apu_qos_cmd_status {
 	CMD_RUNNING,
@@ -258,7 +221,7 @@ void apu_qos_on(void)
 {
 	LOG_DEBUG("+\n");
 
-	notify_sspm_apusys_on();
+	//TODO notify_sspm_apusys_on();
 #ifdef MNOC_QOS_DEBOUNCE
 	mutex_lock(&(qos_counter.list_mtx));
 	apu_qos_timer_start();
@@ -300,10 +263,10 @@ void apu_qos_off(void)
 	mutex_unlock(&apu_qos_boost_mtx);
 #endif
 #if APU_QOS_IPUIF_ADJUST
-	apu_bw_vcore_opp = NR_APU_VCORE_OPP - 1;
-	apu_qos_set_vcore(vcore_opp_map[apu_bw_vcore_opp]);
+	apu_bw_vcore_opp = nr_apu_vcore_opp - 1;
+	apu_qos_set_vcore(apu_bw_vcore_opp);
 #endif
-	notify_sspm_apusys_off();
+	//TODO notify_sspm_apusys_off();
 
 	LOG_DEBUG("-\n");
 }
@@ -526,8 +489,8 @@ static void qos_work_func(struct work_struct *work)
 		/* update peak bw */
 		if (counter->last_report_bw != report_bw) {
 			counter->last_report_bw = report_bw;
-			icc_set_bw(counter->emi_icc_path,
-				   MBps_to_icc(avg_bw), MBps_to_icc(peak_bw));
+			//TODO icc_set_bw(counter->emi_icc_path,
+			//TODO	   MBps_to_icc(avg_bw), MBps_to_icc(peak_bw));
 		}
 
 		LOG_DETAIL("%d: boost_val = %d, bw(%d/%d/%d)\n",
@@ -536,7 +499,7 @@ static void qos_work_func(struct work_struct *work)
 
 #if APU_QOS_IPUIF_ADJUST
 	new_apu_vcore_opp = 0;
-	for (i = NR_APU_VCORE_OPP - 1; i >= 0 ; i--) {
+	for (i = nr_apu_vcore_opp - 1; i >= 0 ; i--) {
 		if (total_apu_bw >= apu_vcore_bw_opp_tab[i])
 			new_apu_vcore_opp = i;
 		else
@@ -547,13 +510,13 @@ static void qos_work_func(struct work_struct *work)
 	if (new_apu_vcore_opp != apu_bw_vcore_opp &&
 		apu_qos_boost_flag == false) {
 		apu_bw_vcore_opp = new_apu_vcore_opp;
-		apu_qos_set_vcore(vcore_opp_map[apu_bw_vcore_opp]);
+		apu_qos_set_vcore(apu_bw_vcore_opp);
 	}
 	mutex_unlock(&apu_qos_boost_mtx);
 #else
 	if (new_apu_vcore_opp != apu_bw_vcore_opp) {
 		apu_bw_vcore_opp = new_apu_vcore_opp;
-		apu_qos_set_vcore(vcore_opp_map[apu_bw_vcore_opp]);
+		apu_qos_set_vcore(apu_bw_vcore_opp);
 	}
 #endif /* MNOC_QOS_BOOST_ENABLE */
 #endif /* APU_QOS_IPUIF_ADJUST */
@@ -935,8 +898,8 @@ int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id,
 	if (!qos_timer_exist) {
 		/* make sure no work_func running after timer delete */
 		cancel_work_sync(&qos_work);
-		for (i = 0; i < NR_APU_QOS_ENGINE; i++)
-			icc_set_bw(engine_pm_qos_counter[i].emi_icc_path, 0, 0);
+//	TODO	for (i = 0; i < NR_APU_QOS_ENGINE; i++)
+			//TODO icc_set_bw(engine_pm_qos_counter[i].emi_icc_path, 0, 0);
 	}
 #endif
 	LOG_DEBUG("-\n");
@@ -967,7 +930,7 @@ void apu_qos_boost_start(void)
 	if (apu_qos_boost_flag == true && apusys_on_flag == true) {
 		cpu_latency_qos_update_request(&apu_qos_cpu_dma_req, 2);
 #if APU_QOS_IPUIF_ADJUST
-		apu_qos_set_vcore(vcore_opp_map[apu_bw_vcore_opp]);
+		apu_qos_set_vcore(apu_bw_vcore_opp);
 #endif
 	}
 #endif
@@ -983,10 +946,10 @@ void apu_qos_boost_end(void)
 
 #if MNOC_QOS_BOOST_ENABLE
 	if (apusys_on_flag) {
-		apu_bw_vcore_opp = NR_APU_VCORE_OPP - 1;
+		apu_bw_vcore_opp = nr_apu_vcore_opp - 1;
 
 #if APU_QOS_IPUIF_ADJUST
-		apu_qos_set_vcore(vcore_opp_map[apu_bw_vcore_opp]);
+		apu_qos_set_vcore(apu_bw_vcore_opp);
 #endif
 		cpu_latency_qos_update_request(&apu_qos_cpu_dma_req,
 			PM_QOS_DEFAULT_VALUE);
@@ -1003,6 +966,7 @@ void apu_qos_counter_init(struct device *dev)
 {
 	struct engine_pm_qos_counter *counter = NULL;
 	struct apu_mnoc *p_mnoc = dev_get_drvdata(dev);
+	struct mnoc_plat_drv *mnoc_drv = NULL;
 	struct icc_path *apu_icc = of_icc_get(dev, "apu-bw");
 	int i = 0;
 
@@ -1011,6 +975,16 @@ void apu_qos_counter_init(struct device *dev)
 		return;
 	}
 	LOG_DEBUG("+\n");
+
+	mnoc_drv = (struct mnoc_plat_drv *)of_device_get_match_data(dev);
+	if (!mnoc_drv) {
+		dev_info(dev, "%s not get mnoc_plat_drv\n", __func__);
+		return;
+	}
+
+	/* Get vcore bw table from platform data */
+	apu_vcore_bw_opp_tab = mnoc_drv->vcore_bw_opp_tab;
+	nr_apu_vcore_opp = mnoc_drv->nr_vcore_opp;
 
 	/*
 	 * put engine_pm_qos_counter to struct apu_mnoc
@@ -1051,7 +1025,7 @@ void apu_qos_counter_init(struct device *dev)
 #endif
 
 #if APU_QOS_IPUIF_ADJUST
-	apu_bw_vcore_opp = NR_APU_VCORE_OPP - 1;
+	apu_bw_vcore_opp = nr_apu_vcore_opp - 1;
 #endif
 
 #if MNOC_TIME_PROFILE

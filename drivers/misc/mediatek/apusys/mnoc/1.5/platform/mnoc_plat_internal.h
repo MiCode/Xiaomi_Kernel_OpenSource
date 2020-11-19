@@ -24,6 +24,8 @@ struct mnoc_plat_drv {
 	void (*set_lt_guardian_pre_ultra)(int dev_type, int dev_core, bool endis);
 
 	int apu_qos_engine_count;
+	unsigned int *vcore_bw_opp_tab;
+	unsigned int nr_vcore_opp;
 };
 
 
