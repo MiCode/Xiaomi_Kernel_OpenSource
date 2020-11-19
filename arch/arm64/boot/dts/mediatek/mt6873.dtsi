@@ -6046,6 +6046,7 @@
 		mtk_dsp_ver = <0x1>;
 		swdsp_smartpa_process_enable = <0x0>;
 		mtk_dsp_mem_afe = <0x1 0x40000>;
+		is_shared_dram_mpu = <0x1>;
 	};
 
 	mtk_lpm: mtk_lpm {
