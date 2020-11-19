@@ -498,6 +498,8 @@ struct dwc3_msm {
 	struct usb_role_switch *role_switch;
 	bool			ss_release_called;
 	int			orientation_override;
+
+	struct device_node	*ss_redriver_node;
 };
 
 #define USB_HSPHY_3P3_VOL_MIN		3050000 /* uV */
@@ -2381,6 +2383,10 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc,
 		dev_dbg(mdwc->dev, "DWC3_CONTROLLER_SET_CURRENT_DRAW_EVENT received\n");
 		schedule_work(&mdwc->vbus_draw_work);
 		break;
+	case DWC3_CONTROLLER_PULLUP:
+		dev_dbg(mdwc->dev, "DWC3_CONTROLLER_PULLUP received\n");
+		redriver_gadget_pullup(mdwc->ss_redriver_node, value);
+		break;
 	case DWC3_GSI_EVT_BUF_ALLOC:
 		dev_dbg(mdwc->dev, "DWC3_GSI_EVT_BUF_ALLOC\n");
 		dwc3_gsi_event_buf_alloc(dwc);
@@ -4108,7 +4114,6 @@ int dwc3_msm_release_ss_lane(struct device *dev)
 {
 	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
 	struct dwc3 *dwc = NULL;
-	struct device_node *ssusb_redriver_node;
 
 	if (mdwc == NULL) {
 		dev_err(dev, "dwc3-msm is not initialized yet.\n");
@@ -4126,9 +4131,7 @@ int dwc3_msm_release_ss_lane(struct device *dev)
 	flush_work(&mdwc->resume_work);
 	drain_workqueue(mdwc->sm_usb_wq);
 
-	ssusb_redriver_node =
-		of_parse_phandle(mdwc->dev->of_node, "ssusb_redriver", 0);
-	redriver_release_usb_lanes(ssusb_redriver_node);
+	redriver_release_usb_lanes(mdwc->ss_redriver_node);
 
 	mdwc->ss_release_called = true;
 	if (mdwc->id_state == DWC3_ID_GROUND) {
@@ -4444,6 +4447,8 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 	mutex_init(&mdwc->suspend_resume_mutex);
 
+	mdwc->ss_redriver_node = of_parse_phandle(node, "ssusb_redriver", 0);
+
 	if (of_property_read_bool(node, "usb-role-switch")) {
 		role_desc.fwnode = dev_fwnode(&pdev->dev);
 		mdwc->role_switch = usb_role_switch_register(mdwc->dev,
@@ -4527,6 +4532,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 put_dwc3:
 	usb_role_switch_unregister(mdwc->role_switch);
+	of_node_put(mdwc->ss_redriver_node);
 	platform_device_put(mdwc->dwc3);
 	for (i = 0; i < ARRAY_SIZE(mdwc->icc_paths); i++)
 		icc_put(mdwc->icc_paths[i]);
@@ -4545,6 +4551,7 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 	int i, ret_pm;
 
 	usb_role_switch_unregister(mdwc->role_switch);
+	of_node_put(mdwc->ss_redriver_node);
 	device_remove_file(&pdev->dev, &dev_attr_mode);
 	device_remove_file(&pdev->dev, &dev_attr_speed);
 	device_remove_file(&pdev->dev, &dev_attr_bus_vote);
