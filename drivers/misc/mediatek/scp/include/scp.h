@@ -12,25 +12,23 @@
 
 /* core1 */
 /* definition of slot size for send PINs */
-#define PIN_OUT_SIZE_AUDIO_VOW_1        9 /* the following will use mbox 0 */
+#define PIN_OUT_SIZE_AUDIO_VOW_1         9 /* the following will use mbox 0 */
 
 /* definition of slot size for received PINs */
-#define PIN_IN_SIZE_AUDIO_VOW_ACK_1     2 /* the following will use mbox 0 */
-#define PIN_IN_SIZE_AUDIO_VOW_1        26 /* the following will use mbox 0 */
+#define PIN_IN_SIZE_AUDIO_VOW_ACK_1      2 /* the following will use mbox 0 */
+#define PIN_IN_SIZE_AUDIO_VOW_1         26 /* the following will use mbox 0 */
 
 /* core0 */
 /* definition of slot size for send PINs */
-#define PIN_OUT_SIZE_CHRE_0		14 /* the following will use mbox 1 */
-#define PIN_OUT_SIZE_SENSOR_0		14 /* the following will use mbox 1 */
 #define PIN_OUT_SIZE_APCCCI_0		 2 /* the following will use mbox 1 */
-#define PIN_OUT_SIZE_DVFS_SET_FREQ_0	1 /* the following will use mbox 1 */
-#define PIN_OUT_C_SIZE_SLEEP_0          2 /* the following will use mbox 1 */
-#define PIN_OUT_R_SIZE_SLEEP_0          1 /* the following will use mbox 1 */
+#define PIN_OUT_SIZE_DVFS_SET_FREQ_0	 1 /* the following will use mbox 1 */
+#define PIN_OUT_C_SIZE_SLEEP_0           2 /* the following will use mbox 1 */
+#define PIN_OUT_R_SIZE_SLEEP_0           1 /* the following will use mbox 1 */
 #define PIN_OUT_SIZE_TEST_0		 1 /* the following will use mbox 1 */
 
 /* definition of slot size for received PINs */
 #define PIN_IN_SIZE_APCCCI_0		 2 /* the following will use mbox 1 */
-#define PIN_IN_SIZE_SCP_ERROR_INFO_0	10 /* the following will use mbox 1 */
+#define PIN_IN_SIZE_SCP_ERROR_INFO_0    10 /* the following will use mbox 1 */
 #define PIN_IN_SIZE_SCP_READY_0		 1 /* the following will use mbox 1 */
 #define PIN_IN_SIZE_SCP_RAM_DUMP_0	 2 /* the following will use mbox 1 */
 /* ============================================================ */
@@ -42,27 +40,21 @@
 #define PIN_OUT_C_SIZE_SLEEP_1	         2 /* the following will use mbox 3 */
 #define PIN_OUT_R_SIZE_SLEEP_1	         1 /* the following will use mbox 3 */
 #define PIN_OUT_SIZE_TEST_1		 1 /* the following will use mbox 3 */
-#define PIN_OUT_SIZE_LOGGER_ENABLE_1	 1 /* the following will use mbox 3 */
-#define PIN_OUT_SIZE_LOGGER_WAKEUP_1	 1 /* the following will use mbox 3 */
-#define PIN_OUT_SIZE_LOGGER_INIT_1	 2 /* the following will use mbox 3 */
+#define PIN_OUT_SIZE_LOGGER_CTRL	 6 /* the following will use mbox 3 */
 #define PIN_OUT_SIZE_SCPCTL_1		 2 /* the following will use mbox 3 */
-#define PIN_OUT_SIZE_SCP_LOG_FILTER_1	 2 /* the following will use mbox 3 */
 
 /* definition of slot size for received PINs */
 #define PIN_IN_SIZE_AUDIO_ULTRA_SND_1	 2 /* the following will use mbox 3 */
 #define PIN_IN_SIZE_SCP_ERROR_INFO_1	10 /* the following will use mbox 3 */
-#define PIN_IN_SIZE_LOGGER_WAKEUP_1	 1 /* the following will use mbox 3 */
+#define PIN_IN_SIZE_LOGGER_CTRL		 6 /* the following will use mbox 3 */
 #define PIN_IN_SIZE_LOGGER_INIT_1	 5 /* the following will use mbox 3 */
 #define PIN_IN_SIZE_SCP_READY_1		 1 /* the following will use mbox 3 */
 #define PIN_IN_SIZE_SCP_RAM_DUMP_1	 2 /* the following will use mbox 3 */
 /* ============================================================ */
 
 /* this is mbox pool for 2 cores */
-#define PIN_OUT_SIZE_SCP_MPOOL         34 /* the following will use mbox 2,4 */
-#define PIN_IN_SIZE_SCP_MPOOL          30 /* the following will use mbox 2,4 */
-#define PIN_IN_SIZE_CHRE_0             34 /* the following will use mbox 0 */
-#define PIN_IN_SIZE_CHREX_0            14 /* the following will use mbox 0 */
-#define PIN_IN_SIZE_SENSOR_0           14 /* the following will use mbox 0 */
+#define PIN_OUT_SIZE_SCP_MPOOL          34 /* the following will use mbox 2,4 */
+#define PIN_IN_SIZE_SCP_MPOOL           30 /* the following will use mbox 2,4 */
 
 /* scp Core ID definition */
 enum scp_core_id {
@@ -98,21 +90,16 @@ enum {
 	IPI_OUT_DVFS_SET_FREQ_1   = 14,
 	IPI_OUT_C_SLEEP_1         = 15,
 	IPI_OUT_TEST_1            = 16,
-	IPI_OUT_LOGGER_ENABLE_1   = 17,
-	IPI_OUT_LOGGER_WAKEUP_1   = 18,
-	IPI_OUT_LOGGER_INIT_1     = 19,
-	IPI_OUT_SCPCTL_1          = 20,
-	IPI_OUT_SCP_LOG_FILTER_1  = 21,
-	IPI_IN_AUDIO_ULTRA_SND_1  = 22,
-	IPI_IN_SCP_ERROR_INFO_1   = 23,
-	IPI_IN_LOGGER_WAKEUP_1    = 24,
-	IPI_IN_LOGGER_INIT_1      = 25,
-	IPI_IN_SCP_READY_1        = 26,
-	IPI_IN_SCP_RAM_DUMP_1     = 27,
-
+	IPI_OUT_LOGGER_CTRL       = 17,
+	IPI_OUT_SCPCTL_1          = 18,
+	IPI_IN_AUDIO_ULTRA_SND_1  = 19,
+	IPI_IN_SCP_ERROR_INFO_1   = 20,
+	IPI_IN_LOGGER_CTRL        = 21,
+	IPI_IN_SCP_READY_1        = 22,
+	IPI_IN_SCP_RAM_DUMP_1     = 23,
 	/* the following will use mbox4 */
-	IPI_OUT_SCP_MPOOL_1       = 28,
-	IPI_IN_SCP_MPOOL_1        = 29,
+	IPI_OUT_SCP_MPOOL_1       = 24,
+	IPI_IN_SCP_MPOOL_1        = 25,
 	SCP_IPI_COUNT
 };
 
