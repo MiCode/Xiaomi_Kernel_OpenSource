@@ -14,8 +14,7 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
-#include <soc/qcom/subsystem_restart.h>
-#include <soc/qcom/subsystem_notif.h>
+#include <linux/remoteproc.h>
 #include <linux/ipc_logging.h>
 
 #define ESOC_MDM_IPC_PAGES	10
@@ -56,6 +55,8 @@ struct esoc_eng {
  * @cmd_eng: handle for command engine.
  * @clink_data: private data of esoc control link.
  * @compat_data: compat data of esoc driver.
+ * @rproc: pointer to the esoc remoteproc struct
+ * @ops: esoc driver remoteproc ops
  * @subsys_desc: descriptor for subsystem restart
  * @subsys_dev: ssr device handle.
  * @np: device tree node for esoc_clink.
@@ -81,8 +82,8 @@ struct esoc_clink {
 	spinlock_t notify_lock;
 	void *clink_data;
 	void *compat_data;
-	struct subsys_desc subsys;
-	struct subsys_device *subsys_dev;
+	struct rproc *rproc;
+	struct rproc_ops ops;
 	struct device_node *np;
 	bool auto_boot;
 	bool primary;
@@ -163,9 +164,9 @@ int esoc_drv_register(struct esoc_drv *driver);
 void esoc_set_drv_data(struct esoc_clink *esoc_clink, void *data);
 void *esoc_get_drv_data(struct esoc_clink *esoc_clink);
 /* ssr operations */
-int esoc_clink_register_ssr(struct esoc_clink *esoc_clink);
+int esoc_clink_register_rproc(struct esoc_clink *esoc_clink);
 int esoc_clink_request_ssr(struct esoc_clink *esoc_clink);
-void esoc_clink_unregister_ssr(struct esoc_clink *esoc_clink);
+void esoc_clink_unregister_rproc(struct esoc_clink *esoc_clink);
 /* client notification */
 void notify_esoc_clients(struct esoc_clink *esoc_clink, unsigned long evt);
 bool esoc_req_eng_enabled(struct esoc_clink *esoc_clink);

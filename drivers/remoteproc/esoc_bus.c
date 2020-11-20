@@ -163,42 +163,53 @@ bool esoc_cmd_eng_enabled(struct esoc_clink *esoc_clink)
 	return !esoc_clink->cmd_eng ? false : true;
 }
 /* ssr operations */
-int esoc_clink_register_ssr(struct esoc_clink *esoc_clink)
+int esoc_clink_register_rproc(struct esoc_clink *esoc_clink)
 {
 	int ret;
 	int len;
-	char *subsys_name;
+	char *rproc_name;
 
 	len = strlen("esoc") + sizeof(esoc_clink->id);
-	subsys_name = kzalloc(len, GFP_KERNEL);
-	if (IS_ERR_OR_NULL(subsys_name))
-		return PTR_ERR(subsys_name);
-	snprintf(subsys_name, len, "esoc%d", esoc_clink->id);
+	rproc_name = kzalloc(len, GFP_KERNEL);
+	if (IS_ERR_OR_NULL(rproc_name))
+		return PTR_ERR(rproc_name);
+
+	snprintf(rproc_name, len, "esoc%d", esoc_clink->id);
 	esoc_clink->dev.of_node = esoc_clink->np;
-	esoc_clink->subsys.name = subsys_name;
-	esoc_clink->subsys.dev = &esoc_clink->pdev->dev;
-	esoc_clink->subsys_dev = subsys_register(&esoc_clink->subsys);
-	if (IS_ERR_OR_NULL(esoc_clink->subsys_dev)) {
-		dev_err(&esoc_clink->dev, "failed to register ssr node\n");
-		ret = PTR_ERR(esoc_clink->subsys_dev);
-		goto subsys_err;
+	esoc_clink->rproc = rproc_alloc(&esoc_clink->dev, rproc_name,
+					&esoc_clink->ops, "xbl.elf", 0);
+	if (!esoc_clink->rproc) {
+		dev_err(&esoc_clink->dev, "unable to allocate remoteproc\n");
+		ret = -ENOMEM;
+		goto rproc_err;
 	}
+
+	esoc_clink->rproc->recovery_disabled = true;
+	esoc_clink->rproc->auto_boot = false;
+	ret = rproc_add(esoc_clink->rproc);
+	if (ret) {
+		dev_err(&esoc_clink->dev, "unable to add remoteproc\n");
+		goto rproc_err;
+	}
+
 	return 0;
 
-subsys_err:
-	kfree(subsys_name);
+rproc_err:
+	kfree(rproc_name);
 	return ret;
 }
 
-void esoc_clink_unregister_ssr(struct esoc_clink *esoc_clink)
+void esoc_clink_unregister_rproc(struct esoc_clink *esoc_clink)
 {
-	subsys_unregister(esoc_clink->subsys_dev);
-	kfree(esoc_clink->subsys.name);
+	rproc_del(esoc_clink->rproc);
+	rproc_free(esoc_clink->rproc);
 }
 
 int esoc_clink_request_ssr(struct esoc_clink *esoc_clink)
 {
-	subsystem_restart_dev(esoc_clink->subsys_dev);
+	if (esoc_clink->rproc->recovery_disabled)
+		panic("Panicking, remoterpoc %s crashed\n", esoc_clink->rproc->name);
+	rproc_report_crash(esoc_clink->rproc, RPROC_FATAL_ERROR);
 	return 0;
 }
 

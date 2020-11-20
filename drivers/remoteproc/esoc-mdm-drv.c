@@ -246,23 +246,23 @@ static void esoc_client_link_mdm_crash(struct esoc_clink *esoc_clink)
 	}
 }
 
-static void mdm_crash_shutdown(const struct subsys_desc *mdm_subsys)
+static unsigned long mdm_rproc_panic(struct rproc *rproc)
 {
-	struct esoc_clink *esoc_clink = container_of(mdm_subsys, struct esoc_clink, subsys);
+	struct esoc_clink *esoc_clink = container_of(rproc->dev.parent, struct esoc_clink, dev);
 	const struct esoc_clink_ops * const clink_ops = esoc_clink->clink_ops;
 
 	esoc_mdm_log("MDM crashed notification from SSR\n");
 
 	if (mdm_dbg_stall_notify(ESOC_PRIMARY_CRASH))
-		return;
+		return 0;
 	clink_ops->notify(ESOC_PRIMARY_CRASH, esoc_clink);
+	return 0;
 }
 
-static int mdm_subsys_shutdown(const struct subsys_desc *crashed_subsys,
-			       bool force_stop)
+static int mdm_rproc_shutdown(struct rproc *rproc)
 {
 	int ret = 0;
-	struct esoc_clink *esoc_clink = container_of(crashed_subsys, struct esoc_clink, subsys);
+	struct esoc_clink *esoc_clink = container_of(rproc->dev.parent, struct esoc_clink, dev);
 	struct mdm_drv *mdm_drv = esoc_get_drv_data(esoc_clink);
 	const struct esoc_clink_ops * const clink_ops = esoc_clink->clink_ops;
 	struct mdm_ctrl *mdm = get_esoc_clink_data(mdm_drv->esoc_clink);
@@ -298,7 +298,7 @@ static int mdm_subsys_shutdown(const struct subsys_desc *crashed_subsys,
 			esoc_mdm_log("mdm already powered-off\n");
 			goto unlock;
 		}
-		if (esoc_clink->subsys.sysmon_shutdown_ret) {
+		if (!qcom_sysmon_shutdown_acked(esoc_clink->rproc_sysmon)) {
 			esoc_mdm_log(
 			"Executing the ESOC_FORCE_PWR_OFF command\n");
 			ret = clink_ops->cmd_exe(ESOC_FORCE_PWR_OFF,
@@ -403,10 +403,10 @@ static int mdm_handle_boot_fail(struct esoc_clink *esoc_clink, u8 *pon_trial)
 	return 0;
 }
 
-static int mdm_subsys_powerup(const struct subsys_desc *crashed_subsys)
+static int mdm_rproc_powerup(struct rproc *rproc)
 {
 	int ret;
-	struct esoc_clink *esoc_clink = container_of(crashed_subsys, struct esoc_clink, subsys);
+	struct esoc_clink *esoc_clink = container_of(rproc->dev.parent, struct esoc_clink, dev);
 	struct mdm_drv *mdm_drv = esoc_get_drv_data(esoc_clink);
 	const struct esoc_clink_ops * const clink_ops = esoc_clink->clink_ops;
 	int timeout = INT_MAX;
@@ -483,39 +483,19 @@ static int mdm_subsys_powerup(const struct subsys_desc *crashed_subsys)
 	return 0;
 }
 
-static int mdm_subsys_ramdumps(int want_dumps,
-				const struct subsys_desc *crashed_subsys)
+static int mdm_rproc_elf_load_segments(struct rproc *rproc, const struct firmware *fw)
 {
-	int ret;
-	struct esoc_clink *esoc_clink =
-				container_of(crashed_subsys, struct esoc_clink,
-								subsys);
-	const struct esoc_clink_ops * const clink_ops = esoc_clink->clink_ops;
-
-	esoc_mdm_log("Ramdumps called from SSR\n");
-
-	if (want_dumps) {
-		esoc_mdm_log("Executing the ESOC_EXE_DEBUG command\n");
-		ret = clink_ops->cmd_exe(ESOC_EXE_DEBUG, esoc_clink);
-		if (ret) {
-			esoc_mdm_log(
-			"Failed executing the ESOC_EXE_DEBUG command\n");
-			dev_err(&esoc_clink->dev, "debugging failed\n");
-			return ret;
-		}
-	}
 	return 0;
 }
 
 static int mdm_register_ssr(struct esoc_clink *esoc_clink)
 {
-	struct subsys_desc *subsys = &esoc_clink->subsys;
 
-	subsys->shutdown = mdm_subsys_shutdown;
-	subsys->ramdump = mdm_subsys_ramdumps;
-	subsys->powerup = mdm_subsys_powerup;
-	subsys->crash_shutdown = mdm_crash_shutdown;
-	return esoc_clink_register_ssr(esoc_clink);
+	esoc_clink->ops.stop = mdm_rproc_shutdown;
+	esoc_clink->ops.start = mdm_rproc_powerup;
+	esoc_clink->ops.panic = mdm_rproc_panic;
+	esoc_clink->ops.load = mdm_rproc_elf_load_segments;
+	return esoc_clink_register_rproc(esoc_clink);
 }
 
 int esoc_ssr_probe(struct esoc_clink *esoc_clink, struct esoc_drv *drv)
@@ -568,7 +548,7 @@ int esoc_ssr_probe(struct esoc_clink *esoc_clink, struct esoc_drv *drv)
 
 	return 0;
 queue_err:
-	esoc_clink_unregister_ssr(esoc_clink);
+	esoc_clink_unregister_rproc(esoc_clink);
 ssr_err:
 	esoc_clink_unregister_cmd_eng(esoc_clink, esoc_eng);
 	return ret;

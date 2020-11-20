@@ -167,7 +167,6 @@ static void mdm_trigger_dbg(struct mdm_ctrl *mdm)
 static int mdm_cmd_exe(enum esoc_cmd cmd, struct esoc_clink *esoc)
 {
 	struct mdm_ctrl *mdm = get_esoc_clink_data(esoc);
-	int ret;
 	bool graceful_shutdown = false;
 	u32 status, err_fatal;
 
@@ -202,21 +201,14 @@ static int mdm_cmd_exe(enum esoc_cmd cmd, struct esoc_clink *esoc)
 		if (esoc->primary)
 			break;
 		graceful_shutdown = true;
-		if (!esoc->userspace_handle_shutdown) {
-			esoc_mdm_log("ESOC_PWR_OFF: sending sysmon-shutdown to modem\n");
-			ret = sysmon_send_shutdown(&esoc->subsys);
-			if (ret) {
-				esoc_mdm_log("ESOC_PWR_OFF: sysmon-shutdown failed: %d\n", ret);
-				dev_err(mdm->dev, "sysmon shutdown fail, ret = %d\n", ret);
-				graceful_shutdown = false;
-				esoc_mdm_log("ESOC_PWR_OFF: forcefully powering-off modem\n");
-			}
-		} else {
+		/* as a part of the sysmon rproc subdevice we send
+		 * the power off request so nothing to do here
+		 */
+		if (esoc->userspace_handle_shutdown)
 			esoc_clink_queue_request(ESOC_REQ_SEND_SHUTDOWN, esoc);
-		}
 		break;
 	case ESOC_FORCE_PWR_OFF:
-		if (!graceful_shutdown && esoc->subsys.sysmon_shutdown_ret) {
+		if (!qcom_sysmon_shutdown_acked(esoc->rproc_sysmon)) {
 			mdm_disable_irqs(mdm);
 			mdm->debug = 0;
 			mdm->ready = false;
