@@ -1,5 +1,5 @@
 /* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
- *
+ * Copyright (C) 2020 XiaoMi, Inc.
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
  * only version 2 as published by the Free Software Foundation.
@@ -25,6 +25,8 @@
 #include "dsi-panel-rm69298-truly-amoled-fhd-plus-cmd.dtsi"
 #include "dsi-panel-rm69299-visionox-amoled-fhd-plus-video.dtsi"
 #include "dsi-panel-nt35695b-truly-fhd-video.dtsi"
+#include "dsi-panel-nt36672c-huaxing-fhd-video.dtsi"
+#include "dsi-panel-nt36672c-tianma-fhd-video.dtsi"
 #include "dsi-panel-nt35695b-truly-fhd-cmd.dtsi"
 #include "dsi-panel-sharp-qsync-wqhd-cmd.dtsi"
 #include "dsi-panel-sharp-qsync-wqhd-video.dtsi"
@@ -347,11 +349,31 @@
 		qcom,dsi-panel = <&dsi_sharp_qsync_fhd_cmd>;
 	};
 
+	dsi_nt36672c_huaxing_fhd_video_display: qcom,dsi-display@22 {
+		label = "dsi_nt36672c_huaxing_fhd_video_display";
+		qcom,display-type = "primary";
+		qcom,dsi-ctrl-num = <0>;
+		qcom,dsi-phy-num = <0>;
+		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
+
+		qcom,dsi-panel = <&dsi_nt36672c_huaxing_fhd_video>;
+	};
+
+	dsi_nt36672c_tianma_fhd_video_display: qcom,dsi-display@23 {
+		label = "dsi_nt36672c_tianma_fhd_video_display";
+		qcom,display-type = "primary";
+		qcom,dsi-ctrl-num = <0>;
+		qcom,dsi-phy-num = <0>;
+		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
+
+		qcom,dsi-panel = <&dsi_nt36672c_tianma_fhd_video>;
+	};
+
 	sde_dsi: qcom,dsi-display {
 		compatible = "qcom,dsi-display";
 
-		qcom,dsi-ctrl = <&mdss_dsi0 &mdss_dsi1>;
-		qcom,dsi-phy = <&mdss_dsi_phy0 &mdss_dsi_phy1>;
+		qcom,dsi-ctrl = <&mdss_dsi0>;
+		qcom,dsi-phy = <&mdss_dsi_phy0>;
 
 		clocks = <&mdss_dsi0_pll BYTECLK_MUX_0_CLK>,
 			 <&mdss_dsi0_pll PCLK_MUX_0_CLK>,
@@ -374,13 +396,15 @@
 		qcom,platform-reset-gpio = <&pm6150l_gpios 9 0>;
 		qcom,panel-te-source = <0>;
 
-		vddio-supply = <&pm6150_l13>;
-		vdda-3p3-supply = <&pm6150_l18>;
+		vddio-supply = <&pm6150_l18>;
+		//vdda-3p3-supply = <&pm6150_l18>;
 		lab-supply = <&lcdb_ldo_vreg>;
 		ibb-supply = <&lcdb_ncp_vreg>;
 
 		qcom,dsi-display-list =
-			<&dsi_sw43404_amoled_video_display
+			<&dsi_nt36672c_huaxing_fhd_video_display
+			&dsi_nt36672c_tianma_fhd_video_display
+			&dsi_sw43404_amoled_video_display
 			&dsi_sw43404_amoled_cmd_display
 			&dsi_sw43404_amoled_fhd_plus_cmd_display
 			&dsi_sim_vid_display
@@ -400,7 +424,6 @@
 			&dsi_sharp_qsync_wqhd_video_display
 			&dsi_sharp_qsync_fhd_video_display
 			&dsi_sharp_qsync_fhd_cmd_display>;
-
 	};
 
 	sde_dsi1: qcom,dsi-display-secondary {
@@ -446,7 +469,7 @@
 };
 
 &mdss_mdp {
-	connectors = <&sde_rscc &sde_wb &sde_dsi &sde_dp &sde_dsi1>;
+	connectors = <&sde_rscc &sde_wb &sde_dsi &sde_dp>;
 };
 
 &dsi_sw43404_amoled_video {
@@ -775,6 +798,40 @@
 			qcom,mdss-dsi-panel-phy-timings = [00 13 05 04 1F 1E 05
 				05 03 02 04 00];
 			qcom,display-topology = <1 0 1>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_nt36672c_huaxing_fhd_video {
+	qcom,esd-err-int-gpio = <&tlmm 4 0>;
+	qcom,mdss-dsi-t-clk-post = <0x04>;
+	qcom,mdss-dsi-t-clk-pre = <0x26>;
+	qcom,dsi-supported-dfps-list = <120 90 60 50 30>;
+	qcom,mdss-dsi-pan-enable-dynamic-fps;
+	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_vfp";
+	qcom,mdss-dsi-display-timings {
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings =[00 11 04 04 1E 1E 04
+				 04 02 02 04 00];
+			qcom,display-topology = <1 1 1>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_nt36672c_tianma_fhd_video {
+	qcom,esd-err-int-gpio = <&tlmm 4 0>;
+	qcom,mdss-dsi-t-clk-post = <0x04>;
+	qcom,mdss-dsi-t-clk-pre = <0x26>;
+	qcom,dsi-supported-dfps-list = <120 90 60 50 30>;
+	qcom,mdss-dsi-pan-enable-dynamic-fps;
+	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_vfp";
+	qcom,mdss-dsi-display-timings {
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings =[00 11 04 04 1E 1E 04
+				 04 02 02 04 00];
+			qcom,display-topology = <1 1 1>;
 			qcom,default-topology-index = <0>;
 		};
 	};

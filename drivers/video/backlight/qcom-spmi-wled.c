@@ -1,5 +1,5 @@
 /* Copyright (c) 2015, Sony Mobile Communications, AB.
- *
+ * Copyright (C) 2020 XiaoMi, Inc.
  * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -280,6 +280,8 @@ static const u8 wled5_brt_wid_sel_reg[MOD_MAX] = {
 
 static int wled_flash_setup(struct wled *wled);
 
+static int wled5_cabc_config(struct wled *wled, bool enable);
+
 static inline bool is_wled4(struct wled *wled)
 {
 	if (*wled->version == WLED_PMI8998 || *wled->version == WLED_PM660L)
@@ -489,6 +491,13 @@ static int wled_update_status(struct backlight_device *bl)
 
 	mutex_lock(&wled->lock);
 	if (brightness) {
+
+		if(brightness <= 40){
+			rc = wled5_cabc_config(wled, false);
+		}else if(brightness > 150){
+			rc = wled5_cabc_config(wled, true);
+		}
+
 		rc = wled_set_brightness(wled, brightness);
 		if (rc < 0) {
 			pr_err("wled failed to set brightness rc:%d\n", rc);

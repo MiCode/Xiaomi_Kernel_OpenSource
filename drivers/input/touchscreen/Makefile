@@ -108,3 +108,6 @@ obj-$(CONFIG_TOUCHSCREEN_ROHM_BU21023)	+= rohm_bu21023.o
 obj-$(CONFIG_TOUCHSCREEN_ST)		+= st/
 obj-$(CONFIG_TOUCHSCREEN_HIMAX_CHIPSET)	+= hxchipset/
 obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_TCM)	+= synaptics_tcm/
+obj-$(CONFIG_TOUCHSCREEN_COMMON)	+= lct_tp_palm.o lct_tp_info.o lct_tp_selftest.o lct_tp_gesture.o lct_tp_grip_area.o lct_tp_work.o
+obj-$(CONFIG_TOUCHSCREEN_NT36xxx_HOSTDL_SPI)	+= nt36xxx_spi/
+obj-$(CONFIG_TOUCHSCREEN_XIAOMI_TOUCHFEATURE)   += xiaomi/

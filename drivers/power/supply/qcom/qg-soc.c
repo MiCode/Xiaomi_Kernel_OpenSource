@@ -1,5 +1,5 @@
 /* Copyright (c) 2018-2020 The Linux Foundation. All rights reserved.
- *
+ * Copyright (C) 2020 XiaoMi, Inc.
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
  * only version 2 as published by the Free Software Foundation.
@@ -42,7 +42,7 @@ module_param_named(
 	fvss_soc_interval_ms, qg_fvss_delta_soc_interval_ms, int, 0600
 );
 
-static int qg_delta_soc_cold_interval_ms = 4000;
+static int qg_delta_soc_cold_interval_ms = 60000;
 module_param_named(
 	soc_cold_interval_ms, qg_delta_soc_cold_interval_ms, int, 0600
 );
@@ -148,6 +148,28 @@ static int qg_process_tcss_soc(struct qpnp_qg *chip, int sys_soc)
 	if (chip->sys_soc >= QG_MAX_SOC && chip->soc_tcss >= QG_MAX_SOC)
 		goto exit_soc_scale;
 
+	 rc = power_supply_get_property(chip->qg_psy,
+			POWER_SUPPLY_PROP_BATT_FULL_CURRENT, &prop);
+	 if (rc < 0) {
+		pr_err("failed to get full_current, rc = %d\n", rc);
+		goto exit_soc_scale;
+	 } else {
+		qg_iterm_ua = -1 * prop.intval;
+	 }
+
+	 pr_err("[%s] qg_iterm_ua=%d\n", __func__, qg_iterm_ua);
+/*
+	 rc = power_supply_get_property(chip->batt_psy,
+			POWER_SUPPLY_PROP_STATUS, &prop);
+	 pr_err("charge_status = %d\n", prop.intval);
+	 if (rc < 0) {
+		pr_err("failed to get charge_status, rc = %d\n", rc);
+		goto exit_soc_scale;
+	 } else if (prop.intval != POWER_SUPPLY_STATUS_CHARGING) {
+		pr_err("charge_status is not charging, rc = %d\n", rc);
+		goto exit_soc_scale;
+	 }
+*/
 	rc = power_supply_get_property(chip->batt_psy,
 			POWER_SUPPLY_PROP_HEALTH, &prop);
 	if (!rc && (prop.intval == POWER_SUPPLY_HEALTH_COOL ||
@@ -418,8 +440,16 @@ static bool maint_soc_timeout(struct qpnp_qg *chip)
 
 static void update_msoc(struct qpnp_qg *chip)
 {
-	int rc = 0, sdam_soc, batt_temp = 0;
+	int rc = 0, sdam_soc, batt_temp = 0, batt_cur = 0;
 	bool input_present = is_input_present(chip);
+
+	rc = qg_get_battery_current(chip, &batt_cur);
+	if (rc < 0) {
+		pr_err("Failed to read BATT_CUR rc=%d\n", rc);
+	}
+
+	qg_dbg(chip, QG_DEBUG_SOC, "batt_cur=%d input_present=%d msoc=%d catch_up_soc=%d last_fifo_i_ua=%d\n",
+			batt_cur, input_present, chip->msoc, chip->catch_up_soc, chip->last_fifo_i_ua);
 
 	if (chip->catch_up_soc > chip->msoc) {
 		/* SOC increased */
@@ -427,7 +457,9 @@ static void update_msoc(struct qpnp_qg *chip)
 			chip->msoc += chip->dt.delta_soc;
 	} else if (chip->catch_up_soc < chip->msoc) {
 		/* SOC dropped */
-		chip->msoc -= chip->dt.delta_soc;
+		if (batt_cur > 0) {
+			chip->msoc -= chip->dt.delta_soc;
+		}
 	}
 	chip->msoc = CAP(0, 100, chip->msoc);
 

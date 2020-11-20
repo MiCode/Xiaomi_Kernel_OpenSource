@@ -1,5 +1,5 @@
 /* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
- *
+ * Copyright (C) 2020 XiaoMi, Inc.
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
  * only version 2 as published by the Free Software Foundation.
@@ -36,10 +36,10 @@
 	interrupt-parent = <&pdc>;
 
 	aliases {
-		spi0 = &qupv3_se0_spi;
+		spi0 = &qupv3_se11_spi;
 		spi1 = &qupv3_se4_spi;
 		i2c0 = &qupv3_se2_i2c;
-		i2c1 = &qupv3_se7_i2c;
+		//i2c1 = &qupv3_se7_i2c;
 		i2c2 = &qupv3_se9_i2c;
 		serial0 = &qupv3_se8_2uart;
 		hsuart0 = &qupv3_se3_4uart;
@@ -486,7 +486,7 @@
 			compatible = "android,firmware";
 			vbmeta {
 				compatible = "android,vbmeta";
-				parts = "vbmeta,boot,system,vendor,dtbo";
+				parts = "vbmeta,boot,recovery,system,vendor,dtbo";
 			};
 			fstab {
 				compatible = "android,fstab";
@@ -495,7 +495,7 @@
 					dev = "/dev/block/platform/soc/1d84000.ufshc/by-name/vendor";
 					type = "ext4";
 					mnt_flags = "ro,barrier=1,discard";
-					fsmgr_flags = "wait,slotselect,avb";
+					fsmgr_flags = "wait,avb";
 					status = "ok";
 				};
 			};
@@ -679,6 +679,15 @@
 			size = <0 0x2000000>;
 			linux,cma-default;
 		};
+		/* reserve for pstore */
+		ramoops_mem: ramoops@9d800000 {
+			compatible = "ramoops";
+			reg = <0x0 0x9d800000 0x0 0x00400000>;
+
+			record-size = <0x80000>;
+			pmsg-size = <0x200000>;
+			console-size = <0x100000>;
+		};
 	};
 };
 
@@ -775,7 +784,12 @@
 
 		qcom,coresight-jtagmm-cpu = <&CPU7>;
 	};
-
+	sn_fuse: snfuse@0x00786134 {
+		compatible = "qcom,sn-fuse";
+		reg = <0x00786134 0x4>,
+			<0x0078607c 0x4>;
+		reg-names = "sn-base","fuse-state";
+	};
 	intc: interrupt-controller@17a00000 {
 		compatible = "arm,gic-v3";
 		#interrupt-cells = <3>;
@@ -3278,6 +3292,7 @@
 	clocks = <&clock_gpucc GPU_CC_GX_GFX3D_CLK_SRC>;
 	qcom,force-enable-root-clk;
 	parent-supply = <&VDD_GFX_LEVEL>;
+        qcom,skip-disable-before-sw-enable;
 	qcom,reset-aon-logic;
 	status = "ok";
 };
@@ -3398,7 +3413,7 @@
 
 &pm6150l_vadc {
 	pinctrl-names = "default";
-	pinctrl-0 = <&nvm_therm_default>;
+	pinctrl-0 = <&nvm_therm_default>, <&backlight_therm_default>;
 
 	conn_therm {
 		reg = <ADC_AMUX_THM1_PU2>;
@@ -3411,6 +3426,14 @@
 	smb_therm {
 		reg = <ADC_AMUX_THM2>;
 		label = "smb_therm";
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+
+	backlight_therm {
+		reg = <ADC_GPIO1_PU2>;
+		label = "backlight_therm";
+		qcom,ratiometric;
 		qcom,hw-settle-time = <200>;
 		qcom,pre-scaling = <1 1>;
 	};
@@ -3439,16 +3462,30 @@
 			bias-high-impedance;
 		};
 	};
+
+	backlight_therm {
+		backlight_therm_default: backlight_therm_default {
+			pins = "gpio5";
+			bias-high-impedance;
+		};
+	};
 };
 
 &pm6150l_adc_tm {
 	io-channels = <&pm6150l_vadc ADC_AMUX_THM1_PU2>,
 			<&pm6150l_vadc ADC_AMUX_THM3_PU2>,
+			<&pm6150l_vadc ADC_GPIO1_PU2>,
 			<&pm6150l_vadc ADC_GPIO4_PU2>;
 
 	/* Channel nodes */
 	conn_therm {
 		reg = <ADC_AMUX_THM1_PU2>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+	};
+
+	backlight_therm {
+		reg = <ADC_GPIO1_PU2>;
 		qcom,ratiometric;
 		qcom,hw-settle-time = <200>;
 	};

@@ -1,5 +1,5 @@
 /* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
- *
+ * Copyright (C) 2020 XiaoMi, Inc.
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
  * only version 2 as published by the Free Software Foundation.
@@ -34,7 +34,7 @@
 
 /* Timeout values in usec */
 #define CAM_IFE_CSID_TIMEOUT_SLEEP_US                  1000
-#define CAM_IFE_CSID_TIMEOUT_ALL_US                    100000
+#define CAM_IFE_CSID_TIMEOUT_ALL_US                    500000
 
 /*
  * Constant Factors needed to change QTimer ticks to nanoseconds

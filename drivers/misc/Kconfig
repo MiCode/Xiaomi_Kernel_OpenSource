@@ -587,6 +587,10 @@ config TEST_IRQ_REQUESTER
 
 	  If in doubt, say N.
 
+config LDO_WL2866D
+	bool  "multi ldo wl2866d"
+	---help---
+	This option enables multi ldo wl2866d.
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
@@ -600,6 +604,8 @@ source "drivers/misc/genwqe/Kconfig"
 source "drivers/misc/echo/Kconfig"
 source "drivers/misc/cxl/Kconfig"
 source "drivers/misc/fpr_FingerprintCard/Kconfig"
+source "drivers/misc/aw8624_haptic/Kconfig"
+source "drivers/misc/drv2624_haptic/Kconfig"
 endmenu
 
 config OKL4_USER_VIPC

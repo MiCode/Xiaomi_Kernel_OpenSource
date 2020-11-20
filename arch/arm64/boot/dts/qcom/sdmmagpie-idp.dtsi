@@ -1,5 +1,5 @@
 /* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
- *
+ * Copyright (C) 2020 XiaoMi, Inc.
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
  * only version 2 as published by the Free Software Foundation.
@@ -21,9 +21,31 @@
 &soc {
 	mtp_batterydata: qcom,battery-data {
 		qcom,batt-id-range-pct = <15>;
-		#include "qg-batterydata-alium-3600mah.dtsi"
-		#include "qg-batterydata-mlp466076-3200mah.dtsi"
+		#include "batterydata-M703-PM7150B-ATL-5160mah.dtsi"
+		#include "batterydata-M703-ATL-6000mah.dtsi"
 	};
+
+        cp_qc30 {
+                compatible = "xiaomi,cp-qc30";
+                status = "ok";
+                mi,qc3-bat-volt-max = <4450>;
+                mi,qc3-ffc-bat-volt-max = <4480>;
+                mi,qc3-bat-curr-max = <5400>;
+                mi,qc3-bus-volt-max = <12000>;
+                mi,qc3-bus-curr-max = <2100>;
+        };
+
+	usbpd_pm {
+		compatible = "xiaomi,usbpd-pm";
+		status = "ok";
+		mi,pd-bat-volt-max = <4450>;
+		mi,pd-ffc-bat-volt-max = <4480>;
+		mi,pd-bat-curr-max = <6000>;
+		mi,pd-bus-volt-max = <12000>;
+		mi,pd-bus-curr-max = <3000>;
+		mi,pd-bus-curr-compensate = <100>;
+	};
+
 };
 
 &qupv3_se8_2uart {
@@ -34,7 +56,12 @@
 	status = "ok";
 };
 
-&pm6150a_amoled {
+&pm6150l_wled {
+	qcom,string-cfg=<7>;
+	status = "ok";
+};
+
+&pm6150l_lcdb {
 	status = "ok";
 };
 
@@ -75,7 +102,14 @@
 		qcom,nq-ven = <&tlmm 12 0x00>;
 		qcom,nq-firm = <&tlmm 36 0x00>;
 		qcom,nq-clkreq = <&tlmm 31 0x00>;
-		qcom,nq-esepwr = <&tlmm 94 0x00>;
+                /*
+                20200605 wanglixiang start
+                GPIO94 was suspended before, and then used for reverse charging.
+                GPIO94 is now released in the NFC code.
+                In the code, GPIO22 is used to replace GPIO94
+                qcom,nq-esepwr = <&tlmm 94 0x00>;
+                */
+                qcom,nq-esepwr = <&tlmm 22 0x00>;
 		interrupt-parent = <&tlmm>;
 		interrupts = <37 0>;
 		interrupt-names = "nfc_irq";
@@ -86,6 +120,40 @@
 				&nfc_clk_req_suspend>;
 	};
 };
+
+&qupv3_se9_i2c {
+	status = "ok";
+	tas256x:tas256x@4c {
+		#sound-dai-cells = <0>;
+		compatible = "ti,tas256x";/*or "ti,tas2564" or "ti,tas256x" */
+		reg = <0x4c>;
+		ti,left-channel = <0x4d>;
+		ti,right-channel = <0x4c>;
+		ti,channels = <2>; /* channel number */
+		ti,reset-gpio2 = <&tlmm 91 0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&reset_stat_default>;
+		ti,reset-gpio = <&pm6150l_gpios 8 GPIO_ACTIVE_LOW>;
+		ti,irq-gpio2 = <&tlmm 30 0>;
+		ti,irq-gpio = <&tlmm 58 0>;
+		status = "ok";
+		ti,iv-width = <16>;
+		ti,vbat-mon = <0>;
+	};
+};
+
+&qupv3_se11_spi {
+	status = "ok";
+	device@1 {
+		compatible = "qcom,spi-msm-codec-slave";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		reg = <1>; /* Chip select 0 */
+		spi-max-frequency = <1000000>;
+		spi-cpol;
+	};
+};
+
 
 &sdhc_1 {
 	vdd-supply = <&pm6150_l19>;
@@ -118,7 +186,7 @@
 	pinctrl-0 = <&sdc2_clk_on  &sdc2_cmd_on &sdc2_data_on &sdc2_cd_on>;
 	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off &sdc2_cd_off>;
 
-	cd-gpios = <&tlmm 69 GPIO_ACTIVE_LOW>;
+	cd-gpios = <&tlmm 69 GPIO_ACTIVE_HIGH>;
 
 	status = "ok";
 };
@@ -159,6 +227,30 @@
 	qcom,platform-reset-gpio = <&pm6150l_gpios 9 0>;
 	qcom,platform-en-gpio = <&pm6150l_gpios 4 0>;
 	qcom,platform-bklight-en-gpio = <&pm6150l_gpios 5 0>;
+};
+
+&dsi_nt36672c_huaxing_fhd_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-brightness-max-level = <4095>;
+	qcom,platform-te-gpio = <&tlmm 10 0>;
+	qcom,platform-reset-gpio = <&pm6150l_gpios 9 0>;
+	//qcom,platform-en-gpio = <&pm6150l_gpios 4 0>;
+	//qcom,platform-bklight-en-gpio = <&pm6150l_gpios 5 0>;
+};
+
+&dsi_nt36672c_tianma_fhd_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-brightness-max-level = <4095>;
+	qcom,platform-te-gpio = <&tlmm 10 0>;
+	qcom,platform-reset-gpio = <&pm6150l_gpios 9 0>;
+	//qcom,platform-en-gpio = <&pm6150l_gpios 4 0>;
+	//qcom,platform-bklight-en-gpio = <&pm6150l_gpios 5 0>;
 };
 
 &dsi_dual_sharp_wqhd_cmd {
@@ -304,62 +396,38 @@
 	qcom,dp-aux-switch = <&fsa4480>;
 };
 
-&qupv3_se7_i2c {
-	qcom,i2c-touch-active="st,fts";
-	status = "ok";
-
-	st_fts@49 {
-		compatible = "st,fts";
-		reg = <0x49>;
-		interrupt-parent = <&tlmm>;
-		interrupts = <9 0x2008>;
-		vdd-supply = <&pm6150_l10>;
-		avdd-supply = <&pm6150l_l7>;
-		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend",
-					"pmx_ts_release";
-		pinctrl-0 = <&ts_active>;
-		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
-		pinctrl-2 = <&ts_release>;
-		st,irq-gpio = <&tlmm 9 0x2008>;
-		st,reset-gpio = <&tlmm 8 0x00>;
-		st,regulator_dvdd = "vdd";
-		st,regulator_avdd = "avdd";
-		st,x-flip;
-		st,y-flip;
-	};
-
-	synaptics_dsx@20 {
-		compatible = "synaptics,dsx-i2c";
-		reg = <0x20>;
-		interrupt-parent = <&tlmm>;
-		interrupts = <9 0x2008>;
-		vdd-supply = <&pm6150_l10>;
-		avdd-supply = <&pm6150l_l7>;
-		pinctrl-names = "pmx_ts_active","pmx_ts_suspend",
-					"pmx_ts_release";
-		pinctrl-0 = <&ts_active>;
-		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
-		pinctrl-2 = <&ts_release>;
-		synaptics,pwr-reg-name = "avdd";
-		synaptics,bus-reg-name = "vdd";
-		synaptics,ub-i2c-addr = <0x20>;
-		synaptics,max-y-for-2d = <2159>;
-		synaptics,irq-gpio = <&tlmm 9 0x2008>;
-		synaptics,reset-gpio = <&tlmm 8 0x0>;
-		synaptics,irq-on-state = <0>;
-		synaptics,power-delay-ms = <200>;
-		synaptics,reset-delay-ms = <200>;
-		synaptics,reset-on-state = <0>;
-		synaptics,reset-active-ms = <20>;
-	};
-};
-
 &pm6150_qg {
 	qcom,battery-data = <&mtp_batterydata>;
-	qcom,qg-iterm-ma = <100>;
+	qcom,qg-iterm-ma = <350>;
 	qcom,hold-soc-while-full;
 	qcom,linearize-soc;
 	qcom,cl-feedback-on;
+	qcom,tcss-enable;
+	qcom,vbatt-cutoff-mv = <3400>;
+	qcom,vbatt-low-mv = <3500>;
+	qcom,vbatt-low-cold-mv = <3700>;
+	qcom,vbatt-empty-mv = <3000>;
+	qcom,vbatt-empty-cold-mv = <3000>;
+	qcom,s3-entry-ibat-ua = <25000>;
+	qcom,s3-exit-ibat-ua = <45000>;
+	qcom,s3-entry-fifo-length = <2>;
+	qcom,qg-vadc = <&pm6150_vadc>;
+	qcom,qg-ext-sns;
+	mi,software-optimize-ffc-qg-iterm;
+	qcom,soc_decimal_rate = <
+		0  32
+		10 30
+		20 28
+		30 28
+		40 28
+		50 28
+		60 28
+		70 28
+		80 28
+		90 26
+		95 10
+		99 5>;
+	qcom,qg-fast-chg-config;
 };
 
 &pm6150_charger {
@@ -378,17 +446,49 @@
 			   "sbux_res",
 			   "vph_voltage";
 	qcom,battery-data = <&mtp_batterydata>;
-	qcom,auto-recharge-soc = <98>;
-	qcom,step-charging-enable;
+	qcom,usb-icl-ua = <3000000>;
+	qcom,auto-recharge-soc = <99>;
+	qcom,fcc-max-ua = <6000000>;
+	qcom,fv-max-uv = <4480000>;
+	qcom,chg-term-src = <1>;
+	qcom,chg-term-current-ma = <(-200)>;
 	qcom,sw-jeita-enable;
-	qcom,fcc-stepping-enable;
+	//qcom,fcc-stepping-enable;
 	qcom,suspend-input-on-debug-batt;
-	qcom,sec-charger-config = <3>;
-	qcom,thermal-mitigation = <4200000 3500000 3000000
-			2500000 2000000 1500000 1000000 500000>;
+	qcom,sec-charger-config = <0>;
+	qcom,thermal-mitigation = <6000000 5500000 4900000 4600000 4500000 4400000 4200000
+				   3800000 3800000 3600000 3400000 3200000 3000000 2200000
+				   800000 700000>;
 	dpdm-supply = <&qusb_phy0>;
 	qcom,charger-temp-max = <800>;
 	qcom,smb-temp-max = <800>;
+	qcom,fcc-step-delay-ms = <100>;
+	qcom,fcc-step-size-ua = <100000>;
+	qcom,disable-sw-thermal-regulation;
+	qcom,disable-fcc-restriction;
+	qcom,smb-internal-pull-kohm = <0>;
+	qcom,usbpd-phandle = <&pm6150_pdphy>;
+	mi,support-ffc;
+	mi,six-pin-step-chg-params = <4250000 6000000
+								4450000 5400000
+								4480000 4000000>;
+	mi,six-pin-step-chg-params_2 = <4250000 6000000
+									4450000 5400000
+									4480000 4680000>;
+	mi,six-pin-step-chg;
+	mi,use-bq-pump;
+	qcom,distinguish-qc-class-ab;
+	qcom,disable-suspend-on-collapse;
+	mi,swithc-sel-gpio = <&tlmm 94 0>;
+	qcom,lpd-disable;
+};
+
+&pm6150_pdphy {
+	mi,non-qcom-pps-ctrl;
+	mi,pd_curr_limit = <1>;
+	mi,pd_max_curr_limit = <4000000>;
+	mi,limit_pd_unverified_pps_vbus = <1>;
+	mi,pd_unverified_pps_max_vbus_limit = <9500000>;
 };
 
 &pm6150_gpios {
@@ -403,13 +503,104 @@
 		};
 	};
 };
+&pm6150l_gpios {
+	reset_stat {
+		reset_stat_default: reset_stat_default {
+			pins = "gpio8";
+			function = "normal";
+			power-source = <1>;
+			output-low;
+			input-disable;
+		};
+	};
+
+	thermal_message: thermal-message {
+		board-sensor = "VIRTUAL-SENSOR";
+	};
+};
 
 &qupv3_se9_i2c {
 	status = "ok";
-	#include "smb1390.dtsi"
-	#include "smb1355.dtsi"
-};
 
+	/*sc8551-charger@65{
+		compatible = "sc,sc8551-standalone";
+		reg = <0x65>;
+		sc,sc8551,bat-ovp-disale = <0>;
+		sc,sc8551,bat-ocp_disable = <0>;
+		sc,sc8551,bat-ovp-alarm-disable = <0>;
+		sc,sc8551,bus-ocp-disable = <0>;
+		sc,sc8551,bus-ovp-alarm-disabl = <0>;
+		sc,sc8551,bus-ocp-alarm-disabl = <0>;
+		sc,sc8551,bat-ucp-alarm-disabl = <0>;
+		sc,sc8551,bat-therm-disable = <0>;
+		sc,sc8551,bus-therm-disable = <0>;
+
+		sc,sc8551,bat-ovp-threshold = <4525>;
+		sc,sc8551,bat-ovp-alarm-threshold = <4400>;
+		sc,sc8551,bat-ocp-threshold = <8000>;
+		sc,sc8551,bat-ocp-alarm-threshold = <7500>;
+
+		sc,sc8551,bus-ovp-threshold = <12000>;
+		sc,sc8551,bus-ovp-alarm-threshold = <11000>;
+		sc,sc8551,bus-ocp-threshold = <3750>;
+		sc,sc8551,bus-ocp-alarm-threshold = <3500>;
+
+		sc,sc8551,bat-ucp-alarm-threshold = <2000>;
+
+		sc,sc8551,bat-therm-threshold = <0x15>;
+		sc,sc8551,bus-therm-threshold = <0x15>;
+		sc,sc8551,die-therm-threshold = <125>;
+
+		sc,sc8551,ac-ovp-threshold = <17>;
+		sc,sc8551,sense-resistor-mohm = <5>;
+	};*/
+	//#include "smb1390.dtsi"
+	//#include "smb1355.dtsi"
+		bq2597x-charger@65 {
+			compatible = "ti,bq2597x-standalone";
+			reg = <0x65>;
+			interrupt-parent = <&tlmm>;
+			interrupts = <43 2>;
+			pinctrl-names = "bq_charger_active", "bq_charger_suspend";
+			pinctrl-0 = <&bq_charger_int_active>;
+                        pinctrl-1 = <&bq_charger_int_suspend>;
+
+			/*ti,bq2597x,bat-ovp-disable;*/
+			ti,bq2597x,bat-ovp-alarm-disable;
+			ti,bq2597x,bat-ocp-disable;
+			ti,bq2597x,bat-ocp-alarm-disable;
+			ti,bq2597x,bat-ucp-alarm-disable;
+			ti,bq2597x,bat-ucp-disable;
+
+			/*ti,bq2597x,bus-ovp-alarm-disable;
+			ti,bq2597x,bus-ocp-disable;
+			ti,bq2597x,bus-ocp-alarm-disable;*/
+			ti,bq2597x,bat-therm-disable;
+			ti,bq2597x,bus-therm-disable;
+			ti,bq2597x,die-therm-disable;
+
+			ti,bq2597x,bat-ovp-threshold = <4550>;
+			ti,bq2597x,bat-ovp-alarm-threshold = <4450>;
+			//ti,bq2597x,bat-ocp-threshold = <5000>;
+			//ti,bq2597x,bat-ocp-alarm-threshold = <4500>;
+
+			ti,bq2597x,bus-ovp-threshold = <12000>;
+			ti,bq2597x,bus-ovp-alarm-threshold = <11000>;
+			//ti,bq2597x,bus-ocp-threshold = <2200>;
+			//ti,bq2597x,bus-ocp-alarm-threshold = <2000>;
+			ti,bq2597x,bus-ocp-threshold = <3500>;
+			ti,bq2597x,bus-ocp-alarm-threshold = <3300>;
+
+			//ti,bq2597x,bat-ucp-alarm-threshold = <2000>;
+
+			ti,bq2597x,bat-therm-threshold = <0x15>;/*4.1%*/
+			ti,bq2597x,bus-therm-threshold = <0x15>;/*4.1%*/
+			ti,bq2597x,die-therm-threshold = <145>;
+			ti,bq2597x,ac-ovp-threshold = <14>;
+			//ti,bq2597x,sense-resistor-mohm = <2>; 
+		};
+};
+/*
 &smb1355 {
 	/delete-property/ interrupts;
 	interrupts = <0x0 0xc2 0x0 IRQ_TYPE_LEVEL_LOW>;
@@ -434,7 +625,7 @@
 	io-channel-names = "cp_die_temp";
 	status = "ok";
 };
-
+*/
 &pm6150l_gpios {
 	key_vol_up {
 		key_vol_up_default: key_vol_up_default {
@@ -465,6 +656,38 @@
 			gpio-key,wakeup;
 		};
 	};
+
+	goodix_fp {
+		compatible = "goodix,fingerprint";
+		interrupt-parent = <&tlmm>;
+		interrupt = <89 0x0>;
+		vcc_spi-supply = <&pm6150l_l7>;
+		vcc_ana-supply = <&pm6150l_l7>;
+		vdd_io-supply = <&pm6150l_l7>;
+		fp-gpio-irq = <&tlmm 89 0x00>;
+		fp-gpio-reset = <&tlmm 90 0x00>;
+		status = "okay";
+	};
+
+	fpc1020 {
+		status = "ok";
+		compatible = "fpc,fpc1020";
+		interrupt-parent = <&tlmm>;
+		interrupts = <89 0x0>;
+		fpc,gpio_rst    = <&tlmm 90 0x0>;
+		fpc,gpio_irq    = <&tlmm 89 0x0>;
+		vcc_spi-supply  = <&pm6150l_l8>;
+		vdd_io-supply   = <&pm6150l_l8>;
+		vdd_ana-supply  = <&pm6150l_l8>;
+
+		pinctrl-names = "fpc1020_reset_reset",
+			"fpc1020_reset_active",
+			"fpc1020_irq_active";
+
+		pinctrl-0 = <&msm_gpio_90>;
+		pinctrl-1 = <&msm_gpio_90_output_high>;
+		pinctrl-2 = <&msm_gpio_89>;
+	};
 };
 
 &thermal_zones {
@@ -472,3 +695,19 @@
 		status = "disabled";
 	};
 };
+
+&qupv3_se9_i2c {
+	status = "ok";
+	/*qcom,clk-freq-out = <100000>;*/
+	wl2866d@28 {
+		compatible = "longcheer,wl2866d";
+		reg = <0x28>;
+		vin1-supply = <&pm6150l_s8>;
+		vin1-voltage-level = <1350000  1350000>;
+		vin2-supply = <&pm6150l_bob>;
+		vin2-voltage-level = <3300000  3300000>;
+		en-gpio =  <&pm6150l_gpios 1 0>;
+		status = "ok";
+	};
+};
+

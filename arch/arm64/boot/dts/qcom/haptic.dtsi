@@ -1,0 +1,152 @@
+&qupv3_se1_i2c {
+	status = "ok";
+	haptic@5A {
+		status = "ok";
+		compatible = "awinic,aw8624_haptic","ti,drv2624";
+		reg = <0x5A>;
+		reset-gpio = <&tlmm 63 0>;
+		irq-gpio = <&tlmm 26 0>;
+		vib_mode = <0>; /* 0: RAM mode 1:CONT mode*/
+		vib_f0_pre = < 2050 >;
+		vib_f0_cali_percen = < 7 >;
+		vib_cont_drv_lev = < 100 >;
+		vib_cont_drv_lvl_ov = < 105 >;
+		vib_cont_td = < 0xF06C >;
+		vib_cont_zc_thr = < 0x08F8 >;
+		vib_cont_num_brk = < 3 >;
+		vib_f0_coeff = < 260 >; /*Don't modify it*/
+		vib_f0_trace_parameter = < 9 5 1 15 >; /* Daniel 20200616 modify*/
+		vib_bemf_config = < 0x10 0x08 0x23 0xf8 >;
+		vib_sw_brake = < 0x2c >;
+		vib_tset = < 0x11 >;
+		vib_func_parameter1 = < 1 >;
+		vib_r_spare = < 0x68 >;
+		vib_effect_id_boundary = < 10 >;
+		vib_gain_flag = < 1 >;
+		vib_effect_max = < 170 >;
+		vib_trig_config = < 0 1 0 1 2
+				0 1 0 1 2
+				0 1 0 1 2 >;
+		vib_bst_vol_default = < 0x1b >;
+		vib_bst_vol_ram = < 0x1b >;
+		vib_bst_vol_rtp = < 0x16 >;
+		vib_rtp_time = < 20 20 20 20 20 20 20 20 20000 15000
+				 15000 20000 25000 15000 30000 25000 20000 20000 20000 20000
+				 20000 20000 20000 20000 20000 20000 20000 20000 20000 20000
+				 20000 20000 20000 20000 20000 20000 20000 20000 20000 20000
+				 20000 20000 20000 20000 20000 20000 20000 20000 20000 20000
+				 20000 20000 20000 20000 20000 20000 20000 20000 20000 20000
+				 20000 20000 20000 20000 20000 20000 20000 20000 20000 20000
+				 20000 20000 20000 20000 20000 20000 20000 20000 20000 20000
+				 20000 20000 20000 20000 20000 20000 20000 20000 20000 20000
+				 20000 20000 20000 20000 20000 20000 20000 20000 20000 20000
+				 20000 20000 20000 20000 20000 20000 20000 20000 20000 20000
+				 20000 20000 20000 20000 20000 20000 20000 20000 20000 20000
+				 20000 20000 20000 20000 20000 20000 20000 20000 20000 20000
+				 20000 20000 20000 20000 20000 20000 20000 20000 20000 20000
+				 20000 20000 20000 20000 20000 20000 20000 20000 20000 20000
+				 20000 20000 20000 20000 20000 20000 20000 20000 20000 20000
+				 20000 20000 20000 20000 20000 20000 20000 20000 20000 20000
+				 20000 20000 20000 20000 20000 >;
+		pinctrl-names = "aw8624_reset_reset","aw8624_reset_active","aw8624_interrupt_active";
+		pinctrl-0 = <&msm_gpio_63>;
+		pinctrl-1 = <&msm_gpio_63_output_high>;
+		pinctrl-2 = <&msm_gpio_26>;
+
+		ti,reset-gpio = <&tlmm 63 0>;
+		ti,irq-gpio = <&tlmm 26 0>;
+		ti,smart-loop = <1>; /* 0-closeloop, 1-openloop*/
+		ti,actuator = <1>; /* 0-ERM, 1-LRA */
+		ti,rated-voltage = <2500>; /*1800mv*/
+		ti,odclamp-voltage = <4000>; /*3000mv*/
+		ti,lra-frequency = <208>; /* DON'T Care if ERM */
+		wf_0 {
+			/*CLICK*/
+			qcom,effect-id = <0>;
+			qcom,wf-vmax-mv = <3600>;
+			qcom,wf-pattern = [3e 3e];
+			qcom,wf-brake-pattern = [02 01 00 00];
+			qcom,wf-play-rate-us = <40000>;
+		};
+		wf_1 {
+			/*DOUBLE CLICK*/
+			qcom,effect-id = <1>;
+			qcom,wf-vmax-mv = <3600>;
+			qcom,wf-pattern = [7e 3e];
+			qcom,wf-brake-pattern = [03 01 00 00];
+			qcom,wf-play-rate-us = <40000>;
+		};
+		wf_2 {
+			/*TICK*/
+			qcom,effect-id = <2>;
+			qcom,wf-vmax-mv = <3600>;
+			qcom,wf-pattern = [7e 3e];
+			qcom,wf-brake-pattern = [02 01 00 00];
+			qcom,wf-play-rate-us = <40000>;
+		};
+		wf_3 {
+			/*THUD*/
+			qcom,effect-id = <3>;
+			qcom,wf-vmax-mv = <3600>;
+			qcom,wf-pattern = [3e 3e];
+			qcom,wf-brake-pattern = [02 01 00 00];
+			qcom,wf-play-rate-us = <30000>;
+		};
+		wf_4 {
+			/*POP*/
+			qcom,effect-id = <4>;
+			qcom,wf-vmax-mv = <3600>;
+			qcom,wf-pattern = [3e 3e];
+			qcom,wf-brake-pattern = [02 01 00 00];
+			qcom,wf-play-rate-us = <30000>;
+		};
+		wf_5 {
+			/*HEAVY CLICK*/
+			qcom,effect-id = <5>;
+			qcom,wf-vmax-mv = <3600>;
+			qcom,wf-pattern = [7e 7e 7e];
+			qcom,wf-brake-pattern = [03 03 01 00];
+			qcom,wf-play-rate-us = <40000>;
+		};
+		wf_6 {
+			/*CLICK*/
+			qcom,effect-id = <6>;
+			qcom,wf-vmax-mv = <3600>;
+			qcom,wf-pattern = [3e 3e];
+			qcom,wf-brake-pattern = [02 01 00 00];
+			qcom,wf-play-rate-us = <25000>;
+		};
+		wf_7 {
+			/*DOUBLE CLICK*/
+			qcom,effect-id = <7>;
+			qcom,wf-vmax-mv = <3600>;
+			qcom,wf-pattern = [7e 3e];
+			qcom,wf-brake-pattern = [03 01 00 00];
+			qcom,wf-play-rate-us = <25000>;
+		};
+		wf_8 {
+			/*TICK*/
+			qcom,effect-id = <8>;
+			qcom,wf-vmax-mv = <3600>;
+			qcom,wf-pattern = [7e 3e];
+			qcom,wf-brake-pattern = [02 01 00 00];
+			qcom,wf-play-rate-us = <35000>;
+		};
+		wf_9 {
+			/*THUD*/
+			qcom,effect-id = <9>;
+			qcom,wf-vmax-mv = <3600>;
+			qcom,wf-pattern = [3e 3e];
+			qcom,wf-brake-pattern = [02 01 00 00];
+			qcom,wf-play-rate-us = <15000>;
+		};
+		wf_10 {
+			/*POP*/
+			qcom,effect-id = <10>;
+			qcom,wf-vmax-mv = <3600>;
+			qcom,wf-pattern = [3e 3e];
+			qcom,wf-brake-pattern = [02 01 00 00];
+			qcom,wf-play-rate-us = <15000>;
+		};
+	};
+};

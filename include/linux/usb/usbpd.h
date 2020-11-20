@@ -1,5 +1,5 @@
 /* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
- *
+ * Copyright (C) 2020 XiaoMi, Inc.
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
  * only version 2 as published by the Free Software Foundation.
@@ -164,5 +164,6 @@ static inline int usbpd_exit_mode(struct usbpd *pd, u16 svid, int mode,
 	return usbpd_send_svdm(pd, svid, USBPD_SVDM_EXIT_MODE,
 			SVDM_CMD_TYPE_INITIATOR, mode, vdo, vdo ? 1 : 0);
 }
+
 
 #endif /* __LINUX_USB_USBPD_H */

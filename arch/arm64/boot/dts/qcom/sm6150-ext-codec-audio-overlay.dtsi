@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2018, The Linux Foundation. All rights reserved.
- *
+ * Copyright (C) 2020 XiaoMi, Inc.
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
  * only version 2 as published by the Free Software Foundation.
@@ -32,9 +32,9 @@
 	status = "disabled";
 };
 
-&wsa_swr_gpios {
+/*&wsa_swr_gpios {
 	status = "disabled";
-};
+};*/
 
 &rx_swr_gpios {
 	status = "disabled";
@@ -44,13 +44,13 @@
 	status = "disabled";
 };
 
-&wsa_spkr_en1 {
+/*&wsa_spkr_en1 {
 	status = "disabled";
-};
-
+};*/
+/*
 &wsa_spkr_en2 {
 	status = "disabled";
-};
+};*/
 
 &wcd9xxx_intc {
 	status = "okay";

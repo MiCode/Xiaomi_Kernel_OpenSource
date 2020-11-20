@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
- *
+ * Copyright (C) 2020 XiaoMi, Inc.
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
  * only version 2 as published by the Free Software Foundation.
@@ -44,12 +44,25 @@
 				qcom,pon-type = <PON_POWER_ON_TYPE_KPDPWR>;
 				qcom,pull-up;
 				linux,code = <KEY_POWER>;
+				qcom,support-reset = <1>;
+				qcom,s1-timer = <4480>;
+				qcom,s2-timer = <2000>;
+				qcom,s2-type = <PON_POWER_OFF_TYPE_HARD_RESET>;
 			};
 
 			qcom,pon_2 {
 				qcom,pon-type = <PON_POWER_ON_TYPE_RESIN>;
 				qcom,pull-up;
 				linux,code = <KEY_VOLUMEDOWN>;
+			};
+
+			qcom,pon_3 {
+				qcom,pon-type = <3>;
+				qcom,pull-up = <1>;
+				qcom,support-reset = <1>;
+				qcom,s1-timer = <3072>;
+				qcom,s2-timer = <2000>;
+				qcom,s2-type = <PON_POWER_OFF_TYPE_WARM_RESET>;
 			};
 		};
 
@@ -409,13 +422,6 @@
 			compatible = "qcom,qpnp-qg";
 			#address-cells = <1>;
 			#size-cells = <1>;
-
-			qcom,vbatt-cutoff-mv = <3200>;
-			qcom,vbatt-low-mv = <3300>;
-			qcom,vbatt-low-cold-mv = <3700>;
-			qcom,vbatt-empty-mv = <3000>;
-			qcom,vbatt-empty-cold-mv = <3000>;
-			qcom,s3-entry-fifo-length = <2>;
 
 			qcom,pmic-revid = <&pm6150_revid>;
 			io-channels = <&pm6150_vadc ADC_BAT_THERM_PU2>,

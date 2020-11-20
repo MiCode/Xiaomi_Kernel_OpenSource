@@ -132,5 +132,8 @@ config SMB1398_CHARGER
 	  (2) DIV2 and 3-level buck combo mode to regulate the output power from
 	      wireless charger receiver and provide the input for downstream
 	      chargers.
-
+config REVERSE_CHARGE
+        bool  "reverse charge"
+        ---help---
+        This option enables reverse charge.
 endmenu

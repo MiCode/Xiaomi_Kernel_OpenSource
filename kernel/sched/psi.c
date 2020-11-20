@@ -2,7 +2,7 @@
  * Pressure stall information for CPU, memory and IO
  *
  * Copyright (c) 2018 Facebook, Inc.
- * Author: Johannes Weiner <hannes@cmpxchg.org>
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * Polling support by Suren Baghdasaryan <surenb@google.com>
  * Copyright (c) 2018 Google, Inc.
@@ -1190,6 +1190,9 @@ static ssize_t psi_write(struct file *file, const char __user *user_buf,
 
 	if (static_branch_likely(&psi_disabled))
 		return -EOPNOTSUPP;
+
+        if (!nbytes)
+                return -EINVAL;
 
 	buf_size = min(nbytes, (sizeof(buf) - 1));
 	if (copy_from_user(buf, user_buf, buf_size))

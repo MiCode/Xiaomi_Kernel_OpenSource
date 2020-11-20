@@ -1,5 +1,5 @@
 /* Copyright (c) 2018, The Linux Foundation. All rights reserved.
- *
+ * Copyright (C) 2020 XiaoMi, Inc.
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
  * only version 2 as published by the Free Software Foundation.
@@ -64,7 +64,7 @@
 		"RX_TX DEC3_INP", "TX DEC3 MUX",
 		"SpkrLeft IN", "WSA_SPK1 OUT",
 		"WSA_SPK1 OUT", "VA_MCLK";
-	qcom,wsa-max-devs = <1>;
-	qcom,wsa-devs = <&wsa881x_0211>, <&wsa881x_0213>;
+	qcom,wsa-max-devs = <0>;
+	/*qcom,wsa-devs = <&wsa881x_0211>, <&wsa881x_0213>;*/
 	qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrLeft";
 };

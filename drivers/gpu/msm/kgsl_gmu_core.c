@@ -1,5 +1,5 @@
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
- *
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
  * only version 2 as published by the Free Software Foundation.
@@ -273,6 +273,16 @@ void gmu_core_regrmw(struct kgsl_device *device,
 	gmu_core_regread(device, offsetwords, &val);
 	val &= ~mask;
 	gmu_core_regwrite(device, offsetwords, val | bits);
+}
+
+bool gmu_core_dev_cx_is_on(struct kgsl_device *device)
+{
+	struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);
+
+	if (ops && ops->cx_is_on)
+		return ops->cx_is_on(device);
+
+	return true;
 }
 
 bool gmu_core_is_initialized(struct kgsl_device *device)

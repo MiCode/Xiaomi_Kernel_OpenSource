@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
- *
+ * Copyright (C) 2020 XiaoMi, Inc.
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
  * only version 2 as published by the Free Software Foundation.
@@ -36,6 +36,7 @@
 #define DSI_CMD_PPS_SIZE 135
 
 #define DSI_MODE_MAX 5
+#define BUF_LEN_MAX    256
 
 enum dsi_panel_rotation {
 	DSI_PANEL_ROTATE_NONE = 0,
@@ -84,6 +85,9 @@ struct dsi_dfps_capabilities {
 	u32 *dfps_list;
 	u32 dfps_list_len;
 	bool dfps_support;
+	/* smart fps control */
+	bool smart_fps_support;
+	u32 smart_fps_value;
 };
 
 struct dsi_dyn_clk_caps {
@@ -165,6 +169,17 @@ struct drm_panel_esd_config {
 	u8 *return_buf;
 	u8 *status_buf;
 	u32 groups;
+	int esd_err_irq_gpio;
+	int esd_err_irq;
+	int esd_err_irq_flags;
+};
+
+struct dsi_read_config {
+	bool enabled;
+	struct dsi_panel_cmd_set read_cmd;
+	u32 cmds_rlen;
+	u32 valid_bits;
+	u8 rbuf[64];
 };
 
 struct dsi_panel {
@@ -211,12 +226,19 @@ struct dsi_panel {
 	bool te_using_watchdog_timer;
 	u32 qsync_min_fps;
 
+	bool dispparam_enabled;
+
 	char dsc_pps_cmd[DSI_CMD_PPS_SIZE];
 	enum dsi_dms_mode dms_mode;
 
 	bool sync_broadcast_en;
 	int power_mode;
 	enum dsi_panel_physical_type panel_type;
+
+	u8 panel_read_data[BUF_LEN_MAX];
+	struct dsi_read_config xy_coordinate_cmds;
+	struct dsi_read_config max_luminance_cmds;
+	bool panel_max_frame_rate;
 };
 
 static inline bool dsi_panel_ulps_feature_enabled(struct dsi_panel *panel)

@@ -1,5 +1,5 @@
 /* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
- *
+ * Copyright (C) 2020 XiaoMi, Inc.
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
  * only version 2 as published by the Free Software Foundation.
@@ -19,6 +19,23 @@
 #include "cam_common_util.h"
 #include "cam_packet_util.h"
 
+//#ifdef __XIAOMI_CAMERA__
+extern int wl2866d_camera_power_up(uint16_t camera_id);
+extern int wl2866d_camera_power_down(uint16_t camera_id);
+extern int wl2866d_camera_power_down_all(void);
+extern int wl2866d_camera_power_up_all(void);
+
+extern char *saved_command_line;
+static int is_camera_probed = 0;
+//[bit5 bit4 bit3 bit2 bit1 bit0]
+//[cam5 cam4 cam3 cam2 cam1 cam0]
+//camera_id 0 --> imx682
+//camera_id 1 --> ov02b1b/gc02m1b
+//camera_id 2 --> s5k3t2
+//camera_id 3 --> hi1337
+//camera_id 4 --> hi259
+//camera_id 5 --> hi847
+//#endif
 
 static void cam_sensor_update_req_mgr(
 	struct cam_sensor_ctrl_t *s_ctrl,
@@ -370,6 +387,9 @@ int32_t cam_sensor_update_slave_info(struct cam_cmd_probe *probe_info,
 	s_ctrl->pipeline_delay =
 		probe_info->reserved;
 
+//lugang add sensor node info
+	s_ctrl->sensordata->camera_id = probe_info->camera_id;
+	s_ctrl->sensordata->sensorName = probe_info->sensorName;
 	s_ctrl->sensor_probe_addr_type =  probe_info->addr_type;
 	s_ctrl->sensor_probe_data_type =  probe_info->data_type;
 	CAM_DBG(CAM_SENSOR,
@@ -620,6 +640,7 @@ int cam_sensor_match_id(struct cam_sensor_ctrl_t *s_ctrl)
 {
 	int rc = 0;
 	uint32_t chipid = 0;
+	uint32_t versionid = 0;
 	struct cam_camera_slave_info *slave_info;
 
 	slave_info = &(s_ctrl->sensordata->slave_info);
@@ -629,22 +650,210 @@ int cam_sensor_match_id(struct cam_sensor_ctrl_t *s_ctrl)
 			 slave_info);
 		return -EINVAL;
 	}
+	CAM_ERR(CAM_SENSOR, "xyz slaveaddr: 0x%x, sensor_id_reg_addr =0x%x",
+		slave_info->sensor_slave_addr,slave_info->sensor_id_reg_addr);
+	if (0xe1 == slave_info->sensor_id) {//hi259
+		rc = camera_io_dev_read(
+			&(s_ctrl->io_master_info),
+			slave_info->sensor_id_reg_addr,
+			&chipid, CAMERA_SENSOR_I2C_TYPE_BYTE,
+			CAMERA_SENSOR_I2C_TYPE_BYTE);
+	} else if (0x02e0 == slave_info->sensor_id) {//gc02m1b
+		rc = camera_io_dev_read(
+			&(s_ctrl->io_master_info),
+			slave_info->sensor_id_reg_addr,
+			&chipid, CAMERA_SENSOR_I2C_TYPE_BYTE,
+			CAMERA_SENSOR_I2C_TYPE_WORD);
+	} else {
+		rc = camera_io_dev_read(
+			&(s_ctrl->io_master_info),
+			slave_info->sensor_id_reg_addr,
+			&chipid, CAMERA_SENSOR_I2C_TYPE_WORD,
+			CAMERA_SENSOR_I2C_TYPE_WORD);
 
-	rc = camera_io_dev_read(
-		&(s_ctrl->io_master_info),
-		slave_info->sensor_id_reg_addr,
-		&chipid, CAMERA_SENSOR_I2C_TYPE_WORD,
-		CAMERA_SENSOR_I2C_TYPE_WORD);
+		if (0x0682 == chipid) {
+			rc = camera_io_dev_read(
+				&(s_ctrl->io_master_info),
+				0x0018,
+				&versionid, CAMERA_SENSOR_I2C_TYPE_WORD,
+				CAMERA_SENSOR_I2C_TYPE_BYTE);
 
-	CAM_DBG(CAM_SENSOR, "read id: 0x%x expected id 0x%x:",
+			CAM_ERR(CAM_SENSOR, "xyz version id 0x%x",
+						versionid);
+			if ((cam_sensor_id_by_mask(s_ctrl, versionid) == 0x02) ||
+				(cam_sensor_id_by_mask(s_ctrl, versionid) == 0x01)) {
+				chipid = chipid + 2;
+			}
+		}
+	}
+
+	CAM_ERR(CAM_SENSOR, "xyz read id: 0x%x expected id 0x%x:",
 			 chipid, slave_info->sensor_id);
 	if (cam_sensor_id_by_mask(s_ctrl, chipid) != slave_info->sensor_id) {
-		CAM_ERR(CAM_SENSOR, "chip id %x does not match %x",
+		CAM_ERR(CAM_SENSOR, "xyz chip id %x does not match %x",
 				chipid, slave_info->sensor_id);
 		return -ENODEV;
 	}
 	return rc;
 }
+
+// add sensor info for factory mode begin
+static struct kobject *msm_sensor_device;
+static char module_info[240] = {0};
+#define CAM_BACK_MAIN 0
+#define CAM_AUX_DEPTH 1
+#define CAM_FRONT 2
+#define CAM_AUX_WIDE 3
+#define CAM_AUX_MACRO 4
+#define CAM_AUX_TELE 5
+
+static int is_sensor_name_back_main_found;
+static int is_sensor_name_front_found;
+static int is_sensor_name_aux_depth_found;
+static int is_sensor_name_aux_wide_found;
+static int is_sensor_name_aux_macro_found;
+static int is_sensor_name_aux_tele_found;
+
+void msm_sensor_set_module_info(struct cam_sensor_ctrl_t *s_ctrl)
+{
+	printk("s_ctrl->sensordata->camera_type = %d\n", s_ctrl->sensordata->camera_id);
+	switch (s_ctrl->sensordata->camera_id) {
+	case CAM_BACK_MAIN:
+		if (0 == is_sensor_name_back_main_found) {
+			strlcat(module_info, "back:", 240);
+			if (!strcmp("ofilm_imx682", s_ctrl->sensordata->sensorName)) {
+				strlcat(module_info, "sony_imx682_i", 240);
+			} else if (!strcmp("sunny_imx682", s_ctrl->sensordata->sensorName)) {
+				strlcat(module_info, "sony_imx682_ii", 240);
+			} else {
+				pr_err("sony_imx682 msm_sensor_set_module_info error");
+			}
+			is_sensor_name_back_main_found = 1;
+		} else {
+			pr_err("imx682 had already wrote device name, do not write it");
+		}
+		break;
+	case CAM_FRONT:
+		if (0 == is_sensor_name_front_found) {
+			strlcat(module_info, "front:", 240);
+			if (!strcmp("sunny_s5k3t2", s_ctrl->sensordata->sensorName)) {
+				strlcat(module_info, "samsung_s5k3t2_i", 240);
+			} else if (!strcmp("ofilm_s5k3t2", s_ctrl->sensordata->sensorName)) {
+				strlcat(module_info, "samsung_s5k3t2_ii", 240);
+			} else {
+				pr_err("samsung_s5k3t2 msm_sensor_set_module_info error");
+			}
+			is_sensor_name_front_found = 1;
+		} else {
+			pr_err("s5k3t2 had already wrote device name, do not write it");
+		}
+		break;
+	case CAM_AUX_DEPTH:
+		if (0 == is_sensor_name_aux_depth_found) {
+			strlcat(module_info, "aux_back_depth:", 240);
+			if (!strcmp("ofilm_ov02b1b", s_ctrl->sensordata->sensorName)) {
+				strlcat(module_info, "omnivision_ov02b1b_i", 240);
+			} else if (!strcmp("aac_gc02m1b", s_ctrl->sensordata->sensorName)) {
+				strlcat(module_info, "gcore_gc02m1b_ii", 240);
+			} else {
+				pr_err("ov02b1b_i-gc02m1b msm_sensor_set_module_info error");
+			}
+			is_sensor_name_aux_depth_found = 1;
+		} else {
+			pr_err("ov02b1b_i-gc02m1b had already wrote device name, do not write it");
+		}
+		break;
+	case CAM_AUX_WIDE:
+		if (0 == is_sensor_name_aux_wide_found) {
+			strlcat(module_info, "aux_back_wide:", 240);
+			if (!strcmp("sunny_hi1337", s_ctrl->sensordata->sensorName)) {
+				strlcat(module_info, "hynix_hi1337_i", 240);
+			} else if (!strcmp("aac_hi1337", s_ctrl->sensordata->sensorName)) {
+				strlcat(module_info, "hynix_hi1337_ii", 240);
+			} else {
+				pr_err("hynix_hi1337 msm_sensor_set_module_info error");
+			}
+			is_sensor_name_aux_wide_found = 1;
+		} else {
+			pr_err("hi1337 had already wrote device name, do not write it");
+		}
+		break;
+	case CAM_AUX_MACRO:
+		if (0 == is_sensor_name_aux_macro_found) {
+			strlcat(module_info, "aux_back_macro:", 240);
+			if (!strcmp("ofilm_hi259", s_ctrl->sensordata->sensorName)) {
+				strlcat(module_info, "hynix_hi259_i", 240);
+			} else if (!strcmp("aac_hi259", s_ctrl->sensordata->sensorName)) {
+				strlcat(module_info, "hynix_hi259_ii", 240);
+			} else {
+				pr_err("hynix_hi259 msm_sensor_set_module_info error");
+			}
+			is_sensor_name_aux_macro_found = 1;
+		} else {
+			pr_err("hi259 had already wrote device name, do not write it");
+		}
+		break;
+	case CAM_AUX_TELE:
+		if (0 == is_sensor_name_aux_tele_found) {
+			strlcat(module_info, "aux_back_tele:", 240);
+			if (!strcmp("sunny_hi847", s_ctrl->sensordata->sensorName)) {
+				strlcat(module_info, "hynix_hi847_i", 240);
+			} else if (!strcmp("ofilm_hi847", s_ctrl->sensordata->sensorName)) {
+				strlcat(module_info, "hynix_hi847_ii", 240);
+			} else {
+				pr_err("hynix_hi847 msm_sensor_set_module_info error");
+			}
+			is_sensor_name_aux_tele_found = 1;
+		} else {
+			pr_err("hi847 had already wrote device name, do not write it");
+		}
+		break;
+	default:
+		strlcat(module_info, "unknown:", 240);
+		break;
+	}
+	strlcat(module_info, "\n", 240);
+	printk("s_ctrl->sensordata->camera_type = %d, camera name = %s\n",
+		s_ctrl->sensordata->camera_id, s_ctrl->sensordata->sensorName);
+}
+
+static ssize_t msm_sensor_module_id_show(struct device *dev,
+	struct device_attribute *attr,
+	char *buf)
+{
+	ssize_t rc = 0;
+
+	snprintf(buf, 240, "%s\n", module_info);
+	rc = strlen(buf) + 1;
+
+	return rc;
+}
+
+static DEVICE_ATTR(sensor, 0444, msm_sensor_module_id_show, NULL);
+
+int32_t msm_sensor_init_device_name(void)
+{
+	int32_t rc = 0;
+
+	pr_err("%s %d\n", __func__, __LINE__);
+	if (msm_sensor_device != NULL) {
+		pr_err("Macle android_camera already created\n");
+		return 0;
+	}
+	msm_sensor_device = kobject_create_and_add("android_camera", NULL);
+	if (msm_sensor_device == NULL) {
+		printk("%s: subsystem_register failed\n", __func__);
+		rc = -ENOMEM;
+		return rc;
+	}
+	rc = sysfs_create_file(msm_sensor_device, &dev_attr_sensor.attr);
+	if (rc) {
+		printk("%s: sysfs_create_file failed\n", __func__);
+		kobject_del(msm_sensor_device);
+	}
+	return 0;
+}
+//end
 
 int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 	void *arg)
@@ -653,11 +862,19 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 	struct cam_control *cmd = (struct cam_control *)arg;
 	struct cam_sensor_power_ctrl_t *power_info =
 		&s_ctrl->sensordata->power_info;
+//#ifdef __XIAOMI_CAMERA__
+	struct cam_sensor_board_info * sensordata = s_ctrl->sensordata;
+//#endif
 	if (!s_ctrl || !arg) {
 		CAM_ERR(CAM_SENSOR, "s_ctrl is NULL");
 		return -EINVAL;
 	}
-
+//#ifdef __XIAOMI_CAMERA__
+	if (!sensordata) {
+		CAM_ERR(CAM_SENSOR, "xyz sensordata failed: %pK", sensordata);
+		return -EINVAL;
+	}
+//#endif
 	if (cmd->op_code != CAM_SENSOR_PROBE_CMD) {
 		if (cmd->handle_type != CAM_HANDLE_USER_POINTER) {
 			CAM_ERR(CAM_SENSOR, "Invalid handle type: %d",
@@ -713,6 +930,16 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 			goto free_power_settings;
 		}
 
+        //#ifdef __XIAOMI_CAMERA__
+        pr_err("xyz camera probe p_camera_id=[%d]\n", sensordata->camera_id);
+        rc = wl2866d_camera_power_up_all();
+        if (rc < 0) {
+            CAM_ERR(CAM_SENSOR, "xyz wl2866d_camera_power_up_all failed %s %d, rc=%d",
+               __func__, __LINE__, rc);
+            goto free_power_settings;
+        }
+        //#endif
+
 		/* Power up and probe sensor */
 		rc = cam_sensor_power_up(s_ctrl);
 		if (rc < 0) {
@@ -728,17 +955,52 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 			goto free_power_settings;
 		}
 
+		//lugang add sensor node info
+		msm_sensor_init_device_name();
+		msm_sensor_set_module_info(s_ctrl);
+
 		CAM_INFO(CAM_SENSOR,
-			"Probe success,slot:%d,slave_addr:0x%x,sensor_id:0x%x",
+			"Probe success,slot:%d,slave_addr:0x%x,sensor_id:0x%x, camera_id=[%d]",
 			s_ctrl->soc_info.index,
 			s_ctrl->sensordata->slave_info.sensor_slave_addr,
-			s_ctrl->sensordata->slave_info.sensor_id);
-
+			s_ctrl->sensordata->slave_info.sensor_id,
+			sensordata->camera_id);
+        if (0 == sensordata->camera_id) {
+            is_camera_probed |= 1<<0;
+        } else if (1 == sensordata->camera_id) {
+            is_camera_probed |= 1<<1;
+        } else if (2 == sensordata->camera_id) {
+            is_camera_probed |= 1<<2;
+        } else if (3 == sensordata->camera_id) {
+            is_camera_probed |= 1<<3;
+        } else if (4 == sensordata->camera_id) {
+            is_camera_probed |= 1<<4;
+        } else if (5 == sensordata->camera_id) {
+            is_camera_probed |= 1<<5;
+        }
 		rc = cam_sensor_power_down(s_ctrl);
 		if (rc < 0) {
 			CAM_ERR(CAM_SENSOR, "fail in Sensor Power Down");
 			goto free_power_settings;
 		}
+        if ((strnstr(saved_command_line, "androidboot.hwname=karna", strlen(saved_command_line)) != NULL)
+         || (strnstr(saved_command_line, "androidboot.hwname=surya", strlen(saved_command_line)) != NULL)) {
+            if (0x1F == is_camera_probed) {
+                CAM_ERR(CAM_SENSOR, "xyz J20C all sensor probe succese, power down multi LDO");
+                rc = wl2866d_camera_power_down_all();
+            }
+        } else if ((strnstr(saved_command_line, "androidboot.hwname=indra", strlen(saved_command_line)) != NULL)
+         || (strnstr(saved_command_line, "androidboot.hwname=arjuna", strlen(saved_command_line)) != NULL)) {
+            if (0x3F == is_camera_probed) {
+                CAM_ERR(CAM_SENSOR, "xyz J20 all sensor probe succese, power down multi LDO");
+                rc = wl2866d_camera_power_down_all();
+            }
+        }
+		if (rc < 0) {
+			CAM_ERR(CAM_SENSOR, "xyz fail in Sensor multi LDO Power Down");
+			goto free_power_settings;
+		}
+
 		/*
 		 * Set probe succeeded flag to 1 so that no other camera shall
 		 * probed on this slot
@@ -793,7 +1055,15 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 			rc = -EFAULT;
 			goto release_mutex;
 		}
-
+//#ifdef __XIAOMI_CAMERA__
+		pr_err("xyz camera power up p_camera_id=[%d]\n", sensordata->camera_id);
+		rc = wl2866d_camera_power_up(sensordata->camera_id);
+		if (rc < 0) {
+			CAM_ERR(CAM_SENSOR, "xyz wl2866d_camera_power_up failed %s %d, rc=%d",
+               __func__, __LINE__, rc);
+			goto release_mutex;
+		}
+//#endif
 		rc = cam_sensor_power_up(s_ctrl);
 		if (rc < 0) {
 			CAM_ERR(CAM_SENSOR, "Sensor Power up failed");
@@ -832,7 +1102,13 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 			CAM_ERR(CAM_SENSOR, "Sensor Power Down failed");
 			goto release_mutex;
 		}
-
+//#ifdef __XIAOMI_CAMERA__
+		rc = wl2866d_camera_power_down(sensordata->camera_id);
+		if (rc < 0) {
+			CAM_ERR(CAM_SENSOR, "power down the core is failed:%d", rc);
+			goto release_mutex;
+		}
+//#endif
 		cam_sensor_release_per_frame_resource(s_ctrl);
 		cam_sensor_release_stream_rsc(s_ctrl);
 		if (s_ctrl->bridge_intf.device_hdl == -1) {

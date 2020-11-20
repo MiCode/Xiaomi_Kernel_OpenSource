@@ -1,5 +1,5 @@
 /* Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
- *
+ * Copyright (C) 2020 XiaoMi, Inc.
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
  * only version 2 as published by the Free Software Foundation.
@@ -348,6 +348,9 @@ enum {
 #define SNK_RP_3P0_BIT				BIT(1)
 #define SNK_RP_SHORT_BIT			BIT(0)
 
+#define TYPE_C_SNK_DEBUG_ACC_STATUS_REG         (TYPEC_BASE + 0x07)
+#define SNK_DEBUG_ACC_RPSTD_PRSTD_BIT                  BIT(0)
+
 #define TYPE_C_SRC_STATUS_REG			(TYPEC_BASE + 0x08)
 #define DETECTED_SNK_TYPE_MASK			GENMASK(4, 0)
 #define SRC_HIGH_BATT_BIT			BIT(5)
@@ -398,6 +401,12 @@ enum {
 #define TYPEC_CCOUT_BUFFER_EN_BIT		BIT(2)
 #define TYPEC_CCOUT_VALUE_BIT			BIT(1)
 #define TYPEC_CCOUT_SRC_BIT			BIT(0)
+
+#define TYPE_C_DEBUG_ACC_SNK_CFG                (TYPEC_BASE + 0x4A)
+#define TYPEC_DEBUG_ENABLE_ACC_SNK              BIT(0)
+#define TYPEC_DEBUG_ENABLE_CHG_ON_SNK           BIT(1)
+#define TYPEC_DEBUG_ACC_SNK_SEL_ICL             BIT(2)
+#define TYPEC_DEBUG_ACC_SNK_DIS_AICL            BIT(3)
 
 #define DEBUG_ACCESS_SRC_CFG_REG		(TYPEC_BASE + 0x4C)
 #define EN_UNORIENTED_DEBUG_ACCESS_SRC_BIT	BIT(0)

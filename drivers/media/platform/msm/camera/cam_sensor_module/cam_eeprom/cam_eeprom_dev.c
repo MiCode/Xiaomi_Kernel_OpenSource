@@ -1,5 +1,5 @@
 /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
- *
+ * Copyright (C) 2020 XiaoMi, Inc.
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
  * only version 2 as published by the Free Software Foundation.
@@ -44,7 +44,7 @@ static int cam_eeprom_subdev_close(struct v4l2_subdev *sd,
 		CAM_ERR(CAM_EEPROM, "e_ctrl ptr is NULL");
 			return -EINVAL;
 	}
-
+    CAM_DBG(CAM_EEPROM, "xyz eeprom %s %d", __func__, __LINE__);
 	mutex_lock(&(e_ctrl->eeprom_mutex));
 	cam_eeprom_shutdown(e_ctrl);
 	mutex_unlock(&(e_ctrl->eeprom_mutex));

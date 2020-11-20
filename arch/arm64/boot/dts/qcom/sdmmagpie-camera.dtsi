@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
- *
+ * Copyright (C) 2020 XiaoMi, Inc.
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
  * only version 2 as published by the Free Software Foundation.
@@ -427,10 +427,10 @@
 				};
 
 				iova-mem-region-io {
-					/* IO region is approximately 3 GB */
+					/* IO region is approximately 3.4 GB */
 					iova-region-name = "io";
 					iova-region-start = <0x10C00000>;
-					iova-region-len = <0xA9C00000>;
+					iova-region-len = <0xD9900000>;
 					iova-region-id = <0x3>;
 					status = "ok";
 				};
@@ -993,9 +993,9 @@
 		clock-control-debugfs = "true";
 		clock-cntl-level = "lowsvs", "svs", "svs_l1", "turbo";
 		clock-rates =
-			<380000000 0 0>,
-			<384000000 0 0>,
-			<480000000 0 0>,
+			<600000000 0 0>,
+			<600000000 0 0>,
+			<600000000 0 0>,
 			<600000000 0 0>;
 		status = "ok";
 	};

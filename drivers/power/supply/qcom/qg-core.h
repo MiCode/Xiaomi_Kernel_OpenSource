@@ -1,5 +1,5 @@
 /* Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
- *
+ * Copyright (C) 2020 XiaoMi, Inc.
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
  * only version 2 as published by the Free Software Foundation.
@@ -65,6 +65,8 @@ struct qg_dt {
 	int			sys_min_volt_mv;
 	int			fvss_vbat_mv;
 	int			tcss_entry_soc;
+	int                     *dec_rate_seq;
+	int                     dec_rate_len;
 	bool			hold_soc_while_full;
 	bool			linearize_soc;
 	bool			cl_disable;
@@ -78,6 +80,7 @@ struct qg_dt {
 	bool			fvss_enable;
 	bool			multi_profile_load;
 	bool			tcss_enable;
+	bool			software_optimize_ffc_qg_iterm;
 	bool			bass_enable;
 };
 
@@ -106,6 +109,18 @@ struct qpnp_qg {
 	struct work_struct	scale_soc_work;
 	struct work_struct	qg_status_change_work;
 	struct delayed_work	qg_sleep_exit_work;
+#ifdef CONFIG_BATT_VERIFY_BY_DS28E16
+	struct delayed_work battery_authentic_work;
+	int 		battery_authentic_result;
+	struct delayed_work ds_romid_work;
+	unsigned char		ds_romid[8];
+	struct delayed_work ds_status_work;
+	unsigned char		ds_status[8];
+	struct delayed_work ds_page0_work;
+	unsigned char		ds_page0[16];
+	struct delayed_work profile_load_work;
+	bool				profile_judge_done;
+#endif
 	struct notifier_block	nb;
 	struct mutex		bus_lock;
 	struct mutex		data_lock;
@@ -126,6 +141,9 @@ struct qpnp_qg {
 	struct power_supply	*usb_psy;
 	struct power_supply	*dc_psy;
 	struct power_supply	*parallel_psy;
+#ifdef CONFIG_BATT_VERIFY_BY_DS28E16
+	struct power_supply *max_verify_psy;
+#endif
 	struct qg_esr_data	esr_data[QG_MAX_ESR_COUNT];
 
 	/* status variable */
@@ -145,6 +163,7 @@ struct qpnp_qg {
 	bool			fvss_active;
 	bool			tcss_active;
 	bool			bass_active;
+	bool			fastcharge_mode_enabled;
 	int			charge_status;
 	int			charge_type;
 	int			chg_iterm_ma;

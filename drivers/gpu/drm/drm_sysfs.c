@@ -5,7 +5,7 @@
  *               does not allow adding attributes.
  *
  * Copyright (c) 2004 Jon Smirl <jonsmirl@gmail.com>
- * Copyright (c) 2003-2004 Greg Kroah-Hartman <greg@kroah.com>
+ * Copyright (C) 2020 XiaoMi, Inc.
  * Copyright (c) 2003-2004 IBM Corp.
  *
  * This file is released under the GPLv2
@@ -18,6 +18,7 @@
 #include <linux/err.h>
 #include <linux/export.h>
 
+#include <drm/drm_encoder.h>
 #include <drm/drm_sysfs.h>
 #include <drm/drmP.h>
 #include "drm_internal.h"
@@ -229,16 +230,115 @@ static ssize_t modes_show(struct device *device,
 	return written;
 }
 
+
+extern int drm_get_panel_info(struct drm_bridge *bridge, char *name);
+static ssize_t panel_info_show(struct device *device,
+			    struct device_attribute *attr,
+			   char *buf)
+{
+	int written = 0;
+	char pname[128] = {0};
+	struct drm_connector *connector = NULL;
+	struct drm_encoder *encoder = NULL;
+	struct drm_bridge *bridge = NULL;
+
+	connector = to_drm_connector(device);
+	if (!connector)
+		return written;
+
+	encoder = connector->encoder;
+	if (!encoder)
+		return written;
+
+	bridge = encoder->bridge;
+	if (!bridge)
+		return written;
+
+	written = drm_get_panel_info(bridge, pname);
+	if (written)
+		return snprintf(buf, PAGE_SIZE, "panel_name=%s\n", pname);
+
+	return written;
+}
+
+
+
+void drm_bridge_disp_param_set(struct drm_bridge *bridge, int cmd);
+static ssize_t disp_param_store(struct device *device,
+			   struct device_attribute *attr,
+			   const char *buf, size_t count)
+{
+	int param;
+	struct drm_connector *connector = NULL;
+	struct drm_encoder *encoder = NULL;
+	struct drm_bridge *bridge = NULL;
+
+	if (!device)
+		return count;
+
+	connector = to_drm_connector(device);
+	if (!connector)
+		return count;
+
+	encoder = connector->encoder;
+	if (!encoder)
+		return count;
+
+	bridge = encoder->bridge;
+	if (!bridge)
+		return count;
+	sscanf(buf, "0x%x", &param);
+
+	drm_bridge_disp_param_set(bridge, param);
+
+	return count;
+}
+
+ssize_t drm_bridge_disp_param_get(struct drm_bridge *bridge, char *pbuf);
+static ssize_t disp_param_show(struct device *device,
+			   struct device_attribute *attr,
+   			   char *buf)
+{
+   	ssize_t ret = 0;
+	struct drm_connector *connector = NULL;
+	struct drm_encoder *encoder = NULL;
+	struct drm_bridge *bridge = NULL;
+
+	connector = to_drm_connector(device);
+	if (!connector)
+		return ret;
+
+	encoder = connector->encoder;
+	if (!encoder)
+		return ret;
+
+	bridge = encoder->bridge;
+	if (!bridge)
+		return ret;
+	ret = drm_bridge_disp_param_get(bridge, buf);
+	return ret;
+}
+
+extern ssize_t smart_fps_value_show(struct device *device,
+			   struct device_attribute *attr,
+			   char *buf);
+
 static DEVICE_ATTR_RW(status);
 static DEVICE_ATTR_RO(enabled);
 static DEVICE_ATTR_RO(dpms);
 static DEVICE_ATTR_RO(modes);
+static DEVICE_ATTR_RW(disp_param);
+static DEVICE_ATTR_RO(panel_info);
+static DEVICE_ATTR_RO(smart_fps_value);
 
 static struct attribute *connector_dev_attrs[] = {
 	&dev_attr_status.attr,
 	&dev_attr_enabled.attr,
 	&dev_attr_dpms.attr,
 	&dev_attr_modes.attr,
+	&dev_attr_disp_param.attr,
+	&dev_attr_panel_info.attr,
+	&dev_attr_smart_fps_value.attr,
 	NULL
 };
 

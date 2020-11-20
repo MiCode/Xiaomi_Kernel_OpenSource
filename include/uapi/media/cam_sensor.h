@@ -162,6 +162,7 @@ struct cam_cmd_probe {
 	uint32_t    data_mask;
 	uint16_t    camera_id;
 	uint16_t    reserved;
+	char	    sensorName[32];
 } __attribute__((packed));
 
 /**
@@ -366,6 +367,7 @@ struct cam_csiphy_acquire_dev_info {
  */
 struct cam_sensor_acquire_dev {
 	uint32_t    session_handle;
+	uint32_t    operation_mode;
 	uint32_t    device_handle;
 	uint32_t    handle_type;
 	uint32_t    reserved;

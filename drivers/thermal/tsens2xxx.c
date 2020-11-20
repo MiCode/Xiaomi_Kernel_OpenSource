@@ -1,5 +1,5 @@
 /* Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
- *
+ * Copyright (C) 2020 XiaoMi, Inc.
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
  * only version 2 as published by the Free Software Foundation.
@@ -369,12 +369,14 @@ fail:
 
 static irqreturn_t tsens_tm_critical_irq_thread(int irq, void *data)
 {
-	struct tsens_device *tm = data;
+	struct tsens_device *tm = data, *tmdev_itr;
 	unsigned int i, status, wd_log, wd_mask;
 	unsigned long flags;
+	unsigned int ret, tsens_ret;
 	void __iomem *sensor_status_addr, *sensor_int_mask_addr;
 	void __iomem *sensor_critical_addr;
 	void __iomem *wd_critical_addr, *wd_log_addr;
+	static int tsens_re_init_cnt;
 
 	sensor_status_addr = TSENS_TM_SN_STATUS(tm->tsens_tm_addr);
 	sensor_int_mask_addr =
@@ -403,11 +405,48 @@ static irqreturn_t tsens_tm_critical_irq_thread(int irq, void *data)
 				(tm->tsens_tm_addr)));
 			wd_log = readl_relaxed(wd_log_addr);
 			if (wd_log >= TSENS_DEBUG_WDOG_TRIGGER_COUNT) {
-				pr_err("Watchdog count:%d\n", wd_log);
+				struct scm_desc desc = { 0 };
+
+				pr_err("%s: Watchdog count:%d\n", __func__,
+					wd_log);
+
 				if (tm->ops->dbg)
 					tm->ops->dbg(tm, 0,
 					TSENS_DBG_LOG_BUS_ID_DATA, NULL);
 				BUG();
+
+				if (!tm->tsens_reinit_wa ||
+					tsens_re_init_cnt > 5) {
+					pr_err("%s:Tsens wa:%d reinit cnt %d\n",
+						__func__, tm->tsens_reinit_wa,
+						tsens_re_init_cnt);
+					BUG();
+				}
+				/* Make an scm call to re-init TSENS */
+				TSENS_DBG(tm, "%s",
+					   "Calling TZ to re-init TSENS\n");
+				ret = scm_call2(SCM_SIP_FNID(SCM_SVC_TSENS,
+							TSENS_INIT_ID), &desc);
+				TSENS_DBG(tm, "%s",
+					   "return from scm call\n");
+				if (ret) {
+					pr_err("%s: scm call failed %d\n",
+						__func__, ret);
+					BUG();
+				}
+				tsens_ret = desc.ret[0];
+				if (tsens_ret) {
+					pr_err("%s:scm call err for tsens %d\n",
+						__func__, tsens_ret);
+					BUG();
+				}
+				/* Notify thermal fwk */
+				list_for_each_entry(tmdev_itr,
+						&tsens_device_list, list) {
+					queue_work(tmdev_itr->tsens_reinit_work,
+						&tmdev_itr->therm_fwk_notify);
+				}
+				tsens_re_init_cnt++;
 			}
 
 			return IRQ_HANDLED;

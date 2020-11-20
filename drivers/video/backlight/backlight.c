@@ -2,7 +2,7 @@
  * Backlight Lowlevel Control Abstraction
  *
  * Copyright (C) 2003,2004 Hewlett-Packard Company
- *
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
@@ -119,6 +119,7 @@ static void backlight_generate_event(struct backlight_device *bd,
 	envp[1] = NULL;
 	kobject_uevent_env(&bd->dev.kobj, KOBJ_CHANGE, envp);
 	sysfs_notify(&bd->dev.kobj, NULL, "actual_brightness");
+	sysfs_notify(&bd->dev.kobj, NULL, "brightness");
 }
 
 static ssize_t bl_power_show(struct device *dev, struct device_attribute *attr,

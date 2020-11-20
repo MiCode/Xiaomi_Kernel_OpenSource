@@ -9,6 +9,8 @@
 #include "u_f.h"
 #include "u_os_desc.h"
 
+#include <linux/power_supply.h>
+
 #ifdef CONFIG_USB_CONFIGFS_UEVENT
 #include <linux/platform_device.h>
 #include <linux/kdev_t.h>
@@ -1420,6 +1422,28 @@ err_comp_cleanup:
 	return ret;
 }
 
+static int smblib_canncel_recheck(void)
+{
+	union power_supply_propval pval = {0};
+	struct power_supply     *usb_psy = NULL;
+	int rc = 0;
+
+	if (!usb_psy) {
+		usb_psy = power_supply_get_by_name("usb");
+		if (!usb_psy) {
+			pr_err("Could not get usb psy by canncel recheck\n");
+			return -ENODEV;
+		}
+	}
+
+	pval.intval = 0;
+	rc = power_supply_set_property(usb_psy,
+				POWER_SUPPLY_PROP_TYPE_RECHECK, &pval);
+
+	return rc;
+}
+
+
 #ifdef CONFIG_USB_CONFIGFS_UEVENT
 static void android_work(struct work_struct *data)
 {
@@ -1449,26 +1473,27 @@ static void android_work(struct work_struct *data)
 	if (status[0]) {
 		kobject_uevent_env(&gi->dev->kobj,
 					KOBJ_CHANGE, connected);
-		pr_info("%s: sent uevent %s\n", __func__, connected[0]);
+		pr_err("%s: sent uevent %s\n", __func__, connected[0]);
 		uevent_sent = true;
 	}
 
 	if (status[1]) {
 		kobject_uevent_env(&gi->dev->kobj,
 					KOBJ_CHANGE, configured);
-		pr_info("%s: sent uevent %s\n", __func__, configured[0]);
+		pr_err("%s: sent uevent %s\n", __func__, configured[0]);
+		smblib_canncel_recheck();
 		uevent_sent = true;
 	}
 
 	if (status[2]) {
 		kobject_uevent_env(&gi->dev->kobj,
 					KOBJ_CHANGE, disconnected);
-		pr_info("%s: sent uevent %s\n", __func__, disconnected[0]);
+		pr_err("%s: sent uevent %s\n", __func__, disconnected[0]);
 		uevent_sent = true;
 	}
 
 	if (!uevent_sent) {
-		pr_info("%s: did not send uevent (%d %d %pK)\n", __func__,
+		pr_err("%s: did not send uevent (%d %d %pK)\n", __func__,
 			gi->connected, gi->sw_connected, cdev->config);
 	}
 }

@@ -2,7 +2,7 @@
  * Simple synchronous userspace interface to SPI devices
  *
  * Copyright (C) 2006 SWAPP
- *	Andrea Paterniani <a.paterniani@swapp-eng.it>
+ * Copyright (C) 2020 XiaoMi, Inc.
  * Copyright (C) 2007 David Brownell (simplification, cleanup)
  *
  * This program is free software; you can redistribute it and/or modify
@@ -90,7 +90,7 @@ struct spidev_data {
 static LIST_HEAD(device_list);
 static DEFINE_MUTEX(device_list_lock);
 
-static unsigned bufsiz = 4096;
+static unsigned int bufsiz = 4096*10;
 module_param(bufsiz, uint, S_IRUGO);
 MODULE_PARM_DESC(bufsiz, "data bytes in biggest supported SPI message");
 
@@ -102,6 +102,7 @@ spidev_sync(struct spidev_data *spidev, struct spi_message *message)
 	int status;
 	struct spi_device *spi;
 
+	printk("%s  %d\n",__FUNCTION__,__LINE__);
 	spin_lock_irq(&spidev->spi_lock);
 	spi = spidev->spi;
 	spin_unlock_irq(&spidev->spi_lock);
@@ -123,10 +124,13 @@ spidev_sync_write(struct spidev_data *spidev, size_t len)
 	struct spi_transfer	t = {
 			.tx_buf		= spidev->tx_buffer,
 			.len		= len,
-			.speed_hz	= spidev->speed_hz,
+			.speed_hz	= 960000,	//spidev->speed_hz
+			.delay_usecs = 0,
+			.cs_change   = 0,
 		};
 	struct spi_message	m;
 
+	printk("%s  %d\n",__FUNCTION__,__LINE__);
 	spi_message_init(&m);
 	spi_message_add_tail(&t, &m);
 	return spidev_sync(spidev, &m);
@@ -142,6 +146,7 @@ spidev_sync_read(struct spidev_data *spidev, size_t len)
 		};
 	struct spi_message	m;
 
+	printk("%s  %d\n",__FUNCTION__,__LINE__);
 	spi_message_init(&m);
 	spi_message_add_tail(&t, &m);
 	return spidev_sync(spidev, &m);
@@ -156,6 +161,7 @@ spidev_read(struct file *filp, char __user *buf, size_t count, loff_t *f_pos)
 	struct spidev_data	*spidev;
 	ssize_t			status = 0;
 
+	printk("%s  %d\n",__FUNCTION__,__LINE__);
 	/* chipselect only toggles at start or end of operation */
 	if (count > bufsiz)
 		return -EMSGSIZE;
@@ -163,6 +169,18 @@ spidev_read(struct file *filp, char __user *buf, size_t count, loff_t *f_pos)
 	spidev = filp->private_data;
 
 	mutex_lock(&spidev->buf_lock);
+
+	/* added buffer kmalloc size start by haoyanling */
+	if (!spidev->rx_buffer) {
+		spidev->rx_buffer = kmalloc(bufsiz, GFP_KERNEL);
+		if (!spidev->rx_buffer) {
+			dev_dbg(&spidev->spi->dev, "open/ENOMEM\n");
+			status = -ENOMEM;
+			goto read_unlock;
+		}
+	}
+	/* added buffer kmalloc size end by haouanling */
+
 	status = spidev_sync_read(spidev, count);
 	if (status > 0) {
 		unsigned long	missing;
@@ -173,6 +191,13 @@ spidev_read(struct file *filp, char __user *buf, size_t count, loff_t *f_pos)
 		else
 			status = status - missing;
 	}
+
+	/* added buffer kmalloc size start by haoyanling */
+	kfree(spidev->rx_buffer);
+	spidev->rx_buffer = NULL;
+
+read_unlock:
+	/*added buffer kmalloc size end by haoyanling */
 	mutex_unlock(&spidev->buf_lock);
 
 	return status;
@@ -188,17 +213,37 @@ spidev_write(struct file *filp, const char __user *buf,
 	unsigned long		missing;
 
 	/* chipselect only toggles at start or end of operation */
-	if (count > bufsiz)
-		return -EMSGSIZE;
+	/* removed buffer kmalloc size by hayanling */
+	/*if (count > bufsiz)
+		return -EMSGSIZE;*/
 
 	spidev = filp->private_data;
 
 	mutex_lock(&spidev->buf_lock);
+
+	/* added buffer kmalloc size start by haoyanling */
+	if (!spidev->tx_buffer) {
+		spidev->tx_buffer = kmalloc(count, GFP_KERNEL);
+		if (!spidev->tx_buffer) {
+			dev_dbg(&spidev->spi->dev, "open/ENOMEM\n");
+			status = -ENOMEM;
+			goto write_unlock;
+		}
+	}
+	/* added buffer kmalloc size end by haoyanling */
+
 	missing = copy_from_user(spidev->tx_buffer, buf, count);
 	if (missing == 0)
 		status = spidev_sync_write(spidev, count);
 	else
 		status = -EFAULT;
+
+	/* added buffer kmalloc size start by haoyanling*/
+	kfree(spidev->tx_buffer);
+	spidev->tx_buffer = NULL;
+
+write_unlock:
+	/* added buffer kmalloc size end by haoyanling */
 	mutex_unlock(&spidev->buf_lock);
 
 	return status;
@@ -215,6 +260,7 @@ static int spidev_message(struct spidev_data *spidev,
 	u8			*tx_buf, *rx_buf;
 	int			status = -EFAULT;
 
+	printk("%s  %d\n",__FUNCTION__,__LINE__);
 	spi_message_init(&msg);
 	k_xfers = kcalloc(n_xfers, sizeof(*k_tmp), GFP_KERNEL);
 	if (k_xfers == NULL)
@@ -224,6 +270,26 @@ static int spidev_message(struct spidev_data *spidev,
 	 * We walk the array of user-provided transfers, using each one
 	 * to initialize a kernel version of the same transfer.
 	 */
+
+	 /* added buffer kmalloc size start by haoyanling*/
+	if (!spidev->rx_buffer) {
+		spidev->rx_buffer = kmalloc(bufsiz, GFP_KERNEL);
+		if (!spidev->rx_buffer) {
+			dev_dbg(&spidev->spi->dev, "open/ENOMEM\n");
+			status = -ENOMEM;
+			goto rxbuffer_err;
+		}
+	}
+	if (!spidev->tx_buffer) {
+		spidev->tx_buffer = kmalloc(bufsiz, GFP_KERNEL);
+		if (!spidev->tx_buffer) {
+			dev_dbg(&spidev->spi->dev, "open/ENOMEM\n");
+			status = -ENOMEM;
+			goto txbuffer_err;
+		}
+	}
+	/* added buffer kmalloc size end by haoyanling */
+
 	tx_buf = spidev->tx_buffer;
 	rx_buf = spidev->rx_buffer;
 	total = 0;
@@ -312,6 +378,14 @@ static int spidev_message(struct spidev_data *spidev,
 	status = total;
 
 done:
+	/* added buffer kmalloc size start by haoyanling */
+	kfree(spidev->tx_buffer);
+	spidev->tx_buffer = NULL;
+txbuffer_err:
+	kfree(spidev->rx_buffer);
+	spidev->rx_buffer = NULL;
+rxbuffer_err:
+	/* added buffer kmalloc size end by haoyanling */
 	kfree(k_xfers);
 	return status;
 }
@@ -349,6 +423,7 @@ spidev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	unsigned		n_ioc;
 	struct spi_ioc_transfer	*ioc;
 
+	printk("%s  %d\n",__FUNCTION__,__LINE__);
 	/* Check type and command number */
 	if (_IOC_TYPE(cmd) != SPI_IOC_MAGIC)
 		return -ENOTTY;
@@ -571,6 +646,8 @@ static int spidev_open(struct inode *inode, struct file *filp)
 		goto err_find_dev;
 	}
 
+/*removed buffer kmalloc size start by haoyanling*/
+/*
 	if (!spidev->tx_buffer) {
 		spidev->tx_buffer = kmalloc(bufsiz, GFP_KERNEL);
 		if (!spidev->tx_buffer) {
@@ -588,6 +665,8 @@ static int spidev_open(struct inode *inode, struct file *filp)
 			goto err_alloc_rx_buf;
 		}
 	}
+*/
+/* removed buffer kmalloc size end by haoyanling */
 
 	spidev->users++;
 	filp->private_data = spidev;
@@ -596,9 +675,14 @@ static int spidev_open(struct inode *inode, struct file *filp)
 	mutex_unlock(&device_list_lock);
 	return 0;
 
+/* removed buffer kmalloc size start by haoyanling */
+/*
 err_alloc_rx_buf:
 	kfree(spidev->tx_buffer);
 	spidev->tx_buffer = NULL;
+*/
+/* removed buffer kmalloc size end by haoyanling */
+
 err_find_dev:
 	mutex_unlock(&device_list_lock);
 	return status;
@@ -616,12 +700,15 @@ static int spidev_release(struct inode *inode, struct file *filp)
 	spidev->users--;
 	if (!spidev->users) {
 		int		dofree;
-
+/* removed buffer kmalloc size start by haoyanling */
+/*
 		kfree(spidev->tx_buffer);
 		spidev->tx_buffer = NULL;
 
 		kfree(spidev->rx_buffer);
 		spidev->rx_buffer = NULL;
+*/
+/* removed buffer kmalloc size end by haoyanling */
 
 		spin_lock_irq(&spidev->spi_lock);
 		if (spidev->spi)
@@ -720,6 +807,7 @@ static int spidev_probe(struct spi_device *spi)
 	int			status;
 	unsigned long		minor;
 
+	printk("%s  %d\n",__FUNCTION__,__LINE__);
 	/*
 	 * spidev should never be referenced in DT without a specific
 	 * compatible string, it is a Linux implementation thing
@@ -821,6 +909,7 @@ static int __init spidev_init(void)
 {
 	int status;
 
+	printk("%s  %d\n",__FUNCTION__,__LINE__);
 	/* Claim our 256 reserved device numbers.  Then register a class
 	 * that will key udev/mdev to add/remove /dev nodes.  Last, register
 	 * the driver which manages those device numbers.

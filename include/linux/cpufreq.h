@@ -2,7 +2,7 @@
  * linux/include/linux/cpufreq.h
  *
  * Copyright (C) 2001 Russell King
- *           (C) 2002 - 2003 Dominik Brodowski <linux@brodo.de>
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -430,6 +430,7 @@ static inline void cpufreq_resume(void) {}
 #define CPUFREQ_ADJUST			(0)
 #define CPUFREQ_NOTIFY			(1)
 #define CPUFREQ_INCOMPATIBLE	(6)
+#define CPUFREQ_THERMAL			(2)
 
 #ifdef CONFIG_CPU_FREQ
 int cpufreq_register_notifier(struct notifier_block *nb, unsigned int list);
