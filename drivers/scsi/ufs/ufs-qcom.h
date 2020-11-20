@@ -268,6 +268,17 @@ struct qcom_bus_scale_data {
 	const char *name;
 };
 
+enum ufs_qcom_therm_lvl {
+	UFS_QCOM_LVL_NO_THERM, /* No thermal mitigation */
+	UFS_QCOM_LVL_AGGR_THERM, /* Aggressive thermal mitigation */
+	UFS_QCOM_LVL_MAX_THERM, /* Max thermal mitigation */
+};
+
+struct ufs_qcom_thermal {
+	struct thermal_cooling_device *tcd;
+	unsigned long curr_state;
+};
+
 struct ufs_qcom_host {
 	/*
 	 * Set this capability if host controller supports the QUniPro mode
@@ -341,6 +352,7 @@ struct ufs_qcom_host {
 	/* Protect the usage of is_phy_pwr_on against racing */
 	struct mutex phy_mutex;
 	bool err_occurred;
+	struct ufs_qcom_thermal uqt;
 };
 
 static inline u32
