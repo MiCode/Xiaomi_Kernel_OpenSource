@@ -186,6 +186,12 @@ EXPORT_SYMBOL_GPL(nf_conntrack_htable_size);
 unsigned int nf_conntrack_max __read_mostly;
 EXPORT_SYMBOL_GPL(nf_conntrack_max);
 seqcount_t nf_conntrack_generation __read_mostly;
+
+#ifdef CONFIG_ENABLE_SFE
+unsigned int nf_conntrack_pkt_threshold __read_mostly;
+EXPORT_SYMBOL(nf_conntrack_pkt_threshold);
+#endif
+
 static unsigned int nf_conntrack_hash_rnd __read_mostly;
 
 static u32 hash_conntrack_raw(const struct nf_conntrack_tuple *tuple,
@@ -1818,10 +1824,16 @@ void __nf_ct_refresh_acct(struct nf_conn *ct,
 			  u32 extra_jiffies,
 			  bool do_acct)
 {
+
 #if defined(CONFIG_IP_NF_TARGET_NATTYPE_MODULE)
 	bool (*nattype_ref_timer)
 		(unsigned long nattype,
 		unsigned long timeout_value);
+#endif
+
+#ifdef CONFIG_ENABLE_SFE
+	struct nf_conn_acct *acct;
+	u64 pkts;
 #endif
 
 	/* Only update if this is not a fixed timeout */
@@ -1843,8 +1855,32 @@ void __nf_ct_refresh_acct(struct nf_conn *ct,
 #endif
 
 acct:
+#ifdef CONFIG_ENABLE_SFE
+	if (do_acct) {
+		acct = nf_conn_acct_find(ct);
+		if (acct) {
+			struct nf_conn_counter *counter = acct->counter;
+
+			atomic64_inc(&counter[CTINFO2DIR(ctinfo)].packets);
+			atomic64_add(skb->len, &counter
+					[CTINFO2DIR(ctinfo)].bytes);
+
+			pkts =
+			atomic64_read(&counter[CTINFO2DIR(ctinfo)].packets) +
+			atomic64_read(&counter[!CTINFO2DIR(ctinfo)].packets);
+			/* Report if the packet threshold is reached. */
+			if (nf_conntrack_pkt_threshold > 0 &&
+			    pkts == nf_conntrack_pkt_threshold) {
+				nf_conntrack_event_cache(IPCT_COUNTER, ct);
+				nf_conntrack_event_cache(IPCT_PROTOINFO, ct);
+				nf_ct_deliver_cached_events(ct);
+			}
+		}
+	}
+#else
 	if (do_acct)
 		nf_ct_acct_update(ct, ctinfo, skb->len);
+#endif
 }
 EXPORT_SYMBOL_GPL(__nf_ct_refresh_acct);
 

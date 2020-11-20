@@ -544,6 +544,9 @@ enum nf_ct_sysctl_index {
 	NF_SYSCTL_CT_EXPECT_MAX,
 	NF_SYSCTL_CT_ACCT,
 	NF_SYSCTL_CT_HELPER,
+#ifdef CONFIG_ENABLE_SFE
+	NF_SYSCTL_CT_PKT_THRESHOLD,
+#endif
 #ifdef CONFIG_NF_CONNTRACK_EVENTS
 	NF_SYSCTL_CT_EVENTS,
 #endif
@@ -664,6 +667,16 @@ static struct ctl_table nf_ct_sysctl_table[] = {
 		.extra1 	= SYSCTL_ZERO,
 		.extra2 	= SYSCTL_ONE,
 	},
+#ifdef CONFIG_ENABLE_SFE
+	[NF_SYSCTL_CT_PKT_THRESHOLD] = {
+		.procname	= "nf_conntrack_pkt_threshold",
+		.data		= &nf_conntrack_pkt_threshold,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec,
+	},
+#endif
+
 #ifdef CONFIG_NF_CONNTRACK_EVENTS
 	[NF_SYSCTL_CT_EVENTS] = {
 		.procname	= "nf_conntrack_events",
