@@ -39,6 +39,7 @@ static const char * const clocks[] = {
 	"gmu_clk",
 	"ahb_clk",
 	"smmu_vote",
+	"apb_pclk",
 };
 
 static void kgsl_pwrctrl_clk(struct kgsl_device *device, int state,
