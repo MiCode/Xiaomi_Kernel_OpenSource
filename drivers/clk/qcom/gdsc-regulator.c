@@ -325,20 +325,18 @@ static int gdsc_disable(struct regulator_dev *rdev)
 	int i, ret = 0, parent_enabled;
 
 	if (rdev->supply) {
-		regulator_lock(rdev->supply->rdev);
 		parent_enabled = regulator_is_enabled(rdev->supply);
 		if (parent_enabled < 0) {
 			ret = parent_enabled;
 			dev_err(&rdev->dev, "%s unable to check parent enable state, ret=%d\n",
 				sc->rdesc.name, ret);
-			goto done;
+			return ret;
 		}
 
 		if (!parent_enabled) {
 			dev_err(&rdev->dev, "%s cannot disable GDSC while parent is disabled\n",
 				sc->rdesc.name);
-			ret = -EIO;
-			goto done;
+			return -EIO;
 		}
 	}
 
@@ -403,10 +401,6 @@ static int gdsc_disable(struct regulator_dev *rdev)
 
 	sc->is_gdsc_enabled = false;
 
-done:
-	if (rdev->supply)
-		regulator_unlock(rdev->supply->rdev);
-
 	return ret;
 }
 
@@ -444,27 +438,22 @@ static int gdsc_set_mode(struct regulator_dev *rdev, unsigned int mode)
 		 * continuing.  This is needed to avoid an unclocked access
 		 * of the GDSC control register for GDSCs whose register access
 		 * is gated by the parent supply enable state in hardware.
-		 * Explicit parent supply locking ensures that the parent enable
-		 * state cannot change after checking due to a race with another
-		 * consumer.
 		 */
-		regulator_lock(rdev->supply->rdev);
 		ret = regulator_is_enabled(rdev->supply);
 		if (ret < 0) {
 			dev_err(&rdev->dev, "%s unable to check parent enable state, ret=%d\n",
 				sc->rdesc.name, ret);
-			goto done;
+			return ret;
 		} else if (WARN(!ret,
 				"%s cannot change GDSC HW/SW control mode while parent is disabled\n",
 				sc->rdesc.name)) {
-			ret = -EIO;
-			goto done;
+			return -EIO;
 		}
 	}
 
 	ret = regmap_read(sc->regmap, REG_OFFSET, &regval);
 	if (ret < 0)
-		goto done;
+		return ret;
 
 	switch (mode) {
 	case REGULATOR_MODE_FAST:
@@ -472,7 +461,7 @@ static int gdsc_set_mode(struct regulator_dev *rdev, unsigned int mode)
 		regval |= HW_CONTROL_MASK;
 		ret = regmap_write(sc->regmap, REG_OFFSET, regval);
 		if (ret < 0)
-			goto done;
+			return ret;
 		/*
 		 * There may be a race with internal HW trigger signal,
 		 * that will result in GDSC going through a power down and
@@ -491,7 +480,7 @@ static int gdsc_set_mode(struct regulator_dev *rdev, unsigned int mode)
 		regval &= ~HW_CONTROL_MASK;
 		ret = regmap_write(sc->regmap, REG_OFFSET, regval);
 		if (ret < 0)
-			goto done;
+			return ret;
 		/*
 		 * There may be a race with internal HW trigger signal,
 		 * that will result in GDSC going through a power down and
@@ -503,15 +492,10 @@ static int gdsc_set_mode(struct regulator_dev *rdev, unsigned int mode)
 		sc->is_gdsc_hw_ctrl_mode = false;
 		break;
 	default:
-		ret = -EINVAL;
-		break;
+		return -EINVAL;
 	}
 
-done:
-	if (rdev->supply)
-		regulator_unlock(rdev->supply->rdev);
-
-	return ret;
+	return 0;
 }
 
 static struct regulator_ops gdsc_ops = {
