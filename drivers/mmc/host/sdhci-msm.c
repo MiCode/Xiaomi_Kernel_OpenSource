@@ -4072,9 +4072,23 @@ static ssize_t err_stats_show(struct device *dev,
 }
 static DEVICE_ATTR_RO(err_stats);
 
+static ssize_t dbg_state_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	int dbg_en = 0;
+
+#if defined(CONFIG_MMC_IPC_LOGGING)
+	dbg_en = 1;
+#endif
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n", dbg_en);
+}
+static DEVICE_ATTR_RO(dbg_state);
+
 static struct attribute *sdhci_msm_sysfs_attrs[] = {
 	&dev_attr_err_state.attr,
 	&dev_attr_err_stats.attr,
+	&dev_attr_dbg_state.attr,
 	NULL
 };
 
