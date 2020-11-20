@@ -99,7 +99,8 @@ stm_p_ost.ko
 qcom_q6v5.ko
 qcom_common.ko
 qcom_ramdump.ko
-qcom-ipcc.ko
+qcom_ipcc.ko
+qcom_edac.ko
 soc_sleep_stats.ko
 sensors_ssc.ko
 sys_pm_vx.ko
@@ -112,3 +113,5 @@ smp2p_sleepstate.ko
 qcom-pdc.ko
 bam_dma.ko
 qcom_ipc_logging.ko
+llcc-qcom.ko
+rq_stats.ko
