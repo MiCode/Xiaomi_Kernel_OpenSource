@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  *
  */
 
@@ -997,6 +997,14 @@ int mhi_register_controller(struct mhi_controller *mhi_cntrl,
 
 	mhi_cntrl->mhi_dev = mhi_dev;
 
+	ret = mhi_misc_register_controller(mhi_cntrl);
+	if (ret) {
+		dev_err(mhi_cntrl->cntrl_dev,
+			"Could not enable miscellaneous features\n");
+		mhi_cntrl->mhi_dev = NULL;
+		goto err_release_dev;
+	}
+
 	mhi_create_debugfs(mhi_cntrl);
 
 	return 0;
@@ -1022,6 +1030,8 @@ void mhi_unregister_controller(struct mhi_controller *mhi_cntrl)
 	struct mhi_device *mhi_dev = mhi_cntrl->mhi_dev;
 	struct mhi_chan *mhi_chan = mhi_cntrl->mhi_chan;
 	unsigned int i;
+
+	mhi_misc_unregister_controller(mhi_cntrl);
 
 	mhi_destroy_debugfs(mhi_cntrl);
 
@@ -1410,12 +1420,14 @@ struct bus_type mhi_bus_type = {
 
 static int __init mhi_init(void)
 {
+	mhi_misc_init();
 	mhi_debugfs_init();
 	return bus_register(&mhi_bus_type);
 }
 
 static void __exit mhi_exit(void)
 {
+	mhi_misc_exit();
 	mhi_debugfs_exit();
 	bus_unregister(&mhi_bus_type);
 }
