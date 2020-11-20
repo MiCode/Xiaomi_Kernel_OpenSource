@@ -728,6 +728,7 @@ struct msm_pcie_dev_t {
 	u32 num_active_ep;
 	u32 num_ep;
 	bool pending_ep_reg;
+	u32 num_parf_testbus_sel;
 	u32 phy_len;
 	struct msm_pcie_phy_info_t *phy_sequence;
 	u32 sid_info_len;
@@ -1176,7 +1177,7 @@ static void pcie_parf_dump(struct msm_pcie_dev_t *dev)
 	PCIE_DUMP(dev, "PCIe: RC%d PARF testbus\n", dev->rc_idx);
 
 	original = readl_relaxed(dev->parf + PCIE20_PARF_SYS_CTRL);
-	for (i = 1; i <= 0x1A; i++) {
+	for (i = 0; i <= dev->num_parf_testbus_sel; i++) {
 		msm_pcie_write_mask(dev->parf + PCIE20_PARF_SYS_CTRL,
 				0xFF0000, i << 16);
 		PCIE_DUMP(dev,
@@ -1248,6 +1249,8 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->num_active_ep);
 	PCIE_DBG_FS(dev, "pending_ep_reg: %s\n",
 		dev->pending_ep_reg ? "true" : "false");
+	PCIE_DBG_FS(dev, "num_parf_testbus_sel is 0x%x",
+		dev->num_parf_testbus_sel);
 	PCIE_DBG_FS(dev, "phy_len is %d",
 		dev->phy_len);
 	PCIE_DBG_FS(dev, "disable_pc is %d",
@@ -5603,6 +5606,11 @@ static int msm_pcie_probe(struct platform_device *pdev)
 				&pcie_dev->slv_addr_space_size);
 	PCIE_DBG(pcie_dev, "RC%d: slv-addr-space-size: 0x%x.\n",
 		pcie_dev->rc_idx, pcie_dev->slv_addr_space_size);
+
+	of_property_read_u32(of_node, "qcom,num-parf-testbus-sel",
+				&pcie_dev->num_parf_testbus_sel);
+	PCIE_DBG(pcie_dev, "RC%d: num-parf-testbus-sel: 0x%x.\n",
+		pcie_dev->rc_idx, pcie_dev->num_parf_testbus_sel);
 
 	of_property_read_u32(of_node, "qcom,phy-status-offset",
 				&pcie_dev->phy_status_offset);
