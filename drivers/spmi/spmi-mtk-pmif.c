@@ -339,6 +339,9 @@ static int pmif_spmi_read_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid,
 					data, GET_SWINF(data) == SWINF_IDLE,
 					PMIF_DELAY_US, PMIF_TIMEOUT);
 	if (ret < 0) {
+		dev_err(&ctrl->dev, "check IDLE timeout, read 0x%x, sta=0x%x, SPMI_DBG=0x%x\n",
+			addr, pmif_readl(arb, inf_reg->ch_sta),
+			readl(arb->spmimst_base + arb->spmimst_regs[SPMI_MST_DBG]));
 		/* set channel ready if the data has transferred */
 		if (pmif_is_fsm_vldclr(arb))
 			pmif_writel(arb, 1, inf_reg->ch_rdy);
@@ -359,6 +362,9 @@ static int pmif_spmi_read_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid,
 					data, GET_SWINF(data) == SWINF_WFVLDCLR,
 					PMIF_DELAY_US, PMIF_TIMEOUT);
 	if (ret < 0) {
+		dev_err(&ctrl->dev, "check WFVLDCLR timeout, read 0x%x, sta=0x%x, SPMI_DBG=0x%x\n",
+			addr, pmif_readl(arb, inf_reg->ch_sta),
+			readl(arb->spmimst_base + arb->spmimst_regs[SPMI_MST_DBG]));
 		raw_spin_unlock_irqrestore(&arb->lock, flags);
 		return ret;
 	}
@@ -408,6 +414,9 @@ static int pmif_spmi_write_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid,
 					data, GET_SWINF(data) == SWINF_IDLE,
 					PMIF_DELAY_US, PMIF_TIMEOUT);
 	if (ret < 0) {
+		dev_err(&ctrl->dev, "check IDLE timeout, read 0x%x, sta=0x%x, SPMI_DBG=0x%x\n",
+			addr, pmif_readl(arb, inf_reg->ch_sta),
+			readl(arb->spmimst_base + arb->spmimst_regs[SPMI_MST_DBG]));
 		/* set channel ready if the data has transferred */
 		if (pmif_is_fsm_vldclr(arb))
 			pmif_writel(arb, 1, inf_reg->ch_rdy);
