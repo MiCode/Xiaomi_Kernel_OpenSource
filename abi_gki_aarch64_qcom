@@ -403,6 +403,7 @@
   gpiod_direction_output
   gpiod_direction_output_raw
   gpiod_get_optional
+  gpiod_get_raw_value
   gpiod_get_value
   gpiod_get_value_cansleep
   gpiod_set_debounce
@@ -635,6 +636,7 @@
   mbox_send_message
   memchr
   memcpy
+  memdup_user
   __memcpy_fromio
   __memcpy_toio
   memmove
