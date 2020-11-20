@@ -10,9 +10,8 @@
 #define _CQHCI_CRYPTO_H
 
 #include <linux/mmc/host.h>
+#include <linux/module.h>
 #include "cqhci.h"
-
-#ifdef CONFIG_MMC_CQHCI_CRYPTO
 
 static inline int cqhci_num_keyslots(struct cqhci_host *host)
 {
@@ -95,89 +94,6 @@ int cqhci_crypto_recovery_finish(struct cqhci_host *host);
 int cqhci_crypto_cap_find(void *host_p,  enum blk_crypto_mode_num crypto_mode,
 			  unsigned int data_unit_size);
 
-#else /* CONFIG_MMC_CQHCI_CRYPTO */
-
-static inline bool cqhci_keyslot_valid(struct cqhci_host *host,
-					unsigned int slot)
-{
-	return false;
-}
-
-static inline bool cqhci_host_is_crypto_supported(struct cqhci_host *host)
-{
-	return false;
-}
-
-static inline bool cqhci_is_crypto_enabled(struct cqhci_host *host)
-{
-	return false;
-}
-
-static inline void cqhci_crypto_enable(struct cqhci_host *host) { }
-
-static inline int cqhci_crypto_cap_find(void *host_p,
-					enum blk_crypto_mode_num crypto_mode,
-					unsigned int data_unit_size)
-{
-	return 0;
-}
-
-static inline void cqhci_crypto_disable(struct cqhci_host *host) { }
-
-static inline int cqhci_host_init_crypto(struct cqhci_host *host)
-{
-	return 0;
-}
-
-static inline void cqhci_crypto_setup_rq_keyslot_manager(
-					struct cqhci_host *host,
-					struct request_queue *q) { }
-
-static inline void
-cqhci_crypto_destroy_rq_keyslot_manager(struct cqhci_host *host,
-					 struct request_queue *q) { }
-
-static inline int cqhci_crypto_get_ctx(struct cqhci_host *host,
-				       struct mmc_request *mrq,
-				       u64 *ice_ctx)
-{
-	*ice_ctx = 0;
-	return 0;
-}
-
-static inline int cqhci_complete_crypto_desc(struct cqhci_host *host,
-					     struct mmc_request *mrq,
-					     u64 *ice_ctx)
-{
-	return 0;
-}
-
-static inline void cqhci_crypto_debug(struct cqhci_host *host) { }
-
-static inline void cqhci_crypto_set_vops(struct cqhci_host *host,
-			struct cqhci_host_crypto_variant_ops *crypto_vops) { }
-
-static inline int cqhci_crypto_suspend(struct cqhci_host *host)
-{
-	return 0;
-}
-
-static inline int cqhci_crypto_resume(struct cqhci_host *host)
-{
-	return 0;
-}
-
-static inline int cqhci_crypto_reset(struct cqhci_host *host)
-{
-	return 0;
-}
-
-static inline int cqhci_crypto_recovery_finish(struct cqhci_host *host)
-{
-	return 0;
-}
-
-#endif /* CONFIG_MMC_CQHCI_CRYPTO */
 #endif /* _CQHCI_CRYPTO_H */
 
 
