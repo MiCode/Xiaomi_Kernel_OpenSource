@@ -86,6 +86,7 @@
 | scorpio-o-oss | Mi 5, Mi 5s, Mi 5s Plus, Mi MIX, Mi Note 2 | Android O | LA.UM.6.5.r1-04300-8x96.0 | [scorpio-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/scorpio-o-oss) |
 | sirius-o-oss | Mi 8 SE | Android O | LA.UM.6.8.r2-00700-SDM710.0 | [sirius-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/sirius-o-oss) |
 | sirius-q-oss | MI 8SE, MI 9SE, MI CC 9, MI CC 9 Meitu Edition | Android Q | LA.UM.8.8.r1-05100-SDM710.0 | [sirius-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/sirius-q-oss) |
+| surya-q-oss | Redmi POCO X3 | Android Q | LA.UM.8.9.r1-09300-SM6xx.0 | [surya-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/surya-q-oss) |
 | thomas-kk-oss | Redmi 2 Standard | Android KK | LNX.LA.3.7.2.1.c6-02400-8x16.0 | [thomas-kk-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/thomas-kk-oss) |
 | tiare-o-oss | Redmi Go | Android O | LA.UM.6.6.r1-09900-89xx.0 | [tiare-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/tiare-o-oss) |
 | tiffany-n-oss | Mi 5X, Redmi 5 Plus | Android N | LA.UM.5.3-06310-89xx.0 | [tiffany-n-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/tiffany-n-oss) |
