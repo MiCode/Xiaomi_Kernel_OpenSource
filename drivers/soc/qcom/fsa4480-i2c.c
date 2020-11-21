@@ -311,8 +311,8 @@ int fsa4480_reg_notifier(struct notifier_block *nb,
 	dev_dbg(fsa_priv->dev, "%s: verify if USB adapter is already inserted\n",
 		__func__);
 	rc = fsa4480_usbc_analog_setup_switches(fsa_priv);
-	fsa4480_usbc_update_settings(fsa_priv, fsa_priv->switch_control,
-				     0x9F);
+	regmap_update_bits(fsa_priv->regmap, FSA4480_SWITCH_CONTROL, 0x07,
+			   fsa_priv->switch_control);
 	return rc;
 }
 EXPORT_SYMBOL(fsa4480_reg_notifier);
