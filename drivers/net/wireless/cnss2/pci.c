@@ -3407,7 +3407,8 @@ int cnss_pci_qmi_send_put(struct cnss_pci_data *pci_priv)
 	cnss_pr_vdbg("Decreased QMI send usage count to %d\n",
 		     pci_priv->qmi_send_usage_count);
 	if (cnss_pci_get_auto_suspended(pci_priv) &&
-	    !pci_priv->qmi_send_usage_count)
+	    !pci_priv->qmi_send_usage_count &&
+	    !cnss_pcie_is_device_down(pci_priv))
 		ret = cnss_pci_suspend_bus(pci_priv);
 	mutex_unlock(&pci_priv->bus_lock);
 
