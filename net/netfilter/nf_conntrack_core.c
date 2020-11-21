@@ -33,6 +33,7 @@
 #include <linux/mm.h>
 #include <linux/nsproxy.h>
 #include <linux/rculist_nulls.h>
+#include <trace/hooks/net.h>
 
 #include <net/netfilter/nf_conntrack.h>
 #include <net/netfilter/nf_conntrack_l4proto.h>
@@ -1396,6 +1397,9 @@ __nf_conntrack_alloc(struct net *net,
 #if defined(CONFIG_IP_NF_TARGET_NATTYPE_MODULE)
 	ct->nattype_entry = 0;
 #endif
+
+	trace_android_rvh_nf_conn_alloc(ct);
+
 	/* Because we use RCU lookups, we set ct_general.use to zero before
 	 * this is inserted in any list.
 	 */
@@ -1429,6 +1433,7 @@ void nf_conntrack_free(struct nf_conn *ct)
 	nf_ct_ext_free(ct);
 	kmem_cache_free(nf_conntrack_cachep, ct);
 	smp_mb__before_atomic();
+	trace_android_rvh_nf_conn_free(ct);
 	atomic_dec(&net->ct.count);
 }
 EXPORT_SYMBOL_GPL(nf_conntrack_free);

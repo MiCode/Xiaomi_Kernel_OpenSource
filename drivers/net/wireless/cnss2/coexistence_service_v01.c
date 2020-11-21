@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2019, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved. */
 
 #include <linux/soc/qcom/qmi.h>
 
@@ -91,5 +91,10 @@ struct qmi_elem_info coex_antenna_switch_to_mdm_resp_msg_v01_ei[] = {
 				coex_antenna_switch_to_mdm_resp_msg_v01,
 				resp),
 		.ei_array      = qmi_response_type_v01_ei,
+	},
+	{
+		.data_type      = QMI_EOTI,
+		.array_type       = NO_ARRAY,
+		.tlv_type       = QMI_COMMON_TLV_TYPE,
 	},
 };

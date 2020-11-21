@@ -291,12 +291,77 @@ config SDM_LPASSCC_845
 	  Say Y if you want to use the LPASS branch clocks of the LPASS clock
 	  controller to reset the LPASS subsystem.
 
+config SM_CAMCC_8150
+	tristate "SM8150 Camera Clock Controller"
+	select SM_GCC_8150
+	help
+	  Support for the camera clock controller on Qualcomm Technologies, Inc
+	  SM8150 devices.
+	  Say Y if you want to support camera devices and functionality such as
+	  capturing pictures.
+
+config SM_DEBUGCC_8150
+	tristate "SM8150 Debug Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the debug clock controller on Qualcomm Technologies, Inc
+	  SM8150 devices.
+	  Say Y if you want to support the debug clocks such as
+	  clock measurement functionality.
+
+config SM_DISPCC_8150
+	tristate "SM8150 Display Clock Controller"
+	select SM_GCC_8150
+	help
+	  Support for the display clock controller on Qualcomm Technologies, Inc
+	  SM8150 devices.
+	  Say Y if you want to support display devices and functionality such as
+	  splash pictures.
+
 config SM_GCC_8150
 	tristate "SM8150 Global Clock Controller"
+	depends on COMMON_CLK_QCOM
 	help
 	  Support for the global clock controller on SM8150 devices.
 	  Say Y if you want to use peripheral devices such as UART,
 	  SPI, I2C, USB, SD/UFS, PCIe etc.
+
+config SM_GPUCC_8150
+	tristate "SM8150 Graphics Clock Controller"
+	select SM_GCC_8150
+	help
+	  Support for the graphics clock controller on Qualcomm Technologies, Inc.
+	  sm8150 devices.
+	  Say Y if you want to support graphics controller devices and
+	  functionality such as 3D graphics.
+
+config SM_NPUCC_8150
+	tristate "SM8150 NPU Clock Controller"
+	select SM_GCC_8150
+	help
+	  Support for the NPU Clock Controller on Qualcomm Technologies, Inc.
+	  sm8150 devices.
+	  Say Y if you want to enable use of the Network Processing Unit in
+	  order to speed up certain types of calculations.
+
+config SM_SCC_8150
+	tristate "SM8150 Sensor Clock Controller"
+	select SM_GCC_8150
+	help
+	  Support for the sensor clock controller on Qualcomm Technologies, Inc.
+	  SM8150 devices.  The sensor controller contains several QUP clocks
+	  which can be managed using DFS.  This controller is typically owned by
+	  the sensor processor.  However, on some systems it is instead owned
+	  by the application processor.
+
+config SM_VIDEOCC_8150
+	tristate "SM8150 Video Clock Controller"
+	select SM_GCC_8150
+	help
+	  Support for the video clock controller on Qualcomm Technologies, Inc.
+	  SM8150 devices.
+	  Say Y if you want to support video devices and functionality such as
+	  video encode/decode.
 
 config SPMI_PMIC_CLKDIV
 	tristate "SPMI PMIC clkdiv Support"

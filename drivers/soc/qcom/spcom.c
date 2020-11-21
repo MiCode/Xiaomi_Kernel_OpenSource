@@ -360,7 +360,9 @@ static int spcom_create_predefined_channels_chardev(void)
 
 		if (name[0] == 0)
 			break;
+		mutex_lock(&spcom_dev->chdev_count_lock);
 		ret = spcom_create_channel_chardev(name, false);
+		mutex_unlock(&spcom_dev->chdev_count_lock);
 		if (ret) {
 			spcom_pr_err("failed to create chardev [%s], ret [%d]\n",
 			       name, ret);
@@ -653,7 +655,11 @@ static int spcom_handle_create_channel_command(void *cmd_buf, int cmd_size)
 		return -EINVAL;
 	}
 
+	mutex_lock(&spcom_dev->chdev_count_lock);
 	ret = spcom_create_channel_chardev(cmd->ch_name, cmd->is_sharable);
+	mutex_unlock(&spcom_dev->chdev_count_lock);
+	if (ret)
+		spcom_pr_err("failed to create ch[%s], ret [%d]\n", cmd->ch_name, ret);
 
 	return ret;
 }
@@ -1981,7 +1987,6 @@ static int spcom_create_channel_chardev(const char *name, bool is_sharable)
 		goto exit_unregister_drv;
 	}
 
-	mutex_lock(&spcom_dev->chdev_count_lock);
 	devt = spcom_dev->device_no + spcom_dev->chdev_count;
 	priv = ch;
 	dev = device_create(cls, parent, devt, priv, name);
@@ -2001,7 +2006,6 @@ static int spcom_create_channel_chardev(const char *name, bool is_sharable)
 		goto exit_destroy_device;
 	}
 	spcom_dev->chdev_count++;
-	mutex_unlock(&spcom_dev->chdev_count_lock);
 
 	mutex_lock(&ch->lock);
 	ch->cdev = cdev;
@@ -2015,7 +2019,6 @@ exit_destroy_device:
 	device_destroy(spcom_dev->driver_class, devt);
 exit_free_cdev:
 	kfree(cdev);
-	mutex_unlock(&spcom_dev->chdev_count_lock);
 exit_unregister_drv:
 	ret = spcom_unregister_rpmsg_drv(ch);
 	if (ret != 0)

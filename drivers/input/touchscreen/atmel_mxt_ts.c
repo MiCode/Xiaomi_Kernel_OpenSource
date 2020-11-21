@@ -3001,7 +3001,6 @@ static int mxt_configure_objects(struct mxt_data *data,
 		dev_warn(dev, "No touch object detected\n");
 	}
 
-	disable_irq(data->irq);
 	mxt_debug_init(data);
 
 	return 0;

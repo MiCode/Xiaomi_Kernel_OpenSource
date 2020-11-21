@@ -346,11 +346,6 @@ struct klp_modinfo {
 };
 #endif
 
-struct module_kabi_preserve_1 {
-	u64		using_gplonly_symbols:1;
-	u64		free:63;
-};
-
 struct module {
 	enum module_state state;
 
@@ -387,6 +382,7 @@ struct module {
 	unsigned int num_gpl_syms;
 	const struct kernel_symbol *gpl_syms;
 	const s32 *gpl_crcs;
+	bool using_gplonly_symbols;
 
 #ifdef CONFIG_UNUSED_SYMBOLS
 	/* unused exported symbols. */
@@ -520,7 +516,7 @@ struct module {
 	struct error_injection_entry *ei_funcs;
 	unsigned int num_ei_funcs;
 #endif
-	ANDROID_KABI_USE(1, struct module_kabi_preserve_1 m1);
+	ANDROID_KABI_RESERVE(1);
 	ANDROID_KABI_RESERVE(2);
 	ANDROID_KABI_RESERVE(3);
 	ANDROID_KABI_RESERVE(4);

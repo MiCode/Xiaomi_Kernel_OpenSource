@@ -15,6 +15,7 @@
 #include <linux/ipa_usb.h>
 #include <linux/ipa_odu_bridge.h>
 #include <linux/ipa_qmi_service_v01.h>
+#include <linux/ipa_eth.h>
 
 struct ipa_core_data {
 	int (*ipa_tx_dp)(enum ipa_client_type dst, struct sk_buff *skb,
@@ -227,6 +228,8 @@ struct ipa_mhi_data {
 
 	int (*ipa_mhi_handle_ipa_config_req)(
 		struct ipa_config_req_msg_v01 *config_req);
+
+	int (*ipa_mhi_update_mstate)(enum ipa_mhi_mstate mstate_info);
 };
 
 struct ipa_wigig_data {
@@ -268,6 +271,27 @@ struct ipa_wigig_data {
 	int (*ipa_wigig_save_regs)(void);
 };
 
+struct ipa_eth_data {
+	int (*ipa_eth_register_ready_cb)(struct ipa_eth_ready *ready_info);
+
+	int (*ipa_eth_unregister_ready_cb)(struct ipa_eth_ready *ready_info);
+
+	int (*ipa_eth_client_conn_pipes)(struct ipa_eth_client *client);
+
+	int (*ipa_eth_client_disconn_pipes)(struct ipa_eth_client *client);
+
+	int (*ipa_eth_client_reg_intf)(struct ipa_eth_intf_info *intf);
+
+	int (*ipa_eth_client_unreg_intf)(struct ipa_eth_intf_info *intf);
+
+	int (*ipa_eth_client_set_perf_profile)(struct ipa_eth_client *client,
+		struct ipa_eth_perf_profile *profile);
+
+	int (*ipa_eth_client_conn_evt)(struct ipa_ecm_msg *msg);
+
+	int (*ipa_eth_client_disconn_evt)(struct ipa_ecm_msg *msg);
+};
+
 #if IS_ENABLED(CONFIG_IPA3)
 
 int ipa_fmwk_register_ipa(const struct ipa_core_data *in);
@@ -283,6 +307,8 @@ int ipa_fmwk_register_uc_offload(const struct ipa_uc_offload_data *in);
 int ipa_fmwk_register_ipa_mhi(const struct ipa_mhi_data *in);
 
 int ipa_fmwk_register_ipa_wigig(const struct ipa_wigig_data *in);
+
+int ipa_fmwk_register_ipa_eth(const struct ipa_eth_data *in);
 
 #else /* IS_ENABLED(CONFIG_IPA3) */
 
@@ -317,6 +343,11 @@ int ipa_fmwk_register_ipa_mhi(const struct ipa_mhi_data *in)
 }
 
 int ipa_fmwk_register_ipa_wigig(const struct ipa_wigig_data *in)
+{
+	return -EPERM;
+}
+
+int ipa_fmwk_register_ipa_eth(const struct ipa_eth_data *in)
 {
 	return -EPERM;
 }
