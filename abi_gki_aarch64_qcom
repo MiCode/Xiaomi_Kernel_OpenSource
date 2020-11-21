@@ -544,6 +544,7 @@
   irq_get_irq_data
   irq_modify_status
   irq_of_parse_and_map
+  irq_set_affinity_hint
   irq_set_chained_handler_and_data
   irq_set_chip_and_handler_name
   irq_set_chip_data
@@ -599,6 +600,7 @@
   kstrtouint_from_user
   kstrtoul_from_user
   kstrtoull
+  kthread_cancel_work_sync
   kthread_create_on_node
   kthread_flush_worker
   __kthread_init_worker
@@ -705,6 +707,7 @@
   of_icc_xlate_onecell
   of_iomap
   of_irq_find_parent
+  of_irq_get
   of_irq_get_byname
   of_match_device
   of_match_node
@@ -1036,6 +1039,7 @@
   seq_puts
   seq_read
   seq_release
+  set_cpus_allowed_ptr
   set_normalized_timespec64
   sg_alloc_table
   sg_alloc_table_from_pages
