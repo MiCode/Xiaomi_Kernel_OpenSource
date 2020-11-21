@@ -1786,16 +1786,22 @@ static void ufshcd_parse_pm_levels(struct ufs_hba *hba)
 {
 	struct device *dev = hba->dev;
 	struct device_node *np = dev->of_node;
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	enum ufs_pm_level rpm_lvl = UFS_PM_LVL_MAX, spm_lvl = UFS_PM_LVL_MAX;
 
 	if (!np)
 		return;
+
+	if (host->is_dt_pm_level_read)
+		return;
+
 	if (!of_property_read_u32(np, "rpm-level", &rpm_lvl) &&
 		ufshcd_is_valid_pm_lvl(rpm_lvl))
 		hba->rpm_lvl = rpm_lvl;
 	if (!of_property_read_u32(np, "spm-level", &spm_lvl) &&
 		ufshcd_is_valid_pm_lvl(spm_lvl))
 		hba->spm_lvl = spm_lvl;
+	host->is_dt_pm_level_read = true;
 }
 
 #if defined(CONFIG_SCSI_UFSHCD_QTI)
