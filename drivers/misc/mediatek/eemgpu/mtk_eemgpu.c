@@ -3049,13 +3049,12 @@ out:
 		return single_open(file, name ## _proc_show,	\
 			PDE_DATA(inode));			\
 	}							\
-	static const struct file_operations name ## _proc_fops = {	\
-		.owner		= THIS_MODULE,				\
-		.open		= name ## _proc_open,			\
-		.read		= seq_read,				\
-		.llseek		= seq_lseek,				\
-		.release	= single_release,			\
-		.write		= name ## _proc_write,			\
+	static const struct proc_ops name ## _proc_fops = {	\
+		.proc_open		= name ## _proc_open,			\
+		.proc_read		= seq_read,				\
+		.proc_lseek		= seq_lseek,				\
+		.proc_release	= single_release,			\
+		.proc_write		= name ## _proc_write,			\
 	}
 
 #define PROC_FOPS_RO(name)					\
@@ -3065,12 +3064,11 @@ out:
 		return single_open(file, name ## _proc_show,	\
 			PDE_DATA(inode));			\
 	}							\
-	static const struct file_operations name ## _proc_fops = {	\
-		.owner		= THIS_MODULE,				\
-		.open		= name ## _proc_open,			\
-		.read		= seq_read,				\
-		.llseek		= seq_lseek,				\
-		.release	= single_release,			\
+	static const struct proc_ops name ## _proc_fops = {	\
+		.proc_open		= name ## _proc_open,			\
+		.proc_read		= seq_read,				\
+		.proc_lseek		= seq_lseek,				\
+		.proc_release	= single_release,			\
 	}
 
 #define PROC_ENTRY(name)	{__stringify(name), &name ## _proc_fops}
@@ -3092,7 +3090,7 @@ static int create_procfs(void)
 
 	struct pentry {
 		const char *name;
-		const struct file_operations *fops;
+		const struct proc_ops *fops;
 	};
 
 	struct pentry det_entries[] = {
