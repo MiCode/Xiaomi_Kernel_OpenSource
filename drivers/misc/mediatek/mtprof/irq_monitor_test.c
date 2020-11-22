@@ -167,9 +167,9 @@ irq_mon_test_write(struct file *file, const char *ubuf,
 	return count;
 }
 
-static const struct file_operations proc_irq_monitor_test_fops = {
-	.open  = simple_open,
-	.write = irq_mon_test_write,
+static const struct proc_ops proc_irq_monitor_test_fops = {
+	.proc_open  = simple_open,
+	.proc_write = irq_mon_test_write,
 };
 
 void mt_irq_monitor_test_init(struct proc_dir_entry *dir)

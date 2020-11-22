@@ -69,7 +69,7 @@ struct trace_stat {
 	unsigned long long start_timestamp;
 	unsigned long long end_timestamp;
 	/* start trace */
-	struct stack_trace start_trace;
+	int nr_entries;
 	unsigned long trace_entries[MAX_STACK_TRACE_DEPTH];
 };
 
@@ -83,7 +83,7 @@ struct preemptirq_stat {
 	unsigned long enable_ip;
 	unsigned long enable_parent_ip;
 	/* stack_trace */
-	struct stack_trace disable_trace;
+	int nr_entries;
 	unsigned long trace_entries[MAX_STACK_TRACE_DEPTH];
 };
 
@@ -92,32 +92,21 @@ static DEFINE_PER_CPU(struct preemptirq_stat, preempt_pi_stat);
 
 static void irq_mon_save_stack_trace(struct preemptirq_stat *pi_stat)
 {
-	struct stack_trace *trace = &pi_stat->disable_trace;
-
 	/* init, should move to other place */
-	trace->entries = &pi_stat->trace_entries[0];
-	trace->max_entries = MAX_STACK_TRACE_DEPTH;
-	trace->skip = 2;
-
-	trace->nr_entries = 0;
-	save_stack_trace(trace);
-
-	if (trace->nr_entries != 0 &&
-	    trace->entries[trace->nr_entries - 1] == ULONG_MAX)
-		trace->nr_entries--;
+	pi_stat->nr_entries = stack_trace_save_tsk(current, pi_stat->trace_entries,
+						MAX_STACK_TRACE_DEPTH * sizeof(unsigned long), 2);
 }
 
 static void irq_mon_dump_stack_trace(struct preemptirq_stat *pi_stat)
 {
-	struct stack_trace *trace = &pi_stat->disable_trace;
 	char msg2[128];
 	int i;
 
 	pr_info("disable call trace:\n");
-	for (i = 0; i < trace->nr_entries; i++) {
+	for (i = 0; i < pi_stat->nr_entries; i++) {
 		scnprintf(msg2, sizeof(msg2), "[<%p>] %pS",
-			 (void *)trace->entries[i],
-			 (void *)trace->entries[i]);
+			 (void *)pi_stat->trace_entries[i],
+			 (void *)pi_stat->trace_entries[i]);
 		pr_info("%s\n", msg2);
 	}
 }
