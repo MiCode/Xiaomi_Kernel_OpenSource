@@ -24,7 +24,7 @@
 #include <linux/slab.h>
 #include <linux/nfcinfo.h>
 #include <linux/regulator/consumer.h>
-
+#include <linux/ipc_logging.h>
 #include "nfc_i2c_drv.h"
 #include "nfc_i3c_drv.h"
 
@@ -62,7 +62,12 @@
 #define COLD_RESET_OID			0x1E
 
 #define MAX_NCI_PAYLOAD_LEN		(255)
-#define MAX_BUFFER_SIZE			(NCI_HDR_LEN + MAX_NCI_PAYLOAD_LEN)
+/*
+ * From MW 11.04 buffer size increased to support
+ * frame size of 554 in FW download mode
+ * Frame len(2) + Frame Header(6) + DATA(512) + HASH(32) + CRC(2) + RFU(4)
+ */
+#define MAX_BUFFER_SIZE			(558)
 
 // Maximum retry count for standby writes
 #define MAX_RETRY_COUNT			(3)
@@ -96,6 +101,23 @@
 #define NFC_VDDIO_MIN		1650000 //in uV
 #define NFC_VDDIO_MAX		1950000 //in uV
 #define NFC_CURRENT_MAX		157000 //in uA
+
+
+#define NUM_OF_IPC_LOG_PAGES	(2)
+#define PKT_MAX_LEN		(4) // no of max bytes to print for cmd/resp
+
+#define GET_IPCLOG_MAX_PKT_LEN(c)	((c > PKT_MAX_LEN) ? PKT_MAX_LEN : c)
+
+#define NFCLOG_IPC(nfc_dev, log_to_dmesg, x...)	\
+do { \
+	ipc_log_string(nfc_dev->ipcl, x); \
+	if (log_to_dmesg) { \
+		if (nfc_dev->nfc_device) \
+			dev_err((nfc_dev->nfc_device), x); \
+		else \
+			pr_err(x); \
+	} \
+} while (0)
 
 enum ese_ioctl_request {
 	/* eSE POWER ON */
@@ -218,6 +240,8 @@ struct nfc_dev {
 	u8 *kbuf;
 
 	union nqx_uinfo nqx_info;
+
+	void *ipcl;
 
 	int (*nfc_read)(struct nfc_dev *dev,
 					char *buf, size_t count);
