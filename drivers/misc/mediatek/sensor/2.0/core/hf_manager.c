@@ -1356,11 +1356,11 @@ static int hf_manager_proc_open(struct inode *inode, struct file *filp)
 	return single_open(filp, hf_manager_proc_show, PDE_DATA(inode));
 }
 
-static const struct file_operations hf_manager_proc_fops = {
-	.open           = hf_manager_proc_open,
-	.release        = single_release,
-	.read           = seq_read,
-	.llseek         = seq_lseek,
+static const struct proc_ops hf_manager_proc_fops = {
+	.proc_open           = hf_manager_proc_open,
+	.proc_release        = single_release,
+	.proc_read           = seq_read,
+	.proc_lseek         = seq_lseek,
 };
 
 static int __init hf_manager_init(void)
