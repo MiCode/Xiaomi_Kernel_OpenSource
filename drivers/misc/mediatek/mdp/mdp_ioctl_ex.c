@@ -303,7 +303,6 @@ static s32 translate_meta(struct op_meta *meta,
 {
 	u32 reg_addr;
 	s32 status = 0;
-	u64 exec_cost = sched_clock();
 
 	switch (meta->op) {
 	case CMDQ_MOP_WRITE_FD:
@@ -411,8 +410,6 @@ static s32 translate_meta(struct op_meta *meta,
 		status = -EINVAL;
 		break;
 	}
-
-	exec_cost = sched_clock() - exec_cost;
 
 	return status;
 }
