@@ -473,7 +473,7 @@ static void mtk_plane_atomic_disable(struct drm_plane *plane,
 	if (!state->crtc)
 		DDPPR_ERR("%s, empty crtc state\n", __func__);
 	else
-		mtk_drm_crtc_plane_update(state->crtc, plane, state);
+		mtk_drm_crtc_plane_disable(state->crtc, plane, state);
 
 #endif
 }
