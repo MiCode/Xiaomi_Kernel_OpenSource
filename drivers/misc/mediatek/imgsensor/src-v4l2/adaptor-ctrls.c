@@ -293,11 +293,6 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 		proc_debug_cmd(ctx, ctrl->p_new.p_char);
 		break;
 #endif
-	default:
-		dev_info(dev, "ctrl(id:0x%x,val:0x%x) is not handled\n",
-			 ctrl->id, ctrl->val);
-		ret = -EINVAL;
-		break;
 	}
 
 	pm_runtime_put(dev);
