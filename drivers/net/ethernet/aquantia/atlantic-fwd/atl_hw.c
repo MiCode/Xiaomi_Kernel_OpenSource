@@ -898,6 +898,9 @@ void atl_set_rx_mode(struct net_device *ndev)
 	else if (uc_count + mc_count > nic->rxf_mac.available - 1)
 		all_multi_needed = true;
 
+	if (nic->priv_flags & ATL_PF_BIT(LPB_NET_DMA))
+		promisc_needed = true;
+
 	/* Enable promisc VLAN mode if IFF_PROMISC explicitly
 	 * requested or too many VIDs registered
 	 */
