@@ -118,6 +118,8 @@ static int srclken_dev_pm_resume(struct device *dev)
 		srclken_hw_dump_sta_log();
 		srclken_hw_dump_last_sta_log();
 	}
+
+	return 0;
 }
 
 static const struct dev_pm_ops srclken_dev_pm_ops = {
