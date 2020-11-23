@@ -2493,6 +2493,9 @@ static void ufs_qcom_qos(struct ufs_hba *hba, int tag, bool is_scsi_cmd)
 	if (cpu < 0)
 		return;
 	qcg = cpu_to_group(host->ufs_qos, cpu);
+	if (!qcg)
+		return;
+
 	if (qcg->voted) {
 		dev_dbg(qcg->host->hba->dev, "%s: qcg: 0x%08x | Mask: 0x%08x - Already voted - return\n",
 			__func__, qcg, qcg->mask);
