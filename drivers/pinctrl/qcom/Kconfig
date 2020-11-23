@@ -256,6 +256,17 @@ config PINCTRL_YUPIK
 	  Say Y here to compile statically, or M here to compile it as a module.
 	  If unsure, say N.
 
+config PINCTRL_SCUBA
+        tristate "Qualcomm Technologies Inc SCUBA pin controller driver"
+        depends on GPIOLIB && OF
+        select PINCTRL_MSM
+        help
+          This is the pinctrl, pinmux, pinconf and gpiolib driver for the
+          Qualcomm Technologies Inc Top Level Mode Multiplexer block (TLMM)
+          block found on the Qualcomm Technologies Inc SCUBA platform.
+          Say Y here to compile statically, or M here to compile it as a module.
+          If unsure, say N.
+
 config PINCTRL_SDXLEMUR
 	tristate "Qualcomm Technologies Inc SDXLEMUR pin controller driver"
 	depends on GPIOLIB && OF
