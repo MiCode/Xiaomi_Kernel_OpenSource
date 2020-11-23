@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 #ifndef FSA4480_I2C_H
 #define FSA4480_I2C_H
@@ -16,7 +16,7 @@ enum fsa_function {
 	FSA_EVENT_MAX,
 };
 
-#ifdef CONFIG_QCOM_FSA4480_I2C
+#if IS_ENABLED(CONFIG_QCOM_FSA4480_I2C)
 int fsa4480_switch_event(struct device_node *node,
 			 enum fsa_function event);
 int fsa4480_reg_notifier(struct notifier_block *nb,

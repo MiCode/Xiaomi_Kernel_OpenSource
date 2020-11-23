@@ -645,7 +645,7 @@ config MSM_JTAGV8
 	  memory penalty.
 
 config QCOM_FSA4480_I2C
-	bool "Fairchild FSA4480 chip with I2C"
+	tristate "Fairchild FSA4480 chip with I2C"
 	select REGMAP_I2C
 	depends on I2C
 	help
