@@ -757,11 +757,13 @@ int kbase_devfreq_init(struct kbase_device *kbdev)
 	}
 
 #ifdef CONFIG_DEVFREQ_THERMAL
+#ifdef IPA_ENABLE
 	err = kbase_ipa_init(kbdev);
 	if (err) {
 		dev_err(kbdev->dev, "IPA initialization failed\n");
 		goto cooling_failed;
 	}
+#endif
 
 	kbdev->devfreq_cooling = of_devfreq_cooling_register_power(
 			kbdev->dev->of_node,
@@ -804,7 +806,9 @@ void kbase_devfreq_term(struct kbase_device *kbdev)
 	if (kbdev->devfreq_cooling)
 		devfreq_cooling_unregister(kbdev->devfreq_cooling);
 
+#ifdef IPA_ENABLE
 	kbase_ipa_term(kbdev);
+#endif
 #endif
 
 	devfreq_unregister_opp_notifier(kbdev->dev, kbdev->devfreq);
