@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,23 +24,12 @@ int ufs_qcom_phy_qmp_v3_660_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
 	int err;
 	int tbl_size_A, tbl_size_B;
 	struct ufs_qcom_phy_calibration *tbl_A, *tbl_B;
-	u8 major = ufs_qcom_phy->host_ctrl_rev_major;
-	u16 minor = ufs_qcom_phy->host_ctrl_rev_minor;
-	u16 step = ufs_qcom_phy->host_ctrl_rev_step;
 
 	tbl_size_B = ARRAY_SIZE(phy_cal_table_rate_B);
 	tbl_B = phy_cal_table_rate_B;
 
-	if ((major == 0x4) && (minor == 0x002) && (step >= 0x000)) {
-		tbl_A = phy_cal_table_rate_A_3_1_1;
-		tbl_size_A = ARRAY_SIZE(phy_cal_table_rate_A_3_1_1);
-	} else {
-		dev_err(ufs_qcom_phy->dev,
-			"%s: Unknown UFS-PHY version (major 0x%x minor 0x%x step 0x%x), no calibration values\n",
-			__func__, major, minor, step);
-		err = -ENODEV;
-		goto out;
-	}
+	tbl_A = phy_cal_table_rate_A_3_1_1;
+	tbl_size_A = ARRAY_SIZE(phy_cal_table_rate_A_3_1_1);
 
 	err = ufs_qcom_phy_calibrate(ufs_qcom_phy,
 				     tbl_A, tbl_size_A,
@@ -52,7 +41,6 @@ int ufs_qcom_phy_qmp_v3_660_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
 			"%s: ufs_qcom_phy_calibrate() failed %d\n",
 			__func__, err);
 
-out:
 	return err;
 }
 
