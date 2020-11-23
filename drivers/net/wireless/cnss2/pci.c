@@ -1239,6 +1239,10 @@ static void cnss_pci_set_wlaon_pwr_ctrl(struct cnss_pci_data *pci_priv,
 	if (!plat_priv->set_wlaon_pwr_ctrl)
 		return;
 
+	if (pci_priv->pci_link_state == PCI_LINK_DOWN ||
+	    pci_priv->pci_link_down_ind)
+		return;
+
 	if (do_force_wake)
 		if (cnss_pci_force_wake_get(pci_priv))
 			return;
