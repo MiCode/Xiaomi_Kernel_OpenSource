@@ -367,12 +367,8 @@ static int _clk_buf_mode_set(s32 id, unsigned int mode)
 	if (val == CLK_BUF_NOT_READY)
 		return CLK_BUF_NOT_READY;
 
-	if (mode > val)
-		ret = pmic_op->pmic_clk_buf_set_xo_mode(id, mode - val);
-	else if (mode < val)
-		ret = pmic_op->pmic_clk_buf_set_xo_mode(id, val - mode);
-	else
-		pr_debug("already set mode as requested\n");
+	pr_info("[%s]: xo: %d, mode: %d\n", __func__, id, mode);
+	ret = pmic_op->pmic_clk_buf_set_xo_mode(id, mode);
 
 	return ret;
 }
@@ -1080,6 +1076,7 @@ static int _clk_buf_debug_internal(char *cmd, u32 id)
 	else
 		ret = -1;
 
+	pr_info("[%s]: ret: %d\n", __func__, ret);
 	return ret;
 }
 
@@ -1100,11 +1097,9 @@ static ssize_t clk_buf_debug_store(struct kobject *kobj,
 				clkbuf_debug = false;
 			else
 				clkbuf_debug = true;
+			return count;
 		}
-	if (strcmp(xo_user, "0"))
-		goto ERROR_CMD;
 
-	return count;
 ERROR_CMD:
 	pr_info("bad argument!! please follow correct format\n");
 	return -EPERM;
@@ -1487,9 +1482,9 @@ int clk_buf_xo_init(void)
 		if (!_chk_xo_cond(idx))
 			continue;
 
-		if (CLK_BUF_STATUS[idx] != CLOCK_BUFFER_DISABLE)
+		if (CLK_BUF_STATUS[idx] != CLOCK_BUFFER_DISABLE) {
 			xo_mode_init[idx] = _clk_buf_mode_get(idx);
-		else {
+		} else {
 			_clk_buf_ctrl_internal(i, CLK_BUF_OFF);
 			pmic_clk_buf_swctrl[idx] = CLK_BUF_SW_DISABLE;
 		}
