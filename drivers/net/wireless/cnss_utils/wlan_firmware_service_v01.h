@@ -775,9 +775,13 @@ struct wlfw_fw_mem_ready_ind_msg_v01 {
 extern struct qmi_elem_info wlfw_fw_mem_ready_ind_msg_v01_ei[];
 
 struct wlfw_fw_init_done_ind_msg_v01 {
-	char placeholder;
+	u8 hang_data_addr_offset_valid;
+	u32 hang_data_addr_offset;
+	u8 hang_data_length_valid;
+	u16 hang_data_length;
 };
-#define WLFW_FW_INIT_DONE_IND_MSG_V01_MAX_MSG_LEN 0
+
+#define WLFW_FW_INIT_DONE_IND_MSG_V01_MAX_MSG_LEN 12
 extern struct qmi_elem_info wlfw_fw_init_done_ind_msg_v01_ei[];
 
 struct wlfw_rejuvenate_ind_msg_v01 {
