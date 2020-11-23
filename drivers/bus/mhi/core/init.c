@@ -914,6 +914,10 @@ int mhi_register_controller(struct mhi_controller *mhi_cntrl,
 
 	mhi_cntrl->mhi_dev = mhi_dev;
 
+	if (mhi_misc_register_controller(mhi_cntrl))
+		dev_err(mhi_cntrl->cntrl_dev,
+			"Could not enable miscellaneous features\n");
+
 	return 0;
 
 error_add_dev:
@@ -935,6 +939,8 @@ void mhi_unregister_controller(struct mhi_controller *mhi_cntrl)
 	struct mhi_device *mhi_dev = mhi_cntrl->mhi_dev;
 	struct mhi_chan *mhi_chan = mhi_cntrl->mhi_chan;
 	unsigned int i;
+
+	mhi_misc_unregister_controller(mhi_cntrl);
 
 	kfree(mhi_cntrl->mhi_cmd);
 	kfree(mhi_cntrl->mhi_event);
@@ -1283,11 +1289,13 @@ struct bus_type mhi_bus_type = {
 
 static int __init mhi_init(void)
 {
+	mhi_misc_init();
 	return bus_register(&mhi_bus_type);
 }
 
 static void __exit mhi_exit(void)
 {
+	mhi_misc_exit();
 	bus_unregister(&mhi_bus_type);
 }
 
