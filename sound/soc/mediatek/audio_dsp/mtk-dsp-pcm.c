@@ -156,15 +156,13 @@ static int dsp_pcm_dev_probe(struct platform_device *pdev)
 	}
 
 	ret = snd_soc_register_component(&pdev->dev,
-					 &mtk_dsp_pcm_platform, NULL, 0);
+					 &mtk_dsp_pcm_platform,
+					 dsp->dai_drivers,
+					 dsp->num_dai_drivers);
 	if (ret) {
 		dev_warn(&pdev->dev, "err_platform\n");
 		goto err_platform;
 	}
-	ret = devm_snd_soc_register_component(&pdev->dev,
-					      dsp->component_driver,
-					      dsp->dai_drivers,
-					      dsp->num_dai_drivers);
 
 	set_ipi_recv_private((void *)dsp);
 	set_dsp_base((void *)dsp);
