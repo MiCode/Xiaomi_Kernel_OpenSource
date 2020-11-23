@@ -807,6 +807,21 @@ static int memlat_event_cpu_hp_init(void)
 	return ret;
 }
 
+void rimps_force_free_pmu_events(unsigned int flag)
+{
+	unsigned int cpu;
+
+	get_online_cpus();
+	for_each_possible_cpu(cpu) {
+		if (flag)
+			memlat_event_hotplug_going_down(cpu);
+		else
+			memlat_event_hotplug_coming_up(cpu);
+	}
+	put_online_cpus();
+}
+EXPORT_SYMBOL(rimps_force_free_pmu_events);
+
 static int memlat_idle_notif(struct notifier_block *nb,
 					unsigned long action,
 					void *data)
