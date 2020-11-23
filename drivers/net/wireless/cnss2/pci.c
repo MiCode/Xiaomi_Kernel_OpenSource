@@ -70,7 +70,7 @@ static DEFINE_SPINLOCK(time_sync_lock);
 #define FORCE_WAKE_DELAY_MIN_US			4000
 #define FORCE_WAKE_DELAY_MAX_US			6000
 #define FORCE_WAKE_DELAY_TIMEOUT_US		60000
-#define CNSS_MHI_MISSION_MODE_TIMEOUT		60000
+#define MHI_MISSION_MODE_TIMEOUT		60000
 
 #define POWER_ON_RETRY_MAX_TIMES		3
 #define POWER_ON_RETRY_DELAY_MS			200
@@ -1466,17 +1466,17 @@ int cnss_pci_start_mhi(struct cnss_pci_data *pci_priv)
 	if (ret)
 		return ret;
 
-	if (cnss_get_host_build_type() == QMI_HOST_BUILD_TYPE_PRIMARY_V01) {
-		timeout = pci_priv->mhi_ctrl->timeout_ms;
-		pci_priv->mhi_ctrl->timeout_ms = CNSS_MHI_MISSION_MODE_TIMEOUT;
-	}
+	timeout = pci_priv->mhi_ctrl->timeout_ms;
+	if (cnss_get_host_build_type() == QMI_HOST_BUILD_TYPE_PRIMARY_V01)
+		pci_priv->mhi_ctrl->timeout_ms = MHI_MISSION_MODE_TIMEOUT;
+	else /* For Perf builds the timeout is 30sec*/
+		pci_priv->mhi_ctrl->timeout_ms = (MHI_MISSION_MODE_TIMEOUT / 2);
 
 	ret = cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_POWER_ON);
 	if (ret == 0)
 		cnss_wlan_adsp_pc_enable(pci_priv, false);
 
-	if (cnss_get_host_build_type() == QMI_HOST_BUILD_TYPE_PRIMARY_V01)
-		pci_priv->mhi_ctrl->timeout_ms = timeout;
+	pci_priv->mhi_ctrl->timeout_ms = timeout;
 
 	/* -ETIMEDOUT means MHI power on has succeeded but timed out
 	 * for firmware mission mode event, so handle it properly.
