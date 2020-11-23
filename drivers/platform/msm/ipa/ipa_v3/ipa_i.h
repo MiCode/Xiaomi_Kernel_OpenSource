@@ -457,6 +457,8 @@ enum {
 
 #define MBOX_TOUT_MS 100
 
+#define IPA_RULE_CNT_MAX 512
+
 struct ipa3_active_client_htable_entry {
 	struct hlist_node list;
 	char id_string[IPA3_ACTIVE_CLIENTS_LOG_NAME_LEN];
