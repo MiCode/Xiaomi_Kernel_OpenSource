@@ -28,9 +28,11 @@
 #define DISP_CC_MISC_CMD	0xF000
 
 static DEFINE_VDD_REGULATORS(vdd_mm, VDD_HIGH + 1, 1, vdd_corner);
+static DEFINE_VDD_REGULATORS(vdd_mxa, VDD_NOMINAL + 1, 1, vdd_corner);
 
 static struct clk_vdd_class *disp_cc_waipio_regulators[] = {
 	&vdd_mm,
+	&vdd_mxa,
 };
 
 enum {
@@ -756,7 +758,8 @@ static struct clk_rcg2 disp_cc_mdss_mdp_clk_src = {
 		.ops = &clk_rcg2_ops,
 	},
 	.clkr.vdd_data = {
-		.vdd_class = &vdd_mm,
+		.vdd_classes = disp_cc_waipio_regulators,
+		.num_vdd_classes = ARRAY_SIZE(disp_cc_waipio_regulators),
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_LOWER_D1] = 172000000,
@@ -838,7 +841,8 @@ static struct clk_rcg2 disp_cc_mdss_rot_clk_src = {
 		.ops = &clk_rcg2_ops,
 	},
 	.clkr.vdd_data = {
-		.vdd_class = &vdd_mm,
+		.vdd_classes = disp_cc_waipio_regulators,
+		.num_vdd_classes = ARRAY_SIZE(disp_cc_waipio_regulators),
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_LOWER_D1] = 171428571,

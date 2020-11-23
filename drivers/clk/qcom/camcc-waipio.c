@@ -35,6 +35,11 @@ static struct clk_vdd_class *cam_cc_waipio_regulators[] = {
 	&vdd_mxc,
 };
 
+static struct clk_vdd_class *cam_cc_waipio_regulators_1[] = {
+	&vdd_mm,
+	&vdd_mxc,
+};
+
 enum {
 	P_BI_TCXO,
 	P_CAM_CC_PLL0_OUT_EVEN,
@@ -741,7 +746,8 @@ static struct clk_rcg2 cam_cc_bps_clk_src = {
 		.ops = &clk_rcg2_ops,
 	},
 	.clkr.vdd_data = {
-		.vdd_class = &vdd_mm,
+		.vdd_classes = cam_cc_waipio_regulators_1,
+		.num_vdd_classes = ARRAY_SIZE(cam_cc_waipio_regulators_1),
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_LOWER_D1] = 160000000,
@@ -775,7 +781,8 @@ static struct clk_rcg2 cam_cc_camnoc_axi_clk_src = {
 		.ops = &clk_rcg2_ops,
 	},
 	.clkr.vdd_data = {
-		.vdd_class = &vdd_mm,
+		.vdd_classes = cam_cc_waipio_regulators_1,
+		.num_vdd_classes = ARRAY_SIZE(cam_cc_waipio_regulators_1),
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_LOWER_D1] = 240000000,
@@ -861,7 +868,8 @@ static struct clk_rcg2 cam_cc_cphy_rx_clk_src = {
 		.ops = &clk_rcg2_ops,
 	},
 	.clkr.vdd_data = {
-		.vdd_class = &vdd_mm,
+		.vdd_classes = cam_cc_waipio_regulators,
+		.num_vdd_classes = ARRAY_SIZE(cam_cc_waipio_regulators),
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_LOWER_D1] = 300000000,
@@ -1042,7 +1050,8 @@ static struct clk_rcg2 cam_cc_csid_clk_src = {
 		.ops = &clk_rcg2_ops,
 	},
 	.clkr.vdd_data = {
-		.vdd_class = &vdd_mm,
+		.vdd_classes = cam_cc_waipio_regulators_1,
+		.num_vdd_classes = ARRAY_SIZE(cam_cc_waipio_regulators_1),
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_LOWER_D1] = 300000000,
@@ -1076,7 +1085,8 @@ static struct clk_rcg2 cam_cc_fast_ahb_clk_src = {
 		.ops = &clk_rcg2_ops,
 	},
 	.clkr.vdd_data = {
-		.vdd_class = &vdd_mm,
+		.vdd_classes = cam_cc_waipio_regulators_1,
+		.num_vdd_classes = ARRAY_SIZE(cam_cc_waipio_regulators_1),
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_LOWER_D1] = 80000000,
@@ -1111,7 +1121,8 @@ static struct clk_rcg2 cam_cc_icp_clk_src = {
 		.ops = &clk_rcg2_ops,
 	},
 	.clkr.vdd_data = {
-		.vdd_class = &vdd_mm,
+		.vdd_classes = cam_cc_waipio_regulators_1,
+		.num_vdd_classes = ARRAY_SIZE(cam_cc_waipio_regulators_1),
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_LOWER_D1] = 300000000,
@@ -1146,7 +1157,8 @@ static struct clk_rcg2 cam_cc_ife_0_clk_src = {
 		.ops = &clk_rcg2_ops,
 	},
 	.clkr.vdd_data = {
-		.vdd_class = &vdd_mm,
+		.vdd_classes = cam_cc_waipio_regulators_1,
+		.num_vdd_classes = ARRAY_SIZE(cam_cc_waipio_regulators_1),
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_LOWER_D1] = 345600000,
@@ -1182,7 +1194,8 @@ static struct clk_rcg2 cam_cc_ife_1_clk_src = {
 		.ops = &clk_rcg2_ops,
 	},
 	.clkr.vdd_data = {
-		.vdd_class = &vdd_mm,
+		.vdd_classes = cam_cc_waipio_regulators_1,
+		.num_vdd_classes = ARRAY_SIZE(cam_cc_waipio_regulators_1),
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_LOWER_D1] = 345600000,
@@ -1217,7 +1230,8 @@ static struct clk_rcg2 cam_cc_ife_2_clk_src = {
 		.ops = &clk_rcg2_ops,
 	},
 	.clkr.vdd_data = {
-		.vdd_class = &vdd_mm,
+		.vdd_classes = cam_cc_waipio_regulators_1,
+		.num_vdd_classes = ARRAY_SIZE(cam_cc_waipio_regulators_1),
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_LOWER_D1] = 345600000,
@@ -1244,7 +1258,8 @@ static struct clk_rcg2 cam_cc_ife_lite_clk_src = {
 		.ops = &clk_rcg2_ops,
 	},
 	.clkr.vdd_data = {
-		.vdd_class = &vdd_mm,
+		.vdd_classes = cam_cc_waipio_regulators_1,
+		.num_vdd_classes = ARRAY_SIZE(cam_cc_waipio_regulators_1),
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_LOWER_D1] = 266666667,
@@ -1269,7 +1284,8 @@ static struct clk_rcg2 cam_cc_ife_lite_csid_clk_src = {
 		.ops = &clk_rcg2_ops,
 	},
 	.clkr.vdd_data = {
-		.vdd_class = &vdd_mm,
+		.vdd_classes = cam_cc_waipio_regulators_1,
+		.num_vdd_classes = ARRAY_SIZE(cam_cc_waipio_regulators_1),
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_LOWER_D1] = 266666667,
@@ -1302,7 +1318,8 @@ static struct clk_rcg2 cam_cc_ipe_nps_clk_src = {
 		.ops = &clk_rcg2_ops,
 	},
 	.clkr.vdd_data = {
-		.vdd_class = &vdd_mm,
+		.vdd_classes = cam_cc_waipio_regulators_1,
+		.num_vdd_classes = ARRAY_SIZE(cam_cc_waipio_regulators_1),
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_LOWER_D1] = 304000000,
@@ -1329,7 +1346,8 @@ static struct clk_rcg2 cam_cc_jpeg_clk_src = {
 		.ops = &clk_rcg2_ops,
 	},
 	.clkr.vdd_data = {
-		.vdd_class = &vdd_mm,
+		.vdd_classes = cam_cc_waipio_regulators_1,
+		.num_vdd_classes = ARRAY_SIZE(cam_cc_waipio_regulators_1),
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_LOWER_D1] = 160000000,
@@ -1555,7 +1573,8 @@ static struct clk_rcg2 cam_cc_sfe_0_clk_src = {
 		.ops = &clk_rcg2_ops,
 	},
 	.clkr.vdd_data = {
-		.vdd_class = &vdd_mm,
+		.vdd_classes = cam_cc_waipio_regulators_1,
+		.num_vdd_classes = ARRAY_SIZE(cam_cc_waipio_regulators_1),
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_LOWER_D1] = 345600000,
@@ -1590,7 +1609,8 @@ static struct clk_rcg2 cam_cc_sfe_1_clk_src = {
 		.ops = &clk_rcg2_ops,
 	},
 	.clkr.vdd_data = {
-		.vdd_class = &vdd_mm,
+		.vdd_classes = cam_cc_waipio_regulators_1,
+		.num_vdd_classes = ARRAY_SIZE(cam_cc_waipio_regulators_1),
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_LOWER_D1] = 345600000,
@@ -1651,7 +1671,8 @@ static struct clk_rcg2 cam_cc_slow_ahb_clk_src = {
 		.ops = &clk_rcg2_ops,
 	},
 	.clkr.vdd_data = {
-		.vdd_class = &vdd_mm,
+		.vdd_classes = cam_cc_waipio_regulators_1,
+		.num_vdd_classes = ARRAY_SIZE(cam_cc_waipio_regulators_1),
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_LOWER_D1] = 64000000,
