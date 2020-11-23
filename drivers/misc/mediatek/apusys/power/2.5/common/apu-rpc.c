@@ -153,7 +153,7 @@ void apu_buckiso(struct apu_dev *ad, bool enable)
 	if (enable) /* enable buck isolation */
 		apu_setl(0x21, (spm_reg + SPM_BUCK_ISOLATION));
 	else /* release buck isolation */
-		apu_writel(~(0x21), (spm_reg + SPM_BUCK_ISOLATION));
+		apu_clearl(0x21, (spm_reg + SPM_BUCK_ISOLATION));
 
 }
 
