@@ -393,7 +393,7 @@
 		sound-dai = <&mt6660>;
 	};
 };
-
+#include "mediatek/cust_mt6853_camera.dtsi"
 /* CONSYS GPIO standardization */
 &pio {
 	consys_pins_default: consys_default {
