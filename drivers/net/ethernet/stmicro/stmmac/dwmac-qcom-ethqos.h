@@ -194,7 +194,7 @@ int create_pps_interrupt_device_node(dev_t *pps_dev_t,
 bool qcom_ethqos_is_phy_link_up(struct qcom_ethqos *ethqos);
 void *qcom_ethqos_get_priv(struct qcom_ethqos *ethqos);
 
-int ppsout_config(struct stmmac_priv *priv, struct ifr_data_struct *req);
+int ppsout_config(struct stmmac_priv *priv, struct pps_cfg *eth_pps_cfg);
 
 u16 dwmac_qcom_select_queue(struct net_device *dev,
 			    struct sk_buff *skb,
@@ -224,6 +224,8 @@ u16 dwmac_qcom_select_queue(struct net_device *dev,
 #define AVB_INT_MOD 8
 #define IP_PKT_INT_MOD 32
 #define PTP_INT_MOD 1
+
+#define PPS_19_2_FREQ 19200000
 
 enum dwmac_qcom_queue_operating_mode {
 	DWMAC_QCOM_QDISABLED = 0X0,

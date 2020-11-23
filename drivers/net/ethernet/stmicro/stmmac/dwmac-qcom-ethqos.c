@@ -251,6 +251,7 @@ int ethqos_handle_prv_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 {
 	struct stmmac_priv *pdata = netdev_priv(dev);
 	struct ifr_data_struct req;
+	struct pps_cfg eth_pps_cfg;
 	int ret = 0;
 
 	if (copy_from_user(&req, ifr->ifr_ifru.ifru_data,
@@ -259,7 +260,10 @@ int ethqos_handle_prv_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 
 	switch (req.cmd) {
 	case ETHQOS_CONFIG_PPSOUT_CMD:
-		ret = ppsout_config(pdata, &req);
+		if (copy_from_user(&eth_pps_cfg, (void __user *)req.ptr,
+				   sizeof(struct pps_cfg)))
+			return -EFAULT;
+		ret = ppsout_config(pdata, &eth_pps_cfg);
 		break;
 	case ETHQOS_AVB_ALGORITHM:
 		dwmac_qcom_program_avb_algorithm(pdata, &req);
