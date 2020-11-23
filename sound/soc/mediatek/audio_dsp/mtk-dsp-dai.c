@@ -18,11 +18,6 @@
 	(SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE | \
 	 SNDRV_PCM_FMTBIT_S32_LE)
 
-static const struct snd_soc_component_driver mtk_dai_dsp_component = {
-	.name = "mtk_audio_dsp",
-};
-
-
 static int mtk_dai_stub_compress_new(struct snd_soc_pcm_runtime *rtd, int num)
 {
 #ifdef CONFIG_SND_SOC_COMPRESS
@@ -161,7 +156,6 @@ int dai_dsp_register(struct platform_device *pdev, struct mtk_base_dsp *dsp)
 {
 	dev_info(&pdev->dev, "%s()\n", __func__);
 
-	dsp->component_driver = &mtk_dai_dsp_component;
 	dsp->dai_drivers = mtk_dai_dsp_driver;
 	dsp->num_dai_drivers = ARRAY_SIZE(mtk_dai_dsp_driver);
 

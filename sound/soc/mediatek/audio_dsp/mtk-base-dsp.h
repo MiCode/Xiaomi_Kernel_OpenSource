@@ -73,7 +73,6 @@ struct mtk_base_dsp {
 	struct mtk_base_dsp_mem dsp_mem[AUDIO_TASK_DAI_NUM];
 	struct snd_soc_dai_driver *dai_drivers;
 	unsigned int num_dai_drivers;
-	const struct snd_soc_component_driver *component_driver;
 
 	int (*runtime_suspend)(struct device *dev);
 	int (*runtime_resume)(struct device *dev);

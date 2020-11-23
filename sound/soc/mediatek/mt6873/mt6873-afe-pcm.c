@@ -5779,10 +5779,6 @@ static const struct file_operations mt6873_debugfs_ops = {
 };
 #endif
 
-static const struct snd_soc_component_driver mt6873_afe_pcm_component = {
-	.name = "mt6873-afe-pcm-dai",
-};
-
 static int mt6873_dai_memif_register(struct mtk_base_afe *afe)
 {
 	struct mtk_base_afe_dai *dai;
@@ -5999,28 +5995,18 @@ static int mt6873_afe_pcm_dev_probe(struct platform_device *pdev)
 #endif
 	/* register component */
 	ret = devm_snd_soc_register_component(&pdev->dev,
-					     &mt6873_afe_component, NULL, 0);
-	if (ret) {
-		dev_warn(dev, "err_platform\n");
-		goto err_pm_disable;
-	}
-
-	ret = devm_snd_soc_register_component(&pdev->dev,
-					      &mt6873_afe_pcm_component,
+					      &mt6873_afe_component,
 					      afe->dai_drivers,
 					      afe->num_dai_drivers);
 	if (ret) {
-		dev_warn(dev, "err_dai_component\n");
-		goto err_dai_component;
+		dev_warn(dev, "afe component err: %d\n", ret);
+		goto err_pm_disable;
 	}
 
 #if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 	audio_set_dsp_afe(afe);
 #endif
 	return 0;
-
-err_dai_component:
-	snd_soc_unregister_component(&pdev->dev);
 
 err_pm_disable:
 	pm_runtime_disable(&pdev->dev);
