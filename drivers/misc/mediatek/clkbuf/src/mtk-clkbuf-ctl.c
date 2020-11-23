@@ -131,6 +131,8 @@ static int mtk_clkbuf_probe(struct platform_device *pdev)
 	if (clk_buf_get_init_sta())
 		return -EALREADY;
 
+	clk_buf_set_init_sta(true);
+
 	ret = clk_buf_xo_init();
 	if (ret) {
 		pr_err("%s: failed to init xo(%d)\n", __func__, ret);
@@ -142,8 +144,6 @@ static int mtk_clkbuf_probe(struct platform_device *pdev)
 		pr_err("%s: failed due bblpm init failed\n", __func__);
 		return ret;
 	}
-
-	clk_buf_set_init_sta(true);
 
 	return ret;
 }

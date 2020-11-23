@@ -220,8 +220,8 @@ static struct reg_data  reg_mt6359[] = {
 	[XO3_EN_M] = REG_CLR_SET(0x788, 0x78A, 0x78C, 8),
 	[XO4_MODE] = REG_CLR_SET(0x788, 0x78A, 0x78C, 9),
 	[XO4_EN_M] = REG_CLR_SET(0x788, 0x78A, 0x78C, 11),
-	[XO7_MODE] = REG_CLR_SET(0x79E, 0x7A0, 0x7A2, 11),
-	[XO7_EN_M] = REG_CLR_SET(0x79E, 0x7A0, 0x7A2, 13),
+	[XO7_MODE] = REG_CLR_SET(0x79E, 0x7A0, 0x7A2, 12),
+	[XO7_EN_M] = REG_CLR_SET(0x79E, 0x7A0, 0x7A2, 14),
 	[XO_BB_LPM_EN_M] = REG_CLR_SET(0x788, 0x78A, 0x78C, 0),
 	[XO_BB_LPM_EN_SEL] = REG(0x7A8, 0),
 	[XO1_BBLPM_EN_MSK] = REG(0x7A8, 1),
@@ -255,8 +255,8 @@ static struct reg_data  reg_mt6359p[] = {
 	[XO3_EN_M] = REG_CLR_SET(0x788, 0x78A, 0x78C, 8),
 	[XO4_MODE] = REG_CLR_SET(0x788, 0x78A, 0x78C, 9),
 	[XO4_EN_M] = REG_CLR_SET(0x788, 0x78A, 0x78C, 11),
-	[XO7_MODE] = REG_CLR_SET(0x79E, 0x7A0, 0x7A2, 11),
-	[XO7_EN_M] = REG_CLR_SET(0x79E, 0x7A0, 0x7A2, 13),
+	[XO7_MODE] = REG_CLR_SET(0x79E, 0x7A0, 0x7A2, 12),
+	[XO7_EN_M] = REG_CLR_SET(0x79E, 0x7A0, 0x7A2, 14),
 	[XO_BB_LPM_EN_M] = REG_CLR_SET(0x788, 0x78A, 0x78C, 0),
 	[XO_BB_LPM_EN_SEL] = REG(0x7A8, 0),
 	[XO1_BBLPM_EN_MSK] = REG(0x7A8, 1),
@@ -388,14 +388,14 @@ static inline int pmic_clkbuf_update(u32 id, u32 idx, u32 val)
 		return -1;
 
 	val <<= reg[index].bit;
-	msk = PMIC_CLKBUF_MASK[id];
+	msk = PMIC_CLKBUF_MASK[id] << reg[index].bit;
 
 	regmap_update_bits(pmic_regmap, reg[index].sta_ofs, msk, val);
 	regmap_read(pmic_regmap, reg[index].sta_ofs, &out);
 
 	if (_is_pmic_clk_buf_debug_enable()) {
-		pr_info("[%s]: val: 0x%x, shift val: 0x%x\n",
-				__func__, reg[index].bit, val);
+		pr_info("[%s]: shift: %u\n", __func__, reg[index].bit);
+		pr_info("[%s]: shift val: 0x%x\n", __func__, val);
 		pr_info("[%s]: mask: 0x%x, shift mask: 0x%x\n",
 				__func__, PMIC_CLKBUF_MASK[id], msk);
 		pr_info("%s: update value: 0x%x\n", __func__, out);
@@ -563,7 +563,7 @@ static int clk_buf_set_xo_sw_en(u32 id, bool on)
 	if (!xo_exist[id])
 		return CLK_BUF_NOT_SUPPORT;
 
-	ret = pmic_clkbuf_write(XO1_EN_M, id, on);
+	ret = pmic_clkbuf_update(XO1_EN_M, id, on);
 	if (ret)
 		return CLK_BUF_NOT_READY;
 
@@ -583,7 +583,7 @@ static int clk_buf_get_xo_mode(u32 id, u32 *mode)
 	if (ret)
 		return CLK_BUF_NOT_READY;
 
-	pr_info("[%s]: XO_%s_MODE = %d\n", __func__, xo_name[id], *mode);
+	pr_info("[%s]: XO_%s_MODE = %u\n", __func__, xo_name[id], *mode);
 
 	return 0;
 }
@@ -595,11 +595,13 @@ static int clk_buf_set_xo_mode(u32 id, u32 mode)
 	if (!xo_exist[id])
 		return CLK_BUF_NOT_SUPPORT;
 
-	ret = pmic_clkbuf_write(XO1_MODE, id, mode);
+	pr_info("[%s]: xo: %u, mode: %u\n", __func__, id, mode);
+
+	ret = pmic_clkbuf_update(XO1_MODE, id, mode);
 	if (ret)
 		return CLK_BUF_NOT_READY;
 
-	pr_info("[%s]: SET XO_MODE = %s\n", __func__, mode);
+	pr_info("[%s]: SET XO_MODE = %u\n", __func__, mode);
 
 	return 0;
 }
@@ -791,7 +793,7 @@ static int _pmic_clk_buf_dts_init(struct device_node *node)
 					pmic_cfg_prop[i], j, &val);
 
 			if (_is_pmic_clk_buf_debug_enable())
-				pr_info("[%s]: find property %s\n",
+				pr_debug("[%s]: find property %s\n",
 						__func__, pmic_cfg_prop[i]);
 			if (ret) {
 				pr_info("[%s]: read property failed %s[%d]\n",
