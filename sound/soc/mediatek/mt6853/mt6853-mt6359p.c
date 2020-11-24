@@ -450,11 +450,13 @@ SND_SOC_DAILINK_DEFS(hostless_src_bargein,
 /* BE */
 SND_SOC_DAILINK_DEFS(adda,
 	DAILINK_COMP_ARRAY(COMP_CPU("ADDA")),
-	DAILINK_COMP_ARRAY(COMP_CODEC(NULL, "mt6359-snd-codec-aif1")),
+	DAILINK_COMP_ARRAY(COMP_CODEC("mt6359p-sound",
+				      "mt6359-snd-codec-aif1")),
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));
 SND_SOC_DAILINK_DEFS(adda_ch34,
 	DAILINK_COMP_ARRAY(COMP_CPU("ADDA_CH34")),
-	DAILINK_COMP_ARRAY(COMP_CODEC(NULL, "mt6359-snd-codec-aif1")),
+	DAILINK_COMP_ARRAY(COMP_CODEC("mt6359p-sound",
+				      "mt6359-snd-codec-aif2")),
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));
 SND_SOC_DAILINK_DEFS(ap_dmic,
 	DAILINK_COMP_ARRAY(COMP_CPU("AP_DMIC")),
@@ -1066,7 +1068,7 @@ static struct snd_soc_card mt6853_mt6359p_soc_card = {
 static int mt6853_mt6359p_dev_probe(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = &mt6853_mt6359p_soc_card;
-	struct device_node *platform_node, *codec_node, *spk_node;
+	struct device_node *platform_node, *spk_node;
 	int ret, i;
 	struct snd_soc_dai_link *dai_link;
 
@@ -1076,14 +1078,6 @@ static int mt6853_mt6359p_dev_probe(struct platform_device *pdev)
 					 "mediatek,platform", 0);
 	if (!platform_node) {
 		dev_err(&pdev->dev, "Property 'platform' missing or invalid\n");
-		return -EINVAL;
-	}
-
-	codec_node = of_parse_phandle(pdev->dev.of_node,
-				      "mediatek,audio-codec", 0);
-	if (!codec_node) {
-		dev_err(&pdev->dev,
-			"Property 'audio-codec' missing or invalid\n");
 		return -EINVAL;
 	}
 
@@ -1118,8 +1112,6 @@ static int mt6853_mt6359p_dev_probe(struct platform_device *pdev)
 					"Speaker Codec Ref get_dai_link fail\n");
 				return -EINVAL;
 			}
-		} else if (!dai_link->codecs->name) {
-			dai_link->codecs->of_node = codec_node;
 		}
 	}
 
