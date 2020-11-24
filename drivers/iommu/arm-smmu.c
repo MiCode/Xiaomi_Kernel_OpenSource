@@ -970,6 +970,11 @@ static void arm_smmu_tlb_inv_walk(unsigned long iova, size_t size,
 	struct arm_smmu_domain *smmu_domain = cookie;
 	const struct arm_smmu_flush_ops *ops = smmu_domain->flush_ops;
 
+	if (!IS_ENABLED(CONFIG_QCOM_IOMMU_TLBI_QUIRKS)) {
+		smmu_domain->defer_flush = true;
+		return;
+	}
+
 	ops->tlb_inv_range(iova, size, granule, false, cookie);
 	ops->tlb_sync(cookie);
 }
@@ -979,6 +984,11 @@ static void arm_smmu_tlb_inv_leaf(unsigned long iova, size_t size,
 {
 	struct arm_smmu_domain *smmu_domain = cookie;
 	const struct arm_smmu_flush_ops *ops = smmu_domain->flush_ops;
+
+	if (!IS_ENABLED(CONFIG_QCOM_IOMMU_TLBI_QUIRKS)) {
+		smmu_domain->defer_flush = true;
+		return;
+	}
 
 	ops->tlb_inv_range(iova, size, granule, true, cookie);
 	ops->tlb_sync(cookie);
@@ -990,6 +1000,11 @@ static void arm_smmu_tlb_add_page(struct iommu_iotlb_gather *gather,
 {
 	struct arm_smmu_domain *smmu_domain = cookie;
 	const struct arm_smmu_flush_ops *ops = smmu_domain->flush_ops;
+
+	if (!IS_ENABLED(CONFIG_QCOM_IOMMU_TLBI_QUIRKS)) {
+		smmu_domain->defer_flush = true;
+		return;
+	}
 
 	ops->tlb_inv_range(iova, granule, granule, true, cookie);
 }
@@ -1160,6 +1175,19 @@ static const struct arm_smmu_flush_ops arm_smmu_s2_tlb_ops_v1 = {
 	.tlb_inv_range		= arm_smmu_tlb_inv_vmid_nosync,
 	.tlb_sync		= arm_smmu_tlb_sync_vmid,
 };
+
+static void arm_smmu_deferred_flush(struct arm_smmu_domain *smmu_domain)
+{
+	/*
+	 * This checks for deferred invalidations, and perform flush all.
+	 * Deferred invalidations helps replace multiple invalidations with
+	 * single flush
+	 */
+	if (smmu_domain->defer_flush) {
+		smmu_domain->flush_ops->tlb.tlb_flush_all(smmu_domain);
+		smmu_domain->defer_flush = false;
+	}
+}
 
 static void print_ctx_regs(struct arm_smmu_device *smmu, struct arm_smmu_cfg
 			   *cfg, unsigned int fsr)
@@ -3183,6 +3211,9 @@ static int arm_smmu_map(struct iommu_domain *domain, unsigned long iova,
 	arm_smmu_rpm_get(smmu);
 	spin_lock_irqsave(&smmu_domain->cb_lock, flags);
 	ret = ops->map(ops, iova, paddr, size, prot);
+
+	arm_smmu_deferred_flush(smmu_domain);
+
 	spin_unlock_irqrestore(&smmu_domain->cb_lock, flags);
 	arm_smmu_rpm_put(smmu);
 
@@ -3197,6 +3228,7 @@ static int arm_smmu_map(struct iommu_domain *domain, unsigned long iova,
 		list_splice_init(&nonsecure_pool, &smmu_domain->nonsecure_pool);
 		ret = ops->map(ops, iova, paddr, size, prot);
 		list_splice_init(&smmu_domain->nonsecure_pool, &nonsecure_pool);
+		arm_smmu_deferred_flush(smmu_domain);
 		spin_unlock_irqrestore(&smmu_domain->cb_lock, flags);
 		arm_smmu_rpm_put(smmu);
 		arm_smmu_release_prealloc_memory(smmu_domain, &nonsecure_pool);
@@ -3256,6 +3288,7 @@ static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
 	arm_smmu_rpm_get(smmu);
 	spin_lock_irqsave(&smmu_domain->cb_lock, flags);
 	ret = ops->unmap(ops, iova, size, gather);
+	arm_smmu_deferred_flush(smmu_domain);
 	spin_unlock_irqrestore(&smmu_domain->cb_lock, flags);
 	arm_smmu_rpm_put(smmu);
 
@@ -3358,6 +3391,7 @@ static size_t arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
 		spin_lock_irqsave(&smmu_domain->cb_lock, flags);
 		ret = pgtbl_info->map_sg(ops, iova, sg_start,
 					 idx_end - idx_start, prot, &size);
+		arm_smmu_deferred_flush(smmu_domain);
 		spin_unlock_irqrestore(&smmu_domain->cb_lock, flags);
 
 		if (ret == -ENOMEM) {
@@ -3377,6 +3411,7 @@ static size_t arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
 						 &size);
 			list_splice_init(&smmu_domain->nonsecure_pool,
 					 &nonsecure_pool);
+			arm_smmu_deferred_flush(smmu_domain);
 			spin_unlock_irqrestore(&smmu_domain->cb_lock, flags);
 			arm_smmu_release_prealloc_memory(smmu_domain,
 							 &nonsecure_pool);
