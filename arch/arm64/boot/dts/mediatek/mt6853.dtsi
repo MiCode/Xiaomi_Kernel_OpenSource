@@ -4424,7 +4424,6 @@
 
 	sound: sound {
 		compatible = "mediatek,mt6853-mt6359p-sound";
-		mediatek,audio-codec = <&mt6359p_snd>;
 		mediatek,platform = <&afe>;
 	};
 

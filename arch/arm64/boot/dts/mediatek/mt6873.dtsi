@@ -6020,7 +6020,6 @@
 
 	sound: sound {
 		compatible = "mediatek,mt6873-mt6359p-sound";
-		mediatek,audio-codec = <&mt6359p_snd>;
 		mediatek,snd_audio_dsp = <&snd_audio_dsp>;
 		mediatek,platform = <&afe>;
 	};
