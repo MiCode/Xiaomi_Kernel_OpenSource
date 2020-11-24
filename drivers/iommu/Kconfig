@@ -693,6 +693,10 @@ config IOMMU_TESTS
 
 endif # IOMMU_DEBUG
 
+config QCOM_IOMMU_QUIRK_TLBI
+	bool "Qualcomm IOMMU Quirks for TLB invalidation"
+	depends on ARM_SMMU
+
 config QCOM_IOMMU
 	# Note: iommu drivers cannot (yet?) be built as modules
 	bool "Qualcomm IOMMU Support"
