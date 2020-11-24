@@ -76,7 +76,6 @@ static unsigned int eem_to_cpueb(unsigned int cmd,
 {
 	unsigned int ret;
 
-	pr_debug("to_cpueb, cmd:%d\n", cmd);
 	eem_data->cmd = cmd;
 	ret = mtk_ipi_send_compl(get_mcupm_ipidev(), CH_S_EEMSN,
 		/*IPI_SEND_WAIT*/IPI_SEND_POLLING, eem_data,
@@ -864,6 +863,18 @@ static int create_debug_fs(void)
 	}
 	return 0;
 }
+#ifdef MC50_LOAD
+static void init_mcl50_setting(void)
+{
+	struct eem_ipi_data eem_data;
+
+	memset(&eem_data, 0, sizeof(struct eem_ipi_data));
+	eem_data.u.data.arg[0] = 1;
+
+	eem_to_cpueb(IPI_EEMSN_INIT, &eem_data);
+
+}
+#endif
 
 int mtk_eem_init(void)
 {
@@ -897,6 +908,10 @@ int mtk_eem_init(void)
 	eem_data.u.data.arg[0] = eem_log_phy_addr;
 	eem_data.u.data.arg[1] = eem_log_size;
 	eem_to_cpueb(IPI_EEMSN_SHARERAM_INIT, &eem_data);
+
+#ifdef MC50_LOAD
+	init_mcl50_setting();
+#endif
 	return create_debug_fs();
 }
 
