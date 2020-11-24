@@ -595,7 +595,8 @@ void __dump_page_owner(struct page *page)
 		pr_alert("page_owner tracks the page as freed\n");
 
 	pr_alert("page last allocated via order %u, migratetype %s, gfp_mask %#x(%pGg), pid %d, ts %llu ns\n",
-		 page_owner->order, migratetype_names[mt], gfp_mask, &gfp_mask);
+		 page_owner->order, migratetype_names[mt], gfp_mask, &gfp_mask,
+		 page_owner->pid, page_owner->ts_nsec);
 
 	handle = READ_ONCE(page_owner->handle);
 	if (!handle) {
