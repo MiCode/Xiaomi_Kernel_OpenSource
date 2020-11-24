@@ -69,7 +69,7 @@ static ssize_t ddr_stats_append_data_to_buf(char *buf, int length, int *count,
 {
 	u32 cp_idx = 0;
 	u32 name;
-	u64 duration;
+	u64 duration = 0;
 
 	if (accumulated_duration) {
 		duration = data->duration * 100;
