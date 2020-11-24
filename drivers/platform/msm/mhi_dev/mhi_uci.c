@@ -279,9 +279,9 @@ static const struct chan_attr uci_chan_attr_table[] = {
 		mhi_uci_generic_client_cb,
 		NULL,
 		NULL,
-		NULL,
 		false,
-		true
+		true,
+		50
 	},
 	{
 		MHI_CLIENT_ADB_IN,
@@ -291,9 +291,9 @@ static const struct chan_attr uci_chan_attr_table[] = {
 		mhi_uci_generic_client_cb,
 		"android_adb",
 		NULL,
-		NULL,
 		false,
-		false
+		true,
+		50
 	},
 };
 
