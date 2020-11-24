@@ -106,6 +106,32 @@ static void dvfsrc_setup_opp_table(struct mtk_dvfsrc *dvfsrc)
 	}
 }
 
+static int dvfsrc_query_sw_req_vcore_opp(struct mtk_dvfsrc *dvfsrc, int vcore_opp)
+{
+	int sw_req_opp;
+	int sw_req = 0;
+	int scp_req = 0;
+
+	if (dvfsrc->force_opp_idx >= dvfsrc->opp_desc->num_opp) {
+		mtk_dvfsrc_query_info(dvfsrc->dev->parent,
+				      MTK_DVFSRC_CMD_VCORE_LEVEL_QUERY,
+				      &sw_req);
+		mtk_dvfsrc_query_info(dvfsrc->dev->parent,
+				      MTK_DVFSRC_CMD_VSCP_LEVEL_QUERY,
+				      &scp_req);
+		sw_req_opp = (sw_req > scp_req) ? sw_req : scp_req;
+		sw_req_opp = dvfsrc->opp_desc->num_vcore_opp - (sw_req_opp + 1);
+		if (vcore_opp < sw_req_opp) {
+			pr_info("Error vcore request = %d %d %d\n", sw_req, scp_req,
+				dvfsrc->force_opp_idx);
+		}
+		return sw_req_opp;
+	}
+
+	return vcore_opp;
+
+}
+
 static int dvfsrc_query_info(u32 id)
 {
 	struct mtk_dvfsrc *dvfsrc = dvfsrc_drv;
@@ -151,6 +177,10 @@ static int dvfsrc_query_info(u32 id)
 		break;
 	case MTK_DVFSRC_CURR_VCORE_UV:
 		ret = opp->vcore_uv;
+		break;
+	case MTK_DVFSRC_SW_REQ_VCORE_OPP:
+		ret = dvfsrc->opp_desc->num_vcore_opp - (opp->vcore_opp + 1);
+		ret = dvfsrc_query_sw_req_vcore_opp(dvfsrc, ret);
 		break;
 	}
 
@@ -390,14 +420,6 @@ static int mtk_dvfsrc_debug_setting(struct mtk_dvfsrc *dvfsrc)
 		dev_info(dvfsrc->dev, "get dvfsrc_vcore failed = %ld\n",
 			PTR_ERR(dvfsrc->dvfsrc_vcore_power));
 		dvfsrc->dvfsrc_vcore_power = NULL;
-	}
-
-	dvfsrc->dvfsrc_vscp_power =
-		regulator_get_optional(dvfsrc->dev, "rc-vscp");
-	if (IS_ERR(dvfsrc->dvfsrc_vscp_power)) {
-		dev_info(dvfsrc->dev, "get dvfsrc vscp failed = %ld\n",
-			PTR_ERR(dvfsrc->dvfsrc_vscp_power));
-		dvfsrc->dvfsrc_vscp_power = NULL;
 	}
 
 	dvfsrc->bw_path = of_icc_get(dvfsrc->dev, "icc-bw");

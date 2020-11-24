@@ -99,23 +99,6 @@ static ssize_t dvfsrc_req_vcore_opp_store(struct device *dev,
 }
 static DEVICE_ATTR_WO(dvfsrc_req_vcore_opp);
 
-static ssize_t dvfsrc_req_vscp_store(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t count)
-{
-	u32 val = 0;
-	struct mtk_dvfsrc *dvfsrc = dev_get_drvdata(dev);
-
-	if (kstrtou32(buf, 10, &val))
-		return -EINVAL;
-
-	if (dvfsrc->dvfsrc_vscp_power)
-		regulator_set_voltage(dvfsrc->dvfsrc_vscp_power,
-			val, INT_MAX);
-
-	return count;
-}
-static DEVICE_ATTR_WO(dvfsrc_req_vscp);
-
 static ssize_t dvfsrc_force_vcore_dvfs_opp_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
@@ -192,7 +175,6 @@ static struct attribute *dvfsrc_sysfs_attrs[] = {
 	&dev_attr_dvfsrc_req_hrtbw.attr,
 	&dev_attr_dvfsrc_req_vcore_opp.attr,
 	&dev_attr_dvfsrc_req_ddr_opp.attr,
-	&dev_attr_dvfsrc_req_vscp.attr,
 	&dev_attr_dvfsrc_dump.attr,
 	&dev_attr_dvfsrc_force_vcore_dvfs_opp.attr,
 	&dev_attr_dvfsrc_opp_table.attr,
