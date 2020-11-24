@@ -85,8 +85,6 @@
 #define EN_PIN_CTRL_MASK			SMB1351_MASK(6, 5)
 #define EN_BY_I2C_0_DISABLE			0
 #define EN_BY_I2C_0_ENABLE			0x20
-#define EN_BY_PIN_HIGH_ENABLE			0x40
-#define EN_BY_PIN_LOW_ENABLE			0x60
 #define USBCS_CTRL_BIT				BIT(4)
 #define USBCS_CTRL_BY_I2C			0
 #define USBCS_CTRL_BY_PIN			0x10
@@ -464,11 +462,6 @@ struct smb1351_charger {
 	int			fastchg_current_max_ma;
 	int			workaround_flags;
 
-	int			parallel_pin_polarity_setting;
-	int			parallel_mode;
-	int			pl_batfet_mode;
-	bool			parallel_charger;
-	bool			parallel_charger_suspended;
 	bool			bms_controlled_charging;
 	bool			apsd_rerun;
 	bool			usbin_ov;
@@ -483,8 +476,6 @@ struct smb1351_charger {
 	struct power_supply	*bms_psy;
 	struct power_supply_desc	batt_psy_d;
 	struct power_supply	*batt_psy;
-	struct power_supply	*parallel_psy;
-	struct power_supply_desc	parallel_psy_d;
 
 	struct smb1351_regulator	otg_vreg;
 	struct mutex		irq_complete;
@@ -601,27 +592,6 @@ static int smb1351_enable_volatile_writes(struct smb1351_charger *chip)
 		pr_err("Couldn't write CMD_BQ_CFG_ACCESS_BIT rc=%d\n", rc);
 
 	return rc;
-}
-
-static int smb1351_get_closest_usb_setpoint(int val)
-{
-	int i;
-
-	for (i = ARRAY_SIZE(usb_chg_current) - 1; i >= 0; i--) {
-		if (usb_chg_current[i] <= val)
-			break;
-	}
-	if (i < 0)
-		i = 0;
-
-	if (i >= ARRAY_SIZE(usb_chg_current) - 1)
-		return ARRAY_SIZE(usb_chg_current) - 1;
-
-	/* check what is closer, i or i + 1 */
-	if (abs(usb_chg_current[i] - val) < abs(usb_chg_current[i + 1] - val))
-		return i;
-	else
-		return i + 1;
 }
 
 static int smb1351_request_dpdm(struct smb1351_charger *chip, bool enable)
@@ -1546,294 +1516,6 @@ static int smb1351_battery_get_property(struct power_supply *psy,
 	return 0;
 }
 
-static enum power_supply_property smb1351_parallel_properties[] = {
-	POWER_SUPPLY_PROP_CHARGING_ENABLED,
-	POWER_SUPPLY_PROP_STATUS,
-	POWER_SUPPLY_PROP_CURRENT_MAX,
-	POWER_SUPPLY_PROP_VOLTAGE_MAX,
-	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED,
-	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
-	POWER_SUPPLY_PROP_CHARGE_TYPE,
-	POWER_SUPPLY_PROP_PARALLEL_MODE,
-	POWER_SUPPLY_PROP_INPUT_SUSPEND,
-	POWER_SUPPLY_PROP_PARALLEL_BATFET_MODE,
-};
-
-static int smb1351_parallel_set_chg_suspend(struct smb1351_charger *chip,
-						int suspend)
-{
-	int rc;
-	u8 reg, mask = 0;
-
-	if (chip->parallel_charger_suspended == suspend) {
-		pr_debug("Skip same state request suspended = %d suspend=%d\n",
-				chip->parallel_charger_suspended, !suspend);
-		return 0;
-	}
-
-	if (!suspend) {
-		rc = smb_chip_get_version(chip);
-		if (rc) {
-			pr_err("Couldn't get version rc = %d\n", rc);
-			return rc;
-		}
-
-		rc = smb1351_enable_volatile_writes(chip);
-		if (rc) {
-			pr_err("Couldn't configure for volatile rc = %d\n", rc);
-			return rc;
-		}
-
-		/* set the float voltage */
-		if (chip->vfloat_mv != -EINVAL) {
-			rc = smb1351_float_voltage_set(chip, chip->vfloat_mv);
-			if (rc) {
-				pr_err("Couldn't set float voltage rc = %d\n",
-									rc);
-				return rc;
-			}
-		}
-
-		/* set recharge-threshold and enable auto recharge */
-		if (chip->recharge_mv != -EINVAL) {
-			reg = AUTO_RECHG_ENABLE;
-			if (chip->recharge_mv > 50)
-				reg |= AUTO_RECHG_TH_100MV;
-			else
-				reg |= AUTO_RECHG_TH_50MV;
-
-			rc = smb1351_masked_write(chip, CHG_CTRL_REG,
-					AUTO_RECHG_BIT |
-					AUTO_RECHG_TH_BIT, reg);
-			if (rc) {
-				pr_err("Couldn't set rechg-cfg rc = %d\n", rc);
-				return rc;
-			}
-		}
-
-		/* control USB suspend via command bits */
-		rc = smb1351_masked_write(chip, VARIOUS_FUNC_REG,
-					APSD_EN_BIT | SUSPEND_MODE_CTRL_BIT,
-						SUSPEND_MODE_CTRL_BY_I2C);
-		if (rc) {
-			pr_err("Couldn't set USB suspend rc=%d\n", rc);
-			return rc;
-		}
-
-		/*
-		 * When present is being set force USB suspend, start charging
-		 * only when POWER_SUPPLY_PROP_CURRENT_MAX is set.
-		 */
-		rc = smb1351_usb_suspend(chip, CURRENT, true);
-		if (rc) {
-			pr_err("failed to suspend rc=%d\n", rc);
-			return rc;
-		}
-		chip->usb_psy_ma = SUSPEND_CURRENT_MA;
-
-		/* set chg en by pin active low  */
-		reg = chip->parallel_pin_polarity_setting | USBCS_CTRL_BY_I2C;
-		rc = smb1351_masked_write(chip, CHG_PIN_EN_CTRL_REG,
-					EN_PIN_CTRL_MASK | USBCS_CTRL_BIT, reg);
-		if (rc) {
-			pr_err("Couldn't set en pin rc=%d\n", rc);
-			return rc;
-		}
-
-		/*
-		 * setup USB 2.0/3.0 detection and USB 500/100
-		 * command polarity
-		 */
-		reg = USB_2_3_MODE_SEL_BY_I2C | USB_CMD_POLARITY_500_1_100_0;
-		mask = USB_2_3_MODE_SEL_BIT | USB_5_1_CMD_POLARITY_BIT;
-		rc = smb1351_masked_write(chip,
-				CHG_OTH_CURRENT_CTRL_REG, mask, reg);
-		if (rc) {
-			pr_err("Couldn't set CHG_OTH_CURRENT_CTRL_REG rc=%d\n",
-					rc);
-			return rc;
-		}
-
-		rc = smb1351_fastchg_current_set(chip,
-					chip->target_fastchg_current_max_ma);
-		if (rc) {
-			pr_err("Couldn't set fastchg current rc=%d\n", rc);
-			return rc;
-		}
-		chip->parallel_charger_suspended = false;
-	} else {
-		rc = smb1351_usb_suspend(chip, CURRENT, true);
-		if (rc)
-			pr_debug("failed to suspend rc=%d\n", rc);
-
-		chip->usb_psy_ma = SUSPEND_CURRENT_MA;
-		chip->parallel_charger_suspended = true;
-	}
-
-	return 0;
-}
-
-static bool smb1351_is_input_current_limited(struct smb1351_charger *chip)
-{
-	int rc;
-	u8 reg;
-
-	rc = smb1351_read_reg(chip, IRQ_H_REG, &reg);
-	if (rc) {
-		pr_err("Failed to read IRQ_H_REG for ICL status: %d\n", rc);
-		return false;
-	}
-
-	return !!(reg & IRQ_IC_LIMIT_STATUS_BIT);
-}
-
-static bool smb1351_is_usb_present(struct smb1351_charger *chip)
-{
-	int rc;
-	union power_supply_propval val = {0, };
-
-	if (!chip->usb_psy)
-		chip->usb_psy = power_supply_get_by_name("usb");
-	if (!chip->usb_psy) {
-		pr_err("USB psy not found\n");
-		return false;
-	}
-
-	rc = power_supply_get_property(chip->usb_psy,
-				POWER_SUPPLY_PROP_ONLINE, &val);
-	if (rc < 0) {
-		pr_err("Failed to get present property rc=%d\n", rc);
-		return false;
-	}
-
-	if (val.intval)
-		return true;
-
-	return false;
-}
-
-static int smb1351_parallel_set_property(struct power_supply *psy,
-				       enum power_supply_property prop,
-				       const union power_supply_propval *val)
-{
-	int rc = 0, index;
-	struct smb1351_charger *chip = power_supply_get_drvdata(psy);
-
-	switch (prop) {
-	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
-		/*
-		 *CHG EN is controlled by pin in the parallel charging.
-		 *Use suspend if disable charging by command.
-		 */
-		if (!chip->parallel_charger_suspended)
-			rc = smb1351_usb_suspend(chip, USER, !val->intval);
-		break;
-	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
-		rc = smb1351_parallel_set_chg_suspend(chip, val->intval);
-		break;
-	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
-		chip->target_fastchg_current_max_ma =
-						val->intval / 1000;
-		if (!chip->parallel_charger_suspended)
-			rc = smb1351_fastchg_current_set(chip,
-					chip->target_fastchg_current_max_ma);
-		break;
-	case POWER_SUPPLY_PROP_CURRENT_MAX:
-		index = smb1351_get_closest_usb_setpoint(val->intval / 1000);
-		chip->usb_psy_ma = usb_chg_current[index];
-		if (!chip->parallel_charger_suspended)
-			rc = smb1351_set_usb_chg_current(chip,
-						chip->usb_psy_ma);
-		break;
-	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
-		chip->vfloat_mv = val->intval / 1000;
-		if (!chip->parallel_charger_suspended)
-			rc = smb1351_float_voltage_set(chip, val->intval);
-		break;
-	default:
-		return -EINVAL;
-	}
-	return rc;
-}
-
-static int smb1351_parallel_is_writeable(struct power_supply *psy,
-				       enum power_supply_property prop)
-{
-	switch (prop) {
-	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
-		return 1;
-	default:
-		return 0;
-	}
-}
-
-static int smb1351_parallel_get_property(struct power_supply *psy,
-				       enum power_supply_property prop,
-				       union power_supply_propval *val)
-{
-	struct smb1351_charger *chip = power_supply_get_drvdata(psy);
-
-	switch (prop) {
-	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
-		val->intval = !chip->parallel_charger_suspended;
-		break;
-	case POWER_SUPPLY_PROP_CURRENT_MAX:
-		if (!chip->parallel_charger_suspended)
-			val->intval = chip->usb_psy_ma * 1000;
-		else
-			val->intval = 0;
-		break;
-	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
-		if (!chip->parallel_charger_suspended)
-			val->intval = chip->vfloat_mv;
-		else
-			val->intval = 0;
-		break;
-	case POWER_SUPPLY_PROP_CHARGE_TYPE:
-		val->intval = POWER_SUPPLY_CHARGE_TYPE_NONE;
-		/* Check if SMB1351 is present */
-		if (smb1351_is_usb_present(chip)) {
-			val->intval = smb1351_get_prop_charge_type(chip);
-			if (val->intval == POWER_SUPPLY_CHARGE_TYPE_UNKNOWN) {
-				pr_debug("Failed to charge type, charger may be absent\n");
-				return -ENODEV;
-			}
-		}
-		break;
-	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
-		if (!chip->parallel_charger_suspended)
-			val->intval = chip->fastchg_current_max_ma * 1000;
-		else
-			val->intval = 0;
-		break;
-	case POWER_SUPPLY_PROP_STATUS:
-		if (!chip->parallel_charger_suspended)
-			val->intval = smb1351_get_prop_batt_status(chip);
-		else
-			val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
-		break;
-	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED:
-		if (!chip->parallel_charger_suspended)
-			val->intval =
-				smb1351_is_input_current_limited(chip) ? 1 : 0;
-		else
-			val->intval = 0;
-		break;
-	case POWER_SUPPLY_PROP_PARALLEL_MODE:
-		val->intval = chip->parallel_mode;
-		break;
-	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
-		val->intval = chip->parallel_charger_suspended;
-		break;
-	case POWER_SUPPLY_PROP_PARALLEL_BATFET_MODE:
-		val->intval = chip->pl_batfet_mode;
-		break;
-	default:
-		return -EINVAL;
-	}
-	return 0;
-}
-
 static int rerun_apsd(struct smb1351_charger *chip)
 {
 	int rc;
@@ -2721,13 +2403,6 @@ fail_init_status:
 	return rc;
 }
 
-static int is_parallel_charger(struct i2c_client *client)
-{
-	struct device_node *node = client->dev.of_node;
-
-	return of_property_read_bool(node, "qcom,parallel-charger");
-}
-
 static int create_debugfs_entries(struct smb1351_charger *chip)
 {
 	struct dentry *ent;
@@ -2937,93 +2612,10 @@ fail_smb1351_regulator_init:
 	return rc;
 }
 
-static int smb1351_parallel_charger_probe(struct i2c_client *client,
-				const struct i2c_device_id *id)
-{
-	int rc;
-	struct smb1351_charger *chip;
-	struct device_node *node = client->dev.of_node;
-	struct power_supply_config parallel_psy_cfg = {};
-
-	chip = devm_kzalloc(&client->dev, sizeof(*chip), GFP_KERNEL);
-	if (!chip)
-		return -ENOMEM;
-
-	chip->client = client;
-	chip->dev = &client->dev;
-	chip->parallel_charger = true;
-	chip->parallel_charger_suspended = true;
-
-	chip->usb_suspended_status = of_property_read_bool(node,
-					"qcom,charging-disabled");
-	rc = of_property_read_u32(node, "qcom,float-voltage-mv",
-						&chip->vfloat_mv);
-	if (rc)
-		chip->vfloat_mv = -EINVAL;
-	rc = of_property_read_u32(node, "qcom,recharge-mv",
-						&chip->recharge_mv);
-	if (rc)
-		chip->recharge_mv = -EINVAL;
-
-	rc = of_property_read_u32(node, "qcom,parallel-en-pin-polarity",
-					&chip->parallel_pin_polarity_setting);
-	if (rc)
-		chip->parallel_pin_polarity_setting = EN_BY_PIN_LOW_ENABLE;
-	else
-		chip->parallel_pin_polarity_setting =
-				chip->parallel_pin_polarity_setting ?
-				EN_BY_PIN_HIGH_ENABLE : EN_BY_PIN_LOW_ENABLE;
-
-	if (of_property_read_bool(node,
-				"qcom,parallel-external-current-sense"))
-		chip->parallel_mode = POWER_SUPPLY_PL_USBIN_USBIN_EXT;
-	else
-		chip->parallel_mode = POWER_SUPPLY_PL_USBIN_USBIN;
-
-	chip->pl_batfet_mode = POWER_SUPPLY_PL_NON_STACKED_BATFET;
-	if (of_property_read_bool(node, "qcom,stacked-batfet"))
-		chip->pl_batfet_mode = POWER_SUPPLY_PL_STACKED_BATFET;
-
-	i2c_set_clientdata(client, chip);
-
-	chip->parallel_psy_d.name = "parallel";
-	chip->parallel_psy_d.type = POWER_SUPPLY_TYPE_PARALLEL;
-	chip->parallel_psy_d.get_property = smb1351_parallel_get_property;
-	chip->parallel_psy_d.set_property = smb1351_parallel_set_property;
-	chip->parallel_psy_d.properties	= smb1351_parallel_properties;
-	chip->parallel_psy_d.property_is_writeable
-				= smb1351_parallel_is_writeable;
-	chip->parallel_psy_d.num_properties
-				= ARRAY_SIZE(smb1351_parallel_properties);
-
-	parallel_psy_cfg.drv_data = chip;
-	parallel_psy_cfg.num_supplicants = 0;
-	chip->parallel_psy = devm_power_supply_register(chip->dev,
-			&chip->parallel_psy_d,
-			&parallel_psy_cfg);
-	if (IS_ERR(chip->parallel_psy)) {
-		pr_err("Couldn't register parallel psy rc=%ld\n",
-				PTR_ERR(chip->parallel_psy));
-		return rc;
-	}
-
-	chip->resume_completed = true;
-	mutex_init(&chip->irq_complete);
-
-	create_debugfs_entries(chip);
-
-	pr_info("smb1351 parallel successfully probed.\n");
-
-	return 0;
-}
-
 static int smb1351_charger_probe(struct i2c_client *client,
 				const struct i2c_device_id *id)
 {
-	if (is_parallel_charger(client))
-		return smb1351_parallel_charger_probe(client, id);
-	else
-		return smb1351_main_charger_probe(client, id);
+	return smb1351_main_charger_probe(client, id);
 }
 
 static int smb1351_charger_remove(struct i2c_client *client)
@@ -3042,10 +2634,6 @@ static int smb1351_suspend(struct device *dev)
 	struct i2c_client *client = to_i2c_client(dev);
 	struct smb1351_charger *chip = i2c_get_clientdata(client);
 
-	/* no suspend resume activities for parallel charger */
-	if (chip->parallel_charger)
-		return 0;
-
 	mutex_lock(&chip->irq_complete);
 	chip->resume_completed = false;
 	mutex_unlock(&chip->irq_complete);
@@ -3058,10 +2646,6 @@ static int smb1351_suspend_noirq(struct device *dev)
 	struct i2c_client *client = to_i2c_client(dev);
 	struct smb1351_charger *chip = i2c_get_clientdata(client);
 
-	/* no suspend resume activities for parallel charger */
-	if (chip->parallel_charger)
-		return 0;
-
 	if (chip->irq_waiting) {
 		pr_err_ratelimited("Aborting suspend, an interrupt was detected while suspending\n");
 		return -EBUSY;
@@ -3073,10 +2657,6 @@ static int smb1351_resume(struct device *dev)
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct smb1351_charger *chip = i2c_get_clientdata(client);
-
-	/* no suspend resume activities for parallel charger */
-	if (chip->parallel_charger)
-		return 0;
 
 	mutex_lock(&chip->irq_complete);
 	chip->resume_completed = true;
