@@ -588,3 +588,18 @@ int cnss_bus_get_msi_assignment(struct cnss_plat_data *plat_priv,
 		return -EINVAL;
 	}
 }
+
+bool cnss_bus_is_smmu_s1_enabled(struct cnss_plat_data *plat_priv)
+{
+	if (!plat_priv)
+		return false;
+
+	switch (plat_priv->bus_type) {
+	case CNSS_BUS_PCI:
+		return cnss_pci_is_smmu_s1_enabled(plat_priv->bus_priv);
+	default:
+		cnss_pr_err("Unsupported bus type: %d\n",
+			    plat_priv->bus_type);
+		return false;
+	}
+}
