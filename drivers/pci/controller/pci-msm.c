@@ -684,6 +684,7 @@ struct msm_pcie_dev_t {
 	uint32_t smmu_sid_base;
 	uint32_t link_check_max_count;
 	uint32_t target_link_speed;
+	uint32_t current_link_speed;
 	uint32_t n_fts;
 	uint32_t ep_latency;
 	uint32_t switch_latency;
@@ -1346,6 +1347,8 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->prevent_l1);
 	PCIE_DBG_FS(dev, "target_link_speed: 0x%x\n",
 		dev->target_link_speed);
+	PCIE_DBG_FS(dev, "current_link_speed: 0x%x\n",
+		dev->current_link_speed);
 	PCIE_DBG_FS(dev, "link_turned_on_counter: %lu\n",
 		dev->link_turned_on_counter);
 	PCIE_DBG_FS(dev, "link_turned_off_counter: %lu\n",
@@ -3856,37 +3859,34 @@ static int msm_pcie_link_train(struct msm_pcie_dev_t *dev)
 		return MSM_PCIE_ERROR;
 	}
 
-	if (dev->bw_scale) {
+	dev->current_link_speed = (readl_relaxed(dev->dm_core +
+					PCIE20_CAP_LINKCTRLSTATUS) >> 16) &
+					PCI_EXP_LNKSTA_CLS;
+	PCIE_DBG(dev, "PCIe: RC%d: Link is up at Gen%d\n",
+		dev->rc_idx, dev->current_link_speed);
+
+	/*
+	 * If the link up GEN speed is less than the max/default supported,
+	 * then scale the resources accordingly.
+	 */
+	if (dev->bw_scale && dev->current_link_speed < dev->bw_gen_max) {
 		u32 index;
-		u32 current_link_speed;
 		struct msm_pcie_bw_scale_info_t *bw_scale;
 
-		/*
-		 * check if the link up GEN speed is less than the max/default
-		 * supported. If it is, scale down CX corner and rate change
-		 * clock accordingly.
-		 */
-		current_link_speed = readl_relaxed(dev->dm_core +
-						PCIE20_CAP_LINKCTRLSTATUS);
-		current_link_speed = ((current_link_speed >> 16) &
-					PCI_EXP_LNKSTA_CLS);
-
-		index = current_link_speed - PCI_EXP_LNKCTL2_TLS_2_5GT;
+		index = dev->current_link_speed - PCI_EXP_LNKCTL2_TLS_2_5GT;
 		if (index >= dev->bw_gen_max) {
 			PCIE_ERR(dev,
 				"PCIe: RC%d: unsupported gen speed: %d\n",
-				dev->rc_idx, current_link_speed);
+				dev->rc_idx, dev->current_link_speed);
 			return 0;
 		}
 
 		bw_scale = &dev->bw_scale[index];
 
-		if (bw_scale->cx_vreg_min < dev->cx_vreg->min_v) {
-			msm_pcie_write_reg_field(dev->dm_core,
-				PCIE20_CAP + PCI_EXP_LNKCTL2,
-				PCI_EXP_LNKCTL2_TLS, current_link_speed);
-			msm_pcie_scale_link_bandwidth(dev, current_link_speed);
-		}
+		msm_pcie_write_reg_field(dev->dm_core, PCIE20_CAP +
+					PCI_EXP_LNKCTL2, PCI_EXP_LNKCTL2_TLS,
+					dev->current_link_speed);
+		msm_pcie_scale_link_bandwidth(dev, dev->current_link_speed);
 	}
 
 	return 0;
@@ -5849,6 +5849,9 @@ static int msm_pcie_link_retrain(struct msm_pcie_dev_t *pcie_dev,
 		usleep_range(100, 105);
 	}
 
+	pcie_dev->current_link_speed = (readl_relaxed(pcie_dev->dm_core +
+					PCIE20_CAP_LINKCTRLSTATUS) >> 16) &
+					PCI_EXP_LNKSTA_CLS;
 	return 0;
 }
 
@@ -6076,7 +6079,7 @@ int msm_pcie_set_link_bandwidth(struct pci_dev *pci_dev, u16 target_link_speed,
 		goto out;
 
 	pcie_capability_read_word(root_pci_dev, PCI_EXP_LNKSTA, &link_status);
-	if ((link_status & PCI_EXP_LNKSTA_CLS) != target_link_speed ||
+	if (pcie_dev->current_link_speed != target_link_speed ||
 		(link_status & PCI_EXP_LNKSTA_NLW) != target_link_width) {
 		PCIE_ERR(pcie_dev,
 			"PCIe: RC%d: failed to switch bandwidth: target speed: %d width: %d\n",
@@ -6833,7 +6836,7 @@ static int msm_pcie_drv_resume(struct msm_pcie_dev_t *pcie_dev)
 {
 	struct msm_pcie_drv_info *drv_info = pcie_dev->drv_info;
 	struct msm_pcie_clk_info_t *clk_info;
-	u32 current_link_speed, clkreq_override_en = 0;
+	u32 clkreq_override_en = 0;
 	int ret, i, rpmsg_ret = 0;
 
 	mutex_lock(&pcie_dev->recovery_lock);
@@ -6950,12 +6953,11 @@ static int msm_pcie_drv_resume(struct msm_pcie_dev_t *pcie_dev)
 	}
 
 	/* scale CX and rate change based on current GEN speed */
-	current_link_speed = readl_relaxed(pcie_dev->dm_core +
-					PCIE20_CAP_LINKCTRLSTATUS);
-	current_link_speed = ((current_link_speed >> 16) &
-				PCI_EXP_LNKSTA_CLS);
+	pcie_dev->current_link_speed = (readl_relaxed(pcie_dev->dm_core +
+					PCIE20_CAP_LINKCTRLSTATUS) >> 16) &
+					PCI_EXP_LNKSTA_CLS;
 
-	msm_pcie_scale_link_bandwidth(pcie_dev, current_link_speed);
+	msm_pcie_scale_link_bandwidth(pcie_dev, pcie_dev->current_link_speed);
 
 	pcie_dev->user_suspend = false;
 	spin_lock_irq(&pcie_dev->cfg_lock);
