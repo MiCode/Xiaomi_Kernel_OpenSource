@@ -14,6 +14,7 @@
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
+#include <linux/wakeup_reason.h>
 
 #define MTK_PMIC_REG_WIDTH 16
 
@@ -148,6 +149,9 @@ static void mt6358_irq_sp_handler(struct mt6397_chip *chip,
 				MTK_PMIC_REG_WIDTH * i + j;
 
 			virq = irq_find_mapping(chip->irq_domain, hwirq);
+
+			log_threaded_irq_wakeup_reason(virq, chip->irq);
+
 			if (virq)
 				handle_nested_irq(virq);
 			dev_info(chip->dev,
