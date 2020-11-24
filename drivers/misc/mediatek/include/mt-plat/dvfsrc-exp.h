@@ -14,6 +14,7 @@
 #define MTK_DVFSRC_CURR_DVFS_LEVEL	6
 #define MTK_DVFSRC_CURR_DRAM_KHZ	7
 #define MTK_DVFSRC_CURR_VCORE_UV	8
+#define MTK_DVFSRC_SW_REQ_VCORE_OPP	9
 
 #if IS_ENABLED(CONFIG_MTK_DVFSRC)
 extern u32 dvfsrc_get_required_opp_peak_bw(struct device_node *np,

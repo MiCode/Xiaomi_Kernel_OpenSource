@@ -73,7 +73,6 @@ struct mtk_dvfsrc {
 	struct icc_path *hrt_path;
 	struct regulator *vcore_power;
 	struct regulator *dvfsrc_vcore_power;
-	struct regulator *dvfsrc_vscp_power;
 	int num_perf;
 	u32 *perfs_peak_bw;
 	u32 force_opp_idx;
