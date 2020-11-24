@@ -1069,11 +1069,19 @@ static int mhi_uci_client_release(struct inode *mhi_inode,
 		struct file *file_handle)
 {
 	struct uci_client *uci_handle = file_handle->private_data;
-	int count = 0;
+	const struct chan_attr *in_chan_attr;
+	int count = 0, i;
 	struct mhi_req *ureq;
 
 	if (!uci_handle)
 		return -EINVAL;
+
+	in_chan_attr = uci_handle->in_chan_attr;
+	if (!in_chan_attr) {
+		uci_log(UCI_DBG_ERROR, "Null channel attributes for chan %d\n",
+				uci_handle->in_chan);
+		return -EINVAL;
+	}
 
 	if (atomic_sub_return(1, &uci_handle->ref_count)) {
 		uci_log(UCI_DBG_DBG, "Client close chan %d, ref count 0x%x\n",
@@ -1131,6 +1139,12 @@ static int mhi_uci_client_release(struct inode *mhi_inode,
 			uci_log(UCI_DBG_DBG,
 				"Client %d closed with %d transfers pending\n",
 				iminor(mhi_inode), count);
+	}
+
+	for (i = 0; i < (in_chan_attr->nr_trbs); i++) {
+		kfree(uci_handle->in_buf_list[i].addr);
+		uci_handle->in_buf_list[i].addr = NULL;
+		uci_handle->in_buf_list[i].buf_size = 0;
 	}
 
 	atomic_set(&uci_handle->read_data_ready, 0);
