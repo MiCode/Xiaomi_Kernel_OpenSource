@@ -1024,11 +1024,18 @@ static void init_controller_v4(struct lvts_data *lvts_data)
  */
 
 #define MT6873_NUM_LVTS (ARRAY_SIZE(mt6873_tc_settings))
+#define MT6853_NUM_LVTS (ARRAY_SIZE(mt6853_tc_settings))
 
 enum mt6873_lvts_domain {
 	MT6873_AP_DOMAIN,
 	MT6873_MCU_DOMAIN,
 	MT6873_NUM_DOMAIN
+};
+
+enum mt6853_lvts_domain {
+	MT6853_AP_DOMAIN,
+	MT6853_MCU_DOMAIN,
+	MT6853_NUM_DOMAIN
 };
 
 enum mt6873_lvts_sensor_enum {
@@ -1051,6 +1058,25 @@ enum mt6873_lvts_sensor_enum {
 	MT6873_TS7_2,
 	MT6873_NUM_TS
 };
+
+enum mt6853_lvts_sensor_enum {
+	MT6853_TS1_0,
+	MT6853_TS1_1,
+	MT6853_TS1_2,
+	MT6853_TS1_3,
+	MT6853_TS2_0,
+	MT6853_TS2_1,
+	MT6853_TS3_0,
+	MT6853_TS3_1,
+	MT6853_TS3_2,
+	MT6853_TS3_3,
+	MT6853_TS4_0,
+	MT6853_TS5_0,
+	MT6853_TS5_1,
+	MT6853_TS5_2,
+	MT6853_NUM_TS
+};
+
 
 static void mt6873_efuse_to_cal_data(struct lvts_data *lvts_data)
 {
@@ -1101,6 +1127,37 @@ static void mt6873_efuse_to_cal_data(struct lvts_data *lvts_data)
 		(GET_CAL_DATA_BITMASK(17, 31, 24) << 8) +
 		GET_CAL_DATA_BITMASK(18, 31, 24);
 }
+
+static void mt6853_efuse_to_cal_data(struct lvts_data *lvts_data)
+{
+	struct sensor_cal_data *cal_data = &lvts_data->cal_data;
+
+	cal_data->golden_temp = GET_CAL_DATA_BITMASK(0, 31, 24);
+
+	cal_data->count_r[MT6853_TS1_0] = GET_CAL_DATA_BITMASK(1, 23, 0);
+	cal_data->count_r[MT6853_TS1_1] = GET_CAL_DATA_BITMASK(2, 23, 0);
+	cal_data->count_r[MT6853_TS1_2] = GET_CAL_DATA_BITMASK(3, 23, 0);
+	cal_data->count_r[MT6853_TS1_3] = GET_CAL_DATA_BITMASK(4, 23, 0);
+	cal_data->count_r[MT6853_TS2_0] = GET_CAL_DATA_BITMASK(5, 23, 0);
+	cal_data->count_r[MT6853_TS2_1] = GET_CAL_DATA_BITMASK(6, 23, 0);
+	cal_data->count_r[MT6853_TS3_0] = GET_CAL_DATA_BITMASK(7, 23, 0);
+	cal_data->count_r[MT6853_TS3_1] = GET_CAL_DATA_BITMASK(8, 23, 0);
+	cal_data->count_r[MT6853_TS3_2] = GET_CAL_DATA_BITMASK(9, 23, 0);
+	cal_data->count_r[MT6853_TS3_3] = GET_CAL_DATA_BITMASK(10, 23, 0);
+	cal_data->count_r[MT6853_TS4_0] = GET_CAL_DATA_BITMASK(11, 23, 0);
+	cal_data->count_r[MT6853_TS5_0] = GET_CAL_DATA_BITMASK(12, 23, 0);
+	cal_data->count_r[MT6853_TS5_1] = GET_CAL_DATA_BITMASK(13, 23, 0);
+	cal_data->count_r[MT6853_TS5_2] = GET_CAL_DATA_BITMASK(14, 23, 0);
+
+	cal_data->count_rc[MT6853_TS1_0] = GET_CAL_DATA_BITMASK(18, 23, 0);
+	cal_data->count_rc[MT6853_TS2_0] = GET_CAL_DATA_BITMASK(19, 23, 0);
+	cal_data->count_rc[MT6853_TS3_0] = GET_CAL_DATA_BITMASK(20, 23, 0);
+	cal_data->count_rc[MT6853_TS4_0] = GET_CAL_DATA_BITMASK(21, 23, 0);
+	cal_data->count_rc[MT6853_TS5_0] = (GET_CAL_DATA_BITMASK(1, 31, 24) << 16) +
+			(GET_CAL_DATA_BITMASK(2, 31, 24) << 8) +
+			GET_CAL_DATA_BITMASK(3, 31, 24);
+}
+
 
 static struct tc_settings mt6873_tc_settings[] = {
 	[0] = {
@@ -1182,6 +1239,66 @@ static struct tc_settings mt6873_tc_settings[] = {
 	}
 };
 
+
+static struct tc_settings mt6853_tc_settings[] = {
+	[0] = {
+		.domain_index = MT6853_MCU_DOMAIN,
+		.addr_offset = 0x0,
+		.num_sensor = 4,
+		.sensor_map = {MT6853_TS1_0, MT6853_TS1_1, MT6853_TS1_2, MT6853_TS1_3},
+		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
+		.hw_filter = LVTS_FILTER_2_OF_4,
+		.dominator_sensing_point = SENSING_POINT3,
+		.hw_reboot_trip_point = 117000,
+		.irq_bit = BIT(3),
+	},
+	[1] = {
+		.domain_index = MT6853_MCU_DOMAIN,
+		.addr_offset = 0x100,
+		.num_sensor = 2,
+		.sensor_map = {MT6853_TS2_0, MT6853_TS2_1},
+		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
+		.hw_filter = LVTS_FILTER_2_OF_4,
+		.dominator_sensing_point = SENSING_POINT0,
+		.hw_reboot_trip_point = 117000,
+		.irq_bit = BIT(4),
+	},
+	[2] = {
+		.domain_index = MT6853_AP_DOMAIN,
+		.addr_offset = 0x0,
+		.num_sensor = 4,
+		.sensor_map = {MT6853_TS3_0, MT6853_TS3_1, MT6853_TS3_2, MT6853_TS3_3},
+		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
+		.hw_filter = LVTS_FILTER_2_OF_4,
+		.dominator_sensing_point = SENSING_POINT0,
+		.hw_reboot_trip_point = 117000,
+		.irq_bit = BIT(3),
+	},
+	[3] = {
+		.domain_index = MT6853_AP_DOMAIN,
+		.addr_offset = 0x100,
+		.num_sensor = 1,
+		.sensor_map = {MT6853_TS4_0},
+		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
+		.hw_filter = LVTS_FILTER_2_OF_4,
+		.dominator_sensing_point = SENSING_POINT0,
+		.hw_reboot_trip_point = 117000,
+		.irq_bit = BIT(4),
+	},
+	[4] = {
+		.domain_index = MT6853_AP_DOMAIN,
+		.addr_offset = 0x200,
+		.num_sensor = 3,
+		.sensor_map = {MT6853_TS5_0, MT6853_TS5_1, MT6853_TS5_2},
+		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
+		.hw_filter = LVTS_FILTER_2_OF_4,
+		.dominator_sensing_point = SENSING_POINT2,
+		.hw_reboot_trip_point = 117000,
+		.irq_bit = BIT(5),
+	}
+};
+
+
 static struct lvts_data mt6873_lvts_data = {
 	.num_domain = MT6873_NUM_DOMAIN,
 	.num_tc = MT6873_NUM_LVTS,
@@ -1208,6 +1325,33 @@ static struct lvts_data mt6873_lvts_data = {
 		.b = 250460,
 	},
 };
+
+static struct lvts_data mt6853_lvts_data = {
+	.num_domain = MT6853_NUM_DOMAIN,
+	.num_tc = MT6853_NUM_LVTS,
+	.tc = mt6853_tc_settings,
+	.num_sensor = MT6853_NUM_TS,
+	.ops = {
+		.efuse_to_cal_data = mt6853_efuse_to_cal_data,
+		.device_enable_and_init = device_enable_and_init_v4,
+		.device_enable_auto_rck = device_enable_auto_rck_v4,
+		.device_read_count_rc_n = device_read_count_rc_n_v4,
+		.set_cal_data = set_calibration_data_v4,
+		.init_controller = init_controller_v4,
+	},
+	.feature_bitmap = FEATURE_DEVICE_AUTO_RCK,
+	.num_efuse_addr = 17,
+	.num_efuse_block = 2,
+	.cal_data = {
+		.default_golden_temp = 50,
+		.default_count_r = 35000,
+		.default_count_rc = 2750,
+	},
+	.coeff = {
+		.a = -250460,
+		.b = 250460,
+	},
+};
 /*==================================================
  * Support chips
  *==================================================
@@ -1216,6 +1360,10 @@ static const struct of_device_id lvts_of_match[] = {
 	{
 		.compatible = "mediatek,mt6873-lvts",
 		.data = (void *)&mt6873_lvts_data,
+	},
+	{
+		.compatible = "mediatek,mt6853-lvts",
+		.data = (void *)&mt6853_lvts_data,
 	},
 	{
 	},
