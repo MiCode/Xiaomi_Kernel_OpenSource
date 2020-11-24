@@ -194,7 +194,7 @@
 #define MSM_PCIE_VREG_0P9 (2)
 #define MSM_PCIE_MAX_CLK (18)
 #define MSM_PCIE_MAX_PIPE_CLK (1)
-#define MAX_RC_NUM (4)
+#define MAX_RC_NUM (5)
 #define MAX_DEVICE_NUM (20)
 #define PCIE_TLP_RD_SIZE (0x5)
 #define PCIE_LOG_PAGES (50)
@@ -940,6 +940,13 @@ msm_pcie_reset_info[MAX_RC_NUM][MSM_PCIE_MAX_RESET] = {
 		{NULL, "pcie_phy_com_reset", false},
 		{NULL, "pcie_phy_nocsr_com_phy_reset", false},
 		{NULL, "pcie_3_phy_reset", false}
+	},
+	{
+		{NULL, "pcie_4_core_reset", false},
+		{NULL, "pcie_phy_reset", false},
+		{NULL, "pcie_phy_com_reset", false},
+		{NULL, "pcie_phy_nocsr_com_phy_reset", false},
+		{NULL, "pcie_4_phy_reset", false}
 	}
 };
 
@@ -957,6 +964,9 @@ msm_pcie_pipe_reset_info[MAX_RC_NUM][MSM_PCIE_MAX_PIPE_RESET] = {
 	},
 	{
 		{NULL, "pcie_3_phy_pipe_reset", false}
+	},
+	{
+		{NULL, "pcie_4_phy_pipe_reset", false}
 	}
 };
 
@@ -1042,6 +1052,26 @@ static struct msm_pcie_clk_info_t
 	{NULL, "pcie_phy_aux_clk", 0, false, false},
 	{NULL, "pcie_pipe_clk_mux", 0, false, false},
 	{NULL, "pcie_pipe_clk_ext_src", 0, false, false}
+	},
+	{
+	{NULL, "pcie_4_ref_clk_src", 0, false, false},
+	{NULL, "pcie_4_aux_clk", 1010000, true, false},
+	{NULL, "pcie_4_cfg_ahb_clk", 0, true, false},
+	{NULL, "pcie_4_mstr_axi_clk", 0, true, false},
+	{NULL, "pcie_4_slv_axi_clk", 0, true, false},
+	{NULL, "pcie_4_ldo", 0, true, true},
+	{NULL, "pcie_4_smmu_clk", 0, false, false},
+	{NULL, "pcie_4_slv_q2a_axi_clk", 0, false, false},
+	{NULL, "pcie_4_sleep_clk", 0, false, false},
+	{NULL, "pcie_phy_refgen_clk", 0, false, false},
+	{NULL, "pcie_tbu_clk", 0, false, false},
+	{NULL, "pcie_ddrss_sf_tbu_clk", 0, false, false},
+	{NULL, "pcie_aggre_noc_0_axi_clk", 0, false, false},
+	{NULL, "pcie_aggre_noc_1_axi_clk", 0, false, false},
+	{NULL, "pcie_phy_cfg_ahb_clk", 0, false, false},
+	{NULL, "pcie_phy_aux_clk", 0, false, false},
+	{NULL, "pcie_pipe_clk_mux", 0, false, false},
+	{NULL, "pcie_pipe_clk_ext_src", 0, false, false}
 	}
 };
 
@@ -1059,6 +1089,9 @@ static struct msm_pcie_clk_info_t
 	},
 	{
 	{NULL, "pcie_3_pipe_clk", 125000000, true, false},
+	},
+	{
+	{NULL, "pcie_4_pipe_clk", 125000000, true, false},
 	}
 };
 
