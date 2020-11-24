@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved. */
 
 #ifndef _CNSS_DEBUG_H
 #define _CNSS_DEBUG_H
@@ -43,6 +43,9 @@ extern void *cnss_ipc_log_long_context;
 		cnss_ipc_log_long_string("%scnss: " _fmt, "",		\
 					 ##__VA_ARGS__);		\
 	} while (0)
+
+#define cnss_pr_buf(_fmt, ...)						\
+	cnss_ipc_log_long_string("%scnss: " _fmt, "", ##__VA_ARGS__)	\
 
 #ifdef CONFIG_CNSS2_DEBUG
 #define CNSS_ASSERT(_condition) do {					\
