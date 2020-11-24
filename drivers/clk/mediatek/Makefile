@@ -133,3 +133,10 @@ fhctl-$(CONFIG_COMMON_CLK_MTK_FREQ_HOPPING_MCUPM) += clk-fhctl-mcupm.o
 endif
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mcupm/
+
+obj-$(CONFIG_COMMON_CLK_MT6853) += clk-chk.o
+clk-chk-$(CONFIG_COMMON_CLK_MT6853) += clkchk.o clkchk-mt6853.o
+ifeq ($(CONFIG_DEBUG_FS), y)
+obj-$(CONFIG_COMMON_CLK_MT6853) += clk-dbg.o
+clk-dbg-$(CONFIG_COMMON_CLK_MT6853) += clkdbg.o clkdbg-mt6853.o
+endif
