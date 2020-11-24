@@ -61,5 +61,56 @@ config ARCH_SDXLEMUR
 	select QCOM_GDSC
 	select GENERIC_CLOCKEVENTS_BROADCAST
 
+config ARCH_SDXNIGHTJAR
+	bool "Enable support for SDXNIGHTJAR"
+	select CPU_V7
+	select ARM_GIC
+	select HAVE_ARM_ARCH_TIMER
+	select HAVE_PCI
+	select MSM_CORTEX_A7
+	select PCI
+	select PINCTRL
+	select QCOM_SCM if SMP
+	select MSM_JTAG_MM if CORESIGHT_ETM
+	select PM_DEVFREQ
+	select COMMON_CLK
+	select COMMON_CLK_QCOM
+	select QCOM_GDSC
+	select GENERIC_CLOCKEVENTS_BROADCAST
+
+config ARCH_MONACO
+	bool "Enable support for Qualcomm Technologies, Inc. MONACO"
+	select ARM_GIC
+	select ARM_GIC_V3
+	select ARM_AMBA
+	select HAVE_ARM_ARCH_TIMER
+	select HAVE_PCI
+	select PCI
+	select PINCTRL
+	select QCOM_SCM if SMP
+	select MSM_JTAG_MM if CORESIGHT_ETM
+	select PM_DEVFREQ
+	select COMMON_CLK
+	select COMMON_CLK_QCOM
+	select QCOM_GDSC
+	select GENERIC_CLOCKEVENTS_BROADCAST
+
+config ARCH_SCUBA
+	bool "Enable support for Qualcomm Technologies, Inc. SCUBA"
+	select ARM_GIC
+	select ARM_GIC_V3
+	select ARM_AMBA
+	select HAVE_ARM_ARCH_TIMER
+	select HAVE_PCI
+	select PCI
+	select PINCTRL
+	select QCOM_SCM if SMP
+	select MSM_JTAG_MM if CORESIGHT_ETM
+	select PM_DEVFREQ
+	select COMMON_CLK
+	select COMMON_CLK_QCOM
+	select QCOM_GDSC
+	select GENERIC_CLOCKEVENTS_BROADCAST
+
 endmenu
 endif

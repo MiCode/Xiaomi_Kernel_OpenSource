@@ -528,6 +528,10 @@ int syna_tcm_bus_init(void);
 
 void syna_tcm_bus_exit(void);
 
+int syna_tcm_bus_init_spi(void);
+
+void syna_tcm_bus_exit_spi(void);
+
 int syna_tcm_add_module(struct syna_tcm_module_cb *mod_cb, bool insert);
 
 static inline int syna_tcm_rmi_read(struct syna_tcm_hcd *tcm_hcd,

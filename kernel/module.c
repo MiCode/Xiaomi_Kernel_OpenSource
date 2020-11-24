@@ -1432,7 +1432,7 @@ static bool inherit_taint(struct module *mod, struct module *owner)
 	if (!owner || !test_bit(TAINT_PROPRIETARY_MODULE, &owner->taints))
 		return true;
 
-	if (mod->m1.using_gplonly_symbols) {
+	if (mod->using_gplonly_symbols) {
 		pr_err("%s: module using GPL-only symbols uses symbols from proprietary module %s.\n",
 			mod->name, owner->name);
 		return false;
@@ -1471,7 +1471,7 @@ static const struct kernel_symbol *resolve_symbol(struct module *mod,
 		goto unlock;
 
 	if (license == GPL_ONLY)
-		mod->m1.using_gplonly_symbols = true;
+		mod->using_gplonly_symbols = true;
 
 	if (!inherit_taint(mod, owner)) {
 		sym = NULL;
@@ -4006,6 +4006,8 @@ static int load_module(struct load_info *info, const char __user *uargs,
 	mutex_unlock(&module_mutex);
 
  ddebug_cleanup:
+	/* Clean up CFI for the module. */
+	cfi_cleanup(mod);
 	ftrace_release_mod(mod);
 	dynamic_debug_remove(mod, info->debug);
 	synchronize_rcu();

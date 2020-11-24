@@ -90,6 +90,7 @@ struct cnss_pci_data {
 	atomic_t auto_suspended;
 	atomic_t drv_connected;
 	u8 drv_connected_last;
+	u32 qmi_send_usage_count;
 	u16 def_link_speed;
 	u16 def_link_width;
 	struct completion wake_event;

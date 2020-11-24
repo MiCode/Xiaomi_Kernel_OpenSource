@@ -117,10 +117,6 @@ static const unsigned int a6xx_hlsq_duplicate_cluster[] = {
 	0xBB10, 0xBB11, 0xBB20, 0xBB29,
 };
 
-static const unsigned int a6xx_hlsq_2d_duplicate_cluster[] = {
-	0xBD80, 0xBD80,
-};
-
 static const unsigned int a6xx_sp_duplicate_cluster[] = {
 	0xAB00, 0xAB00, 0xAB04, 0xAB05, 0xAB10, 0xAB1B, 0xAB20, 0xAB20,
 };
@@ -132,10 +128,6 @@ static const unsigned int a6xx_tp_duplicate_cluster[] = {
 static const unsigned int a6xx_sp_ps_hlsq_cluster[] = {
 	0xB980, 0xB980, 0xB982, 0xB987, 0xB990, 0xB99B, 0xB9A0, 0xB9A2,
 	0xB9C0, 0xB9C9,
-};
-
-static const unsigned int a6xx_sp_ps_hlsq_2d_cluster[] = {
-	0xBD80, 0xBD80,
 };
 
 static const unsigned int a6xx_sp_ps_sp_cluster[] = {
@@ -170,16 +162,12 @@ static struct a6xx_cluster_dbgahb_registers {
 		ARRAY_SIZE(a6xx_sp_vs_sp_cluster) / 2 },
 	{ CP_CLUSTER_SP_VS, 0x0002E000, 0x41, a6xx_hlsq_duplicate_cluster,
 		ARRAY_SIZE(a6xx_hlsq_duplicate_cluster) / 2 },
-	{ CP_CLUSTER_SP_VS, 0x0002F000, 0x45, a6xx_hlsq_2d_duplicate_cluster,
-		ARRAY_SIZE(a6xx_hlsq_2d_duplicate_cluster) / 2 },
 	{ CP_CLUSTER_SP_VS, 0x0002A000, 0x21, a6xx_sp_duplicate_cluster,
 		ARRAY_SIZE(a6xx_sp_duplicate_cluster) / 2 },
 	{ CP_CLUSTER_SP_VS, 0x0002C000, 0x1, a6xx_tp_duplicate_cluster,
 		ARRAY_SIZE(a6xx_tp_duplicate_cluster) / 2 },
 	{ CP_CLUSTER_SP_PS, 0x0002E000, 0x42, a6xx_sp_ps_hlsq_cluster,
 		ARRAY_SIZE(a6xx_sp_ps_hlsq_cluster) / 2 },
-	{ CP_CLUSTER_SP_PS, 0x0002F000, 0x46, a6xx_sp_ps_hlsq_2d_cluster,
-		ARRAY_SIZE(a6xx_sp_ps_hlsq_2d_cluster) / 2 },
 	{ CP_CLUSTER_SP_PS, 0x0002A000, 0x22, a6xx_sp_ps_sp_cluster,
 		ARRAY_SIZE(a6xx_sp_ps_sp_cluster) / 2 },
 	{ CP_CLUSTER_SP_PS, 0x0002B000, 0x26, a6xx_sp_ps_sp_2d_cluster,
@@ -515,7 +503,10 @@ enum a6xx_shader_obj {
 	A6XX_HLSQ_DATAPATH_META         = 0x60,
 	A6XX_HLSQ_FRONTEND_META         = 0x61,
 	A6XX_HLSQ_INDIRECT_META         = 0x62,
-	A6XX_HLSQ_BACKEND_META          = 0x63
+	A6XX_HLSQ_BACKEND_META          = 0x63,
+	A6XX_SP_LB_6_DATA               = 0x70,
+	A6XX_SP_LB_7_DATA               = 0x71,
+	A6XX_HLSQ_INST_RAM_1            = 0x73,
 };
 
 struct a6xx_shader_block {
@@ -570,7 +561,10 @@ static struct a6xx_shader_block a6xx_shader_blocks[] = {
 	{A6XX_HLSQ_PWR_REST_TAG,          0x14},
 	{A6XX_HLSQ_DATAPATH_META,         0x40,},
 	{A6XX_HLSQ_FRONTEND_META,         0x40},
-	{A6XX_HLSQ_INDIRECT_META,         0x40,}
+	{A6XX_HLSQ_INDIRECT_META,         0x40,},
+	{A6XX_SP_LB_6_DATA,               0x200},
+	{A6XX_SP_LB_7_DATA,               0x200},
+	{A6XX_HLSQ_INST_RAM_1,            0x200},
 };
 
 static struct kgsl_memdesc *a6xx_capturescript;
@@ -1582,6 +1576,9 @@ static void _a6xx_do_crashdump(struct kgsl_device *device)
 	if (a6xx_is_smmu_stalled(device))
 		return;
 
+	memset(a6xx_crashdump_registers->hostptr, 0xaa,
+			a6xx_crashdump_registers->size);
+
 	/* Turn on APRIV for legacy targets so we can access the buffers */
 	if (!ADRENO_FEATURE(ADRENO_DEVICE(device), ADRENO_APRIV))
 		kgsl_regwrite(device, A6XX_CP_MISC_CNTL, 1);
@@ -1738,7 +1735,7 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 		struct kgsl_snapshot *snapshot)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct adreno_ringbuffer *rb;
 	bool sptprac_on = true;
 	unsigned int i, roq_size;
@@ -2207,7 +2204,7 @@ void a6xx_crashdump_init(struct adreno_device *adreno_dev)
 	/* The script buffers needs 2 extra qwords on the end */
 	if (IS_ERR_OR_NULL(a6xx_capturescript))
 		a6xx_capturescript = kgsl_allocate_global(device,
-			script_size + 16, KGSL_MEMFLAGS_GPUREADONLY,
+			script_size + 16, 0, KGSL_MEMFLAGS_GPUREADONLY,
 			KGSL_MEMDESC_PRIVILEGED, "capturescript");
 
 	if (IS_ERR(a6xx_capturescript))
@@ -2215,7 +2212,7 @@ void a6xx_crashdump_init(struct adreno_device *adreno_dev)
 
 	if (IS_ERR_OR_NULL(a6xx_crashdump_registers))
 		a6xx_crashdump_registers = kgsl_allocate_global(device,
-			data_size, 0, KGSL_MEMDESC_PRIVILEGED,
+			data_size, 0, 0, KGSL_MEMDESC_PRIVILEGED,
 			"capturescript_regs");
 
 	if (IS_ERR(a6xx_crashdump_registers))

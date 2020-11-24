@@ -560,7 +560,7 @@ static struct mem_alloc_entry *get_mem_alloc_entry(
 	if (desc->flags & MEMFLAG_GFX_SECURE)
 		flags |= KGSL_MEMFLAGS_SECURE;
 
-	entry->gpu_md = kgsl_allocate_global(device, desc->size, flags, priv,
+	entry->gpu_md = kgsl_allocate_global(device, desc->size, 0, flags, priv,
 		memkind_string);
 	if (IS_ERR(entry->gpu_md)) {
 		int ret = PTR_ERR(entry->gpu_md);
@@ -806,6 +806,10 @@ int a6xx_hwsched_hfi_start(struct adreno_device *adreno_dev)
 	ret = enable_preemption(adreno_dev);
 	if (ret)
 		goto err;
+
+	if (gmu->log_stream_enable)
+		a6xx_hfi_send_set_value(adreno_dev,
+			HFI_VALUE_LOG_STREAM_ENABLE, 0, 1);
 
 	ret = a6xx_hfi_send_core_fw_start(adreno_dev);
 	if (ret)

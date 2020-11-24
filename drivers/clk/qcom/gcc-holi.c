@@ -4422,6 +4422,11 @@ static int gcc_holi_probe(struct platform_device *pdev)
 	if (IS_ERR(regmap))
 		return PTR_ERR(regmap);
 
+	ret = qcom_cc_register_rcg_dfs(regmap, gcc_dfs_clocks,
+				ARRAY_SIZE(gcc_dfs_clocks));
+	if (ret)
+		return ret;
+
 	/* GCC_DISP_GPLL0_CDIVR__CLK_DIV */
 	regmap_update_bits(regmap, 0x17058, 0x1, 0x1);
 

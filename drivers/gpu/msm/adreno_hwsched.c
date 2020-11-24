@@ -832,6 +832,8 @@ int adreno_hwsched_queue_cmds(struct kgsl_device_private *dev_priv,
 	struct kgsl_device *device = dev_priv->device;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_context *drawctxt = ADRENO_CONTEXT(context);
+	struct adreno_hwsched *hwsched = to_hwsched(adreno_dev);
+	struct adreno_dispatch_job *job;
 	int ret;
 	unsigned int i, user_ts;
 
@@ -866,11 +868,18 @@ int adreno_hwsched_queue_cmds(struct kgsl_device_private *dev_priv,
 	/* wait for the suspend gate */
 	wait_for_completion(&device->halt_gate);
 
+	job = kmem_cache_alloc(jobs_cache, GFP_KERNEL);
+	if (!job)
+		return -ENOMEM;
+
+	job->drawctxt = drawctxt;
+
 	spin_lock(&drawctxt->lock);
 
 	ret = _check_context_state_to_queue_cmds(drawctxt);
 	if (ret) {
 		spin_unlock(&drawctxt->lock);
+		kmem_cache_free(jobs_cache, job);
 		return ret;
 	}
 
@@ -885,9 +894,11 @@ int adreno_hwsched_queue_cmds(struct kgsl_device_private *dev_priv,
 					timestamp, user_ts);
 			if (ret == 1) {
 				spin_unlock(&drawctxt->lock);
+				kmem_cache_free(jobs_cache, job);
 				return 0;
 			} else if (ret) {
 				spin_unlock(&drawctxt->lock);
+				kmem_cache_free(jobs_cache, job);
 				return ret;
 			}
 			break;
@@ -897,6 +908,7 @@ int adreno_hwsched_queue_cmds(struct kgsl_device_private *dev_priv,
 						timestamp, user_ts);
 			if (ret) {
 				spin_unlock(&drawctxt->lock);
+				kmem_cache_free(jobs_cache, job);
 				return ret;
 			}
 			break;
@@ -906,6 +918,7 @@ int adreno_hwsched_queue_cmds(struct kgsl_device_private *dev_priv,
 			break;
 		default:
 			spin_unlock(&drawctxt->lock);
+			kmem_cache_free(jobs_cache, job);
 			return -EINVAL;
 		}
 
@@ -914,11 +927,13 @@ int adreno_hwsched_queue_cmds(struct kgsl_device_private *dev_priv,
 	spin_unlock(&drawctxt->lock);
 
 	/* Add the context to the dispatcher pending list */
-	ret = hwsched_queue_context(adreno_dev, drawctxt);
-	if (ret)
-		return ret;
+	if (_kgsl_context_get(&drawctxt->base)) {
+		trace_dispatch_queue_context(drawctxt);
+		llist_add(&job->node, &hwsched->jobs[drawctxt->base.priority]);
+		adreno_hwsched_issuecmds(adreno_dev);
 
-	adreno_hwsched_issuecmds(adreno_dev);
+	} else
+		kmem_cache_free(jobs_cache, job);
 
 	return 0;
 }
@@ -1070,18 +1085,38 @@ static unsigned int _preempt_count_show(struct adreno_device *adreno_dev)
 	return count < 0 ? 0 : count;
 }
 
+static int _gmu_log_stream_enable_store(struct adreno_device *adreno_dev,
+		bool val)
+{
+	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
+
+	if (gmu->log_stream_enable == val)
+		return 0;
+
+	return adreno_power_cycle_bool(adreno_dev, &gmu->log_stream_enable, val);
+}
+
+static bool _gmu_log_stream_enable_show(struct adreno_device *adreno_dev)
+{
+	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
+
+	return gmu->log_stream_enable;
+}
+
 static ADRENO_SYSFS_BOOL(preemption);
 static ADRENO_SYSFS_U32(preempt_level);
 static ADRENO_SYSFS_BOOL(usesgmem);
 static ADRENO_SYSFS_BOOL(skipsaverestore);
 static ADRENO_SYSFS_RO_U32(preempt_count);
+static ADRENO_SYSFS_BOOL(gmu_log_stream_enable);
 
-static const struct attribute *_preempt_attr_list[] = {
+static const struct attribute *_hwsched_attr_list[] = {
 	&adreno_attr_preemption.attr.attr,
 	&adreno_attr_preempt_level.attr.attr,
 	&adreno_attr_usesgmem.attr.attr,
 	&adreno_attr_skipsaverestore.attr.attr,
 	&adreno_attr_preempt_count.attr.attr,
+	&adreno_attr_gmu_log_stream_enable.attr.attr,
 	NULL,
 };
 
@@ -1092,7 +1127,7 @@ void adreno_hwsched_dispatcher_close(struct adreno_device *adreno_dev)
 	kmem_cache_destroy(jobs_cache);
 	kmem_cache_destroy(obj_cache);
 
-	sysfs_remove_files(&device->dev->kobj, _preempt_attr_list);
+	sysfs_remove_files(&device->dev->kobj, _hwsched_attr_list);
 }
 
 static void adreno_hwsched_init_replay(struct adreno_hwsched *hwsched)
@@ -1336,7 +1371,7 @@ void adreno_hwsched_init(struct adreno_device *adreno_dev)
 		init_llist_head(&hwsched->requeue[i]);
 	}
 
-	sysfs_create_files(&device->dev->kobj, _preempt_attr_list);
+	sysfs_create_files(&device->dev->kobj, _hwsched_attr_list);
 }
 
 void adreno_hwsched_mark_drawobj(struct adreno_device *adreno_dev,

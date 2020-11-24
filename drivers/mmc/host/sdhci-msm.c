@@ -145,8 +145,7 @@
 #define CMUX_SHIFT_PHASE_SHIFT	24
 #define CMUX_SHIFT_PHASE_MASK	(7 << CMUX_SHIFT_PHASE_SHIFT)
 
-#define MSM_MMC_AUTOSUSPEND_DELAY_MS	50
-#define MSM_PMQOS_UNVOTING_DELAY_MS	10 /* msec */
+#define MSM_MMC_AUTOSUSPEND_DELAY_MS	10
 #define MSM_CLK_GATING_DELAY_MS		200 /* msec */
 
 /* Timeout value to avoid infinite waiting for pwr_irq */
@@ -161,6 +160,7 @@
 /* CQHCI vendor specific registers */
 #define CQHCI_VENDOR_CFG1	0xA00
 #define CQHCI_VENDOR_DIS_RST_ON_CQ_EN	(0x3 << 13)
+#define RCLK_TOGGLE BIT(2)
 
 struct sdhci_msm_offset {
 	u32 core_hc_mode;
@@ -441,7 +441,6 @@ struct sdhci_msm_host {
 	bool skip_bus_bw_voting;
 	struct sdhci_msm_bus_vote_data *bus_vote_data;
 	struct delayed_work bus_vote_work;
-	struct delayed_work pmqos_unvote_work;
 	struct delayed_work clk_gating_work;
 	bool pltfm_init_done;
 	bool core_3_0v_support;
@@ -1059,6 +1058,40 @@ static void msm_hc_select_default(struct sdhci_host *host)
 	wmb();
 }
 
+/*
+ * After MCLK ugating, toggle the FIFO write clock to get
+ * the FIFO pointers and flags to valid state.
+ */
+static void sdhci_msm_toggle_fifo_write_clk(struct sdhci_host *host)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
+	const struct sdhci_msm_offset *msm_host_offset = msm_host->offset;
+	struct mmc_ios ios = host->mmc->ios;
+	u32 config;
+
+	if ((msm_host->tuning_done || ios.enhanced_strobe) &&
+			(host->mmc->ios.timing == MMC_TIMING_MMC_HS400)) {
+		/*
+		 * set HC_REG_DLL_CONFIG_3[1] to select MCLK as
+		 * DLL input clock
+		 */
+		config = readl_relaxed(host->ioaddr + msm_host_offset->core_dll_config_3);
+		config |= RCLK_TOGGLE;
+		writel_relaxed(config, host->ioaddr + msm_host_offset->core_dll_config_3);
+		/* ensure above write as toggling same bit quickly */
+		wmb();
+		udelay(2);
+		/*
+		 * clear HC_REG_DLL_CONFIG_3[1] to select RCLK as
+		 * DLL input clock
+		 */
+		config = readl_relaxed(host->ioaddr + msm_host_offset->core_dll_config_3);
+		config &= ~RCLK_TOGGLE;
+		writel_relaxed(config, host->ioaddr + msm_host_offset->core_dll_config_3);
+	}
+}
+
 static void msm_hc_select_hs400(struct sdhci_host *host)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
@@ -1437,10 +1470,16 @@ static int sdhci_msm_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	struct sdhci_host *host = mmc_priv(mmc);
 	int tuning_seq_cnt = 3;
 	u8 phase, tuned_phases[16], tuned_phase_cnt = 0;
-	int rc;
+	int rc = 0;
 	struct mmc_ios ios = host->mmc->ios;
+	u32 core_vendor_spec;
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
+	const struct sdhci_msm_offset *msm_offset =
+					sdhci_priv_msm_offset(host);
+
+	core_vendor_spec = readl_relaxed(host->ioaddr +
+			msm_offset->core_vendor_spec);
 
 	if (!sdhci_msm_is_tuning_needed(host)) {
 		msm_host->use_cdr = false;
@@ -1468,19 +1507,23 @@ static int sdhci_msm_execute_tuning(struct mmc_host *mmc, u32 opcode)
 		host->flags &= ~SDHCI_HS400_TUNING;
 	}
 
+	/* Make sure that PWRSAVE bit is set to '0' during tuning */
+	writel_relaxed((core_vendor_spec & ~CORE_CLK_PWRSAVE),
+			host->ioaddr +
+			msm_offset->core_vendor_spec);
+
 retry:
 	/* First of all reset the tuning block */
 	rc = msm_init_cm_dll(host, DLL_INIT_NORMAL);
 	if (rc)
-		return rc;
+		goto out;
 
 	phase = 0;
 	do {
 		/* Set the phase in delay line hw block */
 		rc = msm_config_cm_dll_phase(host, phase);
 		if (rc)
-			return rc;
-
+			goto out;
 		rc = mmc_send_tuning(mmc, opcode, NULL);
 		if (!rc) {
 			/* Tuning is successful at this tuning point */
@@ -1494,7 +1537,7 @@ retry:
 		rc = msm_find_most_appropriate_phase(host, tuned_phases,
 						     tuned_phase_cnt);
 		if (rc < 0)
-			return rc;
+			goto out;
 		else
 			phase = rc;
 
@@ -1504,7 +1547,7 @@ retry:
 		 */
 		rc = msm_config_cm_dll_phase(host, phase);
 		if (rc)
-			return rc;
+			goto out;
 		msm_host->saved_tuning_phase = phase;
 		dev_dbg(mmc_dev(mmc), "%s: Setting the tuning phase to %d\n",
 			 mmc_hostname(mmc), phase);
@@ -1519,6 +1562,15 @@ retry:
 
 	if (!rc)
 		msm_host->tuning_done = true;
+out:
+	/* Set PWRSAVE bit to '1' after completion of tuning as needed */
+	if (core_vendor_spec & CORE_CLK_PWRSAVE) {
+		writel_relaxed((readl_relaxed(host->ioaddr +
+			msm_offset->core_vendor_spec)
+			| CORE_CLK_PWRSAVE), host->ioaddr +
+			msm_offset->core_vendor_spec);
+	}
+
 	return rc;
 }
 
@@ -1857,14 +1909,6 @@ static void sdhci_msm_check_power_status(struct sdhci_host *host, u32 req_type)
 		return;
 	}
 
-	if (mmc->card && mmc->ops->get_cd && !mmc->ops->get_cd(mmc) &&
-			(req_type & REQ_BUS_ON)) {
-		pr_debug(
-			"%s: Regulators are never turned on when SD card is removed so do not wait for pwr irq\n",
-				mmc_hostname(host->mmc));
-		return;
-	}
-
 	if ((req_type & msm_host->curr_pwr_state) ||
 			(req_type & msm_host->curr_io_level))
 		done = true;
@@ -1882,6 +1926,13 @@ static void sdhci_msm_check_power_status(struct sdhci_host *host, u32 req_type)
 				 "%s: pwr_irq for req: (%d) timed out\n",
 				 mmc_hostname(host->mmc), req_type);
 	}
+
+	if (mmc->card && mmc->ops->get_cd && !mmc->ops->get_cd(mmc) &&
+			(req_type & REQ_BUS_ON)) {
+		host->pwr = 0;
+		sdhci_writeb(host, 0, SDHCI_POWER_CONTROL);
+	}
+
 	pr_debug("%s: %s: request %d done\n", mmc_hostname(host->mmc),
 			__func__, req_type);
 }
@@ -3573,10 +3624,8 @@ static int add_group_qos(struct qos_cpu_group *qcg, enum constraint type)
 }
 
 /* Function to remove pm qos vote */
-static void sdhci_msm_unvote_qos_all(struct work_struct *work)
+static void sdhci_msm_unvote_qos_all(struct sdhci_msm_host *msm_host)
 {
-	struct sdhci_msm_host *msm_host = container_of(work,
-			struct sdhci_msm_host, pmqos_unvote_work.work);
 	struct sdhci_msm_qos_req *qos_req = msm_host->sdhci_qos;
 	struct qos_cpu_group *qcg;
 	int i, err;
@@ -3654,7 +3703,6 @@ sdhci_msm_irq_affinity_notify(struct irq_affinity_notify *notify,
 					mmc_hostname(msm_host->mmc), err, i);
 	}
 
-	cancel_delayed_work_sync(&msm_host->pmqos_unvote_work);
 	sdhci_msm_vote_pmqos(msm_host->mmc,
 			msm_host->sdhci_qos->active_mask);
 }
@@ -3716,9 +3764,6 @@ static int sdhci_msm_setup_qos(struct sdhci_msm_host *msm_host)
 		dev_dbg(&pdev->dev, "%s: qcg: 0x%08x | mask: 0x%08x\n",
 				 __func__, qcg, qcg->mask);
 	}
-
-	INIT_DELAYED_WORK(&msm_host->pmqos_unvote_work,
-			sdhci_msm_unvote_qos_all);
 
 	/* Vote pmqos during setup for first set of mask*/
 	sdhci_msm_update_qos_constraints(qr->qcg, QOS_PERF);
@@ -4040,7 +4085,7 @@ static int sdhci_msm_init_sysfs(struct platform_device *pdev)
 
 static void sdhci_msm_set_caps(struct sdhci_msm_host *msm_host)
 {
-	msm_host->mmc->caps |= MMC_CAP_AGGRESSIVE_PM | MMC_CAP_SYNC_RUNTIME_PM;
+	msm_host->mmc->caps |= MMC_CAP_AGGRESSIVE_PM;
 	msm_host->mmc->caps |= MMC_CAP_WAIT_WHILE_BUSY | MMC_CAP_NEED_RSP_BUSY;
 }
 
@@ -4309,7 +4354,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Generic swq creation failed\n");
 
 	msm_host->clk_gating_delay = MSM_CLK_GATING_DELAY_MS;
-	msm_host->pm_qos_delay = MSM_PMQOS_UNVOTING_DELAY_MS;
+	msm_host->pm_qos_delay = MSM_MMC_AUTOSUSPEND_DELAY_MS;
 	/* Initialize pmqos */
 	sdhci_msm_qos_init(msm_host);
 	/* Initialize sysfs entries */
@@ -4419,9 +4464,7 @@ static __maybe_unused int sdhci_msm_runtime_suspend(struct device *dev)
 
 	if (!qos_req)
 		goto skip_qos;
-	queue_delayed_work(msm_host->workq,
-			&msm_host->pmqos_unvote_work,
-			msecs_to_jiffies(msm_host->pm_qos_delay));
+	sdhci_msm_unvote_qos_all(msm_host);
 
 skip_qos:
 	queue_delayed_work(msm_host->workq,
@@ -4451,6 +4494,7 @@ static __maybe_unused int sdhci_msm_runtime_resume(struct device *dev)
 		}
 
 		sdhci_msm_registers_restore(host);
+		sdhci_msm_toggle_fifo_write_clk(host);
 		/*
 		 * Whenever core-clock is gated dynamically, it's needed to
 		 * restore the SDR DLL settings when the clock is ungated.
@@ -4461,9 +4505,7 @@ static __maybe_unused int sdhci_msm_runtime_resume(struct device *dev)
 
 	if (!qos_req)
 		return 0;
-	ret = cancel_delayed_work_sync(&msm_host->pmqos_unvote_work);
-	if (!ret)
-		sdhci_msm_vote_pmqos(msm_host->mmc,
+	sdhci_msm_vote_pmqos(msm_host->mmc,
 					msm_host->sdhci_qos->active_mask);
 
 	return 0;
@@ -4475,14 +4517,6 @@ static int sdhci_msm_suspend_late(struct device *dev)
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
 
-	if (!msm_host->sdhci_qos)
-		goto skip_qos;
-
-	if (flush_delayed_work(&msm_host->pmqos_unvote_work))
-		dev_dbg(dev, "%s Waited for pmqos_unvote_work to finish\n",
-			 __func__);
-
-skip_qos:
 	if (flush_delayed_work(&msm_host->clk_gating_work))
 		dev_dbg(dev, "%s Waited for clk_gating_work to finish\n",
 			 __func__);

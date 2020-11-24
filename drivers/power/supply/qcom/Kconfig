@@ -20,7 +20,7 @@ config QPNP_QG
 
 config QPNP_SMB5
 	tristate "SMB5 Battery Charger"
-	depends on MFD_SPMI_PMIC && IIO
+	depends on MFD_SPMI_PMIC && IIO && TYPEC
 	help
 	  Say Y to enables support for the SMB5 charging peripheral.
 	  The QPNP SMB5 charger driver supports the charger peripheral

@@ -534,6 +534,10 @@ static int ufs_qcom_power_up_sequence(struct ufs_hba *hba)
 
 	if (host->hw_ver.major < 0x4)
 		submode = UFS_QCOM_PHY_SUBMODE_NON_G4;
+#if defined(CONFIG_SCSI_UFSHCD_QTI)
+	if (hba->limit_phy_submode == 0)
+		submode = UFS_QCOM_PHY_SUBMODE_NON_G4;
+#endif
 	phy_set_mode_ext(phy, mode, submode);
 
 	ret = ufs_qcom_phy_power_on(hba);
@@ -3373,6 +3377,9 @@ static void ufs_qcom_parse_limits(struct ufs_qcom_host *host)
 	of_property_read_u32(np, "limit-rx-pwm-gear", &host->limit_rx_pwm_gear);
 	of_property_read_u32(np, "limit-rate", &host->limit_rate);
 	of_property_read_u32(np, "limit-phy-submode", &host->limit_phy_submode);
+#if defined(CONFIG_SCSI_UFSHCD_QTI)
+	host->hba->limit_phy_submode = host->limit_phy_submode;
+#endif
 }
 
 /*

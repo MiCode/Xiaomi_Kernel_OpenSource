@@ -243,6 +243,8 @@ int cqhci_crypto_qti_init_crypto(struct cqhci_host *host,
 {
 	int err = 0;
 	struct resource *cqhci_ice_memres = NULL;
+	struct resource *hwkm_ice_memres = NULL;
+	void __iomem *hwkm_ice_mmio = NULL;
 
 	cqhci_ice_memres = platform_get_resource_byname(host->pdev,
 							IORESOURCE_MEM,
@@ -261,6 +263,24 @@ int cqhci_crypto_qti_init_crypto(struct cqhci_host *host,
 		return PTR_ERR(host->icemmio);
 	}
 
+	hwkm_ice_memres = platform_get_resource_byname(host->pdev,
+						       IORESOURCE_MEM,
+						       "cqhci_ice_hwkm");
+
+	if (!hwkm_ice_memres) {
+		pr_err("%s: Either no entry in dtsi or no memory available for IORESOURCE\n",
+		       __func__);
+	} else {
+		hwkm_ice_mmio = devm_ioremap_resource(&host->pdev->dev,
+						      hwkm_ice_memres);
+		if (IS_ERR(hwkm_ice_mmio)) {
+			err = PTR_ERR(hwkm_ice_mmio);
+			pr_err("%s: Error = %d mapping HWKM memory\n",
+				__func__, err);
+			return err;
+		}
+	}
+
 	err = cqhci_host_init_crypto_qti_spec(host, &cqhci_crypto_qti_ksm_ops);
 	if (err) {
 		pr_err("%s: Error initiating crypto capabilities, err %d\n",
@@ -268,8 +288,9 @@ int cqhci_crypto_qti_init_crypto(struct cqhci_host *host,
 		return err;
 	}
 
-	err = crypto_qti_init_crypto(&host->pdev->dev,
-			host->icemmio, (void **)&host->crypto_vops->priv);
+	err = crypto_qti_init_crypto(&host->pdev->dev, host->icemmio,
+				     hwkm_ice_mmio,
+				     (void **)&host->crypto_vops->priv);
 	if (err) {
 		pr_err("%s: Error initiating crypto, err %d\n",
 					__func__, err);

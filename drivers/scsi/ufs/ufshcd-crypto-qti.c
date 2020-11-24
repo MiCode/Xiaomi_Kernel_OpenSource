@@ -267,6 +267,8 @@ int ufshcd_crypto_qti_init_crypto(struct ufs_hba *hba,
 	struct platform_device *pdev = to_platform_device(hba->dev);
 	void __iomem *mmio_base;
 	struct resource *mem_res;
+	void __iomem *hwkm_ice_mmio = NULL;
+	struct resource *hwkm_ice_memres = NULL;
 
 	mem_res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 								"ufs_ice");
@@ -276,6 +278,24 @@ int ufshcd_crypto_qti_init_crypto(struct ufs_hba *hba,
 		return PTR_ERR(mmio_base);
 	}
 
+	hwkm_ice_memres = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+						       "ufs_ice_hwkm");
+
+	if (!hwkm_ice_memres) {
+		pr_err("%s: Either no entry in dtsi or no memory available for IORESOURCE\n",
+		       __func__);
+	} else {
+		hwkm_ice_mmio = devm_ioremap_resource(hba->dev,
+						      hwkm_ice_memres);
+
+		if (IS_ERR(hwkm_ice_mmio)) {
+			err = PTR_ERR(hwkm_ice_mmio);
+			pr_err("%s: Error = %d mapping HWKM memory\n",
+				__func__, err);
+			return err;
+		}
+	}
+
 	err = ufshcd_hba_init_crypto_qti_spec(hba, &ufshcd_crypto_qti_ksm_ops);
 	if (err) {
 		pr_err("%s: Error initiating crypto capabilities, err %d\n",
@@ -283,8 +303,8 @@ int ufshcd_crypto_qti_init_crypto(struct ufs_hba *hba,
 		return err;
 	}
 
-	err = crypto_qti_init_crypto(hba->dev,
-			mmio_base, (void **)&hba->crypto_vops->priv);
+	err = crypto_qti_init_crypto(hba->dev, mmio_base, hwkm_ice_mmio,
+				     (void **)&hba->crypto_vops->priv);
 	if (err) {
 		pr_err("%s: Error initiating crypto, err %d\n",
 					__func__, err);

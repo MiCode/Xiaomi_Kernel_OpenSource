@@ -53,10 +53,11 @@ config QCOM_KGSL_IOCOHERENCY_DEFAULT
 	 the user can still selectively enable I/O coherency with a flag.
 
 config QCOM_KGSL_IDLE_TIMEOUT
-	int "Milliseconds to wait before powering down the GPU"
+	int
 	default 100000 if !QGKI
 	default 80
 	help
 	  GPU idle timeout for Adreno GPU. This value decides after how
-	  long the GPU will go into slumber. This value is 100 seconds for
-	  a GKI enabled build else it is 80ms.
+	  long the GPU will go into slumber. A higher value will mean that
+	  the GPU is powered ON for a longer duration which will have
+	  power costs.

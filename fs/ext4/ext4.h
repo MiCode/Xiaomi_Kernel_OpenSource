@@ -40,6 +40,7 @@
 #include <linux/compat.h>
 #endif
 
+#define FSCRYPT_NEED_OPS
 #include <linux/fscrypt.h>
 #include <linux/fsverity.h>
 

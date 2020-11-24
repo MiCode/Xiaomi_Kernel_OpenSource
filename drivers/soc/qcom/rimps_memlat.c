@@ -632,6 +632,8 @@ static void save_cpugrp_pmu_events(struct memlat_cpu_grp *cpu_grp, u8 cpu)
 				!cpus_data->common_evs[i])
 			continue;
 
+		perf_event_read_local(cpus_data->common_evs[i],
+				&ev_count, NULL, NULL);
 		ev_count = local64_read(&cpus_data->common_evs[i]->hw.prev_count);
 		store_event_val(ev_count, hw_id, cpu);
 	}
@@ -651,6 +653,9 @@ static void save_mon_pmu_events(struct memlat_mon *mon, u8 cpu)
 		if (hw_id == INVALID_PMU_HW_IDX ||
 				!ev_data->mon_evs[i])
 			continue;
+
+		perf_event_read_local(ev_data->mon_evs[i],
+				&ev_count, NULL, NULL);
 		ev_count = local64_read(&ev_data->mon_evs[i]->hw.prev_count);
 		store_event_val(ev_count, hw_id, cpu);
 	}

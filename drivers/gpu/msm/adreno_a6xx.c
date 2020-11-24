@@ -149,7 +149,7 @@ int a6xx_init(struct adreno_device *adreno_dev)
 	if (IS_ERR_OR_NULL(adreno_dev->pwrup_reglist)) {
 		adreno_dev->pwrup_reglist =
 				kgsl_allocate_global(KGSL_DEVICE(adreno_dev),
-					PAGE_SIZE, 0, KGSL_MEMDESC_PRIVILEGED,
+					PAGE_SIZE, 0, 0, KGSL_MEMDESC_PRIVILEGED,
 					"powerup_register_list");
 		if (IS_ERR(adreno_dev->pwrup_reglist))
 			return PTR_ERR(adreno_dev->pwrup_reglist);
@@ -1619,7 +1619,7 @@ static void a6xx_gpc_err_int_callback(struct adreno_device *adreno_dev, int bit)
 	adreno_dispatcher_schedule(device);
 }
 
-static struct adreno_irq_funcs a6xx_irq_funcs[32] = {
+static const struct adreno_irq_funcs a6xx_irq_funcs[32] = {
 	ADRENO_IRQ_CALLBACK(NULL),              /* 0 - RBBM_GPU_IDLE */
 	ADRENO_IRQ_CALLBACK(a6xx_err_callback), /* 1 - RBBM_AHB_ERROR */
 	ADRENO_IRQ_CALLBACK(NULL), /* 2 - UNUSED */
@@ -2157,7 +2157,7 @@ int a6xx_probe_common(struct platform_device *pdev,
 	struct	adreno_device *adreno_dev, u32 chipid,
 	const struct adreno_gpu_core *gpucore)
 {
-	struct adreno_gpudev *gpudev = gpucore->gpudev;
+	const struct adreno_gpudev *gpudev = gpucore->gpudev;
 
 	adreno_dev->gpucore = gpucore;
 	adreno_dev->chipid = chipid;
@@ -2498,7 +2498,7 @@ static int a6xx_clear_pending_transactions(struct adreno_device *adreno_dev)
 	return a6xx_halt_gbif(adreno_dev);
 }
 
-struct adreno_gpudev adreno_a6xx_gpudev = {
+const struct adreno_gpudev adreno_a6xx_gpudev = {
 	.reg_offsets = a6xx_register_offsets,
 	.probe = a6xx_probe,
 	.start = a6xx_start,
@@ -2533,7 +2533,7 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.clear_pending_transactions = a6xx_clear_pending_transactions,
 };
 
-struct adreno_gpudev adreno_a6xx_hwsched_gpudev = {
+const struct adreno_gpudev adreno_a6xx_hwsched_gpudev = {
 	.reg_offsets = a6xx_register_offsets,
 	.probe = a6xx_hwsched_probe,
 	.snapshot = a6xx_hwsched_snapshot,
@@ -2549,7 +2549,7 @@ struct adreno_gpudev adreno_a6xx_hwsched_gpudev = {
 	.power_ops = &a6xx_hwsched_power_ops,
 };
 
-struct adreno_gpudev adreno_a6xx_gmu_gpudev = {
+const struct adreno_gpudev adreno_a6xx_gmu_gpudev = {
 	.reg_offsets = a6xx_register_offsets,
 	.probe = a6xx_gmu_device_probe,
 	.start = a6xx_start,
@@ -2580,7 +2580,7 @@ struct adreno_gpudev adreno_a6xx_gmu_gpudev = {
 	.power_ops = &a6xx_gmu_power_ops,
 };
 
-struct adreno_gpudev adreno_a6xx_rgmu_gpudev = {
+const struct adreno_gpudev adreno_a6xx_rgmu_gpudev = {
 	.reg_offsets = a6xx_register_offsets,
 	.probe = a6xx_rgmu_device_probe,
 	.start = a6xx_start,
@@ -2611,7 +2611,7 @@ struct adreno_gpudev adreno_a6xx_rgmu_gpudev = {
 	.power_ops = &a6xx_rgmu_power_ops,
 };
 
-struct adreno_gpudev adreno_a619_holi_gpudev = {
+const struct adreno_gpudev adreno_a619_holi_gpudev = {
 	.reg_offsets = a6xx_register_offsets,
 	.probe = a6xx_probe,
 	.start = a6xx_start,
@@ -2646,7 +2646,7 @@ struct adreno_gpudev adreno_a619_holi_gpudev = {
 	.clear_pending_transactions = a6xx_clear_pending_transactions,
 };
 
-struct adreno_gpudev adreno_a630_gpudev = {
+const struct adreno_gpudev adreno_a630_gpudev = {
 	.reg_offsets = a6xx_register_offsets,
 	.probe = a6xx_gmu_device_probe,
 	.start = a6xx_start,

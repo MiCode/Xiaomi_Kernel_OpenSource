@@ -110,6 +110,8 @@ struct ipa_fmwk_contex {
 	struct mutex lock;
 	ipa_uc_ready_cb uc_ready_cb;
 	void *uc_ready_priv;
+	ipa_eth_ready_cb eth_ready_cb;
+	void *eth_userdata;
 	enum ipa_uc_offload_proto proto;
 
 	/* ipa core driver APIs */
@@ -319,6 +321,8 @@ struct ipa_fmwk_contex {
 	int (*ipa_mhi_handle_ipa_config_req)(
 		struct ipa_config_req_msg_v01 *config_req);
 
+	int (*ipa_mhi_update_mstate)(enum ipa_mhi_mstate mstate_info);
+
 	/* ipa_wigig APIs */
 	int (*ipa_wigig_init)(struct ipa_wigig_init_in_params *in,
 		struct ipa_wigig_init_out_params *out);
@@ -356,6 +360,26 @@ struct ipa_fmwk_contex {
 	int (*ipa_wigig_set_perf_profile)(u32 max_supported_bw_mbps);
 
 	int (*ipa_wigig_save_regs)(void);
+
+	/* ipa eth APIs */
+	int (*ipa_eth_register_ready_cb)(struct ipa_eth_ready *ready_info);
+
+	int (*ipa_eth_unregister_ready_cb)(struct ipa_eth_ready *ready_info);
+
+	int (*ipa_eth_client_conn_pipes)(struct ipa_eth_client *client);
+
+	int (*ipa_eth_client_disconn_pipes)(struct ipa_eth_client *client);
+
+	int (*ipa_eth_client_reg_intf)(struct ipa_eth_intf_info *intf);
+
+	int (*ipa_eth_client_unreg_intf)(struct ipa_eth_intf_info *intf);
+
+	int (*ipa_eth_client_set_perf_profile)(struct ipa_eth_client *client,
+		struct ipa_eth_perf_profile *profile);
+
+	int (*ipa_eth_client_conn_evt)(struct ipa_ecm_msg *msg);
+
+	int (*ipa_eth_client_disconn_evt)(struct ipa_ecm_msg *msg);
 };
 
 static struct ipa_fmwk_contex *ipa_fmwk_ctx;
@@ -376,22 +400,33 @@ static inline void ipa_trigger_ipa_ready_cbs(void)
 	}
 }
 
-static inline void ipa_register_uc_ready_cb(void)
+static inline void ipa_late_register_ready_cb(void)
 {
-	int ret;
-	struct ipa_uc_ready_params param;
-
 	if (ipa_fmwk_ctx->uc_ready_cb) {
+		struct ipa_uc_ready_params param;
+
 		param.notify = ipa_fmwk_ctx->uc_ready_cb;
 		param.priv = ipa_fmwk_ctx->uc_ready_priv;
 		param.proto = ipa_fmwk_ctx->proto;
 
-		ret = ipa_fmwk_ctx->ipa_uc_offload_reg_rdyCB(&param);
+		ipa_fmwk_ctx->ipa_uc_offload_reg_rdyCB(&param);
 		/* if uc is already ready, client expects cb to be called */
 		if (param.is_uC_ready) {
 			ipa_fmwk_ctx->uc_ready_cb(
 				ipa_fmwk_ctx->uc_ready_priv);
 		}
+	}
+
+	if (ipa_fmwk_ctx->eth_ready_cb) {
+		struct ipa_eth_ready ready_info;
+
+		/* just late call to ipa_eth_register_ready_cb */
+		ready_info.notify = ipa_fmwk_ctx->eth_ready_cb;
+		ready_info.userdata = ipa_fmwk_ctx->eth_userdata;
+		ipa_fmwk_ctx->ipa_eth_register_ready_cb(&ready_info);
+		/* nobody cares anymore about ready_info->is_eth_ready since
+		 * if we got here it means that we already returned false there
+		 */
 	}
 }
 
@@ -452,7 +487,7 @@ int ipa_fmwk_register_ipa(const struct ipa_core_data *in)
 	ipa_fmwk_ctx->ipa_ready = true;
 	ipa_trigger_ipa_ready_cbs();
 
-	ipa_register_uc_ready_cb();
+	ipa_late_register_ready_cb();
 	mutex_unlock(&ipa_fmwk_ctx->lock);
 
 	pr_info("IPA driver is now in ready state\n");
@@ -1451,7 +1486,8 @@ int ipa_fmwk_register_ipa_mhi(const struct ipa_mhi_data *in)
 		|| ipa_fmwk_ctx->ipa_mhi_suspend
 		|| ipa_fmwk_ctx->ipa_mhi_resume
 		|| ipa_fmwk_ctx->ipa_mhi_destroy
-		|| ipa_fmwk_ctx->ipa_mhi_handle_ipa_config_req) {
+		|| ipa_fmwk_ctx->ipa_mhi_handle_ipa_config_req
+		|| ipa_fmwk_ctx->ipa_mhi_update_mstate) {
 		pr_err("ipa_mhi APIs were already initialized\n");
 		return -EPERM;
 	}
@@ -1465,6 +1501,7 @@ int ipa_fmwk_register_ipa_mhi(const struct ipa_mhi_data *in)
 	ipa_fmwk_ctx->ipa_mhi_destroy = in->ipa_mhi_destroy;
 	ipa_fmwk_ctx->ipa_mhi_handle_ipa_config_req =
 		in->ipa_mhi_handle_ipa_config_req;
+	ipa_fmwk_ctx->ipa_mhi_update_mstate = in->ipa_mhi_update_mstate;
 
 	pr_info("ipa_mhi registered successfully\n");
 
@@ -1554,6 +1591,16 @@ int ipa_mhi_handle_ipa_config_req(struct ipa_config_req_msg_v01 *config_req)
 	return ret;
 }
 EXPORT_SYMBOL(ipa_mhi_handle_ipa_config_req);
+
+int ipa_mhi_update_mstate(enum ipa_mhi_mstate mstate_info)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN(ipa_mhi_update_mstate, mstate_info);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_mhi_update_mstate);
 
 /* registration API for IPA wigig module */
 int ipa_fmwk_register_ipa_wigig(const struct ipa_wigig_data *in)
@@ -1780,6 +1827,161 @@ int ipa_wigig_save_regs(void)
 	return ret;
 }
 EXPORT_SYMBOL(ipa_wigig_save_regs);
+
+/* registration API for IPA eth module */
+int ipa_fmwk_register_ipa_eth(const struct ipa_eth_data *in)
+{
+	if (!ipa_fmwk_ctx) {
+		pr_err("ipa framework hasn't been initialized yet\n");
+		return -EPERM;
+	}
+
+	if (ipa_fmwk_ctx->ipa_eth_register_ready_cb
+		|| ipa_fmwk_ctx->ipa_eth_unregister_ready_cb
+		|| ipa_fmwk_ctx->ipa_eth_client_conn_pipes
+		|| ipa_fmwk_ctx->ipa_eth_client_disconn_pipes
+		|| ipa_fmwk_ctx->ipa_eth_client_reg_intf
+		|| ipa_fmwk_ctx->ipa_eth_client_unreg_intf
+		|| ipa_fmwk_ctx->ipa_eth_client_set_perf_profile
+		|| ipa_fmwk_ctx->ipa_eth_client_conn_evt
+		|| ipa_fmwk_ctx->ipa_eth_client_disconn_evt) {
+		pr_err("ipa_eth APIs were already initialized\n");
+		return -EPERM;
+	}
+
+	ipa_fmwk_ctx->ipa_eth_register_ready_cb = in->ipa_eth_register_ready_cb;
+	ipa_fmwk_ctx->ipa_eth_unregister_ready_cb =
+		in->ipa_eth_unregister_ready_cb;
+	ipa_fmwk_ctx->ipa_eth_client_conn_pipes = in->ipa_eth_client_conn_pipes;
+	ipa_fmwk_ctx->ipa_eth_client_disconn_pipes =
+		in->ipa_eth_client_disconn_pipes;
+	ipa_fmwk_ctx->ipa_eth_client_reg_intf = in->ipa_eth_client_reg_intf;
+	ipa_fmwk_ctx->ipa_eth_client_unreg_intf = in->ipa_eth_client_unreg_intf;
+	ipa_fmwk_ctx->ipa_eth_client_set_perf_profile =
+		in->ipa_eth_client_set_perf_profile;
+	ipa_fmwk_ctx->ipa_eth_client_conn_evt = in->ipa_eth_client_conn_evt;
+	ipa_fmwk_ctx->ipa_eth_client_disconn_evt =
+		in->ipa_eth_client_disconn_evt;
+
+	pr_info("ipa_eth registered successfully\n");
+
+	return 0;
+}
+EXPORT_SYMBOL(ipa_fmwk_register_ipa_eth);
+
+int ipa_eth_register_ready_cb(struct ipa_eth_ready *ready_info)
+{
+	int ret;
+
+	if (!ipa_fmwk_ctx) {
+		pr_err("ipa framework hasn't been initialized yet\n");
+		return -EPERM;
+	}
+
+	mutex_lock(&ipa_fmwk_ctx->lock);
+	if (ipa_fmwk_ctx->ipa_ready) {
+		/* call real func, unlock and return */
+		ret = ipa_fmwk_ctx->ipa_eth_register_ready_cb(ready_info);
+		mutex_unlock(&ipa_fmwk_ctx->lock);
+		return ret;
+	}
+	ipa_fmwk_ctx->eth_ready_cb = ready_info->notify;
+	ipa_fmwk_ctx->eth_userdata = ready_info->userdata;
+	ready_info->is_eth_ready = false;
+	mutex_unlock(&ipa_fmwk_ctx->lock);
+
+	return 0;
+}
+EXPORT_SYMBOL(ipa_eth_register_ready_cb);
+
+int ipa_eth_unregister_ready_cb(struct ipa_eth_ready *ready_info)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN_DP(ipa_eth_unregister_ready_cb,
+		ready_info);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_eth_unregister_ready_cb);
+
+int ipa_eth_client_conn_pipes(struct ipa_eth_client *client)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN_DP(ipa_eth_client_conn_pipes,
+		client);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_eth_client_conn_pipes);
+
+int ipa_eth_client_disconn_pipes(struct ipa_eth_client *client)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN_DP(ipa_eth_client_disconn_pipes,
+		client);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_eth_client_disconn_pipes);
+
+int ipa_eth_client_reg_intf(struct ipa_eth_intf_info *intf)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN_DP(ipa_eth_client_reg_intf,
+		intf);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_eth_client_reg_intf);
+
+int ipa_eth_client_unreg_intf(struct ipa_eth_intf_info *intf)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN_DP(ipa_eth_client_unreg_intf,
+		intf);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_eth_client_unreg_intf);
+
+int ipa_eth_client_set_perf_profile(struct ipa_eth_client *client,
+	struct ipa_eth_perf_profile *profile)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN_DP(ipa_eth_client_set_perf_profile,
+		client, profile);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_eth_client_set_perf_profile);
+
+int ipa_eth_client_conn_evt(struct ipa_ecm_msg *msg)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN_DP(ipa_eth_client_conn_evt,
+		msg);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_eth_client_conn_evt);
+
+int ipa_eth_client_disconn_evt(struct ipa_ecm_msg *msg)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN_DP(ipa_eth_client_disconn_evt,
+		msg);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_eth_client_disconn_evt);
 
 /* module functions */
 static int __init ipa_fmwk_init(void)

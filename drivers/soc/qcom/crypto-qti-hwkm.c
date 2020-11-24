@@ -90,7 +90,7 @@ int crypto_qti_program_key(struct crypto_vops_qti_entry *ice_entry,
 	}
 
 	if ((ice_entry->flags & QTI_HWKM_INIT_DONE) != QTI_HWKM_INIT_DONE) {
-		err_program = qti_hwkm_init();
+		err_program = qti_hwkm_init(ice_entry->hwkm_slave_mmio_base);
 		if (err_program) {
 			pr_err("%s: Error with HWKM init %d\n", __func__,
 								err_program);
@@ -267,7 +267,7 @@ int crypto_qti_derive_raw_secret_platform(
 	}
 
 	if ((ice_entry->flags & QTI_HWKM_INIT_DONE) != QTI_HWKM_INIT_DONE) {
-		err_program = qti_hwkm_init();
+		err_program = qti_hwkm_init(ice_entry->hwkm_slave_mmio_base);
 		if (err_program) {
 			pr_err("%s: Error with HWKM init %d\n", __func__,
 								err_program);

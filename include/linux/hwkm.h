@@ -288,7 +288,8 @@ enum hwkm_master_key_slots {
 #if IS_ENABLED(CONFIG_QTI_HW_KEY_MANAGER)
 int qti_hwkm_handle_cmd(struct hwkm_cmd *cmd, struct hwkm_rsp *rsp);
 int qti_hwkm_clocks(bool on);
-int qti_hwkm_init(void);
+int qti_hwkm_init(void __iomem *hwkm_slave_mmio_base);
+
 #else
 static inline int qti_hwkm_add_req(struct hwkm_cmd *cmd,
 				   struct hwkm_rsp *rsp)
@@ -299,7 +300,7 @@ static inline int qti_hwkm_clocks(bool on)
 {
 	return -EOPNOTSUPP;
 }
-static inline int qti_hwkm_init(void)
+static inline int qti_hwkm_init(void __iomem *hwkm_slave_mmio_base)
 {
 	return -EOPNOTSUPP;
 }
