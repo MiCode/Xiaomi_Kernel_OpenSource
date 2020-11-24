@@ -4534,7 +4534,7 @@
 
 #define MT6359_DCXO_CW11                     0x7a6
 #define MT6359_DCXO_CW12                     0x7a8
-#define MT6359_LDO_VAUD18_CON0               0x1c98
+#define MT6359_LDO_VAUD18_CON0               0x1c9a
 
 #define MT6359_GPIO_MODE0                    0xcc
 #define MT6359_GPIO_MODE0_SET                0xce
@@ -4800,15 +4800,356 @@ enum {
 	MT6359_MTKAIF_PROTOCOL_2_CLK_P2,
 };
 
+enum {
+	MT6359_AIF_1 = 0,	/* dl: hp, rcv, hp+lo */
+	MT6359_AIF_2,		/* dl: lo only */
+	MT6359_AIF_VOW,
+	MT6359_AIF_NUM,
+};
+
+enum {
+	AUDIO_ANALOG_VOLUME_HSOUTL,
+	AUDIO_ANALOG_VOLUME_HSOUTR,
+	AUDIO_ANALOG_VOLUME_HPOUTL,
+	AUDIO_ANALOG_VOLUME_HPOUTR,
+	AUDIO_ANALOG_VOLUME_LINEOUTL,
+	AUDIO_ANALOG_VOLUME_LINEOUTR,
+	AUDIO_ANALOG_VOLUME_MICAMP1,
+	AUDIO_ANALOG_VOLUME_MICAMP2,
+	AUDIO_ANALOG_VOLUME_MICAMP3,
+	AUDIO_ANALOG_VOLUME_TYPE_MAX
+};
+
+enum {
+	MUX_MIC_TYPE_0,	/* ain0, micbias 0 */
+	MUX_MIC_TYPE_1,	/* ain1, micbias 1 */
+	MUX_MIC_TYPE_2,	/* ain2/3, micbias 2 */
+	MUX_PGA_L,
+	MUX_PGA_R,
+	MUX_PGA_3,
+	MUX_HP_L,
+	MUX_HP_R,
+	MUX_NUM,
+};
+
+enum {
+	DEVICE_HP,
+	DEVICE_LO,
+	DEVICE_RCV,
+	DEVICE_MIC1,
+	DEVICE_MIC2,
+	DEVICE_NUM
+};
+
+enum {
+	HP_GAIN_CTL_ZCD = 0,
+	HP_GAIN_CTL_NLE,
+	HP_GAIN_CTL_NUM,
+};
+
+/* Supply widget subseq */
+enum {
+	/* common */
+	SUPPLY_SEQ_CLK_BUF,
+	SUPPLY_SEQ_AUD_GLB,
+	SUPPLY_SEQ_AUD_GLB_VOW,
+	SUPPLY_SEQ_HP_PULL_DOWN,
+	SUPPLY_SEQ_CLKSQ,
+	SUPPLY_SEQ_ADC_CLKGEN,
+	SUPPLY_SEQ_VOW_AUD_LPW,
+	SUPPLY_SEQ_AUD_VOW,
+	SUPPLY_SEQ_VOW_CLK,
+	SUPPLY_SEQ_VOW_LDO,
+	SUPPLY_SEQ_TOP_CK,
+	SUPPLY_SEQ_TOP_CK_LAST,
+	SUPPLY_SEQ_DCC_CLK,
+	SUPPLY_SEQ_MIC_BIAS,
+	SUPPLY_SEQ_DMIC,
+	SUPPLY_SEQ_VOW_DIG_CFG,
+	SUPPLY_SEQ_VOW_PERIODIC_CFG,
+	SUPPLY_SEQ_AUD_TOP,
+	SUPPLY_SEQ_AUD_TOP_LAST,
+	SUPPLY_SEQ_DL_SDM_FIFO_CLK,
+	SUPPLY_SEQ_DL_SDM,
+	SUPPLY_SEQ_DL_NCP,
+	SUPPLY_SEQ_AFE,
+	/* playback */
+	SUPPLY_SEQ_DL_SRC,
+	SUPPLY_SEQ_DL_ESD_RESIST,
+	SUPPLY_SEQ_HP_DAMPING_OFF_RESET_CMFB,
+	SUPPLY_SEQ_HP_MUTE,
+	SUPPLY_SEQ_DL_LDO_REMOTE_SENSE,
+	SUPPLY_SEQ_DL_LDO,
+	SUPPLY_SEQ_DL_NV,
+	SUPPLY_SEQ_HP_ANA_TRIM,
+	SUPPLY_SEQ_DL_IBIST,
+	/* capture */
+	SUPPLY_SEQ_UL_PGA,
+	SUPPLY_SEQ_UL_ADC,
+	SUPPLY_SEQ_UL_MTKAIF,
+	SUPPLY_SEQ_UL_SRC_DMIC,
+	SUPPLY_SEQ_UL_SRC,
+};
+
+enum {
+	CH_L = 0,
+	CH_R,
+	NUM_CH,
+};
+
+enum {
+	DRBIAS_4UA = 0,
+	DRBIAS_5UA,
+	DRBIAS_6UA,
+	DRBIAS_7UA,
+	DRBIAS_8UA,
+	DRBIAS_9UA,
+	DRBIAS_10UA,
+	DRBIAS_11UA,
+};
+
+enum {
+	IBIAS_4UA = 0,
+	IBIAS_5UA,
+	IBIAS_6UA,
+	IBIAS_7UA,
+};
+
+enum {
+	IBIAS_ZCD_3UA = 0,
+	IBIAS_ZCD_4UA,
+	IBIAS_ZCD_5UA,
+	IBIAS_ZCD_6UA,
+};
+
+enum {
+	MIC_BIAS_1P7 = 0,
+	MIC_BIAS_1P8,
+	MIC_BIAS_1P9,
+	MIC_BIAS_2P0,
+	MIC_BIAS_2P1,
+	MIC_BIAS_2P5,
+	MIC_BIAS_2P6,
+	MIC_BIAS_2P7,
+};
+
+enum {
+	DL_GAIN_8DB = 0,
+	DL_GAIN_0DB = 8,
+	DL_GAIN_N_1DB = 9,
+	DL_GAIN_N_10DB = 18,
+	DL_GAIN_N_22DB = 30,
+	DL_GAIN_N_40DB = 0x1f,
+};
+
+enum {
+	MIC_TYPE_MUX_IDLE = 0,
+	MIC_TYPE_MUX_ACC,
+	MIC_TYPE_MUX_DMIC,
+	MIC_TYPE_MUX_DCC,
+	MIC_TYPE_MUX_DCC_ECM_DIFF,
+	MIC_TYPE_MUX_DCC_ECM_SINGLE,
+	MIC_TYPE_MUX_VOW_ACC,
+	MIC_TYPE_MUX_VOW_DMIC,
+	MIC_TYPE_MUX_VOW_DMIC_LP,
+	MIC_TYPE_MUX_VOW_DCC,
+	MIC_TYPE_MUX_VOW_DCC_ECM_DIFF,
+	MIC_TYPE_MUX_VOW_DCC_ECM_SINGLE,
+};
+
+enum {
+	LO_MUX_OPEN = 0,
+	LO_MUX_L_DAC,
+	LO_MUX_3RD_DAC,
+	LO_MUX_TEST_MODE,
+	LO_MUX_MASK = 0x3,
+};
+
+enum {
+	HP_MUX_OPEN = 0,
+	HP_MUX_HPSPK,
+	HP_MUX_HP,
+	HP_MUX_TEST_MODE,
+	HP_MUX_HP_IMPEDANCE,
+	HP_MUX_MASK = 0x7,
+};
+
+enum {
+	RCV_MUX_OPEN = 0,
+	RCV_MUX_MUTE,
+	RCV_MUX_VOICE_PLAYBACK,
+	RCV_MUX_TEST_MODE,
+	RCV_MUX_MASK = 0x3,
+};
+
+enum {
+	PGA_L_MUX_NONE = 0,
+	PGA_L_MUX_AIN0,
+	PGA_L_MUX_AIN1,
+};
+
+enum {
+	PGA_R_MUX_NONE = 0,
+	PGA_R_MUX_AIN2,
+	PGA_R_MUX_AIN3,
+	PGA_R_MUX_AIN0,
+};
+
+enum {
+	UL_SRC_MUX_AMIC = 0,
+	UL_SRC_MUX_DMIC,
+};
+
+enum {
+	MISO_MUX_UL1_CH1 = 0,
+	MISO_MUX_UL1_CH2,
+	MISO_MUX_UL2_CH1,
+	MISO_MUX_UL2_CH2,
+};
+
+enum {
+	VOW_AMIC_MUX_ADC_L = 0,
+	VOW_AMIC_MUX_ADC_R,
+	VOW_AMIC_MUX_ADC_T,
+};
+
+enum {
+	DMIC_MUX_DMIC_DATA0 = 0,
+	DMIC_MUX_DMIC_DATA1_L,
+	DMIC_MUX_DMIC_DATA1_L_1,
+	DMIC_MUX_DMIC_DATA1_R,
+};
+
+enum {
+	ADC_MUX_IDLE = 0,
+	ADC_MUX_AIN0,
+	ADC_MUX_PREAMPLIFIER,
+	ADC_MUX_IDLE1,
+};
+
+enum {
+	PGA_3_MUX_NONE = 0,
+	PGA_3_MUX_AIN3,
+	PGA_3_MUX_AIN2,
+};
+
+enum {
+	VOW_MTKIF_TX_SET_STEREO = 0,
+	VOW_MTKIF_TX_SET_MONO,
+};
+
+struct mt6359_vow_periodic_on_off_data {
+	unsigned long long pga_on;
+	unsigned long long precg_on;
+	unsigned long long adc_on;
+	unsigned long long micbias0_on;
+	unsigned long long micbias1_on;
+	unsigned long long dcxo_on;
+	unsigned long long audglb_on;
+	unsigned long long vow_on;
+	unsigned long long pga_off;
+	unsigned long long precg_off;
+	unsigned long long adc_off;
+	unsigned long long micbias0_off;
+	unsigned long long micbias1_off;
+	unsigned long long dcxo_off;
+	unsigned long long audglb_off;
+	unsigned long long vow_off;
+};
+
+struct mt6359_priv {
+	struct device *dev;
+	struct regmap *regmap;
+	unsigned int dl_rate[MT6359_AIF_NUM];
+	unsigned int ul_rate[MT6359_AIF_NUM];
+	int ana_gain[AUDIO_ANALOG_VOLUME_TYPE_MAX];
+	unsigned int mux_select[MUX_NUM];
+	int dev_counter[DEVICE_NUM];
+	int hp_gain_ctl;
+	int hp_hifi_mode;
+	int hp_plugged;
+	int mtkaif_protocol;
+	int dmic_one_wire_mode;
+
+	/* debugfs */
+	struct dentry *debugfs;
+
+	/* vow control */
+	int vow_enable;
+	int reg_afe_vow_vad_cfg0;
+	int reg_afe_vow_vad_cfg1;
+	int reg_afe_vow_vad_cfg2;
+	int reg_afe_vow_vad_cfg3;
+	int reg_afe_vow_vad_cfg4;
+	int reg_afe_vow_vad_cfg5;
+	int reg_afe_vow_periodic;
+	unsigned int vow_channel;
+	struct mt6359_vow_periodic_on_off_data vow_periodic_param;
+};
+
+#define MT_SOC_ENUM_EXT_ID(xname, xenum, xhandler_get, xhandler_put, id) \
+{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = xname, .device = id,\
+	.info = snd_soc_info_enum_double, \
+	.get = xhandler_get, .put = xhandler_put, \
+	.private_value = (unsigned long)&xenum }
+
+/* dl bias */
+#define DRBIAS_MASK 0x7
+#define DRBIAS_HP_SFT (RG_AUDBIASADJ_0_VAUDP32_SFT + 0)
+#define DRBIAS_HP_MASK_SFT (DRBIAS_MASK << DRBIAS_HP_SFT)
+#define DRBIAS_HS_SFT (RG_AUDBIASADJ_0_VAUDP32_SFT + 3)
+#define DRBIAS_HS_MASK_SFT (DRBIAS_MASK << DRBIAS_HS_SFT)
+#define DRBIAS_LO_SFT (RG_AUDBIASADJ_0_VAUDP32_SFT + 6)
+#define DRBIAS_LO_MASK_SFT (DRBIAS_MASK << DRBIAS_LO_SFT)
+#define IBIAS_MASK 0x3
+#define IBIAS_HP_SFT (RG_AUDBIASADJ_1_VAUDP32_SFT + 0)
+#define IBIAS_HP_MASK_SFT (IBIAS_MASK << IBIAS_HP_SFT)
+#define IBIAS_HS_SFT (RG_AUDBIASADJ_1_VAUDP32_SFT + 2)
+#define IBIAS_HS_MASK_SFT (IBIAS_MASK << IBIAS_HS_SFT)
+#define IBIAS_LO_SFT (RG_AUDBIASADJ_1_VAUDP32_SFT + 4)
+#define IBIAS_LO_MASK_SFT (IBIAS_MASK << IBIAS_LO_SFT)
+#define IBIAS_ZCD_SFT (RG_AUDBIASADJ_1_VAUDP32_SFT + 6)
+#define IBIAS_ZCD_MASK_SFT (IBIAS_MASK << IBIAS_ZCD_SFT)
+
+/* dl pga gain */
+#define DL_GAIN_N_10DB_REG (DL_GAIN_N_10DB << 7 | DL_GAIN_N_10DB)
+#define DL_GAIN_N_22DB_REG (DL_GAIN_N_22DB << 7 | DL_GAIN_N_22DB)
+#define DL_GAIN_N_40DB_REG (DL_GAIN_N_40DB << 7 | DL_GAIN_N_40DB)
+#define DL_GAIN_REG_MASK 0x0f9f
+
+/* mic type */
+#define IS_VOW_DCC_BASE(x) (x == MIC_TYPE_MUX_VOW_DCC || \
+			    x == MIC_TYPE_MUX_VOW_DCC_ECM_DIFF || \
+			    x == MIC_TYPE_MUX_VOW_DCC_ECM_SINGLE)
+
+#define IS_DCC_BASE(x) (x == MIC_TYPE_MUX_DCC || \
+			x == MIC_TYPE_MUX_DCC_ECM_DIFF || \
+			x == MIC_TYPE_MUX_DCC_ECM_SINGLE || \
+			IS_VOW_DCC_BASE(x))
+
+#define IS_VOW_AMIC_BASE(x) (x == MIC_TYPE_MUX_VOW_ACC || IS_VOW_DCC_BASE(x))
+
+#define IS_VOW_BASE(x) (x == MIC_TYPE_MUX_VOW_DMIC || \
+			x == MIC_TYPE_MUX_VOW_DMIC_LP || \
+			IS_VOW_AMIC_BASE(x))
+
+/* VOW MTKIF TX setting */
+#define VOW_MCLK 13000
+#define VOW_MTKIF_TX_MONO_CLK 650
+#define VOW_MTKIF_TX_STEREO_CLK 1083
+
+/* reg idx for -40dB */
+#define PGA_MINUS_40_DB_REG_VAL 0x1f
+#define HP_PGA_MINUS_40_DB_REG_VAL 0x3f
+
 #define CODEC_MT6359_NAME "mtk-codec-mt6359p"
 #define DEVICE_MT6359_NAME "mt6359p-sound"
 
 int mt6359_set_mtkaif_protocol(struct snd_soc_component *cmpnt,
 			       int mtkaif_protocol);
-
-int mt6359_mtkaif_calibration_enable(struct snd_soc_component *cmpnt);
-int mt6359_mtkaif_calibration_disable(struct snd_soc_component *cmpnt);
-int mt6359_set_mtkaif_calibration_phase(struct snd_soc_component *cmpnt,
-					int phase_1, int phase_2, int phase_3);
+void mt6359_mtkaif_calibration_enable(struct snd_soc_component *cmpnt);
+void mt6359_mtkaif_calibration_disable(struct snd_soc_component *cmpnt);
+void mt6359_set_mtkaif_calibration_phase(struct snd_soc_component *cmpnt,
+					 int phase_1, int phase_2, int phase_3);
 
 #endif/* end _MT6359P_H_ */
