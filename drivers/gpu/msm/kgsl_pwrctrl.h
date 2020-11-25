@@ -169,6 +169,8 @@ struct kgsl_pwrctrl {
 	struct timer_list minbw_timer;
 	/** @minbw_timeout - Timeout for entering minimum bandwidth state */
 	u32 minbw_timeout;
+	/** @ddr_qos_devfreq: Devfreq device for setting DDR qos policy */
+	struct devfreq *ddr_qos_devfreq;
 };
 
 int kgsl_pwrctrl_init(struct kgsl_device *device);
