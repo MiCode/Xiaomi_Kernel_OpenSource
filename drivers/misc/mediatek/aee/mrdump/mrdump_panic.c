@@ -82,6 +82,22 @@ int aee_nested_printf(const char *fmt, ...)
 	return total_len;
 }
 
+static void check_last_ko(void)
+{
+	struct list_head *p_modules = aee_get_modules();
+	struct module *mod;
+
+	if (!p_modules)
+		return;
+
+	list_for_each_entry_rcu(mod, p_modules, list) {
+		if (mod->state == MODULE_STATE_UNFORMED)
+			break;
+		load_ko_addr_list(mod);
+		break;
+	}
+}
+
 static void mrdump_cblock_update(enum AEE_REBOOT_MODE reboot_mode,
 				 struct pt_regs *regs, const char *msg, ...)
 {
@@ -163,6 +179,8 @@ int mrdump_common_die(int reboot_reason, const char *msg,
 	case AEE_FIQ_STEP_COMMON_DIE_START:
 		aee_rr_rec_fiq_step(AEE_FIQ_STEP_COMMON_DIE_START);
 		mrdump_cblock_update(reboot_reason, regs, msg);
+		mrdump_mini_ke_cpu_regs(regs);
+		check_last_ko();
 	case AEE_FIQ_STEP_COMMON_DIE_LOCK:
 		aee_rr_rec_fiq_step(AEE_FIQ_STEP_COMMON_DIE_LOCK);
 		/* release locks after stopping other cpus */
@@ -190,9 +208,9 @@ int mrdump_common_die(int reboot_reason, const char *msg,
 			/* Don't print anything */
 			break;
 		}
-	case AEE_FIQ_STEP_COMMON_DIE_REGS:
-		aee_rr_rec_fiq_step(AEE_FIQ_STEP_COMMON_DIE_REGS);
-		mrdump_mini_ke_cpu_regs(regs);
+	case AEE_FIQ_STEP_COMMON_DIE_EMISC:
+		aee_rr_rec_fiq_step(AEE_FIQ_STEP_COMMON_DIE_EMISC);
+		mrdump_mini_add_extra_misc();
 	case AEE_FIQ_STEP_COMMON_DIE_CS:
 		aee_rr_rec_fiq_step(AEE_FIQ_STEP_COMMON_DIE_CS);
 		console_unlock();
