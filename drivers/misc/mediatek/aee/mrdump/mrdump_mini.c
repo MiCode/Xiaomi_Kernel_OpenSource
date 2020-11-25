@@ -59,10 +59,10 @@ struct module_sect_attrs {
 
 struct ko_info {
 	char name[MAX_KO_NAME_LEN];
-	unsigned long text_addr;
-	unsigned long init_text_addr;
-	unsigned int core_size;
-	unsigned int init_size;
+	u64 text_addr;
+	u64 init_text_addr;
+	u32 core_size;
+	u32 init_size;
 };
 
 static struct ko_info *ko_info_list;
@@ -135,9 +135,12 @@ void load_ko_addr_list(struct module *module)
 	if (!ko_info_list)
 		return;
 
-	for (i = 0; i < MAX_KO_NUM; i++)
+	for (i = 0; i < MAX_KO_NUM; i++) {
 		if (!ko_info_list[i].text_addr)
 			break;
+		if (!strcmp(ko_info_list[i].name, module->name))
+			break;
+	}
 
 	if (i >= MAX_KO_NUM) {
 		pr_info("no spare room for new ko: %s", module->name);
@@ -633,10 +636,9 @@ static void mrdump_mini_add_tsk_ti(int cpu, struct pt_regs *regs,
 }
 
 static int mrdump_mini_cpu_regs(int cpu, struct pt_regs *regs,
-		struct task_struct *tsk, int main)
+		struct task_struct *tsk)
 {
 	char name[NOTE_NAME_SHORT];
-	int id;
 
 	if (!mrdump_mini_ehdr) {
 		pr_notice("mrdump: invalid ehdr");
@@ -650,13 +652,11 @@ static int mrdump_mini_cpu_regs(int cpu, struct pt_regs *regs,
 		pr_notice("mrdump: invalid regs");
 		return -1;
 	}
-	id = main ? 0 : cpu + 1;
-	if (strncmp(mrdump_mini_ehdr->prstatus[id].name, "NA", 2))
-		return -1;
-	snprintf(name, NOTE_NAME_SHORT - 1, main ? "ke%d" : "core%d", cpu);
-	fill_prstatus(&mrdump_mini_ehdr->prstatus[id].data, regs, tsk,
-			id ? id : (100 + cpu));
-	fill_note_S(&mrdump_mini_ehdr->prstatus[id].note, name, NT_PRSTATUS,
+
+	snprintf(name, NOTE_NAME_SHORT - 1, "core%d", cpu);
+	fill_prstatus(&mrdump_mini_ehdr->prstatus[0].data, regs, tsk,
+		      100 + cpu);
+	fill_note_S(&mrdump_mini_ehdr->prstatus[0].note, name, NT_PRSTATUS,
 		    sizeof(struct elf_prstatus));
 	return 0;
 }
@@ -941,33 +941,18 @@ static void mrdump_mini_add_loads(void)
 
 	if (!mrdump_mini_ehdr)
 		return;
-	for (id = 0; id < nr_cpu_ids + 1; id++) {
-		if (!strncmp(mrdump_mini_ehdr->prstatus[id].name, "NA", 2))
-			continue;
-		prstatus = &mrdump_mini_ehdr->prstatus[id].data;
-		tsk = (prstatus->pr_sigpend) ?
-			(struct task_struct *)prstatus->pr_sigpend : current;
-		memcpy(&regs, &prstatus->pr_reg, sizeof(prstatus->pr_reg));
-		if (prstatus->pr_pid >= 100) {
-			for (i = 0; i < ELF_NGREG; i++)
-				mrdump_mini_add_entry(
-						((unsigned long *)&regs)[i],
-						MRDUMP_MINI_SECTION_SIZE);
-			cpu = prstatus->pr_pid - 100;
-			mrdump_mini_add_tsk_ti(cpu, &regs, tsk, 1);
-		} else if (prstatus->pr_pid <= nr_cpu_ids) {
-			cpu = prstatus->pr_pid - 1;
-			mrdump_mini_add_tsk_ti(cpu, &regs, tsk, 0);
-			for (i = 0; i < ELF_NGREG; i++) {
-				mrdump_mini_add_entry(
-					((unsigned long *)&regs)[i],
-					MRDUMP_MINI_SECTION_SIZE);
-			}
-		} else {
-			pr_notice("mrdump: wrong pr_pid: %d\n",
-					prstatus->pr_pid);
-		}
-	}
+
+	prstatus = &mrdump_mini_ehdr->prstatus[0].data;
+	tsk = (prstatus->pr_sigpend) ?
+		(struct task_struct *)prstatus->pr_sigpend : current;
+	memcpy(&regs, &prstatus->pr_reg, sizeof(prstatus->pr_reg));
+
+	for (i = 0; i < ELF_NGREG; i++)
+		mrdump_mini_add_entry(
+				((unsigned long *)&regs)[i],
+				MRDUMP_MINI_SECTION_SIZE);
+	cpu = prstatus->pr_pid - 100;
+	mrdump_mini_add_tsk_ti(cpu, &regs, tsk, 1);
 
 }
 
@@ -1008,10 +993,9 @@ void mrdump_mini_ke_cpu_regs(struct pt_regs *regs)
 		crash_setup_regs(regs, NULL);
 	}
 	cpu = get_HW_cpuid();
-	mrdump_mini_cpu_regs(cpu, regs, current, 1);
+	mrdump_mini_cpu_regs(cpu, regs, current);
 	mrdump_mini_add_loads();
 	mrdump_mini_build_task_info(regs);
-	mrdump_mini_add_extra_misc();
 }
 
 static void *remap_lowmem(phys_addr_t start, phys_addr_t size)
