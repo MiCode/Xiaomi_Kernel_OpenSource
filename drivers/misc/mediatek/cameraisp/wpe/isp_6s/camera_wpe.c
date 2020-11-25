@@ -300,6 +300,9 @@ struct WPE_device {
 	struct device *dev;
 	int irq;
 	struct device *larb9;
+#ifdef WPE_GKI_IMG1_LARB_ON
+	struct device *larb11;
+#endif
 };
 
 static struct WPE_device *WPE_devs;
@@ -2807,11 +2810,20 @@ static inline void WPE_Prepare_Enable_ccf_clock(void)
 {
 	int ret;
 	/* enable through smi API */
-		pm_runtime_get_sync(WPE_devs->dev);
-		LOG_INF("larb9 %p", WPE_devs->larb9);
-		ret = mtk_smi_larb_get(WPE_devs->larb9);
-		if (ret)
-			LOG_ERR("mtk_smi_larb_get larb9 fail %d\n", ret);
+	pm_runtime_get_sync(WPE_devs->dev);
+	/* In 6873, 6853, larb9 here  is IMG2 larb11*/
+	LOG_INF("larb9 %p", WPE_devs->larb9);
+	ret = mtk_smi_larb_get(WPE_devs->larb9);
+	if (ret)
+		LOG_ERR("mtk_smi_larb_get larb9 fail %d\n", ret);
+
+#ifdef WPE_GKI_IMG1_LARB_ON
+	/* In 6873, 6853, larb11 here is IMG1 larb9*/
+	LOG_INF("larb11 %p", WPE_devs->larb11);
+	ret = mtk_smi_larb_get(WPE_devs->larb11);
+	if (ret)
+		LOG_ERR("mtk_smi_larb_get larb11 fail %d\n", ret);
+#endif
 
 	ret = clk_prepare_enable(wpe_clk.CG_IMGSYS_LARB9);
 	if (ret)
@@ -2852,9 +2864,15 @@ static inline void WPE_Disable_Unprepare_ccf_clock(void)
 	clk_disable_unprepare(wpe_clk.CG_IMGSYS1);
 #endif
 	clk_disable_unprepare(wpe_clk.CG_IMGSYS_WPE_A);
+	/* In 6873, 6853, larb9 here is IMG2 larb11*/
 	clk_disable_unprepare(wpe_clk.CG_IMGSYS_LARB9);
 
 	mtk_smi_larb_put(WPE_devs->larb9);
+
+#ifdef WPE_GKI_IMG1_LARB_ON
+	/* In 6873, 6853, larb11 here is IMG1 larb9*/
+	mtk_smi_larb_put(WPE_devs->larb11);
+#endif
 
 #if (MTK_WPE_COUNT == 2)
 	clk_disable_unprepare(wpe_clk.CG_IMGSYS_WPE_B);
@@ -5042,7 +5060,12 @@ static signed int WPE_probe(struct platform_device *pDev)
 	struct WPE_device *WPE_dev;
 	struct device_node *node_larb9;
 	struct platform_device *pdev_larb9;
+#ifdef WPE_GKI_IMG1_LARB_ON
+	struct device_node *node_larb11;
+	struct platform_device *pdev_larb11;
 #endif
+#endif
+
 
 	LOG_INF("- E. WPE driver probe.");
 
@@ -5090,6 +5113,22 @@ static signed int WPE_probe(struct platform_device *pDev)
 		}
 		of_node_put(node_larb9);
 		WPE_devs->larb9 = &pdev_larb9->dev;
+
+#ifdef WPE_GKI_IMG1_LARB_ON
+		/* parse larb node*/
+		/* In 6873, 6853, larb11 here  is IMG1 larb9*/
+		node_larb11 = of_parse_phandle(pDev->dev.of_node, "mediatek,larb", 1);
+		if (!node_larb11)
+			return -EINVAL;
+		pdev_larb11 = of_find_device_by_node(node_larb11);
+		if (WARN_ON(!pdev_larb11)) {
+			of_node_put(node_larb11);
+			return -EINVAL;
+		}
+		of_node_put(node_larb11);
+		WPE_devs->larb11 = &pdev_larb11->dev;
+		LOG_INF("of_node_put(node_larb11).");
+#endif
 	}
 
 #if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
