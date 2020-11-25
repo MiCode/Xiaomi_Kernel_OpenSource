@@ -11,35 +11,47 @@
 #define SENINF_TIMESTAMP_CLK 1000
 #define HW_BUF_EFFECT 80
 
-#define CSI_CLK_416MHZ
+#define CSI_CLK_356MHZ
 
 /* data lane hs settle, base on 208 MHz csi ck */
 #ifdef CSI_CLK_208MHZ
-#define SENINF_SETTLE_DELAY_DT 0x15
+#define SENINF_CPHY_SETTLE_DELAY_DT 0x15
+#define SENINF_DPHY_SETTLE_DELAY_DT 0x15
 #define SENINF_SETTLE_DELAY_CK 0x9
+#define SENINF_HS_TRAIL_PARAMETER 0x8
 #endif
 
 /* data lane hs settle, base on 312 MHz csi ck */
 #ifdef CSI_CLK_312MHZ
-#define SENINF_SETTLE_DELAY_DT 0x20
+#define SENINF_CPHY_SETTLE_DELAY_DT 0x20
+#define SENINF_DPHY_SETTLE_DELAY_DT 0x20
 #define SENINF_SETTLE_DELAY_CK 0xD
+#define SENINF_HS_TRAIL_PARAMETER 0xa
+#endif
+
+/* data lane hs settle, base on 356 MHz csi ck */
+#ifdef CSI_CLK_356MHZ
+#define SENINF_CPHY_SETTLE_DELAY_DT 0x1c
+#define SENINF_DPHY_SETTLE_DELAY_DT 0x27
+#define SENINF_SETTLE_DELAY_CK 0x13
+#define SENINF_HS_TRAIL_PARAMETER 0x25
 #endif
 
 /* clock lane hs settle, base on 393 MHz csi ck */
 #ifdef CSI_CLK_393MHZ
-#define SENINF_SETTLE_DELAY_DT 0x28
+#define SENINF_CPHY_SETTLE_DELAY_DT 0x28
+#define SENINF_DPHY_SETTLE_DELAY_DT 0x28
 #define SENINF_SETTLE_DELAY_CK 0x10
+#define SENINF_HS_TRAIL_PARAMETER 0x30
 #endif
 
 /* clock lane hs settle, base on 416 MHz csi ck */
 #ifdef CSI_CLK_416MHZ
-#define SENINF_SETTLE_DELAY_DT 0x27
+#define SENINF_CPHY_SETTLE_DELAY_DT 0x27
+#define SENINF_DPHY_SETTLE_DELAY_DT 0x27
 #define SENINF_SETTLE_DELAY_CK 0x13
-#endif
-
-//#define SENINF_HS_TRAIL_PARAMETER 0x8 //SENINF_CLK_208M
-//#define SENINF_HS_TRAIL_PARAMETER 0xa //SENINF_CLK_312M
 #define SENINF_HS_TRAIL_PARAMETER 0x30
+#endif
 
 /* under 800Mbps, trail should be enable */
 #define SENINF_HS_TRAIL_EN_CONDITION 800000000

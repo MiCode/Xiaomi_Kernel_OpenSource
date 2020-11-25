@@ -188,6 +188,22 @@ static int seninf_core_probe(struct platform_device *pdev)
 	if (IS_ERR(core->reg_ana))
 		return PTR_ERR(core->reg_ana);
 
+	/* default platform properties */
+	core->cphy_settle_delay_dt = SENINF_CPHY_SETTLE_DELAY_DT;
+	core->dphy_settle_delay_dt = SENINF_DPHY_SETTLE_DELAY_DT;
+	core->settle_delay_ck = SENINF_SETTLE_DELAY_CK;
+	core->hs_trail_parameter = SENINF_HS_TRAIL_PARAMETER;
+
+	/* read platform properties from device tree */
+	of_property_read_u32(dev->of_node, "cphy_settle_delay_dt",
+		&core->cphy_settle_delay_dt);
+	of_property_read_u32(dev->of_node, "dphy_settle_delay_dt",
+		&core->dphy_settle_delay_dt);
+	of_property_read_u32(dev->of_node, "settle_delay_ck",
+		&core->settle_delay_ck);
+	of_property_read_u32(dev->of_node, "hs_trail_parameter",
+		&core->hs_trail_parameter);
+
 	for (i = 0; i < CLK_MAXCNT; i++) {
 		core->clk[i] = devm_clk_get(dev, clk_names[i]);
 		if (IS_ERR(core->clk[i])) {
@@ -198,7 +214,7 @@ static int seninf_core_probe(struct platform_device *pdev)
 
 	ret = of_platform_populate(dev->of_node, NULL, NULL, dev);
 	if (ret) {
-		dev_err(dev, "%s: failed to createt sub devices\n", __func__);
+		dev_err(dev, "%s: failed to create sub devices\n", __func__);
 		return ret;
 	}
 

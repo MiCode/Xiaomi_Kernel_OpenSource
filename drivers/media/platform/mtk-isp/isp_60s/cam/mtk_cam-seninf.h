@@ -66,6 +66,12 @@ struct seninf_core {
 	void __iomem *reg_if;
 	void __iomem *reg_ana;
 	int refcnt;
+
+	/* platform properties */
+	int cphy_settle_delay_dt;
+	int dphy_settle_delay_dt;
+	int settle_delay_ck;
+	int hs_trail_parameter;
 };
 
 struct seninf_ctx {
