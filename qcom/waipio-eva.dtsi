@@ -66,7 +66,7 @@
 			compatible = "qcom,msm-cvp,context-bank";
 			label = "cvp_hlos";
 			iommus =
-				<&apps_smmu 0x2120 0x400>;
+				<&apps_smmu 0x21a0 0x400>;
 			buffer-types = <0xfff>;
 			dma-coherent;
 			qcom,iommu-dma-addr-pool = <0x4b000000 0x90000000>;
@@ -77,7 +77,7 @@
 			compatible = "qcom,msm-cvp,context-bank";
 			label = "cvp_sec_nonpixel";
 			iommus =
-				<&apps_smmu 0x2124 0x400>;
+				<&apps_smmu 0x21a4 0x400>;
 			buffer-types = <0x741>;
 			qcom,iommu-dma-addr-pool = <0x01000000 0x25800000>;
 			qcom,iommu-vmid = <0xB>;
@@ -87,7 +87,7 @@
 			compatible = "qcom,msm-cvp,context-bank";
 			label = "cvp_sec_pixel";
 			iommus =
-				<&apps_smmu 0x2123 0x400>;
+				<&apps_smmu 0x21a3 0x400>;
 			buffer-types = <0x106>;
 			qcom,iommu-dma-addr-pool = <0x26800000 0x24800000>;
 			qcom,iommu-vmid = <0xA>;
