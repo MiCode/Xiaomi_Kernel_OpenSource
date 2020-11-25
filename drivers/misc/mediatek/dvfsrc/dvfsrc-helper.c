@@ -132,6 +132,12 @@ static int dvfsrc_query_sw_req_vcore_opp(struct mtk_dvfsrc *dvfsrc, int vcore_op
 
 }
 
+int get_sw_req_vcore_opp(void)
+{
+	return mtk_dvfsrc_query_opp_info(MTK_DVFSRC_SW_REQ_VCORE_OPP);
+}
+EXPORT_SYMBOL(get_sw_req_vcore_opp);
+
 static int dvfsrc_query_info(u32 id)
 {
 	struct mtk_dvfsrc *dvfsrc = dvfsrc_drv;
