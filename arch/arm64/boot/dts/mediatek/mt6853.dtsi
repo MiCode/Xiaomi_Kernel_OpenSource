@@ -1272,20 +1272,20 @@
 		};
 
 		dvfsrc: dvfsrc@10012000 {
-			compatible = "mediatek,mt6873-dvfsrc";
+			compatible = "mediatek,mt6853-dvfsrc";
 			reg = <0 0x10012000 0 0x1000>;
 			reg-names = "dvfsrc";
 			#interconnect-cells = <1>;
 
 			dvfsrc_vcore: dvfsrc-vcore {
 				regulator-name = "dvfsrc-vcore";
-				regulator-min-microvolt = <575000>;
+				regulator-min-microvolt = <550000>;
 				regulator-max-microvolt = <725000>;
 				regulator-always-on;
 			};
 			dvfsrc_vscp: dvfsrc-vscp {
 				regulator-name = "dvfsrc-vscp";
-				regulator-min-microvolt = <575000>;
+				regulator-min-microvolt = <550000>;
 				regulator-max-microvolt = <725000>;
 				regulator-always-on;
 			};
@@ -1314,7 +1314,7 @@
 
 			dvfsrc-helper {
 				compatible = "mediatek,dvfsrc-helper";
-				vcore-supply = <&mt6359p_vgpu11_reg>;
+				vcore-supply = <&mt6359p_vcore_reg>;
 				rc-vcore-supply = <&dvfsrc_vcore>;
 				rc-vscp-supply = <&dvfsrc_vscp>;
 				interconnects = <&dvfsrc MT6873_MASTER_DBGIF &dvfsrc MT6873_SLAVE_DDR_EMI>,
