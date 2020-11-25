@@ -38,6 +38,9 @@ ifeq ($(CONFIG_MTK_CAMERA_ISP_VER),"isp6s")
   obj-$(CONFIG_MTK_CAMERA_ISP_WPE_SUPPORT) += isp_6s/
   MTK_WPE_COUNT := 1
   subdir-ccflags-y += -DWPE_B_ONLY
+  ifeq ($(CONFIG_MTK_CAMERA_ISP_PLATFORM),"mt6853")
+    subdir-ccflags-y += -DWPE_GKI_IMG1_LARB_ON
+  endif
 endif
 
 ifeq ($(CONFIG_MACH_MT6873),y)
