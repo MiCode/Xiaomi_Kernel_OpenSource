@@ -6,6 +6,7 @@
 #include <linux/idr.h>
 #include <linux/slab.h>
 #include "esoc.h"
+#include "qcom_common.h"
 
 static DEFINE_IDA(esoc_ida);
 
@@ -168,6 +169,7 @@ int esoc_clink_register_rproc(struct esoc_clink *esoc_clink)
 	int ret;
 	int len;
 	char *rproc_name;
+	struct qcom_sysmon *sysmon;
 
 	len = strlen("esoc") + sizeof(esoc_clink->id);
 	rproc_name = kzalloc(len, GFP_KERNEL);
@@ -186,6 +188,14 @@ int esoc_clink_register_rproc(struct esoc_clink *esoc_clink)
 
 	esoc_clink->rproc->recovery_disabled = true;
 	esoc_clink->rproc->auto_boot = false;
+	sysmon = qcom_add_sysmon_subdev(esoc_clink->rproc, esoc_clink->sysmon_name,
+					esoc_clink->ssctl_id);
+	if (IS_ERR(sysmon)) {
+		dev_err(&esoc_clink->dev, "Failed to register sysmon\n");
+		ret = PTR_ERR(sysmon);
+		goto rproc_err;
+	}
+
 	ret = rproc_add(esoc_clink->rproc);
 	if (ret) {
 		dev_err(&esoc_clink->dev, "unable to add remoteproc\n");

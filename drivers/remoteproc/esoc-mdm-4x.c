@@ -828,6 +828,11 @@ static int mdm9x55_setup_hw(struct mdm_ctrl *mdm,
 	if (ret)
 		mdm->shutdown_timeout_ms = DEF_SHUTDOWN_TIMEOUT;
 
+	ret = of_property_read_u32(node, "qcom,ssctl-instance-id", &esoc->ssctl_id);
+	if (ret)
+		dev_info(mdm->dev, "esoc ssctl id missing\n");
+
+	esoc->sysmon_name = MDM9x55_LABEL;
 	esoc->clink_ops = clink_ops;
 	esoc->parent = mdm->dev;
 	esoc->owner = THIS_MODULE;
@@ -933,6 +938,12 @@ static int sdx50m_setup_hw(struct mdm_ctrl *mdm,
 	mdm->skip_restart_for_mdm_crash = of_property_read_bool(node,
 				"qcom,esoc-skip-restart-for-mdm-crash");
 
+	ret = of_property_read_u32(node, "qcom,ssctl-instance-id", &esoc->ssctl_id);
+	if (ret)
+		dev_info(mdm->dev, "esoc ssctl id missing\n");
+
+	esoc->sysmon_name = SDX50M_LABEL;
+
 	esoc->clink_ops = clink_ops;
 	esoc->parent = mdm->dev;
 	esoc->owner = THIS_MODULE;
@@ -1030,6 +1041,11 @@ static int sdx55m_setup_hw(struct mdm_ctrl *mdm, const struct mdm_ops *ops,
 	mdm->skip_restart_for_mdm_crash = of_property_read_bool(node,
 				"qcom,esoc-skip-restart-for-mdm-crash");
 
+	ret = of_property_read_u32(node, "qcom,ssctl-instance-id", &esoc->ssctl_id);
+	if (ret)
+		dev_info(mdm->dev, "esoc ssctl id missing\n");
+
+	esoc->sysmon_name = SDX55M_LABEL;
 	esoc->clink_ops = clink_ops;
 	esoc->parent = mdm->dev;
 	esoc->owner = THIS_MODULE;

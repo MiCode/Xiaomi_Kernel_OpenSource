@@ -66,6 +66,8 @@ struct esoc_eng {
  * @statusline_not_a_powersource: True if status line to esoc is not a
  *				power source.
  * @userspace_handle_shutdown: True if user space handles shutdown requests.
+ * @ssctl_id: SSCTL id for a subsystem.
+ * @sysmon_name: Sysmon name for external soc
  */
 struct esoc_clink {
 	const char *name;
@@ -90,6 +92,8 @@ struct esoc_clink {
 	bool statusline_not_a_powersource;
 	bool userspace_handle_shutdown;
 	struct esoc_client_hook *client_hook[ESOC_MAX_HOOKS];
+	int ssctl_id;
+	char *sysmon_name;
 };
 
 /**
