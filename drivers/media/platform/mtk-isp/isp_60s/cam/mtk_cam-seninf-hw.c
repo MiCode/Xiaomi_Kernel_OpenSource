@@ -981,31 +981,34 @@ static int csirx_phyA_init(struct seninf_ctx *ctx)
 static int csirx_dphy_init(struct seninf_ctx *ctx)
 {
 	void *base = ctx->reg_ana_dphy_top[ctx->port];
-	int settle_delay_data, hs_trail, hs_trail_en, bit_per_pixel;
+	int settle_delay_dt, settle_delay_ck, hs_trail, hs_trail_en;
+	int bit_per_pixel;
 	u64 data_rate;
 
-	/* TODO */
-	settle_delay_data = SENINF_SETTLE_DELAY_DT;
+	settle_delay_dt = ctx->is_cphy ? ctx->core->cphy_settle_delay_dt :
+		ctx->core->dphy_settle_delay_dt;
 
 	SENINF_BITS(base, DPHY_RX_DATA_LANE0_HS_PARAMETER,
 		    RG_CDPHY_RX_LD0_TRIO0_HS_SETTLE_PARAMETER,
-		    settle_delay_data);
+		    settle_delay_dt);
 	SENINF_BITS(base, DPHY_RX_DATA_LANE1_HS_PARAMETER,
 		    RG_CDPHY_RX_LD1_TRIO1_HS_SETTLE_PARAMETER,
-		    settle_delay_data);
+		    settle_delay_dt);
 	SENINF_BITS(base, DPHY_RX_DATA_LANE2_HS_PARAMETER,
 		    RG_CDPHY_RX_LD2_TRIO2_HS_SETTLE_PARAMETER,
-		    settle_delay_data);
+		    settle_delay_dt);
 	SENINF_BITS(base, DPHY_RX_DATA_LANE3_HS_PARAMETER,
 		    RG_CDPHY_RX_LD3_TRIO3_HS_SETTLE_PARAMETER,
-		    settle_delay_data);
+		    settle_delay_dt);
+
+	settle_delay_ck = ctx->core->settle_delay_ck;
 
 	SENINF_BITS(base, DPHY_RX_CLOCK_LANE0_HS_PARAMETER,
 		    RG_DPHY_RX_LC0_HS_SETTLE_PARAMETER,
-		    SENINF_SETTLE_DELAY_CK);
+		    settle_delay_ck);
 	SENINF_BITS(base, DPHY_RX_CLOCK_LANE1_HS_PARAMETER,
 		    RG_DPHY_RX_LC1_HS_SETTLE_PARAMETER,
-		    SENINF_SETTLE_DELAY_CK);
+		    settle_delay_ck);
 
 	/*Settle delay by lane*/
 	SENINF_BITS(base, DPHY_RX_DATA_LANE0_HS_PARAMETER,
@@ -1017,8 +1020,7 @@ static int csirx_dphy_init(struct seninf_ctx *ctx)
 	SENINF_BITS(base, DPHY_RX_DATA_LANE3_HS_PARAMETER,
 		    RG_CDPHY_RX_LD3_TRIO3_HS_PREPARE_PARAMETER, 2);
 
-	/* TODO */
-	hs_trail = SENINF_HS_TRAIL_PARAMETER;
+	hs_trail = ctx->core->hs_trail_parameter;
 
 	SENINF_BITS(base, DPHY_RX_DATA_LANE0_HS_PARAMETER,
 		    RG_DPHY_RX_LD0_HS_TRAIL_PARAMETER, hs_trail);
@@ -1712,9 +1714,9 @@ ssize_t mtk_cam_seninf_show_status(struct device *dev,
 		     SENINF_READ_REG(csi2, SENINF_CSI2_IRQ_STATUS));
 		SHOW(buf, len, "csi2 line_frame_num 0x%08x\n",
 		     SENINF_READ_REG(csi2, SENINF_CSI2_LINE_FRAME_NUM));
-		SHOW(buf, len, "csi2 packete_status 0x%08x\n",
+		SHOW(buf, len, "csi2 packet_status 0x%08x\n",
 		     SENINF_READ_REG(csi2, SENINF_CSI2_PACKET_STATUS));
-		SHOW(buf, len, "csi2 packete_cnt_status 0x%08x\n",
+		SHOW(buf, len, "csi2 packet_cnt_status 0x%08x\n",
 		     SENINF_READ_REG(csi2, SENINF_CSI2_PACKET_CNT_STATUS));
 
 		for (i = 0; i < ctx->vcinfo.cnt; i++) {
