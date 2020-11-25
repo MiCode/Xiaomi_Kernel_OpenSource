@@ -135,7 +135,7 @@ static const char *PMIC_NAME[PMIC_NUM] = {
 	[PMIC_6359P] = "mediatek,mt6359p",
 };
 
-static const char * const pmic_cfg_prop[] = {
+static const char * const pmic_cfg_prop[REG_NUM] = {
 	[AUXOUT_XO1] = "pmic-auxout-xo",
 	[AUXOUT_DRV_CURR1] = "pmic-auxout-drvcurr",
 	[AUXOUT_BBLPM_EN] = "pmic-auxout-bblpm-en",
