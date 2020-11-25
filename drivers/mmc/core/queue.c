@@ -103,6 +103,9 @@ static enum blk_eh_timer_return mmc_cqe_timed_out(struct request *req)
 	enum mmc_issue_type issue_type = mmc_issue_type(mq, req);
 	bool recovery_needed = false;
 
+#if defined(CONFIG_SDC_QTI)
+	host->err_stats[MMC_ERR_CMDQ_REQ_TIMEOUT]++;
+#endif
 	mmc_log_string(host,
 		"Request timed out! Active reqs: %d Req: %p Tag: %d\n",
 		mmc_cqe_qcnt(mq), req, req->tag);
