@@ -337,7 +337,6 @@
 #define DWC3_GUSB3PIPECTL_TX_DEEPH_MASK	DWC3_GUSB3PIPECTL_TX_DEEPH(3)
 #define DWC3_GUSB3PIPECTL_TX_DEEPH(n)	((n) << 1)
 #define DWC3_GUSB3PIPECTL_DELAYP1TRANS  BIT(18)
-#define DWC3_GUSB3PIPECTL_ELASTIC_BUF_MODE  (1 << 0)
 
 /* Global TX Fifo Size Register */
 #define DWC31_GTXFIFOSIZ_TXFRAMNUM	BIT(15)		/* DWC_usb31 only */
@@ -1366,7 +1365,6 @@ struct dwc3 {
 	struct dwc3_gadget_events	dbg_gadget_events;
 	int			tx_fifo_size;
 	int			last_fifo_depth;
-	bool			nominal_elastic_buffer;
 
 	/* IRQ timing statistics */
 	int			irq;
