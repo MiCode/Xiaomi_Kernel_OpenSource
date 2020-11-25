@@ -3905,10 +3905,22 @@
 				 <&iommu0 M4U_PORT_L7_JPGENC_Q_RDMA>,
 				 <&iommu0 M4U_PORT_L7_JPGENC_C_TABLE>,
 				 <&iommu0 M4U_PORT_L7_JPGENC_BSDMA>;
-			port-id = <M4U_PORT_L7_JPGENC_Y_RDMA>,
-				  <M4U_PORT_L7_JPGENC_Q_RDMA>,
-				  <M4U_PORT_L7_JPGENC_C_TABLE>,
-				  <M4U_PORT_L7_JPGENC_BSDMA>;
+			interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L7_JPGENC_Y_RDMA)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L7_JPGENC_Q_RDMA)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L7_JPGENC_C_TABLE)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L7_JPGENC_BSDMA)
+				&mmqos SLAVE_COMMON(0)>;
+
+			interconnect-names = "path_jpegenc_y_rdma",
+				"path_jpegenc_c_rmda",
+				"path_jpegenc_q_table",
+				"path_jpegenc_bsdma";
+			operating-points-v2 = <&opp_table_venc>;
+			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 		};
 
 		btcvsd_snd: mtk-btcvsd-snd@18050000 {
