@@ -55,6 +55,10 @@ enum dbg_ctrl_enum {
 	DBG_CTRL_MAX,
 };
 
+/* Determine for operand bit */
+#define MTK_DUMP_LP_GOLDEN	(1 << 0L)
+#define MTK_DUMP_GPIO		(1 << 1L)
+
 #define PCM_32K_TICKS_PER_SEC		(32768)
 #define PCM_TICK_TO_SEC(TICK)	(TICK / PCM_32K_TICKS_PER_SEC)
 
@@ -72,4 +76,8 @@ extern u64 ap_slp_duration;
 int lpm_dbg_common_fs_init(void);
 void lpm_dbg_common_fs_exit(void);
 
-#endif /* __LPM_DBG_COMMON_V1_H__ */
+int spm_common_dbg_dump(void);
+int lpm_dbg_pm_init(void);
+void lpm_dbg_pm_exit(void);
+
+#endif /* __MTK_DBG_COMMON_H__ */

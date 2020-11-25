@@ -14,6 +14,22 @@ config MTK_LPM_DBG_COMMON
 	  feature will support basic debug control and show the
 	  information to console.
 
+
+config MTK_LPM_GS_DUMP_SUPPORT
+	bool "Meditaek Low Power golden setting checker"
+	help
+	  Select MTK_LPM_GS_DUMP_SUPPORT then Mediatek low module
+	  golden setting dump mechanism enable.
+	  Select "y" if you want to enable gs dump features.
+	  Select "n" if unsure.
+
+config MTK_LPM_GS_DUMP_VERSION
+	string "Meditaek Low Power golden setting checker version"
+	default "v1"
+	help
+	  Set MTK_LPM_GS_DUMP_VERSION for Mediatek low module
+	  golden setting dump mechanism version.
+
 config MTK_LPM_MODULE_NAME
 	string "Set mtk-lpm module output name"
 	default "generic" if MTK_PLATFORM = ""
