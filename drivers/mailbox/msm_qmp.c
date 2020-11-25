@@ -680,19 +680,6 @@ static struct mbox_chan *qmp_mbox_of_xlate(struct mbox_controller *mbox,
 	return chan;
 }
 
-static int qmp_mbox_remove(struct platform_device *pdev)
-{
-	struct qmp_device *mdev = platform_get_drvdata(pdev);
-	struct qmp_mbox *mbox = NULL;
-
-	disable_irq(mdev->rx_irq_line);
-
-	list_for_each_entry(mbox, &mdev->mboxes, list) {
-		mbox_controller_unregister(&mbox->ctrl);
-	}
-	return 0;
-}
-
 /**
  * get_mbox_num_chans() - Find how many mbox channels need to be allocated
  *
@@ -750,11 +737,6 @@ static struct mbox_chan_ops qmp_mbox_ops = {
 	.shutdown = qmp_shutdown,
 	.send_data = qmp_send_data,
 	.last_tx_done = qmp_last_tx_done,
-};
-
-static const struct of_device_id qmp_mbox_match_table[] = {
-	{ .compatible = "qcom,qmp-mbox" },
-	{},
 };
 
 /**
@@ -924,6 +906,19 @@ static int qmp_edge_init(struct platform_device *pdev)
 	return 0;
 }
 
+static int qmp_mbox_remove(struct platform_device *pdev)
+{
+	struct qmp_device *mdev = platform_get_drvdata(pdev);
+	struct qmp_mbox *mbox = NULL;
+
+	disable_irq(mdev->rx_irq_line);
+
+	list_for_each_entry(mbox, &mdev->mboxes, list) {
+		mbox_controller_unregister(&mbox->ctrl);
+	}
+	return 0;
+}
+
 static int qmp_mbox_probe(struct platform_device *pdev)
 {
 	struct device_node *edge_node = pdev->dev.of_node;
@@ -948,7 +943,7 @@ static int qmp_mbox_probe(struct platform_device *pdev)
 
 	ret = devm_request_threaded_irq(&pdev->dev, mdev->rx_irq_line,
 					qmp_irq_handler, qmp_thread_irq_handler,
-					IRQF_TRIGGER_RISING | IRQF_NO_SUSPEND,
+					IRQF_TRIGGER_RISING,
 					edge_node->name, (void *)mdev);
 	if (ret < 0) {
 		qmp_mbox_remove(pdev);
@@ -971,25 +966,20 @@ static int qmp_mbox_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static struct platform_driver qmp_mbox_driver = {
-	.probe = qmp_mbox_probe,
-	.remove = qmp_mbox_remove,
-	.driver = {
-		.name = "qmp_mbox",
-		.of_match_table = qmp_mbox_match_table,
-	},
+static const struct of_device_id qmp_mbox_dt_match[] = {
+	{ .compatible = "qcom,qmp-mbox" },
+	{},
 };
 
-static int __init qmp_init(void)
-{
-	int rc = 0;
-
-	rc = platform_driver_register(&qmp_mbox_driver);
-	if (rc)
-		pr_err("%s: qmp_mbox_driver reg failed %d\n", __func__, rc);
-	return rc;
-}
-arch_initcall(qmp_init);
+static struct platform_driver qmp_mbox_driver = {
+	.driver = {
+		.name = "qmp_mbox",
+		.of_match_table = qmp_mbox_dt_match,
+	},
+	.probe = qmp_mbox_probe,
+	.remove = qmp_mbox_remove,
+};
+module_platform_driver(qmp_mbox_driver);
 
 MODULE_DESCRIPTION("MSM QTI Mailbox Protocol");
 MODULE_LICENSE("GPL v2");
