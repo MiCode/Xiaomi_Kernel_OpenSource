@@ -18,6 +18,12 @@
 #include <mtk_spm_sysfs.h>
 
 #define LPM_DGB_SUSP_NODE	"/proc/mtk_lpm/suspend/suspend_state"
+#include <linux/suspend.h>
+#include <lpm_call.h>
+#include <lpm_call_type.h>
+/* FIXME */
+#include <gs/v1/lpm_power_gs.h>
+
 
 #undef lpm_dbg_log
 #define lpm_dbg_log(fmt, args...) \
@@ -29,6 +35,26 @@
 
 
 static struct wakeup_source *mtk_suspend_lock;
+static unsigned int mtk_suspend_debug_flag;
+static unsigned int power_golden_dump_type = GS_ALL;
+
+unsigned int mtk_idle_golden_dump_type;
+
+/* debugfs for debug in syscore callback */
+static int spm_power_gs_dump(void)
+{
+#if IS_ENABLED(CONFIG_MTK_LPM_GS_DUMP_SUPPORT)
+	if (mtk_suspend_debug_flag & MTK_DUMP_LP_GOLDEN) {
+		struct lpm_callee_simple *callee = NULL;
+		struct lpm_data val;
+
+		val.d.v_u32 = power_golden_dump_type;
+		if (!lpm_callee_get(LPM_CALLEE_PWR_GS, &callee))
+			callee->set(LPM_PWR_GS_TYPE_SUSPEND, &val);
+	}
+#endif
+	return 0;
+}
 
 static ssize_t suspend_state_read(char *ToUser, size_t sz, void *priv)
 {
@@ -42,6 +68,8 @@ static ssize_t suspend_state_read(char *ToUser, size_t sz, void *priv)
 	lpm_dbg_log("echo kernel_suspend 0/1 > %s\n", LPM_DGB_SUSP_NODE);
 	lpm_dbg_log("mtk_suspend disable/enable:\n");
 	lpm_dbg_log("echo mtk_suspend 0/1 > %s\n", LPM_DGB_SUSP_NODE);
+	lpm_dbg_log("golden type setting PMIC[0], CG[1], DCM[2]:\n");
+	lpm_dbg_log("echo golden_type 0x1/3/7 > %s\n", LPM_DGB_SUSP_NODE);
 
 	return p - ToUser;
 }
@@ -65,6 +93,13 @@ static ssize_t suspend_state_write(char *FromUser,
 				__pm_relax(mtk_suspend_lock);
 		} else if (!strcmp(cmd, "mtk_suspend")) {
 			/* add debug if necessary*/
+		} else if (!strcmp(cmd, "golden_dump")) {
+			if (param)
+				mtk_suspend_debug_flag |= MTK_DUMP_LP_GOLDEN;
+			else
+				mtk_suspend_debug_flag &= ~(MTK_DUMP_LP_GOLDEN);
+		} else if (!strcmp(cmd, "golden_type")) {
+			power_golden_dump_type = (param & 0xf);
 		}
 
 		return sz;
@@ -184,6 +219,16 @@ static void spm_dbg_fs_init(void)
 }
 
 static bool lpm_system_console_suspend;
+
+int spm_common_dbg_dump(void)
+{
+	int ret = 0;
+
+	ret = spm_power_gs_dump();
+
+	return ret;
+}
+
 
 void __exit lpm_dbg_common_fs_exit(void)
 {
