@@ -98,12 +98,17 @@ static struct cam_mem_device cam_mem_dev;
 /* prevent cam_mem race condition in vulunerbility test */
 static struct mutex open_cam_mem_mutex;
 
-static struct mutex cam_mem_ion_mutex;
+#define HASH_BUCKET_NUM (512)
 
-static struct ION_BUFFER_LIST g_ion_buf_list;
+static struct mutex cam_mem_ion_mutex[HASH_BUCKET_NUM];
+
+static struct ION_BUFFER_LIST g_ion_buf_list[HASH_BUCKET_NUM];
 
 static unsigned int G_u4EnableLarbCount;
 static atomic_t G_u4DevNodeCt;
+
+
+#define WARNING_STR_SIZE (1024)
 
 /*******************************************************************************
  *
@@ -181,7 +186,7 @@ static int cam_mem_open(struct inode *pInode, struct file *pFile)
 	pFile->private_data =
 		kmalloc(sizeof(struct CAM_MEM_USER_INFO_STRUCT), GFP_ATOMIC);
 
-	if (pFile->private_data == NULL) {
+	if (unlikely(pFile->private_data == NULL)) {
 		LOG_DBG(
 			"ERROR: kmalloc failed, (process, pid, tgid)=(%s, %d, %d)\n",
 			current->comm, current->pid, current->tgid);
@@ -212,7 +217,7 @@ static int cam_mem_open(struct inode *pInode, struct file *pFile)
 			current->comm, current->pid, current->tgid);
 	}
 
-	if (Ret == 0)
+	if (likely(Ret == 0))
 		CamMem_EnableLarb(true);
 
 	LOG_DBG("-: Ret: %d. UserCount: %d\n", Ret, CamMemInfo.UserCount);
@@ -227,7 +232,7 @@ static int cam_mem_open(struct inode *pInode, struct file *pFile)
  ******************************************************************************/
 static void cam_mem_mmu_put_dma_buffer(struct ION_BUFFER *mmu)
 {
-	if (mmu->dmaBuf) {
+	if (likely(mmu->dmaBuf)) {
 		dma_buf_unmap_attachment(mmu->attach, mmu->sgt,
 			DMA_BIDIRECTIONAL);
 		dma_buf_detach(mmu->dmaBuf, mmu->attach);
@@ -242,16 +247,12 @@ static void cam_mem_mmu_put_dma_buffer(struct ION_BUFFER *mmu)
 static int cam_mem_release(struct inode *pInode, struct file *pFile)
 {
 	unsigned int i = 0;
-#ifdef CLEAR_ALL_ION_BUF_LIST
-	struct ION_BUFFER_LIST *tmp; /* for delete the mapped node */
-	struct list_head *pos, *q;
-	struct ION_BUFFER pIonBuf = {NULL, NULL, NULL, 0};
-#endif
+
 	mutex_lock(&open_cam_mem_mutex);
 
 	LOG_DBG("+. UserCount: %d.\n", CamMemInfo.UserCount);
 
-	if (pFile->private_data != NULL) {
+	if (likely(pFile->private_data != NULL)) {
 		kfree(pFile->private_data);
 		pFile->private_data = NULL;
 	}
@@ -267,31 +268,8 @@ static int cam_mem_release(struct inode *pInode, struct file *pFile)
 			current->tgid);
 
 		goto EXIT;
-	} else {
+	} else
 		spin_unlock(&(CamMemInfo.SpinLock_CamMemRef));
-#ifdef CLEAR_ALL_ION_BUF_LIST
-		/* Clear ion buf list */
-		mutex_lock(&cam_mem_ion_mutex);
-		list_for_each_safe(pos, q, &g_ion_buf_list.list) {
-			tmp = list_entry(pos, struct ION_BUFFER_LIST, list);
-
-			LOG_NOTICE("Del: memID(%d): pa=(0x%lx); refCnt(%d); (%s)\n",
-				tmp->memID, tmp->dmaAddr,  tmp->refCnt,
-				tmp->username);
-
-			pIonBuf.dmaBuf = tmp->dmaBuf;
-			pIonBuf.attach = tmp->attach;
-			pIonBuf.sgt = tmp->sgt;
-
-			cam_mem_mmu_put_dma_buffer(&pIonBuf);
-
-			/* delete a mapped node in the list. */
-			list_del(pos);
-			kfree(tmp);
-		}
-		mutex_unlock(&cam_mem_ion_mutex);
-#endif
-	}
 
 	spin_lock(&(CamMemInfo.SpinLock_Larb));
 	i = G_u4EnableLarbCount;
@@ -313,7 +291,8 @@ EXIT:
 /*******************************************************************************
  *
  ******************************************************************************/
-static void dumpIonBufferList(unsigned int entry_num, bool TurnOn)
+static void dumpIonBufferList(struct ION_BUFFER_LIST *ion_buf_list,
+		unsigned int entry_num, bool TurnOn)
 {
 	struct ION_BUFFER_LIST *entry;
 	struct list_head *pos;
@@ -323,16 +302,16 @@ static void dumpIonBufferList(unsigned int entry_num, bool TurnOn)
 	if (TurnOn == false)
 		return;
 
-	if (list_empty(&g_ion_buf_list.list))
+	if (list_empty(&ion_buf_list->list))
 		return;
 
-	list_for_each(pos, &g_ion_buf_list.list) {
+	list_for_each(pos, &ion_buf_list->list) {
 		list_length++;
 	}
 
 	LOG_NOTICE("## ion buf list length(%d); show %d newer entry ##\n",
 		list_length, entry_num);
-	list_for_each(pos, &g_ion_buf_list.list) {
+	list_for_each(pos, &ion_buf_list->list) {
 		if (i < entry_num) {
 			entry = list_entry(pos, struct ION_BUFFER_LIST, list);
 			LOG_NOTICE("#%3d: dump: memID(%3d); pa(0x%lx); refCnt(%d) user(%s)\n", i,
@@ -352,7 +331,7 @@ static bool cam_mem_mmu_get_dma_buffer(struct ION_BUFFER *mmu, int va)
 {
 	struct dma_buf *buf;
 
-	if (va == -1) {
+	if (unlikely(va == -1)) {
 		LOG_NOTICE("invalid ion fd!\n");
 		return false;
 	}
@@ -390,7 +369,7 @@ static long cam_mem_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Pa
 	struct CAM_MEM_DEV_ION_NODE_STRUCT IonNode;
 
 
-	if (pFile->private_data == NULL) {
+	if (unlikely(pFile->private_data == NULL)) {
 		LOG_NOTICE(
 			"private_data is NULL,(process, pid, tgid)=(%s, %d, %d)\n",
 			current->comm, current->pid, current->tgid);
@@ -403,8 +382,8 @@ static long cam_mem_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Pa
 	switch (Cmd) {
 
 	case CAM_MEM_ION_MAP_PA:
-		if (copy_from_user(&IonNode, (void *)Param,
-			sizeof(struct CAM_MEM_DEV_ION_NODE_STRUCT)) == 0) {
+		if (likely(copy_from_user(&IonNode, (void *)Param,
+			sizeof(struct CAM_MEM_DEV_ION_NODE_STRUCT)) == 0)) {
 			dma_addr_t dmaPa;
 			struct list_head *pos;
 			/* tmp ION_BUFFER_LIST node to add into the list. */
@@ -413,8 +392,11 @@ static long cam_mem_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Pa
 			struct ION_BUFFER mmu = {NULL, NULL, NULL, 0};
 			bool bMapped = false;
 			unsigned int refCnt = 0;
+			char warningStr[WARNING_STR_SIZE];
+			int c_num = 0, size_remain = WARNING_STR_SIZE;
+			int bucketID = 0;
 
-			if (IonNode.memID <= 0) {
+			if (unlikely(IonNode.memID <= 0)) {
 				LOG_NOTICE(
 					"[CAM_MEM_ION_MAP_PA] invalid ion fd(%d)\n",
 					IonNode.memID);
@@ -422,29 +404,45 @@ static long cam_mem_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Pa
 				break;
 			}
 
-			mutex_lock(&cam_mem_ion_mutex);
+			bucketID = IonNode.memID % HASH_BUCKET_NUM;
+			mutex_lock(&cam_mem_ion_mutex[bucketID]);
 			/* Check if already mapped. */
-			list_for_each(pos, &g_ion_buf_list.list) {
+			list_for_each(pos, &g_ion_buf_list[bucketID].list) {
 				entry = list_entry(pos, struct ION_BUFFER_LIST, list);
-				if (entry->memID != IonNode.memID)
+				if (unlikely(entry->memID != IonNode.memID))
 					continue;
 
 				entry->refCnt++;
 				refCnt = entry->refCnt;
 				bMapped = true;
-				LOG_NOTICE("Warning:refCnt(%d)>1, memID(%d);pa(0x%lx);"
-					"dmaBuf(0x%lx);user(%s)\n",
-					entry->refCnt,
-					entry->memID,
-					entry->dmaAddr,
-					entry->dmaBuf,
-					entry->username);
+
+				if (unlikely((size_remain <= 0) || (c_num >= WARNING_STR_SIZE))) {
+					LOG_NOTICE("warningStr buf size is not enough\n");
+				} else {
+					int tmp = 0;
+
+					tmp = snprintf(warningStr + c_num, size_remain,
+						"pa(0x%lx);dmabuf(0x%lx);user(%s); ",
+						entry->dmaAddr, entry->dmaBuf,
+						entry->username);
+
+					if (unlikely(tmp < 0))
+						LOG_NOTICE("snprintf failed\n");
+					else {
+						c_num += tmp;
+						size_remain -= c_num;
+					}
+				}
 			}
-			mutex_unlock(&cam_mem_ion_mutex);
+			mutex_unlock(&cam_mem_ion_mutex[bucketID]);
+
+			if (refCnt > 1)
+				LOG_NOTICE("Warning:map:memID(%d)refCnt(%d)>1: %s",
+					IonNode.memID, refCnt, warningStr);
 
 			/* Map iova. */
 			LOG_DBG("CAM_MEM_ION_MAP_PA: do map. memID(%d)\n", IonNode.memID);
-			if (cam_mem_mmu_get_dma_buffer(&mmu, IonNode.memID) == false) {
+			if (unlikely(cam_mem_mmu_get_dma_buffer(&mmu, IonNode.memID) == false)) {
 				LOG_NOTICE(
 					"CAM_MEM_ION_MAP_PA: map pa failed, memID(%d)\n",
 					IonNode.memID);
@@ -453,7 +451,7 @@ static long cam_mem_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Pa
 			}
 			/* get iova. */
 			dmaPa = sg_dma_address(mmu.sgt->sgl);
-			if (!dmaPa) {
+			if (unlikely(!dmaPa)) {
 				Ret = -EFAULT;
 				LOG_NOTICE(
 					"CAM_MEM_ION_MAP_PA: sg_dma_address fail, memID(%d)\n",
@@ -464,7 +462,7 @@ static long cam_mem_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Pa
 			/* Add an entry to global ION_BUFFER list. */
 			tmp = kmalloc(
 				sizeof(struct ION_BUFFER_LIST), GFP_KERNEL);
-			if (tmp == NULL) {
+			if (unlikely(tmp == NULL)) {
 				LOG_NOTICE("alloc Ion buf list fail, memID(%d)\n",
 					IonNode.memID);
 				Ret = -EFAULT;
@@ -483,8 +481,9 @@ static long cam_mem_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Pa
 			strncpy(tmp->username, IonNode.username, strlen(IonNode.username));
 			tmp->username[strlen(IonNode.username)] = '\0';
 
-			mutex_lock(&cam_mem_ion_mutex);
-			list_add(&(tmp->list), &(g_ion_buf_list.list));
+			mutex_lock(&cam_mem_ion_mutex[bucketID]);
+			list_add(&(tmp->list),
+				&(g_ion_buf_list[bucketID].list));
 			LOG_DBG("Add: memID(%d); pa(0x%lx);dmaBuf(0x%lx);refCnt(%d); user(%s)\n",
 				tmp->memID,
 				tmp->dmaAddr,
@@ -492,12 +491,12 @@ static long cam_mem_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Pa
 				tmp->refCnt,
 				tmp->username);
 
-			dumpIonBufferList(10, false);
+			dumpIonBufferList(&g_ion_buf_list[bucketID], 10, false);
 
-			mutex_unlock(&cam_mem_ion_mutex);
+			mutex_unlock(&cam_mem_ion_mutex[bucketID]);
 
-			if (copy_to_user((void *)Param, &IonNode,
-				sizeof(struct CAM_MEM_DEV_ION_NODE_STRUCT)) != 0) {
+			if (unlikely(copy_to_user((void *)Param, &IonNode,
+				sizeof(struct CAM_MEM_DEV_ION_NODE_STRUCT)) != 0)) {
 				LOG_NOTICE("CAM_MEM_ION_MAP_PA: copy to user fail\n");
 				Ret = -EFAULT;
 			}
@@ -508,33 +507,38 @@ static long cam_mem_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Pa
 		}
 		break;
 	case CAM_MEM_ION_UNMAP_PA:
-		if (copy_from_user(&IonNode, (void *)Param,
-			sizeof(struct CAM_MEM_DEV_ION_NODE_STRUCT)) == 0) {
+		if (likely(copy_from_user(&IonNode, (void *)Param,
+			sizeof(struct CAM_MEM_DEV_ION_NODE_STRUCT)) == 0)) {
 			struct ION_BUFFER_LIST *tmp; /* for delete the mapped node */
 			struct list_head *pos, *q;
 			struct ION_BUFFER pIonBuf = {NULL, NULL, NULL, 0};
 			bool foundFD = false;
 			unsigned int refCnt = 0;
+			int bucketID = 0;
 
-			if (IonNode.memID <= 0) {
+			if (unlikely(IonNode.memID <= 0)) {
 				LOG_NOTICE("CAM_MEM_ION_UNMAP_PA: invalid memID(%d)\n",
 					IonNode.memID);
 				Ret = -EFAULT;
 				break;
 			}
-			mutex_lock(&cam_mem_ion_mutex);
-			if (list_empty(&g_ion_buf_list.list)) {
-				LOG_NOTICE("CAM_MEM_ION_UNMAP_PA: fail. list is empty. memID(%d)\n",
+
+			bucketID = IonNode.memID % HASH_BUCKET_NUM;
+			mutex_lock(&cam_mem_ion_mutex[bucketID]);
+			if (unlikely(list_empty(
+				&g_ion_buf_list[bucketID].list))) {
+				LOG_NOTICE("CAM_MEM_ION_UNMAP_PA: fail. list empty. memID(%d)\n",
 					IonNode.memID);
 				Ret = -EFAULT;
-				mutex_unlock(&cam_mem_ion_mutex);
+				mutex_unlock(&cam_mem_ion_mutex[bucketID]);
 				break;
 			}
 
 			/* unmap and delete the node, if find the fd. */
-			list_for_each_safe(pos, q, &g_ion_buf_list.list) {
+			list_for_each_safe(pos, q,
+				&g_ion_buf_list[bucketID].list) {
 				tmp = list_entry(pos, struct ION_BUFFER_LIST, list);
-				if (tmp->memID != IonNode.memID)
+				if (unlikely(tmp->memID != IonNode.memID))
 					continue;
 
 				foundFD = true;
@@ -553,9 +557,9 @@ static long cam_mem_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Pa
 				break;
 			}
 
-			mutex_unlock(&cam_mem_ion_mutex);
+			mutex_unlock(&cam_mem_ion_mutex[bucketID]);
 
-			if (!foundFD) {
+			if (unlikely(!foundFD)) {
 				LOG_NOTICE("Warning: unmap: memID(%d); PA(0x%lx);"
 					" (%s) not found.\n",
 					IonNode.memID, IonNode.dma_pa,
@@ -572,22 +576,47 @@ static long cam_mem_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Pa
 			if (refCnt > 0) {
 				struct list_head *pos2;
 				struct ION_BUFFER_LIST *entry;
+				char warningStr[WARNING_STR_SIZE];
+				int c_num = 0, size_remain = WARNING_STR_SIZE;
 
-				mutex_lock(&cam_mem_ion_mutex);
-				list_for_each(pos2, &g_ion_buf_list.list) {
+				mutex_lock(&cam_mem_ion_mutex[bucketID]);
+				list_for_each(pos2,
+					&g_ion_buf_list[bucketID].list) {
+					int tmp = 0;
+
 					entry = list_entry(pos2, struct ION_BUFFER_LIST, list);
-					if (entry->memID != IonNode.memID)
+					if (unlikely(entry->memID != IonNode.memID))
 						continue;
 					entry->refCnt--;
-					LOG_NOTICE("unamp: update refCnt(%d/%d) is still > 0\n",
-						refCnt, entry->refCnt);
+
+					if (unlikely(
+						(size_remain <= 0) ||
+						(c_num >= WARNING_STR_SIZE))) {
+						LOG_NOTICE("warningStr buf size is not enough\n");
+						break;
+					}
+
+					tmp = snprintf(warningStr + c_num, size_remain,
+						"pa(0x%lx)dmaBuf(0x%lx)user(%s); ",
+						entry->dmaAddr, entry->dmaBuf,
+						entry->username);
+
+					if (unlikely(tmp < 0))
+						LOG_NOTICE("snprintf failed\n");
+					else {
+						c_num += tmp;
+						size_remain -= c_num;
+					}
 				}
-				mutex_unlock(&cam_mem_ion_mutex);
+				mutex_unlock(&cam_mem_ion_mutex[bucketID]);
+
+				LOG_NOTICE("Warning:unamp:memID(%d)refCnt(%d) still > 0: %s",
+					IonNode.memID, refCnt, warningStr);
 			}
 #ifdef CAM_MEM_DEBUG
-			mutex_lock(&cam_mem_ion_mutex);
-			dumpIonBufferList(10, false);
-			mutex_unlock(&cam_mem_ion_mutex);
+			mutex_lock(&cam_mem_ion_mutex[bucketID]);
+			dumpIonBufferList(&g_ion_buf_list[bucketID], 10, false);
+			mutex_unlock(&cam_mem_ion_mutex[bucketID]);
 #endif
 		} else {
 			LOG_NOTICE("CAM_MEM_ION_UNMAP_PA: copy_from_user failed\n");
@@ -601,6 +630,7 @@ static long cam_mem_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Pa
 			struct list_head *pos;
 			struct ION_BUFFER_LIST *entry;
 			bool bMapped = false;
+			int bucketID = 0;
 
 			if (IonNode.memID <= 0) {
 				LOG_NOTICE(
@@ -611,17 +641,19 @@ static long cam_mem_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Pa
 			}
 			LOG_NOTICE("CAM_MEM_ION_GET_PA: IonNode.memID(%d)\n",
 				IonNode.memID);
-			mutex_lock(&cam_mem_ion_mutex);
 
-			if (list_empty(&g_ion_buf_list.list)) {
+			bucketID = IonNode.memID % HASH_BUCKET_NUM;
+			mutex_lock(&cam_mem_ion_mutex[bucketID]);
+
+			if (list_empty(&g_ion_buf_list[bucketID].list)) {
 				LOG_NOTICE(
 					"CAM_MEM_ION_GET_PA: no mapped PA for memID(%d)\n",
 					IonNode.memID);
-				mutex_unlock(&cam_mem_ion_mutex);
+				mutex_unlock(&cam_mem_ion_mutex[bucketID]);
 				break;
 			}
 
-			list_for_each(pos, &g_ion_buf_list.list) {
+			list_for_each(pos, &g_ion_buf_list[bucketID].list) {
 				entry = list_entry(pos, struct ION_BUFFER_LIST, list);
 				if (entry->memID == IonNode.memID) {
 					IonNode.dma_pa = entry->dmaAddr;
@@ -638,7 +670,7 @@ static long cam_mem_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Pa
 				LOG_NOTICE("GET_PA: memID(%d) get pa(0x%lx), name(%s)\n",
 					IonNode.memID, IonNode.dma_pa, IonNode.username);
 
-			mutex_unlock(&cam_mem_ion_mutex);
+			mutex_unlock(&cam_mem_ion_mutex[bucketID]);
 
 			if (copy_to_user((void *)Param, &IonNode,
 				sizeof(struct CAM_MEM_DEV_ION_NODE_STRUCT)) != 0) {
@@ -658,7 +690,7 @@ static long cam_mem_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Pa
 		break;
 	}
 
-	if (Ret != 0)
+	if (unlikely(Ret != 0))
 		LOG_NOTICE(
 			"Fail, Cmd(%d), Pid(%d), (process, pid, tgid)=(%s, %d, %d)\n",
 			Cmd, pUserInfo->Pid, current->comm, current->pid,
@@ -791,31 +823,31 @@ static int cam_mem_buf_list_read(struct seq_file *m, void *v)
 {
 	struct ION_BUFFER_LIST *entry;
 	struct list_head *pos;
-	int i = 0;
-
-	mutex_lock(&cam_mem_ion_mutex);
-
-	if (list_empty(&g_ion_buf_list.list)) {
-		seq_puts(m, "cam_mem buf list is empty\n");
-		mutex_unlock(&cam_mem_ion_mutex);
-		return 0;
-	}
+	int i = 0, j = 0;
 
 	seq_puts(m, " idx memID        pa     aligned-size   refCnt     user\n");
 	seq_puts(m, "===================================================================\n");
 
-	list_for_each(pos, &g_ion_buf_list.list) {
-		entry = list_entry(pos, struct ION_BUFFER_LIST, list);
+	for (j = 0; j < HASH_BUCKET_NUM; j++) {
 
-		seq_printf(m, "#%03d   %3d   0x%09lx  0x%06x      %2d   %s\n", i,
-			entry->memID,
-			entry->dmaAddr, entry->dmaBuf->size,
-			entry->refCnt, entry->username);
-			i++;
+		mutex_lock(&cam_mem_ion_mutex[j]);
+
+		if (list_empty(&g_ion_buf_list[j].list)) {
+			mutex_unlock(&cam_mem_ion_mutex[j]);
+			continue;
+		}
+
+		list_for_each(pos, &g_ion_buf_list[j].list) {
+			entry = list_entry(pos, struct ION_BUFFER_LIST, list);
+
+			seq_printf(m, "#%03d   %3d   0x%09lx  0x%06x      %2d   %s\n", i,
+				entry->memID,
+				entry->dmaAddr, entry->dmaBuf->size,
+				entry->refCnt, entry->username);
+				i++;
+		}
+		mutex_unlock(&cam_mem_ion_mutex[j]);
 	}
-
-	mutex_unlock(&cam_mem_ion_mutex);
-
 	return 0;
 };
 
@@ -1025,6 +1057,7 @@ static struct platform_driver CamMemDriver = {
 static int __init cam_mem_Init(void)
 {
 	int Ret = 0;
+	int i = 0;
 
 	LOG_NOTICE("+\n");
 
@@ -1038,10 +1071,10 @@ static int __init cam_mem_Init(void)
 		return Ret;
 	}
 
-	mutex_init(&cam_mem_ion_mutex);
-
-	INIT_LIST_HEAD(&g_ion_buf_list.list);
-
+	for (i = 0; i < HASH_BUCKET_NUM; i++) {
+		mutex_init(&cam_mem_ion_mutex[i]);
+		INIT_LIST_HEAD(&g_ion_buf_list[i].list);
+	}
 	LOG_NOTICE("-\n");
 	return Ret;
 }
