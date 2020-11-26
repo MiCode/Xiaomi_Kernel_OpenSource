@@ -361,6 +361,8 @@ static int ilitek_plat_probe(void)
 	if (ilitek_plat_gpio_register() < 0)
 		ILI_ERR("Register gpio failed\n");
 
+	ili_update_tp_module_info();
+
 	ili_irq_register(ilits->irq_tirgger_type);
 
 	if (ili_tddi_init() < 0) {

@@ -907,7 +907,7 @@ static int ilitek_get_tp_module(void)
 	return 0;
 }
 
-static void ili_update_tp_module_info(void)
+void ili_update_tp_module_info(void)
 {
 	int module;
 
@@ -1055,8 +1055,6 @@ int ili_tddi_init(void)
 
 	if (ili_ic_get_info() < 0)
 		ILI_ERR("Chip info is incorrect\n");
-
-	ili_update_tp_module_info();
 
 	ili_node_init();
 

@@ -1120,6 +1120,7 @@ extern int ili_report_handler(void);
 extern int ili_sleep_handler(int mode);
 extern int ili_reset_ctrl(int mode);
 extern int ili_tddi_init(void);
+extern void ili_update_tp_module_info(void);
 extern int ili_dev_init(struct ilitek_hwif_info *hwif);
 extern void ili_dev_remove(void);
 
