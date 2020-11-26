@@ -2,6 +2,7 @@
 /* Copyright (c) 2020, The Linux Foundation. All rights reserved. */
 
 #include "wlan_firmware_service_v01.h"
+#include <linux/module.h>
 
 static struct qmi_elem_info wlfw_ce_tgt_pipe_cfg_s_v01_ei[] = {
 	{
@@ -4930,3 +4931,5 @@ struct qmi_elem_info wlfw_pcie_gen_switch_resp_msg_v01_ei[] = {
 };
 EXPORT_SYMBOL(wlfw_pcie_gen_switch_resp_msg_v01_ei);
 
+MODULE_LICENSE("GPL v2");
+MODULE_DESCRIPTION("WLAN qmi service driver");
