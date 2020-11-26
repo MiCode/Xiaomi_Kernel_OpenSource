@@ -472,6 +472,7 @@ static int mtk_drm_esd_check_worker_kthread(void *data)
 	struct mtk_drm_private *private = crtc->dev->dev_private;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_drm_esd_ctx *esd_ctx = mtk_crtc->esd_ctx;
+	struct mtk_panel_ext *panel_ext = mtk_crtc->panel_ext;
 	int ret = 0;
 	int i = 0;
 	int recovery_flg = 0;
@@ -480,7 +481,11 @@ static int mtk_drm_esd_check_worker_kthread(void *data)
 
 	if (!crtc) {
 		DDPPR_ERR("%s invalid CRTC context, stop thread\n", __func__);
+		return -EINVAL;
+	}
 
+	if (unlikely(!(panel_ext && panel_ext->params))) {
+		DDPPR_ERR("%s invalid  panel_ext handle\n", __func__);
 		return -EINVAL;
 	}
 
@@ -490,7 +495,8 @@ static int mtk_drm_esd_check_worker_kthread(void *data)
 			esd_ctx->check_task_wq,
 			atomic_read(&esd_ctx->check_wakeup) &&
 			(atomic_read(&esd_ctx->target_time) ||
-				esd_ctx->chk_mode == READ_EINT));
+			(panel_ext->params->cust_esd_check == 0) &&
+			 (esd_ctx->chk_mode == READ_EINT)));
 		if (ret < 0) {
 			DDPINFO("[ESD]check thread waked up accidently\n");
 			continue;
@@ -618,7 +624,10 @@ static void mtk_disp_esd_chk_init(struct drm_crtc *crtc)
 	atomic_set(&esd_ctx->check_wakeup, 0);
 	atomic_set(&esd_ctx->ext_te_event, 0);
 	atomic_set(&esd_ctx->target_time, 0);
-	esd_ctx->chk_mode = READ_EINT;
+	if (panel_ext->params->cust_esd_check == 1)
+		esd_ctx->chk_mode = READ_LCM;
+	else
+		esd_ctx->chk_mode = READ_EINT;
 	mtk_drm_request_eint(crtc);
 
 	wake_up_process(esd_ctx->disp_esd_chk_task);

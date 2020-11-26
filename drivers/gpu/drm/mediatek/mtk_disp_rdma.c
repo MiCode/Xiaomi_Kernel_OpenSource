@@ -727,7 +727,7 @@ static void mtk_rdma_set_ultra_l(struct mtk_ddp_comp *comp,
 #endif
 
 	/*esd will wait this target line irq*/
-	mtk_ddp_write(comp, (cfg->h << 3)/10,
+	mtk_ddp_write(comp, (cfg->h * 9) / 10,
 		DISP_REG_RDMA_TARGET_LINE, handle);
 #if 0
 	val = gs[GS_RDMA_SELF_FIFO_SIZE] + (gs[GS_RDMA_RSZ_FIFO_SIZE] << 16);
