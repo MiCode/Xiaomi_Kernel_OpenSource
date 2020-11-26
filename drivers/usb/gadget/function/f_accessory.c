@@ -906,14 +906,16 @@ int acc_ctrlrequest(struct usb_composite_dev *cdev,
 			value = sizeof(u16);
 			cdev->req->complete = acc_complete_setup_noop;
 			/* clear any string left over from a previous session */
-			memset(dev->manufacturer, 0, sizeof(dev->manufacturer));
-			memset(dev->model, 0, sizeof(dev->model));
-			memset(dev->description, 0, sizeof(dev->description));
-			memset(dev->version, 0, sizeof(dev->version));
-			memset(dev->uri, 0, sizeof(dev->uri));
-			memset(dev->serial, 0, sizeof(dev->serial));
-			dev->start_requested = 0;
-			dev->audio_mode = 0;
+			if (dev) {
+				memset(dev->manufacturer, 0, sizeof(dev->manufacturer));
+				memset(dev->model, 0, sizeof(dev->model));
+				memset(dev->description, 0, sizeof(dev->description));
+				memset(dev->version, 0, sizeof(dev->version));
+				memset(dev->uri, 0, sizeof(dev->uri));
+				memset(dev->serial, 0, sizeof(dev->serial));
+				dev->start_requested = 0;
+				dev->audio_mode = 0;
+			}
 		}
 	}
 
