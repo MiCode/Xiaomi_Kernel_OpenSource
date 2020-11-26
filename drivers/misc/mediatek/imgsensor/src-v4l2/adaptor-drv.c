@@ -282,6 +282,10 @@ static int set_sensor_mode(struct adaptor_ctx *ctx,
 		__v4l2_ctrl_modify_range(ctx->vblank, min, max, 1, def);
 		__v4l2_ctrl_s_ctrl(ctx->vblank, def);
 
+		/* max fps */
+		max = def = mode->max_framerate;
+		__v4l2_ctrl_modify_range(ctx->max_fps, 1, max, 1, def);
+
 		/* init sensor scenario setting */
 		control_sensor(ctx);
 	}

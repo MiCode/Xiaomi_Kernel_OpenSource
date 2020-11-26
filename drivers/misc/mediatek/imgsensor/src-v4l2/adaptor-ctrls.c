@@ -288,6 +288,13 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 				para.u8, &len);
 		}
 		break;
+	case V4L2_CID_MTK_MAX_FPS:
+		para.u64[0] = ctx->cur_mode->id;
+		para.u64[1] = ctrl->val;
+		subdrv_call(ctx, feature_control,
+			SENSOR_FEATURE_SET_MAX_FRAME_RATE_BY_SCENARIO,
+			para.u8, &len);
+		break;
 #ifdef IMGSENSOR_DEBUG
 	case V4L2_CID_MTK_DEBUG_CMD:
 		proc_debug_cmd(ctx, ctrl->p_new.p_char);
@@ -474,6 +481,16 @@ static const struct v4l2_ctrl_config cfg_hdr_tri_gain = {
 	.dims = {sizeof_u32(struct mtk_hdr_tri_gain)},
 };
 
+static const struct v4l2_ctrl_config cfg_max_fps = {
+	.ops = &ctrl_ops,
+	.id = V4L2_CID_MTK_MAX_FPS,
+	.name = "max_fps",
+	.type = V4L2_CTRL_TYPE_INTEGER,
+	.flags = V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
+	.max = 0xffff,
+	.step = 1,
+};
+
 #ifdef IMGSENSOR_DEBUG
 static const struct v4l2_ctrl_config cfg_debug_cmd = {
 	.ops = &ctrl_ops,
@@ -658,6 +675,13 @@ int adaptor_init_ctrls(struct adaptor_ctx *ctx)
 		ctx->hdr_tri_gain = v4l2_ctrl_new_custom(&ctx->ctrls,
 			&cfg_hdr_tri_gain, NULL);
 	}
+
+	/* max fps */
+	max = def = cur_mode->max_framerate;
+	ctx->max_fps = v4l2_ctrl_new_custom(&ctx->ctrls,
+		&cfg_max_fps, NULL);
+	if (ctx->max_fps)
+		__v4l2_ctrl_modify_range(ctx->max_fps, 1, max, 1, def);
 
 #ifdef IMGSENSOR_DEBUG
 	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_debug_cmd, NULL);
