@@ -52,6 +52,7 @@ int mtk_cam_working_buf_pool_init(struct mtk_cam_device *cam)
 	cam->working_buf_mem_va = smem.va;
 	cam->working_buf_mem_iova = smem.iova;
 	cam->working_buf_mem_fd = dmabuf_fd;
+	cam->working_buf_dmabuf = dmabuf;
 
 	for (i = 0; i < CAM_SUB_FRM_DATA_NUM; i++) {
 		struct mtk_cam_working_buf_entry *buf = &cam->working_buf[i];
@@ -92,6 +93,9 @@ void mtk_cam_working_buf_pool_release(struct mtk_cam_device *cam)
 	smem.va = cam->working_buf_mem_va;
 	smem.iova = cam->working_buf_mem_iova;
 	smem.len = cam->working_buf_mem_size;
+
+	mtk_ccd_put_fd(ccd, cam->working_buf_dmabuf,
+		       cam->working_buf_mem_fd);
 	mtk_ccd_free_buffer(ccd, &smem);
 
 	dev_dbg(cam->dev, "%s: e\n", __func__);
