@@ -1191,6 +1191,14 @@ config SND_SOC_AW87339
 	  PMIC device which has no speaker protection
 	  function.
 
+config SND_SOC_SIA8109
+	tristate "SoC Audio for SIA8109 speaker amplifier"
+	depends on I2C
+	help
+	  This option enables support for SIA8109 speaker
+	  amplifier. It is a speaker which connect with MTK
+	  PMIC device which has no speaker protection.
+
 config SND_SOC_LM4857
 	tristate
 
