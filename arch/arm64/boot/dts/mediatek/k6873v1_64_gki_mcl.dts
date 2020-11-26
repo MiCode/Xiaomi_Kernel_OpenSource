@@ -508,3 +508,7 @@
 	status = "okay";
 };
 /* CONSYS end */
+
+&cpufreq_hw {
+	mcl50_load = <1>;
+};
