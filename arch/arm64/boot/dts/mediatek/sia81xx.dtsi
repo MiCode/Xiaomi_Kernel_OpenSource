@@ -1,0 +1,62 @@
+/*
+ * Copyright (c) 2020 MediaTek Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&pio {
+	sia81xx_gpio_L: sia81xx_gpio_L {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO139__FUNC_GPIO139>;
+			slew-rate = <1>;
+			bias-disable;
+		};
+	};
+};
+
+/ {
+	sia81xx_L: sia81xx@L {
+		compatible = "si,sia81xx";
+		si,sia81xx_type = "sia8109";
+		si,sia81xx_reset = <&pio 139 0>;
+		si,sia81xx_owi = <&pio 139 0>;
+		pinctrl-names = "sia81xx_gpio";
+		pinctrl-0 = <&sia81xx_gpio_L>;
+		si,sia81xx_disable_pin = <0>;
+
+		/* the same value share a same task */
+		/* valid value range : 0 ~ 7 */
+		timer_task_hdl = <0>;
+		channel_num = <0>;
+		owi_mode = <6>;
+		en_x_filter = <0>;
+		en_dynamic_updata_vdd = <0>;
+		dynamic_updata_vdd_port = <0x8>;
+	};
+};
+
+&sound {
+	si,sia81xx-max-num = <1>;
+	si,sia81xx-aux-devs = <&sia81xx_L>;
+	si,sia81xx-aux-devs-prefix = "SpkrLeft";
+};
+
+&i2c6 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	sia81xx_i2c_L: sia81xx_i2c@L {
+		compatible = "si,sia81xx-i2c";
+		reg = <0x28>;
+		si,sia81xx-dev = <&sia81xx_L>;
+		status = "okay";
+	};
+};
+
