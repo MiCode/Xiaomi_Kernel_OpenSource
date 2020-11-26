@@ -5363,6 +5363,7 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 		index);
 #endif
 
+end:
 	/* When open VDS path switch feature, After VDS created
 	 * we need take away the OVL0_2L from main display.
 	 */
@@ -5385,7 +5386,6 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 		}
 	}
 
-end:
 	CRTC_MMP_EVENT_END(index, atomic_flush, (unsigned long)crtc_state,
 			(unsigned long)old_crtc_state);
 	mtk_drm_trace_end();
