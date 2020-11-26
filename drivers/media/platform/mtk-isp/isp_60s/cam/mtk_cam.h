@@ -289,6 +289,8 @@ struct mtk_cam_device {
 	dma_addr_t working_buf_mem_va;
 	dma_addr_t working_buf_mem_iova;
 	dma_addr_t working_buf_mem_fd;
+
+	struct dma_buf *working_buf_dmabuf;
 	int working_buf_mem_size;
 	struct mtk_cam_working_buf_entry working_buf[CAM_SUB_FRM_DATA_NUM];
 	struct mtk_cam_working_buf_list cam_freebufferlist;
@@ -353,12 +355,11 @@ int mtk_cam_req_dump(struct mtk_cam_device *cam, struct mtk_cam_request *req,
 		     int buf_state, unsigned int dump_flag, int release_request,
 		     char *desc);
 struct mtk_raw_device *get_master_raw_dev(struct mtk_cam_device *cam,
-				struct mtk_raw_pipeline *pipe);
+					  struct mtk_raw_pipeline *pipe);
 struct mtk_raw_device *get_slave_raw_dev(struct mtk_cam_device *cam,
-				struct mtk_raw_pipeline *pipe);
+					 struct mtk_raw_pipeline *pipe);
 struct mtk_raw_device *get_slave2_raw_dev(struct mtk_cam_device *cam,
-				struct mtk_raw_pipeline *pipe);
-
+					  struct mtk_raw_pipeline *pipe);
 void isp_composer_create_session(struct mtk_cam_device *cam,
 				 struct mtk_cam_ctx *ctx);
 

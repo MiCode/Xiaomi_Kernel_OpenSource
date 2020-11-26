@@ -567,6 +567,7 @@ static void init_dma_fifosize(struct mtk_raw_device *dev)
 	dev_dbg(dev->dev, "try read REG_CQI_R2_DRS:0x%x\n",
 		readl_relaxed(dev->base + REG_CQI_R2_DRS));
 }
+
 void write_readcount(struct mtk_raw_device *dev)
 {
 	int val;
@@ -588,9 +589,9 @@ void initialize(struct mtk_raw_device *dev)
 	wmb(); /* TBC */
 #endif
 	writel_relaxed(CQ_THR0_MODE_IMMEDIATE | CQ_THR0_EN,
-				dev->base + REG_CQ_THR0_CTL);
+		       dev->base + REG_CQ_THR0_CTL);
 	writel_relaxed(CAMCTL_CQ_THR0_DONE_ST,
-				dev->base + REG_CTL_RAW_INT6_EN);
+		       dev->base + REG_CTL_RAW_INT6_EN);
 	wmb(); /* TBC */
 	dev->sof_count = 0;
 	dev->setting_count = 0;
@@ -888,7 +889,7 @@ bool mtk_raw_dev_is_slave(struct mtk_raw_device *raw_dev)
 static irqreturn_t mtk_irq_raw(int irq, void *data)
 {
 	struct mtk_raw_device *raw_dev = (struct mtk_raw_device *)data;
-	struct device *dev = raw_dev->dev;
+	struct device *dev;
 	struct mtk_camsys_irq_info irq_info;
 	unsigned int dequeued_frame_seq_no, dequeued_frame_seq_no_inner;
 	unsigned int scq_deadline, trig_time, tg_timestamp, cq_ctl;
@@ -897,9 +898,24 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 	unsigned long flags;
 	int ret;
 	struct mtk_cam_status_dump dump_param;
-	if (raw_dev->pipeline->enabled_raw == 0)
+
+	if (!raw_dev) {
+		pr_debug("%s: %d: irq handler's data can't be NULL\n",
+			__func__, raw_dev->id);
 		goto ctx_not_found;
+	}
+
+	dev = raw_dev->dev;
+
+	if (!raw_dev->pipeline || !raw_dev->pipeline->enabled_raw) {
+		dev_dbg(dev,
+			"%s: %i: raw pipe line is disabled\n",
+			__func__, raw_dev->id);
+		goto ctx_not_found;
+	}
+
 	spin_lock_irqsave(&raw_dev->spinlock_irq, flags);
+
 	irq_status	= readl_relaxed(raw_dev->base + REG_CTL_RAW_INT_STAT);
 	dma_done_status = readl_relaxed(raw_dev->base + REG_CTL_RAW_INT2_STAT);
 	dmai_done_status = readl_relaxed(raw_dev->base + REG_CTL_RAW_INT3_STAT);
@@ -1291,6 +1307,7 @@ static int mtk_raw_sd_subscribe_event(struct v4l2_subdev *subdev,
 		return -EINVAL;
 	}
 }
+
 static int mtk_raw_available_resource(struct mtk_raw *raw)
 {
 	int res_status = 0;
@@ -1304,7 +1321,7 @@ static int mtk_raw_available_resource(struct mtk_raw *raw)
 		}
 	}
 	dev_info(raw->cam_dev, "%s raw_status:0x%x Available Engine:A/B/C:%d/%d/%d\n",
-			__func__, res_status,
+		 __func__, res_status,
 			!(res_status & (1 << MTKCAM_SUBDEV_RAW_0)),
 			!(res_status & (1 << MTKCAM_SUBDEV_RAW_1)),
 			!(res_status & (1 << MTKCAM_SUBDEV_RAW_2)));
