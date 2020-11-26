@@ -1232,21 +1232,27 @@ static unsigned int fbt_get_new_base_blc(struct ppm_limit_data *pld,
 		return 0U;
 	}
 
-	for (cluster = 0 ; cluster < cluster_num; cluster++) {
-		pld[cluster].min = -1;
-		if (suppress_ceiling) {
-			pld[cluster].max = cpu_dvfs[cluster].power[max(
-				(int)(base_opp[cluster] - headroom), 0)];
-		} else
-			pld[cluster].max = -1;
-	}
-
 	if (boost_ta)
 		base = max_blc;
 	else
 		base = floor;
 
 	blc_wt = fbt_enhance_floor(base, rescue_opp_f, enhance);
+
+	for (cluster = 0 ; cluster < cluster_num; cluster++) {
+		pld[cluster].min = -1;
+		if (suppress_ceiling) {
+			int opp =
+				fbt_get_opp_by_normalized_cap(blc_wt, cluster);
+
+			opp = MIN(opp, base_opp[cluster]);
+			opp = clamp(opp, 0, NR_FREQ_CPU - 1);
+
+			pld[cluster].max = cpu_dvfs[cluster].power[max(
+				(int)(opp - headroom), 0)];
+		} else
+			pld[cluster].max = -1;
+	}
 
 	return blc_wt;
 }
