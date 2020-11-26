@@ -1169,6 +1169,11 @@
 			};
 		};
 
+		apxgpt: apxgpt@10008000 {
+			compatible = "mediatek,apxgpt";
+			reg = <0 0x10008000 0 0x1000>;
+		};
+
 		apmixedsys_clk: syscon@1000c000 {
 			compatible = "mediatek,mt6853-apmixedsys", "syscon";
 			reg = <0 0x1000c000 0 0x1000>;
