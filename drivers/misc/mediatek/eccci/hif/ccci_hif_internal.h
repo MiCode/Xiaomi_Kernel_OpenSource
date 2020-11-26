@@ -242,7 +242,7 @@ struct dvfs_ref {
 	int c1_freq; /* Cluster 1 */
 	int c2_freq; /* Cluster 2 */
 	int c3_freq; /* Cluster 3 */
-	u8 dram_lvl;
+	int dram_lvl;
 	u8 irq_affinity;
 	u8 task_affinity;
 	u8 rps;
