@@ -65,9 +65,9 @@ static char *md_img_type_str[] = {
 	"lwg",
 	"ltg",
 	"sglte",
-	"ulwtg",
 	"ultg",
 	"ulwg",
+	"ulwtg",
 	"ulwcg",
 	"ulwctg",
 	"unlwtg",
@@ -1272,6 +1272,7 @@ int ccci_get_md_check_hdr_inf(int md_id, void *img_inf, char post_fix[])
 	char *img_str;
 	char *buf;
 	unsigned int md_type = 0;
+	int has_write = 0;
 
 	buf = kmalloc(1024, GFP_KERNEL);
 	if (buf == NULL) {
@@ -1305,13 +1306,17 @@ int ccci_get_md_check_hdr_inf(int md_id, void *img_inf, char post_fix[])
 	kfree(buf);
 
 	/* Construct image information string */
-	snprintf(img_str, sizeof(md_img_info_str[md_id]),
+	has_write = snprintf(img_str, sizeof(md_img_info_str[md_id]),
 		"MD:%s*%s*%s*%s*%s\nAP:%s*%s*%08x (MD)%08x\n",
 		img_ptr->img_info.image_type, img_ptr->img_info.platform,
 		img_ptr->img_info.build_ver, img_ptr->img_info.build_time,
 		img_ptr->img_info.product_ver, img_ptr->ap_info.image_type,
 		img_ptr->ap_info.platform, img_ptr->ap_info.mem_size,
 		img_ptr->img_info.mem_size);
+	if (has_write <= 0 || has_write >= sizeof(md_img_info_str[md_id]))
+		CCCI_UTIL_ERR_MSG_WITH_ID(md_id,
+			"%s:%d:snprintf fail,has_write=%d\n",
+			__func__, __LINE__, has_write);
 
 	CCCI_UTIL_INF_MSG_WITH_ID(md_id,
 		"check header str[%s]!\n", img_str);
@@ -1322,8 +1327,14 @@ int ccci_get_md_check_hdr_inf(int md_id, void *img_inf, char post_fix[])
 			"type @ header(%d)!\n", curr_ubin_id);
 	}
 
-	snprintf(post_fix, IMG_POSTFIX_LEN,
+	has_write = snprintf(post_fix, IMG_POSTFIX_LEN,
 		"%d_%s_n", md_id+1, img_ptr->img_info.image_type);
+	if (has_write <= 0 || has_write >= IMG_POSTFIX_LEN) {
+		CCCI_UTIL_ERR_MSG_WITH_ID(md_id,
+			"%s:%d:snprintf fail,has_write=%d\n",
+			__func__, __LINE__, has_write);
+		return -1;
+	}
 
 	CCCI_UTIL_INF_MSG_WITH_ID(md_id,
 		"post fix[%s]!\n", post_fix);
