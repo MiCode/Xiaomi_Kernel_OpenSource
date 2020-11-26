@@ -219,8 +219,8 @@ void mtk_vdec_hw_break(struct mtk_vcodec_dev *dev, int hw_id)
 			       tv_end.tv_usec - tv_start.tv_usec;
 			if (usec > timeout) {
 				mtk_v4l2_err("VDEC HW break timeout. codec:0x%08x(%c%c%c%c)",
-				    fourcc, fourcc & 0xFF, (fourcc << 8) & 0xFF,
-				    (fourcc << 16) & 0xFF, (fourcc << 24) & 0xFF);
+				    fourcc, fourcc & 0xFF, (fourcc >> 8) & 0xFF,
+				    (fourcc >> 16) & 0xFF, (fourcc >> 24) & 0xFF);
 				value = readl(vdec_gcon_addr + (0 << 2));
 				mtk_v4l2_err("[DEBUG][GCON] 0x%x(%d) = 0x%lx",
 					0 << 2, 0, value);
@@ -243,12 +243,15 @@ void mtk_vdec_hw_break(struct mtk_vcodec_dev *dev, int hw_id)
 
 				if (timeout == 20000)
 					timeout = 1000000;
-				else if (timeout == 1000000)
-					vcu_aee_print(
-					    "%s %p codec:0x%08x(%c%c%c%c) hw break timeout\n",
-					    __func__, ctx, fourcc,
-					    fourcc & 0xFF, (fourcc << 8) & 0xFF,
-					    (fourcc << 16) & 0xFF, (fourcc << 24) & 0xFF);
+				else if (timeout == 1000000) {
+					/* v4l2_aee_print(
+					 *    "%s %p codec:0x%08x(%c%c%c%c) hw break timeout\n",
+					 *    __func__, ctx, fourcc,
+					 *    fourcc & 0xFF, (fourcc >> 8) & 0xFF,
+					 *    (fourcc >> 16) & 0xFF, (fourcc >> 24) & 0xFF);
+					 */
+					break;
+				}
 				do_gettimeofday(&tv_start);
 				//smi_debug_bus_hang_detect(0, "VCODEC");
 			}
