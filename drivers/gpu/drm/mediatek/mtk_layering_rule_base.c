@@ -1399,11 +1399,14 @@ static int calc_hrt_num(struct drm_device *dev,
 			_calc_hrt_num(dev, disp_info, HRT_SECONDARY,
 				      HRT_TYPE_EMI, scan_overlap, false);
 	}
+	/* Virtual Display should not add to HRT sum: ovl -> wdma */
+	/*
 	if (has_hrt_limit(disp_info, HRT_THIRD)) {
-		sum_overlap_w += _calc_hrt_num(dev, disp_info, HRT_THIRD,
-					       HRT_TYPE_EMI, scan_overlap,
-					       false);
+		sum_overlap_w += calc_hrt_num(dev, disp_info, HRT_THIRD,
+				HRT_TYPE_EMI, scan_overlap,
+				false);
 	}
+	*/
 
 	emi_hrt_level = get_hrt_level(sum_overlap_w, false);
 
