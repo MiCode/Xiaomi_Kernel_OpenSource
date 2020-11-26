@@ -863,7 +863,6 @@ static int create_debug_fs(void)
 	}
 	return 0;
 }
-#ifdef MC50_LOAD
 static void init_mcl50_setting(void)
 {
 	struct eem_ipi_data eem_data;
@@ -874,12 +873,13 @@ static void init_mcl50_setting(void)
 	eem_to_cpueb(IPI_EEMSN_INIT, &eem_data);
 
 }
-#endif
 
 int mtk_eem_init(void)
 {
 	struct eem_ipi_data eem_data;
 	int err = 0;
+	struct device_node *node = NULL;
+	int enable;
 
 	eem_base = ioremap(EEM_BASEADDR, EEM_BASESIZE);
 	eem_csram_base = ioremap(EEMSN_CSRAM_BASE, EEMSN_CSRAM_SIZE);
@@ -909,9 +909,12 @@ int mtk_eem_init(void)
 	eem_data.u.data.arg[1] = eem_log_size;
 	eem_to_cpueb(IPI_EEMSN_SHARERAM_INIT, &eem_data);
 
-#ifdef MC50_LOAD
-	init_mcl50_setting();
-#endif
+	node = of_find_compatible_node(NULL, NULL, "mediatek,cpufreq-hw");
+	if (node) {
+		err = of_property_read_u32(node, "mcl50_load", &enable);
+		if (!err && enable)
+			init_mcl50_setting();
+	}
 	return create_debug_fs();
 }
 
