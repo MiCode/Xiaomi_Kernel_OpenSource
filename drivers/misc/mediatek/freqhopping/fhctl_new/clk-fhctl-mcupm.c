@@ -59,12 +59,14 @@ enum FH_DEVCTL_CMD_ID {
 	FH_DCTL_CMD_SSC_TBL_CONFIG = 0x100A,
 	FH_DCTL_CMD_PLL_PAUSE = 0x100E,
 	FH_DCTL_CMD_MAX,
-	FH_DBG_CMD_TR_BEGIN_LOW = 0x2001,
-	FH_DBG_CMD_TR_BEGIN_HIGH = 0x2002,
-	FH_DBG_CMD_TR_END_LOW = 0x2003,
-	FH_DBG_CMD_TR_END_HIGH = 0x2004,
-	FH_DBG_CMD_TR_END_ID = 0x2005,
-	FH_DBG_CMD_TR_END_VAL = 0x2006,
+	FH_DBG_CMD_TR_BEGIN64_LOW = 0x2001,
+	FH_DBG_CMD_TR_BEGIN64_HIGH = 0x2002,
+	FH_DBG_CMD_TR_END64_LOW = 0x2003,
+	FH_DBG_CMD_TR_END64_HIGH = 0x2004,
+	FH_DBG_CMD_TR_ID = 0x2005,
+	FH_DBG_CMD_TR_VAL = 0x2006,
+	FH_DBG_CMD_TR_BEGIN32 = 0x2007,
+	FH_DBG_CMD_TR_END32 = 0x2008,
 };
 #define FHCTL_D_LEN (sizeof(struct fhctl_ipi_data)/\
 	sizeof(unsigned int))
@@ -171,12 +173,14 @@ static int mcupm_hopping_v1(void *priv_data, char *domain_name, int fh_id,
 		}
 
 		/* time via SW */
-		ipi_get_data(FH_DBG_CMD_TR_BEGIN_LOW);
-		ipi_get_data(FH_DBG_CMD_TR_BEGIN_HIGH);
-		ipi_get_data(FH_DBG_CMD_TR_END_LOW);
-		ipi_get_data(FH_DBG_CMD_TR_END_HIGH);
-		ipi_get_data(FH_DBG_CMD_TR_END_ID);
-		ipi_get_data(FH_DBG_CMD_TR_END_VAL);
+		ipi_get_data(FH_DBG_CMD_TR_BEGIN64_LOW);
+		ipi_get_data(FH_DBG_CMD_TR_BEGIN64_HIGH);
+		ipi_get_data(FH_DBG_CMD_TR_END64_LOW);
+		ipi_get_data(FH_DBG_CMD_TR_END64_HIGH);
+		ipi_get_data(FH_DBG_CMD_TR_ID);
+		ipi_get_data(FH_DBG_CMD_TR_VAL);
+		ipi_get_data(FH_DBG_CMD_TR_BEGIN32);
+		ipi_get_data(FH_DBG_CMD_TR_END32);
 
 		FHDBG("tr_id_local<%x>\n",
 				++tr_id_local);
