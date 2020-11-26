@@ -15,6 +15,9 @@
 #include <linux/pm_opp.h>
 #include <linux/soc/mediatek/mtk_sip_svc.h>
 #include <linux/soc/mediatek/mtk_dvfsrc.h>
+#include <linux/regmap.h>
+#include <linux/mfd/mt6397/core.h>
+
 #if IS_ENABLED(CONFIG_MTK_DRAMC)
 #include <soc/mediatek/dramc.h>
 #endif
@@ -26,6 +29,7 @@
 #endif
 
 static struct mtk_dvfsrc *dvfsrc_drv;
+static struct regmap *dvfsrc_regmap;
 
 /* OPP */
 #define MT_DVFSRC_OPP(_num_vcore, _num_ddr, _opp_table)	\
@@ -268,9 +272,11 @@ static int dvfsrc_query_debug_info(u32 id)
 
 #define DVFSRC_DEBUG_DUMP 0
 #define DVFSRC_DEBUG_AEE 1
+#define DVFSRC_DEBUG_VCORE_CHK 2
 
 #define DVFSRC_AEE_LEVEL_ERROR 0
 #define DVFSRC_AEE_FORCE_ERROR 1
+#define DVFSRC_AEE_VCORE_CHK_ERROR 2
 
 static char *dvfsrc_dump_info(struct mtk_dvfsrc *dvfsrc,
 	char *p, u32 size)
@@ -314,11 +320,61 @@ static int dvfsrc_aee_trigger(struct mtk_dvfsrc *dvfsrc, u32 aee_type)
 	case DVFSRC_AEE_FORCE_ERROR:
 		aee_kernel_warning("DVFSRC", "Force opp fail");
 	break;
+	case DVFSRC_AEE_VCORE_CHK_ERROR:
+		aee_kernel_warning("DVFSRC", "vcore check fail");
+	break;
 	default:
 		dev_info(dvfsrc->dev, "unknown aee type\n");
 	break;
 	}
 #endif
+	return NOTIFY_DONE;
+}
+
+static int dvfsrc_get_vcore_voltage(struct mtk_dvfsrc *dvfsrc)
+{
+	int ret;
+	unsigned int regval = 0;
+
+	if (!dvfsrc_regmap)
+		return -EINVAL;
+
+	ret = regmap_read(dvfsrc_regmap, dvfsrc->vcore_vsel_reg, &regval);
+	if (ret != 0) {
+		dev_info(dvfsrc->dev,
+			"Failed to get vcore Buck vsel reg %x: %d\n",
+			dvfsrc->vcore_vsel_reg, ret);
+		return -EINVAL;
+	}
+	ret = (regval >> dvfsrc->vcore_vsel_shift) & dvfsrc->vcore_vsel_mask;
+	ret = dvfsrc->vcore_range_min_uV + (dvfsrc->vcore_range_step * ret);
+
+	return ret;
+}
+
+static int dvfsrc_vcore_check(struct mtk_dvfsrc *dvfsrc, u32 vcore_level)
+{
+	int vcore_uv = 0;
+	int predict_uv;
+
+	if (!dvfsrc->vchk_enable || !dvfsrc_regmap)
+		return NOTIFY_DONE;
+
+	if (vcore_level > dvfsrc->opp_desc->num_vcore_opp) {
+		dev_info(dvfsrc->dev, "VCORE OPP ERROR = %d\n",
+			vcore_level);
+		return NOTIFY_BAD;
+	}
+
+	predict_uv = dvfsrc->vopp_uv_tlb[vcore_level];
+	vcore_uv = dvfsrc_get_vcore_voltage(dvfsrc);
+
+	if (vcore_uv < predict_uv) {
+		dev_info(dvfsrc->dev, "VCORE CHECK FAIL= %d %d, %d\n",
+			vcore_level, vcore_uv, predict_uv);
+		return NOTIFY_BAD;
+	}
+
 	return NOTIFY_DONE;
 }
 
@@ -360,8 +416,11 @@ static int dvfsrc_debug_notifier_handler(struct notifier_block *b,
 	case DVFSRC_DEBUG_AEE:
 		ret = dvfsrc_aee_trigger(dvfsrc, *(u32 *) v);
 	break;
+	case DVFSRC_DEBUG_VCORE_CHK:
+		ret = dvfsrc_vcore_check(dvfsrc, *(u32 *) v);
+	break;
 	default:
-		dev_info(dvfsrc->dev, "unknown debug type\n");
+		dev_dbg(dvfsrc->dev, "unknown debug type\n");
 	break;
 	}
 
@@ -450,6 +509,70 @@ static int mtk_dvfsrc_debug_setting(struct mtk_dvfsrc *dvfsrc)
 	dvfsrc->force_opp = dvfsrc_force_opp;
 	dvfsrc->dump_info = dvfsrc_dump_info;
 
+	return 0;
+}
+
+static int mtk_dvfsrc_mt6397_probe(struct platform_device *pdev)
+{
+	struct mt6397_chip *mt6397 = dev_get_drvdata(pdev->dev.parent);
+
+	dvfsrc_regmap = mt6397->regmap;
+
+	return 0;
+}
+
+static const struct of_device_id mtk_dvfsrc_mt6397_of_match[] = {
+	{
+		.compatible = "mediatek,mt6359p-dvfsrc-debug",
+	}, {
+		/* sentinel */
+	},
+};
+
+static struct platform_driver mtk_dvfsrc_mt6397_driver = {
+	.probe	= mtk_dvfsrc_mt6397_probe,
+	.driver = {
+		.name = "mtk-dvfsrc-vcore-debug",
+		.of_match_table = of_match_ptr(mtk_dvfsrc_mt6397_of_match),
+	},
+};
+
+static int mtk_dvfsrc_regmap_debug_setting(struct mtk_dvfsrc *dvfsrc)
+{
+	int ret;
+	struct device_node *np = dvfsrc->dev->of_node;
+
+	ret = of_property_read_u32(np, "vcore_vsel_reg", &dvfsrc->vcore_vsel_reg);
+	if (ret)
+		goto no_property;
+
+	ret = of_property_read_u32(np, "vcore_vsel_mask", &dvfsrc->vcore_vsel_mask);
+	if (ret)
+		goto no_property;
+
+	ret = of_property_read_u32(np, "vcore_vsel_shift", &dvfsrc->vcore_vsel_shift);
+	if (ret)
+		goto no_property;
+
+	ret = of_property_read_u32(np, "vcore_range_min_uV", &dvfsrc->vcore_range_min_uV);
+	if (ret)
+		goto no_property;
+
+	ret = of_property_read_u32(np, "vcore_range_step", &dvfsrc->vcore_range_step);
+	if (ret)
+		goto no_property;
+
+	ret =  platform_driver_register(&mtk_dvfsrc_mt6397_driver);
+	if (ret) {
+		dev_info(dvfsrc->dev, "register regmap fail\n");
+		goto no_property;
+	}
+	dvfsrc->vchk_enable = true;
+	dev_info(dvfsrc->dev, "vcore checker is enabled\n");
+	return 0;
+
+no_property:
+	dev_info(dvfsrc->dev, "vcore checker is disabled\n");
 	return 0;
 }
 /* DEBUG END*/
@@ -653,23 +776,20 @@ static int mtk_dvfsrc_helper_probe(struct platform_device *pdev)
 	dvfsrc->dvd = match->data;
 	dvfsrc->dev = &pdev->dev;
 
-	res = platform_get_resource_byname(parent_dev,
-			IORESOURCE_MEM, "dvfsrc");
+	res = platform_get_resource_byname(parent_dev, IORESOURCE_MEM, "dvfsrc");
 	if (!res) {
 		dev_info(dev, "resource not found\n");
 		return -ENODEV;
 	}
 
-	dvfsrc->regs = devm_ioremap(&pdev->dev, res->start,
-		resource_size(res));
+	dvfsrc->regs = devm_ioremap(&pdev->dev, res->start, resource_size(res));
 	if (IS_ERR(dvfsrc->regs))
 		return PTR_ERR(dvfsrc->regs);
 
 	res = platform_get_resource_byname(parent_dev,
 			IORESOURCE_MEM, "spm");
 	if (res) {
-		dvfsrc->spm_regs = devm_ioremap(&pdev->dev, res->start,
-			resource_size(res));
+		dvfsrc->spm_regs = devm_ioremap(&pdev->dev, res->start, resource_size(res));
 		if (IS_ERR(dvfsrc->spm_regs))
 			dvfsrc->spm_regs = NULL;
 	}
@@ -688,6 +808,7 @@ static int mtk_dvfsrc_helper_probe(struct platform_device *pdev)
 
 	dvfsrc_drv = dvfsrc;
 	platform_set_drvdata(pdev, dvfsrc);
+	mtk_dvfsrc_regmap_debug_setting(dvfsrc);
 	register_dvfsrc_opp_handler(dvfsrc_query_info);
 	dvfsrc_debug_notifier_register(dvfsrc);
 	dvfsrc_register_sysfs(dev);
@@ -703,6 +824,7 @@ static int mtk_dvfsrc_helper_remove(struct platform_device *pdev)
 
 	unregister_dvfsrc_debug_notifier(&dvfsrc->debug_notifier);
 	dvfsrc_unregister_sysfs(dev);
+	platform_driver_unregister(&mtk_dvfsrc_mt6397_driver);
 	dvfsrc_drv = NULL;
 	return 0;
 }
