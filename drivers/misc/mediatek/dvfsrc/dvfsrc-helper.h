@@ -82,6 +82,12 @@ struct mtk_dvfsrc {
 	struct mutex dump_lock;
 	struct notifier_block debug_notifier;
 	char dump_buf[DUMP_BUF_SIZE];
+	u32 vcore_vsel_reg;
+	u32 vcore_vsel_mask;
+	u32 vcore_vsel_shift;
+	u32 vcore_range_step;
+	u32 vcore_range_min_uV;
+	bool vchk_enable;
 };
 
 extern int dvfsrc_register_sysfs(struct device *dev);
