@@ -23,6 +23,7 @@ enum FPSGO_CPU_PREFER {
 	FPSGO_PREFER_NONE = 0,
 	FPSGO_PREFER_BIG = 1,
 	FPSGO_PREFER_LITTLE = 2,
+	FPSGO_PREFER_L_M = 3,
 	FPSGO_PREFER_TOTAL,
 };
 
@@ -43,6 +44,6 @@ int fbt_get_default_boost_ta(void);
 int fbt_get_default_adj_loading(void);
 void fbt_set_cpu_prefer(int pid, unsigned int prefer_type);
 void fbt_set_affinity(pid_t pid, unsigned int prefer_type);
-int fbt_get_cluster_limit(int *cluster, int *freq, int *limit_floor);
+int fbt_get_cluster_limit(int *cluster, int *freq, int *r_freq);
 
 #endif

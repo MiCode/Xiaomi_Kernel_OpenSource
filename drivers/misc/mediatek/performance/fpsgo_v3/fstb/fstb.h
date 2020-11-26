@@ -46,7 +46,7 @@ int fpsgo_fbt2fstb_update_cpu_frame_info(
 	int tgid,
 	int frame_type,
 	unsigned long long Q2Q_time,
-	unsigned long long Runnging_time,
+	long long Runnging_time,
 	unsigned int Curr_cap,
 	unsigned int Max_cap,
 	unsigned long long mid);
@@ -74,7 +74,7 @@ static inline int fpsgo_fbt2fstb_update_cpu_frame_info(
 	int tgid,
 	int frame_type,
 	unsigned long long Q2Q_time,
-	unsigned long long Runnging_time,
+	long long Runnging_time,
 	unsigned int Curr_cap,
 	unsigned int Max_cap,
 	unsigned long long mid) { return 0; }

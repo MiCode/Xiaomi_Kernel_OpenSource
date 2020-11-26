@@ -637,7 +637,7 @@ int fpsgo_fbt2fstb_update_cpu_frame_info(
 		int tgid,
 		int frame_type,
 		unsigned long long Q2Q_time,
-		unsigned long long Runnging_time,
+		long long Runnging_time,
 		unsigned int Curr_cap,
 		unsigned int Max_cap,
 		unsigned long long mid)
@@ -690,7 +690,7 @@ int fpsgo_fbt2fstb_update_cpu_frame_info(
 	if (Curr_cap)
 		notify_touch(3);
 
-	if (mid) {
+	if (mid && cpu_time_ns >= 0) {
 		fpsgo_fstb2eara_get_exec_time(tgid, mid,
 			&vpu_time_ns, &mdla_time_ns);
 		fpsgo_fstb2eara_get_boost_value(tgid, mid,
@@ -749,11 +749,12 @@ int fpsgo_fbt2fstb_update_cpu_frame_info(
 		iter->weighted_cpu_time_begin = 0;
 	}
 
-	if (max_cpu_cap > 0 && Max_cap > Curr_cap) {
+	if (max_cpu_cap > 0 && Max_cap > Curr_cap
+		&& cpu_time_ns > 0LL && cpu_time_ns < 1000000000LL) {
 		wct = cpu_time_ns * max_current_cap;
 		do_div(wct, max_cpu_cap);
 	} else
-		wct = cpu_time_ns;
+		goto out;
 
 	fpsgo_systrace_c_fstb_man(pid, iter->bufid, (int)wct,
 		"weighted_cpu_time");
@@ -779,6 +780,7 @@ int fpsgo_fbt2fstb_update_cpu_frame_info(
 		cur_time_us;
 	iter->weighted_cpu_time_end++;
 
+out:
 	mtk_fstb_dprintk(
 	"pid %d fstb: time %lld %lld cpu_time_ns %lld max_current_cap %u max_cpu_cap %u\n"
 	, pid, cur_time_us, ktime_to_us(ktime_get())-cur_time_us,
@@ -802,7 +804,7 @@ int fpsgo_fbt2fstb_update_cpu_frame_info(
 	fpsgo_systrace_c_fstb(pid, iter->bufid, (int)max_cpu_cap,
 			"max_cpu_cap");
 
-	if (mid) {
+	if (mid && cpu_time_ns >= 0) {
 		fpsgo_systrace_c_fstb_man(pid, iter->bufid, (int)vpu_time_ns,
 			"t_vpu");
 		fpsgo_systrace_c_fstb(pid, iter->bufid, (int)vpu_boost,
@@ -1192,13 +1194,14 @@ out:
 }
 
 static int fstb_get_queue_fps1(struct FSTB_FRAME_INFO *iter,
-		long long interval)
+		long long interval, int *is_fps_update)
 {
 	int i = iter->queue_time_begin, j;
 	unsigned long long queue_fps;
 	unsigned long long frame_interval_count = 0;
 	unsigned long long avg_frame_interval = 0;
 	unsigned long long retval = 0;
+	int frame_count = 0;
 
 	/* remove old entries */
 	while (i < iter->queue_time_end) {
@@ -1218,7 +1221,10 @@ static int fstb_get_queue_fps1(struct FSTB_FRAME_INFO *iter,
 				 iter->queue_time_ts[j - 1]);
 			frame_interval_count++;
 		}
+		frame_count++;
 	}
+
+	*is_fps_update = frame_count ? 1 : 0;
 
 	queue_fps = (long long)(iter->queue_time_end - i) * 1000000LL;
 	do_div(queue_fps, (unsigned long long)interval);
@@ -1240,10 +1246,12 @@ static int fstb_get_queue_fps1(struct FSTB_FRAME_INFO *iter,
 
 static int fps_update(struct FSTB_FRAME_INFO *iter)
 {
-	iter->queue_fps =
-		fstb_get_queue_fps1(iter, FRAME_TIME_WINDOW_SIZE_US);
+	int is_fps_update = 0;
 
-	return iter->queue_fps;
+	iter->queue_fps =
+		fstb_get_queue_fps1(iter, FRAME_TIME_WINDOW_SIZE_US, &is_fps_update);
+
+	return is_fps_update;
 }
 
 /* Calculate FPS limit:
@@ -1466,7 +1474,7 @@ void fpsgo_fbt2fstb_query_fps(int pid, unsigned long long bufID,
 
 		iter->gblock_time = 0ULL;
 
-		if (mid)
+		if (mid && iter->queue_fps > 0)
 			fpsgo_fstb2eara_optimize_power(mid, tgid,
 				&v_c_time, total_time, iter->m_c_time,
 				iter->m_v_time, iter->m_m_time, iter->m_c_cap,
@@ -1474,6 +1482,8 @@ void fpsgo_fbt2fstb_query_fps(int pid, unsigned long long bufID,
 		else
 			v_c_time = total_time;
 
+		if (iter->queue_fps <= 0)
+			*target_fps = -1;
 	}
 
 	*target_cpu_time = v_c_time;

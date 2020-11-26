@@ -1696,6 +1696,9 @@ void eara_thrm_pb_frame_start(int pid, unsigned long long bufid,
 	if (!is_enable || !is_throttling)
 		goto exit;
 
+	if (cpu_time == -1)
+		goto exit;
+
 	if (enable_debug_log) {
 		rcu_read_lock();
 		tsk = find_task_by_vpid(pid);

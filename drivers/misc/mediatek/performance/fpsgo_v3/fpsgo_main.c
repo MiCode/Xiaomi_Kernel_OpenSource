@@ -807,7 +807,7 @@ static int __init fpsgo_init(void)
 	fpsgo_sysfs_init();
 
 	g_psNotifyWorkQueue =
-		create_singlethread_workqueue("fpsgo_notifier_wq");
+		alloc_ordered_workqueue("%s", WQ_MEM_RECLAIM | WQ_HIGHPRI, "fpsgo_notifier_wq");
 
 	if (g_psNotifyWorkQueue == NULL)
 		return -EFAULT;

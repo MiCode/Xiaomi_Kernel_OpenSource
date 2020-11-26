@@ -172,14 +172,8 @@ int fbt_get_default_adj_loading(void)
 	return 1;
 }
 
-int fbt_get_cluster_limit(int *cluster, int *freq, int *limit_floor)
+int fbt_get_cluster_limit(int *cluster, int *freq, int *r_freq)
 {
-#if defined(CONFIG_MTK_SCHED_MULTI_GEARS)
-	*cluster = 2;
-	*freq = 0;
-	return 1;
-#else
 	return 0;
-#endif
 }
 

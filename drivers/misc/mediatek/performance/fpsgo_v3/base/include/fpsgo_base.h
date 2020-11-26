@@ -78,9 +78,11 @@ struct fbt_boost_info {
 	int weight_cnt;
 	int hit_cnt;
 	int deb_cnt;
+	int hit_cluster;
 
 	/* rescue*/
 	struct fbt_proc proc;
+	int cur_stage;
 
 	/* variance control */
 	struct fbt_frame_info frame_info[WINDOW];
