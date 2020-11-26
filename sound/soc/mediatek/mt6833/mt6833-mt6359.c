@@ -153,15 +153,20 @@ static int mt6833_mt6359_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 	struct mt6833_afe_private *afe_priv = afe->platform_priv;
 	int phase;
 	unsigned int monitor;
-	int test_done_1, test_done_2;
-	int cycle_1, cycle_2;
-	int prev_cycle_1, prev_cycle_2;
+	int test_done_1, test_done_2, test_done_3;
+	int cycle_1, cycle_2, cycle_3;
+	int prev_cycle_1, prev_cycle_2, prev_cycle_3;
 	int counter;
 	int mtkaif_calib_ok;
+	bool need_calib_miso0, need_calib_miso1, need_calib_miso2;
 
 	dev_info(afe->dev, "%s(), start\n", __func__);
 
 	pm_runtime_get_sync(afe->dev);
+
+	need_calib_miso0 = mt6833_afe_gpio_is_prepare(MT6833_AFE_GPIO_DAT_MISO0_ON);
+	need_calib_miso1 = mt6833_afe_gpio_is_prepare(MT6833_AFE_GPIO_DAT_MISO1_ON);
+	need_calib_miso2 = mt6833_afe_gpio_is_prepare(MT6833_AFE_GPIO_DAT_MISO2_ON);
 	mt6833_afe_gpio_request(afe, true, MT6833_DAI_ADDA, 1);
 	mt6833_afe_gpio_request(afe, true, MT6833_DAI_ADDA, 0);
 
@@ -179,7 +184,7 @@ static int mt6833_mt6359_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 	afe_priv->mtkaif_calibration_num_phase = 42;	/* mt6359: 0 ~ 42 */
 	afe_priv->mtkaif_chosen_phase[0] = -1;
 	afe_priv->mtkaif_chosen_phase[1] = -1;
-	afe_priv->mtkaif_chosen_phase[2] = 0; /* mtkaif ch3 is not used on mt6833 */
+	afe_priv->mtkaif_chosen_phase[2] = -1;
 
 	for (phase = 0;
 	     phase <= afe_priv->mtkaif_calibration_num_phase &&
@@ -191,29 +196,43 @@ static int mt6833_mt6359_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 		regmap_update_bits(afe_priv->topckgen,
 				   CKSYS_AUD_TOP_CFG, 0x1, 0x1);
 
-		test_done_1 = 0;
-		test_done_2 = 0;
+		test_done_1 = need_calib_miso0 ? 0 : -1;
+		test_done_2 = need_calib_miso1 ? 0 : -1;
+		test_done_3 = need_calib_miso2 ? 0 : -1;
 		cycle_1 = -1;
 		cycle_2 = -1;
+		cycle_3 = -1;
 		counter = 0;
 		while (test_done_1 == 0 ||
-		       test_done_2 == 0) {
+		       test_done_2 == 0 ||
+		       test_done_3 == 0) {
 			regmap_read(afe_priv->topckgen,
 				    CKSYS_AUD_TOP_MON, &monitor);
+			/* get calibration done state */
+			if (test_done_1 == 0)
+				test_done_1 = (monitor >> 28) & 0x1;
 
-			test_done_1 = (monitor >> 28) & 0x1;
-			test_done_2 = (monitor >> 29) & 0x1;
+			if (test_done_2 == 0)
+				test_done_2 = (monitor >> 29) & 0x1;
+
+			if (test_done_3 == 0)
+				test_done_3 = (monitor >> 30) & 0x1;
+
+			/* get delay cycle */
 			if (test_done_1 == 1)
 				cycle_1 = monitor & 0xf;
 
 			if (test_done_2 == 1)
 				cycle_2 = (monitor >> 4) & 0xf;
 
+			if (test_done_3 == 1)
+				cycle_3 = (monitor >> 8) & 0xf;
+
 			/* handle if never test done */
 			if (++counter > 10000) {
-				dev_err(afe->dev, "%s(), test fail, cycle_1 %d, cycle_2 %d, monitor 0x%x\n",
+				dev_err(afe->dev, "%s(), test fail, cycle_1 %d, cycle_2 %d, cycle_3 %d, monitor 0x%x\n",
 					__func__,
-					cycle_1, cycle_2, monitor);
+					cycle_1, cycle_2, cycle_3, monitor);
 				mtkaif_calib_ok = false;
 				break;
 			}
@@ -222,25 +241,31 @@ static int mt6833_mt6359_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 		if (phase == 0) {
 			prev_cycle_1 = cycle_1;
 			prev_cycle_2 = cycle_2;
+			prev_cycle_3 = cycle_3;
 		}
 
-		if (cycle_1 != prev_cycle_1 &&
-		    afe_priv->mtkaif_chosen_phase[0] < 0) {
+		if (cycle_1 != prev_cycle_1 && need_calib_miso0) {
 			afe_priv->mtkaif_chosen_phase[0] = phase - 1;
 			afe_priv->mtkaif_phase_cycle[0] = prev_cycle_1;
+			need_calib_miso0 = false;
 		}
 
-		if (cycle_2 != prev_cycle_2 &&
-		    afe_priv->mtkaif_chosen_phase[1] < 0) {
+		if (cycle_2 != prev_cycle_2 && need_calib_miso1) {
 			afe_priv->mtkaif_chosen_phase[1] = phase - 1;
 			afe_priv->mtkaif_phase_cycle[1] = prev_cycle_2;
+			need_calib_miso1 = false;
+		}
+
+		if (cycle_3 != prev_cycle_3 && need_calib_miso2) {
+			afe_priv->mtkaif_chosen_phase[2] = phase - 1;
+			afe_priv->mtkaif_phase_cycle[2] = prev_cycle_3;
+			need_calib_miso2 = false;
 		}
 
 		regmap_update_bits(afe_priv->topckgen,
 				   CKSYS_AUD_TOP_CFG, 0x1, 0x0);
 
-		if (afe_priv->mtkaif_chosen_phase[0] >= 0 &&
-		    afe_priv->mtkaif_chosen_phase[1] >= 0)
+		if (!need_calib_miso0 && !need_calib_miso1 && !need_calib_miso2)
 			break;
 	}
 
@@ -259,6 +284,22 @@ static int mt6833_mt6359_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 
 	mt6833_afe_gpio_request(afe, false, MT6833_DAI_ADDA, 1);
 	mt6833_afe_gpio_request(afe, false, MT6833_DAI_ADDA, 0);
+
+	/* disable syncword if miso pin not prepared */
+	if (!mt6833_afe_gpio_is_prepare(MT6833_AFE_GPIO_DAT_MISO0_ON)) {
+		dev_info(afe->dev, "%s(), miso0 syncword disabled\n",
+			 __func__);
+		regmap_update_bits(afe->regmap, AFE_ADDA_MTKAIF_SYNCWORD_CFG,
+				   0x1 << 11, 0x1 << 11);
+	}
+
+	if (!mt6833_afe_gpio_is_prepare(MT6833_AFE_GPIO_DAT_MISO1_ON)) {
+		dev_info(afe->dev, "%s(), miso1 syncword disabled\n",
+			 __func__);
+		regmap_update_bits(afe->regmap, AFE_ADDA_MTKAIF_SYNCWORD_CFG,
+				   0x1 << 15, 0x1 << 15);
+	}
+
 	pm_runtime_put(afe->dev);
 
 	dev_info(afe->dev, "%s(), mtkaif_chosen_phase[0/1/2]:%d/%d/%d\n",

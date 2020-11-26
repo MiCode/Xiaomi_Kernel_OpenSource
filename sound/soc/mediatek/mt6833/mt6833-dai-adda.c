@@ -337,23 +337,35 @@ static int mtk_adda_mtkaif_cfg_event(struct snd_soc_dapm_widget *w,
 			/* set protocol 2 */
 			regmap_write(afe->regmap, AFE_ADDA_MTKAIF_CFG0,
 				     0x00010000);
-
-			if (strcmp(w->name, "ADDA_MTKAIF_CFG") == 0 &&
-			    (afe_priv->mtkaif_chosen_phase[0] < 0 ||
-			     afe_priv->mtkaif_chosen_phase[1] < 0)) {
-				AUDIO_AEE("adda mtkaif calib fail");
-				dev_warn(afe->dev,
-					 "%s(), mtkaif_chosen_phase[0/1]:%d/%d\n",
-					 __func__,
-					 afe_priv->mtkaif_chosen_phase[0],
-					 afe_priv->mtkaif_chosen_phase[1]);
-				break;
-			}
-
-			/* mtkaif_rxif_clkinv_adc inverse for calibration */
+			/* mtkaif_rxif_clkinv_adc inverse */
 			regmap_update_bits(afe->regmap, AFE_ADDA_MTKAIF_CFG0,
 					   MTKAIF_RXIF_CLKINV_ADC_MASK_SFT,
 					   0x1 << MTKAIF_RXIF_CLKINV_ADC_SFT);
+
+			if (strcmp(w->name, "ADDA_MTKAIF_CFG") == 0) {
+				if (afe_priv->mtkaif_chosen_phase[0] < 0 &&
+				    afe_priv->mtkaif_chosen_phase[1] < 0) {
+					dev_info(afe->dev,
+						 "%s(), calib fail mtkaif_chosen_phase[0/1]:%d/%d\n",
+						 __func__,
+						 afe_priv->mtkaif_chosen_phase[0],
+						 afe_priv->mtkaif_chosen_phase[1]);
+					/* trigger mediatek AEE */
+					AUDIO_AEE("adda mtkaif calib fail");
+					break;
+				}
+
+				if (afe_priv->mtkaif_chosen_phase[0] < 0 ||
+				    afe_priv->mtkaif_chosen_phase[1] < 0) {
+					dev_info(afe->dev,
+						 "%s(), skip dealy setting mtkaif_chosen_phase[0/1]:%d/%d\n",
+						 __func__,
+						 afe_priv->mtkaif_chosen_phase[0],
+						 afe_priv->mtkaif_chosen_phase[1]);
+					break;
+				}
+
+			}
 
 			/* set delay for ch12 */
 			if (afe_priv->mtkaif_phase_cycle[0] >=
