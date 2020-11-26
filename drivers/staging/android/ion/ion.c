@@ -412,7 +412,9 @@ static void _ion_buffer_destroy(struct kref *kref)
 	mutex_unlock(&dev->buffer_lock);
 	atomic_long_sub(buffer->size, &total_heap_bytes);
 
-	if (heap->flags & ION_HEAP_FLAG_DEFER_FREE)
+	if (unlikely(buffer->flags & ION_FLAG_FREE_WITHOUT_DEFER))
+		ion_buffer_destroy(buffer);
+	else if (heap->flags & ION_HEAP_FLAG_DEFER_FREE)
 		ion_heap_freelist_add(heap, buffer);
 	else
 		ion_buffer_destroy(buffer);
