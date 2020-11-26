@@ -906,6 +906,7 @@
   fsl8250_handle_irq
   fs_kobj
   fsstack_copy_attr_all
+  full_name_hash
   fwnode_connection_find_match
   fwnode_get_parent
   fwnode_handle_put
