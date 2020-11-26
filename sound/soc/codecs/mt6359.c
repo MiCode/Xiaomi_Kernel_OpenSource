@@ -2214,7 +2214,7 @@ static int mt_lo_event(struct snd_soc_dapm_widget *w,
 				break;
 			}
 			/* Enable DACL and switch HP MUX to open*/
-			regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON0, 0x30ff);
+			regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON0, 0x3009);
 			/* Disable low-noise mode of DAC */
 			regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON9, 0xf200);
 			usleep_range(100, 120);
