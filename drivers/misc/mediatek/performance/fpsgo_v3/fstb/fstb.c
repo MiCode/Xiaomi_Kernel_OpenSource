@@ -87,7 +87,7 @@ static struct fps_level fps_levels[MAX_NR_FPS_LEVELS];
 static int nr_fps_levels = MAX_NR_FPS_LEVELS;
 
 static int fstb_fps_klog_on;
-static int fstb_enable, fstb_active, fstb_idle_cnt;
+static int fstb_enable, fstb_active, fstb_active_dbncd, fstb_idle_cnt;
 static long long last_update_ts;
 
 static void reset_fps_level(void);
@@ -231,9 +231,11 @@ static void switch_fstb_active(void)
 {
 	fpsgo_systrace_c_fstb(-200, 0,
 			fstb_active, "fstb_active");
+	fpsgo_systrace_c_fstb(-200, 0,
+			fstb_active_dbncd, "fstb_active_dbncd");
 
-	mtk_fstb_dprintk_always("%s %d\n",
-			__func__, fstb_active);
+	mtk_fstb_dprintk_always("%s %d %d\n",
+			__func__, fstb_active, fstb_active_dbncd);
 	enable_fstb_timer();
 }
 
@@ -480,8 +482,11 @@ void gpu_time_update(long long t_gpu, unsigned int cur_freq,
 		return;
 	}
 
-	if (!fstb_active) {
+	if (!fstb_active)
 		fstb_active = 1;
+
+	if (!fstb_active_dbncd) {
+		fstb_active_dbncd = 1;
 		switch_fstb_active();
 	}
 
@@ -661,8 +666,11 @@ int fpsgo_fbt2fstb_update_cpu_frame_info(
 		return 0;
 	}
 
-	if (!fstb_active) {
+	if (!fstb_active)
 		fstb_active = 1;
+
+	if (!fstb_active_dbncd) {
+		fstb_active_dbncd = 1;
 		switch_fstb_active();
 	}
 
@@ -1020,8 +1028,11 @@ void fpsgo_comp2fstb_queue_time_update(int pid, unsigned long long bufID,
 		return;
 	}
 
-	if (!fstb_active) {
+	if (!fstb_active)
 		fstb_active = 1;
+
+	if (!fstb_active_dbncd) {
+		fstb_active_dbncd = 1;
 		switch_fstb_active();
 	}
 
@@ -1547,17 +1558,6 @@ static void fstb_fps_stats(struct work_struct *work)
 			if (max_target_fps < iter->target_fps)
 				max_target_fps = iter->target_fps;
 			/* if queue fps == 0, we delete that frame_info */
-		} else {
-			hlist_del(&iter->hlist);
-
-			{
-				struct pob_fpsgo_qtsk_info pffi = {iter->pid};
-
-				pob_fpsgo_qtsk_update(POB_FPSGO_QTSK_DEL,
-							&pffi);
-			}
-
-			vfree(iter);
 		}
 	}
 
@@ -1569,9 +1569,23 @@ static void fstb_fps_stats(struct work_struct *work)
 	else
 		fstb_idle_cnt = 0;
 
-	if (fstb_idle_cnt >= 2) {
-		fstb_active = 0;
+	if (fstb_idle_cnt >= FSTB_IDLE_DBNC) {
+		fstb_active_dbncd = 0;
 		fstb_idle_cnt = 0;
+		hlist_for_each_entry_safe(iter, n, &fstb_frame_infos, hlist) {
+			hlist_del(&iter->hlist);
+
+			{
+				struct pob_fpsgo_qtsk_info pffi = {iter->pid};
+
+				pob_fpsgo_qtsk_update(POB_FPSGO_QTSK_DEL,
+						&pffi);
+			}
+
+			vfree(iter);
+		}
+	} else if (fstb_idle_cnt >= 2) {
+		fstb_active = 0;
 	}
 
 	if (fstb_active)
@@ -1579,7 +1593,7 @@ static void fstb_fps_stats(struct work_struct *work)
 	else
 		fstb_active2xgf = 0;
 
-	if (fstb_enable && fstb_active)
+	if (fstb_enable && fstb_active_dbncd)
 		enable_fstb_timer();
 	else
 		disable_fstb_timer();
@@ -2063,6 +2077,9 @@ static ssize_t fstb_debug_show(struct kobject *kobj,
 	pos += length;
 	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
 			"fstb_active %d\n", fstb_active);
+	pos += length;
+	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+			"fstb_active_dbncd %d\n", fstb_active_dbncd);
 	pos += length;
 	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
 			"fstb_idle_cnt %d\n", fstb_idle_cnt);
