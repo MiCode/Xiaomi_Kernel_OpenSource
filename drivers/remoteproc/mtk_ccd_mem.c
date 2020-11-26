@@ -45,7 +45,8 @@ EXPORT_SYMBOL_GPL(mtk_ccd_mem_release);
 void *mtk_ccd_get_buffer(struct mtk_ccd *ccd,
 			 struct ccd_mem_obj  *mem_buff_data)
 {
-	void *va, *da;
+	void *va;
+	dma_addr_t *da;
 	unsigned int buffers;
 	struct mtk_ccd_mem *ccd_buffer;
 	struct mtk_ccd_memory *ccd_memory = ccd->ccd_memory;
@@ -77,17 +78,16 @@ void *mtk_ccd_get_buffer(struct mtk_ccd *ccd,
 	}
 
 	va = ccd_memory->mem_ops->vaddr(ccd_buffer->mem_priv);
-	da = ccd_memory->mem_ops->cookie(ccd_buffer->mem_priv);
-
-	mem_buff_data->iova = *(dma_addr_t *)da;
-	mem_buff_data->va = (unsigned long)va;
+	da = (dma_addr_t *)ccd_memory->mem_ops->cookie(ccd_buffer->mem_priv);
+	mem_buff_data->iova = (unsigned int)*da;
+	mem_buff_data->va = (unsigned long long)va;
 	/* TBD: No iommu case only */
-	mem_buff_data->pa = *(dma_addr_t *)da;
+	mem_buff_data->pa = (unsigned int)*da;
 	ccd_memory->num_buffers++;
 	mutex_unlock(&ccd_memory->mmap_lock);
 
 	dev_info(ccd_memory->dev,
-		"Num_bufs = %d iova = %x va = %llx size = %d priv = %lx\n",
+		 "Num_bufs = %d iova = %x va = %llx size = %d priv = %lx\n",
 		 ccd_memory->num_buffers, mem_buff_data->iova,
 		 mem_buff_data->va,
 		 (unsigned int)ccd_buffer->size,
@@ -100,7 +100,8 @@ EXPORT_SYMBOL_GPL(mtk_ccd_get_buffer);
 int mtk_ccd_free_buffer(struct mtk_ccd *ccd,
 			struct ccd_mem_obj  *mem_buff_data)
 {
-	void *va, *da;
+	void *va;
+	dma_addr_t *da;
 	int ret = -EINVAL;
 	struct mtk_ccd_mem *ccd_buffer;
 	unsigned int buffer, num_buffers, last_buffer;
@@ -112,13 +113,15 @@ int mtk_ccd_free_buffer(struct mtk_ccd *ccd,
 		for (buffer = 0; buffer < num_buffers; buffer++) {
 			ccd_buffer = &ccd_memory->bufs[buffer];
 			va = ccd_memory->mem_ops->vaddr(ccd_buffer->mem_priv);
-			da = ccd_memory->mem_ops->cookie(ccd_buffer->mem_priv);
+			da = (dma_addr_t *)ccd_memory->mem_ops->cookie
+							(ccd_buffer->mem_priv);
 
-			if (mem_buff_data->va == (unsigned long)va &&
-			    mem_buff_data->iova == *(dma_addr_t *)da &&
+			/* For mediatek's ISP daddr, we only use 32bits */
+			if (mem_buff_data->va == (unsigned long long)va &&
+			    mem_buff_data->iova == (unsigned int)*da &&
 			    mem_buff_data->len == ccd_buffer->size) {
 				dev_info(ccd_memory->dev,
-					"Free buff = %d iova = %x va = %llx, queue_num = %d\n",
+					 "Free buff = %d iova = %x va = %llx, queue_num = %d\n",
 					 buffer, mem_buff_data->iova,
 					 mem_buff_data->va,
 					 num_buffers);
@@ -140,7 +143,7 @@ int mtk_ccd_free_buffer(struct mtk_ccd *ccd,
 
 	if (ret != 0)
 		dev_info(ccd_memory->dev,
-			"Can not free memory va %llx iova %x len %u!\n",
+			 "Can not free memory va %llx iova %x len %u!\n",
 			 mem_buff_data->va, mem_buff_data->iova,
 			 mem_buff_data->len);
 
@@ -159,7 +162,6 @@ mtk_ccd_get_dmabuf(struct mtk_ccd *ccd, void *mem_priv)
 }
 EXPORT_SYMBOL_GPL(mtk_ccd_get_dmabuf);
 
-
 int mtk_ccd_get_dmabuf_fd(struct mtk_ccd *ccd,
 			  struct dma_buf *dmabuf,
 			  int ori_fd)
@@ -170,13 +172,13 @@ int mtk_ccd_get_dmabuf_fd(struct mtk_ccd *ccd,
 	spinlock_t siglock;
 	int target_fd = 0;
 
-	if (dmabuf == NULL || dmabuf->file == NULL)
+	if (!dmabuf || !dmabuf->file)
 		return 0;
 
 	mtk_ccd_get_serivce(ccd, &task, &f);
-	if (task == NULL || f == NULL ||
-		probe_kernel_address(&task->sighand, sighand) ||
-		probe_kernel_address(&task->sighand->siglock, siglock))
+	if (!task || !f ||
+	    probe_kernel_address(&task->sighand, sighand) ||
+	    probe_kernel_address(&task->sighand->siglock, siglock))
 		return -EMFILE;
 
 	dev_dbg(ccd->dev, "Master pid:%d, tgid:%d; current pid:%d, tgid:%d",
@@ -205,16 +207,17 @@ int mtk_ccd_get_dmabuf_fd(struct mtk_ccd *ccd,
 }
 EXPORT_SYMBOL_GPL(mtk_ccd_get_dmabuf_fd);
 
-void mtk_ccd_put_fd(struct mtk_ccd *ccd, unsigned int target_fd)
+void mtk_ccd_put_fd(struct mtk_ccd *ccd, struct dma_buf *dmabuf, int target_fd)
 {
 	struct task_struct *task = NULL;
 	struct files_struct *f = NULL;
 
 	mtk_ccd_get_serivce(ccd, &task, &f);
-	if (task == NULL || f == NULL)
+	if (!task || !f)
 		return;
 
-	__close_fd(f, target_fd);
+	fput(dmabuf->file);
+	put_unused_fd(target_fd);
 }
 EXPORT_SYMBOL_GPL(mtk_ccd_put_fd);
 

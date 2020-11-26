@@ -106,7 +106,7 @@ int rpmsg_ccd_ipi_send(struct mtk_rpmsg_rproc_subdev *mtk_subdev,
 		       void *buf, unsigned int len, unsigned int wait);
 
 void ccd_master_listen(struct mtk_ccd *ccd,
-			      struct ccd_master_listen_item *listen_obj);
+		       struct ccd_master_listen_item *listen_obj);
 
 void ccd_master_destroy(struct mtk_ccd *ccd,
 			struct ccd_master_status_item *master_obj);
@@ -159,5 +159,6 @@ mtk_ccd_get_dmabuf(struct mtk_ccd *ccd, void *mem_priv);
 int mtk_ccd_get_dmabuf_fd(struct mtk_ccd *ccd,
 			  struct dma_buf *dmabuf,
 			  int ori_fd);
-void mtk_ccd_put_fd(struct mtk_ccd *ccd, unsigned int target_fd);
+void mtk_ccd_put_fd(struct mtk_ccd *ccd, struct dma_buf *dmabuf,
+		    int target_fd);
 #endif /* _MTK_CCD_H */
