@@ -72,6 +72,8 @@ static DECLARE_WAIT_QUEUE_HEAD(VowDrv_Wait_Queue);
 static DECLARE_WAIT_QUEUE_HEAD(VoiceData_Wait_Queue);
 static DEFINE_SPINLOCK(vowdrv_lock);
 static struct wakeup_source VOW_suspend_lock;
+static struct wakeup_source VOW_ipi_suspend_lock;
+
 static int init_flag = -1;
 
 static struct file *file_vffp_data;
@@ -256,6 +258,11 @@ void vow_ipi_rx_internal(unsigned int msg_id,
 				bypass_flag = true;
 			}
 			if (bypass_flag == false) {
+				/* toggle wakelock for abort suspend flow */
+				__pm_stay_awake(&VOW_ipi_suspend_lock);
+				__pm_relax(&VOW_ipi_suspend_lock);
+				VOWDRV_DEBUG("%s(), receive recog_ok_ipi\n",
+					__func__);
 				vowserv.ap_received_ipi_cycle =
 					get_cycles();
 				vowserv.scp_recognize_ok_cycle =
@@ -587,6 +594,7 @@ static void vow_service_Init(void)
 		vowserv.voicedata_kernel_ptr = NULL;
 		vowserv.voicedata_idx = 0;
 		wakeup_source_init(&VOW_suspend_lock, "VOW wakelock");
+		wakeup_source_init(&VOW_ipi_suspend_lock, "VOW ipi wakelock");
 		init_flag = 1;
 		vowserv.dump_pcm_flag = false;
 		vowserv.split_dumpfile_flag = false;
