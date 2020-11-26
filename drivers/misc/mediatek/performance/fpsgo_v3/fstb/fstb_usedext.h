@@ -35,6 +35,7 @@
 #define MDLA_MAX_CAP 100
 #define RESET_TOLERENCE 3
 #define DEFAULT_JUMP_CHECK_NUM 21
+#define DEFAULT_JUMP_CHECK_Q_PCT 33
 #define JUMP_VOTE_MAX_I 60
 
 extern int (*fbt_notifier_cpu_frame_time_fps_stabilizer)(

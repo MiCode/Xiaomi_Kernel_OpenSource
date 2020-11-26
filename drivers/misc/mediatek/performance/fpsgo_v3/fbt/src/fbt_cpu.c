@@ -2109,7 +2109,7 @@ static int fbt_boost_policy(
 			blc_wt = thread_info->p_blc->blc;
 		mutex_unlock(&blc_mlock);
 		aa = 0;
-	} else if (t_Q2Q > t1) {
+	} else if (t1 > 0 && t_Q2Q > 0) {
 		long long new_aa;
 
 		new_aa = aa * t1;
@@ -2668,9 +2668,6 @@ void fpsgo_comp2fbt_frame_start(struct render_info *thr,
 			0, "zero running time");
 		return;
 	}
-
-	if (thr->Q2Q_time < thr->running_time)
-		thr->running_time = thr->Q2Q_time;
 
 	mutex_lock(&fbt_mlock);
 	fbt_set_idleprefer_locked(1);

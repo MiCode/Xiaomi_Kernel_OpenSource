@@ -72,6 +72,7 @@ static int margin_mode;
 static int margin_mode_dbnc_a = 9;
 static int margin_mode_dbnc_b = 1;
 static int JUMP_CHECK_NUM = DEFAULT_JUMP_CHECK_NUM;
+static int JUMP_CHECK_Q_PCT = DEFAULT_JUMP_CHECK_Q_PCT;
 
 static void fstb_fps_stats(struct work_struct *work);
 static DECLARE_WORK(fps_stats_work,
@@ -294,6 +295,19 @@ int switch_jump_check_num(int val)
 	mutex_lock(&fstb_lock);
 	if (val != JUMP_CHECK_NUM)
 		JUMP_CHECK_NUM = val;
+	mutex_unlock(&fstb_lock);
+
+	return 0;
+}
+
+int switch_jump_check_q_pct(int val)
+{
+	if (val < 1 || val > 100)
+		return -EINVAL;
+
+	mutex_lock(&fstb_lock);
+	if (val != JUMP_CHECK_Q_PCT)
+		JUMP_CHECK_Q_PCT = val;
 	mutex_unlock(&fstb_lock);
 
 	return 0;
@@ -942,12 +956,17 @@ static int fstb_get_queue_fps2(struct FSTB_FRAME_INFO *iter)
 {
 	unsigned long long retval = 0;
 	unsigned long long duration = 0;
+	int tmp_jump_check_num = 0;
 
+	tmp_jump_check_num = min(JUMP_CHECK_NUM,
+			iter->target_fps * JUMP_CHECK_Q_PCT / 100);
+	tmp_jump_check_num =
+		tmp_jump_check_num <= 1 ? 2 : tmp_jump_check_num;
 
 	duration =
 		iter->queue_time_ts[iter->queue_time_end - 1] -
-		iter->queue_time_ts[iter->queue_time_end - JUMP_CHECK_NUM];
-	do_div(duration, JUMP_CHECK_NUM - 1);
+		iter->queue_time_ts[iter->queue_time_end - tmp_jump_check_num];
+	do_div(duration, tmp_jump_check_num - 1);
 
 	retval = 1000000000ULL;
 	do_div(retval, duration);
@@ -990,6 +1009,7 @@ void fpsgo_comp2fstb_queue_time_update(int pid, unsigned long long bufID,
 	ktime_t cur_time;
 	long long cur_time_us = 0;
 	struct task_struct *tsk = NULL, *gtsk = NULL;
+	int tmp_jump_check_num = 0;
 
 	mutex_lock(&fstb_lock);
 
@@ -1114,13 +1134,20 @@ void fpsgo_comp2fstb_queue_time_update(int pid, unsigned long long bufID,
 	if (!JUMP_CHECK_NUM)
 		goto out;
 
-	if (iter->queue_time_end - iter->queue_time_begin >= JUMP_CHECK_NUM) {
+	tmp_jump_check_num = min(JUMP_CHECK_NUM,
+			iter->target_fps * JUMP_CHECK_Q_PCT / 100);
+	tmp_jump_check_num =
+		tmp_jump_check_num <= 1 ? 2 : tmp_jump_check_num;
+
+	if (iter->queue_time_end - iter->queue_time_begin >= tmp_jump_check_num) {
 		int tmp_q_fps = fstb_get_queue_fps2(iter);
 		int tmp_target_fps = iter->target_fps;
 		int tmp_vote_fps = iter->target_fps;
 
 		fpsgo_systrace_c_fstb_man(iter->pid, iter->bufid, tmp_q_fps,
 			"tmp_q_fps");
+		fpsgo_systrace_c_fstb(iter->pid, iter->bufid, tmp_jump_check_num,
+			"tmp_jump_check_num");
 
 		if (tmp_q_fps >= iter->target_fps +
 			iter->target_fps_margin2) {
@@ -1133,18 +1160,18 @@ void fpsgo_comp2fstb_queue_time_update(int pid, unsigned long long bufID,
 			iter->vote_i++;
 		} else {
 			memmove(iter->vote_fps,
-			&(iter->vote_fps[JUMP_VOTE_MAX_I - JUMP_CHECK_NUM + 1]),
-			sizeof(int) * (JUMP_CHECK_NUM - 1));
-			iter->vote_i = JUMP_CHECK_NUM - 1;
+			&(iter->vote_fps[JUMP_VOTE_MAX_I - tmp_jump_check_num + 1]),
+			sizeof(int) * (tmp_jump_check_num - 1));
+			iter->vote_i = tmp_jump_check_num - 1;
 			iter->vote_fps[iter->vote_i] = tmp_target_fps;
 			iter->vote_i++;
 		}
 
-		if (iter->vote_i >= JUMP_CHECK_NUM) {
+		if (iter->vote_i >= tmp_jump_check_num) {
 			tmp_vote_fps =
 			mode(
-			&(iter->vote_fps[iter->vote_i - JUMP_CHECK_NUM]),
-			JUMP_CHECK_NUM);
+			&(iter->vote_fps[iter->vote_i - tmp_jump_check_num]),
+			tmp_jump_check_num);
 			fpsgo_main_trace("fstb_vote_target_fps %d",
 			tmp_vote_fps);
 		}
@@ -1595,6 +1622,32 @@ static void reset_fps_level(void)
 
 	set_soft_fps_level(1, level);
 }
+
+static ssize_t jump_check_q_pct_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%d\n", JUMP_CHECK_Q_PCT);
+}
+
+static ssize_t jump_check_q_pct_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
+{
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int arg;
+
+	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &arg) == 0)
+				switch_jump_check_q_pct(arg);
+		}
+	}
+
+	return count;
+}
+
+static KOBJ_ATTR_RW(jump_check_q_pct);
 
 static ssize_t jump_check_num_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
@@ -2116,6 +2169,8 @@ int mtk_fstb_init(void)
 				&kobj_attr_fstb_soft_level);
 		fpsgo_sysfs_create_file(fstb_kobj,
 				&kobj_attr_jump_check_num);
+		fpsgo_sysfs_create_file(fstb_kobj,
+				&kobj_attr_jump_check_q_pct);
 	}
 
 	reset_fps_level();
@@ -2163,6 +2218,8 @@ int __exit mtk_fstb_exit(void)
 			&kobj_attr_fstb_soft_level);
 	fpsgo_sysfs_remove_file(fstb_kobj,
 			&kobj_attr_jump_check_num);
+	fpsgo_sysfs_remove_file(fstb_kobj,
+			&kobj_attr_jump_check_q_pct);
 
 	fpsgo_sysfs_remove_dir(&fstb_kobj);
 
