@@ -1233,6 +1233,7 @@
   regulator_is_enabled
   regulator_set_voltage
   sched_setscheduler_nocheck
+  unmap_kernel_range
   v4l2_device_register_subdev
   v4l2_device_set_name
   v4l2_device_unregister_subdev
@@ -1377,6 +1378,7 @@
   snd_pcm_lib_preallocate_free_for_all
   snd_pcm_lib_preallocate_pages
   snd_pcm_period_elapsed
+  snd_pcm_release_substream
   snd_soc_component_exit_regmap
   snd_soc_component_init_regmap
   snd_soc_component_read
