@@ -57,6 +57,7 @@ enum GBE_BOOST_DEVICE {
 	GBE_BOOST_IO,
 	GBE_BOOST_HE,
 	GBE_BOOST_GPU,
+	GBE_BOOST_LLF,
 	GBE_BOOST_NUM,
 };
 
@@ -145,6 +146,7 @@ void gbe_boost(enum GBE_KICKER kicker, int boost)
 	char u_io_string[11];
 	char u_boost_string[12];
 	char u_gpu_string[12];
+	char u_llf_string[12];
 
 	if (!pld)
 		return;
@@ -177,6 +179,7 @@ void gbe_boost(enum GBE_KICKER kicker, int boost)
 		strncpy(u_io_string, "IO_BOOST=1", 11);
 		strncpy(u_gpu_string, "GPU_BOOST=1", 12);
 		strncpy(u_boost_string, "GBE_BOOST=1", 12);
+		strncpy(u_llf_string, "LLF_BOOST=1", 12);
 	} else {
 		for (i = 0; i < cluster_num; i++) {
 			pld[i].max = -1;
@@ -187,6 +190,7 @@ void gbe_boost(enum GBE_KICKER kicker, int boost)
 		strncpy(u_io_string, "IO_BOOST=0", 11);
 		strncpy(u_gpu_string, "GPU_BOOST=0", 12);
 		strncpy(u_boost_string, "GBE_BOOST=0", 12);
+		strncpy(u_llf_string, "LLF_BOOST=0", 12);
 	}
 
 	if (test_bit(GBE_BOOST_CPU, &policy_mask))
@@ -209,6 +213,9 @@ void gbe_boost(enum GBE_KICKER kicker, int boost)
 
 	if (test_bit(GBE_BOOST_GPU, &policy_mask))
 		sentuevent(u_gpu_string);
+
+	if (test_bit(GBE_BOOST_LLF, &policy_mask))
+		sentuevent(u_llf_string);
 
 out:
 	mutex_unlock(&gbe_lock);
@@ -239,7 +246,7 @@ static ssize_t gbe_policy_mask_store(struct kobject *kobj,
 		}
 	}
 
-	if (val > 64 || val < 0)
+	if (val > 1 << GBE_BOOST_NUM || val < 0)
 		return count;
 
 	if (!pld)
@@ -249,11 +256,13 @@ static ssize_t gbe_policy_mask_store(struct kobject *kobj,
 		int i;
 		char u_io_string[11];
 		char u_gpu_string[12];
+		char u_llf_string[12];
 		char u_boost_string[12];
 
 		strncpy(u_io_string, "IO_BOOST=0", 11);
 		strncpy(u_gpu_string, "GPU_BOOST=0", 12);
 		strncpy(u_boost_string, "GBE_BOOST=0", 12);
+		strncpy(u_llf_string, "GPU_BOOST=0", 12);
 		for (i = 0; i < cluster_num; i++) {
 			pld[i].max = -1;
 			pld[i].min = -1;
@@ -268,6 +277,7 @@ static ssize_t gbe_policy_mask_store(struct kobject *kobj,
 			pm_qos_update_request(&dram_req, PM_QOS_DDR_OPP_DEFAULT_VALUE);
 		sentuevent(u_io_string);
 		sentuevent(u_gpu_string);
+		sentuevent(u_llf_string);
 		sentuevent(u_boost_string);
 
 		mutex_unlock(&gbe_lock);
