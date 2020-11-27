@@ -1148,6 +1148,17 @@ setup_ipc:
 		mas->tx_fifo_width);
 	if (!mas->shared_ee)
 		mas->setup = true;
+
+	/*
+	 * Bypass hw_version read for LE. QUP common registers
+	 * should not be accessed from SVM as that memory is
+	 * assigned to PVM. So, bypass the reading of hw version
+	 *  registers and rely on PVM for the specific HW initialization
+	 *  done based on different hw versions.
+	 */
+	if (mas->is_le_vm)
+		return ret;
+
 	hw_ver = geni_se_qupv3_hw_version(mas->wrapper_dev, &major,
 						&minor, &step);
 	if (hw_ver)
