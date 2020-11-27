@@ -80,6 +80,7 @@ obj-$(CONFIG_SM_GCC_YUPIK) += gcc-yupik.o
 obj-$(CONFIG_SM_GPUCC_8150) += gpucc-sm8150.o
 obj-$(CONFIG_SM_GPUCC_HOLI) += gpucc-holi.o
 obj-$(CONFIG_SM_GPUCC_SHIMA) += gpucc-shima.o
+obj-$(CONFIG_SM_GPUCC_YUPIK) += gpucc-yupik.o
 obj-$(CONFIG_SM_NPUCC_8150) += npucc-sm8150.o
 obj-$(CONFIG_SM_SCC_8150) += scc-sm8150.o
 obj-$(CONFIG_SM_VIDEOCC_8150) += videocc-sm8150.o
