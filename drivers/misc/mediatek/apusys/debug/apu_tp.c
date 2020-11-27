@@ -58,22 +58,21 @@ static void for_each_apu_tracepoint(
 {
 #if IS_ENABLED(CONFIG_TRACEPOINTS)
 	struct module *mod;
-	int i;
+	tracepoint_ptr_t *iter, *begin, *end;
 
 	mutex_lock(&module_mutex);
-	mod = 0;
+	mod = find_module("apusys");
 	mutex_unlock(&module_mutex);
 
 	if (!mod || !fct)
 		return;
 
-	for (i = 0; i < mod->num_tracepoints; i++) {
-		struct tracepoint *tp;
+	begin = mod->tracepoints_ptrs;
+	end = mod->tracepoints_ptrs + mod->num_tracepoints;
 
-		tp = (struct tracepoint *)(unsigned long)
-			mod->tracepoints_ptrs[i];
-		fct(tp, priv);
-	}
+	for (iter = begin; iter < end; iter++)
+		fct(tracepoint_ptr_deref(iter), priv);
+
 #endif
 }
 #endif
