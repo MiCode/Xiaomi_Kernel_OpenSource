@@ -537,6 +537,8 @@ struct fastrpc_apps {
 	uint32_t max_size_limit;
 	struct hlist_head frpc_devices;
 	struct hlist_head frpc_drivers;
+	void *ramdump_handle;
+	bool enable_ramdump;
 };
 
 struct fastrpc_mmap {
@@ -4376,7 +4378,7 @@ static int fastrpc_mmap_remove_ssr(struct fastrpc_file *fl)
 						match->size, match->flags);
 			if (err)
 				goto bail;
-			if (me->channel[RH_CID].ramdumpenabled) {
+			if (me->ramdump_handle && me->enable_ramdump) {
 				ramdump_segments_rh = kcalloc(1,
 				sizeof(struct qcom_dump_segment), GFP_KERNEL);
 				if (ramdump_segments_rh) {
@@ -4386,7 +4388,7 @@ static int fastrpc_mmap_remove_ssr(struct fastrpc_file *fl)
 					(void *)match->va;
 					ramdump_segments_rh->size = match->size;
 					list_add(&ramdump_segments_rh->node, &head);
-					ret = qcom_elf_dump(&head, me->channel[RH_CID].rh_dump_dev);
+					ret = qcom_elf_dump(&head, me->ramdump_handle);
 					if (ret < 0)
 						pr_err("adsprpc: %s: unable to dump heap (err %d)\n",
 							__func__, ret);
@@ -4396,6 +4398,7 @@ static int fastrpc_mmap_remove_ssr(struct fastrpc_file *fl)
 			fastrpc_mmap_free(match, 0);
 		}
 	} while (match);
+	me->enable_ramdump = false;
 bail:
 	if (err && match)
 		fastrpc_mmap_add(match);
@@ -6031,7 +6034,8 @@ static int fastrpc_restart_notifier_cb(struct notifier_block *nb,
 
 	ctx = container_of(nb, struct fastrpc_channel_ctx, nb);
 	cid = ctx - &me->channel[0];
-	if (code == QCOM_SSR_BEFORE_SHUTDOWN) {
+	switch (code) {
+	case QCOM_SSR_BEFORE_SHUTDOWN:
 		pr_info("adsprpc: %s: %s subsystem is restarting\n",
 			__func__, gcinfo[cid].subsys);
 		mutex_lock(&me->channel[cid].smd_mutex);
@@ -6040,19 +6044,31 @@ static int fastrpc_restart_notifier_cb(struct notifier_block *nb,
 		mutex_unlock(&me->channel[cid].smd_mutex);
 		if (cid == RH_CID)
 			me->staticpd_flags = 0;
-	} else if (code == QCOM_SSR_AFTER_SHUTDOWN) {
+		break;
+	case QCOM_SSR_AFTER_SHUTDOWN:
 		if (cid == RH_CID) {
-			if (me->channel[RH_CID].rh_dump_dev &&
-					dump_enabled()) {
+			if (me->ramdump_handle)
 				me->channel[RH_CID].ramdumpenabled = 1;
-			}
 		}
 		pr_info("adsprpc: %s: received RAMDUMP notification for %s\n",
 			__func__, gcinfo[cid].subsys);
-	} else if (code == QCOM_SSR_AFTER_POWERUP) {
+		break;
+	case QCOM_SSR_BEFORE_POWERUP:
+		if (cid == RH_CID && dump_enabled()) {
+			if (me->ramdump_handle && me->channel[RH_CID]
+					.ramdumpenabled) {
+				me->enable_ramdump = true;
+				me->channel[RH_CID].ramdumpenabled = 0;
+			}
+		}
+		break;
+	case QCOM_SSR_AFTER_POWERUP:
 		pr_info("adsprpc: %s: %s subsystem is up\n",
 			__func__, gcinfo[cid].subsys);
 		ctx->issubsystemup = 1;
+		break;
+	default:
+		break;
 	}
 	return NOTIFY_DONE;
 }
@@ -6425,6 +6441,7 @@ static int fastrpc_probe(struct platform_device *pdev)
 			pr_warn("adsprpc: Error: %s: initialization of memory region adsp_mem failed with %d\n",
 				__func__, ret);
 		}
+		me->ramdump_handle = create_ramdump_device("adsp_rh", &pdev->dev);
 		goto bail;
 	}
 	me->legacy_remote_heap = of_property_read_bool(dev->of_node,
