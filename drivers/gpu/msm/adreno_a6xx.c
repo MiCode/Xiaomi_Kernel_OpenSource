@@ -1264,6 +1264,29 @@ void a6xx_gx_cpr_toggle(struct kgsl_device *device)
 	wmb();
 }
 
+/* This is only defined for non-GMU and non-RGMU targets */
+static int a6xx_clear_pending_transactions(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	int ret;
+
+	if (adreno_is_a619_holi(adreno_dev)) {
+		kgsl_regwrite(device, A6XX_RBBM_GPR0_CNTL, 0x1e0);
+		ret = adreno_wait_for_halt_ack(device,
+			A6XX_RBBM_VBIF_GX_RESET_STATUS, 0xf0);
+	} else {
+		kgsl_regwrite(device, A6XX_RBBM_GBIF_HALT,
+			A6XX_GBIF_GX_HALT_MASK);
+		ret = adreno_wait_for_halt_ack(device, A6XX_RBBM_GBIF_HALT_ACK,
+			A6XX_GBIF_GX_HALT_MASK);
+	}
+
+	if (ret)
+		return ret;
+
+	return a6xx_halt_gbif(adreno_dev);
+}
+
 /**
  * a6xx_reset() - Helper function to reset the GPU
  * @device: Pointer to the KGSL device structure for the GPU
@@ -1277,19 +1300,9 @@ static int a6xx_reset(struct kgsl_device *device)
 	int ret;
 	unsigned long flags = device->pwrctrl.ctrl_flags;
 
-	/*
-	 * Stall on fault needs GBIF halt sequences for robust recovery.
-	 * Because in a worst-case scenario, if any of the GPU blocks is
-	 * generating a stream of un-ending faulting transactions, SMMU will
-	 * process those transactions when we try to resume it and enter
-	 * stall-on-fault mode again. GBIF halt sequences make sure that all
-	 * GPU transactions are halted at GBIF which ensures that SMMU
-	 * can resume safely.
-	 */
-	a6xx_do_gbif_halt(adreno_dev, A6XX_RBBM_GBIF_HALT,
-		A6XX_RBBM_GBIF_HALT_ACK, A6XX_GBIF_GX_HALT_MASK, "GX");
-	a6xx_do_gbif_halt(adreno_dev, A6XX_GBIF_HALT, A6XX_GBIF_HALT_ACK,
-		A6XX_GBIF_ARB_HALT_MASK, "CX");
+	ret = a6xx_clear_pending_transactions(adreno_dev);
+	if (ret)
+		return ret;
 
 	/* Clear ctrl_flags to ensure clocks and regulators are turned off */
 	device->pwrctrl.ctrl_flags = 0;
@@ -2439,63 +2452,6 @@ u64 a6xx_read_alwayson(struct adreno_device *adreno_dev)
 	}
 
 	return (((u64) hi) << 32) | lo;
-}
-
-void a6xx_do_gbif_halt(struct adreno_device *adreno_dev,
-	u32 halt_reg, u32 ack_reg, u32 mask, const char *client)
-{
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	unsigned long t;
-	u32 val;
-
-	kgsl_regwrite(device, halt_reg, mask);
-
-	t = jiffies + msecs_to_jiffies(100);
-	do {
-		kgsl_regread(device, ack_reg, &val);
-		if ((val & mask) == mask)
-			return;
-
-		/*
-		 * If we are attempting GBIF halt in case of stall-on-fault
-		 * then the halt sequence will not complete as long as SMMU
-		 * is stalled.
-		 */
-		kgsl_mmu_pagefault_resume(&device->mmu);
-		usleep_range(10, 100);
-	} while (!time_after(jiffies, t));
-
-	/* Check one last time */
-	kgsl_mmu_pagefault_resume(&device->mmu);
-
-	kgsl_regread(device, ack_reg, &val);
-	if ((val & mask) == mask)
-		return;
-
-	dev_err(device->dev, "%s GBIF Halt ack timed out\n", client);
-}
-
-/* This is only defined for non-GMU and non-RGMU targets */
-static int a6xx_clear_pending_transactions(struct adreno_device *adreno_dev)
-{
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	int ret;
-
-	if (adreno_is_a619_holi(adreno_dev)) {
-		kgsl_regwrite(device, A6XX_RBBM_GPR0_CNTL, 0x1e0);
-		ret = adreno_wait_for_halt_ack(device,
-			A6XX_RBBM_VBIF_GX_RESET_STATUS, 0xf0);
-	} else {
-		kgsl_regwrite(device, A6XX_RBBM_GBIF_HALT,
-			A6XX_GBIF_GX_HALT_MASK);
-		ret = adreno_wait_for_halt_ack(device, A6XX_RBBM_GBIF_HALT_ACK,
-			A6XX_GBIF_GX_HALT_MASK);
-	}
-
-	if (ret)
-		return ret;
-
-	return a6xx_halt_gbif(adreno_dev);
 }
 
 const struct adreno_gpudev adreno_a6xx_gpudev = {
