@@ -14,7 +14,6 @@
 #include <linux/ipa_uc_offload.h>
 #include <linux/pci.h>
 #include "ipa_api.h"
-#include "ipa_v3/ipa_i.h"
 
 /*
  * The following for adding code (ie. for EMULATION) not found on x86.
@@ -335,7 +334,7 @@ u8 *ipa_pad_to_32(u8 *dest)
 		return dest;
 	}
 
-	i = (long)dest & 0x7;
+	i = (long)dest & 0x3;
 
 	if (i)
 		for (j = 0; j < (4 - i); j++)
@@ -383,6 +382,55 @@ int ipa_smmu_free_sgt(struct sg_table **out_sgt_ptr)
 	}
 	return 0;
 }
+
+/**
+ * ipa_connect() - low-level IPA client connect
+ * @in: [in] input parameters from client
+ * @sps:	[out] sps output from IPA needed by client for sps_connect
+ * @clnt_hdl:   [out] opaque client handle assigned by IPA to client
+ *
+ * Should be called by the driver of the peripheral that wants to connect to
+ * IPA in BAM-BAM mode. these peripherals are USB and HSIC. this api
+ * expects caller to take responsibility to add any needed headers, routing
+ * and filtering tables and rules as needed.
+ *
+ * Returns:     0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
+int ipa_connect(const struct ipa_connect_params *in, struct ipa_sps_params *sps,
+	u32 *clnt_hdl)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_connect, in, sps, clnt_hdl);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_connect);
+
+/**
+ * ipa_disconnect() - low-level IPA client disconnect
+ * @clnt_hdl:   [in] opaque client handle assigned by IPA to client
+ *
+ * Should be called by the driver of the peripheral that wants to disconnect
+ * from IPA in BAM-BAM mode. this api expects caller to take responsibility to
+ * free any needed headers, routing and filtering tables and rules as needed.
+ *
+ * Returns:     0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
+int ipa_disconnect(u32 clnt_hdl)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_disconnect, clnt_hdl);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_disconnect);
+
 
 /**
  * ipa_clear_endpoint_delay() - Clear ep_delay.
@@ -2834,18 +2882,23 @@ enum ipa_client_type ipa_get_client_mapping(int pipe_idx)
 EXPORT_SYMBOL(ipa_get_client_mapping);
 
 /**
- * ipa_get_rm_resource_from_ep() - this function is part of the deprecated
- * RM mechanism but is still used by some drivers so we kept the definition.
+ * ipa_get_rm_resource_from_ep() - get the IPA_RM resource which is related to
+ * the supplied pipe index.
+ *
+ * @pipe_idx:
+ *
+ * Return value: IPA_RM resource related to the pipe, -1 if a resource was not
+ * found.
  */
-
 enum ipa_rm_resource_name ipa_get_rm_resource_from_ep(int pipe_idx)
 {
-	IPAERR("IPA RM is not supported idx=%d\n", pipe_idx);
-	return -EFAULT;
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_get_rm_resource_from_ep, pipe_idx);
+
+	return ret;
 }
 EXPORT_SYMBOL(ipa_get_rm_resource_from_ep);
-
-
 
 /**
  * ipa_get_modem_cfg_emb_pipe_flt()- Return ipa_ctx->modem_cfg_emb_pipe_flt
@@ -3187,6 +3240,10 @@ static int ipa_generic_plat_drv_probe(struct platform_device *pdev_p)
 
 	/* call probe based on IPA HW version */
 	switch (ipa_api_hw_type) {
+	case IPA_HW_v2_6L:
+		result = ipa_plat_drv_probe(pdev_p, ipa_api_ctrl,
+			ipa_plat_drv_match);
+		break;
 	case IPA_HW_v3_0:
 	case IPA_HW_v3_1:
 	case IPA_HW_v3_5:
@@ -3738,6 +3795,18 @@ int ipa_get_prot_id(enum ipa_client_type client)
 	return ret;
 }
 EXPORT_SYMBOL(ipa_get_prot_id);
+
+/**
+ * ipa_pm_is_used() - Returns if IPA PM framework is used
+ */
+bool ipa_pm_is_used(void)
+{
+	bool ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_pm_is_used);
+
+	return ret;
+}
 
 static const struct dev_pm_ops ipa_pm_ops = {
 	.suspend_late = ipa_ap_suspend,

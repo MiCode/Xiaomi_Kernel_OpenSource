@@ -670,7 +670,8 @@ int fscrypt_ioctl_add_key(struct file *filp, void __user *_uarg)
 	if (arg.__flags) {
 		if (arg.__flags & ~__FSCRYPT_ADD_KEY_FLAG_HW_WRAPPED)
 			return -EINVAL;
-		if (arg.key_spec.type != FSCRYPT_KEY_SPEC_TYPE_IDENTIFIER)
+		if ((arg.key_spec.type != FSCRYPT_KEY_SPEC_TYPE_IDENTIFIER) &&
+		    (arg.key_spec.type != FSCRYPT_KEY_SPEC_TYPE_DESCRIPTOR))
 			return -EINVAL;
 		secret.is_hw_wrapped = true;
 	}

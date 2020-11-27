@@ -23,6 +23,9 @@
 #define ADRASTEA_DEVICE_ID 0xabcd
 #define QMI_WLFW_MAX_NUM_MEM_SEG 32
 #define THERMAL_NAME_LENGTH 20
+#define ICNSS_SMEM_VALUE_MASK 0xFFFFFFFF
+#define ICNSS_SMEM_SEQ_NO_POS 16
+
 extern uint64_t dynamic_feature_mask;
 
 enum icnss_bdf_type {
@@ -170,7 +173,7 @@ struct icnss_fw_mem {
 };
 
 enum icnss_power_save_mode {
-	ICNSS_POWER_SAVE_ENTER,
+	ICNSS_POWER_SAVE_ENTER = 1,
 	ICNSS_POWER_SAVE_EXIT,
 };
 struct icnss_stats {
@@ -311,6 +314,12 @@ struct icnss_thermal_cdev {
 	struct thermal_cooling_device *tcdev;
 };
 
+struct smp2p_out_info {
+	unsigned short seq;
+	unsigned int smem_bit;
+	struct qcom_smem_state *smem_state;
+};
+
 struct icnss_priv {
 	uint32_t magic;
 	struct platform_device *pdev;
@@ -387,6 +396,7 @@ struct icnss_priv {
 	struct mutex dev_lock;
 	uint32_t fw_error_fatal_irq;
 	uint32_t fw_early_crash_irq;
+	struct smp2p_out_info smp2p_info;
 	struct completion unblock_shutdown;
 	struct adc_tm_param vph_monitor_params;
 	struct adc_tm_chip *adc_tm_dev;

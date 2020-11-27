@@ -79,6 +79,7 @@
 #define TIOCGPTLCK	_IOR('T', 0x39, int) /* Get Pty lock state */
 #define TIOCGEXCL	_IOR('T', 0x40, int) /* Get exclusive mode state */
 #define TIOCGPTPEER	_IO('T', 0x41) /* Safely open the slave */
+#define TIOCFAULT	0x544C	/* Uart fault */
 #define TIOCPMGET	0x544D	/* PM get */
 #define TIOCPMPUT	0x544E	/* PM put */
 #define TIOCPMACT	0x544F	/* PM is active */
