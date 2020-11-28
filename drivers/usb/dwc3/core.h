@@ -337,6 +337,7 @@
 #define DWC3_GUSB3PIPECTL_TX_DEEPH_MASK	DWC3_GUSB3PIPECTL_TX_DEEPH(3)
 #define DWC3_GUSB3PIPECTL_TX_DEEPH(n)	((n) << 1)
 #define DWC3_GUSB3PIPECTL_DELAYP1TRANS  BIT(18)
+#define DWC3_GUSB3PIPECTL_ELASTIC_BUF_MODE  (1 << 0)
 
 /* Global TX Fifo Size Register */
 #define DWC31_GTXFIFOSIZ_TXFRAMNUM	BIT(15)		/* DWC_usb31 only */
@@ -1365,6 +1366,7 @@ struct dwc3 {
 	struct dwc3_gadget_events	dbg_gadget_events;
 	int			tx_fifo_size;
 	int			last_fifo_depth;
+	bool			nominal_elastic_buffer;
 
 	/* IRQ timing statistics */
 	int			irq;
@@ -1694,6 +1696,7 @@ enum dwc3_notify_event {
 	DWC3_CONTROLLER_NOTIFY_OTG_EVENT,
 	DWC3_CONTROLLER_SET_CURRENT_DRAW_EVENT,
 	DWC3_CONTROLLER_NOTIFY_DISABLE_UPDXFER,
+	DWC3_CONTROLLER_PULLUP,
 
 	/* USB GSI event buffer related notification */
 	DWC3_GSI_EVT_BUF_ALLOC,

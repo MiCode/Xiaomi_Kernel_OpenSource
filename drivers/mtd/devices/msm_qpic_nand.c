@@ -102,10 +102,64 @@ static dma_addr_t msm_nand_dma_map(struct device *dev, void *addr, size_t size,
 	return dma_map_page(dev, page, offset, size, dir);
 }
 
+static int msm_nand_bus_set_vote(struct msm_nand_info *info, bool vote)
+{
+	struct msm_nand_bus_vote_data *bvd = info->clk_data.bus_vote_data;
+	struct msm_bus_path *usecase = bvd->usecase;
+	struct msm_bus_vectors *vec = usecase[vote].vec;
+	int ddr_rc;
+
+	if (vote == bvd->curr_vote)
+		return 0;
+
+	pr_debug("vote:%d nand_ddr ab:%llu ib:%llu\n",
+			vote, vec[0].ab, vec[0].ib);
+	ddr_rc = icc_set_bw(bvd->nand_ddr, vec[0].ab, vec[0].ib);
+	if (ddr_rc) {
+		pr_err("icc_set() failed\n");
+		goto out;
+	}
+	bvd->curr_vote = vote;
+out:
+	return ddr_rc;
+}
+
 static int msm_nand_setup_clocks_and_bus_bw(struct msm_nand_info *info,
 				bool vote)
 {
-	return 0;
+	int ret = 0;
+
+	if (!info->clk_data.rpmh_clk) {
+		if (IS_ERR_OR_NULL(info->clk_data.qpic_clk)) {
+			ret = -EINVAL;
+			goto out;
+		}
+	}
+	if (atomic_read(&info->clk_data.clk_enabled) == vote)
+		goto out;
+	if (!atomic_read(&info->clk_data.clk_enabled) && vote) {
+		ret = msm_nand_bus_set_vote(info, 1);
+		if (ret) {
+			pr_err("Failed to vote for bus with %d\n", ret);
+			goto out;
+		}
+		if (!info->clk_data.rpmh_clk) {
+			ret = clk_prepare_enable(info->clk_data.qpic_clk);
+			if (ret) {
+				pr_err("Failed to enable the bus-clock with error %d\n",
+					ret);
+				msm_nand_bus_set_vote(info, 0);
+				goto out;
+			}
+		}
+	} else if (atomic_read(&info->clk_data.clk_enabled) && !vote) {
+		if (!info->clk_data.rpmh_clk)
+			clk_disable_unprepare(info->clk_data.qpic_clk);
+		msm_nand_bus_set_vote(info, 0);
+	}
+	atomic_set(&info->clk_data.clk_enabled, vote);
+out:
+	return ret;
 }
 
 #ifdef CONFIG_PM
@@ -226,14 +280,114 @@ static int msm_nand_put_device(struct device *dev)
 }
 #endif
 
+static struct msm_nand_bus_vote_data *msm_nand_get_bus_vote_data(struct device
+				       *dev)
+
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct device_node *of_node = dev->of_node;
+	struct msm_nand_bus_vote_data *bvd = NULL;
+	struct msm_bus_path *usecase = NULL;
+	int ret = 0, i = 0, j, num_paths, len;
+	const u32 *vec_arr = NULL;
+
+	if (!pdev) {
+		dev_err(dev, "Null platform device!\n");
+		return NULL;
+	}
+
+	bvd = devm_kzalloc(dev, sizeof(*bvd), GFP_KERNEL);
+	if (!bvd)
+		return bvd;
+
+	ret = of_property_read_string(of_node, "qcom,msm-bus,name",
+					&bvd->name);
+	if (ret) {
+		dev_err(dev, "Bus name missing err:(%d)\n", ret);
+		goto out;
+	}
+
+	ret = of_property_read_u32(of_node, "qcom,msm-bus,num-cases",
+		&bvd->num_usecase);
+	if (ret) {
+		dev_err(dev, "num-usecases not found err:(%d)\n", ret);
+		goto out;
+	}
+
+	usecase = devm_kzalloc(dev, (sizeof(struct msm_bus_path) *
+				   bvd->num_usecase), GFP_KERNEL);
+	if (!usecase)
+		goto out;
+
+	ret = of_property_read_u32(of_node, "qcom,msm-bus,num-paths",
+				   &num_paths);
+	if (ret) {
+		dev_err(dev, "num_paths not found err:(%d)\n", ret);
+		goto out;
+	}
+
+	vec_arr = of_get_property(of_node, "qcom,msm-bus,vectors-KBps", &len);
+	if (!vec_arr) {
+		dev_err(dev, "Vector array not found\n");
+		goto out;
+	}
+
+	for (i = 0; i < bvd->num_usecase; i++) {
+		usecase[i].num_paths = num_paths;
+		usecase[i].vec = devm_kcalloc(dev, num_paths,
+					      sizeof(struct msm_bus_vectors),
+					      GFP_KERNEL);
+		if (!usecase[i].vec)
+			goto out;
+		for (j = 0; j < num_paths; j++) {
+			int idx = ((i * num_paths) + j) * 2;
+
+			usecase[i].vec[j].ab = (u64)
+				be32_to_cpu(vec_arr[idx]);
+			usecase[i].vec[j].ib = (u64)
+				be32_to_cpu(vec_arr[idx + 1]);
+		}
+	}
+
+	bvd->usecase = usecase;
+	return bvd;
+out:
+	bvd = NULL;
+	return bvd;
+}
+
 static int msm_nand_bus_register(struct platform_device *pdev,
 		struct msm_nand_info *info)
 {
-	return 0;
+	struct msm_nand_bus_vote_data *bsd;
+	struct device *dev = &pdev->dev;
+	int ret = 0;
+
+	bsd = msm_nand_get_bus_vote_data(dev);
+	if (!bsd) {
+		dev_err(&pdev->dev, "Failed to get bus_scale data\n");
+		return -EINVAL;
+	}
+	info->clk_data.bus_vote_data = bsd;
+
+	bsd->nand_ddr = of_icc_get(&pdev->dev, "nand-ddr");
+	if (IS_ERR_OR_NULL(bsd->nand_ddr)) {
+		dev_err(&pdev->dev, "(%ld): failed getting %s path\n",
+			PTR_ERR(bsd->nand_ddr), "nand-ddr");
+		ret = PTR_ERR(bsd->nand_ddr);
+		bsd->nand_ddr = NULL;
+		return ret;
+	}
+
+	return ret;
 }
 
 static void msm_nand_bus_unregister(struct msm_nand_info *info)
 {
+	struct msm_nand_bus_vote_data *bsd = info->clk_data.bus_vote_data;
+
+	if (bsd)
+		icc_put(bsd->nand_ddr);
 }
 
 /*
@@ -4397,8 +4551,7 @@ static int msm_nand_remove(struct platform_device *pdev)
 
 	if (info) {
 		msm_nand_setup_clocks_and_bus_bw(info, false);
-		if (info->clk_data.client_handle)
-			msm_nand_bus_unregister(info);
+		msm_nand_bus_unregister(info);
 		mtd_device_unregister(&info->mtd);
 		msm_nand_bam_free(info);
 	}

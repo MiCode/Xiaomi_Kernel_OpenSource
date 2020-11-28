@@ -40,6 +40,7 @@ struct fsa4480_priv {
 	struct blocking_notifier_head fsa4480_notifier;
 	struct mutex notification_lock;
 	u32 use_powersupply;
+	int switch_control;
 };
 
 struct fsa4480_reg_val {
@@ -310,7 +311,8 @@ int fsa4480_reg_notifier(struct notifier_block *nb,
 	dev_dbg(fsa_priv->dev, "%s: verify if USB adapter is already inserted\n",
 		__func__);
 	rc = fsa4480_usbc_analog_setup_switches(fsa_priv);
-
+	regmap_update_bits(fsa_priv->regmap, FSA4480_SWITCH_CONTROL, 0x07,
+			   fsa_priv->switch_control);
 	return rc;
 }
 EXPORT_SYMBOL(fsa4480_reg_notifier);
@@ -373,7 +375,6 @@ static int fsa4480_validate_display_port_settings(struct fsa4480_priv *fsa_priv)
 int fsa4480_switch_event(struct device_node *node,
 			 enum fsa_function event)
 {
-	int switch_control = 0;
 	struct i2c_client *client = of_find_i2c_device_by_node(node);
 	struct fsa4480_priv *fsa_priv;
 
@@ -389,12 +390,13 @@ int fsa4480_switch_event(struct device_node *node,
 	switch (event) {
 	case FSA_MIC_GND_SWAP:
 		regmap_read(fsa_priv->regmap, FSA4480_SWITCH_CONTROL,
-				&switch_control);
-		if ((switch_control & 0x07) == 0x07)
-			switch_control = 0x0;
+				&fsa_priv->switch_control);
+		if ((fsa_priv->switch_control & 0x07) == 0x07)
+			fsa_priv->switch_control = 0x0;
 		else
-			switch_control = 0x7;
-		fsa4480_usbc_update_settings(fsa_priv, switch_control, 0x9F);
+			fsa_priv->switch_control = 0x7;
+		fsa4480_usbc_update_settings(fsa_priv, fsa_priv->switch_control,
+					     0x9F);
 		break;
 	case FSA_USBC_ORIENTATION_CC1:
 		fsa4480_usbc_update_settings(fsa_priv, 0x18, 0xF8);

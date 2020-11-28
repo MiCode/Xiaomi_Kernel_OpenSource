@@ -239,7 +239,8 @@ void sdhci_reset(struct sdhci_host *host, u8 mask)
 		if (timedout) {
 			pr_err("%s: Reset 0x%x never completed.\n",
 				mmc_hostname(host->mmc), (int)mask);
-			mmc_log_string(host->mmc, "%s: Reset 0x%x never completed.\n",
+			mmc_log_string(host->mmc,
+				"Reset 0x%x never completed.\n",
 				(int)mask);
 			sdhci_dumpregs(host);
 			return;
@@ -1162,6 +1163,12 @@ static void sdhci_prepare_data(struct sdhci_host *host, struct mmc_command *cmd)
 	} else {
 		sdhci_writew(host, data->blocks, SDHCI_BLOCK_COUNT);
 	}
+	mmc_log_string(host->mmc,
+		"HOST_CONTROL=0x%08x HOST_CONTROL2=0x%08x BLOCK_COUNT=0x%08x\n",
+		sdhci_readb(host, SDHCI_HOST_CONTROL),
+		sdhci_readw(host, SDHCI_HOST_CONTROL2),
+		sdhci_readw(host, SDHCI_BLOCK_COUNT));
+
 }
 
 static inline bool sdhci_auto_cmd12(struct sdhci_host *host,
@@ -1259,6 +1266,10 @@ static void sdhci_set_transfer_mode(struct sdhci_host *host,
 		mode |= SDHCI_TRNS_DMA;
 
 	sdhci_writew(host, mode, SDHCI_TRANSFER_MODE);
+	mmc_log_string(host->mmc,
+		"ARGUMENT2=0x%08x TRANSFER_MODE=0x%08x\n",
+		sdhci_readw(host, SDHCI_ARGUMENT2),
+		sdhci_readw(host, SDHCI_TRANSFER_MODE));
 }
 
 static bool sdhci_needs_reset(struct sdhci_host *host, struct mmc_request *mrq)
@@ -1326,6 +1337,8 @@ static void __sdhci_finish_data(struct sdhci_host *host, bool sw_data_timeout)
 	host->data = NULL;
 	host->data_cmd = NULL;
 
+	mmc_log_string(host->mmc, "PRESENT_STATE=0x%08x\n",
+		sdhci_readl(host, SDHCI_PRESENT_STATE));
 	/*
 	 * The controller needs a reset of internal state machines upon error
 	 * conditions.
@@ -1472,6 +1485,11 @@ static bool sdhci_send_command(struct sdhci_host *host, struct mmc_command *cmd)
 	sdhci_mod_timer(host, cmd->mrq, timeout);
 
 	sdhci_writew(host, SDHCI_MAKE_CMD(cmd->opcode, flags), SDHCI_COMMAND);
+	mmc_log_string(host->mmc,
+		"updated ARGUMENT=0x%08x ARGUMENT_MODE=0x%08x COMMAND=0x%08x\n",
+		sdhci_readl(host, SDHCI_ARGUMENT),
+		sdhci_readw(host, SDHCI_TRANSFER_MODE),
+		sdhci_readw(host, SDHCI_COMMAND));
 
 	return true;
 }
@@ -1559,8 +1577,14 @@ static void sdhci_finish_command(struct sdhci_host *host)
 	if (cmd->flags & MMC_RSP_PRESENT) {
 		if (cmd->flags & MMC_RSP_136) {
 			sdhci_read_rsp_136(host, cmd);
+			mmc_log_string(host->mmc,
+				"resp 0: 0x%08x resp 1: 0x%08x resp 2: 0x%08x resp 3: 0x%08x\n",
+				cmd->resp[0], cmd->resp[1],
+				cmd->resp[2], cmd->resp[3]);
 		} else {
 			cmd->resp[0] = sdhci_readl(host, SDHCI_RESPONSE);
+			mmc_log_string(host->mmc, "resp 0: 0x%08x\n",
+				cmd->resp[0]);
 		}
 	}
 
@@ -3273,6 +3297,7 @@ static irqreturn_t sdhci_irq(int irq, void *dev_id)
 				goto cont;
 		}
 
+		mmc_log_string(host->mmc, "intmask: 0x%x\n", intmask);
 		/* Clear selected interrupts. */
 		mask = intmask & (SDHCI_INT_CMD_MASK | SDHCI_INT_DATA_MASK |
 				  SDHCI_INT_BUS_POWER);
@@ -3701,20 +3726,37 @@ bool sdhci_cqe_irq(struct sdhci_host *host, u32 intmask, int *cmd_error,
 	if (!host->cqe_on)
 		return false;
 
-	if (intmask & (SDHCI_INT_INDEX | SDHCI_INT_END_BIT | SDHCI_INT_CRC))
+	if (intmask & (SDHCI_INT_INDEX | SDHCI_INT_END_BIT | SDHCI_INT_CRC)) {
 		*cmd_error = -EILSEQ;
-	else if (intmask & SDHCI_INT_TIMEOUT)
+#if defined(CONFIG_SDC_QTI)
+		if (intmask & SDHCI_INT_CRC)
+			host->mmc->err_stats[MMC_ERR_CMD_CRC]++;
+#endif
+	} else if (intmask & SDHCI_INT_TIMEOUT) {
 		*cmd_error = -ETIMEDOUT;
-	else
+#if defined(CONFIG_SDC_QTI)
+		host->mmc->err_stats[MMC_ERR_CMD_TIMEOUT]++;
+#endif
+	} else
 		*cmd_error = 0;
 
-	if (intmask & (SDHCI_INT_DATA_END_BIT | SDHCI_INT_DATA_CRC))
+	if (intmask & (SDHCI_INT_DATA_END_BIT | SDHCI_INT_DATA_CRC)) {
 		*data_error = -EILSEQ;
-	else if (intmask & SDHCI_INT_DATA_TIMEOUT)
+#if defined(CONFIG_SDC_QTI)
+		if (intmask & SDHCI_INT_DATA_CRC)
+			host->mmc->err_stats[MMC_ERR_DAT_CRC]++;
+#endif
+	} else if (intmask & SDHCI_INT_DATA_TIMEOUT) {
 		*data_error = -ETIMEDOUT;
-	else if (intmask & SDHCI_INT_ADMA_ERROR)
+#if defined(CONFIG_SDC_QTI)
+		host->mmc->err_stats[MMC_ERR_DAT_TIMEOUT]++;
+#endif
+	} else if (intmask & SDHCI_INT_ADMA_ERROR) {
 		*data_error = -EIO;
-	else
+#if defined(CONFIG_SDC_QTI)
+		host->mmc->err_stats[MMC_ERR_ADMA]++;
+#endif
+	} else
 		*data_error = 0;
 
 	/* Clear selected interrupts. */

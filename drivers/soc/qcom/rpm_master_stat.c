@@ -37,6 +37,15 @@
 
 #define GET_FIELD(a) ((strnstr(#a, ".", 80) + 1))
 
+#ifdef CONFIG_ARM
+#define readq_relaxed(a) ({			\
+	u64 val = readl_relaxed((a) + 4);	\
+	val <<= 32;				\
+	val |=  readl_relaxed((a));		\
+	val;					\
+})
+#endif
+
 struct msm_rpm_master_stats_platform_data {
 	phys_addr_t phys_addr_base;
 	u32 phys_size;

@@ -264,6 +264,8 @@ struct ipa_fmwk_contex {
 
 	int (*ipa_wdi_sw_stats)(struct ipa_wdi_tx_info *info);
 
+	int (*ipa_get_wdi_version)(void);
+
 	/* ipa_gsb APIs*/
 	int (*ipa_bridge_init)(struct ipa_bridge_init_params *params, u32 *hdl);
 
@@ -1032,6 +1034,7 @@ int ipa_fmwk_register_ipa_wdi3(const struct ipa_wdi3_data *in)
 		|| ipa_fmwk_ctx->ipa_wdi_create_smmu_mapping
 		|| ipa_fmwk_ctx->ipa_wdi_release_smmu_mapping
 		|| ipa_fmwk_ctx->ipa_wdi_get_stats
+		|| ipa_fmwk_ctx->ipa_get_wdi_version
 		|| ipa_fmwk_ctx->ipa_wdi_sw_stats) {
 		pr_err("ipa_wdi3 APIs were already initialized\n");
 		return -EPERM;
@@ -1053,6 +1056,7 @@ int ipa_fmwk_register_ipa_wdi3(const struct ipa_wdi3_data *in)
 		in->ipa_wdi_release_smmu_mapping;
 	ipa_fmwk_ctx->ipa_wdi_get_stats = in->ipa_wdi_get_stats;
 	ipa_fmwk_ctx->ipa_wdi_sw_stats = in->ipa_wdi_sw_stats;
+	ipa_fmwk_ctx->ipa_get_wdi_version = in->ipa_get_wdi_version;
 
 	pr_info("ipa_wdi3 registered successfully\n");
 
@@ -1193,6 +1197,16 @@ int ipa_wdi_get_stats(struct IpaHwStatsWDIInfoData_t *stats)
 	return ret;
 }
 EXPORT_SYMBOL(ipa_wdi_get_stats);
+
+int ipa_get_wdi_version(void)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN(ipa_get_wdi_version);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_get_wdi_version);
 
 int ipa_wdi_bw_monitor(struct ipa_wdi_bw_info *info)
 {
