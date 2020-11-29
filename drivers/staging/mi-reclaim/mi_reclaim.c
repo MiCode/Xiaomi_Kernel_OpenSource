@@ -456,6 +456,6 @@ static void __exit mi_reclaim_exit(void)
 module_init(mi_reclaim_init);
 module_exit(mi_reclaim_exit);
 
-MODULE_AUTHOR("zhangcang<zhangcang@xaiomi.com>");
+MODULE_AUTHOR("zhangcang<zhangcang@xiaomi.com>");
 MODULE_DESCRIPTION("page reclaim");
 MODULE_LICENSE("GPL");
