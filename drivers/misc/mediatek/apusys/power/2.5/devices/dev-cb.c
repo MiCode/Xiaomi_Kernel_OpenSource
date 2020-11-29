@@ -100,12 +100,13 @@ static int runtime_resume(struct device *dev)
 	return 0;
 }
 
-static UNIVERSAL_DEV_PM_OPS(cb_pm_ops, runtime_suspend,
-			    runtime_resume, NULL);
-#else
-static UNIVERSAL_DEV_PM_OPS(cb_pm_ops, NULL, NULL, NULL);
-#endif
+const static struct dev_pm_ops cb_pm_ops = {
+	SET_RUNTIME_PM_OPS(runtime_suspend, runtime_resume, NULL)
+};
 
+#else
+const static struct dev_pm_ops cb_pm_ops = {};
+#endif
 #define APU_CB_PM_OPS (&cb_pm_ops)
 
 static int apu_cb_probe(struct platform_device *pdev)
@@ -163,7 +164,7 @@ static const struct of_device_id cb_of_match[] = {
 
 MODULE_DEVICE_TABLE(of, cb_of_match);
 
-struct platform_driver apu_usr_driver = {
+struct platform_driver apu_cb_driver = {
 	.probe	= apu_cb_probe,
 	.remove	= apu_cb_remove,
 	.driver = {

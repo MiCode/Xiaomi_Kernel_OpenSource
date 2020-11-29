@@ -157,10 +157,14 @@ static int runtime_resume(struct device *dev)
 	ret = ad->aclk->ops->cg_enable(ad->aclk);
 	return ret;
 }
-static UNIVERSAL_DEV_PM_OPS(con_pm_ops, runtime_suspend,
-									  runtime_resume, NULL);
+
+const struct dev_pm_ops con_pm_ops = {
+	SET_RUNTIME_PM_OPS(runtime_suspend, runtime_resume, NULL)
+};
+
 #else
-static UNIVERSAL_DEV_PM_OPS(con_pm_ops, NULL, NULL, NULL);
+const struct dev_pm_ops con_pm_ops = {
+};
 #endif
 #define CON_PM_OPS (&con_pm_ops)
 

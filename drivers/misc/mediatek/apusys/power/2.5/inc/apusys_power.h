@@ -50,6 +50,6 @@ extern struct platform_driver core_devfreq_driver;
 extern struct platform_driver vpu_devfreq_driver;
 extern struct platform_driver mdla_devfreq_driver;
 extern struct platform_driver apu_rpc_driver;
-extern struct platform_driver apu_usr_driver;
+extern struct platform_driver apu_cb_driver;
 
 #endif

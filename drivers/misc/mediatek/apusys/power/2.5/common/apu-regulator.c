@@ -172,7 +172,7 @@ static int _apu_set_volt_with_wait(struct apu_regulator *reg, int c_volt, int mi
 	ret = regulator_set_voltage(vdd, min_uV, max_uV);
 	if (ret) {
 		argul_err(reg->dev, "[%s] set %s %dmV-->%dmV fail, ret = %d",
-			__func__, reg->name, TOMV(c_volt), TOMV(min_uV));
+			__func__, reg->name, TOMV(c_volt), TOMV(min_uV), ret);
 		goto out;
 	}
 

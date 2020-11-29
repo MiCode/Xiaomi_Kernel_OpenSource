@@ -120,10 +120,13 @@ static int runtime_resume(struct device *dev)
 	ret = ad->aclk->ops->enable(ad->aclk);
 	return ret;
 }
-static UNIVERSAL_DEV_PM_OPS(core_pm_ops, runtime_suspend,
-									  runtime_resume, NULL);
+
+const struct dev_pm_ops core_pm_ops = {
+	SET_RUNTIME_PM_OPS(runtime_suspend, runtime_resume, NULL)
+};
+
 #else
-static UNIVERSAL_DEV_PM_OPS(core_pm_ops, NULL, NULL, NULL);
+const struct dev_pm_ops core_pm_ops = {};
 #endif
 #define CORE_PM_OPS (&core_pm_ops)
 

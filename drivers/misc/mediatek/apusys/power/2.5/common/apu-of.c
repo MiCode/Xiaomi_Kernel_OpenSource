@@ -216,9 +216,15 @@ int of_apu_regulator_get(struct device *dev,
 	if (!rgul->shut_volt)
 		rgul->shut_volt = def_volt;
 
+	/* TODO
+	 *ret = regulator_set_voltage(rgul->vdd, rgul->def_volt, rgul->def_volt);
+	 *if (ret)
+	 *	goto out;
+	 */
 	aprobe_info(dev, "[%s] %s def/shut %dmV/%dmV\n",
 		    __func__, rgul->name, TOMV(rgul->def_volt),
 		    TOMV(rgul->shut_volt));
+
 
 	if (rgul->constrain_band) {
 		if (rgul->constrain_volt)
