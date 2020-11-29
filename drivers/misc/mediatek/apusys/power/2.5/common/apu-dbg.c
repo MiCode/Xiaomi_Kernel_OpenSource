@@ -25,8 +25,7 @@ static LIST_HEAD(dbg_clk_list);
 static LIST_HEAD(dbg_regulator_list);
 static struct dentry *apusys_power_dir;
 static void dbg_power_info(struct work_struct *work);
-DECLARE_DELAYED_WORK(pw_info_work,
-			    dbg_power_info);
+DECLARE_DELAYED_WORK(pw_info_work, dbg_power_info);
 static char buffer[128];
 int log_level = 1;
 int poll_interval;
@@ -96,17 +95,17 @@ static void dbg_power_info(struct work_struct *work)
 	memset(buffer, 0, sizeof(buffer));
 	n_pos = snprintf(buffer, (sizeof(buffer) - 1), "APUPWR v[");
 	list_for_each_entry_reverse(dbg_reg, &dbg_regulator_list, node)
-		n_pos = snprintf((buffer + n_pos), (sizeof(buffer) - n_pos - 1),
+		n_pos += snprintf((buffer + n_pos), (sizeof(buffer) - n_pos - 1),
 				"%u,", TOMV(regulator_get_voltage(dbg_reg->reg)));
 
-	n_pos = snprintf((buffer + n_pos), (sizeof(buffer) - n_pos - 1), "]f[");
+	n_pos += snprintf((buffer + n_pos), (sizeof(buffer) - n_pos - 1), "]f[");
 
 	/* search the list of dbg_clk_list for this clk */
 	list_for_each_entry_reverse(dbg_clk, &dbg_clk_list, node)
-		n_pos = snprintf((buffer + n_pos), (sizeof(buffer) - n_pos - 1),
+		n_pos += snprintf((buffer + n_pos), (sizeof(buffer) - n_pos - 1),
 				"%u,", TOMHZ(clk_get_rate(dbg_clk->clk)));
 
-	n_pos = snprintf((buffer + n_pos), (sizeof(buffer) - n_pos - 1),
+	n_pos += snprintf((buffer + n_pos), (sizeof(buffer) - n_pos - 1),
 			"]r[%x,%x]\n", apu_spm_wakeup_value(), apu_rpc_rdy_value());
 
 	pr_info("%s", buffer);

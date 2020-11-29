@@ -160,10 +160,13 @@ static int runtime_resume(struct device *dev)
 	return devfreq_resume_device(ad->devfreq);
 }
 
-static UNIVERSAL_DEV_PM_OPS(pm_ops, runtime_suspend,
-			    runtime_resume, NULL);
+const static struct dev_pm_ops pm_ops = {
+	SET_RUNTIME_PM_OPS(runtime_suspend, runtime_resume, NULL)
+};
+
 #else
-static UNIVERSAL_DEV_PM_OPS(pm_ops, NULL, NULL, NULL);
+const static struct dev_pm_ops pm_ops = {
+};
 #endif
 
 #define VPU_PM_OPS (&pm_ops)

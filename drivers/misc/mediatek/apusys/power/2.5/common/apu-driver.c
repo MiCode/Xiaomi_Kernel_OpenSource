@@ -354,7 +354,7 @@ static int __init apu_power_init(void)
 	ret = platform_driver_register(&con_devfreq_driver);
 	if (ret)
 		return ret;
-	ret = platform_driver_register(&apu_usr_driver);
+	ret = platform_driver_register(&apu_cb_driver);
 	if (ret)
 		return ret;
 	ret = platform_driver_register(&vpu_devfreq_driver);
@@ -374,7 +374,7 @@ static void __exit apu_power_exit(void)
 
 	platform_driver_unregister(&mdla_devfreq_driver);
 	platform_driver_register(&vpu_devfreq_driver);
-	platform_driver_unregister(&apu_usr_driver);
+	platform_driver_unregister(&apu_cb_driver);
 	platform_driver_register(&con_devfreq_driver);
 	platform_driver_unregister(&core_devfreq_driver);
 	platform_driver_unregister(&apu_rpc_driver);
