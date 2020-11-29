@@ -453,6 +453,14 @@ static struct pmif mt6873_pmif_arb[] = {
 	},
 };
 
+static struct pmif mt6893_pmif_arb[] = {
+	{
+		.regs = mt6873_regs,
+		.spmimst_regs = mt6873_spmi_regs,
+		.soc_chan = 2,
+	},
+};
+
 static int mtk_spmi_probe(struct platform_device *pdev)
 {
 	struct pmif *arb;
@@ -552,6 +560,9 @@ static const struct of_device_id mtk_spmi_match_table[] = {
 	}, {
 		.compatible = "mediatek,mt6873-spmi",
 		.data = &mt6873_pmif_arb,
+	}, {
+		.compatible = "mediatek,mt6893-spmi",
+		.data = &mt6893_pmif_arb,
 	}, {
 		/* sentinel */
 	},
