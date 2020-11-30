@@ -207,9 +207,15 @@ EXPORT_SYMBOL_GPL(ion_heap_map_user);
 
 void ion_heap_freelist_add(struct ion_heap *heap, struct ion_buffer *buffer)
 {
+	size_t unit = 200 * 1024 * 1024;
+
 	spin_lock(&heap->free_lock);
 	list_add(&buffer->list, &heap->free_list);
 	heap->free_list_size += buffer->size;
+	if (heap->free_list_size >= unit) {
+		pr_info("[ION] warning: free_list_size=%zu, heap_id:%s(%u)\n",
+			heap->free_list_size, heap->name, heap->id);
+	}
 	spin_unlock(&heap->free_lock);
 	wake_up(&heap->waitqueue);
 }
