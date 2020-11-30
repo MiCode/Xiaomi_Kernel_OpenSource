@@ -271,10 +271,6 @@ struct clk_ops {
 	int		(*post_rate_change)(struct clk_hw *hw,
 					    unsigned long old_rate,
 					    unsigned long rate);
-#ifdef CONFIG_COMMON_CLK_QCOM_DEBUG
-	int		(*list_rate_vdd_level)(struct clk_hw *hw,
-					       unsigned int rate);
-#endif
 };
 
 /**

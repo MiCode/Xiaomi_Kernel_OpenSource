@@ -730,9 +730,6 @@ const struct clk_ops clk_rcg2_ops = {
 	.set_rate_and_parent = clk_rcg2_set_rate_and_parent,
 	.init = clk_rcg2_init,
 	.debug_init = clk_common_debug_init,
-#ifdef CONFIG_COMMON_CLK_QCOM_DEBUG
-	.list_rate_vdd_level = clk_list_rate_vdd_level,
-#endif
 };
 EXPORT_SYMBOL_GPL(clk_rcg2_ops);
 
@@ -750,9 +747,6 @@ const struct clk_ops clk_rcg2_floor_ops = {
 	.set_rate_and_parent = clk_rcg2_set_floor_rate_and_parent,
 	.init = clk_rcg2_init,
 	.debug_init = clk_common_debug_init,
-#ifdef CONFIG_COMMON_CLK_QCOM_DEBUG
-	.list_rate_vdd_level = clk_list_rate_vdd_level,
-#endif
 };
 EXPORT_SYMBOL_GPL(clk_rcg2_floor_ops);
 
@@ -888,9 +882,6 @@ const struct clk_ops clk_edp_pixel_ops = {
 	.determine_rate = clk_edp_pixel_determine_rate,
 	.init = clk_rcg2_init,
 	.debug_init = clk_common_debug_init,
-#ifdef CONFIG_COMMON_CLK_QCOM_DEBUG
-	.list_rate_vdd_level = clk_list_rate_vdd_level,
-#endif
 };
 EXPORT_SYMBOL_GPL(clk_edp_pixel_ops);
 
@@ -957,9 +948,6 @@ const struct clk_ops clk_byte_ops = {
 	.determine_rate = clk_byte_determine_rate,
 	.init = clk_rcg2_init,
 	.debug_init = clk_common_debug_init,
-#ifdef CONFIG_COMMON_CLK_QCOM_DEBUG
-	.list_rate_vdd_level = clk_list_rate_vdd_level,
-#endif
 };
 EXPORT_SYMBOL_GPL(clk_byte_ops);
 
@@ -1036,9 +1024,6 @@ const struct clk_ops clk_byte2_ops = {
 	.determine_rate = clk_byte2_determine_rate,
 	.init = clk_rcg2_init,
 	.debug_init = clk_common_debug_init,
-#ifdef CONFIG_COMMON_CLK_QCOM_DEBUG
-	.list_rate_vdd_level = clk_list_rate_vdd_level,
-#endif
 };
 EXPORT_SYMBOL_GPL(clk_byte2_ops);
 
@@ -1135,9 +1120,6 @@ const struct clk_ops clk_pixel_ops = {
 	.determine_rate = clk_pixel_determine_rate,
 	.init = clk_rcg2_init,
 	.debug_init = clk_common_debug_init,
-#ifdef CONFIG_COMMON_CLK_QCOM_DEBUG
-	.list_rate_vdd_level = clk_list_rate_vdd_level,
-#endif
 };
 EXPORT_SYMBOL_GPL(clk_pixel_ops);
 
@@ -1226,9 +1208,6 @@ const struct clk_ops clk_dp_ops = {
 	.determine_rate = clk_dp_determine_rate,
 	.init = clk_rcg2_init,
 	.debug_init = clk_common_debug_init,
-#ifdef CONFIG_COMMON_CLK_QCOM_DEBUG
-	.list_rate_vdd_level = clk_list_rate_vdd_level,
-#endif
 };
 EXPORT_SYMBOL(clk_dp_ops);
 
@@ -1326,9 +1305,6 @@ const struct clk_ops clk_gfx3d_ops = {
 	.determine_rate = clk_gfx3d_determine_rate,
 	.init = clk_rcg2_init,
 	.debug_init = clk_common_debug_init,
-#ifdef CONFIG_COMMON_CLK_QCOM_DEBUG
-	.list_rate_vdd_level = clk_list_rate_vdd_level,
-#endif
 };
 EXPORT_SYMBOL_GPL(clk_gfx3d_ops);
 
@@ -1442,9 +1418,6 @@ const struct clk_ops clk_rcg2_shared_ops = {
 	.set_rate_and_parent = clk_rcg2_shared_set_rate_and_parent,
 	.init = clk_rcg2_init,
 	.debug_init = clk_common_debug_init,
-#ifdef CONFIG_COMMON_CLK_QCOM_DEBUG
-	.list_rate_vdd_level = clk_list_rate_vdd_level,
-#endif
 };
 EXPORT_SYMBOL_GPL(clk_rcg2_shared_ops);
 
@@ -1597,9 +1570,6 @@ static const struct clk_ops clk_rcg2_dfs_ops = {
 	.recalc_rate = clk_rcg2_dfs_recalc_rate,
 	.init = clk_rcg2_init,
 	.debug_init = clk_common_debug_init,
-#ifdef CONFIG_COMMON_CLK_QCOM_DEBUG
-	.list_rate_vdd_level = clk_list_rate_vdd_level,
-#endif
 };
 
 static int clk_rcg2_enable_dfs(const struct clk_rcg_dfs_data *data,
