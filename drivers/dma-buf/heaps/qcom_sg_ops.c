@@ -283,6 +283,15 @@ static void qcom_sg_release(struct dma_buf *dmabuf)
 	buffer->free(buffer);
 }
 
+static int qcom_sg_get_flags(struct dma_buf *dmabuf,
+				 unsigned long *flags)
+{
+	struct qcom_sg_buffer *buffer = dmabuf->priv;
+	*flags = buffer->vmids;
+
+	return 0;
+}
+
 const struct dma_buf_ops qcom_sg_buf_ops = {
 	.attach = qcom_sg_attach,
 	.detach = qcom_sg_detach,
@@ -294,4 +303,5 @@ const struct dma_buf_ops qcom_sg_buf_ops = {
 	.vmap = qcom_sg_vmap,
 	.vunmap = qcom_sg_vunmap,
 	.release = qcom_sg_release,
+	.get_flags = qcom_sg_get_flags,
 };

@@ -34,6 +34,8 @@
 
 #define QCOM_DMA_HEAP_FLAGS_CP_MASK	GENMASK(30, 15)
 
+#define QCOM_DMA_HEAP_FLAG_SECURE	BIT(31)
+
 /**
  * carveout_heap_add_memory - Dynamically add reserved heap memory
  * @heap_name:	The name of the DMA-BUF Heap we're giving memory to
