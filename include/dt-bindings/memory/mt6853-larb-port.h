@@ -54,7 +54,7 @@
 #define M4U_PORT_L4_VDEC_VLD2_EXT		MTK_M4U_DOM_ID(1, 4, 8)
 #define M4U_PORT_L4_VDEC_AVC_MV_EXT		MTK_M4U_DOM_ID(1, 4, 9)
 #define M4U_PORT_L4_VDEC_RG_CTRL_DMA_EXT	MTK_M4U_DOM_ID(1, 4, 10)
-#define M4U_PORT_L4_VDEC_UFO_ENC_EXT		MTK_M4U_DOM_ID(1, 4, 10)
+#define M4U_PORT_L4_VDEC_UFO_ENC_EXT		MTK_M4U_DOM_ID(1, 4, 11)
 /* larb5 -- null */
 /* larb6 -- null */
 /* larb7 -- 13 */
