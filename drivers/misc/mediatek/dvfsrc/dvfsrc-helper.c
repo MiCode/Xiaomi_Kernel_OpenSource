@@ -230,6 +230,7 @@ static int mtk_dvfsrc_opp_setting(struct mtk_dvfsrc *dvfsrc)
 		return -ENOMEM;
 
 	dvfsrc_setup_opp_table(dvfsrc);
+	dvfsrc->force_opp_idx = 0xFF;
 
 	return 0;
 }
@@ -445,9 +446,6 @@ static int mtk_dvfsrc_debug_setting(struct mtk_dvfsrc *dvfsrc)
 		dev_info(dvfsrc->dev, "get icc-perf_bw fail\n");
 		dvfsrc->hrt_path = NULL;
 	}
-
-	dvfsrc->force_opp_idx =
-		mtk_dvfsrc_query_opp_info(MTK_DVFSRC_NUM_DVFS_OPP);
 
 	dvfsrc->force_opp = dvfsrc_force_opp;
 	dvfsrc->dump_info = dvfsrc_dump_info;
@@ -688,12 +686,12 @@ static int mtk_dvfsrc_helper_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	dvfsrc_drv = dvfsrc;
+	platform_set_drvdata(pdev, dvfsrc);
+	register_dvfsrc_opp_handler(dvfsrc_query_info);
 	dvfsrc_debug_notifier_register(dvfsrc);
 	dvfsrc_register_sysfs(dev);
-	register_dvfsrc_opp_handler(dvfsrc_query_info);
 	register_dvfsrc_debug_handler(dvfsrc_query_debug_info);
-	platform_set_drvdata(pdev, dvfsrc);
-	dvfsrc_drv = dvfsrc;
 
 	return 0;
 }
