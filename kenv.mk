@@ -46,6 +46,19 @@ ifneq ($(strip $(TARGET_NO_KERNEL)),true)
     ifneq ($(LLVM_IAS),)
       ARGS += LLVM_IAS=$(LLVM_IAS)
     endif
+    ifeq ($(HOSTCC),)
+      ifneq ($(CC),)
+        ARGS += HOSTCC=$(CC)
+      endif
+    else
+      ARGS += HOSTCC=$(HOSTCC)
+    endif
+    ifneq ($(LD),)
+      ARGS += LD=$(LD) HOSTLD=$(LD)
+      ifneq ($(suffix $(LD)),)
+        ARGS += HOSTLDFLAGS=-fuse-ld=$(subst .,,$(suffix $(LD)))
+      endif
+    endif
     ifneq ($(LD_LIBRARY_PATH),)
       ARGS += LD_LIBRARY_PATH=$(KERNEL_ROOT_DIR)/$(LD_LIBRARY_PATH)
     endif
