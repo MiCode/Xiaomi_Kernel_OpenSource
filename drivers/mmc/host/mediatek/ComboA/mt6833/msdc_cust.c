@@ -537,6 +537,7 @@ int msdc_get_ccf_clk_pointer(struct platform_device *pdev,
 	 * msdc src hclk -> msdc hclk cg
 	 */
 
+#if 0
 	if  (pdev->id == 0) {
 		host->src_hclk_ctl = devm_clk_get(&pdev->dev,
 				MSDC0_SRC_HCLK_NAME);
@@ -552,6 +553,7 @@ int msdc_get_ccf_clk_pointer(struct platform_device *pdev,
 			return 1;
 		}
 	}
+#endif
 
 	if  (clk_names[pdev->id]) {
 		host->clk_ctl = devm_clk_get(&pdev->dev,
@@ -608,7 +610,7 @@ int msdc_get_ccf_clk_pointer(struct platform_device *pdev,
 	}
 #endif
 
-	pr_info("[msdc%d] src_hclk_ctl:%d, hclk:%d, clk_ctl:%p, hclk_ctl:%p\n",
+	pr_info("[msdc%d] src_hclk_ctl:%p, hclk:%p, clk_ctl:%p, hclk_ctl:%p\n",
 		pdev->id, host->src_hclk_ctl, host->hclk,
 		host->clk_ctl, host->hclk_ctl);
 
