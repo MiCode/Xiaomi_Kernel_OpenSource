@@ -246,6 +246,8 @@ EXPORT_SYMBOL(hyp_assign_phys);
 const char *msm_secure_vmid_to_string(int secure_vmid)
 {
 	switch (secure_vmid) {
+	case VMID_TZ:
+		return "VMID_TZ";
 	case VMID_HLOS:
 		return "VMID_HLOS";
 	case VMID_CP_TOUCH:

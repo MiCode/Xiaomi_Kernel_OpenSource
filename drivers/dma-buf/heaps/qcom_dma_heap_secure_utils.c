@@ -9,6 +9,8 @@
 
 static int get_secure_vmid(unsigned long flags)
 {
+	if (flags & QCOM_DMA_HEAP_FLAG_CP_TZ)
+		return VMID_TZ;
 	if (flags & QCOM_DMA_HEAP_FLAG_CP_TOUCH)
 		return VMID_CP_TOUCH;
 	if (flags & QCOM_DMA_HEAP_FLAG_CP_BITSTREAM)
@@ -33,6 +35,8 @@ static int get_secure_vmid(unsigned long flags)
 		return VMID_CP_SPSS_HLOS_SHARED;
 	if (flags & QCOM_DMA_HEAP_FLAG_CP_CDSP)
 		return VMID_CP_CDSP;
+	if (flags & QCOM_DMA_HEAP_FLAG_CP_MSS_MSA)
+		return VMID_MSS_MSA;
 
 	return -EINVAL;
 }
