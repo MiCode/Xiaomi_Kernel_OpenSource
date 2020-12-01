@@ -39,7 +39,6 @@
 
 #include "blocktag-ufs.h"
 #include "mtk_blocktag.h"
-#include "mtk-memblock.h"
 
 /*
  * snprintf may return a value of size or "more" to indicate
@@ -1412,8 +1411,8 @@ static void mtk_btag_init_memory(void)
 {
 	phys_addr_t start, end;
 
-	dram_start_addr = start = mb_start_of_DRAM();
-	dram_end_addr = end = mb_end_of_DRAM();
+	dram_start_addr = start = 0;
+	dram_end_addr = end = memblock_end_of_DRAM();
 	mtk_btag_system_dram_size = (unsigned long long)(end - start);
 	pr_debug("[BLOCK_TAG] DRAM: %pa - %pa, size: 0x%llx\n", &start,
 		&end, (unsigned long long)(end - start));
