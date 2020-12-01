@@ -1563,6 +1563,7 @@ static void check_temp_range(void)
 				g_is_TempOutsideNormalRange |= (j << 8);
 				tscpu_printk(TSCPU_LOG_TAG"ONRT=%d,0x%x\n",
 					temp, g_is_TempOutsideNormalRange);
+				dump_lvts_error_info();
 			}
 
 			if (temp <= -30000) {
