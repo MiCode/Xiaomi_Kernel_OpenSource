@@ -1542,6 +1542,8 @@
   of_graph_get_next_endpoint
   of_graph_get_remote_node
   of_graph_get_remote_port_parent
+  of_graph_get_remote_port
+  of_graph_get_endpoint_by_regs
   of_graph_parse_endpoint
   of_hwspin_lock_get_id
   of_icc_get
