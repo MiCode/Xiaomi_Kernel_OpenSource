@@ -538,6 +538,7 @@ static void lcm_panel_init(struct lcm *ctx)
 	lcm_dcs_write_seq_static(ctx, 0x51, 0xff, 0x0f);
 	lcm_dcs_write_seq_static(ctx, 0x53, 0x24);
 	lcm_dcs_write_seq_static(ctx, 0x55, 0x01);
+	lcm_dcs_write_seq_static(ctx, 0x35);
 
 	lcm_dcs_write_seq_static(ctx, 0x11);
 	msleep(180);
@@ -781,7 +782,7 @@ static int lcm_get_virtual_width(void)
 static struct mtk_panel_params ext_params = {
 	.pll_clk = 530,
 	.vfp_low_power = 840,
-	.cust_esd_check = 1,
+	.cust_esd_check = 0,
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
 		.cmd = 0x0a,
