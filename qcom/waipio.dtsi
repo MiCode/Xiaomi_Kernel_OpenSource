@@ -978,57 +978,115 @@
 
 	/* CAM_CC GDSCs */
 	cam_cc_bps_gdsc: qcom,gdsc@adf0004 {
-		compatible = "qcom,stub-regulator";
+		compatible = "qcom,gdsc";
+		reg = <0xadf0004 0x4>;
 		regulator-name = "cam_cc_bps_gdsc";
 		qcom,gds-timeout = <500>;
+		clock-names = "ahb_clk";
+		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
+		parent-supply = <&VDD_MM_LEVEL>;
+		vdd_parent-supply = <&VDD_MM_LEVEL>;
+		qcom,support-hw-trigger;
+		qcom,retain-regs;
 	};
 
 	cam_cc_ife_0_gdsc: qcom,gdsc@adf1004 {
-		compatible = "qcom,stub-regulator";
+		compatible = "qcom,gdsc";
+		reg = <0xadf1004 0x4>;
 		regulator-name = "cam_cc_ife_0_gdsc";
 		qcom,gds-timeout = <500>;
+		clock-names = "ahb_clk";
+		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
+		parent-supply = <&VDD_MM_LEVEL>;
+		vdd_parent-supply = <&VDD_MM_LEVEL>;
+		qcom,retain-regs;
 	};
 
 	cam_cc_ife_1_gdsc: qcom,gdsc@adf2004 {
-		compatible = "qcom,stub-regulator";
+		compatible = "qcom,gdsc";
+		reg = <0xadf2004 0x4>;
 		regulator-name = "cam_cc_ife_1_gdsc";
 		qcom,gds-timeout = <500>;
+		clock-names = "ahb_clk";
+		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
+		parent-supply = <&VDD_MM_LEVEL>;
+		vdd_parent-supply = <&VDD_MM_LEVEL>;
+		qcom,retain-regs;
 	};
 
 	cam_cc_ife_2_gdsc: qcom,gdsc@adf2050 {
-		compatible = "qcom,stub-regulator";
+		compatible = "qcom,gdsc";
+		reg = <0xadf2050 0x4>;
 		regulator-name = "cam_cc_ife_2_gdsc";
 		qcom,gds-timeout = <500>;
+		clock-names = "ahb_clk";
+		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
+		parent-supply = <&VDD_MM_LEVEL>;
+		vdd_parent-supply = <&VDD_MM_LEVEL>;
+		qcom,retain-regs;
 	};
 
 	cam_cc_ipe_0_gdsc: qcom,gdsc@adf0078 {
-		compatible = "qcom,stub-regulator";
+		compatible = "qcom,gdsc";
+		reg = <0xadf0078 0x4>;
 		regulator-name = "cam_cc_ipe_0_gdsc";
 		qcom,gds-timeout = <500>;
+		clock-names = "ahb_clk";
+		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
+		parent-supply = <&VDD_MM_LEVEL>;
+		vdd_parent-supply = <&VDD_MM_LEVEL>;
+		qcom,support-hw-trigger;
+		qcom,retain-regs;
 	};
 
 	cam_cc_sbi_gdsc: qcom,gdsc@adf00d0 {
-		compatible = "qcom,stub-regulator";
+		compatible = "qcom,gdsc";
+		reg = <0xadf00d0 0x4>;
 		regulator-name = "cam_cc_sbi_gdsc";
 		qcom,gds-timeout = <500>;
+		clock-names = "ahb_clk";
+		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
+		parent-supply = <&VDD_MM_LEVEL>;
+		vdd_parent-supply = <&VDD_MM_LEVEL>;
+		qcom,retain-regs;
+
 	};
 
 	cam_cc_sfe_0_gdsc: qcom,gdsc@adf3050 {
-		compatible = "qcom,stub-regulator";
+		compatible = "qcom,gdsc";
+		reg = <0xadf3050 0x4>;
 		regulator-name = "cam_cc_sfe_0_gdsc";
 		qcom,gds-timeout = <500>;
+		clock-names = "ahb_clk";
+		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
+		parent-supply = <&VDD_MM_LEVEL>;
+		vdd_parent-supply = <&VDD_MM_LEVEL>;
+		qcom,retain-regs;
 	};
 
 	cam_cc_sfe_1_gdsc: qcom,gdsc@adf3098 {
-		compatible = "qcom,stub-regulator";
+		compatible = "qcom,gdsc";
+		reg = <0xadf3098 0x4>;
 		regulator-name = "cam_cc_sfe_1_gdsc";
 		qcom,gds-timeout = <500>;
+		clock-names = "ahb_clk";
+		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
+		parent-supply = <&VDD_MM_LEVEL>;
+		vdd_parent-supply = <&VDD_MM_LEVEL>;
+		qcom,retain-regs;
+
 	};
 
 	cam_cc_titan_top_gdsc: qcom,gdsc@adf31dc {
-		compatible = "qcom,stub-regulator";
+		compatible = "qcom,gdsc";
+		reg = <0xadf31dc 0x4>;
 		regulator-name = "cam_cc_titan_top_gdsc";
 		qcom,gds-timeout = <500>;
+		clock-names = "ahb_clk";
+		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
+		parent-supply = <&VDD_MM_LEVEL>;
+		vdd_parent-supply = <&VDD_MM_LEVEL>;
+		qcom,retain-regs;
 	};
 
 	/* DISP_CC GDSCs */
@@ -1235,9 +1293,15 @@
 		#reset-cells = <1>;
 	};
 
-	clock_camcc: qcom,camcc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "camcc_clocks";
+	clock_camcc: qcom,camcc@ad00000 {
+		compatible = "qcom,waipio-camcc", "syscon";
+		reg = <0xad00000 0x1E0000>;
+		reg-names = "cc_base";
+		vdd_mm-supply = <&VDD_MM_LEVEL>;
+		vdd_mxa-supply = <&VDD_MXA_LEVEL>;
+		vdd_mxc-supply = <&VDD_MXC_LEVEL>;
+		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
+		clock-names = "cfg_ahb_clk";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
