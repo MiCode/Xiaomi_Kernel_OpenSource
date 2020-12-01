@@ -103,6 +103,13 @@
   complete
   complete_all
   completion_done
+  component_add
+  component_bind_all
+  component_del
+  component_master_add_with_match
+  component_master_del
+  component_match_add_release
+  component_unbind_all
   config_ep_by_speed
   config_group_init_type_name
   console_stop
@@ -225,6 +232,8 @@
   devm_platform_get_and_ioremap_resource
   devm_platform_ioremap_resource
   devm_platform_ioremap_resource_byname
+  devm_regmap_add_irq_chip
+  devm_regmap_del_irq_chip
   devm_regmap_field_alloc
   __devm_regmap_init
   __devm_regmap_init_i2c
@@ -240,6 +249,7 @@
   __devm_reset_control_get
   devm_reset_controller_register
   devm_rtc_allocate_device
+  devm_snd_soc_register_card
   devm_thermal_of_cooling_device_register
   devm_thermal_zone_of_sensor_register
   devm_usb_get_phy
@@ -255,6 +265,8 @@
   dev_pm_opp_put_clkname
   dev_pm_opp_set_clkname
   dev_pm_opp_set_rate
+  dev_pm_qos_add_request
+  dev_pm_qos_remove_request
   devres_add
   devres_alloc_node
   devres_free
@@ -385,6 +397,7 @@
   gen_pool_set_algo
   gen_pool_size
   gen_pool_virt_to_phys
+  get_cpu_device
   get_device
   __get_free_pages
   get_random_bytes
@@ -403,6 +416,7 @@
   gpiod_direction_output
   gpiod_direction_output_raw
   gpiod_get_optional
+  gpiod_get_raw_value_cansleep
   gpiod_get_raw_value
   gpiod_get_value
   gpiod_get_value_cansleep
@@ -420,6 +434,7 @@
   handle_fasteoi_irq
   handle_level_irq
   handle_nested_irq
+  handle_simple_irq
   handle_sysrq
   hex_dump_to_buffer
   hrtimer_init
@@ -537,6 +552,7 @@
   irq_chip_set_wake_parent
   irq_chip_unmask_parent
   irq_create_fwspec_mapping
+  irq_create_mapping
   irq_dispose_mapping
   __irq_domain_add
   irq_domain_alloc_irqs_parent
@@ -565,6 +581,7 @@
   is_vmalloc_addr
   jiffies
   jiffies_to_msecs
+  jiffies_to_usecs
   kasprintf
   kernel_bind
   kernel_connect
@@ -642,6 +659,7 @@
   memdup_user
   __memcpy_fromio
   __memcpy_toio
+  memdup_user
   memmove
   memremap
   memunmap
@@ -674,6 +692,9 @@
   nonseekable_open
   nr_cpu_ids
   __num_online_cpus
+  nvmem_cell_get
+  nvmem_cell_put
+  nvmem_cell_read
   nvmem_cell_write
   nvmem_device_read
   nvmem_device_write
@@ -691,6 +712,7 @@
   of_device_get_match_data
   of_device_is_available
   of_device_is_compatible
+  of_device_uevent_modalias
   of_dma_configure_id
   of_dma_controller_free
   of_dma_controller_register
@@ -738,6 +760,7 @@
   of_property_read_string
   of_property_read_string_helper
   of_property_read_u32_index
+  of_property_read_u64
   of_property_read_u64_index
   of_property_read_variable_u32_array
   of_property_read_variable_u8_array
@@ -803,6 +826,7 @@
   pinctrl_utils_free_map
   platform_bus_type
   platform_device_add
+  platform_device_add_data
   platform_device_add_properties
   platform_device_add_resources
   platform_device_alloc
@@ -917,6 +941,10 @@
   refcount_dec_and_lock
   refcount_dec_not_one
   refcount_warn_saturate
+  regcache_cache_only
+  regcache_mark_dirty
+  regcache_sync
+  regcache_sync_region
   __register_chrdev
   register_chrdev_region
   register_pm_notifier
@@ -929,6 +957,7 @@
   regmap_field_read
   regmap_field_update_bits_base
   __regmap_init
+  regmap_irq_get_virq
   regmap_mmio_detach_clk
   regmap_read
   regmap_update_bits_base
@@ -990,6 +1019,7 @@
   rndis_uninit
   rpmsg_register_device
   rpmsg_send
+  rpmsg_trysend
   rpmsg_unregister_device
   rproc_add
   rproc_add_subdev
@@ -1088,7 +1118,50 @@
   skb_set_owner_w
   skb_store_bits
   smp_call_function_single
+  snd_info_create_card_entry
+  snd_info_create_module_entry
+  snd_info_free_entry
+  snd_info_register
+  snd_jack_set_key
+  snd_pcm_format_width
   snd_soc_add_component_controls
+  snd_soc_card_get_kcontrol
+  snd_soc_card_jack_new
+  snd_soc_component_exit_regmap
+  snd_soc_component_init_regmap
+  snd_soc_component_read
+  snd_soc_component_update_bits
+  snd_soc_component_write
+  snd_soc_dai_get_channel_map
+  snd_soc_dai_set_channel_map
+  snd_soc_dapm_add_routes
+  snd_soc_dapm_disable_pin
+  snd_soc_dapm_force_enable_pin
+  snd_soc_dapm_get_enum_double
+  snd_soc_dapm_get_volsw
+  snd_soc_dapm_ignore_suspend
+  snd_soc_dapm_kcontrol_widget
+  snd_soc_dapm_mixer_update_power
+  snd_soc_dapm_mux_update_power
+  snd_soc_dapm_new_controls
+  snd_soc_dapm_new_widgets
+  snd_soc_dapm_put_enum_double
+  snd_soc_dapm_put_volsw
+  snd_soc_dapm_sync
+  snd_soc_get_enum_double
+  snd_soc_get_pcm_runtime
+  snd_soc_get_volsw
+  snd_soc_info_enum_double
+  snd_soc_info_multi_ext
+  snd_soc_jack_report
+  snd_soc_lookup_component
+  snd_soc_of_parse_audio_routing
+  snd_soc_of_parse_card_name
+  snd_soc_pm_ops
+  snd_soc_put_enum_double
+  snd_soc_put_volsw
+  snd_soc_rtdcom_lookup
+  snd_soc_unregister_card
   snd_soc_info_volsw
   snd_soc_register_component
   snd_soc_unregister_component
@@ -1148,9 +1221,12 @@
   strncpy
   strnlen
   strnstr
+  strpbrk
   strrchr
+  strscpy
   strsep
   strstr
+  __sw_hweight8
   __sw_hweight32
   __sw_hweight64
   synchronize_irq
