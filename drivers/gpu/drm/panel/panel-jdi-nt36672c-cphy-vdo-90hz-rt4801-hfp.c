@@ -1000,7 +1000,7 @@ static int jdi_get_modes(struct drm_panel *panel)
 	panel->connector->display_info.width_mm = 70;
 	panel->connector->display_info.height_mm = 152;
 
-	return 1;
+	return 2;
 }
 
 static const struct drm_panel_funcs jdi_drm_funcs = {

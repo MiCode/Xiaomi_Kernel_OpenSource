@@ -45,6 +45,9 @@
 /* Delay present fence would cause config merge */
 #endif
 
+#if defined(CONFIG_MACH_MT6893)
+#define CONFIG_MTK_DYN_SWITCH_BY_CMD
+#endif
 
 struct device;
 struct device_node;

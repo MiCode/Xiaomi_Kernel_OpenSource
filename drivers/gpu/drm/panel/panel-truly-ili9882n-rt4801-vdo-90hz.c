@@ -780,7 +780,7 @@ static int lcm_get_modes(struct drm_panel *panel)
 	panel->connector->display_info.width_mm = 65;
 	panel->connector->display_info.height_mm = 129;
 
-	return 1;
+	return 2;
 }
 
 static const struct drm_panel_funcs lcm_drm_funcs = {
