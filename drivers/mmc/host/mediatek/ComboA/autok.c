@@ -3663,6 +3663,13 @@ int execute_online_tuning_hs400(struct msdc_host *host, u8 *res)
 	/* tune data pad delay , find data pad boundary */
 	for (j = 0; j < 32; j++) {
 		autok_adjust_paddly(host, &j, DAT_PAD_RDLY);
+		AUTOK_RAWPRINT("[AUTOK]%d:DMA STATUS:%d\r\n",
+				__LINE__, atomic_read(&host->dma_status));
+		if (MSDC_READ32(MSDC_DMA_CFG) & 0x01) {
+			msdc_dump_info(NULL, 0, NULL, host->id);
+			/* Trigger KE when dma is active */
+			(void)0;
+		}
 		for (k = 0; k < AUTOK_CMD_TIMES / 4; k++) {
 			ret = autok_send_tune_cmd(host, opcode, TUNE_DATA,
 			    &autok_host_para);
@@ -3689,6 +3696,13 @@ int execute_online_tuning_hs400(struct msdc_host *host, u8 *res)
 	/* tune DS delay , base on data pad boundary */
 	for (j = 0; j < 32; j++) {
 		autok_adjust_paddly(host, &j, DS_PAD_RDLY);
+		AUTOK_RAWPRINT("[AUTOK]%d:DMA STATUS:%d\r\n",
+				__LINE__, atomic_read(&host->dma_status));
+		if (MSDC_READ32(MSDC_DMA_CFG) & 0x01) {
+			msdc_dump_info(NULL, 0, NULL, host->id);
+			/* Trigger KE when dma is active */
+			(void)0;
+		}
 		for (k = 0; k < AUTOK_CMD_TIMES / 4; k++) {
 			ret = autok_send_tune_cmd(host, opcode, TUNE_DATA,
 			    &autok_host_para);
