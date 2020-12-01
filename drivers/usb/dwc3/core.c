@@ -1638,6 +1638,8 @@ static int dwc3_remove(struct platform_device *pdev)
 
 	ipc_log_context_destroy(dwc->dwc_ipc_log_ctxt);
 	dwc->dwc_ipc_log_ctxt = NULL;
+	ipc_log_context_destroy(dwc->dwc_dma_ipc_log_ctxt);
+	dwc->dwc_dma_ipc_log_ctxt = NULL;
 	count--;
 	dwc3_instance[dwc->index] = NULL;
 
