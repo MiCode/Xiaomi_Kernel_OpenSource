@@ -4858,6 +4858,11 @@
 		mediatek,platform = <&afe>;
 	};
 
+	slbc: slbc {
+		compatible = "mediatek,mt6853-slbc";
+		status = "enable";
+	};
+
 	touch:touch {
 		compatible = "mediatek,touch";
 	};
