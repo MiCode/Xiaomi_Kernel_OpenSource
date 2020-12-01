@@ -21,6 +21,7 @@
 #include <lpm_dbg_common_v1.h>
 #include <lpm_timer.h>
 #include <mtk_lpm_sysfs.h>
+#include <lpm_module.h>
 
 #define LPM_LOG_DEFAULT_MS		5000
 
@@ -63,9 +64,46 @@ struct lpm_logger_fired_info {
 static struct lpm_logger_timer lpm_log_timer;
 static struct lpm_logger_fired_info lpm_logger_fired;
 
+static void lpm_check_cg_pll(void)
+{
+	int i;
+	u32 block;
+	u32 blkcg;
+
+	block = (u32)
+		lpm_smc_spm_dbg(MT_SPM_DBG_SMC_UID_RC_DUMP_PLL,
+				MT_LPM_SMC_ACT_GET, 0, 0);
+	if (block != 0) {
+		for (i = 0 ; i < spm_cond.pll_cnt ; i++) {
+			if (block & 1 << (16+i))
+				pr_info("suspend warning: pll: %s not closed\n"
+					, spm_cond.pll_str[i]);
+		}
+	}
+
+	/* Definition about SPM_COND_CHECK_BLOCKED
+	 * bit [00 ~ 15]: cg blocking index
+	 * bit [16 ~ 29]: pll blocking index
+	 * bit [30]     : pll blocking information
+	 * bit [31]	: idle condition check fail
+	 */
+
+	for (i = 1 ; i < spm_cond.cg_cnt ; i++) {
+		blkcg = lpm_smc_spm_dbg(MT_SPM_DBG_SMC_UID_BLOCK_DETAIL, MT_LPM_SMC_ACT_GET, 0, i);
+		if (blkcg != 0)
+			pr_info("suspend warning: CG: %6s = 0x%08lx\n"
+				, spm_cond.cg_str[i], blkcg);
+	}
+
+}
+
 int lpm_issuer_func(int type, const char *prefix, void *data)
 {
 	lpm_get_wakeup_status(&lpm_logger_help);
+
+	if (type == LPM_ISSUER_SUSPEND)
+		lpm_check_cg_pll();
+
 	return lpm_show_message(lpm_logger_help.wakesrc,
 					type, prefix, data);
 }
@@ -269,6 +307,8 @@ int __init lpm_logger_init(void)
 					LPM_LOG_DEFAULT_MS);
 	lpm_timer_start(&lpm_log_timer.tm);
 
+	spm_cond_init();
+
 	register_syscore_ops(&lpm_suspend_save_sleep_info_syscore_ops);
 
 	return 0;
@@ -276,4 +316,5 @@ int __init lpm_logger_init(void)
 
 void __exit lpm_logger_deinit(void)
 {
+	spm_cond_deinit();
 }
