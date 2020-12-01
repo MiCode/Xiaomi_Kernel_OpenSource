@@ -1,0 +1,10 @@
+config MTK_NET_RPS
+	tristate "MediaTek rps set API"
+	depends on MTK_NET_CCMNI
+	default MTK_NET_CCMNI
+	help
+	  Choose this option to set rps by API.
+	  It will be called for ccmni & rndis driver.
+	  If rps is set, out of order packets will not happen,
+	  performance will be improved because softirq can worked
+	  in the different cpu.
