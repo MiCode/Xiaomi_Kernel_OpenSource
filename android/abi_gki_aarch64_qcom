@@ -84,6 +84,7 @@
   cdev_add
   cdev_alloc
   cdev_del
+  cdev_device_add
   cdev_init
   __cfg80211_alloc_event_skb
   __cfg80211_alloc_reply_skb
@@ -121,6 +122,7 @@
   __class_create
   class_destroy
   class_find_device
+  class_for_each_device
   class_interface_unregister
   __class_register
   class_unregister
@@ -2339,6 +2341,8 @@
   work_busy
   ww_mutex_lock
   ww_mutex_unlock
+  __xa_alloc
+  xa_destroy
   xa_erase
   xa_find
   xa_find_after
