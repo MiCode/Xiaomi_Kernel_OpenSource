@@ -7,6 +7,7 @@ other hardware subsystems via RSC to control clocks.
 
 Required properties :
 - compatible : Shall contain one of the following:
+		"qcom,waipio-rpmh-clk"
 		"qcom,lahaina-rpmh-clk"
 		"qcom,shima-rpmh-clk"
 		"qcom,kona-rpmh-clk",
@@ -36,6 +37,12 @@ Example :
 	&apps_rsc {
 		rpmhcc: clock-controller {
 			compatible = "qcom,lahaina-rpmh-clk";
+			#clock-cells = <1>;
+		};
+
+	&apps_rsc {
+		rpmhcc: clock-controller {
+			compatible = "qcom,waipio-rpmh-clk";
 			#clock-cells = <1>;
 		};
 	};
