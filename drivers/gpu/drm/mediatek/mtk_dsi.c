@@ -2050,8 +2050,10 @@ mtk_dsi_connector_detect(struct drm_connector *connector, bool force)
 static int mtk_dsi_connector_get_modes(struct drm_connector *connector)
 {
 	struct mtk_dsi *dsi = connector_to_dsi(connector);
+#ifndef CONFIG_MTK_DYN_SWITCH_BY_CMD
 	struct drm_display_mode *mode, *pt;
 	int htotal_low = 0, mcount = 0;
+#endif
 	int ret = 0;
 
 	ret = drm_panel_get_modes(dsi->panel);
