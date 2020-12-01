@@ -322,28 +322,6 @@ static int mtk_usb_extcon_probe(struct platform_device *pdev)
 	}
 
 	/* usb role switch */
-	conn_np = of_parse_phandle(dev->of_node, "dev-conn", 0);
-	if (IS_ERR(conn_np)) {
-		dev_info(dev, "failed to get dev-conn node\n");
-		return -EINVAL;
-	}
-
-	conn_pdev = of_find_device_by_node(conn_np);
-	if (IS_ERR(conn_pdev)) {
-		dev_info(dev, "failed to get dev-conn pdev\n");
-		return -EINVAL;
-	}
-
-	/* fix me */
-#if 0
-	extcon->dev_conn.endpoint[0] = kasprintf(GFP_KERNEL,
-				"%s-role-switch", dev_name(&conn_pdev->dev));
-	extcon->dev_conn.endpoint[1] = dev_name(extcon->dev);
-	extcon->dev_conn.id = "usb-role-switch";
-
-	device_connection_add(&extcon->dev_conn);
-#endif
-
 	extcon->role_sw = usb_role_switch_get(extcon->dev);
 	if (IS_ERR(extcon->role_sw)) {
 		dev_err(dev, "failed to get usb role\n");
