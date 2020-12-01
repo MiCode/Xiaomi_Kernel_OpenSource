@@ -135,18 +135,7 @@ struct rc_trace_struct {
 	unsigned long bitmap;
 };
 static struct rc_trace_struct rc_trace;
-
-struct spm_condition {
-	char **cg_str;
-	int cg_cnt;
-	char **pll_str;
-	int pll_cnt;
-	int cg_shift;
-	int pll_shift;
-	int shift_config;
-};
-static struct spm_condition spm_cond;
-
+struct spm_condition spm_cond;
 int lpm_rc_cond_ctrl(int rc_id, unsigned int act,
 			unsigned int cond_id, unsigned int value)
 {
@@ -523,8 +512,12 @@ static int lpm_rc_entry_nodes_basic(int IsSimple,
 
 struct LPM_RC_HANDLE rc_handle[5];
 
-int lpm_rc_fs_init(void)
+void spm_cond_init(void)
 {
+
+	if (spm_cond.init)
+		return;
+
 	struct device_node *devnp = NULL;
 	struct device_node *np = NULL;
 	int idx = 0, constraint_cnt = 0;
@@ -538,18 +531,6 @@ int lpm_rc_fs_init(void)
 	/* enable resource constraint condition block latch */
 	lpm_smc_spm_dbg(MT_SPM_DBG_SMC_UID_BLOCK_LATCH,
 				    MT_LPM_SMC_ACT_SET, 0, 0);
-	mtk_lpm_sysfs_root_entry_create();
-
-	mtk_lpm_sysfs_sub_entry_add("rc", 0644, NULL,
-				    &lpm_entry_rc);
-
-	LPM_GENERIC_RC_NODE_INIT(rc_state, "state",
-				    0, LPM_RC_NODE_STATE);
-	mtk_lpm_sysfs_sub_entry_node_add(rc_state.name, 0444,
-					&rc_state.op, &lpm_entry_rc,
-					&rc_state.handle);
-
-	lpm_rc_ratio_entry(&lpm_entry_rc, &rc_Ratio);
 
 	devnp = of_find_compatible_node(NULL, NULL,
 					MTK_LPM_DTS_COMPATIBLE);
@@ -645,32 +626,25 @@ int lpm_rc_fs_init(void)
 		}
 
 		ret = of_property_read_u32(devnp, "cg-shift",
-						&spm_cond.cg_shift);
+					&spm_cond.cg_shift);
 		if (ret == 0)
 			ret = of_property_read_u32(devnp, "pll-shift",
-							&spm_cond.pll_shift);
+					&spm_cond.pll_shift);
 		if (ret == 0)
 			spm_cond.shift_config = 1;
 
 		of_node_put(devnp);
 	}
+	spm_cond.init = 1;
 
-	rc_ratio_timer.timeout = lpm_rc_ratio_timer_func;
-	lpm_timer_init(&rc_ratio_timer, LPM_TIMER_REPEAT);
-	lpm_timer_interval_update(&rc_ratio_timer,
-					LPM_RC_RATIO_DEFAULT);
-
-	/* enable constraint tracing */
-	for_each_set_bit(idx, &rc_trace.bitmap, 32) {
-		LPM_DBG_SMC(MT_SPM_DBG_SMC_UID_RC_TRACE,
-				MT_LPM_SMC_ACT_SET, idx, 0);
-	}
-
-	return 0;
 }
+EXPORT_SYMBOL(spm_cond_init);
 
-int lpm_rc_fs_deinit(void)
+void spm_cond_deinit(void)
 {
+	if (!spm_cond.init)
+		return;
+
 	struct device_node *devnp = NULL;
 	int idx = 0, constraint_cnt = 0;
 
@@ -710,6 +684,57 @@ int lpm_rc_fs_deinit(void)
 
 		of_node_put(devnp);
 	}
+	spm_cond.init = 0;
+}
+EXPORT_SYMBOL(spm_cond_deinit);
+
+int lpm_rc_fs_init(void)
+{
+	struct device_node *devnp = NULL;
+	struct device_node *np = NULL;
+	int idx = 0, constraint_cnt = 0;
+	const char *rc_name = NULL;
+	u32 rc_id = 0, cond_info = 0, ret = 0;
+	struct property *prop;
+
+	const char *cg_name = NULL, *pll_name = NULL;
+	int cg_idx = 0, pll_idx = 0, cg_cnt = 0, pll_cnt = 0;
+
+	/* enable resource constraint condition block latch */
+	lpm_smc_spm_dbg(MT_SPM_DBG_SMC_UID_BLOCK_LATCH,
+				    MT_LPM_SMC_ACT_SET, 0, 0);
+	mtk_lpm_sysfs_root_entry_create();
+
+	mtk_lpm_sysfs_sub_entry_add("rc", 0644, NULL,
+				    &lpm_entry_rc);
+
+	LPM_GENERIC_RC_NODE_INIT(rc_state, "state",
+				    0, LPM_RC_NODE_STATE);
+	mtk_lpm_sysfs_sub_entry_node_add(rc_state.name, 0444,
+					&rc_state.op, &lpm_entry_rc,
+					&rc_state.handle);
+
+	lpm_rc_ratio_entry(&lpm_entry_rc, &rc_Ratio);
+
+	spm_cond_init();
+
+	rc_ratio_timer.timeout = lpm_rc_ratio_timer_func;
+	lpm_timer_init(&rc_ratio_timer, LPM_TIMER_REPEAT);
+	lpm_timer_interval_update(&rc_ratio_timer,
+					LPM_RC_RATIO_DEFAULT);
+
+	/* enable constraint tracing */
+	for_each_set_bit(idx, &rc_trace.bitmap, 32) {
+		LPM_DBG_SMC(MT_SPM_DBG_SMC_UID_RC_TRACE,
+				MT_LPM_SMC_ACT_SET, idx, 0);
+	}
 
 	return 0;
+}
+
+int lpm_rc_fs_deinit(void)
+{
+	spm_cond_deinit();
+	return 0;
+
 }

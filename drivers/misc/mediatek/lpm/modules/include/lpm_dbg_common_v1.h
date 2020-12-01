@@ -68,10 +68,25 @@ struct lpm_log_helper {
 	struct lpm_spm_wake_status *wakesrc;
 };
 
+struct spm_condition {
+	bool init;
+	char **cg_str;
+	int cg_cnt;
+	char **pll_str;
+	int pll_cnt;
+	int cg_shift;
+	int pll_shift;
+	int shift_config;
+};
+
 extern u64 spm_26M_off_count;
 extern u64 spm_26M_off_duration;
 extern u64 ap_pd_count;
 extern u64 ap_slp_duration;
+extern struct spm_condition spm_cond;
+
+void spm_cond_init(void);
+void spm_cond_deinit(void);
 
 int lpm_dbg_common_fs_init(void);
 void lpm_dbg_common_fs_exit(void);
