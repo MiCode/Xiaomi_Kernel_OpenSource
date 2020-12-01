@@ -4738,10 +4738,12 @@ static int mmc_blk_suspend(struct device *dev)
 	 * suspend.
 	 */
 	if (md) {
+		mmc_get_card(card);
 		ret = mmc_blk_part_switch(card, md->part_type);
 		if (ret)
 			pr_info("%s: error %d during suspend\n",
 				md->disk->disk_name, ret);
+		mmc_put_card(card);
 	}
 out:
 		return ret;
