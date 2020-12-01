@@ -4,7 +4,7 @@
  * MSM architecture cpufreq driver
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2007-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2007-2020, The Linux Foundation. All rights reserved.
  * Author: Mike A. Chan <mikechan@google.com>
  *
  */
@@ -304,7 +304,7 @@ static struct freq_attr *msm_freq_attr[] = {
 
 static void msm_cpufreq_ready(struct cpufreq_policy *policy)
 {
-	struct device_node *np, *lmh_node;
+	struct device_node *np;
 	unsigned int cpu = policy->cpu;
 
 	if (cdev[cpu])
@@ -319,21 +319,13 @@ static void msm_cpufreq_ready(struct cpufreq_policy *policy)
 	 * thermal DT code takes care of matching them.
 	 */
 	if (of_find_property(np, "#cooling-cells", NULL)) {
-		lmh_node = of_parse_phandle(np, "qcom,lmh-dcvs", 0);
-		if (lmh_node) {
-			of_node_put(lmh_node);
-			goto ready_exit;
-		}
-
-		cdev[cpu] = of_cpufreq_cooling_register(policy);
+		cdev[cpu] = cpufreq_platform_cooling_register(policy, NULL);
 		if (IS_ERR(cdev[cpu])) {
 			pr_err("running cpufreq for CPU%d without cooling dev: %ld\n",
 			       cpu, PTR_ERR(cdev[cpu]));
 			cdev[cpu] = NULL;
 		}
 	}
-
-ready_exit:
 	of_node_put(np);
 }
 

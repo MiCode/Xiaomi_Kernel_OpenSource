@@ -4362,7 +4362,9 @@ int wmi_set_vr_profile(struct wil6210_priv *wil, u8 profile)
 	};
 
 	cmd.profile = profile;
-	wil_info(wil, "sending set vr config command, profile=%d\n", profile);
+	cmd.max_mcs = wil->max_mcs;
+	wil_info(wil, "sending set vr config command, profile=%d, max_mcs=%d\n",
+		 profile, wil->max_mcs);
 	rc = wmi_call(wil, WMI_SET_VR_PROFILE_CMDID, vif->mid, &cmd,
 		      sizeof(cmd), WMI_SET_VR_PROFILE_EVENTID,
 		      &reply, sizeof(reply), WIL_WMI_CALL_GENERAL_TO_MS);
