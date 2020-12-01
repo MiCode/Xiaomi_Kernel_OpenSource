@@ -198,7 +198,7 @@ static int mmc_init_crypto_spec(struct mmc_host *host,
 {
 	int err;
 	u32 count;
-	unsigned int crypto_modes_supported[BLK_ENCRYPTION_MODE_MAX];
+	unsigned int crypto_modes_supported[BLK_ENCRYPTION_MODE_MAX] = {0};
 
 	if (!(host->caps2 & MMC_CAP2_CRYPTO)) {
 		err = -ENODEV;
