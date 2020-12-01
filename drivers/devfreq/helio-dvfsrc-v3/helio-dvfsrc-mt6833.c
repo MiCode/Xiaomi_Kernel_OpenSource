@@ -47,6 +47,8 @@ static struct reg_config dvfsrc_init_configs[][128] = {
 		{ DVFSRC_TIMEOUT_NEXTREQ,    0x00000015 },
 		{ DVFSRC_LEVEL_MASK,         0x00EEE000 },
 
+		{ DVFSRC_SW_REQ8,            0x00001000 },
+
 		{ DVFSRC_DDR_QOS0,           0x0000000c },
 		{ DVFSRC_DDR_QOS1,           0x00000019 },
 		{ DVFSRC_DDR_QOS2,           0x00000026 },
