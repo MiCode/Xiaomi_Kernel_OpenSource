@@ -197,7 +197,19 @@
 
 /* Fastrpc remote process attributes */
 enum fastrpc_proc_attr {
-	FASTRPC_MODE_UNSIGNED_MODULE = (1 << 3),
+	/* Macro for Debug attr */
+	FASTRPC_MODE_DEBUG				= 1 << 0,
+	/* Macro for Ptrace */
+	FASTRPC_MODE_PTRACE				= 1 << 1,
+	/* Macro for CRC Check */
+	FASTRPC_MODE_CRC				= 1 << 2,
+	/* Macro for Unsigned PD */
+	FASTRPC_MODE_UNSIGNED_MODULE	= 1 << 3,
+	/* Macro for Adaptive QoS */
+	FASTRPC_MODE_ADAPTIVE_QOS		= 1 << 4,
+	/* Macro for System Process */
+	FASTRPC_MODE_SYSTEM_PROCESS		= 1 << 5,
+	/* Macro for Prvileged Process */
 	FASTRPC_MODE_PRIVILEGED      = (1 << 6),
 };
 
@@ -3713,6 +3725,9 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 {
 	int err = 0;
 	struct fastrpc_ioctl_init *init = &uproc->init;
+	int cid = fl->cid;
+	struct fastrpc_apps *me = &gfa;
+	struct fastrpc_channel_ctx *chan = &me->channel[cid];
 
 	VERIFY(err, init->filelen < INIT_FILELEN_MAX
 			&& init->memlen < INIT_MEMLEN_MAX);
@@ -3725,6 +3740,16 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 			INIT_FILELEN_MAX, INIT_MEMLEN_MAX);
 		err = -EFBIG;
 		goto bail;
+	}
+
+	if (chan->unsigned_support && fl->dev_minor == MINOR_NUM_DEV) {
+		/* Make sure third party applications */
+		/* can spawn only unsigned PD when */
+		/* channel configured as secure. */
+		if (chan->secure && !(uproc->attrs & FASTRPC_MODE_UNSIGNED_MODULE)) {
+			err = -ECONNREFUSED;
+			goto bail;
+		}
 	}
 
 	err = fastrpc_channel_open(fl);
@@ -5410,6 +5435,7 @@ static int fastrpc_get_info(struct fastrpc_file *fl, uint32_t *info)
 {
 	int err = 0;
 	uint32_t cid;
+	struct fastrpc_apps *me = &gfa;
 
 	VERIFY(err, fl != NULL);
 	if (err)
@@ -5418,8 +5444,9 @@ static int fastrpc_get_info(struct fastrpc_file *fl, uint32_t *info)
 	err = fastrpc_set_process_info(fl);
 	if (err)
 		goto bail;
+	cid = *info;
 	if (fl->cid == -1) {
-		cid = *info;
+		struct fastrpc_channel_ctx *chan = &me->channel[cid];
 		VERIFY(err, cid < NUM_CHANNELS);
 		if (err) {
 			err = -ECHRNG;
@@ -5434,8 +5461,8 @@ static int fastrpc_get_info(struct fastrpc_file *fl, uint32_t *info)
 			 * offload. Untrusted apps will be restricted from
 			 * offloading to signed PD using DSP HAL.
 			 */
-			if (fl->apps->channel[cid].secure == SECURE_CHANNEL
-			&& !fl->apps->channel[cid].unsigned_support) {
+			if (chan->secure == SECURE_CHANNEL
+			&& !chan->unsigned_support) {
 				ADSPRPC_ERR(
 				"cannot use domain %d with non-secure device\n",
 				cid);
