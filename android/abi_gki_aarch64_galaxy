@@ -144,8 +144,11 @@
   __spi_alloc_controller
   __spi_register_driver
   __spmi_driver_register
+  __srcu_read_lock
+  __srcu_read_unlock
   __stack_chk_fail
   __stack_chk_guard
+  __sw_hweight8
   __sw_hweight32
   __sw_hweight64
   __sync_dirty_buffer
@@ -177,6 +180,7 @@
   __wake_up
   __wake_up_locked
   __warn_printk
+  __xa_alloc
   _bcd2bin
   _bin2bcd
   _copy_from_iter_full
@@ -441,6 +445,7 @@
   cpufreq_table_index_unsorted
   cpufreq_unregister_driver
   cpufreq_unregister_notifier
+  cpufreq_update_policy
   cpuhp_tasks_frozen
   cpuidle_pause_and_lock
   cpuidle_resume_and_unlock
@@ -457,6 +462,8 @@
   crypto_destroy_tfm
   crypto_register_rngs
   crypto_shash_digest
+  crypto_shash_final
+  crypto_shash_update
   crypto_unregister_rngs
   csum_partial
   d_add
@@ -575,6 +582,7 @@
   devm_gpio_request_one
   devm_gpiochip_add_data
   devm_gpiod_get
+  devm_gpiod_get_index
   devm_gpiod_get_optional
   devm_iio_channel_get
   devm_iio_device_alloc
@@ -678,6 +686,7 @@
   dma_fence_context_alloc
   dma_fence_default_wait
   dma_fence_enable_sw_signaling
+  dma_fence_free
   dma_fence_get_status
   dma_fence_init
   dma_fence_release
@@ -1079,6 +1088,7 @@
   gpiod_direction_input
   gpiod_direction_output
   gpiod_direction_output_raw
+  gpiod_cansleep
   gpiod_get_optional
   gpiod_get_raw_value
   gpiod_get_raw_value_cansleep
@@ -1115,6 +1125,7 @@
   hrtimer_try_to_cancel
   hvc_alloc
   hvc_kick
+  hvc_poll
   hvc_remove
   hwrng_register
   hwrng_unregister
@@ -1192,6 +1203,7 @@
   in6_pton
   init_dummy_netdev
   init_net
+  init_srcu_struct
   init_task
   init_timer_key
   init_uts_ns
@@ -1336,6 +1348,7 @@
   kernel_kobj
   kernel_read
   kernel_recvmsg
+  kernel_restart
   kernel_sendmsg
   kernel_setsockopt
   kernel_write
@@ -1376,6 +1389,7 @@
   kstat
   kstrdup
   kstrdup_quotable
+  kstrdup_quotable_cmdline
   kstrndup
   kstrtobool
   kstrtobool_from_user
@@ -1812,6 +1826,7 @@
   power_supply_unregister
   preempt_schedule
   preempt_schedule_notrace
+  prepare_to_wait
   prepare_to_wait_event
   print_hex_dump
   printk
@@ -1913,6 +1928,7 @@
   regulator_enable
   regulator_force_disable
   regulator_get
+  regulator_get_current_limit
   regulator_get_mode
   regulator_get_optional
   regulator_get_voltage
@@ -1933,6 +1949,7 @@
   regulatory_hint
   release_firmware
   release_sock
+  regmap_mmio_detach_clk
   remap_pfn_range
   remap_vmalloc_range
   remove_proc_entry
@@ -2113,6 +2130,7 @@
   smp_call_function_single
   smp_call_function_single_async
   smp_call_on_cpu
+  smpboot_register_percpu_thread
   smpboot_unregister_percpu_thread
   snd_card_free
   snd_card_new
@@ -2321,6 +2339,7 @@
   sync_filesystem
   synchronize_irq
   synchronize_rcu
+  synchronize_srcu
   sys_tz
   syscon_node_to_regmap
   syscon_regmap_lookup_by_phandle
@@ -2379,6 +2398,7 @@
   trace_raw_output_prep
   trace_seq_printf
   tracepoint_probe_register
+  tracing_off
   truncate_inode_pages
   try_module_get
   try_wait_for_completion
