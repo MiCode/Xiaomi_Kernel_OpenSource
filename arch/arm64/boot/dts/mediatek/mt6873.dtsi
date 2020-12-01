@@ -6210,7 +6210,13 @@
 					"MFGPLL",
 					"MSDCPLL",
 					"TVPLL",
-					"MMPLL";
+					"MMPLL",
+					"USBPLL",
+					"ADSPPLL",
+					"APLL1",
+					"APLL2",
+					"APUPLL",
+					"NPUPLL";
 			};
 		};
 	};
