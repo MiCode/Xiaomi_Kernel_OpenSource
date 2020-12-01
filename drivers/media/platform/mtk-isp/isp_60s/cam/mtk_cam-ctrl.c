@@ -87,6 +87,14 @@ static void state_transition(struct mtk_camsys_ctrl_state *state_entry,
 		state_entry->estate = to;
 }
 
+static void mtk_cam_event_eos(struct mtk_raw_pipeline *pipeline)
+{
+	struct v4l2_event event = {
+		.type = V4L2_EVENT_MTK_CAMSYS_EOS,
+	};
+	v4l2_event_queue(pipeline->subdev.devnode, &event);
+}
+
 static void mtk_cam_event_frame_sync(struct mtk_raw_pipeline *pipeline,
 				     unsigned int frame_seq_no)
 {
@@ -1036,6 +1044,7 @@ void mtk_camsys_ctrl_stop(struct mtk_cam_ctx *ctx)
 		destroy_workqueue(camsys_sensor_ctrl->sensorsetting_wq);
 		camsys_sensor_ctrl->sensorsetting_wq = NULL;
 	}
+	mtk_cam_event_eos(ctx->pipe);
 	dev_info(ctx->cam->dev, "[camsys:stop] ctx:%d/raw_dev:0x%x\n",
 		ctx->stream_id, ctx->used_raw_dev);
 
