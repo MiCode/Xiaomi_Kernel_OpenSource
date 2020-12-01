@@ -5129,9 +5129,6 @@ struct mt6359_priv {
 
 #define IS_VOW_AMIC_BASE(x) (x == MIC_TYPE_MUX_VOW_ACC || IS_VOW_DCC_BASE(x))
 
-#define IS_VOW_BASE(x) (x == MIC_TYPE_MUX_VOW_DMIC || \
-			x == MIC_TYPE_MUX_VOW_DMIC_LP || \
-			IS_VOW_AMIC_BASE(x))
 
 /* VOW MTKIF TX setting */
 #define VOW_MCLK 13000
