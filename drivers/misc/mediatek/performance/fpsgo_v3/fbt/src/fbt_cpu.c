@@ -2717,7 +2717,7 @@ void fpsgo_ctrl2fbt_cpufreq_cb(int cid, unsigned long freq)
 		return;
 	}
 
-	fpsgo_systrace_c_fbt_gm(-100, 0, freq, "curr_freq[%d]", cid);
+	fpsgo_systrace_c_fbt(0, 0, freq, "curr_freq[%d]", cid);
 
 	spin_lock_irqsave(&loading_slock, flags2);
 	list_for_each_entry_safe(pos, next, &loading_list, entry) {
