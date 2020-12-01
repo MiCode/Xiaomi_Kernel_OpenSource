@@ -144,31 +144,6 @@ int mtk_afe_fe_hw_params(struct snd_pcm_substream *substream,
 	unsigned int channels = params_channels(params);
 	unsigned int rate = params_rate(params);
 	snd_pcm_format_t format = params_format(params);
-
-	if (afe->request_dram_resource)
-		afe->request_dram_resource(afe->dev);
-
-	dev_dbg(afe->dev, "%s(), %s, ch %d, rate %d, fmt %d, dma_addr %pad, dma_area %p, dma_bytes 0x%zx\n",
-		__func__, memif->data->name,
-		channels, rate, format,
-		&substream->runtime->dma_addr,
-		substream->runtime->dma_area,
-		substream->runtime->dma_bytes);
-
-	memset_io(substream->runtime->dma_area, 0,
-		  substream->runtime->dma_bytes);
-
-	/* set addr */
-	ret = mtk_memif_set_addr(afe, id,
-				 substream->runtime->dma_area,
-				 substream->runtime->dma_addr,
-				 substream->runtime->dma_bytes);
-	if (ret) {
-		dev_err(afe->dev, "%s(), error, id %d, set addr, ret %d\n",
-			__func__, id, ret);
-		return ret;
-	}
-
 #if IS_ENABLED(CONFIG_SND_SOC_MTK_SRAM)
 	/*
 	 * hw_params may be called several time,
@@ -327,11 +302,6 @@ int mtk_afe_fe_hw_free(struct snd_pcm_substream *substream,
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *cpu_dai = asoc_rtd_to_cpu(rtd, 0);
 	struct mtk_base_afe_memif *memif = &afe->memif[cpu_dai->id];
-
-	if (afe->release_dram_resource)
-		afe->release_dram_resource(afe->dev);
-
-	return 0;
 
 #if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 	afe_pcm_ipi_to_dsp(AUDIO_DSP_TASK_PCM_HWFREE,
