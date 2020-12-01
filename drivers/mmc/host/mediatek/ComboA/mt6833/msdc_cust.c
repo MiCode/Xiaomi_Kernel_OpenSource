@@ -315,8 +315,13 @@ void msdc_sd_power(struct msdc_host *host, u32 on)
 			&host->power_flash);
 
 		/* VMC VOLSEL */
+#ifdef NMCARD_SUPPORT
+		msdc_ldo_power(on, host->mmc->supply.vqmmc, VOL_1800,
+			&host->power_io);
+#else
 		msdc_ldo_power(on, host->mmc->supply.vqmmc, VOL_3000,
 			&host->power_io);
+#endif
 
 		pr_info("msdc%d power %s\n", host->id, (on ? "on" : "off"));
 		break;

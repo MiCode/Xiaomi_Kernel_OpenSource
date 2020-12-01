@@ -577,6 +577,9 @@
  */
 #define EMMC_RUNTIME_AUTOK_MERGE
 
+/* nano memory card support flag by platform */
+//#define NMCARD_SUPPORT
+
 /**************************************************************/
 /* Section 6: BBChip-depenent Tunnig Parameter                */
 /**************************************************************/
