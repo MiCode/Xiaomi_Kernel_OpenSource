@@ -850,3 +850,6 @@ static void __exit gdsc_exit(void)
 	platform_driver_unregister(&gdsc_driver);
 }
 module_exit(gdsc_exit);
+
+MODULE_DESCRIPTION("GDSC regulator control library");
+MODULE_LICENSE("GPL v2");
