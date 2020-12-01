@@ -21,7 +21,7 @@
 #include <linux/dma-direct.h>
 #include <linux/cma.h>
 #include <linux/iova.h>
-#include <linux/dma-noncoherent.h>
+#include <linux/dma-map-ops.h>
 #include <linux/dma-mapping.h>
 #include <linux/of_reserved_mem.h>
 #include <linux/iommu.h>
@@ -408,9 +408,7 @@ int qcom_dma_mmap_from_dev_coherent(struct device *dev, struct vm_area_struct *v
  */
 pgprot_t qcom_dma_pgprot(struct device *dev, pgprot_t prot, unsigned long attrs)
 {
-	if (dev_is_dma_coherent(dev) ||
-		(IS_ENABLED(CONFIG_DMA_NONCOHERENT_CACHE_SYNC) &&
-		(attrs & DMA_ATTR_NON_CONSISTENT)))
+	if (dev_is_dma_coherent(dev))
 		return prot;
 #ifdef CONFIG_ARCH_HAS_DMA_WRITE_COMBINE
 	if (attrs & DMA_ATTR_WRITE_COMBINE)

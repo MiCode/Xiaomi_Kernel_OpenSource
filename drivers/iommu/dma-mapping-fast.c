@@ -3,10 +3,9 @@
  * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  */
 
-#include <linux/dma-contiguous.h>
 #include <linux/dma-mapping.h>
 #include <linux/dma-mapping-fast.h>
-#include <linux/dma-noncoherent.h>
+#include <linux/dma-map-ops.h>
 #include <linux/io-pgtable-fast.h>
 #include <linux/vmalloc.h>
 #include <asm/cacheflush.h>

@@ -8,6 +8,7 @@
 
 #include <linux/cache.h>
 #include <linux/compat.h>
+#include <linux/cpumask.h>
 #include <linux/errno.h>
 #include <linux/kernel.h>
 #include <linux/signal.h>
@@ -244,7 +245,8 @@ static int preserve_sve_context(struct sve_context __user *ctx)
 	if (vq) {
 		/*
 		 * This assumes that the SVE state has already been saved to
-		 * the task struct by calling preserve_fpsimd_context().
+		 * the task struct by calling the function
+		 * fpsimd_signal_preserve_current_state().
 		 */
 		err |= __copy_to_user((char __user *)ctx + SVE_SIG_REGS_OFFSET,
 				      current->thread.sve_state,
@@ -748,6 +750,9 @@ static void setup_return(struct pt_regs *regs, struct k_sigaction *ka,
 		regs->pstate |= PSR_BTYPE_C;
 	}
 
+	/* TCO (Tag Check Override) always cleared for signal handlers */
+	regs->pstate &= ~PSR_TCO_BIT;
+
 	if (ka->sa.sa_flags & SA_RESTORER)
 		sigtramp = ka->sa.sa_restorer;
 	else
@@ -907,6 +912,38 @@ static void do_signal(struct pt_regs *regs)
 	restore_saved_sigmask();
 }
 
+static void set_32bit_cpus_allowed(void)
+{
+	int ret;
+
+	/*
+	 * Try to honour as best as possible whatever affinity request this
+	 * task has. If it spans no compatible CPU, disregard it entirely.
+	 */
+	if (cpumask_intersects(current->cpus_ptr, &aarch32_el0_mask)) {
+		cpumask_var_t cpus_allowed;
+
+		if (!alloc_cpumask_var(&cpus_allowed, GFP_ATOMIC)) {
+
+			ret = set_cpus_allowed_ptr(current, &aarch32_el0_mask);
+
+		} else {
+
+			cpumask_and(cpus_allowed, current->cpus_ptr, &aarch32_el0_mask);
+			ret = set_cpus_allowed_ptr(current, cpus_allowed);
+			free_cpumask_var(cpus_allowed);
+
+		}
+	} else {
+		ret = set_cpus_allowed_ptr(current, &aarch32_el0_mask);
+	}
+
+	if (ret) {
+		pr_warn_once("No CPUs capable of running 32-bit tasks\n");
+		force_sig(SIGKILL);
+	}
+}
+
 asmlinkage void do_notify_resume(struct pt_regs *regs,
 				 unsigned long thread_flags)
 {
@@ -929,14 +966,25 @@ asmlinkage void do_notify_resume(struct pt_regs *regs,
 		} else {
 			local_daif_restore(DAIF_PROCCTX);
 
+			if (IS_ENABLED(CONFIG_ASYMMETRIC_AARCH32) &&
+			    thread_flags & _TIF_CHECK_32BIT_AFFINITY) {
+				clear_thread_flag(TIF_CHECK_32BIT_AFFINITY);
+				set_32bit_cpus_allowed();
+			}
+
 			if (thread_flags & _TIF_UPROBE)
 				uprobe_notify_resume(regs);
+
+			if (thread_flags & _TIF_MTE_ASYNC_FAULT) {
+				clear_thread_flag(TIF_MTE_ASYNC_FAULT);
+				send_sig_fault(SIGSEGV, SEGV_MTEAERR,
+					       (void __user *)NULL, current);
+			}
 
 			if (thread_flags & _TIF_SIGPENDING)
 				do_signal(regs);
 
 			if (thread_flags & _TIF_NOTIFY_RESUME) {
-				clear_thread_flag(TIF_NOTIFY_RESUME);
 				tracehook_notify_resume(regs);
 				rseq_handle_notify_resume(NULL, regs);
 			}

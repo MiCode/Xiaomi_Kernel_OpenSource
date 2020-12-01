@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2012, 2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _LINUX_CORESIGHT_H
@@ -208,6 +208,7 @@ struct coresight_device {
 	/* sysfs links between components */
 	int nr_links;
 	bool has_conns_grp;
+	bool ect_enabled; /* true only if associated ect device is enabled */
 };
 
 /*
@@ -324,7 +325,7 @@ struct coresight_ops {
 	const struct coresight_ops_ect *ect_ops;
 };
 
-#ifdef CONFIG_CORESIGHT
+#if IS_ENABLED(CONFIG_CORESIGHT)
 extern struct coresight_device *
 coresight_register(struct coresight_desc *desc);
 extern void coresight_unregister(struct coresight_device *csdev);
@@ -338,7 +339,7 @@ extern int coresight_claim_device_unlocked(void __iomem *base);
 
 extern void coresight_disclaim_device(void __iomem *base);
 extern void coresight_disclaim_device_unlocked(void __iomem *base);
-extern const char *coresight_alloc_device_name(struct coresight_dev_list *devs,
+extern char *coresight_alloc_device_name(struct coresight_dev_list *devs,
 					 struct device *dev);
 
 extern bool coresight_loses_context_with_cpu(struct device *dev);

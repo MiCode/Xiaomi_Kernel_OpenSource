@@ -90,6 +90,7 @@ enum uic_link_state {
 	UIC_LINK_OFF_STATE	= 0, /* Link powered down or disabled */
 	UIC_LINK_ACTIVE_STATE	= 1, /* Link is in Fast/Slow/Sleep state */
 	UIC_LINK_HIBERN8_STATE	= 2, /* Link is in Hibernate state */
+	UIC_LINK_BROKEN_STATE	= 3, /* Link is in broken state */
 };
 
 #define ufshcd_is_link_off(hba) ((hba)->uic_link_state == UIC_LINK_OFF_STATE)
@@ -97,29 +98,15 @@ enum uic_link_state {
 				    UIC_LINK_ACTIVE_STATE)
 #define ufshcd_is_link_hibern8(hba) ((hba)->uic_link_state == \
 				    UIC_LINK_HIBERN8_STATE)
+#define ufshcd_is_link_broken(hba) ((hba)->uic_link_state == \
+				   UIC_LINK_BROKEN_STATE)
 #define ufshcd_set_link_off(hba) ((hba)->uic_link_state = UIC_LINK_OFF_STATE)
 #define ufshcd_set_link_active(hba) ((hba)->uic_link_state = \
 				    UIC_LINK_ACTIVE_STATE)
 #define ufshcd_set_link_hibern8(hba) ((hba)->uic_link_state = \
 				    UIC_LINK_HIBERN8_STATE)
-enum {
-	/* errors which require the host controller reset for recovery */
-	UFS_ERR_HIBERN8_EXIT,
-	UFS_ERR_VOPS_SUSPEND,
-	UFS_ERR_EH,
-	UFS_ERR_CLEAR_PEND_XFER_TM,
-	UFS_ERR_INT_FATAL_ERRORS,
-	UFS_ERR_INT_UIC_ERROR,
-
-	/* other errors */
-	UFS_ERR_HIBERN8_ENTER,
-	UFS_ERR_RESUME,
-	UFS_ERR_SUSPEND,
-	UFS_ERR_LINKSTARTUP,
-	UFS_ERR_POWER_MODE_CHANGE,
-	UFS_ERR_TASK_ABORT,
-	UFS_ERR_MAX,
-};
+#define ufshcd_set_link_broken(hba) ((hba)->uic_link_state = \
+				    UIC_LINK_BROKEN_STATE)
 
 #define ufshcd_set_ufs_dev_active(h) \
 	((h)->curr_dev_pwr_mode = UFS_ACTIVE_PWR_MODE)
@@ -304,6 +291,8 @@ struct ufs_pwr_mode_info {
  *	       variant-specific PRDT fields can be initialized too
  * @prepare_command: called when receiving a request in the first place
  * @update_sysfs: adds vendor-specific sysfs entries
+ * @send_command: adds vendor-specific work when sending a command
+ * @compl_command: adds vendor-specific work when completing a command
  */
 struct ufs_hba_variant_ops {
 	const char *name;
@@ -344,6 +333,8 @@ struct ufs_hba_variant_ops {
 	void    (*prepare_command)(struct ufs_hba *hba,
 				struct request *rq, struct ufshcd_lrb *lrbp);
 	int     (*update_sysfs)(struct ufs_hba *hba);
+	void	(*send_command)(struct ufs_hba *hba, struct ufshcd_lrb *lrbp);
+	void	(*compl_command)(struct ufs_hba *hba, struct ufshcd_lrb *lrbp);
 };
 
 /* clock gating state  */
@@ -560,20 +551,31 @@ enum ufshcd_quirks {
 	UFSHCD_QUIRK_BROKEN_AUTO_HIBERN8		= 1 << 11,
 
 	/*
-	 * This quirk needs to be enabled if the host controller supports inline
-	 * encryption, but it uses a nonstandard mechanism where the standard
-	 * crypto registers aren't used and there is no concept of keyslots.
-	 * ufs_hba_variant_ops::init() is expected to initialize ufs_hba::ksm as
-	 * a passthrough keyslot manager.
+	 * This quirk needs to disable manual flush for write booster
 	 */
-	UFSHCD_QUIRK_NO_KEYSLOTS			= 1 << 12,
+	UFSHCI_QUIRK_SKIP_MANUAL_WB_FLUSH_CTRL		= 1 << 12,
+
+	/*
+	 * This quirk needs to be enabled if the host controller supports inline
+	 * encryption, but it doesn't use the standard crypto capability
+	 * registers.  If enabled, the standard code won't initialize the
+	 * keyslot manager; ufs_hba_variant_ops::init() must do it instead.
+	 */
+	UFSHCD_QUIRK_BROKEN_CRYPTO_CAPS			= 1 << 20,
+
+	/*
+	 * This quirk needs to be enabled if the host controller supports inline
+	 * encryption, but the CRYPTO_GENERAL_ENABLE bit is not implemented and
+	 * breaks the HCE sequence if used.
+	 */
+	UFSHCD_QUIRK_BROKEN_CRYPTO_ENABLE		= 1 << 21,
 
 	/*
 	 * This quirk needs to be enabled if the host controller requires that
 	 * the PRDT be cleared after each encrypted request because encryption
 	 * keys were stored in it.
 	 */
-	UFSHCD_QUIRK_KEYS_IN_PRDT			= 1 << 13,
+	UFSHCD_QUIRK_KEYS_IN_PRDT			= 1 << 22,
 };
 
 enum ufshcd_caps {
@@ -666,12 +668,15 @@ struct ufs_hba_variant_params {
  * @intr_mask: Interrupt Mask Bits
  * @ee_ctrl_mask: Exception event control mask
  * @is_powered: flag to check if HBA is powered
+ * @eh_wq: Workqueue that eh_work works on
  * @eh_work: Worker to handle UFS errors that require s/w attention
  * @eeh_work: Worker to handle exception events
  * @errors: HBA errors
  * @uic_error: UFS interconnect layer error status
  * @saved_err: sticky error mask
  * @saved_uic_err: sticky UIC error mask
+ * @force_reset: flag to force eh_work perform a full reset
+ * @force_pmc: flag to force a power mode change
  * @silence_err_logs: flag to silence error logs
  * @dev_cmd: ufs device management command information
  * @last_dme_cmd_tstamp: time stamp of the last completed DME command
@@ -711,6 +716,7 @@ struct ufs_hba {
 	 * "UFS device" W-LU.
 	 */
 	struct scsi_device *sdev_ufs_device;
+	struct scsi_device *sdev_rpmb;
 
 	enum ufs_dev_pwr_mode curr_dev_pwr_mode;
 	enum uic_link_state uic_link_state;
@@ -762,6 +768,7 @@ struct ufs_hba {
 	bool is_powered;
 
 	/* Work Queues */
+	struct workqueue_struct *eh_wq;
 	struct work_struct eh_work;
 	struct work_struct eeh_work;
 
@@ -771,6 +778,8 @@ struct ufs_hba {
 	u32 saved_err;
 	u32 saved_uic_err;
 	struct ufs_stats ufs_stats;
+	bool force_reset;
+	bool force_pmc;
 	bool silence_err_logs;
 
 	/* Device management request data */
@@ -1247,6 +1256,20 @@ static inline int ufshcd_vops_update_sysfs(struct ufs_hba *hba)
 	if (hba->vops && hba->vops->update_sysfs)
 		return hba->vops->update_sysfs(hba);
 	return 0;
+}
+
+static inline void ufshcd_vops_send_command(struct ufs_hba *hba,
+				struct ufshcd_lrb *lrbp)
+{
+	if (hba->vops && hba->vops->send_command)
+		hba->vops->send_command(hba, lrbp);
+}
+
+static inline void ufshcd_vops_compl_command(struct ufs_hba *hba,
+				struct ufshcd_lrb *lrbp)
+{
+	if (hba->vops && hba->vops->compl_command)
+		hba->vops->compl_command(hba, lrbp);
 }
 
 extern struct ufs_pm_lvl_states ufs_pm_lvl_states[];

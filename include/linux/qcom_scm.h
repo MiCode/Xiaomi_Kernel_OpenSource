@@ -137,8 +137,9 @@ extern bool qcom_scm_restore_sec_cfg_available(void);
 extern int qcom_scm_restore_sec_cfg(u32 device_id, u32 spare);
 extern int qcom_scm_iommu_secure_ptbl_size(u32 spare, size_t *size);
 extern int qcom_scm_iommu_secure_ptbl_init(u64 addr, u32 size, u32 spare);
-extern int qcom_scm_mem_protect_video(u32 cp_start, u32 cp_size,
-				u32 cp_nonpixel_start, u32 cp_nonpixel_size);
+extern int qcom_scm_mem_protect_video_var(u32 cp_start, u32 cp_size,
+					  u32 cp_nonpixel_start,
+					  u32 cp_nonpixel_size);
 extern int qcom_scm_mem_protect_region_id(phys_addr_t paddr, size_t size);
 extern int qcom_scm_mem_protect_lock_id2_flat(phys_addr_t list_addr,
 				size_t list_size, size_t chunk_size,
@@ -306,9 +307,10 @@ static inline int qcom_scm_iommu_secure_ptbl_size(u32 spare, size_t *size)
 		{ return -ENODEV; }
 static inline int qcom_scm_iommu_secure_ptbl_init(u64 addr, u32 size, u32 spare)
 		{ return -ENODEV; }
-static inline int qcom_scm_mem_protect_video(u32 cp_start, u32 cp_size,
-				u32 cp_nonpixel_start, u32 cp_nonpixel_size)
-				{ return -ENODEV; }
+extern inline int qcom_scm_mem_protect_video_var(u32 cp_start, u32 cp_size,
+						 u32 cp_nonpixel_start,
+						 u32 cp_nonpixel_size)
+		{ return -ENODEV; }
 static inline int qcom_scm_mem_protect_region_id(phys_addr_t paddr, size_t size)
 		{ return -ENODEV; }
 static inline int qcom_scm_mem_protect_lock_id2_flat(phys_addr_t list_addr,

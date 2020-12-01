@@ -7,6 +7,7 @@
 
 #include <linux/types.h>
 #include <linux/percpu.h>
+#include <linux/android_vendor.h>
 
 void topology_normalize_cpu_scale(void);
 int topology_update_cpu_topology(void);
@@ -30,7 +31,11 @@ static inline unsigned long topology_get_freq_scale(int cpu)
 	return per_cpu(freq_scale, cpu);
 }
 
-bool arch_freq_counters_available(struct cpumask *cpus);
+void topology_set_freq_scale(const struct cpumask *cpus, unsigned long cur_freq,
+			     unsigned long max_freq);
+bool topology_scale_freq_invariant(void);
+
+bool arch_freq_counters_available(const struct cpumask *cpus);
 
 DECLARE_PER_CPU(unsigned long, thermal_pressure);
 
@@ -53,6 +58,8 @@ struct cpu_topology {
 	cpumask_t core_possible_sibling;
 #endif
 	cpumask_t llc_sibling;
+
+	cpumask_t android_vendor_data1;
 };
 
 #ifdef CONFIG_GENERIC_ARCH_TOPOLOGY

@@ -612,7 +612,7 @@ struct io_pgtable_init_fns io_pgtable_av8l_fast_init_fns = {
 
 #ifdef CONFIG_IOMMU_IO_PGTABLE_FAST_SELFTEST
 
-#include <linux/dma-contiguous.h>
+#include <linux/dma-map-ops.h>
 
 static struct io_pgtable_cfg *cfg_cookie;
 

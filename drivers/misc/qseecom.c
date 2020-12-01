@@ -42,7 +42,7 @@
 #include <linux/compat.h>
 #include <linux/pfk.h>
 #include <linux/kthread.h>
-#include <linux/dma-contiguous.h>
+#include <linux/dma-map-ops.h>
 #include <linux/cma.h>
 #include <linux/of_platform.h>
 #include <linux/interconnect.h>

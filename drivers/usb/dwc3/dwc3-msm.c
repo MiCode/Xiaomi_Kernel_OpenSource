@@ -1575,7 +1575,7 @@ static void gsi_configure_ep(struct usb_ep *ep, struct usb_gsi_request *request)
 		| DWC3_DEPCFG_MAX_PACKET_SIZE(usb_endpoint_maxp(desc));
 
 	/* Burst size is only needed in SuperSpeed mode */
-	if (dwc->gadget.speed >= USB_SPEED_SUPER) {
+	if (dwc->gadget->speed >= USB_SPEED_SUPER) {
 		u32 burst = dep->endpoint.maxburst - 1;
 
 		params.param0 |= DWC3_DEPCFG_BURST_SIZE(burst);
@@ -2616,10 +2616,10 @@ static void dwc3_set_phy_speed_flags(struct dwc3_msm *mdwc)
 			}
 		}
 	} else {
-		if (dwc->gadget.speed == USB_SPEED_HIGH ||
-			dwc->gadget.speed == USB_SPEED_FULL)
+		if (dwc->gadget->speed == USB_SPEED_HIGH ||
+			dwc->gadget->speed == USB_SPEED_FULL)
 			mdwc->hs_phy->flags |= PHY_HSFS_MODE;
-		else if (dwc->gadget.speed == USB_SPEED_LOW)
+		else if (dwc->gadget->speed == USB_SPEED_LOW)
 			mdwc->hs_phy->flags |= PHY_LS_MODE;
 	}
 }
@@ -2815,9 +2815,9 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc, bool force_power_collapse)
 	 */
 	if ((dwc->dr_mode == USB_DR_MODE_OTG &&
 			mdwc->drd_state == DRD_STATE_PERIPHERAL_SUSPEND) &&
-			(dwc->gadget.state != USB_STATE_CONFIGURED)) {
+			(dwc->gadget->state != USB_STATE_CONFIGURED)) {
 		pr_err("%s(): Trying to go in LPM with state:%d\n",
-					__func__, dwc->gadget.state);
+					__func__, dwc->gadget->state);
 		pr_err("%s(): LPM is not performed.\n", __func__);
 		mutex_unlock(&mdwc->suspend_resume_mutex);
 		return -EBUSY;
@@ -3235,7 +3235,7 @@ static void dwc3_resume_work(struct work_struct *w)
 		if (mdwc->override_usb_speed &&
 			mdwc->override_usb_speed <= dwc->maximum_speed) {
 			dwc->maximum_speed = mdwc->override_usb_speed;
-			dwc->gadget.max_speed = dwc->maximum_speed;
+			dwc->gadget->max_speed = dwc->maximum_speed;
 			dbg_event(0xFF, "override_speed",
 					mdwc->override_usb_speed);
 		}
@@ -3327,7 +3327,7 @@ static void dwc3_pwr_event_handler(struct dwc3_msm *mdwc)
 	if (irq_stat & PWR_EVNT_LPM_OUT_L1_MASK) {
 		dev_dbg(mdwc->dev, "%s: handling PWR_EVNT_LPM_OUT_L1_MASK\n",
 				__func__);
-		if (usb_gadget_wakeup(&dwc->gadget))
+		if (usb_gadget_wakeup(dwc->gadget))
 			dev_err(mdwc->dev, "%s failed to take dwc out of L1\n",
 					__func__);
 		irq_stat &= ~PWR_EVNT_LPM_OUT_L1_MASK;
@@ -4677,7 +4677,7 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 
 	if (on) {
 		dev_dbg(mdwc->dev, "%s: turn on gadget %s\n",
-					__func__, dwc->gadget.name);
+					__func__, dwc->gadget->name);
 
 		dwc3_override_vbus_status(mdwc, true);
 		usb_phy_notify_connect(mdwc->hs_phy, USB_SPEED_HIGH);
@@ -4707,7 +4707,7 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 					DWC31_LINK_LU3LFPSRXTIM(0)));
 		}
 
-		usb_gadget_vbus_connect(&dwc->gadget);
+		usb_gadget_vbus_connect(dwc->gadget);
 		cpu_latency_qos_add_request(&mdwc->pm_qos_req_dma,
 					    PM_QOS_DEFAULT_VALUE);
 		/* start in perf mode for better performance initially */
@@ -4716,13 +4716,13 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 				msecs_to_jiffies(1000 * PM_QOS_SAMPLE_SEC));
 	} else {
 		dev_dbg(mdwc->dev, "%s: turn off gadget %s\n",
-					__func__, dwc->gadget.name);
+					__func__, dwc->gadget->name);
 		cancel_delayed_work_sync(&mdwc->perf_vote_work);
 		msm_dwc3_perf_vote_update(mdwc, false);
 		cpu_latency_qos_remove_request(&mdwc->pm_qos_req_dma);
 
 		mdwc->in_device_mode = false;
-		usb_gadget_vbus_disconnect(&dwc->gadget);
+		usb_gadget_vbus_disconnect(dwc->gadget);
 		usb_phy_notify_disconnect(mdwc->hs_phy, USB_SPEED_HIGH);
 		usb_phy_notify_disconnect(mdwc->ss_phy, USB_SPEED_SUPER);
 		dwc3_override_vbus_status(mdwc, false);

@@ -27,7 +27,7 @@
 #include <linux/slab.h>
 #include <linux/module.h>
 #include <linux/uaccess.h>
-#include <linux/dma-contiguous.h>
+#include <linux/dma-map-ops.h>
 #include <soc/qcom/secure_buffer.h>
 #include <linux/dma-mapping.h>
 #include <asm/cacheflush.h>
