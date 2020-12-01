@@ -37,6 +37,8 @@
 #include "mtk_drm_lowpower.h"
 #include "mtk_drm_mmp.h"
 #include "mtk_panel_ext.h"
+#include "mtk_disp_notify.h"
+
 /* ************ Panel Master ********** */
 #include "mtk_drm_fbdev.h"
 #include "mtk_fbconfig_kdebug.h"
@@ -1788,13 +1790,23 @@ static void mtk_dsi_encoder_disable(struct drm_encoder *encoder)
 	struct mtk_dsi *dsi = encoder_to_dsi(encoder);
 	struct drm_crtc *crtc = encoder->crtc;
 	int index = drm_crtc_index(crtc);
+	int data = MTK_DISP_BLANK_POWERDOWN;
 
 	CRTC_MMP_EVENT_START(index, dsi_suspend,
 			(unsigned long)crtc, index);
 
 	DDPINFO("%s\n", __func__);
 	mtk_drm_idlemgr_kick(__func__, crtc, 0);
+
+	if (index == 0)
+		mtk_disp_notifier_call_chain(MTK_DISP_EARLY_EVENT_BLANK,
+					&data);
+
 	mtk_output_dsi_disable(dsi, false);
+
+	if (index == 0)
+		mtk_disp_notifier_call_chain(MTK_DISP_EVENT_BLANK,
+					&data);
 
 	CRTC_MMP_EVENT_END(index, dsi_suspend,
 			(unsigned long)dsi->output_en, 0);
@@ -1805,12 +1817,22 @@ static void mtk_dsi_encoder_enable(struct drm_encoder *encoder)
 	struct mtk_dsi *dsi = encoder_to_dsi(encoder);
 	struct drm_crtc *crtc = encoder->crtc;
 	int index = drm_crtc_index(crtc);
+	int data = MTK_DISP_BLANK_UNBLANK;
 
 	CRTC_MMP_EVENT_START(index, dsi_resume,
 			(unsigned long)crtc, index);
 
 	DDPINFO("%s\n", __func__);
+
+	if (index == 0)
+		mtk_disp_notifier_call_chain(MTK_DISP_EARLY_EVENT_BLANK,
+					&data);
+
 	mtk_output_dsi_enable(dsi, false);
+
+	if (index == 0)
+		mtk_disp_notifier_call_chain(MTK_DISP_EVENT_BLANK,
+					&data);
 
 	CRTC_MMP_EVENT_END(index, dsi_resume,
 			(unsigned long)dsi->output_en, 0);
