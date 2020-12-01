@@ -427,6 +427,8 @@ struct msdc_host {
 
 	struct clk              *clk_ctl;
 	struct clk              *aes_clk_ctl;
+	/* src hclk for clk source of MSDC register */
+	struct clk              *src_hclk_ctl;
 	struct clk              *hclk_ctl;
 	/* pclk for msdc register access */
 	struct clk              *pclk_ctl;
