@@ -290,4 +290,10 @@ unsigned int mt6873_rate_transform(struct device *dev,
 				   unsigned int rate, int aud_blk);
 int mt6873_dai_set_priv(struct mtk_base_afe *afe, int id,
 			int priv_size, const void *priv_data);
+
+int mt6873_enable_dc_compensation(bool enable);
+int mt6873_set_lch_dc_compensation(int value);
+int mt6873_set_rch_dc_compensation(int value);
+int mt6873_adda_dl_gain_control(bool mute);
+
 #endif

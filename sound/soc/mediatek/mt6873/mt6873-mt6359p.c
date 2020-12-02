@@ -299,6 +299,14 @@ static int mt6873_mt6359p_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_component *codec_component =
 		snd_soc_rtdcom_lookup(rtd, CODEC_MT6359_NAME);
 	struct snd_soc_dapm_context *dapm = &rtd->card->dapm;
+	struct mt6359_codec_ops ops;
+
+	/* set dc component callback function for codec  */
+	ops.enable_dc_compensation = mt6873_enable_dc_compensation;
+	ops.set_lch_dc_compensation = mt6873_set_lch_dc_compensation;
+	ops.set_rch_dc_compensation = mt6873_set_rch_dc_compensation;
+	ops.adda_dl_gain_control = mt6873_adda_dl_gain_control;
+	mt6359_set_codec_ops(codec_component, &ops);
 
 	/* set mtkaif protocol */
 	mt6359_set_mtkaif_protocol(codec_component,

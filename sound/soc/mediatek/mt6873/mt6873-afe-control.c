@@ -172,6 +172,90 @@ int mt6873_dai_set_priv(struct mtk_base_afe *afe, int id,
 	return 0;
 }
 
+/* DC compensation */
+int mt6873_enable_dc_compensation(bool enable)
+{
+	if (!local_afe)
+		return -EPERM;
+
+	if (pm_runtime_status_suspended(local_afe->dev))
+		dev_warn(local_afe->dev, "%s(), status suspended\n", __func__);
+
+
+	pm_runtime_get_sync(local_afe->dev);
+	regmap_update_bits(local_afe->regmap,
+			   AFE_ADDA_DL_SDM_DCCOMP_CON,
+			   AUD_DC_COMP_EN_MASK_SFT,
+			   (enable ? 1 : 0) << AUD_DC_COMP_EN_SFT);
+	pm_runtime_put(local_afe->dev);
+	return 0;
+}
+EXPORT_SYMBOL(mt6873_enable_dc_compensation);
+
+int mt6873_set_lch_dc_compensation(int value)
+{
+	if (!local_afe)
+		return -EPERM;
+
+	if (pm_runtime_status_suspended(local_afe->dev))
+		dev_warn(local_afe->dev, "%s(), status suspended\n", __func__);
+
+	pm_runtime_get_sync(local_afe->dev);
+	regmap_write(local_afe->regmap,
+		     AFE_ADDA_DL_DC_COMP_CFG0,
+		     value);
+	pm_runtime_put(local_afe->dev);
+	return 0;
+}
+EXPORT_SYMBOL(mt6873_set_lch_dc_compensation);
+
+int mt6873_set_rch_dc_compensation(int value)
+{
+	if (!local_afe)
+		return -EPERM;
+
+	if (pm_runtime_status_suspended(local_afe->dev))
+		dev_warn(local_afe->dev, "%s(), status suspended\n", __func__);
+
+	pm_runtime_get_sync(local_afe->dev);
+	regmap_write(local_afe->regmap,
+		     AFE_ADDA_DL_DC_COMP_CFG1,
+		     value);
+	pm_runtime_put(local_afe->dev);
+	return 0;
+}
+EXPORT_SYMBOL(mt6873_set_rch_dc_compensation);
+
+int mt6873_adda_dl_gain_control(bool mute)
+{
+	unsigned int dl_2_gain_ctl;
+
+	if (!local_afe)
+		return -EPERM;
+
+	if (pm_runtime_status_suspended(local_afe->dev))
+		dev_warn(local_afe->dev, "%s(), status suspended\n", __func__);
+
+	pm_runtime_get_sync(local_afe->dev);
+
+	if (mute)
+		dl_2_gain_ctl = MTK_AFE_ADDA_DL_GAIN_MUTE;
+	else
+		dl_2_gain_ctl = MTK_AFE_ADDA_DL_GAIN_NORMAL;
+
+	regmap_update_bits(local_afe->regmap,
+			   AFE_ADDA_DL_SRC2_CON1,
+			   DL_2_GAIN_CTL_PRE_MASK_SFT,
+			   dl_2_gain_ctl << DL_2_GAIN_CTL_PRE_SFT);
+
+	dev_info(local_afe->dev, "%s(), adda_dl_gain %x\n",
+		 __func__, dl_2_gain_ctl);
+
+	pm_runtime_put(local_afe->dev);
+	return 0;
+}
+EXPORT_SYMBOL(mt6873_adda_dl_gain_control);
+
 /* api for other modules */
 static int request_sram_count;
 int mtk_audio_request_sram(dma_addr_t *phys_addr,

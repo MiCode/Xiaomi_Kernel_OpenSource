@@ -12,6 +12,7 @@
 #include <linux/kthread.h>
 #include <linux/sched.h>
 #include <linux/iio/consumer.h>
+#include <linux/nvmem-consumer.h>
 #include <linux/mfd/mt6397/core.h>
 #include <linux/regulator/consumer.h>
 #include <sound/tlv.h>
@@ -3639,7 +3640,7 @@ static int mt6359_get_hpofs_auxadc(struct mt6359_priv *priv)
 	struct iio_channel *auxadc = priv->hpofs_cal_auxadc;
 
 	if (!IS_ERR(auxadc)) {
-		ret = iio_read_channel_processed(auxadc, &value);
+		ret = iio_read_channel_raw(auxadc, &value);
 		if (ret < 0) {
 			dev_err(priv->dev, "Error: %s read fail (%d)\n",
 				__func__, ret);
@@ -4457,11 +4458,314 @@ static int dc_trim_thread(void *arg)
 #if IS_ENABLED(CONFIG_SND_SOC_MT6359P_ACCDET)
 	accdet_late_init(0);
 #endif
-
 	do_exit(0);
+
 	return 0;
 }
 #endif /* #if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING) */
+
+/* Headphone Impedance Detection */
+int mt6359_set_codec_ops(struct snd_soc_component *cmpnt,
+			 struct mt6359_codec_ops *ops)
+{
+	struct mt6359_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+
+	priv->ops.enable_dc_compensation = ops->enable_dc_compensation;
+	priv->ops.set_lch_dc_compensation = ops->set_lch_dc_compensation;
+	priv->ops.set_rch_dc_compensation = ops->set_rch_dc_compensation;
+	priv->ops.adda_dl_gain_control = ops->adda_dl_gain_control;
+
+	return 0;
+}
+EXPORT_SYMBOL(mt6359_set_codec_ops);
+
+static int mtk_calculate_impedance_formula(int pcm_offset, int aux_diff)
+{
+	/* The formula is from DE programming guide */
+	/* should be mantain by pmic owner */
+	/* R = V /I */
+	/* V = auxDiff * (1800mv /auxResolution)  /TrimBufGain */
+	/* I =  pcmOffset * DAC_constant * Gsdm * Gibuf */
+
+	long val = 3600000 / pcm_offset * aux_diff;
+
+	return (int)DIV_ROUND_CLOSEST(val, 7832);
+}
+
+static int calculate_impedance(struct mt6359_priv *priv,
+			       int dc_init, int dc_input,
+			       short pcm_offset,
+			       const unsigned int detect_times)
+{
+	int dc_value;
+	int r_tmp = 0;
+
+	if (dc_input < dc_init) {
+		dev_warn(priv->dev, "%s(), Wrong[%d] : dc_input(%d) < dc_init(%d)\n",
+			 __func__, pcm_offset, dc_input, dc_init);
+		return 0;
+	}
+
+	dc_value = dc_input - dc_init;
+	r_tmp = mtk_calculate_impedance_formula(pcm_offset, dc_value);
+	r_tmp = DIV_ROUND_CLOSEST(r_tmp, detect_times);
+
+	/* Efuse calibration */
+	if ((priv->hp_current_calibrate_val != 0) && (r_tmp != 0)) {
+		dev_info(priv->dev, "%s(), Before Calibration from EFUSE: %d, R: %d\n",
+			 __func__, priv->hp_current_calibrate_val, r_tmp);
+		r_tmp = DIV_ROUND_CLOSEST(
+				r_tmp * 128 + priv->hp_current_calibrate_val,
+				128);
+	}
+
+	dev_dbg(priv->dev, "%s(), pcm_offset %d dcoffset %d detected resistor is %d\n",
+		__func__, pcm_offset, dc_value, r_tmp);
+
+	return r_tmp;
+}
+
+static int detect_impedance(struct mt6359_priv *priv)
+{
+	const unsigned int num_detect = 8;
+	int i;
+	int dc_sum = 0, detect_sum = 0;
+	int pick_impedance = 0, impedance = 0, phase_flag = 0;
+	int cur_dc = 0;
+	unsigned int value;
+
+	/* params by chip */
+	int auxcable_impedance = 5000;
+	/* should little lower than auxadc max resolution */
+	int auxadc_upper_bound = 32630;
+	/* Dc ramp up and ramp down step */
+	int dc_step = 96;
+	/* Phase 0 : high impedance with worst resolution */
+	int dc_phase0 = 288;
+	/* Phase 1 : median impedance with normal resolution */
+	int dc_phase1 = 1440;
+	/* Phase 2 : low impedance with better resolution */
+	int dc_phase2 = 6048;
+	/* Resistance Threshold of phase 2 and phase 1 */
+	int resistance_1st_threshold = 250;
+	/* Resistance Threshold of phase 1 and phase 0 */
+	int resistance_2nd_threshold = 1000;
+
+	if (priv->ops.adda_dl_gain_control) {
+		priv->ops.adda_dl_gain_control(true);
+	} else {
+		dev_warn(priv->dev, "%s(), adda_dl_gain_control ops not ready\n",
+			 __func__);
+		return 0;
+	}
+
+	if (priv->ops.enable_dc_compensation &&
+	    priv->ops.set_lch_dc_compensation &&
+	    priv->ops.set_rch_dc_compensation) {
+		priv->ops.set_lch_dc_compensation(0);
+		priv->ops.set_rch_dc_compensation(0);
+		priv->ops.enable_dc_compensation(true);
+	} else {
+		dev_warn(priv->dev, "%s(), dc compensation ops not ready\n",
+			 __func__);
+		return 0;
+	}
+
+	regmap_update_bits(priv->regmap, MT6359_AUXADC_CON10,
+			   0x7, AUXADC_AVG_64);
+
+	set_trim_buf_in_mux(priv, TRIM_BUF_MUX_HPR);
+	set_trim_buf_gain(priv, TRIM_BUF_GAIN_18DB);
+	enable_trim_buf(priv, true);
+
+	/* set hp gain 0dB */
+	regmap_update_bits(priv->regmap, MT6359_ZCD_CON2,
+			   RG_AUDHPRGAIN_MASK_SFT,
+			   DL_GAIN_0DB << RG_AUDHPRGAIN_SFT);
+	regmap_update_bits(priv->regmap, MT6359_ZCD_CON2,
+			   RG_AUDHPLGAIN_MASK_SFT, DL_GAIN_0DB);
+
+	for (cur_dc = 0; cur_dc <= dc_phase2; cur_dc += dc_step) {
+		/* apply dc by dc compensation: 16bit MSB and negative value */
+		priv->ops.set_lch_dc_compensation(-cur_dc << 16);
+		priv->ops.set_rch_dc_compensation(-cur_dc << 16);
+
+		/* save for DC = 0 offset */
+		if (cur_dc == 0) {
+			usleep_range(1 * 1000, 1 * 1000);
+			dc_sum = 0;
+			for (i = 0; i < num_detect; i++)
+				dc_sum += mt6359_get_hpofs_auxadc(priv);
+
+			if ((dc_sum / num_detect) > auxadc_upper_bound) {
+				dev_info(priv->dev, "%s(), cur_dc == 0, auxadc value %d > auxadc_upper_bound %d\n",
+					 __func__,
+					 dc_sum / num_detect,
+					 auxadc_upper_bound);
+				impedance = auxcable_impedance;
+				break;
+			}
+		}
+
+		/* start checking */
+		if (cur_dc == dc_phase0) {
+			usleep_range(1 * 1000, 1 * 1000);
+			detect_sum = 0;
+			detect_sum = mt6359_get_hpofs_auxadc(priv);
+
+			if ((dc_sum / num_detect) == detect_sum) {
+				dev_info(priv->dev, "%s(), dc_sum / num_detect %d == detect_sum %d\n",
+					 __func__,
+					 dc_sum / num_detect, detect_sum);
+				impedance = auxcable_impedance;
+				break;
+			}
+
+			pick_impedance = calculate_impedance(
+						priv,
+						dc_sum / num_detect,
+						detect_sum, cur_dc, 1);
+
+			if (pick_impedance < resistance_1st_threshold) {
+				phase_flag = 2;
+				continue;
+			} else if (pick_impedance < resistance_2nd_threshold) {
+				phase_flag = 1;
+				continue;
+			}
+
+			/* Phase 0 : detect range 1kohm to 5kohm impedance */
+			for (i = 1; i < num_detect; i++)
+				detect_sum += mt6359_get_hpofs_auxadc(priv);
+
+			/* if auxadc > 32630 , the hpImpedance is over 5k ohm */
+			if ((detect_sum / num_detect) > auxadc_upper_bound)
+				impedance = auxcable_impedance;
+			else
+				impedance = calculate_impedance(priv,
+								dc_sum,
+								detect_sum,
+								cur_dc,
+								num_detect);
+			break;
+		}
+
+		/* Phase 1 : detect range 250ohm to 1000ohm impedance */
+		if (phase_flag == 1 && cur_dc == dc_phase1) {
+			usleep_range(1 * 1000, 1 * 1000);
+			detect_sum = 0;
+			for (i = 0; i < num_detect; i++)
+				detect_sum += mt6359_get_hpofs_auxadc(priv);
+
+			impedance = calculate_impedance(priv,
+							dc_sum, detect_sum,
+							cur_dc, num_detect);
+			break;
+		}
+
+		/* Phase 2 : detect under 250ohm impedance */
+		if (phase_flag == 2 && cur_dc == dc_phase2) {
+			usleep_range(1 * 1000, 1 * 1000);
+			detect_sum = 0;
+			for (i = 0; i < num_detect; i++)
+				detect_sum += mt6359_get_hpofs_auxadc(priv);
+
+			impedance = calculate_impedance(priv,
+							dc_sum, detect_sum,
+							cur_dc, num_detect);
+			break;
+		}
+		usleep_range(1 * 200, 1 * 200);
+	}
+
+	if (PARALLEL_OHM != 0) {
+		if (impedance < PARALLEL_OHM) {
+			impedance = DIV_ROUND_CLOSEST(impedance * PARALLEL_OHM,
+						      PARALLEL_OHM - impedance);
+		} else {
+			dev_warn(priv->dev, "%s(), PARALLEL_OHM %d <= impedance %d\n",
+				 __func__, PARALLEL_OHM, impedance);
+		}
+	}
+
+	regmap_read(priv->regmap, MT6359_AUXADC_CON10, &value);
+	dev_info(priv->dev,
+		 "%s(), phase %d [dc,detect]Sum %d times [%d,%d], hp_impedance %d, pick_impedance %d, AUXADC_CON10 0x%x\n",
+		 __func__, phase_flag, num_detect, dc_sum, detect_sum,
+		 impedance, pick_impedance, value);
+
+	/* Ramp-Down */
+	while (cur_dc > 0) {
+		cur_dc -= dc_step;
+		/* apply dc by dc compensation: 16bit MSB and negative value */
+		priv->ops.set_lch_dc_compensation(-cur_dc << 16);
+		priv->ops.set_rch_dc_compensation(-cur_dc << 16);
+		usleep_range(1 * 200, 1 * 200);
+	}
+
+	priv->ops.set_lch_dc_compensation(0);
+	priv->ops.set_rch_dc_compensation(0);
+	priv->ops.enable_dc_compensation(false);
+	priv->ops.adda_dl_gain_control(false);
+
+	set_trim_buf_in_mux(priv, TRIM_BUF_MUX_OPEN);
+	enable_trim_buf(priv, false);
+
+	return impedance;
+}
+
+static int hp_impedance_get(struct snd_kcontrol *kcontrol,
+			    struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct mt6359_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+
+	if (priv->dev_counter[DEVICE_HP] <= 0 ||
+	    priv->mux_select[MUX_HP_L] != HP_MUX_HP_IMPEDANCE) {
+		dev_warn(priv->dev, "%s(), counter %d <= 0 || mux_select[MUX_HP_L] %d != HP_MUX_HP_IMPEDANCE\n",
+			 __func__,
+			 priv->dev_counter[DEVICE_HP],
+			 priv->mux_select[MUX_HP_L]);
+		ucontrol->value.integer.value[0] = priv->hp_impedance;
+		return 0;
+	}
+
+	priv->hp_impedance = detect_impedance(priv);
+
+	ucontrol->value.integer.value[0] = priv->hp_impedance;
+
+	dev_info(priv->dev, "%s(), hp_impedance = %d, efuse = %d\n",
+		 __func__, priv->hp_impedance, priv->hp_current_calibrate_val);
+
+	return 0;
+}
+
+static int get_hp_current_calibrate_val(struct mt6359_priv *priv)
+{
+	int ret = 0;
+	unsigned short efuse_val = 0;
+	int value, sign;
+
+	/* set eFuse register index */
+	/* HPDET_COMP[6:0] @ efuse bit 1792 ~ 1798 */
+	/* HPDET_COMP_SIGN @ efuse bit 1799 */
+	/* 1792 / 8 = 224(0xe0) bytes */
+	ret = nvmem_device_read(priv->hp_efuse, 0xe0, 2, &efuse_val);
+	if (ret < 0) {
+		dev_err(priv->dev, "%s(), efuse read fail: %d\n", __func__,
+			ret);
+		efuse_val = 0;
+	}
+
+	/* extract value and signed from HPDET_COMP[6:0] & HPDET_COMP_SIGN */
+	sign = (efuse_val >> 7) & 0x1;
+	value = efuse_val & 0x7f;
+	value = sign ? -value : value;
+
+	dev_info(priv->dev, "%s(), efuse: %d\n", __func__, value);
+
+	return value;
+}
 
 /* vow control */
 static void *get_vow_coeff_by_name(struct mt6359_priv *priv,
@@ -4783,6 +5087,9 @@ static int mt6359_rcv_dcc_set(struct snd_kcontrol *kcontrol,
 static const struct snd_kcontrol_new mt6359_snd_misc_controls[] = {
 	SOC_ENUM_EXT("Headphone Plugged In", misc_control_enum[0],
 		     hp_plugged_in_get, hp_plugged_in_set),
+	SOC_SINGLE_EXT("Audio HP ImpeDance Setting",
+		       SND_SOC_NOPM, 0, 0x10000, 0,
+		       hp_impedance_get, NULL),
 	SOC_ENUM_EXT("PMIC_REG_CLEAR", misc_control_enum[0],
 		     NULL, mt6359_rcv_dcc_set),
 };
@@ -4866,6 +5173,8 @@ static int mt6359_codec_probe(struct snd_soc_component *cmpnt)
 	snd_soc_add_component_controls(cmpnt,
 				       mt6359_snd_vow_controls,
 				       ARRAY_SIZE(mt6359_snd_vow_controls));
+
+	priv->hp_current_calibrate_val = get_hp_current_calibrate_val(priv);
 
 	return mt6359_codec_init_reg(cmpnt);
 }
@@ -5811,12 +6120,21 @@ static int mt6359_parse_dt(struct mt6359_priv *priv)
 						      "pmic_hpofs_cal");
 	ret = PTR_ERR_OR_ZERO(priv->hpofs_cal_auxadc);
 	if (ret) {
-		if (ret != -EPROBE_DEFER) {
+		if (ret != -EPROBE_DEFER)
 			dev_err(dev,
 				"%s() Get pmic_hpofs_cal iio ch failed (%d)\n",
 				__func__, ret);
-			return ret;
-		}
+		return ret;
+	}
+
+	/* get pmic efuse handler */
+	priv->hp_efuse = devm_nvmem_device_get(dev, "pmic-hp-efuse");
+	ret = PTR_ERR_OR_ZERO(priv->hp_efuse);
+	if (ret) {
+		if (ret != -EPROBE_DEFER)
+			dev_err(dev, "%s() Get efuse failed (%d)\n",
+				__func__, ret);
+		return ret;
 	}
 
 	return 0;
@@ -5849,7 +6167,8 @@ static int mt6359_platform_driver_probe(struct platform_device *pdev)
 
 	ret = mt6359_parse_dt(priv);
 	if (ret) {
-		dev_warn(&pdev->dev, "%s() fail to parse dts\n", __func__);
+		dev_warn(&pdev->dev,
+			 "%s() fail to parse dts: %d\n", __func__, ret);
 		return ret;
 	}
 
