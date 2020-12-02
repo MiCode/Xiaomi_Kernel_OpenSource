@@ -5114,6 +5114,13 @@ struct mt6359_vow_periodic_on_off_data {
 	unsigned long long vow_off;
 };
 
+struct mt6359_codec_ops {
+	int (*enable_dc_compensation)(bool enable);
+	int (*set_lch_dc_compensation)(int value);
+	int (*set_rch_dc_compensation)(int value);
+	int (*adda_dl_gain_control)(bool mute);
+};
+
 struct mt6359_priv {
 	struct device *dev;
 	struct regmap *regmap;
@@ -5133,6 +5140,12 @@ struct mt6359_priv {
 	struct hp_trim_data hp_trim_3_pole;
 	struct hp_trim_data hp_trim_4_pole;
 	struct iio_channel *hpofs_cal_auxadc;
+
+	/* headphone impedence */
+	struct nvmem_device *hp_efuse;
+	int hp_impedance;
+	int hp_current_calibrate_val;
+	struct mt6359_codec_ops ops;
 
 	/* debugfs */
 	struct dentry *debugfs;
@@ -5206,10 +5219,15 @@ struct mt6359_priv {
 #define TRIM_DISCARD_NUM 3
 #define TRIM_USEFUL_NUM (TRIM_TIMES - (TRIM_DISCARD_NUM * 2))
 
+/* headphone impedance detection */
+#define PARALLEL_OHM 0
+
 /* codec name */
 #define CODEC_MT6359_NAME "mtk-codec-mt6359p"
 #define DEVICE_MT6359_NAME "mt6359p-sound"
 
+int mt6359_set_codec_ops(struct snd_soc_component *cmpnt,
+			 struct mt6359_codec_ops *ops);
 int mt6359_set_mtkaif_protocol(struct snd_soc_component *cmpnt,
 			       int mtkaif_protocol);
 void mt6359_mtkaif_calibration_enable(struct snd_soc_component *cmpnt);
