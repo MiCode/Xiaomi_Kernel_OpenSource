@@ -9,6 +9,10 @@
 
 /*************Register Bit Define*************/
 #define MT6359_TOP0_ID                       0x0
+#define MT6359_SMT_CON1                      0x32
+#define MT6359_DRV_CON2                      0x3c
+#define MT6359_DRV_CON3                      0x3e
+#define MT6359_DRV_CON4                      0x40
 #define MT6359_TOP_CKPDN_CON0                0x10c
 #define MT6359_TOP_CKPDN_CON0_SET            0x10e
 #define MT6359_TOP_CKPDN_CON0_CLR            0x110

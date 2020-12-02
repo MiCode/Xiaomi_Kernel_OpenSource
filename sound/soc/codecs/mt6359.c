@@ -27,6 +27,20 @@
 #endif
 
 /* static function declaration */
+static void mt6359_set_gpio_smt(struct mt6359_priv *priv)
+{
+	/* set gpio SMT mode */
+	regmap_update_bits(priv->regmap, MT6359_SMT_CON1, 0x3ff0, 0x3ff0);
+}
+
+static void mt6359_set_gpio_driving(struct mt6359_priv *priv)
+{
+	/* 8:4mA(default), a:8mA, c:12mA, e:16mA */
+	regmap_update_bits(priv->regmap, MT6359_DRV_CON2, 0xffff, 0x8888);
+	regmap_update_bits(priv->regmap, MT6359_DRV_CON3, 0xffff, 0x8888);
+	regmap_update_bits(priv->regmap, MT6359_DRV_CON4, 0x00ff, 0x88);
+}
+
 int mt6359_set_mtkaif_protocol(struct snd_soc_component *cmpnt,
 			       int mtkaif_protocol)
 {
@@ -2610,6 +2624,49 @@ static int mt_hp_damp_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static int mt_hp_ana_trim_event(struct snd_soc_dapm_widget *w,
+				struct snd_kcontrol *kcontrol,
+				int event)
+{
+	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
+	struct mt6359_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+	struct hp_trim_data *trim;
+
+	switch (event) {
+	case SND_SOC_DAPM_POST_PMU:
+		/* TODO: 3/4 pole */
+		trim = &priv->hp_trim_3_pole;
+
+		/* set hp l trim */
+		regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON3,
+				   RG_AUDHPLTRIM_VAUDP32_MASK_SFT,
+				   trim->hp_trim_l <<
+				   RG_AUDHPLTRIM_VAUDP32_SFT);
+		regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON3,
+				   RG_AUDHPLFINETRIM_VAUDP32_MASK_SFT,
+				   trim->hp_fine_trim_l <<
+				   RG_AUDHPLFINETRIM_VAUDP32_SFT);
+		/* set hp r trim */
+		regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON3,
+				   RG_AUDHPRTRIM_VAUDP32_MASK_SFT,
+				   trim->hp_trim_r <<
+				   RG_AUDHPRTRIM_VAUDP32_SFT);
+		regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON3,
+				   RG_AUDHPRFINETRIM_VAUDP32_MASK_SFT,
+				   trim->hp_fine_trim_r <<
+				   RG_AUDHPRFINETRIM_VAUDP32_SFT);
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		/* Clear the analog trim value */
+		regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON3, 0x0);
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
 static int mt_esd_resist_event(struct snd_soc_dapm_widget *w,
 			       struct snd_kcontrol *kcontrol,
 			       int event)
@@ -2925,6 +2982,11 @@ static const struct snd_soc_dapm_widget mt6359_dapm_widgets[] = {
 			      0, 0,
 			      mt_hp_damp_event,
 			      SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_SUPPLY_S("HP_ANA_TRIM", SUPPLY_SEQ_HP_ANA_TRIM,
+			      MT6359_AUDDEC_ANA_CON2,
+			      RG_AUDHPTRIM_EN_VAUDP32_SFT, 0,
+			      mt_hp_ana_trim_event,
+			      SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 
 	/* Receiver */
 	SND_SOC_DAPM_MUX_E("RCV Mux", SND_SOC_NOPM, 0, 0,
@@ -3384,6 +3446,7 @@ static const struct snd_soc_dapm_route mt6359_dapm_routes[] = {
 	{"HP_Supply", NULL, "HP_PULL_DOWN"},
 	{"HP_Supply", NULL, "HP_MUTE"},
 	{"HP_Supply", NULL, "HP_DAMP"},
+	{"HP_Supply", NULL, "HP_ANA_TRIM"},
 	{"HPL Mux", NULL, "HP_Supply"},
 	{"HPR Mux", NULL, "HP_Supply"},
 
@@ -4762,6 +4825,8 @@ static int mt6359_codec_init_reg(struct snd_soc_component *cmpnt)
 			   0x2 << RG_EINTCOMPVTH_SFT);
 
 	/* set gpio */
+	mt6359_set_gpio_smt(priv);
+	mt6359_set_gpio_driving(priv);
 	mt6359_reset_playback_gpio(priv);
 	mt6359_reset_capture_gpio(priv);
 
@@ -4893,6 +4958,9 @@ static ssize_t mt6359_debugfs_read(struct file *file, char __user *buf,
 	n += scnprintf(buffer + n, size - n, "mtkaif_protocol = %d\n",
 		       priv->mtkaif_protocol);
 
+	regmap_read(priv->regmap, MT6359_SMT_CON1, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "MT6359_SMT_CON1 = 0x%x\n", value);
 	regmap_read(priv->regmap, MT6359_GPIO_DIR0, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "MT6359_GPIO_DIR0 = 0x%x\n", value);
