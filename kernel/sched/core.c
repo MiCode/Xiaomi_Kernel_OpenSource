@@ -5044,12 +5044,15 @@ static inline int rt_effective_prio(struct task_struct *p, int prio)
 
 void set_user_nice(struct task_struct *p, long nice)
 {
-	bool queued, running;
+	bool queued, running, allowed;
 	int old_prio;
 	struct rq_flags rf;
 	struct rq *rq;
 
-	if (task_nice(p) == nice || nice < MIN_NICE || nice > MAX_NICE)
+	allowed = false;
+
+	trace_android_vh_nice_check(&nice, &allowed);
+	if ((task_nice(p) == nice || nice < MIN_NICE || nice > MAX_NICE) && !allowed)
 		return;
 	/*
 	 * We have to be careful, if called from sys_setpriority(),

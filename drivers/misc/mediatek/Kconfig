@@ -99,6 +99,7 @@ source "drivers/misc/mediatek/sched/Kconfig"
 source "drivers/misc/mediatek/performance/Kconfig"
 source "drivers/misc/mediatek/perf_common/Kconfig"
 source "drivers/misc/mediatek/rps/Kconfig"
+source "drivers/misc/mediatek/task_turbo/Kconfig"
 endmenu # Performance
 
 menu "SCP"
