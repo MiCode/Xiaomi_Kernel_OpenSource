@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  */
 #include "hab.h"
 
@@ -59,7 +59,6 @@ static void hab_pchan_free(struct kref *ref)
 	}
 	read_unlock(&pchan->vchans_lock);
 
-	kfree(pchan->hyp_data);
 	kfree(pchan);
 }
 

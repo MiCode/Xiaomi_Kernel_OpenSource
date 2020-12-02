@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 #include "hab.h"
 #include "hab_ghs.h"
@@ -34,7 +34,15 @@ int physical_channel_send(struct physical_channel *pchan,
 	struct ghs_vdev *dev  = (struct ghs_vdev *)pchan->hyp_data;
 	GIPC_Result result;
 	uint8_t *msg;
-	int irqs_disabled = irqs_disabled();
+	int irqs_disabled;
+
+	if (!dev) {
+		pr_err("no send pchan %s has been de-alloced msg for %zd bytes\n",
+			pchan->name);
+		return -ENODEV;
+	}
+
+	irqs_disabled = irqs_disabled();
 
 	hab_spin_lock(&dev->io_lock, irqs_disabled);
 
@@ -94,7 +102,15 @@ void physical_channel_rx_dispatch_common(unsigned long physical_channel)
 		(struct physical_channel *)physical_channel;
 	struct ghs_vdev *dev = (struct ghs_vdev *)pchan->hyp_data;
 	GIPC_Result result;
-	int irqs_disabled = irqs_disabled();
+	int irqs_disabled;
+
+	if (!dev) {
+		pr_err("no recv pchan %s has been de-alloced msg for %zd bytes\n",
+			pchan->name);
+		return;
+	}
+
+	irqs_disabled = irqs_disabled();
 
 	hab_spin_lock(&pchan->rxbuf_lock, irqs_disabled);
 	while (1) {

@@ -150,3 +150,6 @@ int hab_hypervisor_register_os(void)
 
 	return 0;
 }
+
+void dump_hab_wq(void *hyp_data) {};
+void hab_pipe_read_dump(struct physical_channel *pchan) {};

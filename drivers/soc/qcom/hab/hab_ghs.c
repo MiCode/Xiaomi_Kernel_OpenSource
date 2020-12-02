@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 #include "hab.h"
 #include "hab_ghs.h"
@@ -163,6 +163,9 @@ int habhyp_commdev_dealloc(void *commdev)
 	kfree(dev->read_data);
 	kfree(dev->os_data);
 	kfree(dev);
+
+	pchan->closed = 1;
+	pchan->hyp_data = NULL;
 
 	if (get_refcnt(pchan->refcount) > 1) {
 		pr_warn("potential leak pchan %s vchans %d refcnt %d\n",
