@@ -19,6 +19,7 @@
 #include <linux/mailbox/qmp.h>
 #include <linux/ipc_logging.h>
 #include <linux/soc/qcom/smem.h>
+#include <linux/soc/qcom/qcom_aoss.h>
 
 #define QMP_MAGIC	0x4d41494c	/* MAIL */
 #define QMP_VERSION	0x1
@@ -194,6 +195,8 @@ struct qmp_device {
 	struct mbox_client mbox_client;
 	struct mbox_chan *mbox_chan;
 
+	struct qmp *qmp;
+
 	void *ilc;
 };
 
@@ -347,7 +350,6 @@ static int qmp_startup(struct mbox_chan *chan)
 
 	return 0;
 }
-
 
 /**
  * qmp_send_data() - Copy the data to the channel's mailbox and notify
@@ -741,6 +743,39 @@ static struct mbox_chan_ops qmp_mbox_ops = {
 	.last_tx_done = qmp_last_tx_done,
 };
 
+static int qmp_shim_startup(struct mbox_chan *chan)
+{
+	struct qmp_mbox *mbox = chan->con_priv;
+
+	if (!mbox || !mbox->mdev)
+		return -EINVAL;
+
+	if (!mbox->mdev->qmp)
+		return -EAGAIN;
+
+	return 0;
+}
+
+static void qmp_shim_shutdown(struct mbox_chan *chan) { }
+
+static int qmp_shim_send_data(struct mbox_chan *chan, void *data)
+{
+	struct qmp_mbox *mbox = chan->con_priv;
+	struct qmp_pkt *pkt = (struct qmp_pkt *)data;
+
+	if (!mbox || !mbox->mdev || !data)
+		return -EINVAL;
+
+	return qmp_send(mbox->mdev->qmp, pkt->data, pkt->size);
+}
+
+static struct mbox_chan_ops qmp_mbox_shim_ops = {
+	.startup = qmp_shim_startup,
+	.shutdown = qmp_shim_shutdown,
+	.send_data = qmp_shim_send_data,
+	.last_tx_done = qmp_last_tx_done,
+};
+
 /**
  * qmp_mbox_init() - Parse the device tree for qmp mailbox and init structure
  *
@@ -848,6 +883,62 @@ static int qmp_parse_ipc(struct platform_device *pdev)
 	return 0;
 }
 
+static int qmp_shim_init(struct platform_device *pdev, struct qmp_device *mdev)
+{
+	struct mbox_chan *chans;
+	struct qmp_mbox *mbox;
+	u32 num_chans;
+	int rc;
+	int i;
+
+	mdev->qmp = qmp_get(&pdev->dev);
+	if (IS_ERR(mdev->qmp))
+		return PTR_ERR(mdev->qmp);
+
+	mdev->name = of_get_property(pdev->dev.of_node, "label", NULL);
+	if (!mdev->name) {
+		pr_err("%s: missing label\n", __func__);
+		return -ENODEV;
+	}
+	INIT_LIST_HEAD(&mdev->mboxes);
+	mdev->dev = &pdev->dev;
+
+	mbox = devm_kzalloc(mdev->dev, sizeof(*mbox), GFP_KERNEL);
+	if (!mbox)
+		return -ENOMEM;
+
+	num_chans = get_mbox_num_chans(pdev->dev.of_node);
+	mbox->rx_disabled = (num_chans > 1) ? true : false;
+	chans = devm_kzalloc(mdev->dev, sizeof(*chans) * num_chans, GFP_KERNEL);
+	if (!chans)
+		return -ENOMEM;
+
+	for (i = 0; i < num_chans; i++)
+		chans[i].con_priv = mbox;
+
+	mbox->ctrl.dev = mdev->dev;
+	mbox->ctrl.ops = &qmp_mbox_shim_ops;
+	mbox->ctrl.chans = chans;
+	mbox->ctrl.num_chans = num_chans;
+	mbox->ctrl.txdone_irq = true;
+	mbox->ctrl.txdone_poll = false;
+	mbox->ctrl.of_xlate = qmp_mbox_of_xlate;
+
+	mutex_init(&mbox->state_lock);
+	mbox->num_assigned = 0;
+	mbox->mdev = mdev;
+
+	rc = mbox_controller_register(&mbox->ctrl);
+	if (rc) {
+		pr_err("%s: failed to register mbox ctrl %d\n", __func__, rc);
+		return rc;
+	}
+	mdev_add_mbox(mdev, mbox);
+	mdev->ilc = ipc_log_context_create(QMP_IPC_LOG_PAGE_CNT, mdev->name, 0);
+
+	return 0;
+}
+
 static int qmp_smem_init(struct qmp_device *mdev, struct device_node *node)
 {
 	void __iomem *buf;
@@ -951,8 +1042,11 @@ static int qmp_mbox_probe(struct platform_device *pdev)
 	mdev = devm_kzalloc(&pdev->dev, sizeof(*mdev), GFP_KERNEL);
 	if (!mdev)
 		return -ENOMEM;
-
 	platform_set_drvdata(pdev, mdev);
+
+	if (of_parse_phandle(edge_node, "qcom,qmp", 0))
+		return qmp_shim_init(pdev, mdev);
+
 	ret = qmp_edge_init(pdev);
 	if (ret)
 		return ret;
