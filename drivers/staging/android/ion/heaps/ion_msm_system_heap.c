@@ -307,6 +307,7 @@ static bool check_valid_vmid(int dest_vmid, struct ion_msm_system_heap *sys_heap
 		return false;
 	}
 	valid_vmids[dest_vmid] = true;
+	SetPagePrivate(page);
 	ion_msm_page_pool_free(sys_heap->secure_pools[dest_vmid][order_ind],
 			       page);
 	return true;
