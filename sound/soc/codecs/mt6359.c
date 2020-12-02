@@ -11,17 +11,20 @@
 #include <linux/debugfs.h>
 #include <linux/kthread.h>
 #include <linux/sched.h>
-
+#include <linux/iio/consumer.h>
 #include <linux/mfd/mt6397/core.h>
 #include <linux/regulator/consumer.h>
 #include <sound/tlv.h>
 #include <sound/soc.h>
+
 #if IS_ENABLED(CONFIG_SND_SOC_MT6359P)
 #include "mt6359p.h"
 #elif IS_ENABLED(CONFIG_SND_SOC_MT6359)
 #include "mt6359.h"
 #endif
-
+#if IS_ENABLED(CONFIG_SND_SOC_MT6359P_ACCDET)
+#include "mt6359p-accdet.h"
+#endif
 
 /* static function declaration */
 int mt6359_set_mtkaif_protocol(struct snd_soc_component *cmpnt,
@@ -2716,6 +2719,25 @@ static int mt_ncp_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static int dc_trim_thread(void *arg);
+static int mt_dc_trim_event(struct snd_soc_dapm_widget *w,
+			    struct snd_kcontrol *kcontrol,
+			    int event)
+{
+	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
+	struct mt6359_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+	struct dc_trim_data *dc_trim = &priv->dc_trim;
+
+	dev_info(priv->dev, "%s(), event = 0x%x, dc_trim->calibrated %u\n",
+		 __func__, event, dc_trim->calibrated);
+
+	if (dc_trim->calibrated)
+		return 0;
+
+	kthread_run(dc_trim_thread, priv, "dc_trim_thread");
+	return 0;
+}
+
 /* DAPM Widgets */
 static const struct snd_soc_dapm_widget mt6359_dapm_widgets[] = {
 	/* Global Supply*/
@@ -3109,9 +3131,16 @@ static const struct snd_soc_dapm_widget mt6359_dapm_widgets[] = {
 			      MT6359_AUDENC_ANA_CON14,
 			      RG_AUDDIGMIC1EN_SFT, 0,
 			      NULL, 0),
+
 	/* VOW */
 	SND_SOC_DAPM_AIF_OUT("VOW TX", "VOW Capture", 0,
 			     SND_SOC_NOPM, 0, 0),
+
+	/* DC trim : trigger dc trim flow because set the reg when init_reg */
+	/* this must be at the last widget */
+	SND_SOC_DAPM_SUPPLY("DC Trim", MT6359_AUDDEC_ANA_CON8,
+			    RG_AUDTRIMBUF_EN_VAUDP32_SFT, 0,
+			    mt_dc_trim_event, SND_SOC_DAPM_POST_PMD),
 };
 
 static int mt_vow_amic_connect(struct snd_soc_dapm_widget *source,
@@ -3538,6 +3567,839 @@ static struct snd_soc_dai_driver mt6359_dai_driver[] = {
 	},
 };
 
+/* dc trim */
+#if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
+static int mt6359_get_hpofs_auxadc(struct mt6359_priv *priv)
+{
+	int value = 0;
+	int ret;
+	struct iio_channel *auxadc = priv->hpofs_cal_auxadc;
+
+	if (!IS_ERR(auxadc)) {
+		ret = iio_read_channel_processed(auxadc, &value);
+		if (ret < 0) {
+			dev_err(priv->dev, "Error: %s read fail (%d)\n",
+				__func__, ret);
+			return ret;
+		}
+	}
+
+	return value;
+}
+
+static void set_trim_buf_in_mux(struct mt6359_priv *priv, int mux)
+{
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON8,
+			   RG_AUDTRIMBUF_INPUTMUXSEL_VAUDP32_MASK_SFT,
+			   mux << RG_AUDTRIMBUF_INPUTMUXSEL_VAUDP32_SFT);
+}
+
+static void set_trim_buf_gain(struct mt6359_priv *priv, unsigned int gain)
+{
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON8,
+			   RG_AUDTRIMBUF_GAINSEL_VAUDP32_MASK_SFT,
+			   gain << RG_AUDTRIMBUF_GAINSEL_VAUDP32_SFT);
+}
+
+static void enable_trim_buf(struct mt6359_priv *priv, bool enable)
+{
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON8,
+			   RG_AUDTRIMBUF_EN_VAUDP32_MASK_SFT,
+			   (enable ? 1 : 0) << RG_AUDTRIMBUF_EN_VAUDP32_SFT);
+}
+
+static void enable_trim_circuit(struct mt6359_priv *priv, bool enable)
+{
+	if (enable) {
+		regmap_update_bits(priv->regmap, MT6359_LDO_VAUD18_CON0,
+				   RG_LDO_VAUD18_EN_MASK_SFT,
+				   1 << RG_LDO_VAUD18_EN_SFT);
+
+		regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON2,
+				   RG_AUDHPTRIM_EN_VAUDP32_MASK_SFT,
+				   1 << RG_AUDHPTRIM_EN_VAUDP32_SFT);
+
+	} else {
+
+		regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON2,
+				   RG_AUDHPTRIM_EN_VAUDP32_MASK_SFT,
+				   0 << RG_AUDHPTRIM_EN_VAUDP32_SFT);
+
+		regmap_update_bits(priv->regmap, MT6359_LDO_VAUD18_CON0,
+				   RG_LDO_VAUD18_EN_MASK_SFT,
+				   0 << RG_LDO_VAUD18_EN_SFT);
+	}
+}
+
+static void start_trim_hardware(struct mt6359_priv *priv)
+{
+	dev_info(priv->dev, "%s(), ++\n", __func__);
+
+	/* Set playback gpio (mosi/clk/sync) */
+	mt6359_set_playback_gpio(priv);
+
+	/* Enable AUDGLB */
+	mt6359_set_aud_global_bias(priv, true);
+
+	/* Pull-down HPL/R to AVSS30_AUD */
+	hp_pull_down(priv, true);
+
+	/* XO_AUDIO_EN_M Enable */
+	mt6359_set_dcxo(priv, true);
+
+	/* Enable CLKSQ */
+	/* audio clk source from internal dcxo */
+	mt6359_set_clksq(priv, true);
+
+	/* Turn on AUDNCP_CLKDIV engine clock */
+	mt6359_set_topck(priv, true);
+	usleep_range(250, 270);
+
+	/* Audio system digital clock power down release */
+	regmap_update_bits(priv->regmap, MT6359_AUDIO_TOP_CON0,
+			   0x00ff, 0x0000);
+	usleep_range(250, 270);
+
+	/* sdm audio fifo clock power on */
+	regmap_write(priv->regmap, MT6359_AFUNC_AUD_CON2, 0x0006);
+
+	/* scrambler clock on enable */
+	regmap_write(priv->regmap, MT6359_AFUNC_AUD_CON0, 0xCBA1);
+
+	/* sdm power on */
+	regmap_write(priv->regmap, MT6359_AFUNC_AUD_CON2, 0x0003);
+
+	/* sdm fifo enable */
+	regmap_write(priv->regmap, MT6359_AFUNC_AUD_CON2, 0x000B);
+
+	/* rg_ncp_ck1_valid_cnt = 7'b1100100 */
+	regmap_write(priv->regmap, MT6359_AFE_NCP_CFG0, 0xc800);
+
+	/* rg_ncp_on = 1'b1 */
+	regmap_write(priv->regmap, MT6359_AFE_NCP_CFG0, 0xc801);
+
+	/* afe enable, dl_lr_swap = 0, ul_lr_swap = 0 */
+	regmap_update_bits(priv->regmap, MT6359_AFE_UL_DL_CON0,
+			   0xc001, 0x0001);
+
+	/* turn on dl */
+	regmap_write(priv->regmap, MT6359_AFE_DL_SRC2_CON0_L, 0x0001);
+
+	/* set DL in normal path, not from sine gen table */
+	regmap_write(priv->regmap, MT6359_AFE_TOP_CON0, 0x0000);
+
+
+	/* Reduce ESD resistance of AU_REFN */
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON2,
+			   RG_AUDREFN_DERES_EN_VAUDP32_MASK_SFT,
+			   0x1 << RG_AUDREFN_DERES_EN_VAUDP32_SFT);
+
+	/* Select HPR/HPL gain from ZCD gain */
+	hp_gain_ctl_select(priv, HP_GAIN_CTL_ZCD);
+
+	/* Set HPR/HPL gain to -22dB */
+	regmap_write(priv->regmap, MT6359_ZCD_CON2, DL_GAIN_N_22DB_REG);
+	usleep_range(250, 270);
+
+	/* Enable cap-less LDOs (1.5V) */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON14, 0x0005);
+	/* Enable NV regulator (-1.2V) */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON14, 0x0015);
+	usleep_range(100, 120);
+
+	/* Disable AUD_ZCD */
+	zcd_disable(priv);
+
+	/* Disable HeadphoneL/HeadphoneR short circuit protection */
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON0,
+			   RG_AUDHPLSCDISABLE_VAUDP32_MASK_SFT,
+			   0x1 << RG_AUDHPLSCDISABLE_VAUDP32_SFT);
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON0,
+			   RG_AUDHPRSCDISABLE_VAUDP32_MASK_SFT,
+			   0x1 << RG_AUDHPRSCDISABLE_VAUDP32_SFT);
+
+	/* Enable IBIST */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON12, 0x0055);
+
+	/* Set HP DR bias current optimization, 001: 5uA */
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON11,
+			   DRBIAS_HP_MASK_SFT,
+			   DRBIAS_5UA << DRBIAS_HP_SFT);
+	/* Set HP & ZCD bias current optimization */
+	/* 00: ZCD: 3uA, HP/HS/LO: 4uA */
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON12,
+			   IBIAS_ZCD_MASK_SFT,
+			   IBIAS_ZCD_3UA << IBIAS_ZCD_SFT);
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON12,
+			   IBIAS_HP_MASK_SFT,
+			   IBIAS_4UA << IBIAS_HP_SFT);
+
+	/* HP damp circuit enable */
+	/* Enable HPRN/HPLN output 4K to VCM */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON10, 0x0087);
+
+	/* HP Feedback Cap select 2'b00: 15pF */
+	/* for >= 96KHz sampling rate: 2'b01: 10.5pF */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON4, 0x0000);
+
+	/* Set HPP/N STB enhance circuits */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON2, 0xf133);
+
+	/* Enable HP aux output stage */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON1, 0x000c);
+	/* Enable HP aux feedback loop */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON1, 0x003c);
+	/* Enable HP aux CMFB loop */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON9, 0x0c00);
+	/* Enable HP driver bias circuits */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON0, 0x30c0);
+	/* Enable HP driver core circuits */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON0, 0x30f0);
+	/* Short HP main output to HP aux output stage */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON1, 0x00fc);
+
+	/* Increase HP input pair current to HPM step by step */
+	hp_in_pair_current(priv, true);
+
+	/* Enable HP main CMFB loop */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON9, 0x0e00);
+	/* Disable HP aux CMFB loop */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON9, 0x0200);
+
+	/* Enable HP main output stage */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON1, 0x00ff);
+	/* Enable HPR/L main output stage step by step */
+	hp_main_output_ramp(priv, true);
+
+	/* Reduce HP aux feedback loop gain */
+	hp_aux_feedback_loop_gain_ramp(priv, true);
+	/* Disable HP aux feedback loop */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON1, 0x77cf);
+
+	/* apply volume setting */
+	headset_volume_ramp(priv,
+			    DL_GAIN_N_22DB,
+			    priv->ana_gain[AUDIO_ANALOG_VOLUME_HPOUTL]);
+
+	/* Disable HP aux output stage */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON1, 0x77c3);
+	/* Unshort HP main output to HP aux output stage */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON1, 0x7703);
+	usleep_range(100, 120);
+
+	/* Disable AUD_CLK */
+	mt6359_set_decoder_clk(priv, false);
+
+	/* Disable Audio DAC */
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON0,
+			   0x000f, 0x0000);
+
+	/* Disable Audio DAC (3rd DAC) */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON7, 0x0000);
+	usleep_range(100, 120);
+
+	/* Disable low-noise mode of DAC */
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON9,
+			   0x0001, 0x0000);
+
+	/* Switch HPL/HPR MUX to open */
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON0,
+			   0x0f00, 0x0000);
+
+	/* Disable Pull-down HPL/R to AVSS30_AUD */
+	hp_pull_down(priv, false);
+
+	dev_info(priv->dev, "%s(), --\n", __func__);
+}
+
+static void stop_trim_hardware(struct mt6359_priv *priv)
+{
+	dev_info(priv->dev, "%s(), ++\n", __func__);
+
+	mtk_hp_disable(priv);
+
+	/* Disable IBIST */
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON12,
+			   RG_AUDIBIASPWRDN_VAUDP32_MASK_SFT,
+			   0x1 << RG_AUDIBIASPWRDN_VAUDP32_SFT);
+
+	/* Disable NV regulator (-1.2V) */
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON14,
+			   RG_NVREG_EN_VAUDP32_MASK_SFT, 0x0);
+
+	/* Disable cap-less LDOs (1.5V) */
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON14, 0x5, 0x0);
+
+	/* Disable NCP */
+	regmap_write(priv->regmap, MT6359_AFE_NCP_CFG0, 0xc800);
+
+	/* Set HPL/HPR gain to mute */
+	regmap_write(priv->regmap, MT6359_ZCD_CON2, DL_GAIN_N_40DB_REG);
+
+	/* Disable HP damping circuit & HPN 4K loadreset CMFB PW level */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON10, 0x0000);
+
+	/* Increase ESD resistance of AU_REFN */
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON2,
+			   RG_AUDREFN_DERES_EN_VAUDP32_MASK_SFT, 0x0);
+
+	/* turn off dl */
+	regmap_update_bits(priv->regmap, MT6359_AFE_DL_SRC2_CON0_L,
+			   DL_2_SRC_ON_TMP_CTL_PRE_MASK_SFT, 0x0);
+
+	/* afe disable */
+	regmap_update_bits(priv->regmap, MT6359_AFE_UL_DL_CON0,
+			   AFE_ON_MASK_SFT, 0);
+
+	/* sdm fifo disable */
+	regmap_update_bits(priv->regmap, MT6359_AFUNC_AUD_CON2,
+			   CCI_AUDIO_FIFO_ENABLE_MASK_SFT, 0);
+
+	/* sdm power off */
+	regmap_update_bits(priv->regmap, MT6359_AFUNC_AUD_CON2,
+			   CCI_AFIFO_CLK_PWDB_MASK_SFT, 0);
+
+	/* scrambler clock on disable */
+	regmap_update_bits(priv->regmap, MT6359_AFUNC_AUD_CON0,
+			   CCI_SCRAMBLER_EN_MASK_SFT, 0);
+
+	/* sdm audio fifo clock power off */
+	regmap_write(priv->regmap, MT6359_AFUNC_AUD_CON2, 0x0000);
+
+	/* Audio system digital clock power down */
+	regmap_update_bits(priv->regmap, MT6359_AUDIO_TOP_CON0,
+			   0x00ff, 0x00f5);
+	usleep_range(250, 270);
+
+	/* Turn off AUDNCP_CLKDIV engine clock */
+	mt6359_set_topck(priv, false);
+
+	/* Disable CLKSQ */
+	mt6359_set_clksq(priv, false);
+
+	/* XO_AUDIO_EN_M Disable */
+	mt6359_set_dcxo(priv, false);
+
+	/* Disable Pull-down HPL/R to AVSS30_AUD  */
+	hp_pull_down(priv, false);
+
+	/* Disable AUDGLB */
+	mt6359_set_aud_global_bias(priv, false);
+
+	/* Reset playback gpio (mosi/clk/sync) */
+	mt6359_reset_playback_gpio(priv);
+
+	dev_info(priv->dev, "%s(), --\n", __func__);
+}
+
+static int calculate_trim_result(int *on_value, int *off_value,
+				 int trimTime, int discard_num, int useful_num)
+{
+	int i, j, tmp, offset;
+
+	/* sort */
+	for (i = 0; i < trimTime - 1; i++) {
+		for (j = 0; j < trimTime - 1 - i; j++) {
+			if (on_value[j] > on_value[j + 1]) {
+				tmp = on_value[j + 1];
+				on_value[j + 1] = on_value[j];
+				on_value[j] = tmp;
+			}
+			if (off_value[j] > off_value[j + 1]) {
+				tmp = off_value[j + 1];
+				off_value[j + 1] = off_value[j];
+				off_value[j] = tmp;
+			}
+		}
+	}
+	/* calculate result */
+	offset = 0;
+	for (i = discard_num; i < trimTime - discard_num; i++)
+		offset += on_value[i] - off_value[i];
+
+	return DIV_ROUND_CLOSEST(offset, useful_num);
+}
+
+static void get_hp_dctrim_offset(struct mt6359_priv *priv,
+				 int *hpl_trim, int *hpr_trim)
+{
+	int on_valueL[TRIM_TIMES], on_valueR[TRIM_TIMES];
+	int off_valueL[TRIM_TIMES], off_valueR[TRIM_TIMES];
+	int i;
+
+	usleep_range(10 * 1000, 15 * 1000);
+	regmap_update_bits(priv->regmap, MT6359_AUXADC_CON10,
+			   0x7, AUXADC_AVG_256);
+
+	/* set ana_gain as 0DB */
+	priv->ana_gain[AUDIO_ANALOG_VOLUME_HPOUTL] = DL_GAIN_0DB;
+
+	/* turn on trim buffer */
+	start_trim_hardware(priv);
+
+	/* l-channel */
+	/* trimming buffer gain selection 18db*/
+	set_trim_buf_gain(priv, TRIM_BUF_GAIN_18DB);
+
+	/* enable trim buffer */
+	enable_trim_buf(priv, true);
+
+	/* trimming buffer mux selection : HPL */
+	set_trim_buf_in_mux(priv, TRIM_BUF_MUX_HPL);
+
+	/* get buffer on auxadc value  */
+	dev_info(priv->dev, "%s(), get on_valueL\n", __func__);
+	usleep_range(1 * 1000, 10 * 1000);
+	for (i = 0; i < TRIM_TIMES; i++)
+		on_valueL[i] = mt6359_get_hpofs_auxadc(priv);
+
+	/* trimming buffer mux selection : AU_REFN */
+	set_trim_buf_in_mux(priv, TRIM_BUF_MUX_AU_REFN);
+
+	/* get buffer off auxadc value	*/
+	dev_info(priv->dev, "%s(), get off_valueL\n", __func__);
+	usleep_range(1 * 1000, 10 * 1000);
+	for (i = 0; i < TRIM_TIMES; i++)
+		off_valueL[i] = mt6359_get_hpofs_auxadc(priv);
+
+	/* r-channel */
+	/* trimming buffer mux selection : HPR */
+	set_trim_buf_in_mux(priv, TRIM_BUF_MUX_HPR);
+
+	/* get buffer on auxadc value  */
+	dev_info(priv->dev, "%s(), get on_valueR\n", __func__);
+	usleep_range(1 * 1000, 10 * 1000);
+	for (i = 0; i < TRIM_TIMES; i++)
+		on_valueR[i] = mt6359_get_hpofs_auxadc(priv);
+
+	/* trimming buffer mux selection : AU_REFN */
+	set_trim_buf_in_mux(priv, TRIM_BUF_MUX_AU_REFN);
+
+	/* get buffer off auxadc value	*/
+	dev_info(priv->dev, "%s(), get off_valueR\n", __func__);
+	usleep_range(1 * 1000, 10 * 1000);
+	for (i = 0; i < TRIM_TIMES; i++)
+		off_valueR[i] = mt6359_get_hpofs_auxadc(priv);
+
+	/* disable trim buffer */
+	enable_trim_buf(priv, false);
+
+	/* reset trimming buffer mux to OPEN */
+	set_trim_buf_in_mux(priv, TRIM_BUF_MUX_OPEN);
+
+	/* reset trimming buffer gain selection 0db*/
+	set_trim_buf_gain(priv, TRIM_BUF_GAIN_0DB);
+
+	/* turn off trim buffer */
+	stop_trim_hardware(priv);
+
+	*hpl_trim = calculate_trim_result(on_valueL, off_valueL,
+					  TRIM_TIMES, TRIM_DISCARD_NUM,
+					  TRIM_USEFUL_NUM);
+	*hpr_trim = calculate_trim_result(on_valueR, off_valueR,
+					  TRIM_TIMES, TRIM_DISCARD_NUM,
+					  TRIM_USEFUL_NUM);
+
+	dev_info(priv->dev, "%s(), R_offset = %d, L_offset = %d\n",
+		 __func__, *hpr_trim, *hpl_trim);
+}
+
+static void update_finetrim_offset(struct mt6359_priv *priv,
+				   int step,
+				   const unsigned int finetrim_code_l,
+				   const unsigned int finetrim_code_r,
+				   int *finetrim_offset_l,
+				   int *finetrim_offset_r)
+{
+	int hpl_offset = 0, hpr_offset = 0;
+
+	dev_dbg(priv->dev, "%s(), step%d finetrim_code(L/R) = (0x%x/0x%x)\n",
+		__func__, step, finetrim_code_l, finetrim_code_r);
+
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON3,
+			   RG_AUDHPLFINETRIM_VAUDP32_MASK_SFT,
+			   finetrim_code_l << RG_AUDHPLFINETRIM_VAUDP32_SFT);
+
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON3,
+			   RG_AUDHPRFINETRIM_VAUDP32_MASK_SFT,
+			   finetrim_code_r << RG_AUDHPRFINETRIM_VAUDP32_SFT);
+
+	get_hp_dctrim_offset(priv, &hpl_offset, &hpr_offset);
+	*finetrim_offset_l = hpl_offset;
+	*finetrim_offset_r = hpr_offset;
+
+	dev_dbg(priv->dev, "%s(), step%d finetrim_offset(L/R) = (0x%x/0x%x)\n",
+		__func__, step, *finetrim_offset_l, *finetrim_offset_r);
+}
+
+static void update_trim_offset(struct mt6359_priv *priv,
+			       int step,
+			       const unsigned int trim_code_l,
+			       const unsigned int trim_code_r,
+			       int *trim_offset_l,
+			       int *trim_offset_r)
+{
+	int hpl_offset = 0, hpr_offset = 0;
+
+	dev_dbg(priv->dev, "%s(), step%d trim_code(L/R) = (0x%x/0x%x)\n",
+		__func__, step, trim_code_l, trim_code_r);
+
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON3,
+			   RG_AUDHPLTRIM_VAUDP32_MASK_SFT,
+			   trim_code_l << RG_AUDHPLTRIM_VAUDP32_SFT);
+
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON3,
+			   RG_AUDHPRTRIM_VAUDP32_MASK_SFT,
+			   trim_code_r << RG_AUDHPRTRIM_VAUDP32_SFT);
+
+	get_hp_dctrim_offset(priv, &hpl_offset, &hpr_offset);
+
+	*trim_offset_l = hpl_offset;
+	*trim_offset_r = hpr_offset;
+
+	dev_dbg(priv->dev, "%s(), step%d trim_offset(L/R) = (0x%x/0x%x)\n",
+		__func__, step, *trim_offset_l, *trim_offset_r);
+}
+
+static unsigned int update_finetrim_code(const unsigned int trim_offset0,
+					 const unsigned int trim_offset1,
+					 const unsigned int trim_offset2)
+{
+	unsigned int ret_finetrim_code = 0;
+
+	/* Base on finetrim[0/1/2], choose minimim finetrim_code */
+	if (trim_offset0 < trim_offset1) {
+		if (trim_offset0 < trim_offset2)
+			ret_finetrim_code = 0;
+		else /* (trim_offset0 >= trim_offset2) */
+			ret_finetrim_code = 2;
+	} else { /* (trim_offset0 >= trim_offset1) */
+		if (trim_offset1 < trim_offset2)
+			ret_finetrim_code = 1;
+		else /* (trim_offset1 >= trim_offset2) */
+			ret_finetrim_code = 2;
+	}
+
+	return ret_finetrim_code;
+}
+
+static unsigned int update_trim_code(const bool is_negative,
+				     const int trim_value,
+				     const unsigned int trim_code)
+{
+	unsigned int ret_trim_code;
+
+	if (is_negative) { /* value<0, code+1; value>=0, code-1; */
+		if (trim_code == 0x0 && trim_value >= 0)
+			ret_trim_code = 0x11;
+		else if (trim_code == 0xF && trim_value < 0)
+			ret_trim_code = 0x0F;
+		else
+			ret_trim_code = trim_code - (trim_value < 0 ? (-1) : 1);
+	} else { /* value<0, code-1; value>=0, code+1; */
+		if (trim_code == 0x10 && trim_value < 0)
+			ret_trim_code = 0x01;
+		else if (trim_code == 0x1F && trim_value >= 0)
+			ret_trim_code = 0x1F;
+		else
+			ret_trim_code = trim_code + (trim_value < 0 ? (-1) : 1);
+	}
+	return ret_trim_code;
+}
+
+static void calculate_lr_finetrim_code(struct mt6359_priv *priv)
+{
+	struct hp_trim_data *hp_trim = &priv->hp_trim_3_pole;
+	unsigned int reg_value;
+
+	int finetrim_l[TRIM_STEP_NUM - 1] = {0, 0, 0};
+	int finetrim_r[TRIM_STEP_NUM - 1] = {0, 0, 0};
+	unsigned int finetrim_l_code[TRIM_STEP_NUM - 1] = {0, 0, 0};
+	unsigned int finetrim_r_code[TRIM_STEP_NUM - 1] = {0, 0, 0};
+	unsigned int hpl_finetrim_code = 0, hpr_finetrim_code = 0;
+	unsigned int step = 0;
+
+	regmap_read(priv->regmap, MT6359_AUDDEC_ANA_CON3, &reg_value);
+	dev_info(priv->dev, "%s(), initial MT6359_AUDDEC_ANA_CON3 = 0x%x\n",
+		 __func__, reg_value);
+
+	/* step0 */
+	finetrim_l_code[0] = 0x0;
+	finetrim_r_code[0] = 0x0;
+
+	update_finetrim_offset(priv, 0,
+			       finetrim_l_code[0], finetrim_r_code[0],
+			       &finetrim_l[0], &finetrim_r[0]);
+	dev_info(priv->dev, "%s(), step0 finetrim(R/L) = (%d/%d)\n",
+		 __func__, finetrim_r[0], finetrim_l[0]);
+
+	/* step1 */
+	if (finetrim_l[0] < 0)
+		finetrim_l_code[1] = 0x2;
+	else /* (finetrim_l[0] >= 0) */
+		finetrim_l_code[1] = 0x6;
+
+	if (finetrim_r[0] < 0)
+		finetrim_r_code[1] = 0x2;
+	else /* (finetrim_r[0] >= 0) */
+		finetrim_r_code[1] = 0x6;
+
+	update_finetrim_offset(priv, 1,
+			       finetrim_l_code[1], finetrim_r_code[1],
+			       &finetrim_l[1], &finetrim_r[1]);
+	dev_info(priv->dev, "%s(), step1 finetrim(R/L) = (%d/%d)\n",
+		 __func__, finetrim_r[1], finetrim_l[1]);
+
+	/* step2 */
+	if (finetrim_l[0] < 0 && finetrim_l[1] < 0)
+		finetrim_l_code[2] = 0x3;
+	else if (finetrim_l[0] < 0 && finetrim_l[1] >= 0)
+		finetrim_l_code[2] = 0x1;
+	else if (finetrim_l[0] >= 0 && finetrim_l[1] < 0)
+		finetrim_l_code[2] = 0x7;
+	else /* (finetrim_l[0] >= 0 && finetrim_l[1] >= 0) */
+		finetrim_l_code[2] = 0x5;
+
+	if (finetrim_r[0] < 0 && finetrim_r[1] < 0)
+		finetrim_r_code[2] = 0x3;
+	else if (finetrim_r[0] < 0 && finetrim_r[1] >= 0)
+		finetrim_r_code[2] = 0x1;
+	else if (finetrim_r[0] >= 0 && finetrim_r[1] < 0)
+		finetrim_r_code[2] = 0x7;
+	else /* (finetrim_r[0] >= 0 && finetrim_r[1] >= 0) */
+		finetrim_r_code[2] = 0x5;
+
+	update_finetrim_offset(priv, 2,
+			       finetrim_l_code[2], finetrim_r_code[2],
+			       &finetrim_l[2], &finetrim_r[2]);
+	dev_info(priv->dev, "%s(), step2 finetrim(R/L) = (%d/%d)\n",
+		 __func__, finetrim_r[2], finetrim_l[2]);
+
+	step = update_finetrim_code(finetrim_l[0],
+				    finetrim_l[1],
+				    finetrim_l[2]);
+	hpl_finetrim_code = finetrim_l_code[step];
+
+	step = update_finetrim_code(finetrim_r[0],
+				    finetrim_r[1],
+				    finetrim_r[2]);
+	hpr_finetrim_code = finetrim_r_code[step];
+
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON3,
+			   RG_AUDHPLFINETRIM_VAUDP32_MASK_SFT,
+			   hpl_finetrim_code << RG_AUDHPLFINETRIM_VAUDP32_SFT);
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON3,
+			   RG_AUDHPRFINETRIM_VAUDP32_MASK_SFT,
+			   hpr_finetrim_code << RG_AUDHPRFINETRIM_VAUDP32_SFT);
+
+	hp_trim->hp_fine_trim_l = hpl_finetrim_code;
+	hp_trim->hp_fine_trim_r = hpr_finetrim_code;
+
+	dev_info(priv->dev, "%s(), result finetrim_code(R/L) = (0x%x/0x%x)\n",
+		 __func__, hpr_finetrim_code, hpl_finetrim_code);
+}
+
+static void calculate_lr_trim_code(struct mt6359_priv *priv)
+{
+	struct hp_trim_data *hp_trim_3_pole = &priv->hp_trim_3_pole;
+	struct hp_trim_data *hp_trim_4_pole = &priv->hp_trim_4_pole;
+
+	int trim_l[TRIM_STEP_NUM] = {0, 0, 0, 0};
+	int trim_r[TRIM_STEP_NUM] = {0, 0, 0, 0};
+	unsigned int trim_l_code[TRIM_STEP_NUM] = {0, 0, 0, 0};
+	unsigned int trim_r_code[TRIM_STEP_NUM] = {0, 0, 0, 0};
+
+	unsigned int hpl_trim_code, hpr_trim_code;
+	bool hpl_negative, hpr_negative;
+	unsigned int reg_value;
+
+	dev_info(priv->dev, "%s(), Start DCtrim Calibrating\n", __func__);
+
+	regmap_read(priv->regmap, MT6359_AUDDEC_ANA_CON2, &reg_value);
+	dev_info(priv->dev, "%s(), initial MT6359_AUDDEC_ANA_CON2 = 0x%x\n",
+		 __func__, reg_value);
+
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON3,
+			   RG_AUDHPLFINETRIM_VAUDP32_MASK_SFT,
+			   0x0 << RG_AUDHPLFINETRIM_VAUDP32_SFT);
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON3,
+			   RG_AUDHPRFINETRIM_VAUDP32_MASK_SFT,
+			   0x0 << RG_AUDHPRFINETRIM_VAUDP32_SFT);
+
+	regmap_read(priv->regmap, MT6359_AUDDEC_ANA_CON3, &reg_value);
+	dev_info(priv->dev, "%s(), initial MT6359_AUDDEC_ANA_CON3 = 0x%x\n",
+		 __func__, reg_value);
+
+	/* Start step0, set trim code to 0x0 */
+	trim_l_code[0] = 0x0;
+	trim_r_code[0] = 0x0;
+
+	update_trim_offset(priv, 0, trim_l_code[0], trim_r_code[0],
+			   &trim_l[0], &trim_r[0]);
+	dev_info(priv->dev, "%s(), step0 trim_value(R/L) = (%d/%d)\n",
+		 __func__, trim_r[0], trim_l[0]);
+
+	if (trim_l[0] == 0 && trim_r[0] == 0) {
+		hpl_trim_code = trim_l_code[0];
+		hpr_trim_code = trim_r_code[0];
+		goto EXIT;
+	}
+
+	/* start step1, set trim code to 0x2 or 0x12 */
+	if (trim_l[0] < 0) {
+		hpl_negative = true;
+		trim_l_code[1] = 0x2;
+	} else { /* (trim_l[0] >= 0) */
+		hpl_negative = false;
+		trim_l_code[0] = 0x10;
+		trim_l_code[1] = 0x12;
+	}
+	if (trim_r[0] < 0) {
+		hpr_negative = true;
+		trim_r_code[1] = 0x2;
+	} else { /* (trim_r[0] >= 0) */
+		hpr_negative = false;
+		trim_r_code[0] = 0x10;
+		trim_r_code[1] = 0x12;
+	}
+
+	update_trim_offset(priv, 1, trim_l_code[1], trim_r_code[1],
+			   &trim_l[1], &trim_r[1]);
+	dev_info(priv->dev, "%s(), step1 trim_value(R/L) = (%d/%d)\n",
+		 __func__, trim_r[1], trim_l[1]);
+
+	if (trim_l[1] == 0 && trim_r[1] == 0) {
+		hpl_trim_code = trim_l_code[1];
+		hpr_trim_code = trim_r_code[1];
+		goto EXIT;
+	}
+
+	/* start step2, calculate approximate solution*/
+	/* l-channel, find trim offset per trim code step */
+	trim_l_code[2] = (((abs(trim_l[0]) * 2) /
+			    abs(trim_l[0] - trim_l[1]))	+ 1) / 2;
+	trim_l_code[2] = trim_l_code[2] + (trim_l[0] > 0 ? 16 : 0);
+
+	if (trim_l_code[2] == 0x10)
+		trim_l_code[0] = 0x10;
+
+	/* r-channel, find trim offset per trim code step */
+	trim_r_code[2] = (((abs(trim_r[0]) * 2) /
+			    abs(trim_r[0] - trim_r[1])) + 1) / 2;
+	trim_r_code[2] = trim_r_code[2] + (trim_r[0] > 0 ? 16 : 0);
+
+	if (trim_r_code[2] == 0x10)
+		trim_r_code[0] = 0x10;
+
+	update_trim_offset(priv, 2,
+			   trim_l_code[2], trim_r_code[2],
+			   &trim_l[2], &trim_r[2]);
+	dev_info(priv->dev, "%s(), step2 trim_value(R/L) = (%d/%d)\n",
+		 __func__, trim_r[2], trim_l[2]);
+
+	if (trim_l[2] == 0 && trim_r[2] == 0) {
+		hpl_trim_code = trim_l_code[2];
+		hpr_trim_code = trim_r_code[2];
+		goto EXIT;
+	}
+
+	/* start step3, lr-channel fine tune (+1 or -1) */
+	trim_l_code[3] = update_trim_code(hpl_negative,
+					  trim_l[2], trim_l_code[2]);
+	trim_r_code[3] = update_trim_code(hpr_negative,
+					  trim_r[2], trim_r_code[2]);
+
+	dev_info(priv->dev, "%s(), step3 hp_trim_code(R/L) = (0x%x/0x%x)\n",
+		 __func__, trim_r_code[3], trim_l_code[3]);
+
+	if ((trim_l_code[2] != 0x00 && trim_l_code[2] != 0x02 &&
+	     trim_l_code[2] != 0x10 && trim_l_code[2] != 0x12) ||
+	    (trim_r_code[2] != 0x00 && trim_r_code[2] != 0x02 &&
+	     trim_r_code[2] != 0x10 && trim_r_code[2] != 0x12)) {
+		dev_info(priv->dev, "%s(), need to calculate step4 trim_code\n",
+			 __func__);
+
+		update_trim_offset(priv, 3,
+				   trim_l_code[3], trim_r_code[3],
+				   &trim_l[3], &trim_r[3]);
+		dev_info(priv->dev, "%s(), step3 trim_value(R/L) = (%d/%d)\n",
+			 __func__, trim_r[3], trim_l[3]);
+
+		hpl_trim_code = update_trim_code(hpl_negative,
+						 trim_l[3], trim_l_code[3]);
+
+		hpr_trim_code = update_trim_code(hpr_negative,
+						 trim_r[3], trim_r_code[3]);
+	} else {
+		hpl_trim_code = trim_l_code[3];
+		hpr_trim_code = trim_r_code[3];
+	}
+
+EXIT:
+
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON3,
+			   RG_AUDHPLTRIM_VAUDP32_MASK_SFT,
+			   hpl_trim_code << RG_AUDHPLTRIM_VAUDP32_SFT);
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON3,
+			   RG_AUDHPRTRIM_VAUDP32_MASK_SFT,
+			   hpr_trim_code << RG_AUDHPRTRIM_VAUDP32_SFT);
+
+	hp_trim_3_pole->hp_trim_l = hpl_trim_code;
+	hp_trim_3_pole->hp_trim_r = hpr_trim_code;
+	hp_trim_4_pole->hp_trim_l = hpl_trim_code;
+	hp_trim_4_pole->hp_trim_r = hpr_trim_code;
+
+	dev_info(priv->dev, "%s(), result hp_trim_code(R/L) = (0x%x/0x%x)\n",
+		 __func__, hpr_trim_code, hpl_trim_code);
+}
+
+static void get_hp_trim_offset(struct mt6359_priv *priv, bool force)
+{
+	struct dc_trim_data *dc_trim = &priv->dc_trim;
+	struct hp_trim_data *hp_trim_3_pole = &priv->hp_trim_3_pole;
+	unsigned int reg_value;
+
+	if (dc_trim->calibrated && !force)
+		return;
+
+	dev_info(priv->dev, "%s(), Start DCtrim Calibrating", __func__);
+	dc_trim->calibrated = true;
+
+	regmap_read(priv->regmap, MT6359_AUDDEC_ANA_CON3, &reg_value);
+	dev_info(priv->dev, "%s(), initial MT6359_AUDDEC_ANA_CON3 = 0x%x\n",
+		 __func__, reg_value);
+
+	dev_info(priv->dev, "%s(), before trim_code R:(0x%x/0x%x), L:(0x%x/0x%x)",
+		 __func__,
+		 hp_trim_3_pole->hp_fine_trim_r, hp_trim_3_pole->hp_trim_r,
+		 hp_trim_3_pole->hp_fine_trim_l, hp_trim_3_pole->hp_trim_l);
+
+	enable_trim_circuit(priv, true);
+	calculate_lr_trim_code(priv);
+	calculate_lr_finetrim_code(priv);
+	enable_trim_circuit(priv, false);
+
+	dev_info(priv->dev, "%s(), after trim_code R:(0x%x/0x%x), L:(0x%x/0x%x)",
+		 __func__,
+		 hp_trim_3_pole->hp_fine_trim_r, hp_trim_3_pole->hp_trim_r,
+		 hp_trim_3_pole->hp_fine_trim_l, hp_trim_3_pole->hp_trim_l);
+}
+
+static int dc_trim_thread(void *arg)
+{
+	struct mt6359_priv *priv = arg;
+
+	get_hp_trim_offset(priv, false);
+
+#if IS_ENABLED(CONFIG_SND_SOC_MT6359P_ACCDET)
+	accdet_late_init(0);
+#endif
+
+	do_exit(0);
+	return 0;
+}
+#endif /* #if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING) */
+
 /* vow control */
 static void *get_vow_coeff_by_name(struct mt6359_priv *priv,
 				   const char *name)
@@ -3625,6 +4487,33 @@ static int audio_vow_periodic_parm_set(struct snd_kcontrol *kcontrol,
 	}
 	return ret;
 }
+
+static const struct snd_kcontrol_new mt6359_snd_vow_controls[] = {
+	SOC_SINGLE_EXT("Audio VOWCFG0 Data",
+		       SND_SOC_NOPM, 0, 0x80000, 0,
+		       audio_vow_cfg_get, audio_vow_cfg_set),
+	SOC_SINGLE_EXT("Audio VOWCFG1 Data",
+		       SND_SOC_NOPM, 0, 0x80000, 0,
+		       audio_vow_cfg_get, audio_vow_cfg_set),
+	SOC_SINGLE_EXT("Audio VOWCFG2 Data",
+		       SND_SOC_NOPM, 0, 0x80000, 0,
+		       audio_vow_cfg_get, audio_vow_cfg_set),
+	SOC_SINGLE_EXT("Audio VOWCFG3 Data",
+		       SND_SOC_NOPM, 0, 0x80000, 0,
+		       audio_vow_cfg_get, audio_vow_cfg_set),
+	SOC_SINGLE_EXT("Audio VOWCFG4 Data",
+		       SND_SOC_NOPM, 0, 0x80000, 0,
+		       audio_vow_cfg_get, audio_vow_cfg_set),
+	SOC_SINGLE_EXT("Audio VOWCFG5 Data",
+		       SND_SOC_NOPM, 0, 0x80000, 0,
+		       audio_vow_cfg_get, audio_vow_cfg_set),
+	SOC_SINGLE_EXT("Audio_VOW_Periodic",
+		       SND_SOC_NOPM, 0, 0x80000, 0,
+		       audio_vow_cfg_get, audio_vow_cfg_set),
+	SND_SOC_BYTES_TLV("Audio_VOW_Periodic_Param",
+			  sizeof(struct mt6359_vow_periodic_on_off_data),
+			  NULL, audio_vow_periodic_parm_set),
+};
 
 /* misc control */
 static const char *const off_on_function[] = {"Off", "On"};
@@ -3828,34 +4717,6 @@ static int mt6359_rcv_dcc_set(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-/* vow control */
-static const struct snd_kcontrol_new mt6359_snd_vow_controls[] = {
-	SOC_SINGLE_EXT("Audio VOWCFG0 Data",
-		       SND_SOC_NOPM, 0, 0x80000, 0,
-		       audio_vow_cfg_get, audio_vow_cfg_set),
-	SOC_SINGLE_EXT("Audio VOWCFG1 Data",
-		       SND_SOC_NOPM, 0, 0x80000, 0,
-		       audio_vow_cfg_get, audio_vow_cfg_set),
-	SOC_SINGLE_EXT("Audio VOWCFG2 Data",
-		       SND_SOC_NOPM, 0, 0x80000, 0,
-		       audio_vow_cfg_get, audio_vow_cfg_set),
-	SOC_SINGLE_EXT("Audio VOWCFG3 Data",
-		       SND_SOC_NOPM, 0, 0x80000, 0,
-		       audio_vow_cfg_get, audio_vow_cfg_set),
-	SOC_SINGLE_EXT("Audio VOWCFG4 Data",
-		       SND_SOC_NOPM, 0, 0x80000, 0,
-		       audio_vow_cfg_get, audio_vow_cfg_set),
-	SOC_SINGLE_EXT("Audio VOWCFG5 Data",
-		       SND_SOC_NOPM, 0, 0x80000, 0,
-		       audio_vow_cfg_get, audio_vow_cfg_set),
-	SOC_SINGLE_EXT("Audio_VOW_Periodic",
-		       SND_SOC_NOPM, 0, 0x80000, 0,
-		       audio_vow_cfg_get, audio_vow_cfg_set),
-	SND_SOC_BYTES_TLV("Audio_VOW_Periodic_Param",
-			  sizeof(struct mt6359_vow_periodic_on_off_data),
-			  NULL, audio_vow_periodic_parm_set),
-};
-
 static const struct snd_kcontrol_new mt6359_snd_misc_controls[] = {
 	SOC_ENUM_EXT("Headphone Plugged In", misc_control_enum[0],
 		     hp_plugged_in_get, hp_plugged_in_set),
@@ -3919,6 +4780,10 @@ static int mt6359_codec_init_reg(struct snd_soc_component *cmpnt)
 			   0x1 << RG_XO_AUDIO_EN_M_SFT,
 			   0x0 << RG_XO_AUDIO_EN_M_SFT);
 
+#if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
+	/* this will trigger widget "DC trim" power down event */
+	enable_trim_buf(priv, true);
+#endif
 	return 0;
 }
 
@@ -3957,6 +4822,7 @@ static const struct snd_soc_component_driver mt6359_soc_component_driver = {
 	.num_dapm_routes = ARRAY_SIZE(mt6359_dapm_routes),
 };
 
+/* debugfs */
 static void debug_write_reg(struct file *file, void *arg)
 {
 	struct mt6359_priv *priv = file->private_data;
@@ -4842,33 +5708,47 @@ static int mt6359_parse_dt(struct mt6359_priv *priv)
 	if (!np)
 		return -EINVAL;
 
+	/* get mic type */
 	ret = of_property_read_u32(np, "mediatek,dmic-mode",
 				   &priv->dmic_one_wire_mode);
 	if (ret) {
-		dev_warn(priv->dev, "%s() failed to read dmic-mode\n",
+		dev_warn(dev, "%s() failed to read dmic-mode\n",
 			 __func__);
 		priv->dmic_one_wire_mode = 0;
 	}
 	ret = of_property_read_u32(np, "mediatek,mic-type-0",
 				   &priv->mux_select[MUX_MIC_TYPE_0]);
 	if (ret) {
-		dev_warn(priv->dev, "%s() failed to read mic-type-0\n",
+		dev_warn(dev, "%s() failed to read mic-type-0\n",
 			 __func__);
 		priv->mux_select[MUX_MIC_TYPE_0] = MIC_TYPE_MUX_DCC;
 	}
 	ret = of_property_read_u32(np, "mediatek,mic-type-1",
 				   &priv->mux_select[MUX_MIC_TYPE_1]);
 	if (ret) {
-		dev_warn(priv->dev, "%s() failed to read mic-type-1\n",
+		dev_warn(dev, "%s() failed to read mic-type-1\n",
 			 __func__);
 		priv->mux_select[MUX_MIC_TYPE_1] = MIC_TYPE_MUX_DCC;
 	}
 	ret = of_property_read_u32(np, "mediatek,mic-type-2",
 				   &priv->mux_select[MUX_MIC_TYPE_2]);
 	if (ret) {
-		dev_warn(priv->dev, "%s() failed to read mic-type-2\n",
+		dev_warn(dev, "%s() failed to read mic-type-2\n",
 			 __func__);
 		priv->mux_select[MUX_MIC_TYPE_2] = MIC_TYPE_MUX_DCC;
+	}
+
+	/* get auxadc channel */
+	priv->hpofs_cal_auxadc = devm_iio_channel_get(dev,
+						      "pmic_hpofs_cal");
+	ret = PTR_ERR_OR_ZERO(priv->hpofs_cal_auxadc);
+	if (ret) {
+		if (ret != -EPROBE_DEFER) {
+			dev_err(dev,
+				"%s() Get pmic_hpofs_cal iio ch failed (%d)\n",
+				__func__, ret);
+			return ret;
+		}
 	}
 
 	return 0;
@@ -4901,7 +5781,7 @@ static int mt6359_platform_driver_probe(struct platform_device *pdev)
 
 	ret = mt6359_parse_dt(priv);
 	if (ret) {
-		dev_warn(&pdev->dev, "%s() failed to parse dts\n", __func__);
+		dev_warn(&pdev->dev, "%s() fail to parse dts\n", __func__);
 		return ret;
 	}
 
@@ -4911,9 +5791,17 @@ static int mt6359_platform_driver_probe(struct platform_device *pdev)
 					       ARRAY_SIZE(mt6359_dai_driver));
 }
 
+static const struct of_device_id mt6359_of_match[] = {
+	{.compatible = "mediatek,mt6359-sound",},
+	{.compatible = "mediatek,mt6359p-sound",},
+	{}
+};
+MODULE_DEVICE_TABLE(of, mt6359_of_match);
+
 static struct platform_driver mt6359_platform_driver = {
 	.driver = {
 		.name = DEVICE_MT6359_NAME,
+		.of_match_table = mt6359_of_match,
 	},
 	.probe = mt6359_platform_driver_probe,
 };
