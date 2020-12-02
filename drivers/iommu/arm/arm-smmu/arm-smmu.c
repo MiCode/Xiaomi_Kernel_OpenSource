@@ -25,7 +25,7 @@
 #include <linux/dma-iommu.h>
 #include <linux/dma-mapping.h>
 #include <linux/dma-mapping-fast.h>
-#include <linux/dma-noncoherent.h>
+#include <linux/dma-map-ops.h>
 #include <linux/err.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
@@ -91,13 +91,6 @@ MODULE_PARM_DESC(disable_bypass,
 #define s2cr_init_val (struct arm_smmu_s2cr){				\
 	.type = disable_bypass ? S2CR_TYPE_FAULT : S2CR_TYPE_BYPASS,	\
 }
-
-struct arm_smmu_cb {
-	u64				ttbr[2];
-	u32				tcr[2];
-	u32				mair[2];
-	struct arm_smmu_cfg		*cfg;
-};
 
 #define INVALID_CBNDX			0xff
 #define INVALID_ASID			0xffff
@@ -468,13 +461,12 @@ static int arm_smmu_register_legacy_master(struct device *dev,
 }
 #endif /* CONFIG_ARM_SMMU_LEGACY_DT_BINDINGS */
 
-static int __arm_smmu_alloc_cb(struct arm_smmu_device *smmu, int start,
-			       struct device *dev)
+int __arm_smmu_alloc_cb(unsigned long *map, int start, int end,
+			struct device *dev)
 {
 	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
 	struct arm_smmu_master_cfg *cfg = dev_iommu_priv_get(dev);
-	unsigned long *map = smmu->context_map;
-	int end = smmu->num_context_banks;
+	struct arm_smmu_device *smmu = cfg->smmu;
 	int idx;
 	int i;
 
@@ -483,13 +475,7 @@ static int __arm_smmu_alloc_cb(struct arm_smmu_device *smmu, int start,
 			return smmu->s2crs[idx].cbndx;
 	}
 
-	do {
-		idx = find_next_zero_bit(map, end, start);
-		if (idx == end)
-			return -ENOSPC;
-	} while (test_and_set_bit(idx, map));
-
-	return idx;
+	return __arm_smmu_alloc_bitmap(map, start, end);
 }
 
 static void __arm_smmu_free_bitmap(unsigned long *map, int idx)
@@ -1339,11 +1325,15 @@ static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain,
 			cb->ttbr[0] = pgtbl_cfg->arm_v7s_cfg.ttbr;
 			cb->ttbr[1] = 0;
 		} else {
-			cb->ttbr[0] = pgtbl_cfg->arm_lpae_s1_cfg.ttbr;
-			cb->ttbr[0] |= FIELD_PREP(ARM_SMMU_TTBRn_ASID,
-						  cfg->asid);
+			cb->ttbr[0] = FIELD_PREP(ARM_SMMU_TTBRn_ASID,
+						 cfg->asid);
 			cb->ttbr[1] = FIELD_PREP(ARM_SMMU_TTBRn_ASID,
 						 cfg->asid);
+
+			if (pgtbl_cfg->quirks & IO_PGTABLE_QUIRK_ARM_TTBR1)
+				cb->ttbr[1] |= pgtbl_cfg->arm_lpae_s1_cfg.ttbr;
+			else
+				cb->ttbr[0] |= pgtbl_cfg->arm_lpae_s1_cfg.ttbr;
 		}
 	} else {
 		cb->ttbr[0] = pgtbl_cfg->arm_lpae_s2_cfg.vttbr;
@@ -1361,7 +1351,7 @@ static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain,
 	}
 }
 
-static void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx,
+void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx,
 					unsigned long *attributes)
 {
 	u32 reg;
@@ -1606,6 +1596,16 @@ static int arm_smmu_setup_context_bank(struct arm_smmu_domain *smmu_domain,
 	return ret;
 }
 
+static int arm_smmu_alloc_context_bank(struct arm_smmu_domain *smmu_domain,
+				       struct arm_smmu_device *smmu,
+				       struct device *dev, unsigned int start)
+{
+	if (smmu->impl && smmu->impl->alloc_context_bank)
+		return smmu->impl->alloc_context_bank(smmu_domain, smmu, dev, start);
+
+	return __arm_smmu_alloc_cb(smmu->context_map, start, smmu->num_context_banks, dev);
+}
+
 static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 					struct arm_smmu_device *smmu,
 					struct device *dev)
@@ -1737,18 +1737,14 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		quirks |= IO_PGTABLE_QUIRK_NON_STRICT;
 	arm_smmu_domain_get_qcom_quirks(smmu_domain, smmu, &quirks);
 
-	ret = __arm_smmu_alloc_cb(smmu, start, dev);
-	if (ret < 0)
+	ret = arm_smmu_alloc_context_bank(smmu_domain, smmu, dev, start);
+	if (ret < 0) {
 		goto out_unlock;
-
-	cfg->cbndx = ret;
+	}
 
 	smmu_domain->smmu = smmu;
-	if (smmu->impl && smmu->impl->init_context) {
-		ret = smmu->impl->init_context(smmu_domain);
-		if (ret)
-			goto out_clear_smmu;
-	}
+
+	cfg->cbndx = ret;
 
 	smmu_domain->pgtbl_cfg = (struct io_pgtable_cfg) {
 		.quirks		= quirks,
@@ -1759,6 +1755,13 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		.tlb		= smmu_domain->flush_ops,
 		.iommu_dev	= smmu->dev,
 	};
+
+	if (smmu->impl && smmu->impl->init_context) {
+		ret = smmu->impl->init_context(smmu_domain,
+					       &smmu_domain->pgtbl_cfg, dev);
+		if (ret)
+			goto out_clear_smmu;
+	}
 
 	smmu_domain->dev = dev;
 	smmu_domain->pgtbl_ops = alloc_io_pgtable_ops(fmt,
@@ -1786,7 +1789,13 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 
 	/* Update the domain's page sizes to reflect the page table format */
 	domain->pgsize_bitmap = smmu_domain->pgtbl_cfg.pgsize_bitmap;
-	domain->geometry.aperture_end = (1UL << ias) - 1;
+	if (smmu_domain->pgtbl_cfg.quirks & IO_PGTABLE_QUIRK_ARM_TTBR1) {
+		domain->geometry.aperture_start = ~0UL << ias;
+		domain->geometry.aperture_end = ~0UL;
+	} else {
+		domain->geometry.aperture_end = (1UL << ias) - 1;
+	}
+
 	domain->geometry.force_aperture = true;
 
 	ret = arm_smmu_get_dma_cookie(dev, smmu_domain);

@@ -100,7 +100,6 @@
   cmd_db_read_slave_id
   cmd_db_ready
   compat_alloc_user_space
-  compat_import_iovec
   complete
   complete_all
   completion_done
@@ -225,6 +224,7 @@
   devm_pinctrl_register
   devm_platform_get_and_ioremap_resource
   devm_platform_ioremap_resource
+  devm_platform_ioremap_resource_byname
   devm_regmap_field_alloc
   __devm_regmap_init
   __devm_regmap_init_i2c
@@ -314,7 +314,6 @@
   dma_pool_free
   dma_release_channel
   dma_request_chan
-  dma_request_slave_channel
   dma_set_coherent_mask
   dma_set_mask
   dma_sync_sg_for_cpu
@@ -390,6 +389,7 @@
   __get_free_pages
   get_random_bytes
   get_sg_io_hdr
+  gic_nonsecure_priorities
   gpiochip_add_data_with_key
   gpiochip_add_pin_range
   gpiochip_generic_free
@@ -442,6 +442,8 @@
   i2c_register_driver
   i2c_transfer
   i2c_transfer_buffer_flags
+  icc_disable
+  icc_enable
   icc_get
   icc_link_create
   icc_node_add
@@ -644,6 +646,7 @@
   memremap
   memunmap
   memset
+  memstart_addr
   __memset_io
   mmc_cqe_request_done
   mmc_of_parse
@@ -787,7 +790,6 @@
   phy_power_off
   phy_power_on
   phy_set_mode_ext
-  physvirt_offset
   pinconf_generic_dt_node_to_map
   pinctrl_dev_get_drvdata
   pinctrl_force_default
@@ -969,6 +971,7 @@
   reset_control_assert
   reset_control_deassert
   reset_control_put
+  reset_control_reset
   rfkill_alloc
   rfkill_destroy
   rfkill_init_sw_state
@@ -1008,7 +1011,6 @@
   rtnl_is_locked
   rtnl_register_module
   rtnl_unregister
-  save_stack_trace
   sched_clock
   sched_setscheduler
   schedule
@@ -1133,6 +1135,7 @@
   __stack_chk_fail
   __stack_chk_guard
   stack_trace_print
+  stack_trace_save
   strcmp
   strcpy
   strim
@@ -1174,6 +1177,7 @@
   tasklet_init
   tasklet_kill
   __tasklet_schedule
+  tasklet_setup
   __task_pid_nr_ns
   thermal_cooling_device_unregister
   thermal_zone_device_update
@@ -1256,6 +1260,7 @@
   unregister_syscore_ops
   up_read
   up_write
+  usb_add_gadget
   usb_add_gadget_udc
   usb_add_hcd
   usb_add_phy_dev
@@ -1330,6 +1335,7 @@
   usb_hub_clear_tt_buffer
   usb_hub_find_child
   usb_ifnum_to_if
+  usb_initialize_gadget
   usb_interface_id
   usb_kill_urb
   usb_poison_urb
@@ -1359,7 +1365,6 @@
   v4l2_device_unregister
   vabits_actual
   vfree
-  vfs_statx
   video_devdata
   video_device_release_empty
   video_ioctl2
@@ -1370,7 +1375,6 @@
   vmalloc_to_page
   vmalloc_to_pfn
   vmap
-  vmemmap
   vsnprintf
   vscnprintf
   vunmap

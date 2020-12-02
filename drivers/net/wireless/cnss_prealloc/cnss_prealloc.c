@@ -30,7 +30,7 @@ struct wcnss_prealloc {
 	void *ptr;
 #ifdef CONFIG_SLUB_DEBUG
 	unsigned long stack_trace[WCNSS_MAX_STACK_TRACE];
-	struct stack_trace trace;
+	unsigned int stack_nr_entries;
 #endif
 };
 
@@ -104,15 +104,9 @@ void wcnss_prealloc_deinit(void)
 #ifdef CONFIG_SLUB_DEBUG
 static void wcnss_prealloc_save_stack_trace(struct wcnss_prealloc *entry)
 {
-	struct stack_trace *trace = &entry->trace;
-
-	memset(&entry->stack_trace, 0, sizeof(entry->stack_trace));
-	trace->nr_entries = 0;
-	trace->max_entries = WCNSS_MAX_STACK_TRACE;
-	trace->entries = entry->stack_trace;
-	trace->skip = 2;
-
-	save_stack_trace(trace);
+	entry->stack_nr_entries =
+		stack_trace_save(entry->stack_trace,
+				 ARRAY_SIZE(entry->stack_trace), 2);
 }
 #else
 static inline
@@ -166,7 +160,6 @@ EXPORT_SYMBOL(wcnss_prealloc_put);
 void wcnss_prealloc_check_memory_leak(void)
 {
 	int i, j = 0;
-	struct stack_trace *trace = NULL;
 
 	for (i = 0; i < ARRAY_SIZE(wcnss_allocs); i++) {
 		if (!wcnss_allocs[i].occupied)
@@ -179,8 +172,8 @@ void wcnss_prealloc_check_memory_leak(void)
 
 		pr_err("Size: %zu, addr: %pK, backtrace:\n",
 		       wcnss_allocs[i].size, wcnss_allocs[i].ptr);
-		trace = &wcnss_allocs[i].trace;
-		stack_trace_print(trace->entries, trace->nr_entries, 1);
+		stack_trace_print(wcnss_allocs[i].stack_trace,
+				  wcnss_allocs[i].stack_nr_entries, 1);
 	}
 }
 #else

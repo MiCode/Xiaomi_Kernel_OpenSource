@@ -123,7 +123,7 @@ extern int scm_legacy_call(struct device *dev, const struct qcom_scm_desc *desc,
 #define QCOM_SCM_MP_RESTORE_SEC_CFG		0x02
 #define QCOM_SCM_MP_IOMMU_SECURE_PTBL_SIZE	0x03
 #define QCOM_SCM_MP_IOMMU_SECURE_PTBL_INIT	0x04
-#define QCOM_SCM_MP_MEM_PROTECT_VIDEO			0x08
+#define QCOM_SCM_MP_VIDEO_VAR			0x08
 #define QCOM_SCM_MP_MEM_PROTECT_REGION_ID		0x10
 #define QCOM_SCM_MP_MEM_PROTECT_LOCK_ID2_FLAT		0x11
 #define QCOM_SCM_MP_IOMMU_SECURE_MAP2_FLAT		0x12

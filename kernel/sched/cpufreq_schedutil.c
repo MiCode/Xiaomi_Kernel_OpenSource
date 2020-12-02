@@ -145,7 +145,8 @@ static inline bool conservative_pl(void)
 static bool sugov_update_next_freq(struct sugov_policy *sg_policy, u64 time,
 				   unsigned int next_freq)
 {
-	if (sg_policy->next_freq == next_freq)
+	if (sg_policy->next_freq == next_freq &&
+	    !cpufreq_driver_test_flags(CPUFREQ_NEED_UPDATE_LIMITS))
 		return false;
 
 	sg_policy->next_freq = next_freq;
@@ -215,23 +216,11 @@ static void sugov_calc_avg_cap(struct sugov_policy *sg_policy, u64 curr_ws,
 static void sugov_fast_switch(struct sugov_policy *sg_policy, u64 time,
 			      unsigned int next_freq)
 {
-	struct cpufreq_policy *policy = sg_policy->policy;
-	int cpu;
-
-	if (!sugov_update_next_freq(sg_policy, time, next_freq))
-		return;
+	if (sugov_update_next_freq(sg_policy, time, next_freq)) {
 #ifdef CONFIG_SCHED_WALT
 	sugov_track_cycles(sg_policy, sg_policy->policy->cur, time);
 #endif
-	next_freq = cpufreq_driver_fast_switch(policy, next_freq);
-	if (!next_freq)
-		return;
-
-	policy->cur = next_freq;
-
-	if (trace_cpu_frequency_enabled()) {
-		for_each_cpu(cpu, policy->cpus)
-			trace_cpu_frequency(next_freq, cpu);
+		cpufreq_driver_fast_switch(sg_policy->policy, next_freq);
 	}
 }
 
@@ -289,7 +278,8 @@ static unsigned int get_next_freq(struct sugov_policy *sg_policy,
 	freq = map_util_freq(util, freq, max);
 	trace_sugov_next_freq(policy->cpu, util, max, freq);
 
-	if (freq == sg_policy->cached_raw_freq && !sg_policy->need_freq_update)
+	if (freq == sg_policy->cached_raw_freq && !sg_policy->need_freq_update &&
+	    !cpufreq_driver_test_flags(CPUFREQ_NEED_UPDATE_LIMITS))
 		return sg_policy->next_freq;
 
 	sg_policy->need_freq_update = false;
@@ -643,6 +633,7 @@ static void sugov_update_single(struct update_util_data *hook, u64 time,
 #endif
 	unsigned int next_f;
 	bool busy;
+	unsigned int cached_freq = sg_policy->cached_raw_freq;
 
 #ifdef CONFIG_SCHED_WALT
 	if (!sg_policy->tunables->pl && flags & SCHED_CPUFREQ_PL)
@@ -703,8 +694,8 @@ static void sugov_update_single(struct update_util_data *hook, u64 time,
 	if (busy && next_f < sg_policy->next_freq) {
 		next_f = sg_policy->next_freq;
 
-		/* Reset cached freq as next_freq has changed */
-		sg_policy->cached_raw_freq = 0;
+		/* Restore cached freq as next_freq has changed */
+		sg_policy->cached_raw_freq = cached_freq;
 	}
 
 	/*

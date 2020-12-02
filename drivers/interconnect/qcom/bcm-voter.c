@@ -140,11 +140,11 @@ static inline void tcs_cmd_gen(struct tcs_cmd *cmd, u64 vote_x, u64 vote_y,
 }
 
 static void tcs_list_gen(struct bcm_voter *voter, int bucket,
-			 struct tcs_cmd tcs_list[MAX_BCMS],
+			 struct tcs_cmd tcs_list[MAX_VCD],
 			 int n[MAX_VCD + 1])
 {
-	struct qcom_icc_bcm *bcm;
 	struct list_head *bcm_list = &voter->commit_list;
+	struct qcom_icc_bcm *bcm;
 	bool commit, wait;
 	size_t idx = 0, batch = 0, cur_vcd_size = 0;
 

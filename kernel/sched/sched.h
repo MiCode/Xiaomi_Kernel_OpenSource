@@ -67,6 +67,7 @@
 #include <linux/syscalls.h>
 #include <linux/task_work.h>
 #include <linux/tsacct_kern.h>
+#include <linux/android_vendor.h>
 
 #include <asm/tlb.h>
 #include <asm-generic/vmlinux.lds.h>
@@ -491,24 +492,9 @@ struct task_group {
 	struct uclamp_se	uclamp[UCLAMP_CNT];
 	/* Latency-sensitive flag used for a task group */
 	unsigned int		latency_sensitive;
-#ifdef CONFIG_SCHED_WALT
-	/* Toggle ability to override sched boost enabled */
-	bool sched_boost_no_override;
-	/*
-	 * Controls whether a cgroup is eligible for sched boost or not. This
-	 * can temporariliy be disabled by the kernel based on the no_override
-	 * flag above.
-	 */
-	bool sched_boost_enabled;
-	/*
-	 * Controls whether tasks of this cgroup should be colocated with each
-	 * other and tasks of other cgroups that have the same flag turned on.
-	 */
-	bool colocate;
-	/* Controls whether further updates are allowed to the colocate flag */
-	bool colocate_update_disabled;
-#endif /* CONFIG_SCHED_WALT */
-#endif /* CONFIG_UCLAMP_TASK_GROUP */
+
+	ANDROID_VENDOR_DATA_ARRAY(1, 4);
+#endif
 
 };
 
@@ -916,12 +902,7 @@ struct root_domain {
 	 */
 	struct perf_domain __rcu *pd;
 
-#ifdef CONFIG_SCHED_WALT
-	/* First cpu with maximum and minimum original capacity */
-	int max_cap_orig_cpu, min_cap_orig_cpu;
-	/* First cpu with mid capacity */
-	int mid_cap_orig_cpu;
-#endif
+	ANDROID_VENDOR_DATA_ARRAY(1, 4);
 };
 
 extern void init_defrootdomain(void);
@@ -1181,6 +1162,8 @@ struct rq {
 	int			idle_state_idx;
 #endif
 #endif
+
+	ANDROID_VENDOR_DATA_ARRAY(1, 96);
 };
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
@@ -1609,7 +1592,7 @@ struct sched_group_capacity {
 	int			id;
 #endif
 
-	unsigned long		cpumask[0];		/* Balance mask */
+	unsigned long		cpumask[];		/* Balance mask */
 };
 
 struct sched_group {
@@ -1767,7 +1750,7 @@ enum {
 
 #undef SCHED_FEAT
 
-#if defined(CONFIG_SCHED_DEBUG) && defined(CONFIG_JUMP_LABEL)
+#ifdef CONFIG_SCHED_DEBUG
 
 /*
  * To support run-time toggling of sched features, all the translation units
@@ -1775,6 +1758,7 @@ enum {
  */
 extern const_debug unsigned int sysctl_sched_features;
 
+#ifdef CONFIG_JUMP_LABEL
 #define SCHED_FEAT(name, enabled)					\
 static __always_inline bool static_branch_##name(struct static_key *key) \
 {									\
@@ -1787,7 +1771,13 @@ static __always_inline bool static_branch_##name(struct static_key *key) \
 extern struct static_key sched_feat_keys[__SCHED_FEAT_NR];
 #define sched_feat(x) (static_branch_##x(&sched_feat_keys[__SCHED_FEAT_##x]))
 
-#else /* !(SCHED_DEBUG && CONFIG_JUMP_LABEL) */
+#else /* !CONFIG_JUMP_LABEL */
+
+#define sched_feat(x) (sysctl_sched_features & (1UL << __SCHED_FEAT_##x))
+
+#endif /* CONFIG_JUMP_LABEL */
+
+#else /* !SCHED_DEBUG */
 
 /*
  * Each translation unit has its own copy of sysctl_sched_features to allow
@@ -1803,7 +1793,7 @@ static const_debug __maybe_unused unsigned int sysctl_sched_features =
 
 #define sched_feat(x) !!(sysctl_sched_features & (1UL << __SCHED_FEAT_##x))
 
-#endif /* SCHED_DEBUG && CONFIG_JUMP_LABEL */
+#endif /* SCHED_DEBUG */
 
 extern struct static_key_false sched_numa_balancing;
 extern struct static_key_false sched_schedstats;

@@ -357,7 +357,7 @@ err_icc_get:
 err_clk_get:
 	iounmap(msm_rng_dev->base);
 err_iomap:
-	kzfree(msm_rng_dev);
+	kfree_sensitive(msm_rng_dev);
 err_exit:
 	return error;
 }
@@ -375,7 +375,7 @@ static int msm_rng_remove(struct platform_device *pdev)
 	if (msm_rng_dev->icc_path)
 		icc_put(msm_rng_dev->icc_path);
 
-	kzfree(msm_rng_dev);
+	kfree_sensitive(msm_rng_dev);
 	msm_rng_dev_cached = NULL;
 	return 0;
 }

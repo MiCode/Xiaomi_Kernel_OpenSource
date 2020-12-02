@@ -24,6 +24,7 @@ void init_heap_helper_buffer(struct heap_helper_buffer *buffer,
 	INIT_LIST_HEAD(&buffer->attachments);
 	buffer->free = free;
 }
+EXPORT_SYMBOL_GPL(init_heap_helper_buffer);
 
 struct dma_buf *heap_helper_export_dmabuf(struct heap_helper_buffer *buffer,
 					  int fd_flags)
@@ -37,6 +38,7 @@ struct dma_buf *heap_helper_export_dmabuf(struct heap_helper_buffer *buffer,
 
 	return dma_buf_export(&exp_info);
 }
+EXPORT_SYMBOL_GPL(heap_helper_export_dmabuf);
 
 static void *dma_heap_map_kernel(struct heap_helper_buffer *buffer)
 {
@@ -140,13 +142,12 @@ struct sg_table *dma_heap_map_dma_buf(struct dma_buf_attachment *attachment,
 				      enum dma_data_direction direction)
 {
 	struct dma_heaps_attachment *a = attachment->priv;
-	struct sg_table *table;
+	struct sg_table *table = &a->table;
+	int ret;
 
-	table = &a->table;
-
-	if (!dma_map_sg(attachment->dev, table->sgl, table->nents,
-			direction))
-		table = ERR_PTR(-ENOMEM);
+	ret = dma_map_sgtable(attachment->dev, table, direction, 0);
+	if (ret)
+		table = ERR_PTR(ret);
 	return table;
 }
 
@@ -154,7 +155,7 @@ static void dma_heap_unmap_dma_buf(struct dma_buf_attachment *attachment,
 				   struct sg_table *table,
 				   enum dma_data_direction direction)
 {
-	dma_unmap_sg(attachment->dev, table->sgl, table->nents, direction);
+	dma_unmap_sgtable(attachment->dev, table, direction, 0);
 }
 
 static vm_fault_t dma_heap_vm_fault(struct vm_fault *vmf)

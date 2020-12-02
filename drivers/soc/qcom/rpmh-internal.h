@@ -120,6 +120,8 @@ struct rpmh_ctrlr {
  *                      slot
  * @client:             Handle to the DRV's client.
  * @ipc_log_ctx:        IPC logger handle
+ * @genpd_nb:           PM Domain notifier
+ * @dev:                RSC device
  */
 struct rsc_drv {
 	const char *name;
@@ -136,6 +138,8 @@ struct rsc_drv {
 	wait_queue_head_t tcs_wait;
 	struct rpmh_ctrlr client;
 	void *ipc_log_ctx;
+	struct notifier_block genpd_nb;
+	struct device *dev;
 };
 
 extern bool rpmh_standalone;
@@ -149,6 +153,7 @@ int rpmh_rsc_mode_solver_set(struct rsc_drv *drv, bool enable);
 
 void rpmh_tx_done(const struct tcs_request *msg, int r);
 int rpmh_flush(struct rpmh_ctrlr *ctrlr);
+int _rpmh_flush(struct rpmh_ctrlr *ctrlr);
 
 int rpmh_rsc_init_fast_path(struct rsc_drv *drv, const struct tcs_request *msg);
 int rpmh_rsc_update_fast_path(struct rsc_drv *drv,

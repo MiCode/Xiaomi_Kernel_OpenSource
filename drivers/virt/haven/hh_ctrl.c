@@ -17,13 +17,13 @@
 
 #define QC_HYP_SMCCC_UART_DISABLE                                              \
 	ARM_SMCCC_CALL_VAL(ARM_SMCCC_FAST_CALL, ARM_SMCCC_SMC_32,              \
-			   ARM_SMCCC_OWNER_VENDOR_HYPERVISOR, 0x0)
+			   ARM_SMCCC_OWNER_VENDOR_HYP, 0x0)
 #define QC_HYP_SMCCC_CALL_UID                                                  \
 	ARM_SMCCC_CALL_VAL(ARM_SMCCC_FAST_CALL, ARM_SMCCC_SMC_32,              \
-			   ARM_SMCCC_OWNER_VENDOR_HYPERVISOR, 0xff01)
+			   ARM_SMCCC_OWNER_VENDOR_HYP, 0xff01)
 #define QC_HYP_SMCCC_REVISION                                                  \
 	ARM_SMCCC_CALL_VAL(ARM_SMCCC_FAST_CALL, ARM_SMCCC_SMC_32,              \
-			   ARM_SMCCC_OWNER_VENDOR_HYPERVISOR, 0xff03)
+			   ARM_SMCCC_OWNER_VENDOR_HYP, 0xff03)
 
 #define QC_HYP_UID0 0x19bd54bd
 #define QC_HYP_UID1 0x0b37571b

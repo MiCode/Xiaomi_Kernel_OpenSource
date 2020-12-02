@@ -3,7 +3,7 @@
  * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  */
 
-#include <linux/dma-noncoherent.h>
+#include <linux/dma-map-ops.h>
 #include <linux/kernel.h>
 #include <linux/kref.h>
 #include <linux/slab.h>

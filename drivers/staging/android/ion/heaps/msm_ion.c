@@ -14,7 +14,7 @@
 #include <linux/of_platform.h>
 #include <linux/of_reserved_mem.h>
 #include <linux/of_address.h>
-#include <linux/dma-contiguous.h>
+#include <linux/dma-map-ops.h>
 #include <linux/cma.h>
 #include <linux/msm_ion.h>
 #include "msm_ion_priv.h"
