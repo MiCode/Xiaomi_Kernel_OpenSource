@@ -22,7 +22,7 @@ static atomic_t warned;
 
 static const char * const critical_lock_list[] = {
 	/* runqueue */
-	"&(&rq->lock)->rlock"
+	"&rq->lock",
 	/* workqueue */
 	"&(&pool->lock)->rlock",
 	/* kmalloc */
