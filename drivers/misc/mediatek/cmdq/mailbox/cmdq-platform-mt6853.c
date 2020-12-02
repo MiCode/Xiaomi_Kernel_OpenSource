@@ -32,7 +32,7 @@ const char *cmdq_thread_module_dispatch(phys_addr_t gce_pa, s32 thread)
 		return "CMDQ";
 	}
 }
-EXPORT_SYMBOL(cmdq_thread_module_dispatch);
+//EXPORT_SYMBOL(cmdq_thread_module_dispatch);
 
 const char *cmdq_event_module_dispatch(phys_addr_t gce_pa, const u16 event,
 	s32 thread)
@@ -260,13 +260,13 @@ const char *cmdq_event_module_dispatch(phys_addr_t gce_pa, const u16 event,
 		return cmdq_thread_module_dispatch(gce_pa, thread);
 	}
 }
-EXPORT_SYMBOL(cmdq_event_module_dispatch);
+//EXPORT_SYMBOL(cmdq_event_module_dispatch);
 
 u32 cmdq_util_hw_id(u32 pa)
 {
 	return 0;
 }
-EXPORT_SYMBOL(cmdq_util_hw_id);
+//EXPORT_SYMBOL(cmdq_util_hw_id);
 
 u32 cmdq_test_get_subsys_list(u32 **regs_out)
 {
@@ -280,13 +280,13 @@ u32 cmdq_test_get_subsys_list(u32 **regs_out)
 	*regs_out = regs;
 	return ARRAY_SIZE(regs);
 }
-EXPORT_SYMBOL(cmdq_test_get_subsys_list);
+//EXPORT_SYMBOL(cmdq_test_get_subsys_list);
 
 const char *cmdq_util_hw_name(void *chan)
 {
 	return "GCE";
 }
-EXPORT_SYMBOL(cmdq_util_hw_name);
+//EXPORT_SYMBOL(cmdq_util_hw_name);
 
 bool cmdq_thread_ddr_module(const s32 thread)
 {
@@ -299,7 +299,7 @@ bool cmdq_thread_ddr_module(const s32 thread)
 		return true;
 	}
 }
-EXPORT_SYMBOL(cmdq_thread_ddr_module);
+//EXPORT_SYMBOL(cmdq_thread_ddr_module);
 
 static int __init cmdq_platform_init(void)
 {
