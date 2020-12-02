@@ -91,6 +91,7 @@ obj-$(CONFIG_SM_NPUCC_8150) += npucc-sm8150.o
 obj-$(CONFIG_SM_SCC_8150) += scc-sm8150.o
 obj-$(CONFIG_SM_VIDEOCC_8150) += videocc-sm8150.o
 obj-$(CONFIG_SM_VIDEOCC_SHIMA) += videocc-shima.o
+obj-$(CONFIG_SM_VIDEOCC_YUPIK) += videocc-yupik.o
 obj-$(CONFIG_SPMI_PMIC_CLKDIV) += clk-spmi-pmic-div.o
 obj-$(CONFIG_KPSS_XCC) += kpss-xcc.o
 obj-$(CONFIG_QCOM_HFPLL) += hfpll.o
