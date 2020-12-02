@@ -656,4 +656,13 @@ config SM_VIDEOCC_YUPIK
 	  Say Y if you want to support video devices and functionality such as
 	  video encode/decode.
 
+config SM_CAMCC_YUPIK
+	tristate "YUPIK Camera Clock Controller"
+	select SM_GCC_YUPIK
+	help
+	  Support for the camera clock controller on Qualcomm Technologies, Inc.
+	  YUPIK devices.
+	  Say Y if you want to support camera devices and functionality such as
+	  capturing pictures.
+
 endif
