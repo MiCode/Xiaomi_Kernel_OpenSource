@@ -2,4 +2,5 @@
 bypass_arr=( \
 "function void rcu_idle_enter" \
 "function void rcu_idle_exit" \
-"function int sched_setattr_nocheck")
+"function int sched_setattr_nocheck" \
+"function long long unsigned int memblock_end_of_DRAM")
