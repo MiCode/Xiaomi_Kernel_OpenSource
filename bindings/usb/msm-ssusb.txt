@@ -84,8 +84,6 @@ Optional properties :
 - qcom,smmu-s1-bypass: If present, configure SMMU to bypass stage 1 translation.
 - qcom,dbm-version: If present, specifies DBM version. Currently "1.4" or "1.5"
 	are supported. If omitted, assume HW supports "1.5".
-- qcom,reset-ep-after-lpm-resume: If present, dbm requires ep reset after
-	going to lpm
 - qcom,host-poweroff-in-pm-suspend: If present, allow PM suspend to happen
 	irrespective of runtimePM state of host and power collapse the core.
 	This also leads to reset-resume of connected devices on PM resume.
