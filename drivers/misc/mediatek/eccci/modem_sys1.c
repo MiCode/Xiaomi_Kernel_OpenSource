@@ -1186,83 +1186,11 @@ static ssize_t md_cd_dump_store(struct ccci_modem *md,
 	return count;
 }
 
-static ssize_t md_cd_control_show(struct ccci_modem *md, char *buf)
+static ssize_t md_net_speed_show(struct ccci_modem *md, char *buf)
 {
-	int count = 0;
-
-	count = snprintf(buf, 256,
-		"support: cldma_reset cldma_stop ccif_assert md_type trace_sample\n");
-	return count;
-}
-
-static ssize_t md_cd_control_store(struct ccci_modem *md,
-	const char *buf, size_t count)
-{
-	int size = 0;
-	unsigned int trace_sample_time;
-
-	if (md->hif_flag&(1<<CLDMA_HIF_ID)) {
-		if (md->hw_info->plat_ptr->lock_cldma_clock_src) {
-			if (strncmp(buf, "cldma_reset", count - 1) == 0) {
-				CCCI_NORMAL_LOG(md->index, TAG,
-					"reset CLDMA\n");
-				md->hw_info->plat_ptr->lock_cldma_clock_src(1);
-				ccci_hif_stop(CLDMA_HIF_ID);
-				ccci_hif_clear_all_queue(1 << CLDMA_HIF_ID, OUT);
-				ccci_hif_clear_all_queue(1 << CLDMA_HIF_ID, IN);
-				ccci_hif_start(CLDMA_HIF_ID);
-				md->hw_info->plat_ptr->lock_cldma_clock_src(0);
-			}
-			if (strncmp(buf, "cldma_stop", count - 1) == 0) {
-				CCCI_NORMAL_LOG(md->index, TAG, "stop CLDMA\n");
-				md->hw_info->plat_ptr->lock_cldma_clock_src(1);
-				ccci_hif_stop(CLDMA_HIF_ID);
-				md->hw_info->plat_ptr->lock_cldma_clock_src(0);
-			}
-		}
-	}
-	if (strncmp(buf, "ccif_assert", count - 1) == 0) {
-		CCCI_NORMAL_LOG(md->index, TAG,
-			"use CCIF to force MD assert\n");
-		md->ops->force_assert(md, CCIF_INTERRUPT);
-	}
-	if (strncmp(buf, "ccif_reset", count - 1) == 0) {
-		CCCI_NORMAL_LOG(md->index, TAG, "reset AP MD1 CCIF\n");
-		ccci_hif_debug(CCIF_HIF_ID, CCCI_HIF_DEBUG_RESET, NULL, -1);
-	}
-	if (strncmp(buf, "ccci_trm", count - 1) == 0) {
-		CCCI_NORMAL_LOG(md->index, TAG, "TRM triggered\n");
-		/* ccci_md_send_msg_to_user(md, CCCI_MONITOR_CH,
-		 * CCCI_MD_MSG_RESET_REQUEST, 0);
-		 */
-	}
-	size = strlen("md_type=");
-	if (strncmp(buf, "md_type=", size) == 0) {
-		md->per_md_data.config.load_type_saving = buf[size] - '0';
-		CCCI_NORMAL_LOG(md->index, TAG, "md_type_store %d\n",
-			md->per_md_data.config.load_type_saving);
-		/* ccci_md_send_msg_to_user(md, CCCI_MONITOR_CH,
-		 * CCCI_MD_MSG_STORE_NVRAM_MD_TYPE, 0);
-		 */
-	}
-	size = strlen("trace_sample=");
-	if (strncmp(buf, "trace_sample=", size) == 0) {
-		trace_sample_time = (buf[size] - '0') * 100000000;
-		CCCI_NORMAL_LOG(md->index, TAG,
-			"trace_sample_time %u\n", trace_sample_time);
-	}
-	size = strlen("md_dbg_dump=");
-	if (strncmp(buf, "md_dbg_dump=", size)
-		== 0 && size < count - 1) {
-		size = kstrtouint(buf+size, 16,
-				&md->per_md_data.md_dbg_dump_flag);
-		if (size)
-			md->per_md_data.md_dbg_dump_flag = MD_DBG_DUMP_ALL;
-		CCCI_NORMAL_LOG(md->index, TAG, "md_dbg_dump 0x%X\n",
-			md->per_md_data.md_dbg_dump_flag);
-	}
-
-	return count;
+	return snprintf(buf, 4096, "curr netspeed log: %d\n",
+		ccci_hif_dump_status(DPMAIF_HIF_ID, DUMP_FLAG_TOGGLE_NET_SPD,
+			NULL, -1));
 }
 
 static ssize_t md_cd_parameter_show(struct ccci_modem *md, char *buf)
@@ -1283,7 +1211,7 @@ static ssize_t md_cd_parameter_store(struct ccci_modem *md,
 }
 CCCI_MD_ATTR(NULL, debug, 0660, md_cd_debug_show, md_cd_debug_store);
 CCCI_MD_ATTR(NULL, dump, 0660, md_cd_dump_show, md_cd_dump_store);
-CCCI_MD_ATTR(NULL, control, 0660, md_cd_control_show, md_cd_control_store);
+CCCI_MD_ATTR(NULL, net_speed, 0660, md_net_speed_show, NULL);
 CCCI_MD_ATTR(NULL, parameter, 0660, md_cd_parameter_show,
 	md_cd_parameter_store);
 
@@ -1305,12 +1233,12 @@ static void md_cd_sysfs_init(struct ccci_modem *md)
 			"fail to add sysfs node %s %d\n",
 			ccci_md_attr_dump.attr.name, ret);
 
-	ccci_md_attr_control.modem = md;
-	ret = sysfs_create_file(&md->kobj, &ccci_md_attr_control.attr);
+	ccci_md_attr_net_speed.modem = md;
+	ret = sysfs_create_file(&md->kobj, &ccci_md_attr_net_speed.attr);
 	if (ret)
 		CCCI_ERROR_LOG(md->index, TAG,
 			"fail to add sysfs node %s %d\n",
-			ccci_md_attr_control.attr.name, ret);
+			ccci_md_attr_net_speed.attr.name, ret);
 
 	ccci_md_attr_parameter.modem = md;
 	ret = sysfs_create_file(&md->kobj, &ccci_md_attr_parameter.attr);

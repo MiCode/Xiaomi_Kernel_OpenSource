@@ -53,9 +53,6 @@
 #include "dpmaif_reg.h"
 #endif
 
-#ifdef PIT_USING_CACHE_MEM
-#include <asm/cacheflush.h>
-#endif
 
 #ifndef CCCI_KMODULE_ENABLE
 #if defined(CCCI_SKB_TRACE)
@@ -357,6 +354,8 @@ static int dpmaif_dump_status(unsigned char hif_id,
 		CCCI_NORMAL_LOG(hif_ctrl->md_id, TAG,
 			"Dump AP DPMAIF IRQ status not support\n");
 	}
+	if (flag & DUMP_FLAG_TOGGLE_NET_SPD)
+		return mtk_ccci_toggle_net_speed_log();
 
 	return 0;
 }
@@ -610,6 +609,9 @@ static int dpmaif_net_rx_push_thread(void *arg)
 		skb = ccci_skb_dequeue(&queue->skb_list);
 		if (!skb)
 			continue;
+#ifdef MT6297
+		mtk_ccci_add_dl_pkt_size(skb->len);
+#endif
 #ifndef CCCI_KMODULE_ENABLE
 #ifdef CCCI_SKB_TRACE
 		per_md_data->netif_rx_profile[6] = sched_clock();
@@ -1539,25 +1541,36 @@ static int dpmaif_rx_start(struct dpmaif_rx_queue *rxq, unsigned short pit_cnt,
 	int ret = 0, ret_hw = 0;
 
 #ifdef PIT_USING_CACHE_MEM
-	void *cache_start;
+	dma_addr_t cache_start_addr;
 #endif
 
 	cur_pit = rxq->pit_rd_idx;
 
 #ifdef PIT_USING_CACHE_MEM
-	cache_start = rxq->pit_base + sizeof(struct dpmaifq_normal_pit)
-				* cur_pit;
+	cache_start_addr = rxq->pit_phy_addr +
+		sizeof(struct dpmaifq_normal_pit) * cur_pit;
+
 	if ((cur_pit + pit_cnt) <= pit_len) {
-		__inval_dcache_area(cache_start,
-				sizeof(struct dpmaifq_normal_pit) * pit_cnt);
+		dma_sync_single_for_cpu(
+				ccci_md_get_dev_by_id(dpmaif_ctrl->md_id),
+				cache_start_addr,
+				sizeof(struct dpmaifq_normal_pit) * pit_cnt,
+				DMA_FROM_DEVICE);
 	} else {
-		__inval_dcache_area(cache_start,
+
+		dma_sync_single_for_cpu(
+			ccci_md_get_dev_by_id(dpmaif_ctrl->md_id),
+			cache_start_addr,
 			sizeof(struct dpmaifq_normal_pit)
-					* (pit_len - cur_pit));
-		cache_start = rxq->pit_base;
-		__inval_dcache_area(cache_start,
+					* (pit_len - cur_pit),
+			DMA_FROM_DEVICE);
+		cache_start_addr = rxq->pit_phy_addr;
+		dma_sync_single_for_cpu(
+			ccci_md_get_dev_by_id(dpmaif_ctrl->md_id),
+			cache_start_addr,
 			sizeof(struct dpmaifq_normal_pit)
-				* (cur_pit + pit_cnt - pit_len));
+				* (cur_pit + pit_cnt - pit_len),
+			DMA_FROM_DEVICE);
 	}
 #endif
 
@@ -2271,6 +2284,7 @@ static int dpmaif_tx_send_skb(unsigned char hif_id, int qno,
 	dma_addr_t phy_addr;
 	unsigned long flags;
 	unsigned short prio_count = 0;
+	int total_size = 0;
 
 	/* 1. parameters check*/
 	if (!skb)
@@ -2432,6 +2446,7 @@ retry:
 		record_drb_skb(txq->index, cur_idx, skb, 0, is_frag,
 			is_last_one, phy_addr, data_len);
 		cur_idx = ringbuf_get_next_idx(txq->drb_size_cnt, cur_idx, 1);
+		total_size += data_len;
 	}
 
 	/* debug: tx on ccci_channel && HW Q */
@@ -2459,7 +2474,8 @@ retry:
 		tx_force_md_assert("HW_REG_CHK_FAIL");
 		ret = 0;
 	}
-
+	if (ret == 0)
+		mtk_ccci_add_ul_pkt_size(total_size);
 	spin_unlock_irqrestore(&txq->tx_lock, flags);
 __EXIT_FUN:
 #ifdef DPMAIF_DEBUG_LOG
@@ -2726,9 +2742,9 @@ void mtk_ccci_affinity_rta(u32 irq_cpus, u32 push_cpus, int cpu_nr)
 			__func__, irq_cpus, push_cpus);
 
 	if (dpmaif_ctrl->dpmaif_irq_id)
-		irq_force_affinity(dpmaif_ctrl->dpmaif_irq_id, &imask);
+		irq_set_affinity_hint(dpmaif_ctrl->dpmaif_irq_id, &imask);
 	if (dpmaif_ctrl->rxq[0].rx_thread)
-		sched_setaffinity(dpmaif_ctrl->rxq[0].rx_thread->pid, &tmask);
+		set_cpus_allowed_ptr(dpmaif_ctrl->rxq[0].rx_thread, &tmask);
 }
 
 #endif
@@ -4057,6 +4073,7 @@ int ccci_dpmaif_hif_init(struct device *dev)
 	ccci_hif_register(DPMAIF_HIF_ID, (void *)dpmaif_ctrl,
 		&ccci_hif_dpmaif_ops);
 	register_syscore_ops(&dpmaif_sysops);
+	mtk_ccci_speed_monitor_init(dev);
 	return 0;
 
 DPMAIF_INIT_FAIL:

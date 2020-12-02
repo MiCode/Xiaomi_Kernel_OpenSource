@@ -132,8 +132,7 @@ ccci_ccif-y := hif/ccci_ringbuf.o hif/ccci_hif_ccif.o
 obj-$(CCCI_OBJ) += ccci_ccif.o
 
 # ccci_dpmaif.ko
-ccci_dpmaif-y := hif/ccci_hif_dpmaif.o hif/dpmaif_drv.o
-# hif/net_speed_monitor.o
+ccci_dpmaif-y := hif/ccci_hif_dpmaif.o hif/dpmaif_drv.o hif/net_speed_monitor.o
 obj-$(CCCI_OBJ) += ccci_dpmaif.o
 
 # ccci_cldma.ko
