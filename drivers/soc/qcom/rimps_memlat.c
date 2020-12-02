@@ -536,6 +536,7 @@ static int setup_common_pmu_events(struct memlat_cpu_grp *cpu_grp,
 			pmu[STALL_IDX].hw_cntr_idx = INVALID_PMU_HW_IDX;
 		}
 	}
+	kfree(attr);
 	return 0;
 }
 
@@ -604,6 +605,7 @@ static int setup_mon_pmu_events(struct memlat_mon *mon,
 			pmu[L3_ACCESS_IDX].hw_cntr_idx = INVALID_PMU_HW_IDX;
 		}
 	}
+	kfree(attr);
 	return 0;
 }
 
