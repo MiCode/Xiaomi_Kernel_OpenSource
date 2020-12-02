@@ -237,13 +237,8 @@ static const struct file_operations fops_eth_dev_ready = {
 
 int ipa_eth_debugfs_init(void)
 {
-	struct dentry *ipa_debugfs = ipa_debugfs_get_root();
-
-	if (IS_ERR_OR_NULL(ipa_debugfs))
-		return -EFAULT;
-
 	ipa_eth_debugfs =
-		debugfs_create_dir("ethernet", ipa_debugfs);
+		debugfs_create_dir("ethernet", NULL);
 	if (IS_ERR_OR_NULL(ipa_eth_debugfs)) {
 		ipa_eth_log("Unable to create debugfs root");
 		goto err_exit;
