@@ -13,6 +13,7 @@
 #define MT6359_TOP_CKPDN_CON0_SET            0x10e
 #define MT6359_TOP_CKPDN_CON0_CLR            0x110
 #define MT6359_AUXADC_RQST0                  0x1108
+#define MT6359_AUXADC_CON10                  0x11a0
 #define MT6359_AUXADC_ACCDET                 0x11ba
 #define MT6359_LDO_VUSB_OP_EN                0x1d0c
 #define MT6359_LDO_VUSB_OP_EN_SET            0x1d0e
@@ -4852,21 +4853,14 @@ enum {
 	/* common */
 	SUPPLY_SEQ_CLK_BUF,
 	SUPPLY_SEQ_AUD_GLB,
-	SUPPLY_SEQ_AUD_GLB_VOW,
 	SUPPLY_SEQ_HP_PULL_DOWN,
 	SUPPLY_SEQ_CLKSQ,
 	SUPPLY_SEQ_ADC_CLKGEN,
-	SUPPLY_SEQ_VOW_AUD_LPW,
-	SUPPLY_SEQ_AUD_VOW,
-	SUPPLY_SEQ_VOW_CLK,
-	SUPPLY_SEQ_VOW_LDO,
 	SUPPLY_SEQ_TOP_CK,
 	SUPPLY_SEQ_TOP_CK_LAST,
 	SUPPLY_SEQ_DCC_CLK,
 	SUPPLY_SEQ_MIC_BIAS,
 	SUPPLY_SEQ_DMIC,
-	SUPPLY_SEQ_VOW_DIG_CFG,
-	SUPPLY_SEQ_VOW_PERIODIC_CFG,
 	SUPPLY_SEQ_AUD_TOP,
 	SUPPLY_SEQ_AUD_TOP_LAST,
 	SUPPLY_SEQ_DL_SDM_FIFO_CLK,
@@ -4889,6 +4883,14 @@ enum {
 	SUPPLY_SEQ_UL_MTKAIF,
 	SUPPLY_SEQ_UL_SRC_DMIC,
 	SUPPLY_SEQ_UL_SRC,
+	/* vow */
+	SUPPLY_SEQ_VOW_AUD_LPW,
+	SUPPLY_SEQ_AUD_VOW,
+	SUPPLY_SEQ_VOW_CLK,
+	SUPPLY_SEQ_VOW_LDO,
+	SUPPLY_SEQ_AUD_GLB_VOW,
+	SUPPLY_SEQ_VOW_DIG_CFG,
+	SUPPLY_SEQ_VOW_PERIODIC_CFG,
 };
 
 enum {
@@ -5038,6 +5040,57 @@ enum {
 	VOW_MTKIF_TX_SET_MONO,
 };
 
+enum {
+	TRIM_BUF_MUX_OPEN = 0,
+	TRIM_BUF_MUX_HPL,
+	TRIM_BUF_MUX_HPR,
+	TRIM_BUF_MUX_HSP,
+	TRIM_BUF_MUX_HSN,
+	TRIM_BUF_MUX_LOLP,
+	TRIM_BUF_MUX_LOLN,
+	TRIM_BUF_MUX_AU_REFN,
+	TRIM_BUF_MUX_AVSS32,
+	TRIM_BUF_MUX_UNUSED,
+};
+
+enum {
+	TRIM_BUF_GAIN_0DB = 0,
+	TRIM_BUF_GAIN_6DB,
+	TRIM_BUF_GAIN_12DB,
+	TRIM_BUF_GAIN_18DB,
+};
+
+enum {
+	TRIM_STEP0 = 0,
+	TRIM_STEP1,
+	TRIM_STEP2,
+	TRIM_STEP3,
+	TRIM_STEP_NUM,
+};
+
+enum {
+	AUXADC_AVG_1 = 0,
+	AUXADC_AVG_4,
+	AUXADC_AVG_8,
+	AUXADC_AVG_16,
+	AUXADC_AVG_32,
+	AUXADC_AVG_64,
+	AUXADC_AVG_128,
+	AUXADC_AVG_256,
+};
+
+struct dc_trim_data {
+	bool calibrated;
+	int mic_vinp_mv;
+};
+
+struct hp_trim_data {
+	unsigned int hp_trim_l;
+	unsigned int hp_trim_r;
+	unsigned int hp_fine_trim_l;
+	unsigned int hp_fine_trim_r;
+};
+
 struct mt6359_vow_periodic_on_off_data {
 	unsigned long long pga_on;
 	unsigned long long precg_on;
@@ -5070,6 +5123,12 @@ struct mt6359_priv {
 	int hp_plugged;
 	int mtkaif_protocol;
 	int dmic_one_wire_mode;
+
+	/* dc trim */
+	struct dc_trim_data dc_trim;
+	struct hp_trim_data hp_trim_3_pole;
+	struct hp_trim_data hp_trim_4_pole;
+	struct iio_channel *hpofs_cal_auxadc;
 
 	/* debugfs */
 	struct dentry *debugfs;
@@ -5129,7 +5188,6 @@ struct mt6359_priv {
 
 #define IS_VOW_AMIC_BASE(x) (x == MIC_TYPE_MUX_VOW_ACC || IS_VOW_DCC_BASE(x))
 
-
 /* VOW MTKIF TX setting */
 #define VOW_MCLK 13000
 #define VOW_MTKIF_TX_MONO_CLK 650
@@ -5139,6 +5197,12 @@ struct mt6359_priv {
 #define PGA_MINUS_40_DB_REG_VAL 0x1f
 #define HP_PGA_MINUS_40_DB_REG_VAL 0x3f
 
+/* dc trim */
+#define TRIM_TIMES 26
+#define TRIM_DISCARD_NUM 3
+#define TRIM_USEFUL_NUM (TRIM_TIMES - (TRIM_DISCARD_NUM * 2))
+
+/* codec name */
 #define CODEC_MT6359_NAME "mtk-codec-mt6359p"
 #define DEVICE_MT6359_NAME "mt6359p-sound"
 
