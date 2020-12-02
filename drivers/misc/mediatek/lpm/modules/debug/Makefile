@@ -2,20 +2,25 @@ LPM_MODULES_FOLDER=$(srctree)/drivers/misc/mediatek/lpm/modules/
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/lpm/modules/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/lpm/modules/debug/cpc_v3/
 
 #Get platform name
 LPM_MODULE_DEBUG_PLAT_NAME = $(strip $(subst ",, $(CONFIG_MTK_LPM_MODULE_NAME)))
 
+ifneq ($(or $(findstring mt6853, $(LPM_MODULE_DEBUG_PLAT_NAME)),\
+	$(findstring mt6873, $(LPM_MODULE_DEBUG_PLAT_NAME))),)
+MTK_LPM_DBG_VERSION = v1
+MTK_LPM_CPC_VERSION = cpc_v3
+endif
+
 #mtk-lpm debug common source files
 ifneq ($(LPM_MODULE_DEBUG_PLAT_NAME), )
-include $(LPM_MODULES_FOLDER)/debug/v1/Makefile
-include $(LPM_MODULES_FOLDER)/debug/cpc_v3/Makefile
+include $(LPM_MODULES_FOLDER)/debug/$(MTK_LPM_DBG_VERSION)/Makefile
+include $(LPM_MODULES_FOLDER)/debug/$(MTK_LPM_CPC_VERSION)/Makefile
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/lpm/modules/common/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/lpm/modules/debug/v1/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/lpm/modules/debug/cpc_v3/
-LPM_MODULE_DEBUG_COMMON = $(lpm_modules_debug_common_objs:%.o=v1/%.o)
-LPM_MODULE_DEBUG_COMMON += $(mtk_lpm_debug_cpc_v3_objs:%.o=cpc_v3/%.o)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/lpm/modules/debug/$(MTK_LPM_DBG_VERSION)/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/lpm/modules/debug/$(MTK_LPM_CPC_VERSION)/
+LPM_MODULE_DEBUG_COMMON = $(lpm_modules_debug_common_objs:%.o=$(MTK_LPM_DBG_VERSION)/%.o)
+LPM_MODULE_DEBUG_COMMON += $(mtk_lpm_debug_cpc_objs:%.o=$(MTK_LPM_CPC_VERSION)/%.o)
 
 #mtk-lpm debug platform source files
 include $(LPM_MODULES_FOLDER)/debug/${LPM_MODULE_DEBUG_PLAT_NAME}/Makefile
