@@ -27,6 +27,8 @@
 #include <trace/hooks/cpufreq.h>
 #include <trace/hooks/mm.h>
 #include <trace/hooks/preemptirq.h>
+#include <trace/hooks/cgroup.h>
+#include <trace/hooks/sys.h>
 
 /*
  * Export tracepoints that act as a bare tracehook (ie: have no trace event
@@ -114,3 +116,6 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_place_entity);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_update_cpu_capacity);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_update_misfit_status);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_cpu_cgroup_attach);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_cgroup_set_task);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_sys_set_task);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_nice_check);
