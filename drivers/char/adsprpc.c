@@ -1174,14 +1174,14 @@ static void fastrpc_mmap_free(struct fastrpc_mmap *map, uint32_t flags)
 			return;
 		}
 		if (msm_minidump_enabled()) {
-			scnprintf(md_entry.name, sizeof(md_entry.name), "CMA_%d", fl->tgid);
+			scnprintf(md_entry.name, sizeof(md_entry.name), "CMA_%d", current->tgid);
 			md_entry.virt_addr = map->va;
 			md_entry.phys_addr = map->phys;
 			md_entry.size = map->size;
 			if (msm_minidump_remove_region(&md_entry) < 0) {
 				ADSPRPC_ERR(
 					"Failed to remove CMA from Minidump for tgid: %d, phys: 0x%llx, size: %zu\n",
-					fl->tgid, map->phys, map->size);
+					current->tgid, map->phys, map->size);
 			}
 		}
 		trace_fastrpc_dma_free(-1, map->phys, map->size);
