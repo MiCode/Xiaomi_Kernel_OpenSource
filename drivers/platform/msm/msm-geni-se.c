@@ -112,8 +112,6 @@ struct geni_se_device {
 #define HW_VER_MINOR_SHFT 16
 #define HW_VER_STEP_MASK GENMASK(15, 0)
 
-static int geni_se_iommu_map_and_attach(struct geni_se_device *geni_se_dev);
-
 /**
  * geni_read_reg_nolog() - Helper function to read from a GENI register
  * @base:	Base address of the serial engine's register block.
@@ -714,6 +712,9 @@ static int geni_se_rmv_ab_ib(struct geni_se_device *geni_se_dev,
 	bool bus_bw_update_noc = false;
 	int ret = 0;
 
+	if (geni_se_dev->vectors == NULL)
+		return 0;
+
 	if (unlikely(list_empty(&rsc->ab_list) || list_empty(&rsc->ib_list)))
 		return -EINVAL;
 
@@ -801,8 +802,7 @@ int se_geni_clks_off(struct se_geni_rsc *rsc)
 		return -EINVAL;
 
 	geni_se_dev = dev_get_drvdata(rsc->wrapper_dev);
-	if (unlikely(!geni_se_dev || !(geni_se_dev->bus_bw ||
-					geni_se_dev->bus_bw_noc)))
+	if (!geni_se_dev)
 		return -ENODEV;
 
 	clk_disable_unprepare(rsc->se_clk);
@@ -834,9 +834,7 @@ int se_geni_resources_off(struct se_geni_rsc *rsc)
 		return -EINVAL;
 
 	geni_se_dev = dev_get_drvdata(rsc->wrapper_dev);
-	if (unlikely(!geni_se_dev ||
-			!(geni_se_dev->bus_bw ||
-					geni_se_dev->bus_bw_noc)))
+	if (!geni_se_dev)
 		return -ENODEV;
 
 	ret = se_geni_clks_off(rsc);
@@ -860,6 +858,9 @@ static int geni_se_add_ab_ib(struct geni_se_device *geni_se_dev,
 	bool bus_bw_update = false;
 	bool bus_bw_update_noc = false;
 	int ret = 0;
+
+	if (geni_se_dev->vectors == NULL)
+		return 0;
 
 	mutex_lock(&geni_se_dev->geni_dev_lock);
 
@@ -1030,8 +1031,6 @@ int geni_se_resources_init(struct se_geni_rsc *rsc,
 			   unsigned long ab, unsigned long ib)
 {
 	struct geni_se_device *geni_se_dev;
-	int ret = 0;
-	const char *mode = NULL;
 
 	if (unlikely(!rsc || !rsc->wrapper_dev))
 		return -EINVAL;
@@ -1039,6 +1038,10 @@ int geni_se_resources_init(struct se_geni_rsc *rsc,
 	geni_se_dev = dev_get_drvdata(rsc->wrapper_dev);
 	if (unlikely(!geni_se_dev))
 		return -EPROBE_DEFER;
+
+	/* Driver shouldn't crash, if ICC support is not present */
+	if (geni_se_dev->vectors == NULL)
+		return 0;
 
 	if (IS_ERR_OR_NULL(geni_se_dev->bus_bw)) {
 		geni_se_dev->bus_bw = icc_get(geni_se_dev->dev,
@@ -1086,18 +1089,7 @@ int geni_se_resources_init(struct se_geni_rsc *rsc,
 	INIT_LIST_HEAD(&rsc->ab_list);
 	INIT_LIST_HEAD(&rsc->ib_list);
 
-	ret = of_property_read_string(geni_se_dev->dev->of_node,
-					"qcom,iommu-dma", &mode);
-
-	if ((ret == 0) && (strcmp(mode, "disabled") == 0)) {
-		ret = geni_se_iommu_map_and_attach(geni_se_dev);
-		if (ret)
-			GENI_SE_ERR(geni_se_dev->log_ctx, false, NULL,
-				"%s: Error %d iommu_map_and_attach\n",
-					 __func__, ret);
-	}
-
-	return ret;
+	return 0;
 }
 EXPORT_SYMBOL(geni_se_resources_init);
 
@@ -1379,11 +1371,6 @@ int geni_se_qupv3_hw_version(struct device *wrapper_dev, unsigned int *major,
 }
 EXPORT_SYMBOL(geni_se_qupv3_hw_version);
 
-static int geni_se_iommu_map_and_attach(struct geni_se_device *geni_se_dev)
-{
-	return 0;
-}
-
 /**
  * geni_se_iommu_map_buf() - Map a single buffer into QUPv3 context bank
  * @wrapper_dev:	Pointer to the corresponding QUPv3 wrapper core.
@@ -1560,7 +1547,7 @@ void geni_se_dump_dbg_regs(struct se_geni_rsc *rsc, void __iomem *base,
 		return;
 
 	geni_se_dev = dev_get_drvdata(rsc->wrapper_dev);
-	if (unlikely(!geni_se_dev || !geni_se_dev->bus_bw))
+	if (!geni_se_dev)
 		return;
 	if (unlikely(list_empty(&rsc->ab_list) || list_empty(&rsc->ib_list))) {
 		GENI_SE_DBG(ipc, false, NULL, "%s: Clocks not on\n", __func__);
@@ -1723,7 +1710,9 @@ static int geni_se_probe(struct platform_device *pdev)
 	geni_se_dev->cb_dev = dev;
 	ret = of_property_read_u32(dev->of_node, "qcom,msm-bus,num-paths",
 					&geni_se_dev->num_paths);
-	if (!ret) {
+	if (ret) {
+		dev_err(dev, "%s: ICC entry missing in DT node\n", __func__);
+	} else {
 		geni_se_dev->vectors = get_icc_paths(pdev, geni_se_dev);
 		if (geni_se_dev->vectors == NULL) {
 			dev_err(dev,
