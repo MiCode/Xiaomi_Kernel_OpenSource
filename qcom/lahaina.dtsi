@@ -297,6 +297,15 @@
 			min-residency-us = <99>;
 			arm,psci-suspend-param = <0x41000014>;
 		};
+
+		CLUSTER_PWR_DN: cluster-d4 { /* D4 */
+			compatible = "domain-idle-state";
+			idle-state-name = "l3-off";
+			entry-latency-us = <1000>;
+			exit-latency-us = <1000>;
+			min-residency-us = <2000>;
+			arm,psci-suspend-param = <0x41000044>;
+		};
 	};
 
 	soc: soc { };
@@ -622,7 +631,7 @@
 
 		CLUSTER_PD: cluster-pd {
 			#power-domain-cells = <0>;
-			domain-idle-states = <&CLUSTER_CLK_GATE>;
+			domain-idle-states = <&CLUSTER_CLK_GATE &CLUSTER_PWR_DN>;
 		};
 	};
 
@@ -2804,6 +2813,7 @@
 				  <WAKE_TCS      2>,
 				  <CONTROL_TCS   0>,
 				  <FAST_PATH_TCS 1>;
+		power-domains = <&CLUSTER_PD>;
 
 		apps_bcm_voter: bcm_voter {
 			compatible = "qcom,bcm-voter";
