@@ -74,6 +74,10 @@ config INTERCONNECT_QCOM_SHIMA
 config INTERCONNECT_QCOM_YUPIK
 	tristate "YUPIK interconnect driver"
 	depends on INTERCONNECT_QCOM
+	depends on QCOM_RPMH && QCOM_COMMAND_DB && OF
+	select INTERCONNECT_QCOM_BCM_VOTER
+	select INTERCONNECT_QCOM_RPMH
+	select INTERCONNECT_QCOM_QOS
 	help
 	  This is a driver for the Qualcomm Technologies, Inc. Network-on-Chip
 	  on yupik-based platforms. The interconnect provider collects and
