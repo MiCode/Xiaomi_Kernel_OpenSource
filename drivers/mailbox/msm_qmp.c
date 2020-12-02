@@ -18,12 +18,14 @@
 #include <linux/workqueue.h>
 #include <linux/mailbox/qmp.h>
 #include <linux/ipc_logging.h>
+#include <linux/soc/qcom/smem.h>
 
 #define QMP_MAGIC	0x4d41494c	/* MAIL */
 #define QMP_VERSION	0x1
 #define QMP_FEATURES	0x0
 #define QMP_TOUT_MS	5000
 #define QMP_TX_TOUT_MS	1000
+#define QMP_SMEM_ID	629
 
 #define QMP_MBOX_LINK_DOWN		0xFFFF0000
 #define QMP_MBOX_LINK_UP		0x0000FFFF
@@ -846,6 +848,28 @@ static int qmp_parse_ipc(struct platform_device *pdev)
 	return 0;
 }
 
+static int qmp_smem_init(struct qmp_device *mdev, struct device_node *node)
+{
+	void __iomem *buf;
+	u32 remote_pid;
+	size_t size;
+	int ret;
+
+	ret = of_property_read_u32(node, "qcom,remote-pid", &remote_pid);
+	if (ret) {
+		pr_err("failed to parse qcom,remote-pid %d\n", ret);
+		return ret;
+	}
+
+	buf = qcom_smem_get(remote_pid, QMP_SMEM_ID, &size);
+	if (IS_ERR_OR_NULL(buf))
+		return PTR_ERR(buf);
+
+	mdev->msgram = buf;
+
+	return 0;
+}
+
 /**
  * qmp_edge_init() - Parse the device tree information for QMP, map io
  *			memory and register for needed interrupts
@@ -858,21 +882,27 @@ static int qmp_edge_init(struct platform_device *pdev)
 	struct qmp_device *mdev = platform_get_drvdata(pdev);
 	struct device_node *node = pdev->dev.of_node;
 	struct resource *msgram_r;
-	char *key;
 	int rc;
 
-	key = "label";
-	mdev->name = of_get_property(node, key, NULL);
+	mdev->name = of_get_property(node, "label", NULL);
 	if (!mdev->name) {
-		pr_err("%s: missing key %s\n", __func__, key);
+		pr_err("%s: missing label\n", __func__);
 		return -ENODEV;
 	}
+	INIT_LIST_HEAD(&mdev->mboxes);
+	mdev->dev = &pdev->dev;
 
-	key = "msgram";
-	msgram_r = platform_get_resource_byname(pdev, IORESOURCE_MEM, key);
+	msgram_r = platform_get_resource_byname(pdev, IORESOURCE_MEM, "msgram");
 	if (!msgram_r) {
-		pr_err("%s: missing key %s\n", __func__, key);
-		return -ENODEV;
+		/* fallback to smem mailbox */
+		rc = qmp_smem_init(mdev, node);
+		if (rc)
+			return rc;
+	} else {
+		mdev->msgram = devm_ioremap(&pdev->dev, msgram_r->start,
+					    resource_size(msgram_r));
+		if (!mdev->msgram)
+			return -EIO;
 	}
 
 	mdev->mbox_client.dev = &pdev->dev;
@@ -889,20 +919,12 @@ static int qmp_edge_init(struct platform_device *pdev)
 			return rc;
 	}
 
-	key = "interrupts";
 	mdev->rx_irq_line = irq_of_parse_and_map(node, 0);
 	if (!mdev->rx_irq_line) {
-		pr_err("%s: missing key %s\n", __func__, key);
+		pr_err("%s: missing interrupts\n", __func__);
 		return -ENODEV;
 	}
 
-	mdev->dev = &pdev->dev;
-	mdev->msgram = devm_ioremap(&pdev->dev, msgram_r->start,
-						resource_size(msgram_r));
-	if (!mdev->msgram)
-		return -EIO;
-
-	INIT_LIST_HEAD(&mdev->mboxes);
 	return 0;
 }
 
