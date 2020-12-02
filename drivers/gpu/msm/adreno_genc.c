@@ -91,6 +91,10 @@ void genc_cp_init_cmds(struct adreno_device *adreno_dev, u32 *cmds)
 {
 	u32 i = 0, mask = 0;
 
+	/* Disable concurrent binning before sending CP init */
+	cmds[i++] = cp_type7_packet(CP_THREAD_CONTROL, 1);
+	cmds[i++] = BIT(27);
+
 	/* Use multiple HW contexts */
 	mask |= BIT(0);
 

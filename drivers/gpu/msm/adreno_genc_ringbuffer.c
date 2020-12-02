@@ -21,6 +21,12 @@ static int genc_rb_pagetable_switch(struct adreno_device *adreno_dev,
 
 	if (pagetable == device->mmu.defaultpagetable)
 		return 0;
+	/*
+	 * Sync both threads and set the current thread to BR
+	 * since only BR can execute smmu table update packet
+	 */
+	cmds[count++] = cp_type7_packet(CP_THREAD_CONTROL, 1);
+	cmds[count++] = CP_SYNC_THREADS | CP_SET_THREAD_BR;
 
 	/* CP switches the pagetable and flushes the Caches */
 	cmds[count++] = cp_type7_packet(CP_SMMU_TABLE_UPDATE, 3);
@@ -37,6 +43,10 @@ static int genc_rb_pagetable_switch(struct adreno_device *adreno_dev,
 	cmds[count++] = upper_32_bits(ttbr0);
 	cmds[count++] = id;
 
+	/* Sync both threads and activate both threads */
+	cmds[count++] = cp_type7_packet(CP_THREAD_CONTROL, 1);
+	cmds[count++] = CP_SYNC_THREADS | CP_SET_THREAD_BOTH;
+
 	return count;
 }
 
@@ -48,7 +58,7 @@ static int genc_rb_context_switch(struct adreno_device *adreno_dev,
 		adreno_drawctxt_get_pagetable(drawctxt);
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	int count = 0;
-	u32 cmds[32];
+	u32 cmds[36];
 
 	if (adreno_drawctxt_get_pagetable(rb->drawctxt_active) != pagetable)
 		count += genc_rb_pagetable_switch(adreno_dev, rb,
@@ -178,7 +188,7 @@ int genc_ringbuffer_init(struct adreno_device *adreno_dev)
 	return 0;
 }
 
-#define GENC_SUBMIT_MAX 71
+#define GENC_SUBMIT_MAX 79
 
 int genc_ringbuffer_addcmds(struct adreno_device *adreno_dev,
 		struct adreno_ringbuffer *rb, struct adreno_context *drawctxt,
@@ -245,6 +255,12 @@ int genc_ringbuffer_addcmds(struct adreno_device *adreno_dev,
 	cmds[index++] = rb->timestamp;
 
 	if (IS_SECURE(flags)) {
+		/*
+		 * Sync contexts and disable concurrent binning
+		 * before entering secure mode
+		 */
+		cmds[index++] = cp_type7_packet(CP_THREAD_CONTROL, 1);
+		cmds[index++] = CP_SYNC_THREADS | CP_CONCURRENT_BIN_DISABLE;
 		cmds[index++] = cp_type7_packet(CP_SET_SECURE_MODE, 1);
 		cmds[index++] = 1;
 	}
@@ -264,6 +280,12 @@ int genc_ringbuffer_addcmds(struct adreno_device *adreno_dev,
 
 	if (test_bit(KGSL_FT_PAGEFAULT_GPUHALT_ENABLE, &device->mmu.pfpolicy))
 		cmds[index++] = cp_type7_packet(CP_WAIT_MEM_WRITES, 0);
+
+	/* CACHE_FLUSH_TS should only be triggered by BR thread */
+	if (!IS_SECURE(flags)) {
+		cmds[index++] = cp_type7_packet(CP_THREAD_CONTROL, 1);
+		cmds[index++] = CP_SET_THREAD_BR;
+	}
 
 	/*
 	 * If this is an internal command, just write the ringbuffer timestamp,
@@ -291,6 +313,11 @@ int genc_ringbuffer_addcmds(struct adreno_device *adreno_dev,
 		cmds[index++] = rb->timestamp;
 	}
 
+	if (!IS_SECURE(flags)) {
+		cmds[index++] = cp_type7_packet(CP_THREAD_CONTROL, 1);
+		cmds[index++] = CP_SET_THREAD_BOTH;
+	}
+
 	cmds[index++] = cp_type7_packet(CP_SET_MARKER, 1);
 	cmds[index++] = 0x100; /* IFPC enable */
 
@@ -298,8 +325,14 @@ int genc_ringbuffer_addcmds(struct adreno_device *adreno_dev,
 		cmds[index++] = cp_type7_packet(CP_WAIT_FOR_IDLE, 0);
 
 	if (IS_SECURE(flags)) {
+		/*
+		 * Sync contexts and reenable concurrent binning
+		 * after exiting secure mode
+		 */
 		cmds[index++] = cp_type7_packet(CP_SET_SECURE_MODE, 1);
 		cmds[index++] = 0;
+		cmds[index++] = cp_type7_packet(CP_THREAD_CONTROL, 1);
+		cmds[index++] = CP_SYNC_THREADS | CP_SET_THREAD_BOTH;
 	}
 
 	/* 10 dwords */
@@ -381,7 +414,7 @@ static int genc_drawctxt_switch(struct adreno_device *adreno_dev,
 			ADRENO_DRAWOBJ_PROFILE_OFFSET((cmdobj)->profile_index, \
 				field))
 
-#define GENC_COMMAND_DWORDS 32
+#define GENC_COMMAND_DWORDS 34
 
 int genc_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 		struct kgsl_drawobj_cmd *cmdobj, u32 flags,
@@ -410,6 +443,10 @@ int genc_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 
 	cmds[index++] = cp_type7_packet(CP_NOP, 1);
 	cmds[index++] = START_IB_IDENTIFIER;
+
+	/* Enable both Binned Render and Visibility threads */
+	cmds[index++] = cp_type7_packet(CP_THREAD_CONTROL, 1);
+	cmds[index++] = CP_SET_THREAD_BOTH;
 
 	/* Kernel profiling: 4 dwords */
 	if (IS_KERNEL_PROFILE(flags))

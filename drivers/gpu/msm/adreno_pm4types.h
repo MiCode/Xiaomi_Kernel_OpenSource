@@ -161,6 +161,14 @@
 #define CACHE_FLUSH_TS 4
 #define CACHE_CLEAN 0x31
 
+/* Controls which threads execute the PM4 commands the follow this packet */
+#define CP_THREAD_CONTROL 0x17
+
+#define CP_SET_THREAD_BR FIELD_PREP(GENMASK(1, 0), 1)
+#define CP_SET_THREAD_BOTH FIELD_PREP(GENMASK(1, 0), 3)
+#define CP_SYNC_THREADS BIT(31)
+#define CP_CONCURRENT_BIN_DISABLE BIT(27)
+
 static inline uint pm4_calc_odd_parity_bit(uint val)
 {
 	return (0x9669 >> (0xf & ((val) ^
