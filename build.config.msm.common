@@ -7,12 +7,12 @@ CONFIG_TARGET=msm.${MSM_ARCH}
 ################################################################################
 ##
 function compile_external_dtc() {
-	(
-		OUT_DIR=$(realpath $OUT_DIR/..)/external/dtc
-		cd ${ROOT_DIR}/external/dtc
-		NO_PYTHON=1 CC=cc make
-	)
-	export PATH=${ROOT_DIR}/external/dtc:${PATH}
+  (
+    OUT_DIR=$(realpath $OUT_DIR/..)/external/dtc
+    cd ${ROOT_DIR}/external/dtc
+    NO_PYTHON=1 CC=cc make
+  )
+  export PATH=${ROOT_DIR}/external/dtc:${PATH}
 }
 append_cmd PRE_DEFCONFIG_CMDS 'compile_external_dtc'
 
@@ -23,7 +23,7 @@ DTB_DIR=vendor/qcom
 MAKE_GOALS+=" dtbs"
 
 function clean_dtbs() {
-	rm -rf ${OUT_DIR}/arch/${ARCH}/boot/dts
+  rm -rf ${OUT_DIR}/arch/${ARCH}/boot/dts/${DTB_DIR}/*
 }
 append_cmd POST_DEFCONFIG_CMDS 'clean_dtbs'
 
@@ -34,31 +34,31 @@ arch/${ARCH}/boot/dts/${DTB_DIR}/*.dtb*
 ################################################################################
 ## DT Overlay
 function add_dt_overlay_defconfig() {
-	${KERNEL_DIR}/scripts/config --file ${OUT_DIR}/.config \
-	  -e BUILD_ARM64_DT_OVERLAY
-	(cd ${KERNEL_DIR} && make "${TOOL_ARGS[@]}" O=${OUT_DIR} ${MAKE_ARGS} olddefconfig)
+  ${KERNEL_DIR}/scripts/config --file ${OUT_DIR}/.config \
+    -e BUILD_ARM64_DT_OVERLAY
+  (cd ${KERNEL_DIR} && make "${TOOL_ARGS[@]}" O=${OUT_DIR} ${MAKE_ARGS} olddefconfig)
 }
 if [ ! -z $DT_OVERLAY_SUPPORT ] && [ ! $DT_OVERLAY_SUPPORT -eq "0" ]; then
-	append_cmd POST_DEFCONFIG_CMDS 'add_dt_overlay_defconfig'
+  append_cmd POST_DEFCONFIG_CMDS 'add_dt_overlay_defconfig'
 fi
 
 ################################################################################
 ## Variant Selection
 if [ -z "${VARIANT}" ] || [ "${VARIANT}" == "default" ]; then
-	VARIANT="${VARIANTS[0]}"
+  VARIANT="${VARIANTS[0]}"
 fi
 
 if [ ! -z $MSM_ARCH ]; then
-	BRANCH+=-${MSM_ARCH}
+  BRANCH+=-${MSM_ARCH}
 fi
 
 if [ ! -z $VARIANT ]; then
-	BRANCH+=-${VARIANT}
+  BRANCH+=-${VARIANT}
 fi
 
 if ( for v in "${VARIANTS[@]}"; do if [ "${v}" = "${VARIANT}" ]; then exit 1; fi; done; exit 0 ) ; then
-	echo "Unsupported variant '${VARIANT}'"
-	exit 1
+  echo "Unsupported variant '${VARIANT}'"
+  exit 1
 fi
 
 ################################################################################
@@ -68,121 +68,121 @@ fi
 # Usage: append_cmd PRE_DEFCONFIG_CMDS 'merge_defconfig_fragment ${DEFCONFIG} ${fragment_config}'
 DEFCONFIG_FRAGMENTS=""
 function merge_defconfig_fragments() {
-	if ( [ -z "${DEFCONFIG_FRAGMENTS}" ] ||
-	   [ "${DEFCONFIG_FRAGMENTS}" = "${DEFCONFIG}" ] ); then
-		echo "No defconfig fragments for ${DEFCONFIG}"
-		return
-	fi
-	local output=$(mktemp)
-	KCONFIG_CONFIG=${KERNEL_DIR}/arch/${ARCH}/configs/${DEFCONFIG} \
-		${KERNEL_DIR}/scripts/kconfig/merge_config.sh \
-		-m -r -y ${DEFCONFIG_FRAGMENTS} | tee $output
-	set +x
-	if grep -q -E -e "Previous value: [^=]+=[ym]" $output; then
-		echo "========================================================"
-		echo "ERROR! Detected overridden config!"
-		grep -C 1 -E -e "Previous value: [^=]+=[ym]" $output >&2
-		rm $output
-		exit 1
-	fi
-	local temp_config=$(mktemp)
-	(cd ${KERNEL_DIR} && KCONFIG_CONFIG=${temp_config} make "${TOOL_ARGS[@]}" O=${OUT_DIR} ${MAKE_ARGS} ${DEFCONFIG}) 2>&1 | tee $output
-	if grep -q -e "warning:" $output; then
-		echo "========================================================"
-		echo "ERROR! Treating config warnings as errors"
-		grep -e "warning" $output >&2
-		rm $output $temp_config
-		exit 1
-	fi
-	rm $output $temp_config
-	set -x
+  if ( [ -z "${DEFCONFIG_FRAGMENTS}" ] ||
+     [ "${DEFCONFIG_FRAGMENTS}" = "${DEFCONFIG}" ] ); then
+    echo "No defconfig fragments for ${DEFCONFIG}"
+    return
+  fi
+  local output=$(mktemp)
+  KCONFIG_CONFIG=${KERNEL_DIR}/arch/${ARCH}/configs/${DEFCONFIG} \
+    ${KERNEL_DIR}/scripts/kconfig/merge_config.sh \
+    -m -r -y ${DEFCONFIG_FRAGMENTS} | tee $output
+  set +x
+  if grep -q -E -e "Previous value: [^=]+=[ym]" $output; then
+    echo "========================================================"
+    echo "ERROR! Detected overridden config!"
+    grep -C 1 -E -e "Previous value: [^=]+=[ym]" $output >&2
+    rm $output
+    exit 1
+  fi
+  local temp_config=$(mktemp)
+  (cd ${KERNEL_DIR} && KCONFIG_CONFIG=${temp_config} make "${TOOL_ARGS[@]}" O=${OUT_DIR} ${MAKE_ARGS} ${DEFCONFIG}) 2>&1 | tee $output
+  if grep -q -e "warning:" $output; then
+    echo "========================================================"
+    echo "ERROR! Treating config warnings as errors"
+    grep -e "warning" $output >&2
+    rm $output $temp_config
+    exit 1
+  fi
+  rm $output $temp_config
+  set -x
 
 }
 append_cmd PRE_DEFCONFIG_CMDS "merge_defconfig_fragments"
 
 function check_merged_defconfig() {
-	if ( [ -z "${DEFCONFIG_FRAGMENTS}" ] ||
-	   [ "${DEFCONFIG_FRAGMENTS}" = "${DEFCONFIG}" ] ); then
-		return
-	fi
-	local output=$(mktemp)
-	${KERNEL_DIR}/scripts/diffconfig "${KERNEL_DIR}/arch/${ARCH}/configs/${DEFCONFIG}" ${OUT_DIR}/.config > $output
-	set +x
-	if grep -q -v -E -e "^[+-]" $output; then
-		echo "========================================================"
-		echo "ERROR! Defconfig fragment did not apply as expected"
-		grep -v -E -e "^[+-]" $output
-		rm $output
-		exit 1
-	fi
-	rm $output
-	set -x
+  if ( [ -z "${DEFCONFIG_FRAGMENTS}" ] ||
+     [ "${DEFCONFIG_FRAGMENTS}" = "${DEFCONFIG}" ] ); then
+    return
+  fi
+  local output=$(mktemp)
+  ${KERNEL_DIR}/scripts/diffconfig "${KERNEL_DIR}/arch/${ARCH}/configs/${DEFCONFIG}" ${OUT_DIR}/.config > $output
+  set +x
+  if grep -q -v -E -e "^[+-]" $output; then
+    echo "========================================================"
+    echo "ERROR! Defconfig fragment did not apply as expected"
+    grep -v -E -e "^[+-]" $output
+    rm $output
+    exit 1
+  fi
+  rm $output
+  set -x
 }
 append_cmd POST_DEFCONFIG_CMDS "check_merged_defconfig"
 
 # Wrapper function around merge_defconfig_fragment to reduce repeated logic
 # Usage: apply_defconfig_fragment ${KERNEL_DIR}/cuttlefish.fragment cuttlefish-gki_defconfig
 function apply_defconfig_fragment() {
-	FRAGMENT_CONFIG=$1
-	if [ -z "${DEFCONFIG_FRAGMENTS}" ]; then
-		DEFCONFIG_FRAGMENTS="${KERNEL_DIR}/arch/${ARCH}/configs/${DEFCONFIG}"
-	fi
-	DEFCONFIG_FRAGMENTS="${DEFCONFIG_FRAGMENTS} $1"
-	DEFCONFIG="${2:-${DEFCONFIG}}"
+  FRAGMENT_CONFIG=$1
+  if [ -z "${DEFCONFIG_FRAGMENTS}" ]; then
+    DEFCONFIG_FRAGMENTS="${KERNEL_DIR}/arch/${ARCH}/configs/${DEFCONFIG}"
+  fi
+  DEFCONFIG_FRAGMENTS="${DEFCONFIG_FRAGMENTS} $1"
+  DEFCONFIG="${2:-${DEFCONFIG}}"
 }
 
 function menuconfig() {
-	set +x
-	local orig_defconfig=$(mktemp)
-	local orig_config=$(mktemp)
+  set +x
+  local orig_defconfig=$(mktemp)
+  local orig_config=$(mktemp)
 
-	cp ${OUT_DIR}/.config ${orig_config}
-	(cd ${KERNEL_DIR} && make "${TOOL_ARGS[@]}" O=${OUT_DIR} ${MAKE_ARGS} savedefconfig)
-	mv ${OUT_DIR}/defconfig ${orig_defconfig}
+  cp ${OUT_DIR}/.config ${orig_config}
+  (cd ${KERNEL_DIR} && make "${TOOL_ARGS[@]}" O=${OUT_DIR} ${MAKE_ARGS} savedefconfig)
+  mv ${OUT_DIR}/defconfig ${orig_defconfig}
 
-	(cd ${KERNEL_DIR} && make "${TOOL_ARGS[@]}" O=${OUT_DIR} ${MAKE_ARGS} ${1:-menuconfig})
-	(cd ${KERNEL_DIR} && make "${TOOL_ARGS[@]}" O=${OUT_DIR} ${MAKE_ARGS} savedefconfig)
-	mv ${OUT_DIR}/defconfig ${KERNEL_DIR}/arch/${ARCH}/configs/${DEFCONFIG}
+  (cd ${KERNEL_DIR} && make "${TOOL_ARGS[@]}" O=${OUT_DIR} ${MAKE_ARGS} ${1:-menuconfig})
+  (cd ${KERNEL_DIR} && make "${TOOL_ARGS[@]}" O=${OUT_DIR} ${MAKE_ARGS} savedefconfig)
+  mv ${OUT_DIR}/defconfig ${KERNEL_DIR}/arch/${ARCH}/configs/${DEFCONFIG}
 
-	if [ -z "${FRAGMENT_CONFIG}" ]; then
-		rm "${orig_config}" "${orig_defconfig}"
-		exit
-	fi
+  if [ -z "${FRAGMENT_CONFIG}" ]; then
+    rm "${orig_config}" "${orig_defconfig}"
+    exit
+  fi
 
-	local new_defconfig="${KERNEL_DIR}/arch/${ARCH}/configs/${DEFCONFIG}"
-	local new_config="${OUT_DIR}/.config"
+  local new_defconfig="${KERNEL_DIR}/arch/${ARCH}/configs/${DEFCONFIG}"
+  local new_config="${OUT_DIR}/.config"
 
-	# CONFIGs to be added
-	# 'defconfig' file should have been generated.
-	# Diff this with the 'defconfig_base' from the previous step and extract only the lines that were added
-	# Finally, remove the "+" from the beginning of the lines and append it to the FRAGMENT
-	diff -u ${orig_defconfig} ${new_defconfig} | grep "^+CONFIG_" | sed 's/^.//' >> ${FRAGMENT_CONFIG}
+  # CONFIGs to be added
+  # 'defconfig' file should have been generated.
+  # Diff this with the 'defconfig_base' from the previous step and extract only the lines that were added
+  # Finally, remove the "+" from the beginning of the lines and append it to the FRAGMENT
+  diff -u ${orig_defconfig} ${new_defconfig} | grep "^+CONFIG_" | sed 's/^.//' >> ${FRAGMENT_CONFIG}
 
-	# CONFIGs to be removed
-	configs_to_remove=`diff -u ${orig_defconfig} ${new_defconfig} | grep "^-CONFIG_" | sed 's/^.//'`
-	for config_del in $configs_to_remove; do
-		sed -i "/$config_del/d" ${FRAGMENT_CONFIG}
-	done
+  # CONFIGs to be removed
+  configs_to_remove=`diff -u ${orig_defconfig} ${new_defconfig} | grep "^-CONFIG_" | sed 's/^.//'`
+  for config_del in $configs_to_remove; do
+    sed -i "/$config_del/d" ${FRAGMENT_CONFIG}
+  done
 
-	# CONFIGs that are unset in base defconfig (# CONFIG_X is not set), but enabled in fragments,
-	# the diff is shown as: -# CONFIG_X is not set. Hence, explicitly set them in the config fragments.
-	configs_to_set=`diff -u ${orig_defconfig} ${new_defconfig} | grep "^-# CONFIG_" | awk '{print $2}'`
-	for config_to_set in $configs_to_set; do
-		# The CONFIG could be set as 'm' in the previous steps. Ignore setting them to 'y'
-		if ! grep -q "$config_to_set" ${FRAGMENT_CONFIG}; then
-			echo $config_to_set=y >> ${FRAGMENT_CONFIG}
-		fi
-	done
+  # CONFIGs that are unset in base defconfig (# CONFIG_X is not set), but enabled in fragments,
+  # the diff is shown as: -# CONFIG_X is not set. Hence, explicitly set them in the config fragments.
+  configs_to_set=`diff -u ${orig_defconfig} ${new_defconfig} | grep "^-# CONFIG_" | awk '{print $2}'`
+  for config_to_set in $configs_to_set; do
+    # The CONFIG could be set as 'm' in the previous steps. Ignore setting them to 'y'
+    if ! grep -q "$config_to_set" ${FRAGMENT_CONFIG}; then
+      echo $config_to_set=y >> ${FRAGMENT_CONFIG}
+    fi
+  done
 
-	# CONFIGs that are set in base defconfig (or lower fragment), but wanted it to be disabled in FRAG_CONFIG
-	diff -u ${orig_config} ${new_config} | grep "^+# CONFIG_" | sed 's/^.//' >> ${FRAGMENT_CONFIG}
+  # CONFIGs that are set in base defconfig (or lower fragment), but wanted it to be disabled in FRAG_CONFIG
+  diff -u ${orig_config} ${new_config} | grep "^+# CONFIG_" | sed 's/^.//' >> ${FRAGMENT_CONFIG}
 
-	echo
-	echo "Updated ${FRAGMENT_CONFIG}"
-	echo
+  echo
+  echo "Updated ${FRAGMENT_CONFIG}"
+  echo
 
-	rm "${orig_config}" "${orig_defconfig}"
-	exit
+  rm "${orig_config}" "${orig_defconfig}"
+  exit
 }
 export -f menuconfig
 # Configuration options to build images for MSM targets
@@ -198,31 +198,31 @@ BUILD_INITRAMFS=1
 ## DT Overlay
 LIBUFDT_PREBUILTS_BIN=tools/libufdt/utils/src
 function make_dtbo_img() {
-	mkdir -p ${DIST_DIR}/
-	mkdtboimg.py create ${DIST_DIR}/dtbo.img --page_size=${PAGE_SIZE} ${DIST_DIR}/*.dtbo
+  mkdir -p ${DIST_DIR}/
+  mkdtboimg.py create ${DIST_DIR}/dtbo.img --page_size=${PAGE_SIZE} ${DIST_DIR}/*.dtbo
 }
 if [ ! -z $DT_OVERLAY_SUPPORT ] && [ ! $DT_OVERLAY_SUPPORT -eq "0" ]; then
-	append_cmd DIST_CMDS 'make_dtbo_img'
+  append_cmd DIST_CMDS 'make_dtbo_img'
 fi
 
 ################################################################################
 ## Miscellaneous
 function determine_result_image {
-	if [[ $(${KERNEL_DIR}/scripts/config \
-		--file ${OUT_DIR}/.config \
-		--state CONFIG_BUILD_${ARCH^^}_UNCOMPRESSED_KERNEL) \
-		== 'y' ]];
-	then
-		KERNEL_BINARY=Image
-	else
-		KERNEL_BINARY=Image.gz
-	fi
+  if [[ $(${KERNEL_DIR}/scripts/config \
+    --file ${OUT_DIR}/.config \
+    --state CONFIG_BUILD_${ARCH^^}_UNCOMPRESSED_KERNEL) \
+    == 'y' ]];
+  then
+    KERNEL_BINARY=Image
+  else
+    KERNEL_BINARY=Image.gz
+  fi
 }
 append_cmd DIST_CMDS 'determine_result_image'
 
 if [ -n "${EXTRA_CONFIGS}" ]; then
-	for extra_config in "${EXTRA_CONFIGS}"
-	do
-		. ${extra_config}
-	done
+  for extra_config in "${EXTRA_CONFIGS}"
+  do
+    . ${extra_config}
+  done
 fi
