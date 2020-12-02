@@ -474,6 +474,8 @@
 			mediatek,mic-type-2 = <3>;
 			io-channels = <&pmic_auxadc AUXADC_HPOFS_CAL>;
 			io-channel-names = "pmic_hpofs_cal";
+			nvmem = <&pmic_efuse>;
+			nvmem-names = "pmic-hp-efuse";
 		};
 
 		mt6359p_clock_buffer: mt6359p_clock_buffer {
