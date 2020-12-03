@@ -36,7 +36,7 @@
  * LOG
  */
 #define EEMG_TAG	 "[xxxxEEMG] "
-#define eemg_error(fmt, args...)	pr_info(EEMG_TAG fmt, ##args)
+#define eemg_error(fmt, args...)
 #define eemg_warning(fmt, args...)
 #define eemg_notice(fmt, args...)
 #define eemg_info(fmt, args...)
@@ -190,6 +190,8 @@ struct eemg_ctrl {
 extern struct eemg_ctrl eemg_ctrls[NR_EEMG_CTRL];
 extern struct eemg_det eemg_detectors[NR_EEMG_DET];
 extern struct eemg_det_ops eemg_det_base_ops;
+extern unsigned int gpu_vb;
+extern unsigned int gpu_vb_turn_pt;
 
 /* define common operations in mtk_eemg_internal.c */
 extern int base_ops_volt_2_pmic_gpu(struct eemg_det *det, int volt);

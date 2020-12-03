@@ -15,18 +15,14 @@
 /* have 5 banks */
 enum eemg_ctrl_id {
 	EEMG_CTRL_GPU,
-#if ENABLE_LOO_G
 	EEMG_CTRL_GPU_HI,
-#endif
 
 	NR_EEMG_CTRL,
 };
 
 enum eemg_det_id {
 	EEMG_DET_GPU     =       EEMG_CTRL_GPU,
-#if ENABLE_LOO_G
 	EEMG_DET_GPU_HI  =       EEMG_CTRL_GPU_HI,
-#endif
 
 	NR_EEMG_DET,
 };
@@ -75,7 +71,6 @@ enum {
 	EEM_HIGH_T
 };
 
-#if ENABLE_LOO
 enum eemg_loo_role {
 	NO_LOO_BANK	=	0,
 	LOW_BANK	=	1,
@@ -83,7 +78,6 @@ enum eemg_loo_role {
 
 	NR_EEMG_LOO_BANK,
 };
-#endif
 
 extern u32 get_devinfo_with_index(u32 index);
 extern unsigned int eemg_corn_flag;
@@ -96,12 +90,8 @@ extern const unsigned int reg_gpu_addr_off[DUMP_LEN];
 #ifdef CONFIG_EEMG_AEE_RR_REC
 enum eemg_state {
 	EEMG_GPU_IS_SET_VOLT = 3,		/* G */
-#if ENABLE_LOO
 	EEMG_GPU_HI_IS_SET_VOLT = 4,
-#endif
-#if ENABLE_LOO
 	EEMG_CPU_BIG_HI_IS_SET_VOLT = 4,
-#endif
 };
 
 extern void aee_rr_rec_ptp_devinfo_0(u32 val);
