@@ -965,6 +965,99 @@
 		nvmem-names = "mtk_efuse";
 		nvmem-cells = <&efuse_segment>;
 		nvmem-cell-names = "efuse_segment_cell";
+		devinfo-idx = <0xc8 0xcc 0xd0 0xd4 0xd8 0xdc 0xe0 0xe4 0xe8
+			0xec 0xf0 0xf4 0xF8 0xFC 0x100 0x104 0x108 0x10c>;
+		devinfo-mcl50 = <0x00000001 0x0 0x5a1e242A 0x57142476
+			0x49172454 0x0 0x0 0x4d152457 0x00000000 0x56ec00dc
+			0x081800a6 0x6f572444 0x725c244d 0x1b031b03 0x1b031b03
+			0x00000000 0x1b031b03 0x1b031b03>;
+		devinfo = <0x0 0x94132424 0xb1e92424 0x42122446 0x63122424 0x0
+			0x0 0x62122424 0x51152498 0x46ea0098 0x37170054
+			0xc3990089 0xdc910089 0x1b031b03 0x1b031b03 0x0
+			0x1b031b03 0x1b031b03>;
+		devinfo-fake = <1>;
+		devinfo-fake-ignore = <0x9860>;
+		golden-temp = <0x1d0>;
+		golden-temp-mask = <0xff000000>;
+		golden-temp-default = <50>;
+		gpu-vb = <0>;
+		eemg_detectors = "EEMG_DET_GPU", "EEMG_DET_GPU_HI";
+		EEMG_DET_GPU {
+			ctrl_id = <0>;
+			features = <0x2>;
+			max_freq_khz = <688000>;
+			VBOOT = <0x38>;
+			VMAX = <0x60>;
+			VMIN = <0x114 0x30>;
+			VMIN-idx = <0x1a 0x1e 0x1a 0x1a>;
+			eemg_v_base = <40000>;
+			eemg_step = <625>;
+			pmic_step = <0>;
+			pmic_base = <625>;
+			DETWINDOW = <0xa28>;
+			DTHI = <0x01>;
+			DTLO = <0xfe>;
+			DETMAX = <0xffff>;
+			AGECONFIG = <0x555555>;
+			AGEM = <0x0>;
+			DVTFIXED = <0x1>;
+			loo_role = <1>;
+			loo_couple = <1>;
+			turn_pt = <6>;
+			VCO = <0x18>;
+			DCONFIG = <1>;
+			EEMCTL0 = <0x00540003>;
+			low_temp_off = <4>;
+			extra_low_temp_off = <7>;
+			high_temp_off = <0>;
+			volt_policy = <1>;
+			DCMDET = <17 0x0000ff00>;
+			DCBDET = <17 0x000000ff>;
+			MTDES = <10 0x000000ff>;
+			EEMINITEN = <10 0x00000100>;
+			EEMMONEN = <10 0x00000200>;
+			SPEC = <10 0x0000e000>;
+			BDES = <10 0x00ff0000>;
+			MDES = <10 0xff000000>;
+		};
+		EEMG_DET_GPU_HI {
+			ctrl_id = <1>;
+			features = <0x3>;
+			max_freq_khz = <902000>;
+			VBOOT = <0x38>;
+			VMAX = <0x60>;
+			VMIN = <0x114 0x30>;
+			VMIN-idx = <0x1a 0x1e 0x1a 0x1a>;
+			eemg_v_base = <40000>;
+			eemg_step = <625>;
+			pmic_base = <0>;
+			pmic_step = <625>;
+			DETWINDOW = <0xa28>;
+			DTHI = <0x01>;
+			DTLO = <0xfe>;
+			DETMAX = <0xffff>;
+			AGECONFIG = <0x555555>;
+			AGEM = <0x0>;
+			DVTFIXED = <0x6>;
+			loo_role = <2>;
+			loo_couple = <0>;
+			turn_pt = <6>;
+			VCO = <0x18>;
+			DCONFIG = <1>;
+			EEMCTL0 = <0x00540003>;
+			low_temp_off = <4>;
+			extra_low_temp_off = <7>;
+			high_temp_off = <0>;
+			volt_policy = <1>;
+			DCMDET = <17 0xff000000>;
+			DCBDET = <17 0x00ff0000>;
+			MTDES =	<9 0x000000ff>;
+			EEMINITEN = <9 0x00000100>;
+			EEMMONEN = <9 0x00000200>;
+			SPEC = <9 0x0000e000>;
+			BDES = <9 0x00ff0000>;
+			MDES = <9 0xff000000>;
+		};
 	};
 
 	soc {
