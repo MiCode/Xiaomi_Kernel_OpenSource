@@ -1447,6 +1447,9 @@
 		qcom,bcm-voters = <&apps_bcm_voter>;
 	};
 
+	thermal_zones: thermal-zones {
+	};
+
 	tcsr_mutex_block: syscon@1f40000 {
 		compatible = "syscon";
 		reg = <0x1f40000 0x20000>;
@@ -1835,7 +1838,7 @@
 		};
 	};
 
-	spmi0_bus: qcom,spmi@c42d000 {
+	spmi_bus: spmi0_bus: qcom,spmi@c42d000 {
 		compatible = "qcom,spmi-pmic-arb";
 		reg = <0xc42d000 0x4000>,
 		      <0xc400000 0x3000>,
