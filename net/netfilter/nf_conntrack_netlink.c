@@ -788,6 +788,11 @@ ctnetlink_conntrack_event(unsigned int events, struct nf_ct_event *item)
 
 		if (events & (1 << IPCT_SYNPROXY) &&
 		    ctnetlink_dump_ct_synproxy(skb, ct) < 0)
+
+#ifdef CONFIG_ENABLE_SFE
+		if (events & (1 << IPCT_COUNTER) &&
+		    ctnetlink_dump_acct(skb, ct, 0) < 0)
+#endif
 			goto nla_put_failure;
 	}
 

@@ -530,3 +530,6 @@ int cqhci_crypto_recovery_finish(struct cqhci_host *host)
 
 	return 0;
 }
+
+MODULE_DESCRIPTION("CQHCI Crypto Engine Support");
+MODULE_LICENSE("GPL v2");

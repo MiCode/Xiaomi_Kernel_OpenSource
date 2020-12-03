@@ -575,4 +575,22 @@ config CLOCK_CPU_SDXLEMUR
 	  Say Y if you want to support CPU clock scaling using
 	  CPUfreq drivers for dynamic power management.
 
+config SM_GCC_YUPIK
+	tristate "YUPIK Global Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the global clock controller on Qualcomm Technologies, Inc.
+	  YUPIK devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI, I2C,
+	  USB, UFS, SD/eMMC, PCIe, etc.
+
+config SM_GPUCC_YUPIK
+	tristate "YUPIK Graphics Clock Controller"
+	depends on SM_GCC_YUPIK
+	help
+	  Support for the graphics clock controller on Qualcomm Technologies, Inc.
+	  YUPIK devices.
+	  Say Y if you want to support graphics controller devices and
+	  functionality such as 3D graphics.
+
 endif

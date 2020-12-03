@@ -1057,6 +1057,7 @@ static int spi_geni_mas_setup(struct spi_master *spi)
 	unsigned int minor;
 	unsigned int step;
 	int hw_ver;
+	int ret = 0;
 
 	if (unlikely(proto != SPI)) {
 		dev_err(mas->dev, "Invalid proto %d\n", proto);
@@ -1120,16 +1121,18 @@ static int spi_geni_mas_setup(struct spi_master *spi)
 		mas->rx_event.init.cb_param = spi;
 		mas->rx_event.cmd = MSM_GPI_INIT;
 		mas->rx->private = &mas->rx_event;
-		if (dmaengine_slave_config(mas->tx, NULL)) {
-			dev_err(mas->dev, "Failed to Config Tx\n");
+		ret = dmaengine_slave_config(mas->tx, NULL);
+		if (ret) {
+			dev_err(mas->dev, "Failed to Config Tx, ret:%d\n", ret);
 			dma_release_channel(mas->tx);
 			dma_release_channel(mas->rx);
 			mas->tx = NULL;
 			mas->rx = NULL;
 			goto setup_ipc;
 		}
-		if (dmaengine_slave_config(mas->rx, NULL)) {
-			dev_err(mas->dev, "Failed to Config Rx\n");
+		ret = dmaengine_slave_config(mas->rx, NULL);
+		if (ret) {
+			dev_err(mas->dev, "Failed to Config Rx, ret:%d\n", ret);
 			dma_release_channel(mas->tx);
 			dma_release_channel(mas->rx);
 			mas->tx = NULL;
@@ -1162,7 +1165,7 @@ setup_ipc:
 	if (mas->dis_autosuspend)
 		GENI_SE_DBG(mas->ipc, false, mas->dev,
 				"Auto Suspend is disabled\n");
-	return 0;
+	return ret;
 }
 
 static int spi_geni_prepare_transfer_hardware(struct spi_master *spi)
@@ -1384,9 +1387,21 @@ static void handle_fifo_timeout(struct spi_geni_master *mas,
 					struct spi_transfer *xfer)
 {
 	unsigned long timeout;
+	u32 rx_fifo_status;
+	int rx_wc, i;
 
 	geni_se_dump_dbg_regs(&mas->spi_rsc, mas->base, mas->ipc);
 	reinit_completion(&mas->xfer_done);
+
+	/* Dummy read the rx fifo for any spurious data*/
+	if (xfer->rx_buf) {
+		rx_fifo_status = geni_read_reg(mas->base,
+					SE_GENI_RX_FIFO_STATUS);
+		rx_wc = (rx_fifo_status & RX_FIFO_WC_MSK);
+		for (i = 0; i < rx_wc; i++)
+			geni_read_reg(mas->base, SE_GENI_RX_FIFOn);
+	}
+
 	geni_cancel_m_cmd(mas->base);
 	if (mas->cur_xfer_mode == FIFO_MODE)
 		geni_write_reg(0, mas->base, SE_GENI_TX_WATERMARK_REG);
@@ -2024,6 +2039,8 @@ static int spi_geni_runtime_resume(struct device *dev)
 				"%s lock_bus failed: %d\n", __func__, ret);
 			return ret;
 		}
+		/* Return here as LE VM doesn't need resourc/clock management */
+		return ret;
 	}
 
 	if (geni_mas->shared_ee)

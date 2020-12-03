@@ -23,7 +23,7 @@
 #define MINIMUM_DUN_SIZE 512
 #define MAXIMUM_DUN_SIZE 65536
 
-static struct cqhci_host_crypto_variant_ops cqhci_crypto_qti_variant_ops = {
+static struct cqhci_host_crypto_variant_ops __maybe_unused cqhci_crypto_qti_variant_ops = {
 	.host_init_crypto = cqhci_crypto_qti_init_crypto,
 	.enable = cqhci_crypto_qti_enable,
 	.disable = cqhci_crypto_qti_disable,
@@ -305,10 +305,15 @@ int cqhci_crypto_qti_debug(struct cqhci_host *host)
 
 void cqhci_crypto_qti_set_vops(struct cqhci_host *host)
 {
+#if defined(CONFIG_MMC_CQHCI_CRYPTO)
 	return cqhci_crypto_set_vops(host, &cqhci_crypto_qti_variant_ops);
+#endif
 }
 
 int cqhci_crypto_qti_resume(struct cqhci_host *host)
 {
 	return crypto_qti_resume(host->crypto_vops->priv);
 }
+
+MODULE_DESCRIPTION("Vendor specific CQHCI Crypto Engine Support");
+MODULE_LICENSE("GPL v2");

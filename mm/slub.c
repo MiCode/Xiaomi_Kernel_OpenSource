@@ -6145,7 +6145,7 @@ static int alloc_trace_locations(struct seq_file *seq, struct kmem_cache *s,
 
 		seq_printf(seq,
 		"alloc_list: call_site=%pS count=%zu object_size=%zu slab_size=%zu slab_name=%s\n",
-			l->addr, l->count, s->object_size, s->size, s->name);
+			(void *)l->addr, l->count, s->object_size, s->size, s->name);
 #ifdef CONFIG_STACKTRACE
 		for (j = 0; j < TRACK_ADDRS_COUNT; j++)
 			if (l->addrs[j]) {
@@ -6323,16 +6323,9 @@ static int __init slab_sysfs_init(void)
 #ifdef CONFIG_SLUB_DEBUG
 	if (slub_debug) {
 		slab_debugfs_top = debugfs_create_dir("slab", NULL);
-		if (!slab_debugfs_top) {
-			pr_err("Couldn't create slab debugfs directory\n");
-			return -ENODEV;
-		}
-
-		if (!debugfs_create_file("alloc_trace", 0400, slab_debugfs_top,
-					NULL, &slab_debug_alloc_fops)) {
-			pr_err("Couldn't create slab/tests debugfs directory\n");
-			return -ENODEV;
-		}
+		if (!IS_ERR(slab_debugfs_top))
+			debugfs_create_file("alloc_trace", 0400, slab_debugfs_top,
+					NULL, &slab_debug_alloc_fops);
 	}
 #endif
 

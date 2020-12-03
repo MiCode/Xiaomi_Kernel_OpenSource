@@ -1534,6 +1534,10 @@ static void cnss_pci_set_wlaon_pwr_ctrl(struct cnss_pci_data *pci_priv,
 	if (!plat_priv->set_wlaon_pwr_ctrl)
 		return;
 
+	if (pci_priv->pci_link_state == PCI_LINK_DOWN ||
+	    pci_priv->pci_link_down_ind)
+		return;
+
 	if (do_force_wake)
 		if (cnss_pci_force_wake_get(pci_priv))
 			return;
@@ -3387,8 +3391,8 @@ int cnss_pci_qmi_send_get(struct cnss_pci_data *pci_priv)
 	    !pci_priv->qmi_send_usage_count)
 		ret = cnss_pci_resume_bus(pci_priv);
 	pci_priv->qmi_send_usage_count++;
-	cnss_pr_vdbg("Increased QMI send usage count to %d\n",
-		     pci_priv->qmi_send_usage_count);
+	cnss_pr_buf("Increased QMI send usage count to %d\n",
+		    pci_priv->qmi_send_usage_count);
 	mutex_unlock(&pci_priv->bus_lock);
 
 	return ret;
@@ -3404,10 +3408,11 @@ int cnss_pci_qmi_send_put(struct cnss_pci_data *pci_priv)
 	mutex_lock(&pci_priv->bus_lock);
 	if (pci_priv->qmi_send_usage_count)
 		pci_priv->qmi_send_usage_count--;
-	cnss_pr_vdbg("Decreased QMI send usage count to %d\n",
-		     pci_priv->qmi_send_usage_count);
+	cnss_pr_buf("Decreased QMI send usage count to %d\n",
+		    pci_priv->qmi_send_usage_count);
 	if (cnss_pci_get_auto_suspended(pci_priv) &&
-	    !pci_priv->qmi_send_usage_count)
+	    !pci_priv->qmi_send_usage_count &&
+	    !cnss_pcie_is_device_down(pci_priv))
 		ret = cnss_pci_suspend_bus(pci_priv);
 	mutex_unlock(&pci_priv->bus_lock);
 

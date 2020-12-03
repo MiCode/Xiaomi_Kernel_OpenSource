@@ -10,4 +10,4 @@ obj-$(CONFIG_QPNP_SMBLITE)	        += step-chg-jeita.o battery.o qpnp-smblite.o 
 obj-$(CONFIG_SMB1355_SLAVE_CHARGER)	+= qcom-smb1355-charger.o
 qcom-smb1355-charger-y += smb1355-charger.o pmic-voter.o
 obj-$(CONFIG_SMB1390_CHARGE_PUMP_PSY)	+= smb1390-charger-psy.o pmic-voter.o
-obj-$(CONFIG_SMB1351_USB_CHARGER)	+= smb1351-charger.o pmic-voter.o battery.o
+obj-$(CONFIG_SMB1351_USB_CHARGER)	+= smb1351-charger.o

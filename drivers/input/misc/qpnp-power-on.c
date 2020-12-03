@@ -14,6 +14,7 @@
 #include <linux/log2.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
+#include <linux/of_address.h>
 #include <linux/of_device.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
@@ -60,6 +61,7 @@ enum qpnp_pon_version {
 #define QPNP_PON_RT_STS(pon)			((pon)->base + 0x10)
 #define QPNP_PON_PULL_CTL(pon)			((pon)->base + 0x70)
 #define QPNP_PON_DBC_CTL(pon)			((pon)->base + 0x71)
+#define QPNP_PON_PBS_DBC_CTL(pon)		((pon)->pbs_base + 0x71)
 
 /* PON/RESET sources register addresses */
 #define QPNP_PON_REASON1(pon) \
@@ -207,6 +209,7 @@ struct qpnp_pon {
 	struct delayed_work	bark_work;
 	struct dentry		*debugfs;
 	u16			base;
+	u16			pbs_base;
 	u8			subtype;
 	u8			pon_ver;
 	u8			warm_reset_reason1;
@@ -449,9 +452,14 @@ static int qpnp_pon_get_dbc(struct qpnp_pon *pon, u32 *delay)
 	int rc;
 	unsigned int val;
 
-	rc = qpnp_pon_read(pon, QPNP_PON_DBC_CTL(pon), &val);
+	if (is_pon_gen3(pon) && pon->pbs_base)
+		rc = qpnp_pon_read(pon, QPNP_PON_PBS_DBC_CTL(pon), &val);
+	else
+		rc = qpnp_pon_read(pon, QPNP_PON_DBC_CTL(pon), &val);
+
 	if (rc)
 		return rc;
+
 	val &= QPNP_PON_DBC_DELAY_MASK(pon);
 
 	if (is_pon_gen2(pon) || is_pon_gen3(pon))
@@ -2271,7 +2279,8 @@ static int qpnp_pon_probe(struct platform_device *pdev)
 	struct device_node *node;
 	struct qpnp_pon *pon;
 	unsigned long flags;
-	u32 base, delay;
+	u32 delay;
+	const __be32 *addr;
 	bool sys_reset, modem_reset;
 	int rc;
 
@@ -2286,12 +2295,16 @@ static int qpnp_pon_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	rc = of_property_read_u32(dev->of_node, "reg", &base);
-	if (rc < 0) {
-		dev_err(dev, "reg property missing, rc=%d\n", rc);
-		return rc;
+	addr = of_get_address(dev->of_node, 0, NULL, NULL);
+	if (!addr) {
+		dev_err(dev, "reg property missing\n");
+		return -EINVAL;
 	}
-	pon->base = base;
+	pon->base = be32_to_cpu(*addr);
+
+	addr = of_get_address(dev->of_node, 1, NULL, NULL);
+	if (addr)
+		pon->pbs_base = be32_to_cpu(*addr);
 
 	sys_reset = of_property_read_bool(dev->of_node, "qcom,system-reset");
 	if (sys_reset && sys_reset_dev) {

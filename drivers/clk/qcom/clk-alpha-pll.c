@@ -294,7 +294,6 @@ static int wait_for_pll(struct clk_alpha_pll *pll, u32 mask, bool inverse,
 	int count;
 	int ret;
 	u64 time;
-	const char *name = clk_hw_get_name(&pll->clkr.hw);
 
 	ret = regmap_read(pll->clkr.regmap, PLL_MODE(pll), &val);
 	if (ret)
@@ -317,7 +316,7 @@ static int wait_for_pll(struct clk_alpha_pll *pll, u32 mask, bool inverse,
 
 	pr_err("PLL lock bit detection total wait time: %lld ns\n", time);
 
-	WARN(1, "%s failed to %s!\n", name, action);
+	WARN_CLK(&pll->clkr.hw, 1, "failed to %s!\n", action);
 	return -ETIMEDOUT;
 }
 
@@ -1261,7 +1260,8 @@ static int clk_trion_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 	udelay(1);
 	regmap_read(pll->clkr.regmap, PLL_MODE(pll), &regval);
 	if (!(regval & ALPHA_PLL_ACK_LATCH)) {
-		WARN(1, "PLL latch failed. Output may be unstable!\n");
+		WARN_CLK(&pll->clkr.hw, 1,
+				"PLL latch failed. Output may be unstable!\n");
 		return -EINVAL;
 	}
 
@@ -1338,7 +1338,7 @@ static void clk_trion_pll_list_registers(struct seq_file *f, struct clk_hw *hw)
 	for (i = 0; i < size; i++) {
 		regmap_read(pll->clkr.regmap, pll->offset +
 					pll->regs[data[i].offset], &val);
-		seq_printf(f, "%20s: 0x%.8x\n", data[i].name, val);
+		clock_debug_output(f, "%20s: 0x%.8x\n", data[i].name, val);
 	}
 
 	regmap_read(pll->clkr.regmap, pll->offset + pll->regs[data[0].offset],
@@ -1347,7 +1347,7 @@ static void clk_trion_pll_list_registers(struct seq_file *f, struct clk_hw *hw)
 	if (val & PLL_FSM_ENA) {
 		regmap_read(pll->clkr.regmap, pll->clkr.enable_reg +
 				data1[0].offset, &val);
-		seq_printf(f, "%20s: 0x%.8x\n", data1[0].name, val);
+		clock_debug_output(f, "%20s: 0x%.8x\n", data1[0].name, val);
 	}
 }
 
@@ -1457,6 +1457,7 @@ int clk_zonda_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 
 	return ret ? -EIO : 0;
 }
+EXPORT_SYMBOL(clk_zonda_pll_configure);
 
 static int clk_zonda_pll_enable(struct clk_hw *hw)
 {
@@ -1762,9 +1763,9 @@ static void clk_alpha_pll_list_registers(struct seq_file *f, struct clk_hw *hw)
 	size = ARRAY_SIZE(data);
 
 	for (i = 0; i < size; i++) {
-		regmap_read(pll->clkr.regmap,
-				pll->offset + pll->regs[data[i].offset], &val);
-		seq_printf(f, "%20s: 0x%.8x\n", data[i].name, val);
+		regmap_read(pll->clkr.regmap, pll->offset + data[i].offset,
+					&val);
+		clock_debug_output(f, "%20s: 0x%.8x\n", data[i].name, val);
 	}
 
 	regmap_read(pll->clkr.regmap, pll->offset +
@@ -1773,7 +1774,7 @@ static void clk_alpha_pll_list_registers(struct seq_file *f, struct clk_hw *hw)
 	if (val & PLL_FSM_ENA) {
 		regmap_read(pll->clkr.regmap, pll->clkr.enable_reg +
 					data1[0].offset, &val);
-		seq_printf(f, "%20s: 0x%.8x\n", data1[0].name, val);
+		clock_debug_output(f, "%20s: 0x%.8x\n", data1[0].name, val);
 	}
 }
 
@@ -1819,7 +1820,7 @@ static void clk_alpha_pll_huayra_list_registers(struct seq_file *f,
 	for (i = 0; i < size; i++) {
 		regmap_read(pll->clkr.regmap, pll->offset +
 					pll->regs[data[i].offset], &val);
-		seq_printf(f, "%20s: 0x%.8x\n", data[i].name, val);
+		clock_debug_output(f, "%20s: 0x%.8x\n", data[i].name, val);
 	}
 
 	regmap_read(pll->clkr.regmap, pll->offset + pll->regs[data[0].offset],
@@ -1828,7 +1829,7 @@ static void clk_alpha_pll_huayra_list_registers(struct seq_file *f,
 	if (val & PLL_FSM_ENA) {
 		regmap_read(pll->clkr.regmap, pll->clkr.enable_reg +
 				data1[0].offset, &val);
-		seq_printf(f, "%20s: 0x%.8x\n", data1[0].name, val);
+		clock_debug_output(f, "%20s: 0x%.8x\n", data1[0].name, val);
 	}
 }
 
@@ -1969,7 +1970,7 @@ static void clk_alpha_pll_zonda_list_registers(struct seq_file *f,
 	for (i = 0; i < size; i++) {
 		regmap_read(pll->clkr.regmap, pll->offset +
 					pll->regs[data[i].offset], &val);
-		seq_printf(f, "%20s: 0x%.8x\n", data[i].name, val);
+		clock_debug_output(f, "%20s: 0x%.8x\n", data[i].name, val);
 	}
 
 	regmap_read(pll->clkr.regmap, pll->offset + pll->regs[data[0].offset],
@@ -1978,7 +1979,7 @@ static void clk_alpha_pll_zonda_list_registers(struct seq_file *f,
 	if (val & PLL_FSM_ENA) {
 		regmap_read(pll->clkr.regmap, pll->clkr.enable_reg +
 				data1[0].offset, &val);
-		seq_printf(f, "%20s: 0x%.8x\n", data1[0].name, val);
+		clock_debug_output(f, "%20s: 0x%.8x\n", data1[0].name, val);
 	}
 }
 
@@ -2383,7 +2384,7 @@ static void clk_fabia_pll_list_registers(struct seq_file *f, struct clk_hw *hw)
 	for (i = 0; i < size; i++) {
 		regmap_read(pll->clkr.regmap, pll->offset +
 					pll->regs[data[i].offset], &val);
-		seq_printf(f, "%20s: 0x%.8x\n", data[i].name, val);
+		clock_debug_output(f, "%20s: 0x%.8x\n", data[i].name, val);
 	}
 
 	regmap_read(pll->clkr.regmap, pll->offset + pll->regs[data[0].offset],
@@ -2392,7 +2393,7 @@ static void clk_fabia_pll_list_registers(struct seq_file *f, struct clk_hw *hw)
 	if (val & PLL_FSM_ENA) {
 		regmap_read(pll->clkr.regmap, pll->clkr.enable_reg +
 				data1[0].offset, &val);
-		seq_printf(f, "%20s: 0x%.8x\n", data1[0].name, val);
+		clock_debug_output(f, "%20s: 0x%.8x\n", data1[0].name, val);
 	}
 }
 
@@ -2693,6 +2694,7 @@ void clk_lucid_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 	regmap_update_bits(regmap, PLL_MODE(pll),
 				 PLL_RESET_N, PLL_RESET_N);
 }
+EXPORT_SYMBOL(clk_lucid_pll_configure);
 
 static int alpha_pll_lucid_enable(struct clk_hw *hw)
 {
@@ -2873,7 +2875,8 @@ static int alpha_pll_lucid_set_rate(struct clk_hw *hw, unsigned long rate,
 	udelay(1);
 	regmap_read(pll->clkr.regmap, PLL_MODE(pll), &regval);
 	if (!(regval & ALPHA_PLL_ACK_LATCH)) {
-		WARN(1, "PLL latch failed. Output may be unstable!\n");
+		WARN_CLK(&pll->clkr.hw, 1,
+				"PLL latch failed. Output may be unstable!\n");
 		return -EINVAL;
 	}
 
@@ -3152,7 +3155,8 @@ static int alpha_pll_lucid_5lpe_set_rate(struct clk_hw *hw, unsigned long rate,
 	udelay(1);
 	regmap_read(pll->clkr.regmap, PLL_MODE(pll), &regval);
 	if (!(regval & LUCID_5LPE_ALPHA_PLL_ACK_LATCH)) {
-		WARN(1, "PLL latch failed. Output may be unstable!\n");
+		WARN_CLK(&pll->clkr.hw, 1,
+				"PLL latch failed. Output may be unstable!\n");
 		return -EINVAL;
 	}
 
@@ -3249,7 +3253,7 @@ static void lucid_pll_list_registers(struct seq_file *f,
 	for (i = 0; i < size; i++) {
 		regmap_read(pll->clkr.regmap, pll->offset +
 					pll->regs[data[i].offset], &val);
-		seq_printf(f, "%20s: 0x%.8x\n", data[i].name, val);
+		clock_debug_output(f, "%20s: 0x%.8x\n", data[i].name, val);
 	}
 
 	regmap_read(pll->clkr.regmap, pll->offset +
@@ -3258,7 +3262,7 @@ static void lucid_pll_list_registers(struct seq_file *f,
 	if (val & PLL_FSM_ENA) {
 		regmap_read(pll->clkr.regmap, pll->clkr.enable_reg +
 					data1[0].offset, &val);
-		seq_printf(f, "%20s: 0x%.8x\n", data1[0].name, val);
+		clock_debug_output(f, "%20s: 0x%.8x\n", data1[0].name, val);
 	}
 }
 
@@ -3669,7 +3673,8 @@ static int alpha_pll_lucid_evo_set_rate(struct clk_hw *hw, unsigned long rate,
 	udelay(1);
 	regmap_read(pll->clkr.regmap, PLL_MODE(pll), &regval);
 	if (!(regval & LUCID_5LPE_ALPHA_PLL_ACK_LATCH)) {
-		WARN(1, "PLL latch failed. Output may be unstable!\n");
+		WARN_CLK(&pll->clkr.hw, 1,
+				"PLL latch failed. Output may be unstable!\n");
 		return -EINVAL;
 	}
 
@@ -3719,7 +3724,7 @@ static void lucid_evo_pll_list_registers(struct seq_file *f,
 	for (i = 0; i < size; i++) {
 		regmap_read(pll->clkr.regmap, pll->offset +
 					pll->regs[data[i].offset], &val);
-		seq_printf(f, "%20s: 0x%.8x\n", data[i].name, val);
+		clock_debug_output(f, "%20s: 0x%.8x\n", data[i].name, val);
 	}
 
 	regmap_read(pll->clkr.regmap, PLL_USER_CTL(pll), &val);
@@ -3727,7 +3732,7 @@ static void lucid_evo_pll_list_registers(struct seq_file *f,
 	if (val & LUCID_EVO_ENABLE_VOTE_RUN) {
 		regmap_read(pll->clkr.regmap, pll->clkr.enable_reg +
 					data1[0].offset, &val);
-		seq_printf(f, "%20s: 0x%.8x\n", data1[0].name, val);
+		clock_debug_output(f, "%20s: 0x%.8x\n", data1[0].name, val);
 	}
 }
 
@@ -4058,7 +4063,7 @@ static void clk_regera_pll_list_registers(struct seq_file *f, struct clk_hw *hw)
 	for (i = 0; i < size; i++) {
 		regmap_read(pll->clkr.regmap, pll->offset +
 					pll->regs[data[i].offset], &val);
-		seq_printf(f, "%20s: 0x%.8x\n", data[i].name, val);
+		clock_debug_output(f, "%20s: 0x%.8x\n", data[i].name, val);
 	}
 
 	regmap_read(pll->clkr.regmap, pll->offset + pll->regs[data[0].offset],
@@ -4066,7 +4071,7 @@ static void clk_regera_pll_list_registers(struct seq_file *f, struct clk_hw *hw)
 	if (val & PLL_FSM_ENA) {
 		regmap_read(pll->clkr.regmap, pll->clkr.enable_reg +
 				data1[0].offset, &val);
-		seq_printf(f, "%20s: 0x%.8x\n", data1[0].name, val);
+		clock_debug_output(f, "%20s: 0x%.8x\n", data1[0].name, val);
 	}
 }
 
@@ -4214,7 +4219,7 @@ static void clk_agera_pll_list_registers(struct seq_file *f, struct clk_hw *hw)
 	for (i = 0; i < size; i++) {
 		regmap_read(pll->clkr.regmap, pll->offset +
 					pll->regs[data[i].offset], &val);
-		seq_printf(f, "%20s: 0x%.8x\n", data[i].name, val);
+		clock_debug_output(f, "%20s: 0x%.8x\n", data[i].name, val);
 	}
 
 	regmap_read(pll->clkr.regmap, pll->offset + pll->regs[data[0].offset],
@@ -4222,7 +4227,7 @@ static void clk_agera_pll_list_registers(struct seq_file *f, struct clk_hw *hw)
 	if (val & PLL_FSM_ENA) {
 		regmap_read(pll->clkr.regmap, pll->clkr.enable_reg +
 				data1[0].offset, &val);
-		seq_printf(f, "%20s: 0x%.8x\n", data1[0].name, val);
+		clock_debug_output(f, "%20s: 0x%.8x\n", data1[0].name, val);
 	}
 }
 

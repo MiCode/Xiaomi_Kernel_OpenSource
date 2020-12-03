@@ -451,6 +451,16 @@ static struct devfreq_governor devfreq_gov_compute = {
 	.event_handler = devfreq_memlat_ev_handler,
 };
 
+void memlat_set_immutable_flag(unsigned int flag)
+{
+	unsigned int *memlat_ptr = (unsigned int *)&devfreq_gov_memlat.immutable;
+	unsigned int *compute_ptr = (unsigned int *)&devfreq_gov_compute.immutable;
+
+	*memlat_ptr = flag;
+	*compute_ptr = flag;
+}
+EXPORT_SYMBOL(memlat_set_immutable_flag);
+
 #define NUM_COLS	2
 static struct core_dev_map *init_core_dev_map(struct device *dev,
 					struct device_node *of_node,

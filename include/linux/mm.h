@@ -675,6 +675,10 @@ unsigned long vmalloc_to_pfn(const void *addr);
  * On nommu, vmalloc/vfree wrap through kmalloc/kfree directly, so there
  * is no special casing required.
  */
+
+#ifdef CONFIG_ENABLE_VMALLOC_SAVING
+extern bool is_vmalloc_addr(const void *x);
+#else
 static inline bool is_vmalloc_addr(const void *x)
 {
 #ifdef CONFIG_MMU
@@ -685,6 +689,7 @@ static inline bool is_vmalloc_addr(const void *x)
 	return false;
 #endif
 }
+#endif //CONFIG_ENABLE_VMALLOC_SAVING
 
 #ifndef is_ioremap_addr
 #define is_ioremap_addr(x) is_vmalloc_addr(x)

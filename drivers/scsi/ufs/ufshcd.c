@@ -8246,7 +8246,17 @@ static int __ufshcd_setup_clocks(struct ufs_hba *hba, bool on,
 
 	list_for_each_entry(clki, head, list) {
 		if (!IS_ERR_OR_NULL(clki->clk)) {
+#if defined(CONFIG_SCSI_UFSHCD_QTI)
+			/*
+			 * To keep link active, ref_clk and core_clk_unipro
+			 * should be kept ON.
+			 */
+			if (skip_ref_clk &&
+				(!strcmp(clki->name, "ref_clk") ||
+				 !strcmp(clki->name, "core_clk_unipro")))
+#else
 			if (skip_ref_clk && !strcmp(clki->name, "ref_clk"))
+#endif
 				continue;
 
 			clk_state_changed = on ^ clki->enabled;

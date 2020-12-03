@@ -481,9 +481,13 @@ static struct perf_event *set_event(int event_id, unsigned int cpu,
 static int setup_common_pmu_events(struct memlat_cpu_grp *cpu_grp,
 				cpumask_t *mask, bool cpu_online)
 {
-	struct perf_event_attr *attr = alloc_attr();
+	struct perf_event_attr *attr;
 	struct perf_event *pevent;
 	unsigned int cpu;
+
+	attr = alloc_attr();
+	if (!attr)
+		return -ENODEV;
 
 	for_each_cpu(cpu, mask) {
 		struct pmu_map *pmu = to_common_pmu_map(cpu_grp, cpu);
@@ -494,7 +498,7 @@ static int setup_common_pmu_events(struct memlat_cpu_grp *cpu_grp,
 
 		pevent = set_event(cpu_grp->common_ev_ids[INST_IDX],
 						cpu, attr);
-		if (IS_ERR(pevent))
+		if (!pevent || IS_ERR(pevent))
 			return -ENODEV;
 
 		cpus_data->common_evs[INST_IDX] = pevent;
@@ -502,7 +506,7 @@ static int setup_common_pmu_events(struct memlat_cpu_grp *cpu_grp,
 		pmu[INST_IDX].hw_cntr_idx = pevent->hw.idx + 1;
 
 		pevent = set_event(cpu_grp->common_ev_ids[CYC_IDX], cpu, attr);
-		if (IS_ERR(pevent)) {
+		if (!pevent || IS_ERR(pevent)) {
 			perf_event_release_kernel(
 					cpus_data->common_evs[INST_IDX]);
 			return -ENODEV;
@@ -514,7 +518,7 @@ static int setup_common_pmu_events(struct memlat_cpu_grp *cpu_grp,
 
 		if (cpu_grp->common_ev_ids[STALL_IDX] != INVALID_PMU_EVENT_ID) {
 			pevent = set_event(cpu_grp->common_ev_ids[STALL_IDX], cpu, attr);
-			if (IS_ERR(pevent)) {
+			if (!pevent || IS_ERR(pevent)) {
 				perf_event_release_kernel(
 					cpus_data->common_evs[INST_IDX]);
 				perf_event_release_kernel(
@@ -536,9 +540,13 @@ static int setup_common_pmu_events(struct memlat_cpu_grp *cpu_grp,
 static int setup_mon_pmu_events(struct memlat_mon *mon,
 					cpumask_t *mask, bool cpu_online)
 {
-	struct perf_event_attr *attr = alloc_attr();
+	struct perf_event_attr *attr;
 	struct perf_event *pevent;
 	unsigned int cpu;
+
+	attr = alloc_attr();
+	if (!attr)
+		return -ENODEV;
 
 	for_each_cpu(cpu, mask) {
 		struct pmu_map *pmu = to_mon_pmu_map(mon, cpu);
@@ -548,7 +556,7 @@ static int setup_mon_pmu_events(struct memlat_mon *mon,
 			continue;
 
 		pevent = set_event(mon->mon_ev_ids[MISS_IDX], cpu, attr);
-		if (IS_ERR(pevent))
+		if (!pevent || IS_ERR(pevent))
 			return -ENODEV;
 
 		ev_data->mon_evs[MISS_IDX] = pevent;
@@ -558,7 +566,7 @@ static int setup_mon_pmu_events(struct memlat_mon *mon,
 		if (mon->mon_ev_ids[L2WB_IDX] != INVALID_PMU_EVENT_ID) {
 			pevent = set_event(mon->mon_ev_ids[L2WB_IDX],
 						cpu, attr);
-			if (IS_ERR(pevent)) {
+			if (!pevent || IS_ERR(pevent)) {
 				perf_event_release_kernel(
 					ev_data->mon_evs[MISS_IDX]);
 				return -ENODEV;
@@ -576,7 +584,7 @@ static int setup_mon_pmu_events(struct memlat_mon *mon,
 
 			pevent = set_event(mon->mon_ev_ids[L3_ACCESS_IDX],
 						cpu, attr);
-			if (IS_ERR(pevent)) {
+			if (!pevent || IS_ERR(pevent)) {
 				perf_event_release_kernel(
 					ev_data->mon_evs[MISS_IDX]);
 				if (ev_data->mon_evs[L2WB_IDX])
@@ -605,7 +613,7 @@ static inline void store_event_val(u64 val, u8 idx, u8 cpu)
 	if (idx == 0) {
 		writel_relaxed((val & (0xFFFFFFFF)), &base->ccntr_lo);
 		writel_relaxed(((val >> 32) & (0xFFFFFFFF)), &base->ccntr_hi);
-	} else if (idx < MAX_PMU_CNTRS_RIMPS) {
+	} else if ((idx > 1) && (idx < MAX_PMU_CNTRS_RIMPS)) {
 		writel_relaxed((val & (0xFFFFFFFF)), &base->evcntr[idx - 2]);
 	}
 }
@@ -798,6 +806,21 @@ static int memlat_event_cpu_hp_init(void)
 		ret = 0;
 	return ret;
 }
+
+void rimps_force_free_pmu_events(unsigned int flag)
+{
+	unsigned int cpu;
+
+	get_online_cpus();
+	for_each_possible_cpu(cpu) {
+		if (flag)
+			memlat_event_hotplug_going_down(cpu);
+		else
+			memlat_event_hotplug_coming_up(cpu);
+	}
+	put_online_cpus();
+}
+EXPORT_SYMBOL(rimps_force_free_pmu_events);
 
 static int memlat_idle_notif(struct notifier_block *nb,
 					unsigned long action,

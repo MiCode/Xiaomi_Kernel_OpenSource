@@ -45,11 +45,19 @@
 #define PCIE_GEN3_SPCIE_CAP (0x0154)
 #define PCIE_GEN3_GEN2_CTRL (0x080c)
 #define PCIE_GEN3_RELATED (0x0890)
+#define PCIE_GEN3_RELATED_RATE_SHADOW_SEL_MASK (BIT(25) | BIT(24))
+/* 0 - Gen3, 1 - Gen4 */
+#define PCIE_GEN3_RELATED_RATE_SHADOW_SEL(x) ((x) - PCI_EXP_LNKCAP_SLS_8_0GB)
+
 #define PCIE_GEN3_EQ_CONTROL (0x08a8)
 #define PCIE_GEN3_EQ_PSET_REQ_VEC_MASK (GENMASK(23, 8))
 
 #define PCIE_GEN3_EQ_FB_MODE_DIR_CHANGE (0x08ac)
+#define PCIE_GEN3_EQ_FMDC_T_MIN_PHASE23_MASK (0x1f)
+
 #define PCIE_GEN3_MISC_CONTROL (0x08bc)
+
+#define PCIE_PL_16GT_CAP (0x168)
 
 #define PCIE20_PARF_SYS_CTRL (0x00)
 #define PCIE20_PARF_PM_CTRL (0x20)
@@ -164,7 +172,7 @@
 #define XMLH_LINK_UP (0x400)
 #define MAX_PROP_SIZE (32)
 #define MAX_RC_NAME_LEN (15)
-#define MSM_PCIE_MAX_VREG (4)
+#define MSM_PCIE_MAX_VREG (5)
 #define MSM_PCIE_MAX_CLK (18)
 #define MSM_PCIE_MAX_PIPE_CLK (1)
 #define MAX_RC_NUM (3)
@@ -521,6 +529,7 @@ struct msm_pcie_irq_info_t {
 /* bandwidth info structure */
 struct msm_pcie_bw_scale_info_t {
 	u32 cx_vreg_min;
+	u32 mx_vreg_min;
 	u32 rate_change_freq;
 };
 
@@ -645,6 +654,7 @@ struct msm_pcie_dev_t {
 
 	struct msm_pcie_vreg_info_t *cx_vreg;
 	struct msm_pcie_clk_info_t *rate_change_clk;
+	struct msm_pcie_vreg_info_t *mx_vreg;
 	struct msm_pcie_bw_scale_info_t *bw_scale;
 	u32 bw_gen_max;
 
@@ -684,6 +694,7 @@ struct msm_pcie_dev_t {
 	uint32_t smmu_sid_base;
 	uint32_t link_check_max_count;
 	uint32_t target_link_speed;
+	uint32_t current_link_speed;
 	uint32_t n_fts;
 	uint32_t ep_latency;
 	uint32_t switch_latency;
@@ -694,6 +705,7 @@ struct msm_pcie_dev_t {
 	uint32_t phy_power_down_offset;
 	uint32_t eq_pset_req_vec;
 	uint32_t core_preset;
+	uint32_t eq_fmdc_t_min_phase23;
 	uint32_t cpl_timeout;
 	uint32_t current_bdf;
 	uint32_t perst_delay_us_min;
@@ -804,7 +816,8 @@ static struct msm_pcie_vreg_info_t msm_pcie_vreg_info[MSM_PCIE_MAX_VREG] = {
 	{NULL, "vreg-3p3", 0, 0, 0, false},
 	{NULL, "vreg-1p8", 1800000, 1800000, 14000, true},
 	{NULL, "vreg-0p9", 1000000, 1000000, 40000, true},
-	{NULL, "vreg-cx", 0, 0, 0, false}
+	{NULL, "vreg-cx", 0, 0, 0, false},
+	{NULL, "vreg-mx", 0, 0, 0, false},
 };
 
 /* GPIOs */
@@ -1314,6 +1327,8 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->eq_pset_req_vec);
 	PCIE_DBG_FS(dev, "core_preset: 0x%x\n",
 		dev->core_preset);
+	PCIE_DBG_FS(dev, "eq_fmdc_t_min_phase23: 0x%x\n",
+		dev->eq_fmdc_t_min_phase23);
 	PCIE_DBG_FS(dev, "cpl_timeout: 0x%x\n",
 		dev->cpl_timeout);
 	PCIE_DBG_FS(dev, "current_bdf: 0x%x\n",
@@ -1346,6 +1361,8 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->prevent_l1);
 	PCIE_DBG_FS(dev, "target_link_speed: 0x%x\n",
 		dev->target_link_speed);
+	PCIE_DBG_FS(dev, "current_link_speed: 0x%x\n",
+		dev->current_link_speed);
 	PCIE_DBG_FS(dev, "link_turned_on_counter: %lu\n",
 		dev->link_turned_on_counter);
 	PCIE_DBG_FS(dev, "link_turned_off_counter: %lu\n",
@@ -2841,7 +2858,8 @@ static int msm_pcie_vreg_init(struct msm_pcie_dev_t *dev)
 
 			if (hdl) {
 				regulator_disable(hdl);
-				if (!strcmp(dev->vreg[i].name, "vreg-cx")) {
+				if (!strcmp(dev->vreg[i].name, "vreg-cx") ||
+					!strcmp(dev->vreg[i].name, "vreg-mx")) {
 					PCIE_DBG(dev,
 						"RC%d: Removing %s vote.\n",
 						dev->rc_idx,
@@ -2880,7 +2898,8 @@ static void msm_pcie_vreg_deinit(struct msm_pcie_dev_t *dev)
 				dev->vreg[i].name);
 			regulator_disable(dev->vreg[i].hdl);
 
-			if (!strcmp(dev->vreg[i].name, "vreg-cx")) {
+			if (!strcmp(dev->vreg[i].name, "vreg-cx") ||
+				!strcmp(dev->vreg[i].name, "vreg-mx")) {
 				PCIE_DBG(dev,
 					"RC%d: Removing %s vote.\n",
 					dev->rc_idx,
@@ -3236,6 +3255,61 @@ static void msm_pcie_iatu_config_all_ep(struct msm_pcie_dev_t *dev)
 	}
 }
 
+static void msm_pcie_config_core_preset(struct msm_pcie_dev_t *pcie_dev)
+{
+	u32 supported_link_speed =
+		readl_relaxed(pcie_dev->dm_core + PCIE20_CAP + PCI_EXP_LNKCAP) &
+		PCI_EXP_LNKCAP_SLS;
+
+	/* enable write access to RO register */
+	msm_pcie_write_mask(pcie_dev->dm_core + PCIE_GEN3_MISC_CONTROL, 0,
+				BIT(0));
+
+	/* Gen3 */
+	if (supported_link_speed >= PCI_EXP_LNKCAP_SLS_8_0GB)
+		msm_pcie_write_reg(pcie_dev->dm_core, PCIE_GEN3_SPCIE_CAP,
+				pcie_dev->core_preset);
+
+	/* Gen4 */
+	if (supported_link_speed >= PCI_EXP_LNKCAP_SLS_16_0GB)
+		msm_pcie_write_reg(pcie_dev->dm_core, PCIE_PL_16GT_CAP +
+				PCI_PL_16GT_LE_CTRL, pcie_dev->core_preset);
+
+	/* disable write access to RO register */
+	msm_pcie_write_mask(pcie_dev->dm_core + PCIE_GEN3_MISC_CONTROL, BIT(0),
+				0);
+}
+
+/* Controller settings related to PCIe PHY */
+static void msm_pcie_config_controller_phy(struct msm_pcie_dev_t *pcie_dev)
+{
+	int i;
+	u32 supported_link_speed =
+		readl_relaxed(pcie_dev->dm_core + PCIE20_CAP + PCI_EXP_LNKCAP) &
+		PCI_EXP_LNKCAP_SLS;
+
+	/* settings apply to GEN3 and above */
+	for (i = PCI_EXP_LNKCAP_SLS_8_0GB; i <= supported_link_speed; i++) {
+		/* select which GEN speed to configure settings for */
+		msm_pcie_write_reg_field(pcie_dev->dm_core, PCIE_GEN3_RELATED,
+					PCIE_GEN3_RELATED_RATE_SHADOW_SEL_MASK,
+					PCIE_GEN3_RELATED_RATE_SHADOW_SEL(i));
+
+		msm_pcie_write_reg_field(pcie_dev->dm_core, PCIE_GEN3_EQ_CONTROL,
+					PCIE_GEN3_EQ_PSET_REQ_VEC_MASK,
+					pcie_dev->eq_pset_req_vec);
+
+		/* GEN3_ZRXDC_NONCOMPL */
+		msm_pcie_write_mask(pcie_dev->dm_core +
+					PCIE_GEN3_RELATED, BIT(0), 0);
+
+		msm_pcie_write_reg_field(pcie_dev->dm_core,
+				PCIE_GEN3_EQ_FB_MODE_DIR_CHANGE,
+				PCIE_GEN3_EQ_FMDC_T_MIN_PHASE23_MASK,
+				pcie_dev->eq_fmdc_t_min_phase23);
+	}
+}
+
 static void msm_pcie_config_controller(struct msm_pcie_dev_t *dev)
 {
 	PCIE_DBG(dev, "RC%d\n", dev->rc_idx);
@@ -3435,6 +3509,9 @@ static int msm_pcie_get_vreg(struct msm_pcie_dev_t *pcie_dev)
 
 			if (!strcmp(vreg_info->name, "vreg-cx"))
 				pcie_dev->cx_vreg = vreg_info;
+
+			if (!strcmp(vreg_info->name, "vreg-mx"))
+				pcie_dev->mx_vreg = vreg_info;
 		}
 	}
 
@@ -3786,6 +3863,11 @@ static void msm_pcie_scale_link_bandwidth(struct msm_pcie_dev_t *pcie_dev,
 					bw_scale->cx_vreg_min,
 					pcie_dev->cx_vreg->max_v);
 
+	if (pcie_dev->mx_vreg)
+		regulator_set_voltage(pcie_dev->mx_vreg->hdl,
+					bw_scale->mx_vreg_min,
+					pcie_dev->mx_vreg->max_v);
+
 	if (pcie_dev->rate_change_clk)
 		clk_set_rate(pcie_dev->rate_change_clk->hdl,
 				bw_scale->rate_change_freq);
@@ -3799,23 +3881,11 @@ static int msm_pcie_link_train(struct msm_pcie_dev_t *dev)
 	msm_pcie_write_reg_field(dev->dm_core,
 		PCIE_GEN3_GEN2_CTRL, 0x1f00, 1);
 
-	msm_pcie_write_mask(dev->dm_core,
-		PCIE_GEN3_EQ_CONTROL, 0x20);
-
-	msm_pcie_write_reg_field(dev->dm_core, PCIE_GEN3_EQ_CONTROL,
-				PCIE_GEN3_EQ_PSET_REQ_VEC_MASK,
-				dev->eq_pset_req_vec);
-
-	msm_pcie_write_mask(dev->dm_core +
-		PCIE_GEN3_RELATED, BIT(0), 0);
+	/* Controller settings related to PCIe PHY */
+	msm_pcie_config_controller_phy(dev);
 
 	/* configure PCIe preset */
-	msm_pcie_write_reg_field(dev->dm_core,
-		PCIE_GEN3_MISC_CONTROL, BIT(0), 1);
-	msm_pcie_write_reg(dev->dm_core,
-		PCIE_GEN3_SPCIE_CAP, dev->core_preset);
-	msm_pcie_write_reg_field(dev->dm_core,
-		PCIE_GEN3_MISC_CONTROL, BIT(0), 0);
+	msm_pcie_config_core_preset(dev);
 
 	if (dev->target_link_speed)
 		msm_pcie_write_reg_field(dev->dm_core,
@@ -3856,37 +3926,34 @@ static int msm_pcie_link_train(struct msm_pcie_dev_t *dev)
 		return MSM_PCIE_ERROR;
 	}
 
-	if (dev->bw_scale) {
+	dev->current_link_speed = (readl_relaxed(dev->dm_core +
+					PCIE20_CAP_LINKCTRLSTATUS) >> 16) &
+					PCI_EXP_LNKSTA_CLS;
+	PCIE_DBG(dev, "PCIe: RC%d: Link is up at Gen%d\n",
+		dev->rc_idx, dev->current_link_speed);
+
+	/*
+	 * If the link up GEN speed is less than the max/default supported,
+	 * then scale the resources accordingly.
+	 */
+	if (dev->bw_scale && dev->current_link_speed < dev->bw_gen_max) {
 		u32 index;
-		u32 current_link_speed;
 		struct msm_pcie_bw_scale_info_t *bw_scale;
 
-		/*
-		 * check if the link up GEN speed is less than the max/default
-		 * supported. If it is, scale down CX corner and rate change
-		 * clock accordingly.
-		 */
-		current_link_speed = readl_relaxed(dev->dm_core +
-						PCIE20_CAP_LINKCTRLSTATUS);
-		current_link_speed = ((current_link_speed >> 16) &
-					PCI_EXP_LNKSTA_CLS);
-
-		index = current_link_speed - PCI_EXP_LNKCTL2_TLS_2_5GT;
+		index = dev->current_link_speed - PCI_EXP_LNKCTL2_TLS_2_5GT;
 		if (index >= dev->bw_gen_max) {
 			PCIE_ERR(dev,
 				"PCIe: RC%d: unsupported gen speed: %d\n",
-				dev->rc_idx, current_link_speed);
+				dev->rc_idx, dev->current_link_speed);
 			return 0;
 		}
 
 		bw_scale = &dev->bw_scale[index];
 
-		if (bw_scale->cx_vreg_min < dev->cx_vreg->min_v) {
-			msm_pcie_write_reg_field(dev->dm_core,
-				PCIE20_CAP + PCI_EXP_LNKCTL2,
-				PCI_EXP_LNKCTL2_TLS, current_link_speed);
-			msm_pcie_scale_link_bandwidth(dev, current_link_speed);
-		}
+		msm_pcie_write_reg_field(dev->dm_core, PCIE20_CAP +
+					PCI_EXP_LNKCTL2, PCI_EXP_LNKCTL2_TLS,
+					dev->current_link_speed);
+		msm_pcie_scale_link_bandwidth(dev, dev->current_link_speed);
 	}
 
 	return 0;
@@ -5632,6 +5699,12 @@ static int msm_pcie_probe(struct platform_device *pdev)
 	PCIE_DBG(pcie_dev, "RC%d: core-preset: 0x%x.\n",
 		pcie_dev->rc_idx, pcie_dev->core_preset);
 
+	of_property_read_u32(pdev->dev.of_node,
+				"qcom,eq-fmdc-t-min-phase23",
+				&pcie_dev->eq_fmdc_t_min_phase23);
+	PCIE_DBG(pcie_dev, "RC%d: qcom,eq-fmdc-t-min-phase23: 0x%x.\n",
+		pcie_dev->rc_idx, pcie_dev->eq_fmdc_t_min_phase23);
+
 	of_property_read_u32(of_node, "qcom,cpl-timeout",
 				&pcie_dev->cpl_timeout);
 	PCIE_DBG(pcie_dev, "RC%d: cpl-timeout: 0x%x.\n",
@@ -5849,6 +5922,9 @@ static int msm_pcie_link_retrain(struct msm_pcie_dev_t *pcie_dev,
 		usleep_range(100, 105);
 	}
 
+	pcie_dev->current_link_speed = (readl_relaxed(pcie_dev->dm_core +
+					PCIE20_CAP_LINKCTRLSTATUS) >> 16) &
+					PCI_EXP_LNKSTA_CLS;
 	return 0;
 }
 
@@ -6076,7 +6152,7 @@ int msm_pcie_set_link_bandwidth(struct pci_dev *pci_dev, u16 target_link_speed,
 		goto out;
 
 	pcie_capability_read_word(root_pci_dev, PCI_EXP_LNKSTA, &link_status);
-	if ((link_status & PCI_EXP_LNKSTA_CLS) != target_link_speed ||
+	if (pcie_dev->current_link_speed != target_link_speed ||
 		(link_status & PCI_EXP_LNKSTA_NLW) != target_link_width) {
 		PCIE_ERR(pcie_dev,
 			"PCIe: RC%d: failed to switch bandwidth: target speed: %d width: %d\n",
@@ -6833,7 +6909,7 @@ static int msm_pcie_drv_resume(struct msm_pcie_dev_t *pcie_dev)
 {
 	struct msm_pcie_drv_info *drv_info = pcie_dev->drv_info;
 	struct msm_pcie_clk_info_t *clk_info;
-	u32 current_link_speed, clkreq_override_en = 0;
+	u32 clkreq_override_en = 0;
 	int ret, i, rpmsg_ret = 0;
 
 	mutex_lock(&pcie_dev->recovery_lock);
@@ -6950,12 +7026,11 @@ static int msm_pcie_drv_resume(struct msm_pcie_dev_t *pcie_dev)
 	}
 
 	/* scale CX and rate change based on current GEN speed */
-	current_link_speed = readl_relaxed(pcie_dev->dm_core +
-					PCIE20_CAP_LINKCTRLSTATUS);
-	current_link_speed = ((current_link_speed >> 16) &
-				PCI_EXP_LNKSTA_CLS);
+	pcie_dev->current_link_speed = (readl_relaxed(pcie_dev->dm_core +
+					PCIE20_CAP_LINKCTRLSTATUS) >> 16) &
+					PCI_EXP_LNKSTA_CLS;
 
-	msm_pcie_scale_link_bandwidth(pcie_dev, current_link_speed);
+	msm_pcie_scale_link_bandwidth(pcie_dev, pcie_dev->current_link_speed);
 
 	pcie_dev->user_suspend = false;
 	spin_lock_irq(&pcie_dev->cfg_lock);

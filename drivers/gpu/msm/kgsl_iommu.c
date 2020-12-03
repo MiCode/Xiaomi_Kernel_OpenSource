@@ -1747,6 +1747,26 @@ static void kgsl_iommu_pagefault_resume(struct kgsl_mmu *mmu)
 	struct kgsl_iommu_context *ctx = &iommu->user_context;
 
 	if (ctx->default_pt != NULL && ctx->stalled_on_fault) {
+		u32 sctlr_val = KGSL_IOMMU_GET_CTX_REG(ctx,
+						KGSL_IOMMU_CTX_SCTLR);
+
+		/*
+		 * As part of recovery, GBIF halt sequence should be performed.
+		 * In a worst case scenario, if any GPU block is generating a
+		 * stream of un-ending faulting transactions, SMMU would enter
+		 * stall-on-fault mode again after resuming and not let GBIF
+		 * halt succeed. In order to avoid that situation and terminate
+		 * those faulty transactions, set CFCFG and HUPCF to 0.
+		 */
+		sctlr_val &= ~(0x1 << KGSL_IOMMU_SCTLR_CFCFG_SHIFT);
+		sctlr_val &= ~(0x1 << KGSL_IOMMU_SCTLR_HUPCF_SHIFT);
+		KGSL_IOMMU_SET_CTX_REG(ctx, KGSL_IOMMU_CTX_SCTLR, sctlr_val);
+		/*
+		 * Make sure the above register write is not reordered across
+		 * the barrier as we use writel_relaxed to write it.
+		 */
+		wmb();
+
 		/*
 		 * This will only clear fault bits in FSR. FSR.SS will still
 		 * be set. Writing to RESUME (below) is the only way to clear

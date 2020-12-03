@@ -252,16 +252,16 @@ static void boot_log_init(void)
 	void *start;
 	unsigned int size;
 	struct md_region md_entry;
-	unsigned int *log_buf_size;
+	uint32_t log_buf_len;
 
-	log_buf_size = (unsigned int *)kallsyms_lookup_name("log_buf_len");
-	if (!log_buf_size) {
-		dev_err(wdog_data->dev, "log_buf_len symbol not found\n");
+	log_buf_len = log_buf_len_get();
+	if (!log_buf_len) {
+		dev_err(wdog_data->dev, "log_buf_len is zero\n");
 		goto out;
 	}
 
-	if (*log_buf_size >= BOOT_LOG_SIZE)
-		size = *log_buf_size;
+	if (log_buf_len >= BOOT_LOG_SIZE)
+		size = log_buf_len;
 	else
 		size = BOOT_LOG_SIZE;
 

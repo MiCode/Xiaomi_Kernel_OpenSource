@@ -224,11 +224,15 @@ int mmc_of_parse(struct mmc_host *host)
 	bool cd_cap_invert, cd_gpio_invert = false;
 #if defined(CONFIG_SDC_QTI)
 	const char *lower_bus_speed = NULL;
-	struct device_node *np = dev->of_node;
+	struct device_node *np;
 #endif
 
 	if (!dev || !dev_fwnode(dev))
 		return 0;
+
+#if defined(CONFIG_SDC_QTI)
+	np = dev->of_node;
+#endif
 
 	/* "bus-width" is translated to MMC_CAP_*_BIT_DATA flags */
 	if (device_property_read_u32(dev, "bus-width", &bus_width) < 0) {
