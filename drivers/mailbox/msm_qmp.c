@@ -464,17 +464,19 @@ static void qmp_recv_data(struct qmp_mbox *mbox, u32 mbox_of)
 {
 	void __iomem *addr;
 	struct qmp_pkt *pkt;
+	size_t read_size;
 
 	addr = mbox->desc + mbox_of;
 	pkt = &mbox->rx_pkt;
 	pkt->size = ioread32(addr);
 
-	if (pkt->size > mbox->mcore_mbox_size)
+	read_size = (pkt->size + 0x3) & ~0x3;
+	if (read_size > mbox->mcore_mbox_size)
 		QMP_ERR(mbox->mdev->ilc, "Invalid mailbox packet\n");
 	else {
-		memcpy32_fromio(pkt->data, addr + sizeof(pkt->size), pkt->size);
+		memcpy32_fromio(pkt->data, addr + sizeof(pkt->size), read_size);
 		mbox_chan_received_data(&mbox->ctrl.chans[mbox->idx_in_flight],
-				pkt);
+					pkt);
 	}
 	iowrite32(0, addr);
 	QMP_INFO(mbox->mdev->ilc, "recv sz:%d\n", pkt->size);
