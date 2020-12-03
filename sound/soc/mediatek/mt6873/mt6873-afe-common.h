@@ -11,8 +11,19 @@
 #include <sound/soc.h>
 #include <linux/list.h>
 #include <linux/regmap.h>
+#include <mt-plat/aee.h>
 #include "mt6873-reg.h"
 #include "../common/mtk-base-afe.h"
+
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+#define AUDIO_AEE(message) \
+	(aee_kernel_exception_api(__FILE__, \
+				  __LINE__, \
+				  DB_OPT_FTRACE, message, \
+				  "audio assert"))
+#else
+#define AUDIO_AEE(message) WARN_ON(true)
+#endif
 
 enum {
 	MT6873_MEMIF_DL1,
