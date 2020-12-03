@@ -47,7 +47,7 @@
 	pr_notice(LogTag "[%s] " format, __func__, ##args)
 
 
-#define LARB_NUM (8)
+static int g_larb_num;
 
 struct cam_mem_device {
 	struct device *dev;
@@ -55,7 +55,7 @@ struct cam_mem_device {
 	/* p1: larb13/14, larb16/17/18
 	 * p2: larb9, larb11 and larb20
 	 */
-	struct device *larbs[LARB_NUM];
+	struct device **larbs;
 };
 
 struct CAM_MEM_USER_INFO_STRUCT {
@@ -118,7 +118,10 @@ static inline void smi_larbs_get(void)
 	int ret;
 	int i = 0;
 
-	for (i = 0; i < LARB_NUM; i++) {
+	if (g_larb_num <= 0)
+		return;
+
+	for (i = 0; i < g_larb_num; i++) {
 		if (cam_mem_dev.larbs[i]) {
 			ret = mtk_smi_larb_get(cam_mem_dev.larbs[i]);
 			if (ret)
@@ -135,11 +138,14 @@ static inline void smi_larbs_put(void)
 {
 	int i = 0;
 
-	for (i = 0; i < LARB_NUM; i++) {
-		if (cam_mem_dev.larbs[LARB_NUM - 1 - i])
-			mtk_smi_larb_put(cam_mem_dev.larbs[LARB_NUM - 1 - i]);
+	if (g_larb_num <= 0)
+		return;
+
+	for (i = 0; i < g_larb_num; i++) {
+		if (cam_mem_dev.larbs[g_larb_num - 1 - i])
+			mtk_smi_larb_put(cam_mem_dev.larbs[g_larb_num - 1 - i]);
 		else
-			LOG_NOTICE("cam_mem_dev.larbs[%d] is NULL!\n", LARB_NUM - 1 - i);
+			LOG_NOTICE("cam_mem_dev.larbs[%d] is NULL!\n", g_larb_num - 1 - i);
 	}
 }
 
@@ -784,15 +790,17 @@ static void CamMem_get_larb(struct platform_device *pDev)
 	struct platform_device *larb_pdev;
 	unsigned int larb_id = 0;
 	int i = 0;
+	bool bSearchDone = false;
+	struct device **tmp_larbs;
 
-
-	for (i = 0; i < LARB_NUM; i++) {
+	do {
 		node = of_parse_phandle(pDev->dev.of_node, "mediatek,larbs", i);
 
 		if (!node) {
-			LOG_NOTICE("%s: no mediatek,larbs found\n",
+			LOG_NOTICE("%s: no more mediatek,larbs found\n",
 				pDev->dev.of_node->name);
-			return;
+			bSearchDone = true;
+			break;
 		}
 		larb_pdev = of_find_device_by_node(node);
 
@@ -806,14 +814,29 @@ static void CamMem_get_larb(struct platform_device *pDev)
 		if (!larb_pdev) {
 			LOG_NOTICE("%s: no mediatek,larb device found\n",
 				pDev->dev.of_node->name);
-			return;
+			bSearchDone = true;
+			break;
 		}
 
+		tmp_larbs = krealloc(cam_mem_dev.larbs, sizeof(struct device *) * (i + 1),
+			GFP_KERNEL);
+
+		if (tmp_larbs == NULL) {
+			LOG_NOTICE("Error: krealloc fail!!\n");
+			bSearchDone = true;
+			break;
+		}
+
+		cam_mem_dev.larbs = tmp_larbs;
+
 		cam_mem_dev.larbs[i] = &larb_pdev->dev;
+		i++;
 
 		LOG_NOTICE("%s: get %s\n", pDev->dev.of_node->name,
 			larb_pdev->dev.of_node->name);
-	}
+	} while (!bSearchDone);
+
+	g_larb_num = i;
 }
 
 /*******************************************************************************
@@ -942,6 +965,8 @@ static int cam_mem_remove(struct platform_device *pDev)
 	pCamMemClass = NULL;
 
 	remove_proc_entry("driver/cam_mem_buf_list", NULL);
+
+	kfree(cam_mem_dev.larbs);
 
 	return 0;
 }
