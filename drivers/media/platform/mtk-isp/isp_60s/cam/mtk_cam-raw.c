@@ -900,19 +900,12 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 	struct mtk_cam_status_dump dump_param;
 
 	if (!raw_dev) {
-		pr_debug("%s: %d: irq handler's data can't be NULL\n",
-			__func__, raw_dev->id);
+		pr_debug("%s: irq(%d) handler's data can't be NULL\n",
+			 __func__, irq);
 		goto ctx_not_found;
 	}
 
 	dev = raw_dev->dev;
-
-	if (!raw_dev->pipeline || !raw_dev->pipeline->enabled_raw) {
-		dev_dbg(dev,
-			"%s: %i: raw pipe line is disabled\n",
-			__func__, raw_dev->id);
-		goto ctx_not_found;
-	}
 
 	spin_lock_irqsave(&raw_dev->spinlock_irq, flags);
 
@@ -947,6 +940,13 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 		irq_status, err_status,
 		dma_done_status, dmai_done_status, drop_status,
 		dma_err_status, cq_done_status);
+
+	if (!raw_dev->pipeline || !raw_dev->pipeline->enabled_raw) {
+		dev_dbg(dev,
+			"%s: %i: raw pipeline is disabled\n",
+			__func__, raw_dev->id);
+		goto ctx_not_found;
+	}
 
 	/*
 	 * In normal case, the next SOF ISR should come after HW PASS1 DONE ISR.

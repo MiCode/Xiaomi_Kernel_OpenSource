@@ -607,7 +607,7 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 					&cam->media_dev, fd);
 
 				if (request == &req->req ||
-					node->ctx->enqueued_frame_seq_no == 0) {
+				    node->ctx->enqueued_frame_seq_no == 0) {
 					out_fmt->crop.p.x =
 						node->pending_crop.r.left;
 					out_fmt->crop.p.y =
@@ -632,12 +632,19 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 
 		default:
 			dev_dbg(cam->dev, "buffer with invalid port(%d)\n",
-						node->desc.dma_port);
+				node->desc.dma_port);
 			break;
 		}
 	}
 
 	return 0;
+}
+
+/* Check all pipeline involved in the request are streamed on */
+static int mtk_cam_dev_req_is_stream_on(struct mtk_cam_device *cam,
+					struct mtk_cam_request *req)
+{
+	return (req->ctx_used & cam->streaming_ctx) == req->ctx_used;
 }
 
 void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
@@ -653,7 +660,7 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 
 	spin_lock_irqsave(&cam->pending_job_lock, flags);
 	list_for_each_entry_safe(req, req_prev, &cam->pending_job_list, list) {
-		if (likely(req->ctx_used)) {
+		if (likely(mtk_cam_dev_req_is_stream_on(cam, req))) {
 			if (cam->running_job_count >=
 			    2 * MTK_CAM_MAX_RUNNING_JOBS) {
 				dev_dbg(cam->dev, "jobs are full\n");
@@ -693,6 +700,35 @@ static void mtk_cam_req_free(struct media_request *req)
 	kfree(cam_req);
 }
 
+static int mtk_cam_req_chk_job_list(struct mtk_cam_device *cam,
+				    struct mtk_cam_request *new_req,
+				    struct list_head *job_list,
+				    char *job_list_name)
+{
+	if (!job_list || !job_list->prev || !job_list->prev->next ||
+	    !new_req) {
+		dev_dbg(cam->dev,
+			"%s:%s: job_list, job_list->prev, job_list->prev->next, new_req can't be NULL\n",
+			__func__, job_list_name);
+		return -EINVAL;
+	}
+
+	if (job_list->prev->next != job_list) {
+		dev_dbg(cam->dev, "%s broken: job_list->prev->next(%p), job_list(%p), req(%s)\n",
+			job_list_name, job_list->prev->next, job_list,
+			new_req->req.debug_str);
+		return -EINVAL;
+	}
+
+	if (&new_req->list == job_list->prev || &new_req->list == job_list) {
+		dev_dbg(cam->dev, "%s job double add: req(%s)\n",
+			job_list_name, new_req->req.debug_str);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static void mtk_cam_req_queue(struct media_request *req)
 {
 	struct mtk_cam_request *cam_req = to_mtk_cam_req(req);
@@ -706,10 +742,18 @@ static void mtk_cam_req_queue(struct media_request *req)
 
 	/* add to pending job list */
 	spin_lock_irqsave(&cam->pending_job_lock, flags);
+	if (mtk_cam_req_chk_job_list(cam, cam_req,
+				     &cam->pending_job_list,
+				     "pending_job_list")) {
+		spin_unlock_irqrestore(&cam->pending_job_lock, flags);
+		return;
+	}
 	list_add_tail(&cam_req->list, &cam->pending_job_list);
 	spin_unlock_irqrestore(&cam->pending_job_lock, flags);
 
+	mutex_lock(&cam->op_lock);
 	mtk_cam_dev_req_try_queue(cam);
+	mutex_unlock(&cam->op_lock);
 }
 
 static const struct media_device_ops mtk_cam_dev_ops = {
@@ -751,8 +795,9 @@ static struct device *mtk_cam_find_raw_dev(struct mtk_cam_device *cam,
 
 	return NULL;
 }
+
 struct mtk_raw_device *get_master_raw_dev(struct mtk_cam_device *cam,
-				struct mtk_raw_pipeline *pipe)
+					  struct mtk_raw_pipeline *pipe)
 {
 	struct device *dev_master;
 	unsigned int i;
@@ -768,14 +813,14 @@ struct mtk_raw_device *get_master_raw_dev(struct mtk_cam_device *cam,
 }
 
 struct mtk_raw_device *get_slave_raw_dev(struct mtk_cam_device *cam,
-				struct mtk_raw_pipeline *pipe)
+					 struct mtk_raw_pipeline *pipe)
 {
 	struct device *dev_slave;
 	unsigned int i;
 
-	for (i = 0; i < cam->num_mtkcam_sub_drivers-1; i++) {
+	for (i = 0; i < cam->num_mtkcam_sub_drivers - 1; i++) {
 		if (pipe->enabled_raw & (1 << i)) {
-			dev_slave = cam->raw.devs[i+1];
+			dev_slave = cam->raw.devs[i + 1];
 			break;
 		}
 	}
@@ -784,7 +829,7 @@ struct mtk_raw_device *get_slave_raw_dev(struct mtk_cam_device *cam,
 }
 
 struct mtk_raw_device *get_slave2_raw_dev(struct mtk_cam_device *cam,
-				struct mtk_raw_pipeline *pipe)
+					  struct mtk_raw_pipeline *pipe)
 {
 	struct device *dev_slave;
 	unsigned int i;
@@ -1096,7 +1141,6 @@ mtk_cam_raw_pipeline_config(struct mtk_cam_ctx *ctx,
 	return 0;
 }
 
-
 /* FIXME: modified from v5: should move to raw */
 int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, unsigned int streaming)
 {
@@ -1156,7 +1200,7 @@ int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, unsigned int streaming)
 						get_slave_raw_dev(cam, ctx->pipe);
 				raw_dev_slave->pipeline = &raw->pipelines[i];
 				dev_dbg(dev, "twin master/slave raw_id:%d/%d\n",
-						raw_dev->id, raw_dev_slave->id);
+					raw_dev->id, raw_dev_slave->id);
 				if (raw->pipelines[i].res_config.raw_num_used == 3) {
 					struct mtk_raw_device *raw_dev_slave2 =
 						get_slave2_raw_dev(cam, ctx->pipe);
@@ -1830,7 +1874,6 @@ static void mtk_cam_ctx_init(struct mtk_cam_ctx *ctx,
 			     struct mtk_cam_device *cam,
 			     int stream_id)
 {
-	cam->streaming_ctx = 0;
 	ctx->cam = cam;
 	ctx->stream_id = stream_id;
 	ctx->sensor = NULL;
@@ -1906,6 +1949,7 @@ static int mtk_cam_probe(struct platform_device *pdev)
 	if (!cam_dev->ctxs)
 		return -ENOMEM;
 
+	cam_dev->streaming_ctx = 0;
 	for (i = 0; i < cam_dev->max_stream_num; i++)
 		mtk_cam_ctx_init(cam_dev->ctxs + i, cam_dev, i);
 
