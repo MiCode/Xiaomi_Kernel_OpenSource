@@ -15,6 +15,7 @@
 #include <linux/sched.h>
 #include <linux/workqueue.h>
 #include <linux/haven/hh_rm_drv.h>
+#include <linux/cpu.h>
 
 #include <soc/qcom/subsystem_notif.h>
 #include <soc/qcom/subsystem_restart.h>
@@ -58,11 +59,12 @@ static void guestvm_isolate_cpu(void)
 	int cpu, ret;
 
 	for_each_cpu_and(cpu, &guestvm_reserve_cpus, cpu_online_mask) {
-		ret = sched_isolate_cpu(cpu);
+		ret = cpu_down(cpu);
 		if (ret < 0) {
-			pr_err("fail to isolate CPU%d. ret=%d\n", cpu, ret);
+			pr_err("fail to offline CPU%d. ret=%d\n", cpu, ret);
 			continue;
 		}
+		pr_info("%s: offlined cpu : %d\n", __func__, cpu);
 		cpumask_set_cpu(cpu, &guestvm_isolated_cpus);
 	}
 
@@ -76,11 +78,12 @@ static void guestvm_unisolate_cpu(void)
 	int i, ret;
 
 	for_each_cpu(i, &guestvm_isolated_cpus) {
-		ret = sched_unisolate_cpu(i);
+		ret = cpu_up(i);
 		if (ret < 0) {
-			pr_err("fail to un-isolate CPU%d. ret=%d\n", i, ret);
+			pr_err("fail to online CPU%d. ret=%d\n", i, ret);
 			continue;
 		}
+		pr_info("%s: onlined cpu : %d\n", __func__, i);
 
 		cpumask_clear_cpu(i, &guestvm_isolated_cpus);
 	}
