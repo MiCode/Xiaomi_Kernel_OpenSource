@@ -584,7 +584,7 @@ static void mrdump_mini_add_tsk_ti(int cpu, struct pt_regs *regs,
 	mrdump_mini_add_entry(regs->reg_sp, MRDUMP_MINI_SECTION_SIZE);
 	mrdump_mini_add_entry((unsigned long)ti, MRDUMP_MINI_SECTION_SIZE);
 	mrdump_mini_add_entry((unsigned long)tsk, MRDUMP_MINI_SECTION_SIZE);
-	pr_notice("mrdump: cpu[%d] tsk:%p ti:%p\n", cpu, tsk, ti);
+	pr_notice("mrdump: cpu[%d] tsk:%lx ti:%lx\n", cpu, tsk, ti);
 	if (!stack)
 		return;
 	if (ti == NULL)
