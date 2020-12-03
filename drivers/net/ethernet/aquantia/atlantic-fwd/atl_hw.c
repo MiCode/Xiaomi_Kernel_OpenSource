@@ -575,8 +575,10 @@ static irqreturn_t atl_legacy_irq(int irq, void *priv)
 		}
 	}
 
-	if (unlikely(stat & hw->non_ring_intr_mask))
+	if (unlikely(stat & BIT(ATL_IRQ_LINK)))
 		atl_link_irq(irq, nic);
+	if (unlikely(stat & BIT(ATL_IRQ_PTP)))
+		atl_ptp_irq(irq, nic->ptp);
 	return IRQ_HANDLED;
 }
 
