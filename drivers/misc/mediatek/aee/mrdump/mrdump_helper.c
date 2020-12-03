@@ -24,7 +24,7 @@
 #ifdef MODULE
 
 #define KV		kimage_vaddr
-#define S_MAX		(SZ_32M)
+#define S_MAX		SZ_64M
 #define SM_SIZE		28
 #define TT_SIZE		256
 #define NAME_LEN	128
