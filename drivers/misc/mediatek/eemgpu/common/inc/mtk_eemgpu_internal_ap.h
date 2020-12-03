@@ -119,7 +119,8 @@ struct eemg_det {
 	unsigned int volt_tbl_pmic[NR_FREQ]; /* pmic value */
 	int volt_aging[NR_FREQ]; /* aging margin value */
 	struct mutex *loo_mutex;
-	unsigned char loo_role;
+	//unsigned char loo_role;
+	unsigned int loo_role;
 	unsigned char loo_couple;
 	unsigned char turn_pt;
 
@@ -288,13 +289,8 @@ struct eemg_devinfo {
 extern unsigned int freq[NR_FREQ];
 
 extern struct mutex gpu_record_mutex;
-#if ENABLE_LOO_B
-extern struct mutex bcpu_mutex_g;
-#endif
-#if ENABLE_LOO_G
 /* extern struct mutex lcpu_mutex; */
 extern struct mutex gpu_mutex_g;
-#endif
 
 extern void mt_record_lock(unsigned long *flags);
 extern void mt_record_unlock(unsigned long *flags);

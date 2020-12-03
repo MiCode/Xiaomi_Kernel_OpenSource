@@ -90,22 +90,26 @@ void get_freq_table_gpu(struct eemg_det *det)
 	eemg_debug("In gpu freq\n");
 
 	for (i = 0; i < NR_FREQ_GPU; i++) {
-#if DVT
-		det->freq_tbl[i] = dvtgpufreq[i];
-#else
-
 		curfreq = mt_gpufreq_get_freq_by_real_idx
 				(mt_gpufreq_get_ori_opp_idx(i));
 		det->freq_tbl[i] = PERCENT(curfreq,
 					det->max_freq_khz);
-#endif
-
 		if (det->freq_tbl[i] == 0)
 			break;
 	}
 
 	det->num_freq_tbl = i;
-#if ENABLE_LOO_G
+	if (gpu_vb != 0) {
+		gpu_vb_turn_pt = 0;
+		for (i = 0; i < det->num_freq_tbl; i++) {
+			curfreq = mt_gpufreq_get_freq_by_real_idx
+			(mt_gpufreq_get_ori_opp_idx(i));
+			if (curfreq <= GPU_FREQ_BASE) {
+				gpu_vb_turn_pt = i;
+				break;
+			}
+		}
+	}
 	/* Find 2line turn point */
 	for (i = 0; i < det->num_freq_tbl; i++) {
 		curfreq = mt_gpufreq_get_freq_by_real_idx
@@ -115,11 +119,6 @@ void get_freq_table_gpu(struct eemg_det *det)
 			break;
 		}
 	}
-#if DVT
-	det->turn_pt = 6;
-#endif
-
-#endif
 
 	eemg_debug("[%s] freq_num:%d, max_freq=%d, turn_pt:%d\n",
 		det->name+8, det->num_freq_tbl,
@@ -143,13 +142,11 @@ void get_orig_volt_table_gpu(struct eemg_det *det)
 		det->volt_tbl_orig[i] = det->ops->volt_2_pmic_gpu(det, volt);
 	}
 
-#if ENABLE_LOO_G
-		/* Use signoff volt */
-		memcpy(det->volt_tbl, det->volt_tbl_orig,
-				sizeof(det->volt_tbl));
-		memcpy(det->volt_tbl_init2, det->volt_tbl_orig,
-				sizeof(det->volt_tbl));
-#endif
+	/* Use signoff volt */
+	memcpy(det->volt_tbl, det->volt_tbl_orig,
+		sizeof(det->volt_tbl));
+	memcpy(det->volt_tbl_init2, det->volt_tbl_orig,
+		sizeof(det->volt_tbl));
 
 	FUNC_EXIT(FUNC_LV_HELP);
 #endif

@@ -18,26 +18,16 @@
 
 /* FIX ME */
 #define EEMG_LOCKTIME_LIMIT	(3000)
-#define ENABLE_LOO		(1)
-#define ENABLE_LOO_B		(0)
-#define ENABLE_LOO_G		(1)
-#define ENABLE_GPU		(1)
 
 #define EEMG_OFFSET
 #define SET_PMIC_VOLT		(1)
 #define SET_PMIC_VOLT_TO_DVFS	(1)
 #define LOG_INTERVAL		(2LL * NSEC_PER_SEC)
-#define DVT			(0)
 #define SUPPORT_DCONFIG		(1)
 #define ENABLE_HT_FT		(1)
-#define ENABLE_MINIHQA		(0)
 #define ENABLE_REMOVE_AGING	(0)
 
-#if DVT
-#define DUMP_LEN		410
-#else
 #define DUMP_LEN		105
-#endif
 
 #define DEVINFO_IDX_0 0xC8
 #define DEVINFO_IDX_1 0xCC
@@ -65,10 +55,6 @@
 #define SEC_MOD_SEL			0x00		/* non secure  mode */
 #else
 #define SEC_MOD_SEL			0x00		/* Secure Mode 0 */
-/* #define SEC_MOD_SEL			0x10	*/	/* Secure Mode 1 */
-/* #define SEC_MOD_SEL			0x20	*/	/* Secure Mode 2 */
-/* #define SEC_MOD_SEL			0x30	*/	/* Secure Mode 3 */
-/* #define SEC_MOD_SEL			0x40	*/	/* Secure Mode 4 */
 #endif
 
 #if SEC_MOD_SEL == 0xF0
@@ -161,24 +147,16 @@
  * eem sw setting
  ******************************************
  */
-#define NR_HW_RES_FOR_BANK	(18) /* real eem banks for efuse */
+//#define NR_HW_RES_FOR_BANK	(18) /* real eem banks for efuse */
 #define EEMG_INIT01_FLAG (0x01) /* 0x01=> [0]:GPU */
 
 #define NR_FREQ 16
 #define NR_FREQ_GPU 16
 
-#define L_FREQ_BASE			2000000
-#define B_FREQ_BASE			2300000
-#define	CCI_FREQ_BASE		1540000
 #define GPU_FREQ_BASE		902000
-#define B_M_FREQ_BASE		1750000
 #define GPU_M_FREQ_BASE		688000
 
-#define BANK_L_TURN_PT		0
 #define BANK_GPU_TURN_PT	6
-#if ENABLE_LOO_B
-#define BANK_B_TURN_PT		6
-#endif
 
 /*
  * 100 us, This is the EEM Detector sampling time as represented in
@@ -230,13 +208,6 @@
 #define AGECONFIG_VAL	(0x555555)
 #define AGEM_VAL		(0x0)
 #define DCCONFIG_VAL	(0x1)
-
-/* different for CCI */
-#define VMAX_VAL_CCI		(0x60) /* volt domain: 1v*/
-#define VMIN_VAL_CCI		(0x20)
-#define VCO_VAL_CCI			(0x18)
-#define DVTFIXED_VAL_CCI	(0x6)
-
 
 /* different for GPU */
 #define VMAX_VAL_GPU                    (0x60) /* eem domain: 1v*/
