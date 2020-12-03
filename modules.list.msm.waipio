@@ -12,6 +12,7 @@ gpucc-waipio.ko
 dispcc-waipio.ko
 camcc-waipio.ko
 debugcc-waipio.ko
+clk-rpmh.ko
 dwc3.ko
 dwc3-msm.ko
 phy-generic.ko
