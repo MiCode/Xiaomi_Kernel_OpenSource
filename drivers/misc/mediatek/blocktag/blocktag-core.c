@@ -1496,8 +1496,6 @@ static int mtk_btag_install_tracepoints(void)
 
 static int __init mtk_btag_init(void)
 {
-	return 0;
-
 	mtk_btag_init_memory();
 	mtk_btag_init_pidlogger();
 	mtk_btag_init_procfs();
