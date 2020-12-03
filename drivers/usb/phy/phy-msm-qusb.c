@@ -999,8 +999,10 @@ static int qusb_phy_probe(struct platform_device *pdev)
 	}
 
 	qphy->ref_clk_src = devm_clk_get(dev, "ref_clk_src");
-	if (IS_ERR(qphy->ref_clk_src))
+	if (IS_ERR(qphy->ref_clk_src)) {
+		qphy->ref_clk_src = NULL;
 		dev_dbg(dev, "clk get failed for ref_clk_src\n");
+	}
 
 	/* ref_clk is needed only for DIFF_CLK case, hence make it optional. */
 	if (of_property_match_string(pdev->dev.of_node,
