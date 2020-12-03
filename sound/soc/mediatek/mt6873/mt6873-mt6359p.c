@@ -155,6 +155,7 @@ static int mt6873_mt6359p_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 	int phase;
 	unsigned int monitor;
 	int test_done_1, test_done_2, test_done_3;
+	int miso0_need_calib, miso1_need_calib, miso2_need_calib;
 	int cycle_1, cycle_2, cycle_3;
 	int prev_cycle_1, prev_cycle_2, prev_cycle_3;
 	int counter;
@@ -163,6 +164,11 @@ static int mt6873_mt6359p_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 	dev_info(afe->dev, "%s(), start\n", __func__);
 
 	pm_runtime_get_sync(afe->dev);
+
+	miso0_need_calib = mt6873_afe_gpio_is_prepared(MT6873_AFE_GPIO_DAT_MISO0_ON);
+	miso1_need_calib = mt6873_afe_gpio_is_prepared(MT6873_AFE_GPIO_DAT_MISO1_ON);
+	miso2_need_calib = mt6873_afe_gpio_is_prepared(MT6873_AFE_GPIO_DAT_MISO2_ON);
+
 	mt6873_afe_gpio_request(afe, true, MT6873_DAI_ADDA, 1);
 	mt6873_afe_gpio_request(afe, true, MT6873_DAI_ADDA, 0);
 	mt6873_afe_gpio_request(afe, true, MT6873_DAI_ADDA_CH34, 1);
@@ -235,19 +241,22 @@ static int mt6873_mt6359p_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 			prev_cycle_3 = cycle_3;
 		}
 
-		if (cycle_1 != prev_cycle_1 &&
+		if (miso0_need_calib &&
+		    cycle_1 != prev_cycle_1 &&
 		    afe_priv->mtkaif_chosen_phase[0] < 0) {
 			afe_priv->mtkaif_chosen_phase[0] = phase - 1;
 			afe_priv->mtkaif_phase_cycle[0] = prev_cycle_1;
 		}
 
-		if (cycle_2 != prev_cycle_2 &&
+		if (miso1_need_calib &&
+		    cycle_2 != prev_cycle_2 &&
 		    afe_priv->mtkaif_chosen_phase[1] < 0) {
 			afe_priv->mtkaif_chosen_phase[1] = phase - 1;
 			afe_priv->mtkaif_phase_cycle[1] = prev_cycle_2;
 		}
 
-		if (cycle_3 != prev_cycle_3 &&
+		if (miso2_need_calib &&
+		    cycle_3 != prev_cycle_3 &&
 		    afe_priv->mtkaif_chosen_phase[2] < 0) {
 			afe_priv->mtkaif_chosen_phase[2] = phase - 1;
 			afe_priv->mtkaif_phase_cycle[2] = prev_cycle_3;
@@ -255,11 +264,6 @@ static int mt6873_mt6359p_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 
 		regmap_update_bits(afe_priv->topckgen,
 				   CKSYS_AUD_TOP_CFG, 0x1, 0x0);
-
-		if (afe_priv->mtkaif_chosen_phase[0] >= 0 &&
-		    afe_priv->mtkaif_chosen_phase[1] >= 0 &&
-		    afe_priv->mtkaif_chosen_phase[2] >= 0)
-			break;
 	}
 
 	mt6359_set_mtkaif_calibration_phase(codec_component,
@@ -279,13 +283,31 @@ static int mt6873_mt6359p_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 	mt6873_afe_gpio_request(afe, false, MT6873_DAI_ADDA, 0);
 	mt6873_afe_gpio_request(afe, false, MT6873_DAI_ADDA_CH34, 1);
 	mt6873_afe_gpio_request(afe, false, MT6873_DAI_ADDA_CH34, 0);
+
+	/* disable syncword if miso pin not prepared */
+	if (!miso0_need_calib)
+		regmap_update_bits(afe->regmap, AFE_ADDA_MTKAIF_SYNCWORD_CFG,
+				   RG_ADDA_MTKAIF_RX_SYNC_WORD1_DISABLE_MASK_SFT,
+				   0x1 << RG_ADDA_MTKAIF_RX_SYNC_WORD1_DISABLE_SFT);
+	if (!miso1_need_calib)
+		regmap_update_bits(afe->regmap, AFE_ADDA_MTKAIF_SYNCWORD_CFG,
+				   RG_ADDA_MTKAIF_RX_SYNC_WORD2_DISABLE_MASK_SFT,
+				   0x1 << RG_ADDA_MTKAIF_RX_SYNC_WORD2_DISABLE_SFT);
+	/* miso2 need to sync word with miso1 */
+	/* if only use miso2, disable syncword of miso1 */
+	if (miso2_need_calib && !miso0_need_calib && !miso1_need_calib)
+		regmap_update_bits(afe->regmap, AFE_ADDA_MTKAIF_SYNCWORD_CFG,
+				   RG_ADDA6_MTKAIF_RX_SYNC_WORD2_DISABLE_MASK_SFT,
+				   0x1 << RG_ADDA6_MTKAIF_RX_SYNC_WORD2_DISABLE_SFT);
+
 	pm_runtime_put(afe->dev);
 
-	dev_info(afe->dev, "%s(), mtkaif_chosen_phase[0/1/2]:%d/%d/%d\n",
+	dev_info(afe->dev, "%s(), mtkaif_chosen_phase[0/1/2]:%d/%d/%d, miso_need_calib[%d/%d/%d]\n",
 		 __func__,
 		 afe_priv->mtkaif_chosen_phase[0],
 		 afe_priv->mtkaif_chosen_phase[1],
-		 afe_priv->mtkaif_chosen_phase[2]);
+		 afe_priv->mtkaif_chosen_phase[2],
+		 miso0_need_calib, miso1_need_calib, miso2_need_calib);
 
 	return 0;
 }
@@ -301,7 +323,7 @@ static int mt6873_mt6359p_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_dapm_context *dapm = &rtd->card->dapm;
 	struct mt6359_codec_ops ops;
 
-	/* set dc component callback function for codec  */
+	/* set dc component callback function for codec */
 	ops.enable_dc_compensation = mt6873_enable_dc_compensation;
 	ops.set_lch_dc_compensation = mt6873_set_lch_dc_compensation;
 	ops.set_rch_dc_compensation = mt6873_set_rch_dc_compensation;
