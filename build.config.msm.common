@@ -229,6 +229,8 @@ if [ "${BUILD_VENDOR_DLKM}" == "1" ]; then
   fi
 fi
 
+KERNEL_BINARY=Image
+
 ################################################################################
 ## DT Overlay
 LIBUFDT_PREBUILTS_BIN=tools/libufdt/utils/src
@@ -242,19 +244,6 @@ fi
 
 ################################################################################
 ## Miscellaneous
-function determine_result_image {
-  if [[ $(${KERNEL_DIR}/scripts/config \
-    --file ${OUT_DIR}/.config \
-    --state CONFIG_BUILD_${ARCH^^}_UNCOMPRESSED_KERNEL) \
-    == 'y' ]];
-  then
-    KERNEL_BINARY=Image
-  else
-    KERNEL_BINARY=Image.gz
-  fi
-}
-append_cmd DIST_CMDS 'determine_result_image'
-
 if [ -n "${EXTRA_CONFIGS}" ]; then
   for extra_config in "${EXTRA_CONFIGS}"
   do
