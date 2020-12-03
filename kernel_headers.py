@@ -344,7 +344,7 @@ def run_headers_install(verbose, gen_dir, headers_install, prefix, h):
   if verbose:
     print('run_headers_install: cmd is %s' % cmd)
 
-  result = subprocess.call(cmd)
+  result = subprocess.call(['sh', headers_install, h, out_h])
 
   if result != 0:
     print('error: run_headers_install: cmd %s failed %d' % (cmd, result))
