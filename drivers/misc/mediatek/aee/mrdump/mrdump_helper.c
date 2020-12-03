@@ -24,7 +24,7 @@
 #ifdef MODULE
 
 #define KV		kimage_vaddr
-#define S_MAX		SZ_32M
+#define S_MAX		(SZ_32M)
 #define SM_SIZE		28
 #define TT_SIZE		256
 #define NAME_LEN	128
@@ -38,13 +38,12 @@ static unsigned int *mrdump_km;
 static u8 *mrdump_ktt;
 static u16 *mrdump_kti;
 
-static void *mrdump_abt_addr(void)
+static void *mrdump_abt_addr(void *ssa)
 {
-	void *ssa = (void *)(KV);
 	void *pos;
 	u8 abt[SM_SIZE];
 	int i;
-	u32 s_left;
+	unsigned long s_left;
 
 	for (i = 0; i < SM_SIZE; i++) {
 		if (i % 2)
@@ -53,16 +52,21 @@ static void *mrdump_abt_addr(void)
 			abt[i] = 0x61 + i / 2;
 	}
 
+	if ((unsigned long)ssa >= KV + S_MAX) {
+		pr_info("out of range: 0x%lx\n", ssa);
+		return NULL;
+	}
+
 	pos = ssa;
-	s_left = S_MAX;
-	while ((u64)pos < (u64)(ssa + S_MAX)) {
+	s_left = KV + S_MAX - (unsigned long)ssa;
+	while ((u64)pos < (u64)(KV + S_MAX)) {
 		pos = memchr(pos, 'a', s_left);
 
 		if (!pos) {
 			pr_info("fail at: 0x%lx @ 0x%x\n", ssa, s_left);
 			return NULL;
 		}
-		s_left = ssa + S_MAX - pos;
+		s_left = KV + S_MAX - (unsigned long)pos;
 
 		if (!memcmp(pos, (const void *)abt, sizeof(abt)))
 			return pos;
@@ -70,25 +74,32 @@ static void *mrdump_abt_addr(void)
 		pos += 1;
 	}
 
-	pr_info("fail at end: 0x%lx @ 0x%x\n", ssa, s_left);
+	pr_info("fail at end: 0x%lx @ 0x%lx\n", ssa, s_left);
 	return NULL;
 }
 
 static unsigned long *mrdump_krb_addr(void)
 {
-	void *abt_addr = mrdump_abt_addr();
-	unsigned long *ssa;
-	int i;
+	void *abt_addr = (void *)KV;
+	void *ssa = (void *)KV;
+	unsigned long *pos;
 
-	if (!abt_addr)
-		return NULL;
+	while ((u64)ssa < KV + S_MAX) {
+		abt_addr = mrdump_abt_addr(ssa);
+		if (!abt_addr) {
+			pr_info("krb not found: 0x%lx\n", ssa);
+			return NULL;
+		}
 
-	ssa = (unsigned long *)round_up((unsigned long)abt_addr, 8);
-
-	for (i = 0; i < SZ_1M ; i++) {
-		if (*ssa == KV)
-			return ssa;
-		ssa--;
+		abt_addr = (void *)round_up((unsigned long)abt_addr, 8);
+		for (pos = (unsigned long *)abt_addr;
+		     (u64)pos > (u64)ssa ; pos--) {
+			if ((u64)pos == (u64)&kimage_vaddr)
+				break;
+			if (*pos == KV)
+				return pos;
+		}
+		ssa = abt_addr + 1;
 	}
 
 	pr_info("krb not found: 0x%lx\n", ssa);
