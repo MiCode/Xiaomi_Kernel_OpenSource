@@ -2969,6 +2969,14 @@ int mhi_dev_read_channel(struct mhi_req *mreq)
 		mhi_log(MHI_MSG_ERROR, "invalid mhi request\n");
 		return -ENXIO;
 	}
+
+	if (atomic_read(&mhi_ctx->is_suspended)) {
+		mhi_log(MHI_MSG_ERROR,
+			"mhi still in suspend, return %d for read ch:%d\n",
+				rc, mreq->client->channel->ch_id);
+		return -ENODEV;
+	}
+
 	handle_client = mreq->client;
 	ch = handle_client->channel;
 	usr_buf_remaining = mreq->len;
