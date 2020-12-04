@@ -509,29 +509,9 @@ void wait_scp_dvfs_init_done(void)
 	}
 }
 
-int scp_pll_ctrl_set(unsigned int pll_ctrl_flag, unsigned int pll_sel)
+static int set_scp_clk_mux(unsigned int  pll_ctrl_flag)
 {
-	int idx;
-	int mux_idx = 0;
 	int ret = 0;
-
-	pr_debug("[%s]: (%d, %d)\n", __func__, pll_ctrl_flag, pll_sel);
-
-	idx = scp_get_freq_idx(pll_sel);
-	if (idx < 0 && pll_sel != CLK_26M) {
-		pr_notice("invalid idx %d\n", idx);
-		WARN_ON(1);
-		return -EINVAL;
-	}
-
-	if (pll_sel != CLK_26M)
-		mux_idx = dvfs.opp[idx].clk_mux;
-
-	if (mux_idx < 0 && pll_sel != CLK_26M) {
-		pr_notice("invalid mux_idx %d\n", mux_idx);
-		WARN_ON(1);
-		return -EINVAL;
-	}
 
 	if (pll_ctrl_flag == PLL_ENABLE) {
 		if (!dvfs.pre_mux_en) {
@@ -540,13 +520,71 @@ int scp_pll_ctrl_set(unsigned int pll_ctrl_flag, unsigned int pll_sel)
 				pr_notice("[%s]: clk_prepare_enable failed\n",
 					__func__);
 				WARN_ON(1);
+				return -1;
 			}
+			dvfs.pre_mux_en = true;
 		}
-		if (pll_sel == CLK_26M)
-			/* default boot-up clk : 26 MHz */
-			ret = clk_set_parent(mt_scp_pll.clk_mux,
-					mt_scp_pll.clk_pll[0]);
-		else if (idx >= 0 && idx < dvfs.scp_opp_nums
+	} else if (pll_ctrl_flag == PLL_DISABLE) {
+		clk_disable_unprepare(mt_scp_pll.clk_mux);
+		dvfs.pre_mux_en = false;
+	}
+
+	return 0;
+}
+
+static int __scp_pll_sel_26M(unsigned int pll_ctrl_flag, unsigned int pll_sel)
+{
+	int ret = 0;
+
+	if (pll_sel != CLK_26M)
+		return -EINVAL;
+
+	ret = set_scp_clk_mux(pll_ctrl_flag);
+	if (ret)
+		return ret;
+
+	if (pll_ctrl_flag == PLL_ENABLE)
+		ret = clk_set_parent(mt_scp_pll.clk_mux, mt_scp_pll.clk_pll[0]);
+
+	if (ret) {
+		pr_notice("[%s]: clk_set_parent() failed for 26M\n", __func__);
+		WARN_ON(1);
+	}
+
+	return ret;
+}
+
+int scp_pll_ctrl_set(unsigned int pll_ctrl_flag, unsigned int pll_sel)
+{
+	int idx;
+	int mux_idx = 0;
+	int ret = 0;
+
+	pr_debug("[%s]: (%d, %d)\n", __func__, pll_ctrl_flag, pll_sel);
+
+	if (pll_sel == CLK_26M)
+		return __scp_pll_sel_26M(pll_ctrl_flag, pll_sel);
+
+	idx = scp_get_freq_idx(pll_sel);
+	if (idx < 0) {
+		pr_notice("invalid idx %d\n", idx);
+		WARN_ON(1);
+		return -EINVAL;
+	}
+
+	mux_idx = dvfs.opp[idx].clk_mux;
+
+	if (mux_idx < 0) {
+		pr_notice("invalid mux_idx %d\n", mux_idx);
+		WARN_ON(1);
+		return -EINVAL;
+	}
+
+	if (pll_ctrl_flag == PLL_ENABLE) {
+		ret = set_scp_clk_mux(pll_ctrl_flag);
+		if (ret)
+			return ret;
+		if (idx >= 0 && idx < dvfs.scp_opp_nums
 				&& idx < mt_scp_pll.pll_num)
 			ret = clk_set_parent(mt_scp_pll.clk_mux,
 					mt_scp_pll.clk_pll[mux_idx]);
@@ -561,14 +599,9 @@ int scp_pll_ctrl_set(unsigned int pll_ctrl_flag, unsigned int pll_sel)
 				__func__, pll_sel);
 			WARN_ON(1);
 		}
-
-		if (pll_sel == CLK_26M || ((idx >= 0)
-				&& dvfs.opp[idx].resource_req != 0))
-			dvfs.pre_mux_en = true;
 	} else if ((pll_ctrl_flag == PLL_DISABLE) &&
 			(dvfs.opp[idx].resource_req == 0)) {
-		clk_disable_unprepare(mt_scp_pll.clk_mux);
-		dvfs.pre_mux_en = false;
+		set_scp_clk_mux(pll_ctrl_flag);
 	}
 	return ret;
 }
