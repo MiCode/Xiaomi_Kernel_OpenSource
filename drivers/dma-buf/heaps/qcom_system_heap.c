@@ -23,6 +23,12 @@
  * with our own modificaitons made to account for core kernel changes that are
  * a part of the patch series.
  *
+ * Pooling functionality taken from:
+ * Git-repo: https://git.linaro.org/people/john.stultz/android-dev.git
+ * Branch: dma-buf-heap-perf
+ * Git-commit: 6f080eb67dce63c6efa57ef564ca4cd762ccebb0
+ * Git-commit: 6fb9593b928c4cb485bef4e88c59c6b9fdf11352
+ *
  * Copyright (C) 2011 Google, Inc.
  * Copyright (C) 2019, 2020 Linaro Ltd.
  *
@@ -45,6 +51,7 @@
 #include <linux/vmalloc.h>
 #include <linux/qcom_dma_heap.h>
 
+#include "qcom_dynamic_page_pool.h"
 #include "qcom_system_heap.h"
 
 static struct dma_heap *sys_heap;
@@ -79,6 +86,7 @@ struct dma_heap_attachment {
 static gfp_t order_flags[] = {HIGH_ORDER_GFP, LOW_ORDER_GFP, LOW_ORDER_GFP};
 static const unsigned int orders[] = {8, 4, 0};
 #define NUM_ORDERS ARRAY_SIZE(orders)
+struct dynamic_page_pool *pools[NUM_ORDERS];
 
 static struct sg_table *dup_sg_table(struct sg_table *table)
 {
@@ -320,18 +328,60 @@ static void system_heap_vunmap(struct dma_buf *dmabuf, void *vaddr)
 	mutex_unlock(&buffer->lock);
 }
 
+
+static int system_heap_clear_pages(struct page **pages, int num, pgprot_t pgprot)
+{
+	void *addr = vmap(pages, num, VM_MAP, pgprot);
+
+	if (!addr)
+		return -ENOMEM;
+	memset(addr, 0, PAGE_SIZE * num);
+	vunmap(addr);
+	return 0;
+}
+
+static int system_heap_zero_buffer(struct system_heap_buffer *buffer)
+{
+	struct sg_table *sgt = &buffer->sg_table;
+	struct sg_page_iter piter;
+	struct page *pages[32];
+	int p = 0;
+	int ret = 0;
+
+	for_each_sgtable_page(sgt, &piter, 0) {
+		pages[p++] = sg_page_iter_page(&piter);
+		if (p == ARRAY_SIZE(pages)) {
+			ret = system_heap_clear_pages(pages, p, PAGE_KERNEL);
+			if (ret)
+				return ret;
+			p = 0;
+		}
+	}
+	if (p)
+		ret = system_heap_clear_pages(pages, p, PAGE_KERNEL);
+
+	return ret;
+}
+
 static void system_heap_dma_buf_release(struct dma_buf *dmabuf)
 {
 	struct system_heap_buffer *buffer = dmabuf->priv;
 	struct sg_table *table;
 	struct scatterlist *sg;
-	int i;
+	int i, j;
+
+	/* Zero the buffer pages before adding back to the pool */
+	system_heap_zero_buffer(buffer);
 
 	table = &buffer->sg_table;
 	for_each_sg(table->sgl, sg, table->nents, i) {
 		struct page *page = sg_page(sg);
 
-		__free_pages(page, compound_order(page));
+		for (j = 0; j < NUM_ORDERS; j++) {
+			if (compound_order(page) == orders[j])
+				break;
+		}
+		dynamic_page_pool_free(pools[j], page);
 	}
 	sg_free_table(table);
 	kfree(buffer);
@@ -361,8 +411,7 @@ static struct page *alloc_largest_available(unsigned long size,
 			continue;
 		if (max_order < orders[i])
 			continue;
-
-		page = alloc_pages(order_flags[i], orders[i]);
+		page = dynamic_page_pool_alloc(pools[i]);
 		if (!page)
 			continue;
 		return page;
@@ -494,6 +543,25 @@ static struct dma_heap_ops system_uncached_heap_ops = {
 int qcom_system_heap_create(void)
 {
 	struct dma_heap_export_info exp_info;
+	int i;
+	int ret;
+
+	ret = dynamic_page_pool_init_shrinker();
+	if (IS_ERR(ret))
+		return ret;
+
+	for (i = 0; i < NUM_ORDERS; i++) {
+		pools[i] = dynamic_page_pool_create(order_flags[i], orders[i]);
+
+		if (IS_ERR(pools[i])) {
+			int j;
+
+			pr_err("%s: page pool creation failed!\n", __func__);
+			for (j = 0; j < i; j++)
+				dynamic_page_pool_destroy(pools[j]);
+			return PTR_ERR(pools[i]);
+		}
+	}
 
 	exp_info.name = "qcom,system";
 	exp_info.ops = &system_heap_ops;
@@ -502,6 +570,9 @@ int qcom_system_heap_create(void)
 	sys_heap = dma_heap_add(&exp_info);
 	if (IS_ERR(sys_heap))
 		return PTR_ERR(sys_heap);
+
+	if (!IS_ENABLED(CONFIG_QCOM_DMABUF_HEAPS_SYSTEM_UNCACHED))
+		goto out;
 
 	exp_info.name = "qcom,system-uncached";
 	exp_info.ops = &system_uncached_heap_ops;
@@ -517,5 +588,6 @@ int qcom_system_heap_create(void)
 	heap_dev->coherent_dma_mask = DMA_BIT_MASK(64);
 	heap_dev->dma_mask = &heap_dev->coherent_dma_mask;
 
+out:
 	return 0;
 }
