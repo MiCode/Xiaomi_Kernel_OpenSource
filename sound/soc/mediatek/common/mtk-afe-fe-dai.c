@@ -532,8 +532,7 @@ int mtk_memif_set_enable(struct mtk_base_afe *afe, int id)
 			 __func__, id);
 		return 0;
 	}
-	return mtk_regmap_update_bits(afe->regmap,
-				      memif->data->enable_reg,
+	return mtk_regmap_update_bits(afe->regmap, memif->data->enable_reg,
 				      1, 1, memif->data->enable_shift);
 }
 EXPORT_SYMBOL_GPL(mtk_memif_set_enable);
@@ -547,8 +546,7 @@ int mtk_memif_set_disable(struct mtk_base_afe *afe, int id)
 			 __func__, id);
 		return 0;
 	}
-	return mtk_regmap_update_bits(afe->regmap,
-				      memif->data->enable_reg,
+	return mtk_regmap_update_bits(afe->regmap, memif->data->enable_reg,
 				      1, 0, memif->data->enable_shift);
 }
 EXPORT_SYMBOL_GPL(mtk_memif_set_disable);
@@ -732,9 +730,10 @@ static int mtk_memif_set_rate_fs(struct mtk_base_afe *afe,
 {
 	struct mtk_base_afe_memif *memif = &afe->memif[id];
 
-	mtk_regmap_update_bits(afe->regmap, memif->data->fs_reg,
-			       memif->data->fs_maskbit,
-			       fs, memif->data->fs_shift);
+	if (memif->data->fs_shift >= 0)
+		mtk_regmap_update_bits(afe->regmap, memif->data->fs_reg,
+				       memif->data->fs_maskbit,
+				       fs, memif->data->fs_shift);
 
 	return 0;
 }
@@ -789,7 +788,8 @@ int mtk_memif_set_format(struct mtk_base_afe *afe,
 {
 	struct mtk_base_afe_memif *memif = &afe->memif[id];
 	int hd_audio = 0;
-	int memif_32bit_supported = afe->memif_32bit_supported;
+	int hd_align = 0;
+	int ret = 0;
 
 	/* set hd mode */
 	switch (format) {
@@ -799,10 +799,13 @@ int mtk_memif_set_format(struct mtk_base_afe *afe,
 		break;
 	case SNDRV_PCM_FORMAT_S32_LE:
 	case SNDRV_PCM_FORMAT_U32_LE:
-		if (memif_32bit_supported)
+		if (afe->memif_32bit_supported) {
 			hd_audio = 2;
-		else
+			hd_align = 0;
+		} else {
 			hd_audio = 1;
+			hd_align = 1;
+		}
 		break;
 	case SNDRV_PCM_FORMAT_S24_LE:
 	case SNDRV_PCM_FORMAT_U24_LE:
@@ -814,8 +817,20 @@ int mtk_memif_set_format(struct mtk_base_afe *afe,
 		break;
 	}
 
-	return mtk_regmap_update_bits(afe->regmap, memif->data->hd_reg,
-				      0x3, hd_audio, memif->data->hd_shift);
+	ret = mtk_regmap_update_bits(afe->regmap, memif->data->hd_reg,
+				     0x3, hd_audio, memif->data->hd_shift);
+	if (ret)
+		dev_err(afe->dev, "%s() error set memif->data->hd_reg %d\n",
+			__func__, ret);
+
+	ret = mtk_regmap_update_bits(afe->regmap, memif->data->hd_align_reg,
+				     0x1, hd_align,
+				     memif->data->hd_align_mshift);
+	if (ret)
+		dev_err(afe->dev, "%s() error set memif->data->hd_align_mshift %d\n",
+			__func__, ret);
+
+	return ret;
 }
 EXPORT_SYMBOL_GPL(mtk_memif_set_format);
 
@@ -824,8 +839,7 @@ int mtk_memif_set_pbuf_size(struct mtk_base_afe *afe,
 {
 	const struct mtk_base_memif_data *memif_data = afe->memif[id].data;
 
-	if (memif_data->pbuf_mask == 0 ||
-	    memif_data->minlen_mask == 0)
+	if (memif_data->pbuf_mask == 0 || memif_data->minlen_mask == 0)
 		return 0;
 
 	mtk_regmap_update_bits(afe->regmap, memif_data->pbuf_reg,
