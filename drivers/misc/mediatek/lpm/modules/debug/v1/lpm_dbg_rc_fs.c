@@ -599,7 +599,7 @@ void spm_cond_init(void)
 						prop, cg_name) {
 					spm_cond.cg_str[cg_idx] =
 					kcalloc(1, sizeof(char)*
-						strlen(cg_name + 1),
+						(strlen(cg_name) + 1),
 						GFP_KERNEL);
 					strncat(spm_cond.cg_str[cg_idx++],
 						cg_name, strlen(cg_name));
@@ -616,7 +616,8 @@ void spm_cond_init(void)
 					prop, pll_name) {
 					spm_cond.pll_str[pll_idx] =
 					kcalloc(1,
-						sizeof(char)*strlen(pll_name+1),
+						sizeof(char) *
+						(strlen(pll_name) + 1),
 						GFP_KERNEL);
 					strncat(spm_cond.pll_str[pll_idx++],
 						pll_name, strlen(pll_name));
