@@ -206,6 +206,7 @@ int mt6873_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 				if (avail >= runtime->buffer_size) {
 					dev_warn(afe->dev, "%s(), id %d, xrun assert\n",
 						 __func__, id);
+					AUDIO_AEE("xrun assert");
 				}
 			}
 		}
@@ -3255,6 +3256,26 @@ skip_regmap:
 	return 0;
 }
 
+static int mt6873_afe_pcm_copy(struct snd_pcm_substream *substream,
+			       int channel, unsigned long hwoff,
+			       void *buf, unsigned long bytes,
+			       mtk_sp_copy_f sp_copy)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_component *component =
+		snd_soc_rtdcom_lookup(rtd, AFE_PCM_NAME);
+	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(component);
+	int ret = 0;
+
+	mt6873_set_audio_int_bus_parent(afe, CLK_TOP_MAINPLL_D4_D4);
+
+	ret = sp_copy(substream, channel, hwoff, buf, bytes);
+
+	mt6873_set_audio_int_bus_parent(afe, CLK_CLK26M);
+
+	return ret;
+}
+
 static int mt6873_set_memif_sram_mode(struct device *dev,
 				      enum mtk_audio_sram_mode sram_mode)
 {
@@ -5985,6 +6006,8 @@ static int mt6873_afe_pcm_dev_probe(struct platform_device *pdev)
 
 	afe->request_dram_resource = mt6873_afe_dram_request;
 	afe->release_dram_resource = mt6873_afe_dram_release;
+
+	afe->copy = mt6873_afe_pcm_copy;
 
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 	/* debugfs */

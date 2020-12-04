@@ -1113,8 +1113,7 @@ static int mtk_afe_dac_hires_connect(struct snd_soc_dapm_widget *source,
 	adda_priv = get_adda_priv_by_name(afe, w->name);
 
 	if (!adda_priv) {
-		dev_err(afe->dev, "%s(), error, adda_priv == NULL\n",
-		       __func__);
+		AUDIO_AEE("adda_priv == NULL");
 		return 0;
 	}
 
@@ -1132,8 +1131,7 @@ static int mtk_afe_adc_hires_connect(struct snd_soc_dapm_widget *source,
 	adda_priv = get_adda_priv_by_name(afe, w->name);
 
 	if (!adda_priv) {
-		dev_err(afe->dev, "%s(), error, adda_priv == NULL\n",
-		       __func__);
+		AUDIO_AEE("adda_priv == NULL");
 		return 0;
 	}
 
@@ -1292,8 +1290,7 @@ static int mtk_dai_adda_hw_params(struct snd_pcm_substream *substream,
 		 rate);
 
 	if (!adda_priv) {
-		dev_err(afe->dev, "%s(), error, adda_priv == NULL\n",
-		       __func__);
+		AUDIO_AEE("adda_priv == NULL");
 		return -EINVAL;
 	}
 

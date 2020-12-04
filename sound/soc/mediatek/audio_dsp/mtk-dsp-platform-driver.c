@@ -771,7 +771,6 @@ static snd_pcm_uframes_t mtk_dsphw_pcm_pointer_dl
 	unsigned long flags;
 	struct snd_soc_dai *cpu_dai;
 
-
 	rtd = substream->private_data;
 	if (!rtd) {
 		pr_info("%s rtd = %p", __func__, rtd);
@@ -781,10 +780,8 @@ static snd_pcm_uframes_t mtk_dsphw_pcm_pointer_dl
 
 	cpu_dai = asoc_rtd_to_cpu(rtd, 0);
 	id = cpu_dai->id;
-	pr_info("%s id = %d\n", __func__, id);
 
-	component =
-		snd_soc_rtdcom_lookup(rtd, AFE_DSP_NAME);
+	component = snd_soc_rtdcom_lookup(rtd, AFE_DSP_NAME);
 	if (!component) {
 		pr_info("%s component = %p\n", __func__, component);
 		AUD_ASSERT(0);

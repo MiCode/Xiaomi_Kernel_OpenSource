@@ -126,6 +126,64 @@ POINTER_RETURN_FRAMES:
 }
 EXPORT_SYMBOL_GPL(mtk_afe_pcm_pointer);
 
+/* calculate the target DMA-buffer position to be written/read */
+static void *get_dma_ptr(struct snd_pcm_runtime *runtime,
+			   int channel, unsigned long hwoff)
+{
+	return runtime->dma_area + hwoff +
+		channel * (runtime->dma_bytes / runtime->channels);
+}
+
+/* default copy_user ops for write; used for both interleaved and non- modes */
+static int default_write_copy(struct snd_pcm_substream *substream,
+			      int channel, unsigned long hwoff,
+			      void *buf, unsigned long bytes)
+{
+	if (copy_from_user(get_dma_ptr(substream->runtime, channel, hwoff),
+			   (void __user *)buf, bytes))
+		return -EFAULT;
+	return 0;
+}
+
+/* default copy_user ops for read; used for both interleaved and non- modes */
+static int default_read_copy(struct snd_pcm_substream *substream,
+			     int channel, unsigned long hwoff,
+			     void *buf, unsigned long bytes)
+{
+	if (copy_to_user((void __user *)buf,
+			 get_dma_ptr(substream->runtime, channel, hwoff),
+			 bytes))
+		return -EFAULT;
+	return 0;
+}
+
+int mtk_afe_pcm_copy_user(struct snd_pcm_substream *substream,
+			  int channel, unsigned long hwoff,
+			  void *buf, unsigned long bytes)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_component *component =
+		snd_soc_rtdcom_lookup(rtd, AFE_PCM_NAME);
+	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(component);
+	int is_playback = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
+	mtk_sp_copy_f sp_copy;
+	int ret;
+
+	sp_copy = is_playback ? default_write_copy : default_read_copy;
+
+	if (afe->copy) {
+		ret = afe->copy(substream, channel, hwoff,
+				(void __user *)buf, bytes, sp_copy);
+		if (ret)
+			return -EFAULT;
+	} else {
+		sp_copy(substream, channel, hwoff,
+			(void __user *)buf, bytes);
+	}
+
+	return 0;
+}
+
 int mtk_afe_pcm_ack(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;

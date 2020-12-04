@@ -145,7 +145,7 @@ static int mt6873_i2s_hd_get(struct snd_kcontrol *kcontrol,
 	i2s_priv = get_i2s_priv_by_name(afe, kcontrol->id.name);
 
 	if (!i2s_priv) {
-		dev_warn(afe->dev, "%s(), i2s_priv == NULL", __func__);
+		AUDIO_AEE("i2s_priv == NULL");
 		return -EINVAL;
 	}
 
@@ -174,7 +174,7 @@ static int mt6873_i2s_hd_set(struct snd_kcontrol *kcontrol,
 	i2s_priv = get_i2s_priv_by_name(afe, kcontrol->id.name);
 
 	if (!i2s_priv) {
-		dev_warn(afe->dev, "%s(), i2s_priv == NULL", __func__);
+		AUDIO_AEE("i2s_priv == NULL");
 		return -EINVAL;
 	}
 
@@ -588,7 +588,7 @@ static int mtk_i2s_en_event(struct snd_soc_dapm_widget *w,
 	i2s_priv = get_i2s_priv_by_name(afe, w->name);
 
 	if (!i2s_priv) {
-		dev_warn(afe->dev, "%s(), i2s_priv == NULL", __func__);
+		AUDIO_AEE("i2s_priv == NULL");
 		return -EINVAL;
 	}
 
@@ -721,7 +721,7 @@ static int mtk_mclk_en_event(struct snd_soc_dapm_widget *w,
 	i2s_priv = get_i2s_priv_by_name(afe, w->name);
 
 	if (!i2s_priv) {
-		dev_warn(afe->dev, "%s(), i2s_priv == NULL", __func__);
+		AUDIO_AEE("i2s_priv == NULL");
 		return -EINVAL;
 	}
 
@@ -953,7 +953,7 @@ static int mtk_afe_i2s_share_connect(struct snd_soc_dapm_widget *source,
 	i2s_priv = get_i2s_priv_by_name(afe, sink->name);
 
 	if (!i2s_priv) {
-		dev_warn(afe->dev, "%s(), i2s_priv == NULL", __func__);
+		AUDIO_AEE("i2s_priv == NULL");
 		return 0;
 	}
 
@@ -974,7 +974,7 @@ static int mtk_afe_i2s_hd_connect(struct snd_soc_dapm_widget *source,
 	i2s_priv = get_i2s_priv_by_name(afe, sink->name);
 
 	if (!i2s_priv) {
-		dev_warn(afe->dev, "%s(), i2s_priv == NULL", __func__);
+		AUDIO_AEE("i2s_priv == NULL");
 		return 0;
 	}
 
@@ -1005,7 +1005,7 @@ static int mtk_afe_i2s_apll_connect(struct snd_soc_dapm_widget *source,
 	i2s_priv = get_i2s_priv_by_name(afe, w->name);
 
 	if (!i2s_priv) {
-		dev_warn(afe->dev, "%s(), i2s_priv == NULL", __func__);
+		AUDIO_AEE("i2s_priv == NULL");
 		return 0;
 	}
 
@@ -1029,7 +1029,7 @@ static int mtk_afe_i2s_mclk_connect(struct snd_soc_dapm_widget *source,
 	i2s_priv = get_i2s_priv_by_name(afe, sink->name);
 
 	if (!i2s_priv) {
-		dev_warn(afe->dev, "%s(), i2s_priv == NULL", __func__);
+		AUDIO_AEE("i2s_priv == NULL");
 		return 0;
 	}
 
@@ -1059,7 +1059,7 @@ static int mtk_afe_mclk_apll_connect(struct snd_soc_dapm_widget *source,
 	i2s_priv = get_i2s_priv_by_name(afe, w->name);
 
 	if (!i2s_priv) {
-		dev_warn(afe->dev, "%s(), i2s_priv == NULL", __func__);
+		AUDIO_AEE("i2s_priv == NULL");
 		return 0;
 	}
 
@@ -1678,7 +1678,7 @@ static int mtk_dai_i2s_config(struct mtk_base_afe *afe,
 	if (i2s_priv)
 		i2s_priv->rate = rate;
 	else
-		dev_warn(afe->dev, "%s(), i2s_priv == NULL", __func__);
+		AUDIO_AEE("i2s_priv == NULL");
 
 	switch (i2s_id) {
 	case MT6873_DAI_I2S_0:
@@ -1779,16 +1779,14 @@ static int mtk_dai_i2s_set_sysclk(struct snd_soc_dai *dai,
 	int apll_rate;
 
 	if (!i2s_priv) {
-		dev_warn(afe->dev, "%s(), i2s_priv == NULL", __func__);
+		AUDIO_AEE("i2s_priv == NULL");
 		return -EINVAL;
 	}
-
 
 	if (dir != SND_SOC_CLOCK_OUT) {
-		dev_warn(afe->dev, "%s(), dir != SND_SOC_CLOCK_OUT", __func__);
+		AUDIO_AEE("dir != SND_SOC_CLOCK_OUT");
 		return -EINVAL;
 	}
-
 
 	dev_info(afe->dev, "%s(), freq %d\n", __func__, freq);
 
@@ -1796,17 +1794,14 @@ static int mtk_dai_i2s_set_sysclk(struct snd_soc_dai *dai,
 	apll_rate = mt6873_get_apll_rate(afe, apll);
 
 	if (freq > apll_rate) {
-		dev_warn(afe->dev, "%s(), freq > apll rate", __func__);
+		AUDIO_AEE("freq > apll rate");
 		return -EINVAL;
 	}
-
 
 	if (apll_rate % freq != 0) {
-		dev_warn(afe->dev, "%s(), APLL cannot generate freq Hz",
-			 __func__);
+		AUDIO_AEE("APLL cannot generate freq Hz");
 		return -EINVAL;
 	}
-
 
 	i2s_priv->mclk_rate = freq;
 	i2s_priv->mclk_apll = apll;
@@ -1816,8 +1811,7 @@ static int mtk_dai_i2s_set_sysclk(struct snd_soc_dai *dai,
 
 		share_i2s_priv = afe_priv->dai_priv[i2s_priv->share_i2s_id];
 		if (!share_i2s_priv) {
-			dev_warn(afe->dev, "%s(), share_i2s_priv == NULL",
-				 __func__);
+			AUDIO_AEE("share_i2s_priv == NULL");
 			return -EINVAL;
 		}
 

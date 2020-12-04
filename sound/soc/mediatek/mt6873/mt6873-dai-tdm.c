@@ -405,18 +405,14 @@ static int mtk_dai_tdm_cal_mclk(struct mtk_base_afe *afe,
 	apll_rate = mt6873_get_apll_rate(afe, apll);
 
 	if (freq > apll_rate) {
-		dev_warn(afe->dev,
-			 "%s(), freq(%d Hz) invalid\n", __func__, freq);
+		AUDIO_AEE("freq > apll rate");
 		return -EINVAL;
 	}
-
 
 	if (apll_rate % freq != 0) {
-		dev_warn(afe->dev,
-			 "%s(), APLL cannot generate %d Hz", __func__, freq);
+		AUDIO_AEE("APLL cannot generate freq Hz");
 		return -EINVAL;
 	}
-
 
 	tdm_priv->mclk_rate = freq;
 	tdm_priv->mclk_apll = apll;
@@ -451,12 +447,10 @@ static int mtk_dai_tdm_hw_params(struct snd_pcm_substream *substream,
 			     snd_pcm_format_physical_width(format);
 
 	if (tdm_priv->bck_rate > tdm_priv->mclk_rate)
-		dev_err(afe->dev, "%s(), bck_rate > mclk_rate rate\n",
-			__func__);
+		AUDIO_AEE("bck_rate > mclk_rate rate");
 
 	if (tdm_priv->mclk_rate % tdm_priv->bck_rate != 0)
-		dev_err(afe->dev, "%s(), bck cannot generate\n",
-			__func__);
+		AUDIO_AEE("bck cannot generate");
 
 	dev_info(afe->dev, "%s(), id %d, rate %d, channels %d, format %d, mclk_rate %d, bck_rate %d\n",
 		 __func__,
@@ -558,12 +552,12 @@ static int mtk_dai_tdm_set_sysclk(struct snd_soc_dai *dai,
 	struct mtk_afe_tdm_priv *tdm_priv = afe_priv->dai_priv[dai->id];
 
 	if (!tdm_priv) {
-		dev_err(afe->dev, "%s(), tdm_priv == NULL\n", __func__);
+		AUDIO_AEE("tdm_priv == NULL");
 		return -EINVAL;
 	}
 
 	if (dir != SND_SOC_CLOCK_OUT) {
-		dev_err(afe->dev, "%s(), dir != SND_SOC_CLOCK_OUT\n", __func__);
+		AUDIO_AEE("dir != SND_SOC_CLOCK_OUT");
 		return -EINVAL;
 	}
 
