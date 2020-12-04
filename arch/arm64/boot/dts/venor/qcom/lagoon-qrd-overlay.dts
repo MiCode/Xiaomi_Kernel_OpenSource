@@ -1,0 +1,12 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include "lagoon-qrd.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Lagoon QRD";
+	compatible = "qcom,lagoon-qrd", "qcom,lagoon", "qcom,qrd";
+	qcom,msm-id = <434 0x10000>, <459 0x10000>;
+	qcom,board-id = <0x1000B 0>;
+};

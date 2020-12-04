@@ -1,0 +1,191 @@
+#include <dt-bindings/clock/qcom,rpmh.h>
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/input/qcom,qpnp-power-on.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/spmi/spmi.h>
+#include <dt-bindings/iio/qcom,spmi-vadc.h>
+
+&spmi_bus {
+	#address-cells = <2>;
+	#size-cells = <0>;
+	interrupt-controller;
+	#interrupt-cells = <4>;
+
+	qcom,pm8150@0 {
+		compatible = "qcom,spmi-pmic";
+		reg = <0x0 SPMI_USID>;
+		#address-cells = <2>;
+		#size-cells = <0>;
+
+		qcom,power-on@800 {
+			compatible = "qcom,qpnp-power-on";
+			reg = <0x800 0x100>;
+			interrupts = <0x0 0x8 0x0 IRQ_TYPE_EDGE_BOTH>,
+					<0x0 0x8 0x1 IRQ_TYPE_EDGE_BOTH>,
+					<0x0 0x8 0x3 IRQ_TYPE_EDGE_BOTH>,
+					<0x0 0x8 0x4 IRQ_TYPE_EDGE_BOTH>,
+					<0x0 0x8 0x5 IRQ_TYPE_EDGE_BOTH>;
+			interrupt-names = "kpdpwr", "resin", "kpdpwr-bark",
+					"resin-bark", "kpdpwr-resin-bark";
+			qcom,pon-dbc-delay = <15625>;
+			qcom,kpdpwr-sw-debounce;
+			qcom,system-reset;
+			qcom,store-hard-reset-reason;
+
+			qcom,pon_1 {
+				qcom,pon-type = <PON_POWER_ON_TYPE_KPDPWR>;
+				qcom,pull-up;
+				qcom,use-bark = <1>;
+				qcom,support-reset = <1>;
+				linux,code = <KEY_POWER>;
+				qcom,s1-timer = <4480>;
+				qcom,s2-timer = <2000>;
+				qcom,s2-type = <PON_POWER_OFF_TYPE_HARD_RESET>;
+			};
+
+			qcom,pon_2 {
+				qcom,pon-type = <PON_POWER_ON_TYPE_RESIN>;
+				linux,code = <KEY_VOLUMEDOWN>;
+				qcom,pull-up;
+			};
+
+			qcom,pon_3 {
+				qcom,pon-type = <PON_POWER_ON_TYPE_KPDPWR_RESIN>;
+				qcom,support-reset = <1>;
+				qcom,pull-up;
+				qcom,s1-timer = <1352>;
+				qcom,s2-timer = <2000>;
+				qcom,s2-type = <PON_POWER_OFF_TYPE_WARM_RESET>;
+				qcom,use-bark;
+			};
+		};
+
+		pm8150_tz: qcom,temp-alarm@2400 {
+			compatible = "qcom,spmi-temp-alarm";
+			reg = <0x2400 0x100>;
+			interrupts = <0x0 0x24 0x0 IRQ_TYPE_EDGE_BOTH>;
+			io-channels = <&pm8150_vadc ADC_DIE_TEMP>;
+			io-channel-names = "thermal";
+			#thermal-sensor-cells = <0>;
+			qcom,temperature-threshold-set = <1>;
+		};
+
+		pm8150_clkdiv: clock-controller@5b00 {
+			compatible = "qcom,spmi-clkdiv";
+			reg = <0x5b00 0x200>;
+			#clock-cells = <1>;
+			qcom,num-clkdivs = <2>;
+			clock-output-names = "pm8150_div_clk1",
+						"pm8150_div_clk2";
+			clocks = <&clock_rpmh RPMH_CXO_CLK>;
+			clock-names = "xo";
+		};
+
+		pm8150_sdam_2: sdam@b100 {
+			compatible = "qcom,spmi-sdam";
+			reg = <0xb100 0x100>;
+		};
+
+		pm8150_gpios: pinctrl@c000 {
+			compatible = "qcom,spmi-gpio";
+			reg = <0xc000 0xa00>;
+			interrupts = <0x0 0xc0 0x0 IRQ_TYPE_NONE>,
+					<0x0 0xc2 0x0 IRQ_TYPE_NONE>,
+					<0x0 0xc5 0x0 IRQ_TYPE_NONE>,
+					<0x0 0xc6 0x0 IRQ_TYPE_NONE>,
+					<0x0 0xc8 0x0 IRQ_TYPE_NONE>,
+					<0x0 0xc9 0x0 IRQ_TYPE_NONE>;
+			interrupt-names = "pm8150_gpio1", "pm8150_gpio3",
+					"pm8150_gpio6", "pm8150_gpio7",
+					"pm8150_gpio9", "pm8150_gpio10";
+			gpio-controller;
+			#gpio-cells = <2>;
+			qcom,gpios-disallowed = <2 4 5 8>;
+		};
+
+		pm8150_rtc: qcom,pm8150_rtc {
+			compatible = "qcom,pm8941-rtc";
+			interrupts = <0x0 0x61 0x1 IRQ_TYPE_NONE>;
+		};
+
+		pm8150_vadc: vadc@3100 {
+			compatible = "qcom,spmi-adc5";
+			reg = <0x3100 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <0x0 0x31 0x0 IRQ_TYPE_EDGE_RISING>;
+			interrupt-names = "eoc-int-en-set";
+			qcom,adc-vdd-reference = <1875>;
+			#io-channel-cells = <1>;
+			io-channel-ranges;
+
+			/* Channel node */
+			ref_gnd@0 {
+				reg = <ADC_REF_GND>;
+				label = "ref_gnd";
+				qcom,pre-scaling = <1 1>;
+			};
+
+			vref_1p25@1 {
+				reg = <ADC_1P25VREF>;
+				label = "vref_1p25";
+				qcom,pre-scaling = <1 1>;
+			};
+
+			die_temp@2 {
+				reg = <ADC_DIE_TEMP>;
+				label = "die_temp";
+				qcom,pre-scaling = <1 1>;
+			};
+		};
+
+		pm8150_adc_tm: adc_tm@3500 {
+			compatible = "qcom,adc-tm5";
+			reg = <0x3500 0x100>;
+			interrupts = <0x0 0x35 0x0 IRQ_TYPE_EDGE_RISING>;
+			interrupt-names = "thr-int-en";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			#thermal-sensor-cells = <1>;
+			io-channels = <&pm8150_vadc ADC_AMUX_THM1_PU2>,
+					<&pm8150_vadc ADC_AMUX_THM2_PU2>;
+		};
+	};
+
+	qcom,pm8150@1 {
+		compatible ="qcom,spmi-pmic";
+		reg = <0x1 SPMI_USID>;
+		#address-cells = <2>;
+		#size-cells = <0>;
+	};
+};
+
+&thermal_zones {
+	pm8150_temp_alarm: pm8150_tz {
+		polling-delay-passive = <100>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&pm8150_tz>;
+		wake-capable-sensor;
+
+		trips {
+			pm8150_trip0: trip0 {
+				temperature = <95000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+
+			pm8150_trip1: trip1 {
+				temperature = <115000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+
+			trip2 {
+				temperature = <145000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+		};
+	};
+};

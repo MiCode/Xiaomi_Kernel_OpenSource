@@ -37,6 +37,14 @@ int __read_mostly sysctl_hung_task_check_count = PID_MAX_LIMIT;
 int sysctl_hung_task_selective_monitoring = 1;
 
 /*
+ * sysctl_hung_task_milliseconds is enable milliseconds
+ *
+ * if is 1 , hung_task_timeout_secs and hung_task_check_interval_secs will
+ * means set to millisecondsuse. as hung_task_timeout_secs is 5, will 5 milliseconds
+ */
+unsigned int __read_mostly sysctl_hung_task_millisecond;
+
+/*
  * Limit number of tasks checked in a batch.
  *
  * This value controls the preemptibility of khungtaskd since preemption
@@ -116,8 +124,13 @@ static void check_hung_task(struct task_struct *t, unsigned long timeout)
 		t->last_switch_time = jiffies;
 		return;
 	}
-	if (time_is_after_jiffies(t->last_switch_time + timeout * HZ))
-		return;
+	if (sysctl_hung_task_millisecond) {
+		if (time_is_after_jiffies(t->last_switch_time + (timeout * HZ) / 1000))
+			return;
+	} else {
+		if (time_is_after_jiffies(t->last_switch_time + timeout * HZ))
+			return;
+	}
 
 	trace_sched_process_hang(t);
 
@@ -134,8 +147,12 @@ static void check_hung_task(struct task_struct *t, unsigned long timeout)
 	if (sysctl_hung_task_warnings) {
 		if (sysctl_hung_task_warnings > 0)
 			sysctl_hung_task_warnings--;
-		pr_err("INFO: task %s:%d blocked for more than %ld seconds.\n",
-			t->comm, t->pid, timeout);
+		if (sysctl_hung_task_millisecond)
+			pr_err("INFO: task %s:%d blocked for more than %ld milliseconds.\n",
+				t->comm, t->pid, timeout);
+		else
+			pr_err("INFO: task %s:%d blocked for more than %ld seconds.\n",
+				t->comm, t->pid, timeout);
 		pr_err("      %s %s %.*s\n",
 			print_tainted(), init_utsname()->release,
 			(int)strcspn(init_utsname()->version, " "),
@@ -221,8 +238,13 @@ static long hung_timeout_jiffies(unsigned long last_checked,
 				 unsigned long timeout)
 {
 	/* timeout of 0 will disable the watchdog */
-	return timeout ? last_checked - jiffies + timeout * HZ :
-		MAX_SCHEDULE_TIMEOUT;
+	if (sysctl_hung_task_millisecond) {
+		return timeout ? last_checked - jiffies + (timeout * HZ) / 1000 :
+			MAX_SCHEDULE_TIMEOUT;
+	} else {
+		return timeout ? last_checked - jiffies + timeout * HZ :
+			MAX_SCHEDULE_TIMEOUT;
+	}
 }
 
 /*

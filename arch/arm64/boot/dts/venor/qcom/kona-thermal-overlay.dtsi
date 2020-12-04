@@ -1,0 +1,130 @@
+#include <dt-bindings/thermal/thermal.h>
+
+&mdss_mdp {
+	#cooling-cells = <2>;
+};
+
+&thermal_zones {
+	soc {
+		cooling-maps {
+			soc_cpu4 {
+				trip = <&soc_trip>;
+				cooling-device = <&cpu4_isolate 1 1>;
+			};
+
+			soc_cpu5 {
+				trip = <&soc_trip>;
+				cooling-device = <&cpu5_isolate 1 1>;
+			};
+
+			soc_cpu6 {
+				trip = <&soc_trip>;
+				cooling-device = <&cpu6_isolate 1 1>;
+			};
+
+			soc_cpu7 {
+				trip = <&soc_trip>;
+				cooling-device = <&cpu7_isolate 1 1>;
+			};
+		};
+	};
+
+	pm8150b-bcl-lvl0 {
+		cooling-maps {
+			vbat_cpu4 {
+				trip = <&b_bcl_lvl0>;
+				cooling-device = <&cpu4_isolate 1 1>;
+			};
+
+			vbat_cpu5 {
+				trip = <&b_bcl_lvl0>;
+				cooling-device = <&cpu5_isolate 1 1>;
+			};
+
+			vbat_gpu0 {
+				trip = <&b_bcl_lvl0>;
+				cooling-device = <&msm_gpu 2 2>;
+			};
+		};
+	};
+
+	pm8150b-bcl-lvl1 {
+		cooling-maps {
+			vbat_cpu6 {
+				trip = <&b_bcl_lvl1>;
+				cooling-device = <&cpu6_isolate 1 1>;
+			};
+
+			vbat_cpu7 {
+				trip = <&b_bcl_lvl1>;
+				cooling-device = <&cpu7_isolate 1 1>;
+			};
+
+			vbat_gpu1 {
+				trip = <&b_bcl_lvl1>;
+				cooling-device = <&msm_gpu 4 4>;
+			};
+		};
+	};
+
+	pm8150b-bcl-lvl2 {
+		cooling-maps {
+			vbat_gpu2 {
+				trip = <&b_bcl_lvl2>;
+				cooling-device = <&msm_gpu THERMAL_MAX_LIMIT
+							THERMAL_MAX_LIMIT>;
+			};
+		};
+	};
+
+	pm8150l-bcl-lvl0 {
+		disable-thermal-zone;
+		cooling-maps {
+			vph_cpu4 {
+				trip = <&l_bcl_lvl0>;
+				cooling-device = <&cpu4_isolate 1 1>;
+			};
+
+			vph_cpu5 {
+				trip = <&l_bcl_lvl0>;
+				cooling-device = <&cpu5_isolate 1 1>;
+			};
+
+			vph_gpu0 {
+				trip = <&l_bcl_lvl0>;
+				cooling-device = <&msm_gpu 2 2>;
+			};
+		};
+	};
+
+	pm8150l-bcl-lvl1 {
+		disable-thermal-zone;
+		cooling-maps {
+			vph_cpu6 {
+				trip = <&l_bcl_lvl1>;
+				cooling-device = <&cpu6_isolate 1 1>;
+			};
+
+			vph_cpu7 {
+				trip = <&l_bcl_lvl1>;
+				cooling-device = <&cpu7_isolate 1 1>;
+			};
+
+			vph_gpu1 {
+				trip = <&l_bcl_lvl1>;
+				cooling-device = <&msm_gpu 4 4>;
+			};
+		};
+	};
+
+	pm8150l-bcl-lvl2 {
+		disable-thermal-zone;
+		cooling-maps {
+			vph_gpu2 {
+				trip = <&l_bcl_lvl2>;
+				cooling-device = <&msm_gpu THERMAL_MAX_LIMIT
+							THERMAL_MAX_LIMIT>;
+			};
+		};
+	};
+};

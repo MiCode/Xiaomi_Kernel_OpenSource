@@ -1,0 +1,14 @@
+/dts-v1/;
+
+#include "lito.dtsi"
+#include "lito-atp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Lito ATP";
+	compatible = "qcom,lito-atp", "qcom,lito", "qcom,atp";
+	qcom,board-id = <33 0>;
+};
+
+&ufsphy_mem {
+	vdda-phy-always-on;
+};

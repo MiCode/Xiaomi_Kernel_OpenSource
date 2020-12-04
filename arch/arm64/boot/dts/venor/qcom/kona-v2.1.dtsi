@@ -1,0 +1,10 @@
+
+#include "kona-v2.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. kona v2.1";
+	compatible = "qcom,kona";
+	qcom,msm-id = <356 0x20001>;
+};
+
+#include "kona-v2.1-gpu.dtsi"

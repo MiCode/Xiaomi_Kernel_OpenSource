@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "lagoon.dtsi"
+#include "lagoon-atp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Lagoon ATP";
+	compatible = "qcom,lagoon-atp", "qcom,lagoon", "qcom,atp";
+	qcom,board-id = <33 0>;
+};

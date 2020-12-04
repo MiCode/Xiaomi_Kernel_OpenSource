@@ -1,0 +1,509 @@
+/*for J2 pinctrl */
+
+&sde_dsi_active {
+	mux {
+		pins = "gpio12", "gpio50";
+		function = "gpio";
+	};
+
+	config {
+		pins = "gpio12", "gpio50";
+		drive-strength = <8>;	/* 8 mA */
+		bias-disable = <0>;   /* no pull */
+	};
+};
+
+&sde_dsi_suspend {
+	mux {
+		pins = "gpio12", "gpio50";
+		function = "gpio";
+	};
+
+	config {
+		pins = "gpio12", "gpio50";
+		drive-strength = <2>;	/* 2 mA */
+		bias-pull-down; 		/* PULL DOWN */
+	};
+};
+
+&nfc_enable_active {
+	/* active state */
+	mux {
+		/* 83: Enable 110: Firmware */
+		pins = "gpio83", "gpio110";
+		function = "gpio";
+	};
+
+	config {
+		pins = "gpio83", "gpio110";
+		drive-strength = <2>; /* 2 MA */
+		bias-pull-up;
+	};
+};
+
+&nfc_enable_suspend {
+	/* sleep state */
+	mux {
+		/* 83: Enable 110: Firmware */
+		pins = "gpio83", "gpio110";
+		function = "gpio";
+	};
+
+	config {
+		pins = "gpio83", "gpio110";
+		drive-strength = <2>; /* 2 MA */
+		bias-disable;
+	};
+};
+
+
+&tlmm {
+	onewire_gpio_active: onewire_gpio_active {
+		mux {
+			pins = "gpio9";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio9";
+			drive-strength = <2>;
+			bias-pull-up; /* No PULL */
+		};
+	};
+
+	onewire_gpio_sleep: onewire_gpio_sleep {
+		mux {
+			pins = "gpio9";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio9";
+			drive-strength = <2>;
+			bias-pull-up; /* No PULL */
+		};
+	};
+
+	/* used for wire charging and otg and wirelss reverse charging features */
+	ncp3902 {
+		ncp3902_en_active: ncp3902_en_active {
+			/* active state */
+			mux {
+				/* GPIO 152 is used for NCP3092 chip to enable */
+				pins = "gpio152";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio152";
+				bias-disable; /* No PULL */
+				drive-strength = <16>; /* 16 MA */
+				output-low;
+			};
+		};
+
+		ncp3902_en_suspend: ncp3902_en_suspend {
+			/* sleep state */
+			mux {
+				pins = "gpio152";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio152";
+				drive-strength = <16>; /* 16 MA */
+				bias-disable;
+				output-low;
+			};
+		};
+	};
+
+	ncp3902_pass_en {
+		ncp3902_pass_en_active: ncp3902_pass_en_active {
+			/* active state */
+			mux {
+				pins = "gpio153";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio153";
+				bias-disable; /* No PULL */
+				drive-strength = <16>; /* 16 MA */
+				output-low;
+			};
+		};
+
+		ncp3902_pass_en_suspend: ncp3902_pass_en_suspend {
+			/* sleep state */
+			mux {
+				pins = "gpio153";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio153";
+				drive-strength = <16>; /* 16 MA */
+				bias-disable;
+				output-low;
+			};
+		};
+	};
+
+	dc_chg_enable {
+		dc_en_active: dc_en_active {
+			/* active state */
+			mux {
+				/* GPIO 82 is used for wireless charge enable bq by output vol to bq vac */
+				pins = "gpio82";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio82";
+				bias-disable; /* No PULL */
+				drive-strength = <8>; /* 8 MA */
+				output-low;
+			};
+		};
+
+		dc_en_suspend: dc_en_suspend {
+			/* sleep state */
+			mux {
+				pins = "gpio82";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio82";
+				drive-strength = <8>; /* 8 MA */
+				bias-disable;
+				output-low;
+			};
+		};
+	};
+
+	rx_hw_sleep_enable {
+		rx_hw_en_active: rx_hw_en_active {
+			/* active state */
+			mux {
+				/* GPIO 78 is used for hardware disable wireless rx */
+				pins = "gpio78";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio78";
+				bias-disable; /* No PULL */
+				drive-strength = <8>; /* 8 MA */
+				output-high;
+			};
+		};
+
+		rx_hw_en_suspend: rx_hw_en_suspend {
+			/* sleep state */
+			mux {
+				pins = "gpio78";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio78";
+				drive-strength = <8>; /* 8 MA */
+				bias-disable;
+				output-low;
+			};
+		};
+	};
+
+	bq2597x {
+		bq2597x_master_int_default: bq2597x_master_int_default {
+			/* active state */
+			mux {
+				/* GPIO 68 is used for bq25970 master ic interrupt usage */
+				pins = "gpio68";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio68";
+				drive-strength = <2>; /* 2 MA */
+				bias-pull-up;
+				input-enable;
+			};
+		};
+
+		bq2597x_master_int_suspend: bq2597x_master_int_suspend {
+			/* sleep state */
+			mux {
+				/* GPIO 68 is used for bq25970 master ic interrupt usage */
+				pins = "gpio68";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio68";
+				drive-strength = <2>; /* 2 MA */
+				bias-pull-up;
+				input-enable;
+			};
+		};
+		bq2597x_slave_int_default: bq2597x_slave_int_default {
+			/* active state */
+			mux {
+				/* GPIO 84 is used for bq25970 slave ic interrupt usage */
+				pins = "gpio84";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio84";
+				drive-strength = <2>;
+				bias-pull-down;
+				output-low;
+			};
+		};
+	};
+
+	ln8282_enable_active: ln8282_enable_active {
+		mux {
+			pins = "gpio156";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio156";
+			drive-strength = <2>;
+			bias-pull-down;
+			output-low;
+		};
+	};
+	ln8282_enable_suspend: ln8282_enable_suspend {
+		mux {
+			pins = "gpio156";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio156";
+			drive-strength = <2>;
+			bias-pull-up;
+			output-high;
+		};
+	};
+
+	txon_enable_active: txon_enable_active {
+		/* active state */
+		mux {
+			pins = "gpio154";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio154";
+			drive-strength = <16>;
+			bias-disable;
+			bias-pull-down;
+			output-low;
+		};
+	};
+
+	txon_enable_suspend: txon_enable_suspend {
+		/* sleep state */
+		mux {
+			pins = "gpio154";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio154";
+			drive-strength = <16>;
+			bias-disable;
+			bias-pull-down;
+			output-low;
+		};
+	};
+
+	rx1619 {
+		nu_int_active: nu_int_active {
+			/* active state */
+			mux {
+				pins = "gpio157";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio157";
+				drive-strength = <2>; /* 2 MA */
+				bias-pull-up;
+				input-enable;
+			};
+		};
+
+		nu_int_suspend: nu_int_suspend {
+			/* sleep state */
+			mux {
+				pins = "gpio157";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio157";
+				drive-strength = <2>; /* 2 MA */
+				bias-pull-up;
+				input-enable;
+			};
+		};
+
+		nu_sleep_active: nu_sleep_active {
+			/* active state */
+			mux {
+				pins = "gpio155";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio155";
+				drive-strength = <8>;
+				bias-disable;
+				bias-pull-down;
+				output-low;
+			};
+		};
+
+		nu_sleep_suspend: nu_sleep_suspend {
+			/* sleep state */
+			mux {
+				pins = "gpio155";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio155";
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
+	};
+
+	idt {
+		idt_int_active: idt_int_active {
+			/* active state */
+			mux {
+				pins = "gpio157";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio157";
+				drive-strength = <2>; /* 2 MA */
+				bias-pull-up;
+				input-enable;
+			};
+		};
+
+		idt_int_suspend: idt_int_suspend {
+			/* sleep state */
+			mux {
+				pins = "gpio157";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio157";
+				drive-strength = <2>; /* 2 MA */
+				bias-pull-up;
+				input-enable;
+			};
+		};
+
+		idt_enable_active: idt_enable_active {
+			/* active state */
+			mux {
+				pins = "gpio155";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio155";
+				drive-strength = <8>;
+				bias-disable;
+				bias-pull-down;
+				output-low;
+			};
+		};
+
+		idt_enable_suspend: idt_enable_suspend {
+			/* sleep state */
+			mux {
+				pins = "gpio155";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio155";
+				drive-strength = <8>;
+				bias-pull-up;
+			};
+		};
+	};
+
+	sbu_uart_en_ctrl {
+		sbu_uart_en_idle: uart_audio_en_idle {
+			mux {
+				pins = "gpio159";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio159";
+				drive-strength = <2>;
+				bias-pull-down;
+				output-low;
+			};
+		};
+
+		sbu_uart_en_active: uart_audio_en_active {
+			mux {
+				pins = "gpio159";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio159";
+				drive-strength = <2>;
+				bias-disable;
+				output-high;
+			};
+		};
+	};
+
+	vbus_disable {
+		vbus_disable_active: usb_vbus_active {
+			/* active state */
+			mux {
+				pins = "gpio8";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio8";
+				drive-strength = <2>; /* 2 MA */
+				bias-pull-up;
+				output-high;
+			};
+		};
+
+		vbus_disable_suspend: usb_vbus_suspend {
+			mux {
+				pins = "gpio8";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio8";
+				drive-strength = <2>; /* 2 MA */
+				bias-pull-down;
+				output-low;
+			};
+		};
+	};
+};

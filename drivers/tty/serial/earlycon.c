@@ -2,6 +2,7 @@
 /*
  * Copyright (C) 2014 Linaro Ltd.
  * Author: Rob Herring <robh@kernel.org>
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * Based on 8250 earlycon:
  * (c) Copyright 2004 Hewlett-Packard Development Company, L.P.
@@ -204,6 +205,11 @@ int __init setup_earlycon(char *buf)
  */
 bool earlycon_acpi_spcr_enable __initdata;
 
+#ifdef CONFIG_FASTBOOT_CMD_CTRL_UART
+bool is_early_cons_enabled;
+#endif
+
+
 /* early_param wrapper for setup_earlycon() */
 static int __init param_setup_earlycon(char *buf)
 {
@@ -222,6 +228,11 @@ static int __init param_setup_earlycon(char *buf)
 	err = setup_earlycon(buf);
 	if (err == -ENOENT || err == -EALREADY)
 		return 0;
+
+#ifdef CONFIG_FASTBOOT_CMD_CTRL_UART
+	is_early_cons_enabled = true;
+#endif
+
 	return err;
 }
 early_param("earlycon", param_setup_earlycon);

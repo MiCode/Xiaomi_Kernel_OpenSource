@@ -1,0 +1,132 @@
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/input/qcom,qpnp-power-on.h>
+#include <dt-bindings/spmi/spmi.h>
+
+&spmi_bus {
+	#address-cells = <2>;
+	#size-cells = <0>;
+	interrupt-controller;
+	#interrupt-cells = <4>;
+
+	qcom,pm6350@0 {
+		compatible = "qcom,spmi-pmic";
+		reg = <0 SPMI_USID>;
+		#address-cells = <2>;
+		#size-cells = <0>;
+
+		pm6350_revid: qcom,revid@100 {
+			compatible = "qcom,qpnp-revid";
+			reg = <0x100 0x100>;
+		};
+
+		qcom,power-on@800 {
+			compatible = "qcom,qpnp-power-on";
+			reg = <0x800 0x100>;
+			interrupts = <0x0 0x8 0x0 IRQ_TYPE_EDGE_BOTH>,
+				     <0x0 0x8 0x1 IRQ_TYPE_EDGE_BOTH>;
+			interrupt-names = "kpdpwr", "resin";
+			qcom,pon-dbc-delay = <15625>;
+			qcom,kpdpwr-sw-debounce;
+			qcom,system-reset;
+			qcom,store-hard-reset-reason;
+
+			qcom,pon_1 {
+				qcom,pon-type = <PON_POWER_ON_TYPE_KPDPWR>;
+				qcom,pull-up;
+				linux,code = <KEY_POWER>;
+			};
+
+			qcom,pon_2 {
+				qcom,pon-type = <PON_POWER_ON_TYPE_RESIN>;
+				qcom,pull-up;
+				linux,code = <KEY_VOLUMEDOWN>;
+			};
+		};
+
+		pm6350_tz: qcom,temp-alarm@2400 {
+			compatible = "qcom,spmi-temp-alarm";
+			reg = <0x2400 0x100>;
+			interrupts = <0x0 0x24 0x0 IRQ_TYPE_EDGE_BOTH>;
+			#thermal-sensor-cells = <0>;
+			qcom,temperature-threshold-set = <1>;
+		};
+
+		pm6350_clkdiv: clock-controller@5b00 {
+			compatible = "qcom,spmi-clkdiv";
+			reg = <0x5b00 0x100>;
+			#clock-cells = <1>;
+			qcom,num-clkdivs = <1>;
+			clock-output-names = "pm6350_div_clk1";
+			clocks = <&rpmhcc RPMH_CXO_CLK>;
+			clock-names = "xo";
+			status = "disabled";
+		};
+
+		pm6350_gpios: pinctrl@c000 {
+			compatible = "qcom,spmi-gpio";
+			reg = <0xc000 0x900>;
+			interrupts = <0x0 0xc0 0 IRQ_TYPE_NONE>,
+					<0x0 0xc1 0 IRQ_TYPE_NONE>,
+					<0x0 0xc2 0 IRQ_TYPE_NONE>,
+					<0x0 0xc3 0 IRQ_TYPE_NONE>,
+					<0x0 0xc4 0 IRQ_TYPE_NONE>,
+					<0x0 0xc5 0 IRQ_TYPE_NONE>,
+					<0x0 0xc6 0 IRQ_TYPE_NONE>,
+					<0x0 0xc7 0 IRQ_TYPE_NONE>,
+					<0x0 0xc8 0 IRQ_TYPE_NONE>;
+			interrupt-names = "pm6350_gpio1", "pm6350_gpio2",
+					"pm6350_gpio3", "pm6350_gpio4",
+					"pm6350_gpio5", "pm6350_gpio6",
+					"pm6350_gpio7", "pm6350_gpio8",
+					"pm6350_gpio9";
+			gpio-controller;
+			#gpio-cells = <2>;
+		};
+	};
+
+	qcom,pm6350@1 {
+		compatible ="qcom,spmi-pmic";
+		reg = <1 SPMI_USID>;
+		#address-cells = <2>;
+		#size-cells = <0>;
+
+		pm6350_pwm: qcom,pwms@6000 {
+			status = "disabled";
+			compatible = "qcom,pwm-lpg";
+			reg = <0x6000 0x100>;
+			reg-names = "lpg-base";
+			qcom,num-lpg-channels = <1>;
+			#pwm-cells = <2>;
+		};
+	};
+};
+
+&thermal_zones {
+	pm6350_tz {
+		polling-delay-passive = <100>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&pm6350_tz>;
+		wake-capable-sensor;
+
+		trips {
+			pm6350_trip0: trip0 {
+				temperature = <95000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+
+			pm6350_trip1: trip1 {
+				temperature = <115000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+
+			pm6350_trip2: trip2 {
+				temperature = <145000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+		};
+	};
+};

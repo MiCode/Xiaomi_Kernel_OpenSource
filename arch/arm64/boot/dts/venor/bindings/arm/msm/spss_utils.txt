@@ -1,0 +1,55 @@
+Qualcomm Technologies, Inc. Secure Processor SubSystem Utilities (spss_utils)
+
+The Secure Processor SubSystem (SPSS) is a dedicated subsystem for security.
+It has its own CPU, memories, and cryptographic engine.
+It shall provide cryptographic services to other subsystems.
+The SPSS firmware is loaded by PIL driver.
+The communication with SPSS is done via spcom driver, using glink.
+
+The spss_utils driver selects the SPSS firmware file,
+according to a dedicated fuse and the platform HW version.
+
+The spss_utils driver supports SPU Insider Attack Resistance (IAR) Feature.
+SPU ROM code (PBL) expects a unique cmac for the spu firmware and spu apps.
+The spss_utils driver registers an IAR callback to the PIL notification driver.
+When SPU reset detected (SSR) the PIL calls the IAR callback to place the
+required cmac in shared memory in DDR.
+
+Required properties:
+-compatible : should be "qcom,spss_utils"
+-qcom,spss-fuse1-addr: fuse1 register physical address
+-qcom,spss-fuse1-bit: fuse1 relevant bit
+-qcom,spss-fuse2-addr: fuse2 register physical address
+-qcom,spss-fuse2-bit: fuse2 relevant bit
+-qcom,spss-fuse3-addr: fuse3 register physical address
+-qcom,spss-fuse3-bit: fuse3 relevant bit
+-qcom,spss-fuse4-addr: fuse4 register physical address
+-qcom,spss-fuse4-bit: fuse4 relevant bit
+-qcom,spss-dev-firmware-name: dev firmware file name
+-qcom,spss-test-firmware-name: test firmware file name
+-qcom,spss-prod-firmware-name: production firmware file name
+-qcom,spss-debug-reg-addr: debug register physical address
+-qcom,spss-emul-type-reg-addr: soc emulation type register physical address
+-qcom,pil-mem: pointer to pil_spss_mem node, to get PIL memory address
+-qcom,pil-mem: PIL memory size, spu firmware size is padded to 960 KB
+
+Example:
+spss_utils: qcom,spss_utils {
+	compatible = "qcom,spss-utils";
+
+	qcom,spss-fuse1-addr = <0x00780234>;
+	qcom,spss-fuse1-bit = <27>;
+	qcom,spss-fuse2-addr = <0x00780234>;
+	qcom,spss-fuse2-bit = <26>;
+	qcom,spss-fuse3-addr = <0x007801E8>;
+	qcom,spss-fuse3-bit = <10>;
+	qcom,spss-fuse4-addr = <0x00780218>;
+	qcom,spss-fuse4-bit = <1>;
+	qcom,spss-dev-firmware-name  = "spss1d";  /* 8 chars max */
+	qcom,spss-test-firmware-name = "spss1t";  /* 8 chars max */
+	qcom,spss-prod-firmware-name = "spss1p";  /* 8 chars max */
+	qcom,spss-debug-reg-addr = <0x01886020>;
+	qcom,spss-emul-type-reg-addr = <0x01fc8004>;
+	pil-mem = <&pil_spss_mem>;
+	qcom,pil-size = <0x0F0000>;
+};

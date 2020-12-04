@@ -1,0 +1,16 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/clock/qcom,gcc-kona.h>
+#include <dt-bindings/clock/qcom,camcc-kona.h>
+#include <dt-bindings/clock/qcom,rpmh.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
+#include "kona-cdp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. kona CDP";
+	compatible = "qcom,kona-cdp", "qcom,kona", "qcom,cdp";
+	qcom,board-id = <0x10001 0>;
+};
+

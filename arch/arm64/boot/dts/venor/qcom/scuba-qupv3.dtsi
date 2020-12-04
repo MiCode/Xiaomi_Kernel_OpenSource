@@ -1,0 +1,31 @@
+#include <dt-bindings/msm/msm-bus-ids.h>
+
+&soc {
+	/* QUPv3_0 wrapper instance: Top Level QUP */
+	qupv3_0: qcom,qupv3_0_geni_se@4ac0000 {
+		compatible = "qcom,qupv3-geni-se";
+		reg = <0x4ac0000 0x2000>;
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-bus-ids =
+			<MSM_BUS_MASTER_QUP_CORE_0 MSM_BUS_SLAVE_QUP_CORE_0>,
+			<MSM_BUS_MASTER_QUP_0 MSM_BUS_SLAVE_EBI_CH0>;
+		qcom,vote-for-bw;
+	};
+
+	/* Debug Console UART Instance: QUPV3_0_SE4 */
+	qupv3_se4_2uart: qcom,qup_uart@4a90000 {
+		compatible = "qcom,msm-geni-console";
+		reg = <0x4a90000 0x4000>;
+		reg-names = "se_phys";
+		clock-names = "se-clk", "m-ahb", "s-ahb";
+		clocks = <&gcc GCC_QUPV3_WRAP0_S4_CLK>,
+			<&gcc GCC_QUPV3_WRAP_0_M_AHB_CLK>,
+			<&gcc GCC_QUPV3_WRAP_0_S_AHB_CLK>;
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&qupv3_se4_2uart_active>;
+		pinctrl-1 = <&qupv3_se4_2uart_sleep>;
+		interrupts = <GIC_SPI 331 IRQ_TYPE_LEVEL_HIGH>;
+		qcom,wrapper-core = <&qupv3_0>;
+		status = "disabled";
+	};
+};

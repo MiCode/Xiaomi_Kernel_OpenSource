@@ -1,0 +1,82 @@
+&mdss_mdp {
+	dsi_r66451_amoled_90hz_video: qcom,mdss_dsi_r66451_fhd_plus_90hz_video {
+		qcom,mdss-dsi-panel-name =
+			"r66451 amoled video mode dsi visionox 90HZ panel with DSC";
+		qcom,mdss-dsi-panel-type = "dsi_video_mode";
+		qcom,mdss-dsi-panel-physical-type = "oled";
+		qcom,dsi-ctrl-num = <0>;
+		qcom,dsi-phy-num = <0>;
+		qcom,mdss-dsi-virtual-channel-id = <0>;
+		qcom,mdss-dsi-stream = <0>;
+		qcom,mdss-dsi-bpp = <24>;
+		qcom,mdss-dsi-border-color = <0>;
+
+		qcom,mdss-dsi-traffic-mode = "non_burst_sync_event";
+		qcom,mdss-dsi-bllp-eof-power-mode;
+		qcom,mdss-dsi-bllp-power-mode;
+		qcom,mdss-dsi-lane-0-state;
+		qcom,mdss-dsi-lane-1-state;
+		qcom,mdss-dsi-lane-2-state;
+		qcom,mdss-dsi-lane-3-state;
+		qcom,mdss-dsi-dma-trigger = "trigger_sw";
+		qcom,mdss-dsi-mdp-trigger = "none";
+		qcom,mdss-dsi-reset-sequence = <1 20>, <0 10>, <1 20>;
+		qcom,adjust-timer-wakeup-ms = <1>;
+		qcom,mdss-dsi-display-timings {
+			timing@0 {
+				qcom,mdss-dsi-panel-framerate = <90>;
+				qcom,mdss-dsi-panel-width = <1080>;
+				qcom,mdss-dsi-panel-height = <2340>;
+				qcom,mdss-dsi-h-front-porch = <95>;
+				qcom,mdss-dsi-h-back-porch = <40>;
+				qcom,mdss-dsi-h-pulse-width = <1>;
+				qcom,mdss-dsi-h-sync-skew = <0>;
+				qcom,mdss-dsi-v-back-porch = <4>;
+				qcom,mdss-dsi-v-front-porch = <25>;
+				qcom,mdss-dsi-v-pulse-width = <1>;
+				qcom,mdss-dsi-h-left-border = <0>;
+				qcom,mdss-dsi-h-right-border = <0>;
+				qcom,mdss-dsi-v-top-border = <0>;
+				qcom,mdss-dsi-v-bottom-border = <0>;
+				qcom,mdss-dsi-on-command = [
+					39 01 00 00 00 00 02 b0 00
+					39 01 00 00 00 00 02 b3 01
+					39 01 00 00 00 00 02 b0 80
+					39 01 00 00 00 00 02 e6 00
+					39 01 00 00 00 00 02 b0 00
+					39 01 00 00 00 00 19 cf 64 0b 00 00 00
+					   00 00 00 08 00 0b 77 01 01 01 01 01
+					   01 04 04 04 04 04 05
+					39 01 00 00 00 00 02 b0 04
+					39 01 00 00 00 00 02 f7 01
+					39 01 00 00 00 00 03 df 50 40
+					39 01 00 00 00 00 06 f3 50 00 00 00 00
+					39 01 00 00 00 00 02 f2 11
+					39 01 00 00 00 00 06 f3 01 00 00 00 01
+					39 01 00 00 00 00 03 f4 00 02
+					39 01 00 00 00 00 02 f2 19
+					39 01 00 00 00 00 03 df 50 42
+					39 01 00 00 00 00 02 35 00
+					39 01 00 00 00 00 05 2a 00 00 04 37
+					39 01 00 00 00 00 05 2b 00 00 09 23
+					05 01 00 00 78 00 01 11
+					05 01 00 00 00 00 01 29
+				];
+
+				qcom,mdss-dsi-off-command = [
+					05 01 00 00 14 00 02 28 00
+					05 01 00 00 78 00 02 10 00];
+				qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
+				qcom,mdss-dsi-off-command-state = "dsi_hs_mode";
+				qcom,mdss-dsi-h-sync-pulse = <0>;
+				qcom,compression-mode = "dsc";
+				qcom,mdss-dsc-slice-height = <20>;
+				qcom,mdss-dsc-slice-width = <540>;
+				qcom,mdss-dsc-slice-per-pkt = <1>;
+				qcom,mdss-dsc-bit-per-component = <8>;
+				qcom,mdss-dsc-bit-per-pixel = <8>;
+				qcom,mdss-dsc-block-prediction-enable;
+			};
+		};
+	};
+};

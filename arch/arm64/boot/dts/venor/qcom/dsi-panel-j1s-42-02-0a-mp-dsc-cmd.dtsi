@@ -1,0 +1,708 @@
+&mdss_mdp {
+	dsi_j1s_42_02_0a_mp_dsc_cmd: qcom,mdss_dsi_j1s_42_02_0a_mp_dsc_cmd {
+		qcom,mdss-dsi-panel-name = "xiaomi 42 02 0a cmd mode dsc dsi panel";
+		qcom,mdss-dsi-panel-type = "dsi_cmd_mode";
+		qcom,mdss-dsi-virtual-channel-id = <0>;
+		qcom,mdss-dsi-stream = <0>;
+		qcom,mdss-dsi-bpp = <30>;
+		qcom,mdss-dsi-color-order = "rgb_swap_rgb";
+		qcom,mdss-dsi-underflow-color = <0xff>;
+		qcom,mdss-dsi-border-color = <0>;
+
+		qcom,dsi-ctrl-num = <0>;
+		qcom,dsi-phy-num = <0>;
+
+		qcom,mdss-dsi-traffic-mode = "burst_mode";
+		qcom,mdss-dsi-lane-map = "lane_map_0123";
+		qcom,mdss-dsi-bllp-eof-power-mode;
+		qcom,mdss-dsi-bllp-power-mode;
+		qcom,mdss-dsi-lane-0-state;
+		qcom,mdss-dsi-lane-1-state;
+		qcom,mdss-dsi-lane-2-state;
+		qcom,mdss-dsi-lane-3-state;
+		qcom,mdss-dsi-dma-trigger = "trigger_sw";
+		qcom,mdss-dsi-mdp-trigger = "none";
+		qcom,mdss-dsi-reset-sequence = <1 1>, <0 1>, <1 10>;
+		qcom,mdss-pan-physical-width-dimension = <710>;
+		qcom,mdss-pan-physical-height-dimension = <1537>;
+		qcom,mdss-dsi-te-pin-select = <1>;
+		qcom,mdss-dsi-wr-mem-start = <0x2c>;
+		qcom,mdss-dsi-wr-mem-continue = <0x3c>;
+		qcom,mdss-dsi-te-dcs-command = <1>;
+		qcom,mdss-dsi-te-check-enable;
+		qcom,mdss-dsi-te-using-te-pin;
+		qcom,mdss-dsi-tx-eot-append;
+		qcom,mdss-dsi-lp11-init;
+
+		qcom,mdss-dsi-panel-hdr-enabled;
+		qcom,mdss-dsi-panel-hdr-color-primaries = <14500 15500 32000
+			17000 15500 30000 8000 3000>;
+		qcom,mdss-dsi-panel-peak-brightness = <4200000>;
+		qcom,mdss-dsi-panel-blackness-level = <3230>;
+
+		qcom,bl-update-flag = "delay_until_first_frame";
+
+		qcom,mdss-dsi-display-timings {
+			timing@0{
+				qcom,mdss-dsi-panel-framerate = <60>;
+				qcom,mdss-dsi-panel-width = <1080>;
+				qcom,mdss-dsi-panel-height = <2340>;
+				qcom,mdss-dsi-h-front-porch = <16>;
+				qcom,mdss-dsi-h-back-porch = <8>;
+				qcom,mdss-dsi-h-pulse-width = <8>;
+				qcom,mdss-dsi-h-sync-skew = <0>;
+				qcom,mdss-dsi-v-back-porch = <560>;
+				qcom,mdss-dsi-v-front-porch = <600>;
+				qcom,mdss-dsi-v-pulse-width = <32>;
+				qcom,mdss-dsi-h-sync-pulse = <0>;
+				qcom,mdss-dsi-h-left-border = <0>;
+				qcom,mdss-dsi-h-right-border = <0>;
+				qcom,mdss-dsi-v-top-border = <0>;
+				qcom,mdss-dsi-v-bottom-border = <0>;
+				qcom,mdss-dsi-panel-clockrate = <1106000000>;
+				qcom,mdss-dsi-panel-jitter = <0x5 0x1>;
+				qcom,mdss-mdp-transfer-time-us = <9500>;
+				qcom,mdss-dsi-on-command = [
+					/* Dcode */
+					39 01 00 00 00 00 05 FF AA 55 A5 81    /* CMD4 Dcode */
+					15 01 00 00 00 00 02 6F 0D
+					15 01 00 00 00 00 02 F3 AB
+					/* 101.6M OSC Setting */
+					15 01 00 00 00 00 02 6F 05
+					39 01 00 00 00 00 03 FD 00 DA
+					/* CMD3 lpm_dec_all_on */
+					39 01 00 00 00 00 05 FF AA 55 A5 80
+					15 01 00 00 00 00 02 6F 0A
+					15 01 00 00 00 00 02 FC 02
+					/* Error Flag Setting*/
+					15 01 00 00 00 00 02 6F 36
+					15 01 00 00 00 00 02 F6 42
+					39 01 00 00 00 00 06 F0 55 AA 52 08 00 /* Set page 0 */
+					15 01 00 00 00 00 02 6F 01
+					15 01 00 00 00 00 02 B5 00 /* ELVSS dimming off */
+					/* Backlight Dimming 8 frame */
+					15 01 00 00 00 00 02 B2 58
+					15 01 00 00 00 00 02 6F 02
+					39 01 00 00 00 00 03 B2 08 08
+					39 01 00 00 00 00 08 B7 FF FF FF FF FF C8 40
+					15 01 00 00 00 00 02 6F 01
+					15 01 00 00 00 00 02 C0 33 /* AOD Demura Power off */
+					/* Aod power save ISOPB setting */
+					15 01 00 00 00 00 02 6F 01
+					15 01 00 00 00 00 02 C6 13
+					/* speed up */
+					15 01 00 00 00 00 02 6F 01
+					15 01 00 00 00 00 02 CA 30
+					39 01 00 00 00 00 06 F0 55 AA 52 08 01 /* Set page 1 */
+					/* Aod power save VGH/VGLX setting */
+					15 00 00 00 00 00 02 6F 01
+					15 00 00 00 00 00 02 B3 13
+					15 00 00 00 00 00 02 6F 01
+					15 01 00 00 00 00 02 B4 13
+					/* VI Setting voltage normal=-3.0V&doze=-3.5V */
+					39 01 00 00 00 00 09 B9 1A 1A 1A 1A 1F 1F 1F 1F
+					/* IDLE_T1/IDLE_T5 */
+					15 01 00 00 00 00 02 6F 01
+					39 01 00 00 00 00 07 D2 00 12 61 25 43 07
+					/* speed up */
+					39 01 00 00 00 00 03 CD 05 61
+					/* speed up panel GOA power off */
+					39 01 00 00 00 00 06 F0 55 AA 52 08 05 /* Set page 5 */
+					39 01 00 00 00 00 03 B3 88 80
+					39 01 00 00 00 00 03 B5 04 01
+					39 01 00 00 00 00 05 B7 04 00 00 01
+					39 01 00 00 00 00 05 B8 04 00 00 01
+					/* Round OFF */
+					39 01 00 00 00 00 06 F0 55 AA 52 08 07 /* Set page 7 */
+					15 01 00 00 00 00 02 C0 10
+					/* Enter 60Hz*/
+					39 01 00 00 00 00 06 F0 55 AA 52 08 00 /* Set page 0 */
+					39 01 00 00 00 00 1E B4 CB BB BB AA 99 77 66 00 00 00 B4 D0 D0 D0 D0 D0 86 86 3C 3C F2 F2 A8 A8 36 36 36 36 0A
+					39 01 00 00 00 00 03 C1 00 50
+					39 01 00 00 00 00 06 F0 55 AA 52 08 03
+					39 01 00 00 00 00 08 BB 11 00 0E 5A 00 10 4F
+					15 01 00 00 00 00 02 2F 01
+					15 01 00 00 00 00 02 26 01
+					/* Page Disable */
+					39 01 00 00 00 00 06 F0 55 AA 52 00 00
+					/* COMPRESSION_METHOD = 1 VESA, Slice 12 */
+					/* DSC Setting */
+					15 01 00 00 00 00 02 90 01
+					39 01 00 00 00 00 13 93 AB 28 00 0C 02 00 02 0E 01 1F 00 07 08 BB 08 7A 10 F0
+					15 01 00 00 00 00 02 03 11
+					05 01 00 00 00 00 02 2C 00
+					/* TE ON*/
+					15 01 00 00 00 00 02 35 00
+					/* Brightness Control */
+					15 01 00 00 00 00 02 53 20
+					/* Normal Mode */
+					39 01 00 00 00 00 05 51 00 00 00 00
+					/* CASET OR RASET*/
+					39 01 00 00 00 00 05 2A 00 00 04 37
+					39 01 00 00 00 00 05 2B 00 00 09 23
+					/* Sleep Out */
+					05 01 00 00 64 00 02 11 00
+					/* Display On */
+					05 01 00 00 00 00 02 29 00];
+				qcom,mdss-dsi-off-command = [
+					05 01 00 00 00 00 02 28 00
+					05 01 00 00 78 00 02 10 00];
+				qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
+				qcom,mdss-dsi-off-command-state = "dsi_lp_mode";
+
+				qcom,mdss-dsi-timing-switch-command = [
+					/* Enter 60Hz */
+					39 01 00 00 00 00 06 F0 55 AA 52 08 00 /* Set page 0 */
+					39 00 00 00 00 00 1E B4 CB BB BB AA 99 77 66 00 00 00 B4 D0 D0 D0 D0 D0 86 86 3C 3C F2 F2 A8 A8 36 36 36 36 0A
+					39 00 00 00 00 00 03 C1 00 50
+					15 00 00 00 00 00 02 2F 01
+					15 01 00 00 00 00 02 26 01];
+				qcom,mdss-dsi-timing-switch-command-state = "dsi_lp_mode";
+
+				qcom,mdss-dsi-nolp-command = [
+					/* Aod to Normal */
+					39 01 00 00 00 00 06 F0 55 AA 52 08 00
+					15 00 00 00 00 00 02 B2 58
+					15 00 00 00 00 00 02 65 00
+					05 00 00 00 00 00 02 38 00
+					15 00 00 00 00 00 02 6F 02
+					39 00 00 00 00 00 03 51 00 00
+					05 01 00 00 00 00 02 2C 00];
+				qcom,mdss-dsi-nolp-command-state = "dsi_lp_mode";
+
+				qcom,compression-mode = "dsc";
+				qcom,mdss-dsc-version = <0x11>;
+				qcom,mdss-dsc-scr-version = <0x0>;
+				qcom,mdss-dsc-slice-height = <12>;
+				qcom,mdss-dsc-slice-width = <540>;
+				qcom,mdss-dsc-slice-per-pkt = <2>;
+				qcom,mdss-dsc-bit-per-component = <10>;
+				qcom,mdss-dsc-bit-per-pixel = <8>;
+				qcom,mdss-dsc-block-prediction-enable;
+			};
+			timing@1{
+				qcom,mdss-dsi-panel-framerate = <120>;
+				qcom,mdss-dsi-panel-width = <1080>;
+				qcom,mdss-dsi-panel-height = <2340>;
+				qcom,mdss-dsi-h-front-porch = <16>;
+				qcom,mdss-dsi-h-back-porch = <8>;
+				qcom,mdss-dsi-h-pulse-width = <8>;
+				qcom,mdss-dsi-h-sync-skew = <0>;
+				qcom,mdss-dsi-v-back-porch = <8>;
+				qcom,mdss-dsi-v-front-porch = <4>;
+				qcom,mdss-dsi-v-pulse-width = <4>;
+				qcom,mdss-dsi-h-sync-pulse = <0>;
+				qcom,mdss-dsi-h-left-border = <0>;
+				qcom,mdss-dsi-h-right-border = <0>;
+				qcom,mdss-dsi-v-top-border = <0>;
+				qcom,mdss-dsi-v-bottom-border = <0>;
+				qcom,mdss-dsi-panel-clockrate = <1106000000>;
+				qcom,mdss-dsi-panel-jitter = <0x5 0x1>;
+				qcom,mdss-mdp-transfer-time-us = <6500>;
+				qcom,mdss-dsi-on-command = [
+					/* Dcode */
+					39 01 00 00 00 00 05 FF AA 55 A5 81    /* CMD4 Dcode */
+					15 01 00 00 00 00 02 6F 0D
+					15 01 00 00 00 00 02 F3 AB
+					/* 101.6M OSC Setting */
+					15 01 00 00 00 00 02 6F 05
+					39 01 00 00 00 00 03 FD 00 DA
+					/* CMD3 lpm_dec_all_on */
+					39 01 00 00 00 00 05 FF AA 55 A5 80
+					15 01 00 00 00 00 02 6F 0A
+					15 01 00 00 00 00 02 FC 02
+					/* Error Flag Setting*/
+					15 01 00 00 00 00 02 6F 36
+					15 01 00 00 00 00 02 F6 42
+					39 01 00 00 00 00 06 F0 55 AA 52 08 00 /* Set page 0 */
+					15 01 00 00 00 00 02 6F 01
+					15 01 00 00 00 00 02 B5 00 /* ELVSS dimming off */
+					/* Backlight Dimming 8 frame */
+					15 01 00 00 00 00 02 B2 58
+					15 01 00 00 00 00 02 6F 02
+					39 01 00 00 00 00 03 B2 08 08
+					39 01 00 00 00 00 08 B7 FF FF FF FF FF C8 40
+					15 01 00 00 00 00 02 6F 01
+					15 01 00 00 00 00 02 C0 33 /* AOD Demura Power off */
+					/* Aod power save ISOPB setting */
+					15 01 00 00 00 00 02 6F 01
+					15 01 00 00 00 00 02 C6 13
+					/* speed up */
+					15 01 00 00 00 00 02 6F 01
+					15 01 00 00 00 00 02 CA 30
+					39 01 00 00 00 00 06 F0 55 AA 52 08 01 /* Set page 1 */
+					/* Aod power save VGH/VGLX setting */
+					15 00 00 00 00 00 02 6F 01
+					15 00 00 00 00 00 02 B3 13
+					15 00 00 00 00 00 02 6F 01
+					15 01 00 00 00 00 02 B4 13
+					/* VI Setting voltage normal=-3.0V&doze=-3.5V */
+					39 01 00 00 00 00 09 B9 1A 1A 1A 1A 1F 1F 1F 1F
+					/* IDLE_T1/IDLE_T5 */
+					15 01 00 00 00 00 02 6F 01
+					39 01 00 00 00 00 07 D2 00 12 61 25 43 07
+					/* speed up */
+					39 01 00 00 00 00 03 CD 05 61
+					/* speed up panel GOA power off */
+					39 01 00 00 00 00 06 F0 55 AA 52 08 05 /* Set page 5 */
+					39 01 00 00 00 00 03 B3 88 80
+					39 01 00 00 00 00 03 B5 04 01
+					39 01 00 00 00 00 05 B7 04 00 00 01
+					39 01 00 00 00 00 05 B8 04 00 00 01
+					/* Round OFF */
+					39 01 00 00 00 00 06 F0 55 AA 52 08 07 /* Set page 7 */
+					15 01 00 00 00 00 02 C0 10
+					/* Enter 120Hz*/
+					39 01 00 00 00 00 06 F0 55 AA 52 08 00 /* Set page 0 */
+					39 00 00 00 00 00 1E B4 98 88 88 77 66 55 44 00 00 00 60 B8 B8 B8 B8 B8 C8 C8 D8 D8 E8 E8 F8 F8 48 48 48 48 0A
+					39 00 00 00 00 00 03 C1 00 4B
+					39 00 00 00 00 00 06 F0 55 AA 52 08 03
+					39 00 00 00 00 00 08 BB 11 00 0E 5A 00 10 4F
+					15 00 00 00 00 00 02 2F 04
+					15 01 00 00 00 00 02 26 02
+                    			/* Page Disable */
+					39 01 00 00 00 00 06 F0 55 AA 52 00 00
+					/* COMPRESSION_METHOD = 1 VESA, Slice 12 */
+					/* DSC Setting */
+					15 01 00 00 00 00 02 90 01
+					39 01 00 00 00 00 13 93 AB 28 00 0C 02 00 02 0E 01 1F 00 07 08 BB 08 7A 10 F0
+					15 01 00 00 00 00 02 03 11
+					05 01 00 00 00 00 02 2C 00
+					/* TE ON*/
+					15 01 00 00 00 00 02 35 00
+					/* Brightness Control */
+					15 01 00 00 00 00 02 53 20
+					/* Normal Mode */
+					39 01 00 00 00 00 05 51 00 00 00 00
+					/* CASET OR RASET*/
+					39 01 00 00 00 00 05 2A 00 00 04 37
+					39 01 00 00 00 00 05 2B 00 00 09 23
+					/* Sleep Out */
+					05 01 00 00 64 00 02 11 00
+					/* Display On */
+					05 01 00 00 00 00 02 29 00];
+				qcom,mdss-dsi-off-command = [
+					05 01 00 00 00 00 02 28 00
+					05 01 00 00 78 00 02 10 00];
+				qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
+				qcom,mdss-dsi-off-command-state = "dsi_lp_mode";
+
+				qcom,mdss-dsi-timing-switch-command = [
+					/* Enter 120Hz */
+					39 01 00 00 00 00 06 F0 55 AA 52 08 00 /* Set page 0 */
+					39 00 00 00 00 00 1E B4 98 88 88 77 66 55 44 00 00 00 60 B8 B8 B8 B8 B8 C8 C8 D8 D8 E8 E8 F8 F8 48 48 48 48 0A
+					39 00 00 00 00 00 03 C1 00 4B
+					15 00 00 00 00 00 02 2F 04
+					15 01 00 00 00 00 02 26 02];
+				qcom,mdss-dsi-timing-switch-command-state = "dsi_lp_mode";
+
+				qcom,mdss-dsi-nolp-command = [
+					/* Aod to Normal */
+					39 01 00 00 00 00 06 F0 55 AA 52 08 00
+					15 00 00 00 00 00 02 B2 58
+					15 00 00 00 00 00 02 65 00
+					05 00 00 00 00 00 02 38 00
+					15 00 00 00 00 00 02 6F 02
+					39 00 00 00 00 00 03 51 00 00
+					05 01 00 00 00 00 02 2C 00
+					/* Enter 120Hz*/
+					39 01 00 00 00 00 06 F0 55 AA 52 08 00 /* Set page 0 */
+					39 00 00 00 00 00 1E B4 98 88 88 77 66 55 44 00 00 00 60 B8 B8 B8 B8 B8 C8 C8 D8 D8 E8 E8 F8 F8 48 48 48 48 0A
+					39 00 00 00 00 00 03 C1 00 4B
+					15 00 00 00 00 00 02 2F 04
+					15 01 00 00 00 00 02 26 02];
+				qcom,mdss-dsi-nolp-command-state = "dsi_lp_mode";
+
+				qcom,compression-mode = "dsc";
+				qcom,mdss-dsc-version = <0x11>;
+				qcom,mdss-dsc-scr-version = <0x0>;
+				qcom,mdss-dsc-slice-height = <12>;
+				qcom,mdss-dsc-slice-width = <540>;
+				qcom,mdss-dsc-slice-per-pkt = <2>;
+				qcom,mdss-dsc-bit-per-component = <10>;
+				qcom,mdss-dsc-bit-per-pixel = <8>;
+				qcom,mdss-dsc-block-prediction-enable;
+			};
+		};
+	};
+};
+
+&dsi_j1s_42_02_0a_mp_dsc_cmd {
+	mi,panel-id = <0x4A3153 0x00420202>;
+	mi,feature-enabled;
+	mi,mdss-dsi-bl-dcs-big-endian-type;
+	mi,mdss-dsi-panel-hbm-51-ctrl-flag;
+	mi,mdss-dsi-panel-hbm-off-51-index = <1>;
+	mi,mdss-dsi-panel-fod-off-51-index = <1>;
+	mi,mdss-dsi-panel-fod-on-b2-index = <5>;
+	mi,mdss-dsi-panel-vi-setting-enabled;
+	mi,mdss-dsi-panel-vi-switch-threshold = <246>;
+	mi,mdss-dsi-panel-dynamic-elvss-enabled;
+	mi,mdss-dsi-panel-disp-rate-gpio = <&tlmm 50 0>;
+	/* IRQF_ONESHOT | IRQF_TRIGGER_RISING */
+	/* trig-flags: falling-0x0002 rasing-0x0001 */
+	mi,esd-err-irq-gpio = <&tlmm 51 0x2002>;
+
+	/* White Color Coordinate */
+	mi,mdss-dsi-white-point-read-enabled;
+	mi,mdss-dsi-white-point-register-read-length = <8>;
+	mi,mdss-dsi-white-point-info-index = <0>;
+	mi,mdss-dsi-white-point-info-length = <8>;
+
+	mi,mdss-dsi-panel-dc-type = <0>;
+	mi,mdss-dsi-panel-dc-update-flag;
+	mi,mdss-dsi-panel-dc-update-d2-index = <6>;
+
+	mi,mdss-panel-on-dimming-delay = <120>;
+
+	mi,mdss-dsi-panel-fod-dimlayer-enabled;
+	mi,mdss-panel-delay-after-fod-hbm-off;
+	mi,mdss-panel-delay-after-fod-hbm-on;
+
+	mi,mdss-dsi-pan-enable-smart-fps;
+	mi,mdss-dsi-smart-fps-max_framerate = <120>;
+	mi,mdss-dsi-panel-hbm-brightness = <1>;
+	mi,mdss-dsi-dimlayer-brightness-alpha-lut-item-count = <21>;
+	mi,mdss-dsi-dimlayer-brightness-alpha-lut =
+	/* brightness  alpha */
+		<0          0xFF
+		 4          0xEB
+		 8          0xEA
+		 12         0xE9
+		 13         0xE8
+		 20         0xE5
+		 24         0xE3
+		 30         0xE0
+		 68         0xD0
+		 133        0xC0
+		 218        0xB0
+		 328        0xA0
+		 486        0x90
+		 642        0x80
+		 832        0x70
+		 1043       0x60
+		 1267       0x50
+		 1500       0x40
+		 1770       0x30
+		 2000       0x24
+		 2047       0x21>;
+
+	qcom,mdss-dsi-display-timings {
+		timing@0{
+			mi,mdss-dsi-doze-hbm-command = [
+				39 01 00 00 11 00 06 F0 55 AA 52 08 00 /* Set page 0 */
+				39 01 00 00 00 00 06 F0 55 AA 52 08 00 /* Set page 0 */
+				15 00 00 00 00 00 02 B2 48
+				15 00 00 00 00 00 02 6F 09
+				15 00 00 00 00 00 02 B2 20 /* 4 pulse */
+				15 00 00 00 00 00 02 6F 02
+				39 00 00 00 00 00 03 51 0F FF
+				05 00 00 00 00 00 02 39 00
+				15 00 00 00 00 00 02 65 01
+				05 01 00 00 00 00 02 2C 00];
+			mi,mdss-dsi-doze-lbm-command = [
+				39 01 00 00 11 00 06 F0 55 AA 52 08 00 /* Set page 0 */
+				39 01 00 00 00 00 06 F0 55 AA 52 08 00 /* Set page 0 */
+				15 00 00 00 00 00 02 B2 48
+				15 00 00 00 00 00 02 6F 09
+				15 00 00 00 00 00 02 B2 20 /* 4 pulse */
+				15 00 00 00 00 00 02 6F 02
+				39 00 00 00 00 00 03 51 02 D0
+				05 00 00 00 00 00 02 39 00
+				15 00 00 00 00 00 02 65 01
+				05 01 00 00 00 00 02 2C 00];
+			mi,mdss-dsi-doze-hbm-command-state = "dsi_lp_mode";
+			mi,mdss-dsi-doze-lbm-command-state = "dsi_lp_mode";
+
+			mi,mdss-dsi-hbm-on-command = [
+				/* VI Setting voltage -3.5V */
+				39 01 00 00 00 00 06 F0 55 AA 52 08 01 /* Set page 1 */
+				39 00 00 00 00 00 05 B9 1F 1F 1F 1F
+				/* Dimming On */
+				15 00 00 00 00 00 02 53 28];
+			mi,mdss-dsi-hbm-off-command = [
+				/* Dimming On */
+				15 01 00 00 00 00 02 53 28
+				/* Normal Mode */
+				/* parameter will be updated base on last brightness */
+				39 01 00 00 00 00 05 51 0F FF 00 00];
+			mi,mdss-dsi-hbm-on-command-state = "dsi_lp_mode";
+			mi,mdss-dsi-hbm-off-command-state = "dsi_lp_mode";
+
+			/* aod mode -> hbm on for fingerprint unlock */
+			mi,mdss-dsi-hbm-fod-on-command = [
+				/* VI Setting voltage -3.5V */
+				39 01 00 00 00 00 06 F0 55 AA 52 08 01 /* Set page 1 */
+				39 00 00 00 00 00 05 B9 1F 1F 1F 1F
+				/* Dimming Off */
+				15 00 00 00 00 00 02 53 20
+				/* HBM Mode 800 nit */
+				39 00 00 00 00 00 05 51 0F 8F 00 00
+				39 00 00 00 00 00 06 F0 55 AA 52 08 00 /* Set page 0 */
+				/* Aod to Normal */
+				15 00 00 00 00 00 02 B2 58
+				15 00 00 00 00 00 02 6F 09
+				15 00 00 00 00 00 02 B2 00 /* DC :1 Pulse 0x00; non DC: 4 Pulse 0x20 */
+				15 00 00 00 00 00 02 65 00
+				05 00 00 00 00 00 02 38 00
+				05 01 00 00 00 00 02 2C 00];
+			mi,mdss-dsi-hbm-fod-off-command = [
+				/* Dimming Off */
+				15 01 00 00 00 00 02 53 20
+				/* Normal Mode */
+				/* parameter will be updated base on last brightness */
+				39 01 00 00 00 00 05 51 07 FF 00 00];
+			mi,mdss-dsi-hbm-fod-on-command-state = "dsi_lp_mode";
+			mi,mdss-dsi-hbm-fod-off-command-state = "dsi_lp_mode";
+			mi,mdss-dsi-normal-fod-on-command-state = "dsi_lp_mode";
+			mi,mdss-dsi-aod-fod-to-normal-command-state = "dsi_lp_mode";
+
+			mi,mdss-dsi-hbm-hdr-on-command = [
+				/* VI Setting voltage -3.5V */
+				39 01 00 00 00 00 06 F0 55 AA 52 08 01 /* Set page 1 */
+				39 00 00 00 00 00 05 B9 1F 1F 1F 1F
+				/* Dimming On */
+				15 00 00 00 00 00 02 53 28
+				/* HBM Mode 800 nit */
+				39 01 00 00 00 00 05 51 0F FF 00 00];
+			mi,mdss-dsi-hbm-hdr-off-command = [
+				/* Dimming On */
+				15 01 00 00 00 00 02 53 28
+				/* Normal Mode */
+				/* parameter will be updated base on last brightness */
+				39 01 00 00 00 00 05 51 07 FF 00 00];
+			mi,mdss-dsi-hbm-hdr-on-command-state = "dsi_lp_mode";
+			mi,mdss-dsi-hbm-hdr-off-command-state = "dsi_lp_mode";
+
+			mi,mdss-dsi-dimmingon-command = [15 01 00 00 00 00 02 53 28];
+			mi,mdss-dsi-dimmingon-command-state = "dsi_lp_mode";
+			mi,mdss-dsi-dimmingoff-command = [15 01 00 00 00 00 02 53 20];
+			mi,mdss-dsi-dimmingoff-command-state = "dsi_lp_mode";
+
+			mi,mdss-dsi-white-point-read-command = [06 01 00 00 01 00 02 DF 00];
+			mi,mdss-dsi-white-point-read-command-state = "dsi_lp_mode";
+
+			mi,mdss-dsi-switch-page4-command = [
+				/* Set page 4 */
+				39 01 00 00 00 00 06 F0 55 AA 52 08 04];
+			mi,mdss-dsi-switch-page4-command-state = "dsi_lp_mode";
+			mi,mdss-dsi-dc-read-command = [
+				/* Read DC_LUT */
+				06 01 00 00 00 00 02 D2 00];
+			mi,mdss-dsi-dc-read-command-state = "dsi_lp_mode";
+
+			mi,mdss-dsi-dc-on-command = [
+				39 01 00 00 00 00 06 F0 55 AA 52 08 00 /* Set page 0 */
+				15 00 00 00 00 00 02 B2 C8 /*disable EM_PLUSE_OPT and dimming on*/
+				15 00 00 00 00 00 02 6F 09
+				15 00 00 00 00 00 02 B2 00 /* 1 Pulse */
+				39 00 00 00 00 00 25 B3 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 07 FF 0F FF
+				39 00 00 00 00 00 06 F0 55 AA 52 08 04 /* Set page 4 */
+				39 01 00 00 00 00 4C D2
+					08 08 08 08 06 0E 0E 0E 0E 0A 12 12 12 12 0E 18 18 18 18 15 12 12 12 12 12
+					11 11 11 11 09 12 12 12 12 0C 16 16 16 16 12 1C 1C 1C 1C 18 1A 1A 1A 1A 1A
+					08 08 08 08 06 0B 0B 0B 0B 0A 10 10 10 10 0C 16 16 16 16 16 12 12 12 12 12];
+			mi,mdss-dsi-dc-on-command-state = "dsi_lp_mode";
+			mi,mdss-dsi-dc-off-command = [
+				39 01 00 00 00 00 06 F0 55 AA 52 08 00 /* Set page 0 */
+				15 00 00 00 00 00 02 B2 58
+				15 00 00 00 00 00 02 6F 09
+				15 00 00 00 00 00 02 B2 20 /* 4 Pulse */
+				39 00 00 00 00 00 25 B3 00 08 00 21 00 21 00 52 00 52 00 A4 00 A4 00 F6 00 F6 01 48 01 48 01 99 01 99 03 33 03 33 07 FF 07 FF 0F FF
+				39 00 00 00 00 00 06 F0 55 AA 52 08 04 /* Set page 4 */
+				39 01 00 00 00 00 4C D2
+					12 0C 0C 08 06 30 18 16 0E 0A 48 20 16 12 0E 44 20 16 18 15 44 20 16 12 12
+					20 20 20 11 09 80 30 20 12 0C 90 30 20 16 12 80 2A 1E 1C 18 70 20 1E 1A 1A
+					12 08 08 08 06 30 12 10 0B 0A 46 1A 10 10 0C 30 1A 10 16 16 30 1A 10 12 12];
+			mi,mdss-dsi-dc-off-command-state = "dsi_lp_mode";
+
+			mi,mdss-dsi-aod-to-dc-on-command = [
+				39 01 00 00 00 00 06 F0 55 AA 52 08 00 /* Set page 0 */
+				/* Data ramapping on */
+				15 00 00 00 00 00 02 B2 C8
+				/* 1 pulse */
+				15 00 00 00 00 00 02 6F 09
+				15 01 00 00 00 00 02 B2 00];
+			mi,mdss-dsi-aod-to-dc-on-command-state = "dsi_lp_mode";
+
+			mi,mdss-dsi-vi-setting-low-command = [
+				/* VI Setting voltage -3.0V */
+				39 01 00 00 00 00 06 F0 55 AA 52 08 01 /* Set page 1 */
+				39 01 00 00 00 00 05 B9 1A 1A 1A 1A];
+			mi,mdss-dsi-vi-setting-high-command = [
+				/* VI Setting voltage -3.5V */
+				39 01 00 00 00 00 06 F0 55 AA 52 08 01 /* Set page 1 */
+				39 01 00 00 00 00 05 B9 1F 1F 1F 1F];
+			mi,mdss-dsi-vi-setting-low-command-state = "dsi_lp_mode";
+			mi,mdss-dsi-vi-setting-high-command-state = "dsi_lp_mode";
+		};
+		timing@1{
+			mi,mdss-dsi-doze-hbm-command = [
+				/* Enter 60Hz */
+				39 01 00 00 11 00 06 F0 55 AA 52 08 00 /* Set page 0 */
+				39 01 00 00 00 00 06 F0 55 AA 52 08 00 /* Set page 0 */
+				39 00 00 00 00 00 1E B4 CB BB BB AA 99 77 66 00 00 00 B4 D0 D0 D0 D0 D0 86 86 3C 3C F2 F2 A8 A8 36 36 36 36 0A
+				39 00 00 00 00 00 03 C1 00 50
+				15 00 00 00 00 00 02 2F 01
+				15 00 00 00 00 00 02 26 01
+				/* AOD Mode 60nit */
+				39 00 00 00 00 00 06 F0 55 AA 52 08 00
+				15 00 00 00 00 00 02 B2 48
+				15 00 00 00 00 00 02 6F 09
+				15 00 00 00 00 00 02 B2 20 /* 4 pulse */
+				15 00 00 00 00 00 02 6F 02
+				39 00 00 00 00 00 03 51 0F FF
+				05 00 00 00 00 00 02 39 00
+				15 00 00 00 00 00 02 65 01
+				05 01 00 00 00 00 02 2C 00];
+			mi,mdss-dsi-doze-lbm-command = [
+				/* Enter 60Hz */
+				39 01 00 00 11 00 06 F0 55 AA 52 08 00 /* Set page 0 */
+				39 01 00 00 00 00 06 F0 55 AA 52 08 00 /* Set page 0 */
+				39 00 00 00 00 00 1E B4 CB BB BB AA 99 77 66 00 00 00 B4 D0 D0 D0 D0 D0 86 86 3C 3C F2 F2 A8 A8 36 36 36 36 0A
+				39 00 00 00 00 00 03 C1 00 50
+				15 00 00 00 00 00 02 2F 01
+				15 00 00 00 00 00 02 26 01
+				/* AOD Mode 5nit */
+				39 00 00 00 00 00 06 F0 55 AA 52 08 00
+				15 00 00 00 00 00 02 B2 48
+				15 00 00 00 00 00 02 6F 09
+				15 00 00 00 00 00 02 B2 20 /* 4 pulse */
+				15 00 00 00 00 00 02 6F 02
+				39 00 00 00 00 00 03 51 02 D0
+				05 00 00 00 00 00 02 39 00
+				15 00 00 00 00 00 02 65 01
+				05 01 00 00 00 00 02 2C 00];
+			mi,mdss-dsi-doze-hbm-command-state = "dsi_lp_mode";
+			mi,mdss-dsi-doze-lbm-command-state = "dsi_lp_mode";
+
+			mi,mdss-dsi-hbm-on-command = [
+				/* VI Setting voltage -3.5V */
+				39 01 00 00 00 00 06 F0 55 AA 52 08 01 /* Set page 1 */
+				39 00 00 00 00 00 05 B9 1F 1F 1F 1F
+				/* Dimming On */
+				15 01 00 00 00 00 02 53 28];
+			mi,mdss-dsi-hbm-off-command = [
+				/* Dimming On */
+				15 01 00 00 00 00 02 53 28
+				/* Normal Mode */
+				/* parameter will be updated base on last brightness */
+				39 01 00 00 00 00 05 51 07 FF 00 00];
+			mi,mdss-dsi-hbm-on-command-state = "dsi_lp_mode";
+			mi,mdss-dsi-hbm-off-command-state = "dsi_lp_mode";
+
+			/* aod mode -> hbm on for fingerprint unlock */
+			mi,mdss-dsi-hbm-fod-on-command = [
+				/* VI Setting voltage -3.5V */
+				39 01 00 00 00 00 06 F0 55 AA 52 08 01 /* Set page 1 */
+				39 00 00 00 00 00 05 B9 1F 1F 1F 1F
+				/* Dimming Off */
+				15 00 00 00 00 00 02 53 20
+				/* HBM Mode 700 nit */
+				39 00 00 00 00 00 05 51 0F 8F 00 00
+				39 00 00 00 00 00 06 F0 55 AA 52 08 00 /* Set page 0 */
+				/* Aod to Normal */
+				15 00 00 00 00 00 02 B2 58
+				15 00 00 00 00 00 02 6F 09
+				15 00 00 00 00 00 02 B2 00 /* DC :1 Pulse 0x00; non DC: 4 Pulse 0x20 */
+				15 00 00 00 00 00 02 65 00
+				05 00 00 00 00 00 02 38 00
+				05 00 00 00 00 00 02 2C 00
+				/* Enter 120Hz */
+				39 00 00 00 00 00 06 F0 55 AA 52 08 00 /* Set page 0 */
+				39 00 00 00 00 00 1E B4 98 88 88 77 66 55 44 00 00 00 60 B8 B8 B8 B8 B8 C8 C8 D8 D8 E8 E8 F8 F8 48 48 48 48 0A
+				39 00 00 00 00 00 03 C1 00 4B
+				15 00 00 00 00 00 02 2F 04
+				15 01 00 00 00 00 02 26 02];
+			mi,mdss-dsi-hbm-fod-off-command = [
+				/* Dimming Off */
+				15 01 00 00 00 00 02 53 20
+				/* Normal Mode */
+				/* parameter will be updated base on last brightness */
+				39 01 00 00 00 00 05 51 07 FF 00 00];
+			mi,mdss-dsi-hbm-fod-on-command-state = "dsi_lp_mode";
+			mi,mdss-dsi-hbm-fod-off-command-state = "dsi_lp_mode";
+			mi,mdss-dsi-normal-fod-on-command-state = "dsi_lp_mode";
+			mi,mdss-dsi-aod-fod-to-normal-command-state = "dsi_lp_mode";
+
+			mi,mdss-dsi-hbm-hdr-on-command = [
+				/* VI Setting voltage -3.5V */
+				39 01 00 00 00 00 06 F0 55 AA 52 08 01 /* Set page 1 */
+				39 00 00 00 00 00 05 B9 1F 1F 1F 1F
+				/* Dimming On */
+				15 00 00 00 00 00 02 53 28
+				/* HBM Mode 800 nit */
+				39 01 00 00 00 00 05 51 0F FF 00 00];
+			mi,mdss-dsi-hbm-hdr-off-command = [
+				/* Dimming On */
+				15 01 00 00 00 00 02 53 28
+				/* Normal Mode */
+				/* parameter will be updated base on last brightness */
+				39 01 00 00 00 00 05 51 07 FF 00 00];
+			mi,mdss-dsi-hbm-hdr-on-command-state = "dsi_lp_mode";
+			mi,mdss-dsi-hbm-hdr-off-command-state = "dsi_lp_mode";
+
+			mi,mdss-dsi-dimmingon-command = [15 01 00 00 00 00 02 53 28];
+			mi,mdss-dsi-dimmingon-command-state = "dsi_lp_mode";
+			mi,mdss-dsi-dimmingoff-command = [15 01 00 00 00 00 02 53 20];
+			mi,mdss-dsi-dimmingoff-command-state = "dsi_lp_mode";
+
+			mi,mdss-dsi-white-point-read-command = [06 01 00 00 01 00 02 DF 00];
+			mi,mdss-dsi-white-point-read-command-state = "dsi_lp_mode";
+
+			mi,mdss-dsi-switch-page4-command = [
+				/* Set page 4 */
+				39 01 00 00 00 00 06 F0 55 AA 52 08 04];
+			mi,mdss-dsi-dc-read-command = [
+				/* Read DC_LUT */
+				06 01 00 00 00 00 02 D2 00];
+			mi,mdss-dsi-switch-page4-command-state = "dsi_lp_mode";
+			mi,mdss-dsi-dc-read-command-state = "dsi_lp_mode";
+
+			mi,mdss-dsi-dc-on-command = [
+				39 01 00 00 00 00 06 F0 55 AA 52 08 00 /* Set page 0 */
+				15 00 00 00 00 00 02 B2 C8 /*disable EM_PLUSE_OPT and dimming on*/
+				15 00 00 00 00 00 02 6F 09
+				15 00 00 00 00 00 02 B2 00 /* 1 Pulse */
+				39 00 00 00 00 00 25 B3 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 07 FF 0F FF
+				39 00 00 00 00 00 06 F0 55 AA 52 08 04 /* Set page 4 */
+				39 01 00 00 00 00 4C D2
+					10 10 10 10 10 22 22 22 22 22 26 26 26 26 26 35 35 35 35 35 40 40 40 40 40
+					10 10 10 10 10 22 22 22 22 22 26 26 26 26 26 35 35 35 35 35 40 40 40 40 40
+					0E 0E 0E 0E 0E 1D 1D 1D 1D 1D 25 25 25 25 25 30 30 30 30 30 40 40 40 40 40];
+			mi,mdss-dsi-dc-on-command-state = "dsi_lp_mode";
+			mi,mdss-dsi-dc-off-command = [
+				39 01 00 00 00 00 06 F0 55 AA 52 08 00 /* Set page 0 */
+				15 00 00 00 00 00 02 B2 58
+				15 00 00 00 00 00 02 6F 09
+				15 00 00 00 00 00 02 B2 20 /* 4 Pulse */
+				39 00 00 00 00 00 25 B3 00 08 00 21 00 21 00 52 00 52 00 A4 00 A4 00 F6 00 F6 01 48 01 48 01 99 01 99 03 33 03 33 07 FF 07 FF 0F FF
+				39 00 00 00 00 00 06 F0 55 AA 52 08 04 /* Set page 4 */
+				39 01 00 00 00 00 4C D2
+					34 13 0F 0E 10 6D 26 1E 1E 22 97 35 29 2A 26 9F 38 2C 2C 35 B2 3E 30 32 40
+					35 13 0F 0E 10 6F 27 1E 1E 22 9B 37 2A 2B 26 A1 39 2C 2D 35 B3 3F 31 32 40
+					32 12 0E 0E 0E 6A 25 1D 1D 1D 93 34 28 28 25 9C 37 2A 2B 30 B1 3E 30 32 40];
+			mi,mdss-dsi-dc-off-command-state = "dsi_lp_mode";
+
+			mi,mdss-dsi-aod-to-dc-on-command = [
+				39 01 00 00 00 00 06 F0 55 AA 52 08 00 /* Set page 0 */
+				/* Data ramapping on */
+				15 00 00 00 00 00 02 B2 C8
+				/* 1 pulse */
+				15 00 00 00 00 00 02 6F 09
+				15 01 00 00 00 00 02 B2 00];
+			mi,mdss-dsi-aod-to-dc-on-command-state = "dsi_lp_mode";
+
+			mi,mdss-dsi-vi-setting-low-command = [
+				/* VI Setting voltage -3.0V */
+				39 01 00 00 00 00 06 F0 55 AA 52 08 01 /* Set page 1 */
+				39 01 00 00 00 00 05 B9 1A 1A 1A 1A];
+			mi,mdss-dsi-vi-setting-high-command = [
+				/* VI Setting voltage -3.5V */
+				39 01 00 00 00 00 06 F0 55 AA 52 08 01 /* Set page 1 */
+				39 01 00 00 00 00 05 B9 1F 1F 1F 1F];
+			mi,mdss-dsi-vi-setting-low-command-state = "dsi_lp_mode";
+			mi,mdss-dsi-vi-setting-high-command-state = "dsi_lp_mode";
+		};
+	};
+};

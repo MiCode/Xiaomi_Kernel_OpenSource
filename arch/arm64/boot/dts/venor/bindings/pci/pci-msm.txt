@@ -1,0 +1,544 @@
+* MSM PCI express root complex
+
+=========
+Main node
+=========
+
+- compatible:
+	Usage: required
+	Value type: <stringlist>
+	Definition: Should be "qcom,pci-msm"
+
+- reg:
+	Usage: required
+	Value type: <prop-encoded-array>
+	Definition: Register ranges as listed in the reg-names property
+
+- reg-names:
+	Usage: required
+	Value type: <stringlist>
+	Definition: Should contain:
+		- "parf"	MSM specific registers
+		- "phy"		PCIe PHY registers
+		- "dbi"		DesignWare PCIe registers
+		- "elbi"	External local bus interface registers
+		- "iatu"	Internal translation unit registers
+		- "config"	PCIe device configuration space
+		- "io"		PCIe device I/O registers
+		- "bars"	PCIe device base address registers
+		- "tcsr" (opt)	PCIe clock scheme register
+		- "rumi" (opt)	PCIe RUMI register
+
+- cell-index:
+	Usage: required
+	Value type: <u32>
+	Definition: defines root complex ID.
+
+- linux,pci-domain:
+	Usage: required
+	Value type: <u32>
+	Definition: As specified in pci.txt
+
+- #address-cells:
+	Usage: required
+	Value type: <u32>
+	Definition: Should be 3. As specified in designware-pcie.txt
+
+- #size-cells:
+	Usage: required
+	Value type: <u32>
+	Definition: Should be 2. As specified in designware-pcie.txt
+
+- ranges:
+	Usage: required
+	Value type: <prop-encoded-array>
+	Definition: As specified in designware-pcie.txt
+
+- interrupt-parent:
+	Usage: required
+	Value type: <phandle>
+	Definition: Phandle of the interrupt controller that services
+		interrupts for this device
+
+- interrupts:
+	Usage: required
+	Value type: <prop-encoded-array>
+	Definition: PCIe root complex related interrupts
+
+- interrupt-names:
+	Usage: required
+	Value type: <stringlist>
+	Definition: Should contain
+		- "int_msi"
+		- "int_a"
+		- "int_b"
+		- "int_c"
+		- "int_d",
+		- "int_global_int"
+
+- #interrupt-cells:
+	Usage: required
+	Value type: <u32>
+	Definition: Should be 1. As specified in designware-pcie.txt
+
+- interrupt-map-mask:
+	Usage: required
+	Value type: <prop-encoded-array>
+	Definition: As specified in designware-pcie.txt
+
+- interrupt-map:
+	Usage: required
+	Value type: <prop-encoded-array>
+	Definition: As specified in designware-pcie.txt
+
+- msi-parent:
+	Usage: required
+	Value type: <phandle>
+	Definition: As specified in pci-msi.txt
+
+- <name>-gpio:
+	Usage: required
+	Value type: <prop-encoded-array>
+	Definition: List of phandle and GPIO specifier pairs. Should contain:
+		- "perst-gpio"		PCIe reset signal line
+		- "wake-gpio"		PCIe wake signal line
+		- "qcom,ep-gpio" (opt)	PCIe endpoint specific signal line
+
+- pinctrl-names:
+	Usage: required
+	Value type: <stringlist>
+	Definition: Name of pin configuration groups. Should contain:
+		- "default"
+		- "sleep" (opt)
+
+- pinctrl-<num>:
+	Usage: required
+	Value type: <prop-encoded-array>
+	Definition: As specified in pinctrl-bindings.txt
+
+- <supply-name>-supply:
+	Usage: required
+	Value type: <phandle>
+	Definition: Phandle to PCIe core and PHY power supply. Should contain:
+		- "gdsc-vdd-supply"		PCIe power domain control
+		- "vreg-1.8-supply"		power supply for PCIe PHY
+		- "vreg-0.9-supply"		power supply for PCIe PHY
+		- "vreg-cx-supply"		power supply for PCIe core
+		- "vreg-3.3-supply" (opt)	power supply for PCIe endpoint
+
+- qcom,<supply-name>-voltage-level:
+	Usage: required
+	Value type: <prop-encoded-array>
+	Definition: List of max/min voltage(uV) and optimal current(uA) tuple
+		for power supply
+
+- qcom,bw-scale:
+	Usage: optional
+	Value type: <prop-encoded-array>
+	Definition: List of CX voltage corner and rate change clock frequency
+		pair for each PCIe GEN speed
+
+- qcom,msm-bus,<bus-field>:
+	Usage: required
+	Value type: <prop-encoded>
+	Definition: As specified in msm_bus.txt
+
+- clocks:
+	Usage: required
+	Value type: <prop-encoded-array>
+	Definition: List of phandle and clock specifier pairs as listed
+		in clock-names property
+
+- clock-names:
+	Usage: required
+	Value type: <stringlist>
+	Definition: List of clock names that corresponds with listed "clocks"
+
+- max-clock-frequency-hz:
+	Usage: optional
+	Value type: <u32 array>
+	Definition: List of clock frequencies for each PCIe clock. Only need to
+		specify the ones that needs to be changed
+
+- resets:
+	Usage: required
+	Value type: <prop-encoded-array>
+	Definition: List of phandle and reset specifier pairs as listed
+		in reset-names property
+
+- reset-names:
+	Usage: required
+	Value type: <stringlist>
+	Definition: Should contain:
+		- "pcie_<num>_core_reset"	Core reset
+		- "pcie_<num>_phy_reset"	PHY reset
+
+- qcom,smmu-sid-base:
+	Usage: optional
+	Value: <u32>
+	Definition: Base SID for PCIe
+
+- iommu-map:
+	Usage: optional. Required if qcom,smmu-sid-base is defined
+	Value type: <prop-encoded-array>
+	Definition: As defined in pci-iommu.txt. Should contain:
+		- <BDF, iommu phandle, SID, 0x1>
+
+- qcom,target-link-speed:
+	Usage: optional
+	Value type: <u32>
+	Definition: Override maximum GEN speed. Options:
+		- 0x1	GEN 1
+		- 0x2	GEN 2
+		- 0x3	GEN 3
+
+- qcom,link-check-max-count
+	Usage: optional
+	Value type: <u32>
+	Definition: Max number of retries for link training. Delay between each
+		check is 5ms
+
+- qcom,boot-option:
+	Usage: optional
+	Value type: <u32>
+	Definition: Controls PCIe bus driver boot sequence. Options:
+		- BIT(0)	PCIe bus driver will not start enumeration
+				during its probe. Clients will control when
+				PCIe bus driver should do enumeration
+		- BIT(1)	PCIe bus driver will not start enumeration if it
+				receives a WAKE interrupt
+
+- qcom,drv-supported:
+	Usage: optional
+	Value type: <bool>
+	Definition: Direct resource vote (DRV) is supported. APPS PCIe
+		root complex driver can hand off PCIe resources to another
+		subsystem. This will allow APPS to enter lower power modes
+		while keeping PCIe core, PHY, and link funtional. In addition,
+		the system can enter CX power collapse once the DRV subsystem
+		removes its PCIe votes.
+
+- qcom,drv-l1ss-timeout-us:
+	Usage: optional depends on qcom,drv-supported
+	Value type: <u32>
+	Definition: This timeout determines when DRV subsystem will put the
+		link into l1ss sleep while idle in l1ss. If this is omitted,
+		the default timeout is 100ms.
+
+- qcom,use-19p2mhz-aux-clk:
+	Usage: optional
+	Value type: <bool>
+	Definition: Set PCIe AUX clock frequency to 19.2MHz
+
+- qcom,common-clk-en:
+	Usage: optional
+	Value type: <bool>
+	Definition: Support common clock configuration
+
+- qcom,clk-power-manage-en:
+	Usage: optional
+	Value type: <bool>
+	Definition: Support clock power management
+
+- qcom,n-fts:
+	Usage: optional
+	Value type: <u32>
+	Definition: Number of fast training sequences sent when the link
+		transitions from L0s to L0
+
+- qcom,no-l0s-supported:
+	Usage: optional
+	Value type: <bool>
+	Definition: L0s is not supported
+
+- qcom,no-l1-supported:
+	Usage: optional
+	Value type: <bool>
+	Definition: L1 is not supported
+
+- qcom,no-l1ss-supported:
+	Usage: optional
+	Value type: <bool>
+	Definition: L1 sub-state (L1ss) is not supported
+
+- qcom,no-aux-clk-sync:
+	Usage: optional
+	Value type: <bool>
+	Definition: The AUX clock is not synchronous to the Core clock to
+		support L1ss
+
+- qcom,l1-2-th-scale:
+	Usage: optional
+	Value type: <u32>
+	Definition: Determines the multiplier for L1.2 LTR threshold value
+		- 0	1ns
+		- 1	32ns
+		- 2	1us
+		- 3	32us
+		- 4	1ms
+		- 5	32ms
+
+- qcom,l1-2-th-value:
+	Usage: optional
+	Value type: <u32>
+	Definition: L1.2 LTR threshold value to be multipled with scale to
+		define L1.2 latency tolerance reporting (LTR)
+
+- qcom,slv-addr-space-size:
+	Usage: required
+	Value type: <u32>
+	Definition: Memory block size dedicated to PCIe root complex
+
+- qcom,wr-halt-size:
+	Usage: optional
+	Value type: <u32>
+	Definition: Exponent (base 2) that determines the data size(bytes) that
+		PCIe core will halt for each write
+
+- qcom,tlp-rd-size:
+	Usage: optional
+	Value type: <u32>
+	Definition: Determines the maximum read request size(bytes). Options:
+		- 0	128
+		- 1	256
+		- 2	512
+		- 3	1K
+		- 4	2K
+		- 5	4K
+
+- qcom,cpl-timeout:
+	Usage: optional
+	Value type: <u32>
+	Definition: Determines the timeout range PCIe root complex will send
+		out a completion packet if no ACK is seen for TLP. Options:
+		- BIT(0)	50us to 10ms
+		- BIT(1)	10ms to 250ms
+		- BIT(2)	250ms to 4s
+		- BIT(3)	4s to 64s
+
+- qcom,perst-delay-us-min:
+	Usage: optional
+	Value type: <u32>
+	Definition: Minimum allowed time(us) to sleep after asserting or
+		de-asserting PERST GPI.
+
+- qcom,perst-delay-us-max:
+	Usage: optional
+	Value type: <u32>
+	Definition: Maximum allowed time(us) to sleep after asserting or
+		de-asserting PERST GPIO
+
+- qcom,ep-latency:
+	Usage: optional
+	Value type: <u32>
+	Definition: The latency(ms) between when PCIe PHY is up and PERST is
+		de-asserted. This guarantees the 100MHz clock is available for
+		the PCIe devices
+
+- qcom,switch-latency:
+	Usage: optional
+	Definition: The latency(ms) between when PCIe link is up and before
+		any device over the switch is accessed
+
+- qcom,core-preset:
+	Usage: optional
+	Definition: Determines how aggressive the PCIe PHY equalization is for
+		Gen3 cores. The following are recommended settings:
+		- short channels: 0x55555555 (default)
+		- long channels: 0x77777777
+
+- qcom,pcie-phy-ver:
+	Usage: required
+	Value type: <u32>
+	Definition: States the PCIe PHY version
+
+- qcom,phy-status-offset:
+	Usage: required
+	Value type: <u32>
+	Definition: Offset from PCIe PHY base to check if PCIe PHY status
+
+- qcom,phy-status-bit:
+	Usage: required
+	Value type: <u32>
+	Definition: BIT to check PCIe PHY status
+
+- qcom,phy-power-down-offset:
+	Usage: required
+	Value type: <u32>
+	Definition: Offset from PCIe PHY base to control PHY power state
+
+- qcom,phy-sequence:
+	Usage: required
+	Value type: <prop-encoded array>
+	Definition: PCIe PHY initialization sequence
+
+
+==============
+Root port node
+==============
+
+Root port are defined as subnodes of the PCIe controller node
+
+- reg:
+	Usage: required
+	Value type: <prop-encoded array>
+	Definition: First cell is devfn, which is determined by pci bus
+	topology. Assign the other cells 0 since they are not used
+
+- qcom,iommu-cfg:
+	Usage: optional
+	Value type: <u32>
+	Definition: Defines PCIe root port SMMU configuration. Options:
+		- BIT(0)	Indicates if SMMU is present
+		- BIT(1)	Set IOMMU attribute S1_BYPASS
+		- BIT(2)	Set IOMMU attribute FAST
+		- BIT(3)	Set IOMMU attribute ATOMIC
+		- BIT(4)	Set IOMMU attribute FORCE COHERENT
+
+- qcom,iommu-range:
+	Usage: optional
+	Value type: Array of <u64>
+	Definition: Pair of values describing iova base and size to allocate
+
+=======
+Example
+=======
+
+	pcie0: qcom,pcie@1c00000 {
+		compatible = "qcom,pci-msm";
+
+		reg = <0x1c00000 0x4000>,
+			<0x1c04000 0x1000>,
+			<0x60000000 0xf1d>,
+			<0x60000f20 0xa8>,
+			<0x60001000 0x1000>,
+			<0x60100000 0x100000>,
+			<0x60200000 0x100000>,
+			<0x60300000 0x3d00000>;
+		reg-names = "parf", "phy", "dm_core", "elbi", "iatu", "conf",
+				"io", "bars", "tcsr", "rumi";
+
+		cell-index = <0>;
+		device_type = "pci";
+		linux,pci-domain = <0>;
+
+		#address-cells = <3>;
+		#size-cells = <2>;
+		ranges = <0x01000000 0x0 0x60200000 0x60200000 0x0 0x100000>,
+			<0x02000000 0x0 0x60300000 0x60300000 0x0 0x3d00000>;
+
+		interrupt-parent = <&pcie0>;
+		interrupts = <0 1 2 3 4 5>;
+		interrupt-names = "int_msi", "int_a", "int_b", "int_c", "int_d",
+				"int_global_int",
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0 0 0 0xffffffff>;
+		interrupt-map = <0 0 0 0 &intc 0 141 0
+				0 0 0 1 &intc 0 149 0
+				0 0 0 2 &intc 0 150 0
+				0 0 0 3 &intc 0 151 0
+				0 0 0 4 &intc 0 152 0
+				0 0 0 5 &intc 0 140 0>;
+		msi-parent = <&pcie0_msi>;
+
+		perst-gpio = <&tlmm 35 0>;
+		wake-gpio = <&tlmm 37 0>;
+		qcom,ep-gpio = <&tlmm 94 0>;
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&pcie0_clkreq_default
+				&pcie0_perst_default
+				&pcie0_wake_default>;
+		pinctrl-1 = <&pcie0_clkreq_sleep
+				&pcie0_perst_sleep
+				&pcie0_wake_sleep>;
+
+		gdsc-vdd-supply = <&pcie_0_gdsc>;
+		vreg-1.8-supply = <&pm8150l_l3>;
+		vreg-0.9-supply = <&pm8150_l5>;
+		vreg-cx-supply = <&VDD_CX_LEVEL>;
+		vreg-3.3-supply = <&pm8150_l1>;
+		qcom,vreg-1.8-voltage-level = <1800000 1800000 1000>;
+		qcom,vreg-0.9-voltage-level = <950000 950000 24000>;
+		qcom,vreg-cx-voltage-level = <RPMH_REGULATOR_LEVEL_MAX
+						RPMH_REGULATOR_LEVEL_NOM 0>;
+		qcom,bw-scale = <RPMH_REGULATOR_LEVEL_LOW_SVS 19200000 /* Gen1 */
+				<RPMH_REGULATOR_LEVEL_LOW_SVS 19200000 /* Gen2 */
+				<RPMH_REGULATOR_LEVEL_NOM 100000000>; /* Gen3 */
+
+		qcom,msm-bus,name = "pcie0";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<45 512 0 0>,
+				<45 512 500 800>;
+
+		clocks = <&clock_gcc GCC_PCIE_0_PIPE_CLK>,
+			<&clock_rpmh RPMH_CXO_CLK>,
+			<&clock_gcc GCC_PCIE_0_AUX_CLK>,
+			<&clock_gcc GCC_PCIE_0_CFG_AHB_CLK>,
+			<&clock_gcc GCC_PCIE_0_MSTR_AXI_CLK>,
+			<&clock_gcc GCC_PCIE_0_SLV_AXI_CLK>,
+			<&clock_gcc GCC_PCIE_0_CLKREF_CLK>,
+			<&clock_gcc GCC_PCIE_0_SLV_Q2A_AXI_CLK>,
+			<&clock_gcc GCC_AGGRE_NOC_PCIE_TBU_CLK>,
+			<&clock_gcc GCC_PCIE0_PHY_REFGEN_CLK>,
+			<&clock_gcc GCC_PCIE_PHY_AUX_CLK>;
+		clock-names = "pcie_0_pipe_clk", "pcie_0_ref_clk_src",
+				"pcie_0_aux_clk", "pcie_0_cfg_ahb_clk",
+				"pcie_0_mstr_axi_clk", "pcie_0_slv_axi_clk",
+				"pcie_0_ldo", "pcie_0_slv_q2a_axi_clk",
+				"pcie_tbu_clk", "pcie_phy_refgen_clk",
+				"pcie_phy_aux_clk";
+		max-clock-frequency-hz = <0>, <0>, <19200000>, <0>, <0>, <0>,
+					<0>, <0>, <0>, <0>, <100000000>, <0>;
+
+		resets = <&clock_gcc GCC_PCIE_0_BCR>,
+			<&clock_gcc GCC_PCIE_0_PHY_BCR>;
+		reset-names = "pcie_0_core_reset",
+				"pcie_0_phy_reset";
+
+		qcom,smmu-sid-base = <0x1e00>;
+		iommu-map = <0x0 &apps_smmu 0x1e00 0x1>,
+			<0x100 &apps_smmu 0x1e01 0x1>;
+
+		qcom,target-link-speed = <0x2>;
+		qcom,link-check-max-count = <40> /* 200ms */
+		qcom,boot-option = <0x1>;
+		qcom,drv-supported;
+		qcom,use-19p2mhz-aux-clk;
+		qcom,common-clk-en;
+		qcom,clk-power-manage-en;
+		qcom,n-fts = <0x50>;
+		qcom,no-l0s-supported;
+		qcom,no-l1-supported;
+		qcom,no-l1ss-supported;
+		qcom,no-aux-clk-sync;
+		qcom,slv-addr-space-size = <0x1000000>; /* 16MB */
+		qcom,wr-halt-size = <0xa>; /* 1KB */
+		qcom,tlp-rd-size = <0x5>; /* 4KB */
+		qcom,cpl-timeout = <0x2>; /* 10ms to 250ms */
+		qcom,perst-delay-us-min = <10>;
+		qcom,perst-delay-us-max = <15>;
+		qcom,ep-latency = <20>;
+		qcom,switch-latency = <25>;
+
+		qcom,core-preset = <0x55555555> /* short channel */
+		qcom,pcie-phy-ver = <0x2101>; /* v2 version 1.01 */
+		qcom,phy-status-offset = <0x814>;
+		qcom,phy-status-bit = <6>;
+		qcom,phy-power-down-offset = <0x840>;
+		qcom,phy-sequence = <0x0840 0x03 0x0
+				0x0094 0x08 0x0
+				0x0154 0x34 0x0
+				0x016c 0x08 0x0
+				0x0058 0x0f 0x0
+				0x00a4 0x42 0x0
+				0x0110 0x24 0x0
+				0x0800 0x00 0x0
+				0x0844 0x03 0x0>;
+
+		pcie0_rp: pcie0_rp {
+			reg = <0x0 0x0 0x0 0x0 0x0>;
+			qcom,iommu-cfg = <0x3> /* SMMU PRESENT. SET S1 BYPASS */
+			qcom,iommu-range = <0x0 0x10000000 0x0 0x40000000>;
+		};

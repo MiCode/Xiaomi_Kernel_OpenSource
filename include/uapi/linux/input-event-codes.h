@@ -8,6 +8,7 @@
  *
  * Copyright (c) 1999-2002 Vojtech Pavlik
  * Copyright (c) 2015 Hans de Goede <hdegoede@redhat.com>
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 as published by
@@ -418,6 +419,7 @@
 #define BTN_WHEEL		0x150
 #define BTN_GEAR_DOWN		0x150
 #define BTN_GEAR_UP		0x151
+#define BTN_INFO 0x152
 
 #define KEY_OK			0x160
 #define KEY_SELECT		0x161

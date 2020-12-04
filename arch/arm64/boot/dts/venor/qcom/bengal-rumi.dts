@@ -1,0 +1,11 @@
+/dts-v1/;
+/memreserve/ 0x90000000 0x00000100;
+
+#include "bengal.dtsi"
+#include "bengal-rumi.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Bengal RUMI";
+	compatible = "qcom,bengal-rumi", "qcom,bengal", "qcom,rumi";
+	qcom,board-id = <15 0>;
+};

@@ -1,0 +1,30 @@
+Qualcomm Technologies, Inc. Secure Execution Environment IPC Interrupt Bridge
+
+[Root level node]
+Required properties:
+-compatible : should be "qcom,qsee-ipc-irq-bridge";
+
+[Second level nodes]
+qcom,qsee-ipc-irq-subsystem
+Required properties:
+-qcom,dev-name: the bridge device name
+-interrupt: IPC interrupt line from remote subsystem to QSEE
+-label : The name of this subsystem.
+
+Required properties if interrupt type is IRQ_TYPE_LEVEL_HIGH[4]:
+-qcom,rx-irq-clr : the register to clear the level triggered rx interrupt
+-qcom,rx-irq-clr-mask : the bitmask to clear the rx interrupt
+
+Example:
+
+	qcom,qsee_ipc_irq_bridge {
+		compatible = "qcom,qsee-ipc-irq-bridge";
+
+		qcom,qsee-ipc-irq-spss {
+			qcom,rx-irq-clr = <0x1d08008 0x4>;
+			qcom,rx-irq-clr-mask = <0x2>;
+			qcom,dev-name = "qsee_ipc_irq_spss";
+			interrupts = <0 349 4>;
+			label = "spss";
+		};
+	};

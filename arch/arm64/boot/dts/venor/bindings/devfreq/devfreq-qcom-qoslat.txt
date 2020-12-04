@@ -1,0 +1,37 @@
+QCOM Devfreq memory latency QoS voting device
+
+Some Qualcomm Technologies, Inc. (QTI) chipsets have an interface to vote for
+a memory latency QoS level. The qcom,devfreq-qoslat represents a device that
+votes on this interface to request a particular memory latency QoS level.
+
+Required properties:
+- compatible:		Must be "qcom,devfreq-qoslat"
+- operating-points-v2:	A phandle to the OPP v2 table that holds the supported
+			QoS levels for the particular chipset. Currently, only
+			OPP values of 0 and 1 are supported.
+- mboxes:		A phandle to the mailbox used by this device to send
+			requests to adjust the memory latency QoS level.
+Optional properties:
+- governor:		Initial governor to use for the device.
+			Default: "powersave"
+
+Example:
+
+	qoslat_opp_table: qoslat-opp-table {
+		compatible = "operating-points-v2";
+		opp-0  {
+			opp-hz = /bits/ 64 < 0 >;
+		};
+
+		opp-1 {
+			opp-hz = /bits/ 64 < 1 >;
+		};
+	};
+
+	qcom,devfreq-qoslat {
+		compatible = "qcom,devfreq-qoslat";
+		governor = "powersave";
+		operating-points-v2 = <&qoslat_opp_table>;
+		mboxes = <&qmp_aop 0>;
+	};
+

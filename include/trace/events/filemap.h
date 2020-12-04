@@ -13,6 +13,34 @@
 #include <linux/kdev_t.h>
 #include <linux/errseq.h>
 
+
+TRACE_EVENT(filemap_debug_einfo,
+		TP_PROTO(struct page *page,struct task_struct *curr,const char *  flag1,unsigned int value1),
+		TP_ARGS(page,curr,flag1,value1),
+		TP_STRUCT__entry(
+			__array( char,  comm,   TASK_COMM_LEN   )
+			__field( pid_t, tgid                     )
+			__field( pid_t, pid                     )
+			__field( int, kworker            )
+			__array( char,  flag1,  TASK_COMM_LEN)
+			__field(unsigned int, value1   )
+
+			),
+
+		TP_fast_assign(
+			memcpy(__entry->comm, curr->comm, TASK_COMM_LEN);
+			__entry->tgid           = curr->tgid;
+			__entry->pid            = curr->pid;
+			__entry->kworker   = page->flags;
+			memcpy(__entry->flag1, flag1, TASK_COMM_LEN);
+			__entry->value1 = value1;
+
+			),
+		TP_printk("humantask comm=%s tgid = %d pid=%d,  %s=%d, kworker=%d",
+				__entry->comm, __entry->tgid,__entry->pid,__entry->flag1,__entry->value1,__entry->kworker)
+		);
+
+
 DECLARE_EVENT_CLASS(mm_filemap_op_page_cache,
 
 	TP_PROTO(struct page *page),

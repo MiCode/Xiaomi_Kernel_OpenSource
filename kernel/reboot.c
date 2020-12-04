@@ -32,6 +32,7 @@ EXPORT_SYMBOL(cad_pid);
 #endif
 enum reboot_mode reboot_mode DEFAULT_REBOOT_MODE;
 enum reboot_mode panic_reboot_mode = REBOOT_UNDEFINED;
+#define POWEROFF_CHARGER_COMMANDLINE_LENGTH 20
 
 /*
  * This variable is used privately to keep track of whether or not
@@ -44,12 +45,23 @@ int reboot_default = 1;
 int reboot_cpu;
 enum reboot_type reboot_type = BOOT_ACPI;
 int reboot_force;
+static char poweroff_charger_mode[POWEROFF_CHARGER_COMMANDLINE_LENGTH];
 
 /*
  * If set, this is used for preparing the system to power off.
  */
 
 void (*pm_power_off_prepare)(void);
+
+static int check_poweroff_charger_mode(void)
+{
+	static const char poweroff_charger[] = "charger";
+
+	if (!strncmp(poweroff_charger_mode, poweroff_charger, sizeof(poweroff_charger) - 1))
+		return true;
+
+	return false;
+}
 
 /**
  *	emergency_restart - reboot the system
@@ -241,14 +253,14 @@ void migrate_to_reboot_cpu(void)
  */
 void kernel_restart(char *cmd)
 {
-	kernel_restart_prepare(cmd);
-	migrate_to_reboot_cpu();
-	syscore_shutdown();
 	if (!cmd)
 		pr_emerg("Restarting system\n");
 	else
 		pr_emerg("Restarting system with command '%s'\n", cmd);
 	kmsg_dump(KMSG_DUMP_RESTART);
+	kernel_restart_prepare(cmd);
+	migrate_to_reboot_cpu();
+	syscore_shutdown();
 	machine_restart(cmd);
 }
 EXPORT_SYMBOL_GPL(kernel_restart);
@@ -268,11 +280,11 @@ static void kernel_shutdown_prepare(enum system_states state)
  */
 void kernel_halt(void)
 {
+	pr_emerg("System halted\n");
+	kmsg_dump(KMSG_DUMP_HALT);
 	kernel_shutdown_prepare(SYSTEM_HALT);
 	migrate_to_reboot_cpu();
 	syscore_shutdown();
-	pr_emerg("System halted\n");
-	kmsg_dump(KMSG_DUMP_HALT);
 	machine_halt();
 }
 EXPORT_SYMBOL_GPL(kernel_halt);
@@ -284,13 +296,13 @@ EXPORT_SYMBOL_GPL(kernel_halt);
  */
 void kernel_power_off(void)
 {
+	pr_emerg("Power down\n");
+	kmsg_dump(KMSG_DUMP_POWEROFF);
 	kernel_shutdown_prepare(SYSTEM_POWER_OFF);
 	if (pm_power_off_prepare)
 		pm_power_off_prepare();
 	migrate_to_reboot_cpu();
 	syscore_shutdown();
-	pr_emerg("Power down\n");
-	kmsg_dump(KMSG_DUMP_POWEROFF);
 	machine_power_off();
 }
 EXPORT_SYMBOL_GPL(kernel_power_off);
@@ -312,9 +324,13 @@ SYSCALL_DEFINE4(reboot, int, magic1, int, magic2, unsigned int, cmd,
 	char buffer[256];
 	int ret = 0;
 
-	/* We only trust the superuser with rebooting the system. */
-	if (!ns_capable(pid_ns->user_ns, CAP_SYS_BOOT))
-		return -EPERM;
+	if (check_poweroff_charger_mode()){
+		pr_warn("poweroff charging skip this detect\n");
+	} else {
+		/* We only trust the superuser with rebooting the system. */
+		if (!ns_capable(pid_ns->user_ns, CAP_SYS_BOOT))
+			return -EPERM;
+	}
 
 	/* For safety, we require "magic" arguments. */
 	if (magic1 != LINUX_REBOOT_MAGIC1 ||
@@ -592,3 +608,11 @@ static int __init reboot_setup(char *str)
 	return 1;
 }
 __setup("reboot=", reboot_setup);
+
+static int __init get_poweroff_charger_mode(char *line)
+{
+	strlcpy(poweroff_charger_mode, line, sizeof(poweroff_charger_mode));
+	pr_warn("get_poweroff_charger_mode = %s\n", poweroff_charger_mode);
+	return 1;
+}
+__setup("androidboot.mode=", get_poweroff_charger_mode);

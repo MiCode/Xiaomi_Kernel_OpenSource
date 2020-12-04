@@ -3,6 +3,7 @@
  *
  * Copyright (c) 2014 Samsung Electronics Co., Ltd.
  * Author: Andrey Ryabinin <ryabinin.a.a@gmail.com>
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * Some code borrowed from https://github.com/xairy/kasan-prototype by
  *        Andrey Konovalov <andreyknvl@gmail.com>
@@ -451,7 +452,7 @@ static inline depot_stack_handle_t save_stack(gfp_t flags)
 	    trace.entries[trace.nr_entries-1] == ULONG_MAX)
 		trace.nr_entries--;
 
-	return depot_save_stack(&trace, flags);
+	return depot_save_stack(&trace, flags, 0);
 }
 
 static inline void set_track(struct kasan_track *track, gfp_t flags)

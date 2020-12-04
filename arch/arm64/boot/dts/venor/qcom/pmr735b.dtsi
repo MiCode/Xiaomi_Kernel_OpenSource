@@ -1,0 +1,42 @@
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/spmi/spmi.h>
+
+&spmi_bus {
+	#address-cells = <2>;
+	#size-cells = <0>;
+	interrupt-controller;
+	#interrupt-cells = <4>;
+
+	qcom,pmr735b@a {
+		compatible = "qcom,spmi-pmic";
+		reg = <10 SPMI_USID>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		pmr735b_revid: qcom,revid@100 {
+			compatible = "qcom,qpnp-revid";
+			reg = <0x100 0x100>;
+		};
+
+		pmr735b_tz: qcom,temp-alarm@a00 {
+			compatible = "qcom,spmi-temp-alarm";
+			reg = <0xa00 0x100>;
+			interrupts = <0xa 0xa 0x0 IRQ_TYPE_EDGE_BOTH>;
+			#thermal-sensor-cells = <0>;
+			qcom,temperature-threshold-set = <1>;
+		};
+
+		pmr735b_gpios: pinctrl@8800 {
+			compatible = "qcom,spmi-gpio";
+			reg = <0x8800 0x400>;
+			interrupts = <0xa 0x88 0x0 IRQ_TYPE_NONE>,
+				     <0xa 0x89 0x0 IRQ_TYPE_NONE>,
+				     <0xa 0x8a 0x0 IRQ_TYPE_NONE>,
+				     <0xa 0x8b 0x0 IRQ_TYPE_NONE>;
+			interrupt-names = "pmr735b_gpio1", "pmr735b_gpio2",
+					"pmr735b_gpio3", "pmr735b_gpio4";
+			gpio-controller;
+			#gpio-cells = <2>;
+		};
+	};
+};

@@ -1,0 +1,45 @@
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+qcom,j1 {
+	/* j1 jeita, step charge and other important charging parameters */
+	qcom,fastchg-current-ma = <10000>;
+	qcom,jeita-fcc-ranges = <(-100)  0   1000000
+				1  50   2200000
+				51  100  2200000
+				101 150  5280000
+				151 480  10000000
+				481 580  2200000>;
+	qcom,jeita-fv-ranges = <(-100)  0   4450000
+				1   50   4450000
+				51  100  4450000
+				101 150  4450000
+				151 480  4490000
+				481 580  4100000>;
+	qcom,step-chg-ranges = <3000000  3349000  1000000
+				3350000  4249000  10000000
+				4250000  4349000  6600000
+				4350000  4449000  5720000
+				4450000  4480000  4400000>;
+	qcom,cold-step-chg-ranges = <3000000  4199000  1000000
+				4200000  4450000  660000>;
+	qcom,jeita-too-hot = <580>;
+	qcom,jeita-too-cold = <(-100)>;
+	qcom,jeita-warm-th= <480>;
+	qcom,jeita-cool-th= <150>;
+	qcom,ocv-based-step-chg;
+	qcom,use-bq-pump;
+	qcom,use-ext-gauge;
+	qcom,max-voltage-uv = <4490000>;
+	qcom,batt-id-kohm = <100>;
+	qcom,battery-type = "j1_profile";
+};

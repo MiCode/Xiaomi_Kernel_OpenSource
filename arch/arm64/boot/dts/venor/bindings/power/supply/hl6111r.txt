@@ -1,0 +1,26 @@
+Halo Microelectronics Co. Ltd. HL6111R Specific Bindings
+
+HL6111R is a wireless charging power receiver IC that has a maximum
+power output of 15 W, a maximum current output of 2.2 A, and a
+programmable output voltage range of 4 V to 20 V with different step
+sizes. It supports both the A4WP and WPC wireless charging standards.
+
+Required properties:
+
+- compatible
+	Usage:		required
+	Value type: 	<string>
+	Definition:	Must be "halo,hl6111r"
+
+- reg
+	Usage:		required
+	Value type: 	<u32>
+	Definition:	7-bit I2C address of the device.
+
+Example:
+
+halo,hl6111r@25 {
+	compatible = "halo,hl6111r";
+	reg = <0x25>;
+	status = "ok";
+}

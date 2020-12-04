@@ -1,0 +1,53 @@
+Qualcomm Technologies, Inc. CX Peak current cooling device
+
+The CX IPEAK cooling device, will be used to set thermal client vote to
+CX IPEAK  LM hardware. When all pre-defined clients on CX rail including
+thermal client set their vote, CXIP LM hardware throttles pre-defined
+client on the same rail.
+
+Required Parameters:
+- compatible:
+	Usage: required
+	Value type: <string>
+	Definition: should be "qcom,cxip-lm-cooling-device"
+
+- reg:
+	Usage: required
+	Value type: <values in hex>
+	Definition: Must contain 2 variables <a b> where 'a' is the starting
+		register address of the CX IPEAK LM hardware and 'b' is the
+		size of the peripheral address space.
+
+- qcom,thermal-client-offset:
+	Usage: Optional
+	Value type: <value in hex>
+	Definition: This property is required for CX IP LM v1.1 and above
+		hardware. Must contain offset from CX IPEAK LM reg
+		base for thermal client voting. If this property is not defined,
+		then CX IPEAK cooling device will use legacy CXIP LM hardware
+		offset registers.
+
+- qcom,bypass-client-list:
+	Usage: Optional
+	Value type: <value in hex>
+	Definition: This property is required for CX IP LM v1.1 and above
+		hardware. Must contain array of offsets from CX IPEAK LM reg
+		base for clients those are not participating voting to CXIP LM
+		hardware. This property makes sense only when thermal-client
+		is defined.
+
+- #cooling-cells:
+	Usage: required
+	Value type: <integer>
+	Definition: Must be 2. This is required by of-thermal and refer the doc
+		<devicetree/bindings/thermal/thermal.txt> for more details.
+
+Example:
+
+	cxip_cdev: cxip-cdev@1fed000 {
+		compatible = "qcom,cxip-lm-cooling-device";
+		reg = <0x1fed000 0x24>;
+		qcom,thermal-client-offset = <0x8000>;
+		qcom,bypass-client-list = <0x2004 0x3004>;
+		#cooling-cells = <2>;
+	};

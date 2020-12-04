@@ -1,0 +1,16 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include "lito-cdp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Lito CDP";
+	compatible = "qcom,lito-cdp", "qcom,lito", "qcom,cdp";
+	qcom,msm-id = <400 0x10000>, <440 0x10000>;
+	qcom,board-id = <1 0>;
+};
+
+&ufsphy_mem {
+	vdda-phy-always-on;
+};

@@ -1,0 +1,9 @@
+/dts-v1/;
+
+#include "lito-v2.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Lito v2 SoC";
+	compatible = "qcom,lito";
+	qcom,board-id = <0 0>;
+};

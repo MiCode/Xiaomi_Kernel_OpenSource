@@ -25,6 +25,11 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/sched.h>
 
+#undef CREATE_TRACE_POINTS
+#include <trace/events/kperfevents_sched.h>
+#define CREATE_TRACE_POINTS
+DEFINE_TRACE(kperfevents_sched_wait);
+
 DEFINE_PER_CPU_SHARED_ALIGNED(struct rq, runqueues);
 
 #if defined(CONFIG_SCHED_DEBUG) && defined(CONFIG_JUMP_LABEL)
@@ -3157,6 +3162,15 @@ unsigned long long task_sched_runtime(struct task_struct *p)
 
 unsigned int capacity_margin_freq = 1280; /* ~20% margin */
 
+#if defined(CONFIG_XIAOMI_SOLUTION) && IS_ENABLED(CONFIG_SCHED_USF)
+void (*adjust_task_pred_demand)(int cpuid, struct task_struct *p,
+		struct rq *rq, int event) = NULL;
+EXPORT_SYMBOL(adjust_task_pred_demand);
+DEFINE_PER_CPU(unsigned long[PID_MAX_DEFAULT], task_hist_nivcsw) = {
+	[0 ... PID_MAX_DEFAULT-1] = 0};
+EXPORT_SYMBOL(task_hist_nivcsw);
+#endif
+
 /*
  * This function gets called by the timer code, with HZ frequency.
  * We call it with interrupts disabled.
@@ -3190,6 +3204,14 @@ void scheduler_tick(void)
 	early_notif = early_detection_notify(rq, wallclock);
 	if (early_notif)
 		flag = SCHED_CPUFREQ_WALT | SCHED_CPUFREQ_EARLY_DET;
+
+#if defined(CONFIG_XIAOMI_SOLUTION) && IS_ENABLED(CONFIG_SCHED_USF)
+	if (adjust_task_pred_demand != NULL) {
+		adjust_task_pred_demand(cpu, rq->curr, rq,
+				TASK_UPDATE);
+		per_cpu(task_hist_nivcsw, cpu)[curr->pid] = curr->nivcsw;
+	}
+#endif
 
 	cpufreq_update_util(rq, flag);
 	rq_unlock(rq, &rf);
@@ -7721,3 +7743,41 @@ void sched_exit(struct task_struct *p)
 #endif /* CONFIG_SCHED_WALT */
 
 __read_mostly bool sched_predl = 1;
+
+inline bool is_critical_task(struct task_struct *p)
+{
+	return is_top_app(p) || is_inherit_top_app(p);
+}
+
+inline bool is_top_app(struct task_struct *p)
+{
+	return p && p->top_app > 0;
+}
+
+inline bool is_inherit_top_app(struct task_struct *p)
+{
+	return p && p->inherit_top_app > 0;
+}
+
+inline void set_inherit_top_app(struct task_struct *p,
+				struct task_struct *from)
+{
+	if (!p || !from)
+		return;
+	if (is_critical_task(p) || from->inherit_top_app >= INHERIT_DEPTH)
+		return;
+	p->inherit_top_app = from->inherit_top_app + 1;
+#ifdef CONFIG_PERF_HUMANTASK
+	p->human_task = 1;
+#endif
+}
+
+inline void restore_inherit_top_app(struct task_struct *p)
+{
+	if (p && is_inherit_top_app(p)) {
+		p->inherit_top_app = 0;
+#ifdef CONFIG_PERF_HUMANTASK
+		p->human_task  = 0 ;
+#endif
+	}
+}

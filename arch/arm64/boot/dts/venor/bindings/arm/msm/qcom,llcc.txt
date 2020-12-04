@@ -1,0 +1,48 @@
+== Introduction==
+
+LLCC (Last Level Cache Controller) provides last level of cache memory in SOC,
+that can be shared by multiple clients. Clients here are different cores in the
+SOC, the idea is to minimize the local caches at the clients and migrate to
+common pool of memory. Cache memory is divided into partitions called slices
+which are assigned to clients. Clients can query the slice details, activate
+and deactivate them.
+
+Properties:
+- compatible:
+	Usage: required
+	Value type: <string>
+	Definition: must be "qcom,llcc-v1", "qcom,llcc-v2" or "lagoon-llcc-v1"
+
+- reg:
+	Usage: required
+	Value Type: <prop-encoded-array>
+	Definition: The first element specifies the llcc base start address and
+		    the size of the register region. The second element specifies
+		    the llcc broadcast base address and size of the register region.
+
+- reg-names:
+	Usage: required
+	Value Type: <stringlist>
+	Definition: Register region names. Must be "llcc_base", "llcc_broadcast_base".
+
+- interrupts:
+	Usage: required
+	Definition: The interrupt is associated with the llcc edac device.
+		    It's used for llcc cache single and double bit error detection
+		    and reporting.
+
+- cap-based-alloc-and-pwr-collapse:
+	Usage: optional
+	Value Type: Boolean
+	Definition: Property to express that HLOS can enable/disable capacity
+	based allocation and power collapse retention for a client. Include
+	this property to set it. If not set, it will be treated as false.
+
+Example:
+
+	cache-controller@9200000 {
+		compatible = "qcom,llcc-v2";
+		reg = <0x9200000 0x200000> <0x9600000 0x50000>;
+		reg-names = "llcc_base", "llcc_broadcast_base";
+		interrupts = <GIC_SPI 582 IRQ_TYPE_LEVEL_HIGH>;
+	};

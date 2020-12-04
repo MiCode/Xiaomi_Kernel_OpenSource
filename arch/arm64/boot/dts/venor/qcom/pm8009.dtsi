@@ -1,0 +1,46 @@
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/spmi/spmi.h>
+
+&spmi_bus {
+	#address-cells = <2>;
+	#size-cells = <0>;
+	interrupt-controller;
+	#interrupt-cells = <4>;
+
+	qcom,pm8009@a {
+		compatible ="qcom,spmi-pmic";
+		reg = <0xa SPMI_USID>;
+		#address-cells = <2>;
+		#size-cells = <0>;
+
+		qcom,revid@100 {
+			compatible = "qcom,qpnp-revid";
+			reg = <0x100 0x100>;
+		};
+
+		qcom,power-on@800 {
+			compatible = "qcom,qpnp-power-on";
+			reg = <0x800 0x100>;
+		};
+
+		pm8009_gpios: pinctrl@c000 {
+			compatible = "qcom,spmi-gpio";
+			reg = <0xc000 0x400>;
+			interrupts = <0xa 0xc0 0 IRQ_TYPE_NONE>,
+				     <0xa 0xc1 0 IRQ_TYPE_NONE>,
+				     <0xa 0xc2 0 IRQ_TYPE_NONE>,
+				     <0xa 0xc3 0 IRQ_TYPE_NONE>;
+			interrupt-names = "pm8009_gpio1", "pm8009_gpio2",
+					  "pm8009_gpio3", "pm8009_gpio4";
+			gpio-controller;
+			#gpio-cells = <2>;
+		};
+	};
+
+	qcom,pm8009@b {
+		compatible = "qcom,spmi-pmic";
+		reg = <0xb SPMI_USID>;
+		#address-cells = <2>;
+		#size-cells = <0>;
+	};
+};

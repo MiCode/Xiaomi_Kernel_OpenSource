@@ -1,0 +1,9 @@
+/dts-v1/;
+
+#include "bengal.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Bengal SoC";
+	compatible = "qcom,bengal";
+	qcom,board-id = <0 0>;
+};

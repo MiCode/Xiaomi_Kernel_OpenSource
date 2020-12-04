@@ -1,0 +1,186 @@
+#include <dt-bindings/thermal/thermal.h>
+
+&mdss_mdp {
+	#cooling-cells = <2>;
+};
+
+&thermal_zones {
+	pm7250b-tz {
+		cooling-maps {
+			trip0_bat {
+				trip = <&pm7250b_trip0>;
+				cooling-device =
+					<&pm7250b_charger (THERMAL_MAX_LIMIT-1)
+						(THERMAL_MAX_LIMIT-1)>;
+			};
+
+			trip1_bat {
+				trip = <&pm7250b_trip1>;
+				cooling-device =
+					<&pm7250b_charger THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+		};
+	};
+
+	pm6150l-tz {
+		cooling-maps {
+			trip0_cpu0 {
+				trip = <&pm6150l_trip0>;
+				cooling-device =
+					<&CPU0 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+
+			trip0_cpu6 {
+				trip = <&pm6150l_trip0>;
+				cooling-device =
+					<&CPU6 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+
+			trip0_cpu7 {
+				trip = <&pm6150l_trip0>;
+				cooling-device =
+					<&CPU7 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+
+			trip1_cpu1 {
+				trip = <&pm6150l_trip1>;
+				cooling-device = <&cpu1_isolate 1 1>;
+			};
+
+			trip1_cpu2 {
+				trip = <&pm6150l_trip1>;
+				cooling-device = <&cpu2_isolate 1 1>;
+			};
+
+			trip1_cpu3 {
+				trip = <&pm6150l_trip1>;
+				cooling-device = <&cpu3_isolate 1 1>;
+			};
+
+			trip1_cpu4 {
+				trip = <&pm6150l_trip1>;
+				cooling-device = <&cpu4_isolate 1 1>;
+			};
+
+			trip1_cpu5 {
+				trip = <&pm6150l_trip1>;
+				cooling-device = <&cpu5_isolate 1 1>;
+			};
+
+			trip1_cpu6 {
+				trip = <&pm6150l_trip1>;
+				cooling-device = <&cpu6_isolate 1 1>;
+			};
+
+			trip1_cpu7 {
+				trip = <&pm6150l_trip1>;
+				cooling-device = <&cpu7_isolate 1 1>;
+			};
+		};
+	};
+
+	soc {
+		cooling-maps {
+			soc_cpu6 {
+				trip = <&soc_trip>;
+				cooling-device = <&cpu6_isolate 1 1>;
+			};
+
+			soc_cpu7 {
+				trip = <&soc_trip>;
+				cooling-device = <&cpu7_isolate 1 1>;
+			};
+		};
+	};
+
+	pm7250b-bcl-lvl0 {
+		cooling-maps {
+			lbat0_cpu6 {
+				trip = <&b_bcl_lvl0>;
+				cooling-device = <&cpu6_isolate 1 1>;
+			};
+
+			lbat0_cpu7 {
+				trip = <&b_bcl_lvl0>;
+				cooling-device = <&cpu7_isolate 1 1>;
+			};
+		};
+	};
+
+	pm7250b-bcl-lvl1 {
+		cooling-maps {
+			lbat1_cpu6 {
+				trip = <&b_bcl_lvl1>;
+				cooling-device = <&cpu6_isolate 1 1>;
+			};
+
+			lbat1_cpu7 {
+				trip = <&b_bcl_lvl1>;
+				cooling-device = <&cpu7_isolate 1 1>;
+			};
+		};
+	};
+
+	pm7250b-bcl-lvl2 {
+		cooling-maps {
+			lbat2_cpu6 {
+				trip = <&b_bcl_lvl2>;
+				cooling-device = <&cpu6_isolate 1 1>;
+			};
+
+			lbat2_cpu7 {
+				trip = <&b_bcl_lvl2>;
+				cooling-device = <&cpu7_isolate 1 1>;
+			};
+		};
+	};
+
+	pm6150l-bcl-lvl0 {
+		disable-thermal-zone;
+		cooling-maps {
+			vph_cpu6 {
+				trip = <&l_bcl_lvl0>;
+				cooling-device = <&cpu6_isolate 1 1>;
+			};
+
+			vph_cpu7 {
+				trip = <&l_bcl_lvl0>;
+				cooling-device = <&cpu7_isolate 1 1>;
+			};
+		};
+	};
+
+	pm6150l-bcl-lvl1 {
+		disable-thermal-zone;
+		cooling-maps {
+			vph_cpu6 {
+				trip = <&l_bcl_lvl1>;
+				cooling-device = <&cpu6_isolate 1 1>;
+			};
+
+			vph_cpu7 {
+				trip = <&l_bcl_lvl1>;
+				cooling-device = <&cpu7_isolate 1 1>;
+			};
+		};
+	};
+
+	pm6150l-bcl-lvl2 {
+		disable-thermal-zone;
+		cooling-maps {
+			vph_cpu6 {
+				trip = <&l_bcl_lvl2>;
+				cooling-device = <&cpu6_isolate 1 1>;
+			};
+
+			vph_cpu7 {
+				trip = <&l_bcl_lvl2>;
+				cooling-device = <&cpu7_isolate 1 1>;
+			};
+		};
+	};
+};

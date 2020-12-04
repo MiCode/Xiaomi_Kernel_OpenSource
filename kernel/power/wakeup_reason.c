@@ -6,6 +6,7 @@
  *
  * Copyright (C) 2014 Google, Inc.
  * This software is licensed under the terms of the GNU General Public
+ * Copyright (C) 2020 XiaoMi, Inc.
  * License version 2, as published by the Free Software Foundation, and
  * may be copied, distributed, and modified under those terms.
  *
@@ -119,6 +120,7 @@ void log_wakeup_reason(int irq)
 				desc->action->name);
 	else
 		printk(KERN_INFO "Resume caused by IRQ %d\n", irq);
+	printk(KERN_INFO "DEBUG-handle_irq : %pF\n", desc->handle_irq);
 
 	spin_lock_irqsave(&resume_reason_lock, flags);
 	if (irqcount == MAX_WAKEUP_REASON_IRQS) {

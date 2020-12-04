@@ -1,0 +1,44 @@
+#include <dt-bindings/interrupt-controller/irq.h>
+
+smb1355: qcom,smb1355@c {
+	compatible = "qcom,i2c-pmic";
+	reg = <0xc>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+	interrupt-parent = <&spmi_bus>;
+	interrupts = <0x2 0xC5 0x0 IRQ_TYPE_LEVEL_LOW>;
+	interrupt_names = "smb1355";
+	interrupt-controller;
+	#interrupt-cells = <3>;
+	qcom,periph-map = <0x10 0x12 0x13 0x16>;
+	status = "disabled";
+
+	smb1355_revid: qcom,revid@100 {
+		compatible = "qcom,qpnp-revid";
+		reg = <0x100 0x100>;
+	};
+
+	smb1355_charger: qcom,smb1355-charger@1000 {
+		compatible = "qcom,smb1355";
+		qcom,pmic-revid = <&smb1355_revid>;
+		reg = <0x1000 0x700>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		interrupt-parent = <&smb1355>;
+		status = "disabled";
+
+		qcom,chgr@1000 {
+			reg = <0x1000 0x100>;
+			interrupts = <0x10 0x1 IRQ_TYPE_EDGE_RISING>;
+			interrupt-names = "chg-state-change";
+		};
+
+		qcom,chgr-misc@1600 {
+			reg = <0x1600 0x100>;
+			interrupts = <0x16 0x1 IRQ_TYPE_EDGE_RISING>,
+				     <0x16 0x6 IRQ_TYPE_EDGE_RISING>;
+			interrupt-names = "wdog-bark",
+					  "temperature-change";
+		};
+	};
+};

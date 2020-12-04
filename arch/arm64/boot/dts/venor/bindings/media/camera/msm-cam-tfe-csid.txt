@@ -1,0 +1,123 @@
+* Qualcomm Technologies, Inc. MSM Camera TFE CSID
+
+Camera TFE CSID device provides the definitions for enabling
+the TFE CSID hardware. It also provides the functions for the client
+to control the TFE CSID hardware.
+
+=======================
+Required Node Structure
+=======================
+The TFE CSID device is described in one level of the device node.
+
+======================================
+First Level Node - CAM TFE CSID device
+======================================
+- compatible
+  Usage: required
+  Value type: <string>
+  Definition: Should be "qcom,csid530"
+
+- cell-index
+  Usage: required
+  Value type: <u32>
+  Definition: Should specify the hardware index id.
+
+- reg-names
+  Usage: required
+  Value type: <string>
+  Definition: Should be "csid".
+
+- reg
+  Usage: required
+  Value type: <u32>
+  Definition: Register values.
+
+- interrupt-names
+  Usage: Required
+  Value type: <string>
+  Definition: Name of the interrupt.
+
+- interrupts
+  Usage: Required
+  Value type: <u32>
+  Definition: Interrupt associated with TFE CSID HW.
+
+- regulator-names
+  Usage: required
+  Value type: <string>
+  Definition: Name of the regulator resources for TFE CSID HW.
+
+- xxxx-supply
+  Usage: required
+  Value type: <phandle>
+  Definition: Regulator reference corresponding to the names listed in
+		"regulator-names".
+
+- clock-names
+  Usage: required
+  Value type: <string>
+  Definition: List of clock names required for TFE CSID HW.
+
+- clocks
+  Usage: required
+  Value type: <phandle>
+  Definition: List of clocks used for TFE CSID HW.
+
+- clock-rates
+  Usage: required
+  Value type: <u32>
+  Definition: List of clocks rates.
+
+- clock-cntl-level
+  Usage: required
+  Value type: <string>
+  Definition: All different clock level node can support.
+
+- src-clock-name
+  Usage: required
+  Value type: <string>
+  Definition: Source clock name.
+
+- clock-control-debugfs
+  Usage: optional
+  Value type: <string>
+  Definition: Enable/Disable clk rate control.
+
+Example:
+
+	qcom,tfe_csid0@5c6e000 {
+		cell-index = <0>;
+		compatible = "qcom,csid530";
+		reg-names = reg-names = "csid", "top", "camnoc";
+		reg = <0x5c6e000 0x5000>,
+			<0x5c11000 0x1000>,
+			<0x5c13000 0x4000>;
+		interrupt-names = "csid0";
+		interrupts = <GIC_SPI 210 IRQ_TYPE_EDGE_RISING>;
+		regulator-names = "camss";
+		camss-supply = <&gcc_camss_top_gdsc>;
+		clock-names =
+			"tfe_csid_clk_src",
+			"tfe_csid_clk",
+			"cphy_rx_clk_src",
+			"tfe_cphy_rx_clk",
+			"tfe_clk_src",
+			"tfe_clk",
+			"tfe_axi_clk";
+		clocks =
+			<&gcc GCC_CAMSS_TFE_0_CSID_CLK_SRC>,
+			<&gcc GCC_CAMSS_TFE_0_CSID_CLK>,
+			<&gcc GCC_CAMSS_TFE_CPHY_RX_CLK_SRC>,
+			<&gcc GCC_CAMSS_TFE_0_CPHY_RX_CLK>,
+			<&gcc GCC_CAMSS_TFE_0_CLK_SRC>,
+			<&gcc GCC_CAMSS_TFE_0_CLK>,
+			<&gcc GCC_CAMSS_AXI_CLK>;
+		clock-rates =
+			<240000000 0 0 0 256000000 0 0>,
+			<384000000 0 0 0 460800000 0 0>,
+			<426400000 0 0 0 576000000 0 0>,
+		clock-cntl-level = "svs", "svs_l1", "turbo";
+		src-clock-name = "tfe_csid_clk_src";
+		clock-control-debugfs = "true";
+		status = "ok";
+	};

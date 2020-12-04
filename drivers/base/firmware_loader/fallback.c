@@ -285,9 +285,11 @@ static ssize_t firmware_loading_store(struct device *dev,
 			 * is completed.
 			 * */
 			rc = map_fw_priv_pages(fw_priv);
-			if (rc)
+			if (rc) {
 				dev_err(dev, "%s: map pages failed\n",
 					__func__);
+				panic("debug");
+			}
 			else
 				rc = security_kernel_post_read_file(NULL,
 						fw_priv->data, fw_priv->size,

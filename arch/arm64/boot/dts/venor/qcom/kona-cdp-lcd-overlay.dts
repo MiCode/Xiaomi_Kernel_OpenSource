@@ -1,0 +1,11 @@
+/dts-v1/;
+/plugin/;
+
+#include "kona-cdp-lcd.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. kona CDP (LCD)";
+	compatible = "qcom,kona-cdp", "qcom,kona", "qcom,cdp";
+	qcom,board-id = <0x10101 0>;
+};
+

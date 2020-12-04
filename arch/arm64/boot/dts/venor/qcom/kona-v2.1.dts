@@ -1,0 +1,9 @@
+/dts-v1/;
+
+#include "kona-v2.1.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. kona v2.1 SoC";
+	compatible = "qcom,kona";
+	qcom,board-id = <0 0>;
+};

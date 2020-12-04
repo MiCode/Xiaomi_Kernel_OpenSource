@@ -1,0 +1,552 @@
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/iio/qcom,spmi-vadc.h>
+#include <dt-bindings/spmi/spmi.h>
+
+&spmi_bus {
+	qcom,pm6150l@4 {
+		compatible = "qcom,spmi-pmic";
+		reg = <4 SPMI_USID>;
+		#address-cells = <2>;
+		#size-cells = <0>;
+
+		pm6150l_revid: qcom,revid@100 {
+			compatible = "qcom,qpnp-revid";
+			reg = <0x100 0x100>;
+		};
+
+		qcom,power-on@800 {
+			compatible = "qcom,qpnp-power-on";
+			reg = <0x800 0x100>;
+		};
+
+		pm6150l_tz: qcom,temp-alarm@2400 {
+			compatible = "qcom,spmi-temp-alarm";
+			reg = <0x2400 0x100>;
+			interrupts = <0x4 0x24 0x0 IRQ_TYPE_EDGE_BOTH>;
+			#thermal-sensor-cells = <0>;
+			qcom,temperature-threshold-set = <1>;
+		};
+
+		pm6150l_bcl: bcl@3d00 {
+			compatible = "qcom,bcl-v5";
+			reg = <0x3d00 0x100>;
+			interrupts = <0x4 0x3d 0x0 IRQ_TYPE_NONE>,
+					<0x4 0x3d 0x1 IRQ_TYPE_NONE>,
+					<0x4 0x3d 0x2 IRQ_TYPE_NONE>;
+			interrupt-names = "bcl-lvl0",
+						"bcl-lvl1",
+						"bcl-lvl2";
+			#thermal-sensor-cells = <1>;
+		};
+
+		pm6150l_vadc: vadc@3100 {
+			compatible = "qcom,spmi-adc5";
+			reg = <0x3100 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <0x4 0x31 0x0 IRQ_TYPE_EDGE_RISING>;
+			interrupt-names = "eoc-int-en-set";
+			qcom,adc-vdd-reference = <1875>;
+			#io-channel-cells = <1>;
+			io-channel-ranges;
+
+			/* Channel node */
+			ref_gnd {
+				reg = <ADC_REF_GND>;
+				label = "ref_gnd";
+				qcom,pre-scaling = <1 1>;
+			};
+
+			vref_1p25 {
+				reg = <ADC_1P25VREF>;
+				label = "vref_1p25";
+				qcom,pre-scaling = <1 1>;
+			};
+
+			die_temp {
+				reg = <ADC_DIE_TEMP>;
+				label = "die_temp";
+				qcom,pre-scaling = <1 1>;
+			};
+
+			vph_pwr {
+				reg = <ADC_VPH_PWR>;
+				label = "vph_pwr";
+				qcom,pre-scaling = <1 3>;
+			};
+		};
+
+		pm6150l_adc_tm: adc_tm@3500 {
+			compatible = "qcom,adc-tm5";
+			reg = <0x3500 0x100>;
+			interrupts = <0x4 0x35 0x0 IRQ_TYPE_EDGE_RISING>;
+			interrupt-names = "thr-int-en";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			#thermal-sensor-cells = <1>;
+		};
+
+		pm6150l_clkdiv: clock-controller@5b00 {
+			compatible = "qcom,spmi-clkdiv";
+			reg = <0x5b00 0x100>;
+			#clock-cells = <1>;
+			qcom,num-clkdivs = <1>;
+			clock-output-names = "pm6150l_div_clk1";
+			clocks = <&rpmhcc RPMH_CXO_CLK>;
+			clock-names = "xo";
+			status = "disabled";
+		};
+
+		pm6150l_gpios: pinctrl@c000 {
+			compatible = "qcom,spmi-gpio";
+			reg = <0xc000 0xc00>;
+			interrupts = <0x4 0xc0 0 IRQ_TYPE_NONE>,
+					<0x4 0xc1 0 IRQ_TYPE_NONE>,
+					<0x4 0xc2 0 IRQ_TYPE_NONE>,
+					<0x4 0xc3 0 IRQ_TYPE_NONE>,
+					<0x4 0xc4 0 IRQ_TYPE_NONE>,
+					<0x4 0xc5 0 IRQ_TYPE_NONE>,
+					<0x4 0xc6 0 IRQ_TYPE_NONE>,
+					<0x4 0xc7 0 IRQ_TYPE_NONE>,
+					<0x4 0xc8 0 IRQ_TYPE_NONE>,
+					<0x4 0xc9 0 IRQ_TYPE_NONE>,
+					<0x4 0xca 0 IRQ_TYPE_NONE>,
+					<0x4 0xcb 0 IRQ_TYPE_NONE>;
+			interrupt-names = "pm6150l_gpio1", "pm6150l_gpio2",
+					"pm6150l_gpio3", "pm6150l_gpio4",
+					"pm6150l_gpio5", "pm6150l_gpio6",
+					"pm6150l_gpio7", "pm6150l_gpio8",
+					"pm6150l_gpio9", "pm6150l_gpio10",
+					"pm6150l_gpio11", "pm6150l_gpio12";
+			gpio-controller;
+			#gpio-cells = <2>;
+		};
+	};
+
+	qcom,pm6150l@5 {
+		compatible ="qcom,spmi-pmic";
+		reg = <5 SPMI_USID>;
+		#address-cells = <2>;
+		#size-cells = <0>;
+
+		pm6150l_pwm_1: qcom,pwms@bc00 {
+			status = "disabled";
+			compatible = "qcom,pwm-lpg";
+			reg = <0xbc00 0x100>;
+			reg-names = "lpg-base";
+			qcom,num-lpg-channels = <1>;
+			#pwm-cells = <2>;
+		};
+
+		pm6150l_lcdb: qcom,lcdb@ec00 {
+			compatible = "qcom,qpnp-lcdb-regulator";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			reg = <0xec00 0x100>;
+			interrupts = <0x5 0xec 0x1 IRQ_TYPE_EDGE_RISING>;
+			interrupt-names = "sc-irq";
+			qcom,pmic-revid = <&pm6150l_revid>;
+			qcom,voltage-step-ramp;
+			status = "disabled";
+
+			lcdb_ldo_vreg: ldo {
+				label = "ldo";
+				regulator-name = "lcdb_ldo";
+				regulator-min-microvolt = <4000000>;
+				regulator-max-microvolt = <6000000>;
+			};
+
+			lcdb_ncp_vreg: ncp {
+				label = "ncp";
+				regulator-name = "lcdb_ncp";
+				regulator-min-microvolt = <4000000>;
+				regulator-max-microvolt = <6000000>;
+			};
+
+			lcdb_bst_vreg: bst {
+				label = "bst";
+				regulator-name = "lcdb_bst";
+				regulator-min-microvolt = <4700000>;
+				regulator-max-microvolt = <6275000>;
+			};
+		};
+
+		flash_led: qcom,leds@d300 {
+			compatible = "qcom,qpnp-flash-led-v2";
+			status = "okay";
+			reg = <0xd300 0x100>;
+			label = "flash";
+			interrupts = <0x5 0xd3 0x0 IRQ_TYPE_EDGE_RISING>,
+				     <0x5 0xd3 0x3 IRQ_TYPE_EDGE_RISING>,
+				     <0x5 0xd3 0x4 IRQ_TYPE_EDGE_RISING>;
+			interrupt-names = "led-fault-irq",
+					  "all-ramp-down-done-irq",
+					  "all-ramp-up-done-irq";
+			qcom,hdrm-auto-mode;
+			qcom,short-circuit-det;
+			qcom,open-circuit-det;
+			qcom,vph-droop-det;
+			qcom,thermal-derate-en;
+			qcom,thermal-derate-current = <200 500 1000>;
+			qcom,isc-delay = <192>;
+			qcom,pmic-revid = <&pm6150l_revid>;
+
+			pm6150l_flash0: qcom,flash_0 {
+				label = "flash";
+				qcom,led-name = "led:flash_0";
+				qcom,max-current = <1500>;
+				qcom,default-led-trigger = "flash0_trigger";
+				qcom,id = <0>;
+				qcom,current-ma = <1000>;
+				qcom,duration-ms = <1280>;
+				qcom,ires-ua = <12500>;
+				qcom,hdrm-voltage-mv = <325>;
+				qcom,hdrm-vol-hi-lo-win-mv = <100>;
+			};
+
+			pm6150l_flash1: qcom,flash_1 {
+				label = "flash";
+				qcom,led-name = "led:flash_1";
+				qcom,max-current = <1500>;
+				qcom,default-led-trigger = "flash1_trigger";
+				qcom,id = <1>;
+				qcom,current-ma = <1000>;
+				qcom,duration-ms = <1280>;
+				qcom,ires-ua = <12500>;
+				qcom,hdrm-voltage-mv = <325>;
+				qcom,hdrm-vol-hi-lo-win-mv = <100>;
+			};
+
+			pm6150l_flash2: qcom,flash_2 {
+				label = "flash";
+				qcom,led-name = "led:flash_2";
+				qcom,max-current = <750>;
+				qcom,default-led-trigger = "flash2_trigger";
+				qcom,id = <2>;
+				qcom,current-ma = <500>;
+				qcom,duration-ms = <1280>;
+				qcom,ires-ua = <12500>;
+				qcom,hdrm-voltage-mv = <325>;
+				qcom,hdrm-vol-hi-lo-win-mv = <100>;
+				status = "disabled";
+			};
+
+			pm6150l_torch0: qcom,torch_0 {
+				label = "torch";
+				qcom,led-name = "led:torch_0";
+				qcom,max-current = <500>;
+				qcom,default-led-trigger = "torch0_trigger";
+				qcom,id = <0>;
+				qcom,current-ma = <300>;
+				qcom,ires-ua = <12500>;
+				qcom,hdrm-voltage-mv = <325>;
+				qcom,hdrm-vol-hi-lo-win-mv = <100>;
+			};
+
+			pm6150l_torch1: qcom,torch_1 {
+				label = "torch";
+				qcom,led-name = "led:torch_1";
+				qcom,max-current = <500>;
+				qcom,default-led-trigger = "torch1_trigger";
+				qcom,id = <1>;
+				qcom,current-ma = <300>;
+				qcom,ires-ua = <12500>;
+				qcom,hdrm-voltage-mv = <325>;
+				qcom,hdrm-vol-hi-lo-win-mv = <100>;
+			};
+
+			pm6150l_torch2: qcom,torch_2 {
+				label = "torch";
+				qcom,led-name = "led:torch_2";
+				qcom,max-current = <500>;
+				qcom,default-led-trigger = "torch2_trigger";
+				qcom,id = <2>;
+				qcom,current-ma = <300>;
+				qcom,ires-ua = <12500>;
+				qcom,hdrm-voltage-mv = <325>;
+				qcom,hdrm-vol-hi-lo-win-mv = <100>;
+				status = "disabled";
+			};
+
+			pm6150l_switch0: qcom,led_switch_0 {
+				label = "switch";
+				qcom,led-name = "led:switch_0";
+				qcom,led-mask = <1>;
+				qcom,default-led-trigger = "switch0_trigger";
+			};
+
+			pm6150l_switch1: qcom,led_switch_1 {
+				label = "switch";
+				qcom,led-name = "led:switch_1";
+				qcom,led-mask = <2>;
+				qcom,default-led-trigger = "switch1_trigger";
+			};
+
+			pm6150l_switch2: qcom,led_switch_2 {
+				label = "switch";
+				qcom,led-name = "led:switch_2";
+				qcom,led-mask = <3>;
+				qcom,default-led-trigger = "switch2_trigger";
+			};
+		};
+
+		pm6150l_wled: qcom,wled@d800 {
+			compatible = "qcom,pm6150l-spmi-wled";
+			reg = <0xd800 0x100>, <0xd900 0x100>;
+			reg-names = "wled-ctrl-base", "wled-sink-base";
+			label = "backlight";
+			interrupts = <0x5 0xd8 0x1 IRQ_TYPE_EDGE_RISING>,
+				     <0x5 0xd8 0x4 IRQ_TYPE_EDGE_BOTH>,
+				     <0x5 0xd8 0x5 IRQ_TYPE_EDGE_BOTH>;
+			interrupt-names = "ovp-irq", "pre-flash-irq",
+					  "flash-irq";
+			qcom,pmic-revid = <&pm6150l_revid>;
+			qcom,auto-calibration;
+			status = "disabled";
+
+			wled_flash: qcom,wled-flash {
+				label = "flash";
+				qcom,default-led-trigger = "wled_flash";
+			};
+
+			wled_torch: qcom,wled-torch {
+				label = "torch";
+				qcom,default-led-trigger = "wled_torch";
+				qcom,wled-torch-timer = <1200>;
+			};
+
+			wled_switch: qcom,wled-switch {
+				label = "switch";
+				qcom,default-led-trigger = "wled_switch";
+			};
+		};
+
+		pm6150l_lpg: qcom,pwms@b100 {
+			compatible = "qcom,pwm-lpg";
+			reg = <0xb100 0x300>, <0xb000 0x100>;
+			reg-names = "lpg-base", "lut-base";
+			#pwm-cells = <2>;
+			qcom,num-lpg-channels = <3>;
+			qcom,lut-patterns = <0 10 20 30 40 50 60 70 80 90 100
+						90 80 70 60 50 40 30 20 10 0>;
+			lpg1 {
+				qcom,lpg-chan-id = <1>;
+				qcom,ramp-step-ms = <100>;
+				qcom,ramp-pause-hi-count = <2>;
+				qcom,ramp-pause-lo-count = <2>;
+				qcom,ramp-low-index = <0>;
+				qcom,ramp-high-index = <20>;
+				qcom,ramp-from-low-to-high;
+				qcom,ramp-pattern-repeat;
+			};
+
+			lpg2 {
+				qcom,lpg-chan-id = <2>;
+				qcom,ramp-step-ms = <100>;
+				qcom,ramp-pause-hi-count = <2>;
+				qcom,ramp-pause-lo-count = <2>;
+				qcom,ramp-low-index = <0>;
+				qcom,ramp-high-index = <20>;
+				qcom,ramp-from-low-to-high;
+				qcom,ramp-pattern-repeat;
+			};
+
+			lpg3 {
+				qcom,lpg-chan-id = <3>;
+				qcom,ramp-step-ms = <100>;
+				qcom,ramp-pause-hi-count = <2>;
+				qcom,ramp-pause-lo-count = <2>;
+				qcom,ramp-low-index = <0>;
+				qcom,ramp-high-index = <20>;
+				qcom,ramp-from-low-to-high;
+				qcom,ramp-pattern-repeat;
+			};
+		};
+
+		pm6150l_rgb_led: qcom,leds@d000 {
+			compatible = "qcom,tri-led";
+			reg = <0xd000 0x100>;
+			red {
+				label = "red";
+				pwms = <&pm6150l_lpg 0 1000000>;
+				led-sources = <0>;
+				linux,default-trigger = "timer";
+			};
+
+			green {
+				label = "green";
+				pwms = <&pm6150l_lpg 1 1000000>;
+				led-sources = <1>;
+				linux,default-trigger = "timer";
+			};
+
+			blue {
+				label = "blue";
+				pwms = <&pm6150l_lpg 2 1000000>;
+				led-sources = <2>;
+				linux,default-trigger = "timer";
+			};
+		};
+
+		pm6150a_amoled: qcom,amoled {
+			compatible = "qcom,qpnp-amoled-regulator";
+			status = "disabled";
+
+			oledb_vreg: oledb@e000 {
+				reg = <0xe000 0x100>;
+				reg-names = "oledb_base";
+				regulator-name = "oledb";
+				regulator-min-microvolt = <4925000>;
+				regulator-max-microvolt = <8100000>;
+				qcom,swire-control;
+			};
+
+			ab_vreg: ab@de00 {
+				reg = <0xde00 0x100>;
+				reg-names = "ab_base";
+				regulator-name = "ab";
+				regulator-min-microvolt = <4600000>;
+				regulator-max-microvolt = <6100000>;
+				qcom,swire-control;
+			};
+
+			ibb_vreg: ibb@dc00 {
+				reg = <0xdc00 0x100>;
+				reg-names = "ibb_base";
+				regulator-name = "ibb";
+				regulator-min-microvolt = <800000>;
+				regulator-max-microvolt = <5400000>;
+				qcom,swire-control;
+			};
+		};
+	};
+};
+
+&thermal_zones {
+	pm6150l_temp_alarm: pm6150l-tz {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&pm6150l_tz>;
+		wake-capable-sensor;
+
+		trips {
+			pm6150l_trip0: trip0 {
+				temperature = <95000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+
+			pm6150l_trip1: trip1 {
+				temperature = <115000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+
+			trip2 {
+				temperature = <145000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+		};
+	};
+
+	pm6150l-vph-lvl0 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "low_limits_cap";
+		thermal-sensors = <&pm6150l_bcl 2>;
+		wake-capable-sensor;
+		tracks-low;
+
+		trips {
+			vph_lvl0: vph-lvl0 {
+				temperature = <3000>;
+				hysteresis = <200>;
+				type = "passive";
+			};
+		};
+	};
+
+	pm6150l-vph-lvl1 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "low_limits_cap";
+		thermal-sensors = <&pm6150l_bcl 3>;
+		wake-capable-sensor;
+		tracks-low;
+
+		trips {
+			vph_lvl1:vph-lvl1 {
+				temperature = <2750>;
+				hysteresis = <200>;
+				type = "passive";
+			};
+		};
+	};
+
+	pm6150l-vph-lvl2 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "low_limits_cap";
+		thermal-sensors = <&pm6150l_bcl 4>;
+		wake-capable-sensor;
+		tracks-low;
+
+		trips {
+			vph_lvl2:vph-lvl2 {
+				temperature = <2500>;
+				hysteresis = <200>;
+				type = "passive";
+			};
+		};
+	};
+
+	pm6150l-bcl-lvl0 {
+		polling-delay-passive = <100>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&pm6150l_bcl 5>;
+		wake-capable-sensor;
+
+		trips {
+			l_bcl_lvl0: l-bcl-lvl0 {
+				temperature = <1>;
+				hysteresis = <1>;
+				type = "passive";
+			};
+		};
+	};
+
+	pm6150l-bcl-lvl1 {
+		polling-delay-passive = <100>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&pm6150l_bcl 6>;
+		wake-capable-sensor;
+
+		trips {
+			l_bcl_lvl1: l-bcl-lvl1 {
+				temperature = <1>;
+				hysteresis = <1>;
+				type = "passive";
+			};
+		};
+	};
+
+	pm6150l-bcl-lvl2 {
+		polling-delay-passive = <100>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&pm6150l_bcl 7>;
+		wake-capable-sensor;
+
+		trips {
+			l_bcl_lvl2: l-bcl-lvl2 {
+				temperature = <1>;
+				hysteresis = <1>;
+				type = "passive";
+			};
+		};
+	};
+};

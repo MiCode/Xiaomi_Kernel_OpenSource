@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.*/
-
+/* Copyright (C) 2020 XiaoMi, Inc. */
 #include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
 #include <linux/bitops.h>
 #include <linux/clk.h>
@@ -4105,6 +4105,8 @@ static int msm_pcie_link_train(struct msm_pcie_dev_t *dev)
 			dev->gpio[MSM_PCIE_GPIO_PERST].on);
 		PCIE_ERR(dev, "PCIe RC%d link initialization failed\n",
 			dev->rc_idx);
+		pcie_phy_dump(dev);
+		pcie_parf_dump(dev);
 		return MSM_PCIE_ERROR;
 	}
 
@@ -4620,6 +4622,8 @@ int msm_pcie_enumerate(u32 rc_idx)
 	ret = msm_pcie_enable(dev);
 	if (ret) {
 		PCIE_ERR(dev, "PCIe: RC%d: failed to enable\n", dev->rc_idx);
+		// pcie_phy_dump(dev);
+		// pcie_parf_dump(dev);
 		goto out;
 	}
 

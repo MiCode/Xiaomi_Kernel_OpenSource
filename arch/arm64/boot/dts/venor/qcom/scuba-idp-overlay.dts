@@ -1,0 +1,12 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include "scuba-idp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Scuba IDP";
+	compatible = "qcom,scuba-idp", "qcom,scuba", "qcom,idp";
+	qcom,msm-id = <441 0x10000>;
+	qcom,board-id = <34 0>;
+};

@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "bengalp.dtsi"
+#include "bengal-idp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. BENGALP IDP";
+	compatible = "qcom,bengalp-idp", "qcom,bengalp", "qcom,idp";
+	qcom,board-id = <34 0>;
+};

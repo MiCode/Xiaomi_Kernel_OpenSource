@@ -1,0 +1,19 @@
+QPNP-REVID
+
+QPNP-REVID provides a way to read the PMIC part number and revision.
+
+Required properties:
+- compatible : should be "qcom,qpnp-revid"
+- reg : offset and length of the PMIC peripheral register map.
+
+Optional property:
+- qcom,fab-id-valid: Use this property when support to read Fab
+	identification from REV ID peripheral is available.
+- qcom,tp-rev-valid: Use this property when support to read TP
+	revision identification from REV ID peripheral.
+
+Example:
+	qcom,revid@100 {
+		compatible = "qcom,qpnp-revid";
+		reg = <0x100 0x100>;
+	};

@@ -1,0 +1,48 @@
+QCOM Devfreq firmware device
+
+Some Qualcomm Technologies, Inc. (QTI) chipsets have a firmware that
+offloads the steps for frequency switching. It provides a table of
+supported frequencies and a register to request one of the supported
+freqencies.
+
+The qcom,devfreq-fw represents this firmware as a device. Sometimes,
+multiple entities want to vote on the frequency request that is sent to the
+firmware. The qcom,devfreq-fw-voter represents these voters as child
+devices of the corresponding qcom,devfreq-fw device.
+
+Required properties:
+- compatible:		Must be "qcom,devfreq-fw" or "qcom,devfreq-fw-voter"
+Only for qcom,devfreq-fw:
+- reg:			Pairs of physical base addresses and region sizes of
+			memory mapped registers.
+- reg-names:		Names of the bases for the above registers.
+			Required register regions are:
+			- "en-base": address of register to check if the
+			  firmware is enabled.
+			- "ftbl-base": address region for the frequency
+			  table.
+			- "perf-base": address of register to request a
+			  frequency.
+			Optional register region:
+			- "pstate-base": address of register to request
+			  for current performance state (Mandatory if
+			  qcom,support-panic-notifier property is added).
+Optional properties:
+- qcom,ftbl-row-size:    Size of the LUT row size.
+- qcom,support-panic-notifier:	Support for panic notifier for l3-domain.
+
+Example:
+
+	qcom,devfreq-l3 {
+		compatible = "qcom,devfreq-fw";
+		reg-names = "en-base", "ftbl-base", "perf-base";
+		reg = <0x18321000 0x4>, <0x18321110 0x600>, <0x18321920 0x4>;
+
+		qcom,cpu0-l3 {
+			compatible = "qcom,devfreq-fw-voter";
+		};
+
+		qcom,cpu4-l3 {
+			compatible = "qcom,devfreq-fw-voter";
+		};
+	};

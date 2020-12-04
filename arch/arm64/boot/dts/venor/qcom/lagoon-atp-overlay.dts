@@ -1,0 +1,12 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include "lagoon-atp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Lagoon ATP";
+	compatible = "qcom,lagoon-atp", "qcom,lagoon", "qcom,atp";
+	qcom,msm-id = <434 0x10000>, <459 0x10000>;
+	qcom,board-id = <33 0>;
+};

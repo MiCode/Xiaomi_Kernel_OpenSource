@@ -1,0 +1,16 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include "lito-atp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Lito ATP";
+	compatible = "qcom,lito-atp", "qcom,lito", "qcom,atp";
+	qcom,msm-id = <400 0x10000>, <440 0x10000>;
+	qcom,board-id = <33 0>;
+};
+
+&ufsphy_mem {
+	vdda-phy-always-on;
+};

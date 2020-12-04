@@ -1,0 +1,11 @@
+/dts-v1/;
+/memreserve/ 0x90000000 0x00000100;
+
+#include "lito.dtsi"
+#include "lito-rumi.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Lito RUMI";
+	compatible = "qcom,lito-rumi", "qcom,lito", "qcom,rumi";
+	qcom,board-id = <15 0>;
+};

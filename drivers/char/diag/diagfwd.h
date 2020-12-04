@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /* Copyright (c) 2008-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #ifndef DIAGFWD_H
@@ -19,6 +20,9 @@
 
 #define SET_HDLC_CTXT(u)	((u & 0xFF) << 24)
 #define GET_HDLC_CTXT(u)	((u & 0xFF000000) >> 24)
+
+#define SET_HDLC_CTXT(u) ((u & 0xFF) << 24)
+#define GET_HDLC_CTXT(u) ((u & 0xFF000000) >> 24)
 
 #define CHK_OVERFLOW(bufStart, start, end, length) \
 	((((bufStart) <= (start)) && ((end) - (start) >= (length))) ? 1 : 0)

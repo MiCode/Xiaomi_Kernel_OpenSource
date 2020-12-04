@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "kona-v2.dtsi"
+#include "kona-hdk.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. kona HDK";
+	compatible = "qcom,kona-hdk", "qcom,kona", "qcom,hdk";
+	qcom,board-id = <0x01001F 0x01>;
+};

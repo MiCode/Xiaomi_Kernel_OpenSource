@@ -1,0 +1,503 @@
+* Qualcomm Technologies, Inc. MSM EEPROM
+
+EEPROM is a one time programmed(OTP) device that stores the calibration data
+use for camera sensor. It may either be integrated in the sensor module or in
+the sensor itself. As a result, the power, clock and GPIOs may be the same as
+the camera sensor. The following describes the page block map, power supply,
+clock, GPIO and power on sequence properties of the EEPROM device.
+
+=======================================================
+Required Node Structure if probe happens from userspace
+=======================================================
+The EEPROM device is described in one level of the device node.
+
+======================================
+First Level Node - CAM EEPROM device
+======================================
+- compatible
+  Usage: required
+  Value type: <string>
+  Definition: Should be "qcom,eeprom".
+
+- cell-index
+  Usage: required
+  Value type: <u32>
+  Definition: Should specify the hardware index id.
+
+- reg
+  Usage: required
+  Value type: <u32>
+  Definition: Register values.
+
+- regulator-names
+  Usage: required
+  Value type: <string>
+  Definition: Name of the regulator resources for EEPROM HW.
+
+- xxxx-supply
+  Usage: required
+  Value type: <phandle>
+  Definition: Regulator reference corresponding to the names listed in
+		"regulator-names".
+
+- rgltr-cntrl-support
+  Usage: required
+  Value type: <bool>
+  Definition: This property specifies if the regulator control is supported
+		e.g. rgltr-min-voltage.
+
+- rgltr-min-voltage
+  Usage: required
+  Value type: <u32>
+  Definition: should contain minimum voltage level for regulators
+		mentioned in regulator-names property.
+
+- rgltr-max-voltage
+  Usage: required
+  Value type: <u32>
+  Definition: should contain maximum voltage level for regulators
+		mentioned in regulator-names property.
+
+- rgltr-load-current
+  Usage: required
+  Value type: <u32>
+  Definition: should contain the maximum current in microamps required for
+		the regulators mentioned in regulator-names property.
+
+- gpio-no-mux
+  Usage: required
+  Value type: <u32>
+  Definition: should specify the gpio mux type.
+
+- gpios
+  Usage: required
+  Value type: <phandle>
+  Definition: should specify the gpios to be used for the eeprom.
+
+- gpio-reset
+  Usage: required
+  Value type: <u32>
+  Definition: should specify the reset gpio index.
+
+- gpio-standby
+  Usage: required
+  Value type: <u32>
+  Definition: should specify the standby gpio index.
+
+- gpio-req-tbl-num
+  Usage: required
+  Value type: <u32>
+  Definition: should specify the gpio table index.
+
+- gpio-req-tbl-flags
+  Usage: required
+  Value type: <u32>
+  Definition: should specify the gpio functions.
+
+- gpio-req-tbl-label
+  Usage: required
+  Value type: <string>
+  Definition: should specify the gpio labels.
+
+- sensor-position
+  Usage: required
+  Value type: <u32>
+  Definition: should contain the mount angle of the camera sensor.
+
+- cci-device
+  Usage: required
+  Value type: <u32>
+  Definition: should contain i2c device id to be used for this camera
+	sensor
+
+- cci-master
+  Usage: required
+  Value type: <u32>
+  Definition: should contain i2c master id to be used for this camera
+		sensor.
+
+- sensor-mode
+  Usage: required
+  Value type: <u32>
+  Definition: should contain sensor mode supported.
+
+- clock-names
+  Usage: required
+  Value type: <string>
+  Definition: List of clock names required for EEPROM HW.
+
+- clocks
+  Usage: required
+  Value type: <phandle>
+  Definition: List of clocks used for EEPROM HW.
+
+- clock-cntl-level
+  Usage: required
+  Value type: <string>
+  Definition: says what all different clock levels eeprom node has.
+
+- clock-rates
+  Usage: required
+  Value type: <u32>
+  Definition: List of clocks rates.
+
+Example:
+
+	eeprom0: qcom,eeprom@0 {
+	        cell-index = <0>;
+		reg = <0x0>;
+		compatible = "qcom,eeprom";
+		cam_vdig-supply = <&pm8998_l5>;
+		cam_vio-supply = <&pm8998_lvs1>;
+		regulator-names = "cam_vdig", "cam_vio";
+		rgltr-cntrl-support;
+		rgltr-min-voltage = <1200000 0>;
+		rgltr-max-voltage = <1200000 0>;
+		rgltr-load-current = <0 80000 105000 0>;
+		gpio-no-mux = <0>;
+		gpios = <&msmgpio 26 0>,
+			<&msmgpio 37 0>,
+			<&msmgpio 36 0>;
+		gpio-reset = <1>;
+		gpio-standby = <2>;
+		gpio-req-tbl-num = <0 1 2>;
+		gpio-req-tbl-flags = <1 0 0>;
+		gpio-req-tbl-label = "CAMIF_MCLK",
+			"CAM_RESET1",
+			"CAM_STANDBY";
+		sensor-position = <0>;
+		sensor-mode = <0>;
+		cci-device = <0>;
+		cci-master = <0>;
+		status = "ok";
+		clocks = <&clock_camcc CAM_CC_MCLK0_CLK>;
+		clock-names = "cam_clk";
+		clock-cntl-level = "turbo";
+		clock-rates = <24000000>;
+	};
+
+=======================================================
+Required Node Structure if probe happens from kernel
+=======================================================
+The EEPROM device is described in one level of the device node.
+
+======================================
+First Level Node - CAM EEPROM device
+======================================
+- compatible
+  Usage: required
+  Value type: <string>
+  Definition: Should be "qcom,eeprom".
+
+- cell-index
+  Usage: required
+  Value type: <u32>
+  Definition: Should specify the hardware index id.
+
+- reg
+  Usage: required
+  Value type: <u32>
+  Definition: Register values.
+
+- qcom,eeprom-name
+  Usage: required
+  Value type: <string>
+  Definition: Name of the EEPROM HW.
+
+- qcom,slave-addr
+  Usage: required
+  Value type: <u32>
+  Definition: Slave address of the EEPROM HW.
+
+- qcom,num-blocks
+  Usage: required
+  Value type: <u32>
+  Definition: Total block number that eeprom contains.
+
+- qcom,pageX
+  Usage: required
+  Value type: <u32>
+  Definition: List of values specifying page size, start address,
+		address type, data, data type, delay in ms.
+		size 0 stand for non-paged.
+
+- qcom,pollX
+  Usage: required
+  Value type: <u32>
+  Definition: List of values specifying poll size, poll reg address,
+		address type, data, data type, delay in ms.
+		size 0 stand for not used.
+
+- qcom,memX
+  Usage: required
+  Value type: <u32>
+  Definition: List of values specifying memory size, start address,
+		address type, data, data type, delay in ms.
+		size 0 stand for not used.
+
+- qcom,saddrX
+  Usage: required
+  Value type: <u32>
+  Definition: property should specify the slave address for block (%d).
+
+- regulator-names
+  Usage: required
+  Value type: <string>
+  Definition: Name of the regulator resources for EEPROM HW.
+
+- qcom,cmm-data-support
+  Usage: required
+  Value type: <u32>
+  Definition: Camera MultiModule data capability flag..
+
+- qcom,cmm-data-compressed
+  Usage: required
+  Value type: <u32>
+  Definition: Camera MultiModule data compression flag.
+
+- qcom,cmm-data-offset
+  Usage: required
+  Value type: <u32>
+  Definition: Camera MultiModule data start offset.
+
+- qcom,cmm-data-size
+  Usage: required
+  Value type: <u32>
+  Definition: Camera MultiModule data size.
+
+- qcom,cam-power-seq-type
+  Usage: required
+  Value type: <string>
+  Definition: should specify the power on sequence types.
+
+- qcom,cam-power-seq-val
+  Usage: required
+  Value type: <string>
+  Definition: should specify the power on sequence values.
+
+- qcom,cam-power-seq-cfg-val
+  Usage: required
+  Value type: <u32>
+  Definition: should specify the power on sequence config values.
+
+- qcom,cam-power-seq-delay
+  Usage: required
+  Value type: <u32>
+  Definition: should specify the power on sequence delay time in ms.
+
+- spiop-read
+  Usage: required
+  Value type: <u32>
+  Definition: this array provides SPI read operation related data.
+
+- spiop-readseq
+  Usage: required
+  Value type: <u32>
+  Definition: this array provides SPI read sequence operation realted data.
+
+- spiop-queryid
+  Usage: required
+  Value type: <u32>
+  Definition: this array provides SPI query eeprom id operation related data.
+
+- spiop-pprog:
+  Usage: required
+  Value type: <u32>
+  Definition: this array provides SPI page program operation related data.
+
+- spiop-wenable
+  Usage: required
+  Value type: <u32>
+  Definition: this array provides SPI write enable operation related data.
+
+- spiop-readst
+  Usage: required
+  Value type: <u32>
+  Definition: this array provides SPI read destination operation related data.
+
+- spiop-erase
+  Usage: required
+  Value type: <u32>
+  Definition: this array provides SPI erase operation related data.
+
+- eeprom-idx
+  Usage: required
+  Value type: <u32>
+  Definition: this array provides eeprom id realted data.
+
+- xxxx-supply
+  Usage: required
+  Value type: <phandle>
+  Definition: Regulator reference corresponding to the names listed in
+		"regulator-names".
+
+- rgltr-cntrl-support
+  Usage: required
+  Value type: <bool>
+  Definition: This property specifies if the regulator control is supported
+		e.g. rgltr-min-voltage.
+
+- rgltr-min-voltage
+  Usage: required
+  Value type: <u32>
+  Definition: should contain minimum voltage level for regulators
+		mentioned in regulator-names property.
+
+- rgltr-max-voltage
+  Usage: required
+  Value type: <u32>
+  Definition: should contain maximum voltage level for regulators
+		mentioned in regulator-names property.
+
+- rgltr-load-current
+  Usage: required
+  Value type: <u32>
+  Definition: should contain the maximum current in microamps required for
+		the regulators mentioned in regulator-names property.
+
+- gpio-no-mux
+  Usage: required
+  Value type: <u32>
+  Definition: should specify the gpio mux type.
+
+- gpios
+  Usage: required
+  Value type: <phandle>
+  Definition: should specify the gpios to be used for the eeprom.
+
+- gpio-reset
+  Usage: required
+  Value type: <u32>
+  Definition: should specify the reset gpio index.
+
+- gpio-standby
+  Usage: required
+  Value type: <u32>
+  Definition: should specify the standby gpio index.
+
+- gpio-req-tbl-num
+  Usage: required
+  Value type: <u32>
+  Definition: should specify the gpio table index.
+
+- gpio-req-tbl-flags
+  Usage: required
+  Value type: <u32>
+  Definition: should specify the gpio functions.
+
+- gpio-req-tbl-label
+  Usage: required
+  Value type: <string>
+  Definition: should specify the gpio labels.
+
+- sensor-position
+  Usage: required
+  Value type: <u32>
+  Definition: should contain the mount angle of the camera sensor.
+
+- cci-device
+  Usage: required
+  Value type: <u32>
+  Definition: should contain i2c device id to be used for this camera
+	sensor
+
+- cci-master
+  Usage: required
+  Value type: <u32>
+  Definition: should contain i2c master id to be used for this camera
+		sensor.
+
+- sensor-mode
+  Usage: required
+  Value type: <u32>
+  Definition: should contain sensor mode supported.
+
+- clock-cntl-level
+  Usage: required
+  Value type: <string>
+  Definition:  says what all different clock levels eeprom node has.
+
+- clock-names
+  Usage: required
+  Value type: <string>
+  Definition: List of clock names required for EEPROM HW.
+
+- clocks
+  Usage: required
+  Value type: <phandle>
+  Definition: List of clocks used for EEPROM HW.
+
+- clock-rates
+  Usage: required
+  Value type: <u32>
+  Definition: List of clocks rates.
+
+Example:
+
+	eeprom0: qcom,eeprom@0 {
+		cell-index = <0>;
+		reg = <0x0>;
+		qcom,eeprom-name = "msm_eeprom";
+		eeprom-id0 = <0xF8 0x15>;
+		eeprom-id1 = <0xEF 0x15>;
+		eeprom-id2 = <0xC2 0x36>;
+		eeprom-id3 = <0xC8 0x15>;
+		compatible = "qcom,eeprom";
+		qcom,slave-addr = <0x60>;
+		qcom,num-blocks = <2>;
+		qcom,page0 = <1 0x100 2 0x01 1 1>;
+		qcom,poll0 = <0 0x0 2 0 1 1>;
+		qcom,mem0 = <0 0x0 2 0 1 0>;
+		qcom,page1 = <1 0x0200 2 0x8 1 1>;
+		qcom,pageen1 = <1 0x0202 2 0x01 1 10>;
+		qcom,poll1 = <0 0x0 2 0 1 1>;
+		qcom,mem1 = <32 0x3000 2 0 1 0>;
+		qcom,saddr1 = <0x62>;
+		qcom,cmm-data-support;
+		qcom,cmm-data-compressed;
+		qcom,cmm-data-offset = <0>;
+		qcom,cmm-data-size = <0>;
+		spiop-read = <0x03 3 0 0 0>;
+		spiop-readseq = <0x03 3 0 0 0>;
+		spiop-queryid = <0x90 3 0 0 0>;
+		spiop-pprog = <0x02 3 0 3 100>;
+		spiop-wenable = <0x06 0 0 0 0>;
+		spiop-readst = <0x05 0 0 0 0>;
+		spiop-erase = <0x20 3 0 10 100>;
+		qcom,cam-power-seq-type = "sensor_vreg",
+			"sensor_vreg", "sensor_clk",
+			"sensor_gpio", "sensor_gpio";
+		qcom,cam-power-seq-val = "cam_vdig",
+			"cam_vio", "sensor_cam_mclk",
+			"sensor_gpio_reset",
+			"sensor_gpio_standby";
+		qcom,cam-power-seq-cfg-val = <1 1 24000000 1 1>;
+		qcom,cam-power-seq-delay = <1 1 5 5 10>;
+		cam_vdig-supply = <&pm8998_l5>;
+		cam_vio-supply = <&pm8998_lvs1>;
+		regulator-names = "cam_vdig", "cam_vio";
+		rgltr-cntrl-support;
+		rgltr-min-voltage = <1200000 0>;
+		rgltr-max-voltage = <1200000 0>;
+		rgltr-load-current = <0 80000 105000 0>;
+		qcom,gpio-no-mux = <0>;
+		gpios = <&msmgpio 26 0>,
+			<&msmgpio 37 0>,
+			<&msmgpio 36 0>;
+		gpio-reset = <1>;
+		gpio-standby = <2>;
+		gpio-req-tbl-num = <0 1 2>;
+		gpio-req-tbl-flags = <1 0 0>;
+		gpio-req-tbl-label = "CAMIF_MCLK",
+			"CAM_RESET1",
+			"CAM_STANDBY";
+		sensor-position = <0>;
+		sensor-mode = <0>;
+		cci-device = <0>;
+		cci-master = <0>;
+		status = "ok";
+		clocks = <&clock_camcc CAM_CC_MCLK0_CLK>;
+		clock-cntl-level = "turbo";
+		clock-names = "cam_clk";
+		clock-rates = <24000000>;
+	};

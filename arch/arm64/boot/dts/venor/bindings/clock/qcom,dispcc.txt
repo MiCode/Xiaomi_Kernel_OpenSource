@@ -1,0 +1,43 @@
+Qualcomm Technologies, Inc. Display Clock Controller Binding
+------------------------------------------------------------
+
+Required properties :
+
+- compatible : Shall contain one of the following:
+		"qcom,kona-dispcc",
+		"qcom,sdm845-dispcc"
+		"qcom,lito-dispcc"
+		"qcom,bengal-dispcc"
+		"qcom,lagoon-dispcc"
+- reg : shall contain base register location and length.
+- vdd_mm-supply: phandle to the MM_CX rail that needs to be voted on behalf
+of the clocks.
+- clock-names: Shall contain "cfg_ahb_clk"
+- clocks: phandle clock reference to the GCC AHB clock.
+- #clock-cells : from common clock binding, shall contain 1.
+- #reset-cells : from common reset binding, shall contain 1.
+- #power-domain-cells : from generic power domain binding, shall contain 1.
+
+Optional properties :
+
+- reg-names: Address name. Must be "cc_base".
+
+Examples:
+	dispcc: clock-controller@af00000 {
+		compatible = "qcom,sdm845-dispcc";
+		reg = <0xaf00000 0x100000>;
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+		#power-domain-cells = <1>;
+	};
+
+	clock_dispcc: qcom,dispcc@af00000 {
+		compatible = "qcom,kona-dispcc";
+		reg = <0xaf00000 0x20000>;
+		reg-names = "cc_base";
+		vdd_mm-supply = <&VDD_MMCX_LEVEL>;
+		clock-names = "cfg_ahb_clk";
+		clocks = <&clock_gcc GCC_DISP_AHB_CLK>;
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};

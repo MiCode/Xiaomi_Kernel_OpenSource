@@ -1,0 +1,15 @@
+Qualcomm Technologies, Inc. MSM NOTIFIER
+
+Snapdragon Display Engine implements msm notifier to alert
+listeners to changes in display mode.
+
+Required properties
+- compatible:			"qcom,msm-notifier"
+- panel:			list of panels that support multiple refresh
+				rate
+
+Example:
+	msm_notifier: qcom,msm_notifier@0{
+		compatible = "qcom,msm-notifier";
+		panel = <&dsi_sw43404_amoled_cmd &dsi_sharp_qsync_wqhd_cmd>;
+	};

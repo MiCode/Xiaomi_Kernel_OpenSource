@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "lagoon.dtsi"
+#include "lagoon-qrd.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Lagoon QRD";
+	compatible = "qcom,lagoon-qrd", "qcom,lagoon", "qcom,qrd";
+	qcom,board-id = <0x1000B 0>;
+};

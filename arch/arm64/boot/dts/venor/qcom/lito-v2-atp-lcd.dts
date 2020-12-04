@@ -1,0 +1,87 @@
+/dts-v1/;
+
+#include "lito-v2.dtsi"
+#include "lito-atp.dtsi"
+#include "lito-v2-audio.dtsi"
+#include "camera/lito-camera-sensor-mtp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Lito v2 LCD ATP";
+	compatible = "qcom,lito-atp", "qcom,lito", "qcom,atp";
+	qcom,board-id = <33 1>;
+};
+
+&ufsphy_mem {
+	/delete-property/ vdda-phy-always-on;
+};
+
+&dsi_sharp_qsync_wqhd_video {
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-panel-status-check-mode = "reg_read";
+	qcom,mdss-dsi-panel-status-command = [06 01 00 01 00 00 01 0a];
+	qcom,mdss-dsi-panel-status-command-state = "dsi_lp_mode";
+	qcom,mdss-dsi-panel-status-value = <0x9c>;
+	qcom,mdss-dsi-panel-status-read-length = <1>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_labibb>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,platform-reset-gpio = <&pm8150l_gpios 3 0>;
+};
+
+&sde_dsi {
+	lab-supply = <&lcdb_ldo_vreg>;
+	ibb-supply = <&lcdb_ncp_vreg>;
+};
+
+&sde_dsi {
+	qcom,dsi-default-panel = <&dsi_sharp_qsync_wqhd_video>;
+};
+
+&pm8150a_amoled {
+	status = "disabled";
+};
+
+&pm8150l_lcdb {
+	status = "ok";
+};
+
+&pm8150l_wled {
+	status = "okay";
+};
+
+&qupv3_se7_i2c {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	status = "ok";
+	qcom,i2c-touch-active = "synaptics,dsx-i2c";
+
+	synaptics_dsx@22 {
+		compatible = "synaptics,dsx-i2c";
+		reg = <0x22>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <39 0x2008>;
+		vdd-supply = <&pm8150_s4>;
+		avdd-supply = <&pm8150_l13>;
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend",
+							"pmx_ts_release";
+		pinctrl-0 = <&ts_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		pinctrl-2 = <&pmx_ts_release>;
+		synaptics,pwr-reg-name = "avdd";
+		synaptics,bus-reg-name = "vdd";
+		synaptics,ub-i2c-addr = <0x22>;
+		synaptics,max-y-for-2d = <1859>;
+		synaptics,irq-gpio = <&tlmm 9 0x2008>;
+		synaptics,reset-gpio = <&tlmm 8 0x0>;
+		synaptics,irq-on-state = <0>;
+		synaptics,power-delay-ms = <200>;
+		synaptics,reset-delay-ms = <200>;
+		synaptics,reset-on-state = <0>;
+		synaptics,reset-active-ms = <20>;
+
+		panel = <&dsi_sharp_qsync_wqhd_video>;
+	};
+
+};

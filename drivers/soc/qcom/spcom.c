@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
-
 /*
  * Secure-Processor-Communication (SPCOM).
  *
@@ -599,6 +599,12 @@ static int spcom_local_powerup(const struct subsys_desc *subsys)
 {
 	void __iomem *regs, *err_regs;
 	u32 pbl_status_reg = 0;
+
+	err_regs = ioremap_nocache(spcom_rmb_error_reg_addr, sizeof(u32));
+	if (!err_regs)
+		return -ENOMEM;
+
+	pbl_status_reg = readl_relaxed(err_regs);
 
 	err_regs = ioremap_nocache(spcom_rmb_error_reg_addr, sizeof(u32));
 	if (!err_regs)

@@ -1,0 +1,15 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/clock/qcom,gcc-kona.h>
+#include <dt-bindings/clock/qcom,camcc-kona.h>
+#include <dt-bindings/clock/qcom,rpmh.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
+#include "apollo-sm8250.dtsi"
+#include "apollo-sm8250-camera-sensor-mtp.dtsi"
+/ {
+	model = "Qualcomm Technologies, Inc. xiaomi apollo";
+	compatible = "qcom,kona-mtp", "qcom,kona", "qcom,mtp";
+	qcom,board-id = <42 0>;
+};

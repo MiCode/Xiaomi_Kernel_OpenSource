@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "kona-v2.dtsi"
+#include "kona-rumi.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. kona RUMI";
+	compatible = "qcom,kona-rumi", "qcom,kona", "qcom,rumi";
+	qcom,board-id = <15 0>;
+};

@@ -1,0 +1,12 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include "bengal-rumi.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Bengal RUMI";
+	compatible = "qcom,bengal-rumi", "qcom,bengal", "qcom,rumi";
+	qcom,msm-id = <417 0x10000>;
+	qcom,board-id = <15 0>;
+};

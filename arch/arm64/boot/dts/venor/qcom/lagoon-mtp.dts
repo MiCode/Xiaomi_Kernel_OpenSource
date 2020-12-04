@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "lagoon.dtsi"
+#include "lagoon-mtp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Lagoon MTP";
+	compatible = "qcom,lagoon-mtp", "qcom,lagoon", "qcom,mtp";
+	qcom,board-id = <8 0>;
+};
