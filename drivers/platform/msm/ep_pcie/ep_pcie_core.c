@@ -1279,7 +1279,7 @@ static int ep_pcie_get_resources(struct ep_pcie_dev_t *dev,
 				"PCIe V%d: can't get resource for %s\n",
 					dev->rev, res_info->name);
 			if (!strcmp(res_info->name, "tcsr_pcie_perst_en") ||
-				(!strcmp(res_info->name, "aoss_reset_perst_raw"))) {
+				(!strcmp(res_info->name, "aoss_cc_reset"))) {
 				if (!dev->tcsr_not_supported && !dev->aoss_rst_clear) {
 					ret = -ENOMEM;
 					goto out;
