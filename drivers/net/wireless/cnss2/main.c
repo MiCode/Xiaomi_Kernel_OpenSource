@@ -2401,6 +2401,7 @@ int cnss_minidump_remove_region(struct cnss_plat_data *plat_priv,
 }
 #endif /* CONFIG_QCOM_MINIDUMP */
 
+#if IS_ENABLED(CONFIG_INTERCONNECT)
 /**
  * cnss_register_bus_scale() - Setup interconnect voting data
  * @plat_priv: Platform data structure
@@ -2526,6 +2527,14 @@ static void cnss_unregister_bus_scale(struct cnss_plat_data *plat_priv)
 	}
 	memset(&plat_priv->icc, 0, sizeof(plat_priv->icc));
 }
+#else
+static int cnss_register_bus_scale(struct cnss_plat_data *plat_priv)
+{
+	return 0;
+}
+
+static void cnss_unregister_bus_scale(struct cnss_plat_data *plat_priv) {}
+#endif /* CONFIG_INTERCONNECT */
 
 static ssize_t recovery_store(struct device *dev,
 			      struct device_attribute *attr,

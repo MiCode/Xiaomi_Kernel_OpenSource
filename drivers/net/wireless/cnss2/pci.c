@@ -656,6 +656,7 @@ static int cnss_pci_force_wake_put(struct cnss_pci_data *pci_priv)
 	return ret;
 }
 
+#if IS_ENABLED(CONFIG_INTERCONNECT)
 /**
  * cnss_setup_bus_bandwidth() - Setup interconnect vote for given bandwidth
  * @plat_priv: Platform private data struct
@@ -709,6 +710,18 @@ int cnss_request_bus_bandwidth(struct device *dev, int bandwidth)
 
 	return cnss_setup_bus_bandwidth(plat_priv, (u32)bandwidth, true);
 }
+#else
+static int cnss_setup_bus_bandwidth(struct cnss_plat_data *plat_priv,
+				    u32 bw, bool save)
+{
+	return 0;
+}
+
+int cnss_request_bus_bandwidth(struct device *dev, int bandwidth)
+{
+	return 0;
+}
+#endif
 EXPORT_SYMBOL(cnss_request_bus_bandwidth);
 
 int cnss_pci_debug_reg_read(struct cnss_pci_data *pci_priv, u32 offset,
