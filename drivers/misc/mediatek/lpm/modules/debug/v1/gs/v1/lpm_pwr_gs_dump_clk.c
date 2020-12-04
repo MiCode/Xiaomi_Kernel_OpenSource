@@ -4,6 +4,7 @@
  */
 #include <gs/lpm_pwr_gs.h>
 #include <gs/v1/lpm_power_gs.h>
+#include <linux/io.h>
 #define LPM_GS_CMP_SEARCH		(1u << 0)
 struct lpm_gs_dcm_info_inst {
 	struct lpm_gs_clk_info *info;
@@ -52,10 +53,10 @@ unsigned int mt_power_gs_base_remap_init(char *scenario, char *pmic_name,
 			if (!_is_exist_in_phys_to_virt_table(base)) {
 				table[br.table_pos].pa = base;
 				table[br.table_pos].va =
-					ioremap_nocache(base,
+					ioremap(base,
 							REMAP_SIZE_MASK + 1);
 				if (!table[br.table_pos].va)
-					pr_info("ioremap_nocache(0x%x, 0x%x)\n",
+					pr_info("ioremap(0x%x, 0x%x)\n",
 						base, REMAP_SIZE_MASK + 1);
 				if (br.table_pos < br.table_size)
 					br.table_pos++;
