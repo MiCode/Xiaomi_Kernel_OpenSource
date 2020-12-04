@@ -2619,7 +2619,6 @@ static long _gpuobj_map_dma_buf(struct kgsl_device *device,
 	bool iocoherent = (param->flags & KGSL_MEMFLAGS_IOCOHERENT);
 	struct kgsl_gpuobj_import_dma_buf buf;
 	struct dma_buf *dmabuf;
-	unsigned long flags = 0;
 	int ret;
 
 	param->flags &= KGSL_MEMFLAGS_GPUREADONLY |
@@ -2659,24 +2658,20 @@ static long _gpuobj_map_dma_buf(struct kgsl_device *device,
 		return PTR_ERR(dmabuf);
 
 	/*
-	 * ION cache ops are routed through kgsl, so record if the dmabuf is
-	 * cached or not in the memdesc. Assume uncached if dma_buf_get_flags
-	 * fails.
+	 * DMA BUFS are always cached so make sure that is reflected in
+	 * the memdesc.
 	 */
-	dma_buf_get_flags(dmabuf, &flags);
-	if (flags & ION_FLAG_CACHED) {
-		entry->memdesc.flags |=
-			FIELD_PREP(KGSL_CACHEMODE_MASK, KGSL_CACHEMODE_WRITEBACK);
+	entry->memdesc.flags |=
+		FIELD_PREP(KGSL_CACHEMODE_MASK, KGSL_CACHEMODE_WRITEBACK);
 
-		/*
-		 * Enable I/O coherency if it is 1) a thing, and either
-		 * 2) enabled by default or 3) enabled by the caller
-		 */
-		if (kgsl_mmu_has_feature(device, KGSL_MMU_IO_COHERENT) &&
-		    (IS_ENABLED(CONFIG_QCOM_KGSL_IOCOHERENCY_DEFAULT) ||
-		     iocoherent))
-			entry->memdesc.flags |= KGSL_MEMFLAGS_IOCOHERENT;
-	}
+	/*
+	 * Enable I/O coherency if it is 1) a thing, and either
+	 * 2) enabled by default or 3) enabled by the caller
+	 */
+	if (kgsl_mmu_has_feature(device, KGSL_MMU_IO_COHERENT) &&
+			(IS_ENABLED(CONFIG_QCOM_KGSL_IOCOHERENCY_DEFAULT) ||
+			 iocoherent))
+		entry->memdesc.flags |= KGSL_MEMFLAGS_IOCOHERENT;
 
 	ret = kgsl_setup_dma_buf(device, pagetable, entry, dmabuf);
 	if (ret)
