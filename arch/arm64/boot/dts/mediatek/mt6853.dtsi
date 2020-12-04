@@ -3923,7 +3923,7 @@
 				<&iommu0 M4U_PORT_L20_IPE_RSC_WDMA>;
 
 			mediatek,larbs =
-				<&larb9 &larb11 &larb13 &larb14 &larb16 &larb17 &larb18 &larb20>;
+				<&larb9 &larb11 &larb20>;
 		};
 
 		camisp_legacy: camisp_legacy@1a000000 {
@@ -3932,7 +3932,7 @@
 			reg = <0 0x1a000000 0 0x10000>;
 			dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
 			power-domains = <&scpsys MT6853_POWER_DOMAIN_CAM>;
-
+			mediatek,larbs = <&larb13 &larb14>;
 			#clock-cells = <1>;
 			/* Camera CCF */
 			clocks = <&camsys_main_clk CLK_CAM_M_CAM>,
@@ -3979,6 +3979,7 @@
 			reg = <0 0x1a030000 0 0x8000>;
 			interrupts = <GIC_SPI 320 IRQ_TYPE_LEVEL_HIGH 0>;
 			power-domains = <&scpsys MT6853_POWER_DOMAIN_CAM_RAWA>;
+			mediatek,larb = <&larb16>;
 		};
 
 		cam1_inner_legacy@1a038000 {
@@ -4000,6 +4001,7 @@
 			reg = <0 0x1a050000 0 0x8000>;
 			interrupts = <GIC_SPI 321 IRQ_TYPE_LEVEL_HIGH 0>;
 			power-domains = <&scpsys MT6853_POWER_DOMAIN_CAM_RAWB>;
+			mediatek,larb = <&larb17>;
 		};
 
 		cam2_inner_legacy@1a058000 {
@@ -4020,6 +4022,7 @@
 			compatible = "mediatek,cam3_legacy";
 			reg = <0 0x1a070000 0 0x8000>;
 			power-domains = <&scpsys MT6853_POWER_DOMAIN_CAM_RAWB>;
+			mediatek,larb = <&larb18>;
 		};
 
 		cam3_inner_legacy@1a078000 {
