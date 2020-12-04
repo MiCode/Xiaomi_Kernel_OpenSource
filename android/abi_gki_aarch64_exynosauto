@@ -6,6 +6,7 @@
   __arch_copy_from_user
   __arch_copy_to_user
   arm64_const_caps_ready
+  __arm_smccc_smc
   atomic_notifier_call_chain
   atomic_notifier_chain_register
   __bitmap_and
@@ -41,7 +42,6 @@
   cpu_bit_bitmap
   cpu_hwcap_keys
   cpu_hwcaps
-  cpumask_next
   cpu_number
   __cpu_online_mask
   __cpu_possible_mask
@@ -78,7 +78,12 @@
   devm_phy_get
   devm_pinctrl_get
   devm_platform_ioremap_resource
+  __devm_regmap_init_i2c
+  devm_regulator_bulk_get
+  __devm_request_region
   devm_request_threaded_irq
+  devm_snd_soc_register_card
+  devm_snd_soc_register_component
   devm_usb_get_phy_by_phandle
   _dev_notice
   dev_pm_opp_add
@@ -193,6 +198,7 @@
   init_wait_entry
   __init_waitqueue_head
   iomem_resource
+  iommu_get_domain_for_dev
   iommu_register_device_fault_handler
   iommu_unregister_device_fault_handler
   ion_alloc
@@ -306,6 +312,7 @@
   of_property_read_variable_u32_array
   of_property_read_variable_u8_array
   of_prop_next_string
+  of_reserved_mem_device_init_by_idx
   of_reserved_mem_lookup
   of_root
   panic
@@ -329,6 +336,7 @@
   phy_stop
   physvirt_offset
   pinctrl_lookup_state
+  pinctrl_pm_select_default_state
   pinctrl_pm_select_sleep_state
   pinctrl_select_state
   platform_bus_type
@@ -354,6 +362,7 @@
   __pm_runtime_set_status
   __pm_runtime_suspend
   __pm_runtime_use_autosuspend
+  pm_wakeup_dev_event
   preempt_schedule
   preempt_schedule_notrace
   prepare_to_wait_event
@@ -380,6 +389,8 @@
   refcount_inc_checked
   refcount_inc_not_zero_checked
   __refrigerator
+  regcache_mark_dirty
+  regcache_sync
   register_pm_notifier
   register_reboot_notifier
   register_restart_handler
@@ -387,6 +398,8 @@
   regmap_read
   regmap_update_bits_base
   regmap_write
+  regulator_bulk_disable
+  regulator_bulk_enable
   regulator_disable
   regulator_enable
   regulator_get_optional
@@ -415,6 +428,15 @@
   sg_next
   simple_read_from_buffer
   simple_strtoul
+  snd_pcm_format_width
+  snd_soc_component_update_bits
+  snd_soc_component_write
+  snd_soc_dai_set_fmt
+  snd_soc_info_volsw
+  snd_soc_of_get_dai_link_codecs
+  snd_soc_of_get_dai_name
+  snd_soc_of_parse_audio_routing
+  snd_soc_pm_ops
   snprintf
   sprintf
   sscanf
@@ -429,7 +451,6 @@
   strncpy
   strnlen
   strstr
-  subsys_system_register
   __sw_hweight32
   __sw_hweight64
   sync_file_create
@@ -522,19 +543,13 @@
   cec_transmit_attempt_done_ts
   cec_transmit_done_ts
   cec_unregister_adapter
-  __devm_regmap_init_i2c
-  devm_regulator_bulk_get
   drm_detect_hdmi_monitor
   drm_do_get_edid
   hdmi_avi_infoframe_init
   hdmi_avi_infoframe_pack
   i2c_new_ancillary_device
-  regcache_mark_dirty
-  regcache_sync
   regmap_bulk_write
   regmap_register_patch
-  regulator_bulk_disable
-  regulator_bulk_enable
 
 # required by bufq.ko
   kstrndup
@@ -563,11 +578,9 @@
   of_clk_add_provider
   of_clk_src_onecell_get
 
-# required by cmupmucal.ko
-  pm_qos_add_request
-
 # required by dss.ko
   __alloc_percpu
+  cpumask_next
   init_task
   kstat
   nr_irqs
@@ -674,17 +687,12 @@
 # required by exynos-chipid_v2.ko
   of_find_node_opts_by_path
   soc_device_register
+  subsys_system_register
 
 # required by exynos-pd.ko
   of_genpd_add_provider_simple
   pm_genpd_add_subdomain
   pm_genpd_init
-
-# required by exynos-pd_el3.ko
-  __arm_smccc_smc
-
-# required by exynos-pmu-if.ko
-  cpu_topology
 
 # required by exynos-reboot.ko
   pm_power_off
@@ -875,7 +883,6 @@
 
 # required by exynos_mfc.ko
   iommu_dma_reserve_iova
-  iommu_get_domain_for_dev
   iommu_map_sg
   iommu_unmap
   mutex_lock_interruptible
@@ -919,6 +926,10 @@
 
 # required by exynosauto9-itmon.ko
   atomic_notifier_chain_unregister
+
+# required by exynosauto9-sadk-tas6424.ko
+  snd_soc_dai_set_tdm_slot
+  snd_soc_dai_set_tristate
 
 # required by g2d.ko
   __arch_copy_in_user
@@ -970,7 +981,6 @@
   kthread_should_stop
   list_sort
   mod_node_page_state
-  of_reserved_mem_device_init_by_idx
   of_reserved_mem_device_release
   register_oom_notifier
   sched_setscheduler
@@ -1212,6 +1222,7 @@
   kthread_flush_worker
   ktime_get_ts64
   ktime_get_with_offset
+  map_vm_area
   mutex_trylock
   ns_to_timespec
   param_ops_string
@@ -1222,6 +1233,7 @@
   regulator_is_enabled
   regulator_set_voltage
   sched_setscheduler_nocheck
+  unmap_kernel_range
   v4l2_device_register_subdev
   v4l2_device_set_name
   v4l2_device_unregister_subdev
@@ -1290,9 +1302,7 @@
   phy_resume
   phy_start_aneg
   phy_suspend
-  pinctrl_pm_select_default_state
   platform_get_irq_byname
-  pm_wakeup_dev_event
   _raw_spin_lock_bh
   _raw_spin_unlock_bh
   register_netdev
@@ -1344,6 +1354,49 @@
   v4l2_ctrl_new_custom
   v4l2_ctrl_new_std
   v4l_bound_align_image
+
+# required by snd-soc-s3c-dma.ko
+  devm_snd_dmaengine_pcm_register
+  snd_dmaengine_pcm_prepare_slave_config
+
+# required by snd-soc-samsung-abox-core.ko
+  devm_iounmap
+  devm_kasprintf
+  devm_kmemdup
+  __devm_regmap_init
+  __devm_regmap_init_mmio_clk
+  dma_mmap_attrs
+  iommu_attach_device
+  __platform_register_drivers
+  platform_unregister_drivers
+  pm_runtime_no_callbacks
+  request_firmware_nowait
+  snd_pcm_hw_constraint_integer
+  snd_pcm_lib_free_pages
+  snd_pcm_lib_ioctl
+  snd_pcm_lib_malloc_pages
+  snd_pcm_lib_preallocate_free_for_all
+  snd_pcm_lib_preallocate_pages
+  snd_pcm_period_elapsed
+  snd_pcm_release_substream
+  snd_soc_component_exit_regmap
+  snd_soc_component_init_regmap
+  snd_soc_component_read
+  snd_soc_dapm_add_routes
+  snd_soc_dapm_get_enum_double
+  snd_soc_dapm_new_control
+  snd_soc_dapm_new_controls
+  snd_soc_dapm_put_enum_double
+  snd_soc_info_enum_double
+  snd_soc_register_component
+  snd_soc_set_runtime_hwparams
+  snd_soc_unregister_component
+
+# required by snd-soc-tas6424.ko
+  _dev_crit
+  regcache_cache_only
+  snd_soc_get_volsw
+  snd_soc_put_volsw
 
 # required by spi-exynosauto.ko
   loops_per_jiffy
