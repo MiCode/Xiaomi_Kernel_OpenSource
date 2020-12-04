@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2016-2021, The Linux Foundation. All rights reserved. */
 
 #include <linux/err.h>
 #include <linux/seq_file.h>
@@ -11,8 +11,10 @@
 
 #define MMIO_REG_ACCESS_MEM_TYPE		0xFF
 
+#if IS_ENABLED(CONFIG_IPC_LOGGING)
 void *cnss_ipc_log_context;
 void *cnss_ipc_log_long_context;
+#endif
 
 static int cnss_pin_connect_show(struct seq_file *s, void *data)
 {
@@ -872,7 +874,8 @@ void cnss_debugfs_destroy(struct cnss_plat_data *plat_priv)
 }
 #endif
 
-int cnss_debug_init(void)
+#if IS_ENABLED(CONFIG_IPC_LOGGING)
+static int cnss_ipc_logging_init(void)
 {
 	cnss_ipc_log_context = ipc_log_context_create(CNSS_IPC_LOG_PAGES,
 						      "cnss", 0);
@@ -892,7 +895,7 @@ int cnss_debug_init(void)
 	return 0;
 }
 
-void cnss_debug_deinit(void)
+static void cnss_ipc_logging_deinit(void)
 {
 	if (cnss_ipc_log_long_context) {
 		ipc_log_context_destroy(cnss_ipc_log_long_context);
@@ -903,4 +906,18 @@ void cnss_debug_deinit(void)
 		ipc_log_context_destroy(cnss_ipc_log_context);
 		cnss_ipc_log_context = NULL;
 	}
+}
+#else
+static int cnss_ipc_logging_init(void) { return 0; }
+static void cnss_ipc_logging_deinit(void) {}
+#endif
+
+int cnss_debug_init(void)
+{
+	return cnss_ipc_logging_init();
+}
+
+void cnss_debug_deinit(void)
+{
+	cnss_ipc_logging_deinit();
 }
