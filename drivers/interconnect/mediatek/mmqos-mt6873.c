@@ -404,12 +404,16 @@ static const struct mtk_node_desc node_descs_mt6873[] = {
 static const char * const comm_muxes_mt6873[] = { "mm" };
 static const char * const comm_icc_path_names_mt6873[] = { "icc-bw" };
 static const char * const comm_icc_hrt_path_names_mt6873[] = { "icc-hrt-bw" };
+static const char * const larb_icc_path_names_mt6873[] = { "larb0", "larb1", "larb2", NULL,
+	"larb4", "larb5", NULL, "larb7", NULL, "larb9", NULL, "larb11", NULL, "larb13", "larb14",
+	NULL, "larb16", "larb17", "larb18", "larb19", "larb20", NULL, NULL, NULL };
 static const struct mtk_mmqos_desc mmqos_desc_mt6873 = {
 	.nodes = node_descs_mt6873,
 	.num_nodes = ARRAY_SIZE(node_descs_mt6873),
 	.comm_muxes = comm_muxes_mt6873,
 	.comm_icc_path_names = comm_icc_path_names_mt6873,
 	.comm_icc_hrt_path_names = comm_icc_hrt_path_names_mt6873,
+	.larb_icc_path_names = larb_icc_path_names_mt6873,
 	.max_ratio = 40,
 	.hrt = {
 		.hrt_bw = {3344, 0, 0},
