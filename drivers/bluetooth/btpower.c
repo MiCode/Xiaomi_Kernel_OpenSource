@@ -320,6 +320,7 @@ static int bt_configure_gpios(int on)
 	int wl_reset_gpio = bt_power_pdata->wl_gpio_sys_rst;
 	int bt_sw_ctrl_gpio  =  bt_power_pdata->bt_gpio_sw_ctrl;
 	int bt_debug_gpio  =  bt_power_pdata->bt_gpio_debug;
+	int xo_reset_gpio =  bt_power_pdata->xo_gpio_sys_rst;
 	int assert_dbg_gpio = 0;
 
 	if (on) {
@@ -385,6 +386,27 @@ static int bt_configure_gpios(int on)
 			}
 			bt_power_src_status[BT_RESET_GPIO] =
 				gpio_get_value(bt_reset_gpio);
+		}
+		rc = gpio_request(xo_reset_gpio, "xo_reset_gpio_n");
+		if (rc) {
+			pr_err("%s: unable to request gpio %d (%d)\n",
+					__func__, xo_reset_gpio, rc);
+		} else {
+			pr_info("%s: gpio_request for xo_reset_gpio succeed\n",
+					__func__);
+			//pull GPIO high
+			rc = gpio_direction_output(xo_reset_gpio, 1);
+			if (rc) {
+				pr_err("%s: Unable to set direction of xo_reset_gpio\n",
+					 __func__);
+			}
+			udelay(2000);
+			//pull GPIO low after 2 ms delay
+			rc = gpio_direction_output(xo_reset_gpio, 0);
+			if (rc) {
+				pr_err("%s: Unable to set direction of xo_reset_gpio\n",
+					 __func__);
+			}
 		}
 		msleep(50);
 		/*  Check  if  SW_CTRL  is  asserted  */
@@ -482,9 +504,11 @@ gpio_fail:
 			gpio_free(bt_power_pdata->bt_gpio_sys_rst);
 		if (bt_power_pdata->wl_gpio_sys_rst > 0)
 			gpio_free(bt_power_pdata->wl_gpio_sys_rst);
-		if  (bt_power_pdata->bt_gpio_sw_ctrl  >  0)
+		if (bt_power_pdata->xo_gpio_sys_rst > 0)
+			gpio_free(bt_power_pdata->xo_gpio_sys_rst);
+		if  (bt_power_pdata->bt_gpio_sw_ctrl > 0)
 			gpio_free(bt_power_pdata->bt_gpio_sw_ctrl);
-		if  (bt_power_pdata->bt_gpio_debug  >  0)
+		if  (bt_power_pdata->bt_gpio_debug > 0)
 			gpio_free(bt_power_pdata->bt_gpio_debug);
 		if (bt_power_pdata->bt_chip_clk)
 			bt_clk_disable(bt_power_pdata->bt_chip_clk);
@@ -792,6 +816,12 @@ static int bt_power_populate_dt_pinfo(struct platform_device *pdev)
 						"qcom,bt-debug-gpio",  0);
 		if (bt_power_pdata->bt_gpio_debug < 0)
 			pr_warn("bt-debug-gpio not provided in devicetree\n");
+
+		bt_power_pdata->xo_gpio_sys_rst =
+			of_get_named_gpio(pdev->dev.of_node,
+						"qcom,xo-reset-gpio", 0);
+		if (bt_power_pdata->xo_gpio_sys_rst < 0)
+			pr_warn("xo-reset-gpio not provided in devicetree\n");
 
 		rc = bt_dt_parse_clk_info(&pdev->dev,
 					&bt_power_pdata->bt_chip_clk);
