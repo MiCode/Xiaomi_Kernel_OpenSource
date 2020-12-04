@@ -177,7 +177,7 @@
 
 #define EP_PCIE_LOG_PAGES 50
 #define EP_PCIE_MAX_VREG 3
-#define EP_PCIE_MAX_CLK 9
+#define EP_PCIE_MAX_CLK 10
 #define EP_PCIE_MAX_PIPE_CLK 1
 #define EP_PCIE_MAX_RESET 2
 

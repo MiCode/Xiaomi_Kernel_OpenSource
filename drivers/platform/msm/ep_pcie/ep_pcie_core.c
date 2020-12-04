@@ -75,6 +75,7 @@ static struct ep_pcie_clk_info_t
 	{NULL, "pcie_slv_q2a_axi_clk", 0, false},
 	{NULL, "pcie_pipe_clk_mux", 0, false},
 	{NULL, "pcie_pipe_clk_ext_src", 0, false},
+	{NULL, "pcie_0_ref_clk_src", 0, false},
 };
 
 static struct ep_pcie_clk_info_t
