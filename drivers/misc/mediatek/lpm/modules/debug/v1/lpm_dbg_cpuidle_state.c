@@ -264,7 +264,9 @@ static int lpm_topology_init(void)
 
 	package_num = hweight32(package_id_map);
 
-	topology = kzalloc(sizeof(struct lpm_cpu_topology *), GFP_KERNEL);
+	topology = kzalloc(sizeof(struct lpm_cpu_topology *) *
+				(package_num + 1),
+				GFP_KERNEL);
 	if (!topology)
 		return -ENOMEM;
 
