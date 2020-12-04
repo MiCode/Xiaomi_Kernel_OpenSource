@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2016-2021, The Linux Foundation. All rights reserved. */
 
 #ifndef _CNSS_MAIN_H
 #define _CNSS_MAIN_H
@@ -13,7 +13,9 @@
 #include <linux/pm_qos.h>
 #include <linux/platform_device.h>
 #include <net/cnss2.h>
+#if IS_ENABLED(CONFIG_QCOM_MEMORY_DUMP_V2)
 #include <soc/qcom/memory_dump.h>
+#endif
 #if IS_ENABLED(CONFIG_MSM_SUBSYSTEM_RESTART) || \
 	IS_ENABLED(CONFIG_SUBSYSTEM_RAMDUMP)
 #include <soc/qcom/ramdump.h>
@@ -106,7 +108,9 @@ struct cnss_ramdump_info {
 	unsigned long ramdump_size;
 	void *ramdump_va;
 	phys_addr_t ramdump_pa;
+#if IS_ENABLED(CONFIG_QCOM_MEMORY_DUMP_V2)
 	struct msm_dump_data dump_data;
+#endif
 };
 
 struct cnss_dump_seg {
