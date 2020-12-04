@@ -456,23 +456,8 @@ static int ep_pcie_pipe_clk_init(struct ep_pcie_dev_t *dev)
 {
 	int i, rc = 0;
 	struct ep_pcie_clk_info_t *info;
-	char ref_clk_src[MAX_PROP_SIZE];
 
 	EP_PCIE_DBG(dev, "PCIe V%d\n", dev->rev);
-
-	dev->pipe_clk_mux = devm_clk_get(&dev->pdev->dev, "pcie_pipe_clk_mux");
-	if (IS_ERR(dev->pipe_clk_mux))
-		dev->pipe_clk_mux = NULL;
-
-	dev->pipe_clk_ext_src = devm_clk_get(&dev->pdev->dev,
-					"pcie_pipe_clk_ext_src");
-	if (IS_ERR(dev->pipe_clk_ext_src))
-		dev->pipe_clk_ext_src = NULL;
-
-	scnprintf(ref_clk_src, MAX_PROP_SIZE, "pcie_0_ref_clk_src");
-	dev->ref_clk_src = devm_clk_get(&dev->pdev->dev, ref_clk_src);
-	if (IS_ERR(dev->ref_clk_src))
-		dev->ref_clk_src = NULL;
 
 	for (i = 0; i < EP_PCIE_MAX_PIPE_CLK; i++) {
 		info = &dev->pipeclk[i];
@@ -1059,6 +1044,7 @@ static int ep_pcie_get_resources(struct ep_pcie_dev_t *dev,
 	const __be32 *prop;
 	u32 *clkfreq = NULL;
 	bool map;
+	char ref_clk_src[MAX_PROP_SIZE];
 
 	EP_PCIE_DBG(dev, "PCIe V%d\n", dev->rev);
 
@@ -1174,6 +1160,25 @@ static int ep_pcie_get_resources(struct ep_pcie_dev_t *dev,
 				gpio_info->name);
 			ret = 0;
 		}
+	}
+
+	dev->pipe_clk_mux = devm_clk_get(&dev->pdev->dev, "pcie_pipe_clk_mux");
+	if (IS_ERR(dev->pipe_clk_mux)) {
+		EP_PCIE_ERR(dev, "PCIe V%d: Failed to get pcie_pipe_clk_mux\n", dev->rev);
+		dev->pipe_clk_mux = NULL;
+	}
+
+	dev->pipe_clk_ext_src = devm_clk_get(&dev->pdev->dev, "pcie_pipe_clk_ext_src");
+	if (IS_ERR(dev->pipe_clk_ext_src)) {
+		EP_PCIE_ERR(dev, "PCIe V%d: Failed to get pipe_ext_src\n", dev->rev);
+		dev->pipe_clk_ext_src = NULL;
+	}
+
+	scnprintf(ref_clk_src, MAX_PROP_SIZE, "pcie_0_ref_clk_src");
+	dev->ref_clk_src = devm_clk_get(&dev->pdev->dev, ref_clk_src);
+	if (IS_ERR(dev->ref_clk_src)) {
+		EP_PCIE_ERR(dev, "PCIe V%d: Failed to get ref_clk_src\n", dev->rev);
+		dev->ref_clk_src = NULL;
 	}
 
 	for (i = 0; i < EP_PCIE_MAX_CLK; i++) {
