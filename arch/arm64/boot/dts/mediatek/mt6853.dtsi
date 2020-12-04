@@ -15,6 +15,7 @@
 #include <dt-bindings/interconnect/mtk,mt6873-emi.h>
 #include <dt-bindings/gce/mt6853-gce.h>
 #include <dt-bindings/reset/ti-syscon.h>
+#include <dt-bindings/interconnect/mtk,mmqos.h>
 #include <dt-bindings/soc/mediatek,boot-mode.h>
 #include <dt-bindings/thermal/thermal.h>
 
@@ -3273,6 +3274,37 @@
 				"CORE_MT_CG_VDEC";
 			operating-points-v2 = <&opp_table_vdec>;
 			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+			interconnects =
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L4_VDEC_MC_EXT)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L4_VDEC_UFO_EXT)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L4_VDEC_PP_EXT)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L4_VDEC_PRED_RD_EXT)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L4_VDEC_PRED_WR_EXT)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L4_VDEC_PPWRAP_EXT)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L4_VDEC_TILE_EXT)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L4_VDEC_VLD_EXT)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L4_VDEC_VLD2_EXT)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L4_VDEC_AVC_MV_EXT)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L4_VDEC_RG_CTRL_DMA_EXT)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L4_VDEC_UFO_ENC_EXT)
+						&mmqos SLAVE_COMMON(0)>;
+			interconnect-names = "path_vdec_mc", "path_vdec_ufo",
+					"path_vdec_pp", "path_vdec_pred_rd",
+					"path_vdec_pred_wr", "path_vdec_ppwrap",
+					"path_vdec_tile", "path_vdec_vld",
+					"path_vdec_vld2", "path_vdec_avc_mv",
+					"path_vdec_rg_ctrl_dma", "path_vdec_ufo_enc";
 		};
 
 		vdec_gcon_clk: syscon@1602f000 {
@@ -3307,15 +3339,15 @@
 			reg-names =
 				"VENC_GCON",
 				"VENC_SYS";
-		iommus = <&iommu0 M4U_PORT_L7_VENC_RCPU>,
-			<&iommu0 M4U_PORT_L7_VENC_REC>,
-			<&iommu0 M4U_PORT_L7_VENC_BSDMA>,
-			<&iommu0 M4U_PORT_L7_VENC_SV_COMV>,
-			<&iommu0 M4U_PORT_L7_VENC_RD_COMV>,
-			<&iommu0 M4U_PORT_L7_VENC_CUR_LUMA>,
-			<&iommu0 M4U_PORT_L7_VENC_CUR_CHROMA>,
-			<&iommu0 M4U_PORT_L7_VENC_REF_LUMA>,
-			<&iommu0 M4U_PORT_L7_VENC_REF_CHROMA>;
+			iommus = <&iommu0 M4U_PORT_L7_VENC_RCPU>,
+				<&iommu0 M4U_PORT_L7_VENC_REC>,
+				<&iommu0 M4U_PORT_L7_VENC_BSDMA>,
+				<&iommu0 M4U_PORT_L7_VENC_SV_COMV>,
+				<&iommu0 M4U_PORT_L7_VENC_RD_COMV>,
+				<&iommu0 M4U_PORT_L7_VENC_CUR_LUMA>,
+				<&iommu0 M4U_PORT_L7_VENC_CUR_CHROMA>,
+				<&iommu0 M4U_PORT_L7_VENC_REF_LUMA>,
+				<&iommu0 M4U_PORT_L7_VENC_REF_CHROMA>;
 			mediatek,larbs = <&larb7>;
 			interrupts = <GIC_SPI 310 IRQ_TYPE_LEVEL_HIGH 0>;
 			dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
@@ -3326,6 +3358,30 @@
 				"MT_CG_VENC0";
 			operating-points-v2 = <&opp_table_venc>;
 			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+			interconnects =
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L7_VENC_RCPU)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L7_VENC_REC)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L7_VENC_BSDMA)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L7_VENC_SV_COMV)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L7_VENC_RD_COMV)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L7_VENC_CUR_LUMA)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L7_VENC_CUR_CHROMA)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L7_VENC_REF_LUMA)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L7_VENC_REF_CHROMA)
+					&mmqos SLAVE_COMMON(0)>;
+			interconnect-names = "path_venc_rcpu", "path_venc_rec",
+				"path_venc_bsdma", "path_venc_sv_comv",
+				"path_venc_rd_comv", "path_venc_cur_luma",
+				"path_venc_cur_chroma", "path_venc_ref_luma",
+				"path_venc_ref_chroma";
 		};
 
 		larb7: larb@17010000 {
