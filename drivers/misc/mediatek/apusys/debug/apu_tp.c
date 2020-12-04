@@ -11,7 +11,7 @@
 #include "apu_tp.h"
 
 #define apu_tp_foreach(tbl, t) \
-	for ((t) = (tbl); (t)->name != NULL; (t)++)
+	for ((t) = (tbl); (t) && (t)->name != NULL; (t)++)
 
 static void apu_tp_lookup(struct tracepoint *tp, void *priv)
 {
