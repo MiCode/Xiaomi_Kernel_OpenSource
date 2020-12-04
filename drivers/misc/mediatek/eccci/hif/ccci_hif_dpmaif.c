@@ -70,6 +70,7 @@
 #define TAG "dpmaif"
 
 struct hif_dpmaif_ctrl *dpmaif_ctrl;
+static void __iomem *infra_ao_mem;
 
 #ifdef CCCI_KMODULE_ENABLE
 /*
@@ -3238,9 +3239,9 @@ int dpmaif_start(unsigned char hif_id)
 	ccci_hif_dpmaif_set_clk(1);
 
 #ifdef MT6297
-	regmap_read(dpmaif_ctrl->plat_val.infra_ao_base, 0, &reg_value);
+	reg_value = ccci_read32(infra_ao_mem, 0);
 	reg_value |= INFRA_PROT_DPMAIF_BIT;
-	regmap_write(dpmaif_ctrl->plat_val.infra_ao_base, 0, reg_value);
+	ccci_write32(infra_ao_mem, 0, reg_value);
 	CCCI_REPEAT_LOG(-1, TAG, "%s:clr prot:0x%x\n", __func__, reg_value);
 
 	drv_dpmaif_common_hw_init();
@@ -4025,6 +4026,22 @@ int ccci_dpmaif_hif_init(struct device *dev)
 	hif_ctrl->dpmaif_irq_flags = IRQF_TRIGGER_NONE;
 	CCCI_DEBUG_LOG(md_id, TAG, "dpmaif_irq_id:%d\n",
 			hif_ctrl->dpmaif_irq_id);
+#ifdef MT6297
+	node = of_find_compatible_node(NULL, NULL,
+		"mediatek,infracfg_ao_mem");
+	if (!node) {
+		CCCI_ERROR_LOG(md_id, TAG, "mediatek,infracfg_ao_mem fail!\n");
+		ret = -1;
+		goto DPMAIF_INIT_FAIL;
+	}
+	infra_ao_mem = of_iomap(node, 0);
+	if (!infra_ao_mem) {
+		CCCI_ERROR_LOG(md_id, TAG, "infra_ao_mem error!\n");
+		ret = -1;
+		goto DPMAIF_INIT_FAIL;
+
+	}
+#endif
 	dev->dma_mask = &dpmaif_dmamask;
 	dev->coherent_dma_mask = dpmaif_dmamask;
 	/* hook up to device */
