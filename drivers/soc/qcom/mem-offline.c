@@ -46,6 +46,7 @@ static atomic_t target_migrate_pages = ATOMIC_INIT(0);
 static u32 offline_granule;
 static bool is_rpm_controller;
 static bool has_pend_offline_req;
+static atomic_long_t totalram_pages_with_offline = ATOMIC_INIT(0);
 
 #define MODULE_CLASS_NAME	"mem-offline"
 #define MIGRATE_TIMEOUT_SEC	(20)
@@ -100,6 +101,29 @@ struct movable_zone_fill_control {
 static void fill_movable_zone_fn(struct work_struct *work);
 static DECLARE_WORK(fill_movable_zone_work, fill_movable_zone_fn);
 static DEFINE_MUTEX(page_migrate_lock);
+
+unsigned long get_totalram_pages_count_inc_offlined(void)
+{
+	struct sysinfo i;
+	unsigned long totalram_with_offline;
+
+	si_meminfo(&i);
+	totalram_with_offline =
+		(unsigned long)atomic_long_read(&totalram_pages_with_offline);
+
+	if (i.totalram < totalram_with_offline)
+		i.totalram = totalram_with_offline;
+
+	return i.totalram;
+}
+
+static void update_totalram_snapshot(void)
+{
+	unsigned long totalram_with_offline;
+
+	totalram_with_offline = get_totalram_pages_count_inc_offlined();
+	atomic_long_set(&totalram_pages_with_offline, totalram_with_offline);
+}
 
 static void clear_pgtable_mapping(phys_addr_t start, phys_addr_t end)
 {
@@ -673,6 +697,7 @@ static int mem_event_callback(struct notifier_block *self,
 
 		break;
 	case MEM_ONLINE:
+		update_totalram_snapshot();
 		delay = ktime_ms_delta(ktime_get(), cur);
 		record_stat(sec_nr, delay, MEMORY_ONLINE);
 		cur = 0;
@@ -680,6 +705,7 @@ static int mem_event_callback(struct notifier_block *self,
 			(void *)sec_nr);
 		break;
 	case MEM_GOING_OFFLINE:
+		update_totalram_snapshot();
 		pr_debug("mem-offline: MEM_GOING_OFFLINE : start = 0x%llx end = 0x%llx\n",
 				start_addr, end_addr);
 		++mem_info[(sec_nr - start_section_nr + MEMORY_OFFLINE *
