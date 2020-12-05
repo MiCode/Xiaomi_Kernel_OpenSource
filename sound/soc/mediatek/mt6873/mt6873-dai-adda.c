@@ -450,18 +450,19 @@ static int mtk_adda_pad_top_event(struct snd_soc_dapm_widget *w,
 
 static bool is_adda_mtkaif_need_phase_delay(struct mt6873_afe_private *afe_priv)
 {
-	bool ret = false;
-
 	if (mt6873_afe_gpio_is_prepared(MT6873_AFE_GPIO_DAT_MISO0_ON) &&
-	    mt6873_afe_gpio_is_prepared(MT6873_AFE_GPIO_DAT_MISO1_ON)) {
-		if (afe_priv->mtkaif_chosen_phase[0] < 0 &&
-		    afe_priv->mtkaif_chosen_phase[1] < 0)
-			ret = true;
-		else
-			AUDIO_AEE("adda mtkaif calib fail");
+	    afe_priv->mtkaif_chosen_phase[0] < 0) {
+		AUDIO_AEE("adda mtkaif miso0 calib fail");
+		return false;
 	}
 
-	return ret;
+	if (mt6873_afe_gpio_is_prepared(MT6873_AFE_GPIO_DAT_MISO1_ON) &&
+	    afe_priv->mtkaif_chosen_phase[1] < 0) {
+		AUDIO_AEE("adda mtkaif miso1 calib fail");
+		return false;
+	}
+
+	return true;
 }
 
 static int mtk_adda_mtkaif_cfg_event(struct snd_soc_dapm_widget *w,
