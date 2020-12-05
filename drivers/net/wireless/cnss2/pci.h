@@ -93,6 +93,7 @@ struct cnss_pci_data {
 	u32 qmi_send_usage_count;
 	u16 def_link_speed;
 	u16 def_link_width;
+	u16 cur_link_speed;
 	struct completion wake_event;
 	u8 monitor_wake_intr;
 	struct iommu_domain *iommu_domain;

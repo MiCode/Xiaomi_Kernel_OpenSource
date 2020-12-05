@@ -684,6 +684,7 @@ static int cnss_pci_get_link_status(struct cnss_pci_data *pci_priv)
 	pci_priv->def_link_speed = link_status & PCI_EXP_LNKSTA_CLS;
 	pci_priv->def_link_width =
 		(link_status & PCI_EXP_LNKSTA_NLW) >> PCI_EXP_LNKSTA_NLW_SHIFT;
+	pci_priv->cur_link_speed = pci_priv->def_link_speed;
 
 	cnss_pr_dbg("Default PCI link speed is 0x%x, link width is 0x%x\n",
 		    pci_priv->def_link_speed, pci_priv->def_link_width);
@@ -695,6 +696,7 @@ static int cnss_set_pci_link_status(struct cnss_pci_data *pci_priv,
 				    enum pci_link_status status)
 {
 	u16 link_speed, link_width;
+	int ret;
 
 	cnss_pr_vdbg("Set PCI link status to: %u\n", status);
 
@@ -720,8 +722,12 @@ static int cnss_set_pci_link_status(struct cnss_pci_data *pci_priv,
 		return -EINVAL;
 	}
 
-	return msm_pcie_set_link_bandwidth(pci_priv->pci_dev,
-					   link_speed, link_width);
+	ret = msm_pcie_set_link_bandwidth(pci_priv->pci_dev,
+					  link_speed, link_width);
+	if (!ret)
+		pci_priv->cur_link_speed = link_speed;
+
+	return ret;
 }
 
 static int cnss_set_pci_link(struct cnss_pci_data *pci_priv, bool link_up)
@@ -740,9 +746,12 @@ static int cnss_set_pci_link(struct cnss_pci_data *pci_priv, bool link_up)
 		if (pci_priv->drv_connected_last) {
 			cnss_pr_vdbg("Use PCIe DRV suspend\n");
 			pm_ops = MSM_PCIE_DRV_SUSPEND;
-			if (pci_priv->device_id != QCA6390_DEVICE_ID &&
-			    pci_priv->device_id != QCA6490_DEVICE_ID)
-				cnss_set_pci_link_status(pci_priv, PCI_GEN1);
+			/* Since DRV suspend cannot be done in Gen 3, set it to
+			 * Gen 2 if current link speed is larger than Gen 2.
+			 */
+			if (pci_priv->cur_link_speed >
+			    PCI_EXP_LNKSTA_CLS_5_0GB)
+				cnss_set_pci_link_status(pci_priv, PCI_GEN2);
 		} else {
 			pm_ops = MSM_PCIE_SUSPEND;
 		}
