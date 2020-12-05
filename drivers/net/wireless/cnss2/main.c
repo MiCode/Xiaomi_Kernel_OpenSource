@@ -1044,6 +1044,8 @@ static void cnss_recovery_work_handler(struct work_struct *work)
 #else
 static void cnss_recovery_work_handler(struct work_struct *work)
 {
+	int ret;
+
 	struct cnss_plat_data *plat_priv =
 		container_of(work, struct cnss_plat_data, recovery_work);
 
@@ -1057,6 +1059,7 @@ static void cnss_recovery_work_handler(struct work_struct *work)
 	ret = cnss_bus_dev_powerup(plat_priv);
 	if (ret)
 		__pm_relax(plat_priv->recovery_ws);
+
 	return;
 }
 
