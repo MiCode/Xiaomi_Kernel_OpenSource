@@ -528,7 +528,7 @@ static int cnss_setup_bus_bandwidth(struct cnss_plat_data *plat_priv,
 	struct cnss_bus_bw_info *bus_bw_info;
 
 	if (!plat_priv->icc.path_count)
-		return -ENOTSUPP;
+		return -EOPNOTSUPP;
 
 	if (bw >= plat_priv->icc.bus_bw_cfg_count) {
 		cnss_pr_err("Invalid bus bandwidth Type: %d", bw);
