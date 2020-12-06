@@ -532,7 +532,6 @@ static int32_t nvt_read_fw_noise(int32_t *xdata)
 	uint32_t y = 0;
 	int32_t iArrayIndex = 0;
 	int32_t frame_num = 0;
-	uint32_t rawdata_diff_min_offset = 0;
 #if TOUCH_KEY_NUM > 0
 	int32_t k = 0;
 #endif /* #if TOUCH_KEY_NUM > 0 */
