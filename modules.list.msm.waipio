@@ -1,5 +1,6 @@
 clk-dummy.ko
 clk-qcom.ko
+cqhci.ko
 frpc-adsprpc.ko
 qcom_rpmh.ko
 cmd-db.ko
@@ -23,6 +24,7 @@ pinctrl-msm.ko
 pinctrl-waipio.ko
 qcom-scm.ko
 qcom_hwspinlock.ko
+sdhci-msm.ko
 smem.ko
 smp2p.ko
 qrtr.ko
