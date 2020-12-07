@@ -380,6 +380,38 @@ Example:
 	};
 };
 
+LPASS Digital Codec Clock Resource Manager
+
+Required Properties:
+ - compatible = "qcom,lpass-cdc-clk-rsc-mngr";
+ - qcom,fs-gen-sequence: Register sequence for fs clock generation
+ - clock-names : clock names defined for WSA macro
+ - clocks : clock handles defined for WSA  macro
+
+Optional Properties:
+ - qcom,rx_mclk_mode_muxsel: register address for RX macro MCLK mode mux select
+ - qcom,wsa_mclk_mode_muxsel: register address for WSA macro MCLK mux select
+ - qcom,va_mclk_mode_muxsel: register address for VA macro MCLK mode mux select
+
+Example:
+&lpass_cdc {
+	lpass-cdc-clk-rsc-mngr {
+		compatible = "qcom,lpass-cdc-clk-rsc-mngr";
+		qcom,fs-gen-sequence = <0x3000 0x1>,
+				<0x3004 0x1>, <0x3080 0x2>;
+		qcom,rx_mclk_mode_muxsel = <0x033240D8>;
+		qcom,wsa_mclk_mode_muxsel = <0x033220D8>;
+		qcom,va_mclk_mode_muxsel = <0x033A0000>;
+		clock-names = "tx_core_clk", "tx_npl_clk", "rx_core_clk",
+			"rx_npl_clk", "wsa_core_clk", "wsa_npl_clk",
+			"va_core_clk", "va_npl_clk";
+		clocks = <&clock_audio_tx_1 0>, <&clock_audio_tx_2 0>,
+			<&clock_audio_rx_1 0>, <&clock_audio_rx_2 0>,
+			<&clock_audio_wsa_1 0>, <&clock_audio_wsa_2 0>,
+			<&clock_audio_va_1 0>, <&clock_audio_va_2 0>;
+	};
+};
+
 WSA Analog Codec
 
 Required Properties:
