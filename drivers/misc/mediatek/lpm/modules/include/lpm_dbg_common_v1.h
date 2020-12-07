@@ -79,6 +79,15 @@ struct spm_condition {
 	int shift_config;
 };
 
+#if IS_ENABLED(CONFIG_MTK_ECCCI_DRIVER)
+struct md_sleep_status {
+	u64 sleep_wall_clk;
+	u64 sleep_cnt;
+	u64 sleep_cnt_reserve;
+	long long sleep_time;
+};
+#endif
+
 extern u64 spm_26M_off_count;
 extern u64 spm_26M_off_duration;
 extern u64 ap_pd_count;
