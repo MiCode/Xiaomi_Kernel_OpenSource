@@ -379,13 +379,13 @@ static int platform_cm_mgr_probe(struct platform_device *pdev)
 	timer_setup(&cm_mgr_perf_timeout_timer, cm_mgr_perf_timeout_timer_fn,
 			0);
 
+	cm_mgr_pdev = pdev;
+
 	if (cm_mgr_use_cpu_to_dram_map) {
 		cm_mgr_add_cpu_opp_to_ddr_req();
 
 		INIT_DELAYED_WORK(&cm_mgr_work, cm_mgr_process);
 	}
-
-	cm_mgr_pdev = pdev;
 
 	dev_pm_genpd_set_performance_state(&cm_mgr_pdev->dev, 0);
 
