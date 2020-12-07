@@ -33,6 +33,63 @@
 unsigned int lpm_suspend_status;
 struct cpumask s2idle_cpumask;
 
+long long before_md_sleep_time;
+long long after_md_sleep_time;
+
+#if IS_ENABLED(CONFIG_MTK_ECCCI_DRIVER)
+#define MD_SLEEP_INFO_SMEM_OFFEST (4)
+struct md_sleep_status md_data;
+u32 *share_mem;
+#endif
+
+static void get_md_sleep_time_addr(void)
+{
+	/* dump subsystem sleep info */
+#if IS_ENABLED(CONFIG_MTK_ECCCI_DRIVER)
+	int ret;
+	u64 of_find;
+	struct device_node *mddriver = NULL;
+
+	mddriver = of_find_compatible_node(NULL, NULL, "mediatek,mddriver");
+	if (!mddriver) {
+		pr_info("mddriver not found in DTS\n");
+		return;
+	}
+
+	ret =  of_property_read_u64(mddriver, "md_low_power_addr", &of_find);
+
+	if (ret) {
+		pr_info("address not found in DTS");
+		return;
+	}
+
+	share_mem = (u32 *)ioremap_wc(of_find, 0x200);
+
+	if (share_mem == NULL) {
+		pr_info("[name:spm&][%s:%d] - No MD share mem\n",
+			 __func__, __LINE__);
+		return;
+	}
+
+	share_mem = share_mem + MD_SLEEP_INFO_SMEM_OFFEST;
+#endif
+}
+
+static long long get_md_sleep_time(void)
+{
+	/* dump subsystem sleep info */
+#if IS_ENABLED(CONFIG_MTK_ECCCI_DRIVER)
+	if (share_mem ==  NULL) {
+		pr_info("MD shared memory is NULL");
+	} else {
+		memset(&md_data, 0, sizeof(struct md_sleep_status));
+		memcpy(&md_data, share_mem, sizeof(struct md_sleep_status));
+		return md_data.sleep_time;
+	}
+#endif
+	return -1;
+}
+
 static inline int lpm_suspend_common_enter(unsigned int *susp_status)
 {
 	unsigned int status = PLAT_VCORE_LP_MODE
@@ -117,6 +174,12 @@ int lpm_suspend_s2idle_prompt(int cpu,
 		 */
 		syscore_suspend();
 #endif
+		pr_info("[name:spm&][%s:%d] - suspend enter\n",
+			__func__, __LINE__);
+
+		/* Record md sleep time */
+		before_md_sleep_time = get_md_sleep_time();
+
 		ret = __lpm_suspend_prompt(LPM_SUSPEND_S2IDLE,
 					      cpu, issuer);
 		rcu_idle_enter();
@@ -131,6 +194,17 @@ void lpm_suspend_s2idle_reflect(int cpu,
 		rcu_idle_exit();
 		__lpm_suspend_reflect(LPM_SUSPEND_S2IDLE,
 					 cpu, issuer);
+	pr_info("[name:spm&][%s:%d] - resume\n",
+			__func__, __LINE__);
+
+	/* show md sleep duration during AP suspend */
+	after_md_sleep_time = get_md_sleep_time();
+	if ((after_md_sleep_time >= 0) && (after_md_sleep_time >= before_md_sleep_time))
+		pr_info("[name:spm&][SPM] md_slp_duration = %lld",
+			after_md_sleep_time - before_md_sleep_time);
+	else
+		pr_info("[name:spm&][SPM] md share memory is NULL");
+
 #if IS_ENABLED(CONFIG_PM_SLEEP)
 		/* TODO
 		 * Need to fix the rcu_idle/timekeeping later.
@@ -276,6 +350,8 @@ int __init lpm_model_suspend_init(void)
 	}
 
 	cpumask_clear(&s2idle_cpumask);
+
+	get_md_sleep_time_addr();
 
 #if IS_ENABLED(CONFIG_PM)
 	ret = register_pm_notifier(&lpm_spm_suspend_pm_notifier_func);
