@@ -1045,7 +1045,7 @@
 		};
 
 		pio: pinctrl@10005000 {
-			compatible = "mediatek,mt6853-pinctrl";
+			compatible = "mediatek,mt6853-pinctrl", "syscon";
 			reg = <0 0x10005000 0 0x1000>,
 			      <0 0x11c00000 0 0x1000>,
 			      <0 0x11c20000 0 0x1000>,
@@ -1776,6 +1776,11 @@
 				      <3 0x19000>; /* audio */
 		};
 
+		scp_clk_ctrl: scp_clk_ctrl@10721000 {
+			compatible = "mediatek,scp_clk_ctrl", "syscon";
+			reg = <0 0x10721000 0 0x1000>;	 /* clk*/
+		};
+
 		scp_dvfs {
 			compatible = "mediatek,scp_dvfs";
 			clocks =
@@ -1799,6 +1804,39 @@
 				"clk_pll_5",
 				"clk_pll_6",
 				"clk_pll_7";
+
+			vow-lp-en-gear = <2>;
+			scp-cores = <1>;
+
+			dvfs-opp =
+			/* vcore	vsram	opp spm    freq mux resource */
+			< 550000	750000	0x0 0x8    250  0	0>,
+			< 600000	750000	0x1 0x104  330  7	0>,
+			< 650000	750000	0x2 0x202  400  3	0>,
+			< 725000	750000	0x3 0x301  624  1	0x3>;
+
+			pmic = <&pmic>;
+
+			gpio = <&pio>;
+			gpio-vreq-mode = <1>;
+			gpio-vreq = <0x420 0x7 4>;
+
+			dvfsrc-vscp-supply = <&dvfsrc_vscp>;
+
+			do-ulposc-cali;
+			topckgen = <&topckgen_clk>;
+			apmixedsys = <&apmixedsys_clk>;
+			scp_clk_ctrl = <&scp_clk_ctrl>;
+			scp-clk-hw-ver = "v1";
+			ulposc-cali-ver = "v1";
+			ulposc-cali-num = <3>;
+			ulposc-cali-target = <250 330 400>;
+			ulposc-cali-config =
+				/* con0		con1		con2 */
+				<0x38a940	0x2900		0x41>,
+				<0x52a940	0x2900		0x41>,
+				<0x5ea940	0x2900		0x41>;
+			clk-dbg-ver = "v1";
 		};
 
 		scp_par_top_clk: syscon@10720000 {
