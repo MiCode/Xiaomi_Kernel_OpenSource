@@ -31,6 +31,9 @@
 		serial0 = &qupv3_se7_2uart;
 		sdhc2 = &sdhc_2;
 		ufshc1 = &ufshc_mem; /* Embedded UFS Slot */
+		swr0 = &swr0;
+		swr1 = &swr1;
+		swr2 = &swr2;
 	};
 
 	cpus {
@@ -2000,6 +2003,7 @@
 #include "waipio-dma-heaps.dtsi"
 #include "lahaina-ion.dtsi"
 #include "waipio-eva.dtsi"
+#include "waipio-audio.dtsi"
 
 &qupv3_se7_2uart {
 	status = "ok";
