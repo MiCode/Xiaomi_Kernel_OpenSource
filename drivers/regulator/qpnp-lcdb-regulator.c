@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #define pr_fmt(fmt)	"LCDB: %s: " fmt, __func__
@@ -2064,8 +2065,14 @@ static void qpnp_lcdb_pmic_config(struct qpnp_lcdb *lcdb)
 		if (lcdb->pmic_rev_id->rev4 < PM660L_V2P0_REV4)
 			lcdb->wa_flags |= NCP_SCP_DISABLE_WA;
 		break;
-	case PMI632_SUBTYPE:
 	case PM6150L_SUBTYPE:
+		lcdb->wa_flags |= FORCE_PD_ENABLE_WA;
+		if (lcdb->pmic_rev_id->rev4 < PM8150L_V3P0_REV4)
+			lcdb->voltage_step_ramp = true;
+		else
+			lcdb->voltage_step_ramp = false;
+		break;
+	case PMI632_SUBTYPE:
 		lcdb->wa_flags |= FORCE_PD_ENABLE_WA;
 		break;
 	default:

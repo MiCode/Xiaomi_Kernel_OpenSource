@@ -8,6 +8,7 @@
  * interface.
  *
  * Copyright (C) 2010 IBM Corperation
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * Author: John Stultz <john.stultz@linaro.org>
  *
@@ -64,6 +65,39 @@ static struct wakeup_source *ws;
 static struct rtc_timer		rtctimer;
 static struct rtc_device	*rtcdev;
 static DEFINE_SPINLOCK(rtcdev_lock);
+
+bool alarm_fired;
+
+#ifdef ENABLE_ALARMTIMER_RECORD
+static void alarmtimer_collect(struct alarm *alarm)
+{
+	static int m = 0;
+	char alarmtimer_creator[30] = {0};
+
+	if (!spin_trylock(&alarmtimer_lock))
+		return;
+
+	snprintf(alarmtimer_creator, sizeof(alarmtimer_creator), "%s", current->comm);
+	index_tail = m;
+	pr_info("Alarmtimer { %s', '%llu'}\n", alarmtimer_creator, ktime_to_ms(alarm->node.expires));
+	getnstimeofday(&alarmtimer_set_record_buff[m].alarmtimer_set_time);
+	sprintf(alarmtimer_set_record_buff[m++].alarmtimer_set_msg, "%s, %llu", alarmtimer_creator, ktime_to_ms(alarm->node.expires));
+
+	if (m >= ALARMTIMER_RECORD_MAX) {
+		m = 0;
+	}
+
+	alarmtimer_num++;
+	if (alarmtimer_num >= ALARMTIMER_RECORD_MAX) {
+		alarmtimer_num = ALARMTIMER_RECORD_MAX;
+		index_head = index_tail + 1;
+		if (index_head >= ALARMTIMER_RECORD_MAX)
+			index_head = 0;
+	}
+
+	spin_unlock(&alarmtimer_lock);
+}
+#endif
 
 /**
  * alarmtimer_get_rtcdev - Return selected rtcdevice

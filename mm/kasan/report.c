@@ -2,6 +2,7 @@
  * This file contains error reporting code.
  *
  * Copyright (c) 2014 Samsung Electronics Co., Ltd.
+ * Copyright (C) 2020 XiaoMi, Inc.
  * Author: Andrey Ryabinin <ryabinin.a.a@gmail.com>
  *
  * Some code borrowed from https://github.com/xairy/kasan-prototype by
@@ -98,9 +99,6 @@ static const char *get_shadow_bug_type(struct kasan_access_info *info)
 	case KASAN_FREE_PAGE:
 	case KASAN_KMALLOC_FREE:
 		bug_type = "use-after-free";
-		break;
-	case KASAN_USE_AFTER_SCOPE:
-		bug_type = "use-after-scope";
 		break;
 	case KASAN_ALLOCA_LEFT:
 	case KASAN_ALLOCA_RIGHT:

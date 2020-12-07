@@ -3,6 +3,7 @@
  * Definitions for working with the Flattened Device Tree data format
  *
  * Copyright 2009 Benjamin Herrenschmidt, IBM Corp
+ * Copyright (C) 2020 XiaoMi, Inc.
  * benh@kernel.crashing.org
  */
 
@@ -44,6 +45,7 @@ extern void *initial_boot_params;
 extern char __dtb_start[];
 extern char __dtb_end[];
 
+extern void early_init_dt_setup_pureason_arch(unsigned long pu_reason);
 /* Other Prototypes */
 extern u64 of_flat_dt_translate_address(unsigned long node);
 extern void of_fdt_limit_memory(int limit);

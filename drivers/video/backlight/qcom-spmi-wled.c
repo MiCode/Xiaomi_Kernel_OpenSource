@@ -402,6 +402,39 @@ static int wled5_set_brightness(struct wled *wled, u16 brightness)
 	int rc, offset;
 	u16 low_limit = wled->max_brightness * 1 / 1000;
 	u8 val, v[2], brightness_msb_mask;
+	static u32 prop_read;
+	static u32 cabc_disable;
+	static u32 cabc_off_dbv;
+	static u32 cabc_pwm[2];
+
+	if (!prop_read) {
+		rc = of_property_read_u32(wled->pdev->dev.of_node, "mi,cabcoff-dbv", &cabc_off_dbv);
+		rc |= of_property_read_u32_array(wled->pdev->dev.of_node, "mi,cabc-pwm", cabc_pwm, 2);
+
+		if (rc) {
+			pr_info("wled config failed to read mi,cabcoff-dbv or mi,cabc-pwm\n");
+			cabc_off_dbv = 0;
+		} else
+			pr_info("wled config dbv:%d, pwm:%d:%d", cabc_off_dbv, cabc_pwm[0], cabc_pwm[1]);
+
+		prop_read = 1;
+	}
+
+	if (cabc_off_dbv > 0 && cabc_off_dbv < wled->max_brightness
+			&& brightness < cabc_off_dbv) {
+		brightness = brightness*cabc_pwm[0]/cabc_pwm[1];
+
+		if (!cabc_disable) {
+			pr_info("wled config to disable cabc\n");
+			wled->cabc_config(wled, false);
+		}
+
+		cabc_disable = 1;
+	} else if (cabc_disable) {
+		wled->cabc_config(wled, true);
+		cabc_disable = 0;
+		pr_info("wled config to enable cabc\n");
+	}
 
 	/* WLED5's lower limit is 0.1% */
 	if (brightness > 0 && brightness < low_limit)
