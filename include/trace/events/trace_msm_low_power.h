@@ -244,6 +244,23 @@ TRACE_EVENT(cluster_pred_hist,
 		__entry->sample, __entry->tmr)
 );
 
+TRACE_EVENT(ipi_wakeup_time,
+
+	TP_PROTO(u64 wakeup),
+
+	TP_ARGS(wakeup),
+
+	TP_STRUCT__entry(
+		__field(u64, wakeup)
+	),
+
+	TP_fast_assign(
+		__entry->wakeup = wakeup;
+	),
+
+	TP_printk("wakeup:%llu", __entry->wakeup)
+);
+
 #endif
 #define TRACE_INCLUDE_FILE trace_msm_low_power
 #include <trace/define_trace.h>
