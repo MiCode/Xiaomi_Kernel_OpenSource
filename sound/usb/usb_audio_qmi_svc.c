@@ -870,6 +870,18 @@ static void uaudio_dev_intf_cleanup(struct usb_device *udev,
 	info->in_use = false;
 }
 
+static void uaudio_event_ring_cleanup_free(struct uaudio_dev *dev)
+{
+	clear_bit(dev->card_num, &uaudio_qdev->card_slot);
+	/* all audio devices are disconnected */
+	if (!uaudio_qdev->card_slot) {
+		uaudio_iommu_unmap(MEM_EVENT_RING, IOVA_BASE, PAGE_SIZE,
+			PAGE_SIZE);
+		xhci_sec_event_ring_cleanup(dev->udev, uaudio_qdev->sec_ring);
+		uaudio_dbg("all audio devices disconnected\n");
+	}
+}
+
 static void uaudio_dev_cleanup(struct uaudio_dev *dev)
 {
 	int if_idx;
@@ -893,17 +905,7 @@ static void uaudio_dev_cleanup(struct uaudio_dev *dev)
 	/* free interface info */
 	kfree(dev->info);
 	dev->info = NULL;
-
-	clear_bit(dev->card_num, &uaudio_qdev->card_slot);
-
-	/* all audio devices are disconnected */
-	if (!uaudio_qdev->card_slot) {
-		uaudio_iommu_unmap(MEM_EVENT_RING, IOVA_BASE, PAGE_SIZE,
-			PAGE_SIZE);
-		xhci_sec_event_ring_cleanup(dev->udev, uaudio_qdev->sec_ring);
-		uaudio_dbg("all audio devices disconnected\n");
-	}
-
+	uaudio_event_ring_cleanup_free(dev);
 	dev->udev = NULL;
 }
 
@@ -975,17 +977,7 @@ static void uaudio_dev_release(struct kref *kref)
 	uaudio_dbg("for dev %pK\n", dev);
 
 	atomic_set(&dev->in_use, 0);
-
-	clear_bit(dev->card_num, &uaudio_qdev->card_slot);
-
-	/* all audio devices are disconnected */
-	if (!uaudio_qdev->card_slot) {
-		xhci_sec_event_ring_cleanup(dev->udev, uaudio_qdev->sec_ring);
-		uaudio_iommu_unmap(MEM_EVENT_RING, IOVA_BASE, PAGE_SIZE,
-			PAGE_SIZE);
-		uaudio_dbg("all audio devices disconnected\n");
-	}
-
+	uaudio_event_ring_cleanup_free(dev);
 	wake_up(&dev->disconnect_wq);
 }
 
