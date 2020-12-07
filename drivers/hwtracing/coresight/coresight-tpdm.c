@@ -4189,6 +4189,15 @@ static int tpdm_probe(struct amba_device *adev, const struct amba_id *id)
 	return 0;
 }
 
+static int __exit tpdm_remove(struct amba_device *adev)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(&adev->dev);
+
+	coresight_unregister(drvdata->csdev);
+
+	return 0;
+}
+
 static struct amba_id tpdm_ids[] = {
 	{
 		.id     = 0x0003b968,
@@ -4197,6 +4206,7 @@ static struct amba_id tpdm_ids[] = {
 	},
 	{ 0, 0},
 };
+MODULE_DEVICE_TABLE(amba, tpdm_ids);
 
 static struct amba_driver tpdm_driver = {
 	.drv = {
@@ -4205,10 +4215,11 @@ static struct amba_driver tpdm_driver = {
 		.suppress_bind_attrs = true,
 	},
 	.probe          = tpdm_probe,
+	.remove		= tpdm_remove,
 	.id_table	= tpdm_ids,
 };
 
-builtin_amba_driver(tpdm_driver);
+module_amba_driver(tpdm_driver);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("Trace, Profiling & Diagnostic Monitor driver");

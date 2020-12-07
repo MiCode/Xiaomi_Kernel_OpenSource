@@ -168,7 +168,7 @@ config CORESIGHT_CTI_INTEGRATION_REGS
 	  an inconsistent state.
 
 config CORESIGHT_TPDA
-	bool "CoreSight Trace, Profiling & Diagnostics Aggregator driver"
+	tristate "CoreSight Trace, Profiling & Diagnostics Aggregator driver"
 	help
 	  This driver provides support for configuring aggregator. This is
 	  primarily useful for pulling the data sets from one or more
@@ -176,8 +176,8 @@ config CORESIGHT_TPDA
 	  monitors are connected on different input ports of TPDA.
 
 config CORESIGHT_TPDM
-	bool "CoreSight Trace, Profiling & Diagnostics Monitor driver"
-	depends on QCOM_SCM=y
+	tristate "CoreSight Trace, Profiling & Diagnostics Monitor driver"
+	depends on QCOM_SCM
 	help
 	  This driver provides support for configuring monitor. Monitors are
 	  primarily responsible for data set collection and support the
@@ -196,7 +196,7 @@ config CORESIGHT_TPDM_DEFAULT_ENABLE
 	  penalty.
 
 config CORESIGHT_CSR
-	bool "CoreSight Slave Register driver"
+	tristate "CoreSight Slave Register driver"
 	help
 	  This driver provides support for CoreSight Slave Register block
 	  that hosts miscellaneous configuration registers.
