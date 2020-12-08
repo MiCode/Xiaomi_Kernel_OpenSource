@@ -71,6 +71,15 @@ config INTERCONNECT_QCOM_SHIMA
 	  aggreagates the cosumer bandwidth requests to satisfy constraints
 	  placed on Network-on-Chip performance states.
 
+config INTERCONNECT_QCOM_YUPIK
+	tristate "YUPIK interconnect driver"
+	depends on INTERCONNECT_QCOM
+	help
+	  This is a driver for the Qualcomm Technologies, Inc. Network-on-Chip
+	  on yupik-based platforms. The interconnect provider collects and
+	  aggreagates the cosumer bandwidth requests to satisfy constraints
+	  placed on Network-on-Chip performance states.
+
 config INTERCONNECT_QCOM_EPSS_L3
 	tristate "LAHAINA EPSS L3 driver"
 	depends on INTERCONNECT_QCOM
