@@ -111,6 +111,19 @@ static const int mt6873_spm_regs[] = {
 	[SPM_DVFS_CMD3] = 0x71C,
 	[SPM_DVFS_CMD4] = 0x720,
 };
+static const int mt6893_spm_regs[] = {
+	[POWERON_CONFIG_EN] = 0x0,
+	[SPM_PC_STA] = 0x0194,
+	[SPM_SW_FLAG] = 0x600,
+	[SPM_DVFS_LEVEL] = 0x04A4,
+	[SPM_DVFS_STA] = 0x01F8,
+	[SPM_DVS_DFS_LEVEL] = 0x04F8,
+	[SPM_DVFS_CMD0] = 0x750,
+	[SPM_DVFS_CMD1] = 0x754,
+	[SPM_DVFS_CMD2] = 0x758,
+	[SPM_DVFS_CMD3] = 0x75C,
+	[SPM_DVFS_CMD4] = 0x760,
+};
 
 static u32 dvfsrc_read(struct mtk_dvfsrc *dvfs, u32 reg, u32 offset)
 {
@@ -595,3 +608,13 @@ const struct dvfsrc_config mt6873_dvfsrc_config = {
 	.query_request = dvfsrc_query_request_status,
 };
 
+const struct dvfsrc_config mt6893_dvfsrc_config = {
+	.ip_verion = 2, /*mt6873 series*/
+	.regs = mt6873_regs,
+	.spm_regs = mt6893_spm_regs,
+	.dump_record = dvfsrc_dump_record,
+	.dump_reg = dvfsrc_dump_reg,
+	.dump_spm_info = dvfsrc_dump_mt6873_spm_info,
+	.dump_vmode_info = dvfsrc_dump_mt6873_vmode_info,
+	.query_request = dvfsrc_query_request_status,
+};

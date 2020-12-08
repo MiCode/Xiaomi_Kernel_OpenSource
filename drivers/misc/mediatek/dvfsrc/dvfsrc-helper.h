@@ -95,5 +95,6 @@ extern void dvfsrc_unregister_sysfs(struct device *dev);
 
 extern const struct dvfsrc_config mt6779_dvfsrc_config;
 extern const struct dvfsrc_config mt6873_dvfsrc_config;
+extern const struct dvfsrc_config mt6893_dvfsrc_config;
 #endif
 
