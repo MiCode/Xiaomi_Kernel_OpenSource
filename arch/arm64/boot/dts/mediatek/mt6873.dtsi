@@ -1346,7 +1346,8 @@
 		};
 		sleep: sleep@10006000 {
 			compatible = "mediatek,sleep", "syscon";
-			reg = <0 0x10006000 0 0x100>;
+			reg = <0 0x10006000 0 0x1000>;
+			interrupts = <GIC_SPI 222 IRQ_TYPE_LEVEL_HIGH 0>;
 		};
 
 		srclken-ctrl@10006500 {
