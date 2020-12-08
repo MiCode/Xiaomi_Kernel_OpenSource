@@ -18,6 +18,8 @@ enum gsi_ver {
 	GSI_VER_2_5 = 6,
 	GSI_VER_2_7 = 7,
 	GSI_VER_2_9 = 8,
+	GSI_VER_2_11 = 9,
+	GSI_VER_3_0 = 10,
 	GSI_VER_MAX,
 };
 
@@ -204,7 +206,7 @@ struct gsi_evt_ring_props {
 	enum gsi_evt_chtype intf;
 	enum gsi_intr_type intr;
 	enum gsi_evt_ring_elem_size re_size;
-	uint16_t ring_len;
+	uint32_t ring_len;
 	uint64_t ring_base_addr;
 	void *ring_base_vaddr;
 	uint16_t int_modt;
