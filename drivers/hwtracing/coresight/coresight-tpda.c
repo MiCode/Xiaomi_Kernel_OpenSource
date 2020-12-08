@@ -804,6 +804,15 @@ err:
 	return -EPERM;
 }
 
+static int __exit tpda_remove(struct amba_device *adev)
+{
+	struct tpda_drvdata *drvdata = dev_get_drvdata(&adev->dev);
+
+	coresight_unregister(drvdata->csdev);
+
+	return 0;
+}
+
 static struct amba_id tpda_ids[] = {
 	{
 		.id     = 0x0003b969,
@@ -812,6 +821,7 @@ static struct amba_id tpda_ids[] = {
 	},
 	{ 0, 0},
 };
+MODULE_DEVICE_TABLE(amba, tpda_ids);
 
 static struct amba_driver tpda_driver = {
 	.drv = {
@@ -820,10 +830,11 @@ static struct amba_driver tpda_driver = {
 		.suppress_bind_attrs = true,
 	},
 	.probe          = tpda_probe,
+	.remove		= tpda_remove,
 	.id_table	= tpda_ids,
 };
 
-builtin_amba_driver(tpda_driver);
+module_amba_driver(tpda_driver);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("Trace, Profiling & Diagnostic Aggregator driver");
