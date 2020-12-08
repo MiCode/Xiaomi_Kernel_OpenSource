@@ -222,6 +222,11 @@ int ccu_i2c_delete_driver(void)
 
 int ccu_i2c_controller_init(uint32_t i2c_id)
 {
+	if (i2c_id >= I2C_MAX_CHANNEL) {
+		LOG_ERR("i2c_id %d is invalid\n", i2c_id);
+		return -EINVAL;
+	}
+
 	if (ccu_i2c_initialized[i2c_id] == MTRUE) {
 /*if not first time init, release mutex first to avoid deadlock*/
 		LOG_DBG_MUST("reinit, temporily release mutex.\n");
