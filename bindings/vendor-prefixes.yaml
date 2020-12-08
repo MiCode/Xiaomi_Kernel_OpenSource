@@ -89,6 +89,8 @@ patternProperties:
     description: Analogix Semiconductor, Inc.
   "^andestech,.*":
     description: Andes Technology Corporation
+  "^android,.*":
+    description: Google Inc.
   "^anvo,.*":
     description: Anvo-Systems Dresden GmbH
   "^apm,.*":
