@@ -539,6 +539,48 @@ int ion_handle_put(struct ion_handle *handle)
 	return ret;
 }
 
+/* Must hold the client lock */
+static void user_ion_handle_get(struct ion_handle *handle)
+{
+	if (handle->user_ref_count++ == 0)
+		kref_get(&handle->ref);
+}
+
+/* Must hold the client lock */
+static struct ion_handle *user_ion_handle_get_check_overflow(struct ion_handle *handle)
+{
+	if (handle->user_ref_count + 1 == 0)
+		return ERR_PTR(-EOVERFLOW);
+	user_ion_handle_get(handle);
+	return handle;
+}
+
+/* passes a kref to the user ref count.
+ * We know we're holding a kref to the object before and
+ * after this call, so no need to reverify handle.
+ */
+struct ion_handle *pass_to_user(struct ion_handle *handle)
+{
+	struct ion_client *client = handle->client;
+	struct ion_handle *ret;
+
+	mutex_lock(&client->lock);
+	ret = user_ion_handle_get_check_overflow(handle);
+	ion_handle_put_nolock(handle);
+	mutex_unlock(&client->lock);
+	return ret;
+}
+
+/* Must hold the client lock */
+static int user_ion_handle_put_nolock(struct ion_handle *handle)
+{
+	int ret = 0;
+
+	if (--handle->user_ref_count == 0)
+		ret = ion_handle_put_nolock(handle);
+	return ret;
+}
+
 static struct ion_handle *ion_handle_lookup(struct ion_client *client,
 					    struct ion_buffer *buffer)
 {
@@ -724,9 +766,28 @@ struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
 }
 EXPORT_SYMBOL(ion_alloc);
 
+void user_ion_free_nolock(struct ion_client *client, struct ion_handle *handle)
+{
+	bool valid_handle;
+
+	WARN_ON(client != handle->client);
+	valid_handle = ion_handle_validate(client, handle);
+	if (!valid_handle) {
+		WARN(1, "%s: invalid handle passed to free.\n", __func__);
+		return;
+	}
+	if (handle->user_ref_count <= 0) {
+		WARN(1, "%s: User does not have access!\n", __func__);
+		return;
+	}
+	user_ion_handle_put_nolock(handle);
+}
+
 void ion_free_nolock(struct ion_client *client,
 		     struct ion_handle *handle)
 {
+	WARN_ON(client != handle->client);
+
 	if (!ion_handle_validate(client, handle)) {
 		WARN(1, "%s: invalid handle passed to free.\n", __func__);
 		return;
@@ -1518,7 +1579,8 @@ static void ion_buffer_sync_for_device(struct ion_buffer *buffer,
 static int ion_vm_fault(struct vm_fault *vmf)
 {
 	struct vm_area_struct *vma = vmf->vma;
-	struct ion_buffer *buffer = vma->vm_private_data;
+	struct dma_buf *dmabuf = vma->vm_private_data;
+	struct ion_buffer *buffer =  dmabuf->priv;
 	unsigned long pfn;
 	int ret;
 
@@ -1548,7 +1610,8 @@ static int ion_vm_fault(struct vm_fault *vmf)
 
 static void ion_vm_open(struct vm_area_struct *vma)
 {
-	struct ion_buffer *buffer = vma->vm_private_data;
+	struct dma_buf *dmabuf = vma->vm_private_data;
+	struct ion_buffer *buffer =  dmabuf->priv;
 	struct ion_vma_list *vma_list;
 
 	vma_list = kmalloc(sizeof(*vma_list), GFP_KERNEL);
@@ -1565,7 +1628,8 @@ static void ion_vm_open(struct vm_area_struct *vma)
 
 static void ion_vm_close(struct vm_area_struct *vma)
 {
-	struct ion_buffer *buffer = vma->vm_private_data;
+	struct dma_buf *dmabuf = vma->vm_private_data;
+	struct ion_buffer *buffer =  dmabuf->priv;
 	struct ion_vma_list *vma_list, *tmp;
 
 	pr_debug("%s\n", __func__);
@@ -1601,10 +1665,10 @@ static int ion_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 		return -EINVAL;
 	}
 
+	vma->vm_private_data = dmabuf;
 	if (ion_buffer_fault_user_mappings(buffer)) {
 		vma->vm_flags |= VM_IO | VM_PFNMAP | VM_DONTEXPAND |
 							VM_DONTDUMP;
-		vma->vm_private_data = buffer;
 		vma->vm_ops = &ion_vma_ops;
 		ion_vm_open(vma);
 		return 0;
@@ -1965,7 +2029,8 @@ int ion_sync_for_device(struct ion_client *client, int fd)
 		IONMSG("%s: can not support heap type(%d) id (%d) to sync\n",
 		       __func__, buffer->heap->type, buffer->heap->id);
 #else
-	if (buffer->heap->type != (int)ION_HEAP_TYPE_FB)
+	if (buffer->heap->type != (int)ION_HEAP_TYPE_FB &&
+	    buffer->heap->type != (int)ION_HEAP_TYPE_MULTIMEDIA_SEC)
 		dma_sync_sg_for_device(g_ion_device->dev.this_device,
 				       buffer->sg_table->sgl,
 				       buffer->sg_table->nents,
@@ -2534,8 +2599,8 @@ void ion_device_destroy(struct ion_device *dev)
 }
 EXPORT_SYMBOL(ion_device_destroy);
 
-int __ion_phys(struct ion_client *client, struct ion_handle *handle,
-	       ion_phys_addr_t *addr, size_t *len, bool lock_client)
+int ion_phys(struct ion_client *client, struct ion_handle *handle,
+	     ion_phys_addr_t *addr, size_t *len)
 {
 	struct ion_buffer *buffer;
 	int ret;
@@ -2543,11 +2608,9 @@ int __ion_phys(struct ion_client *client, struct ion_handle *handle,
 	/*avoid camelcase, will modify in a letter*/
 	mmprofile_log_ex(ion_mmp_events[PROFILE_GET_PHYS], MMPROFILE_FLAG_START,
 			 (unsigned long)client, (unsigned long)handle);
-	if (lock_client)
-		mutex_lock(&client->lock);
+	mutex_lock(&client->lock);
 	if (!ion_handle_validate(client, handle)) {
-		if (lock_client)
-			mutex_unlock(&client->lock);
+		mutex_unlock(&client->lock);
 		IONMSG("ion: %s invalid handle pass to phys.\n", __func__);
 		return -EINVAL;
 	}
@@ -2558,12 +2621,10 @@ int __ion_phys(struct ion_client *client, struct ion_handle *handle,
 		IONMSG(
 			"%s is not impl by heap (name=%s, type=%d).\n",
 		       __func__, buffer->heap->name, buffer->heap->type);
-		if (lock_client)
-			mutex_unlock(&client->lock);
+		mutex_unlock(&client->lock);
 		return -ENODEV;
 	}
-	if (lock_client)
-		mutex_unlock(&client->lock);
+	mutex_unlock(&client->lock);
 	mutex_lock(&buffer->lock);
 	ret = buffer->heap->ops->phys(buffer->heap, buffer, addr, len);
 	mutex_unlock(&buffer->lock);
@@ -2578,20 +2639,7 @@ int __ion_phys(struct ion_client *client, struct ion_handle *handle,
 			 buffer->size, (unsigned long)*addr);
 	return ret;
 }
-
-int ion_phys(struct ion_client *client, struct ion_handle *handle,
-	     ion_phys_addr_t *addr, size_t *len)
-{
-	return __ion_phys(client, handle, addr, len, true);
-}
-
 EXPORT_SYMBOL(ion_phys);
-
-int ion_phys_nolock_client(struct ion_client *client, struct ion_handle *handle,
-			   ion_phys_addr_t *addr, size_t *len)
-{
-	return __ion_phys(client, handle, addr, len, false);
-}
 
 /* ===================================== */
 /* helper functions */
@@ -2618,28 +2666,34 @@ struct ion_handle *ion_drv_get_handle(struct ion_client *client,
 			return ERR_PTR(-EINVAL);
 		}
 
+		mutex_lock(&client->lock);
 		if (!ion_handle_validate(client, handle)) {
 			IONMSG("%s handle invalid, handle=0x%lx\n",
 			       __func__,
 			       (unsigned long)handle);
+			mutex_unlock(&client->lock);
 			return ERR_PTR(-EINVAL);
 		}
 		ion_handle_get_check_overflow(handle);
+		mutex_unlock(&client->lock);
 	} else {
+		mutex_lock(&client->lock);
 		handle = ion_handle_get_by_id_nolock(client, user_handle);
 		if (IS_ERR_OR_NULL(handle)) {
 			IONMSG("%s handle invalid, handle_id=%d\n",
 			       __func__,
 			       user_handle);
+			mutex_unlock(&client->lock);
 			return ERR_PTR(-EINVAL);
 		}
+		mutex_unlock(&client->lock);
 	}
 	return handle;
 }
 
 int ion_drv_put_kernel_handle(void *kernel_handle)
 {
-	return ion_handle_put_nolock(kernel_handle);
+	return ion_handle_put(kernel_handle);
 }
 
 struct ion_heap *ion_drv_get_heap(struct ion_device *dev,

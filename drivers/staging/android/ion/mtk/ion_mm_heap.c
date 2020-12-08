@@ -1955,7 +1955,6 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 			break;
 		}
 
-		mutex_lock(&client->lock);
 		kernel_handle = ion_drv_get_handle(
 					client,
 					param.config_buffer_param.handle,
@@ -1965,7 +1964,6 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 			IONMSG("ion config buffer fail! port=%d.\n",
 			       param.config_buffer_param.module_id);
 			ret = -EINVAL;
-			mutex_unlock(&client->lock);
 			break;
 		}
 
@@ -1986,7 +1984,6 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 			       buffer->heap->type, client->name);
 			ret = -EINVAL;
 			ion_drv_put_kernel_handle(kernel_handle);
-			mutex_unlock(&client->lock);
 			break;
 		}
 
@@ -2004,7 +2001,6 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 				     param.config_buffer_param.module_id,
 				     buffer->heap->type, client->name);
 				ion_drv_put_kernel_handle(kernel_handle);
-				mutex_unlock(&client->lock);
 				return -EFAULT;
 			}
 
@@ -2020,7 +2016,6 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 			mutex_unlock(&buffer->lock);
 			if (ret) {
 				ion_drv_put_kernel_handle(kernel_handle);
-				mutex_unlock(&client->lock);
 				return ret;
 			}
 
@@ -2085,7 +2080,6 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 			ret = 0;
 		}
 		ion_drv_put_kernel_handle(kernel_handle);
-		mutex_unlock(&client->lock);
 
 		break;
 	case ION_MM_GET_IOVA:
@@ -2099,7 +2093,6 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 			break;
 		}
 
-		mutex_lock(&client->lock);
 		kernel_handle =
 		    ion_drv_get_handle(client,
 				       param.get_phys_param.handle,
@@ -2109,7 +2102,6 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 			IONMSG("ion get iova fail! port=%d.\n",
 			       param.get_phys_param.module_id);
 			ret = -EINVAL;
-			mutex_unlock(&client->lock);
 			break;
 		}
 
@@ -2126,7 +2118,6 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 			       domain_idx,
 			       buffer->heap->type, client->name);
 			ion_drv_put_kernel_handle(kernel_handle);
-			mutex_unlock(&client->lock);
 			ret = -EINVAL;
 			break;
 		}
@@ -2146,7 +2137,6 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 				     buffer->heap->type, client->name);
 				mutex_unlock(&buffer->lock);
 				ion_drv_put_kernel_handle(kernel_handle);
-				mutex_unlock(&client->lock);
 				return -EFAULT;
 			}
 
@@ -2156,7 +2146,6 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 			if (ret) {
 				mutex_unlock(&buffer->lock);
 				ion_drv_put_kernel_handle(kernel_handle);
-				mutex_unlock(&client->lock);
 				return ret;
 			}
 
@@ -2171,7 +2160,7 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 				param.get_phys_param.len = 0;
 				IONMSG(" %s: Error. Cannot get iova.\n",
 				       __func__);
-				mutex_unlock(&client->lock);
+				ion_drv_put_kernel_handle(kernel_handle);
 				return -EFAULT;
 			}
 			param.get_phys_param.phy_addr = phy_addr;
@@ -2185,7 +2174,6 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 			ret = -EFAULT;
 		}
 		ion_drv_put_kernel_handle(kernel_handle);
-		mutex_unlock(&client->lock);
 		break;
 	case ION_MM_SET_DEBUG_INFO:
 
@@ -2195,7 +2183,6 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 			break;
 		}
 
-		mutex_lock(&client->lock);
 		kernel_handle = ion_drv_get_handle(
 			client,
 			param.buf_debug_info_param.handle,
@@ -2205,7 +2192,6 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 		if (IS_ERR(kernel_handle)) {
 			IONMSG(" set debug info fail! kernel_handle=0x%p\n",
 			       kernel_handle);
-			mutex_unlock(&client->lock);
 			ret = -EINVAL;
 			break;
 		}
@@ -2241,7 +2227,6 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 			ret = -EFAULT;
 		}
 		ion_drv_put_kernel_handle(kernel_handle);
-		mutex_unlock(&client->lock);
 		break;
 	case ION_MM_GET_DEBUG_INFO:
 
@@ -2251,7 +2236,6 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 			break;
 		}
 
-		mutex_lock(&client->lock);
 		kernel_handle = ion_drv_get_handle(
 				client,
 				param.buf_debug_info_param.handle,
@@ -2260,7 +2244,6 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 		if (IS_ERR(kernel_handle)) {
 			IONMSG("ion get debug info fail! kernel_handle=0x%p\n",
 			       kernel_handle);
-			mutex_unlock(&client->lock);
 			ret = -EINVAL;
 			break;
 		}
@@ -2295,7 +2278,6 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 			ret = -EFAULT;
 		}
 		ion_drv_put_kernel_handle(kernel_handle);
-		mutex_unlock(&client->lock);
 
 		break;
 	case ION_MM_ACQ_CACHE_POOL:
