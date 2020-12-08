@@ -304,10 +304,6 @@ static const unsigned int a660_registers[] = {
 	0x0B00, 0x0B40, 0x0B80, 0x0B83,
 };
 
-static const unsigned int a619_holi_registers[] = {
-	/* HLSQ, SP, TPL1 */
-	0xAE00, 0xAE01, 0xBE04, 0xBE05, 0xB600, 0xB601,
-};
 /*
  * Set of registers to dump for A6XX before actually triggering crash dumper.
  * Registers in pairs - first value is the start offset, second
@@ -1835,12 +1831,6 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 
 		kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS,
 			snapshot, a6xx_snapshot_registers, &a6xx_reg_list[i]);
-	}
-
-	if (adreno_is_a619_holi(adreno_dev) && !crash_dump_valid) {
-		adreno_snapshot_registers(device, snapshot,
-				a619_holi_registers,
-				ARRAY_SIZE(a619_holi_registers) / 2);
 	}
 
 	/* CP_SQE indexed registers */
