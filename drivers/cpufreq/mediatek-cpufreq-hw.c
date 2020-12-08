@@ -12,7 +12,6 @@
 #include <linux/module.h>
 #include <linux/of_address.h>
 #include <linux/of_platform.h>
-#include <linux/pm_opp.h>
 #include <linux/pm_qos.h>
 #include <linux/slab.h>
 
@@ -23,7 +22,6 @@
 #define SVS_HW_STATUS			BIT(1)
 #define POLL_USEC			1000
 #define TIMEOUT_USEC			300000
-#define DT_STRING_LEN			15
 
 enum {
 	REG_FREQ_LUT_TABLE,
@@ -31,6 +29,7 @@ enum {
 	REG_FREQ_PERF_STATE,
 	REG_FREQ_HW_STATE,
 	REG_EM_POWER_TBL,
+	REG_FREQ_LATENCY,
 
 	REG_ARRAY_SIZE,
 };
@@ -43,11 +42,12 @@ struct cpufreq_mtk {
 };
 
 static const u16 cpufreq_mtk_offsets[REG_ARRAY_SIZE] = {
-	[REG_FREQ_LUT_TABLE]		= 0x0,
-	[REG_FREQ_ENABLE]		= 0x84,
-	[REG_FREQ_PERF_STATE]		= 0x88,
-	[REG_FREQ_HW_STATE]		= 0x8c,
-	[REG_EM_POWER_TBL]		= 0x3D0,
+	[REG_FREQ_LUT_TABLE]	= 0x0,
+	[REG_FREQ_ENABLE]	= 0x84,
+	[REG_FREQ_PERF_STATE]	= 0x88,
+	[REG_FREQ_HW_STATE]	= 0x8c,
+	[REG_EM_POWER_TBL]	= 0x90,
+	[REG_FREQ_LATENCY]	= 0x110,
 };
 
 static struct cpufreq_mtk *mtk_freq_domain_map[NR_CPUS];
@@ -73,21 +73,15 @@ mtk_cpufreq_get_cpu_power(unsigned long *power, unsigned long *KHz,
 	struct cpufreq_mtk *c = mtk_freq_domain_map[cpu];
 	int i;
 
-	if (!cpu_dev) {
-		pr_info("failed to get cpu%d device\n", cpu);
-		return -ENODEV;
-	}
-
-	/* Get the power cost of the performance domain. */
 	for (i = 0; i < c->nr_opp; i++) {
 		if (c->table[i].frequency < *KHz)
 			break;
 	}
 	i--;
-	*KHz = c->table[i].frequency;
 
-	/* The EM framework specifies the frequency in KHz. */
-	*power = readl_relaxed(c->reg_bases[REG_EM_POWER_TBL] + i * LUT_ROW_SIZE) / 1000;
+	*KHz = c->table[i].frequency;
+	*power = readl_relaxed(c->reg_bases[REG_EM_POWER_TBL] +
+			    i * LUT_ROW_SIZE) / 1000;
 
 	return 0;
 }
@@ -105,61 +99,84 @@ static int mtk_cpufreq_hw_target_index(struct cpufreq_policy *policy,
 static unsigned int mtk_cpufreq_hw_get(unsigned int cpu)
 {
 	struct cpufreq_mtk *c;
-	struct cpufreq_policy *policy;
 	unsigned int index;
 
-	policy = cpufreq_cpu_get_raw(cpu);
-	if (!policy)
-		return 0;
-
-	c = policy->driver_data;
+	c = mtk_freq_domain_map[cpu];
 
 	index = readl_relaxed(c->reg_bases[REG_FREQ_PERF_STATE]);
 	index = min(index, LUT_MAX_ENTRIES - 1);
+
+	return c->table[index].frequency;
+}
+
+static unsigned int mtk_cpufreq_hw_fast_switch(struct cpufreq_policy *policy,
+					       unsigned int target_freq)
+{
+	struct cpufreq_mtk *c = policy->driver_data;
+	unsigned int index;
+
+	index = cpufreq_table_find_index_dl(policy, target_freq);
+
+	writel_relaxed(index, c->reg_bases[REG_FREQ_PERF_STATE]);
 
 	return policy->freq_table[index].frequency;
 }
 
 static int mtk_cpufreq_hw_cpu_init(struct cpufreq_policy *policy)
 {
-	struct em_data_callback em_cb = EM_DATA_CB(mtk_cpufreq_get_cpu_power);
-	struct pm_qos_request *qos_request;
 	struct cpufreq_mtk *c;
 	struct device *cpu_dev;
+	struct em_data_callback em_cb = EM_DATA_CB(mtk_cpufreq_get_cpu_power);
+	struct pm_qos_request *qos_request;
 	int sig, pwr_hw = CPUFREQ_HW_STATUS | SVS_HW_STATUS;
+	unsigned int latency;
 
 	qos_request = kzalloc(sizeof(*qos_request), GFP_KERNEL);
 	if (!qos_request)
 		return -ENOMEM;
 
 	cpu_dev = get_cpu_device(policy->cpu);
-	if (!cpu_dev)
+	if (!cpu_dev) {
+		pr_info("failed to get cpu%d device\n", policy->cpu);
 		return -ENODEV;
+	}
 
 	c = mtk_freq_domain_map[policy->cpu];
-	if (!c)
+	if (!c) {
+		pr_info("No scaling support for CPU%d\n", policy->cpu);
 		return -ENODEV;
+	}
 
 	cpumask_copy(policy->cpus, &c->related_cpus);
 
 	policy->freq_table = c->table;
 	policy->driver_data = c;
 
+	latency = readl_relaxed(c->reg_bases[REG_FREQ_LATENCY]);
+	if (!latency)
+		latency = CPUFREQ_ETERNAL;
+
+	/* us convert to ns */
+	policy->cpuinfo.transition_latency = latency * 1000;
+
+	policy->fast_switch_possible = true;
+
 	/* Let CPUs leave idle-off state for SVS CPU initializing */
 	cpu_latency_qos_add_request(qos_request, PM_QOS_DEFAULT_VALUE);
 
+	/* HW should be in enabled state to proceed now */
 	writel_relaxed(0x1, c->reg_bases[REG_FREQ_ENABLE]);
 
-	/* HW should be in enabled state to proceed now */
-	if (readl_poll_timeout((c->reg_bases[REG_FREQ_HW_STATE]),
-	    sig, (sig & pwr_hw) == pwr_hw, POLL_USEC, TIMEOUT_USEC)) {
+	if (readl_poll_timeout(c->reg_bases[REG_FREQ_HW_STATE], sig,
+			       (sig & pwr_hw) == pwr_hw, POLL_USEC,
+			       TIMEOUT_USEC)) {
 		if (!(sig & CPUFREQ_HW_STATUS)) {
 			pr_info("cpufreq hardware of CPU%d is not enabled\n",
 				policy->cpu);
 			return -ENODEV;
 		}
 
-		pr_info("SVS CPU%d is not enabled\n", policy->cpu);
+		pr_info("SVS of CPU%d is not enabled\n", policy->cpu);
 	}
 
 	em_dev_register_perf_domain(cpu_dev, c->nr_opp, &em_cb, policy->cpus);
@@ -169,23 +186,37 @@ static int mtk_cpufreq_hw_cpu_init(struct cpufreq_policy *policy)
 	return 0;
 }
 
-static struct freq_attr *mtk_cpufreq_hw_attr[] = {
-	&cpufreq_freq_attr_scaling_available_freqs,
-	NULL
-};
+static int mtk_cpufreq_hw_cpu_exit(struct cpufreq_policy *policy)
+{
+	struct cpufreq_mtk *c;
+
+	c = mtk_freq_domain_map[policy->cpu];
+	if (!c) {
+		pr_info("No scaling support for CPU%d\n", policy->cpu);
+		return -ENODEV;
+	}
+
+	/* HW should be in paused state now */
+	writel_relaxed(0x0, c->reg_bases[REG_FREQ_ENABLE]);
+
+	return 0;
+}
 
 static struct cpufreq_driver cpufreq_mtk_hw_driver = {
 	.flags		= CPUFREQ_STICKY | CPUFREQ_NEED_INITIAL_FREQ_CHECK |
-			  CPUFREQ_HAVE_GOVERNOR_PER_POLICY | CPUFREQ_IS_COOLING_DEV,
+			  CPUFREQ_HAVE_GOVERNOR_PER_POLICY |
+			  CPUFREQ_IS_COOLING_DEV,
 	.verify		= cpufreq_generic_frequency_table_verify,
 	.target_index	= mtk_cpufreq_hw_target_index,
 	.get		= mtk_cpufreq_hw_get,
 	.init		= mtk_cpufreq_hw_cpu_init,
+	.exit		= mtk_cpufreq_hw_cpu_exit,
+	.fast_switch	= mtk_cpufreq_hw_fast_switch,
 	.name		= "mtk-cpufreq-hw",
-	.attr		= mtk_cpufreq_hw_attr,
+	.attr		= cpufreq_generic_attr,
 };
 
-static int mtk_cpufreq_hw_opp_create(struct platform_device *pdev,
+static int mtk_cpu_create_freq_table(struct platform_device *pdev,
 				     struct cpufreq_mtk *c)
 {
 	struct device *dev = &pdev->dev;
@@ -202,10 +233,14 @@ static int mtk_cpufreq_hw_opp_create(struct platform_device *pdev,
 	for (i = 0; i < LUT_MAX_ENTRIES; i++) {
 		data = readl_relaxed(base_table + (i * LUT_ROW_SIZE));
 		freq = FIELD_GET(LUT_FREQ, data) * 1000;
-		c->table[i].frequency = freq;
 
 		if (freq == prev_freq)
 			break;
+
+		c->table[i].frequency = freq;
+
+		dev_dbg(dev, "index=%d freq=%d\n",
+			i, c->table[i].frequency);
 
 		prev_freq = freq;
 	}
@@ -216,7 +251,7 @@ static int mtk_cpufreq_hw_opp_create(struct platform_device *pdev,
 	return 0;
 }
 
-static int mtk_get_related_cpus(int index, struct cpumask *m)
+static int mtk_get_related_cpus(int index, struct cpufreq_mtk *c)
 {
 	struct device_node *cpu_np;
 	struct of_phandle_args args;
@@ -227,27 +262,29 @@ static int mtk_get_related_cpus(int index, struct cpumask *m)
 		if (!cpu_np)
 			continue;
 
-		ret = of_parse_phandle_with_args(cpu_np, "mtk-freq-domain",
-						 "#freq-domain-cells", 0,
+		ret = of_parse_phandle_with_args(cpu_np, "performance-domains",
+						 "#performance-domain-cells", 0,
 						 &args);
 		of_node_put(cpu_np);
 		if (ret < 0)
 			continue;
 
-		if (index == args.args[0])
-			cpumask_set_cpu(cpu, m);
+		if (index == args.args[0]) {
+			cpumask_set_cpu(cpu, &c->related_cpus);
+			mtk_freq_domain_map[cpu] = c;
+		}
 	}
 
 	return 0;
 }
 
 static int mtk_cpu_resources_init(struct platform_device *pdev,
-				  unsigned int cpu, int index)
+				  unsigned int cpu, int index,
+				  const u16 *offsets)
 {
 	struct cpufreq_mtk *c;
 	struct device *dev = &pdev->dev;
-	const u16 *offsets;
-	int ret, i, cpu_r;
+	int ret, i;
 	void __iomem *base;
 
 	if (mtk_freq_domain_map[cpu])
@@ -257,52 +294,23 @@ static int mtk_cpu_resources_init(struct platform_device *pdev,
 	if (!c)
 		return -ENOMEM;
 
-	offsets = of_device_get_match_data(&pdev->dev);
-	if (!offsets)
-		return -EINVAL;
-
-	base = of_iomap(pdev->dev.of_node, index);
+	base = devm_platform_ioremap_resource(pdev, index);
 	if (IS_ERR(base))
 		return PTR_ERR(base);
 
-	for (i = REG_FREQ_LUT_TABLE; i < REG_ARRAY_SIZE; i++) {
-			c->reg_bases[i] = base + offsets[i];
+	for (i = REG_FREQ_LUT_TABLE; i < REG_ARRAY_SIZE; i++)
+		c->reg_bases[i] = base + offsets[i];
+
+	ret = mtk_get_related_cpus(index, c);
+	if (ret) {
+		dev_info(dev, "Domain-%d failed to get related CPUs\n", index);
+		return ret;
 	}
 
-	ret = mtk_get_related_cpus(index, &c->related_cpus);
-	if (ret)
+	ret = mtk_cpu_create_freq_table(pdev, c);
+	if (ret) {
+		dev_info(dev, "Domain-%d failed to create freq table\n", index);
 		return ret;
-
-	ret = mtk_cpufreq_hw_opp_create(pdev, c);
-	if (ret)
-		return ret;
-
-	for_each_cpu(cpu_r, &c->related_cpus)
-		mtk_freq_domain_map[cpu_r] = c;
-
-	return 0;
-}
-
-static int mtk_resources_init(struct platform_device *pdev)
-{
-	struct device_node *cpu_np;
-	struct of_phandle_args args;
-	unsigned int cpu;
-	int ret;
-
-	for_each_possible_cpu(cpu) {
-		cpu_np = of_cpu_device_node_get(cpu);
-		if (!cpu_np)
-			continue;
-
-		ret = of_parse_phandle_with_args(cpu_np, "mtk-freq-domain",
-				"#freq-domain-cells", 0, &args);
-		if (ret < 0)
-			return ret;
-
-		ret = mtk_cpu_resources_init(pdev, cpu, args.args[0]);
-		if (ret)
-			return ret;
 	}
 
 	return 0;
@@ -310,21 +318,50 @@ static int mtk_resources_init(struct platform_device *pdev)
 
 static int mtk_cpufreq_hw_driver_probe(struct platform_device *pdev)
 {
+	struct device_node *cpu_np;
+	struct of_phandle_args args;
+	const u16 *offsets;
+	unsigned int cpu;
 	int ret;
 
-	/* Get the bases of cpufreq for domains */
-	ret = mtk_resources_init(pdev);
-	if (ret)
-		return ret;
+	offsets = of_device_get_match_data(&pdev->dev);
+	if (!offsets)
+		return -EINVAL;
+
+	for_each_possible_cpu(cpu) {
+		cpu_np = of_cpu_device_node_get(cpu);
+		if (!cpu_np) {
+			dev_info(&pdev->dev, "Failed to get cpu %d device\n",
+				cpu);
+			return -ENODEV;
+		}
+
+		ret = of_parse_phandle_with_args(cpu_np, "performance-domains",
+						 "#performance-domain-cells", 0,
+						 &args);
+		if (ret < 0)
+			return ret;
+
+		/* Get the bases of cpufreq for domains */
+		ret = mtk_cpu_resources_init(pdev, cpu, args.args[0], offsets);
+		if (ret) {
+			dev_info(&pdev->dev, "CPUFreq resource init failed\n");
+			return ret;
+		}
+	}
 
 	ret = cpufreq_register_driver(&cpufreq_mtk_hw_driver);
-	if (ret)
+	if (ret) {
+		dev_info(&pdev->dev, "CPUFreq HW driver failed to register\n");
 		return ret;
-
-	pr_info("Mediatek CPUFreq HW driver initialized\n");
-	of_platform_populate(pdev->dev.of_node, NULL, NULL, &pdev->dev);
+	}
 
 	return 0;
+}
+
+static int mtk_cpufreq_hw_driver_remove(struct platform_device *pdev)
+{
+	return cpufreq_unregister_driver(&cpufreq_mtk_hw_driver);
 }
 
 static const struct of_device_id mtk_cpufreq_hw_match[] = {
@@ -334,17 +371,13 @@ static const struct of_device_id mtk_cpufreq_hw_match[] = {
 
 static struct platform_driver mtk_cpufreq_hw_driver = {
 	.probe = mtk_cpufreq_hw_driver_probe,
+	.remove = mtk_cpufreq_hw_driver_remove,
 	.driver = {
 		.name = "mtk-cpufreq-hw",
 		.of_match_table = mtk_cpufreq_hw_match,
 	},
 };
+module_platform_driver(mtk_cpufreq_hw_driver);
 
-static int __init mtk_cpufreq_hw_init(void)
-{
-	return platform_driver_register(&mtk_cpufreq_hw_driver);
-}
-subsys_initcall(mtk_cpufreq_hw_init);
-
-MODULE_DESCRIPTION("mtk CPUFREQ HW Driver");
+MODULE_DESCRIPTION("Mediatek cpufreq-hw driver");
 MODULE_LICENSE("GPL v2");
