@@ -29,7 +29,9 @@
 #define OFFS_LOG_S		0x03d0
 #define OFFS_LOG_E		0x0fa0
 #define CSRAM_SIZE		0x1400		/* 5K bytes */
+#define USRAM_SIZE		0xC00
 #define DBG_REPO_NUM		(CSRAM_SIZE / sizeof(u32))
+#define USRAM_REPO_NUM		(USRAM_SIZE / sizeof(u32))
 #define REPO_I_LOG_S		(OFFS_LOG_S / sizeof(u32))
 #define REPO_I_LOG_E		(OFFS_LOG_E / sizeof(u32))
 
@@ -38,15 +40,14 @@
 #define CSRAM_BASE	0x0011bc00
 #define CSRAM_SIZE	0x1400
 #define USRAM_BASE	0x00115400
-#define USRAM_SIZE	0xC00
 #define APMIXED_BASE	0x1000c20c
 #define APMIXED_SIZE	0x10
 #define MCUCFG_BASE	0x0c53a2a0
 #define MCUCFG_SIZE	0x10
 
 #define	LL_OFF	4
-#define	L_OFF	40
-#define	CCI_OFF	76
+#define	L_OFF	76
+#define	CCI_OFF	148
 #define get_volt(offs, repo) ((repo[offs] >> 12) & 0x1FFFF)
 #define get_freq(offs, repo) ((repo[offs] & 0xFFF) * 1000)
 
@@ -179,7 +180,6 @@ unsigned int get_cur_phy_freq(int cluster)
 static int dbg_repo_proc_show(struct seq_file *m, void *v)
 {
 	int i;
-	int j = 0;
 	u32 *repo = m->private;
 	char ch;
 
@@ -189,14 +189,8 @@ static int dbg_repo_proc_show(struct seq_file *m, void *v)
 			ch = ':';	/* timestamp */
 		else
 			ch = '.';
-		if (i  >= REPO_I_LOG_S && i < REPO_I_LOG_E) {
-			seq_printf(m, "%4d%c%08x%c",
-				i, ch, __raw_readl(usram_base + j), i % 4 == 3 ? '\n' : ' ');
-			j += 4;
-		} else {
 			seq_printf(m, "%4d%c%08x%c",
 				i, ch, repo[i], i % 4 == 3 ? '\n' : ' ');
-		}
 	}
 
 	return 0;
@@ -265,7 +259,7 @@ static int usram_repo_proc_show(struct seq_file *m, void *v)
 	u32 *repo = m->private;
 	char ch;
 
-	for (i = REPO_I_LOG_S; i < REPO_I_LOG_E; i++) {
+	for (i = 0; i < USRAM_REPO_NUM; i++) {
 		ch = '.';
 		seq_printf(m, "%4d%c%08x%c",
 				i, ch, repo[i], i % 4 == 3 ? '\n' : ' ');
@@ -341,12 +335,12 @@ static int create_cpufreq_debug_fs(void)
 
 	const struct pentry entries[] = {
 		PROC_ENTRY_DATA(dbg_repo),
-		PROC_ENTRY_DATA(usram_repo),
 		PROC_ENTRY_DATA(cpufreq_debug),
 		PROC_ENTRY_DATA(phyclk),
 		PROC_ENTRY_DATA(CCI_opp_idx),
 		PROC_ENTRY_DATA(L_opp_idx),
 		PROC_ENTRY_DATA(LL_opp_idx),
+		PROC_ENTRY_DATA(usram_repo),
 	};
 
 
@@ -358,13 +352,15 @@ static int create_cpufreq_debug_fs(void)
 		return -ENOMEM;
 	}
 
-	for (i = 0; i < ARRAY_SIZE(entries); i++) {
+	for (i = 0; i < ARRAY_SIZE(entries)-1; i++) {
 		if (!proc_create_data
 			(entries[i].name, 0664,
 			dir, entries[i].fops, csram_base))
 			pr_info("%s(), create /proc/cpuhvfs/%s failed\n",
 						__func__, entries[0].name);
 	}
+	i = ARRAY_SIZE(entries)-1;
+	proc_create_data(entries[i].name, 0664, dir, entries[i].fops, usram_base);
 
 	return 0;
 }
