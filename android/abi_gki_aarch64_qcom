@@ -725,6 +725,7 @@
   drm_dp_update_payload_part1
   drm_dp_update_payload_part2
   drm_edid_duplicate
+  drm_edid_is_valid
   drm_encoder_cleanup
   drm_encoder_init
   drm_err
@@ -1234,6 +1235,7 @@
   keyslot_manager_set_max_dun_bytes
   keyslot_manager_reprogram_all_keys
   keyslot_manager_destroy
+  bio_crypt_should_process
   __kfifo_in
   __kfifo_out
   kfree

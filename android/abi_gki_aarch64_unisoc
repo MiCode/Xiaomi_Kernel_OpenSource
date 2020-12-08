@@ -248,6 +248,9 @@
   idr_find
   idr_for_each
   idr_remove
+  ieee80211_channel_to_freq_khz
+  ieee80211_freq_khz_to_channel
+  ieee80211_get_channel_khz
   ignore_console_lock_warning
   inet_proto_csum_replace4
   init_net
@@ -560,6 +563,7 @@
   single_open
   single_release
   skb_clone
+  skb_copy
   skb_cow_data
   skb_ensure_writable
   skb_push
@@ -2497,3 +2501,20 @@
   trace_print_array_seq
   trace_print_flags_seq
   vmf_insert_pfn_prot
+
+# required by sprd_ion.ko
+  ion_buffer_zero
+  __ion_device_add_heap
+  memset32
+  of_platform_device_create
+  __sg_page_iter_next
+  __sg_page_iter_start
+
+# required by snd-soc-sprd-codec-sc2730.ko
+  dapm_kcontrol_get_value
+  __kfifo_init
+  __kfifo_from_user_r
+  __kfifo_to_user_r
+  snd_pcm_rate_bit_to_rate
+  snd_soc_bytes_info_ext
+  snd_soc_new_compress
