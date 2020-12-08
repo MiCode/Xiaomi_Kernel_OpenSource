@@ -78,7 +78,7 @@ static int guestvm_loader_nb_handler(struct notifier_block *this,
 	switch (vm_status) {
 	case HH_RM_VM_STATUS_READY:
 		priv->vm_status = HH_RM_VM_STATUS_READY;
-		ret = hh_rm_populate_hyp_res(vm_status_payload->vmid);
+		ret = hh_rm_populate_hyp_res(vm_status_payload->vmid, priv->vm_name);
 		if (ret < 0) {
 			dev_err(priv->dev, "Failed to get hyp resources for vmid = %d ret = %d\n",
 				vm_status_payload->vmid, ret);
