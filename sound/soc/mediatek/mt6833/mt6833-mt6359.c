@@ -21,6 +21,10 @@
 #include "aw87339.h"
 #endif
 
+#ifdef CONFIG_SND_SOC_SIA8109
+#include "../../codecs/sia81xx/sia81xx_common.h"
+#endif
+
 /*
  * if need additional control for the ext spk amp that is connected
  * after Lineout Buffer / HP Buffer on the codec, put the control in
@@ -93,11 +97,19 @@ static int mt6833_mt6359_spk_amp_event(struct snd_soc_dapm_widget *w,
 #ifdef CONFIG_SND_SOC_AW87339
 		aw87339_spk_enable_set(true);
 #endif
+
+#ifdef CONFIG_SND_SOC_SIA8109
+		sia81xx_start();
+#endif
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
 		/* spk amp off control */
 #ifdef CONFIG_SND_SOC_AW87339
 		aw87339_spk_enable_set(false);
+#endif
+
+#ifdef CONFIG_SND_SOC_SIA8109
+		sia81xx_stop();
 #endif
 		break;
 	default:

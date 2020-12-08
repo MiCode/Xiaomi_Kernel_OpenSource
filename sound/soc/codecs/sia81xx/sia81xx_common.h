@@ -38,6 +38,9 @@ enum {
 	CHIP_TYPE_UNKNOWN,
 	CHIP_TYPE_INVALID
 };
+/* export start/stop functions for analog PA */
+void sia81xx_start(void);
+void sia81xx_stop(void);
 
 #endif /* _SIA81XX_COMMOMN_H */
 
