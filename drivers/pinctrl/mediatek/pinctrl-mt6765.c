@@ -1070,6 +1070,7 @@ static const struct mtk_pin_soc mt6765_data = {
 	.npins = ARRAY_SIZE(mtk_pins_mt6765),
 	.ngrps = ARRAY_SIZE(mtk_pins_mt6765),
 	.eint_hw = &mt6765_eint_hw,
+	.nfuncs = 8,
 	.gpio_m = 0,
 	.base_names = mt6765_pinctrl_register_base_names,
 	.nbase_names = ARRAY_SIZE(mt6765_pinctrl_register_base_names),
