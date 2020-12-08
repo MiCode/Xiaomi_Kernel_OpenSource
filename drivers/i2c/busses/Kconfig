@@ -1444,4 +1444,14 @@ config I2C_FSI
 	  This driver can also be built as a module. If so, the module will be
 	  called as i2c-fsi.
 
+config VIRTIO_I2C
+	tristate "VirtIO I2C driver"
+	depends on VIRTIO
+	help
+	  This i2c driver for virtio. It can be used on QTI quin virtual
+	  machine.
+
+	  This driver can also be built as a module.  If so, the module
+	  will be called virtio-i2c.
+
 endmenu
