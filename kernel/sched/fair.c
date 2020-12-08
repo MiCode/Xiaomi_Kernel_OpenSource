@@ -6573,16 +6573,25 @@ static void walt_find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 	int prev_cpu = task_cpu(p);
 	int unisolated_candidate = -1;
 	int order_index = fbt_env->order_index, end_index = fbt_env->end_index;
+	int stop_index = INT_MAX;
 	int cluster;
 	unsigned int target_nr_rtg_high_prio = UINT_MAX;
 	bool rtg_high_prio_task = task_rtg_high_prio(p);
 	cpumask_t visit_cpus;
-	bool io_task_pack = (order_index > 0 && p->wts.iowaited);
 
 	/* Find start CPU based on boost value */
 	start_cpu = fbt_env->start_cpu;
 
-	if (fbt_env->strict_max || io_task_pack)
+	/*
+	 * For higher capacity worth I/O tasks, stop the search
+	 * at the end of higher capacity cluster(s).
+	 */
+	if (order_index > 0 && p->wts.iowaited) {
+		stop_index = num_sched_clusters - 2;
+		most_spare_wake_cap = LONG_MIN;
+	}
+
+	if (fbt_env->strict_max)
 		target_max_spare_cap = LONG_MIN;
 
 	if (p->state == TASK_RUNNING)
@@ -6668,8 +6677,7 @@ static void walt_find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 			 * than the one required to boost the task.
 			 */
 			new_util = max(min_util, new_util);
-			if (!(fbt_env->strict_max || io_task_pack) &&
-					new_util > capacity_orig)
+			if (!fbt_env->strict_max && new_util > capacity_orig)
 				continue;
 
 			/*
@@ -6759,6 +6767,9 @@ static void walt_find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 
 		if ((cluster >= end_index) && (target_cpu != -1) &&
 			walt_target_ok(target_cpu, order_index))
+			break;
+
+		if (most_spare_cap_cpu != -1 && cluster >= stop_index)
 			break;
 	}
 
