@@ -32,7 +32,7 @@
 	bootable;
 	status = "okay";
 
-#ifndef CONFIG_FPGA_EARLY_PORTING
+#if 0
 	vmmc-supply = <&mt_pmic_vemc_ldo_reg>;
 	vcore-supply = <&mt_pmic_vgpu11_buck_reg>;
 	clocks = <&infracfg_ao_clk CLK_IFRAO_MSDC0_SRC>,
@@ -70,7 +70,7 @@
 
 	status = "okay";
 
-#ifndef CONFIG_FPGA_EARLY_PORTING
+#if 0
 	vmmc-supply = <&mt_pmic_vmch_ldo_reg>;
 	vqmmc-supply = <&mt_pmic_vmc_ldo_reg>;
 
