@@ -123,7 +123,7 @@ static struct clk_alpha_pll_postdiv cam_cc_pll0_out_even = {
 };
 
 static const struct clk_div_table post_div_table_cam_cc_pll0_out_odd[] = {
-	{ 0x3, 3 },
+	{ 0x2, 3 },
 	{ }
 };
 
