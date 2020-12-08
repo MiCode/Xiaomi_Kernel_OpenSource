@@ -21,7 +21,7 @@
 #error "CNOC levels cannot exceed GX levels"
 #endif
 
-#define MAX_GMU_CLKS 6
+#define MAX_GMU_CLKS 7
 
 /*
  * These are the different ways the GMU can boot. GMU_WARM_BOOT is waking up
