@@ -142,6 +142,13 @@
 #define MISC_CHGR_TRIM_OPTIONS_REG		(MISC_BASE + 0x55)
 #define CMD_RBIAS_EN_BIT			BIT(2)
 
+#define MISC_ENG_SDCDC_RESERVE1_REG		(MISC_BASE + 0xC4)
+#define MINOFF_TIME_MASK			BIT(6)
+
+#define MISC_ENG_SDCDC_CFG8_REG			(MISC_BASE + 0xC7)
+#define DEAD_TIME_MASK				GENMASK(2, 0)
+#define DEAD_TIME_32NS				0x4
+
 #define MISC_ENG_SDCDC_INPUT_CURRENT_CFG1_REG	(MISC_BASE + 0xC8)
 #define PROLONG_ISENSE_MASK			GENMASK(7, 6)
 #define PROLONG_ISENSEM_SHIFT			6
@@ -1266,6 +1273,22 @@ static int smb1355_init_hw(struct smb1355 *chip)
 	if (rc < 0) {
 		pr_err("Couldn't set PRE_TO_FAST_CHARGE_THRESHOLD rc=%d\n",
 			rc);
+		return rc;
+	}
+
+	/* Extend min-offtime same as blanking time */
+	rc = smb1355_masked_write(chip, MISC_ENG_SDCDC_RESERVE1_REG,
+						MINOFF_TIME_MASK, 0);
+	if (rc < 0) {
+		pr_err("Couldn't set MINOFF_TIME rc=%d\n", rc);
+		return rc;
+	}
+
+	/* Set dead-time to 32ns */
+	rc = smb1355_masked_write(chip, MISC_ENG_SDCDC_CFG8_REG,
+					DEAD_TIME_MASK, DEAD_TIME_32NS);
+	if (rc < 0) {
+		pr_err("Couldn't set DEAD_TIME to 32ns rc=%d\n", rc);
 		return rc;
 	}
 
