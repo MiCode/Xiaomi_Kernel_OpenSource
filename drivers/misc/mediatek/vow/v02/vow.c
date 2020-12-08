@@ -660,7 +660,7 @@ static void vow_service_Init(void)
 			"IPIMSG_VOW_APREGDATA_ADDR ipi send error\n");
 		}
 		sprintf(vowserv.google_engine_arch, "RISC-V");
-		vowserv.google_engine_version = 254868980;
+		vowserv.google_engine_version = GOOGLE_ENGINE_VER;
 		vow_ipi_send(IPIMSG_VOW_GET_ALEXA_ENGINE_VER, 0, NULL,
 				 VOW_IPI_BYPASS_ACK);
 		vow_ipi_send(IPIMSG_VOW_GET_GOOGLE_ENGINE_VER, 0, NULL,
