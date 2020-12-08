@@ -21,7 +21,7 @@
 	};
 };
 
-/ {
+&odm {
 	sia81xx_L: sia81xx@L {
 		compatible = "si,sia81xx";
 		si,sia81xx_type = "sia8109";
