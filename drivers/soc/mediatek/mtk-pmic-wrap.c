@@ -1153,6 +1153,23 @@ static void pwrap_writel(struct pmic_wrapper *wrp, u32 val, enum pwrap_regs reg)
 	writel(val, wrp->base + wrp->master->regs[reg]);
 }
 
+static void pwrap_swinf_info(struct pmic_wrapper *wrp)
+{
+	static DEFINE_RATELIMIT_STATE(ratelimit, 1 * HZ, 5);
+
+	if (__ratelimit(&ratelimit)) {
+		dev_dbg(wrp->dev, "Dump SWINF Info\n");
+		dev_dbg(wrp->dev, "PWRAP_WACS2_CMD=0x%x\n",
+			pwrap_readl(wrp, PWRAP_WACS2_CMD));
+		dev_dbg(wrp->dev, "PWRAP_SWINF_2_WDATA_31_0=0x%x\n",
+			pwrap_readl(wrp, PWRAP_SWINF_2_WDATA_31_0));
+		dev_dbg(wrp->dev, "PWRAP_SWINF_2_RDATA_31_0=0x%x\n",
+			pwrap_readl(wrp, PWRAP_SWINF_2_RDATA_31_0));
+		dev_dbg(wrp->dev, "PWRAP_WACS2_RDATA=0x%x\n",
+			pwrap_readl(wrp, PWRAP_WACS2_RDATA));
+	}
+}
+
 static bool pwrap_is_fsm_idle(struct pmic_wrapper *wrp)
 {
 	u32 val;
@@ -1216,8 +1233,14 @@ static int pwrap_wait_for_state(struct pmic_wrapper *wrp,
 	timeout = jiffies + usecs_to_jiffies(10000);
 
 	do {
-		if (time_after(jiffies, timeout))
+		if (time_after(jiffies, timeout)) {
+			if (fp(wrp) == 0) {
+				dev_dbg(wrp->dev, "[PWRAP] FSM Timeout\n");
+				if (HAS_CAP(wrp->master->caps, PWRAP_CAP_ARB))
+					pwrap_swinf_info(wrp);
+			}
 			return fp(wrp) ? 0 : -ETIMEDOUT;
+		}
 		if (fp(wrp))
 			return 0;
 	} while (1);
