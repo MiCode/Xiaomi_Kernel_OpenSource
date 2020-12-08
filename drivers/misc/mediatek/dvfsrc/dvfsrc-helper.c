@@ -688,7 +688,7 @@ static struct dvfsrc_opp_desc dvfsrc_opp_mt6893_desc[] = {
 
 static const struct dvfsrc_debug_data mt6893_data = {
 	.version = 0x6893,
-	.config = &mt6873_dvfsrc_config,
+	.config = &mt6893_dvfsrc_config,
 	.opps_desc = dvfsrc_opp_mt6893_desc,
 	.num_opp_desc = ARRAY_SIZE(dvfsrc_opp_mt6893_desc),
 };
