@@ -99,6 +99,14 @@ config IPC_LOGGING
 
 	  If in doubt, say no.
 
+config IPC_LOG_MINIDUMP_BUFFERS
+        int "Ipc log buffers count that can be dumped with minidump"
+	depends on IPC_LOGGING
+        default 0
+        help
+          This option is used to configure maximum number of ipc log
+          buffers that can be dumped by minidump.
+
 config PREEMPTIRQ_TRACEPOINTS
 	bool
 	depends on TRACE_PREEMPT_TOGGLE || TRACE_IRQFLAGS

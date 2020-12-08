@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <asm/arch_timer.h>
@@ -21,12 +21,17 @@
 #include <linux/completion.h>
 #include <linux/sched/clock.h>
 #include <linux/ipc_logging.h>
+#include <soc/qcom/minidump.h>
 
 #include "ipc_logging_private.h"
 
 #define LOG_PAGE_DATA_SIZE	sizeof(((struct ipc_log_page *)0)->data)
 #define LOG_PAGE_FLAG (1 << 31)
+#define MAX_MINIDUMP_BUFFERS CONFIG_IPC_LOG_MINIDUMP_BUFFERS
+/*16th bit is used for minidump feature*/
+#define FEATURE_MASK 0x10000
 
+static int minidump_buf_cnt;
 static LIST_HEAD(ipc_log_context_list);
 static DEFINE_RWLOCK(context_list_lock_lha1);
 static void *get_deserialization_func(struct ipc_log_context *ilctxt,
@@ -126,6 +131,31 @@ static struct ipc_log_page *get_next_page(struct ipc_log_context *ilctxt,
 	return pg;
 }
 
+static void register_minidump(u64 vaddr, u64 size,
+			      const char *buf_name, int index)
+{
+	struct md_region md_entry;
+	int ret;
+
+	if (msm_minidump_enabled()
+	    && (minidump_buf_cnt < MAX_MINIDUMP_BUFFERS)) {
+		scnprintf(md_entry.name, sizeof(md_entry.name), "%s_%d",
+			  buf_name, index);
+		md_entry.virt_addr = vaddr;
+		md_entry.phys_addr = virt_to_phys((void *)vaddr);
+		md_entry.size = size;
+
+		ret = msm_minidump_add_region(&md_entry);
+		if (ret < 0) {
+			pr_err(
+		 "Failed to register log buffer %s_%d in Minidump ret %d\n",
+		  buf_name, index, ret);
+
+			return;
+		}
+		minidump_buf_cnt++;
+	}
+}
 /**
  * ipc_log_read - do non-destructive read of the log
  *
@@ -787,17 +817,19 @@ static void *get_deserialization_func(struct ipc_log_context *ilctxt,
  *
  * @max_num_pages: Number of pages of logging space required (max. 10)
  * @mod_name     : Name of the directory entry under DEBUGFS
- * @user_version : Version number of user-defined message formats
+ * @feature_version : First 16 bit for version number of user-defined message
+ *		      formats and next 16 bit for enabling minidump
  *
  * returns context id on success, NULL on failure
  */
 void *ipc_log_context_create(int max_num_pages,
-			     const char *mod_name, uint16_t user_version)
+			     const char *mod_name, uint32_t feature_version)
 {
 	struct ipc_log_context *ctxt = NULL, *tmp;
 	struct ipc_log_page *pg = NULL;
 	int page_cnt;
 	unsigned long flags;
+	int enable_minidump;
 
 	/* check if ipc ctxt already exists */
 	read_lock_irq(&context_list_lock_lha1);
@@ -819,6 +851,16 @@ void *ipc_log_context_create(int max_num_pages,
 	INIT_LIST_HEAD(&ctxt->page_list);
 	INIT_LIST_HEAD(&ctxt->dfunc_info_list);
 	spin_lock_init(&ctxt->context_lock_lhb1);
+
+	enable_minidump = feature_version & FEATURE_MASK;
+
+	spin_lock_irqsave(&ctxt->context_lock_lhb1, flags);
+	if (enable_minidump) {
+		register_minidump((u64)ctxt, sizeof(struct ipc_log_context),
+				  "ipc_ctxt", minidump_buf_cnt);
+	}
+	spin_unlock_irqrestore(&ctxt->context_lock_lhb1, flags);
+
 	for (page_cnt = 0; page_cnt < max_num_pages; page_cnt++) {
 		pg = kzalloc(sizeof(struct ipc_log_page), GFP_KERNEL);
 		if (!pg)
@@ -834,13 +876,18 @@ void *ipc_log_context_create(int max_num_pages,
 
 		spin_lock_irqsave(&ctxt->context_lock_lhb1, flags);
 		list_add_tail(&pg->hdr.list, &ctxt->page_list);
+
+		if (enable_minidump) {
+			register_minidump((u64)pg, sizeof(struct ipc_log_page),
+					  mod_name, minidump_buf_cnt);
+		}
 		spin_unlock_irqrestore(&ctxt->context_lock_lhb1, flags);
 	}
 
 	ctxt->log_id = (uint64_t)(uintptr_t)ctxt;
 	ctxt->version = IPC_LOG_VERSION;
 	strlcpy(ctxt->name, mod_name, IPC_LOG_MAX_CONTEXT_NAME_LEN);
-	ctxt->user_version = user_version;
+	ctxt->user_version = feature_version & 0xffff;
 	ctxt->first_page = get_first_page(ctxt);
 	ctxt->last_page = pg;
 	ctxt->write_page = ctxt->first_page;
@@ -857,8 +904,12 @@ void *ipc_log_context_create(int max_num_pages,
 	ctxt->nmagic = ~(IPC_LOG_CONTEXT_MAGIC_NUM);
 
 	write_lock_irqsave(&context_list_lock_lha1, flags);
-	list_add_tail(&ctxt->list, &ipc_log_context_list);
+	if (enable_minidump  && (minidump_buf_cnt < MAX_MINIDUMP_BUFFERS))
+		list_add(&ctxt->list, &ipc_log_context_list);
+	else
+		list_add_tail(&ctxt->list, &ipc_log_context_list);
 	write_unlock_irqrestore(&context_list_lock_lha1, flags);
+
 	return (void *)ctxt;
 
 release_ipc_log_context:
@@ -925,6 +976,10 @@ EXPORT_SYMBOL(ipc_log_context_destroy);
 static int __init ipc_logging_init(void)
 {
 	check_and_create_debugfs();
+
+	register_minidump((u64)&ipc_log_context_list, sizeof(struct list_head),
+			  "ipc_log_ctxt_list", minidump_buf_cnt);
+
 	return 0;
 }
 

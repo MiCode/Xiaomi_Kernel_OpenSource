@@ -42,12 +42,13 @@ struct decode_context {
  *
  * @max_num_pages: Number of pages of logging space required (max. 10)
  * @mod_name     : Name of the directory entry under DEBUGFS
- * @user_version : Version number of user-defined message formats
+ * @feature_version : First 16 bit for version number of user-defined message
+ *		      formats and next 16 bit for enabling minidump
  *
  * returns context id on success, NULL on failure
  */
 void *ipc_log_context_create(int max_num_pages, const char *modname,
-		uint16_t user_version);
+		uint32_t feature_version);
 
 /*
  * msg_encode_start: Start encoding a log message
@@ -223,7 +224,7 @@ int ipc_log_context_destroy(void *ctxt);
 #else
 
 static inline void *ipc_log_context_create(int max_num_pages,
-	const char *modname, uint16_t user_version)
+	const char *modname, uint32_t feature_version)
 { return NULL; }
 
 static inline void msg_encode_start(struct encode_context *ectxt,
