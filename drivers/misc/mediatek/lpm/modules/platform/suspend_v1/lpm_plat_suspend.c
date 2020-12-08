@@ -8,10 +8,12 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_irq.h>
+#include <linux/of_address.h>
 #include <linux/slab.h>
 #include <linux/cpu_pm.h>
 #include <linux/syscore_ops.h>
 #include <linux/suspend.h>
+#include <linux/interrupt.h>
 #include <linux/rtc.h>
 #include <asm/cpuidle.h>
 #include <asm/suspend.h>
@@ -141,7 +143,6 @@ void lpm_suspend_s2idle_reflect(int cpu,
 		 * and RCU_NONIDLE() maybe the right solution.
 		 */
 		syscore_resume();
-		pm_system_wakeup();
 #endif
 		rcu_idle_enter();
 	}
@@ -193,6 +194,65 @@ static struct notifier_block lpm_spm_suspend_pm_notifier_func = {
 	.notifier_call = lpm_spm_suspend_pm_event,
 	.priority = 0,
 };
+
+#define MTK_LPM_SLEEP_COMPATIBLE_STRING "mediatek,sleep"
+static int spm_irq_number = -1;
+static irqreturn_t spm_irq0_handler(int irq, void *dev_id)
+{
+	pm_system_wakeup();
+	return IRQ_HANDLED;
+}
+
+
+static inline unsigned int virq_to_hwirq(unsigned int virq)
+{
+	struct irq_desc *desc;
+	unsigned int hwirq;
+
+	desc = irq_to_desc(virq);
+	WARN_ON(!desc);
+	hwirq = desc ? desc->irq_data.hwirq : 0;
+	return hwirq;
+}
+
+static int lpm_init_spm_irq(void)
+{
+	struct device_node *node;
+	int irq, ret;
+
+	node = of_find_compatible_node(NULL, NULL, MTK_LPM_SLEEP_COMPATIBLE_STRING);
+	if (!node)
+		pr_info("[name:spm&][SPM] %s: node %s not found.\n", __func__,
+			MTK_LPM_SLEEP_COMPATIBLE_STRING);
+
+	irq = irq_of_parse_and_map(node, 0);
+	if (!irq) {
+		pr_info("[name:spm&][SPM] failed to get spm irq\n");
+		goto FINISHED;
+	}
+/* Do not re-register spm irq handler again when TWAM presents */
+#if !IS_ENABLED(CONFIG_MTK_SPMTWAM)
+	ret = request_irq(irq, spm_irq0_handler,
+		IRQF_NO_SUSPEND, "spm-irq", NULL);
+	if (ret) {
+		pr_info("[name:spm&][SPM] failed to install spm irq handler, ret = %d\n", ret);
+		goto FINISHED;
+	}
+#endif
+	/* tell ATF spm driver that spm irq pending number */
+	spm_irq_number = virq_to_hwirq(irq);
+	ret = lpm_smc_spm(MT_SPM_SMC_UID_SET_PENDING_IRQ_INIT,
+		 MT_LPM_SMC_ACT_SET, spm_irq_number, 0);
+	if (ret) {
+		pr_info("[name:spm&][SPM] failed to nofity ATF spm irq\n", ret);
+		goto FINISHED;
+	}
+
+	pr_info("[name:spm&][SPM] %s: install spm irq %d\n", __func__, spm_irq_number);
+FINISHED:
+	return 0;
+}
+
 #endif
 
 int __init lpm_model_suspend_init(void)
@@ -223,6 +283,13 @@ int __init lpm_model_suspend_init(void)
 		pr_debug("[name:spm&][SPM] Failed to register PM notifier.\n");
 		return ret;
 	}
+
+	ret = lpm_init_spm_irq();
+	if (ret) {
+		pr_debug("[name:spm&][SPM] Failed to register SPM irq.\n");
+		return ret;
+	}
+
 #endif /* CONFIG_PM */
 
 	return 0;
