@@ -14,6 +14,7 @@
 #include <linux/refcount.h>
 #include "coresight-priv.h"
 #include "coresight-byte-cntr.h"
+#include "coresight-tmc-usb.h"
 
 #define TMC_RSZ			0x004
 #define TMC_STS			0x00c
@@ -140,6 +141,18 @@ enum etr_mode {
 
 struct etr_buf_operations;
 
+enum tmc_etr_out_mode {
+	TMC_ETR_OUT_MODE_NONE,
+	TMC_ETR_OUT_MODE_MEM,
+	TMC_ETR_OUT_MODE_USB,
+};
+
+static const char * const str_tmc_etr_out_mode[] = {
+	[TMC_ETR_OUT_MODE_NONE]		= "none",
+	[TMC_ETR_OUT_MODE_MEM]		= "mem",
+	[TMC_ETR_OUT_MODE_USB]		= "usb",
+};
+
 /**
  * struct etr_buf - Details of the buffer used by ETR
  * refcount	; Number of sources currently using this etr_buf.
@@ -213,6 +226,8 @@ struct tmc_drvdata {
 	struct coresight_csr	*csr;
 	const char		*csr_name;
 	u32			atid_offset;
+	enum tmc_etr_out_mode	out_mode;
+	struct tmc_usb_data	*usb_data;
 };
 
 struct etr_buf_operations {
@@ -260,6 +275,8 @@ struct tmc_sg_table {
 void tmc_wait_for_tmcready(struct tmc_drvdata *drvdata);
 void tmc_flush_and_stop(struct tmc_drvdata *drvdata);
 void tmc_enable_hw(struct tmc_drvdata *drvdata);
+extern int tmc_etr_bam_init(struct amba_device *adev,
+		struct tmc_drvdata *drvdata);
 void tmc_disable_hw(struct tmc_drvdata *drvdata);
 u32 tmc_get_memwidth_mask(struct tmc_drvdata *drvdata);
 

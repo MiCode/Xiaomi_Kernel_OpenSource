@@ -1168,17 +1168,19 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 	 * with the lock released.
 	 */
 	spin_lock_irqsave(&drvdata->spinlock, flags);
-	sysfs_buf = READ_ONCE(drvdata->sysfs_buf);
-	if (!sysfs_buf || (sysfs_buf->size != drvdata->size)) {
-		spin_unlock_irqrestore(&drvdata->spinlock, flags);
+	if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM) {
+		sysfs_buf = READ_ONCE(drvdata->sysfs_buf);
+		if (!sysfs_buf || (sysfs_buf->size != drvdata->size)) {
+			spin_unlock_irqrestore(&drvdata->spinlock, flags);
 
-		/* Allocate memory with the locks released */
-		free_buf = new_buf = tmc_etr_setup_sysfs_buf(drvdata);
-		if (IS_ERR(new_buf))
-			return PTR_ERR(new_buf);
+			/* Allocate memory with the locks released */
+			free_buf = new_buf = tmc_etr_setup_sysfs_buf(drvdata);
+			if (IS_ERR(new_buf))
+				return PTR_ERR(new_buf);
 
-		/* Let's try again */
-		spin_lock_irqsave(&drvdata->spinlock, flags);
+			/* Let's try again */
+			spin_lock_irqsave(&drvdata->spinlock, flags);
+		}
 	}
 
 	if (drvdata->reading || drvdata->mode == CS_MODE_PERF) {
@@ -1200,13 +1202,24 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 	 * If we don't have a buffer or it doesn't match the requested size,
 	 * use the buffer allocated above. Otherwise reuse the existing buffer.
 	 */
-	sysfs_buf = READ_ONCE(drvdata->sysfs_buf);
-	if (!sysfs_buf || (new_buf && sysfs_buf->size != new_buf->size)) {
-		free_buf = sysfs_buf;
-		drvdata->sysfs_buf = new_buf;
+	if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM) {
+		sysfs_buf = READ_ONCE(drvdata->sysfs_buf);
+		if (!sysfs_buf || (new_buf && sysfs_buf->size != new_buf->size)) {
+			free_buf = sysfs_buf;
+			drvdata->sysfs_buf = new_buf;
+		}
+
+		ret = tmc_etr_enable_hw(drvdata, drvdata->sysfs_buf);
+	} else if (drvdata->out_mode == TMC_ETR_OUT_MODE_USB) {
+		spin_unlock_irqrestore(&drvdata->spinlock, flags);
+		ret = tmc_usb_enable(drvdata->usb_data);
+		if (ret) {
+			spin_lock_irqsave(&drvdata->spinlock, flags);
+			goto out;
+		}
+		spin_lock_irqsave(&drvdata->spinlock, flags);
 	}
 
-	ret = tmc_etr_enable_hw(drvdata, drvdata->sysfs_buf);
 	if (!ret) {
 		drvdata->mode = CS_MODE_SYSFS;
 		atomic_inc(csdev->refcnt);
@@ -1678,7 +1691,14 @@ static int tmc_disable_etr_sink(struct coresight_device *csdev)
 
 	/* Complain if we (somehow) got out of sync */
 	WARN_ON_ONCE(drvdata->mode == CS_MODE_DISABLED);
-	tmc_etr_disable_hw(drvdata);
+
+	if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM)
+		tmc_etr_disable_hw(drvdata);
+	else {
+		spin_unlock_irqrestore(&drvdata->spinlock, flags);
+		tmc_usb_disable(drvdata->usb_data);
+		spin_lock_irqsave(&drvdata->spinlock, flags);
+	}
 	/* Dissociate from monitored process. */
 	drvdata->pid = -1;
 	drvdata->mode = CS_MODE_DISABLED;

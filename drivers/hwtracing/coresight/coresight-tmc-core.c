@@ -386,10 +386,44 @@ static ssize_t block_size_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(block_size);
 
+static ssize_t out_mode_show(struct device *dev,
+			     struct device_attribute *attr, char *buf)
+{
+	struct tmc_drvdata *drvdata = dev_get_drvdata(dev->parent);
+
+	return scnprintf(buf, PAGE_SIZE, "%s\n",
+			str_tmc_etr_out_mode[drvdata->out_mode]);
+}
+
+static ssize_t out_mode_store(struct device *dev,
+			      struct device_attribute *attr,
+			      const char *buf, size_t size)
+{
+	struct tmc_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	char str[10] = "";
+
+	if (drvdata->mode == CS_MODE_SYSFS) {
+		pr_err("Please disable etr before set the out mode.\n");
+		return -EINVAL;
+	}
+
+	if (strlen(buf) >= 10)
+		return -EINVAL;
+	if (sscanf(buf, "%10s", str) != 1)
+		return -EINVAL;
+	if (!strcmp(str, str_tmc_etr_out_mode[TMC_ETR_OUT_MODE_MEM]))
+		drvdata->out_mode = TMC_ETR_OUT_MODE_MEM;
+	else if (!strcmp(str, str_tmc_etr_out_mode[TMC_ETR_OUT_MODE_USB]))
+		drvdata->out_mode = TMC_ETR_OUT_MODE_USB;
+	return size;
+}
+static DEVICE_ATTR_RW(out_mode);
+
 static struct attribute *coresight_tmc_attrs[] = {
 	&dev_attr_trigger_cntr.attr,
 	&dev_attr_buffer_size.attr,
 	&dev_attr_block_size.attr,
+	&dev_attr_out_mode.attr,
 	NULL,
 };
 
@@ -407,6 +441,11 @@ static const struct attribute_group *coresight_tmc_groups[] = {
 	&coresight_tmc_mgmt_group,
 	NULL,
 };
+
+static bool tmc_etr_support_usb_bam(struct device *dev)
+{
+	return fwnode_property_present(dev->fwnode, "usb_bam_support");
+}
 
 static inline bool tmc_etr_can_use_sg(struct device *dev)
 {
@@ -508,9 +547,10 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 	/* This device is not associated with a session */
 	drvdata->pid = -1;
 
-	if (drvdata->config_type == TMC_CONFIG_TYPE_ETR)
+	if (drvdata->config_type == TMC_CONFIG_TYPE_ETR) {
+		drvdata->out_mode = TMC_ETR_OUT_MODE_MEM;
 		drvdata->size = tmc_etr_get_default_buffer_size(dev);
-	else
+	} else
 		drvdata->size = readl_relaxed(drvdata->base + TMC_RSZ) * 4;
 
 	ret = of_get_coresight_csr_name(adev->dev.of_node, &drvdata->csr_name);
@@ -542,6 +582,13 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 					 coresight_get_uci_data(id));
 		if (ret)
 			goto out;
+
+		if (tmc_etr_support_usb_bam(dev)) {
+			ret = tmc_etr_bam_init(adev, drvdata);
+			if (ret)
+				goto out;
+		}
+
 		idr_init(&drvdata->idr);
 		mutex_init(&drvdata->idr_mutex);
 		dev_list = &etr_devs;
