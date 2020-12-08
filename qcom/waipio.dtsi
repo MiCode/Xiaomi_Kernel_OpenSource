@@ -1281,6 +1281,10 @@
 		reg = <0x100000 0x1f4200>;
 		reg-names = "cc_base";
 		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		clocks = <&clock_rpmh RPMH_CXO_CLK>,
+			 <&sleep_clk>;
+		clock-names = "bi_tcxo",
+			      "sleep_clk";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -1291,8 +1295,12 @@
 		reg-name = "cc_base";
 		vdd_mm-supply = <&VDD_MM_LEVEL>;
 		vdd_mxc-supply = <&VDD_MXC_LEVEL>;
-		clock-names = "cfg_ahb_clk";
-		clocks = <&clock_gcc GCC_VIDEO_AHB_CLK>;
+		clocks = <&clock_rpmh RPMH_CXO_CLK>,
+			 <&sleep_clk>,
+			 <&clock_gcc GCC_VIDEO_AHB_CLK>;
+		clock-names = "bi_tcxo",
+			      "sleep_clk",
+			      "cfg_ahb_clk";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -1304,8 +1312,12 @@
 		vdd_mm-supply = <&VDD_MM_LEVEL>;
 		vdd_mxa-supply = <&VDD_MXA_LEVEL>;
 		vdd_mxc-supply = <&VDD_MXC_LEVEL>;
-		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
-		clock-names = "cfg_ahb_clk";
+		clocks = <&clock_rpmh RPMH_CXO_CLK>,
+			 <&sleep_clk>,
+			 <&clock_gcc GCC_CAMERA_AHB_CLK>;
+		clock-names = "bi_tcxo",
+			      "sleep_clk",
+			      "cfg_ahb_clk";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -1315,8 +1327,12 @@
 		reg = <0xaf00000 0x20000>;
 		reg-name = "cc_base";
 		vdd_mm-supply = <&VDD_MM_LEVEL>;
-		clock-names = "cfg_ahb_clk";
-		clocks = <&clock_gcc GCC_DISP_AHB_CLK>;
+		clocks = <&clock_rpmh RPMH_CXO_CLK>,
+			 <&sleep_clk>,
+			 <&clock_gcc GCC_VIDEO_AHB_CLK>;
+		clock-names = "bi_tcxo",
+			      "sleep_clk",
+			      "cfg_ahb_clk";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -1329,6 +1345,12 @@
 		vdd_cx-supply = <&VDD_CX_LEVEL>;
 		vdd_mx-supply = <&VDD_MXA_LEVEL>;
 		vdd_mxc-supply = <&VDD_MXC_LEVEL>;
+		clocks = <&clock_rpmh RPMH_CXO_CLK>,
+			 <&clock_gcc GCC_GPU_GPLL0_CLK_SRC>,
+			 <&clock_gcc GCC_GPU_GPLL0_DIV_CLK_SRC>;
+		clock-names = "bi_tcxo",
+			      "gpll0_out_main",
+			      "gpll0_out_main_div";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
