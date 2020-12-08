@@ -2828,6 +2828,7 @@ static void __sched_fork(unsigned long clone_flags, struct task_struct *p)
 	p->wts.boost_expires		= 0;
 	p->wts.boost_period		= 0;
 	p->wts.low_latency		= 0;
+	p->wts.iowaited			= false;
 #endif
 	INIT_LIST_HEAD(&p->se.group_node);
 

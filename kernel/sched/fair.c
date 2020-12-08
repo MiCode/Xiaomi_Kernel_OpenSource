@@ -6577,7 +6577,7 @@ static void walt_find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 	unsigned int target_nr_rtg_high_prio = UINT_MAX;
 	bool rtg_high_prio_task = task_rtg_high_prio(p);
 	cpumask_t visit_cpus;
-	bool io_task_pack = (order_index > 0 && p->in_iowait);
+	bool io_task_pack = (order_index > 0 && p->wts.iowaited);
 
 	/* Find start CPU based on boost value */
 	start_cpu = fbt_env->start_cpu;
@@ -8153,9 +8153,11 @@ int can_migrate_task(struct task_struct *p, struct lb_env *env)
 	if (!can_migrate_boosted_task(p, env->src_cpu, env->dst_cpu))
 		return 0;
 
-	if (p->in_iowait && is_min_capacity_cpu(env->dst_cpu) &&
+#ifdef CONFIG_SCHED_WALT
+	if (p->wts.iowaited && is_min_capacity_cpu(env->dst_cpu) &&
 			!is_min_capacity_cpu(env->src_cpu))
 		return 0;
+#endif
 
 	if (!cpumask_test_cpu(env->dst_cpu, p->cpus_ptr)) {
 		int cpu;
