@@ -336,6 +336,7 @@
   cfg80211_scan_done
   cfg80211_sched_scan_results
   cfg80211_sched_scan_stopped
+  cfg80211_sched_scan_stopped_rtnl
   cfg80211_unlink_bss
   cfg80211_unregister_wdev
   cfg80211_vendor_cmd_reply
@@ -1386,6 +1387,7 @@
   krealloc
   kset_create_and_add
   kset_unregister
+  ksize
   kstat
   kstrdup
   kstrdup_quotable
