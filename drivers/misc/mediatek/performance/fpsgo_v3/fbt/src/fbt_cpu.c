@@ -3835,6 +3835,14 @@ static ssize_t llf_task_policy_show(struct kobject *kobj,
 	return scnprintf(buf, PAGE_SIZE, "%d\n", val);
 }
 
+static void llf_switch_policy(struct work_struct *work)
+{
+	fpsgo_main_trace("fpsgo %s and clear_llf_cpu_policy",
+		__func__);
+	fpsgo_clear_llf_cpu_policy(0);
+}
+static DECLARE_WORK(llf_switch_policy_work,
+		(void *) llf_switch_policy);
 static ssize_t llf_task_policy_store(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		const char *buf, size_t count)
@@ -3871,10 +3879,11 @@ static ssize_t llf_task_policy_store(struct kobject *kobj,
 
 	orig_policy = llf_task_policy;
 	llf_task_policy = val;
-	xgf_trace("fpsgo set llf_task_policy %d", llf_task_policy);
+	fpsgo_main_trace("fpsgo set llf_task_policy %d",
+		llf_task_policy);
 	mutex_unlock(&fbt_mlock);
 
-	fpsgo_clear_llf_cpu_policy(orig_policy);
+	schedule_work(&llf_switch_policy_work);
 
 	return count;
 }
