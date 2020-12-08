@@ -767,6 +767,7 @@ static int rndis_indicate_status_msg(struct rndis_params *params, u32 status)
 	rndis_indicate_status_msg_type *resp;
 	rndis_resp_t *r;
 
+	pr_info("%s - params->state:%d\n", __func__, params->state);
 	if (params->state == RNDIS_UNINITIALIZED)
 		return -ENOTSUPP;
 
@@ -852,13 +853,13 @@ int rndis_msg_parser(struct rndis_params *params, u8 *buf)
 	/* For USB: responses may take up to 10 seconds */
 	switch (MsgType) {
 	case RNDIS_MSG_INIT:
-		pr_debug("%s: RNDIS_MSG_INIT\n",
+		pr_info("%s: RNDIS_MSG_INIT\n",
 			__func__);
 		params->state = RNDIS_INITIALIZED;
 		return rndis_init_response(params, (rndis_init_msg_type *)buf);
 
 	case RNDIS_MSG_HALT:
-		pr_debug("%s: RNDIS_MSG_HALT\n",
+		pr_info("%s: RNDIS_MSG_HALT\n",
 			__func__);
 
 		params->state = RNDIS_UNINITIALIZED;
@@ -876,7 +877,7 @@ int rndis_msg_parser(struct rndis_params *params, u8 *buf)
 		return rndis_set_response(params, (rndis_set_msg_type *)buf);
 
 	case RNDIS_MSG_RESET:
-		pr_debug("%s: RNDIS_MSG_RESET\n",
+		pr_info("%s: RNDIS_MSG_RESET\n",
 			__func__);
 
 		return rndis_reset_response(params,

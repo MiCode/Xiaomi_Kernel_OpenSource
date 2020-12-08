@@ -769,24 +769,30 @@ static void rndis_open(struct gether *geth)
 {
 	struct f_rndis		*rndis = func_to_rndis(&geth->func);
 	struct usb_composite_dev *cdev = geth->func.config->cdev;
+	unsigned long flags;
 
 	F_RNDIS_DBG("\n");
 	DBG(cdev, "%s\n", __func__);
 
+	spin_lock_irqsave(&rndis_lock, flags);
 	rndis_set_param_medium(rndis->params, RNDIS_MEDIUM_802_3,
 				bitrate(cdev->gadget) / 100);
 	rndis_signal_connect(rndis->params);
+	spin_unlock_irqrestore(&rndis_lock, flags);
 }
 
 static void rndis_close(struct gether *geth)
 {
 	struct f_rndis		*rndis = func_to_rndis(&geth->func);
+	unsigned long flags;
 
 	F_RNDIS_DBG("\n");
 	DBG(geth->func.config->cdev, "%s\n", __func__);
 
+	spin_lock_irqsave(&rndis_lock, flags);
 	rndis_set_param_medium(rndis->params, RNDIS_MEDIUM_802_3, 0);
 	rndis_signal_disconnect(rndis->params);
+	spin_unlock_irqrestore(&rndis_lock, flags);
 }
 
 /*-------------------------------------------------------------------------*/
