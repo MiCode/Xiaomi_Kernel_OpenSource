@@ -77,7 +77,7 @@ static const struct i2c_device_id ccu_i2c_4_ids[] = {
 	{CCU_I2C_4_HW_DRVNAME, 0}, {} };
 static const struct i2c_device_id ccu_i2c_7_ids[] = {
 	{CCU_I2C_7_HW_DRVNAME, 0}, {} };
-static struct ion_handle *i2c_buffer_handle[IMGSENSOR_SENSOR_IDX_MAX_NUM];
+uint32_t i2c_mva[IMGSENSOR_SENSOR_IDX_MAX_NUM];
 static bool ccu_i2c_initialized[I2C_MAX_CHANNEL] = {0};
 
 #ifdef CONFIG_OF
@@ -267,10 +267,9 @@ int ccu_get_i2c_dma_buf_addr(struct ccu_i2c_buf_mva_ioarg *ioarg)
 		return ret;
 
 	/*If there is existing i2c buffer mva allocated, deallocate it first*/
-	ccu_deallocate_mva(&i2c_buffer_handle[ioarg->sensor_idx]);
-	ret = ccu_allocate_mva(&ioarg->mva, va,
-		&i2c_buffer_handle[ioarg->sensor_idx], 4096);
-
+	ccu_deallocate_mva(i2c_mva[ioarg->sensor_idx]);
+	ret = ccu_allocate_mva(&i2c_mva[ioarg->sensor_idx], va, 4096);
+	ioarg->mva = i2c_mva[ioarg->sensor_idx];
 	return ret;
 }
 
@@ -281,7 +280,7 @@ int ccu_i2c_free_dma_buf_mva_all(void)
 
 	for (i = IMGSENSOR_SENSOR_IDX_MIN_NUM;
 		i < IMGSENSOR_SENSOR_IDX_MAX_NUM; i++)
-		ccu_deallocate_mva(&i2c_buffer_handle[i]);
+		ccu_deallocate_mva(i2c_mva[i]);
 
 	LOG_INF_MUST("%s done.\n", __func__);
 
@@ -315,13 +314,13 @@ static int i2c_query_dma_buffer_addr(uint32_t sensor_idx,
 #endif
 	*i2c_id = i2c->id;
 #ifdef CONFIG_ARCH_DMA_ADDR_T_64BIT
-	LOG_DBG_MUST("$$pa(%lld), va(%d), i2c-id(%d)\n",
+	LOG_DBG_MUST("$$pa(%lld), va(%p), i2c-id(%d)\n",
 		i2c->dma_buf.paddr + PAGE_SIZE,
-		*(i2c->dma_buf.vaddr + PAGE_SIZE), (uint32_t)i2c->id);
+		i2c->dma_buf.vaddr + PAGE_SIZE, (uint32_t)i2c->id);
 #else
-	LOG_DBG_MUST("$$pa(%ld), va(%d), i2c-id(%d)\n",
+	LOG_DBG_MUST("$$pa(%ld), va(%p), i2c-id(%d)\n",
 		i2c->dma_buf.paddr + PAGE_SIZE,
-		*(i2c->dma_buf.vaddr + PAGE_SIZE), (uint32_t)i2c->id);
+		i2c->dma_buf.vaddr + PAGE_SIZE, (uint32_t)i2c->id);
 #endif
 	return 0;
 }
