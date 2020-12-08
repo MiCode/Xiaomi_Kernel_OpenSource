@@ -3098,8 +3098,7 @@ static int alpha_pll_lucid_evo_set_rate(struct clk_hw *hw, unsigned long rate,
 
 	regmap_update_bits(pll->clkr.regmap, PLL_L_VAL(pll),
 			   LUCID_EVO_PLL_L_VAL_MASK, l);
-	regmap_update_bits(pll->clkr.regmap, PLL_L_VAL(pll),
-			   LUCID_EVO_PLL_CAL_L_VAL_MASK, a);
+	regmap_write(pll->clkr.regmap, PLL_ALPHA_VAL(pll), a);
 
 	/* Latch the PLL input */
 	ret = regmap_update_bits(pll->clkr.regmap, PLL_MODE(pll),
