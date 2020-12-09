@@ -1715,6 +1715,7 @@ static void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx,
 
 		reg |= FIELD_PREP(SCTLR_WACFG, SCTLR_WACFG_WA) |
 		       FIELD_PREP(SCTLR_RACFG, SCTLR_RACFG_RA) |
+		       FIELD_PREP(SCTLR_SHCFG, SCTLR_SHCFG_OSH) |
 		       SCTLR_MTCFG |
 		       FIELD_PREP(SCTLR_MEM_ATTR, SCTLR_MEM_ATTR_OISH_WB_CACHE);
 	} else {
