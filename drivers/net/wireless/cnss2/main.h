@@ -298,6 +298,7 @@ enum cnss_driver_state {
 	CNSS_IN_PANIC,
 	CNSS_QMI_DEL_SERVER,
 	CNSS_QMI_DMS_CONNECTED = 20,
+	CNSS_DAEMON_CONNECTED,
 };
 
 struct cnss_recovery_data {
@@ -405,6 +406,7 @@ enum cnss_timeout_type {
 	CNSS_TIMEOUT_WLAN_WATCHDOG,
 	CNSS_TIMEOUT_RDDM,
 	CNSS_TIMEOUT_RECOVERY,
+	CNSS_TIMEOUT_DAEMON_CONNECTION,
 };
 
 struct cnss_plat_data {
@@ -453,6 +455,11 @@ struct cnss_plat_data {
 	u32 fw_mem_seg_len;
 	struct cnss_fw_mem fw_mem[QMI_WLFW_MAX_NUM_MEM_SEG];
 	struct cnss_fw_mem m3_mem;
+	struct cnss_fw_mem *cal_mem;
+	u64 cal_time;
+	bool cbc_file_download;
+	u32 cal_file_size;
+	struct completion daemon_connected;
 	u32 qdss_mem_seg_len;
 	struct cnss_fw_mem qdss_mem[QMI_WLFW_MAX_NUM_MEM_SEG];
 	u32 *qdss_reg;
