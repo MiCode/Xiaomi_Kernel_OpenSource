@@ -3801,9 +3801,7 @@
 					<&topckgen_clk CLK_TOP_UNIVPLL_192M_D4>,
 					<&topckgen_clk CLK_TOP_CSW_F26M_CK_D2>,
 					<&topckgen_clk CLK_TOP_UNIVPLL_192M_D16>,
-					<&topckgen_clk CLK_TOP_UNIVPLL_192M_D32>,
-					<&topckgen_clk CLK_TOP_MAINPLL_D4_D2>,
-					<&topckgen_clk CLK_TOP_UNIVPLL_D5>;
+					<&topckgen_clk CLK_TOP_UNIVPLL_192M_D32>;
 			clock-names = "CAMSYS_SENINF_CGPDN",
 					"TOP_MUX_SENINF",
 					"TOP_MUX_SENINF1",
@@ -3819,9 +3817,7 @@
 					"TOP_UNIVP_192M_D4",
 					"TOP_F26M_CK_D2",
 					"TOP_UNIVP_192M_D16",
-					"TOP_UNIVP_192M_D32",
-					"TOP_UNIVP_D4_D2",
-					"TOP_MAINP_D5";
+					"TOP_UNIVP_192M_D32";
 			operating-points-v2 = <&opp_table_cam>;
 			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 		};
