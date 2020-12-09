@@ -15,11 +15,11 @@ CONFIG_TARGET=msm.${MSM_ARCH}
 ##
 function compile_external_dtc() {
   (
-    OUT_DIR=$(realpath $OUT_DIR/..)/external/dtc
+    OUT_DIR=${COMMON_OUT_DIR}/external/dtc
     cd ${ROOT_DIR}/external/dtc
     NO_PYTHON=1 CC=cc make
   )
-  export PATH=${ROOT_DIR}/external/dtc:${PATH}
+  export PATH=${COMMON_OUT_DIR}/external/dtc:${PATH}
 }
 append_cmd PRE_DEFCONFIG_CMDS 'compile_external_dtc'
 
