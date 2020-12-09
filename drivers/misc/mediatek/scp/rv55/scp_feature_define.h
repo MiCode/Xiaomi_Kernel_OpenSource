@@ -16,7 +16,7 @@
 #else
 #define SCP_LOGGER_ENABLE                (0)
 #endif
-#define SCP_DVFS_INIT_ENABLE             (0)
+#define SCP_DVFS_INIT_ENABLE             (1)
 #define SCP_VOW_LOW_POWER_MODE           (1)
 #define SCP_DEBUG_NODE_ENABLE            (0)
 
