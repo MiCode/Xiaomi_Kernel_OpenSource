@@ -401,7 +401,7 @@ static const struct linear_range ldo_volt_ranges2[] = {
 	REGULATOR_LINEAR_RANGE(3600000, 0x7a, 0x7f, 0),
 };
 
-static const struct regulator_linear_range ldo_volt_ranges3[] = {
+static const struct linear_range ldo_volt_ranges3[] = {
 	REGULATOR_LINEAR_RANGE(500000, 0x00, 0x09, 10000),
 	REGULATOR_LINEAR_RANGE(600000, 0x0a, 0x10, 0),
 	REGULATOR_LINEAR_RANGE(610000, 0x11, 0x19, 10000),
