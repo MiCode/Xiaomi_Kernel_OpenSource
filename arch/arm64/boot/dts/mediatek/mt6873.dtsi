@@ -1588,6 +1588,11 @@
 				<&infracfg CLK_INFRA_CLDMA_B>;
 			clock-names = "infra-dpmaif-clk",
 					"infra-dpmaif-blk-clk";
+			interconnects = <&dvfsrc MT6873_MASTER_NETSYS &dvfsrc MT6873_SLAVE_DDR_EMI>;
+			interconnect-names = "icc-dpmaif-bw";
+			required-opps = <&dvfsrc_freq_opp0>,
+						<&dvfsrc_freq_opp1>;
+			mediatek,ap_plat_info = <6873>;
 		};
 
 		systimer: systimer@10017000 {
