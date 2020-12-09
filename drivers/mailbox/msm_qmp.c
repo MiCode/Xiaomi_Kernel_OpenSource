@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/io.h>
@@ -169,12 +169,8 @@ struct qmp_mbox {
  * @tx_irq_reg:		Reference to the register to send an irq to remote proc
  * @rx_reset_reg:	Reference to the register to reset the rx irq, if
  *			applicable
- * @kwork:		kwork for rx handling
- * @kworker:		Handle to entitiy to process incoming data
- * @task:		Handle to task context used to run @kworker
  * @irq_mask:		Mask written to @tx_irq_reg to trigger irq
  * @rx_irq_line:	The incoming interrupt line
- * @rx_work:		Work to be executed when an irq is received
  * @tx_irq_count:	Number of tx interrupts triggered
  * @rx_irq_count:	Number of rx interrupts received
  * @ilc:		IPC logging context
@@ -187,10 +183,6 @@ struct qmp_device {
 	void __iomem *msgram;
 	void __iomem *tx_irq_reg;
 	void __iomem *rx_reset_reg;
-
-	struct kthread_work kwork;
-	struct kthread_worker kworker;
-	struct task_struct *task;
 
 	u32 irq_mask;
 	u32 rx_irq_line;
@@ -515,10 +507,9 @@ static irqreturn_t qmp_irq_handler(int irq, void *priv)
 	if (mdev->rx_reset_reg)
 		writel_relaxed(mdev->irq_mask, mdev->rx_reset_reg);
 
-	kthread_queue_work(&mdev->kworker, &mdev->kwork);
 	mdev->rx_irq_count++;
 
-	return IRQ_HANDLED;
+	return IRQ_WAKE_THREAD;
 }
 
 /**
@@ -653,15 +644,16 @@ static void __qmp_rx_worker(struct qmp_mbox *mbox)
 	mutex_unlock(&mbox->state_lock);
 }
 
-static void rx_worker(struct kthread_work *work)
+static irqreturn_t qmp_thread_irq_handler(int irq, void *priv)
 {
-	struct qmp_device *mdev;
+	struct qmp_device *mdev = (struct qmp_device *)priv;
 	struct qmp_mbox *mbox;
 
-	mdev = container_of(work, struct qmp_device, kwork);
 	list_for_each_entry(mbox, &mdev->mboxes, list) {
 		__qmp_rx_worker(mbox);
 	}
+
+	return IRQ_HANDLED;
 }
 
 /**
@@ -686,31 +678,6 @@ static struct mbox_chan *qmp_mbox_of_xlate(struct mbox_controller *mbox,
 	mutex_unlock(&dev->state_lock);
 
 	return chan;
-}
-
-/**
- * cleanup_workqueue() - Flush all work and stop the thread for this mailbox.
- * @mdev:	mailbox device to cleanup.
- */
-static void cleanup_workqueue(struct qmp_device *mdev)
-{
-	kthread_flush_worker(&mdev->kworker);
-	kthread_stop(mdev->task);
-	mdev->task = NULL;
-}
-
-static int qmp_mbox_remove(struct platform_device *pdev)
-{
-	struct qmp_device *mdev = platform_get_drvdata(pdev);
-	struct qmp_mbox *mbox = NULL;
-
-	disable_irq(mdev->rx_irq_line);
-	cleanup_workqueue(mdev);
-
-	list_for_each_entry(mbox, &mdev->mboxes, list) {
-		mbox_controller_unregister(&mbox->ctrl);
-	}
-	return 0;
 }
 
 /**
@@ -770,11 +737,6 @@ static struct mbox_chan_ops qmp_mbox_ops = {
 	.shutdown = qmp_shutdown,
 	.send_data = qmp_send_data,
 	.last_tx_done = qmp_last_tx_done,
-};
-
-static const struct of_device_id qmp_mbox_match_table[] = {
-	{ .compatible = "qcom,qmp-mbox" },
-	{},
 };
 
 /**
@@ -944,10 +906,24 @@ static int qmp_edge_init(struct platform_device *pdev)
 	return 0;
 }
 
+static int qmp_mbox_remove(struct platform_device *pdev)
+{
+	struct qmp_device *mdev = platform_get_drvdata(pdev);
+	struct qmp_mbox *mbox = NULL;
+
+	disable_irq(mdev->rx_irq_line);
+
+	list_for_each_entry(mbox, &mdev->mboxes, list) {
+		mbox_controller_unregister(&mbox->ctrl);
+	}
+	return 0;
+}
+
 static int qmp_mbox_probe(struct platform_device *pdev)
 {
 	struct device_node *edge_node = pdev->dev.of_node;
 	struct qmp_device *mdev;
+	struct qmp_mbox *mbox;
 	int ret = 0;
 
 	mdev = devm_kzalloc(&pdev->dev, sizeof(*mdev), GFP_KERNEL);
@@ -965,17 +941,13 @@ static int qmp_mbox_probe(struct platform_device *pdev)
 
 	mdev->ilc = ipc_log_context_create(QMP_IPC_LOG_PAGE_CNT, mdev->name, 0);
 
-	kthread_init_work(&mdev->kwork, rx_worker);
-	kthread_init_worker(&mdev->kworker);
-	mdev->task = kthread_run(kthread_worker_fn, &mdev->kworker, "qmp_%s",
-								mdev->name);
-
-	ret = devm_request_irq(&pdev->dev, mdev->rx_irq_line, qmp_irq_handler,
-		IRQF_TRIGGER_RISING | IRQF_NO_SUSPEND | IRQF_SHARED,
-		edge_node->name, mdev);
+	ret = devm_request_threaded_irq(&pdev->dev, mdev->rx_irq_line,
+					qmp_irq_handler, qmp_thread_irq_handler,
+					IRQF_TRIGGER_RISING,
+					edge_node->name, (void *)mdev);
 	if (ret < 0) {
 		qmp_mbox_remove(pdev);
-		QMP_ERR(mdev->ilc, "request irq on %d failed: %d\n",
+		QMP_ERR(mdev->ilc, "request threaded irq on %d failed: %d\n",
 			mdev->rx_irq_line, ret);
 		return ret;
 	}
@@ -985,31 +957,29 @@ static int qmp_mbox_probe(struct platform_device *pdev)
 			mdev->rx_irq_line, ret);
 
 	/* Trigger fake RX in case of missed interrupt */
-	if (of_property_read_bool(edge_node, "qcom,early-boot"))
-		qmp_irq_handler(0, mdev);
+	if (of_property_read_bool(edge_node, "qcom,early-boot")) {
+		list_for_each_entry(mbox, &mdev->mboxes, list) {
+			__qmp_rx_worker(mbox);
+		}
+	}
 
 	return 0;
 }
 
-static struct platform_driver qmp_mbox_driver = {
-	.probe = qmp_mbox_probe,
-	.remove = qmp_mbox_remove,
-	.driver = {
-		.name = "qmp_mbox",
-		.of_match_table = qmp_mbox_match_table,
-	},
+static const struct of_device_id qmp_mbox_dt_match[] = {
+	{ .compatible = "qcom,qmp-mbox" },
+	{},
 };
 
-static int __init qmp_init(void)
-{
-	int rc = 0;
-
-	rc = platform_driver_register(&qmp_mbox_driver);
-	if (rc)
-		pr_err("%s: qmp_mbox_driver reg failed %d\n", __func__, rc);
-	return rc;
-}
-arch_initcall(qmp_init);
+static struct platform_driver qmp_mbox_driver = {
+	.driver = {
+		.name = "qmp_mbox",
+		.of_match_table = qmp_mbox_dt_match,
+	},
+	.probe = qmp_mbox_probe,
+	.remove = qmp_mbox_remove,
+};
+module_platform_driver(qmp_mbox_driver);
 
 MODULE_DESCRIPTION("MSM QTI Mailbox Protocol");
 MODULE_LICENSE("GPL v2");

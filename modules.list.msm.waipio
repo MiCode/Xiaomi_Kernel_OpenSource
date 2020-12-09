@@ -30,6 +30,7 @@ smp2p.ko
 qrtr.ko
 ns.ko
 qrtr-smd.ko
+msm_qmp.ko
 socinfo.ko
 spmi-pmic-arb.ko
 spmi-pmic-arb-debug.ko
