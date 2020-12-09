@@ -443,7 +443,7 @@ static long cam_mem_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Pa
 			mutex_unlock(&cam_mem_ion_mutex[bucketID]);
 
 			if (refCnt > 1)
-				LOG_NOTICE("Warning:map:memID(%d)refCnt(%d)>1: %s",
+				LOG_DBG("Warning:map:memID(%d)refCnt(%d)>1: %s",
 					IonNode.memID, refCnt, warningStr);
 
 			/* Map iova. */
@@ -616,7 +616,7 @@ static long cam_mem_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Pa
 				}
 				mutex_unlock(&cam_mem_ion_mutex[bucketID]);
 
-				LOG_NOTICE("Warning:unamp:memID(%d)refCnt(%d) still > 0: %s",
+				LOG_DBG("Warning:unamp:memID(%d)refCnt(%d) still > 0: %s",
 					IonNode.memID, refCnt, warningStr);
 			}
 #ifdef CAM_MEM_DEBUG
