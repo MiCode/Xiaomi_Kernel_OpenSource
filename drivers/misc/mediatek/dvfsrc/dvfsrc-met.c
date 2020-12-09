@@ -209,7 +209,10 @@ static const struct dvfsrc_met_data mt6833_data = {
 	.version = 0x6833,
 };
 
-
+static const struct dvfsrc_met_data mt6877_data = {
+	.met = &mt6873_met_config,
+	.version = 0x6877,
+};
 
 
 static const struct of_device_id dvfsrc_met_of_match[] = {
@@ -229,6 +232,9 @@ static const struct of_device_id dvfsrc_met_of_match[] = {
 	}, {
 		.compatible = "mediatek,mt6833-dvfsrc",
 		.data = &mt6833_data,
+	}, {
+		.compatible = "mediatek,mt6877-dvfsrc",
+		.data = &mt6877_data,
 	},
 #endif
 	{

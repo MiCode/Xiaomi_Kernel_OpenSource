@@ -215,6 +215,26 @@ static u32 dvfsrc_mt6833_ddr_qos(u32 qos_bw)
 		return 7;
 }
 
+static u32 dvfsrc_mt6877_ddr_qos(u32 qos_bw)
+{
+	if (qos_bw < 0x19)
+		return 0;
+	else if (qos_bw < 0x26)
+		return 1;
+	else if (qos_bw < 0x33)
+		return 2;
+	else if (qos_bw < 0x3B)
+		return 3;
+	else if (qos_bw < 0x55)
+		return 4;
+	else if (qos_bw < 0x77)
+		return 5;
+	else if (qos_bw < 0x88)
+		return 6;
+	else
+		return 7;
+}
+
 static u32 dvfsrc_ddr_qos(struct mtk_dvfsrc_met *dvfs)
 {
 	u32 qos_total_bw = dvfsrc_met_read(dvfs, DVFSRC_SW_BW_0) +
@@ -237,6 +257,8 @@ static u32 dvfsrc_ddr_qos(struct mtk_dvfsrc_met *dvfs)
 		return dvfsrc_mt6893_ddr_qos(qos_total_bw);
 	case 0x6833:
 		return dvfsrc_mt6833_ddr_qos(qos_total_bw);
+	case 0x6877:
+		return dvfsrc_mt6877_ddr_qos(qos_total_bw);
 	default:
 		return 0;
 	}
@@ -251,6 +273,7 @@ static int dvfsrc_emi_mon_gear(struct mtk_dvfsrc_met *dvfs)
 	switch (dvfs->dvd->version) {
 	case 0x6893:
 	case 0x6833:
+	case 0x6877:
 		max_idx = 6;
 		level_mask = 0x7F;
 	break;
@@ -416,6 +439,7 @@ static int dvfsrc_get_ddr_ratio(struct mtk_dvfsrc_met *dvfs)
 
 	switch (dvfs->dvd->version) {
 	case 0x6893:
+	case 0x6877:
 		if (dram_opp < 7)
 			return 8;
 		else
