@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef IPA_MHI_H_
@@ -20,6 +20,14 @@ enum ipa_mhi_event_type {
 	IPA_MHI_EVENT_READY,
 	IPA_MHI_EVENT_DATA_AVAILABLE,
 	IPA_MHI_EVENT_MAX,
+};
+
+enum ipa_mhi_mstate {
+	IPA_MHI_STATE_M0,
+	IPA_MHI_STATE_M1,
+	IPA_MHI_STATE_M2,
+	IPA_MHI_STATE_M3,
+	IPA_MHI_STATE_M_MAX
 };
 
 typedef void (*mhi_client_cb)(void *priv, enum ipa_mhi_event_type event,
@@ -111,6 +119,8 @@ int ipa_mhi_resume(void);
 
 void ipa_mhi_destroy(void);
 
+int ipa_mhi_update_mstate(enum ipa_mhi_mstate mstate_info);
+
 #else /* IS_ENABLED(CONFIG_IPA3) */
 
 static inline int ipa_mhi_init(struct ipa_mhi_init_params *params)
@@ -147,6 +157,12 @@ static inline int ipa_mhi_resume(void)
 static inline void ipa_mhi_destroy(void)
 {
 
+}
+
+static inline int ipa_mhi_update_mstate
+			(enum ipa_mhi_mstate mstate_info)
+{
+	return -EPERM;
 }
 
 #endif /* IS_ENABLED(CONFIG_IPA3) */
