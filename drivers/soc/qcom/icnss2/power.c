@@ -15,17 +15,17 @@
 #include "power.h"
 
 static struct icnss_vreg_cfg icnss_wcn6750_vreg_list[] = {
-	{"vdd-cx-mx", 824000, 952000, 0, 0, 0, false},
-	{"vdd-1.8-xo", 1872000, 1872000, 0, 0, 0, false},
-	{"vdd-1.3-rfa", 1256000, 1352000, 0, 0, 0, false},
+	{"vdd-cx-mx", 824000, 952000, 0, 0, 0, false, true},
+	{"vdd-1.8-xo", 1872000, 1872000, 0, 0, 0, false, true},
+	{"vdd-1.3-rfa", 1256000, 1352000, 0, 0, 0, false, true},
 };
 
 static struct icnss_vreg_cfg icnss_adrestea_vreg_list[] = {
-	{"vdd-cx-mx", 752000, 752000, 0, 0, 0, false},
-	{"vdd-1.8-xo", 1800000, 1800000, 0, 0, 0, false},
-	{"vdd-1.3-rfa", 1304000, 1304000, 0, 0, 0, false},
-	{"vdd-3.3-ch1", 3312000, 3312000, 0, 0, 0, false},
-	{"vdd-3.3-ch0", 3312000, 3312000, 0, 0, 0, false},
+	{"vdd-cx-mx", 752000, 752000, 0, 0, 0, false, true},
+	{"vdd-1.8-xo", 1800000, 1800000, 0, 0, 0, false, true},
+	{"vdd-1.3-rfa", 1304000, 1304000, 0, 0, 0, false, true},
+	{"vdd-3.3-ch1", 3312000, 3312000, 0, 0, 0, false, true},
+	{"vdd-3.3-ch0", 3312000, 3312000, 0, 0, 0, false, true},
 };
 
 static struct icnss_clk_cfg icnss_clk_list[] = {
@@ -41,6 +41,7 @@ static struct icnss_clk_cfg icnss_adrestea_clk_list[] = {
 #define ICNSS_CLK_LIST_SIZE		ARRAY_SIZE(icnss_clk_list)
 #define ICNSS_CLK_ADRESTEA_LIST_SIZE	ARRAY_SIZE(icnss_adrestea_clk_list)
 
+#define ICNSS_CHAIN1_REGULATOR                          "vdd-3.3-ch1"
 #define MAX_PROP_SIZE					32
 #define ICNSS_THRESHOLD_HIGH				3600000
 #define ICNSS_THRESHOLD_LOW				3450000
@@ -338,8 +339,17 @@ static int icnss_vreg_on(struct icnss_priv *priv)
 	int ret = 0;
 
 	list_for_each_entry(vreg, vreg_list, list) {
-		if (IS_ERR_OR_NULL(vreg->reg))
+		if (IS_ERR_OR_NULL(vreg->reg) || !vreg->cfg.is_supported)
 			continue;
+		if (!priv->chain_reg_info_updated &&
+		    !strcmp(ICNSS_CHAIN1_REGULATOR, vreg->cfg.name)) {
+			priv->chain_reg_info_updated = true;
+			if (!priv->is_chain1_supported) {
+				vreg->cfg.is_supported = false;
+				continue;
+			}
+		}
+
 		ret = icnss_vreg_on_single(vreg);
 		if (ret)
 			break;

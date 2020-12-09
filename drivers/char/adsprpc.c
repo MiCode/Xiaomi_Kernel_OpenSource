@@ -45,6 +45,7 @@
 #include "adsprpc_compat.h"
 #include "adsprpc_shared.h"
 #include <soc/qcom/ramdump.h>
+#include <soc/qcom/minidump.h>
 #include <linux/delay.h>
 #include <linux/debugfs.h>
 #include <linux/pm_qos.h>
@@ -1118,6 +1119,7 @@ static void fastrpc_mmap_free(struct fastrpc_mmap *map, uint32_t flags)
 	struct fastrpc_file *fl;
 	int vmid, cid = -1, err = 0;
 	struct fastrpc_session_ctx *sess;
+	struct md_region md_entry;
 
 	if (!map)
 		return;
@@ -1160,6 +1162,17 @@ static void fastrpc_mmap_free(struct fastrpc_mmap *map, uint32_t flags)
 			ADSPRPC_ERR(
 				"failed to free remote heap allocation, device is not initialized\n");
 			return;
+		}
+		if (msm_minidump_enabled()) {
+			scnprintf(md_entry.name, sizeof(md_entry.name), "CMA_%d", fl->tgid);
+			md_entry.virt_addr = map->va;
+			md_entry.phys_addr = map->phys;
+			md_entry.size = map->size;
+			if (msm_minidump_remove_region(&md_entry) < 0) {
+				ADSPRPC_ERR(
+					"Failed to remove CMA from Minidump for tgid: %d, phys: 0x%llx, size: %zu\n",
+					fl->tgid, map->phys, map->size);
+			}
 		}
 		trace_fastrpc_dma_free(-1, map->phys, map->size);
 		if (map->phys) {
@@ -1228,6 +1241,7 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 	unsigned long flags;
 	int err = 0, vmid, sgl_index = 0;
 	struct scatterlist *sgl = NULL;
+	struct md_region md_entry;
 
 	VERIFY(err, cid >= ADSP_DOMAIN_ID && cid < NUM_CHANNELS);
 	if (err) {
@@ -1265,6 +1279,17 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 		map->phys = (uintptr_t)region_phys;
 		map->size = len;
 		map->va = (uintptr_t)region_vaddr;
+		if (msm_minidump_enabled()) {
+			scnprintf(md_entry.name, sizeof(md_entry.name), "CMA_%d", fl->tgid);
+			md_entry.virt_addr = map->va;
+			md_entry.phys_addr = map->phys;
+			md_entry.size = map->size;
+			if (msm_minidump_add_region(&md_entry) >= 0) {
+				ADSPRPC_ERR(
+					"Failed to add CMA to Minidump for tgid: %d, phys: 0x%llx, size: %zu\n",
+					fl->tgid, map->phys, map->size);
+			}
+		}
 	} else if (mflags == FASTRPC_DMAHANDLE_NOMAP) {
 		VERIFY(err, !IS_ERR_OR_NULL(map->buf = dma_buf_get(fd)));
 		if (err) {

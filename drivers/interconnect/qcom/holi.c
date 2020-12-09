@@ -1800,7 +1800,7 @@ static void qnoc_sync_state(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct qcom_icc_provider *qp = platform_get_drvdata(pdev);
-	int ret, i;
+	int ret = 0, i;
 
 	mutex_lock(&probe_list_lock);
 	probe_count++;
@@ -1824,11 +1824,11 @@ static void qnoc_sync_state(struct device *dev)
 				else
 					ret = clk_set_rate(qp->bus_clks[i].clk,
 						qp->bus_clk_cur_rate[i]);
-			}
 
-			if (ret)
-				pr_err("%s clk_set_rate error: %d\n",
-					qp->bus_clks[i].id, ret);
+				if (ret)
+					pr_err("%s clk_set_rate error: %d\n",
+						qp->bus_clks[i].id, ret);
+			}
 		}
 	}
 

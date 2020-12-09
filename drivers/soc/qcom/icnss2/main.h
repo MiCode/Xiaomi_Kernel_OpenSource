@@ -128,6 +128,7 @@ struct icnss_vreg_cfg {
 	u32 delay_us;
 	u32 need_unvote;
 	bool required;
+	bool is_supported;
 };
 
 struct icnss_vreg_info {
@@ -418,6 +419,8 @@ struct icnss_priv {
 	void *hang_event_data;
 	struct list_head icnss_tcdev_list;
 	struct mutex tcdev_lock;
+	bool is_chain1_supported;
+	bool chain_reg_info_updated;
 };
 
 struct icnss_reg_info {
