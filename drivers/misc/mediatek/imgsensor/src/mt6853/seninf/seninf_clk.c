@@ -18,8 +18,6 @@ static struct SENINF_CLK_CTRL gseninf_mclk_name[SENINF_CLK_IDX_MAX_NUM] = {
 	{"TOP_MUX_SENINF"},
 	{"TOP_MUX_SENINF1"},
 	{"TOP_MUX_SENINF2"},
-	{"TOP_UNIVP_D4_D2"},
-	{"TOP_MAINP_D5"},
 	{"TOP_MUX_CAMTG"},
 	{"TOP_MUX_CAMTG2"},
 	{"TOP_MUX_CAMTG3"},
