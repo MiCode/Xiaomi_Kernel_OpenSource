@@ -217,7 +217,7 @@ void mtk_ccd_put_fd(struct mtk_ccd *ccd, struct dma_buf *dmabuf, int target_fd)
 		return;
 
 	fput(dmabuf->file);
-	put_unused_fd(target_fd);
+	dev_dbg(ccd->dev, "puf file: fd(%d)\n", target_fd);
 }
 EXPORT_SYMBOL_GPL(mtk_ccd_put_fd);
 
