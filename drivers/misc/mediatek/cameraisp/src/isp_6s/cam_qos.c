@@ -104,8 +104,6 @@ void mtk_pmqos_remove(enum ISP_IRQ_TYPE_ENUM module)
 	case ISP_IRQ_TYPE_INT_CAM_A_ST:
 	case ISP_IRQ_TYPE_INT_CAM_B_ST:
 	case ISP_IRQ_TYPE_INT_CAM_C_ST:
-	//mm_qos_remove_all_request(&gBW_LIST[module]);
-	LOG_NOTICE("common pmqos do not support remove all request");
 		break;
 #if (DISABLE_CAMSV_TOP0 == 0)
 	case ISP_IRQ_TYPE_INT_CAMSV_0_ST:
@@ -117,8 +115,6 @@ void mtk_pmqos_remove(enum ISP_IRQ_TYPE_ENUM module)
 	case ISP_IRQ_TYPE_INT_CAMSV_5_ST:
 	case ISP_IRQ_TYPE_INT_CAMSV_6_ST:
 	case ISP_IRQ_TYPE_INT_CAMSV_7_ST:
-	//mm_qos_remove_all_request(gSVBW_LIST(module));
-	LOG_NOTICE("common pmqos do not support remove all request");
 		break;
 	default:
 		LOG_NOTICE("unsupported module:%d\n", module);
@@ -749,11 +745,6 @@ void mtk_pmqos_set(enum ISP_IRQ_TYPE_ENUM module, u32 portID, struct ISP_BW bw)
 	}
 }
 
-void mtk_pmqos_update(enum ISP_IRQ_TYPE_ENUM module)
-{
-	LOG_NOTICE("unsupport update all request\n");
-}
-
 void mtk_pmqos_clr(enum ISP_IRQ_TYPE_ENUM module)
 {
 	unsigned short portID = 0;
@@ -818,20 +809,12 @@ unsigned int mtk_dfs_get_cur_freq(void)
 	return (unsigned int)freq;
 }
 
-#define mtk_dfs_add()		\
-	LOG_NOTICE("mtk_dfs_add is not supported\n")
-
-#define mtk_dfs_remove()	\
-	LOG_NOTICE("mtk_dfs_remove is not supported\n")
 #define mtk_dfs_clr()	do { \
 	int volt = 0, ret = 0; \
 	ret = regulator_set_voltage(mmdvfsRegulator, volt, INT_MAX);\
 	if (ret) \
 		LOG_NOTICE("Error: E_CLK_UPDATE fail\n"); \
 } while (0)
-
-
-#define mtk_dfs_set()
 
 #define mtk_dfs_update(clk)	do { \
 	struct dev_pm_opp *opp; \
@@ -851,81 +834,6 @@ unsigned int mtk_dfs_get_cur_freq(void)
 
 #define mtk_dfs_cur() mtk_dfs_get_cur_freq()
 
-#else
-#define mtk_pmqos_remove(module)	\
-	LOG_NOTICE("MTK_SET_PM_QOS is not supported\n")
-
-#define mtk_pmqos_add(dev, module, portID)	\
-	LOG_NOTICE("MTK_SET_PM_QOS is not supported\n")
-
-#define mtk_pmqos_set(module, portID, bw)	\
-	LOG_NOTICE("MTK_SET_PM_QOS is not supported\n")
-
-#define mtk_pmqos_update(module)	\
-	LOG_NOTICE("MTK_SET_PM_QOS is not supported\n")
-
-#define mtk_pmqos_clr(module)		\
-	LOG_NOTICE("MTK_SET_PM_QOS is not supported\n")
-
-#ifndef EP_STAGE
-#define mtk_dfs_add()		\
-	LOG_NOTICE("mtk_dfs_add is not supported\n")
-
-#define mtk_dfs_remove()	\
-	mmdvfs_pm_qos_remove_request(&isp_qos)
-
-#define mtk_dfs_clr()		\
-	mmdvfs_pm_qos_update_request(&isp_qos, \
-				  MMDVFS_PM_QOS_SUB_SYS_CAMERA, 0)
-#define mtk_dfs_set()
-
-#define mtk_dfs_update(clk)	do { \
-	struct dev_pm_opp *opp; \
-	int volt = 0, ret = 0; \
-	opp = dev_pm_opp_find_freq_ceil(mmdvfsDev, &clk); \
-	if (IS_ERR(opp)) \
-		opp = dev_pm_opp_find_freq_floor(mmdvfsDev, &clk); \
-	volt = dev_pm_opp_get_voltage(opp); \
-	dev_pm_opp_put(opp); \
-	ret = regulator_set_voltage(mmdvfsRegulator, volt, INT_MAX);\
-	if (ret) \
-		LOG_NOTICE("Error: E_CLK_UPDATE fail\n"); \
-} while (0)
-
-#define mtk_dfs_supported(frq, step) do { \
-	step = mmdvfs_qos_get_thres_count(&isp_qos, \
-			  MMDVFS_PM_QOS_SUB_SYS_CAMERA); \
-	for (u32 lv = 0; lv < step; lv++) { \
-		frq[lv] = mmdvfs_qos_get_thres_value(&isp_qos, \
-			  MMDVFS_PM_QOS_SUB_SYS_CAMERA, lv); \
-	} \
-} while (0)
-
-#define mtk_dfs_cur() \
-		mmdvfs_qos_get_cur_thres(&isp_qos, \
-					 MMDVFS_PM_QOS_SUB_SYS_CAMERA)
-#else
-#define mtk_dfs_add()	\
-	LOG_NOTICE("MTK_SET_PM_QOS is not supported\n")
-
-#define mtk_dfs_remove()	\
-	LOG_NOTICE("MTK_SET_PM_QOS is not supported\n")
-
-#define mtk_dfs_clr()	\
-	LOG_NOTICE("MTK_SET_PM_QOS is not supported\n")
-
-#define mtk_dfs_set()	\
-	LOG_NOTICE("MTK_SET_PM_QOS is not supported\n")
-
-#define mtk_dfs_update(clk)		\
-	LOG_NOTICE("MTK_SET_PM_QOS is not supported\n")
-
-#define mtk_dfs_supported(frq, step)		\
-	LOG_NOTICE("MTK_SET_PM_QOS is not supported\n")
-
-#define mtk_dfs_cur()	\
-	LOG_NOTICE("MTK_SET_PM_QOS is not supported\n")
-#endif
 #endif
 
 int ISP_SetPMQOS(
@@ -965,7 +873,6 @@ int ISP_SetPMQOS(
 			ptr = (struct ISP_BW *)pvalue;
 			mtk_pmqos_set(module, i, ptr[i]);
 		}
-		//mtk_pmqos_update(module);
 		LOG_DBG(
 			"PM_QoS: module[%d]-bw_update, bw(peak avg)(%d %d) MB/s\n",
 			module, ptr[_rrzo_].peak, ptr[_rrzo_].avg);
@@ -974,31 +881,26 @@ int ISP_SetPMQOS(
 	case E_BW_CLR:
 		if (pvalue[0] == MFALSE) {
 			mtk_pmqos_clr(module);
-			LOG_INF("module:%d bw_clr\n", module);
+			LOG_DBG("module:%d bw_clr\n", module);
 		}
 		break;
 	case E_CLK_ADD:
-		mtk_dfs_add();
-		LOG_INF("DFS_add\n");
 		break;
 	case E_CLK_REMOVE:
-		mtk_dfs_remove();
-		LOG_INF("DFS_remove\n");
 		break;
 	case E_CLK_CLR:
 		mtk_dfs_clr();
-		LOG_INF("DFS_clr\n");
+		LOG_DBG("DFS_clr\n");
 		break;
 	case E_CLK_UPDATE:
 	{
 		unsigned long freq = 0;
 
-		LOG_INF("E_CLK_UPDATE %d MHz", *pvalue);
 		freq = (*(u32 *)pvalue) * 1000000; /* MHz to Hz */
 		mtk_dfs_update(freq);
 		do_div(freq, 1000000); /* Hz to MHz*/
 		target_clk = (u32)freq;
-		LOG_INF("DFS Set clock :%d MHz", target_clk);
+		LOG_INF("DFS Set clock :(%d, %d) MHz\n", *pvalue, target_clk);
 	}
 		break;
 	case E_CLK_SUPPORTED:
@@ -1013,6 +915,10 @@ int ISP_SetPMQOS(
 		u32 *speeds;
 		struct dev_pm_opp *opp;
 		unsigned long freq;
+		#define STR_SIZE (128)
+		char str[STR_SIZE];
+		int c_num = 0;
+		int size_remain = STR_SIZE;
 
 		/* number of available opp */
 		num_available = dev_pm_opp_get_opp_count(mmdvfsDev);
@@ -1042,8 +948,25 @@ int ISP_SetPMQOS(
 		if (num_available > 0)
 			target_clk = pvalue[num_available - 1];
 
-		for (i = 0 ; i < num_available; i++)
-			LOG_INF("2:DFS Clk_%d:%d MHz\n", i, pvalue[i]);
+		for (i = 0 ; i < num_available; i++) {
+			int tmp = 0;
+
+			tmp = snprintf(str + c_num, size_remain,
+				"DFS Clk_%d:%d MHz\n", i, pvalue[i]);
+
+			if (tmp < 0) {
+				LOG_INF("snprintf failed\n");
+				break;
+			}
+			c_num += tmp;
+			size_remain -= tmp;
+
+			if (size_remain <= 0) {
+				LOG_INF("str size is not enough\n");
+				break;
+			}
+		}
+		LOG_INF("%s", str);
 
 		return (int)num_available;
 #endif
@@ -1119,7 +1042,6 @@ int SV_SetPMQOS(
 			ptr = (struct ISP_BW *)pvalue;
 			mtk_pmqos_set(module, i, ptr[i]);
 		}
-		mtk_pmqos_update(module);
 		LOG_DBG(
 			"PM_QoS: module[%d]-bw_update, bw(peak avg)(%d %d) MB/s\n",
 			module, ptr[_camsv_imgo_].peak,
@@ -1129,7 +1051,7 @@ int SV_SetPMQOS(
 	case E_BW_CLR:
 		if (pvalue[0] == MFALSE)
 			mtk_pmqos_clr(module);
-		LOG_INF("module:%d BW_clr\n", module);
+		LOG_DBG("module:%d BW_clr\n", module);
 		break;
 	case E_CLK_UPDATE:
 	{
