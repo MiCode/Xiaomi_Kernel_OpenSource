@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2021 The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "QCOM-STEPCHG: %s: " fmt, __func__
@@ -18,6 +18,7 @@
 
 #define STEP_CHG_VOTER		"STEP_CHG_VOTER"
 #define JEITA_VOTER		"JEITA_VOTER"
+#define JEITA_FCC_SCALE_VOTER	"JEITA_FCC_SCALE_VOTER"
 
 #define is_between(left, right, value) \
 		(((left) >= (right) && (left) >= (value) \
@@ -55,10 +56,15 @@ struct step_chg_info {
 	bool			vbat_avg_based_step_chg;
 	bool			batt_missing;
 	bool			taper_fcc;
+	bool			jeita_fcc_scaling;
 	int			jeita_fcc_index;
 	int			jeita_fv_index;
 	int			step_index;
 	int			get_config_retry_count;
+	int			jeita_last_update_temp;
+	int			jeita_fcc_scaling_temp_threshold[2];
+	long			jeita_max_fcc_ua;
+	long			jeita_fcc_step_size;
 
 	struct step_chg_cfg	*step_chg_config;
 	struct jeita_fcc_cfg	*jeita_fcc_config;
@@ -282,6 +288,7 @@ static int get_step_chg_jeita_setting_from_profile(struct step_chg_info *chip)
 	const char *batt_type_str;
 	const __be32 *handle;
 	int batt_id_ohms, rc, hysteresis[2] = {0};
+	u32 jeita_scaling_min_fcc_ua = 0;
 
 	handle = of_get_property(chip->dev->of_node,
 			"qcom,battery-data", NULL);
@@ -340,6 +347,7 @@ static int get_step_chg_jeita_setting_from_profile(struct step_chg_info *chip)
 		pr_err("max-fastchg-current-ma reading failed, rc=%d\n", rc);
 		return rc;
 	}
+	chip->jeita_max_fcc_ua = max_fcc_ma * 1000;
 
 	chip->taper_fcc = of_property_read_bool(profile_node, "qcom,taper-fcc");
 
@@ -419,6 +427,48 @@ static int get_step_chg_jeita_setting_from_profile(struct step_chg_info *chip)
 		pr_debug("Read qcom,jeita-fv-ranges failed from battery profile, rc=%d\n",
 					rc);
 		chip->sw_jeita_cfg_valid = false;
+	}
+
+	if (of_property_read_bool(profile_node, "qcom,jeita-fcc-scaling")) {
+
+		rc = of_property_read_u32_array(profile_node,
+				"qcom,jeita-fcc-scaling-temp-threshold",
+				chip->jeita_fcc_scaling_temp_threshold, 2);
+		if (rc < 0)
+			pr_debug("Read jeita-fcc-scaling-temp-threshold from battery profile, rc=%d\n",
+				rc);
+
+		rc = of_property_read_u32(profile_node,
+			"qcom,jeita-scaling-min-fcc-ua",
+			&jeita_scaling_min_fcc_ua);
+		if (rc < 0)
+			pr_debug("Read jeita-scaling-min-fcc-ua from battery profile, rc=%d\n",
+				rc);
+
+		if ((jeita_scaling_min_fcc_ua &&
+			(jeita_scaling_min_fcc_ua < chip->jeita_max_fcc_ua)) &&
+			(chip->jeita_fcc_scaling_temp_threshold[0] <
+			chip->jeita_fcc_scaling_temp_threshold[1])) {
+			/*
+			 * Calculate jeita-fcc-step-size =
+			 *	(difference-in-fcc) / ( difference-in-temp)
+			 */
+			chip->jeita_fcc_step_size = div_s64(
+			(chip->jeita_max_fcc_ua - jeita_scaling_min_fcc_ua),
+			(chip->jeita_fcc_scaling_temp_threshold[1] -
+				chip->jeita_fcc_scaling_temp_threshold[0]));
+
+			if (chip->jeita_fcc_step_size > 0)
+				chip->jeita_fcc_scaling = true;
+		}
+
+		pr_debug("jeita-fcc-scaling: enabled = %d, jeita-fcc-scaling-temp-threshold = [%d, %d], jeita-scaling-min-fcc-ua = %ld, jeita-scaling-max_fcc_ua = %ld,jeita-fcc-step-size = %ld\n",
+			chip->jeita_fcc_scaling,
+			chip->jeita_fcc_scaling_temp_threshold[0],
+			chip->jeita_fcc_scaling_temp_threshold[1],
+			jeita_scaling_min_fcc_ua, chip->jeita_max_fcc_ua,
+			chip->jeita_fcc_step_size
+			);
 	}
 
 	return rc;
@@ -674,6 +724,80 @@ update_time:
 	return 0;
 }
 
+static void handle_jeita_fcc_scaling(struct step_chg_info *chip)
+{
+	union power_supply_propval pval = {0, };
+	int fcc_ua = 0, temp_diff = 0, rc;
+	bool first_time_entry;
+
+	if (chip->jeita_fcc_config->param.use_bms) {
+		rc = step_chg_read_iio_prop(chip, QG,
+			chip->jeita_fcc_config->param.iio_prop, &pval.intval);
+		if (rc < 0)
+			pr_err("Failed to read IIO prop %d rc=%d\n",
+				chip->jeita_fcc_config->param.iio_prop, rc);
+	} else {
+		rc = power_supply_get_property(chip->batt_psy,
+				chip->jeita_fcc_config->param.psy_prop, &pval);
+	}
+
+	if (rc < 0) {
+		pr_err("Couldn't read %s property rc=%d\n",
+				chip->jeita_fcc_config->param.prop_name, rc);
+		return;
+	}
+
+	/* Skip mitigation if temp is not within min-max thresholds */
+	if (!is_between(chip->jeita_fcc_scaling_temp_threshold[0],
+		chip->jeita_fcc_scaling_temp_threshold[1], pval.intval)) {
+		pr_debug("jeita-fcc-scaling : Skip jeita scaling, temp out of range temp = %d\n",
+			pval.intval);
+		chip->jeita_last_update_temp = pval.intval;
+		vote(chip->fcc_votable, JEITA_FCC_SCALE_VOTER, false, 0);
+		return;
+	}
+
+	/*
+	 * We determine this is the first time entry to jeita-fcc-scaling if
+	 * jeita_last_update_temp is not within entry/exist thresholds.
+	 */
+	first_time_entry = !is_between(chip->jeita_fcc_scaling_temp_threshold[0]
+		, chip->jeita_fcc_scaling_temp_threshold[1],
+		chip->jeita_last_update_temp);
+
+	/*
+	 * VOTE on FCC only when temp is within hys or if this the very first
+	 * time we crossed the entry threshold.
+	 */
+	if (first_time_entry ||
+		((pval.intval > (chip->jeita_last_update_temp +
+			chip->jeita_fcc_config->param.rise_hys)) ||
+		(pval.intval < (chip->jeita_last_update_temp -
+			chip->jeita_fcc_config->param.fall_hys)))) {
+
+		/*
+		 * New FCC step is calculated as :
+		 *	fcc_ua = (max-fcc - ((current_temp - min-temp) *
+		 *			jeita-step-size))
+		 */
+		temp_diff = pval.intval -
+				chip->jeita_fcc_scaling_temp_threshold[0];
+		fcc_ua = div_s64((chip->jeita_max_fcc_ua -
+			(chip->jeita_fcc_step_size * temp_diff)), 100) * 100;
+
+		vote(chip->fcc_votable, JEITA_FCC_SCALE_VOTER, true, fcc_ua);
+		pr_debug("jeita-fcc-scaling: first_time_entry = %d, max_fcc_ua = %ld, voted_fcc_ua = %d, temp_diff = %d, prev_temp = %d, current_temp = %d\n",
+			first_time_entry, chip->jeita_max_fcc_ua, fcc_ua,
+			temp_diff, chip->jeita_last_update_temp, pval.intval);
+
+		chip->jeita_last_update_temp = pval.intval;
+	} else {
+		pr_debug("jeita-fcc-scaling: Skip jeita mitigation temp within first_time_entry = %d, hys temp = %d, last_updated_temp = %d\n",
+			first_time_entry, pval.intval,
+			chip->jeita_last_update_temp);
+	}
+}
+
 #define JEITA_SUSPEND_HYST_UV		50000
 static int handle_jeita(struct step_chg_info *chip)
 {
@@ -689,6 +813,10 @@ static int handle_jeita(struct step_chg_info *chip)
 	} else {
 		chip->sw_jeita_enable = data;
 	}
+
+	/* Handle jeita-fcc-scaling if enabled */
+	if (chip->jeita_fcc_scaling)
+		handle_jeita_fcc_scaling(chip);
 
 	if (!chip->sw_jeita_enable || !chip->sw_jeita_cfg_valid) {
 		if (chip->fcc_votable)
