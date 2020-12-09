@@ -794,4 +794,13 @@ config QTI_HW_KEY_MANAGER
 	 HWKM hardware to perform key operations from the kernel which will
 	 be used for storage encryption.
 
+config MSM_EXT_DISPLAY
+	bool "MSM External Display Driver"
+	depends on DRM
+	help
+	  Enabling this option adds MSM External Display Driver.
+	  External Display driver was added to support the communication
+	  between external display driver and its counterparts.
+	  This should be enabled to support audio & video over HDMI or
+	  DP for hot pluggable sink devices.
 endmenu

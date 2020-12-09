@@ -14,7 +14,7 @@
 #include <linux/types.h>
 #include <linux/of_platform.h>
 #include <linux/extcon-provider.h>
-#include <linux/msm_ext_display.h>
+#include <linux/soc/qcom/msm_ext_display.h>
 #include <linux/extcon-provider.h>
 
 struct msm_ext_disp_list {
