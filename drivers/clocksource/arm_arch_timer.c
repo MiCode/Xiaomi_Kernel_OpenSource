@@ -1225,15 +1225,9 @@ static bool __init arch_timer_needs_of_probing(void)
 
 static int __init arch_timer_common_init(void)
 {
-	int ret;
-
 	arch_timer_banner(arch_timers_present);
 	arch_counter_register(arch_timers_present);
-	ret = arch_timer_arch_init();
-	if (!ret)
-		clocksource_select_force();
-
-	return ret;
+	return arch_timer_arch_init();
 }
 
 /**
