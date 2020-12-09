@@ -380,9 +380,7 @@ static void scp_A_notify_ws(struct work_struct *ws)
 		scp_ready[SCP_A_ID] = 1;
 
 #if SCP_DVFS_INIT_ENABLE
-#ifdef ULPOSC_CALI_BY_AP
 		sync_ulposc_cali_data_to_scp();
-#endif
 		/* release pll clock after scp ulposc calibration */
 		scp_pll_ctrl_set(PLL_DISABLE, CLK_26M);
 #endif
@@ -402,9 +400,7 @@ static void scp_A_notify_ws(struct work_struct *ws)
 #endif
 	/* register scp dvfs*/
 	msleep(2000);
-#if SCP_RECOVERY_SUPPORT
 	__pm_relax(scp_reset_lock);
-#endif
 	scp_register_feature(RTOS_FEATURE_ID);
 
 }
@@ -580,14 +576,10 @@ int reset_scp(int reset)
 	/* request pll clock before turn on scp */
 	scp_pll_ctrl_set(PLL_ENABLE, CLK_26M);
 #endif
-
-#if SCP_RECOVERY_SUPPORT
 	if (reset & 0x0f) { /* do reset */
 		/* make sure scp is in idle state */
 		scp_reset_wait_timeout();
 	}
-#endif
-
 	if (scp_enable[SCP_A_ID]) {
 		/* write scp reserved memory address/size to GRP1/GRP2
 		 * to let scp setup MPU
@@ -1732,7 +1724,9 @@ static int scp_device_probe(struct platform_device *pdev)
 	pr_debug("[SCP] scpreg.scp_tcmsize = %d\n", scpreg.scp_tcmsize);
 
 	/* scp core 0 */
-	of_property_read_string(pdev->dev.of_node, "core_0", &core_status);
+	if (of_property_read_string(pdev->dev.of_node, "core_0", &core_status))
+		return -1;
+
 	if (strcmp(core_status, "enable") != 0)
 		pr_err("[SCP] core_0 not enable\n");
 	else {
@@ -1794,10 +1788,6 @@ static int scp_device_probe(struct platform_device *pdev)
 		pr_err("[SCP]scp_reserve_memory_ioremap failed\n");
 		return ret;
 	}
-#endif
-
-#if SCP_DVFS_INIT_ENABLE && defined(ULPOSC_CALI_BY_AP)
-	ulposc_cali_init();
 #endif
 
 	return ret;
@@ -1895,12 +1885,9 @@ static int __init scp_init(void)
 
 	/* pll maybe gate, request pll before access any scp reg/sram */
 	scp_pll_ctrl_set(PLL_ENABLE, CLK_26M);
-#endif
-
-#if SCP_DVFS_INIT_ENABLE
 	/* keep Univpll */
 	scp_resource_req(SCP_REQ_26M);
-#endif
+#endif /* SCP_DVFS_INIT_ENABLE */
 
 	if (platform_driver_register(&mtk_scp_device))
 		pr_err("[SCP] scp probe fail\n");
@@ -1989,10 +1976,8 @@ static int __init scp_init(void)
 	reset_scp(SCP_ALL_ENABLE);
 
 #if SCP_DVFS_INIT_ENABLE
-	/* set default VCORE request if SCP DVFS feature is OFF */
-	if (scp_dvfs_flag != 1)
-		scp_vcore_request(CLK_OPP0);
-#endif
+	scp_init_vcore_request();
+#endif /* SCP_DVFS_INIT_ENABLE */
 
 	return ret;
 err:

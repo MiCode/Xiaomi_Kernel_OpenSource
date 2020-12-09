@@ -3,260 +3,338 @@
  * Copyright (c) 2020 MediaTek Inc.
  */
 
-#include <linux/kernel.h>
-#include <linux/module.h>
-#include <linux/sched.h>
-#include <linux/suspend.h>
-#include <linux/init.h>
+#include <linux/arm-smccc.h>
+#include <linux/clk.h>
+#include <linux/clk-provider.h>
 #include <linux/delay.h>
-#include <linux/slab.h>
-#include <linux/proc_fs.h>
-#include <linux/miscdevice.h>
-#include <linux/platform_device.h>
-#include <linux/spinlock.h>
-#include <linux/kthread.h>
-#include <linux/hrtimer.h>
-#include <linux/ktime.h>
-#include <linux/jiffies.h>
 #include <linux/fs.h>
-#include <linux/seq_file.h>
+#include <linux/init.h>
 #include <linux/input.h>
-#include <linux/pm_wakeup.h>
 #include <linux/io.h>
-#include <mt-plat/upmu_common.h>
-#include <mt-plat/mtk_secure_api.h>
-#ifdef CONFIG_OF
+#include <linux/jiffies.h>
+#include <linux/kernel.h>
+#include <linux/ktime.h>
+#include <linux/mfd/syscon.h>
+#include <linux/miscdevice.h>
+#include <linux/module.h>
+#include <linux/platform_device.h>
+#include <linux/pm_wakeup.h>
+#include <linux/printk.h>
+#include <linux/proc_fs.h>
+#include <linux/regmap.h>
+#include <linux/regulator/consumer.h>
+#include <linux/sched.h>
+#include <linux/seq_file.h>
+#include <linux/slab.h>
+#include <linux/soc/mediatek/mtk_sip_svc.h> /* for SMC ID table */
+#include <linux/spinlock.h>
+#include <linux/string.h>
+#include <linux/suspend.h>
+#include <linux/uaccess.h>
+
+#if IS_ENABLED(CONFIG_MFD_MT6397)
+#include <linux/mfd/mt6397/core.h>
+#endif /* IS_ENABLED(CONFIG_MFD_MT6397) */
+
+#if IS_ENABLED(CONFIG_OF)
 #include <linux/of.h>
 #include <linux/of_address.h>
-#endif
-#include <linux/pm_qos.h>
+#include <linux/of_platform.h>
+#endif /* IS_ENABLED(CONFIG_OF) */
 
-#include <linux/uaccess.h>
-#include "scp_ipi_pin.h"
-#include "scp_mbox_layout.h"
+#include "scp_ipi.h"
 #include "scp_helper.h"
 #include "scp_excep.h"
 #include "scp_dvfs.h"
-
-#ifdef CONFIG_MTK_CLKMGR
-#include <mach/mt_clkmgr.h>
-#else
-#include <linux/clk.h>
-#endif
-
-#if !defined(CONFIG_FPGA_EARLY_PORTING)
-#include "mtk_pmic_info.h"
-#include "mtk_pmic_api_buck.h"
-#endif
-
-#include <linux/pm_qos.h>
-#include "helio-dvfsrc-opp.h"
-#include "mtk_secure_api.h"
-#include "clk-fmeter.h"
+#include "scp.h"
 
 #ifdef pr_fmt
 #undef pr_fmt
 #endif
-#define pr_fmt(fmt)	"[scp_dvfs]: " fmt
+#define pr_fmt(fmt)			"[scp_dvfs]: " fmt
 
-#define DRV_Reg32(addr)	readl(addr)
-#define DRV_WriteReg32(addr, val) writel(val, addr)
-#define DRV_SetReg32(addr, val)	DRV_WriteReg32(addr, DRV_Reg32(addr) | (val))
-#define DRV_ClrReg32(addr, val)	DRV_WriteReg32(addr, DRV_Reg32(addr) & ~(val))
+#define DRV_Reg32(addr)			readl(addr)
+#define DRV_WriteReg32(addr, val)	writel(val, addr)
+#define DRV_SetReg32(addr, val) DRV_WriteReg32(addr, DRV_Reg32(addr) | (val))
+#define DRV_ClrReg32(addr, val) DRV_WriteReg32(addr, DRV_Reg32(addr) & ~(val))
 
-#define SCP_ATF_RESOURCE_REQUEST	1
-#define SCP_VCORE_REQ_TO_DVFSRC		1
+#if IS_ENABLED(CONFIG_MFD_MT6397)
+#define pmic_main_chip			mt6397_chip
+#endif
 
+#define PMIC_PHANDLE_NAME		"pmic"
+#define GPIO_PHANDLE_NAME		"gpio"
+#define SCP_CLK_CTRL_PHANDLE_NAME	"scp_clk_ctrl"
+#define TOPCK_PHANDLE_NAME		"topckgen"
+#define APMIX_PHANDLE_NAME		"apmixedsys"
+
+unsigned int scp_ipi_ackdata0, scp_ipi_ackdata1;
 struct ipi_tx_data_t {
 	unsigned int arg1;
 	unsigned int arg2;
 };
 
 /* -1:SCP DVFS OFF, 1:SCP DVFS ON */
-int scp_dvfs_flag = 1;
+static int scp_dvfs_flag = 1;
 
 /*
- * -1: SCP Debug CMD: off,
- * 0-4: SCP DVFS Debug OPP.
+ * 0: SCP Sleep: OFF,
+ * 1: SCP Sleep: ON,
+ * 2: SCP Sleep: sleep without wakeup,
+ * 3: SCP Sleep: force to sleep
  */
-static int scp_dvfs_debug_flag = -1;
-
-/*
- * -1: SCP Req init state,
- * 0: SCP Request Release,
- * 1-4: SCP Request source.
- */
-static int scp_resrc_req_cmd = -1;
 static int scp_resrc_current_req = -1;
 
-static int pre_pll_sel = -1;
-static struct mt_scp_pll_t *mt_scp_pll;
-static struct wakeup_source scp_suspend_lock;
+static struct mt_scp_pll_t mt_scp_pll;
+static struct wakeup_source *scp_suspend_lock;
 static int g_scp_dvfs_init_flag = -1;
 
-static void __iomem *gpio_base;
-#define ADR_GPIO_MODE_OF_SCP_VREQ	(gpio_base + 0x420)
-#define BIT_GPIO_MODE_OF_SCP_VREQ	4
-#define MSK_GPIO_MODE_OF_SCP_VREQ	0x7
+static struct scp_dvfs_hw dvfs;
 
-#if SCP_VCORE_REQ_TO_DVFSRC
-static struct pm_qos_request dvfsrc_scp_vcore_req;
-#endif
+static struct regulator *dvfsrc_vscp_power;
+static struct regulator *reg_vcore;
+static struct regulator *reg_vsram;
 
-unsigned int slp_ipi_ackdata0;
-int slp_ipi_init_done;
-unsigned int sleep_block_cnt[NR_REASONS];
+const char *ulposc_ver[MAX_ULPOSC_VERSION] __initconst = {
+	[ULPOSC_VER_1] = "v1",
+};
 
-#ifdef ULPOSC_CALI_BY_AP
-static void __iomem *ulposc_base;
+const char *clk_dbg_ver[MAX_CLK_DBG_VERSION] __initconst = {
+	[CLK_DBG_VER_1] = "v1",
+};
 
-#define ULPOSC2_CON0 (ulposc_base + 0x2C0)
-#define RG_OSC_CALI_MSK		0x7F
-#define RG_OSC_CALI_SHFT	0
+const char *scp_clk_ver[MAX_SCP_CLK_VERSION] __initconst = {
+	[SCP_CLK_VER_1] = "v1",
+};
 
-#define ULPOSC2_CON1 (ulposc_base + 0x2C4)
-#define ULPOSC2_CON2 (ulposc_base + 0x2C8)
+const char *scp_dvfs_hw_chip_ver[MAX_SCP_DVFS_CHIP_HW] __initconst = {
+	[MT6853] = "mediatek,mt6853",
+};
 
-#define CAL_MIN_VAL		0
-#define CAL_MAX_VAL		RG_OSC_CALI_MSK
-
-/* calibation miss rate, unit: 1% */
-#define CAL_MIS_RATE	5
-
-#define MAX_ULPOSC_CALI_NUM	3
-
-#if defined(CONFIG_MACH_MT6833)
-struct ulposc_cali_t ulposc_cfg[MAX_ULPOSC_CALI_NUM] = {
-	{
-		.freq = CLK_OPP0,
-		.ulposc_rg0 = 0x38a940,
-		.ulposc_rg1 = 0x2900,
-		.ulposc_rg2 = 0x41,
-		.fmeter_id = FREQ_METER_ABIST_AD_OSC_CK_2,
-	},
-	{
-		.freq = CLK_OPP1,
-		.ulposc_rg0 = 0x52a940,
-		.ulposc_rg1 = 0x2900,
-		.ulposc_rg2 = 0x41,
-		.fmeter_id = FREQ_METER_ABIST_AD_OSC_CK_2,
-	},
-	{
-		.freq = CLK_OPP2,
-		.ulposc_rg0 = 0x5ea940,
-		.ulposc_rg1 = 0x2900,
-		.ulposc_rg2 = 0x41,
-		.fmeter_id = FREQ_METER_ABIST_AD_OSC_CK_2,
+struct ulposc_cali_regs cali_regs[MAX_ULPOSC_VERSION] __initdata = {
+	[ULPOSC_VER_1] = {
+		REG_DEFINE(con0, 0x2C0, REG_MAX_MASK, 0)
+		REG_DEFINE(cali, 0x2C0, 0x7FF, 0)
+		REG_DEFINE(con1, 0x2C4, REG_MAX_MASK, 0)
+		REG_DEFINE(con2, 0x2C8, REG_MAX_MASK, 0)
 	},
 };
-#else /* CONFIG_MACH_MT6833 */
-struct ulposc_cali_t ulposc_cfg[MAX_ULPOSC_CALI_NUM] = {
-	{
-		.freq = CLK_OPP0,
-		.ulposc_rg0 = 0x38a940,
-		.ulposc_rg1 = 0x2900,
-		.ulposc_rg2 = 0x40,
-		.fmeter_id = FREQ_METER_ABIST_AD_OSC_CK_2,
-	},
-	{
-		.freq = CLK_OPP1,
-		.ulposc_rg0 = 0x4ea940,
-		.ulposc_rg1 = 0x2900,
-		.ulposc_rg2 = 0x40,
-		.fmeter_id = FREQ_METER_ABIST_AD_OSC_CK_2,
-	},
-	{
-		.freq = CLK_OPP2,
-		.ulposc_rg0 = 0x5aa940,
-		.ulposc_rg1 = 0x2900,
-		.ulposc_rg2 = 0x40,
-		.fmeter_id = FREQ_METER_ABIST_AD_OSC_CK_2,
+
+struct clk_cali_regs clk_dbg_reg[MAX_CLK_DBG_VERSION] __initdata = {
+	[CLK_DBG_VER_1] = {
+		REG_DEFINE(clk_misc_cfg0, 0x140, REG_MAX_MASK, 0)
+		REG_DEFINE_WITH_INIT(meter_div, 0x140, 0xFF, 24, 0, 0)
+
+		REG_DEFINE(clk_dbg_cfg, 0x17C, 0x3, 0)
+		REG_DEFINE_WITH_INIT(fmeter_ck_sel, 0x17C, 0x3, 0, 0, 0)
+		REG_DEFINE_WITH_INIT(abist_clk, 0x17C, 0x3F, 16, 36, 0)
+
+		REG_DEFINE(clk26cali_0, 0x220, REG_MAX_MASK, 0)
+		REG_DEFINE_WITH_INIT(fmeter_en, 0x220, 0x1, 12, 1, 0)
+		REG_DEFINE_WITH_INIT(trigger_cal, 0x220, 0x1, 4, 1, 0)
+
+		REG_DEFINE(clk26cali_1, 0x224, REG_MAX_MASK, 0)
+		REG_DEFINE(cal_cnt, 0x224, 0xFFFF, 0)
+		REG_DEFINE_WITH_INIT(load_cnt, 0x224, 0x3FF, 16, 0x1FF, 0)
 	},
 };
-#endif /* CONFIG_MACH_MT6833 */
-#endif /* ULPOSC_CALI_BY_AP */
 
-void scp_slp_ipi_init(void)
+struct scp_clk_hw scp_clk_hw_regs[MAX_SCP_CLK_VERSION] = {
+	[SCP_CLK_VER_1] = {
+		REG_DEFINE(clk_high_en, 0x4, 0x1, 1)
+		REG_DEFINE(ulposc2_en, 0x6C, 0x1, 5)
+		REG_DEFINE(ulposc2_cg, 0x5C, 0x1, 1)
+		REG_DEFINE(sel_clk, 0x0, 0xF, 8)
+	}
+};
+
+struct scp_pmic_regs scp_pmic_hw_regs[MAX_SCP_DVFS_CHIP_HW] = {
+	[MT6853] = {
+		REG_DEFINE_WITH_INIT(sshub_op_mode, 0x1520, 0x1, 11, 0, 1)
+		REG_DEFINE_WITH_INIT(sshub_op_en, 0x1514, 0x1, 11, 1, 1)
+		REG_DEFINE_WITH_INIT(sshub_op_cfg, 0x151a, 0x1, 11, 1, 1)
+	},
+};
+
+static void slp_ipi_init(void)
 {
 	int ret;
 
 	ret = mtk_ipi_register(&scp_ipidev, IPI_OUT_C_SLEEP_0,
-			NULL, NULL, &slp_ipi_ackdata0);
-	if (ret)
-		pr_err("scp0 sleep ipi_register fail, ret %d\n", ret);
+		NULL, NULL, &scp_ipi_ackdata0);
+	if (ret) {
+		pr_notice("scp0 slp ipi register failed\n");
+		WARN_ON(1);
+	}
 
-	slp_ipi_init_done = 1;
+	if (dvfs.core_nums == 2) {
+		ret = mtk_ipi_register(&scp_ipidev, IPI_OUT_C_SLEEP_1,
+			NULL, NULL, &scp_ipi_ackdata1);
+		if (ret)
+			pr_notice("scp1 slp ipi register failed\n");
+	}
+	if (!ret)
+		dvfs.sleep_init_done = true;
 }
 
-static uint32_t _mt_scp_dvfs_set_test_freq(uint32_t sum)
+static int scp_get_vcore_table(unsigned int gear)
 {
-	uint32_t added_freq = 0;
+	struct arm_smccc_res res;
 
-	if (scp_dvfs_debug_flag == -1)
-		return 0;
+	arm_smccc_smc(MTK_SIP_SCP_DVFS_CONTROL, VCORE_ACQUIRE,
+		gear, 0, 0, 0, 0, 0, &res);
+	if (!(res.a0))
+		return res.a1;
 
-	pr_info("manually set opp = %d\n", scp_dvfs_debug_flag);
-
-	/*
-	 * calculate test feature freq to meet fixed opp level.
-	 */
-	if (scp_dvfs_debug_flag == 0 && sum < CLK_OPP0)
-		added_freq = CLK_OPP0 - sum;
-	else if (scp_dvfs_debug_flag == 1 && sum < CLK_OPP1)
-		added_freq = CLK_OPP1 - sum;
-	else if (scp_dvfs_debug_flag == 2 && sum < CLK_OPP2)
-		added_freq = CLK_OPP2 - sum;
-	else if (scp_dvfs_debug_flag == 3 && sum < CLK_OPP3)
-		added_freq = CLK_OPP3 - sum;
-
-	feature_table[VCORE_TEST_FEATURE_ID].freq =
-		added_freq;
-	pr_info("request freq: %d + %d = %d (MHz)\n",
-			sum,
-			added_freq,
-			sum + added_freq);
-
-	return added_freq;
+	pr_notice("[%s]: should not end here\n", __func__);
+	return -1;
 }
 
 int scp_resource_req(unsigned int req_type)
 {
-	unsigned long ret = 0;
+	struct arm_smccc_res res;
 
-#if SCP_ATF_RESOURCE_REQUEST
 	if (req_type < 0 || req_type >= SCP_REQ_MAX)
-		return ret;
+		return 0;
 
-	ret = mt_secure_call(MTK_SIP_KERNEL_SCP_DVFS_CTRL,
-			req_type,
-			0, 0, 0);
-	if (!ret)
+	arm_smccc_smc(MTK_SIP_SCP_DVFS_CONTROL, RESOURCE_REQ,
+		req_type, 0, 0, 0, 0, 0, &res);
+	if (!res.a0)
 		scp_resrc_current_req = req_type;
-#endif
+	else
+		pr_notice("[%s]: resource request failed, req: %u\n",
+			__func__, req_type);
+
+	return res.a0;
+}
+
+static int scp_reg_update(struct regmap *regmap, struct reg_info *reg, u32 val)
+{
+	u32 mask;
+	int ret = 0;
+
+	if (!reg->msk) {
+		pr_notice("[%s]: reg not support\n", __func__);
+		return -ESCP_REG_NOT_SUPPORTED;
+	}
+	mask = reg->msk << reg->bit;
+	val = (val & reg->msk) << reg->bit;
+
+	if (reg->setclr) {
+		ret = regmap_write(regmap, reg->ofs + 4, mask);
+		ret = regmap_write(regmap, reg->ofs + 2, val);
+	} else {
+		ret = regmap_update_bits(regmap, reg->ofs, mask, val);
+	}
+
+	return ret;
+}
+
+static int scp_reg_read(struct regmap *regmap, struct reg_info *reg, u32 *val)
+{
+	int ret = 0;
+
+	if (!reg->msk) {
+		pr_notice("[%s]: reg not support\n", __func__);
+		return -ESCP_REG_NOT_SUPPORTED;
+	}
+
+	ret = regmap_read(regmap, reg->ofs, val);
+	if (!ret)
+		*val = (*val >> reg->bit) & reg->msk;
+	return ret;
+}
+
+static inline int scp_reg_init(struct regmap *regmap, struct reg_info *reg)
+{
+	return scp_reg_update(regmap, reg, reg->init_config);
+}
+
+static int scp_get_freq_idx(unsigned int clk_opp)
+{
+	int i;
+
+	for (i = 0; i < dvfs.scp_opp_nums; i++)
+		if (clk_opp == dvfs.opp[i].freq)
+			break;
+
+	if (i == dvfs.scp_opp_nums) {
+		pr_notice("no available opp, freq: %u\n", clk_opp);
+		return -EINVAL;
+	}
+
+	return i;
+}
+
+static int scp_update_pmic_vow_lp_mode(bool on)
+{
+	int ret = 0;
+
+	if (on)
+		ret = scp_reg_update(dvfs.pmic_regmap,
+			&dvfs.pmic_regs->_sshub_op_cfg, 1);
+	else
+		ret = scp_reg_update(dvfs.pmic_regmap,
+			&dvfs.pmic_regs->_sshub_op_cfg, 0);
+
+	return ret;
+}
+
+static int scp_set_pmic_vcore(unsigned int cur_freq)
+{
+	int ret = 0;
+#if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
+	int idx = 0;
+	unsigned int ret_vc = 0, ret_vs = 0;
+
+	idx = scp_get_freq_idx(cur_freq);
+	if (idx >= 0 && idx < dvfs.scp_opp_nums) {
+		ret_vc = regulator_set_voltage(reg_vcore,
+				dvfs.opp[idx].tuned_vcore,
+				dvfs.opp[dvfs.scp_opp_nums - 1].vcore + 100000);
+
+		ret_vs = regulator_set_voltage(reg_vsram,
+				dvfs.opp[idx].vsram,
+				dvfs.opp[dvfs.scp_opp_nums - 1].vsram + 100000);
+	} else {
+		ret = -ESCP_DVFS_OPP_OUT_OF_BOUND;
+		pr_notice("[%s]: cur_freq=%d is not supported\n",
+			__func__, cur_freq);
+		WARN_ON(1);
+	}
+
+	if (ret_vc != 0 || ret_vs != 0) {
+		ret = -ESCP_DVFS_PMIC_REGULATOR_FAILED;
+		pr_notice("[%s]: ERROR: scp vcore/vsram setting error, (%d, %d)\n",
+				__func__, ret_vc, ret_vs);
+		WARN_ON(1);
+	}
+
+	/* vcore > 0.6v cannot hold pmic/vcore in lp mode */
+	if (idx < dvfs.vow_lp_en_gear)
+		/* enable VOW low power mode */
+		scp_update_pmic_vow_lp_mode(true);
+	else
+		/* disable VOW low power mode */
+		scp_update_pmic_vow_lp_mode(false);
+#endif /* CONFIG_FPGA_EARLY_PORTING */
+
 	return ret;
 }
 
 uint32_t scp_get_freq(void)
 {
 	uint32_t i;
-	uint32_t sum_core0 = 0;
-	uint32_t sum_core1 = 0;
-	uint32_t return_freq = 0;
 	uint32_t sum = 0;
+	uint32_t return_freq = 0;
 
 	/*
 	 * calculate scp frequence
 	 */
 	for (i = 0; i < NUM_FEATURE_ID; i++) {
-		if (i != VCORE_TEST_FEATURE_ID &&
-				feature_table[i].enable == 1) {
-			if (feature_table[i].sys_id == SCPSYS_CORE0)
-				sum_core0 += feature_table[i].freq;
-			else
-				sum_core1 += feature_table[i].freq;
-		}
+		if (feature_table[i].enable == 1)
+			sum += feature_table[i].freq;
 	}
-
 	/*
 	 * calculate scp sensor frequence
 	 */
@@ -265,70 +343,64 @@ uint32_t scp_get_freq(void)
 			sum += sensor_type_table[i].freq;
 	}
 
-	sum += sum_core0;
-	feature_table[VCORE_TEST_FEATURE_ID].sys_id = SCPSYS_CORE0;
-	if (sum_core1 > sum) {
-		sum = sum_core1;
-		feature_table[VCORE_TEST_FEATURE_ID].sys_id = SCPSYS_CORE1;
+	for (i = 0; i < dvfs.scp_opp_nums; i++) {
+		if (sum <= dvfs.opp[i].freq) {
+			return_freq = dvfs.opp[i].freq;
+			break;
+		}
 	}
-	/*
-	 * added up scp test cmd frequence
-	 */
-	sum += _mt_scp_dvfs_set_test_freq(sum);
 
-	/*pr_debug("[SCP] needed freq sum:%d\n",sum);*/
-	if (sum <= CLK_OPP0)
-		return_freq = CLK_OPP0;
-	else if (sum <= CLK_OPP1)
-		return_freq = CLK_OPP1;
-	else if (sum <= CLK_OPP2)
-		return_freq = CLK_OPP2;
-	else if (sum <= CLK_OPP3)
-		return_freq = CLK_OPP3;
-	else {
-		return_freq = CLK_OPP3;
-		pr_debug("warning: request freq %d > max opp %d\n",
-				sum, CLK_OPP3);
+	if (i == dvfs.scp_opp_nums) {
+		return_freq = dvfs.opp[dvfs.scp_opp_nums - 1].freq;
+		pr_notice("warning: request freq %d > max opp %d\n",
+				sum, return_freq);
 	}
 
 	return return_freq;
 }
 
-void scp_vcore_request(unsigned int clk_opp)
+static void scp_vcore_request(unsigned int clk_opp)
 {
-	pr_debug("%s(%d)\n", __func__, clk_opp);
+	int idx;
+	int ret = 0;
 
-#if SCP_VCORE_REQ_TO_DVFSRC
-	/* DVFSRC_VCORE_REQUEST [31:30]
-	 * 2'b00: scp request 0.55v
-	 * 2'b01: scp request 0.6v
-	 * 2'b10: scp request 0.65v
-	 * 2'b11: scp request 0.725v
-	 */
-	if (clk_opp == CLK_OPP0)
-		pm_qos_update_request(&dvfsrc_scp_vcore_req, 0x0);
-	else if (clk_opp == CLK_OPP1)
-		pm_qos_update_request(&dvfsrc_scp_vcore_req, 0x1);
-	else if (clk_opp == CLK_OPP2)
-		pm_qos_update_request(&dvfsrc_scp_vcore_req, 0x2);
-	else
-		pm_qos_update_request(&dvfsrc_scp_vcore_req, 0x3);
-#endif
+	pr_debug("[%s]: opp(%d)\n", __func__, clk_opp);
 
-	/* SCP to SPM voltage level
-	 * 2'b0000_0000_1000: scp request 0.55v
-	 * 2'b0001_0000_0100: scp request 0.6v
-	 * 2'b0010_0000_0010: scp request 0.65v
-	 * 2'b0011_0000_0001: scp request 0.725v
+	/* SCP vcore request to PMIC */
+	if (dvfs.pmic_sshub_en)
+		ret = scp_set_pmic_vcore(clk_opp);
+
+	idx = scp_get_freq_idx(clk_opp);
+	if (idx < 0) {
+		pr_notice("[%s]: invalid clk_opp %d\n", __func__, clk_opp);
+		WARN_ON(1);
+		return;
+	}
+
+	/* SCP vcore request to DVFSRC
+	 * min & max set to requested Vcore value
+	 * DVFSRC SW will find corresponding idx to process
+	 * if opp[idx].dvfsrc_opp == 0xff, means that
+	 * opp[idx] is not supported by DVFSRC
 	 */
-	if (clk_opp == CLK_OPP0)
-		DRV_WriteReg32(SCP_SCP2SPM_VOL_LV, 0x8);
-	else if (clk_opp == CLK_OPP1)
-		DRV_WriteReg32(SCP_SCP2SPM_VOL_LV, 0x104);
-	else if (clk_opp == CLK_OPP2)
-		DRV_WriteReg32(SCP_SCP2SPM_VOL_LV, 0x202);
-	else
-		DRV_WriteReg32(SCP_SCP2SPM_VOL_LV, 0x301);
+	if (dvfs.opp[idx].dvfsrc_opp != 0xff)
+		ret = regulator_set_voltage(dvfsrc_vscp_power,
+			dvfs.opp[idx].vcore,
+			dvfs.opp[idx].vcore);
+	if (ret) {
+		pr_notice("[%s]: dvfsrc vcore update error, opp: %d, vcore: %u\n",
+			__func__, idx, dvfs.opp[idx].vcore);
+		WARN_ON(1);
+	}
+
+	/* SCP vcore request to SPM */
+	DRV_WriteReg32(SCP_SCP2SPM_VOL_LV, dvfs.opp[idx].spm_opp);
+}
+
+void scp_init_vcore_request(void)
+{
+	if (scp_dvfs_flag != 1)
+		scp_vcore_request(dvfs.opp[0].freq);
 }
 
 /* scp_request_freq
@@ -342,52 +414,53 @@ int scp_request_freq(void)
 	int ret = 0;
 	unsigned long spin_flags;
 	int is_increasing_freq = 0;
-
-	pr_debug("%s()\n", __func__);
+	int opp_idx;
 
 	if (scp_dvfs_flag != 1) {
-		pr_debug("warning: SCP DVFS is OFF\n");
+		pr_debug("[%s]: warning: SCP DVFS is OFF\n", __func__);
 		return 0;
 	}
 
 	/* because we are waiting for scp to update register:scp_current_freq
 	 * use wake lock to prevent AP from entering suspend state
 	 */
-	__pm_stay_awake(&scp_suspend_lock);
+	__pm_stay_awake(scp_suspend_lock);
 
 	if (scp_current_freq != scp_expected_freq) {
-		/* keep scp alive before raise vcore up */
+
 		scp_awake_lock((void *)SCP_A_ID);
 
 		/* do DVS before DFS if increasing frequency */
-		if (scp_current_freq < scp_expected_freq
-				|| scp_current_freq == CLK_UNINIT) {
+		if (scp_current_freq < scp_expected_freq) {
 			scp_vcore_request(scp_expected_freq);
 			is_increasing_freq = 1;
 		}
 
 		/* Request SPM not to turn off mainpll/26M/infra */
 		/* because SCP may park in it during DFS process */
-		scp_resource_req(SCP_REQ_26M | SCP_REQ_IFR | SCP_REQ_SYSPLL1);
+		scp_resource_req(SCP_REQ_26M |
+				SCP_REQ_INFRA |
+				SCP_REQ_SYSPLL);
 
 		/*  turn on PLL if necessary */
 		scp_pll_ctrl_set(PLL_ENABLE, scp_expected_freq);
-		value = scp_expected_freq;
 
 		do {
 			ret = mtk_ipi_send(&scp_ipidev,
-					IPI_OUT_DVFS_SET_FREQ_0,
-					IPI_SEND_WAIT, &value,
-					PIN_OUT_SIZE_DVFS_SET_FREQ_0, 0);
+				IPI_OUT_DVFS_SET_FREQ_0,
+				IPI_SEND_WAIT, &value,
+				PIN_OUT_SIZE_DVFS_SET_FREQ_0, 0);
 			if (ret != IPI_ACTION_DONE)
-				pr_debug("SCP send IPI fail - %d\n", ret);
+				pr_notice("SCP send IPI fail - %d\n", ret);
 
 			mdelay(2);
 			timeout -= 1; /*try 50 times, total about 100ms*/
 			if (timeout <= 0) {
-				pr_err("set freq fail, current(%d) != expect(%d)\n",
+				pr_notice("set freq fail, current(%d) != expect(%d)\n",
 					scp_current_freq, scp_expected_freq);
-				goto fail;
+				__pm_relax(scp_suspend_lock);
+				WARN_ON(1);
+				return -ESCP_DVFS_IPI_FAILED;
 			}
 
 			/* read scp_current_freq again */
@@ -404,31 +477,19 @@ int scp_request_freq(void)
 		if (is_increasing_freq == 0)
 			scp_vcore_request(scp_expected_freq);
 
-		/* release scp to sleep after ap freq drop request */
 		scp_awake_unlock((void *)SCP_A_ID);
 
-		if (scp_expected_freq == (unsigned int)CLK_OPP3)
-			/* request SPM not to turn off 26M/infra */
-			scp_resource_req(SCP_REQ_26M | SCP_REQ_IFR);
+		opp_idx = scp_get_freq_idx(scp_current_freq);
+		if (dvfs.opp[opp_idx].resource_req)
+			scp_resource_req(dvfs.opp[opp_idx].resource_req);
 		else
 			scp_resource_req(SCP_REQ_RELEASE);
 	}
 
-	__pm_relax(&scp_suspend_lock);
+	__pm_relax(scp_suspend_lock);
 	pr_debug("[SCP] succeed to set freq, expect=%d, cur=%d\n",
 			scp_expected_freq, scp_current_freq);
 	return 0;
-
-fail:
-	/* release scp to sleep after ap freq drop request */
-	scp_awake_unlock((void *)SCP_A_ID);
-
-	/* relax AP to allow entering suspend after ap freq drop request */
-	__pm_relax(&scp_suspend_lock);
-
-	WARN_ON(1);
-
-	return -1;
 }
 
 void wait_scp_dvfs_init_done(void)
@@ -445,85 +506,118 @@ void wait_scp_dvfs_init_done(void)
 	}
 }
 
-void scp_pll_mux_set(unsigned int pll_ctrl_flag)
+static int set_scp_clk_mux(unsigned int  pll_ctrl_flag)
 {
 	int ret = 0;
 
-	pr_debug("%s(%d)\n\n", __func__, pll_ctrl_flag);
-
 	if (pll_ctrl_flag == PLL_ENABLE) {
-		ret = clk_prepare_enable(mt_scp_pll->clk_mux);
-		if (ret) {
-			pr_notice("scp dvfs cannot enable clk mux, %d\n", ret);
-			WARN_ON(1);
+		if (!dvfs.pre_mux_en) {
+			ret = clk_prepare_enable(mt_scp_pll.clk_mux);
+			if (ret) {
+				pr_notice("[%s]: clk_prepare_enable failed\n",
+					__func__);
+				WARN_ON(1);
+				return -1;
+			}
+			dvfs.pre_mux_en = true;
 		}
-	} else
-		clk_disable_unprepare(mt_scp_pll->clk_mux);
+	} else if (pll_ctrl_flag == PLL_DISABLE) {
+		clk_disable_unprepare(mt_scp_pll.clk_mux);
+		dvfs.pre_mux_en = false;
+	}
+
+	return 0;
+}
+
+static int __scp_pll_sel_26M(unsigned int pll_ctrl_flag, unsigned int pll_sel)
+{
+	int ret = 0;
+
+	if (pll_sel != CLK_26M)
+		return -EINVAL;
+
+	ret = set_scp_clk_mux(pll_ctrl_flag);
+	if (ret)
+		return ret;
+
+	if (pll_ctrl_flag == PLL_ENABLE)
+		ret = clk_set_parent(mt_scp_pll.clk_mux, mt_scp_pll.clk_pll[0]);
+
+	if (ret) {
+		pr_notice("[%s]: clk_set_parent() failed for 26M\n", __func__);
+		WARN_ON(1);
+	}
+
+	return ret;
 }
 
 int scp_pll_ctrl_set(unsigned int pll_ctrl_flag, unsigned int pll_sel)
 {
+	int idx;
+	int mux_idx = 0;
 	int ret = 0;
 
-	pr_debug("%s(%d, %d)\n", __func__, pll_ctrl_flag, pll_sel);
+	pr_debug("[%s]: (%d, %d)\n", __func__, pll_ctrl_flag, pll_sel);
+
+	if (pll_sel == CLK_26M)
+		return __scp_pll_sel_26M(pll_ctrl_flag, pll_sel);
+
+	idx = scp_get_freq_idx(pll_sel);
+	if (idx < 0) {
+		pr_notice("invalid idx %d\n", idx);
+		WARN_ON(1);
+		return -EINVAL;
+	}
+
+	mux_idx = dvfs.opp[idx].clk_mux;
+
+	if (mux_idx < 0) {
+		pr_notice("invalid mux_idx %d\n", mux_idx);
+		WARN_ON(1);
+		return -EINVAL;
+	}
 
 	if (pll_ctrl_flag == PLL_ENABLE) {
-		if (pre_pll_sel != CLK_OPP3) {
-			ret = clk_prepare_enable(mt_scp_pll->clk_mux);
-			if (ret) {
-				pr_notice("clk_prepare_enable() failed\n");
-				WARN_ON(1);
-			}
-		} else {
-			pr_debug("no need to do clk_prepare_enable()\n");
-		}
-
-		switch (pll_sel) {
-		case CLK_26M:
-		case CLK_OPP0: /* 26 MHz */
-			ret = clk_set_parent(
-					mt_scp_pll->clk_mux,
-					mt_scp_pll->clk_pll0);
-			break;
-		case CLK_OPP1: /* 312 MHz, MAINPLL */
-			ret = clk_set_parent(
-					mt_scp_pll->clk_mux,
-					mt_scp_pll->clk_pll7);
-			break;
-		case CLK_OPP2: /* 364 MHz, MAINPLL */
-			ret = clk_set_parent(
-					mt_scp_pll->clk_mux,
-					mt_scp_pll->clk_pll3);
-			break;
-		case CLK_OPP3: /* 624 MHz, UNIVPLL */
-			ret = clk_set_parent(
-					mt_scp_pll->clk_mux,
-					mt_scp_pll->clk_pll1);
-			break;
-		default:
-			pr_notice("not support opp freq %d\n", pll_sel);
+		ret = set_scp_clk_mux(pll_ctrl_flag);
+		if (ret)
+			return ret;
+		if (idx >= 0 && idx < dvfs.scp_opp_nums
+				&& idx < mt_scp_pll.pll_num)
+			ret = clk_set_parent(mt_scp_pll.clk_mux,
+					mt_scp_pll.clk_pll[mux_idx]);
+		else {
+			pr_notice("[%s]: not support opp freq %d\n",
+				__func__, pll_sel);
 			WARN_ON(1);
-			break;
 		}
 
 		if (ret) {
-			pr_debug("clk_set_parent() failed, opp=%d\n",
-					pll_sel);
+			pr_notice("[%s]: clk_set_parent() failed, opp=%d\n",
+				__func__, pll_sel);
 			WARN_ON(1);
 		}
-
-		if (pre_pll_sel != pll_sel)
-			pre_pll_sel = pll_sel;
-
-	} else if (pll_ctrl_flag == PLL_DISABLE
-				&& pll_sel != CLK_OPP3) {
-		clk_disable_unprepare(mt_scp_pll->clk_mux);
-		pr_debug("clk_disable_unprepare()\n");
-	} else {
-		pr_debug("no need to do clk_disable_unprepare\n");
+	} else if ((pll_ctrl_flag == PLL_DISABLE) &&
+			(dvfs.opp[idx].resource_req == 0)) {
+		set_scp_clk_mux(pll_ctrl_flag);
 	}
-
 	return ret;
+}
+
+void mt_scp_dvfs_state_dump(void)
+{
+	unsigned int scp_state;
+
+	scp_state = readl(SCP_A_SLEEP_DEBUG_REG);
+	pr_info("scp status: %s\n",
+		((scp_state & IN_DEBUG_IDLE) == IN_DEBUG_IDLE) ? "idle mode"
+		: ((scp_state & ENTERING_SLEEP) == ENTERING_SLEEP) ?
+			"enter sleep"
+		: ((scp_state & IN_SLEEP) == IN_SLEEP) ?
+			"sleep mode"
+		: ((scp_state & ENTERING_ACTIVE) == ENTERING_ACTIVE) ?
+			"enter active"
+		: ((scp_state & IN_ACTIVE) == IN_ACTIVE) ?
+			"active mode" : "none of state");
 }
 
 #ifdef CONFIG_PROC_FS
@@ -534,7 +628,7 @@ int scp_pll_ctrl_set(unsigned int pll_ctrl_flag, unsigned int pll_sel)
 /****************************
  * show SCP state
  *****************************/
-static int mt_scp_state_proc_show(struct seq_file *m, void *v)
+static int mt_scp_dvfs_state_proc_show(struct seq_file *m, void *v)
 {
 	unsigned int scp_state;
 
@@ -549,7 +643,226 @@ static int mt_scp_state_proc_show(struct seq_file *m, void *v)
 			"enter active"
 		: ((scp_state & IN_ACTIVE) == IN_ACTIVE) ?
 			"active mode" : "none of state");
+	seq_printf(m, "current debug scp core: %d\n",
+		dvfs.cur_dbg_core);
 	return 0;
+}
+
+/****************************
+ * show SCP count
+ *****************************/
+static int mt_scp_dvfs_sleep_cnt_proc_show(struct seq_file *m, void *v)
+{
+	struct ipi_tx_data_t ipi_data;
+	unsigned int *scp_ack_data = NULL;
+	int ret;
+
+	if (!dvfs.sleep_init_done)
+		slp_ipi_init();
+
+	ipi_data.arg1 = SCP_SLEEP_GET_COUNT;
+	if (dvfs.cur_dbg_core == SCP_CORE_0) {
+		ret = mtk_ipi_send_compl(&scp_ipidev, IPI_OUT_C_SLEEP_0,
+			IPI_SEND_WAIT, &ipi_data, PIN_OUT_C_SIZE_SLEEP_0, 500);
+		scp_ack_data = &scp_ipi_ackdata0;
+	} else if (dvfs.cur_dbg_core == SCP_CORE_1) {
+		ret = mtk_ipi_send_compl(&scp_ipidev, IPI_OUT_C_SLEEP_1,
+			IPI_SEND_WAIT, &ipi_data, PIN_OUT_C_SIZE_SLEEP_1, 500);
+		scp_ack_data = &scp_ipi_ackdata1;
+	} else {
+		pr_notice("[%s]: invalid scp core num: %d\n",
+			__func__, dvfs.cur_dbg_core);
+		return -ESCP_DVFS_DBG_INVALID_CMD;
+	}
+	if (ret != IPI_ACTION_DONE) {
+		pr_notice("[%s] ipi send failed with error: %d\n",
+			__func__, ret);
+		return -ESCP_DVFS_IPI_FAILED;
+	}
+	seq_printf(m, "scp core%d sleep count: %d\n",
+		dvfs.cur_dbg_core, *scp_ack_data);
+	pr_notice("[%s]: scp core%d sleep count :%d\n",
+		__func__, dvfs.cur_dbg_core, *scp_ack_data);
+
+
+	return 0;
+}
+
+/**********************************
+ * write scp dvfs sleep
+ ***********************************/
+static ssize_t mt_scp_dvfs_sleep_cnt_proc_write(
+					struct file *file,
+					const char __user *buffer,
+					size_t count,
+					loff_t *data)
+{
+	char desc[64], cmd[32];
+	unsigned int len = 0;
+	unsigned int ipi_cmd = -1;
+	unsigned int ipi_cmd_size = -1;
+	int ret = 0;
+	int n = 0;
+	struct ipi_tx_data_t ipi_data;
+
+	if (count <= 0)
+		return 0;
+
+	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
+	if (copy_from_user(desc, buffer, len))
+		return 0;
+
+	desc[len] = '\0';
+
+	if (!dvfs.sleep_init_done)
+		slp_ipi_init();
+
+	n = sscanf(desc, "%31s", cmd);
+	if (n != 1) {
+		pr_notice("[%s]: invalid command", __func__);
+		return -ESCP_DVFS_DBG_INVALID_CMD;
+	}
+
+	if (!strcmp(cmd, "reset")) {
+		ipi_data.arg1 = SCP_SLEEP_RESET;
+		if (dvfs.cur_dbg_core == SCP_CORE_0) {
+			ipi_cmd = IPI_OUT_C_SLEEP_0;
+			ipi_cmd_size = PIN_OUT_C_SIZE_SLEEP_0;
+		} else if (dvfs.cur_dbg_core == SCP_CORE_1) {
+			ipi_cmd = IPI_OUT_C_SLEEP_1;
+			ipi_cmd_size = PIN_OUT_C_SIZE_SLEEP_1;
+		} else {
+			pr_notice("[%s]: invalid core index: %d\n",
+				__func__, dvfs.cur_dbg_core);
+			return -ESCP_DVFS_DBG_INVALID_CMD;
+		}
+		ret = mtk_ipi_send(&scp_ipidev, ipi_cmd, IPI_SEND_WAIT,
+			&ipi_data, ipi_cmd_size, 500);
+		if (ret != SCP_IPI_DONE) {
+			pr_info("[%s]: SCP send IPI failed - %d\n",
+				__func__, ret);
+			return -ESCP_DVFS_IPI_FAILED;
+		}
+	} else {
+		pr_notice("[%s]: invalid command: %s\n", cmd);
+		return -ESCP_DVFS_DBG_INVALID_CMD;
+	}
+
+	return count;
+}
+
+/****************************
+ * show scp dvfs sleep
+ *****************************/
+static int mt_scp_dvfs_sleep_proc_show(struct seq_file *m, void *v)
+{
+	struct ipi_tx_data_t ipi_data;
+	unsigned int *scp_ack_data = NULL;
+	int ret = 0;
+
+	if (!dvfs.sleep_init_done)
+		slp_ipi_init();
+
+	ipi_data.arg1 = SCP_SLEEP_GET_DBG_FLAG;
+
+	if (dvfs.cur_dbg_core == SCP_CORE_0) {
+		ret = mtk_ipi_send_compl(&scp_ipidev, IPI_OUT_C_SLEEP_0,
+			IPI_SEND_WAIT, &ipi_data, PIN_OUT_C_SIZE_SLEEP_0, 500);
+		scp_ack_data = &scp_ipi_ackdata0;
+	} else if (dvfs.cur_dbg_core == SCP_CORE_1) {
+		ret = mtk_ipi_send_compl(&scp_ipidev, IPI_OUT_C_SLEEP_1,
+			IPI_SEND_WAIT, &ipi_data, PIN_OUT_C_SIZE_SLEEP_1, 500);
+		scp_ack_data = &scp_ipi_ackdata1;
+	} else {
+		pr_notice("[%s]: invalid scp core index: %d\n",
+			__func__, dvfs.cur_dbg_core);
+		return -ESCP_DVFS_DBG_INVALID_CMD;
+	}
+	if (ret != IPI_ACTION_DONE) {
+		pr_notice("[%s] ipi send failed with error: %d\n",
+			__func__, ret);
+	} else {
+		if (*scp_ack_data >= SCP_SLEEP_OFF &&
+				*scp_ack_data <= SCP_SLEEP_NO_CONDITION)
+			seq_printf(m, "scp sleep flag: %d\n",
+				*scp_ack_data);
+		else
+			seq_printf(m, "invalid sleep flag: %d\n",
+				*scp_ack_data);
+	}
+
+	return 0;
+}
+
+/**********************************
+ * write scp dvfs sleep
+ ***********************************/
+static ssize_t mt_scp_dvfs_sleep_proc_write(
+					struct file *file,
+					const char __user *buffer,
+					size_t count,
+					loff_t *data)
+{
+	char desc[64], cmd[32];
+	unsigned int len = 0;
+	unsigned int ipi_cmd = -1;
+	unsigned int ipi_cmd_size = -1;
+	int ret = 0;
+	int n = 0;
+	int slp_cmd = -1;
+	struct ipi_tx_data_t ipi_data;
+
+	if (count <= 0)
+		return 0;
+
+	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
+	if (copy_from_user(desc, buffer, len))
+		return 0;
+
+	desc[len] = '\0';
+
+	if (!dvfs.sleep_init_done)
+		slp_ipi_init();
+
+	n = sscanf(desc, "%31s %d", cmd, &slp_cmd);
+	if (n != 2) {
+		pr_notice("[%s]: invalid command", __func__);
+		return -ESCP_DVFS_DBG_INVALID_CMD;
+	}
+	if (!strcmp(cmd, "sleep")) {
+		if (slp_cmd < SCP_SLEEP_OFF
+				&& slp_cmd > SCP_SLEEP_NO_CONDITION) {
+			pr_info("[%s]: invalid slp cmd: %d\n",
+				__func__, slp_cmd);
+			return -ESCP_DVFS_DBG_INVALID_CMD;
+		}
+		ipi_data.arg1 = slp_cmd;
+		if (dvfs.cur_dbg_core == SCP_CORE_0) {
+			ipi_cmd = IPI_OUT_C_SLEEP_0;
+			ipi_cmd_size = PIN_OUT_C_SIZE_SLEEP_0;
+		} else if (dvfs.cur_dbg_core == SCP_CORE_1) {
+			ipi_cmd = IPI_OUT_C_SLEEP_1;
+			ipi_cmd_size = PIN_OUT_C_SIZE_SLEEP_1;
+		} else {
+			pr_notice("[%s]: invalid debug core: %d\n",
+				__func__, dvfs.cur_dbg_core);
+		}
+		ret = mtk_ipi_send(&scp_ipidev, ipi_cmd, IPI_SEND_WAIT,
+			&ipi_data, ipi_cmd_size, 500);
+		if (ret != SCP_IPI_DONE) {
+			pr_info("%s: SCP send IPI fail - %d\n",
+				__func__, ret);
+			return -ESCP_DVFS_IPI_FAILED;
+		}
+	} else if (!strcmp(cmd, "dbg_core")) {
+		if (slp_cmd < SCP_MAX_CORE_NUM)
+			dvfs.cur_dbg_core = slp_cmd;
+	} else {
+		pr_notice("[%s]: invalid command: %s\n", cmd);
+		return -ESCP_DVFS_DBG_INVALID_CMD;
+	}
+
+	return count;
 }
 
 /****************************
@@ -593,6 +906,7 @@ static ssize_t mt_scp_dvfs_ctrl_proc_write(
 	char desc[64], cmd[32];
 	unsigned int len = 0;
 	int dvfs_opp;
+	int freq;
 	int n;
 
 	if (count <= 0)
@@ -615,16 +929,61 @@ static ssize_t mt_scp_dvfs_ctrl_proc_write(
 		} else if (!strcmp(cmd, "opp")) {
 			if (dvfs_opp == -1) {
 				pr_info("remove the opp setting of command\n");
-
 				feature_table[VCORE_TEST_FEATURE_ID].freq = 0;
+				scp_deregister_feature(
+						VCORE_TEST_FEATURE_ID);
+			} else if (dvfs_opp >= 0 &&
+					dvfs_opp < dvfs.scp_opp_nums) {
+				uint32_t i;
+				uint32_t sum = 0, added_freq = 0;
 
-				scp_deregister_feature(VCORE_TEST_FEATURE_ID);
+				pr_info("manually set opp = %d\n", dvfs_opp);
 
-				scp_dvfs_debug_flag = dvfs_opp;
-			} else if (dvfs_opp >= 0 && dvfs_opp <= 4) {
-				scp_dvfs_debug_flag = dvfs_opp;
+				/*
+				 * calculate scp frequence
+				 */
+				for (i = 0; i < NUM_FEATURE_ID; i++) {
+					if (i != VCORE_TEST_FEATURE_ID &&
+						feature_table[i].enable == 1)
+						sum += feature_table[i].freq;
+				}
 
-				scp_register_feature(VCORE_TEST_FEATURE_ID);
+				/*
+				 * calculate scp sensor frequence
+				 */
+				for (i = 0; i < NUM_SENSOR_TYPE; i++) {
+					if (sensor_type_table[i].enable == 1)
+						sum +=
+						sensor_type_table[i].freq;
+				}
+
+				for (i = 0; i < dvfs.scp_opp_nums; i++) {
+					freq = dvfs.opp[i].freq;
+
+					if (dvfs_opp == i && sum < freq) {
+						added_freq = freq - sum;
+						break;
+					}
+				}
+
+				for (i = 0; i < NUM_FEATURE_ID; i++)
+					if (VCORE_TEST_FEATURE_ID ==
+						feature_table[i].feature) {
+						feature_table[i].freq =
+							added_freq;
+						pr_notice("[%s]: test freq: %d\n",
+							__func__,
+							feature_table[i].freq);
+						break;
+					}
+
+				pr_debug("request freq: %d + %d = %d (MHz)\n",
+						sum,
+						added_freq,
+						sum + added_freq);
+
+				scp_register_feature(
+						VCORE_TEST_FEATURE_ID);
 			} else {
 				pr_info("invalid opp value %d\n", dvfs_opp);
 			}
@@ -633,255 +992,6 @@ static ssize_t mt_scp_dvfs_ctrl_proc_write(
 		}
 	} else {
 		pr_info("invalid length %d\n", n);
-	}
-
-	return count;
-}
-
-/****************************
- * show scp sleep ctrl0
- *****************************/
-static int mt_scp_sleep_ctrl0_proc_show(struct seq_file *m, void *v)
-{
-	int ret;
-	struct ipi_tx_data_t ipi_data;
-
-	if (!slp_ipi_init_done)
-		scp_slp_ipi_init();
-
-	ipi_data.arg1 = SLP_DBG_CMD_GET_FLAG;
-	ret = mtk_ipi_send_compl(&scp_ipidev, IPI_OUT_C_SLEEP_0,
-		IPI_SEND_WAIT, &ipi_data, PIN_OUT_C_SIZE_SLEEP_0, 500);
-	if (ret != IPI_ACTION_DONE)
-		seq_printf(m, "ipi fail, ret = %d\n", ret);
-	else {
-		if (slp_ipi_ackdata0 >= SCP_SLEEP_OFF &&
-			slp_ipi_ackdata0 <= SLP_DBG_CMD_SET_NO_CONDITION)
-			seq_printf(m, "SCP Sleep flag = %d\n",
-				slp_ipi_ackdata0);
-		else
-			seq_printf(m, "invalid SCP Sleep flag = %d\n",
-				slp_ipi_ackdata0);
-	}
-
-	return 0;
-}
-
-/**********************************
- * write scp sleep ctrl0
- ***********************************/
-static ssize_t mt_scp_sleep_ctrl0_proc_write(
-					struct file *file,
-					const char __user *buffer,
-					size_t count,
-					loff_t *data)
-{
-	char desc[64];
-	unsigned int val = 0;
-	unsigned int len = 0;
-	int ret = 0;
-	struct ipi_tx_data_t ipi_data;
-
-	if (count <= 0)
-		return 0;
-
-	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
-	if (copy_from_user(desc, buffer, len))
-		return 0;
-	desc[len] = '\0';
-
-	if (!slp_ipi_init_done)
-		scp_slp_ipi_init();
-
-	if (kstrtouint(desc, 10, &val) == 0) {
-		if (val >= SCP_SLEEP_OFF &&
-			val <= SCP_SLEEP_NO_CONDITION) {
-			ipi_data.arg1 = val;
-			ret = mtk_ipi_send_compl(&scp_ipidev,
-						IPI_OUT_C_SLEEP_0,
-						IPI_SEND_WAIT,
-						&ipi_data,
-						PIN_OUT_C_SIZE_SLEEP_0,
-						500);
-			if (ret)
-				pr_notice("%s: mtk_ipi_send_compl fail, ret=%d\n",
-					__func__, ret);
-		} else {
-			pr_info("Warning: invalid input value %d\n", val);
-		}
-	} else {
-		pr_info("Warning: invalid input command, val=%d\n", val);
-	}
-
-	return count;
-}
-
-/****************************
- * show scp sleep cnt0
- *****************************/
-static int mt_scp_sleep_cnt0_proc_show(struct seq_file *m, void *v)
-{
-	int ret;
-	struct ipi_tx_data_t ipi_data;
-
-	if (!slp_ipi_init_done)
-		scp_slp_ipi_init();
-
-	ipi_data.arg1 = SLP_DBG_CMD_GET_CNT;
-	ret = mtk_ipi_send_compl(&scp_ipidev, IPI_OUT_C_SLEEP_0,
-		IPI_SEND_WAIT, &ipi_data, PIN_OUT_C_SIZE_SLEEP_0, 500);
-	if (ret != IPI_ACTION_DONE)
-		seq_printf(m, "ipi fail, ret = %d\n", ret);
-	else
-		seq_printf(m, "scp_sleep_cnt = %d\n", slp_ipi_ackdata0);
-
-	return 0;
-}
-
-/**********************************
- * write scp sleep cnt0
- ***********************************/
-static ssize_t mt_scp_sleep_cnt0_proc_write(
-					struct file *file,
-					const char __user *buffer,
-					size_t count,
-					loff_t *data)
-{
-	char desc[64];
-	unsigned int val = 0;
-	unsigned int len = 0;
-	int ret = 0;
-	struct ipi_tx_data_t ipi_data;
-
-	if (!slp_ipi_init_done)
-		scp_slp_ipi_init();
-
-	if (count <= 0)
-		return 0;
-
-	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
-	if (copy_from_user(desc, buffer, len))
-		return 0;
-	desc[len] = '\0';
-
-	if (kstrtouint(desc, 10, &val) == 0) {
-		ipi_data.arg1 = SLP_DBG_CMD_RESET;
-		ret = mtk_ipi_send_compl(&scp_ipidev,
-					IPI_OUT_C_SLEEP_0,
-					IPI_SEND_WAIT,
-					&ipi_data,
-					PIN_OUT_C_SIZE_SLEEP_0,
-					500);
-		if (ret != IPI_ACTION_DONE)
-			pr_notice("%s: mtk_ipi_send_compl fail, ret=%d\n",
-				__func__, ret);
-	} else {
-		pr_info("Warning: invalid input command, val=%d\n", val);
-	}
-
-	return count;
-}
-
-/****************************
- * show scp sleep block reason
- *****************************/
-static int mt_scp_sleep_block_proc_show(struct seq_file *m, void *v)
-{
-	int i;
-	int ret;
-	struct ipi_tx_data_t ipi_data;
-
-	if (!slp_ipi_init_done)
-		scp_slp_ipi_init();
-
-	for (i = 0; i < NR_REASONS; i++) {
-		sleep_block_cnt[i] = 0;
-		ipi_data.arg1 = SLP_DBG_CMD_BLOCK_BY_TIMER_CNT + i;
-
-		ret = mtk_ipi_send_compl(&scp_ipidev, IPI_OUT_C_SLEEP_0,
-			IPI_SEND_WAIT, &ipi_data, PIN_OUT_C_SIZE_SLEEP_0, 500);
-		if (ret != IPI_ACTION_DONE)
-			seq_printf(m, "ipi fail, ret = %d\n", ret);
-		else
-			sleep_block_cnt[i] = slp_ipi_ackdata0;
-	}
-
-	seq_printf(m, "no sleep reasons: tmr=%u, build=%u, sema=%u, lock=%u, ipi=%u, irq=%u, flag=%u, slpbusy=%u, hard1=%u\n",
-		sleep_block_cnt[BY_TIMER], sleep_block_cnt[BY_COMPILER],
-		sleep_block_cnt[BY_SEMAPHORE], sleep_block_cnt[BY_WAKELOCK],
-		sleep_block_cnt[BY_IPI_BUSY], sleep_block_cnt[BY_PENDING_IRQ],
-		sleep_block_cnt[BY_SLP_DISABLED], sleep_block_cnt[BY_SLP_BUSY],
-		sleep_block_cnt[BY_HARD1_BUSY]);
-
-	return 0;
-}
-
-/****************************
- * show scp dvfs request
- *****************************/
-static int mt_scp_resrc_req_proc_show(struct seq_file *m, void *v)
-{
-	if (scp_resrc_req_cmd == -1)
-		seq_puts(m, "SCP Req CMD is not configured yet.\n");
-	else if (scp_resrc_req_cmd == SCP_REQ_RELEASE)
-		seq_puts(m, "SCP Req CMD release\n");
-	else {
-		if ((scp_resrc_req_cmd & SCP_REQ_26M) == SCP_REQ_26M)
-			seq_puts(m, "SCP Req CMD: 26M on\n");
-		if ((scp_resrc_req_cmd & SCP_REQ_IFR) == SCP_REQ_IFR)
-			seq_puts(m, "SCP Req CMD: infra bus on\n");
-		if ((scp_resrc_req_cmd & SCP_REQ_SYSPLL1) == SCP_REQ_SYSPLL1)
-			seq_puts(m, "SCP Req CMD: univpll on\n");
-	}
-
-	seq_printf(m, "scp current req: %d\n", scp_resrc_current_req);
-
-	return 0;
-}
-
-/**********************************
- * write scp dvfs request
- ***********************************/
-static ssize_t mt_scp_resrc_req_proc_write(
-					struct file *file,
-					const char __user *buffer,
-					size_t count,
-					loff_t *data)
-{
-	char desc[64], cmd[8];
-	int req_opp = 0;
-	int len = 0;
-	int ret = 0;
-
-	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
-	if (copy_from_user(desc, buffer, len))
-		return 0;
-	desc[len] = '\0';
-
-	if (sscanf(desc, "%7s %d", cmd, &req_opp) == 2) {
-		if (strcmp(cmd, "req_on")) {
-			pr_info("invalid command %s\n", cmd);
-			return count;
-		}
-
-		if (req_opp >= 0  && req_opp < SCP_REQ_MAX) {
-			if (req_opp != scp_resrc_req_cmd) {
-				pr_info("scp_resrc_req_cmd = %d\n",
-						req_opp);
-
-				ret = scp_resource_req(req_opp);
-				if (ret)
-					pr_notice("%s: SCP send req fail - %d\n",
-						__func__, ret);
-				else
-					scp_resrc_req_cmd = req_opp;
-			} else
-				pr_info("SCP Req CMD  is not changed\n");
-		} else {
-			pr_info("Warning: invalid input value %d\n", req_opp);
-		}
-	} else {
-		pr_info("Warning: invalid input number\n");
 	}
 
 	return count;
@@ -925,12 +1035,10 @@ static const struct file_operations mt_ ## name ## _proc_fops = {\
 
 #define PROC_ENTRY(name)	{__stringify(name), &mt_ ## name ## _proc_fops}
 
-PROC_FOPS_RO(scp_state);
+PROC_FOPS_RO(scp_dvfs_state);
+PROC_FOPS_RW(scp_dvfs_sleep_cnt);
+PROC_FOPS_RW(scp_dvfs_sleep);
 PROC_FOPS_RW(scp_dvfs_ctrl);
-PROC_FOPS_RW(scp_sleep_ctrl0);
-PROC_FOPS_RW(scp_sleep_cnt0);
-PROC_FOPS_RO(scp_sleep_block);
-PROC_FOPS_RW(scp_resrc_req);
 
 static int mt_scp_dvfs_create_procfs(void)
 {
@@ -943,12 +1051,10 @@ static int mt_scp_dvfs_create_procfs(void)
 	};
 
 	const struct pentry entries[] = {
-		PROC_ENTRY(scp_state),
-		PROC_ENTRY(scp_dvfs_ctrl),
-		PROC_ENTRY(scp_sleep_ctrl0),
-		PROC_ENTRY(scp_sleep_cnt0),
-		PROC_ENTRY(scp_sleep_block),
-		PROC_ENTRY(scp_resrc_req),
+		PROC_ENTRY(scp_dvfs_state),
+		PROC_ENTRY(scp_dvfs_sleep_cnt),
+		PROC_ENTRY(scp_dvfs_sleep),
+		PROC_ENTRY(scp_dvfs_ctrl)
 	};
 
 	dir = proc_mkdir("scp_dvfs", NULL);
@@ -973,204 +1079,73 @@ static int mt_scp_dvfs_create_procfs(void)
 #endif /* CONFIG_PROC_FS */
 
 static const struct of_device_id scpdvfs_of_ids[] = {
-	{.compatible = "mediatek,scp_dvfs"},
+	{.compatible = "mediatek,scp_dvfs",},
 	{}
 };
 
-static int mt_scp_dvfs_suspend(struct device *dev)
+static void __init mt_pmic_sshub_init(void)
 {
-	return 0;
-}
+#if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
+	int max_vcore = dvfs.opp[dvfs.scp_opp_nums - 1].tuned_vcore + 100000;
+	int max_vsram = dvfs.opp[dvfs.scp_opp_nums - 1].vsram + 100000;
 
-static int mt_scp_dvfs_resume(struct device *dev)
-{
-	return 0;
-}
+	if (dvfs.pmic_sshub_en) {
+		/* set SCP VCORE voltage */
+		if (regulator_set_voltage(reg_vcore, dvfs.opp[0].tuned_vcore,
+				max_vcore) != 0)
+			pr_notice("Set wrong vcore voltage\n");
 
-static int mt_scp_dvfs_pm_restore_early(struct device *dev)
-{
-	return 0;
-}
-
-#ifdef ULPOSC_CALI_BY_AP
-static void turn_onoff_clk_high(int id, int is_on)
-{
-	pr_debug("%s(%d, %d)\n", __func__, id, is_on);
-
-	if (is_on) {
-		/* turn on ulposc */
-		DRV_SetReg32(CLK_ENABLE, (1 << CLK_HIGH_EN_BIT));
-		if (id == ULPOSC_2)
-			DRV_ClrReg32(CLK_ON_CTRL, (1 << HIGH_CORE_DIS_SUB_BIT));
-
-		/* wait settle time */
-		udelay(150);
-
-		/* turn on CG */
-		if (id == ULPOSC_2)
-			DRV_SetReg32(CLK_HIGH_CORE, (1 << HIGH_CORE_CG_BIT));
-		else
-			DRV_SetReg32(CLK_ENABLE, (1 << CLK_HIGH_CG_BIT));
-	} else {
-		/* turn off CG */
-		if (id == ULPOSC_2)
-			DRV_ClrReg32(CLK_HIGH_CORE, (1 << HIGH_CORE_CG_BIT));
-		else
-			DRV_ClrReg32(CLK_ENABLE, (1 << CLK_HIGH_CG_BIT));
-
-		udelay(50);
-
-		/* turn off ULPOSC */
-		if (id == ULPOSC_2)
-			DRV_SetReg32(CLK_ON_CTRL, (1 << HIGH_CORE_DIS_SUB_BIT));
-		else
-			DRV_ClrReg32(CLK_ENABLE, (1 << CLK_HIGH_EN_BIT));
+		/* set SCP VSRAM voltage */
+		if (regulator_set_voltage(reg_vsram, dvfs.opp[0].vsram,
+				max_vsram) != 0)
+			pr_notice("Set wrong vsram voltage\n");
 	}
 
-	udelay(50);
-}
+	scp_reg_init(dvfs.pmic_regmap, &dvfs.pmic_regs->_sshub_op_mode);
+	scp_reg_init(dvfs.pmic_regmap, &dvfs.pmic_regs->_sshub_op_en);
+	scp_reg_init(dvfs.pmic_regmap, &dvfs.pmic_regs->_sshub_op_cfg);
 
-static void set_ulposc_cali_value(unsigned int cali_val)
-{
-	unsigned int val;
 
-	val = DRV_Reg32(ULPOSC2_CON0) & ~(RG_OSC_CALI_MSK << RG_OSC_CALI_SHFT);
-	val = (val | ((cali_val & RG_OSC_CALI_MSK) << RG_OSC_CALI_SHFT));
-	DRV_WriteReg32(ULPOSC2_CON0, val);
-
-	udelay(50);
-}
-
-static unsigned int ulposc_cali_process(int idx)
-{
-	unsigned int target_val = 0, current_val = 0;
-	unsigned int min = CAL_MIN_VAL, max = CAL_MAX_VAL, middle;
-	unsigned int diff_by_min = 0, diff_by_max = 0xffff;
-	unsigned int cal_result = 0;
-
-	target_val = ulposc_cfg[idx].freq * 1000;
-
-	do {
-		middle = (min + max) / 2;
-		if (middle == min) {
-			pr_debug("middle(%d) == min(%d)\n", middle, min);
-			break;
-		}
-
-		set_ulposc_cali_value(middle);
-		current_val = mt_get_abist_freq(ulposc_cfg[idx].fmeter_id);
-
-		if (current_val > target_val)
-			max = middle;
-		else
-			min = middle;
-	} while (min <= max);
-
-	set_ulposc_cali_value(min);
-	current_val = mt_get_abist_freq(ulposc_cfg[idx].fmeter_id);
-	if (current_val > target_val)
-		diff_by_min = current_val - target_val;
-	else
-		diff_by_min = target_val - current_val;
-
-	set_ulposc_cali_value(max);
-	current_val = mt_get_abist_freq(ulposc_cfg[idx].fmeter_id);
-	if (current_val > target_val)
-		diff_by_max = current_val - target_val;
-	else
-		diff_by_max = target_val - current_val;
-
-	if (diff_by_min < diff_by_max)
-		cal_result = min;
-	else
-		cal_result = max;
-
-	set_ulposc_cali_value(cal_result);
-	current_val = mt_get_abist_freq(ulposc_cfg[idx].fmeter_id);
-
-	/* check if calibrated value is in the range of target value +- 4% */
-	if ((current_val < (target_val * (100 - CAL_MIS_RATE) / 100)) ||
-		(current_val > (target_val * (100 + CAL_MIS_RATE) / 100))) {
-		pr_notice("calibration fail, target=%dMHz, calibrated=%dMHz\n",
-				target_val/1000, current_val/1000);
-		return 0;
+	if (dvfs.pmic_sshub_en) {
+		if (regulator_enable(reg_vcore) != 0)
+			pr_notice("Enable vcore failed!!!\n");
+		if (regulator_enable(reg_vsram) != 0)
+			pr_notice("Enable vsram failed!!!\n");
 	}
-
-	pr_info("calibration done, target=%dMHz, calibrated=%dMHz\n",
-				target_val/1000, current_val/1000);
-
-	return cal_result;
-}
-
-void ulposc_cali_init(void)
-{
-	struct device_node *node;
-	int i;
-
-	pr_info("%s\n", __func__);
-
-	/* get ULPOSC base address */
-	node = of_find_compatible_node(NULL, NULL,
-			"mediatek,mt6853-apmixedsys");
-	if (!node) {
-		pr_notice("error: can't find apmixedsys node\n");
-		WARN_ON(1);
-		return;
-	}
-
-	ulposc_base = of_iomap(node, 0);
-	if (!ulposc_base) {
-		pr_notice("error: iomap fail for ulposc_base\n");
-		WARN_ON(1);
-		return;
-	}
-
-	for (i = 0; i < MAX_ULPOSC_CALI_NUM; i++) {
-		/* turn off ULPOSC2 */
-		turn_onoff_clk_high(ULPOSC_2, 0);
-
-		/* init ULPOSC RGs */
-		DRV_WriteReg32(ULPOSC2_CON0, ulposc_cfg[i].ulposc_rg0);
-		DRV_WriteReg32(ULPOSC2_CON1, ulposc_cfg[i].ulposc_rg1);
-		DRV_WriteReg32(ULPOSC2_CON2, ulposc_cfg[i].ulposc_rg2);
-
-		/* turn on ULPOSC2 */
-		turn_onoff_clk_high(ULPOSC_2, 1);
-
-		pr_debug("ULPOSC2: CON0=0x%x, CON1=0x%x, CON2=0x%x\n",
-			DRV_Reg32(ULPOSC2_CON0),
-			DRV_Reg32(ULPOSC2_CON1),
-			DRV_Reg32(ULPOSC2_CON2));
-
-		ulposc_cfg[i].cali_val = (unsigned short)ulposc_cali_process(i);
-		if (!ulposc_cfg[i].cali_val) {
-			pr_notice("Error: calibrate ULPOSC2 to %dM fail\n",
-					ulposc_cfg[i].freq);
-			break;
-		}
-	}
-
-	/* turn off ULPOSC2 */
-	turn_onoff_clk_high(ULPOSC_2, 0);
+#endif
 }
 
 void sync_ulposc_cali_data_to_scp(void)
 {
-	int i, ret;
+	unsigned int sel_clk = 0;
 	unsigned int ipi_data[2];
-	unsigned short *ptrTmp = (unsigned short *)&ipi_data[1];
+	unsigned short *p = (unsigned short *)&ipi_data[1];
+	int i, ret;
 
-	if (!slp_ipi_init_done)
-		scp_slp_ipi_init();
+	if (!dvfs.ulposc_hw.do_ulposc_cali) {
+		pr_notice("[%s]: ulposc2 calibration is not done by AP\n",
+			__func__);
+		return;
+	}
 
-	ipi_data[0] = SLP_DBG_CMD_ULPOSC_CALI_VAL;
+	if (dvfs.ulposc_hw.cali_failed) {
+		pr_notice("[%s]: ulposc2 calibration failed\n", __func__);
+		return;
+	}
 
-	for (i = 0; i < MAX_ULPOSC_CALI_NUM; i++) {
-		*ptrTmp = ulposc_cfg[i].freq;
-		*(ptrTmp+1) = ulposc_cfg[i].cali_val;
+	if (!dvfs.sleep_init_done)
+		slp_ipi_init();
 
-		pr_info("ipi to scp: freq=%d, cali_val=0x%x\n",
-			ulposc_cfg[i].freq, ulposc_cfg[i].cali_val);
+	ipi_data[0] = SCP_SYNC_ULPOSC_CALI;
+
+	for (i = 0; i < dvfs.ulposc_hw.cali_nums; i++) {
+		*p = dvfs.ulposc_hw.cali_freq[i];
+		*(p + 1) = dvfs.ulposc_hw.cali_val[i];
+
+		pr_notice("[%s]: ipi to scp: freq=%d, cali_val=0x%x\n",
+			__func__,
+			dvfs.ulposc_hw.cali_freq[i],
+			dvfs.ulposc_hw.cali_val[i]);
 
 		ret = mtk_ipi_send_compl(&scp_ipidev,
 					IPI_OUT_C_SLEEP_0,
@@ -1179,125 +1154,897 @@ void sync_ulposc_cali_data_to_scp(void)
 					PIN_OUT_C_SIZE_SLEEP_0,
 					500);
 		if (ret != IPI_ACTION_DONE) {
-			pr_notice("mtk_ipi_send_compl ULPOSC2_CALI_VAL(%d,%d) fail\n",
-					ulposc_cfg[i].freq,
-					ulposc_cfg[i].cali_val);
+			pr_notice("[%s]: ipi send ulposc cali val(%d, 0x%x) fail\n",
+				__func__,
+				dvfs.ulposc_hw.cali_freq[i],
+				dvfs.ulposc_hw.cali_val[i]);
 			WARN_ON(1);
 		}
 	}
 
-	/* check if SCP clock is switched to ULPOSC */
-	if ((((DRV_Reg32(CLK_SW_SEL)>>CLK_SW_SEL_O_BIT) & CLK_SW_SEL_O_MASK) &
-		 (CLK_SW_SEL_O_ULPOSC_CORE | CLK_SW_SEL_O_ULPOSC_PERI)) == 0) {
-		pr_notice("Error: SCP clock is not switched to ULPOSC, CLK_SW_SEL=0x%x\n",
-			DRV_Reg32(CLK_SW_SEL));
+	scp_reg_read(dvfs.clk_hw->scp_clk_regmap,
+		&dvfs.clk_hw->_sel_clk, &sel_clk);
+	if ((sel_clk & (SCP_ULPOSC_SEL_CORE | SCP_ULPOSC_SEL_PERI)) == 0) {
+		pr_notice("[%s]:ERROR scp is not switched to ULPOSC, CLK_SW_SEL=0x%x\n",
+			__func__, sel_clk);
 		WARN_ON(1);
 	}
 }
-#endif /* ULPOSC_CALI_BY_AP */
 
-static int mt_scp_dvfs_pdrv_probe(struct platform_device *pdev)
+static inline bool __init is_ulposc_cali_pass(unsigned int cur,
+		unsigned int target)
 {
-	struct device_node *node;
-	unsigned int gpio_mode;
+	if (cur > (target * (1000 - CALI_MIS_RATE) / 1000)
+			&& cur < (target * (1000 + CALI_MIS_RATE) / 1000))
+		return 1;
 
-	pr_notice("%s()\n", __func__);
+	/* calibrated failed here */
+	pr_notice("[%s]: cur: %dMHz, target: %dMHz calibrate failed\n",
+		__func__,
+		(cur * 26) / CALI_DIV_VAL,
+		(target * 26) / CALI_DIV_VAL);
+	return 0;
+}
 
-	node = of_find_matching_node(NULL, scpdvfs_of_ids);
-	if (!node) {
-		dev_notice(&pdev->dev, "fail to find SCPDVFS node\n");
-		WARN_ON(1);
-	}
+static unsigned int __init get_ulposc_clk_by_fmeter(void)
+{
+	unsigned int i = 0, result = 0;
+	unsigned int misc_org, dbg_org, cali0_org, cali1_org;
+	unsigned int measure_done = 0;
+	int is_fmeter_timeout = 0;
 
-	mt_scp_pll = kzalloc(sizeof(struct mt_scp_pll_t), GFP_KERNEL);
-	if (mt_scp_pll == NULL)
-		return -ENOMEM;
+	/* backup regsiters */
+	scp_reg_read(dvfs.ulposc_hw.topck_regmap,
+		&dvfs.ulposc_hw.clkdbg_regs->_clk_misc_cfg0, &misc_org);
+	scp_reg_read(dvfs.ulposc_hw.topck_regmap,
+		&dvfs.ulposc_hw.clkdbg_regs->_clk_dbg_cfg, &dbg_org);
+	scp_reg_read(dvfs.ulposc_hw.topck_regmap,
+		&dvfs.ulposc_hw.clkdbg_regs->_clk26cali_0, &cali0_org);
+	scp_reg_read(dvfs.ulposc_hw.topck_regmap,
+		&dvfs.ulposc_hw.clkdbg_regs->_clk26cali_1, &cali1_org);
 
-	mt_scp_pll->clk_mux = devm_clk_get(&pdev->dev, "clk_mux");
-	if (IS_ERR(mt_scp_pll->clk_mux)) {
-		dev_notice(&pdev->dev, "cannot get clock mux\n");
-	    WARN_ON(1);
-		return PTR_ERR(mt_scp_pll->clk_mux);
-	}
+	/* set load cnt */
+	scp_reg_update(dvfs.ulposc_hw.topck_regmap,
+		&dvfs.ulposc_hw.clkdbg_regs->_load_cnt,
+		dvfs.ulposc_hw.clkdbg_regs->_load_cnt.init_config);
 
-	mt_scp_pll->clk_pll0 = devm_clk_get(&pdev->dev, "clk_pll_0");
-	if (IS_ERR(mt_scp_pll->clk_pll0)) {
-		dev_notice(&pdev->dev, "cannot get 1st clock parent\n");
-	    WARN_ON(1);
-		return PTR_ERR(mt_scp_pll->clk_pll0);
-	}
-	mt_scp_pll->clk_pll1 = devm_clk_get(&pdev->dev, "clk_pll_1");
-	if (IS_ERR(mt_scp_pll->clk_pll1)) {
-		dev_notice(&pdev->dev, "cannot get 2nd clock parent\n");
-	    WARN_ON(1);
-		return PTR_ERR(mt_scp_pll->clk_pll1);
-	}
-	mt_scp_pll->clk_pll2 = devm_clk_get(&pdev->dev, "clk_pll_2");
-	if (IS_ERR(mt_scp_pll->clk_pll2)) {
-		dev_notice(&pdev->dev, "cannot get 3rd clock parent\n");
-	    WARN_ON(1);
-		return PTR_ERR(mt_scp_pll->clk_pll2);
-	}
-	mt_scp_pll->clk_pll3 = devm_clk_get(&pdev->dev, "clk_pll_3");
-	if (IS_ERR(mt_scp_pll->clk_pll3)) {
-		dev_notice(&pdev->dev, "cannot get 4th clock parent\n");
-	    WARN_ON(1);
-		return PTR_ERR(mt_scp_pll->clk_pll3);
-	}
-	mt_scp_pll->clk_pll4 = devm_clk_get(&pdev->dev, "clk_pll_4");
-	if (IS_ERR(mt_scp_pll->clk_pll4)) {
-		dev_notice(&pdev->dev, "cannot get 5th clock parent\n");
-	    WARN_ON(1);
-		return PTR_ERR(mt_scp_pll->clk_pll4);
-	}
-	mt_scp_pll->clk_pll5 = devm_clk_get(&pdev->dev, "clk_pll_5");
-	if (IS_ERR(mt_scp_pll->clk_pll5)) {
-		dev_notice(&pdev->dev, "cannot get 6th clock parent\n");
-	    WARN_ON(1);
-		return PTR_ERR(mt_scp_pll->clk_pll5);
-	}
-	mt_scp_pll->clk_pll6 = devm_clk_get(&pdev->dev, "clk_pll_6");
-	if (IS_ERR(mt_scp_pll->clk_pll6)) {
-		dev_notice(&pdev->dev, "cannot get 7th clock parent\n");
-	    WARN_ON(1);
-		return PTR_ERR(mt_scp_pll->clk_pll6);
-	}
-	mt_scp_pll->clk_pll7 = devm_clk_get(&pdev->dev, "clk_pll_7");
-	if (IS_ERR(mt_scp_pll->clk_pll7)) {
-		dev_notice(&pdev->dev, "cannot get 8th clock parent\n");
-	    WARN_ON(1);
-		return PTR_ERR(mt_scp_pll->clk_pll7);
-	}
+	/* select meter clock input CLK_DBG_CFG[1:0] = 0x0 */
+	scp_reg_update(dvfs.ulposc_hw.topck_regmap,
+		&dvfs.ulposc_hw.clkdbg_regs->_fmeter_ck_sel,
+		dvfs.ulposc_hw.clkdbg_regs->_fmeter_ck_sel.init_config);
 
-	/* get GPIO base address */
-	node = of_find_compatible_node(NULL, NULL, "mediatek,gpio");
-	if (!node) {
-		pr_notice("error: can't find GPIO node\n");
-		WARN_ON(1);
-		return 0;
+	/* select clock source CLK_DBG_CFG[21:16] */
+	scp_reg_update(dvfs.ulposc_hw.topck_regmap,
+		&dvfs.ulposc_hw.clkdbg_regs->_abist_clk,
+		dvfs.ulposc_hw.clkdbg_regs->_abist_clk.init_config);
+
+	/* select meter div CLK_MISC_CFG_0[31:24] = 0x3 for div 1 */
+	scp_reg_update(dvfs.ulposc_hw.topck_regmap,
+		&dvfs.ulposc_hw.clkdbg_regs->_meter_div,
+		dvfs.ulposc_hw.clkdbg_regs->_meter_div.init_config);
+
+	/* enable fmeter */
+	scp_reg_update(dvfs.ulposc_hw.topck_regmap,
+		&dvfs.ulposc_hw.clkdbg_regs->_fmeter_en,
+		dvfs.ulposc_hw.clkdbg_regs->_fmeter_en.init_config);
+
+	/* trigger fmeter to start measure */
+	scp_reg_update(dvfs.ulposc_hw.topck_regmap,
+		&dvfs.ulposc_hw.clkdbg_regs->_trigger_cal,
+		dvfs.ulposc_hw.clkdbg_regs->_trigger_cal.init_config);
+
+	scp_reg_read(dvfs.ulposc_hw.topck_regmap,
+		&dvfs.ulposc_hw.clkdbg_regs->_trigger_cal, &measure_done);
+
+	/* wait for frequency measurement done */
+	while (measure_done) {
+		i++;
+		udelay(10);
+		if (i > 40000) {
+			is_fmeter_timeout = 1;
+			break;
+		}
+		scp_reg_read(dvfs.ulposc_hw.topck_regmap,
+			&dvfs.ulposc_hw.clkdbg_regs->_trigger_cal,
+			&measure_done);
 	}
 
-	gpio_base = of_iomap(node, 0);
-	if (!gpio_base) {
-		pr_notice("error: iomap fail for GPIO\n");
-		WARN_ON(1);
-		return 0;
+	/* disable fmeter */
+	scp_reg_update(dvfs.ulposc_hw.topck_regmap,
+		&dvfs.ulposc_hw.clkdbg_regs->_fmeter_en,
+		!dvfs.ulposc_hw.clkdbg_regs->_fmeter_en.init_config);
+
+	/* get fmeter result */
+	if (!is_fmeter_timeout) {
+		scp_reg_read(dvfs.ulposc_hw.topck_regmap,
+			&dvfs.ulposc_hw.clkdbg_regs->_cal_cnt,
+			&result);
+	} else {
+		result = 0;
 	}
 
-	/* check if GPIO is configured correctly for SCP VREQ */
-	gpio_mode = (DRV_Reg32(ADR_GPIO_MODE_OF_SCP_VREQ) >>
-				 BIT_GPIO_MODE_OF_SCP_VREQ) &
-				 MSK_GPIO_MODE_OF_SCP_VREQ;
-	if (gpio_mode == 1)
-		pr_debug("v_req muxpin setting is correct\n");
-	else {
-		pr_notice("wrong V_REQ muxpin setting - %d\n", gpio_mode);
-	    WARN_ON(1);
+	/* restore freq meter registers */
+	scp_reg_update(dvfs.ulposc_hw.topck_regmap,
+		&dvfs.ulposc_hw.clkdbg_regs->_clk_misc_cfg0, misc_org);
+	scp_reg_update(dvfs.ulposc_hw.topck_regmap,
+		&dvfs.ulposc_hw.clkdbg_regs->_clk_dbg_cfg, dbg_org);
+	scp_reg_update(dvfs.ulposc_hw.topck_regmap,
+		&dvfs.ulposc_hw.clkdbg_regs->_clk26cali_0, cali0_org);
+	scp_reg_update(dvfs.ulposc_hw.topck_regmap,
+		&dvfs.ulposc_hw.clkdbg_regs->_clk26cali_1, cali1_org);
+
+	return result;
+}
+
+static void __init set_ulposc_cali_value(unsigned int cali_val)
+{
+	int ret = 0;
+
+	ret = scp_reg_update(dvfs.ulposc_hw.apmixed_regmap,
+		&dvfs.ulposc_hw.ulposc_regs->_cali,
+		cali_val);
+
+	udelay(50);
+}
+
+static int __init ulposc_cali_process(unsigned int cali_idx,
+		unsigned short *cali_res)
+{
+	unsigned int target_val = 0, current_val = 0;
+	unsigned int min = CAL_MIN_VAL, max = CAL_MAX_VAL, mid;
+	unsigned int diff_by_min = 0, diff_by_max = 0xffff;
+
+	target_val = dvfs.ulposc_hw.cali_freq[cali_idx] * CALI_DIV_VAL / 26;
+
+	do {
+		mid = (min + max) / 2;
+		if (mid == min) {
+			pr_debug("mid(%u) == min(%u)\n", mid, min);
+			break;
+		}
+
+		set_ulposc_cali_value(mid);
+		current_val = get_ulposc_clk_by_fmeter();
+
+		if (current_val > target_val)
+			max = mid;
+		else
+			min = mid;
+	} while (min <= max);
+
+	set_ulposc_cali_value(min);
+	current_val = get_ulposc_clk_by_fmeter();
+	diff_by_min = (current_val > target_val) ?
+		(current_val - target_val):(target_val - current_val);
+
+	set_ulposc_cali_value(max);
+	current_val = get_ulposc_clk_by_fmeter();
+	diff_by_max = (current_val > target_val) ?
+		(current_val - target_val):(target_val - current_val);
+
+	*cali_res = (diff_by_min < diff_by_max) ? min : max;
+
+	set_ulposc_cali_value(*cali_res);
+	current_val = get_ulposc_clk_by_fmeter();
+	if (!is_ulposc_cali_pass(current_val, target_val)) {
+		pr_notice("[%s]: calibration failed for: %dMHz\n",
+			__func__,
+			dvfs.ulposc_hw.cali_freq[cali_idx]);
+		*cali_res = 0;
+		return -ESCP_DVFS_CALI_FAILED;
 	}
 
-	g_scp_dvfs_init_flag = 1;
+	pr_notice("[%s]: target: %uMhz, calibrated = %uMHz\n",
+		__func__,
+		(target_val * 26) / CALI_DIV_VAL,
+		(current_val * 26) / CALI_DIV_VAL);
 
 	return 0;
+}
+
+static void turn_onoff_ulposc2(enum ulposc_onoff_enum on)
+{
+	if (on) {
+		/* turn on ulposc */
+		scp_reg_update(dvfs.clk_hw->scp_clk_regmap,
+			&dvfs.clk_hw->_clk_high_en, on);
+		scp_reg_update(dvfs.clk_hw->scp_clk_regmap,
+			&dvfs.clk_hw->_ulposc2_en, !on);
+
+		/* wait settle time */
+		udelay(150);
+
+		scp_reg_update(dvfs.clk_hw->scp_clk_regmap,
+			&dvfs.clk_hw->_ulposc2_cg, on);
+	} else {
+		scp_reg_update(dvfs.clk_hw->scp_clk_regmap,
+			&dvfs.clk_hw->_ulposc2_cg, on);
+		udelay(50);
+		scp_reg_update(dvfs.clk_hw->scp_clk_regmap,
+			&dvfs.clk_hw->_ulposc2_en, !on);
+	}
+	udelay(50);
+}
+
+static int __init mt_scp_dvfs_do_ulposc_cali_process(void)
+{
+	int ret = 0;
+	unsigned int i;
+
+	if (!dvfs.ulposc_hw.do_ulposc_cali) {
+		pr_notice("[%s]: ulposc2 calibration is not done by AP\n",
+			__func__);
+		return 0;
+	}
+
+	for (i = 0; i < dvfs.ulposc_hw.cali_nums; i++) {
+		turn_onoff_ulposc2(ULPOSC_OFF);
+
+		ret += scp_reg_update(dvfs.ulposc_hw.apmixed_regmap,
+			&dvfs.ulposc_hw.ulposc_regs->_con0,
+			dvfs.ulposc_hw.cali_configs[i].con0_val);
+		ret += scp_reg_update(dvfs.ulposc_hw.apmixed_regmap,
+			&dvfs.ulposc_hw.ulposc_regs->_con1,
+			dvfs.ulposc_hw.cali_configs[i].con1_val);
+		ret += scp_reg_update(dvfs.ulposc_hw.apmixed_regmap,
+			&dvfs.ulposc_hw.ulposc_regs->_con2,
+			dvfs.ulposc_hw.cali_configs[i].con2_val);
+		if (ret) {
+			pr_notice("[%s]: config ulposc register failed\n",
+				__func__);
+			return ret;
+		}
+
+		turn_onoff_ulposc2(ULPOSC_ON);
+
+		ret = ulposc_cali_process(i, &dvfs.ulposc_hw.cali_val[i]);
+		if (ret) {
+			pr_notice("[%s]: cali %uMHz ulposc failed\n",
+				__func__, dvfs.ulposc_hw.cali_freq[i]);
+			dvfs.ulposc_hw.cali_failed = true;
+			return -ESCP_DVFS_CALI_FAILED;
+		}
+	}
+
+	turn_onoff_ulposc2(ULPOSC_OFF);
+
+	pr_notice("[%s]: ulposc calibration all done\n", __func__);
+
+	return ret;
+}
+
+static int __init mt_scp_dts_gpio_check(struct platform_device *pdev)
+{
+	struct device_node *node = pdev->dev.of_node;
+	struct reg_info vreq_gpio;
+	u32 vreq_mode = 0;
+	u32 val = 0;
+	int ret = 0;
+
+	ret = of_property_read_u32(node, "gpio-vreq-mode", &vreq_mode);
+	if (ret)
+		goto GET_GPIO_INFO_FAILED;
+
+	ret = of_property_count_u32_elems(node, "gpio-vreq");
+	if ((ret / GPIO_ELEM_CNT) <= 0 || (ret % GPIO_ELEM_CNT) != 0) {
+		pr_notice("[%s]: get gpio info failed, count: %d\n",
+			__func__, ret);
+		return ret;
+	}
+
+	ret = of_property_read_u32_index(node, "gpio-vreq", 0, &vreq_gpio.ofs);
+	if (ret)
+		goto GET_GPIO_INFO_FAILED;
+
+	ret = of_property_read_u32_index(node, "gpio-vreq", 1, &vreq_gpio.msk);
+	if (ret)
+		goto GET_GPIO_INFO_FAILED;
+
+	ret = of_property_read_u32_index(node, "gpio-vreq", 2, &vreq_gpio.bit);
+	if (ret)
+		goto GET_GPIO_INFO_FAILED;
+
+	ret = scp_reg_read(dvfs.gpio_regmap, &vreq_gpio, &val);
+
+	if (val == vreq_mode) {
+		pr_notice("v_req muxpin setting is correct\n");
+	} else {
+		pr_notice("WRONG v_req muxpin setting, func mode: %d\n",
+			vreq_mode);
+		return -ESCP_DVFS_GPIO_CONFIG_FAILED;
+		WARN_ON(1);
+	}
+
+	return ret;
+GET_GPIO_INFO_FAILED:
+	pr_notice("[%s]: get gpio info failed with err: %d\n",
+		__func__, ret);
+	return ret;
+}
+
+static int __init mt_scp_dts_get_cali_hw_setting(struct device_node *node,
+		struct ulposc_cali_hw *cali_hw)
+{
+	unsigned int i;
+	int ret = 0;
+
+	/* find hw calibration configuration data */
+	/* update clk_dbg or ulposc_cali data if there is minor change by hw */
+	ret = of_property_count_u32_elems(node, "ulposc-cali-config");
+	if ((ret / CALI_CONFIG_ELEM_CNT) <= 0
+		|| (ret % CALI_CONFIG_ELEM_CNT) != 0) {
+		pr_notice("[%s]: cali config count does not equal to cali nums\n",
+			__func__);
+		return ret;
+	}
+
+	cali_hw->cali_configs = kcalloc(cali_hw->cali_nums,
+				sizeof(struct ulposc_cali_config),
+				GFP_KERNEL);
+	if (!(cali_hw->cali_configs))
+		return -ENOMEM;
+
+	for (i = 0; i < cali_hw->cali_nums; i++) {
+		ret = of_property_read_u32_index(node, "ulposc-cali-config",
+			(i * CALI_CONFIG_ELEM_CNT),
+			&(cali_hw->cali_configs[i].con0_val));
+		if (ret) {
+			pr_notice("[%s]: get con0 setting failed\n", __func__);
+			goto CALI_DATA_INIT_FAILED;
+		}
+
+		ret = of_property_read_u32_index(node, "ulposc-cali-config",
+			(i * CALI_CONFIG_ELEM_CNT + 1),
+			&(cali_hw->cali_configs[i].con1_val));
+		if (ret) {
+			pr_notice("[%s]: get con1 setting failed\n", __func__);
+			goto CALI_DATA_INIT_FAILED;
+		}
+
+		ret = of_property_read_u32_index(node, "ulposc-cali-config",
+			(i * CALI_CONFIG_ELEM_CNT + 2),
+			&(cali_hw->cali_configs[i].con2_val));
+		if (ret) {
+			pr_notice("[%s]: get con2 setting failed\n", __func__);
+			goto CALI_DATA_INIT_FAILED;
+		}
+	}
+
+	return 0;
+CALI_DATA_INIT_FAILED:
+	kfree(cali_hw->cali_configs);
+	return ret;
+}
+
+static int __init mt_scp_dts_get_cali_target(struct device_node *node,
+		struct ulposc_cali_hw *cali_hw)
+{
+	int ret = 0;
+	unsigned int i;
+	unsigned int tmp;
+
+	/* find number of ulposc need to do calibration */
+	ret = of_property_read_u32(node, "ulposc-cali-num",
+		&cali_hw->cali_nums);
+	if (ret) {
+		pr_notice("[%s]: find ulposc calibration numbers failed\n",
+			__func__);
+		return ret;
+	}
+
+	ret = of_property_count_u32_elems(node, "ulposc-cali-target");
+	if (ret != cali_hw->cali_nums) {
+		pr_notice("[%s]: target nums does not equals to ulposc-cali-num\n",
+			__func__);
+		return ret;
+	}
+
+	cali_hw->cali_val = kcalloc(cali_hw->cali_nums, sizeof(unsigned short),
+				GFP_KERNEL);
+	if (!cali_hw->cali_val)
+		return -ENOMEM;
+
+	cali_hw->cali_freq = kcalloc(cali_hw->cali_nums,
+				sizeof(unsigned short),
+				GFP_KERNEL);
+	if (!cali_hw->cali_freq) {
+		ret = -ENOMEM;
+		goto CALI_TARGET_ALLOC_FAILED;
+	}
+
+	for (i = 0; i < cali_hw->cali_nums; i++) {
+		ret = of_property_read_u32_index(node, "ulposc-cali-target",
+			i, &tmp);
+		if (ret) {
+			pr_notice("[%s]: find cali target failed, idx: %d\n",
+				__func__, i);
+			goto FIND_TARGET_FAILED;
+		}
+		cali_hw->cali_freq[i] = (unsigned short) tmp;
+	}
+
+	return ret;
+
+FIND_TARGET_FAILED:
+	kfree(cali_hw->cali_freq);
+CALI_TARGET_ALLOC_FAILED:
+	kfree(cali_hw->cali_val);
+	return ret;
+}
+
+static int __init mt_scp_dts_get_cali_hw_regs(struct device_node *node,
+		struct ulposc_cali_hw *cali_hw)
+{
+	const char *str = NULL;
+	int ret = 0;
+	int i;
+
+	/* find ulposc register hw version */
+	ret = of_property_read_string(node, "ulposc-cali-ver", &str);
+	if (ret) {
+		pr_notice("[%s]: find ulposc-cali-ver failed with err: %d\n",
+			__func__, ret);
+		return ret;
+	}
+
+	for (i = 0; i < MAX_ULPOSC_VERSION; i++)
+		if (!strcmp(ulposc_ver[i], str))
+			cali_hw->ulposc_regs = &cali_regs[i];
+
+	if (!cali_hw->ulposc_regs) {
+		pr_notice("[%s]: no ulposc cali reg found\n");
+		return -ESCP_DVFS_NO_CALI_HW_FOUND;
+	}
+
+	/* find clk dbg register hw version */
+	ret = of_property_read_string(node, "clk-dbg-ver", &str);
+	if (ret) {
+		pr_notice("[%s]: find clk-dbg-ver failed with err: %d\n",
+			__func__, ret);
+		return ret;
+	}
+
+	for (i = 0; i < MAX_CLK_DBG_VERSION; i++)
+		if (!strcmp(clk_dbg_ver[i], str))
+			cali_hw->clkdbg_regs = &clk_dbg_reg[i];
+	if (!cali_hw->clkdbg_regs) {
+		pr_notice("[%s]: no clkfbg regs found\n",
+			__func__);
+		return -ESCP_DVFS_NO_CALI_HW_FOUND;
+	}
+
+	return ret;
+}
+
+static int __init mt_scp_dts_init_scp_clk_hw(struct device_node *node)
+{
+	const char *str = NULL;
+	unsigned int i;
+	int ret = 0;
+
+	ret = of_property_read_string(node, "scp-clk-hw-ver", &str);
+	if (ret) {
+		pr_notice("[%s]: find scp-clk-hw-ver failed with err: %d\n",
+			__func__, ret);
+		return ret;
+	}
+
+	for (i = 0; i < MAX_SCP_CLK_VERSION; i++) {
+		if (!strcmp(scp_clk_ver[i], str)) {
+			dvfs.clk_hw = &(scp_clk_hw_regs[i]);
+			return 0;
+		}
+	}
+
+	pr_notice("[%s]: no scp clk hw reg found\n", __func__);
+
+	return -ESCP_DVFS_NO_CALI_HW_FOUND;
+}
+
+static int __init mt_scp_dts_init_cali_regmap(struct device_node *node,
+		struct ulposc_cali_hw *cali_hw)
+{
+	/* init regmap for calibration process */
+	cali_hw->topck_regmap = syscon_regmap_lookup_by_phandle(node,
+							TOPCK_PHANDLE_NAME);
+	if (IS_ERR(cali_hw->topck_regmap)) {
+		pr_notice("topck regmap init failed: %d\n",
+			PTR_ERR(cali_hw->topck_regmap));
+		return PTR_ERR(cali_hw->topck_regmap);
+	}
+	cali_hw->apmixed_regmap = syscon_regmap_lookup_by_phandle(node,
+							APMIX_PHANDLE_NAME);
+	if (IS_ERR(cali_hw->apmixed_regmap)) {
+		pr_notice("apmixedsys regmap init failed: %d\n",
+			PTR_ERR(cali_hw->apmixed_regmap));
+		return PTR_ERR(cali_hw->apmixed_regmap);
+	}
+
+	return 0;
+}
+
+static int __init mt_scp_dts_ulposc_cali_init(struct device_node *node,
+		struct ulposc_cali_hw *cali_hw)
+{
+	int ret = 0;
+
+	if (!cali_hw) {
+		pr_notice("[%s]: ulposc calibration hw is NULL\n",
+			__func__);
+		WARN_ON(1);
+		return -ESCP_DVFS_NO_CALI_HW_FOUND;
+	}
+
+	/* check if current platform need to do calibration */
+	dvfs.ulposc_hw.do_ulposc_cali = of_property_read_bool(node,
+							"do-ulposc-cali");
+	if (!dvfs.ulposc_hw.do_ulposc_cali) {
+		pr_notice("[%s]: skip ulposc calibration process\n", __func__);
+		return 0;
+	}
+
+	ret = mt_scp_dts_init_cali_regmap(node, cali_hw);
+	if (ret)
+		return ret;
+
+	ret = mt_scp_dts_init_scp_clk_hw(node);
+	if (ret)
+		return ret;
+
+	ret = mt_scp_dts_get_cali_hw_regs(node, cali_hw);
+	if (ret)
+		return ret;
+
+	dvfs.clk_hw->scp_clk_regmap = syscon_regmap_lookup_by_phandle(node,
+						SCP_CLK_CTRL_PHANDLE_NAME);
+	if (!dvfs.clk_hw->scp_clk_regmap) {
+		pr_notice("[%s]: get scp clk regmap failed\n", __func__);
+		return ret;
+	}
+
+	ret = mt_scp_dts_get_cali_target(node, cali_hw);
+	if (ret)
+		return ret;
+
+	ret = mt_scp_dts_get_cali_hw_setting(node, cali_hw);
+	if (ret)
+		return ret;
+
+	return ret;
+}
+
+static int __init mt_scp_dts_clk_init(struct platform_device *pdev)
+{
+	char buf[15];
+	int ret = 0;
+	int i;
+
+	mt_scp_pll.clk_mux = devm_clk_get(&pdev->dev, "clk_mux");
+	if (IS_ERR(mt_scp_pll.clk_mux)) {
+		dev_notice(&pdev->dev, "cannot get clock mux\n");
+		WARN_ON(1);
+		return PTR_ERR(mt_scp_pll.clk_mux);
+	}
+
+	/* scp_sel has most 8 member of clk source */
+	mt_scp_pll.pll_num = 8;
+	for (i = 0; i < 8; i++) {
+		ret = snprintf(buf, 15, "clk_pll_%d", i);
+		if (ret < 0 || ret >= 15) {
+			pr_notice("[%s]: clk name buf len: %d\n",
+				__func__, ret);
+			return ret;
+		}
+
+		mt_scp_pll.clk_pll[i] = devm_clk_get(&pdev->dev, buf);
+		if (IS_ERR(mt_scp_pll.clk_pll[i])) {
+			dev_notice(&pdev->dev,
+					"cannot get %dst clock parent\n",
+					i);
+			mt_scp_pll.pll_num = i;
+			break;
+		}
+	}
+
+	return 0;
+}
+
+static int __init mt_scp_dts_init_dvfs_data(struct device_node *node,
+		struct dvfs_opp **opp)
+{
+	int ret = 0;
+	int i;
+
+	if (*opp) {
+		pr_notice("[%s]: opp is initialized\n", __func__);
+		return -ESCP_DVFS_DATA_RE_INIT;
+	}
+
+	/* get scp dvfs opp count */
+	ret = of_property_count_u32_elems(node, "dvfs-opp");
+	if ((ret / OPP_ELEM_CNT) <= 0 || (ret % OPP_ELEM_CNT) != 0) {
+		pr_notice("[%s]: get dvfs opp count failed, count: %d\n",
+			__func__, ret);
+		return ret;
+	}
+	dvfs.scp_opp_nums = ret / 7;
+
+	*opp = kcalloc(dvfs.scp_opp_nums, sizeof(struct dvfs_opp), GFP_KERNEL);
+	if (!(*opp))
+		return -ENOMEM;
+
+	/* get each dvfs opp data from dts node */
+	for (i = 0; i < dvfs.scp_opp_nums; i++) {
+		ret = of_property_read_u32_index(node, "dvfs-opp",
+				i * OPP_ELEM_CNT,
+				&(*opp)[i].vcore);
+		if (ret) {
+			pr_notice("Cannot get property vcore(%d)\n", ret);
+			goto OPP_INIT_FAILED;
+		}
+
+		ret = of_property_read_u32_index(node, "dvfs-opp",
+				(i * OPP_ELEM_CNT) + 1,
+				&(*opp)[i].vsram);
+		if (ret) {
+			pr_notice("Cannot get property vsram(%d)\n", ret);
+			goto OPP_INIT_FAILED;
+		}
+
+		ret = of_property_read_u32_index(node, "dvfs-opp",
+				(i * OPP_ELEM_CNT) + 2,
+				&(*opp)[i].dvfsrc_opp);
+		if (ret) {
+			pr_notice("Cannot get property dvfsrc opp(%d)\n", ret);
+			goto OPP_INIT_FAILED;
+		}
+		if ((*opp)[i].dvfsrc_opp != 0xff) {
+			(*opp)[i].tuned_vcore =
+				scp_get_vcore_table((*opp)[i].dvfsrc_opp);
+		} else {
+			(*opp)[i].tuned_vcore = (*opp)[i].vcore;
+		}
+
+		ret = of_property_read_u32_index(node, "dvfs-opp",
+				(i * OPP_ELEM_CNT) + 3,
+				&(*opp)[i].spm_opp);
+		if (ret) {
+			pr_notice("Cannot get property spm opp(%d)\n", ret);
+			goto OPP_INIT_FAILED;
+		}
+
+		ret = of_property_read_u32_index(node, "dvfs-opp",
+				(i * OPP_ELEM_CNT) + 4,
+				&(*opp)[i].freq);
+
+		if (ret) {
+			pr_notice("Cannot get property freq(%d)\n", ret);
+			goto OPP_INIT_FAILED;
+		}
+
+		ret = of_property_read_u32_index(node, "dvfs-opp",
+				(i * OPP_ELEM_CNT) + 5,
+				&(*opp)[i].clk_mux);
+		if (ret) {
+			pr_notice("Cannot get property clk mux(%d)\n", ret);
+			goto OPP_INIT_FAILED;
+		}
+
+		ret = of_property_read_u32_index(node, "dvfs-opp",
+				(i * OPP_ELEM_CNT) + 6,
+				&(*opp)[i].resource_req);
+		if (ret) {
+			pr_notice("Cannot get property opp resource(%d)\n", ret);
+			goto OPP_INIT_FAILED;
+		}
+	}
+	return ret;
+
+OPP_INIT_FAILED:
+	kfree(*opp);
+	return ret;
+}
+
+static int __init mt_scp_dts_init_pmic_data(void)
+{
+	unsigned int i;
+
+	for (i = 0; i < MAX_SCP_DVFS_CHIP_HW; i++) {
+		if (of_machine_is_compatible(scp_dvfs_hw_chip_ver[i])) {
+			dvfs.pmic_regs = &scp_pmic_hw_regs[i];
+			return 0;
+		}
+	}
+
+	/* init pmic data failed here */
+	pr_notice("[%s]: no scp pmic regs found\n", __func__);
+	return -ESCP_DVFS_NO_PMIC_REG_FOUND;
+}
+
+static int __init mt_scp_dts_regmap_init(struct platform_device *pdev,
+		struct device_node *node)
+{
+	struct platform_device *pmic_pdev;
+	struct device_node *pmic_node;
+	struct pmic_main_chip *chip;
+	struct regmap *regmap;
+
+	/* get GPIO regmap */
+	regmap = syscon_regmap_lookup_by_phandle(node, GPIO_PHANDLE_NAME);
+	if (IS_ERR(regmap)) {
+		dev_notice(&pdev->dev,
+			"Get gpio regmap fail: %ld\n",
+			PTR_ERR(regmap));
+		goto REGMAP_FIND_FAILED;
+	}
+
+	dvfs.gpio_regmap = regmap;
+
+	/* get PMIC regmap */
+	pmic_node = of_parse_phandle(node, PMIC_PHANDLE_NAME, 0);
+	if (!pmic_node) {
+		dev_notice(&pdev->dev, "fail to find pmic node\n");
+		goto REGMAP_FIND_FAILED;
+	}
+
+	pmic_pdev = of_find_device_by_node(pmic_node);
+	if (!pmic_pdev) {
+		dev_notice(&pdev->dev, "fail to find pmic device\n");
+		goto REGMAP_FIND_FAILED;
+	}
+
+	chip = dev_get_drvdata(&(pmic_pdev->dev));
+	if (!chip) {
+		dev_notice(&pdev->dev, "fail to find pmic drv data\n");
+		goto REGMAP_FIND_FAILED;
+	}
+
+	regmap = chip->regmap;
+	if (IS_ERR_VALUE(regmap)) {
+		dvfs.pmic_regmap = NULL;
+		dev_notice(&pdev->dev, "get pmic regmap fail\n");
+		goto REGMAP_FIND_FAILED;
+	}
+
+	dvfs.pmic_regmap = regmap;
+
+	return 0;
+REGMAP_FIND_FAILED:
+	WARN_ON(1);
+	return -ESCP_DVFS_REGMAP_INIT_FAILED;
+}
+
+static int __init mt_scp_dts_init(struct platform_device *pdev)
+{
+	struct device_node *node;
+	int ret = 0;
+
+	/* find device tree node of scp_dvfs */
+	node = pdev->dev.of_node;
+	if (!node) {
+		dev_notice(&pdev->dev, "fail to find SCPDVFS node\n");
+		return -ENODEV;
+	}
+
+	ret = of_property_read_u32(node, "vow-lp-en-gear",
+		&dvfs.vow_lp_en_gear);
+	if (ret) {
+		pr_notice("[%s]: no vow-lp-enable-gear property, set gear to -1\n",
+			__func__);
+		dvfs.vow_lp_en_gear = -1;
+	}
+
+	ret = of_property_read_u32(node, "scp-cores",
+		&dvfs.core_nums);
+	if (ret || dvfs.core_nums > SCP_MAX_CORE_NUM) {
+		pr_notice("[%s]: find invalid core numbers, set to 1\n",
+			__func__);
+		dvfs.core_nums = 1;
+	}
+
+	dvfs.pmic_sshub_en = of_property_read_bool(node, "pmic-sshub-support");
+
+	ret = mt_scp_dts_regmap_init(pdev, node);
+	if (ret) {
+		pr_notice("[%s]: scp regmap init failed with err: %d\n",
+			__func__, ret);
+		goto DTS_FAILED;
+	}
+
+	ret = mt_scp_dts_init_pmic_data();
+	if (ret)
+		goto DTS_FAILED;
+
+	/* init dvfs data */
+	ret = mt_scp_dts_init_dvfs_data(node, &dvfs.opp);
+	if (ret) {
+		pr_notice("[%s]: scp dvfs opp data init failed with err: %d\n",
+			__func__, ret);
+		goto DTS_FAILED;
+	}
+
+	/* init clock mux/pll */
+	ret = mt_scp_dts_clk_init(pdev);
+	if (ret) {
+		pr_notice("[%s]: init scp clk failed with err: %d\n",
+			__func__, ret);
+		goto DTS_FAILED_FREE_RES;
+	}
+
+	/* init ulposc cali dts data */
+	ret = mt_scp_dts_ulposc_cali_init(node, &dvfs.ulposc_hw);
+	if (ret) {
+		pr_notice("[%s]: init scp ulposc cali data with err: %d\n",
+			__func__, ret);
+		goto DTS_FAILED_FREE_RES;
+	}
+
+	/* get dvfsrc regulator */
+	dvfsrc_vscp_power = regulator_get(&pdev->dev, "dvfsrc-vscp");
+	if (IS_ERR(dvfsrc_vscp_power) || !dvfsrc_vscp_power) {
+		pr_notice("regulator dvfsrc-vscp is not available\n");
+		ret = PTR_ERR(dvfsrc_vscp_power);
+		goto PASS;
+	}
+
+	/* get Vcore/Vsram Regulator */
+	reg_vcore = devm_regulator_get_optional(&pdev->dev, "sshub-vcore");
+	if (IS_ERR(reg_vcore) || !reg_vcore) {
+		pr_notice("regulator vcore sshub supply is not available\n");
+		ret = PTR_ERR(reg_vcore);
+		goto PASS;
+	}
+
+	reg_vsram = devm_regulator_get_optional(&pdev->dev, "sshub-vsram");
+	if (IS_ERR(reg_vsram) || !reg_vsram) {
+		pr_notice("regulator vsram sshub supply is not available\n");
+		ret = PTR_ERR(reg_vsram);
+		goto PASS;
+	}
+PASS:
+	return 0;
+
+DTS_FAILED_FREE_RES:
+	kfree(dvfs.opp);
+DTS_FAILED:
+	return ret;
+}
+
+static int __init mt_scp_dvfs_pdrv_probe(struct platform_device *pdev)
+{
+	int ret = 0;
+
+	ret = mt_scp_dts_init(pdev);
+	if (ret) {
+		pr_notice("[%s]: dts init failed with err: %d\n",
+			__func__, ret);
+		goto DTS_INIT_FAILED;
+	}
+
+	/* check gpio setting */
+	ret = mt_scp_dts_gpio_check(pdev);
+	if (ret)
+		goto GPIO_CHECK_FAILED;
+
+	/* init sshub */
+	mt_pmic_sshub_init();
+
+	/* do ulposc calibration */
+	mt_scp_dvfs_do_ulposc_cali_process();
+	kfree(dvfs.ulposc_hw.cali_configs);
+
+	g_scp_dvfs_init_flag = 1;
+	pr_notice("[%s]: scp_dvfs probe done\n", __func__);
+
+	return 0;
+
+GPIO_CHECK_FAILED:
+	kfree(dvfs.opp);
+	kfree(dvfs.ulposc_hw.cali_configs);
+DTS_INIT_FAILED:
+	WARN_ON(1);
+
+	return -ESCP_DVFS_INIT_FAILED;
 }
 
 /***************************************
@@ -1305,67 +2052,49 @@ static int mt_scp_dvfs_pdrv_probe(struct platform_device *pdev)
  ****************************************/
 static int mt_scp_dvfs_pdrv_remove(struct platform_device *pdev)
 {
+	kfree(dvfs.opp);
+	kfree(dvfs.ulposc_hw.cali_val);
+	kfree(dvfs.ulposc_hw.cali_freq);
+	kfree(dvfs.ulposc_hw.cali_configs);
+
 	return 0;
 }
 
-static const struct dev_pm_ops mt_scp_dvfs_pm_ops = {
-	.suspend = mt_scp_dvfs_suspend,
-	.resume = mt_scp_dvfs_resume,
-	.restore_early = mt_scp_dvfs_pm_restore_early,
-};
-
-static struct platform_driver mt_scp_dvfs_pdrv = {
-	.probe = mt_scp_dvfs_pdrv_probe,
-	.remove = mt_scp_dvfs_pdrv_remove,
-	.driver = {
-		.name = "scp_dvfs",
-		.pm = &mt_scp_dvfs_pm_ops,
-		.owner = THIS_MODULE,
-#ifdef CONFIG_OF
-		.of_match_table = scpdvfs_of_ids,
-#endif
-		},
-};
-
-/**********************************
- * mediatek scp dvfs initialization
- ***********************************/
-void mt_pmic_sshub_init(void)
-{
-	pmic_buck_vcore_lp(SRCLKEN11, 0, 1, HW_OFF);
-
-	pr_debug("BUCK_VCORE_HW11_OP: MODE=0x%x, CFG=0x%x, EN=0x%x\n",
-		(int)pmic_get_register_value(PMIC_RG_BUCK_VCORE_HW11_OP_MODE),
-		(int)pmic_get_register_value(PMIC_RG_BUCK_VCORE_HW11_OP_CFG),
-		(int)pmic_get_register_value(PMIC_RG_BUCK_VCORE_HW11_OP_EN));
-}
-
-#ifdef CONFIG_PM
+#if IS_ENABLED(CONFIG_PM)
 static int mt_scp_dump_sleep_count(void)
 {
-	int ret;
-	struct ipi_tx_data_t ipi_data;
+	int ret = 0;
+	unsigned int ipi_data = SCP_SLEEP_GET_COUNT;
 
-	if (!slp_ipi_init_done)
-		scp_slp_ipi_init();
-
-	ipi_data.arg1 = SLP_DBG_CMD_GET_CNT;
+	if (!dvfs.sleep_init_done)
+		slp_ipi_init();
 
 	ret = mtk_ipi_send_compl(&scp_ipidev, IPI_OUT_C_SLEEP_0,
 		IPI_SEND_WAIT, &ipi_data, PIN_OUT_C_SIZE_SLEEP_0, 500);
 	if (ret != IPI_ACTION_DONE)
-		printk_deferred("[name:scp&][%s:%d] - scp ipi fail, ret = %d\\n",
-		__func__, __LINE__, ret);
+		pr_notice("[SCP] [%s:%d] - scp ipi failed, ret = %d\n",
+			__func__, __LINE__, ret);
 	else
-		printk_deferred("[name:scp&][%s:%d] - scp_sleep_cnt_0 = %d\n",
-		__func__, __LINE__, slp_ipi_ackdata0);
+		pr_notice("[SCP] [%s:%d] - scp_sleep_cnt_0 = %d\n",
+			__func__, __LINE__, scp_ipi_ackdata0);
+
+	if (dvfs.core_nums != 2)
+		return 0;
+
+	ret = mtk_ipi_send_compl(&scp_ipidev, IPI_OUT_C_SLEEP_1,
+		IPI_SEND_WAIT, &ipi_data, PIN_OUT_C_SIZE_SLEEP_1, 500);
+	if (ret != IPI_ACTION_DONE)
+		pr_notice("[SCP] [%s:%d] - scp ipi failed, ret = %d\n",
+			__func__, __LINE__, ret);
+	else
+		pr_notice("[SCP] [%s:%d] - scp_sleep_cnt_1 = %d\n",
+			__func__, __LINE__, scp_ipi_ackdata1);
 
 	return 0;
 }
 
-
-static int mt6873_scp_pm_event(struct notifier_block *notifier,
-			unsigned long pm_event, void *unused)
+static int scp_pm_event(struct notifier_block *notifier,
+		unsigned long pm_event, void *unused)
 {
 	switch (pm_event) {
 	case PM_HIBERNATION_PREPARE:
@@ -1376,65 +2105,84 @@ static int mt6873_scp_pm_event(struct notifier_block *notifier,
 		return NOTIFY_DONE;
 	case PM_SUSPEND_PREPARE:
 	case PM_POST_SUSPEND:
-		/* show scp sleep count */
+		mt_scp_dvfs_state_dump();
 		mt_scp_dump_sleep_count();
 		return NOTIFY_DONE;
 	}
 	return NOTIFY_OK;
 }
 
-
-static struct notifier_block mt6873_scp_pm_notifier_func = {
-	.notifier_call = mt6873_scp_pm_event,
+static struct notifier_block scp_pm_notifier_func = {
+	.notifier_call = scp_pm_event,
 };
-#endif
+#endif /* IS_ENABLED(CONFIG_PM) */
 
+struct platform_device mt_scp_dvfs_pdev = {
+	.name = "mt-scpdvfs",
+	.id = -1,
+};
+
+static struct platform_driver mt_scp_dvfs_pdrv __refdata = {
+	.probe = mt_scp_dvfs_pdrv_probe,
+	.remove = mt_scp_dvfs_pdrv_remove,
+	.driver = {
+		.name = "scpdvfs",
+		.owner = THIS_MODULE,
+		.of_match_table = scpdvfs_of_ids,
+	},
+};
+
+/**********************************
+ * mediatek scp dvfs initialization
+ ***********************************/
 int __init scp_dvfs_init(void)
 {
 	int ret = 0;
 
-	pr_notice("%s\n", __func__);
+	pr_debug("%s\n", __func__);
 
 #ifdef CONFIG_PROC_FS
 	/* init proc */
 	if (mt_scp_dvfs_create_procfs()) {
 		pr_notice("mt_scp_dvfs_create_procfs fail..\n");
-		WARN_ON(1);
-		return -1;
+		goto fail;
 	}
 #endif /* CONFIG_PROC_FS */
 
-	/* register platform driver */
+	/* register platform device/driver */
+	ret = platform_device_register(&mt_scp_dvfs_pdev);
+	if (ret) {
+		pr_notice("fail to register scp dvfs device @ %s()\n", __func__);
+		goto fail;
+	}
+
 	ret = platform_driver_register(&mt_scp_dvfs_pdrv);
 	if (ret) {
 		pr_notice("fail to register scp dvfs driver @ %s()\n", __func__);
-		WARN_ON(1);
-		return -1;
+		platform_device_unregister(&mt_scp_dvfs_pdev);
+		goto fail;
 	}
 
-	wakeup_source_init(&scp_suspend_lock, "scp wakelock");
+	scp_suspend_lock = wakeup_source_register(NULL, "scp wakelock");
 
-	mt_pmic_sshub_init();
-
-#if SCP_VCORE_REQ_TO_DVFSRC
-	pm_qos_add_request(&dvfsrc_scp_vcore_req,
-			PM_QOS_SCP_VCORE_REQUEST,
-			PM_QOS_SCP_VCORE_REQUEST_DEFAULT_VALUE);
-#endif
-
-#ifdef CONFIG_PM
-	ret = register_pm_notifier(&mt6873_scp_pm_notifier_func);
+#if IS_ENABLED(CONFIG_PM)
+	ret = register_pm_notifier(&scp_pm_notifier_func);
 	if (ret) {
-		pr_debug("[name:scp&][SCP] Failed to register PM notifier.\n");
+		pr_notice("[%s]: failed to register PM notifier.\n", __func__);
 		return ret;
 	}
-#endif /* CONFIG_PM */
+#endif /* IS_ENABLED(CONFIG_PM) */
 
-	return ret;
+	pr_notice("[%s]: scp_dvfs init done\n", __func__);
+	return 0;
+fail:
+	WARN_ON(1);
+	return -ESCP_DVFS_INIT_FAILED;
 }
 
 void __exit scp_dvfs_exit(void)
 {
 	platform_driver_unregister(&mt_scp_dvfs_pdrv);
+	platform_device_unregister(&mt_scp_dvfs_pdev);
 }
 

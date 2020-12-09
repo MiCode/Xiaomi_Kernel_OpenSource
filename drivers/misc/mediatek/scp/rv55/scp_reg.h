@@ -137,11 +137,6 @@
 #define CLK_SW_SEL_O_ULPOSC_PERI	0x8
 
 #define CLK_ENABLE				(scpreg.clkctrl + 0x0004)
-#define CLK_SYS_EN_BIT			0
-#define CLK_HIGH_EN_BIT			1
-#define CLK_HIGH_CG_BIT			2
-#define CLK_SYS_IRQ_EN_BIT		16
-#define CLK_HIGH_IRQ_EN_BIT		17
 
 #define CLK_SAFE_ACK			(scpreg.clkctrl + 0x0008)
 #define CLK_SYS_SAFE_ACK_BIT	0
