@@ -547,7 +547,7 @@ int qcom_system_heap_create(void)
 	int ret;
 
 	ret = dynamic_page_pool_init_shrinker();
-	if (IS_ERR(ret))
+	if (ret < 0)
 		return ret;
 
 	for (i = 0; i < NUM_ORDERS; i++) {

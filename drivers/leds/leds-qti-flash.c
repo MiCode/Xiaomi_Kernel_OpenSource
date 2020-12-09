@@ -1644,7 +1644,7 @@ static int qti_flash_led_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	led->max_channels = (u8)of_device_get_match_data(&pdev->dev);
+	led->max_channels = (u8)(uintptr_t)of_device_get_match_data(&pdev->dev);
 	if (!led->max_channels) {
 		pr_err("Failed to get max supported led channels\n");
 		return -EINVAL;
