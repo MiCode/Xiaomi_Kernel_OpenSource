@@ -128,6 +128,17 @@ static void _a6xx_preemption_done(struct adreno_device *adreno_dev)
 
 	adreno_dev->preempt.count++;
 
+	/*
+	 * In normal scenarios, preemption keep alive bit is cleared during
+	 * CP interrupt callback. However, if preemption is successful
+	 * immediately after preemption timer expires or there is a preemption
+	 * interrupt with non-zero status, the state is transitioned to complete
+	 * state. Once dispatcher is scheduled, it calls this function.
+	 * We can now safely clear the preemption keepalive bit, allowing
+	 * power collapse to resume its regular activity.
+	 */
+	_power_collapse_set(adreno_dev, false);
+
 	del_timer_sync(&adreno_dev->preempt.timer);
 
 	kgsl_regread(device,  A6XX_CP_CONTEXT_SWITCH_LEVEL_STATUS, &status);
