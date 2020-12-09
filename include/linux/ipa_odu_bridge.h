@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _IPA_ODO_BRIDGE_H_
@@ -110,19 +110,6 @@ static inline int ipa_bridge_cleanup(u32 hdl)
 #endif /* IS_ENABLED(CONFIG_IPA3) */
 
 /* Below API is deprecated. Please use the API above */
-#if IS_ENABLED(CONFIG_IPA3)
-
-int odu_bridge_init(struct odu_bridge_params *params);
-
-int odu_bridge_connect(void);
-
-int odu_bridge_disconnect(void);
-
-int odu_bridge_tx_dp(struct sk_buff *skb, struct ipa_tx_meta *metadata);
-
-int odu_bridge_cleanup(void);
-
-#else /* IS_ENABLED(CONFIG_IPA3) */
 
 static inline int odu_bridge_init(struct odu_bridge_params *params)
 {
@@ -149,7 +136,5 @@ static inline int odu_bridge_cleanup(void)
 {
 	return -EPERM;
 }
-
-#endif /* IS_ENABLED(CONFIG_IPA3) */
 
 #endif /* _IPA_ODO_BRIDGE_H */

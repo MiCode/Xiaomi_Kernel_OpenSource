@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _IPA_WIGIG_H_
@@ -478,7 +478,7 @@ static inline int ipa_wigig_tx_dp(enum ipa_client_type dst,
 	return -EPERM;
 }
 
-int ipa_wigig_set_perf_profile(u32 max_supported_bw_mbps)
+static inline int ipa_wigig_set_perf_profile(u32 max_supported_bw_mbps)
 {
 	return -EPERM;
 }
