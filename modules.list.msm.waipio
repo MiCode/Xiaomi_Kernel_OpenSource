@@ -2,6 +2,7 @@ clk-dummy.ko
 clk-qcom.ko
 cqhci.ko
 frpc-adsprpc.ko
+cdsp-loader.ko
 qcom_rpmh.ko
 cmd-db.ko
 qnoc-waipio.ko
