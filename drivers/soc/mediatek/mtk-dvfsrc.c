@@ -945,6 +945,29 @@ static const struct dvfsrc_soc_data mt6833_data = {
 #endif
 };
 
+static const struct dvfsrc_opp dvfsrc_opp_mt6877_lp4[] = {
+	{0, 0}, {1, 0}, {2, 0}, {3, 0}, {4, 0},
+	{0, 1}, {1, 1}, {2, 1}, {3, 1},	{4, 1},
+	{0, 2}, {1, 2}, {2, 2}, {3, 2}, {4, 2},
+	{0, 3}, {1, 3}, {2, 3}, {3, 3}, {4, 3},
+	{1, 4}, {2, 4}, {3, 4}, {4, 4}, {2, 5},
+	{3, 5}, {4, 5}, {3, 6}, {4, 6}, {4, 7},
+};
+
+static const struct dvfsrc_opp_desc dvfsrc_opp_mt6877_desc[] = {
+	DVFSRC_OPP_DESC(dvfsrc_opp_mt6877_lp4),
+};
+
+static const struct dvfsrc_soc_data mt6877_data = {
+	DVFSRC_MT6873_SERIES_OPS,
+	.opps_desc = dvfsrc_opp_mt6877_desc,
+	.num_opp_desc = ARRAY_SIZE(dvfsrc_opp_mt6877_desc),
+	.regs = mt6873_regs,
+#ifdef DVFSRC_FORCE_OPP_SUPPORT
+	.set_force_opp_level = mt6873_set_force_opp_level,
+#endif
+};
+
 static int mtk_dvfsrc_remove(struct platform_device *pdev)
 {
 	struct mtk_dvfsrc *dvfsrc = platform_get_drvdata(pdev);
@@ -977,6 +1000,9 @@ static const struct of_device_id mtk_dvfsrc_of_match[] = {
 	}, {
 		.compatible = "mediatek,mt6833-dvfsrc",
 		.data = &mt6833_data,
+	}, {
+		.compatible = "mediatek,mt6877-dvfsrc",
+		.data = &mt6877_data,
 	}, {
 		/* sentinel */
 	},
