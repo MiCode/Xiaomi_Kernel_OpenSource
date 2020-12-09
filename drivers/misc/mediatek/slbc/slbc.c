@@ -1222,12 +1222,12 @@ static int platform_slbc_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id platform_slbc_of_match[] = {
-	{ .compatible = "mediatek,mt6873-slbc", },
+	{ .compatible = "mediatek,mtk-slbc", },
 	{},
 };
 
 static const struct platform_device_id platform_slbc_id_table[] = {
-	{ "mt6873-slbc", 0},
+	{ "mtk-slbc", 0},
 	{ },
 };
 
@@ -1235,7 +1235,7 @@ static struct platform_driver mtk_platform_slbc_driver = {
 	.probe = platform_slbc_probe,
 	.remove	= platform_slbc_remove,
 	.driver = {
-		.name = "mt6873-slbc",
+		.name = "mtk-slbc",
 		.owner = THIS_MODULE,
 		.of_match_table = platform_slbc_of_match,
 	},
