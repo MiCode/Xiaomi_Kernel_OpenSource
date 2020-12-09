@@ -15,6 +15,7 @@ icc-rpm-obj			:= icc-rpm.o
 qnoc-qos-obj			:= qnoc-qos.o
 
 obj-$(CONFIG_INTERCONNECT_QCOM_HOLI) += qnoc-holi.o
+obj-$(CONFIG_INTERCONNECT_QCOM_OSM_L3) += osm-l3.o
 obj-$(CONFIG_INTERCONNECT_QCOM_QCS404) += qnoc-qcs404.o
 obj-$(CONFIG_INTERCONNECT_QCOM_SDM845) += qnoc-sdm845.o
 obj-$(CONFIG_INTERCONNECT_QCOM_SM8150) += qnoc-sm8150.o
