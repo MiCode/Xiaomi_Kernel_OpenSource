@@ -668,9 +668,11 @@
   drm_connector_unregister
   drm_connector_update_edid_property
   drm_crtc_cleanup
+  drm_crtc_from_index
   drm_crtc_handle_vblank
   drm_crtc_init_with_planes
   drm_crtc_send_vblank_event
+  drm_crtc_set_max_vblank_count
   drm_crtc_vblank_off
   drm_crtc_vblank_on
   drm_crtc_vblank_reset
@@ -906,6 +908,7 @@
   fsl8250_handle_irq
   fs_kobj
   fsstack_copy_attr_all
+  full_name_hash
   fwnode_connection_find_match
   fwnode_get_parent
   fwnode_handle_put
@@ -1540,6 +1543,8 @@
   of_graph_get_next_endpoint
   of_graph_get_remote_node
   of_graph_get_remote_port_parent
+  of_graph_get_remote_port
+  of_graph_get_endpoint_by_regs
   of_graph_parse_endpoint
   of_hwspin_lock_get_id
   of_icc_get
