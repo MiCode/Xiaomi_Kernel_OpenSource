@@ -2146,7 +2146,7 @@ static int mem_buf_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	mem_buf_wq = alloc_workqueue("mem_buf_wq", WQ_HIGHPRI | WQ_UNBOUND, 0);
+	mem_buf_wq = alloc_ordered_workqueue("mem_buf_wq", WQ_HIGHPRI);
 	if (!mem_buf_wq) {
 		dev_err(dev, "Unable to initialize workqueue\n");
 		return -EINVAL;
