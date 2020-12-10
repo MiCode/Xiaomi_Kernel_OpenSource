@@ -50,9 +50,6 @@
 		hsuart0 = &qupv3_se18_4uart;
 		pci-domain0 = &pcie0; /* PCIe0 domain */
 		pci-domain1 = &pcie1; /* PCIe1 domain */
-		swr0 = &swr0;
-		swr1 = &swr1;
-		swr2 = &swr2;
 		usb0 = &usb0;
 		usb1 = &usb1;
 	};
@@ -5504,7 +5501,6 @@
 #include "lahaina-usb.dtsi"
 #include "lahaina-coresight.dtsi"
 #include "lahaina-qupv3.dtsi"
-#include "lahaina-audio.dtsi"
 #include "lahaina-vidc.dtsi"
 #include "lahaina-cvp.dtsi"
 #include "lahaina-pcie.dtsi"
