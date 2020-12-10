@@ -200,9 +200,9 @@ static int mt6873_mt6359p_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 		regmap_update_bits(afe_priv->topckgen,
 				   CKSYS_AUD_TOP_CFG, 0x1, 0x1);
 
-		test_done_1 = 0;
-		test_done_2 = 0;
-		test_done_3 = 0;
+		test_done_1 = miso0_need_calib ? 0 : -1;
+		test_done_2 = miso1_need_calib ? 0 : -1;
+		test_done_3 = miso2_need_calib ? 0 : -1;
 		cycle_1 = -1;
 		cycle_2 = -1;
 		cycle_3 = -1;
@@ -213,15 +213,19 @@ static int mt6873_mt6359p_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 			regmap_read(afe_priv->topckgen,
 				    CKSYS_AUD_TOP_MON, &monitor);
 
-			test_done_1 = (monitor >> 28) & 0x1;
-			test_done_2 = (monitor >> 29) & 0x1;
-			test_done_3 = (monitor >> 30) & 0x1;
+			/* get test status */
+			if (test_done_1 == 0)
+				test_done_1 = (monitor >> 28) & 0x1;
+			if (test_done_2 == 0)
+				test_done_2 = (monitor >> 29) & 0x1;
+			if (test_done_3 == 0)
+				test_done_3 = (monitor >> 30) & 0x1;
+
+			/* get delay cycle */
 			if (test_done_1 == 1)
 				cycle_1 = monitor & 0xf;
-
 			if (test_done_2 == 1)
 				cycle_2 = (monitor >> 4) & 0xf;
-
 			if (test_done_3 == 1)
 				cycle_3 = (monitor >> 8) & 0xf;
 
