@@ -1665,6 +1665,7 @@
   pci_walk_bus
   pci_write_config_dword
   pci_write_config_word
+  pci_dev_present
   PDE_DATA
   __per_cpu_offset
   perf_trace_buf_alloc
