@@ -157,6 +157,10 @@ struct wan_ioctl_lan_client_info {
 	uint8_t hdr_len;
 	/* Source pipe of the lan client. */
 	enum ipa_client_type ul_src_pipe;
+	/* Counter indices for h/w fnr stats */
+#define IPA_HW_FNR_STATS
+	uint8_t ul_cnt_idx;
+	uint8_t dl_cnt_idx;
 };
 
 struct wan_ioctl_per_client_info {
