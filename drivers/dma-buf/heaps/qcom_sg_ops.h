@@ -26,6 +26,7 @@ struct qcom_sg_buffer {
 	int vmap_cnt;
 	void *vaddr;
 	bool secure;
+	unsigned long vmids;
 	void (*free)(struct qcom_sg_buffer *buffer);
 };
 

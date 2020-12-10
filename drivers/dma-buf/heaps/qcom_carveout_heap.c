@@ -22,8 +22,9 @@
 #include <linux/of_address.h>
 #include <linux/list.h>
 #include <linux/dma-buf.h>
-
 #include <linux/dma-heap.h>
+#include <linux/qcom_dma_heap.h>
+
 #include "qcom_dma_heap_secure_utils.h"
 #include "qcom_sg_ops.h"
 #include "qcom_carveout_heap.h"
@@ -462,6 +463,9 @@ static struct dma_buf *sc_heap_allocate(struct dma_heap *heap,
 {
 	struct carveout_heap *carveout_heap;
 	struct list_head *list_pos;
+	struct dma_buf *buf;
+	struct secure_carveout_heap *sc_heap;
+	struct qcom_sg_buffer *buffer;
 
 	/*
 	 * This should always succeed, since the heap was added to the
@@ -475,9 +479,15 @@ static struct dma_buf *sc_heap_allocate(struct dma_heap *heap,
 		if (carveout_heap->heap == heap)
 			break;
 	}
+	sc_heap = container_of(carveout_heap, struct secure_carveout_heap,
+			       carveout_heap);
 
-	return __carveout_heap_allocate(carveout_heap, len, fd_flags,
+	buf =  __carveout_heap_allocate(carveout_heap, len, fd_flags,
 					heap_flags, sc_heap_free);
+	buffer = buf->priv;
+	buffer->vmids = sc_heap->token | QCOM_DMA_HEAP_FLAG_SECURE;
+
+	return buf;
 }
 
 static void sc_heap_free(struct qcom_sg_buffer *buffer)

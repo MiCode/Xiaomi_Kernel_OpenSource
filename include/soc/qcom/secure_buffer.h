@@ -15,6 +15,7 @@
  * This is needed in ion to create a list and it's sized using VMID_LAST.
  */
 enum vmid {
+	VMID_TZ = 0x1,
 	VMID_HLOS = 0x3,
 	VMID_CP_TOUCH = 0x8,
 	VMID_CP_BITSTREAM = 0x9,
