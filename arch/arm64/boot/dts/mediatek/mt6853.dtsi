@@ -5010,7 +5010,7 @@
 	};
 
 	slbc: slbc {
-		compatible = "mediatek,mt6853-slbc";
+		compatible = "mediatek,mtk-slbc";
 		status = "enable";
 	};
 
