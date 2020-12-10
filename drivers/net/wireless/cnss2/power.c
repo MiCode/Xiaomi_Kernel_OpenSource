@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2016-2021, The Linux Foundation. All rights reserved. */
 
 #include <linux/clk.h>
 #include <linux/delay.h>
@@ -13,6 +13,7 @@
 #include "debug.h"
 #include "bus.h"
 
+#if IS_ENABLED(CONFIG_ARCH_QCOM)
 static struct cnss_vreg_cfg cnss_vreg_list[] = {
 	{"vdd-wlan-core", 1300000, 1300000, 0, 0, 0},
 	{"vdd-wlan-io", 1800000, 1800000, 0, 0, 0},
@@ -34,6 +35,13 @@ static struct cnss_vreg_cfg cnss_vreg_list[] = {
 static struct cnss_clk_cfg cnss_clk_list[] = {
 	{"rf_clk", 0, 0},
 };
+#else
+static struct cnss_vreg_cfg cnss_vreg_list[] = {
+};
+
+static struct cnss_clk_cfg cnss_clk_list[] = {
+};
+#endif
 
 #define CNSS_VREG_INFO_SIZE		ARRAY_SIZE(cnss_vreg_list)
 #define CNSS_CLK_INFO_SIZE		ARRAY_SIZE(cnss_clk_list)
