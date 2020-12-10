@@ -3,6 +3,7 @@
 | andromeda-p-oss | Mi MIX 3 5G | Android P | LA.UM.7.1.r1-13000-sm8150.0 | [andromeda-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/andromeda-p-oss) |
 | armani-jb-oss | Redmi 1S | Android JB | LNX.LA.3.2-09720-8x26.0 | [armani-jb-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/armani-jb-oss) |
 | armani-kk-oss | Redmi 1S, Redmi Note Single SIM | Android KK | LNX.LA.3.5.2.2.2-00510-8x26.0 | [armani-kk-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/armani-kk-oss) |
+| apollo-q-oss | Redmi K30S Ultra | Android Q | LA.UM.8.12.r1-10600-sm8250.0 | [apollo-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/apollo-q-oss) |
 | begonia-p-oss | Redmi Note 8 Pro | Android P | MTK | [begonia-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/begonia-p-oss) |
 | begonia-q-oss | Redmi Note 8 Pro | Android Q | MTK | [begonia-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/begonia-q-oss) |
 | bomb-q-oss | Redmi 10X, Redmi 10X Pro | Android Q | MTK | [bomb-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/bomb-q-oss) |
