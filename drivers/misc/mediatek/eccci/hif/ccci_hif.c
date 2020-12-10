@@ -201,9 +201,6 @@ int ccci_hif_send_skb(unsigned char hif_id, int tx_qno, struct sk_buff *skb,
 		if (ccci_hif[hif_id] && ccci_hif_op[hif_id]->send_skb)
 			ret = ccci_hif_op[hif_id]->send_skb(hif_id,
 				tx_qno, skb, from_pool, blocking);
-		CCCI_HISTORY_TAG_LOG(-1, TAG,
-			"%s: %d (%p, %p)\n", __func__,
-			hif_id, ccci_hif[hif_id], ccci_hif_op[hif_id]);
 		break;
 	default:
 		break;
