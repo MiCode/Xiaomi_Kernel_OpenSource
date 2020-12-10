@@ -110,8 +110,7 @@ struct ipa_fmwk_contex {
 	struct mutex lock;
 	ipa_uc_ready_cb uc_ready_cb;
 	void *uc_ready_priv;
-	ipa_eth_ready_cb eth_ready_cb;
-	void *eth_userdata;
+	struct ipa_eth_ready *eth_ready_info;
 	enum ipa_uc_offload_proto proto;
 
 	/* ipa core driver APIs */
@@ -424,13 +423,10 @@ static inline void ipa_late_register_ready_cb(void)
 		}
 	}
 
-	if (ipa_fmwk_ctx->eth_ready_cb) {
-		struct ipa_eth_ready ready_info;
-
+	if (ipa_fmwk_ctx->eth_ready_info) {
 		/* just late call to ipa_eth_register_ready_cb */
-		ready_info.notify = ipa_fmwk_ctx->eth_ready_cb;
-		ready_info.userdata = ipa_fmwk_ctx->eth_userdata;
-		ipa_fmwk_ctx->ipa_eth_register_ready_cb(&ready_info);
+		ipa_fmwk_ctx->ipa_eth_register_ready_cb(
+			ipa_fmwk_ctx->eth_ready_info);
 		/* nobody cares anymore about ready_info->is_eth_ready since
 		 * if we got here it means that we already returned false there
 		 */
@@ -1950,8 +1946,7 @@ int ipa_eth_register_ready_cb(struct ipa_eth_ready *ready_info)
 		mutex_unlock(&ipa_fmwk_ctx->lock);
 		return ret;
 	}
-	ipa_fmwk_ctx->eth_ready_cb = ready_info->notify;
-	ipa_fmwk_ctx->eth_userdata = ready_info->userdata;
+	ipa_fmwk_ctx->eth_ready_info = ready_info;
 	ready_info->is_eth_ready = false;
 	mutex_unlock(&ipa_fmwk_ctx->lock);
 
