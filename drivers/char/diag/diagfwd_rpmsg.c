@@ -47,7 +47,7 @@ struct diag_rpmsg_info rpmsg_data[NUM_PERIPHERALS] = {
 		.peripheral = PERIPHERAL_MODEM,
 		.type = TYPE_DATA,
 		.edge = "mpss",
-		.name = "DIAG_DATA",
+		.name = "DIAG",
 		.buf1 = NULL,
 		.buf2 = NULL,
 		.hdl = NULL
@@ -113,7 +113,7 @@ struct diag_rpmsg_info rpmsg_cntl[NUM_PERIPHERALS] = {
 		.peripheral = PERIPHERAL_MODEM,
 		.type = TYPE_CNTL,
 		.edge = "mpss",
-		.name = "DIAG_CTRL",
+		.name = "DIAG_CNTL",
 		.buf1 = NULL,
 		.buf2 = NULL,
 		.hdl = NULL
@@ -179,7 +179,7 @@ struct diag_rpmsg_info rpmsg_dci[NUM_PERIPHERALS] = {
 		.peripheral = PERIPHERAL_MODEM,
 		.type = TYPE_DCI,
 		.edge = "mpss",
-		.name = "DIAG_DCI_DATA",
+		.name = "DIAG_2",
 		.buf1 = NULL,
 		.buf2 = NULL,
 		.hdl = NULL
@@ -311,7 +311,7 @@ struct diag_rpmsg_info rpmsg_dci_cmd[NUM_PERIPHERALS] = {
 		.peripheral = PERIPHERAL_MODEM,
 		.type = TYPE_DCI_CMD,
 		.edge = "mpss",
-		.name = "DIAG_DCI_CMD",
+		.name = "DIAG_2_CMD",
 		.buf1 = NULL,
 		.buf2 = NULL,
 		.hdl = NULL
@@ -815,7 +815,8 @@ int diag_rpmsg_init(void)
 
 	for (peripheral = 0; peripheral < NUM_PERIPHERALS; peripheral++) {
 		if ((peripheral != PERIPHERAL_WDSP) &&
-				(peripheral != PERIPHERAL_WCNSS))
+			(peripheral != PERIPHERAL_WCNSS) &&
+				(peripheral != PERIPHERAL_MODEM))
 			continue;
 		rpmsg_info = &rpmsg_cntl[peripheral];
 		__diag_rpmsg_init(rpmsg_info);
@@ -872,7 +873,8 @@ void diag_rpmsg_early_exit(void)
 
 	for (peripheral = 0; peripheral < NUM_PERIPHERALS; peripheral++) {
 		if ((peripheral != PERIPHERAL_WDSP) &&
-				(peripheral != PERIPHERAL_WCNSS))
+			(peripheral != PERIPHERAL_WCNSS) &&
+				(peripheral != PERIPHERAL_MODEM))
 			continue;
 		mutex_lock(&driver->rpmsginfo_mutex[peripheral]);
 		__diag_rpmsg_exit(&rpmsg_cntl[peripheral]);
@@ -918,6 +920,19 @@ static struct diag_rpmsg_info *diag_get_rpmsg_ptr(char *name, int pid)
 			return &rpmsg_cntl[PERIPHERAL_WCNSS];
 		else
 			return NULL;
+	} else if (pid == PERIPHERAL_MODEM) {
+		if (!strcmp(name, "DIAG_CMD"))
+			return &rpmsg_cmd[PERIPHERAL_MODEM];
+		else if (!strcmp(name, "DIAG_CNTL"))
+			return &rpmsg_cntl[PERIPHERAL_MODEM];
+		else if (!strcmp(name, "DIAG"))
+			return &rpmsg_data[PERIPHERAL_MODEM];
+		else if (!strcmp(name, "DIAG_2_CMD"))
+			return &rpmsg_dci_cmd[PERIPHERAL_MODEM];
+		else if (!strcmp(name, "DIAG_2"))
+			return &rpmsg_dci[PERIPHERAL_MODEM];
+		else
+			return NULL;
 	}
 	return NULL;
 }
@@ -934,6 +949,8 @@ static int diag_rpmsg_probe(struct rpmsg_device *rpdev)
 		peripheral = PERIPHERAL_WDSP;
 	else if (!strcmp(rpdev->dev.parent->of_node->name, "wcnss"))
 		peripheral = PERIPHERAL_WCNSS;
+	else if (!strcmp(rpdev->dev.parent->of_node->name, "modem"))
+		peripheral = PERIPHERAL_MODEM;
 
 	rpmsg_info = diag_get_rpmsg_ptr(rpdev->id.name, peripheral);
 	if (rpmsg_info) {
@@ -960,6 +977,8 @@ static void diag_rpmsg_remove(struct rpmsg_device *rpdev)
 		peripheral = PERIPHERAL_WDSP;
 	else if (!strcmp(rpdev->dev.parent->of_node->name, "wcnss"))
 		peripheral = PERIPHERAL_WCNSS;
+	else if (!strcmp(rpdev->dev.parent->of_node->name, "modem"))
+		peripheral = PERIPHERAL_MODEM;
 
 	rpmsg_info = diag_get_rpmsg_ptr(rpdev->id.name, peripheral);
 	if (rpmsg_info) {
@@ -973,6 +992,10 @@ static void diag_rpmsg_remove(struct rpmsg_device *rpdev)
 static struct rpmsg_device_id rpmsg_diag_table[] = {
 	{ .name = "APPS_RIVA_DATA" },
 	{ .name = "APPS_RIVA_CTRL" },
+	{ .name = "DIAG" },
+	{ .name = "DIAG_CNTL" },
+	{ .name = "DIAG_2" },
+	{ .name = "DIAG_2_CMD" },
 	{ .name = "DIAG_CMD" },
 	{ .name = "DIAG_CTRL" },
 	{ .name = "DIAG_DATA" },
