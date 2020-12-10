@@ -17,7 +17,9 @@ FINAL_ABI_REPORT=abi-report-final.out
 #include abi_white_list to bypass violations
 source $ABI_DIR/abi_white_list
 #Find Delete/Changed/Added and leaf type change
-check_arr=("\[D\]" "\[C\]" "\[A\]" "^'.*' changed:$")
+#check_arr=("\[D\]" "\[C\]" "\[A\]" "^'.*' changed:$")
+#Not monitor [C] to bypass too much CRC check
+check_arr=("\[D\]" "\[A\]" "^'.*' changed:$")
 #Find Delete/Changed and leaf type change coz
 #diff_abi default report Added symbol since:
 #https://sourceware.org/git/?p=\
