@@ -519,6 +519,8 @@ static void fbt_free_bhr(void)
 
 static void fbt_set_idleprefer_locked(int enable)
 {
+	char temp[FPSGO_SYSFS_MAX_BUFF_SIZE] = "";
+
 	if (!fbt_idleprefer_enable)
 		return;
 
@@ -526,10 +528,8 @@ static void fbt_set_idleprefer_locked(int enable)
 		return;
 
 	xgf_trace("fpsgo %s idleprefer", enable?"enable":"disable");
-#ifdef CONFIG_SCHED_TUNE
-	/* use eas_ctrl to control prefer idle */
-	update_prefer_idle_value(EAS_PREFER_IDLE_KIR_FPSGO, CGROUP_TA, enable);
-#endif
+	snprintf(temp, sizeof(temp), "SCHED_IDLE_PREFER=%d", enable);
+	fpsgo_sentuevent(temp);
 	set_idleprefer = enable;
 }
 
