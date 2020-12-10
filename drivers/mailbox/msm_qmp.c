@@ -151,6 +151,8 @@ struct qmp_mbox {
 	u32 mcore_mbox_offset;
 	u32 mcore_mbox_size;
 	struct qmp_pkt rx_pkt;
+	struct qmp_pkt tx_pkt;
+	struct work_struct tx_work;
 
 	struct qmp_core_version version;
 	enum qmp_local_state local_state;
@@ -760,15 +762,39 @@ static int qmp_shim_startup(struct mbox_chan *chan)
 
 static void qmp_shim_shutdown(struct mbox_chan *chan) { }
 
+static void qmp_shim_worker(struct work_struct *work)
+{
+	struct qmp_mbox *mbox = container_of(work, struct qmp_mbox, tx_work);
+	struct qmp_pkt *pkt = &mbox->tx_pkt;
+	int rc;
+
+	rc = qmp_send(mbox->mdev->qmp, pkt->data, pkt->size);
+	mbox_chan_txdone(&mbox->ctrl.chans[mbox->idx_in_flight], rc);
+}
+
 static int qmp_shim_send_data(struct mbox_chan *chan, void *data)
 {
 	struct qmp_mbox *mbox = chan->con_priv;
 	struct qmp_pkt *pkt = (struct qmp_pkt *)data;
+	int i;
 
 	if (!mbox || !mbox->mdev || !data)
 		return -EINVAL;
 
-	return qmp_send(mbox->mdev->qmp, pkt->data, pkt->size);
+	if (pkt->size > SZ_4K)
+		return -EINVAL;
+
+	for (i = 0; i < mbox->ctrl.num_chans; i++) {
+		if (chan == &mbox->ctrl.chans[i]) {
+			mbox->idx_in_flight = i;
+			break;
+		}
+	}
+
+	mbox->tx_pkt.size = pkt->size;
+	memcpy(mbox->tx_pkt.data, pkt->data, pkt->size);
+	schedule_work(&mbox->tx_work);
+	return 0;
 }
 
 static struct mbox_chan_ops qmp_mbox_shim_ops = {
@@ -909,6 +935,10 @@ static int qmp_shim_init(struct platform_device *pdev, struct qmp_device *mdev)
 	if (!mbox)
 		return -ENOMEM;
 
+	mbox->tx_pkt.data = devm_kzalloc(mdev->dev, SZ_4K, GFP_KERNEL);
+	if (!mbox->tx_pkt.data)
+		return -ENOMEM;
+
 	num_chans = get_mbox_num_chans(pdev->dev.of_node);
 	mbox->rx_disabled = (num_chans > 1) ? true : false;
 	chans = devm_kzalloc(mdev->dev, sizeof(*chans) * num_chans, GFP_KERNEL);
@@ -929,6 +959,7 @@ static int qmp_shim_init(struct platform_device *pdev, struct qmp_device *mdev)
 	mutex_init(&mbox->state_lock);
 	mbox->num_assigned = 0;
 	mbox->mdev = mdev;
+	INIT_WORK(&mbox->tx_work, qmp_shim_worker);
 
 	rc = mbox_controller_register(&mbox->ctrl);
 	if (rc) {
