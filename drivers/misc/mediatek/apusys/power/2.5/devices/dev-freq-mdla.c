@@ -25,7 +25,6 @@
 static int devfreq_target(struct device *dev, unsigned long *rate,
 				u32 flags)
 {
-	struct dev_pm_opp *opp;
 	unsigned long old_rate, volt;
 	struct apu_dev *ad = dev_get_drvdata(dev);
 	struct apu_clk_ops *clk_ops = NULL;
@@ -41,14 +40,11 @@ static int devfreq_target(struct device *dev, unsigned long *rate,
 		regul_ops = ad->argul->ops;
 
 	/* try to get recommend rate and opp, here rate may be changed by thermal */
-	opp = devfreq_recommended_opp(dev, rate, flags);
-	if (IS_ERR(opp)) {
+	err = apu_get_recommend_freq_volt(dev, rate, &volt, flags);
+	if (err) {
 		advfs_err(dev, "Failed to find opp for %lu KHz\n", *rate / KHZ);
-		err = PTR_ERR(opp);
 		goto out;
 	}
-	volt = dev_pm_opp_get_voltage(opp);
-	dev_pm_opp_put(opp);
 
 	old_rate = clk_ops->get_rate(ad->aclk);
 	if (round_Mhz(*rate, old_rate)) {
@@ -112,7 +108,7 @@ static int runtime_suspend(struct device *dev)
 	struct apu_dev *ad = dev_get_drvdata(dev);
 
 	apower_info(dev, "[%s] called\n", __func__);
-	ret = devfreq_suspend_device(ad->devfreq);
+	ret = devfreq_suspend_device(ad->df);
 	if (ret)
 		return ret;
 
@@ -157,7 +153,7 @@ static int runtime_resume(struct device *dev)
 			return ret;
 	}
 
-	return devfreq_resume_device(ad->devfreq);
+	return devfreq_resume_device(ad->df);
 }
 
 const static struct dev_pm_ops pm_ops = {
@@ -165,9 +161,9 @@ const static struct dev_pm_ops pm_ops = {
 };
 
 #else
-const static struct dev_pm_ops pm_ops = {
-};
+const static struct dev_pm_ops pm_ops = {};
 #endif
+
 #define MDLA_PM_OPS (&pm_ops)
 
 static int mdla_devfreq_probe(struct platform_device *pdev)
@@ -216,20 +212,19 @@ static int mdla_devfreq_probe(struct platform_device *pdev)
 	if (!pf)
 		goto uninit_rguls;
 
-	if (!apu_data->devfreq_parent)
-		pf->polling_ms = 10;
-	else
-		pf->polling_ms = 0;
-
 	pf->get_cur_freq = devfreq_curFreq;
 	if (apu_data->bypass_target)
 		pf->target = devfreq_dummy_target;
 	else
 		pf->target = devfreq_target;
 
-	err = ad->plat_ops->init_devfreq(ad, pf);
+	err = ad->plat_ops->init_devfreq(ad, pf, (void *)apu_data);
 	if (err)
 		goto uninit_rguls;
+
+	err = ad->plat_ops->init_misc(ad);
+	if (err)
+		goto uninit_devfreq;
 
 	/* initial run time power management */
 	pm_runtime_enable(dev);
@@ -238,18 +233,10 @@ static int mdla_devfreq_probe(struct platform_device *pdev)
 	if (err)
 		goto uninit_devfreq;
 
-	if (!apu_data->devfreq_parent)
-		goto out;
-
-	err = apu_create_child_array(ad->devfreq->data);
-	if (err)
-		goto uninit_devfreq;
-
 	/* Enumerate child at last, since child need parent's devfreq */
 	err = of_platform_populate(dev->of_node, NULL, NULL, dev);
 	if (!err)
 		goto out;
-
 	aprobe_err(dev, "[%s] populate fail, ret = %d\n", __func__, err);
 uninit_devfreq:
 	ad->plat_ops->uninit_devfreq(ad);
@@ -278,17 +265,14 @@ static int mdla_devfreq_remove(struct platform_device *pdev)
 	ad->plat_ops->uninit_opps(ad);
 	/* remove apu_device from list */
 	apu_del_devfreq(ad);
-	/* remove gov child data */
-	apu_release_child_array(ad->devfreq->data);
 	ad->plat_ops->uninit_devfreq(ad);
-	kfree(ad->devfreq->profile);
+	kfree(ad->df->profile);
 
 	return 0;
 }
 
 static const struct apu_plat_data mt6873_mdla_data = {
 	.user = MDLA,
-	.devfreq_parent = 1,
 	.clkgp_name = "mt6873_mdla",
 	.rgulgp_name = "mt6873_mdla",
 	.plat_ops_name = "mt68xx_platops",

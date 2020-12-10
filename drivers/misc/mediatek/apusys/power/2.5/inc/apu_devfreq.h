@@ -18,7 +18,7 @@
  * struct apu_dev - device struct represent each apu engine.
  *
  * @dev:     struct device
- * @devfreq: devfreq struct
+ * @df: devfreq struct
  * @p_oppt:  point to this device's opp table.
  * @opp_div: divider of opp
  * @node:    used for hook all struct apu_dev
@@ -50,7 +50,7 @@ struct apu_dev {
 	struct apu_plat_ops *plat_ops;
 
 	/* devfreq info */
-	struct devfreq	 *devfreq;
+	struct devfreq	 *df;
 	struct opp_table *p_oppt;
 	unsigned int opp_div;
 };

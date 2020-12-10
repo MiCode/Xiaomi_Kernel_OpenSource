@@ -7,6 +7,7 @@
 #include <linux/iopoll.h>
 #include <linux/pm_runtime.h>
 
+#include "apusys_power.h"
 #include "apu_common.h"
 #include "apu_clk.h"
 #include "apu_log.h"
@@ -287,29 +288,31 @@ void clk_apu_show_clk_info(const char *id, struct apu_clk *dst)
 	int i = 0, j = 0, num_parent = 0;
 	struct clk_hw *parent, *cur_parent, *mux_hw;
 
-	for (i = 0; i < dst->clk_num; i++) {
-		aclk_info(dst->dev, "[%d] clk \"%s\" rate %uMhz\n",
-			  i, dst->clks[i].id,
-			  TOMHZ(clk_get_rate(dst->clks[i].clk)));
-		mux_hw = __clk_get_hw(dst->clks[i].clk);
-		num_parent = clk_hw_get_num_parents(mux_hw);
-		if (num_parent <= 1)
-			continue;
-		cur_parent = clk_hw_get_parent(mux_hw);
-		for (j = 0; j < num_parent; j++) {
-			parent = clk_hw_get_parent_by_index(mux_hw, j);
-			if (IS_ERR_OR_NULL(parent))
+	if (apupw_dbg_get_loglvl() >= VERBOSE_LVL) {
+		for (i = 0; i < dst->clk_num; i++) {
+			aclk_info(dst->dev, "[%d] clk \"%s\" rate %uMhz\n",
+				  i, dst->clks[i].id,
+				  TOMHZ(clk_get_rate(dst->clks[i].clk)));
+			mux_hw = __clk_get_hw(dst->clks[i].clk);
+			num_parent = clk_hw_get_num_parents(mux_hw);
+			if (num_parent <= 1)
 				continue;
-			if (cur_parent == parent) {
-				aclk_info(dst->dev,
-					  "\t parent %d [%s] rate %dMhz (*)\n",
-					  j, clk_hw_get_name(parent),
-					  TOMHZ(clk_hw_get_rate(parent)));
-			} else {
-				aclk_info(dst->dev,
-					  "\t parent %d [%s] rate %dMhz\n",
-					  j, clk_hw_get_name(parent),
-					  TOMHZ(clk_hw_get_rate(parent)));
+			cur_parent = clk_hw_get_parent(mux_hw);
+			for (j = 0; j < num_parent; j++) {
+				parent = clk_hw_get_parent_by_index(mux_hw, j);
+				if (IS_ERR_OR_NULL(parent))
+					continue;
+				if (cur_parent == parent) {
+					aclk_info(dst->dev,
+						  "\t parent %d [%s] rate %dMhz (*)\n",
+						  j, clk_hw_get_name(parent),
+						  TOMHZ(clk_hw_get_rate(parent)));
+				} else {
+					aclk_info(dst->dev,
+						  "\t parent %d [%s] rate %dMhz\n",
+						  j, clk_hw_get_name(parent),
+						  TOMHZ(clk_hw_get_rate(parent)));
+				}
 			}
 		}
 	}
@@ -340,12 +343,11 @@ static int clk_apu_set_rate(struct apu_clk_gp *aclk, unsigned long rate)
 		ret = _clk_apu_mux_set_rate(aclk->sys_mux, rate);
 	mutex_unlock(&aclk->clk_lock);
 
-	/* queue delay work to show voltage/freq */
-	queue_delayed_work(pm_wq, &pw_info_work, msecs_to_jiffies(5));
 	if (ret)
 		aclk_err(aclk->dev,
 			 "[%s] %s has no pll/sys_mux to set %luMhz\n",
 			 __func__, TOMHZ(rate));
+	apu_get_power_info(0);
 	return ret;
 }
 
@@ -431,8 +433,7 @@ static int clk_apu_enable(struct apu_clk_gp *aclk)
 	}
 
 out:
-	/* queue delay work to show voltage/freq */
-	queue_delayed_work(pm_wq, &pw_info_work, msecs_to_jiffies(5));
+	apu_get_power_info(0);
 	return ret;
 }
 
@@ -486,8 +487,7 @@ static void clk_apu_disable(struct apu_clk_gp *aclk)
 	}
 
 out:
-	/* queue delay work to show voltage/freq */
-	queue_delayed_work(pm_wq, &pw_info_work, msecs_to_jiffies(5));
+	apu_get_power_info(0);
 }
 
 static int clk_apu_prepare(struct apu_clk_gp *aclk)
@@ -566,7 +566,6 @@ static int clk_apu_cg_enable(struct apu_clk_gp *aclk)
 	dst = aclk->cg;
 	if (IS_ERR_OR_NULL(dst))
 		return 0;
-
 	for (idx = 0; idx < dst->clk_num; idx++) {
 		cg_clr = (ulong)(dst->cgs[idx].regs) +
 				(ulong)(dst->cgs[idx].cg_ctl[CG_CLR]);
@@ -582,7 +581,6 @@ static int clk_apu_cg_enable(struct apu_clk_gp *aclk)
 			break;
 		}
 	}
-
 	return ret;
 }
 
@@ -716,12 +714,12 @@ struct apu_clk mt68xx_mdla0_topmux = {
 };
 
 
-static struct apu_clk_gp mt6873_core_clk_gp = {
+static struct apu_clk_gp mt68x3_core_clk_gp = {
 	.sys_mux = &mt68xx_vcore_sysmux,
 	.ops = &mt68xx_clk_ops,
 };
 
-static struct apu_clk_gp mt6873_conn_clk_gp = {
+static struct apu_clk_gp mt68x3_conn_clk_gp = {
 	.cg = &mt68xx_conn_cgs,
 	.ops = &mt68xx_clk_ops,
 };
@@ -757,8 +755,8 @@ static struct apu_clk_gp mt6873_mdla0_clk_gp = {
 };
 
 static const struct apu_clk_array apu_clk_gps[] = {
-	{ .name = "mt6873_core", .aclk_gp = &mt6873_core_clk_gp },
-	{ .name = "mt6873_conn", .aclk_gp = &mt6873_conn_clk_gp },
+	{ .name = "mt68x3_core", .aclk_gp = &mt68x3_core_clk_gp },
+	{ .name = "mt68x3_conn", .aclk_gp = &mt68x3_conn_clk_gp },
 	{ .name = "mt6873_mdla", .aclk_gp = &mt6873_mdla_clk_gp },
 	{ .name = "mt6873_mdla0", .aclk_gp = &mt6873_mdla0_clk_gp },
 	{ .name = "mt68x3_vpu", .aclk_gp = &mt68x3_vpu_clk_gp },

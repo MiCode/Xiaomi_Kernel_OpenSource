@@ -16,6 +16,16 @@ static DEFINE_SPINLOCK(adev_list_lock);
 /* The list of all apu devices */
 static LIST_HEAD(adev_list);
 
+static bool _valid_ad(struct apu_dev *ad)
+{
+	if (IS_ERR(ad) || !ad->df ||
+	    !ad->df->profile || !ad->df->profile->max_state) {
+		apower_err(ad->dev, "%ps: Invalid input.\n",
+			   __builtin_return_address(0));
+		return false;
+	}
+	return true;
+}
 /**
  * apu_dev_string() - return string of dvfs user
  * @user:	apu dvfs user.
@@ -60,7 +70,7 @@ struct apu_dev *apu_find_device(enum DVFS_USER user)
 
 	if (user > APUSYS_POWER_USER_NUM) {
 		pr_info("%s: user %d Invalid parameters\n",
-			   __func__, user);
+			__func__, user);
 		return ERR_PTR(-EINVAL);
 	}
 
@@ -121,7 +131,7 @@ int apu_add_devfreq(struct apu_dev *ad)
 
 	if (!IS_ERR(apu_find_device(ad->user))) {
 		apower_err(ad->dev, "%s: device %s already exist.\n",
-				__func__, apu_dev_string(ad->user));
+			   __func__, apu_dev_string(ad->user));
 		goto out;
 	}
 
@@ -156,7 +166,7 @@ int apu_del_devfreq(struct apu_dev *del_dev)
 
 /**
  * apu_boost2opp() - get opp from boost
- * @adev: apu_dev
+ * @ad: apu_dev
  * @boost: boost value (0 ~ 100)
  *
  *  opp = abs(max_state - boost/opp_div)
@@ -168,59 +178,51 @@ int apu_del_devfreq(struct apu_dev *del_dev)
  * boost/opp_div       0     1    2    3    4    5    5
  * opp                 5     4    3    2    1    0    0
  */
-int apu_boost2opp(struct apu_dev *adev, int boost)
+int apu_boost2opp(struct apu_dev *ad, int boost)
 {
 	u32 rdown;
-	u32 max_state;
+	u32 max_st;
 	u32 opp;
 
-	if (IS_ERR(adev)) {
-		pr_info("%s: Invalid adev parameters.\n", __func__);
+	if (!_valid_ad(ad))
 		return -EINVAL;
-	}
 
 	/* minus 1 for opp inex starts from 0 */
-	max_state = adev->devfreq->profile->max_state - 1;
-	rdown = DIV_ROUND_DOWN_ULL(boost, adev->opp_div);
-	opp = (rdown > max_state) ? 0 : abs(max_state - rdown);
-
-	dev_dbg(adev->devfreq->dev.parent,
-		 "opp %d, rdown %d, boost %d\n",
-		 opp, rdown, boost);
+	max_st = ad->df->profile->max_state - 1;
+	rdown = DIV_ROUND_DOWN_ULL(boost, ad->opp_div);
+	opp = (rdown > max_st) ? 0 : abs(max_st - rdown);
 
 	return opp;
 }
 
 /**
  * apu_boost2freq() - get freq from boost
- * @adev: apu_dev
+ * @ad: apu_dev
  * @boost: boost value (0 ~ 100)
  *
  * frq = freq_table[opp]
  */
-unsigned long apu_boost2freq(struct apu_dev *ad, int boost)
+int apu_boost2freq(struct apu_dev *ad, int boost)
 {
 	int opp = 0;
 	int max_st = 0;
 
-	if (IS_ERR(ad)) {
-		apower_err(ad->dev, "%s: Invalid parameters.\n", __func__);
+	if (!_valid_ad(ad))
 		return -EINVAL;
-	}
 
 	opp = apu_boost2opp(ad, boost);
 	/*
 	 * opp 0 mean the max freq, but index 0 of freq_table
 	 * is the slowest freq. So we need to swap them here.
 	 */
-	max_st = ad->devfreq->profile->max_state - 1;
-	return ad->devfreq->profile->freq_table[max_st - opp];
+	max_st = ad->df->profile->max_state - 1;
+	return ad->df->profile->freq_table[max_st - opp];
 }
 
 
 /**
  * apu_opp2freq() - get freq from opp
- * @adev: apu_dev
+ * @ad: apu_dev
  * @opp: opp value (0 means the fastest)
  *
  */
@@ -228,13 +230,10 @@ int apu_opp2freq(struct apu_dev *ad, int opp)
 {
 	int max_st = 0;
 
-	if (IS_ERR(ad)) {
-		apower_err(ad->dev, "[%s] Invalid adev parameters.\n",
-			   __func__);
+	if (!_valid_ad(ad))
 		return -EINVAL;
-	}
 
-	max_st = ad->devfreq->profile->max_state - 1;
+	max_st = ad->df->profile->max_state - 1;
 	if (opp < 0)
 		opp = 0;
 	if (opp > max_st)
@@ -248,28 +247,54 @@ int apu_opp2freq(struct apu_dev *ad, int opp)
 	 * as [max_st - opp], while getting freq we want in
 	 * profile->freq_table.
 	 */
-	return ad->devfreq->profile->freq_table[max_st - opp];
+	return ad->df->profile->freq_table[max_st - opp];
 }
 
 
 /**
+ * apu_opp2boost() - get opp from boost
+ * @ad: apu_dev
+ * @opp: opp value
+ *
+ *  opp = abs(max_state - boost/opp_div)
+ *  boost = (max_state - opp + 1) * opp_div
+ *
+ * boost            0  ~  16 ~ 32 ~ 48 ~ 64 ~ 80 ~ 96 ~ 100
+ * boost/opp_div       0     1    2    3    4    5    5
+ * opp                 5     4    3    2    1    0    0
+ */
+int apu_opp2boost(struct apu_dev *ad, int opp)
+{
+	int max_st = 0;
+
+	if (!_valid_ad(ad))
+		return -EINVAL;
+
+	max_st = ad->df->profile->max_state - 1;
+	if (opp < 0)
+		opp = 0;
+	if (opp > max_st)
+		opp = max_st;
+
+	return (max_st - opp + 1) * ad->opp_div;
+}
+
+/**
  * apu_freq2opp() - get freq from opp
- * @adev: apu_dev
+ * @ad: apu_dev
  * @freq: frequency
  *
  */
-int apu_freq2opp(struct apu_dev *adev, unsigned long freq)
+int apu_freq2opp(struct apu_dev *ad, unsigned long freq)
 {
 	int max_st = 0;
 	int opp = 0;
 
-	if (IS_ERR(adev)) {
-		pr_info("%s: Invalid parameters.\n", __func__);
+	if (!_valid_ad(ad))
 		return -EINVAL;
-	}
 
-	max_st = adev->devfreq->profile->max_state - 1;
-	if (freq > adev->devfreq->profile->freq_table[max_st - opp])
+	max_st = ad->df->profile->max_state - 1;
+	if (freq > ad->df->profile->freq_table[max_st])
 		return -EINVAL;
 
 	/*
@@ -281,72 +306,135 @@ int apu_freq2opp(struct apu_dev *adev, unsigned long freq)
 	 * profile->freq_table.
 	 */
 
-	for (opp = max_st; opp >= 0; opp--)
-		if (round_khz(adev->devfreq->profile->freq_table[opp], freq))
+	for (opp = 0; max_st >= 0; max_st--, opp++) {
+		if (round_khz(ad->df->profile->freq_table[max_st], freq))
 			break;
-
+	}
 	return opp;
 }
 
 /**
- * apu_create_child_freq_list() - set child freq list
- * @pgov_data: governor data
+ * apu_freq2boost() - get freq from opp
+ * @ad: apu_dev
+ * @freq: frequency
  *
- * Based on dev's child count, create governor->child_freq list
  */
-int apu_create_child_array(struct apu_gov_data *pgov_data)
+int apu_freq2boost(struct apu_dev *ad, unsigned long freq)
 {
-	int i, err = 0;
-	u32 *tmp = NULL;
-	struct device *dev = NULL;
-	struct apu_dev *ad = NULL;
+	int max_st = 0;
+	int opp = 0;
 
-	dev = pgov_data->this->dev.parent;
-	ad = dev_get_drvdata(dev);
+	if (!_valid_ad(ad))
+		return -EINVAL;
 
-	/* create array of child_freq */
-	pgov_data->child_opp =
-		kcalloc(APUSYS_POWER_USER_NUM, sizeof(u32 *), GFP_KERNEL);
-	if (!pgov_data->child_opp) {
-		apower_err(dev, "cannot allocate child_freq\n");
-		err = -ENOMEM;
-		goto out;
+	max_st = ad->df->profile->max_state - 1;
+	if (freq > ad->df->profile->freq_table[max_st])
+		return -EINVAL;
+
+	/*
+	 * opp 0 mean the max freq, but index 0 of freq_table
+	 * is the slowest one.
+	 *
+	 * So we need to take index
+	 * as [max_st - opp], while getting freq we want in
+	 * profile->freq_table.
+	 */
+
+	for (opp = 0; max_st >= 0; max_st--, opp++) {
+		if (round_khz(ad->df->profile->freq_table[max_st], freq))
+			break;
 	}
-
-	/* initialize child freq element */
-	for (i = 0; i < APUSYS_POWER_USER_NUM; i++) {
-		tmp = kmalloc(sizeof(*tmp), GFP_KERNEL);
-		if (!tmp) {
-			err = -ENOMEM;
-			goto out;
-		}
-		/* set each child's value as slowest opp of parent. */
-		*tmp = pgov_data->this->profile->max_state - 1;
-		pgov_data->child_opp[i] = tmp;
-	}
-
-out:
-	return err;
+	return apu_opp2boost(ad, opp);
 }
 
 /**
- * apu_release_child_freq() - release child freq
- * @dev: struct device, used for checking child number
- * @user: dvfs user
- * @pgov_data: governor data
+ * apu_volt2opp() - get freq from opp
+ * @ad: apu_dev
+ * @volt: volt
  *
- * Based on dev's child count, create governor->child_freq list
  */
-void apu_release_child_array(struct apu_gov_data *pgov_data)
+int apu_volt2opp(struct apu_dev *ad, int volt)
 {
-	int i = 0;
-	struct device *dev = NULL;
-	struct apu_dev *adev = NULL;
+	int max_st = 0, ret = -ERANGE;
+	ulong freq = 0, tmp = 0;
 
-	dev = pgov_data->this->dev.parent;
-	adev = dev_get_drvdata(dev);
-	for (i = 0; i < adev->user; i++)
-		kfree(pgov_data->child_opp[i]);
-	kfree(pgov_data->child_opp);
+	if (!_valid_ad(ad))
+		return -EINVAL;
+
+	/* search from slowest rate/volt and opp is reverse of max_state*/
+	max_st = ad->df->profile->max_state - 1;
+
+	do {
+		ret = apu_get_recommend_freq_volt(ad->dev, &freq, &tmp, 0);
+		if (ret)
+			break;
+		if (tmp != volt)
+			max_st--;
+		else
+			goto out;
+		freq++;
+	} while (!ret && max_st >= 0);
+
+	apower_err(ad->dev, "[%s] fail to find opp for %dmV.\n",
+		   __func__, TOMV(volt));
+	return -EINVAL;
+
+out:
+	return max_st;
 }
 
+/**
+ * apu_volt2boost() - get freq from opp
+ * @ad: apu_dev
+ * @volt: volt
+ *
+ */
+int apu_volt2boost(struct apu_dev *ad, int volt)
+{
+	int max_st = 0, ret = -ERANGE;
+	ulong freq = 0, tmp = 0;
+
+	if (!_valid_ad(ad))
+		return -EINVAL;
+
+	/* search from slowest rate/volt and opp is reverse of max_state*/
+	max_st = ad->df->profile->max_state - 1;
+
+	do {
+		ret = apu_get_recommend_freq_volt(ad->dev, &freq, &tmp, 0);
+		if (ret)
+			break;
+		if (tmp != volt)
+			max_st--;
+		else
+			goto out;
+		freq++;
+	} while (!ret && max_st >= 0);
+
+	apower_err(ad->dev, "[%s] fail to find boost for %dmV.\n",
+		   __func__, TOMV(volt));
+	return -EINVAL;
+out:
+	return apu_opp2boost(ad, max_st);
+}
+
+int apu_get_recommend_freq_volt(struct device *dev, unsigned long *freq,
+				unsigned long *volt, int flag)
+{
+	struct dev_pm_opp *opp;
+
+	if (!freq)
+		return -EINVAL;
+
+	/* get the slowest frq in opp */
+	opp = devfreq_recommended_opp(dev, freq, flag);
+	if (IS_ERR(opp)) {
+		apower_err(dev, "[%s] no opp for %luMHz\n", TOMHZ(*freq));
+		return PTR_ERR(opp);
+	}
+
+	if (volt)
+		*volt = dev_pm_opp_get_voltage(opp);
+	dev_pm_opp_put(opp);
+	return 0;
+}

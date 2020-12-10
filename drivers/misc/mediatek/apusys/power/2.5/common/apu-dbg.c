@@ -12,7 +12,9 @@
 #include <linux/pm_runtime.h>
 #include <linux/debugfs.h>
 #include <linux/devfreq.h>
+#include <linux/of_address.h>
 
+#include "apu_io.h"
 #include "apu_dbg.h"
 #include "apu_log.h"
 #include "apu_common.h"
@@ -21,49 +23,18 @@
 #include "apu_rpc.h"
 #include "apusys_core.h"
 
-static LIST_HEAD(dbg_clk_list);
-static LIST_HEAD(dbg_regulator_list);
-static struct dentry *apusys_power_dir;
-static void dbg_power_info(struct work_struct *work);
-DECLARE_DELAYED_WORK(pw_info_work, dbg_power_info);
-static char buffer[128];
-int log_level = 1;
-int poll_interval;
-/**
- * struct apu_dbg_clk - associate a clk with a notifier
- * @clk: struct clk * to associate the notifier with
- * @notifier_head: a blocking_notifier_head for this clk
- * @node: linked list pointers
- *
- * A list of struct clk_notifier is maintained by the notifier code.
- * An entry is created whenever code registers the first notifier on a
- * particular @clk.  Future notifiers on that @clk are added to the
- * @notifier_head.
- */
-struct apu_dbg_clk {
-	enum DVFS_USER user;
-	const char *name;
-	struct clk	*clk;
-	struct list_head node;
+DECLARE_DELAYED_WORK(pw_info_work, apupw_dbg_power_info);
+static char buffer[__LOG_BUF_LEN];
+static struct apu_dbg apupw_dbg = {
+	.log_lvl = VERBOSE_LVL,
 };
 
-/**
- * struct apu_dbg_clk - associate a clk with a notifier
- * @clk: struct clk * to associate the notifier with
- * @notifier_head: a blocking_notifier_head for this clk
- * @node: linked list pointers
- *
- * A list of struct clk_notifier is maintained by the notifier code.
- * An entry is created whenever code registers the first notifier on a
- * particular @clk.  Future notifiers on that @clk are added to the
- * @notifier_head.
- */
-struct apu_dbg_regulator {
-	enum DVFS_USER user;
-	const char *name;
-	struct regulator *reg;
-	struct list_head node;
-};
+static inline void _apupw_separte(struct seq_file *s, char *separate)
+{
+	seq_puts(s, "\n");
+	seq_printf(s, separate);
+	seq_puts(s, "\n");
+}
 
 /**
  * _dbg_id_to_dvfsuser() - transfer wiki's id to dvfs_user
@@ -71,7 +42,7 @@ struct apu_dbg_regulator {
  *
  * Based on wiki's document, transfer real dvfs_user.
  */
-static const enum DVFS_USER _dbg_id_to_dvfsuser(int dbg_id)
+static const enum DVFS_USER _apupw_dbg_id2user(int dbg_id)
 {
 	static const int ids[] = {
 		[0] = VPU0,
@@ -86,35 +57,147 @@ static const enum DVFS_USER _dbg_id_to_dvfsuser(int dbg_id)
 	return ids[dbg_id];
 }
 
-static void dbg_power_info(struct work_struct *work)
+static struct apu_dev *_apupw_valid_df(enum DVFS_USER usr)
+{
+	struct apu_dev *ad = apu_find_device(usr);
+
+	if (IS_ERR_OR_NULL(ad) || IS_ERR_OR_NULL(ad->df))
+		return NULL;
+
+	return ad;
+}
+
+static struct apu_dev *_apupw_valid_leaf_df(enum DVFS_USER usr)
+{
+	struct apu_dev *ad = apu_find_device(usr);
+	struct apu_gov_data *gov_data;
+
+	if (IS_ERR_OR_NULL(ad) || IS_ERR_OR_NULL(ad->df))
+		return NULL;
+
+	gov_data = (struct apu_gov_data *)ad->df->data;
+	if (gov_data->depth)
+		return NULL;
+
+	return ad;
+}
+
+static struct apu_dev *_apupw_valid_parent_df(enum DVFS_USER usr)
+{
+	struct apu_dev *ad = apu_find_device(usr);
+	struct apu_gov_data *gov_data;
+
+	if (IS_ERR_OR_NULL(ad) || IS_ERR_OR_NULL(ad->df))
+		return NULL;
+
+	gov_data = (struct apu_gov_data *)ad->df->data;
+	if (!gov_data->depth)
+		return NULL;
+
+	return ad;
+}
+
+enum LOG_LEVEL apupw_dbg_get_loglvl(void)
+{
+	return apupw_dbg.log_lvl;
+}
+
+void apupw_dbg_set_loglvl(enum LOG_LEVEL lvl)
+{
+	apupw_dbg.log_lvl = lvl;
+}
+
+int apupw_dbg_get_fixopp(void)
+{
+	return apupw_dbg.fix_opp;
+}
+
+void apupw_dbg_set_fixopp(int fix)
+{
+	apupw_dbg.fix_opp = fix;
+}
+
+void apupw_dbg_power_info(struct work_struct *work)
 {
 	struct apu_dbg_clk *dbg_clk;
 	struct apu_dbg_regulator *dbg_reg;
-	int n_pos;
+	struct apu_dbg_cg *dbg_cg;
+	int n_pos = 0;
 
 	memset(buffer, 0, sizeof(buffer));
-	n_pos = snprintf(buffer, (sizeof(buffer) - 1), "APUPWR v[");
-	list_for_each_entry_reverse(dbg_reg, &dbg_regulator_list, node)
-		n_pos += snprintf((buffer + n_pos), (sizeof(buffer) - n_pos - 1),
+	n_pos = snprintf(buffer, LOG_LEN, "APUPWR v[");
+	list_for_each_entry_reverse(dbg_reg, &apupw_dbg.reg_list, node)
+		n_pos += snprintf((buffer + n_pos), (LOG_LEN - n_pos),
 				"%u,", TOMV(regulator_get_voltage(dbg_reg->reg)));
 
 	n_pos += snprintf((buffer + n_pos), (sizeof(buffer) - n_pos - 1), "]f[");
 
 	/* search the list of dbg_clk_list for this clk */
-	list_for_each_entry_reverse(dbg_clk, &dbg_clk_list, node)
-		n_pos += snprintf((buffer + n_pos), (sizeof(buffer) - n_pos - 1),
+	list_for_each_entry_reverse(dbg_clk, &apupw_dbg.clk_list, node)
+		n_pos += snprintf((buffer + n_pos), (LOG_LEN - n_pos),
 				"%u,", TOMHZ(clk_get_rate(dbg_clk->clk)));
 
-	n_pos += snprintf((buffer + n_pos), (sizeof(buffer) - n_pos - 1),
-			"]r[%x,%x]\n", apu_spm_wakeup_value(), apu_rpc_rdy_value());
+	n_pos += snprintf((buffer + n_pos), (LOG_LEN - n_pos),
+			"]r[%x,%x,", apu_spm_wakeup_value(), apu_rpc_rdy_value());
+
+	list_for_each_entry_reverse(dbg_cg, &apupw_dbg.cg_list, node)
+		n_pos += snprintf((buffer + n_pos), (LOG_LEN - n_pos),
+				"0x%x,", apu_readl(dbg_cg->reg));
+
+	n_pos += snprintf((buffer + n_pos), (LOG_LEN - n_pos), "]");
 
 	pr_info("%s", buffer);
-	if (poll_interval)
+	if (apupw_dbg.poll_interval)
 		queue_delayed_work(pm_wq, &pw_info_work,
-			msecs_to_jiffies(poll_interval));
+			msecs_to_jiffies(apupw_dbg.poll_interval));
 }
 
-int apu_dbg_register_clk(const char *name, struct clk *clk)
+static int apupw_dbg_register_cg(const char *name, void __iomem *reg)
+{
+	struct apu_dbg_cg *dbg_cg = NULL;
+	int ret = -ENOMEM;
+
+	if (IS_ERR_OR_NULL(reg) || !name)
+		return -EINVAL;
+
+	if (list_empty(&apupw_dbg.cg_list))
+		goto allocate;
+
+	/* search the list of dbg_clk_list for this clk */
+	list_for_each_entry(dbg_cg, &apupw_dbg.cg_list, node)
+		if (!dbg_cg || dbg_cg->reg == reg)
+			break;
+allocate:
+
+	/* if clk wasn't in the dbg_clk_list, allocate new clk_notifier */
+	if (!dbg_cg || dbg_cg->reg != reg) {
+		dbg_cg = kzalloc(sizeof(*dbg_cg), GFP_KERNEL);
+		if (!dbg_cg)
+			goto out;
+		dbg_cg->reg = reg;
+		dbg_cg->name = name;
+		list_add(&dbg_cg->node, &apupw_dbg.cg_list);
+		ret = 0;
+	}
+out:
+	return ret;
+}
+
+static void apupw_dbg_unregister_cg(void)
+{
+	struct apu_dbg_cg *dbg_cg = NULL;
+
+	if (list_empty(&apupw_dbg.cg_list))
+		return;
+
+	list_for_each_entry(dbg_cg, &apupw_dbg.cg_list, node) {
+		iounmap(dbg_cg->reg);
+		list_del(&dbg_cg->node);
+		kfree(dbg_cg);
+	}
+}
+
+static int apupw_dbg_register_clk(const char *name, struct clk *clk)
 {
 	struct apu_dbg_clk *dbg_clk = NULL;
 	int ret = -ENOMEM;
@@ -122,11 +205,11 @@ int apu_dbg_register_clk(const char *name, struct clk *clk)
 	if (IS_ERR_OR_NULL(clk) || !name)
 		return -EINVAL;
 
-	if (list_empty(&dbg_clk_list))
+	if (list_empty(&apupw_dbg.clk_list))
 		goto allocate;
 
 	/* search the list of dbg_clk_list for this clk */
-	list_for_each_entry(dbg_clk, &dbg_clk_list, node)
+	list_for_each_entry(dbg_clk, &apupw_dbg.clk_list, node)
 		if (!dbg_clk || dbg_clk->clk == clk)
 			break;
 allocate:
@@ -138,28 +221,28 @@ allocate:
 			goto out;
 		dbg_clk->clk = clk;
 		dbg_clk->name = name;
-		list_add(&dbg_clk->node, &dbg_clk_list);
+		list_add(&dbg_clk->node, &apupw_dbg.clk_list);
 		ret = 0;
 	}
 out:
 	return ret;
 }
 
-
-void apu_dbg_unregister_clk(void)
+static void apupw_dbg_unregister_clk(void)
 {
 	struct apu_dbg_clk *dbg_clk = NULL;
 
-	if (list_empty(&dbg_clk_list))
+	if (list_empty(&apupw_dbg.clk_list))
 		return;
 
-	list_for_each_entry(dbg_clk, &dbg_clk_list, node) {
+	list_for_each_entry(dbg_clk, &apupw_dbg.clk_list, node) {
+		clk_put(dbg_clk->clk);
 		list_del(&dbg_clk->node);
 		kfree(dbg_clk);
 	}
 }
 
-int apu_dbg_register_regulator(const char *name, struct regulator *reg)
+static int apupw_dbg_register_regulator(const char *name, struct regulator *reg)
 {
 	struct apu_dbg_regulator *dbg_reg = NULL;
 	int ret = -ENOMEM;
@@ -167,10 +250,10 @@ int apu_dbg_register_regulator(const char *name, struct regulator *reg)
 	if (IS_ERR_OR_NULL(reg) || !name)
 		return -EINVAL;
 
-	if (list_empty(&dbg_regulator_list))
+	if (list_empty(&apupw_dbg.reg_list))
 		goto allocate;
 	/* search the list of dbg_clk_list for this clk */
-	list_for_each_entry(dbg_reg, &dbg_regulator_list, node)
+	list_for_each_entry(dbg_reg, &apupw_dbg.reg_list, node)
 		if (!dbg_reg || dbg_reg->reg == reg)
 			break;
 allocate:
@@ -182,28 +265,28 @@ allocate:
 			goto out;
 		dbg_reg->reg = reg;
 		dbg_reg->name = name;
-		list_add(&dbg_reg->node, &dbg_regulator_list);
+		list_add(&dbg_reg->node, &apupw_dbg.reg_list);
 		ret = 0;
 	}
 out:
 	return ret;
 }
 
-
-void apu_dbg_unregister_regulator(void)
+static void apupw_dbg_unregister_regulator(void)
 {
 	struct apu_dbg_regulator *dbg_reg = NULL;
 
-	if (list_empty(&dbg_regulator_list))
+	if (list_empty(&apupw_dbg.reg_list))
 		return;
 
-	list_for_each_entry(dbg_reg, &dbg_regulator_list, node) {
+	list_for_each_entry(dbg_reg, &apupw_dbg.reg_list, node) {
+		regulator_put(dbg_reg->reg);
 		list_del(&dbg_reg->node);
 		kfree(dbg_reg);
 	}
 }
 
-int apu_power_power_stress(int type, int device, int opp)
+static int apupw_dbg_power_stress(int type, int device, int opp)
 {
 	int id = 0;
 
@@ -224,7 +307,7 @@ int apu_power_power_stress(int type, int device, int opp)
 				apu_device_set_opp(id, opp);
 			}
 		} else {
-			id = _dbg_id_to_dvfsuser(device);
+			id = _apupw_dbg_id2user(device);
 			if (id < 0) {
 				pr_info("%s err with device = %d\n", __func__, device);
 				return -1;
@@ -236,12 +319,12 @@ int apu_power_power_stress(int type, int device, int opp)
 	case 1: /* config power on */
 		if (device == 9) { /* all devices */
 			for (id = 0 ; id < APUSYS_POWER_USER_NUM ; id++) {
-				if (IS_ERR_OR_NULL(apu_find_device(id)) && id != APUCB)
+				if (IS_ERR_OR_NULL(_apupw_valid_leaf_df(id)))
 					continue;
 				apu_device_power_on(id);
 			}
 		} else {
-			id = _dbg_id_to_dvfsuser(device);
+			id = _apupw_dbg_id2user(device);
 			if (id < 0) {
 				pr_info("%s err with device = %d\n", __func__, device);
 				return -1;
@@ -253,12 +336,12 @@ int apu_power_power_stress(int type, int device, int opp)
 	case 2: /* config power off */
 		if (device == 9) { /* all devices */
 			for (id = 0 ; id < APUSYS_POWER_USER_NUM ; id++) {
-				if (IS_ERR_OR_NULL(apu_find_device(id)) && id != APUCB)
+				if (IS_ERR_OR_NULL(_apupw_valid_leaf_df(id)))
 					continue;
 				apu_device_power_off(id);
 			}
 		} else {
-			id = _dbg_id_to_dvfsuser(device);
+			id = _apupw_dbg_id2user(device);
 			if (id < 0) {
 				pr_info("%s err with device = %d\n", __func__, device);
 				return -1;
@@ -275,39 +358,117 @@ int apu_power_power_stress(int type, int device, int opp)
 	return 0;
 }
 
-static inline void change_log_level(int new_level)
+static int apupw_dbg_dump_table(struct seq_file *s)
 {
-	log_level = new_level;
-	pr_info("%s, new log level = %d\n", __func__, log_level);
+	int len = 0;
+	char info[128];
+	char *separate = NULL;
+	struct dev_pm_opp *opp = NULL;
+	struct apu_dev *ad = NULL;
+	enum DVFS_USER usr;
+	int ret = 0;
+	ulong freq = 0, volt = 0;
 
+	for (usr = MDLA; usr < APUSYS_POWER_USER_NUM; usr++) {
+		ad = _apupw_valid_parent_df(usr);
+		if (IS_ERR_OR_NULL(ad))
+			continue;
+
+		memset(info, 0, sizeof(info));
+		freq = len = 0;
+		len += snprintf((info + len), (sizeof(info) - len),
+				"|%*s|", 10, apu_dev_string(ad->user));
+		do {
+			opp = dev_pm_opp_find_freq_ceil(ad->dev, &freq);
+			if (IS_ERR(opp)) {
+				if (PTR_ERR(opp) == -ERANGE)
+					break;
+				ret = PTR_ERR(opp);
+				goto out;
+			}
+			freq = dev_pm_opp_get_freq(opp);
+			volt = dev_pm_opp_get_voltage(opp);
+			dev_pm_opp_put(opp);
+			len += snprintf((info + len), (sizeof(info) - len),
+					"%3dMhz(%3dmv) [%d/%3d]|", TOMHZ(freq), TOMV(volt),
+					apu_freq2opp(ad, freq), apu_freq2boost(ad, freq));
+			freq += 1;
+		} while (1);
+		seq_printf(s, info);
+		/* add separator line */
+		separate = kzalloc(len, GFP_KERNEL);
+		memset(separate, '-', len - 1);
+		_apupw_separte(s, separate);
+		kfree(separate);
+	}
+
+out:
+	return ret;
 }
 
-static int apusys_debug_power_show(struct seq_file *s, void *unused)
+static int apupw_dbg_dump_stat(struct seq_file *s)
 {
-/* TODO
- *	switch (g_debug_option) {
- *	case POWER_PARAM_OPP_TABLE:
- *		apu_power_dump_opp_table(s);
- *		break;
- *	case POWER_PARAM_CURR_STATUS:
- *		apu_power_dump_curr_status(s, 0);
- *		break;
- *	case POWER_PARAM_LOG_LEVEL:
- *		seq_printf(s, "g_pwr_log_level = %d\n", g_pwr_log_level);
- *		break;
- *	default:
- *		apu_power_dump_curr_status(s, 1); // one line string
- *	}
- */
+	struct apu_dbg_clk *dbg_clk = NULL;
+	struct apu_dbg_regulator *dbg_reg = NULL;
+	struct apu_dbg_cg *dbg_cg = NULL;
+	u64 time;
+	ulong  rem_nsec;
+
+	time = sched_clock();
+	rem_nsec = do_div(time, 1000000000);
+
+	seq_printf(s, "[%5lu.%06lu]\n|curr|", (ulong)time, rem_nsec / 1000);
+	list_for_each_entry_reverse(dbg_clk, &apupw_dbg.clk_list, node)
+		seq_printf(s, "%*s|", 5, dbg_clk->name);
+	seq_puts(s, "\n");
+
+	seq_puts(s, "|freq|");
+	list_for_each_entry_reverse(dbg_clk, &apupw_dbg.clk_list, node)
+		seq_printf(s, "%*d|", 5, TOMHZ(clk_get_rate(dbg_clk->clk)));
+	seq_puts(s, "\n");
+
+	seq_puts(s, "|clk |");
+	list_for_each_entry_reverse(dbg_clk, &apupw_dbg.clk_list, node)
+		seq_printf(s, "%s|", __clk_get_name(dbg_clk->clk));
+	seq_puts(s, "\n(unit: MHz)\n\n");
+
+	list_for_each_entry_reverse(dbg_reg, &apupw_dbg.reg_list, node)
+		seq_printf(s, "%s:%d(mV), ", dbg_reg->name,
+			   TOMV(regulator_get_voltage(dbg_reg->reg)));
+	seq_printf(s, "\n\nrpc_intf_rdy:0x%x, spm_wakeup:0x%x\n",
+		   apu_rpc_rdy_value(), apu_spm_wakeup_value());
+	list_for_each_entry_reverse(dbg_cg, &apupw_dbg.cg_list, node)
+		seq_printf(s, "%s:0x%x, ", dbg_cg->name, apu_readl(dbg_cg->reg));
+	seq_puts(s, "\n");
+
 	return 0;
 }
 
-static int apusys_debug_power_open(struct inode *inode, struct file *file)
+static int apupw_dbg_show(struct seq_file *s, void *unused)
 {
-	return single_open(file, apusys_debug_power_show, inode->i_private);
+	switch (apupw_dbg.option) {
+	case POWER_PARAM_OPP_TABLE:
+		apupw_dbg_dump_table(s);
+		break;
+	case POWER_PARAM_CURR_STATUS:
+		apupw_dbg_dump_stat(s);
+		break;
+	case POWER_PARAM_LOG_LEVEL:
+		seq_printf(s, "log_level = %d\n", apupw_dbg_get_loglvl());
+		seq_printf(s, "fix_opp = %d\n", apupw_dbg_get_fixopp());
+		break;
+	default:
+		break;
+	}
+	return 0;
 }
 
-static int apusys_set_power_parameter(uint8_t param, int argc, int *args)
+static int apupw_dbg_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, apupw_dbg_show, inode->i_private);
+}
+
+static int apupw_dbg_set_parameter(u8 param, int argc, int *args)
 {
 	int ret = 0;
 	enum DVFS_USER user;
@@ -316,39 +477,32 @@ static int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 	int freq;
 
 	switch (param) {
+	case POWER_PARAM_FIX_OPP:
+		apupw_dbg_set_fixopp(args[0]);
+		break;
 	case POWER_PARAM_LOG_LEVEL:
 		switch (args[0]) {
-		case 0:
+		case NO_LVL:
+		case INFO_LVL:
+		case VERBOSE_LVL:
 			cancel_delayed_work_sync(&pw_info_work);
-			change_log_level(args[0]);
 			break;
-		case 1:
+		case PERIOD_LVL:
+			apupw_dbg.poll_interval = 200;
 			queue_delayed_work(pm_wq, &pw_info_work,
-					msecs_to_jiffies(poll_interval));
+					msecs_to_jiffies(apupw_dbg.poll_interval));
 			break;
-		case 2:
-			change_log_level(args[0]);
+		case SHOW_LVL:
+			apupw_dbg.option = POWER_PARAM_LOG_LEVEL;
 			break;
-		case 3:
-			poll_interval = (args[1]);
-			pr_info("%s, new poll_interval = %d\n", __func__, poll_interval);
-			if (poll_interval)
-				queue_delayed_work(pm_wq, &pw_info_work,
-					msecs_to_jiffies(poll_interval));
-			break;
-
 		default:
-			if (ret) {
-				pr_info("invalid argument, received:%d\n",
-						(int)(args[0]));
-				goto out;
-			}
 			ret = -EINVAL;
 			goto out;
 
 		}
+		if (args[0] < SHOW_LVL)
+			apupw_dbg_set_loglvl(args[0]);
 		break;
-
 	case POWER_PARAM_DVFS_DEBUG:
 		ret = (argc == 1) ? 0 : -EINVAL;
 		if (ret) {
@@ -361,16 +515,16 @@ static int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 		pr_info("lock opp=%d\n", (int)(args[0]));
 		for (user = MDLA; user < APUSYS_POWER_USER_NUM; user++) {
 			ad = apu_find_device(user);
-			if (IS_ERR_OR_NULL(ad) || IS_ERR_OR_NULL(ad->devfreq))
+			if (IS_ERR_OR_NULL(ad) || IS_ERR_OR_NULL(ad->df))
 				continue;
-			gov_data = (struct apu_gov_data *)ad->devfreq->data;
+			gov_data = (struct apu_gov_data *)ad->df->data;
 			if (gov_data->depth)
 				continue;
 			freq = apu_opp2freq(ad, (int)(args[0]));
-			mutex_lock_nested(&ad->devfreq->lock, gov_data->depth);
-			ad->devfreq->max_freq = freq;
-			ad->devfreq->min_freq = freq;
-			mutex_unlock(&ad->devfreq->lock);
+			mutex_lock_nested(&ad->df->lock, gov_data->depth);
+			ad->df->max_freq = freq;
+			ad->df->min_freq = freq;
+			mutex_unlock(&ad->df->lock);
 		}
 		break;
 	case POWER_HAL_CTL:
@@ -383,7 +537,7 @@ static int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 			goto out;
 		}
 
-		user = _dbg_id_to_dvfsuser(args[0]);
+		user = _apupw_dbg_id2user(args[0]);
 		if (user < 0) {
 			pr_info("APU dvfsuser %d not exist\n", args[0]);
 			goto out;
@@ -392,10 +546,10 @@ static int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 		if (IS_ERR_OR_NULL(ad))
 			goto out;
 
-		mutex_lock(&ad->devfreq->lock);
-		ad->devfreq->max_freq = apu_opp2freq(ad, args[1]);
-		ad->devfreq->min_freq = apu_opp2freq(ad, args[2]);
-		mutex_unlock(&ad->devfreq->lock);
+		mutex_lock(&ad->df->lock);
+		ad->df->max_freq = apu_opp2freq(ad, args[1]);
+		ad->df->min_freq = apu_opp2freq(ad, args[2]);
+		mutex_unlock(&ad->df->lock);
 
 		break;
 	}
@@ -412,7 +566,24 @@ static int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 		 * arg1 : device , 9 = all devices
 		 * arg2 : opp
 		 */
-		apu_power_power_stress(args[0], args[1], args[2]);
+		apupw_dbg_power_stress(args[0], args[1], args[2]);
+		break;
+
+	case POWER_PARAM_CURR_STATUS:
+		ret = (argc == 1) ? 0 : -EINVAL;
+		if (ret) {
+			pr_info("invalid argument, expected:1, received:%d\n", argc);
+				goto out;
+		}
+		apupw_dbg.option = POWER_PARAM_CURR_STATUS;
+		break;
+	case POWER_PARAM_OPP_TABLE:
+		ret = (argc == 1) ? 0 : -EINVAL;
+		if (ret) {
+			pr_info("invalid argument, expected:1, received:%d\n", argc);
+			goto out;
+		}
+		apupw_dbg.option = POWER_PARAM_OPP_TABLE;
 		break;
 
 /* TODO
@@ -496,39 +667,6 @@ static int apusys_set_power_parameter(uint8_t param, int argc, int *args)
  *		}
  *		apu_power_reg_dump();
  *		break;
- *	case POWER_PARAM_OPP_TABLE:
- *		ret = (argc == 1) ? 0 : -EINVAL;
- *		if (ret) {
- *			PWR_LOG_ERR(
- *				"invalid argument, expected:1, received:%d\n",
- *				argc);
- *			goto out;
- *		}
- *		g_debug_option = POWER_PARAM_OPP_TABLE;
- *		break;
- *	case POWER_PARAM_CURR_STATUS:
- *		ret = (argc == 1) ? 0 : -EINVAL;
- *		if (ret) {
- *			PWR_LOG_ERR(
- *				"invalid argument, expected:1, received:%d\n",
- *				argc);
- *			goto out;
- *		}
- *		g_debug_option = POWER_PARAM_CURR_STATUS;
- *		break;
- *	case POWER_PARAM_LOG_LEVEL:
- *		ret = (argc == 1) ? 0 : -EINVAL;
- *		if (ret) {
- *			PWR_LOG_ERR(
- *				"invalid argument, expected:1, received:%d\n",
- *				argc);
- *			goto out;
- *		}
- *		if (args[0] == 9)
- *			g_debug_option = POWER_PARAM_LOG_LEVEL;
- *		else
- *			change_log_level(args[0]);
- *		break;
  *
  */
 	default:
@@ -541,9 +679,8 @@ out:
 }
 
 
-static ssize_t apusys_debug_power_write(struct file *flip,
-		const char __user *buffer,
-		size_t count, loff_t *f_pos)
+static ssize_t apupw_dbg_write(struct file *flip, const char __user *buffer,
+			       size_t count, loff_t *f_pos)
 {
 	char *tmp, *token, *cursor;
 	int ret, i, param;
@@ -601,7 +738,7 @@ static ssize_t apusys_debug_power_write(struct file *flip,
 		}
 	}
 
-	apusys_set_power_parameter(param, i, args);
+	apupw_dbg_set_parameter(param, i, args);
 
 	ret = count;
 out:
@@ -610,26 +747,108 @@ out:
 	return ret;
 }
 
-static const struct file_operations apusys_debug_power_fops = {
-	.open = apusys_debug_power_open,
+static const struct file_operations apupw_dbg_fops = {
+	.open = apupw_dbg_open,
 	.read = seq_read,
 	.llseek = seq_lseek,
 	.release = single_release,
-	.write = apusys_debug_power_write,
+	.write = apupw_dbg_write,
 };
+
+int apupw_dbg_register_nodes(struct device *dev)
+{
+	struct property *prop;
+	const char *name;
+	struct regulator *reg;
+	int idx = 0, ret = 0, i = 0;
+	u64 phyaddr = 0, offset = 0;
+	struct clk *clk;
+	unsigned int psize;
+	const __be32 *paddr = NULL;
+	void __iomem *cgaddr = NULL;
+
+	INIT_LIST_HEAD(&apupw_dbg.clk_list);
+	INIT_LIST_HEAD(&apupw_dbg.cg_list);
+	INIT_LIST_HEAD(&apupw_dbg.reg_list);
+
+	of_property_for_each_string(dev->of_node, "voltage-names",
+				    prop, name) {
+		reg = regulator_get_optional(dev, name);
+		if (IS_ERR_OR_NULL(reg)) {
+			ret = PTR_ERR(reg);
+			apower_err(dev, "[%s] voltage fail, ret = %d\n", ret);
+			goto out;
+		}
+
+		ret = apupw_dbg_register_regulator(name, reg);
+		if (ret)
+			goto out;
+	}
+
+	of_property_for_each_string(dev->of_node, "clock-names",
+				    prop, name) {
+		clk = clk_get(dev, name);
+		if (IS_ERR_OR_NULL(clk)) {
+			ret = PTR_ERR(clk);
+			apower_err(dev, "[%s] clock fail, ret = %d\n", ret);
+			goto out;
+		}
+
+		ret = apupw_dbg_register_clk(name, clk);
+		if (ret)
+			goto out;
+	}
+
+	idx = 0;
+	of_property_for_each_string(dev->of_node, "cg-names",
+				    prop, name) {
+		paddr = of_get_property(dev->of_node, "cgs", &psize);
+		if (!paddr) {
+			ret = -EINVAL;
+			apower_err(dev, "[%s] cg fail, ret = %d\n", ret);
+			goto out;
+		}
+		psize /= 4;
+		for (i = 0; psize >= 4; psize -= 4, paddr += 4, i++)
+			if (i == idx) {
+				offset = of_read_number(paddr + 2, 2);
+				break;
+			}
+		phyaddr = of_translate_address(dev->of_node, paddr);
+		cgaddr = ioremap_nocache(phyaddr, PAGE_SIZE);
+		if (!cgaddr) {
+			ret = -ENOMEM;
+			goto out;
+		}
+
+		ret = apupw_dbg_register_cg(name, (cgaddr + offset));
+		if (ret)
+			goto out;
+		idx++;
+	}
+out:
+	return ret;
+}
+
+void apupw_dbg_release_nodes(void)
+{
+	apupw_dbg_unregister_clk();
+	apupw_dbg_unregister_regulator();
+	apupw_dbg_unregister_cg();
+}
 
 int apu_power_drv_init(struct apusys_core_info *info)
 {
 	int ret;
 
-	apusys_power_dir = debugfs_create_dir("apupwr", info->dbg_root);
-	ret = IS_ERR_OR_NULL(apusys_power_dir);
+	apupw_dbg.dir = debugfs_create_dir("apupwr", info->dbg_root);
+	ret = IS_ERR_OR_NULL(apupw_dbg.dir);
 	if (ret) {
 		pr_info("failed to create debug dir.\n");
 		goto out;
 	}
 	debugfs_create_file("power", (0644),
-		apusys_power_dir, NULL, &apusys_debug_power_fops);
+		apupw_dbg.dir, NULL, &apupw_dbg_fops);
 	debugfs_create_symlink("power", info->dbg_root,	"./apupwr/power");
 
 out:
@@ -639,7 +858,7 @@ EXPORT_SYMBOL(apu_power_drv_init);
 
 void apu_power_drv_exit(void)
 {
-	debugfs_remove(apusys_power_dir);
+	debugfs_remove(apupw_dbg.dir);
 }
 EXPORT_SYMBOL(apu_power_drv_exit);
 

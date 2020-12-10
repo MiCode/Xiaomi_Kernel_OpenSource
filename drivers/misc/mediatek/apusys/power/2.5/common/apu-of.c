@@ -195,10 +195,9 @@ void of_apu_regulator_put(struct apu_regulator *rgul)
 }
 
 int of_apu_regulator_get(struct device *dev,
-		struct apu_regulator *rgul, int def_volt, ulong def_freq)
+		struct apu_regulator *rgul, unsigned long def_volt, ulong def_freq)
 {
 	int ret = 0;
-	struct dev_pm_opp *opp;
 
 	if (IS_ERR_OR_NULL(rgul))
 		goto out;
@@ -216,15 +215,10 @@ int of_apu_regulator_get(struct device *dev,
 	if (!rgul->shut_volt)
 		rgul->shut_volt = def_volt;
 
-	/* TODO
-	 *ret = regulator_set_voltage(rgul->vdd, rgul->def_volt, rgul->def_volt);
-	 *if (ret)
-	 *	goto out;
-	 */
-	aprobe_info(dev, "[%s] %s def/shut %dmV/%dmV\n",
-		    __func__, rgul->name, TOMV(rgul->def_volt),
+	rgul->cur_volt = regulator_get_voltage(rgul->vdd);
+	aprobe_info(dev, "[%s] %s cur/def/shut %dmV/%dmV/%dmV\n",
+		    __func__, rgul->name, TOMV(rgul->cur_volt), TOMV(rgul->def_volt),
 		    TOMV(rgul->shut_volt));
-
 
 	if (rgul->constrain_band) {
 		if (rgul->constrain_volt)
@@ -232,13 +226,10 @@ int of_apu_regulator_get(struct device *dev,
 
 		/* get the next above slowest frq in opp and set it as constrain voltage */
 		def_freq += KHZ;
-		opp = devfreq_recommended_opp(dev, &def_freq, 0);
-		if (IS_ERR(opp)) {
-			aprobe_err(dev, "Failed to find opp for %luMhz\n", TOMHZ(def_freq));
-			return PTR_ERR(opp);
-		}
-		def_volt = dev_pm_opp_get_voltage(opp);
-		dev_pm_opp_put(opp);
+		ret = apu_get_recommend_freq_volt(dev, &def_freq, &def_volt, 0);
+		if (ret)
+			goto out;
+
 		rgul->constrain_volt = def_volt;
 		aprobe_info(dev, "[%s] %s constrain %dmV\n",
 			    __func__, rgul->name, TOMV(rgul->constrain_volt));

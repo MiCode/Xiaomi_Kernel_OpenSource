@@ -21,37 +21,42 @@ static int update_parent(struct apu_gov_data *gov_data)
 	int ret = 0;
 	struct apu_dev *ad = NULL;
 	struct apu_gov_data *parent_gov = NULL;
-	struct apu_req *req = NULL;
-	struct apu_req *req_parent = NULL;
+	struct apu_req *req_parent, *req;
 
 	get_datas(gov_data, &parent_gov, &ad, NULL);
-
 	req = list_first_entry(&gov_data->head, struct apu_req, list);
+	advfs_info(ad->dev, "n_opp/threshold/child_limit %d/%d/%d",
+		   req->value, gov_data->threshold_opp, parent_gov->child_opp_limit);
+
+	if (gov_data->threshold_opp < 0 || parent_gov->child_opp_limit < 0) {
+		advfs_err(ad->dev, "[%s] wrong threshold/child_limit\n", __func__);
+		return -EINVAL;
+	}
 	/* Lock parent's mutex, update child's opp and get max of them */
 	mutex_lock_nested(&parent_gov->this->lock, parent_gov->depth);
 
+	/* the fastst opp that child can vote is child_opp_limit */
+	if (req->value <= gov_data->threshold_opp)
+		req->value = parent_gov->child_opp_limit;
 	gov_data->req_parent.value = req->value;
 	list_sort(NULL, &parent_gov->head, apu_cmp);
 	req_parent = list_first_entry(&parent_gov->head, struct apu_req, list);
-	if (req_parent->value < req->value)
+
+	/* child will leave when parent already faster than child_opp_limit */
+	if (req_parent->value < parent_gov->child_opp_limit)
 		goto out;
 
-	/* if !parent->polling_ms, let parent's devfreq_monitor update */
-	if (!parent_gov->this->profile->polling_ms) {
-		ret = update_devfreq(gov_data->parent);
-		if (ret < 0 && ret != -EPROBE_DEFER)
-			advfs_err(ad->dev, "[%s] update \"%s\" freq fail, ret %d\n",
-				__func__, dev_name(gov_data->parent->dev.parent), ret);
-	}
-
+	ret = update_devfreq(gov_data->parent);
+	if (ret < 0 && ret != -EPROBE_DEFER)
+		advfs_err(ad->dev, "[%s] update \"%s\" freq fail, ret %d\n",
+			  __func__, dev_name(gov_data->parent->dev.parent), ret);
 out:
 	mutex_unlock(&parent_gov->this->lock);
 
 	return ret;
 }
 
-
-static int agov_get_target_freq(struct devfreq *df, unsigned long *freq)
+static int aconstrain_get_target_freq(struct devfreq *df, unsigned long *freq)
 {
 	struct apu_gov_data *gov_data = (struct apu_gov_data *)df->data;
 	struct apu_dev *ad = NULL;
@@ -68,16 +73,15 @@ static int agov_get_target_freq(struct devfreq *df, unsigned long *freq)
 	return 0;
 }
 
-static int agov_notifier_call(struct notifier_block *nb,
-				unsigned long event, void *ptr)
+static int aconstrain_notifier_call(struct notifier_block *nb, unsigned long event, void *ptr)
 {
-	struct apu_gov_data *gov_data
-			= container_of(nb, struct apu_gov_data, nb);
+	struct apu_gov_data *gov_data =
+		container_of(nb, struct apu_gov_data, nb);
 	struct devfreq_freqs *freqs = NULL;
 	int ret = 0;
 
 	/* no parrent, no need to send PRE/POST CHANGE to any one */
-	if (IS_ERR_OR_NULL(gov_data->parent))
+	if (!gov_data->parent)
 		goto out;
 
 	/* Preparing parameters needed for notifing parents */
@@ -101,66 +105,47 @@ out:
 	return NOTIFY_DONE;
 }
 
-static int agov_event_handler(struct devfreq *df,
-				unsigned int event, void *data)
+static int aconstrain_event_handler(struct devfreq *df,
+				    unsigned int event, void *data)
 {
 	struct apu_gov_data *gov_data = (struct apu_gov_data *)df->data;
 	struct notifier_block *nb = &gov_data->nb;
+	int ret = 0;
 	struct apu_dev *ad = NULL;
 	struct apu_gov_data *parent_gov = NULL;
 	struct device *dev = NULL;
-	int ret = 0;
 
 	switch (event) {
 	case DEVFREQ_GOV_START:
 		if (!gov_data->this)
 			gov_data->this = df;
 		get_datas(gov_data, NULL, NULL, &dev);
-		nb->notifier_call = agov_notifier_call;
+		nb->notifier_call = aconstrain_notifier_call;
 		ret = devm_devfreq_register_notifier(dev, df, nb,
-					DEVFREQ_TRANSITION_NOTIFIER);
-		/* register notifier ok but just keep monitor suspend */
-		if (!ret) {
-			devfreq_monitor_start(df);
-			devfreq_monitor_suspend(df);
-		}
+						     DEVFREQ_TRANSITION_NOTIFIER);
 		break;
-
 	case DEVFREQ_GOV_STOP:
 		get_datas(gov_data, NULL, NULL, &dev);
-		devm_devfreq_unregister_notifier(dev, df,
-						 nb,
+		devm_devfreq_unregister_notifier(dev, df, nb,
 						 DEVFREQ_TRANSITION_NOTIFIER);
-		devfreq_monitor_stop(df);
 		break;
-
-	case DEVFREQ_GOV_INTERVAL:
-		devfreq_interval_update(df, (unsigned int *)data);
-		break;
-
 	case DEVFREQ_GOV_SUSPEND:
 		get_datas(gov_data, &parent_gov, &ad, &dev);
 
-		/* cancel devfreq work queue */
-		devfreq_monitor_suspend(df);
-
-		/* restore to default opp */
+		/* restore req to default opp */
 		gov_data->req.value = gov_data->max_opp;
 		apu_dump_list(gov_data);
 
-		/* only allow leaf to update parent's opp */
-		if (!gov_data->depth) {
-			mutex_lock_nested(&gov_data->this->lock, gov_data->depth);
-			list_sort(NULL, &gov_data->head, apu_cmp);
-			update_parent(gov_data);
-			mutex_unlock(&gov_data->this->lock);
+		/* restore parent's req as default opp */
+		if (!IS_ERR_OR_NULL(parent_gov)) {
+			gov_data->req_parent.value = parent_gov->max_opp;
+			apu_dump_list(parent_gov);
 		}
+
 		break;
 
+	case DEVFREQ_GOV_INTERVAL:
 	case DEVFREQ_GOV_RESUME:
-		devfreq_monitor_resume(df);
-		break;
-
 	default:
 		break;
 	}
@@ -168,9 +153,9 @@ static int agov_event_handler(struct devfreq *df,
 	return ret;
 }
 
-struct devfreq_governor agov_passive = {
-	.name = APUGOV_PASSIVE,
-	.get_target_freq = agov_get_target_freq,
-	.event_handler = agov_event_handler,
+struct devfreq_governor agov_constrain = {
+	.name = APUGOV_CONSTRAIN,
+	.get_target_freq = aconstrain_get_target_freq,
+	.event_handler = aconstrain_event_handler,
 };
 
