@@ -43,6 +43,20 @@ patternProperties:
         description: |
           The heap type to use for this heap.
 
+      qcom,dynamic-heap:
+      Usage: optional
+      Value type: <boolean>
+      Definition: Denotes whether a heap can have memory dynamically added and
+           subtracted from it. Heaps with this property are assumed to start off
+           with no memory, and must have memory added to them prior to any use.
+
+      qcom,token:
+        $ref: '/schemas/types.yaml#/definitions/uint32'
+        minItems: 1
+        description: |
+          Specifies the set of secure domains which will be able to access
+          the memory-region.
+
       memory-region:
         $ref: '/schemas/types.yaml#/definitions/phandle'
         maxItems: 1
