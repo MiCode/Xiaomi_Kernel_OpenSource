@@ -2671,57 +2671,71 @@ static void dwc3_msm_power_collapse_por(struct dwc3_msm *mdwc)
 
 }
 
-static void dwc3_msm_dp_ssphy_autosuspend(struct dwc3_msm *mdwc)
+/*
+ * Suspend SSPHY0/SSPHY1 based on the index. 'idx' argument will choose
+ * appropriate PWR_EVT_IRQ_STAT and GUSBPIPECTL registers.
+ *
+ * The return value is a boolean flag denoting if SSPHY was suspended or not.
+ */
+static bool dwc3_msm_ssphy_autosuspend(struct dwc3_msm *mdwc, int idx)
 {
 	unsigned long timeout;
-	u32 reg = 0, reg1 = 0;
+	u32 reg = 0, stat_reg;
+	bool suspended = false;
 
-	/* pwr_evt_irq not configured for dual port; clear in_p3 explicitly */
-	atomic_set(&mdwc->in_p3, 0);
+	idx = !!idx;
+	stat_reg = idx ? PWR_EVNT_IRQ_STAT_REG1 : PWR_EVNT_IRQ_STAT_REG;
+
 	/* Clear previous P3 events */
-	dwc3_msm_write_reg(mdwc->base, PWR_EVNT_IRQ_STAT_REG,
-		PWR_EVNT_POWERDOWN_IN_P3_MASK | PWR_EVNT_POWERDOWN_OUT_P3_MASK);
-	dwc3_msm_write_reg(mdwc->base, PWR_EVNT_IRQ_STAT_REG1,
+	dwc3_msm_write_reg(mdwc->base, stat_reg,
 		PWR_EVNT_POWERDOWN_IN_P3_MASK | PWR_EVNT_POWERDOWN_OUT_P3_MASK);
 
-	/* Prepare SSPHYs for suspend */
-	reg = dwc3_msm_read_reg(mdwc->base, DWC3_GUSB3PIPECTL(0));
-	dwc3_msm_write_reg(mdwc->base, DWC3_GUSB3PIPECTL(0),
-					reg | DWC3_GUSB3PIPECTL_SUSPHY);
-	reg = dwc3_msm_read_reg(mdwc->base, DWC3_GUSB3PIPECTL(1));
-	dwc3_msm_write_reg(mdwc->base, DWC3_GUSB3PIPECTL(1),
+	/* Prepare SSPHY for suspend */
+	reg = dwc3_msm_read_reg(mdwc->base, DWC3_GUSB3PIPECTL(idx));
+	dwc3_msm_write_reg(mdwc->base, DWC3_GUSB3PIPECTL(idx),
 					reg | DWC3_GUSB3PIPECTL_SUSPHY);
 
-	/* Wait for PHYs to go into P3 */
+	/* Wait for SSPHY to go into P3 */
 	timeout = jiffies + msecs_to_jiffies(5);
 	while (!time_after(jiffies, timeout)) {
-		reg = dwc3_msm_read_reg(mdwc->base, PWR_EVNT_IRQ_STAT_REG);
-		reg1 = dwc3_msm_read_reg(mdwc->base, PWR_EVNT_IRQ_STAT_REG1);
-		if ((reg & PWR_EVNT_POWERDOWN_IN_P3_MASK) &&
-			(reg1 & PWR_EVNT_POWERDOWN_IN_P3_MASK)) {
-			atomic_set(&mdwc->in_p3, 1);
+		reg = dwc3_msm_read_reg(mdwc->base, stat_reg);
+		if (reg & PWR_EVNT_POWERDOWN_IN_P3_MASK) {
+			suspended = true;
 			break;
 		}
 	}
 
 	/* Clear P3 event bit */
-	dwc3_msm_write_reg(mdwc->base, PWR_EVNT_IRQ_STAT_REG,
-		PWR_EVNT_POWERDOWN_IN_P3_MASK);
-	dwc3_msm_write_reg(mdwc->base, PWR_EVNT_IRQ_STAT_REG1,
-		PWR_EVNT_POWERDOWN_IN_P3_MASK);
+	dwc3_msm_write_reg(mdwc->base, stat_reg, PWR_EVNT_POWERDOWN_IN_P3_MASK);
+
+	return suspended;
 }
 
 static int dwc3_msm_prepare_suspend(struct dwc3_msm *mdwc, bool ignore_p3_state)
 {
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 	unsigned long timeout;
 	u32 reg = 0;
+	bool ssphy0_sus, ssphy1_sus;
 
-	/* Allow SSPHYs to go to P3 for dual port controllers */
-	if (mdwc->dual_port)
-		dwc3_msm_dp_ssphy_autosuspend(mdwc);
+	/* Allow SSPHY(s) to go to P3 state if SSPHY autosuspend is disabled */
+	if (dwc->dis_u3_susphy_quirk) {
+		/* Clear in_p3 and allow SSPHY suspend explicitly */
+		atomic_set(&mdwc->in_p3, 0);
 
+		ssphy0_sus = dwc3_msm_ssphy_autosuspend(mdwc, 0);
+		if (mdwc->ss_phy1)
+			ssphy1_sus = dwc3_msm_ssphy_autosuspend(mdwc, 1);
+
+		if (!mdwc->dual_port)
+			atomic_set(&mdwc->in_p3, ssphy0_sus);
+		else
+			atomic_set(&mdwc->in_p3, ssphy0_sus & ssphy1_sus);
+	}
+
+	/* SSPHY(s) should be in P3 to detect port events */
 	if (!ignore_p3_state && ((mdwc->in_host_mode || mdwc->in_device_mode)
-			&& (dwc3_msm_is_superspeed(mdwc) || mdwc->dual_port) &&
+		&& (dwc3_msm_is_superspeed(mdwc) || dwc->dis_u3_susphy_quirk) &&
 							!mdwc->in_restart)) {
 		if (!atomic_read(&mdwc->in_p3)) {
 			dev_err(mdwc->dev, "Not in P3,aborting LPM sequence\n");
@@ -4989,7 +5003,7 @@ static int dwc3_msm_host_notifier(struct notifier_block *nb,
 	 * platforms, power leakage is not a concern. Also, as a part of USB
 	 * suspend sequence, we will enable autosuspend for SSPHYs to go to P3.
 	 */
-	if (mdwc->dual_port)
+	if (dwc->dis_u3_susphy_quirk)
 		return NOTIFY_DONE;
 
 	/*
