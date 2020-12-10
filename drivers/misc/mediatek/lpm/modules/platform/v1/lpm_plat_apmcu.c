@@ -17,16 +17,12 @@
 
 #include <lpm_plat_reg.h>
 #include <lpm_plat_apmcu.h>
-#include <lpm_plat_apmcu_mbox.h>
 #include <lpm_module.h>
 
 void __iomem *cpu_pm_mcusys_base;
 void __iomem *cpu_pm_syssram_base;
 
 #define plat_node_ready()       (cpu_pm_mcusys_base && cpu_pm_syssram_base)
-#define OF_CPU_PM_CTRL(_offset)	(cpu_pm_mcusys_base + (_offset))
-#define BOOT_TIME_LIMIT         60
-#define PSCI_E_SUCCESS          0
 
 /* qos */
 static struct pm_qos_request lpm_plat_qos_req;

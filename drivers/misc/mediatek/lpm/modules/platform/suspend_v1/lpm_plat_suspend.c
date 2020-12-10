@@ -137,7 +137,7 @@ static void __lpm_suspend_reflect(int type, int cpu,
 	lpm_do_mcusys_prepare_on();
 
 	if (issuer)
-		issuer->log(LPM_ISSUER_SUSPEND, "suspend", NULL);
+		issuer->log(LPM_ISSUER_SUSPEND, "suspend", (void *)issuer);
 }
 int lpm_suspend_system_prompt(int cpu,
 					const struct lpm_issuer *issuer)

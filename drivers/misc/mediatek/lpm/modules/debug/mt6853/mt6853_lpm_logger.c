@@ -364,14 +364,31 @@ int lpm_show_message(struct lpm_spm_wake_status *wakesrc, int type,
 	#define IS_LOGBUF(ptr, newstr) \
 		((strlen(ptr) + strlen(newstr)) < LOG_BUF_SIZE)
 
-	int i;
 	unsigned int spm_26M_off_pct = 0;
 	char buf[LOG_BUF_SIZE] = { 0 };
 	char log_buf[LOG_BUF_OUT_SZ] = { 0 };
 	char *local_ptr = NULL;
-	int log_size = 0;
+	int i = 0, log_size = 0, log_type = 0;
 	unsigned int wr = WR_UNKNOWN;
 	const char *scenario = prefix ?: "UNKNOWN";
+
+	log_type = ((struct lpm_issuer *)data)->log_type;
+
+	if (log_type < LOG_SUCCEESS) {
+		aee_sram_printk("[name:spm&][SPM] %s didn't enter MCUSYS off, cstate enter func ret = %d\n",
+					prefix, log_type);
+		wr =  WR_ABORT;
+
+		goto end;
+	}
+
+	if (log_type == LOG_MCUSYS_NOT_OFF) {
+		aee_sram_printk("[name:spm&][SPM] %s didn't enter MCUSYS off, MCUSYS cnt is no update\n",
+					prefix);
+		wr =  WR_ABORT;
+
+		goto end;
+	}
 
 	if (wakesrc->is_abort != 0) {
 		/* add size check for vcoredvfs */
@@ -554,5 +571,6 @@ int lpm_show_message(struct lpm_spm_wake_status *wakesrc, int type,
 	} else
 		pr_info("[name:spm&][SPM] %s", log_buf);
 
+end:
 	return wr;
 }

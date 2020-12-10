@@ -12,9 +12,6 @@
 
 int lpm_do_mcusys_prepare_pdn(unsigned int status,
 					   unsigned int *resource_req);
-
-int lpm_do_mcusys_prepare_on_ex(unsigned int clr_status);
-
 int lpm_do_mcusys_prepare_on(void);
 
 #endif

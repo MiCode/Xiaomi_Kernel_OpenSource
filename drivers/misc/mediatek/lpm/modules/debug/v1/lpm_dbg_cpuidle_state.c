@@ -128,7 +128,7 @@ static int idle_proc_state_param_setting(char *cmd, size_t *sz, int param)
 {
 	char *args;
 	unsigned int cpu_mask, state_idx = 0, val = 0;
-	int cpu = 0, i;
+	int cpu = 0, i = 0;
 	struct MTK_CPUIDLE_DRV_INFO drv_info;
 	struct cmd_param {
 		unsigned int id;

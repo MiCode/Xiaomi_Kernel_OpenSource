@@ -54,12 +54,4 @@ enum {
 #define MCUPM_TASK_RUN                  4
 #define MCUPM_TASK_PAUSE                5
 
-bool lpm_mcupm_cm_is_notified(void);
-
-void lpm_set_mcupm_pll_mode(unsigned int mode);
-int lpm_get_mcupm_pll_mode(void);
-
-void lpm_set_mcupm_buck_mode(unsigned int mode);
-int lpm_get_mcupm_buck_mode(void);
-
 #endif

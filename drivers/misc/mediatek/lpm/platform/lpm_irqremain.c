@@ -228,25 +228,25 @@ int __init lpm_irqremain_parsing(struct device_node *parent)
 			if (irqnum >= 0) {
 				irqnode = kcalloc(1, sizeof(*irqnode),
 						  GFP_KERNEL);
+				if (!irqnode)
+					return -ENOMEM;
 
-				if (irqnode) {
-					irqnode->irq =
-							irqnum;
-					irqnode->wakeup_src_cat =
-							wakeup_src_cat;
-					irqnode->wakeup_src =
-							wakeup_src;
-					list_add(&irqnode->list,
-						 &lpm_irqremain);
+				irqnode->irq = irqnum;
+				irqnode->wakeup_src_cat =
+						wakeup_src_cat;
+				irqnode->wakeup_src =
+						wakeup_src;
+				list_add(&irqnode->list,
+					 &lpm_irqremain);
 
-					pr_info("[name:mtk_lpm][P] - irq_%u, wakeup-src=0x%x (%pOF) (%s:%d)\n",
-						irqnode->irq,
-						irqnode->wakeup_src,
-						tar_np,
-						__func__, __LINE__);
+				pr_info("[name:mtk_lpm][P] - irq_%u, wakeup-src=0x%x (%pOF) (%s:%d)\n",
+					irqnode->irq,
+					irqnode->wakeup_src,
+					tar_np,
+					__func__, __LINE__);
 
-					remain_count++;
-				}
+				remain_count++;
+
 			} else
 				pr_info("[name:mtk_lpm][P] - invalid irq, erro=%d (%s:%d)\n",
 						irqnum, __func__, __LINE__);

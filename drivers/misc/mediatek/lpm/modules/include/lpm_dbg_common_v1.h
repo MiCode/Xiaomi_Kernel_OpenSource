@@ -74,8 +74,8 @@ struct spm_condition {
 	int cg_cnt;
 	char **pll_str;
 	int pll_cnt;
-	int cg_shift;
-	int pll_shift;
+	unsigned int cg_shift;
+	unsigned int pll_shift;
 	int shift_config;
 };
 
@@ -94,7 +94,7 @@ extern u64 ap_pd_count;
 extern u64 ap_slp_duration;
 extern struct spm_condition spm_cond;
 
-void spm_cond_init(void);
+int spm_cond_init(void);
 void spm_cond_deinit(void);
 
 int lpm_dbg_common_fs_init(void);

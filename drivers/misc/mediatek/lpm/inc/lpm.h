@@ -30,8 +30,15 @@ enum LPM_SUSPEND_TYPE {
 	LPM_SUSPEND_S2IDLE,
 };
 
+enum LPM_ISSUER_LOG_TYPE {
+	LOG_SUCCEESS = 0,
+	LOG_MCUSYS_NOT_OFF = 0x78797070,
+};
+
 struct lpm_issuer {
-	int (*log)(int type, const char *prefix, void *data);
+	int (*log)
+		(int type, const char *prefix, void *data);
+	int log_type;
 };
 
 struct lpm_model_op {
@@ -55,6 +62,7 @@ struct lpm_nb_data {
 	int index;
 	struct lpm_model *model;
 	struct lpm_issuer *issuer;
+	int ret;
 };
 
 int lpm_model_register(const char *name, struct lpm_model *lpm);
