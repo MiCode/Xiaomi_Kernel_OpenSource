@@ -689,6 +689,37 @@ void dma_buf_put(struct dma_buf *dmabuf)
 EXPORT_SYMBOL_GPL(dma_buf_put);
 
 /**
+ * dma_buf_put_sync - decreases refcount of the buffer
+ * @dmabuf:	[in]	buffer to reduce refcount of
+ *
+ * Uses file's refcounting done implicitly by __fput_sync().
+ *
+ * If, as a result of this call, the refcount becomes 0, the 'release' file
+ * operation related to this fd is called. It calls &dma_buf_ops.release vfunc
+ * in turn, and frees the memory allocated for dmabuf when exported.
+ *
+ * This function is different than dma_buf_put() in the sense that it guarantees
+ * that the 'release' file operation related to this fd is called, and that the
+ * memory is released, when the refcount becomes 0. dma_buf_put() does not
+ * have the same guarantee when invoked by a kernel thread (e.g. a worker
+ * thread), and the refcount reaches 0; in that case, the buffer is added to
+ * the delayed_fput_list, and freed asynchronously.
+ *
+ * This function should not be called in atomic context, and should only be
+ * called by kernel threads. If in doubt, use dma_buf_put().
+ */
+void dma_buf_put_sync(struct dma_buf *dmabuf)
+{
+	if (WARN_ON(!dmabuf || !dmabuf->file))
+		return;
+
+	might_sleep();
+
+	dma_buf_ref_mod(to_msm_dma_buf(dmabuf), -1);
+	__fput_sync(dmabuf->file);
+}
+
+/**
  * dma_buf_attach - Add the device to dma_buf's attachments list; optionally,
  * calls attach() of dma_buf_ops to allow device-specific attach functionality
  * @dmabuf:	[in]	buffer to attach device to.
