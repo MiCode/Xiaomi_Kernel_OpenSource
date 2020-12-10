@@ -1465,6 +1465,7 @@
   kobject_init_and_add
 
 # required by vlx-hyp-module.ko
+  ioremap_cache
   irq_create_of_mapping
   irq_dispose_mapping
   irq_find_matching_fwspec
