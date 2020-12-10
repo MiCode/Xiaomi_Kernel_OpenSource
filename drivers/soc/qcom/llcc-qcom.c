@@ -581,7 +581,7 @@ static int qcom_llcc_probe(struct platform_device *pdev)
 	}
 
 	if (of_property_match_string(dev->of_node,
-				    "compatible", "qcom,llcc-v21") == 0) {
+				    "compatible", "qcom,llcc-v21") >= 0) {
 		drv_data->llcc_ver = 21;
 		llcc_regs = llcc_regs_v21;
 		drv_data->offsets = llcc_offsets_v21;
