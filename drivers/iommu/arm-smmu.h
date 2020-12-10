@@ -153,6 +153,7 @@ enum arm_smmu_cbar_type {
 #define SCTLR_RACFG			GENMASK(25, 24)
 #define SCTLR_RACFG_RA			0x2
 #define SCTLR_SHCFG			GENMASK(23, 22)
+#define SCTLR_SHCFG_OSH			0x1
 #define SCTLR_SHCFG_NSH			0x3
 #define SCTLR_MTCFG			BIT(20)
 #define SCTLR_MEM_ATTR			GENMASK(19, 16)
