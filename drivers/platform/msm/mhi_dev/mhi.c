@@ -476,6 +476,22 @@ static int mhi_dev_send_multiple_tr_events(struct mhi_dev *mhi, int evnt_ring,
 
 	if (!ereq->is_cmd_cpl) {
 		ch = ereq->context;
+		/*
+		 * Take Channel ring event lock to prevent sending
+		 * completion command while the channel is getting
+		 * reset/stopped.
+		 * Abort sending completion event if channel has moved to
+		 * stopped state.
+		 */
+		mutex_lock(&ch->ring->event_lock);
+		if (ch->state == MHI_DEV_CH_STOPPED ||
+			ch->state == MHI_DEV_CH_PENDING_STOP) {
+			mhi_log(MHI_MSG_ERROR,
+				"Ch:%d is in %d state, abort sending completion evnt\n"
+					, ch->ch_id, ch->state);
+			rc = -ENXIO;
+			goto exit;
+		}
 		mhi_log(MHI_MSG_VERBOSE, "Flushing %d cmpl events of ch %d\n",
 				ereq->num_events, ch->ch_id);
 	} else {
@@ -487,8 +503,7 @@ static int mhi_dev_send_multiple_tr_events(struct mhi_dev *mhi, int evnt_ring,
 	rc = mhi_dev_add_element(ring, ereq->tr_events, ereq, evt_len);
 	if (rc) {
 		pr_err("%s(): error in adding element rc %d\n", __func__, rc);
-		mutex_unlock(&ring->event_lock);
-		return rc;
+		goto exit;
 	}
 
 	ring->ring_ctx_shadow->ev.rp = (ring->rd_offset *
@@ -537,6 +552,9 @@ static int mhi_dev_send_multiple_tr_events(struct mhi_dev *mhi, int evnt_ring,
 			pr_err("%s: error sending in msi\n", __func__);
 	}
 
+exit:
+	if (!ereq->is_cmd_cpl)
+		mutex_unlock(&ch->ring->event_lock);
 	mutex_unlock(&ring->event_lock);
 	return rc;
 }
@@ -1972,6 +1990,7 @@ send_start_completion_event:
 			ch = &mhi->ch[ch_id];
 
 			mutex_lock(&ch->ch_lock);
+			mutex_lock(&ch->ring->event_lock);
 
 			mhi->ch[ch_id].state = MHI_DEV_CH_PENDING_STOP;
 			rc = mhi_dev_process_stop_cmd(
@@ -1980,6 +1999,7 @@ send_start_completion_event:
 			if (rc)
 				pr_err("stop event send failed\n");
 
+			mutex_unlock(&ch->ring->event_lock);
 			mutex_unlock(&ch->ch_lock);
 			mhi_update_state_info_ch(ch_id, MHI_STATE_DISCONNECTED);
 			/* Trigger callback to clients */
@@ -2030,6 +2050,7 @@ send_start_completion_event:
 			ch = &mhi->ch[ch_id];
 
 			mutex_lock(&ch->ch_lock);
+			mutex_lock(&ch->ring->event_lock);
 
 			/* hard stop and set the channel to stop */
 			mhi->ch_ctx_cache[ch_id].ch_state =
@@ -2057,6 +2078,7 @@ send_start_completion_event:
 						MHI_CMD_COMPL_CODE_SUCCESS);
 			if (rc)
 				pr_err("Error sending command completion event\n");
+			mutex_unlock(&ch->ring->event_lock);
 			mutex_unlock(&ch->ch_lock);
 			mhi_update_state_info_ch(ch_id, MHI_STATE_DISCONNECTED);
 			mhi_dev_trigger_cb(ch_id);
