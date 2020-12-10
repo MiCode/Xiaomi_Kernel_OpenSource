@@ -94,20 +94,23 @@ void apu_device_set_opp(enum DVFS_USER user, uint8_t opp)
 
 	ad = apu_find_device(user);
 	if (IS_ERR(ad)) {
-		pr_info("[%s] %s not support\n", apu_dev_string(user));
-		goto out;
+		pr_info("[%s] %s not support\n", __func__, apu_dev_string(user));
+		return;
 	}
 
 	if (!pm_runtime_active(ad->dev)) {
 		apower_err(ad->dev, "[%s] already power off\n", __func__);
-		goto out;
+		return;
 	}
+
+	if (apupw_dbg_get_fixopp())
+		return;
 
 	/* restrict opp in current spec */
 	if (opp < 0)
 		opp = 0;
-	if (opp > ad->devfreq->profile->max_state - 1)
-		opp = ad->devfreq->profile->max_state - 1;
+	if (opp > ad->df->profile->max_state - 1)
+		opp = ad->df->profile->max_state - 1;
 
 	/* calculate current freq and freq of boost user wants */
 	freq = ad->aclk->ops->get_rate(ad->aclk);
@@ -115,27 +118,25 @@ void apu_device_set_opp(enum DVFS_USER user, uint8_t opp)
 	if (round_Mhz(freq, n_freq))
 		return;
 	apower_info(ad->dev, "[%s] set opp %d, cur/next %dMhz/%dMhz",
-			__func__, opp, TOMHZ(freq), TOMHZ(n_freq));
+		    __func__, opp, TOMHZ(freq), TOMHZ(n_freq));
 
 	/* update opp in governor data */
-	pgov_data = ad->devfreq->data;
-	mutex_lock_nested(&ad->devfreq->lock, pgov_data->depth);
-	pgov_data->n_opp = opp;
-	pgov_data->valid = true;
-	mutex_unlock(&ad->devfreq->lock);
-out:
-	return;
+	pgov_data = ad->df->data;
+	mutex_lock_nested(&ad->df->lock, pgov_data->depth);
+	pgov_data->req.value = opp;
+	list_sort(NULL, &pgov_data->head, apu_cmp);
+	mutex_unlock(&ad->df->lock);
 }
 EXPORT_SYMBOL(apu_device_set_opp);
 
 
 uint64_t apu_get_power_info(int force)
 {
-	uint64_t pw_stamp;
-
-	pw_stamp = sched_clock();
-
-	return pw_stamp;
+	if (!force)
+		queue_delayed_work(pm_wq, &pw_info_work, msecs_to_jiffies(1));
+	else
+		apupw_dbg_power_info(NULL);
+	return 0;
 }
 EXPORT_SYMBOL(apu_get_power_info);
 
@@ -245,6 +246,9 @@ void apu_qos_set_vcore(int opp)
 	if (IS_ERR(ad))
 		return;
 
+	if (apupw_dbg_get_fixopp())
+		return;
+
 	/*
 	 * comparing current freq with voted freq,
 	 * if the same, just return.
@@ -257,12 +261,12 @@ void apu_qos_set_vcore(int opp)
 		return;
 
 	/* get governor data and synchronize calling update_devfreq */
-	pgov_data = ad->devfreq->data;
-	mutex_lock(&ad->devfreq->lock);
-	pgov_data->n_opp = opp;
-	pgov_data->valid = true;
-	update_devfreq(ad->devfreq);
-	mutex_unlock(&ad->devfreq->lock);
+	pgov_data = ad->df->data;
+	mutex_lock(&ad->df->lock);
+	pgov_data->req.value = opp;
+	list_sort(NULL, &pgov_data->head, apu_cmp);
+	update_devfreq(ad->df);
+	mutex_unlock(&ad->df->lock);
 }
 EXPORT_SYMBOL(apu_qos_set_vcore);
 
@@ -280,8 +284,8 @@ void apu_power_device_unregister(enum DVFS_USER user)
 EXPORT_SYMBOL(apu_power_device_unregister);
 
 int apu_power_callback_device_register(enum POWER_CALLBACK_USER user,
-					void (*power_on_callback)(void *para),
-					void (*power_off_callback)(void *para))
+				       void (*power_on_callback)(void *para),
+				       void (*power_off_callback)(void *para))
 {
 	return apu_power_cb_register(user, power_on_callback, power_off_callback);
 }
@@ -340,6 +344,9 @@ static int __init apu_power_init(void)
 	if (ret)
 		return ret;
 	ret = devfreq_add_governor(&agov_userspace);
+	if (ret)
+		return ret;
+	ret = devfreq_add_governor(&agov_constrain);
 	if (ret)
 		return ret;
 	ret = platform_driver_register(&apusys_power_driver);

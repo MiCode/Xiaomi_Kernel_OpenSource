@@ -172,12 +172,13 @@ static int _apu_set_volt_with_wait(struct apu_regulator *reg, int c_volt, int mi
 	ret = regulator_set_voltage(vdd, min_uV, max_uV);
 	if (ret) {
 		argul_err(reg->dev, "[%s] set %s %dmV-->%dmV fail, ret = %d",
-			__func__, reg->name, TOMV(c_volt), TOMV(min_uV), ret);
+			  __func__, reg->name, TOMV(c_volt), TOMV(min_uV), ret);
 		goto out;
 	}
 
 	_regulator_apu_settle_time(reg, c_volt, min_uV);
 	reg->cur_volt = min_uV;
+
 out:
 	return ret;
 }
@@ -187,19 +188,18 @@ static void apu_mdla_restore_default_opp(struct work_struct *work)
 	struct apu_regulator *dst =
 		container_of(work, struct apu_regulator, deffer_work);
 	struct apu_dev *ad = dev_get_drvdata(dst->dev);
-	struct dev_pm_opp *opp;
-	ulong rate = 0;
+	struct apu_clk_ops *clk_ops = ad->aclk->ops;
+	struct apu_gov_data *pgov_data = ad->df->data;
+	ulong rate = 0, volt = 0;
 
-	argul_info(ad->dev, "[%s] %d\n", __func__, __LINE__);
-
-	/* get the slowest frq in opp */
-	opp = devfreq_recommended_opp(ad->dev, &rate, 0);
-	if (IS_ERR(opp)) {
-		argul_err(ad->dev, "[%s] no opp for %luMHz\n", TOMHZ(rate));
-		return;
+	/* try to restore default voltage for MDLA */
+	apu_get_recommend_freq_volt(ad->dev, &rate, &volt, 0);
+	mutex_lock_nested(&ad->df->lock, pgov_data->depth);
+	if (round_Mhz(clk_ops->get_rate(ad->aclk), rate)) {
+		regulator_set_voltage(dst->vdd, volt, volt);
+		argul_info(ad->dev, "[%s] set voltage to %d\n", __func__, volt);
 	}
-	dev_pm_opp_put(opp);
-	apu_device_set_opp(ad->user, apu_freq2opp(ad, rate));
+	mutex_unlock(&ad->df->lock);
 }
 
 
@@ -216,7 +216,7 @@ static int apu_vsram_mdla_constrain(struct notifier_block *nb,
 	pre_volt = (struct pre_voltage_change_data *)(data);
 
 	/* lock mdla first, then no one can change its voltage */
-	mutex_lock(&mdla_reg->reg_lock);
+	mutex_lock_nested(&mdla_reg->reg_lock, SINGLE_DEPTH_NESTING);
 	if (!regulator_is_enabled(mdla_reg->vdd)) {
 		if (abs(pre_volt->min_uV - mdla_reg->def_volt) > mdla_reg->constrain_band)
 			mdla_reg->floor_volt = mdla_reg->constrain_volt;
@@ -325,7 +325,7 @@ int regulator_apu_set_voltage(struct apu_regulator_gp *rgul_gp, int min_uV, int 
 {
 	int ret = 0;
 	struct apu_regulator *sup_reg = NULL, *reg = NULL;
-	int c_volt = 0, t_volt = 0, nt_volt = 0;
+	int c_volt = 0, t_volt = 0, nt_volt = 0, s_volt;
 
 	sup_reg = rgul_gp->rgul_sup;
 	reg = rgul_gp->rgul;
@@ -339,51 +339,62 @@ int regulator_apu_set_voltage(struct apu_regulator_gp *rgul_gp, int min_uV, int 
 		goto bypass_sup;
 	t_volt = sup_reg->supply_trans_uV;
 	nt_volt = sup_reg->supply_trans_next_uV;
+	s_volt = sup_reg->cur_volt;
 
-	argul_info(rgul_gp->dev, "[%s] min/c/t/floor %dmV/%dmV/%dmV/%dmV\n",
-		__func__, TOMV(min_uV), TOMV(c_volt),
-		TOMV(t_volt), TOMV(reg->floor_volt));
+	argul_info(rgul_gp->dev, "[%s] min/c/s/t/floor %dmV/%dmV/%dmV/%dmV/%dmV\n",
+		   __func__, TOMV(min_uV), TOMV(c_volt), TOMV(s_volt),
+		   TOMV(t_volt), TOMV(reg->floor_volt));
 
-	if (min_uV > t_volt && c_volt > t_volt)
-		goto bypass_sup;
-	else if (min_uV <= t_volt && c_volt <= t_volt)
-		goto bypass_sup;
-
-	if (!IS_ERR_OR_NULL(sup_reg)) {
-		/* target_vol > trans_volt */
-		if (min_uV > t_volt) {
-			/* if cur_volt < trans_volt, raise regulator to trans_volt */
-			if (c_volt < t_volt) {
-				ret = _apu_set_volt_with_wait(reg, c_volt, t_volt, t_volt);
-				if (ret)
-					goto out;
-				/* update finish, set curren volt as trans volt */
-				c_volt = t_volt;
-			}
-			/* change suplier to next trans volt */
-			ret = _apu_set_volt_with_wait(sup_reg, t_volt, nt_volt, nt_volt);
-			if (ret)
-				goto out;
-			argul_info(rgul_gp->dev, "[%s] \"%s\" final %dmV",
-				   __func__, rgul_gp->rgul_sup->name, TOMV(nt_volt));
-
-		} else {
-			if (c_volt > t_volt) {
-				ret = _apu_set_volt_with_wait(reg, c_volt, t_volt, t_volt);
-				if (ret)
-					goto out;
-				c_volt = t_volt;
-			}
-			ret = _apu_set_volt_with_wait(sup_reg, nt_volt, t_volt, t_volt);
-			if (ret)
-				goto out;
-			argul_info(rgul_gp->dev, "[%s] \"%s\" final %dmV",
-				   __func__, rgul_gp->rgul_sup->name, TOMV(t_volt));
-
+	if (min_uV > t_volt && c_volt > t_volt) {
+		if (s_volt < nt_volt) {
+			t_volt = s_volt;
+			goto set_next_trant;
 		}
+		goto bypass_sup;
+	} else if (min_uV <= t_volt && c_volt <= t_volt) {
+		if (s_volt >= nt_volt) {
+			nt_volt = s_volt;
+			goto set_trant;
+		}
+		goto bypass_sup;
 	}
 
-	/* no need to change Vsram voltage */
+	/* target_vol > trans_volt */
+	if (min_uV > t_volt) {
+		/* if cur_volt < trans_volt, raise regulator to trans_volt */
+		if (c_volt < t_volt) {
+			ret = _apu_set_volt_with_wait(reg, c_volt, t_volt, t_volt);
+			if (ret)
+				goto out;
+			/* update finish, set curren volt as trans volt */
+			c_volt = t_volt;
+		}
+set_next_trant:
+		/* change suplier to next trans volt */
+		ret = _apu_set_volt_with_wait(sup_reg, t_volt, nt_volt, nt_volt);
+		if (ret)
+			goto out;
+		argul_info(rgul_gp->dev, "[%s] \"%s\" final %dmV",
+			   __func__, rgul_gp->rgul_sup->name, TOMV(nt_volt));
+
+	} else {
+		if (c_volt > t_volt) {
+			ret = _apu_set_volt_with_wait(reg, c_volt, t_volt, t_volt);
+			if (ret)
+				goto out;
+			c_volt = t_volt;
+		}
+set_trant:
+		/* change suplier to trans volt */
+		ret = _apu_set_volt_with_wait(sup_reg, nt_volt, t_volt, t_volt);
+		if (ret)
+			goto out;
+		argul_info(rgul_gp->dev, "[%s] \"%s\" final %dmV",
+			   __func__, rgul_gp->rgul_sup->name, TOMV(t_volt));
+
+	}
+
+	/* no need to change Vsram voltage or Vsram setting finished*/
 bypass_sup:
 	if (!IS_ERR_OR_NULL(reg)) {
 		ret = _apu_set_volt_with_wait(reg, c_volt, min_uV, max_uV);
@@ -398,9 +409,7 @@ out:
 		mutex_unlock(&sup_reg->reg_lock);
 	mutex_unlock(&reg->reg_lock);
 
-	/* queue delay work to show voltage/freq */
-	queue_delayed_work(pm_wq, &pw_info_work, msecs_to_jiffies(5));
-
+	apu_get_power_info(0);
 	return ret;
 }
 
@@ -421,6 +430,9 @@ static int regulator_apu_enable(struct apu_regulator_gp *rgul_gp)
 			}
 			dst->enabled = 1;
 		}
+		dst->cur_volt = regulator_get_voltage(dst->vdd);
+		if (dst->cur_volt < 0)
+			goto out;
 	}
 
 	if (rgul_gp->rgul) {
@@ -434,13 +446,16 @@ static int regulator_apu_enable(struct apu_regulator_gp *rgul_gp)
 			}
 			dst->enabled = 1;
 		}
+		dst->cur_volt = regulator_get_voltage(dst->vdd);
+		if (dst->cur_volt < 0)
+			goto out;
 	}
 
 	/* let regulator to be floor or default voltage */
 	n_volt = dst->floor_volt ? dst->floor_volt : dst->def_volt;
 	ret = regulator_apu_set_voltage(rgul_gp, n_volt, n_volt);
-
 out:
+	apu_get_power_info(0);
 	return ret;
 }
 
@@ -480,9 +495,8 @@ static int regulator_apu_disable(struct apu_regulator_gp *rgul_gp)
 		}
 		dst->enabled = 0;
 	}
-	/* queue delay work to show voltage/freq */
-	queue_delayed_work(pm_wq, &pw_info_work, msecs_to_jiffies(5));
 
+	apu_get_power_info(0);
 out:
 	return ret;
 }

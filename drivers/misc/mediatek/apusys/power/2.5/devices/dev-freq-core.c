@@ -23,7 +23,6 @@
 static int core_devfreq_target(struct device *dev,
 				unsigned long *rate, u32 flags)
 {
-	struct dev_pm_opp *opp;
 	unsigned long old_rate, volt;
 	struct apu_dev *ad = dev_get_drvdata(dev);
 	struct apu_clk_ops *clk_ops = NULL;
@@ -39,17 +38,15 @@ static int core_devfreq_target(struct device *dev,
 		regul_ops = ad->argul->ops;
 
 	/* try to get recommend rate and opp, here rate may be changed by thermal */
-	opp = devfreq_recommended_opp(dev, rate, flags);
-	if (IS_ERR(opp)) {
+	err = apu_get_recommend_freq_volt(dev, rate, &volt, flags);
+	if (err) {
 		advfs_err(dev, "Failed to find opp for %lu KHz\n", *rate / KHZ);
-		return PTR_ERR(opp);
+		goto out;
 	}
-	volt = dev_pm_opp_get_voltage(opp);
-	dev_pm_opp_put(opp);
 
 	old_rate = clk_ops->get_rate(ad->aclk);
 	if (round_Mhz(*rate, old_rate)) {
-		advfs_info(dev, "%s cur/next %luMhz/%luMhz are close\n",
+		advfs_info(dev, "[%s] cur/next %luMhz/%luMhz are close\n",
 					__func__, TOMHZ(old_rate), TOMHZ(*rate));
 		return 0;
 	}
@@ -121,13 +118,14 @@ static int runtime_resume(struct device *dev)
 	return ret;
 }
 
-const struct dev_pm_ops core_pm_ops = {
+static const struct dev_pm_ops core_pm_ops = {
 	SET_RUNTIME_PM_OPS(runtime_suspend, runtime_resume, NULL)
 };
 
 #else
-const struct dev_pm_ops core_pm_ops = {};
+static const struct dev_pm_ops core_pm_ops = {};
 #endif
+
 #define CORE_PM_OPS (&core_pm_ops)
 
 static int core_devfreq_probe(struct platform_device *pdev)
@@ -176,15 +174,10 @@ static int core_devfreq_probe(struct platform_device *pdev)
 	if (!pf)
 		goto uninit_rguls;
 
-	if (!apu_data->devfreq_parent)
-		pf->polling_ms = 500;
-	else
-		pf->polling_ms = 0;
-
 	pf->get_cur_freq = core_devfreq_curFreq;
 	pf->target = core_devfreq_target;
 
-	err = ad->plat_ops->init_devfreq(ad, pf);
+	err = ad->plat_ops->init_devfreq(ad, pf, (void *)apu_data);
 	if (err)
 		goto uninit_rguls;
 
@@ -196,13 +189,6 @@ static int core_devfreq_probe(struct platform_device *pdev)
 		goto uninit_devfreq;
 
 	err = ad->plat_ops->init_misc(ad);
-	if (err)
-		goto uninit_devfreq;
-
-	if (!apu_data->devfreq_parent)
-		goto out;
-
-	err = apu_create_child_array(ad->devfreq->data);
 	if (err)
 		goto uninit_devfreq;
 
@@ -238,25 +224,30 @@ static int core_devfreq_remove(struct platform_device *pdev)
 	ad->plat_ops->uninit_opps(ad);
 	/* remove apu_device from list */
 	apu_del_devfreq(ad);
-	/* remove gov child data */
-	apu_release_child_array(ad->devfreq->data);
-
 	ad->plat_ops->uninit_devfreq(ad);
-	kfree(ad->devfreq->profile);
+	kfree(ad->df->profile);
 
 	return 0;
 }
 
 static const struct apu_plat_data mt6873_core_data = {
 	.user = APUCORE,
-	.devfreq_parent = 1,
-	.clkgp_name = "mt6873_core",
+	.clkgp_name = "mt68x3_core",
 	.rgulgp_name = "mt6873_core",
 	.plat_ops_name = "mt68xx_platops",
 };
 
+static const struct apu_plat_data mt6853_core_data = {
+	.user = APUCORE,
+	.clkgp_name = "mt68x3_core",
+	.rgulgp_name = "mt6873_core",
+	.plat_ops_name = "mt68xx_platops",
+	.child_volt_limit = 600000, /* max volte child can raise */
+};
+
 static const struct of_device_id core_devfreq_of_match[] = {
 	{ .compatible = "mtk6873,apucore", .data = &mt6873_core_data },
+	{ .compatible = "mtk6853,apucore", .data = &mt6853_core_data },
 	{ },
 };
 

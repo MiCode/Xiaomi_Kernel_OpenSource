@@ -59,7 +59,6 @@ static int apu_clk_init(struct apu_dev *ad)
 	int ret = 0;
 	struct apu_clk_gp *aclk = ad->aclk;
 	struct apu_clk *dst;
-	struct dev_pm_opp *opp;
 	ulong rate = 0;
 
 	/* clk related setting is necessary */
@@ -89,13 +88,9 @@ static int apu_clk_init(struct apu_dev *ad)
 		goto err;
 
 	/* get the slowest frq in opp */
-	opp = devfreq_recommended_opp(ad->dev, &rate, 0);
-	if (IS_ERR(opp)) {
-		aprobe_err(ad->dev, "[%s] no opp for %luMHz\n", TOMHZ(rate));
-		return PTR_ERR(opp);
-	}
-	rate = dev_pm_opp_get_freq(opp);
-	dev_pm_opp_put(opp);
+	ret = apu_get_recommend_freq_volt(ad->dev, &rate, NULL, 0);
+	if (ret)
+		goto err;
 
 	/* if there is no default/shutdown freq, take them as slowest opp */
 	dst = aclk->top_mux;
@@ -184,10 +179,9 @@ static void apu_clk_uninit(struct apu_dev *ad)
 
 static int apu_regulator_init(struct apu_dev *ad)
 {
-	int ret = 0, volt = 0;
+	int ret = 0;
+	unsigned long volt = 0, def_freq = 0;
 	struct apu_regulator *dst = NULL;
-	struct dev_pm_opp *opp;
-	ulong def_freq = 0;
 
 	if (IS_ERR_OR_NULL(ad->argul))
 		goto out;
@@ -205,14 +199,11 @@ static int apu_regulator_init(struct apu_dev *ad)
 		ad->argul->rgul_sup->dev = ad->dev;
 		mutex_init(&(ad->argul->rgul_sup->reg_lock));
 	}
+
 	/* get the slowest frq in opp and set it as default frequency */
-	opp = devfreq_recommended_opp(ad->dev, &def_freq, 0);
-	if (IS_ERR(opp)) {
-		aprobe_err(ad->dev, "Failed to find opp for %luMhz\n", TOMHZ(def_freq));
-		return PTR_ERR(opp);
-	}
-	volt = dev_pm_opp_get_voltage(opp);
-	dev_pm_opp_put(opp);
+	ret = apu_get_recommend_freq_volt(ad->dev, &def_freq, &volt, 0);
+	if (ret)
+		goto out;
 
 	/* get regulator */
 	dst = ad->argul->rgul;
@@ -244,52 +235,34 @@ static void apu_regulator_uninit(struct apu_dev *ad)
 	}
 }
 
-static int apu_devfreq_init(struct apu_dev *ad, struct devfreq_dev_profile *pf)
+static int apu_devfreq_init(struct apu_dev *ad, struct devfreq_dev_profile *pf, void *data)
 {
 	struct apu_gov_data *pgov_data;
 	const char *gov_name;
-	u32 val;
 	int err = 0;
-
-	pgov_data = devm_kzalloc(ad->dev, sizeof(*pgov_data), GFP_KERNEL);
-	if (!pgov_data)
-		return -ENOMEM;
-
-	pgov_data->parent = devfreq_get_devfreq_by_phandle(ad->dev, 0);
-	/* Have no parent, no need to register parent's boost array */
-	if (IS_ERR(pgov_data->parent)) {
-		pgov_data->parent = NULL;
-		aprobe_warn(ad->dev, "has no devfreq parent\n");
-	} else {
-		aprobe_info(ad->dev, "devfreq parent name \"%s\"\n",
-			    dev_name(pgov_data->parent->dev.parent));
-	}
 
 	of_property_read_string(ad->dev->of_node, "gov", &gov_name);
 	if (!gov_name) {
 		aprobe_err(ad->dev, "failed to get a governor name\n");
 		return -EINVAL;
 	}
-	aprobe_info(ad->dev, "governor name %s\n", gov_name);
 
-	if (!of_property_read_u32(ad->dev->of_node, "depth", &val))
-		pgov_data->depth = val;
-	else
-		aprobe_err(ad->dev, "failed to get depth\n");
-	aprobe_info(ad->dev, "depth %d\n", pgov_data->depth);
-
-	ad->devfreq = devm_devfreq_add_device(ad->dev, pf, gov_name, pgov_data);
-	if (IS_ERR(ad->devfreq)) {
-		err = PTR_ERR(ad->devfreq);
-		goto free_passdata;
+	aprobe_info(ad->dev, " governor name %s\n", gov_name);
+	pgov_data = apu_gov_init(ad->dev, pf);
+	if (IS_ERR(pgov_data)) {
+		err = PTR_ERR(pgov_data);
+		goto out;
 	}
 
-	ad->opp_div = DIV_ROUND_CLOSEST(BOOST_MAX,
-					ad->devfreq->profile->max_state);
-	return err;
-free_passdata:
-	devm_kfree(ad->dev, pgov_data);
+	ad->df = devm_devfreq_add_device(ad->dev, pf, gov_name, pgov_data);
+	if (IS_ERR(ad->df)) {
+		err = PTR_ERR(ad->df);
+		goto out;
+	}
 
+	err = apu_gov_setup(ad, data);
+
+out:
 	return err;
 }
 
@@ -297,19 +270,47 @@ static void apu_devfreq_uninit(struct apu_dev *ad)
 {
 	struct apu_gov_data *pgov_data = NULL;
 
-	pgov_data = ad->devfreq->data;
+	pgov_data = ad->df->data;
 	/* remove devfreq device */
-	devm_devfreq_remove_device(ad->dev, ad->devfreq);
+	devm_devfreq_remove_device(ad->dev, ad->df);
 	devm_kfree(ad->dev, pgov_data);
 }
 
 static int apu_misc_init(struct apu_dev *ad)
 {
 	int ret = 0;
+	int boost, opp;
+	ulong freq = 0, volt = 0;
 
 	if (ad->user == APUCONN)
 		ret = apu_rpc_init_done(ad);
 
+	for (;;) {
+		if (IS_ERR(dev_pm_opp_find_freq_ceil(ad->dev, &freq)))
+			break;
+		apu_get_recommend_freq_volt(ad->dev, &freq, &volt, 0);
+		opp = apu_freq2opp(ad, freq);
+		boost = apu_opp2boost(ad, opp);
+		aprobe_info(ad->dev, "[%s] opp/boost/freq/volt %d/%d/%u/%u\n",
+			    __func__, opp, boost, freq, volt);
+
+		if (opp != apu_volt2opp(ad, volt))
+			aprobe_err(ad->dev, "[%s] apu_volt2opp get %d is wrong\n",
+				   __func__, apu_volt2opp(ad, volt));
+
+		if (boost != apu_volt2boost(ad, volt))
+			aprobe_err(ad->dev, "[%s] apu_volt2boost get %d is wrong\n",
+				   __func__, apu_volt2boost(ad, volt));
+
+		if (boost != apu_freq2boost(ad, freq))
+			aprobe_err(ad->dev, "[%s] apu_freq2boost get %d is wrong\n",
+				   __func__, apu_freq2boost(ad, freq));
+
+		if (freq != apu_opp2freq(ad, opp))
+			aprobe_err(ad->dev, "[%s] apu_opp2freq get %d is wrong\n",
+				   __func__, apu_opp2freq(ad, opp));
+		freq++;
+	}
 	return ret;
 }
 

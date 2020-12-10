@@ -24,6 +24,7 @@ extern int apu_device_power_on(enum DVFS_USER);
 extern int apu_device_power_off(enum DVFS_USER);
 extern int apu_device_power_suspend(enum DVFS_USER user, int suspend);
 extern void apu_device_set_opp(enum DVFS_USER user, uint8_t opp);
+extern uint64_t apu_get_power_info(int force);
 extern bool apu_get_power_on_status(enum DVFS_USER user);
 extern int apu_power_callback_device_register(enum POWER_CALLBACK_USER user,
 					void (*power_on_callback)(void *para),
@@ -43,6 +44,8 @@ extern int apu_power_cb_register(enum POWER_CALLBACK_USER user,
 					void (*power_off_callback)(void *para));
 extern void apu_power_cb_unregister(enum POWER_CALLBACK_USER user);
 
+extern struct devfreq_governor agov_composite;
+extern struct devfreq_governor agov_constrain;
 extern struct devfreq_governor agov_userspace;
 extern struct devfreq_governor agov_passive;
 extern struct platform_driver con_devfreq_driver;
@@ -52,4 +55,6 @@ extern struct platform_driver mdla_devfreq_driver;
 extern struct platform_driver apu_rpc_driver;
 extern struct platform_driver apu_cb_driver;
 
+extern int fix_opp;
+extern int bringup;
 #endif

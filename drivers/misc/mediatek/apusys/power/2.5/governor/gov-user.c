@@ -17,77 +17,39 @@
 #include "apu_log.h"
 #include "apu_clk.h"
 
-/**
- * get_datas() - return governor data that may needs
- * @gov_data:	governor data with child_freq (input)
- * @pgov_data:	parent's governor data		  (output)
- * @adev:		apu_dev of this devfreq		  (output)
- * @dev:		struct device of this defreq  (output)
- *
- * This funciton will based on inputparamter, gov_data, to output
- * pgov_data, adev, dev with call by reference.
- *
- */
-static void get_datas(struct apu_gov_data *gov_data,
-			struct apu_gov_data **pgov_data, struct apu_dev **adev,
-			struct device **dev)
-{
-	struct device *pdev = NULL;
-
-	if (!gov_data) {
-		pr_info("%s null gov_data\n", __func__);
-		return;
-	}
-
-	pdev = gov_data->this->dev.parent;
-
-	/* return pgov_data */
-	if (pgov_data)
-		if (gov_data->parent)
-			*pgov_data = (struct apu_gov_data *)gov_data->parent->data;
-
-	/* return apu_dev */
-	if (adev)
-		*adev = dev_get_drvdata(pdev);
-
-	/* return struct device */
-	if (dev)
-		*dev = pdev;
-}
-
 static int ausr_get_target_freq(struct devfreq *df, unsigned long *freq)
 {
 	struct apu_gov_data *gov_data = (struct apu_gov_data *)df->data;
-	struct device *dev = NULL;
 	struct apu_dev *ad = NULL;
+	struct apu_req *req = NULL;
 
-	get_datas(gov_data, NULL, &ad, &dev);
-	if (gov_data->valid) {
-		*freq = apu_opp2freq(ad, gov_data->n_opp);
-		gov_data->valid = false;
-		if (*freq != df->previous_freq) {
-			advfs_info(dev, " voting %luMhz(opp%d)\n",
-				TOMHZ(*freq), gov_data->n_opp);
-			goto out;
-		}
+	get_datas(gov_data, NULL, &ad, NULL);
+	req = list_first_entry(&gov_data->head, struct apu_req, list);
+	*freq = apu_opp2freq(ad, req->value);
+	if (!round_khz(*freq, df->previous_freq)) {
+		apu_dump_list(gov_data);
+		advfs_info(ad->dev, "[%s] %s vote opp/freq %d/%u\n", __func__,
+			   dev_name(req->dev), req->value, TOMHZ(*freq));
 	}
-	df->profile->get_cur_freq(dev, freq);
-out:
+
 	return 0;
 }
 
-
-static int ausr_event_handler(struct devfreq *devfreq,
+static int ausr_event_handler(struct devfreq *df,
 			unsigned int event, void *data)
 {
 	int ret = 0;
-	struct apu_gov_data *gov_data = (struct apu_gov_data *)devfreq->data;
+	struct apu_gov_data *gov_data = (struct apu_gov_data *)df->data;
 
 	switch (event) {
 	case DEVFREQ_GOV_START:
 		if (!gov_data->this)
-			gov_data->this = devfreq;
+			gov_data->this = df;
 		break;
+	case DEVFREQ_GOV_STOP:
+	case DEVFREQ_GOV_INTERVAL:
+	case DEVFREQ_GOV_RESUME:
+	case DEVFREQ_GOV_SUSPEND:
 	default:
 		break;
 	}
@@ -96,7 +58,7 @@ static int ausr_event_handler(struct devfreq *devfreq,
 }
 
 struct devfreq_governor agov_userspace = {
-	.name = APU_GOV_USERDEF,
+	.name = APUGOV_USR,
 	.get_target_freq = ausr_get_target_freq,
 	.event_handler = ausr_event_handler,
 };

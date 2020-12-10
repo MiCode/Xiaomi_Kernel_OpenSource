@@ -7,14 +7,22 @@
 #define __APU_GOV_H__
 
 #include <linux/devfreq.h>
+#include <linux/list_sort.h>
+#include <linux/list.h>
+
 #include "apusys_power_user.h"
-
 /* DEVFREQ governor name */
-#define APU_GOV_USERDEF			"apuuser"
-#define APU_GOV_PASSIVE			"apupassive"
-
+#define APUGOV_USR		"apuuser"
+#define APUGOV_PASSIVE		"apupassive"
+#define APUGOV_CONSTRAIN	"apuconstrain"
+#define APUGOV_POLL_RATE	20 /* ms */
 struct apu_dev;
 
+struct apu_req {
+	struct device *dev;
+	struct list_head list;
+	int value;
+};
 /**
  * struct apu_gov_data - void *data fed to struct devfreq
  *	and devfreq_add_device
@@ -32,17 +40,40 @@ struct apu_dev;
 struct apu_gov_data {
 	struct devfreq *parent;
 	struct devfreq *this;
+	int max_opp;
 
 	/*
-	 * Array of freqs that child wants parent to be.
-	 * Suppose this parrent has VPU0, VPU1 and MDLA0,
-	 * and it will looks like below:
-	 * (the order of array is decided by enum dvfs_user)
-	 *     child_opp[VPU0] = VPU0 expect opp of it's parent
-	 *     child_opp[VPU1] = VPU1 expect opp of it's parent
-	 *     child_opp[MDLA0] = MDLA0 expect opp of it's parent
+	 * Below data is used for gov-constrain,
+	 *
+	 * threshold_opp:
+	 *    The threshold that child can start voting parent.
+	 *    for example:
+	 *        threshold_opp = 2;
+	 *        child wants to vote opp = 3;
+	 *        --> no need to put in parent's child array
+	 *
+	 *        threshold_opp = 2;
+	 *        child wants to vote opp = 0;
+	 *        --> can put in parent's child array
+	 *
+	 * child_opp_limit:
+	 *    The upper bound that child vote into parent
+	 *    for example:
+	 *        child_opp_limit = 2;
+	 *        child current opp = 0;
+	 *        --> child only can vote 2 into parent's child array.
 	 */
-	u32 **child_opp;
+	int threshold_opp;   /* located in child's gov */
+	int child_opp_limit; /* located in parent's gov */
+
+	/*
+	 * head: use to hook child's and self reqeusts
+	 * req_parent: request hook on parent's head
+	 * req: request from user
+	 */
+	struct list_head head;
+	struct apu_req req_parent;
+	struct apu_req req;
 
 	/*
 	 * DEVFREQ_PRECHANGE/DEVFREQ_POSTCHANGE
@@ -50,9 +81,16 @@ struct apu_gov_data {
 	 */
 	struct notifier_block nb;
 
+	/* the depth of power topology */
 	u32 depth;
-	/* next boost user wants to set */
-	int n_opp;
-	bool valid;
 };
+
+void get_datas(struct apu_gov_data *gov_data,
+	       struct apu_gov_data **pgov_data, struct apu_dev **ad,
+	       struct device **dev);
+int apu_cmp(void *priv, struct list_head *a, struct list_head *b);
+struct apu_gov_data *apu_gov_init(struct device *dev,	struct devfreq_dev_profile *pf);
+int apu_gov_setup(struct apu_dev *ad, void *data);
+void apu_dump_list(struct apu_gov_data *gov_data);
+
 #endif

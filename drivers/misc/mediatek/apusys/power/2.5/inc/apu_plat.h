@@ -17,8 +17,12 @@ struct apu_plat_data {
 	const char *rgulgp_name;
 	const char *plat_ops_name;
 
+	/* the min voltage that child has to vote parent */
+	int threshold_volt;
+
+	/* the max voltage that child can raise */
+	int child_volt_limit;
 	/* platform flags */
-	unsigned devfreq_parent:1;	/* is it parent to others ip? */
 	unsigned bypass_target:1;	/* shall this devfreq bypass target setting? */
 };
 
@@ -50,7 +54,7 @@ struct apu_plat_ops {
 	int (*init_opps)(struct apu_dev *ad);
 	int (*init_clks)(struct apu_dev *ad);
 	int (*init_rguls)(struct apu_dev *ad);
-	int (*init_devfreq)(struct apu_dev *ad, struct devfreq_dev_profile *pf);
+	int (*init_devfreq)(struct apu_dev *ad, struct devfreq_dev_profile *pf, void *data);
 	int (*init_misc)(struct apu_dev *ad);
 
 	/* uninitial operations */

@@ -50,4 +50,4 @@ int of_apu_link(struct device *dev, struct device_node *con_np, struct device_no
 
 void of_apu_regulator_put(struct apu_regulator *rgul);
 int of_apu_regulator_get(struct device *dev,
-		struct apu_regulator *rgul, int volt, ulong freq);
+		struct apu_regulator *rgul, unsigned long volt, ulong freq);

@@ -140,12 +140,18 @@ out:
 
 ulong apu_rpc_rdy_value(void)
 {
-	return apu_readl(rpc_reg + RPC_INTF_PWR_RDY);
+	if (rpc_reg)
+		return apu_readl(rpc_reg + RPC_INTF_PWR_RDY);
+	pr_info("%s not ready\n", __func__);
+	return 0;
 }
 
 ulong apu_spm_wakeup_value(void)
 {
-	return apu_readl(spm_reg + SPM_CROSS_WAKE_M01_REQ);
+	if (spm_reg)
+		return apu_readl(spm_reg + SPM_CROSS_WAKE_M01_REQ);
+	pr_info("%s not ready\n", __func__);
+	return 0;
 }
 
 void apu_buckiso(struct apu_dev *ad, bool enable)
@@ -154,7 +160,6 @@ void apu_buckiso(struct apu_dev *ad, bool enable)
 		apu_setl(0x21, (spm_reg + SPM_BUCK_ISOLATION));
 	else /* release buck isolation */
 		apu_clearl(0x21, (spm_reg + SPM_BUCK_ISOLATION));
-
 }
 
 int apu_mtcmos_on(struct apu_dev *ad)
@@ -269,12 +274,6 @@ int apu_rpc_init_done(struct apu_dev *ad)
 static int apu_rpc_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	struct property *volt_prop;
-	const char *volt_name;
-	struct regulator *reg;
-	int count = 0, idx = 0, ret = 0;
-	struct of_phandle_args clkspec;
-	struct clk *clk;
 
 	mutex_init(&rpc_lock);
 	/* rpc register initialization */
@@ -296,42 +295,13 @@ static int apu_rpc_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	of_property_for_each_string(dev->of_node, "voltage_list",
-				    volt_prop, volt_name) {
-		reg = regulator_get_optional(dev, volt_name);
-		apu_dbg_register_regulator(volt_name, reg);
-	}
-
-	count = of_count_phandle_with_args(dev->of_node, "clk_list", "#clock-cells");
-	if (count <= 0)
-		goto out;
-
-	for (idx = 0; idx < count; idx++) {
-		ret = of_parse_phandle_with_args(dev->of_node,
-							"clk_list", "#clock-cells", idx, &clkspec);
-		if (ret < 0) {
-			/* skip empty (null) phandles */
-			if (ret == -ENOENT)
-				continue;
-			else
-				goto out;
-		}
-		clk = of_clk_get_from_provider(&clkspec);
-		if (IS_ERR(clk)) {
-			ret = PTR_ERR(clk);
-			goto out;
-		}
-		apu_dbg_register_clk(__clk_get_name(clk), clk);
-	}
-out:
-	return ret;
+	return apupw_dbg_register_nodes(dev);
 }
 
 static int apu_rpc_remove(struct platform_device *pdev)
 {
 	iounmap(spm_reg);
-	apu_dbg_unregister_regulator();
-	apu_dbg_unregister_clk();
+	apupw_dbg_release_nodes();
 	return 0;
 }
 

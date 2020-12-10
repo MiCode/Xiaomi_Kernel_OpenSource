@@ -7,14 +7,14 @@
 #define __APU_LOG_H__
 #include <linux/device.h>
 
-extern int log_level;
+#include "apu_dbg.h"
 
 #define APUCLK_PRE	"clk"
 #define aclk_err(dev, fmt, ...) \
 	pr_info("[%s:"APUCLK_PRE"]" fmt, dev_name(dev), ##__VA_ARGS__)
 #define aclk_info(dev, fmt, ...) \
 do { \
-	if (log_level > 0) \
+	if (apupw_dbg_get_loglvl() > NO_LVL) \
 		pr_info("[%s:"APUCLK_PRE"]" fmt, dev_name(dev), ##__VA_ARGS__); \
 } while (0)
 #define aclk_warn(dev, fmt, ...) \
@@ -27,7 +27,7 @@ do { \
 	pr_info("[%s:"APURGU_PRE"]" fmt, dev_name(dev), ##__VA_ARGS__)
 #define argul_info(dev, fmt, ...) \
 do { \
-	if (log_level > 0) \
+	if (apupw_dbg_get_loglvl() > NO_LVL) \
 		pr_info("[%s:"APURGU_PRE"]" fmt, dev_name(dev), ##__VA_ARGS__); \
 } while (0)
 #define argul_warn(dev, fmt, ...) \
@@ -40,7 +40,7 @@ do { \
 	pr_info("[%s:"APUPROBE_PRE"]" fmt, dev_name(dev), ##__VA_ARGS__)
 #define aprobe_info(dev, fmt, ...) \
 do { \
-	if (log_level > 0) \
+	if (apupw_dbg_get_loglvl() > NO_LVL) \
 		pr_info("[%s:"APUPROBE_PRE"]" fmt, dev_name(dev), ##__VA_ARGS__); \
 } while (0)
 #define aprobe_warn(dev, fmt, ...) \
@@ -53,7 +53,7 @@ do { \
 	pr_info("[%s:"APUPW_PRE"]" fmt, dev_name(dev), ##__VA_ARGS__)
 #define apower_info(dev, fmt, ...) \
 do { \
-	if (log_level > 0) \
+	if (apupw_dbg_get_loglvl() > NO_LVL) \
 		pr_info("[%s:"APUPW_PRE"]" fmt, dev_name(dev), ##__VA_ARGS__); \
 } while (0)
 #define apower_warn(dev, fmt, ...) \
@@ -66,7 +66,7 @@ do { \
 	pr_info("[%s:"APURPC_PRE"]" fmt, dev_name(dev), ##__VA_ARGS__)
 #define arpc_info(dev, fmt, ...) \
 do { \
-	if (log_level > 0) \
+	if (apupw_dbg_get_loglvl() > NO_LVL) \
 		pr_info("[%s:"APURPC_PRE"]" fmt, dev_name(dev), ##__VA_ARGS__); \
 } while (0)
 #define arpc_warn(dev, fmt, ...) \
@@ -80,7 +80,7 @@ do { \
 	pr_info("[%s:"APUSPM_PRE"]" fmt, dev_name(dev), ##__VA_ARGS__)
 #define aspm_info(dev, fmt, ...) \
 do { \
-	if (log_level > 0) \
+	if (apupw_dbg_get_loglvl() > NO_LVL) \
 		pr_info("[%s:"APUSPM_PRE"]" fmt, dev_name(dev), ##__VA_ARGS__); \
 } while (0)
 #define aspm_warn(dev, fmt, ...) \
@@ -93,7 +93,7 @@ do { \
 	pr_info("[%s:"APUDVFS_PRE"]" fmt, dev_name(dev), ##__VA_ARGS__)
 #define advfs_info(dev, fmt, ...) \
 do { \
-	if (log_level > 0) \
+	if (apupw_dbg_get_loglvl() > NO_LVL) \
 		pr_info("[%s:"APUDVFS_PRE"]" fmt, dev_name(dev), ##__VA_ARGS__); \
 } while (0)
 #define advfs_warn(dev, fmt, ...) \
