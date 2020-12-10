@@ -277,6 +277,12 @@ static int mem_buf_rmt_alloc_ion_mem(struct mem_buf_xfer_mem *xfer_mem)
 		xfer_mem->secure_alloc = false;
 	}
 
+	/*
+	 * If the buffer needs to be freed because of error handling, ensure
+	 * that dma_buf_put_sync() is invoked, instead of dma_buf_put(). Doing
+	 * so ensures that the memory is freed before the next allocation
+	 * request is serviced.
+	 */
 	dmabuf = ion_alloc(xfer_mem->size, heap_id, ion_flags);
 	if (IS_ERR(dmabuf)) {
 		pr_err("%s ion_alloc failure sz: 0x%x heap_id: %d flags: 0x%x rc: %d\n",
@@ -289,7 +295,7 @@ static int mem_buf_rmt_alloc_ion_mem(struct mem_buf_xfer_mem *xfer_mem)
 	if (IS_ERR(attachment)) {
 		pr_err("%s dma_buf_attach failure rc: %d\n",  __func__,
 		       PTR_ERR(attachment));
-		dma_buf_put(dmabuf);
+		dma_buf_put_sync(dmabuf);
 		return PTR_ERR(attachment);
 	}
 
@@ -298,7 +304,7 @@ static int mem_buf_rmt_alloc_ion_mem(struct mem_buf_xfer_mem *xfer_mem)
 		pr_err("%s dma_buf_map_attachment failure rc: %d\n", __func__,
 		       PTR_ERR(mem_sgt));
 		dma_buf_detach(dmabuf, attachment);
-		dma_buf_put(dmabuf);
+		dma_buf_put_sync(dmabuf);
 		return PTR_ERR(mem_sgt);
 	}
 
@@ -330,7 +336,11 @@ static void mem_buf_rmt_free_ion_mem(struct mem_buf_xfer_mem *xfer_mem)
 	pr_debug("%s: Freeing ION memory\n", __func__);
 	dma_buf_unmap_attachment(attachment, mem_sgt, DMA_BIDIRECTIONAL);
 	dma_buf_detach(dmabuf, attachment);
-	dma_buf_put(ion_mem_data->dmabuf);
+	/*
+	 * Use dma_buf_put_sync() instead of dma_buf_put() to ensure that the
+	 * memory is actually freed, before the next allocation request.
+	 */
+	dma_buf_put_sync(ion_mem_data->dmabuf);
 	pr_debug("%s: ION memory freed\n", __func__);
 }
 
