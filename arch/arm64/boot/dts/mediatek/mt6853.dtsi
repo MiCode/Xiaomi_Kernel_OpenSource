@@ -3681,18 +3681,23 @@
 			compatible = "mtk68xx,apurpc";
 			reg = <0 0x190f0000 0 0x1000>, <0 0x10000000 0 0x1000>,
 			      <0 0x10006000 0 0x1000>;
-			voltage_list = "vvpu", "vcore", "vsram";
-			clk_list = <&topckgen_clk CLK_TOP_DSP_SEL>,
-				   <&topckgen_clk CLK_TOP_DSP1_NPUPLL_SEL>,
-				   <&topckgen_clk CLK_TOP_DSP2_NPUPLL_SEL>,
-				   <&topckgen_clk CLK_TOP_IPU_IF_SEL>;
+			cg-names = "vcore_cg_con", "conn_cg_con",
+				   "vpu0_cg_con", "vpu1_cg_con";
+			cgs = <0 0x19029000 0 0x0>, <0 0x19020000 0 0x0>,
+			      <0 0x19030000 0 0x100>, <0 0x19031000 0 0x100>;
+			clock-names = "conn", "vpu0", "vpu1", "vcore";
+			clocks = <&topckgen_clk CLK_TOP_DSP_SEL>,
+				 <&topckgen_clk CLK_TOP_DSP1_NPUPLL_SEL>,
+				 <&topckgen_clk CLK_TOP_DSP2_NPUPLL_SEL>,
+				 <&topckgen_clk CLK_TOP_IPU_IF_SEL>;
+			voltage-names = "vvpu", "vcore", "vsram";
 			vcore-supply = <&dvfsrc_vcore>;
 			vvpu-supply = <&mt6359p_vproc2_reg>;
 			vsram-supply = <&mt6359p_vsram_others_reg>;
 		};
 
 		apucore: APUCORE {
-			compatible = "mtk6873,apucore";
+			compatible = "mtk6853,apucore";
 			operating-points-v2 = <&vcore_opp_table>;
 			vcore-supply = <&dvfsrc_vcore>;
 			sys-mux = <&topckgen_clk CLK_TOP_IPU_IF_SEL>;
@@ -3720,7 +3725,8 @@
 						 <&topckgen_clk CLK_TOP_UNIVPLL_D6>,
 						 <&topckgen_clk CLK_TOP_MAINPLL_D3>,
 						 <&topckgen_clk CLK_TOP_UNIVPLL_D3>;
-				gov = "apupassive";
+				devfreq = <&apucore>;
+				gov = "apuconstrain";
 				depth =<2>;
 				consumer = <&iommu1>;
 			};
