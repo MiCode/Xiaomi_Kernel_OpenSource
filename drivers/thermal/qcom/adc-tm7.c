@@ -12,8 +12,9 @@
 #include <linux/of_irq.h>
 #include <linux/interrupt.h>
 #include <linux/iio/consumer.h>
+#include <linux/thermal.h>
+
 #include "adc-tm.h"
-#include "../thermal_core.h"
 
 #define ADC_TM_STATUS1				0x08
 #define ADC_TM_STATUS_LOW_SET		0x09
@@ -663,14 +664,16 @@ static irqreturn_t adc_tm7_handler(int irq, void *data)
 			 * with new thresholds and activate/disable
 			 * the appropriate trips.
 			 */
-			pr_debug("notifying of_thermal\n");
 			temp = therm_fwd_scale_adc7((int64_t)code);
 			if (temp == -EINVAL) {
 				pr_err("Invalid temperature reading\n");
 				continue;
 			}
-			of_thermal_handle_trip_temp(chip->dev,
-				chip->sensor[i].tzd, temp);
+			pr_debug("notifying thermal %d\n", temp);
+			chip->sensor[i].last_temp = temp;
+			chip->sensor[i].last_temp_set = true;
+			thermal_zone_device_update(chip->sensor[i].tzd,
+						THERMAL_TRIP_VIOLATED);
 		} else {
 			if (lower_set) {
 				mutex_lock(&chip->adc_mutex_lock);

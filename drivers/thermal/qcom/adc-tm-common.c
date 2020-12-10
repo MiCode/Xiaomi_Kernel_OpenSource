@@ -314,6 +314,13 @@ int adc_tm_get_temp_vadc(struct adc_tm_sensor *sensor, int *temp)
 	if (!sensor || !sensor->adc)
 		return -EINVAL;
 
+	if (sensor->last_temp_set) {
+		pr_debug("last_temp: %d\n", sensor->last_temp);
+		sensor->last_temp_set = false;
+		*temp = sensor->last_temp;
+		return 0;
+	}
+
 	return iio_read_channel_processed(sensor->adc, temp);
 }
 

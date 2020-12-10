@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __QCOM_ADC_TM_H__
@@ -99,9 +99,11 @@ struct adc_tm_sensor {
 	bool				non_thermal;
 	bool				high_thr_triggered;
 	bool				low_thr_triggered;
+	bool				last_temp_set;
 	int				high_thr_en;		/* PMIC7 */
 	int				low_thr_en;		/* PMIC7 */
 	int				meas_en;		/* PMIC7 */
+	int				last_temp;
 	struct workqueue_struct		*req_wq;
 	struct work_struct		work;
 };
