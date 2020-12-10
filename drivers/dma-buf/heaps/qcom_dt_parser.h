@@ -13,11 +13,14 @@
 
 /**
  * struct platform_heap - defines a heap in the given platform
- * @type: type of the heap
- * @name: used for debug purposes
- * @base: base address of heap in physical memory if applicable
- * @size: size of the heap in bytes if applicable
- * @priv: private info passed from the board file
+ * @type:	type of the heap
+ * @name:	used for debug purposes
+ * @base:	base address of heap in physical memory if applicable
+ * @size:	size of the heap in bytes if applicable
+ * @dev:	the device associated with the heap's DT node
+ * @is_dynamic:	indicates if memory can be added or removed from carveout heaps
+ * @token:	the end points to which memory for secure carveout memory is
+ *		assigned to
  *
  * Provided by the board file.
  */
@@ -27,6 +30,8 @@ struct platform_heap {
 	phys_addr_t base;
 	size_t size;
 	struct device *dev;
+	bool is_dynamic;
+	u32 token;
 };
 
 /**

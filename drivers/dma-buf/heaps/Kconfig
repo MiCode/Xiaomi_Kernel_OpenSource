@@ -46,3 +46,10 @@ config QCOM_DMABUF_HEAPS_CMA
 	help
 	  Choose this option to build the QCOM DMA-BUF CMA heap.
 	  If in doubt, say Y here.
+
+config QCOM_DMABUF_HEAPS_CARVEOUT
+	bool "QCOM dma-buf Carveout Heap"
+	depends on QCOM_DMABUF_HEAPS && QCOM_SECURE_BUFFER
+	help
+	  Choose this option to build the QCOM DMA-BUF Carveout heap.
+	  If in doubt, say Y here.

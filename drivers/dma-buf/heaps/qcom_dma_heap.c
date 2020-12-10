@@ -12,6 +12,7 @@
 #include "qcom_cma_heap.h"
 #include "qcom_dt_parser.h"
 #include "qcom_system_heap.h"
+#include "qcom_carveout_heap.h"
 
 static int qcom_dma_heap_probe(struct platform_device *pdev)
 {
@@ -33,9 +34,27 @@ static int qcom_dma_heap_probe(struct platform_device *pdev)
 		struct platform_heap *heap_data = &heaps->heaps[i];
 
 		switch (heap_data->type) {
+		case HEAP_TYPE_SECURE_CARVEOUT:
+			ret = qcom_secure_carveout_heap_create(heap_data);
+			if (ret < 0)
+				pr_err("%s: DMA-BUF Heap: Failed to create %s, error is %d\n",
+				       __func__, heap_data->name, ret);
+			else if (!ret)
+				pr_info("%s: DMA-BUF Heap: Created %s\n", __func__,
+					heap_data->name);
+			break;
+		case HEAP_TYPE_CARVEOUT:
+			ret = qcom_carveout_heap_create(heap_data);
+			if (ret < 0)
+				pr_err("%s: DMA-BUF Heap: Failed to create %s, error is %d\n",
+				       __func__, heap_data->name, ret);
+			else if (!ret)
+				pr_info("%s: DMA-BUF Heap: Created %s\n", __func__,
+					heap_data->name);
+			break;
 		case HEAP_TYPE_CMA:
 			ret = qcom_add_cma_heap(heap_data);
-			if (IS_ERR(ERR_PTR(ret)))
+			if (ret < 0)
 				pr_err("%s: DMA-BUF Heap: Failed to create %s, error is %d\n",
 				       __func__, heap_data->name, ret);
 			else if (!ret)

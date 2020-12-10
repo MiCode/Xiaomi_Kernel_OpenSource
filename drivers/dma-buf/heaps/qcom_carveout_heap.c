@@ -1,0 +1,563 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * DMA-BUF heap carveout heap allocator. Copied from
+ * drivers/staging/android/ion/heaps/ion_carveout_heap.c as of commit
+ * aeb022cc01ecc ("dma-heap: qcom: Change symbol names to let module be built
+ * in")
+ *
+ * Copyright (C) 2011 Google, Inc.
+ * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ */
+
+#include <linux/dma-mapping.h>
+#include <linux/err.h>
+#include <linux/genalloc.h>
+#include <linux/io.h>
+#include <linux/mm.h>
+#include <linux/scatterlist.h>
+#include <linux/slab.h>
+#include <linux/vmalloc.h>
+#include <soc/qcom/secure_buffer.h>
+#include <linux/of.h>
+#include <linux/of_address.h>
+#include <linux/list.h>
+#include <linux/dma-buf.h>
+
+#include <linux/dma-heap.h>
+#include "qcom_dma_heap_secure_utils.h"
+#include "qcom_sg_ops.h"
+#include "qcom_carveout_heap.h"
+
+#define CARVEOUT_ALLOCATE_FAIL -1
+
+struct carveout_heap {
+	struct dma_heap *heap;
+	struct rw_semaphore mem_sem;
+	struct gen_pool *pool;
+	struct device *dev;
+	struct list_head list;
+	bool is_secure;
+	phys_addr_t base;
+};
+
+static LIST_HEAD(carveout_heaps);
+
+void pages_sync_for_device(struct device *dev, struct page *page,
+			       size_t size, enum dma_data_direction dir)
+{
+	struct scatterlist sg;
+
+	sg_init_table(&sg, 1);
+	sg_set_page(&sg, page, size, 0);
+	/*
+	 * This is not correct - sg_dma_address needs a dma_addr_t that is valid
+	 * for the targeted device, but this works on the currently targeted
+	 * hardware.
+	 */
+	sg_dma_address(&sg) = page_to_phys(page);
+	dma_sync_sg_for_device(dev, &sg, 1, dir);
+}
+
+static struct carveout_heap *get_carveout_heap(char *heap_name, struct list_head list)
+{
+	struct carveout_heap *carveout_heap;
+	struct list_head *list_pos;
+	struct dma_heap *heap;
+
+	heap = dma_heap_find(heap_name);
+	if (!heap)
+		return ERR_PTR(-EINVAL);
+
+	list_for_each(list_pos, &list) {
+		carveout_heap = container_of(list_pos, struct carveout_heap,
+					     list);
+		if (carveout_heap->heap == heap)
+			return carveout_heap;
+	}
+
+	pr_err("%s: %s is not a carveout heap\n", __func__, heap_name);
+	return ERR_PTR(-EINVAL);
+}
+
+static phys_addr_t carveout_allocate(struct carveout_heap *carveout_heap,
+				     unsigned long size)
+{
+	unsigned long offset = CARVEOUT_ALLOCATE_FAIL;
+
+	down_read(&carveout_heap->mem_sem);
+	if (carveout_heap->pool) {
+		offset = gen_pool_alloc(carveout_heap->pool, size);
+		if (!offset) {
+			offset = CARVEOUT_ALLOCATE_FAIL;
+			goto unlock;
+		}
+	}
+
+unlock:
+	up_read(&carveout_heap->mem_sem);
+	return offset;
+}
+
+static void carveout_free(struct carveout_heap *carveout_heap,
+			  phys_addr_t addr, unsigned long size)
+{
+	if (addr == CARVEOUT_ALLOCATE_FAIL)
+		return;
+
+	down_read(&carveout_heap->mem_sem);
+	if (carveout_heap->pool)
+		gen_pool_free(carveout_heap->pool, addr, size);
+	up_read(&carveout_heap->mem_sem);
+}
+
+static struct dma_buf *__carveout_heap_allocate(struct carveout_heap *carveout_heap,
+						unsigned long len,
+						unsigned long fd_flags,
+						unsigned long heap_flags,
+						void (*buffer_free)(struct qcom_sg_buffer *))
+{
+	struct sg_table *table;
+	struct qcom_sg_buffer *buffer;
+	phys_addr_t paddr;
+	int ret;
+	DEFINE_DMA_BUF_EXPORT_INFO(exp_info);
+	struct dma_buf *dmabuf;
+	struct device *dev = carveout_heap->dev;
+
+	buffer = kzalloc(sizeof(*buffer), GFP_KERNEL);
+	if (!buffer)
+		return ERR_PTR(-ENOMEM);
+
+	/* Initialize the buffer */
+	INIT_LIST_HEAD(&buffer->attachments);
+	mutex_init(&buffer->lock);
+	buffer->heap = carveout_heap->heap;
+	buffer->len = len;
+	buffer->free = buffer_free;
+	buffer->secure = carveout_heap->is_secure;
+
+	table = &buffer->sg_table;
+	ret = sg_alloc_table(table, 1, GFP_KERNEL);
+	if (ret)
+		goto err_free;
+
+	paddr = carveout_allocate(carveout_heap, len);
+	if (paddr == CARVEOUT_ALLOCATE_FAIL) {
+		ret = -ENOMEM;
+		goto err_free_table;
+	}
+
+	sg_set_page(table->sgl, pfn_to_page(PFN_DOWN(paddr)), len, 0);
+
+	if (!carveout_heap->is_secure)
+		pages_sync_for_device(dev, sg_page(table->sgl),
+				      buffer->len, DMA_FROM_DEVICE);
+
+	/* Instantiate our dma_buf */
+	exp_info.ops = &qcom_sg_buf_ops;
+	exp_info.size = buffer->len;
+	exp_info.flags = fd_flags;
+	exp_info.priv = buffer;
+	dmabuf = dma_buf_export(&exp_info);
+	if (IS_ERR(dmabuf)) {
+		ret = PTR_ERR(dmabuf);
+		goto err_free_carveout;
+	}
+
+	return dmabuf;
+
+err_free_carveout:
+	carveout_free(carveout_heap, paddr, len);
+err_free_table:
+	sg_free_table(table);
+err_free:
+	kfree(buffer);
+	return ERR_PTR(ret);
+}
+
+static int carveout_pages_zero(struct page *page, size_t size, pgprot_t prot);
+
+static void carveout_heap_free(struct qcom_sg_buffer *buffer)
+{
+	struct carveout_heap *carveout_heap;
+	struct sg_table *table = &buffer->sg_table;
+	struct page *page = sg_page(table->sgl);
+	phys_addr_t paddr = page_to_phys(page);
+	struct device *dev;
+	struct list_head *list_pos;
+
+	/*
+	 * This should always succeed, since the heap was added to the
+	 * carveout_heaps list in  qcom_carveout_heap_create() (and we can only
+	 * be in this function if qcom_carveout_heap_create() was called).
+	 */
+	list_for_each(list_pos, &carveout_heaps) {
+		carveout_heap = container_of(list_pos, struct carveout_heap,
+					     list);
+		if (carveout_heap->heap == buffer->heap)
+			break;
+	}
+
+	dev = carveout_heap->dev;
+
+	carveout_pages_zero(page, buffer->len, PAGE_KERNEL);
+
+	pages_sync_for_device(dev, page,
+			      buffer->len, DMA_BIDIRECTIONAL);
+
+	carveout_free(carveout_heap, paddr, buffer->len);
+	sg_free_table(table);
+	kfree(buffer);
+}
+
+
+static struct dma_buf *carveout_heap_allocate(struct dma_heap *heap,
+					      unsigned long len,
+					      unsigned long fd_flags,
+					      unsigned long heap_flags)
+{
+	struct carveout_heap *carveout_heap;
+	struct list_head *list_pos;
+
+	/*
+	 * This should always succeed, since the heap was added to the
+	 * carveout_heaps list in  qcom_carveout_heap_create() (and we can only
+	 * be in this function if qcom_carveout_heap_create() was called).
+	 */
+	list_for_each(list_pos, &carveout_heaps) {
+		carveout_heap = container_of(list_pos, struct carveout_heap,
+					     list);
+		if (carveout_heap->heap == heap)
+			break;
+	}
+
+	return __carveout_heap_allocate(carveout_heap, len, fd_flags,
+					heap_flags, carveout_heap_free);
+}
+
+static int carveout_heap_clear_pages(struct page **pages, int num, pgprot_t prot)
+{
+	void *addr = vmap(pages, num, VM_MAP, prot);
+
+	if (!addr)
+		return -ENOMEM;
+	memset(addr, 0, PAGE_SIZE * num);
+	vunmap(addr);
+
+	return 0;
+}
+
+static int carveout_heap_sglist_zero(struct scatterlist *sgl, unsigned int nents, pgprot_t prot)
+{
+	int p = 0;
+	int ret = 0;
+	struct sg_page_iter piter;
+	struct page *pages[32];
+
+	for_each_sg_page(sgl, &piter, nents, 0) {
+		pages[p++] = sg_page_iter_page(&piter);
+		if (p == ARRAY_SIZE(pages)) {
+			ret = carveout_heap_clear_pages(pages, p, prot);
+			if (ret)
+				return ret;
+			p = 0;
+		}
+	}
+	if (p)
+		ret = carveout_heap_clear_pages(pages, p, prot);
+
+	return ret;
+}
+
+static int carveout_pages_zero(struct page *page, size_t size, pgprot_t prot)
+{
+	struct scatterlist sg;
+
+	sg_init_table(&sg, 1);
+	sg_set_page(&sg, page, size, 0);
+	return carveout_heap_sglist_zero(&sg, 1, prot);
+}
+
+static int carveout_init_heap_memory(struct carveout_heap *co_heap,
+				     phys_addr_t base, ssize_t size,
+				     bool sync)
+{
+	struct page *page = pfn_to_page(PFN_DOWN(base));
+	struct device *dev = co_heap->dev;
+	int ret = 0;
+
+	if (sync) {
+		if (!pfn_valid(PFN_DOWN(base)))
+			return -EINVAL;
+		pages_sync_for_device(dev, page, size, DMA_BIDIRECTIONAL);
+	}
+
+	ret = carveout_pages_zero(page, size, pgprot_writecombine(PAGE_KERNEL));
+	if (ret)
+		return ret;
+
+	co_heap->pool = gen_pool_create(PAGE_SHIFT, -1);
+	if (!co_heap->pool)
+		return -ENOMEM;
+
+	co_heap->base = base;
+	gen_pool_add(co_heap->pool, co_heap->base, size, -1);
+
+	return 0;
+}
+
+int carveout_heap_add_memory(char *heap_name,
+			     struct sg_table *sgt)
+{
+	struct carveout_heap *carveout_heap;
+	int ret;
+
+	if (!sgt || sgt->nents != 1)
+		return -EINVAL;
+
+	carveout_heap = get_carveout_heap(heap_name, carveout_heaps);
+	if (IS_ERR(carveout_heap))
+		return PTR_ERR(carveout_heap);
+
+	down_write(&carveout_heap->mem_sem);
+	if (carveout_heap->pool) {
+		ret = -EBUSY;
+		goto unlock;
+	}
+
+	ret = carveout_init_heap_memory(carveout_heap,
+					page_to_phys(sg_page(sgt->sgl)),
+					sgt->sgl->length, true);
+unlock:
+	up_write(&carveout_heap->mem_sem);
+	return ret;
+}
+
+int carveout_heap_remove_memory(char *heap_name,
+				struct sg_table *sgt)
+{
+	struct carveout_heap *carveout_heap;
+	phys_addr_t base;
+	int ret = 0;
+
+	if (!sgt || sgt->nents != 1)
+		return -EINVAL;
+
+	carveout_heap = get_carveout_heap(heap_name, carveout_heaps);
+	if (IS_ERR(carveout_heap))
+		return PTR_ERR(carveout_heap);
+
+	down_write(&carveout_heap->mem_sem);
+	if (!carveout_heap->pool) {
+		ret = -EINVAL;
+		goto unlock;
+	}
+
+	base = page_to_phys(sg_page(sgt->sgl));
+	if (carveout_heap->base != base) {
+		ret = -EINVAL;
+		goto unlock;
+	}
+
+	if (gen_pool_size(carveout_heap->pool) !=
+	    gen_pool_avail(carveout_heap->pool)) {
+		ret = -EBUSY;
+		goto unlock;
+	}
+
+	gen_pool_destroy(carveout_heap->pool);
+	carveout_heap->pool = NULL;
+unlock:
+	up_write(&carveout_heap->mem_sem);
+	return ret;
+}
+EXPORT_SYMBOL(carveout_heap_remove_memory);
+
+static int __carveout_heap_init(struct platform_heap *heap_data,
+				struct carveout_heap *carveout_heap,
+				bool sync)
+{
+	struct device *dev = heap_data->dev;
+	bool dynamic_heap = heap_data->is_dynamic;
+	int ret = 0;
+
+	carveout_heap->dev = dev;
+	if (!dynamic_heap)
+		ret = carveout_init_heap_memory(carveout_heap,
+						heap_data->base,
+						heap_data->size, sync);
+
+	init_rwsem(&carveout_heap->mem_sem);
+
+	return ret;
+}
+
+static const struct dma_heap_ops carveout_heap_ops = {
+	.allocate = carveout_heap_allocate,
+};
+
+static void carveout_heap_destroy(struct carveout_heap *heap);
+
+int qcom_carveout_heap_create(struct platform_heap *heap_data)
+{
+	struct dma_heap_export_info exp_info;
+	struct carveout_heap *carveout_heap;
+	int ret;
+
+	carveout_heap = kzalloc(sizeof(*carveout_heap), GFP_KERNEL);
+	if (!carveout_heap)
+		return -ENOMEM;
+
+	ret = __carveout_heap_init(heap_data, carveout_heap, true);
+	if (ret)
+		goto err;
+
+	carveout_heap->is_secure = false;
+
+	exp_info.name = heap_data->name;
+	exp_info.ops = &carveout_heap_ops;
+	exp_info.priv = NULL;
+
+	carveout_heap->heap = dma_heap_add(&exp_info);
+	if (IS_ERR(carveout_heap->heap)) {
+		ret = PTR_ERR(carveout_heap->heap);
+		goto destroy_heap;
+	}
+
+	list_add(&carveout_heap->list, &carveout_heaps);
+
+	return 0;
+
+destroy_heap:
+	carveout_heap_destroy(carveout_heap);
+err:
+	kfree(carveout_heap);
+
+	return ret;
+}
+
+static void carveout_heap_destroy(struct carveout_heap *carveout_heap)
+{
+	down_write(&carveout_heap->mem_sem);
+	if (carveout_heap->pool)
+		gen_pool_destroy(carveout_heap->pool);
+	up_write(&carveout_heap->mem_sem);
+	kfree(carveout_heap);
+	carveout_heap = NULL;
+}
+
+struct secure_carveout_heap {
+	u32 token;
+	struct carveout_heap carveout_heap;
+};
+
+static LIST_HEAD(secure_carveout_heaps);
+
+static void sc_heap_free(struct qcom_sg_buffer *buffer);
+
+static struct dma_buf *sc_heap_allocate(struct dma_heap *heap,
+					unsigned long len,
+					unsigned long fd_flags,
+					unsigned long heap_flags)
+{
+	struct carveout_heap *carveout_heap;
+	struct list_head *list_pos;
+
+	/*
+	 * This should always succeed, since the heap was added to the
+	 * secure_carveout_heaps list in qcom_secure_carveout_heap_create()
+	 * (and we can only be in this function if
+	 * qcom_secure_carveout_heap_create() was called).
+	 */
+	list_for_each(list_pos, &secure_carveout_heaps) {
+		carveout_heap = container_of(list_pos, struct carveout_heap,
+					     list);
+		if (carveout_heap->heap == heap)
+			break;
+	}
+
+	return __carveout_heap_allocate(carveout_heap, len, fd_flags,
+					heap_flags, sc_heap_free);
+}
+
+static void sc_heap_free(struct qcom_sg_buffer *buffer)
+{
+	struct carveout_heap *carveout_heap;
+	struct secure_carveout_heap *sc_heap;
+	struct sg_table *table = &buffer->sg_table;
+	struct page *page = sg_page(table->sgl);
+	struct list_head *list_pos;
+	phys_addr_t paddr = PFN_PHYS(page_to_pfn(page));
+
+	/*
+	 * This should always succeed, since the heap was added to the
+	 * secure_carveout_heaps list in qcom_secure_carveout_heap_create()
+	 * (and we can only be in this function if
+	 * qcom_secure_carveout_heap_create() was called).
+	 */
+	list_for_each(list_pos, &secure_carveout_heaps) {
+		carveout_heap = container_of(list_pos, struct carveout_heap,
+					     list);
+		if (carveout_heap->heap == buffer->heap)
+			break;
+	}
+	sc_heap = container_of(carveout_heap, struct secure_carveout_heap,
+			       carveout_heap);
+
+	if (qcom_is_buffer_hlos_accessible(sc_heap->token))
+		carveout_pages_zero(page, buffer->len, PAGE_KERNEL);
+	carveout_free(carveout_heap, paddr, buffer->len);
+	sg_free_table(table);
+	kfree(buffer);
+}
+
+static struct dma_heap_ops sc_heap_ops = {
+	.allocate = sc_heap_allocate,
+};
+
+int qcom_secure_carveout_heap_create(struct platform_heap *heap_data)
+{
+	struct dma_heap_export_info exp_info;
+	struct secure_carveout_heap *sc_heap;
+	int ret;
+
+	sc_heap = kzalloc(sizeof(*sc_heap), GFP_KERNEL);
+	if (!sc_heap)
+		return -ENOMEM;
+
+	ret = __carveout_heap_init(heap_data, &sc_heap->carveout_heap, false);
+	if (ret)
+		goto err;
+
+	ret = hyp_assign_from_flags(heap_data->base, heap_data->size,
+				    heap_data->token);
+	if (ret) {
+		pr_err("secure_carveout_heap: Assign token 0x%x failed\n",
+		       heap_data->token);
+		goto destroy_heap;
+	}
+
+	sc_heap->token = heap_data->token;
+	sc_heap->carveout_heap.is_secure = true;
+
+	exp_info.name = heap_data->name;
+	exp_info.ops = &sc_heap_ops;
+	exp_info.priv = NULL;
+
+	sc_heap->carveout_heap.heap = dma_heap_add(&exp_info);
+	if (IS_ERR(sc_heap->carveout_heap.heap)) {
+		ret = PTR_ERR(sc_heap->carveout_heap.heap);
+		goto destroy_heap;
+	}
+
+	list_add(&sc_heap->carveout_heap.list, &secure_carveout_heaps);
+
+	return 0;
+
+destroy_heap:
+	carveout_heap_destroy(&sc_heap->carveout_heap);
+err:
+	kfree(sc_heap);
+
+	return ret;
+}
