@@ -4,7 +4,6 @@
  */
 #include <lpm_plat_reg.h>
 #include <mtk_cpuidle_sysfs.h>
-#include <lpm_plat_apmcu_mbox.h>
 #include <lpm_dbg_fs_common.h>
 
 #include "mtk_cpupm_dbg.h"

@@ -6,9 +6,10 @@
 #include <asm/errno.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/cpuidle.h>
 
 #include <lpm_plat_apmcu.h>
-
+#include <lpm_module.h>
 #include "lpm_plat.h"
 #include "lpm_plat_suspend.h"
 
@@ -45,16 +46,12 @@ int lpm_do_mcusys_prepare_on(void)
 	return __lpm_do_mcusys_prepare_on(status);
 }
 
-int lpm_do_mcusys_prepare_on_ex(unsigned int clr_status)
-{
-	return __lpm_do_mcusys_prepare_on(clr_status);
-}
-
 static int __init lpm_early_initcall(void)
 {
 	lpm_plat_apmcu_early_init();
 	return 0;
 }
+
 #ifndef MTK_LPM_MODE_MODULE
 subsys_initcall(lpm_early_initcall);
 #endif
@@ -68,13 +65,19 @@ static int __init lpm_late_initcall(void)
 {
 	lpm_plat_apmcu_init();
 	lpm_model_suspend_init();
+
+	cpuidle_pause_and_lock();
+	lpm_smc_cpu_pm(VALIDATE_PWR_STATE_CTRL, MT_LPM_SMC_ACT_SET,
+				PSCI_E_SUCCESS, 0);
+	cpuidle_resume_and_unlock();
+
 	return 0;
 }
 #ifndef MTK_LPM_MODE_MODULE
 late_initcall_sync(lpm_late_initcall);
 #endif
 
-int __init lpm_plat_init(void)
+static int __init lpm_plat_init(void)
 {
 	int ret = 0;
 #ifdef MTK_LPM_MODE_MODULE
@@ -101,7 +104,7 @@ lpm_plat_init_fail:
 	return -EAGAIN;
 }
 
-void __exit lpm_plat_exit(void)
+static void __exit lpm_plat_exit(void)
 {
 }
 

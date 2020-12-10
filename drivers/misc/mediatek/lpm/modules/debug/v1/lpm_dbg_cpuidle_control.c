@@ -5,6 +5,7 @@
 
 #include <linux/types.h>
 
+#include <lpm_module.h>
 #include <lpm_plat_apmcu_mbox.h>
 #include <mtk_cpuidle_sysfs.h>
 
@@ -66,7 +67,7 @@ static ssize_t lpm_cpuidle_control_read(char *ToUserBuf,
 	char *p = ToUserBuf;
 	struct MTK_CPUIDLE_NODE *node =
 			(struct MTK_CPUIDLE_NODE *)priv;
-	int mode;
+	unsigned long mode;
 
 	struct mode_param {
 		int id;
@@ -93,7 +94,8 @@ static ssize_t lpm_cpuidle_control_read(char *ToUserBuf,
 	switch (node->type) {
 	case TYPE_ARMPLL_MODE:
 		/* PLAT_MODULE */
-		mode = lpm_get_mcupm_pll_mode();
+		mode = lpm_smc_cpu_pm(CPU_PM_CTRL, MT_LPM_SMC_ACT_GET,
+			ARMPLL_MODE_CTRL, 0);
 
 		if (mode < 0 || mode > NF_MCUPM_ARMPLL_MODE)
 			mode = NF_MCUPM_ARMPLL_MODE;
@@ -104,7 +106,8 @@ static ssize_t lpm_cpuidle_control_read(char *ToUserBuf,
 
 	case TYPE_BUCK_MODE:
 		/* PLAT_MODULE */
-		mode = lpm_get_mcupm_buck_mode();
+		mode = lpm_smc_cpu_pm(CPU_PM_CTRL, MT_LPM_SMC_ACT_GET,
+			BUCK_MODE_CTRL, 0);
 
 		if (mode < 0 || mode > NF_MCUPM_BUCK_MODE)
 			mode = NF_MCUPM_BUCK_MODE;
@@ -121,8 +124,10 @@ static ssize_t lpm_cpuidle_control_read(char *ToUserBuf,
 
 	case TYPE_NOTIFY_CM:
 		/* PLAT_MODULE */
+		mode = lpm_smc_cpu_pm(CPU_PM_CTRL, MT_LPM_SMC_ACT_GET,
+			CM_IS_NOTIFIED, 0);
 		mtk_dbg_cpuidle_log("mcupm cm mgr : %s\n",
-			lpm_mcupm_cm_is_notified() ? "Enable" : "Disable");
+			mode ? "Enable" : "Disable");
 		break;
 
 	case TYPE_STRESS_EN:
@@ -192,13 +197,15 @@ static ssize_t lpm_cpuidle_control_write(char *FromUserBuf,
 	case TYPE_ARMPLL_MODE:
 		if (parm < NF_MCUPM_ARMPLL_MODE)
 			/* PLAT_MODULE */
-			lpm_set_mcupm_pll_mode(parm);
+			lpm_smc_cpu_pm(CPU_PM_CTRL, MT_LPM_SMC_ACT_SET,
+					ARMPLL_MODE_CTRL, parm);
 		break;
 
 	case TYPE_BUCK_MODE:
 		if (parm < NF_MCUPM_BUCK_MODE)
 			/* PLAT_MODULE */
-			lpm_set_mcupm_buck_mode(parm);
+			lpm_smc_cpu_pm(CPU_PM_CTRL, MT_LPM_SMC_ACT_SET,
+					BUCK_MODE_CTRL, parm);
 		break;
 
 	case TYPE_LOG_EN:

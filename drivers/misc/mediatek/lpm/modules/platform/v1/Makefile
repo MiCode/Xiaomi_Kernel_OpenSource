@@ -1,12 +1,6 @@
-ifeq ($(CONFIG_MTK_TINYSYS_MCUPM_SUPPORT),$(filter $(CONFIG_MTK_TINYSYS_MCUPM_SUPPORT),y m))
-LPM_MODULE_PLAT_PLATFORM_CFLAGS += -I$(srctree)/drivers/misc/mediatek/mcupm/
-LPM_MODULE_PLAT_PLATFORM_CFLAGS += -I$(srctree)/drivers/misc/mediatek/mcupm/include/
-endif
-
 LPM_MODULE_PLAT_PLATFORM_CFLAGS += -I$(LPM_MODULES_FOLDER)/include/
 LPM_MODULE_PLAT_PLATFORM_CFLAGS += -I$(LPM_MODULES_FOLDER)/include/$(CONFIG_MTK_LPM_MODULE_NAME)/
 
 #source files
 LPM_MODULE_PLAT_PLATFORM_OBJS += lpm_plat.o
 LPM_MODULE_PLAT_PLATFORM_OBJS += lpm_plat_apmcu.o
-LPM_MODULE_PLAT_PLATFORM_OBJS += lpm_plat_apmcu_mbox.o

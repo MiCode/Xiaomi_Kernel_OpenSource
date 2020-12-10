@@ -17,11 +17,13 @@
 
 #include <lpm.h>
 
+#include <mtk_lpm_sysfs.h>
+#include <mtk_cpupm_dbg.h>
 #include <lpm_spm_comm.h>
 #include <lpm_dbg_common_v1.h>
 #include <lpm_timer.h>
-#include <mtk_lpm_sysfs.h>
 #include <lpm_module.h>
+#include <lpm_plat_reg.h>
 
 #define LPM_LOG_DEFAULT_MS		5000
 
@@ -52,13 +54,13 @@ struct lpm_logger_timer {
 	struct lpm_timer tm;
 	unsigned int fired;
 };
-#define	STATE_NUM	10
-#define	STATE_NAME_SIZE	15
+
 struct lpm_logger_fired_info {
 	unsigned int fired;
-	unsigned int state_index;
-	char state_name[STATE_NUM][STATE_NAME_SIZE];
+	unsigned long logger_en_state;
+	char **state_name;
 	int fired_index;
+	unsigned int mcusys_cnt_chk;
 };
 
 static struct lpm_logger_timer lpm_log_timer;
@@ -110,6 +112,7 @@ int lpm_issuer_func(int type, const char *prefix, void *data)
 
 struct lpm_issuer issuer = {
 	.log = lpm_issuer_func,
+	.log_type = 0,
 };
 
 static int lpm_idle_save_sleep_info_nb_func(struct notifier_block *nb,
@@ -141,20 +144,26 @@ static int lpm_log_timer_func(unsigned long long dur, void *priv)
 	struct lpm_logger_timer *timer =
 			(struct lpm_logger_timer *)priv;
 	struct lpm_logger_fired_info *info = &lpm_logger_fired;
+	static unsigned int mcusys_cnt_prev, mcusys_cnt_cur;
 
 	if (timer->fired != info->fired) {
-		/* if the wake src had beed update before
-		 * then won't do wake src update
-		 */
-		if (lpm_logger_help.prev == lpm_logger_help.cur)
-			lpm_get_wakeup_status(&lpm_logger_help);
-		lpm_show_message(lpm_logger_help.wakesrc,
-					LPM_ISSUER_CPUIDLE,
-					info->state_name[info->fired_index],
-					NULL);
-		lpm_logger_help.prev = lpm_logger_help.cur;
+		if (issuer.log_type >= LOG_SUCCEESS &&
+				info->mcusys_cnt_chk == 1) {
+			mcusys_cnt_cur =
+			mtk_cpupm_syssram_read(SYSRAM_MCUSYS_CNT) +
+			mtk_cpupm_syssram_read(SYSRAM_RECENT_MCUSYS_CNT);
+
+			if (mcusys_cnt_prev == mcusys_cnt_cur)
+				issuer.log_type = LOG_MCUSYS_NOT_OFF;
+
+			mcusys_cnt_prev = mcusys_cnt_cur;
+		}
+
+		issuer.log(LPM_ISSUER_CPUIDLE,
+			info->state_name[info->fired_index], (void *)&issuer);
 	} else
-		pr_info("[name:spm&][SPM] MCUSYSOFF Didn't enter low power scenario\n");
+		pr_info("[name:spm&][SPM] %s didn't enter low power scenario\n",
+				info->state_name[info->fired_index]);
 
 	timer->fired = info->fired;
 	return 0;
@@ -165,10 +174,11 @@ static int lpm_logger_nb_func(struct notifier_block *nb,
 {
 	struct lpm_nb_data *nb_data = (struct lpm_nb_data *)data;
 	struct lpm_logger_fired_info *info = &lpm_logger_fired;
-	unsigned int tar_state = (1 << nb_data->index);
+	unsigned long tar_state = (1 << nb_data->index);
 
 	if (nb_data && (action == LPM_NB_BEFORE_REFLECT)
-	    && (tar_state & (info->state_index))) {
+		&& (tar_state & (info->logger_en_state))) {
+		issuer.log_type = nb_data->ret;
 		info->fired++;
 		info->fired_index = nb_data->index;
 	}
@@ -209,6 +219,7 @@ static ssize_t lpm_logger_debugfs_write(char *FromUserBuf,
 						&lpm_log_timer.tm, val);
 		}
 	}
+
 	return sz;
 }
 
@@ -246,6 +257,8 @@ int __init lpm_logger_init(void)
 	struct property *prop;
 	const char *logger_enable_name;
 	struct lpm_logger_fired_info *info = &lpm_logger_fired;
+	int ret = 0, idx = 0, state_cnt = 0;
+
 
 	node = of_find_compatible_node(NULL, NULL, "mediatek,sleep");
 
@@ -260,38 +273,64 @@ int __init lpm_logger_init(void)
 		pr_info("[name:mtk_lpm][P] - Don't register the issue by error! (%s:%d)\n",
 			__func__, __LINE__);
 
-
 	lpm_get_spm_wakesrc_irq();
 	mtk_lpm_sysfs_root_entry_create();
 	lpm_logger_timer_debugfs_init();
 
 	drv = cpuidle_get_driver();
 
-	info->state_index = 0;
+	info->logger_en_state = 0;
+
+	info->mcusys_cnt_chk = 0;
 
 	node = of_find_compatible_node(NULL, NULL,
 					MTK_LPM_DTS_COMPATIBLE);
-	if (drv && node) {
-		int idx;
 
-		for (idx = 0; idx < drv->state_count; ++idx) {
+	if (drv && node) {
+		state_cnt = of_property_count_strings(node,
+				"logger-enable-states");
+		if (state_cnt)
+			info->state_name =
+			kcalloc(1, sizeof(char *)*(drv->state_count),
+			GFP_KERNEL);
+
+		if (!info->state_name)
+			return -ENOMEM;
+
+		for (idx = 0; idx < drv->state_count; idx++) {
+
+			if (!state_cnt) {
+				pr_info("[%s:%d] no logger-enable-states\n",
+						__func__, __LINE__);
+				break;
+			}
+
 			of_property_for_each_string(node,
 					"logger-enable-states",
 					prop, logger_enable_name) {
 				if (!strcmp(logger_enable_name,
 						drv->states[idx].name)) {
-					info->state_index |= (1 << idx);
+					info->logger_en_state |= (1 << idx);
 
-					memset(info->state_name[idx], 0,
-					sizeof(info->state_name[idx]));
+					info->state_name[idx] =
+					kcalloc(1, sizeof(char)*
+					(strlen(drv->states[idx].name) + 1),
+					GFP_KERNEL);
+
+					if (!info->state_name[idx]) {
+						kfree(info->state_name);
+						return -ENOMEM;
+					}
 
 					strncat(info->state_name[idx],
 					TO_UPPERCASE(drv->states[idx].name),
-					(min(strlen(drv->states[idx].name),
-					STATE_NAME_SIZE-1)));
+					strlen(drv->states[idx].name));
 				}
 			}
 		}
+
+		of_property_read_u32(node, "mcusys-cnt-chk",
+					&info->mcusys_cnt_chk);
 	}
 
 	if (node)
@@ -307,7 +346,10 @@ int __init lpm_logger_init(void)
 					LPM_LOG_DEFAULT_MS);
 	lpm_timer_start(&lpm_log_timer.tm);
 
-	spm_cond_init();
+	ret = spm_cond_init();
+	if (ret)
+		pr_info("[%s:%d] - spm_cond_init failed\n",
+			__func__, __LINE__);
 
 	register_syscore_ops(&lpm_suspend_save_sleep_info_syscore_ops);
 
@@ -316,5 +358,26 @@ int __init lpm_logger_init(void)
 
 void __exit lpm_logger_deinit(void)
 {
+	struct device_node *node = NULL;
+	int state_cnt = 0;
+	int idx = 0;
+	struct lpm_logger_fired_info *info = &lpm_logger_fired;
+
 	spm_cond_deinit();
+
+	node = of_find_compatible_node(NULL, NULL,
+					MTK_LPM_DTS_COMPATIBLE);
+
+	if (node)
+		state_cnt = of_property_count_strings(node,
+			"logger-enable-states");
+
+	if (state_cnt && info) {
+		for_each_set_bit(idx, &info->logger_en_state, 32)
+			kfree(info->state_name[idx]);
+		kfree(info->state_name);
+	}
+
+	if (node)
+		of_node_put(node);
 }

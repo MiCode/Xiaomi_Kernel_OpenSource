@@ -512,12 +512,8 @@ static int lpm_rc_entry_nodes_basic(int IsSimple,
 
 struct LPM_RC_HANDLE rc_handle[5];
 
-void spm_cond_init(void)
+int spm_cond_init(void)
 {
-
-	if (spm_cond.init)
-		return;
-
 	struct device_node *devnp = NULL;
 	struct device_node *np = NULL;
 	int idx = 0, constraint_cnt = 0;
@@ -528,9 +524,8 @@ void spm_cond_init(void)
 	const char *cg_name = NULL, *pll_name = NULL;
 	int cg_idx = 0, pll_idx = 0, cg_cnt = 0, pll_cnt = 0;
 
-	/* enable resource constraint condition block latch */
-	lpm_smc_spm_dbg(MT_SPM_DBG_SMC_UID_BLOCK_LATCH,
-				    MT_LPM_SMC_ACT_SET, 0, 0);
+	if (spm_cond.init)
+		return 0;
 
 	devnp = of_find_compatible_node(NULL, NULL,
 					MTK_LPM_DTS_COMPATIBLE);
@@ -541,6 +536,9 @@ void spm_cond_init(void)
 					NULL);
 		rc_trace.rc_name = kcalloc(1, sizeof(char *)*constraint_cnt,
 						GFP_KERNEL);
+
+		if (!rc_trace.rc_name)
+			return -ENOMEM;
 
 		while ((np = of_parse_phandle(devnp, "constraints", idx))) {
 			cond_info = 0;
@@ -573,9 +571,16 @@ void spm_cond_init(void)
 						&rc_handle[idx].valid);
 
 				rc_trace.bitmap |= (1 << rc_id);
+
 				rc_trace.rc_name[idx] = kcalloc(1,
 					sizeof(char)*(strlen(rc_name) + 1),
 					GFP_KERNEL);
+
+				if (!rc_trace.rc_name[idx]) {
+					kfree(rc_trace.rc_name);
+					return -ENOMEM;
+				}
+
 				strncat(rc_trace.rc_name[idx++], rc_name,
 					strlen(rc_name));
 			} else {
@@ -595,12 +600,22 @@ void spm_cond_init(void)
 				kcalloc(1, sizeof(char *)*(spm_cond.cg_cnt),
 					GFP_KERNEL);
 
+				if (!spm_cond.cg_str)
+					return -ENOMEM;
+
 				of_property_for_each_string(np, "cg-name",
 						prop, cg_name) {
+
 					spm_cond.cg_str[cg_idx] =
 					kcalloc(1, sizeof(char)*
 						(strlen(cg_name) + 1),
 						GFP_KERNEL);
+
+					if (!spm_cond.cg_str[cg_idx]) {
+						kfree(spm_cond.cg_str);
+						return -ENOMEM;
+					}
+
 					strncat(spm_cond.cg_str[cg_idx++],
 						cg_name, strlen(cg_name));
 				}
@@ -612,6 +627,10 @@ void spm_cond_init(void)
 				spm_cond.pll_str =
 				kcalloc(1, sizeof(char *)*(spm_cond.pll_cnt),
 						GFP_KERNEL);
+
+				if (!spm_cond.pll_str)
+					return -ENOMEM;
+
 				of_property_for_each_string(np, "pll-name",
 					prop, pll_name) {
 					spm_cond.pll_str[pll_idx] =
@@ -619,6 +638,12 @@ void spm_cond_init(void)
 						sizeof(char) *
 						(strlen(pll_name) + 1),
 						GFP_KERNEL);
+
+					if (!spm_cond.pll_str[pll_idx]) {
+						kfree(spm_cond.pll_str);
+						return -ENOMEM;
+					}
+
 					strncat(spm_cond.pll_str[pll_idx++],
 						pll_name, strlen(pll_name));
 				}
@@ -638,26 +663,19 @@ void spm_cond_init(void)
 	}
 	spm_cond.init = 1;
 
+	return 0;
 }
 EXPORT_SYMBOL(spm_cond_init);
 
 void spm_cond_deinit(void)
 {
-	if (!spm_cond.init)
-		return;
-
 	struct device_node *devnp = NULL;
 	int idx = 0, constraint_cnt = 0;
 
-	/* disable resource contraint condition block latch */
-	lpm_smc_spm_dbg(MT_SPM_DBG_SMC_UID_BLOCK_LATCH,
-			    MT_LPM_SMC_ACT_CLR, 0, 0);
+	if (!spm_cond.init)
+		return;
 
-	/* disable constraint tracing */
-	for_each_set_bit(idx, &rc_trace.bitmap, 32) {
-		LPM_DBG_SMC(MT_SPM_DBG_SMC_UID_RC_TRACE,
-			MT_LPM_SMC_ACT_CLR, idx, 0);
-	}
+	spm_cond.init = 0;
 
 	devnp = of_find_compatible_node(NULL, NULL,
 					MTK_LPM_DTS_COMPATIBLE);
@@ -685,25 +703,17 @@ void spm_cond_deinit(void)
 
 		of_node_put(devnp);
 	}
-	spm_cond.init = 0;
 }
 EXPORT_SYMBOL(spm_cond_deinit);
 
 int lpm_rc_fs_init(void)
 {
-	struct device_node *devnp = NULL;
-	struct device_node *np = NULL;
-	int idx = 0, constraint_cnt = 0;
-	const char *rc_name = NULL;
-	u32 rc_id = 0, cond_info = 0, ret = 0;
-	struct property *prop;
-
-	const char *cg_name = NULL, *pll_name = NULL;
-	int cg_idx = 0, pll_idx = 0, cg_cnt = 0, pll_cnt = 0;
+	int idx = 0, ret = 0;
 
 	/* enable resource constraint condition block latch */
 	lpm_smc_spm_dbg(MT_SPM_DBG_SMC_UID_BLOCK_LATCH,
 				    MT_LPM_SMC_ACT_SET, 0, 0);
+
 	mtk_lpm_sysfs_root_entry_create();
 
 	mtk_lpm_sysfs_sub_entry_add("rc", 0644, NULL,
@@ -717,7 +727,10 @@ int lpm_rc_fs_init(void)
 
 	lpm_rc_ratio_entry(&lpm_entry_rc, &rc_Ratio);
 
-	spm_cond_init();
+	ret = spm_cond_init();
+	if (ret)
+		pr_info("[%s:%d] - spm_cond_init failed\n",
+			__func__, __LINE__);
 
 	rc_ratio_timer.timeout = lpm_rc_ratio_timer_func;
 	lpm_timer_init(&rc_ratio_timer, LPM_TIMER_REPEAT);
@@ -735,6 +748,18 @@ int lpm_rc_fs_init(void)
 
 int lpm_rc_fs_deinit(void)
 {
+	int idx = 0;
+
+	/* disable resource contraint condition block latch */
+	lpm_smc_spm_dbg(MT_SPM_DBG_SMC_UID_BLOCK_LATCH,
+			    MT_LPM_SMC_ACT_CLR, 0, 0);
+
+	/* disable constraint tracing */
+	for_each_set_bit(idx, &rc_trace.bitmap, 32) {
+		LPM_DBG_SMC(MT_SPM_DBG_SMC_UID_RC_TRACE,
+			MT_LPM_SMC_ACT_CLR, idx, 0);
+	}
+
 	spm_cond_deinit();
 	return 0;
 

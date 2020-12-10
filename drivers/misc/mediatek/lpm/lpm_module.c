@@ -103,19 +103,19 @@ enum lpm_state_type {
 static int lpm_state_enter(int type, struct cpuidle_device *dev,
 			     struct cpuidle_driver *drv, int idx);
 
-int lpm_s2idle_state_enter(struct cpuidle_device *dev,
+static int lpm_s2idle_state_enter(struct cpuidle_device *dev,
 			   struct cpuidle_driver *drv, int idx)
 {
 	return lpm_state_enter(lpm_state_s2idle, dev, drv, idx);
 }
 
-int lpm_cpuidle_state_enter(struct cpuidle_device *dev,
+static int lpm_cpuidle_state_enter(struct cpuidle_device *dev,
 			   struct cpuidle_driver *drv, int idx)
 {
 	return lpm_state_enter(lpm_state_cpuidle, dev, drv, idx);
 }
 
-int lpm_cpuidle_state_percpu_set(int cpu, struct lpm_module_reg *p)
+static int lpm_cpuidle_state_percpu_set(int cpu, struct lpm_module_reg *p)
 {
 	struct lpm_state_enter_fp *fp = &p->data.fp;
 	struct cpuidle_driver *drv;
@@ -151,7 +151,7 @@ int lpm_cpuidle_state_percpu_set(int cpu, struct lpm_module_reg *p)
 	return 0;
 }
 
-int lpm_model_percpu_set(int cpu, struct lpm_module_reg *p)
+static int lpm_model_percpu_set(int cpu, struct lpm_module_reg *p)
 {
 	struct lpm_models *ptr;
 	struct cpuidle_driver *drv;
@@ -213,7 +213,7 @@ void lpm_system_spin_unlock(unsigned long *irqflag)
 		spin_unlock(&lpm_sys_locker);
 }
 
-int lpm_module_register_blockcall(int cpu, void *p)
+static int lpm_module_register_blockcall(int cpu, void *p)
 {
 	int ret = 0;
 	struct lpm_module_reg *reg = (struct lpm_module_reg *)p;
@@ -244,7 +244,7 @@ int lpm_module_register_blockcall(int cpu, void *p)
 	return ret;
 }
 
-int __lpm_model_register(const char *name, struct lpm_model *lpm)
+static int __lpm_model_register(const char *name, struct lpm_model *lpm)
 {
 	struct lpm_module_reg reg = {
 		.magic = LPM_MODULE_MAGIC,
@@ -270,7 +270,7 @@ int lpm_model_unregister(const char *name)
 }
 EXPORT_SYMBOL(lpm_model_unregister);
 
-int __lpm_issuer_register(struct lpm_issuer *issuer)
+static int __lpm_issuer_register(struct lpm_issuer *issuer)
 {
 	struct lpm_module_reg reg = {
 		.magic = LPM_MODULE_MAGIC,
@@ -297,7 +297,7 @@ int lpm_issuer_unregister(struct lpm_issuer *issuer)
 }
 EXPORT_SYMBOL(lpm_issuer_unregister);
 
-int lpm_cpuidle_prepare(struct cpuidle_driver *drv, int index)
+static int lpm_cpuidle_prepare(struct cpuidle_driver *drv, int index)
 {
 	struct lpm_models *lpmmods = NULL;
 	struct lpm_model *lpm = NULL;
@@ -342,7 +342,7 @@ int lpm_cpuidle_prepare(struct cpuidle_driver *drv, int index)
 	return 0;
 }
 
-void lpm_cpuidle_resume(struct cpuidle_driver *drv, int index)
+static void lpm_cpuidle_resume(struct cpuidle_driver *drv, int index, int ret)
 {
 	struct lpm_models *lpmmods = NULL;
 	struct lpm_model *lpm = NULL;
@@ -363,6 +363,7 @@ void lpm_cpuidle_resume(struct cpuidle_driver *drv, int index)
 	nb_data.index = index;
 	nb_data.model = lpm;
 	nb_data.issuer = lpm_system.issuer;
+	nb_data.ret = ret;
 
 	model_flags = (lpm) ? lpm->flag : 0;
 
@@ -391,14 +392,15 @@ static int lpm_state_enter(int type, struct cpuidle_device *dev,
 	ret = lpm_cpuidle_prepare(drv, idx);
 	idx = ret ? 0 : idx;
 	if (type == lpm_state_s2idle)
-		cstate->s2idle[idx](dev, drv, idx);
+		ret = cstate->s2idle[idx](dev, drv, idx);
 	else
 		ret = cstate->cpuidle[idx](dev, drv, idx);
-	lpm_cpuidle_resume(drv, idx);
+	lpm_cpuidle_resume(drv, idx, ret);
+
 	return ret;
 }
 
-int lpm_suspend_enter(void)
+static int lpm_suspend_enter(void)
 {
 	int ret = 0;
 	unsigned long flags;
@@ -415,7 +417,7 @@ int lpm_suspend_enter(void)
 	return ret;
 }
 
-void lpm_suspend_resume(void)
+static void lpm_suspend_resume(void)
 {
 	unsigned long flags;
 	const int cpuid = smp_processor_id();
@@ -482,7 +484,7 @@ static void suspend_sys_sync(struct work_struct *work)
 	pr_debug("--\n");
 }
 
-int suspend_syssync_enqueue(void)
+static int suspend_syssync_enqueue(void)
 {
 	unsigned long flags;
 
@@ -505,7 +507,7 @@ int suspend_syssync_enqueue(void)
 	return 0;
 }
 
-int suspend_syssync_check(void)
+static int suspend_syssync_check(void)
 {
 	int timeout = 10;
 	int acc = 0;
@@ -665,6 +667,7 @@ static int __init lpm_init(void)
 static void __exit lpm_deinit(void)
 {
 }
+
 module_init(lpm_init);
 module_exit(lpm_deinit);
 #else
@@ -674,4 +677,3 @@ device_initcall_sync(lpm_init);
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("mtk low power module");
 MODULE_AUTHOR("MediaTek Inc.");
-

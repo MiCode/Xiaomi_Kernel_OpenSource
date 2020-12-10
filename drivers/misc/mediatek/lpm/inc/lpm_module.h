@@ -40,6 +40,8 @@
 #define MT_LPM_SMC_USER_SHIFT		16
 #define MT_LPM_SMC_USER_ID_MASK		0x0000ffff
 
+#define PSCI_E_SUCCESS			0
+
 enum mt_lpm_smc_user_id {
 	mt_lpm_smc_user_cpu_pm = 0,
 	mt_lpm_smc_user_spm_dbg,
@@ -100,6 +102,8 @@ enum MT_CPU_PM_SMC_UID {
 	IRQ_REMAIN_LIST_ALLOC,
 	IRQ_REMAIN_IRQ_ADD,
 	IRQ_REMAIN_IRQ_SUBMIT,
+	VALIDATE_PWR_STATE_CTRL,
+	CPU_PM_CTRL,
 };
 
 #define lpm_smc_cpu_pm(_lp_id, _act, _val1, _val2) ({\
@@ -171,8 +175,14 @@ enum MT_CPU_PM_LP_SMC_UID {
 	IRQS_REMAIN_IRQ,
 	IRQS_REMAIN_WAKEUP_CAT,
 	IRQS_REMAIN_WAKEUP_SRC,
-	VALIDATE_PWR_STATE_CTRL,
 };
+
+enum MT_CPU_PM_CTRL {
+	BUCK_MODE_CTRL,
+	ARMPLL_MODE_CTRL,
+	CM_IS_NOTIFIED,
+};
+
 #define lpm_smc_cpu_pm_lp(_lp_id, _act, _val1, _val2) ({\
 		lpm_smc(MTK_SIP_MTK_LPM_CONTROL,\
 				MT_LPM_SMC_USER_CPU_PM_LP(_lp_id),\
