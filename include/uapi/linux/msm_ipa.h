@@ -189,6 +189,7 @@
 #define IPA_FLT_RT_HW_COUNTER (120)
 #define IPA_FLT_RT_SW_COUNTER \
 	(IPA_MAX_FLT_RT_CNT_INDEX - IPA_FLT_RT_HW_COUNTER)
+#define IPA_MAX_FLT_RT_CLIENTS 60
 
 /**
  * New feature flag for CV2X config.
@@ -230,6 +231,15 @@
 #define IPA_FLT_VLAN_ID			(1ul << 28)
 #define IPA_FLT_MAC_SRC_ADDR_802_1Q	(1ul << 29)
 #define IPA_FLT_MAC_DST_ADDR_802_1Q	(1ul << 30)
+#define IPA_FLT_L2TP_UDP_INNER_MAC_DST_ADDR (1ul << 31)
+
+/* Extended attributes for the rule (routing or filtering) */
+#define IPA_FLT_EXT_L2TP_UDP_TCP_SYN        (1ul << 0)
+#define IPA_FLT_EXT_L2TP_UDP_INNER_ETHER_TYPE       (1ul << 1)
+#define IPA_FLT_EXT_MTU     (1ul << 2)
+#define IPA_FLT_EXT_L2TP_UDP_INNER_NEXT_HDR		(1ul << 3)
+#define IPA_FLT_EXT_NEXT_HDR				(1ul << 4)
+
 
 /**
  * maximal number of NAT PDNs in the PDN config table
@@ -914,6 +924,9 @@ enum ipa_hw_type {
  * @u.v6.dst_addr: dst address val
  * @u.v6.dst_addr_mask: dst address mask
  * @vlan_id: vlan id value
+ * @payload_length: Payload length.
+ * @ext_attrib_mask: Extended attributes.
+ * @l2tp_udp_next_hdr: next header in L2TP tunneling
  */
 struct ipa_rule_attrib {
 	uint32_t attrib_mask;
@@ -954,8 +967,14 @@ struct ipa_rule_attrib {
 			uint32_t dst_addr_mask[4];
 		} v6;
 	} u;
-	uint16_t vlan_id;
+	__u16 vlan_id;
+	__u16 payload_length;
+	__u32 ext_attrib_mask;
+	__u8 l2tp_udp_next_hdr;
+	__u8 padding1;
+	__u32 padding2;
 };
+
 
 /*! @brief The maximum number of Mask Equal 32 Eqns */
 #define IPA_IPFLTR_NUM_MEQ_32_EQNS 2
@@ -1200,6 +1219,10 @@ enum ipa_hdr_l2_type {
  * IPA_HDR_PROC_802_3_TO_802_3: Process 802_3 to 802_3
  * IPA_HDR_PROC_ETHII_TO_ETHII_EX: Process Ethernet II to Ethernet II with
  *	generic lengths of src and dst headers
+ * IPA_HDR_PROC_L2TP_UDP_HEADER_ADD: Process WLAN To Ethernet packets to
+ *	add L2TP UDP header.
+ * IPA_HDR_PROC_L2TP_UDP_HEADER_REMOVE: Process Ethernet To WLAN packets to
+ *	remove L2TP UDP header.
  */
 enum ipa_hdr_proc_type {
 	IPA_HDR_PROC_NONE,
@@ -1330,12 +1353,15 @@ struct ipa_ioc_add_hdr {
  * @eth_hdr_retained: Specifies if Ethernet header is retained or not
  * @input_ip_version: Specifies if Input header is IPV4(0) or IPV6(1)
  * @output_ip_version: Specifies if template header is IPV4(0) or IPV6(1)
+ * @single_pass: Specifies if second pass is required or not
  */
 struct ipa_l2tp_header_add_procparams {
-	uint32_t eth_hdr_retained:1;
-	uint32_t input_ip_version:1;
-	uint32_t output_ip_version:1;
-	uint32_t reserved:29;
+	__u32 eth_hdr_retained:1;
+	__u32 input_ip_version:1;
+	__u32 output_ip_version:1;
+	__u32 second_pass:1;
+	__u32 reserved:28;
+	__u32 padding;
 };
 
 /**
@@ -2343,17 +2369,35 @@ struct ipa_ioc_vlan_iface_info {
 };
 
 /**
+ * enum ipa_l2tp_tunnel_type - IP or UDP
+ */
+enum ipa_l2tp_tunnel_type {
+	IPA_L2TP_TUNNEL_IP = 1,
+	IPA_L2TP_TUNNEL_UDP = 2
+#define IPA_L2TP_TUNNEL_UDP IPA_L2TP_TUNNEL_UDP
+};
+
+/**
  * struct ipa_ioc_l2tp_vlan_mapping_info - l2tp->vlan mapping info
  * @iptype: l2tp tunnel IP type
  * @l2tp_iface_name: l2tp interface name
  * @l2tp_session_id: l2tp session id
  * @vlan_iface_name: vlan interface name
+ * @tunnel_type: l2tp tunnel type
+ * @src_port: UDP source port
+ * @dst_port: UDP destination port
+ * @mtu: MTU of the L2TP interface
  */
 struct ipa_ioc_l2tp_vlan_mapping_info {
 	enum ipa_ip_type iptype;
 	char l2tp_iface_name[IPA_RESOURCE_NAME_MAX];
 	uint8_t l2tp_session_id;
 	char vlan_iface_name[IPA_RESOURCE_NAME_MAX];
+	enum ipa_l2tp_tunnel_type tunnel_type;
+	__u16 src_port;
+	__u16 dst_port;
+	__u16 mtu;
+	__u8 padding;
 };
 
 /**
@@ -2820,16 +2864,30 @@ struct ipa_lan_client {
 };
 
 /**
+ * struct ipa_lan_client_cntr_index
+ * @ul_cnt_idx: H/w counter index for uplink stats
+ * @dl_cnt_idx: H/w counter index for downlink stats
+ */
+struct ipa_lan_client_cntr_index {
+	__u8 ul_cnt_idx;
+	__u8 dl_cnt_idx;
+};
+
+/**
  * struct ipa_tether_device_info - tether device info indicated from IPACM
  * @ul_src_pipe: Source pipe of the lan client.
  * @hdr_len: Header length of the client.
  * @num_clients: Number of clients connected.
  */
 struct ipa_tether_device_info {
-	int32_t ul_src_pipe;
-	uint8_t hdr_len;
-	uint32_t num_clients;
+	__s32 ul_src_pipe;
+	__u8 hdr_len;
+	__u8 padding1;
+	__u16 padding2;
+	__u32 num_clients;
 	struct ipa_lan_client lan_client[IPA_MAX_NUM_HW_PATH_CLIENTS];
+	struct ipa_lan_client_cntr_index
+		lan_client_indices[IPA_MAX_NUM_HW_PATH_CLIENTS];
 };
 
 /**
@@ -2861,9 +2919,11 @@ struct ipa_ioc_get_vlan_mode {
  * @vlan_id: vlan ID bridge is mapped to
  * @bridge_ipv4: bridge interface ipv4 address
  * @subnet_mask: bridge interface subnet mask
+ * @lan2lan_sw: indicate lan2lan traffic take sw-path or not
  */
 struct ipa_ioc_bridge_vlan_mapping_info {
 	char bridge_name[IPA_RESOURCE_NAME_MAX];
+	uint8_t lan2lan_sw;
 	uint16_t vlan_id;
 	uint32_t bridge_ipv4;
 	uint32_t subnet_mask;
@@ -3386,6 +3446,7 @@ enum ipa_app_clock_vote_type {
 #define ODU_BRIDGE_IOCTL_SET_MODE	0
 #define ODU_BRIDGE_IOCTL_SET_LLV6_ADDR	1
 #define ODU_BRIDGE_IOCTL_MAX		2
+
 
 /**
  * enum odu_bridge_mode - bridge mode
