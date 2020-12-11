@@ -96,6 +96,9 @@ struct cnss_pci_data {
 	u16 def_link_speed;
 	u16 def_link_width;
 	u16 cur_link_speed;
+	int wake_gpio;
+	int wake_irq;
+	u32 wake_counter;
 	struct completion wake_event;
 	u8 monitor_wake_intr;
 	struct iommu_domain *iommu_domain;

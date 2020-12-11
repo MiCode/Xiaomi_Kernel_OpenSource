@@ -99,7 +99,7 @@ static struct notifier_block cnss_pm_notifier = {
 	.notifier_call = cnss_pm_notify,
 };
 
-static void cnss_pm_stay_awake(struct cnss_plat_data *plat_priv)
+void cnss_pm_stay_awake(struct cnss_plat_data *plat_priv)
 {
 	if (atomic_inc_return(&plat_priv->pm_count) != 1)
 		return;
@@ -110,7 +110,7 @@ static void cnss_pm_stay_awake(struct cnss_plat_data *plat_priv)
 	pm_stay_awake(&plat_priv->plat_dev->dev);
 }
 
-static void cnss_pm_relax(struct cnss_plat_data *plat_priv)
+void cnss_pm_relax(struct cnss_plat_data *plat_priv)
 {
 	int r = atomic_dec_return(&plat_priv->pm_count);
 
