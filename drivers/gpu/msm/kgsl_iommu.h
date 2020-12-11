@@ -15,6 +15,16 @@
 #define KGSL_IOMMU_GLOBAL_MEM_BASE32	0xf8000000
 #define KGSL_IOMMU_GLOBAL_MEM_BASE64	0xfc000000
 
+/*
+ * This is a dummy token address that we use to identify memstore when the user
+ * wants to map it. mmap() uses a unsigned long for the offset so we need a 32
+ * bit value that works with all sized apps. We chose a value that was purposely
+ * unmapped so if you increase the global memory size make sure it doesn't
+ * conflict
+ */
+
+#define KGSL_MEMSTORE_TOKEN_ADDRESS 0xfff00000
+
 #define KGSL_IOMMU_GLOBAL_MEM_BASE(__mmu)	\
 	(test_bit(KGSL_MMU_64BIT, &(__mmu)->features) ? \
 		KGSL_IOMMU_GLOBAL_MEM_BASE64 : KGSL_IOMMU_GLOBAL_MEM_BASE32)
@@ -58,9 +68,6 @@
 
 /* FSR fields */
 #define KGSL_IOMMU_FSR_SS_SHIFT		30
-
-/* Max number of iommu clks per IOMMU unit */
-#define KGSL_IOMMU_MAX_CLKS 5
 
 /* offset at which a nop command is placed in setstate */
 #define KGSL_IOMMU_SETSTATE_NOP_OFFSET	1024
@@ -108,7 +115,8 @@ struct kgsl_iommu {
 	void __iomem *regbase;
 	struct kgsl_memdesc *setstate;
 	atomic_t clk_enable_count;
-	struct clk *clks[KGSL_IOMMU_MAX_CLKS];
+	struct clk **clks;
+	int num_clks;
 	struct kgsl_memdesc *smmu_info;
 	/** @pdev: Pointer to the platform device for the IOMMU device */
 	struct platform_device *pdev;

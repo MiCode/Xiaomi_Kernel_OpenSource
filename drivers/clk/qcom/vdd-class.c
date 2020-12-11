@@ -157,6 +157,9 @@ int clk_find_vdd_level(struct clk_hw *hw,
 {
 	int level;
 
+	if (!vdd_data->num_rate_max)
+		return -ENODATA;
+
 	/*
 	 * For certain PLLs, due to the limitation in the bits allocated for
 	 * programming the fractional divider, the actual rate of the PLL will
@@ -202,6 +205,9 @@ int clk_regulator_init(struct device *dev, const struct qcom_cc_desc *desc)
 		vdd_class = desc->clk_regulators[i];
 
 		for (cnt = 0; cnt < vdd_class->num_regulators; cnt++) {
+			if (vdd_class->regulator[cnt])
+				continue;
+
 			name = vdd_class->regulator_names[cnt];
 			regulator = devm_regulator_get(dev, name);
 			if (IS_ERR(regulator)) {

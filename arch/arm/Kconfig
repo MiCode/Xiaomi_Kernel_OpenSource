@@ -6,6 +6,7 @@ config ARM
 	select ARCH_HAS_BINFMT_FLAT
 	select ARCH_HAS_DEBUG_VIRTUAL if MMU
 	select ARCH_HAS_DEVMEM_IS_ALLOWED
+	select ARCH_HAS_DMA_PREP_COHERENT if IOMMU_DMA
 	select ARCH_HAS_DMA_WRITE_COMBINE if !ARM_DMA_MEM_BUFFERABLE
 	select ARCH_HAS_ELF_RANDOMIZE
 	select ARCH_HAS_FORTIFY_SOURCE
@@ -19,8 +20,8 @@ config ARM
 	select ARCH_HAS_SET_MEMORY
 	select ARCH_HAS_STRICT_KERNEL_RWX if MMU && !XIP_KERNEL
 	select ARCH_HAS_STRICT_MODULE_RWX if MMU
-	select ARCH_HAS_SYNC_DMA_FOR_DEVICE if SWIOTLB
-	select ARCH_HAS_SYNC_DMA_FOR_CPU if SWIOTLB
+	select ARCH_HAS_SYNC_DMA_FOR_DEVICE if SWIOTLB || IOMMU_DMA
+	select ARCH_HAS_SYNC_DMA_FOR_CPU if SWIOTLB || IOMMU_DMA
 	select ARCH_HAS_TEARDOWN_DMA_OPS if MMU
 	select ARCH_HAS_TICK_BROADCAST if GENERIC_CLOCKEVENTS_BROADCAST
 	select ARCH_HAVE_CUSTOM_GPIO_H
@@ -122,6 +123,7 @@ config ARM
 	select RTC_LIB
 	select SET_FS
 	select SYS_SUPPORTS_APM_EMULATION
+	select IOMMU_DMA if IOMMU_SUPPORT
 	# Above selects are sorted alphabetically; please add new ones
 	# according to that.  Thanks.
 	help
@@ -145,7 +147,7 @@ if ARM_DMA_USE_IOMMU
 config ARM_DMA_IOMMU_ALIGNMENT
 	int "Maximum PAGE_SIZE order of alignment for DMA IOMMU buffers"
 	range 4 9
-	default 8
+	default 9
 	help
 	  DMA mapping framework by default aligns all buffers to the smallest
 	  PAGE_SIZE order which is greater than or equal to the requested buffer
@@ -1594,6 +1596,35 @@ config ARM_MODULE_PLTS
 
 	  Disabling this is usually safe for small single-platform
 	  configurations. If unsure, say y.
+
+choice
+	prompt "Virtual Memory Reclaim"
+	default NO_VM_RECLAIM
+	help
+	  Select the method of reclaiming virtual memory. Two values
+	  are allowed to choose, one is NO_VM_RECLAIM, the other is
+	  ENABLE_VMALLOC_SAVING.
+
+	  If you are not absolutely sure what you are doing, leave this
+	  option alone.
+
+config ENABLE_VMALLOC_SAVING
+	bool "Reclaim memory for each subsystem"
+	help
+	  Enable this config to reclaim the virtual space belonging
+	  to any subsystem which is expected to have a lifetime of
+	  the entire system. This feature allows lowmem to be non-
+	  contiguous.
+
+config NO_VM_RECLAIM
+	bool "Do not reclaim memory"
+	help
+	  Do not reclaim any memory. This might result in less lowmem
+	  and wasting some virtual memory space which could otherwise
+	  be reclaimed by using any of the other two config options as
+	  above.
+
+endchoice
 
 config FORCE_MAX_ZONEORDER
 	int "Maximum zone order"

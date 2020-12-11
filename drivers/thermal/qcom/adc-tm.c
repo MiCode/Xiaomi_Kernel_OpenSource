@@ -214,6 +214,9 @@ static int adc_tm_get_dt_data(struct platform_device *pdev,
 		return -EINVAL;
 
 	id = of_match_node(adc_tm_match_table, node);
+	if (!id)
+		return -EINVAL;
+
 	adc_tm->data = id->data;
 
 	adc_tm->ops = adc_tm->data->ops;

@@ -37,12 +37,12 @@ extern unsigned int sysctl_sched_latency;
 extern unsigned int sysctl_sched_min_granularity;
 extern unsigned int sysctl_sched_wakeup_granularity;
 extern unsigned int sysctl_sched_child_runs_first;
+extern unsigned int sysctl_sched_force_lb_enable;
 #ifdef CONFIG_SCHED_WALT
 extern unsigned int __weak sysctl_sched_capacity_margin_up[MAX_MARGIN_LEVELS];
 extern unsigned int __weak sysctl_sched_capacity_margin_down[MAX_MARGIN_LEVELS];
 extern unsigned int __weak sysctl_sched_user_hint;
 extern const int __weak sched_user_hint_max;
-extern unsigned int __weak sysctl_sched_cpu_high_irqload;
 extern unsigned int __weak sysctl_sched_boost;
 extern unsigned int __weak sysctl_sched_group_upmigrate_pct;
 extern unsigned int __weak sysctl_sched_group_downmigrate_pct;
@@ -56,13 +56,16 @@ extern unsigned int __weak sysctl_sched_task_unfilter_period;
 extern unsigned int __weak sysctl_sched_busy_hyst_enable_cpus;
 extern unsigned int __weak sysctl_sched_busy_hyst;
 extern unsigned int __weak sysctl_sched_coloc_busy_hyst_enable_cpus;
-extern unsigned int __weak sysctl_sched_coloc_busy_hyst;
+extern unsigned int __weak sysctl_sched_coloc_busy_hyst_cpu[NR_CPUS];
 extern unsigned int __weak sysctl_sched_coloc_busy_hyst_max_ms;
+extern unsigned int __weak sysctl_sched_coloc_busy_hyst_cpu_busy_pct[NR_CPUS];
 extern unsigned int __weak sysctl_sched_window_stats_policy;
 extern unsigned int __weak sysctl_sched_ravg_window_nr_ticks;
 extern unsigned int __weak sysctl_sched_many_wakeup_threshold;
 extern unsigned int __weak sysctl_sched_dynamic_ravg_window_enable;
 extern unsigned int sysctl_sched_prefer_spread;
+extern unsigned int sysctl_walt_rtg_cfs_boost_prio;
+extern unsigned int sysctl_walt_low_latency_task_threshold;
 
 extern int
 walt_proc_group_thresholds_handler(struct ctl_table *table, int write,
@@ -86,15 +89,8 @@ sched_ravg_window_handler(struct ctl_table *table, int write,
 extern int sched_boost_handler(struct ctl_table *table, int write,
 			void __user *buffer, size_t *lenp, loff_t *ppos);
 
-#if defined(CONFIG_PREEMPTIRQ_EVENTS) || defined(CONFIG_PREEMPT_TRACER)
-extern unsigned int sysctl_preemptoff_tracing_threshold_ns;
-#endif
-#if defined(CONFIG_PREEMPTIRQ_EVENTS) && defined(CONFIG_IRQSOFF_TRACER)
-extern unsigned int sysctl_irqsoff_tracing_threshold_ns;
-extern unsigned int sysctl_irqsoff_dmesg_output_enabled;
-extern unsigned int sysctl_irqsoff_crash_sentinel_value;
-extern unsigned int sysctl_irqsoff_crash_threshold_ns;
-#endif
+extern int sched_busy_hyst_handler(struct ctl_table *table, int write,
+			void __user *buffer, size_t *lenp, loff_t *ppos);
 #endif /* CONFIG_SCHED_WALT */
 
 enum sched_tunable_scaling {

@@ -39,7 +39,6 @@ enum qdss_state {
 	USB_QDSS_DISCONNECT,
 	USB_QDSS_CTRL_READ_DONE,
 	USB_QDSS_DATA_WRITE_DONE,
-	USB_QDSS_CTRL_WRITE_DONE,
 };
 
 struct qdss_req {
@@ -57,7 +56,6 @@ void usb_qdss_close(struct usb_qdss_ch *ch);
 int usb_qdss_alloc_req(struct usb_qdss_ch *ch, int n_write);
 void usb_qdss_free_req(struct usb_qdss_ch *ch);
 int usb_qdss_write(struct usb_qdss_ch *ch, struct qdss_request *d_req);
-int usb_qdss_ctrl_write(struct usb_qdss_ch *ch, struct qdss_request *d_req);
 #else
 static inline struct usb_qdss_ch *usb_qdss_open(const char *name, void *priv,
 		void (*n)(void *, unsigned int event,
@@ -67,12 +65,6 @@ static inline struct usb_qdss_ch *usb_qdss_open(const char *name, void *priv,
 }
 
 static inline int usb_qdss_write(struct usb_qdss_ch *c, struct qdss_request *d)
-{
-	return -ENODEV;
-}
-
-static inline int usb_qdss_ctrl_write(struct usb_qdss_ch *c,
-		struct qdss_request *d)
 {
 	return -ENODEV;
 }

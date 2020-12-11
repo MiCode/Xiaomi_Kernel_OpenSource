@@ -95,7 +95,7 @@ extern __read_mostly bool sched_predl;
 extern unsigned int sched_capacity_margin_up[NR_CPUS];
 extern unsigned int sched_capacity_margin_down[NR_CPUS];
 
-struct sched_walt_cpu_load {
+struct walt_cpu_load {
 	unsigned long nl;
 	unsigned long pl;
 	bool rtgb_active;
@@ -111,35 +111,98 @@ struct walt_sched_stats {
 	int nr_big_tasks;
 	u64 cumulative_runnable_avg_scaled;
 	u64 pred_demands_sum_scaled;
+	unsigned int nr_rtg_high_prio_tasks;
 };
 
-struct group_cpu_time {
-	u64 curr_runnable_sum;
-	u64 prev_runnable_sum;
-	u64 nt_curr_runnable_sum;
-	u64 nt_prev_runnable_sum;
+struct walt_task_group {
+	/* Toggle ability to override sched boost enabled */
+	bool sched_boost_no_override;
+	/*
+	 * Controls whether a cgroup is eligible for sched boost or not. This
+	 * can temporariliy be disabled by the kernel based on the no_override
+	 * flag above.
+	 */
+	bool sched_boost_enabled;
+	/*
+	 * Controls whether tasks of this cgroup should be colocated with each
+	 * other and tasks of other cgroups that have the same flag turned on.
+	 */
+	bool colocate;
+	/* Controls whether further updates are allowed to the colocate flag */
+	bool colocate_update_disabled;
 };
 
-struct load_subtractions {
-	u64 window_start;
-	u64 subs;
-	u64 new_subs;
+struct walt_root_domain {
+	/* First cpu with maximum and minimum original capacity */
+	int max_cap_orig_cpu, min_cap_orig_cpu;
+	/* First cpu with mid capacity */
+	int mid_cap_orig_cpu;
 };
+
 
 #define NUM_TRACKED_WINDOWS 2
 #define NUM_LOAD_INDICES 1000
 
-struct sched_cluster {
-	raw_spinlock_t load_lock;
-	struct list_head list;
-	struct cpumask cpus;
-	int id;
+struct group_cpu_time {
+	u64			curr_runnable_sum;
+	u64			prev_runnable_sum;
+	u64			nt_curr_runnable_sum;
+	u64			nt_prev_runnable_sum;
+};
+
+struct load_subtractions {
+	u64			window_start;
+	u64			subs;
+	u64			new_subs;
+};
+
+struct walt_rq {
+	struct task_struct	*push_task;
+	struct walt_sched_cluster *cluster;
+	struct cpumask		freq_domain_cpumask;
+	struct walt_sched_stats walt_stats;
+
+	u64			window_start;
+	u32			prev_window_size;
+	unsigned long		walt_flags;
+
+	u64			avg_irqload;
+	u64			last_irq_window;
+	u64			prev_irq_time;
+	struct task_struct	*ed_task;
+	u64			task_exec_scale;
+	u64			old_busy_time;
+	u64			old_estimated_time;
+	u64			curr_runnable_sum;
+	u64			prev_runnable_sum;
+	u64			nt_curr_runnable_sum;
+	u64			nt_prev_runnable_sum;
+	u64			cum_window_demand_scaled;
+	struct group_cpu_time	grp_time;
+	struct load_subtractions load_subs[NUM_TRACKED_WINDOWS];
+	DECLARE_BITMAP_ARRAY(top_tasks_bitmap,
+			NUM_TRACKED_WINDOWS, NUM_LOAD_INDICES);
+	u8			*top_tasks[NUM_TRACKED_WINDOWS];
+	u8			curr_table;
+	int			prev_top;
+	int			curr_top;
+	bool			notif_pending;
+	bool			high_irqload;
+	u64			last_cc_update;
+	u64			cycles;
+};
+
+struct walt_sched_cluster {
+	raw_spinlock_t		load_lock;
+	struct list_head	list;
+	struct cpumask		cpus;
+	int			id;
 	/*
 	 * max_possible_freq = maximum supported by hardware
 	 */
-	unsigned int cur_freq;
-	unsigned int max_possible_freq;
-	u64 aggr_grp_load;
+	unsigned int		cur_freq;
+	unsigned int		max_possible_freq;
+	u64			aggr_grp_load;
 };
 
 extern __weak cpumask_t asym_cap_sibling_cpus;
@@ -494,7 +557,10 @@ struct task_group {
 	unsigned int		latency_sensitive;
 
 	ANDROID_VENDOR_DATA_ARRAY(1, 4);
-#endif
+#ifdef CONFIG_SCHED_WALT
+	struct walt_task_group	wtg;
+#endif /* CONFIG_SCHED_WALT */
+#endif /* CONFIG_UCLAMP_TASK_GROUP */
 
 };
 
@@ -903,6 +969,9 @@ struct root_domain {
 	struct perf_domain __rcu *pd;
 
 	ANDROID_VENDOR_DATA_ARRAY(1, 4);
+#ifdef CONFIG_SCHED_WALT
+	struct walt_root_domain	wrd;
+#endif
 };
 
 extern void init_defrootdomain(void);
@@ -1081,39 +1150,7 @@ struct rq {
 #endif /* CONFIG_SMP */
 
 #ifdef CONFIG_SCHED_WALT
-	struct task_struct	*push_task;
-	struct sched_cluster	*cluster;
-	struct cpumask		freq_domain_cpumask;
-	struct walt_sched_stats walt_stats;
-
-	u64			window_start;
-	u32			prev_window_size;
-	unsigned long		walt_flags;
-
-	u64			cur_irqload;
-	u64			avg_irqload;
-	u64			irqload_ts;
-	bool			high_irqload;
-	struct task_struct	*ed_task;
-	u64			task_exec_scale;
-	u64			old_busy_time, old_busy_time_group;
-	u64			old_estimated_time;
-	u64			curr_runnable_sum;
-	u64			prev_runnable_sum;
-	u64			nt_curr_runnable_sum;
-	u64			nt_prev_runnable_sum;
-	u64			cum_window_demand_scaled;
-	struct group_cpu_time	grp_time;
-	struct load_subtractions load_subs[NUM_TRACKED_WINDOWS];
-	DECLARE_BITMAP_ARRAY(top_tasks_bitmap,
-			NUM_TRACKED_WINDOWS, NUM_LOAD_INDICES);
-	u8			*top_tasks[NUM_TRACKED_WINDOWS];
-	u8			curr_table;
-	int			prev_top;
-	int			curr_top;
-	bool			notif_pending;
-	u64			last_cc_update;
-	u64			cycles;
+	struct walt_rq		wrq;
 #endif /* CONFIG_SCHED_WALT */
 
 #ifdef CONFIG_IRQ_TIME_ACCOUNTING
@@ -1917,11 +1954,11 @@ struct sched_class {
 
 #ifdef CONFIG_SMP
 	int (*balance)(struct rq *rq, struct task_struct *prev, struct rq_flags *rf);
-#ifndef CONFIG_SCHED_WALT
-	int  (*select_task_rq)(struct task_struct *p, int task_cpu, int sd_flag, int flags);
-#else
+#ifdef CONFIG_SCHED_WALT
 	int  (*select_task_rq)(struct task_struct *p, int task_cpu, int sd_flag, int flags,
 			       int subling_count_hint);
+#else
+	int  (*select_task_rq)(struct task_struct *p, int task_cpu, int sd_flag, int flags);
 #endif
 	void (*migrate_task_rq)(struct task_struct *p, int new_cpu);
 
@@ -2207,16 +2244,22 @@ static inline int hrtick_enabled(struct rq *rq)
 
 #endif /* CONFIG_SCHED_HRTICK */
 
-#ifdef CONFIG_SCHED_WALT
-u64 sched_ktime_clock(void);
-unsigned long
-cpu_util_freq_walt(int cpu, struct sched_walt_cpu_load *walt_load);
-#endif
-
 #ifndef arch_scale_freq_tick
 static __always_inline
 void arch_scale_freq_tick(void)
 {
+}
+#endif
+
+#ifdef CONFIG_SCHED_WALT
+u64 sched_ktime_clock(void);
+unsigned long
+cpu_util_freq_walt(int cpu, struct walt_cpu_load *walt_load);
+#else
+#define sched_ravg_window TICK_NSEC
+static inline u64 sched_ktime_clock(void)
+{
+	return sched_clock();
 }
 #endif
 
@@ -2243,14 +2286,14 @@ unsigned long capacity_curr_of(int cpu);
 
 static inline int per_task_boost(struct task_struct *p)
 {
-	if (p->boost_period) {
-		if (sched_clock() > p->boost_expires) {
-			p->boost_period = 0;
-			p->boost_expires = 0;
-			p->boost = 0;
+	if (p->wts.boost_period) {
+		if (sched_clock() > p->wts.boost_expires) {
+			p->wts.boost_period = 0;
+			p->wts.boost_expires = 0;
+			p->wts.boost = 0;
 		}
 	}
-	return p->boost;
+	return p->wts.boost;
 }
 
 #ifdef CONFIG_SMP
@@ -2266,7 +2309,10 @@ static inline unsigned long capacity_orig_of(int cpu)
 
 static inline unsigned long task_util(struct task_struct *p)
 {
-	return p->ravg.demand_scaled;
+#ifdef CONFIG_SCHED_WALT
+	return p->wts.demand_scaled;
+#endif
+	return READ_ONCE(p->se.avg.util_avg);
 }
 
 /**
@@ -2313,7 +2359,7 @@ static inline unsigned long cpu_util(int cpu)
 	unsigned int util;
 
 	u64 walt_cpu_util =
-		cpu_rq(cpu)->walt_stats.cumulative_runnable_avg_scaled;
+		cpu_rq(cpu)->wrq.walt_stats.cumulative_runnable_avg_scaled;
 
 	return min_t(unsigned long, walt_cpu_util, capacity_orig_of(cpu));
 
@@ -2331,18 +2377,14 @@ static inline unsigned long cpu_util_cum(int cpu, int delta)
 	u64 util = cpu_rq(cpu)->cfs.avg.util_avg;
 	unsigned long capacity = capacity_orig_of(cpu);
 
-	util = cpu_rq(cpu)->cum_window_demand_scaled;
+#ifdef CONFIG_SCHED_WALT
+	util = cpu_rq(cpu)->wrq.cum_window_demand_scaled;
+#endif
 	delta += util;
 	if (delta < 0)
 		return 0;
 
 	return (delta >= capacity) ? capacity : delta;
-}
-
-static inline unsigned long
-cpu_util_freq(int cpu, struct sched_walt_cpu_load *walt_load)
-{
-	return cpu_util_freq_walt(cpu, walt_load);
 }
 
 extern unsigned int capacity_margin_freq;
@@ -2969,19 +3011,25 @@ static inline bool is_per_cpu_kthread(struct task_struct *p)
 void swake_up_all_locked(struct swait_queue_head *q);
 void __prepare_to_swait(struct swait_queue_head *q, struct swait_queue *wait);
 
-#ifdef CONFIG_SCHED_WALT
 enum sched_boost_policy {
 	SCHED_BOOST_NONE,
 	SCHED_BOOST_ON_BIG,
 	SCHED_BOOST_ON_ALL,
 };
 
-static inline int cluster_first_cpu(struct sched_cluster *cluster)
+#ifdef CONFIG_SCHED_WALT
+#define WALT_MANY_WAKEUP_DEFAULT 1000
+static inline bool walt_want_remote_wakeup(void)
+{
+	return sysctl_sched_many_wakeup_threshold < WALT_MANY_WAKEUP_DEFAULT;
+}
+
+static inline int cluster_first_cpu(struct walt_sched_cluster *cluster)
 {
 	return cpumask_first(&cluster->cpus);
 }
 
-struct related_thread_group {
+struct walt_related_thread_group {
 	int id;
 	raw_spinlock_t lock;
 	struct list_head tasks;
@@ -2993,16 +3041,16 @@ struct related_thread_group {
 	u64 start_ts;
 };
 
-extern struct sched_cluster *sched_cluster[NR_CPUS];
+extern struct walt_sched_cluster *sched_cluster[NR_CPUS];
 
 extern unsigned int max_possible_capacity;
 extern unsigned int __weak min_max_possible_capacity;
 extern unsigned int __read_mostly __weak sched_init_task_load_windows;
 extern unsigned int  __read_mostly __weak sched_load_granule;
 
-extern int update_preferred_cluster(struct related_thread_group *grp,
+extern int update_preferred_cluster(struct walt_related_thread_group *grp,
 			struct task_struct *p, u32 old_load, bool from_tick);
-extern void set_preferred_cluster(struct related_thread_group *grp);
+extern void set_preferred_cluster(struct walt_related_thread_group *grp);
 extern void add_new_task_to_grp(struct task_struct *new);
 
 #define NO_BOOST 0
@@ -3051,7 +3099,7 @@ static inline bool asym_cap_sibling_group_has_capacity(int dst_cpu, int margin)
 
 static inline unsigned int cpu_max_possible_freq(int cpu)
 {
-	return cpu_rq(cpu)->cluster->max_possible_freq;
+	return cpu_rq(cpu)->wrq.cluster->max_possible_freq;
 }
 
 static inline unsigned int cpu_max_freq(int cpu)
@@ -3077,23 +3125,35 @@ static inline bool is_min_capacity_cpu(int cpu)
 
 static inline unsigned int task_load(struct task_struct *p)
 {
-	return p->ravg.demand;
+	return p->wts.demand;
 }
 
 static inline unsigned int task_pl(struct task_struct *p)
 {
-	return p->ravg.pred_demand;
+	return p->wts.pred_demand;
 }
 
 static inline bool task_in_related_thread_group(struct task_struct *p)
 {
-	return !!(rcu_access_pointer(p->grp) != NULL);
+	return (rcu_access_pointer(p->wts.grp) != NULL);
 }
 
-static inline
-struct related_thread_group *task_related_thread_group(struct task_struct *p)
+static inline bool task_rtg_high_prio(struct task_struct *p)
 {
-	return rcu_dereference(p->grp);
+	return task_in_related_thread_group(p) &&
+		(p->prio <= sysctl_walt_rtg_cfs_boost_prio);
+}
+
+static inline struct walt_related_thread_group
+*task_related_thread_group(struct task_struct *p)
+{
+	return rcu_dereference(p->wts.grp);
+}
+
+static inline bool walt_low_latency_task(struct task_struct *p)
+{
+	return p->wts.low_latency &&
+		(task_util(p) < sysctl_walt_low_latency_task_threshold);
 }
 
 /* Is frequency of two cpus synchronized with each other? */
@@ -3107,13 +3167,12 @@ static inline int same_freq_domain(int src_cpu, int dst_cpu)
 	if (asym_cap_siblings(src_cpu, dst_cpu))
 		return 1;
 
-	return cpumask_test_cpu(dst_cpu, &rq->freq_domain_cpumask);
+	return cpumask_test_cpu(dst_cpu, &rq->wrq.freq_domain_cpumask);
 }
 
 #define CPU_RESERVED    1
 
 extern enum sched_boost_policy __weak boost_policy;
-extern unsigned int __weak sched_task_filter_util;
 static inline enum sched_boost_policy sched_boost_policy(void)
 {
 	return boost_policy;
@@ -3136,9 +3195,9 @@ static inline bool is_full_throttle_boost(void)
 	return sched_boost() == FULL_THROTTLE_BOOST;
 }
 
-extern int preferred_cluster(struct sched_cluster *cluster,
+extern int preferred_cluster(struct walt_sched_cluster *cluster,
 						struct task_struct *p);
-extern struct sched_cluster *rq_cluster(struct rq *rq);
+extern struct walt_sched_cluster *rq_cluster(struct rq *rq);
 
 #ifdef CONFIG_UCLAMP_TASK_GROUP
 static inline bool task_sched_boost(struct task_struct *p)
@@ -3150,7 +3209,7 @@ static inline bool task_sched_boost(struct task_struct *p)
 		return false;
 	tg = container_of(css, struct task_group, css);
 
-	return tg->sched_boost_enabled;
+	return tg->wtg.sched_boost_enabled;
 }
 
 extern int sync_cgroup_colocation(struct task_struct *p, bool insert);
@@ -3176,35 +3235,35 @@ static inline int is_reserved(int cpu)
 {
 	struct rq *rq = cpu_rq(cpu);
 
-	return test_bit(CPU_RESERVED, &rq->walt_flags);
+	return test_bit(CPU_RESERVED, &rq->wrq.walt_flags);
 }
 
 static inline int mark_reserved(int cpu)
 {
 	struct rq *rq = cpu_rq(cpu);
 
-	return test_and_set_bit(CPU_RESERVED, &rq->walt_flags);
+	return test_and_set_bit(CPU_RESERVED, &rq->wrq.walt_flags);
 }
 
 static inline void clear_reserved(int cpu)
 {
 	struct rq *rq = cpu_rq(cpu);
 
-	clear_bit(CPU_RESERVED, &rq->walt_flags);
+	clear_bit(CPU_RESERVED, &rq->wrq.walt_flags);
 }
 
 static inline bool
 task_in_cum_window_demand(struct rq *rq, struct task_struct *p)
 {
-	return cpu_of(rq) == task_cpu(p) && (p->on_rq || p->last_sleep_ts >=
-							 rq->window_start);
+	return cpu_of(rq) == task_cpu(p) && (p->on_rq ||
+		p->wts.last_sleep_ts >= rq->wrq.window_start);
 }
 
 static inline void walt_fixup_cum_window_demand(struct rq *rq, s64 scaled_delta)
 {
-	rq->cum_window_demand_scaled += scaled_delta;
-	if (unlikely((s64)rq->cum_window_demand_scaled < 0))
-		rq->cum_window_demand_scaled = 0;
+	rq->wrq.cum_window_demand_scaled += scaled_delta;
+	if (unlikely((s64)rq->wrq.cum_window_demand_scaled < 0))
+		rq->wrq.cum_window_demand_scaled = 0;
 }
 
 extern unsigned long thermal_cap(int cpu);
@@ -3237,17 +3296,159 @@ static inline enum sched_boost_policy task_boost_policy(struct task_struct *p)
 		 * under conservative boost.
 		 */
 		if (sched_boost() == CONSERVATIVE_BOOST &&
-				task_util(p) <= sched_task_filter_util)
+			task_util(p) <= sysctl_sched_min_task_util_for_boost)
 			policy = SCHED_BOOST_NONE;
 	}
 
 	return policy;
 }
 
-static inline bool is_min_capacity_cluster(struct sched_cluster *cluster)
+static inline bool is_min_capacity_cluster(struct walt_sched_cluster *cluster)
 {
 	return is_min_capacity_cpu(cluster_first_cpu(cluster));
 }
+#else   /* CONFIG_SCHED_WALT */
+
+struct walt_sched_stats;
+struct walt_related_thread_group;
+struct walt_sched_cluster;
+
+static inline bool task_sched_boost(struct task_struct *p)
+{
+	return false;
+}
+
+static inline bool task_placement_boost_enabled(struct task_struct *p)
+{
+	return false;
+}
+
+static inline void check_for_migration(struct rq *rq, struct task_struct *p) { }
+
+static inline int sched_boost(void)
+{
+	return 0;
+}
+
+static inline bool rt_boost_on_big(void)
+{
+	return false;
+}
+
+static inline bool is_full_throttle_boost(void)
+{
+	return false;
+}
+
+static inline enum sched_boost_policy task_boost_policy(struct task_struct *p)
+{
+	return SCHED_BOOST_NONE;
+}
+
+static inline bool
+task_in_cum_window_demand(struct rq *rq, struct task_struct *p)
+{
+	return false;
+}
+
+static inline bool hmp_capable(void) { return false; }
+static inline bool is_max_capacity_cpu(int cpu) { return true; }
+static inline bool is_min_capacity_cpu(int cpu) { return true; }
+
+static inline int
+preferred_cluster(struct walt_sched_cluster *cluster, struct task_struct *p)
+{
+	return -1;
+}
+
+static inline struct walt_sched_cluster *rq_cluster(struct rq *rq)
+{
+	return NULL;
+}
+
+static inline int asym_cap_siblings(int cpu1, int cpu2) { return 0; }
+
+static inline bool asym_cap_sibling_group_has_capacity(int dst_cpu, int margin)
+{
+	return false;
+}
+
+static inline void
+set_preferred_cluster(struct walt_related_thread_group *grp) { }
+
+static inline bool task_in_related_thread_group(struct task_struct *p)
+{
+	return false;
+}
+
+static inline struct walt_related_thread_group *task_related_thread_group(
+struct task_struct *p)
+{
+	return NULL;
+}
+
+static inline u32 task_load(struct task_struct *p) { return 0; }
+static inline u32 task_pl(struct task_struct *p) { return 0; }
+
+static inline int
+update_preferred_cluster(struct walt_related_thread_group *grp,
+		struct task_struct *p, u32 old_load, bool from_tick)
+{
+	return 0;
+}
+
+static inline void add_new_task_to_grp(struct task_struct *new) {}
+
+static inline int same_freq_domain(int src_cpu, int dst_cpu)
+{
+	return 1;
+}
+
+static inline int mark_reserved(int cpu)
+{
+	return 0;
+}
+
+static inline void clear_reserved(int cpu) { }
+static inline int alloc_related_thread_groups(void) { return 0; }
+
+static inline void walt_fixup_cum_window_demand(struct rq *rq,
+						s64 scaled_delta) { }
+
+#ifdef CONFIG_SMP
+static inline unsigned long thermal_cap(int cpu)
+{
+	return cpu_rq(cpu)->cpu_capacity_orig;
+}
+#endif
+
+static inline void clear_walt_request(int cpu) { }
+
+static inline int is_reserved(int cpu)
+{
+	return 0;
+}
+
+static inline enum sched_boost_policy sched_boost_policy(void)
+{
+	return SCHED_BOOST_NONE;
+}
+
+static inline void sched_boost_parse_dt(void) { }
+
+static inline void clear_ed_task(struct task_struct *p, struct rq *rq) { }
+
+static inline bool early_detection_notify(struct rq *rq, u64 wallclock)
+{
+	return 0;
+}
+
+static inline void note_task_waking(struct task_struct *p, u64 wallclock) { }
+static inline bool walt_want_remote_wakeup(void)
+{
+	return false;
+}
+#endif  /* CONFIG_SCHED_WALT */
 
 struct sched_avg_stats {
 	int nr;
@@ -3257,49 +3458,29 @@ struct sched_avg_stats {
 };
 extern void sched_get_nr_running_avg(struct sched_avg_stats *stats);
 
-#if defined(CONFIG_SCHED_WALT) && defined(CONFIG_CFS_BANDWIDTH)
-
-extern void walt_init_cfs_rq_stats(struct cfs_rq *cfs_rq);
-extern void walt_inc_cfs_rq_stats(struct cfs_rq *cfs_rq, struct task_struct *p);
-extern void walt_dec_cfs_rq_stats(struct cfs_rq *cfs_rq, struct task_struct *p);
-extern void walt_inc_throttled_cfs_rq_stats(struct walt_sched_stats *stats,
-							struct cfs_rq *cfs_rq);
-extern void walt_dec_throttled_cfs_rq_stats(struct walt_sched_stats *stats,
-							struct cfs_rq *cfs_rq);
-#else
-static inline void walt_init_cfs_rq_stats(struct cfs_rq *cfs_rq) {}
-static inline void
-walt_inc_cfs_rq_stats(struct cfs_rq *cfs_rq, struct task_struct *p) {}
-static inline void
-walt_dec_cfs_rq_stats(struct cfs_rq *cfs_rq, struct task_struct *p) {}
-
-#define walt_inc_throttled_cfs_rq_stats(...)
-#define walt_dec_throttled_cfs_rq_stats(...)
-
-#endif
-
-
 #ifdef CONFIG_SMP
 extern int group_balance_cpu_not_isolated(struct sched_group *sg);
 #endif /* CONFIG_SMP */
 
+#ifdef CONFIG_SCHED_WALT
 extern int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 					int sync, int sibling_count_hint);
 extern int active_load_balance_cpu_stop(void *data);
+#endif
 
 #ifdef CONFIG_HOTPLUG_CPU
 extern void set_rq_online(struct rq *rq);
 extern void set_rq_offline(struct rq *rq);
+#ifdef CONFIG_SCHED_WALT
 extern void migrate_tasks(struct rq *dead_rq, struct rq_flags *rf,
 					bool migrate_pinned_tasks);
 extern void calc_load_migrate(struct rq *rq);
+#endif
 extern void
 detach_one_task_core(struct task_struct *p, struct rq *rq,
 						struct list_head *tasks);
 extern void attach_tasks_core(struct list_head *tasks, struct rq *rq);
 #endif
-
-extern struct task_struct *find_process_by_pid(pid_t pid);
 
 extern void walt_enqueue_task_core(struct rq *rq, struct task_struct *p, int flags);
 extern void walt_dequeue_task_core(struct rq *rq, struct task_struct *p, int flags);
@@ -3307,4 +3488,3 @@ extern void walt_dequeue_task_core(struct rq *rq, struct task_struct *p, int fla
 #ifdef CONFIG_UCLAMP_TASK_GROUP
 extern void walt_init_sched_boost(struct task_group *tg);
 #endif
-#endif /* CONFIG_SCHED_WALT */

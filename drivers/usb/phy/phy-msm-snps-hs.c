@@ -21,6 +21,8 @@
 #include <linux/usb/dwc3-msm.h>
 #include <linux/reset.h>
 #include <linux/debugfs.h>
+#include <linux/qcom_scm.h>
+#include <linux/types.h>
 
 #define USB2_PHY_USB_PHY_UTMI_CTRL0		(0x3c)
 #define OPMODE_MASK				(0x3 << 3)
@@ -82,7 +84,9 @@
 struct msm_hsphy {
 	struct usb_phy		phy;
 	void __iomem		*base;
+	phys_addr_t		eud_reg;
 	void __iomem		*eud_enable_reg;
+	bool			re_enable_eud;
 
 	struct clk		*ref_clk_src;
 	struct clk		*cfg_ahb_clk;
@@ -331,18 +335,28 @@ static void hsusb_phy_write_seq(void __iomem *base, u32 *seq, int cnt,
 	}
 }
 
+#define EUD_EN2 BIT(0)
 static int msm_hsphy_init(struct usb_phy *uphy)
 {
 	struct msm_hsphy *phy = container_of(uphy, struct msm_hsphy, phy);
 	int ret;
-	u32 rcal_code = 0;
+	u32 rcal_code = 0, eud_csr_reg = 0;
 
-	dev_dbg(uphy->dev, "%s\n", __func__);
-
-	if (phy->eud_enable_reg && readl_relaxed(phy->eud_enable_reg)) {
-		dev_err(phy->phy.dev, "eud is enabled\n");
-		ret = msm_hsphy_enable_power(phy, true);
-		return ret;
+	dev_dbg(uphy->dev, "%s phy_flags:0x%x\n", __func__, phy->phy.flags);
+	if (phy->eud_enable_reg) {
+		eud_csr_reg = readl_relaxed(phy->eud_enable_reg);
+		if (eud_csr_reg & EUD_EN2) {
+			dev_dbg(phy->phy.dev, "csr:0x%x eud is enabled\n",
+							eud_csr_reg);
+			/* if in host mode, disable EUD */
+			if (phy->phy.flags & PHY_HOST_MODE) {
+				qcom_scm_io_writel(phy->eud_reg, 0x0);
+				phy->re_enable_eud = true;
+			} else {
+				ret = msm_hsphy_enable_power(phy, true);
+				return ret;
+			}
+		}
 	}
 
 	ret = msm_hsphy_enable_power(phy, true);
@@ -473,19 +487,33 @@ suspend:
 	if (suspend) { /* Bus suspend */
 		if (phy->cable_connected ||
 			(phy->phy.flags & PHY_HOST_MODE)) {
-			/* Enable auto-resume functionality by pulsing signal */
-			msm_usb_write_readback(phy->base,
-				USB2_PHY_USB_PHY_HS_PHY_CTRL2,
-				USB2_AUTO_RESUME, USB2_AUTO_RESUME);
-			usleep_range(500, 1000);
-			msm_usb_write_readback(phy->base,
-				USB2_PHY_USB_PHY_HS_PHY_CTRL2,
-				USB2_AUTO_RESUME, 0);
-
+			/* Enable auto-resume functionality only when
+			 * there is some peripheral connected and real
+			 * bus suspend happened
+			 */
+			if ((phy->phy.flags & PHY_HSFS_MODE) ||
+				(phy->phy.flags & PHY_LS_MODE)) {
+				/* Enable auto-resume functionality by pulsing
+				 * signal
+				 */
+				msm_usb_write_readback(phy->base,
+					USB2_PHY_USB_PHY_HS_PHY_CTRL2,
+					USB2_AUTO_RESUME, USB2_AUTO_RESUME);
+				usleep_range(500, 1000);
+				msm_usb_write_readback(phy->base,
+					USB2_PHY_USB_PHY_HS_PHY_CTRL2,
+					USB2_AUTO_RESUME, 0);
+			}
 			msm_hsphy_enable_clocks(phy, false);
 		} else {/* Cable disconnect */
 			mutex_lock(&phy->phy_lock);
 			dev_dbg(uphy->dev, "phy->flags:0x%x\n", phy->phy.flags);
+			if (phy->re_enable_eud) {
+				dev_dbg(uphy->dev, "re-enabling EUD\n");
+				qcom_scm_io_writel(phy->eud_reg, 0x1);
+				phy->re_enable_eud = false;
+			}
+
 			if (!phy->dpdm_enable) {
 				if (!(phy->phy.flags & EUD_SPOOF_DISCONNECT)) {
 					dev_dbg(uphy->dev, "turning off clocks/ldo\n");
@@ -703,6 +731,7 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 			dev_err(dev, "err getting eud_enable_reg address\n");
 			return PTR_ERR(phy->eud_enable_reg);
 		}
+		phy->eud_reg = res->start;
 	}
 
 	/* ref_clk_src is needed irrespective of SE_CLK or DIFF_CLK usage */

@@ -94,11 +94,11 @@ struct tsens_device;
 		}	\
 	} while (0)
 #else
-#define	TSENS_DBG1(x...)		pr_debug(x)
-#define	TSENS_DBG(x...)		pr_debug(x)
-#define	TSENS_INFO(x...)		pr_info(x)
-#define	TSENS_ERR(x...)		pr_err(x)
-#define	TSENS_DUMP(x...)		pr_info(x)
+#define	TSENS_DBG1(dev, msg, x...)		pr_debug(msg, ##x)
+#define	TSENS_DBG(dev, msg, x...)		pr_debug(msg, ##x)
+#define	TSENS_INFO(dev, msg, x...)		pr_info(msg, ##x)
+#define	TSENS_ERR(dev, msg, x...)		pr_err(msg, ##x)
+#define	TSENS_DUMP(dev, msg, x...)		pr_info(msg, ##x)
 #endif
 
 #if IS_ENABLED(CONFIG_THERMAL_TSENS)
@@ -216,11 +216,12 @@ struct tsens_device {
 	const struct tsens_data		*ctrl_data;
 	struct tsens_mtc_sysfs  mtcsys;
 	int				trdy_fail_ctr;
-	struct tsens_sensor		min_temp;
-	u8				min_temp_sensor_id;
+	struct tsens_sensor		zeroc;
+	u8				zeroc_sensor_id;
 	struct workqueue_struct		*tsens_reinit_work;
 	struct work_struct		therm_fwk_notify;
 	bool				tsens_reinit_wa;
+	int                             tsens_reinit_cnt;
 	struct tsens_sensor             sensor[0];
 };
 
@@ -232,7 +233,7 @@ extern struct list_head tsens_device_list;
 extern int calibrate_8937(struct tsens_device *tmdev);
 extern int calibrate_405(struct tsens_device *tmdev);
 
-extern int tsens_2xxx_get_min_temp(
-		struct tsens_sensor *sensor, int *temp);
+extern int tsens_2xxx_get_zeroc_status(
+		struct tsens_sensor *sensor, int *status);
 
 #endif /* __QCOM_TSENS_H__ */

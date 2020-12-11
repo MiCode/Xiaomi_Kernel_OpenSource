@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __KGSL_DRAWOBJ_H
@@ -165,6 +165,7 @@ struct kgsl_drawobj_sparse {
  *           command obj
  * @CMDOBJ_WFI - Force wait-for-idle for the submission
  * @CMDOBJ_PROFILE - store the start / retire ticks for
+ * @CMDOBJ_FAULT - Mark the command object as faulted
  * the command obj in the profiling buffer
  */
 enum kgsl_drawobj_cmd_priv {
@@ -172,6 +173,7 @@ enum kgsl_drawobj_cmd_priv {
 	CMDOBJ_FORCE_PREAMBLE,
 	CMDOBJ_WFI,
 	CMDOBJ_PROFILE,
+	CMDOBJ_FAULT,
 };
 
 struct kgsl_ibdesc;

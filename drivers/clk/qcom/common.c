@@ -11,12 +11,19 @@
 #include <linux/clk-provider.h>
 #include <linux/reset-controller.h>
 #include <linux/of.h>
+#include <linux/clk/qcom.h>
+#include <linux/clk.h>
+#include <linux/interconnect.h>
+#include <linux/pm_clock.h>
+#include <linux/pm_runtime.h>
 
 #include "common.h"
+#include "clk-opp.h"
 #include "clk-rcg.h"
 #include "clk-regmap.h"
 #include "reset.h"
 #include "gdsc.h"
+#include "vdd-level.h"
 
 struct qcom_cc {
 	struct qcom_reset_controller reset;
@@ -320,6 +327,8 @@ int qcom_cc_really_probe(struct platform_device *pdev,
 		ret = devm_clk_register_regmap(dev, rclks[i]);
 		if (ret)
 			return ret;
+
+		clk_hw_populate_clock_opp_table(dev->of_node, &rclks[i]->hw);
 	}
 
 	ret = devm_of_clk_add_hw_provider(dev, qcom_cc_clk_hw_get, cc);
@@ -370,5 +379,142 @@ void qcom_cc_sync_state(struct device *dev, const struct qcom_cc_desc *desc)
 	clk_vdd_proxy_unvote(dev, desc);
 }
 EXPORT_SYMBOL(qcom_cc_sync_state);
+
+int qcom_clk_get_voltage(struct clk *clk, unsigned long rate)
+{
+	struct clk_regmap *rclk;
+	struct clk_hw *hw = __clk_get_hw(clk);
+	int vdd_level;
+
+	if (!clk_is_regmap_clk(hw))
+		return -EINVAL;
+
+	rclk = to_clk_regmap(hw);
+	vdd_level = clk_find_vdd_level(hw, &rclk->vdd_data, rate);
+	if (vdd_level < 0)
+		return vdd_level;
+
+	return rclk->vdd_data.vdd_class->vdd_uv[vdd_level];
+}
+EXPORT_SYMBOL(qcom_clk_get_voltage);
+
+int qcom_cc_runtime_init(struct platform_device *pdev,
+			 struct qcom_cc_desc *desc)
+{
+	struct device *dev = &pdev->dev;
+	struct clk *clk;
+	int ret;
+
+	clk = clk_get_optional(dev, "iface");
+	if (IS_ERR(clk)) {
+		if (PTR_ERR(clk) != -EPROBE_DEFER)
+			dev_err(dev, "unable to get iface clock\n");
+		return PTR_ERR(clk);
+	}
+	clk_put(clk);
+
+	ret = clk_regulator_init(dev, desc);
+	if (ret)
+		return ret;
+
+	desc->path = of_icc_get(dev, NULL);
+	if (IS_ERR(desc->path)) {
+		if (PTR_ERR(desc->path) != -EPROBE_DEFER)
+			dev_err(dev, "error getting path\n");
+		return PTR_ERR(desc->path);
+	}
+
+	platform_set_drvdata(pdev, desc);
+	pm_runtime_enable(dev);
+
+	ret = pm_clk_create(dev);
+	if (ret)
+		goto disable_pm_runtime;
+
+	ret = pm_clk_add(dev, "iface");
+	if (ret < 0) {
+		dev_err(dev, "failed to acquire iface clock\n");
+		goto destroy_pm_clk;
+	}
+
+	return 0;
+
+destroy_pm_clk:
+	pm_clk_destroy(dev);
+
+disable_pm_runtime:
+	pm_runtime_disable(dev);
+	icc_put(desc->path);
+
+	return ret;
+}
+EXPORT_SYMBOL(qcom_cc_runtime_init);
+
+int qcom_cc_runtime_resume(struct device *dev)
+{
+	struct qcom_cc_desc *desc = dev_get_drvdata(dev);
+	struct clk_vdd_class_data vdd_data = {0};
+	int ret;
+	int i;
+
+	for (i = 0; i < desc->num_clk_regulators; i++) {
+		vdd_data.vdd_class = desc->clk_regulators[i];
+		if (!vdd_data.vdd_class)
+			continue;
+
+		ret = clk_vote_vdd_level(&vdd_data, 1);
+		if (ret) {
+			dev_warn(dev, "%s: failed to vote voltage\n", __func__);
+			return ret;
+		}
+	}
+
+	if (desc->path) {
+		ret = icc_set_bw(desc->path, 0, 1);
+		if (ret) {
+			dev_warn(dev, "%s: failed to vote bw\n", __func__);
+			return ret;
+		}
+	}
+
+	ret = pm_clk_resume(dev);
+	if (ret)
+		dev_warn(dev, "%s: failed to enable clocks\n", __func__);
+
+	return ret;
+}
+EXPORT_SYMBOL(qcom_cc_runtime_resume);
+
+int qcom_cc_runtime_suspend(struct device *dev)
+{
+	struct qcom_cc_desc *desc = dev_get_drvdata(dev);
+	struct clk_vdd_class_data vdd_data = {0};
+	int ret;
+	int i;
+
+	ret = pm_clk_suspend(dev);
+	if (ret)
+		dev_warn(dev, "%s: failed to disable clocks\n", __func__);
+
+	if (desc->path) {
+		ret = icc_set_bw(desc->path, 0, 0);
+		if (ret)
+			dev_warn(dev, "%s: failed to unvote bw\n", __func__);
+	}
+
+	for (i = 0; i < desc->num_clk_regulators; i++) {
+		vdd_data.vdd_class = desc->clk_regulators[i];
+		if (!vdd_data.vdd_class)
+			continue;
+
+		ret = clk_unvote_vdd_level(&vdd_data, 1);
+		if (ret)
+			dev_warn(dev, "%s: failed to unvote voltage\n",
+				 __func__);
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(qcom_cc_runtime_suspend);
 
 MODULE_LICENSE("GPL v2");

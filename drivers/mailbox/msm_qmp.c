@@ -45,6 +45,12 @@ do {									    \
 	ipc_log_string(ctxt, "%s[%s]: "x, "", __func__, ##__VA_ARGS__);	    \
 } while (0)
 
+#ifdef CONFIG_QMP_DEBUGFS_CLIENT
+#define QMP_BUG(x) BUG_ON(x)
+#else
+#define QMP_BUG(x) do {} while (0)
+#endif
+
 /**
  * enum qmp_local_state - definition of the local state machine
  * @LINK_DISCONNECTED:		Init state, waiting for ucore to start
@@ -263,6 +269,7 @@ static void qmp_notify_timeout(struct work_struct *work)
 		return;
 	}
 	QMP_ERR(mbox->mdev->ilc, "tx timeout for %d\n", mbox->idx_in_flight);
+	QMP_BUG(mbox->tx_sent);
 	iowrite32(0, mbox->desc + mbox->mcore_mbox_offset);
 	mbox->tx_sent = false;
 	spin_unlock_irqrestore(&mbox->tx_lock, flags);
@@ -371,6 +378,7 @@ static int qmp_send_data(struct mbox_chan *chan, void *data)
 	struct qmp_pkt *pkt = (struct qmp_pkt *)data;
 	void __iomem *addr;
 	unsigned long flags;
+	u32 size;
 	int i;
 
 	if (!mbox || !data || mbox->local_state != CHANNEL_CONNECTED)
@@ -392,13 +400,15 @@ static int qmp_send_data(struct mbox_chan *chan, void *data)
 
 	memcpy32_toio(addr + sizeof(pkt->size), pkt->data, pkt->size);
 	iowrite32(pkt->size, addr);
+	/* readback to ensure write reflects in msgram */
+	size = ioread32(addr);
 	mbox->tx_sent = true;
 	for (i = 0; i < mbox->ctrl.num_chans; i++) {
 		if (chan == &mbox->ctrl.chans[i])
 			mbox->idx_in_flight = i;
 	}
 	QMP_INFO(mdev->ilc, "Copied buffer to msgram sz:%d i:%d\n",
-		 pkt->size, mbox->idx_in_flight);
+		 size, mbox->idx_in_flight);
 	send_irq(mdev);
 	qmp_schedule_tx_timeout(mbox);
 	spin_unlock_irqrestore(&mbox->tx_lock, flags);

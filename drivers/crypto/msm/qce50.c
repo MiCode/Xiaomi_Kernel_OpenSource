@@ -840,6 +840,11 @@ static int _ce_setup_cipher(struct qce_device *pce_dev, struct qce_req *creq,
 	switch (creq->alg) {
 	case CIPHER_ALG_DES:
 		if (creq->mode !=  QCE_MODE_ECB) {
+			if (ivsize > MAX_IV_LENGTH) {
+				pr_err("%s: error: Invalid length parameter\n",
+					 __func__);
+				return -EINVAL;
+			}
 			_byte_stream_to_net_words(enciv32, creq->iv, ivsize);
 			pce = cmdlistinfo->encr_cntr_iv;
 			pce->data = enciv32[0];
@@ -2435,10 +2440,7 @@ static int _qce_sps_add_sg_data(struct qce_device *pce_dev,
 	struct sps_iovec *iovec = sps_bam_pipe->iovec +
 						sps_bam_pipe->iovec_count;
 
-	if (!sg_src)
-		return -ENOENT;
-
-	while (nbytes > 0) {
+	while (nbytes > 0 && sg_src) {
 		len = min(nbytes, sg_dma_len(sg_src));
 		nbytes -= len;
 		addr = sg_dma_address(sg_src);

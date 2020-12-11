@@ -697,14 +697,14 @@ do {									\
 	SEQ_printf(m, "  .%-30s: %ld\n", "curr->pid", (long)(task_pid_nr(rq->curr)));
 	PN(clock);
 	PN(clock_task);
-#ifdef CONFIG_SCHED_WALT
 #ifdef CONFIG_SMP
 	P(cpu_capacity);
 #endif
-	P(cluster->cur_freq);
-	P(walt_stats.nr_big_tasks);
+#ifdef CONFIG_SCHED_WALT
+	P(wrq.cluster->cur_freq);
+	P(wrq.walt_stats.nr_big_tasks);
 	SEQ_printf(m, "  .%-30s: %llu\n", "walt_stats.cumulative_runnable_avg",
-			rq->walt_stats.cumulative_runnable_avg_scaled);
+			rq->wrq.walt_stats.cumulative_runnable_avg_scaled);
 #endif
 #undef P
 #undef PN
@@ -980,9 +980,6 @@ void proc_sched_show_task(struct task_struct *p, struct pid_namespace *ns,
 		P_SCHEDSTAT(se.statistics.nr_wakeups_passive);
 		P_SCHEDSTAT(se.statistics.nr_wakeups_idle);
 
-#ifdef CONFIG_SCHED_WALT
-		P(ravg.demand);
-#endif
 		avg_atom = p->se.sum_exec_runtime;
 		if (nr_switches)
 			avg_atom = div64_ul(avg_atom, nr_switches);

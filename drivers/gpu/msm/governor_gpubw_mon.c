@@ -17,7 +17,7 @@
 #define CAP                     75
 #define WAIT_THRESHOLD          10
 /* AB vote is in multiple of BW_STEP Mega bytes */
-#define BW_STEP                 160
+#define BW_STEP                 50
 
 static void _update_cutoff(struct devfreq_msm_adreno_tz_data *priv,
 					unsigned int norm_max)
@@ -30,6 +30,61 @@ static void _update_cutoff(struct devfreq_msm_adreno_tz_data *priv,
 		priv->bus.down[i] = priv->bus.p_down[i] * norm_max / 100;
 	}
 }
+
+static ssize_t cur_ab_show(struct device *dev,
+	struct device_attribute *attr,
+	char *buf)
+{
+	struct devfreq *df = to_devfreq(dev);
+	struct msm_busmon_extended_profile *bus_profile = container_of(
+					(df->profile),
+					struct msm_busmon_extended_profile,
+					profile);
+
+	return scnprintf(buf, PAGE_SIZE, "%llu\n", bus_profile->ab_mbytes);
+}
+
+static ssize_t sampling_interval_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct devfreq *df = to_devfreq(dev);
+	struct msm_busmon_extended_profile *bus_profile = container_of(
+					(df->profile),
+					struct msm_busmon_extended_profile,
+					profile);
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n", bus_profile->sampling_ms);
+}
+
+static ssize_t sampling_interval_store(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	struct devfreq *df = to_devfreq(dev);
+	struct msm_busmon_extended_profile *bus_profile = container_of(
+					(df->profile),
+					struct msm_busmon_extended_profile,
+					profile);
+	u32 value;
+	int ret;
+
+	ret = kstrtou32(buf, 0, &value);
+	if (ret)
+		return ret;
+
+	bus_profile->sampling_ms = value;
+
+	return count;
+}
+
+static DEVICE_ATTR_RW(sampling_interval);
+static DEVICE_ATTR_RO(cur_ab);
+
+static const struct device_attribute *gpubw_attr_list[] = {
+	&dev_attr_sampling_interval,
+	&dev_attr_cur_ab,
+	NULL
+};
 
 static int devfreq_gpubw_get_target(struct devfreq *df,
 				unsigned long *freq)
@@ -70,7 +125,7 @@ static int devfreq_gpubw_get_target(struct devfreq *df,
 	priv->bus.ram_time += b.ram_time;
 	priv->bus.ram_wait += b.ram_wait;
 
-	if (priv->bus.total_time < LONG_FLOOR)
+	if (priv->bus.total_time < bus_profile->sampling_ms)
 		return result;
 
 	norm_max_cycles = (unsigned int)(priv->bus.ram_time) /
@@ -174,12 +229,21 @@ static int gpubw_start(struct devfreq *devfreq)
 		priv->bus.p_up[priv->bus.num - 1] = 100;
 	_update_cutoff(priv, priv->bus.max);
 
+	bus_profile->sampling_ms = LONG_FLOOR;
+
+	for (i = 0; gpubw_attr_list[i] != NULL; i++)
+		device_create_file(&devfreq->dev, gpubw_attr_list[i]);
+
 	return 0;
 }
 
 static int gpubw_stop(struct devfreq *devfreq)
 {
 	struct devfreq_msm_adreno_tz_data *priv = devfreq->data;
+	int i;
+
+	for (i = 0; gpubw_attr_list[i] != NULL; i++)
+		device_remove_file(&devfreq->dev, gpubw_attr_list[i]);
 
 	if (priv) {
 		kfree(priv->bus.up);

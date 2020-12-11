@@ -12,6 +12,8 @@
 #ifdef CONFIG_SCHED_WALT
 #include <linux/interrupt.h>
 
+#include <trace/events/sched.h>
+
 #include "walt.h"
 #endif
 
@@ -1544,21 +1546,17 @@ task_may_not_preempt(struct task_struct *task, int cpu)
 }
 #endif
 
-#ifndef CONFIG_SCHED_WALT
 static int
-select_task_rq_rt(struct task_struct *p, int cpu, int sd_flag, int flags)
-#else
-static int
+#ifdef CONFIG_SCHED_WALT
 select_task_rq_rt(struct task_struct *p, int cpu, int sd_flag, int flags,
 		 int sibling_count_hint)
+#else
+select_task_rq_rt(struct task_struct *p, int cpu, int sd_flag, int flags)
 #endif
 {
 	struct task_struct *curr;
 	struct rq *rq;
 	bool test;
-#ifdef CONFIG_SCHED_WALT
-	bool may_not_preempt;
-#endif
 	int target_cpu = -1;
 
 	trace_android_rvh_select_task_rq_rt(p, cpu, sd_flag,
@@ -1644,6 +1642,13 @@ select_task_rq_rt(struct task_struct *p, int cpu, int sd_flag, int flags,
 	if (sched_energy_enabled() || may_not_preempt ||
 	    test || !rt_task_fits_capacity(p, cpu)) {
 		int target = find_lowest_rq(p);
+
+		/*
+		 * Bail out if we were forcing a migration to find a better
+		 * fitting CPU but our search failed.
+		 */
+		if (!test && target != -1 && !rt_task_fits_capacity(p, target))
+			goto out_unlock;
 
 		/*
 		 * If cpu is non-preemptible, prefer remote cpu
@@ -1869,7 +1874,7 @@ static int rt_energy_aware_wake_cpu(struct task_struct *task)
 
 	rcu_read_lock();
 
-	cpu = cpu_rq(smp_processor_id())->rd->min_cap_orig_cpu;
+	cpu = cpu_rq(smp_processor_id())->rd->wrd.min_cap_orig_cpu;
 	if (cpu < 0)
 		goto unlock;
 
@@ -1892,16 +1897,19 @@ retry:
 		}
 
 		for_each_cpu_and(cpu, lowest_mask, sched_group_span(sg)) {
+
+			trace_sched_cpu_util(cpu);
+
 			if (cpu_isolated(cpu))
 				continue;
 
 			if (sched_cpu_high_irqload(cpu))
 				continue;
 
-			util = cpu_util(cpu);
-
-			if (__cpu_overutilized(cpu, util + tutil))
+			if (__cpu_overutilized(cpu, tutil))
 				continue;
+
+			util = cpu_util(cpu);
 
 			/* Find the least loaded CPU */
 			if (util > best_cpu_util)

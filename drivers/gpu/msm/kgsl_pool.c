@@ -462,12 +462,11 @@ int kgsl_pool_alloc_pages(u64 size, struct page ***pages, struct device *dev)
 			}
 			kvfree(local);
 
-			if (!kgsl_sharedmem_get_noretry()) {
+			if (!kgsl_sharedmem_get_noretry())
 				pr_err_ratelimited("kgsl: out of memory: only allocated %lldKb of %lldKb requested\n",
 					(size - len) >> 10, size >> 10);
 
-				return -ENOMEM;
-			}
+			return -ENOMEM;
 		}
 
 		count += ret;

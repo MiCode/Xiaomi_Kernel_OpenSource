@@ -39,4 +39,19 @@ void cdsprm_register_cdspl3gov(struct cdsprm_l3 *arg);
  */
 void cdsprm_unregister_cdspl3gov(void);
 
+/**
+ * cdsprm_compute_vtcm_set_partition_map() - Send the vtcm partition and
+ *                                           map data to cdsp via
+ *                                           rpmsg channel
+ * @arg: b_vtcm_partitioning 0 - disable VTCM partitioning
+ *                           1 - enable VTCM partitioning
+ *@return SUCCESS (0) if vtcm partition and map data is sent
+ *         FAILURE (Non-zero) if vtcm partition and map sent fails
+ * Note: VTCM partitioning should be defined in the device tree for
+ *        the enable / disable request to go through.
+ *
+ */
+
+int cdsprm_compute_vtcm_set_partition_map(unsigned int b_vtcm_partitioning);
+
 #endif

@@ -276,6 +276,11 @@
 #define DWC3_GUCTL1_TX_IPGAP_LINECHECK_DIS	BIT(28)
 #define DWC3_GUCTL1_DEV_L1_EXIT_BY_HW	BIT(24)
 #define DWC3_GUCTL1_IP_GAP_ADD_ON(n)	(n << 21)
+
+#define DWC3_GUCTL1_PARKMODE_DISABLE_SS		BIT(17)
+#define DWC3_GUCTL1_PARKMODE_DISABLE_HS		BIT(16)
+#define DWC3_GUCTL1_PARKMODE_DISABLE_FSLS	BIT(15)
+
 #define DWC3_GUCTL1_L1_SUSP_THRLD_EN_FOR_HOST	BIT(8)
 
 /* Global Status Register */
@@ -328,6 +333,7 @@
 #define DWC3_GUSB3PIPECTL_DEP1P2P3_EN	DWC3_GUSB3PIPECTL_DEP1P2P3(1)
 #define DWC3_GUSB3PIPECTL_DEPOCHANGE	BIT(18)
 #define DWC3_GUSB3PIPECTL_SUSPHY	BIT(17)
+#define DWC3_GUSB3PIPECTL_P3EXSIGP2	BIT(10)
 #define DWC3_GUSB3PIPECTL_LFPSFILT	BIT(9)
 #define DWC3_GUSB3PIPECTL_RX_DETOPOLL	BIT(8)
 #define DWC3_GUSB3PIPECTL_TX_DEEPH_MASK	DWC3_GUSB3PIPECTL_TX_DEEPH(3)
@@ -1004,7 +1010,7 @@ struct dwc3_scratchpad_array {
 	__le64	dma_adr[DWC3_MAX_HIBER_SCRATCHBUFS];
 };
 
-#define MAX_INTR_STATS				10
+#define MAX_INTR_STATS				25
 
 /**
  * struct dwc3 - representation of our controller
@@ -1138,6 +1144,7 @@ struct dwc3_scratchpad_array {
  *	2	- No de-emphasis
  *	3	- Reserved
  * @dis_metastability_quirk: set to disable metastability quirk.
+ * @ssp_u3_u0_quirk: set to enable ss specific u3 to u0 quirk.
  * @dis_split_quirk: set to disable split boundary.
  * @imod_interval: set the interrupt moderation interval in 250ns
  *			increments or 0 to disable.
@@ -1357,6 +1364,7 @@ struct dwc3 {
 	unsigned int		vbus_draw;
 
 	unsigned		dis_metastability_quirk:1;
+	unsigned		ssp_u3_u0_quirk:1;
 
 	unsigned		dis_split_quirk:1;
 
@@ -1378,8 +1386,10 @@ struct dwc3 {
 	/* IRQ timing statistics */
 	int			irq;
 	unsigned long		irq_cnt;
+	ktime_t			bh_start_time[MAX_INTR_STATS];
 	unsigned int		bh_completion_time[MAX_INTR_STATS];
 	unsigned int		bh_handled_evt_cnt[MAX_INTR_STATS];
+	unsigned int		bh_dbg_index;
 	ktime_t			irq_start_time[MAX_INTR_STATS];
 	ktime_t			t_pwr_evt_irq;
 	unsigned int		irq_completion_time[MAX_INTR_STATS];

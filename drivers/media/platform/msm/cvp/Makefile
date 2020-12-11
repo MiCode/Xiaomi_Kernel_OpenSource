@@ -18,6 +18,7 @@ msm-cvp-objs := cvp.o \
 				msm_cvp_clocks.o \
 				msm_cvp_dsp.o \
 				msm_cvp_buf.o \
-				msm_cvp_synx.o
+				msm_cvp_synx.o \
+				cvp_fw_load.o
 
 obj-$(CONFIG_MSM_CVP) := msm-cvp.o

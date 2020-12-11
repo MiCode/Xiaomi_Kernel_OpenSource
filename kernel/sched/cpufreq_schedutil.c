@@ -74,11 +74,10 @@ struct sugov_cpu {
 	u64			last_update;
 
 #ifdef CONFIG_SCHED_WALT
-	struct sched_walt_cpu_load walt_load;
-
+	struct walt_cpu_load	walt_load;
+#endif
 	unsigned long util;
 	unsigned int flags;
-#endif
 
 	unsigned long		bw_dl;
 	unsigned long		max;
@@ -404,21 +403,19 @@ unsigned long schedutil_cpu_util(int cpu, unsigned long util_cfs,
 static unsigned long sugov_get_util(struct sugov_cpu *sg_cpu)
 {
 	struct rq *rq = cpu_rq(sg_cpu->cpu);
-#ifndef CONFIG_SCHED_WALT
-	unsigned long util = cpu_util_cfs(rq);
-#else
 	unsigned long util;
-#endif
 	unsigned long max = arch_scale_cpu_capacity(sg_cpu->cpu);
 
 	sg_cpu->max = max;
 	sg_cpu->bw_dl = cpu_bw_dl(rq);
 
 #ifdef CONFIG_SCHED_WALT
-	util = cpu_util_freq(sg_cpu->cpu, &sg_cpu->walt_load);
+	util = cpu_util_freq_walt(sg_cpu->cpu, &sg_cpu->walt_load);
 
 	return uclamp_rq_util_with(rq, util, NULL);
 #else
+	util = cpu_util_cfs(rq);
+
 	return schedutil_cpu_util(sg_cpu->cpu, util, max, FREQUENCY_UTIL, NULL);
 #endif
 }

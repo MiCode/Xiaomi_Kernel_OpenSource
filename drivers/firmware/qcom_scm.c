@@ -2303,6 +2303,7 @@ int qcom_scm_invoke_callback_response(phys_addr_t out_buf,
 
 	return ret;
 }
+EXPORT_SYMBOL(qcom_scm_invoke_callback_response);
 
 int qcom_scm_qseecom_call(u32 cmd_id, struct qseecom_scm_desc *desc, bool retry)
 {

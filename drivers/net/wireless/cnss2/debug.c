@@ -71,8 +71,8 @@ static int cnss_stats_show_state(struct seq_file *s,
 		case CNSS_FW_READY:
 			seq_puts(s, "FW_READY");
 			continue;
-		case CNSS_COLD_BOOT_CAL:
-			seq_puts(s, "COLD_BOOT_CAL");
+		case CNSS_IN_COLD_BOOT_CAL:
+			seq_puts(s, "IN_COLD_BOOT_CAL");
 			continue;
 		case CNSS_DRIVER_LOADING:
 			seq_puts(s, "DRIVER_LOADING");
@@ -112,6 +112,12 @@ static int cnss_stats_show_state(struct seq_file *s,
 			continue;
 		case CNSS_IN_REBOOT:
 			seq_puts(s, "IN_REBOOT");
+			continue;
+		case CNSS_COLD_BOOT_CAL_DONE:
+			seq_puts(s, "COLD_BOOT_CAL_DONE");
+			continue;
+		case CNSS_IN_PANIC:
+			seq_puts(s, "IN_PANIC");
 			continue;
 		}
 
@@ -195,6 +201,9 @@ static ssize_t cnss_dev_boot_debug_write(struct file *fp,
 		clear_bit(CNSS_DRIVER_DEBUG, &plat_priv->driver_state);
 	} else if (sysfs_streq(cmd, "assert")) {
 		ret = cnss_force_fw_assert(&pci_priv->pci_dev->dev);
+	} else if (sysfs_streq(cmd, "set_cbc_done")) {
+		cnss_pr_dbg("Force set cold boot cal done status\n");
+		set_bit(CNSS_COLD_BOOT_CAL_DONE, &plat_priv->driver_state);
 	} else {
 		cnss_pr_err("Device boot debugfs command is invalid\n");
 		ret = -EINVAL;
@@ -219,6 +228,7 @@ static int cnss_dev_boot_debug_show(struct seq_file *s, void *data)
 	seq_puts(s, "powerup: full power on sequence to boot device, download FW and do QMI handshake with FW\n");
 	seq_puts(s, "shutdown: full power off sequence to shutdown device\n");
 	seq_puts(s, "assert: trigger firmware assert\n");
+	seq_puts(s, "set_cbc_done: Set cold boot calibration done status\n");
 
 	return 0;
 }
@@ -750,6 +760,7 @@ static const struct file_operations cnss_dynamic_feature_fops = {
 	.llseek = seq_lseek,
 };
 
+#ifdef CONFIG_DEBUG_FS
 #ifdef CONFIG_CNSS2_DEBUG
 static int cnss_create_debug_only_node(struct cnss_plat_data *plat_priv)
 {
@@ -806,6 +817,17 @@ void cnss_debugfs_destroy(struct cnss_plat_data *plat_priv)
 {
 	debugfs_remove_recursive(plat_priv->root_dentry);
 }
+#else
+int cnss_debugfs_create(struct cnss_plat_data *plat_priv)
+{
+	plat_priv->root_dentry = NULL;
+	return 0;
+}
+
+void cnss_debugfs_destroy(struct cnss_plat_data *plat_priv)
+{
+}
+#endif
 
 int cnss_debug_init(void)
 {

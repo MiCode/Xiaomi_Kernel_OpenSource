@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020, The Linux Foundation. All rights reserved.
  */
 
 
@@ -16,6 +16,9 @@
 bool kgsl_regulator_disable_wait(struct regulator *reg, u32 timeout)
 {
 	ktime_t tout = ktime_add_us(ktime_get(), timeout * 1000);
+
+	if (IS_ERR_OR_NULL(reg))
+		return true;
 
 	regulator_disable(reg);
 

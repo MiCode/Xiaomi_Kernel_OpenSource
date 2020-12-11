@@ -173,6 +173,12 @@ static int hh_hvc_notify_add(struct hvc_struct *hp, int vm_name)
 	int ret;
 	hh_vmid_t vmid;
 
+#ifdef CONFIG_HVC_HAVEN_CONSOLE
+	/* tty layer is opening, but kernel has already opened for printk */
+	if (vm_name == HH_SELF_VM)
+		return 0;
+#endif /* CONFIG_HVC_HAVEN_CONSOLE */
+
 	ret = hh_rm_get_vmid(vm_name, &vmid);
 	if (ret) {
 		pr_err("%s: hh_rm_get_vmid failed for %d: %d\n", __func__,
@@ -190,6 +196,12 @@ static void hh_hvc_notify_del(struct hvc_struct *hp, int vm_name)
 
 	if (vm_name < 0 || vm_name >= HH_VM_MAX)
 		return;
+
+#ifdef CONFIG_HVC_HAVEN_CONSOLE
+	/* tty layer is closing, but kernel is still using for printk. */
+	if (vm_name == HH_SELF_VM)
+		return;
+#endif /* CONFIG_HVC_HAVEN_CONSOLE */
 
 	if (cancel_work_sync(&hh_hvc_data[vm_name].put_work)) {
 		/* flush the fifo */

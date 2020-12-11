@@ -17,6 +17,7 @@
 #include <linux/elf.h>
 #include <linux/wait.h>
 #include <linux/cdev.h>
+#include <linux/srcu.h>
 #include <linux/atomic.h>
 #include <soc/qcom/ramdump.h>
 #include <linux/of.h>
@@ -59,6 +60,8 @@ struct ramdump_device {
 	size_t elfcore_size;
 	char *elfcore_buf;
 	bool complete_ramdump;
+	bool abort_ramdump;
+	struct srcu_struct rd_srcu;
 };
 
 static int ramdump_open(struct inode *inode, struct file *filep)
@@ -140,7 +143,7 @@ static unsigned long offset_translate(loff_t user_offset,
 		*data_left);
 
 	if (rd_dev->segments[i].v_address)
-		*vaddr = rd_dev->segments[i].v_address + user_offset;
+		*vaddr = (void *) rd_dev->segments[i].v_address + user_offset;
 
 	return rd_dev->segments[i].address + user_offset;
 }
@@ -158,14 +161,25 @@ static ssize_t ramdump_read(struct file *filep, char __user *buf, size_t count,
 	size_t copy_size = 0, alignsize;
 	unsigned char *alignbuf = NULL, *finalbuf = NULL;
 	int ret = 0;
+	int srcu_idx;
 	loff_t orig_pos = *pos;
 
 	if ((filep->f_flags & O_NONBLOCK) && !entry->data_ready)
 		return -EAGAIN;
 
-	ret = wait_event_interruptible(rd_dev->dump_wait_q, entry->data_ready);
+	ret = wait_event_interruptible(rd_dev->dump_wait_q,
+				(entry->data_ready || rd_dev->abort_ramdump));
 	if (ret)
 		return ret;
+
+	srcu_idx = srcu_read_lock(&rd_dev->rd_srcu);
+
+	if (rd_dev->abort_ramdump) {
+		pr_err("Ramdump(%s): Ramdump aborted\n", rd_dev->name);
+		rd_dev->ramdump_status = -1;
+		ret = -ETIME;
+		goto ramdump_done;
+	}
 
 	if (*pos < rd_dev->elfcore_size) {
 		copy_size = rd_dev->elfcore_size - *pos;
@@ -178,8 +192,10 @@ static ssize_t ramdump_read(struct file *filep, char __user *buf, size_t count,
 		*pos += copy_size;
 		count -= copy_size;
 		buf += copy_size;
-		if (count == 0)
+		if (count == 0) {
+			srcu_read_unlock(&rd_dev->rd_srcu, srcu_idx);
 			return copy_size;
+		}
 	}
 
 	addr = offset_translate(*pos - rd_dev->elfcore_size, rd_dev,
@@ -197,9 +213,7 @@ static ssize_t ramdump_read(struct file *filep, char __user *buf, size_t count,
 	copy_size = min_t(size_t, count, (size_t)MAX_IOREMAP_SIZE);
 	copy_size = min_t(unsigned long, (unsigned long)copy_size, data_left);
 
-	device_mem = (void __iomem *) vaddr;
-	origdevice_mem = device_mem;
-
+	device_mem = vaddr ? : ioremap_wc(addr, copy_size);
 	if (device_mem == NULL) {
 		pr_err("Ramdump(%s): Virtual addr is NULL:addr %lx, size %zd\n",
 			rd_dev->name, addr, copy_size);
@@ -207,6 +221,8 @@ static ssize_t ramdump_read(struct file *filep, char __user *buf, size_t count,
 		ret = -ENOMEM;
 		goto ramdump_done;
 	}
+
+	origdevice_mem = device_mem;
 
 	alignbuf = kzalloc(copy_size, GFP_KERNEL);
 	if (!alignbuf) {
@@ -252,9 +268,12 @@ static ssize_t ramdump_read(struct file *filep, char __user *buf, size_t count,
 	pr_debug("Ramdump(%s): Read %zd bytes from address %lx.\n",
 			rd_dev->name, copy_size, addr);
 
+	srcu_read_unlock(&rd_dev->rd_srcu, srcu_idx);
+
 	return *pos - orig_pos;
 
 ramdump_done:
+	srcu_read_unlock(&rd_dev->rd_srcu, srcu_idx);
 	kfree(finalbuf);
 	*pos = 0;
 	reset_ramdump_entry(entry);
@@ -361,6 +380,7 @@ void *create_ramdump_device(const char *dev_name, struct device *parent)
 
 	mutex_init(&rd_dev->consumer_lock);
 	atomic_set(&rd_dev->readers_left, 0);
+	init_srcu_struct(&rd_dev->rd_srcu);
 	cdev_init(&rd_dev->cdev, &ramdump_file_ops);
 
 	ret = cdev_add(&rd_dev->cdev, MKDEV(MAJOR(ramdump_dev), minor), 1);
@@ -373,6 +393,7 @@ void *create_ramdump_device(const char *dev_name, struct device *parent)
 	return (void *)rd_dev;
 
 fail_cdev_add:
+	cleanup_srcu_struct(&rd_dev->rd_srcu);
 	mutex_destroy(&rd_dev->consumer_lock);
 	device_unregister(rd_dev->dev);
 fail_return_minor:
@@ -393,13 +414,14 @@ void destroy_ramdump_device(void *dev)
 
 	cdev_del(&rd_dev->cdev);
 	device_unregister(rd_dev->dev);
+	cleanup_srcu_struct(&rd_dev->rd_srcu);
 	ida_simple_remove(&rd_minor_id, minor);
 	kfree(rd_dev);
 }
 EXPORT_SYMBOL(destroy_ramdump_device);
 
 static int _do_ramdump(void *handle, struct ramdump_segment *segments,
-		int nsegments, bool use_elf)
+		int nsegments, bool use_elf, bool complete_ramdump)
 {
 	int ret, i;
 	struct ramdump_device *rd_dev = (struct ramdump_device *)handle;
@@ -427,7 +449,7 @@ static int _do_ramdump(void *handle, struct ramdump_segment *segments,
 		return -EPIPE;
 	}
 
-	if (rd_dev->complete_ramdump) {
+	if (complete_ramdump) {
 		for (i = 0; i < nsegments-1; i++)
 			segments[i].size =
 				segments[i + 1].address - segments[i].address;
@@ -473,6 +495,7 @@ static int _do_ramdump(void *handle, struct ramdump_segment *segments,
 	list_for_each_entry(entry, &rd_dev->consumer_list, list)
 		entry->data_ready = true;
 	rd_dev->ramdump_status = -1;
+	rd_dev->abort_ramdump = false;
 
 	reinit_completion(&rd_dev->ramdump_complete);
 	atomic_set(&rd_dev->readers_left, rd_dev->consumers);
@@ -489,6 +512,11 @@ static int _do_ramdump(void *handle, struct ramdump_segment *segments,
 		pr_err("Ramdump(%s): Timed out waiting for userspace.\n",
 			rd_dev->name);
 		ret = -EPIPE;
+		rd_dev->abort_ramdump = true;
+
+		/* Wait for pending readers to complete (if any) */
+		synchronize_srcu(&rd_dev->rd_srcu);
+
 	} else
 		ret = (rd_dev->ramdump_status == 0) ? 0 : -EPIPE;
 
@@ -500,19 +528,19 @@ static int _do_ramdump(void *handle, struct ramdump_segment *segments,
 }
 
 static inline unsigned int set_section_name(const char *name,
-					    struct elfhdr *ehdr)
+					    struct elfhdr *ehdr,
+					    int *strtable_idx)
 {
 	char *strtab = elf_str_table(ehdr);
-	static int strtable_idx = 1;
 	int idx, ret = 0;
 
-	idx = strtable_idx;
+	idx = *strtable_idx;
 	if ((strtab == NULL) || (name == NULL))
 		return 0;
 
 	ret = idx;
 	idx += strlcpy((strtab + idx), name, MAX_NAME_LENGTH);
-	strtable_idx = idx + 1;
+	*strtable_idx = idx + 1;
 
 	return ret;
 }
@@ -526,6 +554,7 @@ static int _do_minidump(void *handle, struct ramdump_segment *segments,
 	struct elfhdr *ehdr;
 	struct elf_shdr *shdr;
 	unsigned long offset, strtbl_off;
+	int strtable_idx = 1;
 
 	/*
 	 * Acquire the consumer lock here, and hold the lock until we are done
@@ -581,13 +610,14 @@ static int _do_minidump(void *handle, struct ramdump_segment *segments,
 	shdr->sh_size = MAX_STRTBL_SIZE;
 	shdr->sh_entsize = 0;
 	shdr->sh_flags = 0;
-	shdr->sh_name = set_section_name("STR_TBL", ehdr);
+	shdr->sh_name = set_section_name("STR_TBL", ehdr, &strtable_idx);
 	shdr++;
 
 	for (i = 0; i < nsegments; i++, shdr++) {
 		/* Update elf header */
 		shdr->sh_type = SHT_PROGBITS;
-		shdr->sh_name = set_section_name(segments[i].name, ehdr);
+		shdr->sh_name = set_section_name(segments[i].name, ehdr,
+							&strtable_idx);
 		shdr->sh_addr = (elf_addr_t)segments[i].address;
 		shdr->sh_size = segments[i].size;
 		shdr->sh_flags = SHF_WRITE;
@@ -600,6 +630,7 @@ static int _do_minidump(void *handle, struct ramdump_segment *segments,
 	list_for_each_entry(entry, &rd_dev->consumer_list, list)
 		entry->data_ready = true;
 	rd_dev->ramdump_status = -1;
+	rd_dev->abort_ramdump = false;
 
 	reinit_completion(&rd_dev->ramdump_complete);
 	atomic_set(&rd_dev->readers_left, rd_dev->consumers);
@@ -616,6 +647,10 @@ static int _do_minidump(void *handle, struct ramdump_segment *segments,
 		pr_err("Ramdump(%s): Timed out waiting for userspace.\n",
 		       rd_dev->name);
 		ret = -EPIPE;
+		rd_dev->abort_ramdump = true;
+
+		/* Wait for pending readers to complete (if any) */
+		synchronize_srcu(&rd_dev->rd_srcu);
 	} else {
 		ret = (rd_dev->ramdump_status == 0) ? 0 : -EPIPE;
 	}
@@ -628,7 +663,10 @@ static int _do_minidump(void *handle, struct ramdump_segment *segments,
 
 int do_ramdump(void *handle, struct ramdump_segment *segments, int nsegments)
 {
-	return _do_ramdump(handle, segments, nsegments, false);
+	struct ramdump_device *rd_dev = (struct ramdump_device *)handle;
+
+	return _do_ramdump(handle, segments, nsegments, false,
+				rd_dev->complete_ramdump);
 }
 EXPORT_SYMBOL(do_ramdump);
 
@@ -638,9 +676,19 @@ int do_minidump(void *handle, struct ramdump_segment *segments, int nsegments)
 }
 EXPORT_SYMBOL(do_minidump);
 
+int do_minidump_elf32(void *handle, struct ramdump_segment *segments,
+		      int nsegments)
+{
+	return _do_ramdump(handle, segments, nsegments, true, false);
+}
+EXPORT_SYMBOL(do_minidump_elf32);
+
 int
 do_elf_ramdump(void *handle, struct ramdump_segment *segments, int nsegments)
 {
-	return _do_ramdump(handle, segments, nsegments, true);
+	struct ramdump_device *rd_dev = (struct ramdump_device *)handle;
+
+	return _do_ramdump(handle, segments, nsegments, true,
+				rd_dev->complete_ramdump);
 }
 EXPORT_SYMBOL(do_elf_ramdump);

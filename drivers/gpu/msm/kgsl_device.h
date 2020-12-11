@@ -25,7 +25,8 @@
  * past its timer) and all system resources are released.  SUSPEND is	*
  * requested by the kernel and will be enforced upon all open devices.	*
  * RESET indicates that GPU or GMU hang happens. KGSL is handling	*
- * snapshot or recover GPU from hang.					*
+ * snapshot or recover GPU from hang. MINBW implies that DDR BW vote is	*
+ * set to non-zero minimum value.
  */
 
 #define KGSL_STATE_NONE		0x00000000
@@ -35,7 +36,7 @@
 #define KGSL_STATE_SUSPEND	0x00000010
 #define KGSL_STATE_AWARE	0x00000020
 #define KGSL_STATE_SLUMBER	0x00000080
-#define KGSL_STATE_RESET	0x00000100
+#define KGSL_STATE_MINBW	0x00000100
 
 /**
  * enum kgsl_event_results - result codes passed to an event callback when the
@@ -168,6 +169,10 @@ struct kgsl_functable {
 	int (*query_property_list)(struct kgsl_device *device, u32 *list,
 		u32 count);
 	bool (*is_hwcg_on)(struct kgsl_device *device);
+	/** @gpu_clock_set: Target specific function to set gpu frequency */
+	int (*gpu_clock_set)(struct kgsl_device *device, u32 pwrlevel);
+	/** @gpu_bus_set: Target specific function to set gpu bandwidth */
+	int (*gpu_bus_set)(struct kgsl_device *device, int bus_level, u32 ab);
 };
 
 struct kgsl_ioctl {
@@ -296,7 +301,7 @@ struct kgsl_device {
 
 	/* Number of active contexts seen globally for this device */
 	int active_context_count;
-	struct kobject *gpu_sysfs_kobj;
+	struct kobject gpu_sysfs_kobj;
 	struct clk *l3_clk;
 	unsigned int l3_freq[MAX_L3_LEVELS];
 	unsigned int num_l3_pwrlevels;
@@ -316,6 +321,8 @@ struct kgsl_device {
 	rwlock_t event_groups_lock;
 	/** @speed_bin: Speed bin for the GPU device if applicable */
 	u32 speed_bin;
+	/** @gmu_fault: Set when a gmu or rgmu fault is encountered */
+	bool gmu_fault;
 };
 
 #define KGSL_MMU_DEVICE(_mmu) \
@@ -367,6 +374,7 @@ struct kgsl_process_private;
  * across preemption
  * @total_fault_count: number of times gpu faulted in this context
  * @last_faulted_cmd_ts: last faulted command batch timestamp
+ * @gmu_registered: whether context is registered with gmu or not
  */
 struct kgsl_context {
 	struct kref refcount;
@@ -388,6 +396,12 @@ struct kgsl_context {
 	struct kgsl_mem_entry *user_ctxt_record;
 	unsigned int total_fault_count;
 	unsigned int last_faulted_cmd_ts;
+	bool gmu_registered;
+	/**
+	 * @gmu_dispatch_queue: dispatch queue id to which this context will be
+	 * submitted
+	 */
+	u32 gmu_dispatch_queue;
 };
 
 #define _context_comm(_c) \
@@ -481,7 +495,6 @@ struct kgsl_device_private {
  * @process: the process that caused the hang, if known.
  * @sysfs_read: Count of current reads via sysfs
  * @first_read: True until the snapshot read is started
- * @gmu_fault: Snapshot collected when GMU fault happened
  * @recovered: True if GPU was recovered after previous snapshot
  */
 struct kgsl_snapshot {
@@ -505,7 +518,6 @@ struct kgsl_snapshot {
 	struct kgsl_process_private *process;
 	unsigned int sysfs_read;
 	bool first_read;
-	bool gmu_fault;
 	bool recovered;
 	struct kgsl_device *device;
 };
@@ -589,11 +601,17 @@ static inline int kgsl_state_is_awake(struct kgsl_device *device)
 	if (device->state == KGSL_STATE_ACTIVE ||
 		device->state == KGSL_STATE_AWARE)
 		return true;
-	else if (gmu_core_isenabled(device) &&
-			test_bit(GMU_CLK_ON, &device->gmu_core.flags))
-		return true;
 	else
 		return false;
+}
+
+static inline bool kgsl_state_is_nap_or_minbw(struct kgsl_device *device)
+{
+	if (device->state == KGSL_STATE_NAP ||
+		device->state == KGSL_STATE_MINBW)
+		return true;
+
+	return false;
 }
 
 int kgsl_readtimestamp(struct kgsl_device *device, void *priv,

@@ -18,6 +18,9 @@
 #define QBT_ACQUIRE_WAKELOCK     107
 #define QBT_RELEASE_WAKELOCK     108
 
+#define QBT_GET_TOUCH_FD_VERSION  109
+#define QBT_CONFIGURE_TOUCH_FD_V2 110
+
 /*
  * enum qbt_finger_events -
  *      enumeration of qbt finger events
@@ -73,6 +76,40 @@ struct qbt_key_event {
  */
 struct qbt_touch_config {
 	_Bool rad_filter_enable;
+	int rad_x;
+	int rad_y;
+};
+
+/*
+ * struct qbt_touch_fd_version -
+ *		used to get touch finger detect version
+ * @version: version number
+ */
+struct qbt_touch_fd_version {
+	int version;
+};
+
+/*
+ * struct qbt_touch_config_v2 -
+ *		used to configure touch finger detect
+ * @version - touch FD version
+ * @touch_fd_enable - flag to enable/disable touch finger detect
+ * @rad_filter_enable - flag to enable/disable radius based filtering
+ * @left - x-coordinate of top left corner of AOI
+ * @top - y-coordinate of top left corner of AOI
+ * @right - x-coordinate of bottom right corner of AOI
+ * @bottom - y--coordinate of bottom right corner of AOI
+ * @rad_x: movement radius in x direction
+ * @rad_y: movement radius in y direction
+ */
+struct qbt_touch_config_v2 {
+	struct qbt_touch_fd_version version;
+	_Bool touch_fd_enable;
+	_Bool rad_filter_enable;
+	int left;
+	int top;
+	int right;
+	int bottom;
 	int rad_x;
 	int rad_y;
 };

@@ -593,7 +593,6 @@ enum shima_functions {
 	msm_mux_ddr_pxi1,
 	msm_mux_dp_hot,
 	msm_mux_dp_lcd,
-	msm_mux_forced_usb,
 	msm_mux_gcc_gp1,
 	msm_mux_gcc_gp2,
 	msm_mux_gcc_gp3,
@@ -714,8 +713,6 @@ enum shima_functions {
 	msm_mux_qup7,
 	msm_mux_qup8,
 	msm_mux_qup9,
-	msm_mux_qup_l0,
-	msm_mux_qup_l1,
 	msm_mux_qup_l4,
 	msm_mux_qup_l5,
 	msm_mux_qup_l6,
@@ -881,9 +878,6 @@ static const char * const dp_hot_groups[] = {
 };
 static const char * const dp_lcd_groups[] = {
 	"gpio83",
-};
-static const char * const forced_usb_groups[] = {
-	"gpio203",
 };
 static const char * const gcc_gp1_groups[] = {
 	"gpio115", "gpio129",
@@ -1246,12 +1240,6 @@ static const char * const qup8_groups[] = {
 static const char * const qup9_groups[] = {
 	"gpio60", "gpio61", "gpio62", "gpio63",
 };
-static const char * const qup_l0_groups[] = {
-	"gpio107",
-};
-static const char * const qup_l1_groups[] = {
-	"gpio108",
-};
 static const char * const qup_l4_groups[] = {
 	"gpio2", "gpio6", "gpio58",
 };
@@ -1445,9 +1433,7 @@ static const struct msm_function shima_functions[] = {
 	FUNCTION(cci_async),
 	FUNCTION(qdss_gpio6),
 	FUNCTION(cci_i2c),
-	FUNCTION(qup_l0),
 	FUNCTION(qdss_gpio7),
-	FUNCTION(qup_l1),
 	FUNCTION(qdss_gpio8),
 	FUNCTION(qdss_gpio),
 	FUNCTION(qdss_gpio9),
@@ -1526,7 +1512,6 @@ static const struct msm_function shima_functions[] = {
 	FUNCTION(host2wlan_sol),
 	FUNCTION(atest_usb00),
 	FUNCTION(atest_usb0),
-	FUNCTION(forced_usb),
 };
 
 /* Every pin is maintained as a single group, and missing or non-existing pin
@@ -1704,9 +1689,9 @@ static const struct msm_pingroup shima_groups[] = {
 			 0xCC014, 9),
 	[106] = PINGROUP(106, cci_async, NA, NA, qdss_gpio6, NA, NA, NA, NA,
 			 NA, 0, -1),
-	[107] = PINGROUP(107, cci_i2c, qup_l0, NA, qdss_gpio7, NA, NA, NA, NA,
+	[107] = PINGROUP(107, cci_i2c, NA, NA, qdss_gpio7, NA, NA, NA, NA,
 			 NA, 0xCC014, 10),
-	[108] = PINGROUP(108, cci_i2c, qup_l1, NA, qdss_gpio8, NA, NA, NA, NA,
+	[108] = PINGROUP(108, cci_i2c, NA, NA, qdss_gpio8, NA, NA, NA, NA,
 			 NA, 0, -1),
 	[109] = PINGROUP(109, cci_i2c, NA, NA, qdss_gpio, NA, NA, NA, NA, NA,
 			 0, -1),
@@ -1855,7 +1840,7 @@ static const struct msm_pingroup shima_groups[] = {
 			 NA, NA, 0, -1),
 	[202] = PINGROUP(202, atest_usb0, NA, NA, NA, NA, NA, NA, NA, NA,
 			 0xCC004, 12),
-	[203] = PINGROUP(203, forced_usb, NA, NA, NA, NA, NA, NA, NA, NA,
+	[203] = PINGROUP(203, NA, NA, NA, NA, NA, NA, NA, NA, NA,
 			 0, -1),
 	[204] = UFS_RESET(ufs_reset, 0x1db000),
 	[205] = SDC_QDSD_PINGROUP(sdc1_rclk, 0x1d0000, 15, 0),
@@ -1866,6 +1851,11 @@ static const struct msm_pingroup shima_groups[] = {
 	[210] = SDC_QDSD_PINGROUP(sdc2_cmd, 0x1d1000, 11, 3),
 	[211] = SDC_QDSD_PINGROUP(sdc2_data, 0x1d1000, 9, 0),
 };
+
+static const int shima_reserved_gpios[] = {
+	4, 5, 6, 7, 40, 41, 52, 53, 54, 55, 56, 57, 58, 59, -1
+};
+
 static struct pinctrl_qup shima_qup_regs[] = {
 	QUP_I3C(0, QUP_I3C_0_MODE_OFFSET),
 	QUP_I3C(1, QUP_I3C_1_MODE_OFFSET),
@@ -1874,20 +1864,24 @@ static struct pinctrl_qup shima_qup_regs[] = {
 };
 
 static const struct msm_gpio_wakeirq_map shima_pdc_map[] = {
-	{ 2, 103 }, { 3, 104 }, { 7, 82 }, { 10, 163 }, { 11, 83 },
+	{ 2, 103 }, { 3, 104 }, { 7, 82 }, { 10, 163 }, { 11, 83 }, { 14, 80 },
 	{ 15, 146 }, { 16, 155 }, { 17, 154 }, { 19, 121 }, { 23, 84 },
-	{ 26, 86 }, { 27, 75 }, { 31, 85 }, { 32, 95 }, { 34, 98 },
-	{ 36, 79 }, { 38, 99 }, { 39, 92 }, { 40, 101 }, { 43, 137 },
-	{ 45, 133 }, { 46, 96 }, { 47, 93 }, { 48, 127 }, { 50, 108 },
-	{ 56, 81 }, { 59, 112 }, { 60, 119 }, { 63, 73 }, { 66, 74 },
-	{ 80, 126 }, { 81, 139 }, { 82, 140 }, { 83, 141 }, { 84, 124 },
+	{ 25, 135}, { 26, 86 }, { 27, 75 }, { 31, 85 }, { 32, 95 }, { 34, 98 },
+	{ 35, 131}, { 36, 79 }, { 38, 99 }, { 39, 92 }, { 40, 101 },
+	{ 43, 137 }, { 44, 102 }, { 45, 133 }, { 46, 96 }, { 47, 93 },
+	{ 48, 127 }, { 50, 108 }, { 55, 128}, { 56, 81 }, { 59, 112 },
+	{ 60, 119 }, { 63, 73 }, { 66, 74 }, { 71, 134 }, { 80, 126 },
+	{ 81, 139 }, { 82, 140 }, { 83, 141 }, { 84, 124 }, { 86, 143 },
 	{ 87, 138 }, { 88, 122 }, { 89, 113 }, { 90, 114 }, { 91, 115 },
-	{ 93, 117 }, { 95, 147 }, { 96, 148 }, { 98, 149 }, { 99, 150 },
-	{ 105, 161 }, { 107, 160 }, { 110, 159 }, { 113, 158 }, { 114, 157 },
-	{ 116, 106 }, { 117, 105 }, { 118, 116 }, { 119, 123 }, { 130, 145 },
-	{ 136, 72 }, { 140, 100 }, { 151, 110 }, { 155, 107 }, { 156, 94 },
+	{ 92, 76 }, { 93, 117 }, { 95, 147 }, { 96, 148 }, { 98, 149 },
+	{ 99, 150 }, { 104, 162}, { 105, 161 }, { 107, 160 }, { 110, 159 },
+	{ 113, 158 }, { 114, 157 }, { 115, 125 }, { 116, 106 }, { 117, 105 },
+	{ 118, 116 }, { 119, 123 }, { 130, 145 }, { 132, 156 }, { 136, 72 },
+	{ 140, 100 }, { 151, 110 }, { 155, 107 }, { 156, 94 }, { 157, 111 },
 	{ 159, 118 }, { 162, 77 }, { 169, 70 }, { 172, 132 }, { 174, 87 },
-	{ 177, 89 }, { 179, 120 }, { 180, 129 }, { 183, 90 }, { 185, 136 },
+	{ 175, 88 }, { 177, 89 }, { 179, 120 }, { 180, 129 }, { 183, 90 },
+	{ 185, 136 }, { 187, 142 }, { 190, 144 }, { 192, 164 }, { 200, 166 },
+	{ 202, 165 },
 };
 
 static const struct msm_pinctrl_soc_data shima_pinctrl = {
@@ -1897,6 +1891,7 @@ static const struct msm_pinctrl_soc_data shima_pinctrl = {
 	.nfunctions = ARRAY_SIZE(shima_functions),
 	.groups = shima_groups,
 	.ngroups = ARRAY_SIZE(shima_groups),
+	.reserved_gpios = shima_reserved_gpios,
 	.ngpios = 205,
 	.qup_regs = shima_qup_regs,
 	.nqup_regs = ARRAY_SIZE(shima_qup_regs),

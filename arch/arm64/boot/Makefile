@@ -18,6 +18,21 @@ OBJCOPYFLAGS_Image :=-O binary -R .note -R .note.gnu.build-id -R .comment -S
 
 targets := Image Image.bz2 Image.gz Image.lz4 Image.lzma Image.lzo
 
+ifeq ($(CONFIG_QCOM_RTIC),y)
+# Add RTIC DTB to the DTB list if RTIC MPGen is enabled
+# Note, we keep this for compatibility with
+# BUILD_ARM64_APPENDED_DTB_IMAGE targets.
+# The rtic_mp.dts would be generated with the vmlinux if
+# MPGen enabled (RTIC_MPGEN defined).
+ifdef RTIC_MPGEN
+DTB_OBJS += rtic_mp.dtb
+endif
+
+rtic_mp.dtb: vmlinux FORCE
+	$(DTC) -O dtb -o rtic_mp.dtb -b 0 $(DTC_FLAGS) rtic_mp.dts
+
+endif
+
 $(obj)/Image: vmlinux FORCE
 	$(call if_changed,objcopy)
 

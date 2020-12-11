@@ -44,9 +44,12 @@ int retries;
 #define WAIT_UNTIL(cond)			\
 for (retries = 0; !(cond) && (retries < MAX_RETRIES); retries++)
 
+#define EXPECTED_UNWRAP_KEY_SIZE 68
+
 #define ICEMEM_SLAVE_TPKEY_VAL	0x192
 #define ICEMEM_SLAVE_TPKEY_SLOT	0x92
 #define KM_MASTER_TPKEY_SLOT	10
+#define BYTE_ORDER_VAL		8
 
 struct hwkm_clk_info {
 	struct list_head list;
@@ -434,15 +437,38 @@ static void deserialize_policy(struct hwkm_key_policy *out,
 	out->km_by_spu_allowed = policy->key_management_by_spu_allowed;
 }
 
-static void reverse_key(u8 *key, size_t keylen)
+
+static void reverse_bytes(u8 *bytes, size_t len)
 {
 	size_t left = 0;
 	size_t right = 0;
 
-	for (left = 0, right = keylen - 1; left < right; left++, right--) {
-		key[left] ^= key[right];
-		key[right] ^= key[left];
-		key[left] ^= key[right];
+	for (left = 0, right = len - 1; left < right; left++, right--) {
+		bytes[left] ^= bytes[right];
+		bytes[right] ^= bytes[left];
+		bytes[left] ^= bytes[right];
+	}
+}
+
+static void reorder_ctx(u8 *ctx, size_t ctxlen)
+{
+	int i = 0;
+	int len = 0;
+
+	len = ctxlen / BYTE_ORDER_VAL;
+
+	/* Reverse ctx at 8 byte boundary */
+	for (i = 0; i < len; i++)
+		reverse_bytes(ctx + i*BYTE_ORDER_VAL, BYTE_ORDER_VAL);
+
+	/*
+	 * If context is not a multiple of 8 bytes, reverse the last bytes
+	 * only. This simulates prepending the last 8 bytes with zeroes,
+	 * and then reversing the 8 bytes.
+	 */
+	if (ctxlen % BYTE_ORDER_VAL != 0) {
+		reverse_bytes(ctx + len*BYTE_ORDER_VAL,
+				ctxlen % BYTE_ORDER_VAL);
 	}
 }
 
@@ -472,6 +498,25 @@ static int qti_handle_key_unwrap_import(const struct hwkm_cmd *cmd_in,
 	};
 
 	pr_debug("%s: KEY_UNWRAP_IMPORT start\n", __func__);
+
+	if (cmd_in->unwrap.sz != EXPECTED_UNWRAP_KEY_SIZE) {
+		pr_err("%s: Invalid key size - %d\n", __func__,
+						cmd_in->unwrap.sz);
+		return -EINVAL;
+	}
+
+	/*
+	 * Unwrap in HWKM does not do an integrity check for the last byte
+	 * (68th byte) as it is a noop. However, we need to make sure no
+	 * part of the keyblob provided was tampered with, even though it
+	 * is a noop. Adding an explicit check for the last byte before
+	 * providing to unwrap command.
+	 */
+	if ((cmd_in->unwrap.wkb[EXPECTED_UNWRAP_KEY_SIZE - 1]) != 0x00) {
+		pr_err("%s: Last byte corrupted, expecting zero value\n",
+								__func__);
+		return -EINVAL;
+	}
 
 	memcpy(cmd, &operation, OPERATION_INFO_LENGTH);
 	memcpy(cmd + COMMAND_WRAPPED_KEY_IDX, cmd_in->unwrap.wkb,
@@ -532,8 +577,6 @@ static int qti_handle_keyslot_clear(const struct hwkm_cmd *cmd_in,
 
 	rsp_in->status = rsp[RESPONSE_ERR_IDX];
 	if (rsp_in->status) {
-		pr_err("%s: KEYSLOT_CLEAR error status 0x%x\n",
-				__func__, rsp_in->status);
 		return rsp_in->status;
 	}
 
@@ -584,6 +627,15 @@ static int qti_handle_system_kdf(const struct hwkm_cmd *cmd_in,
 
 	serialize_policy(&policy, &cmd_in->kdf.policy);
 
+	/*
+	 * If context is not a multiple of 8 bytes, but a multiple
+	 * of 4 bytes, add a zero word at the end, to have a context multiple
+	 * of 8 bytes. This is to facilitate the context reordering that will
+	 * happen later
+	 */
+	if ((cmd_in->kdf.sz) % BYTE_ORDER_VAL == (BYTE_ORDER_VAL/2))
+		operation.context_len += 1;
+
 	WRITE_TO_KDF_PACKET(cmd_ptr, &operation, OPERATION_INFO_LENGTH);
 	WRITE_TO_KDF_PACKET(cmd_ptr, &policy, KEY_POLICY_LENGTH);
 
@@ -593,10 +645,16 @@ static int qti_handle_system_kdf(const struct hwkm_cmd *cmd_in,
 		serialize_kdf_bsve(&bsve, &cmd_in->kdf.bsve, cmd_in->kdf.mks);
 		WRITE_TO_KDF_PACKET(cmd_ptr, &bsve, MAX_BSVE_LENGTH);
 	} else {
-		// Skip the remaining 3 bytes of the current word
-		cmd_ptr += 3 * (sizeof(u8));
+		// Skip 4 bytes to align to start of context.
+		cmd_ptr += 4 * (sizeof(u8));
 	}
 
+	/*
+	 * Reorder context to reverse context bytes at the 8 byte
+	 * boundary. This is because crypto lib reads at this
+	 * boundary when populating the AD.
+	 */
+	reorder_ctx((u8 *) cmd_in->kdf.ctx, cmd_in->kdf.sz);
 	WRITE_TO_KDF_PACKET(cmd_ptr, cmd_in->kdf.ctx, cmd_in->kdf.sz);
 
 	status = qti_hwkm_run_transaction(ICEMEM_SLAVE, cmd,
@@ -718,7 +776,7 @@ static int qti_handle_keyslot_rdwr(const struct hwkm_cmd *cmd_in,
 				cmd_in->rdwr.sz);
 		// Need to reverse the key because the HW expects it in reverse
 		// byte order
-		reverse_key((u8 *) (cmd + COMMAND_KEY_VALUE_IDX),
+		reverse_bytes((u8 *) (cmd + COMMAND_KEY_VALUE_IDX),
 				HWKM_MAX_KEY_SIZE);
 	}
 
@@ -744,7 +802,8 @@ static int qti_handle_keyslot_rdwr(const struct hwkm_cmd *cmd_in,
 			rsp + RESPONSE_KEY_VALUE_IDX, RESPONSE_KEY_LENGTH);
 		// Need to reverse the key because the HW returns it in
 		// reverse byte order
-		reverse_key(rsp_in->rdwr.key, HWKM_MAX_KEY_SIZE);
+		reverse_bytes(rsp_in->rdwr.key, HWKM_MAX_KEY_SIZE);
+		rsp_in->rdwr.sz = RESPONSE_KEY_LENGTH;
 		deserialize_policy(&rsp_in->rdwr.policy, &policy);
 	}
 

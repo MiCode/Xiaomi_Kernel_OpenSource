@@ -281,7 +281,6 @@ struct hh_mem_notify_req_payload {
 /* End Message ID headers */
 
 /* Common function declerations */
-int hh_rm_virq_to_linux_irq(u32 virq, u32 type, u32 trigger);
 int hh_update_vm_prop_table(enum hh_vm_names vm_name,
 			struct hh_vm_property *vm_prop);
 void *hh_rm_call(hh_rm_msgid_t message_id,

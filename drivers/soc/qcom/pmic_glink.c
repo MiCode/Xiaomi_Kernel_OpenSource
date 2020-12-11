@@ -314,6 +314,10 @@ int pmic_glink_write(struct pmic_glink_client *client, void *data,
 	rc = rpmsg_trysend(client->pgdev->rpdev->ept, data, len);
 	mutex_unlock(&client->lock);
 
+	if (rc < 0)
+		pr_err("Failed to send data [%*ph] for client %s, rc=%d\n",
+			len, data, client->name, rc);
+
 	if (!rc && client->pgdev->log_enable) {
 		struct pmic_glink_hdr *hdr = data;
 

@@ -62,16 +62,19 @@ drop_nopreempt_cpus(struct cpumask *lowest_mask)
 		cpu = cpumask_next(cpu, lowest_mask);
 	}
 }
-#endif
+#endif /* CONFIG_SCHED_WALT */
 
+#ifndef CONFIG_SCHED_WALT
 static inline int __cpupri_find(struct cpupri *cp, struct task_struct *p,
 				struct cpumask *lowest_mask, int idx)
+#else
+static inline int __cpupri_find(struct cpupri *cp, struct task_struct *p,
+				struct cpumask *lowest_mask, int idx,
+				bool drop_nopreempts)
+#endif
 {
 	struct cpupri_vec *vec  = &cp->pri_to_cpu[idx];
 	int skip = 0;
-#ifdef CONFIG_SCHED_WALT
-	bool drop_nopreempts = convert_prio(p->prio) <= MAX_RT_PRIO;
-#endif
 
 	if (!atomic_read(&(vec)->count))
 		skip = 1;
@@ -104,12 +107,13 @@ static inline int __cpupri_find(struct cpupri *cp, struct task_struct *p,
 
 	if (lowest_mask) {
 		cpumask_and(lowest_mask, p->cpus_ptr, vec->mask);
-#ifdef CONFIG_SCHED_WALT
-		cpumask_andnot(lowest_mask, lowest_mask,
-			       cpu_isolated_mask);
 
+#ifdef CONFIG_SCHED_WALT
 		if (drop_nopreempts)
 			drop_nopreempt_cpus(lowest_mask);
+
+		cpumask_andnot(lowest_mask, lowest_mask,
+			       cpu_isolated_mask);
 #endif
 		/*
 		 * We have to ensure that we have at least one bit
@@ -156,6 +160,10 @@ int cpupri_find_fitness(struct cpupri *cp, struct task_struct *p,
 	int task_pri = convert_prio(p->prio);
 	int idx, cpu;
 
+#ifdef CONFIG_SCHED_WALT
+	bool drop_nopreempts = task_pri <= MAX_RT_PRIO;
+#endif
+
 	BUG_ON(task_pri >= CPUPRI_NR_PRIORITIES);
 
 #ifdef CONFIG_SCHED_WALT
@@ -163,8 +171,12 @@ retry:
 #endif
 	for (idx = 0; idx < task_pri; idx++) {
 
+#ifndef CONFIG_SCHED_WALT
 		if (!__cpupri_find(cp, p, lowest_mask, idx))
+#else
+		if (!__cpupri_find(cp, p, lowest_mask, idx, drop_nopreempts))
 			continue;
+#endif
 
 		if (!lowest_mask || !fitness_fn)
 			return 1;

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _UAPI_MSM_KGSL_H
@@ -126,10 +126,10 @@
 /* --- Memory allocation flags --- */
 
 /* General allocation hints */
-#define KGSL_MEMFLAGS_SECURE      0x00000008ULL
-#define KGSL_MEMFLAGS_GPUREADONLY 0x01000000U
-#define KGSL_MEMFLAGS_GPUWRITEONLY 0x02000000U
-#define KGSL_MEMFLAGS_FORCE_32BIT 0x100000000ULL
+#define KGSL_MEMFLAGS_SECURE       (1ULL << 3)
+#define KGSL_MEMFLAGS_GPUREADONLY  (1ULL << 24)
+#define KGSL_MEMFLAGS_GPUWRITEONLY (1ULL << 25)
+#define KGSL_MEMFLAGS_FORCE_32BIT  (1ULL << 32)
 
 /* Flag for binding all the virt range to single phys data */
 #define KGSL_SPARSE_BIND_MULTIPLE_TO_PHYS 0x400000000ULL
@@ -145,10 +145,11 @@
 #define KGSL_CACHEMODE_WRITETHROUGH 2
 #define KGSL_CACHEMODE_WRITEBACK 3
 
-#define KGSL_MEMFLAGS_USE_CPU_MAP 0x10000000ULL
-#define KGSL_MEMFLAGS_SPARSE_PHYS 0x20000000ULL
-#define KGSL_MEMFLAGS_SPARSE_VIRT 0x40000000ULL
-#define KGSL_MEMFLAGS_IOCOHERENT  0x80000000ULL
+#define KGSL_MEMFLAGS_USE_CPU_MAP (1ULL << 28)
+#define KGSL_MEMFLAGS_SPARSE_PHYS (1ULL << 29)
+#define KGSL_MEMFLAGS_SPARSE_VIRT (1ULL << 30)
+#define KGSL_MEMFLAGS_IOCOHERENT  (1ULL << 31)
+#define KGSL_MEMFLAGS_GUARD_PAGE  (1ULL << 33)
 
 /* Memory types for which allocations are made */
 #define KGSL_MEMTYPE_MASK		0x0000FF00

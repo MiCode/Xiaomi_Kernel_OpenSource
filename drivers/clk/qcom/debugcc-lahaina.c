@@ -454,6 +454,14 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"measure_only_ipa_2x_clk",
 	"measure_only_memnoc_clk",
 	"measure_only_snoc_clk",
+	"pcie_0_pipe_clk",
+	"pcie_1_pipe_clk",
+	"ufs_card_rx_symbol_0_clk",
+	"ufs_card_rx_symbol_1_clk",
+	"ufs_card_tx_symbol_0_clk",
+	"ufs_phy_rx_symbol_0_clk",
+	"ufs_phy_rx_symbol_1_clk",
+	"ufs_phy_tx_symbol_0_clk",
 	"usb3_phy_wrapper_gcc_usb30_pipe_clk",
 	"usb3_uni_phy_sec_gcc_usb30_pipe_clk",
 	"video_cc_debug_mux",
@@ -591,6 +599,14 @@ static int gcc_debug_mux_sels[] = {
 	0x140,		/* measure_only_ipa_2x_clk */
 	0xCF,		/* measure_only_memnoc_clk */
 	0x9,		/* measure_only_snoc_clk */
+	0xFB,		/* pcie_0_pipe_clk */
+	0x104,		/* pcie_1_pipe_clk */
+	0x10B,		/* ufs_card_rx_symbol_0_clk */
+	0x110,		/* ufs_card_rx_symbol_1_clk */
+	0x10A,		/* ufs_card_tx_symbol_0_clk */
+	0x117,		/* ufs_phy_rx_symbol_0_clk */
+	0x11C,		/* ufs_phy_rx_symbol_1_clk */
+	0x116,		/* ufs_phy_tx_symbol_0_clk */
 	0x7C,		/* usb3_phy_wrapper_gcc_usb30_pipe_clk */
 	0x7D,		/* usb3_uni_phy_sec_gcc_usb30_pipe_clk */
 	0x5A,		/* video_cc_debug_mux */
@@ -900,13 +916,17 @@ static int clk_debug_lahaina_probe(struct platform_device *pdev)
 	debug_mux_priv.cxo = clk;
 
 	for (i = 0; i < ARRAY_SIZE(mux_list); i++) {
-		ret = map_debug_bases(pdev, mux_list[i].regmap_name,
-				      mux_list[i].mux);
-		if (ret == -EBADR)
-			continue;
-		else if (ret)
-			return ret;
+		if (IS_ERR_OR_NULL(mux_list[i].mux->regmap)) {
+			ret = map_debug_bases(pdev,
+				mux_list[i].regmap_name, mux_list[i].mux);
+			if (ret == -EBADR)
+				continue;
+			else if (ret)
+				return ret;
+		}
+	}
 
+	for (i = 0; i < ARRAY_SIZE(mux_list); i++) {
 		clk = devm_clk_register(&pdev->dev, &mux_list[i].mux->hw);
 		if (IS_ERR(clk)) {
 			dev_err(&pdev->dev, "Unable to register %s, err:(%d)\n",

@@ -8,7 +8,9 @@
 #include <linux/slab.h>
 #include <linux/kernel.h>
 #include <linux/bitops.h>
+#ifndef CVP_MDT_ENABLED
 #include <soc/qcom/subsystem_restart.h>
+#endif
 #include <asm/div64.h>
 #include "msm_cvp_common.h"
 #include "cvp_hfi_api.h"
@@ -402,6 +404,8 @@ int wait_for_sess_signal_receipt(struct msm_cvp_inst *inst,
 		call_hfi_op(hdev, flush_debug_queue, hdev->hfi_device_data);
 		dump_hfi_queue(hdev->hfi_device_data);
 		rc = -EIO;
+	} else if (inst->state == MSM_CVP_CORE_INVALID) {
+		rc = -ECONNRESET;
 	} else {
 		rc = 0;
 	}
@@ -623,11 +627,13 @@ static void handle_sys_error(enum hal_command_response cmd, void *data)
 	struct msm_cvp_core *core = NULL;
 	struct cvp_hfi_device *hdev = NULL;
 	struct msm_cvp_inst *inst = NULL;
-	int rc = 0;
+	int i, rc = 0;
 	unsigned long flags = 0;
 	enum cvp_core_state cur_state;
 
-	subsystem_crashed("cvpss");
+#ifndef CVP_MDT_ENABLED
+	subsystem_crashed("evass");
+#endif
 	if (!response) {
 		dprintk(CVP_ERR,
 			"Failed to get valid response for sys error\n");
@@ -663,6 +669,10 @@ static void handle_sys_error(enum hal_command_response cmd, void *data)
 				inst->cur_cmd_type, inst->state);
 		if (inst->state != MSM_CVP_CORE_INVALID) {
 			change_cvp_inst_state(inst, MSM_CVP_CORE_INVALID);
+			if (cvp_stop_clean_fence_queue(inst))
+				dprintk(CVP_ERR, "Failed to clean fences\n");
+			for (i = 0; i < ARRAY_SIZE(inst->completions); i++)
+				complete(&inst->completions[i]);
 			spin_lock_irqsave(&inst->event_handler.lock, flags);
 			inst->event_handler.event = CVP_SSR_EVENT;
 			spin_unlock_irqrestore(
@@ -1397,6 +1407,7 @@ void msm_cvp_ssr_handler(struct work_struct *work)
 		return;
 	}
 
+send_again:
 	mutex_lock(&core->lock);
 	if (core->state == CVP_CORE_INIT_DONE) {
 		dprintk(CVP_WARN, "%s: ssr type %d\n", __func__,
@@ -1411,6 +1422,13 @@ void msm_cvp_ssr_handler(struct work_struct *work)
 		rc = call_hfi_op(hdev, core_trigger_ssr,
 				hdev->hfi_device_data, core->ssr_type);
 		if (rc) {
+			if (rc == -EAGAIN) {
+				core->trigger_ssr = false;
+				mutex_unlock(&core->lock);
+				usleep_range(500, 1000);
+				dprintk(CVP_WARN, "Retry ssr\n");
+				goto send_again;
+			}
 			dprintk(CVP_ERR, "%s: trigger_ssr failed\n",
 				__func__);
 			core->trigger_ssr = false;
@@ -1593,7 +1611,8 @@ int cvp_comm_set_arp_buffers(struct msm_cvp_inst *inst)
 	return rc;
 
 error:
-	cvp_release_arp_buffers(inst);
+	if (rc != -ENOMEM)
+		cvp_release_arp_buffers(inst);
 	return rc;
 }
 

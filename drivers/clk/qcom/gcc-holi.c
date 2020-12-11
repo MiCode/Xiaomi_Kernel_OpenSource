@@ -19,7 +19,7 @@
 #include "clk-regmap-mux.h"
 #include "clk-regmap-divider.h"
 #include "reset.h"
-#include "vdd-level.h"
+#include "vdd-level-holi.h"
 
 static DEFINE_VDD_REGULATORS(vdd_cx, VDD_NUM, 1, vdd_corner);
 static DEFINE_VDD_REGULATORS(vdd_mx, VDD_NUM, 1, vdd_corner);
@@ -127,16 +127,17 @@ static struct clk_alpha_pll_postdiv gpll0_out_odd = {
 	},
 };
 
+/* 1152MHz Configuration */
 static const struct alpha_pll_config gpll10_config = {
 	.l = 0x3C,
-	.cal_l = 0x3C,
+	.cal_l = 0x36,
 	.alpha = 0x0,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002067,
 	.test_ctl_val = 0x40000000,
-	.test_ctl_hi_val = 0x00000000,
-	.user_ctl_val = 0x00000007,
-	.user_ctl_hi_val = 0x00004005,
+	.test_ctl_hi_val = 0x00000002,
+	.user_ctl_val = 0x00000001,
+	.user_ctl_hi_val = 0x00004805,
 };
 
 static struct clk_alpha_pll gpll10 = {
@@ -168,16 +169,17 @@ static struct clk_alpha_pll gpll10 = {
 	},
 };
 
+/* 532MHz Configuration */
 static const struct alpha_pll_config gpll11_config = {
 	.l = 0x1B,
-	.cal_l = 0x21,
+	.cal_l = 0x25,
 	.alpha = 0xB555,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002067,
 	.test_ctl_val = 0x40000000,
-	.test_ctl_hi_val = 0x00000000,
-	.user_ctl_val = 0x00000007,
-	.user_ctl_hi_val = 0x00004005,
+	.test_ctl_hi_val = 0x00000002,
+	.user_ctl_val = 0x00000001,
+	.user_ctl_hi_val = 0x00004805,
 };
 
 static struct clk_alpha_pll gpll11 = {
@@ -383,16 +385,17 @@ static struct clk_alpha_pll gpll7 = {
 	},
 };
 
+/* 420MHz Configuration */
 static const struct alpha_pll_config gpll8_config = {
-	.l = 0x1B,
-	.cal_l = 0x26,
-	.alpha = 0xC555,
+	.l = 0x15,
+	.cal_l = 0x2A,
+	.alpha = 0xE000,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002067,
 	.test_ctl_val = 0x40000000,
-	.test_ctl_hi_val = 0x00000000,
+	.test_ctl_hi_val = 0x00000002,
 	.user_ctl_val = 0x00000103,
-	.user_ctl_hi_val = 0x00004005,
+	.user_ctl_hi_val = 0x00004805,
 };
 
 static struct clk_alpha_pll gpll8 = {
@@ -447,11 +450,12 @@ static struct clk_alpha_pll_postdiv gpll8_out_even = {
 	},
 };
 
+/* 480MHz Configuration */
 static const struct alpha_pll_config gpll9_config = {
 	.l = 0x64,
 	.alpha = 0x0,
-	.config_ctl_hi_val = 0x000003D2,
-	.config_ctl_val = 0x20000AA8,
+	.config_ctl_hi_val = 0x400003D2,
+	.config_ctl_val = 0x20000800,
 	.test_ctl_val = 0x4000400,
 	.test_ctl_hi_val = 0x4000,
 	.post_div_val = 0x3 << 8,
@@ -988,6 +992,29 @@ static struct clk_rcg2 gcc_camss_csi2phytimer_clk_src = {
 	},
 };
 
+static struct clk_rcg2 gcc_camss_csi3phytimer_clk_src = {
+	.cmd_rcgr = 0x59054,
+	.mnd_width = 0,
+	.hid_width = 5,
+	.parent_map = gcc_parent_map_4,
+	.freq_tbl = ftbl_gcc_camss_csi0phytimer_clk_src,
+	.enable_safe_config = true,
+	.clkr.hw.init = &(struct clk_init_data){
+		.name = "gcc_camss_csi3phytimer_clk_src",
+		.parent_data = gcc_parent_data_4,
+		.num_parents = 7,
+		.ops = &clk_rcg2_ops,
+	},
+	.clkr.vdd_data = {
+		.vdd_class = &vdd_cx,
+		.num_rate_max = VDD_NUM,
+		.rate_max = (unsigned long[VDD_NUM]) {
+			[VDD_LOWER] = 19200000,
+			[VDD_LOW] = 200000000,
+			[VDD_NOMINAL] = 268800000},
+	},
+};
+
 static const struct freq_tbl ftbl_gcc_camss_mclk0_clk_src[] = {
 	F(19200000, P_BI_TCXO, 1, 0, 0),
 	F(24000000, P_GPLL9_OUT_MAIN, 1, 1, 20),
@@ -1134,8 +1161,8 @@ static const struct freq_tbl ftbl_gcc_camss_ope_clk_src[] = {
 	F(19200000, P_BI_TCXO, 1, 0, 0),
 	F(200000000, P_GPLL8_OUT_EVEN, 2, 0, 0),
 	F(266600000, P_GPLL8_OUT_EVEN, 1, 0, 0),
-	F(465000000, P_GPLL8_OUT_EVEN, 1, 0, 0),
-	F(580000000, P_GPLL8_OUT_MAIN, 1, 0, 0),
+	F(480000000, P_GPLL8_OUT_EVEN, 1, 0, 0),
+	F(580000000, P_GPLL8_OUT_EVEN, 1, 0, 0),
 	{ }
 };
 
@@ -1160,23 +1187,22 @@ static struct clk_rcg2 gcc_camss_ope_clk_src = {
 			[VDD_LOWER] = 19200000,
 			[VDD_LOW] = 200000000,
 			[VDD_LOW_L1] = 266600000,
-			[VDD_NOMINAL] = 465000000,
+			[VDD_NOMINAL] = 480000000,
 			[VDD_HIGH] = 580000000},
 	},
 };
 
 static const struct freq_tbl ftbl_gcc_camss_tfe_0_clk_src[] = {
 	F(19200000, P_BI_TCXO, 1, 0, 0),
-	F(128000000, P_GPLL10_OUT_EVEN, 9, 0, 0),
-	F(135529412, P_GPLL10_OUT_EVEN, 8.5, 0, 0),
-	F(144000000, P_GPLL10_OUT_EVEN, 8, 0, 0),
-	F(153600000, P_GPLL10_OUT_EVEN, 7.5, 0, 0),
-	F(164571429, P_GPLL10_OUT_EVEN, 7, 0, 0),
-	F(177230769, P_GPLL10_OUT_EVEN, 6.5, 0, 0),
-	F(192000000, P_GPLL10_OUT_EVEN, 6, 0, 0),
-	F(209454545, P_GPLL10_OUT_EVEN, 5.5, 0, 0),
-	F(230400000, P_GPLL10_OUT_EVEN, 5, 0, 0),
-	F(288000000, P_GPLL10_OUT_EVEN, 4, 0, 0),
+	F(120000000, P_GPLL0_OUT_MAIN, 5, 0, 0),
+	F(133333333, P_GPLL0_OUT_MAIN, 4.5, 0, 0),
+	F(137142857, P_GPLL9_OUT_MAIN, 3.5, 0, 0),
+	F(150000000, P_GPLL0_OUT_MAIN, 4, 0, 0),
+	F(160000000, P_GPLL9_OUT_MAIN, 3, 0, 0),
+	F(171428571, P_GPLL0_OUT_MAIN, 3.5, 0, 0),
+	F(192000000, P_GPLL9_OUT_MAIN, 2.5, 0, 0),
+	F(200000000, P_GPLL0_OUT_MAIN, 3, 0, 0),
+	F(240000000, P_GPLL0_OUT_MAIN, 2.5, 0, 0),
 	F(300000000, P_GPLL0_OUT_MAIN, 2, 0, 0),
 	F(329142857, P_GPLL10_OUT_EVEN, 3.5, 0, 0),
 	F(384000000, P_GPLL10_OUT_EVEN, 3, 0, 0),
@@ -2301,7 +2327,7 @@ static struct clk_branch gcc_cam_throttle_rt_clk = {
 
 static struct clk_branch gcc_camera_ahb_clk = {
 	.halt_reg = 0x17008,
-	.halt_check = BRANCH_HALT_VOTED,
+	.halt_check = BRANCH_HALT_DELAY,
 	.hwcg_reg = 0x17008,
 	.hwcg_bit = 1,
 	.clkr = {
@@ -2539,6 +2565,24 @@ static struct clk_branch gcc_camss_csi2phytimer_clk = {
 	},
 };
 
+static struct clk_branch gcc_camss_csi3phytimer_clk = {
+	.halt_reg = 0x5906c,
+	.halt_check = BRANCH_HALT,
+	.clkr = {
+		.enable_reg = 0x5906c,
+		.enable_mask = BIT(0),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_camss_csi3phytimer_clk",
+			.parent_data = &(const struct clk_parent_data){
+				.hw = &gcc_camss_csi3phytimer_clk_src.clkr.hw,
+			},
+			.num_parents = 1,
+			.flags = CLK_SET_RATE_PARENT,
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
 static struct clk_branch gcc_camss_mclk0_clk = {
 	.halt_reg = 0x51018,
 	.halt_check = BRANCH_HALT,
@@ -2603,6 +2647,24 @@ static struct clk_branch gcc_camss_mclk3_clk = {
 			.name = "gcc_camss_mclk3_clk",
 			.parent_data = &(const struct clk_parent_data){
 				.hw = &gcc_camss_mclk3_clk_src.clkr.hw,
+			},
+			.num_parents = 1,
+			.flags = CLK_SET_RATE_PARENT,
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
+static struct clk_branch gcc_camss_mclk4_clk = {
+	.halt_reg = 0x51088,
+	.halt_check = BRANCH_HALT,
+	.clkr = {
+		.enable_reg = 0x51088,
+		.enable_mask = BIT(0),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_camss_mclk4_clk",
+			.parent_data = &(const struct clk_parent_data){
+				.hw = &gcc_camss_mclk4_clk_src.clkr.hw,
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
@@ -2905,6 +2967,19 @@ static struct clk_branch gcc_disp_ahb_clk = {
 	},
 };
 
+static struct clk_regmap_div gcc_disp_gpll0_clk_src = {
+	.reg = 0x17058,
+	.shift = 0,
+	.width = 2,
+	.clkr.hw.init = &(struct clk_init_data) {
+		.name = "gcc_disp_gpll0_clk_src",
+		.parent_names =
+			(const char *[]){ "gpll0" },
+		.num_parents = 1,
+		.ops = &clk_regmap_div_ops,
+	},
+};
+
 static struct clk_branch gcc_disp_gpll0_div_clk_src = {
 	.halt_check = BRANCH_HALT_DELAY,
 	.clkr = {
@@ -2913,7 +2988,7 @@ static struct clk_branch gcc_disp_gpll0_div_clk_src = {
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_disp_gpll0_div_clk_src",
 			.parent_data = &(const struct clk_parent_data){
-				.hw = &gpll0.clkr.hw,
+				.hw = &gcc_disp_gpll0_clk_src.clkr.hw,
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
@@ -3097,6 +3172,7 @@ static struct clk_branch gcc_gpu_memnoc_gfx_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_gpu_memnoc_gfx_clk",
+			.flags = CLK_DONT_HOLD_STATE,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -3905,6 +3981,32 @@ static struct clk_branch gcc_usb30_prim_sleep_clk = {
 	},
 };
 
+static struct clk_branch gcc_ufs_mem_clkref_clk = {
+	.halt_reg = 0x8c000,
+	.halt_check = BRANCH_HALT,
+	.clkr = {
+		.enable_reg = 0x8c000,
+		.enable_mask = BIT(0),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_ufs_mem_clkref_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
+static struct clk_branch gcc_rx5_pcie_clkref_en_clk = {
+	.halt_reg = 0x8c00c,
+	.halt_check = BRANCH_HALT,
+	.clkr = {
+		.enable_reg = 0x8c00c,
+		.enable_mask = BIT(0),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_rx5_pcie_clkref_en_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
 static struct clk_branch gcc_usb3_prim_clkref_clk = {
 	.halt_reg = 0x8c010,
 	.halt_check = BRANCH_HALT,
@@ -3992,7 +4094,7 @@ static struct clk_branch gcc_venus_ctl_axi_clk = {
 
 static struct clk_branch gcc_video_ahb_clk = {
 	.halt_reg = 0x17004,
-	.halt_check = BRANCH_HALT_VOTED,
+	.halt_check = BRANCH_HALT_DELAY,
 	.hwcg_reg = 0x17004,
 	.hwcg_bit = 1,
 	.clkr = {
@@ -4114,6 +4216,8 @@ static struct clk_regmap *gcc_holi_clocks[] = {
 	[GCC_CAMSS_CSI1PHYTIMER_CLK_SRC] = &gcc_camss_csi1phytimer_clk_src.clkr,
 	[GCC_CAMSS_CSI2PHYTIMER_CLK] = &gcc_camss_csi2phytimer_clk.clkr,
 	[GCC_CAMSS_CSI2PHYTIMER_CLK_SRC] = &gcc_camss_csi2phytimer_clk_src.clkr,
+	[GCC_CAMSS_CSI3PHYTIMER_CLK] = &gcc_camss_csi3phytimer_clk.clkr,
+	[GCC_CAMSS_CSI3PHYTIMER_CLK_SRC] = &gcc_camss_csi3phytimer_clk_src.clkr,
 	[GCC_CAMSS_MCLK0_CLK] = &gcc_camss_mclk0_clk.clkr,
 	[GCC_CAMSS_MCLK0_CLK_SRC] = &gcc_camss_mclk0_clk_src.clkr,
 	[GCC_CAMSS_MCLK1_CLK] = &gcc_camss_mclk1_clk.clkr,
@@ -4122,6 +4226,7 @@ static struct clk_regmap *gcc_holi_clocks[] = {
 	[GCC_CAMSS_MCLK2_CLK_SRC] = &gcc_camss_mclk2_clk_src.clkr,
 	[GCC_CAMSS_MCLK3_CLK] = &gcc_camss_mclk3_clk.clkr,
 	[GCC_CAMSS_MCLK3_CLK_SRC] = &gcc_camss_mclk3_clk_src.clkr,
+	[GCC_CAMSS_MCLK4_CLK] = &gcc_camss_mclk4_clk.clkr,
 	[GCC_CAMSS_MCLK4_CLK_SRC] = &gcc_camss_mclk4_clk_src.clkr,
 	[GCC_CAMSS_NRT_AXI_CLK] = &gcc_camss_nrt_axi_clk.clkr,
 	[GCC_CAMSS_OPE_AHB_CLK] = &gcc_camss_ope_ahb_clk.clkr,
@@ -4152,6 +4257,7 @@ static struct clk_regmap *gcc_holi_clocks[] = {
 	[GCC_CPUSS_AHB_POSTDIV_CLK_SRC] = &gcc_cpuss_ahb_postdiv_clk_src.clkr,
 	[GCC_CPUSS_GNOC_CLK] = &gcc_cpuss_gnoc_clk.clkr,
 	[GCC_DISP_AHB_CLK] = &gcc_disp_ahb_clk.clkr,
+	[GCC_DISP_GPLL0_CLK_SRC] = &gcc_disp_gpll0_clk_src.clkr,
 	[GCC_DISP_GPLL0_DIV_CLK_SRC] = &gcc_disp_gpll0_div_clk_src.clkr,
 	[GCC_DISP_HF_AXI_CLK] = &gcc_disp_hf_axi_clk.clkr,
 	[GCC_DISP_SLEEP_CLK] = &gcc_disp_sleep_clk.clkr,
@@ -4256,6 +4362,8 @@ static struct clk_regmap *gcc_holi_clocks[] = {
 	[GCC_VIDEO_VENUS_CLK_SRC] = &gcc_video_venus_clk_src.clkr,
 	[GCC_VIDEO_VENUS_CTL_CLK] = &gcc_video_venus_ctl_clk.clkr,
 	[GCC_VIDEO_XO_CLK] = &gcc_video_xo_clk.clkr,
+	[GCC_UFS_MEM_CLKREF_CLK] = &gcc_ufs_mem_clkref_clk.clkr,
+	[GCC_RX5_PCIE_CLKREF_EN_CLK] = &gcc_rx5_pcie_clkref_en_clk.clkr,
 	[GPLL0] = &gpll0.clkr,
 	[GPLL0_OUT_EVEN] = &gpll0_out_even.clkr,
 	[GPLL0_OUT_ODD] = &gpll0_out_odd.clkr,
@@ -4290,6 +4398,8 @@ static const struct qcom_reset_map gcc_holi_resets[] = {
 	[GCC_SDCC2_BCR] = { 0x1e000 },
 	[GCC_UFS_PHY_BCR] = { 0x45000 },
 	[GCC_USB30_PRIM_BCR] = { 0x1a000 },
+	[GCC_USB3_DP_PHY_PRIM_BCR] = { 0x1b020 },
+	[GCC_USB3_PHY_PRIM_SP0_BCR] = { 0x1b000 },
 	[GCC_USB_PHY_CFG_AHB2PHY_BCR] = { 0x1d000 },
 	[GCC_VCODEC0_BCR] = { 0x58094 },
 	[GCC_VENUS_BCR] = { 0x58078 },
@@ -4362,6 +4472,9 @@ static int gcc_holi_probe(struct platform_device *pdev)
 	regmap = qcom_cc_map(pdev, &gcc_holi_desc);
 	if (IS_ERR(regmap))
 		return PTR_ERR(regmap);
+
+	/* GCC_DISP_GPLL0_CDIVR__CLK_DIV */
+	regmap_update_bits(regmap, 0x17058, 0x1, 0x1);
 
 	clk_fabia_pll_configure(&gpll10, regmap, &gpll10_config);
 	clk_fabia_pll_configure(&gpll11, regmap, &gpll11_config);

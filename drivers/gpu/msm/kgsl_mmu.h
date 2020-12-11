@@ -128,6 +128,12 @@ enum kgsl_mmu_feature {
 	KGSL_MMU_LLCC_ENABLE,
 	/** @KGSL_MMU_SMMU_APERTURE: Set the SMMU aperture */
 	KGSL_MMU_SMMU_APERTURE,
+	/** @KGSL_MMU_SPLIT_TABLES_GC: Split pagetables are enabled for GC */
+	KGSL_MMU_SPLIT_TABLES_GC,
+	/**
+	 * @KGSL_MMU_SPLIT_TABLES_LPAC: Split pagetables are enabled for LPAC
+	 */
+	KGSL_MMU_SPLIT_TABLES_LPAC,
 };
 
 /**

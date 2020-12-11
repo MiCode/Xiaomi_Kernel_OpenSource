@@ -10,6 +10,9 @@ static int _get_pkt_hdr_from_user(struct cvp_kmd_arg __user *up,
 		struct cvp_hal_session_cmd_pkt *pkt_hdr)
 {
 	struct cvp_kmd_hfi_packet *u;
+	struct cvp_hfi_msg_session_hdr *hdr;
+
+	hdr = (struct cvp_hfi_msg_session_hdr *)pkt_hdr;
 
 	u = &up->data.hfi_pkt;
 
@@ -33,7 +36,7 @@ static int _get_pkt_hdr_from_user(struct cvp_kmd_arg __user *up,
 	return 0;
 
 set_default_pkt_hdr:
-	pkt_hdr->size = get_msg_size();
+	pkt_hdr->size = get_msg_size(hdr);
 	return 0;
 }
 
@@ -451,7 +454,7 @@ static int _put_user_session_info(
 static int convert_to_user(struct cvp_kmd_arg *kp, unsigned long arg)
 {
 	int rc = 0;
-	int i, size = get_msg_size() >> 2;
+	int i, size;
 	struct cvp_kmd_arg __user *up = (struct cvp_kmd_arg *)arg;
 	struct cvp_hal_session_cmd_pkt pkt_hdr;
 
@@ -467,9 +470,12 @@ static int convert_to_user(struct cvp_kmd_arg *kp, unsigned long arg)
 	case CVP_KMD_RECEIVE_MSG_PKT:
 	{
 		struct cvp_kmd_hfi_packet *k, *u;
+		struct cvp_hfi_msg_session_hdr *hdr;
 
 		k = &kp->data.hfi_pkt;
 		u = &up->data.hfi_pkt;
+		hdr = (struct cvp_hfi_msg_session_hdr *)k;
+		size = get_msg_size(hdr) >> 2;
 		for (i = 0; i < size; i++)
 			if (put_user(k->pkt_data[i], &u->pkt_data[i]))
 				return -EFAULT;

@@ -9,6 +9,7 @@
 #include <media/msm_media_info.h>
 #include "cvp_hfi_helper.h"
 #include "cvp_hfi_api.h"
+#include "cvp_comm_def.h"
 
 #define HFI_CMD_SESSION_CVP_START	\
 	(HFI_DOMAIN_BASE_CVP + HFI_ARCH_COMMON_OFFSET +	\
@@ -146,8 +147,10 @@
 	(HFI_MSG_SESSION_CVP_START + 0x037)
 #define HFI_MSG_SESSION_CVP_RELEASE_PERSIST_BUFFERS\
 	(HFI_MSG_SESSION_CVP_START + 0x038)
-#define HFI_MSG_SESSION_CVP_FLUSH\
+#define HFI_MSG_SESSION_CVP_FLUSH_DEPRECATE\
 	(HFI_CMD_SESSION_CVP_START + 0x03A)
+#define HFI_MSG_SESSION_CVP_FLUSH\
+	(HFI_MSG_SESSION_CVP_START + 0x03A)
 
 #define CVP_IFACEQ_MAX_PKT_SIZE       1024
 #define CVP_IFACEQ_MED_PKT_SIZE       768
@@ -197,7 +200,11 @@ struct cvp_hal_session {
 };
 
 struct msm_cvp_fw {
+#ifdef CVP_MDT_ENABLED
+	int cookie;
+#else
 	void *cookie;
+#endif
 };
 
 int cvp_hfi_process_msg_packet(u32 device_id,

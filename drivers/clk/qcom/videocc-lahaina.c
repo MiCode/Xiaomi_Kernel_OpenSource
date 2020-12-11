@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -10,6 +10,7 @@
 #include <linux/of_device.h>
 #include <linux/of.h>
 #include <linux/regmap.h>
+#include <linux/pm_runtime.h>
 
 #include <dt-bindings/clock/qcom,videocc-lahaina.h>
 
@@ -24,8 +25,13 @@
 #include "reset.h"
 #include "vdd-level.h"
 
-static DEFINE_VDD_REGULATORS(vdd_mm, VDD_NUM, 1, vdd_corner);
-static DEFINE_VDD_REGULATORS(vdd_mx, VDD_NUM, 1, vdd_corner);
+static DEFINE_VDD_REGULATORS(vdd_mm, VDD_NOMINAL + 1, 1, vdd_corner);
+static DEFINE_VDD_REGULATORS(vdd_mx, VDD_NOMINAL + 1, 1, vdd_corner);
+
+static struct clk_vdd_class *video_cc_lahaina_regulators[] = {
+	&vdd_mm,
+	&vdd_mx
+};
 
 enum {
 	P_BI_TCXO,
@@ -36,7 +42,7 @@ enum {
 };
 
 static struct pll_vco lucid_5lpe_vco[] = {
-	{ 249600000, 2000000000, 0 },
+	{ 249600000, 1750000000, 0 },
 };
 
 static const struct alpha_pll_config video_pll0_config = {
@@ -45,7 +51,10 @@ static const struct alpha_pll_config video_pll0_config = {
 	.alpha = 0x8000,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002261,
-	.config_ctl_hi1_val = 0x029A699C,
+	.config_ctl_hi1_val = 0x2A9A699C,
+	.test_ctl_val = 0x00000000,
+	.test_ctl_hi_val = 0x00000000,
+	.test_ctl_hi1_val = 0x01800000,
 	.user_ctl_val = 0x00000000,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x00000000,
@@ -72,8 +81,8 @@ static struct clk_alpha_pll video_pll0 = {
 			.rate_max = (unsigned long[VDD_NUM]) {
 				[VDD_MIN] = 615000000,
 				[VDD_LOW] = 1066000000,
-				[VDD_LOW_L1] = 1600000000,
-				[VDD_NOMINAL] = 2000000000},
+				[VDD_LOW_L1] = 1500000000,
+				[VDD_NOMINAL] = 1750000000},
 		},
 	},
 };
@@ -84,7 +93,10 @@ static const struct alpha_pll_config video_pll1_config = {
 	.alpha = 0xC000,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002261,
-	.config_ctl_hi1_val = 0x029A699C,
+	.config_ctl_hi1_val = 0x2A9A699C,
+	.test_ctl_val = 0x00000000,
+	.test_ctl_hi_val = 0x00000000,
+	.test_ctl_hi1_val = 0x01800000,
 	.user_ctl_val = 0x00000000,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x00000000,
@@ -111,8 +123,8 @@ static struct clk_alpha_pll video_pll1 = {
 			.rate_max = (unsigned long[VDD_NUM]) {
 				[VDD_MIN] = 615000000,
 				[VDD_LOW] = 1066000000,
-				[VDD_LOW_L1] = 1600000000,
-				[VDD_NOMINAL] = 2000000000},
+				[VDD_LOW_L1] = 1500000000,
+				[VDD_NOMINAL] = 1750000000},
 		},
 	},
 };
@@ -350,26 +362,6 @@ static struct clk_regmap_div video_cc_mvs1c_div2_div_clk_src = {
 	},
 };
 
-static struct clk_branch video_cc_ahb_clk = {
-	.halt_reg = 0xe58,
-	.halt_check = BRANCH_HALT,
-	.hwcg_reg = 0xe58,
-	.hwcg_bit = 1,
-	.clkr = {
-		.enable_reg = 0xe58,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "video_cc_ahb_clk",
-			.parent_data = &(const struct clk_parent_data){
-				.hw = &video_cc_ahb_clk_src.clkr.hw,
-			},
-			.num_parents = 1,
-			.flags = CLK_IS_CRITICAL | CLK_SET_RATE_PARENT,
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
 static struct clk_branch video_cc_mvs0_clk = {
 	.halt_reg = 0xd34,
 	.halt_check = BRANCH_HALT_VOTED,
@@ -450,7 +442,7 @@ static struct clk_branch video_cc_mvs1_div2_clk = {
 
 static struct clk_branch video_cc_mvs1c_clk = {
 	.halt_reg = 0xcd4,
-	.halt_check = BRANCH_HALT_VOTED,
+	.halt_check = BRANCH_HALT,
 	.clkr = {
 		.enable_reg = 0xcd4,
 		.enable_mask = BIT(0),
@@ -484,26 +476,7 @@ static struct clk_branch video_cc_sleep_clk = {
 	},
 };
 
-static struct clk_branch video_cc_xo_clk = {
-	.halt_reg = 0xeec,
-	.halt_check = BRANCH_HALT,
-	.clkr = {
-		.enable_reg = 0xeec,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "video_cc_xo_clk",
-			.parent_data = &(const struct clk_parent_data){
-				.hw = &video_cc_xo_clk_src.clkr.hw,
-			},
-			.num_parents = 1,
-			.flags = CLK_IS_CRITICAL | CLK_SET_RATE_PARENT,
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
 static struct clk_regmap *video_cc_lahaina_clocks[] = {
-	[VIDEO_CC_AHB_CLK] = &video_cc_ahb_clk.clkr,
 	[VIDEO_CC_AHB_CLK_SRC] = &video_cc_ahb_clk_src.clkr,
 	[VIDEO_CC_MVS0_CLK] = &video_cc_mvs0_clk.clkr,
 	[VIDEO_CC_MVS0_CLK_SRC] = &video_cc_mvs0_clk_src.clkr,
@@ -520,7 +493,6 @@ static struct clk_regmap *video_cc_lahaina_clocks[] = {
 		&video_cc_mvs1c_div2_div_clk_src.clkr,
 	[VIDEO_CC_SLEEP_CLK] = &video_cc_sleep_clk.clkr,
 	[VIDEO_CC_SLEEP_CLK_SRC] = &video_cc_sleep_clk_src.clkr,
-	[VIDEO_CC_XO_CLK] = &video_cc_xo_clk.clkr,
 	[VIDEO_CC_XO_CLK_SRC] = &video_cc_xo_clk_src.clkr,
 	[VIDEO_PLL0] = &video_pll0.clkr,
 	[VIDEO_PLL1] = &video_pll1.clkr,
@@ -544,12 +516,14 @@ static const struct regmap_config video_cc_lahaina_regmap_config = {
 	.fast_io = true,
 };
 
-static const struct qcom_cc_desc video_cc_lahaina_desc = {
+static struct qcom_cc_desc video_cc_lahaina_desc = {
 	.config = &video_cc_lahaina_regmap_config,
 	.clks = video_cc_lahaina_clocks,
 	.num_clks = ARRAY_SIZE(video_cc_lahaina_clocks),
 	.resets = video_cc_lahaina_resets,
 	.num_resets = ARRAY_SIZE(video_cc_lahaina_resets),
+	.clk_regulators = video_cc_lahaina_regulators,
+	.num_clk_regulators = ARRAY_SIZE(video_cc_lahaina_regulators),
 };
 
 static const struct of_device_id video_cc_lahaina_match_table[] = {
@@ -561,37 +535,30 @@ MODULE_DEVICE_TABLE(of, video_cc_lahaina_match_table);
 static int video_cc_lahaina_probe(struct platform_device *pdev)
 {
 	struct regmap *regmap;
-	struct clk *clk;
 	int ret;
-
-	vdd_mm.regulator[0] = devm_regulator_get(&pdev->dev, "vdd_mm");
-	if (IS_ERR(vdd_mm.regulator[0])) {
-		if (PTR_ERR(vdd_mm.regulator[0]) != -EPROBE_DEFER)
-			dev_err(&pdev->dev, "Unable to get vdd_mm regulator\n");
-		return PTR_ERR(vdd_mm.regulator[0]);
-	}
-
-	vdd_mx.regulator[0] = devm_regulator_get(&pdev->dev, "vdd_mx");
-	if (IS_ERR(vdd_mx.regulator[0])) {
-		if (PTR_ERR(vdd_mx.regulator[0]) != -EPROBE_DEFER)
-			dev_err(&pdev->dev, "Unable to get vdd_mx regulator\n");
-		return PTR_ERR(vdd_mx.regulator[0]);
-	}
 
 	regmap = qcom_cc_map(pdev, &video_cc_lahaina_desc);
 	if (IS_ERR(regmap))
 		return PTR_ERR(regmap);
 
-	clk = devm_clk_get(&pdev->dev, "cfg_ahb_clk");
-	if (IS_ERR(clk)) {
-		if (PTR_ERR(clk) != -EPROBE_DEFER)
-			dev_err(&pdev->dev, "Unable to get ahb clock handle\n");
-		return PTR_ERR(clk);
-	}
-	devm_clk_put(&pdev->dev, clk);
+	ret = qcom_cc_runtime_init(pdev, &video_cc_lahaina_desc);
+	if (ret)
+		return ret;
+
+	ret = pm_runtime_get_sync(&pdev->dev);
+	if (ret)
+		return ret;
 
 	clk_lucid_5lpe_pll_configure(&video_pll0, regmap, &video_pll0_config);
 	clk_lucid_5lpe_pll_configure(&video_pll1, regmap, &video_pll1_config);
+
+	/*
+	 * Keep clocks always enabled:
+	 *	video_cc_ahb_clk
+	 *	video_cc_xo_clk
+	 */
+	regmap_update_bits(regmap, 0xe58, BIT(0), BIT(0));
+	regmap_update_bits(regmap, 0xeec, BIT(0), BIT(0));
 
 	ret = qcom_cc_really_probe(pdev, &video_cc_lahaina_desc, regmap);
 	if (ret) {
@@ -599,6 +566,7 @@ static int video_cc_lahaina_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	pm_runtime_put_sync(&pdev->dev);
 	dev_info(&pdev->dev, "Registered VIDEO CC clocks\n");
 
 	return ret;
@@ -609,12 +577,17 @@ static void video_cc_lahaina_sync_state(struct device *dev)
 	qcom_cc_sync_state(dev, &video_cc_lahaina_desc);
 }
 
+static const struct dev_pm_ops video_cc_lahaina_pm_ops = {
+	SET_RUNTIME_PM_OPS(qcom_cc_runtime_suspend, qcom_cc_runtime_resume, NULL)
+};
+
 static struct platform_driver video_cc_lahaina_driver = {
 	.probe = video_cc_lahaina_probe,
 	.driver = {
 		.name = "video_cc-lahaina",
 		.of_match_table = video_cc_lahaina_match_table,
 		.sync_state = video_cc_lahaina_sync_state,
+		.pm = &video_cc_lahaina_pm_ops,
 	},
 };
 

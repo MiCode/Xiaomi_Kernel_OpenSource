@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/ctype.h>
@@ -691,7 +691,7 @@ static ssize_t profile_assignments_write(struct file *filep,
 		goto error_unlock;
 	}
 
-	ret = adreno_perfcntr_active_oob_get(device);
+	ret = adreno_perfcntr_active_oob_get(adreno_dev);
 	if (ret) {
 		size = ret;
 		goto error_unlock;
@@ -738,7 +738,7 @@ static ssize_t profile_assignments_write(struct file *filep,
 	size = len;
 
 error_put:
-	adreno_perfcntr_active_oob_put(device);
+	adreno_perfcntr_active_oob_put(adreno_dev);
 error_unlock:
 	mutex_unlock(&device->mutex);
 error_free:

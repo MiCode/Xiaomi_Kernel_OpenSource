@@ -24,6 +24,7 @@
 #include "kgsl_mmu.h"
 #include "kgsl_pool.h"
 #include "kgsl_sync.h"
+#include "kgsl_sysfs.h"
 #include "kgsl_trace.h"
 
 #ifndef arch_mmap_check
@@ -2344,22 +2345,13 @@ static void _setup_cache_mode(struct kgsl_mem_entry *entry,
 	uint64_t mode;
 	pgprot_t pgprot = vma->vm_page_prot;
 
-	if (pgprot_val(pgprot) == pgprot_val(pgprot_noncached(pgprot)))
-		mode = KGSL_CACHEMODE_UNCACHED;
-	else if (pgprot_val(pgprot) == pgprot_val(pgprot_writecombine(pgprot)))
+	if ((pgprot_val(pgprot) == pgprot_val(pgprot_noncached(pgprot))) ||
+	    (pgprot_val(pgprot) == pgprot_val(pgprot_writecombine(pgprot))))
 		mode = KGSL_CACHEMODE_WRITECOMBINE;
 	else
 		mode = KGSL_CACHEMODE_WRITEBACK;
 
 	entry->memdesc.flags |= (mode << KGSL_CACHEMODE_SHIFT);
-}
-
-static bool is_cached(u64 flags)
-{
-	u32 mode = (flags & KGSL_CACHEMODE_MASK) >> KGSL_CACHEMODE_SHIFT;
-
-	return (mode != KGSL_CACHEMODE_UNCACHED &&
-		mode != KGSL_CACHEMODE_WRITECOMBINE);
 }
 
 static int kgsl_setup_dma_buf(struct kgsl_device *device,
@@ -2428,7 +2420,7 @@ static int kgsl_setup_dmabuf_useraddr(struct kgsl_device *device,
 	_setup_cache_mode(entry, vma);
 
 	if (IS_ENABLED(CONFIG_QCOM_KGSL_IOCOHERENCY_DEFAULT) &&
-		is_cached(entry->memdesc.flags))
+		kgsl_cachemode_is_cached(entry->memdesc.flags))
 		entry->memdesc.flags |= KGSL_MEMFLAGS_IOCOHERENT;
 
 	up_read(&current->mm->mmap_sem);
@@ -2590,7 +2582,8 @@ long kgsl_ioctl_gpuobj_import(struct kgsl_device_private *dev_priv,
 			| KGSL_MEMFLAGS_USE_CPU_MAP
 			| KGSL_MEMFLAGS_SECURE
 			| KGSL_MEMFLAGS_FORCE_32BIT
-			| KGSL_MEMFLAGS_IOCOHERENT;
+			| KGSL_MEMFLAGS_IOCOHERENT
+			| KGSL_MEMFLAGS_GUARD_PAGE;
 
 	kgsl_memdesc_init(dev_priv->device, &entry->memdesc, param->flags);
 	if (param->type == KGSL_USER_MEM_TYPE_ADDR)
@@ -2635,7 +2628,7 @@ long kgsl_ioctl_gpuobj_import(struct kgsl_device_private *dev_priv,
 	return 0;
 
 unmap:
-	if (param->type == KGSL_USER_MEM_TYPE_DMABUF) {
+	if (kgsl_memdesc_usermem_type(&entry->memdesc) == KGSL_MEM_ENTRY_ION) {
 		kgsl_destroy_ion(entry->priv_data);
 		entry->memdesc.sgt = NULL;
 	}
@@ -2943,7 +2936,7 @@ long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 	return result;
 
 error_attach:
-	switch (memtype) {
+	switch (kgsl_memdesc_usermem_type(&entry->memdesc)) {
 	case KGSL_MEM_ENTRY_ION:
 		kgsl_destroy_ion(entry->priv_data);
 		entry->memdesc.sgt = NULL;
@@ -2995,7 +2988,7 @@ static int _kgsl_gpumem_sync_cache(struct kgsl_mem_entry *entry,
 		length = entry->memdesc.size;
 	}
 
-	if (is_cached(entry->memdesc.flags)) {
+	if (kgsl_cachemode_is_cached(entry->memdesc.flags)) {
 		trace_kgsl_mem_sync_cache(entry, offset, length, op);
 		ret = kgsl_cache_range_op(&entry->memdesc, offset,
 					length, cacheop);
@@ -3269,7 +3262,8 @@ struct kgsl_mem_entry *gpumem_alloc_entry(
 		| KGSL_MEMFLAGS_USE_CPU_MAP
 		| KGSL_MEMFLAGS_SECURE
 		| KGSL_MEMFLAGS_FORCE_32BIT
-		| KGSL_MEMFLAGS_IOCOHERENT;
+		| KGSL_MEMFLAGS_IOCOHERENT
+		| KGSL_MEMFLAGS_GUARD_PAGE;
 
 	/* Return not supported error if secure memory isn't enabled */
 	if (!kgsl_mmu_is_secured(mmu) &&
@@ -3303,7 +3297,7 @@ struct kgsl_mem_entry *gpumem_alloc_entry(
 		return ERR_PTR(-ENOMEM);
 
 	if (IS_ENABLED(CONFIG_QCOM_KGSL_IOCOHERENCY_DEFAULT) &&
-		is_cached(flags))
+		kgsl_cachemode_is_cached(flags))
 		flags |= KGSL_MEMFLAGS_IOCOHERENT;
 
 	ret = kgsl_allocate_user(dev_priv->device, &entry->memdesc,
@@ -3529,7 +3523,7 @@ long kgsl_ioctl_sparse_phys_alloc(struct kgsl_device_private *dev_priv,
 
 
 	if (IS_ENABLED(CONFIG_QCOM_KGSL_IOCOHERENCY_DEFAULT) &&
-		is_cached(flags))
+		kgsl_cachemode_is_cached(flags))
 		flags |= KGSL_MEMFLAGS_IOCOHERENT;
 
 	ret = kgsl_allocate_user(dev_priv->device, &entry->memdesc,
@@ -4307,6 +4301,8 @@ kgsl_mmap_memstore(struct file *file, struct kgsl_device *device,
 	if (vma->vm_flags & VM_WRITE)
 		return -EPERM;
 
+	vma->vm_flags &= ~VM_MAYWRITE;
+
 	if (memdesc->size  != vma_size) {
 		dev_err(device->dev, "Cannot partially map the memstore\n");
 		return -EINVAL;
@@ -4557,7 +4553,7 @@ kgsl_get_unmapped_area(struct file *file, unsigned long addr,
 	struct kgsl_device *device = dev_priv->device;
 	struct kgsl_mem_entry *entry = NULL;
 
-	if (vma_offset == (unsigned long) device->memstore->gpuaddr)
+	if (vma_offset == (unsigned long) KGSL_MEMSTORE_TOKEN_ADDRESS)
 		return get_unmapped_area(NULL, addr, len, pgoff, flags);
 
 	val = get_mmap_entry(private, &entry, pgoff, len);
@@ -4601,7 +4597,7 @@ static int kgsl_mmap(struct file *file, struct vm_area_struct *vma)
 
 	/* Handle leagacy behavior for memstore */
 
-	if (vma_offset == (unsigned long) device->memstore->gpuaddr)
+	if (vma_offset == (unsigned long) KGSL_MEMSTORE_TOKEN_ADDRESS)
 		return kgsl_mmap_memstore(file, device, vma);
 
 	/*
@@ -4622,9 +4618,6 @@ static int kgsl_mmap(struct file *file, struct vm_area_struct *vma)
 	cache = kgsl_memdesc_get_cachemode(&entry->memdesc);
 
 	switch (cache) {
-	case KGSL_CACHEMODE_UNCACHED:
-		vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
-		break;
 	case KGSL_CACHEMODE_WRITETHROUGH:
 		vma->vm_page_prot = pgprot_writethroughcache(vma->vm_page_prot);
 		if (pgprot_val(vma->vm_page_prot) ==
@@ -4634,6 +4627,7 @@ static int kgsl_mmap(struct file *file, struct vm_area_struct *vma)
 	case KGSL_CACHEMODE_WRITEBACK:
 		vma->vm_page_prot = pgprot_writebackcache(vma->vm_page_prot);
 		break;
+	case KGSL_CACHEMODE_UNCACHED:
 	case KGSL_CACHEMODE_WRITECOMBINE:
 	default:
 		vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
@@ -4733,6 +4727,50 @@ static void _unregister_device(struct kgsl_device *device)
 	mutex_unlock(&kgsl_driver.devlock);
 }
 
+/* sysfs_ops for the /sys/kernel/gpu kobject */
+static ssize_t kgsl_gpu_sysfs_attr_show(struct kobject *kobj,
+		struct attribute *__attr, char *buf)
+{
+	struct kgsl_gpu_sysfs_attr *attr = container_of(__attr,
+		struct kgsl_gpu_sysfs_attr, attr);
+	struct kgsl_device *device = container_of(kobj,
+			struct kgsl_device, gpu_sysfs_kobj);
+
+	if (attr->show)
+		return attr->show(device, buf);
+
+	return -EIO;
+}
+
+static ssize_t kgsl_gpu_sysfs_attr_store(struct kobject *kobj,
+		struct attribute *__attr, const char *buf, size_t count)
+{
+	struct kgsl_gpu_sysfs_attr *attr = container_of(__attr,
+		struct kgsl_gpu_sysfs_attr, attr);
+	struct kgsl_device *device = container_of(kobj,
+			struct kgsl_device, gpu_sysfs_kobj);
+
+	if (attr->store)
+		return attr->store(device, buf, count);
+
+	return -EIO;
+}
+
+/* Dummy release function - we have nothing to do here */
+static void kgsl_gpu_sysfs_release(struct kobject *kobj)
+{
+}
+
+static const struct sysfs_ops kgsl_gpu_sysfs_ops = {
+	.show = kgsl_gpu_sysfs_attr_show,
+	.store = kgsl_gpu_sysfs_attr_store,
+};
+
+static struct kobj_type kgsl_gpu_sysfs_ktype = {
+	.sysfs_ops = &kgsl_gpu_sysfs_ops,
+	.release = kgsl_gpu_sysfs_release,
+};
+
 static int _register_device(struct kgsl_device *device)
 {
 	static u64 dma_mask = DMA_BIT_MASK(64);
@@ -4773,6 +4811,10 @@ static int _register_device(struct kgsl_device *device)
 
 	device->dev->dma_mask = &dma_mask;
 	set_dma_ops(device->dev, NULL);
+
+	kobject_init_and_add(&device->gpu_sysfs_kobj, &kgsl_gpu_sysfs_ktype,
+		kernel_kobj, "gpu");
+
 	return 0;
 }
 
@@ -4897,7 +4939,8 @@ void kgsl_device_platform_remove(struct kgsl_device *device)
 
 	kgsl_device_snapshot_close(device);
 
-	kobject_put(device->gpu_sysfs_kobj);
+	if (device->gpu_sysfs_kobj.state_initialized)
+		kobject_del(&device->gpu_sysfs_kobj);
 
 	idr_destroy(&device->context_idr);
 

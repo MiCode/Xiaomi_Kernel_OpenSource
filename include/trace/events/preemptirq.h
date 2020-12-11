@@ -3,6 +3,9 @@
 #undef TRACE_SYSTEM
 #define TRACE_SYSTEM preemptirq
 
+#undef TRACE_INCLUDE_PATH
+#define TRACE_INCLUDE_PATH trace/events
+
 #if !defined(_TRACE_PREEMPTIRQ_H) || defined(TRACE_HEADER_MULTI_READ)
 #define _TRACE_PREEMPTIRQ_H
 
@@ -61,66 +64,6 @@ DEFINE_EVENT(preemptirq_template, preempt_enable,
 #define trace_preempt_enable_rcuidle(...)
 #define trace_preempt_disable_rcuidle(...)
 #endif
-
-TRACE_EVENT(irqs_disable,
-
-	TP_PROTO(u64 delta, unsigned long caddr0, unsigned long caddr1,
-				unsigned long caddr2, unsigned long caddr3),
-
-	TP_ARGS(delta, caddr0, caddr1, caddr2, caddr3),
-
-	TP_STRUCT__entry(
-		__field(u64, delta)
-		__field(void*, caddr0)
-		__field(void*, caddr1)
-		__field(void*, caddr2)
-		__field(void*, caddr3)
-	),
-
-	TP_fast_assign(
-		__entry->delta = delta;
-		__entry->caddr0 = (void *)caddr0;
-		__entry->caddr1 = (void *)caddr1;
-		__entry->caddr2 = (void *)caddr2;
-		__entry->caddr3 = (void *)caddr3;
-	),
-
-	TP_printk("delta=%llu(ns) Callers:(%ps<-%ps<-%ps<-%ps)", __entry->delta,
-					__entry->caddr0, __entry->caddr1,
-					__entry->caddr2, __entry->caddr3)
-);
-
-TRACE_EVENT(sched_preempt_disable,
-
-	TP_PROTO(u64 delta, bool irqs_disabled,
-			unsigned long caddr0, unsigned long caddr1,
-			unsigned long caddr2, unsigned long caddr3),
-
-	TP_ARGS(delta, irqs_disabled, caddr0, caddr1, caddr2, caddr3),
-
-	TP_STRUCT__entry(
-		__field(u64, delta)
-		__field(bool, irqs_disabled)
-		__field(void*, caddr0)
-		__field(void*, caddr1)
-		__field(void*, caddr2)
-		__field(void*, caddr3)
-	),
-
-	TP_fast_assign(
-		__entry->delta = delta;
-		__entry->irqs_disabled = irqs_disabled;
-		__entry->caddr0 = (void *)caddr0;
-		__entry->caddr1 = (void *)caddr1;
-		__entry->caddr2 = (void *)caddr2;
-		__entry->caddr3 = (void *)caddr3;
-	),
-
-	TP_printk("delta=%llu(ns) irqs_d=%d Callers:(%ps<-%ps<-%ps<-%ps)",
-				__entry->delta, __entry->irqs_disabled,
-				__entry->caddr0, __entry->caddr1,
-				__entry->caddr2, __entry->caddr3)
-);
 
 #endif /* _TRACE_PREEMPTIRQ_H */
 

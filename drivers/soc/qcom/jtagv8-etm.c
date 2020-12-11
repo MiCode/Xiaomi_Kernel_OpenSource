@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
  *
  */
 
@@ -416,7 +416,7 @@ static inline void etm_mm_restore_state(struct etm_ctx *etmdata)
 			etm_os_lock(etmdata);
 		}
 
-		if (!(etmdata->state[0] & BIT(0))) {
+		if (!(etmdata->state[i++] & BIT(0))) {
 			etm_os_unlock(etmdata);
 			break;
 		}
