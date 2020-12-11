@@ -604,6 +604,9 @@ static void fts_trusted_touch_tvm_vm_mode_disable(struct fts_ts_info *info)
 
 	flushFIFO();
 	release_all_touches(info);
+	pm_runtime_put_sync(info->client->adapter->dev.parent);
+	fts_trusted_touch_set_tvm_driver_state(info,
+					TVM_I2C_SESSION_RELEASED);
 	rc = fts_vm_mem_release(info);
 	if (rc) {
 		pr_err("Failed to release mem rc:%d\n", rc);
@@ -612,9 +615,6 @@ static void fts_trusted_touch_tvm_vm_mode_disable(struct fts_ts_info *info)
 		fts_trusted_touch_set_tvm_driver_state(info,
 					TVM_IOMEM_RELEASED);
 	}
-	pm_runtime_put_sync(info->client->adapter->dev.parent);
-	fts_trusted_touch_set_tvm_driver_state(info,
-					TVM_I2C_SESSION_RELEASED);
 	fts_trusted_touch_set_tvm_driver_state(info, TRUSTED_TOUCH_TVM_INIT);
 	atomic_set(&info->trusted_touch_enabled, 0);
 	pr_info("trusted touch disabled\n");
@@ -692,16 +692,16 @@ static void fts_trusted_touch_abort_tvm(struct fts_ts_info *info)
 	case TVM_IRQ_RELEASED:
 		flushFIFO();
 		release_all_touches(info);
+		pm_runtime_put_sync(info->client->adapter->dev.parent);
+	case TVM_I2C_SESSION_RELEASED:
 		rc = fts_vm_mem_release(info);
 		if (rc)
 			pr_err("Failed to release mem rc:%d\n", rc);
 	case TVM_IOMEM_RELEASED:
-		pm_runtime_put_sync(info->client->adapter->dev.parent);
-	case TVM_I2C_SESSION_RELEASED:
-	case TVM_IOMEM_LENT_NOTIFIED:
-	case TVM_IRQ_LENT_NOTIFIED:
 	case TVM_ALL_RESOURCES_LENT_NOTIFIED:
 	case TRUSTED_TOUCH_TVM_INIT:
+	case TVM_IRQ_LENT_NOTIFIED:
+	case TVM_IOMEM_LENT_NOTIFIED:
 		atomic_set(&info->trusted_touch_enabled, 0);
 	}
 
