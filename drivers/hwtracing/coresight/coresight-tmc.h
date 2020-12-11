@@ -20,6 +20,7 @@
 #include <linux/usb_bam.h>
 #include <linux/msm-sps.h>
 #include <linux/usb/usb_qdss.h>
+#include <linux/ipa_qdss.h>
 
 #include "coresight-byte-cntr.h"
 
@@ -150,6 +151,16 @@ enum etr_mode {
 	ETR_MODE_CATU,		/* Use SG mechanism in CATU */
 };
 
+enum tmc_etr_pcie_path {
+	TMC_ETR_PCIE_SW_PATH,
+	TMC_ETR_PCIE_HW_PATH,
+};
+
+static const char * const str_tmc_etr_pcie_path[] = {
+	[TMC_ETR_PCIE_SW_PATH]	= "sw",
+	[TMC_ETR_PCIE_HW_PATH]	= "hw",
+};
+
 enum tmc_etr_out_mode {
 	TMC_ETR_OUT_MODE_NONE,
 	TMC_ETR_OUT_MODE_MEM,
@@ -163,7 +174,10 @@ static const char * const str_tmc_etr_out_mode[] = {
 	[TMC_ETR_OUT_MODE_USB]		= "usb",
 	[TMC_ETR_OUT_MODE_PCIE]		= "pcie",
 };
-
+struct tmc_etr_ipa_data {
+	struct ipa_qdss_conn_out_params ipa_qdss_out;
+	struct ipa_qdss_conn_in_params  ipa_qdss_in;
+};
 struct tmc_etr_bam_data {
 	struct sps_bam_props	props;
 	unsigned long		handle;
@@ -267,6 +281,8 @@ struct tmc_drvdata {
 	u32			cti_flush_trig_num;
 	u32			cti_reset_trig_num;
 	enum tmc_etr_out_mode	out_mode;
+	enum tmc_etr_pcie_path	pcie_path;
+	struct tmc_etr_ipa_data	*ipa_data;
 };
 
 struct etr_buf_operations {
@@ -335,6 +351,8 @@ void usb_notifier(void *priv, unsigned int event, struct qdss_request *d_req,
 		  struct usb_qdss_ch *ch);
 int tmc_etr_bam_init(struct amba_device *adev,
 		     struct tmc_drvdata *drvdata);
+int tmc_etr_ipa_init(struct amba_device *adev,
+			struct tmc_drvdata *drvdata);
 extern struct byte_cntr *byte_cntr_init(struct amba_device *adev,
 					struct tmc_drvdata *drvdata);
 int tmc_etr_enable_hw(struct tmc_drvdata *drvdata, struct etr_buf *etr_buf);
