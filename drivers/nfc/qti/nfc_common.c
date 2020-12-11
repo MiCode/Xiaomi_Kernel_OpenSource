@@ -369,10 +369,14 @@ void read_cold_reset_rsp(struct nfc_dev *nfc_dev, char *header)
 			       __func__);
 			goto error;
 		}
-	} else {
+	} else if (header) {
 
 		/* For I3C driver, header is read by the worker thread */
 		memcpy(cold_reset_rsp, header, NCI_HDR_LEN);
+
+	} else {
+		pr_err("%s: - invalid or NULL header\n", __func__);
+		goto error;
 	}
 
 	if ((cold_reset_rsp[0] != COLD_RESET_RSP_GID)
