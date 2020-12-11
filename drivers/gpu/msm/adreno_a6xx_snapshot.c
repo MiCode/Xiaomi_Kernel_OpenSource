@@ -293,6 +293,8 @@ static const unsigned int a6xx_registers[] = {
 	/* VFD */
 	0xA600, 0xA601, 0xA603, 0xA603, 0xA60A, 0xA60A, 0xA610, 0xA617,
 	0xA630, 0xA630,
+	/* HLSQ */
+	0xD002, 0xD004,
 };
 
 static const unsigned int a660_registers[] = {
