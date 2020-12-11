@@ -1044,6 +1044,11 @@
 			};
 		};
 
+		infracfg_ao_mem@10002000 {
+			compatible = "mediatek,infracfg_ao_mem";
+			reg = <0 0x10002000 0 0x1000>;
+		};
+
 		pio: pinctrl@10005000 {
 			compatible = "mediatek,mt6853-pinctrl", "syscon";
 			reg = <0 0x10005000 0 0x1000>,
