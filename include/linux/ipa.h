@@ -637,6 +637,7 @@ struct ipa_ext_intf {
  *  by IPA driver
  * @keep_ipa_awake: when true, IPA will not be clock gated
  * @napi_enabled: when true, IPA call client callback to start polling
+ * @bypass_agg: when true, IPA bypasses the aggregation
  */
 struct ipa_sys_connect_params {
 	struct ipa_ep_cfg ipa_ep_cfg;
@@ -648,6 +649,7 @@ struct ipa_sys_connect_params {
 	bool keep_ipa_awake;
 	struct napi_struct *napi_obj;
 	bool recycle_enabled;
+	bool bypass_agg;
 };
 
 /**
@@ -889,6 +891,23 @@ struct IpaHwRingStats_t {
 	u32 ringUsageHigh;
 	u32 ringUsageLow;
 	u32 RingUtilCount;
+} __packed;
+
+/**
+ * struct ipa_uc_dbg_rtk_ring_stats - uC dbg stats info for RTK
+ * offloading protocol
+ * @commStats: common stats
+ * @trCount: transfer ring count
+ * @erCount: event ring count
+ * @totalAosCount: total AoS completion count
+ * @busyTime: total busy time
+ */
+struct ipa_uc_dbg_rtk_ring_stats {
+	struct IpaHwRingStats_t commStats;
+	u32 trCount;
+	u32 erCount;
+	u32 totalAosCount;
+	u64 busyTime;
 } __packed;
 
 /**
