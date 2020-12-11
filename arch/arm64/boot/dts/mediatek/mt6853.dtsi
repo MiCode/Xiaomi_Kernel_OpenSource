@@ -2937,23 +2937,8 @@
 			clock-names = "mm";
 			interconnects = <&dvfsrc MT6873_MASTER_MMSYS &dvfsrc MT6873_SLAVE_DDR_EMI>,
 					<&dvfsrc MT6873_MASTER_HRT_MMSYS
-					 &dvfsrc MT6873_SLAVE_HRT_DDR_EMI>,
-					<&mmqos MASTER_COMMON_PORT(0, 0) &mmqos SLAVE_COMMON(0)>,
-					<&mmqos MASTER_COMMON_PORT(0, 1) &mmqos SLAVE_COMMON(0)>,
-					<&mmqos MASTER_COMMON_PORT(0, 4) &mmqos SLAVE_COMMON(0)>,
-					<&mmqos MASTER_COMMON_PORT(0, 2) &mmqos SLAVE_COMMON(0)>,
-					<&mmqos MASTER_COMMON_PORT(0, 3) &mmqos SLAVE_COMMON(0)>,
-					<&mmqos MASTER_COMMON_PORT(0, 5) &mmqos SLAVE_COMMON(0)>,
-					<&mmqos MASTER_COMMON_PORT(0, 5) &mmqos SLAVE_COMMON(0)>,
-					<&mmqos MASTER_COMMON_PORT(0, 7) &mmqos SLAVE_COMMON(0)>,
-					<&mmqos MASTER_COMMON_PORT(0, 6) &mmqos SLAVE_COMMON(0)>,
-					<&mmqos MASTER_COMMON_PORT(0, 6) &mmqos SLAVE_COMMON(0)>,
-					<&mmqos MASTER_COMMON_PORT(0, 7) &mmqos SLAVE_COMMON(0)>,
-					<&mmqos MASTER_COMMON_PORT(0, 5) &mmqos SLAVE_COMMON(0)>,
-					<&mmqos MASTER_COMMON_PORT(0, 5) &mmqos SLAVE_COMMON(0)>;
-			interconnect-names = "icc-bw", "icc-hrt-bw", "larb0", "larb1", "larb2",
-						"larb4", "larb7", "larb9", "larb11", "larb13",
-						"larb14", "larb16", "larb17", "larb19", "larb20";
+					 &dvfsrc MT6873_SLAVE_HRT_DDR_EMI>;
+			interconnect-names = "icc-bw", "icc-hrt-bw";
 		};
 
 		iommu0: iommu@14016000 {
@@ -3340,29 +3325,29 @@
 			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 			interconnects =
 				<&mmqos MASTER_LARB_PORT(M4U_PORT_L4_VDEC_MC_EXT)
-					&mmqos SLAVE_LARB(4)>,
+					&mmqos SLAVE_COMMON(0)>,
 				<&mmqos MASTER_LARB_PORT(M4U_PORT_L4_VDEC_UFO_EXT)
-					&mmqos SLAVE_LARB(4)>,
+					&mmqos SLAVE_COMMON(0)>,
 				<&mmqos MASTER_LARB_PORT(M4U_PORT_L4_VDEC_PP_EXT)
-					&mmqos SLAVE_LARB(4)>,
+					&mmqos SLAVE_COMMON(0)>,
 				<&mmqos MASTER_LARB_PORT(M4U_PORT_L4_VDEC_PRED_RD_EXT)
-					&mmqos SLAVE_LARB(4)>,
+					&mmqos SLAVE_COMMON(0)>,
 				<&mmqos MASTER_LARB_PORT(M4U_PORT_L4_VDEC_PRED_WR_EXT)
-					&mmqos SLAVE_LARB(4)>,
+					&mmqos SLAVE_COMMON(0)>,
 				<&mmqos MASTER_LARB_PORT(M4U_PORT_L4_VDEC_PPWRAP_EXT)
-					&mmqos SLAVE_LARB(4)>,
+					&mmqos SLAVE_COMMON(0)>,
 				<&mmqos MASTER_LARB_PORT(M4U_PORT_L4_VDEC_TILE_EXT)
-					&mmqos SLAVE_LARB(4)>,
+					&mmqos SLAVE_COMMON(0)>,
 				<&mmqos MASTER_LARB_PORT(M4U_PORT_L4_VDEC_VLD_EXT)
-					&mmqos SLAVE_LARB(4)>,
+					&mmqos SLAVE_COMMON(0)>,
 				<&mmqos MASTER_LARB_PORT(M4U_PORT_L4_VDEC_VLD2_EXT)
-					&mmqos SLAVE_LARB(4)>,
+					&mmqos SLAVE_COMMON(0)>,
 				<&mmqos MASTER_LARB_PORT(M4U_PORT_L4_VDEC_AVC_MV_EXT)
-					&mmqos SLAVE_LARB(4)>,
+					&mmqos SLAVE_COMMON(0)>,
 				<&mmqos MASTER_LARB_PORT(M4U_PORT_L4_VDEC_RG_CTRL_DMA_EXT)
-					&mmqos SLAVE_LARB(4)>,
+					&mmqos SLAVE_COMMON(0)>,
 				<&mmqos MASTER_LARB_PORT(M4U_PORT_L4_VDEC_UFO_ENC_EXT)
-						&mmqos SLAVE_LARB(4)>;
+						&mmqos SLAVE_COMMON(0)>;
 			interconnect-names = "path_vdec_mc", "path_vdec_ufo",
 					"path_vdec_pp", "path_vdec_pred_rd",
 					"path_vdec_pred_wr", "path_vdec_ppwrap",
@@ -3424,23 +3409,23 @@
 			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 			interconnects =
 				<&mmqos MASTER_LARB_PORT(M4U_PORT_L7_VENC_RCPU)
-					&mmqos SLAVE_LARB(7)>,
+					&mmqos SLAVE_COMMON(0)>,
 				<&mmqos MASTER_LARB_PORT(M4U_PORT_L7_VENC_REC)
-					&mmqos SLAVE_LARB(7)>,
+					&mmqos SLAVE_COMMON(0)>,
 				<&mmqos MASTER_LARB_PORT(M4U_PORT_L7_VENC_BSDMA)
-					&mmqos SLAVE_LARB(7)>,
+					&mmqos SLAVE_COMMON(0)>,
 				<&mmqos MASTER_LARB_PORT(M4U_PORT_L7_VENC_SV_COMV)
-					&mmqos SLAVE_LARB(7)>,
+					&mmqos SLAVE_COMMON(0)>,
 				<&mmqos MASTER_LARB_PORT(M4U_PORT_L7_VENC_RD_COMV)
-					&mmqos SLAVE_LARB(7)>,
+					&mmqos SLAVE_COMMON(0)>,
 				<&mmqos MASTER_LARB_PORT(M4U_PORT_L7_VENC_CUR_LUMA)
-					&mmqos SLAVE_LARB(7)>,
+					&mmqos SLAVE_COMMON(0)>,
 				<&mmqos MASTER_LARB_PORT(M4U_PORT_L7_VENC_CUR_CHROMA)
-					&mmqos SLAVE_LARB(7)>,
+					&mmqos SLAVE_COMMON(0)>,
 				<&mmqos MASTER_LARB_PORT(M4U_PORT_L7_VENC_REF_LUMA)
-					&mmqos SLAVE_LARB(7)>,
+					&mmqos SLAVE_COMMON(0)>,
 				<&mmqos MASTER_LARB_PORT(M4U_PORT_L7_VENC_REF_CHROMA)
-					&mmqos SLAVE_LARB(7)>;
+					&mmqos SLAVE_COMMON(0)>;
 			interconnect-names = "path_venc_rcpu", "path_venc_rec",
 				"path_venc_bsdma", "path_venc_sv_comv",
 				"path_venc_rd_comv", "path_venc_cur_luma",
