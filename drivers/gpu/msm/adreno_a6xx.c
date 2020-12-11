@@ -281,6 +281,18 @@ bool a6xx_cx_regulator_disable_wait(struct regulator *reg,
 	}
 }
 
+static void set_holi_sptprac_clock(struct adreno_device *adreno_dev, bool enable)
+{
+	u32 val = 0;
+
+	adreno_read_gmu_wrapper(adreno_dev,
+			A6XX_GPU_GMU_GX_SPTPRAC_CLOCK_CONTROL, &val);
+	val &= ~1;
+	adreno_write_gmu_wrapper(adreno_dev,
+			A6XX_GPU_GMU_GX_SPTPRAC_CLOCK_CONTROL,
+			val | (enable ? 1 : 0));
+}
+
 static void a6xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -320,6 +332,8 @@ static void a6xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
 		!adreno_is_a610(adreno_dev))
 		gmu_core_regrmw(device,
 			A6XX_GPU_GMU_GX_SPTPRAC_CLOCK_CONTROL, 1, 0);
+	else if (adreno_is_a619_holi(adreno_dev))
+		set_holi_sptprac_clock(adreno_dev, false);
 
 	for (i = 0; i < a6xx_core->hwcg_count; i++)
 		kgsl_regwrite(device, a6xx_core->hwcg[i].offset,
@@ -334,6 +348,8 @@ static void a6xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
 		!adreno_is_a610(adreno_dev))
 		gmu_core_regrmw(device,
 			A6XX_GPU_GMU_GX_SPTPRAC_CLOCK_CONTROL, 0, 1);
+	else if (adreno_is_a619_holi(adreno_dev))
+		set_holi_sptprac_clock(adreno_dev, true);
 
 	/* enable top level HWCG */
 	kgsl_regwrite(device, A6XX_RBBM_CLOCK_CNTL,
