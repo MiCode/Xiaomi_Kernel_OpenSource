@@ -1031,6 +1031,13 @@
 		#clock-cells = <0>;
 	};
 
+	qmp_aop: qcom,qmp-aop {
+		compatible = "qcom,qmp-mbox";
+		qcom,qmp = <&aoss_qmp>;
+		label = "aop";
+		#mbox-cells = <1>;
+	};
+
 	/* CAM_CC GDSCs */
 	cam_cc_bps_gdsc: qcom,gdsc@adf0004 {
 		compatible = "qcom,gdsc";
