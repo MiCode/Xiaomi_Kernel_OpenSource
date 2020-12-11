@@ -19,6 +19,7 @@ enum ipa_usb_teth_prot {
 	IPA_USB_MBIM = 3,
 	IPA_USB_DIAG = 4,
 	IPA_USB_RMNET_CV2X = 5,
+	IPA_USB_GPS = 6,
 	IPA_USB_MAX_TETH_PROT_SIZE
 };
 

@@ -24,6 +24,7 @@
 #define GSI_RMNET_CTRL_NAME "rmnet_ctrl"
 #define GSI_MBIM_CTRL_NAME "android_mbim"
 #define GSI_DPL_CTRL_NAME "dpl_ctrl"
+#define GSI_GPS_CTRL_NAME "gps"
 #define GSI_CTRL_NAME_LEN (sizeof(GSI_MBIM_CTRL_NAME)+2)
 #define GSI_MAX_CTRL_PKT_SIZE 8192
 #define GSI_CTRL_DTR (1 << 0)
@@ -331,7 +332,8 @@ static enum ipa_usb_teth_prot name_to_prot_id(const char *name)
 		return IPA_USB_MBIM;
 	if (!strncasecmp(name, "dpl", strlen("dpl")))
 		return IPA_USB_DIAG;
-
+	if (!strncasecmp(name, "gps", strlen("gps")))
+		return IPA_USB_GPS;
 error:
 	return -EINVAL;
 }
@@ -1428,6 +1430,93 @@ static struct usb_gadget_strings qdss_gsi_string_table = {
 
 static struct usb_gadget_strings *qdss_gsi_strings[] = {
 	&qdss_gsi_string_table,
+	NULL,
+};
+
+/* gps device descriptor */
+static struct usb_interface_descriptor gps_interface_desc = {
+	.bLength =		USB_DT_INTERFACE_SIZE,
+	.bDescriptorType =	USB_DT_INTERFACE,
+	.bNumEndpoints =	1,
+	.bInterfaceClass =	USB_CLASS_VENDOR_SPEC,
+	.bInterfaceSubClass =	USB_CLASS_VENDOR_SPEC,
+	.bInterfaceProtocol =	USB_CLASS_VENDOR_SPEC,
+	/* .iInterface = DYNAMIC */
+};
+
+/* Full speed support */
+static struct usb_endpoint_descriptor gps_fs_notify_desc = {
+	.bLength =		USB_DT_ENDPOINT_SIZE,
+	.bDescriptorType =	USB_DT_ENDPOINT,
+	.bEndpointAddress =	USB_DIR_IN,
+	.bmAttributes =		USB_ENDPOINT_XFER_INT,
+	.wMaxPacketSize =	cpu_to_le16(MAX_NOTIFY_SIZE),
+	.bInterval =		1 << LOG2_STATUS_INTERVAL_MSEC,
+};
+
+static struct usb_descriptor_header *gps_fs_function[] = {
+	(struct usb_descriptor_header *) &gps_interface_desc,
+	(struct usb_descriptor_header *) &gps_fs_notify_desc,
+	NULL,
+};
+
+/* High speed support */
+static struct usb_endpoint_descriptor gps_hs_notify_desc  = {
+	.bLength =		USB_DT_ENDPOINT_SIZE,
+	.bDescriptorType =	USB_DT_ENDPOINT,
+	.bEndpointAddress =	USB_DIR_IN,
+	.bmAttributes =		USB_ENDPOINT_XFER_INT,
+	.wMaxPacketSize =	cpu_to_le16(MAX_NOTIFY_SIZE),
+	.bInterval =		LOG2_STATUS_INTERVAL_MSEC + 4,
+};
+
+static struct usb_descriptor_header *gps_hs_function[] = {
+	(struct usb_descriptor_header *) &gps_interface_desc,
+	(struct usb_descriptor_header *) &gps_hs_notify_desc,
+	NULL,
+};
+
+/* Super speed support */
+static struct usb_endpoint_descriptor gps_ss_notify_desc  = {
+	.bLength =		USB_DT_ENDPOINT_SIZE,
+	.bDescriptorType =	USB_DT_ENDPOINT,
+	.bEndpointAddress =	USB_DIR_IN,
+	.bmAttributes =		USB_ENDPOINT_XFER_INT,
+	.wMaxPacketSize =	cpu_to_le16(MAX_NOTIFY_SIZE),
+	.bInterval =		LOG2_STATUS_INTERVAL_MSEC + 4,
+};
+
+static struct usb_ss_ep_comp_descriptor gps_ss_notify_comp_desc = {
+	.bLength =		sizeof(gps_ss_notify_comp_desc),
+	.bDescriptorType =	USB_DT_SS_ENDPOINT_COMP,
+
+	/* the following 3 values can be tweaked if necessary */
+	/* .bMaxBurst =		0, */
+	/* .bmAttributes =	0, */
+	.wBytesPerInterval =	cpu_to_le16(MAX_NOTIFY_SIZE),
+};
+
+static struct usb_descriptor_header *gps_ss_function[] = {
+	(struct usb_descriptor_header *) &gps_interface_desc,
+	(struct usb_descriptor_header *) &gps_ss_notify_desc,
+	(struct usb_descriptor_header *) &gps_ss_notify_comp_desc,
+	NULL,
+};
+
+/* String descriptors */
+
+static struct usb_string gps_string_defs[] = {
+	[0].s = "GPS",
+	{  } /* end of list */
+};
+
+static struct usb_gadget_strings gps_string_table = {
+	.language =		0x0409,	/* en-us */
+	.strings =		gps_string_defs,
+};
+
+static struct usb_gadget_strings *gps_strings[] = {
+	&gps_string_table,
 	NULL,
 };
 #endif
