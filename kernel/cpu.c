@@ -33,10 +33,14 @@
 #include <linux/slab.h>
 #include <linux/percpu-rwsem.h>
 #include <uapi/linux/sched/types.h>
+#include <linux/cpuset.h>
 
 #include <trace/events/power.h>
 #define CREATE_TRACE_POINTS
 #include <trace/events/cpuhp.h>
+
+#undef CREATE_TRACE_POINTS
+#include <trace/hooks/sched.h>
 
 #include "smpboot.h"
 
@@ -816,6 +820,10 @@ void __init cpuhp_threads_init(void)
 }
 
 #ifdef CONFIG_HOTPLUG_CPU
+#ifndef arch_clear_mm_cpumask_cpu
+#define arch_clear_mm_cpumask_cpu(cpu, mm) cpumask_clear_cpu(cpu, mm_cpumask(mm))
+#endif
+
 /**
  * clear_tasks_mm_cpumask - Safely clear tasks' mm_cpumask for a CPU
  * @cpu: a CPU id
@@ -851,7 +859,7 @@ void clear_tasks_mm_cpumask(int cpu)
 		t = find_lock_task_mm(p);
 		if (!t)
 			continue;
-		cpumask_clear_cpu(cpu, mm_cpumask(t->mm));
+		arch_clear_mm_cpumask_cpu(cpu, t->mm);
 		task_unlock(t);
 	}
 	rcu_read_unlock();
@@ -996,7 +1004,7 @@ static int __ref _cpu_down(unsigned int cpu, int tasks_frozen,
 	struct cpuhp_cpu_state *st = per_cpu_ptr(&cpuhp_state, cpu);
 	int prev_state, ret = 0;
 
-	if (num_online_cpus() == 1)
+	if (num_active_cpus() == 1)
 		return -EBUSY;
 
 	if (!cpu_present(cpu))
@@ -1092,6 +1100,207 @@ int remove_cpu(unsigned int cpu)
 	return ret;
 }
 EXPORT_SYMBOL_GPL(remove_cpu);
+
+extern bool dl_cpu_busy(unsigned int cpu);
+
+int __pause_drain_rq(struct cpumask *cpus)
+{
+	unsigned int cpu;
+	int err = 0;
+
+	/*
+	 * Disabling preemption avoids that one of the stopper, started from
+	 * sched_cpu_drain_rq(), blocks firing draining for the whole cpumask.
+	 */
+	preempt_disable();
+	for_each_cpu(cpu, cpus) {
+		err = sched_cpu_drain_rq(cpu);
+		if (err)
+			break;
+	}
+	preempt_enable();
+
+	return err;
+}
+
+void __wait_drain_rq(struct cpumask *cpus)
+{
+	unsigned int cpu;
+
+	for_each_cpu(cpu, cpus)
+		sched_cpu_drain_rq_wait(cpu);
+}
+
+int pause_cpus(struct cpumask *cpus)
+{
+	int err = 0;
+	int cpu;
+
+	cpu_maps_update_begin();
+
+	if (cpu_hotplug_disabled) {
+		err = -EBUSY;
+		goto err_cpu_maps_update;
+	}
+
+	/* Pausing an already inactive CPU isn't an error */
+	cpumask_and(cpus, cpus, cpu_active_mask);
+
+	for_each_cpu(cpu, cpus) {
+		if (!cpu_online(cpu) || dl_cpu_busy(cpu)) {
+			err = -EBUSY;
+			goto err_cpu_maps_update;
+		}
+	}
+
+	if (cpumask_weight(cpus) >= num_active_cpus()) {
+		err = -EBUSY;
+		goto err_cpu_maps_update;
+	}
+
+	if (cpumask_empty(cpus))
+		goto err_cpu_maps_update;
+
+	/*
+	 * Lazy migration:
+	 *
+	 * We do care about how fast a CPU can go idle and stay this in this
+	 * state. If we try to take the cpus_write_lock() here, we would have
+	 * to wait for a few dozens of ms, as this function might schedule.
+	 * However, we can, as a first step, flip the active mask and migrate
+	 * anything currently on the run-queue, to give a chance to the paused
+	 * CPUs to reach quickly an idle state. There's a risk meanwhile for
+	 * another CPU to observe an out-of-date active_mask or to incompletely
+	 * update a cpuset. Both problems would be resolved later in the slow
+	 * path, which ensures active_mask synchronization, triggers a cpuset
+	 * rebuild and migrate any task that would have escaped the lazy
+	 * migration.
+	 */
+	for_each_cpu(cpu, cpus)
+		set_cpu_active(cpu, false);
+	err = __pause_drain_rq(cpus);
+	if (err) {
+		__wait_drain_rq(cpus);
+		for_each_cpu(cpu, cpus)
+			set_cpu_active(cpu, true);
+		goto err_cpu_maps_update;
+	}
+
+	/*
+	 * Slow path deactivation:
+	 *
+	 * Now that paused CPUs are most likely idle, we can go through a
+	 * complete scheduler deactivation.
+	 *
+	 * The cpu_active_mask being already set and cpus_write_lock calling
+	 * synchronize_rcu(), we know that all preempt-disabled and RCU users
+	 * will observe the updated value.
+	 */
+	cpus_write_lock();
+
+	__wait_drain_rq(cpus);
+
+	cpuhp_tasks_frozen = 0;
+
+	if (sched_cpus_deactivate_nosync(cpus)) {
+		err = -EBUSY;
+		goto err_cpus_write_unlock;
+	}
+
+	err = __pause_drain_rq(cpus);
+	__wait_drain_rq(cpus);
+	if (err) {
+		for_each_cpu(cpu, cpus)
+			sched_cpu_activate(cpu);
+		goto err_cpus_write_unlock;
+	}
+
+	/*
+	 * Even if living on the side of the regular HP path, pause is using
+	 * one of the HP step (CPUHP_AP_ACTIVE). This should be reflected on the
+	 * current state of the CPU.
+	 */
+	for_each_cpu(cpu, cpus) {
+		struct cpuhp_cpu_state *st = per_cpu_ptr(&cpuhp_state, cpu);
+
+		st->state = CPUHP_AP_ACTIVE - 1;
+		st->target = st->state;
+	}
+
+err_cpus_write_unlock:
+	cpus_write_unlock();
+err_cpu_maps_update:
+	cpu_maps_update_done();
+
+	return err;
+}
+EXPORT_SYMBOL_GPL(pause_cpus);
+
+int resume_cpus(struct cpumask *cpus)
+{
+	unsigned int cpu;
+	int err = 0;
+
+	cpu_maps_update_begin();
+
+	if (cpu_hotplug_disabled) {
+		err = -EBUSY;
+		goto err_cpu_maps_update;
+	}
+
+	/* Resuming an already active CPU isn't an error */
+	cpumask_andnot(cpus, cpus, cpu_active_mask);
+
+	for_each_cpu(cpu, cpus) {
+		if (!cpu_online(cpu)) {
+			err = -EBUSY;
+			goto err_cpu_maps_update;
+		}
+	}
+
+	if (cpumask_empty(cpus))
+		goto err_cpu_maps_update;
+
+	for_each_cpu(cpu, cpus)
+		set_cpu_active(cpu, true);
+
+	trace_android_rvh_resume_cpus(cpus, &err);
+	if (err)
+		goto err_cpu_maps_update;
+
+	/* Lazy Resume.  Build domains immediately instead of scheduling
+	 * a workqueue.  This is so that the cpu can pull load when
+	 * sent a load balancing kick.
+	 */
+	cpuset_hotplug_workfn(NULL);
+
+	cpus_write_lock();
+
+	cpuhp_tasks_frozen = 0;
+
+	if (sched_cpus_activate(cpus)) {
+		err = -EBUSY;
+		goto err_cpus_write_unlock;
+	}
+
+	/*
+	 * see pause_cpus.
+	 */
+	for_each_cpu(cpu, cpus) {
+		struct cpuhp_cpu_state *st = per_cpu_ptr(&cpuhp_state, cpu);
+
+		st->state = CPUHP_ONLINE;
+		st->target = st->state;
+	}
+
+err_cpus_write_unlock:
+	cpus_write_unlock();
+err_cpu_maps_update:
+	cpu_maps_update_done();
+
+	return err;
+}
+EXPORT_SYMBOL_GPL(resume_cpus);
 
 void smp_shutdown_nonboot_cpus(unsigned int primary_cpu)
 {
