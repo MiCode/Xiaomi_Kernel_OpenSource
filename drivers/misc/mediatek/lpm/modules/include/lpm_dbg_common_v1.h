@@ -84,7 +84,13 @@ struct md_sleep_status {
 	u64 sleep_wall_clk;
 	u64 sleep_cnt;
 	u64 sleep_cnt_reserve;
-	long long sleep_time;
+	u64 sleep_time;
+	u64 sleep_time_reserve;
+	u64 md_sleep_time; // uS
+	u64 gsm_sleep_time; // uS
+	u64 wcdma_sleep_time; //uS
+	u64 lte_sleep_time; // uS
+	u64 nr_sleep_time; // uS
 };
 #endif
 
