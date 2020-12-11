@@ -103,6 +103,8 @@
 #define TMC_ETR_BAM_PIPE_INDEX	0
 #define TMC_ETR_BAM_NR_PIPES	2
 
+#define TMC_ETR_PCIE_MEM_SIZE	0x400000
+
 #define TMC_AUTH_NSID_MASK	GENMASK(1, 0)
 
 enum tmc_config_type {
@@ -152,12 +154,14 @@ enum tmc_etr_out_mode {
 	TMC_ETR_OUT_MODE_NONE,
 	TMC_ETR_OUT_MODE_MEM,
 	TMC_ETR_OUT_MODE_USB,
+	TMC_ETR_OUT_MODE_PCIE,
 };
 
 static const char * const str_tmc_etr_out_mode[] = {
 	[TMC_ETR_OUT_MODE_NONE]		= "none",
 	[TMC_ETR_OUT_MODE_MEM]		= "mem",
 	[TMC_ETR_OUT_MODE_USB]		= "usb",
+	[TMC_ETR_OUT_MODE_PCIE]		= "pcie",
 };
 
 struct tmc_etr_bam_data {
