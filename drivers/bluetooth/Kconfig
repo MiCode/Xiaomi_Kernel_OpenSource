@@ -440,6 +440,7 @@ config MSM_BT_POWER
 config BTFM_SLIM
 	tristate "MSM Bluetooth/FM Slimbus Device"
 	depends on MSM_BT_POWER
+	select SLIMBUS
 	help
 		This enables BT/FM slimbus driver to get multiple audio channel.
 		This will make use of slimbus platform driver and slimbus

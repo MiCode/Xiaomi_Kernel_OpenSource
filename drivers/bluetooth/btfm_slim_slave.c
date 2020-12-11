@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  */
 
-#include <linux/slimbus/slimbus.h>
+#include <linux/slimbus.h>
 #include "btfm_slim.h"
 #include "btfm_slim_slave.h"
 
@@ -32,8 +32,7 @@ struct btfmslim_ch slave_txport[] = {
 int btfm_slim_slave_hw_init(struct btfmslim *btfmslim)
 {
 	int ret = 0;
-	uint8_t reg_val;
-	uint16_t reg;
+	uint32_t reg;
 
 	BTFMSLIM_DBG("");
 
@@ -42,24 +41,22 @@ int btfm_slim_slave_hw_init(struct btfmslim *btfmslim)
 
 	/* Get SB_SLAVE_HW_REV_MSB value*/
 	reg = SLAVE_SB_SLAVE_HW_REV_MSB;
-	ret = btfm_slim_read(btfmslim, reg,  1, &reg_val, IFD);
-	if (ret) {
+	ret = btfm_slim_read(btfmslim, reg, IFD);
+	if (ret < 0)
 		BTFMSLIM_ERR("failed to read (%d) reg 0x%x", ret, reg);
-		goto error;
-	}
+
 	BTFMSLIM_DBG("Major Rev: 0x%x, Minor Rev: 0x%x",
-		(reg_val & 0xF0) >> 4, (reg_val & 0x0F));
+		(ret & 0xF0) >> 4, (ret & 0x0F));
 
 	/* Get SB_SLAVE_HW_REV_LSB value*/
 	reg = SLAVE_SB_SLAVE_HW_REV_LSB;
-	ret = btfm_slim_read(btfmslim, reg,  1, &reg_val, IFD);
-	if (ret) {
+	ret = btfm_slim_read(btfmslim, reg, IFD);
+	if (ret < 0)
 		BTFMSLIM_ERR("failed to read (%d) reg 0x%x", ret, reg);
-		goto error;
+	else {
+		BTFMSLIM_INFO("read (%d) reg 0x%x", ret, reg);
+		ret = 0;
 	}
-	BTFMSLIM_DBG("Step Rev: 0x%x", reg_val);
-
-error:
 	return ret;
 }
 
@@ -104,8 +101,8 @@ int btfm_slim_slave_enable_port(struct btfmslim *btfmslim, uint8_t port_num,
 
 			BTFMSLIM_DBG("writing reg_val (%d) to reg(%x)",
 				reg_val, reg);
-			ret = btfm_slim_write(btfmslim, reg, 1, &reg_val, IFD);
-			if (ret) {
+			ret = btfm_slim_write(btfmslim, reg, reg_val, IFD);
+			if (ret < 0) {
 				BTFMSLIM_ERR("failed to write (%d) reg 0x%x",
 					ret, reg);
 				goto error;
@@ -130,8 +127,8 @@ int btfm_slim_slave_enable_port(struct btfmslim *btfmslim, uint8_t port_num,
 					(0x1 << SLAVE_SB_PGD_PORT_TX2_FM);
 		reg = SLAVE_SB_PGD_TX_PORTn_MULTI_CHNL_0(port_num);
 		BTFMSLIM_INFO("writing reg_val (%d) to reg(%x)", reg_val, reg);
-		ret = btfm_slim_write(btfmslim, reg, 1, &reg_val, IFD);
-		if (ret) {
+		ret = btfm_slim_write(btfmslim, reg, reg_val, IFD);
+		if (ret < 0) {
 			BTFMSLIM_ERR("failed to write (%d) reg 0x%x", ret, reg);
 			goto error;
 		}
@@ -141,8 +138,8 @@ int btfm_slim_slave_enable_port(struct btfmslim *btfmslim, uint8_t port_num,
 		reg = SLAVE_SB_PGD_TX_PORTn_MULTI_CHNL_0(port_num);
 		BTFMSLIM_DBG("writing reg_val (%d) to reg(%x)",
 				reg_val, reg);
-		ret = btfm_slim_write(btfmslim, reg, 1, &reg_val, IFD);
-		if (ret) {
+		ret = btfm_slim_write(btfmslim, reg, reg_val, IFD);
+		if (ret < 0) {
 			BTFMSLIM_ERR("failed to write (%d) reg 0x%x",
 					ret, reg);
 			goto error;
@@ -153,8 +150,8 @@ int btfm_slim_slave_enable_port(struct btfmslim *btfmslim, uint8_t port_num,
 	reg_val = (SLAVE_ENABLE_OVERRUN_AUTO_RECOVERY |
 				SLAVE_ENABLE_UNDERRUN_AUTO_RECOVERY);
 	reg = SLAVE_SB_PGD_PORT_TX_OR_UR_CFGN(port_num);
-	ret = btfm_slim_write(btfmslim, reg, 1, &reg_val, IFD);
-	if (ret) {
+	ret = btfm_slim_write(btfmslim, reg, reg_val, IFD);
+	if (ret < 0) {
 		BTFMSLIM_ERR("failed to write (%d) reg 0x%x", ret, reg);
 		goto error;
 	}
@@ -180,8 +177,8 @@ enable_disable_rxport:
 		BTFMSLIM_INFO("programming SCO Tx with reg_val %d to reg 0x%x",
 				reg_val, reg);
 
-	ret = btfm_slim_write(btfmslim, reg, 1, &reg_val, IFD);
-	if (ret)
+	ret = btfm_slim_write(btfmslim, reg, reg_val, IFD);
+	if (ret < 0)
 		BTFMSLIM_ERR("failed to write (%d) reg 0x%x", ret, reg);
 
 error:
