@@ -225,6 +225,8 @@ struct ipa_mhi_data {
 
 	int (*ipa_mhi_handle_ipa_config_req)(
 		struct ipa_config_req_msg_v01 *config_req);
+
+	int (*ipa_mhi_update_mstate)(enum ipa_mhi_mstate mstate_info);
 };
 
 struct ipa_wigig_data {
