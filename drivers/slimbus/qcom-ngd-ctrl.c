@@ -1117,6 +1117,9 @@ static int qcom_slim_ngd_power_up(struct qcom_slim_ngd_ctrl *ctrl)
 			dev_info(ctrl->dev, "Subsys restart: ADSP active framer\n");
 			return 0;
 		}
+
+		/* Re-initialize dma buffers */
+		qcom_slim_ngd_setup(ctrl);
 		return 0;
 	}
 
