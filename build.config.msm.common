@@ -194,14 +194,6 @@ function menuconfig() {
   exit
 }
 export -f menuconfig
-# Configuration options to build images for MSM targets
-# Must be included AFTER build.config.msm.<target>
-
-MODULES_LIST=${KERNEL_DIR}/modules.list.${CONFIG_TARGET}
-
-# boot image macros
-BUILD_BOOT_IMG=1
-BUILD_INITRAMFS=1
 
 ################################################################################
 ## DT Overlay
