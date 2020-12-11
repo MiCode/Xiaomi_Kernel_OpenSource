@@ -5171,6 +5171,44 @@ static void cnss_pci_config_regs(struct cnss_pci_data *pci_priv)
 	}
 }
 
+#ifdef CONFIG_ARCH_QCOM
+/**
+ * cnss_pci_of_reserved_mem_device_init() - Assign reserved memory region
+ *                                          to given PCI device
+ * @pci_priv: driver PCI bus context pointer
+ *
+ * This function shall call corresponding of_reserved_mem_device* API to
+ * assign reserved memory region to PCI device based on where the memory is
+ * defined and attached to (platform device of_node or PCI device of_node)
+ * in device tree.
+ *
+ * Return: 0 for success, negative value for error
+ */
+static int cnss_pci_of_reserved_mem_device_init(struct cnss_pci_data *pci_priv)
+{
+	struct device *dev_pci = &pci_priv->pci_dev->dev;
+	int ret;
+
+	/* Use of_reserved_mem_device_init_by_idx() if reserved memory is
+	 * attached to platform device of_node.
+	 */
+	ret = of_reserved_mem_device_init(dev_pci);
+	if (ret)
+		cnss_pr_err("Failed to init reserved mem device, err = %d\n",
+			    ret);
+	if (dev_pci->cma_area)
+		cnss_pr_dbg("CMA area is %s\n",
+			    cma_get_name(dev_pci->cma_area));
+
+	return ret;
+}
+#else
+static int cnss_pci_of_reserved_mem_device_init(struct cnss_pci_data *pci_priv)
+{
+	return 0;
+}
+#endif
+
 /* Setting to use this cnss_pm_domain ops will let PM framework override the
  * ops from dev->bus->pm which is pci_dev_pm_ops from pci-driver.c. This ops
  * has to take care everything device driver needed which is currently done
@@ -5216,12 +5254,7 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 	if (plat_priv->use_pm_domain)
 		dev->pm_domain = &cnss_pm_domain;
 
-	ret = of_reserved_mem_device_init(dev);
-	if (ret)
-		cnss_pr_err("Failed to init reserved mem device, err = %d\n",
-			    ret);
-	if (dev->cma_area)
-		cnss_pr_dbg("CMA area is %s\n", cma_get_name(dev->cma_area));
+	cnss_pci_of_reserved_mem_device_init(pci_priv);
 
 	ret = cnss_register_subsys(plat_priv);
 	if (ret)
