@@ -4236,6 +4236,9 @@ static int fastrpc_internal_control(struct fastrpc_file *fl,
 			fl->ws_timeout = MAX_PM_TIMEOUT_MS;
 		else
 			fl->ws_timeout = cp->pm.timeout;
+		VERIFY(err, fl->cid >= 0 && fl->cid < NUM_CHANNELS);
+		if (err)
+			goto bail;
 		fastrpc_pm_awake(fl, gcinfo[fl->cid].secure);
 		break;
 	case FASTRPC_CONTROL_DSPPROCESS_CLEAN:
