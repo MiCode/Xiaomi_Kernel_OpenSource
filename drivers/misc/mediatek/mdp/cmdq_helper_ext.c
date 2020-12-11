@@ -2370,7 +2370,7 @@ static void cmdq_core_parse_handle_error(const struct cmdqRecStruct *handle,
 			break;
 		case CMDQ_CODE_WFE:
 			/* arg_a is the event ID */
-			module = cmdq_event_module_dispatch(1, arg_a,
+			module = cmdq_util_event_module_dispatch(1, arg_a,
 				handle->thread);
 			break;
 		case CMDQ_CODE_READ:
