@@ -50,8 +50,6 @@ struct common_node {
 struct larb_node {
 	struct mmqos_base_node *base;
 	struct device *larb_dev;
-	struct work_struct work;
-	struct icc_path *icc_path;
 };
 
 struct mtk_node_desc {
@@ -67,7 +65,6 @@ struct mtk_mmqos_desc {
 	const char * const *comm_muxes;
 	const char * const *comm_icc_path_names;
 	const char * const *comm_icc_hrt_path_names;
-	const char * const *larb_icc_path_names;
 	const u32 max_ratio;
 	const struct mmqos_hrt hrt;
 	const u8 comm_port_channels[][MMQOS_MAX_COMM_PORT_NUM];
