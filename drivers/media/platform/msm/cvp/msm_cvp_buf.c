@@ -382,7 +382,11 @@ static struct msm_cvp_smem *msm_cvp_session_get_smem(struct msm_cvp_inst *inst,
 		rc = msm_cvp_map_smem(inst, smem, "map cpu");
 		if (rc)
 			goto exit;
-
+		if (buf->size > smem->size || buf->size > smem->size - buf->offset) {
+			dprintk(CVP_ERR, "%s: invalid offset %d or size %d for a new entry\n",
+				__func__, buf->offset, buf->size);
+			goto exit2;
+		}
 		rc = msm_cvp_session_add_smem(inst, smem);
 		if (rc && rc != -ENOMEM)
 			goto exit2;
