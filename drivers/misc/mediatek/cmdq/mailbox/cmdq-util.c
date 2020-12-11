@@ -102,6 +102,72 @@ static struct cmdq_util	util;
 static DEFINE_MUTEX(cmdq_record_mutex);
 static DEFINE_MUTEX(cmdq_dump_mutex);
 
+struct cmdq_util_controller_fp controller_fp = {
+	.dump_dbg_reg = cmdq_util_dump_dbg_reg,
+	.track_ctrl = cmdq_util_track_ctrl,
+};
+
+struct cmdq_util_helper_fp helper_fp = {
+	.is_feature_en = cmdq_util_is_feature_en,
+	.dump_lock = cmdq_util_dump_lock,
+	.dump_unlock = cmdq_util_dump_unlock,
+	.error_enable = cmdq_util_error_enable,
+	.error_disable = cmdq_util_error_disable,
+	.dump_smi = cmdq_util_dump_smi,
+	.set_first_err_mod = cmdq_util_set_first_err_mod,
+	.track = cmdq_util_track,
+};
+
+struct cmdq_util_platform_fp *cmdq_platform;
+
+void cmdq_util_set_fp(struct cmdq_util_platform_fp *cust_cmdq_platform)
+{
+	if (!cust_cmdq_platform) {
+		cmdq_err("%s cmdq_util_platform_fp is NULL ", __func__);
+		return;
+	}
+	cmdq_platform = cust_cmdq_platform;
+	controller_fp.thread_ddr_module = cmdq_platform->thread_ddr_module;
+	helper_fp.hw_name = cmdq_platform->util_hw_name;
+	helper_fp.event_module_dispatch = cmdq_platform->event_module_dispatch;
+	helper_fp.thread_module_dispatch = cmdq_platform->thread_module_dispatch;
+}
+EXPORT_SYMBOL(cmdq_util_set_fp);
+
+const char *cmdq_util_event_module_dispatch(phys_addr_t gce_pa, const u16 event, s32 thread)
+{
+	const char *mod = NULL;
+
+	if (cmdq_platform->event_module_dispatch)
+		mod = cmdq_platform->event_module_dispatch(gce_pa, event, thread);
+	else
+		cmdq_err("%s event_module_dispatch is NULL ", __func__);
+
+	return mod;
+}
+EXPORT_SYMBOL(cmdq_util_event_module_dispatch);
+
+u32 cmdq_util_get_hw_id(u32 pa)
+{
+	if (!cmdq_platform->util_hw_id) {
+		cmdq_err("%s util_hw_id is NULL ", __func__);
+		return -EINVAL;
+	}
+	return cmdq_platform->util_hw_id(pa);
+}
+EXPORT_SYMBOL(cmdq_util_get_hw_id);
+
+u32 cmdq_util_test_get_subsys_list(u32 **regs_out)
+{
+	if (!cmdq_platform->test_get_subsys_list) {
+		cmdq_err("%s test_get_subsys_list is NULL ", __func__);
+		return -EINVAL;
+	}
+	return cmdq_platform->test_get_subsys_list(regs_out);
+}
+EXPORT_SYMBOL(cmdq_util_test_get_subsys_list);
+
+
 u32 cmdq_util_get_bit_feature(void)
 {
 	return util.fs.bit_feature;
@@ -331,7 +397,7 @@ void cmdq_util_dump_dbg_reg(void *chan)
 		return;
 	}
 
-	id = cmdq_util_hw_id((u32)cmdq_mbox_get_base_pa(chan));
+	id = cmdq_util_get_hw_id((u32)cmdq_mbox_get_base_pa(chan));
 #ifdef CMDQ_SMC_SUPPORT
 	if (atomic_cmpxchg(&cmdq_dbg_ctrl, 0, 1) == 0) {
 		struct arm_smccc_res res;
@@ -387,7 +453,7 @@ void cmdq_util_track(struct cmdq_pkt *pkt)
 
 	if (cl && cl->chan) {
 		record->thread = cmdq_mbox_chan_id(cl->chan);
-		record->id = cmdq_util_hw_id((u32)cmdq_mbox_get_base_pa(
+		record->id = cmdq_util_get_hw_id((u32)cmdq_mbox_get_base_pa(
 			cl->chan));
 	} else {
 		record->thread = -1;
@@ -468,12 +534,12 @@ u8 cmdq_util_track_ctrl(void *cmdq, phys_addr_t base, bool sec)
 	else
 		util.cmdq_mbox[util.mbox_cnt++] = cmdq;
 
-	return (u8)cmdq_util_hw_id((u32)base);
+	return (u8)cmdq_util_get_hw_id((u32)base);
 }
 
 void cmdq_util_set_first_err_mod(void *chan, const char *mod)
 {
-	u32 hw_id = cmdq_util_hw_id((u32)cmdq_mbox_get_base_pa(chan));
+	u32 hw_id = cmdq_util_get_hw_id((u32)cmdq_mbox_get_base_pa(chan));
 
 	util.first_err_mod[hw_id] = mod;
 }
@@ -481,31 +547,11 @@ EXPORT_SYMBOL(cmdq_util_set_first_err_mod);
 
 const char *cmdq_util_get_first_err_mod(void *chan)
 {
-	u32 hw_id = cmdq_util_hw_id((u32)cmdq_mbox_get_base_pa(chan));
+	u32 hw_id = cmdq_util_get_hw_id((u32)cmdq_mbox_get_base_pa(chan));
 
 	return util.first_err_mod[hw_id];
 }
 EXPORT_SYMBOL(cmdq_util_get_first_err_mod);
-
-struct cmdq_util_controller_fp controller_fp = {
-	.dump_dbg_reg = cmdq_util_dump_dbg_reg,
-	.track_ctrl = cmdq_util_track_ctrl,
-	.thread_ddr_module = cmdq_thread_ddr_module,
-};
-
-struct cmdq_util_helper_fp helper_fp = {
-	.is_feature_en = cmdq_util_is_feature_en,
-	.dump_lock = cmdq_util_dump_lock,
-	.dump_unlock = cmdq_util_dump_unlock,
-	.error_enable = cmdq_util_error_enable,
-	.error_disable = cmdq_util_error_disable,
-	.dump_smi = cmdq_util_dump_smi,
-	.hw_name = cmdq_util_hw_name,
-	.set_first_err_mod = cmdq_util_set_first_err_mod,
-	.track = cmdq_util_track,
-	.event_module_dispatch = cmdq_event_module_dispatch,
-	.thread_module_dispatch = cmdq_thread_module_dispatch,
-};
 
 static int __init cmdq_util_init(void)
 {

@@ -764,7 +764,7 @@ static s32 cmdq_sec_session_send(struct cmdq_sec_context *context,
 
 	memset(iwc_msg, 0, sizeof(*iwc_msg));
 	iwc_msg->cmd = iwc_cmd;
-	iwc_msg->cmdq_id = cmdq_util_hw_id(cmdq->base_pa);
+	iwc_msg->cmdq_id = cmdq_util_get_hw_id(cmdq->base_pa);
 	iwc_msg->debug.logLevel =
 		cmdq_util_is_feature_en(CMDQ_LOG_FEAT_SECURE);
 

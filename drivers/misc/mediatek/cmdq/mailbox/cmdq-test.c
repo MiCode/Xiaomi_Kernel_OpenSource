@@ -730,8 +730,6 @@ static void cmdq_test_mbox_handshake_event(struct cmdq_test *test)
 	cmdq_msg("%s end", __func__);
 }
 
-u32 cmdq_test_get_subsys_list(u32 **regs_out);
-
 static void cmdq_access_sub_impl(struct cmdq_test *test,
 	struct cmdq_client *clt, const char *tag)
 {
@@ -742,7 +740,7 @@ static void cmdq_access_sub_impl(struct cmdq_test *test,
 	u32 pat_init = 0xdeaddead, pat_src = 0xbeefbeef;
 
 	va = cmdq_mbox_buf_alloc(clt->client.dev, &pa);
-	count = cmdq_test_get_subsys_list(&regs);
+	count = cmdq_util_test_get_subsys_list(&regs);
 
 	for (i = 0; i < count; i++) {
 		va[0] = pat_init;

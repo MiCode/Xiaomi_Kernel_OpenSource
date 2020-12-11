@@ -66,6 +66,28 @@ enum {
 
 struct cmdq_pkt;
 
+typedef const char *(*platform_thread_module_dispatch)(phys_addr_t gce_pa, s32 thread);
+typedef const char *(*platform_event_module_dispatch)(phys_addr_t gce_pa, const u16 event,
+	s32 thread);
+typedef u32 (*platform_util_hw_id)(u32 pa);
+typedef u32 (*platform_test_get_subsys_list)(u32 **regs_out);
+typedef const char *(*platform_util_hw_name)(void *chan);
+typedef bool (*platform_thread_ddr_module)(const s32 thread);
+
+struct cmdq_util_platform_fp {
+	platform_thread_module_dispatch thread_module_dispatch;
+	platform_event_module_dispatch event_module_dispatch;
+	platform_util_hw_id util_hw_id;
+	platform_test_get_subsys_list test_get_subsys_list;
+	platform_util_hw_name util_hw_name;
+	platform_thread_ddr_module thread_ddr_module;
+};
+
+void cmdq_util_set_fp(struct cmdq_util_platform_fp *cust_cmdq_platform);
+const char *cmdq_util_event_module_dispatch(phys_addr_t gce_pa, const u16 event, s32 thread);
+u32 cmdq_util_get_hw_id(u32 pa);
+u32 cmdq_util_test_get_subsys_list(u32 **regs_out);
+
 u32 cmdq_util_get_bit_feature(void);
 bool cmdq_util_is_feature_en(u8 feature);
 
