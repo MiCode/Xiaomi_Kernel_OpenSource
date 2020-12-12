@@ -696,6 +696,12 @@ unsigned int irq_create_mapping_affinity(struct irq_domain *domain,
 }
 EXPORT_SYMBOL_GPL(irq_create_mapping_affinity);
 
+unsigned int irq_create_mapping(struct irq_domain *host, irq_hw_number_t hwirq)
+{
+	return irq_create_mapping_affinity(host, hwirq, NULL);
+}
+EXPORT_SYMBOL_GPL(irq_create_mapping);
+
 /**
  * irq_create_strict_mappings() - Map a range of hw irqs to fixed linux irqs
  * @domain: domain owning the interrupt range
