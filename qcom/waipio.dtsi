@@ -23,7 +23,9 @@
 	#address-cells = <2>;
 	#size-cells = <2>;
 
-	chosen: chosen { };
+	chosen: chosen {
+		bootargs = "no_console_suspend=1 lpm_levels.sleep_disabled=1 msm_rtb.filter=0x237";
+	};
 
 	memory { device_type = "memory"; reg = <0 0 0 0>; };
 

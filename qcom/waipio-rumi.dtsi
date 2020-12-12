@@ -2,10 +2,6 @@
 
 #include "waipio-pmic-overlay.dtsi"
 
-&chosen {
-	bootargs = "no_console_suspend=1 lpm_levels.sleep_disabled=1 msm_rtb.filter=0x237";
-};
-
 &arch_timer {
 	clock-frequency = <500000>;
 };
