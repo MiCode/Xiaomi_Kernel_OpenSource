@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# QCOM DCVS drivers
+#
+config QCOM_PMU_LIB
+	tristate "QCOM PMU Driver"
+	depends on ARCH_QCOM
+	default n
+	help
+	  This enables the QCOM PMU driver which manages and maintains
+	  per-CPU performance counters that are available on some
+	  Qualcomm Technologies, Inc. (QTI) chipsets. This includes
+	  preserving them across CPU idle and hotplug events.
