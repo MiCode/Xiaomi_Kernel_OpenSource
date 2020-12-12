@@ -1,0 +1,52 @@
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/haven/virtio_backend.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Virtio backend device for Haven hypervisor
+
+maintainers:
+  - Srivatsa Vaddagiri <svaddagi@qti.qualcomm.com>
+  - Sreenad Menon <sreemeno@qti.qualcomm.com>
+
+description: |+
+  Configuration properties for Virtio backend device. This device is
+  specific to virtio support found in Haven hypervisor. The
+  device helps a virtio backend driver in one Virtual Machine
+  establish connection with its frontend counterpart in another Virtual
+  Machine, with both VMs running on Haven hypervisor.
+
+properties:
+  compatible:
+    oneOf:
+      - const: qcom,virtio_backend
+
+  qcom,vm:
+    $ref: /schemas/types.yaml#/definitions/phandle
+    description:
+      Handle to node that describes common properties of a VM to which this
+      device belongs.
+
+  qcom,label:
+    $ref: '/schemas/types.yaml#/definitions/uint32'
+    description:
+      Unique label associated with the device. This label is used to identify
+      the right device which is the target of ioctl() calls.
+
+required:
+  - compatible
+  - qcom,vm
+  - qcom,label
+
+example:
+  - |
+    trustedvm: trustedvm@0 {
+	reg = <0x0 0xdff00000 0x0 100000>;
+	vm_name = "trustedvm";
+    };
+
+    virtio_backend@0 {
+	compatible = "qcom,virtio_backend";
+	qcom,vm = <&trustedvm>;
+	qcom,label = <0x10200>;
+     };
