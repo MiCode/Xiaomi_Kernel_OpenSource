@@ -361,18 +361,8 @@
 		compatible = "qcom,msm-pcm-hostless";
 	};
 
-	audio_apr: qcom,msm-audio-apr {
-		compatible = "qcom,msm-audio-apr";
-		qcom,subsys-name = "apr_adsp";
-		status = "nok";
-
-		msm_audio_ion: qcom,msm-audio-ion {
-			compatible = "qcom,msm-audio-ion";
-			qcom,smmu-version = <2>;
-			qcom,smmu-enabled;
-			iommus = <&apps_smmu 0x1801 0x0>;
-			qcom,iommu-dma-addr-pool = <0x10000000 0x10000000>;
-		};
+	audio_pkt_core_platform: qcom,audio-pkt-core-platform {
+		compatible = "qcom,audio-pkt-core-platform";
 	};
 
 	dai_pri_auxpcm: qcom,msm-pri-auxpcm {

@@ -5489,6 +5489,7 @@
 		mboxes = <&qmp_aop 0>;
 		mbox-names = "aop";
 	};
+
 };
 
 #include "ipcc-test.dtsi"

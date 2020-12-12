@@ -2533,12 +2533,12 @@
 	spkr_1_sd_n {
 		spkr_1_sd_n_sleep: spkr_1_sd_n_sleep {
 			mux {
-				pins = "gpio15";
+				pins = "gpio1";
 				function = "gpio";
 			};
 
 			config {
-				pins = "gpio15";
+				pins = "gpio1";
 				drive-strength = <2>;   /* 2 mA */
 				bias-pull-down;
 				input-enable;
@@ -2547,12 +2547,12 @@
 
 		spkr_1_sd_n_active: spkr_1_sd_n_active {
 			mux {
-				pins = "gpio15";
+				pins = "gpio1";
 				function = "gpio";
 			};
 
 			config {
-				pins = "gpio15";
+				pins = "gpio1";
 				drive-strength = <16>;   /* 16 mA */
 				bias-disable;
 				output-high;
@@ -2563,12 +2563,12 @@
 	spkr_2_sd_n {
 		spkr_2_sd_n_sleep: spkr_2_sd_n_sleep {
 			mux {
-				pins = "gpio42";
+				pins = "gpio89";
 				function = "gpio";
 			};
 
 			config {
-				pins = "gpio42";
+				pins = "gpio89";
 				drive-strength = <2>;   /* 2 mA */
 				bias-pull-down;
 				input-enable;
@@ -2577,12 +2577,72 @@
 
 		spkr_2_sd_n_active: spkr_2_sd_n_active {
 			mux {
-				pins = "gpio42";
+				pins = "gpio89";
 				function = "gpio";
 			};
 
 			config {
-				pins = "gpio42";
+				pins = "gpio89";
+				drive-strength = <16>;   /* 16 mA */
+				bias-disable;
+				output-high;
+			};
+		};
+	};
+
+	spkr2_1_sd_n {
+		spkr2_1_sd_n_sleep: spkr2_1_sd_n_sleep {
+			mux {
+				pins = "gpio71";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio71";
+				drive-strength = <2>;   /* 2 mA */
+				bias-pull-down;
+				input-enable;
+			};
+		};
+
+		spkr2_1_sd_n_active: spkr2_1_sd_n_active {
+			mux {
+				pins = "gpio71";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio71";
+				drive-strength = <16>;   /* 16 mA */
+				bias-disable;
+				output-high;
+			};
+		};
+	};
+
+	spkr2_2_sd_n {
+		spkr2_2_sd_n_sleep: spkr2_2_sd_n_sleep {
+			mux {
+				pins = "gpio3";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio3";
+				drive-strength = <2>;   /* 2 mA */
+				bias-pull-down;
+				input-enable;
+			};
+		};
+
+		spkr2_2_sd_n_active: spkr2_2_sd_n_active {
+			mux {
+				pins = "gpio3";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio3";
 				drive-strength = <16>;   /* 16 mA */
 				bias-disable;
 				output-high;
@@ -2593,12 +2653,12 @@
 	/* WCD reset pin */
 	wcd938x_reset_active: wcd938x_reset_active {
 		mux {
-			pins = "gpio88";
+			pins = "gpio43";
 			function = "gpio";
 		};
 
 		config {
-			pins = "gpio88";
+			pins = "gpio43";
 			drive-strength = <16>;
 			output-high;
 		};
@@ -2606,12 +2666,12 @@
 
 	wcd938x_reset_sleep: wcd938x_reset_sleep {
 		mux {
-			pins = "gpio88";
+			pins = "gpio43";
 			function = "gpio";
 		};
 
 		config {
-			pins = "gpio88";
+			pins = "gpio43";
 			drive-strength = <16>;
 			bias-disable;
 			output-low;

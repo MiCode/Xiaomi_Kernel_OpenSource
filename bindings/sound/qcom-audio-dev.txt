@@ -919,6 +919,18 @@ qcom,msm-adsp-loader {
 	qcom,proc-img-to-load = "modem";
 };
 
+* msm-adsp_notify
+Required properties:
+ - compatible : "qcom,adsp_notify"
+
+Example:
+
+adsp_notify: qcom,msm-adsp-notify {
+	compatible = "qcom,adsp-notify";
+	status = "ok";
+	qcom,rproc-handle = <&adsp_pas>;
+};
+
 * msm-audio-ion
 
 Required properties:
@@ -2406,3 +2418,30 @@ Example:
 		fsa4480-i2c-handle = <&fsa4480>;
 	};
 };
+
+Required properties:
+- compatible : "qcom,spf-core-platform"
+
+Required properties:
+- compatible : "qcom,audio-pkt-core-platform"
+
+Required properties:
+- compatible : "qcom,swr-wcd"
+
+Required properties:
+- compatible : "qcom,tavil-i2c"
+
+Required properties:
+- compatible : "qcom,wcd-pinctrl"
+
+Required properties:
+- compatible : "qcom,gpr"
+
+Required properties:
+- compatible : "qcom,spf_core"
+
+Required properties:
+- compatible : "qcom,audio-pkt"
+
+Required properties:
+- compatible : "qcom,audio_prm"

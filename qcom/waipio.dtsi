@@ -1,3 +1,4 @@
+#include <dt-bindings/sound/qcom,gpr.h>
 #include <dt-bindings/clock/qcom,aop-qmp.h>
 #include <dt-bindings/clock/qcom,camcc-waipio.h>
 #include <dt-bindings/clock/qcom,dispcc-waipio.h>
@@ -781,6 +782,29 @@
 				qcom,intents = <0x800  5
 						0x2000 3
 						0x4400 2>;
+			};
+
+			audio_gpr: qcom,gpr {
+				compatible = "qcom,gpr";
+				qcom,glink-channels = "adsp_apps";
+				qcom,intents = <0x200 20>;
+				reg = <GPR_DOMAIN_ADSP>;
+
+				spf_core {
+					compatible = "qcom,spf_core";
+					reg = <GPR_SVC_ADSP_CORE>;
+				};
+
+				audio-pkt {
+					compatible = "qcom,audio-pkt";
+					qcom,audiopkt-ch-name = "apr_audio_svc";
+					reg = <GPR_SVC_MAX>;
+				};
+
+				audio_prm: q6prm {
+					compatible = "qcom,audio_prm";
+					reg = <GPR_SVC_ASM>;
+				};
 			};
 
 			qcom,msm_fastrpc_rpmsg {
@@ -2066,6 +2090,12 @@
 		qcom,pipe-attr-ee;
 	};
 
+	adsp_notify: qcom,msm-adsp-notify {
+		status = "ok";
+		compatible = "qcom,adsp-notify";
+		qcom,rproc-handle = <&adsp_pas>;
+	};
+
 };
 
 #include "waipio-qupv3.dtsi"
@@ -2081,4 +2111,11 @@
 
 &qupv3_se7_2uart {
 	status = "ok";
+};
+
+&adsp_loader {
+	status = "ok";
+	compatible = "qcom,adsp-loader";
+	qcom,rproc-handle = <&adsp_pas>;
+	qcom,adsp-state = <0>;
 };
