@@ -107,7 +107,7 @@ config QCOM_L3_PMU
 	   monitoring L3 cache events.
 
 config QCOM_LLCC_PMU
-	bool "Qualcomm Technologies LLCC PMU"
+	tristate "Qualcomm Technologies LLCC PMU"
 	depends on ARCH_QCOM && ARM64
 	help
 	   Provides support for the LLCC performance monitor unit (PMU) in
