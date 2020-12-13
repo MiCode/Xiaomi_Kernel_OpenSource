@@ -17,8 +17,8 @@
 			qcom,token = <0x20000000>;
 		};
 
-		qcom,spss {
-			qcom,dma-heap-name = "qcom,secure-spss";
+		qcom,sp_hlos {
+			qcom,dma-heap-name = "qcom,sp-hlos";
 			qcom,dma-heap-type = <HEAP_TYPE_CMA>;
 			memory-region = <&sp_mem>;
 		};
@@ -30,13 +30,13 @@
 		};
 
 		qcom,qseecom {
-			qcom,dma-heap-name = "qcom,secure-qseecom";
+			qcom,dma-heap-name = "qcom,qseecom";
 			qcom,dma-heap-type = <HEAP_TYPE_CMA>;
 			memory-region = <&qseecom_mem>;
 		};
 
 		qcom,qseecom_ta {
-			qcom,dma-heap-name = "qcom,secure-qseecom-ta";
+			qcom,dma-heap-name = "qcom,qseecom-ta";
 			qcom,dma-heap-type = <HEAP_TYPE_CMA>;
 			memory-region = <&qseecom_ta_mem>;
 		};
