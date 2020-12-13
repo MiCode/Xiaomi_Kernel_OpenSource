@@ -239,6 +239,51 @@ static unsigned long dynamic_page_pool_shrink_scan(struct shrinker *shrinker,
 	return dynamic_page_pool_shrink(sc->gfp_mask, to_scan);
 }
 
+struct dynamic_page_pool **dynamic_page_pool_create_pools(void)
+{
+	struct dynamic_page_pool **pool_list;
+	int i;
+	int ret;
+
+	pool_list = kmalloc_array(NUM_ORDERS, sizeof(*pool_list), GFP_KERNEL);
+	if (!pool_list)
+		return ERR_PTR(-ENOMEM);
+
+	for (i = 0; i < NUM_ORDERS; i++) {
+		pool_list[i] = dynamic_page_pool_create(order_flags[i],
+							orders[i]);
+
+		if (IS_ERR_OR_NULL(pool_list[i])) {
+			int j;
+
+			pr_err("%s: page pool creation failed for the order %u pool!\n",
+			       __func__, orders[i]);
+			for (j = 0; j < i; j++)
+				dynamic_page_pool_destroy(pool_list[j]);
+
+			ret = -ENOMEM;
+			goto free_pool_arr;
+		}
+	}
+
+	return pool_list;
+
+free_pool_arr:
+	kfree(pool_list);
+
+	return ERR_PTR(ret);
+}
+
+void dynamic_page_pool_release_pools(struct dynamic_page_pool **pool_list)
+{
+	int i;
+
+	for (i = 0; i < NUM_ORDERS; i++)
+		dynamic_page_pool_destroy(pool_list[i]);
+
+	kfree(pool_list);
+}
+
 struct shrinker pool_shrinker = {
 	.count_objects = dynamic_page_pool_shrink_count,
 	.scan_objects = dynamic_page_pool_shrink_scan,
