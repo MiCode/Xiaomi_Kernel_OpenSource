@@ -214,6 +214,15 @@ int adaptor_hw_power_on(struct adaptor_ctx *ctx)
 	const struct subdrv_pw_seq_entry *ent;
 	struct adaptor_hw_ops *op;
 
+#ifndef IMGSENSOR_USE_PM_FRAMEWORK
+	dev_info(ctx->dev, "%s power ref cnt = %d\n", __func__, ctx->power_refcnt);
+	ctx->power_refcnt++;
+	if (ctx->power_refcnt > 1) {
+		dev_info(ctx->dev, "%s already powered, cnt = %d\n", __func__, ctx->power_refcnt);
+		return 0;
+	}
+#endif
+
 	/* may be released for mipi switch */
 	if (!ctx->pinctrl)
 		reinit_pinctrl(ctx);
@@ -245,6 +254,18 @@ int adaptor_hw_power_off(struct adaptor_ctx *ctx)
 	int i;
 	const struct subdrv_pw_seq_entry *ent;
 	struct adaptor_hw_ops *op;
+
+#ifndef IMGSENSOR_USE_PM_FRAMEWORK
+	dev_info(ctx->dev, "%s power ref cnt = %d\n", __func__, ctx->power_refcnt);
+	ctx->power_refcnt--;
+	if (ctx->power_refcnt > 0) {
+		dev_info(ctx->dev, "%s skip due to cnt = %d\n", __func__, ctx->power_refcnt);
+		return 0;
+	}
+	ctx->power_refcnt = 0;
+	ctx->is_sensor_inited = 0;
+	ctx->is_sensor_scenario_inited = 0;
+#endif
 
 	for (i = ctx->subdrv->pw_seq_cnt - 1; i >= 0; i--) {
 		ent = &ctx->subdrv->pw_seq[i];
