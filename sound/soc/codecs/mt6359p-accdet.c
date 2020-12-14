@@ -2874,6 +2874,7 @@ EXPORT_SYMBOL(accdet_late_init);
 void accdet_modify_vref_volt(void)
 {
 }
+EXPORT_SYMBOL(accdet_modify_vref_volt);
 
 static void accdet_modify_vref_volt_self(void)
 {
