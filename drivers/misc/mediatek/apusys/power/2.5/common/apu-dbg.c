@@ -13,6 +13,7 @@
 #include <linux/debugfs.h>
 #include <linux/devfreq.h>
 #include <linux/of_address.h>
+#include <linux/io.h>
 
 #include "apu_io.h"
 #include "apu_dbg.h"
@@ -522,8 +523,20 @@ static int apupw_dbg_set_parameter(u8 param, int argc, int *args)
 				continue;
 			freq = apu_opp2freq(ad, (int)(args[0]));
 			mutex_lock_nested(&ad->df->lock, gov_data->depth);
-			ad->df->max_freq = freq;
-			ad->df->min_freq = freq;
+			ret = dev_pm_qos_update_request(
+					&ad->df->user_max_freq_req,
+					freq);
+			if (ret < 0) {
+				mutex_unlock(&ad->df->lock);
+				goto out;
+			}
+			ret = dev_pm_qos_update_request(
+					&ad->df->user_min_freq_req,
+					freq);
+			if (ret < 0) {
+				mutex_unlock(&ad->df->lock);
+				goto out;
+			}
 			mutex_unlock(&ad->df->lock);
 		}
 		break;
@@ -547,8 +560,20 @@ static int apupw_dbg_set_parameter(u8 param, int argc, int *args)
 			goto out;
 
 		mutex_lock(&ad->df->lock);
-		ad->df->max_freq = apu_opp2freq(ad, args[1]);
-		ad->df->min_freq = apu_opp2freq(ad, args[2]);
+		ret = dev_pm_qos_update_request(
+				&ad->df->user_max_freq_req,
+				apu_opp2freq(ad, args[1]));
+		if (ret < 0) {
+			mutex_unlock(&ad->df->lock);
+			goto out;
+		}
+		ret = dev_pm_qos_update_request(
+				&ad->df->user_min_freq_req,
+				apu_opp2freq(ad, args[2]));
+		if (ret < 0) {
+			mutex_unlock(&ad->df->lock);
+			goto out;
+		}
 		mutex_unlock(&ad->df->lock);
 
 		break;
@@ -815,7 +840,7 @@ int apupw_dbg_register_nodes(struct device *dev)
 				break;
 			}
 		phyaddr = of_translate_address(dev->of_node, paddr);
-		cgaddr = ioremap_nocache(phyaddr, PAGE_SIZE);
+		cgaddr = ioremap(phyaddr, PAGE_SIZE);
 		if (!cgaddr) {
 			ret = -ENOMEM;
 			goto out;

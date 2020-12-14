@@ -144,7 +144,7 @@ static int aconstrain_event_handler(struct devfreq *df,
 
 		break;
 
-	case DEVFREQ_GOV_INTERVAL:
+	case DEVFREQ_GOV_UPDATE_INTERVAL:
 	case DEVFREQ_GOV_RESUME:
 	default:
 		break;
