@@ -18,6 +18,7 @@
 #include <linux/clk.h>
 #include <linux/reset-controller.h>
 #include <linux/arm-smccc.h>
+#include <soc/qcom/qseecom_scm.h>
 
 #include "qcom_scm.h"
 #include "qtee_shmbridge_internal.h"
@@ -2302,6 +2303,41 @@ int qcom_scm_invoke_callback_response(phys_addr_t out_buf,
 
 	return ret;
 }
+
+int qcom_scm_qseecom_call(u32 cmd_id, struct qseecom_scm_desc *desc, bool retry)
+{
+	int ret;
+	struct device *dev = __scm ? __scm->dev : NULL;
+	struct qcom_scm_desc _desc = {
+		.svc = (cmd_id & 0xff00) >> 8,
+		.cmd = (cmd_id & 0xff),
+		.owner = (cmd_id & 0x3f000000) >> 24,
+		.args[0] = desc->args[0],
+		.args[1] = desc->args[1],
+		.args[2] = desc->args[2],
+		.args[3] = desc->args[3],
+		.args[4] = desc->args[4],
+		.args[5] = desc->args[5],
+		.args[6] = desc->args[6],
+		.args[7] = desc->args[7],
+		.args[8] = desc->args[8],
+		.args[9] = desc->args[9],
+		.arginfo = desc->arginfo,
+	};
+	struct qcom_scm_res res;
+
+	if (retry)
+		ret = qcom_scm_call(dev, &_desc, &res);
+	else
+		ret = qcom_scm_call_noretry(dev, &_desc, &res);
+
+	desc->ret[0] = res.result[0];
+	desc->ret[1] = res.result[1];
+	desc->ret[2] = res.result[2];
+
+	return ret;
+}
+EXPORT_SYMBOL(qcom_scm_qseecom_call);
 
 
 static int qcom_scm_find_dload_address(struct device *dev, u64 *addr)
