@@ -16,6 +16,8 @@ properties:
   compatible:
     items:
       - const: qcom,mem-buf
+  qcom,vmid:
+    description: integer ID of the current virtual machine.
 
   qcom,mem-buf-capabilities:
     oneOf:
