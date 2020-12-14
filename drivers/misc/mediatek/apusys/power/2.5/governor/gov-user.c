@@ -47,7 +47,7 @@ static int ausr_event_handler(struct devfreq *df,
 			gov_data->this = df;
 		break;
 	case DEVFREQ_GOV_STOP:
-	case DEVFREQ_GOV_INTERVAL:
+	case DEVFREQ_GOV_UPDATE_INTERVAL:
 	case DEVFREQ_GOV_RESUME:
 	case DEVFREQ_GOV_SUSPEND:
 	default:

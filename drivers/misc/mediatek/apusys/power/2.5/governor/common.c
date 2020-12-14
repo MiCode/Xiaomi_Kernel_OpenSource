@@ -66,7 +66,7 @@ struct apu_gov_data *apu_gov_init(struct device *dev,	struct devfreq_dev_profile
 	if (!pgov_data)
 		return ERR_PTR(-ENOMEM);
 
-	pgov_data->parent = devfreq_get_devfreq_by_phandle(dev, 0);
+	pgov_data->parent = devfreq_get_devfreq_by_phandle(dev, "devfreq", 0);
 
 	if (of_property_read_u32(dev->of_node, "depth", &pgov_data->depth))
 		goto free_passdata;
