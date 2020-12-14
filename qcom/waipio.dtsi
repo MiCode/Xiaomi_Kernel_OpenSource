@@ -374,9 +374,16 @@
 		reg = <0x0 0x8ba00000 0x0 0x100000>;
 	};
 
-	spu_secure_shared_memory_mem: spu_secure_shared_memory_region@8bb00000 {
+	/* First half of the "SPU secure shared memory" region */
+	spu_tz_shared_mem: spu_tz_shared_mem@8bb00000 {
 		no-map;
-		reg = <0x0 0x8bb00000 0x0 0x100000>;
+		reg = <0x0 0x8bb00000 0x0 0x80000>;
+	};
+
+	/* Second half of the "SPU secure shared memory" region */
+	spu_modem_shared_mem: spu_modem_shared_mem@8bb80000 {
+		no-map;
+		reg = <0x0 0x8bb80000 0x0 0x80000>;
 	};
 
 	mpss_mem: mpss_region@8bc00000 {
