@@ -1257,6 +1257,9 @@ static int qcom_slim_ngd_power_up(struct qcom_slim_ngd_ctrl *ctrl)
 		return 0;
 	}
 
+	/* reinitialize it only when registers are not retained */
+	reinit_completion(&ctrl->reconf);
+
 	writel_relaxed(DEF_NGD_INT_MASK, ngd->base + NGD_INT_EN);
 	rx_msgq = readl_relaxed(ngd->base + NGD_RX_MSGQ_CFG);
 
