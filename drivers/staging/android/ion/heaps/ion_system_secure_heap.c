@@ -68,6 +68,12 @@ static void ion_system_secure_heap_free(struct ion_buffer *buffer)
 
 	buffer->heap = secure_heap->sys_heap;
 	secure_heap->sys_heap->ops->free(buffer);
+	/*
+	 * Restore buffer's heap pointer to the system secure heap, so that
+	 * the ION memory accounting code uses the system secure heap's stats
+	 * instead of the system heap stats.
+	 */
+	buffer->heap = heap;
 }
 
 static int ion_system_secure_heap_allocate(struct ion_heap *heap,

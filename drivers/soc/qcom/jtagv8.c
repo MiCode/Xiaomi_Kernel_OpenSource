@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
  *
  */
 
@@ -865,7 +865,7 @@ static void dbg_init_arch_data(void)
  *
  * In all cases we will run on the same cpu for the entire duration.
  */
-void msm_jtag_save_state(void)
+void msm_jtag_save_state(bool is_hotcpu_cb)
 {
 	int cpu;
 
@@ -875,13 +875,14 @@ void msm_jtag_save_state(void)
 	/* ensure counter is updated before moving forward */
 	mb();
 
-	msm_jtag_etm_save_state();
+	if (!is_hotcpu_cb)
+		msm_jtag_etm_save_state();
 	if (dbg.save_restore_enabled)
 		dbg_save_state(cpu);
 }
 EXPORT_SYMBOL(msm_jtag_save_state);
 
-void msm_jtag_restore_state(void)
+void msm_jtag_restore_state(bool is_hotcpu_cb)
 {
 	int cpu;
 
@@ -907,7 +908,8 @@ void msm_jtag_restore_state(void)
 
 	if (dbg.save_restore_enabled)
 		dbg_restore_state(cpu);
-	msm_jtag_etm_restore_state();
+	if (!is_hotcpu_cb)
+		msm_jtag_etm_restore_state();
 }
 EXPORT_SYMBOL(msm_jtag_restore_state);
 
@@ -925,13 +927,13 @@ static inline bool dbg_arch_supported(uint8_t arch)
 
 static int jtag_hotcpu_save_callback(unsigned int cpu)
 {
-	msm_jtag_save_state();
+	msm_jtag_save_state(true);
 	return 0;
 }
 
 static int jtag_hotcpu_restore_callback(unsigned int cpu)
 {
-	msm_jtag_restore_state();
+	msm_jtag_restore_state(true);
 	return 0;
 }
 
@@ -940,11 +942,11 @@ static int jtag_cpu_pm_callback(struct notifier_block *nfb,
 {
 	switch (action) {
 	case CPU_PM_ENTER:
-		msm_jtag_save_state();
+		msm_jtag_save_state(false);
 		break;
 	case CPU_PM_ENTER_FAILED:
 	case CPU_PM_EXIT:
-		msm_jtag_restore_state();
+		msm_jtag_restore_state(false);
 		break;
 	}
 	return NOTIFY_OK;

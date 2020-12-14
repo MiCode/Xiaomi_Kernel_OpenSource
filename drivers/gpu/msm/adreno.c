@@ -2036,18 +2036,6 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	if (regulator_left_on)
 		_soft_reset(adreno_dev);
 
-	/*
-	 * During adreno_stop, GBIF halt is asserted to ensure
-	 * no further transaction can go through GPU before GPU
-	 * headswitch is turned off.
-	 *
-	 * This halt is deasserted once headswitch goes off but
-	 * incase headswitch doesn't goes off clear GBIF halt
-	 * here to ensure GPU wake-up doesn't fail because of
-	 * halted GPU transactions.
-	 */
-	adreno_deassert_gbif_halt(adreno_dev);
-
 	adreno_ringbuffer_set_global(adreno_dev, 0);
 
 	status = kgsl_mmu_start(device);
@@ -3522,7 +3510,7 @@ static int adreno_regulator_enable(struct kgsl_device *device)
 	return ret;
 }
 
-static bool adreno_is_hw_collapsible(struct kgsl_device *device)
+static bool adreno_prepare_for_power_off(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	const struct adreno_gpudev *gpudev  = ADRENO_GPU_DEVICE(adreno_dev);
@@ -3536,8 +3524,16 @@ static bool adreno_is_hw_collapsible(struct kgsl_device *device)
 			device->pwrctrl.ctrl_flags)
 		return false;
 
-	return adreno_isidle(adreno_dev) && (gpudev->is_sptp_idle ?
-				gpudev->is_sptp_idle(adreno_dev) : true);
+	if (!adreno_isidle(adreno_dev) || !(gpudev->is_sptp_idle ?
+				gpudev->is_sptp_idle(adreno_dev) : true))
+		return false;
+
+	if (gpudev->clear_pending_transactions(adreno_dev))
+		return false;
+
+	adreno_dispatcher_stop_fault_timer(device);
+
+	return true;
 }
 
 static void adreno_regulator_disable(struct kgsl_device *device)
@@ -3576,16 +3572,14 @@ static void adreno_clk_set_options(struct kgsl_device *device, const char *name,
 static void adreno_regulator_disable_poll(struct kgsl_device *device)
 {
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(
+						ADRENO_DEVICE(device));
 
-	/* Set the parent in retention voltage to disable CPR interrupts */
-	kgsl_regulator_set_voltage(device->dev, pwr->gx_gdsc_parent,
-			pwr->gx_gdsc_parent_min_corner);
+	if (gpudev->regulator_disable_poll)
+		return gpudev->regulator_disable_poll(device);
 
 	if (!kgsl_regulator_disable_wait(pwr->gx_gdsc, 200))
 		dev_err(device->dev, "Regulator vdd is stuck on\n");
-
-	/* Remove the vote for the vdd parent supply */
-	kgsl_regulator_set_voltage(device->dev, pwr->gx_gdsc_parent, 0);
 
 	if (!kgsl_regulator_disable_wait(pwr->cx_gdsc, 200))
 		dev_err(device->dev, "Regulator vddcx is stuck on\n");
@@ -3744,6 +3738,15 @@ static int adreno_gpu_bus_set(struct kgsl_device *device, int level, u32 ab)
 	return adreno_interconnect_bus_set(adreno_dev, level, ab);
 }
 
+static void adreno_deassert_gbif_halt(struct kgsl_device *device)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+
+	if (gpudev->deassert_gbif_halt)
+		gpudev->deassert_gbif_halt(adreno_dev);
+}
+
 static const struct kgsl_functable adreno_functable = {
 	/* Mandatory functions */
 	.regread = adreno_regread,
@@ -3778,17 +3781,17 @@ static const struct kgsl_functable adreno_functable = {
 	.drawctxt_sched = adreno_drawctxt_sched,
 	.resume = adreno_dispatcher_start,
 	.regulator_enable = adreno_regulator_enable,
-	.is_hw_collapsible = adreno_is_hw_collapsible,
+	.prepare_for_power_off = adreno_prepare_for_power_off,
 	.regulator_disable = adreno_regulator_disable,
 	.pwrlevel_change_settings = adreno_pwrlevel_change_settings,
 	.regulator_disable_poll = adreno_regulator_disable_poll,
 	.clk_set_options = adreno_clk_set_options,
 	.gpu_model = adreno_gpu_model,
-	.stop_fault_timer = adreno_dispatcher_stop_fault_timer,
 	.query_property_list = adreno_query_property_list,
 	.is_hwcg_on = adreno_is_hwcg_on,
 	.gpu_clock_set = adreno_gpu_clock_set,
 	.gpu_bus_set = adreno_gpu_bus_set,
+	.deassert_gbif_halt = adreno_deassert_gbif_halt,
 };
 
 static const struct component_master_ops adreno_ops = {

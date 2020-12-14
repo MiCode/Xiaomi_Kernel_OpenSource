@@ -693,6 +693,17 @@ config IOMMU_TESTS
 
 endif # IOMMU_DEBUG
 
+config QCOM_IOMMU_TLBI_QUIRKS
+	bool "QCOM IOMMU Quirks for TLB invalidation"
+	depends on ARM_SMMU
+	depends on QGKI
+	help
+	  Enables some quirks that are used when performing TLBI for faster
+	  invalidation.  The quirks that are supported deal with allowing
+	  defer tlbi and perform tlbiasid at the end of unmap.
+
+	  If unsure, say N here.
+
 config QCOM_IOMMU
 	# Note: iommu drivers cannot (yet?) be built as modules
 	bool "Qualcomm IOMMU Support"

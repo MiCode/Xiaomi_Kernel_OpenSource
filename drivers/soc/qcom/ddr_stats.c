@@ -26,12 +26,14 @@
 	(container_of(attr, struct ddr_stats_kobj_attr, ka)->pd)
 
 #ifdef CONFIG_ARM
+#ifndef readq_relaxed
 #define readq_relaxed(a) ({			\
 	u64 val = readl_relaxed((a) + 4);	\
 	val <<= 32;				\
 	val |=  readl_relaxed((a));		\
 	val;					\
 })
+#endif
 #endif
 
 struct ddr_stats_platform_data {
@@ -69,7 +71,7 @@ static ssize_t ddr_stats_append_data_to_buf(char *buf, int length, int *count,
 {
 	u32 cp_idx = 0;
 	u32 name;
-	u64 duration;
+	u64 duration = 0;
 
 	if (accumulated_duration) {
 		duration = data->duration * 100;

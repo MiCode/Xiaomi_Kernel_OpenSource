@@ -1626,6 +1626,8 @@ static void a6xx_gmu_pwrctrl_suspend(struct adreno_device *adreno_dev)
 		}
 		/* Halt CX traffic */
 		a6xx_halt_gbif(adreno_dev);
+		/* De-assert the halts */
+		kgsl_regwrite(device, A6XX_GBIF_HALT, 0x0);
 	}
 
 	if (a6xx_gmu_gx_is_on(device))
@@ -2764,9 +2766,6 @@ int a6xx_halt_gbif(struct adreno_device *adreno_dev)
 	ret = adreno_wait_for_halt_ack(device,
 		A6XX_GBIF_HALT_ACK, A6XX_GBIF_ARB_HALT_MASK);
 
-	/* De-assert the halts */
-	kgsl_regwrite(device, A6XX_GBIF_HALT, 0x0);
-
 	return ret;
 }
 
@@ -2797,8 +2796,11 @@ static int a6xx_gmu_power_off(struct adreno_device *adreno_dev)
 	a6xx_rdpm_mx_freq_update(gmu, 0);
 
 	/* Now that we are done with GMU and GPU, Clear the GBIF */
-	if (!adreno_is_a630(adreno_dev))
+	if (!adreno_is_a630(adreno_dev)) {
 		ret = a6xx_halt_gbif(adreno_dev);
+		/* De-assert the halts */
+		kgsl_regwrite(device, A6XX_GBIF_HALT, 0x0);
+	}
 
 	a6xx_gmu_irq_disable(adreno_dev);
 

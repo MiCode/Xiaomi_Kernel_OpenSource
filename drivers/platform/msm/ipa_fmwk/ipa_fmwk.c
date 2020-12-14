@@ -241,6 +241,11 @@ struct ipa_fmwk_contex {
 
 	int (*ipa_wdi_dereg_intf)(const char *netdev_name);
 
+	int (*ipa_qdss_conn_pipes)(struct ipa_qdss_conn_in_params *in,
+		struct ipa_qdss_conn_out_params *out);
+
+	int (*ipa_qdss_disconn_pipes)(void);
+
 	int (*ipa_wdi_conn_pipes)(struct ipa_wdi_conn_in_params *in,
 		struct ipa_wdi_conn_out_params *out);
 
@@ -1229,6 +1234,52 @@ int ipa_wdi_sw_stats(struct ipa_wdi_tx_info *info)
 	return ret;
 }
 EXPORT_SYMBOL(ipa_wdi_sw_stats);
+
+int ipa_qdss_conn_pipes(struct ipa_qdss_conn_in_params *in,
+	struct ipa_qdss_conn_out_params *out)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN(ipa_qdss_conn_pipes,
+		in, out);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_qdss_conn_pipes);
+
+int ipa_qdss_disconn_pipes(void)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN(ipa_qdss_disconn_pipes);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_qdss_disconn_pipes);
+
+/* registration API for IPA qdss module */
+int ipa_fmwk_register_ipa_qdss(const struct ipa_qdss_data *in)
+{
+	if (!ipa_fmwk_ctx) {
+		pr_err("ipa framework hasn't been initialized yet\n");
+		return -EPERM;
+	}
+
+	if (ipa_fmwk_ctx->ipa_qdss_conn_pipes
+		|| ipa_fmwk_ctx->ipa_qdss_disconn_pipes) {
+		pr_err("ipa_qdss APIs were already initialized\n");
+		return -EPERM;
+	}
+
+	ipa_fmwk_ctx->ipa_qdss_conn_pipes = in->ipa_qdss_conn_pipes;
+	ipa_fmwk_ctx->ipa_qdss_disconn_pipes = in->ipa_qdss_disconn_pipes;
+
+	pr_info("ipa_qdss registered successfully\n");
+
+	return 0;
+
+}
+EXPORT_SYMBOL(ipa_fmwk_register_ipa_qdss);
 
 /* registration API for IPA gsb module */
 int ipa_fmwk_register_gsb(const struct ipa_gsb_data *in)

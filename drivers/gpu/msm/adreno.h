@@ -696,9 +696,7 @@ enum adreno_regs {
 	ADRENO_REG_RBBM_PERFCTR_RBBM_0_HI,
 	ADRENO_REG_RBBM_PERFCTR_LOAD_VALUE_LO,
 	ADRENO_REG_RBBM_PERFCTR_LOAD_VALUE_HI,
-	ADRENO_REG_GBIF_HALT,
 	ADRENO_REG_VBIF_VERSION,
-	ADRENO_REG_RBBM_GBIF_HALT,
 	ADRENO_REG_GMU_AO_HOST_INTERRUPT_MASK,
 	ADRENO_REG_GMU_AHB_FENCE_STATUS,
 	ADRENO_REG_GMU_GMU2HOST_INTR_MASK,
@@ -813,6 +811,8 @@ struct adreno_gpudev {
 	 */
 	const struct adreno_power_ops *power_ops;
 	int (*clear_pending_transactions)(struct adreno_device *adreno_dev);
+	void (*deassert_gbif_halt)(struct adreno_device *adreno_dev);
+	void (*regulator_disable_poll)(struct kgsl_device *device);
 };
 
 /**
@@ -1692,22 +1692,6 @@ static inline int adreno_wait_for_halt_ack(struct kgsl_device *device,
 	return 0;
 }
 
-static inline void adreno_deassert_gbif_halt(struct adreno_device *adreno_dev)
-{
-	if (adreno_has_gbif(adreno_dev)) {
-		adreno_writereg(adreno_dev, ADRENO_REG_GBIF_HALT, 0x0);
-
-		/*
-		 * Release GBIF GX halt. For A615 family, GPU GX halt
-		 * will be cleared automatically on reset.
-		 */
-		if (!gmu_core_gpmu_isenabled(KGSL_DEVICE(adreno_dev)) &&
-			!adreno_is_a615_family(adreno_dev))
-			adreno_writereg(adreno_dev,
-				ADRENO_REG_RBBM_GBIF_HALT, 0x0);
-	}
-}
-
 /**
  * adreno_move_preempt_state - Update the preemption state
  * @adreno_dev: An Adreno GPU device handle
@@ -1753,8 +1737,6 @@ static inline u32 adreno_get_level(u32 priority)
 int adreno_gmu_fenced_write(struct adreno_device *adreno_dev,
 	enum adreno_regs offset, unsigned int val,
 	unsigned int fence_mask);
-int adreno_clear_pending_transactions(struct kgsl_device *device);
-
 
 /**
  * adreno_get_firwmare - Load firmware into a adreno_firmware struct

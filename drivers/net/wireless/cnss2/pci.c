@@ -892,6 +892,7 @@ int cnss_pci_prevent_l1(struct device *dev)
 {
 	struct pci_dev *pci_dev = to_pci_dev(dev);
 	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(pci_dev);
+	int ret;
 
 	if (!pci_priv) {
 		cnss_pr_err("pci_priv is NULL\n");
@@ -908,7 +909,13 @@ int cnss_pci_prevent_l1(struct device *dev)
 		return -EIO;
 	}
 
-	return msm_pcie_prevent_l1(pci_dev);
+	ret = msm_pcie_prevent_l1(pci_dev);
+	if (ret) {
+		cnss_pr_err("Failed to prevent PCIe L1, considered as link down\n");
+		cnss_pci_link_down(dev);
+	}
+
+	return ret;
 }
 EXPORT_SYMBOL(cnss_pci_prevent_l1);
 

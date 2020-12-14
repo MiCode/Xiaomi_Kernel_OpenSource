@@ -29,10 +29,25 @@
 #define PULLDN_EN_BIT			BIT(7)
 
 /* IBB */
+#define IBB_STATUS_2(chip)	(chip->ibb_base + 0x09)
+#define SOFT_START_DONE_BIT	BIT(6)
+
+#define IBB_STATUS_5(chip)	(chip->ibb_base + 0x0c)
+#define SWIRE_STATUS_BIT		BIT(0)
+
 #define IBB_PD_CTL(chip)		(chip->ibb_base + 0x47)
 
 /* IBB_PD_CTL */
 #define ENABLE_PD_BIT			BIT(7)
+
+/* IBB_PS_CTL */
+#define IBB_PS_CTL(chip)	(chip->ibb_base + 0x50)
+#define EN_PS_BIT		BIT(7)
+#define PS_THRESHOLD_0P5		0x1
+
+#define IBB_SMART_PS_CTL(chip)	(chip->ibb_base + 0x65)
+#define STARTUP_PS_BIT		BIT(5)
+#define STEADY_STATE_PS_BIT		BIT(4)
 
 #define IBB_DUAL_PHASE_CTL(chip)	(chip->ibb_base + 0x70)
 
@@ -73,6 +88,7 @@ struct ibb_regulator {
 	bool			swire_control;
 	bool			pd_control;
 	bool			single_phase;
+	bool			force_ccm_mode;
 };
 
 struct qpnp_amoled {
@@ -86,6 +102,8 @@ struct qpnp_amoled {
 	u32			oledb_base;
 	u32			ab_base;
 	u32			ibb_base;
+
+	struct work_struct		ibb_ccm_wa_work;
 };
 
 enum reg_type {
@@ -183,6 +201,12 @@ static int qpnp_ibb_regulator_enable(struct regulator_dev *rdev)
 	struct qpnp_amoled *chip  = rdev_get_drvdata(rdev);
 
 	chip->ibb.vreg.enabled = true;
+	if (chip->ibb.force_ccm_mode) {
+		cancel_work_sync(&chip->ibb_ccm_wa_work);
+		pm_stay_awake(chip->dev);
+		schedule_work(&chip->ibb_ccm_wa_work);
+	}
+
 	return 0;
 }
 
@@ -191,6 +215,12 @@ static int qpnp_ibb_regulator_disable(struct regulator_dev *rdev)
 	struct qpnp_amoled *chip  = rdev_get_drvdata(rdev);
 
 	chip->ibb.vreg.enabled = false;
+	if (chip->ibb.force_ccm_mode) {
+		cancel_work_sync(&chip->ibb_ccm_wa_work);
+		pm_stay_awake(chip->dev);
+		schedule_work(&chip->ibb_ccm_wa_work);
+	}
+
 	return 0;
 }
 
@@ -493,6 +523,56 @@ static int qpnp_amoled_regulator_register(struct qpnp_amoled *chip,
 	return rc;
 }
 
+#define IBB_RETRY_COUNT	25
+#define IBB_POLL_DELAY_MS	20
+
+static void qpnp_amoled_toggle_ps_ctl(struct work_struct *work)
+{
+	struct qpnp_amoled *chip = container_of(work,
+		struct qpnp_amoled, ibb_ccm_wa_work);
+	int i, rc;
+	u8 val;
+
+	if (chip->ibb.vreg.enabled) {
+		for (i = 0; i < IBB_RETRY_COUNT; i++) {
+			rc = qpnp_amoled_read(chip, IBB_STATUS_2(chip), &val, 1);
+			if (rc < 0)
+				goto out;
+
+			if (val & SOFT_START_DONE_BIT) {
+				val = PS_THRESHOLD_0P5;
+				rc = qpnp_amoled_write(chip, IBB_PS_CTL(chip), &val, 1);
+				if (rc < 0)
+					pr_err("Failed to disable forced-PSM, rc = %d\n", rc);
+				goto out;
+			}
+			msleep(IBB_POLL_DELAY_MS);
+		}
+		pr_err("Timeout - failed to disable forced-PSM, IBB_STATUS_2:0x%x\n",
+				val);
+	} else {
+		for (i = 0; i < IBB_RETRY_COUNT; i++) {
+			rc = qpnp_amoled_read(chip, IBB_STATUS_5(chip), &val, 1);
+			if (rc < 0)
+				goto out;
+
+			if (!(val & SWIRE_STATUS_BIT)) {
+				val = EN_PS_BIT | PS_THRESHOLD_0P5;
+				rc = qpnp_amoled_write(chip, IBB_PS_CTL(chip), &val, 1);
+				if (rc < 0)
+					pr_err("Failed to enable forced-PSM, rc = %d\n", rc);
+				goto out;
+			}
+			msleep(IBB_POLL_DELAY_MS);
+		}
+		pr_err("Timeout - failed to enable forced-PSM, IBB_STATUS_5:0x%x\n",
+				val);
+	}
+
+out:
+	pm_relax(chip->dev);
+}
+
 static int qpnp_amoled_hw_init(struct qpnp_amoled *chip)
 {
 	int rc;
@@ -526,6 +606,15 @@ static int qpnp_amoled_hw_init(struct qpnp_amoled *chip)
 			IBB_DUAL_PHASE_CTL_MASK, val);
 		if (rc < 0)
 			return rc;
+	}
+
+	if (chip->ibb.force_ccm_mode) {
+		val = STARTUP_PS_BIT | STEADY_STATE_PS_BIT;
+		rc = qpnp_amoled_write(chip, IBB_SMART_PS_CTL(chip), &val, 1);
+		if (rc < 0)
+			return rc;
+
+		INIT_WORK(&chip->ibb_ccm_wa_work, qpnp_amoled_toggle_ps_ctl);
 	}
 
 	return 0;
@@ -578,6 +667,8 @@ static int qpnp_amoled_parse_dt(struct qpnp_amoled *chip)
 							"qcom,aod-pd-control");
 			chip->ibb.single_phase = of_property_read_bool(temp,
 							"qcom,ibb-single-phase");
+			chip->ibb.force_ccm_mode = of_property_read_bool(temp,
+							"qcom,ibb-enable-force-ccm-wa");
 			break;
 		default:
 			pr_err("Unknown peripheral type 0x%x\n", val[0]);
@@ -625,12 +716,21 @@ static int qpnp_amoled_regulator_probe(struct platform_device *pdev)
 	if (rc < 0)
 		dev_err(chip->dev, "Failed to initialize HW rc=%d\n", rc);
 
+	device_init_wakeup(chip->dev, true);
+
 error:
 	return rc;
 }
 
 static int qpnp_amoled_regulator_remove(struct platform_device *pdev)
 {
+	struct qpnp_amoled *chip = dev_get_drvdata(&pdev->dev);
+
+	if (chip->ibb.force_ccm_mode)
+		cancel_work_sync(&chip->ibb_ccm_wa_work);
+
+	device_init_wakeup(chip->dev, false);
+
 	return 0;
 }
 

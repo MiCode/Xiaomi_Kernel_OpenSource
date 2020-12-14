@@ -1330,4 +1330,6 @@ config TOUCHSCREEN_SYNAPTICS_DSX
 
 source "drivers/input/touchscreen/synaptics_dsx/Kconfig"
 
+source "drivers/input/touchscreen/nt36xxx/Kconfig"
+
 endif
