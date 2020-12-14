@@ -195,10 +195,9 @@ static ssize_t gt1x_debug_write_proc(struct file *, const char __user *,
 
 static struct proc_dir_entry *gt1x_debug_proc_entry;
 
-static const struct file_operations gt1x_debug_fops = {
-	.owner = THIS_MODULE,
-	.read = gt1x_debug_read_proc,
-	.write = gt1x_debug_write_proc,
+static const struct proc_ops gt1x_debug_fops = {
+	.proc_read = gt1x_debug_read_proc,
+	.proc_write = gt1x_debug_write_proc,
 };
 
 s32 gt1x_init_debug_node(void)
