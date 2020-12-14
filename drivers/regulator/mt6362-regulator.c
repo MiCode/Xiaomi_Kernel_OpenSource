@@ -189,7 +189,7 @@ static const struct regulator_ops mt6362_buck_regulator_ops = {
 	.get_mode		= mt6362_general_get_mode,
 };
 
-static const struct regulator_linear_range lvldo_ranges[] = {
+static const struct linear_range lvldo_ranges[] = {
 	REGULATOR_LINEAR_RANGE(500000, 0x00, 0x0a, 10000),
 	REGULATOR_LINEAR_RANGE(600000, 0x0b, 0x0f, 0),
 	REGULATOR_LINEAR_RANGE(600000, 0x10, 0x1a, 10000),
@@ -224,7 +224,7 @@ static const struct regulator_linear_range lvldo_ranges[] = {
 	REGULATOR_LINEAR_RANGE(2100000, 0xfb, 0xff, 0),
 };
 
-static const struct regulator_linear_range hvldo_ranges[] = {
+static const struct linear_range hvldo_ranges[] = {
 	REGULATOR_LINEAR_RANGE(1200000, 0x00, 0x0a, 10000),
 	REGULATOR_LINEAR_RANGE(1300000, 0x0b, 0x0f, 0),
 	REGULATOR_LINEAR_RANGE(1300000, 0x10, 0x1a, 10000),
