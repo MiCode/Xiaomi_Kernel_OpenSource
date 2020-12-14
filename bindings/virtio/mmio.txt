@@ -24,6 +24,12 @@ Optional properties:
 		node cannot have both an "#iommu-cells" and an "iommus"
 		property.
 
+- ring_base: 	Indicates the physical address of memory which needs to be
+		used for hosting virtqueue ring structures of the device.
+		Presence of this property also results in custom DMA
+		ops being used for the device, which will use swiotlb APIs
+		to bounce buffers.
+
 Example:
 
 	virtio_block@3000 {
