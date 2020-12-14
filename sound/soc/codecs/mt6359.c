@@ -1275,6 +1275,70 @@ static void mtk_hp_disable(struct mt6359_priv *priv)
 			   0x3 << 2, 0x0);
 }
 
+static int mtk_hp_impedance_enable(struct mt6359_priv *priv)
+{
+	/* Disable HPR/L STB enhance circuits */
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON2,
+			   RG_HPROUTPUTSTBENH_VAUDP32_MASK_SFT, 0x0);
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON2,
+			   RG_HPLOUTPUTSTBENH_VAUDP32_MASK_SFT, 0x0);
+
+	/* Disable Pull-down HPL/R to AVSS28_AUD */
+	hp_pull_down(priv, false);
+
+	/* Disable HP aux CMFB loop */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON9, 0x0200);
+
+	/* Disable HP damping circuit & HPN 4K load */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON10, 0x0000);
+
+	/* Enable AUD_CLK */
+	mt6359_set_decoder_clk(priv, true);
+
+	/* Enable Audio L channel DAC */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON0, 0x3009);
+
+	/* Enable HPDET circuit, */
+	/* select DACLP as HPDET input and HPR as HPDET output */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON8, 0x1900);
+
+	/* Enable TRIMBUF circuit, select HPR as TRIMBUF input */
+	/* Set TRIMBUF gain as 18dB */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON8, 0x1972);
+
+	return 0;
+}
+
+static int mtk_hp_impedance_disable(struct mt6359_priv *priv)
+{
+	/* disable HPDET circuit */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON8, 0x1900);
+
+	/* Disable HPDET circuit, select OPEN as HPDET input */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON8, 0x0000);
+
+	/* Disable Audio DAC */
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON0,
+			   0x000f, 0x0000);
+
+	/* Disable AUD_CLK */
+	mt6359_set_decoder_clk(priv, false);
+
+	/* Enable HPR/L STB enhance circuits for off state */
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON2,
+			   RG_HPROUTPUTSTBENH_VAUDP32_MASK_SFT,
+			   0x3 << RG_HPROUTPUTSTBENH_VAUDP32_SFT);
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON2,
+			   RG_HPLOUTPUTSTBENH_VAUDP32_MASK_SFT,
+			   0x3 << RG_HPLOUTPUTSTBENH_VAUDP32_SFT);
+
+#if IS_ENABLED(CONFIG_SND_SOC_MT6359P_ACCDET)
+	/* from accdet request */
+	accdet_modify_vref_volt();
+#endif
+	return 0;
+}
+
 static int mt_hp_event(struct snd_soc_dapm_widget *w,
 		       struct snd_kcontrol *kcontrol,
 		       int event)
@@ -1283,12 +1347,9 @@ static int mt_hp_event(struct snd_soc_dapm_widget *w,
 	struct mt6359_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 	unsigned int mux = dapm_kcontrol_get_value(w->kcontrols[0]);
 	int device = DEVICE_HP;
-	int dev_mux = !strcmp(w->name, "HPL Mux") ? MUX_HP_L : MUX_HP_R;
 
-	dev_info(priv->dev, "%s(), event 0x%x, dev_counter[DEV_HP] %d, mux %u, dev_mux: %d\n",
-		 __func__, event, priv->dev_counter[device], mux, dev_mux);
-
-	priv->mux_select[dev_mux] = mux;
+	dev_info(priv->dev, "%s(), event 0x%x, dev_counter[DEV_HP] %d, mux %u\n",
+		 __func__, event, priv->dev_counter[device], mux);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -1300,8 +1361,12 @@ static int mt_hp_event(struct snd_soc_dapm_widget *w,
 				 __func__,
 				 priv->dev_counter[device]);
 
+		priv->mux_select[MUX_HP_L] = mux;
+
 		if (mux == HP_MUX_HP || mux == HP_MUX_HPSPK)
 			mtk_hp_enable(priv);
+		else if (mux == HP_MUX_HP_IMPEDANCE)
+			mtk_hp_impedance_enable(priv);
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
 		priv->dev_counter[device]--;
@@ -1315,8 +1380,13 @@ static int mt_hp_event(struct snd_soc_dapm_widget *w,
 			break;
 		}
 
-		if (mux == HP_MUX_HP || mux == HP_MUX_HPSPK)
+		if (priv->mux_select[MUX_HP_L] == HP_MUX_HP ||
+		    priv->mux_select[MUX_HP_L] == HP_MUX_HPSPK)
 			mtk_hp_disable(priv);
+		else if (priv->mux_select[MUX_HP_L] == HP_MUX_HP_IMPEDANCE)
+			mtk_hp_impedance_disable(priv);
+
+		priv->mux_select[MUX_HP_L] = mux;
 		break;
 	default:
 		break;
