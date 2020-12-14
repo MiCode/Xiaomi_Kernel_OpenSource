@@ -2615,8 +2615,89 @@
 				"JOB",
 				"EVENT",
 				"PWR";
+			operating-points-v2 = <&gpu_mali_opp>;
 			ged-supply = <&ged>;
 			#cooling-cells = <2>;
+		};
+
+		gpu_mali_opp: opp-table0 {
+			compatible = "operating-points-v2";
+			opp00 {
+				opp-hz = /bits/ 64 <730000000>;
+				opp-microvolt = <687500>;
+			};
+			opp01 {
+				opp-hz = /bits/ 64 <715000000>;
+				opp-microvolt = <681250>;
+			};
+			opp02 {
+				opp-hz = /bits/ 64 <700000000>;
+				opp-microvolt = <675000>;
+			};
+			opp03 {
+				opp-hz = /bits/ 64 <685000000>;
+				opp-microvolt = <668750>;
+			};
+			opp04 {
+				opp-hz = /bits/ 64 <670000000>;
+				opp-microvolt = <662500>;
+			};
+			opp05 {
+				opp-hz = /bits/ 64 <655000000>;
+				opp-microvolt = <656250>;
+			};
+			opp06 {
+				opp-hz = /bits/ 64 <640000000>;
+				opp-microvolt = <650000>;
+			};
+			opp07 {
+				opp-hz = /bits/ 64 <619000000>;
+				opp-microvolt = <650000>;
+			};
+			opp08 {
+				opp-hz = /bits/ 64 <598000000>;
+				opp-microvolt = <643750>;
+			};
+			opp09 {
+				opp-hz = /bits/ 64 <577000000>;
+				opp-microvolt = <637500>;
+			};
+			opp10 {
+				opp-hz = /bits/ 64 <556000000>;
+				opp-microvolt = <637500>;
+			};
+			opp11 {
+				opp-hz = /bits/ 64 <535000000>;
+				opp-microvolt = <631250>;
+			};
+			opp12 {
+				opp-hz = /bits/ 64 <515000000>;
+				opp-microvolt = <625000>;
+			};
+			opp13 {
+				opp-hz = /bits/ 64 <494000000>;
+				opp-microvolt = <625000>;
+			};
+			opp14 {
+				opp-hz = /bits/ 64 <473000000>;
+				opp-microvolt = <618750>;
+			};
+			opp15 {
+				opp-hz = /bits/ 64 <452000000>;
+				opp-microvolt = <612500>;
+			};
+			opp16 {
+				opp-hz = /bits/ 64 <431000000>;
+				opp-microvolt = <612500>;
+			};
+			opp17 {
+				opp-hz = /bits/ 64 <410000000>;
+				opp-microvolt = <606250>;
+			};
+			opp18 {
+				opp-hz = /bits/ 64 <390000000>;
+				opp-microvolt = <600000>;
+			};
 		};
 
 		mali_dvfs_hint@13fbb000 {
