@@ -563,7 +563,7 @@ static int mt6362_set_usbsw_state(struct mt6362_chg_data *data, int state)
 	ret = phy_set_mode_ext(phy, PHY_MODE_USB_DEVICE, mode);
 	if (ret)
 		dev_info(data->dev, "phy_set_mode_ext fail\n");
-	phy_put(phy);
+	phy_put(data->dev, phy);
 	return 0;
 }
 
