@@ -5,6 +5,13 @@
 #define	_DWMAC_QCOM_ETHQOS_H
 
 //#include <linux/msm-bus.h>
+#include <linux/ipc_logging.h>
+
+extern void *ipc_emac_log_ctxt;
+
+#define IPCLOG_STATE_PAGES 50
+#define __FILENAME__ (strrchr(__FILE__, '/') ? \
+		strrchr(__FILE__, '/') + 1 : __FILE__)
 
 #include <linux/inetdevice.h>
 #include <linux/inet.h>
@@ -22,7 +29,14 @@
 #define ETHQOSDBG(fmt, args...) \
 	pr_debug(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
 #define ETHQOSERR(fmt, args...) \
-	pr_err(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
+do {\
+	pr_err(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args);\
+	if (ipc_emac_log_ctxt) { \
+		ipc_log_string(ipc_emac_log_ctxt, \
+		"%s: %s[%u]:[emac] ERROR:" fmt, __FILENAME__,\
+		__func__, __LINE__, ## args); \
+	} \
+} while (0)
 #define ETHQOSINFO(fmt, args...) \
 	pr_info(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
 #define RGMII_IO_MACRO_CONFIG		0x0
@@ -181,6 +195,8 @@ struct qcom_ethqos {
 	bool early_eth_enabled;
 	/* Key Performance Indicators */
 	bool print_kpi;
+
+	struct dentry *debugfs_dir;
 };
 
 struct pps_cfg {
