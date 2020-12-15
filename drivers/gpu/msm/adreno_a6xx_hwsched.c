@@ -158,8 +158,7 @@ static size_t adreno_hwsched_snapshot_rb_payload(struct kgsl_device *device,
 static bool parse_payload_rb(struct adreno_device *adreno_dev,
 	struct kgsl_snapshot *snapshot)
 {
-	struct a6xx_hwsched_hfi *hfi = to_a6xx_hwsched_hfi(adreno_dev);
-	struct hfi_context_bad_cmd *cmd = hfi->ctxt_bad;
+	struct hfi_context_bad_cmd *cmd = adreno_dev->hwsched.ctxt_bad;
 	u32 i = 0, payload_bytes;
 	void *start;
 	bool ret = false;
@@ -1051,10 +1050,7 @@ static void a6xx_hwsched_drain_ctxt_unregister(struct adreno_device *adreno_dev)
 int a6xx_hwsched_reset(struct adreno_device *adreno_dev)
 {
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
-	struct a6xx_hwsched_hfi *hfi = to_a6xx_hwsched_hfi(adreno_dev);
 	int ret;
-
-	memset(hfi->ctxt_bad, 0x0, HFI_MAX_MSG_SIZE);
 
 	/*
 	 * Any pending context unregister packets will be lost
@@ -1084,19 +1080,6 @@ int a6xx_hwsched_reset(struct adreno_device *adreno_dev)
 	return ret;
 }
 
-static bool a6xx_hwsched_drawobj_fault(struct adreno_device *adreno_dev,
-	struct kgsl_drawobj *drawobj)
-{
-	struct a6xx_hwsched_hfi *hfi = to_a6xx_hwsched_hfi(adreno_dev);
-	struct hfi_context_bad_cmd *bad = hfi->ctxt_bad;
-
-	if ((bad->ctxt_id == drawobj->context->id) &&
-		(bad->ts == drawobj->timestamp))
-		return true;
-
-	return false;
-}
-
 const struct adreno_power_ops a6xx_hwsched_power_ops = {
 	.first_open = a6xx_hwsched_first_open,
 	.last_close = a6xx_hwsched_power_off,
@@ -1112,7 +1095,6 @@ const struct adreno_power_ops a6xx_hwsched_power_ops = {
 const struct adreno_hwsched_ops a6xx_hwsched_ops = {
 	.submit_cmdobj = a6xx_hwsched_submit_cmdobj,
 	.preempt_count = a6xx_hwsched_preempt_count_get,
-	.is_drawobj_fault = a6xx_hwsched_drawobj_fault,
 };
 
 int a6xx_hwsched_probe(struct platform_device *pdev,

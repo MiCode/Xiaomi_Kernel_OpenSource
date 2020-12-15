@@ -20,12 +20,6 @@ struct adreno_hwsched_ops {
 	 * @preempt_count - Target specific function to get preemption count
 	 */
 	u32 (*preempt_count)(struct adreno_device *adreno_dev);
-	/**
-	 * @is_drawobj_fault - Target specific function to check if given
-	 * draw object faulted.
-	 */
-	bool (*is_drawobj_fault)(struct adreno_device *adreno_dev,
-			struct kgsl_drawobj *drawobj);
 };
 
 /**
@@ -51,6 +45,8 @@ struct adreno_hwsched {
 	struct kthread_worker *worker;
 	/** @hwsched_ops: Container for target specific hwscheduler ops */
 	const struct adreno_hwsched_ops *hwsched_ops;
+	/** @ctxt_bad: Container for the context bad hfi packet */
+	void *ctxt_bad;
 };
 
 enum adreno_hwsched_flags {
