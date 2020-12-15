@@ -3259,12 +3259,6 @@ static int msm_geni_serial_runtime_suspend(struct device *dev)
 
 	disable_irq(port->uport.irq);
 
-	if (port->wakeup_irq > 0) {
-		port->edge_count = 0;
-		enable_irq(port->wakeup_irq);
-	}
-	__pm_relax(port->geni_wake);
-
 	/*
 	 * Above stop_rx disabled the flow so we need to enable it here
 	 * Make sure wake up interrupt is enabled before RFR is made low
@@ -3277,7 +3271,12 @@ static int msm_geni_serial_runtime_suspend(struct device *dev)
 		goto exit_runtime_suspend;
 	}
 
+	if (port->wakeup_irq > 0) {
+		port->edge_count = 0;
+		enable_irq(port->wakeup_irq);
+	}
 	IPC_LOG_MSG(port->ipc_log_pwr, "%s:\n", __func__);
+	__pm_relax(port->geni_wake);
 exit_runtime_suspend:
 	return ret;
 }
