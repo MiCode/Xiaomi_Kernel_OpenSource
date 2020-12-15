@@ -918,6 +918,7 @@ static int adc5_get_dt_channel_data(struct adc5_chip *adc,
 }
 
 static const struct adc5_data adc5_data_pmic = {
+	.name = "pm-adc5",
 	.full_scale_code_volt = 0x70e4,
 	.full_scale_code_cur = 0x2710,
 	.adc_chans = adc5_chans_pmic,
@@ -932,6 +933,7 @@ static const struct adc5_data adc5_data_pmic = {
 };
 
 static const struct adc5_data adc7_data_pmic = {
+	.name = "pm-adc7",
 	.full_scale_code_volt = 0x70e4,
 	.adc_chans = adc7_chans_pmic,
 	.decimation = (unsigned int [ADC5_DECIMATION_SAMPLES_MAX])
@@ -943,6 +945,7 @@ static const struct adc5_data adc7_data_pmic = {
 };
 
 static const struct adc5_data adc5_data_pmic5_lite = {
+	.name = "pm-adc5-lite",
 	.full_scale_code_volt = 0x70e4,
 	/* On PMI632, IBAT LSB = 5A/32767 */
 	.full_scale_code_cur = 5000,
@@ -953,6 +956,7 @@ static const struct adc5_data adc5_data_pmic5_lite = {
 };
 
 static const struct adc5_data adc5_data_pmic_rev2 = {
+	.name = "pm-adc4-rev2",
 	.full_scale_code_volt = 0x4000,
 	.full_scale_code_cur = 0x1800,
 	.adc_chans = adc5_chans_rev2,
@@ -1056,6 +1060,7 @@ static int adc5_probe(struct platform_device *pdev)
 	struct iio_dev *indio_dev;
 	struct adc5_chip *adc;
 	struct regmap *regmap;
+	const char *irq_name;
 	int ret, irq_eoc;
 	u32 reg;
 
@@ -1100,8 +1105,12 @@ static int adc5_probe(struct platform_device *pdev)
 			return irq_eoc;
 		adc->poll_eoc = true;
 	} else {
+		irq_name = "pm-adc5";
+		if (adc->data->name)
+			irq_name = adc->data->name;
+
 		ret = devm_request_irq(dev, irq_eoc, adc5_isr, 0,
-				       "pm-adc5", adc);
+				       irq_name, adc);
 		if (ret)
 			return ret;
 	}
