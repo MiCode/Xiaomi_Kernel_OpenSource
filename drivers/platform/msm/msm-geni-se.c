@@ -15,6 +15,7 @@
 #include <linux/of_platform.h>
 #include <linux/pm_runtime.h>
 #include <linux/msm-geni-se.h>
+#include <linux/msm_rtb.h>
 #include <linux/spinlock.h>
 #include <linux/pinctrl/consumer.h>
 

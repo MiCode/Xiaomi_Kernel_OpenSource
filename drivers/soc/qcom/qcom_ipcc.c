@@ -10,6 +10,7 @@
 #include <linux/syscore_ops.h>
 #include <linux/platform_device.h>
 #include <linux/mailbox_controller.h>
+#include <linux/msm_rtb.h>
 #include <dt-bindings/soc/qcom,ipcc.h>
 
 /* IPCC Register offsets */
