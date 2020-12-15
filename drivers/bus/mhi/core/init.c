@@ -991,9 +991,13 @@ int mhi_register_controller(struct mhi_controller *mhi_cntrl,
 
 	mhi_cntrl->mhi_dev = mhi_dev;
 
-	if (mhi_misc_register_controller(mhi_cntrl))
+	ret = mhi_misc_register_controller(mhi_cntrl);
+	if (ret) {
 		dev_err(mhi_cntrl->cntrl_dev,
 			"Could not enable miscellaneous features\n");
+		mhi_cntrl->mhi_dev = NULL;
+		goto err_release_dev;
+	}
 
 	mhi_create_debugfs(mhi_cntrl);
 
