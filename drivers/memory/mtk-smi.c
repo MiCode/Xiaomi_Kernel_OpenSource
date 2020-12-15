@@ -18,6 +18,7 @@
 #include <soc/mediatek/smi.h>
 #include <dt-bindings/memory/mtk-smi-larb-port.h>
 #include <dt-bindings/memory/mt2701-larb-port.h>
+#include <../misc/mediatek/include/mt-plat/aee.h>
 
 /* mt8173 */
 #define SMI_LARB_MMU_EN		0xf00
@@ -135,6 +136,8 @@ struct mtk_smi_larb { /* larb: local arbiter */
 	int				larbid;
 	u32				*mmu;
 	u32				*bank;
+	int larb_ref_count[MTK_LARB_NR_MAX + 1];
+	int common_ref_count;
 };
 
 void mtk_smi_common_bw_set(struct device *dev, const u32 port, const u32 val)
@@ -142,7 +145,15 @@ void mtk_smi_common_bw_set(struct device *dev, const u32 port, const u32 val)
 	struct mtk_smi_larb *larb = dev_get_drvdata(dev);
 	struct mtk_smi *common = dev_get_drvdata(larb->smi_common_dev);
 
-	writel(val, common->base + SMI_L1ARB(port));
+	if (larb->common_ref_count) {
+		writel(val, common->base + SMI_L1ARB(port));
+	} else {
+		dev_notice(dev, "set common set bwl fail reg:%#x, port:%d, val:%u\n",
+			common->base + SMI_L1ARB(port), port, val);
+		dump_stack();
+		aee_kernel_exception("smi", "set common set bwl fail reg:%#x, port:%d, val:%u\n",
+			common->base + SMI_L1ARB(port), port, val);
+	}
 }
 EXPORT_SYMBOL_GPL(mtk_smi_common_bw_set);
 
@@ -150,8 +161,17 @@ void mtk_smi_larb_bw_set(struct device *dev, const u32 port, const u32 val)
 {
 	struct mtk_smi_larb *larb = dev_get_drvdata(dev);
 
-	if (val)
-		writel(val, larb->base + SMI_LARB_OSTDL_PORTx(port));
+	if (val) {
+		if (larb->larb_ref_count[larb->larbid]) {
+			writel(val, larb->base + SMI_LARB_OSTDL_PORTx(port));
+		} else {
+			dev_notice(dev, "set larb bw fail larb:%d, port:%d, val:%u\n",
+				larb->larbid, port, val);
+			dump_stack();
+			aee_kernel_exception("smi", "set larb bw fail larb:%d, port:%d, val:%u\n",
+				larb->larbid, port, val);
+		}
+	}
 }
 EXPORT_SYMBOL_GPL(mtk_smi_larb_bw_set);
 
@@ -196,7 +216,12 @@ static void mtk_smi_clk_disable(const struct mtk_smi *smi)
 
 int mtk_smi_larb_get(struct device *larbdev)
 {
+	struct mtk_smi_larb *larb = dev_get_drvdata(larbdev);
+
+	larb->larb_ref_count[larb->larbid]++;
 	int ret = pm_runtime_get_sync(larbdev);
+	if (ret < 0)
+		larb->larb_ref_count[larb->larbid]--;
 
 	return (ret < 0) ? ret : 0;
 }
@@ -204,6 +229,9 @@ EXPORT_SYMBOL_GPL(mtk_smi_larb_get);
 
 void mtk_smi_larb_put(struct device *larbdev)
 {
+	struct mtk_smi_larb *larb = dev_get_drvdata(larbdev);
+
+	larb->larb_ref_count[larb->larbid]--;
 	pm_runtime_put_sync(larbdev);
 }
 EXPORT_SYMBOL_GPL(mtk_smi_larb_put);
@@ -596,9 +624,12 @@ static int mtk_smi_larb_probe(struct platform_device *pdev)
 	pm_runtime_enable(dev);
 	platform_set_drvdata(pdev, larb);
 	ret = component_add(dev, &mtk_smi_larb_component_ops);
+	of_property_read_u32(dev->of_node, "mediatek,larb-id", &larb->larbid);
 
-	if (of_property_read_bool(dev->of_node, "init-power-on"))
+	if (of_property_read_bool(dev->of_node, "init-power-on")) {
+		larb->larb_ref_count[larb->larbid]++;
 		pm_runtime_get_sync(dev);
+	}
 
 	return ret;
 }
@@ -617,14 +648,17 @@ static int __maybe_unused mtk_smi_larb_resume(struct device *dev)
 	int ret;
 
 	/* Power on smi-common. */
+	larb->common_ref_count++;
 	ret = pm_runtime_get_sync(larb->smi_common_dev);
 	if (ret < 0) {
+		larb->common_ref_count--;
 		dev_err(dev, "Failed to pm get for smi-common(%d).\n", ret);
 		return ret;
 	}
 
 	ret = mtk_smi_clk_enable(&larb->smi);
 	if (ret < 0) {
+		larb->common_ref_count--;
 		dev_err(dev, "Failed to enable clock(%d).\n", ret);
 		pm_runtime_put_sync(larb->smi_common_dev);
 		return ret;
@@ -648,6 +682,7 @@ static int __maybe_unused mtk_smi_larb_suspend(struct device *dev)
 		larb_gen->sleep_ctrl(dev, true);
 
 	mtk_smi_clk_disable(&larb->smi);
+	larb->common_ref_count--;
 	pm_runtime_put_sync(larb->smi_common_dev);
 	return 0;
 }
