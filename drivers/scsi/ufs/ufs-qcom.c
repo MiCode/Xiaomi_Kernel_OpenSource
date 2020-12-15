@@ -14,6 +14,8 @@
 #include <linux/interconnect.h>
 #include <linux/phy/phy-qcom-ufs.h>
 #include <linux/devfreq.h>
+#include <linux/cpu.h>
+#include <linux/blk-mq.h>
 #include <linux/thermal.h>
 
 #include "ufshcd.h"
@@ -77,6 +79,9 @@ static void ufs_qcom_parse_limits(struct ufs_qcom_host *host);
 static void ufs_qcom_parse_lpm(struct ufs_qcom_host *host);
 static int ufs_qcom_set_dme_vs_core_clk_ctrl_max_freq_mode(struct ufs_hba *hba);
 static int ufs_qcom_init_sysfs(struct ufs_hba *hba);
+static int ufs_qcom_update_qos_constraints(struct qos_cpu_group *qcg,
+					   enum constraint type);
+static int ufs_qcom_unvote_qos_all(struct ufs_hba *hba);
 
 static int ufs_qcom_get_pwr_dev_param(struct ufs_qcom_dev_params *qcom_param,
 				      struct ufs_pa_layer_attr *dev_max,
@@ -936,6 +941,45 @@ out:
 	return ret;
 }
 
+static int add_group_qos(struct qos_cpu_group *qcg, enum constraint type)
+{
+	int cpu, err;
+	struct dev_pm_qos_request *qos_req = qcg->qos_req;
+
+	for_each_cpu(cpu, &qcg->mask) {
+		dev_dbg(qcg->host->hba->dev, "%s: cpu: %d | mask: 0x%08x | assoc-qos-req: 0x%08x\n",
+			__func__, cpu, qcg->mask, qos_req);
+		memset(qos_req, 0,
+		       sizeof(struct dev_pm_qos_request));
+		err = dev_pm_qos_add_request(get_cpu_device(cpu),
+					     qos_req,
+					     DEV_PM_QOS_RESUME_LATENCY,
+					     type);
+		if (err < 0)
+			return err;
+		qos_req++;
+	}
+	return 0;
+}
+
+static int remove_group_qos(struct qos_cpu_group *qcg)
+{
+	int err, cpu;
+	struct dev_pm_qos_request *qos_req = qcg->qos_req;
+
+	for_each_cpu(cpu, &qcg->mask) {
+		if (!dev_pm_qos_request_active(qos_req)) {
+			qos_req++;
+			continue;
+		}
+		err = dev_pm_qos_remove_request(qos_req);
+		if (err < 0)
+			return err;
+		qos_req++;
+	}
+	return 0;
+}
+
 static int ufs_qcom_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 {
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
@@ -954,6 +998,8 @@ static int ufs_qcom_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 		if (host->vccq_parent && !hba->auto_bkops_enabled)
 			ufs_qcom_config_vreg(hba->dev,
 					host->vccq_parent, false);
+		if (!err)
+			err = ufs_qcom_unvote_qos_all(hba);
 	}
 
 	return err;
@@ -1533,6 +1579,28 @@ static void ufs_qcom_override_pa_h8time(struct ufs_hba *hba)
 
 }
 
+static inline bool
+ufshcd_is_valid_pm_lvl(enum ufs_pm_level lvl)
+{
+	return lvl >= 0 && lvl < UFS_PM_LVL_MAX;
+}
+
+static void ufshcd_parse_pm_levels(struct ufs_hba *hba)
+{
+	struct device *dev = hba->dev;
+	struct device_node *np = dev->of_node;
+	enum ufs_pm_level rpm_lvl = UFS_PM_LVL_MAX, spm_lvl = UFS_PM_LVL_MAX;
+
+	if (!np)
+		return;
+	if (!of_property_read_u32(np, "rpm-level", &rpm_lvl) &&
+		ufshcd_is_valid_pm_lvl(rpm_lvl))
+		hba->rpm_lvl = rpm_lvl;
+	if (!of_property_read_u32(np, "spm-level", &spm_lvl) &&
+		ufshcd_is_valid_pm_lvl(spm_lvl))
+		hba->spm_lvl = spm_lvl;
+}
+
 static int ufs_qcom_apply_dev_quirks(struct ufs_hba *hba)
 {
 	unsigned long flags;
@@ -1556,6 +1624,11 @@ static int ufs_qcom_apply_dev_quirks(struct ufs_hba *hba)
 
 	if (hba->dev_quirks & UFS_DEVICE_QUIRK_PA_HIBER8TIME)
 		ufs_qcom_override_pa_h8time(hba);
+
+	ufshcd_parse_pm_levels(hba);
+
+	if (hba->dev_info.wmanufacturerid == UFS_VENDOR_MICRON)
+		hba->dev_quirks |= UFS_DEVICE_QUIRK_DELAY_BEFORE_LPM;
 
 	return err;
 }
@@ -1641,6 +1714,29 @@ static void ufs_qcom_set_caps(struct ufs_hba *hba)
 	}
 }
 
+static int ufs_qcom_unvote_qos_all(struct ufs_hba *hba)
+{
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	struct ufs_qcom_qos_req *ufs_qos_req = host->ufs_qos;
+	struct qos_cpu_group *qcg;
+	int err, i;
+
+	if (!host->ufs_qos)
+		return 0;
+
+	qcg = ufs_qos_req->qcg;
+	for (i = 0; i < ufs_qos_req->num_groups; i++, qcg++) {
+		flush_work(&qcg->vwork);
+		if (!qcg->voted)
+			continue;
+		err = ufs_qcom_update_qos_constraints(qcg, QOS_MAX);
+		if (err)
+			dev_err(hba->dev, "Failed (%d) removing qos grp(%d)\n",
+				err, i);
+	}
+	return err;
+}
+
 /**
  * ufs_qcom_setup_clocks - enables/disable clocks
  * @hba: host controller instance
@@ -1696,7 +1792,12 @@ static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on,
 				ufs_qcom_dev_ref_clk_ctrl(host, true);
 		} else {
 			err = ufs_qcom_set_bus_vote(hba, false);
+			if (err)
+				return err;
+			err = ufs_qcom_unvote_qos_all(hba);
 		}
+		if (!err)
+			atomic_set(&host->clks_on, on);
 		break;
 	}
 
@@ -2092,6 +2193,208 @@ ufs_qcom_ioctl(struct scsi_device *dev, unsigned int cmd, void __user *buffer)
 	return err;
 }
 
+static int tag_to_cpu(struct ufs_hba *hba, unsigned int tag)
+{
+	struct ufshcd_lrb *lrbp = &hba->lrb[tag];
+
+	if (lrbp && lrbp->cmd && lrbp->cmd->request)
+		return blk_mq_rq_cpu(lrbp->cmd->request);
+	return -EINVAL;
+}
+
+static struct qos_cpu_group *cpu_to_group(struct ufs_qcom_qos_req *r,
+					  unsigned int cpu)
+{
+	int i;
+	struct qos_cpu_group *g = r->qcg;
+
+	if (cpu > num_possible_cpus())
+		return NULL;
+	for (i = 0; i < r->num_groups; i++, g++) {
+		if (cpumask_test_cpu(cpu, &g->mask))
+			return &r->qcg[i];
+	}
+	return NULL;
+}
+
+static int ufs_qcom_update_qos_constraints(struct qos_cpu_group *qcg,
+					   enum constraint type)
+{
+	unsigned int vote;
+	int cpu, err;
+	struct dev_pm_qos_request *qos_req = qcg->qos_req;
+
+	if (type == QOS_MAX)
+		vote = S32_MAX;
+	else
+		vote = qcg->votes[type];
+	dev_dbg(qcg->host->hba->dev, "%s: qcg: 0x%08x | const: %d\n",
+		__func__, qcg, type);
+	if (qcg->curr_vote == vote)
+		return 0;
+	for_each_cpu(cpu, &qcg->mask) {
+		err = dev_pm_qos_update_request(qos_req, vote);
+		dev_dbg(qcg->host->hba->dev, "%s: vote: %d | cpu: %d | qos_req: 0x%08x\n",
+			__func__, vote, cpu, qos_req);
+		if (err < 0)
+			return err;
+		++qos_req;
+	}
+	if (type == QOS_MAX)
+		qcg->voted = false;
+	else
+		qcg->voted = true;
+	qcg->curr_vote = vote;
+	return 0;
+}
+
+static void ufs_qcom_qos(struct ufs_hba *hba, int tag, bool is_scsi_cmd)
+{
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	struct qos_cpu_group *qcg;
+	int cpu;
+
+	if (!host->ufs_qos)
+		return;
+	cpu = tag_to_cpu(hba, tag);
+	if (cpu < 0)
+		return;
+	qcg = cpu_to_group(host->ufs_qos, cpu);
+	if (qcg->voted) {
+		dev_dbg(qcg->host->hba->dev, "%s: qcg: 0x%08x | Mask: 0x%08x - Already voted - return\n",
+			__func__, qcg, qcg->mask);
+		return;
+	}
+	queue_work(host->ufs_qos->workq, &qcg->vwork);
+	dev_dbg(hba->dev, "Queued QoS work- cpu: %d\n", cpu);
+}
+
+static void ufs_qcom_vote_work(struct work_struct *work)
+{
+	int err;
+	struct qos_cpu_group *qcg = container_of(work, struct qos_cpu_group,
+						 vwork);
+
+	err = ufs_qcom_update_qos_constraints(qcg, QOS_PERF);
+	if (err)
+		dev_err(qcg->host->hba->dev, "%s: update qos - failed: %d\n",
+			__func__, err);
+}
+
+static int ufs_qcom_setup_qos(struct ufs_hba *hba)
+{
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	struct device *dev = hba->dev;
+	struct ufs_qcom_qos_req *qr = host->ufs_qos;
+	struct qos_cpu_group *qcg = qr->qcg;
+	int i, err;
+
+	for (i = 0; i < qr->num_groups; i++, qcg++) {
+		qcg->qos_req = kcalloc(cpumask_weight(&qcg->mask),
+					sizeof(struct dev_pm_qos_request),
+					GFP_KERNEL);
+		if (!qcg->qos_req) {
+			err = -ENOMEM;
+			if (!i)
+				return err;
+			goto free_mem;
+		}
+		dev_dbg(dev, "%s: qcg: 0x%08x | mask: 0x%08x | mask-wt: %d | qos_req: 0x%08x\n",
+			__func__, qcg, qcg->mask, cpumask_weight(&qcg->mask),
+			qcg->qos_req);
+		err = add_group_qos(qcg, S32_MAX);
+		if (err < 0) {
+			dev_err(dev, "Fail (%d) add qos-req: grp-%d\n",
+				err, i);
+			if (!i) {
+				kfree(qcg->qos_req);
+				return err;
+			}
+			goto free_mem;
+		}
+		INIT_WORK(&qcg->vwork, ufs_qcom_vote_work);
+	}
+	qr->workq = create_singlethread_workqueue("qc_ufs_qos_swq");
+	if (qr->workq)
+		return 0;
+	err = -1;
+free_mem:
+	while (i--) {
+		kfree(qcg->qos_req);
+		qcg--;
+	}
+	return err;
+}
+
+static void ufs_qcom_qos_init(struct ufs_hba *hba)
+{
+	struct device *dev = hba->dev;
+	struct device_node *np = dev->of_node;
+	struct device_node *group_node;
+	struct ufs_qcom_qos_req *qr;
+	struct qos_cpu_group *qcg;
+	int i, err, mask = 0;
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+
+	qr = kzalloc(sizeof(*qr), GFP_KERNEL);
+	if (!qr)
+		return;
+
+	host->ufs_qos = qr;
+	qr->num_groups = of_get_available_child_count(np);
+	dev_dbg(hba->dev, "num-groups: %d\n", qr->num_groups);
+	if (!qr->num_groups) {
+		dev_err(dev, "QoS groups undefined\n");
+		kfree(qr);
+		host->ufs_qos = NULL;
+		return;
+	}
+	qcg = kzalloc(sizeof(*qcg) * qr->num_groups, GFP_KERNEL);
+	if (!qcg) {
+		kfree(qr);
+		host->ufs_qos = NULL;
+		return;
+	}
+	qr->qcg = qcg;
+	for_each_available_child_of_node(np, group_node) {
+		of_property_read_u32(group_node, "mask", &mask);
+		qcg->mask.bits[0] = mask;
+		if (!cpumask_subset(&qcg->mask, cpu_possible_mask)) {
+			dev_err(dev, "Invalid group mask\n");
+			goto out_err;
+		}
+
+		err = of_property_count_u32_elems(group_node, "vote");
+		if (err <= 0) {
+			dev_err(dev, "1 vote is needed, bailing out: %d\n",
+				err);
+			goto out_err;
+		}
+		qcg->votes = kmalloc(sizeof(*qcg->votes) * err, GFP_KERNEL);
+		if (!qcg->votes)
+			goto out_err;
+		for (i = 0; i < err; i++) {
+			if (of_property_read_u32_index(group_node, "vote", i,
+						       &qcg->votes[i]))
+				goto out_vote_err;
+		}
+		dev_dbg(dev, "%s: qcg: 0x%08x\n", __func__, qcg);
+		qcg->host = host;
+		++qcg;
+	}
+	if (ufs_qcom_setup_qos(hba))
+		goto out_vote_err;
+	return;
+out_vote_err:
+	for (i = 0, qcg = qr->qcg; i < qr->num_groups; i++, qcg++)
+		kfree(qcg->votes);
+out_err:
+	kfree(qr->qcg);
+	kfree(qr);
+	host->ufs_qos = NULL;
+}
+
+
 static void ufs_qcom_parse_pm_level(struct ufs_hba *hba)
 {
 	struct device *dev = hba->dev;
@@ -2364,6 +2667,7 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 
 	ufs_qcom_save_host_ptr(hba);
 
+	ufs_qcom_qos_init(hba);
 	goto out;
 
 out_set_load_vccq_parent:
@@ -2375,7 +2679,6 @@ out_disable_vddp:
 out_phy_exit:
 	phy_exit(host->generic_phy);
 out_variant_clear:
-	devm_kfree(dev, host);
 	ufshcd_set_variant(hba, NULL);
 out:
 	return err;
@@ -2588,6 +2891,8 @@ static int ufs_qcom_clk_scale_notify(struct ufs_hba *hba,
 		ufshcd_uic_hibern8_exit(hba);
 	}
 
+	if (!err)
+		atomic_set(&host->scale_up, scale_up);
 out:
 	return err;
 }
@@ -2763,8 +3068,6 @@ int ufs_qcom_testbus_config(struct ufs_qcom_host *host)
 	mask <<= offset;
 
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
-	pm_runtime_get_sync(host->hba->dev);
-	ufshcd_hold(host->hba, false);
 	ufshcd_rmwl(host->hba, TEST_BUS_SEL,
 		    (u32)host->testbus.select_major << 19,
 		    REG_UFS_CFG1);
@@ -2777,8 +3080,6 @@ int ufs_qcom_testbus_config(struct ufs_qcom_host *host)
 	 * committed before returning.
 	 */
 	mb();
-	ufshcd_release(host->hba);
-	pm_runtime_put_sync(host->hba->dev);
 
 	return 0;
 }
@@ -2842,14 +3143,17 @@ static void ufs_qcom_dump_dbg_regs(struct ufs_hba *hba)
 
 	/* sleep a bit intermittently as we are dumping too much data */
 	ufs_qcom_print_hw_debug_reg_all(hba, NULL, ufs_qcom_dump_regs_wrapper);
-	udelay(1000);
-	ufs_qcom_testbus_read(hba);
-	udelay(1000);
-	ufs_qcom_print_unipro_testbus(hba);
-	usleep_range(1000, 1100);
-	ufs_qcom_print_utp_hci_testbus(hba);
-	usleep_range(1000, 1100);
-	ufs_qcom_phy_dbg_register_dump(phy);
+
+	if (in_task()) {
+		usleep_range(1000, 1100);
+		ufs_qcom_testbus_read(hba);
+		usleep_range(1000, 1100);
+		ufs_qcom_print_unipro_testbus(hba);
+		usleep_range(1000, 1100);
+		ufs_qcom_print_utp_hci_testbus(hba);
+		usleep_range(1000, 1100);
+		ufs_qcom_phy_dbg_register_dump(phy);
+	}
 }
 
 /*
@@ -2973,6 +3277,7 @@ static const struct ufs_hba_variant_ops ufs_hba_qcom_vops = {
 	.dbg_register_dump	= ufs_qcom_dump_dbg_regs,
 	.device_reset		= ufs_qcom_device_reset,
 	.config_scaling_param = ufs_qcom_config_scaling_param,
+	.setup_xfer_req         = ufs_qcom_qos,
 	.program_key		= ufs_qcom_ice_program_key,
 	.fixup_dev_quirks       = ufs_qcom_fixup_dev_quirks,
 };
@@ -3017,9 +3322,79 @@ static ssize_t power_mode_show(struct device *dev,
 
 static DEVICE_ATTR_RO(power_mode);
 
+static ssize_t bus_speed_mode_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n",
+			 !!atomic_read(&host->scale_up));
+}
+
+static DEVICE_ATTR_RO(bus_speed_mode);
+
+static ssize_t clk_status_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n",
+			 !!atomic_read(&host->clks_on));
+}
+
+static DEVICE_ATTR_RO(clk_status);
+
+static unsigned int ufs_qcom_gec(struct ufs_hba *hba,
+				 struct ufs_err_reg_hist *err_hist,
+				 char *err_name)
+{
+	unsigned long flags;
+	int i, cnt_err = 0;
+
+	spin_lock_irqsave(hba->host->host_lock, flags);
+	for (i = 0; i < UFS_ERR_REG_HIST_LENGTH; i++) {
+		int p = (i + err_hist->pos) % UFS_ERR_REG_HIST_LENGTH;
+
+		if (err_hist->tstamp[p] == 0)
+			continue;
+		dev_err(hba->dev, "%s[%d] = 0x%x at %lld us\n", err_name, p,
+			err_hist->reg[p], ktime_to_us(err_hist->tstamp[p]));
+
+		++cnt_err;
+	}
+
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
+	return cnt_err;
+}
+
+static ssize_t err_count_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+
+	return scnprintf(buf, PAGE_SIZE,
+			 "%s: %d\n%s: %d\n%s: %d\n",
+			 "pa_err_cnt_total",
+			 ufs_qcom_gec(hba, &hba->ufs_stats.pa_err,
+				      "pa_err_cnt_total"),
+			 "dl_err_cnt_total",
+			 ufs_qcom_gec(hba, &hba->ufs_stats.dl_err,
+				      "dl_err_cnt_total"),
+			 "dme_err_cnt",
+			 ufs_qcom_gec(hba, &hba->ufs_stats.dme_err,
+				      "dme_err_cnt"));
+}
+
+static DEVICE_ATTR_RO(err_count);
+
 static struct attribute *ufs_qcom_sysfs_attrs[] = {
 	&dev_attr_err_state.attr,
 	&dev_attr_power_mode.attr,
+	&dev_attr_bus_speed_mode.attr,
+	&dev_attr_clk_status.attr,
+	&dev_attr_err_count.attr,
 	NULL
 };
 
@@ -3086,8 +3461,14 @@ static int ufs_qcom_probe(struct platform_device *pdev)
 static int ufs_qcom_remove(struct platform_device *pdev)
 {
 	struct ufs_hba *hba =  platform_get_drvdata(pdev);
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	struct ufs_qcom_qos_req *r = host->ufs_qos;
+	struct qos_cpu_group *qcg = r->qcg;
+	int i;
 
 	pm_runtime_get_sync(&(pdev)->dev);
+	for (i = 0; i < r->num_groups; i++, qcg++)
+		remove_group_qos(qcg);
 	ufshcd_remove(hba);
 	return 0;
 }
