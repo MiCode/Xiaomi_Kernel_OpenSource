@@ -1480,7 +1480,8 @@ static int cnss_cold_boot_cal_done_hdlr(struct cnss_plat_data *plat_priv,
 {
 	struct cnss_cal_info *cal_info = data;
 
-	if (!test_bit(CNSS_IN_COLD_BOOT_CAL, &plat_priv->driver_state))
+	if (!test_bit(CNSS_IN_COLD_BOOT_CAL, &plat_priv->driver_state) ||
+	    test_bit(CNSS_COLD_BOOT_CAL_DONE, &plat_priv->driver_state))
 		goto out;
 
 	switch (cal_info->cal_status) {
@@ -1508,6 +1509,14 @@ static int cnss_cold_boot_cal_done_hdlr(struct cnss_plat_data *plat_priv,
 	clear_bit(CNSS_IN_COLD_BOOT_CAL, &plat_priv->driver_state);
 	set_bit(CNSS_COLD_BOOT_CAL_DONE, &plat_priv->driver_state);
 
+	if (cal_info->cal_status == CNSS_CAL_DONE) {
+		if (cancel_delayed_work_sync(&plat_priv->wlan_reg_driver_work)
+		   ) {
+			cnss_pr_dbg("Schedule WLAN driver load\n");
+			schedule_delayed_work(&plat_priv->wlan_reg_driver_work,
+					      0);
+		}
+	}
 out:
 	kfree(data);
 	return 0;
