@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2012, 2020, The Linux Foundation. All rights reserved.
  *
  * Description: CoreSight Program Flow Trace driver
  */
@@ -819,7 +819,9 @@ static int etm_probe(struct amba_device *adev, const struct amba_id *id)
 	if (drvdata->cpu < 0)
 		return drvdata->cpu;
 
-	desc.name  = devm_kasprintf(dev, GFP_KERNEL, "etm%d", drvdata->cpu);
+	if (of_property_read_string(dev->of_node, "coresight-name", &desc.name))
+		desc.name  = devm_kasprintf(dev, GFP_KERNEL, "coresight-etm%d", drvdata->cpu);
+
 	if (!desc.name)
 		return -ENOMEM;
 
