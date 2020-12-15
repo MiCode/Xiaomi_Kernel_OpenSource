@@ -1884,7 +1884,7 @@ static void sip_tcp_skip_process(int ret, struct nf_conn *ct, struct sk_buff *sk
 
 		hooks = rcu_dereference(nf_nat_sip_hooks);
 		if (hooks)
-			hooks->seq_adjust(skb, protoff, tdiff);
+			hooks->seq_adjust(skb, protoff, *tdiff);
 	}
 }
 
@@ -2099,7 +2099,7 @@ destination:
 
 here:
 #endif
-	sip_tcp_skip_process(ret, ct, skb, protoff, tdiff);
+	sip_tcp_skip_process(ret, ct, skb, protoff, &tdiff);
 
 	return ret;
 }
