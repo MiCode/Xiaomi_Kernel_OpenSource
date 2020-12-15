@@ -65,7 +65,7 @@ static int core_devfreq_target(struct device *dev,
 
 	/* Scaling down? Scale voltage after frequency */
 	if (*rate < old_rate && regul_ops) {
-		err = regul_ops->set_voltage(ad->argul, volt, volt);
+		err = regul_ops->set_voltage(ad->argul, volt, INT_MAX);
 		if (err)
 			goto out;
 	}
