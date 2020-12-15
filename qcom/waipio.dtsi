@@ -56,6 +56,7 @@
 			cpu-idle-states = <&SILVER_OFF>;
 			power-domains = <&CPU_PD0>;
 			power-domain-names = "psci";
+			qcom,freq-domain = <&cpufreq_hw 0 4>;
 			L2_0: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-level = <2>;
@@ -77,6 +78,7 @@
 			cpu-idle-states = <&SILVER_OFF>;
 			power-domains = <&CPU_PD1>;
 			power-domain-names = "psci";
+			qcom,freq-domain = <&cpufreq_hw 0 4>;
 		};
 
 		CPU2: cpu@200 {
@@ -88,6 +90,7 @@
 			cpu-idle-states = <&SILVER_OFF>;
 			power-domains = <&CPU_PD2>;
 			power-domain-names = "psci";
+			qcom,freq-domain = <&cpufreq_hw 0 4>;
 			L2_2: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-level = <2>;
@@ -104,6 +107,7 @@
 			cpu-idle-states = <&SILVER_OFF>;
 			power-domains = <&CPU_PD3>;
 			power-domain-names = "psci";
+			qcom,freq-domain = <&cpufreq_hw 0 4>;
 		};
 
 		CPU4: cpu@400 {
@@ -115,6 +119,7 @@
 			cpu-idle-states = <&GOLD_OFF>;
 			power-domains = <&CPU_PD4>;
 			power-domain-names = "psci";
+			qcom,freq-domain = <&cpufreq_hw 1 4>;
 			L2_4: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-level = <2>;
@@ -132,6 +137,7 @@
 			cpu-idle-states = <&GOLD_OFF>;
 			power-domains = <&CPU_PD5>;
 			power-domain-names = "psci";
+			qcom,freq-domain = <&cpufreq_hw 1 4>;
 			L2_5: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-level = <2>;
@@ -147,6 +153,7 @@
 			next-level-cache = <&L2_6>;
 			cpu-idle-states = <&GOLD_OFF>;
 			power-domains = <&CPU_PD6>;
+			qcom,freq-domain = <&cpufreq_hw 1 4>;
 			power-domain-names = "psci";
 			L2_6: l2-cache {
 			      compatible = "arm,arch-cache";
@@ -164,6 +171,7 @@
 			cpu-idle-states = <&GOLD_OFF>;
 			power-domains = <&CPU_PD7>;
 			power-domain-names = "psci";
+			qcom,freq-domain = <&cpufreq_hw 2 4>;
 			L2_7: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-level = <2>;
@@ -1455,6 +1463,28 @@
 		clock-names = "xo_clk_src";
 		clocks = <&clock_rpmh RPMH_CXO_CLK>;
 		#clock-cells = <1>;
+	};
+
+	cpufreq_hw: qcom,cpufreq-hw {
+		compatible = "qcom,cpufreq-hw-epss";
+		reg = <0x17D91000 0x1000>,
+		      <0x17D92000 0x1000>,
+		      <0x17D93000 0x1000>;
+		reg-names = "freq-domain0",
+			    "freq-domain1",
+			    "freq-domain2";
+		clocks = <&clock_rpmh RPMH_CXO_CLK>, <&clock_gcc GCC_GPLL0>;
+		clock-names = "xo", "alternate";
+		qcom,lut-row-size = <4>;
+		qcom,skip-enable-check;
+		#freq-domain-cells = <2>;
+	};
+
+	qcom,cpufreq-hw-debug {
+		compatible = "qcom,cpufreq-hw-epss-debug";
+		qcom,freq-hw-domain = <&cpufreq_hw 0>,
+				      <&cpufreq_hw 1>,
+				      <&cpufreq_hw 2>;
 	};
 
 	clk_virt: interconnect@0 {
