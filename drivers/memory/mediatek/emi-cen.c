@@ -17,6 +17,25 @@
 #include <linux/slab.h>
 #include <soc/mediatek/emi.h>
 
+/*
+ * EMI address-to-dram setting's structure.
+ * a2d is the abbreviation of addr2dram.
+ * s6s is the abbreviation of settings.
+ */
+struct a2d_s6s_v1 {
+	unsigned int magics[8];
+	unsigned long cas;
+	unsigned long chab_rk0_sz, chab_rk1_sz;
+	unsigned long chcd_rk0_sz, chcd_rk1_sz;
+	unsigned int channels;
+	unsigned int dualrk_ch0, dualrk_ch1;
+	unsigned int chn_hash_lsb, chnpos;
+	unsigned int chab_row_mask[2], chcd_row_mask[2];
+	unsigned int chab_col_mask[2], chcd_col_mask[2];
+	unsigned int dw32;
+	unsigned int chn_4bank_mode;
+};
+
 struct emi_cen {
 	/*
 	 * EMI setting from device tree
@@ -43,17 +62,9 @@ struct emi_cen {
 	 */
 	unsigned long offset;
 	unsigned long max;
-	unsigned int magics[8];
-	unsigned long cas;
-	unsigned long chab_rk0_sz, chab_rk1_sz;
-	unsigned long chcd_rk0_sz, chcd_rk1_sz;
-	unsigned int channels;
-	unsigned int dualrk_ch0, dualrk_ch1;
-	unsigned int chn_hash_lsb, chnpos;
-	unsigned int chab_row_mask[2], chcd_row_mask[2];
-	unsigned int chab_col_mask[2], chcd_col_mask[2];
-	unsigned int dw32;
-	unsigned int chn_4bank_mode;
+	union {
+		struct a2d_s6s_v1 v1;
+	} a2d_s6s;
 };
 
 #define EMI_CONA_DW32_EN 1
@@ -165,16 +176,17 @@ unsigned int mtk_emicen_get_rk_size(unsigned int rk_id)
 EXPORT_SYMBOL(mtk_emicen_get_rk_size);
 
 /*
- * prepare_a2d: a helper function to initialize and calculate settings for the
- *		mtk_emicen_addr2dram() function
+ * prepare_a2d_v1: a helper function to initialize and calculate settings for
+		the mtk_emicen_addr2dram_v1() function
  *
  * There is no code comment for the translation. This is intended since
  * the fomular of translation is derived from the implementation of EMI.
  */
-static inline void prepare_a2d(struct emi_cen *cen)
+static inline void prepare_a2d_v1(struct emi_cen *cen)
 {
 	const unsigned int mask_4b = 0xf, mask_2b = 0x3;
 	void __iomem *emi_cen_base;
+	struct a2d_s6s_v1 *s6s;
 	unsigned long emi_cona;
 	unsigned long emi_conf;
 	unsigned long emi_conh;
@@ -186,6 +198,7 @@ static inline void prepare_a2d(struct emi_cen *cen)
 		return;
 
 	emi_cen_base = cen->emi_cen_base[0];
+	s6s = &cen->a2d_s6s.v1;
 
 	emi_cona = readl(emi_cen_base + emi_a2d_con_offset[0]);
 	emi_conf = readl(emi_cen_base + emi_a2d_con_offset[1]);
@@ -195,134 +208,134 @@ static inline void prepare_a2d(struct emi_cen *cen)
 
 	cen->offset = MTK_EMI_DRAM_OFFSET;
 
-	cen->magics[0] = emi_conf & mask_4b;
-	cen->magics[1] = (emi_conf >> 4) & mask_4b;
-	cen->magics[2] = (emi_conf >> 8) & mask_4b;
-	cen->magics[3] = (emi_conf >> 12) & mask_4b;
-	cen->magics[4] = (emi_conf >> 16) & mask_4b;
-	cen->magics[5] = (emi_conf >> 20) & mask_4b;
-	cen->magics[6] = (emi_conf >> 24) & mask_4b;
-	cen->magics[7] = (emi_conf >> 28) & mask_4b;
+	s6s->magics[0] = emi_conf & mask_4b;
+	s6s->magics[1] = (emi_conf >> 4) & mask_4b;
+	s6s->magics[2] = (emi_conf >> 8) & mask_4b;
+	s6s->magics[3] = (emi_conf >> 12) & mask_4b;
+	s6s->magics[4] = (emi_conf >> 16) & mask_4b;
+	s6s->magics[5] = (emi_conf >> 20) & mask_4b;
+	s6s->magics[6] = (emi_conf >> 24) & mask_4b;
+	s6s->magics[7] = (emi_conf >> 28) & mask_4b;
 
-	cen->dw32 = test_bit(EMI_CONA_DW32_EN, &emi_cona) ? 1 : 0;
+	s6s->dw32 = test_bit(EMI_CONA_DW32_EN, &emi_cona) ? 1 : 0;
 
-	cen->channels = (emi_cona >> EMI_CONA_CHN_EN) & mask_2b;
+	s6s->channels = (emi_cona >> EMI_CONA_CHN_EN) & mask_2b;
 
-	cen->cas = (emi_cona >> EMI_CONA_CAS_SIZE) & mask_2b;
-	cen->cas += cen->dw32 << 2;
-	cen->cas += ((emi_cona >> EMI_CONA_CAS_SIZE_BIT3) & 1) << 3;
-	cen->cas = cen->cas << 28;
-	cen->cas = cen->cas << cen->channels;
+	s6s->cas = (emi_cona >> EMI_CONA_CAS_SIZE) & mask_2b;
+	s6s->cas += s6s->dw32 << 2;
+	s6s->cas += ((emi_cona >> EMI_CONA_CAS_SIZE_BIT3) & 1) << 3;
+	s6s->cas = s6s->cas << 28;
+	s6s->cas = s6s->cas << s6s->channels;
 
-	cen->dualrk_ch0 = test_bit(EMI_CONA_DUAL_RANK_EN, &emi_cona) ? 1 : 0;
-	cen->dualrk_ch1 = test_bit(EMI_CONA_DUAL_RANK_EN_CHN1,
+	s6s->dualrk_ch0 = test_bit(EMI_CONA_DUAL_RANK_EN, &emi_cona) ?  1 : 0;
+	s6s->dualrk_ch1 = test_bit(EMI_CONA_DUAL_RANK_EN_CHN1,
 				&emi_cona) ? 1 : 0;
 
-	cen->chn_hash_lsb = 7 + (cen->hash & (~(cen->hash) + 1));
+	s6s->chn_hash_lsb = 7 + (cen->hash & (~(cen->hash) + 1));
 	if (cen->hash)
-		cen->chnpos = cen->chn_hash_lsb;
+		s6s->chnpos = s6s->chn_hash_lsb;
 	else {
-		cen->chnpos = test_bit(EMI_CONA_CHN_POS_1, &emi_cona) ? 2 : 0;
-		cen->chnpos |= test_bit(EMI_CONA_CHN_POS_0, &emi_cona) ? 1 : 0;
+		s6s->chnpos = test_bit(EMI_CONA_CHN_POS_1, &emi_cona) ?  2 : 0;
+		s6s->chnpos |= test_bit(EMI_CONA_CHN_POS_0, &emi_cona) ?  1 : 0;
 	}
 
 	tmp = (emi_conh >> EMI_CONH_CHNAB_RANK0_SIZE) & mask_4b;
 	tmp += ((emi_conk >> EMI_CONK_CHNAB_RANK0_SIZE_EXT) & mask_4b) << 4;
 	if (tmp)
-		cen->chab_rk0_sz = tmp << 8;
+		s6s->chab_rk0_sz = tmp << 8;
 	else {
 		tmp = (emi_cona >> EMI_CONA_COL) & mask_2b;
 		tmp += (emi_cona >> EMI_CONA_ROW) & mask_2b;
 		tmp += test_bit(EMI_CONA_ROW_EXT0, &emi_cona) ? 4 : 0;
-		tmp += cen->dw32;
+		tmp += s6s->dw32;
 		tmp += 7;
-		cen->chab_rk0_sz = 1 << tmp;
+		s6s->chab_rk0_sz = 1 << tmp;
 	}
 
 	tmp = (emi_conh >> EMI_CONH_CHNAB_RANK1_SIZE) & mask_4b;
 	tmp += ((emi_conk >> EMI_CONK_CHNAB_RANK1_SIZE_EXT) & mask_4b) << 4;
 	if (tmp)
-		cen->chab_rk1_sz = tmp << 8;
+		s6s->chab_rk1_sz = tmp << 8;
 	else if (!test_bit(EMI_CONA_DUAL_RANK_EN, &emi_cona))
-		cen->chab_rk1_sz = 0;
+		s6s->chab_rk1_sz = 0;
 	else {
 		tmp = (emi_cona >> EMI_CONA_COL2ND) & mask_2b;
 		tmp += (emi_cona >> EMI_CONA_ROW2ND) & mask_2b;
 		tmp += test_bit(EMI_CONA_ROW2ND_EXT0, &emi_cona) ? 4 : 0;
-		tmp += cen->dw32;
+		tmp += s6s->dw32;
 		tmp += 7;
-		cen->chab_rk1_sz = 1 << tmp;
+		s6s->chab_rk1_sz = 1 << tmp;
 	}
 
 	tmp = (emi_conh >> EMI_CONH_CHNCD_RANK0_SIZE) & mask_4b;
 	tmp += ((emi_conk >> EMI_CONK_CHNCD_RANK0_SIZE_EXT) & mask_4b) << 4;
 	if (tmp)
-		cen->chcd_rk0_sz = tmp << 8;
+		s6s->chcd_rk0_sz = tmp << 8;
 	else {
 		tmp = (emi_cona >> EMI_CONA_CHN1_COL) & mask_2b;
 		tmp += (emi_cona >> EMI_CONA_CHN1_ROW) & mask_2b;
 		tmp += test_bit(EMI_CONH_CHN1_ROW_EXT0, &emi_conh) ? 4 : 0;
-		tmp += cen->dw32;
+		tmp += s6s->dw32;
 		tmp += 7;
-		cen->chcd_rk0_sz = 1 << tmp;
+		s6s->chcd_rk0_sz = 1 << tmp;
 	}
 
 	tmp = (emi_conh >> EMI_CONH_CHNCD_RANK1_SIZE) & mask_4b;
 	tmp += ((emi_conk >> EMI_CONK_CHNCD_RANK1_SIZE_EXT) & mask_4b) << 4;
 	if (tmp)
-		cen->chcd_rk1_sz = tmp << 8;
+		s6s->chcd_rk1_sz = tmp << 8;
 	else if (!test_bit(EMI_CONA_DUAL_RANK_EN_CHN1, &emi_cona))
-		cen->chcd_rk1_sz = 0;
+		s6s->chcd_rk1_sz = 0;
 	else {
 		tmp = (emi_cona >> EMI_CONA_CHN1_COL2ND) & mask_2b;
 		tmp += (emi_cona >> EMI_CONA_CHN1_ROW2ND) & mask_2b;
 		tmp += test_bit(EMI_CONH_CHN1_ROW2ND_EXT0, &emi_conh) ? 4 : 0;
-		tmp += cen->dw32;
+		tmp += s6s->dw32;
 		tmp += 7;
-		cen->chcd_rk1_sz = 1 << tmp;
+		s6s->chcd_rk1_sz = 1 << tmp;
 	}
 
-	cen->max = cen->chab_rk0_sz + cen->chab_rk1_sz;
-	cen->max += cen->chcd_rk0_sz + cen->chcd_rk0_sz;
-	if ((cen->channels > 1) || (cen->disph > 0))
+	cen->max = s6s->chab_rk0_sz + s6s->chab_rk1_sz;
+	cen->max += s6s->chcd_rk0_sz + s6s->chcd_rk0_sz;
+	if ((s6s->channels > 1) || (cen->disph > 0))
 		cen->max *= 2;
 	cen->max = cen->max << 20;
 
-	cen->chab_row_mask[0] = (emi_cona >> EMI_CONA_ROW) & mask_2b;
-	cen->chab_row_mask[0] += test_bit(EMI_CONA_ROW_EXT0,
+	s6s->chab_row_mask[0] = (emi_cona >> EMI_CONA_ROW) & mask_2b;
+	s6s->chab_row_mask[0] += test_bit(EMI_CONA_ROW_EXT0,
 					&emi_cona) ? 4 : 0;
-	cen->chab_row_mask[0] += 13;
-	cen->chab_row_mask[1] = (emi_cona >> EMI_CONA_ROW2ND) & mask_2b;
-	cen->chab_row_mask[1] += test_bit(EMI_CONA_ROW2ND_EXT0,
+	s6s->chab_row_mask[0] += 13;
+	s6s->chab_row_mask[1] = (emi_cona >> EMI_CONA_ROW2ND) & mask_2b;
+	s6s->chab_row_mask[1] += test_bit(EMI_CONA_ROW2ND_EXT0,
 					&emi_cona) ? 4 : 0;
-	cen->chab_row_mask[1] += 13;
+	s6s->chab_row_mask[1] += 13;
 
-	cen->chcd_row_mask[0] = (emi_cona >> EMI_CONA_CHN1_ROW) & mask_2b;
-	cen->chcd_row_mask[0] += test_bit(EMI_CONH_CHN1_ROW_EXT0,
+	s6s->chcd_row_mask[0] = (emi_cona >> EMI_CONA_CHN1_ROW) & mask_2b;
+	s6s->chcd_row_mask[0] += test_bit(EMI_CONH_CHN1_ROW_EXT0,
 					&emi_conh) ? 4 : 0;
-	cen->chcd_row_mask[0] += 13;
-	cen->chcd_row_mask[1] = (emi_cona >> EMI_CONA_CHN1_ROW2ND) & mask_2b;
-	cen->chcd_row_mask[1] += test_bit(EMI_CONH_CHN1_ROW2ND_EXT0,
+	s6s->chcd_row_mask[0] += 13;
+	s6s->chcd_row_mask[1] = (emi_cona >> EMI_CONA_CHN1_ROW2ND) & mask_2b;
+	s6s->chcd_row_mask[1] += test_bit(EMI_CONH_CHN1_ROW2ND_EXT0,
 					&emi_conh) ? 4 : 0;
-	cen->chcd_row_mask[1] += 13;
+	s6s->chcd_row_mask[1] += 13;
 
-	cen->chab_col_mask[0] = (emi_cona >> EMI_CONA_COL) & mask_2b;
-	cen->chab_col_mask[0] += 9;
-	cen->chab_col_mask[1] = (emi_cona >> EMI_CONA_COL2ND) & mask_2b;
-	cen->chab_col_mask[1] += 9;
+	s6s->chab_col_mask[0] = (emi_cona >> EMI_CONA_COL) & mask_2b;
+	s6s->chab_col_mask[0] += 9;
+	s6s->chab_col_mask[1] = (emi_cona >> EMI_CONA_COL2ND) & mask_2b;
+	s6s->chab_col_mask[1] += 9;
 
-	cen->chcd_col_mask[0] = (emi_cona >> EMI_CONA_CHN1_COL) & mask_2b;
-	cen->chcd_col_mask[0] += 9;
-	cen->chcd_col_mask[1] = (emi_cona >> EMI_CONA_CHN1_COL2ND) & mask_2b;
-	cen->chcd_col_mask[1] += 9;
+	s6s->chcd_col_mask[0] = (emi_cona >> EMI_CONA_CHN1_COL) & mask_2b;
+	s6s->chcd_col_mask[0] += 9;
+	s6s->chcd_col_mask[1] = (emi_cona >> EMI_CONA_CHN1_COL2ND) & mask_2b;
+	s6s->chcd_col_mask[1] += 9;
 
-	cen->chn_4bank_mode = test_bit(EMI_CONH_2ND_CHN_4BANK_MODE,
+	s6s->chn_4bank_mode = test_bit(EMI_CONH_2ND_CHN_4BANK_MODE,
 					&emi_conh_2nd) ? 1 : 0;
 }
 
 /*
  * use_a2d_magic: a helper function to calculate the input address
- *		for the mtk_emicen_addr2dram() function
+ *		for the mtk_emicen_addr2dram_v1() function
  *
  * There is no code comment for the translation. This is intended since
  * the fomular of translation is derived from the implementation of EMI.
@@ -335,8 +348,8 @@ static inline unsigned int use_a2d_magic(unsigned long addr, unsigned int bit)
 	if (!global_emi_cen)
 		return 0;
 
-	magic = global_emi_cen->magics[((bit >= 9) & (bit <= 16)) ?
-					(bit - 9) : 0];
+	magic = global_emi_cen->a2d_s6s.v1.magics[((bit >= 9) & (bit <= 16)) ?
+						(bit - 9) : 0];
 
 	ret = test_bit(bit, &addr) ? 1 : 0;
 	ret ^= (test_bit(16, &addr) && test_bit(0, &magic)) ? 1 : 0;
@@ -361,6 +374,7 @@ static inline unsigned int use_a2d_magic(unsigned long addr, unsigned int bit)
 static int mtk_emicen_addr2dram_v1(unsigned long addr,
 					struct emi_addr_map *map)
 {
+	struct a2d_s6s_v1 *s6s;
 	unsigned long disph, hash;
 	unsigned long saddr, bfraddr, chnaddr;
 	unsigned long max_rk0_sz;
@@ -386,9 +400,10 @@ static int mtk_emicen_addr2dram_v1(unsigned long addr,
 	map->row = -1;
 	map->column = -1;
 
+	s6s = &global_emi_cen->a2d_s6s.v1;
 	disph = global_emi_cen->disph;
 	hash = global_emi_cen->hash;
-	chn_hash_lsb = global_emi_cen->chn_hash_lsb;
+	chn_hash_lsb = s6s->chn_hash_lsb;
 
 	tmp = (test_bit(8, &addr) & test_bit(0, &disph)) ? 1 : 0;
 	tmp ^= (test_bit(9, &addr) & test_bit(1, &disph)) ? 1 : 0;
@@ -422,11 +437,11 @@ static int mtk_emicen_addr2dram_v1(unsigned long addr,
 		bfraddr += saddr & ((1 << tmp) - 1);
 	}
 
-	if (bfraddr < global_emi_cen->cas)
+	if (bfraddr < s6s->cas)
 		return -1;
 
-	if (!global_emi_cen->channels)
-		map->channel = global_emi_cen->channels;
+	if (!s6s->channels)
+		map->channel = s6s->channels;
 	else if (hash) {
 		tmp = (test_bit(8, &addr) && test_bit(0, &hash)) ? 1 : 0;
 		tmp ^= (test_bit(9, &addr) && test_bit(1, &hash)) ? 1 : 0;
@@ -434,9 +449,9 @@ static int mtk_emicen_addr2dram_v1(unsigned long addr,
 		tmp ^= (test_bit(11, &addr) && test_bit(3, &hash)) ? 1 : 0;
 		map->channel = tmp;
 	} else {
-		if (global_emi_cen->channels == 1) {
+		if (s6s->channels == 1) {
 			tmp = 0;
-			switch (global_emi_cen->chnpos) {
+			switch (s6s->chnpos) {
 			case 0:
 				tmp = 7;
 				break;
@@ -453,9 +468,9 @@ static int mtk_emicen_addr2dram_v1(unsigned long addr,
 				return -1;
 			}
 			map->channel = (bfraddr >> tmp) % 2;
-		} else if (global_emi_cen->channels == 2) {
+		} else if (s6s->channels == 2) {
 			tmp = 0;
-			switch (global_emi_cen->chnpos) {
+			switch (s6s->chnpos) {
 			case 0:
 				tmp = 7;
 				break;
@@ -480,27 +495,25 @@ static int mtk_emicen_addr2dram_v1(unsigned long addr,
 		ch_ab_not_cd = 0;
 	else {
 		if (map->channel == 1)
-			ch_ab_not_cd = (global_emi_cen->channels > 1) ? 1 : 0;
+			ch_ab_not_cd = (s6s->channels > 1) ?  1 : 0;
 		else
 			ch_ab_not_cd = 1;
 	}
 
-	max_rk0_sz = (ch_ab_not_cd) ?
-			global_emi_cen->chab_rk0_sz :
-			global_emi_cen->chcd_rk0_sz;
+	max_rk0_sz = (ch_ab_not_cd) ?  s6s->chab_rk0_sz : s6s->chcd_rk0_sz;
 	max_rk0_sz = max_rk0_sz << 20;
 
-	if (!global_emi_cen->channels)
+	if (!s6s->channels)
 		chnaddr = bfraddr;
-	else if (global_emi_cen->chnpos > 3) {
+	else if (s6s->chnpos > 3) {
 		tmp = chn_hash_lsb;
 		chnaddr = bfraddr >> (tmp + 1);
 		chnaddr = chnaddr << tmp;
 		chnaddr += bfraddr & ((1 << tmp) - 1);
-	} else if (global_emi_cen->channels == 1 ||
-			global_emi_cen->channels == 2) {
+	} else if (s6s->channels == 1 ||
+			s6s->channels == 2) {
 		tmp = 0;
-		switch (global_emi_cen->chnpos) {
+		switch (s6s->chnpos) {
 		case 0:
 			tmp = 7;
 			break;
@@ -516,15 +529,13 @@ static int mtk_emicen_addr2dram_v1(unsigned long addr,
 		default:
 			break;
 		}
-		chnaddr = bfraddr >> (tmp + (global_emi_cen->channels - 1));
+		chnaddr = bfraddr >> (tmp + (s6s->channels - 1));
 		chnaddr = chnaddr << tmp;
 		chnaddr += bfraddr & ((1 << tmp) - 1);
 	} else
 		return -1;
 
-	if ((map->channel) ?
-		!global_emi_cen->dualrk_ch1 :
-		!global_emi_cen->dualrk_ch0)
+	if ((map->channel) ?  !s6s->dualrk_ch1 : !s6s->dualrk_ch0)
 		map->rank = 0;
 	else {
 		if (chnaddr > max_rk0_sz)
@@ -535,31 +546,27 @@ static int mtk_emicen_addr2dram_v1(unsigned long addr,
 
 	row_mask = (ch_ab_not_cd) ?
 			((map->rank) ?
-				global_emi_cen->chab_row_mask[1] :
-				global_emi_cen->chab_row_mask[0]) :
+				s6s->chab_row_mask[1] : s6s->chab_row_mask[0]) :
 			((map->rank) ?
-				global_emi_cen->chcd_row_mask[1] :
-				global_emi_cen->chcd_row_mask[0]);
+				s6s->chcd_row_mask[1] : s6s->chcd_row_mask[0]);
 	col_mask = (ch_ab_not_cd) ?
 			((map->rank) ?
-				global_emi_cen->chab_col_mask[1] :
-				global_emi_cen->chab_col_mask[0]) :
+				s6s->chab_col_mask[1] : s6s->chab_col_mask[0]) :
 			((map->rank) ?
-				global_emi_cen->chcd_col_mask[1] :
-				global_emi_cen->chcd_col_mask[0]);
+				s6s->chcd_col_mask[1] : s6s->chcd_col_mask[0]);
 
 	tmp = chnaddr - (max_rk0_sz * map->rank);
-	tmp /= 1 << (global_emi_cen->dw32 + 1 + col_mask + 3);
+	tmp /= 1 << (s6s->dw32 + 1 + col_mask + 3);
 	tmp &= (1 << row_mask) - 1;
 	map->row = tmp;
 
 	tmp = chnaddr;
-	tmp /= 1 << (global_emi_cen->dw32 + 1 + col_mask);
-	tmp &= ((!global_emi_cen->chn_4bank_mode) ? 8 : 4) - 1;
+	tmp /= 1 << (s6s->dw32 + 1 + col_mask);
+	tmp &= ((!s6s->chn_4bank_mode) ? 8 : 4) - 1;
 	map->bank = tmp;
 
 	tmp = chnaddr;
-	tmp /= 1 << (global_emi_cen->dw32 + 1);
+	tmp /= 1 << (s6s->dw32 + 1);
 	tmp &= (1 << col_mask) - 1;
 	map->column = tmp;
 
@@ -720,7 +727,8 @@ static int emicen_probe(struct platform_device *pdev)
 	if (ret)
 		dev_info(&pdev->dev, "No a2d_conf_offset\n");
 
-	prepare_a2d(cen);
+	if (cen->ver == 1)
+		prepare_a2d_v1(cen);
 
 	global_emi_cen = cen;
 
