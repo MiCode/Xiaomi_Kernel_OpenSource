@@ -153,9 +153,6 @@
 #define NR_FREQ 16
 #define NR_FREQ_GPU 16
 
-#define GPU_FREQ_BASE		902000
-#define GPU_M_FREQ_BASE		688000
-
 #define BANK_GPU_TURN_PT	6
 
 /*
