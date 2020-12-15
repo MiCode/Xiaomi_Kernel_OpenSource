@@ -47,7 +47,7 @@ static struct mnoc_plat_drv mt6853_drv = {
 
 	.apu_qos_engine_count = 3,
 	.vcore_bw_opp_tab = mt6853_vcore_bw_opp,
-	.nr_vcore_opp = ARRAY_SIZE(mt6853_vcore_bw_opp) - 1,
+	.nr_vcore_opp = ARRAY_SIZE(mt6853_vcore_bw_opp),
 
 //	.met_pmu_reg_init = mnoc_met_pmu_reg_init_v1_52,
 //	.met_pmu_reg_uninit = mnoc_met_pmu_reg_uninit_v1_52,
