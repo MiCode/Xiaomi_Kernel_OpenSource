@@ -3,8 +3,10 @@
  * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  */
 
+#include <linux/clk/qcom.h>
 #include <linux/firmware.h>
 #include <linux/of.h>
+#include <linux/of_device.h>
 #include <linux/slab.h>
 
 #include "adreno.h"
@@ -567,10 +569,32 @@ static int _a3xx_pwron_fixup(struct adreno_device *adreno_dev)
 	return 0;
 }
 
-static void a3xx_platform_setup(struct adreno_device *adreno_dev)
+static int a3xx_probe(struct platform_device *pdev,
+		u32 chipid, const struct adreno_gpu_core *gpucore)
 {
+	struct adreno_device *adreno_dev;
+	struct kgsl_device *device;
+
+	adreno_dev = (struct adreno_device *)
+		of_device_get_match_data(&pdev->dev);
+
+	memset(adreno_dev, 0, sizeof(*adreno_dev));
+
+	adreno_dev->gpucore = gpucore;
+	adreno_dev->chipid = chipid;
+
+	adreno_reg_offset_init(gpucore->gpudev->reg_offsets);
+
 	/* Set the GPU busy counter for frequency scaling */
 	adreno_dev->perfctr_pwr_lo = A3XX_RBBM_PERFCTR_PWR_1_LO;
+
+	device = KGSL_DEVICE(adreno_dev);
+
+	timer_setup(&device->idle_timer, kgsl_timer, 0);
+
+	INIT_WORK(&device->idle_check_ws, kgsl_idle_check);
+
+	return adreno_device_probe(pdev, adreno_dev);
 }
 
 static int a3xx_send_me_init(struct adreno_device *adreno_dev,
@@ -1343,11 +1367,30 @@ static void a3xx_microcode_load(struct adreno_device *adreno_dev)
 			adreno_dev->fw[ADRENO_FW_PFP].fwvirt[i]);
 }
 
+#if IS_ENABLED(CONFIG_COMMON_CLK_QCOM)
 static void a3xx_clk_set_options(struct adreno_device *adreno_dev,
 	const char *name, struct clk *clk, bool on)
 {
-	WARN(adreno_is_a306a(adreno_dev), "clk_set_flags() not supported\n");
+	if (!adreno_is_a306a(adreno_dev))
+		return;
+
+	/* Handle clock settings for GFX PSCBCs */
+	if (on) {
+		if (!strcmp(name, "mem_iface_clk")) {
+			qcom_clk_set_flags(clk, CLKFLAG_NORETAIN_PERIPH);
+			qcom_clk_set_flags(clk, CLKFLAG_NORETAIN_MEM);
+		} else if (!strcmp(name, "core_clk")) {
+			qcom_clk_set_flags(clk, CLKFLAG_RETAIN_PERIPH);
+			qcom_clk_set_flags(clk, CLKFLAG_RETAIN_MEM);
+		}
+	} else {
+		if (!strcmp(name, "core_clk")) {
+			qcom_clk_set_flags(clk, CLKFLAG_NORETAIN_PERIPH);
+			qcom_clk_set_flags(clk, CLKFLAG_NORETAIN_MEM);
+		}
+	}
 }
+#endif
 
 static u64 a3xx_read_alwayson(struct adreno_device *adreno_dev)
 {
@@ -1406,7 +1449,7 @@ struct adreno_gpudev adreno_a3xx_gpudev = {
 	.perfcounters = &a3xx_perfcounters,
 	.irq_handler = a3xx_irq_handler,
 	.vbif_xin_halt_ctrl0_mask = A30X_VBIF_XIN_HALT_CTRL0_MASK,
-	.platform_setup = a3xx_platform_setup,
+	.probe = a3xx_probe,
 	.rb_start = a3xx_rb_start,
 	.init = a3xx_init,
 	.microcode_read = a3xx_microcode_read,
@@ -1415,7 +1458,10 @@ struct adreno_gpudev adreno_a3xx_gpudev = {
 #ifdef CONFIG_QCOM_KGSL_CORESIGHT
 	.coresight = {&a3xx_coresight},
 #endif
+#if IS_ENABLED(CONFIG_COMMON_CLK_QCOM)
 	.clk_set_options = a3xx_clk_set_options,
+#endif
 	.read_alwayson = a3xx_read_alwayson,
 	.hw_isidle = a3xx_hw_isidle,
+	.power_ops = &adreno_power_operations,
 };

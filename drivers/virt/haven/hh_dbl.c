@@ -443,6 +443,9 @@ int hh_dbl_tx_unregister(void *dbl_client_desc)
 		return -EINVAL;
 	}
 
+	pr_debug("%s: Unregistering client for label: %d\n",
+			__func__, client_desc->label);
+
 	/* Rx client still holding the "client_desc". Do not remove now. */
 	if (!cap_table_entry->rx_reg_done) {
 		cap_table_entry->client_desc = NULL;
@@ -453,9 +456,6 @@ int hh_dbl_tx_unregister(void *dbl_client_desc)
 
 	cap_table_entry->tx_reg_done = 0;
 	mutex_unlock(&cap_table_entry->cap_entry_lock);
-
-	pr_debug("%s: Unregistered client for label: %d\n",
-			__func__, client_desc->label);
 
 	return 0;
 }
@@ -494,6 +494,9 @@ int hh_dbl_rx_unregister(void *dbl_client_desc)
 		return -EINVAL;
 	}
 
+	pr_debug("%s: Unregistering client for label: %d\n", __func__,
+			 client_desc->label);
+
 	/* Tx client still holding the "client_desc". Do not remove now.*/
 	if (!cap_table_entry->tx_reg_done) {
 		cap_table_entry->client_desc = NULL;
@@ -507,9 +510,6 @@ int hh_dbl_rx_unregister(void *dbl_client_desc)
 	cap_table_entry->rx_reg_done = 0;
 
 	mutex_unlock(&cap_table_entry->cap_entry_lock);
-
-	pr_debug("%s: Unregistered client for label: %d\n", __func__,
-		 client_desc->label);
 
 	return 0;
 }
@@ -569,6 +569,7 @@ int hh_dbl_populate_cap_info(enum hh_dbl_label label, u64 cap_id,
 			goto err;
 		}
 
+		irq_set_irq_wake(rx_irq, 1);
 		wake_up_interruptible(&cap_table_entry->cap_wq);
 
 		pr_debug("%s: label: %d; rx_cap_id: %llu; dir: %d; rx_irq: %d\n",

@@ -113,6 +113,7 @@ struct pil_tz_data {
 	void __iomem *irq_mask;
 	void __iomem *err_status;
 	void __iomem *err_status_spare;
+	void __iomem *rmb_gp_reg;
 	u32 bits_arr[2];
 	int err_fatal_irq;
 	int err_ready_irq;
@@ -617,6 +618,7 @@ static int pil_mem_setup_trusted(struct pil_desc *pil, phys_addr_t addr,
 	if (d->subsys_desc.no_auth)
 		return 0;
 
+	size += pil->extra_size;
 	scm_ret = qcom_scm_pas_mem_setup(d->pas_id, addr, size);
 
 	return scm_ret;
@@ -627,6 +629,7 @@ static int pil_auth_and_reset(struct pil_desc *pil)
 	struct pil_tz_data *d = desc_to_data(pil);
 	int rc;
 	u32 scm_ret = 0;
+	unsigned long pfn_start, pfn_end, pfn;
 
 	if (d->subsys_desc.no_auth)
 		return 0;
@@ -644,6 +647,14 @@ static int pil_auth_and_reset(struct pil_desc *pil)
 		goto err_clks;
 
 	scm_ret = qcom_scm_pas_auth_and_reset(d->pas_id);
+
+	pfn_start = pil->priv->region_start >> PAGE_SHIFT;
+	if (pfn_valid(pfn_start) && !scm_ret) {
+		pfn_end = (PAGE_ALIGN(pil->priv->region_start +
+				pil->priv->region_size)) >> PAGE_SHIFT;
+		for (pfn = pfn_start; pfn < pfn_end; pfn++)
+			set_page_private(pfn_to_page(pfn), SECURE_PAGE_MAGIC);
+	}
 
 	scm_pas_disable_bw();
 	if (rc)
@@ -663,6 +674,7 @@ static int pil_shutdown_trusted(struct pil_desc *pil)
 	struct pil_tz_data *d = desc_to_data(pil);
 	u32 scm_ret = 0;
 	int rc;
+	unsigned long pfn_start, pfn_end, pfn;
 
 	if (d->subsys_desc.no_auth)
 		return 0;
@@ -682,6 +694,14 @@ static int pil_shutdown_trusted(struct pil_desc *pil)
 		goto err_clks;
 
 	scm_ret = qcom_scm_pas_shutdown(d->pas_id);
+
+	pfn_start = pil->priv->region_start >> PAGE_SHIFT;
+	if (pfn_valid(pfn_start) && !scm_ret) {
+		pfn_end = (PAGE_ALIGN(pil->priv->region_start +
+				pil->priv->region_size)) >> PAGE_SHIFT;
+		for (pfn = pfn_start; pfn < pfn_end; pfn++)
+			set_page_private(pfn_to_page(pfn), 0);
+	}
 
 	disable_unprepare_clocks(d->proxy_clks, d->proxy_clk_count);
 	disable_regulators(d, d->proxy_regs, d->proxy_reg_count, false);
@@ -707,11 +727,22 @@ err_regulators:
 static int pil_deinit_image_trusted(struct pil_desc *pil)
 {
 	struct pil_tz_data *d = desc_to_data(pil);
+	u32 scm_ret = 0;
+	unsigned long pfn_start, pfn_end, pfn;
 
 	if (d->subsys_desc.no_auth)
 		return 0;
 
-	return qcom_scm_pas_shutdown(d->pas_id);
+	scm_ret = qcom_scm_pas_shutdown(d->pas_id);
+	pfn_start = pil->priv->region_start >> PAGE_SHIFT;
+	if (pfn_valid(pfn_start) && !scm_ret) {
+		pfn_end = (PAGE_ALIGN(pil->priv->region_start +
+			    pil->priv->region_size)) >> PAGE_SHIFT;
+		for (pfn = pfn_start; pfn < pfn_end; pfn++)
+			set_page_private(pfn_to_page(pfn), 0);
+	}
+
+	return scm_ret;
 }
 
 static struct pil_reset_ops pil_ops_trusted = {
@@ -1303,7 +1334,7 @@ static int pil_tz_generic_probe(struct platform_device *pdev)
 {
 	struct pil_tz_data *d;
 	struct resource *res;
-	u32 proxy_timeout;
+	u32 proxy_timeout, rmb_gp_reg_val;
 	int len, rc;
 	char md_node[20];
 
@@ -1325,9 +1356,6 @@ static int pil_tz_generic_probe(struct platform_device *pdev)
 	if (of_property_read_bool(pdev->dev.of_node, "qcom,pil-no-auth"))
 		d->subsys_desc.no_auth = true;
 
-	if (of_property_read_bool(pdev->dev.of_node, "qcom,boot-enabled"))
-		d->boot_enabled = true;
-
 	d->keep_proxy_regs_on = of_property_read_bool(pdev->dev.of_node,
 						"qcom,keep-proxy-regs-on");
 
@@ -1348,6 +1376,11 @@ static int pil_tz_generic_probe(struct platform_device *pdev)
 			return rc;
 		}
 	}
+
+	rc = of_property_read_u32(pdev->dev.of_node, "qcom,extra-size",
+						&d->desc.extra_size);
+	if (rc)
+		d->desc.extra_size = 0;
 
 	d->dev = &pdev->dev;
 	d->desc.dev = &pdev->dev;
@@ -1392,20 +1425,34 @@ static int pil_tz_generic_probe(struct platform_device *pdev)
 	d->subsys_desc.dev = &pdev->dev;
 	d->subsys_desc.shutdown = subsys_shutdown;
 	d->subsys_desc.powerup = subsys_powerup;
-
-	/*
-	 * If subsystem is already bought out reset during the bootloader stage,
-	 * instead of doing regular power need to check subsystem status.
-	 * So override power up function to check subsystem crash status.
-	 */
-	if (d->boot_enabled)
-		d->subsys_desc.powerup = subsys_powerup_boot_enabled;
-
 	d->subsys_desc.ramdump = subsys_ramdump;
 	d->subsys_desc.free_memory = subsys_free_memory;
 	d->subsys_desc.crash_shutdown = subsys_crash_shutdown;
+
 	if (of_property_read_bool(pdev->dev.of_node,
 					"qcom,pil-generic-irq-handler")) {
+
+		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+						"rmb_general_purpose");
+		d->rmb_gp_reg = devm_ioremap_resource(&pdev->dev, res);
+		if (IS_ERR(d->rmb_gp_reg)) {
+			dev_err(&pdev->dev, "Invalid resource for rmb_gp_reg\n");
+			rc = PTR_ERR(d->rmb_gp_reg);
+			goto err_ramdump;
+		}
+
+		rmb_gp_reg_val = __raw_readl(d->rmb_gp_reg);
+		/*
+		 * If subsystem is already bought out reset during the
+		 * bootloader stage, need to check subsystem status instead
+		 * of doing regular power. So override power up function
+		 * to check subsystem crash status.
+		 */
+		if (!(rmb_gp_reg_val & BIT(0))) {
+			d->boot_enabled = true;
+			pr_info("spss is brought out of reset by UEFI\n");
+			d->subsys_desc.powerup = subsys_powerup_boot_enabled;
+		}
 
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						"sp2soc_irq_status");

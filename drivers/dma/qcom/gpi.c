@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/atomic.h>
@@ -133,6 +133,11 @@ enum EV_PRIORITY {
 #define GPI_RX_CHAN (1)
 #define STATE_IGNORE (U32_MAX)
 #define REQ_OF_DMA_ARGS (5) /* # of arguments required from client */
+
+#define NOOP_TRE_MASK(link_rx, bei, ieot, ieob, ch) \
+	((0x0 << 20) | (0x0 << 16) | (link_rx << 11) | (bei << 10) | \
+	(ieot << 9) | (ieob << 8) | ch)
+#define NOOP_TRE (0x0 << 20 | 0x1 << 16)
 
 struct __packed gpi_error_log_entry {
 	u32 routine : 4;
@@ -279,6 +284,7 @@ static const char *const gpi_cb_event_str[MSM_GPI_QUP_MAX_EVENT] = {
 	[MSM_GPI_QUP_NOTIFY] = "NOTIFY",
 	[MSM_GPI_QUP_ERROR] = "GLOBAL ERROR",
 	[MSM_GPI_QUP_CH_ERROR] = "CHAN ERROR",
+	[MSM_GPI_QUP_FW_ERROR] = "UNHANDLED ERROR",
 	[MSM_GPI_QUP_PENDING_EVENT] = "PENDING EVENT",
 	[MSM_GPI_QUP_EOT_DESC_MISMATCH] = "EOT/DESC MISMATCH",
 	[MSM_GPI_QUP_SW_ERROR] = "SW ERROR",
@@ -436,6 +442,7 @@ struct gpi_dev {
 	void *ee_base; /*ee register base address*/
 	u32 max_gpii; /* maximum # of gpii instances available per gpi block */
 	u32 gpii_mask; /* gpii instances available for apps */
+	u32 static_gpii_mask; /* gpii instances assigned statically */
 	u32 ev_factor; /* ev ring length factor */
 	u32 smmu_cfg;
 	dma_addr_t iova_base;
@@ -445,9 +452,11 @@ struct gpi_dev {
 	u32 ipc_log_lvl;
 	u32 klog_lvl;
 	struct dentry *dentry;
+	bool is_le_vm;
 };
 
-static struct gpi_dev *gpi_dev_dbg;
+static struct gpi_dev *gpi_dev_dbg[5];
+static int arr_idx;
 
 struct reg_info {
 	char *name;
@@ -543,6 +552,8 @@ struct gpii_chan {
 	u32 dir;
 	struct gpi_ring ch_ring;
 	struct gpi_client_info client_info;
+	u32 lock_tre_set;
+	u32 num_tre;
 };
 
 struct gpii {
@@ -581,6 +592,7 @@ struct gpii {
 	struct gpi_reg_table dbg_reg_table;
 	bool reg_table_dump;
 	u32 dbg_gpi_irq_cnt;
+	bool unlock_tre_set;
 };
 
 struct gpi_desc {
@@ -1447,6 +1459,22 @@ static void gpi_process_qup_notif_event(struct gpii_chan *gpii_chan,
 			      client_info->cb_param);
 }
 
+/* free gpi_desc for the specified channel */
+static void gpi_free_chan_desc(struct gpii_chan *gpii_chan)
+{
+	struct virt_dma_desc *vd;
+	struct gpi_desc *gpi_desc;
+	unsigned long flags;
+
+	spin_lock_irqsave(&gpii_chan->vc.lock, flags);
+	vd = vchan_next_desc(&gpii_chan->vc);
+	gpi_desc = to_gpi_desc(vd);
+	list_del(&vd->node);
+	spin_unlock_irqrestore(&gpii_chan->vc.lock, flags);
+	kfree(gpi_desc);
+	gpi_desc = NULL;
+}
+
 /* process DMA Immediate completion data events */
 static void gpi_process_imed_data_event(struct gpii_chan *gpii_chan,
 					struct immediate_data_event *imed_event)
@@ -1459,6 +1487,8 @@ static void gpi_process_imed_data_event(struct gpii_chan *gpii_chan,
 		(ch_ring->el_size * imed_event->tre_index);
 	struct msm_gpi_dma_async_tx_cb_param *tx_cb_param;
 	unsigned long flags;
+	u32 chid;
+	struct gpii_chan *gpii_tx_chan = &gpii->gpii_chan[GPI_TX_CHAN];
 
 	/*
 	 * If channel not active don't process event but let
@@ -1496,20 +1526,6 @@ static void gpi_process_imed_data_event(struct gpii_chan *gpii_chan,
 		return;
 	}
 	gpi_desc = to_gpi_desc(vd);
-
-	/* Event TR RP gen. don't match descriptor TR */
-	if (gpi_desc->wp != tre) {
-		spin_unlock_irqrestore(&gpii_chan->vc.lock, flags);
-		GPII_ERR(gpii, gpii_chan->chid,
-			 "EOT/EOB received for wrong TRE 0x%0llx != 0x%0llx\n",
-			 to_physical(ch_ring, gpi_desc->wp),
-			 to_physical(ch_ring, tre));
-		gpi_generate_cb_event(gpii_chan, MSM_GPI_QUP_EOT_DESC_MISMATCH,
-				      __LINE__);
-		return;
-	}
-
-	list_del(&vd->node);
 	spin_unlock_irqrestore(&gpii_chan->vc.lock, flags);
 
 
@@ -1524,6 +1540,35 @@ static void gpi_process_imed_data_event(struct gpii_chan *gpii_chan,
 
 	/* make sure rp updates are immediately visible to all cores */
 	smp_wmb();
+
+	/*
+	 * If unlock tre is present, don't send transfer callback on
+	 * on IEOT, wait for unlock IEOB. Free the respective channel
+	 * descriptors.
+	 * If unlock is not present, IEOB indicates freeing the descriptor
+	 * and IEOT indicates channel transfer completion.
+	 */
+	chid = imed_event->chid;
+	if (gpii->unlock_tre_set) {
+		if (chid == GPI_RX_CHAN) {
+			if (imed_event->code == MSM_GPI_TCE_EOT)
+				goto gpi_free_desc;
+			else if (imed_event->code == MSM_GPI_TCE_UNEXP_ERR)
+				/*
+				 * In case of an error in a read transfer on a
+				 * shared se, unlock tre will not be processed
+				 * as channels go to bad state so tx desc should
+				 * be freed manually.
+				 */
+				gpi_free_chan_desc(gpii_tx_chan);
+			else
+				return;
+		} else if (imed_event->code == MSM_GPI_TCE_EOT) {
+			return;
+		}
+	} else if (imed_event->code == MSM_GPI_TCE_EOB) {
+		goto gpi_free_desc;
+	}
 
 	tx_cb_param = vd->tx.callback_param;
 	if (vd->tx.callback && tx_cb_param) {
@@ -1540,7 +1585,9 @@ static void gpi_process_imed_data_event(struct gpii_chan *gpii_chan,
 		tx_cb_param->status = imed_event->status;
 		vd->tx.callback(tx_cb_param);
 	}
-	kfree(gpi_desc);
+
+gpi_free_desc:
+	gpi_free_chan_desc(gpii_chan);
 }
 
 /* processing transfer completion events */
@@ -1554,6 +1601,8 @@ static void gpi_process_xfer_compl_event(struct gpii_chan *gpii_chan,
 	struct msm_gpi_dma_async_tx_cb_param *tx_cb_param;
 	struct gpi_desc *gpi_desc;
 	unsigned long flags;
+	u32 chid;
+	struct gpii_chan *gpii_tx_chan = &gpii->gpii_chan[GPI_TX_CHAN];
 
 	/* only process events on active channel */
 	if (unlikely(gpii_chan->pm_state != ACTIVE_STATE)) {
@@ -1583,20 +1632,6 @@ static void gpi_process_xfer_compl_event(struct gpii_chan *gpii_chan,
 	}
 
 	gpi_desc = to_gpi_desc(vd);
-
-	/* TRE Event generated didn't match descriptor's TRE */
-	if (gpi_desc->wp != ev_rp) {
-		spin_unlock_irqrestore(&gpii_chan->vc.lock, flags);
-		GPII_ERR(gpii, gpii_chan->chid,
-			 "EOT\EOB received for wrong TRE 0x%0llx != 0x%0llx\n",
-			 to_physical(ch_ring, gpi_desc->wp),
-			 to_physical(ch_ring, ev_rp));
-		gpi_generate_cb_event(gpii_chan, MSM_GPI_QUP_EOT_DESC_MISMATCH,
-				      __LINE__);
-		return;
-	}
-
-	list_del(&vd->node);
 	spin_unlock_irqrestore(&gpii_chan->vc.lock, flags);
 
 
@@ -1612,6 +1647,36 @@ static void gpi_process_xfer_compl_event(struct gpii_chan *gpii_chan,
 	/* update must be visible to other cores */
 	smp_wmb();
 
+	/*
+	 * If unlock tre is present, don't send transfer callback on
+	 * on IEOT, wait for unlock IEOB. Free the respective channel
+	 * descriptors.
+	 * If unlock is not present, IEOB indicates freeing the descriptor
+	 * and IEOT indicates channel transfer completion.
+	 */
+	chid = compl_event->chid;
+	if (gpii->unlock_tre_set) {
+		if (chid == GPI_RX_CHAN) {
+			if (compl_event->code == MSM_GPI_TCE_EOT)
+				goto gpi_free_desc;
+			else if (compl_event->code == MSM_GPI_TCE_UNEXP_ERR)
+				/*
+				 * In case of an error in a read transfer on a
+				 * shared se, unlock tre will not be processed
+				 * as channels go to bad state so tx desc should
+				 * be freed manually.
+				 */
+				gpi_free_chan_desc(gpii_tx_chan);
+			else
+				return;
+		} else if (compl_event->code == MSM_GPI_TCE_EOT) {
+			return;
+		}
+	} else if (compl_event->code == MSM_GPI_TCE_EOB) {
+		if (!(gpii_chan->num_tre == 1 && gpii_chan->lock_tre_set))
+			goto gpi_free_desc;
+	}
+
 	tx_cb_param = vd->tx.callback_param;
 	if (vd->tx.callback && tx_cb_param) {
 		GPII_VERB(gpii, gpii_chan->chid,
@@ -1623,7 +1688,10 @@ static void gpi_process_xfer_compl_event(struct gpii_chan *gpii_chan,
 		tx_cb_param->status = compl_event->status;
 		vd->tx.callback(tx_cb_param);
 	}
-	kfree(gpi_desc);
+
+gpi_free_desc:
+	gpi_free_chan_desc(gpii_chan);
+
 }
 
 /* process all events */
@@ -2142,6 +2210,7 @@ int gpi_terminate_all(struct dma_chan *chan)
 {
 	struct gpii_chan *gpii_chan = to_gpii_chan(chan);
 	struct gpii *gpii = gpii_chan->gpii;
+	struct gpi_dev *gpi_dev = gpii->gpi_dev;
 	int schid, echid, i;
 	int ret = 0;
 
@@ -2156,21 +2225,22 @@ int gpi_terminate_all(struct dma_chan *chan)
 	echid = (gpii->protocol == SE_PROTOCOL_UART) ? schid + 1 :
 		MAX_CHANNELS_PER_GPII;
 
-	/* stop the channel */
-	for (i = schid; i < echid; i++) {
-		gpii_chan = &gpii->gpii_chan[i];
+	if (!gpi_dev->is_le_vm) {
+		/* stop the channel */
+		for (i = schid; i < echid; i++) {
+			gpii_chan = &gpii->gpii_chan[i];
 
-		/* disable ch state so no more TRE processing */
-		write_lock_irq(&gpii->pm_lock);
-		gpii_chan->pm_state = PREPARE_TERMINATE;
-		write_unlock_irq(&gpii->pm_lock);
+			/* disable ch state so no more TRE processing */
+			write_lock_irq(&gpii->pm_lock);
+			gpii_chan->pm_state = PREPARE_TERMINATE;
+			write_unlock_irq(&gpii->pm_lock);
 
-		/* send command to Stop the channel */
-		ret = gpi_send_cmd(gpii, gpii_chan, GPI_CH_CMD_STOP);
-		if (ret)
-			GPII_ERR(gpii, gpii_chan->chid,
-				 "Error Stopping Channel:%d resetting anyway\n",
-				 ret);
+			/* send command to Stop the channel */
+			ret = gpi_send_cmd(gpii, gpii_chan, GPI_CH_CMD_STOP);
+			if (ret)
+				GPII_ERR(gpii, gpii_chan->chid,
+				"Error Stopping Chan:%d resetting\n", ret);
+		}
 	}
 
 	/* reset the channels (clears any pending tre) */
@@ -2181,6 +2251,10 @@ int gpi_terminate_all(struct dma_chan *chan)
 		if (ret) {
 			GPII_ERR(gpii, gpii_chan->chid,
 				 "Error resetting channel ret:%d\n", ret);
+			if (!gpii->reg_table_dump) {
+				gpi_dump_debug_reg(gpii);
+				gpii->reg_table_dump = true;
+			}
 			goto terminate_exit;
 		}
 
@@ -2210,6 +2284,44 @@ terminate_exit:
 	return ret;
 }
 
+static void gpi_noop_tre(struct gpii_chan *gpii_chan)
+{
+	struct gpii *gpii = gpii_chan->gpii;
+	struct gpi_ring *ch_ring = &gpii_chan->ch_ring;
+	phys_addr_t local_rp, local_wp;
+	void *cntxt_rp;
+	u32 noop_mask, noop_tre;
+	struct msm_gpi_tre *tre;
+
+	GPII_INFO(gpii, gpii_chan->chid, "Enter\n");
+
+	local_rp = to_physical(ch_ring, ch_ring->rp);
+	local_wp = to_physical(ch_ring, ch_ring->wp);
+	cntxt_rp = ch_ring->rp;
+
+	GPII_INFO(gpii, gpii_chan->chid,
+		"local_rp:0x%0llx local_wp:0x%0llx\n", local_rp, local_wp);
+
+	noop_mask = NOOP_TRE_MASK(1, 0, 0, 0, 1);
+	noop_tre = NOOP_TRE;
+
+	while (local_rp != local_wp) {
+		tre = (struct msm_gpi_tre *)cntxt_rp;
+		tre->dword[3] &= noop_mask;
+		tre->dword[3] |= noop_tre;
+		local_rp += ch_ring->el_size;
+		cntxt_rp += ch_ring->el_size;
+		if (cntxt_rp >= (ch_ring->base + ch_ring->len)) {
+			cntxt_rp = ch_ring->base;
+			local_rp = to_physical(ch_ring, ch_ring->base);
+		}
+		GPII_INFO(gpii, gpii_chan->chid,
+			"local_rp:0x%0llx\n", local_rp);
+	}
+
+	GPII_INFO(gpii, gpii_chan->chid, "exit\n");
+}
+
 /* pause dma transfer for all channels */
 static int gpi_pause(struct dma_chan *chan)
 {
@@ -2220,38 +2332,41 @@ static int gpi_pause(struct dma_chan *chan)
 	GPII_INFO(gpii, gpii_chan->chid, "Enter\n");
 	mutex_lock(&gpii->ctrl_lock);
 
-	/*
-	 * pause/resume are per gpii not per channel, so
-	 * client needs to call pause only once
-	 */
-	if (gpii->pm_state == PAUSE_STATE) {
-		GPII_INFO(gpii, gpii_chan->chid,
-			  "channel is already paused\n");
-		mutex_unlock(&gpii->ctrl_lock);
-		return 0;
-	}
-
 	/* send stop command to stop the channels */
 	for (i = 0; i < MAX_CHANNELS_PER_GPII; i++) {
-		ret = gpi_send_cmd(gpii, &gpii->gpii_chan[i], GPI_CH_CMD_STOP);
+		gpii_chan = &gpii->gpii_chan[i];
+		/* disable ch state so no more TRE processing */
+		write_lock_irq(&gpii->pm_lock);
+		gpii_chan->pm_state = PREPARE_TERMINATE;
+		write_unlock_irq(&gpii->pm_lock);
+			/* send command to Stop the channel */
+		ret = gpi_send_cmd(gpii, gpii_chan, GPI_CH_CMD_STOP);
 		if (ret) {
 			GPII_ERR(gpii, gpii->gpii_chan[i].chid,
 				 "Error stopping chan, ret:%d\n", ret);
+			mutex_unlock(&gpii->ctrl_lock);
+			return -ECONNRESET;
+		}
+	}
+
+	for (i = 0; i < MAX_CHANNELS_PER_GPII; i++) {
+		gpii_chan = &gpii->gpii_chan[i];
+		gpi_noop_tre(gpii_chan);
+	}
+
+	for (i = 0; i < MAX_CHANNELS_PER_GPII; i++) {
+		gpii_chan = &gpii->gpii_chan[i];
+
+		ret = gpi_start_chan(gpii_chan);
+		if (ret) {
+			GPII_ERR(gpii, gpii_chan->chid,
+				 "Error Starting Channel ret:%d\n", ret);
 			mutex_unlock(&gpii->ctrl_lock);
 			return ret;
 		}
 	}
 
-	disable_irq(gpii->irq);
-
-	/* Wait for threads to complete out */
-	tasklet_kill(&gpii->ev_task);
-
-	write_lock_irq(&gpii->pm_lock);
-	gpii->pm_state = PAUSE_STATE;
-	write_unlock_irq(&gpii->pm_lock);
 	mutex_unlock(&gpii->ctrl_lock);
-
 	return 0;
 }
 
@@ -2299,6 +2414,7 @@ void gpi_desc_free(struct virt_dma_desc *vd)
 	struct gpi_desc *gpi_desc = to_gpi_desc(vd);
 
 	kfree(gpi_desc);
+	gpi_desc = NULL;
 }
 
 /* copy tre into transfer ring */
@@ -2319,6 +2435,8 @@ struct dma_async_tx_descriptor *gpi_prep_slave_sg(struct dma_chan *chan,
 	void *tre, *wp = NULL;
 	const gfp_t gfp = GFP_ATOMIC;
 	struct gpi_desc *gpi_desc;
+	u32 tre_type;
+	gpii_chan->num_tre = sg_len;
 
 	GPII_VERB(gpii, gpii_chan->chid, "enter\n");
 
@@ -2352,10 +2470,27 @@ struct dma_async_tx_descriptor *gpi_prep_slave_sg(struct dma_chan *chan,
 	}
 
 	/* copy each tre into transfer ring */
-	for_each_sg(sgl, sg, sg_len, i)
-		for (j = 0, tre = sg_virt(sg); j < sg->length;
+	for_each_sg(sgl, sg, sg_len, i) {
+		tre = sg_virt(sg);
+
+		if (sg_len == 1) {
+			tre_type =
+			MSM_GPI_TRE_TYPE(((struct msm_gpi_tre *)tre));
+			gpii_chan->lock_tre_set =
+			tre_type == MSM_GPI_TRE_LOCK ? true : false;
+		}
+		/* Check if last tre is an unlock tre */
+		if (i == sg_len - 1) {
+			tre_type =
+			MSM_GPI_TRE_TYPE(((struct msm_gpi_tre *)tre));
+			gpii->unlock_tre_set =
+			tre_type == MSM_GPI_TRE_UNLOCK ? true : false;
+		}
+
+		for (j = 0; j < sg->length;
 		     j += ch_ring->el_size, tre += ch_ring->el_size)
 			gpi_queue_xfer(gpii, gpii_chan, tre, &wp);
+	}
 
 	/* set up the descriptor */
 	gpi_desc->db = ch_ring->wp;
@@ -2648,14 +2783,17 @@ xfer_alloc_err:
 	return ret;
 }
 
-static int gpi_find_avail_gpii(struct gpi_dev *gpi_dev, u32 seid)
+static int gpi_find_avail_gpii(struct gpi_dev *gpi_dev, u32 seid,
+		bool static_gpii)
 {
 	int gpii;
 	struct gpii_chan *tx_chan, *rx_chan;
+	u32 gpii_mask =
+		static_gpii ? gpi_dev->static_gpii_mask : gpi_dev->gpii_mask;
 
 	/* check if same seid is already configured for another chid */
 	for (gpii = 0; gpii < gpi_dev->max_gpii; gpii++) {
-		if (!((1 << gpii) & gpi_dev->gpii_mask))
+		if (!((1 << gpii) & gpii_mask))
 			continue;
 
 		tx_chan = &gpi_dev->gpiis[gpii].gpii_chan[GPI_TX_CHAN];
@@ -2669,7 +2807,7 @@ static int gpi_find_avail_gpii(struct gpi_dev *gpi_dev, u32 seid)
 
 	/* no channels configured with same seid, return next avail gpii */
 	for (gpii = 0; gpii < gpi_dev->max_gpii; gpii++) {
-		if (!((1 << gpii) & gpi_dev->gpii_mask))
+		if (!((1 << gpii) & gpii_mask))
 			continue;
 
 		tx_chan = &gpi_dev->gpiis[gpii].gpii_chan[GPI_TX_CHAN];
@@ -2694,8 +2832,9 @@ static struct dma_chan *gpi_of_dma_xlate(struct of_phandle_args *args,
 {
 	struct gpi_dev *gpi_dev = (struct gpi_dev *)of_dma->of_dma_data;
 	u32 seid, chid;
-	int gpii;
+	int gpii, val;
 	struct gpii_chan *gpii_chan;
+	bool static_gpii;
 
 	if (args->args_count < REQ_OF_DMA_ARGS) {
 		GPI_ERR(gpi_dev,
@@ -2711,9 +2850,11 @@ static struct dma_chan *gpi_of_dma_xlate(struct of_phandle_args *args,
 	}
 
 	seid = args->args[1];
+	val = (args->args[4] & STATIC_GPII_BMSK) >> STATIC_GPII_SHFT;
+	static_gpii = (val == 1) ? true : false;
 
 	/* find next available gpii to use */
-	gpii = gpi_find_avail_gpii(gpi_dev, seid);
+	gpii = gpi_find_avail_gpii(gpi_dev, seid, static_gpii);
 	if (gpii < 0) {
 		GPI_ERR(gpi_dev, "no available gpii instances\n");
 		return NULL;
@@ -2730,7 +2871,7 @@ static struct dma_chan *gpi_of_dma_xlate(struct of_phandle_args *args,
 	gpii_chan->seid = seid;
 	gpii_chan->protocol = args->args[2];
 	gpii_chan->req_tres = args->args[3];
-	gpii_chan->priority = args->args[4];
+	gpii_chan->priority = args->args[4] & GPI_EV_PRIORITY_BMSK;
 
 	GPI_LOG(gpi_dev,
 		"client req. gpii:%u chid:%u #_tre:%u priority:%u protocol:%u\n",
@@ -2768,7 +2909,8 @@ static void gpi_setup_debug(struct gpi_dev *gpi_dev)
 	for (i = 0; i < gpi_dev->max_gpii; i++) {
 		struct gpii *gpii;
 
-		if (!((1 << i) & gpi_dev->gpii_mask))
+		if (!(((1 << i) & gpi_dev->gpii_mask)  ||
+				((1 << i) & gpi_dev->static_gpii_mask)))
 			continue;
 
 		gpii = &gpi_dev->gpiis[i];
@@ -2807,7 +2949,7 @@ static int gpi_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	/* debug purpose */
-	gpi_dev_dbg = gpi_dev;
+	gpi_dev_dbg[arr_idx++] = gpi_dev;
 
 	gpi_dev->dev = &pdev->dev;
 	gpi_dev->klog_lvl = DEFAULT_KLOG_LVL;
@@ -2841,6 +2983,11 @@ static int gpi_probe(struct platform_device *pdev)
 	}
 
 	ret = of_property_read_u32(gpi_dev->dev->of_node,
+		"qcom,static-gpii-mask", &gpi_dev->static_gpii_mask);
+	if (!ret)
+		GPI_LOG(gpi_dev, "static GPII usecase\n");
+
+	ret = of_property_read_u32(gpi_dev->dev->of_node,
 					"qcom,gpi-ee-offset", &gpi_ee_offset);
 	if (ret)
 		GPI_LOG(gpi_dev, "No variable ee offset present\n");
@@ -2871,13 +3018,19 @@ static int gpi_probe(struct platform_device *pdev)
 	if (!gpi_dev->gpiis)
 		return -ENOMEM;
 
+	gpi_dev->is_le_vm = of_property_read_bool(pdev->dev.of_node,
+			"qcom,le-vm");
+	if (gpi_dev->is_le_vm)
+		GPI_LOG(gpi_dev, "LE-VM usecase\n");
+
 	/* setup all the supported gpii */
 	INIT_LIST_HEAD(&gpi_dev->dma_device.channels);
 	for (i = 0; i < gpi_dev->max_gpii; i++) {
 		struct gpii *gpii = &gpi_dev->gpiis[i];
 		int chan;
 
-		if (!((1 << i) & gpi_dev->gpii_mask))
+		if (!(((1 << i) & gpi_dev->gpii_mask)  ||
+				((1 << i) & gpi_dev->static_gpii_mask)))
 			continue;
 
 		/* set up ev cntxt register map */
@@ -3005,7 +3158,8 @@ static int gpi_remove(struct platform_device *pdev)
 		struct gpii *gpii = &gpi_dev->gpiis[i];
 		int chan;
 
-		if (!((1 << i) & gpi_dev->gpii_mask))
+		if (!(((1 << i) & gpi_dev->gpii_mask)  ||
+				((1 << i) & gpi_dev->static_gpii_mask)))
 			continue;
 
 		for (chan = 0; chan < MAX_CHANNELS_PER_GPII; chan++) {
@@ -3017,6 +3171,10 @@ static int gpi_remove(struct platform_device *pdev)
 		if (gpii->ilctxt)
 			ipc_log_context_destroy(gpii->ilctxt);
 	}
+
+	for (i = 0; i < arr_idx; i++)
+		gpi_dev_dbg[i] = NULL;
+	arr_idx = 0;
 
 	if (gpi_dev->ilctxt)
 		ipc_log_context_destroy(gpi_dev->ilctxt);

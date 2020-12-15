@@ -115,6 +115,25 @@ void msm_cvp_free_platform_resources(
 	msm_cvp_free_bus_vectors(res);
 }
 
+static int msm_cvp_load_ipcc_regs(struct msm_cvp_platform_resources *res)
+{
+	int ret = 0;
+	unsigned int reg_config[2];
+	struct platform_device *pdev = res->pdev;
+
+	ret = of_property_read_u32_array(pdev->dev.of_node, "qcom,ipcc-reg",
+				reg_config, 2);
+	if (ret) {
+		dprintk(CVP_ERR, "Failed to read ipcc reg: %d\n", ret);
+		return ret;
+	}
+
+	res->ipcc_reg_base = reg_config[0];
+	res->ipcc_reg_size = reg_config[1];
+
+	return ret;
+}
+
 static int msm_cvp_load_reg_table(struct msm_cvp_platform_resources *res)
 {
 	struct reg_set *reg_set;
@@ -216,6 +235,14 @@ static int msm_cvp_load_qdss_table(struct msm_cvp_platform_resources *res)
 	}
 err_qdss_addr_tbl:
 	return rc;
+}
+
+static int msm_cvp_load_fw_name(struct msm_cvp_platform_resources *res)
+{
+	struct platform_device *pdev = res->pdev;
+
+	return of_property_read_string_index(pdev->dev.of_node,
+				"cvp,firmware-name", 0, &res->fw_name);
 }
 
 static int msm_cvp_load_subcache_info(struct msm_cvp_platform_resources *res)
@@ -701,10 +728,6 @@ int cvp_read_platform_resources_from_drv_data(
 
 	res->sku_version = platform_data->sku_version;
 
-	res->fw_name = "cvpss";
-
-	dprintk(CVP_CORE, "Firmware filename: %s\n", res->fw_name);
-
 	res->auto_pil = find_key_value(platform_data,
 			"qcom,auto-pil");
 
@@ -769,6 +792,11 @@ int cvp_read_platform_resources_from_dt(
 	kres = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
 	res->irq = kres ? kres->start : -1;
 
+	rc = msm_cvp_load_fw_name(res);
+	dprintk(CVP_CORE, "EVA fw: %s found.\n", res->fw_name);
+	if (rc)
+		dprintk(CVP_WARN, "Failed to load fw name info: %d\n", rc);
+
 	rc = msm_cvp_load_subcache_info(res);
 	if (rc)
 		dprintk(CVP_WARN, "Failed to load subcache info: %d\n", rc);
@@ -782,6 +810,10 @@ int cvp_read_platform_resources_from_dt(
 		dprintk(CVP_ERR, "Failed to load reg table: %d\n", rc);
 		goto err_load_reg_table;
 	}
+
+	rc = msm_cvp_load_ipcc_regs(res);
+	if (rc)
+		dprintk(CVP_ERR, "Failed to load IPCC regs: %d\n", rc);
 
 	rc = msm_cvp_load_regulator_table(res);
 	if (rc) {

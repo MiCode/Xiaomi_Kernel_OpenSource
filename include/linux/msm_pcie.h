@@ -13,6 +13,7 @@ enum msm_pcie_config {
 	MSM_PCIE_CONFIG_LINKDOWN = 0x2,
 	MSM_PCIE_CONFIG_NO_RECOVERY = 0x4,
 	MSM_PCIE_CONFIG_NO_L1SS_TO = 0x8,
+	MSM_PCIE_CONFIG_NO_DRV_PC = 0x10,
 };
 
 enum msm_pcie_pm_opt {
@@ -21,6 +22,7 @@ enum msm_pcie_pm_opt {
 	MSM_PCIE_RESUME,
 	MSM_PCIE_DISABLE_PC,
 	MSM_PCIE_ENABLE_PC,
+	MSM_PCIE_HANDLE_LINKDOWN,
 };
 
 enum msm_pcie_event {
@@ -55,6 +57,8 @@ struct msm_pcie_register_event {
 	u32 options;
 };
 
+void msm_msi_config_access(struct irq_domain *domain, bool allow);
+void msm_msi_config(struct irq_domain *domain);
 int msm_msi_init(struct device *dev);
 
 #if IS_ENABLED(CONFIG_PCI_MSM)

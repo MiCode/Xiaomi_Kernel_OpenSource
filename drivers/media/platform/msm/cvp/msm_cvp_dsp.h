@@ -18,12 +18,22 @@
 #define DSP_VM_NUM 2
 #define CVP_DSP_MAX_RESERVED 5
 #define CVP_DSP2CPU_RESERVED 8
-#define CVP_DSP_RESPONSE_TIMEOUT 1000
+#define CVP_DSP_RESPONSE_TIMEOUT 300
 #define CVP_INVALID_RPMSG_TYPE 0xBADDFACE
 
 int cvp_dsp_device_init(void);
 void cvp_dsp_device_exit(void);
 void cvp_dsp_send_hfi_queue(void);
+void cvp_dsp_init_hfi_queue_hdr(struct iris_hfi_device *device);
+
+enum CPU2DSP_STATUS {
+	CPU2DSP_SUCCESS = 0,
+	CPU2DSP_EFAIL = 1,
+	CPU2DSP_EFATAL = 2,
+	CPU2DSP_EUNAVAILABLE = 3,
+	CPU2DSP_EINVALSTATE = 4,
+	CPU2DSP_EUNSUPPORTED = 5,
+};
 
 enum CVP_DSP_COMMAND {
 	CPU2DSP_SEND_HFI_QUEUE = 0,
@@ -58,7 +68,8 @@ struct cvp_dsp_cmd_msg {
 struct cvp_dsp_rsp_msg {
 	uint32_t type;
 	int32_t ret;
-	uint32_t reserved[CVP_DSP_MAX_RESERVED];
+	uint32_t dsp_state;
+	uint32_t reserved[CVP_DSP_MAX_RESERVED - 1];
 };
 
 struct cvp_dsp2cpu_cmd_msg {

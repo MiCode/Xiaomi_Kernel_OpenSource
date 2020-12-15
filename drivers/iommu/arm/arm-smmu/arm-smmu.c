@@ -1617,7 +1617,6 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	unsigned long quirks = 0;
-	struct iommu_group *group;
 	struct io_pgtable *iop;
 
 	mutex_lock(&smmu_domain->init_mutex);
@@ -1773,10 +1772,9 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		goto out_clear_smmu;
 	}
 
-	group = iommu_group_get(smmu_domain->dev);
 	iop = container_of(smmu_domain->pgtbl_ops, struct io_pgtable, ops);
-	ret = iommu_logger_register(&smmu_domain->logger, domain, group, iop);
-	iommu_group_put(group);
+	ret = iommu_logger_register(&smmu_domain->logger, domain,
+				    smmu_domain->dev, iop);
 	if (ret)
 		goto out_clear_smmu;
 

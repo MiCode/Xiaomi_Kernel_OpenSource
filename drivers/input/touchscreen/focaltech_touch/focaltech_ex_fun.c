@@ -633,7 +633,7 @@ static ssize_t fts_bootmode_show(
 }
 
 /* fts_tpfwver interface */
-static ssize_t fts_tpfwver_show(
+static ssize_t fts_fw_version_show(
 	struct device *dev, struct device_attribute *attr, char *buf)
 {
 	struct fts_ts_data *ts_data = fts_data;
@@ -659,7 +659,7 @@ static ssize_t fts_tpfwver_show(
 	return num_read_chars;
 }
 
-static ssize_t fts_tpfwver_store(
+static ssize_t fts_fw_version_store(
 	struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
@@ -905,68 +905,6 @@ exit:
 	return count;
 }
 
-/* fts_upgrade_bin interface */
-static ssize_t fts_fwupgradebin_show(
-	struct device *dev, struct device_attribute *attr, char *buf)
-{
-	return -EPERM;
-}
-
-static ssize_t fts_fwupgradebin_store(
-	struct device *dev,
-	struct device_attribute *attr, const char *buf, size_t count)
-{
-	char fwname[FILE_NAME_LENGTH] = { 0 };
-	struct input_dev *input_dev = fts_data->input_dev;
-
-	if ((count <= 1) || (count >= FILE_NAME_LENGTH - 32)) {
-		FTS_ERROR("fw bin name's length(%d) fail", (int)count);
-		return -EINVAL;
-	}
-
-	memset(fwname, 0, sizeof(fwname));
-	snprintf(fwname, FILE_NAME_LENGTH, "%s", buf);
-	fwname[count - 1] = '\0';
-
-	FTS_INFO("upgrade with bin file through sysfs node");
-	mutex_lock(&input_dev->mutex);
-	fts_upgrade_bin(fwname, 0);
-	mutex_unlock(&input_dev->mutex);
-
-	return count;
-}
-
-/* fts_force_upgrade interface */
-static ssize_t fts_fwforceupg_show(
-	struct device *dev, struct device_attribute *attr, char *buf)
-{
-	return -EPERM;
-}
-
-static ssize_t fts_fwforceupg_store(
-	struct device *dev,
-	struct device_attribute *attr, const char *buf, size_t count)
-{
-	char fwname[FILE_NAME_LENGTH];
-	struct input_dev *input_dev = fts_data->input_dev;
-
-	if ((count <= 1) || (count >= FILE_NAME_LENGTH - 32)) {
-		FTS_ERROR("fw bin name's length(%d) fail", (int)count);
-		return -EINVAL;
-	}
-
-	memset(fwname, 0, sizeof(fwname));
-	snprintf(fwname, FILE_NAME_LENGTH, "%s", buf);
-	fwname[count - 1] = '\0';
-
-	FTS_INFO("force upgrade through sysfs node");
-	mutex_lock(&input_dev->mutex);
-	fts_upgrade_bin(fwname, 1);
-	mutex_unlock(&input_dev->mutex);
-
-	return count;
-}
-
 /* fts_driver_info interface */
 static ssize_t fts_driverinfo_show(
 	struct device *dev, struct device_attribute *attr, char *buf)
@@ -1120,8 +1058,72 @@ static ssize_t fts_log_level_store(
 	return count;
 }
 
+#ifdef CONFIG_FTS_TRUSTED_TOUCH
+
+static ssize_t trusted_touch_enable_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct fts_ts_data *info;
+
+	if (!client)
+		return scnprintf(buf, PAGE_SIZE, "client is null\n");
+
+	info = i2c_get_clientdata(client);
+	if (!info) {
+		FTS_ERROR("info is null\n");
+		return scnprintf(buf, PAGE_SIZE, "info is null\n");
+	}
+
+	return scnprintf(buf, PAGE_SIZE, "%d",
+			atomic_read(&info->trusted_touch_enabled));
+}
+
+static ssize_t trusted_touch_enable_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct fts_ts_data *info;
+	unsigned long value;
+	int err = 0;
+
+	if (!client)
+		return -EIO;
+	info = i2c_get_clientdata(client);
+	if (!info) {
+		FTS_ERROR("info is null\n");
+		return -EIO;
+	}
+	if (count > 2)
+		return -EINVAL;
+	err = kstrtoul(buf, 10, &value);
+	if (err != 0)
+		return err;
+
+	if (!atomic_read(&info->trusted_touch_initialized))
+		return -EIO;
+
+#ifdef CONFIG_ARCH_QTI_VM
+	err = fts_ts_handle_trusted_touch_tvm(info, value);
+	if (err) {
+		pr_err("Failed to handle trusted touch in tvm\n");
+		return -EINVAL;
+	}
+#else
+	err = fts_ts_handle_trusted_touch_pvm(info, value);
+	if (err) {
+		pr_err("Failed to handle trusted touch in pvm\n");
+		return -EINVAL;
+	}
+#endif
+	err = count;
+	return err;
+}
+
+#endif
+
 /* get the fw version  example:cat fw_version */
-static DEVICE_ATTR(fts_fw_version, S_IRUGO | S_IWUSR, fts_tpfwver_show, fts_tpfwver_store);
+static DEVICE_ATTR_RW(fts_fw_version);
 
 /* read and write register(s)
 *   All data type is **HEX**
@@ -1137,9 +1139,6 @@ static DEVICE_ATTR(fts_fw_version, S_IRUGO | S_IWUSR, fts_tpfwver_show, fts_tpfw
 *       cat rw_reg
 */
 static DEVICE_ATTR(fts_rw_reg, S_IRUGO | S_IWUSR, fts_tprwreg_show, fts_tprwreg_store);
-/*  upgrade from fw bin file   example:echo "*.bin" > fts_upgrade_bin */
-static DEVICE_ATTR(fts_upgrade_bin, S_IRUGO | S_IWUSR, fts_fwupgradebin_show, fts_fwupgradebin_store);
-static DEVICE_ATTR(fts_force_upgrade, S_IRUGO | S_IWUSR, fts_fwforceupg_show, fts_fwforceupg_store);
 static DEVICE_ATTR(fts_driver_info, S_IRUGO | S_IWUSR, fts_driverinfo_show, fts_driverinfo_store);
 static DEVICE_ATTR(fts_dump_reg, S_IRUGO | S_IWUSR, fts_dumpreg_show, fts_dumpreg_store);
 static DEVICE_ATTR(fts_hw_reset, S_IRUGO | S_IWUSR, fts_hw_reset_show, fts_hw_reset_store);
@@ -1147,20 +1146,24 @@ static DEVICE_ATTR(fts_irq, S_IRUGO | S_IWUSR, fts_irq_show, fts_irq_store);
 static DEVICE_ATTR(fts_boot_mode, S_IRUGO | S_IWUSR, fts_bootmode_show, fts_bootmode_store);
 static DEVICE_ATTR(fts_touch_point, S_IRUGO | S_IWUSR, fts_tpbuf_show, fts_tpbuf_store);
 static DEVICE_ATTR(fts_log_level, S_IRUGO | S_IWUSR, fts_log_level_show, fts_log_level_store);
+#ifdef CONFIG_FTS_TRUSTED_TOUCH
+static DEVICE_ATTR_RW(trusted_touch_enable);
+#endif
 
 /* add your attr in here*/
 static struct attribute *fts_attributes[] = {
 	&dev_attr_fts_fw_version.attr,
 	&dev_attr_fts_rw_reg.attr,
 	&dev_attr_fts_dump_reg.attr,
-	&dev_attr_fts_upgrade_bin.attr,
-	&dev_attr_fts_force_upgrade.attr,
 	&dev_attr_fts_driver_info.attr,
 	&dev_attr_fts_hw_reset.attr,
 	&dev_attr_fts_irq.attr,
 	&dev_attr_fts_boot_mode.attr,
 	&dev_attr_fts_touch_point.attr,
 	&dev_attr_fts_log_level.attr,
+#ifdef CONFIG_FTS_TRUSTED_TOUCH
+	&dev_attr_trusted_touch_enable.attr,
+#endif
 	NULL
 };
 

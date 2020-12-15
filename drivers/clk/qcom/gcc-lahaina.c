@@ -28,7 +28,11 @@
 #include "reset.h"
 #include "vdd-level.h"
 
-static DEFINE_VDD_REGULATORS(vdd_cx, VDD_NUM, 1, vdd_corner);
+static DEFINE_VDD_REGULATORS(vdd_cx, VDD_HIGH + 1, 1, vdd_corner);
+
+static struct clk_vdd_class *gcc_lahaina_regulators[] = {
+	&vdd_cx,
+};
 
 enum {
 	P_BI_TCXO,
@@ -50,14 +54,8 @@ enum {
 	P_USB3_UNI_PHY_SEC_GCC_USB30_PIPE_CLK,
 };
 
-static struct pll_vco lucid_5lpe_vco[] = {
-	{ 249600000, 2000000000, 0 },
-};
-
 static struct clk_alpha_pll gcc_gpll0 = {
 	.offset = 0x0,
-	.vco_table = lucid_5lpe_vco,
-	.num_vco = ARRAY_SIZE(lucid_5lpe_vco),
 	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_5LPE],
 	.clkr = {
 		.enable_reg = 0x52018,
@@ -77,8 +75,8 @@ static struct clk_alpha_pll gcc_gpll0 = {
 			.rate_max = (unsigned long[VDD_NUM]) {
 				[VDD_MIN] = 615000000,
 				[VDD_LOW] = 1066000000,
-				[VDD_LOW_L1] = 1600000000,
-				[VDD_NOMINAL] = 2000000000},
+				[VDD_LOW_L1] = 1500000000,
+				[VDD_NOMINAL] = 1750000000},
 		},
 	},
 };
@@ -107,8 +105,6 @@ static struct clk_alpha_pll_postdiv gcc_gpll0_out_even = {
 
 static struct clk_alpha_pll gcc_gpll4 = {
 	.offset = 0x76000,
-	.vco_table = lucid_5lpe_vco,
-	.num_vco = ARRAY_SIZE(lucid_5lpe_vco),
 	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_5LPE],
 	.clkr = {
 		.enable_reg = 0x52018,
@@ -128,16 +124,14 @@ static struct clk_alpha_pll gcc_gpll4 = {
 			.rate_max = (unsigned long[VDD_NUM]) {
 				[VDD_MIN] = 615000000,
 				[VDD_LOW] = 1066000000,
-				[VDD_LOW_L1] = 1600000000,
-				[VDD_NOMINAL] = 2000000000},
+				[VDD_LOW_L1] = 1500000000,
+				[VDD_NOMINAL] = 1750000000},
 		},
 	},
 };
 
 static struct clk_alpha_pll gcc_gpll9 = {
 	.offset = 0x1c000,
-	.vco_table = lucid_5lpe_vco,
-	.num_vco = ARRAY_SIZE(lucid_5lpe_vco),
 	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_5LPE],
 	.clkr = {
 		.enable_reg = 0x52018,
@@ -157,8 +151,8 @@ static struct clk_alpha_pll gcc_gpll9 = {
 			.rate_max = (unsigned long[VDD_NUM]) {
 				[VDD_MIN] = 615000000,
 				[VDD_LOW] = 1066000000,
-				[VDD_LOW_L1] = 1600000000,
-				[VDD_NOMINAL] = 2000000000},
+				[VDD_LOW_L1] = 1500000000,
+				[VDD_NOMINAL] = 1750000000},
 		},
 	},
 };
@@ -2101,7 +2095,7 @@ static struct clk_branch gcc_ddrss_gpu_axi_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_ddrss_gpu_axi_clk",
-			.ops = &clk_branch2_ops,
+			.ops = &clk_branch2_aon_ops,
 		},
 	},
 };
@@ -2985,24 +2979,6 @@ static struct clk_branch gcc_qupv3_wrap1_s4_clk = {
 	},
 };
 
-static struct clk_branch gcc_qupv3_wrap1_s5_clk = {
-	.halt_reg = 0x185fc,
-	.halt_check = BRANCH_HALT_VOTED,
-	.clkr = {
-		.enable_reg = 0x52008,
-		.enable_mask = BIT(27),
-		.hw.init = &(struct clk_init_data){
-			.name = "gcc_qupv3_wrap1_s5_clk",
-			.parent_data = &(const struct clk_parent_data){
-				.hw = &gcc_qupv3_wrap1_s5_clk_src.clkr.hw,
-			},
-			.num_parents = 1,
-			.flags = CLK_SET_RATE_PARENT,
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
 static struct clk_branch gcc_qupv3_wrap2_core_2x_clk = {
 	.halt_reg = 0x23278,
 	.halt_check = BRANCH_HALT_VOTED,
@@ -3162,36 +3138,6 @@ static struct clk_branch gcc_qupv3_wrap_0_s_ahb_clk = {
 		.enable_mask = BIT(7),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_qupv3_wrap_0_s_ahb_clk",
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
-static struct clk_branch gcc_qupv3_wrap_1_m_ahb_clk = {
-	.halt_reg = 0x18004,
-	.halt_check = BRANCH_HALT_VOTED,
-	.hwcg_reg = 0x18004,
-	.hwcg_bit = 1,
-	.clkr = {
-		.enable_reg = 0x52008,
-		.enable_mask = BIT(20),
-		.hw.init = &(struct clk_init_data){
-			.name = "gcc_qupv3_wrap_1_m_ahb_clk",
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
-static struct clk_branch gcc_qupv3_wrap_1_s_ahb_clk = {
-	.halt_reg = 0x18008,
-	.halt_check = BRANCH_HALT_VOTED,
-	.hwcg_reg = 0x18008,
-	.hwcg_bit = 1,
-	.clkr = {
-		.enable_reg = 0x52008,
-		.enable_mask = BIT(21),
-		.hw.init = &(struct clk_init_data){
-			.name = "gcc_qupv3_wrap_1_s_ahb_clk",
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -3791,6 +3737,19 @@ static struct clk_branch gcc_usb30_prim_master_clk = {
 	},
 };
 
+static struct clk_branch gcc_usb30_prim_master_clk__force_mem_core_on = {
+	.halt_reg = 0xf010,
+	.halt_check = BRANCH_HALT,
+	.clkr = {
+		.enable_reg = 0xf010,
+		.enable_mask = BIT(14),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_usb30_prim_master_clk__force_mem_core_on",
+			.ops = &clk_branch_simple_ops,
+		},
+	},
+};
+
 static struct clk_branch gcc_usb30_prim_mock_utmi_clk = {
 	.halt_reg = 0xf01c,
 	.halt_check = BRANCH_HALT,
@@ -3837,6 +3796,19 @@ static struct clk_branch gcc_usb30_sec_master_clk = {
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
 			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
+static struct clk_branch gcc_usb30_sec_master_clk__force_mem_core_on = {
+	.halt_reg = 0x10010,
+	.halt_check = BRANCH_HALT,
+	.clkr = {
+		.enable_reg = 0x10010,
+		.enable_mask = BIT(14),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_usb30_sec_master_clk__force_mem_core_on",
+			.ops = &clk_branch_simple_ops,
 		},
 	},
 };
@@ -4022,7 +3994,7 @@ static struct clk_branch gcc_video_axi0_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_video_axi0_clk",
-			.ops = &clk_branch2_ops,
+			.ops = &clk_branch2_force_off_ops,
 		},
 	},
 };
@@ -4037,7 +4009,7 @@ static struct clk_branch gcc_video_axi1_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_video_axi1_clk",
-			.ops = &clk_branch2_ops,
+			.ops = &clk_branch2_force_off_ops,
 		},
 	},
 };
@@ -4158,7 +4130,6 @@ static struct clk_regmap *gcc_lahaina_clocks[] = {
 	[GCC_QUPV3_WRAP1_S3_CLK_SRC] = &gcc_qupv3_wrap1_s3_clk_src.clkr,
 	[GCC_QUPV3_WRAP1_S4_CLK] = &gcc_qupv3_wrap1_s4_clk.clkr,
 	[GCC_QUPV3_WRAP1_S4_CLK_SRC] = &gcc_qupv3_wrap1_s4_clk_src.clkr,
-	[GCC_QUPV3_WRAP1_S5_CLK] = &gcc_qupv3_wrap1_s5_clk.clkr,
 	[GCC_QUPV3_WRAP1_S5_CLK_SRC] = &gcc_qupv3_wrap1_s5_clk_src.clkr,
 	[GCC_QUPV3_WRAP2_CORE_2X_CLK] = &gcc_qupv3_wrap2_core_2x_clk.clkr,
 	[GCC_QUPV3_WRAP2_CORE_CLK] = &gcc_qupv3_wrap2_core_clk.clkr,
@@ -4176,8 +4147,6 @@ static struct clk_regmap *gcc_lahaina_clocks[] = {
 	[GCC_QUPV3_WRAP2_S5_CLK_SRC] = &gcc_qupv3_wrap2_s5_clk_src.clkr,
 	[GCC_QUPV3_WRAP_0_M_AHB_CLK] = &gcc_qupv3_wrap_0_m_ahb_clk.clkr,
 	[GCC_QUPV3_WRAP_0_S_AHB_CLK] = &gcc_qupv3_wrap_0_s_ahb_clk.clkr,
-	[GCC_QUPV3_WRAP_1_M_AHB_CLK] = &gcc_qupv3_wrap_1_m_ahb_clk.clkr,
-	[GCC_QUPV3_WRAP_1_S_AHB_CLK] = &gcc_qupv3_wrap_1_s_ahb_clk.clkr,
 	[GCC_QUPV3_WRAP_2_M_AHB_CLK] = &gcc_qupv3_wrap_2_m_ahb_clk.clkr,
 	[GCC_QUPV3_WRAP_2_S_AHB_CLK] = &gcc_qupv3_wrap_2_s_ahb_clk.clkr,
 	[GCC_SDCC2_AHB_CLK] = &gcc_sdcc2_ahb_clk.clkr,
@@ -4240,6 +4209,8 @@ static struct clk_regmap *gcc_lahaina_clocks[] = {
 	[GCC_UFS_PHY_UNIPRO_CORE_HW_CTL_CLK] =
 		&gcc_ufs_phy_unipro_core_hw_ctl_clk.clkr,
 	[GCC_USB30_PRIM_MASTER_CLK] = &gcc_usb30_prim_master_clk.clkr,
+	[GCC_USB30_PRIM_MASTER_CLK__FORCE_MEM_CORE_ON] =
+		&gcc_usb30_prim_master_clk__force_mem_core_on.clkr,
 	[GCC_USB30_PRIM_MASTER_CLK_SRC] = &gcc_usb30_prim_master_clk_src.clkr,
 	[GCC_USB30_PRIM_MOCK_UTMI_CLK] = &gcc_usb30_prim_mock_utmi_clk.clkr,
 	[GCC_USB30_PRIM_MOCK_UTMI_CLK_SRC] =
@@ -4248,6 +4219,8 @@ static struct clk_regmap *gcc_lahaina_clocks[] = {
 		&gcc_usb30_prim_mock_utmi_postdiv_clk_src.clkr,
 	[GCC_USB30_PRIM_SLEEP_CLK] = &gcc_usb30_prim_sleep_clk.clkr,
 	[GCC_USB30_SEC_MASTER_CLK] = &gcc_usb30_sec_master_clk.clkr,
+	[GCC_USB30_SEC_MASTER_CLK__FORCE_MEM_CORE_ON] =
+		&gcc_usb30_sec_master_clk__force_mem_core_on.clkr,
 	[GCC_USB30_SEC_MASTER_CLK_SRC] = &gcc_usb30_sec_master_clk_src.clkr,
 	[GCC_USB30_SEC_MOCK_UTMI_CLK] = &gcc_usb30_sec_mock_utmi_clk.clkr,
 	[GCC_USB30_SEC_MOCK_UTMI_CLK_SRC] =
@@ -4368,6 +4341,8 @@ static const struct qcom_cc_desc gcc_lahaina_desc = {
 	.num_resets = ARRAY_SIZE(gcc_lahaina_resets),
 	.clk_hws = gcc_lahaina_hws,
 	.num_clk_hws = ARRAY_SIZE(gcc_lahaina_hws),
+	.clk_regulators = gcc_lahaina_regulators,
+	.num_clk_regulators = ARRAY_SIZE(gcc_lahaina_regulators),
 };
 
 static const struct of_device_id gcc_lahaina_match_table[] = {
@@ -4380,13 +4355,6 @@ static int gcc_lahaina_probe(struct platform_device *pdev)
 {
 	struct regmap *regmap;
 	int ret;
-
-	vdd_cx.regulator[0] = devm_regulator_get(&pdev->dev, "vdd_cx");
-	if (IS_ERR(vdd_cx.regulator[0])) {
-		if (PTR_ERR(vdd_cx.regulator[0]) != -EPROBE_DEFER)
-			dev_err(&pdev->dev, "Unable to get vdd_cx regulator\n");
-		return PTR_ERR(vdd_cx.regulator[0]);
-	}
 
 	regmap = qcom_cc_map(pdev, &gcc_lahaina_desc);
 	if (IS_ERR(regmap)) {
@@ -4402,6 +4370,20 @@ static int gcc_lahaina_probe(struct platform_device *pdev)
 	/* FORCE_MEM_CORE_ON for ufs phy ice core clocks */
 	regmap_update_bits(regmap, gcc_ufs_phy_ice_core_clk.halt_reg,
 				BIT(14), BIT(14));
+
+	/*
+	 * Enable clocks required by the i2c-connected pm8008 regulators. Don't
+	 * register them with the clock framework so that client requests are
+	 * short-circuited before grabbing the enable/prepare locks. This
+	 * prevents deadlocks between the clk/regulator frameworks.
+	 *
+	 *	gcc_qupv3_wrap_1_m_ahb_clk
+	 *	gcc_qupv3_wrap_1_s_ahb_clk
+	 *	gcc_qupv3_wrap1_s5_clk
+	 */
+	regmap_update_bits(regmap, 0x52008, BIT(20), BIT(20));
+	regmap_update_bits(regmap, 0x52008, BIT(21), BIT(21));
+	regmap_update_bits(regmap, 0x52008, BIT(27), BIT(27));
 
 	ret = qcom_cc_really_probe(pdev, &gcc_lahaina_desc, regmap);
 	if (ret) {

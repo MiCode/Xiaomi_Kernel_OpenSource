@@ -100,3 +100,39 @@ config QTI_CPU_VOLTAGE_COOLING_DEVICE
 	    cluster to be mitigated together based on the voltages. This will
 	    decrease or increase the voltages in a cluster based on thermal
 	    conditions.
+
+config QTI_POLICY_ENGINE_SENSOR
+	tristate "QTI Policy Engine Sensor device"
+	depends on THERMAL_OF && QTI_THERMAL
+	help
+	    This enables the QTI Policy Engine sensor device. This driver will
+	    register the policy engine recommendation with thermal framework as
+	    a sensor. This will enable to provide configuration to mitigate
+	    cooling devices when a recommendation is sent from hardware.
+
+config QTI_SDPM_CLOCK_MONITOR
+	tristate "QTI SDPM Clock Monitor"
+	depends on COMMON_CLK && CPU_FREQ
+	help
+	    This enables the QTI SDPM Clock Monitor. This driver can register
+	    for different clock rate change notifications and write the clock
+	    rate into the SDPM CSR register. This driver will receive the clock
+	    list and the CSR details from devicetree.
+
+config REGULATOR_COOLING_DEVICE
+	tristate "Regulator voltage floor cooling device"
+	depends on REGULATOR && THERMAL_OF
+	help
+	  This implements a mitigation device to place a minimum voltage floor
+	  on a particular regulator. This mitigation device will be used by low
+	  temperature reliability rules to mitigate a regulator at nominal
+	  voltage.
+
+config QTI_RPM_SMD_COOLING_DEVICE
+	tristate "Qualcomm Technologies Inc. RPM SMD cooling device driver"
+	depends on MSM_RPM_SMD && THERMAL_OF
+	help
+	  This implements a mitigation device to send temperature band
+	  level to RPM hardware via SMD protocol. This mitigation device
+	  will be used by temperature reliability rules to restrict a
+	  railway at predefined voltage corner using RPM hardware.

@@ -268,4 +268,6 @@ int cvp_iris_hfi_initialize(struct cvp_hfi_device *hdev, u32 device_id,
 		struct msm_cvp_platform_resources *res,
 		hfi_cmd_response_callback callback);
 
+int load_cvp_fw_impl(struct iris_hfi_device *device);
+int unload_cvp_fw_impl(struct iris_hfi_device *device);
 #endif

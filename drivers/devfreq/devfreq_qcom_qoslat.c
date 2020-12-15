@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "devfreq-qcom-qoslat: " fmt
@@ -25,21 +25,42 @@ struct qoslat_data {
 	struct devfreq			*df;
 	struct devfreq_dev_profile	profile;
 	unsigned int			qos_level;
+	struct list_head		list;
 };
 
 #define QOS_LEVEL_OFF	1
 #define QOS_LEVEL_ON	2
 
+static LIST_HEAD(qoslat_list);
+static DEFINE_SPINLOCK(qoslat_lock);
+static unsigned int agg_qos_level = QOS_LEVEL_OFF;
+
 #define MAX_MSG_LEN	96
-static int update_qos_level(struct device *dev, struct qoslat_data *d)
+static int update_qos_level(struct device *dev)
 {
+	struct qoslat_data *d;
 	struct qmp_pkt pkt;
 	char mbox_msg[MAX_MSG_LEN + 1] = {0};
 	char *qos_msg = "off";
+	unsigned int qos_lvl = QOS_LEVEL_OFF;
 	int ret;
 
-	if (d->qos_level == QOS_LEVEL_ON)
+	spin_lock(&qoslat_lock);
+	list_for_each_entry(d, &qoslat_list, list)
+		qos_lvl = max(d->qos_level, qos_lvl);
+
+	if (qos_lvl == agg_qos_level) {
+		spin_unlock(&qoslat_lock);
+		return 0;
+	}
+
+	agg_qos_level = qos_lvl;
+
+	if (agg_qos_level == QOS_LEVEL_ON)
 		qos_msg = "on";
+	spin_unlock(&qoslat_lock);
+
+	d = dev_get_drvdata(dev);
 
 	snprintf(mbox_msg, MAX_MSG_LEN, "{class: ddr, perfmode: %s}", qos_msg);
 	pkt.size = MAX_MSG_LEN;
@@ -70,7 +91,7 @@ static int dev_target(struct device *dev, unsigned long *freq, u32 flags)
 
 	d->qos_level = *freq;
 
-	return update_qos_level(dev, d);
+	return update_qos_level(dev);
 }
 
 static int dev_get_cur_freq(struct device *dev, unsigned long *freq)
@@ -78,6 +99,16 @@ static int dev_get_cur_freq(struct device *dev, unsigned long *freq)
 	struct qoslat_data *d = dev_get_drvdata(dev);
 
 	*freq = d->qos_level;
+
+	return 0;
+}
+
+static int dev_get_dev_status(struct device *dev,
+			struct devfreq_dev_status *stat)
+{
+	struct qoslat_data *d = dev_get_drvdata(dev);
+
+	stat->current_frequency = d->qos_level;
 
 	return 0;
 }
@@ -114,6 +145,7 @@ static int devfreq_qcom_qoslat_probe(struct platform_device *pdev)
 	p = &d->profile;
 	p->target = dev_target;
 	p->get_cur_freq = dev_get_cur_freq;
+	p->get_dev_status = dev_get_dev_status;
 	p->polling_ms = 10;
 
 	ret = dev_pm_opp_of_add_table(dev);
@@ -130,6 +162,10 @@ static int devfreq_qcom_qoslat_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	spin_lock(&qoslat_lock);
+	list_add_tail(&d->list, &qoslat_list);
+	spin_unlock(&qoslat_lock);
+
 	return 0;
 }
 
@@ -145,6 +181,12 @@ static struct platform_driver devfreq_qcom_qoslat_driver = {
 		.of_match_table = devfreq_qoslat_match_table,
 	},
 };
-module_platform_driver(devfreq_qcom_qoslat_driver);
+
+static int __init register_devfreq_qcom_qoslat_driver(void)
+{
+	return platform_driver_register(&devfreq_qcom_qoslat_driver);
+}
+
+late_initcall(register_devfreq_qcom_qoslat_driver);
 MODULE_DESCRIPTION("Device driver for setting memory latency qos level");
 MODULE_LICENSE("GPL v2");

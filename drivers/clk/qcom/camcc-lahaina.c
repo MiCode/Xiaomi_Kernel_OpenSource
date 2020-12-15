@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -10,6 +10,7 @@
 #include <linux/of_device.h>
 #include <linux/of.h>
 #include <linux/regmap.h>
+#include <linux/pm_runtime.h>
 
 #include <dt-bindings/clock/qcom,camcc-lahaina.h>
 
@@ -24,8 +25,13 @@
 #include "reset.h"
 #include "vdd-level.h"
 
-static DEFINE_VDD_REGULATORS(vdd_mm, VDD_NUM, 1, vdd_corner);
-static DEFINE_VDD_REGULATORS(vdd_mx, VDD_NUM, 1, vdd_corner);
+static DEFINE_VDD_REGULATORS(vdd_mm, VDD_NOMINAL + 1, 1, vdd_corner);
+static DEFINE_VDD_REGULATORS(vdd_mx, VDD_HIGH + 1, 1, vdd_corner);
+
+static struct clk_vdd_class *cam_cc_lahaina_regulators[] = {
+	&vdd_mm,
+	&vdd_mx,
+};
 
 enum {
 	P_BI_TCXO,
@@ -44,7 +50,7 @@ enum {
 };
 
 static struct pll_vco lucid_5lpe_vco[] = {
-	{ 249600000, 2000000000, 0 },
+	{ 249600000, 1750000000, 0 },
 };
 
 static struct pll_vco zonda_5lpe_vco[] = {
@@ -57,7 +63,10 @@ static const struct alpha_pll_config cam_cc_pll0_config = {
 	.alpha = 0x8000,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002261,
-	.config_ctl_hi1_val = 0x029A699C,
+	.config_ctl_hi1_val = 0x2A9A699C,
+	.test_ctl_val = 0x00000000,
+	.test_ctl_hi_val = 0x00000000,
+	.test_ctl_hi1_val = 0x01800000,
 	.user_ctl_val = 0x00003100,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x00000000,
@@ -84,8 +93,8 @@ static struct clk_alpha_pll cam_cc_pll0 = {
 			.rate_max = (unsigned long[VDD_NUM]) {
 				[VDD_MIN] = 615000000,
 				[VDD_LOW] = 1066000000,
-				[VDD_LOW_L1] = 1600000000,
-				[VDD_NOMINAL] = 2000000000},
+				[VDD_LOW_L1] = 1500000000,
+				[VDD_NOMINAL] = 1750000000},
 		},
 	},
 };
@@ -142,7 +151,10 @@ static const struct alpha_pll_config cam_cc_pll1_config = {
 	.alpha = 0x4000,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002261,
-	.config_ctl_hi1_val = 0x029A699C,
+	.config_ctl_hi1_val = 0x2A9A699C,
+	.test_ctl_val = 0x00000000,
+	.test_ctl_hi_val = 0x00000000,
+	.test_ctl_hi1_val = 0x01800000,
 	.user_ctl_val = 0x00000100,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x00000000,
@@ -169,8 +181,8 @@ static struct clk_alpha_pll cam_cc_pll1 = {
 			.rate_max = (unsigned long[VDD_NUM]) {
 				[VDD_MIN] = 615000000,
 				[VDD_LOW] = 1066000000,
-				[VDD_LOW_L1] = 1600000000,
-				[VDD_NOMINAL] = 2000000000},
+				[VDD_LOW_L1] = 1500000000,
+				[VDD_NOMINAL] = 1750000000},
 		},
 	},
 };
@@ -207,6 +219,15 @@ static const struct alpha_pll_config cam_cc_pll2_config = {
 	.config_ctl_hi1_val = 0x00000000,
 };
 
+static const struct alpha_pll_config cam_cc_pll2_config_sm8350_v2 = {
+	.l = 0x32,
+	.cal_l = 0x32,
+	.alpha = 0x0,
+	.config_ctl_val = 0x08200800,
+	.config_ctl_hi_val = 0x05028011,
+	.config_ctl_hi1_val = 0x08000000,
+};
+
 static struct clk_alpha_pll cam_cc_pll2 = {
 	.offset = 0x2000,
 	.vco_table = zonda_5lpe_vco,
@@ -240,7 +261,10 @@ static const struct alpha_pll_config cam_cc_pll3_config = {
 	.alpha = 0x3555,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002261,
-	.config_ctl_hi1_val = 0x029A699C,
+	.config_ctl_hi1_val = 0x2A9A699C,
+	.test_ctl_val = 0x00000000,
+	.test_ctl_hi_val = 0x00000000,
+	.test_ctl_hi1_val = 0x01800000,
 	.user_ctl_val = 0x00000100,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x00000000,
@@ -267,8 +291,8 @@ static struct clk_alpha_pll cam_cc_pll3 = {
 			.rate_max = (unsigned long[VDD_NUM]) {
 				[VDD_MIN] = 615000000,
 				[VDD_LOW] = 1066000000,
-				[VDD_LOW_L1] = 1600000000,
-				[VDD_NOMINAL] = 2000000000},
+				[VDD_LOW_L1] = 1500000000,
+				[VDD_NOMINAL] = 1750000000},
 		},
 	},
 };
@@ -302,7 +326,10 @@ static const struct alpha_pll_config cam_cc_pll4_config = {
 	.alpha = 0x3555,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002261,
-	.config_ctl_hi1_val = 0x029A699C,
+	.config_ctl_hi1_val = 0x2A9A699C,
+	.test_ctl_val = 0x00000000,
+	.test_ctl_hi_val = 0x00000000,
+	.test_ctl_hi1_val = 0x01800000,
 	.user_ctl_val = 0x00000100,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x00000000,
@@ -329,8 +356,8 @@ static struct clk_alpha_pll cam_cc_pll4 = {
 			.rate_max = (unsigned long[VDD_NUM]) {
 				[VDD_MIN] = 615000000,
 				[VDD_LOW] = 1066000000,
-				[VDD_LOW_L1] = 1600000000,
-				[VDD_NOMINAL] = 2000000000},
+				[VDD_LOW_L1] = 1500000000,
+				[VDD_NOMINAL] = 1750000000},
 		},
 	},
 };
@@ -364,7 +391,10 @@ static const struct alpha_pll_config cam_cc_pll5_config = {
 	.alpha = 0x3555,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002261,
-	.config_ctl_hi1_val = 0x029A699C,
+	.config_ctl_hi1_val = 0x2A9A699C,
+	.test_ctl_val = 0x00000000,
+	.test_ctl_hi_val = 0x00000000,
+	.test_ctl_hi1_val = 0x01800000,
 	.user_ctl_val = 0x00000100,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x00000000,
@@ -391,8 +421,8 @@ static struct clk_alpha_pll cam_cc_pll5 = {
 			.rate_max = (unsigned long[VDD_NUM]) {
 				[VDD_MIN] = 615000000,
 				[VDD_LOW] = 1066000000,
-				[VDD_LOW_L1] = 1600000000,
-				[VDD_NOMINAL] = 2000000000},
+				[VDD_LOW_L1] = 1500000000,
+				[VDD_NOMINAL] = 1750000000},
 		},
 	},
 };
@@ -426,7 +456,10 @@ static const struct alpha_pll_config cam_cc_pll6_config = {
 	.alpha = 0x0,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002261,
-	.config_ctl_hi1_val = 0x029A699C,
+	.config_ctl_hi1_val = 0x2A9A699C,
+	.test_ctl_val = 0x00000000,
+	.test_ctl_hi_val = 0x00000000,
+	.test_ctl_hi1_val = 0x01800000,
 	.user_ctl_val = 0x00000100,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x00000000,
@@ -453,8 +486,8 @@ static struct clk_alpha_pll cam_cc_pll6 = {
 			.rate_max = (unsigned long[VDD_NUM]) {
 				[VDD_MIN] = 615000000,
 				[VDD_LOW] = 1066000000,
-				[VDD_LOW_L1] = 1600000000,
-				[VDD_NOMINAL] = 2000000000},
+				[VDD_LOW_L1] = 1500000000,
+				[VDD_NOMINAL] = 1750000000},
 		},
 	},
 };
@@ -1899,24 +1932,6 @@ static struct clk_branch cam_cc_csiphy5_clk = {
 	},
 };
 
-static struct clk_branch cam_cc_gdsc_clk = {
-	.halt_reg = 0xc148,
-	.halt_check = BRANCH_HALT,
-	.clkr = {
-		.enable_reg = 0xc148,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "cam_cc_gdsc_clk",
-			.parent_data = &(const struct clk_parent_data){
-				.hw = &cam_cc_xo_clk_src.clkr.hw,
-			},
-			.num_parents = 1,
-			.flags = CLK_IS_CRITICAL | CLK_SET_RATE_PARENT,
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
 static struct clk_branch cam_cc_icp_ahb_clk = {
 	.halt_reg = 0xc094,
 	.halt_check = BRANCH_HALT,
@@ -2834,7 +2849,6 @@ static struct clk_regmap *cam_cc_lahaina_clocks[] = {
 	[CAM_CC_CSIPHY4_CLK] = &cam_cc_csiphy4_clk.clkr,
 	[CAM_CC_CSIPHY5_CLK] = &cam_cc_csiphy5_clk.clkr,
 	[CAM_CC_FAST_AHB_CLK_SRC] = &cam_cc_fast_ahb_clk_src.clkr,
-	[CAM_CC_GDSC_CLK] = &cam_cc_gdsc_clk.clkr,
 	[CAM_CC_ICP_AHB_CLK] = &cam_cc_icp_ahb_clk.clkr,
 	[CAM_CC_ICP_CLK] = &cam_cc_icp_clk.clkr,
 	[CAM_CC_ICP_CLK_SRC] = &cam_cc_icp_clk_src.clkr,
@@ -2940,53 +2954,63 @@ static const struct regmap_config cam_cc_lahaina_regmap_config = {
 	.fast_io = true,
 };
 
-static const struct qcom_cc_desc cam_cc_lahaina_desc = {
+static struct qcom_cc_desc cam_cc_lahaina_desc = {
 	.config = &cam_cc_lahaina_regmap_config,
 	.clks = cam_cc_lahaina_clocks,
 	.num_clks = ARRAY_SIZE(cam_cc_lahaina_clocks),
 	.resets = cam_cc_lahaina_resets,
 	.num_resets = ARRAY_SIZE(cam_cc_lahaina_resets),
+	.clk_regulators = cam_cc_lahaina_regulators,
+	.num_clk_regulators = ARRAY_SIZE(cam_cc_lahaina_regulators),
 };
 
 static const struct of_device_id cam_cc_lahaina_match_table[] = {
 	{ .compatible = "qcom,lahaina-camcc" },
+	{ .compatible = "qcom,lahaina-camcc-v2" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, cam_cc_lahaina_match_table);
 
+static void cam_cc_lahaina_fixup_lahainav2(struct regmap *regmap)
+{
+	clk_zonda_5lpe_pll_configure(&cam_cc_pll2, regmap,
+		&cam_cc_pll2_config_sm8350_v2);
+}
+
+static int cam_cc_lahaina_fixup(struct platform_device *pdev,
+	struct regmap *regmap)
+{
+	const char *compat = NULL;
+	int compatlen = 0;
+
+	compat = of_get_property(pdev->dev.of_node, "compatible", &compatlen);
+	if (!compat || (compatlen <= 0))
+		return -EINVAL;
+
+	if (!strcmp(compat, "qcom,lahaina-camcc-v2"))
+		cam_cc_lahaina_fixup_lahainav2(regmap);
+
+	return 0;
+}
+
 static int cam_cc_lahaina_probe(struct platform_device *pdev)
 {
 	struct regmap *regmap;
-	struct clk *clk;
 	int ret;
-
-	clk = devm_clk_get(&pdev->dev, "cfg_ahb_clk");
-	if (IS_ERR(clk)) {
-		if (PTR_ERR(clk) != -EPROBE_DEFER)
-			dev_err(&pdev->dev, "Unable to get ahb clock handle\n");
-		return PTR_ERR(clk);
-	}
-	devm_clk_put(&pdev->dev, clk);
-
-	vdd_mm.regulator[0] = devm_regulator_get(&pdev->dev, "vdd_mm");
-	if (IS_ERR(vdd_mm.regulator[0])) {
-		if (PTR_ERR(vdd_mm.regulator[0]) != -EPROBE_DEFER)
-			dev_err(&pdev->dev, "Unable to get vdd_mm regulator\n");
-		return PTR_ERR(vdd_mm.regulator[0]);
-	}
-
-	vdd_mx.regulator[0] = devm_regulator_get(&pdev->dev, "vdd_mx");
-	if (IS_ERR(vdd_mx.regulator[0])) {
-		if (PTR_ERR(vdd_mx.regulator[0]) != -EPROBE_DEFER)
-			dev_err(&pdev->dev, "Unable to get vdd_mx regulator\n");
-		return PTR_ERR(vdd_mx.regulator[0]);
-	}
 
 	regmap = qcom_cc_map(pdev, &cam_cc_lahaina_desc);
 	if (IS_ERR(regmap)) {
 		dev_err(&pdev->dev, "Failed to map cam CC registers\n");
 		return PTR_ERR(regmap);
 	}
+
+	ret = qcom_cc_runtime_init(pdev, &cam_cc_lahaina_desc);
+	if (ret)
+		return ret;
+
+	ret = pm_runtime_get_sync(&pdev->dev);
+	if (ret)
+		return ret;
 
 	clk_lucid_5lpe_pll_configure(&cam_cc_pll0, regmap, &cam_cc_pll0_config);
 	clk_lucid_5lpe_pll_configure(&cam_cc_pll1, regmap, &cam_cc_pll1_config);
@@ -2996,12 +3020,23 @@ static int cam_cc_lahaina_probe(struct platform_device *pdev)
 	clk_lucid_5lpe_pll_configure(&cam_cc_pll5, regmap, &cam_cc_pll5_config);
 	clk_lucid_5lpe_pll_configure(&cam_cc_pll6, regmap, &cam_cc_pll6_config);
 
+	ret = cam_cc_lahaina_fixup(pdev, regmap);
+	if (ret)
+		return ret;
+
+	/*
+	 * Keep clocks always enabled:
+	 *	cam_cc_gdsc_clk
+	 */
+	regmap_update_bits(regmap, 0xc148, BIT(0), BIT(0));
+
 	ret = qcom_cc_really_probe(pdev, &cam_cc_lahaina_desc, regmap);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to register CAM CC clocks\n");
 		return ret;
 	}
 
+	pm_runtime_put_sync(&pdev->dev);
 	dev_info(&pdev->dev, "Registered CAM CC clocks\n");
 
 	return ret;
@@ -3012,12 +3047,17 @@ static void cam_cc_lahaina_sync_state(struct device *dev)
 	qcom_cc_sync_state(dev, &cam_cc_lahaina_desc);
 }
 
+static const struct dev_pm_ops cam_cc_lahaina_pm_ops = {
+	SET_RUNTIME_PM_OPS(qcom_cc_runtime_suspend, qcom_cc_runtime_resume, NULL)
+};
+
 static struct platform_driver cam_cc_lahaina_driver = {
 	.probe = cam_cc_lahaina_probe,
 	.driver = {
 		.name = "lahaina-cam_cc",
 		.of_match_table = cam_cc_lahaina_match_table,
 		.sync_state = cam_cc_lahaina_sync_state,
+		.pm = &cam_cc_lahaina_pm_ops,
 	},
 };
 

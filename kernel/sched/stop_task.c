@@ -13,15 +13,13 @@
 #endif
 
 #ifdef CONFIG_SMP
-#ifndef CONFIG_SCHED_WALT
 static int
-select_task_rq_stop(struct task_struct *p, int cpu, int sd_flag, int flags)
-#else
-static int
+#ifdef CONFIG_SCHED_WALT
 select_task_rq_stop(struct task_struct *p, int cpu, int sd_flag, int flags,
 		    int sibling_count_hint)
+#else
+select_task_rq_stop(struct task_struct *p, int cpu, int sd_flag, int flags)
 #endif
-
 {
 	return task_cpu(p); /* stop tasks as never migrate */
 }

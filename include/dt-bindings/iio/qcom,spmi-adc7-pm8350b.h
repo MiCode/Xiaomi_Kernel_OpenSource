@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020 The Linux Foundation. All rights reserved.
  */
 
 #ifndef _DT_BINDINGS_QCOM_SPMI_VADC_PM8350B_H
@@ -33,6 +33,7 @@
 #define PM8350B_ADC7_CC1_ID			(PM8350B_SID << 8 | 0x13)
 #define PM8350B_ADC7_VREF_BAT_THERM		(PM8350B_SID << 8 | 0x15)
 #define PM8350B_ADC7_IIN_FB			(PM8350B_SID << 8 | 0x17)
+#define PM8350B_ADC7_ICHG_FB			(PM8350B_SID << 8 | 0xa1)
 
 /* 30k pull-up1 */
 #define PM8350B_ADC7_AMUX_THM1_30K_PU		(PM8350B_SID << 8 | 0x24)

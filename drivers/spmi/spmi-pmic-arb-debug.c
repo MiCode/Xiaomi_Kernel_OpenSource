@@ -274,7 +274,8 @@ static int spmi_pmic_arb_debug_probe(struct platform_device *pdev)
 			return -EINVAL;
 		}
 
-		fuse_addr = devm_ioremap_resource(&pdev->dev, res);
+		fuse_addr = devm_ioremap(&pdev->dev, res->start,
+					 resource_size(res));
 		if (IS_ERR(fuse_addr))
 			return PTR_ERR(fuse_addr);
 

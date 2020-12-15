@@ -3,9 +3,11 @@
  * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
  */
 
+#include <linux/clk/qcom.h>
 #include <linux/delay.h>
 #include <linux/firmware.h>
 #include <linux/of.h>
+#include <linux/of_device.h>
 #include <linux/qcom_scm.h>
 #include <linux/slab.h>
 
@@ -87,8 +89,22 @@ static void a530_efuse_leakage(struct adreno_device *adreno_dev)
 	adreno_efuse_unmap();
 }
 
-static void a5xx_platform_setup(struct adreno_device *adreno_dev)
+static int a5xx_probe(struct platform_device *pdev,
+	u32 chipid, const struct adreno_gpu_core *gpucore)
 {
+	struct adreno_device *adreno_dev;
+	struct kgsl_device *device;
+
+	adreno_dev = (struct adreno_device *)
+		of_device_get_match_data(&pdev->dev);
+
+	memset(adreno_dev, 0, sizeof(*adreno_dev));
+
+	adreno_dev->gpucore = gpucore;
+	adreno_dev->chipid = chipid;
+
+	adreno_reg_offset_init(gpucore->gpudev->reg_offsets);
+
 	adreno_dev->sptp_pc_enabled =
 		ADRENO_FEATURE(adreno_dev, ADRENO_SPTP_PC);
 
@@ -107,6 +123,14 @@ static void a5xx_platform_setup(struct adreno_device *adreno_dev)
 
 	if (adreno_is_a530(adreno_dev))
 		a530_efuse_leakage(adreno_dev);
+
+	device = KGSL_DEVICE(adreno_dev);
+
+	timer_setup(&device->idle_timer, kgsl_timer, 0);
+
+	INIT_WORK(&device->idle_check_ws, kgsl_idle_check);
+
+	return adreno_device_probe(pdev, adreno_dev);
 }
 
 static void _do_fixup(const struct adreno_critical_fixup *fixups, int count,
@@ -605,6 +629,34 @@ err:
 	return ret;
 }
 
+static void a5xx_spin_idle_debug(struct adreno_device *adreno_dev,
+				const char *str)
+{
+	struct kgsl_device *device = &adreno_dev->dev;
+	unsigned int rptr, wptr;
+	unsigned int status, status3, intstatus;
+	unsigned int hwfault;
+
+	dev_err(device->dev, str);
+
+	kgsl_regread(device, A5XX_CP_RB_RPTR, &rptr);
+	kgsl_regread(device, A5XX_CP_RB_WPTR, &wptr);
+
+	kgsl_regread(device, A5XX_RBBM_STATUS, &status);
+	kgsl_regread(device, A5XX_RBBM_STATUS3, &status3);
+	kgsl_regread(device, A5XX_RBBM_INT_0_STATUS, &intstatus);
+	kgsl_regread(device, A5XX_CP_HW_FAULT, &hwfault);
+
+
+	dev_err(device->dev,
+		"rb=%d pos=%X/%X rbbm_status=%8.8X/%8.8X int_0_status=%8.8X\n",
+		adreno_dev->cur_rb->id, rptr, wptr, status, status3, intstatus);
+
+	dev_err(device->dev, " hwfault=%8.8X\n", hwfault);
+
+	kgsl_device_snapshot(device, NULL, false);
+}
+
 static int _gpmu_send_init_cmds(struct adreno_device *adreno_dev)
 {
 	struct adreno_ringbuffer *rb = adreno_dev->cur_rb;
@@ -626,7 +678,7 @@ static int _gpmu_send_init_cmds(struct adreno_device *adreno_dev)
 
 	ret = adreno_ringbuffer_submit_spin(rb, NULL, 2000);
 	if (ret != 0)
-		adreno_spin_idle_debug(adreno_dev,
+		a5xx_spin_idle_debug(adreno_dev,
 				"gpmu initialization failed to idle\n");
 
 	return ret;
@@ -1118,13 +1170,31 @@ static void a5xx_pwrlevel_change_settings(struct adreno_device *adreno_dev,
 	}
 }
 
+#if IS_ENABLED(CONFIG_COMMON_CLK_QCOM)
 static void a5xx_clk_set_options(struct adreno_device *adreno_dev,
 	const char *name, struct clk *clk, bool on)
 {
-	WARN(adreno_is_a540(adreno_dev) || adreno_is_a512(adreno_dev) ||
-		adreno_is_a508(adreno_dev),
-		"clk_set_flags() is not supported\n");
+	if (!adreno_is_a540(adreno_dev) && !adreno_is_a512(adreno_dev) &&
+		!adreno_is_a508(adreno_dev))
+		return;
+
+	/* Handle clock settings for GFX PSCBCs */
+	if (on) {
+		if (!strcmp(name, "mem_iface_clk")) {
+			qcom_clk_set_flags(clk, CLKFLAG_NORETAIN_PERIPH);
+			qcom_clk_set_flags(clk, CLKFLAG_NORETAIN_MEM);
+		} else if (!strcmp(name, "core_clk")) {
+			qcom_clk_set_flags(clk, CLKFLAG_RETAIN_PERIPH);
+			qcom_clk_set_flags(clk, CLKFLAG_RETAIN_MEM);
+		}
+	} else {
+		if (!strcmp(name, "core_clk")) {
+			qcom_clk_set_flags(clk, CLKFLAG_NORETAIN_PERIPH);
+			qcom_clk_set_flags(clk, CLKFLAG_NORETAIN_MEM);
+		}
+	}
 }
+#endif
 
 static void a5xx_count_throttles(struct adreno_device *adreno_dev,
 		uint64_t adj)
@@ -1433,7 +1503,7 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 
 	/* Enable ISDB mode if requested */
 	if (test_bit(ADRENO_DEVICE_ISDB_ENABLED, &adreno_dev->priv)) {
-		if (!kgsl_active_count_get(device)) {
+		if (!adreno_active_count_get(adreno_dev)) {
 			/*
 			 * Disable ME/PFP split timeouts when the debugger is
 			 * enabled because the CP doesn't know when a shader is
@@ -1589,7 +1659,7 @@ static int a5xx_post_start(struct adreno_device *adreno_dev)
 	}
 
 	if (ret)
-		adreno_spin_idle_debug(adreno_dev,
+		a5xx_spin_idle_debug(adreno_dev,
 				"hw initialization failed to idle\n");
 
 	return ret;
@@ -1728,7 +1798,7 @@ static int a5xx_critical_packet_submit(struct adreno_device *adreno_dev,
 
 	ret = adreno_ringbuffer_submit_spin(rb, NULL, 20);
 	if (ret)
-		adreno_spin_idle_debug(adreno_dev,
+		a5xx_spin_idle_debug(adreno_dev,
 			"Critical packet submission failed to idle\n");
 
 	return ret;
@@ -1804,7 +1874,7 @@ static int a5xx_send_me_init(struct adreno_device *adreno_dev,
 
 	ret = adreno_ringbuffer_submit_spin(rb, NULL, 2000);
 	if (ret)
-		adreno_spin_idle_debug(adreno_dev,
+		a5xx_spin_idle_debug(adreno_dev,
 				"CP initialization failed to idle\n");
 
 	return ret;
@@ -1819,6 +1889,7 @@ static int a5xx_rb_start(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_ringbuffer *rb;
 	uint64_t addr;
+	unsigned int *cmds;
 	int ret, i;
 
 	/* Clear all the ringbuffers */
@@ -1879,11 +1950,21 @@ static int a5xx_rb_start(struct adreno_device *adreno_dev)
 	 */
 	if (!adreno_dev->zap_loaded)
 		kgsl_regwrite(device, A5XX_RBBM_SECVID_TRUST_CNTL, 0);
-	else
-		ret = adreno_switch_to_unsecure_mode(adreno_dev, rb);
+	else {
+		cmds = adreno_ringbuffer_allocspace(rb, 2);
+		if (IS_ERR(cmds))
+			return  PTR_ERR(cmds);
 
-	if (ret)
-		return ret;
+		*cmds++ = cp_packet(adreno_dev, CP_SET_SECURE_MODE, 1);
+		*cmds++ = 0;
+
+		ret = adreno_ringbuffer_submit_spin(rb, NULL, 2000);
+		if (ret) {
+			a5xx_spin_idle_debug(adreno_dev,
+				"Switch to unsecure failed to idle\n");
+			return ret;
+		}
+	}
 
 	ret = a5xx_gpmu_init(adreno_dev);
 	if (ret)
@@ -2356,7 +2437,6 @@ static unsigned int a5xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_MEQ_ADDR, A5XX_CP_MEQ_DBG_ADDR),
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_MEQ_DATA, A5XX_CP_MEQ_DBG_DATA),
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_PROTECT_REG_0, A5XX_CP_PROTECT_REG_0),
-	ADRENO_REG_DEFINE(ADRENO_REG_CP_HW_FAULT, A5XX_CP_HW_FAULT),
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_PREEMPT, A5XX_CP_CONTEXT_SWITCH_CNTL),
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_PREEMPT_DEBUG, ADRENO_REG_SKIP),
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_PREEMPT_DISABLE, ADRENO_REG_SKIP),
@@ -2973,9 +3053,9 @@ struct adreno_gpudev adreno_a5xx_gpudev = {
 #ifdef CONFIG_QCOM_KGSL_CORESIGHT
 	.coresight = {&a5xx_coresight},
 #endif
+	.probe = a5xx_probe,
 	.start = a5xx_start,
 	.snapshot = a5xx_snapshot,
-	.platform_setup = a5xx_platform_setup,
 	.init = a5xx_init,
 	.irq_handler = a5xx_irq_handler,
 	.rb_start = a5xx_rb_start,
@@ -2995,7 +3075,10 @@ struct adreno_gpudev adreno_a5xx_gpudev = {
 			a5xx_preemption_post_ibsubmit,
 	.preemption_init = a5xx_preemption_init,
 	.preemption_schedule = a5xx_preemption_schedule,
+#if IS_ENABLED(CONFIG_COMMON_CLK_QCOM)
 	.clk_set_options = a5xx_clk_set_options,
+#endif
 	.read_alwayson = a5xx_read_alwayson,
 	.hw_isidle = a5xx_hw_isidle,
+	.power_ops = &adreno_power_operations,
 };

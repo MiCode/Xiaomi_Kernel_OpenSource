@@ -409,7 +409,7 @@ static void kernel_unmap_gyro_buffer(void)
 
 	if (IS_ERR_OR_NULL(sensor->vaddr))
 		return;
-	dma_buf_kunmap(sensor->qvr_buf, 0, sensor->vaddr);
+	dma_buf_vunmap(sensor->qvr_buf, sensor->vaddr);
 	dma_buf_end_cpu_access(sensor->qvr_buf, DMA_BIDIRECTIONAL);
 	sensor->vaddr = NULL;
 	dma_buf_put(sensor->qvr_buf);

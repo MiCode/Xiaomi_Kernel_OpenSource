@@ -18,6 +18,11 @@
 #include <linux/input.h>
 #include <linux/kthread.h>
 #include <linux/sched/core_ctl.h>
+#include <soc/qcom/msm_performance.h>
+#include <linux/spinlock.h>
+#include <linux/jiffies.h>
+#include <linux/circ_buf.h>
+#include <linux/ktime.h>
 
 /*
  * Sched will provide the data for every 20ms window,
@@ -26,6 +31,7 @@
  */
 #define POLL_INT 25
 #define NODE_NAME_MAX_CHARS 16
+#define QUEUE_POOL_SIZE 512 /*2^8 always keep in 2^x */
 
 enum cpu_clusters {
 	MIN = 0,
@@ -42,6 +48,25 @@ struct cpu_status {
 static DEFINE_PER_CPU(struct cpu_status, msm_perf_cpu_stats);
 static DEFINE_PER_CPU(struct freq_qos_request, qos_req_min);
 static DEFINE_PER_CPU(struct freq_qos_request, qos_req_max);
+static DECLARE_COMPLETION(gfx_evt_arrival);
+
+struct gpu_data {
+	pid_t pid;
+	int ctx_id;
+	unsigned int timestamp;
+	ktime_t arrive_ts;
+	int evt_typ;
+};
+
+static struct gpu_data gpu_circ_buff[QUEUE_POOL_SIZE];
+
+struct queue_indicies {
+	int head;
+	int tail;
+};
+static struct queue_indicies curr_pos;
+
+static DEFINE_SPINLOCK(gfx_circ_buff_lock);
 
 struct events {
 	spinlock_t cpu_hotplug_lock;
@@ -59,6 +84,70 @@ static unsigned int curr_cap[CLUSTER_MAX];
 static cpumask_var_t limit_mask_min;
 static cpumask_var_t limit_mask_max;
 
+static atomic_t game_status;
+static atomic_t game_status_pid;
+
+static bool ready_for_freq_updates;
+
+static int freq_qos_request_init(void)
+{
+	unsigned int cpu;
+	int ret;
+
+	struct cpufreq_policy *policy;
+	struct freq_qos_request *req;
+
+	for_each_present_cpu(cpu) {
+		policy = cpufreq_cpu_get(cpu);
+		if (!policy) {
+			pr_err("%s: Failed to get cpufreq policy for cpu%d\n",
+				__func__, cpu);
+			ret = -EAGAIN;
+			goto cleanup;
+		}
+		per_cpu(msm_perf_cpu_stats, cpu).min = 0;
+		req = &per_cpu(qos_req_min, cpu);
+		ret = freq_qos_add_request(&policy->constraints, req,
+			FREQ_QOS_MIN, FREQ_QOS_MIN_DEFAULT_VALUE);
+		if (ret < 0) {
+			pr_err("%s: Failed to add min freq constraint (%d)\n",
+				__func__, ret);
+			cpufreq_cpu_put(policy);
+			goto cleanup;
+		}
+
+		per_cpu(msm_perf_cpu_stats, cpu).max = UINT_MAX;
+		req = &per_cpu(qos_req_max, cpu);
+		ret = freq_qos_add_request(&policy->constraints, req,
+			FREQ_QOS_MAX, FREQ_QOS_MAX_DEFAULT_VALUE);
+		if (ret < 0) {
+			pr_err("%s: Failed to add max freq constraint (%d)\n",
+				__func__, ret);
+			cpufreq_cpu_put(policy);
+			goto cleanup;
+		}
+
+		cpufreq_cpu_put(policy);
+	}
+	return 0;
+
+cleanup:
+	for_each_present_cpu(cpu) {
+		req = &per_cpu(qos_req_min, cpu);
+		if (req && freq_qos_request_active(req))
+			freq_qos_remove_request(req);
+
+
+		req = &per_cpu(qos_req_max, cpu);
+		if (req && freq_qos_request_active(req))
+			freq_qos_remove_request(req);
+
+		per_cpu(msm_perf_cpu_stats, cpu).min = 0;
+		per_cpu(msm_perf_cpu_stats, cpu).max = UINT_MAX;
+	}
+	return ret;
+}
+
 /*******************************sysfs start************************************/
 static int set_cpu_min_freq(const char *buf, const struct kernel_param *kp)
 {
@@ -68,6 +157,17 @@ static int set_cpu_min_freq(const char *buf, const struct kernel_param *kp)
 	struct cpu_status *i_cpu_stats;
 	struct cpufreq_policy policy;
 	struct freq_qos_request *req;
+	int ret = 0;
+
+	if (!ready_for_freq_updates) {
+		ret = freq_qos_request_init();
+		if (ret) {
+			pr_err("%s: Failed to init qos requests policy for ret=%d\n",
+				__func__, ret);
+			return ret;
+		}
+		ready_for_freq_updates = true;
+	}
 
 	while ((cp = strpbrk(cp + 1, " :")))
 		ntokens++;
@@ -108,7 +208,7 @@ static int set_cpu_min_freq(const char *buf, const struct kernel_param *kp)
 			continue;
 
 		if (cpu_online(i) && (policy.min != i_cpu_stats->min)) {
-			req = &per_cpu(qos_req_min, cpu);
+			req = &per_cpu(qos_req_min, i);
 			if (freq_qos_update_request(req, i_cpu_stats->min) < 0)
 				break;
 		}
@@ -148,7 +248,17 @@ static int set_cpu_max_freq(const char *buf, const struct kernel_param *kp)
 	struct cpu_status *i_cpu_stats;
 	struct cpufreq_policy policy;
 	struct freq_qos_request *req;
+	int ret = 0;
 
+	if (!ready_for_freq_updates) {
+		ret = freq_qos_request_init();
+		if (ret) {
+			pr_err("%s: Failed to init qos requests policy for ret=%d\n",
+				__func__, ret);
+			return ret;
+		}
+		ready_for_freq_updates = true;
+	}
 
 	while ((cp = strpbrk(cp + 1, " :")))
 		ntokens++;
@@ -181,7 +291,7 @@ static int set_cpu_max_freq(const char *buf, const struct kernel_param *kp)
 			continue;
 
 		if (cpu_online(i) && (policy.max != i_cpu_stats->max)) {
-			req = &per_cpu(qos_req_max, cpu);
+			req = &per_cpu(qos_req_max, i);
 			if (freq_qos_update_request(req, i_cpu_stats->max) < 0)
 				break;
 		}
@@ -231,6 +341,45 @@ static struct attribute *events_attrs[] = {
 static struct attribute_group events_attr_group = {
 	.attrs = events_attrs,
 };
+
+static ssize_t show_perf_gfx_evts(struct kobject *kobj,
+			   struct kobj_attribute *attr,
+			   char *buf)
+{
+	struct queue_indicies updated_pos;
+	unsigned long flags;
+	ssize_t retval = 0;
+	int idx = 0, size, act_idx, ret = -1;
+
+	ret = wait_for_completion_interruptible(&gfx_evt_arrival);
+	if (ret)
+		return 0;
+	spin_lock_irqsave(&gfx_circ_buff_lock, flags);
+	updated_pos.head = curr_pos.head;
+	updated_pos.tail = curr_pos.tail;
+	size = CIRC_CNT(updated_pos.head, updated_pos.tail, QUEUE_POOL_SIZE);
+	curr_pos.tail = (curr_pos.tail + size) % QUEUE_POOL_SIZE;
+	spin_unlock_irqrestore(&gfx_circ_buff_lock, flags);
+
+	for (idx = 0; idx < size; idx++) {
+		act_idx = (updated_pos.tail + idx) % QUEUE_POOL_SIZE;
+		retval += scnprintf(buf + retval, PAGE_SIZE - retval,
+			  "%d %d %u %d %lu :",
+			  gpu_circ_buff[act_idx].pid,
+			  gpu_circ_buff[act_idx].ctx_id,
+			  gpu_circ_buff[act_idx].timestamp,
+			  gpu_circ_buff[act_idx].evt_typ,
+			  ktime_to_us(gpu_circ_buff[act_idx].arrive_ts));
+		if (retval >= PAGE_SIZE) {
+			pr_err("msm_perf:data limit exceed\n");
+			break;
+		}
+	}
+	return retval;
+}
+
+static struct kobj_attribute gfx_event_info_attr =
+__ATTR(gfx_evt, 0444, show_perf_gfx_evts, NULL);
 
 static ssize_t show_big_nr(struct kobject *kobj,
 			   struct kobj_attribute *attr,
@@ -282,6 +431,7 @@ static struct attribute *notify_attrs[] = {
 	&top_load_attr.attr,
 	&cluster_top_load_attr.attr,
 	&cluster_curr_cap_attr.attr,
+	&gfx_event_info_attr.attr,
 	NULL,
 };
 
@@ -472,37 +622,99 @@ static const struct kernel_param_ops param_ops_cc_register = {
 module_param_cb(core_ctl_register, &param_ops_cc_register,
 		&core_ctl_register, 0644);
 
+void  msm_perf_events_update(enum evt_update_t update_typ,
+			enum gfx_evt_t evt_typ, pid_t pid,
+			uint32_t ctx_id, uint32_t timestamp)
+{
+	unsigned long flags;
+	int idx = 0;
+
+	if (update_typ != MSM_PERF_GFX)
+		return;
+
+	if (!atomic_read(&game_status) ||
+	(pid != atomic_read(&game_status_pid)))
+		return;
+
+	spin_lock_irqsave(&gfx_circ_buff_lock, flags);
+	idx = curr_pos.head;
+	curr_pos.head = ((curr_pos.head + 1) % QUEUE_POOL_SIZE);
+	spin_unlock_irqrestore(&gfx_circ_buff_lock, flags);
+	gpu_circ_buff[idx].pid = pid;
+	gpu_circ_buff[idx].ctx_id = ctx_id;
+	gpu_circ_buff[idx].timestamp = timestamp;
+	gpu_circ_buff[idx].evt_typ = evt_typ;
+	gpu_circ_buff[idx].arrive_ts = ktime_get();
+
+	if (evt_typ == MSM_PERF_QUEUE || evt_typ == MSM_PERF_RETIRED)
+		complete(&gfx_evt_arrival);
+}
+
+
+
+static int set_game_start_event(const char *buf, const struct kernel_param *kp)
+{
+	long usr_val = 0;
+	int ret = strlen(buf);
+
+	kstrtol(buf, 0, &usr_val);
+	atomic_set(&game_status, usr_val);
+	return ret;
+}
+
+static int get_game_start_event(char *buf, const struct kernel_param *kp)
+{
+	long usr_val  = atomic_read(&game_status);
+
+	return scnprintf(buf, PAGE_SIZE, "%ld\n", usr_val);
+}
+
+static const struct kernel_param_ops param_ops_game_start_evt = {
+	.set = set_game_start_event,
+	.get = get_game_start_event,
+};
+module_param_cb(evnt_gplaf_status, &param_ops_game_start_evt, NULL, 0644);
+
+static int set_game_start_pid(const char *buf, const struct kernel_param *kp)
+{
+	long usr_val = 0;
+	int ret = strlen(buf);
+
+	kstrtol(buf, 0, &usr_val);
+	atomic_set(&game_status_pid, usr_val);
+	return ret;
+}
+
+static int get_game_start_pid(char *buf, const struct kernel_param *kp)
+{
+	long usr_val  = atomic_read(&game_status_pid);
+
+	return scnprintf(buf, PAGE_SIZE, "%ld\n", usr_val);
+}
+
+static const struct kernel_param_ops param_ops_game_start_pid = {
+	.set = set_game_start_pid,
+	.get = get_game_start_pid,
+};
+module_param_cb(evnt_gplaf_pid, &param_ops_game_start_pid, NULL, 0644);
+
+/*******************************GFX Call************************************/
+
+static bool splh_notif;
+static int set_splh_notif(const char *buf, const struct kernel_param *kp)
+{
+	return param_set_bool(buf, kp);
+}
+
+static const struct kernel_param_ops param_ops_splh_notification = {
+	.set = set_splh_notif,
+	.get = param_get_bool,
+};
+module_param_cb(splh_notif, &param_ops_splh_notification, &splh_notif, 0644);
+
 static int __init msm_performance_init(void)
 {
-	unsigned int cpu;
 	int ret;
-
-	struct cpufreq_policy *policy;
-	struct freq_qos_request *req;
-
-	for_each_present_cpu(cpu) {
-		per_cpu(msm_perf_cpu_stats, cpu).max = UINT_MAX;
-		req = &per_cpu(qos_req_min, cpu);
-		policy = cpufreq_cpu_get(cpu);
-		if (!policy)
-			continue;
-		ret = freq_qos_add_request(&policy->constraints, req,
-			FREQ_QOS_MIN, policy->min);
-		if (ret < 0) {
-			pr_err("%s: Failed to add min freq constraint (%d)\n",
-				__func__, ret);
-			return ret;
-		}
-		req = &per_cpu(qos_req_max, cpu);
-		ret = freq_qos_add_request(&policy->constraints, req,
-			FREQ_QOS_MAX, policy->max);
-		if (ret < 0) {
-			pr_err("%s: Failed to add max freq constraint (%d)\n",
-				__func__, ret);
-			return ret;
-		}
-	}
-
 	if (!alloc_cpumask_var(&limit_mask_min, GFP_KERNEL))
 		return -ENOMEM;
 

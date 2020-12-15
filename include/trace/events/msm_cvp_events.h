@@ -1,6 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-only */
-/*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+/* SPDX-License-Identifier: GPL-2.0-only
+ *
+ * Copyright (c) 2020, The Linux Foundation. All rights reserved.
  */
 
 #undef TRACE_SYSTEM
@@ -10,6 +10,28 @@
 #define _TRACE_MSM_CVP_H
 #include <linux/types.h>
 #include <linux/tracepoint.h>
+
+TRACE_EVENT(tracing_mark_write_cvp,
+	TP_PROTO(int pid, const char *name, bool trace_begin),
+	TP_ARGS(pid, name, trace_begin),
+	TP_STRUCT__entry(
+		__field(int, pid)
+		__string(trace_name, name)
+		__field(bool, trace_begin)
+	),
+	TP_fast_assign(
+		__entry->pid = pid;
+		__assign_str(trace_name, name);
+		__entry->trace_begin = trace_begin;
+		),
+	TP_printk("%s|%d|%s", __entry->trace_begin ? "B" : "E",
+		__entry->pid, __get_str(trace_name))
+)
+#define CVPKERNEL_ATRACE_END(name) \
+		trace_tracing_mark_write_cvp(current->tgid, name, 0)
+#define CVPKERNEL_ATRACE_BEGIN(name) \
+		trace_tracing_mark_write_cvp(current->tgid, name, 1)
+
 
 DECLARE_EVENT_CLASS(msm_v4l2_cvp,
 

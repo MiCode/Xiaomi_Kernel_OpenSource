@@ -11,7 +11,7 @@ struct device;
 struct ramdump_segment {
 	char *name;
 	unsigned long address;
-	void *v_address;
+	volatile void __iomem *v_address;
 	unsigned long size;
 };
 
@@ -24,6 +24,8 @@ extern int do_elf_ramdump(void *handle, struct ramdump_segment *segments,
 		int nsegments);
 extern int do_minidump(void *handle, struct ramdump_segment *segments,
 		       int nsegments);
+extern int do_minidump_elf32(void *handle, struct ramdump_segment *segments,
+			     int nsegments);
 
 #else
 static inline void *create_ramdump_device(const char *dev_name,
@@ -47,6 +49,19 @@ static inline int do_elf_ramdump(void *handle, struct ramdump_segment *segments,
 {
 	return -ENODEV;
 }
+
+static inline int do_minidump(void *handle, struct ramdump_segment *segments,
+		       int nsegments)
+{
+	return -ENODEV;
+}
+
+static inline int do_minidump_elf32(void *handle,
+			struct ramdump_segment *segments, int nsegments)
+{
+	return -ENODEV;
+}
+
 #endif /* CONFIG_MSM_SUBSYSTEM_RESTART */
 
 #endif

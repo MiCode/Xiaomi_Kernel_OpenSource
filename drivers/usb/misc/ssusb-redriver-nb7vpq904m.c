@@ -14,6 +14,7 @@
 #include <linux/usb/ucsi_glink.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/of_gpio.h>
+#include <linux/usb/redriver.h>
 
 /* priority: INT_MAX >= x >= 0 */
 #define NOTIFIER_PRIORITY		1
@@ -503,10 +504,21 @@ static int ssusb_redriver_ucsi_notifier(struct notifier_block *nb,
 	struct ucsi_glink_constat_info *info = data;
 	enum operation_mode op_mode;
 
-	if (info->partner_usb && info->partner_alternate_mode)
+	/*
+	 * when connect a DP only cable,
+	 * ucsi set usb flag first, then set usb and alternate mode
+	 * after dp start link training.
+	 * it should only set alternate_mode flag ???
+	 */
+	if (info->partner_usb && info->partner_alternate_mode) {
+		if (redriver->op_mode == OP_MODE_DP)
+			return NOTIFY_OK;
 		op_mode = OP_MODE_USB_AND_DP;
-	else if (info->partner_usb)
+	} else if (info->partner_usb) {
+		if (redriver->op_mode == OP_MODE_DP)
+			return NOTIFY_OK;
 		op_mode = OP_MODE_USB;
+	}
 	else if (info->partner_alternate_mode)
 		op_mode = OP_MODE_DP;
 	else
@@ -533,6 +545,33 @@ static int ssusb_redriver_ucsi_notifier(struct notifier_block *nb,
 
 	return NOTIFY_OK;
 }
+
+int redriver_release_usb_lanes(struct device_node *node)
+{
+	struct ssusb_redriver *redriver;
+	struct i2c_client *client;
+
+	if (!node)
+		return -EINVAL;
+
+	client = of_find_i2c_device_by_node(node);
+	if (!client)
+		return -EINVAL;
+
+	redriver = i2c_get_clientdata(client);
+
+	if (redriver->op_mode == OP_MODE_DP)
+		return 0;
+
+	dev_dbg(redriver->dev, "display notify 4 lane mode\n");
+	redriver->op_mode = OP_MODE_DP;
+
+	ssusb_redriver_channel_update(redriver);
+	ssusb_redriver_gen_dev_set(redriver);
+
+	return 0;
+}
+EXPORT_SYMBOL(redriver_release_usb_lanes);
 
 static void ssusb_redriver_orientation_gpio_init(
 		struct ssusb_redriver *redriver)
@@ -602,14 +641,14 @@ static int redriver_i2c_probe(struct i2c_client *client,
 		return ret;
 	}
 
+	ssusb_redriver_orientation_gpio_init(redriver);
+
 	redriver->panic_nb.notifier_call = ssusb_redriver_panic_notifier;
 	atomic_notifier_chain_register(&panic_notifier_list,
 			&redriver->panic_nb);
 
 	redriver->ucsi_nb.notifier_call = ssusb_redriver_ucsi_notifier;
 	register_ucsi_glink_notifier(&redriver->ucsi_nb);
-
-	ssusb_redriver_orientation_gpio_init(redriver);
 
 	ssusb_redriver_debugfs_entries(redriver);
 

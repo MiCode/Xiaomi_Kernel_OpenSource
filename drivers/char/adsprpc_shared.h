@@ -105,8 +105,9 @@
 #define REMOTE_SCALARS_MAKE(method, in, out) \
 		REMOTE_SCALARS_MAKEX(0, method, in, out, 0, 0)
 
-
-#ifndef VERIFY_PRINT_ERROR
+#ifdef VERIFY_PRINT_ERROR
+#define VERIFY_EPRINTF(format, ...) pr_err(format, ##__VA_ARGS__)
+#else
 #define VERIFY_EPRINTF(format, args) (void)0
 #endif
 
@@ -118,18 +119,34 @@
 #define __STR__(x) #x ":"
 #define __TOSTR__(x) __STR__(x)
 #define __FILE_LINE__ __FILE__ ":" __TOSTR__(__LINE__)
+#define __ADSPRPC_LINE__ "adsprpc:" __TOSTR__(__LINE__)
 
 #define VERIFY(err, val) \
 do {\
 	VERIFY_IPRINTF(__FILE_LINE__"info: calling: " #val "\n");\
 	if ((val) == 0) {\
 		(err) = (err) == 0 ? -1 : (err);\
-		VERIFY_EPRINTF(__FILE_LINE__"error: %d: " #val "\n", (err));\
+		VERIFY_EPRINTF(__ADSPRPC_LINE__" error: %d: "#val "\n", (err));\
 	} else {\
 		VERIFY_IPRINTF(__FILE_LINE__"info: passed: " #val "\n");\
 	} \
 } while (0)
 #endif
+
+#define ADSPRPC_ERR(fmt, args...)\
+	pr_err("Error: adsprpc (%d): %s: %s: " fmt, __LINE__,\
+	current->comm, __func__, ##args)
+#define ADSPRPC_INFO(fmt, args...)\
+	pr_info("Info: adsprpc (%d): %s: %s: " fmt, __LINE__,\
+	current->comm, __func__, ##args)
+#define ADSPRPC_WARN(fmt, args...)\
+	pr_warn("Warning: adsprpc (%d): %s: %s: " fmt, __LINE__,\
+	current->comm, __func__, ##args)
+#define ADSPRPC_DEBUG(fmt, args...)\
+	pr_debug("Debug: adsprpc (%d): %s: %s: " fmt, __LINE__,\
+	current->comm, __func__, ##args)
+
+#define DEBUG_PRINT_SIZE_LIMIT (512*1024)
 
 #define remote_arg64_t    union remote_arg64
 
@@ -214,6 +231,7 @@ struct fastrpc_ioctl_async_response {
 enum fastrpc_invoke2_type {
 	FASTRPC_INVOKE2_ASYNC		   = 1,
 	FASTRPC_INVOKE2_ASYNC_RESPONSE = 2,
+	FASTRPC_INVOKE2_KERNEL_OPTIMIZATIONS,
 };
 
 struct fastrpc_ioctl_invoke2 {
@@ -343,6 +361,27 @@ struct fastrpc_ioctl_mem_unmap {
 	};
 };
 
+/*
+ * This enum is shared with DSP. So, existing values should NOT
+ * be modified. Only new members can be added.
+ */
+enum dsp_map_flags {
+	/* Add memory to static PD pool, protection thru XPU */
+	ADSP_MMAP_HEAP_ADDR = 4,
+
+	/* Add memory to static PD pool, protection thru hypervisor */
+	ADSP_MMAP_REMOTE_HEAP_ADDR = 8,
+
+	/* Add memory to userPD pool, for user heap */
+	ADSP_MMAP_ADD_PAGES = 0x1000,
+
+	/* Add memory to userPD pool, for LLC heap */
+	ADSP_MMAP_ADD_PAGES_LLC = 0x3000,
+
+	/* Map persistent header buffer on DSP */
+	ADSP_MMAP_PERSIST_HDR = 0x4000,
+};
+
 struct fastrpc_ioctl_perf {			/* kernel performance data */
 	uintptr_t data;
 	uint32_t numkeys;
@@ -355,6 +394,8 @@ enum fastrpc_control_type {
 	FASTRPC_CONTROL_KALLOC		=	3,
 	FASTRPC_CONTROL_WAKELOCK	=	4,
 	FASTRPC_CONTROL_PM		=	5,
+/* Clean process on DSP */
+	FASTRPC_CONTROL_DSPPROCESS_CLEAN	=	6,
 };
 
 struct fastrpc_ctrl_latency {
@@ -385,7 +426,7 @@ struct fastrpc_ioctl_control {
 };
 
 #define FASTRPC_MAX_DSP_ATTRIBUTES	(256)
-#define FASTRPC_MAX_ATTRIBUTES	(257)
+#define FASTRPC_MAX_ATTRIBUTES	(258)
 #define ASYNC_FASTRPC_CAP (9)
 
 struct fastrpc_ioctl_capability {

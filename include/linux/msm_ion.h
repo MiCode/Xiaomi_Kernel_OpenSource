@@ -8,6 +8,7 @@
 
 #include <linux/bitmap.h>
 #include <linux/device.h>
+#include <linux/dma-buf.h>
 #include <linux/scatterlist.h>
 #include <uapi/linux/msm_ion.h>
 
@@ -43,6 +44,10 @@ bool msm_ion_heap_is_secure(int heap_id);
 int msm_ion_heap_add_memory(int heap_id, struct sg_table *sgt);
 
 int msm_ion_heap_remove_memory(int heap_id, struct sg_table *sgt);
+
+int msm_ion_dma_buf_lock(struct dma_buf *dmabuf);
+
+void msm_ion_dma_buf_unlock(struct dma_buf *dmabuf);
 
 #else
 
@@ -94,6 +99,15 @@ static inline int msm_ion_heap_add_memory(int heap_id, struct sg_table *sgt)
 static inline int msm_ion_heap_remove_memory(int heap_id, struct sg_table *sgt)
 {
 	return -ENODEV;
+}
+
+static inline int msm_ion_dma_buf_lock(struct dma_buf *dmabuf)
+{
+	return -ENODEV;
+}
+
+static inline void msm_ion_dma_buf_unlock(struct dma_buf *dmabuf)
+{
 }
 
 #endif /* CONFIG_ION_MSM_HEAPS */

@@ -17,6 +17,7 @@ struct qcom_smd_rpm;
 #define QCOM_SMD_RPM_BUS_MASTER	0x73616d62
 #define QCOM_SMD_RPM_BUS_SLAVE	0x766c7362
 #define QCOM_SMD_RPM_CLK_BUF_A	0x616B6C63
+#define QCOM_SMD_RPM_CLK_BUF_G	0x676B6C63
 #define QCOM_SMD_RPM_LDOA	0x616f646c
 #define QCOM_SMD_RPM_LDOB	0x626F646C
 #define QCOM_SMD_RPM_RWCX	0x78637772
@@ -37,6 +38,10 @@ struct qcom_smd_rpm;
 #define QCOM_SMD_RPM_IPA_CLK	0x617069
 #define QCOM_SMD_RPM_CE_CLK	0x6563
 #define QCOM_SMD_RPM_AGGR_CLK	0x72676761
+#define QCOM_SMD_RPM_QUP_CLK	0x00707571
+#define QCOM_SMD_RPM_MMXI_CLK	0x69786D6D
+#define QCOM_SMD_RPM_HWKM_CLK	0x6D6B7768
+#define QCOM_SMD_RPM_PKA_CLK	0x616B70
 
 int qcom_rpm_smd_write(struct qcom_smd_rpm *rpm,
 		       int state,

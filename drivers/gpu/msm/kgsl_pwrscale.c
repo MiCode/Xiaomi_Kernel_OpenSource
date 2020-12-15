@@ -16,6 +16,7 @@ static struct devfreq_msm_adreno_tz_data adreno_tz_data = {
 		.max = 350,
 		.floating = true,
 	},
+	.mod_percent = 100,
 };
 
 /**
@@ -387,6 +388,7 @@ int kgsl_devfreq_get_dev_status(struct device *dev,
 
 		last_status.total_time = stat->total_time;
 		last_status.busy_time = stat->busy_time;
+		last_status.current_frequency = stat->current_frequency;
 
 		last_b->ram_time = device->pwrscale.accum_stats.ram_time;
 		last_b->ram_wait = device->pwrscale.accum_stats.ram_wait;
@@ -586,7 +588,7 @@ int kgsl_busmon_target(struct device *dev, unsigned long *freq, u32 flags)
 	if ((pwr->bus_mod != b) || (pwr->bus_ab_mbytes != ab_mbytes)) {
 		pwr->bus_percent_ab = device->pwrscale.bus_profile.percent_ab;
 		pwr->bus_ab_mbytes = ab_mbytes;
-		kgsl_bus_update(device, true);
+		kgsl_bus_update(device, KGSL_BUS_VOTE_ON);
 	}
 
 	mutex_unlock(&device->mutex);
@@ -886,10 +888,10 @@ int kgsl_pwrscale_init(struct kgsl_device *device, struct platform_device *pdev,
 			KGSL_GOVERNOR_CALL_INTERVAL);
 
 	/* Add links to the devfreq sysfs nodes */
-	kgsl_gpu_sysfs_add_link(device->gpu_sysfs_kobj,
+	kgsl_gpu_sysfs_add_link(&device->gpu_sysfs_kobj,
 			 &pwrscale->devfreqptr->dev.kobj, "governor",
 			"gpu_governor");
-	kgsl_gpu_sysfs_add_link(device->gpu_sysfs_kobj,
+	kgsl_gpu_sysfs_add_link(&device->gpu_sysfs_kobj,
 			 &pwrscale->devfreqptr->dev.kobj,
 			"available_governors", "gpu_available_governor");
 

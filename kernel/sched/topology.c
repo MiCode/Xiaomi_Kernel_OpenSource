@@ -351,7 +351,14 @@ static bool build_perf_domains(const struct cpumask *cpu_map)
 	if (!sysctl_sched_energy_aware)
 		goto free;
 
-	/* EAS is enabled for asymmetric CPU capacity topologies. */
+	/*
+	 * EAS gets disabled when there are no asymmetric capacity
+	 * CPUs in the system. For example, all big CPUs are
+	 * hotplugged out on a b.L system. We want EAS enabled
+	 * all the time to get both power and perf benefits. Apply
+	 * this policy when WALT is enabled.
+	 */
+#ifndef CONFIG_SCHED_WALT
 	if (!per_cpu(sd_asym_cpucapacity, cpu)) {
 		if (sched_debug()) {
 			pr_info("rd %*pbl: CPUs do not have asymmetric capacities\n",
@@ -359,6 +366,7 @@ static bool build_perf_domains(const struct cpumask *cpu_map)
 		}
 		goto free;
 	}
+#endif
 
 	/* EAS definitely does *not* handle SMT */
 	if (sched_smt_active()) {
@@ -505,8 +513,8 @@ static int init_rootdomain(struct root_domain *rd)
 	if (cpupri_init(&rd->cpupri) != 0)
 		goto free_cpudl;
 #ifdef CONFIG_SCHED_WALT
-	rd->max_cap_orig_cpu = rd->min_cap_orig_cpu = -1;
-	rd->mid_cap_orig_cpu = -1;
+	rd->wrd.max_cap_orig_cpu = rd->wrd.min_cap_orig_cpu = -1;
+	rd->wrd.mid_cap_orig_cpu = -1;
 #endif
 
 	return 0;
@@ -649,24 +657,6 @@ static void update_top_cache_domain(int cpu)
 	rcu_assign_pointer(per_cpu(sd_asym_packing, cpu), sd);
 
 	sd = lowest_flag_domain(cpu, SD_ASYM_CPUCAPACITY);
-#ifdef CONFIG_SCHED_WALT
-	/*
-	 * EAS gets disabled when there are no asymmetric capacity
-	 * CPUs in the system. For example, all big CPUs are
-	 * hotplugged out on a b.L system. We want EAS enabled
-	 * all the time to get both power and perf benefits. So,
-	 * lets assign sd_asym_cpucapacity to the only available
-	 * sched domain. This is also important for a single cluster
-	 * systems which wants to use EAS.
-	 *
-	 * Setting sd_asym_cpucapacity() to a sched domain which
-	 * has all symmetric capacity CPUs is technically incorrect but
-	 * works well for us in getting EAS enabled all the time.
-	 */
-	if (!sd)
-		sd = cpu_rq(cpu)->sd;
-#endif
-
 	rcu_assign_pointer(per_cpu(sd_asym_cpucapacity, cpu), sd);
 }
 
@@ -1177,12 +1167,12 @@ void init_sched_groups_capacity(int cpu, struct sched_domain *sd)
 	do {
 		int cpu, max_cpu = -1;
 
-#ifndef CONFIG_SCHED_WALT
-		sg->group_weight = cpumask_weight(sched_group_span(sg));
-#else
+#ifdef CONFIG_SCHED_WALT
 		cpumask_andnot(&avail_mask, sched_group_span(sg),
 							cpu_isolated_mask);
 		sg->group_weight = cpumask_weight(&avail_mask);
+#else
+		sg->group_weight = cpumask_weight(sched_group_span(sg));
 #endif
 
 		if (!(sd->flags & SD_ASYM_PACKING))
@@ -2079,8 +2069,8 @@ build_sched_domains(const struct cpumask *cpu_map, struct sched_domain_attr *att
 	rcu_read_lock();
 	for_each_cpu(i, cpu_map) {
 #ifdef CONFIG_SCHED_WALT
-		int max_cpu = READ_ONCE(d.rd->max_cap_orig_cpu);
-		int min_cpu = READ_ONCE(d.rd->min_cap_orig_cpu);
+		int max_cpu = READ_ONCE(d.rd->wrd.max_cap_orig_cpu);
+		int min_cpu = READ_ONCE(d.rd->wrd.min_cap_orig_cpu);
 #endif
 		rq = cpu_rq(i);
 		sd = *per_cpu_ptr(d.sd, i);
@@ -2092,11 +2082,11 @@ build_sched_domains(const struct cpumask *cpu_map, struct sched_domain_attr *att
 #ifdef CONFIG_SCHED_WALT
 		if ((max_cpu < 0) || (arch_scale_cpu_capacity(i) >
 				arch_scale_cpu_capacity(max_cpu)))
-			WRITE_ONCE(d.rd->max_cap_orig_cpu, i);
+			WRITE_ONCE(d.rd->wrd.max_cap_orig_cpu, i);
 
 		if ((min_cpu < 0) || (arch_scale_cpu_capacity(i) <
 				arch_scale_cpu_capacity(min_cpu)))
-			WRITE_ONCE(d.rd->min_cap_orig_cpu, i);
+			WRITE_ONCE(d.rd->wrd.min_cap_orig_cpu, i);
 #endif
 
 		cpu_attach_domain(sd, d.rd, i);
@@ -2105,14 +2095,14 @@ build_sched_domains(const struct cpumask *cpu_map, struct sched_domain_attr *att
 #ifdef CONFIG_SCHED_WALT
 	/* set the mid capacity cpu (assumes only 3 capacities) */
 	for_each_cpu(i, cpu_map) {
-		int max_cpu = READ_ONCE(d.rd->max_cap_orig_cpu);
-		int min_cpu = READ_ONCE(d.rd->min_cap_orig_cpu);
+		int max_cpu = READ_ONCE(d.rd->wrd.max_cap_orig_cpu);
+		int min_cpu = READ_ONCE(d.rd->wrd.min_cap_orig_cpu);
 
 		if ((arch_scale_cpu_capacity(i)
-				!=  arch_scale_cpu_capacity(min_cpu)) &&
+				!= arch_scale_cpu_capacity(min_cpu)) &&
 				(arch_scale_cpu_capacity(i)
-				!=  arch_scale_cpu_capacity(max_cpu))) {
-			WRITE_ONCE(d.rd->mid_cap_orig_cpu, i);
+				!= arch_scale_cpu_capacity(max_cpu))) {
+			WRITE_ONCE(d.rd->wrd.mid_cap_orig_cpu, i);
 			break;
 		}
 	}
@@ -2122,10 +2112,10 @@ build_sched_domains(const struct cpumask *cpu_map, struct sched_domain_attr *att
 	 * change dynamically. So update the max cap CPU and its capacity
 	 * here.
 	 */
-	if (d.rd->max_cap_orig_cpu != -1) {
-		d.rd->max_cpu_capacity.cpu = d.rd->max_cap_orig_cpu;
+	if (d.rd->wrd.max_cap_orig_cpu != -1) {
+		d.rd->max_cpu_capacity.cpu = d.rd->wrd.max_cap_orig_cpu;
 		d.rd->max_cpu_capacity.val = arch_scale_cpu_capacity(
-						d.rd->max_cap_orig_cpu);
+						d.rd->wrd.max_cap_orig_cpu);
 	}
 #endif
 

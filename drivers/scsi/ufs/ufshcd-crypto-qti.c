@@ -55,7 +55,6 @@ void ufshcd_crypto_qti_enable(struct ufs_hba *hba)
 	}
 
 	ufshcd_crypto_enable_spec(hba);
-
 }
 
 void ufshcd_crypto_qti_disable(struct ufs_hba *hba)
@@ -88,26 +87,25 @@ static int ufshcd_crypto_qti_keyslot_program(struct keyslot_manager *ksm,
 	      hba->crypto_cap_array[crypto_alg_id].sdus_mask))
 		return -EINVAL;
 
-	pm_runtime_get_sync(hba->dev);
+	if (!hba->pm_op_in_progress)
+		pm_runtime_get_sync(hba->dev);
 	err = ufshcd_hold(hba, false);
 	if (err) {
 		pr_err("%s: failed to enable clocks, err %d\n", __func__, err);
-		return err;
+		goto out;
 	}
 
 	err = crypto_qti_keyslot_program(hba->crypto_vops->priv, key, slot,
 					data_unit_mask, crypto_alg_id);
-	if (err) {
+	if (err)
 		pr_err("%s: failed with error %d\n", __func__, err);
-		ufshcd_release(hba);
-		pm_runtime_put_sync(hba->dev);
-		return err;
-	}
 
 	ufshcd_release(hba);
-	pm_runtime_put_sync(hba->dev);
+out:
+	if (!hba->pm_op_in_progress)
+		pm_runtime_put_sync(hba->dev);
 
-	return 0;
+	return err;
 }
 
 static int ufshcd_crypto_qti_keyslot_evict(struct keyslot_manager *ksm,
@@ -149,8 +147,24 @@ static int ufshcd_crypto_qti_derive_raw_secret(struct keyslot_manager *ksm,
 					       u8 *secret,
 					       unsigned int secret_size)
 {
-	return crypto_qti_derive_raw_secret(wrapped_key, wrapped_key_size,
-			secret, secret_size);
+	int err = 0;
+	struct ufs_hba *hba = keyslot_manager_private(ksm);
+
+	pm_runtime_get_sync(hba->dev);
+	err = ufshcd_hold(hba, false);
+	if (err) {
+		pr_err("%s: failed to enable clocks, err %d\n", __func__, err);
+		return err;
+	}
+
+	err =  crypto_qti_derive_raw_secret(hba->crypto_vops->priv,
+				wrapped_key, wrapped_key_size,
+				secret, secret_size);
+
+	ufshcd_release(hba);
+	pm_runtime_put_sync(hba->dev);
+
+	return err;
 }
 
 static const struct keyslot_mgmt_ll_ops ufshcd_crypto_qti_ksm_ops = {
@@ -229,7 +243,8 @@ static int ufshcd_hba_init_crypto_qti_spec(struct ufs_hba *hba,
 	}
 
 	hba->ksm = keyslot_manager_create(hba->dev, ufshcd_num_keyslots(hba),
-					ksm_ops, crypto_modes_supported, hba);
+				ksm_ops, BLK_CRYPTO_FEATURE_WRAPPED_KEYS,
+				crypto_modes_supported, hba);
 
 	if (!hba->ksm) {
 		err = -ENOMEM;

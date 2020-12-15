@@ -349,6 +349,48 @@ struct sparse_bind_object {
 	uint64_t flags;
 };
 
+/**
+ * struct submission_info - Container for submission statistics
+ * @inflight: Number of commands that are inflight
+ * @rb_id: id of the ringbuffer to which this submission is made
+ * @rptr: Read pointer of the ringbuffer
+ * @wptr: Write pointer of the ringbuffer
+ * @gmu_dispatch_queue: GMU dispach queue to which this submission is made
+ */
+struct submission_info {
+	int inflight;
+	u32 rb_id;
+	u32 rptr;
+	u32 wptr;
+	u32 gmu_dispatch_queue;
+};
+
+/**
+ * struct retire_info - Container for retire statistics
+ * @inflight: NUmber of commands that are inflight
+ * @rb_id: id of the ringbuffer to which this submission is made
+ * @rptr: Read pointer of the ringbuffer
+ * @wptr: Write pointer of the ringbuffer
+ * @gmu_dispatch_queue: GMU dispach queue to which this submission is made
+ * @timestamp: Timestamp of submission that retired
+ * @submitted_to_rb: AO ticks when GMU put this submission on ringbuffer
+ * @sop: AO ticks when GPU started procssing this submission
+ * @eop: AO ticks when GPU finished this submission
+ * @retired_on_gmu: AO ticks when GMU retired this submission
+ */
+struct retire_info {
+	int inflight;
+	int rb_id;
+	u32 rptr;
+	u32 wptr;
+	u32 gmu_dispatch_queue;
+	u32 timestamp;
+	u64 submitted_to_rb;
+	u64 sop;
+	u64 eop;
+	u64 retired_on_gmu;
+};
+
 long kgsl_ioctl_device_getproperty(struct kgsl_device_private *dev_priv,
 					  unsigned int cmd, void *data);
 long kgsl_ioctl_device_setproperty(struct kgsl_device_private *dev_priv,

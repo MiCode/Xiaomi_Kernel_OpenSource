@@ -1346,7 +1346,7 @@ static void _qcrypto_remove_engine(struct crypto_engine *pengine)
 		icc_put(pengine->icc_path);
 	pengine->icc_path = NULL;
 
-	kzfree(pengine->preq_pool);
+	kfree_sensitive(pengine->preq_pool);
 
 	if (cp->total_units)
 		return;
@@ -1359,7 +1359,7 @@ static void _qcrypto_remove_engine(struct crypto_engine *pengine)
 		if (q_alg->alg_type == QCRYPTO_ALG_AEAD)
 			crypto_unregister_aead(&q_alg->aead_alg);
 		list_del(&q_alg->entry);
-		kzfree(q_alg);
+		kfree_sensitive(q_alg);
 	}
 }
 
@@ -1378,7 +1378,7 @@ static int _qcrypto_remove(struct platform_device *pdev)
 	mutex_unlock(&cp->engine_lock);
 	if (pengine->qce)
 		qce_close(pengine->qce);
-	kzfree(pengine);
+	kfree_sensitive(pengine);
 	return 0;
 }
 
@@ -1841,7 +1841,7 @@ static void _qce_ablk_cipher_complete(void *cookie, unsigned char *icb,
 		if (bytes != areq->nbytes)
 			pr_warn("bytes copied=0x%x bytes to copy= 0x%x\n",
 				bytes, areq->nbytes);
-		kzfree(rctx->data);
+		kfree_sensitive(rctx->data);
 	}
 	req_done(pqcrypto_req_control);
 }
@@ -1870,7 +1870,7 @@ static void _qce_aead_complete(void *cookie, unsigned char *icv,
 	}
 
 	if (rctx->mode == QCE_MODE_CCM) {
-		kzfree(rctx->adata);
+		kfree_sensitive(rctx->adata);
 	} else {
 		uint32_t ivsize = crypto_aead_ivsize(aead);
 
@@ -2179,7 +2179,7 @@ static int _qcrypto_process_aead(struct  crypto_engine *pengine,
 			rctx->adata = NULL;
 		}
 		if (ret) {
-			kzfree(rctx->adata);
+			kfree_sensitive(rctx->adata);
 			return ret;
 		}
 
@@ -3820,7 +3820,7 @@ static int _sha_update(struct ahash_request  *req, uint32_t sha_block_size)
 						rctx->trailing_buf_len);
 			memcpy((rctx->data2 + rctx->trailing_buf_len),
 					rctx->data, req->src->length);
-			kzfree(rctx->data);
+			kfree_sensitive(rctx->data);
 			rctx->data = rctx->data2;
 			sg_set_buf(&rctx->sg[0], rctx->data,
 					(rctx->trailing_buf_len +
@@ -4006,7 +4006,7 @@ static int _sha_hmac_setkey(struct crypto_ahash *tfm, const u8 *key,
 		reinit_completion(&sha_ctx->ahash_req_complete);
 	}
 
-	kzfree(in_buf);
+	kfree_sensitive(in_buf);
 	ahash_request_free(ahash_req);
 
 	return ret;
@@ -5042,7 +5042,7 @@ static int  _qcrypto_probe(struct platform_device *pdev)
 		if (rc) {
 			dev_err(&pdev->dev, "%s alg registration failed\n",
 					q_alg->cipher_alg.cra_driver_name);
-			kzfree(q_alg);
+			kfree_sensitive(q_alg);
 		} else {
 			list_add_tail(&q_alg->entry, &cp->alg_list);
 			dev_info(&pdev->dev, "%s\n",
@@ -5076,7 +5076,7 @@ static int  _qcrypto_probe(struct platform_device *pdev)
 		if (rc) {
 			dev_err(&pdev->dev, "%s alg registration failed\n",
 					q_alg->cipher_alg.cra_driver_name);
-			kzfree(q_alg);
+			kfree_sensitive(q_alg);
 		} else {
 			list_add_tail(&q_alg->entry, &cp->alg_list);
 			dev_info(&pdev->dev, "%s\n",
@@ -5113,7 +5113,7 @@ static int  _qcrypto_probe(struct platform_device *pdev)
 		if (rc) {
 			dev_err(&pdev->dev, "%s alg registration failed\n",
 				q_alg->sha_alg.halg.base.cra_driver_name);
-			kzfree(q_alg);
+			kfree_sensitive(q_alg);
 		} else {
 			list_add_tail(&q_alg->entry, &cp->alg_list);
 			dev_info(&pdev->dev, "%s\n",
@@ -5228,7 +5228,7 @@ static int  _qcrypto_probe(struct platform_device *pdev)
 				dev_err(&pdev->dev,
 				"%s alg registration failed\n",
 				q_alg->sha_alg.halg.base.cra_driver_name);
-				kzfree(q_alg);
+				kfree_sensitive(q_alg);
 			} else {
 				list_add_tail(&q_alg->entry, &cp->alg_list);
 				dev_info(&pdev->dev, "%s\n",
@@ -5264,7 +5264,7 @@ static int  _qcrypto_probe(struct platform_device *pdev)
 		if (rc) {
 			dev_err(&pdev->dev, "%s alg registration failed\n",
 					q_alg->aead_alg.base.cra_driver_name);
-			kzfree(q_alg);
+			kfree_sensitive(q_alg);
 		} else {
 			list_add_tail(&q_alg->entry, &cp->alg_list);
 			dev_info(&pdev->dev, "%s\n",
@@ -5306,7 +5306,7 @@ static int  _qcrypto_probe(struct platform_device *pdev)
 	return 0;
 err:
 	_qcrypto_remove_engine(pengine);
-	kzfree(pqcrypto_req_control);
+	kfree_sensitive(pqcrypto_req_control);
 exit_unlock_mutex:
 	mutex_unlock(&cp->engine_lock);
 exit_qce_close:
@@ -5512,7 +5512,7 @@ static int _qcrypto_debug_init(void)
 
 	_debug_dent = debugfs_create_dir("qcrypto", NULL);
 	if (IS_ERR(_debug_dent)) {
-		pr_err("qcrypto debugfs_create_dir fail, error %ld\n",
+		pr_debug("qcrypto debugfs_create_dir fail, error %ld\n",
 				PTR_ERR(_debug_dent));
 		return PTR_ERR(_debug_dent);
 	}
@@ -5522,7 +5522,7 @@ static int _qcrypto_debug_init(void)
 	dent = debugfs_create_file(name, 0644, _debug_dent,
 				&_debug_qcrypto, &_debug_stats_ops);
 	if (dent == NULL) {
-		pr_err("qcrypto debugfs_create_file fail, error %ld\n",
+		pr_debug("qcrypto debugfs_create_file fail, error %ld\n",
 				PTR_ERR(dent));
 		rc = PTR_ERR(dent);
 		goto err;
@@ -5535,12 +5535,9 @@ err:
 
 static int __init _qcrypto_init(void)
 {
-	int rc;
 	struct crypto_priv *pcp = &qcrypto_dev;
 
-	rc = _qcrypto_debug_init();
-	if (rc)
-		return rc;
+	_qcrypto_debug_init();
 	INIT_LIST_HEAD(&pcp->alg_list);
 	INIT_LIST_HEAD(&pcp->engine_list);
 	init_llist_head(&pcp->ordered_resp_list);

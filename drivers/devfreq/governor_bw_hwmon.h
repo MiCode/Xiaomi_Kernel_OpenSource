@@ -52,7 +52,6 @@ struct bw_hwmon {
 	struct device_node	*of_node;
 	struct devfreq_governor	*gov;
 	unsigned long		up_wake_mbps;
-	unsigned long		undo_over_req_mbps;
 	unsigned long		down_wake_mbps;
 	unsigned int		down_cnt;
 	struct devfreq		*df;

@@ -204,6 +204,29 @@ config DEBUG_CONSOLE_UNHASHED_POINTERS
 	  actual pointer values, ignoring the kptr_restrict setting.
 	  Not to be enabled on production builds.
 
+config DYNAMIC_DEBUG_CORE
+	bool "Enable core function of dynamic debug support"
+	depends on PRINTK
+	depends on (DEBUG_FS || PROC_FS)
+	help
+	  Enable core functional support of dynamic debug. It is useful
+	  when you want to tie dynamic debug to your kernel modules with
+	  DYNAMIC_DEBUG_MODULE defined for each of them, especially for
+	  the case of embedded system where the kernel image size is
+	  sensitive for people.
+
+config DEBUG_MODULE_LOAD_INFO
+        bool "Use prints for module info under a debug flag"
+	help
+	  If you say Y here the resulting kernel image will include
+	  debug prints which was kept under DEBUG_MODULE_LOAD_INFO.
+	  This will be used by developer to debug loadable modules in
+	  the kernel.
+	  Say Y here only if you plan to debug the kernel.
+	  Not to be enabled on production builds.
+
+	  If unsure, say N.
+
 endmenu # "printk and dmesg options"
 
 menu "Compile-time checks and compiler options"
@@ -2494,8 +2517,17 @@ config HYPERV_TESTING
 	help
 	  Select this option to enable Hyper-V vmbus testing.
 
-endmenu # "Kernel Testing and Coverage"
+config PANIC_ON_DATA_CORRUPTION
+	bool "Cause a Kernel Panic When Data Corruption is detected"
+	help
+	 Select this option to upgrade warnings for potentially
+	 recoverable data corruption scenarios to system-halting panics,
+	 for easier detection and debug.
+	 If we do not panic immediately after corruptions have been detected,
+	 the problem context is lost in the ensuing system mayhem.
 
 source "Documentation/Kconfig"
+
+endmenu # "Kernel Testing and Coverage"
 
 endmenu # Kernel hacking

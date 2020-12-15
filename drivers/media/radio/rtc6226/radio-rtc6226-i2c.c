@@ -259,6 +259,8 @@ static void rtc6226_i2c_interrupt_handler(struct rtc6226_device *radio)
 		rtc6226_reset_rds_data(radio);
 		FMDBG("%s clear Seek/Tune bit\n", __func__);
 		if (radio->seek_tune_status == SEEK_PENDING) {
+			/* Enable the RDS as it was disabled before seek */
+			rtc6226_rds_on(radio);
 			FMDBG("posting RTC6226_EVT_SEEK_COMPLETE event\n");
 			rtc6226_q_event(radio, RTC6226_EVT_SEEK_COMPLETE);
 			/* post tune comp evt since seek results in a tune.*/
@@ -808,8 +810,7 @@ static int rtc6226_i2c_probe(struct i2c_client *client,
 	radio->videodev.v4l2_dev = v4l2_dev;
 	radio->videodev.ioctl_ops = &rtc6226_ioctl_ops;
 	radio->videodev.device_caps = V4L2_CAP_HW_FREQ_SEEK | V4L2_CAP_READWRITE
-		| V4L2_CAP_TUNER | V4L2_CAP_RADIO | V4L2_CAP_RDS_CAPTURE |
-		V4L2_CAP_DEVICE_CAPS;
+		| V4L2_CAP_TUNER | V4L2_CAP_RADIO | V4L2_CAP_RDS_CAPTURE;
 	video_set_drvdata(&radio->videodev, radio);
 
 	/* rds buffer allocation */

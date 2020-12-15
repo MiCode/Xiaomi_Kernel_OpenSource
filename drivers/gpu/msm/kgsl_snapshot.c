@@ -728,7 +728,6 @@ void kgsl_device_snapshot(struct kgsl_device *device,
 	snapshot->start = device->snapshot_memory.ptr;
 	snapshot->ptr = device->snapshot_memory.ptr;
 	snapshot->remain = device->snapshot_memory.size;
-	snapshot->gmu_fault = gmu_fault;
 	snapshot->recovered = false;
 	snapshot->first_read = true;
 	snapshot->sysfs_read = 0;
@@ -1269,7 +1268,7 @@ static void kgsl_snapshot_save_frozen_objs(struct work_struct *work)
 	size_t size = 0;
 	void *ptr;
 
-	if (snapshot->gmu_fault)
+	if (snapshot->device->gmu_fault)
 		goto gmu_only;
 
 	kgsl_snapshot_process_ib_obj_list(snapshot);

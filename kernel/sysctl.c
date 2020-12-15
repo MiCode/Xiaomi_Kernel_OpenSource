@@ -129,10 +129,8 @@ static int ten_thousand = 10000;
 #ifdef CONFIG_PERF_EVENTS
 static int six_hundred_forty_kb = 640 * 1024;
 #endif
+
 #ifdef CONFIG_SCHED_WALT
-static unsigned int __maybe_unused half_million = 500000;
-static unsigned int __maybe_unused one_hundred_million = 100000000;
-static unsigned int __maybe_unused one_million = 1000000;
 static int neg_three = -3;
 static int three = 3;
 static int two_hundred_fifty_five = 255;
@@ -140,6 +138,15 @@ const int sched_user_hint_max = 1000;
 static unsigned int ns_per_sec = NSEC_PER_SEC;
 static unsigned int one_hundred_thousand = 100000;
 static unsigned int two_hundred_million = 200000000;
+/*
+ * CFS task prio range is [100 ... 139]
+ * 120 is the default prio.
+ * RTG boost range is [100 ... 119] because giving
+ * boost for [120 .. 139] does not make sense.
+ * 99 means disabled and it is the default value.
+ */
+static unsigned int min_cfs_boost_prio = 99;
+static unsigned int max_cfs_boost_prio = 119;
 #endif
 
 /* this is needed for the proc_doulongvec_minmax of vm_dirty_bytes */
@@ -1687,51 +1694,7 @@ static struct ctl_table kern_table[] = {
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec,
 	},
-
 #ifdef CONFIG_SCHED_WALT
-#if defined(CONFIG_PREEMPT_TRACER) && defined(CONFIG_PREEMPTIRQ_EVENTS)
-	{
-		.procname	= "preemptoff_tracing_threshold_ns",
-		.data		= &sysctl_preemptoff_tracing_threshold_ns,
-		.maxlen		= sizeof(unsigned int),
-		.mode		= 0644,
-		.proc_handler	= proc_dointvec,
-	},
-#endif
-#if defined(CONFIG_IRQSOFF_TRACER) && defined(CONFIG_PREEMPTIRQ_EVENTS)
-	{
-		.procname	= "irqsoff_tracing_threshold_ns",
-		.data		= &sysctl_irqsoff_tracing_threshold_ns,
-		.maxlen		= sizeof(unsigned int),
-		.mode		= 0644,
-		.proc_handler	= proc_douintvec_minmax,
-		.extra1		= &half_million,
-		.extra2		= &one_hundred_million,
-	},
-	{
-		.procname	= "irqsoff_dmesg_output_enabled",
-		.data		= &sysctl_irqsoff_dmesg_output_enabled,
-		.maxlen		= sizeof(unsigned int),
-		.mode		= 0644,
-		.proc_handler	= proc_dointvec,
-	},
-	{
-		.procname	= "irqsoff_crash_sentinel_value",
-		.data		= &sysctl_irqsoff_crash_sentinel_value,
-		.maxlen		= sizeof(unsigned int),
-		.mode		= 0644,
-		.proc_handler	= proc_dointvec,
-	},
-	{
-		.procname	= "irqsoff_crash_threshold_ns",
-		.data		= &sysctl_irqsoff_crash_threshold_ns,
-		.maxlen		= sizeof(unsigned int),
-		.mode		= 0644,
-		.proc_handler	= proc_douintvec_minmax,
-		.extra1		= &one_million,
-		.extra2		= &one_hundred_million,
-	},
-#endif
 	{
 		.procname	= "sched_user_hint",
 		.data		= &sysctl_sched_user_hint,
@@ -1749,13 +1712,6 @@ static struct ctl_table kern_table[] = {
 		.proc_handler	= proc_dointvec_minmax,
 		.extra1		= SYSCTL_ZERO,
 		.extra2		= &four,
-	},
-	{
-		.procname	= "sched_cpu_high_irqload",
-		.data		= &sysctl_sched_cpu_high_irqload,
-		.maxlen		= sizeof(unsigned int),
-		.mode		= 0644,
-		.proc_handler	= proc_dointvec,
 	},
 	{
 		.procname	= "sched_group_upmigrate",
@@ -1858,7 +1814,7 @@ static struct ctl_table kern_table[] = {
 		.data		= &sysctl_sched_busy_hyst_enable_cpus,
 		.maxlen		= sizeof(unsigned int),
 		.mode		= 0644,
-		.proc_handler	= proc_douintvec_minmax_schedhyst,
+		.proc_handler	= sched_busy_hyst_handler,
 		.extra1		= SYSCTL_ZERO,
 		.extra2		= &two_hundred_fifty_five,
 	},
@@ -1867,7 +1823,7 @@ static struct ctl_table kern_table[] = {
 		.data		= &sysctl_sched_busy_hyst,
 		.maxlen		= sizeof(unsigned int),
 		.mode		= 0644,
-		.proc_handler	= proc_douintvec_minmax_schedhyst,
+		.proc_handler	= sched_busy_hyst_handler,
 		.extra1		= SYSCTL_ZERO,
 		.extra2		= &ns_per_sec,
 	},
@@ -1876,16 +1832,16 @@ static struct ctl_table kern_table[] = {
 		.data		= &sysctl_sched_coloc_busy_hyst_enable_cpus,
 		.maxlen		= sizeof(unsigned int),
 		.mode		= 0644,
-		.proc_handler	= proc_douintvec_minmax_schedhyst,
+		.proc_handler	= sched_busy_hyst_handler,
 		.extra1		= SYSCTL_ZERO,
 		.extra2		= &two_hundred_fifty_five,
 	},
 	{
-		.procname	= "sched_coloc_busy_hyst_ns",
-		.data		= &sysctl_sched_coloc_busy_hyst,
-		.maxlen		= sizeof(unsigned int),
+		.procname	= "sched_coloc_busy_hyst_cpu_ns",
+		.data		= &sysctl_sched_coloc_busy_hyst_cpu,
+		.maxlen		= sizeof(unsigned int) * NR_CPUS,
 		.mode		= 0644,
-		.proc_handler	= proc_douintvec_minmax_schedhyst,
+		.proc_handler	= sched_busy_hyst_handler,
 		.extra1		= SYSCTL_ZERO,
 		.extra2		= &ns_per_sec,
 	},
@@ -1894,9 +1850,18 @@ static struct ctl_table kern_table[] = {
 		.data		= &sysctl_sched_coloc_busy_hyst_max_ms,
 		.maxlen		= sizeof(unsigned int),
 		.mode		= 0644,
-		.proc_handler	= proc_douintvec_minmax_schedhyst,
+		.proc_handler	= sched_busy_hyst_handler,
 		.extra1		= SYSCTL_ZERO,
 		.extra2		= &one_hundred_thousand,
+	},
+	{
+		.procname	= "sched_coloc_busy_hyst_cpu_busy_pct",
+		.data		= &sysctl_sched_coloc_busy_hyst_cpu_busy_pct,
+		.maxlen		= sizeof(unsigned int) * NR_CPUS,
+		.mode		= 0644,
+		.proc_handler	= sched_busy_hyst_handler,
+		.extra1		= SYSCTL_ZERO,
+		.extra2		= &one_hundred,
 	},
 	{
 		.procname	= "sched_ravg_window_nr_ticks",
@@ -1935,10 +1900,36 @@ static struct ctl_table kern_table[] = {
 		.mode		= 0644,
 		.proc_handler   = proc_dointvec_minmax,
 		.extra1		= SYSCTL_ZERO,
-		.extra2		= &two,
+		.extra2		= &four,
 	},
-#endif /* CONFIG_SCHED_WALT */
-
+	{
+		.procname	= "walt_rtg_cfs_boost_prio",
+		.data		= &sysctl_walt_rtg_cfs_boost_prio,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler   = proc_dointvec_minmax,
+		.extra1		= &min_cfs_boost_prio,
+		.extra2		= &max_cfs_boost_prio,
+	},
+	{
+		.procname	= "walt_low_latency_task_threshold",
+		.data		= &sysctl_walt_low_latency_task_threshold,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= SYSCTL_ZERO,
+		.extra2		= &one_thousand,
+	},
+#endif
+	{
+		.procname	= "sched_force_lb_enable",
+		.data		= &sysctl_sched_force_lb_enable,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= SYSCTL_ZERO,
+		.extra2		= SYSCTL_ONE,
+	},
 #ifdef CONFIG_SCHED_DEBUG
 	{
 		.procname	= "sched_min_granularity_ns",
@@ -3203,6 +3194,17 @@ static struct ctl_table vm_table[] = {
 		.proc_handler	= proc_dointvec_minmax,
 		.extra1		= SYSCTL_ZERO,
 	},
+#ifdef CONFIG_MULTIPLE_KSWAPD
+	{
+		.procname	= "kswapd_threads",
+		.data		= &kswapd_threads,
+		.maxlen		= sizeof(kswapd_threads),
+		.mode		= 0644,
+		.proc_handler	= kswapd_threads_sysctl_handler,
+		.extra1		= SYSCTL_ONE,
+		.extra2		= &max_kswapd_threads,
+	},
+#endif
 	{
 		.procname	= "watermark_scale_factor",
 		.data		= &watermark_scale_factor,
