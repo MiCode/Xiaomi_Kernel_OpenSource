@@ -10,6 +10,7 @@
 #include <linux/list.h>
 #include <linux/mod_devicetable.h>
 #include <linux/module.h>
+#include <linux/pci.h>
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
 #include <linux/wait.h>
@@ -32,12 +33,22 @@ int mhi_misc_register_controller(struct mhi_controller *mhi_cntrl)
 {
 	struct device *dev = &mhi_cntrl->mhi_dev->dev;
 	struct mhi_private *mhi_priv = kzalloc(sizeof(*mhi_priv), GFP_KERNEL);
+	struct mhi_device *mhi_dev = mhi_cntrl->mhi_dev;
+	struct pci_dev *parent = to_pci_dev(mhi_cntrl->cntrl_dev);
 
 	if (!mhi_priv)
 		return -ENOMEM;
 
+	if (parent) {
+		dev_set_name(&mhi_dev->dev, "mhi_%04x_%02u.%02u.%02u",
+			     parent->device, pci_domain_nr(parent->bus),
+			     parent->bus->number, PCI_SLOT(parent->devfn));
+		mhi_dev->name = dev_name(&mhi_dev->dev);
+	}
+
 	mhi_priv->log_buf = ipc_log_context_create(MHI_IPC_LOG_PAGES,
-					dev_name(mhi_cntrl->cntrl_dev), 0);
+						   mhi_dev->name, 0);
+	mhi_priv->mhi_cntrl = mhi_cntrl;
 
 	/* adding it to this list only for debug purpose */
 	mutex_lock(&mhi_bus.lock);
@@ -53,12 +64,166 @@ void mhi_misc_unregister_controller(struct mhi_controller *mhi_cntrl)
 {
 	struct mhi_private *mhi_priv = dev_get_drvdata(&mhi_cntrl->mhi_dev->dev);
 
+	if (!mhi_priv)
+		return;
+
 	mutex_lock(&mhi_bus.lock);
 	list_del(&mhi_priv->node);
 	mutex_unlock(&mhi_bus.lock);
 
 	kfree(mhi_priv);
 }
+
+void *mhi_controller_get_privdata(struct mhi_controller *mhi_cntrl)
+{
+	struct mhi_private *mhi_priv = dev_get_drvdata(&mhi_cntrl->mhi_dev->dev);
+
+	if (!mhi_priv)
+		return NULL;
+
+	return mhi_priv->priv_data;
+}
+EXPORT_SYMBOL(mhi_controller_get_privdata);
+
+void mhi_controller_set_privdata(struct mhi_controller *mhi_cntrl, void *priv)
+{
+	struct mhi_private *mhi_priv = dev_get_drvdata(&mhi_cntrl->mhi_dev->dev);
+
+	if (!mhi_priv)
+		return;
+
+	mhi_priv->priv_data = priv;
+}
+EXPORT_SYMBOL(mhi_controller_set_privdata);
+
+static struct mhi_controller *find_mhi_controller_by_name(const char *name)
+{
+	struct mhi_private *mhi_priv, *tmp_priv;
+	struct mhi_controller *mhi_cntrl;
+
+	list_for_each_entry_safe(mhi_priv, tmp_priv, &mhi_bus.controller_list,
+				 node) {
+		mhi_cntrl = mhi_priv->mhi_cntrl;
+		if (mhi_cntrl->mhi_dev->name && (!strcmp(name, mhi_cntrl->mhi_dev->name)))
+			return mhi_cntrl;
+	}
+
+	return NULL;
+}
+
+struct mhi_controller *mhi_bdf_to_controller(u32 domain,
+					     u32 bus,
+					     u32 slot,
+					     u32 dev_id)
+{
+	char name[32];
+
+	snprintf(name, sizeof(name), "mhi_%04x_%02u.%02u.%02u", dev_id, domain,
+		 bus, slot);
+
+	return find_mhi_controller_by_name(name);
+}
+EXPORT_SYMBOL(mhi_bdf_to_controller);
+
+static int mhi_notify_fatal_cb(struct device *dev, void *data)
+{
+	mhi_notify(to_mhi_device(dev), MHI_CB_FATAL_ERROR);
+
+	return 0;
+}
+
+int mhi_report_error(struct mhi_controller *mhi_cntrl)
+{
+	enum mhi_pm_state cur_state;
+
+	if (!mhi_cntrl)
+		return -EINVAL;
+
+	write_lock_irq(&mhi_cntrl->pm_lock);
+
+	cur_state = mhi_tryset_pm_state(mhi_cntrl, MHI_PM_SYS_ERR_DETECT);
+	if (cur_state != MHI_PM_SYS_ERR_DETECT) {
+		dev_err(mhi_cntrl->cntrl_dev,
+			"Failed to move to state: %s from: %s\n",
+			to_mhi_pm_state_str(MHI_PM_SYS_ERR_DETECT),
+			to_mhi_pm_state_str(mhi_cntrl->pm_state));
+		return -EPERM;
+	}
+
+	/* force inactive/error state */
+	mhi_cntrl->dev_state = MHI_STATE_SYS_ERR;
+	wake_up_all(&mhi_cntrl->state_event);
+	write_unlock_irq(&mhi_cntrl->pm_lock);
+
+	/* Notify fatal error to all client drivers to halt processing */
+	device_for_each_child(&mhi_cntrl->mhi_dev->dev, NULL,
+			      mhi_notify_fatal_cb);
+
+	return 0;
+}
+EXPORT_SYMBOL(mhi_report_error);
+
+int mhi_device_configure(struct mhi_device *mhi_dev,
+			 enum dma_data_direction dir,
+			 struct mhi_buf *cfg_tbl,
+			 int elements)
+{
+	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
+	struct device *dev = &mhi_cntrl->mhi_dev->dev;
+	struct mhi_chan *mhi_chan;
+	struct mhi_event_ctxt *er_ctxt;
+	struct mhi_chan_ctxt *ch_ctxt;
+	int er_index, chan;
+
+	switch (dir) {
+	case DMA_TO_DEVICE:
+		mhi_chan = mhi_dev->ul_chan;
+		break;
+	case DMA_BIDIRECTIONAL:
+	case DMA_FROM_DEVICE:
+	case DMA_NONE:
+		mhi_chan = mhi_dev->dl_chan;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	er_index = mhi_chan->er_index;
+	chan = mhi_chan->chan;
+
+	for (; elements > 0; elements--, cfg_tbl++) {
+		/* update event context array */
+		if (!strcmp(cfg_tbl->name, "ECA")) {
+			er_ctxt = &mhi_cntrl->mhi_ctxt->er_ctxt[er_index];
+			if (sizeof(*er_ctxt) != cfg_tbl->len) {
+				dev_err(dev,
+					"Invalid ECA size, expected:%zu actual%zu\n",
+					sizeof(*er_ctxt), cfg_tbl->len);
+				return -EINVAL;
+			}
+			memcpy((void *)er_ctxt, cfg_tbl->buf, sizeof(*er_ctxt));
+			continue;
+		}
+
+		/* update channel context array */
+		if (!strcmp(cfg_tbl->name, "CCA")) {
+			ch_ctxt = &mhi_cntrl->mhi_ctxt->chan_ctxt[chan];
+			if (cfg_tbl->len != sizeof(*ch_ctxt)) {
+				dev_err(dev,
+					"Invalid CCA size, expected:%zu actual:%zu\n",
+					sizeof(*ch_ctxt), cfg_tbl->len);
+				return -EINVAL;
+			}
+			memcpy((void *)ch_ctxt, cfg_tbl->buf, sizeof(*ch_ctxt));
+			continue;
+		}
+
+		return -EINVAL;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(mhi_device_configure);
 
 void mhi_set_m2_timeout_ms(struct mhi_controller *mhi_cntrl, u32 timeout)
 {
@@ -519,3 +684,231 @@ int mhi_device_get_sync_atomic(struct mhi_device *mhi_dev, int timeout_us,
 	return 0;
 }
 EXPORT_SYMBOL(mhi_device_get_sync_atomic);
+
+static int mhi_get_capability_offset(struct mhi_controller *mhi_cntrl,
+				     u32 capability, u32 *offset)
+{
+	u32 cur_cap, next_offset;
+	int ret;
+
+	/* get the 1st supported capability offset */
+	ret = mhi_read_reg_field(mhi_cntrl, mhi_cntrl->regs, MISC_OFFSET,
+				 MISC_CAP_MASK, MISC_CAP_SHIFT, offset);
+	if (ret)
+		return ret;
+	do {
+		ret = mhi_read_reg_field(mhi_cntrl, mhi_cntrl->regs, *offset,
+					 CAP_CAPID_MASK, CAP_CAPID_SHIFT,
+					 &cur_cap);
+		if (ret)
+			return ret;
+
+		if (cur_cap == capability)
+			return 0;
+
+		ret = mhi_read_reg_field(mhi_cntrl, mhi_cntrl->regs, *offset,
+					 CAP_NEXT_CAP_MASK, CAP_NEXT_CAP_SHIFT,
+					 &next_offset);
+		if (ret)
+			return ret;
+
+		*offset = next_offset;
+		if (*offset >= MHI_REG_SIZE)
+			return -ENXIO;
+	} while (next_offset);
+
+	return -ENXIO;
+}
+
+/* to be used only if a single event ring with the type is present */
+static int mhi_get_er_index(struct mhi_controller *mhi_cntrl,
+			    enum mhi_er_data_type type)
+{
+	int i;
+	struct mhi_event *mhi_event = mhi_cntrl->mhi_event;
+
+	/* find event ring for requested type */
+	for (i = 0; i < mhi_cntrl->total_ev_rings; i++, mhi_event++) {
+		if (mhi_event->data_type == type)
+			return mhi_event->er_index;
+	}
+
+	return -ENOENT;
+}
+
+static int mhi_init_bw_scale(struct mhi_controller *mhi_cntrl)
+{
+	struct device *dev = &mhi_cntrl->mhi_dev->dev;
+	struct mhi_private *mhi_priv = dev_get_drvdata(dev);
+	int ret, er_index;
+	u32 bw_cfg_offset;
+
+	/* controller doesn't support dynamic bw switch */
+	if (!mhi_priv->bw_scale)
+		return -ENODEV;
+
+	ret = mhi_get_capability_offset(mhi_cntrl, BW_SCALE_CAP_ID,
+					&bw_cfg_offset);
+	if (ret)
+		return ret;
+
+	/* No ER configured to support BW scale */
+	er_index = mhi_get_er_index(mhi_cntrl, MHI_ER_BW_SCALE);
+	if (er_index < 0)
+		return er_index;
+
+	bw_cfg_offset += BW_SCALE_CFG_OFFSET;
+
+	/* advertise host support */
+	mhi_write_reg(mhi_cntrl, mhi_cntrl->regs, bw_cfg_offset,
+		      MHI_BW_SCALE_SETUP(er_index));
+
+	dev_dbg(dev, "Bandwidth scaling setup complete. Event ring:%d\n",
+		er_index);
+
+	return 0;
+}
+
+int mhi_misc_init_mmio(struct mhi_controller *mhi_cntrl)
+{
+	struct device *dev = &mhi_cntrl->mhi_dev->dev;
+	struct mhi_private *mhi_priv = dev_get_drvdata(dev);
+	void __iomem *base = mhi_cntrl->regs;
+	u32 chdb_off;
+	int ret;
+
+	/* Read channel db offset */
+	ret = mhi_read_reg_field(mhi_cntrl, base, CHDBOFF, CHDBOFF_CHDBOFF_MASK,
+				 CHDBOFF_CHDBOFF_SHIFT, &chdb_off);
+	if (ret) {
+		dev_err(dev, "Unable to read CHDBOFF register\n");
+		return -EIO;
+	}
+
+	mhi_priv->bw_scale_db = base + chdb_off + (8 * MHI_BW_SCALE_CHAN_DB);
+
+	ret = mhi_init_bw_scale(mhi_cntrl);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
+/* Recycle by fast forwarding WP to the last posted event */
+static void mhi_recycle_fwd_ev_ring_element
+		(struct mhi_controller *mhi_cntrl, struct mhi_ring *ring)
+{
+	dma_addr_t ctxt_wp;
+
+	/* update the WP */
+	ring->wp += ring->el_size;
+	if (ring->wp >= (ring->base + ring->len))
+		ring->wp = ring->base;
+
+	/* update the context WP based on the RP to support fast forwarding */
+	ctxt_wp = ring->iommu_base + (ring->wp - ring->base);
+	*ring->ctxt_wp = ctxt_wp;
+
+	/* update the RP */
+	ring->rp += ring->el_size;
+	if (ring->rp >= (ring->base + ring->len))
+		ring->rp = ring->base;
+
+	/* visible to other cores */
+	smp_wmb();
+}
+
+/* dedicated bw scale event ring processing */
+int mhi_process_misc_bw_ev_ring(struct mhi_controller *mhi_cntrl,
+				struct mhi_event *mhi_event,
+				u32 event_quota)
+{
+	struct mhi_tre *dev_rp;
+	struct mhi_ring *ev_ring = &mhi_event->ring;
+	struct mhi_event_ctxt *er_ctxt =
+		&mhi_cntrl->mhi_ctxt->er_ctxt[mhi_event->er_index];
+	struct mhi_link_info link_info, *cur_info = &mhi_cntrl->mhi_link_info;
+	struct device *dev = &mhi_cntrl->mhi_dev->dev;
+	struct mhi_private *mhi_priv = dev_get_drvdata(dev);
+	int result, ret = -EINVAL;
+
+	if (!MHI_IN_MISSION_MODE(mhi_cntrl->ee))
+		goto exit_bw_scale_process;
+
+	spin_lock_bh(&mhi_event->lock);
+	dev_rp = mhi_to_virtual(ev_ring, er_ctxt->rp);
+
+	/* if rp points to base, we need to wrap it around */
+	if (dev_rp == ev_ring->base)
+		dev_rp = ev_ring->base + ev_ring->len;
+	dev_rp--;
+
+	/* fast forward to currently processed element and recycle er */
+	ev_ring->rp = dev_rp;
+	ev_ring->wp = dev_rp - 1;
+	if (ev_ring->wp < ev_ring->base)
+		ev_ring->wp = ev_ring->base + ev_ring->len - ev_ring->el_size;
+	mhi_recycle_fwd_ev_ring_element(mhi_cntrl, ev_ring);
+
+	if (WARN_ON(MHI_TRE_GET_EV_TYPE(dev_rp) != MHI_PKT_TYPE_BW_REQ_EVENT)) {
+		dev_err(dev, "!BW SCALE REQ event\n");
+		spin_unlock_bh(&mhi_event->lock);
+		goto exit_bw_scale_process;
+	}
+
+	link_info.target_link_speed = MHI_TRE_GET_EV_LINKSPEED(dev_rp);
+	link_info.target_link_width = MHI_TRE_GET_EV_LINKWIDTH(dev_rp);
+	link_info.sequence_num = MHI_TRE_GET_EV_BW_REQ_SEQ(dev_rp);
+
+	dev_dbg(dev, "Received BW_REQ with seq:%d link speed:0x%x width:0x%x\n",
+		link_info.sequence_num,
+		link_info.target_link_speed,
+		link_info.target_link_width);
+
+	read_lock_bh(&mhi_cntrl->pm_lock);
+	if (likely(MHI_DB_ACCESS_VALID(mhi_cntrl)))
+		mhi_ring_er_db(mhi_event);
+	read_unlock_bh(&mhi_cntrl->pm_lock);
+	spin_unlock_bh(&mhi_event->lock);
+
+	ret = mhi_device_get_sync(mhi_cntrl->mhi_dev);
+	if (ret)
+		goto exit_bw_scale_process;
+	mhi_cntrl->runtime_get(mhi_cntrl);
+
+	mutex_lock(&mhi_cntrl->pm_mutex);
+
+	ret = mhi_priv->bw_scale(mhi_cntrl, &link_info);
+	if (!ret)
+		*cur_info = link_info;
+
+	result = ret ? MHI_BW_SCALE_NACK : 0;
+
+	read_lock_bh(&mhi_cntrl->pm_lock);
+	if (likely(MHI_DB_ACCESS_VALID(mhi_cntrl)))
+		mhi_write_reg(mhi_cntrl, mhi_priv->bw_scale_db, 0,
+			      MHI_BW_SCALE_RESULT(result,
+						  link_info.sequence_num));
+	read_unlock_bh(&mhi_cntrl->pm_lock);
+
+	mhi_cntrl->runtime_put(mhi_cntrl);
+	mhi_device_put(mhi_cntrl->mhi_dev);
+
+	mutex_unlock(&mhi_cntrl->pm_mutex);
+
+exit_bw_scale_process:
+	dev_dbg(dev, "exit er_index:%u ret:%d\n", mhi_event->er_index, ret);
+
+	return ret;
+}
+
+void mhi_controller_set_bw_scale_cb(struct mhi_controller *mhi_cntrl,
+			int (*cb_func)(struct mhi_controller *mhi_cntrl,
+			struct mhi_link_info *link_info))
+{
+	struct device *dev = &mhi_cntrl->mhi_dev->dev;
+	struct mhi_private *mhi_priv = dev_get_drvdata(dev);
+
+	mhi_priv->bw_scale = cb_func;
+}
+EXPORT_SYMBOL(mhi_controller_set_bw_scale_cb);
