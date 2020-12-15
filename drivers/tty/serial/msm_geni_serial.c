@@ -101,8 +101,6 @@
 
 #define UART_OVERSAMPLING	(32)
 #define STALE_TIMEOUT		(16)
-#define STALE_COUNT		(DEFAULT_BITS_PER_CHAR * STALE_TIMEOUT)
-#define SEC_TO_USEC		(1000000)
 #define DEFAULT_BITS_PER_CHAR	(10)
 #define GENI_UART_NR_PORTS	(6)
 #define GENI_UART_CONS_PORTS	(1)
@@ -1399,11 +1397,8 @@ static void msm_geni_serial_set_manual_flow(bool enable,
 						SE_UART_MANUAL_RFR);
 		/* Ensure that the manual flow off writes go through */
 		mb();
-		uart_manual_rfr = geni_read_reg_nolog(port->uport.membase,
-							SE_UART_MANUAL_RFR);
 		IPC_LOG_MSG(port->ipc_log_misc,
-			"%s: Manual Flow Disabled, HW Flow ON rfr = 0x%x\n",
-						__func__, uart_manual_rfr);
+			"%s: Manual Flow Disabled, HW Flow ON\n", __func__);
 	}
 }
 
@@ -1414,7 +1409,6 @@ static int stop_rx_sequencer(struct uart_port *uport)
 	struct msm_geni_serial_port *port = GET_DEV_PORT(uport);
 	unsigned long flags = 0;
 	bool is_rx_active;
-	unsigned int stale_delay;
 
 	IPC_LOG_MSG(port->ipc_log_misc, "%s\n", __func__);
 
@@ -1427,18 +1421,9 @@ static int stop_rx_sequencer(struct uart_port *uport)
 		return 0;
 	}
 
-	if (!uart_console(uport)) {
-		msm_geni_serial_set_manual_flow(false, port);
-		/*
-		 * Wait for the stale timeout to happen if there
-		 * is any data pending in the rx fifo.
-		 * Have a safety factor of 2 to include the interrupt
-		 * and system latencies.
-		 */
-		stale_delay = (STALE_COUNT * SEC_TO_USEC) / port->cur_baud;
-		stale_delay = (2 * stale_delay);
-		udelay(stale_delay);
-	}
+	port->s_cmd_done = false;
+	port->s_cmd = true;
+	reinit_completion(&port->s_cmd_timeout);
 
 	IPC_LOG_MSG(port->ipc_log_misc, "%s: Start 0x%x\n",
 		    __func__, geni_status);
@@ -1447,11 +1432,6 @@ static int stop_rx_sequencer(struct uart_port *uport)
 	 * cancel command as this might be in an atomic context.
 	 */
 	is_irq_masked = msm_serial_try_disable_interrupts(uport);
-
-	port->s_cmd_done = false;
-	port->s_cmd = true;
-	reinit_completion(&port->s_cmd_timeout);
-
 	geni_cancel_s_cmd(uport->membase);
 
 	/*
@@ -1514,9 +1494,6 @@ static int stop_rx_sequencer(struct uart_port *uport)
 	port->s_cmd = false;
 
 exit_rx_seq:
-	if (!uart_console(uport))
-		msm_geni_serial_set_manual_flow(true, port);
-
 	geni_status = geni_read_reg_nolog(uport->membase, SE_GENI_STATUS);
 	IPC_LOG_MSG(port->ipc_log_misc, "%s: End 0x%x\n",
 		    __func__, geni_status);
@@ -1912,6 +1889,7 @@ static bool handle_tx_dma_xfer(u32 m_irq_status, struct uart_port *uport)
 
 static bool handle_rx_dma_xfer(u32 s_irq_status, struct uart_port *uport)
 {
+	u32 rx_dma_len;
 	bool ret = false;
 	bool drop_rx = false;
 	struct msm_geni_serial_port *msm_port = GET_DEV_PORT(uport);
@@ -1948,13 +1926,16 @@ static bool handle_rx_dma_xfer(u32 s_irq_status, struct uart_port *uport)
 				dma_rx_status & RX_DMA_DONE) {
 			msm_geni_serial_handle_dma_rx(uport,
 						drop_rx);
-			if (!(dma_rx_status & RX_GENI_CANCEL_IRQ)) {
+			rx_dma_len =
+			geni_read_reg_nolog(uport->membase,
+						SE_DMA_RX_LEN_IN);
+			if (rx_dma_len != 0) {
 				geni_se_rx_dma_start(uport->membase,
 				DMA_RX_BUF_SIZE, &msm_port->rx_dma);
 			} else {
 				IPC_LOG_MSG(msm_port->ipc_log_misc,
-				"%s. not mapping rx dma\n",
-				__func__);
+				"%s.stop dma Rx 0x%x\n",
+				__func__, dma_rx_status);
 			}
 		}
 		if (dma_rx_status & RX_SBE) {
@@ -2193,7 +2174,7 @@ static int msm_geni_serial_port_setup(struct uart_port *uport)
 	struct msm_geni_serial_port *msm_port = GET_DEV_PORT(uport);
 	unsigned long cfg0, cfg1;
 	dma_addr_t dma_address;
-	unsigned int rxstale = STALE_COUNT;
+	unsigned int rxstale = DEFAULT_BITS_PER_CHAR * STALE_TIMEOUT;
 
 	set_rfr_wm(msm_port);
 	geni_write_reg_nolog(rxstale, uport->membase, SE_UART_RX_STALE_CNT);
@@ -2484,6 +2465,7 @@ static void msm_geni_serial_set_termios(struct uart_port *uport,
 							__func__, ret);
 			return;
 		}
+		msm_geni_serial_set_manual_flow(false, port);
 	}
 	msm_geni_serial_stop_rx(uport);
 	/* baud rate */
@@ -2530,6 +2512,9 @@ static void msm_geni_serial_set_termios(struct uart_port *uport,
 	msm_geni_serial_termios_cfg(uport, termios);
 	IPC_LOG_MSG(port->ipc_log_misc, "%s: baud %d\n", __func__, baud);
 exit_set_termios:
+	if (!uart_console(uport))
+		msm_geni_serial_set_manual_flow(true, port);
+
 	msm_geni_serial_start_rx(uport);
 	if (!uart_console(uport))
 		msm_geni_serial_power_off(uport);
@@ -3212,23 +3197,6 @@ static int msm_geni_serial_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static void msm_geni_serial_allow_rx(struct msm_geni_serial_port *port)
-{
-	u32 uart_manual_rfr;
-
-	uart_manual_rfr = (UART_MANUAL_RFR_EN | UART_RFR_READY);
-	geni_write_reg_nolog(uart_manual_rfr, port->uport.membase,
-						SE_UART_MANUAL_RFR);
-	/* Ensure that the manual flow off writes go through */
-	mb();
-	uart_manual_rfr = geni_read_reg_nolog(port->uport.membase,
-						SE_UART_MANUAL_RFR);
-	IPC_LOG_MSG(port->ipc_log_misc, "%s(): rfr = 0x%x\n",
-					__func__, uart_manual_rfr);
-
-	/* To give control of RFR back to HW */
-	msm_geni_serial_set_manual_flow(true, port);
-}
 
 #ifdef CONFIG_PM
 static int msm_geni_serial_runtime_suspend(struct device *dev)
@@ -3258,26 +3226,18 @@ static int msm_geni_serial_runtime_suspend(struct device *dev)
 		stop_tx_sequencer(&port->uport);
 
 	disable_irq(port->uport.irq);
-
-	if (port->wakeup_irq > 0) {
-		port->edge_count = 0;
-		enable_irq(port->wakeup_irq);
-	}
-	__pm_relax(port->geni_wake);
-
-	/*
-	 * Above stop_rx disabled the flow so we need to enable it here
-	 * Make sure wake up interrupt is enabled before RFR is made low
-	 */
-	msm_geni_serial_allow_rx(port);
-
 	ret = se_geni_resources_off(&port->serial_rsc);
 	if (ret) {
 		dev_err(dev, "%s: Error ret %d\n", __func__, ret);
 		goto exit_runtime_suspend;
 	}
 
+	if (port->wakeup_irq > 0) {
+		port->edge_count = 0;
+		enable_irq(port->wakeup_irq);
+	}
 	IPC_LOG_MSG(port->ipc_log_pwr, "%s:\n", __func__);
+	__pm_relax(port->geni_wake);
 exit_runtime_suspend:
 	return ret;
 }
