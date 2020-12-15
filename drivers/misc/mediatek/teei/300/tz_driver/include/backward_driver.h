@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2019, MICROTRUST Incorporated
+ * Copyright (C) 2020 XiaoMi, Inc.
  * All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -19,6 +20,14 @@
 
 #include "teei_common.h"
 
+#define TEEI_BDRV_TYPE          (0x10)
+
+struct bdrv_work_struct {
+	unsigned long long bdrv_work_type;
+	void *param_p;
+	struct list_head c_link;
+};
+
 extern struct service_handler reetime;
 extern struct service_handler vfs_handler;
 extern unsigned char *daulOS_VFS_share_mem;
@@ -30,5 +39,10 @@ int init_all_service_handlers(void);
 int vfs_thread_function(unsigned long virt_addr,
 			unsigned long para_vaddr, unsigned long buff_vaddr);
 
+int init_bdrv_comp_fn(void);
+int teei_add_to_bdrv_link(struct list_head *entry);
+int teei_init_bdrv_link(void);
+void teei_notify_bdrv_fn(void);
+int teei_bdrv_fn(void *work);
 
 #endif /* end of BACKWARD_DRIVER_H */

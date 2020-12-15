@@ -27,6 +27,7 @@ struct bio_crypt_ctx {
 	struct super_block  *bc_sb;
 	unsigned long       bc_ino;
 	unsigned long       bc_iv;              /* for BC_IV_CTX only */
+	unsigned int        hashed_info;        /* for f2fs+emmc hwcmdq*/
 	void                *bc_info;
 	void                *(*bc_info_act)(void *ci, int act);
 #ifdef CONFIG_HIE_DUMMY_CRYPT

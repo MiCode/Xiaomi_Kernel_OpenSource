@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2015 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -40,7 +41,7 @@
 /****************************************************************************
  * variables
  ***************************************************************************/
-#define MT_LED_LEVEL_BIT 10
+#define MT_LED_LEVEL_BIT 11
 
 #ifndef CONFIG_MTK_PWM
 #define CLK_DIV1 0
@@ -72,7 +73,7 @@ static int debug_enable_led = 1;
  * for DISP backlight High resolution
  *****************************************************************************/
 #ifdef LED_INCREASE_LED_LEVEL_MTKPATCH
-#define LED_INTERNAL_LEVEL_BIT_CNT 10
+#define LED_INTERNAL_LEVEL_BIT_CNT 11
 #endif
 /* Fix dependency if CONFIG_MTK_LCM not ready */
 void __weak disp_aal_notify_backlight_changed(int bl_1024) {};
@@ -98,6 +99,7 @@ static unsigned int limit_flag;
 static unsigned int last_level;
 static unsigned int current_level;
 static DEFINE_MUTEX(bl_level_limit_mutex);
+unsigned int thermal_current_brightness;
 
 /****************************************************************************
  * external functions for display
@@ -137,10 +139,20 @@ int setMaxbrightness(int max_level, int enable)
 
 		}
 	}
+	printk("[%s]:--lyd_thmal --------level = %d\n", __func__, max_level);
 #else
 	LEDS_DRV_DEBUG("%s go through AAL\n", __func__);
+	printk("[%s]: --lyd_thmal, set max_level = %d\n", __func__, max_level);
+	printk("[%s]: --lyd_thmal, set thermal_current_brightness  = %d\n", __func__, thermal_current_brightness);
 	disp_bls_set_max_backlight(((((1 << LED_INTERNAL_LEVEL_BIT_CNT) -
-				      1) * max_level + 127) / 255));
+				      1) * max_level + 127) / 2047));
+	if (thermal_current_brightness >= max_level) {
+		//disp_aal_notify_backlight_changed(thermal_current_brightness);
+		disp_aal_notify_backlight_changed(max_level);
+	} else if ((thermal_current_brightness > 0) && (thermal_current_brightness < max_level)) {
+		disp_aal_notify_backlight_changed(thermal_current_brightness);
+	}
+
 #endif
 	return 0;
 }
@@ -382,7 +394,7 @@ int backlight_brightness_set(int level)
 					   level);
 	} else {
 		return mt65xx_led_set_cust(&cust_led_list[TYPE_LCD],
-					   (level >> (MT_LED_LEVEL_BIT - 8)));
+					   (level));
 	}
 	return 0;
 }

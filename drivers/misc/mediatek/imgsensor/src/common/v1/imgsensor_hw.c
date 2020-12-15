@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -129,13 +130,13 @@ static enum IMGSENSOR_RETURN imgsensor_hw_power_sequence(
 		if (pwr_status == IMGSENSOR_HW_POWER_STATUS_ON &&
 		   ppwr_info->pin != IMGSENSOR_HW_PIN_UNDEF) {
 			pdev = phw->pdev[psensor_pwr->id[ppwr_info->pin]];
-		/*pr_debug(
-		 *  "sensor_idx = %d, pin=%d, pin_state_on=%d, hw_id =%d\n",
-		 *  sensor_idx,
-		 *  ppwr_info->pin,
-		 *  ppwr_info->pin_state_on,
-		 * psensor_pwr->id[ppwr_info->pin]);
-		 */
+		pr_info(
+		   "sensor_idx = %d, pin=%d, pin_state_on=%d, hw_id =%d\n",
+		   sensor_idx,
+		   ppwr_info->pin,
+		   ppwr_info->pin_state_on,
+		  psensor_pwr->id[ppwr_info->pin]);
+		 
 
 			if (pdev->set != NULL)
 				pdev->set(
@@ -159,14 +160,20 @@ static enum IMGSENSOR_RETURN imgsensor_hw_power_sequence(
 			if (ppwr_info->pin != IMGSENSOR_HW_PIN_UNDEF) {
 				pdev =
 				    phw->pdev[psensor_pwr->id[ppwr_info->pin]];
+				pr_info(
+					"sensor_idx = %d, pin=%d, pin_state_on=%d, hw_id =%d\n",
+					sensor_idx,
+					ppwr_info->pin,
+					ppwr_info->pin_state_on,
+					psensor_pwr->id[ppwr_info->pin]);
 				mdelay(ppwr_info->pin_on_delay);
 
 				if (pdev->set != NULL)
 					pdev->set(
-					    pdev->pinstance,
-					    sensor_idx,
-					    ppwr_info->pin,
-					    ppwr_info->pin_state_off);
+						pdev->pinstance,
+						sensor_idx,
+						ppwr_info->pin,
+						ppwr_info->pin_state_off);
 			}
 		}
 	}
@@ -215,6 +222,25 @@ enum IMGSENSOR_RETURN imgsensor_hw_power(
 	    sensor_power_sequence,
 	    curr_sensor_name);
 
+	if (!strcmp(curr_sensor_name, "ov2180_ofilm_mipi_raw")) {
+		if ((pwr_status == 0) && sensor_idx == 3) {
+			pr_info("ov2180_ofilm_mipi_raw poweroff  again.....\n");
+			imgsensor_hw_power_sequence(
+				phw,
+				sensor_idx,
+				pwr_status,
+				platform_power_sequence,
+				str_index);
+			mdelay(5);
+			imgsensor_hw_power_sequence(
+				phw,
+				sensor_idx,
+				pwr_status,
+				sensor_power_sequence,
+				curr_sensor_name);
+			mdelay(10);
+		}
+	}
 	return IMGSENSOR_RETURN_SUCCESS;
 }
 

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2011-2014 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the
@@ -61,9 +62,11 @@ int sensor_input_event(unsigned char handle, const struct sensor_event *event)
 	 * lock_class_key*)client->buffer_lock.rlock.dep_map.key);
 	 */
 	if (unlikely(client->buffull == true)) {
-		pr_err_ratelimited(
-			"input buffull, handle:%d, head:%d, tail:%d\n", handle,
-			client->head, client->tail);
+		/*
+		 * pr_err_ratelimited(
+		 *	"input buffull, handle:%d, head:%d, tail:%d\n", handle,
+		 *	client->head, client->tail);
+		 */
 		spin_unlock(&client->buffer_lock);
 		wake_up_interruptible(&client->wait);
 		return -1;

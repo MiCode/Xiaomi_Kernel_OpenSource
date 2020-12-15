@@ -111,9 +111,10 @@ obj-$(CONFIG_MEDIATEK_SOLUTION) += sched/
 obj-$(CONFIG_USB_MTK_HDRC) += usb20/
 obj-$(CONFIG_MU3_PHY)   += mu3phy/
 obj-$(CONFIG_USB_MU3D_DRV)  += mu3d/
-obj-$(CONFIG_MTK_RTC)	+= rtc/
+#obj-$(CONFIG_MTK_RTC)	+= rtc/
 obj-$(CONFIG_MTK_XO)	+= xo/
 obj-$(CONFIG_MTK_CMDQ) += cmdq/
+obj-$(CONFIG_MTK_CMDQ) += mdp/
 obj-$(CONFIG_MTK_SMI_EXT) += smi/
 obj-$(CONFIG_MTK_LCM) += lcm/
 obj-$(CONFIG_MTK_LCM) += ext_disp/
@@ -155,4 +156,6 @@ obj-y += perf/
 obj-$(CONFIG_MTK_JPEG) += jpeg/
 obj-$(CONFIG_MTK_SPMTWAM) += twam/
 obj-$(CONFIG_MTK_LOW_POWER_MODULE) += lpm/
+
+obj-y += simtray/
 

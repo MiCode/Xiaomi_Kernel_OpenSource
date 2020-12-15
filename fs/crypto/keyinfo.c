@@ -3,6 +3,7 @@
  * key management facility for FS encryption support.
  *
  * Copyright (C) 2015, Google, Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This contains encryption key functions.
  *
@@ -19,6 +20,7 @@
 #include <crypto/skcipher.h>
 #include <linux/hie.h>
 #include "fscrypt_private.h"
+#include <linux/siphash.h>
 
 static struct crypto_shash *essiv_hash_tfm;
 
@@ -582,6 +584,29 @@ void *fscrypt_crypt_info_act(void *ci, int act)
 	return NULL;
 }
 
+static int init_crypt_info_for_hie(const struct inode *inode,
+						struct fscrypt_info *ci)
+{
+	int err;
+	const unsigned int raw_key_size = ci->ci_mode->keysize;
+	const u8 *raw_key = ci->ci_raw_key;
+	union {
+			siphash_key_t k;
+			u8 bytes[SHA256_DIGEST_SIZE];
+		} ino_hash_key;
+
+	/* hashed_ino = SipHash(key=SHA256(master_key), data=i_ino) */
+	err = derive_essiv_salt(raw_key, raw_key_size,
+			ino_hash_key.bytes);
+
+	if (err)
+		return err;
+
+	ci->ci_hashed_info = siphash_1u64(inode->i_ino, &ino_hash_key.k);
+
+	return 0;
+}
+
 int fscrypt_get_encryption_info(struct inode *inode)
 {
 	struct fscrypt_info *crypt_info;
@@ -664,8 +689,19 @@ int fscrypt_get_encryption_info(struct inode *inode)
 	if (res)
 		goto out;
 
-	if (fscrypt_is_private_mode(crypt_info))
+	if (fscrypt_is_private_mode(crypt_info)) {
+		/* f2fs + mmc cqe case need this to improve security.
+		 * We use inode number generates hash_info,
+		 * and mmc cqe incrypt should use hash_info to add salt to iv.
+		 */
+		if (crypt_info->ci_flags & FS_POLICY_FLAG_IV_INO_LBLK_32) {
+			res = init_crypt_info_for_hie(inode, crypt_info);
+			if (res)
+				goto out;
+		}
+
 		goto hw_encrypt_out;
+	}
 
 	res = setup_crypto_transform(crypt_info, mode, raw_key, inode);
 	if (res)

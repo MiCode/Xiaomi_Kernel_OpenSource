@@ -116,6 +116,17 @@ config CHARGER_RT9458
 	  It depends on
 	  the config MTK_SWCHR_SUPPORT.
 
+config SMB1351_USB_CHARGER
+	bool "Charger Driver for SMB1351  Charger IC"
+	default n
+	depends on MTK_CHARGER
+	help
+	  Say Yes to enable SMB1351 driver.
+          It is mainly used as slave IC for dual charger
+          application.
+          It depends on config MTK_CHARGER.
+
+
 config CHARGER_RT9467
 	bool "Charger Driver for Richtek RT9467 Charger IC"
 	default n

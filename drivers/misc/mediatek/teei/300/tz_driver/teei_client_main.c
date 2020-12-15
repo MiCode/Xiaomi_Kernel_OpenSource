@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2019, MICROTRUST Incorporated
+ * Copyright (C) 2020 XiaoMi, Inc.
  * All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -15,6 +16,7 @@
 #define IMSG_TAG "[tz_driver]"
 #include <imsg_log.h>
 
+#include <linux/delay.h>
 #include <linux/vmalloc.h>
 #include <linux/version.h>
 #include <linux/slab.h>
@@ -31,6 +33,11 @@
 #include <kernel/sched/sched.h>
 #endif
 
+#if KERNEL_VERSION(4, 14, 0) <= LINUX_VERSION_CODE
+#include <uapi/linux/sched/types.h>
+#endif
+
+
 #ifdef TUI_SUPPORT
 #include <utr_tui_cmd.h>
 #include <linux/notifier.h>
@@ -40,7 +47,11 @@
 
 
 #ifdef CONFIG_MTPROF
+#if KERNEL_VERSION(4, 19, 0) <= LINUX_VERSION_CODE
+#include <linux/bootprof.h>
+#else
 #include "bootprof.h"
+#endif /* KERNEL_VERSION */
 #endif /* CONFIG_MTPROF */
 
 #include <teei_client_main.h>
@@ -59,9 +70,16 @@
 #include <teei_keymaster.h>
 #include <irq_register.h>
 #include <../teei_fp/fp_func.h>
+#include "tz_log.h"
 
 #if (CONFIG_MICROTRUST_TZ_DRIVER_MTK_BOOTPROF && CONFIG_MTPROF)
+
+#if KERNEL_VERSION(4, 19, 0) <= LINUX_VERSION_CODE
+#define TEEI_BOOT_FOOTPRINT(str) bootprof_log_boot(str)
+#else
 #define TEEI_BOOT_FOOTPRINT(str) log_boot(str)
+#endif
+
 #else
 #define TEEI_BOOT_FOOTPRINT(str) IMSG_PRINTK("%s\n", str)
 #endif
@@ -78,12 +96,15 @@ DECLARE_SEMA(tui_notify_sema, 0);
 
 DECLARE_COMPLETION(boot_decryto_lock);
 
+#define TEEI_SWITCH_BIG_CORE
+
 #ifdef TEEI_FIND_PREFER_CORE_AUTO
 int TZ_PREFER_BIND_CORE;
 #else
-#define TEEI_SWITCH_BIG_CORE
 #define TZ_PREFER_BIND_CORE (6)
 #endif
+
+#define  BUILD_INFO "uTos for single fingerTA, vfs along thread, del log version zsl 0618 test for liming-huaqin"
 
 enum {
 	TEEI_BOOT_OK = 0,
@@ -199,6 +220,8 @@ static struct class *config_driver_class;
 struct timeval stime;
 struct timeval etime;
 struct task_struct *teei_switch_task;
+struct task_struct *teei_log_task;
+struct task_struct *teei_bdrv_task;
 static struct cpumask mask = { CPU_BITS_NONE };
 static struct class *driver_class;
 static dev_t teei_client_device_no;
@@ -209,6 +232,33 @@ DEFINE_KTHREAD_WORKER(ut_fastcall_worker);
 
 
 static struct tz_driver_state *tz_drv_state;
+
+static void *teei_cpu_write_owner;
+
+void teei_cpus_read_lock(void)
+{
+	if (current != teei_cpu_write_owner)
+		cpus_read_lock();
+}
+
+void teei_cpus_read_unlock(void)
+{
+	if (current != teei_cpu_write_owner)
+		cpus_read_unlock();
+}
+
+void teei_cpus_write_lock(void)
+{
+	cpus_write_lock();
+	teei_cpu_write_owner = current;
+}
+
+void teei_cpus_write_unlock(void)
+{
+	teei_cpu_write_owner = NULL;
+	cpus_write_unlock();
+}
+
 
 struct tz_driver_state *get_tz_drv_state(void)
 {
@@ -687,12 +737,12 @@ static int init_teei_framework(void)
 
 	TEEI_BOOT_FOOTPRINT("TEEI VFS Buffer Created");
 
-	cpus_read_lock();
+	teei_cpus_read_lock();
 
 	boot_stage1((unsigned long)virt_to_phys((void *)boot_vfs_addr),
 						(unsigned long)tz_log_buf_pa);
 
-	cpus_read_unlock();
+	teei_cpus_read_unlock();
 
 	TEEI_BOOT_FOOTPRINT("TEEI BOOT Stage1 Completed");
 
@@ -702,33 +752,29 @@ static int init_teei_framework(void)
 	if (soter_error_flag == 1)
 		return TEEI_BOOT_ERROR_LOAD_SOTER_FAILED;
 
-	cpus_read_lock();
+	teei_cpus_read_lock();
 
 	retVal = create_nq_buffer();
 
-	cpus_read_unlock();
+	teei_cpus_read_unlock();
 
 	if (retVal < 0)
 		return TEEI_BOOT_ERROR_INIT_CMD_BUFF_FAILED;
 
 	TEEI_BOOT_FOOTPRINT("TEEI BOOT CREATE NQ DONE");
 
-	cpus_read_lock();
+	teei_cpus_read_lock();
 
 	retVal = teei_create_drv_shm();
 
-	cpus_read_unlock();
+	teei_cpus_read_unlock();
 
 	if (retVal == -1)
 		return TEEI_BOOT_ERROR_INIT_SERVICE1_FAILED;
 
 	TEEI_BOOT_FOOTPRINT("TEEI BOOT CREATE DRV SHM DONE");
 
-	cpus_read_lock();
-
 	retVal = teei_new_capi_init();
-
-	cpus_read_unlock();
 
 	if (retVal < 0)
 		return TEEI_BOOT_ERROR_INIT_CAPI_FAILED;
@@ -745,21 +791,21 @@ static int init_teei_framework(void)
 	wait_for_completion(&boot_decryto_lock);
 	TEEI_BOOT_FOOTPRINT("TEEI BOOT Decrypt Unlocked");
 
-	cpus_read_lock();
+	teei_cpus_read_lock();
 
 	retVal = teei_service_init_second();
 
-	cpus_read_unlock();
+	teei_cpus_read_unlock();
 
 	TEEI_BOOT_FOOTPRINT("TEEI BOOT Service2 Inited");
 	if (retVal == -1)
 		return TEEI_BOOT_ERROR_INIT_SERVICE2_FAILED;
 
-	cpus_read_lock();
+	teei_cpus_read_lock();
 
 	t_os_load_image();
 
-	cpus_read_unlock();
+	teei_cpus_read_unlock();
 
 	TEEI_BOOT_FOOTPRINT("TEEI BOOT Load TEES Completed");
 	if (soter_error_flag == 1)
@@ -837,9 +883,15 @@ static long teei_config_ioctl(struct file *file,
 #endif
 
 #ifdef TEEI_SWITCH_BIG_CORE
+			cpus_write_lock();
+
+			sched_cpu = get_current_cpuid();
 			IMSG_DEBUG("cpu prefer %d\n", TZ_PREFER_BIND_CORE);
 			retVal = add_work_entry(SWITCH_CORE,
 				(unsigned long)(unsigned long)sched_cpu);
+			down(&pm_sema);
+
+			cpus_write_unlock();
 #endif
 
 			res = copy_from_user(&param, (void *)arg,
@@ -858,7 +910,7 @@ static long teei_config_ioctl(struct file *file,
 			teei_flags = 1;
 
 			TEEI_BOOT_FOOTPRINT("TEEI start to load driver TAs");
-
+			msleep(500);
 			teei_ta_flags = param.flag;
 			for (i = 0; i < param.uuid_count; i++) {
 				if ((teei_ta_flags >> i) & (0x01))
@@ -1183,13 +1235,14 @@ static int teei_client_init(void)
 #ifdef TUI_SUPPORT
 	int pwr_pid = 0;
 #endif
-	/* struct sched_param param = {.sched_priority = 50 }; */
+	/*struct sched_param param = {.sched_priority = 50 };*/
 
 	/* IMSG_DEBUG("TEEI Agent Driver Module Init ...\n"); */
 
 	IMSG_DEBUG("=====================================================\n\n");
 	IMSG_DEBUG("~~~~~~~uTos version [%s]~~~~~~~\n", UTOS_VERSION);
 	IMSG_DEBUG("=====================================================\n\n");
+	IMSG_ERROR("%s", BUILD_INFO);
 
 	ret_code = alloc_chrdev_region(&teei_client_device_no,
 						0, 1, TEEI_CLIENT_DEV);
@@ -1281,21 +1334,49 @@ static int teei_client_init(void)
 		goto class_device_destroy;
 	}
 
-	/* sched_setscheduler_nocheck(teei_switch_task, SCHED_FIFO, &param); */
+	/*sched_setscheduler_nocheck(teei_switch_task, SCHED_FIFO, &param);*/
 	wake_up_process(teei_switch_task);
 	cpumask_set_cpu(get_current_cpuid(), &mask);
 	set_cpus_allowed_ptr(teei_switch_task, &mask);
+
+	teei_init_bdrv_link();
+	init_bdrv_comp_fn();
+	teei_bdrv_task = kthread_create(teei_bdrv_fn,
+						NULL, "teei_bdrv_thread");
+	if (IS_ERR(teei_bdrv_task)) {
+		IMSG_ERROR("create bdrv thread failed: %ld\n",
+						PTR_ERR(teei_bdrv_task));
+		teei_bdrv_task = NULL;
+		goto class_device_destroy;
+	}
+	wake_up_process(teei_bdrv_task);
+
 
 	IMSG_DEBUG("create the sub_thread successfully!\n");
 
 #if KERNEL_VERSION(4, 14, 0) <= LINUX_VERSION_CODE
 	cpuhp_setup_state_nocalls(CPUHP_AP_ONLINE_DYN,
 				"tee/teei:online",
-				NULL, nq_cpu_down_prep);
+				nq_cpu_up_prep, nq_cpu_down_prep);
 #elif KERNEL_VERSION(3, 18, 0) <= LINUX_VERSION_CODE
 	register_cpu_notifier(&tz_driver_cpu_notifer);
 	IMSG_DEBUG("after  register cpu notify\n");
 #endif
+
+	init_tlog_comp_fn();
+
+	/* create the teei log thread */
+	teei_log_task = kthread_create(teei_log_fn,
+							NULL, "teei_log_thread");
+	if (IS_ERR(teei_log_task)) {
+		IMSG_ERROR("create teei log thread failed: %ld\n",
+				PTR_ERR(teei_log_task));
+		teei_log_task = NULL;
+		goto class_device_destroy;
+	}
+
+	wake_up_process(teei_log_task);
+
 
 #ifdef TUI_SUPPORT
 	pwr_pid = kthread_run(wait_for_power_down, 0, POWER_DOWN);

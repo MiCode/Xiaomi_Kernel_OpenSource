@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2019, MICROTRUST Incorporated
+ * Copyright (C) 2020 XiaoMi, Inc.
  * All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -145,7 +146,12 @@ static long fp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			return -EFAULT;
 		}
 
+		teei_cpus_write_lock();
+
 		ret  = send_fp_command((void *)fp_buff_addr, args_len + 16);
+
+		teei_cpus_write_unlock();
+
 		if (ret) {
 			IMSG_ERROR("transfer data to ta failed.\n");
 			up(&fp_api_lock);

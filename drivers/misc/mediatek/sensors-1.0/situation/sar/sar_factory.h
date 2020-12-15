@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -39,6 +40,8 @@ struct sar_factory_fops {
 	int (*get_data)(int32_t sensor_data[3]);
 	int (*enable_calibration)(void);
 	int (*get_cali)(int32_t data[3]);
+	int (*read_reg)(struct REGISTER_DATA *data);
+	int (*write_reg)(struct REGISTER_DATA *data);
 };
 
 struct sar_factory_public {

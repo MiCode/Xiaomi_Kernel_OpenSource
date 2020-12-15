@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2019, MICROTRUST Incorporated
+ * Copyright (C) 2020 XiaoMi, Inc.
  * All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -35,6 +36,7 @@
 #include <switch_queue.h>
 #include <notify_queue.h>
 #include <fdrv.h>
+#include <backward_driver.h>
 
 #define IMSG_TAG "[tz_driver]"
 #include <imsg_log.h>
@@ -56,12 +58,15 @@ struct comp_link_struct {
 };
 
 static struct load_soter_entry load_ent;
-static struct work_entry sched_work_ent;
-
 
 void sched_func(struct work_struct *entry)
 {
+	struct work_entry *sched_work_ent = NULL;
 	int retVal = 0;
+
+	sched_work_ent = container_of(entry, struct work_entry, work);
+
+	kfree(sched_work_ent);
 
 	retVal = add_work_entry(SCHED_CALL, 0);
 	if (retVal != 0)
@@ -71,8 +76,19 @@ void sched_func(struct work_struct *entry)
 
 void add_sched_queue(void)
 {
-	INIT_WORK(&(sched_work_ent.work), sched_func);
-	queue_work(secure_wq, &(sched_work_ent.work));
+	struct work_entry *sched_work_ent = NULL;
+
+	sched_work_ent = kmalloc(sizeof(struct work_entry), GFP_ATOMIC);
+	if (sched_work_ent == NULL) {
+		IMSG_ERROR("TEEI: Failed to malloc sched_work_entry\n");
+		return;
+	}
+
+	INIT_WORK(&(sched_work_ent->work), sched_func);
+	
+	IMSG_PRINTK("TEEI: sched_work_ent->work.entry = %lx.\n", (unsigned long)(&(sched_work_ent->work.entry)));
+
+	queue_work(secure_wq, &(sched_work_ent->work));
 }
 
 static irqreturn_t nt_sched_irq_handler(void)
@@ -133,48 +149,33 @@ void load_func(struct work_struct *entry)
 	retVal = add_work_entry(LOAD_FUNC, 0);
 }
 
-
-
-void bdrv_work_func(struct work_struct *entry)
-{
-	struct work_entry *md = container_of(entry, struct work_entry, work);
-	struct NQ_entry *NQ_entry_p = md->param_p;
-
-	if (NQ_entry_p->sub_cmd_ID == reetime.sysno)
-		reetime.handle(NQ_entry_p);
-	else if (NQ_entry_p->sub_cmd_ID == vfs_handler.sysno)
-		vfs_handler.handle(NQ_entry_p);
-
-	kfree(NQ_entry_p);
-	kfree(md);
-}
-
-
 void teei_handle_bdrv_call(struct NQ_entry *entry)
 {
-	struct work_entry *work_ent = NULL;
+	struct bdrv_work_struct *work_ent = NULL;
 	struct NQ_entry *bdrv_ent = NULL;
 
-	work_ent = kmalloc(sizeof(struct work_entry), GFP_KERNEL);
+	work_ent = kmalloc(sizeof(struct bdrv_work_struct), GFP_ATOMIC);
 	if (work_ent == NULL) {
 		IMSG_ERROR("NO enough memory for work in %s!\n", __func__);
 		return;
 	}
 
-	bdrv_ent = kmalloc(sizeof(struct NQ_entry), GFP_KERNEL);
+	bdrv_ent = kmalloc(sizeof(struct NQ_entry), GFP_ATOMIC);
 	if (bdrv_ent == NULL) {
 		IMSG_ERROR("NO enough memory for bdrv in %s!\n", __func__);
 		kfree(work_ent);
 		return;
 	}
 
+	INIT_LIST_HEAD(&(work_ent->c_link));
+
 	memcpy(bdrv_ent, entry, sizeof(struct NQ_entry));
 
+	work_ent->bdrv_work_type = TEEI_BDRV_TYPE;
 	work_ent->param_p = bdrv_ent;
 
-	INIT_WORK(&(work_ent->work), bdrv_work_func);
-	queue_work(secure_wq, &(work_ent->work));
-
+	teei_add_to_bdrv_link(&(work_ent->c_link));
+	teei_notify_bdrv_fn();
 }
 
 static int teei_schedule_handle(struct NQ_entry *entry)
@@ -211,7 +212,7 @@ void teei_handle_schedule_call(struct NQ_entry *entry)
 {
 	struct work_entry *work_ent = NULL;
 
-	work_ent = kmalloc(sizeof(struct work_entry), GFP_KERNEL);
+	work_ent = kmalloc(sizeof(struct work_entry), GFP_ATOMIC);
 	if (work_ent == NULL) {
 		IMSG_ERROR("NO enough memory for work in %s!\n", __func__);
 		return;
@@ -315,6 +316,15 @@ static int nt_switch_irq_handler(void)
 	}
 }
 
+int nt_load_img_handler(void)
+{
+	INIT_WORK(&(load_ent.work), load_func);
+	queue_work(secure_wq, &(load_ent.work));
+
+	return IRQ_HANDLED;
+}
+
+
 static int ut_smc_handler(struct notifier_block *nb,
 				unsigned long action, void *data)
 {
@@ -330,6 +340,9 @@ static int ut_smc_handler(struct notifier_block *nb,
 	switch (irq_id) {
 	case SCHED_IRQ:
 		retVal = nt_sched_irq_handler();
+		break;
+	case LOAD_IMG_IRQ:
+		retVal = nt_load_img_handler();
 		break;
 	case SWITCH_IRQ:
 		retVal = nt_switch_irq_handler();

@@ -3,6 +3,7 @@
  * cfg80211 scan result handling
  *
  * Copyright 2008 Johannes Berg <johannes@sipsolutions.net>
+ * Copyright (C) 2020 XiaoMi, Inc.
  * Copyright 2013-2014  Intel Mobile Communications GmbH
  * Copyright 2016	Intel Deutschland GmbH
  */
@@ -484,6 +485,8 @@ const u8 *cfg80211_find_ie_match(u8 eid, const u8 *ies, int len,
 				 const u8 *match, int match_len,
 				 int match_offset)
 {
+	const struct element *elem;
+
 	/* match_offset can't be smaller than 2, unless match_len is
 	 * zero, in which case match_offset must be zero as well.
 	 */
@@ -491,14 +494,10 @@ const u8 *cfg80211_find_ie_match(u8 eid, const u8 *ies, int len,
 		    (!match_len && match_offset)))
 		return NULL;
 
-	while (len >= 2 && len >= ies[1] + 2) {
-		if ((ies[0] == eid) &&
-		    (ies[1] + 2 >= match_offset + match_len) &&
-		    !memcmp(ies + match_offset, match, match_len))
-			return ies;
-
-		len -= ies[1] + 2;
-		ies += ies[1] + 2;
+	for_each_element_id(elem, eid, ies, len) {
+		if (elem->datalen >= match_offset - 2 + match_len &&
+		    !memcmp(elem->data + match_offset - 2, match, match_len))
+			return (void *)elem;
 	}
 
 	return NULL;

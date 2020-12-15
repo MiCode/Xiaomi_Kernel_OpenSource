@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2015 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -78,6 +79,26 @@ const struct flashlight_device_id flashlight_id[] = {
 	/* {TYPE, CT, PART, "NAME", CHANNEL, DECOUPLE} */
 	{0, 0, 0, "flashlights-lm3642", 0, 0},
 };
+#elif defined(mt6768)
+#if defined(CONFIG_MTK_FLASHLIGHT_LED191)
+const struct flashlight_device_id flashlight_id[] = {
+	/* {TYPE, CT, PART, "NAME", CHANNEL, DECOUPLE} */
+	{0, 0, 0, "flashlights_led191", 0, 0},
+	{1, 0, 0, "flashlights_led191", 1, 0},
+};
+#else
+const struct flashlight_device_id flashlight_id[] = {
+	/* {TYPE, CT, PART, "NAME", CHANNEL, DECOUPLE} */
+	{0, 0, 0, "flashlights-none", -1, 0},
+	{0, 1, 0, "flashlights-none", -1, 0},
+	{1, 0, 0, "flashlights-none", -1, 0},
+	{1, 1, 0, "flashlights-none", -1, 0},
+	{0, 0, 1, "flashlights-none", -1, 0},
+	{0, 1, 1, "flashlights-none", -1, 0},
+	{1, 0, 1, "flashlights-none", -1, 0},
+	{1, 1, 1, "flashlights-none", -1, 0},
+};
+#endif
 #else
 const struct flashlight_device_id flashlight_id[] = {
 	/* {TYPE, CT, PART, "NAME", CHANNEL, DECOUPLE} */

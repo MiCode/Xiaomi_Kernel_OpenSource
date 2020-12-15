@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -22,6 +23,8 @@
 #include <linux/timer.h>
 #include <linux/wait.h>
 #include <linux/alarmtimer.h>
+#include <linux/kthread.h>
+#include <linux/power_supply.h>
 #include <mt-plat/charger_type.h>
 #include <mt-plat/mtk_charger.h>
 #include <mt-plat/mtk_battery.h>
@@ -87,6 +90,30 @@ do {								\
 #define CHG_BAT_LT_STATUS	(1 << 5)
 #define CHG_TYPEC_WD_STATUS	(1 << 6)
 
+/* HVDCP type */
+enum hvdcp_status{
+	HVDCP_NULL,
+	HVDCP,
+	HVDCP_3,
+};
+
+enum hvdcp3_type {
+	HVDCP3_NONE = 0,
+	HVDCP3_CLASSA_18W,
+	HVDCP3_CLASSB_27W,
+	USB_PD,
+	HVDCP2_TYPE,
+};
+
+/*wireless charger type*/
+enum wireless_chg_state {
+	WIRELESS_NULL = 0,
+	WIRELESS_SDP,
+	WIRELESS_CDP,
+	WIRELESS_CHG_CDP,
+	WIRELESS_CHG_DCP,
+	WIRELESS_CHG_HVDCP,
+};
 /* charger_algorithm notify charger_dev */
 enum {
 	EVENT_EOC,
@@ -123,6 +150,8 @@ struct sw_jeita_data {
 	int sm;
 	int pre_sm;
 	int cv;
+	int cc;
+	int pre_cv;
 	bool charging;
 	bool error_recovery_flag;
 };
@@ -168,6 +197,11 @@ struct charger_custom_data {
 	int max_dmivr_charger_current;
 
 	/* sw jeita */
+	int jeita_temp_t3_to_t4_cc;
+	int jeita_temp_t2_to_t3_cc;
+	int jeita_temp_t1_to_t2_cc;
+	int jeita_temp_t0_to_t1_cc;
+
 	int jeita_temp_above_t4_cv;
 	int jeita_temp_t3_to_t4_cv;
 	int jeita_temp_t2_to_t3_cv;
@@ -226,6 +260,8 @@ struct charger_custom_data {
 	u32 pe40_r_cable_3a_lower;
 
 	/* dual charger */
+	u32 chg1_ta_ac_charger_input_current;
+	u32 chg2_ta_ac_charger_input_current;
 	u32 chg1_ta_ac_charger_current;
 	u32 chg2_ta_ac_charger_current;
 	int slave_mivr_diff;
@@ -259,6 +295,7 @@ struct charger_custom_data {
 
 	int vsys_watt;
 	int ibus_err;
+	int set_cap_delay;
 };
 
 struct charger_data {
@@ -295,6 +332,10 @@ struct charger_manager {
 
 
 	enum charger_type chr_type;
+	enum hvdcp_status hvdcp_type;
+	enum wireless_chg_state wireless_status;
+	int hvdcp_check_count;
+
 	bool can_charging;
 	int cable_out_cnt;
 
@@ -315,6 +356,7 @@ struct charger_manager {
 
 	/* sw jeita */
 	bool enable_sw_jeita;
+	bool swjeita_enable_dual_charging;
 	struct sw_jeita_data sw_jeita;
 
 	/* dynamic_cv */
@@ -362,7 +404,12 @@ struct charger_manager {
 	struct mtk_pdc pdc;
 	bool disable_pd_dual;
 
+	/* Ra Rp detection */
+	bool ra_detected;
+	int	rp_lvl;
+
 	int pd_type;
+	//struct tcpc_device *tcpc;
 	bool pd_reset;
 
 	/* thread related */
@@ -384,13 +431,75 @@ struct charger_manager {
 	bool charger_thread_polling;
 
 	/* kpoc */
-	atomic_t enable_kpoc_shdn;
+	atomic_t  enable_kpoc_shdn;
 
 	/* ATM */
 	bool atm_enabled;
 
 	/* dynamic mivr */
 	bool enable_dynamic_mivr;
+
+	/* input suspend*/
+	bool is_input_suspend;
+
+	struct power_supply	*usb_psy;
+
+	/*delay work*/
+	struct delayed_work	pd_hard_reset_work;
+	/* plug in time*/
+	struct timespec plugintime;
+
+	/*thermal level*/
+	int system_temp_level;
+	int system_temp_level_max;
+};
+
+
+struct chg_type_info {
+	struct device *dev;
+	struct charger_consumer *chg_consumer;
+	struct tcpc_device *tcpc_dev;
+	struct notifier_block pd_nb;
+	struct notifier_block otg_nb;
+	bool tcpc_kpoc;
+	/* Charger Detection */
+	struct mutex chgdet_lock;
+	bool chgdet_en;
+	atomic_t chgdet_cnt;
+	wait_queue_head_t waitq;
+	struct kthread_work chgdet_task_threadfn;
+	struct task_struct *chgdet_task;
+	struct workqueue_struct *pwr_off_wq;
+	struct work_struct pwr_off_work;
+        struct workqueue_struct *chg_in_wq;
+        struct work_struct chg_in_work;
+	bool ignore_usb;
+	bool plugin;
+	int cc_orientation;
+	int typec_mode;
+};
+
+/* Power Supply */
+struct mt_charger {
+	struct device *dev;
+	struct power_supply_desc chg_desc;
+	struct power_supply_config chg_cfg;
+	struct power_supply *chg_psy;
+	struct power_supply_desc ac_desc;
+	struct power_supply_config ac_cfg;
+	struct power_supply *ac_psy;
+	struct power_supply_desc usb_desc;
+	struct power_supply_config usb_cfg;
+	struct power_supply *usb_psy;
+	struct power_supply_desc main_desc;
+	struct power_supply_config main_cfg;
+	struct power_supply *main_psy;
+	struct power_supply *parallel_psy;
+	struct chg_type_info *cti;
+	bool chg_online; /* Has charger in or not */
+	enum charger_type chg_type;
+	enum hvdcp_status	hvdcp_type;
+	struct charger_device *chg1_dev;
 };
 
 /* charger related module interface */

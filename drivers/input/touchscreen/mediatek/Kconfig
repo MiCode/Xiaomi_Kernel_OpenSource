@@ -155,4 +155,11 @@ config TOUCHSCREEN_MTK_FOCALTECH_FHD
 	  Say Y here if you have Focaltech touch panel.
 	  If unsure, say N.
 
+source "drivers/input/touchscreen/mediatek/NT36xxx_HOSTDL_SPI/Kconfig"
+source "drivers/input/touchscreen/mediatek/focaltech_touch/Kconfig"
+source "drivers/input/touchscreen/mediatek/xiaomi/Kconfig"
+
+
+source "drivers/input/touchscreen/mediatek/NT36672/Kconfig"
+source "drivers/input/touchscreen/mediatek/FT8719P/Kconfig"
 endif

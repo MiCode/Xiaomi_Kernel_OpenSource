@@ -8,7 +8,7 @@ config KEYBOARD_MTK
 
 config ONEKEY_REBOOT_NORMAL_MODE
 	bool "Long press reboot by Powerkey only on normal mode"
-	default n
+	default y
 	---help---
 	  Say Y here if you want to use one key reboot normal mode.
 

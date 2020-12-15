@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2019, MICROTRUST Incorporated
+ * Copyright (C) 2020 XiaoMi, Inc.
  * All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -82,5 +83,12 @@ int handle_new_capi_call(void *args);
 
 int tz_load_drv_by_str(const char *buf);
 int tz_load_ta_by_str(const char *buf);
+
+void teei_cpus_read_lock(void);
+void teei_cpus_read_unlock(void);
+void teei_cpus_write_lock(void);
+void teei_cpus_write_unlock(void);
+
+
 
 #endif /* __TEEI_CLIENT_MAIN_H__ */

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -49,6 +50,19 @@ void kpd_get_keymap_state(u16 state[])
 	kpd_print(KPD_SAY "register = %x %x %x %x %x\n",
 		state[0], state[1], state[2], state[3], state[4]);
 
+}
+
+void long_press_reboot(unsigned long long_press_is_reboot)
+{
+	if (long_press_is_reboot == 0) {
+		kpd_info("disable  LPRST\n");
+		pmic_set_register_value(PMIC_RG_PWRKEY_RST_EN, 0x00);
+		pmic_set_register_value(PMIC_RG_HOMEKEY_RST_EN, 0x00);
+	} else {
+		long_press_reboot_function_setting();
+	}
+
+	return;
 }
 
 /********************************************************************/

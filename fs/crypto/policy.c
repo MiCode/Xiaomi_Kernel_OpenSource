@@ -3,6 +3,7 @@
  * Encryption policy functions for per-file encryption support.
  *
  * Copyright (C) 2015, Google, Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  * Copyright (C) 2015, Motorola Mobility.
  *
  * Written by Michael Halcrow, 2015.
@@ -52,6 +53,10 @@ static int create_encryption_context_from_policy(struct inode *inode,
 		return -EINVAL;
 
 	if (policy->flags & ~FS_POLICY_FLAGS_VALID)
+		return -EINVAL;
+
+	if ((policy->flags & FS_POLICY_FLAG_IV_INO_LBLK_32) &&
+	    policy->contents_encryption_mode != FS_ENCRYPTION_MODE_PRIVATE)
 		return -EINVAL;
 
 	ctx.contents_encryption_mode =
@@ -226,7 +231,12 @@ int fscrypt_has_permitted_context(struct inode *parent, struct inode *child)
 			(parent_ci->ci_data_mode == child_ci->ci_data_mode) &&
 			(parent_ci->ci_filename_mode ==
 			 child_ci->ci_filename_mode) &&
-			(parent_ci->ci_flags == child_ci->ci_flags);
+			//(parent_ci->ci_flags == child_ci->ci_flags);
+		//MTK PATCH: f2fs+emmc hwmcdq new file use new iv.
+			((parent_ci->ci_flags &
+			  ~FS_POLICY_FLAG_IV_INO_LBLK_32) ==
+			 (child_ci->ci_flags &
+			  ~FS_POLICY_FLAG_IV_INO_LBLK_32));
 	}
 
 	res = cops->get_context(parent, &parent_ctx, sizeof(parent_ctx));
@@ -251,9 +261,23 @@ int fscrypt_has_permitted_context(struct inode *parent, struct inode *child)
 		 child_ctx.contents_encryption_mode) &&
 		(parent_ctx.filenames_encryption_mode ==
 		 child_ctx.filenames_encryption_mode) &&
-		(parent_ctx.flags == child_ctx.flags);
+		//(parent_ctx.flags == child_ctx.flags);
+		//MTK PATCH:
+		((parent_ctx.flags & ~FS_POLICY_FLAG_IV_INO_LBLK_32) ==
+		 (child_ctx.flags & ~FS_POLICY_FLAG_IV_INO_LBLK_32));
 }
 EXPORT_SYMBOL(fscrypt_has_permitted_context);
+
+#define BOOTDEV_SDMMC           (1)
+#define BOOTDEV_UFS             (2)
+bool fscrypt_force_iv_ino_lblk_32(void)
+{
+#ifdef CONFIG_MTK_EMMC_HW_CQ
+	return  get_boot_type() == BOOTDEV_SDMMC;
+#else
+	return	false;
+#endif
+}
 
 /**
  * fscrypt_inherit_context() - Sets a child context from its parent
@@ -283,6 +307,13 @@ int fscrypt_inherit_context(struct inode *parent, struct inode *child,
 	ctx.contents_encryption_mode = ci->ci_data_mode;
 	ctx.filenames_encryption_mode = ci->ci_filename_mode;
 	ctx.flags = ci->ci_flags;
+
+	//only for emmc device, add FS_POLICY_FLAG_IV_INO_LBLK_32
+	if (ctx.contents_encryption_mode == FS_ENCRYPTION_MODE_PRIVATE
+			&& fscrypt_force_iv_ino_lblk_32()) {
+		ctx.flags |= FS_POLICY_FLAG_IV_INO_LBLK_32;
+	}
+
 	memcpy(ctx.master_key_descriptor, ci->ci_master_key_descriptor,
 	       FS_KEY_DESCRIPTOR_SIZE);
 	get_random_bytes(ctx.nonce, FS_KEY_DERIVATION_NONCE_SIZE);
@@ -313,11 +344,12 @@ int fscrypt_set_bio_ctx(struct inode *inode, struct bio *bio)
 		bio->bi_crypt_ctx.bc_key_size = FS_AES_256_XTS_KEY_SIZE;
 		bio->bi_crypt_ctx.bc_ino = inode->i_ino;
 		bio->bi_crypt_ctx.bc_sb = inode->i_sb;
-
 		bio->bi_crypt_ctx.bc_info_act = &fscrypt_crypt_info_act;
 		bio->bi_crypt_ctx.bc_info =
 			fscrypt_crypt_info_act(
 			ci, BIO_BC_INFO_GET);
+		bio->bi_crypt_ctx.hashed_info = ci->ci_hashed_info;
+
 		WARN_ON(!bio->bi_crypt_ctx.bc_info);
 
 #ifdef CONFIG_HIE_DEBUG

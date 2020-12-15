@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2015 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -29,6 +30,7 @@ struct swtp_t {
 	unsigned int	retry_cnt;
 	spinlock_t		spinlock;
 	struct delayed_work delayed_work;
+    struct delayed_work delayed_work_swtp;
 };
 /*****************************************************************************/
 /* External API Region called by ccci_swtp object */

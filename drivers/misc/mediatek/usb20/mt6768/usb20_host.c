@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -40,12 +41,18 @@ static void do_register_otg_work(struct work_struct *data)
 {
 #define REGISTER_OTG_WORK_DELAY 500
 	static int ret;
+	//static int count;
 
 	if (!otg_tcpc_dev)
 		otg_tcpc_dev = tcpc_dev_get_by_name(TCPC_OTG_DEV_NAME);
 
 	if (!otg_tcpc_dev) {
 		DBG(0, "get type_c_port0 fail\n");
+		/*count++;
+		if (count > 15) {
+           DBG(0, "get type_c_port0 fail ---wwwzzzyyy count > 15\n");
+		   return;
+		}*/
 		queue_delayed_work(mtk_musb->st_wq, &register_otg_work,
 				msecs_to_jiffies(REGISTER_OTG_WORK_DELAY));
 		return;
@@ -182,6 +189,44 @@ static void _set_vbus(int is_on)
 	}
 }
 
+extern u32 id_usb;
+void kick_usb_vbus_sm(void)
+{
+	u16 vendorid, productid;
+	pr_err("func kick_usb_vbus_sm\n");
+	vendorid = id_usb >> 16;
+	productid = (u16)id_usb;
+	pr_err("func kick_usb_vbus_sm pid = %04x, vid = %04x\n", vendorid, productid);
+	if (((vendorid == 0x2717) || (vendorid == 0x12d1) || (vendorid == 0x0bda)) &&
+		((productid == 0x3801) || (productid == 0x3802) || (productid == 0x3803) ||
+		(productid == 0x3a07) || (productid == 0x492f))) {
+		pr_err("func kick_usb_vbus_sm vbus off and on\n");
+		_set_vbus(0);
+		mdelay(1000);
+		_set_vbus(1);
+	}
+}
+
+int vbus_force_on;
+static int set_vbus_force_on(const char *val, const struct kernel_param *kp)
+{
+	int option;
+	int rv;
+
+	rv = kstrtoint(val, 10, &option);
+	if (rv != 0)
+		return rv;
+
+	pr_err("test set vbus off and on\n");
+	kick_usb_vbus_sm();
+	return 0;
+}
+static struct kernel_param_ops vbus_force_on_param_ops = {
+		.set = set_vbus_force_on,
+		.get = param_get_int,
+};
+module_param_cb(vbus_force_on, &vbus_force_on_param_ops, &vbus_force_on, 0644);
+
 #ifdef CONFIG_MTK_USB_TYPEC
 #ifdef CONFIG_TCPC_CLASS
 static void do_vbus_work(struct work_struct *data)
@@ -311,20 +356,36 @@ static void issue_host_work(int ops, int delay, bool on_st)
 		schedule_delayed_work(&work->dwork,
 					msecs_to_jiffies(delay));
 }
+
+#ifdef CONFIG_MTK_REVERSE_CHG_ENABLE
+int is_otg = 0;
+extern int reverse_flage;
+extern void reverse_charger(bool en);
+#endif
+
 void mt_usb_host_connect(int delay)
 {
 	typec_req_host = true;
+#ifdef CONFIG_MTK_REVERSE_CHG_ENABLE
+	is_otg = 1;
+#endif
 	DBG(0, "%s\n", typec_req_host ? "connect" : "disconnect");
 	issue_host_work(CONNECTION_OPS_CONN, delay, true);
 }
 void mt_usb_host_disconnect(int delay)
 {
 	typec_req_host = false;
+#ifdef CONFIG_MTK_REVERSE_CHG_ENABLE
+	is_otg = 0;
+	if (reverse_flage != 1)
+		reverse_charger(false);
+#endif
 	DBG(0, "%s\n", typec_req_host ? "connect" : "disconnect");
 	issue_host_work(CONNECTION_OPS_DISC, delay, true);
 }
 #ifdef CONFIG_MTK_USB_TYPEC
 #ifdef CONFIG_TCPC_CLASS
+
 static int otg_tcp_notifier_call(struct notifier_block *nb,
 		unsigned long event, void *data)
 {

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -15,7 +16,7 @@
 #define __MTK_CHARGER_INIT_H__
 
 #define BATTERY_CV 4350000
-#define V_CHARGER_MAX 6500000 /* 6.5 V */
+#define V_CHARGER_MAX 15000000 /* 15 V */
 #define V_CHARGER_MIN 4600000 /* 4.6 V */
 
 #define USB_CHARGER_CURRENT_SUSPEND		0 /* def CONFIG_USB_IF */
@@ -74,6 +75,8 @@
 #define TA_STOP_BATTERY_SOC	85
 
 /* dual charger */
+#define TA_AC_MASTER_INPUT_CHARGING_CURRENT 1300000
+#define TA_AC_SLAVE__INPUT_CHARGING_CURRENT 1400000
 #define TA_AC_MASTER_CHARGING_CURRENT 1500000
 #define TA_AC_SLAVE_CHARGING_CURRENT 1500000
 #define SLAVE_MIVR_DIFF 100000
@@ -98,11 +101,11 @@
 #define DEFAULT_BC12_CHARGER 0 /* MAIN_CHARGER */
 
 /* battery warning */
-#define BATTERY_NOTIFY_CASE_0001_VCHARGER
+// #define BATTERY_NOTIFY_CASE_0001_VCHARGER
 #define BATTERY_NOTIFY_CASE_0002_VBATTEMP
 
 /* pe4 */
-#define PE40_MAX_VBUS 11000
+#define PE40_MAX_VBUS 9000
 #define PE40_MAX_IBUS 3000
 #define HIGH_TEMP_TO_LEAVE_PE40 46
 #define HIGH_TEMP_TO_ENTER_PE40 39
@@ -117,5 +120,14 @@
 
 #define VSYS_WATT 5000000
 #define IBUS_ERR 14
+#define SET_CAP_DELAY 0
 
+/* qc */
+#define HVDCP_CHECK_COUNT_MAX 2
+#define HVDCP2P0_VOLATGE 7000
+#define SINGLE_THERMAL_CHG_CURRENT 2500000
+#define HVDCP_INPUT_CURRENT_LIMIT 	1250000
+#define CHG1_INPUT_CURRENT_LIMIT_PE	1600000
+#define CHG2_INPUT_CURRENT_LIMIT_PE	2000000
+#define NON_STANDARD_HVDCP_ICL	1900000
 #endif /*__MTK_CHARGER_INIT_H__*/

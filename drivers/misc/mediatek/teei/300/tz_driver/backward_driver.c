@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2019, MICROTRUST Incorporated
+ * Copyright (C) 2020 XiaoMi, Inc.
  * All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -18,6 +19,7 @@
 #include <linux/semaphore.h>
 #include <linux/types.h>
 #include <linux/cpu.h>
+#include <linux/list.h>
 #include "nt_smc_call.h"
 #include "backward_driver.h"
 #include "teei_id.h"
@@ -37,17 +39,15 @@
 #define		GET_UPTIME	(1)
 #define		GET_SYSTIME	(0)
 
-struct bdrv_call_struct {
-	int bdrv_call_type;
-	struct service_handler *handler;
-	int retVal;
-};
-
 static long register_shared_param_buf(struct service_handler *handler);
 unsigned char *daulOS_VFS_share_mem;
 unsigned char *vfs_flush_address;
 struct service_handler reetime;
 struct service_handler vfs_handler;
+
+static struct list_head g_bdrv_task_link;
+static struct mutex bdrv_link_mutex;
+static struct completion teei_bdrv_comp;
 
 static long register_shared_param_buf(struct service_handler *handler)
 {
@@ -159,6 +159,10 @@ int vfs_thread_function(unsigned long virt_addr,
 {
 	int retVal = 0;
 
+	Invalidate_Dcache_By_Area((unsigned long)virt_addr,
+					virt_addr + VFS_SIZE);
+
+
 	daulOS_VFS_share_mem = (unsigned char *)virt_addr;
 
 	retVal = notify_vfs_handle();
@@ -241,6 +245,113 @@ int init_all_service_handlers(void)
 		IMSG_ERROR("[%s][%d] init vfs service failed!\n",
 					__func__, __LINE__);
 		return retVal;
+	}
+
+	return 0;
+}
+
+int init_bdrv_comp_fn(void)
+{
+	init_completion(&teei_bdrv_comp);
+
+	return 0;
+}
+
+int teei_add_to_bdrv_link(struct list_head *entry)
+{
+	mutex_lock(&bdrv_link_mutex);
+	list_add_tail(entry, &g_bdrv_task_link);
+	mutex_unlock(&bdrv_link_mutex);
+	return 0;
+}
+
+static struct bdrv_work_struct *teei_get_bdrv_from_link(void)
+{
+	struct bdrv_work_struct *entry = NULL;
+	int retVal = 0;
+
+	retVal = list_empty(&g_bdrv_task_link);
+	if (retVal == 1)
+		return NULL;
+
+	mutex_lock(&bdrv_link_mutex);
+	entry = list_first_entry(&g_bdrv_task_link,
+					struct bdrv_work_struct, c_link);
+	list_del(&(entry->c_link));
+	mutex_unlock(&bdrv_link_mutex);
+	return entry;
+}
+
+int teei_init_bdrv_link(void)
+{
+	mutex_init(&bdrv_link_mutex);
+	INIT_LIST_HEAD(&g_bdrv_task_link);
+
+	return 0;
+}
+
+static int handle_bdrv_call(struct bdrv_work_struct *entry)
+{
+	struct NQ_entry *NQ_entry_p = entry->param_p;
+
+	if (NQ_entry_p->sub_cmd_ID == reetime.sysno)
+		reetime.handle(NQ_entry_p);
+	else if (NQ_entry_p->sub_cmd_ID == vfs_handler.sysno)
+		vfs_handler.handle(NQ_entry_p);
+
+	kfree(NQ_entry_p);
+
+	return 0;
+}
+
+static int handle_bdrv_entry(struct bdrv_work_struct *entry)
+{
+	unsigned long long call_type = 0;
+	int retVal = 0;
+
+	call_type = entry->bdrv_work_type;
+
+	switch (call_type) {
+
+	case TEEI_BDRV_TYPE:
+		retVal = handle_bdrv_call(entry);
+		break;
+	default:
+		retVal = -EINVAL;
+		break;
+	}
+
+	kfree(entry);
+
+	return retVal;
+}
+
+void teei_notify_bdrv_fn(void)
+{
+	complete(&teei_bdrv_comp);
+}
+
+int teei_bdrv_fn(void *work)
+{
+	struct bdrv_work_struct *bdrv_entry = NULL;
+	int retVal = 0;
+
+	while (1) {
+		retVal = wait_for_completion_interruptible(&teei_bdrv_comp);
+		if (retVal != 0)
+			continue;
+
+		bdrv_entry = teei_get_bdrv_from_link();
+		if (bdrv_entry == NULL) {
+			IMSG_ERROR("TEEI: Can NOT get the bdrv entry!\n");
+			continue;
+		}
+
+		retVal = handle_bdrv_entry(bdrv_entry);
+		if (retVal != 0) {
+			IMSG_ERROR("TEEI: Failed to handle the bdrv entry\n");
+			return retVal;
+		}
 	}
 
 	return 0;

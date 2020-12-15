@@ -3,6 +3,7 @@
 // MediaTek ALSA SoC Audio DAI I2S Control
 //
 // Copyright (c) 2018 MediaTek Inc.
+// Copyright (C) 2020 XiaoMi, Inc.
 // Author: Michael Hsiao <michael.hsiao@mediatek.com>
 
 #include <linux/bitops.h>
@@ -62,6 +63,12 @@ static unsigned int get_i2s_wlen(snd_pcm_format_t format)
 #define MTK_AFE_I2S2_KCONTROL_NAME "I2S2_HD_Mux"
 #define MTK_AFE_I2S3_KCONTROL_NAME "I2S3_HD_Mux"
 
+#define MTK_I2S0_GPIO_KCONTROL_NAME "I2S0_GPIO"
+#define MTK_I2S1_GPIO_KCONTROL_NAME "I2S1_GPIO"
+#define MTK_I2S2_GPIO_KCONTROL_NAME "I2S2_GPIO"
+#define MTK_I2S3_GPIO_KCONTROL_NAME "I2S3_GPIO"
+
+
 #define I2S0_HD_EN_W_NAME "I2S0_HD_EN"
 #define I2S1_HD_EN_W_NAME "I2S1_HD_EN"
 #define I2S2_HD_EN_W_NAME "I2S2_HD_EN"
@@ -108,6 +115,17 @@ static const struct soc_enum mt6768_i2s_enum[] = {
 	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(mt6768_i2s_hd_str),
 			    mt6768_i2s_hd_str),
 };
+
+/* apll2 control */
+static const char * const mt6768_i2s_gpio_str[] = {
+	"Off", "On"
+};
+
+static const struct soc_enum mt6768_i2s_gpio_enum[] = {
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(mt6768_i2s_gpio_str),
+			    mt6768_i2s_gpio_str),
+};
+
 
 static int mt6768_i2s_hd_get(struct snd_kcontrol *kcontrol,
 			     struct snd_ctl_elem_value *ucontrol)
@@ -157,6 +175,36 @@ static int mt6768_i2s_hd_set(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+
+static int mt6768_i2s_gpio_get(struct snd_kcontrol *kcontrol,
+			     struct snd_ctl_elem_value *ucontrol)
+{
+
+	return 0;
+}
+
+static int mt6768_i2s_gpio_Set(struct snd_kcontrol *kcontrol,
+			     struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+	struct mtk_afe_i2s_priv *i2s_priv;
+	int I2S3_gpio_en;
+
+	I2S3_gpio_en = ucontrol->value.integer.value[0];
+
+	i2s_priv = get_i2s_priv_by_name(afe, kcontrol->id.name);
+	//TO-DO, currently only support I2S3 GPIO enable
+	if ((I2S3_gpio_en) && (i2s_priv->id == MT6768_DAI_I2S_3))
+		mt6768_afe_gpio_request(afe, true, i2s_priv->id, 0);
+
+	dev_info(afe->dev, "%s(), kcontrol name %s, gpio enable %d\n",
+		 __func__, kcontrol->id.name, I2S3_gpio_en);
+
+	return 0;
+}
+
+
 static const struct snd_kcontrol_new mtk_dai_i2s_controls[] = {
 	SOC_ENUM_EXT(MTK_AFE_I2S0_KCONTROL_NAME, mt6768_i2s_enum[0],
 		     mt6768_i2s_hd_get, mt6768_i2s_hd_set),
@@ -166,6 +214,14 @@ static const struct snd_kcontrol_new mtk_dai_i2s_controls[] = {
 		     mt6768_i2s_hd_get, mt6768_i2s_hd_set),
 	SOC_ENUM_EXT(MTK_AFE_I2S3_KCONTROL_NAME, mt6768_i2s_enum[0],
 		     mt6768_i2s_hd_get, mt6768_i2s_hd_set),
+	SOC_ENUM_EXT(MTK_I2S0_GPIO_KCONTROL_NAME, mt6768_i2s_gpio_enum[0],
+		     mt6768_i2s_gpio_get, mt6768_i2s_gpio_Set),
+	SOC_ENUM_EXT(MTK_I2S1_GPIO_KCONTROL_NAME, mt6768_i2s_gpio_enum[0],
+		     mt6768_i2s_gpio_get, mt6768_i2s_gpio_Set),
+	SOC_ENUM_EXT(MTK_I2S2_GPIO_KCONTROL_NAME, mt6768_i2s_gpio_enum[0],
+		     mt6768_i2s_gpio_get, mt6768_i2s_gpio_Set),
+	SOC_ENUM_EXT(MTK_I2S3_GPIO_KCONTROL_NAME, mt6768_i2s_gpio_enum[0],
+		     mt6768_i2s_gpio_get, mt6768_i2s_gpio_Set),
 };
 
 /* dai component */
@@ -275,7 +331,9 @@ static int mtk_i2s_en_event(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		mt6768_afe_gpio_request(afe, true, i2s_priv->id, 0);
+		//current bypass I2S3 GPIO enable when DAPM power up
+		if (i2s_priv->id != MT6768_DAI_I2S_3)
+			mt6768_afe_gpio_request(afe, true, i2s_priv->id, 0);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		mt6768_afe_gpio_request(afe, false, i2s_priv->id, 0);

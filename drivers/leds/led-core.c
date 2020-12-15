@@ -2,6 +2,7 @@
  * LED Class Core
  *
  * Copyright 2005-2006 Openedhand Ltd.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * Author: Richard Purdie <rpurdie@openedhand.com>
  *
@@ -25,12 +26,15 @@ EXPORT_SYMBOL_GPL(leds_list_lock);
 LIST_HEAD(leds_list);
 EXPORT_SYMBOL_GPL(leds_list);
 
+extern unsigned int thermal_current_brightness;
+
 static int __led_set_brightness(struct led_classdev *led_cdev,
 				enum led_brightness value)
 {
 	if (!led_cdev->brightness_set)
 		return -ENOTSUPP;
-
+	thermal_current_brightness = value;
+	printk("[%s]: --lyd_thmal, value = %d\n", __func__, value);
 	led_cdev->brightness_set(led_cdev, value);
 
 	return 0;

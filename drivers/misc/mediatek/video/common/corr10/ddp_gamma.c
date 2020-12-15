@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2015 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -929,7 +930,7 @@ static int disp_ccorr_set_coef
 		enum DISP_MODULE_ENUM module, void *cmdq)
 {
 	int ret = 0;
-	struct DISP_CCORR_COEF_T *ccorr, *old_ccorr;
+	struct DISP_CCORR_COEF_T *ccorr, *old_ccorr, *new_ccorr;
 	enum disp_ccorr_id_t id;
 
 	ccorr = kmalloc(sizeof(struct DISP_CCORR_COEF_T), GFP_KERNEL);
@@ -949,10 +950,13 @@ static int disp_ccorr_set_coef
 
 			old_ccorr = g_disp_ccorr_coef[id];
 			g_disp_ccorr_coef[id] = ccorr;
+			new_ccorr = g_disp_ccorr_coef[id];
 
 			CCORR_DBG("Set module(%d) coef", module);
-			ret = disp_ccorr_write_coef_reg(cmdq, module, id, 0);
-
+			if ((old_ccorr == NULL) || (new_ccorr == NULL)
+				|| memcmp(old_ccorr, new_ccorr, sizeof(struct DISP_CCORR_COEF_T))) {
+				ret = disp_ccorr_write_coef_reg(cmdq, module, id, 0);
+			}
 			mutex_unlock(&g_gamma_global_lock);
 
 			if (old_ccorr != NULL)

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2019, MICROTRUST Incorporated
+ * Copyright (C) 2020 XiaoMi, Inc.
  * All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -101,6 +102,9 @@
 #define N_ADD_TRIGGER_IRQ_COUNT		\
 		MAKE_SMC_CALL_ID(ID_FIELD_F_FAST_SMC_CALL, \
 		ID_FIELD_W_32, ID_FIELD_T_TRUSTED_OS_SERVICE2, 12)
+#define N_SET_GIC_GROUP		\
+		MAKE_SMC_CALL_ID(ID_FIELD_F_FAST_SMC_CALL, \
+		ID_FIELD_W_32, ID_FIELD_T_TRUSTED_OS_SERVICE2, 20)
 
 /*For non-secure side Standard Call*/
 #define NT_SCHED_T		\

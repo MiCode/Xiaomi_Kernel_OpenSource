@@ -297,3 +297,30 @@ config MTK_LENS_WV511AAF_SUPPORT
 	  This config is used to enable the corresponding
 	  lens driver for the camera sensor module
 	  Set as y if the driver is used in this project
+
+config MTK_LENS_CN3927AF_SUPPORT
+	bool "CN3927 Lens Driver"
+	default n
+	help
+	  CN3927 Lens Driver
+	  This config is used to enable the corresponding
+	  lens driver for the camera sensor module
+	  Set as y if the driver is used in this project
+
+config MTK_LENS_DW9714VAF_SUPPORT
+	bool "DW9714 Lens Driver"
+	default n
+	help
+	  DW9714 Lens Driver
+	  This config is used to enable the corresponding
+	  lens driver for the camera sensor module
+	  Set as y if the driver is used in this project
+
+config MTK_LENS_CN3927AF_J19_SUPPORT
+	bool "CN3927 Lens Driver"
+	default n
+	help
+	  CN3927 Lens Driver
+	  This config is used to enable the corresponding
+	  lens driver for the camera sensor module
+	  Set as y if the driver is used in this project

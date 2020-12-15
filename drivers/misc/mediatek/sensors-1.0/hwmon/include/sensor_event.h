@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -24,6 +25,8 @@ enum flushAction {
 	FLUSH_ACTION,
 	BIAS_ACTION,
 	CALI_ACTION,
+	CALI_0LUX_ACTION,
+	CALI_SEC_ACTION,
 	TEMP_ACTION,
 	TEST_ACTION,
 };

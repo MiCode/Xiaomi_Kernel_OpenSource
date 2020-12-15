@@ -1301,7 +1301,14 @@ void hidinput_hid_event(struct hid_device *hid, struct hid_field *field, struct 
 	    (!test_bit(usage->code, input->key)) == value)
 		input_event(input, EV_MSC, MSC_SCAN, usage->hid);
 
-	input_event(input, usage->type, usage->code, value);
+	if ((usage->code != KEY_VOLUMEDOWN) && (usage->code != KEY_VOLUMEUP)) {
+	    input_event(input, usage->type, usage->code, value);
+	} else {
+	    __set_bit(EV_KEY, input->evbit);
+	    __set_bit(BTN_1, input->keybit);
+	    __set_bit(BTN_2, input->keybit);
+	    input_event(input, usage->type, (usage->code == KEY_VOLUMEDOWN) ? BTN_2 : BTN_1, value);
+	}
 
 	if ((field->flags & HID_MAIN_ITEM_RELATIVE) &&
 	    usage->type == EV_KEY && value) {

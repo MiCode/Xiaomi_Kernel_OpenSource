@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2015 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -4868,6 +4869,16 @@ int primary_display_suspend(void)
 	if (disp_helper_get_option(DISP_OPT_MET_LOG))
 		set_enterulps(1);
 
+	if (primary_display_get_power_mode_nolock() == FB_SUSPEND) {
+		DISPCHECK("[POWER]lcm suspend power[begin]\n");
+		if (pgc->plcm->drv->suspend_power) {
+			pgc->plcm->drv->suspend_power();
+		} else {
+			DISPERR("FATAL ERROR, lcm_drv->suspend is null\n");
+		}
+		DISPCHECK("[POWER]lcm suspend power[end]\n");
+	}
+
 #ifdef MTK_FB_MMDVFS_SUPPORT
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_pm_qos,
 			MMPROFILE_FLAG_START,
@@ -8829,42 +8840,41 @@ unsigned int primary_display_get_option(const char *option)
 
 int primary_display_lcm_ATA(void)
 {
-	enum DISP_STATUS ret = DISP_STATUS_OK;
+	struct ddp_lcm_read_cmd_table read_table;
+	int recv_data_cnt;
+	char read_buffer[16];
 
-	DISPFUNC();
-	_primary_path_switch_dst_lock();
-	primary_display_esd_check_enable(0);
-	_primary_path_lock(__func__);
-	disp_irq_esd_cust_bycmdq(0);
-	if (pgc->state == 0) {
-		DISPCHECK(
-			"ATA_LCM, primary display path is already sleep, skip\n");
-		goto done;
+	memset(&read_table, 0, sizeof(struct ddp_lcm_read_cmd_table));
+	read_table.cmd[0] = 0x0A;
+	do_lcm_vdo_lp_read(&read_table);
+
+	DISPINFO("after b0 %x, b1 %x, b2 %x, b3 = %x\n", read_table.data[0].byte0,
+		read_table.data[0].byte1, read_table.data[0].byte2, read_table.data[0].byte3);
+
+	if (read_table.data[0].byte0 == 0x1C || read_table.data[0].byte0 == 0x1A) {
+		recv_data_cnt = read_table.data[0].byte1 + read_table.data[0].byte2 * 16;
+		if (recv_data_cnt <= 4) {
+			memcpy((void *)read_buffer, (void *)(&read_table.data[1]), recv_data_cnt);
+		}
+	} else if (read_table.data[0].byte0 == 0x11 || read_table.data[0].byte0 == 0x12 ||
+			read_table.data[0].byte0 == 0x21 || read_table.data[0].byte0 == 0x22) {
+		if (read_table.data[0].byte0 == 0x11 || read_table.data[0].byte0 == 0x21)
+			recv_data_cnt = 1;
+		else
+			recv_data_cnt = 2;
+		memcpy((void *)read_buffer, (void *)(&read_table.data[0].byte1), recv_data_cnt);
+	} else if (read_table.data[0].byte0 == 0x02) {
+		DISPCHECK("read return type is 0x02, re-read\n");
+	} else {
+		DISPCHECK("read return type is non-recognite: 0x%x\n", read_table.data[0].byte0);
 	}
 
-	DISPCHECK("dxs [ATA_LCM]primary display path stop[begin]\n");
-	if (primary_display_is_video_mode())
-		dpmgr_path_ioctl(pgc->dpmgr_handle, NULL,
-			DDP_STOP_VIDEO_MODE, NULL);
-
-	DISPCHECK("[ATA_LCM]primary display path stop[end]\n");
-	ret = disp_lcm_ATA(pgc->plcm);
-	dpmgr_path_start(pgc->dpmgr_handle, CMDQ_DISABLE);
-	if (primary_display_is_video_mode()) {
-		/*
-		 * for video mode, we need to force trigger here
-		 * for cmd mode, just set DPREC_EVENT_CMDQ_SET_EVENT_ALLOW when
-		 * trigger loop start
-		 */
-		dpmgr_path_trigger(pgc->dpmgr_handle, NULL, CMDQ_DISABLE);
+	if (read_buffer[0] == 0x9C) {
+		DISPINFO("[LCM ATA Check] [0x0A]=0x%02x\n", read_buffer[0]);
+		printk("[LCM ATA Check] [0x0A]=0x%02x\n", read_buffer[0]);
+		return 1;
 	}
-
-done:
-	disp_irq_esd_cust_bycmdq(1);
-	_primary_path_unlock(__func__);
-	primary_display_esd_check_enable(1);
-	_primary_path_switch_dst_unlock();
-	return ret;
+	return 0;
 }
 
 static int Panel_Master_primary_display_config_dsi(const char *name,

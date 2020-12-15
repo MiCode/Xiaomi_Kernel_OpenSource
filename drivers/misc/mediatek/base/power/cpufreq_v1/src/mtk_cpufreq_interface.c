@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -675,6 +676,16 @@ static ssize_t cpufreq_imax_thermal_protect_proc_write(struct file *file,
 
 #endif
 
+unsigned long cpufreq_max_freq;
+static int cpumaxfreq_proc_show(struct seq_file *m, void *v)
+{
+	unsigned long freq = 0;
+	/* freq (kHz) */
+	freq = cpufreq_max_freq / 1000;
+	seq_printf(m, "%lu.%02lu", freq / 1000, freq % 100);
+	return 0;
+}
+
 PROC_FOPS_RW(cpufreq_debug);
 PROC_FOPS_RW(cpufreq_stress_test);
 PROC_FOPS_RW(cpufreq_power_mode);
@@ -694,6 +705,8 @@ PROC_FOPS_RW(cpufreq_oppidx);
 PROC_FOPS_RW(cpufreq_freq);
 PROC_FOPS_RW(cpufreq_volt);
 PROC_FOPS_RW(cpufreq_turbo_mode);
+
+PROC_FOPS_RO(cpumaxfreq);
 
 int cpufreq_procfs_init(void)
 {
@@ -732,6 +745,8 @@ int cpufreq_procfs_init(void)
 		PROC_ENTRY(cpufreq_turbo_mode),
 	};
 
+	const struct pentry cpumaxfreq_entry = PROC_ENTRY(cpumaxfreq);
+
 	dir = proc_mkdir("cpufreq", NULL);
 
 	if (!dir) {
@@ -746,6 +761,13 @@ int cpufreq_procfs_init(void)
 			tag_pr_notice("%s(), create /proc/cpufreq/%s failed\n",
 				__func__, entries[i].name);
 	}
+
+	if (!proc_create("cpumaxfreq", 0444, NULL, cpumaxfreq_entry.fops))
+		tag_pr_notice("%s(), create /proc/%s failed\n",
+				__func__, cpumaxfreq_entry.name);
+	else
+		tag_pr_notice("%s(), create /proc/%s success\n",
+				__func__, cpumaxfreq_entry.name);
 
 	for_each_cpu_dvfs(j, p) {
 		cpu_dir = proc_mkdir(p->name, dir);

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2018 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -498,9 +499,10 @@
 			regulator-enable-ramp-delay = <60>;
 		};
 		mt_pmic_vldo28_ldo_reg: ldo_vldo28 {
+		         compatible = "regulator-fixed";
 			regulator-name = "vldo28";
 			regulator-min-microvolt = <2800000>;
-			regulator-max-microvolt = <3000000>;
+			regulator-max-microvolt = <2800000>;
 			regulator-enable-ramp-delay = <270>;
 		};
 		mt_pmic_vaud28_ldo_reg: ldo_vaud28 {

@@ -1,5 +1,6 @@
 /*
 * Copyright (c) 2016 MediaTek Inc.
+* Copyright (C) 2020 XiaoMi, Inc.
 * Author: PC Chen <pc.chen@mediatek.com>
 *         Tiffany Lin <tiffany.lin@mediatek.com>
 *
@@ -1228,6 +1229,11 @@ static int vidioc_venc_qbuf(struct file *file, void *priv,
 
 	// Check if need to proceed cache operations
 	vq = v4l2_m2m_get_vq(ctx->m2m_ctx, buf->type);
+	if (buf->index >= vq->num_buffers) {
+		mtk_v4l2_err("[%d] buffer index %d out of range %d",
+			ctx->id, buf->index, vq->num_buffers);
+		return -EINVAL;
+	}
 	vb = vq->bufs[buf->index];
 	vb2_v4l2 = container_of(vb, struct vb2_v4l2_buffer, vb2_buf);
 	mtkbuf = container_of(vb2_v4l2, struct mtk_video_enc_buf, vb);

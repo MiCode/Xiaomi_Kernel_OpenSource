@@ -36,6 +36,13 @@ config MTK_MUSB_DRV_36BIT
 	  Say Y here if you want to enable 36-bits addressing support.
 	  If unsure, say N.
 
+config MTK_REVERSE_CHG_ENABLE
+	bool "MTK_REVERSE_CHG_ENABLE"
+	prompt "reverse support"
+	default n
+	help
+	  reverse charger enable if Y . IF unuser Say N.
+
 config USB_MTK_OTG
 	bool "MediaTek MUSB OTG support"
 	help

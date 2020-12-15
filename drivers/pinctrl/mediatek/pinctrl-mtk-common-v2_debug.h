@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2018 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  * Author: Light Hsieh <light.hsieh@mediatek.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -16,5 +17,6 @@
 #define __PINCTRL_MTK_COMMON_V2_DEBUG_H
 
 int gpio_get_tristate_input(unsigned int pin);
+int gpio_get_cam_tristate_input(unsigned int pin);
 
 #endif /* __PINCTRL_MTK_COMMON_V2_DEBUG_H */

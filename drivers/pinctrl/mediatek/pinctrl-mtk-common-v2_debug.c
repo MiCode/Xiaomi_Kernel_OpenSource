@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2018 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -102,6 +103,35 @@ int gpio_get_tristate_input(unsigned int pin)
 	/* restore pullsel */
 	mtk_pinconf_bias_set_combo(hw, desc, pullup, pullen);
 
+	return ret;
+}
+
+int gpio_get_cam_tristate_input(unsigned int pin)
+{
+	struct gpio_device *gdev;
+	struct gpio_chip *chip = NULL;
+	struct mtk_pinctrl *hw = NULL;
+	int ret;
+	unsigned long flags;
+
+	spin_lock_irqsave(&gpio_lock, flags);
+	list_for_each_entry(gdev, &gpio_devices, list) {
+
+		chip = gdev->chip;
+
+		hw = gpiochip_get_data(chip);
+
+		break;
+	}
+
+	spin_unlock_irqrestore(&gpio_lock, flags);
+
+	if (!hw || !hw->soc) {
+		pr_notice("invalid gpio chip\n");
+		return -EINVAL;
+	}
+
+	ret = mtk_pctrl_get_in(hw, pin);
 	return ret;
 }
 

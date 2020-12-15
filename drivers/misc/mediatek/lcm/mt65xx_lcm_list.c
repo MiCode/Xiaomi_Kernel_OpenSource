@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2015 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -28,6 +29,30 @@ enum LCM_DSI_MODE_CON lcm_dsi_mode;
 #define LCD_HW_ID_STATUS_ERROR  0x03
 
 struct LCM_DRIVER *lcm_driver_list[] = {
+#if defined(FT8719_FHDP_DSI_VDO_HUAXING_J19)
+	&ft8719_fhdp_dsi_vdo_huaxing_j19_lcm_drv,
+#endif
+#if defined(NT36672A_FHDP_DSI_VDO_TIANMA_J19)
+	&nt36672A_fhdp_dsi_vdo_tianma_j19_lcm_drv,
+#endif
+#if defined(NT36672A_FHDP_DSI_VDO_DIJING_J19)
+	&nt36672A_fhdp_dsi_vdo_dijing_j19_lcm_drv,
+#endif
+#if defined(NT36672D_FHDP_DSI_VDO_DIJING_J19)
+	&nt36672D_fhdp_dsi_vdo_dijing_j19_lcm_drv,
+#endif
+#if defined(NT36672A_FHDP_DSI_VDO_TIANMA_G6)
+	&nt36672A_fhdp_dsi_vdo_tianma_lcm_drv_G6,
+#endif
+#if defined(FT8719_FHDP_DSI_VDO_XINLI)
+	&ft8719_fhdp_dsi_vdo_xinli_lcm_drv,
+#endif
+#if defined(NT36672A_FHDP_DSI_VDO_TIANMA)
+	&nt36672A_fhdp_dsi_vdo_tianma_lcm_drv,
+#endif
+#if defined(NT36672D_FHDP_DSI_VDO_TIANMA)
+    &nt36672D_fhdp_dsi_vdo_tianma_lcm_drv,
+#endif
 #if defined(ES6311_ANX6585_ZIGZAG_WXGA)
 	&es6311_anx6585_zigzag_wxga_lcm_drv,
 #endif

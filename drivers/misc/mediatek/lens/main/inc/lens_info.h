@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2015 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -40,6 +41,7 @@
 #define AFDRV_BU6429AF "BU6429AF"
 #define AFDRV_BU64748AF "BU64748AF"
 #define AFDRV_BU64745GWZAF "BU64745GWZAF"
+#define AFDRV_DW9800WAF "DW9800WAF"
 #define AFDRV_DW9714A "DW9714A"
 #define AFDRV_DW9714AF "DW9714AF"
 #define AFDRV_DW9718AF "DW9718AF"
@@ -65,6 +67,7 @@
 #define AFDRV_MT9P017AF "MT9P017AF"
 #define AFDRV_OV8825AF "OV8825AF"
 #define AFDRV_WV511AAF "WV511AAF"
+#define AFDRV_CN3927AFJ19 "CN3927AFJ19"
 
 /* Structures */
 struct stAF_MotorInfo {

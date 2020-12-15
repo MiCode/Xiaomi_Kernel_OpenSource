@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2015 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -198,6 +199,313 @@ static int _parse_tag_videolfb(void);
 static void mtkfb_late_resume(void);
 static void mtkfb_early_suspend(void);
 
+/* begin modify for unlock speed */
+#define WAIT_RESUME_TIMEOUT 200
+#define WAIT_SUSPEND_TIMEOUT 1500
+struct fb_info *prim_fbi;
+static struct delayed_work prim_panel_work;
+static atomic_t prim_panel_is_on;
+//static struct wake_lock prim_panel_wakelock;
+static void prim_panel_off_delayed_work(struct work_struct *work)
+{
+#ifdef CONFIG_FRAMEBUFFER_CONSOLE
+	console_lock();
+#endif
+	if (!lock_fb_info(prim_fbi)) {
+#ifdef CONFIG_FRAMEBUFFER_CONSOLE
+		console_unlock();
+#endif
+		return;
+	}
+	printk("linson prim_panel_off_delayed_work close FB\n");
+	if (atomic_read(&prim_panel_is_on)) {
+		printk("linson2 prim_panel_is_on = %d \n", atomic_read(&prim_panel_is_on));
+		fb_blank(prim_fbi, FB_BLANK_POWERDOWN);
+		atomic_set(&prim_panel_is_on, false);
+	//wake_unlock(&prim_panel_wakelock);
+	}
+
+	unlock_fb_info(prim_fbi);
+#ifdef CONFIG_FRAMEBUFFER_CONSOLE
+	console_unlock();
+#endif
+}
+
+ /*
+ * mdss_prim_panel_fb_unblank() - Unblank primary panel FB
+ * @timeout : >0 blank primary panel FB after timeout (ms)
+ */
+int mdss_prim_panel_fb_unblank(int timeout)
+{
+	int ret = 0;
+	struct mtkfb_device *mfd = NULL;
+
+	printk("SXF Enter %s\n", __func__);
+	if (prim_fbi) {
+		mfd = (struct mtkfb_device *)prim_fbi->par;
+		ret = wait_event_timeout(mfd->resume_wait_q,
+				!atomic_read(&mfd->resume_pending),
+				msecs_to_jiffies(WAIT_RESUME_TIMEOUT));
+		if (!ret) {
+			printk("Primary fb resume timeout\n");
+			return -ETIMEDOUT;
+		}
+#ifdef CONFIG_FRAMEBUFFER_CONSOLE
+		console_lock();
+#endif
+		if (!lock_fb_info(prim_fbi)) {
+#ifdef CONFIG_FRAMEBUFFER_CONSOLE
+			console_unlock();
+#endif
+			printk("SXF  !lock_fb_info(prim_fbi) %s_%d\n", __func__,
+					__LINE__);
+			return -ENODEV;
+		}
+		if (prim_fbi->blank == FB_BLANK_UNBLANK) {
+			unlock_fb_info(prim_fbi);
+#ifdef CONFIG_FRAMEBUFFER_CONSOLE
+			console_unlock();
+#endif
+			printk("SXF  %s_%d\n", __func__, __LINE__);
+			return 0;
+		}
+		//wake_lock(&prim_panel_wakelock);
+		ret = fb_blank(prim_fbi, FB_BLANK_UNBLANK);
+		printk("SXF fb_blank(prim_fbi, FB_BLANK_UNBLANK) %s , ret  = %d\n",
+				__func__, ret);
+		if (!ret) {
+			atomic_set(&prim_panel_is_on, true);
+			if (timeout > 0) {
+					printk("SXF %s ,timeout  = %d\n", __func__, timeout);
+					schedule_delayed_work(&prim_panel_work, msecs_to_jiffies(timeout));
+			}	else
+					schedule_delayed_work(&prim_panel_work, msecs_to_jiffies(WAIT_SUSPEND_TIMEOUT));
+
+		}
+
+		unlock_fb_info(prim_fbi);
+#ifdef CONFIG_FRAMEBUFFER_CONSOLE
+		console_unlock();
+#endif
+		printk("SXF Exit %s\n", __func__);
+		return ret;
+	}
+
+	pr_err("primary panel is not existed\n");
+	return -EINVAL;
+}
+
+static int mdss_fb_pm_prepare(struct device *dev)
+{
+	struct mtkfb_device *mfd = dev_get_drvdata(dev);
+
+	if (!mfd)
+		return -ENODEV;
+	atomic_inc(&mfd->resume_pending);
+	return 0;
+}
+
+static void mdss_fb_pm_complete(struct device *dev)
+{
+	struct mtkfb_device *mfd = dev_get_drvdata(dev);
+
+	if (!mfd)
+		return;
+
+	atomic_set(&mfd->resume_pending, 0);
+	wake_up_all(&mfd->resume_wait_q);
+	return;
+}
+/* end modify for unlock speed */
+
+struct fb_lcd_merlin_para lcd_merlin_para = {0};
+bool set_white_point_x = true;
+
+unsigned int hbm_mode;
+#ifdef CONFIG_LM3697_SUPPORT
+extern int ktd_hbm_set(enum backlight_hbm_mode hbm_mode);
+extern int ti_hbm_set(enum backlight_hbm_mode hbm_mode);
+
+/* white_point info from lk */
+static int __init mtkfb_get_white_point(char *p)
+{
+	char wpoint[10];
+
+	strlcpy(wpoint, p, sizeof(wpoint));
+
+	printk("[%s]: white_point = %s\n", __func__, wpoint);
+
+	lcd_merlin_para.white_point_x = (wpoint[0]-'0') * 100
+		+ (wpoint[1]-'0') * 10 + (wpoint[2]-'0');
+
+	lcd_merlin_para.white_point_y = (wpoint[3]-'0') * 100
+		+ (wpoint[4]-'0') * 10 + (wpoint[5]-'0');
+
+	return 0;
+}
+
+early_param("ro.boot.lcm_white_point", mtkfb_get_white_point);
+
+static int mtkfb_set_rgb_point_init(void)
+{
+	if (strncmp(mtkfb_lcm_name, "nt36672A_fhdp_dsi_vdo_tianma_lcm_drv", 36) == 0) {
+		lcd_merlin_para.white_point_r = 656335;
+		lcd_merlin_para.white_point_g = 299652;
+		lcd_merlin_para.white_point_b = 154054;
+		return 0;
+	} else if (strncmp(mtkfb_lcm_name, "ft8719_fhdp_dsi_vdo_xinli_lcm_drv", 33) == 0) {
+		lcd_merlin_para.white_point_r = 657335;
+		lcd_merlin_para.white_point_g = 297657;
+		lcd_merlin_para.white_point_b = 155044;
+		return 0;
+	} else if (strncmp(mtkfb_lcm_name, "nt36672A_fhdp_dsi_vdo_tianma_j19_lcm_drv", 40) == 0) {
+		lcd_merlin_para.white_point_r = 630345;
+		lcd_merlin_para.white_point_g = 319603;
+		lcd_merlin_para.white_point_b = 151053;
+		return 0;
+	} else if (strncmp(mtkfb_lcm_name, "ft8719_fhdp_dsi_vdo_huaxing_j19_lcm_drv", 39) == 0) {
+		lcd_merlin_para.white_point_r = 644335;
+		lcd_merlin_para.white_point_g = 306613;
+		lcd_merlin_para.white_point_b = 154062;
+		return 0;
+	} else {
+		return -1;
+	}
+}
+
+static ssize_t mtkfb_get_hbm(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	int ret;
+
+	ret = snprintf(buf, 128, "hbm_mode:%d\n", hbm_mode);
+
+	return ret;
+}
+
+static ssize_t mtkfb_set_hbm(struct device *dev, struct device_attribute *attr, const char *buf, size_t len)
+{
+	extern char *saved_command_line;
+	int bkl_id = 0;
+	char *bkl_ptr = (char *)strnstr(saved_command_line, ":bklic=", strlen(saved_command_line));
+	bkl_ptr += strlen(":bklic=");
+	bkl_id = simple_strtol(bkl_ptr, NULL, 10);
+
+	sscanf(buf, "%d", &hbm_mode);
+
+	if (hbm_mode >= HBM_MODE_LEVEL_MAX)
+		hbm_mode = HBM_MODE_LEVEL_MAX -1;
+	if (hbm_mode < HBM_MODE_DEFAULT)
+		hbm_mode = HBM_MODE_DEFAULT;
+
+	if (bkl_id == 1) {
+		ti_hbm_set((enum backlight_hbm_mode)hbm_mode);
+		printk("[%s]: Ti, set hbm_mode = %d\n", __func__, hbm_mode);
+	} else {
+		ktd_hbm_set((enum backlight_hbm_mode)hbm_mode);
+		printk("[%s]: ktd, set hbm_mode = %d\n", __func__, hbm_mode);
+	}
+	return len;
+}
+
+static ssize_t mtkfb_get_wpoint(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	int ret;
+	ret = scnprintf(buf, PAGE_SIZE, "%3d%3d\n",
+			lcd_merlin_para.white_point_x, lcd_merlin_para.white_point_y);
+	return ret;
+}
+
+static ssize_t mtkfb_set_wpoint(struct device *dev, struct device_attribute *attr, const char *buf, size_t len)
+{
+	if (set_white_point_x) {
+		sscanf(buf, "%3d", &lcd_merlin_para.white_point_x);
+		set_white_point_x = false;
+	} else {
+		sscanf(buf, "%3d", &lcd_merlin_para.white_point_y);
+		set_white_point_x = true;
+	}
+		return len;
+}
+
+static ssize_t mtkfb_get_rpoint(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	int ret;
+	ret = scnprintf(buf, PAGE_SIZE, "%6d\n",
+			lcd_merlin_para.white_point_r);
+	return ret;
+}
+
+static ssize_t mtkfb_set_rpoint(struct device *dev, struct device_attribute *attr, const char *buf, size_t len)
+{
+	sscanf(buf, "%6d", &lcd_merlin_para.white_point_r);
+	return len;
+}
+
+static ssize_t mtkfb_get_gpoint(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	int ret;
+	ret = scnprintf(buf, PAGE_SIZE, "%6d\n",
+			lcd_merlin_para.white_point_g);
+	return ret;
+}
+
+static ssize_t mtkfb_set_gpoint(struct device *dev, struct device_attribute *attr, const char *buf, size_t len)
+{
+	sscanf(buf, "%6d", &lcd_merlin_para.white_point_g);
+	return len;
+}
+
+static ssize_t mtkfb_get_bpoint(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	int ret;
+	ret = scnprintf(buf, PAGE_SIZE, "%6d\n",
+			lcd_merlin_para.white_point_b);
+	return ret;
+}
+
+static ssize_t mtkfb_set_bpoint(struct device *dev, struct device_attribute *attr, const char *buf, size_t len)
+{
+	sscanf(buf, "%6d", &lcd_merlin_para.white_point_b);
+	return len;
+}
+
+static ssize_t mtkfb_get_panel_info(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	int ret;
+
+	if (strncmp(mtkfb_lcm_name, "nt36672A_fhdp_dsi_vdo_tianma_lcm_drv", 36) == 0) {
+		ret = sprintf(buf, "incell,vendor:tianma,IC:nt36672a(novatek)\n");
+	} else if (strncmp(mtkfb_lcm_name, "ft8719_fhdp_dsi_vdo_xinli_lcm_drv", 33) == 0) {
+		ret = sprintf(buf, "incell,vendor:truly,IC:ft8719(focaltech)\n");
+	} else if (strncmp(mtkfb_lcm_name, "nt36672A_fhdp_dsi_vdo_tianma_j19_lcm_drv", 40) == 0) {
+		ret = sprintf(buf, "incell,vendor:tianma,IC:nt36672(novatek)\n");
+	} else if (strncmp(mtkfb_lcm_name, "ft8719_fhdp_dsi_vdo_huaxing_j19_lcm_drv", 39) == 0) {
+		ret = sprintf(buf, "incell,vendor:huaxing,IC:ft8719(focaltech)\n");
+	}
+	return ret;
+}
+
+static DEVICE_ATTR(mtk_fb_hbm, 0644, mtkfb_get_hbm, mtkfb_set_hbm);
+static DEVICE_ATTR(mtkfb_dispwpoint, 0644, mtkfb_get_wpoint, mtkfb_set_wpoint);
+static DEVICE_ATTR(mtkfb_disprpoint, 0644, mtkfb_get_rpoint, mtkfb_set_rpoint);
+static DEVICE_ATTR(mtkfb_dispgpoint, 0644, mtkfb_get_gpoint, mtkfb_set_gpoint);
+static DEVICE_ATTR(mtkfb_dispbpoint, 0644, mtkfb_get_bpoint, mtkfb_set_bpoint);
+static DEVICE_ATTR(panel_info, 0644, mtkfb_get_panel_info, NULL);
+
+static struct attribute *mtk_fb_attrs[] = {
+	&dev_attr_mtk_fb_hbm.attr,
+	&dev_attr_mtkfb_dispwpoint.attr,
+	&dev_attr_mtkfb_disprpoint.attr,
+	&dev_attr_mtkfb_dispgpoint.attr,
+	&dev_attr_mtkfb_dispbpoint.attr,
+	&dev_attr_panel_info.attr,
+	NULL,
+};
+
+static struct attribute_group mtk_fb_attr_group = {
+	.attrs = mtk_fb_attrs,
+};
+#endif
 
 void mtkfb_log_enable(int enable)
 {
@@ -268,6 +576,19 @@ static int mtkfb1_blank(int blank_mode, struct fb_info *info)
 static int mtkfb_blank(int blank_mode, struct fb_info *info)
 {
 	enum mtkfb_power_mode prev_pm = primary_display_get_power_mode();
+
+	/* begin modify for unlock speed */
+	printk("SXF Enter %s_ %d blank_mode =%d , prim_panel_is_on =%d \n", __func__, __LINE__,
+				blank_mode, atomic_read(&prim_panel_is_on));
+	if ((info == prim_fbi) && (blank_mode == FB_BLANK_UNBLANK /*|| blank_mode ==FB_BLANK_NORMAL*/)
+				&& atomic_read(&prim_panel_is_on)) {
+		atomic_set(&prim_panel_is_on, false);
+		//wake_unlock(&prim_panel_wakelock);
+		cancel_delayed_work(&prim_panel_work);
+		printk("SXF Exit %s_ %d\n", __func__, __LINE__);
+		return 0;
+	}
+	/* end modify for unlock speed */
 
 	switch (blank_mode) {
 	case FB_BLANK_UNBLANK:
@@ -2690,11 +3011,32 @@ static int mtkfb_probe(struct platform_device *pdev)
 #endif
 	fbdev->state = MTKFB_ACTIVE;
 
+	/* begin modify for unlock speed */
+	atomic_set(&fbdev->resume_pending, 0);
+	init_waitqueue_head(&fbdev->resume_wait_q);
+	prim_fbi = fbi;
+	atomic_set(&prim_panel_is_on, false);
+	INIT_DELAYED_WORK(&prim_panel_work, prim_panel_off_delayed_work);
+	/*wake_lock_init(&prim_panel_wakelock, WAKE_LOCK_SUSPEND,
+	"prim_panel_wakelock");*/
+	/* end modify for unlock speed */
+
 	if (!strcmp(mtkfb_find_lcm_driver(),
 		"nt35521_hd_dsi_vdo_truly_rt5081_drv")) {
 		register_ccci_sys_call_back(MD_SYS1,
 			MD_DISPLAY_DYNAMIC_MIPI, mipi_clk_change);
 	}
+
+#ifdef CONFIG_LM3697_SUPPORT
+	r = mtkfb_set_rgb_point_init();
+	if (r) {
+		pr_err("[%s]: set rgb point fail\n", __func__);
+	}
+
+	r = sysfs_create_group(&fbi->dev->kobj, &mtk_fb_attr_group);
+	if (r)
+		pr_err("sysfs group creat failed, rc = %d\n", r);
+#endif
 
 	MSG_FUNC_LEAVE();
 	pr_info("disp driver(2) %s end\n", __func__);
@@ -2716,8 +3058,18 @@ static int mtkfb_remove(struct platform_device *pdev)
 	MSG_FUNC_ENTER();
 	/* FIXME: wait till completion of pending events */
 
+	/* begin modify for unlock speed */
+	atomic_set(&prim_panel_is_on, false);
+	cancel_delayed_work(&prim_panel_work);
+	//wake_lock_destroy(&prim_panel_wakelock);
+	/* end modify for unlock speed */
+
 	fbdev->state = MTKFB_DISABLED;
 	mtkfb_free_resources(fbdev, saved_state);
+
+#ifdef CONFIG_LM3697_SUPPORT
+	sysfs_remove_group(&fbdev->fb_info->dev->kobj, &mtk_fb_attr_group);
+#endif
 
 	MSG_FUNC_LEAVE();
 	return 0;
@@ -2922,6 +3274,11 @@ static const struct dev_pm_ops mtkfb_pm_ops = {
 	.poweroff = mtkfb_pm_suspend,
 	.restore = mtkfb_pm_resume,
 	.restore_noirq = mtkfb_pm_restore_noirq,
+
+	/* begin modify for unlock speed */
+	.prepare = mdss_fb_pm_prepare,
+	.complete = mdss_fb_pm_complete,
+	/* end modify for unlock speed */
 };
 
 static struct platform_driver mtkfb_driver = {
@@ -3038,3 +3395,4 @@ module_exit(mtkfb_cleanup);
 MODULE_DESCRIPTION("MEDIATEK framebuffer driver");
 MODULE_AUTHOR("Xuecheng Zhang <Xuecheng.Zhang@mediatek.com>");
 MODULE_LICENSE("GPL");
+

@@ -540,6 +540,7 @@ static int set_sync_endpoint(struct snd_usb_substream *subs,
 	return 0;
 }
 
+extern void kick_usb_vbus_sm(void);
 /*
  * find a matching format and set up the interface
  */
@@ -550,6 +551,8 @@ static int set_format(struct snd_usb_substream *subs, struct audioformat *fmt)
 	struct usb_interface_descriptor *altsd;
 	struct usb_interface *iface;
 	int err;
+	int usb_vid;
+	int usb_pid;
 
 	iface = usb_ifnum_to_if(dev, fmt->iface);
 	if (WARN_ON(!iface))
@@ -585,9 +588,17 @@ static int set_format(struct snd_usb_substream *subs, struct audioformat *fmt)
 
 		err = usb_set_interface(dev, fmt->iface, fmt->altsetting);
 		if (err < 0) {
+			usb_vid = USB_ID_VENDOR(subs->stream->chip->usb_id);
+			usb_pid = USB_ID_PRODUCT(subs->stream->chip->usb_id);
 			dev_err(&dev->dev,
 				"%d:%d: usb_set_interface failed (%d)\n",
 				fmt->iface, fmt->altsetting, err);
+			if (((0x2717 == usb_vid) || (0x12d1 == usb_vid) || (0x0bda == usb_vid)) &&
+				((0x3801 == usb_pid) || (0x3802 == usb_pid) || (0x3803 == usb_pid) ||
+				(0x3a07 == usb_pid) || (0x492f == usb_pid))) {
+			dev_err(&subs->dev->dev, "kick usb vbus\n");
+			kick_usb_vbus_sm();
+			}
 			return -EIO;
 		}
 		subs->interface = fmt->iface;

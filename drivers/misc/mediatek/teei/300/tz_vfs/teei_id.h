@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2019, MICROTRUST Incorporated
+ * Copyright (C) 2020 XiaoMi, Inc.
  * All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -81,6 +82,7 @@ enum teei_cmd_type {
 #define ROUND_UP(N, S) ((((N) + (S) - 1) / (S)) * (S))
 
 #define Cache_line_size 32
+extern unsigned long boot_soter_flag;
 /****************************************************************
  * @brief:
  *     Flush_Dcache_By_Area
@@ -91,7 +93,13 @@ enum teei_cmd_type {
  * ***************************************************************/
 static inline void Flush_Dcache_By_Area(unsigned long start, unsigned long end)
 {
-
+	if (boot_soter_flag == 0) {
+#ifdef CONFIG_ARM64
+		__flush_dcache_area((void *)start, (end - start));
+#else
+		__cpuc_flush_dcache_area((void *)start, (end - start));
+#endif
+	}
 }
 /******************************************************************
  * @brief:

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2019, MICROTRUST Incorporated
+ * Copyright (C) 2020 XiaoMi, Inc.
  * All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -99,22 +100,27 @@ int fdrv_notify(struct teei_fdrv *fdrv)
 	struct completion wait_completion;
 	int retVal = 0;
 
+	teei_cpus_read_lock();
+
 	retVal = add_nq_entry(TEEI_FDRV_CALL, fdrv->call_type,
 				(unsigned long long)(&wait_completion),
 				fdrv->buff_size, 0, 0);
 
 	if (retVal != 0) {
 		IMSG_ERROR("TEEI: Failed to add one nq to n_t_buffer\n");
+		teei_cpus_read_unlock();
 		return retVal;
 	}
 
 	retVal = add_work_entry(INVOKE_NQ_CALL, 0);
 	if (retVal != 0) {
 		IMSG_ERROR("TEEI: Failed to add_work_entry[%s]\n", __func__);
+		teei_cpus_read_unlock();
 		return retVal;
 	}
 
 	wait_for_completion(&wait_completion);
+	teei_cpus_read_unlock();
 
 	return 0;
 }

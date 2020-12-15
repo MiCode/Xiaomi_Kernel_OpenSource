@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2019, MICROTRUST Incorporated
+ * Copyright (C) 2020 XiaoMi, Inc.
  * Copyright (C) 2015 Google, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
@@ -31,6 +32,19 @@
 #include "log_perf.h"
 
 struct tz_log_state *g_tz_log_state;
+static struct completion teei_log_comp;
+
+int init_tlog_comp_fn(void)
+{
+	init_completion(&teei_log_comp);
+
+	return 0;
+}
+
+void teei_notify_log_fn(void)
+{
+	complete(&teei_log_comp);
+}
 
 static int __tz_driver_read_logs(struct tz_log_state *s, char *buffer,
 				uint32_t get, int cnt)
@@ -188,25 +202,29 @@ static void tz_driver_dump_logs(struct tz_log_state *s)
 	s->get = get;
 }
 
-static int tz_log_call_notify(struct notifier_block *nb,
-				  unsigned long action, void *data)
+int teei_log_fn(void *work)
 {
+	int retVal = 0;
 #ifdef CONFIG_MICROTRUST_TZ_LOG
 	struct tz_log_state *s;
 	unsigned long flags;
 
-	if (action != TZ_CALL_RETURNED)
-		return NOTIFY_DONE;
-
-	IMSG_TRACE("SMC return, handling tz log\n");
-
-	s = container_of(nb, struct tz_log_state, call_notifier);
-	spin_lock_irqsave(&s->lock, flags);
-	tz_driver_dump_logs(s);
-	spin_unlock_irqrestore(&s->lock, flags);
+	s = g_tz_log_state;
 #endif
 
-	return NOTIFY_OK;
+	while (1) {
+		retVal = wait_for_completion_interruptible(&teei_log_comp);
+		if (retVal != 0)
+			continue;
+
+#ifdef CONFIG_MICROTRUST_TZ_LOG
+		//spin_lock_irqsave(&s->lock, flags);
+		tz_driver_dump_logs(s);
+		//spin_unlock_irqrestore(&s->lock, flags);
+ #endif
+	}
+
+	return 0;
 }
 
 static int tz_log_panic_notify(struct notifier_block *nb,
@@ -372,13 +390,6 @@ int tz_log_probe(struct platform_device *pdev)
 	s->boot_log->sz = rounddown_pow_of_two(
 				TZ_LOG_SIZE - sizeof(struct boot_log_rb));
 
-	s->call_notifier.notifier_call = tz_log_call_notify;
-	result = tz_call_notifier_register(&s->call_notifier);
-	if (result < 0) {
-		IMSG_ERROR("failed to register tz driver call notifier\n");
-		goto error_call_notifier;
-	}
-
 	s->panic_notifier.notifier_call = tz_log_panic_notify;
 	result = atomic_notifier_chain_register(&panic_notifier_list,
 						&s->panic_notifier);
@@ -393,8 +404,6 @@ int tz_log_probe(struct platform_device *pdev)
 	return 0;
 
 error_panic_notifier:
-	tz_call_notifier_unregister(&s->call_notifier);
-error_call_notifier:
 	__free_pages(s->boot_log_pages, get_order(TZ_LOG_SIZE));
 error_alloc_boot_log:
 	__free_pages(s->log_pages, get_order(TZ_LOG_SIZE));
@@ -413,7 +422,6 @@ int tz_log_remove(struct platform_device *pdev)
 
 	atomic_notifier_chain_unregister(&panic_notifier_list,
 					 &s->panic_notifier);
-	tz_call_notifier_unregister(&s->call_notifier);
 
 	__free_pages(s->log_pages, get_order(TZ_LOG_SIZE));
 	__free_pages(s->boot_log_pages, get_order(TZ_LOG_SIZE));
@@ -422,4 +430,3 @@ int tz_log_remove(struct platform_device *pdev)
 
 	return 0;
 }
-

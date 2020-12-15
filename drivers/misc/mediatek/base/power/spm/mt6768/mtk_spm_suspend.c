@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -15,6 +16,11 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/delay.h>
+#include <linux/of.h>
+#include <linux/of_irq.h>
+#include <linux/of_address.h>
+#include <linux/io.h>
+#include <linux/interrupt.h>
 #include <linux/wakeup_reason.h>
 #include <asm/setup.h>
 
@@ -106,6 +112,53 @@ static unsigned int slp_dp_pcm_flags1 = (
 		SPM_FLAG1_ENABLE_CPU_SLEEP_VOLT
 	);
 
+struct spm_wakesrc_irq_list spm_wakesrc_irqs[] = {
+	/* bt_cvsd_int */
+	{ WAKE_SRC_R12_CONN2AP_SPM_WAKEUP_B, "mediatek,mtk-btcvsd-snd", 0, 0},
+	/* wf_hif_int */
+	{ WAKE_SRC_R12_CONN2AP_SPM_WAKEUP_B, "mediatek,wifi", 0, 0},
+	/* conn2ap_btif_wakeup_out */
+	{ WAKE_SRC_R12_CONN2AP_SPM_WAKEUP_B, "mediatek,mt6768-consys", 0, 0},
+	/* conn2ap_sw_irq */
+	{ WAKE_SRC_R12_CONN2AP_SPM_WAKEUP_B, "mediatek,mt6768-consys", 2, 0},
+	/* CCIF_AP_DATA */
+	{ WAKE_SRC_R12_CCIF0_EVENT_B, "mediatek,ap_ccif0", 0, 0},
+	/* SCP A IPC2HOST */
+	{ WAKE_SRC_R12_SCP_SPM_IRQ_B, "mediatek,scp", 0, 0},
+	/* CLDMA_AP */
+	{ WAKE_SRC_R12_CLDMA_EVENT_B, "mediatek,mdcldma", 0, 0},
+};
+
+#define IRQ_NUMBER	\
+(sizeof(spm_wakesrc_irqs)/sizeof(struct spm_wakesrc_irq_list))
+static void get_spm_wakesrc_irq(void)
+{
+	int i;
+	struct device_node *node;
+
+	for (i = 0; i < IRQ_NUMBER; i++) {
+		if (spm_wakesrc_irqs[i].name == NULL)
+			continue;
+
+		node = of_find_compatible_node(NULL, NULL,
+			spm_wakesrc_irqs[i].name);
+		if (!node) {
+			pr_info("[name:spm&][SPM] find '%s' node failed\n",
+				spm_wakesrc_irqs[i].name);
+			continue;
+		}
+
+		spm_wakesrc_irqs[i].irq_no =
+			irq_of_parse_and_map(node,
+				spm_wakesrc_irqs[i].order);
+
+		if (!spm_wakesrc_irqs[i].irq_no) {
+			pr_info("[name:spm&][SPM] get '%s' failed\n",
+				spm_wakesrc_irqs[i].name);
+		}
+	}
+}
+
 static inline void spm_suspend_footprint(enum spm_suspend_step step)
 {
 #ifdef CONFIG_MTK_RAM_CONSOLE
@@ -187,6 +240,8 @@ static unsigned int spm_output_wake_reason(unsigned int ex_flag
 		, struct wake_status *wakesta)
 {
 	unsigned int wr;
+	unsigned int irq_no;
+	int i;
 
 	if (spm_sleep_count >= 0xfffffff0)
 		spm_sleep_count = 0;
@@ -257,6 +312,17 @@ static unsigned int spm_output_wake_reason(unsigned int ex_flag
 #endif
 #endif
 	log_wakeup_reason(mtk_spm_get_irq_0());
+
+	for (i = 0; i < IRQ_NUMBER; i++) {
+		if (spm_wakesrc_irqs[i].name == NULL ||
+			!spm_wakesrc_irqs[i].irq_no)
+			continue;
+		if (spm_wakesrc_irqs[i].wakesrc & wakesta->r12) {
+			irq_no = spm_wakesrc_irqs[i].irq_no;
+			if (mt_irq_get_pending(irq_no))
+				log_wakeup_reason(irq_no);
+		}
+	}
 
 	return wr;
 }
@@ -470,4 +536,12 @@ unsigned int spm_go_to_sleep(void)
 	return spm_go_to_sleep_ex(0);
 }
 
+int __init spm_logger_init(void)
+{
+	get_spm_wakesrc_irq();
+
+	return 0;
+}
+
+late_initcall_sync(spm_logger_init);
 MODULE_DESCRIPTION("SPM-Sleep Driver v0.1");

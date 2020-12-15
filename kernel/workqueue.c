@@ -2,6 +2,7 @@
  * kernel/workqueue.c - generic async execution with shared worker pool
  *
  * Copyright (C) 2002		Ingo Molnar
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  *   Derived from the taskqueue/keventd code by:
  *     David Woodhouse <dwmw2@infradead.org>
@@ -2074,7 +2075,12 @@ __acquires(&pool->lock)
 	worker->current_func = work->func;
 	worker->current_pwq = pwq;
 	work_color = get_work_color(work);
-
+	
+	if (strcmp("Secure Call", pwq->wq->name) == 0) {
+		pr_info("TEEI : Secure Call delete the list %lx in process one work.\n", (unsigned long)(&work->entry));	
+	}
+	
+	
 	list_del_init(&work->entry);
 
 	/*
@@ -4024,6 +4030,8 @@ struct workqueue_struct *__alloc_workqueue_key(const char *fmt,
 	va_start(args, lock_name);
 	vsnprintf(wq->name, sizeof(wq->name), fmt, args);
 	va_end(args);
+
+	printk("TEEI create workqueue %s\n", wq->name);
 
 	max_active = max_active ?: WQ_DFL_ACTIVE;
 	max_active = wq_clamp_max_active(max_active, flags, wq->name);

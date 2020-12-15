@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2019, MICROTRUST Incorporated
+ * Copyright (C) 2020 XiaoMi, Inc.
  * All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -39,7 +40,7 @@
 #ifdef TUI_SUPPORT
 #include "utr_tui_cmd.h"
 #endif
-
+#include "tz_log.h"
 #include <notify_queue.h>
 #include <teei_secure_api.h>
 
@@ -108,10 +109,19 @@ static int ut_smc_call(void *buff)
 		return -ENOMEM;
 	}
 
+#if KERNEL_VERSION(4, 9, 0) <= LINUX_VERSION_CODE
 	kthread_init_work(&(usc_work->work), switch_fn);
+#else
+	init_kthread_work(&(usc_work->work), switch_fn);
+#endif
 	usc_work->data = buff;
 
+
+#if KERNEL_VERSION(4, 9, 0) <= LINUX_VERSION_CODE
 	if (!kthread_queue_work(&ut_fastcall_worker, &usc_work->work))
+#else
+	if (!queue_kthread_work(&ut_fastcall_worker, &usc_work->work))
+#endif
 		return -1;
 
 	return 0;
@@ -258,6 +268,8 @@ static void switch_fn(struct kthread_work *work)
 		IMSG_ERROR("switch fn handles a undefined call!\n");
 		break;
 	}
+
+	teei_notify_log_fn();
 
 	if (call_type != SWITCH_CORE)
 		atomic_notifier_call_chain(&s->notifier,

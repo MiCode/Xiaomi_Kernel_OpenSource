@@ -3,6 +3,7 @@
  * fscrypt_private.h
  *
  * Copyright (C) 2015, Google, Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This contains encryption key functions.
  *
@@ -102,6 +103,7 @@ struct fscrypt_info {
 	u8 ci_master_key_descriptor[FS_KEY_DESCRIPTOR_SIZE];
 	u8 ci_nonce[FS_KEY_DERIVATION_NONCE_SIZE];
 	u8 ci_raw_key[FS_MAX_KEY_SIZE];
+	u32 ci_hashed_info;
 };
 
 typedef enum {
@@ -192,6 +194,7 @@ struct fscrypt_mode {
 };
 
 extern void __exit fscrypt_essiv_cleanup(void);
+extern unsigned int get_boot_type(void);
 
 /* policy.c */
 extern u8 fscrypt_data_crypt_mode(const struct inode *inode, u8 mode);

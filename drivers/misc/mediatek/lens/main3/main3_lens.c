@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2015 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -27,6 +28,11 @@
 #include <linux/uaccess.h>
 #ifdef CONFIG_COMPAT
 #include <linux/compat.h>
+#endif
+
+/* kernel standard for PMIC*/
+#if !defined(CONFIG_MTK_LEGACY)
+#include <linux/regulator/consumer.h>
 #endif
 
 /* OIS/EIS Timer & Workqueue */
@@ -84,8 +90,16 @@ static struct stAF_OisPosInfo OisPosInfo;
 
 static struct stAF_DrvList g_stAF_DrvList[MAX_NUM_OF_LENS] = {
 #if 0
-	{1, AFDRV_AK7371AF, AK7371AF_SetI2Cclient, AK7371AF_Ioctl,
+	{0, AFDRV_AK7371AF, AK7371AF_SetI2Cclient, AK7371AF_Ioctl,
 	 AK7371AF_Release, AK7371AF_GetFileName, NULL},
+#endif
+#ifdef CONFIG_MTK_LENS_CN3927AF_SUPPORT
+	{1, AFDRV_CN3927AF, CN3927AF_SetI2Cclient_Main3, CN3927AF_Ioctl_Main3,
+	 CN3927AF_Release_Main3, CN3927AF_GetFileName_Main3, NULL},
+#endif
+#ifdef CONFIG_MTK_LENS_DW9714VAF_SUPPORT
+	{1, AFDRV_DW9714VAF, DW9714VAF_SetI2Cclient_Main3, DW9714VAF_Ioctl_Main3,
+	 DW9714VAF_Release_Main3, DW9714VAF_GetFileName_Main3, NULL},
 #endif
 };
 
@@ -102,6 +116,90 @@ static struct cdev *g_pAF_CharDrv;
 static struct class *actuator_class;
 static struct device *lens_device;
 
+/* PMIC */
+#if !defined(CONFIG_MTK_LEGACY)
+static struct regulator *regVCAM3AF;
+static int g_regVCAM3AFEn;
+
+void AF3RegulatorCtrl(int Stage)
+{
+	LOG_INF("AFIOC_S_SETPOWERCTRL regulator_put %p\n", regVCAM3AF);
+
+	if (Stage == 0) {
+		if (regVCAM3AF == NULL) {
+			struct device_node *node, *kd_node;
+
+			/* check if customer camera node defined */
+			node = of_find_compatible_node(
+				NULL, NULL, "mediatek,camera_hw");
+
+			if (node) {
+				kd_node = lens_device->of_node;
+				lens_device->of_node = node;
+
+				#if defined(CONFIG_MACH_MT6765)
+				regVCAM3AF =
+					regulator_get(lens_device, "vldo28");
+				#else
+				regVCAM3AF =
+					regulator_get(lens_device, "vcamaf_main3");
+				#endif
+
+				LOG_INF("[Init] regulator_get %p\n", regVCAM3AF);
+
+				lens_device->of_node = kd_node;
+			}
+		}
+	} else if (Stage == 1) {
+		if (regVCAM3AF != NULL && g_regVCAM3AFEn == 0) {
+			int Status = regulator_is_enabled(regVCAM3AF);
+
+			LOG_INF("regulator_is_enabled %d\n", Status);
+
+			if (!Status) {
+				Status = regulator_set_voltage(
+					regVCAM3AF, 2800000, 2800000);
+
+				LOG_INF("regulator_set_voltage %d\n", Status);
+
+				if (Status != 0)
+					LOG_INF("regulator_set_voltage fail\n");
+
+				Status = regulator_enable(regVCAM3AF);
+				LOG_INF("regulator_enable %d\n", Status);
+
+				if (Status != 0)
+					LOG_INF("regulator_enable fail\n");
+
+				g_regVCAM3AFEn = 1;
+				usleep_range(5000, 5500);
+			} else {
+				LOG_INF("AF Power on\n");
+			}
+		}
+	} else {
+		if (regVCAM3AF != NULL && g_regVCAM3AFEn == 1) {
+			int Status = regulator_is_enabled(regVCAM3AF);
+
+			LOG_INF("regulator_is_enabled %d\n", Status);
+
+			if (Status) {
+				LOG_INF("Camera Power enable\n");
+
+				Status = regulator_disable(regVCAM3AF);
+				LOG_INF("regulator_disable %d\n", Status);
+				if (Status != 0)
+					LOG_INF("Fail to regulator_disable\n");
+			}
+			/* regulator_put(regVCAM3AF); */
+			LOG_INF("AFIOC_S_SETPOWERCTRL regulator_put %p\n",
+				regVCAM3AF);
+			/* regVCAM3AF = NULL; */
+			g_regVCAM3AFEn = 0;
+		}
+	}
+}
+#endif
 
 void MAIN3AF_PowerDown(void)
 {
@@ -260,10 +358,10 @@ static long AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
 
 #if !defined(CONFIG_MTK_LEGACY)
 	case AFIOC_S_SETPOWERCTRL:
-		AFRegulatorCtrl(0);
+		AF3RegulatorCtrl(0);
 
 		if (a_u4Param > 0)
-			AFRegulatorCtrl(1);
+			AF3RegulatorCtrl(1);
 		break;
 #endif
 
@@ -342,7 +440,7 @@ static int AF_Open(struct inode *a_pstInode, struct file *a_pstFile)
 	spin_unlock(&g_AF_SpinLock);
 
 #if !defined(CONFIG_MTK_LEGACY)
-	AFRegulatorCtrl(1);
+	AF3RegulatorCtrl(1);
 #endif
 
 	/* OIS/EIS Timer & Workqueue */
@@ -385,7 +483,7 @@ static int AF_Release(struct inode *a_pstInode, struct file *a_pstFile)
 	}
 
 #if !defined(CONFIG_MTK_LEGACY)
-	AFRegulatorCtrl(2);
+	AF3RegulatorCtrl(2);
 #endif
 
 	/* OIS/EIS Timer & Workqueue */
@@ -539,9 +637,17 @@ static int AF_i2c_probe(struct i2c_client *client,
 	spin_lock_init(&g_AF_SpinLock);
 
 #if !defined(CONFIG_MTK_LEGACY)
-	AFRegulatorCtrl(0);
+	AF3RegulatorCtrl(0);
+#endif
+#ifdef CONFIG_MTK_LENS_CN3927AF_SUPPORT
+	LOG_INF("Low power start\n");
+	CN3927AF_WriteReg(g_pstAF_I2Cclient, 0x8000); /* Power down mode */
 #endif
 
+#ifdef CONFIG_MTK_LENS_DW9714VAF_SUPPORT
+	LOG_INF("dw9714vaf Low power start\n");
+	DW9714VAF_SwitchToPowerDown(g_pstAF_I2Cclient, true); /* Power down mode */
+#endif
 	LOG_INF("Attached!!\n");
 
 	return 0;

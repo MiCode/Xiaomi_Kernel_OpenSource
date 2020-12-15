@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2015 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -25,6 +26,7 @@ enum {
 	CPU_KIR_PERFTOUCH,
 	CPU_KIR_USB,
 	CPU_KIR_AMMS,
+	CPU_KIR_FINGERPRINT,
 	CPU_MAX_KIR
 };
 extern unsigned int mt_cpufreq_get_freq_by_idx(int id, int idx);

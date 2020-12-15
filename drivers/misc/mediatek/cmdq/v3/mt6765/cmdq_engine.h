@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2015 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -174,4 +175,22 @@ enum CMDQ_GROUP_ENUM {
 	CMDQ_MAX_GROUP_COUNT,	/* ALWAYS keep at the end */
 };
 
+enum MDP_ENG_BASE {
+	ENGBASE_MMSYS_CONFIG,
+	ENGBASE_MDP_RDMA0,
+	ENGBASE_MDP_CCORR0,
+	ENGBASE_MDP_RSZ0,
+	ENGBASE_MDP_RSZ1,
+	ENGBASE_MDP_WDMA,
+	ENGBASE_MDP_WROT0,
+	ENGBASE_MDP_TDSHP0,
+	ENGBASE_MDP_COLOR0,
+	ENGBASE_MMSYS_MUTEX,
+	ENGBASE_ISP_CAMSYS,
+	ENGBASE_ISP_CAM,
+	ENGBASE_ISP_CAM_DMA,
+	ENGBASE_IMGSYS,
+	ENGBASE_ISP_DIP1,
+	ENGBASE_COUNT
+};
 #endif				/* __CMDQ_ENGINE_H__ */

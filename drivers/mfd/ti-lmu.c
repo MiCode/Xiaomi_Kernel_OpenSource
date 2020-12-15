@@ -2,6 +2,7 @@
  * TI LMU (Lighting Management Unit) Core Driver
  *
  * Copyright 2017 Texas Instruments
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * Author: Milo Kim <milo.kim@ti.com>
  *
@@ -177,6 +178,17 @@ static int ti_lmu_probe(struct i2c_client *cl, const struct i2c_device_id *id)
 	struct ti_lmu *lmu;
 	int ret;
 
+    extern char *saved_command_line;
+    int bkl_id = 0;
+    char *bkl_ptr = (char *)strnstr(saved_command_line, ":bklic=", strlen(saved_command_line));
+    bkl_ptr += strlen(":bklic=");
+    bkl_id = simple_strtol(bkl_ptr, NULL, 10);
+
+	printk("[%s]: *liuyundong*, bkl_id = %d\n", __func__, bkl_id);
+    if (bkl_id != 1) {
+		return -ENODEV;
+	}
+	pr_err("[bkl] %s enter\n", __func__);
 	match = of_match_device(ti_lmu_of_match, dev);
 	if (!match)
 		return -ENODEV;

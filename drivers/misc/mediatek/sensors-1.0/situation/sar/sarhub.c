@@ -1,6 +1,7 @@
 /* sarhub motion sensor driver
  *
  * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -108,12 +109,41 @@ static int sar_factory_get_cali(int32_t data[3])
 	return 0;
 }
 
+static int sar_factory_read_reg(struct REGISTER_DATA *data)
+{
+	int res = 0;
+
+	res = sensor_set_cmd_to_hub(ID_SAR, CUST_ACTION_READ_SENSOR_REG, data);
+	if (res < 0) {
+		pr_err("sensor_set_cmd_to_hub fail,(ID: %d),(action: %d)\n",
+			ID_SAR, CUST_ACTION_READ_SENSOR_REG);
+		return 0;
+	}
+
+	return res;
+}
+
+static int sar_factory_write_reg(struct REGISTER_DATA *data)
+{
+	int res = 0;
+
+	res = sensor_set_cmd_to_hub(ID_SAR, CUST_ACTION_WRITE_SENSOR_REG, data);
+	if (res < 0) {
+		pr_err("sensor_set_cmd_to_hub fail,(ID: %d),(action: %d)\n",
+			ID_SAR, CUST_ACTION_WRITE_SENSOR_REG);
+		return 0;
+	}
+
+	return res;
+}
 
 static struct sar_factory_fops sarhub_factory_fops = {
 	.enable_sensor = sar_factory_enable_sensor,
 	.get_data = sar_factory_get_data,
 	.enable_calibration = sar_factory_enable_calibration,
 	.get_cali = sar_factory_get_cali,
+	.read_reg = sar_factory_read_reg,
+	.write_reg = sar_factory_write_reg,
 };
 
 static struct sar_factory_public sarhub_factory_device = {

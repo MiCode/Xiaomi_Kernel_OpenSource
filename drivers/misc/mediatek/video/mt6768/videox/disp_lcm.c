@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2015 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -1169,6 +1170,7 @@ struct disp_lcm_handle *disp_lcm_probe(char *plcm_name,
 		plcm->lcm_original_width = plcm->params->width;
 		plcm->lcm_original_height = plcm->params->height;
 		_dump_lcm_info(plcm);
+		disp_lcm_set_hw_info(plcm);
 		return plcm;
 	}
 
@@ -1419,9 +1421,8 @@ int disp_lcm_suspend(struct disp_lcm_handle *plcm)
 			return -1;
 		}
 
-		if (lcm_drv->suspend_power)
-			lcm_drv->suspend_power();
-
+	/*	if (lcm_drv->suspend_power)
+			lcm_drv->suspend_power();*/
 
 		return 0;
 	}
@@ -1520,6 +1521,27 @@ int disp_lcm_set_backlight(struct disp_lcm_handle *plcm,
 		lcm_drv->set_backlight_cmdq(handle, level);
 	} else {
 		DISPERR("FATAL ERROR, lcm_drv->set_backlight is null\n");
+		return -1;
+	}
+
+	return 0;
+}
+
+int disp_lcm_set_hw_info(struct disp_lcm_handle *plcm)
+{
+	struct LCM_DRIVER *lcm_drv = NULL;
+
+	DISPFUNC();
+	if (!_is_lcm_inited(plcm)) {
+		DISPERR("lcm_drv is null\n");
+		return -1;
+	}
+
+	lcm_drv = plcm->drv;
+	if (lcm_drv->set_hw_info) {
+		lcm_drv->set_hw_info();
+	} else {
+		DISPERR("FATAL,ERROR, lcm_drv->set_hw_info is null\n");
 		return -1;
 	}
 

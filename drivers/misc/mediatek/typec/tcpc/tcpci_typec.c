@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * TCPC Type-C Driver for Richtek
  *
@@ -2653,6 +2654,7 @@ int tcpc_typec_change_role(
 }
 
 #ifdef CONFIG_TYPEC_CAP_POWER_OFF_CHARGE
+#if 0
 static int typec_init_power_off_charge(struct tcpc_device *tcpc_dev)
 {
 	bool cc_open;
@@ -2694,6 +2696,7 @@ static int typec_init_power_off_charge(struct tcpc_device *tcpc_dev)
 
 	return 1;
 }
+#endif
 #endif	/* CONFIG_TYPEC_CAP_POWER_OFF_CHARGE */
 
 int tcpc_typec_init(struct tcpc_device *tcpc_dev, uint8_t typec_role)
@@ -2722,6 +2725,7 @@ int tcpc_typec_init(struct tcpc_device *tcpc_dev, uint8_t typec_role)
 	tcpc_dev->typec_during_custom_hv = false;
 #endif	/* CONFIG_TYPEC_CAP_CUSTOM_HV */
 
+#if 0
 #ifdef CONFIG_TYPEC_CHECK_LEGACY_CABLE
 	tcpc_dev->typec_legacy_cable = false;
 	typec_legacy_reset_retry_wk(tcpc_dev);
@@ -2739,6 +2743,7 @@ int tcpc_typec_init(struct tcpc_device *tcpc_dev, uint8_t typec_role)
 #endif	/* CONFIG_TYPEC_POWER_CTRL_INIT */
 
 	typec_unattached_entry(tcpc_dev);
+#endif
 	return ret;
 }
 

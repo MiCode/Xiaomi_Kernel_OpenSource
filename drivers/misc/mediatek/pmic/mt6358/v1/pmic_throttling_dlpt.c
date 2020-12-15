@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2018 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -1794,7 +1795,7 @@ int pmic_throttling_dlpt_init(struct platform_device *pdev)
 
 	path = "/battery";
 	np = of_find_node_by_path(path);
-	if (of_property_read_u32(np, "CAR_TUNE_VALUE", &val) == 0) {
+	if (of_property_read_u32(np, "CAR_TUNE_VALUE1", &val) == 0) {
 		fg_cust_data.car_tune_value = (int)val*10;
 		pr_info("Get car_tune_value from DT: %d\n"
 			, fg_cust_data.car_tune_value);

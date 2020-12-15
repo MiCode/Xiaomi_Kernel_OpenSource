@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -42,6 +43,7 @@ static long sar_factory_unlocked_ioctl(struct file *file, unsigned int cmd,
 	int32_t data_buf[3] = {0};
 	struct SENSOR_DATA sensor_data = {0};
 	uint32_t flag = 0;
+	struct REGISTER_DATA reg_data;
 
 	if (_IOC_DIR(cmd) & _IOC_READ)
 		err = !access_ok(VERIFY_WRITE, (void __user *)arg,
@@ -94,6 +96,40 @@ static long sar_factory_unlocked_ioctl(struct file *file, unsigned int cmd,
 				return -EFAULT;
 		} else {
 			pr_err("SAR_IOCTL_READ_SENSORDATA NULL\n");
+			return -EINVAL;
+		}
+		return 0;
+
+	case SAR_IOCTL_RW_REGISTER:
+		if (copy_from_user(&reg_data, ptr, sizeof(struct REGISTER_DATA)))
+			return -EFAULT;
+		if (sar_factory.fops != NULL) {
+			if (reg_data.action == REGISTER_READ) {
+				if (!sar_factory.fops->read_reg)
+					return -EINVAL;
+				err = sar_factory.fops->read_reg(&reg_data);
+				if (err < 0) {
+					pr_err("SAR_IOCTL_RW_REGISTER  fail!\n");
+					return -EINVAL;
+				}
+				pr_debug("SAR_IOCTL_RW_REGISTER READ:reg is %x, val is %x (%d)!\n", reg_data.address, reg_data.value);
+			} else if (reg_data.action == REGISTER_WRITE) {
+				if (!sar_factory.fops->read_reg)
+					return -EINVAL;
+				err = sar_factory.fops->write_reg(&reg_data);
+				if (err < 0) {
+					pr_err("SAR_IOCTL_WRITE_REG fail!\n");
+					return -EINVAL;
+				}
+				pr_debug("SAR_IOCTL_RW_REGISTER WRITE: reg is %s, val is %x(%d)!\n", reg_data.address, reg_data.value);
+			} else {
+				pr_debug("SAR_IOCTL_RW_REGISTER ACTION_UNSUPPORT!\n");
+				return -EFAULT;
+			}
+			if (copy_to_user(ptr, &reg_data, sizeof(struct REGISTER_DATA)))
+				return -EFAULT;
+		} else {
+			pr_err("ALSPS_ALS_SET_CALI NULL\n");
 			return -EINVAL;
 		}
 		return 0;

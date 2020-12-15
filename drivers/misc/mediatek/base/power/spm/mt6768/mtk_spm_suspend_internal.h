@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -23,6 +24,13 @@
 #define WAIT_UART_ACK_TIMES     10	/* 10 * 10us */
 #define spm_is_wakesrc_invalid(wakesrc)     (!!((u32)(wakesrc) & 0xc0003803))
 #define CPU_FOOTPRINT_SHIFT 24
+
+struct spm_wakesrc_irq_list {
+	unsigned int wakesrc;
+	const char *name;
+	int order;
+	unsigned int irq_no;
+};
 
 enum spm_suspend_step {
 	SPM_SUSPEND_ENTER = 0x00000001,
@@ -108,5 +116,6 @@ extern struct wake_status spm_wakesta;
 extern unsigned int spm_sleep_count;
 extern bool slp_dump_golden_setting;
 extern int slp_dump_golden_setting_type;
+extern u32 mt_irq_get_pending(unsigned int irq);
 
 #endif /* __MTK_SPM_SUSPEND_INTERNAL_H__ */

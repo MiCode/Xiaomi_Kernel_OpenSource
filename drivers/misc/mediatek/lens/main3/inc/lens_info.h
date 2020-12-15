@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2015 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -41,6 +42,8 @@
 #define AFDRV_BU64745GWZAF "BU64745GWZAF"
 #define AFDRV_DW9714A "DW9714A"
 #define AFDRV_DW9714AF "DW9714AF"
+#define AFDRV_DW9714VAF "DW9714VAF"
+#define AFDRV_CN3927AF "CN3927AF"
 #define AFDRV_DW9718AF "DW9718AF"
 #define AFDRV_DW9814AF "DW9814AF"
 #define AFDRV_FM50AF "FM50AF"

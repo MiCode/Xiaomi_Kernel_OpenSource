@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -36,6 +37,17 @@ struct SENSOR_DATA {
 	int x;
 	int y;
 	int z;
+};
+enum OPERATION {
+	REGISTER_READ = 1,
+	REGISTER_WRITE,
+	ACTION_UNSUPORT,
+};
+
+struct REGISTER_DATA {
+	enum OPERATION action;
+	uint32_t address;
+	uint32_t value;
 };
 
 struct biometric_cali {
@@ -133,6 +145,8 @@ struct compat_biometric_threshold {
 #define ALSPS_PS_ENABLE_CALI _IO(ALSPS, 0x18)
 #define ALSPS_IOCTL_ALS_GET_CALI _IOW(ALSPS, 0x19, int)
 #define ALSPS_ALS_SET_CALI _IOW(ALSPS, 0x20, int)
+#define ALSPS_ALS_SET_CALI_0LUX _IOW(ALSPS, 0x21, int) //zch
+#define ALSPS_SET_PS_FACTORY_FLAG _IOW(ALSPS, 0x80, int)
 
 #ifdef CONFIG_COMPAT
 #define COMPAT_ALSPS_SET_PS_MODE _IOW(ALSPS, 0x01, compat_int_t)
@@ -229,6 +243,7 @@ struct compat_biometric_threshold {
 #define SAR_IOCTL_READ_SENSORDATA _IOR(SAR, 0x02, struct SENSOR_DATA)
 #define SAR_IOCTL_GET_CALI  _IOR(SAR, 0x03, struct SENSOR_DATA)
 #define SAR_IOCTL_ENABLE_CALI _IO(SAR, 0x04)
+#define SAR_IOCTL_RW_REGISTER _IOWR(SAR, 0x05, struct REGISTER_DATA)
 #ifdef CONFIG_COMPAT
 #define COMPAT_SAR_IOCTL_INIT _IOW(SAR, 0x01, compat_int_t)
 #define COMPAT_SAR_IOCTL_READ_SENSORDATA _IOR(SAR, 0x02, struct SENSOR_DATA)

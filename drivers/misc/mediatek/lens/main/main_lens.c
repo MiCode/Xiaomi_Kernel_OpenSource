@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2015 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -96,6 +97,14 @@ static struct stAF_DrvList g_stAF_DrvList[MAX_NUM_OF_LENS] = {
 	 BU6429AF_Release, BU6429AF_GetFileName, NULL},
 	{1, AFDRV_BU64748AF, bu64748af_SetI2Cclient_Main, bu64748af_Ioctl_Main,
 	 bu64748af_Release_Main, bu64748af_GetFileName_Main, NULL},
+#ifdef CONFIG_MTK_LENS_DW9800WAF_SUPPORT
+	{1, AFDRV_DW9800WAF, DW9800WAF_SetI2Cclient_Main, DW9800WAF_Ioctl_Main,
+	 DW9800WAF_Release_Main, DW9800WAF_GetFileName_Main, NULL},
+#endif
+#ifdef CONFIG_MTK_LENS_CN3927AF_J19_SUPPORT
+	{1, AFDRV_CN3927AFJ19, CN3927AFJ19_SetI2Cclient, CN3927AFJ19_Ioctl,
+	 CN3927AFJ19_Release, CN3927AFJ19_GetFileName, NULL},
+#endif
 	{1,
 #ifdef CONFIG_MTK_LENS_BU63165AF_SUPPORT
 	 AFDRV_BU63165AF, BU63165AF_SetI2Cclient, BU63165AF_Ioctl,
@@ -115,8 +124,8 @@ static struct stAF_DrvList g_stAF_DrvList[MAX_NUM_OF_LENS] = {
 	 LC898212XDAF_Release, LC898212XDAF_GetFileName, NULL},
 	{1, AFDRV_DW9814AF, DW9814AF_SetI2Cclient, DW9814AF_Ioctl,
 	 DW9814AF_Release, DW9814AF_GetFileName, NULL},
-	{1, AFDRV_DW9800WAF, DW9800WAF_SetI2Cclient, DW9800WAF_Ioctl,
-	 DW9800WAF_Release, NULL, NULL},
+/*	{1, AFDRV_DW9800WAF, DW9800WAF_SetI2Cclient, DW9800WAF_Ioctl,
+	 DW9800WAF_Release, NULL, NULL},*/
 	{1, AFDRV_FP5510E2AF, FP5510E2AF_SetI2Cclient, FP5510E2AF_Ioctl,
 	 FP5510E2AF_Release, FP5510E2AF_GetFileName, NULL},
 	{1, AFDRV_DW9718AF, DW9718AF_SetI2Cclient, DW9718AF_Ioctl,
@@ -167,7 +176,7 @@ void AFRegulatorCtrl(int Stage)
 
 			/* check if customer camera node defined */
 			node = of_find_compatible_node(
-				NULL, NULL, "mediatek,CAMERA_MAIN_AF");
+				NULL, NULL, "mediatek,camera_hw");
 
 			if (node) {
 				kd_node = lens_device->of_node;
@@ -246,7 +255,7 @@ static int DrvPwrDn3 = 1;
 void AF_PowerDown(void)
 {
 	if (g_pstAF_I2Cclient != NULL) {
-#if defined(CONFIG_MACH_MT6739) || defined(CONFIG_MACH_MT6771) ||              \
+#if defined(CONFIG_MACH_MT6771) ||              \
 	defined(CONFIG_MACH_MT6775)
 		LC898217AF_PowerDown(g_pstAF_I2Cclient, &g_s4AF_Opened);
 #endif
@@ -729,6 +738,16 @@ static int AF_i2c_probe(struct i2c_client *client,
 
 #if !defined(CONFIG_MTK_LEGACY)
 	AFRegulatorCtrl(0);
+#endif
+#ifdef CONFIG_MTK_LENS_DW9800WAF_SUPPORT
+	DW9800WAF_SetI2Cclient_first(g_pstAF_I2Cclient,&g_AF_SpinLock);
+#endif
+
+#ifdef CONFIG_MTK_LENS_DW9714AF_SUPPORT
+	DW9714AF_SwitchToPowerDown(g_pstAF_I2Cclient, true); /* Power down mode */
+#endif
+#ifdef CONFIG_MTK_LENS_CN3927AF_J19_SUPPORT
+	CN3927AFJ19_SwitchToPowerDown(g_pstAF_I2Cclient, true); /* Power down mode */
 #endif
 
 	LOG_INF("Attached!!\n");

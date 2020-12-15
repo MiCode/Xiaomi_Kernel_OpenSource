@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2015 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -92,7 +93,7 @@ static atomic_t g_pwm_backlight[PWM_TOTAL_MODULE_NUM] = {
 static atomic_t g_pwm_en[PWM_TOTAL_MODULE_NUM] = {
 	ATOMIC_INIT(-1), ATOMIC_INIT(-1) };
 static atomic_t g_pwm_max_backlight[PWM_TOTAL_MODULE_NUM] = {
-	ATOMIC_INIT(1023), ATOMIC_INIT(1023) };
+	ATOMIC_INIT(2047), ATOMIC_INIT(2047) };
 static atomic_t g_pwm_is_power_on[PWM_TOTAL_MODULE_NUM] = {
 	ATOMIC_INIT(0), ATOMIC_INIT(0) };
 static atomic_t g_pwm_value_before_power_off[PWM_TOTAL_MODULE_NUM] = {
@@ -111,7 +112,7 @@ static atomic_t g_pwm_is_change_state[PWM_TOTAL_MODULE_NUM] = {
 static atomic_t g_pwm_backlight[PWM_TOTAL_MODULE_NUM] = { ATOMIC_INIT(-1) };
 static atomic_t g_pwm_en[PWM_TOTAL_MODULE_NUM] = { ATOMIC_INIT(-1) };
 static atomic_t g_pwm_max_backlight[PWM_TOTAL_MODULE_NUM] = {
-	ATOMIC_INIT(1023) };
+	ATOMIC_INIT(2047) };
 static atomic_t g_pwm_is_power_on[PWM_TOTAL_MODULE_NUM] = { ATOMIC_INIT(0) };
 static atomic_t g_pwm_value_before_power_off[PWM_TOTAL_MODULE_NUM] = {
 	ATOMIC_INIT(0) };
@@ -321,7 +322,7 @@ static int disp_pwm_config_init(enum DISP_MODULE_ENUM module,
 	(0x3ff << 16));
 
 	/* 1024 levels */
-	DISP_REG_MASK(cmdq, reg_base + DISP_PWM_CON_1_OFF, 1023, 0x3ff);
+	DISP_REG_MASK(cmdq, reg_base + DISP_PWM_CON_1_OFF, 2047, 0x7ff);
 	/* We don't init the backlight here until AAL/Android give */
 #endif
 	return 0;
@@ -612,7 +613,7 @@ int disp_pwm_set_backlight_cmdq(enum disp_pwm_id_t id,
 
 		if (level_1024 > 0) {
 			DISP_REG_MASK(cmdq, reg_base + DISP_PWM_CON_1_OFF,
-				level_1024 << 16, 0x1fff << 16);
+				level_1024 << 16, 0x3fff << 16);
 
 			disp_pwm_set_enabled(cmdq, id, 1);
 		} else {

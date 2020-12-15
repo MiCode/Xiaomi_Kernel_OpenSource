@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -31,16 +32,21 @@
 #define Q_MAX_H_CURRENT 10000
 
 /* multiple battery profile compile options */
-/*#define MTK_GET_BATTERY_ID_BY_AUXADC*/
+#define MTK_GET_BATTERY_ID_BY_AUXADC
 
 
 /* if ACTIVE_TABLE == 0 && MULTI_BATTERY == 0
  * load g_FG_PSEUDO100_Tx from dtsi
  */
 #define MULTI_BATTERY 0
-#define BATTERY_ID_CHANNEL_NUM 1
+#define BATTERY_ID_CHANNEL_NUM 2
 #define BATTERY_PROFILE_ID 0
 #define TOTAL_BATTERY_NUMBER 4
+
+#define NVT_MIN_VOLTAGE		492000
+#define NVT_MAX_VOLTAGE		544500
+#define COSMX_MIN_VOLTAGE	570000
+#define COSMX_MAX_VOLTAGE	630000
 
 /*
  * if ACTIVE_TABLE == 0 , use DTSI table
@@ -89,8 +95,8 @@ int g_battery_id_voltage[TOTAL_BATTERY_NUMBER] = {
 
 int g_FG_PSEUDO1[MAX_TABLE][TOTAL_BATTERY_NUMBER] = {
 	/*bat1,   bat2,   bat3,    bat4*/
-	{ 5, 6, 7, 8},/*T0*/
-	{ 9, 10, 11, 12},/*T1*/
+	{ 12, 11, 12, 11},/*T0*/
+	{ 12, 13, 13, 12},/*T1*/
 	{ 13, 14, 15, 16},/*T2*/
 	{ 17, 18, 19, 20},/*T3*/
 	{ 21, 22, 23, 24},/*T4*/
@@ -101,12 +107,13 @@ int g_FG_PSEUDO1[MAX_TABLE][TOTAL_BATTERY_NUMBER] = {
 	{ 13, 14, 15, 16} /*T9*/
 };
 
+#if defined(TARGET_PRODUCT_LANCELOT) || defined(TARGET_PRODUCT_SHIVA)
 int g_FG_PSEUDO100[MAX_TABLE][TOTAL_BATTERY_NUMBER] = {
 	/*bat1,   bat2,   bat3,    bat4*/
-	{ 100, 100, 100, 100},/*T0*/
-	{ 100, 100, 100, 100},/*T1*/
-	{ 100, 100, 100, 100},/*T2*/
-	{ 100, 100, 100, 100},/*T3*/
+	{ 99, 99, 99, 99},/*T0*/
+	{ 99, 96, 99, 99},/*T1*/
+	{ 90, 80, 80, 80},/*T2*/
+	{ 90, 80, 80, 80},/*T3*/
 	{ 100, 100, 100, 100},/*T4*/
 	{ 100, 100, 100, 100},/*T5*/
 	{ 100, 100, 100, 100},/*T6*/
@@ -114,6 +121,21 @@ int g_FG_PSEUDO100[MAX_TABLE][TOTAL_BATTERY_NUMBER] = {
 	{ 100, 100, 100, 100},/*T8*/
 	{ 100, 100, 100, 100} /*T9*/
 };
+#else
+int g_FG_PSEUDO100[MAX_TABLE][TOTAL_BATTERY_NUMBER] = {
+	/*bat1,   bat2,   bat3,    bat4*/
+	{ 99, 99, 99, 99},/*T0*/
+	{ 99, 99, 99, 99},/*T1*/
+	{ 90, 80, 80, 80},/*T2*/
+	{ 90, 80, 80, 80},/*T3*/
+	{ 100, 100, 100, 100},/*T4*/
+	{ 100, 100, 100, 100},/*T5*/
+	{ 100, 100, 100, 100},/*T6*/
+	{ 100, 100, 100, 100},/*T7*/
+	{ 100, 100, 100, 100},/*T8*/
+	{ 100, 100, 100, 100} /*T9*/
+};
+#endif
 
 /* shutdown_hl_zcv */
 int g_SHUTDOWN_HL_ZCV[MAX_TABLE][TOTAL_BATTERY_NUMBER] = {
@@ -163,21 +185,39 @@ int g_PON_SYS_IBOOT[MAX_TABLE][TOTAL_BATTERY_NUMBER] = {
 	{5000, 5000, 5000, 5000} /*T9*/
 };
 
+#if defined(TARGET_PRODUCT_LANCELOT) || defined(TARGET_PRODUCT_SHIVA)
+
 /* Q_MAX_SYS_VOLTAGE by temp ,control by MULTI_TEMP_GAUGE0=1, */
 int g_QMAX_SYS_VOL[MAX_TABLE][TOTAL_BATTERY_NUMBER] = {
 	/*bat1,   bat2,   bat3,    bat4*/
-	{33500, 33500, 33500, 33500},/*T0*/
-	{33500, 33500, 33500, 33500},/*T1*/
-	{33500, 33500, 33500, 33500},/*T2*/
-	{32900, 32900, 32900, 32900},/*T3*/
-	{32800, 32800, 32800, 32800},/*T4*/
-	{33500, 33500, 33500, 33500},/*T5*/
-	{33500, 33500, 33500, 33500},/*T6*/
-	{33500, 33500, 33500, 33500},/*T7*/
-	{33500, 33500, 33500, 33500},/*T8*/
-	{33500, 33500, 33500, 33500} /*T9*/
+	{34000, 34000, 34000, 34000},/*T0*/
+	{34000, 34000, 34000, 34000},/*T1*/
+	{34500, 35000, 34300, 34300},/*T2*/
+	{33700, 34300, 34100, 34100},/*T3*/
+	{34300, 33800, 34300, 34300},/*T4*/
+	{34000, 34000, 34000, 34000},/*T5*/
+	{34000, 34000, 34000, 34000},/*T6*/
+	{34000, 34000, 34000, 34000},/*T7*/
+	{34000, 34000, 34000, 34000},/*T8*/
+	{34000, 34000, 34000, 34000} /*T9*/
 };
+#else
 
+/* Q_MAX_SYS_VOLTAGE by temp ,control by MULTI_TEMP_GAUGE0=1, */
+int g_QMAX_SYS_VOL[MAX_TABLE][TOTAL_BATTERY_NUMBER] = {
+	/*bat1,   bat2,   bat3,    bat4*/
+	{34000, 34000, 34000, 34000},/*T0*/
+	{34000, 34000, 34000, 34000},/*T1*/
+	{34300, 34000, 34300, 34300},/*T2*/
+	{34100, 33800, 34100, 34100},/*T3*/
+	{34300, 33800, 34300, 34300},/*T4*/
+	{34000, 34000, 34000, 34000},/*T5*/
+	{34000, 34000, 34000, 34000},/*T6*/
+	{34000, 34000, 34000, 34000},/*T7*/
+	{34000, 34000, 34000, 34000},/*T8*/
+	{34000, 34000, 34000, 34000} /*T9*/
+};
+#endif
 
 #define TEMPERATURE_TB0	255
 #define TEMPERATURE_TB1	254
@@ -196,8 +236,13 @@ int g_temperature[MAX_TABLE] = {
 };
 
 
-#define BAT_NTC_10 1
+#define BAT_NTC_10 0
 #define BAT_NTC_47 0
+#define BAT_NTC_100 1
+
+#if (BAT_NTC_100 == 1)
+#define RBAT_PULL_UP_R             100000
+#endif
 
 #if (BAT_NTC_10 == 1)
 #define RBAT_PULL_UP_R             24000
@@ -210,6 +255,70 @@ int g_temperature[MAX_TABLE] = {
 #define RBAT_PULL_UP_VOLT          2800
 
 #define BIF_NTC_R 16000
+
+#if (BAT_NTC_100 == 1)
+#if defined(TARGET_PRODUCT_LANCELOT) || defined(TARGET_PRODUCT_SHIVA)
+struct FUELGAUGE_TEMPERATURE Fg_Temperature_Table[27] = {
+		{-40, 4251000},
+		{-35, 3005000},
+		{-30, 2149000},
+		{-25, 1554000},
+		{-20, 1135000},
+		{-15, 837800},
+		{-10, 624100},
+		{-5, 469100},
+		{0, 355600},
+		{5, 271800},
+		{10, 209400},
+		{15, 162500},
+		{20, 127000},
+		{25, 100000},
+		{30, 79230},
+		{35, 63180},
+		{40, 50680},
+		{45, 40900},
+		{50, 33190},
+		{55, 27090},
+		{60, 22220},
+		{65, 18320},
+		{70, 15180},
+		{75, 12640},
+		{80, 10580},
+		{85, 8887},
+		{90, 7500}
+};
+#else
+struct FUELGAUGE_TEMPERATURE Fg_Temperature_Table[27] = {
+		{-40, 4251000},
+		{-35, 3005000},
+		{-30, 2149000},
+		{-25, 1554000},
+		{-20, 1016120},
+		{-15, 718920},
+		{-10, 562100},
+		{-5, 460000},
+		{0, 338840},
+		{5, 261800},
+		{10, 199400},
+		{15, 152500},
+		{20, 125000},
+		{25, 100000},
+		{30, 74230},
+		{35, 60180},
+		{40, 48680},
+		{45, 39900},
+		{50, 30990},
+		{55, 25090},
+		{60, 21620},
+		{65, 18020},
+		{70, 14980},
+		{75, 12640},
+		{80, 10508},
+		{85, 8887},
+		{90, 7500}
+};
+#endif
+#endif
 
 #if (BAT_NTC_10 == 1)
 struct FUELGAUGE_TEMPERATURE Fg_Temperature_Table[21] = {

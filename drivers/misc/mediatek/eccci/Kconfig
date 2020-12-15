@@ -29,6 +29,18 @@ config MTK_ECCCI_CCIF
 	  if no, ccif hardware is disabled,
 	  The option default disabled.
 
+
+config SWTP_DRIVER
+	tristate "ECCCI driver using CCIF HW to communicate wtih LTE modem"
+	depends on MTK_ECCCI_DRIVER
+	default n
+	help
+	  This option enables ECCCI CCIF driver,
+	  if yes, then modem1 is using ccif hardware,
+	  if no, ccif hardware is disabled,
+	  The option default disabled.
+
+
 config MTK_ECCCI_C2K
 	tristate "ECCCI driver using CCIF HW to communicate wtih C2K modem"
 	depends on MTK_ECCCI_DRIVER

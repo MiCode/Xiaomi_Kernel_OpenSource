@@ -2,6 +2,7 @@
  * MUSB OTG driver core code
  *
  * Copyright 2005 Mentor Graphics Corporation
+ * Copyright (C) 2020 XiaoMi, Inc.
  * Copyright (C) 2005-2006 by Texas Instruments
  * Copyright (C) 2006-2007 Nokia Corporation
  *
@@ -2133,7 +2134,9 @@ irqreturn_t musb_interrupt(struct musb *musb)
 				static DEFINE_RATELIMIT_STATE(rlmt, HZ, 2);
 				static int skip_cnt;
 
-				if (host_tx_refcnt_dec(ep_num) < 0) {
+				//if (host_tx_refcnt_dec(ep_num) < 0) {
+				  if (musb_host_db_enable && host_tx_refcnt_dec(ep_num) < 0) {
+
 					int ref_cnt;
 
 					musb_host_db_workaround_cnt++;

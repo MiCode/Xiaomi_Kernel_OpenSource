@@ -1,6 +1,7 @@
 /* SCP sensor hub driver
  *
  * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -862,7 +863,7 @@ static void SCP_sensorHub_init_sensor_state(void)
 
 	mSensorState[SENSOR_TYPE_PICK_UP_GESTURE].sensorType =
 		SENSOR_TYPE_PICK_UP_GESTURE;
-	mSensorState[SENSOR_TYPE_PICK_UP_GESTURE].rate = SENSOR_RATE_ONESHOT;
+	mSensorState[SENSOR_TYPE_PICK_UP_GESTURE].rate = SENSOR_RATE_ONCHANGE;
 	mSensorState[SENSOR_TYPE_PICK_UP_GESTURE].timestamp_filter = false;
 
 	mSensorState[SENSOR_TYPE_WAKE_GESTURE].sensorType =
@@ -1865,10 +1866,20 @@ int sensor_set_cmd_to_hub(uint8_t sensorType,
 			len = offsetof(struct SCP_SENSOR_HUB_SET_CUST_REQ,
 				custData) + sizeof(req.set_cust_req.getInfo);
 			break;
-		default:
-			return -1;
-		}
-		break;
+
+    // new add for lcm info
+    case CUST_ACTION_LCM_INFO:
+    req.set_cust_req.lcm_info.action = CUST_ACTION_LCM_INFO;
+    req.set_cust_req.lcm_info.lcm_info = (*(int *)data);
+    printk("zch req.set_cust_req.lcm_info.lcm_info = %d\n", req.set_cust_req.lcm_info.lcm_info);
+    len = offsetof(struct SCP_SENSOR_HUB_SET_CUST_REQ,
+    custData) + sizeof(req.set_cust_req.lcm_info);
+    break;
+
+    default:
+    return -1;
+    }
+    break;
 	case ID_PROXIMITY:
 		req.set_cust_req.sensorType = ID_PROXIMITY;
 		req.set_cust_req.action = SENSOR_HUB_SET_CUST;
@@ -1938,6 +1949,23 @@ int sensor_set_cmd_to_hub(uint8_t sensorType,
 				CUST_ACTION_GET_SENSOR_INFO;
 			len = offsetof(struct SCP_SENSOR_HUB_SET_CUST_REQ,
 				custData) + sizeof(req.set_cust_req.getInfo);
+			break;
+		// new add for sec cali psensor
+		case CUST_ACTION_SEC_PCAL:
+			req.set_cust_req.sec_pcali.action = CUST_ACTION_SEC_PCAL;
+			req.set_cust_req.sec_pcali.sec_pcali = (*(int *)data);
+			printk("zch req.set_cust_req.sec_pcal.sec_pcal = %d\n", req.set_cust_req.sec_pcali.sec_pcali);
+			len = offsetof(struct SCP_SENSOR_HUB_SET_CUST_REQ,
+			custData) + sizeof(req.set_cust_req.sec_pcali);
+			break;
+
+		case CUST_ACTION_SET_FACTORY:
+			req.set_cust_req.setFactory.action =
+				CUST_ACTION_SET_FACTORY;
+			req.set_cust_req.setFactory.factory =
+				*((int32_t *) data);
+			len = offsetof(struct SCP_SENSOR_HUB_SET_CUST_REQ,
+				custData) + sizeof(req.set_cust_req.setFactory);
 			break;
 		default:
 			return -1;
@@ -2093,6 +2121,18 @@ int sensor_set_cmd_to_hub(uint8_t sensorType,
 			len = offsetof(struct SCP_SENSOR_HUB_SET_CUST_REQ,
 				custData) + sizeof(req.set_cust_req.getInfo);
 			break;
+		case CUST_ACTION_READ_SENSOR_REG:
+			req.set_cust_req.reg_data.action = CUST_ACTION_READ_SENSOR_REG;
+			req.set_cust_req.reg_data.scp_reg_data = *((struct REGISTER_DATA *)data);
+			len = offsetof(struct SCP_SENSOR_HUB_SET_CUST_REQ,
+				custData) + sizeof(req.set_cust_req.reg_data);
+			break;
+		case CUST_ACTION_WRITE_SENSOR_REG:
+			req.set_cust_req.reg_data.action = CUST_ACTION_WRITE_SENSOR_REG;
+			req.set_cust_req.reg_data.scp_reg_data = *((struct REGISTER_DATA *)data);
+			len = offsetof(struct SCP_SENSOR_HUB_SET_CUST_REQ,
+				custData) + sizeof(req.set_cust_req.reg_data);
+			break;
 		default:
 			return -1;
 		}
@@ -2135,6 +2175,18 @@ int sensor_set_cmd_to_hub(uint8_t sensorType,
 			&req.set_cust_rsp.getInfo.sensorInfo,
 			sizeof(struct sensorInfo_t));
 		break;
+	case CUST_ACTION_READ_SENSOR_REG:
+		if (req.set_cust_rsp.reg_data.action !=
+			CUST_ACTION_READ_SENSOR_REG) {
+			pr_info("scp_sensorHub_req_send failed action!\n");
+			return -1;
+		}
+		memcpy((struct REGISTER_DATA *)data,
+			&req.set_cust_rsp.reg_data.scp_reg_data,
+			sizeof(struct REGISTER_DATA));
+		pr_info("yechen value = %u", ((struct REGISTER_DATA *)data)->value);
+		break;
+
 	default:
 		break;
 	}

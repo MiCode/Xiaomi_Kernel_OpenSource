@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2018 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -26,7 +27,7 @@ bat_gm30: battery{
 /*	System shutdown current*/
 	FG_METER_RESISTANCE = <(100)>;
 /*	The resistance of PCB*/
-	CAR_TUNE_VALUE = <(100)>;
+	CAR_TUNE_VALUE = <(99)>;
 /*	Tune value for current measurement*/
 	PMIC_MIN_VOL = <(33500)>;
 /*	vboot voltage for gauge 0%*/
@@ -50,9 +51,9 @@ bat_gm30: battery{
 /*	Pseudo 100% percentage at T0*/
 	g_FG_PSEUDO100_T1 = <(100)>;
 /*	Pseudo 100% percentage at T1*/
-	g_FG_PSEUDO100_T2 = <(100)>;
+	g_FG_PSEUDO100_T2 = <(95)>;
 /*	Pseudo 100% percentage at T2*/
-	g_FG_PSEUDO100_T3 = <(100)>;
+	g_FG_PSEUDO100_T3 = <(95)>;
 /*	Pseudo 100% percentage at T3*/
 	g_FG_PSEUDO100_T4 = <(100)>;
 /*	Pseudo 100% percentage at T4*/

@@ -97,3 +97,6 @@ obj-y += $(AUDIO_PLATFORM)/
 # AP include path
 subdir-ccflags-y += -Werror -I$(src)/$(AUDIO_PLATFORM)
 endif
+
+#for AWINIC AW87519 Smart K PA
+obj-$(CONFIG_SND_SOC_AW87519) += aw87519_audio.o

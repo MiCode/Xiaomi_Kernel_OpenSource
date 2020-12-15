@@ -1,7 +1,8 @@
 /*
  * TI LMU (Lighting Management Unit) Devices
  *
- * Copyright 2017 Texas Instruments
+ * Copyright 2016 Texas Instruments
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * Author: Milo Kim <milo.kim@ti.com>
  *
@@ -22,6 +23,8 @@
 
 enum ti_lmu_id {
 	LM3532,
+	LM36272,
+	LM36274,
 	LM3631,
 	LM3632,
 	LM3633,
@@ -60,6 +63,9 @@ enum ti_lmu_max_current {
 };
 
 enum lm363x_regulator_id {
+	LM3627X_BOOST,		/* Boost output */
+	LM3627X_LDO_POS,	/* Positive display bias output */
+	LM3627X_LDO_NEG,	/* Negative display bias output */
 	LM3631_BOOST,		/* Boost output */
 	LM3631_LDO_CONT,	/* Display panel controller */
 	LM3631_LDO_OREF,	/* Gamma reference */

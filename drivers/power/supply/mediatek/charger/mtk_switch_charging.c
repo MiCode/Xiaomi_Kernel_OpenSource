@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -66,6 +67,7 @@
 #include "mtk_charger_intf.h"
 #include "mtk_switch_charging.h"
 
+extern int call_mode;
 static int _uA_to_mA(int uA)
 {
 	if (uA == -1)
@@ -158,7 +160,8 @@ static void swchg_select_charging_current_limit(struct charger_manager *info)
 
 	if (info->atm_enabled == true && (info->chr_type == STANDARD_HOST ||
 	    info->chr_type == CHARGING_HOST)) {
-		pdata->input_current_limit = 100000; /* 100mA */
+		pdata->input_current_limit = 500000; /* 500mA */
+		pdata->charging_current_limit = 500000;
 		goto done;
 	}
 
@@ -239,12 +242,22 @@ static void swchg_select_charging_current_limit(struct charger_manager *info)
 				info->data.ac_charger_input_current;
 		pdata->charging_current_limit =
 				info->data.ac_charger_current;
-		mtk_pe20_set_charging_current(info,
-					&pdata->charging_current_limit,
-					&pdata->input_current_limit);
-		mtk_pe_set_charging_current(info,
-					&pdata->charging_current_limit,
-					&pdata->input_current_limit);
+		switch (info->usb_psy->desc->type) {
+			case POWER_SUPPLY_TYPE_USB_HVDCP:
+				pdata->input_current_limit = 2000000;
+				pdata->charging_current_limit = 3000000;
+				break;
+			case POWER_SUPPLY_TYPE_USB_HVDCP_3:
+				pdata->input_current_limit = 3000000;
+				pdata->charging_current_limit = 3000000;
+				break;
+			case POWER_SUPPLY_TYPE_USB_DCP:
+			default:
+				pdata->input_current_limit =
+				info->data.ac_charger_input_current;
+				pdata->charging_current_limit = 2000000;
+				break;
+		}
 	} else if (info->chr_type == CHARGING_HOST) {
 		pdata->input_current_limit =
 				info->data.charging_host_charger_current;
@@ -263,23 +276,20 @@ static void swchg_select_charging_current_limit(struct charger_manager *info)
 	}
 
 	if (info->enable_sw_jeita) {
-		if (IS_ENABLED(CONFIG_USBIF_COMPLIANCE)
-		    && info->chr_type == STANDARD_HOST)
-			pr_debug("USBIF & STAND_HOST skip current check\n");
-		else {
-			if (info->sw_jeita.sm == TEMP_T0_TO_T1) {
-				pdata->input_current_limit = 500000;
-				pdata->charging_current_limit = 350000;
-			}
-		}
+		// if (pdata->input_current_limit > info->sw_jeita.cc)
+		// 	pdata->input_current_limit = info->sw_jeita.cc;
+
+		if (pdata->charging_current_limit > info->sw_jeita.cc)
+			pdata->charging_current_limit = info->sw_jeita.cc;
+		pr_err("dhx---jeita_cc : %d\n", info->sw_jeita.cc);
 	}
 
-	if (pdata->thermal_charging_current_limit != -1) {
-		if (pdata->thermal_charging_current_limit <
-		    pdata->charging_current_limit)
-			pdata->charging_current_limit =
-					pdata->thermal_charging_current_limit;
-	}
+	// if (pdata->thermal_charging_current_limit != -1) {
+	// 	if (pdata->thermal_charging_current_limit <
+	// 	    pdata->charging_current_limit)
+	// 		pdata->charging_current_limit =
+	// 				pdata->thermal_charging_current_limit;
+	// }
 
 	if (pdata->thermal_input_current_limit != -1) {
 		if (pdata->thermal_input_current_limit <
@@ -312,6 +322,15 @@ static void swchg_select_charging_current_limit(struct charger_manager *info)
 			pdata->input_current_limit =
 					pdata->input_current_limit_by_aicl;
 	}
+
+	if (call_mode != -1) {
+		if (pdata->input_current_limit > call_mode) {
+			pdata->input_current_limit = call_mode;
+			pdata->charging_current_limit = call_mode;
+			pr_err("call mode is %d\n", call_mode);
+		}
+	}
+
 done:
 	ret = charger_dev_get_min_charging_current(info->chg1_dev, &ichg1_min);
 	if (ret != -ENOTSUPP && pdata->charging_current_limit < ichg1_min)
@@ -378,7 +397,7 @@ static void swchg_select_cv(struct charger_manager *info)
 	/* dynamic cv*/
 	constant_voltage = info->data.battery_cv;
 	mtk_get_dynamic_cv(info, &constant_voltage);
-
+	pr_err("dhx--set constant_voltage:%d\n", constant_voltage);
 	charger_dev_set_constant_voltage(info->chg1_dev, constant_voltage);
 }
 
@@ -533,7 +552,7 @@ static int mtk_switch_chr_cc(struct charger_manager *info)
 	charger_dev_is_charging_done(info->chg1_dev, &chg_done);
 	if (chg_done) {
 		swchgalg->state = CHR_BATFULL;
-		charger_dev_do_event(info->chg1_dev, EVENT_EOC, 0);
+		charger_manager_notifier(info, CHARGER_NOTIFY_EOC);
 		chr_err("battery full!\n");
 	}
 
@@ -717,8 +736,12 @@ int mtk_switch_charging_init(struct charger_manager *info)
 	if (info->chg1_dev)
 		chr_err("Found primary charger [%s]\n",
 			info->chg1_dev->props.alias_name);
-	else
-		chr_err("*** Error : can't find primary charger ***\n");
+	else {
+		msleep(300);
+		info->chg1_dev = get_charger_by_name("primary_chg");
+		if (info->chg1_dev)
+			chr_err("*** Error : can't find primary charger1 ***\n");
+	}
 
 	mutex_init(&swch_alg->ichg_aicr_access_mutex);
 

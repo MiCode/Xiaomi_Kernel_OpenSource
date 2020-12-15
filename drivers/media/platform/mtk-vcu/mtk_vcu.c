@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  * Author: Andrew-CT Chen <andrew-ct.chen@mediatek.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -92,13 +93,13 @@
 /* vcu extended iova address*/
 #define VCU_PMEM0_IOVA(vcu_data)        (vcu_data->extmem.p_iova)
 #define VCU_DMEM0_IOVA(vcu_data)        (vcu_data->extmem.d_iova)
-#define VCU_SHMEM_SIZE 0x140000
+#define VCU_SHMEM_SIZE 0x150000
 
 #define MAP_SHMEM_ALLOC_BASE    0x80000000UL
-#define MAP_SHMEM_ALLOC_RANGE   0x08000000UL
+#define MAP_SHMEM_ALLOC_RANGE   VCU_SHMEM_SIZE
 #define MAP_SHMEM_ALLOC_END     (MAP_SHMEM_ALLOC_BASE + MAP_SHMEM_ALLOC_RANGE)
 #define MAP_SHMEM_COMMIT_BASE   0x88000000UL
-#define MAP_SHMEM_COMMIT_RANGE  0x08000000UL
+#define MAP_SHMEM_COMMIT_RANGE  VCU_SHMEM_SIZE
 #define MAP_SHMEM_COMMIT_END    (MAP_SHMEM_COMMIT_BASE + MAP_SHMEM_COMMIT_RANGE)
 
 #define MAP_SHMEM_MM_BASE       0x90000000UL

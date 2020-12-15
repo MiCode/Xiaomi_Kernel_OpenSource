@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -452,6 +453,19 @@ static int alshub_factory_set_cali(int32_t offset)
 	return err;
 
 }
+
+
+static int alshub_factory_set_cali_0lux(int32_t offset)
+{
+	int err = 0;
+	int32_t cfg_data;
+
+	cfg_data = offset;
+	als_0lux_cali_report(&cfg_data);
+	return err;
+
+}
+
 static int alshub_factory_get_cali(int32_t *offset)
 {
 	struct alspshub_ipi_data *obj = obj_ipi_data;
@@ -459,6 +473,21 @@ static int alshub_factory_get_cali(int32_t *offset)
 	*offset = atomic_read(&obj->als_cali);
 	return 0;
 }
+
+static int pshub_factory_set_factory_flag(int32_t flag)
+{
+	int res = 0;
+
+	res = sensor_set_cmd_to_hub(ID_PROXIMITY, CUST_ACTION_SET_FACTORY, &flag);
+	if (res < 0) {
+		pr_err("sensor_set_cmd_to_hub fail,(ID: %d),(action: %d)\n",
+			ID_PROXIMITY, CUST_ACTION_SET_FACTORY);
+		return 0;
+	}
+
+	return res;
+}
+
 static int pshub_factory_enable_sensor(bool enable_disable,
 			int64_t sample_periods_ms)
 {
@@ -600,7 +629,9 @@ static struct alsps_factory_fops alspshub_factory_fops = {
 	.als_clear_cali = alshub_factory_clear_cali,
 	.als_set_cali = alshub_factory_set_cali,
 	.als_get_cali = alshub_factory_get_cali,
+	.als_set_cali_0lux = alshub_factory_set_cali_0lux,
 
+	.ps_set_factory_flag = pshub_factory_set_factory_flag,
 	.ps_enable_sensor = pshub_factory_enable_sensor,
 	.ps_get_data = pshub_factory_get_data,
 	.ps_get_raw_data = pshub_factory_get_raw_data,

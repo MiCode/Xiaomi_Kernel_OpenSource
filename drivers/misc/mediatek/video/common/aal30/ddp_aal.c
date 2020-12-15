@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2015 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -1425,6 +1426,7 @@ void disp_aal_notify_backlight_changed(int bl_1024)
 	disp_aal_exit_idle(__func__, 1);
 
 	max_backlight = disp_pwm_get_max_backlight(DISP_PWM0);
+	printk("[%s]: lyd_thmal, max_backlight = %d\n", __func__, max_backlight);
 	if (bl_1024 > max_backlight)
 		bl_1024 = max_backlight;
 
@@ -1443,6 +1445,7 @@ void disp_aal_notify_backlight_changed(int bl_1024)
 		service_flags = AAL_SERVICE_FORCE_UPDATE;
 	} else if (atomic_read(&g_aal_is_init_regs_valid) == 0 ||
 		atomic_read(&g_aal_force_relay) == 1) {
+		printk("[%s]: lyd_thmal,  AAl service\n", __func__);
 		/* AAL Service is not running */
 		if (atomic_read(&g_led_mode) == MT65XX_LED_MODE_CUST_LCM)
 			backlight_brightness_set_with_lock(bl_1024);

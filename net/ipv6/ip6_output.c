@@ -642,8 +642,6 @@ int ip6_fragment(struct net *net, struct sock *sk, struct sk_buff *skb,
 		pr_info_ratelimited("[mtk_net] %s ignore to avoid double fragment\n",
 				    __func__);
 		err = output(net, sk, skb);
-		if (err)
-			goto fail;
 		return err;
 	}
 

@@ -2,6 +2,7 @@
  * SPI init/core code
  *
  * Copyright (C) 2005 David Brownell
+ * Copyright (C) 2020 XiaoMi, Inc.
  * Copyright (C) 2008 Secret Lab Technologies Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -1622,6 +1623,8 @@ static int of_spi_parse_dt(struct spi_controller *ctlr, struct spi_device *spi,
 		return rc;
 	}
 	spi->max_speed_hz = value;
+	printk("[%s]: lyd_spi, spi name = %s\n", __func__, nc->name);
+	printk("[%s]: lyd_spi, spi speed = %d\n", __func__, value);
 
 	return 0;
 }

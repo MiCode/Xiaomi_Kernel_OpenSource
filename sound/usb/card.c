@@ -536,6 +536,7 @@ get_alias_quirk(struct usb_device *dev, unsigned int id)
  * only at the first time.  the successive calls of this function will
  * append the pcm interface to the corresponding card.
  */
+u32 id_usb;
 static int usb_audio_probe(struct usb_interface *intf,
 			   const struct usb_device_id *usb_id)
 {
@@ -552,6 +553,7 @@ static int usb_audio_probe(struct usb_interface *intf,
 	ifnum = get_iface_desc(alts)->bInterfaceNumber;
 	id = USB_ID(le16_to_cpu(dev->descriptor.idVendor),
 		    le16_to_cpu(dev->descriptor.idProduct));
+	id_usb = id;
 	if (get_alias_id(dev, &id))
 		quirk = get_alias_quirk(dev, id);
 	if (quirk && quirk->ifnum >= 0 && ifnum != quirk->ifnum)
@@ -674,6 +676,7 @@ static void usb_audio_disconnect(struct usb_interface *intf)
 		return;
 
 	card = chip->card;
+	id_usb = USB_ID(le16_to_cpu(0x0), le16_to_cpu(0x0));
 
 	mutex_lock(&register_mutex);
 	if (atomic_inc_return(&chip->shutdown) == 1) {

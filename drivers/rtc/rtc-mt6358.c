@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2018 MediaTek, Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  * Author: Wilma Wu <wilma.wu@mediatek.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -42,6 +43,7 @@
 #include <linux/cpumask.h>
 #include "../misc/mediatek/include/mt-plat/mtk_boot_common.h"
 #include "../misc/mediatek/include/mt-plat/mtk_reboot.h"
+#include <linux/debugfs.h>
 
 #ifdef pr_fmt
 #undef pr_fmt
@@ -201,6 +203,63 @@ static unsigned long rtc_pm_status;
 
 module_param(rtc_show_time, int, 0644);
 module_param(rtc_show_alarm, int, 0644);
+
+static int rtc_alarm_enabled = 1;
+
+static ssize_t mtk_rtc_debug_write(struct file *file,
+	const char __user *buf, size_t size, loff_t *ppos)
+{
+	char lbuf[128];
+	char option[16];
+	int setting;
+	ssize_t res;
+
+	if (*ppos != 0 || size >= sizeof(lbuf) || size == 0)
+		return -EINVAL;
+
+	res = simple_write_to_buffer(lbuf, sizeof(lbuf) - 1, ppos, buf, size);
+	if (res <= 0)
+		return -EFAULT;
+	lbuf[size] = '\0';
+
+	if (sscanf(lbuf, "%15s %d", option, &setting) != 2) {
+		pr_notice("Invalid para %s\n", lbuf);
+		return -EFAULT;
+	}
+
+	if (!strncmp(option, "alarm", strlen("alarm"))) {
+		pr_notice("alarm = %d\n", setting);
+		rtc_alarm_enabled = setting;
+		if (rtc_alarm_enabled)
+			enable_irq(mt_rtc->irq);
+		else
+			disable_irq_nosync(mt_rtc->irq);
+	}
+
+	return size;
+}
+
+static int mtk_rtc_debug_show(struct seq_file *s, void *unused)
+{
+	seq_printf(s, "rtc alarm %s\n",
+		rtc_alarm_enabled ? "enabled" : "disabled");
+
+	return 0;
+}
+
+static int mtk_rtc_debug_open(struct inode *inode,
+						struct file *file)
+{
+	return single_open(file, mtk_rtc_debug_show, NULL);
+}
+
+static const struct file_operations mtk_rtc_debug_ops = {
+	.open    = mtk_rtc_debug_open,
+	.read    = seq_read,
+	.write   = mtk_rtc_debug_write,
+	.llseek  = seq_lseek,
+	.release = single_release,
+};
 
 
 
@@ -1004,6 +1063,8 @@ static int mtk_rtc_pdrv_probe(struct platform_device *pdev)
 	struct mt6358_rtc *rtc;
 	unsigned long flags;
 	int ret;
+	struct dentry *mtk_rtc_dir;
+	struct dentry *mtk_rtc_file;
 
 	rtc = devm_kzalloc(&pdev->dev, sizeof(struct mt6358_rtc), GFP_KERNEL);
 	if (!rtc)
@@ -1063,6 +1124,20 @@ static int mtk_rtc_pdrv_probe(struct platform_device *pdev)
 	if (of_property_read_bool(pdev->dev.of_node, "apply-lpsd-solution")) {
 		apply_lpsd_solution = 1;
 		pr_notice("%s: apply_lpsd_solution\n", __func__);
+	}
+
+	mtk_rtc_dir = debugfs_create_dir("mtk_rtc", NULL);
+	if (!mtk_rtc_dir) {
+		pr_err("create /sys/kernel/debug/mtk_rtc_dir failed\n");
+		//return -ENOMEM;
+	}
+
+	mtk_rtc_file = debugfs_create_file("mtk_rtc", 0644,
+				mtk_rtc_dir, NULL,
+				&mtk_rtc_debug_ops);
+	if (!mtk_rtc_file) {
+		pr_err("create /sys/kernel/debug/mtk_rtc/mtk_rtc failed\n");
+		//return -ENOMEM;
 	}
 
 #ifdef CONFIG_PM

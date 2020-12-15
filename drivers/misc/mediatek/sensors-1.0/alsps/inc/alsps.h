@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -193,6 +194,7 @@ extern int als_data_report(int value, int status);
 extern int als_data_report_t(int value, int status, int64_t time_stamp);
 extern int ps_cali_report(int *value);
 extern int als_cali_report(int *value);
+extern int als_0lux_cali_report(int *value);
 extern int als_flush_report(void);
 extern int rgbw_data_report(int value[4]);
 extern int rgbw_data_report_t(int value[4], int64_t time_stamp);

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -54,6 +55,10 @@ struct IMGSENSOR_HW_CFG imgsensor_custom_config[] = {
 			{IMGSENSOR_HW_ID_GPIO, IMGSENSOR_HW_PIN_DVDD},
 			{IMGSENSOR_HW_ID_GPIO, IMGSENSOR_HW_PIN_PDN},
 			{IMGSENSOR_HW_ID_GPIO, IMGSENSOR_HW_PIN_RST},
+#ifdef MIPI_SWITCH
+			{IMGSENSOR_HW_ID_GPIO, IMGSENSOR_HW_PIN_MIPI_SWITCH_EN},
+			{IMGSENSOR_HW_ID_GPIO, IMGSENSOR_HW_PIN_MIPI_SWITCH_SEL},
+#endif
 			{IMGSENSOR_HW_ID_NONE, IMGSENSOR_HW_PIN_NONE},
 		},
 	},
@@ -62,11 +67,15 @@ struct IMGSENSOR_HW_CFG imgsensor_custom_config[] = {
 		IMGSENSOR_I2C_DEV_2,
 		{
 			{IMGSENSOR_HW_ID_MCLK, IMGSENSOR_HW_PIN_MCLK},
-			{IMGSENSOR_HW_ID_GPIO, IMGSENSOR_HW_PIN_AVDD},
+			{IMGSENSOR_HW_ID_REGULATOR, IMGSENSOR_HW_PIN_AVDD},
 			{IMGSENSOR_HW_ID_REGULATOR, IMGSENSOR_HW_PIN_DOVDD},
 			{IMGSENSOR_HW_ID_REGULATOR, IMGSENSOR_HW_PIN_DVDD},
 			{IMGSENSOR_HW_ID_GPIO, IMGSENSOR_HW_PIN_PDN},
 			{IMGSENSOR_HW_ID_GPIO, IMGSENSOR_HW_PIN_RST},
+#ifdef MIPI_SWITCH
+			{IMGSENSOR_HW_ID_GPIO, IMGSENSOR_HW_PIN_MIPI_SWITCH_EN},
+			{IMGSENSOR_HW_ID_GPIO, IMGSENSOR_HW_PIN_MIPI_SWITCH_SEL},
+#endif
 			{IMGSENSOR_HW_ID_NONE, IMGSENSOR_HW_PIN_NONE},
 		},
 	},
@@ -134,7 +143,7 @@ struct IMGSENSOR_HW_POWER_SEQ platform_power_sequence[] = {
 			},
 			{
 				IMGSENSOR_HW_PIN_MIPI_SWITCH_SEL,
-				IMGSENSOR_HW_PIN_STATE_LEVEL_0,
+				IMGSENSOR_HW_PIN_STATE_LEVEL_HIGH,
 				0,
 				IMGSENSOR_HW_PIN_STATE_LEVEL_0,
 				0
@@ -273,6 +282,19 @@ struct IMGSENSOR_HW_POWER_SEQ sensor_power_sequence[] = {
 			{DVDD, Vol_1200, 2},
 			{AFVDD, Vol_2800, 0},
 			{PDN, Vol_High, 0},
+			{RST, Vol_High, 0}
+		},
+	},
+#endif
+#if defined(S5K4H7YX_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_S5K4H7YX_MIPI_RAW,
+		{
+			{SensorMCLK, Vol_High, 2},
+			{RST, Vol_Low, 1},
+			{AVDD, Vol_2800, 1},
+			{DVDD, Vol_1200, 1},
+			{DOVDD, Vol_1800, 1},
 			{RST, Vol_High, 0}
 		},
 	},

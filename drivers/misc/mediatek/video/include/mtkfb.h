@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2015 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -316,6 +317,15 @@ struct fb_post_video_buffer {
 	unsigned int width, height;
 };
 
+struct fb_lcd_merlin_para {
+	int white_point_x;
+	int white_point_y;
+	u32 white_point_r;
+	u32 white_point_g;
+	u32 white_point_b;
+
+};
+
 #if defined(CONFIG_MACH_MT6735) || defined(CONFIG_MACH_MT6735M)\
 	|| defined(CONFIG_MACH_MT6753) || defined(CONFIG_MACH_MT8167)
 extern unsigned int EnableVSyncLog;
@@ -397,6 +407,11 @@ struct mtkfb_device {
 	int timeline_max;
 	struct list_head pending_configs;
 	struct ion_client *ion_client;
+
+	/* begin modify for unlock speed */
+	atomic_t resume_pending;
+	wait_queue_head_t resume_wait_q;
+	/* end modify for unlock speed */
 };
 
 #endif				/* __KERNEL__ */

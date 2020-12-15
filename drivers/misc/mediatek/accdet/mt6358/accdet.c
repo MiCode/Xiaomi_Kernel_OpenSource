@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -47,6 +48,9 @@
 #endif
 #include "pmic_auxadc.h"
 #endif /* end of #if PMIC_ACCDET_KERNEL */
+#ifdef CONFIG_SWITCH
+#include <linux/switch.h>
+#endif
 
 /********************grobal variable definitions******************/
 #if PMIC_ACCDET_CTP
@@ -213,6 +217,10 @@ static int moisture_ext_r = 470000;
 static bool debug_thread_en;
 static bool dump_reg;
 static struct task_struct *thread;
+#ifdef CONFIG_SWITCH
+//add for switch to show the headset plug status
+static struct switch_dev accdet_data;
+#endif
 
 static void accdet_init_once(void);
 static inline void accdet_init(void);
@@ -857,12 +865,12 @@ static void send_key_event(u32 keycode, u32 flag)
 {
 	switch (keycode) {
 	case DW_KEY:
-		input_report_key(accdet_input_dev, KEY_VOLUMEDOWN, flag);
+		input_report_key(accdet_input_dev, BTN_2, flag);
 		input_sync(accdet_input_dev);
 		pr_debug("accdet KEY_VOLUMEDOWN %d\n", flag);
 		break;
 	case UP_KEY:
-		input_report_key(accdet_input_dev, KEY_VOLUMEUP, flag);
+		input_report_key(accdet_input_dev, BTN_1, flag);
 		input_sync(accdet_input_dev);
 		pr_debug("accdet KEY_VOLUMEUP %d\n", flag);
 		break;
@@ -896,6 +904,9 @@ static void send_accdet_status_event(u32 cable_type, u32 status)
 		input_sync(accdet_input_dev);
 		pr_info("%s HEADPHONE(3-pole) %s\n", __func__,
 			status ? "PlugIn" : "PlugOut");
+#ifdef CONFIG_SWITCH
+		switch_set_state(&accdet_data, status == 0 ? NO_DEVICE : cable_type);
+#endif
 		break;
 	case HEADSET_MIC:
 		/* when plug 4-pole out, 3-pole plug out should also be
@@ -909,6 +920,9 @@ static void send_accdet_status_event(u32 cable_type, u32 status)
 		input_sync(accdet_input_dev);
 		pr_info("%s MICROPHONE(4-pole) %s\n", __func__,
 			status ? "PlugIn" : "PlugOut");
+#ifdef CONFIG_SWITCH
+		switch_set_state(&accdet_data, status==0 ? NO_DEVICE : cable_type);
+#endif
 		break;
 	case LINE_OUT_DEVICE:
 		input_report_switch(accdet_input_dev, SW_LINEOUT_INSERT,
@@ -2270,7 +2284,17 @@ int mt_accdet_probe(struct platform_device *dev)
 	int ret;
 	struct platform_driver accdet_driver_hal = accdet_driver_func();
 
+#ifdef CONFIG_SWITCH
 	pr_info("%s() begin!\n", __func__);
+	accdet_data.name = "h2w";
+	accdet_data.index = 0;
+	accdet_data.state = 0;
+	ret = switch_dev_register(&accdet_data);
+	if (ret) {
+		pr_notice("%s switch_dev_register fail:%d!\n", __func__, ret);
+		return -1;
+	}
+#endif
 
 	/* register char device number, Create normal device for auido use */
 	ret = alloc_chrdev_region(&accdet_devno, 0, 1, ACCDET_DEVNAME);
@@ -2323,6 +2347,8 @@ int mt_accdet_probe(struct platform_device *dev)
 	__set_bit(KEY_VOLUMEDOWN, accdet_input_dev->keybit);
 	__set_bit(KEY_VOLUMEUP, accdet_input_dev->keybit);
 	__set_bit(KEY_VOICECOMMAND, accdet_input_dev->keybit);
+	__set_bit(BTN_1, accdet_input_dev->keybit);
+    __set_bit(BTN_2, accdet_input_dev->keybit);
 
 	__set_bit(EV_SW, accdet_input_dev->evbit);
 	__set_bit(SW_HEADPHONE_INSERT, accdet_input_dev->swbit);

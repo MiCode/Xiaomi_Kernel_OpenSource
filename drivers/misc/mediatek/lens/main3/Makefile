@@ -36,6 +36,13 @@ else
 
 obj-y += main3_lens.o
 #obj-y += common/ak7371af/
+ifeq ($(CONFIG_MTK_LENS_CN3927AF_SUPPORT), y)
+obj-y += common/cn3927af/
+endif
+
+ifeq ($(CONFIG_MTK_LENS_DW9714VAF_SUPPORT), y)
+obj-y += common/dw9714vaf/
+endif
 
 
 endif

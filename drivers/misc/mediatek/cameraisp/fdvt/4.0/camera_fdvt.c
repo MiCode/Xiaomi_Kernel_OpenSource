@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2015 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -534,8 +535,8 @@ void FDVT_DUMPREG(void)
 
 	LOG_DBG("FDVT REG:\n ********************\n");
 
-	/* for(u4Index = 0; u4Index < 0x180; u4Index += 4) { */
-	for (u4Index = 0x158; u4Index < 0x180; u4Index += 4) {
+	for (u4Index = 0; u4Index < 0x180; u4Index += 4) {
+	/* for (u4Index = 0x158; u4Index < 0x180; u4Index += 4) {*/
 		u4RegValue = ioread32((void *)(FDVT_ADDR + u4Index));
 		LOG_DBG("+0x%x 0x%x\n", u4Index, u4RegValue);
 	}
@@ -672,12 +673,13 @@ static int FDVT_WaitIRQ(u32 *u4IRQMask)
 	timeout = wait_event_interruptible_timeout
 		(g_FDVTWQ,
 		(g_FDVTIRQMSK & g_FDVTIRQ),
-		us_to_jiffies(15 * 1000000));
+		us_to_jiffies(1000000));
 
 	if (timeout == 0) {
 		LOG_ERR("wait_event_interruptible_timeout timeout, %d, %d\n",
 			g_FDVTIRQMSK,
 			g_FDVTIRQ);
+		FDVT_DUMPREG();
 		FDVT_WR32(0x00030000, FDVT_START);  /* LDVT Disable */
 		FDVT_WR32(0x00000000, FDVT_START);  /* LDVT Disable */
 		return -EAGAIN;
@@ -749,7 +751,7 @@ static long FDVT_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		FDVT_basic_config();
 		break;
 	case FDVT_IOC_STARTFD_CMD:
-		/* LOG_DBG("[FDVT] FDVTIOC_STARTFD_CMD\n"); */
+		LOG_DBG("[FDVT] FDVTIOC_STARTFD_CMD\n");
 		if (haveConfig) {
 			FDVT_WR32(0x00000001, FDVT_INT_EN);
 			FDVT_WR32(0x00000000, FDVT_START);
@@ -760,7 +762,7 @@ static long FDVT_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		/* FDVT_DUMPREG(); */
 		break;
 	case FDVT_IOC_G_WAITIRQ:
-		/* LOG_DBG("[FDVT] FDVT_WaitIRQ\n"); */
+		LOG_DBG("[FDVT] FDVT_WaitIRQ\n");
 		ret = FDVT_WaitIRQ((unsigned int *)pBuff);
 		FDVT_WR32(0x00000000, FDVT_INT_EN);
 		break;
