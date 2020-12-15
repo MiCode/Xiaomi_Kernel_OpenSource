@@ -128,10 +128,9 @@ static void _regulator_apu_settle_time(struct apu_regulator *reg,
 	/* check whehter kernel regulator frame work suggest delay time already */
 	ramp_delay =
 		regulator_set_voltage_time(reg->vdd, old_uV, new_uV);
-	if (ramp_delay) {
-		argul_info(reg->dev, "kernel provide delay time\n");
+	if (ramp_delay)
 		goto delay;
-	}
+
 	/* kernel regulator frame work not provide delay time */
 	latency = reg->cstr.settling_time;
 	if (reg->cstr.settling_time_up &&
