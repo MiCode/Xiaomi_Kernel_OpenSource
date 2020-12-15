@@ -58,8 +58,7 @@ int set_volt_gpu(struct eemg_det *det)
 	unsigned int output[NR_FREQ_GPU];
 
 	for (i = 0; i < det->num_freq_tbl; i++)
-		output[i] = det->ops->pmic_2_volt_gpu(
-			det, det->volt_tbl_pmic[i]);
+		output[i] = det->ops->pmic_2_volt_gpu(det, det->volt_tbl_pmic[i]);
 
 #if IS_ENABLED(CONFIG_MTK_GPU_SUPPORT)
 	return mt_gpufreq_update_volt(output, det->num_freq_tbl);
@@ -79,13 +78,13 @@ void restore_default_volt_gpu(struct eemg_det *det)
 	FUNC_EXIT(FUNC_LV_HELP);
 }
 
-void get_freq_table_gpu(struct eemg_det *det)
+void get_freq_table_gpu(struct eemg_det *det, unsigned int gpu_freq_base,
+	unsigned int gpu_m_freq_base)
 {
 #if IS_ENABLED(CONFIG_MTK_GPU_SUPPORT)
 	int i = 0, curfreq = 0;
 
 	memset(det->freq_tbl, 0, sizeof(det->freq_tbl));
-
 	FUNC_ENTER(FUNC_LV_HELP);
 	eemg_debug("In gpu freq\n");
 
@@ -104,7 +103,7 @@ void get_freq_table_gpu(struct eemg_det *det)
 		for (i = 0; i < det->num_freq_tbl; i++) {
 			curfreq = mt_gpufreq_get_freq_by_real_idx
 			(mt_gpufreq_get_ori_opp_idx(i));
-			if (curfreq <= GPU_FREQ_BASE) {
+			if (curfreq <= gpu_freq_base) {
 				gpu_vb_turn_pt = i;
 				break;
 			}
@@ -114,7 +113,7 @@ void get_freq_table_gpu(struct eemg_det *det)
 	for (i = 0; i < det->num_freq_tbl; i++) {
 		curfreq = mt_gpufreq_get_freq_by_real_idx
 			(mt_gpufreq_get_ori_opp_idx(i));
-		if (curfreq <= GPU_M_FREQ_BASE) {
+		if (curfreq <= gpu_m_freq_base) {
 			det->turn_pt = i;
 			break;
 		}

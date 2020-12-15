@@ -32,7 +32,8 @@ struct eemg_det_ops {
 	int (*get_volt_gpu)(struct eemg_det *det);
 	int (*set_volt_gpu)(struct eemg_det *det);
 	void (*restore_default_volt_gpu)(struct eemg_det *det);
-	void (*get_freq_table_gpu)(struct eemg_det *det);
+	void (*get_freq_table_gpu)(struct eemg_det *det, unsigned int gpu_freq_base,
+		unsigned int gpu_m_freq_base);
 	void (*get_orig_volt_table_gpu)(struct eemg_det *det);
 
 	/* interface to PMIC */
@@ -289,7 +290,6 @@ struct eemg_devinfo {
 extern unsigned int freq[NR_FREQ];
 
 extern struct mutex gpu_record_mutex;
-/* extern struct mutex lcpu_mutex; */
 extern struct mutex gpu_mutex_g;
 
 extern void mt_record_lock(unsigned long *flags);
@@ -303,18 +303,12 @@ extern unsigned int record_tbl_locked[NR_FREQ];
  ***************************************************
  */
 extern struct eemg_det_ops gpu_det_ops;
-extern struct eemg_det_ops cpu_det_ops;
-extern struct eemg_det_ops cci_det_ops;
 
-extern int get_volt_cpu1(struct eemg_det *det);
-extern int set_volt_cpu1(struct eemg_det *det);
-extern void restore_default_volt_cpu1(struct eemg_det *det);
-extern void get_freq_table_cpu1(struct eemg_det *det);
-extern void get_orig_volt_table_cpu1(struct eemg_det *det);
 extern int get_volt_gpu(struct eemg_det *det);
 extern int set_volt_gpu(struct eemg_det *det);
 extern void restore_default_volt_gpu(struct eemg_det *det);
-extern void get_freq_table_gpu(struct eemg_det *det);
+extern void get_freq_table_gpu(struct eemg_det *det, unsigned int gpu_freq_base,
+	unsigned int gpu_m_freq_base);
 extern void get_orig_volt_table_gpu(struct eemg_det *det);
 
 /*********************************************
@@ -338,7 +332,8 @@ extern int base_ops_get_temp_gpu(struct eemg_det *det);
 extern int base_ops_get_volt_gpu(struct eemg_det *det);
 extern int base_ops_set_volt_gpu(struct eemg_det *det);
 extern void base_ops_restore_default_volt_gpu(struct eemg_det *det);
-extern void base_ops_get_freq_table_gpu(struct eemg_det *det);
+extern void base_ops_get_freq_table_gpu(struct eemg_det *det, unsigned int gpu_freq_base,
+	unsigned int gpu_m_freq_base);
 extern void base_ops_get_orig_volt_table_gpu(struct eemg_det *det);
 #endif
 

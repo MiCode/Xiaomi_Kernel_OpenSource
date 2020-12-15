@@ -59,7 +59,6 @@
 #endif
 #include <regulator/consumer.h>
 
-#define INFRA_AO_NODE         "mediatek,mt8192-infracfg"
 #define INFRA_EEMG_RST          (infra_base_gpu + 0x150)
 #define INFRA_EEMG_CLR          (infra_base_gpu + 0x154)
 #define LVTS_COEFF_A_X_1000                     (-250460)
@@ -158,7 +157,7 @@ static int get_devinfo(struct platform_device *pdev)
 			(devinfo & efuse_mask) >> find_first_bit(
 			(unsigned long *)&efuse_mask, 32), &gpu_vb_volt);
 		if (mcl50) {
-			ret = of_property_read_u32(node, "gpu-vb-opp-mcl50",
+			ret = of_property_read_u32(node, "gpu-vb-opp0-mcl50",
 				&gpu_vb_volt);
 			eemg_error("mc50 load setting\n");
 		}
@@ -173,9 +172,9 @@ static int get_devinfo(struct platform_device *pdev)
 		of_property_read_u32_index(node, "devinfo-idx", i, &efuse);
 		nvmem_device_read(nvmem_dev, efuse, sizeof(__u32), &devinfo);
 		val[i] = devinfo;
-		if (efuse_mask & BIT(i)) {
+		if (efuse_mask & BIT(i))
 			continue;
-		} else if (val[i] == 0) {
+		else if (val[i] == 0) {
 			eemg_error("No EFUSE (val[%d]), use safe efuse\n", i);
 			safeEfuse = 1;
 		}
@@ -829,7 +828,8 @@ void base_ops_restore_default_volt_gpu(struct eemg_det *det)
 	FUNC_EXIT(FUNC_LV_HELP);
 }
 
-void base_ops_get_freq_table_gpu(struct eemg_det *det)
+void base_ops_get_freq_table_gpu(struct eemg_det *det, unsigned int gpu_freq_base,
+	unsigned int gpu_m_freq_base)
 {
 	FUNC_ENTER(FUNC_LV_HELP);
 
@@ -1142,15 +1142,16 @@ static void get_volt_table_in_thread(struct eemg_det *det)
 					ndet, VMAX_VAL_GPU)) + low_temp_offset
 					), ndet->volt_tbl_orig[i] +
 					ndet->volt_clamp + t_clamp);
-		else
-			ndet->volt_tbl_pmic[i] = min((unsigned int)(clamp(
-				ndet->ops->eemg_2_pmic(ndet,
-				(ndet->volt_tbl[i] + ndet->volt_offset +
-				ndet->volt_aging[i]) + rm_dvtfix_offset),
-				ndet->ops->eemg_2_pmic(ndet, ndet->VMIN),
-				ndet->ops->eemg_2_pmic(ndet, VMAX_VAL_GPU)
-				) + low_temp_offset), ndet->volt_tbl_orig[i] +
-				ndet->volt_clamp + t_clamp);
+			else
+				ndet->volt_tbl_pmic[i] = min((unsigned int)(clamp(
+					ndet->ops->eemg_2_pmic(ndet,
+					(ndet->volt_tbl[i] + ndet->volt_offset +
+					ndet->volt_aging[i]) + rm_dvtfix_offset),
+					ndet->ops->eemg_2_pmic(ndet, ndet->VMIN),
+					ndet->ops->eemg_2_pmic(ndet, VMAX_VAL_GPU)
+					) + low_temp_offset), ndet->volt_tbl_orig[i] +
+					ndet->volt_clamp + t_clamp);
+
 			break;
 		default:
 			eemg_error("[eemg_set_eemg_volt] incorrect det :%s!!",
@@ -1332,6 +1333,7 @@ static void eemg_init_det(struct eemg_det *det, struct eemg_devinfo *devinfo,
 	const char *domain;
 	int *val;
 	int ret, efuse_offset = 0, efuse_mask = 0, efuse = 0;
+	struct eemg_det *h_det, *l_det;
 
 	FUNC_ENTER(FUNC_LV_HELP);
 	inherit_base_det(det);
@@ -1404,8 +1406,11 @@ static void eemg_init_det(struct eemg_det *det, struct eemg_devinfo *devinfo,
 	}
 
 	/* get DVFS frequency table */
-	if (det->ops->get_freq_table_gpu)
-		det->ops->get_freq_table_gpu(det);
+	if (det->ops->get_freq_table_gpu) {
+		h_det = (det->loo_role == HIGH_BANK) ? det:id_to_eemg_det(det->loo_couple);
+		l_det = (det->loo_role == LOW_BANK) ? det:id_to_eemg_det(det->loo_couple);
+		det->ops->get_freq_table_gpu(det, h_det->max_freq_khz, l_det->max_freq_khz);
+	}
 
 	if (gpu_2line && det_id == EEMG_DET_GPU_HI)
 		if (det->turn_pt != 0)
@@ -2179,10 +2184,10 @@ static void eemg_dconfig_set_det(struct eemg_det *det, struct device_node *node)
 static int eemg_probe(struct platform_device *pdev)
 {
 	int ret;
+	const phandle *ph;
 	struct eemg_det *det;
 	struct eemg_ctrl *ctrl;
-	struct device_node *node = NULL;
-	struct device_node *node_infra = NULL;
+	struct device_node *node, *node_infra;
 
 #if SUPPORT_DCONFIG
 	int doe_status;
@@ -2238,17 +2243,22 @@ static int eemg_probe(struct platform_device *pdev)
 		return 0;
 	}
 
-	/* infra_ao */
-	node_infra = of_find_compatible_node(NULL, NULL, INFRA_AO_NODE);
+	ph = of_get_property(node, "infracfg", NULL);
+	if (!ph) {
+		eemg_error("infracfg failed\n");
+		return -ENODEV;
+	}
+
+	node_infra = of_find_node_by_phandle(be32_to_cpup(ph));
 	if (!node_infra) {
-		eemg_debug("INFRA_AO_NODE Not Found\n");
-		return 0;
+		eemg_debug("infracfg Mapping Failed\n");
+		return -ENODEV;
 	}
 
 	infra_base_gpu = of_iomap(node_infra, 0);
 	if (!infra_base_gpu) {
 		eemg_debug("infra_ao Map Failed\n");
-		return 0;
+		return -ENODEV;
 	}
 
 	create_procfs(pdev);
