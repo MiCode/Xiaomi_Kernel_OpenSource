@@ -185,6 +185,7 @@ struct msm_otg {
 	struct usb_phy phy;
 	struct msm_otg_platform_data *pdata;
 	struct platform_device *pdev;
+	struct mutex lock;
 	int irq;
 	int async_irq;
 	int phy_irq;
