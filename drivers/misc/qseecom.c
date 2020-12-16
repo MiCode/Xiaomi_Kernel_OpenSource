@@ -5289,8 +5289,10 @@ int qseecom_send_command(struct qseecom_handle *handle, void *send_buf,
 		}
 		perf_enabled = true;
 	}
-	if (!strcmp(data->client.app_name, "securemm"))
+	if (!strcmp(data->client.app_name, "securemm") ||
+	    !strcmp(data->client.app_name, "slateapp")) {
 		data->use_legacy_cmd = true;
+	}
 
 	dmac_flush_range(req.cmd_req_buf, req.cmd_req_buf + req.cmd_req_len);
 
