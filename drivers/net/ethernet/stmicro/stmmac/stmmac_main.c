@@ -1976,8 +1976,9 @@ static int stmmac_tx_clean(struct stmmac_priv *priv, int budget, u32 queue)
 	}
 	tx_q->dirty_tx = entry;
 
-	netdev_tx_completed_queue(netdev_get_tx_queue(priv->dev, queue),
-				  pkts_compl, bytes_compl);
+	if (!priv->tx_coal_timer_disable)
+		netdev_tx_completed_queue(netdev_get_tx_queue(priv->dev, queue),
+					  pkts_compl, bytes_compl);
 
 	if (unlikely(netif_tx_queue_stopped(netdev_get_tx_queue(priv->dev,
 								queue))) &&
@@ -1993,9 +1994,14 @@ static int stmmac_tx_clean(struct stmmac_priv *priv, int budget, u32 queue)
 		mod_timer(&priv->eee_ctrl_timer, STMMAC_LPI_T(eee_timer));
 	}
 
-	/* We still have pending packets, let's call for a new scheduling */
-	if (tx_q->dirty_tx != tx_q->cur_tx)
-		mod_timer(&tx_q->txtimer, STMMAC_COAL_TIMER(10));
+	if (!priv->tx_coal_timer_disable) {
+		/**
+		 * We still have pending packets,
+		 * let's call for a new scheduling
+		 */
+		if (tx_q->dirty_tx != tx_q->cur_tx)
+			mod_timer(&tx_q->txtimer, STMMAC_COAL_TIMER(10));
+	}
 
 	__netif_tx_unlock_bh(netdev_get_tx_queue(priv->dev, queue));
 
@@ -2737,7 +2743,10 @@ static int stmmac_open(struct net_device *dev)
 		goto init_error;
 	}
 
-	stmmac_init_coalesce(priv);
+	if (!priv->tx_coal_timer_disable)
+		stmmac_init_coalesce(priv);
+	else
+		priv->rx_coal_frames = STMMAC_RX_FRAMES;
 
 	phylink_start(priv->phylink);
 
@@ -2787,10 +2796,10 @@ wolirq_error:
 	free_irq(dev->irq, dev);
 irq_error:
 	phylink_stop(priv->phylink);
-
-	for (chan = 0; chan < priv->plat->tx_queues_to_use; chan++)
-		del_timer_sync(&priv->tx_queue[chan].txtimer);
-
+	if (!priv->tx_coal_timer_disable) {
+		for (chan = 0; chan < priv->plat->tx_queues_to_use; chan++)
+			del_timer_sync(&priv->tx_queue[chan].txtimer);
+	}
 	stmmac_hw_teardown(dev);
 init_error:
 	free_dma_desc_resources(priv);
@@ -2821,8 +2830,10 @@ static int stmmac_release(struct net_device *dev)
 
 	stmmac_disable_all_queues(priv);
 
-	for (chan = 0; chan < priv->plat->tx_queues_to_use; chan++)
-		del_timer_sync(&priv->tx_queue[chan].txtimer);
+	if (!priv->tx_coal_timer_disable) {
+		for (chan = 0; chan < priv->plat->tx_queues_to_use; chan++)
+			del_timer_sync(&priv->tx_queue[chan].txtimer);
+	}
 
 	/* Free the IRQ lines */
 	free_irq(dev->irq, dev);
@@ -3065,15 +3076,21 @@ static netdev_tx_t stmmac_tso_xmit(struct sk_buff *skb, struct net_device *dev)
 
 	/* Manage tx mitigation */
 	tx_q->tx_count_frames += nfrags + 1;
-	if (likely(priv->tx_coal_frames > tx_q->tx_count_frames) &&
-	    !((skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP) &&
-	      priv->hwts_tx_en)) {
-		stmmac_tx_timer_arm(priv, queue);
+	if (likely(priv->tx_coal_timer_disable)) {
+		tx_q->tx_count_frames = 0;
+		stmmac_set_tx_ic(priv, desc);
+		priv->xstats.tx_set_ic_bit++;
+	} else {
+		if (likely(priv->tx_coal_frames > tx_q->tx_count_frames) &&
+		    !((skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP) &&
+			priv->hwts_tx_en)) {
+			stmmac_tx_timer_arm(priv, queue);
 	} else {
 		desc = &tx_q->dma_tx[tx_q->cur_tx];
 		tx_q->tx_count_frames = 0;
 		stmmac_set_tx_ic(priv, desc);
 		priv->xstats.tx_set_ic_bit++;
+	}
 	}
 
 	/* We've used all descriptors we need for this skb, however,
@@ -3140,11 +3157,13 @@ static netdev_tx_t stmmac_tso_xmit(struct sk_buff *skb, struct net_device *dev)
 		print_pkt(skb->data, skb_headlen(skb));
 	}
 
-	netdev_tx_sent_queue(netdev_get_tx_queue(dev, queue), skb->len);
+	if (!priv->tx_coal_timer_disable)
+		netdev_tx_sent_queue(netdev_get_tx_queue(dev, queue), skb->len);
 
 	tx_q->tx_tail_addr = tx_q->dma_tx_phy + (tx_q->cur_tx * sizeof(*desc));
 	stmmac_set_tx_tail_ptr(priv, priv->ioaddr, tx_q->tx_tail_addr, queue);
-	stmmac_tx_timer_arm(priv, queue);
+	if (!priv->tx_coal_timer_disable)
+		stmmac_tx_timer_arm(priv, queue);
 
 	return NETDEV_TX_OK;
 
@@ -3177,6 +3196,7 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
 	dma_addr_t des;
 	bool has_vlan;
 	int entry;
+	unsigned int int_mod;
 
 	tx_q = &priv->tx_queue[queue];
 
@@ -3271,10 +3291,21 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
 	 * element in case of no SG.
 	 */
 	tx_q->tx_count_frames += nfrags + 1;
-	if (likely(priv->tx_coal_frames > tx_q->tx_count_frames) &&
-	    !((skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP) &&
-	      priv->hwts_tx_en)) {
-		stmmac_tx_timer_arm(priv, queue);
+	if (likely(priv->tx_coal_timer_disable)) {
+		if (priv->plat->get_plat_tx_coal_frames) {
+			int_mod = priv->plat->get_plat_tx_coal_frames(skb);
+
+			if (!(tx_q->cur_tx % int_mod)) {
+				tx_q->tx_count_frames = 0;
+				stmmac_set_tx_ic(priv, desc);
+				priv->xstats.tx_set_ic_bit++;
+			}
+		}
+	} else {
+		if (likely(priv->tx_coal_frames > tx_q->tx_count_frames) &&
+		    !((skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP) &&
+		    priv->hwts_tx_en)) {
+			stmmac_tx_timer_arm(priv, queue);
 	} else {
 		if (likely(priv->extend_desc))
 			desc = &tx_q->dma_etx[entry].basic;
@@ -3284,6 +3315,7 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
 		tx_q->tx_count_frames = 0;
 		stmmac_set_tx_ic(priv, desc);
 		priv->xstats.tx_set_ic_bit++;
+	}
 	}
 
 	/* We've used all descriptors we need for this skb, however,
@@ -3367,13 +3399,15 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
 	 */
 	wmb();
 
-	netdev_tx_sent_queue(netdev_get_tx_queue(dev, queue), skb->len);
+	if (!priv->tx_coal_timer_disable)
+		netdev_tx_sent_queue(netdev_get_tx_queue(dev, queue), skb->len);
 
 	stmmac_enable_dma_transmission(priv, priv->ioaddr);
 
 	tx_q->tx_tail_addr = tx_q->dma_tx_phy + (tx_q->cur_tx * sizeof(*desc));
 	stmmac_set_tx_tail_ptr(priv, priv->ioaddr, tx_q->tx_tail_addr, queue);
-	stmmac_tx_timer_arm(priv, queue);
+	if (!priv->tx_coal_timer_disable)
+		stmmac_tx_timer_arm(priv, queue);
 
 	return NETDEV_TX_OK;
 
@@ -4722,6 +4756,10 @@ int stmmac_dvr_probe(struct device *device,
 		goto error_netdev_register;
 	}
 
+	/* Disable tx_coal_timer if plat provides callback */
+	priv->tx_coal_timer_disable =
+		plat_dat->get_plat_tx_coal_frames ? true : false;
+
 #ifdef CONFIG_DEBUG_FS
 	stmmac_init_fs(ndev);
 #endif
@@ -4924,7 +4962,12 @@ int stmmac_resume(struct device *dev)
 	stmmac_clear_descriptors(priv);
 
 	stmmac_hw_setup(ndev, false);
-	stmmac_init_coalesce(priv);
+
+	if (!priv->tx_coal_timer_disable)
+		stmmac_init_coalesce(priv);
+	else
+		priv->rx_coal_frames = STMMAC_RX_FRAMES;
+
 	stmmac_set_rx_mode(ndev);
 
 	stmmac_enable_all_queues(priv);

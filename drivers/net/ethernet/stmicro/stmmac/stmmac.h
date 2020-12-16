@@ -143,6 +143,7 @@ struct stmmac_priv {
 	u32 tx_coal_frames;
 	u32 tx_coal_timer;
 	u32 rx_coal_frames;
+	bool tx_coal_timer_disable;
 
 	int tx_coalesce;
 	int hwts_tx_en;
