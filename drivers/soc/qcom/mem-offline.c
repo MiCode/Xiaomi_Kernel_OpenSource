@@ -69,6 +69,8 @@ enum memory_states {
 
 static enum memory_states *mem_sec_state;
 
+static phys_addr_t bootmem_dram_end_addr;
+
 static struct mem_offline_mailbox {
 	struct mbox_client cl;
 	struct mbox_chan *mbox;
@@ -717,7 +719,7 @@ static int mem_event_callback(struct notifier_block *self,
 static int mem_online_remaining_blocks(void)
 {
 	unsigned long memblock_end_pfn = __phys_to_pfn(memblock_end_of_DRAM());
-	unsigned long ram_end_pfn = __phys_to_pfn(bootloader_memory_limit - 1);
+	unsigned long ram_end_pfn = __phys_to_pfn(bootmem_dram_end_addr - 1);
 	unsigned long block_size, memblock, pfn;
 	unsigned int nid;
 	phys_addr_t phys_addr;
@@ -729,7 +731,7 @@ static int mem_online_remaining_blocks(void)
 	start_section_nr = pfn_to_section_nr(memblock_end_pfn);
 	end_section_nr = pfn_to_section_nr(ram_end_pfn);
 
-	if (memblock_end_of_DRAM() >= bootloader_memory_limit) {
+	if (memblock_end_of_DRAM() >= bootmem_dram_end_addr) {
 		pr_info("mem-offline: System booted with no zone movable memory blocks. Cannot perform memory offlining\n");
 		return -EINVAL;
 	}
@@ -1032,6 +1034,49 @@ static struct notifier_block hotplug_memory_callback_nb = {
 	.priority = 0,
 };
 
+static int get_bootmem_dram_end_address(phys_addr_t *bootmem_dram_end_addr)
+{
+	struct device_node *node;
+	struct property *prop;
+	int len, num_cells, num_entries;
+	u64 addr = 0, max_base = 0;
+	u64 size, base;
+	int nr_address_cells, nr_size_cells;
+	const __be32 *pos;
+
+	node = of_find_node_by_name(of_root, "memory");
+	if (!node) {
+		pr_err("mem-offine: memory node not found in DT\n");
+		return -EINVAL;
+	}
+
+	nr_address_cells = of_n_addr_cells(of_root);
+	nr_size_cells = of_n_size_cells(of_root);
+
+	prop = of_find_property(node, "reg", &len);
+
+	num_cells = len / sizeof(__be32);
+	num_entries = num_cells / (nr_address_cells + nr_size_cells);
+
+	pos = prop->value;
+
+	while (num_entries--) {
+		base = of_read_number(pos, nr_address_cells);
+		size = of_read_number(pos + nr_address_cells, nr_size_cells);
+		pos += nr_address_cells + nr_size_cells;
+
+		if (base > max_base) {
+			max_base = base;
+			addr = base + size;
+		}
+	}
+
+	*bootmem_dram_end_addr = addr;
+	pr_debug("mem-offline: bootmem_dram_end_addr 0x%lx\n", *bootmem_dram_end_addr);
+
+	return 0;
+}
+
 static int mem_offline_driver_probe(struct platform_device *pdev)
 {
 	unsigned int total_blks;
@@ -1039,6 +1084,10 @@ static int mem_offline_driver_probe(struct platform_device *pdev)
 	ktime_t now;
 
 	ret = mem_parse_dt(pdev);
+	if (ret)
+		return ret;
+
+	ret = get_bootmem_dram_end_address(&bootmem_dram_end_addr);
 	if (ret)
 		return ret;
 
