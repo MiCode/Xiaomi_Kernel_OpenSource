@@ -144,7 +144,6 @@ int mem_buf_share(struct dma_buf *dmabuf,
 		struct mem_buf_lend_kernel_arg *arg);
 
 
-#define MEM_BUF_VALID_FD_FLAGS (O_CLOEXEC | O_ACCMODE)
 struct mem_buf_retrieve_kernel_arg {
 	u32 sender_vmid;
 	unsigned int nr_acl_entries;
