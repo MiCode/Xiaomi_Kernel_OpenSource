@@ -20,6 +20,7 @@ clk-rpmh.ko
 dwc3.ko
 dwc3-msm.ko
 phy-generic.ko
+mem-offline.ko
 phy-qcom-emu.ko
 arm_smmu.ko
 qcom_iommu_util.ko
