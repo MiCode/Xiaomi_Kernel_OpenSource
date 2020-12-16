@@ -1254,14 +1254,15 @@ int ipa_pm_set_throughput(u32 hdl, int throughput)
 		return -EINVAL;
 	}
 
+	mutex_lock(&ipa_pm_ctx->client_mutex);
 	if (hdl >= IPA_PM_MAX_CLIENTS || ipa_pm_ctx->clients[hdl] == NULL
 		|| throughput < 0) {
 		IPA_PM_ERR("Invalid Params\n");
+		mutex_unlock(&ipa_pm_ctx->client_mutex);
 		return -EINVAL;
 	}
 	client = ipa_pm_ctx->clients[hdl];
 
-	mutex_lock(&ipa_pm_ctx->client_mutex);
 	if (client->group == IPA_PM_GROUP_DEFAULT)
 		IPA_PM_DBG_LOW("Old throughput: %d\n",  client->throughput);
 	else
@@ -1280,14 +1281,16 @@ int ipa_pm_set_throughput(u32 hdl, int throughput)
 			client->group, ipa_pm_ctx->group_tput[client->group]);
 	mutex_unlock(&ipa_pm_ctx->client_mutex);
 
-	spin_lock_irqsave(&client->state_lock, flags);
-	if (IPA_PM_STATE_ACTIVE(client->state) || (client->group !=
+	if (ipa_pm_ctx->clients[hdl]) {
+		spin_lock_irqsave(&client->state_lock, flags);
+		if (IPA_PM_STATE_ACTIVE(client->state) || (client->group !=
 			IPA_PM_GROUP_DEFAULT)) {
+			spin_unlock_irqrestore(&client->state_lock, flags);
+			do_clk_scaling();
+			return 0;
+		}
 		spin_unlock_irqrestore(&client->state_lock, flags);
-		do_clk_scaling();
-		return 0;
 	}
-	spin_unlock_irqrestore(&client->state_lock, flags);
 
 	return 0;
 }
