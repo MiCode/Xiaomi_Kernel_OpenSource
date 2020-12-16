@@ -1,10 +1,11 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021 The Linux Foundation. All rights reserved.
  */
 
 #ifndef __SMBLITE_LIB_H
 #define __SMBLITE_LIB_H
+
 #include <linux/alarmtimer.h>
 #include <linux/ktime.h>
 #include <linux/types.h>
@@ -15,6 +16,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/extcon-provider.h>
 #include <linux/usb/typec.h>
+#include <linux/qti_power_supply.h>
 #include "storm-watch.h"
 #include "battery.h"
 
@@ -225,6 +227,10 @@ struct smb_iio {
 	struct iio_channel	*usbin_v_chan;
 };
 
+enum pmic_type {
+	PM2250,
+};
+
 struct smb_charger {
 	struct device		*dev;
 	char			*name;
@@ -232,6 +238,9 @@ struct smb_charger {
 	struct smb_irq_info	*irq_info;
 	struct smb_params	param;
 	struct smb_iio		iio;
+	struct iio_channel	*iio_chans;
+	struct iio_channel	**iio_chan_list_qg;
+	struct iio_channel	**iio_chan_list_smb_parallel;
 	int			*debug_mask;
 	enum smb_mode		mode;
 	int			weak_chg_icl_ua;
@@ -242,8 +251,6 @@ struct smb_charger {
 	/* power supplies */
 	struct power_supply		*batt_psy;
 	struct power_supply		*usb_psy;
-	struct power_supply		*bms_psy;
-	struct power_supply		*usb_main_psy;
 	enum power_supply_type		real_charger_type;
 
 	/* notifiers */
@@ -297,6 +304,8 @@ struct smb_charger {
 	int			typec_mode;
 	int			dr_mode;
 	int			term_vbat_uv;
+	int			input_current_limited;
+	int			main_fcc_max;
 	u32			jeita_status;
 	bool			jeita_arb_flag;
 	bool			typec_legacy;
@@ -350,11 +359,9 @@ int smblite_lib_batch_read(struct smb_charger *chg, u16 addr, u8 *val,
 				int count);
 int smblite_lib_get_charge_param(struct smb_charger *chg,
 				struct smb_chg_param *param, int *val_u);
-int smblite_lib_get_usb_suspend(struct smb_charger *chg, int *suspend);
 int smblite_lib_enable_charging(struct smb_charger *chg, bool enable);
 int smblite_lib_set_charge_param(struct smb_charger *chg,
 				struct smb_chg_param *param, int val_u);
-int smblite_lib_set_usb_suspend(struct smb_charger *chg, bool suspend);
 
 irqreturn_t smblite_default_irq_handler(int irq, void *data);
 irqreturn_t smblite_chg_state_change_irq_handler(int irq, void *data);
@@ -373,8 +380,6 @@ irqreturn_t smblite_temp_change_irq_handler(int irq, void *data);
 irqreturn_t smblite_usbin_ov_irq_handler(int irq, void *data);
 irqreturn_t smblite_usb_id_irq_handler(int irq, void *data);
 
-int smblite_lib_get_prop_input_suspend(struct smb_charger *chg,
-				union power_supply_propval *val);
 int smblite_lib_get_prop_batt_present(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblite_lib_get_prop_batt_capacity(struct smb_charger *chg,
@@ -384,21 +389,21 @@ int smblite_lib_get_prop_batt_status(struct smb_charger *chg,
 int smblite_lib_get_prop_batt_charge_type(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblite_lib_get_prop_batt_charge_done(struct smb_charger *chg,
-				union power_supply_propval *val);
+				int *val);
 int smblite_lib_get_batt_current_now(struct smb_charger *chg,
-					union power_supply_propval *val);
+					int *val);
 int smblite_lib_get_prop_batt_health(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblite_lib_get_prop_system_temp_level(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblite_lib_get_prop_system_temp_level_max(struct smb_charger *chg,
 				union power_supply_propval *val);
-int smblite_lib_get_prop_input_current_limited(struct smb_charger *chg,
-				union power_supply_propval *val);
 int smblite_lib_get_prop_batt_iterm(struct smb_charger *chg,
 				union power_supply_propval *val);
+int smblite_lib_get_prop_input_suspend(struct smb_charger *chg,
+					int *val);
 int smblite_lib_set_prop_input_suspend(struct smb_charger *chg,
-				const union power_supply_propval *val);
+					const int val);
 int smblite_lib_set_prop_batt_capacity(struct smb_charger *chg,
 				const union power_supply_propval *val);
 int smblite_lib_set_prop_batt_status(struct smb_charger *chg,
@@ -411,67 +416,57 @@ int smblite_lib_get_prop_usb_online(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblite_lib_get_usb_online(struct smb_charger *chg,
 				union power_supply_propval *val);
-int smblite_lib_get_prop_usb_suspend(struct smb_charger *chg,
-				union power_supply_propval *val);
+int smblite_lib_get_prop_input_current_limited(struct smb_charger *chg,
+				int *val);
 int smblite_lib_get_prop_usb_voltage_now(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblite_lib_get_usb_prop_typec_mode(struct smb_charger *chg,
-				union power_supply_propval *val);
+				int *val);
 int smblite_lib_get_prop_typec_cc_orientation(struct smb_charger *chg,
-				union power_supply_propval *val);
+				int *val);
 int smblite_lib_get_prop_scope(struct smb_charger *chg,
 			union power_supply_propval *val);
 int smblite_lib_get_prop_typec_power_role(struct smb_charger *chg,
-				union power_supply_propval *val);
+				int *val);
 int smblite_lib_get_prop_input_current_settled(struct smb_charger *chg,
-				union power_supply_propval *val);
+				int *val);
 int smblite_lib_get_prop_input_voltage_settled(struct smb_charger *chg,
-				union power_supply_propval *val);
+				int *val);
 int smblite_lib_get_prop_charger_temp(struct smb_charger *chg,
-				union power_supply_propval *val);
+				int *val);
 int smblite_lib_get_prop_die_health(struct smb_charger *chg);
 int smblite_lib_get_die_health(struct smb_charger *chg,
-				union power_supply_propval *val);
+				int *val);
 int smblite_lib_set_prop_current_max(struct smb_charger *chg,
 				const union power_supply_propval *val);
 int smblite_lib_set_prop_typec_power_role(struct smb_charger *chg,
-				const union power_supply_propval *val);
+				const int val);
 int smblite_lib_set_prop_ship_mode(struct smb_charger *chg,
-				const union power_supply_propval *val);
+				const int val);
 int smblite_lib_set_prop_rechg_soc_thresh(struct smb_charger *chg,
-				const union power_supply_propval *val);
+				const int val);
 void smblite_lib_suspend_on_debug_battery(struct smb_charger *chg);
-int smblite_lib_get_prop_fcc_delta(struct smb_charger *chg,
-				union power_supply_propval *val);
-int smblite_lib_get_thermal_threshold(struct smb_charger *chg, u16 addr,
-				int *val);
 int smblite_lib_run_aicl(struct smb_charger *chg, int type);
-int smblite_lib_set_icl_current(struct smb_charger *chg, int icl_ua);
+int smblite_lib_set_icl_current(struct smb_charger *chg, const int icl_ua);
 int smblite_lib_get_icl_current(struct smb_charger *chg, int *icl_ua);
 int smblite_lib_get_charge_current(struct smb_charger *chg,
 				int *total_current_ua);
 int smblite_lib_get_hw_current_max(struct smb_charger *chg,
 				int *total_current_ua);
-int smblite_lib_get_prop_pr_swap_in_progress(struct smb_charger *chg,
-				union power_supply_propval *val);
-int smblite_lib_set_prop_pr_swap_in_progress(struct smb_charger *chg,
-				const union power_supply_propval *val);
 int smblite_lib_typec_port_type_set(const struct typec_capability *cap,
 				enum typec_port_type type);
-int smblite_lib_get_prop_from_bms(struct smb_charger *chg,
-				enum power_supply_property psp,
-				union power_supply_propval *val);
+int smblite_lib_get_prop_from_bms(struct smb_charger *chg, int channel,
+					int *val);
 int smblite_lib_get_iio_channel(struct smb_charger *chg, const char *propname,
 					struct iio_channel **chan);
-int smblite_lib_read_iio_channel(struct smb_charger *chg,
-				struct iio_channel *chan, int div, int *data);
 int smblite_lib_icl_override(struct smb_charger *chg,
 				enum icl_override_mode mode);
-int smblite_lib_get_irq_status(struct smb_charger *chg,
-				union power_supply_propval *val);
 int smblite_lib_set_prop_usb_type(struct smb_charger *chg,
-				const union power_supply_propval *val);
+				const int val);
 void smblite_update_usb_desc(struct smb_charger *chg);
 int smblite_lib_init(struct smb_charger *chg);
 int smblite_lib_deinit(struct smb_charger *chg);
+int smblite_iio_get_prop(struct smb_charger *chg, int channel, int *val);
+int smblite_iio_set_prop(struct smb_charger *chg, int channel, int val);
+
 #endif /* __SMBLITE_LIB_H */
