@@ -3810,19 +3810,34 @@ static unsigned long _gpu_set_svm_region(struct kgsl_process_private *private,
 {
 	int ret;
 
+	/*
+	 * Protect access to the gpuaddr here to prevent multiple vmas from
+	 * trying to map a SVM region at the same time
+	 */
+	spin_lock(&entry->memdesc.lock);
+
+	if (entry->memdesc.gpuaddr) {
+		spin_unlock(&entry->memdesc.lock);
+		return (unsigned long) -EBUSY;
+	}
+
 	ret = kgsl_mmu_set_svm_region(private->pagetable, (uint64_t) addr,
 		(uint64_t) size);
 
-	if (ret != 0)
-		return ret;
+	if (ret != 0) {
+		spin_unlock(&entry->memdesc.lock);
+		return (unsigned long) ret;
+	}
 
 	entry->memdesc.gpuaddr = (uint64_t) addr;
+	spin_unlock(&entry->memdesc.lock);
+
 	entry->memdesc.pagetable = private->pagetable;
 
 	ret = kgsl_mmu_map(private->pagetable, &entry->memdesc);
 	if (ret) {
 		kgsl_mmu_put_gpuaddr(&entry->memdesc);
-		return ret;
+		return (unsigned long) ret;
 	}
 
 	kgsl_memfree_purge(private->pagetable, entry->memdesc.gpuaddr,
@@ -3914,6 +3929,16 @@ static unsigned long get_svm_unmapped_area(struct file *file,
 			ret = set_svm_area(file, entry, iova, len, flags);
 			if (!IS_ERR_VALUE(ret))
 				return ret;
+
+			/*
+			 * set_svm_area will return -EBUSY if we tried to set up
+			 * SVM on an object that already has a GPU address. If
+			 * that happens don't bother walking the rest of the
+			 * region
+			 */
+			if ((long) ret == -EBUSY)
+				return -EBUSY;
+
 		}
 
 		iova = kgsl_mmu_find_svm_region(private->pagetable,

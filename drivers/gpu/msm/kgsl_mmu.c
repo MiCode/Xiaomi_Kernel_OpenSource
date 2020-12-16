@@ -409,10 +409,17 @@ void kgsl_mmu_put_gpuaddr(struct kgsl_memdesc *memdesc)
 	if (PT_OP_VALID(pagetable, put_gpuaddr) && (unmap_fail == 0))
 		pagetable->pt_ops->put_gpuaddr(memdesc);
 
+	memdesc->pagetable = NULL;
+
+
+	/*
+	 * If SVM tries to take a GPU address it will lose the race until the
+	 * gpuaddr returns to zero so we shouldn't need to worry about taking a
+	 * lock here
+	 */
 	if (!kgsl_memdesc_is_global(memdesc))
 		memdesc->gpuaddr = 0;
 
-	memdesc->pagetable = NULL;
 }
 
 /**
