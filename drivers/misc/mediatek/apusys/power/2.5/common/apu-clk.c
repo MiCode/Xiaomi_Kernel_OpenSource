@@ -584,22 +584,24 @@ static int clk_apu_cg_enable(struct apu_clk_gp *aclk)
 	return ret;
 }
 
-static void clk_apu_cg_status(struct apu_clk_gp *aclk)
+static int clk_apu_cg_status(struct apu_clk_gp *aclk, u32 *result)
 {
 	struct apu_cgs *dst = NULL;
+	ulong cg_con = 0;
 	int idx = 0;
-	char buffer[16];
 
 	dst = aclk->cg;
-	if (IS_ERR_OR_NULL(dst))
-		return;
+	if (IS_ERR_OR_NULL(dst) || IS_ERR_OR_NULL(result)) {
+		aclk_err(aclk->dev, "[%s] input value are failed\n", __func__);
+		return -EINVAL;
+	}
 
 	for (idx = 0; idx < dst->clk_num; idx++) {
-		memset(buffer, 0, sizeof(buffer));
-		snprintf(buffer, sizeof(buffer), "cg[%d]", idx);
-		print_hex_dump(KERN_INFO, buffer, DUMP_PREFIX_OFFSET,
-			       16, 4, dst->cgs[idx].regs, 0x20, 1);
+		cg_con = (ulong)(dst->cgs[idx].regs) +
+				(ulong)(dst->cgs[idx].cg_ctl[CG_CON]);
+		result[idx] = apu_readl((void *)cg_con);
 	}
+	return 0;
 }
 
 static struct apu_clk_ops mt68xx_clk_ops = {

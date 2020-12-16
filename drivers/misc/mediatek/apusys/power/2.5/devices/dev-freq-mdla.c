@@ -21,11 +21,12 @@
 #include "apu_log.h"
 #include "apu_rpc.h"
 #include "apu_of.h"
+#include "apu_trace.h"
 
 static int devfreq_target(struct device *dev, unsigned long *rate,
 				u32 flags)
 {
-	unsigned long old_rate, volt;
+	unsigned long old_rate = 0, volt = 0;
 	struct apu_dev *ad = dev_get_drvdata(dev);
 	struct apu_clk_ops *clk_ops = NULL;
 	struct apu_regulator_ops *regul_ops = NULL;
@@ -72,6 +73,9 @@ static int devfreq_target(struct device *dev, unsigned long *rate,
 		if (err)
 			goto out;
 	}
+
+	/* update power tags */
+	apupw_dbg_pwr_tag_update(ad, *rate, volt);
 
 	if (regul_ops)
 		advfs_info(dev, "[%s] rate %luMhz volt %dmV\n",
@@ -122,6 +126,8 @@ static int runtime_suspend(struct device *dev)
 	if (!IS_ERR_OR_NULL(ad->argul))
 		ad->argul->ops->disable(ad->argul);
 
+	/* update rpc/cg trace */
+	apupw_dbg_rpc_tag_update(ad);
 	return ret;
 }
 
@@ -153,6 +159,8 @@ static int runtime_resume(struct device *dev)
 			return ret;
 	}
 
+	/* update rpc/cg trace */
+	apupw_dbg_rpc_tag_update(ad);
 	return devfreq_resume_device(ad->df);
 }
 

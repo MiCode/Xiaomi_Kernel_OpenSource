@@ -58,7 +58,8 @@ int apu_cmp(void *priv, struct list_head *a, struct list_head *b)
 	return ta->value - tb->value;
 }
 
-struct apu_gov_data *apu_gov_init(struct device *dev,	struct devfreq_dev_profile *pf)
+struct apu_gov_data *apu_gov_init(struct device *dev,
+				  struct devfreq_dev_profile *pf, const char **gov_name)
 {
 	struct apu_gov_data *pgov_data;
 
@@ -70,13 +71,14 @@ struct apu_gov_data *apu_gov_init(struct device *dev,	struct devfreq_dev_profile
 
 	if (of_property_read_u32(dev->of_node, "depth", &pgov_data->depth))
 		goto free_passdata;
-
+	if (of_property_read_string(dev->of_node, "gov", gov_name))
+		goto free_passdata;
 	if (!pgov_data->depth)
 		pf->polling_ms = APUGOV_POLL_RATE;
 
-	aprobe_info(dev, " has \"%s\" devfreq parent, depth %d, poll rate %dms\n",
+	aprobe_info(dev, " has \"%s\" devfreq parent, depth %d, poll rate %dms, gov %s\n",
 		    (!IS_ERR(pgov_data->parent)) ? dev_name(pgov_data->parent->dev.parent) : "no",
-		    pgov_data->depth, pf->polling_ms);
+		    pgov_data->depth, pf->polling_ms, *gov_name);
 
 	return pgov_data;
 

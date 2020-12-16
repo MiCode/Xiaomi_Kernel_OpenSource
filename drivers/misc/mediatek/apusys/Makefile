@@ -172,8 +172,9 @@ apusys-objs += power/2.0/mar/apu_power_tag.o
 # apu_top target
 obj-$(CONFIG_MTK_APUSYS_SUPPORT) += apu_top/
 else
-obj-$(CONFIG_MTK_APUSYS_SUPPORT) += power/2.5/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/power/2.5/inc/
+apusys-objs += power/2.5/common/apu-tag.o
+obj-$(CONFIG_MTK_APUSYS_SUPPORT) += power/2.5/
 endif
 
 

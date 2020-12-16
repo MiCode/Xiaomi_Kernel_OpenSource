@@ -19,11 +19,12 @@
 #include "apu_regulator.h"
 #include "apu_log.h"
 #include "apu_of.h"
+#include "apu_dbg.h"
 
 static int core_devfreq_target(struct device *dev,
 				unsigned long *rate, u32 flags)
 {
-	unsigned long old_rate, volt;
+	unsigned long old_rate = 0, volt = 0;
 	struct apu_dev *ad = dev_get_drvdata(dev);
 	struct apu_clk_ops *clk_ops = NULL;
 	struct apu_regulator_ops *regul_ops = NULL;
@@ -69,7 +70,7 @@ static int core_devfreq_target(struct device *dev,
 		if (err)
 			goto out;
 	}
-
+	apupw_dbg_pwr_tag_update(ad, *rate, volt);
 	advfs_info(dev, "[%s] rate %luMhz volt %dmV\n",
 			__func__, TOMHZ(*rate), TOMV(volt));
 
