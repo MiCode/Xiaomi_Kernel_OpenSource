@@ -86,6 +86,9 @@ EXPORT_SYMBOL(get_qos_bound_buf);
 
 void qos_bound_init(void)
 {
+#ifndef MTK_QOS_V1
+	pr_info("mtk qos-bound init for k6853.\n");
+#endif
 	qos_bound_enable(1);
 }
 
@@ -151,6 +154,9 @@ int qos_notifier_call_chain(unsigned long val, void *v)
 	}
 
 	bound = (struct qos_bound *) v;
+#ifndef MTK_QOS_V1
+	pr_info("mtk qos bound :notifier call for k6853.\n");
+#endif
 	state = bound->state;
 	if (state > 0 && state <= 4) {
 		for (i = 0; (state & (1 << i)) == 0; i++)
