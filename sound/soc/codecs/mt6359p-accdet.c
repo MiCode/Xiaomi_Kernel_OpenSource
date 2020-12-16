@@ -64,8 +64,6 @@
 #define EINT_MOISTURE_DETECTED	(2)
 
 struct mt63xx_accdet_data {
-	u32 base;
-	struct snd_soc_card card;
 	struct snd_soc_jack jack;
 	struct platform_device *pdev;
 	struct device *dev;
@@ -127,7 +125,6 @@ struct pwm_deb_settings *cust_pwm_deb;
 
 struct accdet_priv {
 	u32 caps;
-	struct snd_card *snd_card;
 };
 
 static struct accdet_priv mt6359_accdet[] = {
@@ -149,16 +146,8 @@ const struct of_device_id accdet_of_match[] = {
 	},
 };
 
-static struct snd_soc_jack_pin accdet_jack_pins[] = {
-	{
-		.pin = "Headset",
-		.mask = SND_JACK_HEADSET |
-			SND_JACK_LINEOUT |
-			SND_JACK_MECHANICAL,
-	},
-};
-
 static struct platform_driver accdet_driver;
+static const struct snd_soc_component_driver accdet_soc_driver;
 
 static atomic_t accdet_first;
 #define ACCDET_INIT_WAIT_TIMER (10 * HZ)
@@ -2948,6 +2937,44 @@ static void delay_init_timerhandler(struct timer_list *t)
 		pr_notice("Error: %s (%d)\n", __func__, ret);
 }
 
+int mt6359p_accdet_init(struct snd_soc_component *component,
+			struct snd_soc_card *card)
+{
+	int ret;
+	struct mt63xx_accdet_data *priv =
+			snd_soc_card_get_drvdata(component->card);
+
+	/* Enable Headset and 4 Buttons Jack detection */
+	ret = snd_soc_card_jack_new(card,
+				    "Headset Jack",
+				    SND_JACK_HEADSET |
+				    SND_JACK_LINEOUT |
+				    SND_JACK_MECHANICAL,
+				    &priv->jack,
+				    NULL, 0);
+	if (ret) {
+		pr_err("Property 'mediatek,soc-accdet' missing/invalid\n");
+		return ret;
+	}
+
+	accdet->jack.jack->input_dev->id.bustype = BUS_HOST;
+	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_0, KEY_PLAYPAUSE);
+	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_1, KEY_VOLUMEDOWN);
+	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_2, KEY_VOLUMEUP);
+	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_3, KEY_VOICECOMMAND);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(mt6359p_accdet_init);
+
+int mt6359p_accdet_set_drvdata(struct snd_soc_card *card)
+{
+	snd_soc_card_set_drvdata(card, accdet);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mt6359p_accdet_set_drvdata);
+
 static int accdet_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -2964,17 +2991,8 @@ static int accdet_probe(struct platform_device *pdev)
 	if (!accdet)
 		return -ENOMEM;
 
-	accdet->base = 0;
 	accdet->data = (struct accdet_priv *)of_id->data;
 	accdet->pdev = pdev;
-	accdet->card.dev = &pdev->dev;
-	accdet->card.owner = THIS_MODULE;
-	ret = snd_soc_of_parse_card_name(&accdet->card, "accdet-name");
-	if (ret) {
-		dev_dbg(&pdev->dev, "Error: Parse card name failed (%d)\n",
-				ret);
-		return ret;
-	}
 
 	/* parse dts attributes */
 	ret = accdet_get_dts_data();
@@ -2993,31 +3011,15 @@ static int accdet_probe(struct platform_device *pdev)
 	mutex_init(&accdet->res_lock);
 
 	platform_set_drvdata(pdev, accdet);
-	snd_soc_card_set_drvdata(&accdet->card, accdet);
-	ret = devm_snd_soc_register_card(&pdev->dev, &accdet->card);
-	if (ret) {
-		dev_dbg(&pdev->dev, "Error: Register card failed (%d)\n",
-				ret);
-		return ret;
-	}
-	accdet->data->snd_card = accdet->card.snd_card;
-	ret = snd_soc_card_jack_new(&accdet->card,
-			accdet_jack_pins[0].pin,
-			accdet_jack_pins[0].mask,
-			&accdet->jack, accdet_jack_pins, 1);
-	if (ret) {
-		dev_dbg(&pdev->dev, "Error: New card jack failed (%d)\n",
-				ret);
-		return ret;
-	}
-	accdet->jack.jack->input_dev->id.bustype = BUS_HOST;
-	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_0, KEY_PLAYPAUSE);
-	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_1, KEY_VOLUMEDOWN);
-	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_2, KEY_VOLUMEUP);
-	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_3, KEY_VOICECOMMAND);
-
 	/* Important. must to register */
-	ret = snd_card_register(accdet->card.snd_card);
+	ret = devm_snd_soc_register_component(&pdev->dev, &accdet_soc_driver,
+			NULL, 0);
+
+	if (ret) {
+		dev_err(&pdev->dev,
+			"Property 'mediatek,soc-accdet' missing/invalid\n");
+		return ret;
+	}
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	accdet->regmap = mt6397_chip->regmap;
