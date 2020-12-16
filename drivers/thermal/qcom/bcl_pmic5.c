@@ -19,8 +19,6 @@
 #include <linux/mutex.h>
 #include <linux/thermal.h>
 
-#include "../thermal_core.h"
-
 #define BCL_DRIVER_NAME       "bcl_pmic5"
 #define BCL_MONITOR_EN        0x46
 #define BCL_IRQ_STATUS        0x08
@@ -448,9 +446,8 @@ static irqreturn_t bcl_handle_irq(int irq, void *data)
 		pr_debug("Irq:%d triggered for bcl type:%s. status:%u\n",
 			irq, bcl_int_names[perph_data->type],
 			irq_status);
-		of_thermal_handle_trip_temp(perph_data->dev->dev,
-				perph_data->tz_dev,
-				perph_data->status_bit_idx);
+		thermal_zone_device_update(perph_data->tz_dev,
+				THERMAL_TRIP_VIOLATED);
 	}
 
 	return IRQ_HANDLED;

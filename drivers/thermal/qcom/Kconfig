@@ -42,7 +42,7 @@ config QTI_QMI_SENSOR
 
 config QTI_BCL_PMIC5
 	tristate "BCL driver for BCL peripherals in PMIC5"
-	depends on SPMI && THERMAL_OF && QTI_THERMAL
+	depends on SPMI && THERMAL
 	help
 	  This driver provides routines to configure and monitor the BCL
 	  PMIC peripheral. This driver registers the battery current and
