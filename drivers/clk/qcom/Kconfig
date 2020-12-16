@@ -586,7 +586,7 @@ config SM_GCC_YUPIK
 
 config SM_GPUCC_YUPIK
 	tristate "YUPIK Graphics Clock Controller"
-	depends on SM_GCC_YUPIK
+	select SM_GCC_YUPIK
 	help
 	  Support for the graphics clock controller on Qualcomm Technologies, Inc.
 	  YUPIK devices.
