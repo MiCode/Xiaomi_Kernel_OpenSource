@@ -1151,7 +1151,6 @@ struct dwc3_scratchpad_array {
  * @imod_interval: set the interrupt moderation interval in 250ns
  *			increments or 0 to disable.
  * @err_evt_seen: previous event in queue was erratic error
- * @in_lpm: indicates if controller is in low power mode (no clocks)
  * @irq: irq number
  * @irq_cnt: total irq count
  * @bh_completion_time: time taken for IRQ bottom-half completion
@@ -1362,7 +1361,6 @@ struct dwc3 {
 	unsigned		err_evt_seen:1;
 	unsigned		enable_bus_suspend:1;
 
-	atomic_t		in_lpm;
 	bool			b_suspend;
 	unsigned int		vbus_draw;
 

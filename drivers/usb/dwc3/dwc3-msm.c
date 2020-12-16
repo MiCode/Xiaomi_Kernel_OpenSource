@@ -465,6 +465,7 @@ struct dwc3_msm {
 	struct notifier_block	host_nb;
 
 	atomic_t                in_p3;
+	atomic_t		in_lpm;
 	unsigned int		lpm_to_suspend_delay;
 	enum plug_orientation	typec_orientation;
 	u32			num_gsi_event_buffers;
@@ -2271,7 +2272,7 @@ static void dwc3_restart_usb_work(struct work_struct *w)
 
 	dev_dbg(mdwc->dev, "%s\n", __func__);
 
-	if (atomic_read(&dwc->in_lpm) || dwc->dr_mode != USB_DR_MODE_OTG) {
+	if (atomic_read(&mdwc->in_lpm) || dwc->dr_mode != USB_DR_MODE_OTG) {
 		dev_dbg(mdwc->dev, "%s failed!!!\n", __func__);
 		return;
 	}
@@ -2505,7 +2506,7 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc,
 					PWR_EVNT_IRQ_MASK_REG,
 					PWR_EVNT_LPM_OUT_L1_MASK, 1);
 
-		atomic_set(&dwc->in_lpm, 0);
+		atomic_set(&mdwc->in_lpm, 0);
 		break;
 	case DWC3_CONTROLLER_NOTIFY_OTG_EVENT:
 		dev_dbg(mdwc->dev, "DWC3_CONTROLLER_NOTIFY_OTG_EVENT received\n");
@@ -2942,7 +2943,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc, bool force_power_collapse)
 	bool can_suspend_ssphy, no_active_ss;
 
 	mutex_lock(&mdwc->suspend_resume_mutex);
-	if (atomic_read(&dwc->in_lpm)) {
+	if (atomic_read(&mdwc->in_lpm)) {
 		dev_dbg(mdwc->dev, "%s: Already suspended\n", __func__);
 		mutex_unlock(&mdwc->suspend_resume_mutex);
 		return 0;
@@ -3090,7 +3091,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc, bool force_power_collapse)
 		pm_relax(mdwc->dev);
 	}
 
-	atomic_set(&dwc->in_lpm, 1);
+	atomic_set(&mdwc->in_lpm, 1);
 
 	/*
 	 * with DCP or during cable disconnect, we dont require wakeup
@@ -3110,7 +3111,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc, bool force_power_collapse)
 	}
 
 	dev_info(mdwc->dev, "DWC3 in low power mode\n");
-	dbg_event(0xFF, "Ctl Sus", atomic_read(&dwc->in_lpm));
+	dbg_event(0xFF, "Ctl Sus", atomic_read(&mdwc->in_lpm));
 
 	/* kick_sm if it is waiting for lpm sequence to finish */
 	if (test_and_clear_bit(WAIT_FOR_LPM, &mdwc->inputs))
@@ -3138,7 +3139,7 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 		set_bit(WAIT_FOR_LPM, &mdwc->inputs);
 
 	mutex_lock(&mdwc->suspend_resume_mutex);
-	if (!atomic_read(&dwc->in_lpm)) {
+	if (!atomic_read(&mdwc->in_lpm)) {
 		dev_dbg(mdwc->dev, "%s: Already resumed\n", __func__);
 		mutex_unlock(&mdwc->suspend_resume_mutex);
 		return 0;
@@ -3241,7 +3242,7 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 		mdwc->lpm_flags &= ~MDWC3_POWER_COLLAPSE;
 	}
 
-	atomic_set(&dwc->in_lpm, 0);
+	atomic_set(&mdwc->in_lpm, 0);
 
 	/* enable power evt irq for IN P3 detection */
 	enable_irq(mdwc->wakeup_irq[PWR_EVNT_IRQ].irq);
@@ -3280,7 +3281,7 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 		schedule_delayed_work(&mdwc->perf_vote_work,
 			msecs_to_jiffies(1000 * PM_QOS_SAMPLE_SEC));
 
-	dbg_event(0xFF, "Ctl Res", atomic_read(&dwc->in_lpm));
+	dbg_event(0xFF, "Ctl Res", atomic_read(&mdwc->in_lpm));
 	mutex_unlock(&mdwc->suspend_resume_mutex);
 
 	return 0;
@@ -3523,12 +3524,12 @@ static irqreturn_t msm_dwc3_pwr_irq_thread(int irq, void *_mdwc)
 
 	dev_dbg(mdwc->dev, "%s\n", __func__);
 
-	if (atomic_read(&dwc->in_lpm))
+	if (atomic_read(&mdwc->in_lpm))
 		dwc3_resume_work(&mdwc->resume_work);
 	else
 		dwc3_pwr_event_handler(mdwc);
 
-	dbg_event(0xFF, "PWR IRQ", atomic_read(&dwc->in_lpm));
+	dbg_event(0xFF, "PWR IRQ", atomic_read(&mdwc->in_lpm));
 	return IRQ_HANDLED;
 }
 
@@ -3546,7 +3547,7 @@ static irqreturn_t msm_dwc3_pwr_irq(int irq, void *data)
 	 * clocks, dwc3_msm_resume will call dwc3_pwr_event_handler to handle
 	 * all other power events.
 	 */
-	if (atomic_read(&dwc->in_lpm)) {
+	if (atomic_read(&mdwc->in_lpm)) {
 		/* set this to call dwc3_msm_resume() */
 		mdwc->resume_pending = true;
 		return IRQ_WAKE_THREAD;
@@ -4015,7 +4016,6 @@ static ssize_t bus_vote_store(struct device *dev,
 		size_t count)
 {
 	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
-	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 	bool bv_fixed = false;
 	enum bus_vote bv;
 
@@ -4034,7 +4034,7 @@ static ssize_t bus_vote_store(struct device *dev,
 	}
 
 	/* Update bus vote value only when not suspend */
-	if (!atomic_read(&dwc->in_lpm)) {
+	if (!atomic_read(&mdwc->in_lpm)) {
 		if (bv_fixed)
 			bv = mdwc->override_bus_vote;
 		else if (mdwc->in_host_mode
@@ -4453,7 +4453,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	 * charger already connected so as not to disturb PHY line states.
 	 */
 	mdwc->lpm_flags = MDWC3_POWER_COLLAPSE | MDWC3_SS_PHY_SUSPEND;
-	atomic_set(&dwc->in_lpm, 1);
+	atomic_set(&mdwc->in_lpm, 1);
 	pm_runtime_set_autosuspend_delay(mdwc->dev, 1000);
 	pm_runtime_use_autosuspend(mdwc->dev);
 	device_init_wakeup(mdwc->dev, 1);
@@ -5246,7 +5246,7 @@ static int dwc3_msm_pm_suspend(struct device *dev)
 	 * host.
 	 */
 	if (!dwc->host_poweroff_in_pm_suspend || !mdwc->in_host_mode) {
-		if (!atomic_read(&dwc->in_lpm)) {
+		if (!atomic_read(&mdwc->in_lpm)) {
 			dev_err(mdwc->dev, "Abort PM suspend!! (USB is outside LPM)\n");
 			return -EBUSY;
 		}
