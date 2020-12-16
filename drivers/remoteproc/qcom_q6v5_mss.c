@@ -4,7 +4,7 @@
  *
  * Copyright (C) 2016 Linaro Ltd.
  * Copyright (C) 2014 Sony Mobile Communications AB
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, 2020 The Linux Foundation. All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -809,7 +809,7 @@ static int q6v5_mpss_init_image(struct q6v5 *qproc, const struct firmware *fw)
 	void *ptr;
 	int ret;
 
-	metadata = qcom_mdt_read_metadata(fw, &size);
+	metadata = qcom_mdt_read_metadata(qproc->dev, fw, qproc->hexagon_mdt_image, &size);
 	if (IS_ERR(metadata))
 		return PTR_ERR(metadata);
 

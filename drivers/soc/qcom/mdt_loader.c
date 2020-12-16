@@ -103,15 +103,18 @@ EXPORT_SYMBOL_GPL(qcom_mdt_get_size);
  *
  * Return: pointer to data, or ERR_PTR()
  */
-void *qcom_mdt_read_metadata(const struct firmware *fw, size_t *data_len)
+void *qcom_mdt_read_metadata(struct device *dev, const struct firmware *fw, const char *firmware,
+			     size_t *data_len)
 {
 	const struct elf32_phdr *phdrs;
 	const struct elf32_hdr *ehdr;
-	size_t hash_offset;
+	const struct firmware *seg_fw;
 	size_t hash_index;
 	size_t hash_size;
 	size_t ehdr_size;
+	char *fw_name;
 	void *data;
+	int ret;
 
 	ehdr = (struct elf32_hdr *)fw->data;
 	phdrs = (struct elf32_phdr *)(ehdr + 1);
@@ -137,14 +140,29 @@ void *qcom_mdt_read_metadata(const struct firmware *fw, size_t *data_len)
 	if (!data)
 		return ERR_PTR(-ENOMEM);
 
-	/* Is the header and hash already packed */
-	if (qcom_mdt_bins_are_split(fw))
-		hash_offset = phdrs[0].p_filesz;
-	else
-		hash_offset = phdrs[hash_index].p_offset;
-
+	/* copy elf header */
 	memcpy(data, fw->data, ehdr_size);
-	memcpy(data + ehdr_size, fw->data + hash_offset, hash_size);
+
+	if (qcom_mdt_bins_are_split(fw)) {
+		fw_name = kstrdup(firmware, GFP_KERNEL);
+		if (!fw_name) {
+			kfree(data);
+			return ERR_PTR(-ENOMEM);
+		}
+		snprintf(fw_name + strlen(fw_name) - 3, 4, "b%02d", hash_index);
+
+		ret = request_firmware_into_buf(&seg_fw, fw_name, dev, data + ehdr_size, hash_size);
+		kfree(fw_name);
+
+		if (ret) {
+			kfree(data);
+			return ERR_PTR(ret);
+		}
+
+		release_firmware(seg_fw);
+	} else {
+		memcpy(data + ehdr_size, fw->data + phdrs[hash_index].p_offset, hash_size);
+	}
 
 	*data_len = ehdr_size + hash_size;
 
@@ -191,7 +209,7 @@ static int __qcom_mdt_load(struct device *dev, const struct firmware *fw,
 		return -ENOMEM;
 
 	if (pas_init) {
-		metadata = qcom_mdt_read_metadata(fw, &metadata_len);
+		metadata = qcom_mdt_read_metadata(dev, fw, firmware, &metadata_len);
 		if (IS_ERR(metadata)) {
 			ret = PTR_ERR(metadata);
 			goto out;
