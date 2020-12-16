@@ -4313,7 +4313,6 @@ int follow_pte_pmd(struct mm_struct *mm, unsigned long address,
 						    ptepp, pmdpp, ptlp)));
 	return res;
 }
-EXPORT_SYMBOL(follow_pte_pmd);
 
 /**
  * follow_pfn - look up PFN at a user virtual address
