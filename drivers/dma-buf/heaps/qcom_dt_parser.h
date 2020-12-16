@@ -9,8 +9,6 @@
 #include <linux/device.h>
 #include <linux/platform_device.h>
 
-#include "heap-helpers.h"
-
 /**
  * struct platform_heap - defines a heap in the given platform
  * @type:	type of the heap

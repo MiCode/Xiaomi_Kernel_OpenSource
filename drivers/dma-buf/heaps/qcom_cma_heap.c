@@ -23,7 +23,6 @@
 #include <linux/sched/signal.h>
 #include <linux/list.h>
 
-#include "heap-helpers.h"
 #include "qcom_dma_heap_priv.h"
 #include "qcom_cma_heap.h"
 
