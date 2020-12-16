@@ -36,7 +36,7 @@
  * Copyright (C) 2019 Texas Instruments Incorporated - http://www.ti.com/
  *	Andrew F. Davis <afd@ti.com>
  *
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/dma-buf.h>
@@ -156,6 +156,7 @@ static struct dma_buf *system_heap_allocate(struct dma_heap *heap,
 	struct list_head pages;
 	struct page *page, *tmp_page;
 	int i, ret = -ENOMEM;
+	int perms;
 
 	buffer = kzalloc(sizeof(*buffer), GFP_KERNEL);
 	if (!buffer)
@@ -168,7 +169,6 @@ static struct dma_buf *system_heap_allocate(struct dma_heap *heap,
 	buffer->heap = heap;
 	buffer->len = len;
 	buffer->uncached = sys_heap->uncached;
-	buffer->secure = sys_heap->vmid ? true : false;
 	buffer->free = system_heap_free;
 
 	INIT_LIST_HEAD(&pages);
@@ -218,23 +218,37 @@ static struct dma_buf *system_heap_allocate(struct dma_heap *heap,
 	if (sys_heap->vmid) {
 		if (hyp_assign_sg_from_flags(table, sys_heap->vmid, true))
 			goto free_pages;
+
+		perms = msm_secure_get_vmid_perms(sys_heap->vmid);
+		buffer->vmperm = mem_buf_vmperm_alloc_staticvm(table,
+					&sys_heap->vmid, &perms, 1);
+	} else {
+		buffer->vmperm = mem_buf_vmperm_alloc(table);
+	}
+
+	if (IS_ERR(buffer->vmperm)) {
+		ret = PTR_ERR(buffer->vmperm);
+		goto hyp_unassign;
 	}
 
 	/* create the dmabuf */
-	exp_info.ops = &qcom_sg_buf_ops;
+	exp_info.ops = &qcom_sg_buf_ops.dma_ops;
 	exp_info.size = buffer->len;
 	exp_info.flags = fd_flags;
 	exp_info.priv = buffer;
-	dmabuf = dma_buf_export(&exp_info);
+	dmabuf = mem_buf_dma_buf_export(&exp_info);
 	if (IS_ERR(dmabuf)) {
 		ret = PTR_ERR(dmabuf);
-		goto hyp_unassign;
+		goto vmperm_release;
 	}
 
 	return dmabuf;
 
+vmperm_release:
+	mem_buf_vmperm_release(buffer->vmperm);
+
 hyp_unassign:
-	if (hyp_unassign_sg_from_flags(table, sys_heap->vmid, true))
+	if (sys_heap->vmid && hyp_unassign_sg_from_flags(table, sys_heap->vmid, true))
 		goto free_sg;
 
 free_pages:

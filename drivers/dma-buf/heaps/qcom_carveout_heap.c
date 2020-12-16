@@ -6,7 +6,7 @@
  * in")
  *
  * Copyright (C) 2011 Google, Inc.
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/dma-mapping.h>
@@ -41,7 +41,15 @@ struct carveout_heap {
 	phys_addr_t base;
 };
 
+struct secure_carveout_heap {
+	u32 token;
+	struct carveout_heap carveout_heap;
+};
+
 static LIST_HEAD(carveout_heaps);
+static LIST_HEAD(secure_carveout_heaps);
+
+static void sc_heap_free(struct qcom_sg_buffer *buffer);
 
 void pages_sync_for_device(struct device *dev, struct page *page,
 			       size_t size, enum dma_data_direction dir)
@@ -111,6 +119,36 @@ static void carveout_free(struct carveout_heap *carveout_heap,
 	up_read(&carveout_heap->mem_sem);
 }
 
+struct mem_buf_vmperm *
+carveout_setup_vmperm(struct carveout_heap *carveout_heap,
+			struct sg_table *sgt)
+{
+	struct secure_carveout_heap *sc_heap;
+	struct mem_buf_vmperm *vmperm;
+	int *vmids, *perms;
+	u32 nr;
+	int ret;
+
+	if (!carveout_heap->is_secure) {
+		vmperm = mem_buf_vmperm_alloc(sgt);
+		return vmperm;
+	}
+
+	sc_heap = container_of(carveout_heap,
+			struct secure_carveout_heap, carveout_heap);
+
+	ret = get_vmperm_from_ion_flags(sc_heap->token,
+			&vmids, &perms, &nr);
+	if (ret)
+		return ERR_PTR(ret);
+
+	vmperm = mem_buf_vmperm_alloc_staticvm(sgt, vmids, perms, nr);
+	kfree(vmids);
+	kfree(perms);
+
+	return vmperm;
+}
+
 static struct dma_buf *__carveout_heap_allocate(struct carveout_heap *carveout_heap,
 						unsigned long len,
 						unsigned long fd_flags,
@@ -135,7 +173,6 @@ static struct dma_buf *__carveout_heap_allocate(struct carveout_heap *carveout_h
 	buffer->heap = carveout_heap->heap;
 	buffer->len = len;
 	buffer->free = buffer_free;
-	buffer->secure = carveout_heap->is_secure;
 
 	table = &buffer->sg_table;
 	ret = sg_alloc_table(table, 1, GFP_KERNEL);
@@ -154,19 +191,26 @@ static struct dma_buf *__carveout_heap_allocate(struct carveout_heap *carveout_h
 		pages_sync_for_device(dev, sg_page(table->sgl),
 				      buffer->len, DMA_FROM_DEVICE);
 
+	buffer->vmperm = carveout_setup_vmperm(carveout_heap, &buffer->sg_table);
+	if (IS_ERR(buffer->vmperm))
+		goto err_free_carveout;
+
+
 	/* Instantiate our dma_buf */
-	exp_info.ops = &qcom_sg_buf_ops;
+	exp_info.ops = &qcom_sg_buf_ops.dma_ops;
 	exp_info.size = buffer->len;
 	exp_info.flags = fd_flags;
 	exp_info.priv = buffer;
-	dmabuf = dma_buf_export(&exp_info);
+	dmabuf = mem_buf_dma_buf_export(&exp_info);
 	if (IS_ERR(dmabuf)) {
 		ret = PTR_ERR(dmabuf);
-		goto err_free_carveout;
+		goto err_free_vmperm;
 	}
 
 	return dmabuf;
 
+err_free_vmperm:
+	mem_buf_vmperm_release(buffer->vmperm);
 err_free_carveout:
 	carveout_free(carveout_heap, paddr, len);
 err_free_table:
@@ -446,15 +490,6 @@ static void carveout_heap_destroy(struct carveout_heap *carveout_heap)
 	carveout_heap = NULL;
 }
 
-struct secure_carveout_heap {
-	u32 token;
-	struct carveout_heap carveout_heap;
-};
-
-static LIST_HEAD(secure_carveout_heaps);
-
-static void sc_heap_free(struct qcom_sg_buffer *buffer);
-
 static struct dma_buf *sc_heap_allocate(struct dma_heap *heap,
 					unsigned long len,
 					unsigned long fd_flags,
@@ -484,7 +519,6 @@ static struct dma_buf *sc_heap_allocate(struct dma_heap *heap,
 	buf =  __carveout_heap_allocate(carveout_heap, len, fd_flags,
 					heap_flags, sc_heap_free);
 	buffer = buf->priv;
-	buffer->vmids = sc_heap->token | QCOM_DMA_HEAP_FLAG_SECURE;
 
 	return buf;
 }
