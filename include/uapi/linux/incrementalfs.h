@@ -137,9 +137,20 @@
 #define INCFS_FEATURE_FLAG_COREFS "corefs"
 
 /*
- * report_uid mount option is supported
+ * zstd compression support
  */
-#define INCFS_FEATURE_FLAG_REPORT_UID "report_uid"
+#define INCFS_FEATURE_FLAG_ZSTD "zstd"
+
+/*
+ * v2 feature set support. Covers:
+ *   INCFS_IOC_CREATE_MAPPED_FILE
+ *   INCFS_IOC_GET_BLOCK_COUNT
+ *   INCFS_IOC_GET_READ_TIMEOUTS/INCFS_IOC_SET_READ_TIMEOUTS
+ *   .blocks_written status file
+ *   .incomplete folder
+ *   report_uid mount option
+ */
+#define INCFS_FEATURE_FLAG_V2 "v2"
 
 enum incfs_compression_alg {
 	COMPRESSION_NONE = 0,
@@ -479,24 +490,24 @@ struct incfs_per_uid_read_timeouts {
 	__u32 uid;
 
 	/*
-	 * Min time to read any block. Note that this doesn't apply to reads
-	 * which are satisfied from the page cache.
+	 * Min time in microseconds to read any block. Note that this doesn't
+	 * apply to reads which are satisfied from the page cache.
 	 */
-	__u32 min_time_ms;
+	__u32 min_time_us;
 
 	/*
-	 * Min time to satisfy a pending read. Must be >= min_time_ms. Any
-	 * pending read which is filled before this time will be delayed so
-	 * that the total read time >= this value.
+	 * Min time in microseconds to satisfy a pending read. Any pending read
+	 * which is filled before this time will be delayed so that the total
+	 * read time >= this value.
 	 */
-	__u32 min_pending_time_ms;
+	__u32 min_pending_time_us;
 
 	/*
-	 * Max time to satisfy a pending read before the read times out.
-	 * If set to U32_MAX, defaults to mount options read_timeout_ms=
-	 * Must be >= min_pending_time_ms
+	 * Max time in microseconds to satisfy a pending read before the read
+	 * times out. If set to U32_MAX, defaults to mount options
+	 * read_timeout_ms * 1000. Must be >= min_pending_time_us
 	 */
-	__u32 max_pending_time_ms;
+	__u32 max_pending_time_us;
 };
 
 /*
