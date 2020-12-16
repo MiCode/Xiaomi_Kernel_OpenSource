@@ -241,14 +241,7 @@ static int apu_devfreq_init(struct apu_dev *ad, struct devfreq_dev_profile *pf, 
 	const char *gov_name;
 	int err = 0;
 
-	of_property_read_string(ad->dev->of_node, "gov", &gov_name);
-	if (!gov_name) {
-		aprobe_err(ad->dev, "failed to get a governor name\n");
-		return -EINVAL;
-	}
-
-	aprobe_info(ad->dev, " governor name %s\n", gov_name);
-	pgov_data = apu_gov_init(ad->dev, pf);
+	pgov_data = apu_gov_init(ad->dev, pf, &gov_name);
 	if (IS_ERR(pgov_data)) {
 		err = PTR_ERR(pgov_data);
 		goto out;
@@ -286,6 +279,8 @@ static int apu_misc_init(struct apu_dev *ad)
 		ret = apu_rpc_init_done(ad);
 
 	for (;;) {
+		if (apupw_dbg_get_loglvl() < VERBOSE_LVL)
+			break;
 		if (IS_ERR(dev_pm_opp_find_freq_ceil(ad->dev, &freq)))
 			break;
 		apu_get_recommend_freq_volt(ad->dev, &freq, &volt, 0);

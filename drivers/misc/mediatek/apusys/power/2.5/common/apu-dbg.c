@@ -23,6 +23,8 @@
 #include "apusys_power.h"
 #include "apu_rpc.h"
 #include "apusys_core.h"
+#include "apu_regulator.h"
+#include "apu_clk.h"
 
 DECLARE_DELAYED_WORK(pw_info_work, apupw_dbg_power_info);
 static char buffer[__LOG_BUF_LEN];
@@ -53,8 +55,10 @@ static const enum DVFS_USER _apupw_dbg_id2user(int dbg_id)
 		[4] = MDLA1,
 	};
 
-	if (dbg_id < 0 || dbg_id >= ARRAY_SIZE(ids))
+	if (dbg_id < 0 || dbg_id >= ARRAY_SIZE(ids)) {
+		pr_info("[%s] not support device id: %d\n", dbg_id);
 		return -EINVAL;
+	}
 	return ids[dbg_id];
 }
 
@@ -96,6 +100,52 @@ static struct apu_dev *_apupw_valid_parent_df(enum DVFS_USER usr)
 		return NULL;
 
 	return ad;
+}
+
+static bool _apupw_valid_input(u8 param, int argc)
+{
+	int expect = 0;
+
+	switch (param) {
+	case POWER_PARAM_FIX_OPP:
+	case POWER_PARAM_DVFS_DEBUG:
+	case POWER_PARAM_LOG_LEVEL:
+	case POWER_PARAM_CURR_STATUS:
+	case POWER_PARAM_OPP_TABLE:
+		expect = 1;
+		if (argc != expect)
+			goto INVALID;
+	case POWER_HAL_CTL:
+	case POWER_PARAM_SET_POWER_HAL_OPP:
+	case POWER_PARAM_POWER_STRESS:
+		expect = 3;
+		if (argc != expect)
+			goto INVALID;
+	}
+	return true;
+INVALID:
+	pr_info("para:%d expected:%d, received:%d\n", param, expect, argc);
+	return false;
+}
+
+static void _apupw_set_freq_range(struct apu_dev *ad, ulong min, ulong max)
+{
+	struct apu_gov_data *gov_data = (struct apu_gov_data *)ad->df->data;
+
+	mutex_lock_nested(&ad->df->lock, gov_data->depth);
+	ad->df->max_freq = max;
+	ad->df->min_freq = min;
+	mutex_unlock(&ad->df->lock);
+}
+
+static void _apupw_default_freq_range(struct apu_dev *ad)
+{
+	struct apu_gov_data *gov_data = (struct apu_gov_data *)ad->df->data;
+
+	mutex_lock_nested(&ad->df->lock, gov_data->depth);
+	ad->df->max_freq = ad->df->scaling_max_freq;
+	ad->df->min_freq = ad->df->scaling_min_freq;
+	mutex_unlock(&ad->df->lock);
 }
 
 enum LOG_LEVEL apupw_dbg_get_loglvl(void)
@@ -287,6 +337,37 @@ static void apupw_dbg_unregister_regulator(void)
 	}
 }
 
+static int apupw_dbg_loglvl(u8 param, int argc, int *args)
+{
+	int ret = 0;
+
+	switch (args[0]) {
+	case NO_LVL:
+		apupw_dbg.poll_interval = 0;
+	case INFO_LVL:
+	case VERBOSE_LVL:
+		ret = cancel_delayed_work_sync(&pw_info_work);
+		break;
+	case PERIOD_LVL:
+		apupw_dbg.poll_interval = 200;
+		ret = queue_delayed_work(pm_wq, &pw_info_work,
+				msecs_to_jiffies(apupw_dbg.poll_interval));
+		break;
+	case SHOW_LVL:
+		apupw_dbg.option = POWER_PARAM_LOG_LEVEL;
+		break;
+	default:
+		ret = -EINVAL;
+		goto out;
+
+	}
+	if (args[0] < SHOW_LVL)
+		apupw_dbg_set_loglvl(args[0]);
+
+out:
+	return ret;
+}
+
 static int apupw_dbg_power_stress(int type, int device, int opp)
 {
 	int id = 0;
@@ -356,6 +437,26 @@ static int apupw_dbg_power_stress(int type, int device, int opp)
 	}
 
 	pr_info("%s end with type %d ---\n", __func__, type);
+	return 0;
+}
+
+static int apupw_dbg_dvfs(u8 param, int argc, int *args)
+{
+	enum DVFS_USER user;
+	struct apu_dev *ad = NULL;
+
+	pr_info("@@test%d\nlock opp=%d\n", argc, (int)(args[0]));
+	for (user = MDLA; user < APUSYS_POWER_USER_NUM; user++) {
+		ad = _apupw_valid_df(user);
+		if (!ad)
+			continue;
+		if (args[0] >= 0)
+			_apupw_set_freq_range(ad, apu_opp2freq(ad, args[0]),
+				apu_opp2freq(ad, args[0]));
+		else
+			_apupw_default_freq_range(ad);
+	}
+
 	return 0;
 }
 
@@ -473,236 +574,64 @@ static int apupw_dbg_set_parameter(u8 param, int argc, int *args)
 {
 	int ret = 0;
 	enum DVFS_USER user;
-	struct apu_dev *ad;
-	struct apu_gov_data *gov_data;
-	int freq;
+	struct apu_dev *ad = NULL;
+
+	ret = _apupw_valid_input(param, argc);
+	if (!ret)
+		goto out;
 
 	switch (param) {
 	case POWER_PARAM_FIX_OPP:
 		apupw_dbg_set_fixopp(args[0]);
 		break;
 	case POWER_PARAM_LOG_LEVEL:
-		switch (args[0]) {
-		case NO_LVL:
-		case INFO_LVL:
-		case VERBOSE_LVL:
-			cancel_delayed_work_sync(&pw_info_work);
-			break;
-		case PERIOD_LVL:
-			apupw_dbg.poll_interval = 200;
-			queue_delayed_work(pm_wq, &pw_info_work,
-					msecs_to_jiffies(apupw_dbg.poll_interval));
-			break;
-		case SHOW_LVL:
-			apupw_dbg.option = POWER_PARAM_LOG_LEVEL;
-			break;
-		default:
-			ret = -EINVAL;
-			goto out;
-
-		}
-		if (args[0] < SHOW_LVL)
-			apupw_dbg_set_loglvl(args[0]);
+		ret = apupw_dbg_loglvl(param, argc, args);
 		break;
 	case POWER_PARAM_DVFS_DEBUG:
-		ret = (argc == 1) ? 0 : -EINVAL;
-		if (ret) {
-			pr_info(
-				"invalid argument, expected:1, received:%d\n",
-									argc);
-			goto out;
-		}
-		pr_info("@@test%d\n", argc);
-		pr_info("lock opp=%d\n", (int)(args[0]));
-		for (user = MDLA; user < APUSYS_POWER_USER_NUM; user++) {
-			ad = apu_find_device(user);
-			if (IS_ERR_OR_NULL(ad) || IS_ERR_OR_NULL(ad->df))
-				continue;
-			gov_data = (struct apu_gov_data *)ad->df->data;
-			if (gov_data->depth)
-				continue;
-			freq = apu_opp2freq(ad, (int)(args[0]));
-			mutex_lock_nested(&ad->df->lock, gov_data->depth);
-			ret = dev_pm_qos_update_request(
-					&ad->df->user_max_freq_req,
-					freq);
-			if (ret < 0) {
-				mutex_unlock(&ad->df->lock);
-				goto out;
-			}
-			ret = dev_pm_qos_update_request(
-					&ad->df->user_min_freq_req,
-					freq);
-			if (ret < 0) {
-				mutex_unlock(&ad->df->lock);
-				goto out;
-			}
-			mutex_unlock(&ad->df->lock);
-		}
+		ret = apupw_dbg_dvfs(param, argc, args);
 		break;
 	case POWER_HAL_CTL:
-	{
-		ret = (argc == 3) ? 0 : -EINVAL;
-		if (ret) {
-			pr_info(
-			"invalid argument, expected:1, received:%d\n",
-								argc);
-			goto out;
-		}
-
+	case POWER_PARAM_SET_POWER_HAL_OPP:
 		user = _apupw_dbg_id2user(args[0]);
 		if (user < 0) {
-			pr_info("APU dvfsuser %d not exist\n", args[0]);
+			ret = user;
 			goto out;
 		}
-		ad = apu_find_device(user);
-		if (IS_ERR_OR_NULL(ad))
+		ad = _apupw_valid_df(user);
+		if (IS_ERR_OR_NULL(ad)) {
+			ret = PTR_ERR(ad);
 			goto out;
-
-		mutex_lock(&ad->df->lock);
-		ret = dev_pm_qos_update_request(
-				&ad->df->user_max_freq_req,
+		}
+		if (param == POWER_PARAM_SET_POWER_HAL_OPP)
+			_apupw_set_freq_range(ad, apu_opp2freq(ad, args[2]),
 				apu_opp2freq(ad, args[1]));
-		if (ret < 0) {
-			mutex_unlock(&ad->df->lock);
-			goto out;
-		}
-		ret = dev_pm_qos_update_request(
-				&ad->df->user_min_freq_req,
-				apu_opp2freq(ad, args[2]));
-		if (ret < 0) {
-			mutex_unlock(&ad->df->lock);
-			goto out;
-		}
-		mutex_unlock(&ad->df->lock);
-
+		else if (param == POWER_HAL_CTL)
+			_apupw_set_freq_range(ad, apu_boost2freq(ad, args[2]),
+				apu_boost2freq(ad, args[1]));
 		break;
-	}
 	case POWER_PARAM_POWER_STRESS:
-		ret = (argc == 3) ? 0 : -EINVAL;
-		if (ret) {
-			pr_info(
-				"invalid argument, expected:3, received:%d\n",
-				argc);
-			goto out;
-		}
 		/*
 		 * arg0 : type
 		 * arg1 : device , 9 = all devices
 		 * arg2 : opp
 		 */
-		apupw_dbg_power_stress(args[0], args[1], args[2]);
+		ret = apupw_dbg_power_stress(args[0], args[1], args[2]);
 		break;
-
 	case POWER_PARAM_CURR_STATUS:
-		ret = (argc == 1) ? 0 : -EINVAL;
-		if (ret) {
-			pr_info("invalid argument, expected:1, received:%d\n", argc);
-				goto out;
-		}
 		apupw_dbg.option = POWER_PARAM_CURR_STATUS;
 		break;
 	case POWER_PARAM_OPP_TABLE:
-		ret = (argc == 1) ? 0 : -EINVAL;
-		if (ret) {
-			pr_info("invalid argument, expected:1, received:%d\n", argc);
-			goto out;
-		}
 		apupw_dbg.option = POWER_PARAM_OPP_TABLE;
 		break;
-
-/* TODO
- *	case POWER_PARAM_SET_USER_OPP:
- *		ret = (argc == 2) ? 0 : -EINVAL;
- *		if (ret) {
- *			PWR_LOG_INF(
- *				"invalid argument, expected:1, received:%d\n",
- *									argc);
- *			goto out;
- *		}
- *		apusys_set_opp(args[0], args[1]);
- *		apusys_dvfs_policy(0);
- *		break;
- *	case POWER_PARAM_SET_THERMAL_OPP:
- *			ret = (argc == 2) ? 0 : -EINVAL;
- *			if (ret) {
- *				PWR_LOG_ERR(
- *				"invalid argument, expected:1, received:%d\n",
- *									argc);
- *				goto out;
- *			}
- *			if (args[0] < 0 || args[0] >= APUSYS_DVFS_USER_NUM) {
- *				PWR_LOG_ERR("user(%d) is invalid\n",
- *						(int)(args[0]));
- *				goto out;
- *			}
- *
- *			ret = (args[1] >= APUSYS_MAX_NUM_OPPS);
- *			if (ret) {
- *				PWR_LOG_ERR("opp-%d is too big, max opp:%d\n",
- *					    (int)(args[0]),
- *					    APUSYS_MAX_NUM_OPPS - 1);
- *				goto out;
- *			}
- *
- *			apusys_opps.thermal_opp[args[0]] = args[1];
- *			apusys_dvfs_policy(0);
- *			break;
- *	case POWER_PARAM_SET_POWER_HAL_OPP:
- *			ret = (argc == 3) ? 0 : -EINVAL;
- *			if (ret) {
- *				PWR_LOG_INF(
- *				"invalid argument, expected:1, received:%d\n",
- *									argc);
- *				goto out;
- *			}
- *
- *			if (args[0] < 0 || args[0] >= APUSYS_DVFS_USER_NUM) {
- *				PWR_LOG_ERR("user(%d) is invalid\n",
- *						(int)(args[0]));
- *				goto out;
- *			}
- *
- *			ret = (args[1] >= APUSYS_MAX_NUM_OPPS);
- *			if (ret) {
- *				PWR_LOG_ERR("opp-%d is too big, max opp:%d\n",
- *					    (int)(args[1]),
- *					    APUSYS_MAX_NUM_OPPS - 1);
- *				goto out;
- *			}
- *
- *			ret = (args[1] >= APUSYS_MAX_NUM_OPPS);
- *			if (ret) {
- *				PWR_LOG_ERR("opp-%d is too big, max opp:%d\n",
- *					    (int)(args[1]),
- *					    APUSYS_MAX_NUM_OPPS - 1);
- *				goto out;
- *			}
- *
- *			apusys_opps.power_lock_min_opp[args[0]] = args[1];
- *			apusys_opps.power_lock_max_opp[args[0]] = args[2];
- *			break;
- *	case POWER_PARAM_GET_POWER_REG:
- *		ret = (argc == 1) ? 0 : -EINVAL;
- *		if (ret) {
- *			PWR_LOG_INF(
- *				"invalid argument, expected:1, received:%d\n",
- *									argc);
- *			goto out;
- *		}
- *		apu_power_reg_dump();
- *		break;
- *
- */
 	default:
 		pr_info("unsupport the power parameter:%d\n", param);
+		ret = -EINVAL;
 		break;
 	}
 
 out:
 	return ret;
 }
-
 
 static ssize_t apupw_dbg_write(struct file *flip, const char __user *buffer,
 			       size_t count, loff_t *f_pos)
@@ -726,27 +655,21 @@ static ssize_t apupw_dbg_write(struct file *flip, const char __user *buffer,
 	cursor = tmp;
 	/* parse a command */
 	token = strsep(&cursor, " ");
-	if (strcmp(token, "fix_opp") == 0)
+	if (!strcmp(token, "fix_opp"))
 		param = POWER_PARAM_FIX_OPP;
-	else if (strcmp(token, "dvfs_debug") == 0)
+	else if (!strcmp(token, "dvfs_debug"))
 		param = POWER_PARAM_DVFS_DEBUG;
-	else if (strcmp(token, "power_hal") == 0)
+	else if (!strcmp(token, "power_hal"))
 		param = POWER_HAL_CTL;
-	else if (strcmp(token, "user_opp") == 0)
-		param = POWER_PARAM_SET_USER_OPP;
-	else if (strcmp(token, "thermal_opp") == 0)
-		param = POWER_PARAM_SET_THERMAL_OPP;
-	else if (strcmp(token, "power_hal_opp") == 0)
+	else if (!strcmp(token, "power_hal_opp"))
 		param = POWER_PARAM_SET_POWER_HAL_OPP;
-	else if (strcmp(token, "reg_dump") == 0)
-		param = POWER_PARAM_GET_POWER_REG;
-	else if (strcmp(token, "power_stress") == 0)
+	else if (!strcmp(token, "power_stress"))
 		param = POWER_PARAM_POWER_STRESS;
-	else if (strcmp(token, "opp_table") == 0)
+	else if (!strcmp(token, "opp_table"))
 		param = POWER_PARAM_OPP_TABLE;
-	else if (strcmp(token, "curr_status") == 0)
+	else if (!strcmp(token, "curr_status"))
 		param = POWER_PARAM_CURR_STATUS;
-	else if (strcmp(token, "log_level") == 0)
+	else if (!strcmp(token, "log_level"))
 		param = POWER_PARAM_LOG_LEVEL;
 	else {
 		ret = -EINVAL;
@@ -875,7 +798,6 @@ int apu_power_drv_init(struct apusys_core_info *info)
 	debugfs_create_file("power", (0644),
 		apupw_dbg.dir, NULL, &apupw_dbg_fops);
 	debugfs_create_symlink("power", info->dbg_root,	"./apupwr/power");
-
 out:
 	return ret;
 }

@@ -96,7 +96,7 @@ struct apu_clk_ops {
 	void	(*disable)(struct apu_clk_gp *aclk);
 	int		(*cg_enable)(struct apu_clk_gp *aclk);
 	void	(*cg_disable)(struct apu_clk_gp *aclk);
-	void	(*cg_status)(struct apu_clk_gp *aclk);
+	int		(*cg_status)(struct apu_clk_gp *aclk, u32 *result);
 	ulong	(*get_rate)(struct apu_clk_gp *aclk);
 	int		(*set_rate)(struct apu_clk_gp *aclk, unsigned long rate);
 };

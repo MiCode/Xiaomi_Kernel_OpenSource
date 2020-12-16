@@ -15,6 +15,7 @@
 #include "apu_common.h"
 #include "apu_log.h"
 #include "apu_clk.h"
+#include "apu_dbg.h"
 
 static int update_parent(struct apu_gov_data *gov_data)
 {
@@ -67,6 +68,8 @@ static int aconstrain_get_target_freq(struct devfreq *df, unsigned long *freq)
 	*freq = apu_opp2freq(ad, req->value);
 	if (!round_khz(*freq, df->previous_freq)) {
 		apu_dump_list(gov_data);
+		apupw_dbg_dvfs_tag_update(APUGOV_CONSTRAIN, dev_name(ad->dev),
+			dev_name(req->dev), req->value, TOMHZ(*freq));
 		advfs_info(ad->dev, "[%s] %s vote opp/freq %d/%u\n", __func__,
 			   dev_name(req->dev), req->value, TOMHZ(*freq));
 	}

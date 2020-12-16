@@ -23,11 +23,12 @@
 #include "apu_rpc.h"
 #include "apusys_power.h"
 #include "apu_of.h"
+#include "apu_trace.h"
 
 static int con_devfreq_target(struct device *dev,
 				unsigned long *rate, u32 flags)
 {
-	unsigned long old_rate, volt;
+	unsigned long old_rate = 0, volt = 0;
 	struct apu_dev *ad = dev_get_drvdata(dev);
 	struct apu_clk_ops *clk_ops = NULL;
 	struct apu_regulator_ops *regul_ops = NULL;
@@ -73,6 +74,7 @@ static int con_devfreq_target(struct device *dev,
 		if (err)
 			goto out;
 	}
+	apupw_dbg_pwr_tag_update(ad, *rate, volt);
 	advfs_info(dev, "[%s] rate %luMhz volt %dmV\n",
 			__func__, TOMHZ(*rate), TOMV(volt));
 
@@ -128,6 +130,9 @@ static int runtime_suspend(struct device *dev)
 
 	/* enable buck isolation */
 	apu_buckiso(ad, 1);
+
+	/* update rpc/cg trace */
+	apupw_dbg_rpc_tag_update(ad);
 	return ret;
 }
 
@@ -157,6 +162,10 @@ static int runtime_resume(struct device *dev)
 
 	/* clear conn's cg */
 	ret = ad->aclk->ops->cg_enable(ad->aclk);
+
+	/* update rpc/cg trace */
+	apupw_dbg_rpc_tag_update(ad);
+
 	return devfreq_resume_device(ad->df);
 }
 

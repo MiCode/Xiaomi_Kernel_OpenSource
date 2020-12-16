@@ -939,3 +939,15 @@ void apu_power_drv_exit(void)
 	platform_driver_unregister(&apu_power_driver);
 }
 
+/* use for compile pass for power 2.5 */
+int apupwr_init_tags(struct apusys_core_info *info)
+{
+	return 0;
+}
+
+/* use for compile pass for power 2.5 */
+void apupwr_exit_tags(void)
+{
+	pr_info("%s\n", __func__);
+}
+
