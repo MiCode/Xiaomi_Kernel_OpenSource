@@ -103,6 +103,7 @@
 #define STALE_TIMEOUT		(16)
 #define STALE_COUNT		(DEFAULT_BITS_PER_CHAR * STALE_TIMEOUT)
 #define SEC_TO_USEC		(1000000)
+#define SYSTEM_DELAY		(500)
 #define DEFAULT_BITS_PER_CHAR	(10)
 #define GENI_UART_NR_PORTS	(15)
 #define GENI_UART_CONS_PORTS	(1)
@@ -1453,10 +1454,11 @@ static int stop_rx_sequencer(struct uart_port *uport)
 		 * Wait for the stale timeout to happen if there
 		 * is any data pending in the rx fifo.
 		 * Have a safety factor of 2 to include the interrupt
-		 * and system latencies.
+		 * and system latencies, add 500usec delay for interrupt
+		 * latency or system delay.
 		 */
 		stale_delay = (STALE_COUNT * SEC_TO_USEC) / port->cur_baud;
-		stale_delay = (2 * stale_delay);
+		stale_delay = (2 * stale_delay) + SYSTEM_DELAY;
 		udelay(stale_delay);
 	}
 
@@ -1480,22 +1482,26 @@ static int stop_rx_sequencer(struct uart_port *uport)
 	 */
 	mb();
 	timeout = geni_wait_for_cmd_done(uport, is_irq_masked);
-	if (timeout) {
-		geni_status = geni_read_reg_nolog(uport->membase,
+	geni_status = geni_read_reg_nolog(uport->membase,
 							SE_GENI_STATUS);
+	is_rx_active = geni_status & S_GENI_CMD_ACTIVE;
+	IPC_LOG_MSG(port->ipc_log_misc, "%s: 0x%x, dma_dbg:0x%x\n", __func__,
+		geni_status, geni_read_reg(uport->membase, SE_DMA_DEBUG_REG0));
+	if (timeout || is_rx_active) {
+		IPC_LOG_MSG(port->ipc_log_misc,
+			    "%s cancel failed timeout:%d is_rx_active:%d 0x%x\n",
+			    __func__, timeout, is_rx_active, geni_status);
+		IPC_LOG_MSG(port->console_log,
+			    "%s cancel failed timeout:%d is_rx_active:%d 0x%x\n",
+			    __func__, timeout, is_rx_active, geni_status);
+		geni_se_dump_dbg_regs(&port->serial_rsc,
+				uport->membase, port->ipc_log_misc);
 		/*
 		 * Possible that stop_rx is called from system resume context
 		 * for console usecase. In early resume, irq remains disabled
 		 * in the system. call msm_geni_serial_handle_isr to clear
 		 * the interrupts.
 		 */
-		is_rx_active = geni_status & S_GENI_CMD_ACTIVE;
-		IPC_LOG_MSG(port->ipc_log_misc,
-			    "%s cancel failed is_rx_active:%d 0x%x\n",
-			    __func__, is_rx_active, geni_status);
-		IPC_LOG_MSG(port->console_log,
-			    "%s cancel failed is_rx_active:%d 0x%x\n",
-			    __func__, is_rx_active, geni_status);
 		if (uart_console(uport) && !is_rx_active) {
 			msm_geni_serial_handle_isr(uport, &flags, true);
 			goto exit_rx_seq;
@@ -1507,13 +1513,20 @@ static int stop_rx_sequencer(struct uart_port *uport)
 		mb();
 
 		timeout = geni_wait_for_cmd_done(uport, is_irq_masked);
-		if (timeout) {
+		geni_status = geni_read_reg_nolog(uport->membase,
+							SE_GENI_STATUS);
+		is_rx_active = geni_status & S_GENI_CMD_ACTIVE;
+		if (timeout || is_rx_active) {
 			geni_status = geni_read_reg_nolog(uport->membase,
 							SE_GENI_STATUS);
 			IPC_LOG_MSG(port->ipc_log_misc,
-				"%s abort fail 0x%x\n", __func__, geni_status);
+				"%s abort fail timeout:%d is_rx_active:%d 0x%x\n",
+				__func__, timeout, is_rx_active, geni_status);
 			IPC_LOG_MSG(port->console_log,
-				"%s abort fail 0x%x\n",  __func__, geni_status);
+				"%s abort fail timeout:%d is_rx_active:%d 0x%x\n",
+				 __func__, timeout, is_rx_active, geni_status);
+			geni_se_dump_dbg_regs(&port->serial_rsc,
+				uport->membase, port->ipc_log_misc);
 		}
 
 		if (port->xfer_mode == SE_DMA) {
@@ -1538,8 +1551,9 @@ exit_rx_seq:
 		msm_geni_serial_set_manual_flow(true, port);
 
 	geni_status = geni_read_reg_nolog(uport->membase, SE_GENI_STATUS);
-	IPC_LOG_MSG(port->ipc_log_misc, "%s: End 0x%x\n",
-		    __func__, geni_status);
+	IPC_LOG_MSG(port->ipc_log_misc, "%s: End 0x%x dma_dbg:0x%x\n",
+		    __func__, geni_status,
+		    geni_read_reg(uport->membase, SE_DMA_DEBUG_REG0));
 
 	is_rx_active = geni_status & S_GENI_CMD_ACTIVE;
 	if (is_rx_active)
