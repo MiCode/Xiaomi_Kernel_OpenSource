@@ -294,11 +294,6 @@ static void set_polling_speed(struct lvts_data *lvts_data, int tc_id)
 	 */
 	writel(lvtsMonCtl1, LVTSMONCTL1_0 + base);
 	writel(lvtsMonCtl2, LVTSMONCTL2_0 + base);
-
-	dev_info(dev, "%s %d, LVTSMONCTL1_0= 0x%x,LVTSMONCTL2_0= 0x%x\n",
-		__func__, tc_id,
-		readl(LVTSMONCTL1_0 + base),
-		readl(LVTSMONCTL2_0 + base));
 }
 
 static void set_hw_filter(struct lvts_data *lvts_data, int tc_id)
@@ -321,8 +316,6 @@ static void set_hw_filter(struct lvts_data *lvts_data, int tc_id)
 	option = (option << 9) | (option << 6) | (option << 3) | option;
 
 	writel(option, LVTSMSRCTL0_0 + base);
-	dev_info(dev, "%s %d, LVTSMSRCTL0_0= 0x%x\n",
-		__func__, tc_id, readl(LVTSMSRCTL0_0 + base));
 }
 
 static int get_dominator_index(struct lvts_data *lvts_data, int tc_id)
@@ -402,9 +395,6 @@ static void set_tc_hw_reboot_threshold(struct lvts_data *lvts_data,
 
 	base = GET_BASE_ADDR(tc_id);
 	d_index = get_dominator_index(lvts_data, tc_id);
-
-	dev_info(dev, "%s: LVTS%d, the dominator sensing point= %d\n",
-		__func__, tc_id, d_index);
 
 	disable_hw_reboot_interrupt(lvts_data, tc_id);
 
@@ -1010,10 +1000,6 @@ static void init_controller_v4(struct lvts_data *lvts_data)
 
 		set_polling_speed(lvts_data, i);
 		set_hw_filter(lvts_data, i);
-
-		dev_info(dev, "lvts%d: read all %d sensors in %d us, one in %d us\n",
-			i, GET_TC_SENSOR_NUM(i), GROUP_LATENCY_US(i),
-			SENSOR_LATENCY_US(i));
 	}
 
 }
