@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 
 // Copyright (c) 2018-19, Linaro Limited
+// Copyright (c) 2021, The Linux Foundation. All rights reserved.
 // Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
 
 #include <linux/module.h>
@@ -1462,6 +1463,7 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	plat_dat->fix_mac_speed = ethqos_fix_mac_speed;
 	plat_dat->dump_debug_regs = rgmii_dump;
 	plat_dat->tx_select_queue = dwmac_qcom_select_queue;
+	plat_dat->get_plat_tx_coal_frames =  dwmac_qcom_get_plat_tx_coal_frames;
 	plat_dat->has_gmac4 = 1;
 	/* Set mdio phy addr probe capability to c22 .
 	 * If c22_c45 is set then multiple phy is getting detected.
