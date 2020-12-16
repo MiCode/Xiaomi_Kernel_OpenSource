@@ -135,5 +135,7 @@ extern void mt_accdet_suspend(void);
 extern void mt_accdet_resume(void);
 extern void accdet_set_debounce(int state, unsigned int debounce);
 extern void accdet_modify_vref_volt(void);
-
+extern int mt6359p_accdet_init(struct snd_soc_component *component,
+			struct snd_soc_card *card);
+extern int mt6359p_accdet_set_drvdata(struct snd_soc_card *card);
 #endif
