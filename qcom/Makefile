@@ -92,7 +92,6 @@ dtb-$(CONFIG_ARCH_WAIPIO) += waipio-rumi.dtb \
 	waipio-qrd.dtb
 endif
 
-dtb-$(CONFIG_ARCH_QTI_VM) += trustedvm.dtb
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 	dtbo-$(CONFIG_ARCH_HOLI) +=  holi-rumi-overlay.dtbo
 dtbo-$(CONFIG_ARCH_HOLI) += holi-rumi-overlay.dtbo \
@@ -183,6 +182,14 @@ dtb-$(CONFIG_ARCH_QTI_VM) += shima-vm-rumi.dtb \
 	shima-vm-atp.dtb \
 	shima-vm-idp.dtb \
 	shima-vm-qrd.dtb
+endif
+endif
+
+ifeq ($(CONFIG_ARCH_WAIPIO), y)
+ifeq ($(CONFIG_ARCH_QTI_VM), y)
+dtb-$(CONFIG_ARCH_QTI_VM) += waipio-vm-mtp.dtb \
+	waipio-vm-cdp.dtb \
+	waipio-vm-qrd.dtb
 endif
 endif
 
