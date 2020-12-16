@@ -55,6 +55,7 @@ struct btpower_tcs_table_info {
  */
 struct bluetooth_power_platform_data {
 	int bt_gpio_sys_rst;                   /* Bluetooth reset gpio */
+	int wl_gpio_sys_rst;                   /* Wlan reset gpio */
 	int bt_gpio_sw_ctrl;                   /* Bluetooth sw_ctrl gpio */
 	int bt_gpio_debug;                     /* Bluetooth debug gpio */
 	struct device *slim_dev;
