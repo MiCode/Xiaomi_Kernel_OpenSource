@@ -258,5 +258,6 @@ config MHI_DEBUG
 
 source "drivers/bus/fsl-mc/Kconfig"
 source "drivers/bus/mhi/Kconfig"
+source "drivers/bus/mhi/devices/Kconfig"
 
 endmenu
