@@ -24,7 +24,8 @@ Required properties:
 - clock-names       : List of clock input name strings sorted in the same
 		      order as the clocks property. "ref_clk_src", "ref_clk",
 		      "tx_iface_clk" & "rx_iface_clk" are mandatory but
-		      "ref_clk_parent" is optional
+		      "ref_clk_parent" is optional. The qref_clk is optional
+		      too. The qref_clk enables ref clock to phy.
 
 Optional properties:
 - vdda-phy-max-microamp : specifies max. load that can be drawn from phy supply
