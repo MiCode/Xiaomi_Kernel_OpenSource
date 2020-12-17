@@ -443,7 +443,6 @@ static void carveout_heap_destroy(struct carveout_heap *carveout_heap)
 	if (carveout_heap->pool)
 		gen_pool_destroy(carveout_heap->pool);
 	up_write(&carveout_heap->mem_sem);
-	kfree(carveout_heap);
 	carveout_heap = NULL;
 }
 
