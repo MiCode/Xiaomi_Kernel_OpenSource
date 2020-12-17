@@ -3,6 +3,9 @@
 #
 #   DT_OVERLAY_SUPPORT
 #     If set, then create a dtbo.img
+#   BUILD_VENDOR_DLKM
+#     If set, then enables creation of vendor_dlkm.img using all modules
+#     not part of the first-stage ramdisk
 #   EXTRA_CONFIGS
 #     All files in this list are sourced
 
@@ -194,6 +197,37 @@ function menuconfig() {
   exit
 }
 export -f menuconfig
+
+################################################################################
+## DLKMs
+if [ -e "${KERNEL_DIR}/modules.list.${CONFIG_TARGET}" ]; then
+  MODULES_LIST=${KERNEL_DIR}/modules.list.${CONFIG_TARGET}
+fi
+if [ -e "${KERNEL_DIR}/modules.blocklist.${CONFIG_TARGET}" ]; then
+  MODULES_BLOCKLIST="${KERNEL_DIR}/modules.blocklist.${CONFIG_TARGET}"
+  VENDOR_DLKM_MODULES_BLOCKLIST="${KERNEL_DIR}/modules.blocklist.${CONFIG_TARGET}"
+fi
+
+function prepare_vendor_dlkm() {
+  if [ -z "${VENDOR_DLKM_MODULES_LIST}" ]; then
+    local module_list_flag=
+    if [ -e "${MODULES_LIST}" ]; then
+      module_list_flag="-f ${MODULES_LIST}"
+    else
+      module_list_flag="-e ''"
+    fi
+    (cd "${MODULES_STAGING_DIR}/lib/modules/" && find -type f -name "*.ko" -printf "%f\n") | \
+      grep -v ${module_list_flag} - > ${MODULES_STAGING_DIR}/vendor_dlkm.modules.load
+
+    VENDOR_DLKM_MODULES_LIST="${MODULES_STAGING_DIR}/vendor_dlkm.modules.load"
+  fi
+}
+if [ "${BUILD_VENDOR_DLKM}" == "1" ]; then
+  append_cmd DIST_CMDS 'prepare_vendor_dlkm'
+  if [ -e "${KERNEL_DIR}/modules.vendor_blocklist.${CONFIG_TARGET}" ]; then
+    VENDOR_DLKM_MODULES_BLOCKLIST="${KERNEL_DIR}/modules.vendor_blocklist.${CONFIG_TARGET}"
+  fi
+fi
 
 ################################################################################
 ## DT Overlay
