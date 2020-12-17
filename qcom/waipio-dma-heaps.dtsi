@@ -55,12 +55,6 @@
 			memory-region = <&qseecom_ta_mem>;
 		};
 
-		qcom,secure_display {
-			qcom,dma-heap-name = "qcom,secure-display";
-			qcom,dma-heap-type = <HEAP_TYPE_CMA>;
-			memory-region = <&secure_display_memory>;
-		};
-
 		qcom,display {
 			qcom,dma-heap-name = "qcom,display";
 			qcom,dma-heap-type = <HEAP_TYPE_CMA>;
