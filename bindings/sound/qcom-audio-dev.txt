@@ -893,6 +893,8 @@ qcom,msm-dai-spdif {
 
 Required properties:
  - compatible : "qcom,adsp-loader"
+ - qcom,rproc-handle:
+	remoteproc handler is used to load ADSP image at boot.
  - qcom,adsp-state:
 	It is possible that some MSM use PIL to load the ADSP image. While
 	other MSM may use SBL to load the ADSP image at boot. Audio APR needs
@@ -901,33 +903,27 @@ Required properties:
 	Value of 0 indicates ADSP loader needs to use PIL and value of 2 means
 	ADSP image is already loaded by SBL.
 
-Optional properties:
- - qcom,proc-img-to-load:
-	This property can be used to override default ADSP
-	loading by PIL. Based on string input, different proc is
-	loaded. Right now we are adding option "modem"
-	for 8916 purpose. Default image will be "adsp" which
-	will load LPASS Q6 for other targets as expected.
-	"adsp" option need not be explicitly mentioned in
-	DTSI file, as it is default option.
-
 Example:
 
 qcom,msm-adsp-loader {
+	status = "ok";
 	compatible = "qcom,adsp-loader";
-	qcom,adsp-state = <2>;
-	qcom,proc-img-to-load = "modem";
+	qcom,rproc-handle = <&adsp_pas>;
+	qcom,adsp-state = <0>;
 };
 
 * msm-adsp_notify
+
 Required properties:
  - compatible : "qcom,adsp_notify"
+ - qcom,rproc-handle:
+	remoteproc handler is used to get subsystem domain name.
 
 Example:
 
 adsp_notify: qcom,msm-adsp-notify {
-	compatible = "qcom,adsp-notify";
 	status = "ok";
+	compatible = "qcom,adsp-notify";
 	qcom,rproc-handle = <&adsp_pas>;
 };
 

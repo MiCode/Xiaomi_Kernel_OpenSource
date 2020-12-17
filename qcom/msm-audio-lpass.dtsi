@@ -457,7 +457,14 @@
 	adsp_loader: qcom,msm-adsp-loader {
 		status = "ok";
 		compatible = "qcom,adsp-loader";
+		qcom,rproc-handle = <&adsp_pas>;
 		qcom,adsp-state = <0>;
+	};
+
+	adsp_notify: qcom,msm-adsp-notify {
+		status = "ok";
+		compatible = "qcom,adsp-notify";
+		qcom,rproc-handle = <&adsp_pas>;
 	};
 
 	tdm_pri_rx: qcom,msm-dai-tdm-pri-rx {
