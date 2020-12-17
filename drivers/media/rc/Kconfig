@@ -42,6 +42,15 @@ menuconfig RC_DECODERS
 	bool "Remote controller decoders"
 	depends on RC_CORE
 
+config IR_SPI
+       tristate "SPI connected IR LED"
+       depends on SPI && LIRC
+       ---help---
+          Say Y if you want to use an IR LED connected through SPI bus.
+
+          To compile this driver as a module, choose M here: the module will be
+          called ir-spi.
+
 if RC_DECODERS
 config IR_NEC_DECODER
 	tristate "Enable IR raw decoder for the NEC protocol"

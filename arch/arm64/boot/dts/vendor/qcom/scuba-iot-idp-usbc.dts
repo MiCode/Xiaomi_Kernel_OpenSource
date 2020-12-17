@@ -1,0 +1,11 @@
+/dts-v1/;
+
+#include "scuba-iot.dtsi"
+#include "scuba-iot-idp.dtsi"
+#include "scuba-iot-idp-usbc.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Scuba IOT IDP USBC Audio";
+	compatible = "qcom,scuba-idp", "qcom,scuba-iot", "qcom,idp";
+	qcom,board-id = <34 1>;
+};

@@ -1,0 +1,15 @@
+/dts-v1/;
+
+#include "lito-v2.dtsi"
+#include "lito-cdp.dtsi"
+#include "lito-v2-audio.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Lito v2 CDP";
+	compatible = "qcom,lito-cdp", "qcom,lito", "qcom,cdp";
+	qcom,board-id = <1 0>;
+};
+
+&ufsphy_mem {
+	/delete-property/ vdda-phy-always-on;
+};

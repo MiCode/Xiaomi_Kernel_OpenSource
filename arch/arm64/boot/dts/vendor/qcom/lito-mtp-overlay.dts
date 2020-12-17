@@ -1,0 +1,16 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include "lito-mtp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Lito MTP";
+	compatible = "qcom,lito-mtp", "qcom,lito", "qcom,mtp";
+	qcom,msm-id = <400 0x10000>, <440 0x10000>;
+	qcom,board-id = <8 0>;
+};
+
+&ufsphy_mem {
+	vdda-phy-always-on;
+};

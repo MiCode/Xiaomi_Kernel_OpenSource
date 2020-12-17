@@ -1,0 +1,11 @@
+/dts-v1/;
+
+#include "scuba-iot-low-ram.dtsi"
+#include "scuba-iot-idp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Scubap IOT IDP 2GB DDR";
+	compatible = "qcom,scuba-idp", "qcom,scubap-iot", "qcom,idp";
+	qcom,msm-id = <474 0x10000>;
+	qcom,board-id = <34 0x400>;
+};

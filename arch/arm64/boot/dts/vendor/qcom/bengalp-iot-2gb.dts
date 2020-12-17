@@ -1,0 +1,9 @@
+/dts-v1/;
+
+#include "bengalp-iot-low-ram.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. BENGALP-IOT 2Gb DDR HD+ SoC";
+	compatible = "qcom,bengalp-iot";
+	qcom,board-id = <0 0x403>;
+};

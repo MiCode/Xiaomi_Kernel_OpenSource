@@ -1,0 +1,27 @@
+#include "kona-mtp.dtsi"
+
+&wlan {
+	vdd-wlan-dig-supply = <&pm8150_s6>;
+	qcom,vdd-wlan-dig-config = <950000 950000 0 0 1>;
+	qcom,cmd_db_name = "smpa6";
+};
+
+&bluetooth {
+	compatible = "qca,qca6390";
+	pinctrl-names = "default";
+	pinctrl-0 = <&bt_en_sleep>;
+	qca,bt-reset-gpio = <&tlmm 21 0>; /* BT_EN */
+	qca,bt-vdd-aon-supply = <&pm8150_s6>;
+	qca,bt-vdd-dig-supply = <&pm8150_s6>;
+	qca,bt-vdd-rfa1-supply = <&pm8150_s5>;
+	qca,bt-vdd-rfa2-supply = <&pm8150a_s8>;
+	qca,bt-vdd-asd-supply = <&pm8150_l16>;
+
+	qca,bt-vdd-aon-voltage-level = <950000 950000>;
+	qca,bt-vdd-dig-voltage-level = <950000 950000>;
+	qca,bt-vdd-rfa1-voltage-level = <1900000 1900000>;
+	qca,bt-vdd-rfa2-voltage-level = <1350000 1350000>;
+	qca,bt-vdd-asd-voltage-level = <3024000 3304000>;
+
+	qca,bt-vdd-asd-current-level = <10000>;
+};

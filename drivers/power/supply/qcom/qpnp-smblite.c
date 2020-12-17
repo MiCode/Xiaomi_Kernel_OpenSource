@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #include <linux/debugfs.h>
@@ -1452,6 +1453,8 @@ static int smblite_post_init(struct smblite *chip)
 			return rc;
 		}
 	}
+
+	rerun_election(chg->temp_change_irq_disable_votable);
 
 	return 0;
 }

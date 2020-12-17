@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #include <linux/module.h>
@@ -17,6 +18,7 @@
 #include <soc/qcom/qseecomi.h>
 #include <soc/qcom/qtee_shmbridge.h>
 #include <crypto/ice.h>
+#include <linux/soc/qcom/crypto-qti-hwkm.h>
 #include "pfk_ice.h"
 
 /**********************************/
@@ -69,6 +71,8 @@ enum {
 	ICE_CIPHER_MODE_CBC_256 = 4
 };
 
+static bool pfk_key_set_using_hwkm;
+
 static int set_key(uint32_t index, const uint8_t *key, const uint8_t *salt,
 		unsigned int data_unit, struct ice_device *ice_dev)
 {
@@ -86,7 +90,7 @@ static int set_key(uint32_t index, const uint8_t *key, const uint8_t *salt,
 	tzbuf = shm.vaddr;
 
 	memcpy(tzbuf, key, key_size);
-	memcpy(tzbuf+key_size, salt, key_size);
+	memcpy(tzbuf + key_size, key + key_size, key_size);
 	dmac_flush_range(tzbuf, tzbuf + ICE_BUFFER_SIZE);
 
 	smc_id = TZ_ES_CONFIG_SET_ICE_KEY_CE_TYPE_ID;
@@ -138,7 +142,8 @@ static int clear_key(uint32_t index, struct ice_device *ice_dev)
 }
 
 int qti_pfk_ice_set_key(uint32_t index, uint8_t *key, uint8_t *salt,
-			struct ice_device *ice_dev, unsigned int data_unit)
+			struct ice_device *ice_dev, unsigned int data_unit,
+			size_t size)
 {
 	int ret = 0, ret1 = 0;
 
@@ -146,7 +151,7 @@ int qti_pfk_ice_set_key(uint32_t index, uint8_t *key, uint8_t *salt,
 		pr_err("%s Invalid index %d\n", __func__, index);
 		return -EINVAL;
 	}
-	if (!key || !salt) {
+	if (!key) {
 		pr_err("%s Invalid key/salt\n", __func__);
 		return -EINVAL;
 	}
@@ -157,22 +162,41 @@ int qti_pfk_ice_set_key(uint32_t index, uint8_t *key, uint8_t *salt,
 		goto out;
 	}
 
-	ret = set_key(index, key, salt, data_unit, ice_dev);
-	if (ret) {
-		pr_err("%s: Set Key Error: %d\n", __func__, ret);
-		if (ret == -EBUSY) {
-			if (disable_ice_setup(ice_dev))
-				pr_err("%s: clock disable failed\n", __func__);
-			goto out;
+	if (ice_dev->hwkm_supported && (size > 64)) {
+		pr_debug("%s through hkm\n", __func__);
+		ret = crypto_qti_program_key(index, key, ice_dev, data_unit);
+		if (ret) {
+			pr_err("%s hwkm key programing failed with error %d\n",
+				__func__, ret);
+
+			ret1 = crypto_qti_invalidate_key(ice_dev, index);
+			if (ret1)
+				pr_err("%s key invalidate failed error %d\n",
+					__func__, ret1);
+		} else {
+			pfk_key_set_using_hwkm = true;
 		}
-		/* Try to invalidate the key to keep ICE in proper state */
-		ret1 = clear_key(index, ice_dev);
-		if (ret1)
-			pr_err("%s: Invalidate key error: %d\n", __func__, ret);
+	} else {
+		pr_debug("%s through scm\n", __func__);
+		ret = set_key(index, key, salt, data_unit, ice_dev);
+		if (ret) {
+			pr_err("%s: Set Key Error: %d\n", __func__, ret);
+			if (ret == -EBUSY) {
+				if (disable_ice_setup(ice_dev))
+					pr_err("%s: clock disable failed\n",
+						__func__);
+				goto out;
+			}
+			/* Invalidate the key to keep ICE in proper state */
+			ret1 = clear_key(index, ice_dev);
+			if (ret1)
+				pr_err("%s: Invalidate key error: %d\n",
+					__func__, ret1);
+		}
 	}
 
 	ret1 = disable_ice_setup(ice_dev);
-	if (ret)
+	if (ret1)
 		pr_err("%s: Error %d disabling clocks\n", __func__, ret);
 
 out:
@@ -194,9 +218,16 @@ int qti_pfk_ice_invalidate_key(uint32_t index, struct ice_device *ice_dev)
 		return ret;
 	}
 
-	ret = clear_key(index, ice_dev);
-	if (ret)
-		pr_err("%s: Invalidate key error: %d\n", __func__, ret);
+	if (ice_dev->hwkm_supported && pfk_key_set_using_hwkm) {
+		ret = crypto_qti_invalidate_key(ice_dev, index);
+		if (ret)
+			pr_err("%s hwkm key invalidate failed with error %d\n",
+				__func__, ret);
+	} else {
+		ret = clear_key(index, ice_dev);
+		if (ret)
+			pr_err("%s: Invalidate key error: %d\n", __func__, ret);
+	}
 
 	if (disable_ice_setup(ice_dev))
 		pr_err("%s: could not disable clocks\n", __func__);

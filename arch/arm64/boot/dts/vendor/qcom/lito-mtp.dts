@@ -1,0 +1,14 @@
+/dts-v1/;
+
+#include "lito.dtsi"
+#include "lito-mtp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Lito MTP";
+	compatible = "qcom,lito-mtp", "qcom,lito", "qcom,mtp";
+	qcom,board-id = <8 0>;
+};
+
+&ufsphy_mem {
+	vdda-phy-always-on;
+};

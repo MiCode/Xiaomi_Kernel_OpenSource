@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #ifndef PFK_H_
@@ -20,10 +21,11 @@ struct ice_crypto_setting;
  * ever needed, this should be made variable-length with a 'mode' and 'size'.
  * (Remember to update pfk_allow_merge_bio() when doing so!)
  */
-#define BLK_ENCRYPTION_KEY_SIZE_AES_256_XTS 64
+#define BLK_ENCRYPTION_KEY_SIZE_AES_256_XTS 128
 
 struct blk_encryption_key {
 	u8 raw[BLK_ENCRYPTION_KEY_SIZE_AES_256_XTS];
+	size_t size;
 };
 
 int pfk_load_key_start(const struct bio *bio, struct ice_device *ice_dev,

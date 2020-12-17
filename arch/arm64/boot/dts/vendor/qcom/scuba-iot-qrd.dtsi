@@ -1,0 +1,369 @@
+#include "scuba-audio-overlay.dtsi"
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/iio/qcom,spmi-vadc.h>
+#include "scuba-thermal-overlay.dtsi"
+#include "scuba-sde-display.dtsi"
+#include "camera/scuba-camera-sensor-idp.dtsi"
+
+&soc {
+	scuba_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+		#include "qg-batterydata-alium-3600mah.dtsi"
+		#include "qg-batterydata-atl466271_3300mAh.dtsi"
+	};
+};
+
+&pm2250_qg {
+	qcom,battery-data = <&scuba_batterydata>;
+	qcom,qg-iterm-ma = <150>;
+	qcom,hold-soc-while-full;
+	qcom,linearize-soc;
+	qcom,cl-feedback-on;
+	qcom,tcss-enable;
+	qcom,fvss-enable;
+	qcom,fvss-vbatt-mv = <3500>;
+	qcom,bass-enable;
+};
+
+&sdhc_1 {
+	vdd-supply = <&L20A>;
+	qcom,vdd-voltage-level = <2856000 2856000>;
+	qcom,vdd-current-level = <0 570000>;
+
+	vdd-io-supply = <&L14A>;
+	qcom,vdd-io-always-on;
+	qcom,vdd-io-lpm-sup;
+	qcom,vdd-io-voltage-level = <1800000 1800000>;
+	qcom,vdd-io-current-level = <0 325000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc1_clk_on &sdc1_cmd_on &sdc1_data_on
+					&sdc1_rclk_on>;
+	pinctrl-1 = <&sdc1_clk_off &sdc1_cmd_off &sdc1_data_off
+					&sdc1_rclk_off>;
+
+	status = "ok";
+};
+
+&scuba_snd {
+	qcom,model = "bengal-scubaqrd-snd-card";
+	qcom,msm-mi2s-master = <1>, <1>, <1>, <1>;
+	qcom,wcn-btfm = <1>;
+	qcom,ext-disp-audio-rx = <0>;
+	qcom,audio-routing =
+		"AMIC1", "MIC BIAS1",
+		"MIC BIAS1", "Analog Mic1",
+		"AMIC2", "MIC BIAS2",
+		"MIC BIAS2", "Analog Mic2",
+		"AMIC3", "MIC BIAS3",
+		"MIC BIAS3", "Analog Mic3",
+		"AMIC4", "MIC BIAS3",
+		"MIC BIAS3", "Analog Mic4",
+		"IN1_HPHL", "HPHL_OUT",
+		"IN2_HPHR", "HPHR_OUT",
+		"IN3_AUX", "AUX_OUT",
+		"SpkrMono WSA_IN", "AUX",
+		"TX SWR_MIC0", "ADC1_OUTPUT",
+		"TX SWR_MIC1", "ADC2_OUTPUT",
+		"TX SWR_MIC5", "ADC3_OUTPUT",
+		"TX SWR_MIC0", "VA_TX_SWR_CLK",
+		"TX SWR_MIC1", "VA_TX_SWR_CLK",
+		"TX SWR_MIC2", "VA_TX_SWR_CLK",
+		"TX SWR_MIC3", "VA_TX_SWR_CLK",
+		"TX SWR_MIC4", "VA_TX_SWR_CLK",
+		"TX SWR_MIC5", "VA_TX_SWR_CLK",
+		"TX SWR_MIC6", "VA_TX_SWR_CLK",
+		"TX SWR_MIC7", "VA_TX_SWR_CLK",
+		"TX SWR_MIC8", "VA_TX_SWR_CLK",
+		"TX SWR_MIC9", "VA_TX_SWR_CLK",
+		"TX SWR_MIC10", "VA_TX_SWR_CLK",
+		"TX SWR_MIC11", "VA_TX_SWR_CLK",
+		"RX_TX DEC0_INP", "TX DEC0 MUX",
+		"RX_TX DEC1_INP", "TX DEC1 MUX",
+		"RX_TX DEC2_INP", "TX DEC2 MUX",
+		"RX_TX DEC3_INP", "TX DEC3 MUX",
+		"TX_AIF1 CAP", "VA_TX_SWR_CLK",
+		"TX_AIF2 CAP", "VA_TX_SWR_CLK",
+		"TX_AIF3 CAP", "VA_TX_SWR_CLK",
+		"VA SWR_MIC0", "ADC1_OUTPUT",
+		"VA SWR_MIC1", "ADC2_OUTPUT",
+		"VA SWR_MIC5", "ADC3_OUTPUT";
+	qcom,msm-mbhc-hphl-swh = <1>;
+	qcom,msm-mbhc-gnd-swh = <1>;
+	asoc-codec  = <&stub_codec>, <&bolero>;
+	asoc-codec-names = "msm-stub-codec.1", "bolero_codec";
+	qcom,wsa-max-devs = <1>;
+	qcom,wsa-devs = <&wsa881x_i2c_e>;
+	qcom,wsa-aux-dev-prefix = "SpkrMono";
+	qcom,codec-max-aux-devs = <1>;
+	qcom,codec-aux-devs = <&rouleur_codec>;
+	qcom,msm_audio_ssr_devs = <&audio_apr>, <&q6core>, <&bolero>,
+				<&lpi_tlmm>;
+};
+
+&sdhc_2 {
+	vdd-supply = <&L21A>;
+	qcom,vdd-voltage-level = <2960000 3300000>;
+	qcom,vdd-current-level = <0 800000>;
+
+	vdd-io-supply = <&L4A>;
+	qcom,vdd-io-voltage-level = <1800000 2960000>;
+	qcom,vdd-io-current-level = <0 22000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc2_clk_on  &sdc2_cmd_on &sdc2_data_on &sdc2_cd_on>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off &sdc2_cd_off>;
+
+	cd-gpios = <&tlmm 88 GPIO_ACTIVE_HIGH>;
+
+	status = "ok";
+};
+
+&pm2250_charger {
+	qcom,auto-recharge-soc = <98>;
+	qcom,suspend-input-on-debug-batt;
+	qcom,battery-data = <&scuba_batterydata>;
+	io-channels = <&pm2250_vadc ADC_USB_IN_V_16>,
+			<&pm2250_vadc ADC_CHG_TEMP>;
+	io-channel-names = "usb_in_voltage",
+			"chg_temp";
+	qcom,thermal-mitigation = <2000000 1500000 1000000 500000>;
+};
+
+&pm2250_pwm3 {
+	status = "ok";
+};
+
+&thermal_zones {
+	quiet-therm-usr {
+		polling-delay = <5000>;
+	};
+
+	quiet-therm-step {
+		polling-delay-passive = <2000>;
+		polling-delay = <5000>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&pm2250_adc_tm_iio ADC_AMUX_THM2_PU2>;
+		wake-capable-sensor;
+		trips {
+			quiet_cpu0_trip: quiet-cpu0-trip {
+				temperature = <40000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+
+			quiet_modem_trip0: quiet-modem-trip0 {
+				temperature = <40000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+
+			quiet_modem_trip1: quiet-modem-trip1 {
+				temperature = <42000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+
+			quiet_gpu_trip: quiet-gpu-trip {
+				temperature = <43000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+
+			quiet_modem_trip2: quiet-modem-trip2 {
+				temperature = <43000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+
+			quiet_modem_trip3: quiet-modem-trip3 {
+				temperature = <50000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			gpu-cdev {
+				trip = <&quiet_gpu_trip>;
+				cooling-device = <&msm_gpu THERMAL_NO_LIMIT
+							(THERMAL_MAX_LIMIT - 3)>;
+			};
+
+			cpu0-cdev {
+				trip = <&quiet_cpu0_trip>;
+				cooling-device = <&CPU0 THERMAL_NO_LIMIT
+							(THERMAL_MAX_LIMIT - 3)>;
+			};
+
+			modem-proc-cdev0 {
+				trip = <&quiet_modem_trip0>;
+				cooling-device = <&modem_proc 1 1>;
+			};
+
+			modem-proc-cdev1 {
+				trip = <&quiet_modem_trip3>;
+				cooling-device = <&modem_proc 3 3>;
+			};
+
+			modem-pa-cdev0 {
+				trip = <&quiet_modem_trip1>;
+				cooling-device = <&modem_pa 1 1>;
+			};
+
+			modem-pa-cdev1 {
+				trip = <&quiet_modem_trip2>;
+				cooling-device = <&modem_pa 2 2>;
+			};
+
+			modem-pa-cdev3 {
+				trip = <&quiet_modem_trip3>;
+				cooling-device = <&modem_pa 3 3>;
+			};
+		};
+	};
+};
+
+&dsi_nt36525_truly_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_no_labibb>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
+	pwms = <&pm2250_pwm3 0 0>;
+	qcom,bl-pmic-pwm-period-usecs = <100>;
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,platform-reset-gpio = <&tlmm 82 0>;
+	qcom,platform-reset-gpio-always-on;
+	qcom,platform-en-gpio = <&tlmm 105 0>;
+};
+
+&sde_dsi {
+	qcom,dsi-default-panel = <&dsi_nt36525_truly_video>;
+};
+
+&qupv3_se2_i2c {
+	status = "ok";
+	qcom,i2c-touch-active = "novatek,NVT-ts";
+
+	novatek@62 {
+		compatible = "novatek,NVT-ts";
+		reg = <0x62>;
+
+		interrupt-parent = <&tlmm>;
+		interrupts = <80 0x2008>;
+		pinctrl-names = "pmx_ts_active","pmx_ts_suspend",
+			"pmx_ts_release";
+		pinctrl-0 = <&ts_int_active &ts_reset_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		pinctrl-2 = <&ts_release>;
+
+		novatek,reset-gpio = <&tlmm 71 0x00>;
+		novatek,irq-gpio = <&tlmm 80 0x2008>;
+
+		panel = <&dsi_nt36525_truly_video>;
+	};
+};
+
+&qusb_phy0 {
+	extcon = <&pm2250_charger>;
+
+	qcom,qusb-phy-init-seq = <0xf8 0x80
+				0xb3 0x84
+				0x83 0x88
+				0xc5 0x8c
+				0x30 0x08
+				0x79 0x0c
+				0x21 0x10
+				0x14 0x9c
+				0x80 0x04
+				0x9f 0x1c
+				0x00 0x18>;
+};
+
+&usb0 {
+	extcon = <&qusb_phy0>, <&eud>;
+};
+
+&qupv3_se1_i2c {
+	status = "ok";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	nq@28 {
+		compatible = "qcom,nq-nci";
+		reg = <0x28>;
+		qcom,nq-irq = <&tlmm 70 0x00>;
+		qcom,nq-ven = <&tlmm 69 0x00>;
+		qcom,nq-firm = <&tlmm 31 0x00>;
+		qcom,nq-clkreq = <&tlmm 86 0x00>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <70 0>;
+		interrupt-names = "nfc_irq";
+		pinctrl-names = "nfc_active", "nfc_suspend";
+		pinctrl-0 = <&nfc_int_active &nfc_enable_active
+				&nfc_clk_req_active>;
+		pinctrl-1 = <&nfc_int_suspend &nfc_enable_suspend
+				&nfc_clk_req_suspend>;
+	};
+};
+
+&tlmm {
+	fpc_reset_int: fpc_reset_int {
+		fpc_reset_low: reset_low {
+			mux {
+				pins = "gpio104";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio104";
+				drive-strength = <2>;
+				bias-disable;
+				output-low;
+			};
+		};
+
+		fpc_reset_high: reset_high {
+			mux {
+				pins = "gpio104";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio104";
+				drive-strength = <2>;
+				bias-disable;
+				output-high;
+			};
+		};
+
+		fpc_int_low: int_low {
+			mux {
+				pins = "gpio97";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio97";
+				drive-strength = <2>;
+				bias-pull-down;
+				input-enable;
+			};
+		};
+	};
+};
+
+&soc {
+	fingerprint: fpc1020 {
+		compatible = "fpc,fpc1020";
+		interrupt-parent = <&tlmm>;
+		interrupts = <97 0>;
+		fpc,gpio_rst = <&tlmm 104 0>;
+		fpc,gpio_irq = <&tlmm 97 0>;
+		fpc,enable-on-boot;
+		pinctrl-names = "fpc1020_reset_reset",
+				"fpc1020_reset_active",
+				"fpc1020_irq_active";
+		pinctrl-0 = <&fpc_reset_low>;
+		pinctrl-1 = <&fpc_reset_high>;
+		pinctrl-2 = <&fpc_int_low>;
+	};
+};

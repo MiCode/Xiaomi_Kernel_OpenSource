@@ -1,0 +1,39 @@
+MSM BIMC bandwidth monitor device
+
+bimc-bwmon is a device that represents the MSM BIMC bandwidth monitors that
+can be used to measure the bandwidth of read/write traffic from the BIMC
+master ports. For example, the CPU subsystem sits on one BIMC master port.
+
+Required properties:
+- compatible:		Must be "qcom,bimc-bwmon", "qcom,bimc-bwmon2"
+			"qcom,bimc-bwmon3" or "qcom,bimc-bwmon4" or
+			"qcom,bimc-bwmon5"
+- reg:			Pairs of physical base addresses and region sizes of
+			memory mapped registers.
+- reg-names:		Names of the bases for the above registers. Expected
+			bases are: "base", "global_base"
+- interrupts:		Lists the threshold IRQ.
+- qcom,mport:		The hardware master port that this device can monitor
+- qcom,target-dev:	The DT device that corresponds to this master port
+- qcom,hw-timer-hz:	Hardware sampling rate in Hz. This field must be
+			specified for "qcom,bimc-bwmon4"
+Optional properties:
+- qcom,byte-mid-match:  Byte count MID match value
+- qcom,byte-mid-mask:   Byte count MID mask value
+- qcom,count-unit:     Number of bytes monitor counts in
+- qcom,msm_bus:		A list of tuples where each tuple consists of a bus
+			master port number and a bus slave port number.
+- qcom,msm_bus_name:	Name of the DT device voting for the bus.
+Example:
+	qcom,cpu-bwmon {
+		compatible = "qcom,bimc-bwmon";
+		reg = <0xfc388000 0x300>, <0xfc381000 0x200>;
+		reg-names = "base", "global_base";
+		interrupts = <0 183 1>;
+		qcom,mport = <0>;
+		qcom,target-dev = <&cpubw>;
+		qcom,hw-timer-hz = <19200000>;
+		qcom,byte-mid-match = <0x1e00>;
+		qcom,byte-mid-mask = <0x1e00>;
+		qcom,count-unit = <0x100000>;
+	};

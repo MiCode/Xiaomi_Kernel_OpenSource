@@ -1,0 +1,142 @@
+* Qualcomm Technologies, Inc. MSM Camera TFE
+
+Camera TFE device provides the definitions for enabling
+the TFE hardware. It also provides the functions for the client
+to control the TFE hardware.
+
+=======================
+Required Node Structure
+=======================
+The TFE device is described in one level of the device node.
+
+======================================
+First Level Node - CAM TFE device
+======================================
+Required properties:
+- compatible
+  Usage: required
+  Value type: <string>
+  Definition: Should specify the compatibility string for matching the
+	driver. e.g. "qcom,tfe530"
+
+- cell-index
+  Usage: required
+  Value type: <u32>
+  Definition: Should specify the hardware index id.
+
+- reg-names
+  Usage: required
+  Value type: <string>
+  Definition: Should specify the name of the register block.
+
+- reg
+  Usage: required
+  Value type: <u32>
+  Definition: Register values.
+
+- interrupt-names
+  Usage: Required
+  Value type: <string>
+  Definition: Name of the interrupt.
+
+- interrupts
+  Usage: Required
+  Value type: <u32>
+  Definition: Interrupt associated with TFE HW.
+
+- regulator-names
+  Usage: required
+  Value type: <string>
+  Definition: Name of the regulator resources for TFE HW.
+
+- xxxx-supply
+  Usage: required
+  Value type: <phandle>
+  Definition: Regulator reference corresponding to the names listed in
+	"regulator-names".
+
+- clock-names
+  Usage: required
+  Value type: <string>
+  Definition: List of clock names required for TFE HW.
+
+- clocks
+  Usage: required
+  Value type: <phandle>
+  Definition: List of clocks used for TFE HW.
+
+- clock-rates
+  Usage: required
+  Value type: <u32>
+  Definition: List of clocks rates.
+
+- src-clock-name
+  Usage: required
+  Value type: <string>
+  Definition: Source clock name.
+
+Optional properties:
+- clock-names-option
+  Usage: optional
+  Value type: <string>
+  Definition: Optional clock names.
+
+- clocks-option
+  Usage: required if clock-names-option defined
+  Value type: <phandle>
+  Definition: List of optinal clocks used for TFE HW.
+
+- clock-rates-option
+  Usage: required if clock-names-option defined
+  Value type: <u32>
+  Definition: List of clocks rates for optional clocks.
+
+- clock-control-debugfs
+  Usage: optional
+  Value type: <string>
+  Definition: Enable/Disable clk rate control.
+
+- qcom,cam-cx-ipeak:
+  Usage: optional
+  Value type: <phandle bit>
+	phandle - phandle of CX Ipeak device node
+	bit     - Every bit corresponds to a client of CX Ipeak
+  Definition: CX Ipeak is a mitigation scheme which throttles camera frequency
+	if all the clients are running at their respective threshold
+	frequencies to limit CX peak current.
+	driver in the relevant register.
+
+- scl-clk-names:
+  Usage: optional
+  Value type: <string>
+  Definition: Scalable clock names to identify which clocks needs to update
+	along with source clock.
+
+Example:
+	cam_tfe0: qcom,tfe0@5c6e000{
+		cell-index = <0>;
+		compatible = "qcom,tfe530";
+		reg-names = "tfe0";
+		reg = <0x5c6e000 0x5000>;
+		reg-cam-base = <0x6e000>;
+		interrupt-names = "tfe0";
+		interrupts = <GIC_SPI 211 IRQ_TYPE_EDGE_RISING>;
+		regulator-names = "camss";
+		camss-supply = <&gcc_camss_top_gdsc>;
+		clock-names =
+			"tfe_clk_src",
+			"tfe_clk",
+			"tfe_axi_clk";
+		clocks =
+			<&gcc GCC_CAMSS_TFE_0_CLK_SRC>,
+			<&gcc GCC_CAMSS_TFE_0_CLK>,
+			<&gcc GCC_CAMSS_AXI_CLK>;
+		clock-rates =
+			<256000000 0 150000000>,
+			<460800000 0 200000000>,
+			<576000000 0 300000000>;
+		clock-cntl-level = "svs", "svs_l1", "turbo";
+		src-clock-name = "tfe_clk_src";
+		clock-control-debugfs = "true";
+		status = "ok";
+	};

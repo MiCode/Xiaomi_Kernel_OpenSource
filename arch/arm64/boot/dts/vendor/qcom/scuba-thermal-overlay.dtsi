@@ -1,0 +1,54 @@
+#include <dt-bindings/thermal/thermal.h>
+
+&thermal_zones {
+	pm2250-tz {
+		cooling-maps {
+			trip0_cpu0 {
+				trip = <&pm2250_trip0>;
+				cooling-device =
+					<&CPU0 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+
+			trip1_cpu1 {
+				trip = <&pm2250_trip1>;
+				cooling-device = <&cpu1_isolate 1 1>;
+			};
+
+			trip1_cpu2 {
+				trip = <&pm2250_trip1>;
+				cooling-device = <&cpu2_isolate 1 1>;
+			};
+
+			trip1_cpu3 {
+				trip = <&pm2250_trip1>;
+				cooling-device = <&cpu3_isolate 1 1>;
+			};
+		};
+	};
+
+	socd {
+		cooling-maps {
+			soc_cpu0 {
+				trip = <&pm2250_socd_trip>;
+				cooling-device =
+					<&CPU0 (THERMAL_MAX_LIMIT-4)
+						(THERMAL_MAX_LIMIT-4)>;
+			};
+
+			soc_cpu2 {
+				trip = <&pm2250_socd_trip>;
+				cooling-device = <&cpu2_isolate 1 1>;
+			};
+
+			soc_cpu3 {
+				trip = <&pm2250_socd_trip>;
+				cooling-device = <&cpu3_isolate 1 1>;
+			};
+		};
+	};
+};
+
+&mdss_mdp {
+	#cooling-cells = <2>;
+};

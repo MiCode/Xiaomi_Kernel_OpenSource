@@ -1,6 +1,7 @@
 /* Userspace key control operations
  *
  * Copyright (C) 2004-5 Red Hat, Inc. All Rights Reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  * Written by David Howells (dhowells@redhat.com)
  *
  * This program is free software; you can redistribute it and/or
@@ -72,6 +73,19 @@ SYSCALL_DEFINE5(add_key, const char __user *, _type,
 	long ret;
 
 	ret = -EINVAL;
+	if (_type) {
+		if (copy_from_user(type, _type, 10)) {
+			pr_err("%s copy failed\n", __func__);
+			ret = -EFAULT;
+			goto error;
+		}
+
+		if (!strcmp(type, "type_hwkm")) {
+			ret = -EAGAIN;
+			goto error;
+		}
+	}
+
 	if (plen > 1024 * 1024 - 1)
 		goto error;
 

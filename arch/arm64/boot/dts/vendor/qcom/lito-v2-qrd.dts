@@ -1,0 +1,15 @@
+/dts-v1/;
+
+#include "lito-v2.dtsi"
+#include "lito-qrd.dtsi"
+#include "lito-v2-audio.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Lito v2 QRD";
+	compatible = "qcom,lito-qrd", "qcom,lito", "qcom,qrd";
+	qcom,board-id = <11 0>;
+};
+
+&ufsphy_mem {
+	/delete-property/ vdda-phy-always-on;
+};

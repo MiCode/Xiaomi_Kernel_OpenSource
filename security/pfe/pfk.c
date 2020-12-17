@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 /*
@@ -53,7 +54,7 @@ static bool pfk_ready;
 
 
 /* might be replaced by a table when more than one cipher is supported */
-#define PFK_SUPPORTED_KEY_SIZE 32
+#define PFK_SUPPORTED_KEY_SIZE 128
 #define PFK_SUPPORTED_SALT_SIZE 32
 
 /* Various PFE types and function tables to support each one of them */
@@ -218,7 +219,7 @@ int pfk_key_size_to_key_type(size_t key_size,
 	 *  be introduced
 	 */
 
-	if (key_size != PFK_SUPPORTED_KEY_SIZE) {
+	if (key_size > PFK_SUPPORTED_KEY_SIZE) {
 		pr_err("not supported key size %zu\n", key_size);
 		return -EINVAL;
 	}
@@ -305,12 +306,10 @@ static int pfk_get_key_for_bio(const struct bio *bio,
 	}
 
 	/* Note: the "salt" is really just the second half of the XTS key. */
-	BUILD_BUG_ON(sizeof(key->raw) !=
-		     PFK_SUPPORTED_KEY_SIZE + PFK_SUPPORTED_SALT_SIZE);
+	BUILD_BUG_ON(sizeof(key->raw) > PFK_SUPPORTED_KEY_SIZE);
 	key_info->key = &key->raw[0];
-	key_info->key_size = PFK_SUPPORTED_KEY_SIZE;
-	key_info->salt = &key->raw[PFK_SUPPORTED_KEY_SIZE];
-	key_info->salt_size = PFK_SUPPORTED_SALT_SIZE;
+	key_info->key_size = key->size;
+
 	if (algo_mode)
 		*algo_mode = ICE_CRYPTO_ALGO_MODE_AES_XTS;
 	return 0;

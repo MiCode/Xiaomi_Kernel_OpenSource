@@ -2,6 +2,7 @@
 // rc-main.c - Remote Controller core module
 //
 // Copyright (C) 2009-2010 by Mauro Carvalho Chehab
+// Copyright (C) 2020 XiaoMi, Inc.
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
@@ -946,6 +947,7 @@ int rc_open(struct rc_dev *rdev)
 
 	return rval;
 }
+EXPORT_SYMBOL_GPL(rc_open);
 
 static int ir_open(struct input_dev *idev)
 {
@@ -965,6 +967,7 @@ void rc_close(struct rc_dev *rdev)
 		mutex_unlock(&rdev->lock);
 	}
 }
+EXPORT_SYMBOL_GPL(rc_close);
 
 static void ir_close(struct input_dev *idev)
 {

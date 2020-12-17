@@ -1,0 +1,60 @@
+#include <dt-bindings/interrupt-controller/irq.h>
+
+smb1390: qcom,smb1390@10 {
+	compatible = "qcom,i2c-pmic";
+	reg = <0x10>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+	interrupt-parent = <&spmi_bus>;
+	interrupts = <0x2 0xC5 0x0 IRQ_TYPE_LEVEL_LOW>;
+	interrupt_names = "smb1390";
+	interrupt-controller;
+	#interrupt-cells = <3>;
+	qcom,periph-map = <0x10>;
+	status = "disabled";
+
+	smb1390_revid: qcom,revid@100 {
+		compatible = "qcom,qpnp-revid";
+		reg = <0x100>;
+	};
+
+	smb1390_charger: qcom,charge_pump {
+		compatible = "qcom,smb1390-charger-psy";
+		qcom,pmic-revid = <&smb1390_revid>;
+		interrupt-parent = <&smb1390>;
+		status = "disabled";
+
+		qcom,core {
+			interrupts = <0x10 0x0 IRQ_TYPE_EDGE_BOTH>,
+				     <0x10 0x1 IRQ_TYPE_EDGE_BOTH>,
+				     <0x10 0x2 IRQ_TYPE_EDGE_BOTH>,
+				     <0x10 0x3 IRQ_TYPE_EDGE_BOTH>,
+				     <0x10 0x4 IRQ_TYPE_EDGE_BOTH>,
+				     <0x10 0x5 IRQ_TYPE_EDGE_RISING>,
+				     <0x10 0x6 IRQ_TYPE_EDGE_RISING>,
+				     <0x10 0x7 IRQ_TYPE_EDGE_RISING>;
+			interrupt-names = "switcher-off-window",
+					  "switcher-off-fault",
+					  "tsd-fault",
+					  "irev-fault",
+					  "vph-ov-hard",
+					  "vph-ov-soft",
+					  "ilim",
+					  "temp-alarm";
+		};
+	};
+};
+
+smb1390_slave: qcom,smb1390_slave@18 {
+	compatible = "qcom,i2c-pmic";
+	reg = <0x18>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+	qcom,periph-map = <0x10>;
+	status = "disabled";
+
+	smb1390_slave_charger: qcom,charge_pump_slave {
+		compatible = "qcom,smb1390-slave";
+		status = "disabled";
+	};
+};

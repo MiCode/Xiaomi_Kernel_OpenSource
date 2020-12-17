@@ -1,0 +1,21 @@
+/dts-v1/;
+
+#include "scuba-iot.dtsi"
+#include "scuba-iot-idp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Scubap IOT IDP";
+	compatible = "qcom,scuba-idp", "qcom,scubap-iot", "qcom,idp";
+	qcom,msm-id = <474 0x10000>;
+	qcom,board-id = <34 0>;
+};
+
+&soc {
+	qcom,rmnet-ipa {
+	status = "disabled";
+	};
+};
+
+&ipa_hw {
+	status = "disabled";
+};

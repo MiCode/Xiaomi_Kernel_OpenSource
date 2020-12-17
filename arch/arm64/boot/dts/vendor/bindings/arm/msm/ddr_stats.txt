@@ -1,0 +1,31 @@
+* DDR Stats
+
+AOP maintains DDR statistics like DDR LPMs and frequency stats. DDR stats
+driver gives sysfs interface to display this.
+
+PROPERTIES
+
+- compatible:
+	Usage: required
+	Value type: <string>
+	Definition: Should be "qcom,ddr-stats".
+
+- reg:
+	Usage: required
+	Value type: <prop-encoded-array>
+	Definition: The address on the AOP Message RAM from where the stats
+		    are read should be provided as "phys_addr_base".
+		    The offset from which the stats are available should be
+		    provided as "offset_addr".
+
+- reg-names:
+	Usage: required
+	Value type: <prop-encoded-array>
+	Definition: Provides labels for the reg property.
+
+EXAMPLE:
+	qcom,ddr-stats@c300000 {
+		compatible = "qcom,ddr-stats";
+		reg = <0xc300000 0x1000>, <0xc3f001c 0x4>;
+		reg-names = "phys_addr_base", "offset_addr";
+	};

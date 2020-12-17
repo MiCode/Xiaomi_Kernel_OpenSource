@@ -1,0 +1,15 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/clock/qcom,gcc-kona.h>
+#include <dt-bindings/clock/qcom,camcc-kona.h>
+#include <dt-bindings/clock/qcom,rpmh.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
+#include "kona-hdk.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. kona HDK";
+	compatible = "qcom,kona-hdk", "qcom,kona", "qcom,hdk";
+	qcom,board-id = <0x01001F 0x01>;
+};

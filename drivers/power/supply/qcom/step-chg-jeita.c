@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2019 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #define pr_fmt(fmt) "QCOM-STEPCHG: %s: " fmt, __func__
@@ -665,7 +666,7 @@ static int handle_jeita(struct step_chg_info *chip)
 		/* changing FCC is a must */
 		return -EINVAL;
 
-	vote(chip->fcc_votable, JEITA_VOTER, fcc_ua ? true : false, fcc_ua);
+	vote(chip->fcc_votable, JEITA_VOTER, true, fcc_ua);
 
 	rc = get_val(chip->jeita_fv_config->fv_cfg,
 			chip->jeita_fv_config->param.hysteresis,

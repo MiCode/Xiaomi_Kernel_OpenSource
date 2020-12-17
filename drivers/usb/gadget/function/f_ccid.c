@@ -3,6 +3,7 @@
  * f_ccid.c -- CCID function Driver
  *
  * Copyright (c) 2011, 2013, 2017, 2019 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #include <linux/slab.h>
@@ -1040,9 +1041,6 @@ static int ccid_bind_config(struct f_ccid *ccid_dev)
 	pr_debug("%s\n", __func__);
 
 	ccid_dev->function.name = FUNCTION_NAME;
-	ccid_dev->function.fs_descriptors = ccid_fs_descs;
-	ccid_dev->function.hs_descriptors = ccid_hs_descs;
-	ccid_dev->function.ss_descriptors = ccid_ss_descs;
 	ccid_dev->function.bind = ccid_function_bind;
 	ccid_dev->function.unbind = ccid_function_unbind;
 	ccid_dev->function.set_alt = ccid_function_set_alt;

@@ -2959,6 +2959,8 @@ extern int reclaim_address_space(struct address_space *mapping,
 		struct reclaim_param *rp, struct vm_area_struct *vma);
 extern int proc_reclaim_notifier_register(struct notifier_block *nb);
 extern int proc_reclaim_notifier_unregister(struct notifier_block *nb);
+extern int reclaim_pte_range(pmd_t *pmd, unsigned long addr,
+				unsigned long end, struct mm_walk *walk);
 #endif
 
 #endif /* __KERNEL__ */

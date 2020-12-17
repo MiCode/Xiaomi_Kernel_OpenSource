@@ -3,6 +3,7 @@
  * gadget.c - DesignWare USB3 DRD Controller Gadget Framework Link
  *
  * Copyright (C) 2010-2011 Texas Instruments Incorporated - http://www.ti.com
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * Authors: Felipe Balbi <balbi@ti.com>,
  *	    Sebastian Andrzej Siewior <bigeasy@linutronix.de>
@@ -3821,7 +3822,7 @@ static void dwc3_gadget_interrupt(struct dwc3 *dwc,
 				dwc3_gadget_suspend_interrupt(dwc,
 						event->event_info);
 			else
-				usb_gadget_vbus_draw(&dwc->gadget, 2);
+				usb_gadget_vbus_draw(&dwc->gadget, 500);
 		}
 		break;
 	case DWC3_DEVICE_EVENT_SOF:

@@ -1,0 +1,155 @@
+#include <dt-bindings/gpio/gpio.h>
+#include "kona-pmic-overlay.dtsi"
+#include "kona-sde-display.dtsi"
+#include "msm-audio-lpass.dtsi"
+
+&arch_timer {
+	clock-frequency = <500000>;
+};
+
+&memtimer {
+	clock-frequency = <500000>;
+};
+
+&ufsphy_mem {
+	compatible = "qcom,ufs-phy-qrbtc-sdm845";
+
+	vdda-phy-supply = <&pm8150_l5>;
+	vdda-pll-supply = <&pm8150_l9>;
+	vdda-phy-max-microamp = <89900>;
+	vdda-pll-max-microamp = <18300>;
+
+	status = "ok";
+};
+
+&ufshc_mem {
+	limit-tx-hs-gear = <1>;
+	limit-rx-hs-gear = <1>;
+
+	vdd-hba-supply = <&ufs_phy_gdsc>;
+	vdd-hba-fixed-regulator;
+	vcc-supply = <&pm8150_l17>;
+	vccq2-supply = <&pm8150_s4>;
+	vcc-max-microamp = <750000>;
+	vccq2-max-microamp = <750000>;
+
+	qcom,vddp-ref-clk-supply = <&pm8150_l6>;
+	qcom,vddp-ref-clk-max-microamp = <100>;
+
+	qcom,disable-lpm;
+	rpm-level = <0>;
+	spm-level = <0>;
+	status = "ok";
+};
+
+&soc {
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	pcie2: qcom,pcie@1c10000 {
+		reg = <0x01c10000 0x4000>,
+			<0x01c16000 0x2000>,
+			<0x64000000 0xf1d>,
+			<0x64000f20 0xa8>,
+			<0x64001000 0x1000>,
+			<0x64100000 0x100000>,
+			<0x64200000 0x100000>,
+			<0x64300000 0x4000000>,
+			<0x01c15000 0x1000>;
+		reg-names = "parf", "phy", "dm_core", "elbi", "iatu", "conf",
+				"io", "bars", "rumi";
+
+		qcom,target-link-speed = <0x1>;
+		qcom,link-check-max-count = <200>; /* 1 sec */
+		qcom,no-l1-supported;
+		qcom,no-l1ss-supported;
+		qcom,no-aux-clk-sync;
+	};
+
+	usb_emu_phy: usb_emu_phy@a720000 {
+		compatible = "qcom,usb-emu-phy";
+		reg = <0x0a720000 0x9500>,
+		      <0x0a6f8800 0x100>;
+		reg-names = "base", "qscratch_base";
+
+		qcom,emu-init-seq = <0xffff 0x4
+				     0xfff0 0x4
+				     0x100000 0x20
+				     0x0 0x20
+				     0x101f0 0x20
+				     0x100000 0x3c
+				     0x0 0x3c
+				     0x10060 0x3c
+				     0x0 0x4>;
+	};
+};
+
+&usb0 {
+	/delete-property/ extcon;
+	dwc3@a600000 {
+		usb-phy = <&usb_emu_phy>, <&usb_nop_phy>;
+		maximum-speed = "high-speed";
+	};
+};
+
+&qupv3_se12_2uart {
+	status = "disabled";
+};
+
+/* RUMI UART console */
+&qupv3_se2_2uart {
+	status = "ok";
+};
+
+&audio_apr {
+	sound-stub {
+		compatible = "qcom,kona-asoc-snd-stub";
+		qcom,model = "kona-stub-snd-card";
+
+		qcom,audio-routing =
+			"AIF4 VI", "MCLK";
+
+		asoc-platform = <&pcm0>, <&routing>;
+		asoc-platform-names = "msm-pcm-dsp.0", "msm-pcm-routing";
+		asoc-cpu = <&dai_pri_auxpcm>;
+		asoc-cpu-names = "msm-dai-q6-auxpcm.1";
+		asoc-codec = <&stub_codec>;
+		asoc-codec-names = "msm-stub-codec.1";
+	};
+};
+
+&ipa_hw {
+	qcom,ipa-hw-mode = <1>; /* IPA hw type =  Virtual */
+};
+
+&mhi_0 {
+	mhi,timeout = <10000>;
+
+	mhi_channels {
+		mhi_chan@25 {
+			status = "disabled";
+		};
+	};
+};
+
+&sdhc_2 {
+	vdd-supply = <&pm8150a_l9>;
+	qcom,vdd-voltage-level = <2950000 2960000>;
+	qcom,vdd-current-level = <200 800000>;
+
+	vdd-io-supply = <&pm8150a_l6>;
+	qcom,vdd-io-voltage-level = <1808000 2960000>;
+	qcom,vdd-io-current-level = <200 22000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc2_clk_on  &sdc2_cmd_on &sdc2_data_on &storage_cd>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off &storage_cd>;
+
+	cd-gpios = <&tlmm 77 GPIO_ACTIVE_LOW>;
+
+	status = "disabled";
+};
+
+&wdog {
+	status = "disabled";
+};

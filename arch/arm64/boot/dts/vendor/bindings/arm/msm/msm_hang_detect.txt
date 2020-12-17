@@ -1,0 +1,55 @@
+* QTI MSM Core Hang Detection
+
+Core Hang Detection provides the three sysfs entries for configuring
+threshold, PMU event mux select and to enable hang detection.
+
+If core is hung for threshold time (value X 10ns) and no
+heart beat event from pmu to core hang monitor detection, core hang
+interrupt would be generated to reset the SOC via secure watchdog
+to collect all cores context.
+
+PMU event mux select can be programmed to one of the supported
+events, for example-
+1) Load Instruction executed,
+2) Store Instructions executed
+3) Instruction architecturally executed and etc.
+
+Writing 1 into enable sysfs entry, enables core hang detection and
+if there is no selected PMU mux event for 10ns core hang counter
+gets incremented. Once counter reaches the programmed threshold value,
+core hang interrupts generated to reset the SOC.
+
+
+The device tree parameters for the core hang detection are:
+
+Required properties:
+
+- compatible : "qcom,core-hang-detect"
+- label: unique name used to created sysfs entry
+- qcom,threshold-arr :
+	Array of APCS_ALIAS*_CORE_HANG_THRESHOLD register address
+	for each core.
+- qcom,config-arr :
+	Array of APCS_ALIAS*_CORE_HANG_CONFIG register address
+	for each core.
+
+Optional properties:
+
+Example:
+  For msm8937:
+	qcom,chd {
+		compatible = "qcom,core-hang-detect";
+		qcom,threshold-arr = <0xB088094 0xB098094 0xB0A8094
+			0xB0B8094 0xB188094 0xB198094 0xB1A8094 0xB1B8094>;
+		qcom,config-arr = <0xB08809C 0xB09809C 0xB0A809C
+			0xB0B809C 0xB18809C 0xB19809C 0xB1A809C 0xB1B809C>;
+	};
+
+  For msmtitanium:
+	qcom,chd {
+		compatible = "qcom,core-hang-detect";
+		qcom,threshold-arr = <0xB1880B0 0xB1980B0 0xB1A80B0
+			0xB1B80B0 0xB0880B0 0xB0980B0 0xB0A80B0 0xB0B80B0>;
+		qcom,config-arr = <0xB1880B8 0xB1980B8 0xB1A80B8
+			0xB1B80B8 0xB0880B8 0xB0980B8 0xB0A80B8 0xB0B80B8>;
+	};

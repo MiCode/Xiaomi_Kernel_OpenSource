@@ -1,0 +1,13 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include "scuba-iot-idp.dtsi"
+#include "scuba-iot-idp-usbc.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Scuba IOT IDP USBC Audio";
+	compatible = "qcom,scuba-idp", "qcom,scuba-iot", "qcom,idp";
+	qcom,msm-id = <473 0x10000>;
+	qcom,board-id = <34 1>;
+};

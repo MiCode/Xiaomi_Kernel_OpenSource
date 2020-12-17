@@ -1,0 +1,16 @@
+/* Override CSIPHY version */
+&cam_csiphy0 {
+	compatible = "qcom,csiphy-v1.2.2.2", "qcom,csiphy";
+};
+
+&cam_csiphy1 {
+	compatible = "qcom,csiphy-v1.2.2.2", "qcom,csiphy";
+};
+
+&cam_csiphy2 {
+	compatible = "qcom,csiphy-v1.2.2.2", "qcom,csiphy";
+};
+
+&cam_csiphy3 {
+	compatible = "qcom,csiphy-v1.2.2.2", "qcom,csiphy";
+};

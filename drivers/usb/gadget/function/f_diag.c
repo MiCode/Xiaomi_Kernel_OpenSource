@@ -3,7 +3,8 @@
  * Diag Function Device - Route ARM9 and ARM11 DIAG messages
  * between HOST and DEVICE.
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
+ * Copyright (c) 2008-2020, The Linux Foundation. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  */
 #include <linux/init.h>
@@ -846,8 +847,6 @@ static struct diag_context *diag_context_init(const char *name)
 	dev->ch = _ch;
 
 	dev->function.name = _ch->name;
-	dev->function.fs_descriptors = fs_diag_desc;
-	dev->function.hs_descriptors = hs_diag_desc;
 	dev->function.bind = diag_function_bind;
 	dev->function.unbind = diag_function_unbind;
 	dev->function.set_alt = diag_function_set_alt;

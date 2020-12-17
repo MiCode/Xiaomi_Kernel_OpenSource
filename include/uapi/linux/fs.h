@@ -302,7 +302,7 @@ struct fscrypt_policy {
 #define FS_KEY_DESC_PREFIX_SIZE		8
 
 /* Structure that userspace passes to the kernel keyring */
-#define FS_MAX_KEY_SIZE			64
+#define FS_MAX_KEY_SIZE			128
 
 struct fscrypt_key {
 	__u32 mode;

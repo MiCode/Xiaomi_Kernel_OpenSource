@@ -1,0 +1,47 @@
+#include "scuba-iot.dtsi"
+/ {
+	reserved-memory {
+		/delete-node/ removed_region@60000000;
+		/delete-node/ qseecom_region;
+		/delete-node/ qseecom_ta_region;
+		/delete-node/ disp_rdump_region@5c000000;
+
+		tz_removed_region: tz_removed_region@60000000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x60000000 0x0 0x100000>;
+		};
+
+		pimem_removed_region: pimem_removed_region@60100000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x60100000 0x0 0x1e00000>;
+		};
+
+		qseecom_mem: qseecom_region {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+			reusable;
+			alignment = <0x0 0x400000>;
+			size = <0x0 0x1000000>;
+		};
+
+		qseecom_ta_mem: qseecom_ta_region {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+			reusable;
+			alignment = <0x0 0x400000>;
+			size = <0x0 0x400000>;
+		};
+	};
+};
+
+&soc {
+	qcom_seecom: qseecom@61800000 {
+		reg = <0x61800000 0x700000>;
+	};
+
+	qcom_smcinvoke: smcinvoke@61800000 {
+		reg = <0x61800000 0x700000>;
+	};
+};

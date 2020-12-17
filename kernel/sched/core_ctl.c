@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #define pr_fmt(fmt)	"core_ctl: " fmt
@@ -65,8 +66,8 @@ static struct cluster_data cluster_state[MAX_CLUSTERS];
 static unsigned int num_clusters;
 
 #define for_each_cluster(cluster, idx) \
-	for ((cluster) = &cluster_state[idx]; (idx) < num_clusters;\
-		(idx)++, (cluster) = &cluster_state[idx])
+	for (; (idx) < num_clusters && ((cluster) = &cluster_state[idx]);\
+		(idx)++)
 
 static DEFINE_SPINLOCK(state_lock);
 static void apply_need(struct cluster_data *state);

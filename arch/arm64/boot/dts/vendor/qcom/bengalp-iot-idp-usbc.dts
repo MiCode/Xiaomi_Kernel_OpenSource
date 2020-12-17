@@ -1,0 +1,11 @@
+/dts-v1/;
+
+#include "bengalp-iot.dtsi"
+#include "bengalp-iot-idp.dtsi"
+#include "bengalp-iot-idp-usbc.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. BENGALP-IOT IDP USBC Audio";
+	compatible = "qcom,bengalp-iot-idp", "qcom,bengalp-iot", "qcom,idp";
+	qcom,board-id = <34 1>;
+};

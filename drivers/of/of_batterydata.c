@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #define pr_fmt(fmt)	"%s: " fmt, __func__
@@ -13,6 +14,8 @@
 #include <linux/batterydata-lib.h>
 #include <linux/of_batterydata.h>
 #include <linux/power_supply.h>
+
+#define DEFAULT_ID 330
 
 static int of_batterydata_read_lut(const struct device_node *np,
 			int max_cols, int max_rows, int *ncols, int *nrows,
@@ -314,11 +317,13 @@ struct device_node *of_batterydata_get_best_profile(
 {
 	struct batt_ids batt_ids;
 	struct device_node *node, *best_node = NULL;
+	struct device_node *default_node = NULL;
 	const char *battery_type = NULL;
 	int delta = 0, best_delta = 0, best_id_kohm = 0, id_range_pct,
 		i = 0, rc = 0, limit = 0;
+	int checknum = 0, match = 0;
 	bool in_range = false;
-
+	printk("batt_id_kohm=%d\n", batt_id_kohm);
 	/* read battery id range percentage for best profile */
 	rc = of_property_read_u32(batterydata_container_node,
 			"qcom,batt-id-range-pct", &id_range_pct);
@@ -354,11 +359,17 @@ struct device_node *of_batterydata_get_best_profile(
 				delta = abs(batt_ids.kohm[i] - batt_id_kohm);
 				limit = (batt_ids.kohm[i] * id_range_pct) / 100;
 				in_range = (delta <= limit);
+				if (in_range != 0) {
+					match = 1;
+				}
 				/*
 				 * Check if the delta is the lowest one
 				 * and also if the limits are in range
 				 * before selecting the best node.
 				 */
+				 if (batt_ids.kohm[i] == DEFAULT_ID) {
+					default_node = node;
+				 }
 				if ((delta < best_delta || !best_node)
 					&& in_range) {
 					best_node = node;
@@ -368,6 +379,12 @@ struct device_node *of_batterydata_get_best_profile(
 			}
 		}
 	}
+	checknum = abs(best_id_kohm - batt_id_kohm);
+	if (match == 0) {
+		printk("batt_id match error\n");
+		best_node = default_node;
+		checknum = 0;
+	}
 
 	if (best_node == NULL) {
 		pr_err("No battery data found\n");
@@ -375,8 +392,7 @@ struct device_node *of_batterydata_get_best_profile(
 	}
 
 	/* check that profile id is in range of the measured batt_id */
-	if (abs(best_id_kohm - batt_id_kohm) >
-			((best_id_kohm * id_range_pct) / 100)) {
+	if (checknum > ((best_id_kohm * id_range_pct) / 100)) {
 		pr_err("out of range: profile id %d batt id %d pct %d\n",
 			best_id_kohm, batt_id_kohm, id_range_pct);
 		return NULL;
@@ -656,3 +672,4 @@ int of_batterydata_read_data(struct device_node *batterydata_container_node,
 }
 
 MODULE_LICENSE("GPL v2");
+

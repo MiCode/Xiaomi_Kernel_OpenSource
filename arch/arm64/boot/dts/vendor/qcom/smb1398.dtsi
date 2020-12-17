@@ -1,0 +1,63 @@
+#include <dt-bindings/interrupt-controller/irq.h>
+
+smb1396: qcom,smb1396@34 {
+	compatible = "qcom,i2c-pmic";
+	reg = <0x34>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+	interrupt-controller;
+	#interrupt-cells = <3>;
+	qcom,periph-map = <0x6 0x26 0x27>;
+	status = "disabled";
+
+	smb1396_revid: qcom,revid {
+		compatible = "qcom,qpnp-revid";
+		reg = <0x100>;
+	};
+
+	smb1396_div2_cp_master: qcom,div2_cp {
+		compatible = "qcom,smb1396-div2-cp-master";
+		qcom,pmic-revid = <&smb1396_revid>;
+		io-channels = <&pm7250b_vadc ADC_AMUX_THM2>;
+		io-channel-names = "die_temp";
+		interrupts = <0x26 0x1 IRQ_TYPE_EDGE_RISING>,
+			     <0x26 0x3 IRQ_TYPE_EDGE_RISING>,
+			     <0x26 0x5 IRQ_TYPE_EDGE_RISING>,
+			     <0x26 0x7 IRQ_TYPE_EDGE_RISING>,
+			     <0x27 0x5 IRQ_TYPE_EDGE_RISING>,
+			     <0x27 0x6 IRQ_TYPE_EDGE_RISING>,
+			     <0x27 0x7 IRQ_TYPE_EDGE_RISING>;
+		interrupt-names = "temp-shdwn",
+				  "div2-irev",
+				  "usbin-uv",
+				  "usbin-ov",
+				  "div2-ilim",
+				  "div2-win-uv",
+				  "div2-win-ov";
+		status = "disabled";
+	};
+};
+
+smb1396_slave: qcom,smb1396@35 {
+	compatible = "qcom,i2c-pmic";
+	reg = <0x35>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "disabled";
+	smb1396_div2_cp_slave: qcom,div2_cp_slave {
+		compatible = "qcom,smb1396-div2-cp-slave";
+		status = "disabled";
+	};
+};
+
+smb1398: qcom,smb1398@36 {
+	compatible = "qcom,i2c-pmic";
+	reg = <0x36>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "disabled";
+	smb1398_pre_regulator: qcom,pre_regulator {
+		compatible = "qcom,smb1398-pre-regulator";
+		status = "disabled";
+	};
+};

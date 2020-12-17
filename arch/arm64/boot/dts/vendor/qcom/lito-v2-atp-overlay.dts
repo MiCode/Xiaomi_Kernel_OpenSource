@@ -1,0 +1,13 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include "lito-atp.dtsi"
+#include "lito-v2-audio.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Lito v2 ATP";
+	compatible = "qcom,lito-atp", "qcom,lito", "qcom,atp";
+	qcom,msm-id = <400 0x20000>, <440 0x20000>;
+	qcom,board-id = <33 0>;
+};

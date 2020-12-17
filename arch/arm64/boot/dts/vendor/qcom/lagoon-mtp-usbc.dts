@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "lagoon.dtsi"
+#include "lagoon-mtp-usbc.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Lagoon MTP USBC audio";
+	compatible = "qcom,lagoon-mtp", "qcom,lagoon", "qcom,mtp";
+	qcom,board-id = <8 1>;
+};

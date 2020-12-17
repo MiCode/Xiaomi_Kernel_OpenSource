@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "bengal-iot-low-ram.dtsi"
+#include "bengal-iot-idp-low-ram.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. BENGAL-IOT IDP AATC 2Gb DDR";
+	compatible = "qcom,bengal-iot-idp", "qcom,bengal-iot", "qcom,idp";
+	qcom,board-id = <34 0x401>;
+};

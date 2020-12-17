@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 /*
@@ -33,7 +34,7 @@
 #define PFK_KC_STARTING_INDEX 2
 
 /** currently the only supported key and salt sizes */
-#define PFK_KC_KEY_SIZE 32
+#define PFK_KC_KEY_SIZE 128
 #define PFK_KC_SALT_SIZE 32
 
 /** Table size */
@@ -410,15 +411,12 @@ static int kc_update_entry(struct kc_entry *entry, const unsigned char *key,
 	memcpy(entry->key, key, key_size);
 	entry->key_size = key_size;
 
-	memcpy(entry->salt, salt, salt_size);
-	entry->salt_size = salt_size;
-
 	/* Mark entry as no longer free before releasing the lock */
 	entry->state = ACTIVE_ICE_PRELOAD;
 	kc_spin_unlock();
 
 	ret = qti_pfk_ice_set_key(entry->key_index, entry->key,
-			entry->salt, ice_dev, data_unit);
+			entry->salt, ice_dev, data_unit, key_size);
 
 	kc_spin_lock();
 	return ret;
@@ -492,21 +490,15 @@ int pfk_kc_load_key_start(const unsigned char *key, size_t key_size,
 	if (!kc_is_ready())
 		return -ENODEV;
 
-	if (!key || !salt || !key_index) {
+	if (!key || !key_index) {
 		pr_err("%s key/salt/key_index NULL\n", __func__);
 		return -EINVAL;
 	}
 
-	if (key_size != PFK_KC_KEY_SIZE) {
+	if (key_size > PFK_KC_KEY_SIZE) {
 		pr_err("unsupported key size %zu\n", key_size);
 		return -EINVAL;
 	}
-
-	if (salt_size != PFK_KC_SALT_SIZE) {
-		pr_err("unsupported salt size %zu\n", salt_size);
-		return -EINVAL;
-	}
-
 	kc_spin_lock();
 
 	entry = kc_find_key(key, key_size, salt, salt_size, ice_dev);
@@ -556,7 +548,6 @@ int pfk_kc_load_key_start(const unsigned char *key, size_t key_size,
 		if (ret) {
 			entry->state = SCM_ERROR;
 			entry->scm_error = ret;
-			pr_err("%s: key load error (%d)\n", __func__, ret);
 		} else {
 			kc_update_timestamp(entry);
 			entry->state = ACTIVE_ICE_LOADED;
@@ -632,13 +623,10 @@ void pfk_kc_load_key_end(const unsigned char *key, size_t key_size,
 	if (!kc_is_ready())
 		return;
 
-	if (!key || !salt)
+	if (!key)
 		return;
 
-	if (key_size != PFK_KC_KEY_SIZE)
-		return;
-
-	if (salt_size != PFK_KC_SALT_SIZE)
+	if (key_size > PFK_KC_KEY_SIZE)
 		return;
 
 	kc_spin_lock();
@@ -702,7 +690,7 @@ int pfk_kc_remove_key_with_salt(const unsigned char *key, size_t key_size,
 	if (!salt)
 		return -EINVAL;
 
-	if (key_size != PFK_KC_KEY_SIZE)
+	if (key_size > PFK_KC_KEY_SIZE)
 		return -EINVAL;
 
 	if (salt_size != PFK_KC_SALT_SIZE)

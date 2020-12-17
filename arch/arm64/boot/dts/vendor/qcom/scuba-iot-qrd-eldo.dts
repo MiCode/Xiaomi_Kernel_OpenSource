@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "scuba-iot.dtsi"
+#include "scuba-iot-qrd-eldo.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Scuba IOT QRD ELDO";
+	compatible = "qcom,scuba-qrd", "qcom,scuba-iot", "qcom,qrd";
+	qcom,board-id = <0x2000B 0>;
+};

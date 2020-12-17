@@ -1,0 +1,203 @@
+Qualcomm Technologies, Inc. LPI GPIO controller driver
+
+This DT bindings describes the GPIO controller driver
+being added for supporting LPI (Low Power Island) TLMM
+from QTI chipsets.
+
+Following properties are for LPI GPIO controller device main node.
+- compatible:
+	Usage: required
+	Value type: <string>
+	Definition: must be "qcom,lpi-pinctrl"
+
+- reg:
+	Usage: required
+	Value type: <prop-encoded-array>
+	Definition: Register base of the GPIO controller and length.
+
+- qcom,num-gpios:
+	Usage: required
+	Value type: <u32>
+	Definition: Number of GPIOs supported by the controller.
+
+- qcom,lpi-offset-tbl
+	Usage: required
+	Value type: <u32-array>
+	Definition: Offset table of GPIOs supported by the controller.
+
+- gpio-controller:
+	Usage: required
+	Value type: <none>
+	Definition: Used to mark the device node as a GPIO controller.
+
+- #gpio-cells:
+	Usage: required
+	Value type: <u32>
+	Definition: Must be 2;
+		    The first cell will be used to define gpio number and the
+		    second denotes the flags for this gpio.
+
+- #qcom,slew-reg:
+	Usage: optional
+	Value type: <prop-encoded-array>
+	Definition: Register base of the slew register and length.
+
+- #qcom,lpi-slew-offset-tbl:
+	Usage: optional
+	Value type: <u32-array>
+	Definition: Offset table that points to each pin's shift value
+		    position in bits in the slew register base for slew
+		    settings.
+
+- #qcom,lpi-slew-base-tbl:
+	Usage: optional
+	Value type: <u32-array>
+	Definition: Table points to physical address for corresponding
+		    slew registers.
+
+Please refer to ../gpio/gpio.txt for general description of GPIO bindings.
+
+Please refer to pinctrl-bindings.txt in this directory for details of the
+common pinctrl bindings used by client devices, including the meaning of the
+phrase "pin configuration node".
+
+The pin configuration nodes act as a container for an arbitrary number of
+subnodes. Each of these subnodes represents some desired configuration for a
+pin or a list of pins. This configuration can include the
+mux function to select on those pin(s), and various pin configuration
+parameters, as listed below.
+
+SUBNODES:
+
+The name of each subnode is not important; all subnodes should be enumerated
+and processed purely based on their content.
+
+Each subnode only affects those parameters that are explicitly listed. In
+other words, a subnode that lists a mux function but no pin configuration
+parameters implies no information about any pin configuration parameters.
+Similarly, a pin subnode that describes a pullup parameter implies no
+information about e.g. the mux function.
+
+The following generic properties as defined in pinctrl-bindings.txt are valid
+to specify in a pin configuration subnode:
+
+- pins:
+	Usage: required
+	Value type: <string-array>
+	Definition: List of gpio pins affected by the properties specified in
+		    this subnode.  Valid pins are: gpio0-gpio31 for LPI.
+
+- function:
+	Usage: required
+	Value type: <string>
+	Definition: Specify the alternative function to be configured for the
+		    specified pins. Valid values are:
+			"gpio",
+			"func1",
+			"func2",
+			"func3",
+			"func4",
+			"func5"
+
+- bias-disable:
+	Usage: optional
+	Value type: <none>
+	Definition: The specified pins should be configured as no pull.
+
+- bias-pull-down:
+	Usage: optional
+	Value type: <none>
+	Definition: The specified pins should be configured as pull down.
+
+- bias-bus-hold:
+	Usage: optional
+	Value type: <none>
+	Definition: The specified pins should be configured as bus-keeper mode.
+
+- bias-pull-up:
+	Usage: optional
+	Value type: <empty>
+	Definition: The specified pins should be configured as pull up.
+
+- input-enable:
+	Usage: optional
+	Value type: <none>
+	Definition: The specified pins are put in input mode.
+
+- output-high:
+	Usage: optional
+	Value type: <none>
+	Definition: The specified pins are configured in output mode, driven
+		    high.
+
+- output-low:
+	Usage: optional
+	Value type: <none>
+	Definition: The specified pins are configured in output mode, driven
+		    low.
+
+- qcom,drive-strength:
+	Usage: optional
+	Value type: <u32>
+	Definition: Selects the drive strength for the specified pins.
+
+- slew-rate:
+	Usage: optional
+	Value type: <u32>
+	Definition: Selects the slew rate for the specified pins.
+
+Example:
+
+	lpi_tlmm: lpi_pinctrl@152c000 {
+		compatible = "qcom,lpi-pinctrl";
+		qcom,num-gpios = <32>;
+		reg = <0x152c000 0>;
+		qcom,slew-reg = <0x355a000 0x0>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		qcom,lpi-offset-tbl = <0x00000010>, <0x00000020>,
+				<0x00000030>, <0x00000040>,
+				<0x00000050>, <0x00000060>,
+				<0x00000070>, <0x00000080>,
+				<0x00000090>, <0x00000100>,
+				<0x00000110>, <0x00000120>,
+				<0x00000130>, <0x00000140>,
+				<0x00000150>, <0x00000160>,
+				<0x00000170>, <0x00000180>,
+				<0x00000190>, <0x00000200>,
+				<0x00000210>;
+		qcom,lpi-slew-offset-tbl = <0x00000000>, <0x00000002>,
+				<0x00000004>, <0x00000008>,
+				<0x0000000A>, <0x0000000C>,
+				<0x00000000>, <0x00000000>,
+				<0x00000000>, <0x00000000>,
+				<0x00000010>, <0x00000012>,
+				<0x00000000>, <0x00000000>;
+
+		hph_comp_active: hph_comp_active {
+			mux {
+				pins = "gpio22";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio22";
+				output-high;
+				qcom,drive-strength = <8>;
+			};
+		};
+
+		hph_comp_sleep: hph_comp_sleep {
+			mux {
+				pins = "gpio22";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio22";
+				qcom,drive-strength = <2>;
+				slew-rate = <1>;
+			};
+		};
+	};
+

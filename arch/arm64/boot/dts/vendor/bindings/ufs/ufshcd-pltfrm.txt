@@ -1,0 +1,230 @@
+* Universal Flash Storage (UFS) Host Controller
+
+UFSHC nodes are defined to describe on-chip UFS host controllers.
+Each UFS controller instance should have its own node.
+
+Required properties:
+- compatible		: must contain "jedec,ufs-1.1" or "jedec,ufs-2.0", may
+			  also list one or more of the following:
+					  "qcom,msm8994-ufshc"
+					  "qcom,msm8996-ufshc"
+					  "qcom,ufshc"
+- interrupts        : <interrupt mapping for UFS host controller IRQ>
+- reg               : <registers mapping>
+		      first entry should contain UFS host controller register address space (mandatory),
+                      second entry is the device ref. clock control register map (optional).
+- reset             : reset specifier pair consists of phandle for the reset provider
+                      and reset lines used by this controller.
+- reset-names       : reset signal name strings sorted in the same order as the resets property.
+
+Optional properties:
+- phys                  : phandle to UFS PHY node
+- phy-names             : the string "ufsphy" when is found in a node, along
+                          with "phys" attribute, provides phandle to UFS PHY node
+- vdd-hba-supply        : phandle to UFS host controller supply regulator node
+- vcc-supply            : phandle to VCC supply regulator node
+- vcc-voltage-level     : specifies voltage levels for VCC supply.
+                          Should be specified in pairs (min, max), units uV.
+- vcc-low-voltage-sup   : If specified, treats min voltage from vcc-voltage-level as
+                          low voltage level different from max voltage.
+- vccq-supply           : phandle to VCCQ supply regulator node
+- vccq2-supply          : phandle to VCCQ2 supply regulator node
+- vcc-supply-1p8        : For embedded UFS devices, valid VCC range is 1.7-1.95V
+                          or 2.7-3.6V. This boolean property when set, specifies
+			  to use low voltage range of 1.7-1.95V. Note for external
+			  UFS cards this property is invalid and valid VCC range is
+			  always 2.7-3.6V.
+- vcc-max-microamp      : specifies max. load that can be drawn from vcc supply
+- vccq-max-microamp     : specifies max. load that can be drawn from vccq supply
+- vccq2-max-microamp    : specifies max. load that can be drawn from vccq2 supply
+- <name>-fixed-regulator : boolean property specifying that <name>-supply is a fixed regulator
+
+- clocks                : List of phandle and clock specifier pairs
+- clock-names           : List of clock input name strings sorted in the same
+                          order as the clocks property.
+- freq-table-hz		: Array of <min max> operating frequencies stored in the same
+                          order as the clocks property. If this property is not
+			  defined or a value in the array is "0" then it is assumed
+			  that the frequency is set by the parent clock or a
+			  fixed rate clock source.
+- rpm-level		: UFS Runtime power management level. Following PM levels are supported:
+			  0 - Both UFS device and Link in active state (Highest power consumption)
+			  1 - UFS device in active state but Link in Hibern8 state
+			  2 - UFS device in Sleep state but Link in active state
+			  3 - UFS device in Sleep state and Link in hibern8 state (default PM level)
+			  4 - UFS device in Power-down state and Link in Hibern8 state
+			  5 - UFS device in Power-down state and Link in OFF state (Lowest power consumption)
+- spm-level		: UFS System power management level. Allowed PM levels are same as rpm-level.
+- ufs-qcom-crypto	: phandle to UFS-QCOM ICE (Inline Cryptographic Engine) node
+-lanes-per-direction	: number of lanes available per direction - either 1 or 2.
+			  Note that it is assume same number of lanes is used both
+			  directions at once. If not specified, default is 2 lanes per direction.
+- pinctrl-names, pinctrl-0, pinctrl-1,.. pinctrl-n: Refer to "Documentation/devicetree/bindings/pinctrl/pinctrl-bindings.txt"
+			for these optional properties
+- limit-tx-hs-gear	: Specify the max. limit on the TX HS gear.
+			  Valid range: 1-3. 1 => HS-G1, 2 => HS-G2, 3 => HS-G3
+- limit-rx-hs-gear	: Specify the max. limit on the RX HS gear. Refer "limit-tx-hs-gear" for expected values.
+- limit-tx-pwm-gear	: Specify the max. limit on the TX PWM gear
+			  Valid range: 1-4. 1 => PWM-G1, 2 => PWM-G2, 3 => PWM-G3, 4 => PWM-G4
+- limit-rx-pwm-gear	: Specify the max. limit on the RX PWM gear. Refer "limit-tx-pwm-gear" for expected values.
+- scsi-cmd-timeout	: Specify the command timeout (in seconds) for scsi commands
+- dev-ref-clk-freq	: Specify the device reference clock frequency, must be one of the following:
+			  0: 19.2 MHz
+			  1: 26 MHz
+			  2: 38.4 MHz
+			  3: 52 MHz
+			  Defaults to 26 MHz if not specified.
+- extcon:       phandle to external connector (Refer Documentation/devicetree/bindings/extcon/extcon-gpio.txt for more details).
+- non-removable		: defines if the connected ufs device is not removable
+- resets            : reset node register
+- reset-names       : describe reset node register, the "rst" corresponds to reset the whole UFS IP.
+- force-g4          : forces UFS Host PHY to be initialized in HS-G4
+
+- vccq-pwr-collapse-sup	:
+- vccq2-pwr-collapse-sup	: Support turning off UFS's Vccq/Vccq2 power supply during system suspend events.
+				  The UFS device will be fully reinitialized during system resume events.
+				  The advantage is to save power consumption during system suspend because the
+				  entire UFS device is powered off.
+				  The tradeoffs are:
+				  1. The System Resume time will increase due to full UFS device re-initializations.
+				  2. The UFS device life expectancy may be reduced because of the frequent power cycles.
+				  Customers should only enable the feature if the SoC supports turning off the UFS
+				  power supplies during power collapse events.
+				  In addition, customers should evaluate the benefits and tradeoffs of this feature
+				  very carefully before enabling it.
+
+Note: If above properties are not defined it can be assumed that the supply
+regulators or clocks are always on.
+
+Example:
+	ufshc@fc598000 {
+		compatible = "jedec,ufs-1.1";
+		reg = <0xfc598000 0x800>, <0xfd512074 0x4>;
+		interrupts = <0 28 0>;
+
+		ufs-qcom-crypto = <&ufs_ice>;
+		vdd-hba-supply = <&xxx_reg0>;
+		vdd-hba-fixed-regulator;
+		vcc-supply = <&xxx_reg1>;
+		vcc-supply-1p8;
+		vcc-low-voltage-sup;
+		vccq-supply = <&xxx_reg2>;
+		vccq2-supply = <&xxx_reg3>;
+		vcc-max-microamp = 500000;
+		vccq-max-microamp = 200000;
+		vccq2-max-microamp = 200000;
+
+		clocks = <&core 0>, <&ref 0>, <&phy 0>, <&iface 0>;
+		clock-names = "core_clk", "ref_clk", "phy_clk", "iface_clk";
+		freq-table-hz = <100000000 200000000>, <0 0>, <0 0>, <0 0>;
+		resets = <&reset 0 1>;
+		reset-names = "rst";
+		phys = <&ufsphy1>;
+		phy-names = "ufsphy";
+		rpm-level = <3>;
+		spm-level = <5>;
+		dev-ref-clk-freq = <0>; /* reference clock freq: 19.2 MHz */
+		force-g4;
+	};
+
+==== MSM UFS platform driver properties =====
+* For UFS host controller in MSM platform following clocks are required -
+    Controller clock source -
+        "core_clk_src", max-clock-frequency-hz = 200MHz
+
+    Controller System clock branch:
+        "core_clk" - Controller core clock
+
+    AHB/AXI interface clocks:
+        "iface_clk" - AHB interface clock
+        "bus_clk" - AXI bus master clock
+
+    PHY to controller symbol synchronization clocks:
+        "rx_lane0_sync_clk" - RX Lane 0
+        "rx_lane1_sync_clk" - RX Lane 1
+        "tx_lane0_sync_clk" - TX Lane 0
+        "tx_lane1_sync_clk" - TX Lane 1
+
+    Optional reference clock input to UFS device
+        "ref_clk", max-clock-frequency-hz = 19.2MHz
+
+* Following bus parameters are required -
+- qcom,msm-bus,name
+- qcom,msm-bus,num-cases
+- qcom,msm-bus,num-paths
+- qcom,msm-bus,vectors-KBps
+For the above four properties please refer to
+Documentation/devicetree/bindings/arm/msm/msm_bus.txt
+Note: The instantaneous bandwidth (IB) value in the vectors-KBps field should
+      be zero as UFS data transfer path doesn't have latency requirements and
+      voting for aggregated bandwidth (AB) should take care of providing
+      optimum throughput requested.
+
+- qcom,bus-vector-names: specifies string IDs for the corresponding
+bus vectors in the same order as qcom,msm-bus,vectors-KBps property.
+
+* The following parameters are optional, but required in order for PM QoS to be
+enabled and functional in the driver:
+- qcom,pm-qos-cpu-groups:		arrays of unsigned integers representing the cpu groups.
+					The number of values in the array defines the number of cpu-groups.
+					Each value is a bit-mask defining the cpus that take part in that cpu group.
+					i.e. if bit N is set, then cpuN is a part of the cpu group. So basically,
+					a cpu group corelated to a cpu cluster.
+					A PM QoS request object is maintained for each cpu-group.
+- qcom,pm-qos-cpu-group-latency-us:	array of values used for PM QoS voting, one for each cpu-group defined.
+					the number of values must match the number of values defined in
+					qcom,pm-qos-cpu-mask property.
+- qcom,pm-qos-default-cpu:		PM QoS voting is based on the cpu associated with each IO request by the block layer.
+					This defined the default cpu used for PM QoS voting in case a specific cpu value is not available.
+
+- qcom,vddp-ref-clk-supply	 : reference clock to ufs device. Controlled by the host driver.
+- qcom,vddp-ref-clk-max-microamp : specifies max. load that can be drawn for
+				   ref-clk supply.
+- qcom,vccq-parent-supply	 : phandle to VCCQ's parent supply regulator.
+- qcom,vccq-parent-max-microamp : specifies max. load that can be drawn for
+				   VCCQ's parent supply regulator.
+
+Example:
+	ufshc@0xfc598000 {
+		...
+
+		qcom,msm-bus,name = "ufs1";
+		qcom,msm-bus,num-cases = <22>;
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-KBps =
+				<95 512 0 0>, <1 650 0 0>,         /* No vote */
+
+				<95 512 922 0>, <1 650 1000 0>,   /* PWM G1 */
+				<95 512 1844 0>, <1 650 1000 0>, /* PWM G2 */
+				<95 512 3688 0>, <1 650 1000 0>, /* PWM G3 */
+				<95 512 7376 0>, <1 650 1000 0>,  /* PWM G4 */
+				<95 512 1844 0>, <1 650 1000 0>, /* PWM G1 L2 */
+				<95 512 3688 0>, <1 650 1000 0>, /* PWM G2 L2 */
+				<95 512 7376 0>, <1 650 1000 0>,  /* PWM G3 L2 */
+				<95 512 14752 0>, <1 650 1000 0>,  /* PWM G4 L2 */
+
+				<95 512 127796 0>, <1 650 1000 0>,  /* HS G1 RA */
+				<95 512 255591 0>, <1 650 1000 0>, /* HS G2 RA */
+				<95 512 511181 0>, <1 650 1000 0>, /* HS G3 RA */
+				<95 512 255591 0>, <1 650 1000 0>, /* HS G1 RA L2 */
+				<95 512 511181 0>, <1 650 1000 0>, /* HS G2 RA L2 */
+				<95 512 1022362 0>, <1 650 1000 0>, /* HS G3 RA L2 */
+
+				<95 512 149422 0>, <1 650 1000 0>,  /* HS G1 RB */
+				<95 512 298189 0>, <1 650 1000 0>, /* HS G2 RB */
+				<95 512 596378 0>, <1 650 1000 0>, /* HS G3 RB */
+				<95 512 298189 0>, <1 650 1000 0>, /* HS G1 RB L2 */
+				<95 512 596378 0>, <1 650 1000 0>, /* HS G2 RB L2 */
+				<95 512 1192756 0>, <1 650 1000 0>, /* HS G3 RB L2 */
+
+				<95 512 4096000 0>, <1 650 1000 0>; /* Max. bandwidth */
+
+		qcom,bus-vector-names = "MIN",
+					"PWM_G1_L1", "PWM_G2_L1", "PWM_G3_L1", "PWM_G4_L1",
+					"PWM_G1_L2", "PWM_G2_L2", "PWM_G3_L2", "PWM_G4_L2",
+					"HS_RA_G1_L1", "HS_RA_G2_L1", "HS_RA_G3_L1",
+					"HS_RA_G1_L2", "HS_RA_G2_L2", "HS_RA_G3_L2",
+					"HS_RB_G1_L1", "HS_RB_G2_L1", "HS_RB_G3_L1",
+					"HS_RB_G1_L2", "HS_RB_G2_L2", "HS_RB_G3_L2",
+					"MAX";
+	};

@@ -1,0 +1,12 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include "bengalp-iot-idp-low-ram.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. BENGALP-IOT IDP AATC 2Gb DDR";
+	compatible = "qcom,bengalp-iot-idp", "qcom,bengalp-iot", "qcom,idp";
+	qcom,msm-id = <470 0x10000>;
+	qcom,board-id = <34 0x401>;
+};

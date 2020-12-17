@@ -1,0 +1,12 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include "bengal-idp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. BENGALP IDP";
+	compatible = "qcom,bengalp-idp", "qcom,bengalp", "qcom,idp";
+	qcom,msm-id = <445 0x10000>, <420 0x10000>;
+	qcom,board-id = <34 0>;
+};

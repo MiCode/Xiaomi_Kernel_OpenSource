@@ -1,0 +1,34 @@
+#include "scuba-iot-qrd.dtsi"
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/pinctrl/qcom,pmic-gpio.h>
+
+&pm2250_gpios {
+	vdd_3p1_en {
+		vdd_3p1_en_default: vdd_3p1_en_default {
+			pins = "gpio9";
+			function = "normal";
+			output-enable;
+			input-disable;
+			bias-disable;
+			qcom,drive-strength = <PMIC_GPIO_STRENGTH_MED>;
+		};
+	};
+};
+
+&soc {
+	vreg_usb_3p1: vreg_usb_3p1 {
+		compatible = "regulator-fixed";
+		regulator-name = "vreg_usb_3p1";
+		regulator-min-microvolt = <3100000>;
+		regulator-max-microvolt = <3100000>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&vdd_3p1_en_default>;
+		gpio = <&pm2250_gpios 9 GPIO_ACTIVE_HIGH>;
+		startup-delay-us = <100>;
+		enable-active-high;
+	};
+};
+
+&qusb_phy0 {
+	vdda33-supply = <&vreg_usb_3p1>;
+};

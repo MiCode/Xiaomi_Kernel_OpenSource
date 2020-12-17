@@ -17,6 +17,7 @@ config PFK
 	bool "Per-File-Key driver"
 	depends on SECURITY
 	depends on SECURITY_SELINUX
+	depends on QTI_HW_KEY_MANAGER
 	default n
 	help
 		This driver is used for storing eCryptfs information

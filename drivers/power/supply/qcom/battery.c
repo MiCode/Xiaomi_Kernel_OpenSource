@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2020 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #define pr_fmt(fmt) "QCOM-BATT: %s: " fmt, __func__
@@ -116,7 +117,7 @@ enum {
 	FORCE_INOV_DISABLE_BIT	= BIT(1),
 };
 
-static int debug_mask;
+static int debug_mask = 0xff;
 
 #define pl_dbg(chip, reason, fmt, ...)				\
 	do {								\
@@ -1214,6 +1215,7 @@ static int pl_fv_vote_callback(struct votable *votable, void *data,
 	 * check for termination at reduced float voltage and re-trigger
 	 * charging if new float voltage is above last FV.
 	 */
+	/*
 	if ((chip->float_voltage_uv < fv_uv) && is_batt_available(chip)) {
 		rc = power_supply_get_property(chip->batt_psy,
 				POWER_SUPPLY_PROP_STATUS, &pval);
@@ -1234,7 +1236,7 @@ static int pl_fv_vote_callback(struct votable *votable, void *data,
 	}
 
 	chip->float_voltage_uv = fv_uv;
-
+	*/
 	return 0;
 }
 

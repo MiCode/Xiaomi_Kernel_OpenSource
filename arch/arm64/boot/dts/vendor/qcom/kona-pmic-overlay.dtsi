@@ -1,0 +1,185 @@
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/pinctrl/qcom,pmic-gpio.h>
+
+#include "pm8150.dtsi"
+#include "pm8150b.dtsi"
+#include "pm8150l.dtsi"
+#include "pm8009.dtsi"
+
+&spmi_bus {
+	#address-cells = <2>;
+	#size-cells = <0>;
+	interrupt-controller;
+	#interrupt-cells = <4>;
+
+	qcom,pmxprairie@8 {
+		compatible = "qcom,spmi-pmic";
+		reg = <0x8 SPMI_USID>;
+		#address-cells = <2>;
+		#size-cells = <0>;
+
+		qcom,power-on@800 {
+			compatible = "qcom,qpnp-power-on";
+			reg = <0x800 0x100>;
+			qcom,modem-reset;
+		};
+	};
+
+	qcom,pmxprairie@9 {
+		compatible ="qcom,spmi-pmic";
+		reg = <0x9 SPMI_USID>;
+		#address-cells = <2>;
+		#size-cells = <0>;
+	};
+};
+
+&pm8150_gpios {
+	key_home {
+		key_home_default: key_home_default {
+			pins = "gpio1";
+			function = "normal";
+			input-enable;
+			bias-pull-up;
+			power-source = <0>;
+		};
+	};
+
+	key_vol_up {
+		key_vol_up_default: key_vol_up_default {
+			pins = "gpio6";
+			function = "normal";
+			input-enable;
+			bias-pull-up;
+			power-source = <1>;
+		};
+	};
+
+	usb2_vbus_boost {
+		usb2_vbus_boost_default: usb2_vbus_boost_default {
+			pins = "gpio9";
+			function = "normal";
+			output-low;
+			power-source = <1>;	/* 1.8V input supply */
+		};
+	};
+
+	usb2_vbus_det {
+		usb2_vbus_det_default: usb2_vbus_det_default {
+			pins = "gpio10";
+			function = "normal";
+			input-enable;
+			bias-pull-down;
+			power-source = <1>;	/* 1.8V input supply */
+		};
+	};
+};
+
+&pm8150b_gpios {
+	qnovo_fet_ctrl {
+		qnovo_fet_ctrl_state1: qnovo_fet_ctrl_state1 {
+			pins = "gpio8";
+			function = "normal";
+			input-enable;
+			output-disable;
+			bias-disable;
+			power-source = <0>;
+		};
+
+		qnovo_fet_ctrl_state2: qnovo_fet_ctrl_state2 {
+			pins = "gpio8";
+			function = "normal";
+			input-enable;
+			output-disable;
+			bias-pull-down;
+			power-source = <0>;
+		};
+	};
+
+	smb_stat {
+		smb_stat_default: smb_stat_default {
+			  pins = "gpio6";
+			  function = "normal";
+			  input-enable;
+			  bias-pull-up;
+			  qcom,pull-up-strength = <PMIC_GPIO_PULL_UP_30>;
+			  power-source = <0>;
+		  };
+	};
+};
+
+&pm8150b_qnovo {
+	pinctrl-names = "q_state1", "q_state2";
+	pinctrl-0 = <&qnovo_fet_ctrl_state1>;
+	pinctrl-1 = <&qnovo_fet_ctrl_state2>;
+};
+
+&pm8150b_fg {
+	nvmem-names = "fg_sdam";
+	nvmem = <&pm8150_sdam_2>;
+};
+
+&pm8150b_charger {
+	dpdm-supply = <&usb2_phy0>;
+	smb5_vconn: qcom,smb5-vconn {
+		regulator-name = "smb5-vconn";
+	};
+
+	smb5_vbus: qcom,smb5-vbus {
+		regulator-name = "smb5-vbus";
+	};
+};
+
+&pm8150b_pdphy {
+	vdd-pdphy-supply = <&pm8150_l2>;
+	vbus-supply = <&smb5_vbus>;
+	vconn-supply = <&smb5_vconn>;
+};
+
+&pm8150b_gpios {
+	haptics_boost {
+		haptics_boost_default: haptics_boost_default {
+			pins = "gpio5";
+			function = "normal";
+			output-enable;
+			input-disable;
+			bias-disable;
+			qcom,drive-strength = <3>; /* high */
+			power-source = <1>; /* 1.8 V */
+		};
+	};
+};
+
+&soc {
+	vreg_tof: regulator-dbb1 {
+		compatible = "regulator-fixed";
+		regulator-name = "vdd_tof";
+		regulator-min-microvolt = <3600000>;
+		regulator-max-microvolt = <3600000>;
+		gpio = <&pm8009_gpios 1 GPIO_ACTIVE_HIGH>;
+		startup-delay-us = <1000>;
+		enable-active-high;
+	};
+
+	vreg_hap_boost: regulator-haptics-boost {
+		compatible = "regulator-fixed";
+		regulator-name = "vdd_hap_boost";
+		gpio = <&pm8150b_gpios 5 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&haptics_boost_default>;
+		startup-delay-us = <1000>;
+		enable-active-high;
+		status = "disabled";
+	};
+};
+
+&usb0 {
+	extcon = <&pm8150b_pdphy>, <&eud>;
+};
+
+&usb_qmp_dp_phy {
+	 extcon = <&pm8150b_pdphy>;
+};
+
+&sde_dp {
+	extcon = <&pm8150b_pdphy>;
+};

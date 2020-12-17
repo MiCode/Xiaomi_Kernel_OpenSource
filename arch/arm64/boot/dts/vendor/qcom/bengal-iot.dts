@@ -1,0 +1,9 @@
+/dts-v1/;
+
+#include "bengal-iot.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. BENGAL-IOT SoC";
+	compatible = "qcom,bengal-iot";
+	qcom,board-id = <0 0>;
+};

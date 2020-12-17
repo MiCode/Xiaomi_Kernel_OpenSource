@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "kona-v2.1.dtsi"
+#include "kona-v2.1-iot-rb5.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. kona v2.1 IOT RB5";
+	compatible = "qcom,kona-iot", "qcom,kona", "qcom,iot";
+	qcom,board-id = <11 3>;
+};

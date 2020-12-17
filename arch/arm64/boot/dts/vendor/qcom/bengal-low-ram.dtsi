@@ -1,0 +1,148 @@
+#include "bengal.dtsi"
+/ {
+};
+
+/delete-node/ &hyp_mem;
+/delete-node/ &xbl_aop_mem;
+/delete-node/ &sec_apps_mem;
+/delete-node/ &smem_mem;
+/delete-node/ &removed_mem;
+/delete-node/ &pil_modem_mem;
+/delete-node/ &pil_video_mem;
+/delete-node/ &wlan_msa_mem;
+/delete-node/ &pil_cdsp_mem;
+/delete-node/ &pil_adsp_mem;
+/delete-node/ &pil_ipa_fw_mem;
+/delete-node/ &pil_ipa_gsi_mem;
+/delete-node/ &pil_gpu_mem;
+/delete-node/ &cdsp_sec_mem;
+
+/delete-node/ &user_contig_mem;
+/delete-node/ &qseecom_mem;
+/delete-node/ &qseecom_ta_mem;
+
+/delete-node/ &secure_display_memory;
+
+/delete-node/ &disp_rdump_memory;
+
+&reserved_memory {
+	hyp_mem: hyp_region@45700000 {
+		compatible = "removed-dma-pool";
+		no-map;
+		reg = <0x0 0x45700000 0x0 0x600000>;
+	};
+
+	xbl_aop_mem: xbl_aop_region@45e00000 {
+		compatible = "removed-dma-pool";
+		no-map;
+		reg = <0x0 0x45e00000 0x0 0x100000>;
+	};
+
+	sec_apps_mem: sec_apps_region@45fff000 {
+		compatible = "removed-dma-pool";
+		no-map;
+		reg = <0x0 0x45fff000 0x0 0x1000>;
+	};
+
+	smem_mem: smem_region@46000000 {
+		compatible = "removed-dma-pool";
+		no-map;
+		reg = <0x0 0x46000000 0x0 0x200000>;
+	};
+
+	pil_modem_mem: modem_region@4ab00000 {
+		compatible = "removed-dma-pool";
+		no-map;
+		reg = <0x0 0x4ab00000 0x0 0x6900000>;
+	};
+
+	pil_video_mem: pil_video_region@51400000 {
+		compatible = "removed-dma-pool";
+		no-map;
+		reg = <0x0 0x51400000 0x0 0x500000>;
+	};
+
+	wlan_msa_mem: wlan_msa_region@51900000 {
+		compatible = "removed-dma-pool";
+		no-map;
+		reg = <0x0 0x51900000 0x0 0x100000>;
+	};
+
+	pil_cdsp_mem: cdsp_regions@51a00000 {
+		compatible = "removed-dma-pool";
+		no-map;
+		reg = <0x0 0x51a00000 0x0 0x800000>;
+	};
+
+	pil_adsp_mem: pil_adsp_region@52200000 {
+		compatible = "removed-dma-pool";
+		no-map;
+		reg = <0x0 0x52200000 0x0 0x1c00000>;
+	};
+
+	pil_ipa_fw_mem: ipa_fw_region@53e00000 {
+		compatible = "removed-dma-pool";
+		no-map;
+		reg = <0x0 0x53e00000 0x0 0x10000>;
+	};
+
+	pil_ipa_gsi_mem: ipa_gsi_region@53e10000 {
+		compatible = "removed-dma-pool";
+		no-map;
+		reg = <0x0 0x53e10000 0x0 0x5000>;
+	};
+
+	pil_gpu_mem: gpu_region@53e15000 {
+		compatible = "removed-dma-pool";
+		no-map;
+		reg = <0x0 0x53e15000 0x0 0x2000>;
+	};
+
+	tz_stat_mem: tz_stat_region@60000000 {
+		compatible = "removed-dma-pool";
+		no-map;
+		reg = <0x0 0x60000000 0x0 0x100000>;
+	};
+
+	removed_mem: removed_region@60100000 {
+		compatible = "removed-dma-pool";
+		no-map;
+		reg = <0x0 0x60100000 0x0 0x2200000>;
+	};
+
+	qseecom_mem: qseecom_region {
+		compatible = "shared-dma-pool";
+		alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+		reusable;
+		alignment = <0x0 0x400000>;
+		size = <0x0 0x1000000>;
+	};
+
+	qseecom_ta_mem: qseecom_ta_region {
+		compatible = "shared-dma-pool";
+		alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+		reusable;
+		alignment = <0x0 0x400000>;
+		size = <0x0 0x400000>;
+	};
+
+	linux,cma {
+		size = <0x0 0x1000000>;
+	};
+};
+
+&soc {
+	qcom,ion {
+		/delete-node/ qcom,ion-heap@14;
+		/delete-node/ qcom,ion-heap@10;
+		/delete-node/ qcom,ion-heap@26;
+	};
+
+	qcom_seecom: qseecom@61800000 {
+		reg = <0x61800000 0xb00000>;
+	};
+
+	qcom_smcinvoke: smcinvoke@61800000 {
+		reg = <0x61800000 0xb00000>;
+	};
+};

@@ -1,0 +1,11 @@
+/dts-v1/;
+/memreserve/ 0x90000000 0x00000100;
+
+#include "kona.dtsi"
+#include "kona-rumi.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. kona RUMI";
+	compatible = "qcom,kona-rumi", "qcom,kona", "qcom,rumi";
+	qcom,board-id = <0x1000F 0>;
+};

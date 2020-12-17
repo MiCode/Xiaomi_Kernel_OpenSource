@@ -1,0 +1,71 @@
+* Bluetooth Controller
+Bluetooth controller communicates with the Bluetooth Host using HCI Transport
+layer. HCI Transport layer can be based on UART or USB serial communication
+protocol.
+
+Required properties:
+	- compatible: Should be set to one of the following:
+		qca,ar3002
+		qca,qca6174
+		qca,wcn3990
+                qca,qca6390
+	- qca,bt-reset-gpio: GPIO pin to bring BT Controller out of reset
+
+Optional properties:
+	- qca,bt-vdd-pa-supply: Bluetooth VDD PA regulator handle
+	- qca,bt-vdd-io-supply: Bluetooth VDD IO regulator handle
+	- qca,bt-vdd-ldo-supply: Bluetooth VDD LDO regulator handle. Kept under
+		optional parameters as some of the chipsets doesn't require ldo
+		or it may use from same vddio.
+	- qca,bt-vdd-xtal-supply: Bluetooth VDD XTAL regulator handle
+	- qca,bt-vdd-core-supply: Bluetooth VDD CORE regulator handle
+	- qca,bt-vdd-asd-supply: Bluetooth VDD regulator handle for antenna switch
+    diversity.
+	- qca,bt-chip-pwd-supply: Chip power down gpio is required when bluetooth
+		module and other modules like wifi co-exist in a singe chip and
+		shares a common gpio to bring chip out of reset.
+	- qca,bt-vdd-pa-voltage-level: specifies VDD PA voltage levels for supply.
+		Should be specified in pairs (min, max), units uV
+	- qca,bt-vdd-io-voltage-level: specifies VDD IO voltage levels for supply.
+		Should be specified in pairs (min, max), units uV
+	- qca,bt-vdd-ldo-voltage-level: specifies VDD LDO voltage levels for supply.
+		Should be specified in pairs (min, max), units uV
+	- qca,bt-vdd-xtal-voltage-level: specifies VDD XTAL voltage levels for supply.
+		Should be specified in pairs (min, max), units uV
+	- qca,bt-vdd-core-voltage-level: specifies VDD CORE voltage levels for supply.
+	- qca,bt-vdd-asd-voltage-level: specifies VDD  voltage levels for supply for
+    antenna switch diversity.  Should be specified in pairs (min, max), units uV
+	- qca,bt-vdd-io-current-level: specifies VDD IO current level in microamps
+	- qca,bt-vdd-xtal-current-level: specifies VDD XTAL current level in microamps
+	- qca,bt-vdd-core-current-level: specifies VDD CORE current level in microamps.
+	- qca,bt-vdd-ldo-current-level: specifies VDD LDO current level in microamps.
+	- qca,bt-vdd-pa-current-level: specifies VDD PA current level in microamps.
+	- qca,bt-chip-pwd-current-level: specifies Chip Power current level in microamps.
+	- qca,bt-vdd-asd-current-level: specifies VDD  ASD current level
+
+Example:
+	bluetooth: bt_qca6390 {
+		compatible = "qca,qca6390";
+		pinctrl-names = "default";
+		pinctrl-0 = <&bt_en_sleep>;
+		qca,bt-reset-gpio = <&tlmm 21 0>; /* BT_EN */
+		qca,bt-vdd-aon-supply = <&pm8150_s6>;
+		qca,bt-vdd-dig-supply = <&pm8009_s2>;
+		qca,bt-vdd-rfa1-supply = <&pm8150_s5>;
+		qca,bt-vdd-rfa2-supply = <&pm8150a_s8>;
+		qca,bt-vdd-asd-supply = <&pm8150_l16>;
+
+		qca,bt-vdd-aon-voltage-level = <950000 950000>;
+		qca,bt-vdd-dig-voltage-level = <950000 952000>;
+		qca,bt-vdd-rfa1-voltage-level = <1900000 1900000>;
+		qca,bt-vdd-rfa2-voltage-level = <1350000 1350000>;
+		qca,bt-vdd-asd-voltage-level = <3024000 3304000>;
+
+		qca,bt-vdd-asd-current-level = <10000>;
+
+		qca,bt-vdd-io-current-level = <1>; /* LPM/PFM */
+		qca,bt-vdd-xtal-current-level = <1>; /* LPM/PFM */
+		qca,bt-vdd-core-current-level = <1>; /* LPM/PFM */
+		qca,bt-vdd-ldo-current-level = <1>; /* LPM/PFM */
+		qca,bt-vdd-pa-current-level = <1>; /* LPM/PFM */
+	};

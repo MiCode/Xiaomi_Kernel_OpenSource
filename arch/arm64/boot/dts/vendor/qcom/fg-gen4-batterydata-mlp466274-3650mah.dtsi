@@ -1,0 +1,135 @@
+qcom,mlp466274_3650mah_averaged_masterslave_jan21st2019 {
+	/* #mlp466274_3650mAh_averaged_MasterSlave_Jan21st2019*/
+	qcom,max-voltage-uv = <4400000>;
+	qcom,fg-cc-cv-threshold-mv = <4390>;
+	qcom,fastchg-current-ma = <5325>;
+	qcom,batt-id-kohm = <44>;
+	/* COLD = 0 DegC, HOT = 55 DegC */
+	qcom,jeita-hard-thresholds = <0x58cd 0x181d>;
+	/* COOL = 15 DegC, WARM = 45 DegC */
+	qcom,jeita-soft-thresholds = <0x4621 0x20b8>;
+	/* COOL hys = 18 DegC, WARM hys = 42 DegC */
+	qcom,jeita-soft-hys-thresholds = <0x4206 0x23c0>;
+	qcom,jeita-fcc-ranges = <0  150  710000
+				151 450  5325000
+				451 550  1775000>;
+	qcom,jeita-fv-ranges = <0   150  4150000
+				151 450  4400000
+				451 550  4150000>;
+	qcom,jeita-soft-fcc-ua = <710000 1775000>;
+	qcom,jeita-soft-fv-uv = <4150000 4150000>;
+	qcom,battery-beta = <4250>;
+	qcom,battery-type = "mlp466274_3650mah_masterslave_jan21st2019";
+	qcom,therm-coefficients = <0x2318 0xd0c 0xdaf7 0xc556 0x848d>;
+	qcom,therm-center-offset = <0x70>;
+	qcom,rslow-normal-coeffs = <0xa9 0x15 0x87 0x0d>;
+	qcom,rslow-low-coeffs = <0xae 0x0c 0x65 0xfc>;
+	qcom,checksum = <0x393C>;
+	qcom,gui-version = "PM855GUI - 1.0.0.13";
+	qcom,fg-profile-data = [
+		 09 00 15 EA
+		 CA DC 05 E3
+		 99 DC 00 00
+		 A6 BD 4F 8A
+		 F9 87 88 9D
+		 79 9A E7 87
+		 48 00 A9 15
+		 87 0D 7C 04
+		 30 02 CE 07
+		 32 00 BF EB
+		 95 ED 67 D5
+		 16 0A 1A EB
+		 5C B2 FE 0D
+		 A9 06 23 BB
+		 60 00 3E 00
+		 3D 00 3E 00
+		 38 00 32 00
+		 33 00 38 00
+		 40 00 4A 00
+		 5A 00 60 00
+		 51 00 41 00
+		 36 00 31 00
+		 2E 00 3C 00
+		 45 64 43 00
+		 47 00 40 00
+		 60 00 54 00
+		 45 00 50 08
+		 53 08 3F 00
+		 66 28 61 48
+		 51 58 4A 0E
+		 47 00 D8 00
+		 F6 1F 7F 0D
+		 FA 03 53 07
+		 73 1C DE 0A
+		 82 0C 64 23
+		 1A 17 4E 42
+		 8C 55 99 03
+		 7D 13 79 1F
+		 98 05 91 0A
+		 2B 06 BE 1C
+		 32 02 67 05
+		 F4 02 F9 17
+		 27 23 72 45
+		 DB 52 72 13
+		 FE 1F 14 ED
+		 F1 CA CA 85
+		 D3 1C 8C C1
+		 78 05 11 BB
+		 4C 17 80 8B
+		 33 85 0F 9B
+		 88 80 09 80
+		 01 F2 F2 05
+		 FE 03 AC FB
+		 00 F8 51 DD
+		 44 EB F4 07
+		 89 F5 8C CA
+		 33 18 2A 00
+		 11 DD AB 01
+		 86 05 2F 03
+		 CE 07 32 00
+		 3D 03 D9 03
+		 45 05 01 07
+		 23 02 17 05
+		 C8 03 9F 07
+		 33 03 50 00
+		 3F 00 3F 00
+		 41 64 43 00
+		 42 F8 3F 00
+		 45 00 44 00
+		 42 00 3B 10
+		 45 10 3D 00
+		 44 20 43 40
+		 45 58 4B 0F
+		 39 00 3A 00
+		 44 08 56 00
+		 4B 00 3E 00
+		 3A 10 48 10
+		 45 00 4D 20
+		 5F 40 40 58
+		 42 10 4E 00
+		 4B 08 2C 10
+		 D8 08 B3 1F
+		 41 FC B9 03
+		 EF 06 C5 1C
+		 57 23 D8 45
+		 2D 52 7D 18
+		 86 03 8C 04
+		 5C 02 6C 12
+		 3F 0A 68 20
+		 D1 04 1D 03
+		 A0 05 B9 1C
+		 1B 03 FB 05
+		 1F 02 94 18
+		 4E 03 DD 04
+		 14 02 70 00
+		 9D 23 A2 04
+		 D6 02 A4 05
+		 E6 1C D7 03
+		 78 04 CB 03
+		 84 18 F7 02
+		 88 05 D7 02
+		 95 00 58 01
+		 C0 00 FA 00
+		 29 0E 00 00
+	];
+};

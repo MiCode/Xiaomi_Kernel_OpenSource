@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "kona-v2.dtsi"
+#include "kona-qrd.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. kona QRD";
+	compatible = "qcom,kona-qrd", "qcom,kona", "qcom,qrd";
+	qcom,board-id = <11 0>;
+};

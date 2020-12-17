@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "scuba-iot-low-ram.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Scuba IOT 2GB DDR SoC";
+	compatible = "qcom,scuba-iot";
+	qcom,msm-id = <473 0x10000>, <474 0x10000>;
+	qcom,board-id = <0 0x400>;
+};

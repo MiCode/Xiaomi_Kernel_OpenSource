@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 /*
@@ -136,18 +137,6 @@ int pfk_f2fs_parse_inode(const struct bio *bio,
 	key_info->key_size = fscrypt_get_ice_encryption_key_size(inode);
 	if (!key_info->key_size) {
 		pr_err("could not parse key size from f2fs\n");
-		return -EINVAL;
-	}
-
-	key_info->salt = fscrypt_get_ice_encryption_salt(inode);
-	if (!key_info->salt) {
-		pr_err("could not parse salt from f2fs\n");
-		return -EINVAL;
-	}
-
-	key_info->salt_size = fscrypt_get_ice_encryption_salt_size(inode);
-	if (!key_info->salt_size) {
-		pr_err("could not parse salt size from f2fs\n");
 		return -EINVAL;
 	}
 

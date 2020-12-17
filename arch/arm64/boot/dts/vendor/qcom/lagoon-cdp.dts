@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "lagoon.dtsi"
+#include "lagoon-cdp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Lagoon CDP";
+	compatible = "qcom,lagoon-cdp", "qcom,lagoon", "qcom,cdp";
+	qcom,board-id = <1 0>;
+};

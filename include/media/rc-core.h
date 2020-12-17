@@ -2,6 +2,7 @@
  * Remote Controller core header
  *
  * Copyright (C) 2009-2010 by Mauro Carvalho Chehab
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -290,6 +291,20 @@ int devm_rc_register_device(struct device *parent, struct rc_dev *dev);
  * @dev: pointer to struct rc_dev.
  */
 void rc_unregister_device(struct rc_dev *dev);
+
+/**
+ * rc_open - Opens a RC device
+ *
+ * @rdev: pointer to struct rc_dev.
+ */
+int rc_open(struct rc_dev *rdev);
+
+/**
+ * rc_close - Closes a RC device
+ *
+ * @rdev: pointer to struct rc_dev.
+ */
+void rc_close(struct rc_dev *rdev);
 
 void rc_repeat(struct rc_dev *dev);
 void rc_keydown(struct rc_dev *dev, enum rc_proto protocol, u32 scancode,

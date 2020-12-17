@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #define pr_fmt(fmt) "clk: %s: " fmt, __func__
@@ -206,6 +207,7 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"measure_only_hwkm_ahb_clk",
 	"measure_only_pka_core_clk",
 	"measure_only_pka_ahb_clk",
+	"measure_only_cpuss_gnoc_clk",
 };
 
 static int gcc_debug_mux_sels[] = {
@@ -308,6 +310,7 @@ static int gcc_debug_mux_sels[] = {
 	0xA2,		/* measure_only_hwkm_ahb_clk */
 	0xA3,		/* measure_only_pka_core_clk */
 	0xA4,		/* measure_only_pka_ahb_clk */
+	0xA6,		/* measure_only_cpuss_gnoc_clk */
 };
 
 static struct clk_debug_mux gcc_debug_mux = {
@@ -487,6 +490,14 @@ static struct clk_dummy measure_only_pka_ahb_clk = {
 	},
 };
 
+static struct clk_dummy measure_only_cpuss_gnoc_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_cpuss_gnoc_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
 static struct clk_hw *debugcc_scuba_hws[] = {
 	&pwrcl_clk.hw,
 	&measure_only_cnoc_clk.hw,
@@ -499,6 +510,7 @@ static struct clk_hw *debugcc_scuba_hws[] = {
 	&measure_only_hwkm_ahb_clk.hw,
 	&measure_only_pka_core_clk.hw,
 	&measure_only_pka_ahb_clk.hw,
+	&measure_only_cpuss_gnoc_clk.hw,
 };
 
 static const struct of_device_id clk_debug_match_table[] = {

@@ -1,0 +1,5 @@
+config FOCALTECH_FINGERPRINT
+	tristate "generic focaltech fingerprint driver"
+	default y
+	help
+	add support for focaltech fingerprint driver.

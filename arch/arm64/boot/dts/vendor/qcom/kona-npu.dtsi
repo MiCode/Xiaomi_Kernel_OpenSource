@@ -1,0 +1,270 @@
+&soc {
+	msm_npu: qcom,msm_npu@9800000 {
+		compatible = "qcom,msm-npu";
+		status = "ok";
+		reg = <0x9900000 0x20000>,
+			<0x99F0000 0x10000>,
+			<0x9980000 0x10000>,
+			<0x17c00000 0x10000>,
+			<0x01F40000 0x40000>;
+		reg-names = "tcm", "core", "cc", "apss_shared", "tcsr";
+		interrupts = <GIC_SPI 364 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 366 IRQ_TYPE_EDGE_RISING>,
+				<GIC_SPI 368 IRQ_TYPE_EDGE_RISING>,
+				<GIC_SPI 365 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "error_irq", "wdg_bite_irq", "ipc_irq",
+					"general_irq";
+		iommus = <&apps_smmu 0x1081 0x400>, <&apps_smmu 0x1082 0x400>,
+			<&apps_smmu 0x10A1 0x400>, <&apps_smmu 0x10A2 0x400>;
+
+		clocks = <&clock_npucc NPU_CC_XO_CLK>,
+				<&clock_npucc NPU_CC_CORE_CLK>,
+				<&clock_npucc NPU_CC_CAL_HM0_CLK>,
+				<&clock_npucc NPU_CC_CAL_HM1_CLK>,
+				<&clock_npucc NPU_CC_CAL_HM0_CDC_CLK>,
+				<&clock_npucc NPU_CC_CAL_HM1_CDC_CLK>,
+				<&clock_npucc NPU_CC_NOC_AXI_CLK>,
+				<&clock_npucc NPU_CC_NOC_AHB_CLK>,
+				<&clock_npucc NPU_CC_NOC_DMA_CLK>,
+				<&clock_npucc NPU_CC_LLM_CLK>,
+				<&clock_npucc NPU_CC_LLM_XO_CLK>,
+				<&clock_npucc NPU_CC_LLM_TEMP_CLK>,
+				<&clock_npucc NPU_CC_LLM_CURR_CLK>,
+				<&clock_npucc NPU_CC_DL_LLM_CLK>,
+				<&clock_npucc NPU_CC_ISENSE_CLK>,
+				<&clock_npucc NPU_CC_DPM_CLK>,
+				<&clock_npucc NPU_CC_DPM_XO_CLK>,
+				<&clock_npucc NPU_CC_DL_DPM_CLK>,
+				<&clock_npucc NPU_CC_RSC_XO_CLK>,
+				<&clock_npucc NPU_CC_DPM_TEMP_CLK>,
+				<&clock_npucc NPU_CC_CAL_HM0_DPM_IP_CLK>,
+				<&clock_npucc NPU_CC_CAL_HM1_DPM_IP_CLK>,
+				<&clock_npucc NPU_CC_S2P_CLK>,
+				<&clock_npucc NPU_CC_BWMON_CLK>,
+				<&clock_npucc NPU_CC_CAL_HM0_PERF_CNT_CLK>,
+				<&clock_npucc NPU_CC_CAL_HM1_PERF_CNT_CLK>,
+				<&clock_npucc NPU_CC_BTO_CORE_CLK>,
+				<&clock_npucc NPU_DSP_CORE_CLK_SRC>;
+		clock-names = "xo_clk",
+				"npu_core_clk",
+				"cal_hm0_clk",
+				"cal_hm1_clk",
+				"cal_hm0_cdc_clk",
+				"cal_hm1_cdc_clk",
+				"axi_clk",
+				"ahb_clk",
+				"dma_clk",
+				"llm_clk",
+				"llm_xo_clk",
+				"llm_temp_clk",
+				"llm_curr_clk",
+				"dl_llm_clk",
+				"isense_clk",
+				"dpm_clk",
+				"dpm_xo_clk",
+				"dl_dpm_clk",
+				"rsc_xo_clk",
+				"dpm_temp_clk",
+				"cal_hm0_dpm_ip_clk",
+				"cal_hm1_dpm_ip_clk",
+				"s2p_clk",
+				"bwmon_clk",
+				"cal_hm0_perf_cnt_clk",
+				"cal_hm1_perf_cnt_clk",
+				"bto_core_clk",
+				"dsp_core_clk_src";
+
+		vdd-supply = <&npu_core_gdsc>;
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		qcom,proxy-reg-names ="vdd", "vdd_cx";
+		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
+		resets = <&clock_npucc NPU_CC_DPM_TEMP_CLK_ARES>,
+				<&clock_npucc NPU_CC_LLM_CURR_CLK_ARES>,
+				<&clock_npucc NPU_CC_LLM_TEMP_CLK_ARES>;
+		reset-names = "dpm_temp_clk", "llm_curr_clk", "llm_temp_clk";
+		#cooling-cells = <2>;
+		mboxes = <&ipcc_mproc IPCC_CLIENT_NPU
+				IPCC_MPROC_SIGNAL_GLINK_QMP>,
+			<&ipcc_mproc IPCC_CLIENT_NPU
+				IPCC_MPROC_SIGNAL_SMP2P>,
+			<&ipcc_mproc IPCC_CLIENT_NPU
+				IPCC_MPROC_SIGNAL_PING>;
+		mbox-names = "ipcc-glink", "ipcc-smp2p", "ipcc-ping";
+		#mbox-cells = <2>;
+		qcom,npubw-devs = <&npu_npu_llcc_bw>, <&npu_llcc_ddr_bw>,
+			<&npudsp_npu_ddr_bw>;
+		qcom,npubw-dev-names = "llcc_bw", "llcc_ddr_bw", "dsp_ddr_bw";
+		qcom,src-dst-ports = <MSM_BUS_MASTER_NPU MSM_BUS_SLAVE_EBI_CH0>,
+				<MSM_BUS_MASTER_NPU MSM_BUS_SLAVE_CLK_CTL>;
+		qcom,npu-pwrlevels {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "qcom,npu-pwrlevels";
+			initial-pwrlevel = <4>;
+			qcom,npu-pwrlevel@0 {
+				reg = <0>;
+				vreg = <1>;
+				clk-freq = <19200000
+					100000000
+					300000000
+					300000000
+					300000000
+					300000000
+					200000000
+					40000000
+					300000000
+					100000000
+					19200000
+					50000000
+					50000000
+					100000000
+					100000000
+					100000000
+					19200000
+					100000000
+					19200000
+					50000000
+					200000000
+					200000000
+					50000000
+					19200000
+					300000000
+					300000000
+					19200000
+					300000000>;
+			};
+
+			qcom,npu-pwrlevel@1 {
+				reg = <1>;
+				vreg = <2>;
+				clk-freq = <19200000
+					200000000
+					466000000
+					466000000
+					466000000
+					466000000
+					267000000
+					40000000
+					403000000
+					200000000
+					19200000
+					50000000
+					50000000
+					200000000
+					200000000
+					200000000
+					19200000
+					200000000
+					19200000
+					50000000
+					466000000
+					466000000
+					50000000
+					19200000
+					466000000
+					466000000
+					19200000
+					400000000>;
+			};
+
+			qcom,npu-pwrlevel@2 {
+				reg = <2>;
+				vreg = <3>;
+				clk-freq = <19200000
+					333000000
+					533000000
+					533000000
+					533000000
+					533000000
+					403000000
+					75000000
+					533000000
+					214000000
+					19200000
+					50000000
+					100000000
+					214000000
+					214000000
+					214000000
+					19200000
+					214000000
+					19200000
+					50000000
+					533000000
+					533000000
+					50000000
+					19200000
+					533000000
+					533000000
+					19200000
+					500000000>;
+			};
+
+			qcom,npu-pwrlevel@3 {
+				reg = <3>;
+				vreg = <4>;
+				clk-freq = <19200000
+					428000000
+					850000000
+					850000000
+					850000000
+					850000000
+					533000000
+					75000000
+					700000000
+					300000000
+					19200000
+					100000000
+					200000000
+					300000000
+					300000000
+					300000000
+					19200000
+					300000000
+					19200000
+					100000000
+					850000000
+					850000000
+					100000000
+					19200000
+					850000000
+					850000000
+					19200000
+					660000000>;
+			};
+
+			qcom,npu-pwrlevel@4 {
+				reg = <4>;
+				vreg = <6>;
+				clk-freq = <19200000
+					500000000
+					1000000000
+					1000000000
+					1000000000
+					1000000000
+					700000000
+					75000000
+					806000000
+					300000000
+					19200000
+					100000000
+					200000000
+					300000000
+					300000000
+					300000000
+					19200000
+					300000000
+					19200000
+					100000000
+					1000000000
+					1000000000
+					100000000
+					19200000
+					1000000000
+					1000000000
+					19200000
+					800000000>;
+			};
+		};
+	};
+};

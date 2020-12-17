@@ -1,0 +1,40 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include "bengal-iot-idp-low-ram.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. BENGAL-IOT IDP 2Gb DDR HD+";
+	compatible = "qcom,bengal-iot-idp", "qcom,bengal-iot", "qcom,idp";
+	qcom,msm-id = <469 0x10000>;
+	qcom,board-id = <34 0x403>;
+};
+
+&sde_dsi {
+	qcom,dsi-default-panel = <&dsi_nt36525_truly_video>;
+};
+
+&qupv3_se2_i2c {
+	status = "okay";
+	qcom,i2c-touch-active="novatek,NVT-ts";
+
+	novatek@62 {
+		compatible = "novatek,NVT-ts";
+		reg = <0x62>;
+		status = "ok";
+
+		interrupt-parent = <&tlmm>;
+		interrupts = <80 0x2008>;
+		pinctrl-names = "pmx_ts_active","pmx_ts_suspend",
+			"pmx_ts_release";
+		pinctrl-0 = <&ts_int_active &ts_reset_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		pinctrl-2 = <&ts_release>;
+
+		novatek,reset-gpio = <&tlmm 71 0x00>;
+		novatek,irq-gpio = <&tlmm 80 0x2008>;
+
+		panel = <&dsi_nt36525_truly_video>;
+	};
+};

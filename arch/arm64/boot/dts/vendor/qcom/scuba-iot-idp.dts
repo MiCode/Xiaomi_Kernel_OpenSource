@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "scuba-iot.dtsi"
+#include "scuba-iot-idp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Scuba IOT IDP";
+	compatible = "qcom,scuba-idp", "qcom,scuba-iot", "qcom,idp";
+	qcom,board-id = <34 0>;
+};

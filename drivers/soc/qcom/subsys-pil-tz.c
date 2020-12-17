@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #include <linux/kernel.h>
@@ -18,6 +19,9 @@
 #include <linux/msm-bus.h>
 #include <linux/dma-mapping.h>
 
+#include <linux/workqueue.h>
+#include <linux/slab.h>
+
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/ramdump.h>
 #include <soc/qcom/scm.h>
@@ -33,11 +37,78 @@
 #define STOP_ACK_TIMEOUT_MS	1000
 #define CRASH_STOP_ACK_TO_MS	200
 
+/*xionghaifeng 20200817 add for xiaomi subsystem ramdump start*/
+#include <linux/seq_file.h>
+#include <linux/proc_fs.h>
+static char last_ssr_reason[MAX_SSR_REASON_LEN] = "none";
+static struct proc_dir_entry *last_ssr_reason_entry;
+/*xionghaifeng 20200817 add for xiaomi subsystem ramdump end*/
+
 #define ERR_READY	0
 #define PBL_DONE	1
 
 #define desc_to_data(d) container_of(d, struct pil_tz_data, desc)
 #define subsys_to_data(d) container_of(d, struct pil_tz_data, subsys_desc)
+
+#define STR_NV_SIGNATURE_DESTROYED "CRITICAL_DATA_CHECK_FAILED"
+
+static char last_modem_sfr_reason[MAX_SSR_REASON_LEN] = "none";
+static struct kobject *checknv_kobj;
+static struct kset *checknv_kset;
+
+static const struct sysfs_ops checknv_sysfs_ops = {
+};
+
+static void kobj_release(struct kobject *kobj)
+{
+	kfree(kobj);
+}
+static struct kobj_type checknv_ktype = {
+	.sysfs_ops = &checknv_sysfs_ops,
+	.release = kobj_release,
+};
+static void checknv_kobj_clean(struct work_struct *work)
+{
+	kobject_uevent(checknv_kobj, KOBJ_REMOVE);
+	kobject_put(checknv_kobj);
+	kset_unregister(checknv_kset);
+}
+static void checknv_kobj_create(struct work_struct *work)
+{
+	int ret;
+	if (checknv_kset != NULL) {
+		pr_err("checknv_kset is not NULL, should clean up.");
+		kobject_uevent(checknv_kobj, KOBJ_REMOVE);
+		kobject_put(checknv_kobj);
+	}
+	checknv_kobj = kzalloc(sizeof(struct kobject), GFP_KERNEL);
+	if (!checknv_kobj) {
+		pr_err("kobject alloc failed.");
+		return;
+	}
+	if (checknv_kset == NULL) {
+		checknv_kset = kset_create_and_add("checknv_errimei", NULL, NULL);
+		if (!checknv_kset) {
+			pr_err("kset creation failed.");
+			goto free_kobj;
+		}
+	}
+	checknv_kobj->kset = checknv_kset;
+	ret = kobject_init_and_add(checknv_kobj, &checknv_ktype, NULL, "%s", "errimei");
+	if (ret) {
+		pr_err("%s: Error in creation kobject", __func__);
+		goto del_kobj;
+	}
+	kobject_uevent(checknv_kobj, KOBJ_ADD);
+	return;
+del_kobj:
+	kobject_put(checknv_kobj);
+	kset_unregister(checknv_kset);
+free_kobj:
+	kfree(checknv_kobj);
+}
+static DECLARE_DELAYED_WORK(create_kobj_work, checknv_kobj_create);
+static DECLARE_WORK(clean_kobj_work, checknv_kobj_clean);
 
 /**
  * struct reg_info - regulator info
@@ -157,6 +228,27 @@ static struct msm_bus_scale_pdata scm_pas_bus_pdata = {
 	.num_usecases = ARRAY_SIZE(scm_pas_bw_tbl),
 	.name = "scm_pas",
 };
+
+/*xionghaifeng 20200817 add for xiaomi subsystem ramdump start*/
+static int last_ssr_reason_proc_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "%s\n", last_ssr_reason);
+	return 0;
+}
+
+static int last_ssr_reason_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, last_ssr_reason_proc_show, NULL);
+}
+
+static const struct file_operations last_ssr_reason_file_ops = {
+	.owner   = THIS_MODULE,
+	.open    = last_ssr_reason_proc_open,
+	.read    = seq_read,
+	.llseek  = seq_lseek,
+	.release = single_release,
+};
+/*xionghaifeng 20200817 add for xiaomi subsystem ramdump end*/
 
 static uint32_t scm_perf_client;
 static int scm_pas_bw_count;
@@ -815,8 +907,16 @@ static void log_failure_reason(const struct pil_tz_data *d)
 		return;
 	}
 
+    /*xionghaifeng 20200817 add for xiaomi subsystem ramdump start*/
+	memset(last_ssr_reason, 0, (size_t)MAX_SSR_REASON_LEN);
+	/*xionghaifeng 20200817 add for xiaomi subsystem ramdump end*/
 	strlcpy(reason, smem_reason, min(size, (size_t)MAX_SSR_REASON_LEN));
+	strlcpy(last_modem_sfr_reason, smem_reason, min(size, (size_t)MAX_SSR_REASON_LEN));
 	pr_err("%s subsystem failure reason: %s.\n", name, reason);
+	/*xionghaifeng 20200817 add for xiaomi subsystem ramdump start*/
+	snprintf(last_ssr_reason, (size_t)MAX_SSR_REASON_LEN,
+			 "%s: %s", name, reason);
+    /*xionghaifeng 20200817 add for xiaomi subsystem ramdump end*/
 }
 
 static int subsys_shutdown(const struct subsys_desc *subsys, bool force_stop)
@@ -885,6 +985,17 @@ static void subsys_crash_shutdown(const struct subsys_desc *subsys)
 	}
 }
 
+static void check_nv(void *dev_id)
+{
+	struct pil_tz_data *d = subsys_to_data(dev_id);
+	if (strnstr(last_modem_sfr_reason, STR_NV_SIGNATURE_DESTROYED, strlen(last_modem_sfr_reason))) {
+		pr_err("errimei_dev: the NV has been destroyed, should restart to recovery\n");
+		schedule_delayed_work(&create_kobj_work, msecs_to_jiffies(1*1000));
+	} else {
+		subsystem_restart_dev(d->subsys);
+	}
+}
+
 static irqreturn_t subsys_err_fatal_intr_handler (int irq, void *dev_id)
 {
 	struct pil_tz_data *d = subsys_to_data(dev_id);
@@ -897,7 +1008,7 @@ static irqreturn_t subsys_err_fatal_intr_handler (int irq, void *dev_id)
 	}
 	subsys_set_crash_status(d->subsys, CRASH_STATUS_ERR_FATAL);
 	log_failure_reason(d);
-	subsystem_restart_dev(d->subsys);
+	check_nv(dev_id);
 
 	return IRQ_HANDLED;
 }
@@ -915,7 +1026,7 @@ static irqreturn_t subsys_wdog_bite_irq_handler(int irq, void *dev_id)
 							__func__);
 	subsys_set_crash_status(d->subsys, CRASH_STATUS_WDOG_BITE);
 	log_failure_reason(d);
-	subsystem_restart_dev(d->subsys);
+	check_nv(dev_id);
 
 	return IRQ_HANDLED;
 }
@@ -1307,12 +1418,25 @@ static struct platform_driver pil_tz_driver = {
 
 static int __init pil_tz_init(void)
 {
+    /*xionghaifeng 20200817 add for xiaomi subsystem ramdump start*/
+	last_ssr_reason_entry = proc_create("last_mcrash",
+		S_IFREG | S_IRUGO, NULL, &last_ssr_reason_file_ops);
+	if (!last_ssr_reason_entry) {
+		printk(KERN_ERR "pil: cannot create proc entry last_mcrash\n");
+	}
+	/*xionghaifeng 20200817 add for xiaomi subsystem ramdump end*/
 	return platform_driver_register(&pil_tz_driver);
 }
 module_init(pil_tz_init);
 
 static void __exit pil_tz_exit(void)
 {
+    /*xionghaifeng 20200817 add for xiaomi subsystem ramdump start*/
+	if (last_ssr_reason_entry) {
+		remove_proc_entry("last_mcrash", NULL);
+		last_ssr_reason_entry = NULL;
+	}
+	/*xionghaifeng 20200817 add for xiaomi subsystem ramdump end*/
 	platform_driver_unregister(&pil_tz_driver);
 }
 module_exit(pil_tz_exit);

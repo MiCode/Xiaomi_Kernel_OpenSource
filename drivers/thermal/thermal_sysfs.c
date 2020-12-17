@@ -903,7 +903,7 @@ void thermal_cooling_device_stats_update(struct thermal_cooling_device *cdev,
 
 	spin_lock(&stats->lock);
 
-	if (stats->state == new_state)
+	if (stats->state == new_state || new_state >= stats->max_states)
 		goto unlock;
 
 	update_time_in_state(stats);

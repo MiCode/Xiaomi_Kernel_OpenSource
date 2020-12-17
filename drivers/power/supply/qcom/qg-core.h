@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2018-2020 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #ifndef __QG_CORE_H__
@@ -190,6 +191,7 @@ struct qpnp_qg {
 	int			last_adj_ssoc;
 	int			recharge_soc;
 	int			batt_age_level;
+	int			batt_id;
 	struct alarm		alarm_timer;
 	u32			sdam_data[SDAM_MAX];
 

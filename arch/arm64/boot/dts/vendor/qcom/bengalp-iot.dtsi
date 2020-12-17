@@ -1,0 +1,18 @@
+#include "bengal.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. BENGALP-IOT";
+	compatible = "qcom,bengalp-iot";
+	qcom,msm-id = <470 0x0>;
+	qcom,msm-name = "BENGALP-IOT";
+};
+
+&soc {
+	qcom,rmnet-ipa {
+		status = "disabled";
+	};
+};
+
+&ipa_hw {
+	status = "disabled";
+};

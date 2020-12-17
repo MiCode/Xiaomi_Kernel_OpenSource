@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #include <linux/cpufreq.h>
@@ -392,6 +393,8 @@ static int qcom_cpufreq_hw_read_lut(struct platform_device *pdev,
 
 	base_freq = c->reg_bases[REG_FREQ_LUT_TABLE];
 	base_volt = c->reg_bases[REG_VOLT_LUT_TABLE];
+
+	prev_cc = 0;
 
 	for (i = 0; i < lut_max_entries; i++) {
 		data = readl_relaxed(base_freq + i * lut_row_size);

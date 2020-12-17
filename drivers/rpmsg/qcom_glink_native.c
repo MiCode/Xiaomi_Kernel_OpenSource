@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2016-2017, Linaro Ltd
+ * Copyright (C) 2020 XiaoMi, Inc.
  * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
@@ -222,6 +223,7 @@ struct glink_channel {
 
 	struct mutex intent_req_lock;
 	bool intent_req_result;
+	bool channel_ready;
 	atomic_t intent_req_comp;
 	wait_queue_head_t intent_req_event;
 };
@@ -879,7 +881,7 @@ static void qcom_glink_handle_intent_req(struct qcom_glink *glink,
 
 	ept = &channel->ept;
 	intent = qcom_glink_alloc_intent(glink, channel, size, false);
-	if (intent && ept->cb)
+	if (intent && channel->channel_ready)
 		qcom_glink_advertise_intent(glink, channel, intent);
 
 	qcom_glink_send_intent_req_ack(glink, channel, !!intent);
@@ -1388,6 +1390,8 @@ static int qcom_glink_announce_create(struct rpmsg_device *rpdev)
 
 	if (glink->intentless || !completion_done(&channel->open_ack))
 		return 0;
+
+	channel->channel_ready = true;
 
 	/*Serve any pending intent request*/
 	spin_lock_irqsave(&channel->intent_lock, flags);

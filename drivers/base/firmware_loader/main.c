@@ -3,6 +3,7 @@
  * main.c - Multi purpose firmware loading support
  *
  * Copyright (c) 2003 Manuel Estrada Sainz
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * Please see Documentation/firmware_class/ for more information.
  *
@@ -286,7 +287,8 @@ static const char * const fw_path[] = {
 	"/lib/firmware/updates/" UTS_RELEASE,
 	"/lib/firmware/updates",
 	"/lib/firmware/" UTS_RELEASE,
-	"/lib/firmware"
+	"/lib/firmware",
+	"/system/vendor/firmware"
 };
 
 /*

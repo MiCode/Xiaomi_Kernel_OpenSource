@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "bengal-iot.dtsi"
+#include "bengal-iot-idp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. BENGAL-IOT IDP";
+	compatible = "qcom,bengal-iot-idp", "qcom,bengal-iot", "qcom,idp";
+	qcom,board-id = <34 0>;
+};

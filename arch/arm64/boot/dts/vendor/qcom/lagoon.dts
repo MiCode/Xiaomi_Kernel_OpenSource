@@ -1,0 +1,9 @@
+/dts-v1/;
+
+#include "lagoon.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Lagoon SoC";
+	compatible = "qcom,lagoon";
+	qcom,board-id = <0 0>;
+};

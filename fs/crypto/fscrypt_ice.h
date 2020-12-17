@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #ifndef _FSCRYPT_ICE_H
@@ -36,7 +37,10 @@ bool fscrypt_is_ice_encryption_info_equal(const struct inode *inode1,
 static inline size_t fscrypt_get_ice_encryption_key_size(
 					const struct inode *inode)
 {
-	return FS_AES_256_XTS_KEY_SIZE / 2;
+	if (inode && inode->i_crypt_info)
+		return inode->i_crypt_info->key_size;
+
+	return 0;
 }
 
 static inline size_t fscrypt_get_ice_encryption_salt_size(

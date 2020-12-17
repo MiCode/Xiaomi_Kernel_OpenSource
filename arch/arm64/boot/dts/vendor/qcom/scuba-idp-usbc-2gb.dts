@@ -1,0 +1,12 @@
+/dts-v1/;
+
+#include "scuba-low-ram.dtsi"
+#include "scuba-idp.dtsi"
+#include "scuba-idp-usbc.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Scuba IDP USBC Audio 2GB DDR";
+	compatible = "qcom,scuba-idp", "qcom,scuba", "qcom,idp";
+	qcom,msm-id = <441 0x10000>;
+	qcom,board-id = <34 0x401>;
+};

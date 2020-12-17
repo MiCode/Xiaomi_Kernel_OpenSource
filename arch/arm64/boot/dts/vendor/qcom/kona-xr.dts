@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "kona.dtsi"
+#include "kona-xr.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. kona XR Standalone";
+	compatible = "qcom,kona-mtp", "qcom,kona", "qcom,mtp";
+	qcom,board-id = <0x10108 0>;
+};

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2015-2017, 2019 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #include <linux/debugfs.h>
@@ -324,7 +325,6 @@ int get_effective_result_locked(struct votable *votable)
 
 	if (votable->override_result != -EINVAL)
 		return votable->override_result;
-
 	return votable->effective_result;
 }
 
@@ -438,7 +438,7 @@ int vote(struct votable *votable, const char *client_str, bool enabled, int val)
 
 	if ((votable->votes[client_id].enabled == enabled) &&
 		(votable->votes[client_id].value == val)) {
-		pr_debug("%s: %s,%d same vote %s of val=%d\n",
+		pr_err("%s: %s,%d same vote %s of val=%d\n",
 				votable->name,
 				client_str, client_id,
 				enabled ? "on" : "off",
@@ -450,13 +450,13 @@ int vote(struct votable *votable, const char *client_str, bool enabled, int val)
 	votable->votes[client_id].value = val;
 
 	if (similar_vote && votable->voted_on) {
-		pr_debug("%s: %s,%d Ignoring similar vote %s of val=%d\n",
+		pr_err("%s: %s,%d Ignoring similar vote %s of val=%d\n",
 			votable->name,
 			client_str, client_id, enabled ? "on" : "off", val);
 		goto out;
 	}
 
-	pr_debug("%s: %s,%d voting %s of val=%d\n",
+	pr_err("%s: %s,%d voting %s of val=%d\n",
 		votable->name,
 		client_str, client_id, enabled ? "on" : "off", val);
 	switch (votable->type) {
@@ -482,7 +482,7 @@ int vote(struct votable *votable, const char *client_str, bool enabled, int val)
 			|| (effective_result != votable->effective_result)) {
 		votable->effective_client_id = effective_id;
 		votable->effective_result = effective_result;
-		pr_debug("%s: effective vote is now %d voted by %s,%d\n",
+		pr_err("%s: effective vote is now %d voted by %s,%d\n",
 			votable->name, effective_result,
 			get_client_str(votable, effective_id),
 			effective_id);

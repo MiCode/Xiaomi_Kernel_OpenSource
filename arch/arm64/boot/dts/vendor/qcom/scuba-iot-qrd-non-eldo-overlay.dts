@@ -1,0 +1,12 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include "scuba-iot-qrd.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Scuba IOT QRD NON ELDO";
+	compatible = "qcom,scuba-qrd", "qcom,scuba-iot", "qcom,qrd";
+	qcom,msm-id = <473 0x10000>, <474 0x10000>;
+	qcom,board-id = <0x1000B 0>;
+};

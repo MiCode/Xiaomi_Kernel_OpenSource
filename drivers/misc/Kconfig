@@ -568,6 +568,18 @@ config OKL4_RINGBUF
 	  Say Y here if you want to test communication between OKL4 guests
 	  using virtual interrupts and shared memory.
 
+config SIMTRAY_STATUS
+	tristate "Xiaomi SIM tray status"
+	default n
+	help
+	  Say 'y' here to support SIM tray GPIO detection
+
+config DPDT_STATUS
+        tristate "Xiaomi dpdt status"
+        default n
+        help
+          Say 'y' here to support dpdt GPIO detection
+
 config TEST_IRQ_REQUESTER
 	tristate "Receive interrupt notifications in user-space"
 	depends on DEBUG_FS
@@ -619,6 +631,11 @@ source "drivers/misc/cxl/Kconfig"
 source "drivers/misc/ocxl/Kconfig"
 source "drivers/misc/cardreader/Kconfig"
 source "drivers/misc/fpr_FingerprintCard/Kconfig"
+source "drivers/misc/goodix/Kconfig"
+source "drivers/misc/focaltech/Kconfig"
+source "drivers/misc/cdfingerfp/Kconfig"
+source "drivers/misc/xiaomi_fs/Kconfig"
+source "drivers/misc/hqsysfs/Kconfig"
 endmenu
 
 config OKL4_USER_VIPC

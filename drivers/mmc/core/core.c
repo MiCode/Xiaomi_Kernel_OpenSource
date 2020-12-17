@@ -750,12 +750,15 @@ int mmc_init_clk_scaling(struct mmc_host *host)
 		mmc_hostname(host),
 		mmc_classdev(host));
 
+	host->clk_scaling.devfreq = NULL;
+/*
 	if (host->clk_scaling.devfreq) {
 		pr_err("%s: dev is already registered for dev %pK\n",
 			mmc_hostname(host),
 			mmc_dev(host));
 		return -EPERM;
 	}
+*/
 	spin_lock_init(&host->clk_scaling.lock);
 	atomic_set(&host->clk_scaling.devfreq_abort, 0);
 	host->clk_scaling.curr_freq = host->ios.clock;

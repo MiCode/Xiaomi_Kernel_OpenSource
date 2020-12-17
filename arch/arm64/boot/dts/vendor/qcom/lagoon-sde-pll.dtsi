@@ -1,0 +1,32 @@
+&soc {
+	mdss_dsi0_pll: qcom,mdss_dsi0_pll {
+		compatible = "qcom,mdss_dsi_pll_10nm";
+		label = "MDSS DSI 0 PLL";
+		cell-index = <0>;
+		clock-cells = <1>;
+		reg = <0xae94a00 0x1e0>,
+			<0xae94400 0x800>,
+			<0xaf03000 0x8>,
+			<0xae94200 0x100>;
+		reg-names = "pll_base", "phy_base", "gdsc_base",
+			"dynamic_pll_base";
+		clocks = <&dispcc DISP_CC_MDSS_AHB_CLK>;
+		clock-names = "iface_clk";
+		clock-rate = <0>;
+		gdsc-supply = <&mdss_core_gdsc>;
+		qcom,dsi-pll-ssc-en;
+		qcom,dsi-pll-ssc-mode = "down-spread";
+		qcom,platform-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			qcom,platform-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "gdsc";
+				qcom,supply-min-voltage = <0>;
+				qcom,supply-max-voltage = <0>;
+				qcom,supply-enable-load = <0>;
+				qcom,supply-disable-load = <0>;
+			};
+		};
+	};
+};

@@ -1,0 +1,208 @@
+#include "scuba-audio-overlay.dtsi"
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/iio/qcom,spmi-vadc.h>
+#include "scuba-thermal-overlay.dtsi"
+#include "scuba-sde-display.dtsi"
+#include "camera/scuba-camera-sensor-idp.dtsi"
+
+&soc {
+	scuba_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+		#include "qg-batterydata-alium-3600mah.dtsi"
+		#include "qg-batterydata-atl466271_3300mAh.dtsi"
+	};
+};
+
+&pm2250_rg_leds {
+	status = "ok";
+};
+
+
+&pm2250_qg {
+	qcom,battery-data = <&scuba_batterydata>;
+	qcom,qg-iterm-ma = <150>;
+	qcom,hold-soc-while-full;
+	qcom,linearize-soc;
+	qcom,cl-feedback-on;
+	qcom,tcss-enable;
+	qcom,fvss-enable;
+	qcom,fvss-vbatt-mv = <3500>;
+	qcom,bass-enable;
+};
+
+&sdhc_1 {
+	vdd-supply = <&L20A>;
+	qcom,vdd-voltage-level = <2856000 2856000>;
+	qcom,vdd-current-level = <0 570000>;
+
+	vdd-io-supply = <&L14A>;
+	qcom,vdd-io-always-on;
+	qcom,vdd-io-lpm-sup;
+	qcom,vdd-io-voltage-level = <1800000 1800000>;
+	qcom,vdd-io-current-level = <0 325000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc1_clk_on &sdc1_cmd_on &sdc1_data_on
+					&sdc1_rclk_on>;
+	pinctrl-1 = <&sdc1_clk_off &sdc1_cmd_off &sdc1_data_off
+					&sdc1_rclk_off>;
+
+	status = "ok";
+};
+
+&sdhc_2 {
+	vdd-supply = <&L21A>;
+	qcom,vdd-voltage-level = <2960000 3300000>;
+	qcom,vdd-current-level = <0 800000>;
+
+	vdd-io-supply = <&L4A>;
+	qcom,vdd-io-voltage-level = <1800000 2960000>;
+	qcom,vdd-io-current-level = <0 22000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc2_clk_on  &sdc2_cmd_on &sdc2_data_on &sdc2_cd_on>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off &sdc2_cd_off>;
+
+	cd-gpios = <&tlmm 88 GPIO_ACTIVE_LOW>;
+
+	status = "ok";
+};
+
+&pm2250_charger {
+	interrupts-extended = <&tlmm 89 0>;
+	interrupt-names = "usb_id_irq";
+	qcom,usb-id-gpio = <&tlmm 89 0>;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&usb_id_interrupt>;
+
+	qcom,auto-recharge-soc = <98>;
+	qcom,suspend-input-on-debug-batt;
+	qcom,battery-data = <&scuba_batterydata>;
+	io-channels = <&pm2250_vadc ADC_USB_IN_V_16>,
+			<&pm2250_vadc ADC_CHG_TEMP>;
+	io-channel-names = "usb_in_voltage",
+			"chg_temp";
+	qcom,thermal-mitigation = <2000000 1500000 1000000 500000>;
+};
+
+&pm2250_pwm3 {
+	status = "ok";
+};
+
+&dsi_nt36525_truly_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_no_labibb>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
+	pwms = <&pm2250_pwm3 0 0>;
+	qcom,bl-pmic-pwm-period-usecs = <100>;
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,platform-reset-gpio = <&tlmm 82 0>;
+	qcom,platform-reset-gpio-always-on;
+	qcom,platform-en-gpio = <&tlmm 105 0>;
+};
+
+&dsi_td4330_truly_v2_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_no_labibb>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
+	pwms = <&pm2250_pwm3 0 0>;
+	qcom,bl-pmic-pwm-period-usecs = <100>;
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,platform-reset-gpio = <&tlmm 82 0>;
+	qcom,platform-en-gpio = <&tlmm 105 0>;
+};
+
+&dsi_td4330_truly_v2_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_no_labibb>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
+	pwms = <&pm2250_pwm3 0 0>;
+	qcom,bl-pmic-pwm-period-usecs = <100>;
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,platform-te-gpio = <&tlmm 81 0>;
+	qcom,platform-reset-gpio = <&tlmm 82 0>;
+	qcom,platform-en-gpio = <&tlmm 105 0>;
+};
+
+&sde_dsi {
+	qcom,dsi-default-panel = <&dsi_nt36525_truly_video>;
+};
+
+&qupv3_se2_i2c {
+	status = "okay";
+	qcom,i2c-touch-active="novatek,NVT-ts";
+
+	novatek@62 {
+		compatible = "novatek,NVT-ts";
+		reg = <0x62>;
+		status = "ok";
+
+		interrupt-parent = <&tlmm>;
+		interrupts = <80 0x2008>;
+		pinctrl-names = "pmx_ts_active","pmx_ts_suspend",
+			"pmx_ts_release";
+		pinctrl-0 = <&ts_int_active &ts_reset_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		pinctrl-2 = <&ts_release>;
+
+		novatek,reset-gpio = <&tlmm 71 0x00>;
+		novatek,irq-gpio = <&tlmm 80 0x2008>;
+
+		panel = <&dsi_nt36525_truly_video>;
+	};
+
+	synaptics_tcm@20 {
+		compatible = "synaptics,tcm-i2c";
+		reg = <0x20>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <80 0x2008>;
+		pinctrl-names = "pmx_ts_active","pmx_ts_suspend",
+			"pmx_ts_release";
+		pinctrl-0 = <&ts_int_active &ts_reset_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		pinctrl-2 = <&ts_release>;
+		synaptics,irq-gpio = <&tlmm 80 0x2008>;
+		synaptics,irq-on-state = <0>;
+		synaptics,reset-gpio = <&tlmm 71 0x00>;
+		synaptics,reset-on-state = <0>;
+		synaptics,reset-active-ms = <20>;
+		synaptics,reset-delay-ms = <200>;
+		synaptics,power-delay-ms = <200>;
+		synaptics,ubl-i2c-addr = <0x20>;
+		synaptics,extend_report;
+		synaptics,firmware-name = "synaptics_firmware_k.img";
+
+		panel = <&dsi_td4330_truly_v2_video &dsi_td4330_truly_v2_cmd>;
+	};
+};
+
+&qusb_phy0 {
+	extcon = <&pm2250_charger>;
+};
+
+&usb0 {
+	extcon = <&qusb_phy0>, <&eud>;
+};
+
+&qupv3_se1_i2c {
+	status = "ok";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	nq@28 {
+		compatible = "qcom,nq-nci";
+		reg = <0x28>;
+		qcom,nq-irq = <&tlmm 70 0x00>;
+		qcom,nq-ven = <&tlmm 69 0x00>;
+		qcom,nq-firm = <&tlmm 31 0x00>;
+		qcom,nq-clkreq = <&tlmm 86 0x00>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <70 0>;
+		interrupt-names = "nfc_irq";
+		pinctrl-names = "nfc_active", "nfc_suspend";
+		pinctrl-0 = <&nfc_int_active &nfc_enable_active
+				&nfc_clk_req_active>;
+		pinctrl-1 = <&nfc_int_suspend &nfc_enable_suspend
+				&nfc_clk_req_suspend>;
+	};
+};

@@ -35,6 +35,8 @@
 
 #include <trace/events/thermal.h>
 
+#define USE_LMH_DEV    0
+
 /*
  * Cooling state <-> CPUFreq frequency
  *
@@ -54,6 +56,12 @@
  * @time: previous reading of the absolute time that this cpu was idle
  * @timestamp: wall time of the last invocation of get_cpu_idle_time_us()
  */
+
+struct freq_table {
+	u32 frequency;
+	u32 power;
+};
+
 struct time_in_idle {
 	u64 time;
 	u64 timestamp;
@@ -87,12 +95,14 @@ struct time_in_idle {
  */
 struct cpufreq_cooling_device {
 	int id;
+	int cpu_id;
 	u32 last_load;
 	unsigned int cpufreq_state;
 	unsigned int clipped_freq;
 	unsigned int cpufreq_floor_state;
 	unsigned int floor_freq;
 	unsigned int max_level;
+	struct freq_table *freq_table;
 	struct em_perf_domain *em;
 	struct thermal_cooling_device *cdev;
 	struct cpufreq_policy *policy;
@@ -125,7 +135,7 @@ static int cpufreq_thermal_notifier(struct notifier_block *nb,
 	unsigned long clipped_freq = ULONG_MAX, floor_freq = 0;
 	struct cpufreq_cooling_device *cpufreq_cdev;
 
-	if (event != CPUFREQ_INCOMPATIBLE)
+	if (event != CPUFREQ_THERMAL)
 		return NOTIFY_DONE;
 
 	mutex_lock(&cooling_list_lock);
@@ -151,18 +161,48 @@ static int cpufreq_thermal_notifier(struct notifier_block *nb,
 		 * Similarly, if policy minimum set by the user is less than
 		 * the floor_frequency, then adjust the policy->min.
 		 */
-		clipped_freq = cpufreq_cdev->clipped_freq;
-		floor_freq = cpufreq_cdev->floor_freq;
-		if (policy->max > clipped_freq || policy->min < floor_freq)
-			cpufreq_verify_within_limits(policy, floor_freq,
-							clipped_freq);
-		break;
-	}
+		if (clipped_freq > cpufreq_cdev->clipped_freq)
+		{
+			//pr_info("__test__, %s,cpu is %d, clipperd_freq is %d, %d.\n", __func__, policy->cpu, clipped_freq, cpufreq_cdev->clipped_freq);
+			clipped_freq = cpufreq_cdev->clipped_freq;
 
+		}
+	}
+	cpufreq_verify_within_limits(policy, floor_freq, clipped_freq);
 	mutex_unlock(&cooling_list_lock);
 
 	return NOTIFY_OK;
 }
+
+
+void cpu_limits_set_level(unsigned int cpu, unsigned int max_freq)
+{
+	struct cpufreq_cooling_device *cpufreq_cdev;
+	struct thermal_cooling_device *cdev;
+	unsigned int cdev_cpu;
+	unsigned int level;
+
+	list_for_each_entry(cpufreq_cdev, &cpufreq_cdev_list, node) {
+		sscanf(cpufreq_cdev->cdev->type, "thermal-cpufreq-%d", &cdev_cpu);
+		if (cdev_cpu == cpu) {
+			for (level = 0; level <= cpufreq_cdev->max_level; level++) {
+				int target_freq = cpufreq_cdev->em->table[level].frequency;
+				if (max_freq <= target_freq) {
+					cdev = cpufreq_cdev->cdev;
+					if (cdev)
+					{
+						//pr_info("__test__, %s, cpu is %d, max_freq is %d, target_freq is %d.\n", __func__, cpu, max_freq, target_freq);
+						cdev->ops->set_cur_state(cdev, cpufreq_cdev->max_level - level);
+
+					}
+					break;
+				}
+			}
+			break;
+		}
+	}
+}
+
 
 #ifdef CONFIG_ENERGY_MODEL
 /**
@@ -405,7 +445,7 @@ static int cpufreq_set_cur_state(struct thermal_cooling_device *cdev,
 
 	/* Request state should be less than max_level */
 	if (WARN_ON(state > cpufreq_cdev->max_level))
-		return -EINVAL;
+		return cpufreq_cdev->max_level;
 
 	/* Check if the old cooling action is same as new cooling action */
 	if (cpufreq_cdev->cpufreq_state == state)
@@ -419,12 +459,18 @@ static int cpufreq_set_cur_state(struct thermal_cooling_device *cdev,
 	 * can handle the CPU freq mitigation, if not, notify cpufreq
 	 * framework.
 	 */
-	if (cpufreq_cdev->plat_ops &&
-		cpufreq_cdev->plat_ops->ceil_limit)
-		cpufreq_cdev->plat_ops->ceil_limit(cpufreq_cdev->policy->cpu,
+	if (USE_LMH_DEV && cpufreq_cdev->plat_ops) {
+		if (cpufreq_cdev->plat_ops->ceil_limit)
+			cpufreq_cdev->plat_ops->ceil_limit(cpufreq_cdev->policy->cpu,
 							clip_freq);
-	else
+		get_online_cpus();
 		cpufreq_update_policy(cpufreq_cdev->policy->cpu);
+		put_online_cpus();
+	} else {
+		get_online_cpus();
+		cpufreq_update_policy(cpufreq_cdev->policy->cpu);
+		put_online_cpus();
+	}
 
 	return 0;
 }
@@ -701,7 +747,7 @@ __cpufreq_cooling_register(struct device_node *np,
 	list_add(&cpufreq_cdev->node, &cpufreq_cdev_list);
 	mutex_unlock(&cooling_list_lock);
 
-	if (first && !cpufreq_cdev->plat_ops)
+	if (first)
 		cpufreq_register_notifier(&thermal_cpufreq_notifier_block,
 					  CPUFREQ_POLICY_NOTIFIER);
 
@@ -841,10 +887,9 @@ void cpufreq_cooling_unregister(struct thermal_cooling_device *cdev)
 	mutex_unlock(&cooling_list_lock);
 
 	if (last) {
-		if (!cpufreq_cdev->plat_ops)
-			cpufreq_unregister_notifier(
-					&thermal_cpufreq_notifier_block,
-					CPUFREQ_POLICY_NOTIFIER);
+		cpufreq_unregister_notifier(
+				&thermal_cpufreq_notifier_block,
+				CPUFREQ_POLICY_NOTIFIER);
 	}
 
 	thermal_cooling_device_unregister(cpufreq_cdev->cdev);

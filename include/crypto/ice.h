@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #ifndef _QCOM_INLINE_CRYPTO_ENGINE_H_
@@ -30,7 +31,8 @@ enum ice_crpto_key_mode {
 	ICE_CRYPTO_USE_LUT_SW_KEY  = 0x3
 };
 
-#define QCOM_ICE_TYPE_NAME_LEN 8
+#define QCOM_ICE_TYPE_NAME_LEN		8
+#define QTI_HWKM_INIT_DONE		0x1
 
 typedef void (*ice_error_cb)(void *, u32 error);
 
@@ -73,6 +75,8 @@ struct ice_device {
 	atomic_t		is_ice_suspended;
 	atomic_t		is_ice_busy;
 	wait_queue_head_t       block_suspend_ice_queue;
+	uint32_t		flags;
+	bool			hwkm_supported;
 };
 
 struct ice_crypto_setting {

@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "scuba-low-ram.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Scuba 2GB DDR SoC";
+	compatible = "qcom,scuba";
+	qcom,msm-id = <441 0x10000>, <471 0x10000>;
+	qcom,board-id = <0 0x400>;
+};
