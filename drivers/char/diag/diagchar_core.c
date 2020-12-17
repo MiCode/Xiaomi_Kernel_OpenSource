@@ -2390,6 +2390,8 @@ int diag_query_pd(char *process_name)
 		return PERIPHERAL_CDSP;
 	if (diag_query_pd_name(process_name, "npu/root_pd"))
 		return PERIPHERAL_NPU;
+	if (diag_query_pd_name(process_name, "wpss/root_pd"))
+		return PERIPHERAL_WCNSS;
 	if (diag_query_pd_name(process_name, "wlan_pd"))
 		return UPD_WLAN;
 	if (diag_query_pd_name(process_name, "audio_pd"))
