@@ -626,6 +626,7 @@ struct walt_task_struct {
 	struct list_head		grp_list;
 	u64				cpu_cycles;
 	cpumask_t			cpus_requested;
+	bool				iowaited;
 };
 
 #else
