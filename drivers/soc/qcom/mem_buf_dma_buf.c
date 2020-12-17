@@ -908,3 +908,59 @@ int mem_buf_reclaim(struct dma_buf *dmabuf)
 	mutex_unlock(&vmperm->lock);
 	return ret;
 }
+
+bool mem_buf_dma_buf_exclusive_owner(struct dma_buf *dmabuf)
+{
+	struct mem_buf_vmperm *vmperm;
+	bool ret = false;
+
+	vmperm = to_mem_buf_vmperm(dmabuf);
+	if (WARN_ON(IS_ERR(vmperm)))
+		return false;
+
+	mutex_lock(&vmperm->lock);
+	ret = !vmperm->flags;
+	mutex_unlock(&vmperm->lock);
+	return ret;
+}
+
+int mem_buf_dma_buf_copy_vmperm(struct dma_buf *dmabuf, int **vmids,
+		int **perms, int *nr_acl_entries)
+{
+	struct mem_buf_vmperm *vmperm;
+	size_t size;
+	int *vmids_copy, *perms_copy;
+	int ret;
+
+	vmperm = to_mem_buf_vmperm(dmabuf);
+	if (IS_ERR(vmperm))
+		return PTR_ERR(vmperm);
+
+	mutex_lock(&vmperm->lock);
+	size = sizeof(*vmids_copy) * vmperm->nr_acl_entries;
+	vmids_copy = kmemdup(vmperm->vmids, size, GFP_KERNEL);
+	if (!vmids_copy) {
+		ret = -ENOMEM;
+		goto err_vmids;
+	}
+
+	perms_copy = kmemdup(vmperm->perms, size, GFP_KERNEL);
+	if (!perms_copy) {
+		ret = -ENOMEM;
+		goto err_perms;
+	}
+
+	*vmids = vmids_copy;
+	*perms = perms_copy;
+	*nr_acl_entries = vmperm->nr_acl_entries;
+
+	mutex_unlock(&vmperm->lock);
+	return 0;
+
+err_perms:
+	kfree(vmids_copy);
+err_vmids:
+	mutex_unlock(&vmperm->lock);
+	return ret;
+}
+

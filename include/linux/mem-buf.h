@@ -105,6 +105,17 @@ struct mem_buf_alloc_relinquish {
 
 /* Public definitions */
 
+
+/* Returns true if the local VM has exclusive access and is the owner */
+bool mem_buf_dma_buf_exclusive_owner(struct dma_buf *dmabuf);
+
+/*
+ * Returns a copy of the Virtual Machine vmids & permissions of the dmabuf.
+ * The caller must kfree() when finished.
+ */
+int mem_buf_dma_buf_copy_vmperm(struct dma_buf *dmabuf, int **vmids, int **perms,
+		int *nr_acl_entries);
+
 /**
  * struct mem_buf_allocation_data - Data structure that contains information
  * about a memory buffer allocation request.
