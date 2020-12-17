@@ -116,3 +116,4 @@ bam_dma.ko
 qcom_ipc_logging.ko
 llcc-qcom.ko
 rq_stats.ko
+fsa4480-i2c.ko
