@@ -51,6 +51,7 @@
 #include <linux/vmalloc.h>
 #include <linux/qcom_dma_heap.h>
 
+#include "qcom_dma_heap_secure_utils.h"
 #include "qcom_dynamic_page_pool.h"
 #include "qcom_sg_ops.h"
 #include "qcom_system_heap.h"
@@ -97,12 +98,15 @@ static void system_heap_free(struct qcom_sg_buffer *buffer)
 	int i, j;
 
 	sys_heap = dma_heap_get_drvdata(buffer->heap);
+	table = &buffer->sg_table;
+
+	if (sys_heap->vmid)
+		if (hyp_unassign_sg_from_flags(table, sys_heap->vmid, true))
+			return;
 
 	/* Zero the buffer pages before adding back to the pool */
-	if (!buffer->secure)
-		system_heap_zero_buffer(buffer);
+	system_heap_zero_buffer(buffer);
 
-	table = &buffer->sg_table;
 	for_each_sg(table->sgl, sg, table->nents, i) {
 		struct page *page = sg_page(sg);
 
@@ -164,6 +168,7 @@ static struct dma_buf *system_heap_allocate(struct dma_heap *heap,
 	buffer->heap = heap;
 	buffer->len = len;
 	buffer->uncached = sys_heap->uncached;
+	buffer->secure = sys_heap->vmid ? true : false;
 	buffer->free = system_heap_free;
 
 	INIT_LIST_HEAD(&pages);
@@ -199,17 +204,6 @@ static struct dma_buf *system_heap_allocate(struct dma_heap *heap,
 		list_del(&page->lru);
 	}
 
-	/* create the dmabuf */
-	exp_info.ops = &qcom_sg_buf_ops;
-	exp_info.size = buffer->len;
-	exp_info.flags = fd_flags;
-	exp_info.priv = buffer;
-	dmabuf = dma_buf_export(&exp_info);
-	if (IS_ERR(dmabuf)) {
-		ret = PTR_ERR(dmabuf);
-		goto free_pages;
-	}
-
 	/*
 	 * For uncached buffers, we need to initially flush cpu cache, since
 	 * the __GFP_ZERO on the allocation means the zeroing was done by the
@@ -221,7 +215,27 @@ static struct dma_buf *system_heap_allocate(struct dma_heap *heap,
 		dma_unmap_sgtable(sys_heap->dev, table, DMA_BIDIRECTIONAL, 0);
 	}
 
+	if (sys_heap->vmid) {
+		if (hyp_assign_sg_from_flags(table, sys_heap->vmid, true))
+			goto free_pages;
+	}
+
+	/* create the dmabuf */
+	exp_info.ops = &qcom_sg_buf_ops;
+	exp_info.size = buffer->len;
+	exp_info.flags = fd_flags;
+	exp_info.priv = buffer;
+	dmabuf = dma_buf_export(&exp_info);
+	if (IS_ERR(dmabuf)) {
+		ret = PTR_ERR(dmabuf);
+		goto hyp_unassign;
+	}
+
 	return dmabuf;
+
+hyp_unassign:
+	if (hyp_unassign_sg_from_flags(table, sys_heap->vmid, true))
+		goto free_sg;
 
 free_pages:
 	for_each_sgtable_sg(table, sg, i) {
@@ -229,6 +243,8 @@ free_pages:
 
 		__free_pages(p, compound_order(p));
 	}
+
+free_sg:
 	sg_free_table(table);
 free_buffer:
 	list_for_each_entry_safe(page, tmp_page, &pages, lru)
@@ -242,7 +258,7 @@ static const struct dma_heap_ops system_heap_ops = {
 	.allocate = system_heap_allocate,
 };
 
-int qcom_system_heap_create(char *name, bool uncached)
+int qcom_system_heap_create(char *name, bool uncached, int vmid)
 {
 	struct dma_heap_export_info exp_info;
 	struct dma_heap *heap;
@@ -261,6 +277,7 @@ int qcom_system_heap_create(char *name, bool uncached)
 	exp_info.priv = sys_heap;
 
 	sys_heap->uncached = uncached;
+	sys_heap->vmid = vmid;
 
 	if (uncached) {
 		heap_dev = kzalloc(sizeof(*heap_dev), __GFP_ZERO);

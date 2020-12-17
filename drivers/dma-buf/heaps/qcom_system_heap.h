@@ -13,12 +13,13 @@ struct qcom_system_heap {
 	struct device *dev;
 	int uncached;
 	struct dynamic_page_pool **pool_list;
+	int vmid;
 };
 
 #ifdef CONFIG_QCOM_DMABUF_HEAPS_SYSTEM
-int qcom_system_heap_create(char *name, bool uncached);
+int qcom_system_heap_create(char *name, bool uncached, int vmid);
 #else
-static int qcom_system_heap_create(char *name, bool uncached)
+static int qcom_system_heap_create(char *name, bool uncached, int vmid)
 {
 	return 1;
 }
