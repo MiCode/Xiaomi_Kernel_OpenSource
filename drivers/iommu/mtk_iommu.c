@@ -350,7 +350,8 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 		if (!fault_pgpa && i > 0)
 			break;
 	}
-	mtk_iova_map_dump(fault_iova);
+	if (fault_iova) /* skip dump when fault iova = 0 */
+		mtk_iova_map_dump(fault_iova);
 	report_custom_iommu_fault(fault_iova, fault_pa, regval,
 				  data->plat_data->is_apu ? true : false);
 #endif
