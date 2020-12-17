@@ -12,8 +12,9 @@
 #include <linux/of_irq.h>
 #include <linux/interrupt.h>
 #include <linux/iio/consumer.h>
+#include <linux/thermal.h>
+
 #include "adc-tm.h"
-#include "../thermal_core.h"
 
 #define ADC_TM_STATUS2				0x09
 #define ADC_TM_STATUS_LOW			0x0a
@@ -915,11 +916,13 @@ fail:
 			 * with new thresholds and activate/disable
 			 * the appropriate trips.
 			 */
-			pr_debug("notifying of_thermal\n");
 			temp = therm_fwd_scale((int64_t)code,
 						ADC_HC_VDD_REF, chip->data);
-			of_thermal_handle_trip_temp(chip->dev,
-				chip->sensor[i].tzd, temp);
+			pr_debug("notifying thermal %d\n", temp);
+			chip->sensor[i].last_temp = temp;
+			chip->sensor[i].last_temp_set = true;
+			thermal_zone_device_update(chip->sensor[i].tzd,
+						THERMAL_TRIP_VIOLATED);
 		} else {
 			if (lower_set) {
 				ret = adc_tm5_reg_update(chip,
