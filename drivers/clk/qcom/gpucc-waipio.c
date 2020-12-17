@@ -35,6 +35,11 @@ static struct clk_vdd_class *gpu_cc_waipio_regulators[] = {
 	&vdd_mxc,
 };
 
+static struct clk_vdd_class *gpu_cc_waipio_regulators_1[] = {
+	&vdd_cx,
+	&vdd_mx,
+};
+
 enum {
 	P_BI_TCXO,
 	P_GPLL0_OUT_MAIN,
@@ -226,7 +231,8 @@ static struct clk_rcg2 gpu_cc_gmu_clk_src = {
 		.ops = &clk_rcg2_ops,
 	},
 	.clkr.vdd_data = {
-		.vdd_class = &vdd_cx,
+		.vdd_classes = gpu_cc_waipio_regulators_1,
+		.num_vdd_classes = ARRAY_SIZE(gpu_cc_waipio_regulators_1),
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_LOWER] = 200000000,

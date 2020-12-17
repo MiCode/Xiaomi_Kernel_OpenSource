@@ -382,12 +382,14 @@ int map_debug_bases(struct platform_device *pdev, const char *base,
 EXPORT_SYMBOL(map_debug_bases);
 
 static void clock_print_rate_max_by_level(struct clk_hw *hw,
-					  struct seq_file *s, int level)
+					  struct seq_file *s, int level,
+					  int num_vdd_classes,
+					  struct clk_vdd_class **vdd_classes)
 {
 	struct clk_regmap *rclk = to_clk_regmap(hw);
 	struct clk_vdd_class_data *vdd_data = &rclk->vdd_data;
-	struct clk_vdd_class *vdd_class = vdd_data->vdd_class;
-	int off, i, vdd_level, nregs = vdd_class->num_regulators;
+	struct clk_vdd_class *vdd_class;
+	int off, i, j, vdd_level;
 	unsigned long rate;
 
 	rate = clk_get_rate(hw->clk);
@@ -396,10 +398,13 @@ static void clock_print_rate_max_by_level(struct clk_hw *hw,
 	seq_printf(s, "%2s%10lu", vdd_level == level ? "[" : "",
 		vdd_data->rate_max[level]);
 
-	for (i = 0; i < nregs; i++) {
-		off = nregs*level + i;
-		if (vdd_class->vdd_uv)
-			seq_printf(s, "%10u", vdd_class->vdd_uv[off]);
+	for (i = 0; i < num_vdd_classes; i++) {
+		vdd_class = vdd_classes[i];
+		for (j = 0; j < vdd_class->num_regulators; j++) {
+			off = vdd_class->num_regulators * level + j;
+			if (vdd_class->vdd_uv)
+				seq_printf(s, "%10u", vdd_class->vdd_uv[off]);
+		}
 	}
 
 	if (vdd_level == level)
@@ -413,9 +418,8 @@ static int rate_max_show(struct seq_file *s, void *unused)
 	struct clk_hw *hw = s->private;
 	struct clk_regmap *rclk = to_clk_regmap(hw);
 	struct clk_vdd_class_data *vdd_data = &rclk->vdd_data;
-	struct clk_vdd_class *vdd_class = vdd_data->vdd_class;
-	int level = 0, i, nregs = vdd_class->num_regulators, vdd_level;
-	char reg_name[10];
+	struct clk_vdd_class **vdd_classes;
+	int level = 0, i, j, vdd_level, num_classes;
 	unsigned long rate;
 
 	rate = clk_get_rate(hw->clk);
@@ -427,21 +431,38 @@ static int rate_max_show(struct seq_file *s, void *unused)
 		return 0;
 	}
 
+	num_classes = vdd_data->num_vdd_classes;
+	if (vdd_data->vdd_class)
+		num_classes += 1;
+
+	vdd_classes = kmalloc_array(num_classes, sizeof(*vdd_classes),
+				    GFP_KERNEL);
+	if (!vdd_classes)
+		return -ENOMEM;
+
+	for (i = 0; i < vdd_data->num_vdd_classes; i++)
+		vdd_classes[i] = vdd_data->vdd_classes[i];
+
+	if (vdd_data->vdd_class)
+		vdd_classes[i] = vdd_data->vdd_class;
+
 	seq_printf(s, "%12s", "");
-	for (i = 0; i < nregs; i++) {
-		snprintf(reg_name, ARRAY_SIZE(reg_name), "reg %d", i);
-		seq_printf(s, "%10s", reg_name);
-	}
+	for (i = 0; i < num_classes; i++)
+		for (j = 0; j < vdd_classes[i]->num_regulators; j++)
+			seq_printf(s, "%10s", vdd_classes[i]->regulator_names[j]);
 
 	seq_printf(s, "\n%12s", "freq");
-	for (i = 0; i < nregs; i++)
-		seq_printf(s, "%10s", "uV");
+	for (i = 0; i < num_classes; i++)
+		for (j = 0; j < vdd_classes[i]->num_regulators; j++)
+			seq_printf(s, "%10s", "uV");
 
 	seq_puts(s, "\n");
 
 	for (level = 0; level < vdd_data->num_rate_max; level++)
-		clock_print_rate_max_by_level(hw, s, level);
+		clock_print_rate_max_by_level(hw, s, level,
+					      num_classes, vdd_classes);
 
+	kfree(vdd_classes);
 	return 0;
 }
 
@@ -549,7 +570,7 @@ void clk_common_debug_init(struct clk_hw *hw, struct dentry *dentry)
 {
 	struct clk_regmap *rclk = to_clk_regmap(hw);
 
-	if (rclk->vdd_data.vdd_class)
+	if (rclk->vdd_data.rate_max)
 		debugfs_create_file("clk_rate_max", 0444, dentry, hw,
 				    &rate_max_fops);
 
