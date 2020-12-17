@@ -748,7 +748,7 @@ int hh_rm_populate_hyp_res(hh_vmid_t vmid)
 		 __func__, n_res, vmid);
 
 	for (i = 0; i < n_res; i++) {
-		pr_debug("%s: idx:%d res_entries.res_type = 0x%x, res_entries.partner_vmid = 0x%x, res_entries.resource_handle = 0x%x, res_entries.resource_label = 0x%x, res_entries.cap_id_low = 0x%x, res_entries.cap_id_high = 0x%x, res_entries.virq_handle = 0x%x, res_entries.virq = 0x%x\n",
+		pr_debug("%s: idx:%d res_entries.res_type = 0x%x, res_entries.partner_vmid = 0x%x, res_entries.resource_handle = 0x%x, res_entries.resource_label = 0x%x, res_entries.cap_id_low = 0x%x, res_entries.cap_id_high = 0x%x, res_entries.virq_handle = 0x%x, res_entries.virq = 0x%x res_entries.base_high = 0x%x, res_entries.base_low = 0x%x, res_entries.size_high = 0x%x, res_entries.size_low = 0x%x\n",
 			__func__, i,
 			res_entries[i].res_type,
 			res_entries[i].partner_vmid,
@@ -757,7 +757,11 @@ int hh_rm_populate_hyp_res(hh_vmid_t vmid)
 			res_entries[i].cap_id_low,
 			res_entries[i].cap_id_high,
 			res_entries[i].virq_handle,
-			res_entries[i].virq);
+			res_entries[i].virq,
+			res_entries[i].base_high,
+			res_entries[i].base_low,
+			res_entries[i].size_high,
+			res_entries[i].size_low);
 
 		ret = linux_irq = hh_rm_get_irq(&res_entries[i]);
 		if (ret < 0)

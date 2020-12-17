@@ -99,4 +99,14 @@ config HH_VIRT_WATCHDOG
 	  actions such as setting the bark/bite time and also petting the
 	  watchdog in the hypervisor.
 
+config HH_VIRTIO_BACKEND
+	tristate "Haven Virtio Backend driver"
+	depends on HH_RM_DRV
+	help
+	  This driver helps an application that implements a virtio backend
+	  driver to communicate with its frontend counterpart in a guest OS
+	  running on top of Haven hypervisor. One device node per virtual
+	  machine is created for all backend devices of the VM. Say y or m here
+	  to enable.  If unsure, say n.
+
 endif
