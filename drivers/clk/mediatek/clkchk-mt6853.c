@@ -276,7 +276,7 @@ static void init_regbase(void)
 		if (!rb[i].phys)
 			continue;
 
-		rb[i].virt = ioremap_nocache(rb[i].phys, 0x1000);
+		rb[i].virt = ioremap(rb[i].phys, 0x1000);
 	}
 }
 
