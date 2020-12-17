@@ -2201,6 +2201,29 @@
 		qcom,rproc-handle = <&adsp_pas>;
 	};
 
+	bluetooth: bt_qca6490 {
+		compatible = "qcom,qca6490";
+		reg = <0xb2e5510 0x690>;
+		reg-names = "tcs_cmd";
+		pinctrl-names = "default";
+		pinctrl-0 = <&bt_en_sleep>;
+		/* offset=(0xC8*6) + (0x10*2) */
+		qcom,tcs_offset_ipa = <0x4D0>;
+		qcom,bt-reset-gpio = <&tlmm 81 0>; /* BT_EN */
+		qcom,wl-reset-gpio = <&tlmm 80 0>; /* WL_EN */
+		qcom,bt-sw-ctrl-gpio = <&tlmm 82 0>; /* SW_CTRL */
+		qcom,bt-vdd-aon-supply = <&S11B>;
+		qcom,bt-vdd-dig-supply = <&S11B>;
+		qcom,bt-vdd-rfa1-supply = <&S1C>;
+		qcom,bt-vdd-rfa2-supply = <&S12B>;
+		qcom,bt-vdd-asd-supply = <&L7E>;
+
+		qcom,bt-vdd-aon-config = <966000 966000 0 1>;
+		qcom,bt-vdd-dig-config = <966000 966000 0 1>;
+		qcom,bt-vdd-rfa1-config = <1880000 1880000 0 1>;
+		qcom,bt-vdd-rfa2-config = <1350000 1350000 0 1>;
+		qcom,bt-vdd-asd-config = <2800000 2800000 0 1>;
+	};
 };
 
 #include "waipio-qupv3.dtsi"
@@ -2223,4 +2246,21 @@
 	compatible = "qcom,adsp-loader";
 	qcom,rproc-handle = <&adsp_pas>;
 	qcom,adsp-state = <0>;
+};
+
+&qupv3_se20_4uart {
+	status = "disabled";
+};
+
+&qupv3_se5_i2c {
+	status = "ok";
+	nq@64 {
+		compatible = "rtc6226";
+		reg = <0x64>;
+		fmint-gpio = <&tlmm 50 0>;
+		vdd-supply = <&L7E>;
+		rtc6226,vdd-supply-voltage = <2800000 2800000>;
+		vio-supply = <&S10B>;
+		rtc6226,vio-supply-voltage = <1800000 1800000 >;
+	};
 };

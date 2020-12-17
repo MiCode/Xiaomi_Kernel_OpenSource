@@ -29,22 +29,23 @@ Optional properties:
                           in pairs (min, max), units uV.  There can be optional
                           load in curr, unit uA. Last entry specifies if the retention
                           mode is supported for the regulator.
-
 Example:
 	bluetooth: bt_qca6490 {
 		compatible = "qcom,qca6390", "qcom,qca6490";
 		pinctrl-names = "default";
 		pinctrl-0 = <&bt_en_sleep>;
-		qcom,bt-reset-gpio = <&tlmm 21 0>; /* BT_EN */
-		qcom,bt-vdd-aon-supply = <&pm8150_s6>;
-		qcom,bt-vdd-dig-supply = <&pm8009_s2>;
-		qcom,bt-vdd-rfa1-supply = <&pm8150_s5>;
-		qcom,bt-vdd-rfa2-supply = <&pm8150a_s8>;
-		qcom,bt-vdd-asd-supply = <&pm8150_l16>;
+		qcom,bt-reset-gpio = <&tlmm 81 0>; /* BT_EN */
+		qcom,wl-reset-gpio = <&tlmm 80 0>; /* WL_EN */
+		qcom,bt-sw-ctrl-gpio = <&tlmm 82 0>; /* SW_CTRL */
+		qcom,bt-vdd-aon-supply = <&S11B>;
+		qcom,bt-vdd-dig-supply = <&S11B>;
+		qcom,bt-vdd-rfa1-supply = <&S1C>;
+		qcom,bt-vdd-rfa2-supply = <&S12B>;
+		qcom,bt-vdd-asd-supply = <&L7E>;
 
-		qcom,bt-vdd-aon-config = <950000 950000 0  1>;
-		qcom,bt-vdd-dig-config = <950000 952000 0  1>;
-		qcom,bt-vdd-rfa1-config = <1900000 1900000 0  1>;
+		qcom,bt-vdd-aon-config = <966000 966000 0  1>;
+		qcom,bt-vdd-dig-config = <966000 966000 0  1>;
+		qcom,bt-vdd-rfa1-config = <1880000 1880000 0  1>;
 		qcom,bt-vdd-rfa2-config = <1350000 1350000 0  1>;
-		qcom,bt-vdd-asd-config = <3024000 3304000 10000  0>;
+		qcom,bt-vdd-asd-config = <2800000 2800000 0  1>;
 	};
