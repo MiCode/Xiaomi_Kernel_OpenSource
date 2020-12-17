@@ -1,0 +1,148 @@
+QTI DCVS Driver
+
+The QTI DCVS Driver manages several DCVS hardware types (e.g. DDR) and their
+voting interfaces/paths (e.g. DCVS Fast Path) that are supported on various
+Qualcomm Technologies, Inc. (QTI) chipsets.
+
+Required structure:
+An instance of qcom-dcvs must be described in three levels of device nodes.
+The first level describes the parent node of the system, and the second level
+describes a particular DCVS HW type that is supported while the third level
+describes the various paths (i.e. voting interfaces) that this particular
+DCVS HW type supports.
+
+[First Level Nodes]
+Required properties:
+- compatible:		Must be "qcom,dcvs"
+
+[Second Level Nodes]
+Required properties:
+- compatible:		Must be "qcom,dcvs-hw"
+- qcom,dcvs-hw-type:	DCVS HW type which should be DCVS_DDR, DCVS_LLCC,
+			DCVS_L3, or DCVS_DDRQOS depending on which dcvs hw
+			block this node is describing.
+- qcom,bus-width:	Bus width of hardware interface (in Bytes).
+- qcom,freq-tbl:	Array of frequencies or phandle to an array of
+			frequencies in units of kHz that this hardware
+			device supports. Required for all devices except
+			DCVS_L3.
+- reg:			Physical base address and region size of the memory
+			mapped registers containing the device's base address
+			for voting registers and frequency table. Required for
+			DCVS_L3 devices.
+- reg-names:		Name used for the above registers. Expected names are
+			"l3-base" and "l3tbl-base" respectively. Required for
+			DCVS_L3 devices.
+
+[Third Level Nodes]
+Required properties:
+- compatible:		Must be "qcom,dcvs-path"
+- qcom,dcvs-path-type:	DCVS path type which should be DCVS_SLOW_PATH,
+			DCVS_FAST_PATH, or DCVS_PERCPU_PATH. The slow path
+			supports multiple clients and is not atomic context
+			friendly. The fast path is a single client lockless
+			path that utilizes the dcvs-fp interface. The percpu
+			path is a single client per-cpu lockless path that
+			utilizes per-cpu hardware voting registers.
+- qcom,shared-offset:	Physical address offset to the base address described in
+			the second level hw node that is used to configure the
+			vote for the DCVS_SLOW_PATH. Only required for DCVS_L3
+			child nodes that are using the DCVS_SLOW_PATH.
+- qcom,percpu-offset:	Array of physical address offsets to the base address
+			described in the second level hw node that is used to
+			configure the per-cpu votes for the DCVS_PERCPU_PATH.
+			The number of offsets must match the number of CPUs.
+			Only required for DCVS_L3 child nodes that are using the
+			DCVS_PERCPU_PATH.
+- interconnects:	Pairs of phandles and interconnect provider specificers
+			to denote the edge source and destination ports of the
+			desired interconnect path. Only required for DCVS_DDR
+			and DCVS_LLCC child nodes that are using the
+			DCVS_SLOW_PATH.
+- qcom,fp-voter:	A phandle to the QTI DCVS FP node which is used for
+			"fast path" LLCC and DDR voting. Only required for
+			DCVS_DDR and DCVS_LLCC child nodes that are using the
+			DCVS_FAST_PATH.
+
+
+Example:
+
+	apps_rsc: rsc@18200000 {
+		compatible = "qcom,rpmh-rsc";
+
+		dcvs_fp: qcom,dcvs-fp {
+			compatible = "qcom,dcvs-fp";
+			qcom,ddr-bcm-name = "MC3";
+			qcom,llcc-bcm-name = "SH8";
+		};
+	};
+
+	ddr_freq_table: ddr-freq-table {
+		qcom,freq-tbl =
+			<  200000 >,
+			<  451000 >,
+			<  547000 >,
+			<  681000 >,
+			<  768000 >,
+			< 1017000 >,
+			< 1555000 >,
+			< 1708000 >,
+			< 2092000 >,
+			< 2736000 >,
+			< 3196000 >;
+	};
+
+	qcom_dcvs: qcom,dcvs {
+		compatible = "qcom,dcvs";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		qcom_ddr_dcvs_hw: ddr {
+			compatible = "qcom,dcvs-hw";
+			qcom,dcvs-hw-type = <DCVS_DDR>;
+			qcom,bus-width = <4>;
+			qcom,freq-tbl = <&ddr_freq_table>;
+
+			ddr_dcvs_sp: sp {
+				compatible = "qcom,dcvs-path";
+				qcom,dcvs-path-type = <DCVS_SLOW_PATH>;
+				interconnects = <&mc_virt MASTER_LLCC
+						 &mc_virt SLAVE_EBI1>;
+			};
+
+			ddr_dcvs_fp: fp {
+				compatible = "qcom,dcvs-path";
+				qcom,dcvs-path-type = <DCVS_FAST_PATH>;
+				qcom,fp-voter = <&dcvs_fp>;
+			};
+		};
+
+		qcom_l3_dcvs_hw: l3 {
+			compatible = "qcom,dcvs-hw";
+			qcom,dcvs-hw-type = <DCVS_L3>;
+			qcom,bus-width = <32>;
+			reg = <0x18590000 0x4000>, <0x18590100 0xa0>;
+			reg-names = "l3-base", "l3tbl-base";
+
+			l3_dcvs_sp: sp {
+				compatible = "qcom,dcvs-path";
+				qcom,dcvs-path-type = <DCVS_SLOW_PATH>;
+				qcom,shared-offset = <0x0090>;
+			};
+
+			l3_dcvs_percpu: percpu {
+				compatible = "qcom,dcvs-path";
+				qcom,dcvs-path-type = <DCVS_PERCPU_PATH>;
+				qcom,percpu-offsets =
+					< 0x1090 >,
+					< 0x1094 >,
+					< 0x1098 >,
+					< 0x109C >,
+					< 0x2090 >,
+					< 0x2094 >,
+					< 0x2098 >,
+					< 0x3090 >;
+			};
+		};
+	};

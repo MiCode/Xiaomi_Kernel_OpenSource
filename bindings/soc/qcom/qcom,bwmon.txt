@@ -1,0 +1,38 @@
+QTI BWMON Driver
+
+The QTI BWMON Driver monitors bandwidth counters that represent the read/write
+traffic through various interconnects in the system and uses this data to vote
+for DCVS HW (memory) frequencies. Each device represents a separate bandwidth
+monitor present on the Qualcomm Technologies, Inc. (QTI) chipset. This driver
+is a refactor of the bimc-bwmon driver that was previously developed.
+
+Required properties:
+- compatible:		Must be "qcom,bwmon", "qcom,bwmon2", "qcom,bwmon3"
+			"qcom,bwmon4", or "qcom,bwmon5"
+- reg:			Pairs of physical base addresses and region sizes of
+			memory mapped registers.
+- reg-names:		Names of the bases for the above registers. Expected
+			bases are: "base", "global_base"
+- interrupts:		Lists the threshold IRQ.
+- qcom,mport:		The hardware master port that this device can monitor
+- qcom,target-dev:	A phandle to the QTI DCVS HW device node that this
+			node will be using for voting in the SLOW path.
+- qcom,hw-timer-hz:	Hardware sampling rate in Hz. This field must be
+			specified for "qcom,bwmon4"
+Optional properties:
+- qcom,byte-mid-match:	Byte count MID match value
+- qcom,byte-mid-mask:	Byte count MID mask value
+- qcom,count-unit:	Number of bytes monitor counts in
+
+Example:
+
+	bwmon_llcc: qcom,bwmon-llcc@90b6400 {
+		compatible = "qcom,bwmon4";
+		reg = <0x90b6400 0x300>, <0x90b6300 0x200>;
+		reg-names = "base", "global_base";
+		interrupts = <GIC_SPI 581 IRQ_TYPE_LEVEL_HIGH>;
+		qcom,mport = <0>;
+		qcom,hw-timer-hz = <19200000>;
+		qcom,count-unit = <0x10000>;
+		qcom,target-dev = <&qcom_llcc_dcvs_hw>;
+	};

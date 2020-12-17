@@ -1,0 +1,103 @@
+QTI Memlat Driver
+
+The QTI Memlat Driver monitors CPU performance counters to identify memory
+latency bound workloads and votes for DCVS HW (memory) frequencies based on
+the workload characteristics. This driver is a refactor of the arm-memlat-mon
+driver that was previously developed.
+
+Required structure:
+An instance of qcom-memlat must be described in three levels of device nodes.
+The first level describes the parent node. The second level describes a memlat
+group which manages voting for a particular DCVS HW device (e.g. DDR). The third
+level describes a memlat monitor ("mon") which comprises of a list of CPUs whose
+configured performance counters are used to vote for a DCVS HW frequency for the
+memlat group that it is part of.
+
+[First Level Nodes]
+Required properties:
+- compatible:		Must be "qcom,memlat"
+Optional properties:
+- qcom,cyc-ev:		The cycle count event that this driver monitors.
+			Defaults to 0x11 if not specified.
+- qcom,inst-ev:		The instruction count event that this driver monitors.
+			Defaults to 0x08 if not specified.
+- qcom,stall-ev:	The stall cycle event that this driver monitors.
+			Assumes 100% stall if not specified.
+
+[Second Level Nodes]
+Required properties:
+- compatible:		Must be "qcom,memlat-grp"
+- qcom,target-dev:	A phandle to the QTI DCVS HW device node that this
+			node will be using for voting.
+- qcom,miss-ev:		The cache miss event that this memlat group uses to
+			measure memory latency sensitivity to this DCVS HW.
+- qcom,sampling-path:	A phandle to the QTI DCVS PATH device node that the
+			memlat sampling algorithm will use for voting. This
+			property or the qcom,threadlat-path property is
+			required.
+- qcom,threadlat-path:	A phandle to the QTI DCVS PATH device node that the
+			threadlat algorithm will use for voting. This property
+			or the qcom,sampling-path property is required.
+Optional properties:
+- qcom,access-ev:	The cache access event that this driver optionally
+			monitors to calculate writeback percentage.
+- qcom,wb-ev:		The cache writeback event that this driver optionally
+			monitors to calculate writeback percentage.
+
+[Third Level Nodes]
+Required properties:
+- compiatible:			Must be "qcom,memlat-mon"
+- qcom,cpulist:			List of CPU phandles to be monitored by this mon.
+- qcom,cpufreq-memfreq-tbl:	A mapping table of cpu frequency to a memory
+				(i.e. DCVS HW) frequency (both in units of kHz).
+				A phandle that contains this property may be
+				provided instead (to share tables across nodes).
+- qcom,sampling-enabled:	Used to determine if this mon should be used by
+				the memlat sampling algorithm. This property or
+				the qcom,threadlat-enabled property is required.
+- qcom,threadlat-enabled:	Used to determine if this mon should be used by
+				the threadlat algorithm. This property or the
+				qcom,sampling-enabled property is required.
+Optional properties:
+- qcom,compute-mon:		Used to configure mon as a "compute" mon which
+				means it monitors compute bound workloads.
+
+Example:
+
+	qcom_dcvs: qcom,dcvs {
+		compatible = "qcom,dcvs";
+
+		qcom_ddr_dcvs_hw: ddr {
+			compatible = "qcom,dcvs-hw";
+
+			ddr_dcvs_fp: fp {
+				compatible = "qcom,dcvs-path";
+			};
+		};
+	};
+
+	silver_ddr_tbl: qcom,silver-ddr-tbl {
+		qcom,core-dev-table =
+			<  300000  200000 >,
+			<  691200  451000 >,
+			< 1190400  547000 >,
+			< 1459200  768000 >,
+			< 1900800 1555000 >;
+	};
+
+	qcom_memlat: qcom,memlat {
+		compatible = "qcom,memlat";
+
+		memlat_ddr: ddr {
+			compatible = "qcom,memlat-grp";
+			qcom,target-dev = <&qcom_ddr_dcvs_hw>;
+			qcom,sampling-path = <&ddr_dcvs_fp>;
+			qcom,miss-ev = <0x1000>;
+			silver_ddr_lat: silver {
+				compatible = "qcom,memlat-mon";
+				qcom,cpulist = <&CPU0 &CPU1 &CPU2 &CPU3>;
+				qcom,core-dev-table = <&silver_ddr_tbl>;
+				qcom,sampling-enabled;
+			};
+		};
+	};

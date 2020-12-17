@@ -1,0 +1,23 @@
+QTI DCVS Fast Path Interface
+
+The QTI DCVS Fast Path Interface utilizes the fast-path TCS hardware interface
+provided by RPMH RSC. As such, this driver is a child node and client of an
+RPMH RSC device that has a fast path TCS. The driver is intended to be used by
+the QTI DCVS framework for DCVS_FAST_PATH voting on DDR and LLCC HW.
+
+Required properties:
+- compatible:		Must be "qcom,dcvs-fp"
+- qcom,ddr-bcm-name:	DDR BCM name
+- qcom,llcc-bcm-name:	LLCC BCM name
+
+Example:
+
+	apps_rsc: rsc@18200000 {
+		compatible = "qcom,rpmh-rsc";
+
+		dcvs_fp: qcom,dcvs-fp {
+			compatible = "qcom,dcvs-fp";
+			qcom,ddr-bcm-name = "MC3";
+			qcom,llcc-bcm-name = "SH8";
+		};
+	};
