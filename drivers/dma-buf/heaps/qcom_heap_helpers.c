@@ -22,7 +22,7 @@
 #include <uapi/linux/dma-heap.h>
 #include <linux/qcom_dma_heap.h>
 
-#include "heap-helpers.h"
+#include "qcom_dma_heap_priv.h"
 
 static const struct dma_buf_ops qcom_heap_helper_ops;
 
