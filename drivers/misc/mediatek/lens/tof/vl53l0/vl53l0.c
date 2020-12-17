@@ -22,6 +22,7 @@
 
 /* vl53l0 device structure */
 struct vl53l0_device {
+	int driver_init;
 	struct v4l2_ctrl_handler ctrls;
 	struct v4l2_subdev sd;
 	struct v4l2_ctrl *focus;
@@ -32,12 +33,15 @@ struct vl53l0_device {
 	struct pinctrl_state *vcamaf_off;
 };
 
+#define NUMBER_OF_MAX_TOF_DATA 64
 struct TofInformation {
 	int32_t is_tof_supported;
-	int32_t ranging_distance;
-	int32_t dmax_distance;
-	int32_t maximal_distance;
-	int32_t error_status;
+	int32_t num_of_rows; /* Max : 8 */
+	int32_t num_of_cols; /* Max : 8 */
+	int32_t ranging_distance[NUMBER_OF_MAX_TOF_DATA];
+	int32_t dmax_distance[NUMBER_OF_MAX_TOF_DATA];
+	int32_t error_status[NUMBER_OF_MAX_TOF_DATA];
+	int32_t maximal_distance; /* Operating Range Distance */
 	int64_t timestamp;
 };
 
@@ -66,8 +70,9 @@ static int vl53l0_release(struct vl53l0_device *vl53l0)
 
 static int vl53l0_init(struct vl53l0_device *vl53l0)
 {
-	/* struct i2c_client *client = v4l2_get_subdevdata(&vl53l0->sd); */
-	LOG_INF("%s\n", __func__);
+	struct i2c_client *client = v4l2_get_subdevdata(&vl53l0->sd);
+
+	LOG_INF("[%s] %p\n", __func__, client);
 
 	return 0;
 }
@@ -123,14 +128,21 @@ static int vl53l0_power_on(struct vl53l0_device *vl53l0)
 	 * TODO(b/139784289): Confirm hardware requirements and adjust/remove
 	 * the delay.
 	 */
+	/*
+	 * Execute driver initialization in the first time getting
+	 * TOF info to avoid increase preview launch waiting time
+	 */
+	vl53l0->driver_init = 1;
+	/*
 	usleep_range(VL53L0_CTRL_DELAY_US, VL53L0_CTRL_DELAY_US + 100);
 
 	ret = vl53l0_init(vl53l0);
 	if (ret < 0)
 		goto fail;
+	 */
 
 	return 0;
-
+/*
 fail:
 	regulator_disable(vl53l0->vin);
 	regulator_disable(vl53l0->vdd);
@@ -140,6 +152,7 @@ fail:
 	}
 
 	return ret;
+*/
 }
 
 static int vl53l0_set_ctrl(struct v4l2_ctrl *ctrl)
@@ -180,6 +193,7 @@ static int vl53l0_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 static long vl53l0_ops_core_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 {
 	int ret = 0;
+	struct vl53l0_device *vl53l0 = sd_to_vl53l0_ois(sd);
 
 	switch (cmd) {
 
@@ -188,9 +202,31 @@ static long vl53l0_ops_core_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void
 		struct mtk_tof_info *info = arg;
 		struct TofInformation tof_info;
 
+		/*
+		 * Execute driver initialization in the first time getting
+		 * TOF info to avoid increase preview launch waiting time
+		 */
+		if (vl53l0->driver_init == 1) {
+			ret = vl53l0_init(vl53l0);
+			if (ret < 0)
+				return ret;
+
+			vl53l0->driver_init = 0;
+		}
+
 		memset(&tof_info, 0, sizeof(struct TofInformation));
 
+		LOG_INF("%s\n", __func__);
+		tof_info.is_tof_supported = 1;
+		tof_info.num_of_rows = 1;
+		tof_info.num_of_cols = 1;
+		tof_info.maximal_distance = 1500; /* Unit : mm */
+
 		/* To Do */
+		LOG_INF("[%s] (%d, %d), dist(%d, %d, %d), err(%d)\n",
+			__func__, tof_info.num_of_rows, tof_info.num_of_cols,
+			tof_info.ranging_distance[0], tof_info.dmax_distance[0],
+			tof_info.maximal_distance, tof_info.error_status[0]);
 
 		if (copy_to_user((void *)info->p_tof_info, &tof_info, sizeof(tof_info)))
 			ret = -EFAULT;
@@ -254,7 +290,7 @@ static int vl53l0_probe(struct i2c_client *client)
 	if (!vl53l0)
 		return -ENOMEM;
 
-	vl53l0->vin = devm_regulator_get(dev, "vin");
+	vl53l0->vin = devm_regulator_get(dev, "camera_tof_vin");
 	if (IS_ERR(vl53l0->vin)) {
 		ret = PTR_ERR(vl53l0->vin);
 		if (ret != -EPROBE_DEFER)
@@ -262,7 +298,7 @@ static int vl53l0_probe(struct i2c_client *client)
 		return ret;
 	}
 
-	vl53l0->vdd = devm_regulator_get(dev, "vdd");
+	vl53l0->vdd = devm_regulator_get(dev, "camera_tof_vdd");
 	if (IS_ERR(vl53l0->vdd)) {
 		ret = PTR_ERR(vl53l0->vdd);
 		if (ret != -EPROBE_DEFER)
@@ -277,7 +313,7 @@ static int vl53l0_probe(struct i2c_client *client)
 		LOG_INF("cannot get pinctrl\n");
 	} else {
 		vl53l0->vcamaf_on = pinctrl_lookup_state(
-			vl53l0->vcamaf_pinctrl, "vcamaf_on");
+			vl53l0->vcamaf_pinctrl, "camera_tof_en_on");
 
 		if (IS_ERR(vl53l0->vcamaf_on)) {
 			ret = PTR_ERR(vl53l0->vcamaf_on);
@@ -286,7 +322,7 @@ static int vl53l0_probe(struct i2c_client *client)
 		}
 
 		vl53l0->vcamaf_off = pinctrl_lookup_state(
-			vl53l0->vcamaf_pinctrl, "vcamaf_off");
+			vl53l0->vcamaf_pinctrl, "camera_tof_en_off");
 
 		if (IS_ERR(vl53l0->vcamaf_off)) {
 			ret = PTR_ERR(vl53l0->vcamaf_off);
