@@ -1051,19 +1051,15 @@ static int sched_rt_runtime_exceeded(struct rt_rq *rt_rq)
 		 * but accrue some time due to boosting.
 		 */
 		if (likely(rt_b->rt_runtime)) {
-#ifndef CONFIG_SCHED_WALT
 			rt_rq->rt_throttled = 1;
 			printk_deferred_once("sched: RT throttling activated\n");
-#else
-			static bool once;
 
-			rt_rq->rt_throttled = 1;
-
-			if (!once) {
-				once = true;
-				dump_throttled_rt_tasks(rt_rq);
-			}
-#endif
+			trace_android_vh_dump_throttled_rt_tasks(
+				raw_smp_processor_id(),
+				rq_clock(rq_of_rt_rq(rt_rq)),
+				sched_rt_period(rt_rq),
+				runtime,
+				hrtimer_get_expires_ns(&rt_b->rt_period_timer));
 		} else {
 			/*
 			 * In case we did anyway, make it go away,
@@ -1526,7 +1522,7 @@ static void yield_task_rt(struct rq *rq)
 #ifdef CONFIG_SMP
 static int find_lowest_rq(struct task_struct *task);
 
-#ifdef CONFIG_SCHED_WALT
+#ifdef CONFIG_RT_SOFTINT_OPTIMIZATION
 /*
  * Return whether the task on the given cpu is currently non-preemptible
  * while handling a potentially long softint, or if the task is likely
@@ -1538,13 +1534,13 @@ task_may_not_preempt(struct task_struct *task, int cpu)
 {
 	__u32 softirqs = per_cpu(active_softirqs, cpu) |
 			 __IRQ_STAT(cpu, __softirq_pending);
-	struct task_struct *cpu_ksoftirqd = per_cpu(ksoftirqd, cpu);
 
+	struct task_struct *cpu_ksoftirqd = per_cpu(ksoftirqd, cpu);
 	return ((softirqs & LONG_SOFTIRQ_MASK) &&
 		(task == cpu_ksoftirqd ||
 		 task_thread_info(task)->preempt_count & SOFTIRQ_MASK));
 }
-#endif
+#endif /* CONFIG_RT_SOFTINT_OPTIMIZATION */
 
 static int
 #ifdef CONFIG_SCHED_WALT
@@ -1558,6 +1554,7 @@ select_task_rq_rt(struct task_struct *p, int cpu, int sd_flag, int flags)
 	struct rq *rq;
 	bool test;
 	int target_cpu = -1;
+	bool may_not_preempt;
 
 	trace_android_rvh_select_task_rq_rt(p, cpu, sd_flag,
 					flags, &target_cpu);
@@ -1574,7 +1571,12 @@ select_task_rq_rt(struct task_struct *p, int cpu, int sd_flag, int flags)
 	curr = READ_ONCE(rq->curr); /* unlocked access */
 
 	/*
-	 * If the current task on @p's runqueue is an RT task, then
+	 * If the current task on @p's runqueue is a softirq task,
+	 * it may run without preemption for a time that is
+	 * ill-suited for a waiting RT task. Therefore, try to
+	 * wake this RT task on another runqueue.
+	 *
+	 * Also, if the current task on @p's runqueue is an RT task, then
 	 * try to see if we can wake this RT task up on another
 	 * runqueue. Otherwise simply start this RT task
 	 * on its current runqueue.
@@ -1599,10 +1601,10 @@ select_task_rq_rt(struct task_struct *p, int cpu, int sd_flag, int flags)
 	 * requirement of the task - which is only important on heterogeneous
 	 * systems like big.LITTLE.
 	 */
-#ifndef CONFIG_SCHED_WALT
-	test = curr &&
-	       unlikely(rt_task(curr)) &&
-	       (curr->nr_cpus_allowed < 2 || curr->prio <= p->prio);
+	may_not_preempt = task_may_not_preempt(curr, cpu);
+	test = (curr && (may_not_preempt ||
+			 (unlikely(rt_task(curr)) &&
+			  (curr->nr_cpus_allowed < 2 || curr->prio <= p->prio))));
 
 	if (test || !rt_task_fits_capacity(p, cpu)) {
 		int target = find_lowest_rq(p);
@@ -1615,53 +1617,16 @@ select_task_rq_rt(struct task_struct *p, int cpu, int sd_flag, int flags)
 			goto out_unlock;
 
 		/*
-		 * Don't bother moving it if the destination CPU is
-		 * not running a lower priority task.
-		 */
-		if (target != -1 &&
-		    p->prio < cpu_rq(target)->rt.highest_prio.curr)
-			cpu = target;
-	}
-#else /* CONFIG_SCHED_WALT */
-	/*
-	 * If the current task on @p's runqueue is a softirq task,
-	 * it may run without preemption for a time that is
-	 * ill-suited for a waiting RT task. Therefore, try to
-	 * wake this RT task on another runqueue.
-	 *
-	 * Also, if the current task on @p's runqueue is an RT task, then
-	 * it may run without preemption for a time that is
-	 * ill-suited for a waiting RT task. Therefore, try to
-	 * wake this RT task on another runqueue.
-	 */
-	may_not_preempt = task_may_not_preempt(curr, cpu);
-	test = curr &&
-	       unlikely(rt_task(curr)) &&
-	       (curr->nr_cpus_allowed < 2 || curr->prio <= p->prio);
-
-	if (sched_energy_enabled() || may_not_preempt ||
-	    test || !rt_task_fits_capacity(p, cpu)) {
-		int target = find_lowest_rq(p);
-
-		/*
-		 * Bail out if we were forcing a migration to find a better
-		 * fitting CPU but our search failed.
-		 */
-		if (!test && target != -1 && !rt_task_fits_capacity(p, target))
-			goto out_unlock;
-
-		/*
 		 * If cpu is non-preemptible, prefer remote cpu
 		 * even if it's running a higher-prio task.
-		 * Otherwise: Don't bother moving it if the
-		 * destination CPU is not running a lower priority task.
+		 * Otherwise: Don't bother moving it if the destination CPU is
+		 * not running a lower priority task.
 		 */
 		if (target != -1 &&
 		    (may_not_preempt ||
 		     p->prio < cpu_rq(target)->rt.highest_prio.curr))
 			cpu = target;
 	}
-#endif /* CONFIG_SCHED_WALT */
 out_unlock:
 	rcu_read_unlock();
 
@@ -1971,17 +1936,8 @@ static int find_lowest_rq(struct task_struct *task)
 	struct sched_domain *sd;
 	struct cpumask *lowest_mask = this_cpu_cpumask_var_ptr(local_cpu_mask);
 	int this_cpu = smp_processor_id();
-#ifndef CONFIG_SCHED_WALT
-	int cpu      = task_cpu(task);
-#else
-	int cpu = -1;
-#endif
+	int cpu      = -1;
 	int ret;
-	int lowest_cpu = -1;
-
-	trace_android_rvh_find_lowest_rq(task, lowest_mask, &lowest_cpu);
-	if (lowest_cpu >= 0)
-		return lowest_cpu;
 
 	/* Make sure the mask is initialized first */
 	if (unlikely(!lowest_mask))
@@ -2005,16 +1961,14 @@ static int find_lowest_rq(struct task_struct *task)
 				  task, lowest_mask);
 	}
 
+	trace_android_rvh_find_lowest_rq(task, lowest_mask, ret, &cpu);
+	if (cpu >= 0)
+		return cpu;
+
 	if (!ret)
 		return -1; /* No targets found */
 
-#ifdef CONFIG_SCHED_WALT
-	if (sched_energy_enabled())
-		cpu = rt_energy_aware_wake_cpu(task);
-
-	if (cpu == -1)
-		cpu = task_cpu(task);
-#endif
+	cpu = task_cpu(task);
 
 	/*
 	 * At this point we have built a mask of CPUs representing the

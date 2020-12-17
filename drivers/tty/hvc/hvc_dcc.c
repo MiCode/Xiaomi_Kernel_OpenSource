@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
-/* Copyright (c) 2010, 2014, 2019 The Linux Foundation. All rights reserved.  */
+/* Copyright (c) 2010, 2014 The Linux Foundation. All rights reserved.  */
 
 #include <linux/console.h>
 #include <linux/init.h>
@@ -85,6 +85,7 @@ static int hvc_dcc_get_chars(uint32_t vt, char *buf, int count)
 static bool hvc_dcc_check(void)
 {
 	unsigned long time = jiffies + (HZ / 10);
+
 #ifdef CONFIG_HVC_DCC_SERIALIZE_SMP
 	static bool dcc_core0_available;
 

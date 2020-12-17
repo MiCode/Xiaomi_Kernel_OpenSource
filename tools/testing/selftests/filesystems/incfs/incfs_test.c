@@ -15,6 +15,7 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include <zstd.h>
 
 #include <sys/mount.h>
 #include <sys/stat.h>
@@ -321,6 +322,12 @@ static bool same_id(incfs_uuid_t *id1, incfs_uuid_t *id2)
 	return !memcmp(id1->bytes, id2->bytes, sizeof(id1->bytes));
 }
 
+ssize_t ZSTD_compress_default(char *data, char *comp_data, size_t data_size,
+					size_t comp_size)
+{
+	return ZSTD_compress(comp_data, comp_size, data, data_size, 1);
+}
+
 static int emit_test_blocks(const char *mnt_dir, struct test_file *file,
 			int blocks[], int count)
 {
@@ -345,7 +352,8 @@ static int emit_test_blocks(const char *mnt_dir, struct test_file *file,
 
 	for (i = 0; i < block_count; i++) {
 		int block_index = blocks[i];
-		bool compress = (file->index + block_index) % 2 == 0;
+		bool compress_zstd = (file->index + block_index) % 4 == 2;
+		bool compress_lz4 = (file->index + block_index) % 4 == 0;
 		int seed = get_file_block_seed(file->index, block_index);
 		off_t block_offset =
 			((off_t)block_index) * INCFS_DATA_FILE_BLOCK_SIZE;
@@ -362,10 +370,10 @@ static int emit_test_blocks(const char *mnt_dir, struct test_file *file,
 			block_size = file->size - block_offset;
 
 		rnd_buf(data, block_size, seed);
-		if (compress) {
-			size_t comp_size = LZ4_compress_default(
-				(char *)data, (char *)comp_data, block_size,
-				ARRAY_SIZE(comp_data));
+		if (compress_lz4) {
+			size_t comp_size = LZ4_compress_default((char *)data,
+					(char *)comp_data, block_size,
+					ARRAY_SIZE(comp_data));
 
 			if (comp_size <= 0) {
 				error = -EBADMSG;
@@ -378,6 +386,22 @@ static int emit_test_blocks(const char *mnt_dir, struct test_file *file,
 			memcpy(current_data, comp_data, comp_size);
 			block_size = comp_size;
 			block_buf[i].compression = COMPRESSION_LZ4;
+		} else if (compress_zstd) {
+			size_t comp_size = ZSTD_compress(comp_data,
+					ARRAY_SIZE(comp_data), data, block_size,
+					1);
+
+			if (comp_size <= 0) {
+				error = -EBADMSG;
+				break;
+			}
+			if (current_data + comp_size > data_end) {
+				error = -ENOMEM;
+				break;
+			}
+			memcpy(current_data, comp_data, comp_size);
+			block_size = comp_size;
+			block_buf[i].compression = COMPRESSION_ZSTD;
 		} else {
 			if (current_data + block_size > data_end) {
 				error = -ENOMEM;
@@ -2269,7 +2293,7 @@ static int emit_partial_test_file_data(const char *mount_dir,
 	}
 
 	buffer[result] = 0;
-	blocks_written_total = atol(buffer);
+	blocks_written_total = strtol(buffer, NULL, 10);
 	result = 0;
 
 	pollfd = (struct pollfd) {
@@ -2311,7 +2335,7 @@ static int emit_partial_test_file_data(const char *mount_dir,
 
 		result = read(bw_fd, buffer, sizeof(buffer));
 		buffer[result] = 0;
-		blocks_written_new_total = atol(buffer);
+		blocks_written_new_total = strtol(buffer, NULL, 10);
 
 		if (blocks_written_new_total - blocks_written_total
 		    != blocks_written) {
@@ -2974,7 +2998,8 @@ static int compatibility_test(const char *mount_dir)
 
 	TEST(backing_dir = create_backing_dir(mount_dir), backing_dir);
 	TEST(filename = concat_file_name(backing_dir, name), filename);
-	TEST(fd = open(filename, O_CREAT | O_WRONLY | O_CLOEXEC), fd != -1);
+	TEST(fd = open(filename, O_CREAT | O_WRONLY | O_CLOEXEC, 0777),
+	     fd != -1);
 	TESTEQUAL(write(fd, v1_file, sizeof(v1_file)), sizeof(v1_file));
 	TESTEQUAL(fsetxattr(fd, INCFS_XATTR_SIZE_NAME, &size, sizeof(size), 0),
 		  0);
@@ -2982,7 +3007,7 @@ static int compatibility_test(const char *mount_dir)
 	free(filename);
 	TEST(filename = concat_file_name(mount_dir, name), filename);
 	close(fd);
-	TEST(fd = open(filename, O_RDONLY), fd != -1);
+	TEST(fd = open(filename, O_RDONLY | O_CLOEXEC), fd != -1);
 
 	result = TEST_SUCCESS;
 out:
@@ -3320,7 +3345,7 @@ static int per_uid_read_timeouts_test(const char *mount_dir)
 
 	int result = TEST_FAILURE;
 	char *backing_dir = NULL;
-	int pid;
+	int pid = -1;
 	int cmd_fd = -1;
 	char *filename = NULL;
 	int fd = -1;
@@ -3334,9 +3359,9 @@ static int per_uid_read_timeouts_test(const char *mount_dir)
 	struct incfs_per_uid_read_timeouts purt_set[] = {
 		{
 			.uid = 0,
-			.min_time_ms = 1000,
-			.min_pending_time_ms = 2000,
-			.max_pending_time_ms = 3000,
+			.min_time_us = 1000000,
+			.min_pending_time_us = 2000000,
+			.max_pending_time_us = 3000000,
 		},
 	};
 	struct incfs_set_read_timeouts_args srt = {
@@ -3378,11 +3403,11 @@ static int per_uid_read_timeouts_test(const char *mount_dir)
 	TESTEQUAL(ioctl(cmd_fd, INCFS_IOC_GET_READ_TIMEOUTS, &grt), 0);
 	TESTEQUAL(grt.timeouts_array_size_out, sizeof(purt_get));
 	TESTEQUAL(purt_get[0].uid, purt_set[0].uid);
-	TESTEQUAL(purt_get[0].min_time_ms, purt_set[0].min_time_ms);
-	TESTEQUAL(purt_get[0].min_pending_time_ms,
-		  purt_set[0].min_pending_time_ms);
-	TESTEQUAL(purt_get[0].max_pending_time_ms,
-		  purt_set[0].max_pending_time_ms);
+	TESTEQUAL(purt_get[0].min_time_us, purt_set[0].min_time_us);
+	TESTEQUAL(purt_get[0].min_pending_time_us,
+		  purt_set[0].min_pending_time_us);
+	TESTEQUAL(purt_get[0].max_pending_time_us,
+		  purt_set[0].max_pending_time_us);
 
 	/* Still 1000 in UID 2 */
 	TESTEQUAL(clock_gettime(CLOCK_MONOTONIC, &start), 0);
@@ -3397,7 +3422,7 @@ static int per_uid_read_timeouts_test(const char *mount_dir)
 	TESTEQUAL(is_close(&start, 1000), 0);
 
 	/* Set it to default */
-	purt_set[0].max_pending_time_ms = UINT32_MAX;
+	purt_set[0].max_pending_time_us = UINT32_MAX;
 	TESTEQUAL(ioctl(cmd_fd, INCFS_IOC_SET_READ_TIMEOUTS, &srt), 0);
 	TESTEQUAL(clock_gettime(CLOCK_MONOTONIC, &start), 0);
 	TESTEQUAL(pread(fd, buffer, sizeof(buffer), 0), -1);

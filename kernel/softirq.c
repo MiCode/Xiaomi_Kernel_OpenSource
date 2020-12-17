@@ -29,6 +29,8 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/irq.h>
 
+EXPORT_TRACEPOINT_SYMBOL_GPL(irq_handler_entry);
+
 /*
    - No shared variables, all the data are CPU local.
    - If a softirq needs serialization, let it serialize itself
@@ -55,15 +57,15 @@ EXPORT_PER_CPU_SYMBOL(irq_stat);
 static struct softirq_action softirq_vec[NR_SOFTIRQS] __cacheline_aligned_in_smp;
 
 DEFINE_PER_CPU(struct task_struct *, ksoftirqd);
+EXPORT_PER_CPU_SYMBOL_GPL(ksoftirqd);
 
-#ifdef CONFIG_SCHED_WALT
 /*
  * active_softirqs -- per cpu, a mask of softirqs that are being handled,
  * with the expectation that approximate answers are acceptable and therefore
  * no synchronization.
  */
 DEFINE_PER_CPU(__u32, active_softirqs);
-#endif
+
 const char * const softirq_to_name[NR_SOFTIRQS] = {
 	"HI", "TIMER", "NET_TX", "NET_RX", "BLOCK", "IRQ_POLL",
 	"TASKLET", "SCHED", "HRTIMER", "RCU"
@@ -83,24 +85,6 @@ static void wakeup_softirqd(void)
 	if (tsk && tsk->state != TASK_RUNNING)
 		wake_up_process(tsk);
 }
-
-#ifndef CONFIG_SCHED_WALT
-/*
- * If ksoftirqd is scheduled, we do not want to process pending softirqs
- * right now. Let ksoftirqd handle this at its own rate, to get fairness,
- * unless we're doing some of the synchronous softirqs.
- */
-#define SOFTIRQ_NOW_MASK ((1 << HI_SOFTIRQ) | (1 << TASKLET_SOFTIRQ))
-static bool ksoftirqd_running(unsigned long pending)
-{
-	struct task_struct *tsk = __this_cpu_read(ksoftirqd);
-
-	if (pending & SOFTIRQ_NOW_MASK)
-		return false;
-	return tsk && (tsk->state == TASK_RUNNING) &&
-		!__kthread_should_park(tsk);
-}
-#endif
 
 /*
  * preempt_count and SOFTIRQ_OFFSET usage:
@@ -262,7 +246,6 @@ static inline bool lockdep_softirq_start(void) { return false; }
 static inline void lockdep_softirq_end(bool in_hardirq) { }
 #endif
 
-#ifdef CONFIG_SCHED_WALT
 #define softirq_deferred_for_rt(pending)		\
 ({							\
 	__u32 deferred = 0;				\
@@ -272,7 +255,7 @@ static inline void lockdep_softirq_end(bool in_hardirq) { }
 	}						\
 	deferred;					\
 })
-#endif
+
 asmlinkage __visible void __softirq_entry __do_softirq(void)
 {
 	unsigned long end = jiffies + MAX_SOFTIRQ_TIME;
@@ -280,9 +263,7 @@ asmlinkage __visible void __softirq_entry __do_softirq(void)
 	int max_restart = MAX_SOFTIRQ_RESTART;
 	struct softirq_action *h;
 	bool in_hardirq;
-#ifdef CONFIG_SCHED_WALT
 	__u32 deferred;
-#endif
 	__u32 pending;
 	int softirq_bit;
 
@@ -294,21 +275,16 @@ asmlinkage __visible void __softirq_entry __do_softirq(void)
 	current->flags &= ~PF_MEMALLOC;
 
 	pending = local_softirq_pending();
-#ifdef CONFIG_SCHED_WALT
 	deferred = softirq_deferred_for_rt(pending);
-#endif
 	account_irq_enter_time(current);
 	__local_bh_disable_ip(_RET_IP_, SOFTIRQ_OFFSET);
 	in_hardirq = lockdep_softirq_start();
 
 restart:
 	/* Reset the pending bitmask before enabling irqs */
-#ifndef CONFIG_SCHED_WALT
-	set_softirq_pending(0);
-#else
 	set_softirq_pending(deferred);
 	__this_cpu_write(active_softirqs, pending);
-#endif
+
 	local_irq_enable();
 
 	h = softirq_vec;
@@ -337,26 +313,21 @@ restart:
 		pending >>= softirq_bit;
 	}
 
-#ifdef CONFIG_SCHED_WALT
 	__this_cpu_write(active_softirqs, 0);
-#endif
 	if (__this_cpu_read(ksoftirqd) == current)
 		rcu_softirq_qs();
 	local_irq_disable();
 
 	pending = local_softirq_pending();
-#ifdef CONFIG_SCHED_WALT
 	deferred = softirq_deferred_for_rt(pending);
-#endif
+
 	if (pending) {
 		if (time_before(jiffies, end) && !need_resched() &&
 		    --max_restart)
 			goto restart;
-#ifdef CONFIG_SCHED_WALT
-		wakeup_softirqd();
-#endif
 	}
-#ifdef CONFIG_SCHED_WALT
+
+#ifdef CONFIG_RT_SOFTINT_OPTIMIZATION
 	if (pending | deferred)
 		wakeup_softirqd();
 #endif
@@ -379,11 +350,7 @@ asmlinkage __visible void do_softirq(void)
 
 	pending = local_softirq_pending();
 
-#ifndef CONFIG_SCHED_WALT
-	if (pending && !ksoftirqd_running(pending))
-#else
 	if (pending)
-#endif
 		do_softirq_own_stack();
 
 	local_irq_restore(flags);
@@ -417,10 +384,6 @@ void irq_enter(void)
 
 static inline void invoke_softirq(void)
 {
-#ifndef CONFIG_SCHED_WALT
-	if (ksoftirqd_running(local_softirq_pending()))
-		return;
-#endif
 	if (!force_irqthreads) {
 #ifdef CONFIG_HAVE_IRQ_EXIT_ON_IRQ_STACK
 		/*
@@ -599,19 +562,15 @@ static void tasklet_action_common(struct softirq_action *a,
 				if (!test_and_clear_bit(TASKLET_STATE_SCHED,
 							&t->state))
 					BUG();
-#ifndef CONFIG_SCHED_WALT
-				if (t->use_callback)
+				if (t->use_callback) {
+					trace_tasklet_entry(t->callback);
 					t->callback(t);
-				else
+					trace_tasklet_exit(t->callback);
+				} else {
+					trace_tasklet_entry(t->func);
 					t->func(t->data);
-#else
-				trace_tasklet_entry(t->func);
-				if (t->use_callback)
-					t->callback(t);
-				else
-					t->func(t->data);
-				trace_tasklet_exit(t->func);
-#endif
+					trace_tasklet_exit(t->func);
+				}
 				tasklet_unlock(t);
 				continue;
 			}

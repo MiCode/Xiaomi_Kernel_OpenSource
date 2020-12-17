@@ -5,7 +5,9 @@ frpc-adsprpc.ko
 cdsp-loader.ko
 qcom_rpmh.ko
 cmd-db.ko
+qnoc-qos.ko
 qnoc-waipio.ko
+icc-rpmh.ko
 icc-test.ko
 icc-bcm-voter.ko
 gcc-waipio.ko

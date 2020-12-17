@@ -15,6 +15,7 @@
 #ifdef CONFIG_SCHED_WALT
 #include <linux/sched/sysctl.h>
 #endif
+#include <trace/hooks/sched.h>
 
 #define IOWAIT_BOOST_MIN	(SCHED_CAPACITY_SCALE / 8)
 
@@ -144,8 +145,16 @@ static inline bool conservative_pl(void)
 static bool sugov_update_next_freq(struct sugov_policy *sg_policy, u64 time,
 				   unsigned int next_freq)
 {
-	if (sg_policy->next_freq == next_freq &&
-	    !cpufreq_driver_test_flags(CPUFREQ_NEED_UPDATE_LIMITS))
+	bool should_update = true;
+	if (!sg_policy->need_freq_update) {
+		if (sg_policy->next_freq == next_freq)
+			return false;
+	} else {
+		sg_policy->need_freq_update = cpufreq_driver_test_flags(CPUFREQ_NEED_UPDATE_LIMITS);
+	}
+
+	trace_android_rvh_set_sugov_update(sg_policy, next_freq, &should_update);
+	if (!should_update)
 		return false;
 
 	sg_policy->next_freq = next_freq;
@@ -277,11 +286,9 @@ static unsigned int get_next_freq(struct sugov_policy *sg_policy,
 	freq = map_util_freq(util, freq, max);
 	trace_sugov_next_freq(policy->cpu, util, max, freq);
 
-	if (freq == sg_policy->cached_raw_freq && !sg_policy->need_freq_update &&
-	    !cpufreq_driver_test_flags(CPUFREQ_NEED_UPDATE_LIMITS))
+	if (freq == sg_policy->cached_raw_freq && !sg_policy->need_freq_update)
 		return sg_policy->next_freq;
 
-	sg_policy->need_freq_update = false;
 	sg_policy->cached_raw_freq = freq;
 	return cpufreq_driver_resolve_freq(policy, freq);
 }
@@ -399,6 +406,7 @@ unsigned long schedutil_cpu_util(int cpu, unsigned long util_cfs,
 
 	return min(max, util);
 }
+EXPORT_SYMBOL_GPL(schedutil_cpu_util);
 
 static unsigned long sugov_get_util(struct sugov_cpu *sg_cpu)
 {
@@ -629,7 +637,6 @@ static void sugov_update_single(struct update_util_data *hook, u64 time,
 	unsigned long hs_util, boost_util;
 #endif
 	unsigned int next_f;
-	bool busy;
 	unsigned int cached_freq = sg_policy->cached_raw_freq;
 
 #ifdef CONFIG_SCHED_WALT
@@ -645,10 +652,7 @@ static void sugov_update_single(struct update_util_data *hook, u64 time,
 	if (!sugov_should_update_freq(sg_policy, time))
 		return;
 
-	/* Limits may have changed, don't skip frequency update */
 #ifndef CONFIG_SCHED_WALT
-	busy = !sg_policy->need_freq_update && sugov_cpu_is_busy(sg_cpu);
-
 	util = sugov_get_util(sg_cpu);
 	max = sg_cpu->max;
 	util = sugov_iowait_apply(sg_cpu, time, util, max);
@@ -688,7 +692,7 @@ static void sugov_update_single(struct update_util_data *hook, u64 time,
 	 * Do not reduce the frequency if the CPU has not been idle
 	 * recently, as the reduction is likely to be premature then.
 	 */
-	if (busy && next_f < sg_policy->next_freq) {
+	if (sugov_cpu_is_busy(sg_cpu) && next_f < sg_policy->next_freq) {
 		next_f = sg_policy->next_freq;
 
 		/* Restore cached freq as next_freq has changed */
@@ -1097,6 +1101,7 @@ static int sugov_kthread_create(struct sugov_policy *sg_policy)
 	if (policy->fast_switch_enabled)
 		return 0;
 
+	trace_android_vh_set_sugov_sched_attr(&attr);
 	kthread_init_work(&sg_policy->work, sugov_work);
 	kthread_init_worker(&sg_policy->worker);
 	thread = kthread_create(kthread_worker_fn, &sg_policy->worker,
@@ -1348,8 +1353,9 @@ static int sugov_start(struct cpufreq_policy *policy)
 	sg_policy->next_freq			= 0;
 	sg_policy->work_in_progress		= false;
 	sg_policy->limits_changed		= false;
-	sg_policy->need_freq_update		= false;
 	sg_policy->cached_raw_freq		= 0;
+
+	sg_policy->need_freq_update = cpufreq_driver_test_flags(CPUFREQ_NEED_UPDATE_LIMITS);
 
 	for_each_cpu(cpu, policy->cpus) {
 		struct sugov_cpu *sg_cpu = &per_cpu(sugov_cpu, cpu);
@@ -1430,7 +1436,7 @@ static struct cpufreq_governor schedutil_gov = {
 #endif
 	.name			= "schedutil",
 	.owner			= THIS_MODULE,
-	.dynamic_switching	= true,
+	.flags			= CPUFREQ_GOV_DYNAMIC_SWITCHING,
 	.init			= sugov_init,
 	.exit			= sugov_exit,
 	.start			= sugov_start,

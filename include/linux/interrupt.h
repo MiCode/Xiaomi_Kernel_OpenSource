@@ -546,7 +546,7 @@ enum
 #define LONG_SOFTIRQ_MASK ((1 << NET_TX_SOFTIRQ)       | \
 			   (1 << NET_RX_SOFTIRQ)       | \
 			   (1 << BLOCK_SOFTIRQ)        | \
-			   (1 << IRQ_POLL_SOFTIRQ)     | \
+			   (1 << IRQ_POLL_SOFTIRQ) | \
 			   (1 << TASKLET_SOFTIRQ))
 
 /* map softirq index to softirq name. update 'softirq_to_name' in

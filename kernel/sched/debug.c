@@ -81,6 +81,7 @@ static int sched_feat_show(struct seq_file *m, void *v)
 struct static_key sched_feat_keys[__SCHED_FEAT_NR] = {
 #include "features.h"
 };
+EXPORT_SYMBOL_GPL(sched_feat_keys);
 
 #undef SCHED_FEAT
 
@@ -251,7 +252,7 @@ static int sd_ctl_doflags(struct ctl_table *table, int write,
 	unsigned long flags = *(unsigned long *)table->data;
 	size_t data_size = 0;
 	size_t len = 0;
-	char *tmp;
+	char *tmp, *buf;
 	int idx;
 
 	if (write)
@@ -269,17 +270,17 @@ static int sd_ctl_doflags(struct ctl_table *table, int write,
 		return 0;
 	}
 
-	tmp = kcalloc(data_size + 1, sizeof(*tmp), GFP_KERNEL);
-	if (!tmp)
+	buf = kcalloc(data_size + 1, sizeof(*buf), GFP_KERNEL);
+	if (!buf)
 		return -ENOMEM;
 
 	for_each_set_bit(idx, &flags, __SD_FLAG_CNT) {
 		char *name = sd_flag_debug[idx].name;
 
-		len += snprintf(tmp + len, strlen(name) + 2, "%s ", name);
+		len += snprintf(buf + len, strlen(name) + 2, "%s ", name);
 	}
 
-	tmp += *ppos;
+	tmp = buf + *ppos;
 	len -= *ppos;
 
 	if (len > *lenp)
@@ -294,7 +295,7 @@ static int sd_ctl_doflags(struct ctl_table *table, int write,
 	*lenp = len;
 	*ppos += len;
 
-	kfree(tmp);
+	kfree(buf);
 
 	return 0;
 }

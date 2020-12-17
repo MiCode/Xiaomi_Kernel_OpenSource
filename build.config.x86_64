@@ -1,7 +1,7 @@
 ARCH=x86_64
 
-CLANG_TRIPLE=x86_64-linux-gnu-
-CROSS_COMPILE=x86_64-linux-androidkernel-
+LLVM_IAS=1
+CROSS_COMPILE=x86_64-linux-gnu-
 LINUX_GCC_CROSS_COMPILE_PREBUILTS_BIN=prebuilts/gas/linux-x86
 
 MAKE_GOALS="
