@@ -55,6 +55,9 @@ Optional properties:
  - reset-names: reset signal name strings sorted in the same order as the resets
 			property. These can be supplied only if we support
 			qcom,skip-logic-collapse.
+ - qcom,skip-disable-before-sw-enable : Presence denotes a hardware requirement
+					to leave the GDSC on that has been
+					enabled by an entity external to HLOS.
 
 Example:
 	gdsc_oxili_gx: qcom,gdsc@fd8c4024 {

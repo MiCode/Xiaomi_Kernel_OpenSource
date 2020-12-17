@@ -1,0 +1,250 @@
+#include <dt-bindings/thermal/thermal_qti.h>
+
+&battery_charger {
+	#cooling-cells = <2>;
+};
+
+&thermal_zones {
+	socd {
+		cooling-maps {
+			socd_cpu4 {
+				trip = <&socd_trip>;
+				cooling-device = <&cpu4_isolate 1 1>;
+			};
+
+			socd_cpu5 {
+				trip = <&socd_trip>;
+				cooling-device = <&cpu5_isolate 1 1>;
+			};
+
+			socd_cpu6 {
+				trip = <&socd_trip>;
+				cooling-device = <&cpu6_isolate 1 1>;
+			};
+
+			socd_cpu7 {
+				trip = <&socd_trip>;
+				cooling-device = <&cpu7_isolate 1 1>;
+			};
+		};
+	};
+
+	pm8350b-bcl-lvl0 {
+		cooling-maps {
+			vbat_cpu4 {
+				trip = <&b_bcl_lvl0>;
+				cooling-device = <&cpu4_isolate 1 1>;
+			};
+
+			vbat_cpu5 {
+				trip = <&b_bcl_lvl0>;
+				cooling-device = <&cpu5_isolate 1 1>;
+			};
+
+			vbat_gpu0 {
+				trip = <&b_bcl_lvl0>;
+				cooling-device = <&msm_gpu 2 2>;
+			};
+		};
+	};
+
+	pm8350b-bcl-lvl1 {
+		cooling-maps {
+			vbat_cpu6 {
+				trip = <&b_bcl_lvl1>;
+				cooling-device = <&cpu6_isolate 1 1>;
+			};
+
+			vbat_cpu7 {
+				trip = <&b_bcl_lvl1>;
+				cooling-device = <&cpu7_isolate 1 1>;
+			};
+
+			vbat_gpu1 {
+				trip = <&b_bcl_lvl1>;
+				cooling-device = <&msm_gpu 4 4>;
+			};
+		};
+	};
+
+	pm8350b-bcl-lvl2 {
+		cooling-maps {
+			vbat_gpu2 {
+				trip = <&b_bcl_lvl2>;
+				cooling-device = <&msm_gpu THERMAL_MAX_LIMIT
+							THERMAL_MAX_LIMIT>;
+			};
+		};
+	};
+
+	pm8350c-bcl-lvl0 {
+		disable-thermal-zone;
+		cooling-maps {
+			vph_cpu4 {
+				trip = <&c_bcl_lvl0>;
+				cooling-device = <&cpu4_isolate 1 1>;
+			};
+
+			vph_cpu5 {
+				trip = <&c_bcl_lvl0>;
+				cooling-device = <&cpu5_isolate 1 1>;
+			};
+
+			vph_gpu0 {
+				trip = <&c_bcl_lvl0>;
+				cooling-device = <&msm_gpu 2 2>;
+			};
+		};
+	};
+
+	pm8350c-bcl-lvl1 {
+		disable-thermal-zone;
+		cooling-maps {
+			vph_cpu6 {
+				trip = <&c_bcl_lvl1>;
+				cooling-device = <&cpu6_isolate 1 1>;
+			};
+
+			vph_cpu7 {
+				trip = <&c_bcl_lvl1>;
+				cooling-device = <&cpu7_isolate 1 1>;
+			};
+
+			vph_gpu1 {
+				trip = <&c_bcl_lvl1>;
+				cooling-device = <&msm_gpu 4 4>;
+			};
+		};
+	};
+
+	pm8350c-bcl-lvl2 {
+		disable-thermal-zone;
+		cooling-maps {
+			vph_gpu2 {
+				trip = <&c_bcl_lvl2>;
+				cooling-device = <&msm_gpu THERMAL_MAX_LIMIT
+							THERMAL_MAX_LIMIT>;
+			};
+		};
+	};
+
+	pm8350b_tz {
+		cooling-maps {
+			battery_cdev {
+				trip = <&pm8350b_trip0>;
+				cooling-device = <&battery_charger
+							THERMAL_MAX_LIMIT
+							THERMAL_MAX_LIMIT>;
+			};
+		};
+	};
+
+	pm8350_tz {
+		cooling-maps {
+			pm8350_gpu {
+				trip = <&pm8350_trip0>;
+				cooling-device = <&msm_gpu THERMAL_MAX_LIMIT
+							THERMAL_MAX_LIMIT>;
+			};
+
+			pm8350_cpu0_freq {
+				trip = <&pm8350_trip0>;
+				cooling-device = <&CPU0 THERMAL_MAX_LIMIT
+							THERMAL_MAX_LIMIT>;
+			};
+
+			pm8350_cpu1 {
+				trip = <&pm8350_trip0>;
+				cooling-device = <&cpu1_isolate 1 1>;
+			};
+
+			pm8350_cpu2 {
+				trip = <&pm8350_trip0>;
+				cooling-device = <&cpu2_isolate 1 1>;
+			};
+
+			pm8350_cpu3 {
+				trip = <&pm8350_trip0>;
+				cooling-device = <&cpu3_isolate 1 1>;
+			};
+
+			pm8350_cpu4 {
+				trip = <&pm8350_trip0>;
+				cooling-device = <&cpu4_isolate 1 1>;
+			};
+
+			pm8350_cpu5 {
+				trip = <&pm8350_trip0>;
+				cooling-device = <&cpu5_isolate 1 1>;
+			};
+
+			pm8350_cpu6 {
+				trip = <&pm8350_trip0>;
+				cooling-device = <&cpu6_isolate 1 1>;
+			};
+
+			pm8350_cpu7 {
+				trip = <&pm8350_trip0>;
+				cooling-device = <&cpu7_isolate 1 1>;
+			};
+		};
+	};
+
+	pm8350c_tz {
+		cooling-maps {
+			pm8350c_mdm {
+				trip = <&pm8350c_trip0>;
+				cooling-device = <&modem_tj THERMAL_MAX_LIMIT
+							THERMAL_MAX_LIMIT>;
+			};
+
+			pm8350c_nsp {
+				trip = <&pm8350c_trip0>;
+				cooling-device = <&cdsp_sw THERMAL_MAX_LIMIT
+							THERMAL_MAX_LIMIT>;
+			};
+		};
+	};
+
+	pmr735b_tz {
+		cooling-maps {
+			pmr735b_pa {
+				trip = <&pmr735b_trip0>;
+				cooling-device = <&modem_pa_dsc
+							THERMAL_MAX_LIMIT
+							THERMAL_MAX_LIMIT>;
+			};
+
+			pmr735b_pa_fr1 {
+				trip = <&pmr735b_trip0>;
+				cooling-device = <&modem_pa_fr1_dsc
+							THERMAL_MAX_LIMIT
+							THERMAL_MAX_LIMIT>;
+			};
+
+			pmr735b_mmw0 {
+				trip = <&pmr735b_trip0>;
+				cooling-device = <&modem_mmw0 THERMAL_MAX_LIMIT
+							THERMAL_MAX_LIMIT>;
+			};
+
+			pmr735b_mmw1 {
+				trip = <&pmr735b_trip0>;
+				cooling-device = <&modem_mmw1 THERMAL_MAX_LIMIT
+							THERMAL_MAX_LIMIT>;
+			};
+
+			pmr735b_mmw2 {
+				trip = <&pmr735b_trip0>;
+				cooling-device = <&modem_mmw2 THERMAL_MAX_LIMIT
+							THERMAL_MAX_LIMIT>;
+			};
+
+			pmr735b_mmw3 {
+				trip = <&pmr735b_trip0>;
+				cooling-device = <&modem_mmw3 THERMAL_MAX_LIMIT
+							THERMAL_MAX_LIMIT>;
+			};
+		};
+	};
+};

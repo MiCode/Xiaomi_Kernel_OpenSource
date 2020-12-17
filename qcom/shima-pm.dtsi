@@ -74,6 +74,7 @@
 				qcom,ref-stddev = <500>;
 				qcom,tmr-add = <1000>;
 				qcom,ref-premature-cnt = <1>;
+				qcom,disable-ipi-prediction;
 				qcom,cpu = <&CPU0 &CPU1 &CPU2 &CPU3>;
 
 				SLVR_WFI: qcom,pm-cpu-level@0 { /* C1 */

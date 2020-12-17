@@ -1,0 +1,17 @@
+
+&qupv3_se4_i2c {
+	status = "ok";
+	st_fts@49 {
+		compatible = "st,fts";
+		reg = <0x49>;
+		st,x-flip = <1>;
+		st,y-flip = <1>;
+		st,regulator_dvdd = "vdd";
+		st,regulator_avdd = "avdd";
+		st,trusted-touch-mode = "vm_mode";
+		st,touch-environment = "tvm";
+		st,trusted-touch-spi-irq = <566>;
+		st,trusted-touch-io-bases = <0xF114000 0xF115000 0xF116000 0xF117000 0x990000 0x00910000>;
+		st,trusted-touch-io-sizes = <0x1000 0x1000 0x1000 0x1000 0x1000 0x4000>;
+	};
+};

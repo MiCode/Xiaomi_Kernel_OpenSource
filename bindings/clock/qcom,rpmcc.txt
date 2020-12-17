@@ -24,6 +24,7 @@ Required properties :
 			"qcom,rpmcc-msm8998", "qcom,rpmcc"
 			"qcom,rpmcc-qcs404", "qcom,rpmcc"
 			"qcom,rpmcc-sdm660", "qcom,rpmcc"
+			"qcom,rpmcc-holi", "qcom,rpmcc"
 
 - #clock-cells : shall contain 1
 
@@ -34,6 +35,12 @@ clock is available when the apps CPU subsystem is active, i.e. not
 suspended or in deep idle. If it is important that the clock keeps running
 during system suspend, you need to specify the non-active clock, the one
 not containing *_A_* in the enumerator name.
+
+Optional properties:
+-  qcom,hw-clk-handoff : Add this property to support initial high votes on the
+                         to be sent to RPM as proxy votes.
+-  qcom,bimc-log-stop : Add this property to request RPM to stop the bimc
+			logging.
 
 Example:
 	smd {

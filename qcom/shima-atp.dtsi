@@ -1,0 +1,21 @@
+#include "shima-idp.dtsi"
+
+&pm8008i_chip {
+	status = "disabled";
+};
+
+&pm8008i_ldo {
+	status = "disabled";
+};
+
+&pm8008j_chip {
+	status = "disabled";
+};
+
+&pm8008j_ldo {
+	status = "disabled";
+};
+
+&pm8350c_flash {
+	status = "disabled";
+};

@@ -23,7 +23,8 @@ Properties:
 - reg:
   Usage:	required
   Value type:	<prop-encoded-array>
-  Definition:	Register base for HAPTICS_CFG and HAPTICS_PATTERN modules.
+  Definition:	Register base for following haptics modules: HAPTICS_CFG,
+		HAPTICS_PATTERN, HAPTICS_BOOST.
 
 - interrupts:
   Usage:	required
@@ -98,6 +99,25 @@ Properties:
   Definition:	Phandle of the nvmem cell to store the closed-loop brake
 		calibration settings. Please refer to nvmem bindings as
 		described in bindings/nvmem/nvmem.txt.
+
+- nvmem-names:
+  Usage:	optional
+  Value type:	<string>
+  Definition:	The nvmem device name of the SDAM module used for haptics
+		configuration. It must be "hap_cfg_sdam".
+
+- nvmem:
+  Usage:	optional
+  Value type:	<phandle>
+  Definition:	Phandle of the nvmem device used for haptics configuration.
+		Please refer to nvmem bindings as described in bindings/nvmem/nvmem.txt.
+
+- qcom,pbs-client:
+  Usage:	optional
+  Value type:	<phandle>
+  Definition:	Phandle of the PBS client used for triggering PBS to configure
+		haptics ISC (short circuit current) config during LRA impedance
+		detection.
 
 The following properties are only required when LRA actuator is used:
 
@@ -242,11 +262,14 @@ different vibration effects:
 Example:
 	qcom,hv-haptics@f000 {
 		compatible = "qcom,hv-haptics";
-		reg = <0xf000>, <0xf100>;
+		reg = <0xf000>, <0xf100>, <0xf200>;
 		interrupts = <0x3 0xf0 0x1 IRQ_TYPE_EDGE_BOTH>;
 		interrupt-names = "fifo-empty";
 		nvmem-cell-names = "hap_cl_brake";
 		nvmem-cells = <&hap_cl_brake>;
+		nvmem-names = "hap_cfg_sdam";
+		nvmem = <&pmk8350_sdam_46>;
+		qcom,pbs-client = <&pm8350b_pbs2>;
 		qcom,vmax-mv = <900>;
 		qcom,brake-mode = <BRAKE_CLOSE_LOOP>;
 		qcom,brake-pattern = /bits/ 8 <0xff 0x3f 0x1f>;

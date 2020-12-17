@@ -1,3 +1,5 @@
+#include <dt-bindings/clock/qcom,gcc-shima.h>
+#include <dt-bindings/gpio/gpio.h>
 &soc {
 	timer {
 		clock-frequency = <5000000>;
@@ -43,7 +45,16 @@
 	};
 };
 
+&usb2_phy0 {
+	status = "disabled";
+};
+
+&usb_qmp_dp_phy {
+	status = "disabled";
+};
+
 &usb0 {
+	/delete-property/ extcon;
 	dwc3@a600000 {
 		usb-phy = <&usb_emu_phy_0>, <&usb_nop_phy>;
 		maximum-speed = "high-speed";
@@ -94,7 +105,82 @@
 	status = "ok";
 };
 
+&sdhc_1 {
+	status = "disabled";
+
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&sdc1_on>;
+	pinctrl-1 = <&sdc1_off>;
+
+	vdd-supply = <&pm8350_l7>;
+	qcom,vdd-voltage-level = <2960000 2960000>;
+	qcom,vdd-current-level = <0 570000>;
+
+	vdd-io-supply = <&pm8350_s10>;
+	qcom,vdd-io-always-on;
+	qcom,vdd-io-lpm-sup;
+	qcom,vdd-io-voltage-level = <1800000 1800000>;
+	qcom,vdd-io-current-level = <0 325000>;
+
+	cap-mmc-highspeed;
+};
+
+&sdhc_2 {
+	status = "ok";
+
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&sdc2_on>;
+	pinctrl-1 = <&sdc2_off>;
+
+	vdd-supply = <&pm8350c_l9>;
+	qcom,vdd-voltage-level = <2960000 2960000>;
+	qcom,vdd-current-level = <0 800000>;
+
+	vdd-io-supply = <&pm8350c_l6>;
+	qcom,vdd-io-voltage-level = <2960000 2960000>;
+	qcom,vdd-io-current-level = <0 22000>;
+
+	cap-sd-highspeed;
+
+	cd-gpios = <&tlmm 92 GPIO_ACTIVE_LOW>;
+};
+
 /* Debug UART console */
 &qupv3_se13_2uart {
 	qcom,rumi_platform;
+};
+
+&gcc {
+	clocks = <&bi_tcxo>, <&bi_tcxo_ao>, <&sleep_clk>;
+};
+
+&aopcc {
+	compatible = "qcom,dummycc";
+	clock-output-names = "qdss_clocks";
+};
+
+&cpufreq_hw {
+	clocks = <&bi_tcxo>, <&gcc GCC_GPLL0>;
+};
+
+&camcc {
+	clocks = <&bi_tcxo>, <&bi_tcxo_ao>, <&sleep_clk>, <&gcc GCC_CAMERA_AHB_CLK>;
+};
+
+&debugcc {
+	clocks = <&bi_tcxo>;
+};
+
+&videocc {
+	clocks = <&bi_tcxo>, <&bi_tcxo_ao>, <&sleep_clk>, <&gcc GCC_VIDEO_AHB_CLK>;
+};
+
+&gpucc {
+	clocks = <&bi_tcxo>, <&gcc GCC_GPU_GPLL0_CLK_SRC>,
+		<&gcc GCC_GPU_GPLL0_DIV_CLK_SRC>, <&gcc GCC_GPU_CFG_AHB_CLK>;
+};
+
+&dispcc {
+	clocks = <&bi_tcxo>, <&bi_tcxo_ao>,
+		<&gcc GCC_DISP_GPLL0_CLK_SRC>, <&sleep_clk>, <&gcc GCC_DISP_AHB_CLK>;
 };

@@ -1,0 +1,96 @@
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/soc/qcom,ipcc.h>
+#include <dt-bindings/interconnect/qcom,shima.h>
+#include <dt-bindings/clock/qcom,videocc-shima.h>
+
+&soc {
+	msm_cvp: qcom,cvp@ab00000 {
+		compatible = "qcom,msm-cvp", "qcom,shima-cvp";
+		status = "ok";
+		reg = <0xab00000 0x100000>;
+		interrupts = <GIC_SPI 234 IRQ_TYPE_LEVEL_HIGH>;
+
+		/* Supply */
+		cvp-supply = <&video_cc_mvs1c_gdsc>;
+		cvp-core-supply = <&video_cc_mvs1_gdsc>;
+
+		/* Clocks */
+		clock-names = "gcc_video_axi1", "cvp_clk", "core_clk";
+		clocks = <&gcc GCC_VIDEO_AXI1_CLK>,
+			<&videocc VIDEO_CC_MVS1C_CLK>,
+			<&videocc VIDEO_CC_MVS1_CLK>;
+		qcom,proxy-clock-names = "gcc_video_axi1",
+			"cvp_clk", "core_clk";
+
+		qcom,clock-configs = <0x0 0x1 0x1>;
+		qcom,allowed-clock-rates = <280000000 366000000 444000000>;
+
+		resets = <&gcc GCC_VIDEO_AXI1_CLK_ARES>,
+			<&videocc VIDEO_CC_MVS1C_CLK_ARES>;
+		reset-names = "cvp_axi_reset", "cvp_core_reset";
+		reset-power-status = <0x2 0x1>;
+
+		qcom,reg-presets = <0xB0088 0x0>;
+		qcom,ipcc-reg = <0x400000 0x100000>;
+
+		/* CVP Firmware ELF image name */
+		cvp,firmware-name = "evass-lt";
+
+		/* Buses */
+		cvp_cnoc {
+			compatible = "qcom,msm-cvp,bus";
+			label = "cvp-cnoc";
+			qcom,bus-master = <MASTER_APPSS_PROC>;
+			qcom,bus-slave = <SLAVE_VENUS_CFG>;
+			qcom,bus-governor = "performance";
+			qcom,bus-range-kbps = <1000 1000>;
+		};
+
+		cvp_bus_ddr {
+			compatible = "qcom,msm-cvp,bus";
+			label = "cvp-ddr";
+			qcom,bus-master = <MASTER_VIDEO_PROC>;
+			qcom,bus-slave = <SLAVE_EBI1>;
+			qcom,bus-governor = "performance";
+			qcom,bus-range-kbps = <1000 6533000>;
+		};
+
+		/* MMUs */
+		cvp_non_secure_cb {
+			compatible = "qcom,msm-cvp,context-bank";
+			label = "cvp_hlos";
+			iommus =
+				<&apps_smmu 0x2920 0x400>;
+			buffer-types = <0xfff>;
+			dma-coherent-hint-cached;
+			qcom,iommu-dma-addr-pool = <0x4b000000 0x90000000>;
+		};
+
+
+		cvp_secure_nonpixel_cb {
+			compatible = "qcom,msm-cvp,context-bank";
+			label = "cvp_sec_nonpixel";
+			iommus =
+				<&apps_smmu 0x2924 0x400>;
+			buffer-types = <0x741>;
+			qcom,iommu-dma-addr-pool = <0x01000000 0x25800000>;
+			qcom,iommu-vmid = <0xB>;
+		};
+
+		cvp_secure_pixel_cb {
+			compatible = "qcom,msm-cvp,context-bank";
+			label = "cvp_sec_pixel";
+			iommus =
+				<&apps_smmu 0x2923 0x400>;
+			buffer-types = <0x106>;
+			qcom,iommu-dma-addr-pool = <0x26800000 0x24800000>;
+			qcom,iommu-vmid = <0xA>;
+		};
+
+		/* Memory Heaps */
+		qcom,msm-cvp,mem_cdsp {
+			compatible = "qcom,msm-cvp,mem-cdsp";
+			memory-region = <&cdsp_mem>;
+		};
+	};
+};

@@ -69,6 +69,20 @@ Optional Properties:
 		Please refer to Documentation/devicetree/bindings/
 		interconnect/ for more details.
 
+- devfreq,freq-table - specifies supported frequencies for clock scaling.
+	Clock scaling logic shall toggle between these frequencies based
+	on card load. In case the defined frequencies are over or below
+	the supported card frequencies, they will be overridden
+	during card init. In case this entry is not supplied,
+	the driver will construct one based on the card
+	supported max and min frequencies.
+	The frequencies must be ordered from lowest to highest.
+
+- scaling-lower-bus-speed-mode - Few hosts can support DDR52 mode at the
+	same lower system voltage corner as high-speed mode. In such
+	cases, it is always better to put it in DDR  mode which will
+	improve the performance without any power impact.
+
 Example:
 
 	sdhc_1: sdhci@f9824900 {
@@ -112,4 +126,7 @@ Example:
 
 		qcom,dll-config = <0x0007642c>;
 		qcom,ddr-config = <0x80040868>;
+
+		qcom,devfreq,freq-table = <50000000 200000000>;
+		qcom,scaling-lower-bus-speed-mode = "DDR52";
 	};

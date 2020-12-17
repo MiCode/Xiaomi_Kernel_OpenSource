@@ -1,0 +1,6 @@
+#include "sdxlemur-pmic-overlay.dtsi"
+
+&soc {
+
+};
+

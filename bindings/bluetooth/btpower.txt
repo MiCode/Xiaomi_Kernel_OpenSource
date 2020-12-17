@@ -21,6 +21,8 @@ Optional properties:
 	- qcom,bt-vdd-xtal-supply: Bluetooth VDD XTAL regulator handle
 	- qcom,bt-vdd-core-supply: Bluetooth VDD CORE regulator handle
 	- qcom,bt-vdd-asd-supply: Bluetooth VDD regulator handle for antenna switch
+	- reg: Memory regions defined as starting address and size
+	- reg-names: Names of the memory regions defined in reg entry
     diversity.
 	- qcom,bt-chip-pwd-supply: Chip power down gpio is required when bluetooth
 		module and other modules like wifi co-exist in a singe chip and

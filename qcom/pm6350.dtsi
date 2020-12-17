@@ -1,3 +1,4 @@
+#include <dt-bindings/clock/qcom,rpmcc.h>
 #include <dt-bindings/input/input.h>
 #include <dt-bindings/input/qcom,qpnp-power-on.h>
 #include <dt-bindings/spmi/spmi.h>
@@ -61,6 +62,15 @@
 			clock-names = "xo";
 			status = "disabled";
 		};
+
+		pm6350_gpios: pinctrl@c000 {
+			compatible = "qcom,pm6350-gpio";
+			reg = <0xc000>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
 	};
 
 	qcom,pm6350@1 {
@@ -76,6 +86,35 @@
 			reg-names = "lpg-base";
 			qcom,num-lpg-channels = <1>;
 			#pwm-cells = <2>;
+		};
+	};
+};
+
+&thermal_zones {
+	pm6350_tz {
+		polling-delay-passive = <100>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&pm6350_tz>;
+
+		trips {
+			pm6350_trip0: trip0 {
+				temperature = <95000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+
+			pm6350_trip1: trip1 {
+				temperature = <115000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+
+			pm6350_trip2: trip2 {
+				temperature = <145000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
 		};
 	};
 };

@@ -19,6 +19,12 @@ properties:
     items:
       - const: qcom,secure-buffer
 
+  qcom,vmid-cp-camera-preview-ro:
+    $ref: /schemas/types.yaml#/definitions/flag
+    description:
+      Buffers accessible to VMID_CP_CAMERA_PREVIEW must be mapped with
+      read-only permissions.
+
 required:
   - compatible
 

@@ -1,0 +1,11 @@
+/dts-v1/;
+
+#include "sdxlemur.dtsi"
+#include "sdxlemur-mtp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SDXLEMUR MTP";
+	compatible = "qcom,sdxlemur-mtp",
+		"qcom,sdxlemur", "qcom,mtp";
+	qcom,board-id = <0x08 0>;
+};

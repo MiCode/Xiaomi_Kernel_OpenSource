@@ -1,0 +1,63 @@
+&soc {
+	usb: ssusb@a600000 {
+		compatible = "qcom,dwc-usb3-msm";
+		reg = <0x0a600000 0x100000>;
+		reg-names = "core_base";
+
+		iommus = <&apps_smmu 0x1a0 0x0>;
+		qcom,iommu-dma = "bypass";
+		qcom,iommu-dma-addr-pool = <0x90000000 0x60000000>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		dma-ranges;
+
+		interrupts = <0 130 0>;
+		interrupt-names = "pwr_event_irq";
+
+		USB3_GDSC-supply = <&gcc_usb30_gdsc>;
+		clocks = <&gcc GCC_USB30_MASTER_CLK>,
+			<&gcc GCC_USB30_SLV_AHB_CLK>,
+			<&gcc GCC_USB30_MSTR_AXI_CLK>,
+			<&gcc GCC_USB30_MOCK_UTMI_CLK>,
+			<&gcc GCC_USB30_SLEEP_CLK>,
+			<&gcc GCC_USB3_PRIM_CLKREF_EN>;
+		clock-names = "core_clk", "iface_clk", "bus_aggr_clk",
+					"utmi_clk", "sleep_clk", "xo";
+
+		resets = <&gcc GCC_USB30_BCR>;
+		reset-names = "core_reset";
+
+		qcom,core-clk-rate = <200000000>;
+		qcom,core-clk-rate-hs = <66666667>;
+		qcom,num-gsi-evt-buffs = <0x3>;
+		qcom,gsi-reg-offset =
+			<0x0fc /* GSI_GENERAL_CFG */
+			 0x208 /* GSI_DBL_ADDR_L */
+			 0x224 /* GSI_DBL_ADDR_H */
+			 0x240 /* GSI_RING_BASE_ADDR_L */
+			 0x25c /* GSI_RING_BASE_ADDR_H */
+			 0x1a4>; /* GSI_IF_STS */
+		qcom,dwc-usb3-msm-tx-fifo-size = <27696>;
+
+		dwc3@a600000 {
+			compatible = "snps,dwc3";
+			reg = <0x0a600000 0xcd00>;
+			interrupts = <GIC_SPI 133 IRQ_TYPE_LEVEL_HIGH>;
+			linux,sysdev_is_parent;
+			snps,disable-clk-gating;
+			snps,has-lpm-erratum;
+			snps,hird-threshold = /bits/ 8 <0x10>;
+			snps,ssp-u3-u0-quirk;
+			snps,usb3-u1u2-disable;
+			tx-fifo-resize;
+			maximum-speed = "super-speed-plus";
+			dr_mode = "otg";
+			snps,xhci-imod-value = <4000>;
+		};
+	};
+
+	usb_nop_phy: usb_nop_phy {
+		compatible = "usb-nop-xceiv";
+	};
+};

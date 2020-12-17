@@ -3,7 +3,10 @@ Qualcomm Technologies, Inc. GPU
 Qualcomm Technologies, Inc. Adreno GPU
 
 Required properties:
-- compatible:		Must be "qcom,kgsl-3d0" and "qcom,kgsl-3d"
+- compatible:		Must be "qcom,kgsl-3d0".
+			May also includes "qcom,adreno-gpu-*" for few targets.
+			Must include "qcom,adreno-gpu-a619-holi" for Holi target.
+			Must include "qcom,adreno-gpu-a660-shima" for Shima target.
 - reg:			Specifies the list of register regions for the device.
 - reg-names:		Resource names used for the register regions specified
 			in reg.
@@ -195,9 +198,9 @@ Optional Properties:
 				baseAddr - base address of the qtimer memory region
 				size     - size of the qtimer region
 
-- qcom,tsens-name:
-				Specify the name of GPU temperature sensor. This name will be used
-				to get the temperature from the thermal driver API.
+- qcom,tzone-names:
+				Specify the names of GPU thermal zones. These will be used
+				to get gpu temperature from the thermal driver API.
 
 - qcom,enable-midframe-timer:
 				Boolean. Enables the use of midframe sampling timer. This timer
