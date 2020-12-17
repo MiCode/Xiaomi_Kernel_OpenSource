@@ -1877,7 +1877,7 @@ static int process_sip_msg(struct sk_buff *skb, struct nf_conn *ct,
 }
 
 static void sip_tcp_skip_process(int ret, struct nf_conn *ct, struct sk_buff *skb,
-				 unsigned int protoff, s16 *tdiff)
+				 unsigned int protoff, s16 tdiff)
 {
 	if (ret == NF_ACCEPT && ct && ct->status & IPS_NAT_MASK) {
 		const struct nf_nat_sip_hooks *hooks;
