@@ -806,9 +806,9 @@
 		ibus_err = <14>;
 
 		/* PE 4.0 cable impedance (mohm) */
-		pe40_r_cable_1a_lower = <500>;
-		pe40_r_cable_2a_lower = <351>;
-		pe40_r_cable_3a_lower = <240>;
+		pe40_r_cable_1a_lower = <559>;
+		pe40_r_cable_2a_lower = <420>;
+		pe40_r_cable_3a_lower = <279>;
 
 		/* single charger */
 		sc_input_current = <3200000>;
