@@ -2724,8 +2724,6 @@ static int cnss_pci_suspend_noirq(struct device *dev)
 	    !pci_priv->plat_priv->use_pm_domain)
 		pci_save_state(pci_dev);
 
-	if (pci_priv->disable_pc && !pci_dev->state_saved)
-		pci_save_state(pci_dev);
 out:
 	return ret;
 }
