@@ -629,7 +629,7 @@ afunc_bind(struct usb_configuration *cfg, struct usb_function *fn)
 	hs_epin_desc.bEndpointAddress = fs_epin_desc.bEndpointAddress;
 
 	ret = usb_assign_descriptors(fn, fs_audio_desc, hs_audio_desc,
-					ss_audio_desc, NULL);
+					ss_audio_desc, ss_audio_desc);
 	if (ret)
 		return ret;
 
