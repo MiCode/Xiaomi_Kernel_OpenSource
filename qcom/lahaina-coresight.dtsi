@@ -107,6 +107,7 @@
 
 		coresight-name = "coresight-tmc-etf";
 		coresight-csr = <&swao_csr>;
+		coresight-ctis = <&cti0 &cti6>;
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
 
@@ -153,7 +154,7 @@
 
 		qcom,sw-usb;
 		coresight-name = "coresight-tmc-etr";
-		coresight-ctis = <&cti0 &cti0>;
+		coresight-ctis = <&cti0 &cti6>;
 		coresight-csr = <&csr>;
 
 		clocks = <&clock_aop QDSS_CLK>;
@@ -2206,7 +2207,7 @@
 			port@4 {
 				reg = <4>;
 				turing_in_turing_dup: endpoint {
-					retmote-endpoint =
+					remote-endpoint =
 					  <&turing_dup_out_turing>;
 				};
 			};

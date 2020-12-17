@@ -1,52 +1,4 @@
 #include "lahaina-qrd-common.dtsi"
-#include "lahaina-thermal-overlay.dtsi"
-
-&ufsphy_mem {
-	compatible = "qcom,ufs-phy-qmp-v4-lahaina";
-
-	vdda-phy-supply = <&pm8350_l5>;
-	vdda-pll-supply = <&pm8350_l6>;
-	vdda-phy-max-microamp = <91600>;
-	vdda-pll-max-microamp = <19000>;
-
-	status = "ok";
-};
-
-&ufshc_mem {
-	vdd-hba-supply = <&gcc_ufs_phy_gdsc>;
-	vdd-hba-fixed-regulator;
-
-	vcc-supply = <&pm8350_l7>;
-	vcc-voltage-level = <2504000 2950000>;
-	vcc-low-voltage-sup;
-	vcc-max-microamp = <800000>;
-
-	vccq-supply = <&pm8350_l9>;
-	vccq-max-microamp = <900000>;
-
-	qcom,vddp-ref-clk-supply = <&pm8350_l9>;
-	qcom,vddp-ref-clk-max-microamp = <100>;
-
-	status = "ok";
-};
-
-&sdhc_2 {
-	vdd-supply = <&pm8350c_l9>;
-	qcom,vdd-voltage-level = <2950000 2960000>;
-	qcom,vdd-current-level = <200 800000>;
-
-	vdd-io-supply = <&pm8350c_l6>;
-	qcom,vdd-io-voltage-level = <1808000 2960000>;
-	qcom,vdd-io-current-level = <200 22000>;
-
-	pinctrl-names = "default", "sleep";
-	pinctrl-0 = <&sdc2_on>;
-	pinctrl-1 = <&sdc2_off>;
-
-	cd-gpios = <&tlmm 92 GPIO_ACTIVE_LOW>;
-
-	status = "ok";
-};
 
 &usb1 {
 	status = "disabled";
@@ -60,38 +12,19 @@
 	status = "disabled";
 };
 
-&qupv3_se4_i2c {
-	#address-cells = <1>;
-	#size-cells = <0>;
-
-	status = "ok";
-	qcom,i2c-touch-active = "focaltech,fts_ts";
-
-	focaltech@38 {
-		compatible = "focaltech,fts_ts";
-		reg = <0x38>;
-		interrupt-parent = <&tlmm>;
-		interrupts = <23 0x2008>;
-		focaltech,reset-gpio = <&tlmm 22 0x00>;
-		focaltech,irq-gpio = <&tlmm 23 0x2008>;
-		focaltech,max-touch-number = <5>;
-		focaltech,display-coords = <0 0 1080 2340>;
-
-		vdd-supply = <&L3C>;
-
-		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend","pmx_ts_release";
-		pinctrl-0 = <&ts_active>;
-		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
-		pinctrl-2 = <&ts_release>;
-	};
-};
-
-&wil6210 {
-	status = "ok";
+&usb2_phy0 {
+	qcom,param-override-seq =
+		<0xe6 0x6c
+		0x0c 0x70
+		0x17 0x74>;
 };
 
 &usb_qmp_dp_phy {
 	pinctrl-names = "portselect";
+};
+
+&usb0 {
+	ssusb_redriver = <&redriver>;
 };
 
 &qupv3_se13_i2c {

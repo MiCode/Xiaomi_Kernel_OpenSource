@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "lahaina-v2.1.dtsi"
+#include "lahaina-cdp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Lahaina V2.1 CDP";
+	compatible = "qcom,lahaina-cdp", "qcom,lahaina", "qcom,cdp";
+	qcom,board-id = <0x10001 0>;
+};

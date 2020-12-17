@@ -352,6 +352,9 @@
 &pm8350b_haptics {
 	nvmem-cell-names = "hap_cl_brake";
 	nvmem-cells = <&hap_cl_brake>;
+	nvmem-names = "hap_cfg_sdam";
+	nvmem = <&pmk8350_sdam_46>;
+	qcom,pbs-client = <&pm8350b_pbs2>;
 };
 
 &pmr735a_tz {
@@ -545,7 +548,18 @@
 	};
 };
 
-&restart {
-	nvmem-cells = <&restart_reason>;
-	nvmem-cell-names = "restart_reason";
+&soc {
+	reboot_reason {
+		compatible = "qcom,reboot-reason";
+		nvmem-cells = <&restart_reason>;
+		nvmem-cell-names = "restart_reason";
+	};
+};
+
+&soc {
+	pmic-pon-log {
+		compatible = "qcom,pmic-pon-log";
+		nvmem = <&pmk8350_sdam_5>;
+		nvmem-names = "pon_log";
+	};
 };

@@ -56,5 +56,13 @@ Optional properties:
   max_reason is not specified, it is equivalent to max_reason = 1
   (KMSG_DUMP_PANIC).
 
+- mem-type: determine the memory type of the reserved region, compatible with
+  <unbuffered>, 0: writecombine(same as <unbuffered> is not set), 1: noncached
+  (same as <unbuffered> is set), 2: normal memory(fully cached for better
+  performance)
+  (defaults to 0: writecombine)
+
+- no-dump-oops: if present, only dump panics (defaults to panics and oops)
+
 - flags: if present, pass ramoops behavioral flags (defaults to 0,
   see include/linux/pstore_ram.h RAMOOPS_FLAG_* for flag values).

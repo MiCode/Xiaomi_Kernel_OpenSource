@@ -1,0 +1,104 @@
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
+&soc {
+	qcom,lpm-levels {
+		compatible = "qcom,lpm-levels";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,pm-cluster@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+			idle-state-name = "system";
+			qcom,psci-mode-shift = <0>;
+			qcom,psci-mode-mask = <0xf>;
+
+			CX_ACTIVE: qcom,pm-cluster-level@0 {
+				reg = <0>;
+				idle-state-name = "cx-active";
+				compatible = "arm,idle-state";
+				qcom,psci-mode = <0>;
+				arm,psci-suspend-param = <0x40000004>;
+				entry-latency-us = <120>;
+				exit-latency-us = <150>;
+				min-residency-us = <6488>;
+			};
+
+			CX_MIN: qcom,pm-cluster-level@1 {/* C8=>XO off in f/w */
+				reg = <1>;
+				idle-state-name = "cx-min";
+				compatible = "arm,idle-state";
+				qcom,psci-mode = <0x4>;
+				arm,psci-suspend-param = <0x40000008>;
+				entry-latency-us = <140>;
+				exit-latency-us = <200>;
+				min-residency-us = <8000>;
+				local-timer-stop;
+				qcom,min-child-idx = <2>;
+				qcom,notify-rpm;
+				qcom,is-reset;
+			};
+
+			qcom,pm-cpu@0 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				qcom,psci-mode-shift = <0>;
+				qcom,psci-mode-mask = <0xf>;
+				qcom,disable-ipi-prediction;
+				qcom,cpu = <&CPU0>;
+
+				qcom,pm-cpu-level@0 {
+					reg = <0>;
+					idle-state-name = "wfi";
+					compatible = "arm,idle-state";
+					qcom,psci-cpu-mode = <0x1>;
+					arm,psci-suspend-param = <0x1>;
+					entry-latency-us = <57>;
+					exit-latency-us = <43>;
+					min-residency-us = <83>;
+				};
+
+				A7_SPC: qcom,pm-cpu-level@1 {/* C3 */
+					reg = <1>;
+					idle-state-name ="standalone-pc";
+					compatible = "arm,idle-state";
+					qcom,psci-cpu-mode = <0x3>;
+					arm,psci-suspend-param = <0x40000003>;
+					entry-latency-us = <120>;
+					exit-latency-us = <120>;
+					min-residency-us = <4488>;
+					local-timer-stop;
+					qcom,use-broadcast-timer;
+					qcom,is-reset;
+				};
+
+				A7_PC: qcom,pm-cpu-level@2 { /* C4 */
+					reg = <2>;
+					idle-state-name = "pc";
+					compatible = "arm,idle-state";
+					qcom,psci-cpu-mode = <0x4>;
+					arm,psci-suspend-param = <0x40000004>;
+					entry-latency-us = <120>;
+					exit-latency-us = <150>;
+					min-residency-us = <6488>;
+					local-timer-stop;
+					qcom,use-broadcast-timer;
+					qcom,is-reset;
+				};
+
+			};
+		};
+	};
+
+	rpmh-master-stats@b211200 {
+		compatible = "qcom,rpmh-master-stats-v1";
+		reg = <0xb211200 0x60>;
+	};
+
+	soc-sleep-stats@C370000 {
+		compatible = "qcom,rpmh-sleep-stats";
+		reg = <0xc370000 0x400>;
+	};
+
+};

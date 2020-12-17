@@ -36,27 +36,34 @@ device module in Qualcomm Technologies, Inc. PMIC chips.
 
 - nvmem-names:
 	Usage: optional
-	Value type: <string>
-	Definition: The nvmem device name for the SDAM module where the LUT
-		      pattern is stored. It must be "ppg_sdam". This property
-		      is required only when LUT mode is supported with a SDAM
-		      module instead of a LUT module.
+	Value type: <stringlist>
+	Definition: The nvmem device name(s) for the SDAM module(s) where the
+		      LUT pattern data is stored. This property is required
+		      only when LUT mode is supported with a SDAM module
+		      instead of a LUT module. It can take the following
+		      mutually exclusive sets of values:
+		      (a) "ppg_sdam":
+			  LUT pattern data and per-channel data are stored in a
+			  single SDAM module.
+		      (b) "lut_sdam", "lpg_chan_sdam":
+			  LUT pattern data and per-channel data are stored in
+			  two different SDAM modules.
 
 - nvmem:
 	Usage: optional
-	Value type: <phandle>
-	Definition: Phandle of the nvmem device to access the LUT stored
-		      in the SDAM module. This property is required only when
-		      LUT mode is supported and the LUT pattern is stored in a
-		      SDAM module instead of a LUT module.
+	Value type: <phandle-list>
+	Definition: Phandle(s) of the nvmem device(s) to access the LUT stored
+		      in the SDAM module(s). This property is required only when
+		      LUT mode is supported and the LUT pattern is stored in
+		      SDAM modules instead of a LUT module.
 
 - qcom,pbs-client
 	Usage: optional
 	Value type: <phandle>
 	Definition: Phandle of the PBS client used for sending the PBS
 		      trigger. This property is required when LUT mode is
-		      supported and the LUT pattern is stored in a SDAM
-		      module instead of a LUT module.
+		      supported and the LUT pattern is stored in a single SDAM
+		      module (not two) instead of a LUT module.
 
 - qcom,lut-sdam-base:
 	Usage: optional
@@ -117,6 +124,12 @@ parameters needs to be configured for that channel.
 		      duty specified in the LUT pattern. Allowed range:
 		      1 - 511 when LUT module is used, and 8 - 2000 when SDAM
 		      is used.
+
+- qcom,tick-duration-us:
+	Usage: optional
+	Value type: <u32>
+	Definition: The tick duration in microseconds for PPG. If this property
+		      is not specified, a default value of 7800 will be used.
 
 - qcom,ramp-high-index:
 	Usage: required
@@ -248,6 +261,47 @@ Example when LUT pattern is stored in a SDAM module:
 			qcom,ramp-step-ms = <200>;
 			qcom,ramp-low-index = <0>;
 			qcom,ramp-high-index = <15>;
+			qcom,ramp-pattern-repeat;
+			qcom,lpg-sdam-base = <0x64>;
+		};
+	};
+
+Example when LUT pattern is stored in two SDAM modules:
+
+	pm8350c_pwm_1: pwms@e800 {
+		compatible = "qcom,pwm-lpg";
+		reg = <0xe800>;
+		reg-names = "lpg-base";
+		#pwm-cells = <2>;
+		qcom,num-lpg-channels = <3>;
+		nvmem = <&pmk8350_sdam_21 &pmk8350_sdam_22>;
+		nvmem-names = "lpg_chan_sdam", "lut_sdam";
+		qcom,lut-sdam-base = <0x45>;
+		qcom,lut-patterns = <0 10 20 30 40 50 60 70 80 90 100
+		                     90 80 70 60 50 40 30 20 10 0>;
+		lpg@1 {
+			qcom,lpg-chan-id = <1>;
+			qcom,ramp-step-ms = <200>;
+			qcom,ramp-low-index = <0>;
+			qcom,ramp-high-index = <19>;
+			qcom,ramp-pattern-repeat;
+			qcom,lpg-sdam-base = <0x48>;
+		};
+
+		lpg@2 {
+			qcom,lpg-chan-id = <2>;
+			qcom,ramp-step-ms = <200>;
+			qcom,ramp-low-index = <0>;
+			qcom,ramp-high-index = <19>;
+			qcom,ramp-pattern-repeat;
+			qcom,lpg-sdam-base = <0x56>;
+		};
+
+		lpg@3 {
+			qcom,lpg-chan-id = <3>;
+			qcom,ramp-step-ms = <200>;
+			qcom,ramp-low-index = <0>;
+			qcom,ramp-high-index = <19>;
 			qcom,ramp-pattern-repeat;
 			qcom,lpg-sdam-base = <0x64>;
 		};

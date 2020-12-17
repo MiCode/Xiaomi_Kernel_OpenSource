@@ -142,12 +142,18 @@
 	rpmh-regulator-smpb12 {
 		compatible = "qcom,rpmh-vrm-regulator";
 		qcom,resource-name = "smpb12";
+		qcom,regulator-type = "pmic5-hfsmps";
+		qcom,supported-modes =
+			<RPMH_REGULATOR_MODE_RET
+			 RPMH_REGULATOR_MODE_AUTO>;
+		qcom,mode-threshold-currents = <0 200000>;
 		S12B: pm8350_s12: regulator-pm8350-s12 {
 			regulator-name = "pm8350_s12";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <1224000>;
 			regulator-max-microvolt = <1360000>;
 			qcom,init-voltage = <1256000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_RET>;
 		};
 	};
 
@@ -624,13 +630,16 @@
 			<RPMH_REGULATOR_MODE_LPM
 			 RPMH_REGULATOR_MODE_HPM>;
 		qcom,mode-threshold-currents = <0 10000>;
+		proxy-supply = <&pm8350c_l6>;
 		L6C: pm8350c_l6: regulator-pm8350c-l6 {
 			regulator-name = "pm8350c_l6";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <2960000>;
-			qcom,init-voltage = <1800000>;
+			qcom,init-voltage = <2960000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
+			qcom,proxy-consumer-enable;
+			qcom,proxy-consumer-current = <22000>;
 		};
 	};
 
@@ -678,6 +687,7 @@
 			<RPMH_REGULATOR_MODE_LPM
 			 RPMH_REGULATOR_MODE_HPM>;
 		qcom,mode-threshold-currents = <0 10000>;
+		proxy-supply = <&pm8350c_l9>;
 		L9C: pm8350c_l9: regulator-pm8350c-l9 {
 			regulator-name = "pm8350c_l9";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
@@ -685,6 +695,8 @@
 			regulator-max-microvolt = <3008000>;
 			qcom,init-voltage = <2960000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
+			qcom,proxy-consumer-enable;
+			qcom,proxy-consumer-current = <800000>;
 		};
 	};
 
@@ -737,7 +749,7 @@
 			regulator-name = "pm8350c_l12";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <1800000>;
-			regulator-max-microvolt = <1800000>;
+			regulator-max-microvolt = <2000000>;
 			qcom,init-voltage = <1800000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
 			qcom,proxy-consumer-enable;
@@ -814,7 +826,7 @@
 		S2E: pmr735a_s2: regulator-pmr735a-s2 {
 			regulator-name = "pmr735a_s2";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
-			regulator-min-microvolt = <800000>;
+			regulator-min-microvolt = <500000>;
 			regulator-max-microvolt = <976000>;
 			qcom,init-voltage = <852000>;
 		};

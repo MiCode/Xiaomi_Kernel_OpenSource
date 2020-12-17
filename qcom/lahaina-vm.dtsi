@@ -1,0 +1,332 @@
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/clock/qcom,dispcc-lahaina.h>
+#include <dt-bindings/clock/qcom,gcc-lahaina.h>
+#include <dt-bindings/clock/qcom,rpmh.h>
+
+/ {
+	#address-cells = <0x2>;
+	#size-cells = <0x2>;
+	qcom,msm-id = <415 0x10000>;
+	interrupt-parent = <&vgic>;
+
+	qcom-mem-buf {
+		compatible = "qcom,mem-buf";
+		qcom,mem-buf-capabilities = "consumer";
+	};
+
+	chosen {
+		bootargs = "nokaslr no_console_suspend root=/dev/ram rw init=/init console=hvc0 loglevel=8";
+		linux,initrd-start = <0x2a900000>;
+		linux,initrd-end = <0x2b100000>; /* 8 MB */
+		kaslr-seed = <0xfeedbeef 0xc0def00d>;
+	};
+
+	cpus {
+		#address-cells = <0x2>;
+		#size-cells = <0x0>;
+
+		CPU0: cpu@0 {
+			compatible = "arm,armv8";
+			reg = <0x0 0x0>;
+			device_type = "cpu";
+			enable-method = "psci";
+			cpu-idle-states = <&CPU_PWR_DWN
+					   &CLUSTER_PWR_DWN>;
+		};
+
+		CPU1: cpu@100 {
+			compatible = "arm,armv8";
+			reg = <0x0 0x100>;
+			device_type = "cpu";
+			enable-method = "psci";
+			cpu-idle-states = <&CPU_PWR_DWN
+					   &CLUSTER_PWR_DWN>;
+		};
+	};
+
+	idle-states {
+		CPU_PWR_DWN: c4 {  /* Using Gold C4 latencies */
+			compatible = "arm,idle-state";
+			idle-state-name = "rail-pc";
+			entry-latency-us = <702>;
+			exit-latency-us = <1061>;
+			min-residency-us = <4488>;
+			arm,psci-suspend-param = <0x40000004>;
+			local-timer-stop;
+		};
+
+		CLUSTER_PWR_DWN: d4 { /* C4+D4 */
+			compatible = "arm,idle-state";
+			idle-state-name = "l3-pc";
+			entry-latency-us = <2752>;
+			exit-latency-us = <3048>;
+			min-residency-us = <6118>;
+			arm,psci-suspend-param = <0x40000044>;
+			local-timer-stop;
+		};
+	};
+
+	neuron-client-block {
+		compatible = "qcom,neuron-service";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		protocol {
+			compatible = "qcom,neuron-protocol-block";
+			processes = "client";
+		};
+
+		application {
+			compatible = "qcom,neuron-block-client";
+		};
+
+		channel@0 {
+			reg = <0>;
+			compatible = "qcom,neuron-channel-haven-shmem";
+			class = "message-queue";
+			direction = "send";
+			max-size = <0 65536>;
+			haven-label = <1>;
+		};
+
+		channel@1 {
+			reg = <1>;
+			compatible = "qcom,neuron-channel-haven-shmem";
+			class = "message-queue";
+			direction = "receive";
+			max-size = <0 65536>;
+			haven-label = <2>;
+		};
+	};
+
+	qrtr-haven {
+		compatible = "qcom,qrtr-haven";
+		haven-label = <3>;
+	};
+
+	qcom,vm-config {
+		compatible = "qcom,vm-1.0";
+		vm-type = "aarch64-guest";
+		boot-config = "fdt,unified";
+		os-type = "linux";
+		kernel-entry-segment = "kernel";
+		kernel-entry-offset = <0x0 0x0>;
+		vendor = "Qualcomm";
+		image-name = "qcom,trustedvm";
+		qcom,pasid = <0x0 0x1c>;
+
+		iomemory-ranges = <0x0 0x92c000 0x0 0x92c000 0x0 0x4000 0x0
+				0x0 0xc400000 0x0 0xc400000 0x0 0x30000 0x1
+				0x0 0xc440000 0x0 0xc440000 0x0 0x10000 0x1
+				0x0 0xe600000 0x0 0xe600000 0x0 0x100000 0x1
+				0x0 0xe700000 0x0 0xe700000 0x0 0xa0000 0x1
+				0x0 0xae8f000 0x0 0xae8f000 0x0 0x1000 0x0>;
+
+		gic-irq-ranges = <283 283>; /* PVM->SVM IRQ transfer */
+
+		memory {
+			#address-cells = <0x2>;
+			#size-cells = <0x0>;
+			base-address = <0x0 0xD0800000>;
+			size-min = <0x0 0x76f7000>;    /* 118 MB */
+		};
+
+		segments {
+			ramdisk = <2>; /* 8MB */
+		};
+
+		vcpus {
+			config = "/cpus";
+			affinity = "static";
+			affinity-map = <0x4 0x5>;
+			sched-priority = <0>;       /* relative to PVM */
+			sched-timeslice = <2000>;   /* in ms */
+		};
+
+		interrupts {
+			config = &vgic;
+		};
+
+		vdevices {
+			generate = "/hypervisor";
+			rm-rpc {
+				vdevice-type = "rm-rpc";
+				generate = "/hypervisor/qcom,resource-mgr";
+				console-dev;
+				message-size = <0x000000f0>;
+				queue-depth = <0x00000008>;
+				qcom,label = <0x1>;
+			};
+
+			mem-buf-message-queue-pair {
+				vdevice-type = "message-queue-pair";
+				generate = "/hypervisor/membuf-msgq-pair";
+				message-size = <0x000000f0>;
+				queue-depth = <0x00000008>;
+				peer-default;
+				qcom,label = <0x0000001>;
+			};
+
+			neuron-ch1-shm {
+				vdevice-type = "shm-doorbell";
+				generate = "/hypervisor/neuron-ch1-shm";
+				push-compatible = "qcom,neuron-channel-haven-shmem-gen";
+				peer-default;
+				memory {
+					qcom,label = <0x1>;
+					allocate-base;
+				};
+			};
+
+			neuron-ch2-shm {
+				vdevice-type = "shm-doorbell";
+				generate = "/hypervisor/neuron-ch2-shm";
+				push-compatible = "qcom,neuron-channel-haven-shmem-gen";
+				peer-default;
+				memory {
+					qcom,label = <0x2>;
+					allocate-base;
+				};
+			};
+
+			qrtr-shm {
+				vdevice-type = "shm-doorbell";
+				generate = "/hypervisor/qrtr-shm";
+				push-compatible = "qcom,qrtr-haven-gen";
+				peer-default;
+				memory {
+					qcom,label = <0x3>;
+					allocate-base;
+				};
+			};
+		};
+	};
+
+	firmware: firmware {
+		scm {
+			compatible = "qcom,scm";
+		};
+	};
+
+	soc: soc { };
+};
+
+&soc {
+	#address-cells = <1>;
+	#size-cells = <1>;
+	ranges = <0 0 0 0xffffffff>;
+	compatible = "simple-bus";
+
+	spmi_bus: qcom,spmi@c440000 {
+		compatible = "qcom,spmi-pmic-arb";
+		reg = <0xc440000 0x1100>,
+		      <0xc600000 0x2000000>,
+		      <0xe600000 0x100000>,
+		      <0xe700000 0xa0000>,
+		      <0xc40a000 0x26000>;
+		reg-names = "core", "chnls", "obsrvr", "intr", "cnfg";
+		#address-cells = <2>;
+		#size-cells = <0>;
+		cell-index = <0>;
+		qcom,channel = <0>;
+		qcom,ee = <0>;
+	};
+
+	psci {
+		compatible = "arm,psci-1.0";
+		method = "smc";
+	};
+
+	vgic: interrupt-controller@17a00000 {
+		compatible = "arm,gic-v3";
+		interrupt-controller;
+		#interrupt-cells = <0x3>;
+		reg = <0x17a00000 0x10000>,     /* GICD */
+		      <0x17a60000 0x100000>;    /* GICR * 8 */
+	};
+
+	arch_timer: timer {
+		compatible = "arm,armv8-timer";
+		always-on;
+		interrupts = <GIC_PPI 13 (GIC_CPU_MASK_SIMPLE(8) | IRQ_TYPE_LEVEL_LOW)>,
+			     <GIC_PPI 14 (GIC_CPU_MASK_SIMPLE(8) | IRQ_TYPE_LEVEL_LOW)>,
+			     <GIC_PPI 11 (GIC_CPU_MASK_SIMPLE(8) | IRQ_TYPE_LEVEL_LOW)>,
+			     <GIC_PPI 12 (GIC_CPU_MASK_SIMPLE(8) | IRQ_TYPE_LEVEL_LOW)>;
+	};
+
+	/*
+	 * QUPv3 Instances
+	 * North 4 : SE 4
+	 */
+
+	/* QUPv3_0 wrapper instance: North QUP */
+	qupv3_0: qcom,qupv3_0_geni_se@9c0000 {
+		compatible = "qcom,qupv3-geni-se";
+		reg = <0x9c0000 0x2000>;
+	};
+
+	/* GPI */
+	gpi_dma0: qcom,gpi-dma@900000 {
+		compatible = "qcom,gpi-dma";
+		#dma-cells = <5>;
+		reg = <0x900000 0x60000>;
+		reg-names = "gpi-top";
+		interrupts = <GIC_SPI 244 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 245 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 246 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 247 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 248 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 249 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 250 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 251 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 252 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 253 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 254 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 255 IRQ_TYPE_LEVEL_HIGH>;
+		qcom,max-num-gpii = <12>;
+		qcom,gpii-mask = <0x80>;
+		qcom,ev-factor = <2>;
+		qcom,gpi-ee-offset = <0x10000>;
+		status = "ok";
+	};
+
+	/* I2C SE */
+	qupv3_se4_i2c: i2c@990000 {
+		compatible = "qcom,i2c-geni";
+		reg = <0x990000 0x4000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		dmas = <&gpi_dma0 0 4 3 64 0>,
+			<&gpi_dma0 1 4 3 64 0>;
+		dma-names = "tx", "rx";
+		qcom,wrapper-core = <&qupv3_0>;
+		qcom,le-vm;
+		status = "ok";
+	};
+
+	qupv3_se4_spi: spi@990000 {
+		compatible = "qcom,spi-geni";
+		reg = <0x990000 0x4000>;
+		reg-names = "se_phys";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		dmas = <&gpi_dma0 0 4 1 64 0>,
+			<&gpi_dma0 1 4 1 64 0>;
+		dma-names = "tx", "rx";
+		spi-max-frequency = <50000000>;
+		qcom,wrapper-core = <&qupv3_0>;
+		qcom,le-vm;
+		status = "disabled";
+	};
+
+	qcom_smcinvoke {
+		compatible = "qcom,smcinvoke";
+	};
+
+	qtee_shmbridge {
+		compatible = "qcom,tee-shared-memory-bridge";
+		qcom,support-hypervisor;
+	};
+};
+
+#include "lahaina-vm-ion.dtsi"

@@ -199,6 +199,36 @@
 			};
 		};
 
+		pmk8350_sdam_5: sdam@7400 {
+			compatible = "qcom,spmi-sdam";
+			reg = <0x7400>;
+		};
+
+		pmk8350_sdam_13: sdam@7c00 {
+			compatible = "qcom,spmi-sdam";
+			reg = <0x7c00>;
+		};
+
+		pmk8350_sdam_14: sdam@7d00 {
+			compatible = "qcom,spmi-sdam";
+			reg = <0x7d00>;
+		};
+
+		pmk8350_sdam_21: sdam@8400 {
+			compatible = "qcom,spmi-sdam";
+			reg = <0x8400>;
+		};
+
+		pmk8350_sdam_22: sdam@8500 {
+			compatible = "qcom,spmi-sdam";
+			reg = <0x8500>;
+		};
+
+		pmk8350_sdam_46: sdam@9d00 {
+			compatible = "qcom,spmi-sdam";
+			reg = <0x9d00>;
+		};
+
 		pmk8350_gpios: pinctrl@b000 {
 			compatible = "qcom,pmk8350-gpio";
 			reg = <0xb000>;

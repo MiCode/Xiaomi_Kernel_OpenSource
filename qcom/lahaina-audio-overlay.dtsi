@@ -79,21 +79,12 @@
 				reg = <0x0D 0x01170223>;
 			};
 
-			swr_dmic_01: dmic_swr@58350220 {
+			swr_dmic_04: dmic_swr@58350223 {
 				compatible = "qcom,swr-dmic";
-				reg = <0x08 0x58350220>;
-				qcom,swr-dmic-prefix = "SWR_MIC0";
-				qcom,codec-name = "swr-dmic.01";
+				reg = <0x08 0x58350223>;
+				qcom,swr-dmic-prefix = "SWR_MIC3";
+				qcom,codec-name = "swr-dmic.04";
 				qcom,swr-dmic-supply = <3>;
-				qcom,wcd-handle = <&wcd938x_codec>;
-			};
-
-			swr_dmic_02: dmic_swr@58350221 {
-				compatible = "qcom,swr-dmic";
-				reg = <0x08 0x58350221>;
-				qcom,swr-dmic-prefix = "SWR_MIC1";
-				qcom,codec-name = "swr-dmic.02";
-				qcom,swr-dmic-supply = <1>;
 				qcom,wcd-handle = <&wcd938x_codec>;
 			};
 
@@ -106,11 +97,20 @@
 				qcom,wcd-handle = <&wcd938x_codec>;
 			};
 
-			swr_dmic_04: dmic_swr@58350223 {
+			swr_dmic_02: dmic_swr@58350221 {
 				compatible = "qcom,swr-dmic";
-				reg = <0x08 0x58350223>;
-				qcom,swr-dmic-prefix = "SWR_MIC3";
-				qcom,codec-name = "swr-dmic.04";
+				reg = <0x08 0x58350221>;
+				qcom,swr-dmic-prefix = "SWR_MIC1";
+				qcom,codec-name = "swr-dmic.02";
+				qcom,swr-dmic-supply = <1>;
+				qcom,wcd-handle = <&wcd938x_codec>;
+			};
+
+			swr_dmic_01: dmic_swr@58350220 {
+				compatible = "qcom,swr-dmic";
+				reg = <0x08 0x58350220>;
+				qcom,swr-dmic-prefix = "SWR_MIC0";
+				qcom,codec-name = "swr-dmic.01";
 				qcom,swr-dmic-supply = <3>;
 				qcom,wcd-handle = <&wcd938x_codec>;
 			};
@@ -146,9 +146,15 @@
 				<1 HPH_R 0x2>, <2 CLSH 0x1>,
 				<3 COMP_L 0x1>, <3 COMP_R 0x2>,
 				<4 LO 0x1>, <5 DSD_L 0x1>,
-				<5 DSD_R 0x2>, <6 PCM_OUT1 0x0F>;
+				<5 DSD_R 0x2>, <6 PCM_OUT1 0x01>;
 			qcom,swr-num-dev = <2>;
 			qcom,swr-clock-stop-mode0 = <1>;
+			swr_haptics: swr_haptics@f0170220 {
+				compatible = "qcom,pm8350b-swr-haptics";
+				reg = <0x01 0xf0170220>;
+				swr-slave-supply = <&hap_swr_slave_reg>;
+				qcom,rx_swr_ch_map = <0 0x01 0x01 0 PCM_OUT1>;
+			};
 			wcd938x_rx_slave: wcd938x-rx-slave {
 				compatible = "qcom,wcd938x-slave";
 				reg = <0x0D 0x01170224>;
@@ -277,6 +283,8 @@
 	qcom,msm-mi2s-master = <1>, <1>, <1>, <1>, <1>, <1>;
 	qcom,wcn-bt = <1>;
 	qcom,ext-disp-audio-rx = <1>;
+	qcom,tdm-max-slots = <8>;
+	qcom,wcd-disabled = <0>;
 	qcom,audio-routing =
 		"AMIC1", "Analog Mic1",
 		"Analog Mic1", "MIC BIAS1",
@@ -289,25 +297,30 @@
 		"AMIC5", "Analog Mic5",
 		"Analog Mic5", "MIC BIAS4",
 		"TX DMIC0", "Digital Mic0",
-		"Digital Mic0", "MIC BIAS3",
+		"TX DMIC0", "MIC BIAS3",
 		"TX DMIC1", "Digital Mic1",
-		"Digital Mic1", "MIC BIAS3",
+		"TX DMIC1", "MIC BIAS3",
 		"TX DMIC2", "Digital Mic2",
-		"Digital Mic2", "MIC BIAS1",
+		"TX DMIC2", "MIC BIAS1",
 		"TX DMIC3", "Digital Mic3",
-		"Digital Mic3", "MIC BIAS1",
+		"TX DMIC3", "MIC BIAS1",
 		"TX DMIC4", "Digital Mic4",
-		"Digital Mic4", "MIC BIAS4",
+		"TX DMIC4", "MIC BIAS4",
 		"TX DMIC5", "Digital Mic5",
-		"Digital Mic5", "MIC BIAS4",
+		"TX DMIC5", "MIC BIAS4",
 		"IN1_HPHL", "HPHL_OUT",
 		"IN2_HPHR", "HPHR_OUT",
 		"IN3_AUX", "AUX_OUT",
+		"HAP_IN", "PCM_OUT",
 		"WSA SRC0_INP", "SRC0",
 		"TX SWR_INPUT", "SWR_MIC0 SWR_DMIC_OUTPUT",
 		"TX SWR_INPUT", "SWR_MIC1 SWR_DMIC_OUTPUT",
 		"TX SWR_INPUT", "SWR_MIC2 SWR_DMIC_OUTPUT",
 		"TX SWR_INPUT", "SWR_MIC3 SWR_DMIC_OUTPUT",
+		"VA SWR_INPUT", "SWR_MIC0 SWR_DMIC_VA_OUTPUT",
+		"VA SWR_INPUT", "SWR_MIC1 SWR_DMIC_VA_OUTPUT",
+		"VA SWR_INPUT", "SWR_MIC2 SWR_DMIC_VA_OUTPUT",
+		"VA SWR_INPUT", "SWR_MIC3 SWR_DMIC_VA_OUTPUT",
 		"VA SWR_INPUT", "SWR_MIC0 SWR_DMIC_OUTPUT",
 		"VA SWR_INPUT", "SWR_MIC1 SWR_DMIC_OUTPUT",
 		"VA SWR_INPUT", "SWR_MIC2 SWR_DMIC_OUTPUT",
@@ -332,25 +345,34 @@
 		"VA DMIC3", "Digital Mic3",
 		"VA DMIC4", "Digital Mic4",
 		"VA DMIC5", "Digital Mic5",
-		"Digital Mic0", "VA MIC BIAS3",
-		"Digital Mic1", "VA MIC BIAS3",
-		"Digital Mic2", "VA MIC BIAS1",
-		"Digital Mic3", "VA MIC BIAS1",
-		"Digital Mic4", "VA MIC BIAS4",
-		"Digital Mic5", "VA MIC BIAS4";
+		"VA DMIC0", "VA MIC BIAS3",
+		"VA DMIC1", "VA MIC BIAS3",
+		"VA DMIC2", "VA MIC BIAS1",
+		"VA DMIC3", "VA MIC BIAS1",
+		"VA DMIC4", "VA MIC BIAS4",
+		"VA DMIC5", "VA MIC BIAS4";
 	qcom,msm-mbhc-hphl-swh = <1>;
 	qcom,msm-mbhc-gnd-swh = <1>;
+	qcom,cdc-dmic01-gpios = <&cdc_dmic01_gpios>;
+	qcom,cdc-dmic23-gpios = <&cdc_dmic23_gpios>;
+	qcom,cdc-dmic45-gpios = <&cdc_dmic45_gpios>;
 	asoc-codec  = <&stub_codec>, <&bolero>,
-		      <&wcd938x_codec>,
+		      <&wcd938x_codec>, <&swr_haptics>,
 		      <&wsa883x_0221>, <&wsa883x_0222>,
-		      <&swr_dmic_01>, <&swr_dmic_02>,
-		      <&swr_dmic_03>, <&swr_dmic_04>;
+		      <&swr_dmic_04>, <&swr_dmic_03>,
+		      <&swr_dmic_02>, <&swr_dmic_01>;
 	asoc-codec-names = "msm-stub-codec.1", "bolero_codec",
-			   "wcd938x_codec",
+			   "wcd938x_codec", "swr-haptics",
 			   "wsa-codec1", "wsa-codec2",
-			   "swr-dmic.01", "swr-dmic.02",
-			   "swr-dmic.03", "swr-dmic.04";
+			   "swr-dmic.04", "swr-dmic.03",
+			   "swr-dmic.02", "swr-dmic.01";
 	qcom,wsa-max-devs = <2>;
+	qcom,cps_reg_phy_addr = <0x3250300 0x3250304 0x3250318>;
+	qcom,cps_wsa_vbatt_temp_reg_addr = <0x0003429 0x0003422>;
+	qcom,cps_threshold_levels = <148 168>;
+	qcom,cps_normal_values = <0x8E 0x8F 0x8F>;
+	qcom,cps_lower1_values = <0x10 0xD0 0xD0>;
+	qcom,cps_lower2_values = <0x0F 0x0F 0x18>;
 	qcom,msm_audio_ssr_devs = <&audio_apr>, <&q6core>, <&lpi_tlmm>,
 				  <&bolero>;
 };
@@ -362,6 +384,7 @@
 		pinctrl-0 = <&wsa_swr_clk_active &wsa_swr_data_active>;
 		pinctrl-1 = <&wsa_swr_clk_sleep &wsa_swr_data_sleep>;
 		qcom,lpi-gpios;
+		qcom,tlmm-pins = <179>;
 		#gpio-cells = <0>;
 	};
 
@@ -373,6 +396,7 @@
 		pinctrl-1 = <&rx_swr_clk_sleep &rx_swr_data_sleep
 				&rx_swr_data1_sleep>;
 		qcom,lpi-gpios;
+		qcom,tlmm-pins = <172>;
 		#gpio-cells = <0>;
 	};
 

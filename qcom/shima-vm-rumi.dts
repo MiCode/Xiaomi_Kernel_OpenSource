@@ -1,0 +1,11 @@
+/dts-v1/;
+/memreserve/ 0x90000000 0x00000100;
+
+#include "shima-vm.dtsi"
+#include "shima-vm-rumi.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Shima SVM RUMI";
+	compatible = "qcom,shima-rumi", "qcom,shima", "qcom,rumi";
+	qcom,board-id = <0x1000f 0>;
+};

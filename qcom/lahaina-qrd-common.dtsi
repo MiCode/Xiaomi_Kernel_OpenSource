@@ -1,7 +1,125 @@
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/input/input.h>
+#include "lahaina-thermal-overlay.dtsi"
 
 #include "lahaina-pmic-overlay.dtsi"
+
+&ufsphy_mem {
+	compatible = "qcom,ufs-phy-qmp-v4-lahaina";
+
+	vdda-phy-supply = <&pm8350_l5>;
+	vdda-pll-supply = <&pm8350_l6>;
+	vdda-phy-max-microamp = <91600>;
+	vdda-pll-max-microamp = <19000>;
+
+	status = "ok";
+};
+
+&ufshc_mem {
+	vdd-hba-supply = <&gcc_ufs_phy_gdsc>;
+	vdd-hba-fixed-regulator;
+
+	vcc-supply = <&pm8350_l7>;
+	vcc-voltage-level = <2504000 2950000>;
+	vcc-low-voltage-sup;
+	vcc-max-microamp = <800000>;
+
+	vccq-supply = <&pm8350_l9>;
+	vccq-max-microamp = <900000>;
+
+	qcom,vddp-ref-clk-supply = <&pm8350_l9>;
+	qcom,vddp-ref-clk-max-microamp = <100>;
+
+	qcom,vccq-parent-supply = <&pm8350_s12>;
+	qcom,vccq-parent-max-microamp = <210000>;
+
+	status = "ok";
+};
+
+&sdhc_2 {
+	vdd-supply = <&pm8350c_l9>;
+	qcom,vdd-voltage-level = <2950000 2960000>;
+	qcom,vdd-current-level = <200 800000>;
+
+	vdd-io-supply = <&pm8350c_l6>;
+	qcom,vdd-io-voltage-level = <1808000 2960000>;
+	qcom,vdd-io-current-level = <200 22000>;
+
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&sdc2_on>;
+	pinctrl-1 = <&sdc2_off>;
+
+	cd-gpios = <&tlmm 92 GPIO_ACTIVE_LOW>;
+
+	status = "ok";
+};
+
+&qupv3_se4_i2c {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	status = "ok";
+	qcom,i2c-touch-active = "focaltech,fts_ts";
+
+	focaltech@38 {
+		compatible = "focaltech,fts_ts";
+		reg = <0x38>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <23 0x2008>;
+		focaltech,reset-gpio = <&tlmm 22 0x00>;
+		focaltech,irq-gpio = <&tlmm 23 0x2008>;
+		focaltech,max-touch-number = <5>;
+		focaltech,display-coords = <0 0 1080 2340>;
+
+		vdd-supply = <&L3C>;
+
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend","pmx_ts_release";
+		pinctrl-0 = <&ts_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		pinctrl-2 = <&ts_release>;
+
+		focaltech,trusted-touch-mode = "vm_mode";
+		focaltech,touch-environment = "pvm";
+		focaltech,trusted-touch-spi-irq = <566>;
+		focaltech,trusted-touch-io-bases = <0xF114000 0xF115000 0xF116000 0xF117000 0x990000 0x00910000>;
+		focaltech,trusted-touch-io-sizes = <0x1000 0x1000 0x1000 0x1000 0x1000 0x4000>;
+	};
+};
+
+&battery_charger {
+	qcom,thermal-mitigation = <10000000 9500000 9000000 8500000 8000000
+				7500000 7000000 6500000 6000000 5500000
+				5000000 4500000 4000000 3500000 3000000
+				2500000 2000000 1500000 1000000 500000>;
+	qcom,wireless-fw-name = "idt9412.bin";
+};
+
+&wil6210 {
+	status = "ok";
+};
+
+&qupv3_se15_i2c {
+	status = "ok";
+	qcom,clk-freq-out = <1000000>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+	nq@28 {
+		compatible = "qcom,sn-nci";
+		reg = <0x28>;
+		qcom,sn-irq = <&tlmm 87 0x00>;
+		qcom,sn-ven = <&tlmm 62 0x00>;
+		qcom,sn-firm = <&tlmm 86 0x00>;
+		qcom,sn-clkreq = <&tlmm 63 0x00>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <87 0>;
+		interrupt-names = "nfc_irq";
+		pinctrl-names = "nfc_active", "nfc_suspend";
+		pinctrl-0 = <&nfc_int_active &nfc_enable_active
+				&nfc_clk_req_active &nfc_fwdl_active>;
+		pinctrl-1 = <&nfc_int_suspend &nfc_enable_suspend
+				&nfc_clk_req_suspend &nfc_fwdl_suspend>;
+	};
+};
 
 &spmi_debug_bus {
 	status = "ok";
@@ -11,12 +129,8 @@
 	status = "ok";
 };
 
-&smb1398_debug {
-	status = "ok";
-};
-
 &pm8350b_haptics {
-	qcom,vmax-mv = <900>;
+	qcom,vmax-mv = <1300>;
 	qcom,lra-period-us = <5880>;
 	status = "ok";
 
@@ -84,14 +198,17 @@
 
 &pm8350c_switch0 {
 	qcom,led-mask = <9>; /* Channels 1 & 4 */
+	qcom,symmetry-en;
 };
 
 &pm8350c_switch1 {
 	qcom,led-mask = <6>; /* Channels 2 & 3 */
+	qcom,symmetry-en;
 };
 
 &pm8350c_switch2 {
 	qcom,led-mask = <15>; /* All Channels */
+	qcom,symmetry-en;
 };
 
 &pm8350c_flash {

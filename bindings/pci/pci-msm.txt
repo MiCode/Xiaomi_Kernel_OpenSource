@@ -69,12 +69,11 @@ Main node
 	Usage: required
 	Value type: <stringlist>
 	Definition: Should contain
-		- "int_msi"
+		- "int_global_int"
 		- "int_a"
 		- "int_b"
 		- "int_c"
 		- "int_d",
-		- "int_global_int"
 
 - #interrupt-cells:
 	Usage: required
@@ -434,16 +433,15 @@ Example
 
 		interrupt-parent = <&pcie0>;
 		interrupts = <0 1 2 3 4 5>;
-		interrupt-names = "int_msi", "int_a", "int_b", "int_c", "int_d",
-				"int_global_int",
+		interrupt-names = "int_global_int", "int_a", "int_b", "int_c",
+				"int_d",
 		#interrupt-cells = <1>;
 		interrupt-map-mask = <0 0 0 0xffffffff>;
-		interrupt-map = <0 0 0 0 &intc 0 141 0
+		interrupt-map = <0 0 0 0 &intc 0 140 0
 				0 0 0 1 &intc 0 149 0
 				0 0 0 2 &intc 0 150 0
 				0 0 0 3 &intc 0 151 0
-				0 0 0 4 &intc 0 152 0
-				0 0 0 5 &intc 0 140 0>;
+				0 0 0 4 &intc 0 152 0>;
 		msi-parent = <&pcie0_msi>;
 
 		perst-gpio = <&tlmm 35 0>;

@@ -128,6 +128,13 @@ conditions.
 		  retention. No cache invalidation operations involving asid
 		  may be used.
 
+- qcom,split-tables:
+		  Some hardware configurations can easily use a model where
+		  the I/O virtual address space for a domain can be split into
+		  two symmetric portions, and clients can manage each portion.
+		  Set for hardware that supports this model, and requires
+		  this feature.
+
 - qcom,actlr:
 		  An array of <sid mask actlr-setting>.
 		  Any sid X for which X&~mask==sid will be programmed with the

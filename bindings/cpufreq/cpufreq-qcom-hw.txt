@@ -42,6 +42,14 @@ Properties:
 	Definition:	Indicate to check for Enable of FW before registering
 			with cpufreq.
 
+- qcom,perf-lock-support
+	Usage:		Optional
+	Value type:	bool
+	Definition:	Indicate to check for performance lock support in FW.
+			In case this property is present, the reg & reg-names
+			should have the "pdmem-domainX" to indicate the
+			corresponding bases.
+
 * Property qcom,freq-domain
 Devices supporting freq-domain must set their "qcom,freq-domain" property with
 phandle to a cpufreq_hw followed by the Domain ID(0/1) in the CPU DT node.

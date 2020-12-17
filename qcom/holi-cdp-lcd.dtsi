@@ -1,0 +1,16 @@
+#include "holi-cdp.dtsi"
+
+&pm6150a_amoled {
+	status = "disabled";
+};
+
+&pm6150l_lcdb {
+	status = "ok";
+};
+
+&pm6150l_wled {
+	status = "ok";
+	qcom,string-cfg = <15>;
+	qcom,leds-per-string = <4>;
+};
+

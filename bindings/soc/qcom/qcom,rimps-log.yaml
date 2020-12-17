@@ -1,0 +1,31 @@
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/bindings/soc/qcom/qcom,rimps-log.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Qualcomm Technologies, Inc. Rimps Logging
+
+description: |
+    RIMPS logging is a device that uses mailbox to collect the logs
+    generated from rimps, and dump them into a dedicated log buffer
+    through ipc_logging framework.
+    An instance of rimps-log should have the mailbox controller phandle and
+    addresses of log buffer set aside for this purpose.
+
+properties:
+  compatible:
+    Usage: required
+    Value type: <string>
+    Definition: Must be "qcom,rimps-log"
+
+example:
+  - |
+
+rimps_log: qcom,rimps_log@fd04780 {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		compatible = "qcom,rimps-log";
+		reg = <0x0fd04580 0x200>,
+				<0x0fd04780 0x200>;
+		mboxes = <&rimps 1>;
+	};
