@@ -32,3 +32,12 @@ config QCOM_DCVS
 	  DCVS HW blocks and voting interfaces that are supported on some
 	  Qualcomm Technologies, Inc. (QTI) chipsets. This includes voting
 	  interfaces from both QCOM_DCVS_FP and INTERCONNECT.
+
+config QCOM_MEMLAT
+	tristate "QCOM Memlat Driver"
+	depends on QCOM_DCVS && QCOM_PMU_LIB
+	default n
+	help
+	  This enables the QCOM Memlat driver which monitors CPU performance
+	  counters to identify memory latency bound workloads and vote for
+	  DCVS HW (memory) frequencies through the QCOM DCVS framework.
