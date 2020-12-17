@@ -25,5 +25,17 @@ bool is_twm_exit(void);
  */
 bool is_slate_running(void);
 
+/*
+ * set_slate_dsp_state()
+ * Set slate dsp state
+ */
+void set_slate_dsp_state(bool status);
+
+/*
+ * set_slate_bt_state()
+ * Set slate bt state
+ */
+void set_slate_bt_state(bool status);
+
 #endif /* SLATECOM_INTERFACE_H */
 
