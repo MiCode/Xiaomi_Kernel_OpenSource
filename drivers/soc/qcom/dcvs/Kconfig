@@ -11,3 +11,24 @@ config QCOM_PMU_LIB
 	  per-CPU performance counters that are available on some
 	  Qualcomm Technologies, Inc. (QTI) chipsets. This includes
 	  preserving them across CPU idle and hotplug events.
+
+config QCOM_DCVS_FP
+	tristate "Enable QCOM DCVS Fast Path Interface"
+	depends on ARCH_QCOM && QCOM_RPMH
+	default n
+	help
+	  This enables the QCOM DCVS FP (Fast Path) driver which relies on
+	  certain "fast path" APIs from QCOM_RPMH to vote for various DCVS HW
+	  blocks in a faster scheme than standard voting paths. This requires a
+	  Qualcomm Technologies, Inc. (QTI) chipset that supports this feature.
+
+config QCOM_DCVS
+	tristate "QCOM DCVS Driver"
+	select QCOM_DCVS_FP
+	select INTERCONNECT
+	default n
+	help
+	  This enables the main QCOM DCVS framework which supports various
+	  DCVS HW blocks and voting interfaces that are supported on some
+	  Qualcomm Technologies, Inc. (QTI) chipsets. This includes voting
+	  interfaces from both QCOM_DCVS_FP and INTERCONNECT.

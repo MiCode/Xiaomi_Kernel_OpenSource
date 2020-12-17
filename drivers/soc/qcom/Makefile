@@ -59,4 +59,4 @@ ifdef CONFIG_DEBUG_FS
 obj-$(CONFIG_MSM_RPM_SMD)   +=  rpm-smd-debug.o
 endif
 obj-$(CONFIG_QCOM_CPU_VENDOR_HOOKS) += qcom_cpu_vendor_hooks.o
-obj-$(CONFIG_QCOM_PMU_LIB) += dcvs/
+obj-$(CONFIG_QCOM_DCVS) += dcvs/
