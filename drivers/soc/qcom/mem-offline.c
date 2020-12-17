@@ -465,7 +465,7 @@ static int mem_online_remaining_blocks(void)
 		}
 		nid = memory_add_physaddr_to_nid(phys_addr);
 		if (add_memory(nid, phys_addr,
-				 MIN_MEMORY_BLOCK_SIZE * sections_per_block)) {
+				 MIN_MEMORY_BLOCK_SIZE * sections_per_block, MHP_NONE)) {
 			pr_warn("mem-offline: Adding memory block mem%lu failed\n",
 								memblock);
 			fail = 1;
