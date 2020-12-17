@@ -1391,6 +1391,7 @@
 		reg = <0x100000 0x1f4200>;
 		reg-names = "cc_base";
 		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		vdd_mxa-supply = <&VDD_MXA_LEVEL>;
 		clocks = <&clock_rpmh RPMH_CXO_CLK>,
 			 <&sleep_clk>;
 		clock-names = "bi_tcxo",
@@ -1437,6 +1438,7 @@
 		reg = <0xaf00000 0x20000>;
 		reg-name = "cc_base";
 		vdd_mm-supply = <&VDD_MM_LEVEL>;
+		vdd_mxa-supply = <&VDD_MXA_LEVEL>;
 		clocks = <&clock_rpmh RPMH_CXO_CLK>,
 			 <&sleep_clk>,
 			 <&clock_gcc GCC_VIDEO_AHB_CLK>;
