@@ -1134,7 +1134,7 @@ static void show_genpd_state(struct genpd_state *pdst)
 		}
 
 		pr_info("%c [%-9s %11s]\n",
-			(pdst->status == GPD_STATE_ACTIVE) ? '+' : '-',
+			(pdst->status == GENPD_STATE_ON) ? '+' : '-',
 			pd->name, gpd_status_name[pdst->status]);
 
 		for (i = 0; i < pdst->num_dev_state; i++) {
@@ -1181,7 +1181,7 @@ static void dump_genpd_state(struct genpd_state *pdst, struct seq_file *s)
 		}
 
 		seq_printf(s, "%c [%-9s %11s]\n",
-			(pdst->status == GPD_STATE_ACTIVE) ? '+' : '-',
+			(pdst->status == GENPD_STATE_ON) ? '+' : '-',
 			pd->name, gpd_status_name[pdst->status]);
 
 		for (i = 0; i < pdst->num_dev_state; i++) {
@@ -2055,13 +2055,12 @@ static const struct dev_pm_ops clk_bg_dev_pm_ops = {
 	.resume_noirq = NULL,
 };
 
-static const struct file_operations clkdbg_fops = {
-	.owner		= THIS_MODULE,
-	.open		= clkdbg_open,
-	.read		= seq_read,
-	.write		= clkdbg_write,
-	.llseek		= seq_lseek,
-	.release	= single_release,
+static const struct proc_ops clkdbg_fops = {
+	.proc_open		= clkdbg_open,
+	.proc_read		= seq_read,
+	.proc_write		= clkdbg_write,
+	.proc_lseek		= seq_lseek,
+	.proc_release	= single_release,
 };
 
 static struct platform_driver clk_dbg_drv = {
