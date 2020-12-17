@@ -407,9 +407,6 @@ static void dwc3_free_event_buffers(struct dwc3 *dwc)
 		dwc3_free_one_event_buffer(dwc, evt);
 		dwc->ev_buf = NULL;
 	}
-
-	/* free GSI related event buffers */
-	dwc3_notify_event(dwc, DWC3_GSI_EVT_BUF_FREE, 0);
 }
 
 /**
@@ -431,8 +428,6 @@ static int dwc3_alloc_event_buffers(struct dwc3 *dwc, unsigned length)
 	}
 	dwc->ev_buf = evt;
 
-	/* alloc GSI related event buffers */
-	dwc3_notify_event(dwc, DWC3_GSI_EVT_BUF_ALLOC, 0);
 	return 0;
 }
 
@@ -456,8 +451,6 @@ int dwc3_event_buffers_setup(struct dwc3 *dwc)
 			DWC3_GEVNTSIZ_SIZE(evt->length));
 	dwc3_writel(dwc->regs, DWC3_GEVNTCOUNT(0), 0);
 
-	/* setup GSI related event buffers */
-	dwc3_notify_event(dwc, DWC3_GSI_EVT_BUF_SETUP, 0);
 	return 0;
 }
 
@@ -474,9 +467,6 @@ void dwc3_event_buffers_cleanup(struct dwc3 *dwc)
 	dwc3_writel(dwc->regs, DWC3_GEVNTSIZ(0), DWC3_GEVNTSIZ_INTMASK
 			| DWC3_GEVNTSIZ_SIZE(0));
 	dwc3_writel(dwc->regs, DWC3_GEVNTCOUNT(0), 0);
-
-	/* cleanup GSI related event buffers */
-	dwc3_notify_event(dwc, DWC3_GSI_EVT_BUF_CLEANUP, 0);
 }
 
 static int dwc3_alloc_scratch_buffers(struct dwc3 *dwc)
@@ -1166,8 +1156,6 @@ int dwc3_core_init(struct dwc3 *dwc)
 		reg |= DWC3_GUCTL1_IP_GAP_ADD_ON(1);
 		dwc3_writel(dwc->regs, DWC3_GUCTL1, reg);
 	}
-
-	dwc3_notify_event(dwc, DWC3_CONTROLLER_POST_RESET_EVENT, 0);
 
 	return 0;
 
