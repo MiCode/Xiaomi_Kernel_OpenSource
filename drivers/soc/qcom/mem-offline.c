@@ -40,6 +40,8 @@ static unsigned int sections_per_block;
 static u32 offline_granule;
 static bool is_rpm_controller;
 #define MODULE_CLASS_NAME	"mem-offline"
+#define MEMBLOCK_NAME		"memory%lu"
+#define BUF_LEN			100
 
 struct section_stat {
 	unsigned long success_count;
@@ -78,60 +80,6 @@ struct memory_refresh_request {
 };
 
 static struct section_stat *mem_info;
-
-static void clear_pgtable_mapping(phys_addr_t start, phys_addr_t end)
-{
-	unsigned long size = end - start;
-	unsigned long virt = (unsigned long)phys_to_virt(start);
-	unsigned long addr_end = virt + size;
-	pgd_t *pgd;
-	pud_t *pud;
-	pmd_t *pmd;
-
-	pgd = pgd_offset_k(virt);
-
-	while (virt < addr_end) {
-
-		/* Check if we have PUD section mapping */
-		pud = pud_offset(pgd, virt);
-		if (pud_sect(*pud)) {
-			pud_clear(pud);
-			virt += PUD_SIZE;
-			continue;
-		}
-
-		/* Check if we have PMD section mapping */
-		pmd = pmd_offset(pud, virt);
-		if (pmd_sect(*pmd)) {
-			pmd_clear(pmd);
-			virt += PMD_SIZE;
-			continue;
-		}
-
-		/* Clear mapping for page entry */
-		set_memory_valid(virt, 1, (int)false);
-		virt += PAGE_SIZE;
-	}
-
-	virt = (unsigned long)phys_to_virt(start);
-	flush_tlb_kernel_range(virt, addr_end);
-}
-
-static void init_pgtable_mapping(phys_addr_t start, phys_addr_t end)
-{
-	unsigned long size = end - start;
-
-	/*
-	 * When rodata_full is enabled, memory is mapped at a page size
-	 * granule, as opposed to a block mapping, so restore the attribute
-	 * of each PTE when rodata_full is enabled.
-	 */
-	if (rodata_full)
-		set_memory_valid((unsigned long)phys_to_virt(start),
-				 size >> PAGE_SHIFT, (int)true);
-	else
-		create_pgtable_mapping(start, end);
-}
 
 static void record_stat(unsigned long sec, ktime_t delay, int mode)
 {
@@ -368,6 +316,41 @@ out:
 	return 0;
 }
 
+static unsigned long get_section_allocated_memory(unsigned long sec_nr)
+{
+	unsigned long block_sz = memory_block_size_bytes();
+	unsigned long pages_per_blk = block_sz / PAGE_SIZE;
+	unsigned long tot_free_pages = 0, pfn, end_pfn, flags;
+	unsigned long used;
+	struct zone *movable_zone = &NODE_DATA(numa_node_id())->node_zones[ZONE_MOVABLE];
+	struct page *page;
+
+	if (!populated_zone(movable_zone))
+		return 0;
+
+	pfn = section_nr_to_pfn(sec_nr);
+	end_pfn = pfn + pages_per_blk;
+
+	if (!zone_intersects(movable_zone, pfn, pages_per_blk))
+		return 0;
+
+	spin_lock_irqsave(&movable_zone->lock, flags);
+	while (pfn < end_pfn) {
+		if (!pfn_valid(pfn) || !PageBuddy(pfn_to_page(pfn))) {
+			pfn++;
+			continue;
+		}
+		page = pfn_to_page(pfn);
+		tot_free_pages += 1 << page_private(page);
+		pfn += 1 << page_private(page);
+	}
+	spin_unlock_irqrestore(&movable_zone->lock, flags);
+
+	used = block_sz - (tot_free_pages * PAGE_SIZE);
+
+	return used;
+}
+
 static int mem_event_callback(struct notifier_block *self,
 				unsigned long action, void *arg)
 {
@@ -410,11 +393,6 @@ static int mem_event_callback(struct notifier_block *self,
 		if (mem_change_refresh_state(mn, MEMORY_ONLINE))
 			return NOTIFY_BAD;
 
-		if (!debug_pagealloc_enabled()) {
-			/* Create kernel page-tables */
-			init_pgtable_mapping(start_addr, end_addr);
-		}
-
 		break;
 	case MEM_ONLINE:
 		delay = ktime_ms_delta(ktime_get(), cur);
@@ -431,10 +409,6 @@ static int mem_event_callback(struct notifier_block *self,
 		cur = ktime_get();
 		break;
 	case MEM_OFFLINE:
-		if (!debug_pagealloc_enabled()) {
-			/* Clear kernel page-tables */
-			clear_pgtable_mapping(start_addr, end_addr);
-		}
 		mem_change_refresh_state(mn, MEMORY_OFFLINE);
 		/*
 		 * Notifying that something went bad at this stage won't
@@ -498,8 +472,25 @@ static int mem_online_remaining_blocks(void)
 		}
 	}
 
-	max_pfn = PFN_DOWN(memblock_end_of_DRAM());
 	return fail;
+}
+
+static ssize_t show_block_allocated_bytes(struct kobject *kobj,
+				struct kobj_attribute *attr, char *buf)
+{
+	unsigned long allocd_mem = 0;
+	unsigned long sec_nr;
+	int ret;
+
+	ret = sscanf(kobject_name(kobj), MEMBLOCK_NAME, &sec_nr);
+	if (ret != 1) {
+		pr_err("mem-offline: couldn't get memory block number! ret %d\n", ret);
+		return 0;
+	}
+
+	allocd_mem = get_section_allocated_memory(sec_nr);
+
+	return scnprintf(buf, BUF_LEN, "%lu\n", allocd_mem);
 }
 
 static ssize_t show_mem_offline_granule(struct kobject *kobj,
@@ -691,6 +682,40 @@ static struct attribute_group mem_attr_group = {
 	.attrs = mem_root_attrs,
 };
 
+static struct kobj_attribute block_allocated_bytes_attr =
+		__ATTR(allocated_bytes, 0444, show_block_allocated_bytes, NULL);
+
+static struct attribute *mem_block_attrs[] = {
+		&block_allocated_bytes_attr.attr,
+		NULL,
+};
+
+static struct attribute_group mem_block_attr_group = {
+	.attrs = mem_block_attrs,
+};
+
+static int mem_sysfs_create_memblocks(struct kobject *parent_kobj)
+{
+	struct kobject *memblk_kobj;
+	char memblkstr[BUF_LEN];
+	unsigned long memblock;
+	int ret;
+
+	for (memblock = start_section_nr; memblock <= end_section_nr;
+			memblock += sections_per_block) {
+		ret = scnprintf(memblkstr, sizeof(memblkstr), MEMBLOCK_NAME, memblock);
+		if (ret <= 0)
+			return -EINVAL;
+		memblk_kobj = kobject_create_and_add(memblkstr, parent_kobj);
+		if (!memblk_kobj)
+			return -ENOMEM;
+		if (sysfs_create_group(memblk_kobj, &mem_block_attr_group))
+			kobject_put(memblk_kobj);
+	}
+
+	return 0;
+}
+
 static int mem_sysfs_init(void)
 {
 	if (start_section_nr == end_section_nr)
@@ -702,6 +727,11 @@ static int mem_sysfs_init(void)
 
 	if (sysfs_create_group(kobj, &mem_attr_group))
 		kobject_put(kobj);
+
+	if (mem_sysfs_create_memblocks(kobj)) {
+		pr_err("mem-offline: failed to create memblock sysfs nodes\n");
+		return -EINVAL;
+	}
 
 	return 0;
 }
@@ -873,6 +903,8 @@ static const struct of_device_id mem_offline_match_table[] = {
 	{}
 };
 
+MODULE_DEVICE_TABLE(of, mem_offline_match_table);
+
 static struct platform_driver mem_offline_driver = {
 	.probe = mem_offline_driver_probe,
 	.driver = {
@@ -885,5 +917,13 @@ static int __init mem_module_init(void)
 {
 	return platform_driver_register(&mem_offline_driver);
 }
-
 subsys_initcall(mem_module_init);
+
+static void __exit mem_module_exit(void)
+{
+	platform_driver_unregister(&mem_offline_driver);
+}
+module_exit(mem_module_exit);
+
+MODULE_DESCRIPTION("Qualcomm Technologies, Inc. Memory Offlining Driver");
+MODULE_LICENSE("GPL v2");
