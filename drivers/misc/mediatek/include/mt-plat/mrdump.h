@@ -193,7 +193,7 @@ struct mrdump_mini_elf_header {
 	struct elfhdr ehdr;
 	struct elf_phdr phdrs[MRDUMP_MINI_NR_SECTION];
 	struct mrdump_mini_elf_psinfo psinfo;
-	struct mrdump_mini_elf_prstatus prstatus[AEE_MTK_CPU_NUMS + 1];
+	struct mrdump_mini_elf_prstatus prstatus[AEE_MTK_CPU_NUMS];
 	struct mrdump_mini_elf_note misc[MRDUMP_MINI_NR_MISC];
 };
 

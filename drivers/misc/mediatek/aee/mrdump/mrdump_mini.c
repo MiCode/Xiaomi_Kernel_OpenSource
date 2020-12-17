@@ -560,107 +560,6 @@ void mrdump_mini_add_entry(unsigned long addr, unsigned long size)
 	}
 }
 
-static void mrdump_mini_add_tsk_ti(int cpu, struct pt_regs *regs,
-		struct task_struct *tsk, int stack)
-{
-	struct thread_info *ti = NULL;
-	unsigned long *bottom;
-	unsigned long *top;
-	unsigned long *p;
-
-	if (!mrdump_virt_addr_valid(tsk)) {
-		pr_notice("mrdump: cpu:[%d] invalid task pointer:%px\n",
-				cpu, tsk);
-		if (cpu < num_possible_cpus())
-			tsk = aee_cpu_curr(cpu);
-		else
-			pr_notice("mrdump: cpu:[%d] overflow with total:%d\n",
-					cpu, num_possible_cpus());
-	}
-	if (!mrdump_virt_addr_valid(tsk))
-		pr_notice("mrdump: cpu:[%d] CAN'T get a valid task pointer:%px\n",
-				cpu, tsk);
-	else
-		ti = (struct thread_info *)tsk->stack;
-
-	bottom = (unsigned long *)regs->reg_sp;
-	mrdump_mini_add_entry(regs->reg_sp, MRDUMP_MINI_SECTION_SIZE);
-	mrdump_mini_add_entry((unsigned long)ti, MRDUMP_MINI_SECTION_SIZE);
-	mrdump_mini_add_entry((unsigned long)tsk, MRDUMP_MINI_SECTION_SIZE);
-	pr_notice("mrdump: cpu[%d] tsk:%lx ti:%lx\n", cpu, tsk, ti);
-	if (!stack)
-		return;
-	if (ti == NULL)
-		return;
-#ifdef __aarch64__
-	if (aee_on_irq_stack((unsigned long)bottom, NULL))
-		/* TODO: correct me */
-		top = 0;
-		/* top = (unsigned long *)IRQ_STACK_PTR(cpu); */
-	else {
-		top = (unsigned long *)ALIGN((unsigned long)bottom,
-					THREAD_SIZE);
-		p = (unsigned long *)((void *)ti + THREAD_SIZE);
-		if ((!mrdump_virt_addr_valid(top)
-				&& !(((unsigned long)top >= VMALLOC_START)
-				&& ((unsigned long)top <= VMALLOC_END)))
-			|| (!mrdump_virt_addr_valid(bottom)
-				&& !(((unsigned long)bottom >= VMALLOC_START)
-				&& ((unsigned long)bottom <= VMALLOC_END)))
-			|| top != p || bottom > top) {
-			pr_notice(
-				"mrdump: unexpected case bottom:%p top:%p ti + THREAD_SIZE:%p\n"
-				, bottom, top, p);
-			return;
-		}
-	}
-#else
-	top = (unsigned long *)((void *)ti + THREAD_SIZE);
-	if (!mrdump_virt_addr_valid(ti) || !mrdump_virt_addr_valid(top)
-		|| bottom < (unsigned long *)ti
-		|| bottom > top)
-		return;
-#endif
-
-	for (p = (unsigned long *)ALIGN((unsigned long)bottom,
-				sizeof(unsigned long)); p < top; p++) {
-		if (!mrdump_virt_addr_valid(*p))
-			continue;
-		if (*p >= (unsigned long)ti && *p <= (unsigned long)top)
-			continue;
-		if (*p >= aee_get_stext() && *p <=
-				(unsigned long)aee_get_etext())
-			continue;
-		mrdump_mini_add_entry(*p, MRDUMP_MINI_SECTION_SIZE);
-	}
-}
-
-static int mrdump_mini_cpu_regs(int cpu, struct pt_regs *regs,
-		struct task_struct *tsk)
-{
-	char name[NOTE_NAME_SHORT];
-
-	if (!mrdump_mini_ehdr) {
-		pr_notice("mrdump: invalid ehdr");
-		return -1;
-	}
-	if (cpu >= nr_cpu_ids) {
-		pr_notice("mrdump: invalid cpu - %d", cpu);
-		return -1;
-	}
-	if (!regs) {
-		pr_notice("mrdump: invalid regs");
-		return -1;
-	}
-
-	snprintf(name, NOTE_NAME_SHORT - 1, "core%d", cpu);
-	fill_prstatus(&mrdump_mini_ehdr->prstatus[0].data, regs, tsk,
-		      100 + cpu);
-	fill_note_S(&mrdump_mini_ehdr->prstatus[0].note, name, NT_PRSTATUS,
-		    sizeof(struct elf_prstatus));
-	return 0;
-}
-
 static void mrdump_mini_build_task_info(struct pt_regs *regs)
 {
 #define MAX_STACK_TRACE_DEPTH 64
@@ -932,30 +831,6 @@ static void mrdump_mini_build_elf_misc(void)
 	mrdump_mini_add_misc(misc.vaddr, misc.size, misc.start, "_PIDMAP_");
 }
 
-static void mrdump_mini_add_loads(void)
-{
-	int cpu, i, id;
-	struct pt_regs regs;
-	struct elf_prstatus *prstatus;
-	struct task_struct *tsk;
-
-	if (!mrdump_mini_ehdr)
-		return;
-
-	prstatus = &mrdump_mini_ehdr->prstatus[0].data;
-	tsk = (prstatus->pr_sigpend) ?
-		(struct task_struct *)prstatus->pr_sigpend : current;
-	memcpy(&regs, &prstatus->pr_reg, sizeof(prstatus->pr_reg));
-
-	for (i = 0; i < ELF_NGREG; i++)
-		mrdump_mini_add_entry(
-				((unsigned long *)&regs)[i],
-				MRDUMP_MINI_SECTION_SIZE);
-	cpu = prstatus->pr_pid - 100;
-	mrdump_mini_add_tsk_ti(cpu, &regs, tsk, 1);
-
-}
-
 static void mrdump_mini_clear_loads(void)
 {
 	struct elf_phdr *phdr;
@@ -985,16 +860,6 @@ EXPORT_SYMBOL(mrdump_mini_add_hang_raw);
 
 void mrdump_mini_ke_cpu_regs(struct pt_regs *regs)
 {
-	int cpu;
-	struct pt_regs context;
-
-	if (!regs) {
-		regs = &context;
-		crash_setup_regs(regs, NULL);
-	}
-	cpu = get_HW_cpuid();
-	mrdump_mini_cpu_regs(cpu, regs, current);
-	mrdump_mini_add_loads();
 	mrdump_mini_build_task_info(regs);
 }
 
@@ -1071,7 +936,7 @@ int __init mrdump_mini_init(const struct mrdump_params *mparams)
 		    sizeof(struct elf_prpsinfo));
 
 	memset_io(&regs, 0, sizeof(struct pt_regs));
-	for (i = 0; i < AEE_MTK_CPU_NUMS + 1; i++) {
+	for (i = 0; i < AEE_MTK_CPU_NUMS; i++) {
 		fill_prstatus(&mrdump_mini_ehdr->prstatus[i].data, &regs,
 				NULL, i);
 		fill_note_S(&mrdump_mini_ehdr->prstatus[i].note, "NA",
