@@ -66,6 +66,8 @@
 			power-domains = <&CPU_PD0>;
 			power-domain-names = "psci";
 			qcom,freq-domain = <&cpufreq_hw 0 4>;
+			capacity-dmips-mhz = <1024>;
+			dynamic-power-coefficient = <100>;
 			L2_0: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-level = <2>;
@@ -88,6 +90,8 @@
 			power-domains = <&CPU_PD1>;
 			power-domain-names = "psci";
 			qcom,freq-domain = <&cpufreq_hw 0 4>;
+			capacity-dmips-mhz = <1024>;
+			dynamic-power-coefficient = <100>;
 		};
 
 		CPU2: cpu@200 {
@@ -100,6 +104,8 @@
 			power-domains = <&CPU_PD2>;
 			power-domain-names = "psci";
 			qcom,freq-domain = <&cpufreq_hw 0 4>;
+			capacity-dmips-mhz = <1024>;
+			dynamic-power-coefficient = <100>;
 			L2_2: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-level = <2>;
@@ -117,6 +123,8 @@
 			power-domains = <&CPU_PD3>;
 			power-domain-names = "psci";
 			qcom,freq-domain = <&cpufreq_hw 0 4>;
+			capacity-dmips-mhz = <1024>;
+			dynamic-power-coefficient = <100>;
 		};
 
 		CPU4: cpu@400 {
@@ -129,6 +137,8 @@
 			power-domains = <&CPU_PD4>;
 			power-domain-names = "psci";
 			qcom,freq-domain = <&cpufreq_hw 1 4>;
+			capacity-dmips-mhz = <1740>;
+			dynamic-power-coefficient = <251>;
 			L2_4: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-level = <2>;
@@ -147,6 +157,8 @@
 			power-domains = <&CPU_PD5>;
 			power-domain-names = "psci";
 			qcom,freq-domain = <&cpufreq_hw 1 4>;
+			capacity-dmips-mhz = <1740>;
+			dynamic-power-coefficient = <251>;
 			L2_5: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-level = <2>;
@@ -164,6 +176,8 @@
 			power-domains = <&CPU_PD6>;
 			qcom,freq-domain = <&cpufreq_hw 1 4>;
 			power-domain-names = "psci";
+			capacity-dmips-mhz = <1740>;
+			dynamic-power-coefficient = <251>;
 			L2_6: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-level = <2>;
@@ -181,6 +195,8 @@
 			power-domains = <&CPU_PD7>;
 			power-domain-names = "psci";
 			qcom,freq-domain = <&cpufreq_hw 2 4>;
+			capacity-dmips-mhz = <1843>;
+			dynamic-power-coefficient = <396>;
 			L2_7: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-level = <2>;
