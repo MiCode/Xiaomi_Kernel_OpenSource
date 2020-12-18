@@ -2077,8 +2077,10 @@ static inline void run_walt_irq_work(u64 old_window_start, struct rq *rq)
 
 	result = atomic64_cmpxchg(&walt_irq_work_lastq_ws, old_window_start,
 				   rq->window_start);
-	if (result == old_window_start)
+	if (result == old_window_start) {
 		walt_irq_work_queue(&walt_cpufreq_irq_work);
+		trace_walt_window_rollover(rq->window_start);
+	}
 }
 
 /* Reflect task activity on its demand and cpu's busy time statistics */
