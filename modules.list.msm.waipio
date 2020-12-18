@@ -134,3 +134,5 @@ qcom_dcvs_fp.ko
 qcom-dcvs.ko
 memlat.ko
 bwmon.ko
+qcom-dload-mode.ko
+qcom-reboot-reason.ko
