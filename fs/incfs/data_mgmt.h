@@ -13,6 +13,7 @@
 #include <linux/rcupdate.h>
 #include <linux/completion.h>
 #include <linux/wait.h>
+#include <linux/zstd.h>
 #include <crypto/hash.h>
 #include <linux/rwsem.h>
 
@@ -166,6 +167,12 @@ struct mount_info {
 	spinlock_t mi_per_uid_read_timeouts_lock;
 	struct incfs_per_uid_read_timeouts *mi_per_uid_read_timeouts;
 	int mi_per_uid_read_timeouts_size;
+
+	/* zstd workspace */
+	struct mutex mi_zstd_workspace_mutex;
+	void *mi_zstd_workspace;
+	ZSTD_DStream *mi_zstd_stream;
+	struct delayed_work mi_zstd_cleanup_work;
 };
 
 struct data_file_block {
@@ -328,8 +335,8 @@ struct dir_file *incfs_open_dir_file(struct mount_info *mi, struct file *bf);
 void incfs_free_dir_file(struct dir_file *dir);
 
 ssize_t incfs_read_data_file_block(struct mem_range dst, struct file *f,
-			int index, int min_time_ms,
-			int min_pending_time_ms, int max_pending_time_ms,
+			int index, u32 min_time_us,
+			u32 min_pending_time_us, u32 max_pending_time_us,
 			struct mem_range tmp);
 
 int incfs_get_filled_blocks(struct data_file *df,

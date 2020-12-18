@@ -11,8 +11,8 @@ MODULES_LIST=${KERNEL_DIR}/modules.list.${CONFIG_TARGET}
 BUILD_BOOT_IMG=1
 BUILD_INITRAMFS=1
 
-ABI_DEFINITION=abi_gki_aarch64.xml
-KMI_SYMBOL_LIST=abi_gki_aarch64_qcom
+ABI_DEFINITION=android/abi_gki_aarch64_allsyms
+KMI_SYMBOL_LIST=android/abi_gki_aarch64_qcom
 
 function build_defconfig_fragments() {
 	if [[ "${VARIANT}" =~ ^(gki|consolidate)$ ]]; then

@@ -963,6 +963,7 @@ static void binder_wakeup_poll_threads_ilocked(struct binder_proc *proc,
 				(current->prio < DEFAULT_PRIO))
 				thread->task->wts.low_latency = true;
 #endif
+			trace_android_vh_binder_wakeup_ilocked(thread->task);
 			if (sync)
 				wake_up_interruptible_sync(&thread->wait);
 			else
@@ -1028,6 +1029,7 @@ static void binder_wakeup_thread_ilocked(struct binder_proc *proc,
 			(current->prio < DEFAULT_PRIO))
 			thread->task->wts.low_latency = true;
 #endif
+		trace_android_vh_binder_wakeup_ilocked(thread->task);
 		if (sync)
 			wake_up_interruptible_sync(&thread->wait);
 		else
@@ -3324,6 +3326,7 @@ static void binder_transaction(struct binder_proc *proc,
 	t->buffer->debug_id = t->debug_id;
 	t->buffer->transaction = t;
 	t->buffer->target_node = target_node;
+	t->buffer->clear_on_free = !!(t->flags & TF_CLEAR_BUF);
 	trace_binder_transaction_alloc_buf(t->buffer);
 
 	if (binder_alloc_copy_user_to_buffer(
@@ -6368,5 +6371,6 @@ device_initcall(binder_init);
 
 #define CREATE_TRACE_POINTS
 #include "binder_trace.h"
+EXPORT_TRACEPOINT_SYMBOL_GPL(binder_transaction_received);
 
 MODULE_LICENSE("GPL v2");

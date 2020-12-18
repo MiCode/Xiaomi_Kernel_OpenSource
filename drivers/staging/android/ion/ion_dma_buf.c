@@ -105,6 +105,7 @@ static struct sg_table *ion_map_dma_buf(struct dma_buf_attachment *attachment,
 	struct ion_heap *heap = buffer->heap;
 	struct ion_dma_buf_attachment *a;
 	struct sg_table *table;
+	unsigned long attrs = attachment->dma_map_attrs;
 
 	if (heap->buf_ops.map_dma_buf)
 		return heap->buf_ops.map_dma_buf(attachment, direction);
@@ -112,7 +113,11 @@ static struct sg_table *ion_map_dma_buf(struct dma_buf_attachment *attachment,
 	a = attachment->priv;
 	table = a->table;
 
-	if (!dma_map_sg(attachment->dev, table->sgl, table->nents, direction))
+	if (!(buffer->flags & ION_FLAG_CACHED))
+		attrs |= DMA_ATTR_SKIP_CPU_SYNC;
+
+	if (!dma_map_sg_attrs(attachment->dev, table->sgl, table->nents,
+			      direction, attrs))
 		return ERR_PTR(-ENOMEM);
 
 	a->mapped = true;
@@ -127,14 +132,19 @@ static void ion_unmap_dma_buf(struct dma_buf_attachment *attachment,
 	struct ion_buffer *buffer = attachment->dmabuf->priv;
 	struct ion_heap *heap = buffer->heap;
 	struct ion_dma_buf_attachment *a = attachment->priv;
-
-	a->mapped = false;
+	unsigned long attrs = attachment->dma_map_attrs;
 
 	if (heap->buf_ops.unmap_dma_buf)
 		return heap->buf_ops.unmap_dma_buf(attachment, table,
 						   direction);
 
-	dma_unmap_sg(attachment->dev, table->sgl, table->nents, direction);
+	a->mapped = false;
+
+	if (!(buffer->flags & ION_FLAG_CACHED))
+		attrs |= DMA_ATTR_SKIP_CPU_SYNC;
+
+	dma_unmap_sg_attrs(attachment->dev, table->sgl, table->nents,
+			   direction, attrs);
 }
 
 static void ion_dma_buf_release(struct dma_buf *dmabuf)
@@ -153,24 +163,14 @@ static int ion_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
 {
 	struct ion_buffer *buffer = dmabuf->priv;
 	struct ion_heap *heap = buffer->heap;
-	void *vaddr;
 	struct ion_dma_buf_attachment *a;
-	int ret;
 
 	if (heap->buf_ops.begin_cpu_access)
 		return heap->buf_ops.begin_cpu_access(dmabuf, direction);
 
-	/*
-	 * TODO: Move this elsewhere because we don't always need a vaddr
-	 * FIXME: Why do we need a vaddr here?
-	 */
-	ret = 0;
 	mutex_lock(&buffer->lock);
-	vaddr = ion_buffer_kmap_get(buffer);
-	if (IS_ERR(vaddr)) {
-		ret = PTR_ERR(vaddr);
+	if (!(buffer->flags & ION_FLAG_CACHED))
 		goto unlock;
-	}
 
 	list_for_each_entry(a, &buffer->attachments, list) {
 		if (!a->mapped)
@@ -181,7 +181,7 @@ static int ion_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
 
 unlock:
 	mutex_unlock(&buffer->lock);
-	return ret;
+	return 0;
 }
 
 static int
@@ -214,14 +214,16 @@ static int ion_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
 		return heap->buf_ops.end_cpu_access(dmabuf, direction);
 
 	mutex_lock(&buffer->lock);
+	if (!(buffer->flags & ION_FLAG_CACHED))
+		goto unlock;
 
-	ion_buffer_kmap_put(buffer);
 	list_for_each_entry(a, &buffer->attachments, list) {
 		if (!a->mapped)
 			continue;
 		dma_sync_sg_for_device(a->dev, a->table->sgl, a->table->nents,
 				       direction);
 	}
+unlock:
 	mutex_unlock(&buffer->lock);
 
 	return 0;

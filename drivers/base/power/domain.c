@@ -408,6 +408,46 @@ int dev_pm_genpd_set_performance_state(struct device *dev, unsigned int state)
 }
 EXPORT_SYMBOL_GPL(dev_pm_genpd_set_performance_state);
 
+/**
+ * dev_pm_genpd_set_next_wakeup - Notify PM framework of an impending wakeup.
+ *
+ * @dev: Device to handle
+ * @next: impending interrupt/wakeup for the device
+ *
+ * Allow devices to inform of the next wakeup. But, if the domain were already
+ * powered off, we will not wakeup the domain to recompute it's idle duration.
+ * Although devices are expected to update the next_wakeup after the end of
+ * their usecase as well, it is possible the devices themselves may not know
+ * about that. Stale @next will be ignored when powering off the domain.
+ */
+int dev_pm_genpd_set_next_wakeup(struct device *dev, ktime_t next)
+{
+	struct generic_pm_domain *genpd;
+	struct generic_pm_domain_data *gpd_data;
+	int ret = -EINVAL;
+
+	genpd = dev_to_genpd_safe(dev);
+	if (!genpd)
+		return -ENODEV;
+
+	if (WARN_ON(!dev->power.subsys_data ||
+		    !dev->power.subsys_data->domain_data))
+		return ret;
+
+	genpd_lock(genpd);
+	gpd_data = to_gpd_data(dev->power.subsys_data->domain_data);
+	if (ktime_before(ktime_get(), next)) {
+		gpd_data->next_wakeup = next;
+		genpd->flags |= GENPD_FLAG_GOV_NEXT_WAKEUP;
+		ret = 0;
+	}
+	genpd_unlock(genpd);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(dev_pm_genpd_set_next_wakeup);
+
+
 static int _genpd_power_on(struct generic_pm_domain *genpd, bool timed)
 {
 	unsigned int state_idx = genpd->state_idx;
@@ -1363,41 +1403,60 @@ static void genpd_complete(struct device *dev)
 	genpd_unlock(genpd);
 }
 
-/**
- * genpd_syscore_switch - Switch power during system core suspend or resume.
- * @dev: Device that normally is marked as "always on" to switch power for.
- *
- * This routine may only be called during the system core (syscore) suspend or
- * resume phase for devices whose "always on" flags are set.
- */
-static void genpd_syscore_switch(struct device *dev, bool suspend)
+static void genpd_switch_state(struct device *dev, bool suspend)
 {
 	struct generic_pm_domain *genpd;
+	bool use_lock;
 
 	genpd = dev_to_genpd_safe(dev);
 	if (!genpd)
 		return;
 
+	use_lock = genpd_is_irq_safe(genpd);
+
+	if (use_lock)
+		genpd_lock(genpd);
+
 	if (suspend) {
 		genpd->suspended_count++;
-		genpd_sync_power_off(genpd, false, 0);
+		genpd_sync_power_off(genpd, use_lock, 0);
 	} else {
-		genpd_sync_power_on(genpd, false, 0);
+		genpd_sync_power_on(genpd, use_lock, 0);
 		genpd->suspended_count--;
 	}
+
+	if (use_lock)
+		genpd_unlock(genpd);
 }
 
-void pm_genpd_syscore_poweroff(struct device *dev)
+/**
+ * dev_pm_genpd_suspend - Synchronously try to suspend the genpd for @dev
+ * @dev: The device that is attached to the genpd, that can be suspended.
+ *
+ * This routine should typically be called for a device that needs to be
+ * suspended during the syscore suspend phase. It may also be called during
+ * suspend-to-idle to suspend a corresponding CPU device that is attached to a
+ * genpd.
+ */
+void dev_pm_genpd_suspend(struct device *dev)
 {
-	genpd_syscore_switch(dev, true);
+	genpd_switch_state(dev, true);
 }
-EXPORT_SYMBOL_GPL(pm_genpd_syscore_poweroff);
+EXPORT_SYMBOL_GPL(dev_pm_genpd_suspend);
 
-void pm_genpd_syscore_poweron(struct device *dev)
+/**
+ * dev_pm_genpd_resume - Synchronously try to resume the genpd for @dev
+ * @dev: The device that is attached to the genpd, which needs to be resumed.
+ *
+ * This routine should typically be called for a device that needs to be resumed
+ * during the syscore resume phase. It may also be called during suspend-to-idle
+ * to resume a corresponding CPU device that is attached to a genpd.
+ */
+void dev_pm_genpd_resume(struct device *dev)
 {
-	genpd_syscore_switch(dev, false);
+	genpd_switch_state(dev, false);
 }
-EXPORT_SYMBOL_GPL(pm_genpd_syscore_poweron);
+EXPORT_SYMBOL_GPL(dev_pm_genpd_resume);
 
 #else /* !CONFIG_PM_SLEEP */
 
@@ -1431,6 +1490,7 @@ static struct generic_pm_domain_data *genpd_alloc_dev_data(struct device *dev)
 	gpd_data->td.constraint_changed = true;
 	gpd_data->td.effective_constraint_ns = PM_QOS_RESUME_LATENCY_NO_CONSTRAINT_NS;
 	gpd_data->nb.notifier_call = genpd_dev_pm_qos_notifier;
+	gpd_data->next_wakeup = KTIME_MAX;
 
 	spin_lock_irq(&dev->power.lock);
 
@@ -1728,6 +1788,24 @@ int dev_pm_genpd_remove_notifier(struct device *dev)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(dev_pm_genpd_remove_notifier);
+
+/**
+ * genpd_enable_next_wakeup - Enable genpd gov to use next_wakeup
+ *
+ * @genpd: The genpd to be updated
+ * @enable: Enable/disable genpd gov to use next wakeup
+ */
+void genpd_enable_next_wakeup(struct generic_pm_domain *genpd, bool enable)
+{
+	genpd_lock(genpd);
+	if (enable)
+		genpd->flags |= GENPD_FLAG_GOV_NEXT_WAKEUP;
+	else
+		genpd->flags &= ~GENPD_FLAG_GOV_NEXT_WAKEUP;
+	genpd->next_wakeup = KTIME_MAX;
+	genpd_unlock(genpd);
+}
+EXPORT_SYMBOL_GPL(genpd_enable_next_wakeup);
 
 static int genpd_add_subdomain(struct generic_pm_domain *genpd,
 			       struct generic_pm_domain *subdomain)

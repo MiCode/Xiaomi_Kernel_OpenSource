@@ -64,6 +64,7 @@ enum dev_cmd_type {
  * @argument1: UIC command argument 1
  * @argument2: UIC command argument 2
  * @argument3: UIC command argument 3
+ * @cmd_active: Indicate if UIC command is outstanding
  * @done: UIC command completion
  */
 struct uic_command {
@@ -71,6 +72,7 @@ struct uic_command {
 	u32 argument1;
 	u32 argument2;
 	u32 argument3;
+	int cmd_active;
 	struct completion done;
 };
 
@@ -163,6 +165,7 @@ struct ufs_pm_lvl_states {
  * @crypto_key_slot: the key slot to use for inline crypto (-1 if none)
  * @data_unit_num: the data unit number for the first block for inline crypto
  * @req_abort_skip: skip request abort task flag
+ * @in_use: indicates that this lrb is still in use
  */
 struct ufshcd_lrb {
 	struct utp_transfer_req_desc *utr_descriptor_ptr;
@@ -192,6 +195,7 @@ struct ufshcd_lrb {
 #endif
 
 	bool req_abort_skip;
+	bool in_use;
 };
 
 /**
@@ -330,7 +334,7 @@ struct ufs_hba_variant_ops {
 			       const union ufs_crypto_cfg_entry *cfg, int slot);
 	int	(*fill_prdt)(struct ufs_hba *hba, struct ufshcd_lrb *lrbp,
 			     unsigned int segments);
-	void    (*prepare_command)(struct ufs_hba *hba,
+	int	(*prepare_command)(struct ufs_hba *hba,
 				struct request *rq, struct ufshcd_lrb *lrbp);
 	int     (*update_sysfs)(struct ufs_hba *hba);
 	void	(*send_command)(struct ufs_hba *hba, struct ufshcd_lrb *lrbp);
@@ -557,11 +561,12 @@ enum ufshcd_quirks {
 
 	/*
 	 * This quirk needs to be enabled if the host controller supports inline
-	 * encryption, but it doesn't use the standard crypto capability
-	 * registers.  If enabled, the standard code won't initialize the
-	 * keyslot manager; ufs_hba_variant_ops::init() must do it instead.
+	 * encryption, but it needs to initialize the crypto capabilities in a
+	 * nonstandard way and/or it needs to override blk_ksm_ll_ops.  If
+	 * enabled, the standard code won't initialize the blk_keyslot_manager;
+	 * ufs_hba_variant_ops::init() must do it instead.
 	 */
-	UFSHCD_QUIRK_BROKEN_CRYPTO_CAPS			= 1 << 20,
+	UFSHCD_QUIRK_CUSTOM_KEYSLOT_MANAGER		= 1 << 20,
 
 	/*
 	 * This quirk needs to be enabled if the host controller supports inline
@@ -626,6 +631,13 @@ enum ufshcd_caps {
 	 * inline crypto engine, if it is present
 	 */
 	UFSHCD_CAP_CRYPTO				= 1 << 8,
+
+	/*
+	 * This capability allows the controller regulators to be put into
+	 * lpm mode aggressively during clock gating.
+	 * This would increase power savings.
+	 */
+	UFSHCD_CAP_AGGR_POWER_COLLAPSE			= 1 << 9,
 };
 
 struct ufs_hba_variant_params {
@@ -766,6 +778,7 @@ struct ufs_hba {
 	u32 intr_mask;
 	u16 ee_ctrl_mask;
 	bool is_powered;
+	struct semaphore eh_sem;
 
 	/* Work Queues */
 	struct workqueue_struct *eh_wq;
@@ -865,6 +878,12 @@ static inline bool ufshcd_is_intr_aggr_allowed(struct ufs_hba *hba)
 #else
 return true;
 #endif
+}
+
+static inline bool ufshcd_can_aggressive_pc(struct ufs_hba *hba)
+{
+	return !!(ufshcd_is_link_hibern8(hba) &&
+		  (hba->caps & UFSHCD_CAP_AGGR_POWER_COLLAPSE));
 }
 
 static inline bool ufshcd_is_auto_hibern8_supported(struct ufs_hba *hba)
@@ -1244,11 +1263,12 @@ static inline int ufshcd_vops_fill_prdt(struct ufs_hba *hba,
 	return 0;
 }
 
-static inline void ufshcd_vops_prepare_command(struct ufs_hba *hba,
+static inline int ufshcd_vops_prepare_command(struct ufs_hba *hba,
 		struct request *rq, struct ufshcd_lrb *lrbp)
 {
 	if (hba->vops && hba->vops->prepare_command)
-		hba->vops->prepare_command(hba, rq, lrbp);
+		return hba->vops->prepare_command(hba, rq, lrbp);
+	return 0;
 }
 
 static inline int ufshcd_vops_update_sysfs(struct ufs_hba *hba)
