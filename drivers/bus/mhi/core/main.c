@@ -330,8 +330,7 @@ void mhi_create_devices(struct mhi_controller *mhi_cntrl)
 
 		/* Channel name is same for both UL and DL */
 		mhi_dev->name = mhi_chan->name;
-		dev_set_name(&mhi_dev->dev, "%s_%s",
-			     dev_name(&mhi_cntrl->mhi_dev->dev),
+		dev_set_name(&mhi_dev->dev, "%s_%s", dev_name(dev),
 			     mhi_dev->name);
 
 		/* Init wakeup source if available */
