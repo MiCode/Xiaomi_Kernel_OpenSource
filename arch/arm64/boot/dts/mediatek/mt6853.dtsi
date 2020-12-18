@@ -5286,6 +5286,7 @@
 
 	sound: sound {
 		compatible = "mediatek,mt6853-mt6359p-sound";
+		mediatek,headset-codec = <&accdet>;
 		mediatek,platform = <&afe>;
 	};
 
