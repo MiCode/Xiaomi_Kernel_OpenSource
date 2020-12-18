@@ -330,10 +330,10 @@ static const struct pinctrl_pin_desc waipio_pins[] = {
 	PINCTRL_PIN(207, "GPIO_207"),
 	PINCTRL_PIN(208, "GPIO_208"),
 	PINCTRL_PIN(209, "GPIO_209"),
-	PINCTRL_PIN(210, "SDC2_CLK"),
-	PINCTRL_PIN(211, "SDC2_CMD"),
-	PINCTRL_PIN(212, "SDC2_DATA"),
-	PINCTRL_PIN(213, "UFS_RESET"),
+	PINCTRL_PIN(210, "UFS_RESET"),
+	PINCTRL_PIN(211, "SDC2_CLK"),
+	PINCTRL_PIN(212, "SDC2_CMD"),
+	PINCTRL_PIN(213, "SDC2_DATA"),
 };
 
 #define DECLARE_MSM_GPIO_PINS(pin) \
@@ -549,10 +549,10 @@ DECLARE_MSM_GPIO_PINS(207);
 DECLARE_MSM_GPIO_PINS(208);
 DECLARE_MSM_GPIO_PINS(209);
 
-static const unsigned int sdc2_clk_pins[] = { 210 };
-static const unsigned int sdc2_cmd_pins[] = { 211 };
-static const unsigned int sdc2_data_pins[] = { 212 };
-static const unsigned int ufs_reset_pins[] = { 213 };
+static const unsigned int ufs_reset_pins[] = { 210 };
+static const unsigned int sdc2_clk_pins[] = { 211 };
+static const unsigned int sdc2_cmd_pins[] = { 212 };
+static const unsigned int sdc2_data_pins[] = { 213 };
 
 enum waipio_functions {
 	msm_mux_gpio,
@@ -1953,10 +1953,10 @@ static const struct msm_pingroup waipio_groups[] = {
 	[207] = PINGROUP(207, qup5, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
 	[208] = PINGROUP(208, cci_i2c, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
 	[209] = PINGROUP(209, cci_i2c, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
-	[210] = SDC_QDSD_PINGROUP(sdc2_clk, 0x1d6000, 14, 6),
-	[211] = SDC_QDSD_PINGROUP(sdc2_cmd, 0x1d6000, 11, 3),
-	[212] = SDC_QDSD_PINGROUP(sdc2_data, 0x1d6000, 9, 0),
-	[213] = UFS_RESET(ufs_reset, 0x1de000),
+	[210] = UFS_RESET(ufs_reset, 0x1de000),
+	[211] = SDC_QDSD_PINGROUP(sdc2_clk, 0x1d6000, 14, 6),
+	[212] = SDC_QDSD_PINGROUP(sdc2_cmd, 0x1d6000, 11, 3),
+	[213] = SDC_QDSD_PINGROUP(sdc2_data, 0x1d6000, 9, 0),
 };
 
 static const struct msm_pinctrl_soc_data waipio_pinctrl = {
@@ -1966,7 +1966,7 @@ static const struct msm_pinctrl_soc_data waipio_pinctrl = {
 	.nfunctions = ARRAY_SIZE(waipio_functions),
 	.groups = waipio_groups,
 	.ngroups = ARRAY_SIZE(waipio_groups),
-	.ngpios = 210,
+	.ngpios = 211,
 };
 
 static int waipio_pinctrl_probe(struct platform_device *pdev)
