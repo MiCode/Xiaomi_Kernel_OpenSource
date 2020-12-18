@@ -227,7 +227,7 @@ static int mhi_fw_load_bhi(struct mhi_controller *mhi_cntrl,
 			   dma_addr_t dma_addr,
 			   size_t size)
 {
-	u32 tx_status, val, session_id;
+	u32 tx_status, val;
 	int i, ret;
 	void __iomem *base = mhi_cntrl->bhi;
 	rwlock_t *pm_lock = &mhi_cntrl->pm_lock;
@@ -249,16 +249,16 @@ static int mhi_fw_load_bhi(struct mhi_controller *mhi_cntrl,
 		goto invalid_pm_state;
 	}
 
-	session_id = MHI_RANDOM_U32_NONZERO(BHI_TXDB_SEQNUM_BMSK);
+	mhi_cntrl->session_id = MHI_RANDOM_U32_NONZERO(BHI_TXDB_SEQNUM_BMSK);
 	dev_dbg(dev, "Starting image download via BHI. Session ID: %u\n",
-		session_id);
+		mhi_cntrl->session_id);
 	mhi_write_reg(mhi_cntrl, base, BHI_STATUS, 0);
 	mhi_write_reg(mhi_cntrl, base, BHI_IMGADDR_HIGH,
 		      upper_32_bits(dma_addr));
 	mhi_write_reg(mhi_cntrl, base, BHI_IMGADDR_LOW,
 		      lower_32_bits(dma_addr));
 	mhi_write_reg(mhi_cntrl, base, BHI_IMGSIZE, size);
-	mhi_write_reg(mhi_cntrl, base, BHI_IMGTXDB, session_id);
+	mhi_write_reg(mhi_cntrl, base, BHI_IMGTXDB, mhi_cntrl->session_id);
 	read_unlock_bh(pm_lock);
 
 	/* Wait for the image download to complete */
