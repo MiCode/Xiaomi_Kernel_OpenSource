@@ -1342,8 +1342,6 @@ struct dwc3 {
 	int			irq;
 	unsigned long		irq_cnt;
 
-	/* Indicate if the gadget was powered by the otg driver */
-	unsigned int		vbus_active:1;
 	/* Indicate if software connect was issued by the usb_gadget_driver */
 	unsigned int		softconnect:1;
 	/*

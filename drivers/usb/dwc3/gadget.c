@@ -2340,14 +2340,6 @@ static int dwc3_gadget_pullup(struct usb_gadget *g, int is_on)
 	is_on = !!is_on;
 	dwc->softconnect = is_on;
 
-	if (((dwc->dr_mode > USB_DR_MODE_HOST) && !dwc->vbus_active)
-			|| !dwc->gadget_driver)
-		/*
-		 * Need to wait for vbus_session(on) from otg driver or to
-		 * the udc_start.
-		 */
-		return 0;
-
 	pm_runtime_get_sync(dwc->dev);
 
 	/*
@@ -2506,62 +2498,6 @@ static void dwc3_gadget_setup_nump(struct dwc3 *dwc)
 	reg &= ~DWC3_DCFG_NUMP_MASK;
 	reg |= nump << DWC3_DCFG_NUMP_SHIFT;
 	dwc3_writel(dwc->regs, DWC3_DCFG, reg);
-}
-
-static int dwc3_gadget_vbus_session(struct usb_gadget *_gadget, int is_active)
-{
-	struct dwc3 *dwc = gadget_to_dwc(_gadget);
-	unsigned long flags;
-	int ret = 0;
-
-	if (dwc->dr_mode <= USB_DR_MODE_HOST)
-		return -EPERM;
-
-	is_active = !!is_active;
-
-	disable_irq(dwc->irq);
-
-	flush_work(&dwc->bh_work);
-
-	spin_lock_irqsave(&dwc->lock, flags);
-
-	/* Mark that the vbus was powered */
-	dwc->vbus_active = is_active;
-
-	/*
-	 * Check if upper level usb_gadget_driver was already registered with
-	 * this udc controller driver (if dwc3_gadget_start was called)
-	 */
-	if (dwc->gadget_driver && dwc->softconnect) {
-		if (dwc->vbus_active) {
-			/*
-			 * Both vbus was activated by otg and pullup was
-			 * signaled by the gadget driver.
-			 */
-			ret = dwc3_gadget_run_stop(dwc, 1, false);
-		} else {
-			ret = dwc3_gadget_run_stop(dwc, 0, false);
-		}
-	}
-
-	/*
-	 * Clearing run/stop bit might occur before disconnect event is seen.
-	 * Make sure to let gadget driver know in that case.
-	 */
-	if (!dwc->vbus_active) {
-		dev_dbg(dwc->dev, "calling disconnect from %s\n", __func__);
-		dwc3_gadget_disconnect_interrupt(dwc);
-	}
-
-	spin_unlock_irqrestore(&dwc->lock, flags);
-	if (!is_active && ret == -ETIMEDOUT) {
-		dev_err(dwc->dev, "%s: Core soft reset...\n", __func__);
-		dwc3_device_core_soft_reset(dwc);
-	}
-
-	enable_irq(dwc->irq);
-
-	return 0;
 }
 
 static int __dwc3_gadget_start(struct dwc3 *dwc)
@@ -2761,7 +2697,6 @@ static const struct usb_gadget_ops dwc3_gadget_ops = {
 	.get_frame		= dwc3_gadget_get_frame,
 	.wakeup			= dwc3_gadget_wakeup,
 	.set_selfpowered	= dwc3_gadget_set_selfpowered,
-	.vbus_session		= dwc3_gadget_vbus_session,
 	.vbus_draw		= dwc3_gadget_vbus_draw,
 	.pullup			= dwc3_gadget_pullup,
 	.udc_start		= dwc3_gadget_start,

@@ -4625,7 +4625,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 			/* fall through */
 		default:
 			mdwc->vbus_active = true;
-			dwc->vbus_active = true;
 			break;
 		}
 

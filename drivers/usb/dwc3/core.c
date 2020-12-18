@@ -1254,7 +1254,6 @@ static int __maybe_unused dwc3_core_init_mode(struct dwc3 *dwc)
 		if (ret)
 			return dev_err_probe(dev, ret, "failed to initialize gadget\n");
 
-		dwc->vbus_active = true;
 		break;
 	case USB_DR_MODE_HOST:
 		dwc3_set_prtcap(dwc, DWC3_GCTL_PRTCAP_HOST);
