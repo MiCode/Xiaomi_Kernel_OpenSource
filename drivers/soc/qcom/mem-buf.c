@@ -1001,101 +1001,15 @@ int mem_buf_unmap_mem_s2(hh_memparcel_handle_t memparcel_hdl)
 	return ret;
 }
 
-#ifdef CONFIG_MEMORY_HOTPLUG
-int mem_buf_map_mem_s1(struct hh_sgl_desc *sgl_desc)
-{
-	int i, ret;
-	unsigned int nid;
-	u64 base, size;
-	struct mhp_params params = { .pgprot = PAGE_KERNEL };
-
-	if (!sgl_desc || !sgl_desc->n_sgl_entries)
-		return -EINVAL;
-
-	pr_debug("%s: Creating CPU MMU stage 1 mappings\n", __func__);
-	mem_hotplug_begin();
-
-	for (i = 0; i < sgl_desc->n_sgl_entries; i++) {
-		base = sgl_desc->sgl_entries[i].ipa_base;
-		size = sgl_desc->sgl_entries[i].size;
-		if (!IS_ALIGNED(base, MEM_BUF_MHP_ALIGNMENT) ||
-		    !IS_ALIGNED(size, MEM_BUF_MHP_ALIGNMENT)) {
-			ret = -EINVAL;
-			pr_err("%s: IPA base: 0x%lx or size: 0x%lx not aligned properly\n",
-			       __func__, base, size);
-			goto err_add_mem;
-		}
-		nid = memory_add_physaddr_to_nid(base);
-		memblock_add_node(base, size, nid);
-		ret = arch_add_memory(nid, base, size, &params);
-		if (ret) {
-			pr_err("%s failed to map memory in stage 1 rc: %d\n",
-			       __func__, ret);
-			goto err_add_mem;
-		}
-	}
-
-	mem_hotplug_done();
-	pr_debug("%s: CPU MMU stage 1 mappings created\n", __func__);
-	return 0;
-
-err_add_mem:
-	for (i = i - 1; i >= 0; i--) {
-		base = sgl_desc->sgl_entries[i].ipa_base;
-		size = sgl_desc->sgl_entries[i].size;
-		nid = memory_add_physaddr_to_nid(base);
-		arch_remove_memory(nid, base, size, NULL);
-		memblock_remove(base, size);
-	}
-
-	mem_hotplug_done();
-	return ret;
-}
-#else /* CONFIG_MEMORY_HOTPLUG */
 int mem_buf_map_mem_s1(struct hh_sgl_desc *sgl_desc)
 {
 	return -EINVAL;
 }
-#endif /* CONFIG_MEMORY_HOTPLUG */
 
-#ifdef CONFIG_MEMORY_HOTREMOVE
-int mem_buf_unmap_mem_s1(struct hh_sgl_desc *sgl_desc)
-{
-	int ret;
-	unsigned int i, nid;
-	u64 base, size;
-
-	if (!sgl_desc || !sgl_desc->n_sgl_entries)
-		return -EINVAL;
-
-	pr_debug("%s: Removing CPU MMU stage 1 mappings\n", __func__);
-	mem_hotplug_begin();
-
-	for (i = 0; i < sgl_desc->n_sgl_entries; i++) {
-		base = sgl_desc->sgl_entries[i].ipa_base;
-		size = sgl_desc->sgl_entries[i].size;
-		nid = memory_add_physaddr_to_nid(base);
-		arch_remove_memory(nid, base, size, NULL);
-		ret = memblock_remove(base, size);
-		if (ret) {
-			pr_err("%s: memblock_remove failed rc: %d\n", __func__,
-			       ret);
-			goto out;
-		}
-	}
-
-out:
-	mem_hotplug_done();
-	if (!ret)
-		pr_debug("%s: CPU MMU stage 1 mappings removed\n", __func__);
-	return ret;
-}
-#else /* CONFIG_MEMORY_HOTREMOVE */
 int mem_buf_unmap_mem_s1(struct hh_sgl_desc *sgl_desc)
 {
 	return -EINVAL;
 }
-#endif /* CONFIG_MEMORY_HOTREMOVE */
 
 static int mem_buf_add_ion_mem(struct sg_table *sgt, void *dst_data)
 {
