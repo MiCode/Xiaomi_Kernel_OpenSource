@@ -41,3 +41,12 @@ config QCOM_MEMLAT
 	  This enables the QCOM Memlat driver which monitors CPU performance
 	  counters to identify memory latency bound workloads and vote for
 	  DCVS HW (memory) frequencies through the QCOM DCVS framework.
+
+config QCOM_BWMON
+	tristate "QCOM BWMON Driver"
+	depends on QCOM_DCVS
+	default n
+	help
+	  This enables the QCOM BWMON driver which monitors bandwidth counters
+	  to identify memory bandwidth bound workloads and vote for DCVS HW
+	  (memory) frequencies through the QCOM DCVS framework.
