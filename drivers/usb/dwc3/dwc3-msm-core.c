@@ -47,6 +47,9 @@
 #include "gadget.h"
 #include "debug.h"
 #include "xhci.h"
+#include "debug-ipc.h"
+
+#define NUM_LOG_PAGES   12
 
 /* time out to wait for USB cable status notification (in ms)*/
 #define SM_INIT_TIMEOUT 30000
@@ -507,6 +510,9 @@ struct dwc3_msm {
 	struct usb_role_switch *role_switch;
 	bool			ss_release_called;
 	int			orientation_override;
+
+	void            *dwc_ipc_log_ctxt;
+	void            *dwc_dma_ipc_log_ctxt;
 };
 
 #define USB_HSPHY_3P3_VOL_MIN		3050000 /* uV */
@@ -1298,6 +1304,7 @@ static int dwc3_msm_ep_enable(struct usb_ep *ep,
 {
 	struct dwc3_ep *dep;
 	struct dwc3 *dwc;
+	struct dwc3_msm *mdwc;
 	unsigned long flags;
 	int ret;
 
@@ -1313,6 +1320,7 @@ static int dwc3_msm_ep_enable(struct usb_ep *ep,
 
 	dep = to_dwc3_ep(ep);
 	dwc = dep->dwc;
+	mdwc = dev_get_drvdata(dwc->dev->parent);
 
 	if (dev_WARN_ONCE(dwc->dev, dep->flags & DWC3_EP_ENABLED,
 					"%s is already enabled\n",
@@ -2843,8 +2851,6 @@ static void msm_dwc3_perf_vote_update(struct dwc3_msm *mdwc,
 static void configure_usb_wakeup_interrupt(struct dwc3_msm *mdwc,
 	struct usb_irq *uirq, unsigned int polarity, bool enable)
 {
-	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
-
 	if (uirq && enable && !uirq->enable) {
 		dbg_event(0xFF, "PDC_IRQ_EN", uirq->irq);
 		dbg_event(0xFF, "PDC_IRQ_POL", polarity);
@@ -2903,8 +2909,6 @@ disable_usb_irq:
 static void configure_nonpdc_usb_interrupt(struct dwc3_msm *mdwc,
 		struct usb_irq *uirq, bool enable)
 {
-	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
-
 	if (uirq && enable && !uirq->enable) {
 		dbg_event(0xFF, "IRQ_EN", uirq->irq);
 		enable_irq_wake(uirq->irq);
@@ -2944,7 +2948,6 @@ static void dwc3_msm_set_ss_pwr_events(struct dwc3_msm *mdwc, bool on)
 static int dwc3_msm_update_bus_bw(struct dwc3_msm *mdwc, enum bus_vote bv)
 {
 	int i, ret = 0;
-	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 	unsigned int bv_index = mdwc->override_bus_vote ?: bv;
 
 	dbg_event(0xFF, "bus_vote_start", bv);
@@ -3166,8 +3169,11 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 {
 	int ret;
 	long core_clk_rate;
-	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
+	struct dwc3 *dwc = NULL;
 	struct usb_irq *uirq;
+
+	if (mdwc->dwc3)
+		dwc = platform_get_drvdata(mdwc->dwc3);
 
 	dev_dbg(mdwc->dev, "%s: exiting lpm\n", __func__);
 
@@ -3334,8 +3340,6 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
  */
 static void dwc3_ext_event_notify(struct dwc3_msm *mdwc)
 {
-	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
-
 	/* Flush processing any pending events before handling new ones */
 	flush_delayed_work(&mdwc->sm_work);
 
@@ -3560,7 +3564,6 @@ static void dwc3_pwr_event_handler(struct dwc3_msm *mdwc)
 static irqreturn_t msm_dwc3_pwr_irq_thread(int irq, void *_mdwc)
 {
 	struct dwc3_msm *mdwc = _mdwc;
-	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 
 	dev_dbg(mdwc->dev, "%s\n", __func__);
 
@@ -3576,9 +3579,7 @@ static irqreturn_t msm_dwc3_pwr_irq_thread(int irq, void *_mdwc)
 static irqreturn_t msm_dwc3_pwr_irq(int irq, void *data)
 {
 	struct dwc3_msm *mdwc = data;
-	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 
-	dwc->t_pwr_evt_irq = ktime_get();
 	dev_dbg(mdwc->dev, "%s received\n", __func__);
 	/*
 	 * When in Low Power Mode, can't read PWR_EVNT_IRQ_STAT_REG to acertain
@@ -3851,7 +3852,6 @@ static inline const char *usb_role_string(enum usb_role role)
 static enum usb_role dwc3_msm_usb_get_role(struct usb_role_switch *sw)
 {
 	struct dwc3_msm *mdwc = usb_role_switch_get_drvdata(sw);
-	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 	enum usb_role role;
 
 	if (mdwc->vbus_active)
@@ -3868,7 +3868,6 @@ static enum usb_role dwc3_msm_usb_get_role(struct usb_role_switch *sw)
 static int dwc3_msm_usb_set_role(struct usb_role_switch *sw, enum usb_role role)
 {
 	struct dwc3_msm *mdwc = usb_role_switch_get_drvdata(sw);
-	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 	enum usb_role cur_role = USB_ROLE_NONE;
 
 	cur_role = dwc3_msm_usb_get_role(sw);
@@ -4132,8 +4131,6 @@ static void dwc3_init_dbm(struct dwc3_msm *mdwc)
 
 static void dwc3_start_stop_host(struct dwc3_msm *mdwc, bool start)
 {
-	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
-
 	if (start) {
 		dbg_log_string("start host mode");
 		mdwc->id_state = DWC3_ID_GROUND;
@@ -4156,8 +4153,6 @@ static void dwc3_start_stop_host(struct dwc3_msm *mdwc, bool start)
 
 static void dwc3_start_stop_device(struct dwc3_msm *mdwc, bool start)
 {
-	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
-
 	if (start) {
 		dbg_log_string("start device mode");
 		mdwc->id_state = DWC3_ID_FLOAT;
@@ -4225,6 +4220,25 @@ int dwc3_msm_release_ss_lane(struct device *dev)
 	return 0;
 }
 EXPORT_SYMBOL(dwc3_msm_release_ss_lane);
+
+static int dwc3_msm_debug_init(struct dwc3_msm *mdwc)
+{
+	char dma_ipc_log_ctx_name[40];
+
+	mdwc->dwc_ipc_log_ctxt = ipc_log_context_create(NUM_LOG_PAGES,
+					dev_name(mdwc->dev), 0);
+	if (!mdwc->dwc_ipc_log_ctxt)
+		dev_err(mdwc->dev, "Error getting ipc_log_ctxt\n");
+
+	snprintf(dma_ipc_log_ctx_name, sizeof(dma_ipc_log_ctx_name),
+				"%s.ep_events", dev_name(mdwc->dev));
+	mdwc->dwc_dma_ipc_log_ctxt = ipc_log_context_create(2 * NUM_LOG_PAGES,
+					dma_ipc_log_ctx_name, 0);
+	if (!mdwc->dwc_dma_ipc_log_ctxt)
+		dev_err(mdwc->dev, "Error getting ipc_log_ctxt for ep_events\n");
+
+	return 0;
+}
 
 static int dwc3_msm_parse_core_params(struct dwc3_msm *mdwc, struct device_node *dwc3_node)
 {
@@ -4623,6 +4637,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	device_create_file(&pdev->dev, &dev_attr_speed);
 	device_create_file(&pdev->dev, &dev_attr_bus_vote);
 
+	dwc3_msm_debug_init(mdwc);
 	return 0;
 
 put_dwc3:
@@ -4718,6 +4733,11 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 
 	destroy_workqueue(mdwc->sm_usb_wq);
 	destroy_workqueue(mdwc->dwc3_wq);
+
+	ipc_log_context_destroy(mdwc->dwc_ipc_log_ctxt);
+	mdwc->dwc_ipc_log_ctxt = NULL;
+	ipc_log_context_destroy(mdwc->dwc_dma_ipc_log_ctxt);
+	mdwc->dwc_dma_ipc_log_ctxt = NULL;
 
 	return 0;
 }
@@ -5383,7 +5403,6 @@ static int dwc3_msm_pm_resume(struct device *dev)
 static int dwc3_msm_runtime_idle(struct device *dev)
 {
 	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
-	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 
 	dev_dbg(dev, "DWC3-msm runtime idle\n");
 	dbg_event(0xFF, "RT Idle", 0);
@@ -5394,7 +5413,6 @@ static int dwc3_msm_runtime_idle(struct device *dev)
 static int dwc3_msm_runtime_suspend(struct device *dev)
 {
 	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
-	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 
 	dev_dbg(dev, "DWC3-msm runtime suspend\n");
 	dbg_event(0xFF, "RT Sus", 0);
@@ -5405,7 +5423,6 @@ static int dwc3_msm_runtime_suspend(struct device *dev)
 static int dwc3_msm_runtime_resume(struct device *dev)
 {
 	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
-	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 
 	dev_dbg(dev, "DWC3-msm runtime resume\n");
 	dbg_event(0xFF, "RT Res", 0);

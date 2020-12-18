@@ -656,7 +656,6 @@
 #define DWC3_OSTS_CONIDSTS		BIT(0)
 
 #define DWC_CTRL_COUNT	10
-#define NUM_LOG_PAGES	12
 
 /* Structures */
 
@@ -686,35 +685,6 @@ struct dwc3_event_buffer {
 	dma_addr_t		dma;
 
 	struct dwc3		*dwc;
-};
-
-struct dwc3_gadget_events {
-	unsigned int	disconnect;
-	unsigned int	reset;
-	unsigned int	connect;
-	unsigned int	wakeup;
-	unsigned int	link_status_change;
-	unsigned int	eopf;
-	unsigned int	suspend;
-	unsigned int	sof;
-	unsigned int	erratic_error;
-	unsigned int	overflow;
-	unsigned int	vendor_dev_test_lmp;
-	unsigned int	cmdcmplt;
-	unsigned int	unknown_event;
-};
-
-struct dwc3_ep_events {
-	unsigned int	xfercomplete;
-	unsigned int	xfernotready;
-	unsigned int	control_data;
-	unsigned int	control_status;
-	unsigned int	xferinprogress;
-	unsigned int	rxtxfifoevent;
-	unsigned int	streamevent;
-	unsigned int	epcmdcomplete;
-	unsigned int	unknown_event;
-	unsigned int	total;
 };
 
 #define DWC3_EP_FLAG_STALLED	BIT(0)
@@ -754,9 +724,6 @@ struct dwc3_ep_events {
  *		isochronous START TRANSFER command failure workaround
  * @start_cmd_status: the status of testing START TRANSFER command with
  *		combo_num = 'b00
- * @dbg_ep_events: different events counter for endpoint
- * @dbg_ep_events_diff: differential events counter for endpoint
- * @dbg_ep_events_ts: timestamp for previous event counters
  * @fifo_depth: allocated TXFIFO depth
  */
 struct dwc3_ep {
@@ -820,9 +787,6 @@ struct dwc3_ep {
 	u8			combo_num;
 	int			start_cmd_status;
 
-	struct dwc3_ep_events	dbg_ep_events;
-	struct dwc3_ep_events	dbg_ep_events_diff;
-	ktime_t			dbg_ep_events_kt;
 	int			fifo_depth;
 };
 
@@ -1153,19 +1117,12 @@ struct dwc3_scratchpad_array {
  * @err_evt_seen: previous event in queue was erratic error
  * @irq: irq number
  * @irq_cnt: total irq count
- * @bh_completion_time: time taken for IRQ bottom-half completion
- * @bh_handled_evt_cnt: no. of events handled per IRQ bottom-half
- * @irq_dbg_index: index for capturing IRQ stats
  * @vbus_draw: current to be drawn from USB
  * @xhci_imod_value: imod value to use with xhci
  * @index: dwc3's instance number
- * @dwc_ipc_log_ctxt: dwc3 ipc log context
  * @tx_fifo_size: Available RAM size for TX fifo allocation
  * @last_fifo_depth: total TXFIFO depth of all enabled USB IN/INT endpoints
  * @irq_cnt: total irq count
- * @bh_completion_time: time taken for taklet completion
- * @bh_handled_evt_cnt: no. of events handled by tasklet per interrupt
- * @bh_dbg_index: index for capturing bh_completion_time and bh_handled_evt_cnt
  */
 struct dwc3 {
 	struct work_struct	drd_work;
@@ -1378,24 +1335,12 @@ struct dwc3 {
 	unsigned long		ep_cmd_timeout_cnt;
 
 	unsigned int		index;
-	void			*dwc_ipc_log_ctxt;
-	void			*dwc_dma_ipc_log_ctxt;
-	struct dwc3_gadget_events	dbg_gadget_events;
 	int			tx_fifo_size;
 	int			last_fifo_depth;
 
 	/* IRQ timing statistics */
 	int			irq;
 	unsigned long		irq_cnt;
-	ktime_t			bh_start_time[MAX_INTR_STATS];
-	unsigned int		bh_completion_time[MAX_INTR_STATS];
-	unsigned int		bh_handled_evt_cnt[MAX_INTR_STATS];
-	unsigned int		bh_dbg_index;
-	ktime_t			irq_start_time[MAX_INTR_STATS];
-	ktime_t			t_pwr_evt_irq;
-	unsigned int		irq_completion_time[MAX_INTR_STATS];
-	unsigned int		irq_event_count[MAX_INTR_STATS];
-	unsigned int		irq_dbg_index;
 
 	/* Indicate if the gadget was powered by the otg driver */
 	unsigned int		vbus_active:1;

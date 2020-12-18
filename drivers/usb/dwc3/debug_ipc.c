@@ -3,7 +3,7 @@
  * Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
  */
 
-#include "debug.h"
+#include "debug-ipc.h"
 
 #include <linux/moduleparam.h>
 
@@ -40,7 +40,7 @@ static int allow_dbg_print(u8 ep_num)
  * @extra:  extra information
  * @dwc3: pointer to struct dwc3
  */
-void dwc3_dbg_print(struct dwc3 *dwc, u8 ep_num, const char *name,
+void dwc3_dbg_print(void *log_ctxt, u8 ep_num, const char *name,
 			int status, const char *extra)
 {
 	if (!allow_dbg_print(ep_num))
@@ -49,10 +49,9 @@ void dwc3_dbg_print(struct dwc3 *dwc, u8 ep_num, const char *name,
 	if (name == NULL)
 		return;
 
-	ipc_log_string(dwc->dwc_ipc_log_ctxt, "%02X %-25.25s %4i ?\t%s",
+	ipc_log_string(log_ctxt, "%02X %-25.25s %4i ?\t%s",
 			ep_num, name, status, extra);
 }
-EXPORT_SYMBOL(dwc3_dbg_print);
 
 /**
  * dwc3_dbg_done: prints a DONE event
@@ -61,13 +60,13 @@ EXPORT_SYMBOL(dwc3_dbg_print);
  * @status: status
  * @dwc3: pointer to struct dwc3
  */
-void dwc3_dbg_done(struct dwc3 *dwc, u8 ep_num,
+void dwc3_dbg_done(void *log_ctxt, u8 ep_num,
 		const u32 count, int status)
 {
 	if (!allow_dbg_print(ep_num))
 		return;
 
-	ipc_log_string(dwc->dwc_ipc_log_ctxt, "%02X %-25.25s %4i ?\t%d",
+	ipc_log_string(log_ctxt, "%02X %-25.25s %4i ?\t%d",
 			ep_num, "DONE", status, count);
 }
 
@@ -77,13 +76,13 @@ void dwc3_dbg_done(struct dwc3 *dwc, u8 ep_num,
  * @name:   event name
  * @status: status
  */
-void dwc3_dbg_event(struct dwc3 *dwc, u8 ep_num, const char *name, int status)
+void dwc3_dbg_event(void *log_ctxt, u8 ep_num, const char *name, int status)
 {
 	if (!allow_dbg_print(ep_num))
 		return;
 
 	if (name != NULL)
-		dwc3_dbg_print(dwc, ep_num, name, status, "");
+		dwc3_dbg_print(log_ctxt, ep_num, name, status, "");
 }
 
 /*
@@ -92,14 +91,14 @@ void dwc3_dbg_event(struct dwc3 *dwc, u8 ep_num, const char *name, int status)
  * @req:    USB request
  * @status: status
  */
-void dwc3_dbg_queue(struct dwc3 *dwc, u8 ep_num,
+void dwc3_dbg_queue(void *log_ctxt, u8 ep_num,
 		const struct usb_request *req, int status)
 {
 	if (!allow_dbg_print(ep_num))
 		return;
 
 	if (req != NULL) {
-		ipc_log_string(dwc->dwc_ipc_log_ctxt,
+		ipc_log_string(log_ctxt,
 			"%02X %-25.25s %4i ?\t%d %d", ep_num, "QUEUE", status,
 			!req->no_interrupt, req->length);
 	}
@@ -110,14 +109,14 @@ void dwc3_dbg_queue(struct dwc3 *dwc, u8 ep_num,
  * @addr: endpoint address
  * @req:  setup request
  */
-void dwc3_dbg_setup(struct dwc3 *dwc, u8 ep_num,
+void dwc3_dbg_setup(void *log_ctxt, u8 ep_num,
 		const struct usb_ctrlrequest *req)
 {
 	if (!allow_dbg_print(ep_num))
 		return;
 
 	if (req != NULL) {
-		ipc_log_string(dwc->dwc_ipc_log_ctxt,
+		ipc_log_string(log_ctxt,
 			"%02X %-25.25s ?\t%02X %02X %04X %04X %d",
 			ep_num, "SETUP", req->bRequestType,
 			req->bRequest, le16_to_cpu(req->wValue),
@@ -130,54 +129,54 @@ void dwc3_dbg_setup(struct dwc3 *dwc, u8 ep_num,
  * @name:   reg name
  * @reg: reg value to be printed
  */
-void dwc3_dbg_print_reg(struct dwc3 *dwc, const char *name, int reg)
+void dwc3_dbg_print_reg(void *log_ctxt, const char *name, int reg)
 {
 	if (name == NULL)
 		return;
 
-	ipc_log_string(dwc->dwc_ipc_log_ctxt, "%s = 0x%08x", name, reg);
+	ipc_log_string(log_ctxt, "%s = 0x%08x", name, reg);
 }
 
-void dwc3_dbg_dma_unmap(struct dwc3 *dwc, u8 ep_num, struct dwc3_request *req)
+void dwc3_dbg_dma_unmap(void *log_ctxt, u8 ep_num, struct dwc3_request *req)
 {
 	if (ep_num < 2)
 		return;
 
-	ipc_log_string(dwc->dwc_dma_ipc_log_ctxt,
+	ipc_log_string(log_ctxt,
 		"%02X-%-3.3s %-25.25s 0x%pK 0x%lx %u 0x%lx %d", ep_num >> 1,
 		ep_num & 1 ? "IN":"OUT", "UNMAP", &req->request,
 		req->request.dma, req->request.length, req->trb_dma,
 		req->trb->ctrl & DWC3_TRB_CTRL_HWO);
 }
 
-void dwc3_dbg_dma_map(struct dwc3 *dwc, u8 ep_num, struct dwc3_request *req)
+void dwc3_dbg_dma_map(void *log_ctxt, u8 ep_num, struct dwc3_request *req)
 {
 	if (ep_num < 2)
 		return;
 
-	ipc_log_string(dwc->dwc_dma_ipc_log_ctxt,
+	ipc_log_string(log_ctxt,
 		"%02X-%-3.3s %-25.25s 0x%pK 0x%lx %u 0x%lx", ep_num >> 1,
 		ep_num & 1 ? "IN":"OUT", "MAP", &req->request, req->request.dma,
 		req->request.length, req->trb_dma);
 }
 
-void dwc3_dbg_dma_dequeue(struct dwc3 *dwc, u8 ep_num, struct dwc3_request *req)
+void dwc3_dbg_dma_dequeue(void *log_ctxt, u8 ep_num, struct dwc3_request *req)
 {
 	if (ep_num < 2)
 		return;
 
-	ipc_log_string(dwc->dwc_dma_ipc_log_ctxt,
+	ipc_log_string(log_ctxt,
 		"%02X-%-3.3s %-25.25s 0x%pK 0x%lx 0x%lx", ep_num >> 1,
 		ep_num & 1 ? "IN":"OUT", "DEQUEUE", &req->request,
 		req->request.dma, req->trb_dma);
 }
 
-void dwc3_dbg_dma_queue(struct dwc3 *dwc, u8 ep_num, struct dwc3_request *req)
+void dwc3_dbg_dma_queue(void *log_ctxt, u8 ep_num, struct dwc3_request *req)
 {
 	if (ep_num < 2)
 		return;
 
-	ipc_log_string(dwc->dwc_dma_ipc_log_ctxt,
+	ipc_log_string(log_ctxt,
 		"%02X-%-3.3s %-25.25s 0x%pK", ep_num >> 1,
 		ep_num & 1 ? "IN":"OUT", "QUEUE", &req->request);
 }
