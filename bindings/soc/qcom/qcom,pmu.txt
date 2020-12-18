@@ -1,0 +1,13 @@
+QTI PMU Driver
+
+This driver provides an interface to request for per-CPU performance counters
+that are available on some Qualcomm Technologies, Inc. (QTI) chipsets.
+
+Required properties:
+- compatible:		Must be "qcom,pmu"
+
+Example:
+
+	qcom,pmu {
+		compatible = "qcom,pmu";
+	};
