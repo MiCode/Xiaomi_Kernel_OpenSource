@@ -67,8 +67,8 @@ config OVERRIDE_MEMORY_LIMIT
 	  If unsure, say N
 
 config QCOM_MEM_BUF
-	bool "Qualcomm Technologies, Inc. Memory Buffer Sharing Driver"
-	depends on HH_MSGQ && HH_RM_DRV && ION_MSM_HEAPS
+	tristate "Qualcomm Technologies, Inc. Memory Buffer Sharing Driver"
+	depends on HH_MSGQ && HH_RM_DRV
 	help
 	  Add support for lending memory from one virtual machine to another.
 	  This driver communicates with the hypervisor, as well as other
