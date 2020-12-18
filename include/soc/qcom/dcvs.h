@@ -38,8 +38,8 @@ int qcom_dcvs_register_voter(const char *name, enum dcvs_hw_type hw_type,
 			enum dcvs_path_type path_type);
 int qcom_dcvs_unregister_voter(const char *name, enum dcvs_hw_type hw_type,
 			enum dcvs_path_type path_type);
-int qcom_dcvs_update_votes(const char *name, struct dcvs_freq *votes, u32 num_votes,
-			enum dcvs_path_type path);
+int qcom_dcvs_update_votes(const char *name, struct dcvs_freq *votes,
+			u32 update_mask, enum dcvs_path_type path);
 struct kobject *qcom_dcvs_kobject_get(enum dcvs_hw_type type);
 int qcom_dcvs_hw_minmax_get(enum dcvs_hw_type hw_type, u32 *min, u32 *max);
 #else
@@ -54,7 +54,7 @@ static inline int qcom_dcvs_unregister_voter(const char *name,
 	return -ENODEV;
 }
 static inline int qcom_dcvs_update_votes(const char *name,
-		struct dcvs_freq *votes, u32 num_votes,
+		struct dcvs_freq *votes, u32 update_mask,
 		enum dcvs_path_type path)
 {
 	return -ENODEV;
