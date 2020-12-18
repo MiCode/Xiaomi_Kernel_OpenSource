@@ -1661,7 +1661,8 @@ static int cnss_pci_update_timestamp(struct cnss_pci_data *pci_priv)
 		goto force_wake_put;
 
 	if (host_time_us < device_time_us) {
-		cnss_pr_err("Host time (%llu us) is smaller than device time (%llu us), stop\n");
+		cnss_pr_err("Host time (%llu us) is smaller than device time (%llu us), stop\n",
+			    host_time_us, device_time_us);
 		ret = -EINVAL;
 		goto force_wake_put;
 	}
