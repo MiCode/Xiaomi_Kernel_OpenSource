@@ -323,10 +323,10 @@ static irqreturn_t cache_parity_isr_v1(int irq, void *dev_id)
 	unsigned int irq_idx;
 	unsigned int i;
 
-	atomic_inc(&cache_parity.nr_err);
-
 	if (!atomic_read(&cache_parity.nr_err))
 		cache_parity.timestampe = local_clock();
+
+	atomic_inc(&cache_parity.nr_err);
 
 	for (i = 0, parity_record = NULL; i < cache_parity.nr_irq; i++) {
 		if (parity_irq_record[i].irq == irq) {
@@ -416,7 +416,7 @@ static int __probe_v2(struct platform_device *pdev)
 
 	for (i = 0, cpu = 0; i < cache_parity.nr_irq; i++) {
 		irq = irq_of_parse_and_map(pdev->dev.of_node, i);
-		if (irq < 0) {
+		if (irq == 0) {
 			dev_err(&pdev->dev,
 				"failed to irq_of_parse_and_map %d\n", i);
 			return -ENXIO;
@@ -508,7 +508,7 @@ static int __probe_v1(struct platform_device *pdev)
 			sizeof(struct parity_record_t));
 
 		irq = irq_of_parse_and_map(pdev->dev.of_node, i);
-		if (irq < 0) {
+		if (irq == 0) {
 			dev_err(&pdev->dev,
 				"failed to irq_of_parse_and_map %d\n", i);
 			return -ENXIO;
