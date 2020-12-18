@@ -22,10 +22,12 @@
 #include <linux/cpumask.h>
 #include <linux/interrupt.h>
 #include <linux/of.h>
+#include <linux/reset.h>
 
 
 #include "sdhci-pltfm.h"
 #include "cqhci.h"
+#include "../core/core.h"
 
 #define CORE_MCI_VERSION		0x50
 #define CORE_VERSION_MAJOR_SHIFT	28
@@ -277,7 +279,6 @@ struct sdhci_msm_variant_ops {
 struct sdhci_msm_variant_info {
 	bool mci_removed;
 	bool restore_dll_config;
-	bool uses_tassadar_dll;
 	const struct sdhci_msm_variant_ops *var_ops;
 	const struct sdhci_msm_offset *offset;
 };
@@ -317,6 +318,10 @@ struct sdhci_msm_dll_hsr {
 	u32 dll_config_3;
 	u32 dll_usr_ctl;
 	u32 ddr_config;
+};
+
+struct cqe_regs_restore {
+	u32 cqe_vendor_cfg1;
 };
 
 struct sdhci_msm_regs_restore {
@@ -459,11 +464,14 @@ struct sdhci_msm_host {
 	u32 clk_gating_delay;
 	u32 pm_qos_delay;
 	bool cqhci_offset_changed;
+	bool reg_store;
+	struct reset_control *core_reset;
 	bool pltfm_init_done;
 	bool core_3_0v_support;
 	bool use_7nm_dll;
 	struct sdhci_msm_dll_hsr *dll_hsr;
 	struct sdhci_msm_regs_restore regs_restore;
+	struct cqe_regs_restore cqe_regs;
 	u32 *sup_ice_clk_table;
 	unsigned char sup_ice_clk_cnt;
 	u32 ice_clk_max;
@@ -1758,6 +1766,23 @@ skip_hsr:
 	return ret;
 }
 
+static int sdhci_msm_parse_reset_data(struct device *dev,
+			struct sdhci_msm_host *msm_host)
+{
+	int ret = 0;
+
+	msm_host->core_reset = devm_reset_control_get(dev,
+					"core_reset");
+	if (IS_ERR(msm_host->core_reset)) {
+		ret = PTR_ERR(msm_host->core_reset);
+		dev_err(dev, "core_reset unavailable,err = %d\n",
+				ret);
+		msm_host->core_reset = NULL;
+	}
+
+	return ret;
+}
+
 /* Parse platform data */
 static bool sdhci_msm_populate_pdata(struct device *dev,
 						struct sdhci_msm_host *msm_host)
@@ -1810,6 +1835,8 @@ static bool sdhci_msm_populate_pdata(struct device *dev,
 				msm_host->ice_clk_max, msm_host->ice_clk_min);
 		}
 	}
+
+	sdhci_msm_parse_reset_data(dev, msm_host);
 
 	return false;
 out:
@@ -2681,8 +2708,10 @@ static void sdhci_msm_registers_save(struct sdhci_host *host)
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
 	const struct sdhci_msm_offset *msm_offset = msm_host->offset;
+	struct cqhci_host *cq_host = host->mmc->cqe_private;
 
-	if (!msm_host->regs_restore.is_supported)
+	if (!msm_host->regs_restore.is_supported &&
+			!msm_host->reg_store)
 		return;
 
 	msm_host->regs_restore.vendor_func = readl_relaxed(host->ioaddr +
@@ -2728,6 +2757,9 @@ static void sdhci_msm_registers_save(struct sdhci_host *host)
 		msm_offset->core_dll_config_3);
 	msm_host->regs_restore.dll_usr_ctl = readl_relaxed(host->ioaddr +
 		msm_offset->core_dll_usr_ctl);
+	if (cq_host)
+		msm_host->cqe_regs.cqe_vendor_cfg1 =
+			cqhci_readl(cq_host, CQHCI_VENDOR_CFG1);
 
 	msm_host->regs_restore.is_valid = true;
 
@@ -2744,9 +2776,11 @@ static void sdhci_msm_registers_restore(struct sdhci_host *host)
 	const struct sdhci_msm_offset *msm_offset = msm_host->offset;
 	u32 irq_status;
 	struct mmc_ios ios = host->mmc->ios;
+	struct cqhci_host *cq_host = host->mmc->cqe_private;
 
-	if (!msm_host->regs_restore.is_supported ||
-		!msm_host->regs_restore.is_valid)
+	if ((!msm_host->regs_restore.is_supported ||
+		!msm_host->regs_restore.is_valid) &&
+		!msm_host->reg_store)
 		return;
 
 	writel_relaxed(0, host->ioaddr + msm_offset->core_pwrctl_mask);
@@ -2795,6 +2829,10 @@ static void sdhci_msm_registers_restore(struct sdhci_host *host)
 			host->ioaddr + msm_offset->core_pwrctl_ctl);
 	writel_relaxed(msm_host->regs_restore.vendor_pwrctl_mask,
 			host->ioaddr + msm_offset->core_pwrctl_mask);
+
+	if (cq_host)
+		cqhci_writel(cq_host, msm_host->cqe_regs.cqe_vendor_cfg1,
+				CQHCI_VENDOR_CFG1);
 
 	if (((ios.timing == MMC_TIMING_MMC_HS400) ||
 			(ios.timing == MMC_TIMING_MMC_HS200) ||
@@ -3425,22 +3463,64 @@ static const struct sdhci_msm_variant_info sdm845_sdhci_var = {
 	.offset = &sdhci_msm_v5_offset,
 };
 
-static const struct sdhci_msm_variant_info sm8250_sdhci_var = {
-	.mci_removed = true,
-	.uses_tassadar_dll = true,
-	.var_ops = &v5_var_ops,
-	.offset = &sdhci_msm_v5_offset,
-};
-
 static const struct of_device_id sdhci_msm_dt_match[] = {
 	{.compatible = "qcom,sdhci-msm-v4", .data = &sdhci_msm_mci_var},
 	{.compatible = "qcom,sdhci-msm-v5", .data = &sdhci_msm_v5_var},
 	{.compatible = "qcom,sdm845-sdhci", .data = &sdm845_sdhci_var},
-	{.compatible = "qcom,sm8250-sdhci", .data = &sm8250_sdhci_var},
 	{},
 };
 
 MODULE_DEVICE_TABLE(of, sdhci_msm_dt_match);
+
+static void sdhci_msm_hw_reset(struct sdhci_host *host)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
+	struct platform_device *pdev = msm_host->pdev;
+	int ret = -EOPNOTSUPP;
+
+	if (!msm_host->core_reset) {
+		dev_err(&pdev->dev, "%s: failed, err = %d\n", __func__,
+				ret);
+		return;
+	}
+
+	msm_host->reg_store = true;
+	sdhci_msm_registers_save(host);
+	if (host->mmc->caps2 & MMC_CAP2_CQE) {
+		host->mmc->cqe_ops->cqe_disable(host->mmc);
+		host->mmc->cqe_enabled = false;
+	}
+
+	ret = reset_control_assert(msm_host->core_reset);
+	if (ret) {
+		dev_err(&pdev->dev, "%s: core_reset assert failed, err = %d\n",
+				__func__, ret);
+		goto out;
+	}
+
+	/*
+	 * The hardware requirement for delay between assert/deassert
+	 * is at least 3-4 sleep clock (32.7KHz) cycles, which comes to
+	 * ~125us (4/32768). To be on the safe side add 200us delay.
+	 */
+	usleep_range(200, 210);
+
+	ret = reset_control_deassert(msm_host->core_reset);
+	if (ret)
+		dev_err(&pdev->dev, "%s: core_reset deassert failed, err = %d\n",
+				__func__, ret);
+
+	sdhci_msm_registers_restore(host);
+	msm_host->reg_store = false;
+
+#if defined(CONFIG_SDC_QTI)
+	if (host->mmc->card)
+		mmc_power_cycle(host->mmc, host->mmc->card->ocr);
+#endif
+out:
+	return;
+}
 
 static const struct sdhci_ops sdhci_msm_ops = {
 	.reset = sdhci_msm_reset,
@@ -3454,6 +3534,7 @@ static const struct sdhci_ops sdhci_msm_ops = {
 	.irq	= sdhci_msm_cqe_irq,
 	.dump_vendor_regs = sdhci_msm_dump_vendor_regs,
 	.set_power = sdhci_set_power_noreg,
+	.hw_reset = sdhci_msm_hw_reset,
 };
 
 static const struct sdhci_pltfm_data sdhci_msm_pdata = {
@@ -4025,6 +4106,12 @@ static int sdhci_msm_setup_ice_clk(struct sdhci_msm_host *msm_host,
 	return ret;
 }
 
+static void sdhci_msm_set_caps(struct sdhci_msm_host *msm_host)
+{
+	msm_host->mmc->caps |= MMC_CAP_AGGRESSIVE_PM | MMC_CAP_SYNC_RUNTIME_PM;
+	msm_host->mmc->caps |= MMC_CAP_WAIT_WHILE_BUSY | MMC_CAP_NEED_RSP_BUSY;
+}
+
 static int sdhci_msm_probe(struct platform_device *pdev)
 {
 	struct sdhci_host *host;
@@ -4072,7 +4159,6 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	msm_host->restore_dll_config = var_info->restore_dll_config;
 	msm_host->var_ops = var_info->var_ops;
 	msm_host->offset = var_info->offset;
-	msm_host->uses_tassadar_dll = var_info->uses_tassadar_dll;
 
 	msm_offset = msm_host->offset;
 
@@ -4251,6 +4337,9 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	if (core_major == 1 && core_minor >= 0x49)
 		msm_host->updated_ddr_cfg = true;
 
+	if (core_major == 1 && core_minor >= 0x71)
+		msm_host->uses_tassadar_dll = true;
+
 	ret = sdhci_msm_register_vreg(msm_host);
 	if (ret)
 		goto clk_disable;
@@ -4290,8 +4379,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		goto vreg_deinit;
 	}
 
-	msm_host->mmc->caps |= MMC_CAP_AGGRESSIVE_PM | MMC_CAP_SYNC_RUNTIME_PM;
-	msm_host->mmc->caps |= MMC_CAP_WAIT_WHILE_BUSY | MMC_CAP_NEED_RSP_BUSY;
+	sdhci_msm_set_caps(msm_host);
 
 	msm_host->pltfm_init_done = true;
 
