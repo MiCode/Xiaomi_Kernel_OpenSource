@@ -73,9 +73,11 @@ int mdla_ipi_init(void)
 {
 	mutex_init(&mdla_ipi_mtx);
 
-	apu_ctrl_register_channel(MDLA_SEND_CMD_COMPL_ID, NULL, NULL,
+	if (apu_ctrl_register_channel(MDLA_SEND_CMD_COMPL_ID, NULL, NULL,
 				&ipi_cmd_compl_reply,
-				sizeof(ipi_cmd_compl_reply));
+				sizeof(ipi_cmd_compl_reply)))
+		return -1;
+
 	return 0;
 }
 

@@ -84,16 +84,17 @@ static int mdla_cmd_dummy_ce_ops(u32 a0, struct command_entry *a1)
 
 static struct mdla_cmd_cb_func mdla_command_callback = {
 
-	.pre_cmd_handle       = mdla_cmd_dummy_ce_ops,
-	.pre_cmd_info         = mdla_cmd_dummy_info,
-	.process_command      = mdla_cmd_dummy_ce_ops,
-	.post_cmd_handle      = mdla_cmd_dummy_ce_ops,
-	.post_cmd_info        = mdla_cmd_dummy_info,
-	.wait_cmd_handle      = mdla_cmd_dummy_ce_ops,
-	.get_wait_time        = mdla_cmd_dummy_uint_int,
-	.get_irq_num          = mdla_cmd_dummy_ops,
-	.wait_cmd_hw_detect   = mdla_cmd_dummy_ops,
-	.post_cmd_hw_detect   = mdla_cmd_dummy_ops,
+	.pre_cmd_handle           = mdla_cmd_dummy_ce_ops,
+	.pre_cmd_info             = mdla_cmd_dummy_info,
+	.process_command          = mdla_cmd_dummy_ce_ops,
+	.process_command_no_lock  = mdla_cmd_dummy_ce_ops,
+	.post_cmd_handle          = mdla_cmd_dummy_ce_ops,
+	.post_cmd_info            = mdla_cmd_dummy_info,
+	.wait_cmd_handle          = mdla_cmd_dummy_ce_ops,
+	.get_wait_time            = mdla_cmd_dummy_uint_int,
+	.get_irq_num              = mdla_cmd_dummy_ops,
+	.wait_cmd_hw_detect       = mdla_cmd_dummy_ops,
+	.post_cmd_hw_detect       = mdla_cmd_dummy_ops,
 };
 
 

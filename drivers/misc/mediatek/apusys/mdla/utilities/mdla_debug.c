@@ -17,6 +17,8 @@
 
 static struct dentry *mdla_dbg_root;
 
+static u32 ip_ver;
+
 struct mdla_dbgfs_file {
 	union {
 		u64 u64_var;
@@ -129,6 +131,10 @@ struct mdla_dbg_cb_func *mdla_dbg_plat_cb(void)
 	return &mdla_debug_callback;
 }
 
+void mdla_dbg_set_version(u32 ver)
+{
+	ip_ver = ver;
+}
 
 void mdla_dbg_write_u64(int node, u64 val)
 {
@@ -301,6 +307,7 @@ void mdla_dbg_fs_init(struct dentry *droot)
 	}
 
 	/* AP&uP common node */
+	debugfs_create_x32("version", 0440, mdla_dbg_root, &ip_ver);
 }
 
 void mdla_dbg_fs_exit(void)

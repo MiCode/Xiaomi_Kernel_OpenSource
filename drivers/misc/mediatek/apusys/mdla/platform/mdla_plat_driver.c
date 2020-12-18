@@ -11,12 +11,14 @@
 
 static u32 nr_core_ids = 1;
 static u32 default_polling_cmd_done;
+static u32 mdla_ver;
 
 /* SW configuration */
 static bool pwr_rdy;
 static bool mmu_en;
 static bool nn_pmu_en;
 static bool sw_preemption_en;
+static bool hw_preemption_en;
 static bool micro_p_en;
 static int prof_ver;
 
@@ -28,6 +30,11 @@ u32 mdla_plat_get_core_num(void)
 u32 mdla_plat_get_polling_cmd_time(void)
 {
 	return default_polling_cmd_done;
+}
+
+u32 mdla_plat_get_version(void)
+{
+	return mdla_ver;
 }
 
 bool mdla_plat_pwr_drv_ready(void)
@@ -48,6 +55,11 @@ bool mdla_plat_nn_pmu_support(void)
 bool mdla_plat_sw_preemption_support(void)
 {
 	return sw_preemption_en;
+}
+
+bool mdla_plat_hw_preemption_support(void)
+{
+	return hw_preemption_en;
 }
 
 bool mdla_plat_micro_p_support(void)
@@ -71,6 +83,11 @@ int mdla_plat_init(struct platform_device *pdev)
 		nr_core_ids = 1;
 	}
 
+	if (of_property_read_u32(pdev->dev.of_node, "version", &mdla_ver) == 0) {
+		dev_info(&pdev->dev, "ver = %x\n", mdla_ver);
+		mdla_dbg_set_version(mdla_ver);
+	}
+
 	drv = (struct mdla_plat_drv *)of_device_get_match_data(dev);
 
 	if (!drv)
@@ -80,7 +97,11 @@ int mdla_plat_init(struct platform_device *pdev)
 	mmu_en           = !(drv->sw_cfg & BIT(CFG_DUMMY_MMU));
 	nn_pmu_en        = !!(drv->sw_cfg & BIT(CFG_NN_PMU_SUPPORT));
 	sw_preemption_en = !!(drv->sw_cfg & BIT(CFG_SW_PREEMPTION_SUPPORT));
+	hw_preemption_en = !!(drv->sw_cfg & BIT(CFG_HW_PREEMPTION_SUPPORT));
 	micro_p_en       = !!(drv->sw_cfg & BIT(CFG_MICRO_P_SUPPORT));
+
+	if (sw_preemption_en && hw_preemption_en)
+		sw_preemption_en = false;
 
 	mdla_dbg_write_u64(FS_CFG_PMU_PERIOD, drv->pmu_period_us);
 	mdla_dbg_write_u32(FS_KLOG, drv->klog);

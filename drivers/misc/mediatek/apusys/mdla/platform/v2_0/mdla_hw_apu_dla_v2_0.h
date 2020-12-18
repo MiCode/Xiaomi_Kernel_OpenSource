@@ -67,6 +67,12 @@
 
 /* Register fields */
 
+/* MDLA_SW_RST : 0x00C */
+#define MDLA_SW_RST_SETETING       (0x3F)
+#define MDLA_SW_MDLA_RST_MASK      BIT(0)
+#define MDLA_SW_APB_RST_MASK       BIT(6)
+#define MDLA_SW_RST_MASK           (MDLA_SW_MDLA_RST_MASK|MDLA_SW_APB_RST_MASK)
+
 /* MDLA_AXI_CTRL, MDLA_AXI1_CTRL : 0x120, 0x124 */
 #define AWUSER_M1_ACP_EN                BIT(0)
 #define AWUSER_M1_MMU_EN                BIT(1)

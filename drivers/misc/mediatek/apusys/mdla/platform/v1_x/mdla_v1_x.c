@@ -82,6 +82,8 @@ static bool mdla_dbgfs_u32_create[NF_MDLA_DEBUG_FS_U32] = {
 	[FS_PREEMPTION_DBG]    = 1,
 };
 
+static struct lock_class_key hw_lock_key[MAX_CORE_NUM];
+
 /* platform static functions */
 
 static int mdla_plat_zero_skip_detect(u32 core_id)
@@ -112,12 +114,10 @@ static void mdla_plat_print_post_cmd_info(u32 core_id)
 {
 	const struct mdla_util_io_ops *io = mdla_util_io_ops_get();
 
-	mdla_verbose("%s: C:%d,FIN0:%.8x,FIN1: %.8x,FIN3: %.8x\n",
+	mdla_verbose("%s: C:%d,FIN1: %.8x\n",
 			__func__,
 			core_id,
-			io->cmde.read(core_id, MREG_TOP_G_FIN0),
-			io->cmde.read(core_id, MREG_TOP_G_FIN1),
-			io->cmde.read(core_id, MREG_TOP_G_FIN3));
+			io->cmde.read(core_id, MREG_TOP_G_FIN1));
 	mdla_verbose("dst addr:%.8x\n", io->cmde.read(core_id, 0xE3C));
 
 	mdla_pmu_debug("%s: CFG_PMCR: %8x, pmu_clk_cnt: %.8x\n",
@@ -180,18 +180,18 @@ out:
 static int mdla_plat_pre_cmd_handle(u32 core_id, struct command_entry *ce)
 {
 	if (ce->multicore_total > 1)
-		mdla_sched_set_smp_deadline(ce->priority, ce->deadline_t);
+		mdla_plat_devices[core_id].sched->set_smp_deadline(ce->priority, ce->deadline_t);
 
 	if (mdla_dbg_read_u32(FS_DUMP_CMDBUF))
 		mdla_plat_create_dump_cmdbuf(mdla_get_device(core_id), ce);
 	return 0;
 }
 
-int mdla_plat_wait_cmd_handle(u32 core_id, struct command_entry *ce)
+static int mdla_plat_wait_cmd_handle(u32 core_id, struct command_entry *ce)
 {
 	/* update SMP CMD deadline */
 	if (ce->multicore_total > 1) {
-		u64 deadline = mdla_sched_get_smp_deadline(ce->priority);
+		u64 deadline = mdla_plat_devices[core_id].sched->get_smp_deadline(ce->priority);
 
 		if (deadline > ce->deadline_t)
 			ce->deadline_t = deadline;
@@ -200,6 +200,7 @@ int mdla_plat_wait_cmd_handle(u32 core_id, struct command_entry *ce)
 	return 0;
 }
 
+/* NOTE: hw_lock should be acquired by caller */
 static void mdla_plat_raw_process_command(u32 core_id, u32 evt_id, dma_addr_t addr, u32 count)
 {
 	const struct mdla_util_io_ops *io = mdla_util_io_ops_get();
@@ -271,6 +272,7 @@ static void mdla_plat_dump_reg(u32 core_id, struct seq_file *s)
 	dump_reg_top(core_id, MREG_TOP_G_FIN1);
 	dump_reg_top(core_id, MREG_TOP_G_FIN3);
 	dump_reg_top(core_id, MREG_TOP_G_IDLE);
+
 }
 
 static void mdla_plat_memory_show(struct seq_file *s)
@@ -505,7 +507,11 @@ static int mdla_sw_multi_devices_init(struct device *dev)
 
 		INIT_LIST_HEAD(&mdla_plat_devices[i].cmd_list);
 		init_completion(&mdla_plat_devices[i].command_done);
+
 		spin_lock_init(&mdla_plat_devices[i].hw_lock);
+		lockdep_set_class(&mdla_plat_devices[i].hw_lock,
+						&hw_lock_key[i]);
+
 		mutex_init(&mdla_plat_devices[i].cmd_lock);
 		mutex_init(&mdla_plat_devices[i].cmd_list_lock);
 		mutex_init(&mdla_plat_devices[i].cmd_buf_dmp_lock);

@@ -28,7 +28,6 @@
 struct mdla_pwr_ctrl {
 	int mdla_id;
 	struct mutex lock;
-	struct lock_class_key lock_key;
 	struct wakeup_source *wakeup;
 	struct timer_list power_off_timer;
 	struct work_struct power_off_work;
@@ -88,7 +87,7 @@ static void mdla_pwr_off_timer_start(u32 core_id)
 	struct mdla_dev *mdla_device = mdla_get_device(core_id);
 	struct mdla_pwr_ctrl *pwr_ctrl = mdla_device->power;
 
-	mutex_lock(&pwr_ctrl->lock);
+	mutex_lock_nested(&pwr_ctrl->lock, core_id);
 
 	if (mdla_device->cmd_list_cnt > 0)
 		mdla_device->cmd_list_cnt--;
@@ -129,7 +128,7 @@ static void mdla_pwr_switch_off_on(u32 core_id)
 {
 	struct mdla_pwr_ctrl *pwr_ctrl = mdla_get_device(core_id)->power;
 
-	mutex_lock(&pwr_ctrl->lock);
+	mutex_lock_nested(&pwr_ctrl->lock, core_id);
 	if (apu_device_power_off(get_pwr_id(core_id))
 			|| apu_device_power_on(get_pwr_id(core_id)))
 		mdla_err("%s: fail\n", __func__);
@@ -138,7 +137,7 @@ static void mdla_pwr_switch_off_on(u32 core_id)
 
 static void mdla_pwr_lock(u32 core_id)
 {
-	mutex_lock(&mdla_get_device(core_id)->power->lock);
+	mutex_lock_nested(&mdla_get_device(core_id)->power->lock, core_id);
 }
 static void mdla_pwr_unlock(u32 core_id)
 {
@@ -389,7 +388,6 @@ int mdla_pwr_device_unregister(struct platform_device *pdev)
 		pwr_ctrl = mdla_get_device(i)->power;
 		if (!pwr_ctrl)
 			continue;
-
 		wakeup_source_unregister(pwr_ctrl->wakeup);
 		mutex_destroy(&pwr_ctrl->lock);
 		kfree(pwr_ctrl);
@@ -399,7 +397,3 @@ int mdla_pwr_device_unregister(struct platform_device *pdev)
 
 	return 0;
 }
-
-
-
-

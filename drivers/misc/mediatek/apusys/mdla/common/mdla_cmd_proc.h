@@ -37,6 +37,7 @@ struct mdla_cmd_cb_func {
 	int (*pre_cmd_handle)(u32 core_id, struct command_entry *ce);
 	void (*pre_cmd_info)(u32 core_id);
 	int (*process_command)(u32 core_id, struct command_entry *ce);
+	int (*process_command_no_lock)(u32 core_id, struct command_entry *ce);
 	int (*post_cmd_handle)(u32 core_id, struct command_entry *ce);
 	void (*post_cmd_info)(u32 core_id);
 

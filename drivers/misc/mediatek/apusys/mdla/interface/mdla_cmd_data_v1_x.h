@@ -101,7 +101,6 @@ struct mdla_scheduler {
 	struct command_entry *pro_ce;
 
 	spinlock_t lock;
-	struct lock_class_key sched_lock_key;
 
 	void (*enqueue_ce)(u32 core_id, struct command_entry *ce, u32 resume);
 	struct command_entry* (*dequeue_ce)(u32 core_id);
@@ -110,6 +109,8 @@ struct mdla_scheduler {
 	int (*process_ce)(u32 core_id);
 	void (*complete_ce)(u32 core_id);
 	void (*preempt_ce)(u32 core_id, struct command_entry *high_ce);
+	u64 (*get_smp_deadline)(int priority);
+	void (*set_smp_deadline)(int priority, u64 deadline);
 };
 
 #endif /* __MDLA_CMD_DATA_V1_X_H__ */

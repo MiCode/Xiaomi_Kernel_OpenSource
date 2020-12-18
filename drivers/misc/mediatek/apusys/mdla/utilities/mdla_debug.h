@@ -46,7 +46,12 @@ enum FUNC_FOOT_PRINT {
 	F_CMDDONE_GO_TO_ISSUE   = 0x41,
 	F_CMDDONE_CE_FIN3ERROR  = 0x42,
 
-	F_COMPLETE              = 0x50,
+	/*
+	 * F_STOP: for stop interrupt, val = (F_STOP|priority)
+	 *   0x50: record low priority ce
+	 *   0x51: record high priority ce
+	 */
+	F_STOP                  = 0x50,
 
 	/*
 	 * F_TIMEOUT:
@@ -57,6 +62,17 @@ enum FUNC_FOOT_PRINT {
 	F_INIRQ_PASS            = 0x70,
 	F_INIRQ_ERROR           = 0x71,
 	F_INIRQ_CDMA4ERROR      = 0x72,
+	F_INIRQ_STOP            = 0x73,
+
+	/*
+	 * F_SET_STOP: for set stop bit function
+	 *   0x81: record single ce in MDLA HW
+	 *   0x82: record dual ce in MDLA HW
+	 *   0x89: record new ce
+	 */
+	F_SET_STOP_SINGLE       = 0x81,
+	F_SET_STOP_DUAL         = 0x82,
+	F_SET_STOP_NEW_CE       = 0x89,
 };
 
 enum MDLA_DEBUG_FS_NODE_U64 {
@@ -113,6 +129,7 @@ struct mdla_dbg_cb_func {
 };
 
 struct mdla_dbg_cb_func *mdla_dbg_plat_cb(void);
+void mdla_dbg_set_version(u32 ver);
 
 u64 mdla_dbg_read_u64(int node);
 u32 mdla_dbg_read_u32(int node);

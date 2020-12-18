@@ -35,7 +35,12 @@ static void mdla_cmd_prepare_v1_x(struct mdla_run_cmd *cd,
 	ce->result = MDLA_SUCCESS;
 	ce->count = cd->count;
 	ce->receive_t = sched_clock();
-	ce->kva = (void *)(apusys_hd->cmd_entry+cd->offset_code_buf);
+
+	if (cd->offset_code_buf == 0)
+		/* for mdla UT */
+		ce->kva = (void *)apusys_mem_query_kva((u32)ce->mva);
+	else
+		ce->kva = (void *)(apusys_hd->cmd_entry + cd->offset_code_buf);
 
 	mdla_cmd_debug("%s: kva=0x%llx(0x%llx+0x%x),  mva=0x%08x(0x%08x+0x%x), cnt=%u, sz=0x%x\n",
 			__func__,

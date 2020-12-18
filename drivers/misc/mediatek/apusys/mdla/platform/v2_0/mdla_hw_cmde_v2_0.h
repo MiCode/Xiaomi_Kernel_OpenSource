@@ -73,13 +73,19 @@
 #define MREG_TOP_G_DBG_CMDE29           (0x008c)
 
 /* MREG_TOP_G_INTPx : 0x0500, 0x0504, 0x0508 */
-#define INTR_SWCMD_TILECNT_INT          BIT(1)
-#define INTR_SWCMD_DONE                 BIT(2)
-#define INTR_CDMA_EVT_FAIL              BIT(4)
-#define INTR_CDMA_FIFO_EMPTY            BIT(5)
-#define INTR_CDMA_FIFO_FULL             BIT(6)
-#define INTR_PMU_INT                    BIT(9)
+#define INTR_SWCMD_TILECNT_INT               BIT(1)
+#define INTR_SWCMD_DONE                      BIT(2)
+#define INTR_CDMA_EVT_FAIL                   BIT(4)
+#define INTR_CDMA_FIFO_EMPTY                 BIT(5)
+#define INTR_CDMA_FIFO_FULL                  BIT(6)
+#define INTR_PMU_INT                         BIT(9)
+#define INTR_CONV_GCU_SAT_EXCEPTION_INT      BIT(10)
+#define INRQ_CONV_AQU_ACC_SAT_EXCEPTION_INT  BIT(11)
+#define INRQ_CONV_AQU_ADD_SAT_EXCEPTION_INT  BIT(12)
+#define INTR_FIN4_CMD_STOP_INT               BIT(21)
+#define MDLA_IRQ_MASK                        (0x3FFFFFFF)
+#define INTR_SUPPORT_MASK \
+	(INTR_SWCMD_DONE | INTR_FIN4_CMD_STOP_INT)
 
-#define MDLA_IRQ_MASK                   (0x1FFFFF)
 
 #endif /* __MDLA_HW_CMDE_V2_0_H__ */
