@@ -237,7 +237,7 @@ int clk_list_rate_vdd_level(struct clk_hw *hw, unsigned int rate)
 	struct clk_regmap *rclk = to_clk_regmap(hw);
 	struct clk_vdd_class_data *vdd_data = &rclk->vdd_data;
 
-	if (!vdd_data->vdd_class)
+	if (!vdd_data->vdd_class || !clk_is_regmap_clk(hw))
 		return 0;
 
 	return clk_find_vdd_level(hw, vdd_data, rate);

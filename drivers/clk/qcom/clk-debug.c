@@ -11,14 +11,24 @@
 #include <linux/of.h>
 #include <linux/bitops.h>
 #include <linux/mfd/syscon.h>
+#include <trace/events/power.h>
 
 #include "clk-regmap.h"
 #include "clk-debug.h"
 
 static struct clk_hw *measure;
+static bool debug_suspend;
+static struct dentry *clk_debugfs_suspend;
+
+struct hw_debug_clk {
+	struct list_head	list;
+	struct clk_hw		*clk_hw;
+	struct device		*dev;
+};
 
 static DEFINE_SPINLOCK(clk_reg_lock);
 static DEFINE_MUTEX(clk_debug_lock);
+static LIST_HEAD(clk_hw_debug_list);
 
 #define TCXO_DIV_4_HZ		4800000
 #define SAMPLE_TICKS_1_MS	0x1000
@@ -30,6 +40,16 @@ static DEFINE_MUTEX(clk_debug_lock);
 #define XO_DIV4_TERM_CNT_MASK	GENMASK(19, 0)
 #define MEASURE_CNT		GENMASK(24, 0)
 #define CBCR_ENA		BIT(0)
+
+#define clock_debug_output(m, c, fmt, ...)		\
+do {							\
+	if (m)						\
+		seq_printf(m, fmt, ##__VA_ARGS__);	\
+	else if (c)					\
+		pr_cont(fmt, ##__VA_ARGS__);		\
+	else						\
+		pr_info(fmt, ##__VA_ARGS__);		\
+} while (0)
 
 /* Sample clock for 'ticks' reference clock ticks. */
 static u32 run_measurement(unsigned int ticks, struct regmap *regmap,
@@ -581,5 +601,229 @@ void clk_common_debug_init(struct clk_hw *hw, struct dentry *dentry)
 	debugfs_create_file("clk_print_regs", 0444, dentry, hw,
 			    &clock_print_hw_fops);
 
+}
+
+static int clock_debug_print_clock(struct hw_debug_clk *dclk, struct seq_file *s)
+{
+	char *start = "\t";
+	struct clk *clk;
+	struct clk_hw *clk_hw;
+	unsigned long clk_rate;
+	bool clk_prepared, clk_enabled;
+	int vdd_level;
+
+	if (!dclk || !dclk->clk_hw) {
+		pr_err("clk param error\n");
+		return 0;
+	}
+
+	if (!clk_hw_is_prepared(dclk->clk_hw))
+		return 0;
+
+	clock_debug_output(s, 0, "    ");
+
+	clk = dclk->clk_hw->clk;
+
+	do {
+		clk_hw = __clk_get_hw(clk);
+		clk_enabled = clk_hw_is_enabled(clk_hw);
+		clk_prepared = clk_hw_is_prepared(clk_hw);
+		clk_rate = clk_hw_get_rate(clk_hw);
+		vdd_level = clk_list_rate_vdd_level(clk_hw, clk_rate);
+
+		if (vdd_level)
+			clock_debug_output(s, 1, "%s%s:%u:%u [%ld, %d]", start,
+				clk_hw_get_name(clk_hw),
+				clk_enabled,
+				clk_prepared,
+				clk_rate,
+				vdd_level);
+		else
+			clock_debug_output(s, 1, "%s%s:%u:%u [%ld]", start,
+				clk_hw_get_name(clk_hw),
+				clk_enabled,
+				clk_prepared,
+				clk_rate);
+		start = " -> ";
+
+	} while ((clk = clk_get_parent(clk_hw->clk)));
+
+	clock_debug_output(s, 1, "\n");
+
+	return 1;
+}
+
+/*
+ * clock_debug_print_enabled_clocks() - Print names of enabled clocks
+ */
+static void clock_debug_print_enabled_clocks(struct seq_file *s)
+{
+	struct hw_debug_clk *dclk;
+	int cnt = 0;
+
+	clock_debug_output(s, 0, "Enabled clocks:\n");
+
+	list_for_each_entry(dclk, &clk_hw_debug_list, list)
+		cnt += clock_debug_print_clock(dclk, s);
+
+	if (cnt)
+		clock_debug_output(s, 0, "Enabled clock count: %d\n", cnt);
+	else
+		clock_debug_output(s, 0, "No clocks enabled.\n");
+
+}
+
+static int enabled_clocks_show(struct seq_file *s, void *unused)
+{
+	mutex_lock(&clk_debug_lock);
+
+	clock_debug_print_enabled_clocks(s);
+
+	mutex_unlock(&clk_debug_lock);
+
+	return 0;
+}
+
+static int enabled_clocks_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, enabled_clocks_show, inode->i_private);
+}
+
+static const struct file_operations clk_enabled_list_fops = {
+	.open		= enabled_clocks_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= seq_release,
 };
 
+static void clk_debug_suspend_trace_probe(void *unused,
+					const char *action, int val, bool start)
+{
+	if (start && val > 0 && !strcmp("machine_suspend", action)) {
+		pr_info("Enabled Clocks:\n");
+		mutex_lock(&clk_debug_lock);
+		clock_debug_print_enabled_clocks(NULL);
+		mutex_unlock(&clk_debug_lock);
+	}
+}
+
+static int clk_debug_suspend_enable_get(void *data, u64 *val)
+{
+	*val = debug_suspend;
+
+	return 0;
+}
+
+static int clk_debug_suspend_enable_set(void *data, u64 val)
+{
+	int ret;
+
+	val = !!val;
+	if (val == debug_suspend)
+		return 0;
+
+	if (val)
+		ret = register_trace_suspend_resume(
+			clk_debug_suspend_trace_probe, NULL);
+	else
+		ret = unregister_trace_suspend_resume(
+			clk_debug_suspend_trace_probe, NULL);
+	if (ret) {
+		pr_err("%s: Failed to %sregister suspend trace callback, ret=%d\n",
+			__func__, val ? "" : "un", ret);
+		return ret;
+	}
+	debug_suspend = val;
+
+	return 0;
+}
+DEFINE_DEBUGFS_ATTRIBUTE(clk_debug_suspend_enable_fops,
+	clk_debug_suspend_enable_get, clk_debug_suspend_enable_set, "%llu\n");
+
+static void clk_hw_debug_remove(struct hw_debug_clk *dclk)
+{
+	if (dclk) {
+		list_del(&dclk->list);
+		kfree(dclk);
+	}
+}
+
+static void clk_debug_unregister(void)
+{
+	struct hw_debug_clk *dclk;
+
+	mutex_lock(&clk_debug_lock);
+	list_for_each_entry(dclk, &clk_hw_debug_list, list)
+		clk_hw_debug_remove(dclk);
+	mutex_unlock(&clk_debug_lock);
+}
+
+/**
+ * clk_hw_debug_register - add a clk node to the debugfs clk directory
+ * @clk_hw: the clk being added to the debugfs clk directory
+ *
+ * Dynamically adds a clk to the debugfs clk directory if debugfs has been
+ * initialized.  Otherwise it bails out early since the debugfs clk directory
+ * will be created lazily by clk_debug_init as part of a late_initcall.
+ */
+int clk_hw_debug_register(struct device *dev, struct clk_hw *clk_hw)
+{
+	struct hw_debug_clk *dclk = NULL;
+
+	if (!dev || !clk_hw) {
+		pr_err("%s:dev or clk_hw is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	dclk = kzalloc(sizeof(*dclk), GFP_KERNEL);
+	if (!dclk)
+		return -ENOMEM;
+
+	dclk->dev = dev;
+	dclk->clk_hw = clk_hw;
+
+	mutex_lock(&clk_debug_lock);
+	list_add(&dclk->list, &clk_hw_debug_list);
+	mutex_unlock(&clk_debug_lock);
+
+	return 0;
+}
+EXPORT_SYMBOL(clk_hw_debug_register);
+
+int clk_debug_init(void)
+{
+	static struct dentry *rootdir;
+	int ret = 0;
+
+	rootdir = debugfs_lookup("clk", NULL);
+	if (IS_ERR_OR_NULL(rootdir)) {
+		ret = PTR_ERR(rootdir);
+		pr_err("%s: unable to find root clk debugfs directory, ret=%d\n",
+			__func__, ret);
+		return 0;
+	}
+
+	debugfs_create_file("clk_enabled_list", 0444, rootdir,
+			    &clk_hw_debug_list, &clk_enabled_list_fops);
+
+	clk_debugfs_suspend = debugfs_create_file_unsafe("debug_suspend",
+						0644, rootdir, NULL,
+						&clk_debug_suspend_enable_fops);
+	dput(rootdir);
+	if (IS_ERR(clk_debugfs_suspend)) {
+		ret = PTR_ERR(clk_debugfs_suspend);
+		pr_err("%s: unable to create clock debug_suspend debugfs directory, ret=%d\n",
+			__func__, ret);
+	}
+
+	return ret;
+}
+
+void clk_debug_exit(void)
+{
+	debugfs_remove(clk_debugfs_suspend);
+	if (debug_suspend)
+		unregister_trace_suspend_resume(
+				clk_debug_suspend_trace_probe, NULL);
+	clk_debug_unregister();
+}
