@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, 2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef DIAGFWD_RPMSG_H
@@ -43,5 +43,6 @@ int diag_rpmsg_init(void);
 void diag_rpmsg_early_exit(void);
 void diag_rpmsg_invalidate(void *ctxt, struct diagfwd_info *fwd_ctxt);
 int diag_rpmsg_check_state(void *ctxt);
+void rpmsg_mark_buffers_free(uint8_t peripheral, uint8_t type, int buf_num);
 
 #endif

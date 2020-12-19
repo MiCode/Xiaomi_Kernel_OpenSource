@@ -657,7 +657,7 @@ static void diag_rpmsg_notify_rx_work_fn(struct work_struct *work)
 		/* detach last entry */
 		rx_item = list_last_entry(&read_work_struct->rx_list_head,
 						struct rx_buff_list, list);
-		list_del(&rx_item->list);
+
 		spin_unlock_irqrestore(&read_work_struct->rx_lock, flags);
 
 		if (!rx_item)
@@ -707,13 +707,9 @@ static void diag_rpmsg_notify_rx_work_fn(struct work_struct *work)
 		diagfwd_channel_read_done(rpmsg_info->fwd_ctxt,
 				(unsigned char *)(buf), rx_item->rx_buf_size);
 
-		if (buf == rpmsg_info->buf1)
-			rpmsg_info->buf1 = NULL;
-		else if (buf == rpmsg_info->buf2)
-			rpmsg_info->buf2 = NULL;
-
 		mutex_unlock(&driver->diagfwd_channel_mutex[PERI_RPMSG]);
 
+		list_del(&rx_item->list);
 		kfree(rx_item->rpmsg_rx_buf);
 		kfree(rx_item);
 	} else {
@@ -721,6 +717,44 @@ static void diag_rpmsg_notify_rx_work_fn(struct work_struct *work)
 	}
 
 	return;
+}
+
+static struct diag_rpmsg_info *get_info_ptr(int type, int peripheral)
+{
+	if (type == TYPE_CMD)
+		return &rpmsg_cmd[peripheral];
+	else if (type == TYPE_CNTL)
+		return &rpmsg_cntl[peripheral];
+	else if (type == TYPE_DATA)
+		return &rpmsg_data[peripheral];
+	else if (type == TYPE_DCI_CMD)
+		return &rpmsg_dci_cmd[peripheral];
+	else if (type == TYPE_DCI)
+		return &rpmsg_dci[peripheral];
+	else
+		return NULL;
+}
+
+void rpmsg_mark_buffers_free(uint8_t peripheral, uint8_t type, int buf_num)
+{
+	struct diag_rpmsg_info *rpmsg_info;
+
+	if ((peripheral != PERIPHERAL_WDSP) &&
+		(peripheral != PERIPHERAL_WCNSS) &&
+			(peripheral != PERIPHERAL_MODEM))
+		return;
+
+	rpmsg_info =  get_info_ptr(type, peripheral);
+	if (!rpmsg_info)
+		return;
+
+	if (buf_num == 1) {
+		rpmsg_info->buf1 = NULL;
+		DIAG_LOG(DIAG_DEBUG_PERIPHERALS, "marked buf1 NULL");
+	} else if (buf_num == 2) {
+		rpmsg_info->buf2 = NULL;
+		DIAG_LOG(DIAG_DEBUG_PERIPHERALS, "marked buf2 NULL");
+	}
 }
 
 static void rpmsg_late_init(struct diag_rpmsg_info *rpmsg_info)
