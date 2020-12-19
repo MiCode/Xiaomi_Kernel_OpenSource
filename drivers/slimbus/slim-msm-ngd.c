@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/irq.h>
@@ -92,9 +92,15 @@ static irqreturn_t ngd_slim_interrupt(int irq, void *d)
 {
 	struct msm_slim_ctrl *dev = (struct msm_slim_ctrl *)d;
 	void __iomem *ngd = dev->base + NGD_BASE(dev->ctrl.nr, dev->ver);
-	u32 stat = readl_relaxed(ngd + NGD_INT_STAT);
+	u32 stat;
 	u32 pstat;
 
+	if (pm_runtime_suspended(dev->dev)) {
+		SLIM_INFO(dev, "Slimbus is in suspend state\n");
+		return IRQ_HANDLED;
+	}
+
+	stat = readl_relaxed(ngd + NGD_INT_STAT);
 	if ((stat & NGD_INT_MSG_BUF_CONTE) ||
 		(stat & NGD_INT_MSG_TX_INVAL) || (stat & NGD_INT_DEV_ERR) ||
 		(stat & NGD_INT_TX_NACKED_2)) {
@@ -1538,6 +1544,7 @@ static int ngd_slim_enable(struct msm_slim_ctrl *dev, bool enable)
 		ret = msm_slim_qmi_init(dev, false);
 		/* controller state should be in sync with framework state */
 		if (!ret) {
+			enable_irq(dev->irq);
 			complete(&dev->qmi.qmi_comp);
 			if (!pm_runtime_enabled(dev->dev) ||
 					!pm_runtime_suspended(dev->dev))
@@ -1550,6 +1557,7 @@ static int ngd_slim_enable(struct msm_slim_ctrl *dev, bool enable)
 			SLIM_ERR(dev, "qmi init fail, ret:%d, state:%d\n",
 					ret, dev->state);
 	} else {
+		disable_irq(dev->irq);
 		msm_slim_qmi_exit(dev);
 	}
 
@@ -2048,7 +2056,8 @@ static int ngd_slim_probe(struct platform_device *pdev)
 	 * extensive benifits and performance
 	 * improvements.
 	 */
-	ret = request_irq(dev->irq,
+	irq_set_status_flags(dev->irq, IRQ_NOAUTOEN);
+	ret = devm_request_irq(dev->dev, dev->irq,
 			ngd_slim_interrupt,
 			IRQF_TRIGGER_HIGH,
 			"ngd_slim_irq", dev);
@@ -2084,7 +2093,7 @@ static int ngd_slim_probe(struct platform_device *pdev)
 	if (IS_ERR(dev->rx_msgq_thread)) {
 		ret = PTR_ERR(dev->rx_msgq_thread);
 		dev_err(dev->dev, "Failed to start Rx thread:%d\n", ret);
-		goto err_rx_thread_create_failed;
+		goto err_ioremap_failed;
 	}
 
 	/* Start thread to probe, and notify slaves */
@@ -2100,8 +2109,6 @@ static int ngd_slim_probe(struct platform_device *pdev)
 
 err_notify_thread_create_failed:
 	kthread_stop(dev->rx_msgq_thread);
-err_rx_thread_create_failed:
-	free_irq(dev->irq, dev);
 err_ioremap_failed:
 	if (dev->sysfs_created)
 		sysfs_remove_file(&dev->dev->kobj,
@@ -2133,7 +2140,6 @@ static int ngd_slim_remove(struct platform_device *pdev)
 		subsys_notif_unregister_notifier(dev->ext_mdm.domr,
 						&dev->ext_mdm.nb);
 	kfree(dev->bulk.base);
-	free_irq(dev->irq, dev);
 	slim_del_controller(&dev->ctrl);
 	kthread_stop(dev->rx_msgq_thread);
 	iounmap(dev->bam.base);
