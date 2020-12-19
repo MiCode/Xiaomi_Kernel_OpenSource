@@ -73,3 +73,4 @@ msm-poweroff.ko
 qcom_watchdog.ko
 msm_qmp.ko
 qcom_ipc_logging.ko
+qcom_ipcc.ko
