@@ -14,6 +14,7 @@ clk-dummy.ko
 clk-qcom.ko
 clk-aop-qmp.ko
 clk-rpmh.ko
+gdsc-regulator.ko
 gcc-lahaina.ko
 dispcc-lahaina.ko
 qnoc-lahaina.ko
