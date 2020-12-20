@@ -16,9 +16,15 @@
 
 #include <mach/upmu_hw.h>
 
+#ifdef CONFIG_MTK_DVFSRC_MT6877_PRETEST
+#define PMIC_VCORE_ADDR		PMIC_RG_BUCK_VCORE_VOSEL
+#define VCORE_BASE_UV		506250
+#define VCORE_STEP_UV		6250
+#else
 #define PMIC_VCORE_ADDR		PMIC_RG_BUCK_VGPU11_VOSEL
 #define VCORE_BASE_UV		400000
 #define VCORE_STEP_UV		6250
+#endif
 
 /* PMIC */
 #define __vcore_pmic_to_uv(pmic)	\

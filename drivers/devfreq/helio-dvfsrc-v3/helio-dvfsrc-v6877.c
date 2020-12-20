@@ -123,6 +123,13 @@ static struct reg_config dvfsrc_init_configs[][128] = {
 		{ DVFSRC_BASIC_CONTROL_3,    0x00000006 },
 		{ DVFSRC_INT_EN,             0x00000002 },
 		{ DVFSRC_QOS_EN,             0x0000407C },
+#ifdef	CONFIG_MTK_DVFSRC_MT6877_PRETEST
+		{ DVFSRC_DDR_REQUEST3,	     0x00000065 },
+		{ DVFSRC_DDR_QOS4,	     0x0000004C },
+		{ DVFSRC_DDR_QOS5,	     0x00000066 },
+		{ DVFSRC_HRT_HIGH_2,	     0x18A61183 },
+		{ DVFSRC_HRT_LOW_2,	     0x18A51182 },
+#endif
 		{ DVFSRC_CURRENT_FORCE,      0x00000001 },
 		{ DVFSRC_BASIC_CONTROL,      0x67B8444B },
 		{ DVFSRC_BASIC_CONTROL,      0x67B8054B },
@@ -167,6 +174,24 @@ u32 dvfsrc_get_ddr_qos(void)
 			   dvfsrc_read(DVFSRC_SW_BW_3) +
 			   dvfsrc_read(DVFSRC_SW_BW_4);
 
+#ifdef	CONFIG_MTK_DVFSRC_MT6877_PRETEST
+	if (qos_total_bw < 0x19)
+		return 0;
+	else if (qos_total_bw < 0x26)
+		return 1;
+	else if (qos_total_bw < 0x33)
+		return 2;
+	else if (qos_total_bw < 0x3B)
+		return 3;
+	else if (qos_total_bw < 0x4C)
+		return 4;
+	else if (qos_total_bw < 0x66)
+		return 5;
+	else if (qos_total_bw < 0x88)
+		return 6;
+	else
+		return 7;
+#else
 	if (qos_total_bw < 0x19)
 		return 0;
 	else if (qos_total_bw < 0x26)
@@ -183,6 +208,7 @@ u32 dvfsrc_get_ddr_qos(void)
 		return 6;
 	else
 		return 7;
+#endif
 }
 
 static int dvfsrc_get_emi_mon_gear(void)
@@ -201,6 +227,25 @@ static int dvfsrc_get_emi_mon_gear(void)
 
 static u32 dvfsrc_calc_hrt_opp(int data)
 {
+#ifdef	CONFIG_MTK_DVFSRC_MT6877_PRETEST
+	if (data < 0x04B0)
+		return DDR_OPP_7;
+	else if (data < 0x0708)
+		return DDR_OPP_6;
+	else if (data < 0x0B80)
+		return DDR_OPP_5;
+	else if (data < 0x0D69)
+		return DDR_OPP_4;
+	else if (data < 0x1183)
+		return DDR_OPP_3;
+	else if (data < 0x18A6)
+		return DDR_OPP_2;
+	else if (data < 0x20DC)
+		return DDR_OPP_1;
+	else
+		return DDR_OPP_0;
+
+#else
 	if (data < 0x04B0)
 		return DDR_OPP_7;
 	else if (data < 0x0708)
@@ -217,6 +262,7 @@ static u32 dvfsrc_calc_hrt_opp(int data)
 		return DDR_OPP_1;
 	else
 		return DDR_OPP_0;
+#endif
 }
 
 void dvfsrc_set_isp_hrt_bw(int data)
