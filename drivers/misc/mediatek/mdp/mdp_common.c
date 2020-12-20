@@ -860,7 +860,7 @@ static s32 cmdq_mdp_find_free_thread(struct cmdqRecStruct *handle)
 		thread = cmdq_mdp_get_sec_thread();
 
 		if (threads[thread].task_count >=
-			CMDQ_MAX_SECURE_THREAD_COUNT) {
+			CMDQ_MAX_TASK_IN_SECURE_THREAD) {
 			CMDQ_LOG(
 				"[warn] too many task for secure path thread:%d count:%u\n",
 				thread, threads[thread].task_count);
@@ -1195,7 +1195,8 @@ static s32 cmdq_mdp_setup_sec(struct cmdqCommandStruct *desc,
 	 */
 	cl = cmdq_helper_mbox_client(handle->thread);
 	if (unlikely(!cl)) {
-		CMDQ_ERR("%s no client for thread:%d\n", handle->thread);
+		CMDQ_ERR("%s no client for thread:%d\n",
+			__func__, handle->thread);
 		return -EINVAL;
 	}
 	handle->pkt->cl = (void *)cl;
@@ -1311,7 +1312,8 @@ s32 cmdq_mdp_handle_sec_setup(struct cmdqSecDataStruct *secData,
 	 */
 	cl = cmdq_helper_mbox_client(handle->thread);
 	if (unlikely(!cl)) {
-		CMDQ_ERR("%s no client for thread:%d\n", handle->thread);
+		CMDQ_ERR("%s no client for thread:%d\n",
+			__func__, handle->thread);
 		return -EINVAL;
 	}
 	handle->pkt->cl = (void *)cl;
@@ -2485,6 +2487,10 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 
 	pmqos_curr_record =
 		kzalloc(sizeof(struct mdp_pmqos_record), GFP_KERNEL);
+	if (unlikely(!pmqos_curr_record)) {
+		CMDQ_ERR("alloc pmqos_curr_record fail\n");
+		return;
+	}
 	handle->user_private = pmqos_curr_record;
 
 	do_gettimeofday(&curr_time);
@@ -2775,6 +2781,10 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 	do_gettimeofday(&curr_time);
 	mdp_curr_pmqos = (struct mdp_pmqos *)handle->prop_addr;
 	pmqos_curr_record = (struct mdp_pmqos_record *)handle->user_private;
+	if (unlikely(!pmqos_curr_record)) {
+		CMDQ_ERR("alloc pmqos_curr_record fail\n");
+		return;
+	}
 	pmqos_curr_record->submit_tm = curr_time;
 
 	expired = curr_time.tv_sec > mdp_curr_pmqos->tv_sec ||
