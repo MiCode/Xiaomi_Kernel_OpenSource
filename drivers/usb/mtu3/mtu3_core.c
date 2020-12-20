@@ -81,9 +81,19 @@ static void ep_fifo_free(struct mtu3_ep *mep)
 static inline void mtu3_ss_func_set(struct mtu3 *mtu, bool enable)
 {
 	/* If usb3_en==0, LTSSM will go to SS.Disable state */
-	if (enable)
+	if (enable) {
+#ifdef CONFIG_FPGA_EARLY_PORTING
+		/*
+		 * A60931 new DTB has true type-C connector.
+		 * Phy sends vbus_present and starts to swap lane.
+		 * It will take about 120ms to swap lane if needed.
+		 * Device shall wait lane swap and then enable U3 terminator.
+		 */
+		if (mtu->ssusb->fpga_phy_ver == A60931)
+			mdelay(180);
+#endif
 		mtu3_setbits(mtu->mac_base, U3D_USB3_CONFIG, USB3_EN);
-	else
+	} else
 		mtu3_clrbits(mtu->mac_base, U3D_USB3_CONFIG, USB3_EN);
 
 	dev_dbg(mtu->dev, "USB3_EN = %d\n", !!enable);
