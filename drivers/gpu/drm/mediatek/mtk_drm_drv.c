@@ -1949,9 +1949,14 @@ static void mtk_drm_get_top_clk(struct mtk_drm_private *priv)
 	struct clk *clk;
 	int ret, i;
 
+	spin_lock_init(&top_clk_lock);
+	/* TODO: check display enable from lk */
+	atomic_set(&top_isr_ref, 0);
+
 	if (of_property_read_u32(node, "clock-num", &priv->top_clk_num)) {
 		priv->top_clk_num = -1;
 		priv->top_clk = NULL;
+		atomic_set(&top_clk_ref, 0);
 		return;
 	}
 
@@ -1980,9 +1985,6 @@ static void mtk_drm_get_top_clk(struct mtk_drm_private *priv)
 			DDPPR_ERR("top clk prepare enable failed:%d\n", i);
 	}
 
-	spin_lock_init(&top_clk_lock);
-	/* TODO: check display enable from lk */
-	atomic_set(&top_isr_ref, 0);
 	atomic_set(&top_clk_ref, 1);
 	priv->power_state = true;
 }
@@ -2068,7 +2070,6 @@ bool mtk_drm_top_clk_isr_get(char *master)
 	}
 	atomic_inc(&top_isr_ref);
 	spin_unlock_irqrestore(&top_clk_lock, flags);
-
 	return true;
 }
 
