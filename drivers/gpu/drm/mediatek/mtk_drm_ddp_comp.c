@@ -890,7 +890,7 @@ void mt6833_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 		if (priv->data->bypass_infra_ddr_control) {
 			if (!IS_ERR(priv->infra_regs)) {
 				v = (readl(priv->infra_regs + MT6833_INFRA_DISP_DDR_CTL)
-					| MT6833_INFRA_FLD_DDR_MASK);
+					| infra_req_mask);
 				writel_relaxed(v, priv->infra_regs + MT6833_INFRA_DISP_DDR_CTL);
 			} else
 				DDPINFO("%s: failed to disable infra ddr control\n", __func__);
