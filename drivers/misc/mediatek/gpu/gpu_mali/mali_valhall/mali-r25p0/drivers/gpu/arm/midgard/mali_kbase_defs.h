@@ -403,6 +403,10 @@ struct kbase_pm_device_data {
 #endif /* CONFIG_MALI_ARBITER_SUPPORT */
 	/* Wait queue set when active_count == 0 */
 	wait_queue_head_t zero_active_count_wait;
+	/* Wait queue to block the termination of a Kbase context until the
+	 * system resume of GPU device.
+	 */
+	wait_queue_head_t resume_wait;
 
 	/**
 	 * Bit masks identifying the available shader cores that are specified

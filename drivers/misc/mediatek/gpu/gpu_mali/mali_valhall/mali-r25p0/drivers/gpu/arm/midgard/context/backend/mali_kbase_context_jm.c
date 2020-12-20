@@ -212,11 +212,18 @@ void kbase_destroy_context(struct kbase_context *kctx)
 	if (WARN_ON(!kbdev))
 		return;
 
-	/* Ensure the core is powered up for the destroy process
-	 * A suspend won't happen here, because we're in a syscall
-	 * from a userspace thread.
+	/* Context termination could happen whilst the system suspend of
+	 * the GPU device is ongoing or has completed. It has been seen on
+	 * Customer side that a hang could occur if context termination is
+	 * not blocked until the resume of GPU device.
 	 */
-	kbase_pm_context_active(kbdev);
+	while (kbase_pm_context_active_handle_suspend(
+		kbdev, KBASE_PM_SUSPEND_HANDLER_DONT_INCREASE)) {
+		dev_info(kbdev->dev,
+			 "Suspend in progress when destroying context");
+		wait_event(kbdev->pm.resume_wait,
+			   !kbase_pm_is_suspending(kbdev));
+	}
 
 	kbase_mem_pool_group_mark_dying(&kctx->mem_pools);
 
