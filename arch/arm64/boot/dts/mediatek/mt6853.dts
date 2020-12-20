@@ -3550,7 +3550,7 @@ page_owner=on loop.max_part=7";
 				"DPE_CLK_IPE_DPE";
 	};
 
-	mmdvfs_pmqos {
+	mmdvfs: mmdvfs_pmqos {
 		compatible = "mediatek,mmdvfs_pmqos";
 		larb_groups = <0 1 2 4 7 9 11 13 14 16 17 19 20>;
 		larb0 = <8 7 8 8>;
