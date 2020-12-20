@@ -54,14 +54,14 @@ void apu_tp_exit(struct apu_tp_tbl *tbl)
 #ifdef MODULE
 static void for_each_apu_tracepoint(
 	void (*fct)(struct tracepoint *tp, void *priv),
-	void *priv)
+	void *priv, const char *mod_name)
 {
 #if IS_ENABLED(CONFIG_TRACEPOINTS)
 	struct module *mod;
 	tracepoint_ptr_t *iter, *begin, *end;
 
 	mutex_lock(&module_mutex);
-	mod = find_module("apusys");
+	mod = find_module(mod_name);
 	mutex_unlock(&module_mutex);
 
 	if (!mod || !fct)
@@ -90,7 +90,8 @@ int apu_tp_init(struct apu_tp_tbl *tbl)
 	struct apu_tp_tbl *t;
 
 #ifdef MODULE
-	for_each_apu_tracepoint(apu_tp_lookup, tbl);
+	for_each_apu_tracepoint(apu_tp_lookup, tbl, "apusys");
+	for_each_apu_tracepoint(apu_tp_lookup, tbl, "apu_top");
 #else
 	for_each_kernel_tracepoint(apu_tp_lookup, tbl);
 #endif
