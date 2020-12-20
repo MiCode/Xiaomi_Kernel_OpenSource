@@ -48,8 +48,6 @@ void mtk_cpuidle_prof_ratio_start(void);
 void mtk_cpuidle_prof_ratio_stop(void);
 void mtk_cpuidle_prof_ratio_dump(char **ToUserBuf, size_t *size);
 
-void mtk_cpuidle_ctrl_timer_en(bool enable);
-bool mtk_cpuidle_ctrl_timer_sta_get(void);
 void mtk_cpuidle_ctrl_log_en(bool enable);
 bool mtk_cpuidle_ctrl_log_sta_get(void);
 

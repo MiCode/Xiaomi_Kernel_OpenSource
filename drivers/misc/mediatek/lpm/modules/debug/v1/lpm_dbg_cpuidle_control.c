@@ -28,7 +28,6 @@ enum {
 	TYPE_NOTIFY_CM,
 	TYPE_STRESS_EN,
 	TYPE_STRESS_TIME,
-	TYPE_STRESS_TIMER,
 
 	NF_TYPE_CONTROL_MAX
 };
@@ -49,7 +48,6 @@ static const char *node_stress_name[NF_TYPE_CONTROL_MAX] = {
 	[TYPE_LOG_EN]		= "log",
 	[TYPE_STRESS_EN]	= "stress",
 	[TYPE_STRESS_TIME]	= "stress_time",
-	[TYPE_STRESS_TIMER]	= "timer",
 };
 
 static const char *node_stress_param[NF_TYPE_CONTROL_MAX] = {
@@ -58,7 +56,6 @@ static const char *node_stress_param[NF_TYPE_CONTROL_MAX] = {
 	[TYPE_LOG_EN]		= "[0|1]",
 	[TYPE_STRESS_EN]	= "[0|1]",
 	[TYPE_STRESS_TIME]	= "[us]",
-	[TYPE_STRESS_TIMER]	= "[0|1]",
 };
 
 static ssize_t lpm_cpuidle_control_read(char *ToUserBuf,
@@ -141,12 +138,6 @@ static ssize_t lpm_cpuidle_control_read(char *ToUserBuf,
 			mtk_cpuidle_get_stress_time());
 		break;
 
-	case TYPE_STRESS_TIMER:
-		mtk_dbg_cpuidle_log("Limit sleep timer : %s\n",
-			mtk_cpuidle_ctrl_timer_sta_get() ?
-			"Enable" : "Disable");
-		break;
-
 	default:
 		mtk_dbg_cpuidle_log("unknown command\n");
 		break;
@@ -224,10 +215,6 @@ static ssize_t lpm_cpuidle_control_write(char *FromUserBuf,
 		mtk_cpuidle_set_stress_time(parm);
 		break;
 
-	case TYPE_STRESS_TIMER:
-		mtk_cpuidle_ctrl_timer_en(!!parm);
-		break;
-
 	default:
 		pr_info("unknown command\n");
 		break;
@@ -289,13 +276,4 @@ void lpm_cpuidle_control_init(void)
 					&stress_time.op,
 					&lpm_entry_cpuidle_control,
 					&stress_time.handle);
-
-	LPM_CPUIDLE_CONTROL_NODE_INIT(stress_timer, "timer",
-				    TYPE_STRESS_TIMER);
-	mtk_cpuidle_sysfs_sub_entry_node_add(stress_timer.name,
-					MTK_CPUIDLE_SYS_FS_MODE,
-					&stress_timer.op,
-					&lpm_entry_cpuidle_control,
-					&stress_timer.handle);
-
 }

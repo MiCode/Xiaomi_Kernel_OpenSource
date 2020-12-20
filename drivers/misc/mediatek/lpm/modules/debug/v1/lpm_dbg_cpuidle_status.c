@@ -85,7 +85,6 @@ static DEFINE_PER_CPU(struct mtk_cpuidle_device, mtk_cpuidle_dev);
 
 /* mtk cpu idle configuration */
 struct mtk_cpuidle_control {
-	bool tmr_en;
 	bool prof_en;
 	bool log_en;
 	bool stress_en;
@@ -151,18 +150,6 @@ void mtk_cpuidle_set_stress_time(unsigned int val)
 unsigned int mtk_cpuidle_get_stress_time(void)
 {
 	return timer_interval;
-}
-
-void mtk_cpuidle_ctrl_timer_en(bool enable)
-{
-	mtk_cpupm_block();
-	mtk_cpuidle_ctrl.tmr_en = enable;
-	mtk_cpupm_allow();
-}
-
-bool mtk_cpuidle_ctrl_timer_sta_get(void)
-{
-	return mtk_cpuidle_ctrl.tmr_en;
 }
 
 void mtk_cpuidle_ctrl_log_en(bool enable)
@@ -586,7 +573,6 @@ static void mtk_cpuidle_init_per_cpu(void *info)
 
 int __init mtk_cpuidle_status_init(void)
 {
-	mtk_cpuidle_ctrl.tmr_en = true;
 	mtk_cpuidle_ctrl.prof_en = false;
 	mtk_cpuidle_ctrl.log_en = true;
 	mtk_cpuidle_ctrl.stress_en = false;
