@@ -238,29 +238,29 @@ static int __ion_is_user_va(unsigned long va, size_t size)
 static int __cache_sync_by_range(struct ion_client *client,
 				 enum ION_CACHE_SYNC_TYPE sync_type,
 				 unsigned long start, size_t size,
-				 int from_kernel)
+				 int is_kernel_addr)
 {
 	char ion_name[200];
 	int ret = 0;
 
 	/* for minimum change, here do nothing for kernel flow
 	 * when we need check kernel flow, also need check source and valid
-	 * such as "if (from_kernel && !is_kernel_addr)"
+	 * such as "if (!is_kernel_addr)"
 	 */
 	if (sync_type == ION_CACHE_CLEAN_BY_RANGE_USE_PA ||
 	    sync_type == ION_CACHE_INVALID_BY_RANGE_USE_PA ||
 	    sync_type == ION_CACHE_FLUSH_BY_RANGE_USE_PA ||
-	    from_kernel)
+	    is_kernel_addr)
 		goto start_sync;
 
 	/* userspace va check */
 	ret  = __ion_is_user_va(start, size);
 	if (!ret) {
 		scnprintf(ion_name, 199,
-			  "CRDISPATCH_KEY(%s),(%d) sz/addr %zx/%lx from_k:%d",
+			  "CRDISPATCH_KEY(%s),(%d) sz/addr %zx/%lx is_kernel_addr:%d",
 			  (*client->dbg_name) ?
 			  client->dbg_name : client->name,
-			  (unsigned int)current->pid, size, start, from_kernel);
+			  (unsigned int)current->pid, size, start, is_kernel_addr);
 		IONMSG("%s %s\n", __func__, ion_name);
 		//aee_kernel_warning(ion_name, "[ION]: Wrong Address Range");
 		return -EFAULT;
@@ -273,21 +273,21 @@ start_sync:
 	switch (sync_type) {
 	case ION_CACHE_CLEAN_BY_RANGE:
 	case ION_CACHE_CLEAN_BY_RANGE_USE_PA:
-		if (!from_kernel)
+		if (!is_kernel_addr)
 			__clean_dcache_user_area((void *)start, size);
 		else
 			__clean_dcache_area_poc((void *)start, size);
 		break;
 	case ION_CACHE_FLUSH_BY_RANGE:
 	case ION_CACHE_FLUSH_BY_RANGE_USE_PA:
-		if (!from_kernel)
+		if (!is_kernel_addr)
 			__flush_dcache_user_area((void *)start, size);
 		else
 			__flush_dcache_area((void *)start, size);
 		break;
 	case ION_CACHE_INVALID_BY_RANGE:
 	case ION_CACHE_INVALID_BY_RANGE_USE_PA:
-		if (!from_kernel)
+		if (!is_kernel_addr)
 			__inval_dcache_user_area((void *)start, size);
 		else
 			__inval_dcache_area((void *)start, size);
@@ -420,6 +420,7 @@ static long ion_sys_cache_sync(struct ion_client *client,
 	unsigned long kernel_size = 0;
 	struct sg_table *table;
 	struct ion_heap *heap = NULL;
+	int is_kernel_addr = from_kernel;
 
 	/* Get kernel handle
 	 * For cache sync all cases, some users
@@ -455,6 +456,7 @@ static long ion_sys_cache_sync(struct ion_client *client,
 
 			if (buffer->kmap_cnt != 0) {
 				sync_va = (unsigned long)buffer->vaddr;
+				is_kernel_addr = 1;
 			} else {
 				/* Do kernel map and do cache sync
 				 * 32bit project, vmap space is small,
@@ -464,11 +466,13 @@ static long ion_sys_cache_sync(struct ion_client *client,
 #ifdef CONFIG_ARM64
 				sync_va = (unsigned long)
 					  ion_map_kernel(client, kernel_handle);
+				is_kernel_addr = 1;
 				ion_need_unmap_flag = 1;
 #else
 				if (sync_size <= SZ_4M) {
 					sync_va = (unsigned long)
 					ion_map_kernel(client, kernel_handle);
+					is_kernel_addr = 1;
 					ion_need_unmap_flag = 1;
 				} else {
 					ret =
@@ -480,7 +484,7 @@ static long ion_sys_cache_sync(struct ion_client *client,
 #endif
 			}
 		}
-			break;
+		break;
 
 	/* range PA(means mva) mode, need map
 	 * NOTICE: m4u_mva_map_kernel only support m4u0
@@ -510,6 +514,7 @@ static long ion_sys_cache_sync(struct ion_client *client,
 		if (ret)
 			goto err;
 		sync_va = kernel_va;
+		is_kernel_addr = 1;
 		break;
 	default:
 		ret = -EINVAL;
@@ -517,7 +522,7 @@ static long ion_sys_cache_sync(struct ion_client *client,
 	}
 
 	ret = __cache_sync_by_range(client, sync_type,
-				    sync_va, sync_size, from_kernel);
+				    sync_va, sync_size, is_kernel_addr);
 	if (ret < 0)
 		goto err;
 
