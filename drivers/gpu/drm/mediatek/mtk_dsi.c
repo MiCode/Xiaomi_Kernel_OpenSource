@@ -31,7 +31,7 @@
 #include <video/videomode.h>
 #include <linux/soc/mediatek/mtk-cmdq.h>
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
-	|| defined(CONFIG_MACH_MT6833)
+	|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
 #include <linux/ratelimit.h>
 #endif
 
@@ -841,13 +841,15 @@ static int mtk_dsi_set_data_rate(struct mtk_dsi *dsi)
 
 static int mtk_dsi_poweron(struct mtk_dsi *dsi)
 {
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	struct device *dev = dsi->dev;
+#endif
 	int ret;
 
 	DDPDBG("%s+\n", __func__);
 	if (++dsi->clk_refcnt != 1)
 		return 0;
-
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	ret = mtk_dsi_set_data_rate(dsi);
 	if (ret < 0) {
 		dev_err(dev, "Failed to set data rate: %d\n", ret);
@@ -873,6 +875,7 @@ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
 		dev_err(dev, "Failed to enable digital clock: %d\n", ret);
 		goto err_disable_engine_clk;
 	}
+#endif
 	mtk_dsi_set_LFR(dsi, NULL, NULL);
 #if defined(CONFIG_DRM_MTK_SHADOW_REGISTER_SUPPORT)
 	if (dsi->driver_data->support_shadow) {
@@ -886,7 +889,7 @@ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
 	}
 #else
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
-	|| defined(CONFIG_MACH_MT6833)
+	|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
 	/* Bypass shadow register and read shadow register */
 	mtk_dsi_mask(dsi, DSI_SHADOW_DEBUG,
 		DSI_BYPASS_SHADOW, DSI_BYPASS_SHADOW);
@@ -896,13 +899,14 @@ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
 	DDPDBG("%s-\n", __func__);
 
 	return 0;
-
+#ifndef CONFIG_FPGA_EARLY_PORTING
 err_disable_engine_clk:
 	clk_disable_unprepare(dsi->engine_clk);
 err_phy_power_off:
 	phy_power_off(dsi->phy);
 err_refcount:
 	dsi->clk_refcnt--;
+#endif
 	return ret;
 }
 
@@ -1035,7 +1039,7 @@ static void mtk_dsi_ps_control_vact(struct mtk_dsi *dsi)
 
 #if !defined(CONFIG_MACH_MT6885) && !defined(CONFIG_MACH_MT6873) \
 	&& !defined(CONFIG_MACH_MT6893) && !defined(CONFIG_MACH_MT6853) \
-	&& !defined(CONFIG_MACH_MT6833)
+	&& !defined(CONFIG_MACH_MT6833) && !defined(CONFIG_MACH_MT6877)
 	val = vm->hactive * dsi_buf_bpp;
 	writel(val, dsi->regs + DSI_HSTX_CKL_WC);
 #endif
@@ -1068,7 +1072,7 @@ static void mtk_dsi_rxtx_control(struct mtk_dsi *dsi)
 	tmp_reg |= (dsi->mode_flags & MIPI_DSI_CLOCK_NON_CONTINUOUS) << 6;
 #if !defined(CONFIG_MACH_MT6885) && !defined(CONFIG_MACH_MT6873) \
 	&& !defined(CONFIG_MACH_MT6893) && !defined(CONFIG_MACH_MT6853) \
-	&& !defined(CONFIG_MACH_MT6833)
+	&& !defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
 	tmp_reg |= (dsi->mode_flags & MIPI_DSI_MODE_EOT_PACKET) >> 3;
 #endif
 
@@ -1295,13 +1299,14 @@ static s32 mtk_dsi_poll_for_idle(struct mtk_dsi *dsi, struct cmdq_pkt *handle)
 	unsigned int loop_cnt = 0;
 	s32 tmp;
 
+#ifdef CONFIG_MTK_DISPLAY_CMDQ
 	if (handle) {
 		mtk_dsi_cmdq_poll(&dsi->ddp_comp, handle,
 				  dsi->ddp_comp.regs_pa + DSI_INTSTA, 0,
 				  0x80000000);
 		return 1;
 	}
-
+#endif
 	while (loop_cnt < 100 * 1000) {
 		tmp = readl(dsi->regs + DSI_INTSTA);
 		if (!(tmp & DSI_BUSY))
@@ -1367,7 +1372,7 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 	static unsigned int dsi_underrun_trigger = 1;
 	unsigned int ret = 0;
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
-	|| defined(CONFIG_MACH_MT6833)
+	|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
 	static DEFINE_RATELIMIT_STATE(ioctl_ratelimit, 1 * HZ, 20);
 #endif
 	bool doze_enabled = 0;
@@ -1428,7 +1433,7 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 			}
 
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
-	|| defined(CONFIG_MACH_MT6833)
+	|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
 			mtk_dprec_logger_pr(DPREC_LOGGER_ERROR,
 				"[IRQ] %s: buffer underrun\n",
 				mtk_dump_comp_str(&dsi->ddp_comp));
@@ -1553,10 +1558,11 @@ static void mtk_dsi_poweroff(struct mtk_dsi *dsi)
 
 	if (--dsi->clk_refcnt != 0)
 		return;
-
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	clk_disable_unprepare(dsi->engine_clk);
 	clk_disable_unprepare(dsi->digital_clk);
 	phy_power_off(dsi->phy);
+#endif
 	DDPDBG("%s -\n", __func__);
 }
 
@@ -5201,6 +5207,14 @@ static const struct mtk_dsi_driver_data mt6853_dsi_driver_data = {
 	.support_shadow = false,
 };
 
+static const struct mtk_dsi_driver_data mt6877_dsi_driver_data = {
+	.reg_cmdq_ofs = 0x200,
+	.poll_for_idle = mtk_dsi_poll_for_idle,
+	.irq_handler = mtk_dsi_irq_status,
+	.esd_eint_compat = "mediatek, DSI_TE-eint",
+	.support_shadow = false,
+};
+
 static const struct mtk_dsi_driver_data mt6833_dsi_driver_data = {
 	.reg_cmdq_ofs = 0x200,
 	.poll_for_idle = mtk_dsi_poll_for_idle,
@@ -5221,6 +5235,7 @@ static const struct of_device_id mtk_dsi_of_match[] = {
 	{.compatible = "mediatek,mt6885-dsi", .data = &mt6885_dsi_driver_data},
 	{.compatible = "mediatek,mt6873-dsi", .data = &mt6873_dsi_driver_data},
 	{.compatible = "mediatek,mt6853-dsi", .data = &mt6853_dsi_driver_data},
+	{.compatible = "mediatek,mt6877-dsi", .data = &mt6877_dsi_driver_data},
 	{.compatible = "mediatek,mt6833-dsi", .data = &mt6833_dsi_driver_data},
 	{},
 };
@@ -5319,7 +5334,9 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 	if (IS_ERR(dsi->phy)) {
 		ret = PTR_ERR(dsi->phy);
 		dev_err(dev, "Failed to get MIPI-DPHY: %d\n", ret);
+#ifndef CONFIG_FPGA_EARLY_PORTING
 		goto error;
+#endif
 	}
 
 	comp_id = mtk_ddp_comp_get_id(dev->of_node, MTK_DSI);

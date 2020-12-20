@@ -199,12 +199,16 @@ struct mtk_drm_gem_obj *mtk_drm_fb_gem_insert(struct drm_device *dev,
 	sgt = mtk_gem_vmap_pa(mtk_gem, fb_base, 0, dev->dev, &fb_pa);
 
 	mtk_gem->sec = false;
+#ifndef CONFIG_MTK_DISPLAY_M4U
+	mtk_gem->dma_addr = fb_base;
+#else
 	mtk_gem->dma_addr = (dma_addr_t)fb_pa;
+#endif
 	mtk_gem->kvaddr = mtk_gem->cookie;
 	mtk_gem->sg = sgt;
 
-	DDPINFO("%s cookie = %p dma_addr = %pad size = %zu\n", __func__,
-		mtk_gem->cookie, &mtk_gem->dma_addr, size);
+	DDPINFO("%s cookie = %p dma_addr = %pad pa = 0x%lx size = %zu\n", __func__,
+		mtk_gem->cookie, &mtk_gem->dma_addr, (unsigned long)fb_base, size);
 
 	return mtk_gem;
 }

@@ -219,6 +219,7 @@ void mtk_drm_crtc_dump(struct drm_crtc *crtc)
 		break;
 	case MMSYS_MT6873:
 	case MMSYS_MT6853:
+	case MMSYS_MT6877:
 	case MMSYS_MT6833:
 		mmsys_config_dump_reg_mt6873(mtk_crtc->config_regs);
 		mutex_dump_reg_mt6873(mtk_crtc->mutex[0]);
@@ -309,6 +310,10 @@ void mtk_drm_crtc_analysis(struct drm_crtc *crtc)
 	case MMSYS_MT6853:
 		mmsys_config_dump_analysis_mt6853(mtk_crtc->config_regs);
 		mutex_dump_analysis_mt6853(mtk_crtc->mutex[0]);
+		break;
+	case MMSYS_MT6877:
+		mmsys_config_dump_analysis_mt6877(mtk_crtc->config_regs);
+		mutex_dump_analysis_mt6877(mtk_crtc->mutex[0]);
 		break;
 	case MMSYS_MT6833:
 		mmsys_config_dump_analysis_mt6833(mtk_crtc->config_regs);
@@ -1627,7 +1632,8 @@ static void mtk_crtc_update_hrt_state(struct drm_crtc *crtc,
 		       crtc_state->prop_val[CRTC_PROP_LYE_IDX], ~0);
 }
 
-#if defined(CONFIG_MACH_MT6853) || defined(CONFIG_MACH_MT6833)
+#if defined(CONFIG_MACH_MT6853) || defined(CONFIG_MACH_MT6833) || \
+	defined(CONFIG_MACH_MT6877)
 static void mtk_crtc_update_hrt_state_ex(struct drm_crtc *crtc,
 				      struct mtk_drm_lyeblob_ids *lyeblob_ids,
 				      struct cmdq_pkt *cmdq_handle)
@@ -1881,7 +1887,9 @@ static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
 	int crtc_mask = 0x1 << index;
 	unsigned int prop_lye_idx;
 	unsigned int pan_disp_frame_weight = 4;
+#ifndef MTK_DRM_BRINGUP_STAGE
 	struct drm_device *dev = crtc->dev;
+#endif
 
 	mutex_lock(&mtk_drm->lyeblob_list_mutex);
 	prop_lye_idx = crtc_state->prop_val[CRTC_PROP_LYE_IDX];
@@ -1912,7 +1920,8 @@ static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
 					old_crtc_state, crtc_state,
 					cmdq_handle);
 			if (index == 0) {
-#if defined(CONFIG_MACH_MT6853) || defined(CONFIG_MACH_MT6833)
+#if defined(CONFIG_MACH_MT6853) || defined(CONFIG_MACH_MT6833) || \
+	defined(CONFIG_MACH_MT6877)
 				mtk_crtc_update_hrt_state_ex(
 					crtc, lyeblob_ids,
 					cmdq_handle);
@@ -1925,6 +1934,7 @@ static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
 			mtk_crtc_get_plane_comp_state(crtc, cmdq_handle);
 			mtk_crtc_atmoic_ddp_config(crtc, lyeblob_ids,
 						   cmdq_handle);
+#ifndef MTK_DRM_BRINGUP_STAGE
 			if (lyeblob_ids->lye_idx == 2 && !already_free) {
 				/*free fb buf in second query valid*/
 				DDPMSG("%s, %d release frame buffer\n", __func__, __LINE__);
@@ -1932,6 +1942,7 @@ static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
 				free_fb_buf();
 				already_free = true;
 			}
+#endif
 			break;
 		} else if (lyeblob_ids->lye_idx < prop_lye_idx) {
 			if (lyeblob_ids->ref_cnt) {
@@ -2007,16 +2018,18 @@ static void mtk_crtc_release_lye_idx(struct drm_crtc *crtc)
 
 bool mtk_crtc_with_trigger_loop(struct drm_crtc *crtc)
 {
+#ifdef CONFIG_MTK_DISPLAY_CMDQ
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 
 	if (mtk_crtc->gce_obj.client[CLIENT_TRIG_LOOP])
 		return true;
+#endif
 	return false;
 }
 
 /* sw workaround to fix gce hw bug */
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) || \
-	defined(CONFIG_MACH_MT6833)
+	defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
 bool mtk_crtc_with_sodi_loop(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
@@ -2186,10 +2199,12 @@ void mtk_crtc_wait_frame_done(struct mtk_drm_crtc *mtk_crtc,
 static void mtk_crtc_cmdq_timeout_cb(struct cmdq_cb_data data)
 {
 	struct drm_crtc *crtc = data.data;
+#ifdef CONFIG_MTK_DISPLAY_CMDQ
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct cmdq_client *cl;
 	dma_addr_t trig_pc;
 	u64 *inst;
+#endif
 
 	if (!crtc) {
 		DDPPR_ERR("%s find crtc fail\n", __func__);
@@ -2201,6 +2216,7 @@ static void mtk_crtc_cmdq_timeout_cb(struct cmdq_cb_data data)
 	mtk_drm_crtc_analysis(crtc);
 	mtk_drm_crtc_dump(crtc);
 
+#ifdef CONFIG_MTK_DISPLAY_CMDQ
 	if ((mtk_crtc->trig_loop_cmdq_handle) &&
 			(mtk_crtc->trig_loop_cmdq_handle->cl)) {
 		cl = (struct cmdq_client *)mtk_crtc->trig_loop_cmdq_handle->cl;
@@ -2211,7 +2227,7 @@ static void mtk_crtc_cmdq_timeout_cb(struct cmdq_cb_data data)
 
 		DDPMSG("------ Dump trigger loop ------\n");
 	}
-
+#endif
 	/* CMDQ driver would not trigger aee when timeout. */
 	DDPAEE("%s cmdq timeout, crtc id:%d\n", __func__, drm_crtc_index(crtc));
 }
@@ -2419,6 +2435,7 @@ end:
 	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 }
 
+#ifdef CONFIG_MTK_DISPLAY_CMDQ
 static void mtk_crtc_release_input_layer_fence(
 	struct drm_crtc *crtc, int session_id)
 {
@@ -2482,6 +2499,7 @@ static void mtk_crtc_update_hrt_qos(struct drm_crtc *crtc,
 				NO_PENDING_HRT;
 	}
 }
+#endif
 
 static void mtk_crtc_enable_iommu(struct mtk_drm_crtc *mtk_crtc,
 			   struct cmdq_pkt *handle)
@@ -2554,7 +2572,7 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 			DDPPR_ERR("ovl status error\n");
 #endif
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) || \
-	defined(CONFIG_MACH_MT6833)
+	defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
 		if (ovl_status & 1) {
 			DDPPR_ERR("ovl status error\n");
 			mtk_drm_crtc_analysis(crtc);
@@ -2604,6 +2622,7 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 }
 
 #else
+#ifdef CONFIG_MTK_DISPLAY_CMDQ
 /* ddp_cmdq_cb_blocking should be called within locked function */
 static void ddp_cmdq_cb_blocking(struct mtk_cmdq_cb_data *cb_data)
 {
@@ -2652,7 +2671,7 @@ static void ddp_cmdq_cb_blocking(struct mtk_cmdq_cb_data *cb_data)
 	cmdq_pkt_destroy(cb_data->cmdq_handle);
 	kfree(cb_data);
 }
-
+#endif
 #endif
 
 static void mtk_crtc_ddp_config(struct drm_crtc *crtc)
@@ -2664,8 +2683,10 @@ static void mtk_crtc_ddp_config(struct drm_crtc *crtc)
 	struct cmdq_pkt *cmdq_handle = state->cmdq_handle;
 	unsigned int i;
 	unsigned int ovl_is_busy;
+#ifdef CONFIG_MTK_DISPLAY_CMDQ
 	struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
 	unsigned int last_fence, cur_fence, sub;
+#endif
 
 	/*
 	 * TODO: instead of updating the registers here, we should prepare
@@ -2713,7 +2734,7 @@ static void mtk_crtc_ddp_config(struct drm_crtc *crtc)
 			continue;
 
 		mtk_ddp_comp_layer_config(comp, i, plane_state, cmdq_handle);
-
+#ifdef CONFIG_MTK_DISPLAY_CMDQ
 		last_fence = *(unsigned int *)(cmdq_buf->va_base +
 					       DISP_SLOT_CUR_CONFIG_FENCE(i));
 		cur_fence =
@@ -2730,7 +2751,7 @@ static void mtk_crtc_ddp_config(struct drm_crtc *crtc)
 			       cmdq_buf->pa_base +
 				       DISP_SLOT_SUBTRACTOR_WHEN_FREE(i),
 			       sub, ~0);
-
+#endif
 		plane_state->pending.config = false;
 	}
 
@@ -2813,7 +2834,7 @@ static void mtk_crtc_rec_trig_cnt(struct mtk_drm_crtc *mtk_crtc,
 
 /* sw workaround to fix gce hw bug */
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) || \
-	defined(CONFIG_MACH_MT6833)
+	defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
 void mtk_crtc_start_sodi_loop(struct drm_crtc *crtc)
 {
 	struct cmdq_pkt *cmdq_handle;
@@ -2854,7 +2875,7 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 	unsigned long crtc_id = (unsigned long)drm_crtc_index(crtc);
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) || \
-	defined(CONFIG_MACH_MT6833)
+	defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
 	struct cmdq_operand lop, rop;
 
 	const u16 reg_jump = CMDQ_THR_SPR_IDX1;
@@ -2875,6 +2896,10 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 			__func__, __LINE__, crtc_id);
 		return;
 	}
+    // FPGA early porting need to disable cmdq
+#ifndef CONFIG_MTK_DISPLAY_CMDQ
+	return;
+#endif
 
 	mtk_crtc->trig_loop_cmdq_handle = cmdq_pkt_create(
 		mtk_crtc->gce_obj.client[CLIENT_TRIG_LOOP]);
@@ -2944,7 +2969,7 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 
 /* sw workaround to fix gce hw bug */
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) || \
-	defined(CONFIG_MACH_MT6833)
+	defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
 		cmdq_pkt_read(cmdq_handle, NULL,
 			GCE_BASE_ADDR + GCE_DEBUG_START_ADDR, var1);
 
@@ -2996,6 +3021,31 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 	mtk_crtc_clear_wait_event(crtc);
 }
 
+#ifndef CONFIG_MTK_DISPLAY_CMDQ
+void trigger_without_cmdq(struct drm_crtc *crtc)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc->state);
+	struct cmdq_pkt *cmdq_handle = state->cmdq_handle;
+#ifndef CONFIG_FPGA_EARLY_PORTING
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
+
+	/* wait for TE, fpga no TE signal */
+	drm_wait_one_vblank(priv->drm, 0);
+#endif
+
+	DDPDBG("%s:%d for early porting\n",
+		__func__, __LINE__);
+	/*Trigger without cmdq*/
+	mtk_disp_mutex_enable_cmdq(mtk_crtc->mutex[0], cmdq_handle,
+		mtk_crtc->gce_obj.base);
+	mtk_crtc_comp_trigger(mtk_crtc, cmdq_handle,
+		MTK_TRIG_FLAG_TRIGGER);
+	//loop for check idle of dsi, maybe timeout
+	mtk_crtc_comp_trigger(mtk_crtc, cmdq_handle, MTK_TRIG_FLAG_EOF);
+}
+#endif
+
 void mtk_crtc_hw_block_ready(struct drm_crtc *crtc)
 {
 	struct cmdq_pkt *cmdq_handle;
@@ -3020,7 +3070,7 @@ void mtk_crtc_stop_trig_loop(struct drm_crtc *crtc)
 
 /* sw workaround to fix gce hw bug */
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) || \
-	defined(CONFIG_MACH_MT6833)
+	defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
 void mtk_crtc_stop_sodi_loop(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
@@ -3114,7 +3164,7 @@ static void mtk_crtc_addon_connector_disconnect(struct drm_crtc *crtc,
 #if defined(CONFIG_MACH_MT6873)
 		mtk_ddp_remove_dsc_prim_MT6873(mtk_crtc, handle);
 #endif
-#if defined(CONFIG_MACH_MT6853)
+#if defined(CONFIG_MACH_MT6853) || defined(CONFIG_MACH_MT6877)
 		mtk_ddp_remove_dsc_prim_MT6853(mtk_crtc, handle);
 #endif
 		mtk_disp_mutex_remove_comp_with_cmdq(mtk_crtc, dsc_comp->id,
@@ -3193,7 +3243,7 @@ static void mtk_crtc_addon_connector_connect(struct drm_crtc *crtc,
 #if defined(CONFIG_MACH_MT6873)
 		mtk_ddp_insert_dsc_prim_MT6873(mtk_crtc, handle);
 #endif
-#if defined(CONFIG_MACH_MT6853)
+#if defined(CONFIG_MACH_MT6853) || defined(CONFIG_MACH_MT6877)
 		mtk_ddp_insert_dsc_prim_MT6853(mtk_crtc, handle);
 #endif
 		mtk_disp_mutex_add_comp_with_cmdq(mtk_crtc, dsc_comp->id,
@@ -3675,6 +3725,9 @@ void mtk_crtc_stop(struct mtk_drm_crtc *mtk_crtc, bool need_wait)
 	struct drm_crtc *crtc = &mtk_crtc->base;
 
 	DDPINFO("%s:%d +\n", __func__, __LINE__);
+#ifndef CONFIG_MTK_DISPLAY_CMDQ
+	return;
+#endif
 
 	/* 0. Waiting CLIENT_DSI_CFG thread done */
 	if (crtc_id == 0) {
@@ -3740,7 +3793,7 @@ skip:
 	if (mtk_crtc_with_trigger_loop(crtc)) {
 		mtk_crtc_stop_trig_loop(crtc);
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) || \
-	defined(CONFIG_MACH_MT6833)
+	defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
 		if (mtk_crtc_with_sodi_loop(crtc) &&
 				(!mtk_crtc_is_frame_trigger_mode(crtc)))
 			mtk_crtc_stop_sodi_loop(crtc);
@@ -3797,7 +3850,9 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_crtc_state *mtk_state = to_mtk_crtc_state(crtc->state);
 	unsigned int crtc_id = drm_crtc_index(crtc);
+#ifdef CONFIG_MTK_DISPLAY_CMDQ
 	struct cmdq_client *client;
+#endif
 	struct mtk_ddp_comp *comp;
 	int i, j;
 	struct mtk_ddp_comp *output_comp = NULL;
@@ -3837,17 +3892,18 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 	mtk_crtc_ddp_prepare(mtk_crtc);
 #endif
 
+#ifdef CONFIG_MTK_DISPLAY_CMDQ
 	/* 3. power on cmdq client */
 	if (crtc_id == 2) {
 		client = mtk_crtc->gce_obj.client[CLIENT_CFG];
 		cmdq_mbox_enable(client->chan);
 		CRTC_MMP_MARK(crtc_id, enable, 1, 1);
 	}
-
+#endif
 	/* 4. start trigger loop first to keep gce alive */
 	if (mtk_crtc_with_trigger_loop(crtc)) {
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) || \
-	defined(CONFIG_MACH_MT6833)
+	defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
 		if (mtk_crtc_with_sodi_loop(crtc) &&
 			(!mtk_crtc_is_frame_trigger_mode(crtc)))
 			mtk_crtc_start_sodi_loop(crtc);
@@ -4214,7 +4270,7 @@ void mtk_drm_crtc_first_enable(struct drm_crtc *crtc)
 	/* 2. start trigger loop first to keep gce alive */
 	if (mtk_crtc_with_trigger_loop(crtc)) {
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) || \
-	defined(CONFIG_MACH_MT6833)
+	defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
 		if (mtk_crtc_with_sodi_loop(crtc) &&
 			(!mtk_crtc_is_frame_trigger_mode(crtc)))
 			mtk_crtc_start_sodi_loop(crtc);
@@ -4247,7 +4303,7 @@ void mtk_drm_crtc_first_enable(struct drm_crtc *crtc)
 
 	/* 8. set CRTC SW status */
 	mtk_crtc_set_status(crtc, true);
-
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	/* 9. power off mtcmos*/
 	/* Because of align lk hw power status,
 	 * we power on mtcmos at the beginning of the display initialization.
@@ -4255,6 +4311,7 @@ void mtk_drm_crtc_first_enable(struct drm_crtc *crtc)
 	 * Here we only decrease ref count, the power will hold on.
 	 */
 	mtk_drm_top_clk_disable_unprepare(crtc->dev);
+#endif
 }
 
 void mtk_drm_crtc_disable(struct drm_crtc *crtc, bool need_wait)
@@ -4263,7 +4320,9 @@ void mtk_drm_crtc_disable(struct drm_crtc *crtc, bool need_wait)
 	unsigned int crtc_id = drm_crtc_index(&mtk_crtc->base);
 	struct mtk_ddp_comp *comp = NULL;
 	struct mtk_ddp_comp *output_comp = NULL;
+#ifdef CONFIG_MTK_DISPLAY_CMDQ
 	struct cmdq_client *client;
+#endif
 	int en = 0;
 	struct mtk_drm_private *private = crtc->dev->dev_private;
 
@@ -4310,14 +4369,14 @@ void mtk_drm_crtc_disable(struct drm_crtc *crtc, bool need_wait)
 
 	/* 7. disable vblank */
 	drm_crtc_vblank_off(crtc);
-
+#ifdef CONFIG_MTK_DISPLAY_CMDQ
 	/* 8. power off cmdq client */
 	if (crtc_id == 2) {
 		client = mtk_crtc->gce_obj.client[CLIENT_CFG];
 		cmdq_mbox_disable(client->chan);
 		CRTC_MMP_MARK(crtc_id, disable, 1, 2);
 	}
-
+#endif
 	/* If open dynamic OVL 4+2, need switch ovl back to main disp */
 	if (!private) {
 		DDPPR_ERR("%s private is NULL\n", __func__);
@@ -4704,11 +4763,11 @@ void mtk_drm_crtc_plane_update(struct drm_crtc *crtc, struct drm_plane *plane,
 #ifdef CONFIG_MTK_DISPLAY_CMDQ
 	unsigned int v = crtc->state->adjusted_mode.vdisplay;
 	unsigned int h = crtc->state->adjusted_mode.hdisplay;
-#endif
-	struct cmdq_pkt *cmdq_handle = state->cmdq_handle;
 	struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
 	unsigned int last_fence, cur_fence, sub;
 	dma_addr_t addr;
+#endif
+	struct cmdq_pkt *cmdq_handle = state->cmdq_handle;
 
 	if (comp)
 		DDPINFO("%s+ comp_id:%d, comp_id:%d\n", __func__, comp->id,
@@ -4751,6 +4810,7 @@ void mtk_drm_crtc_plane_update(struct drm_crtc *crtc, struct drm_plane *plane,
 		mtk_ddp_comp_layer_config(comp, plane_index, plane_state,
 					  cmdq_handle);
 	}
+#ifdef CONFIG_MTK_DISPLAY_CMDQ
 	last_fence = *(unsigned int *)(cmdq_buf->va_base +
 				       DISP_SLOT_CUR_CONFIG_FENCE(plane_index));
 	cur_fence = plane_state->pending.prop_val[PLANE_PROP_NEXT_BUFF_IDX];
@@ -4767,7 +4827,7 @@ void mtk_drm_crtc_plane_update(struct drm_crtc *crtc, struct drm_plane *plane,
 		sub = 0;
 	addr = cmdq_buf->pa_base + DISP_SLOT_SUBTRACTOR_WHEN_FREE(plane_index);
 	cmdq_pkt_write(cmdq_handle, mtk_crtc->gce_obj.base, addr, sub, ~0);
-
+#endif
 	DDPINFO("%s-\n", __func__);
 }
 
@@ -5242,7 +5302,9 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	int index = drm_crtc_index(crtc);
 	unsigned int pending_planes = 0;
 	unsigned int i, j;
+#ifdef CONFIG_MTK_DISPLAY_CMDQ
 	unsigned int ret = 0;
+#endif
 	struct drm_crtc_state *crtc_state = crtc->state;
 	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc_state);
 	struct cmdq_pkt *cmdq_handle = state->cmdq_handle;
@@ -5346,7 +5408,7 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 			mtk_ddp_comp_io_cmd(comp, cmdq_handle,
 				BACKUP_OVL_STATUS, NULL);
 	}
-
+#ifdef CONFIG_MTK_DISPLAY_CMDQ
 #ifdef MTK_DRM_CMDQ_ASYNC
 	ret = mtk_crtc_gce_flush(crtc, ddp_cmdq_cb, cb_data, cmdq_handle);
 	if (ret) {
@@ -5362,6 +5424,7 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 		goto end;
 	}
 	ddp_cmdq_cb_blocking(cb_data);
+#endif
 #endif
 
 #ifdef MTK_DRM_FENCE_SUPPORT
@@ -5393,6 +5456,10 @@ end:
 		}
 	}
 
+
+#ifndef CONFIG_MTK_DISPLAY_CMDQ
+	trigger_without_cmdq(crtc);
+#endif
 	CRTC_MMP_EVENT_END(index, atomic_flush, (unsigned long)crtc_state,
 			(unsigned long)old_crtc_state);
 	mtk_drm_trace_end();
@@ -5554,7 +5621,7 @@ static void mtk_crtc_get_event_name(struct mtk_drm_crtc *mtk_crtc, char *buf,
 			       drm_crtc_index(&mtk_crtc->base));
 		break;
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) || \
-	defined(CONFIG_MACH_MT6833)
+	defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
 	case EVENT_SYNC_TOKEN_SODI:
 		len = snprintf(buf, buf_len, "disp_token_sodi%d",
 			       drm_crtc_index(&mtk_crtc->base));
@@ -5612,6 +5679,7 @@ static void mtk_crtc_get_event_name(struct mtk_drm_crtc *mtk_crtc, char *buf,
 	}
 }
 
+#ifdef CONFIG_MTK_DISPLAY_CMDQ
 static void mtk_crtc_init_color_matrix_data_slot(
 					struct mtk_drm_crtc *mtk_crtc)
 {
@@ -5631,7 +5699,7 @@ static void mtk_crtc_init_color_matrix_data_slot(
 	cmdq_pkt_flush(cmdq_handle);
 	cmdq_pkt_destroy(cmdq_handle);
 }
-
+#endif
 static void mtk_crtc_init_gce_obj(struct drm_device *drm_dev,
 				  struct mtk_drm_crtc *mtk_crtc)
 {
@@ -5681,6 +5749,7 @@ static void mtk_crtc_init_gce_obj(struct drm_device *drm_dev,
 	}
 
 	cmdq_buf = &(mtk_crtc->gce_obj.buf);
+#ifdef CONFIG_MTK_DISPLAY_CMDQ
 	if (mtk_crtc->gce_obj.client[CLIENT_CFG]) {
 		DDPINFO("[CRTC][CHECK-1]0x%p\n",
 			mtk_crtc->gce_obj.client[CLIENT_CFG]);
@@ -5697,13 +5766,14 @@ static void mtk_crtc_init_gce_obj(struct drm_device *drm_dev,
 						mtk_crtc->gce_obj
 							.client[CLIENT_CFG]
 							->chan->mbox->dev);
+						cmdq_buf->va_base = cmdq_mbox_buf_alloc(
+							mtk_crtc->gce_obj.client[CLIENT_CFG]
+							->chan->mbox->dev,
+							&(cmdq_buf->pa_base));
 				}
 			}
 		}
 	}
-	cmdq_buf->va_base = cmdq_mbox_buf_alloc(
-		mtk_crtc->gce_obj.client[CLIENT_CFG]->chan->mbox->dev,
-		&(cmdq_buf->pa_base));
 
 	if (!cmdq_buf->va_base) {
 		DDPPR_ERR("va base is NULL\n");
@@ -5715,6 +5785,7 @@ static void mtk_crtc_init_gce_obj(struct drm_device *drm_dev,
 	mtk_crtc_init_color_matrix_data_slot(mtk_crtc);
 
 	mtk_crtc->gce_obj.base = cmdq_register_device(dev);
+#endif
 }
 
 void mtk_drm_fake_vsync_switch(struct drm_crtc *crtc, bool enable)
@@ -7584,7 +7655,7 @@ skip:
 	if (mtk_crtc_with_trigger_loop(crtc)) {
 		mtk_crtc_stop_trig_loop(crtc);
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) || \
-	defined(CONFIG_MACH_MT6833)
+	defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
 		if (mtk_crtc_with_sodi_loop(crtc) &&
 				(!mtk_crtc_is_frame_trigger_mode(crtc)))
 			mtk_crtc_stop_sodi_loop(crtc);

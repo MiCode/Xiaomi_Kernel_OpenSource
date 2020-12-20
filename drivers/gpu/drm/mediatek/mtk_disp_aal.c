@@ -26,6 +26,13 @@
 //For 120Hz rotation issue
 #include <linux/time.h>
 
+//workaround for fix led related build error
+#if defined(CONFIG_MACH_MT6877)
+#define mt_leds_brightness_set(x, y) do { } while (0)
+#define MT65XX_LED_MODE_NONE (0)
+#define MT65XX_LED_MODE_CUST_LCM (4)
+#else
+
 #ifdef CONFIG_LEDS_MTK_DISP
 #define CONFIG_LEDS_BRIGHTNESS_CHANGED
 #include <mtk_leds_drv.h>
@@ -38,6 +45,8 @@
 #define mt_leds_brightness_set(x, y) do { } while (0)
 #define MT65XX_LED_MODE_NONE (0)
 #define MT65XX_LED_MODE_CUST_LCM (4)
+#endif
+
 #endif
 
 #include "mtk_drm_crtc.h"
@@ -1051,7 +1060,7 @@ static int disp_aal_write_dre_to_reg(struct mtk_ddp_comp *comp,
 	gain = param->DREGainFltStatus;
 #if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873) \
 	|| defined(CONFIG_MACH_MT6893) || defined(CONFIG_MACH_MT6853) \
-	|| defined(CONFIG_MACH_MT6833)
+	|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + DISP_AAL_DRE_FLT_FORCE(0),
 	    DRE_REG_2(gain[0], 0, gain[1], 14), ~0);
@@ -2104,7 +2113,7 @@ static void mtk_aal_prepare(struct mtk_ddp_comp *comp)
 	}
 #else
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
-	|| defined(CONFIG_MACH_MT6833)
+	|| defined(CONFIG_MACH_MT6833)  || defined(CONFIG_MACH_MT6877)
 	/* Bypass shadow register and read shadow register */
 	mtk_ddp_write_mask_cpu(comp, AAL_BYPASS_SHADOW,
 		DISP_AAL_SHADOW_CTRL, AAL_BYPASS_SHADOW);
