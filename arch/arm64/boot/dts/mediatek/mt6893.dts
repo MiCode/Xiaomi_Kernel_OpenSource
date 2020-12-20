@@ -246,7 +246,8 @@ page_owner=on loop.max_part=7";
 			     <&level_edma0 &level_edma1>,
 			     <&level_mali0 &level_mali1 &level_mali2>,
 			     <&level_mali3 &level_mali4>,
-			     <&level_i2c0>;
+			     <&level_i2c0>,
+			     <&level_btif_tx &level_btif_rx &level_bt>;
 
 		resource-ctrl = <&bus26m &infra &syspll>,
 				<&dram_s0 &dram_s1>;
@@ -317,6 +318,18 @@ page_owner=on loop.max_part=7";
 			level_i2c0: level_i2c0 {
 				target = <&i2c0>;
 				value = <0 0 0 0>;
+			};
+			level_bt: level_bt {
+				target = <&bt>;
+				value = <0 0 0 0>;
+			};
+			level_btif_tx: level_btif_tx {
+				target = <&btif>;
+				value = <0 1 0 0>;
+			};
+			level_btif_rx: level_btif_rx {
+				target = <&btif>;
+				value = <0 2 0 0>;
 			};
 		};
 		resource-ctrl-list {
@@ -664,7 +677,7 @@ page_owner=on loop.max_part=7";
 		reg = <0 0x1000d000 0 0x1000>;
 	};
 
-	btif@1100c000 {
+	btif: btif@1100c000 {
 		compatible = "mediatek,btif";
 		/*btif base*/
 		reg = <0 0x1100c000 0 0x1000>,
@@ -5550,7 +5563,7 @@ page_owner=on loop.max_part=7";
 		mediatek,smi-id = <4>;
 	};
 
-	bt@18000000 {
+	bt: bt@18000000 {
 		compatible = "mediatek,bt";
 			/* conn_infra_rgu */
 		reg = <0 0x18000000 0 0x1000>,
