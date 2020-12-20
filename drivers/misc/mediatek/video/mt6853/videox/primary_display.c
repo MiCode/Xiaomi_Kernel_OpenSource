@@ -8247,9 +8247,10 @@ int primary_display_capture_framebuffer_ovl(unsigned long pbuf,
 		goto out;
 	}
 
-	ion_display_handle = disp_ion_alloc(ion_display_client,
-					    ION_HEAP_MULTIMEDIA_MAP_MVA_MASK,
-					    pbuf, buffer_size);
+	/*
+	 * TODO: legacy ion_handle allocate API phase out,
+	 *	need develop another method allocate MVA
+	 */
 	if (!ion_display_handle) {
 		DISPMSG("primary capture:Fail to allocate buffer\n");
 		ret = -1;

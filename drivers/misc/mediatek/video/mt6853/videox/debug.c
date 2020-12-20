@@ -522,9 +522,10 @@ static int alloc_buffer_from_dma(size_t size, struct test_buf_info *buf_info)
 		goto out;
 	}
 
-	ion_display_handle = disp_ion_alloc(ion_display_client,
-		ION_HEAP_MULTIMEDIA_PA2MVA_MASK, buf_info->buf_pa,
-		size_align);
+	/*
+	 * TODO: legacy ion_handle allocate API phase out,
+	 *	need develop another method allocate MVA
+	 */
 	if (ret != 0) {
 		DISPWARN("primary capture:Fail to allocate buffer\n");
 		ret = -1;
