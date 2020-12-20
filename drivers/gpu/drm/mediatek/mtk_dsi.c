@@ -651,7 +651,7 @@ static void mtk_dsi_phy_timconfig(struct mtk_dsi *dsi,
 static void mtk_dsi_enable(struct mtk_dsi *dsi)
 {
 	mtk_dsi_mask(dsi, DSI_CON_CTRL, DSI_EN, DSI_EN);
-#if !defined(CONFIG_MACH_MT6885)
+#if !defined(CONFIG_MACH_MT6885) && !defined(CONFIG_MACH_MT6893)
 	mtk_dsi_mask(dsi, DSI_CON_CTRL, DSI_CM_WAIT_FIFO_FULL_EN,
 		DSI_CM_WAIT_FIFO_FULL_EN);
 #endif
