@@ -136,6 +136,7 @@ int msm_data_fifo_config(struct usb_ep *ep, unsigned long addr, u32 size,
 bool msm_dwc3_reset_ep_after_lpm(struct usb_gadget *gadget);
 int msm_dwc3_reset_dbm_ep(struct usb_ep *ep);
 int dwc3_msm_release_ss_lane(struct device *dev);
+bool usb_get_remote_wakeup_status(struct usb_gadget *gadget);
 #else
 static inline struct usb_ep *usb_ep_autoconfig_by_name(
 		struct usb_gadget *gadget, struct usb_endpoint_descriptor *desc,
@@ -163,6 +164,8 @@ static inline int msm_dwc3_reset_dbm_ep(struct usb_ep *ep)
 { return -ENODEV; }
 static inline int dwc3_msm_release_ss_lane(struct device *dev)
 { return -ENODEV; }
+static bool __maybe_unused usb_get_remote_wakeup_status(struct usb_gadget *gadget)
+{ return false; }
 #endif
 
 #endif /* __LINUX_USB_DWC3_MSM_H */

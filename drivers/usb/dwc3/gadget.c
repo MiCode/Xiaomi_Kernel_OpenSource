@@ -1993,6 +1993,12 @@ static int dwc3_gadget_wakeup(struct usb_gadget *g)
 	int			ret;
 
 	spin_lock_irqsave(&dwc->lock, flags);
+	if (!dwc->is_remote_wakeup_enabled) {
+		spin_unlock_irqrestore(&dwc->lock, flags);
+		dbg_log_string("remote wakeup not supported\n");
+		return -EINVAL;
+	}
+
 	ret = __dwc3_gadget_wakeup(dwc);
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
@@ -2508,6 +2514,7 @@ static int dwc3_gadget_start(struct usb_gadget *g,
 	}
 
 	dwc->gadget_driver	= driver;
+	dwc->is_remote_wakeup_enabled = false;
 
 	/*
 	 * For DRD, this might get called by gadget driver during bootup
@@ -2539,6 +2546,7 @@ static int dwc3_gadget_stop(struct usb_gadget *g)
 
 	spin_lock_irqsave(&dwc->lock, flags);
 	dwc->gadget_driver	= NULL;
+	dwc->is_remote_wakeup_enabled = false;
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
 	dbg_event(0xFF, "fwq_started", 0);
@@ -3362,6 +3370,7 @@ static void dwc3_gadget_reset_interrupt(struct dwc3 *dwc)
 
 	dwc->gadget.speed = USB_SPEED_UNKNOWN;
 	dwc->link_state = DWC3_LINK_STATE_U0;
+	dwc->is_remote_wakeup_enabled = false;
 }
 
 static void dwc3_gadget_conndone_interrupt(struct dwc3 *dwc)

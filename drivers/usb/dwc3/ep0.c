@@ -340,6 +340,9 @@ static int dwc3_ep0_handle_status(struct dwc3 *dwc,
 				usb_status |= 1 << USB_DEV_STAT_U1_ENABLED;
 			if (reg & DWC3_DCTL_INITU2ENA)
 				usb_status |= 1 << USB_DEV_STAT_U2_ENABLED;
+		} else {
+			usb_status |= dwc->is_remote_wakeup_enabled <<
+						USB_DEVICE_REMOTE_WAKEUP;
 		}
 
 		break;
@@ -460,6 +463,9 @@ static int dwc3_ep0_handle_device(struct dwc3 *dwc,
 
 	switch (wValue) {
 	case USB_DEVICE_REMOTE_WAKEUP:
+		dbg_log_string("remote wakeup :%s",
+				(set ? "enabled" : "disabled"));
+		dwc->is_remote_wakeup_enabled = set;
 		break;
 	/*
 	 * 9.4.1 says only only for SS, in AddressState only for
