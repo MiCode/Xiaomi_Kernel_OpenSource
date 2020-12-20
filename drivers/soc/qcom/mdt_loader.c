@@ -4,7 +4,7 @@
  *
  * Copyright (C) 2016 Linaro Ltd
  * Copyright (C) 2015 Sony Mobile Communications Inc
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, 2020 The Linux Foundation. All rights reserved.
  */
 
 #include <linux/device.h>
@@ -88,6 +88,7 @@ void *qcom_mdt_read_metadata(const struct firmware *fw, size_t *data_len)
 	const struct elf32_phdr *phdrs;
 	const struct elf32_hdr *ehdr;
 	size_t hash_offset;
+	size_t hash_index;
 	size_t hash_size;
 	size_t ehdr_size;
 	void *data;
@@ -98,14 +99,19 @@ void *qcom_mdt_read_metadata(const struct firmware *fw, size_t *data_len)
 	if (ehdr->e_phnum < 2)
 		return ERR_PTR(-EINVAL);
 
-	if (phdrs[0].p_type == PT_LOAD || phdrs[1].p_type == PT_LOAD)
+	if (phdrs[0].p_type == PT_LOAD)
 		return ERR_PTR(-EINVAL);
 
-	if ((phdrs[1].p_flags & QCOM_MDT_TYPE_MASK) != QCOM_MDT_TYPE_HASH)
+	for (hash_index = 1; hash_index < ehdr->e_phnum; hash_index++) {
+		if (phdrs[hash_index].p_type != PT_LOAD &&
+		   (phdrs[hash_index].p_flags & QCOM_MDT_TYPE_MASK) == QCOM_MDT_TYPE_HASH)
+			break;
+	}
+	if (hash_index >= ehdr->e_phnum)
 		return ERR_PTR(-EINVAL);
 
 	ehdr_size = phdrs[0].p_filesz;
-	hash_size = phdrs[1].p_filesz;
+	hash_size = phdrs[hash_index].p_filesz;
 
 	data = kmalloc(ehdr_size + hash_size, GFP_KERNEL);
 	if (!data)
@@ -115,7 +121,7 @@ void *qcom_mdt_read_metadata(const struct firmware *fw, size_t *data_len)
 	if (ehdr_size + hash_size == fw->size)
 		hash_offset = phdrs[0].p_filesz;
 	else
-		hash_offset = phdrs[1].p_offset;
+		hash_offset = phdrs[hash_index].p_offset;
 
 	memcpy(data, fw->data, ehdr_size);
 	memcpy(data + ehdr_size, fw->data + hash_offset, hash_size);
