@@ -428,6 +428,10 @@ static struct devapc_vio_callbacks devapc_vio_handle = {
 /******************* TOPCKGEN Subsys *******************************/
 void warn_vcore(int opp, const char *clk_name, int rate, int id)
 {
+#if defined(CONFIG_MTK_DVFSRC_MT6877_PRETEST)
+	if (opp >= 1)
+		opp = opp - 1;
+#endif
 	if ((opp >= 0) && (id >= 0) && (vf_table[id].freq_table[opp] > 0) &&
 			((rate/1000) > (vf_table[id].freq_table[opp]))) {
 		pr_notice("%s Choose %d FAIL!!!![MAX(%d/%d): %d]\r\n",
