@@ -19,6 +19,25 @@
  **************************************/
 
 /* SPM REGISTER*/
+#if defined(CONFIG_MACH_MT6877)
+#define POWERON_CONFIG_EN              (0x0000)
+#define SPM_SW_FLAG_0                  (0x0600)
+#define SPM_PC_STA                     (0x0194)
+#define SPM_DVFS_LEVEL                 (0x038C)
+#define SPM_DVS_DFS_LEVEL              (0x0390)
+#define SPM_DVFS_STA                   (0x0388)
+#define SPM_DVFS_MISC                  (0x03A0)
+#define SPM_DVFS_CMD0                  (0x0310)
+#define SPM_DVFS_CMD1                  (0x0314)
+#define SPM_DVFS_CMD2                  (0x0318)
+#define SPM_DVFS_CMD3                  (0x031C)
+#define SPM_DVFS_CMD4                  (0x0320)
+#define SPM_DVFS_CMD16                 (0x0350)
+#define SPM_DVFS_CMD17                 (0x0354)
+#define SPM_DVFS_CMD18                 (0x0358)
+#define SPM_DVFS_CMD19                 (0x035C)
+#define SPM_DVFS_CMD20                 (0x0360)
+#else
 #define POWERON_CONFIG_EN              (0x0000)
 #define SPM_SW_FLAG_0                  (0x0600)
 #define SPM_PC_STA                     (0x0194)
@@ -36,5 +55,7 @@
 #define SPM_DVFS_CMD18                 (0x0758)
 #define SPM_DVFS_CMD19                 (0x075C)
 #define SPM_DVFS_CMD20                 (0x0760)
+#endif
+
 
 #endif /* __MTK_DVFSRC_REG_V2_H */

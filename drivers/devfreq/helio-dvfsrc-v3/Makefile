@@ -50,6 +50,10 @@ ifneq (,$(filter $(CONFIG_MACH_MT6833), y))
 ccflags-y += -DDVFSRC_SMC_CONTROL
 ccflags-y += -DDVFSRC_SUSPEND_SUPPORT
 endif
+ifneq (,$(filter $(CONFIG_MACH_MT6877), y))
+ccflags-y += -DDVFSRC_SMC_CONTROL
+ccflags-y += -DDVFSRC_SUSPEND_SUPPORT
+endif
 
 obj-y += helio-dvfsrc-qos.o helio-dvfsrc-sysfs.o helio-dvfsrc-opp.o
 obj-$(CONFIG_MACH_MT6785) += helio-dvfsrc-opp-mt6785.o helio-dvfsrc-mt6785.o helio-dvfsrc-ip-v2.o
@@ -62,3 +66,4 @@ obj-$(CONFIG_MACH_MT6853) += helio-dvfsrc-opp-mt6853.o helio-dvfsrc-mt6853.o hel
 endif
 obj-$(CONFIG_MACH_MT6893) += helio-dvfsrc-opp-mt6893.o helio-dvfsrc-mt6893.o helio-dvfsrc-ip-v2.o helio-dvfsrc-smc-control.o
 obj-$(CONFIG_MACH_MT6833) += helio-dvfsrc-opp-mt6833.o helio-dvfsrc-mt6833.o helio-dvfsrc-ip-v2.o helio-dvfsrc-smc-control.o
+obj-$(CONFIG_MACH_MT6877) += helio-dvfsrc-opp-v6877.o helio-dvfsrc-v6877.o helio-dvfsrc-ip-v2.o helio-dvfsrc-smc-control.o

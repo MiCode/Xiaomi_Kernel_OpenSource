@@ -38,6 +38,8 @@
 #include <helio-dvfsrc-opp-mt6893.h>
 #elif defined(CONFIG_MACH_MT6833)
 #include <helio-dvfsrc-opp-mt6833.h>
+#elif defined(CONFIG_MACH_MT6877)
+#include <helio-dvfsrc-opp-v6877.h>
 #else
 #include <helio-dvfsrc-opp-mt67xx.h>
 #endif
@@ -45,7 +47,8 @@
 #if defined(CONFIG_MACH_MT6768) || defined(CONFIG_MACH_MT6785) \
 	|| defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6765) \
 	|| defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
-	|| defined(CONFIG_MACH_MT6893) || defined(CONFIG_MACH_MT6833)
+	|| defined(CONFIG_MACH_MT6893) || defined(CONFIG_MACH_MT6833) \
+	|| defined(CONFIG_MACH_MT6877)
 struct opp_profile {
 	int vcore_uv;
 	int ddr_khz;
@@ -74,11 +77,6 @@ extern void set_pwrap_cmd(unsigned int vcore_opp, int pwrap_cmd);
 extern int get_pwrap_cmd(unsigned int vcore_opp);
 extern int get_opp_ddr_freq(unsigned int ddr_opp);
 extern void set_opp_ddr_freq(unsigned int ddr_opp, int ddr_freq);
-#elif defined(CONFIG_MACH_MT6877)
-static inline int get_vcore_uv_table(unsigned int vcore_opp)
-{ return 750000; }
-static inline int get_cur_ddr_opp(void)
-{ return 0; }
 #endif
 
 #endif /* __HELIO_DVFSRC_OPP_H */
