@@ -117,7 +117,11 @@ s32 get_ccu_hrt_bw(struct mm_larb_request larb_req[])
 
 s32 get_md_hrt_bw(void)
 {
+#if IS_ENABLED(CONFIG_MACH_MT6853)
 	return 3344;
+#else
+	return 3888;
+#endif
 }
 
 s32 dram_write_weight(s32 val)
