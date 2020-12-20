@@ -390,5 +390,7 @@ int btif_rx_data_path_unlock(struct _mtk_btif_ *p_btif);
 int btif_rx_buf_has_pending_data(struct _mtk_btif_ *p_btif);
 int btif_rx_dma_has_pending_data(struct _mtk_btif_ *p_btif);
 int btif_tx_dma_has_pending_data(struct _mtk_btif_ *p_btif);
+void btif_dump_dma_vfifo(struct _mtk_btif_ *p_btif);
 struct task_struct *btif_rx_thread_get(struct _mtk_btif_ *p_btif);
+int btif_dump_array(const char *string, const char *p_buf, int len);
 #endif /*__MTK_BTIF_H_*/

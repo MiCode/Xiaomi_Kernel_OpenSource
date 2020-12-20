@@ -494,6 +494,9 @@ int mtk_wcn_btif_dbg_ctrl(unsigned long u_id, enum _ENUM_BTIF_DBG_ID_ flag)
 		btif_log_output_disable(&p_btif->tx_log);
 		btif_log_output_disable(&p_btif->rx_log);
 		break;
+	case BTIF_DUMP_DMA_VFIFO:
+		btif_dump_dma_vfifo(p_btif);
+		break;
 	default:
 		BTIF_INFO_FUNC("not supported flag:%d\n", flag);
 		i_ret = -2;

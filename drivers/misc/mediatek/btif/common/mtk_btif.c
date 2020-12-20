@@ -2890,12 +2890,12 @@ int _btif_dump_memory(char *str, unsigned char *p_buf, unsigned int buf_len)
 {
 	unsigned int idx = 0;
 
-	pr_debug("%s:, length:%d\n", str, buf_len);
+	pr_info("%s:, length:%d\n", str, buf_len);
 	for (idx = 0; idx < buf_len;) {
-		pr_debug("%02x ", p_buf[idx]);
+		pr_info("%02x ", p_buf[idx]);
 		idx++;
 		if (idx % 8 == 0)
-			pr_debug("\n");
+			pr_info("\n");
 	}
 	return 0;
 }
@@ -3031,6 +3031,15 @@ dmp_reg_err:
 	return i_ret;
 }
 
+void btif_dump_dma_vfifo(struct _mtk_btif_ *p_btif)
+{
+	if (p_btif->tx_mode == BTIF_MODE_DMA)
+		hal_dma_dump_vfifo(p_btif->p_tx_dma->p_dma_info);
+
+	if (p_btif->rx_mode == BTIF_MODE_DMA)
+		hal_dma_dump_vfifo(p_btif->p_rx_dma->p_dma_info);
+}
+
 int btif_rx_notify_reg(struct _mtk_btif_ *p_btif, MTK_BTIF_RX_NOTIFY rx_notify)
 {
 	if (p_btif->rx_notify) {
@@ -3060,14 +3069,14 @@ int btif_dump_data(const char *p_buf, int len)
 		if (7 == (idx % 8)) {
 			*p_str++ = '\n';
 			*p_str = '\0';
-			pr_debug("%s", str);
+			pr_info("%s", str);
 			p_str = &str[0];
 		}
 	}
 	if (len % 8) {
 		*p_str++ = '\n';
 		*p_str = '\0';
-		pr_debug("%s", str);
+		pr_info("%s", str);
 	}
 	return 0;
 }
@@ -3123,7 +3132,7 @@ int btif_log_buf_dmp_in(struct _btif_log_queue_t_ *p_log_que,
 
 /*check if log dynamic output function is enabled or not*/
 	if (output_flag) {
-		pr_debug("BTIF-DBG, dir:%s, %d.%ds(%lld.%.9ld) len:%d\n",
+		pr_info("BTIF-DBG, dir:%s, %d.%ds(%lld.%.9ld) len:%d\n",
 			 dir, (int)p_timer->tv_sec, (int)p_timer->tv_usec,
 			 (long long)p_ts->tv_sec, p_ts->tv_nsec, len);
 /*output buffer content*/
