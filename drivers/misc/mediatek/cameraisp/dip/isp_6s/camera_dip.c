@@ -2770,9 +2770,11 @@ static signed int DIP_Dump_IMGSYS_DIP_Reg(void)
 			DIP_RD32(dipRegBasAddr + 0x7220),
 			DipDumpTL[DIPNo].region,
 			DIP_RD32(dipRegBasAddr + 0x7224));
-		cmdq_util_err("nr3d: 0x%x8028(0x%x)-0x%x8028(0x%x)",
+		cmdq_util_err("nr3d: 0x%x8228(0x%x)-0x%x822c(0x%x)",
 			DipDumpTL[DIPNo].region,
-			DIP_RD32(dipRegBasAddr + 0x7028));
+			DIP_RD32(dipRegBasAddr + 0x7228),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x722c));
 		cmdq_util_err("mix_d2: 0x%x7b40(0x%x)-0x%x7b44(0x%x)",
 			DipDumpTL[DIPNo].region,
 			DIP_RD32(dipRegBasAddr + 0x6b40),
