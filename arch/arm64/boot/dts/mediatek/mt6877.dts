@@ -1814,30 +1814,12 @@
 		aed = <0x1a>;
 	};
 
-	usb0:usb3@11200000 {
-		compatible = "mediatek,usb3";
-		reg = <0 0x11200000 0 0x10000>,
-		      <0 0x11203e00 0 0x100>,
-		      <0 0x11e40000 0 0x10000>;
-		reg-names = "ssusb_base",
-		      "ssusb_ippc",
-		      "ssusb_sif2";
-		interrupts = <GIC_SPI 96 IRQ_TYPE_LEVEL_HIGH>;
-		interrupt-names = "musb-hdrc";
-		debug_level = <6>;
-		fpga_i2c_physical_base = <0x11d21000>;
-		};
-
-	usbphy0:usbphy {
-		compatible = "usb-nop-xceiv";
-	};
-
 	ssusb: usb@11201000 {
 		compatible = "mediatek,mt6877-mtu3";
 		reg = <0 0x11201000 0 0x3000>,
 		      <0 0x11203e00 0 0x100>;
 		reg-names = "mac", "ippc";
-		interrupts = <GIC_SPI 96 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 128 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "ssusb_mac";
 		/* clocks = <&infracfg_ao_clk CLK_IFRAO_SSUSB>, */
 		/* <&apmixed_clk CLK_APMIXED_USBPLL>, */
@@ -1849,6 +1831,22 @@
 		phy-names = "port0_phy";
 		extcon = <&extcon_usb>;
 		dr_mode = "otg";
+	};
+
+	u3fpgaphy: usb-phy {
+		compatible = "mediatek,fpga-u3phy";
+		mediatek,ippc = <0x11203e00>;
+		#address-cells = <2>;
+		#size-cells = <2>;
+		fpga_i2c_physical_base = <0x11d21000>;
+		status = "okay";
+
+		u3fpgaport0: usb-phy@0 {
+			chip-id= <0xa60810a>;
+			port = <0>;
+			pclk_phase = <23>;
+			#phy-cells = <1>;
+		};
 	};
 
 	usb0phy: usb0phy@11e40000 {
