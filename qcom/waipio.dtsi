@@ -1657,9 +1657,10 @@
 
 		lanes-per-direction = <2>;
 		clock-names = "ref_clk_src",
-			"ref_aux_clk";
+			"ref_aux_clk", "qref_clk";
 		clocks = <&clock_rpmh RPMH_CXO_CLK>,
-			<&clock_gcc GCC_UFS_PHY_PHY_AUX_CLK>;
+			<&clock_gcc GCC_UFS_PHY_PHY_AUX_CLK>,
+			<&clock_gcc GCC_UFS_0_CLKREF_EN>;
 		resets = <&ufshc_mem 0>;
 		status = "disabled";
 	};
