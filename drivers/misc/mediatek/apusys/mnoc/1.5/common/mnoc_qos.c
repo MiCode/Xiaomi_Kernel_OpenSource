@@ -221,7 +221,7 @@ void apu_qos_on(void)
 {
 	LOG_DEBUG("+\n");
 
-	//TODO notify_sspm_apusys_on();
+	notify_sspm_apusys_on();
 #ifdef MNOC_QOS_DEBOUNCE
 	mutex_lock(&(qos_counter.list_mtx));
 	apu_qos_timer_start();
@@ -251,10 +251,8 @@ void apu_qos_off(void)
 	mutex_unlock(&(qos_counter.list_mtx));
 	/* make sure no work_func running after timer delete */
 	cancel_work_sync(&qos_work);
-	for (i = 0; i < NR_APU_QOS_ENGINE; i++) {
-		update_qos_request(&(engine_pm_qos_counter[i].qos_req),
-			PM_QOS_DEFAULT_VALUE);
-	}
+	for (i = 0; i < NR_APU_QOS_ENGINE; i++)
+		icc_set_bw(engine_pm_qos_counter[i].emi_icc_path, 0, 0);
 #endif
 #if MNOC_QOS_BOOST_ENABLE
 	mutex_lock(&apu_qos_boost_mtx);
@@ -266,7 +264,7 @@ void apu_qos_off(void)
 	apu_bw_vcore_opp = nr_apu_vcore_opp - 1;
 	apu_qos_set_vcore(apu_bw_vcore_opp);
 #endif
-	//TODO notify_sspm_apusys_off();
+	notify_sspm_apusys_off();
 
 	LOG_DEBUG("-\n");
 }
@@ -489,8 +487,8 @@ static void qos_work_func(struct work_struct *work)
 		/* update peak bw */
 		if (counter->last_report_bw != report_bw) {
 			counter->last_report_bw = report_bw;
-			//TODO icc_set_bw(counter->emi_icc_path,
-			//TODO	   MBps_to_icc(avg_bw), MBps_to_icc(peak_bw));
+			icc_set_bw(counter->emi_icc_path,
+				   MBps_to_icc(avg_bw), MBps_to_icc(peak_bw));
 		}
 
 		LOG_DETAIL("%d: boost_val = %d, bw(%d/%d/%d)\n",
@@ -898,9 +896,17 @@ int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id,
 	if (!qos_timer_exist) {
 		/* make sure no work_func running after timer delete */
 		cancel_work_sync(&qos_work);
-//	TODO	for (i = 0; i < NR_APU_QOS_ENGINE; i++)
-			//TODO icc_set_bw(engine_pm_qos_counter[i].emi_icc_path, 0, 0);
+		for (i = 0; i < NR_APU_QOS_ENGINE; i++)
+			icc_set_bw(engine_pm_qos_counter[i].emi_icc_path, 0, 0);
 	}
+#if MNOC_QOS_BOOST_ENABLE
+	mutex_lock(&apu_qos_boost_mtx);
+	if (apu_qos_boost_flag == false) {
+		apu_bw_vcore_opp = nr_apu_vcore_opp - 1;
+		apu_qos_set_vcore(apu_bw_vcore_opp);
+	}
+	mutex_unlock(&apu_qos_boost_mtx);
+#endif
 #endif
 	LOG_DEBUG("-\n");
 
@@ -927,7 +933,10 @@ void apu_qos_boost_start(void)
 	counter = &engine_pm_qos_counter[0];
 #if MNOC_QOS_BOOST_ENABLE
 /* 6885: ~16G, 6873/6853: ~8G */
-	if (apu_qos_boost_flag == true && apusys_on_flag == true) {
+	if (apu_qos_boost_flag && apusys_on_flag) {
+		apu_bw_vcore_opp = 2;
+		icc_set_bw(counter->emi_icc_path, 0,
+			   Mbps_to_icc(apu_vcore_bw_opp_tab[apu_bw_vcore_opp]));
 		cpu_latency_qos_update_request(&apu_qos_cpu_dma_req, 2);
 #if APU_QOS_IPUIF_ADJUST
 		apu_qos_set_vcore(apu_bw_vcore_opp);
@@ -951,6 +960,7 @@ void apu_qos_boost_end(void)
 #if APU_QOS_IPUIF_ADJUST
 		apu_qos_set_vcore(apu_bw_vcore_opp);
 #endif
+		icc_set_bw(counter->emi_icc_path, 0, 0);
 		cpu_latency_qos_update_request(&apu_qos_cpu_dma_req,
 			PM_QOS_DEFAULT_VALUE);
 	}
