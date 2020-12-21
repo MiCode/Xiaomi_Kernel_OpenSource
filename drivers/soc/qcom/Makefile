@@ -33,6 +33,7 @@ obj-$(CONFIG_QSEE_IPC_IRQ_BRIDGE) += qsee_ipc_irq_bridge.o
 obj-$(CONFIG_QCOM_SMSM)	+= smsm.o
 obj-$(CONFIG_MSM_CORE_HANG_DETECT) += core_hang_detect.o
 obj-$(CONFIG_QCOM_SECURE_BUFFER) += secure_buffer.o
+obj-$(CONFIG_QCOM_MEM_HOOKS) += mem-hooks.o
 obj-$(CONFIG_QCOM_SOCINFO)	+= socinfo.o
 obj-$(CONFIG_QCOM_SOC_SLEEP_STATS)	+= soc_sleep_stats.o
 obj-$(CONFIG_QCOM_PROXY_OF_CONSUMER) += qcom_proxy_of_consumer.o
