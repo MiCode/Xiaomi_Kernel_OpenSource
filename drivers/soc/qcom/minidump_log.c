@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/cache.h>
@@ -142,7 +142,7 @@ static DEFINE_SPINLOCK(md_modules_lock);
 #endif	/* CONFIG_MODULES */
 #endif
 
-static void __init register_log_buf(void)
+static void register_log_buf(void)
 {
 	char *log_bufp;
 	uint32_t log_buf_len;
@@ -185,7 +185,7 @@ static int register_stack_entry(struct md_region *ksp_entry, u64 sp, u64 size)
 	return entry;
 }
 
-static void __init register_kernel_sections(void)
+static void register_kernel_sections(void)
 {
 	struct md_region ksec_entry;
 	char *data_name = "KDATABSS";
@@ -1320,7 +1320,7 @@ static void md_register_module_data(void)
 #endif	/* CONFIG_MODULES */
 #endif	/* CONFIG_QCOM_MINIDUMP_PANIC_DUMP */
 
-static int __init msm_minidump_log_init(void)
+int msm_minidump_log_init(void)
 {
 	register_kernel_sections();
 	is_vmap_stack = IS_ENABLED(CONFIG_VMAP_STACK);
@@ -1346,4 +1346,3 @@ static int __init msm_minidump_log_init(void)
 #endif
 	return 0;
 }
-late_initcall(msm_minidump_log_init);

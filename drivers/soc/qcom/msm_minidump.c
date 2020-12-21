@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "Minidump: " fmt
@@ -8,6 +8,9 @@
 #include <linux/init.h>
 #include <linux/export.h>
 #include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/of.h>
+#include <linux/platform_device.h>
 #include <linux/err.h>
 #include <linux/elf.h>
 #include <linux/errno.h>
@@ -505,7 +508,7 @@ static int msm_minidump_add_header(void)
 
 	/* 4th section is linux banner */
 	banner = (char *)ehdr + strtbl_off + MAX_STRTBL_SIZE;
-	strlcpy(banner, linux_banner, strlen(linux_banner) + 1);
+	strlcpy(banner, linux_banner, MAX_STRTBL_SIZE);
 
 	shdr->sh_type = SHT_PROGBITS;
 	shdr->sh_offset = (elf_addr_t)(strtbl_off + MAX_STRTBL_SIZE);
@@ -530,7 +533,16 @@ static int msm_minidump_add_header(void)
 	return 0;
 }
 
-static int __init msm_minidump_init(void)
+static int msm_minidump_driver_remove(struct platform_device *pdev)
+{
+	/* TO-DO.
+	 *Free the required resources and set the global
+	 * variables as minidump is not initialized.
+	 */
+	return 0;
+}
+
+static int msm_minidump_driver_probe(struct platform_device *pdev)
 {
 	unsigned int i;
 	size_t size;
@@ -543,7 +555,7 @@ static int __init msm_minidump_init(void)
 				      &size);
 	if (IS_ERR_OR_NULL(md_global_toc)) {
 		pr_err("SMEM is not initialized.\n");
-		return -ENODEV;
+		return PTR_ERR(md_global_toc);
 	}
 
 	/*Check global minidump support initialization */
@@ -560,7 +572,7 @@ static int __init msm_minidump_init(void)
 	md_ss_toc->encryption_required = MD_SS_ENCR_REQ;
 
 	minidump_table.md_ss_toc = md_ss_toc;
-	minidump_table.md_regions = kzalloc((MAX_NUM_ENTRIES *
+	minidump_table.md_regions = devm_kzalloc(&pdev->dev, (MAX_NUM_ENTRIES *
 				sizeof(struct md_ss_region)), GFP_KERNEL);
 	if (!minidump_table.md_regions)
 		return -ENOMEM;
@@ -584,11 +596,30 @@ static int __init msm_minidump_init(void)
 	pendings = 0;
 	spin_unlock(&mdt_lock);
 
+	/* All updates above should be visible, before init completes */
+	smp_store_release(&md_init_done, true);
+	msm_minidump_log_init();
 	pr_info("Enabled with max number of regions %d\n",
 		CONFIG_MINIDUMP_MAX_ENTRIES);
 
-	/* All updates above should be visible, before init completes */
-	smp_store_release(&md_init_done, true);
 	return 0;
 }
-subsys_initcall(msm_minidump_init)
+
+static const struct of_device_id msm_minidump_of_match[] = {
+	{ .compatible = "qcom,minidump" },
+	{ }
+};
+MODULE_DEVICE_TABLE(of, msm_minidump_of_match);
+
+static struct platform_driver msm_minidump_driver = {
+	.driver = {
+		.name = "qcom-minidump",
+		.of_match_table = msm_minidump_of_match,
+	},
+	.probe = msm_minidump_driver_probe,
+	.remove = msm_minidump_driver_remove,
+};
+module_platform_driver(msm_minidump_driver);
+
+MODULE_DESCRIPTION("MSM Mini Dump Driver");
+MODULE_LICENSE("GPL v2");
