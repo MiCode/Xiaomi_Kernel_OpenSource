@@ -293,7 +293,7 @@ static inline int md_sys1_sw_init(struct ccci_modem *md)
 		"%s, MD_WDT IRQ(%d)\n", __func__, md->md_wdt_irq_id);
 
 	ret = request_irq(md->md_wdt_irq_id, md_cd_wdt_isr,
-			md->md_wdt_irq_flags | IRQF_NO_SUSPEND, "MD_WDT", md);
+			md->md_wdt_irq_flags, "MD_WDT", md);
 	if (ret) {
 		CCCI_ERROR_LOG(md->index, TAG,
 			"request MD_WDT IRQ(%d) error %d\n",

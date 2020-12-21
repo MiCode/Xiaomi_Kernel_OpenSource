@@ -2136,7 +2136,7 @@ static void ccci_ccif_sysresume(void)
 
 	if (md_ctrl  && md_ctrl->plat_val.md_gen == 6293)
 		ccif_write32(md_ctrl->ccif_ap_base, APCCIF_CON, 0x01);
-	else
+	else if (!md_ctrl)
 		CCCI_ERROR_LOG(-1, TAG,
 			"[%s] error: ccci_hif_get_by_id failed.", __func__);
 }
