@@ -2582,14 +2582,74 @@ static ssize_t fs_ready_store(struct device *dev,
 	return count;
 }
 
+static ssize_t qdss_trace_start_store(struct device *dev,
+				      struct device_attribute *attr,
+				      const char *buf, size_t count)
+{
+	struct cnss_plat_data *plat_priv = dev_get_drvdata(dev);
+
+	wlfw_qdss_trace_start(plat_priv);
+	cnss_pr_dbg("Received QDSS start command\n");
+	return count;
+}
+
+static ssize_t qdss_trace_stop_store(struct device *dev,
+				     struct device_attribute *attr,
+				     const char *buf, size_t count)
+{
+	struct cnss_plat_data *plat_priv = dev_get_drvdata(dev);
+	u32 option = 0;
+
+	if (sscanf(buf, "%du", &option) != 1)
+		return -EINVAL;
+
+	wlfw_qdss_trace_stop(plat_priv, option);
+	cnss_pr_dbg("Received QDSS stop command\n");
+	return count;
+}
+
+static ssize_t qdss_conf_download_store(struct device *dev,
+					struct device_attribute *attr,
+					const char *buf, size_t count)
+{
+	struct cnss_plat_data *plat_priv = dev_get_drvdata(dev);
+
+	cnss_wlfw_qdss_dnld_send_sync(plat_priv);
+	cnss_pr_dbg("Received QDSS download config command\n");
+	return count;
+}
+
+static ssize_t hw_trace_override_store(struct device *dev,
+				       struct device_attribute *attr,
+				       const char *buf, size_t count)
+{
+	struct cnss_plat_data *plat_priv = dev_get_drvdata(dev);
+	int tmp = 0;
+
+	if (sscanf(buf, "%du", &tmp) != 1)
+		return -EINVAL;
+
+	plat_priv->hw_trc_override = tmp;
+	cnss_pr_dbg("Received QDSS hw_trc_override indication\n");
+	return count;
+}
+
 static DEVICE_ATTR_WO(fs_ready);
 static DEVICE_ATTR_WO(shutdown);
 static DEVICE_ATTR_WO(recovery);
+static DEVICE_ATTR_WO(qdss_trace_start);
+static DEVICE_ATTR_WO(qdss_trace_stop);
+static DEVICE_ATTR_WO(qdss_conf_download);
+static DEVICE_ATTR_WO(hw_trace_override);
 
 static struct attribute *cnss_attrs[] = {
 	&dev_attr_fs_ready.attr,
 	&dev_attr_shutdown.attr,
 	&dev_attr_recovery.attr,
+	&dev_attr_qdss_trace_start.attr,
+	&dev_attr_qdss_trace_stop.attr,
+	&dev_attr_qdss_conf_download.attr,
+	&dev_attr_hw_trace_override.attr,
 	NULL,
 };
 

@@ -481,6 +481,7 @@ struct cnss_plat_data {
 	bool fw_pcie_gen_switch;
 	u8 pcie_gen_speed;
 	struct cnss_dms_data dms;
+	u32 hw_trc_override;
 };
 
 #ifdef CONFIG_ARCH_QCOM
