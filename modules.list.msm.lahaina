@@ -31,14 +31,13 @@ msm_ion_heaps.ko
 qcom-arm-smmu-mod.ko
 msm-geni-se.ko
 msm_geni_serial.ko
-#phy-qcom-ufs.ko
-#phy-qcom-ufs-qmp-v4-lahaina.ko
-#phy-qcom-ufs-qmp-14nm.ko
+phy-qcom-ufs.ko
+phy-qcom-ufs-qmp-v4-lahaina.ko
 ufshcd-crypto-qti.ko
 crypto-qti-common.ko
 crypto-qti-hwkm.ko
 hwkm.ko
-#ufs-qcom.ko
+ufs_qcom.ko
 qbt_handler.ko
 qcom_hwspinlock.ko
 smem.ko
@@ -74,3 +73,5 @@ qcom_watchdog.ko
 msm_qmp.ko
 qcom_ipc_logging.ko
 qcom_ipcc.ko
+cqhci.ko
+sdhci-msm.ko
