@@ -13,6 +13,10 @@ BUILD_INITRAMFS=1
 
 ABI_DEFINITION=android/abi_gki_aarch64_allsyms
 KMI_SYMBOL_LIST=android/abi_gki_aarch64_qcom
+TRIM_NONLISTED_KMI=1
+KMI_SYMBOL_LIST_STRICT_MODE=1
+KMI_SYMBOL_LIST_MODULE_GROUPING=0
+KMI_SYMBOL_LIST_ADD_ONLY=1
 
 function build_defconfig_fragments() {
 	if [[ "${VARIANT}" =~ ^(gki|consolidate)$ ]]; then
@@ -22,6 +26,8 @@ function build_defconfig_fragments() {
 		fi
 		# ABI comparison isn't applicable on consolidate variant
 		unset ABI_DEFINITION
+		unset TRIM_NONLISTED_KMI
+		unset KMI_SYMBOL_LIST_STRICT_MODE
 		apply_defconfig_fragment ${KERNEL_DIR}/arch/${ARCH}/configs/vendor/${MSM_ARCH}_consolidate.config vendor/${MSM_ARCH}-consolidate_defconfig
 	elif [ "${VARIANT}" = gki-ack ]; then
 		# In gki-only, then using ACK's GKI config directly
