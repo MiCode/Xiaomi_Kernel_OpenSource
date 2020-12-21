@@ -1061,6 +1061,34 @@
 		};
 	};
 
+	leakage {
+		compatible = "mediatek,mtk-static-power";
+		nvmem = <&efuse>;
+		nvmem-names = "mtk_efuse";
+		nvmem-cells = <&efuse_segment>;
+		nvmem-cell-names = "efuse_segment_cell";
+		domain = "LL", "L", "CCI", "GPU", "VCORE", "MODEM", "VPU","VSRAM_PROC12",
+			"VSRAM_PROC11", "VSRAM_OTHERS", "NR", "MDLA", "ADSP", "VSRAM_GPU",
+			"VSRAM_VPU_MDLA", "VSRAM_MODEM", "VCORE_OFF";
+		LL = <0x0224 0xff 900 30 4 0>;
+		L = <0x0224 0xff00 900 30 4 0>;
+		CCI = <0x0220 0xff000000 900 30 1 0>;
+		GPU = <0x021c 0xff000000 800 30 1 0>;
+		VCORE = <0x021c 0xff0000 725 30 1 0>;
+		MODEM = <0x021c 0xff 825 30 1 0>;
+		NR = <0x021c 0xff00 825 30 1 0>;
+		VPU = <0x0220 0xff00 775 30 1 0>;
+		MDLA = <0x0220 0xff 800 30 1 0>;
+		VSRAM_PROC12 = <0x0228 0xff000000 900 30 1 0>;
+		VSRAM_PROC11 = <0x0228 0xff0000 900 30 1 0>;
+		VSRAM_OTHERS = <0x0224 0xff000000 750 30 1 0>;
+		ADSP = <0x0220 0xff0000 750 30 1 0>;
+		VSRAM_GPU = <0x0228 0xff00 800 30 1 0>;
+		VSRAM_VPU_MDLA = <0x0228 0xff 850 30 1 0>;
+		VSRAM_MODEM = <0x022c 0xff 825 30 1 0>;
+		VCORE_OFF = <0x0224 0xff0000 550 30 1 0>;
+	};
+
 	soc {
 		#address-cells = <2>;
 		#size-cells = <2>;
