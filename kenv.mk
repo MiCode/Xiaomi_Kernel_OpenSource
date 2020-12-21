@@ -24,10 +24,11 @@ ifneq ($(strip $(TARGET_NO_KERNEL)),true)
   current_dir := $(notdir $(patsubst %/,%,$(dir $(mkfile_path))))
 
   ifeq ($(KERNEL_TARGET_ARCH),arm64)
-    include $(current_dir)/build.config.mtk.aarch64
+    build_config_file := $(current_dir)/build.config.mtk.aarch64
   else
-    include $(current_dir)/build.config.mtk.arm
+    build_config_file := $(current_dir)/build.config.mtk.arm
   endif
+  include $(build_config_file)
 
   ARGS := CROSS_COMPILE=$(CROSS_COMPILE)
   ifneq ($(LLVM),)
@@ -67,7 +68,7 @@ ifneq ($(strip $(TARGET_NO_KERNEL)),true)
   TARGET_KERNEL_CROSS_COMPILE := $(KERNEL_ROOT_DIR)/$(LINUX_GCC_CROSS_COMPILE_PREBUILTS_BIN)/$(CROSS_COMPILE)
 
   ifeq ($(wildcard $(TARGET_PREBUILT_KERNEL)),)
-    KERNEL_OUT ?= $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ_FILES/$(LINUX_KERNEL_VERSION)
+    KERNEL_OUT ?= $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/$(LINUX_KERNEL_VERSION)
     REL_KERNEL_OUT := $(shell ./$(current_dir)/scripts/get_rel_path.sh $(patsubst %/,%,$(dir $(KERNEL_OUT))) $(KERNEL_ROOT_DIR))
     KERNEL_ROOT_OUT := $(if $(filter /% ~%,$(KERNEL_OUT)),,$(KERNEL_ROOT_DIR)/)$(KERNEL_OUT)
     ifeq ($(KERNEL_TARGET_ARCH), arm64)
