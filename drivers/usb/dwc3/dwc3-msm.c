@@ -4470,7 +4470,9 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	atomic_set(&dwc->in_lpm, 1);
 	pm_runtime_set_autosuspend_delay(mdwc->dev, 1000);
 	pm_runtime_use_autosuspend(mdwc->dev);
-	device_init_wakeup(mdwc->dev, 1);
+	/* Skip creating device wakeup node if remote wakeup is not a requirement*/
+	if (!dwc->ignore_wakeup_src_in_hostmode)
+		device_init_wakeup(mdwc->dev, 1);
 
 	if (of_property_read_bool(node, "qcom,disable-dev-mode-pm"))
 		pm_runtime_get_noresume(mdwc->dev);
@@ -5316,7 +5318,7 @@ static int dwc3_msm_pm_suspend(struct device *dev)
 	}
 
 	/* Wakeup not required for automotive/telematics platform host mode */
-	ret = dwc3_msm_suspend(mdwc, false, false);
+	ret = dwc3_msm_suspend(mdwc, false, device_may_wakeup(dev));
 	if (!ret)
 		atomic_set(&mdwc->pm_suspended, 1);
 

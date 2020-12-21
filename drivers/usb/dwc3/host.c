@@ -115,10 +115,6 @@ int dwc3_host_init(struct dwc3 *dwc)
 	if (dwc->revision <= DWC3_REVISION_300A)
 		props[prop_idx++] = PROPERTY_ENTRY_BOOL("quirk-broken-port-ped");
 
-	if (dwc->ignore_wakeup_src_in_hostmode)
-		props[prop_idx++] =
-			PROPERTY_ENTRY_BOOL("ignore-wakeup-src-in-hostmode");
-
 	if (prop_idx) {
 		ret = platform_device_add_properties(xhci, props);
 		if (ret) {
