@@ -5,7 +5,6 @@ LLVM=1
 KERNEL_DIR=kernel-mainline
 CLANG_PREBUILT_BIN=prebuilts/clang/host/linux-x86/clang-r383902/bin
 BUILDTOOLS_PREBUILT_BIN=prebuilts/build-tools/linux-x86/bin
-SKIP_MRPROPER=1 # do not remove this
 # for check scripts
 CC=clang
 LD=ld.lld
