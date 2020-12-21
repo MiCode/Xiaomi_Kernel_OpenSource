@@ -260,6 +260,13 @@ skip_txrx_clk:
 	 */
 	 __ufs_qcom_phy_clk_get(phy_common->dev, "ref_aux_clk",
 				   &phy_common->ref_aux_clk, false);
+
+	 /*
+	  * "qref_clk_signal" is optional. It is needed for certain platforms.
+	  * No need to abort if it's not present.
+	  */
+	 __ufs_qcom_phy_clk_get(phy_common->dev, "qref_clk",
+				   &phy_common->qref_clk, false);
 out:
 	return err;
 }
@@ -414,6 +421,9 @@ static int ufs_qcom_phy_enable_ref_clk(struct ufs_qcom_phy *phy)
 	if (phy->is_ref_clk_enabled)
 		goto out;
 
+	/* qref clk signal is optional */
+	if (phy->qref_clk)
+		clk_prepare_enable(phy->qref_clk);
 	/*
 	 * reference clock is propagated in a daisy-chained manner from
 	 * source to phy, so ungate them at each stage.
@@ -527,6 +537,11 @@ static void ufs_qcom_phy_disable_ref_clk(struct ufs_qcom_phy *phy)
 		if (phy->ref_clk_parent)
 			clk_disable_unprepare(phy->ref_clk_parent);
 		clk_disable_unprepare(phy->ref_clk_src);
+
+		/* qref clk signal is optional */
+		if (phy->qref_clk)
+			clk_disable_unprepare(phy->qref_clk);
+
 		phy->is_ref_clk_enabled = false;
 	}
 }
