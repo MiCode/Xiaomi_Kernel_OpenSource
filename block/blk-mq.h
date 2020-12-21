@@ -209,7 +209,6 @@ static inline bool blk_mq_get_dispatch_budget(struct blk_mq_hw_ctx *hctx)
 static inline void __blk_mq_put_driver_tag(struct blk_mq_hw_ctx *hctx,
 					   struct request *rq)
 {
-	hctx->tags->rqs[rq->tag] = NULL;
 	blk_mq_put_tag(hctx, hctx->tags, rq->mq_ctx, rq->tag);
 	rq->tag = -1;
 
@@ -223,6 +222,7 @@ static inline void blk_mq_put_driver_tag(struct request *rq)
 {
 	if (rq->tag == -1 || rq->internal_tag == -1)
 		return;
+
 	__blk_mq_put_driver_tag(rq->mq_hctx, rq);
 }
 

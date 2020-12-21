@@ -497,7 +497,6 @@ static void __blk_mq_free_request(struct request *rq)
 	const int sched_tag = rq->internal_tag;
 
 	blk_pm_mark_last_busy(rq);
-	hctx->tags->rqs[rq->tag] = NULL;
 	rq->mq_hctx = NULL;
 	if (rq->tag != -1)
 		blk_mq_put_tag(hctx, hctx->tags, ctx, rq->tag);
