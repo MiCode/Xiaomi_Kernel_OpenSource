@@ -20,6 +20,7 @@
 #define RIMPS_STATUS_IRQ_VAL		BIT(3)
 #define RIMPS_CLOCK_DOMAIN_OFFSET	0x1000
 
+static DEFINE_SPINLOCK(mbox_chan_lock);
 
 /**
  * struct rimps_ipc     ipc per channel
@@ -41,6 +42,7 @@ struct qcom_rimps_ipc {
 static irqreturn_t qcom_rimps_rx_interrupt(int irq, void *p)
 {
 	struct qcom_rimps_ipc *rimps_ipc;
+	unsigned long flags;
 	u32 val;
 	int i;
 
@@ -59,9 +61,11 @@ static irqreturn_t qcom_rimps_rx_interrupt(int irq, void *p)
 			/* Make sure register write is complete before proceeding */
 			mb();
 
+			spin_lock_irqsave(&mbox_chan_lock, flags);
 			if (rimps_ipc->chans[i].con_priv)
 				mbox_chan_received_data(&rimps_ipc->chans[i]
 							, NULL);
+			spin_unlock_irqrestore(&mbox_chan_lock, flags);
 		}
 	}
 
@@ -70,7 +74,11 @@ static irqreturn_t qcom_rimps_rx_interrupt(int irq, void *p)
 
 static void qcom_rimps_mbox_shutdown(struct mbox_chan *chan)
 {
+	unsigned long flags;
+
+	spin_lock_irqsave(&mbox_chan_lock, flags);
 	chan->con_priv = NULL;
+	spin_unlock_irqrestore(&mbox_chan_lock, flags);
 }
 
 static int qcom_rimps_mbox_send_data(struct mbox_chan *chan, void *data)
