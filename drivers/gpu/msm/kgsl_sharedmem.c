@@ -924,6 +924,7 @@ void kgsl_memdesc_init(struct kgsl_device *device,
 		ilog2(PAGE_SIZE));
 	kgsl_memdesc_set_align(memdesc, align);
 	spin_lock_init(&memdesc->lock);
+	spin_lock_init(&memdesc->gpuaddr_lock);
 }
 
 static int kgsl_shmem_alloc_page(struct page **pages,

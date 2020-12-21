@@ -239,6 +239,11 @@ struct kgsl_memdesc {
 	 * @reclaimed_page_count: Total number of pages reclaimed
 	 */
 	int reclaimed_page_count;
+	/*
+	 * @gpuaddr_lock: Spinlock to protect the gpuaddr from being accessed by
+	 * multiple entities trying to map the same SVM region at once
+	 */
+	spinlock_t gpuaddr_lock;
 };
 
 /*
