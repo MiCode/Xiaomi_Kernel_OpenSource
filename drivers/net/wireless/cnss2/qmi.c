@@ -9,6 +9,7 @@
 #include "debug.h"
 #include "main.h"
 #include "qmi.h"
+#include "genl.h"
 
 #define WLFW_SERVICE_INS_ID_V01		1
 #define WLFW_CLIENT_ID			0x4b4e454c
@@ -19,6 +20,8 @@
 #define BIN_BDF_FILE_NAME_PREFIX	"bdwlan.b"
 #define REGDB_FILE_NAME			"regdb.bin"
 #define DUMMY_BDF_FILE_NAME		"bdwlan.dmy"
+
+#define QDSS_TRACE_CONFIG_FILE "qdss_trace_config.cfg"
 
 #define QMI_WLFW_TIMEOUT_MS		(plat_priv->ctrl_params.qmi_timeout)
 #define QMI_WLFW_TIMEOUT_JF		msecs_to_jiffies(QMI_WLFW_TIMEOUT_MS)
@@ -791,6 +794,238 @@ int cnss_wlfw_wlan_mac_req_send_sync(struct cnss_plat_data *plat_priv,
 		ret = -resp.resp.result;
 	}
 out:
+	return ret;
+}
+
+int cnss_wlfw_qdss_data_send_sync(struct cnss_plat_data *plat_priv, char *file_name,
+				  u32 total_size)
+{
+	int ret = 0;
+	struct wlfw_qdss_trace_data_req_msg_v01 *req;
+	struct wlfw_qdss_trace_data_resp_msg_v01 *resp;
+	unsigned char *p_qdss_trace_data_temp, *p_qdss_trace_data = NULL;
+	unsigned int remaining;
+	struct qmi_txn txn;
+
+	cnss_pr_dbg("%s\n", __func__);
+
+	req = kzalloc(sizeof(*req), GFP_KERNEL);
+	if (!req)
+		return -ENOMEM;
+
+	resp = kzalloc(sizeof(*resp), GFP_KERNEL);
+	if (!resp) {
+		kfree(req);
+		return -ENOMEM;
+	}
+
+	p_qdss_trace_data = kzalloc(total_size, GFP_KERNEL);
+	if (!p_qdss_trace_data) {
+		ret = ENOMEM;
+		goto end;
+	}
+
+	remaining = total_size;
+	p_qdss_trace_data_temp = p_qdss_trace_data;
+	while (remaining && resp->end == 0) {
+		ret = qmi_txn_init(&plat_priv->qmi_wlfw, &txn,
+				   wlfw_qdss_trace_data_resp_msg_v01_ei, resp);
+
+		if (ret < 0) {
+			cnss_pr_err("Fail to init txn for QDSS trace resp %d\n",
+				    ret);
+			goto fail;
+		}
+
+		ret = qmi_send_request
+			(&plat_priv->qmi_wlfw, NULL, &txn,
+			 QMI_WLFW_QDSS_TRACE_DATA_REQ_V01,
+			 WLFW_QDSS_TRACE_DATA_REQ_MSG_V01_MAX_MSG_LEN,
+			 wlfw_qdss_trace_data_req_msg_v01_ei, req);
+
+		if (ret < 0) {
+			qmi_txn_cancel(&txn);
+			cnss_pr_err("Fail to send QDSS trace data req %d\n",
+				    ret);
+			goto fail;
+		}
+
+		ret = qmi_txn_wait(&txn, plat_priv->ctrl_params.qmi_timeout);
+
+		if (ret < 0) {
+			cnss_pr_err("QDSS trace resp wait failed with rc %d\n",
+				    ret);
+			goto fail;
+		} else if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
+			cnss_pr_err("QMI QDSS trace request rejected, result:%d error:%d\n",
+				    resp->resp.result, resp->resp.error);
+			ret = -resp->resp.result;
+			goto fail;
+		} else {
+			ret = 0;
+		}
+
+		cnss_pr_dbg("%s: response total size  %d data len %d",
+			    __func__, resp->total_size, resp->data_len);
+
+		if ((resp->total_size_valid == 1 &&
+		     resp->total_size == total_size) &&
+		   (resp->seg_id_valid == 1 && resp->seg_id == req->seg_id) &&
+		   (resp->data_valid == 1 &&
+		    resp->data_len <= QMI_WLFW_MAX_DATA_SIZE_V01)) {
+			memcpy(p_qdss_trace_data_temp,
+			       resp->data, resp->data_len);
+		} else {
+			cnss_pr_err("%s: Unmatched qdss trace data, Expect total_size %u, seg_id %u, Recv total_size_valid %u, total_size %u, seg_id_valid %u, seg_id %u, data_len_valid %u, data_len %u",
+				    __func__,
+				     total_size, req->seg_id,
+				     resp->total_size_valid,
+				     resp->total_size,
+				     resp->seg_id_valid,
+				     resp->seg_id,
+				     resp->data_valid,
+				     resp->data_len);
+			ret = -1;
+			goto fail;
+		}
+
+		remaining -= resp->data_len;
+		p_qdss_trace_data_temp += resp->data_len;
+		req->seg_id++;
+	}
+
+	if (remaining == 0 && (resp->end_valid && resp->end)) {
+		ret = cnss_genl_send_msg(p_qdss_trace_data,
+					 CNSS_GENL_MSG_TYPE_QDSS, file_name,
+					 total_size);
+		if (ret < 0) {
+			cnss_pr_err("Fail to save QDSS trace data: %d\n",
+				    ret);
+		ret = -1;
+		goto fail;
+		}
+	} else {
+		cnss_pr_err("%s: QDSS trace file corrupted: remaining %u, end_valid %u, end %u",
+			    __func__,
+			     remaining, resp->end_valid, resp->end);
+		ret = -1;
+		goto fail;
+	}
+
+fail:
+	kfree(p_qdss_trace_data);
+
+end:
+	kfree(req);
+	kfree(resp);
+	return ret;
+}
+
+int cnss_wlfw_qdss_dnld_send_sync(struct cnss_plat_data *plat_priv)
+{
+	struct wlfw_qdss_trace_config_download_req_msg_v01 *req;
+	struct wlfw_qdss_trace_config_download_resp_msg_v01 *resp;
+	struct qmi_txn txn;
+	const struct firmware *fw_entry = NULL;
+	const u8 *temp;
+	unsigned int remaining;
+	int ret = 0;
+
+	cnss_pr_dbg("Sending QDSS config download message, state: 0x%lx\n",
+		    plat_priv->driver_state);
+
+	req = kzalloc(sizeof(*req), GFP_KERNEL);
+	if (!req)
+		return -ENOMEM;
+
+	resp = kzalloc(sizeof(*resp), GFP_KERNEL);
+	if (!resp) {
+		kfree(req);
+		return -ENOMEM;
+	}
+
+	ret = request_firmware(&fw_entry, QDSS_TRACE_CONFIG_FILE,
+			       &plat_priv->plat_dev->dev);
+	if (ret) {
+		cnss_pr_err("Failed to load QDSS: %s\n",
+			    QDSS_TRACE_CONFIG_FILE);
+		goto err_req_fw;
+	}
+
+	temp = fw_entry->data;
+	remaining = fw_entry->size;
+
+	cnss_pr_dbg("Downloading QDSS: %s, size: %u\n",
+		    QDSS_TRACE_CONFIG_FILE, remaining);
+
+	while (remaining) {
+		req->total_size_valid = 1;
+		req->total_size = remaining;
+		req->seg_id_valid = 1;
+		req->data_valid = 1;
+		req->end_valid = 1;
+
+		if (remaining > QMI_WLFW_MAX_DATA_SIZE_V01) {
+			req->data_len = QMI_WLFW_MAX_DATA_SIZE_V01;
+		} else {
+			req->data_len = remaining;
+			req->end = 1;
+		}
+
+		memcpy(req->data, temp, req->data_len);
+
+		ret = qmi_txn_init
+			(&plat_priv->qmi_wlfw, &txn,
+			 wlfw_qdss_trace_config_download_resp_msg_v01_ei,
+			 resp);
+		if (ret < 0) {
+			cnss_pr_err("Failed to initialize txn for QDSS download request, err: %d\n",
+				    ret);
+			goto err_send;
+		}
+
+		ret = qmi_send_request
+		      (&plat_priv->qmi_wlfw, NULL, &txn,
+		       QMI_WLFW_QDSS_TRACE_CONFIG_DOWNLOAD_REQ_V01,
+		       WLFW_QDSS_TRACE_CONFIG_DOWNLOAD_REQ_MSG_V01_MAX_MSG_LEN,
+		       wlfw_qdss_trace_config_download_req_msg_v01_ei, req);
+		if (ret < 0) {
+			qmi_txn_cancel(&txn);
+			cnss_pr_err("Failed to send respond QDSS download request, err: %d\n",
+				    ret);
+			goto err_send;
+		}
+
+		ret = qmi_txn_wait(&txn, plat_priv->ctrl_params.qmi_timeout);
+		if (ret < 0) {
+			cnss_pr_err("Failed to wait for response of QDSS download request, err: %d\n",
+				    ret);
+			goto err_send;
+		}
+
+		if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
+			cnss_pr_err("QDSS download request failed, result: %d, err: %d\n",
+				    resp->resp.result, resp->resp.error);
+			ret = -resp->resp.result;
+			goto err_send;
+		}
+
+		remaining -= req->data_len;
+		temp += req->data_len;
+		req->seg_id++;
+	}
+
+	release_firmware(fw_entry);
+	kfree(req);
+	kfree(resp);
+	return 0;
+
+err_send:
+	release_firmware(fw_entry);
+err_req_fw:
+
+	kfree(req);
+	kfree(resp);
 	return ret;
 }
 
@@ -1946,12 +2181,6 @@ static void cnss_wlfw_fw_mem_file_save_ind_cb(struct qmi_handle *qmi_wlfw,
 	cnss_pr_dbg("QMI fw_mem_file_save: source: %d  mem_seg: %d type: %u len: %u\n",
 		    ind_msg->source, ind_msg->mem_seg_valid,
 		    ind_msg->mem_seg[0].type, ind_msg->mem_seg_len);
-	if (ind_msg->source == 1 || !ind_msg->mem_seg_valid ||
-	    !ind_msg->mem_seg_len ||
-	    ind_msg->mem_seg_len > QMI_WLFW_MAX_STR_LEN_V01) {
-		cnss_pr_err("Invalid FW mem file save indication\n");
-		return;
-	}
 
 	event_data = kzalloc(sizeof(*event_data), GFP_KERNEL);
 	if (!event_data)
@@ -1961,32 +2190,47 @@ static void cnss_wlfw_fw_mem_file_save_ind_cb(struct qmi_handle *qmi_wlfw,
 	event_data->mem_seg_len = ind_msg->mem_seg_len;
 	event_data->total_size = ind_msg->total_size;
 
-	for (i = 0; i < ind_msg->mem_seg_len; i++) {
-		event_data->mem_seg[i].addr = ind_msg->mem_seg[i].addr;
-		event_data->mem_seg[i].size = ind_msg->mem_seg[i].size;
-		if (event_data->mem_type != ind_msg->mem_seg[i].type) {
-			cnss_pr_err("FW Mem file save ind cannot have multiple mem types\n");
+	if (ind_msg->mem_seg_valid) {
+		if (ind_msg->mem_seg_len > QMI_WLFW_MAX_STR_LEN_V01) {
+			cnss_pr_err("Invalid seg len indication\n");
 			goto free_event_data;
 		}
-		cnss_pr_dbg("seg-%d: addr 0x%llx size 0x%x\n",
-			    i, ind_msg->mem_seg[i].addr,
-			    ind_msg->mem_seg[i].size);
+		for (i = 0; i < ind_msg->mem_seg_len; i++) {
+			event_data->mem_seg[i].addr = ind_msg->mem_seg[i].addr;
+			event_data->mem_seg[i].size = ind_msg->mem_seg[i].size;
+			if (event_data->mem_type != ind_msg->mem_seg[i].type) {
+				cnss_pr_err("FW Mem file save ind cannot have multiple mem types\n");
+				goto free_event_data;
+			}
+			cnss_pr_dbg("seg-%d: addr 0x%llx size 0x%x\n",
+				    i, ind_msg->mem_seg[i].addr,
+				    ind_msg->mem_seg[i].size);
+		}
 	}
 
-	if (ind_msg->file_name_valid) {
+	if (ind_msg->file_name_valid)
 		strlcpy(event_data->file_name, ind_msg->file_name,
 			QMI_WLFW_MAX_STR_LEN_V01 + 1);
+	if (ind_msg->source == 1) {
+		if (!ind_msg->file_name_valid)
+			strlcpy(event_data->file_name, "qdss_trace_wcss_etb",
+				QMI_WLFW_MAX_STR_LEN_V01 + 1);
+		cnss_driver_event_post(plat_priv, CNSS_DRIVER_EVENT_QDSS_TRACE_REQ_DATA,
+				       0, event_data);
 	} else {
-		if (event_data->mem_type == QMI_WLFW_MEM_QDSS_V01)
-			strlcpy(event_data->file_name, "qdss_trace",
-				QMI_WLFW_MAX_STR_LEN_V01 + 1);
-		else
-			strlcpy(event_data->file_name, "fw_mem_dump",
-				QMI_WLFW_MAX_STR_LEN_V01 + 1);
-	}
+		if (event_data->mem_type == QMI_WLFW_MEM_QDSS_V01) {
+			if (!ind_msg->file_name_valid)
+				strlcpy(event_data->file_name, "qdss_trace_ddr",
+					QMI_WLFW_MAX_STR_LEN_V01 + 1);
+		} else {
+			if (!ind_msg->file_name_valid)
+				strlcpy(event_data->file_name, "fw_mem_dump",
+					QMI_WLFW_MAX_STR_LEN_V01 + 1);
+		}
 
-	cnss_driver_event_post(plat_priv, CNSS_DRIVER_EVENT_FW_MEM_FILE_SAVE,
-			       0, event_data);
+		cnss_driver_event_post(plat_priv, CNSS_DRIVER_EVENT_FW_MEM_FILE_SAVE,
+				       0, event_data);
+	}
 
 	return;
 

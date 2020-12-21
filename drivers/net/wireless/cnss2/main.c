@@ -458,6 +458,9 @@ static int cnss_fw_ready_hdlr(struct cnss_plat_data *plat_priv)
 
 	cnss_wlfw_send_pcie_gen_speed_sync(plat_priv);
 
+	if (cnss_wlfw_qdss_dnld_send_sync(plat_priv))
+		cnss_pr_info("Failed to download qdss configuration file");
+
 	if (test_bit(CNSS_FW_BOOT_RECOVERY, &plat_priv->driver_state)) {
 		clear_bit(CNSS_FW_BOOT_RECOVERY, &plat_priv->driver_state);
 		clear_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state);
@@ -537,6 +540,8 @@ static char *cnss_driver_event_to_str(enum cnss_driver_event_type type)
 		return "FW_MEM_FILE_SAVE";
 	case CNSS_DRIVER_EVENT_QDSS_TRACE_FREE:
 		return "QDSS_TRACE_FREE";
+	case CNSS_DRIVER_EVENT_QDSS_TRACE_REQ_DATA:
+		return "QDSS_TRACE_REQ_DATA";
 	case CNSS_DRIVER_EVENT_MAX:
 		return "EVENT_MAX";
 	}
@@ -1596,6 +1601,22 @@ static int cnss_qdss_trace_free_hdlr(struct cnss_plat_data *plat_priv)
 	return 0;
 }
 
+static int cnss_qdss_trace_req_data_hdlr(struct cnss_plat_data *plat_priv,
+					 void *data)
+{
+	int ret = 0;
+	struct cnss_qmi_event_fw_mem_file_save_data *event_data = data;
+
+	if (!plat_priv)
+		return -ENODEV;
+
+	ret = cnss_wlfw_qdss_data_send_sync(plat_priv, event_data->file_name,
+					    event_data->total_size);
+
+	kfree(data);
+	return ret;
+}
+
 static void cnss_driver_event_work(struct work_struct *work)
 {
 	struct cnss_plat_data *plat_priv =
@@ -1695,6 +1716,10 @@ static void cnss_driver_event_work(struct work_struct *work)
 			break;
 		case CNSS_DRIVER_EVENT_QDSS_TRACE_FREE:
 			ret = cnss_qdss_trace_free_hdlr(plat_priv);
+			break;
+		case CNSS_DRIVER_EVENT_QDSS_TRACE_REQ_DATA:
+			ret = cnss_qdss_trace_req_data_hdlr(plat_priv,
+							    event->data);
 			break;
 		default:
 			cnss_pr_err("Invalid driver event type: %d",
