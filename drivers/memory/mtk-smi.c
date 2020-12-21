@@ -18,7 +18,6 @@
 #include <soc/mediatek/smi.h>
 #include <dt-bindings/memory/mtk-smi-larb-port.h>
 #include <dt-bindings/memory/mt2701-larb-port.h>
-#include <../misc/mediatek/include/mt-plat/aee.h>
 
 /* mt8173 */
 #define SMI_LARB_MMU_EN		0xf00
@@ -151,8 +150,6 @@ void mtk_smi_common_bw_set(struct device *dev, const u32 port, const u32 val)
 		dev_notice(dev, "set common set bwl fail reg:%#x, port:%d, val:%u\n",
 			common->base + SMI_L1ARB(port), port, val);
 		dump_stack();
-		aee_kernel_exception("smi", "set common set bwl fail reg:%#x, port:%d, val:%u\n",
-			common->base + SMI_L1ARB(port), port, val);
 	}
 }
 EXPORT_SYMBOL_GPL(mtk_smi_common_bw_set);
@@ -168,8 +165,6 @@ void mtk_smi_larb_bw_set(struct device *dev, const u32 port, const u32 val)
 			dev_notice(dev, "set larb bw fail larb:%d, port:%d, val:%u\n",
 				larb->larbid, port, val);
 			dump_stack();
-			aee_kernel_exception("smi", "set larb bw fail larb:%d, port:%d, val:%u\n",
-				larb->larbid, port, val);
 		}
 	}
 }
