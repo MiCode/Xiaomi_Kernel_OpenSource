@@ -209,7 +209,7 @@ __get_gmu_ao_cgc_mode_cntl(struct adreno_device *adreno_dev)
 	else if (adreno_is_a615_family(adreno_dev))
 		return 0x00000222;
 	else if (adreno_is_a660(adreno_dev))
-		return 0x00020200;
+		return 0x00020000;
 	else
 		return 0x00020202;
 }
