@@ -4457,8 +4457,6 @@ int msm_pcie_enumerate(u32 rc_idx)
 
 	pci_host_probe(bridge);
 
-	msm_pcie_fixup_irqs(dev);
-
 	dev->enumerated = true;
 	schedule_work(&pcie_drv.drv_connect);
 
