@@ -1,0 +1,71 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
+/*
+ * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ */
+
+#ifndef _QCOM_PMU_H
+#define _QCOM_PMU_H
+
+#include <linux/kernel.h>
+
+/* (1) ccntr + (6) evcntr + (1) llcc */
+#define QCOM_PMU_MAX_EVS	8
+
+struct qcom_pmu_data {
+	u32			event_ids[QCOM_PMU_MAX_EVS];
+	u64			ev_data[QCOM_PMU_MAX_EVS];
+	u32			num_evs;
+};
+
+typedef void (*idle_fn_t)(struct qcom_pmu_data *data, int cpu, int state);
+struct qcom_pmu_notif_node {
+	idle_fn_t		idle_cb;
+	struct list_head	node;
+};
+
+#if IS_ENABLED(CONFIG_QCOM_PMU_LIB)
+int qcom_pmu_create(u32 event_id, int cpu);
+int qcom_pmu_delete(u32 event_id, int cpu);
+int qcom_pmu_read(int cpu, u32 event_id, u64 *pmu_data);
+int qcom_pmu_read_local(u32 event_id, u64 *pmu_data);
+int qcom_pmu_read_all(int cpu, struct qcom_pmu_data *data);
+int qcom_pmu_read_all_local(struct qcom_pmu_data *data);
+int qcom_pmu_idle_register(struct qcom_pmu_notif_node *idle_node);
+int qcom_pmu_idle_unregister(struct qcom_pmu_notif_node *idle_node);
+#else
+static inline int qcom_pmu_create(u32 event_id, int cpu)
+{
+	return -ENODEV;
+}
+static inline int qcom_pmu_delete(u32 event_id, int cpu)
+{
+	return -ENODEV;
+}
+static inline int qcom_pmu_read(int cpu, u32 event_id, u64 *pmu_data)
+{
+	return -ENODEV;
+}
+static inline int qcom_pmu_read_local(u32 event_id, u64 *pmu_data)
+{
+	return -ENODEV;
+}
+static inline int qcom_pmu_read_all(int cpu, struct qcom_pmu_data *data)
+{
+	return -ENODEV;
+}
+static inline int qcom_pmu_read_all_local(struct qcom_pmu_data *data)
+{
+	return -ENODEV;
+}
+static inline int qcom_pmu_idle_register(struct qcom_pmu_notif_node *idle_node)
+{
+	return -ENODEV;
+}
+static inline int qcom_pmu_idle_unregister(
+					struct qcom_pmu_notif_node *idle_node)
+{
+	return -ENODEV;
+}
+#endif
+
+#endif /* _QCOM_PMU_H */

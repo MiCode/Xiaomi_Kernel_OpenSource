@@ -694,6 +694,8 @@ config MSM_CDSP_LOADER
 	  for platforms that have one.
 	  Say M if you want to enable this module.
 
+source "drivers/soc/qcom/dcvs/Kconfig"
+
 config QTI_HW_MEMLAT
 	tristate "Qualcomm Technologies Inc. RIMPS memlat interface driver"
 	depends on PERF_EVENTS
