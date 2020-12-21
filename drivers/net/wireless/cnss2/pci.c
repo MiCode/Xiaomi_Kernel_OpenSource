@@ -44,7 +44,6 @@
 #define DEFAULT_M3_FILE_NAME		"m3.bin"
 #define DEFAULT_FW_FILE_NAME		"amss.bin"
 #define FW_V2_FILE_NAME			"amss20.bin"
-#define FW_V2_NUMBER			2
 
 #define WAKE_MSI_NAME			"WAKE"
 

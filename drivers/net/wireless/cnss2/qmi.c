@@ -21,7 +21,10 @@
 #define REGDB_FILE_NAME			"regdb.bin"
 #define DUMMY_BDF_FILE_NAME		"bdwlan.dmy"
 
-#define QDSS_TRACE_CONFIG_FILE "qdss_trace_config.cfg"
+#define QDSS_TRACE_CONFIG_FILE		"qdss_trace_config"
+#define DEBUG_STR			"debug"
+#define HW_V1_NUMBER			"v1"
+#define HW_V2_NUMBER			"v2"
 
 #define QMI_WLFW_TIMEOUT_MS		(plat_priv->ctrl_params.qmi_timeout)
 #define QMI_WLFW_TIMEOUT_JF		msecs_to_jiffies(QMI_WLFW_TIMEOUT_MS)
@@ -921,6 +924,38 @@ end:
 	return ret;
 }
 
+#ifdef CONFIG_CNSS2_DEBUG
+static void cnss_get_qdss_cfg_filename(struct cnss_plat_data *plat_priv,
+				       char *filename, u32 filename_len)
+{
+	char filename_tmp[MAX_FIRMWARE_NAME_LEN];
+
+	if (plat_priv->device_version.major_version == FW_V2_NUMBER)
+		snprintf(filename_tmp, filename_len, QDSS_TRACE_CONFIG_FILE
+			 "_%s_%s.cfg", DEBUG_STR, HW_V2_NUMBER);
+	else
+		snprintf(filename_tmp, filename_len, QDSS_TRACE_CONFIG_FILE
+			 "_%s_%s.cfg", DEBUG_STR, HW_V1_NUMBER);
+
+	cnss_bus_add_fw_prefix_name(plat_priv, filename, filename_tmp);
+}
+#else
+static void cnss_get_qdss_cfg_filename(struct cnss_plat_data *plat_priv,
+				       char *filename, u32 filename_len)
+{
+	char filename_tmp[MAX_FIRMWARE_NAME_LEN];
+
+	if (plat_priv->device_version.major_version == FW_V2_NUMBER)
+		snprintf(filename_tmp, filename_len, QDSS_TRACE_CONFIG_FILE
+			 "_%s.cfg", HW_V2_NUMBER);
+	else
+		snprintf(filename_tmp, filename_len, QDSS_TRACE_CONFIG_FILE
+			 "_%s.cfg", HW_V1_NUMBER);
+
+	cnss_bus_add_fw_prefix_name(plat_priv, filename, filename_tmp);
+}
+#endif
+
 int cnss_wlfw_qdss_dnld_send_sync(struct cnss_plat_data *plat_priv)
 {
 	struct wlfw_qdss_trace_config_download_req_msg_v01 *req;
@@ -928,6 +963,7 @@ int cnss_wlfw_qdss_dnld_send_sync(struct cnss_plat_data *plat_priv)
 	struct qmi_txn txn;
 	const struct firmware *fw_entry = NULL;
 	const u8 *temp;
+	char qdss_cfg_filename[MAX_FIRMWARE_NAME_LEN];
 	unsigned int remaining;
 	int ret = 0;
 
@@ -944,11 +980,12 @@ int cnss_wlfw_qdss_dnld_send_sync(struct cnss_plat_data *plat_priv)
 		return -ENOMEM;
 	}
 
-	ret = request_firmware(&fw_entry, QDSS_TRACE_CONFIG_FILE,
+	cnss_get_qdss_cfg_filename(plat_priv, qdss_cfg_filename, sizeof(qdss_cfg_filename));
+	ret = request_firmware(&fw_entry, qdss_cfg_filename,
 			       &plat_priv->plat_dev->dev);
 	if (ret) {
 		cnss_pr_err("Failed to load QDSS: %s\n",
-			    QDSS_TRACE_CONFIG_FILE);
+			    qdss_cfg_filename);
 		goto err_req_fw;
 	}
 
@@ -956,7 +993,7 @@ int cnss_wlfw_qdss_dnld_send_sync(struct cnss_plat_data *plat_priv)
 	remaining = fw_entry->size;
 
 	cnss_pr_dbg("Downloading QDSS: %s, size: %u\n",
-		    QDSS_TRACE_CONFIG_FILE, remaining);
+		    qdss_cfg_filename, remaining);
 
 	while (remaining) {
 		req->total_size_valid = 1;
