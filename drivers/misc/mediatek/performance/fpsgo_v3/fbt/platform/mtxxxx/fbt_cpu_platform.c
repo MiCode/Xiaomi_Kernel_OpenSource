@@ -43,8 +43,14 @@ void fbt_set_per_task_cap(int pid, unsigned int min_blc, unsigned int max_blc)
 		SCHED_FLAG_KEEP_ALL |
 		SCHED_FLAG_UTIL_CLAMP |
 		SCHED_FLAG_RESET_ON_FORK;
-	attr.sched_util_min = min_blc_1024;
-	attr.sched_util_max = max_blc_1024;
+
+	if (min_blc == 0 && max_blc == 100) {
+		attr.sched_util_min = -1;
+		attr.sched_util_max = -1;
+	} else {
+		attr.sched_util_min = min_blc_1024;
+		attr.sched_util_max = max_blc_1024;
+	}
 
 	if (pid < 0)
 		goto out;
