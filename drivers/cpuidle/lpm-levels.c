@@ -1418,6 +1418,7 @@ void update_ipi_history(int cpu)
 	if (history->current_ptr >= MAXSAMPLES)
 		history->current_ptr = 0;
 	history->cpu_idle_resched_ts = now;
+	trace_ipi_wakeup_time(ktime_to_us(now));
 }
 #endif
 
@@ -1474,7 +1475,7 @@ static int lpm_cpuidle_enter(struct cpuidle_device *dev,
 	trace_cpu_idle_enter(idx);
 	lpm_stats_cpu_enter(idx, start_time);
 
-	if (need_resched())
+	if (need_resched() || is_IPI_pending(cpumask_of(dev->cpu)))
 		goto exit;
 
 	if (idx == cpu->nlevels - 1)
