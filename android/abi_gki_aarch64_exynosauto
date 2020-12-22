@@ -892,6 +892,7 @@
   of_graph_parse_endpoint
   of_phandle_iterator_init
   of_phandle_iterator_next
+  platform_find_device_by_driver
   strlcat
   videomode_from_timings
 
@@ -1137,6 +1138,7 @@
   irq_domain_get_irq_data
   irq_domain_set_info
   irq_domain_update_bus_token
+  pcie_get_mps
   pcie_set_mps
   pci_find_bus
   pci_get_device
