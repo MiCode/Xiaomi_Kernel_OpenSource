@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: ISC */
 /*
  * Copyright (c) 2014-2017 Qualcomm Atheros, Inc.
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __WIL_PLATFORM_H__
@@ -17,10 +16,6 @@ enum wil_platform_event {
 	WIL_PLATFORM_EVT_POST_SUSPEND = 4,
 };
 
-enum wil_platform_notif {
-	WIL_PLATFORM_NOTIF_PCI_LINKDOWN = 0,
-};
-
 enum wil_platform_features {
 	WIL_PLATFORM_FEATURE_FW_EXT_CLK_CONTROL = 0,
 	WIL_PLATFORM_FEATURE_TRIPLE_MSI = 1,
@@ -31,8 +26,6 @@ enum wil_platform_capa {
 	WIL_PLATFORM_CAPA_RADIO_ON_IN_SUSPEND = 0,
 	WIL_PLATFORM_CAPA_T_PWR_ON_0 = 1,
 	WIL_PLATFORM_CAPA_EXT_CLK = 2,
-	WIL_PLATFORM_CAPA_SMMU = 3,
-	WIL_PLATFORM_CAPA_AP_PS = 4,
 	WIL_PLATFORM_CAPA_MAX,
 };
 
@@ -48,7 +41,6 @@ struct wil_platform_ops {
 	int (*notify)(void *handle, enum wil_platform_event evt);
 	int (*get_capa)(void *handle);
 	void (*set_features)(void *handle, int features);
-	int (*pci_linkdown_recovery)(void *handle);
 };
 
 /**
@@ -60,13 +52,10 @@ struct wil_platform_ops {
  * @fw_recovery: start a firmware recovery process. Called as
  *      part of a crash recovery process which may include other
  *      related platform subsystems.
- * @notify: get notifications from the Platform driver, such as
- *      pci linkdown
  */
 struct wil_platform_rops {
 	int (*ramdump)(void *wil_handle, void *buf, uint32_t size);
 	int (*fw_recovery)(void *wil_handle);
-	int (*notify)(void *wil_handle, enum wil_platform_notif notif);
 };
 
 /**
