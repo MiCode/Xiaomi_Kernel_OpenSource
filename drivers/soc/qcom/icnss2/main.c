@@ -3207,6 +3207,8 @@ static int icnss_msa_dt_parse(struct icnss_priv *priv)
 	icnss_pr_dbg("MSA pa: %pa, MSA va: 0x%pK MSA Memory Size: 0x%x\n",
 		     &priv->msa_pa, (void *)priv->msa_va, priv->msa_mem_size);
 
+	priv->use_prefix_path = of_property_read_bool(priv->pdev->dev.of_node,
+						      "qcom,fw-prefix");
 	return 0;
 
 out:
@@ -3290,6 +3292,23 @@ int icnss_get_iova_ipa(struct icnss_priv *priv, u64 *addr, u64 *size)
 	*size = priv->smmu_iova_ipa_len;
 
 	return 0;
+}
+
+void icnss_add_fw_prefix_name(struct icnss_priv *priv, char *prefix_name,
+			      char *name)
+{
+	if (!priv)
+		return;
+
+	if (!priv->use_prefix_path) {
+		scnprintf(prefix_name, ICNSS_MAX_FILE_NAME, "%s", name);
+		return;
+	}
+
+	scnprintf(prefix_name, ICNSS_MAX_FILE_NAME,
+		  QCA6750_PATH_PREFIX "%s", name);
+
+	icnss_pr_dbg("File added with prefix: %s\n", prefix_name);
 }
 
 static const struct platform_device_id icnss_platform_id_table[] = {
