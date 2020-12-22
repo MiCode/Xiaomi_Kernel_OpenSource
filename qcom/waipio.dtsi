@@ -311,6 +311,11 @@
 		reg = <0x0 0x80000000 0x0 0x600000>;
 	};
 
+	xbl_dt_log_mem: xbl_dt_log@80600000 {
+		no-map;
+		reg = <0x0 0x80600000 0x0 0x40000>;
+	};
+
 	xbl_ramdump_mem: xbl_ramdump_region@80640000 {
 		no-map;
 		reg = <0x0 0x80640000 0x0 0x180000>;
@@ -347,7 +352,7 @@
 		reg = <0x0 0x808e0000 0x0 0x4000>;
 	};
 
-	xbl_uefi_log_mem: xbl_uefi_log_region@808e4000 {
+	uefi_log_mem: uefi_log_region@808e4000 {
 		no-map;
 		reg = <0x0 0x808e4000 0x0 0x10000>;
 	};
@@ -411,19 +416,19 @@
 
 	spss_region_mem: spss_region_region@8ba00000 {
 		no-map;
-		reg = <0x0 0x8ba00000 0x0 0x100000>;
+		reg = <0x0 0x8ba00000 0x0 0x180000>;
 	};
 
-	/* First half of the "SPU secure shared memory" region */
-	spu_tz_shared_mem: spu_tz_shared_mem@8bb00000 {
+	/* First part of the "SPU secure shared memory" region */
+	spu_tz_shared_mem: spu_tz_shared_mem@8bb80000 {
 		no-map;
-		reg = <0x0 0x8bb00000 0x0 0x80000>;
+		reg = <0x0 0x8bb80000 0x0 0x60000>;
 	};
 
-	/* Second half of the "SPU secure shared memory" region */
-	spu_modem_shared_mem: spu_modem_shared_mem@8bb80000 {
+	/* Second part of the "SPU secure shared memory" region */
+	spu_modem_shared_mem: spu_modem_shared_mem@8bbe0000 {
 		no-map;
-		reg = <0x0 0x8bb80000 0x0 0x80000>;
+		reg = <0x0 0x8bbe0000 0x0 0x20000>;
 	};
 
 	mpss_mem: mpss_region@8bc00000 {
@@ -436,6 +441,11 @@
 		reg = <0x0 0x9ee00000 0x0 0x700000>;
 	};
 
+	global_sync_mem: global_sync_region@a6f00000 {
+		no-map;
+		reg = <0x0 0xa6f00000 0x0 0x100000>;
+	};
+
 	/* uefi region can be reused by apps */
 
 	qheebsp_reserved_mem: qheebsp_reserved_region@e0000000 {
@@ -443,7 +453,7 @@
 		reg = <0x0 0xe0000000 0x0 0x600000>;
 	};
 
-	debug_vm_mem: debug_vm_region@e0600000 {
+	cpusys_vm_mem: cpusys_vm_region@e0600000 {
 		no-map;
 		reg = <0x0 0xe0600000 0x0 0x400000>;
 	};
