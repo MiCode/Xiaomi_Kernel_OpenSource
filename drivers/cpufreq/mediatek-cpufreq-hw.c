@@ -15,7 +15,6 @@
 #include <linux/pm_opp.h>
 #include <linux/pm_qos.h>
 #include <linux/slab.h>
-#include <linux/arch_topology.h>
 
 #define LUT_MAX_ENTRIES			32U
 #define LUT_FREQ			GENMASK(11, 0)
@@ -99,9 +98,6 @@ static int mtk_cpufreq_hw_target_index(struct cpufreq_policy *policy,
 	struct cpufreq_mtk *c = policy->driver_data;
 
 	writel_relaxed(index, c->reg_bases[REG_FREQ_PERF_STATE]);
-	arch_set_freq_scale(policy->related_cpus,
-			    policy->freq_table[index].frequency,
-			    policy->cpuinfo.max_freq);
 
 	return 0;
 }
