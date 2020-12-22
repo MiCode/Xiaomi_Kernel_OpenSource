@@ -276,15 +276,25 @@ static void vdso_write_end(struct vdso_data *vdata)
 	++vdso_data->seq_count;
 }
 
+#ifdef CONFIG_GENERIC_GETTIMEOFDAY
+static bool tk_clock_mode_is_archtimer(const struct timekeeper *tk)
+{
+	return
+	(tk->tkr_mono.clock->archdata.clock_mode == VDSO_CLOCKMODE_ARCHTIMER);
+}
+#else
+static bool tk_clock_mode_is_archtimer(const struct timekeeper *tk)
+{
+	return true;
+}
+#endif
+
 static bool tk_is_cntvct(const struct timekeeper *tk)
 {
 	if (!IS_ENABLED(CONFIG_ARM_ARCH_TIMER))
 		return false;
 
-	if (tk->tkr_mono.clock->archdata.clock_mode != VDSO_CLOCKMODE_ARCHTIMER)
-		return false;
-
-	return true;
+	return tk_clock_mode_is_archtimer(tk);
 }
 
 /**
