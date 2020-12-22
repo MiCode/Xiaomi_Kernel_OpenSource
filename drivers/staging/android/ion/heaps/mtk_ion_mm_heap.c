@@ -43,6 +43,40 @@ struct ion_mm_buf_info {
 	char			thread_comm[TASK_COMM_LEN];
 };
 
+struct mtk_iommu_iova_resv {
+	dma_addr_t		iova_base;
+	size_t			size;
+};
+
+/*
+ * resv_iova include CCU iova or other HW which has dma_address
+ * limitation.
+ * resv_iova objective:
+ * Before ION put unused buffer into freelist, resv_iova must be
+ * unmapped firstly to avoid specific iova is allocated failed.
+ * This is common flow !!
+ */
+static const struct mtk_iommu_iova_resv resv_iova[] = {
+	{ .iova_base = 0x240000000ULL, .size = 0x4000000}, /* CCU0 */
+	{ .iova_base = 0x244000000ULL, .size = 0x4000000}, /* CCU1 */
+};
+
+static bool iova_is_reserved(struct device *dev)
+{
+	int i;
+	struct iommu_domain *domain = iommu_get_domain_for_dev(dev);
+
+	for (i = 0; i < ARRAY_SIZE(resv_iova); i++) {
+		if ((domain->geometry.aperture_start ==
+				resv_iova[i].iova_base) &&
+		    (domain->geometry.aperture_end ==
+				resv_iova[i].iova_base + resv_iova[i].size - 1))
+			return true;
+	}
+
+	return false;
+}
+
 static int order_to_index(unsigned int order)
 {
 	int i;
@@ -195,8 +229,24 @@ static void ion_mm_heap_free(struct ion_buffer *buffer)
 					     struct ion_mtk_mm_heap,
 					     heap);
 	struct sg_table *table = buffer->sg_table;
+	struct ion_mm_buf_info *buf_info = buffer->priv_virt;
 	struct scatterlist *sg;
 	int i;
+
+	/* unmap iova */
+	for (i = 0; i < MTK_M4U_DOM_NR_MAX; i++) {
+		struct sg_table	*table_buf = buf_info->table[i];
+		struct dev_info dev_info = buf_info->dev_class[i];
+		unsigned long attrs = dev_info.map_attrs | DMA_ATTR_SKIP_CPU_SYNC;
+
+		if (!buf_info->mapped[i])
+			continue;
+
+		dma_unmap_sg_attrs(dev_info.dev, table_buf->sgl, table_buf->nents,
+				   dev_info.direction, attrs);
+		sg_free_table(table_buf);
+		kfree(table_buf);
+	}
 
 	/* zero the buffer before goto page pool */
 	if (!(buffer->private_flags & ION_PRIV_FLAG_SHRINKER_FREE))
@@ -205,6 +255,7 @@ static void ion_mm_heap_free(struct ion_buffer *buffer)
 	for_each_sg(table->sgl, sg, table->nents, i)
 		free_buffer_page(mm_heap, buffer, sg_page(sg));
 	sg_free_table(table);
+	kfree(buf_info);
 	kfree(table);
 }
 
@@ -425,15 +476,15 @@ static void mtk_ion_dma_buf_release(struct dma_buf *dmabuf)
 		struct dev_info dev_info = buf_info->dev_class[i];
 		unsigned long attrs = dev_info.map_attrs | DMA_ATTR_SKIP_CPU_SYNC;
 
-		if (!buf_info->mapped[i])
+		if (!buf_info->mapped[i] || !iova_is_reserved(dev_info.dev))
 			continue;
 
 		dma_unmap_sg_attrs(dev_info.dev, table->sgl, table->nents,
 				   dev_info.direction, attrs);
+		buf_info->mapped[i] = false;
 		sg_free_table(table);
 		kfree(table);
 	}
-	kfree(buf_info);
 	ion_free(buffer);
 };
 
