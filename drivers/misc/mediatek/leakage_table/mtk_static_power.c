@@ -513,14 +513,16 @@ static int mt_spower_init(struct platform_device *pdev)
 
 	n_domain = of_property_count_strings(node, "domain");
 	spower_lkg_info = kmalloc_array(n_domain, sizeof(struct spower_leakage_info), GFP_KERNEL);
-	tab = kmalloc_array(n_domain, sizeof(struct sptab_list *), GFP_KERNEL);
 #if SPOWERTABLE
+	tab = kmalloc_array(n_domain, sizeof(struct sptab_list *), GFP_KERNEL);
 	sptab = kmalloc_array(n_domain, sizeof(struct sptab_s), GFP_KERNEL);
 #endif
 	spower_raw = kmalloc_array(n_domain, sizeof(struct page *), GFP_KERNEL);
 
 	for (i = 0; i < n_domain; i++) {
+#if SPOWERTABLE
 		tab[i] = kmalloc(sizeof(struct sptab_list), GFP_KERNEL);
+#endif
 		ret = of_property_read_string_index(node, "domain", i, &domain);
 		ret = of_property_read_u32_array(node, domain, value, ARRAY_SIZE(value));
 #if SPOWERTABLE
@@ -611,8 +613,10 @@ static int mt_spower_init(struct platform_device *pdev)
 			    &static_power_precise_operations);
 
 	spower_procfs_init();
+#if SPOWERTABLE
 	for (i = 0; i < n_domain; i++)
 		kfree(tab[i]);
+#endif
 
 	return 0;
 }
