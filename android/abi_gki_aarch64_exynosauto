@@ -6,6 +6,7 @@
   alloc_workqueue
   __arch_copy_from_user
   __arch_copy_to_user
+  arch_setup_dma_ops
   arm64_const_caps_ready
   __arm_smccc_smc
   atomic_notifier_call_chain
@@ -43,6 +44,7 @@
   clk_unregister
   complete
   complete_all
+  complete_and_exit
   __const_udelay
   cpu_bit_bitmap
   cpu_hwcap_keys
@@ -134,9 +136,8 @@
   dma_request_slave_channel
   dma_set_coherent_mask
   dma_set_mask
-  down
+  down_interruptible
   down_read
-  down_trylock
   drm_add_edid_modes
   drm_atomic_helper_connector_destroy_state
   drm_atomic_helper_connector_duplicate_state
@@ -162,6 +163,7 @@
   eth_type_trans
   event_triggers_call
   fd_install
+  filp_open
   find_next_bit
   find_vma
   finish_wait
@@ -211,6 +213,8 @@
   iommu_register_device_fault_handler
   iommu_unregister_device_fault_handler
   ion_alloc
+  __ion_device_add_heap
+  ion_device_remove_heap
   ion_query_heaps_kernel
   __ioremap
   iounmap
@@ -240,6 +244,7 @@
   kmem_cache_free
   kmemdup
   kobject_create_and_add
+  kobject_init_and_add
   kobject_put
   krealloc
   kstrdup
@@ -279,10 +284,10 @@
   mod_delayed_work_on
   mod_timer
   module_layout
+  module_put
   __msecs_to_jiffies
   msleep
   __mutex_init
-  mutex_is_locked
   mutex_lock
   mutex_lock_interruptible
   mutex_unlock
@@ -397,6 +402,10 @@
   put_unused_fd
   queue_delayed_work_on
   queue_work_on
+  radix_tree_delete
+  radix_tree_insert
+  radix_tree_lookup
+  radix_tree_next_chunk
   ___ratelimit
   _raw_spin_lock
   _raw_spin_lock_irq
@@ -467,6 +476,7 @@
   snd_soc_of_get_dai_link_codecs
   snd_soc_of_get_dai_name
   snd_soc_of_parse_audio_routing
+  snd_soc_of_put_dai_link_codecs
   snd_soc_pm_ops
   snprintf
   sprintf
@@ -557,7 +567,6 @@
   vmalloc_to_page
   vmap
   vmemmap
-  vscnprintf
   vsnprintf
   vunmap
   vzalloc
@@ -730,7 +739,6 @@
   console_trylock
   console_unlock
   device_rename
-  drm_atomic_helper_async_check
   drm_atomic_helper_check
   drm_atomic_helper_cleanup_planes
   drm_atomic_helper_commit
@@ -872,9 +880,9 @@
   drm_vblank_init
   mipi_dsi_host_register
   mipi_dsi_host_unregister
+  mutex_is_locked
   of_drm_find_bridge
   of_drm_find_panel
-  of_get_next_available_child
   of_graph_get_endpoint_by_regs
   of_graph_get_endpoint_count
   of_graph_get_next_endpoint
@@ -882,10 +890,8 @@
   of_graph_get_remote_port
   of_graph_get_remote_port_parent
   of_graph_parse_endpoint
-  of_io_request_and_map
-  of_platform_device_create
-  of_platform_device_destroy
-  of_property_match_string
+  of_phandle_iterator_init
+  of_phandle_iterator_next
   strlcat
   videomode_from_timings
 
@@ -947,6 +953,9 @@
   snd_soc_dai_set_tdm_slot
   snd_soc_dai_set_tristate
 
+# required by fmp-core.ko
+  bcmp
+
 # required by g2d.ko
   __arch_copy_in_user
   compat_alloc_user_space
@@ -976,7 +985,6 @@
 
 # required by ion_exynos_mod.ko
   adjust_managed_page_count
-  arch_setup_dma_ops
   cma_alloc
   cma_get_name
   cma_release
@@ -988,8 +996,6 @@
   gen_pool_free_owner
   ion_buffer_prep_noncached
   ion_buffer_zero
-  __ion_device_add_heap
-  ion_device_remove_heap
   ion_free
   ion_heap_map_kernel
   ion_heap_map_user
@@ -1013,7 +1019,9 @@
   dev_pm_opp_put_regulators
   dev_pm_opp_set_regulators
   dma_fence_get_status
+  down
   downgrade_write
+  down_trylock
   down_write
   dump_stack
   __get_task_comm
@@ -1027,7 +1035,6 @@
   kfree_call_rcu
   ktime_get_raw
   __mmdrop
-  module_put
   of_machine_is_compatible
   param_ops_byte
   rb_erase
@@ -1219,21 +1226,14 @@
   v4l2_i2c_subdev_init
 
 # required by sam-is.ko
-  down_interruptible
-  filp_close
-  filp_open
-  get_random_u32
   get_task_pid
   i2c_new_device
   jiffies_to_msecs
   kobject_del
   kstrtou16
   kthread_flush_work
-  kthread_flush_worker
   ktime_get_ts64
   ktime_get_with_offset
-  map_vm_area
-  mutex_trylock
   ns_to_timespec
   param_ops_string
   phy_configure
@@ -1243,7 +1243,6 @@
   regulator_is_enabled
   regulator_set_voltage
   sched_setscheduler_nocheck
-  unmap_kernel_range
   v4l2_device_register_subdev
   v4l2_device_set_name
   v4l2_device_unregister_subdev
@@ -1335,7 +1334,6 @@
   iommu_group_get
   iommu_group_get_for_dev
   iommu_group_get_iommudata
-  iommu_group_put
   iommu_group_remove_device
   iommu_group_set_iommudata
   iommu_put_dma_cookie
@@ -1367,7 +1365,6 @@
   __devm_regmap_init
   __devm_regmap_init_mmio_clk
   dma_mmap_attrs
-  iommu_attach_device
   __platform_register_drivers
   platform_unregister_drivers
   pm_runtime_no_callbacks
@@ -1380,7 +1377,6 @@
   snd_pcm_lib_preallocate_pages
   snd_pcm_period_elapsed
   snd_pcm_release_substream
-  snd_soc_component_exit_regmap
   snd_soc_component_init_regmap
   snd_soc_component_read
   snd_soc_dapm_add_routes
@@ -1389,7 +1385,6 @@
   snd_soc_dapm_new_controls
   snd_soc_dapm_put_enum_double
   snd_soc_info_enum_double
-  snd_soc_register_component
   snd_soc_set_runtime_hwparams
   snd_soc_unregister_component
 
@@ -1417,6 +1412,8 @@
   stream_open
 
 # required by ufs-exynos-core.ko
+  bio_crypt_should_process
+  keyslot_manager_create_passthrough
   ufshcd_config_pwr_mode
   ufshcd_dme_get_attr
   ufshcd_dme_set_attr
@@ -1441,6 +1438,10 @@
   vb2_expbuf
   vb2_request_object_is_buffer
 
+# required by vbufq-be-module.ko
+  drain_workqueue
+  filp_close
+
 # required by vdriver-lib-module.ko
   kobject_get
   kset_create_and_add
@@ -1462,7 +1463,7 @@
   vm_unmap_ram
 
 # required by vlx-clk-ctrl-common-module.ko
-  kobject_init_and_add
+  vscnprintf
 
 # required by vlx-hyp-module.ko
   ioremap_cache
@@ -1474,6 +1475,25 @@
 
 # required by vlx-last-kmsg-module.ko
   proc_set_size
+
+# required by vlx-prop-module.ko
+  kobject_uevent
+  kset_unregister
+  sysfs_create_bin_file
+  sysfs_remove_bin_file
+
+# required by vlx-vion-module.ko
+  dma_buf_fd
+  idr_alloc_cyclic
+  idr_find
+  idr_remove
+  __module_get
+  platform_device_register_full
+  __platform_driver_probe
+  radix_tree_iter_delete
+  refcount_dec_and_mutex_lock
+  uuid_gen
+  __vmalloc
 
 # required by vlx-vmq-module.ko
   default_wake_function
@@ -1488,9 +1508,6 @@
   pci_alloc_irq_vectors_affinity
   pci_free_irq_vectors
   pci_irq_vector
-  radix_tree_delete
-  radix_tree_insert
-  radix_tree_lookup
   radix_tree_maybe_preload
   schedule_timeout_uninterruptible
   sg_pcopy_from_buffer
@@ -1539,3 +1556,20 @@
   pci_bus_type
   __usb_create_hcd
   usb_hcd_platform_shutdown
+
+# preserved by --additions-only
+  drm_atomic_helper_async_check
+  get_random_u32
+  iommu_attach_device
+  iommu_group_put
+  kthread_flush_worker
+  map_vm_area
+  mutex_trylock
+  of_get_next_available_child
+  of_io_request_and_map
+  of_platform_device_create
+  of_platform_device_destroy
+  of_property_match_string
+  snd_soc_component_exit_regmap
+  snd_soc_register_component
+  unmap_kernel_range
