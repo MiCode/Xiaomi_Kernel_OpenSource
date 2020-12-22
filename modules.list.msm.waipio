@@ -115,6 +115,7 @@ soc_sleep_stats.ko
 sensors_ssc.ko
 sys_pm_vx.ko
 secure_buffer.ko
+mem-hooks.ko
 virt-dma.ko
 gpi.ko
 i2c-msm-geni.ko
