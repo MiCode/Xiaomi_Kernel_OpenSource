@@ -148,6 +148,9 @@ qcom_ipc_logging.ko
 llcc-qcom.ko
 rq_stats.ko
 fsa4480-i2c.ko
+qcom_spss.ko
+spss_utils.ko
+spcom.ko
 qcom_llcc_pmu.ko
 qcom-pmu-lib.ko
 dcvs_fp.ko
