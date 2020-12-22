@@ -196,7 +196,7 @@ int mhi_device_configure(struct mhi_device *mhi_dev,
 		if (!strcmp(cfg_tbl->name, "ECA")) {
 			er_ctxt = &mhi_cntrl->mhi_ctxt->er_ctxt[er_index];
 			if (sizeof(*er_ctxt) != cfg_tbl->len) {
-				dev_err(dev,
+				MHI_ERR(
 					"Invalid ECA size, expected:%zu actual%zu\n",
 					sizeof(*er_ctxt), cfg_tbl->len);
 				return -EINVAL;
@@ -209,7 +209,7 @@ int mhi_device_configure(struct mhi_device *mhi_dev,
 		if (!strcmp(cfg_tbl->name, "CCA")) {
 			ch_ctxt = &mhi_cntrl->mhi_ctxt->chan_ctxt[chan];
 			if (cfg_tbl->len != sizeof(*ch_ctxt)) {
-				dev_err(dev,
+				MHI_ERR(
 					"Invalid CCA size, expected:%zu actual:%zu\n",
 					sizeof(*ch_ctxt), cfg_tbl->len);
 				return -EINVAL;
@@ -239,7 +239,7 @@ int mhi_pm_fast_resume(struct mhi_controller *mhi_cntrl, bool notify_clients)
 	struct device *dev = &mhi_cntrl->mhi_dev->dev;
 	struct mhi_private *mhi_priv = dev_get_drvdata(dev);
 
-	dev_dbg(dev, "Entered with PM state: %s, MHI state: %s notify: %s\n",
+	MHI_VERB("Entered with PM state: %s, MHI state: %s notify: %s\n",
 		 to_mhi_pm_state_str(mhi_cntrl->pm_state),
 		 TO_MHI_STATE_STR(mhi_cntrl->dev_state),
 		 notify_clients ? "true" : "false");
@@ -294,7 +294,7 @@ int mhi_pm_fast_resume(struct mhi_controller *mhi_cntrl, bool notify_clients)
 		read_unlock_bh(&mhi_cntrl->pm_lock);
 		break;
 	default:
-		dev_err(dev, "Unexpected PM state:%s after restore\n",
+		MHI_ERR("Unexpected PM state:%s after restore\n",
 			to_mhi_pm_state_str(mhi_cntrl->pm_state));
 	}
 
@@ -347,7 +347,7 @@ int mhi_pm_fast_suspend(struct mhi_controller *mhi_cntrl, bool notify_clients)
 		goto error_suspend;
 	}
 
-	dev_dbg(dev, "Allowing Fast M3 transition with notify: %s\n",
+	MHI_VERB("Allowing Fast M3 transition with notify: %s\n",
 		notify_clients ? "true" : "false");
 
 	/* save the current states */
@@ -358,7 +358,7 @@ int mhi_pm_fast_suspend(struct mhi_controller *mhi_cntrl, bool notify_clients)
 	if (mhi_cntrl->pm_state == MHI_PM_M2) {
 		new_state = mhi_tryset_pm_state(mhi_cntrl, MHI_PM_M0);
 		if (new_state != MHI_PM_M0) {
-			dev_err(dev, "Error setting to PM state: %s from: %s\n",
+			MHI_ERR("Error setting to PM state: %s from: %s\n",
 				to_mhi_pm_state_str(MHI_PM_M0),
 				to_mhi_pm_state_str(mhi_cntrl->pm_state));
 			ret = -EIO;
@@ -368,7 +368,7 @@ int mhi_pm_fast_suspend(struct mhi_controller *mhi_cntrl, bool notify_clients)
 
 	new_state = mhi_tryset_pm_state(mhi_cntrl, MHI_PM_M3_ENTER);
 	if (new_state != MHI_PM_M3_ENTER) {
-		dev_err(dev, "Error setting to PM state: %s from: %s\n",
+		MHI_ERR("Error setting to PM state: %s from: %s\n",
 			to_mhi_pm_state_str(MHI_PM_M3_ENTER),
 			to_mhi_pm_state_str(mhi_cntrl->pm_state));
 		ret = -EIO;
@@ -378,7 +378,7 @@ int mhi_pm_fast_suspend(struct mhi_controller *mhi_cntrl, bool notify_clients)
 	/* set dev_state to M3_FAST and host pm_state to M3 */
 	new_state = mhi_tryset_pm_state(mhi_cntrl, MHI_PM_M3);
 	if (new_state != MHI_PM_M3) {
-		dev_err(dev, "Error setting to PM state: %s from: %s\n",
+		MHI_ERR("Error setting to PM state: %s from: %s\n",
 			to_mhi_pm_state_str(MHI_PM_M3),
 			to_mhi_pm_state_str(mhi_cntrl->pm_state));
 		ret = -EIO;
@@ -453,14 +453,14 @@ static void mhi_process_sfr(struct mhi_controller *mhi_cntrl,
 		rem_seg_len = 0;
 		seg_idx++;
 		if (seg_idx == mhi_cntrl->rddm_image->entries) {
-			dev_err(dev, "invalid size for SFR file\n");
+			MHI_ERR("invalid size for SFR file\n");
 			goto err;
 		}
 	}
 	sfr_buf[info->file_size] = '\0';
 
 	/* force sfr string to log in kernel msg */
-	dev_err(dev, "%s\n", sfr_buf);
+	MHI_ERR("%s\n", sfr_buf);
 err:
 	kfree(sfr_buf);
 }
@@ -484,7 +484,7 @@ static int mhi_find_next_file_offset(struct mhi_controller *mhi_cntrl,
 	while (info->file_size) {
 		info->seg_idx++;
 		if (info->seg_idx == mhi_cntrl->rddm_image->entries) {
-			dev_err(dev, "invalid size for file %s\n",
+			MHI_ERR("invalid size for file %s\n",
 				table_info->file_name);
 			return -EINVAL;
 		}
@@ -516,14 +516,14 @@ void mhi_dump_sfr(struct mhi_controller *mhi_cntrl)
 
 	if (rddm_header->header_size > sizeof(*rddm_header) ||
 			rddm_header->header_size < 8) {
-		dev_err(dev, "invalid reported header size %u\n",
+		MHI_ERR("invalid reported header size %u\n",
 			rddm_header->header_size);
 		return;
 	}
 
 	table_size = (rddm_header->header_size - 8) / sizeof(*table_info);
 	if (!table_size) {
-		dev_err(dev, "invalid rddm table size %u\n", table_size);
+		MHI_ERR("invalid rddm table size %u\n", table_size);
 		return;
 	}
 
@@ -553,7 +553,7 @@ bool mhi_scan_rddm_cookie(struct mhi_controller *mhi_cntrl, u32 cookie)
 	if (!mhi_cntrl->rddm_image || !cookie)
 		return false;
 
-	dev_dbg(dev, "Checking BHI debug register for 0x%x\n", cookie);
+	MHI_VERB("Checking BHI debug register for 0x%x\n", cookie);
 
 	if (!MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state))
 		return false;
@@ -562,7 +562,7 @@ bool mhi_scan_rddm_cookie(struct mhi_controller *mhi_cntrl, u32 cookie)
 	if (ret)
 		return false;
 
-	dev_dbg(dev, "BHI_ERRDBG2 value:0x%x\n", val);
+	MHI_VERB("BHI_ERRDBG2 value:0x%x\n", val);
 	if (val == cookie)
 		return true;
 
@@ -602,7 +602,7 @@ void mhi_debug_reg_dump(struct mhi_controller *mhi_cntrl)
 		{ NULL },
 	};
 
-	dev_err(dev, "host pm_state:%s dev_state:%s ee:%s\n",
+	MHI_ERR("host pm_state:%s dev_state:%s ee:%s\n",
 		to_mhi_pm_state_str(mhi_cntrl->pm_state),
 		TO_MHI_STATE_STR(mhi_cntrl->dev_state),
 		TO_MHI_EXEC_STR(mhi_cntrl->ee));
@@ -610,7 +610,7 @@ void mhi_debug_reg_dump(struct mhi_controller *mhi_cntrl)
 	state = mhi_get_mhi_state(mhi_cntrl);
 	ee = mhi_get_exec_env(mhi_cntrl);
 
-	dev_err(dev, "device ee: %s dev_state: %s\n", TO_MHI_EXEC_STR(ee),
+	MHI_ERR("device ee: %s dev_state: %s\n", TO_MHI_EXEC_STR(ee),
 		TO_MHI_STATE_STR(state));
 
 	for (i = 0; debug_reg[i].name; i++) {
@@ -618,7 +618,7 @@ void mhi_debug_reg_dump(struct mhi_controller *mhi_cntrl)
 			continue;
 		ret = mhi_read_reg(mhi_cntrl, debug_reg[i].base,
 				   debug_reg[i].offset, &val);
-		dev_err(dev, "reg: %s val: 0x%x, ret: %d\n", debug_reg[i].name,
+		MHI_ERR("reg: %s val: 0x%x, ret: %d\n", debug_reg[i].name,
 			val, ret);
 	}
 }
@@ -646,7 +646,7 @@ int mhi_device_get_sync_atomic(struct mhi_device *mhi_dev, int timeout_us,
 	/* Return if client doesn't want us to wait */
 	if (!timeout_us) {
 		if (mhi_cntrl->pm_state != MHI_PM_M0)
-			dev_err(dev, "Return without waiting for M0\n");
+			MHI_ERR("Return without waiting for M0\n");
 
 		mhi_cntrl->runtime_put(mhi_cntrl);
 		return 0;
@@ -669,7 +669,7 @@ int mhi_device_get_sync_atomic(struct mhi_device *mhi_dev, int timeout_us,
 	}
 
 	if (MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state) || timeout_us <= 0) {
-		dev_err(dev, "Did not enter M0, cur_state: %s pm_state: %s\n",
+		MHI_ERR("Did not enter M0, cur_state: %s pm_state: %s\n",
 			TO_MHI_STATE_STR(mhi_cntrl->dev_state),
 			to_mhi_pm_state_str(mhi_cntrl->pm_state));
 		read_lock_bh(&mhi_cntrl->pm_lock);
@@ -764,7 +764,7 @@ static int mhi_init_bw_scale(struct mhi_controller *mhi_cntrl)
 	mhi_write_reg(mhi_cntrl, mhi_cntrl->regs, bw_cfg_offset,
 		      MHI_BW_SCALE_SETUP(er_index));
 
-	dev_dbg(dev, "Bandwidth scaling setup complete. Event ring:%d\n",
+	MHI_VERB("Bandwidth scaling setup complete. Event ring:%d\n",
 		er_index);
 
 	return 0;
@@ -782,7 +782,7 @@ int mhi_misc_init_mmio(struct mhi_controller *mhi_cntrl)
 	ret = mhi_read_reg_field(mhi_cntrl, base, CHDBOFF, CHDBOFF_CHDBOFF_MASK,
 				 CHDBOFF_CHDBOFF_SHIFT, &chdb_off);
 	if (ret) {
-		dev_err(dev, "Unable to read CHDBOFF register\n");
+		MHI_ERR("Unable to read CHDBOFF register\n");
 		return -EIO;
 	}
 
@@ -852,7 +852,7 @@ int mhi_process_misc_bw_ev_ring(struct mhi_controller *mhi_cntrl,
 	mhi_recycle_fwd_ev_ring_element(mhi_cntrl, ev_ring);
 
 	if (WARN_ON(MHI_TRE_GET_EV_TYPE(dev_rp) != MHI_PKT_TYPE_BW_REQ_EVENT)) {
-		dev_err(dev, "!BW SCALE REQ event\n");
+		MHI_ERR("!BW SCALE REQ event\n");
 		spin_unlock_bh(&mhi_event->lock);
 		goto exit_bw_scale_process;
 	}
@@ -861,7 +861,7 @@ int mhi_process_misc_bw_ev_ring(struct mhi_controller *mhi_cntrl,
 	link_info.target_link_width = MHI_TRE_GET_EV_LINKWIDTH(dev_rp);
 	link_info.sequence_num = MHI_TRE_GET_EV_BW_REQ_SEQ(dev_rp);
 
-	dev_dbg(dev, "Received BW_REQ with seq:%d link speed:0x%x width:0x%x\n",
+	MHI_VERB("Received BW_REQ with seq:%d link speed:0x%x width:0x%x\n",
 		link_info.sequence_num,
 		link_info.target_link_speed,
 		link_info.target_link_width);
@@ -898,7 +898,7 @@ int mhi_process_misc_bw_ev_ring(struct mhi_controller *mhi_cntrl,
 	mutex_unlock(&mhi_cntrl->pm_mutex);
 
 exit_bw_scale_process:
-	dev_dbg(dev, "exit er_index:%u ret:%d\n", mhi_event->er_index, ret);
+	MHI_VERB("exit er_index:%u ret:%d\n", mhi_event->er_index, ret);
 
 	return ret;
 }
