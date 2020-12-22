@@ -7,43 +7,41 @@
 #include <linux/cpu.h>
 #include <linux/kobject.h>
 #include <linux/sysfs.h>
+#include <linux/module.h>
+#include <trace/hooks/sched.h>
 
 #define MAX_LONG_SIZE 24
 #define DEFAULT_DEF_TIMER_JIFFIES 5
 
 struct rq_data {
 	unsigned long def_timer_jiffies;
-	unsigned long def_timer_next_jiffy;
+	unsigned long def_timer_last_jiffy;
 	int64_t def_start_time;
 	struct attribute_group *attr_group;
 	struct kobject *kobj;
-	struct delayed_work def_timer_work[NR_CPUS];
+	struct work_struct def_timer_work;
 };
 
 static struct rq_data rq_info;
 static struct workqueue_struct *rq_wq;
 spinlock_t rq_lock;
 
+static void wakeup_user(void *ignore, void *extra)
+{
+	unsigned long jiffy_gap;
+
+	jiffy_gap = jiffies - rq_info.def_timer_last_jiffy;
+
+	if (jiffy_gap >= rq_info.def_timer_jiffies) {
+		rq_info.def_timer_last_jiffy = jiffies;
+		queue_work(rq_wq, &rq_info.def_timer_work);
+	}
+}
+
 static void def_work_fn(struct work_struct *work)
 {
-	int i;
-
-	spin_lock(&rq_lock);
-	if (jiffies - rq_info.def_timer_next_jiffy < 0) {
-		spin_unlock(&rq_lock);
-		return;
-	}
-	rq_info.def_timer_next_jiffy = jiffies + rq_info.def_timer_jiffies;
-	spin_unlock(&rq_lock);
-
 	/* Notify polling threads on change of value */
 	sysfs_notify(rq_info.kobj, NULL, "def_timer_ms");
-
-	for_each_possible_cpu(i) {
-		cancel_delayed_work(&rq_info.def_timer_work[i]);
-		queue_delayed_work_on(i, rq_wq, &rq_info.def_timer_work[i],
-								rq_info.def_timer_jiffies);
-	}
 }
 
 static ssize_t show_def_timer_ms(struct kobject *kobj,
@@ -110,21 +108,32 @@ static int init_rq_attribs(void)
 
 static int __init msm_rq_stats_init(void)
 {
-	int i, ret;
+	int ret;
 
 #ifndef CONFIG_SMP
 	/* Bail out if this is not an SMP Target */
 	return -EPERM;
 #endif
-	rq_wq = alloc_ordered_workqueue("rq_stats", WQ_HIGHPRI);
+	rq_wq = create_singlethread_workqueue("rq_stats");
+	WARN_ON(!rq_wq);
+	INIT_WORK(&rq_info.def_timer_work, def_work_fn);
 	spin_lock_init(&rq_lock);
-	for_each_possible_cpu(i)
-		INIT_DEFERRABLE_WORK(&rq_info.def_timer_work[i], def_work_fn);
 	rq_info.def_timer_jiffies = DEFAULT_DEF_TIMER_JIFFIES;
+	rq_info.def_timer_last_jiffy = 0;
 	ret = init_rq_attribs();
-	for_each_possible_cpu(i)
-		queue_delayed_work_on(i, rq_wq, &rq_info.def_timer_work[i],
-								rq_info.def_timer_jiffies);
+
+	register_trace_android_vh_jiffies_update(wakeup_user, NULL);
+
 	return ret;
 }
 late_initcall(msm_rq_stats_init);
+
+static __exit void msm_rq_stats_exit(void)
+{
+	destroy_workqueue(rq_wq);
+	kobject_del(rq_info.kobj);
+}
+module_exit(msm_rq_stats_exit);
+
+MODULE_DESCRIPTION("QCOM Run Queue Stats");
+MODULE_LICENSE("GPL v2");
