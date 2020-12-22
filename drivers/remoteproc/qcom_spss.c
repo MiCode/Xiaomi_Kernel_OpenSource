@@ -271,7 +271,7 @@ disable_xo_clk:
 	return ret;
 }
 
-static void *spss_da_to_va(struct rproc *rproc, u64 da, int len)
+static void *spss_da_to_va(struct rproc *rproc, u64 da, size_t len)
 {
 	struct qcom_spss *spss = (struct qcom_spss *)rproc->priv;
 	int offset;
@@ -397,7 +397,7 @@ int qcom_spss_set_fw_name(struct rproc *rproc, const char *fw_name)
 {
 	const char *p;
 
-	p = kstrdup_const(fw_name, strlen(fw_name), GFP_KERNEL);
+	p = kstrdup_const(fw_name, GFP_KERNEL);
 	if (!p)
 		return -ENOMEM;
 
@@ -458,7 +458,7 @@ static int qcom_spss_probe(struct platform_device *pdev)
 	if (ret)
 		goto free_rproc;
 
-	qcom_add_glink_subdev(rproc, &spss->glink_subdev);
+	qcom_add_glink_subdev(rproc, &spss->glink_subdev, "spss");
 	qcom_add_ssr_subdev(rproc, &spss->ssr_subdev, desc->ssr_name);
 
 	ret = rproc_add(rproc);
