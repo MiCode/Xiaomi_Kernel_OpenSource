@@ -16,6 +16,7 @@
 #include <linux/errno.h>
 #include <linux/string.h>
 #include <linux/slab.h>
+#include <linux/android_debug_symbols.h>
 #include <linux/soc/qcom/smem.h>
 #include <soc/qcom/minidump.h>
 #include "minidump_private.h"
@@ -437,8 +438,9 @@ static int msm_minidump_add_header(void)
 	struct elf_shdr *shdr;
 	struct elf_phdr *phdr;
 	unsigned int strtbl_off, elfh_size, phdr_off;
-	char *banner;
+	char *banner, *linux_banner;
 
+	linux_banner = android_debug_symbol(ADS_LINUX_BANNER);
 	/* Header buffer contains:
 	 * elf header, MAX_NUM_ENTRIES+4 of section and program elf headers,
 	 * string table section and linux banner.

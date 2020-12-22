@@ -27,6 +27,7 @@
 #include <linux/sched/task.h>
 #include <linux/suspend.h>
 #include <linux/vmalloc.h>
+#include <linux/android_debug_symbols.h>
 
 #ifdef CONFIG_QCOM_MINIDUMP_PANIC_DUMP
 #include <linux/bits.h>
@@ -189,12 +190,18 @@ static void register_kernel_sections(void)
 {
 	struct md_region ksec_entry;
 	char *data_name = "KDATABSS";
-	const size_t static_size = __per_cpu_end - __per_cpu_start;
-	void __percpu *base = (void __percpu *)__per_cpu_start;
+	size_t static_size;
+	void __percpu *base;
 	unsigned int cpu;
+	void *_sdata, *__bss_stop;
+
+	_sdata = android_debug_symbol(ADS_SDATA);
+	__bss_stop = android_debug_symbol(ADS_BSS_END);
+	base = android_debug_symbol(ADS_PER_CPU_START);
+	static_size = (size_t)(android_debug_symbol(ADS_PER_CPU_END) - base);
 
 	strlcpy(ksec_entry.name, data_name, sizeof(ksec_entry.name));
-	ksec_entry.virt_addr = (uintptr_t)_sdata;
+	ksec_entry.virt_addr = (u64)_sdata;
 	ksec_entry.phys_addr = virt_to_phys(_sdata);
 	ksec_entry.size = roundup((__bss_stop - _sdata), 4);
 	if (msm_minidump_add_region(&ksec_entry) < 0)
@@ -552,9 +559,10 @@ static void register_irq_stack(void)
 	u64 irq_stack_base;
 	struct md_region irq_sp_entry;
 	u64 sp;
+	u64 *irq_stack_ptr = android_debug_per_cpu_symbol(ADS_IRQ_STACK_PTR);
 
 	for_each_possible_cpu(cpu) {
-		irq_stack_base = (u64)per_cpu(irq_stack_ptr, cpu);
+		irq_stack_base = (u64)per_cpu_ptr((void *)irq_stack_ptr, cpu);
 		if (is_vmap_stack) {
 			irq_stack_pages_count = IRQ_STACK_SIZE / PAGE_SIZE;
 			sp = irq_stack_base & ~(PAGE_SIZE - 1);
