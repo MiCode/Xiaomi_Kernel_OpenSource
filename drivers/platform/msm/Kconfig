@@ -143,4 +143,32 @@ config R8125
 	  To compile this driver as a module, choose M here: the module
 	  will be called r8125.
 
+config IPA_ETH
+	bool "IPA Ethernet Offload Sub-system support"
+	depends on IPA3
+	help
+	  Enables IPA Ethernet Offload Subsystem for offloading PCI based
+	  ethernet devices to IPA. The offload subsystem still require a
+	  compatible network driver to register with it and a corresponding
+	  offload driver to manage one of more offload data paths that uses
+	  the network device.
+
+config IPA_ETH_NOAUTO
+	bool "Disable automatic offload initialization of interfaces"
+	depends on IPA_ETH
+	help
+	  Enabling this option prevents automatic initialization of offload on
+	  ethernet interfaces. Debugfs control interface will instead be used
+	  to enable offloading. This feature is meant only for debugging.
+	  If unsure, say N.
+
+config IPA_ETH_DEBUG
+	bool "Enable addtional debug logging in the offload sub-system"
+	depends on IPA_ETH
+	help
+	  Enabling this option increases the number of messages logged by the offload
+	  sub-system for aiding debugging. Additional debug messages are logged into
+	  IPC log as well as kernel log using dynamic debug.
+	  If unsure, say N.
+
 endmenu
