@@ -11,6 +11,7 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+#include <linux/qcom_scm.h>
 #include <linux/slab.h>
 
 #define MAX_POSSIBLE_CPUS	8
@@ -43,21 +44,49 @@
 #define LPM_COUNTER_EN_C2D	BIT(1)
 #define LPM_COUNTER_EN_C3	BIT(2)
 #define LPM_COUNTER_EN_C4	BIT(3)
+#define LPM_COUNTER_RESET_C1	BIT(4)
+#define LPM_COUNTER_RESET_C2D	BIT(5)
+#define LPM_COUNTER_RESET_C3	BIT(6)
+#define LPM_COUNTER_RESET_C4	BIT(7)
+
+#define RESET_ALL_CPU_LPM	(LPM_COUNTER_RESET_C1 | \
+				LPM_COUNTER_RESET_C2D | LPM_COUNTER_RESET_C3 | \
+				LPM_COUNTER_RESET_C4)
 
 /* bits are per CL LPM_CFG register */
 #define LPM_COUNTER_EN_D1	BIT(0)
 #define LPM_COUNTER_EN_D2D	BIT(1)
 #define LPM_COUNTER_EN_D3	BIT(2)
 #define LPM_COUNTER_EN_D4	BIT(3)
+#define LPM_COUNTER_RESET_D1	BIT(4)
+#define LPM_COUNTER_RESET_D2D	BIT(5)
+#define LPM_COUNTER_RESET_D3	BIT(6)
+#define LPM_COUNTER_RESET_D4	BIT(7)
+
+
+#define RESET_ALL_CL_LPM	(LPM_COUNTER_RESET_D1 | \
+				LPM_COUNTER_RESET_D2D | LPM_COUNTER_RESET_D3 | \
+				LPM_COUNTER_RESET_D4)
 
 /* Core residency cfg as per register */
 #define RESIDENCY_CNTR_C2_EN	BIT(0)
+#define RESIDENCY_CNTR_C2_CLR	BIT(1)
 #define RESIDENCY_CNTR_C3_EN	BIT(2)
+#define RESIDENCY_CNTR_C3_CLR	BIT(3)
 #define RESIDENCY_CNTR_C4_EN	BIT(4)
+#define	RESIDENCY_CNTR_C4_CLR	BIT(5)
+
+#define CLR_ALL_CPU_RESIDENCY	(RESIDENCY_CNTR_C2_CLR | \
+				RESIDENCY_CNTR_C3_CLR | RESIDENCY_CNTR_C4_CLR)
 
 /* Cluster residency bits as per cfg register*/
 #define RESIDENCY_CNTR_D2_EN	BIT(0)
+#define RESIDENCY_CNTR_D2_CLR	BIT(1)
 #define RESIDENCY_CNTR_D4_EN	BIT(2)
+#define RESIDENCY_CNTR_D4_CLR	BIT(3)
+
+#define CLR_CL_RESIDENCY	(RESIDENCY_CNTR_D2_CLR | \
+				RESIDENCY_CNTR_D4_CLR)
 
 struct qcom_cpuss_stats {
 	char mode_name[20];
@@ -79,6 +108,7 @@ struct qcom_target_info {
 	struct dentry *stats_rootdir;
 	struct dentry *cpu_dir[MAX_POSSIBLE_CPUS];
 	struct dentry *cl_rootdir;
+	struct mutex stats_reset_lock;
 };
 
 static char *get_str_cpu_lpm_state(u8 state)
@@ -259,6 +289,110 @@ static int qcom_cpuss_all_stats_show(struct seq_file *s, void *d)
 }
 
 DEFINE_SHOW_ATTRIBUTE(qcom_cpuss_all_stats);
+
+static int qcom_cpuss_stats_reset_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, NULL, NULL);
+}
+
+static ssize_t qcom_cpuss_reset_clear_lpm_residency(phys_addr_t addr, u32 new_val)
+{
+	u32 val;
+	int ret = 0;
+
+	ret = qcom_scm_io_readl(addr, &val);
+	if (ret)
+		goto error;
+
+	val |= new_val;
+	ret = qcom_scm_io_writel(addr, val);
+	if (ret)
+		goto error;
+
+	/* clear reset */
+	val &= ~new_val;
+	ret = qcom_scm_io_writel(addr, val);
+	if (ret)
+		goto error;
+
+	return 0;
+error:
+	pr_err("Cannot reset lpm hw count and residency\n");
+	return -EINVAL;
+}
+
+static bool check_val(const char __user *in, size_t count)
+{
+	loff_t ppos = 0;
+	char buffer[2] = {0};
+	int ret;
+
+	ret = simple_write_to_buffer(buffer, sizeof(buffer) - 1,
+				     &ppos, in, count - 1);
+	if (ret > 0)
+		return strcmp(buffer, "1") ? false : true;
+
+	return false;
+}
+
+static ssize_t qcom_cpuss_stats_reset_write(struct file *file,
+	const char __user *buffer, size_t count, loff_t *off)
+{
+	struct inode *in = file->f_inode;
+	struct qcom_target_info *t_info;
+	int ncpu, i;
+	ssize_t ret;
+	struct platform_device *pdev;
+
+	t_info = (struct qcom_target_info *)in->i_private;
+	ncpu = t_info->ncpu;
+	pdev = t_info->pdev;
+
+	if (!check_val(buffer, count))
+		return -EINVAL;
+
+	/* Reset cpu LPM/Residencies */
+	mutex_lock(&t_info->stats_reset_lock);
+	for (i = 0; i < ncpu; i++) {
+		ret = qcom_cpuss_reset_clear_lpm_residency(t_info->per_cpu_lpm_cfg[i],
+							   RESET_ALL_CPU_LPM);
+		if (ret)
+			goto error;
+
+		ret = qcom_cpuss_reset_clear_lpm_residency(t_info->apss_seq_mem_base +
+				APSS_CPU_LPM_RESIDENCY_CNTR_CFG_n + 0x4 * i,
+				CLR_ALL_CPU_RESIDENCY);
+		if (ret)
+			goto error;
+	}
+
+	/* Reset cluster LPM/Residencies */
+	ret = qcom_cpuss_reset_clear_lpm_residency(t_info->l3_seq_lpm_cfg,
+						   RESET_ALL_CL_LPM);
+	if (ret)
+		goto error;
+
+	ret = qcom_cpuss_reset_clear_lpm_residency(t_info->apss_seq_mem_base +
+			APSS_CL_LPM_RESIDENCY_CNTR_CFG, CLR_CL_RESIDENCY);
+	if (ret)
+		goto error;
+	mutex_unlock(&t_info->stats_reset_lock);
+
+	return count;
+
+error:
+	mutex_unlock(&t_info->stats_reset_lock);
+	return ret;
+}
+
+static const struct file_operations qcom_cpuss_stats_reset_fops = {
+	.owner		= THIS_MODULE,
+	.open		= qcom_cpuss_stats_reset_open,
+	.read		= seq_read,
+	.release	= single_release,
+	.llseek		= no_llseek,
+	.write		= qcom_cpuss_stats_reset_write,
+};
 
 static void store_stats_data(struct qcom_target_info *t_info, char *str,
 			     void __iomem *reg)
@@ -539,6 +673,11 @@ static int qcom_cpuss_sleep_stats_probe(struct platform_device *pdev)
 	debugfs_create_file("stats", 0444, root_dir,
 				(void *) &t_info->complete_stats.node,
 				&qcom_cpuss_all_stats_fops);
+
+	/* Debugfs to reset all LPM and residency */
+	mutex_init(&t_info->stats_reset_lock);
+	debugfs_create_file("reset", 0644, root_dir, (void *) t_info,
+			    &qcom_cpuss_stats_reset_fops);
 
 	platform_set_drvdata(pdev, root_dir);
 
