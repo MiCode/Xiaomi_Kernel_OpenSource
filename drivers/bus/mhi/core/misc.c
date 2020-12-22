@@ -386,6 +386,7 @@ int mhi_pm_fast_suspend(struct mhi_controller *mhi_cntrl, bool notify_clients)
 	}
 
 	mhi_cntrl->dev_state = MHI_STATE_M3_FAST;
+	mhi_cntrl->M3_fast++;
 
 	write_unlock_irq(&mhi_cntrl->pm_lock);
 
