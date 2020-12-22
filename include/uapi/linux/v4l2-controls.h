@@ -202,8 +202,7 @@ enum v4l2_colorfx {
  * The base for the mediatek FD driver controls.
  * We reserve 16 controls for this driver.
  */
-/* This value is the same as the above */
-/* #define V4L2_CID_USER_MTK_FD_BASE		(V4L2_CID_USER_BASE + 0x10c0) */
+#define V4L2_CID_USER_MTK_FD_BASE		(V4L2_CID_USER_BASE + 0x10e0)
 
 /* MPEG-class control IDs */
 /* The MPEG controls are applicable to all codec controls
