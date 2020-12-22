@@ -264,7 +264,7 @@ int coresight_csr_hwctrl_set(struct coresight_csr *csr, uint64_t addr,
 }
 EXPORT_SYMBOL(coresight_csr_hwctrl_set);
 
-void coresight_csr_set_byte_cntr(struct coresight_csr *csr, uint32_t count)
+void coresight_csr_set_byte_cntr(struct coresight_csr *csr, int irqctrl_offset, uint32_t count)
 {
 	struct csr_drvdata *drvdata;
 	unsigned long flags;
@@ -279,7 +279,7 @@ void coresight_csr_set_byte_cntr(struct coresight_csr *csr, uint32_t count)
 	spin_lock_irqsave(&drvdata->spin_lock, flags);
 	CSR_UNLOCK(drvdata);
 
-	csr_writel(drvdata, count, CSR_BYTECNTVAL);
+	csr_writel(drvdata, count, irqctrl_offset);
 
 	/* make sure byte count value is written */
 	mb();
