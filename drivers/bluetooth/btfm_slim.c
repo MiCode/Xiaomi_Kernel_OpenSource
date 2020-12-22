@@ -106,6 +106,19 @@ int btfm_slim_enable_ch(struct btfmslim *btfmslim, struct btfmslim_ch *ch,
 
 	BTFMSLIM_DBG("port: %d ch: %d", ch->port, ch->ch);
 
+	chan->dai.sruntime = slim_stream_allocate(btfmslim->slim_pgd, "BTFM_SLIM");
+	if (chan->dai.sruntime == NULL) {
+		BTFMSLIM_ERR("slim_stream_allocate failed");
+		return -EINVAL;
+	}
+	chan->dai.sconfig.bps = btfmslim->bps;
+	chan->dai.sconfig.direction = btfmslim->direction;
+	chan->dai.sconfig.rate = rates;
+	chan->dai.sconfig.ch_count = nchan;
+	chan->dai.sconfig.chs = kcalloc(nchan, sizeof(unsigned int), GFP_KERNEL);
+	if (!chan->dai.sconfig.chs)
+		return -ENOMEM;
+
 	for (i = 0; i < nchan; i++, ch++) {
 		/* Enable port through registration setting */
 		if (btfmslim->vendor_port_en) {
@@ -117,6 +130,8 @@ int btfm_slim_enable_ch(struct btfmslim *btfmslim, struct btfmslim_ch *ch,
 				goto error;
 			}
 		}
+		chan->dai.sconfig.chs[i] = chan->ch;
+		chan->dai.sconfig.port_mask |= BIT(chan->port);
 	}
 
 	/* Activate the channel immediately */
@@ -149,18 +164,19 @@ int btfm_slim_enable_ch(struct btfmslim *btfmslim, struct btfmslim_ch *ch,
 		btfm_feedback_ch_setting = 0;
 	}
 
-	btfmslim->dai.sconfig.bps = btfmslim->bps;
-	btfmslim->dai.sconfig.direction = btfmslim->direction;
-	btfmslim->dai.sconfig.rate = rates;
-	btfmslim->dai.sconfig.ch_count = 1;
-	btfmslim->dai.sconfig.chs = kcalloc(1, sizeof(unsigned int), GFP_KERNEL);
-	btfmslim->dai.sconfig.chs[0] = chan->ch;
-	btfmslim->dai.sconfig.port_mask = BIT(chan->port);
-	ret = slim_stream_prepare(btfmslim->dai.sruntime, &btfmslim->dai.sconfig);
-	BTFMSLIM_INFO("btfm_slim_codec codec slim_stream_prepare returned val = %d", ret);
-	ret = slim_stream_enable(btfmslim->dai.sruntime);
-	BTFMSLIM_INFO("btfm_slim_codec codec slim_stream_enable returned val = %d", ret);
+	ret = slim_stream_prepare(chan->dai.sruntime, &chan->dai.sconfig);
+	if (ret) {
+		BTFMSLIM_ERR("slim_stream_prepare failed = %d", ret);
+		goto error;
+	}
+
+	ret = slim_stream_enable(chan->dai.sruntime);
+	if (ret) {
+		BTFMSLIM_ERR("slim_stream_enable failed = %d", ret);
+		goto error;
+	}
 error:
+	kfree(chan->dai.sconfig.chs);
 	return ret;
 }
 
@@ -174,10 +190,10 @@ int btfm_slim_disable_ch(struct btfmslim *btfmslim, struct btfmslim_ch *ch,
 	BTFMSLIM_INFO("port:%d ", ch->port);
 	btfm_is_port_opening_delayed = false;
 
-	ret = slim_stream_disable(btfmslim->dai.sruntime);
+	ret = slim_stream_disable(ch->dai.sruntime);
 	if (ret != 0)
 		BTFMSLIM_ERR("slim_stream_disable failed returned val = %d", ret);
-	ret = slim_stream_unprepare(btfmslim->dai.sruntime);
+	ret = slim_stream_unprepare(ch->dai.sruntime);
 	if (ret != 0)
 		BTFMSLIM_ERR("slim_stream_unprepare failed returned val = %d", ret);
 
@@ -192,6 +208,8 @@ int btfm_slim_disable_ch(struct btfmslim *btfmslim, struct btfmslim_ch *ch,
 			}
 		}
 	}
+	ch->dai.sconfig.port_mask = 0;
+	kfree(ch->dai.sconfig.chs);
 	return ret;
 }
 
@@ -450,8 +468,8 @@ dealloc:
 
 static void btfm_slim_remove(struct slim_device *slim)
 {
-	struct btfmslim *btfm_slim = slim->dev.platform_data;
-
+	struct device *dev = &slim->dev;
+	struct btfmslim *btfm_slim = dev_get_drvdata(dev);
 	BTFMSLIM_DBG("");
 	mutex_destroy(&btfm_slim->io_lock);
 	mutex_destroy(&btfm_slim->xfer_lock);
@@ -459,12 +477,21 @@ static void btfm_slim_remove(struct slim_device *slim)
 	kfree(btfm_slim);
 }
 
-static const struct slim_device_id btfm_slim_id = {
+static const struct slim_device_id btfm_slim_id[] = {
+	{
 	.manf_id = SLIM_MANF_ID_QCOM,
 	.prod_code = SLIM_PROD_CODE,
 	.dev_index = 0x1,
 	.instance = 0x0,
+	},
+	{
+	.manf_id = SLIM_MANF_ID_QCOM,
+	.prod_code = 0x220,
+	.dev_index = 0x1,
+	.instance = 0x0,
+	}
 };
+
 MODULE_DEVICE_TABLE(slim, btfm_slim_id);
 
 static struct slim_driver btfm_slim_driver = {
@@ -475,7 +502,7 @@ static struct slim_driver btfm_slim_driver = {
 	.probe = btfm_slim_probe,
 	.device_status = btfm_slim_status,
 	.remove = btfm_slim_remove,
-	.id_table = &btfm_slim_id
+	.id_table = btfm_slim_id
 };
 
 module_slim_driver(btfm_slim_driver);

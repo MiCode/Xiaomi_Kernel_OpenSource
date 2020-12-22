@@ -162,7 +162,6 @@ static int btfm_slim_dai_hw_params(struct snd_pcm_substream *substream,
 	BTFMSLIM_DBG("dai->name = %s DAI-ID %x rate %d bps %d num_ch %d",
 		dai->name, dai->id, params_rate(params), params_width(params),
 		params_channels(params));
-	btfmslim->dai.sruntime = slim_stream_allocate(btfmslim->slim_pgd, "BTFM_SLIM");
 	return 0;
 }
 
