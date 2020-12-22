@@ -16,10 +16,21 @@
 #include <linux/blk-mq.h>
 #include <linux/blk-mq-virtio.h>
 #include <linux/numa.h>
+#ifdef CONFIG_QTI_CRYPTO_VIRTUALIZATION
+#include <linux/bio-crypt-ctx.h>
+#include "virtio_blk_qti_crypto.h"
+#endif
 
 #define PART_BITS 4
 #define VQ_NAME_LEN 16
 #define MAX_DISCARD_SEGMENTS 256u
+
+#ifdef CONFIG_QTI_CRYPTO_VIRTUALIZATION
+/* Temporaryly declaring ice supported feature bit.
+ * Will discard this macro once uapi chages are mainlined
+ */
+#define VIRTIO_BLK_F_ICE	23	/* support ice virtualization */
+#endif
 
 static int major;
 static DEFINE_IDA(vd_index_ida);
@@ -71,6 +82,15 @@ struct virtio_blk {
 	struct virtio_blk_vq *vqs;
 };
 
+#ifdef CONFIG_QTI_CRYPTO_VIRTUALIZATION
+struct virtio_blk_ice_info {
+	/*the key slot to use for inline crypto*/
+	u8  ice_slot;
+	u8  activate;
+	u16 reserved;
+} __packed;
+#endif
+
 struct virtblk_req {
 #ifdef CONFIG_VIRTIO_BLK_SCSI
 	struct scsi_request sreq;	/* for SCSI passthrough, must be first */
@@ -78,6 +98,9 @@ struct virtblk_req {
 	struct virtio_scsi_inhdr in_hdr;
 #endif
 	struct virtio_blk_outhdr out_hdr;
+#ifdef CONFIG_QTI_CRYPTO_VIRTUALIZATION
+	struct virtio_blk_ice_info ice_info;
+#endif
 	u8 status;
 	struct scatterlist sg[];
 };
@@ -173,8 +196,14 @@ static int virtblk_add_req(struct virtqueue *vq, struct virtblk_req *vbr,
 {
 	struct scatterlist hdr, status, *sgs[3];
 	unsigned int num_out = 0, num_in = 0;
-
+#ifdef CONFIG_QTI_CRYPTO_VIRTUALIZATION
+	size_t const hdr_size = virtio_has_feature(vq->vdev, VIRTIO_BLK_F_ICE) ?
+				sizeof(vbr->out_hdr) + sizeof(vbr->ice_info) :
+				sizeof(vbr->out_hdr);
+	sg_init_one(&hdr, &vbr->out_hdr, hdr_size);
+#else
 	sg_init_one(&hdr, &vbr->out_hdr, sizeof(vbr->out_hdr));
+#endif
 	sgs[num_out++] = &hdr;
 
 	if (have_data) {
@@ -284,6 +313,25 @@ static void virtio_commit_rqs(struct blk_mq_hw_ctx *hctx)
 		virtqueue_notify(vq->vq);
 }
 
+#ifdef CONFIG_QTI_CRYPTO_VIRTUALIZATION
+static void virtblk_get_ice_info(struct virtio_blk *vblk, struct request *req)
+{
+	/* whether or not the request needs inline crypto operations*/
+	struct bio_crypt_ctx *bc;
+	struct virtblk_req *vbr = blk_mq_rq_to_pdu(req);
+
+	if (!bio_crypt_should_process(req)) {
+		/* ice is not activated */
+		vbr->ice_info.activate = false;
+	} else {
+		bc = req->bio->bi_crypt_context;
+		/* ice is activated - successful flow */
+		vbr->ice_info.ice_slot = bc->bc_keyslot;
+		vbr->ice_info.activate = true;
+	}
+}
+#endif
+
 static blk_status_t virtio_queue_rq(struct blk_mq_hw_ctx *hctx,
 			   const struct blk_mq_queue_data *bd)
 {
@@ -333,7 +381,10 @@ static blk_status_t virtio_queue_rq(struct blk_mq_hw_ctx *hctx,
 	vbr->out_hdr.sector = type ?
 		0 : cpu_to_virtio64(vblk->vdev, blk_rq_pos(req));
 	vbr->out_hdr.ioprio = cpu_to_virtio32(vblk->vdev, req_get_ioprio(req));
-
+#ifdef CONFIG_QTI_CRYPTO_VIRTUALIZATION
+	if (virtio_has_feature(vblk->vdev, VIRTIO_BLK_F_ICE))
+		virtblk_get_ice_info(vblk, req);
+#endif
 	blk_mq_start_request(req);
 
 	if (type == VIRTIO_BLK_T_DISCARD || type == VIRTIO_BLK_T_WRITE_ZEROES) {
@@ -981,8 +1032,17 @@ static int virtblk_probe(struct virtio_device *vdev)
 	}
 
 	virtblk_update_capacity(vblk, false);
-	virtio_device_ready(vdev);
 
+#ifdef CONFIG_QTI_CRYPTO_VIRTUALIZATION
+	if (virtio_has_feature(vblk->vdev, VIRTIO_BLK_F_ICE)) {
+		dev_notice(&vdev->dev, "%s\n", vblk->disk->disk_name);
+		/* Initilaize supported crypto capabilities*/
+		err = virtblk_init_crypto_qti_spec();
+		if (!err)
+			virtblk_crypto_qti_setup_rq_keyslot_manager(vblk->disk->queue);
+	}
+#endif
+	virtio_device_ready(vdev);
 	device_add_disk(&vdev->dev, vblk->disk, virtblk_attr_groups);
 	return 0;
 
@@ -1007,7 +1067,10 @@ static void virtblk_remove(struct virtio_device *vdev)
 
 	/* Make sure no work handler is accessing the device. */
 	flush_work(&vblk->config_work);
-
+#ifdef CONFIG_QTI_CRYPTO_VIRTUALIZATION
+	if (virtio_has_feature(vblk->vdev, VIRTIO_BLK_F_ICE))
+		virtblk_crypto_qti_destroy_rq_keyslot_manager(vblk->disk->queue);
+#endif
 	del_gendisk(vblk->disk);
 	blk_cleanup_queue(vblk->disk->queue);
 
@@ -1083,6 +1146,9 @@ static unsigned int features[] = {
 	VIRTIO_BLK_F_RO, VIRTIO_BLK_F_BLK_SIZE,
 	VIRTIO_BLK_F_FLUSH, VIRTIO_BLK_F_TOPOLOGY, VIRTIO_BLK_F_CONFIG_WCE,
 	VIRTIO_BLK_F_MQ, VIRTIO_BLK_F_DISCARD, VIRTIO_BLK_F_WRITE_ZEROES,
+#ifdef CONFIG_QTI_CRYPTO_VIRTUALIZATION
+	VIRTIO_BLK_F_ICE,
+#endif
 };
 
 static struct virtio_driver virtio_blk = {
