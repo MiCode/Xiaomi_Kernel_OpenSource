@@ -8,3 +8,8 @@
 #define CREATE_TRACE_POINTS
 #include "trace-dcvs.h"
 
+EXPORT_TRACEPOINT_SYMBOL(memlat_dev_meas);
+EXPORT_TRACEPOINT_SYMBOL(memlat_dev_update);
+EXPORT_TRACEPOINT_SYMBOL(bw_hwmon_meas);
+EXPORT_TRACEPOINT_SYMBOL(bw_hwmon_update);
+EXPORT_TRACEPOINT_SYMBOL(bw_hwmon_debug);
