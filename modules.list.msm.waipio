@@ -197,3 +197,4 @@ bcl_pmic5.ko
 msm_kgsl.ko
 governor_msm_adreno_tz.ko
 governor_gpubw_mon.ko
+minidump.ko
