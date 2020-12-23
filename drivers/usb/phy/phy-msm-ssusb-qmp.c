@@ -395,6 +395,13 @@ static void usb_qmp_update_portselect_phymode(struct msm_ssphy_qmp *phy)
 
 			writel_relaxed(0x00,
 				phy->base + phy->phy_reg[USB3_DP_COM_SW_RESET]);
+
+			if (phy->phy_reg[USB3_DP_COM_TYPEC_STATUS]) {
+				u32 status = readl_relaxed(phy->base +
+				       phy->phy_reg[USB3_DP_COM_TYPEC_STATUS]);
+				dev_dbg(phy->phy.dev, "hw port select %s\n",
+				       status & PORTSELECT_RAW ? "CC2" : "CC1");
+			}
 		}
 
 		/* override hardware control for reset of qmp phy */
