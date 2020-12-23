@@ -538,7 +538,7 @@ static int cnss_setup_bus_bandwidth(struct cnss_plat_data *plat_priv,
 	struct cnss_bus_bw_info *bus_bw_info;
 
 	if (!plat_priv->icc.path_count)
-		return -ENOTSUPP;
+		return -EOPNOTSUPP;
 
 	if (bw >= plat_priv->icc.bus_bw_cfg_count) {
 		cnss_pr_err("Invalid bus bandwidth Type: %d", bw);
@@ -3909,6 +3909,9 @@ static int cnss_pci_enable_msi(struct cnss_pci_data *pci_priv)
 	struct cnss_msi_config *msi_config;
 	struct msi_desc *msi_desc;
 
+	if (pci_priv->device_id == QCA6174_DEVICE_ID)
+		return 0;
+
 	ret = cnss_pci_get_msi_assignment(pci_priv);
 	if (ret) {
 		cnss_pr_err("Failed to get MSI assignment, err = %d\n", ret);
@@ -3956,6 +3959,9 @@ out:
 
 static void cnss_pci_disable_msi(struct cnss_pci_data *pci_priv)
 {
+	if (pci_priv->device_id == QCA6174_DEVICE_ID)
+		return;
+
 	pci_free_irq_vectors(pci_priv->pci_dev);
 }
 
@@ -4821,6 +4827,9 @@ static int cnss_pci_register_mhi(struct cnss_pci_data *pci_priv)
 	struct pci_dev *pci_dev = pci_priv->pci_dev;
 	struct mhi_controller *mhi_ctrl;
 
+	if (pci_priv->device_id == QCA6174_DEVICE_ID)
+		return 0;
+
 	mhi_ctrl = mhi_alloc_controller(0);
 	if (!mhi_ctrl) {
 		cnss_pr_err("Invalid MHI controller context\n");
@@ -4912,6 +4921,9 @@ free_mhi_ctrl:
 static void cnss_pci_unregister_mhi(struct cnss_pci_data *pci_priv)
 {
 	struct mhi_controller *mhi_ctrl = pci_priv->mhi_ctrl;
+
+	if (pci_priv->device_id == QCA6174_DEVICE_ID)
+		return;
 
 	mhi_unregister_mhi_controller(mhi_ctrl);
 	if (mhi_ctrl->log_buf)
@@ -5024,15 +5036,18 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 	if (ret)
 		goto dereg_pci_event;
 
+	ret = cnss_pci_enable_msi(pci_priv);
+	if (ret)
+		goto disable_bus;
+
+	ret = cnss_pci_register_mhi(pci_priv);
+	if (ret)
+		goto disable_msi;
+
 	switch (pci_dev->device) {
 	case QCA6174_DEVICE_ID:
 		pci_read_config_word(pci_dev, QCA6174_REV_ID_OFFSET,
 				     &pci_priv->revision_id);
-		ret = cnss_suspend_pci_link(pci_priv);
-		if (ret)
-			cnss_pr_err("Failed to suspend PCI link, err = %d\n",
-				    ret);
-		cnss_power_off_device(plat_priv);
 		break;
 	case QCA6290_DEVICE_ID:
 	case QCA6390_DEVICE_ID:
@@ -5043,35 +5058,30 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 		init_completion(&pci_priv->wake_event);
 		INIT_DELAYED_WORK(&pci_priv->time_sync_work,
 				  cnss_pci_time_sync_work_hdlr);
-
-		ret = cnss_pci_enable_msi(pci_priv);
-		if (ret)
-			goto disable_bus;
-		ret = cnss_pci_register_mhi(pci_priv);
-		if (ret) {
-			cnss_pci_disable_msi(pci_priv);
-			goto disable_bus;
-		}
 		cnss_pci_get_link_status(pci_priv);
-		cnss_pci_config_regs(pci_priv);
-		if (EMULATION_HW)
-			break;
 		cnss_pci_set_wlaon_pwr_ctrl(pci_priv, false, true, false);
-		ret = cnss_suspend_pci_link(pci_priv);
-		if (ret)
-			cnss_pr_err("Failed to suspend PCI link, err = %d\n",
-				    ret);
-		cnss_power_off_device(plat_priv);
 		break;
 	default:
 		cnss_pr_err("Unknown PCI device found: 0x%x\n",
 			    pci_dev->device);
 		ret = -ENODEV;
-		goto disable_bus;
+		goto unreg_mhi;
 	}
+
+	cnss_pci_config_regs(pci_priv);
+	if (EMULATION_HW)
+		goto out;
+	ret = cnss_suspend_pci_link(pci_priv);
+	if (ret)
+		cnss_pr_err("Failed to suspend PCI link, err = %d\n", ret);
+	cnss_power_off_device(plat_priv);
 
 	return 0;
 
+unreg_mhi:
+	cnss_pci_unregister_mhi(pci_priv);
+disable_msi:
+	cnss_pci_disable_msi(pci_priv);
 disable_bus:
 	cnss_pci_disable_bus(pci_priv);
 dereg_pci_event:
@@ -5102,8 +5112,6 @@ static void cnss_pci_remove(struct pci_dev *pci_dev)
 	case QCA6290_DEVICE_ID:
 	case QCA6390_DEVICE_ID:
 	case QCA6490_DEVICE_ID:
-		cnss_pci_unregister_mhi(pci_priv);
-		cnss_pci_disable_msi(pci_priv);
 		complete_all(&pci_priv->wake_event);
 		del_timer(&pci_priv->dev_rddm_timer);
 		break;
@@ -5111,6 +5119,8 @@ static void cnss_pci_remove(struct pci_dev *pci_dev)
 		break;
 	}
 
+	cnss_pci_unregister_mhi(pci_priv);
+	cnss_pci_disable_msi(pci_priv);
 	cnss_pci_disable_bus(pci_priv);
 	cnss_dereg_pci_event(pci_priv);
 	cnss_pci_deinit_smmu(pci_priv);
