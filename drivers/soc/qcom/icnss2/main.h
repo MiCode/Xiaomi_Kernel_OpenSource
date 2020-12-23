@@ -386,7 +386,9 @@ struct icnss_priv {
 	int total_domains;
 	struct notifier_block get_service_nb;
 	void *modem_notify_handler;
+	void *wpss_notify_handler;
 	struct notifier_block modem_ssr_nb;
+	struct notifier_block wpss_ssr_nb;
 	uint32_t diag_reg_read_addr;
 	uint32_t diag_reg_read_mem_type;
 	uint32_t diag_reg_read_len;
