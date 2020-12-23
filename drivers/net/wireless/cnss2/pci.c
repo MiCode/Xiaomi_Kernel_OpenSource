@@ -1825,6 +1825,8 @@ int cnss_pci_call_driver_probe(struct cnss_pci_data *pci_priv)
 		if (ret) {
 			cnss_pr_err("Failed to idle restart host driver, err = %d\n",
 				    ret);
+			plat_priv->power_up_error = ret;
+			complete_all(&plat_priv->power_up_complete);
 			goto out;
 		}
 		clear_bit(CNSS_DRIVER_IDLE_RESTART, &plat_priv->driver_state);
@@ -2147,6 +2149,7 @@ static int cnss_qca6290_powerup(struct cnss_pci_data *pci_priv)
 	/* Clear QMI send usage count during every power up */
 	pci_priv->qmi_send_usage_count = 0;
 
+	plat_priv->power_up_error = 0;
 retry:
 	ret = cnss_power_on_device(plat_priv);
 	if (ret) {
