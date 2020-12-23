@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kthread.h>
@@ -269,8 +269,7 @@ static int kgsl_reclaim_callback(struct notifier_block *nb,
 			memdesc->priv |= KGSL_MEMDESC_RECLAIMED;
 
 			ret = reclaim_address_space
-				(memdesc->shmem_filp->f_mapping,
-				data, memdesc->vma);
+				(memdesc->shmem_filp->f_mapping, data);
 
 			memdesc->reclaimed_page_count += memdesc->page_count;
 			atomic_add(memdesc->page_count,
