@@ -48,9 +48,6 @@ struct cpu_topology {
 	int llc_id;
 	cpumask_t thread_sibling;
 	cpumask_t core_sibling;
-#ifdef CONFIG_SCHED_WALT
-	cpumask_t core_possible_sibling;
-#endif
 	cpumask_t llc_sibling;
 };
 
@@ -62,10 +59,6 @@ extern struct cpu_topology cpu_topology[NR_CPUS];
 #define topology_core_cpumask(cpu)	(&cpu_topology[cpu].core_sibling)
 #define topology_sibling_cpumask(cpu)	(&cpu_topology[cpu].thread_sibling)
 #define topology_llc_cpumask(cpu)	(&cpu_topology[cpu].llc_sibling)
-#ifdef CONFIG_SCHED_WALT
-#define topology_possible_sibling_cpumask(cpu)		\
-				(&cpu_topology[cpu].core_possible_sibling)
-#endif
 void init_cpu_topology(void);
 void store_cpu_topology(unsigned int cpuid);
 const struct cpumask *cpu_coregroup_mask(int cpu);

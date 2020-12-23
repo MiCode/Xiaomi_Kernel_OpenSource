@@ -721,7 +721,6 @@ struct msm_pcie_dev_t {
 	bool enumerated;
 	struct work_struct handle_wake_work;
 	struct mutex recovery_lock;
-	spinlock_t wakeup_lock;
 	spinlock_t irq_lock;
 	struct mutex aspm_lock;
 	int prevent_l1;
@@ -740,6 +739,7 @@ struct msm_pcie_dev_t {
 	u32 num_active_ep;
 	u32 num_ep;
 	bool pending_ep_reg;
+	u32 num_parf_testbus_sel;
 	u32 phy_len;
 	struct msm_pcie_phy_info_t *phy_sequence;
 	u32 sid_info_len;
@@ -766,6 +766,8 @@ struct msm_pcie_dev_t {
 	/* cache drv pc req from RC client, by default drv pc is enabled */
 	int drv_disable_pc_vote;
 	struct mutex drv_pc_lock;
+
+	bool drv_supported;
 
 	void (*rumi_init)(struct msm_pcie_dev_t *pcie_dev);
 };
@@ -1189,7 +1191,7 @@ static void pcie_parf_dump(struct msm_pcie_dev_t *dev)
 	PCIE_DUMP(dev, "PCIe: RC%d PARF testbus\n", dev->rc_idx);
 
 	original = readl_relaxed(dev->parf + PCIE20_PARF_SYS_CTRL);
-	for (i = 1; i <= 0x1A; i++) {
+	for (i = 0; i <= dev->num_parf_testbus_sel; i++) {
 		msm_pcie_write_mask(dev->parf + PCIE20_PARF_SYS_CTRL,
 				0xFF0000, i << 16);
 		PCIE_DUMP(dev,
@@ -1261,6 +1263,8 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->num_active_ep);
 	PCIE_DBG_FS(dev, "pending_ep_reg: %s\n",
 		dev->pending_ep_reg ? "true" : "false");
+	PCIE_DBG_FS(dev, "num_parf_testbus_sel is 0x%x",
+		dev->num_parf_testbus_sel);
 	PCIE_DBG_FS(dev, "phy_len is %d",
 		dev->phy_len);
 	PCIE_DBG_FS(dev, "disable_pc is %d",
@@ -4796,7 +4800,7 @@ static irqreturn_t handle_wake_irq(int irq, void *data)
 	unsigned long irqsave_flags;
 	int i;
 
-	spin_lock_irqsave(&dev->wakeup_lock, irqsave_flags);
+	spin_lock_irqsave(&dev->irq_lock, irqsave_flags);
 
 	dev->wake_counter++;
 	PCIE_DBG(dev, "PCIe: No. %ld wake IRQ for RC%d\n",
@@ -4822,11 +4826,18 @@ static irqreturn_t handle_wake_irq(int irq, void *data)
 					MSM_PCIE_EVENT_WAKEUP);
 			}
 		} else {
+			if (dev->drv_supported && !dev->suspending &&
+			    dev->link_status == MSM_PCIE_LINK_ENABLED) {
+				pcie_phy_dump(dev);
+				pcie_parf_dump(dev);
+				pcie_dm_core_dump(dev);
+			}
+
 			msm_pcie_notify_client(dev, MSM_PCIE_EVENT_WAKEUP);
 		}
 	}
 
-	spin_unlock_irqrestore(&dev->wakeup_lock, irqsave_flags);
+	spin_unlock_irqrestore(&dev->irq_lock, irqsave_flags);
 
 	return IRQ_HANDLED;
 }
@@ -5546,7 +5557,6 @@ static int msm_pcie_probe(struct platform_device *pdev)
 	int i, j;
 	struct msm_pcie_dev_t *pcie_dev;
 	struct device_node *of_node;
-	bool drv_supported;
 
 	dev_info(&pdev->dev, "PCIe: %s\n", __func__);
 
@@ -5670,6 +5680,11 @@ static int msm_pcie_probe(struct platform_device *pdev)
 				&pcie_dev->slv_addr_space_size);
 	PCIE_DBG(pcie_dev, "RC%d: slv-addr-space-size: 0x%x.\n",
 		pcie_dev->rc_idx, pcie_dev->slv_addr_space_size);
+
+	of_property_read_u32(of_node, "qcom,num-parf-testbus-sel",
+				&pcie_dev->num_parf_testbus_sel);
+	PCIE_DBG(pcie_dev, "RC%d: num-parf-testbus-sel: 0x%x.\n",
+		pcie_dev->rc_idx, pcie_dev->num_parf_testbus_sel);
 
 	of_property_read_u32(of_node, "qcom,phy-status-offset",
 				&pcie_dev->phy_status_offset);
@@ -5819,8 +5834,9 @@ static int msm_pcie_probe(struct platform_device *pdev)
 		goto decrease_rc_num;
 	}
 
-	drv_supported = of_property_read_bool(of_node, "qcom,drv-supported");
-	if (drv_supported) {
+	pcie_dev->drv_supported = of_property_read_bool(of_node,
+							"qcom,drv-supported");
+	if (pcie_dev->drv_supported) {
 		ret = msm_pcie_setup_drv(pcie_dev, of_node);
 		if (ret)
 			PCIE_ERR(pcie_dev,
@@ -5966,7 +5982,16 @@ void msm_pcie_allow_l1(struct pci_dev *pci_dev)
 
 	pcie_dev = PCIE_BUS_PRIV_DATA(root_pci_dev->bus);
 
-	mutex_lock(&pcie_dev->aspm_lock);
+	mutex_lock(&pcie_dev->setup_lock);
+
+	if (pcie_dev->link_status != MSM_PCIE_LINK_ENABLED) {
+		PCIE_DBG(pcie_dev,
+			 "RC%d: PCIE Link is already disabled\n",
+			 pcie_dev->rc_idx);
+		mutex_unlock(&pcie_dev->setup_lock);
+		return;
+	}
+
 	if (unlikely(--pcie_dev->prevent_l1 < 0))
 		PCIE_ERR(pcie_dev,
 			"PCIe: RC%d: %02x:%02x.%01x: unbalanced prevent_l1: %d < 0\n",
@@ -5975,7 +6000,7 @@ void msm_pcie_allow_l1(struct pci_dev *pci_dev)
 			pcie_dev->prevent_l1);
 
 	if (pcie_dev->prevent_l1) {
-		mutex_unlock(&pcie_dev->aspm_lock);
+		mutex_unlock(&pcie_dev->setup_lock);
 		return;
 	}
 
@@ -5988,7 +6013,7 @@ void msm_pcie_allow_l1(struct pci_dev *pci_dev)
 	PCIE_DBG2(pcie_dev, "PCIe: RC%d: %02x:%02x.%01x: exit\n",
 		pcie_dev->rc_idx, pci_dev->bus->number,
 		PCI_SLOT(pci_dev->devfn), PCI_FUNC(pci_dev->devfn));
-	mutex_unlock(&pcie_dev->aspm_lock);
+	mutex_unlock(&pcie_dev->setup_lock);
 }
 EXPORT_SYMBOL(msm_pcie_allow_l1);
 
@@ -6007,9 +6032,18 @@ int msm_pcie_prevent_l1(struct pci_dev *pci_dev)
 	pcie_dev = PCIE_BUS_PRIV_DATA(root_pci_dev->bus);
 
 	/* disable L1 */
-	mutex_lock(&pcie_dev->aspm_lock);
+	mutex_lock(&pcie_dev->setup_lock);
+
+	if (pcie_dev->link_status != MSM_PCIE_LINK_ENABLED) {
+		PCIE_DBG(pcie_dev,
+			 "RC%d: PCIE Link is already disabled\n",
+			 pcie_dev->rc_idx);
+		mutex_unlock(&pcie_dev->setup_lock);
+		return -EIO;
+	}
+
 	if (pcie_dev->prevent_l1++) {
-		mutex_unlock(&pcie_dev->aspm_lock);
+		mutex_unlock(&pcie_dev->setup_lock);
 		return 0;
 	}
 
@@ -6037,11 +6071,11 @@ int msm_pcie_prevent_l1(struct pci_dev *pci_dev)
 	PCIE_DBG2(pcie_dev, "PCIe: RC%d: %02x:%02x.%01x: exit\n",
 		pcie_dev->rc_idx, pci_dev->bus->number,
 		PCI_SLOT(pci_dev->devfn), PCI_FUNC(pci_dev->devfn));
-	mutex_unlock(&pcie_dev->aspm_lock);
+	mutex_unlock(&pcie_dev->setup_lock);
 
 	return 0;
 err:
-	mutex_unlock(&pcie_dev->aspm_lock);
+	mutex_unlock(&pcie_dev->setup_lock);
 	msm_pcie_allow_l1(pci_dev);
 
 	return ret;
@@ -6514,7 +6548,6 @@ static int __init pcie_init(void)
 		mutex_init(&msm_pcie_dev[i].recovery_lock);
 		mutex_init(&msm_pcie_dev[i].aspm_lock);
 		mutex_init(&msm_pcie_dev[i].drv_pc_lock);
-		spin_lock_init(&msm_pcie_dev[i].wakeup_lock);
 		spin_lock_init(&msm_pcie_dev[i].irq_lock);
 		msm_pcie_dev[i].drv_ready = false;
 		msm_pcie_dev[i].l23_rdy_poll_timeout = L23_READY_POLL_TIMEOUT;

@@ -179,10 +179,12 @@ enum vadc_scale_fn_type {
 	SCALE_HW_CALIB_PM7_CHG_TEMP,
 	SCALE_HW_CALIB_CUR_RAW,
 	SCALE_HW_CALIB_PM2250_S3_DIE_TEMP,
+	SCALE_HW_CALIB_PM5_CUR,
 	SCALE_HW_CALIB_INVALID,
 };
 
 struct adc5_data {
+	const char	*name;
 	const u32	full_scale_code_volt;
 	const u32	full_scale_code_cur;
 	const struct adc5_channels *adc_chans;

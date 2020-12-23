@@ -877,7 +877,7 @@ module_param_cb(core_ctl_register, &param_ops_cc_register,
 
 void  msm_perf_events_update(enum evt_update_t update_typ,
 			enum gfx_evt_t evt_typ, pid_t pid,
-			uint32_t ctx_id, uint32_t timestamp)
+			uint32_t ctx_id, uint32_t timestamp, bool end_of_frame)
 {
 	unsigned long flags;
 	int idx = 0;
@@ -885,7 +885,8 @@ void  msm_perf_events_update(enum evt_update_t update_typ,
 	if (update_typ != MSM_PERF_GFX)
 		return;
 
-	if (pid != atomic_read(&game_status_pid) || (timestamp == 0))
+	if (pid != atomic_read(&game_status_pid) || (timestamp == 0)
+		|| !(end_of_frame))
 		return;
 
 	spin_lock_irqsave(&gfx_circ_buff_lock, flags);

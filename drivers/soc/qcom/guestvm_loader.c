@@ -11,12 +11,17 @@
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
+#include <linux/cpumask.h>
+#include <linux/sched.h>
+#include <linux/workqueue.h>
 #include <linux/haven/hh_rm_drv.h>
 
 #include <soc/qcom/subsystem_notif.h>
 #include <soc/qcom/subsystem_restart.h>
 
 #define MAX_LEN 256
+#define DEFAULT_UNISO_TIMEOUT_MS 8000
+#define NUM_RESERVED_CPUS 2
 
 const static struct {
 	enum hh_vm_names val;
@@ -40,6 +45,63 @@ struct guestvm_loader_private {
 	int vmid;
 	u8 vm_status;
 };
+
+static struct timer_list guestvm_cpu_isolate_timer;
+static struct completion isolation_done;
+static struct work_struct unisolation_work;
+static cpumask_t guestvm_isolated_cpus;
+static cpumask_t guestvm_reserve_cpus;
+static u32 guestvm_unisolate_timeout;
+
+static void guestvm_isolate_cpu(void)
+{
+	int cpu, ret;
+
+	for_each_cpu_and(cpu, &guestvm_reserve_cpus, cpu_online_mask) {
+		ret = sched_isolate_cpu(cpu);
+		if (ret < 0) {
+			pr_err("fail to isolate CPU%d. ret=%d\n", cpu, ret);
+			continue;
+		}
+		cpumask_set_cpu(cpu, &guestvm_isolated_cpus);
+	}
+
+	pr_info("%s: reserved_cpus=%*pbl isolated=%*pbl\n", __func__,
+		cpumask_pr_args(&guestvm_isolated_cpus),
+		cpumask_pr_args(cpu_isolated_mask));
+}
+
+static void guestvm_unisolate_cpu(void)
+{
+	int i, ret;
+
+	for_each_cpu(i, &guestvm_isolated_cpus) {
+		ret = sched_unisolate_cpu(i);
+		if (ret < 0) {
+			pr_err("fail to un-isolate CPU%d. ret=%d\n", i, ret);
+			continue;
+		}
+
+		cpumask_clear_cpu(i, &guestvm_isolated_cpus);
+	}
+
+	pr_info("%s: isolated mask=%*pbl\n", __func__,
+					cpumask_pr_args(cpu_isolated_mask));
+	del_timer(&guestvm_cpu_isolate_timer);
+}
+
+static void guestvm_unisolate_work(struct work_struct *work)
+{
+	if (wait_for_completion_interruptible(&isolation_done))
+		pr_err("%s: CPU unisolation is interrupted\n", __func__);
+
+	guestvm_unisolate_cpu();
+}
+
+static void guestvm_timer_callback(struct timer_list *t)
+{
+	complete(&isolation_done);
+}
 
 static inline enum hh_vm_names get_hh_vm_name(const char *str)
 {
@@ -137,6 +199,11 @@ static ssize_t guestvm_loader_start(struct kobject *kobj,
 			dev_err(priv->dev, "VM start completion interrupted\n");
 
 		priv->vm_status = HH_RM_VM_STATUS_RUNNING;
+		INIT_WORK(&unisolation_work, guestvm_unisolate_work);
+		schedule_work(&unisolation_work);
+		guestvm_isolate_cpu();
+		mod_timer(&guestvm_cpu_isolate_timer,
+			jiffies + msecs_to_jiffies(guestvm_unisolate_timeout));
 		ret = hh_rm_vm_start(priv->vmid);
 		if (ret)
 			dev_err(priv->dev, "VM start failed for vmid = %d ret = %d\n",
@@ -161,7 +228,8 @@ static int guestvm_loader_probe(struct platform_device *pdev)
 {
 	struct guestvm_loader_private *priv = NULL;
 	const char *sub_sys;
-	int ret = 0;
+	int ret = 0, i, reserve_cpus_len;
+	u32 reserve_cpus[NUM_RESERVED_CPUS] = {0};
 
 	priv = devm_kzalloc(&pdev->dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
@@ -191,11 +259,31 @@ static int guestvm_loader_probe(struct platform_device *pdev)
 	}
 
 	init_completion(&priv->vm_start);
+	init_completion(&isolation_done);
 	priv->guestvm_nb.notifier_call = guestvm_loader_nb_handler;
 	ret = hh_rm_register_notifier(&priv->guestvm_nb);
 	if (ret)
 		return ret;
 
+	reserve_cpus_len = of_property_read_variable_u32_array(
+					pdev->dev.of_node,
+					"qcom,reserved-cpus",
+					reserve_cpus, 0, NUM_RESERVED_CPUS);
+	for (i = 0; i < reserve_cpus_len; i++)
+		if (reserve_cpus[i] < num_possible_cpus())
+			cpumask_set_cpu(reserve_cpus[i], &guestvm_reserve_cpus);
+
+	/* Default to (4,5) as reserve cpus */
+	if (reserve_cpus_len <= 0) {
+		cpumask_set_cpu(4, &guestvm_reserve_cpus);
+		cpumask_set_cpu(5, &guestvm_reserve_cpus);
+	}
+
+	ret = of_property_read_u32(pdev->dev.of_node, "qcom,unisolate-timeout-ms",
+				&guestvm_unisolate_timeout);
+	if (ret)
+		guestvm_unisolate_timeout = DEFAULT_UNISO_TIMEOUT_MS;
+	timer_setup(&guestvm_cpu_isolate_timer, guestvm_timer_callback, 0);
 	priv->vm_status = HH_RM_VM_STATUS_NO_STATE;
 	return 0;
 

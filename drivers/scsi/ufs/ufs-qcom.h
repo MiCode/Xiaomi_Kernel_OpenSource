@@ -171,7 +171,7 @@ enum ufs_qcom_phy_init_type {
 #define BIT_TX_EOB_COND         BIT(23)
 #define PA_VS_CONFIG_REG2       0x9005
 #define H8_ENTER_COND_OFFSET 0x6
-#define H8_ENTER_COND_MASK GENMASK(6, 7)
+#define H8_ENTER_COND_MASK GENMASK(7, 6)
 #define BIT_RX_EOB_COND		BIT(5)
 #define BIT_LINKCFG_WAIT_LL1_RX_CFG_RDY BIT(26)
 #define SAVECONFIGTIME_MODE_MASK        0x6000

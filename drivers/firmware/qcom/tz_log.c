@@ -1089,8 +1089,7 @@ static ssize_t tzdbgfs_read_unencrypted(struct file *file, char __user *buf,
 
 	if (tz_id == TZDBG_BOOT || tz_id == TZDBG_RESET ||
 		tz_id == TZDBG_INTERRUPT || tz_id == TZDBG_GENERAL ||
-		tz_id == TZDBG_VMID || tz_id == TZDBG_LOG ||
-		tz_id == TZDBG_QSEE_LOG)
+		tz_id == TZDBG_VMID || tz_id == TZDBG_LOG)
 		memcpy_fromio((void *)tzdbg.diag_buf, tzdbg.virt_iobase,
 						debug_rw_buf_size);
 

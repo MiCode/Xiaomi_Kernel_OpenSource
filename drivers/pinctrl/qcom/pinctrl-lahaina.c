@@ -1981,9 +1981,32 @@ static const struct msm_pinctrl_soc_data lahaina_pinctrl = {
 	.nwakeirq_map = ARRAY_SIZE(lahaina_pdc_map),
 };
 
+/* By default, all the gpios that are mpm wake capable are enabled.
+ * The following list disables the gpios explicitly
+ */
+static const unsigned int config_mpm_wake_disable_gpios[] = {
+};
+
+static void lahaina_pinctrl_config_mpm_wake_disable_gpios(void)
+{
+	unsigned int i;
+	unsigned int n_gpios = ARRAY_SIZE(config_mpm_wake_disable_gpios);
+
+	for (i = 0; i < n_gpios; i++)
+		msm_gpio_mpm_wake_set(config_mpm_wake_disable_gpios[i], false);
+}
+
 static int lahaina_pinctrl_probe(struct platform_device *pdev)
 {
-	return msm_pinctrl_probe(pdev, &lahaina_pinctrl);
+	int ret;
+
+	ret = msm_pinctrl_probe(pdev, &lahaina_pinctrl);
+	if (ret)
+		return ret;
+
+	lahaina_pinctrl_config_mpm_wake_disable_gpios();
+
+	return 0;
 }
 
 static const struct of_device_id lahaina_pinctrl_of_match[] = {

@@ -985,6 +985,7 @@
   pci_bus_type
   pci_d3cold_disable
   pci_find_bus
+  pci_find_ext_capability
   pci_free_irq_vectors
   pci_get_device
   pci_irq_vector

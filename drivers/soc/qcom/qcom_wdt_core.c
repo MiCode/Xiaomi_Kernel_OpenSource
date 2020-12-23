@@ -864,14 +864,15 @@ static int qcom_wdt_init(struct msm_watchdog_data *wdog_dd,
 	} else {
 		ret = devm_request_irq(wdog_dd->dev, wdog_dd->bark_irq,
 				qcom_wdt_bark_handler,
-				IRQF_TRIGGER_RISING,
+				IRQF_TRIGGER_RISING | IRQF_NO_SUSPEND,
 				"apps_wdog_bark", wdog_dd);
 		if (ret) {
 			dev_err(wdog_dd->dev, "failed to request bark irq: %d\n", ret);
 			return -EINVAL;
 		}
 	}
-
+	INIT_WORK(&wdog_dd->irq_counts_work, compute_irq_stat);
+	atomic_set(&wdog_dd->irq_counts_running, 0);
 	delay_time = msecs_to_jiffies(wdog_dd->pet_time);
 	wdog_dd->ops->set_bark_time(wdog_dd->bark_time, wdog_dd);
 	wdog_dd->ops->set_bite_time(wdog_dd->bark_time + 3 * 1000, wdog_dd);

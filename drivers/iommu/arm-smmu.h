@@ -153,6 +153,7 @@ enum arm_smmu_cbar_type {
 #define SCTLR_RACFG			GENMASK(25, 24)
 #define SCTLR_RACFG_RA			0x2
 #define SCTLR_SHCFG			GENMASK(23, 22)
+#define SCTLR_SHCFG_OSH			0x1
 #define SCTLR_SHCFG_NSH			0x3
 #define SCTLR_MTCFG			BIT(20)
 #define SCTLR_MEM_ATTR			GENMASK(19, 16)
@@ -242,8 +243,8 @@ enum arm_smmu_cbar_type {
 #define TLBSTATUS_SACTIVE		BIT(0)
 #define ARM_SMMU_CB_ATS1PR		0x800
 
-/* Implementation Defined Register Space 0 registers*/
-/* Relative to IMPL_DEF_0 page */
+/* Implementation Defined Register Space 5 registers */
+/* Relative to IMPL_DEF5 page */
 #define ARM_SMMU_STATS_SYNC_INV_TBU_ACK 0x5dc
 #define TBU_SYNC_ACK			GENMASK(25, 17)
 #define TBU_SYNC_REQ			BIT(16)
@@ -557,7 +558,15 @@ static inline void arm_smmu_writeq(struct arm_smmu_device *smmu, int page,
 
 #define ARM_SMMU_GR0		0
 #define ARM_SMMU_GR1		1
+
+/*
+ * Implementation defined space starts after SMMU GR space, so IMPL_DEF page n
+ * is page n + 2 in the SMMU register space.
+ */
 #define ARM_SMMU_IMPL_DEF0	2
+#define ARM_SMMU_IMPL_DEF4	6
+#define ARM_SMMU_IMPL_DEF5	7
+
 #define ARM_SMMU_CB(s, n)	((s)->numpage + (n))
 
 #define arm_smmu_gr0_read(s, o)		\

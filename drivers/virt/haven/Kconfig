@@ -25,17 +25,6 @@ config HH_CTRL
 	  hypervisor debug features.
 	  See Documentation/ABI/testing/sysfs-hypervisor-haven for more details.
 
-if HH_CTRL
-config HH_DISABLE_UART
-	bool "Disable Haven UART print during kernel boot"
-	default y
-	help
-	  The hypervisor UART driver is enabled at boot,
-	  however its use may conflict with use of the
-	  Linux driver. This config requests Haven to
-	  disable its UART driver.
-endif
-
 config HH_MSGQ
 	tristate "Haven Message Queue driver"
 	help

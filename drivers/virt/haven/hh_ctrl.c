@@ -15,9 +15,6 @@
 #include <linux/haven/hcall.h>
 #include <linux/haven/hh_errno.h>
 
-#define QC_HYP_SMCCC_UART_DISABLE                                              \
-	ARM_SMCCC_CALL_VAL(ARM_SMCCC_FAST_CALL, ARM_SMCCC_SMC_32,              \
-			   ARM_SMCCC_OWNER_VENDOR_HYPERVISOR, 0x0)
 #define QC_HYP_SMCCC_CALL_UID                                                  \
 	ARM_SMCCC_CALL_VAL(ARM_SMCCC_FAST_CALL, ARM_SMCCC_SMC_32,              \
 			   ARM_SMCCC_OWNER_VENDOR_HYPERVISOR, 0xff01)
@@ -48,27 +45,6 @@
 
 static bool qc_hyp_calls;
 static struct hh_hcall_hyp_identify_resp haven_api;
-static bool disable_uart;
-
-#if !defined(CONFIG_HH_DISABLE_UART)
-static int __init setup_nohyp_uart(char *arg)
-{
-	disable_uart = true;
-	return 0;
-}
-early_param("nohyp_uart", setup_nohyp_uart);
-#endif
-
-static void hh_disable_uart(void)
-{
-#if defined(CONFIG_HH_DISABLE_UART)
-	disable_uart = true;
-#endif
-	if (disable_uart) {
-		pr_info("Haven: disabling HYP UART\n");
-		arm_smccc_1_1_smc(QC_HYP_SMCCC_UART_DISABLE, NULL);
-	}
-}
 
 static ssize_t type_show(struct kobject *kobj, struct kobj_attribute *attr,
 			 char *buffer)
@@ -119,7 +95,44 @@ static void __exit hh_sysfs_unregister(void)
 }
 
 #if defined(CONFIG_DEBUG_FS)
+
+#define QC_HYP_SMCCC_UART_DISABLE                                              \
+	ARM_SMCCC_CALL_VAL(ARM_SMCCC_FAST_CALL, ARM_SMCCC_SMC_32,              \
+			   ARM_SMCCC_OWNER_VENDOR_HYPERVISOR, 0x0)
+#define QC_HYP_SMCCC_UART_ENABLE                                              \
+	ARM_SMCCC_CALL_VAL(ARM_SMCCC_FAST_CALL, ARM_SMCCC_SMC_32,              \
+			   ARM_SMCCC_OWNER_VENDOR_HYPERVISOR, 0x1)
+#define ENABLE 1
+#define DISABLE 0
+
 static struct dentry *hh_dbgfs_dir;
+static int hyp_uart_enable;
+
+static void hh_control_hyp_uart(int val)
+{
+	switch (val) {
+	case ENABLE:
+	if (!hyp_uart_enable) {
+		hyp_uart_enable = val;
+		pr_info("Haven: enabling HYP UART\n");
+		arm_smccc_1_1_smc(QC_HYP_SMCCC_UART_ENABLE, NULL);
+	} else {
+		pr_info("Haven: HYP UART already enabled\n");
+	}
+	break;
+	case DISABLE:
+	if (hyp_uart_enable) {
+		hyp_uart_enable = val;
+		pr_info("Haven: disabling HYP UART\n");
+		arm_smccc_1_1_smc(QC_HYP_SMCCC_UART_DISABLE, NULL);
+	} else {
+		pr_info("Haven: HYP UART already disabled\n");
+	}
+	break;
+	default:
+		pr_info("Haven: supported values disable(0)/enable(1)\n");
+	}
+}
 
 static int hh_dbgfs_trace_class_set(void *data, u64 val)
 {
@@ -137,6 +150,18 @@ static int hh_dbgfs_trace_class_get(void *data, u64 *val)
 	return hh_remap_error(hh_hcall_trace_update_class_flags(0, 0, val));
 }
 
+static int hh_dbgfs_hyp_uart_set(void *data, u64 val)
+{
+	hh_control_hyp_uart(val);
+	return 0;
+}
+
+static int hh_dbgfs_hyp_uart_get(void *data, u64 *val)
+{
+	*val = hyp_uart_enable;
+	return 0;
+}
+
 DEFINE_DEBUGFS_ATTRIBUTE(hh_dbgfs_trace_class_set_fops,
 			 hh_dbgfs_trace_class_get,
 			 hh_dbgfs_trace_class_set,
@@ -145,6 +170,11 @@ DEFINE_DEBUGFS_ATTRIBUTE(hh_dbgfs_trace_class_set_fops,
 DEFINE_DEBUGFS_ATTRIBUTE(hh_dbgfs_trace_class_clear_fops,
 			 hh_dbgfs_trace_class_get,
 			 hh_dbgfs_trace_class_clear,
+			 "0x%llx\n");
+
+DEFINE_DEBUGFS_ATTRIBUTE(hh_dbgfs_hyp_uart_ctrl_fops,
+			 hh_dbgfs_hyp_uart_get,
+			 hh_dbgfs_hyp_uart_set,
 			 "0x%llx\n");
 
 static int __init hh_dbgfs_register(void)
@@ -163,6 +193,11 @@ static int __init hh_dbgfs_register(void)
 
 		dentry = debugfs_create_file("trace_clear", 0600, hh_dbgfs_dir,
 					NULL, &hh_dbgfs_trace_class_clear_fops);
+		if (IS_ERR(dentry))
+			return PTR_ERR(dentry);
+
+		dentry = debugfs_create_file("hyp_uart_ctrl", 0600, hh_dbgfs_dir,
+					NULL, &hh_dbgfs_hyp_uart_ctrl_fops);
 		if (IS_ERR(dentry))
 			return PTR_ERR(dentry);
 	}
@@ -204,7 +239,6 @@ static int __init hh_ctrl_init(void)
 		qc_hyp_calls = true;
 
 	if (qc_hyp_calls) {
-		hh_disable_uart();
 		ret = hh_sysfs_register();
 		if (ret)
 			return ret;

@@ -342,6 +342,18 @@ config NF_CONNTRACK_SIP
 
 	  To compile it as a module, choose M here.  If unsure, say N.
 
+config NF_CONNTRACK_SIP_SEGMENTATION
+	tristate "SIP protocol segmentation support"
+	depends on NF_CONNTRACK_SIP
+	default m if NETFILTER_ADVANCED=n
+	help
+	  Linux Kernel SIP ALG did not handle Segmented TCP Packets
+	  because of which SIP communication could not be established
+	  for some clients. This special type supports SIP segmentation
+	  packets
+
+	  To compile it as a module, choose M here.  If unsure, say N.
+
 config NF_CONNTRACK_TFTP
 	tristate "TFTP protocol support"
 	depends on NETFILTER_ADVANCED
