@@ -174,6 +174,8 @@ static const int scmi_linux_errmap[] = {
 	-EPROTO,		/* SCMI_ERR_PROTOCOL */
 };
 
+static int scmi_mbox_free_channel(int id, void *p, void *data);
+
 static inline int scmi_to_linux_errno(int errno)
 {
 	if (errno < SCMI_SUCCESS && errno > SCMI_ERR_MAX)
@@ -824,6 +826,21 @@ scmi_create_protocol_device(struct device_node *np, struct scmi_info *info,
 	scmi_set_handle(sdev);
 }
 
+static void scmi_cleanup_mbox_channels(struct scmi_info *info)
+{
+	struct idr *idr;
+
+	/* free tx channels */
+	idr = &info->tx_idr;
+	idr_for_each(idr, scmi_mbox_free_channel, idr);
+	idr_destroy(&info->tx_idr);
+
+	/* free rx channels */
+	idr = &info->rx_idr;
+	idr_for_each(idr, scmi_mbox_free_channel, idr);
+	idr_destroy(&info->rx_idr);
+}
+
 static int scmi_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -870,6 +887,7 @@ static int scmi_probe(struct platform_device *pdev)
 	ret = scmi_base_protocol_init(handle);
 	if (ret) {
 		dev_err(dev, "unable to communicate with SCMI(%d)\n", ret);
+		scmi_cleanup_mbox_channels(info);
 		return ret;
 	}
 
