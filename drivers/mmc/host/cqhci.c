@@ -567,6 +567,7 @@ static inline int cqhci_tag(struct mmc_request *mrq)
 static int cqhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 {
 	int err = 0;
+	u32 reg;
 	u64 data = 0;
 	u64 *task_desc = NULL;
 	int tag = cqhci_tag(mrq);
