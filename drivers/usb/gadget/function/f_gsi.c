@@ -3153,8 +3153,8 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 		info.ss_desc_hdr = qdss_gsi_ss_data_only_desc;
 		info.in_epname = "gsi-epin";
 		info.out_epname = "";
-		info.in_req_buf_len = 16384;
-		info.in_req_num_buf = GSI_NUM_IN_BUFFERS;
+		info.in_req_buf_len = GSI_IN_DPL_BUFF_SIZE;
+		info.in_req_num_buf = GSI_NUM_IN_DPL_BUFFERS;
 		info.notify_buf_len = sizeof(struct usb_cdc_notification);
 		break;
 	case IPA_USB_GPS:
