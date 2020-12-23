@@ -482,6 +482,7 @@ static int dump_native_maps(pid_t pid, struct task_struct *current_task)
 	char tpath[512];
 	char *path_p = NULL;
 	struct path base_path;
+	unsigned long long pgoff = 0;
 
 	if (!current_task)
 		return -ESRCH;
@@ -505,6 +506,7 @@ static int dump_native_maps(pid_t pid, struct task_struct *current_task)
 	while (vma && (mapcount < current_task->mm->map_count)) {
 		file = vma->vm_file;
 		flags = vma->vm_flags;
+		pgoff = ((loff_t)vma->vm_pgoff) << PAGE_SHIFT;
 		if (file) {	/* !!!!!!!!only dump 1st mmaps!!!!!!!!!!!! */
 			if (flags & VM_EXEC) {
 				/* we only catch code section for reduce
@@ -512,20 +514,20 @@ static int dump_native_maps(pid_t pid, struct task_struct *current_task)
 				 */
 				base_path = file->f_path;
 				path_p = d_path(&base_path, tpath, 512);
-				log_hang_info("%08lx-%08lx %c%c%c%c    %s\n",
+				log_hang_info("%08lx-%08lx %c%c%c%c %08llx %s\n",
 					vma->vm_start, vma->vm_end,
 					flags & VM_READ ? 'r' : '-',
 					flags & VM_WRITE ? 'w' : '-',
 					flags & VM_EXEC ? 'x' : '-',
 					flags & VM_MAYSHARE ? 's' : 'p',
-					path_p);
-				hang_log("%08lx-%08lx %c%c%c%c    %s\n",
+					pgoff, path_p);
+				hang_log("%08lx-%08lx %c%c%c%c %08llx %s\n",
 					vma->vm_start, vma->vm_end,
 					flags & VM_READ ? 'r' : '-',
 					flags & VM_WRITE ? 'w' : '-',
 					flags & VM_EXEC ? 'x' : '-',
 					flags & VM_MAYSHARE ? 's' : 'p',
-					path_p);
+					pgoff, path_p);
 			}
 		} else {
 			const char *name = aee_arch_vma_name(vma);
@@ -548,18 +550,18 @@ static int dump_native_maps(pid_t pid, struct task_struct *current_task)
 			}
 
 			if (flags & VM_EXEC) {
-				log_hang_info("%08lx-%08lx %c%c%c%c %s\n",
+				log_hang_info("%08lx-%08lx %c%c%c%c %08llx %s\n",
 					vma->vm_start, vma->vm_end,
 					flags & VM_READ ? 'r' : '-',
 					flags & VM_WRITE ? 'w' : '-',
 					flags & VM_EXEC ? 'x' : '-',
-					flags & VM_MAYSHARE ? 's' : 'p', name);
-				hang_log("%08lx-%08lx %c%c%c%c %s\n",
+					flags & VM_MAYSHARE ? 's' : 'p', pgoff, name);
+				hang_log("%08lx-%08lx %c%c%c%c %08llx %s\n",
 					vma->vm_start, vma->vm_end,
 					flags & VM_READ ? 'r' : '-',
 					flags & VM_WRITE ? 'w' : '-',
 					flags & VM_EXEC ? 'x' : '-',
-					flags & VM_MAYSHARE ? 's' : 'p', name);
+					flags & VM_MAYSHARE ? 's' : 'p', pgoff, name);
 			}
 		}
 		vma = vma->vm_next;
@@ -596,28 +598,28 @@ static int dump_native_info_by_tid(pid_t tid,
 		return ret;
 	}
 #ifndef __aarch64__		/* 32bit */
-	log_hang_info(" pc/lr/sp 0x%08lx/0x%08lx/0x%08lx\n", user_ret->ARM_pc,
+	log_hang_info(" pc/lr/sp 0x%08x/0x%08x/0x%08x\n", user_ret->ARM_pc,
 			user_ret->ARM_lr, user_ret->ARM_sp);
-	hang_log(" pc/lr/sp 0x%08lx/0x%08lx/0x%08lx\n", user_ret->ARM_pc,
+	hang_log(" pc/lr/sp 0x%08x/0x%08x/0x%08x\n", user_ret->ARM_pc,
 				user_ret->ARM_lr, user_ret->ARM_sp);
-	log_hang_info("r12-r0 0x%lx/0x%lx/0x%lx/0x%lx\n",
+	log_hang_info("r12-r0 0x%08x/0x%08x/0x%08x/0x%08x\n",
 		(long)(user_ret->ARM_ip), (long)(user_ret->ARM_fp),
 		(long)(user_ret->ARM_r10), (long)(user_ret->ARM_r9));
-	hang_log("r12-r0 0x%lx/0x%lx/0x%lx/0x%lx\n",
+	hang_log("r12-r0 0x%08x/0x%08x/0x%08x/0x%08x\n",
 		(long)(user_ret->ARM_ip), (long)(user_ret->ARM_fp),
 		(long)(user_ret->ARM_r10), (long)(user_ret->ARM_r9));
-	log_hang_info("0x%lx/0x%lx/0x%lx/0x%lx/0x%lx\n",
+	log_hang_info("0x%08x/0x%08x/0x%08x/0x%08x/0x%08x\n",
 		(long)(user_ret->ARM_r8), (long)(user_ret->ARM_r7),
 		(long)(user_ret->ARM_r6), (long)(user_ret->ARM_r5),
 		(long)(user_ret->ARM_r4));
-	hang_log("0x%lx/0x%lx/0x%lx/0x%lx/0x%lx\n",
+	hang_log("0x%08x/0x%08x/0x%08x/0x%08x/0x%08x\n",
 		(long)(user_ret->ARM_r8), (long)(user_ret->ARM_r7),
 		(long)(user_ret->ARM_r6), (long)(user_ret->ARM_r5),
 		(long)(user_ret->ARM_r4));
-	log_hang_info("0x%lx/0x%lx/0x%lx/0x%lx\n",
+	log_hang_info("0x%08x/0x%08x/0x%08x/0x%08x\n",
 		(long)(user_ret->ARM_r3), (long)(user_ret->ARM_r2),
 		(long)(user_ret->ARM_r1), (long)(user_ret->ARM_r0));
-	hang_log("0x%lx/0x%lx/0x%lx/0x%lx\n",
+	hang_log("0x%08x/0x%08x/0x%08x/0x%08x\n",
 		(long)(user_ret->ARM_r3), (long)(user_ret->ARM_r2),
 		(long)(user_ret->ARM_r1), (long)(user_ret->ARM_r0));
 
@@ -650,9 +652,9 @@ static int dump_native_info_by_tid(pid_t tid,
 
 		SPStart = userstack_start;
 		SPEnd = SPStart + length;
-		log_hang_info("UserSP_start:%lx,Length:%lx,End:%lx\n",
+		log_hang_info("UserSP_start:%08x,Length:%08x,End:%08x\n",
 				SPStart, length, SPEnd);
-		hang_log("UserSP_start:%lx,Length:%lx,End:%lx\n",
+		hang_log("UserSP_start:%08x,Length:%08x,End:%08x\n",
 				SPStart, length, SPEnd);
 		while (SPStart < SPEnd) {
 			copied =
@@ -668,12 +670,12 @@ static int dump_native_info_by_tid(pid_t tid,
 				tempSpContent[1] != 0 ||
 				tempSpContent[2] != 0 ||
 				tempSpContent[3] != 0) {
-				log_hang_info("%08x:%lx %x %x %x\n", SPStart,
+				log_hang_info("%08x:%08x %08x %08x %08x\n", SPStart,
 						tempSpContent[0],
 						tempSpContent[1],
 						tempSpContent[2],
 						tempSpContent[3]);
-				hang_log("%08x:%lx %x %x %x\n", SPStart,
+				hang_log("%08x:%08x %08x %08x %08x\n", SPStart,
 						tempSpContent[0],
 						tempSpContent[1],
 						tempSpContent[2],
@@ -989,6 +991,7 @@ static void show_task_backtrace(void)
 			!strcmp(p->comm, "mmcqd/0")  ||
 			!strcmp(p->comm, "debuggerd64") ||
 			!strcmp(p->comm, "mmcqd/1") ||
+			!strcmp(p->comm, "vold") ||
 			!strcmp(p->comm, "vdc") ||
 			!strcmp(p->comm, "debuggerd")) {
 			show_bt_by_pid(p->pid);
