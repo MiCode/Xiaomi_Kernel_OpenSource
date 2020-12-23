@@ -222,6 +222,45 @@ static void process_msgq_irq(struct adreno_device *adreno_dev)
 	}
 }
 
+static void adreno_a6xx_add_log_block(struct adreno_device *adreno_dev, u32 *msg)
+{
+	struct f2h_packet *pkt = kmem_cache_alloc(f2h_cache, GFP_ATOMIC);
+	struct a6xx_hwsched_hfi *hfi = to_a6xx_hwsched_hfi(adreno_dev);
+	u32 size = MSG_HDR_GET_SIZE(msg[0]) << 2;
+
+	if (!pkt)
+		return;
+
+	memcpy(pkt->rcvd, msg, min_t(u32, size, sizeof(pkt->rcvd)));
+
+	/*
+	 * Add the log block packets from GMU to a secondary list to ensure
+	 * the time critical TS_RETIRE packet processing on the primary list
+	 * is not delayed
+	 */
+	llist_add(&pkt->node, &hfi->f2h_secondary_list);
+
+	wake_up_interruptible(&hfi->f2h_wq);
+}
+
+static void process_dbgq_irq(struct adreno_device *adreno_dev)
+{
+	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
+	u32 rcvd[MAX_RCVD_SIZE];
+
+	while (a6xx_hfi_queue_read(gmu, HFI_DBG_ID, rcvd, sizeof(rcvd)) > 0) {
+
+		if (MSG_HDR_GET_ID(rcvd[0]) == F2H_MSG_ERR)
+			adreno_a6xx_receive_err_req(gmu, rcvd);
+
+		if (MSG_HDR_GET_ID(rcvd[0]) == F2H_MSG_DEBUG)
+			adreno_a6xx_receive_debug_req(gmu, rcvd);
+
+		if (MSG_HDR_GET_ID(rcvd[0]) == F2H_MSG_LOG_BLOCK)
+			adreno_a6xx_add_log_block(adreno_dev, rcvd);
+	}
+}
+
 /* HFI interrupt handler */
 static irqreturn_t a6xx_hwsched_hfi_handler(int irq, void *data)
 {
@@ -234,10 +273,18 @@ static irqreturn_t a6xx_hwsched_hfi_handler(int irq, void *data)
 	gmu_core_regread(device, A6XX_GMU_GMU2HOST_INTR_INFO, &status);
 	gmu_core_regwrite(device, A6XX_GMU_GMU2HOST_INTR_CLR, hfi->irq_mask);
 
+	/*
+	 * If interrupts are not enabled on the HFI message queue,
+	 * the inline message processing loop will process it,
+	 * else, process it here.
+	 */
+	if (!(hfi->irq_mask & HFI_IRQ_MSGQ_MASK))
+		status &= ~HFI_IRQ_MSGQ_MASK;
+
 	if (status & HFI_IRQ_MSGQ_MASK)
 		process_msgq_irq(adreno_dev);
 	if (status & HFI_IRQ_DBGQ_MASK)
-		a6xx_hfi_process_queue(gmu, HFI_DBG_ID, NULL);
+		process_dbgq_irq(adreno_dev);
 	if (status & HFI_IRQ_CM3_FAULT_MASK) {
 		atomic_set(&gmu->cm3_fault, 1);
 
@@ -832,6 +879,24 @@ static void process_ctx_bad(struct adreno_device *adreno_dev, void *rcvd)
 	adreno_hwsched_mark_drawobj(adreno_dev, cmd->ctxt_id, cmd->ts);
 }
 
+static void process_log_block(struct adreno_device *adreno_dev, void *data)
+{
+	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
+	struct hfi_log_block *cmd = data;
+	u32 *log_event = gmu->gmu_log->hostptr;
+	u32 start, end;
+
+	start = cmd->start_index;
+	end = cmd->stop_index;
+
+	log_event += start * 4;
+	while (start != end) {
+		trace_gmu_event(log_event);
+		log_event += 4;
+		start++;
+	}
+}
+
 static int hfi_f2h_main(void *arg)
 {
 	struct adreno_device *adreno_dev = arg;
@@ -841,8 +906,9 @@ static int hfi_f2h_main(void *arg)
 
 	while (!kthread_should_stop()) {
 		wait_event_interruptible(hfi->f2h_wq,
-			(!llist_empty(&hfi->f2h_msglist) &&
-			!kthread_should_stop()));
+			((!llist_empty(&hfi->f2h_msglist) ||
+			  !llist_empty(&hfi->f2h_secondary_list))
+			 && !kthread_should_stop()));
 
 		if (kthread_should_stop())
 			break;
@@ -857,6 +923,16 @@ static int hfi_f2h_main(void *arg)
 
 			if (MSG_HDR_GET_ID(pkt->rcvd[0]) == F2H_MSG_CONTEXT_BAD)
 				process_ctx_bad(adreno_dev, pkt->rcvd);
+
+			kmem_cache_free(f2h_cache, pkt);
+		}
+
+		/* Process packets on the secondary list after the primary list */
+		list = llist_del_all(&hfi->f2h_secondary_list);
+		list = llist_reverse_order(list);
+		llist_for_each_entry_safe(pkt, tmp, list, node) {
+			if (MSG_HDR_GET_ID(pkt->rcvd[0]) == F2H_MSG_LOG_BLOCK)
+				process_log_block(adreno_dev, pkt->rcvd);
 
 			kmem_cache_free(f2h_cache, pkt);
 		}
