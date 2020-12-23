@@ -53,7 +53,7 @@ static struct sg_table *dup_sg_table(struct sg_table *table)
 }
 
 static int qcom_sg_attach(struct dma_buf *dmabuf,
-			      struct dma_buf_attachment *attachment)
+			  struct dma_buf_attachment *attachment)
 {
 	struct qcom_sg_buffer *buffer = dmabuf->priv;
 	struct dma_heap_attachment *a;
@@ -84,7 +84,7 @@ static int qcom_sg_attach(struct dma_buf *dmabuf,
 }
 
 static void qcom_sg_detach(struct dma_buf *dmabuf,
-			       struct dma_buf_attachment *attachment)
+			   struct dma_buf_attachment *attachment)
 {
 	struct qcom_sg_buffer *buffer = dmabuf->priv;
 	struct dma_heap_attachment *a = attachment->priv;
@@ -99,7 +99,7 @@ static void qcom_sg_detach(struct dma_buf *dmabuf,
 }
 
 static struct sg_table *qcom_sg_map_dma_buf(struct dma_buf_attachment *attachment,
-						enum dma_data_direction direction)
+					    enum dma_data_direction direction)
 {
 	struct dma_heap_attachment *a = attachment->priv;
 	struct sg_table *table = a->table;
@@ -108,27 +108,27 @@ static struct sg_table *qcom_sg_map_dma_buf(struct dma_buf_attachment *attachmen
 	int ret;
 
 	buffer = attachment->dmabuf->priv;
-	if (buffer->secure)
+	if (buffer->secure || buffer->uncached)
 		attrs |= DMA_ATTR_SKIP_CPU_SYNC;
 
 	ret = dma_map_sgtable(attachment->dev, table, direction, attrs);
-	if (ret)
-		return ERR_PTR(ret);
+	if (ret == 0)
+		return ERR_PTR(-ENOMEM);
 
 	a->mapped = true;
 	return table;
 }
 
 static void qcom_sg_unmap_dma_buf(struct dma_buf_attachment *attachment,
-				      struct sg_table *table,
-				      enum dma_data_direction direction)
+				  struct sg_table *table,
+				  enum dma_data_direction direction)
 {
 	struct dma_heap_attachment *a = attachment->priv;
 	struct qcom_sg_buffer *buffer;
 	unsigned long attrs = 0;
 
 	buffer = attachment->dmabuf->priv;
-	if (buffer->secure)
+	if (buffer->secure || buffer->uncached)
 		attrs |= DMA_ATTR_SKIP_CPU_SYNC;
 
 	a->mapped = false;
@@ -136,7 +136,7 @@ static void qcom_sg_unmap_dma_buf(struct dma_buf_attachment *attachment,
 }
 
 static int qcom_sg_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
-						enum dma_data_direction direction)
+					    enum dma_data_direction direction)
 {
 	struct qcom_sg_buffer *buffer = dmabuf->priv;
 	struct dma_heap_attachment *a;
@@ -149,10 +149,12 @@ static int qcom_sg_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
 	if (buffer->vmap_cnt)
 		invalidate_kernel_vmap_range(buffer->vaddr, buffer->len);
 
-	list_for_each_entry(a, &buffer->attachments, list) {
-		if (!a->mapped)
-			continue;
-		dma_sync_sgtable_for_cpu(a->dev, a->table, direction);
+	if (!buffer->uncached) {
+		list_for_each_entry(a, &buffer->attachments, list) {
+			if (!a->mapped)
+				continue;
+			dma_sync_sgtable_for_cpu(a->dev, a->table, direction);
+		}
 	}
 	mutex_unlock(&buffer->lock);
 
@@ -160,7 +162,7 @@ static int qcom_sg_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
 }
 
 static int qcom_sg_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
-					      enum dma_data_direction direction)
+					  enum dma_data_direction direction)
 {
 	struct qcom_sg_buffer *buffer = dmabuf->priv;
 	struct dma_heap_attachment *a;
@@ -173,10 +175,12 @@ static int qcom_sg_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
 	if (buffer->vmap_cnt)
 		flush_kernel_vmap_range(buffer->vaddr, buffer->len);
 
-	list_for_each_entry(a, &buffer->attachments, list) {
-		if (!a->mapped)
-			continue;
-		dma_sync_sgtable_for_device(a->dev, a->table, direction);
+	if (!buffer->uncached) {
+		list_for_each_entry(a, &buffer->attachments, list) {
+			if (!a->mapped)
+				continue;
+			dma_sync_sgtable_for_device(a->dev, a->table, direction);
+		}
 	}
 	mutex_unlock(&buffer->lock);
 
@@ -193,6 +197,9 @@ static int qcom_sg_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 
 	if (buffer->secure)
 		return -EINVAL;
+
+	if (buffer->uncached)
+		vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
 
 	for_each_sgtable_page(table, &piter, vma->vm_pgoff) {
 		struct page *page = sg_page_iter_page(&piter);
@@ -215,17 +222,21 @@ static void *qcom_sg_do_vmap(struct qcom_sg_buffer *buffer)
 	struct page **pages = vmalloc(sizeof(struct page *) * npages);
 	struct page **tmp = pages;
 	struct sg_page_iter piter;
+	pgprot_t pgprot = PAGE_KERNEL;
 	void *vaddr;
 
 	if (!pages)
 		return ERR_PTR(-ENOMEM);
+
+	if (buffer->uncached)
+		pgprot = pgprot_writecombine(PAGE_KERNEL);
 
 	for_each_sgtable_page(table, &piter, 0) {
 		WARN_ON(tmp - pages >= npages);
 		*tmp++ = sg_page_iter_page(&piter);
 	}
 
-	vaddr = vmap(pages, npages, VM_MAP, PAGE_KERNEL);
+	vaddr = vmap(pages, npages, VM_MAP, pgprot);
 	vfree(pages);
 
 	if (!vaddr)

@@ -20,11 +20,15 @@ static int qcom_dma_heap_probe(struct platform_device *pdev)
 	int i;
 	struct platform_data *heaps;
 
-	ret = qcom_system_heap_create();
-	if (IS_ERR(ERR_PTR(ret)))
-		pr_err("%s: Failed to create 'qcom,system', error is %d\n", __func__, ret);
-	else if (!ret)
-		pr_info("%s: DMA-BUF Heap: Created 'qcom,system'\n", __func__);
+	dynamic_page_pool_init_shrinker();
+	qcom_system_heap_create("qcom,system", false, 0);
+#ifdef CONFIG_QCOM_DMABUF_HEAPS_SYSTEM_UNCACHED
+	qcom_system_heap_create("qcom,system-uncached", true, 0);
+#endif
+	qcom_system_heap_create("qcom,secure-pixel", true,
+				QCOM_DMA_HEAP_FLAG_CP_PIXEL);
+	qcom_system_heap_create("qcom,secure-non-pixel", true,
+				QCOM_DMA_HEAP_FLAG_CP_NON_PIXEL);
 
 	heaps = parse_heap_dt(pdev);
 	if (IS_ERR_OR_NULL(heaps))

@@ -23,6 +23,14 @@
 #include <linux/shrinker.h>
 #include <linux/types.h>
 
+#define HIGH_ORDER_GFP  (((GFP_HIGHUSER | __GFP_ZERO | __GFP_NOWARN \
+				| __GFP_NORETRY) & ~__GFP_RECLAIM) \
+				| __GFP_COMP)
+#define LOW_ORDER_GFP (GFP_HIGHUSER | __GFP_ZERO | __GFP_COMP)
+static gfp_t order_flags[] = {HIGH_ORDER_GFP, LOW_ORDER_GFP, LOW_ORDER_GFP};
+static const unsigned int orders[] = {9, 4, 0};
+#define NUM_ORDERS ARRAY_SIZE(orders)
+
 /**
  * struct dynamic_page_pool - pagepool struct
  * @high_count:		number of highmem items in the pool
@@ -51,9 +59,8 @@ struct dynamic_page_pool {
 	struct list_head list;
 };
 
-struct dynamic_page_pool *dynamic_page_pool_create(gfp_t gfp_mask,
-						   unsigned int order);
-void dynamic_page_pool_destroy(struct dynamic_page_pool *pool);
+struct dynamic_page_pool **dynamic_page_pool_create_pools(void);
+void dynamic_page_pool_release_pools(struct dynamic_page_pool **pool_list);
 struct page *dynamic_page_pool_alloc(struct dynamic_page_pool *pool);
 void dynamic_page_pool_free(struct dynamic_page_pool *pool, struct page *page);
 int dynamic_page_pool_init_shrinker(void);

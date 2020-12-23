@@ -88,11 +88,135 @@ static int populate_vm_list(unsigned long flags, unsigned int *vm_list,
 	return 0;
 }
 
+static int hyp_unassign_sg(struct sg_table *sgt, int *source_vm_list,
+			   int source_nelems, bool clear_page_private)
+{
+	u32 dest_vmid = VMID_HLOS;
+	u32 dest_perms = PERM_READ | PERM_WRITE | PERM_EXEC;
+	struct scatterlist *sg;
+	int ret, i;
+
+	if (source_nelems <= 0) {
+		pr_err("%s: source_nelems invalid\n",
+		       __func__);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	ret = hyp_assign_table(sgt, source_vm_list, source_nelems, &dest_vmid,
+			       &dest_perms, 1);
+	if (ret)
+		goto out;
+
+	if (clear_page_private)
+		for_each_sg(sgt->sgl, sg, sgt->nents, i)
+			ClearPagePrivate(sg_page(sg));
+out:
+	return ret;
+}
+
+static int hyp_assign_sg(struct sg_table *sgt, int *dest_vm_list,
+			 int dest_nelems, bool set_page_private)
+{
+	u32 source_vmid = VMID_HLOS;
+	struct scatterlist *sg;
+	int *dest_perms;
+	int ret, i;
+
+	if (dest_nelems <= 0) {
+		pr_err("%s: dest_nelems invalid\n",
+		       __func__);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	dest_perms = kcalloc(dest_nelems, sizeof(*dest_perms), GFP_KERNEL);
+	if (!dest_perms) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	for (i = 0; i < dest_nelems; i++)
+		dest_perms[i] = msm_secure_get_vmid_perms(dest_vm_list[i]);
+
+	ret = hyp_assign_table(sgt, &source_vmid, 1,
+			       dest_vm_list, dest_perms, dest_nelems);
+
+	if (ret) {
+		pr_err("%s: Assign call failed\n",
+		       __func__);
+		goto out_free_dest;
+	}
+	if (set_page_private)
+		for_each_sg(sgt->sgl, sg, sgt->nents, i)
+			SetPagePrivate(sg_page(sg));
+
+out_free_dest:
+	kfree(dest_perms);
+out:
+	return ret;
+}
+
+int hyp_unassign_sg_from_flags(struct sg_table *sgt, unsigned long flags,
+			       bool set_page_private)
+{
+	int ret;
+	int *source_vm_list;
+	int source_nelems;
+
+	source_nelems = count_set_bits(flags & QCOM_DMA_HEAP_FLAGS_CP_MASK);
+	source_vm_list = kcalloc(source_nelems, sizeof(*source_vm_list),
+				 GFP_KERNEL);
+	if (!source_vm_list)
+		return -ENOMEM;
+	ret = populate_vm_list(flags, source_vm_list, source_nelems);
+	if (ret) {
+		pr_err("%s: Failed to get secure vmids\n", __func__);
+		goto out_free_source;
+	}
+
+	ret = hyp_unassign_sg(sgt, source_vm_list, source_nelems,
+				  set_page_private);
+
+out_free_source:
+	kfree(source_vm_list);
+	return ret;
+}
+
+int hyp_assign_sg_from_flags(struct sg_table *sgt, unsigned long flags,
+			     bool set_page_private)
+{
+	int ret;
+	int *dest_vm_list = NULL;
+	int dest_nelems;
+
+	dest_nelems = count_set_bits(flags & QCOM_DMA_HEAP_FLAGS_CP_MASK);
+	dest_vm_list = kcalloc(dest_nelems, sizeof(*dest_vm_list), GFP_KERNEL);
+	if (!dest_vm_list) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	ret = populate_vm_list(flags, dest_vm_list, dest_nelems);
+	if (ret) {
+		pr_err("%s: Failed to get secure vmid(s)\n", __func__);
+		goto out_free_dest_vm;
+	}
+
+	ret = hyp_assign_sg(sgt, dest_vm_list, dest_nelems,
+				set_page_private);
+
+out_free_dest_vm:
+	kfree(dest_vm_list);
+out:
+	return ret;
+}
+
 int hyp_assign_from_flags(u64 base, u64 size, unsigned long flags)
 {
 	u32 *vmids, *modes;
 	u32 nr, i;
-	int ret = -EINVAL;
+	int ret;
 	u32 src_vm = VMID_HLOS;
 
 	nr = count_set_bits(flags);
@@ -108,6 +232,7 @@ int hyp_assign_from_flags(u64 base, u64 size, unsigned long flags)
 
 	if ((flags & ~QCOM_DMA_HEAP_FLAGS_CP_MASK) ||
 	    populate_vm_list(flags, vmids, nr)) {
+		ret = -EINVAL;
 		pr_err("%s: Failed to parse secure flags 0x%lx\n", __func__,
 		       flags);
 		goto out;
