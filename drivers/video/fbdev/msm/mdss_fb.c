@@ -2900,15 +2900,7 @@ static int mdss_fb_release_all(struct fb_info *info, bool release_all)
 			mdss_fb_free_fb_ion_memory(mfd);
 
 		atomic_set(&mfd->ioctl_ref_cnt, 0);
-	} else {
-		if (mfd->mdp.release_fnc)
-			ret = mfd->mdp.release_fnc(mfd, file);
-
-		/* display commit is needed to release resources */
-		if (ret)
-			mdss_fb_pan_display(&mfd->fbi->var, mfd->fbi);
 	}
-
 	return ret;
 }
 

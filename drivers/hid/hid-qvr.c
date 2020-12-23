@@ -609,8 +609,10 @@ static int qvr_external_sensor_raw_event(struct hid_device *hid,
 		else if (data[0] == 2 && data[1] == 1) { /*calibration data*/
 			sensor->calib_data_pkt = data;
 			sensor->calib_data_recv = 1;
-		} else if (data[0] == 2 && data[1] == 4) /*calibration ack*/
+		} else if (data[0] == 2 && data[1] == 4) { /*calibration ack*/
 			sensor->ext_ack = 1;
+			wake_up(&wq);
+		}
 
 	}
 	return ret;
@@ -618,6 +620,9 @@ static int qvr_external_sensor_raw_event(struct hid_device *hid,
 
 static void qvr_external_sensor_device_remove(struct hid_device *hdev)
 {
+	struct qvr_external_sensor *sensor = &qvr_external_sensor;
+
+	sensor->device = NULL;
 	hid_hw_stop(hdev);
 }
 

@@ -1220,6 +1220,9 @@ static void process_udata_work(struct work_struct *work)
 	if (chip->udata.param[QG_V_IBAT].valid)
 		chip->qg_v_ibat = chip->udata.param[QG_V_IBAT].data;
 
+	if (chip->udata.param[QG_CHARGE_COUNTER].valid)
+		chip->qg_charge_counter = chip->udata.param[QG_CHARGE_COUNTER].data;
+
 	if (chip->udata.param[QG_SOC].valid ||
 			chip->udata.param[QG_SYS_SOC].valid) {
 
@@ -2207,6 +2210,9 @@ static int qg_psy_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CHARGE_COUNTER:
 		rc = qg_get_charge_counter(chip, &pval->intval);
 		break;
+	case POWER_SUPPLY_PROP_CHARGE_COUNTER_SHADOW:
+		pval->intval = chip->qg_charge_counter;
+		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL:
 		if (!chip->dt.cl_disable && chip->dt.cl_feedback_on)
 			rc = qg_get_learned_capacity(chip, &temp);
@@ -2306,6 +2312,7 @@ static enum power_supply_property qg_psy_props[] = {
 	POWER_SUPPLY_PROP_VOLTAGE_OCV,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_CHARGE_COUNTER,
+	POWER_SUPPLY_PROP_CHARGE_COUNTER_SHADOW,
 	POWER_SUPPLY_PROP_RESISTANCE,
 	POWER_SUPPLY_PROP_RESISTANCE_ID,
 	POWER_SUPPLY_PROP_RESISTANCE_NOW,
@@ -4719,6 +4726,7 @@ static int qpnp_qg_probe(struct platform_device *pdev)
 	chip->esr_actual = -EINVAL;
 	chip->esr_nominal = -EINVAL;
 	chip->batt_age_level = -EINVAL;
+	chip->qg_charge_counter = -EINVAL;
 
 	chip->qg_version = (u8)of_device_get_match_data(&pdev->dev);
 

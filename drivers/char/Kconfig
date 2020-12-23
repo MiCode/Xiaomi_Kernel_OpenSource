@@ -587,6 +587,22 @@ config ADI
 	  and SSM (Silicon Secured Memory).  Intended consumers of this
 	  driver include crash and makedumpfile.
 
+config RB5_FAN_CONTROLLER
+	tristate "RB5 fan controller driver support"
+	help
+	  The driver supports the fan controller on QRB5165 device.
+	  The driver controls fan with PM8150L gpio10. It outputs
+	  high to the pin, which is defined in device-tree as
+	  qcom,pwr-enable-gpio.
+
+config RB5_GPIOS_ENABLE
+	tristate "Enable RB5 GPIO 140/145,116/117"
+	help
+	  The driver for enable QRB5165 GPIO 140/145,116/117.
+	  The pins are shared between Kona GPIOs and QCA concurrency
+	  signals, GPIO 60 is default set to low to connect GPIOs
+	  140/145,116/117 to mezzanine connectors.
+
 endmenu
 
 config RANDOM_TRUST_CPU

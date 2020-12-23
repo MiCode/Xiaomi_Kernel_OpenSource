@@ -625,12 +625,14 @@ struct mdss_dp_drv_pdata {
 	struct completion aux_comp;
 	struct completion idle_comp;
 	struct completion video_comp;
+	struct completion audio_comp;
 	struct completion notification_comp;
 	struct mutex aux_mutex;
 	struct mutex train_mutex;
 	struct mutex attention_lock;
 	struct mutex hdcp_mutex;
 	bool cable_connected;
+	bool audio_en;
 	u32 s3d_mode;
 	u32 aux_cmd_busy;
 	u32 aux_cmd_i2c;

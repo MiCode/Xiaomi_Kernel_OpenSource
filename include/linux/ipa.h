@@ -1804,6 +1804,19 @@ int ipa_is_vlan_mode(enum ipa_vlan_ifaces iface, bool *res);
 bool ipa_get_lan_rx_napi(void);
 #else /* (CONFIG_IPA || CONFIG_IPA3) */
 
+/* low-level IPA client Connect / Disconnect */
+
+static inline int ipa_connect(const struct ipa_connect_params *in,
+	struct ipa_sps_params *sps, u32 *clnt_hdl)
+{
+	return -EPERM;
+}
+
+static inline int ipa_disconnect(u32 clnt_hdl)
+{
+	return -EPERM;
+}
+
 /*
  * Resume / Suspend
  */

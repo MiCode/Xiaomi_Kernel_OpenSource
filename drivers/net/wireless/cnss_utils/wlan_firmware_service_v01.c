@@ -457,6 +457,50 @@ static struct qmi_elem_info wlfw_host_ddr_range_s_v01_ei[] = {
 	},
 };
 
+static struct qmi_elem_info wlfw_m3_segment_info_s_v01_ei[] = {
+	{
+		.data_type      = QMI_SIGNED_4_BYTE_ENUM,
+		.elem_len       = 1,
+		.elem_size      = sizeof(enum wlfw_m3_segment_type_v01),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0,
+		.offset         = offsetof(struct wlfw_m3_segment_info_s_v01,
+					   type),
+	},
+	{
+		.data_type      = QMI_UNSIGNED_8_BYTE,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u64),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0,
+		.offset         = offsetof(struct wlfw_m3_segment_info_s_v01,
+					   addr),
+	},
+	{
+		.data_type      = QMI_UNSIGNED_8_BYTE,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u64),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0,
+		.offset         = offsetof(struct wlfw_m3_segment_info_s_v01,
+					   size),
+	},
+	{
+		.data_type      = QMI_STRING,
+		.elem_len       = QMI_WLFW_MAX_STR_LEN_V01 + 1,
+		.elem_size      = sizeof(char),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0,
+		.offset         = offsetof(struct wlfw_m3_segment_info_s_v01,
+					   name),
+	},
+	{
+		.data_type      = QMI_EOTI,
+		.array_type       = NO_ARRAY,
+		.tlv_type       = QMI_COMMON_TLV_TYPE,
+	},
+};
+
 struct qmi_elem_info wlfw_ind_register_req_msg_v01_ei[] = {
 	{
 		.data_type      = QMI_OPT_FLAG,
@@ -799,6 +843,25 @@ struct qmi_elem_info wlfw_ind_register_req_msg_v01_ei[] = {
 		.tlv_type       = 0x22,
 		.offset         = offsetof(struct wlfw_ind_register_req_msg_v01,
 					   qdss_mem_ready_enable),
+	},
+	{
+		.data_type      = QMI_OPT_FLAG,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u8),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0x23,
+		.offset         =
+		offsetof(struct wlfw_ind_register_req_msg_v01,
+			 m3_dump_upload_segments_req_enable_valid),
+	},
+	{
+		.data_type      = QMI_UNSIGNED_1_BYTE,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u8),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0x23,
+		.offset         = offsetof(struct wlfw_ind_register_req_msg_v01,
+					   m3_dump_upload_segments_req_enable),
 	},
 	{
 		.data_type      = QMI_EOTI,
@@ -2928,6 +2991,42 @@ struct qmi_elem_info wlfw_fw_mem_ready_ind_msg_v01_ei[] = {
 
 struct qmi_elem_info wlfw_fw_init_done_ind_msg_v01_ei[] = {
 	{
+		.data_type      = QMI_OPT_FLAG,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u8),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0x10,
+		.offset         = offsetof(struct wlfw_fw_init_done_ind_msg_v01,
+					   hang_data_addr_offset_valid),
+	},
+	{
+		.data_type      = QMI_UNSIGNED_4_BYTE,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u32),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0x10,
+		.offset         = offsetof(struct wlfw_fw_init_done_ind_msg_v01,
+					   hang_data_addr_offset),
+	},
+	{
+		.data_type      = QMI_OPT_FLAG,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u8),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0x11,
+		.offset         = offsetof(struct wlfw_fw_init_done_ind_msg_v01,
+					   hang_data_length_valid),
+	},
+	{
+		.data_type      = QMI_UNSIGNED_2_BYTE,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u16),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0x11,
+		.offset         = offsetof(struct wlfw_fw_init_done_ind_msg_v01,
+					   hang_data_length),
+	},
+	{
 		.data_type      = QMI_EOTI,
 		.array_type       = NO_ARRAY,
 		.tlv_type       = QMI_COMMON_TLV_TYPE,
@@ -4570,6 +4669,45 @@ struct qmi_elem_info wlfw_pcie_gen_switch_resp_msg_v01_ei[] = {
 				  wlfw_pcie_gen_switch_resp_msg_v01,
 				  resp),
 		.ei_array      = qmi_response_type_v01_ei,
+	},
+	{
+		.data_type      = QMI_EOTI,
+		.array_type       = NO_ARRAY,
+		.tlv_type       = QMI_COMMON_TLV_TYPE,
+	},
+};
+
+struct qmi_elem_info wlfw_m3_dump_upload_segments_req_ind_msg_v01_ei[] = {
+	{
+		.data_type      = QMI_UNSIGNED_4_BYTE,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u32),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0x01,
+		.offset         =
+		offsetof(struct wlfw_m3_dump_upload_segments_req_ind_msg_v01,
+			 pdev_id),
+	},
+	{
+		.data_type      = QMI_UNSIGNED_4_BYTE,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u32),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0x02,
+		.offset         =
+		offsetof(struct wlfw_m3_dump_upload_segments_req_ind_msg_v01,
+			 no_of_valid_segments),
+	},
+	{
+		.data_type      = QMI_STRUCT,
+		.elem_len       = QMI_WLFW_MAX_M3_SEGMENTS_SIZE_V01,
+		.elem_size      = sizeof(struct wlfw_m3_segment_info_s_v01),
+		.array_type       = STATIC_ARRAY,
+		.tlv_type       = 0x03,
+		.offset         =
+		offsetof(struct wlfw_m3_dump_upload_segments_req_ind_msg_v01,
+			 m3_segment),
+		.ei_array      = wlfw_m3_segment_info_s_v01_ei,
 	},
 	{
 		.data_type      = QMI_EOTI,

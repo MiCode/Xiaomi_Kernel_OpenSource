@@ -358,6 +358,8 @@ struct fastrpc_channel_ctx {
 	void *rh_dump_dev;
 	/* Indicates, if channel is restricted to secure node only */
 	int secure;
+	/* Indicates whether the channel supports unsigned PD */
+	bool unsigned_support;
 	struct fastrpc_dsp_capabilities dsp_cap_kernel;
 	void *ipc_log_ctx;
 	/* cpu capabilities shared to DSP */
@@ -392,6 +394,8 @@ struct fastrpc_apps {
 	struct wakeup_source *wake_source;
 	struct qos_cores silvercores;
 	uint32_t max_size_limit;
+	void *ramdump_handle;
+	bool enable_ramdump;
 };
 
 struct fastrpc_mmap {
@@ -2194,12 +2198,15 @@ static void fastrpc_init(struct fastrpc_apps *me)
 		me->channel[i].sesscount = 0;
 		/* All channels are secure by default except CDSP */
 		me->channel[i].secure = SECURE_CHANNEL;
+		me->channel[i].unsigned_support = false;
 		mutex_init(&me->channel[i].smd_mutex);
 		mutex_init(&me->channel[i].rpmsg_mutex);
 		spin_lock_init(&me->channel[i].ctxlock);
 	}
 	/* Set CDSP channel to non secure */
 	me->channel[CDSP_DOMAIN_ID].secure = NON_SECURE_CHANNEL;
+	/* Set CDSP channel unsigned_support to true*/
+	me->channel[CDSP_DOMAIN_ID].unsigned_support = true;
 }
 
 static inline void fastrpc_pm_awake(struct fastrpc_file *fl, int channel_type)
@@ -2492,6 +2499,20 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 	struct fastrpc_buf *imem = NULL;
 	unsigned long imem_dma_attr = 0;
 	char *proc_name = NULL;
+	int unsigned_request = (uproc->attrs & FASTRPC_MODE_UNSIGNED_MODULE);
+	int cid = fl->cid;
+	struct fastrpc_channel_ctx *chan = &me->channel[cid];
+
+	if (chan->unsigned_support &&
+		fl->dev_minor == MINOR_NUM_DEV) {
+		/* Make sure third party applications */
+		/* can spawn only unsigned PD when */
+		/* channel configured as secure. */
+		if (chan->secure && !unsigned_request) {
+			err = -ECONNREFUSED;
+			goto bail;
+		}
+	}
 
 	VERIFY(err, 0 == (err = fastrpc_channel_open(fl)));
 	if (err)
@@ -3159,7 +3180,7 @@ static int fastrpc_mmap_remove_ssr(struct fastrpc_file *fl)
 						match->size, match->flags);
 			if (err)
 				goto bail;
-			if (me->channel[RH_CID].ramdumpenabled) {
+			if (me->ramdump_handle && me->enable_ramdump) {
 				ramdump_segments_rh = kcalloc(1,
 				sizeof(struct ramdump_segment), GFP_KERNEL);
 				if (ramdump_segments_rh) {
@@ -3167,8 +3188,8 @@ static int fastrpc_mmap_remove_ssr(struct fastrpc_file *fl)
 					match->phys;
 					ramdump_segments_rh->size = match->size;
 					ret = do_elf_ramdump(
-					 me->channel[RH_CID].rh_dump_dev,
-					 ramdump_segments_rh, 1);
+						me->ramdump_handle,
+							ramdump_segments_rh, 1);
 					if (ret < 0)
 						pr_err("adsprpc: %s: unable to dump heap (err %d)\n",
 							__func__, ret);
@@ -3178,6 +3199,7 @@ static int fastrpc_mmap_remove_ssr(struct fastrpc_file *fl)
 			fastrpc_mmap_free(match, 0);
 		}
 	} while (match);
+	me->enable_ramdump = false;
 bail:
 	if (err && match)
 		fastrpc_mmap_add(match);
@@ -3651,6 +3673,7 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 	hlist_del_init(&fl->hn);
 	spin_unlock(&fl->apps->hlock);
 	kfree(fl->debug_buf);
+	fl->debug_buf_alloced_attempted = 0;
 
 	if (!fl->sctx) {
 		kfree(fl);
@@ -4095,6 +4118,7 @@ static int fastrpc_set_process_info(struct fastrpc_file *fl)
 				current->comm, __func__, fl->debug_buf);
 			fl->debugfs_file = NULL;
 			kfree(fl->debug_buf);
+			fl->debug_buf_alloced_attempted = 0;
 			fl->debug_buf = NULL;
 		}
 	}
@@ -4105,6 +4129,7 @@ static int fastrpc_get_info(struct fastrpc_file *fl, uint32_t *info)
 {
 	int err = 0;
 	uint32_t cid;
+	struct fastrpc_apps *me = &gfa;
 
 	VERIFY(err, fl != NULL);
 	if (err)
@@ -4112,21 +4137,23 @@ static int fastrpc_get_info(struct fastrpc_file *fl, uint32_t *info)
 	err = fastrpc_set_process_info(fl);
 	if (err)
 		goto bail;
+	cid = *info;
 	if (fl->cid == -1) {
-		cid = *info;
+		struct fastrpc_channel_ctx *chan = &me->channel[cid];
+
 		VERIFY(err, cid < NUM_CHANNELS);
 		if (err)
 			goto bail;
 		/* Check to see if the device node is non-secure */
 		if (fl->dev_minor == MINOR_NUM_DEV) {
 			/*
-			 * For non secure device node check and make sure that
-			 * the channel allows non-secure access
-			 * If not, bail. Session will not start.
-			 * cid will remain -1 and client will not be able to
-			 * invoke any other methods without failure
+			 * If an app is trying to offload to a secure remote
+			 * channel by opening the non-secure device node, allow
+			 * the access if the subsystem supports unsigned
+			 * offload. Untrusted apps will be restricted.
 			 */
-			if (fl->apps->channel[cid].secure == SECURE_CHANNEL) {
+			if (chan->secure == SECURE_CHANNEL &&
+				!chan->unsigned_support) {
 				err = -EACCES;
 				goto bail;
 			}
@@ -4209,6 +4236,9 @@ static int fastrpc_internal_control(struct fastrpc_file *fl,
 			fl->ws_timeout = MAX_PM_TIMEOUT_MS;
 		else
 			fl->ws_timeout = cp->pm.timeout;
+		VERIFY(err, fl->cid >= 0 && fl->cid < NUM_CHANNELS);
+		if (err)
+			goto bail;
 		fastrpc_pm_awake(fl, gcinfo[fl->cid].secure);
 		break;
 	case FASTRPC_CONTROL_DSPPROCESS_CLEAN:
@@ -4548,13 +4578,19 @@ static int fastrpc_restart_notifier_cb(struct notifier_block *nb,
 		mutex_unlock(&me->channel[cid].smd_mutex);
 	} else if (code == SUBSYS_RAMDUMP_NOTIFICATION) {
 		if (cid == RH_CID) {
-			if (me->channel[RH_CID].rh_dump_dev &&
-					notifdata->enable_ramdump) {
+			if (me->ramdump_handle)
 				me->channel[RH_CID].ramdumpenabled = 1;
-			}
 		}
 		pr_info("adsprpc: %s: received RAMDUMP notification for %s\n",
 			__func__, gcinfo[cid].subsys);
+	} else if (code == SUBSYS_BEFORE_POWERUP) {
+		if (cid == RH_CID && notifdata->enable_ramdump) {
+			if (me->ramdump_handle && me->channel[RH_CID]
+					.ramdumpenabled) {
+				me->enable_ramdump = true;
+			me->channel[RH_CID].ramdumpenabled = 0;
+			}
+		}
 	} else if (code == SUBSYS_AFTER_POWERUP) {
 		pr_info("adsprpc: %s: %s subsystem is up\n",
 			__func__, gcinfo[cid].subsys);
@@ -4586,14 +4622,19 @@ static int fastrpc_pdr_notifier_cb(struct notifier_block *pdrnb,
 		fastrpc_notify_pdr_drivers(me, spd->servloc_name);
 	} else if (code == SUBSYS_RAMDUMP_NOTIFICATION) {
 		if (spd->cid == RH_CID) {
-			if (me->channel[RH_CID].rh_dump_dev &&
-					notifdata->enable_ramdump) {
+			if (spd->cid == RH_CID && me->ramdump_handle)
 				me->channel[RH_CID].ramdumpenabled = 1;
-			}
 		}
 		pr_info("adsprpc: %s: received %s RAMDUMP notification for %s (%s)\n",
 			__func__, gcinfo[spd->cid].subsys,
 			spd->spdname, spd->servloc_name);
+	} else if (code == SUBSYS_BEFORE_POWERUP) {
+		if (spd->cid == RH_CID && notifdata->enable_ramdump) {
+			if (me->ramdump_handle && me->channel[RH_CID]
+					.ramdumpenabled)
+				me->enable_ramdump = true;
+		me->channel[RH_CID].ramdumpenabled = 0;
+		}
 	} else if (code == SERVREG_NOTIF_SERVICE_STATE_UP_V01) {
 		pr_info("adsprpc: %s: %s (%s) is up on %s\n",
 			__func__, spd->spdname, spd->servloc_name,
@@ -4952,6 +4993,8 @@ static int fastrpc_probe(struct platform_device *pdev)
 			me->range.addr = range.addr;
 			me->range.size = range.size;
 		}
+		me->ramdump_handle = create_ramdump_device("adsp_rh",
+			&pdev->dev);
 		return 0;
 	}
 	me->legacy_remote_heap = of_property_read_bool(dev->of_node,

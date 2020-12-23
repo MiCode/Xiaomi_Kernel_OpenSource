@@ -177,6 +177,9 @@
 #define PERPH0_CFG_SDCDC_REG		0x267A
 #define EN_WIN_UV_BIT			BIT(7)
 
+#define PERPH0_SOVP_CFG0_REG		0x2680
+#define CFG_OVP_IGNORE_UVLO		BIT(5)
+
 #define PERPH0_SSUPPLY_CFG0_REG		0x2682
 #define EN_HV_OV_OPTION2_BIT		BIT(7)
 #define EN_MV_OV_OPTION2_BIT		BIT(5)
@@ -347,6 +350,7 @@ struct smb1398_chip {
 	bool			slave_en;
 	bool			in_suspend;
 	bool			disabled;
+	bool			usb_present;
 };
 
 static int smb1398_read(struct smb1398_chip *chip, u16 reg, u8 *val)
@@ -877,6 +881,23 @@ static void smb1398_toggle_switcher(struct smb1398_chip *chip)
 			DIV2_EN_ILIM_DET, DIV2_EN_ILIM_DET);
 	if (rc < 0)
 		dev_err(chip->dev, "Couldn't disable EN_ILIM_DET, rc=%d\n", rc);
+}
+
+static int smb1398_toggle_uvlo(struct smb1398_chip *chip)
+{
+	int rc;
+
+	rc = smb1398_masked_write(chip, PERPH0_SOVP_CFG0_REG,
+				CFG_OVP_IGNORE_UVLO, CFG_OVP_IGNORE_UVLO);
+	if (rc < 0)
+		dev_err(chip->dev, "Couldn't write IGNORE_UVLO rc=%d\n", rc);
+
+	rc = smb1398_masked_write(chip, PERPH0_SOVP_CFG0_REG,
+				CFG_OVP_IGNORE_UVLO, 0);
+	if (rc < 0)
+		dev_err(chip->dev, "Couldn't write IGNORE_UVLO, rc=%d\n", rc);
+
+	return rc;
 }
 
 static enum power_supply_property div2_cp_master_props[] = {
@@ -1655,6 +1676,20 @@ static void smb1398_status_change_work(struct work_struct *work)
 	 */
 	if (!is_cutoff_soc_reached(chip))
 		vote(chip->div2_cp_disable_votable, CUTOFF_SOC_VOTER, false, 0);
+
+	rc = power_supply_get_property(chip->usb_psy,
+			POWER_SUPPLY_PROP_PRESENT, &pval);
+	if (rc < 0) {
+		dev_err(chip->dev,
+			"Couldn't get USB PRESENT status, rc=%d\n", rc);
+		goto out;
+	}
+
+	if (chip->usb_present != !!pval.intval) {
+		chip->usb_present = !!pval.intval;
+		if (!chip->usb_present) /* USB has been removed */
+			smb1398_toggle_uvlo(chip);
+	}
 
 	rc = power_supply_get_property(chip->usb_psy,
 			POWER_SUPPLY_PROP_SMB_EN_MODE, &pval);
@@ -2669,6 +2704,10 @@ static void smb1398_shutdown(struct platform_device *pdev)
 	rc = smb1398_div2_cp_switcher_en(chip, 0);
 	if (rc < 0)
 		dev_err(chip->dev, "Couldn't disable chip rc= %d\n", rc);
+
+	rc = smb1398_toggle_uvlo(chip);
+	if (rc < 0)
+		dev_err(chip->dev, "Couldn't toggle uvlo rc= %d\n", rc);
 }
 
 static const struct dev_pm_ops smb1398_pm_ops = {

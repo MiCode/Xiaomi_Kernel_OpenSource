@@ -26,12 +26,16 @@
 #include <linux/hashtable.h>
 #include <linux/scatterlist.h>
 #include <linux/bio-crypt-ctx.h>
+#include <linux/siphash.h>
+#include <crypto/sha.h>
 
 #include "fscrypt_private.h"
 
 /* Table of keys referenced by DIRECT_KEY policies */
 static DEFINE_HASHTABLE(fscrypt_direct_keys, 6); /* 6 bits = 64 buckets */
 static DEFINE_SPINLOCK(fscrypt_direct_keys_lock);
+
+static struct crypto_shash *essiv_hash_tfm;
 
 /*
  * v1 key derivation function.  This generates the derived key by encrypting the
@@ -82,6 +86,37 @@ out:
 	skcipher_request_free(req);
 	crypto_free_skcipher(tfm);
 	return res;
+}
+
+static int fscrypt_do_sha256(const u8 *src, int srclen, u8 *dst)
+{
+	struct crypto_shash *tfm = READ_ONCE(essiv_hash_tfm);
+
+	/* init hash transform on demand */
+	if (unlikely(!tfm)) {
+		struct crypto_shash *prev_tfm;
+
+		tfm = crypto_alloc_shash("sha256", 0, 0);
+		if (IS_ERR(tfm)) {
+			fscrypt_warn(NULL,
+				     "error allocating SHA-256 transform: %ld",
+				     PTR_ERR(tfm));
+			return PTR_ERR(tfm);
+		}
+		prev_tfm = cmpxchg(&essiv_hash_tfm, NULL, tfm);
+		if (prev_tfm) {
+			crypto_free_shash(tfm);
+			tfm = prev_tfm;
+		}
+	}
+
+	{
+		SHASH_DESC_ON_STACK(desc, tfm);
+
+		desc->tfm = tfm;
+		desc->flags = 0;
+		return crypto_shash_digest(desc, src, srclen, dst);
+	}
 }
 
 /*
@@ -280,6 +315,25 @@ static int setup_v1_file_key_derived(struct fscrypt_info *ci,
 					  FSCRYPT_MODE_PRIVATE) &&
 					  fscrypt_using_inline_encryption(ci)) {
 		ci->ci_owns_key = true;
+		if (ci->ci_policy.v1.flags &
+		    FSCRYPT_POLICY_FLAG_IV_INO_LBLK_32) {
+			union {
+				siphash_key_t k;
+				u8 bytes[SHA256_DIGEST_SIZE];
+			} ino_hash_key;
+			int err;
+
+			/* hashed_ino = SipHash(key=SHA256(master_key),
+			 * data=i_ino)
+			 */
+			err = fscrypt_do_sha256(raw_master_key,
+						ci->ci_mode->keysize / 2,
+						ino_hash_key.bytes);
+			if (err)
+				return err;
+			ci->ci_hashed_ino = siphash_1u64(ci->ci_inode->i_ino,
+							 &ino_hash_key.k);
+		}
 		memcpy(key_new.bytes, raw_master_key, ci->ci_mode->keysize);
 
 		for (i = 0; i < ARRAY_SIZE(key_new.words); i++)

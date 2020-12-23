@@ -2656,7 +2656,7 @@ static void ipa3_cleanup_rx(struct ipa3_sys_context *sys)
 		tail = atomic_read(&sys->repl->tail_idx);
 		while (head != tail) {
 			rx_pkt = sys->repl->cache[head];
-			if (!ipa3_ctx->ipa_wan_skb_page) {
+			if (sys->repl_hdlr != ipa3_replenish_rx_page_recycle) {
 				dma_unmap_single(ipa3_ctx->pdev,
 					rx_pkt->data.dma_addr,
 					sys->rx_buff_sz,

@@ -35,6 +35,12 @@
 #include <linux/soc/qcom/smem_state.h>
 #include <linux/of_irq.h>
 #include <linux/ctype.h>
+#include <linux/sched.h>
+#include <asm/arch_timer.h>
+#include <linux/sched/clock.h>
+#include <linux/jiffies.h>
+#include <linux/delay.h>
+#include <linux/wait.h>
 
 #ifdef CONFIG_ARM64
 
@@ -3672,6 +3678,8 @@ void ipa3_update_ssr_state(bool is_ssr)
  */
 void ipa3_q6_pre_shutdown_cleanup(void)
 {
+	bool prod = false;
+
 	IPADBG_LOW("ENTER\n");
 
 	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
@@ -3680,6 +3688,10 @@ void ipa3_q6_pre_shutdown_cleanup(void)
 	if (!ipa3_ctx->ipa_endp_delay_wa)
 		ipa3_q6_pipe_delay(true);
 	ipa3_q6_avoid_holb();
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
+		prod = true;
+		ipa3_halt_q6_gsi_channels(prod);
+	}
 	if (ipa3_ctx->ipa_config_is_mhi)
 		ipa3_set_reset_client_cons_pipe_sus_holb(true,
 		IPA_CLIENT_MHI_CONS);
@@ -3737,8 +3749,6 @@ void ipa3_q6_post_shutdown_cleanup(void)
 
 	/* halt both prod and cons channels starting at IPAv4 */
 	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
-		prod = true;
-		ipa3_halt_q6_gsi_channels(prod);
 		IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 		IPADBG("Exit without consumer check\n");
 		return;
@@ -4970,13 +4980,14 @@ static void ipa3_active_clients_log_mod(
 	}
 
 	if (id->type != SIMPLE) {
-		t = local_clock();
+		t = sched_clock();
 		nanosec_rem = do_div(t, 1000000000) / 1000;
 		snprintf(temp_str, IPA3_ACTIVE_CLIENTS_LOG_LINE_LEN,
-				inc ? "[%5lu.%06lu] ^ %s, %s: %d" :
-						"[%5lu.%06lu] v %s, %s: %d",
+				inc ? "[%5lu.%06lu] ^ %s, %s: %d cnt = %d" :
+					"[%5lu.%06lu] v %s, %s: %d cnt = %d",
 				(unsigned long)t, nanosec_rem,
-				id->id_string, id->file, id->line);
+				id->id_string, id->file, id->line,
+			atomic_read(&ipa3_ctx->ipa3_active_clients.cnt));
 		ipa3_active_clients_log_insert(temp_str);
 	}
 	spin_unlock_irqrestore(&ipa3_ctx->ipa3_active_clients_logging.lock,

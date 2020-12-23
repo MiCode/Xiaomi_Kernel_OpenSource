@@ -347,6 +347,10 @@ static void *usbpd_ipc_log;
 #define ID_HDR_PRODUCT_AMA	5
 #define ID_HDR_PRODUCT_VPD	6
 
+/* params for usb_blocking_sync */
+#define STOP_USB_HOST		0
+#define START_USB_HOST		1
+
 #define PD_MIN_SINK_CURRENT	900
 
 static const u32 default_src_caps[] = { 0x36019096 };	/* VSafe5V @ 1.5A */
@@ -553,7 +557,7 @@ static inline void start_usb_host(struct usbpd *pd, bool ss)
 	extcon_set_state_sync(pd->extcon, EXTCON_USB_HOST, 1);
 
 	/* blocks until USB host is completely started */
-	ret = extcon_blocking_sync(pd->extcon, EXTCON_USB_HOST, 1);
+	ret = extcon_blocking_sync(pd->extcon, EXTCON_USB_HOST, START_USB_HOST);
 	if (ret) {
 		usbpd_err(&pd->dev, "err(%d) starting host", ret);
 		return;
@@ -637,7 +641,7 @@ static int usbpd_release_ss_lane(struct usbpd *pd,
 	stop_usb_host(pd);
 
 	/* blocks until USB host is completely stopped */
-	ret = extcon_blocking_sync(pd->extcon, EXTCON_USB_HOST, 0);
+	ret = extcon_blocking_sync(pd->extcon, EXTCON_USB_HOST, STOP_USB_HOST);
 	if (ret) {
 		usbpd_err(&pd->dev, "err(%d) stopping host", ret);
 		goto err_exit;
@@ -1907,7 +1911,8 @@ static void dr_swap(struct usbpd *pd)
 		typec_set_data_role(pd->typec_port, TYPEC_HOST);
 
 		/* ensure host is started before allowing DP */
-		extcon_blocking_sync(pd->extcon, EXTCON_USB_HOST, 0);
+		extcon_blocking_sync(pd->extcon, EXTCON_USB_HOST,
+					START_USB_HOST);
 
 		usbpd_send_svdm(pd, USBPD_SID, USBPD_SVDM_DISCOVER_IDENTITY,
 				SVDM_CMD_TYPE_INITIATOR, 0, NULL, 0);
