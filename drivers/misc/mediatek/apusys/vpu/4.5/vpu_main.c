@@ -609,7 +609,7 @@ static void vpu_exit_drv_plat(void)
 		return;
 
 	vp = vpu_drv->vp;
-	if (vp->mops && vp->mops->init)
+	if (vp->mops && vp->mops->exit)
 		vp->mops->exit();
 }
 
