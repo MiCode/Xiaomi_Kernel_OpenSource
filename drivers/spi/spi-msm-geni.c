@@ -281,6 +281,7 @@ static int get_spi_clk_cfg(u32 speed_hz, struct spi_geni_master *mas,
 static void spi_setup_word_len(struct spi_geni_master *mas, u32 mode,
 						int bits_per_word)
 {
+	struct spi_master *spi = get_spi_master(mas->dev);
 	int pack_words = 1;
 	bool msb_first = (mode & SPI_LSB_FIRST) ? false : true;
 	u32 word_len = geni_read_reg(mas->base, SE_SPI_WORD_LEN);
@@ -292,10 +293,19 @@ static void spi_setup_word_len(struct spi_geni_master *mas, u32 mode,
 	 */
 	if (!(mas->tx_fifo_width % bits_per_word))
 		pack_words = mas->tx_fifo_width / bits_per_word;
-	word_len &= ~WORD_LEN_MSK;
-	word_len |= ((bits_per_word - MIN_WORD_LEN) & WORD_LEN_MSK);
 	se_config_packing(mas->base, bits_per_word, pack_words, msb_first);
-	geni_write_reg(word_len, mas->base, SE_SPI_WORD_LEN);
+
+	/*
+	 * Don't configure SPI word length for SPI Slave it is an optional
+	 * property for SPI Slave. H/W will take care of SPI slave word
+	 * if SPI_SLAVE_EN bit is set.
+	 */
+
+	if (!spi->slave) {
+		word_len &= ~WORD_LEN_MSK;
+		word_len |= ((bits_per_word - MIN_WORD_LEN) & WORD_LEN_MSK);
+		geni_write_reg(word_len, mas->base, SE_SPI_WORD_LEN);
+	}
 	se_get_packing_config(bits_per_word, pack_words, msb_first,
 							&cfg0, &cfg1);
 	GENI_SE_DBG(mas->ipc, false, mas->dev,
