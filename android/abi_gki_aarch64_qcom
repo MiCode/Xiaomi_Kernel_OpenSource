@@ -64,6 +64,7 @@
   cdev_alloc
   cdev_del
   cdev_init
+  check_zeroed_user
   __check_object_size
   __class_create
   class_destroy
