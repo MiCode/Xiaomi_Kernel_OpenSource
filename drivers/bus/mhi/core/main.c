@@ -123,6 +123,7 @@ enum mhi_ee_type mhi_get_exec_env(struct mhi_controller *mhi_cntrl)
 
 	return (ret) ? MHI_EE_MAX : exec;
 }
+EXPORT_SYMBOL_GPL(mhi_get_exec_env);
 
 enum mhi_state mhi_get_mhi_state(struct mhi_controller *mhi_cntrl)
 {
@@ -400,6 +401,10 @@ irqreturn_t mhi_intvec_threaded_handler(int irq_number, void *priv)
 
 	 /* If device supports RDDM don't bother processing SYS error */
 	if (mhi_cntrl->rddm_image) {
+		/* host may be performing a device power down already */
+		if (!mhi_is_active(mhi_cntrl))
+			goto exit_intvec;
+
 		if (mhi_cntrl->ee == MHI_EE_RDDM && mhi_cntrl->ee != ee) {
 			mhi_cntrl->status_cb(mhi_cntrl, MHI_CB_EE_RDDM);
 			wake_up_all(&mhi_cntrl->state_event);
@@ -735,11 +740,6 @@ int mhi_process_ctrl_ev_ring(struct mhi_controller *mhi_cntrl,
 			case MHI_STATE_SYS_ERR:
 			{
 				enum mhi_pm_state new_state;
-
-				/* skip SYS_ERROR handling if RDDM supported */
-				if (mhi_cntrl->ee == MHI_EE_RDDM ||
-				    mhi_cntrl->rddm_image)
-					break;
 
 				dev_dbg(dev, "System error detected\n");
 				write_lock_irq(&mhi_cntrl->pm_lock);

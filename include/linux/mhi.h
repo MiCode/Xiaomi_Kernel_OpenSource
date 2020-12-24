@@ -335,6 +335,7 @@ struct mhi_controller_config {
  * @wlock: Lock for protecting device wakeup
  * @mhi_link_info: Device bandwidth info
  * @st_worker: State transition worker
+ * @hiprio_wq: High priority workqueue for MHI work such as state transitions
  * @state_event: State change event
  * @status_cb: CB function to notify power states of the device (required)
  * @wake_get: CB function to assert device wake (optional)
@@ -417,6 +418,7 @@ struct mhi_controller {
 	spinlock_t wlock;
 	struct mhi_link_info mhi_link_info;
 	struct work_struct st_worker;
+	struct workqueue_struct *hiprio_wq;
 	wait_queue_head_t state_event;
 
 	void (*status_cb)(struct mhi_controller *mhi_cntrl,
@@ -643,18 +645,24 @@ int mhi_pm_suspend(struct mhi_controller *mhi_cntrl);
 int mhi_pm_resume(struct mhi_controller *mhi_cntrl);
 
 /**
- * mhi_download_rddm_img - Download ramdump image from device for
- *                         debugging purpose.
+ * mhi_download_rddm_image - Download ramdump image from device for
+ *                           debugging purpose.
  * @mhi_cntrl: MHI controller
  * @in_panic: Download rddm image during kernel panic
  */
-int mhi_download_rddm_img(struct mhi_controller *mhi_cntrl, bool in_panic);
+int mhi_download_rddm_image(struct mhi_controller *mhi_cntrl, bool in_panic);
 
 /**
  * mhi_force_rddm_mode - Force device into rddm mode
  * @mhi_cntrl: MHI controller
  */
 int mhi_force_rddm_mode(struct mhi_controller *mhi_cntrl);
+
+/**
+ * mhi_get_exec_env - Get BHI execution environment of the device
+ * @mhi_cntrl: MHI controller
+ */
+enum mhi_ee_type mhi_get_exec_env(struct mhi_controller *mhi_cntrl);
 
 /**
  * mhi_get_mhi_state - Get MHI state of the device
