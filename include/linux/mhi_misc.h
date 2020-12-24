@@ -7,6 +7,59 @@
 #ifndef _MHI_MISC_H_
 #define _MHI_MISC_H_
 
+#include <linux/mhi.h>
+#include <linux/ipc_logging.h>
+
+/**
+ * enum MHI_DEBUG_LEVEL - various debugging levels
+ */
+enum MHI_DEBUG_LEVEL {
+	MHI_MSG_LVL_VERBOSE,
+	MHI_MSG_LVL_INFO,
+	MHI_MSG_LVL_ERROR,
+	MHI_MSG_LVL_CRITICAL,
+	MHI_MSG_LVL_MASK_ALL,
+	MHI_MSG_LVL_MAX,
+};
+
+/**
+ * mhi_report_error - Can be used by controller to signal error condition to the
+ * MHI core driver in case of any need to halt processing or incoming sideband
+ * signal detects an error on endpoint
+ * @mhi_cntrl: MHI controller
+ *
+ * Returns:
+ * 0 if success in reporting the error condition to MHI core
+ * error code on failure
+ */
+int mhi_report_error(struct mhi_controller *mhi_cntrl);
+
+/**
+ * mhi_controller_set_privdata - Set private data for MHI controller
+ * @mhi_cntrl: MHI controller
+ * @priv: pointer to data
+ */
+void mhi_controller_set_privdata(struct mhi_controller *mhi_cntrl, void *priv);
+
+/**
+ * mhi_controller_get_privdata - Get private data from MHI controller
+ * @mhi_cntrl: MHI controller
+ */
+void *mhi_controller_get_privdata(struct mhi_controller *mhi_cntrl);
+
+/**
+ * mhi_bdf_to_controller - Get controller associated with given BDF values
+ * @domain: Domain or root complex of PCIe port
+ * @bus: Bus number
+ * @slot: PCI slot or function number
+ * @dev_id: Device ID of the endpoint
+ *
+ * Returns:
+ * MHI controller structure pointer if BDF match is found
+ * NULL if cookie is not found
+ */
+struct mhi_controller *mhi_bdf_to_controller(u32 domain, u32 bus, u32 slot, u32 dev_id);
+
 /**
  * mhi_set_m2_timeout_ms - Set M2 timeout in milliseconds to wait before a
  * fast/silent suspend
@@ -40,6 +93,19 @@ void mhi_debug_reg_dump(struct mhi_controller *mhi_cntrl);
  * @mhi_cntrl: MHI controller
  */
 void mhi_dump_sfr(struct mhi_controller *mhi_cntrl);
+
+/**
+ * mhi_device_configure - Allow devices with offload channels to setup their own
+ * channel and event ring context.
+ * @mhi_dev: MHI device
+ * @dir: direction associated with the channel needed to configure
+ * @cfg_tbl: Buffer with ECA/CCA information and data needed to setup context
+ * @elements: Number of items to iterate over from the configuration table
+ */
+int mhi_device_configure(struct mhi_device *mhi_dev,
+			 enum dma_data_direction dir,
+			 struct mhi_buf *cfg_tbl,
+			 int elements);
 
 /**
  * mhi_scan_rddm_cookie - Look for supplied cookie value in the BHI debug
@@ -80,5 +146,14 @@ bool mhi_scan_rddm_cookie(struct mhi_controller *mhi_cntrl, u32 cookie);
  */
 int mhi_device_get_sync_atomic(struct mhi_device *mhi_dev, int timeout_us,
 			       bool in_panic);
+
+/**
+ * mhi_controller_set_bw_scale_cb - Set the BW scale callback for MHI controller
+ * @mhi_cntrl: MHI controller
+ * @cb_func: Callback to set for the MHI controller to receive BW scale requests
+ */
+void mhi_controller_set_bw_scale_cb(struct mhi_controller *mhi_cntrl,
+				int (*cb_func)(struct mhi_controller *mhi_cntrl,
+					      struct mhi_link_info *link_info));
 
 #endif /* _MHI_MISC_H_ */

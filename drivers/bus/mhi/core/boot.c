@@ -34,7 +34,7 @@ void mhi_rddm_prepare(struct mhi_controller *mhi_cntrl,
 		bhi_vec->size = mhi_buf->len;
 	}
 
-	dev_dbg(dev, "BHIe programming for RDDM\n");
+	MHI_VERB("BHIe programming for RDDM\n");
 
 	mhi_write_reg(mhi_cntrl, base, BHIE_RXVECADDR_HIGH_OFFS,
 		      upper_32_bits(mhi_buf->dma_addr));
@@ -49,7 +49,7 @@ void mhi_rddm_prepare(struct mhi_controller *mhi_cntrl,
 			    BHIE_RXVECDB_SEQNUM_BMSK, BHIE_RXVECDB_SEQNUM_SHFT,
 			    sequence_id);
 
-	dev_dbg(dev, "Address: %p and len: 0x%zx sequence: %u\n",
+	MHI_VERB("Address: %p and len: 0x%zx sequence: %u\n",
 		&mhi_buf->dma_addr, mhi_buf->len, sequence_id);
 }
 
@@ -66,7 +66,7 @@ static int __mhi_download_rddm_in_panic(struct mhi_controller *mhi_cntrl)
 	void __iomem *base = mhi_cntrl->bhie;
 	struct device *dev = &mhi_cntrl->mhi_dev->dev;
 
-	dev_dbg(dev, "Entered with pm_state:%s dev_state:%s ee:%s\n",
+	MHI_VERB("Entered with pm_state:%s dev_state:%s ee:%s\n",
 		to_mhi_pm_state_str(mhi_cntrl->pm_state),
 		TO_MHI_STATE_STR(mhi_cntrl->dev_state),
 		TO_MHI_EXEC_STR(mhi_cntrl->ee));
@@ -96,10 +96,10 @@ static int __mhi_download_rddm_in_panic(struct mhi_controller *mhi_cntrl)
 		goto error_exit_rddm;
 
 	if (ee != MHI_EE_RDDM) {
-		dev_dbg(dev, "Trigger device into RDDM mode using SYS ERR\n");
+		MHI_VERB("Trigger device into RDDM mode using SYS ERR\n");
 		mhi_set_mhi_state(mhi_cntrl, MHI_STATE_SYS_ERR);
 
-		dev_dbg(dev, "Waiting for device to enter RDDM\n");
+		MHI_VERB("Waiting for device to enter RDDM\n");
 		while (rddm_retry--) {
 			ee = mhi_get_exec_env(mhi_cntrl);
 			if (ee == MHI_EE_RDDM)
@@ -110,7 +110,7 @@ static int __mhi_download_rddm_in_panic(struct mhi_controller *mhi_cntrl)
 
 		if (rddm_retry <= 0) {
 			/* Hardware reset so force device to enter RDDM */
-			dev_dbg(dev,
+			MHI_VERB(
 				"Did not enter RDDM, do a host req reset\n");
 			mhi_write_reg(mhi_cntrl, mhi_cntrl->regs,
 				      MHI_SOC_RESET_REQ_OFFSET,
@@ -121,7 +121,7 @@ static int __mhi_download_rddm_in_panic(struct mhi_controller *mhi_cntrl)
 		ee = mhi_get_exec_env(mhi_cntrl);
 	}
 
-	dev_dbg(dev,
+	MHI_VERB(
 		"Waiting for RDDM image download via BHIe, current EE:%s\n",
 		TO_MHI_EXEC_STR(ee));
 
@@ -142,10 +142,10 @@ static int __mhi_download_rddm_in_panic(struct mhi_controller *mhi_cntrl)
 	ee = mhi_get_exec_env(mhi_cntrl);
 	ret = mhi_read_reg(mhi_cntrl, base, BHIE_RXVECSTATUS_OFFS, &rx_status);
 
-	dev_err(dev, "RXVEC_STATUS: 0x%x\n", rx_status);
+	MHI_ERR("RXVEC_STATUS: 0x%x\n", rx_status);
 
 error_exit_rddm:
-	dev_err(dev, "RDDM transfer failed. Current EE: %s\n",
+	MHI_ERR("RDDM transfer failed. Current EE: %s\n",
 		TO_MHI_EXEC_STR(ee));
 
 	return -EIO;
@@ -161,7 +161,7 @@ int mhi_download_rddm_image(struct mhi_controller *mhi_cntrl, bool in_panic)
 	if (in_panic)
 		return __mhi_download_rddm_in_panic(mhi_cntrl);
 
-	dev_dbg(dev, "Waiting for RDDM image download via BHIe\n");
+	MHI_VERB("Waiting for RDDM image download via BHIe\n");
 
 	/* Wait for the image download to complete */
 	wait_event_timeout(mhi_cntrl->state_event,
@@ -192,7 +192,7 @@ static int mhi_fw_load_bhie(struct mhi_controller *mhi_cntrl,
 	}
 
 	sequence_id = MHI_RANDOM_U32_NONZERO(BHIE_TXVECSTATUS_SEQNUM_BMSK);
-	dev_dbg(dev, "Starting image download via BHIe. Sequence ID: %u\n",
+	MHI_VERB("Starting image download via BHIe. Sequence ID: %u\n",
 		sequence_id);
 	mhi_write_reg(mhi_cntrl, base, BHIE_TXVECADDR_HIGH_OFFS,
 		      upper_32_bits(mhi_buf->dma_addr));
@@ -227,7 +227,7 @@ static int mhi_fw_load_bhi(struct mhi_controller *mhi_cntrl,
 			   dma_addr_t dma_addr,
 			   size_t size)
 {
-	u32 tx_status, val, session_id;
+	u32 tx_status, val;
 	int i, ret;
 	void __iomem *base = mhi_cntrl->bhi;
 	rwlock_t *pm_lock = &mhi_cntrl->pm_lock;
@@ -249,16 +249,16 @@ static int mhi_fw_load_bhi(struct mhi_controller *mhi_cntrl,
 		goto invalid_pm_state;
 	}
 
-	session_id = MHI_RANDOM_U32_NONZERO(BHI_TXDB_SEQNUM_BMSK);
-	dev_dbg(dev, "Starting image download via BHI. Session ID: %u\n",
-		session_id);
+	mhi_cntrl->session_id = MHI_RANDOM_U32_NONZERO(BHI_TXDB_SEQNUM_BMSK);
+	MHI_VERB("Starting image download via BHI. Session ID: %u\n",
+		mhi_cntrl->session_id);
 	mhi_write_reg(mhi_cntrl, base, BHI_STATUS, 0);
 	mhi_write_reg(mhi_cntrl, base, BHI_IMGADDR_HIGH,
 		      upper_32_bits(dma_addr));
 	mhi_write_reg(mhi_cntrl, base, BHI_IMGADDR_LOW,
 		      lower_32_bits(dma_addr));
 	mhi_write_reg(mhi_cntrl, base, BHI_IMGSIZE, size);
-	mhi_write_reg(mhi_cntrl, base, BHI_IMGTXDB, session_id);
+	mhi_write_reg(mhi_cntrl, base, BHI_IMGTXDB, mhi_cntrl->session_id);
 	read_unlock_bh(pm_lock);
 
 	/* Wait for the image download to complete */
@@ -272,7 +272,7 @@ static int mhi_fw_load_bhi(struct mhi_controller *mhi_cntrl,
 		goto invalid_pm_state;
 
 	if (tx_status == BHI_STATUS_ERROR) {
-		dev_err(dev, "Image transfer failed\n");
+		MHI_ERR("Image transfer failed\n");
 		read_lock_bh(pm_lock);
 		if (MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state)) {
 			for (i = 0; error_reg[i].name; i++) {
@@ -280,7 +280,7 @@ static int mhi_fw_load_bhi(struct mhi_controller *mhi_cntrl,
 						   error_reg[i].offset, &val);
 				if (ret)
 					break;
-				dev_err(dev, "Reg: %s value: 0x%x\n",
+				MHI_ERR("Reg: %s value: 0x%x\n",
 					error_reg[i].name, val);
 			}
 		}
@@ -405,7 +405,7 @@ void mhi_fw_load_handler(struct mhi_controller *mhi_cntrl)
 	int i, ret;
 
 	if (MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state)) {
-		dev_err(dev, "Device MHI is not in valid state\n");
+		MHI_ERR("Device MHI is not in valid state\n");
 		return;
 	}
 
@@ -413,13 +413,13 @@ void mhi_fw_load_handler(struct mhi_controller *mhi_cntrl)
 	ret = mhi_read_reg(mhi_cntrl, mhi_cntrl->bhi, BHI_SERIALNU,
 			   &mhi_cntrl->serial_number);
 	if (ret)
-		dev_err(dev, "Could not capture serial number via BHI\n");
+		MHI_ERR("Could not capture serial number via BHI\n");
 
 	for (i = 0; i < ARRAY_SIZE(mhi_cntrl->oem_pk_hash); i++) {
 		ret = mhi_read_reg(mhi_cntrl, mhi_cntrl->bhi, BHI_OEMPKHASH(i),
 				   &mhi_cntrl->oem_pk_hash[i]);
 		if (ret) {
-			dev_err(dev, "Could not capture OEM PK HASH via BHI\n");
+			MHI_ERR("Could not capture OEM PK HASH via BHI\n");
 			break;
 		}
 	}
@@ -433,7 +433,7 @@ void mhi_fw_load_handler(struct mhi_controller *mhi_cntrl)
 
 	if (!fw_name || (mhi_cntrl->fbc_download && (!mhi_cntrl->sbl_size ||
 						     !mhi_cntrl->seg_len))) {
-		dev_err(dev,
+		MHI_ERR(
 			"No firmware image defined or !sbl_size || !seg_len\n");
 		goto error_fw_load;
 	}
@@ -441,7 +441,7 @@ void mhi_fw_load_handler(struct mhi_controller *mhi_cntrl)
 	ret = request_firmware(&firmware, fw_name, dev);
 	if (ret) {
 		if (!mhi_cntrl->fallback_fw_image) {
-			dev_err(dev, "Error loading firmware: %d\n", ret);
+			MHI_ERR("Error loading firmware: %d\n", ret);
 			goto error_fw_load;
 		}
 
@@ -449,7 +449,7 @@ void mhi_fw_load_handler(struct mhi_controller *mhi_cntrl)
 				       mhi_cntrl->fallback_fw_image,
 				       dev);
 		if (ret) {
-			dev_err(dev, "Error loading fallback firmware: %d\n",
+			MHI_ERR("Error loading fallback firmware: %d\n",
 				ret);
 			goto error_fw_load;
 		}
@@ -475,7 +475,7 @@ void mhi_fw_load_handler(struct mhi_controller *mhi_cntrl)
 
 	/* Error or in EDL mode, we're done */
 	if (ret) {
-		dev_err(dev, "MHI did not load image over BHI, ret: %d\n", ret);
+		MHI_ERR("MHI did not load image over BHI, ret: %d\n", ret);
 		release_firmware(firmware);
 		goto error_fw_load;
 	}
@@ -515,7 +515,7 @@ fw_load_ee_pthru:
 		return;
 
 	if (ret) {
-		dev_err(dev, "MHI did not enter READY state\n");
+		MHI_ERR("MHI did not enter READY state\n");
 		goto error_ready_state;
 	}
 
@@ -542,7 +542,7 @@ int mhi_download_amss_image(struct mhi_controller *mhi_cntrl)
 			       /* Vector table is the last entry */
 			       &image_info->mhi_buf[image_info->entries - 1]);
 	if (ret) {
-		dev_err(dev, "MHI did not load AMSS, ret:%d\n", ret);
+		MHI_ERR("MHI did not load AMSS, ret:%d\n", ret);
 		mhi_cntrl->pm_state = MHI_PM_FW_DL_ERR;
 		wake_up_all(&mhi_cntrl->state_event);
 	}
