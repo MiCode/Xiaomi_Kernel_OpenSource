@@ -426,51 +426,48 @@ static int qcom_cpuss_sleep_stats_create_cl_residency_debugfs(struct qcom_target
 
 static int qcom_cpuss_read_lpm_and_residency_cfg_informaion(struct qcom_target_info *t_info)
 {
-	void __iomem *reg, *base;
-	struct platform_device *pdev = t_info->pdev;
 	u32 val;
 	int i, ret;
+	phys_addr_t addr;
 
 	/* per cpu lpm and residency */
-	base = devm_ioremap(&pdev->dev, t_info->apss_seq_mem_base,
-			   t_info->apss_seq_mem_size);
-	if (!base)
-		return -ENOMEM;
-
 	for (i = 0; i < t_info->ncpu; i++) {
-		reg = devm_ioremap(&pdev->dev, t_info->per_cpu_lpm_cfg[i],
-				   t_info->per_cpu_lpm_cfg_size[i]);
-		val = readl_relaxed(reg);
+		addr = t_info->per_cpu_lpm_cfg[i];
+		ret = qcom_scm_io_readl(addr, &val);
+		if (ret)
+			return -EINVAL;
+
 		ret = qcom_cpuss_sleep_stats_create_cpu_debugfs(t_info, i, val);
 		if (ret)
 			return ret;
 
-		reg = base + (APSS_CPU_LPM_RESIDENCY_CNTR_CFG_n + OFFSET_4BYTES * i);
-		val = readl_relaxed(reg);
+		addr = t_info->apss_seq_mem_base;
+		addr += (APSS_CPU_LPM_RESIDENCY_CNTR_CFG_n + OFFSET_4BYTES * i);
+		ret = qcom_scm_io_readl(addr, &val);
+		if (ret)
+			return -EINVAL;
+
 		ret = qcom_cpuss_sleep_stats_create_cpu_residency_debugfs(t_info, i, val);
 		if (ret)
 			return ret;
 	}
 
 	/* cluster lpm */
-	reg = devm_ioremap(&pdev->dev, t_info->l3_seq_lpm_cfg,
-			   t_info->l3_seq_lpm_size);
-	if (!reg)
-		return -ENOMEM;
+	addr = t_info->l3_seq_lpm_cfg;
+	ret = qcom_scm_io_readl(addr, &val);
+	if (ret)
+		return -EINVAL;
 
-	val = readl_relaxed(reg);
 	ret = qcom_cpuss_sleep_stats_create_cluster_debugfs(t_info, val);
 	if (ret)
 		return ret;
 
 	/* cluster residency */
-	reg = devm_ioremap(&pdev->dev, t_info->apss_seq_mem_base,
-			   t_info->apss_seq_mem_size);
-	if (!reg)
-		return -ENOMEM;
+	addr = t_info->apss_seq_mem_base + APSS_CL_LPM_RESIDENCY_CNTR_CFG;
+	ret = qcom_scm_io_readl(addr, &val);
+	if (ret)
+		return -EINVAL;
 
-	reg += APSS_CL_LPM_RESIDENCY_CNTR_CFG;
-	val = readl_relaxed(reg);
 	ret = qcom_cpuss_sleep_stats_create_cl_residency_debugfs(t_info, val);
 
 	return ret;
