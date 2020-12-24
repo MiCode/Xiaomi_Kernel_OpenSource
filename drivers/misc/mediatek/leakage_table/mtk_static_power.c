@@ -432,12 +432,11 @@ static const struct file_operations static_power_precise_operations = {
 		return single_open(file, name ## _proc_show,	\
 			PDE_DATA(inode));			\
 	}							\
-	static const struct file_operations name ## _proc_fops = {	\
-		.owner		  = THIS_MODULE,			\
-		.open		   = name ## _proc_open,		\
-		.read		   = seq_read,				\
-		.llseek		 = seq_lseek,				\
-		.release		= single_release,		\
+	static const struct proc_ops name ## _proc_fops = {	\
+		.proc_open		   = name ## _proc_open,		\
+		.proc_read		   = seq_read,				\
+		.proc_lseek		 = seq_lseek,				\
+		.proc_release		= single_release,		\
 	}
 
 #define PROC_ENTRY(name)	{__stringify(name), &name ## _proc_fops}
@@ -456,7 +455,7 @@ int spower_procfs_init(void)
 
 	struct pentry {
 		const char *name;
-		const struct file_operations *fops;
+		const struct proc_ops  *fops;
 	};
 
 	const struct pentry entries[] = {
