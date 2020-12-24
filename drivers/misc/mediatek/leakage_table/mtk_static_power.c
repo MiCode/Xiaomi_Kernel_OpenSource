@@ -517,7 +517,7 @@ static int mt_spower_init(struct platform_device *pdev)
 	tab = kmalloc_array(n_domain, sizeof(struct sptab_list *), GFP_KERNEL);
 	sptab = kmalloc_array(n_domain, sizeof(struct sptab_s), GFP_KERNEL);
 #endif
-	spower_raw = kmalloc_array(n_domain, sizeof(struct page *), GFP_KERNEL);
+	spower_raw = kmalloc_array(n_domain, sizeof(struct spower_raw_t), GFP_KERNEL);
 
 	for (i = 0; i < n_domain; i++) {
 #if SPOWERTABLE
