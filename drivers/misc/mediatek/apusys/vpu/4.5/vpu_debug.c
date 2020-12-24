@@ -16,24 +16,6 @@
 #include "apu_tags.h"
 #include "vpu_reg.h"
 
-enum message_level {
-	VPU_DBG_MSG_LEVEL_NONE,
-	VPU_DBG_MSG_LEVEL_CTRL,
-	VPU_DBG_MSG_LEVEL_CTX,
-	VPU_DBG_MSG_LEVEL_INFO,
-	VPU_DBG_MSG_LEVEL_DEBUG,
-	VPU_DBG_MSG_LEVEL_TOTAL,
-};
-
-struct vpu_message_ctrl {
-	unsigned int mutex;
-	int head;
-	int tail;
-	int buf_size;
-	unsigned int level_mask;
-	unsigned int data;
-};
-
 u32 vpu_klog;
 
 const char *g_vpu_prop_type_names[VPU_NUM_PROP_TYPES] = {
@@ -196,27 +178,6 @@ static void *vpu_mesg_pa_to_va(struct vpu_mem *work_buf, unsigned int phys_addr)
 	ret = work_buf->va + offset;
 
 	return (void *)(ret);
-}
-
-static struct vpu_message_ctrl *vpu_mesg(struct vpu_device *vd)
-{
-	struct vpu_config *cfg = vd_cfg(vd);
-
-	if (!vd || !vd->iova_work.m.va)
-		return NULL;
-
-	return (struct vpu_message_ctrl *)(vd->iova_work.m.va +
-		cfg->log_ofs + cfg->log_header_sz);
-}
-
-static void vpu_mesg_init(struct vpu_device *vd)
-{
-	struct vpu_message_ctrl *msg = vpu_mesg(vd);
-
-	if (!msg)
-		return;
-	memset(msg, 0, vd->wb_log_data);
-	msg->level_mask = (1 << VPU_DBG_MSG_LEVEL_CTRL);
 }
 
 static void vpu_mesg_clr(struct vpu_device *vd)
