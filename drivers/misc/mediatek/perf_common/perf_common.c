@@ -87,6 +87,10 @@ static int init_cpufreq_table(void)
 		int opp_ids, opp_nr;
 
 		policy = cpufreq_cpu_get(first_cpu_in_cluster[i]);
+		if (!policy) {
+			pr_info("%s: policy is null", __func__);
+			return -EINVAL;
+		}
 		/* get CPU OPP number */
 		opp_nr = get_opp_count(policy);
 
