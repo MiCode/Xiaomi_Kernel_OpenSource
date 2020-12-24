@@ -201,6 +201,8 @@ static int con_devfreq_probe(struct platform_device *pdev)
 		goto out;
 
 	dev_set_name(dev, "%s", apu_dev_string(apu_data->user));
+	/*fix kasan read use-after-free issue*/
+	pdev->name = dev_name(dev);
 	ad = devm_kzalloc(dev, sizeof(*ad), GFP_KERNEL);
 	if (!ad)
 		return -ENOMEM;

@@ -303,7 +303,8 @@ static int apusys_power_probe(struct platform_device *pdev)
 	int err = 0;
 
 	dev_set_name(dev, "%s", "APUSYSPOWER");
-
+	/*fix kasan read use-after-free issue*/
+	pdev->name = dev_name(dev);
 	/* initial run time power management */
 	pm_runtime_enable(dev);
 
