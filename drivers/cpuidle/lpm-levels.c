@@ -1532,7 +1532,7 @@ static int lpm_cpuidle_s2idle(struct cpuidle_device *dev,
 
 	cluster_unprepare(cpu->parent, cpumask, idx, false, 0, success);
 	cpu_unprepare(cpu, idx, true);
-	return 0;
+	return ret;
 }
 
 #ifdef CONFIG_CPU_IDLE_MULTIPLE_DRIVERS
@@ -1744,7 +1744,7 @@ static int lpm_suspend_enter(suspend_state_t state)
 	}
 	if (idx < 0) {
 		pr_err("Failed suspend\n");
-		return 0;
+		return -EINVAL;
 	}
 	cpu_prepare(lpm_cpu, idx, false);
 	cluster_prepare(cluster, cpumask, idx, false, 0);
@@ -1755,7 +1755,7 @@ static int lpm_suspend_enter(suspend_state_t state)
 
 	cluster_unprepare(cluster, cpumask, idx, false, 0, success);
 	cpu_unprepare(lpm_cpu, idx, false);
-	return 0;
+	return ret;
 }
 
 static const struct platform_suspend_ops lpm_suspend_ops = {
