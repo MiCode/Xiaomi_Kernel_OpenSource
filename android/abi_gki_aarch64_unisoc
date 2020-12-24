@@ -64,6 +64,7 @@
   complete
   complete_all
   config_ep_by_speed
+  config_group_init_type_name
   console_lock
   console_unlock
   __const_udelay
@@ -186,6 +187,7 @@
   dst_release
   dump_stack
   __dynamic_dev_dbg
+  __dynamic_netdev_dbg
   __dynamic_pr_debug
   enable_irq
   ether_setup
