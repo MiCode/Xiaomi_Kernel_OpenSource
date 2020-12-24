@@ -11,12 +11,15 @@
 #include <linux/extcon-provider.h>
 #include <linux/module.h>
 #include <linux/interrupt.h>
+#include <linux/gpio.h>
 #include <linux/slab.h>
 #include <linux/power_supply.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/of_regulator.h>
 #include <linux/regulator/machine.h>
 #include <linux/of.h>
+#include <linux/of_gpio.h>
+#include <linux/of_irq.h>
 #include <linux/mutex.h>
 #include <linux/delay.h>
 #include <linux/pinctrl/consumer.h>
@@ -493,6 +496,8 @@ struct smb1351_charger {
 	struct regulator	*dpdm_reg;
 	enum power_supply_type	charger_type;
 	bool			otg_enable;
+	int			usb_id_gpio;
+	int			usb_id_irq;
 };
 
 struct smb_irq_info {
@@ -2087,6 +2092,27 @@ static irqreturn_t smb1351_chg_stat_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+irqreturn_t smb1351_usb_id_irq_handler(int irq, void *data)
+{
+	struct smb1351_charger *chip = data;
+	bool id_state;
+	int rc = 0;
+
+	id_state = gpio_get_value(chip->usb_id_gpio);
+	pr_debug("id_state=%d\n", id_state);
+
+	rc = smb1351_masked_write(chip, CMD_CHG_REG, CMD_OTG_EN_BIT,
+				id_state ? 0 : CMD_OTG_EN_BIT);
+	if (rc < 0)
+		pr_err("Failed to %s OTG\n", id_state ? "disable" : "enable");
+	else
+		pr_debug("SMB1351 OTG %s\n",  id_state ? "disabled" : "enabled");
+
+	extcon_set_state_sync(chip->extcon, EXTCON_USB_HOST, !id_state);
+
+	return IRQ_HANDLED;
+}
+
 #define LAST_CNFG_REG	0x16
 static int show_cnfg_regs(struct seq_file *m, void *data)
 {
@@ -2425,6 +2451,9 @@ static int smb1351_determine_initial_state(struct smb1351_charger *chip)
 		smb1351_apsd_complete_handler(chip, 1);
 	}
 
+	if (chip->usb_id_gpio > 0)
+		smb1351_usb_id_irq_handler(0, chip);
+
 	return 0;
 
 fail_init_status:
@@ -2483,6 +2512,24 @@ static int create_debugfs_entries(struct smb1351_charger *chip)
 		if (!ent)
 			pr_err("Couldn't create count debug file\n");
 	}
+	return 0;
+}
+
+static int smb1351_init_otg(struct smb1351_charger *chip)
+{
+	chip->usb_id_gpio = chip->usb_id_irq = -EINVAL;
+
+	if (of_find_property(chip->dev->of_node, "qcom,usb-id-gpio", NULL))
+		chip->usb_id_gpio = of_get_named_gpio(chip->dev->of_node,
+				"qcom,usb-id-gpio", 0);
+
+	chip->usb_id_irq = of_irq_get_byname(chip->dev->of_node,
+			"smb1351_usb_id_irq");
+
+	if (chip->usb_id_irq < 0 || chip->usb_id_gpio < 0)
+		pr_err("OTG irq (%d) / gpio (%d) not defined\n",
+			chip->usb_id_irq, chip->usb_id_gpio);
+
 	return 0;
 }
 
@@ -2607,6 +2654,12 @@ static int smb1351_main_charger_probe(struct i2c_client *client,
 		goto fail_smb1351_hw_init;
 	}
 
+	rc = smb1351_init_otg(chip);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't init otg rc=%d\n", rc);
+		return rc;
+	}
+
 	rc = smb1351_determine_initial_state(chip);
 	if (rc) {
 		pr_err("Couldn't determine initial state rc=%d\n", rc);
@@ -2625,6 +2678,22 @@ static int smb1351_main_charger_probe(struct i2c_client *client,
 			goto fail_smb1351_hw_init;
 		}
 		enable_irq_wake(client->irq);
+	}
+
+	if (chip->usb_id_irq > 0 && chip->usb_id_gpio > 0) {
+		rc = devm_request_threaded_irq(chip->dev,
+			chip->usb_id_irq, NULL,
+			smb1351_usb_id_irq_handler,
+			IRQF_ONESHOT
+			| IRQF_TRIGGER_FALLING
+			| IRQF_TRIGGER_RISING,
+			"smb1351_usb_id_irq", chip);
+
+		if (rc < 0) {
+			pr_err("Failed to register id-irq rc=%d\n", rc);
+			return rc;
+		}
+		enable_irq_wake(chip->usb_id_irq);
 	}
 
 	create_debugfs_entries(chip);
