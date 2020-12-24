@@ -57,7 +57,7 @@
 #include <linux/of_irq.h>
 #include <linux/of_platform.h>
 
-#include "linux/soc/mediatek/mtk-cmdq.h"
+#include "linux/soc/mediatek/mtk-cmdq-legacy.h"
 
 #ifdef CONFIG_MTK_IOMMU_V2
 #include <mach/mt_iommu.h>

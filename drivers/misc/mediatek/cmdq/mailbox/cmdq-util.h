@@ -7,7 +7,7 @@
 #define __CMDQ_UTIL_H__
 
 #include <linux/kernel.h>
-#include <linux/soc/mediatek/mtk-cmdq.h>
+#include <linux/soc/mediatek/mtk-cmdq-legacy.h>
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #include <mt-plat/aee.h>
 #endif

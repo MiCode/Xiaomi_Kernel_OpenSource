@@ -7,7 +7,7 @@
 #define __CMDQ_SEC_H__
 
 #include <linux/kernel.h>
-#include <linux/soc/mediatek/mtk-cmdq.h>
+#include <linux/soc/mediatek/mtk-cmdq-legacy.h>
 
 #include "cmdq-sec-iwc-common.h"
 

@@ -17,7 +17,8 @@
 #include <linux/delay.h>
 #include <uapi/linux/sched/types.h>
 #include <linux/pinctrl/consumer.h>
-#include <linux/soc/mediatek/mtk-cmdq.h>
+#include <drm/drmP.h>
+#include <linux/soc/mediatek/mtk-cmdq-legacy.h>
 
 #include "mtk_drm_drv.h"
 #include "mtk_drm_ddp_comp.h"

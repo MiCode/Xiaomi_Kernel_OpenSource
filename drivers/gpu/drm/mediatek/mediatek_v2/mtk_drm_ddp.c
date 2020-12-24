@@ -9,7 +9,8 @@
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
-#include <linux/soc/mediatek/mtk-cmdq.h>
+#include <drm/drmP.h>
+#include <linux/soc/mediatek/mtk-cmdq-legacy.h>
 
 #include "mtk_drm_ddp.h"
 #include "mtk_drm_crtc.h"

@@ -67,7 +67,7 @@
 
 //#include <cmdq_core.h>
 //#include <cmdq_record.h>
-#include <linux/soc/mediatek/mtk-cmdq.h>
+#include <linux/soc/mediatek/mtk-cmdq-legacy.h>
 
 //!
 //!#define CMdq_en
