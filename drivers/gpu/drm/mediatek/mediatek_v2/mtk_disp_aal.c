@@ -9,7 +9,7 @@
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 #include <linux/platform_device.h>
-#include <linux/soc/mediatek/mtk-cmdq.h>
+#include <linux/soc/mediatek/mtk-cmdq-legacy.h>
 #include <linux/module.h>
 #include <linux/delay.h>
 

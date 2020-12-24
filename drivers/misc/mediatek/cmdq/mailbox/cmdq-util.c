@@ -7,7 +7,7 @@
 #include <linux/io.h>
 #include <linux/debugfs.h>
 #include <linux/sched/clock.h>
-#include <linux/soc/mediatek/mtk-cmdq.h>
+#include <linux/soc/mediatek/mtk-cmdq-legacy.h>
 #include <linux/arm-smccc.h>
 
 #include "cmdq-util.h"

@@ -3,7 +3,7 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
-#include <linux/soc/mediatek/mtk-cmdq.h>
+#include <linux/soc/mediatek/mtk-cmdq-legacy.h>
 
 #include "cmdq-util.h"
 #include "cmdq-sec.h"
