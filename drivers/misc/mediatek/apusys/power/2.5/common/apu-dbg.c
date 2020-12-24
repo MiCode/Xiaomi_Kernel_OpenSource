@@ -133,8 +133,8 @@ static void _apupw_set_freq_range(struct apu_dev *ad, ulong min, ulong max)
 	struct apu_gov_data *gov_data = (struct apu_gov_data *)ad->df->data;
 
 	mutex_lock_nested(&ad->df->lock, gov_data->depth);
-	ad->df->max_freq = max;
-	ad->df->min_freq = min;
+	dev_pm_qos_update_request(&ad->df->user_max_freq_req, max);
+	dev_pm_qos_update_request(&ad->df->user_min_freq_req, min);
 	mutex_unlock(&ad->df->lock);
 }
 
@@ -143,8 +143,10 @@ static void _apupw_default_freq_range(struct apu_dev *ad)
 	struct apu_gov_data *gov_data = (struct apu_gov_data *)ad->df->data;
 
 	mutex_lock_nested(&ad->df->lock, gov_data->depth);
-	ad->df->max_freq = ad->df->scaling_max_freq;
-	ad->df->min_freq = ad->df->scaling_min_freq;
+	dev_pm_qos_update_request(&ad->df->user_max_freq_req,
+			ad->df->scaling_max_freq);
+	dev_pm_qos_update_request(&ad->df->user_min_freq_req,
+			ad->df->scaling_min_freq);
 	mutex_unlock(&ad->df->lock);
 }
 
