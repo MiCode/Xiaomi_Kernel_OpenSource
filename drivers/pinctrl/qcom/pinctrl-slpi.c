@@ -13,9 +13,12 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/types.h>
+#include <linux/clk.h>
 
 #include "../core.h"
 #include "../pinctrl-utils.h"
+
+static struct clk *clk_ssc;
 
 /**
  * struct slpi_pin - SLPI pin definition
@@ -146,6 +149,11 @@ static int slpi_pinmux_set_mux(struct pinctrl_dev *pctldev,
 {
 	struct slpi_pin *pin;
 	u32 val;
+	int ret;
+
+	ret = clk_prepare_enable(clk_ssc);
+	if (ret)
+		return ret;
 
 	pin = pctldev->desc->pins[pin_index].drv_data;
 
@@ -156,6 +164,8 @@ static int slpi_pinmux_set_mux(struct pinctrl_dev *pctldev,
 	val &= ~(0x7 << pin->mux_bit);
 	val |= function << pin->mux_bit;
 	slpi_write(val, pin, pin->ctl_reg);
+
+	clk_disable_unprepare(clk_ssc);
 
 	return 0;
 }
@@ -218,6 +228,10 @@ static int slpi_config_group_get(struct pinctrl_dev *pctldev,
 	int ret;
 	u32 val;
 
+	ret = clk_prepare_enable(clk_ssc);
+	if (ret)
+		return ret;
+
 	pin = pctldev->desc->pins[pin_index].drv_data;
 	ret = slpi_config_reg(pin, param, &mask, &bit);
 	if (ret < 0)
@@ -263,6 +277,8 @@ static int slpi_config_group_get(struct pinctrl_dev *pctldev,
 
 	*config = pinconf_to_config_packed(param, arg);
 
+	clk_disable_unprepare(clk_ssc);
+
 	return 0;
 }
 
@@ -279,6 +295,10 @@ static int slpi_config_group_set(struct pinctrl_dev *pctldev,
 	int ret;
 	u32 val;
 	int i;
+
+	ret = clk_prepare_enable(clk_ssc);
+	if (ret)
+		return ret;
 
 	pin = pctldev->desc->pins[pin_index].drv_data;
 
@@ -346,6 +366,8 @@ static int slpi_config_group_set(struct pinctrl_dev *pctldev,
 		slpi_write(val, pin, pin->ctl_reg);
 	}
 
+	clk_disable_unprepare(clk_ssc);
+
 	return 0;
 }
 
@@ -371,6 +393,12 @@ static int slpi_pinctrl_probe(struct platform_device *pdev)
 	base = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR(base))
 		return PTR_ERR(base);
+
+	clk_ssc = devm_clk_get(dev, "ssc-clk");
+	if (IS_ERR_OR_NULL(clk_ssc)) {
+		dev_err(dev, "Error in getting ssc-clk\n");
+		return -EPROBE_DEFER;
+	}
 
 	ret = of_property_read_u32(dev->of_node, "qcom,num-pins", &npins);
 	if (ret < 0)
@@ -445,7 +473,7 @@ static int __init slpi_pinctrl_init(void)
 {
 	return platform_driver_register(&slpi_pinctrl_driver);
 }
-arch_initcall(slpi_pinctrl_init);
+module_init(slpi_pinctrl_init);
 
 static void __exit slpi_pinctrl_exit(void)
 {
