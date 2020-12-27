@@ -787,27 +787,44 @@ void apupw_dbg_release_nodes(void)
 	apupw_dbg_unregister_cg();
 }
 
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 int apu_power_drv_init(struct apusys_core_info *info)
 {
-	int ret;
-
+	/* creating apupw directory */
 	apupw_dbg.dir = debugfs_create_dir("apupwr", info->dbg_root);
-	ret = IS_ERR_OR_NULL(apupw_dbg.dir);
-	if (ret) {
-		pr_info("failed to create debug dir.\n");
+	if (IS_ERR_OR_NULL(apupw_dbg.dir)) {
+		pr_info("failed to create \"apupwr\" debug dir.\n");
 		goto out;
 	}
-	debugfs_create_file("power", (0644),
+
+	/* creating power file */
+	apupw_dbg.file = debugfs_create_file("power", (0644),
 		apupw_dbg.dir, NULL, &apupw_dbg_fops);
-	debugfs_create_symlink("power", info->dbg_root,	"./apupwr/power");
+	if (IS_ERR_OR_NULL(apupw_dbg.file)) {
+		pr_info("failed to create \"power\" debug file.\n");
+		goto out;
+	}
+
+	/* symbolic link to /d/apupwr/power */
+	apupw_dbg.sym_link = debugfs_create_symlink("power", info->dbg_root, "./apupwr/power");
+	if (IS_ERR_OR_NULL(apupw_dbg.sym_link)) {
+		pr_info("failed to create \"power\" symbolic file.\n");
+		goto out;
+	}
 out:
-	return ret;
+	return 0;
 }
-EXPORT_SYMBOL(apu_power_drv_init);
 
 void apu_power_drv_exit(void)
 {
+	debugfs_remove(apupw_dbg.sym_link);
+	debugfs_remove(apupw_dbg.file);
 	debugfs_remove(apupw_dbg.dir);
 }
+#else
+int apu_power_drv_init(struct apusys_core_info *info) { return 0; }
+void apu_power_drv_exit(void) {}
+#endif
+EXPORT_SYMBOL(apu_power_drv_init);
 EXPORT_SYMBOL(apu_power_drv_exit);
 
