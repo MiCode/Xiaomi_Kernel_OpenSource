@@ -1830,6 +1830,7 @@ static int rt_energy_aware_wake_cpu(struct task_struct *task)
 	int best_cpu_idle_idx = INT_MAX;
 	int cpu_idle_idx = -1;
 	bool boost_on_big = rt_boost_on_big();
+	bool best_cpu_lt = true;
 
 	rcu_read_lock();
 
@@ -1856,6 +1857,7 @@ retry:
 		}
 
 		for_each_cpu_and(cpu, lowest_mask, sched_group_span(sg)) {
+			bool lt;
 
 			trace_sched_cpu_util(cpu);
 
@@ -1870,8 +1872,20 @@ retry:
 
 			util = cpu_util(cpu);
 
-			/* Find the least loaded CPU */
-			if (util > best_cpu_util)
+			lt = (walt_low_latency_task(cpu_rq(cpu)->curr) ||
+				walt_nr_rtg_high_prio(cpu));
+
+			/*
+			 * When the best is suitable and the current is not,
+			 * skip it
+			 */
+			if (lt && !best_cpu_lt)
+				continue;
+			/*
+			 * Either both are sutilable or unsuitable, load takes
+			 * precedence.
+			 */
+			if (!(best_cpu_lt ^ lt) && (util > best_cpu_util))
 				continue;
 
 			/*
@@ -1905,6 +1919,7 @@ retry:
 			best_cpu_util = util;
 			best_cpu = cpu;
 			best_capacity = capacity_orig;
+			best_cpu_lt = lt;
 		}
 
 	} while (sg = sg->next, sg != sd->groups);
