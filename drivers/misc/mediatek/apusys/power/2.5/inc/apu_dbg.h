@@ -89,7 +89,12 @@ struct apu_dbg {
 	int fix_opp;
 
 	int option;
+#if IS_ENABLED(CONFIG_DEBUG_FS)
+	/* below used for debugfs */
 	struct dentry *dir;
+	struct dentry *file;
+	struct dentry *sym_link;
+#endif
 	int poll_interval;
 };
 
