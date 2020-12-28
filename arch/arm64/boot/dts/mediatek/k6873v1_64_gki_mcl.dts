@@ -526,6 +526,6 @@
 };
 /* CONSYS end */
 
-&cpufreq_hw {
+&performance {
 	mcl50_load = <1>;
 };
