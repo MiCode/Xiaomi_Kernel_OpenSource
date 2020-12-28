@@ -736,6 +736,11 @@
 		};
 	};
 
+	cpu_pmu: cpu-pmu {
+		compatible = "arm,armv8-pmuv3";
+		interrupts = <GIC_PPI 7 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
 	dcc: dcc_v2@100ff000 {
 		compatible = "qcom,dcc-v2";
 		reg = <0x100ff000 0x1000>,
