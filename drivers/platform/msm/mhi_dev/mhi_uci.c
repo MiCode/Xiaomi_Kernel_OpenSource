@@ -1941,7 +1941,7 @@ static void mhi_uci_at_ctrl_tre_cb(struct mhi_dev_client_cb_reason *reason)
 static void mhi_uci_at_ctrl_client_cb(struct mhi_dev_client_cb_data *cb_data)
 {
 	struct uci_client *client = cb_data->user_data;
-	int rc;
+	int rc, i;
 	struct mhi_req *ureq;
 
 	uci_log(UCI_DBG_VERBOSE, " Rcvd MHI cb for channel %d, state %d\n",
@@ -1979,6 +1979,12 @@ static void mhi_uci_at_ctrl_client_cb(struct mhi_dev_client_cb_data *cb_data)
 			list_del_init(&ureq->list);
 			/* Add to in-use list */
 			list_add_tail(&ureq->list, &client->req_list);
+		}
+
+		for (i = 0; i < (client->in_chan_attr->nr_trbs); i++) {
+			kfree(client->in_buf_list[i].addr);
+			client->in_buf_list[i].addr = NULL;
+			client->in_buf_list[i].buf_size = 0;
 		}
 	}
 }
