@@ -3298,7 +3298,7 @@ static int fastrpc_internal_invoke2(struct fastrpc_file *fl,
 			if (err)
 				goto bail;
 			memcpy(&p.inv, &p.inv3, sizeof(struct fastrpc_ioctl_invoke_crc));
-			memcpy(&p.inv.job, &p.inv3.job, sizeof(struct fastrpc_async_job));
+			memcpy(&p.inv.job, &p.inv3.job, sizeof(p.inv.job));
 		} else {
 			K_COPY_FROM_USER(err, 0, &p.inv, (void *)inv2->invparam, size);
 			if (err)
