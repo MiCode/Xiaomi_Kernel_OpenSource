@@ -1022,8 +1022,8 @@ static int __maybe_unused redriver_i2c_suspend(struct device *dev)
 	    redriver->op_mode == OP_MODE_DEFAULT)
 		return 0;
 
-	redriver->op_mode = OP_MODE_NONE;
-	ssusb_redriver_gen_dev_set(redriver);
+	redriver_i2c_reg_set(redriver, GEN_DEV_SET_REG,
+				redriver->gen_dev_val & ~CHIP_EN);
 
 	return 0;
 }
@@ -1035,6 +1035,15 @@ static int __maybe_unused redriver_i2c_resume(struct device *dev)
 
 	dev_dbg(redriver->dev, "%s: SS USB redriver resume.\n",
 			__func__);
+
+	/* no suspend happen in following mode */
+	if (redriver->op_mode == OP_MODE_DP ||
+	    redriver->op_mode == OP_MODE_NONE ||
+	    redriver->op_mode == OP_MODE_DEFAULT)
+		return 0;
+
+	redriver_i2c_reg_set(redriver, GEN_DEV_SET_REG,
+				redriver->gen_dev_val);
 
 	return 0;
 }
