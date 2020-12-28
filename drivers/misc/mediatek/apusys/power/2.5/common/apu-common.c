@@ -429,7 +429,8 @@ int apu_get_recommend_freq_volt(struct device *dev, unsigned long *freq,
 	/* get the slowest frq in opp */
 	opp = devfreq_recommended_opp(dev, freq, flag);
 	if (IS_ERR(opp)) {
-		apower_err(dev, "[%s] no opp for %luMHz\n", TOMHZ(*freq));
+		apower_err(dev, "[%s] no opp for %luMHz, ret %d\n",
+			   __func__, TOMHZ(*freq), PTR_ERR(opp));
 		return PTR_ERR(opp);
 	}
 

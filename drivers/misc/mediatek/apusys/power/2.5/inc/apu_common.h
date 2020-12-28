@@ -29,6 +29,11 @@ static inline bool round_Mhz(unsigned long x, unsigned long y)
 	return (abs((x) - (y)) < MHZ);
 }
 
+static inline const char *apu_dev_name(struct device *dev)
+{
+	return ((struct apu_dev *)dev_get_drvdata(dev))->name;
+}
+
 const char *apu_dev_string(enum DVFS_USER user);
 enum DVFS_USER apu_dev_user(const char *name);
 struct apu_dev *apu_find_device(enum DVFS_USER user);

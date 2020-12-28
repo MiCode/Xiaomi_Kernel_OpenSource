@@ -82,8 +82,8 @@ static void apupwr_tag_seq_rpc(struct seq_file *s, struct apupwr_tag *t)
 	t->rpc.spm_wakeup, t->rpc.rpc_intf_rdy);
 	seq_printf(s, ",vcore_cg=0x%x,conn_cg=0x%x",
 	t->rpc.vcore_cg_stat, t->rpc.conn_cg_stat);
-	seq_printf(s, ",v0_cg=0x%x,v1_cg=0x%x,m0_cg=0x%x,m1_cg=0x%x\n",
-		   t->rpc.vpu0_cg_stat, t->rpc.vpu1_cg_stat,
+	seq_printf(s, ",v0_cg=0x%x,v1_cg=0x%x,v2_cg=0x%x,m0_cg=0x%x,m1_cg=0x%x\n",
+		   t->rpc.vpu0_cg_stat, t->rpc.vpu1_cg_stat, t->rpc.vpu2_cg_stat,
 		   t->rpc.mdla0_cg_stat, t->rpc.mdla1_cg_stat);
 }
 
@@ -149,4 +149,5 @@ int apupwr_init_tags(struct apusys_core_info *info)
 void apupwr_exit_tags(void)
 {
 	apu_tp_exit(apupwr_tp_tbl);
+	apu_tags_free(apu_drv_tag);
 }

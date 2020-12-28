@@ -495,8 +495,16 @@ static int clk_apu_prepare(struct apu_clk_gp *aclk)
 	int ret = 0;
 	struct apu_clk *dst = NULL;
 
-	dst = aclk->sys_mux;
-	if (!IS_ERR_OR_NULL(dst)) {
+	if (!IS_ERR_OR_NULL(aclk->sys_mux)) {
+		dst = aclk->sys_mux->parents;
+		if (!IS_ERR_OR_NULL(dst)) {
+			ret = clk_bulk_prepare(dst->clk_num, dst->clks);
+			if (ret) {
+				aclk_err(aclk->dev, "[%s] sys_mux fail, ret %d\n", __func__, ret);
+				goto out;
+			}
+		}
+		dst = aclk->sys_mux;
 		ret = clk_bulk_prepare(dst->clk_num, dst->clks);
 		if (ret) {
 			aclk_err(aclk->dev, "[%s] sys_mux fail, ret %d\n", __func__, ret);
@@ -539,20 +547,24 @@ static void clk_apu_unprepare(struct apu_clk_gp *aclk)
 {
 	struct apu_clk *dst;
 
-	dst = aclk->sys_mux;
-	if (!IS_ERR_OR_NULL(dst))
+	if (!IS_ERR_OR_NULL(aclk->sys_mux) && !aclk->sys_mux->always_on) {
+		dst = aclk->sys_mux->parents;
+		if (!IS_ERR_OR_NULL(dst) && !dst->always_on)
+			clk_bulk_unprepare(dst->clk_num, dst->clks);
+		dst = aclk->sys_mux;
 		clk_bulk_unprepare(dst->clk_num, dst->clks);
+	}
 
 	dst = aclk->top_mux;
-	if (!IS_ERR_OR_NULL(dst))
+	if (!IS_ERR_OR_NULL(dst) && !dst->always_on)
 		clk_bulk_unprepare(dst->clk_num, dst->clks);
 
 	dst = aclk->top_pll;
-	if (!IS_ERR_OR_NULL(dst))
+	if (!IS_ERR_OR_NULL(dst) && !dst->always_on)
 		clk_bulk_unprepare(dst->clk_num, dst->clks);
 
 	dst = aclk->apmix_pll;
-	if (!IS_ERR_OR_NULL(dst))
+	if (!IS_ERR_OR_NULL(dst) && !dst->always_on)
 		clk_bulk_unprepare(dst->clk_num, dst->clks);
 
 }
@@ -715,7 +727,6 @@ struct apu_clk mt68xx_mdla0_topmux = {
 	.fix_rate = 1,
 };
 
-
 static struct apu_clk_gp mt68x3_core_clk_gp = {
 	.sys_mux = &mt68xx_vcore_sysmux,
 	.ops = &mt68xx_clk_ops,
@@ -730,6 +741,7 @@ static struct apu_clk_gp mt68x3_vpu_clk_gp = {
 	.sys_mux = &mt68xx_vpu_sysmux,
 	.apmix_pll = &mt68xx_npu_mixpll,
 	.ops = &mt68xx_clk_ops,
+	.fhctl = 1,
 };
 
 static struct apu_clk_gp mt68x3_vpu0_clk_gp = {
@@ -748,6 +760,7 @@ static struct apu_clk_gp mt6873_mdla_clk_gp = {
 	.sys_mux = &mt68xx_mdla_sysmux,
 	.apmix_pll = &mt68xx_apu_mixpll,
 	.ops = &mt68xx_clk_ops,
+	.fhctl = 1,
 };
 
 static struct apu_clk_gp mt6873_mdla0_clk_gp = {

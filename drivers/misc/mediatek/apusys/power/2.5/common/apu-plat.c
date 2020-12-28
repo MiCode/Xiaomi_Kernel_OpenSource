@@ -21,8 +21,13 @@ static int apu_opp_init(struct apu_dev *ad)
 {
 	int ret = 0;
 
-	ret = dev_pm_opp_of_add_table(ad->dev);
-	if (ret) {
+	ret = dev_pm_opp_of_add_table_indexed(ad->dev, 0);
+	if (ret)
+		goto out;
+
+	ad->oppt = dev_pm_opp_get_opp_table(ad->dev);
+	if (IS_ERR_OR_NULL(ad->oppt)) {
+		ret = PTR_ERR(ad->oppt);
 		aprobe_err(ad->dev, "[%s] get opp table fail, ret = %d\n", ret);
 		goto out;
 	}
@@ -33,7 +38,8 @@ out:
 
 static void apu_opp_uninit(struct apu_dev *ad)
 {
-	dev_pm_opp_of_remove_table(ad->dev);
+	if (!IS_ERR_OR_NULL(ad->oppt))
+		dev_pm_opp_put_opp_table(ad->oppt);
 }
 
 /**
@@ -156,10 +162,6 @@ static void apu_clk_uninit(struct apu_dev *ad)
 	aclk = ad->aclk;
 	aclk->ops->unprepare(ad->aclk);
 
-	dst = aclk->top_mux;
-	if (!IS_ERR_OR_NULL(dst))
-		of_apu_clk_put(&dst);
-
 	dst = aclk->top_pll;
 	if (!IS_ERR_OR_NULL(dst))
 		of_apu_clk_put(&dst);
@@ -168,7 +170,15 @@ static void apu_clk_uninit(struct apu_dev *ad)
 	if (!IS_ERR_OR_NULL(dst))
 		of_apu_clk_put(&dst);
 
-	dst = aclk->sys_mux;
+	if (!IS_ERR_OR_NULL(aclk->sys_mux)) {
+		dst = aclk->sys_mux->parents;
+		if (!IS_ERR_OR_NULL(dst))
+			of_apu_clk_put(&dst);
+		dst = aclk->sys_mux;
+		of_apu_clk_put(&dst);
+	}
+
+	dst = aclk->top_mux;
 	if (!IS_ERR_OR_NULL(dst))
 		of_apu_clk_put(&dst);
 
@@ -264,6 +274,7 @@ static void apu_devfreq_uninit(struct apu_dev *ad)
 	struct apu_gov_data *pgov_data = NULL;
 
 	pgov_data = ad->df->data;
+	apu_gov_unsetup(ad);
 	/* remove devfreq device */
 	devm_devfreq_remove_device(ad->dev, ad->df);
 	devm_kfree(ad->dev, pgov_data);

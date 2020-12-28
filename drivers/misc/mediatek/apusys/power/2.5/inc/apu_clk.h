@@ -66,6 +66,7 @@ struct apu_clk {
 	unsigned always_on:1;	/* clk never enable/disable */
 	unsigned keep_enable:1;	/* enable once and never disable */
 	unsigned fix_rate:1;		/* fix rate of all clks while enable/disable */
+	unsigned dynamic_alloc:1;	/* allocated from dts */
 
 } __aligned(sizeof(long));
 
@@ -107,13 +108,13 @@ struct apu_clk_gp {
 	/* the top_mux/sys_mux/Pll for this composite clk */
 	struct apu_clk *top_mux;
 	struct apu_clk *sys_mux;
-	struct apu_clk *sys_mux_parents;
 	struct apu_clk *top_pll;
 	struct apu_clk *apmix_pll;
 	struct apu_cgs *cg;
 	/* the clk_hw/ops for this apu composite clk */
 	struct apu_clk_ops	*ops;
 
+	unsigned fhctl:1;	/* freq hopping or not */
 };
 
 struct apu_clk_array {

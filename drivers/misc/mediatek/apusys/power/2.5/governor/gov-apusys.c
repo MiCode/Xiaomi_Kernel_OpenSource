@@ -42,7 +42,7 @@ static int update_parent(struct apu_gov_data *gov_data)
 		ret = update_devfreq(gov_data->parent);
 		if (ret < 0 && ret != -EPROBE_DEFER)
 			advfs_err(ad->dev, "[%s] update \"%s\" freq fail, ret %d\n",
-				__func__, dev_name(gov_data->parent->dev.parent), ret);
+				__func__, apu_dev_name(gov_data->parent->dev.parent), ret);
 	}
 
 out:
@@ -63,10 +63,10 @@ static int agov_get_target_freq(struct devfreq *df, unsigned long *freq)
 	*freq = apu_opp2freq(ad, req->value);
 	if (!round_khz(*freq, df->previous_freq)) {
 		apu_dump_list(gov_data);
-		apupw_dbg_dvfs_tag_update(APUGOV_PASSIVE, dev_name(ad->dev),
-			dev_name(req->dev), req->value, TOMHZ(*freq));
+		apupw_dbg_dvfs_tag_update(APUGOV_PASSIVE, apu_dev_name(ad->dev),
+			apu_dev_name(req->dev), req->value, TOMHZ(*freq));
 		advfs_info(ad->dev, "[%s] %s vote opp/freq %d/%u\n", __func__,
-			   dev_name(req->dev), req->value, TOMHZ(*freq));
+			   apu_dev_name(req->dev), req->value, TOMHZ(*freq));
 	}
 	return 0;
 }

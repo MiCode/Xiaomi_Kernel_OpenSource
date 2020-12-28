@@ -92,6 +92,7 @@ int apu_cmp(void *priv, struct list_head *a, struct list_head *b);
 struct apu_gov_data *apu_gov_init(struct device *dev,
 				  struct devfreq_dev_profile *pf, const char **gov_name);
 int apu_gov_setup(struct apu_dev *ad, void *data);
+void apu_gov_unsetup(struct apu_dev *ad);
 void apu_dump_list(struct apu_gov_data *gov_data);
 
 #endif
