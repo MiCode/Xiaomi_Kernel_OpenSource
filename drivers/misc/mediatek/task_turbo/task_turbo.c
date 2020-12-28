@@ -1041,7 +1041,7 @@ static void probe_android_vh_sys_set_task(void *ignore, struct task_struct *p)
 
 static void probe_android_vh_nice_check(void *ignore, long *nice, bool *allowed)
 {
-	if ((nice < MIN_NICE || nice > MAX_NICE) && !task_turbo_nice(nice))
+	if ((*nice < MIN_NICE || *nice > MAX_NICE) && !task_turbo_nice(*nice))
 		*allowed = false;
 	else
 		*allowed = true;
