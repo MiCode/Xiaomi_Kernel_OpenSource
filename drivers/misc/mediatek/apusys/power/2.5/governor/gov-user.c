@@ -29,10 +29,10 @@ static int ausr_get_target_freq(struct devfreq *df, unsigned long *freq)
 	*freq = apu_opp2freq(ad, req->value);
 	if (!round_khz(*freq, df->previous_freq)) {
 		apu_dump_list(gov_data);
-		apupw_dbg_dvfs_tag_update(APUGOV_USR, dev_name(ad->dev),
-			dev_name(req->dev), req->value, TOMHZ(*freq));
+		apupw_dbg_dvfs_tag_update(APUGOV_USR, apu_dev_name(ad->dev),
+			apu_dev_name(req->dev), req->value, TOMHZ(*freq));
 		advfs_info(ad->dev, "[%s] %s vote opp/freq %d/%u\n", __func__,
-			   dev_name(req->dev), req->value, TOMHZ(*freq));
+			   apu_dev_name(req->dev), req->value, TOMHZ(*freq));
 	}
 
 	return 0;

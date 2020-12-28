@@ -116,6 +116,7 @@ static int apu_cb_probe(struct platform_device *pdev)
 	const struct apu_plat_data *apu_data = NULL;
 	int err = 0;
 
+	dev_info(&pdev->dev, "%s\n", __func__);
 	mutex_init(&power_device_list_mtx);
 	apu_data = of_device_get_match_data(&pdev->dev);
 	if (!apu_data) {
@@ -123,14 +124,12 @@ static int apu_cb_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	dev_set_name(dev, "%s", apu_dev_string(apu_data->user));
-	/*fix kasan read use-after-free issue*/
-	pdev->name = dev_name(dev);
 	ad = devm_kzalloc(dev, sizeof(*ad), GFP_KERNEL);
 	if (!ad)
 		return -ENOMEM;
 	ad->dev = dev;
 	ad->user = apu_data->user;
+	ad->name = apu_dev_string(apu_data->user);
 	err = apu_add_devfreq(ad);
 	if (err)
 		goto free_ad;
@@ -150,6 +149,7 @@ static int apu_cb_remove(struct platform_device *pdev)
 {
 	struct apu_dev *ad = platform_get_drvdata(pdev);
 
+	dev_info(&pdev->dev, "%s\n", __func__);
 	/* remove apu_device from list */
 	apu_del_devfreq(ad);
 	return 0;

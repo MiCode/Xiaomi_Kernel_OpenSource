@@ -137,22 +137,21 @@ static int core_devfreq_probe(struct platform_device *pdev)
 	const struct apu_plat_data *apu_data = NULL;
 	int err = 0;
 
+	dev_info(&pdev->dev, "%s\n", __func__);
 	apu_data = of_device_get_match_data(&pdev->dev);
 	if (!apu_data) {
-		aprobe_err(dev, " has no platform data, ret %d\n", err);
+		dev_info(dev, " has no platform data, ret %d\n", err);
 		err = -ENODEV;
 		goto out;
 	}
 
-	dev_set_name(dev, "%s", apu_dev_string(apu_data->user));
-	/*fix kasan read use-after-free issue*/
-	pdev->name = dev_name(dev);
 	ad = devm_kzalloc(dev, sizeof(*ad), GFP_KERNEL);
 	if (!ad)
 		return -ENOMEM;
 
 	ad->dev = dev;
 	ad->user = apu_data->user;
+	ad->name = apu_dev_string(apu_data->user);
 	ad->plat_ops = apu_plat_get_ops(ad, apu_data->plat_ops_name);
 	if (IS_ERR_OR_NULL(ad->plat_ops)) {
 		err = PTR_ERR(ad->plat_ops);
@@ -220,6 +219,8 @@ static int core_devfreq_remove(struct platform_device *pdev)
 {
 	struct apu_dev *ad = platform_get_drvdata(pdev);
 
+	dev_info(&pdev->dev, "%s\n", __func__);
+	of_platform_depopulate(ad->dev);
 	/* disable run time power management */
 	pm_runtime_disable(ad->dev);
 	ad->plat_ops->uninit_rguls(ad);
@@ -228,8 +229,6 @@ static int core_devfreq_remove(struct platform_device *pdev)
 	/* remove apu_device from list */
 	apu_del_devfreq(ad);
 	ad->plat_ops->uninit_devfreq(ad);
-	kfree(ad->df->profile);
-
 	return 0;
 }
 

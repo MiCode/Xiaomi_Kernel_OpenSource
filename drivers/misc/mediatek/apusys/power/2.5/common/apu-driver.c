@@ -302,16 +302,14 @@ static int apusys_power_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	int err = 0;
 
-	dev_set_name(dev, "%s", "APUSYSPOWER");
-	/*fix kasan read use-after-free issue*/
-	pdev->name = dev_name(dev);
+	dev_info(&pdev->dev, "%s\n", __func__);
 	/* initial run time power management */
 	pm_runtime_enable(dev);
 
 	/* Enumerate child at last, since child need parent's devfreq */
 	err = of_platform_populate(dev->of_node, NULL, NULL, dev);
 	if (err) {
-		apower_err(dev, "%s populate fail\n", __func__);
+		dev_info(dev, "%s populate fail\n", __func__);
 		return err;
 	}
 	return err;
@@ -319,6 +317,9 @@ static int apusys_power_probe(struct platform_device *pdev)
 
 static int apusys_power_remove(struct platform_device *pdev)
 {
+	dev_info(&pdev->dev, "%s %d\n", __func__, __LINE__);
+	of_platform_depopulate(&pdev->dev);
+	pm_runtime_disable(&pdev->dev);
 	return 0;
 }
 
@@ -381,22 +382,27 @@ static void __exit apu_power_exit(void)
 	int ret = 0;
 
 	platform_driver_unregister(&mdla_devfreq_driver);
-	platform_driver_register(&vpu_devfreq_driver);
+	platform_driver_unregister(&vpu_devfreq_driver);
 	platform_driver_unregister(&apu_cb_driver);
-	platform_driver_register(&con_devfreq_driver);
+	platform_driver_unregister(&apusys_power_driver);
+	platform_driver_unregister(&con_devfreq_driver);
 	platform_driver_unregister(&core_devfreq_driver);
 	platform_driver_unregister(&apu_rpc_driver);
-	platform_driver_unregister(&apusys_power_driver);
+
+	ret = devfreq_remove_governor(&agov_constrain);
+	if (ret)
+		pr_info("[%s] failed remove gov %s %d\n",
+			__func__, agov_constrain.name, ret);
+
 	ret = devfreq_remove_governor(&agov_passive);
 	if (ret)
 		pr_info("[%s] failed remove gov %s %d\n",
-				__func__, agov_passive.name, ret);
+			__func__, agov_passive.name, ret);
 
 	ret = devfreq_remove_governor(&agov_userspace);
 	if (ret)
 		pr_info("[%s] failed remove gov %s %d\n",
-				__func__, agov_userspace.name, ret);
+			__func__, agov_userspace.name, ret);
 }
 module_exit(apu_power_exit)
 MODULE_LICENSE("GPL");
-

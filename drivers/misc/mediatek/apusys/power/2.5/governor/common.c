@@ -77,7 +77,8 @@ struct apu_gov_data *apu_gov_init(struct device *dev,
 		pf->polling_ms = APUGOV_POLL_RATE;
 
 	aprobe_info(dev, " has \"%s\" devfreq parent, depth %d, poll rate %dms, gov %s\n",
-		    (!IS_ERR(pgov_data->parent)) ? dev_name(pgov_data->parent->dev.parent) : "no",
+		    (!IS_ERR(pgov_data->parent)) ?
+		    apu_dev_name(pgov_data->parent->dev.parent) : "no",
 		    pgov_data->depth, pf->polling_ms, *gov_name);
 
 	return pgov_data;
@@ -96,10 +97,10 @@ void apu_dump_list(struct apu_gov_data *gov_data)
 
 	if (apupw_dbg_get_loglvl() >= VERBOSE_LVL) {
 		n_pos += scnprintf(buffer + n_pos, (sizeof(buffer) - n_pos),
-				  "[%s] head:", dev_name(gov_data->this->dev.parent));
+				  "[%s] head:", apu_dev_name(gov_data->this->dev.parent));
 		list_for_each_entry(ptr, &gov_data->head, list)
 			n_pos += scnprintf(buffer + n_pos, (sizeof(buffer) - n_pos), "->%s[%d]",
-					  dev_name(ptr->dev), ptr->value);
+					  apu_dev_name(ptr->dev), ptr->value);
 		pr_info("%s", buffer);
 	}
 }
@@ -152,4 +153,22 @@ int apu_gov_setup(struct apu_dev *ad, void *data)
 		    __func__, apu_data->threshold_volt, gov_data->threshold_opp);
 
 	return 0;
+}
+
+void apu_gov_unsetup(struct apu_dev *ad)
+{
+	struct apu_gov_data *gov_data, *parent_gov;
+
+	gov_data = (struct apu_gov_data *)ad->df->data;
+	get_datas(gov_data, &parent_gov, NULL, NULL);
+
+	/* del req from self's head */
+	list_del(&gov_data->req.list);
+
+	/* del req_parent from parent's head */
+	if (!IS_ERR_OR_NULL(gov_data->parent)) {
+		/* del req to self's head */
+		list_del(&gov_data->req_parent.list);
+		apu_dump_list(parent_gov);
+	}
 }

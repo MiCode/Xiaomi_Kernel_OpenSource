@@ -115,12 +115,14 @@ static bool _apupw_valid_input(u8 param, int argc)
 		expect = 1;
 		if (argc != expect)
 			goto INVALID;
+		break;
 	case POWER_HAL_CTL:
 	case POWER_PARAM_SET_POWER_HAL_OPP:
 	case POWER_PARAM_POWER_STRESS:
 		expect = 3;
 		if (argc != expect)
 			goto INVALID;
+		break;
 	}
 	return true;
 INVALID:
@@ -132,6 +134,8 @@ static void _apupw_set_freq_range(struct apu_dev *ad, ulong min, ulong max)
 {
 	struct apu_gov_data *gov_data = (struct apu_gov_data *)ad->df->data;
 
+	pr_info("[%s] [%s] max/min %dMhz/%dMhz\n",
+		apu_dev_name(ad->dev), __func__, TOMHZ(max), TOMHZ(min));
 	mutex_lock_nested(&ad->df->lock, gov_data->depth);
 	dev_pm_qos_update_request(&ad->df->user_max_freq_req, max);
 	dev_pm_qos_update_request(&ad->df->user_min_freq_req, min);
@@ -142,6 +146,7 @@ static void _apupw_default_freq_range(struct apu_dev *ad)
 {
 	struct apu_gov_data *gov_data = (struct apu_gov_data *)ad->df->data;
 
+	pr_info("[%s] [%s]\n", apu_dev_name(ad->dev), __func__);
 	mutex_lock_nested(&ad->df->lock, gov_data->depth);
 	dev_pm_qos_update_request(&ad->df->user_max_freq_req,
 			ad->df->scaling_max_freq);
@@ -238,12 +243,12 @@ out:
 
 static void apupw_dbg_unregister_cg(void)
 {
-	struct apu_dbg_cg *dbg_cg = NULL;
+	struct apu_dbg_cg *dbg_cg = NULL, *tmp = NULL;
 
 	if (list_empty(&apupw_dbg.cg_list))
 		return;
 
-	list_for_each_entry(dbg_cg, &apupw_dbg.cg_list, node) {
+	list_for_each_entry_safe(dbg_cg, tmp, &apupw_dbg.cg_list, node) {
 		iounmap(dbg_cg->reg);
 		list_del(&dbg_cg->node);
 		kfree(dbg_cg);
@@ -283,12 +288,12 @@ out:
 
 static void apupw_dbg_unregister_clk(void)
 {
-	struct apu_dbg_clk *dbg_clk = NULL;
+	struct apu_dbg_clk *dbg_clk = NULL, *tmp = NULL;
 
 	if (list_empty(&apupw_dbg.clk_list))
 		return;
 
-	list_for_each_entry(dbg_clk, &apupw_dbg.clk_list, node) {
+	list_for_each_entry_safe(dbg_clk, tmp, &apupw_dbg.clk_list, node) {
 		clk_put(dbg_clk->clk);
 		list_del(&dbg_clk->node);
 		kfree(dbg_clk);
@@ -327,12 +332,12 @@ out:
 
 static void apupw_dbg_unregister_regulator(void)
 {
-	struct apu_dbg_regulator *dbg_reg = NULL;
+	struct apu_dbg_regulator *dbg_reg = NULL, *tmp = NULL;
 
 	if (list_empty(&apupw_dbg.reg_list))
 		return;
 
-	list_for_each_entry(dbg_reg, &apupw_dbg.reg_list, node) {
+	list_for_each_entry_safe(dbg_reg, tmp, &apupw_dbg.reg_list, node) {
 		regulator_put(dbg_reg->reg);
 		list_del(&dbg_reg->node);
 		kfree(dbg_reg);
@@ -681,9 +686,9 @@ static ssize_t apupw_dbg_write(struct file *flip, const char __user *buffer,
 
 	/* parse arguments */
 	for (i = 0; i < max_arg && (token = strsep(&cursor, " ")); i++) {
-		ret = kstrtouint(token, 10, &args[i]);
+		ret = kstrtoint(token, 10, &args[i]);
 		if (ret) {
-			pr_info("fail to parse args[%d]\n", i);
+			pr_info("fail to parse args[%d](\"%s\")\n", i, token);
 			goto out;
 		}
 	}

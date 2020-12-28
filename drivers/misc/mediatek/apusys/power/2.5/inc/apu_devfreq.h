@@ -31,6 +31,8 @@
  * This struct describes platform operations define for different platform.
  */
 struct apu_dev {
+	const char *name;
+
 	struct device *dev;
 
 	/* apu devices info */
@@ -51,7 +53,7 @@ struct apu_dev {
 
 	/* devfreq info */
 	struct devfreq	 *df;
-	struct opp_table *p_oppt;
+	struct opp_table *oppt;
 	unsigned int opp_div;
 };
 

@@ -40,15 +40,13 @@ static int _allocate_clk_bulk(struct apu_clk **dst, const char *id, int count)
 {
 	/* if passing NULL apu_clk, create it and clean the memory */
 	if (!(*dst)) {
-		*dst = kmalloc(sizeof(**dst), GFP_KERNEL);
+		*dst = kzalloc(sizeof(**dst), GFP_KERNEL);
 		if (!(*dst))
 			return -ENOMEM;
-		memset(*dst, 0, sizeof(**dst));
+		(*dst)->dynamic_alloc = 1;
 	}
 
-	(*dst)->clks = kmalloc_array(count,
-							sizeof(struct clk_bulk_data),
-							GFP_KERNEL);
+	(*dst)->clks = kmalloc_array(count, sizeof(struct clk_bulk_data), GFP_KERNEL);
 	if (!((*dst)->clks))
 		return -ENOMEM;
 
@@ -60,8 +58,8 @@ static int _allocate_clk_bulk(struct apu_clk **dst, const char *id, int count)
 
 static void _free_clk_bulk(struct apu_clk **dst)
 {
-	kfree((*dst)->clks);
-	kfree(*dst);
+	if ((*dst)->dynamic_alloc)
+		kfree(*dst);
 }
 
 static int _apu_buck_clk_get(struct device *dev,	const char *id,
@@ -117,9 +115,10 @@ err:
 
 static void _apu_buck_clk_put(struct apu_clk **dst)
 {
-	if ((*dst)->clk_num > 0 && !IS_ERR_OR_NULL((*dst)->clks)) {
+
+	if (!IS_ERR_OR_NULL((*dst)->clks) && (*dst)->clk_num > 0) {
 		clk_bulk_put_all((*dst)->clk_num, (*dst)->clks);
-		if (!((*dst)->mixpll->regs))
+		if (!IS_ERR_OR_NULL((*dst)->mixpll) && !((*dst)->mixpll->regs))
 			iounmap((*dst)->mixpll->regs);
 		_free_clk_bulk(dst);
 	}
@@ -192,6 +191,8 @@ void of_apu_cg_put(struct apu_cgs **dst)
 
 void of_apu_regulator_put(struct apu_regulator *rgul)
 {
+	if (rgul->enabled)
+		regulator_disable(rgul->vdd);
 	regulator_put(rgul->vdd);
 }
 
