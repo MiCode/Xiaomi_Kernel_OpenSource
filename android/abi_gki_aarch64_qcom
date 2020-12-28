@@ -127,6 +127,7 @@
   cfg80211_unlink_bss
   cfg80211_update_owe_info_event
   cfg80211_vendor_cmd_reply
+  cgroup_path_ns
   cgroup_taskset_first
   cgroup_taskset_next
   __check_object_size
@@ -821,6 +822,7 @@
   find_next_bit
   find_next_zero_bit
   find_snd_usb_substream
+  find_task_by_vpid
   find_vma
   find_vpid
   finish_wait
@@ -1326,10 +1328,14 @@
   __netlink_kernel_create
   netlink_kernel_release
   netlink_unicast
+  nla_find
   nla_memcpy
   __nla_parse
+  __nla_validate
   nla_put
   nla_put_64bit
+  nla_reserve
+  nla_reserve_64bit
   __nlmsg_put
   no_llseek
   nonseekable_open
@@ -1451,6 +1457,7 @@
   of_usb_host_tpl_support
   on_each_cpu
   oops_in_progress
+  overflowuid
   panic
   panic_notifier_list
   panic_timeout
@@ -1540,6 +1547,8 @@
   phy_power_off
   phy_power_on
   phy_set_mode_ext
+  pid_nr_ns
+  pid_task
   pinconf_generic_dt_node_to_map
   pinctrl_dev_get_drvdata
   pinctrl_force_default
@@ -1950,6 +1959,8 @@
   simple_write_to_buffer
   single_open
   single_release
+  si_meminfo
+  si_swapinfo
   sk_alloc
   skb_add_rx_frag
   skb_append_pagefrags
@@ -2189,6 +2200,7 @@
   time64_to_tm
   timer_unstable_counter_workaround
   topology_set_thermal_pressure
+  total_swapcache_pages
   _totalram_pages
   __trace_bprintk
   trace_clock_local
@@ -2517,6 +2529,7 @@
   __video_register_device
   video_unregister_device
   vmalloc
+  vmalloc_nr_pages
   vmalloc_to_page
   vmalloc_to_pfn
   vmap
@@ -2528,6 +2541,8 @@
   vm_map_pages
   vm_mmap
   vm_munmap
+  vm_node_stat
+  vm_zone_stat
   vprintk
   vscnprintf
   vsnprintf
