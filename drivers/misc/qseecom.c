@@ -3,6 +3,7 @@
  * QTI Secure Execution Environment Communicator (QSEECOM) driver
  *
  * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #define pr_fmt(fmt) "QSEECOM: %s: " fmt, __func__
@@ -3052,8 +3053,8 @@ static int __qseecom_unload_app(struct qseecom_dev_handle *data,
 			sizeof(struct qseecom_unload_app_ireq),
 			&resp, sizeof(resp));
 	if (ret) {
-		pr_err("scm_call to unload app (id = %d) failed\n", app_id);
-		return -EFAULT;
+		pr_err("scm_call to unload app (id = %d) failed ret: %d\n", app_id, ret);
+		return ret;
 	}
 	switch (resp.result) {
 	case QSEOS_RESULT_SUCCESS:
@@ -3132,6 +3133,16 @@ static int qseecom_unload_app(struct qseecom_dev_handle *data,
 
 	if (!ptr_app->ref_cnt) {
 		ret = __qseecom_unload_app(data, data->client.app_id);
+                if (ret == -EBUSY) {
+                /*
+                * If unload failed due to EBUSY, don't free mem
+                * just restore app ref_cnt and return -EBUSY
+                */
+                pr_warn("unload ta %d(%s) EBUSY\n",
+                        data->client.app_id, data->client.app_name);
+                ptr_app->ref_cnt++;
+                return ret;
+                }
 		spin_lock_irqsave(&qseecom.registered_app_list_lock, flags);
 		list_del(&ptr_app->list);
 		spin_unlock_irqrestore(&qseecom.registered_app_list_lock,
@@ -3710,8 +3721,8 @@ static int __qseecom_send_cmd(struct qseecom_dev_handle *data,
 				(uint32_t)(__qseecom_uvirt_to_kphys(
 				data, (uintptr_t)req->resp_buf));
 		} else {
-			send_data_req.req_ptr = (uint32_t)req->cmd_req_buf;
-			send_data_req.rsp_ptr = (uint32_t)req->resp_buf;
+			send_data_req.req_ptr = *((uint32_t *)(&req->cmd_req_buf));
+			send_data_req.rsp_ptr = *((uint32_t *)(&req->resp_buf));
 		}
 
 		send_data_req.req_len = req->cmd_req_len;

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /* Copyright (c) 2015-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (C) 2020 XiaoMi, Inc. */
 
 #ifndef _CNSS_QMI_H
 #define _CNSS_QMI_H
@@ -277,5 +278,17 @@ static inline int cnss_dms_init(struct cnss_plat_data *plat_priv)
 
 static inline void cnss_dms_deinit(struct cnss_plat_data *plat_priv) {}
 #endif /* CONFIG_CNSS2_QMI */
+
+#ifdef CONFIG_CNSS2_DEBUG
+static inline u32 cnss_get_host_build_type(void)
+{
+	return QMI_HOST_BUILD_TYPE_PRIMARY_V01;
+}
+#else
+static inline u32 cnss_get_host_build_type(void)
+{
+	return QMI_HOST_BUILD_TYPE_SECONDARY_V01;
+}
+#endif
 
 #endif /* _CNSS_QMI_H */

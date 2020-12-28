@@ -1,0 +1,26 @@
+Qualcomm Technologies, Inc. Secure Proccessor Communication (spcom)
+
+Required properties:
+-compatible : should be "qcom,spcom"
+-qcom,spcom-ch-names: predefined channels name string
+-qcom,spcom-sp2soc-rmb-reg-addr: Secure Processor to SOC shared
+                                 register physical address
+-qcom,spcom-sp2soc-rmb-initdone-bit: bit indicating Secure
+                                     Processor init-done
+-qcom,spcom-sp2soc-rmb-pbldone-bit: bit indicating Secure
+                                    Processor bootloader-done
+-qcom,spcom-soc2sp-rmb-reg-addr: SOC to Secure Processor shared
+                                 register physical address
+-qcom,spcom-soc2sp-rmb-sp-ssr-bit: bit indicating Secure
+                                   Processor subsystem reset
+
+Example:
+    qcom,spcom {
+            compatible = "qcom,spcom";
+            qcom,spcom-ch-names = "sp_kernel" , "sp_ssr";
+            qcom,spcom-sp2soc-rmb-reg-addr = <0x01881020>;
+            qcom,spcom-sp2soc-rmb-initdone-bit = <24>;
+            qcom,spcom-sp2soc-rmb-pbldone-bit = <25>;
+            qcom,spcom-soc2sp-rmb-reg-addr = <0x01881030>;
+            qcom,spcom-soc2sp-rmb-sp-ssr-bit = <0>;
+    };

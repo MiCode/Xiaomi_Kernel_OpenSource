@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2015-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (C) 2020 XiaoMi, Inc. */
 
 #include <linux/firmware.h>
 #include <linux/module.h>
 #include <linux/soc/qcom/qmi.h>
+#include <linux/hwid.h>
 
 #include "bus.h"
 #include "debug.h"
@@ -15,6 +17,9 @@
 #define BDF_FILE_NAME_PREFIX		"bdwlan"
 #define ELF_BDF_FILE_NAME		"bdwlan.elf"
 #define ELF_BDF_FILE_NAME_PREFIX	"bdwlan.e"
+
+#define ELF_BDF_FILE_NAME_K2		 "bd_k2.elf"
+
 #define BIN_BDF_FILE_NAME		"bdwlan.bin"
 #define BIN_BDF_FILE_NAME_PREFIX	"bdwlan.b"
 #define REGDB_FILE_NAME			"regdb.bin"
@@ -164,18 +169,6 @@ qmi_registered:
 	kfree(resp);
 	return ret;
 }
-
-#ifdef CONFIG_CNSS2_DEBUG
-static inline u32 cnss_get_host_build_type(void)
-{
-	return QMI_HOST_BUILD_TYPE_PRIMARY_V01;
-}
-#else
-static inline u32 cnss_get_host_build_type(void)
-{
-	return QMI_HOST_BUILD_TYPE_SECONDARY_V01;
-}
-#endif
 
 static int cnss_wlfw_host_cap_send_sync(struct cnss_plat_data *plat_priv)
 {
@@ -494,11 +487,26 @@ static int cnss_get_bdf_file_name(struct cnss_plat_data *plat_priv,
 {
 	char filename_tmp[MAX_FIRMWARE_NAME_LEN];
 	int ret = 0;
+	int hw_platform_ver = -1;
+	uint32_t hw_country_ver = 0;
+#ifdef CONFIG_QGKI_SYSTEM
+	hw_country_ver = get_hw_country_version();
+	hw_platform_ver = get_hw_version_platform();
+#else
+	hw_platform_ver = -1;
+	hw_country_ver = 0;
+#endif
+
 
 	switch (bdf_type) {
 	case CNSS_BDF_ELF:
-		if (plat_priv->board_info.board_id == 0xFF)
-			snprintf(filename_tmp, filename_len, ELF_BDF_FILE_NAME);
+		if (plat_priv->board_info.board_id == 0xFF) {
+			if (hw_platform_ver == HARDWARE_PROJECT_K2) {
+				snprintf(filename_tmp, filename_len, ELF_BDF_FILE_NAME_K2);
+			} else {
+				snprintf(filename_tmp, filename_len, ELF_BDF_FILE_NAME);
+			}
+		}
 		else if (plat_priv->board_info.board_id < 0xFF)
 			snprintf(filename_tmp, filename_len,
 				 ELF_BDF_FILE_NAME_PREFIX "%02x",
@@ -1672,9 +1680,6 @@ int cnss_wlfw_get_info_send_sync(struct cnss_plat_data *plat_priv, int type,
 	struct qmi_txn txn;
 	int ret = 0;
 
-	cnss_pr_vdbg("Sending get info message, type: %d, cmd length: %d, state: 0x%lx\n",
-		     type, cmd_len, plat_priv->driver_state);
-
 	if (cmd_len > QMI_WLFW_MAX_DATA_SIZE_V01)
 		return -EINVAL;
 
@@ -2017,16 +2022,10 @@ static void cnss_wlfw_respond_get_info_ind_cb(struct qmi_handle *qmi_wlfw,
 		container_of(qmi_wlfw, struct cnss_plat_data, qmi_wlfw);
 	const struct wlfw_respond_get_info_ind_msg_v01 *ind_msg = data;
 
-	cnss_pr_vdbg("Received QMI WLFW respond get info indication\n");
-
 	if (!txn) {
 		cnss_pr_err("Spurious indication\n");
 		return;
 	}
-
-	cnss_pr_vdbg("Extract message with event length: %d, type: %d, is last: %d, seq no: %d\n",
-		     ind_msg->data_len, ind_msg->type,
-		     ind_msg->is_last, ind_msg->seq_no);
 
 	if (plat_priv->get_info_cb_ctx && plat_priv->get_info_cb)
 		plat_priv->get_info_cb(plat_priv->get_info_cb_ctx,

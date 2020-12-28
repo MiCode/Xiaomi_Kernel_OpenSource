@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
+#ifdef CONFIG_DEBUG_FS
 #include <linux/debugfs.h>
+#endif
 #include <linux/errno.h>
 #include <linux/delay.h>
 #include <linux/io.h>
@@ -19,6 +22,7 @@
 #include <linux/qcom_scm.h>
 #include <soc/qcom/qseecomi.h>
 #include <linux/qtee_shmbridge.h>
+#include <linux/proc_fs.h>
 
 /* QSEE_LOG_BUF_SIZE = 32K */
 #define QSEE_LOG_BUF_SIZE 0x8000
@@ -360,6 +364,8 @@ struct encrypted_log_info {
 	uint64_t shmb_handle;
 };
 
+uint8_t *qsee_log_buffer;
+
 static struct tzdbg tzdbg = {
 	.stat[TZDBG_BOOT].name = "boot",
 	.stat[TZDBG_RESET].name = "reset",
@@ -383,6 +389,9 @@ static phys_addr_t disp_buf_paddr;
 static uint64_t qseelog_shmbridge_handle;
 static struct encrypted_log_info enc_qseelog_info;
 static struct encrypted_log_info enc_tzlog_info;
+static struct proc_dir_entry *g_proc_dir;
+static struct proc_dir_entry *p_qsee_log_dump_handler;
+static struct proc_dir_entry *p_tz_log_dump_handler;
 
 /*
  * Debugfs data structure and functions
@@ -712,6 +721,9 @@ static int _disp_log_stats_v2(struct tzdbg_log_v2_t *log,
 	int len = 0;
 	int i = 0;
 
+	int start = 0;
+	int end = 0;
+
 	wrap_start = log_start->wrap;
 	wrap_end = log->log_pos.wrap;
 
@@ -737,11 +749,15 @@ static int _disp_log_stats_v2(struct tzdbg_log_v2_t *log,
 		log->log_pos.wrap, log->log_pos.offset);
 
 	while (log_start->offset == log->log_pos.offset) {
+		unsigned long t = 0;
+
+		if (buf_idx == TZDBG_QSEE_LOG)
+			return 0;
 		/*
 		 * No data in ring buffer,
 		 * so we'll hang around until something happens
 		 */
-		unsigned long t = msleep_interruptible(50);
+		t = msleep_interruptible(50);
 
 		if (t != 0) {
 			/* Some event woke us up, so let's quit */
@@ -759,6 +775,39 @@ static int _disp_log_stats_v2(struct tzdbg_log_v2_t *log,
 	pr_debug("diag_buf wrap = %u, offset = %u\n",
 		log->log_pos.wrap, log->log_pos.offset);
 
+	if (buf_idx == TZDBG_QSEE_LOG)
+	{
+		pr_warn("cy cat qseelog debug_rw_buf_size is %x, log_len is %d\n", debug_rw_buf_size, log_len);
+		pr_warn("cy log_wrap is %d, log->log_pos.offset is %d, log->log_pos.wrap is %d\n", log_start->wrap, log->log_pos.offset, log->log_pos.wrap);
+
+		/*
+		this logic causes problem when wrap = 0 and (offset = 0 or offset = 1). However it will never happen
+		wrap = 0, offset = 0, doesn't work, will capture messy code
+		wrap = 0, offset = 1, works
+		wrap = 1, offset = 0, works
+		wrap = 0, offset = log_len - 1, works
+		wrap = 1, offset = log_len -1, works
+
+		also, it causes problems when two process read simulatiously,
+		and causes problem read from different userspace file offset when log->log_pos.offset change in tz side
+		*/
+		start = (log->log_pos.wrap > 0) ? ((log->log_pos.offset) % log_len) : 0;
+		end = (log->log_pos.offset + log_len - 1) % log_len + 1;
+
+		pr_warn("cy cat qseelog start is %d, end is %d\n", start, end);
+		i = 0;
+		do
+		{
+			qsee_log_buffer[i] = log->log_buf[start % log_len];
+			++start;
+			++i;
+		} while ((start % log_len) != (end % log_len));
+
+		pr_warn("cy cat qseelog i is %d\n", i);
+		i = 0;
+	}
+
+
 	/*
 	 *  Read from ring buff while there is data and space in return buff
 	 */
@@ -769,6 +818,7 @@ static int _disp_log_stats_v2(struct tzdbg_log_v2_t *log,
 			++log_start->wrap;
 		++len;
 	}
+
 
 	/*
 	 * return buffer to caller
@@ -1061,7 +1111,8 @@ static ssize_t tzdbgfs_read_unencrypted(struct file *file, char __user *buf,
 		break;
 	case TZDBG_QSEE_LOG:
 		len = _disp_qsee_log_stats(count);
-		*offp = 0;
+		return simple_read_from_buffer(buf, count, offp,
+					qsee_log_buffer, g_qsee_log_v2->log_pos.wrap > 0 ? QSEE_LOG_BUF_SIZE_V2 - sizeof(struct tzdbg_log_pos_v2_t) : g_qsee_log_v2->log_pos.offset);
 		break;
 	case TZDBG_HYP_GENERAL:
 		len = _disp_hyp_general_stats(count);
@@ -1139,6 +1190,19 @@ static const struct file_operations tzdbg_fops = {
 	.read    = tzdbgfs_read,
 	.open    = simple_open,
 };
+
+static ssize_t qsee_log_dump_procfs_read(struct file *file, char __user *buf,
+					 size_t count, loff_t *offp)
+{
+	file->private_data = PDE_DATA(file_inode(file));
+	return tzdbgfs_read(file, buf, count, offp);
+}
+
+const struct file_operations qsee_log_dump_proc_fops = {
+	.owner = THIS_MODULE,
+	.read = qsee_log_dump_procfs_read,
+};
+
 
 /*
  * Allocates log buffer from ION, registers the buffer at TZ
@@ -1285,15 +1349,28 @@ static int  tzdbgfs_init(struct platform_device *pdev)
 {
 	int rc = 0;
 	int i;
+#ifdef CONFIG_DEBUG_FS
 	struct dentry *dent_dir;
 	struct dentry *dent;
+#endif
 
+#ifdef CONFIG_DEBUG_FS
 	dent_dir = debugfs_create_dir("tzdbg", NULL);
 	if (dent_dir == NULL) {
 		dev_err(&pdev->dev, "tzdbg debugfs_create_dir failed\n");
 		return -ENOMEM;
 	}
+#endif
 
+	g_proc_dir = proc_mkdir("tzdbg", 0);
+	if (g_proc_dir == 0) {
+		printk("Unable to mkdir /proc/tzdbg\n");
+		pr_err("%s: qsee log dump dirs in proc  create dir failed ! \n", __func__);
+		rc = -ENOMEM;
+		goto err;
+	}
+
+#ifdef CONFIG_DEBUG_FS
 	for (i = 0; i < TZDBG_STATS_MAX; i++) {
 		tzdbg.debug_tz[i] = i;
 		dent = debugfs_create_file_unsafe(tzdbg.stat[i].name,
@@ -1305,10 +1382,39 @@ static int  tzdbgfs_init(struct platform_device *pdev)
 			goto err;
 		}
 	}
+#endif
+	for (i = 0; i < TZDBG_STATS_MAX; i++)
+		tzdbg.debug_tz[i] = i;
+
+	p_qsee_log_dump_handler = proc_create_data("qsee_log", 0, g_proc_dir,
+					      &qsee_log_dump_proc_fops, &tzdbg.debug_tz[TZDBG_QSEE_LOG]);
+
+	if (p_qsee_log_dump_handler == NULL) {
+		pr_err("%s: qsee log dump dirs in proc  create qsee file failed ! \n", __func__);
+	}
+
+	p_tz_log_dump_handler = proc_create_data("tz_log", 0, g_proc_dir,
+					    &qsee_log_dump_proc_fops, &tzdbg.debug_tz[TZDBG_LOG]);
+
+	if (p_tz_log_dump_handler == NULL) {
+		pr_err("%s: qsee log dump dirs in proc  create tz file failed ! \n", __func__);
+	}
+
+#ifdef CONFIG_DEBUG_FS
+	dent_dir = debugfs_create_dir("tzdbg", NULL);
+	if (dent_dir == NULL) {
+		dev_err(&pdev->dev, "tzdbg debugfs_create_dir failed\n");
+		return -ENOMEM;
+	}
+
 	platform_set_drvdata(pdev, dent_dir);
+#endif
+
 	return 0;
 err:
+#ifdef CONFIG_DEBUG_FS
 	debugfs_remove_recursive(dent_dir);
+#endif
 
 	return rc;
 }
@@ -1317,7 +1423,9 @@ static void tzdbgfs_exit(struct platform_device *pdev)
 {
 	struct dentry *dent_dir;
 	dent_dir = platform_get_drvdata(pdev);
+#ifdef CONFIG_DEBUG_FS
 	debugfs_remove_recursive(dent_dir);
+#endif
 }
 
 static int __update_hypdbg_base(struct platform_device *pdev,
@@ -1440,6 +1548,12 @@ static int tz_log_probe(struct platform_device *pdev)
 	 */
 	debug_rw_buf_size = resource_size(resource);
 
+	qsee_log_buffer = kmalloc(QSEE_LOG_BUF_SIZE_V2, GFP_KERNEL);
+	if (!qsee_log_buffer)
+	{
+		return -ENXIO;
+	}
+
 	/*
 	 * Map address that stores the physical location diagnostic data
 	 */
@@ -1549,6 +1663,7 @@ static int tz_log_remove(struct platform_device *pdev)
 			(void *)tzdbg.disp_buf, disp_buf_paddr);
 	tzdbg_free_encrypted_log_buf(pdev);
 	tzdbg_free_qsee_log_buf(pdev);
+	kfree(qsee_log_buffer);
 	if (!tzdbg.is_encrypted_log_enabled)
 		kfree(tzdbg.diag_buf);
 	return 0;

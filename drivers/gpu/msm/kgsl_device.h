@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2002,2007-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 #ifndef __KGSL_DEVICE_H
 #define __KGSL_DEVICE_H
@@ -437,10 +438,10 @@ struct kgsl_process_private {
 	struct kobject kobj;
 	struct dentry *debug_root;
 	struct {
-		uint64_t cur;
+		atomic64_t cur;
 		uint64_t max;
 	} stats[KGSL_MEM_ENTRY_MAX];
-	uint64_t gpumem_mapped;
+	atomic64_t gpumem_mapped;
 	struct idr syncsource_idr;
 	spinlock_t syncsource_lock;
 	int fd_count;

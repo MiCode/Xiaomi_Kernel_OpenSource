@@ -3,6 +3,7 @@
  * Packet matching code.
  *
  * Copyright (C) 1999 Paul `Rusty' Russell & Michael J. Neuling
+ * Copyright (C) 2020 XiaoMi, Inc.
  * Copyright (C) 2000-2005 Netfilter Core Team <coreteam@netfilter.org>
  * Copyright (c) 2006-2010 Patrick McHardy <kaber@trash.net>
  */
@@ -1093,8 +1094,6 @@ __do_replace(struct net *net, const char *name, unsigned int valid_hooks,
 	    (newinfo->number <= oldinfo->initial_entries))
 		module_put(t->me);
 
-	xt_table_unlock(t);
-
 	get_old_counters(oldinfo, counters);
 
 	/* Decrease module usage counts and free resource */
@@ -1108,6 +1107,7 @@ __do_replace(struct net *net, const char *name, unsigned int valid_hooks,
 		net_warn_ratelimited("ip6tables: counters copy to user failed while replacing table\n");
 	}
 	vfree(counters);
+	xt_table_unlock(t);
 	return ret;
 
  put_module:

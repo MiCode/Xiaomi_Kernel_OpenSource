@@ -29,3 +29,6 @@ obj-$(CONFIG_INPUT_MISC)	+= misc/
 obj-$(CONFIG_INPUT_APMPOWER)	+= apm-power.o
 
 obj-$(CONFIG_RMI4_CORE)		+= rmi4/
+obj-y += fingerprint/
+obj-$(CONFIG_STMVL53L5)		+= stmvl53l5/
+

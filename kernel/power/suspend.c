@@ -3,6 +3,7 @@
  * kernel/power/suspend.c - Suspend to RAM and standby functionality.
  *
  * Copyright (c) 2003 Patrick Mochel
+ * Copyright (C) 2020 XiaoMi, Inc.
  * Copyright (c) 2003 Open Source Development Lab
  * Copyright (c) 2009 Rafael J. Wysocki <rjw@sisk.pl>, Novell Inc.
  */
@@ -31,6 +32,7 @@
 #include <linux/compiler.h>
 #include <linux/moduleparam.h>
 #include <linux/wakeup_reason.h>
+
 
 #include "power.h"
 
@@ -439,6 +441,7 @@ static int suspend_enter(suspend_state_t state, bool *wakeup)
 		goto Enable_cpus;
 	}
 
+
 	arch_suspend_disable_irqs();
 	BUG_ON(!irqs_disabled());
 
@@ -617,6 +620,7 @@ static int enter_state(suspend_state_t state)
  * Check if the value of @state represents one of the supported states,
  * execute enter_state() and update system suspend statistics.
  */
+
 int pm_suspend(suspend_state_t state)
 {
 	int error;
@@ -633,6 +637,7 @@ int pm_suspend(suspend_state_t state)
 		suspend_stats.success++;
 	}
 	pr_info("suspend exit\n");
+
 	return error;
 }
 EXPORT_SYMBOL(pm_suspend);

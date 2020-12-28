@@ -1,0 +1,34 @@
+Qualcomm Technologies, Inc. SM8150 Network-On-Chip interconnect driver binding
+------------------------------------------------------------------------------
+
+SM8150 interconnect providers support system bandwidth requirements through
+RPMh hardware accelerators known as Bus Clock Manager (BCM). The provider is
+able to communicate with the BCM through the Resource State Coordinator (RSC)
+associated with each execution environment. Provider nodes must point to at
+least one RPMh device child node pertaining to their RSC and each provider
+can map to multiple RPMh resources.
+
+Required properties :
+- compatible : shall contain only one of the following:
+			"qcom,sm8150-aggre1_noc";
+			"qcom,sm8150-aggre2_noc";
+			"qcom,sm8150-camnoc_virt";
+			"qcom,sm8150-compute_noc";
+			"qcom,sm8150-config_noc";
+			"qcom,sm8150-dc_noc";
+			"qcom,sm8150-gem_noc";
+			"qcom,sm8150-ipa_virt";
+			"qcom,sm8150-mc_virt";
+			"qcom,sm8150-mmss_noc";
+			"qcom,sm8150-system_noc";
+			"qcom,sm8150-gem_noc_display";
+			"qcom,sm8150-mc_virt_display";
+			"qcom,sm8150-mmss_noc_display";
+- #interconnect-cells : should contain 1
+
+Examples:
+
+aggre1_noc: interconnect@16e0000 {
+	compatible = "qcom,sm8150-aggre1_noc";
+	interconnect-cells = <1>;
+};

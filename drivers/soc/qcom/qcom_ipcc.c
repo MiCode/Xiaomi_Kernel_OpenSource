@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #include <linux/module.h>
@@ -11,6 +12,7 @@
 #include <linux/platform_device.h>
 #include <linux/mailbox_controller.h>
 #include <dt-bindings/soc/qcom,ipcc.h>
+
 
 /* IPCC Register offsets */
 #define IPCC_REG_SEND_ID		0x0C
@@ -332,6 +334,7 @@ static void msm_ipcc_resume(void)
 		name = desc->action->name;
 
 	pr_warn("%s: %d triggered %s\n", __func__, virq, name);
+
 }
 #else
 #define msm_ipcc_suspend NULL

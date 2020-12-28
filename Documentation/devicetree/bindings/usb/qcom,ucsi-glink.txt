@@ -1,0 +1,26 @@
+QTI UCSI binding
+
+This binding describes the Qualcomm Technologies, Inc. UCSI device. UCSI
+handles the communication between OPM on the Application processor and PPM
+which is charger firmware running on the remote subsystem (e.g. DSP) over
+PMIC Glink.
+
+Refer to Documentation/devicetree/bindings/soc/qcom/qcom,pmic-glink.txt for
+information on "qcom,pmic_glink" device which is used in the example below.
+
+- compatible:
+	Usage: required
+	Value type: <stringlist>
+	Definition: must be "qcom,ucsi-glink"
+
+= EXAMPLE
+
+&soc {
+	qcom,pmic_glink {
+		...
+		qcom,ucsi {
+			compatible = "qcom,ucsi-glink";
+		};
+		...
+	};
+};

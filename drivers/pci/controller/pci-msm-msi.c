@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.*/
+/* Copyright (C) 2020 XiaoMi, Inc. */
 
 #include <linux/interrupt.h>
 #include <linux/iommu.h>
@@ -13,6 +14,7 @@
 #include <linux/of_pci.h>
 #include <linux/pci.h>
 #include <linux/platform_device.h>
+
 
 #define PCIE_MSI_CTRL_BASE (0x820)
 #define PCIE_MSI_CTRL_ADDR_OFFS (PCIE_MSI_CTRL_BASE)
@@ -102,9 +104,10 @@ static void msm_msi_snps_handler(struct irq_desc *desc)
 	writel_relaxed(status, msi_grp->int_status_reg);
 
 	for (i = 0; status; i++, status >>= 1)
-		if (status & 0x1)
+		if (status & 0x1){
 			generic_handle_irq(msi_grp->irqs[i].virq);
 
+			}
 	chained_irq_exit(chip, desc);
 }
 

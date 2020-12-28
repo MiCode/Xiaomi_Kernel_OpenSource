@@ -3094,6 +3094,8 @@ long do_mount(const char *dev_name, const char __user *dir_name,
 	struct path path;
 	unsigned int mnt_flags = 0, sb_flags;
 	int retval = 0;
+	int buf_path_len = DNAME_INLINE_LEN - 1;
+	char buf_path[DNAME_INLINE_LEN] = {0};
 
 	/* Discard magic */
 	if ((flags & MS_MGC_MSK) == MS_MGC_VAL)
@@ -3171,6 +3173,9 @@ long do_mount(const char *dev_name, const char __user *dir_name,
 	else
 		retval = do_new_mount(&path, type_page, sb_flags, mnt_flags,
 				      dev_name, data_page);
+
+	pr_info("%s: dev: %s, mount point: %s , retval=%d", __FUNCTION__,  dev_name, 
+		d_path(&path, buf_path, buf_path_len), retval);
 dput_out:
 	path_put(&path);
 	return retval;

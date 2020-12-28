@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (C) 2020 XiaoMi, Inc. */
 
 #include <linux/delay.h>
 #include <linux/jiffies.h>
@@ -17,6 +18,7 @@
 #include "bus.h"
 #include "debug.h"
 #include "genl.h"
+#include "pci.h"
 
 #define CNSS_DUMP_FORMAT_VER		0x11
 #define CNSS_DUMP_FORMAT_VER_V2		0x22
@@ -1160,6 +1162,11 @@ static int cnss_do_recovery(struct cnss_plat_data *plat_priv,
 self_recovery:
 	cnss_pr_dbg("Going for self recovery\n");
 	cnss_bus_dev_shutdown(plat_priv);
+
+	if (test_bit(LINK_DOWN_SELF_RECOVERY, &plat_priv->ctrl_params.quirks))
+		clear_bit(LINK_DOWN_SELF_RECOVERY,
+			  &plat_priv->ctrl_params.quirks);
+
 	cnss_bus_dev_powerup(plat_priv);
 
 	return 0;
@@ -1316,13 +1323,13 @@ int cnss_force_collect_rddm(struct device *dev)
 	}
 
 	if (cnss_bus_is_device_down(plat_priv)) {
-		cnss_pr_info("Device is already in bad state, ignore force collect rddm\n");
-		return 0;
+		cnss_pr_info("Device is already in bad state, wait to collect rddm\n");
+		goto wait_rddm;
 	}
 
 	if (test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state)) {
-		cnss_pr_info("Recovery is already in progress, ignore forced collect rddm\n");
-		return 0;
+		cnss_pr_info("Recovery is already in progress, wait to collect rddm\n");
+		goto wait_rddm;
 	}
 
 	if (test_bit(CNSS_DRIVER_LOADING, &plat_priv->driver_state) ||
@@ -1337,6 +1344,7 @@ int cnss_force_collect_rddm(struct device *dev)
 	if (ret)
 		return ret;
 
+wait_rddm:
 	reinit_completion(&plat_priv->rddm_complete);
 	ret = wait_for_completion_timeout
 		(&plat_priv->rddm_complete,
@@ -2507,14 +2515,38 @@ static ssize_t fs_ready_store(struct device *dev,
 	return count;
 }
 
+static ssize_t data_stall_store(struct device *dev,
+                              struct device_attribute *attr,
+                              const char *buf, size_t count)
+{
+	int data_stall = 0;
+	struct cnss_plat_data *plat_priv = dev_get_drvdata(dev);
+	struct cnss_pci_data *pci_priv = plat_priv->bus_priv;
+
+	if (!pci_priv) {
+		cnss_pr_err("pci_priv is NULL\n");
+		return -ENODEV;
+	}
+	if (sscanf(buf, "%du", &data_stall) != 1)
+		return -EINVAL;
+
+	cnss_pr_err("Wlan data_stall event reason is %d\n",
+		    data_stall);
+	cnss_force_fw_assert(&pci_priv->pci_dev->dev);
+
+	return count;
+}
+
 static DEVICE_ATTR_WO(fs_ready);
 static DEVICE_ATTR_WO(shutdown);
 static DEVICE_ATTR_WO(recovery);
+static DEVICE_ATTR_WO(data_stall);
 
 static struct attribute *cnss_attrs[] = {
 	&dev_attr_fs_ready.attr,
 	&dev_attr_shutdown.attr,
 	&dev_attr_recovery.attr,
+	&dev_attr_data_stall.attr,
 	NULL,
 };
 
@@ -2679,10 +2711,6 @@ static void cnss_init_control_params(struct cnss_plat_data *plat_priv)
 	plat_priv->cbc_enabled =
 		of_property_read_bool(plat_priv->plat_dev->dev.of_node,
 				      "qcom,wlan-cbc-enabled");
-
-	if (of_property_read_bool(plat_priv->plat_dev->dev.of_node,
-				  "cnss-enable-self-recovery"))
-		plat_priv->ctrl_params.quirks |= BIT(LINK_DOWN_SELF_RECOVERY);
 
 	plat_priv->ctrl_params.mhi_timeout = CNSS_MHI_TIMEOUT_DEFAULT;
 	plat_priv->ctrl_params.mhi_m2_timeout = CNSS_MHI_M2_TIMEOUT_DEFAULT;

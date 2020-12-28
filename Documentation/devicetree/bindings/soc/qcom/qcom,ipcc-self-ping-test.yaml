@@ -1,0 +1,39 @@
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/bindings/soc/qcom/qcom,ipcc-self-ping-test.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: The document describes the device tree binding for testing the IPCC
+
+maintainers:
+  - Raghavendra Rao Ananta <rananta@quicinc.com>
+
+description: |+
+  For details on the IPCC driver, please see qcom,ipcc.txt
+
+properties:
+  compatible:
+    Usage: required
+    Value type: <string>
+    Definition: Must be "qcom,ipcc-self-ping"
+
+  interrupts-extended:
+    Usage: required
+    Value type: <prop-encoded-array>
+    Definition: One entry specifying the phandle to the IPCC protocol, the APPS'
+		client-id, signal-id and IRQ type.
+
+  mboxes:
+    Usage: required
+    Value type: <prop-encoded-array>
+    Definition: One entry specifying the phandle to the IPCC protocol, the APPS'
+		client-id and the signal-id (same as interrupts-extended).
+
+example:
+  - |
+    ipcc_self_ping: ipcc-self-ping {
+	compatible = "qcom,ipcc-self-ping";
+	interrupts-extended = <&ipcc_mproc IPCC_CLIENT_APSS
+			IPCC_MPROC_SIGNAL_SMP2P IRQ_TYPE_LEVEL_HIGH>;
+	mboxes = <&ipcc_mproc IPCC_CLIENT_APSS IPCC_MPROC_SIGNAL_SMP2P>;
+    };

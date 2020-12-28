@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #include <linux/init.h>
@@ -26,13 +27,10 @@
 #include <linux/errno.h>
 #include <linux/topology.h>
 
-/*
- * Sched will provide the data for every 20ms window,
- * will collect the data for 15 windows(300ms) and then update
- * sysfs nodes with aggregated data
- */
 #define POLL_INT 25
 #define NODE_NAME_MAX_CHARS 16
+
+#ifdef CONFIG_MSM_PERFORMANCE_QGKI
 #define QUEUE_POOL_SIZE 512 /*2^8 always keep in 2^x */
 #define INST_EV 0x08 /* 0th event*/
 #define CYC_EV 0x11 /* 1st event*/
@@ -45,6 +43,7 @@ enum event_idx {
 	CYC_EVENT,
 	NO_OF_EVENT
 };
+#endif
 
 enum cpu_clusters {
 	MIN = 0,
@@ -61,6 +60,11 @@ struct cpu_status {
 static DEFINE_PER_CPU(struct cpu_status, msm_perf_cpu_stats);
 static DEFINE_PER_CPU(struct freq_qos_request, qos_req_min);
 static DEFINE_PER_CPU(struct freq_qos_request, qos_req_max);
+
+static cpumask_var_t limit_mask_min;
+static cpumask_var_t limit_mask_max;
+
+#ifdef CONFIG_MSM_PERFORMANCE_QGKI
 static DECLARE_COMPLETION(gfx_evt_arrival);
 
 struct gpu_data {
@@ -102,12 +106,9 @@ static unsigned int top_load[CLUSTER_MAX];
 static unsigned int curr_cap[CLUSTER_MAX];
 static bool max_cap_cpus[NR_CPUS];
 
-static cpumask_var_t limit_mask_min;
-static cpumask_var_t limit_mask_max;
-
 static atomic_t game_status;
 static atomic_t game_status_pid;
-
+#endif
 static bool ready_for_freq_updates;
 
 static int freq_qos_request_init(void)
@@ -343,7 +344,7 @@ static const struct kernel_param_ops param_ops_cpu_max_freq = {
 	.get = get_cpu_max_freq,
 };
 module_param_cb(cpu_max_freq, &param_ops_cpu_max_freq, NULL, 0644);
-
+#ifdef CONFIG_MSM_PERFORMANCE_QGKI
 static struct kobject *events_kobj;
 
 static ssize_t show_cpu_hotplug(struct kobject *kobj,
@@ -1004,11 +1005,13 @@ static const struct kernel_param_ops param_ops_splh_notification = {
 };
 module_param_cb(splh_notif, &param_ops_splh_notification, &splh_notif, 0644);
 
+#endif /* CONFIG_MSM_PERFORMANCE_QGKI */
 static int __init msm_performance_init(void)
 {
+#ifdef CONFIG_MSM_PERFORMANCE_QGKI
 	unsigned int cpu;
 	int ret;
-
+#endif
 	if (!alloc_cpumask_var(&limit_mask_min, GFP_KERNEL))
 		return -ENOMEM;
 
@@ -1016,7 +1019,7 @@ static int __init msm_performance_init(void)
 		free_cpumask_var(limit_mask_min);
 		return -ENOMEM;
 	}
-
+#ifdef CONFIG_MSM_PERFORMANCE_QGKI
 	get_online_cpus();
 	for_each_possible_cpu(cpu) {
 		if (!cpumask_test_cpu(cpu, cpu_online_mask))
@@ -1035,6 +1038,8 @@ static int __init msm_performance_init(void)
 	init_pmu_counter();
 
 	idle_notifier_register(&msm_perf_event_idle_nb);
+#endif
 	return 0;
 }
+MODULE_LICENSE("GPL v2");
 late_initcall(msm_performance_init);

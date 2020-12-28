@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 
 /* Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc. 
  * Copyright (C) 2006-2007 Adam Belay <abelay@novell.com>
  * Copyright (C) 2009 Intel Corporation
  */
@@ -1092,6 +1093,7 @@ static int cluster_configure(struct lpm_cluster *cluster, int idx,
 		 * LPMs (XO and Vmin).
 		 */
 		if (!from_idle) {
+
 			clock_debug_print_enabled();
 			regulator_debug_print_enabled();
 		}

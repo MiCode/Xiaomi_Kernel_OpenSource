@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * Description: CoreSight Trace Memory Controller driver
  */
@@ -572,6 +573,8 @@ void usb_bypass_notifier(void *priv, unsigned int event,
 
 	case USB_QDSS_DISCONNECT:
 		usb_bypass_stop(drvdata);
+		flush_work(&(drvdata->read_work));
+		usb_qdss_free_req(tmcdrvdata->usbch);
 		break;
 
 	case USB_QDSS_DATA_WRITE_DONE:

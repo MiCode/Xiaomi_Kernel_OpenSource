@@ -1,0 +1,56 @@
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/bindings/arm/msm/msm_watchdog.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: QTI MSM Watchdog
+
+maintainers:
+  - Prakruthi Deepak Heragu <pheragu@quicinc.com>
+
+description: |+
+  Watchdog timer is configured with a bark and a bite time.
+  If the watchdog is not "pet" at regular intervals, the system
+  is assumed to have become non responsive and needs to be reset.
+  A warning in the form of a bark timeout leads to a bark interrupt
+  and a kernel panic. If the watchdog timer is still not reset,
+  a bite timeout occurs, which is an interrupt in the secure mode,
+  which leads to a reset of the SOC via the secure watchdog. The
+  driver needs the petting time, and the bark timeout to be programmed
+  into the watchdog, as well as the bark and bite irqs.
+
+  The device tree parameters for the watchdog are:
+
+properties:
+  compatible:
+    Usage: required
+    Value type: <string>
+    Definition: Must be "qcom,msm-watchdog"
+
+  reg:
+    Usage: required
+    Value type: <prop-encoded-array>
+    Definition: offset and length of the register set for the watchdog block.
+
+  reg-names:
+    Usage: required
+    Value type: <string>
+    Definition: names corresponding to each reg property value (base required).
+          "wdt-base" - physical base address of watchdog timer registers
+          "wdt-absent-base" - physical base address of watchdog absent register
+
+  interrupts:
+     Usage: required
+     Value type: <prop-encoded-array>
+     Definition: should contain bark and bite irq numbers
+
+example:
+  - |
+    wdog: qcom,wdt@17c10000{
+	compatible = "qcom,msm-watchdog";
+	reg = <0x17c10000 0x1000>;
+	reg-names = "wdt-base";
+	interrupts = <0 0 IRQ_TYPE_LEVEL_HIGH>,
+                <0 1 IRQ_TYPE_LEVEL_HIGH>;
+    };
+...

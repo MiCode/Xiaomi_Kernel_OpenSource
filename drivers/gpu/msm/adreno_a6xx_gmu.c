@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #include <linux/clk.h>
@@ -1806,7 +1807,9 @@ void a6xx_gmu_suspend(struct adreno_device *adreno_dev)
 	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_CX_GDSC))
 		regulator_set_mode(gmu->cx_gdsc, REGULATOR_MODE_IDLE);
 
-	if (!a6xx_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000))
+	if (IS_ENABLED(CONFIG_ARM_SMMU_POWER_DONT_ALWAYS_ON) &&
+			!a6xx_cx_regulator_disable_wait(gmu->cx_gdsc,
+			device, 5000))
 		dev_err(&gmu->pdev->dev, "GMU CX gdsc off timeout\n");
 
 	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_CX_GDSC))
@@ -2945,7 +2948,8 @@ static int a6xx_boot(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	int ret;
 
-	WARN_ON(test_bit(GMU_PRIV_GPU_STARTED, &gmu->flags));
+	if (test_bit(GMU_PRIV_GPU_STARTED, &gmu->flags))
+		return 0;
 
 	trace_kgsl_pwr_request_state(device, KGSL_STATE_ACTIVE);
 
@@ -3059,6 +3063,13 @@ static int a6xx_power_off(struct adreno_device *adreno_dev)
 	int ret;
 
 	WARN_ON(!test_bit(GMU_PRIV_GPU_STARTED, &gmu->flags));
+
+	/*
+	 * If this config is enabled, the smmu driver keeps the cx gdsc always
+	 * ON. So it is better if we don't turn off the GPU
+	 */
+	if (!IS_ENABLED(CONFIG_ARM_SMMU_POWER_DONT_ALWAYS_ON))
+		return 0;
 
 	trace_kgsl_pwr_request_state(device, KGSL_STATE_SLUMBER);
 
@@ -3188,8 +3199,7 @@ static int a6xx_gmu_active_count_get(struct adreno_device *adreno_dev)
 	if (test_bit(GMU_PRIV_PM_SUSPEND, &gmu->flags))
 		return -EINVAL;
 
-	if ((atomic_read(&device->active_cnt) == 0) &&
-		!test_bit(GMU_PRIV_GPU_STARTED, &gmu->flags))
+	if (atomic_read(&device->active_cnt) == 0)
 		ret = a6xx_boot(adreno_dev);
 
 	if (ret == 0)

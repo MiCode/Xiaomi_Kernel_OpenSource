@@ -1,0 +1,16 @@
+Qualcomm Technologies, Inc. CDSP Loader Driver
+
+msm-cdsp-loader driver implements a mechanism to load the Compute DSP firmware images.
+
+Required properties:
+
+ - compatible:  This must be "qcom,msm-cdsp-loader".
+ - qcom,proc-img-to-load: CDSP firmware name, must be "cdsp".
+
+Example:
+ The following is an example:
+
+	qcom,msm-cdsp-loader {
+		compatible = "qcom,cdsp-loader";
+		qcom,proc-img-to-load = "cdsp";
+	};

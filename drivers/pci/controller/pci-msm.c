@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.*/
+/* Copyright (C) 2020 XiaoMi, Inc. */
 
 #include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
 #include <linux/bitops.h>
@@ -46,6 +47,8 @@
 #define PCIE_GEN3_GEN2_CTRL (0x080c)
 #define PCIE_GEN3_RELATED (0x0890)
 #define PCIE_GEN3_EQ_CONTROL (0x08a8)
+#define PCIE_GEN3_EQ_PSET_REQ_VEC_MASK (GENMASK(23, 8))
+
 #define PCIE_GEN3_EQ_FB_MODE_DIR_CHANGE (0x08ac)
 #define PCIE_GEN3_MISC_CONTROL (0x08bc)
 
@@ -686,6 +689,7 @@ struct msm_pcie_dev_t {
 	uint32_t phy_status_offset;
 	uint32_t phy_status_bit;
 	uint32_t phy_power_down_offset;
+	uint32_t eq_pset_req_vec;
 	uint32_t core_preset;
 	uint32_t cpl_timeout;
 	uint32_t current_bdf;
@@ -1186,6 +1190,29 @@ static void pcie_parf_dump(struct msm_pcie_dev_t *dev)
 	}
 }
 
+static void pcie_dm_core_dump(struct msm_pcie_dev_t *dev)
+{
+	int i, size;
+
+	PCIE_DUMP(dev, "PCIe: RC%d DBI/dm_core register dump\n", dev->rc_idx);
+
+	size = resource_size(dev->res[MSM_PCIE_RES_DM_CORE].resource);
+
+	for (i = 0; i < size; i += 32) {
+		PCIE_DUMP(dev,
+			"RC%d: 0x%04x %08x %08x %08x %08x %08x %08x %08x %08x\n",
+			dev->rc_idx, i,
+			readl_relaxed(dev->dm_core + i),
+			readl_relaxed(dev->dm_core + (i + 4)),
+			readl_relaxed(dev->dm_core + (i + 8)),
+			readl_relaxed(dev->dm_core + (i + 12)),
+			readl_relaxed(dev->dm_core + (i + 16)),
+			readl_relaxed(dev->dm_core + (i + 20)),
+			readl_relaxed(dev->dm_core + (i + 24)),
+			readl_relaxed(dev->dm_core + (i + 28)));
+	}
+}
+
 static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 {
 	PCIE_DBG_FS(dev, "PCIe: RC%d is %s enumerated\n",
@@ -1269,6 +1296,8 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->phy_status_bit);
 	PCIE_DBG_FS(dev, "phy_power_down_offset: 0x%x\n",
 		dev->phy_power_down_offset);
+	PCIE_DBG_FS(dev, "eq_pset_req_vec: 0x%x\n",
+		dev->eq_pset_req_vec);
 	PCIE_DBG_FS(dev, "core_preset: 0x%x\n",
 		dev->core_preset);
 	PCIE_DBG_FS(dev, "cpl_timeout: 0x%x\n",
@@ -3759,6 +3788,10 @@ static int msm_pcie_link_train(struct msm_pcie_dev_t *dev)
 	msm_pcie_write_mask(dev->dm_core,
 		PCIE_GEN3_EQ_CONTROL, 0x20);
 
+	msm_pcie_write_mask(dev->dm_core + PCIE_GEN3_EQ_CONTROL,
+				PCIE_GEN3_EQ_PSET_REQ_VEC_MASK,
+				dev->eq_pset_req_vec);
+
 	msm_pcie_write_mask(dev->dm_core +
 		PCIE_GEN3_RELATED, BIT(0), 0);
 
@@ -4727,6 +4760,13 @@ static void msm_pcie_handle_linkdown(struct msm_pcie_dev_t *dev)
 	dev->link_status = MSM_PCIE_LINK_DOWN;
 	dev->shadow_en = false;
 
+	/* PCIe registers dump on link down */
+	PCIE_DUMP(dev, "PCIe:Linkdown IRQ for RC%d Dumping PCIe registers\n",
+		dev->rc_idx);
+	pcie_phy_dump(dev);
+	pcie_parf_dump(dev);
+	pcie_dm_core_dump(dev);
+
 	/* assert PERST */
 	if (!(msm_pcie_keep_resources_on & BIT(dev->rc_idx)))
 		gpio_set_value(dev->gpio[MSM_PCIE_GPIO_PERST].num,
@@ -5558,6 +5598,12 @@ static int msm_pcie_probe(struct platform_device *pdev)
 				&pcie_dev->phy_power_down_offset);
 	PCIE_DBG(pcie_dev, "RC%d: phy-power-down-offset: 0x%x.\n",
 		pcie_dev->rc_idx, pcie_dev->phy_power_down_offset);
+
+	of_property_read_u32(pdev->dev.of_node,
+				"qcom,eq-pset-req-vec",
+				&pcie_dev->eq_pset_req_vec);
+	PCIE_DBG(pcie_dev, "RC%d: eq-pset-req-vec: 0x%x.\n",
+		pcie_dev->rc_idx, pcie_dev->eq_pset_req_vec);
 
 	pcie_dev->core_preset = PCIE_GEN3_PRESET_DEFAULT;
 	of_property_read_u32(pdev->dev.of_node,
@@ -6851,6 +6897,9 @@ static int msm_pcie_drv_resume(struct msm_pcie_dev_t *pcie_dev)
 	spin_unlock_irq(&pcie_dev->cfg_lock);
 	pcie_dev->link_status = MSM_PCIE_LINK_ENABLED;
 
+	/* resume access to MSI register as link is resumed */
+	msm_msi_config_access(dev_get_msi_domain(&pcie_dev->dev->dev), true);
+
 	enable_irq(pcie_dev->irq[MSM_PCIE_INT_GLOBAL_INT].num);
 
 	mutex_unlock(&pcie_dev->setup_lock);
@@ -6885,6 +6934,9 @@ static int msm_pcie_drv_suspend(struct msm_pcie_dev_t *pcie_dev,
 		ret = -EBUSY;
 		goto out;
 	}
+
+	/* suspend access to MSI register. resume access in drv_resume */
+	msm_msi_config_access(dev_get_msi_domain(&pcie_dev->dev->dev), false);
 
 	pcie_dev->user_suspend = true;
 	set_bit(pcie_dev->rc_idx, &pcie_drv.rc_drv_enabled);

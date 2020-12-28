@@ -2,6 +2,7 @@
 /* memcontrol.h - Memory Controller
  *
  * Copyright IBM Corporation, 2007
+ * Copyright (C) 2020 XiaoMi, Inc.
  * Author Balbir Singh <balbir@linux.vnet.ibm.com>
  *
  * Copyright 2007 OpenVZ SWsoft Inc
@@ -330,7 +331,7 @@ struct mem_cgroup {
 	struct list_head event_list;
 	spinlock_t event_list_lock;
 
-#ifdef CONFIG_TRANSPARENT_HUGEPAGE
+#if defined(CONFIG_TRANSPARENT_HUGEPAGE) || defined(CONFIG_GKI_OPT_FEATURES)
 	struct deferred_split deferred_split_queue;
 #endif
 

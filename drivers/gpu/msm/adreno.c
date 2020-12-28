@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2002,2007-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 #include <linux/component.h>
 #include <linux/delay.h>
@@ -1076,7 +1077,8 @@ static int adreno_of_get_power(struct adreno_device *adreno_dev,
 	l3_pwrlevel_probe(device, pdev->dev.of_node);
 
 	/* Default timeout is 80 ms across all targets */
-	device->pwrctrl.interval_timeout = msecs_to_jiffies(80);
+	device->pwrctrl.interval_timeout =
+			msecs_to_jiffies(CONFIG_QCOM_KGSL_IDLE_TIMEOUT);
 
 	device->pwrctrl.minbw_timeout = 10;
 

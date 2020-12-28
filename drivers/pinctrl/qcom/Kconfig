@@ -256,4 +256,8 @@ config PINCTRL_SDXLEMUR
 	  Say Y here to compile statically, or M here to compile it as a module.
 	  If unsure, say N.
 
+config DEBUG_POWER_MI
+		bool "QGKI POWER config"
+		default n
+
 endif

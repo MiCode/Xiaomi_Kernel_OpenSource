@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (C) 2020 XiaoMi, Inc. */
 
 #include <linux/cma.h>
 #include <linux/firmware.h>
@@ -70,6 +71,7 @@ static DEFINE_SPINLOCK(time_sync_lock);
 #define FORCE_WAKE_DELAY_MIN_US			4000
 #define FORCE_WAKE_DELAY_MAX_US			6000
 #define FORCE_WAKE_DELAY_TIMEOUT_US		60000
+#define CNSS_MHI_MISSION_MODE_TIMEOUT		60000
 
 #define POWER_ON_RETRY_MAX_TIMES		3
 #define POWER_ON_RETRY_DELAY_MS			200
@@ -892,6 +894,7 @@ int cnss_pci_prevent_l1(struct device *dev)
 {
 	struct pci_dev *pci_dev = to_pci_dev(dev);
 	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(pci_dev);
+	int ret;
 
 	if (!pci_priv) {
 		cnss_pr_err("pci_priv is NULL\n");
@@ -908,7 +911,13 @@ int cnss_pci_prevent_l1(struct device *dev)
 		return -EIO;
 	}
 
-	return msm_pcie_prevent_l1(pci_dev);
+	ret = msm_pcie_prevent_l1(pci_dev);
+	if (ret) {
+		cnss_pr_err("Failed to prevent PCIe L1, considered as link down\n");
+		cnss_pci_link_down(dev);
+	}
+
+	return ret;
 }
 EXPORT_SYMBOL(cnss_pci_prevent_l1);
 
@@ -968,12 +977,24 @@ int cnss_pci_link_down(struct device *dev)
 {
 	struct pci_dev *pci_dev = to_pci_dev(dev);
 	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(pci_dev);
+	struct cnss_plat_data *plat_priv = NULL;
 	int ret;
 
 	if (!pci_priv) {
 		cnss_pr_err("pci_priv is NULL\n");
 		return -EINVAL;
 	}
+
+	plat_priv = pci_priv->plat_priv;
+	if (!plat_priv) {
+		cnss_pr_err("plat_priv is NULL\n");
+		return -ENODEV;
+	}
+
+	if (pci_priv->drv_connected_last &&
+	    of_property_read_bool(plat_priv->plat_dev->dev.of_node,
+				  "cnss-enable-self-recovery"))
+		plat_priv->ctrl_params.quirks |= BIT(LINK_DOWN_SELF_RECOVERY);
 
 	cnss_pr_err("PCI link down is detected by drivers\n");
 
@@ -1027,6 +1048,73 @@ void cnss_pci_unlock_reg_window(struct device *dev, unsigned long *flags)
 EXPORT_SYMBOL(cnss_pci_unlock_reg_window);
 
 /**
+ * cnss_pci_dump_qca6390_sram_mem - Dump WLAN FW bootloader debug log
+ * @pci_priv: PCI device private data structure of cnss platform driver
+ *
+ * Dump Primary and secondary bootloader debug log data. For SBL check the
+ * log struct address and size for validity.
+ *
+ * Supported only on QCA6390
+ *
+ * Return: None
+ */
+static void cnss_pci_dump_qca6390_sram_mem(struct cnss_pci_data *pci_priv)
+{
+	int i;
+	u32 mem_addr, val, pbl_stage, sbl_log_start, sbl_log_size;
+	u32 pbl_wlan_boot_cfg, pbl_bootstrap_status;
+	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
+
+	if (plat_priv->device_id != QCA6390_DEVICE_ID)
+		return;
+
+	if (cnss_pci_check_link_status(pci_priv))
+		return;
+
+	cnss_pci_reg_read(pci_priv, QCA6390_TCSR_PBL_LOGGING_REG, &pbl_stage);
+	cnss_pci_reg_read(pci_priv, QCA6390_PCIE_BHI_ERRDBG2_REG,
+			  &sbl_log_start);
+	cnss_pci_reg_read(pci_priv, QCA6390_PCIE_BHI_ERRDBG3_REG,
+			  &sbl_log_size);
+	cnss_pci_reg_read(pci_priv, QCA6390_PBL_WLAN_BOOT_CFG,
+			  &pbl_wlan_boot_cfg);
+	cnss_pci_reg_read(pci_priv, QCA6390_PBL_BOOTSTRAP_STATUS,
+			  &pbl_bootstrap_status);
+	cnss_pr_dbg("TCSR_PBL_LOGGING: 0x%08x PCIE_BHI_ERRDBG: Start: 0x%08x Size:0x%08x\n",
+		    pbl_stage, sbl_log_start, sbl_log_size);
+	cnss_pr_dbg("PBL_WLAN_BOOT_CFG: 0x%08x PBL_BOOTSTRAP_STATUS: 0x%08x\n",
+		    pbl_wlan_boot_cfg, pbl_bootstrap_status);
+
+	cnss_pr_dbg("Dumping PBL log data\n");
+	/* cnss_pci_reg_read provides 32bit register values */
+	for (i = 0; i < QCA6390_DEBUG_PBL_LOG_SRAM_MAX_SIZE; i += sizeof(val)) {
+		mem_addr = QCA6390_DEBUG_PBL_LOG_SRAM_START + i;
+		if (cnss_pci_reg_read(pci_priv, mem_addr, &val))
+			break;
+		cnss_pr_dbg("SRAM[0x%x] = 0x%x\n", mem_addr, val);
+	}
+
+	sbl_log_size = (sbl_log_size > QCA6390_DEBUG_SBL_LOG_SRAM_MAX_SIZE ?
+			QCA6390_DEBUG_SBL_LOG_SRAM_MAX_SIZE : sbl_log_size);
+
+	if (sbl_log_start < QCA6390_V2_SBL_DATA_START ||
+	    sbl_log_start > QCA6390_V2_SBL_DATA_END ||
+	    (sbl_log_start + sbl_log_size) > QCA6390_V2_SBL_DATA_END)
+		goto out;
+
+	cnss_pr_dbg("Dumping SBL log data\n");
+	for (i = 0; i < sbl_log_size; i += sizeof(val)) {
+		mem_addr = sbl_log_start + i;
+		if (cnss_pci_reg_read(pci_priv, mem_addr, &val))
+			break;
+		cnss_pr_dbg("SRAM[0x%x] = 0x%x\n", mem_addr, val);
+	}
+	return;
+out:
+	cnss_pr_err("Invalid SBL log data\n");
+}
+
+/**
  * cnss_pci_dump_bl_sram_mem - Dump WLAN FW bootloader debug log
  * @pci_priv: PCI device private data structure of cnss platform driver
  *
@@ -1044,8 +1132,12 @@ static void cnss_pci_dump_bl_sram_mem(struct cnss_pci_data *pci_priv)
 	u32 pbl_wlan_boot_cfg, pbl_bootstrap_status;
 	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
 
-	if (plat_priv->device_id != QCA6490_DEVICE_ID)
+	if (plat_priv->device_id == QCA6390_DEVICE_ID) {
+		cnss_pci_dump_qca6390_sram_mem(pci_priv);
 		return;
+	} else if (plat_priv->device_id != QCA6490_DEVICE_ID) {
+		return;
+	}
 
 	if (cnss_pci_check_link_status(pci_priv))
 		return;
@@ -1330,6 +1422,7 @@ int cnss_pci_start_mhi(struct cnss_pci_data *pci_priv)
 {
 	int ret = 0;
 	struct cnss_plat_data *plat_priv;
+	unsigned int timeout = 0;
 
 	if (!pci_priv) {
 		cnss_pr_err("pci_priv is NULL\n");
@@ -1348,7 +1441,16 @@ int cnss_pci_start_mhi(struct cnss_pci_data *pci_priv)
 	if (ret)
 		return ret;
 
+	if (cnss_get_host_build_type() == QMI_HOST_BUILD_TYPE_PRIMARY_V01) {
+		timeout = pci_priv->mhi_ctrl->timeout_ms;
+		pci_priv->mhi_ctrl->timeout_ms = CNSS_MHI_MISSION_MODE_TIMEOUT;
+	}
+
 	ret = cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_POWER_ON);
+
+	if (cnss_get_host_build_type() == QMI_HOST_BUILD_TYPE_PRIMARY_V01)
+		pci_priv->mhi_ctrl->timeout_ms = timeout;
+
 	/* -ETIMEDOUT means MHI power on has succeeded but timed out
 	 * for firmware mission mode event, so handle it properly.
 	 */

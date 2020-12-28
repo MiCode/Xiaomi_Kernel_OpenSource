@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2002,2007-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #include <asm/cacheflush.h>
@@ -113,18 +114,24 @@ static ssize_t
 gpumem_mapped_show(struct kgsl_process_private *priv,
 				int type, char *buf)
 {
-	return scnprintf(buf, PAGE_SIZE, "%llu\n",
-			priv->gpumem_mapped);
+	return scnprintf(buf, PAGE_SIZE, "%lld\n",
+
+			atomic64_read(&priv->gpumem_mapped));
 }
 
 static ssize_t
 gpumem_unmapped_show(struct kgsl_process_private *priv, int type, char *buf)
 {
-	if (priv->gpumem_mapped > priv->stats[type].cur)
+	u64 gpumem_total = atomic64_read(&priv->stats[type].cur);
+
+	u64 gpumem_mapped = atomic64_read(&priv->gpumem_mapped);
+
+
+	if (gpumem_mapped > gpumem_total)
 		return -EIO;
 
 	return scnprintf(buf, PAGE_SIZE, "%llu\n",
-			priv->stats[type].cur - priv->gpumem_mapped);
+			gpumem_total - gpumem_mapped);
 }
 
 static struct kgsl_mem_entry_attribute debug_memstats[] = {
@@ -141,7 +148,8 @@ static struct kgsl_mem_entry_attribute debug_memstats[] = {
 static ssize_t
 mem_entry_show(struct kgsl_process_private *priv, int type, char *buf)
 {
-	return scnprintf(buf, PAGE_SIZE, "%llu\n", priv->stats[type].cur);
+	return scnprintf(buf, PAGE_SIZE, "%lld\n",
+			atomic64_read(&priv->stats[type].cur));
 }
 
 /**

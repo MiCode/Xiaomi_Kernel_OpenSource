@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #include <linux/clk.h>
@@ -591,6 +592,13 @@ static int a6xx_hwsched_power_off(struct adreno_device *adreno_dev)
 	int ret;
 
 	if (!test_bit(GMU_PRIV_GPU_STARTED, &gmu->flags))
+		return 0;
+
+	/*
+	 * If this config is enabled, the smmu driver keeps the cx gdsc always
+	 * ON. So it is better if we don't turn off the GPU
+	 */
+	if (!IS_ENABLED(CONFIG_ARM_SMMU_POWER_DONT_ALWAYS_ON))
 		return 0;
 
 	trace_kgsl_pwr_request_state(device, KGSL_STATE_SLUMBER);

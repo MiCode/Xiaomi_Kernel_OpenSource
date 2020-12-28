@@ -3,6 +3,7 @@
  * IOMMU API for ARM architected SMMU implementations.
  *
  * Copyright (C) 2013 ARM Limited
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * Author: Will Deacon <will.deacon@arm.com>
  *
@@ -5006,6 +5007,28 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	arm_smmu_power_off(smmu, smmu->pwr);
 
 	/*
+	 * On GKI, we use the upstream implementation of the IOMMU page table
+	 * management code, which lacks all of the optimizations that we have
+	 * downstream to speed up calls into the SMMU driver to unmap memory.
+	 *
+	 * When the GPU goes into slumber, it relinquishes its votes for
+	 * the regulators and clocks that the SMMU driver votes for. This
+	 * means that when the SMMU driver adds/removes votes for the
+	 * power resources required to access the GPU SMMU registers for
+	 * TLB invalidations while unmapping memory, the SMMU driver has to
+	 * wait for the resources to actually turn on/off, which incurs a
+	 * considerable amount of delay.
+	 *
+	 * This delay, coupled with the use of the unoptimized IOMMU page table
+	 * management code in GKI results in slow unmap calls. To alleviate
+	 * that, we can remove the latency incurred by enabling/disabling the
+	 * power resources, by always keeping them on.
+	 */
+#ifndef CONFIG_ARM_SMMU_POWER_DONT_ALWAYS_ON
+	arm_smmu_power_on(smmu->pwr);
+#endif
+
+	/*
 	 * We want to avoid touching dev->power.lock in fastpaths unless
 	 * it's really going to do something useful - pm_runtime_enabled()
 	 * can serve as an ideal proxy for that decision. So, conditionally
@@ -5059,6 +5082,11 @@ static int arm_smmu_device_remove(struct platform_device *pdev)
 	/* Turn the thing off */
 	arm_smmu_gr0_write(smmu, ARM_SMMU_GR0_sCR0, sCR0_CLIENTPD);
 	arm_smmu_power_off(smmu, smmu->pwr);
+
+	/* Remove the extra reference that was taken in the probe function */
+#ifndef CONFIG_ARM_SMMU_POWER_DONT_ALWAYS_ON
+	arm_smmu_power_off(smmu, smmu->pwr);
+#endif
 
 	arm_smmu_exit_power_resources(smmu->pwr);
 

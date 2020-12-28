@@ -1259,7 +1259,7 @@ const char * const vmstat_text[] = {
 	"unevictable_pgs_cleared",
 	"unevictable_pgs_stranded",
 
-#ifdef CONFIG_TRANSPARENT_HUGEPAGE
+#if defined(CONFIG_TRANSPARENT_HUGEPAGE) || defined(CONFIG_GKI_OPT_FEATURES)
 	"thp_fault_alloc",
 	"thp_fault_fallback",
 	"thp_collapse_alloc",

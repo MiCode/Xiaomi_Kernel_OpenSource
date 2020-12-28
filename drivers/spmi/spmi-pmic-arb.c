@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2012-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (C) 2020 XiaoMi, Inc. */
 
 #include <linux/bitmap.h>
 #include <linux/debugfs.h>
@@ -19,6 +20,9 @@
 #include <linux/spmi.h>
 #include <linux/string.h>
 #include <linux/soc/qcom/spmi-pmic-arb.h>
+
+#include <linux/wakeup_reason.h>
+#include <linux/syscore_ops.h>
 
 /* PMIC Arbiter configuration registers */
 #define PMIC_ARB_VERSION		0x0000
@@ -1433,6 +1437,7 @@ error:
 #else
 static void spmi_pmic_arb_debugfs_init(struct spmi_pmic_arb *pmic_arb) { }
 #endif
+
 
 static int spmi_pmic_arb_probe(struct platform_device *pdev)
 {

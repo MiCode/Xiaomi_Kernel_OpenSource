@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (C) 2010-2011 Canonical Ltd <jeremy.kerr@canonical.com>
+ * Copyright (C) 2020 XiaoMi, Inc.
  * Copyright (C) 2011-2012 Linaro Ltd <mturquette@linaro.org>
  *
  * Standard functionality for the common clock API.  See Documentation/driver-api/clk.rst
@@ -21,7 +22,6 @@
 #include <linux/pm_runtime.h>
 #include <linux/sched.h>
 #include <linux/clkdev.h>
-
 #include "clk.h"
 
 static DEFINE_SPINLOCK(enable_lock);
@@ -106,6 +106,8 @@ struct clk {
 	unsigned int exclusive_count;
 	struct hlist_node clks_node;
 };
+
+extern int in_panic;
 
 /***           runtime pm          ***/
 static int clk_pm_runtime_get(struct clk_core *core)
@@ -922,9 +924,11 @@ static int clk_core_prepare_lock(struct clk_core *core)
 {
 	int ret;
 
-	clk_prepare_lock();
+	if (!oops_in_progress)
+		clk_prepare_lock();
 	ret = clk_core_prepare(core);
-	clk_prepare_unlock();
+	if (!oops_in_progress)
+		clk_prepare_unlock();
 
 	return ret;
 }
@@ -3423,6 +3427,8 @@ static void clock_debug_print_enabled_clocks(struct seq_file *s)
 	else
 		clock_debug_output(s, 0, "No clocks enabled.\n");
 }
+
+
 
 static int enabled_clocks_show(struct seq_file *s, void *unused)
 {

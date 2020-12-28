@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright(C) 2016 Linaro Limited. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  * Author: Mathieu Poirier <mathieu.poirier@linaro.org>
  */
 
@@ -1451,8 +1452,7 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 	 */
 	spin_lock_irqsave(&drvdata->spinlock, flags);
 	sysfs_buf = READ_ONCE(drvdata->sysfs_buf);
-	if (!sysfs_buf || (sysfs_buf->size != drvdata->size)
-			|| !drvdata->usbch) {
+	if (!sysfs_buf || (sysfs_buf->size != drvdata->size)) {
 		spin_unlock_irqrestore(&drvdata->spinlock, flags);
 
 		if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM ||
