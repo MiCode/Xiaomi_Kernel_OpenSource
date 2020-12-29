@@ -255,7 +255,7 @@ static int con_devfreq_probe(struct platform_device *pdev)
 	if (!err)
 		goto out;
 
-	apower_err(dev, "%s populate fail\n", __func__);
+	apower_err(dev, "[%s] populate fail\n", __func__);
 uninit_devfreq:
 	ad->plat_ops->uninit_devfreq(ad);
 uninit_rguls:

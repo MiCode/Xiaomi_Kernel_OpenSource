@@ -50,6 +50,18 @@ static void _dump_topclk_info(struct apu_dev *ad)
 		       16, 4, (tclk_reg + CLK_CFG_4), 0x10, 1);
 }
 
+static void _dump_spm_status(struct apu_dev *ad)
+{
+	int val = 0;
+
+	val = readl(spm_reg + SPM_OTHER_PWR_STATUS);
+	arpc_warn(ad->dev, "SPM OTHER_PWR_STATUS = 0x%x\n", val);
+	val = readl(spm_reg + SPM_BUCK_ISOLATION);
+	arpc_warn(ad->dev, "SPM BUCK_ISOLATION = 0x%x\n", val);
+	val = readl(spm_reg + SPM_CROSS_WAKE_M01_REQ);
+	arpc_warn(ad->dev, "SPM SPM_CROSS_WAKE_M01_REQ = 0x%x\n", val);
+}
+
 static int _check_if_rpc_alive(struct apu_dev *ad)
 {
 	uint val_b = 0, val_a = 0;
@@ -71,7 +83,7 @@ static int _check_if_rpc_alive(struct apu_dev *ad)
 	apu_clearl(0x3F << bit_offset, (rpc_reg + RPC_TOP_SEL));
 	ret = ((val_b >> bit_offset) & 0x3f) == 0x3a ? 1 : 0;
 
-	arpc_err(ad->dev, "[%s] before TOP_SEL 0x%x, after TOP_SEL 0x%x\n",
+	arpc_warn(ad->dev, "[%s] before TOP_SEL 0x%x, after TOP_SEL 0x%x\n",
 			  __func__, val_a, val_b);
 
 	return ret;
@@ -93,24 +105,13 @@ static int _check_rpc_status(struct apu_dev *ad, int engid, bool enable)
 						POLL_INTERVAL, POLL_TIMEOUT);
 	if (ret) {
 		alive = _check_if_rpc_alive(ad);
+		_dump_topclk_info(ad);
+		_dump_spm_status(ad);
 		arpc_err(ad->dev, "RPC_RDY timeout, RPC_RDY = 0x%x, alive %s\n",
 				 val, alive ? "yes" : "no");
-		_dump_topclk_info(ad);
 	}
 
 	return ret;
-}
-
-static void _dump_spm_status(struct apu_dev *ad)
-{
-	int val = 0;
-
-	val = readl(spm_reg + SPM_OTHER_PWR_STATUS);
-	arpc_err(ad->dev, "SPM OTHER_PWR_STATUS = 0x%x\n", val);
-	val = readl(spm_reg + SPM_BUCK_ISOLATION);
-	arpc_err(ad->dev, "SPM BUCK_ISOLATION = 0x%x\n", val);
-	val = readl(spm_reg + SPM_CROSS_WAKE_M01_REQ);
-	arpc_err(ad->dev, "SPM SPM_CROSS_WAKE_M01_REQ = 0x%x\n", val);
 }
 
 static int _rpc_power_switch(struct apu_dev *ad, int engid, bool enable)
@@ -123,6 +124,8 @@ static int _rpc_power_switch(struct apu_dev *ad, int engid, bool enable)
 						POLL_INTERVAL, POLL_TIMEOUT);
 	if (ret) {
 		alive = _check_if_rpc_alive(ad);
+		_dump_topclk_info(ad);
+		_dump_spm_status(ad);
 		arpc_err(ad->dev, "[RPC fifo full] rpc_top = 0x%x\n", val);
 		goto out;
 	}
@@ -177,9 +180,9 @@ int apu_mtcmos_on(struct apu_dev *ad)
 							val, (val & (0x1UL << 5)),
 							POLL_INTERVAL, POLL_TIMEOUT);
 		if (ret) {
-			arpc_err(ad->dev, "%s spm wake up fail, ret %d\n", __func__, ret);
 			_dump_spm_status(ad);
 			_dump_topclk_info(ad);
+			aspm_err(ad->dev, "%s spm wake up fail, ret %d\n", __func__, ret);
 			goto out;
 		}
 	} else {
@@ -208,8 +211,9 @@ int apu_mtcmos_off(struct apu_dev *ad)
 							val, !(val & WAKEUP_APU),
 							POLL_INTERVAL, POLL_TIMEOUT);
 		if (ret) {
-			arpc_err(ad->dev, "%s spm suspend fail, ret %d\n", __func__, ret);
 			_dump_spm_status(ad);
+			_dump_topclk_info(ad);
+			aspm_err(ad->dev, "[%s] spm suspend fail, ret %d\n", __func__, ret);
 			goto out;
 		}
 
@@ -226,10 +230,10 @@ int apu_mtcmos_off(struct apu_dev *ad)
 							(val & (0x1UL << 5)) == 0x0,
 							POLL_INTERVAL, POLL_TIMEOUT);
 		if (ret) {
-			arpc_err(ad->dev, "[%s] spm suspend fail, ret %d\n",
-					__func__, ret);
 			_dump_spm_status(ad);
 			_dump_topclk_info(ad);
+			arpc_err(ad->dev, "[%s] sleep request fail, ret %d\n",
+					__func__, ret);
 			goto out;
 		}
 	} else {
@@ -279,7 +283,7 @@ static int apu_rpc_probe(struct platform_device *pdev)
 	/* rpc register initialization */
 	rpc_reg = of_iomap(pdev->dev.of_node, 0);
 	if (IS_ERR_OR_NULL(rpc_reg)) {
-		arpc_err(dev, "Unable to regmap rpc\n");
+		arpc_err(dev, "Unable to iomap rpc\n");
 		return -ENODEV;
 	}
 

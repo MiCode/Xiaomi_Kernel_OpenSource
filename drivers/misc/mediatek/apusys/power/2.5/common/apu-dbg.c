@@ -456,7 +456,7 @@ static int apupw_dbg_dvfs(u8 param, int argc, int *args)
 	enum DVFS_USER user;
 	struct apu_dev *ad = NULL;
 
-	pr_info("@@test%d\nlock opp=%d\n", argc, (int)(args[0]));
+	pr_info("[%s] @@test%d lock opp=%d\n", __func__, argc, (int)(args[0]));
 	for (user = MDLA; user < APUSYS_POWER_USER_NUM; user++) {
 		ad = _apupw_valid_df(user);
 		if (!ad)
@@ -692,16 +692,13 @@ static ssize_t apupw_dbg_write(struct file *flip, const char __user *buffer,
 	for (i = 0; i < max_arg && (token = strsep(&cursor, " ")); i++) {
 		ret = kstrtoint(token, 10, &args[i]);
 		if (ret) {
-			pr_info("fail to parse args[%d](\"%s\")\n", i, token);
+			pr_info("fail to parse args[%d](%s)", i, token);
 			goto out;
 		}
 	}
-
 	apupw_dbg_set_parameter(param, i, args);
-
 	ret = count;
 out:
-
 	kfree(tmp);
 	return ret;
 }
