@@ -438,7 +438,7 @@ void mhi_fw_load_handler(struct mhi_controller *mhi_cntrl)
 		goto error_fw_load;
 	}
 
-	ret = request_firmware(&firmware, fw_name, dev);
+	ret = request_firmware(&firmware, fw_name, dev->parent);
 	if (ret) {
 		if (!mhi_cntrl->fallback_fw_image) {
 			MHI_ERR("Error loading firmware: %d\n", ret);
@@ -447,7 +447,7 @@ void mhi_fw_load_handler(struct mhi_controller *mhi_cntrl)
 
 		ret = request_firmware(&firmware,
 				       mhi_cntrl->fallback_fw_image,
-				       dev);
+				       dev->parent);
 		if (ret) {
 			MHI_ERR("Error loading fallback firmware: %d\n",
 				ret);
