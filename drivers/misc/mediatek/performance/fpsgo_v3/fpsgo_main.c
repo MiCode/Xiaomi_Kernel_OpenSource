@@ -665,11 +665,11 @@ static int __init fpsgo_init(void)
 	ret = tracepoint_probe_register(fpsgo_tracepoints[0].tp, fpsgo_tracepoints[0].func,  NULL);
 	if (ret) {
 		FPSGO_LOGE("cpu_frequency: Couldn't activate tracepoint\n");
-		goto fail_reg_irq_handler_entry;
+		goto fail_reg_cpu_frequency_entry;
 	}
 	fpsgo_tracepoints[0].registered = true;
 
-fail_reg_irq_handler_entry:
+fail_reg_cpu_frequency_entry:
 
 
 	mutex_init(&notify_lock);
@@ -686,8 +686,6 @@ fail_reg_irq_handler_entry:
 	init_utch_mod();
 
 	fpsgo_switch_enable(1);
-
-	//cpufreq_notifier_fp = fpsgo_notify_cpufreq;
 
 	fpsgo_notify_vsync_fp = fpsgo_notify_vsync;
 

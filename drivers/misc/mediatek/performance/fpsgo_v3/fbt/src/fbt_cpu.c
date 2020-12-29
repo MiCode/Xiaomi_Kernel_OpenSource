@@ -837,6 +837,8 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 	int bhr_opp_local;
 	int bhr_local;
 	int cluster = 0;
+	unsigned int max_cap_base = 100;
+	unsigned int max_cap_jerk = 0;
 	unsigned int max_cap = 0;
 
 	if (check && !uclamp_boost_enable)
@@ -895,7 +897,7 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 		clus_floor_freq[cluster] = cpu_dvfs[cluster].power[tgt_opp];
 		clus_opp[cluster] = tgt_opp;
 
-		mbhr_opp = max((clus_opp[cluster] - bhr_opp_local), 0);
+		mbhr_opp = (clus_opp[cluster] - bhr_opp_local);
 
 		mbhr = clus_floor_freq[cluster] * 100U;
 		mbhr = mbhr / cpu_max_freq;
@@ -903,14 +905,27 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 		mbhr = (min(mbhr, 100U) * cpu_max_freq);
 		mbhr = mbhr / 100U;
 
-		for (i = (NR_FREQ_CPU - 1); i > 0; i--) {
+		for (i = (NR_FREQ_CPU - 1); i >= 0; i--) {
 			if (cpu_dvfs[cluster].power[i] > mbhr)
 				break;
 		}
-		mbhr = cpu_dvfs[cluster].power[i];
+		if (i < 0)
+			mbhr = -1;
+		else
+			mbhr = cpu_dvfs[cluster].power[i];
 
-		max_cap = max(max_cap, cpu_dvfs[cluster].capacity_ratio[min(mbhr_opp, i)]);
+		if (mbhr >= 0 && mbhr_opp >= 0) {
+			if (!jerk)
+				max_cap_base = min(max_cap_base,
+					cpu_dvfs[cluster].capacity_ratio[min(mbhr_opp, i)]);
+			else
+				max_cap_jerk = max(max_cap_jerk,
+					cpu_dvfs[cluster].capacity_ratio[min(mbhr_opp, i)]);
+		}
 	}
+
+	max_cap_jerk = max_cap_jerk == 0 ? 100 : max_cap_jerk;
+	max_cap = jerk ? max_cap_jerk : max_cap_base;
 
 	if (loading_th)
 		fbt_query_dep_list_loading(thr);

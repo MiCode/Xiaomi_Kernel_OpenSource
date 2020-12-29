@@ -6,11 +6,7 @@
 #ifndef FSTB_USEDEXT_H
 #define FSTB_USEDEXT_H
 
-#define API_READY 0
 #include <mt-plat/fpsgo_common.h>
-#if API_READY
-#include <trace/events/fpsgo.h>
-#endif
 #include <linux/list.h>
 #include <linux/sched.h>
 

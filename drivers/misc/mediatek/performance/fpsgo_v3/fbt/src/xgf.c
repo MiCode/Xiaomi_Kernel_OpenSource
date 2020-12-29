@@ -2,16 +2,12 @@
 /*
  * Copyright (c) 2019 MediaTek Inc.
  */
-#define API_READY 0
 #include <linux/mutex.h>
 #include <linux/slab.h>
 #include <linux/rbtree.h>
 #include <linux/preempt.h>
 #include <linux/proc_fs.h>
 #include <linux/vmalloc.h>
-#if API_READY
-#include <linux/trace_events.h>
-#endif
 #include <linux/module.h>
 #include <linux/sched/clock.h>
 #include <linux/sched.h>
@@ -19,12 +15,11 @@
 #include <linux/kallsyms.h>
 #include <linux/tracepoint.h>
 #include <linux/sched/task.h>
+#include <linux/kernel.h>
+#include <trace/trace.h>
 
 #include <mt-plat/fpsgo_common.h>
 
-#if API_READY
-#include <trace/events/fpsgo.h>
-#endif
 #include <trace/events/sched.h>
 #include <trace/events/ipi.h>
 #include <trace/events/irq.h>
@@ -118,9 +113,7 @@ void xgf_trace(const char *fmt, ...)
 	if (unlikely(len == 256))
 		log[255] = '\0';
 	va_end(args);
-#if API_READY
-	trace_xgf_log(log);
-#endif
+	trace_printk(log);
 }
 EXPORT_SYMBOL(xgf_trace);
 
@@ -214,11 +207,7 @@ EXPORT_SYMBOL(xgf_get_task_state);
 
 unsigned long xgf_lookup_name(const char *name)
 {
-#if API_READY
-	return kallsyms_lookup_name(name);
-#else
 	return 0;
-#endif
 }
 EXPORT_SYMBOL(xgf_lookup_name);
 
@@ -1378,9 +1367,7 @@ static void xgf_log_trace(const char *fmt, ...)
 	if (unlikely(len == 1024))
 		log[1023] = '\0';
 	va_end(args);
-#if API_READY
-	trace_xgf_log(log);
-#endif
+	trace_printk(log);
 }
 
 static void xgf_print_debug_log(int rpid,
