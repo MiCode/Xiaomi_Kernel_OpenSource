@@ -64,6 +64,7 @@
   complete
   complete_all
   config_ep_by_speed
+  config_group_init_type_name
   console_lock
   console_unlock
   __const_udelay
@@ -186,6 +187,7 @@
   dst_release
   dump_stack
   __dynamic_dev_dbg
+  __dynamic_netdev_dbg
   __dynamic_pr_debug
   enable_irq
   ether_setup
@@ -225,6 +227,7 @@
   gpiochip_line_is_irq
   gpiod_direction_input
   gpiod_direction_output_raw
+  gpiod_get
   gpiod_get_raw_value
   gpiod_set_raw_value
   gpiod_set_raw_value_cansleep
@@ -2026,6 +2029,7 @@
   sg_nents_for_len
 
 # required by wcn_bsp.ko
+  gpiod_set_value
   memdup_user
   pci_disable_device
   pci_disable_msi
