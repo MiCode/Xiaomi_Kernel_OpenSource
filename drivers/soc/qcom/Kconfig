@@ -514,6 +514,15 @@ config QCOM_DYN_MINIDUMP_STACK
 	  where CPU is unable to register it from IPI_CPU_STOP. The stack data
 	  can be used to unwind stack frames.
 
+config QCOM_MINIDUMP_FTRACE
+	bool "QCOM Minidump Support"
+	depends on QCOM_MINIDUMP
+	help
+	  This enables ftrace buffer registration in minidump table.
+	  On oops, ftrace content will be copied to that buffer.
+	  This way ftrace buffer content becomes a part of minidump dump
+	  collection.
+
 config QCOM_MINIDUMP_PANIC_CPU_CONTEXT
 	bool "QCOM Minidump Panic dumps Support"
 	depends on ARM64 && QCOM_MINIDUMP_PANIC_DUMP
