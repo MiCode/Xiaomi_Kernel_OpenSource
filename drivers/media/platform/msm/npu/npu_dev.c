@@ -260,14 +260,32 @@ static ssize_t pwr_store(struct device *dev,
 					  const char *buf, size_t count)
 {
 	struct npu_device *npu_dev = dev_get_drvdata(dev);
+	struct npu_pwrctrl *pwr = &npu_dev->pwrctrl;
 	bool pwr_on = false;
 
 	if (strtobool(buf, &pwr_on) < 0)
 		return -EINVAL;
 
+	mutex_lock(&npu_dev->dev_lock);
 	if (pwr_on) {
-		if (npu_enable_core_power(npu_dev))
+		pwr->pwr_vote_num_sysfs++;
+	} else {
+		if (!pwr->pwr_vote_num_sysfs) {
+			NPU_WARN("Invalid unvote from sysfs\n");
+			mutex_unlock(&npu_dev->dev_lock);
+			return -EINVAL;
+		}
+		pwr->pwr_vote_num_sysfs--;
+	}
+	mutex_unlock(&npu_dev->dev_lock);
+
+	if (pwr_on) {
+		if (npu_enable_core_power(npu_dev)) {
+			mutex_lock(&npu_dev->dev_lock);
+			pwr->pwr_vote_num_sysfs--;
+			mutex_unlock(&npu_dev->dev_lock);
 			return -EPERM;
+		}
 	} else {
 		npu_disable_core_power(npu_dev);
 	}
