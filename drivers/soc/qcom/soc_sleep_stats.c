@@ -65,7 +65,6 @@ struct stats_entry {
 struct stats_prv_data {
 	const struct stats_config *config;
 	void __iomem *reg;
-	void __iomem *ddr_reg;
 };
 
 struct sleep_stats {
@@ -173,9 +172,8 @@ static void  print_ddr_stats(struct seq_file *s, int *count,
 
 static int ddr_stats_show(struct seq_file *s, void *d)
 {
-	struct stats_prv_data *prv_data = s->private;
 	struct stats_entry data[DDR_STATS_MAX_NUM_MODES];
-	void __iomem *reg = prv_data->ddr_reg;
+	void __iomem *reg = s->private;
 	u32 entry_count;
 	u64 accumulated_duration = 0;
 	int i, lpm_count = 0;
@@ -208,6 +206,7 @@ static int ddr_stats_show(struct seq_file *s, void *d)
 DEFINE_SHOW_ATTRIBUTE(ddr_stats);
 
 static struct dentry *create_debugfs_entries(void __iomem *reg,
+					     void __iomem *ddr_reg,
 					     struct stats_prv_data *prv_data)
 {
 	struct dentry *root;
@@ -248,13 +247,13 @@ static struct dentry *create_debugfs_entries(void __iomem *reg,
 				    &subsystem_sleep_stats_fops);
 	}
 #endif
-	if (!prv_data->ddr_reg)
+	if (!ddr_reg)
 		goto exit;
 
-	key = readl_relaxed(prv_data->ddr_reg + DDR_STATS_MAGIC_KEY_ADDR);
+	key = readl_relaxed(ddr_reg + DDR_STATS_MAGIC_KEY_ADDR);
 	if (key == DDR_STATS_MAGIC_KEY)
 		debugfs_create_file("ddr_stats", 0444,
-				     root, prv_data, &ddr_stats_fops);
+				     root, ddr_reg, &ddr_stats_fops);
 
 exit:
 	return root;
@@ -263,7 +262,7 @@ exit:
 static int soc_sleep_stats_probe(struct platform_device *pdev)
 {
 	struct resource *res;
-	void __iomem *reg;
+	void __iomem *reg, *ddr_reg = NULL;
 	void __iomem *offset_addr;
 	phys_addr_t stats_base;
 	resource_size_t stats_size;
@@ -311,12 +310,12 @@ static int soc_sleep_stats_probe(struct platform_device *pdev)
 	stats_base = res->start | readl_relaxed(offset_addr);
 	iounmap(offset_addr);
 
-	prv_data->ddr_reg = devm_ioremap(&pdev->dev, stats_base, stats_size);
-	if (!prv_data->ddr_reg)
+	ddr_reg = devm_ioremap(&pdev->dev, stats_base, stats_size);
+	if (!ddr_reg)
 		return -ENOMEM;
 
 skip_ddr_stats:
-	root = create_debugfs_entries(reg, prv_data);
+	root = create_debugfs_entries(reg, ddr_reg,  prv_data);
 	platform_set_drvdata(pdev, root);
 
 	return 0;
