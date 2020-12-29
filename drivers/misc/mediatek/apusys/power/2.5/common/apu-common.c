@@ -20,7 +20,7 @@ static bool _valid_ad(struct apu_dev *ad)
 {
 	if (IS_ERR(ad) || !ad->df ||
 	    !ad->df->profile || !ad->df->profile->max_state) {
-		apower_err(ad->dev, "%ps: Invalid input.\n",
+		apower_warn(ad->dev, "%ps: Invalid input.\n",
 			   __builtin_return_address(0));
 		return false;
 	}
@@ -130,7 +130,7 @@ int apu_add_devfreq(struct apu_dev *ad)
 	}
 
 	if (!IS_ERR(apu_find_device(ad->user))) {
-		apower_err(ad->dev, "%s: device %s already exist.\n",
+		apower_warn(ad->dev, "%s: device %s already exist.\n",
 			   __func__, apu_dev_string(ad->user));
 		goto out;
 	}

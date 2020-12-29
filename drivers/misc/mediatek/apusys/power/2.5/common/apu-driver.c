@@ -64,8 +64,7 @@ int apu_device_power_on(enum DVFS_USER user)
 		ret = -EFAULT;
 		goto out;
 	}
-	apower_info(ad->dev, "[%s] called by %s\n",
-		__func__, apu_dev_string(ori_usr));
+	apower_info(ad->dev, "[%s] called by %s\n", __func__, apu_dev_string(ori_usr));
 	ret = pm_runtime_get_sync(ad->dev);
 	/* Ignore suppliers with disabled runtime PM. */
 	if (ret < 0 && ret != -EACCES) {
@@ -99,7 +98,7 @@ void apu_device_set_opp(enum DVFS_USER user, uint8_t opp)
 	}
 
 	if (!pm_runtime_active(ad->dev)) {
-		apower_err(ad->dev, "[%s] already power off\n", __func__);
+		apower_warn(ad->dev, "[%s] already power off\n", __func__);
 		return;
 	}
 

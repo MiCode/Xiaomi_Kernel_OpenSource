@@ -105,7 +105,9 @@ static int _apu_buck_clk_get(struct device *dev,	const char *id,
 
 	/* assign clk_num at the end, since put operation will check clk_num */
 	(*dst)->clk_num = num_clks;
-	clk_apu_show_clk_info(id, *dst);
+
+	if (apupw_dbg_get_loglvl() >= VERBOSE_LVL)
+		clk_apu_show_clk_info(*dst, false);
 	return 0;
 
 err:

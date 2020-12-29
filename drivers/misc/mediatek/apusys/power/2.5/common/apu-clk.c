@@ -29,6 +29,7 @@ static struct clk *_clk_apu_get_closest_parent(struct device *dev,
 	}
 	aclk_err(dev, "[%s] \"%s\" has no parent rate close to %luMhz\n",
 		__func__, __clk_get_name(mux->clks->clk), TOMHZ(rate));
+	clk_apu_show_clk_info(mux, false);
 	return ERR_PTR(-ENODEV);
 }
 
@@ -101,7 +102,7 @@ static int _clk_apu_mux_set_rate(struct apu_clk *dst, unsigned long rate)
 	if (IS_ERR_OR_NULL(dst->parents)) {
 		aclk_err(dst->dev, "[%s] %s has no parent, ret %d\n",
 			 __func__, __clk_get_name(dst->clks->clk), ret);
-		clk_apu_show_clk_info(dst->clks->id, dst);
+		clk_apu_show_clk_info(dst, false);
 		goto out;
 	}
 
@@ -111,7 +112,7 @@ static int _clk_apu_mux_set_rate(struct apu_clk *dst, unsigned long rate)
 			aclk_err(dst->dev, "[%s] %s set %lu fail, ret %d\n",
 				 __func__, __clk_get_name(dst->clks->clk),
 				 rate, ret);
-			clk_apu_show_clk_info(dst->clks->id, dst);
+			clk_apu_show_clk_info(dst, false);
 			goto out;
 		}
 	}
@@ -206,9 +207,6 @@ static int _clk_cal_pll_data(struct apu_clk_gp *aclk, int *pd, int *dds, ulong f
 	/* get quot, dds_0 and dds_1 together */
 	*dds = quot << 14 | dds_0 << 5 | dds_1;
 	*pd = _clk_cal_postdiv(pd);
-	aclk_info(aclk->dev, "[%s] freq %d, posdiv: %d dds: 0x%x\n",
-		  __func__, freq, *pd, *dds);
-
 	return 0;
 }
 
@@ -239,8 +237,8 @@ static int _clk_apu_hopping_set_rate(struct apu_clk_gp *aclk, unsigned long rate
 	if (cur_pd != pd)
 		parking = 1;
 
-	aclk_info(aclk->dev, "[%s] cur_pd = %d, next pd: %d, parking: %d\n",
-		  __func__, cur_pd, pd, parking);
+	aclk_info(aclk->dev, "[%s] c_pd/n_pd = %d/%d, parking: %d, dds/freq 0x%x/%dMhz\n",
+		  __func__, cur_pd, pd, parking, dds, val);
 	if (parking) {
 		pll_clk = aclk->apmix_pll->clks->clk;
 
@@ -251,7 +249,7 @@ static int _clk_apu_hopping_set_rate(struct apu_clk_gp *aclk, unsigned long rate
 
 		/* calculate target value of pll for current rate */
 		val = ((1 << 31) | (pd << POSDIV_SHIFT) | dds);
-		aclk_info(aclk->dev, "[%s] ori/new 0x%08x/0x%08x\n",
+		aclk_info(aclk->dev, "[%s] ori/new reg:0x%08x/0x%08x\n",
 			  __func__, apu_readl(mixpll->regs), val);
 		/* set up pll's value */
 		apu_writel(val, mixpll->regs);
@@ -278,41 +276,42 @@ static int _clk_apu_hopping_set_rate(struct apu_clk_gp *aclk, unsigned long rate
 		}
 	}
 
-	clk_apu_show_clk_info("hopping final (top_mux)", aclk->top_mux);
+	if (apupw_dbg_get_loglvl() >= VERBOSE_LVL)
+		clk_apu_show_clk_info(aclk->top_mux, true);
 out:
 	return ret;
 }
 
-void clk_apu_show_clk_info(const char *id, struct apu_clk *dst)
+void clk_apu_show_clk_info(struct apu_clk *dst, bool only_active)
 {
 	int i = 0, j = 0, num_parent = 0;
 	struct clk_hw *parent, *cur_parent, *mux_hw;
 
-	if (apupw_dbg_get_loglvl() >= VERBOSE_LVL) {
-		for (i = 0; i < dst->clk_num; i++) {
-			aclk_info(dst->dev, "[%d] clk \"%s\" rate %uMhz\n",
-				  i, dst->clks[i].id,
-				  TOMHZ(clk_get_rate(dst->clks[i].clk)));
-			mux_hw = __clk_get_hw(dst->clks[i].clk);
-			num_parent = clk_hw_get_num_parents(mux_hw);
-			if (num_parent <= 1)
+	for (i = 0; i < dst->clk_num; i++) {
+		aclk_info(dst->dev, "[%d] clk \"%s\" rate %uMhz\n",
+			  i, dst->clks[i].id,
+			  TOMHZ(clk_get_rate(dst->clks[i].clk)));
+		mux_hw = __clk_get_hw(dst->clks[i].clk);
+		num_parent = clk_hw_get_num_parents(mux_hw);
+		if (num_parent <= 1)
+			continue;
+		cur_parent = clk_hw_get_parent(mux_hw);
+		for (j = 0; j < num_parent; j++) {
+			parent = clk_hw_get_parent_by_index(mux_hw, j);
+			if (IS_ERR_OR_NULL(parent))
 				continue;
-			cur_parent = clk_hw_get_parent(mux_hw);
-			for (j = 0; j < num_parent; j++) {
-				parent = clk_hw_get_parent_by_index(mux_hw, j);
-				if (IS_ERR_OR_NULL(parent))
+			if (cur_parent == parent) {
+				aclk_info(dst->dev,
+					  "\t parent %d [%s] rate %dMhz (*)\n",
+					  j, clk_hw_get_name(parent),
+					  TOMHZ(clk_hw_get_rate(parent)));
+			} else {
+				if (only_active)
 					continue;
-				if (cur_parent == parent) {
-					aclk_info(dst->dev,
-						  "\t parent %d [%s] rate %dMhz (*)\n",
-						  j, clk_hw_get_name(parent),
-						  TOMHZ(clk_hw_get_rate(parent)));
-				} else {
-					aclk_info(dst->dev,
-						  "\t parent %d [%s] rate %dMhz\n",
-						  j, clk_hw_get_name(parent),
-						  TOMHZ(clk_hw_get_rate(parent)));
-				}
+				aclk_info(dst->dev,
+					  "\t parent %d [%s] rate %dMhz\n",
+					  j, clk_hw_get_name(parent),
+					  TOMHZ(clk_hw_get_rate(parent)));
 			}
 		}
 	}
@@ -392,26 +391,8 @@ static int clk_apu_enable(struct apu_clk_gp *aclk)
 			if (ret)
 				goto out;
 		}
-		clk_apu_show_clk_info("top_mux", dst);
-	}
-
-	dst = aclk->top_pll;
-	if (!IS_ERR_OR_NULL(dst)) {
-		if (!dst->always_on) {
-			ret = clk_bulk_enable(dst->clk_num, dst->clks);
-			if (ret) {
-				aclk_err(aclk->dev, "[%s] fail, ret %d\n", __func__, ret);
-				goto out;
-			}
-			if (dst->keep_enable)
-				dst->always_on = 1;
-		}
-		if (!dst->fix_rate) {
-			ret = clk_set_rate(dst->clks->clk, dst->def_freq);
-			if (ret)
-				goto out;
-		}
-		clk_apu_show_clk_info("top_pll", dst);
+		if (apupw_dbg_get_loglvl() >= VERBOSE_LVL)
+			clk_apu_show_clk_info(dst, false);
 	}
 
 	dst = aclk->apmix_pll;
@@ -430,6 +411,26 @@ static int clk_apu_enable(struct apu_clk_gp *aclk)
 			if (ret)
 				goto out;
 		}
+	}
+
+	dst = aclk->top_pll;
+	if (!IS_ERR_OR_NULL(dst)) {
+		if (!dst->always_on) {
+			ret = clk_bulk_enable(dst->clk_num, dst->clks);
+			if (ret) {
+				aclk_err(aclk->dev, "[%s] fail, ret %d\n", __func__, ret);
+				goto out;
+			}
+			if (dst->keep_enable)
+				dst->always_on = 1;
+		}
+		if (!dst->fix_rate) {
+			ret = clk_set_rate(dst->clks->clk, dst->def_freq);
+			if (ret)
+				goto out;
+		}
+		if (apupw_dbg_get_loglvl() >= VERBOSE_LVL)
+			clk_apu_show_clk_info(dst, false);
 	}
 
 out:

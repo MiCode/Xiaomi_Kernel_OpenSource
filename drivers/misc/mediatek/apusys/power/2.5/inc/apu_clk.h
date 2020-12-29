@@ -123,7 +123,7 @@ struct apu_clk_array {
 };
 
 struct apu_clk_gp *clk_apu_get_clkgp(struct apu_dev *ad, const char *name);
-void clk_apu_show_clk_info(const char *id, struct apu_clk *dst);
+void clk_apu_show_clk_info(struct apu_clk *dst, bool only_active);
 
 
 #endif
