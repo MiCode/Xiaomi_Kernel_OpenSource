@@ -10,8 +10,10 @@ PROPERTIES
 - compatible:
 	Usage: required
 	Value type: <string>
-	Definition: must have "qcom,sys-pm-violators". Additionally, the SoC
-		    specific compatible must be specified.
+	Definition: must have "qcom,sys-pm-violators". Additionally, one of the
+		    below SoC specific compatible must be specified.
+		    - "qcom,sys-pm-lahaina"
+		    - "qcom,sys-pm-waipio"
 
 - reg:
 	Usage: required
