@@ -4442,7 +4442,6 @@ s32 cmdq_helper_mbox_register(struct device *dev)
 	u32 i;
 	s32 chan_id;
 	struct cmdq_client *clt;
-	s32 ret;
 	int thread_cnt;
 
 	thread_cnt = of_count_phandle_with_args(
