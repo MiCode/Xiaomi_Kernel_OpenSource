@@ -216,6 +216,7 @@
 	qupv3_0: qcom,qupv3_0_geni_se@9c0000 {
 		compatible = "qcom,qupv3-geni-se";
 		reg = <0x9c0000 0x2000>;
+		status = "ok";
 	};
 
 	/* GPI */
@@ -240,7 +241,6 @@
 		qcom,gpii-mask = <0x80>;
 		qcom,ev-factor = <2>;
 		qcom,gpi-ee-offset = <0x10000>;
-		qcom,le-vm;
 		status = "ok";
 	};
 
@@ -255,7 +255,7 @@
 		dma-names = "tx", "rx";
 		qcom,wrapper-core = <&qupv3_0>;
 		qcom,le-vm;
-		status = "ok";
+		status = "disabled";
 	};
 
 	qupv3_se4_spi: spi@990000 {
