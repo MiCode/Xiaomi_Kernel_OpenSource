@@ -125,6 +125,9 @@ static int apu_vsram_mdla_constrain(struct notifier_block *nb,
 	if (event != REGULATOR_EVENT_PRE_VOLTAGE_CHANGE)
 		goto out;
 
+	if (IS_ERR_OR_NULL(mdla_reg->vdd))
+		goto out;
+
 	pre_volt = (struct pre_voltage_change_data *)(data);
 
 	/* lock mdla first, then no one can change its voltage */
@@ -134,7 +137,7 @@ static int apu_vsram_mdla_constrain(struct notifier_block *nb,
 			mdla_reg->floor_volt = mdla_reg->constrain_volt;
 		else
 			mdla_reg->floor_volt = 0;
-		goto out;
+		goto unlock;
 	}
 
 	cur_volt = mdla_reg->cur_volt;
@@ -145,12 +148,12 @@ static int apu_vsram_mdla_constrain(struct notifier_block *nb,
 		WARN_ONCE(1, "[%s] pre_min/cur %d/%d\n",
 			mdla_reg->name, pre_volt->min_uV, cur_volt);
 		ret = -EINVAL;
-		goto out;
+		goto unlock;
 	} else if (diff < mdla_reg->constrain_band) {
 		/* not meet gard band, need to vote mdla as 575mv */
 		mdla_reg->floor_volt = 0;
 		queue_pm_work(&mdla_reg->deffer_work);
-		goto out;
+		goto unlock;
 	} else {
 		/* touch the gard band, need to change mdla as constrain voltage */
 		mdla_reg->floor_volt = mdla_reg->constrain_volt;
@@ -158,16 +161,16 @@ static int apu_vsram_mdla_constrain(struct notifier_block *nb,
 						mdla_reg->constrain_volt,
 						mdla_reg->constrain_volt);
 		if (ret)
-			goto out;
+			goto unlock;
 		mdla_reg->cur_volt = mdla_reg->constrain_volt;
 		_regulator_apu_settle_time(mdla_reg, cur_volt, mdla_reg->constrain_volt);
 		argul_info(mdla_reg->dev, "[%s] cur %d floor_vol = %dmV\n",
 			__func__, TOMV(mdla_reg->cur_volt), TOMV(mdla_reg->floor_volt));
 	}
 
-out:
+unlock:
 	mutex_unlock(&mdla_reg->reg_lock);
-
+out:
 	return ret;
 }
 
