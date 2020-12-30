@@ -1155,6 +1155,9 @@ int pause_cpus(struct cpumask *cpus)
 {
 	int err = 0;
 	int cpu;
+	u64 start_time = 0;
+
+	start_time = sched_clock();
 
 	cpu_maps_update_begin();
 
@@ -1252,6 +1255,8 @@ err_cpus_write_unlock:
 err_cpu_maps_update:
 	cpu_maps_update_done();
 
+	trace_cpuhp_pause(cpus, start_time, 1);
+
 	return err;
 }
 EXPORT_SYMBOL_GPL(pause_cpus);
@@ -1260,6 +1265,9 @@ int resume_cpus(struct cpumask *cpus)
 {
 	unsigned int cpu;
 	int err = 0;
+	u64 start_time = 0;
+
+	start_time = sched_clock();
 
 	cpu_maps_update_begin();
 
@@ -1317,6 +1325,8 @@ err_cpus_write_unlock:
 	cpus_write_unlock();
 err_cpu_maps_update:
 	cpu_maps_update_done();
+
+	trace_cpuhp_pause(cpus, start_time, 0);
 
 	return err;
 }

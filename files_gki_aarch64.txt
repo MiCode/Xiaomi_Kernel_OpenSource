@@ -480,6 +480,7 @@ crypto/jitterentropy.c
 crypto/jitterentropy.h
 crypto/kpp.c
 crypto/lz4.c
+crypto/md5.c
 crypto/memneq.c
 crypto/nhpoly1305.c
 crypto/poly1305_generic.c
@@ -676,7 +677,6 @@ drivers/dma-buf/dma-fence-chain.c
 drivers/dma-buf/dma-fence.c
 drivers/dma-buf/dma-heap.c
 drivers/dma-buf/dma-resv.c
-drivers/dma-buf/heaps/system_heap.c
 drivers/dma-buf/seqno-fence.c
 drivers/dma-buf/sync_file.c
 drivers/dma/dmaengine.c
