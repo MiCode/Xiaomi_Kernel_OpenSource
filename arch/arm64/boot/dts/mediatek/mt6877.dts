@@ -2749,6 +2749,36 @@
 			/* Assert & FW log interrupt */
 			<GIC_SPI 447 IRQ_TYPE_LEVEL_HIGH>;
 	};
+
+	gpufreq {
+		compatible = "mediatek,gpufreq";
+		clocks =
+			<&topckgen_clk CLK_TOP_MFG_INTERNAL2_SEL>,
+			<&topckgen_clk CLK_TOP_MFGPLL1>,
+			<&topckgen_clk CLK_TOP_MFG_INTERNAL1>,
+			<&mfgcfg_clk CLK_MFGCFG_BG3D>,
+			<&scpsys SCP_SYS_MFG0>,
+			<&scpsys SCP_SYS_MFG1>,
+			<&scpsys SCP_SYS_MFG2>,
+			<&scpsys SCP_SYS_MFG3>,
+			<&scpsys SCP_SYS_MFG4>,
+			<&scpsys SCP_SYS_MFG5>;
+		clock-names =
+			"clk_mux",          /* switch main/sub */
+			"clk_main_parent",  /* main pll freq */
+			"clk_sub_parent",   /* parking clk: 385 MHz */
+			"subsys_bg3d",
+			"mtcmos_mfg0",      /* ASYNC */
+			"mtcmos_mfg1",      /* MFG_TOP */
+			"mtcmos_mfg2",      /* Shader Stack0 */
+			"mtcmos_mfg3",      /* Shader Stack2 */
+			"mtcmos_mfg4",      /* Shader Stack4 */
+			"mtcmos_mfg5";      /* Shader Stack6 */
+#ifndef CONFIG_FPGA_EARLY_PORTING
+		_vgpu-supply = <&mt_pmic_vproc2_buck_reg>;
+		_vsram_gpu-supply = <&mt_pmic_vsram_md_ldo_reg>;
+#endif
+	};
 };
 
 #include "mediatek/mt6359p.dtsi"
