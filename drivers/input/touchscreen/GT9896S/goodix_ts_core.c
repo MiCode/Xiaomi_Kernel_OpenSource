@@ -1735,24 +1735,6 @@ static int gt9896s_ts_power_on_reinit(void)
 	return 0;
 }
 #endif
-static void gt9896s_ts_release_connects(struct gt9896s_ts_core *core_data)
-{
-	struct input_dev *input_dev = core_data->input_dev;
-	struct input_mt *mt = input_dev->mt;
-	int i;
-
-	if (mt) {
-		for (i = 0; i < mt->num_slots; i++) {
-			input_mt_slot(input_dev, i);
-			input_mt_report_slot_state(input_dev,
-					MT_TOOL_FINGER,
-					false);
-		}
-		input_report_key(input_dev, BTN_TOUCH, 0);
-		input_mt_sync_frame(input_dev);
-		input_sync(input_dev);
-	}
-}
 
 /**
  * gt9896s_ts_suspend - Touchscreen suspend function

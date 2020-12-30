@@ -1448,20 +1448,6 @@ exit_sysfs_init:
 	return ret;
 }
 
-static void gt9896s_fw_sysfs_remove(struct gt9896s_ext_module *module)
-{
-	struct fw_update_ctrl *fw_ctrl = module->priv_data;
-	int i;
-
-	sysfs_remove_bin_file(&module->kobj, &fw_ctrl->attr_fwimage);
-
-	for (i = 0; i < ARRAY_SIZE(gt9896s_fwu_attrs); i++)
-		sysfs_remove_file(&module->kobj,
-				&gt9896s_fwu_attrs[i].attr);
-
-	kobject_put(&module->kobj);
-}
-
 int gt9896s_do_fw_update(int mode)
 {
 	struct task_struct *fwu_thrd;
@@ -1617,15 +1603,3 @@ int gt9896s_fwu_module_init(void *data)
 	mutex_init(&gt9896s_fw_update_ctrl.mutex);
 	return gt9896s_register_ext_module(&gt9896s_fwu_module);
 }
-
-static void gt9896s_fwu_module_exit(void)
-{
-	mutex_lock(&gt9896s_fw_update_ctrl.mutex);
-	gt9896s_unregister_ext_module(&gt9896s_fwu_module);
-	if (gt9896s_fw_update_ctrl.initialized) {
-		gt9896s_fw_sysfs_remove(&gt9896s_fwu_module);
-		gt9896s_fw_update_ctrl.initialized = 0;
-	}
-	mutex_lock(&gt9896s_fw_update_ctrl.mutex);
-}
-
