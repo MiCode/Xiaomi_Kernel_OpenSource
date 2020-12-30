@@ -28,7 +28,6 @@
 #define WDT_RST_RELOAD      0x1971
 #define CPU_NR (nr_cpu_ids)
 
-static char aee_timer_print_buffer[64*1024];
 static int start_kicker(void);
 static int g_kicker_init;
 static DEFINE_SPINLOCK(lock);
