@@ -267,7 +267,7 @@ static irqreturn_t mtk_uart_apdma_irq_handler(int irq, void *dev_id)
 {
 	struct dma_chan *chan = (struct dma_chan *)dev_id;
 	struct mtk_chan *c = to_mtk_uart_apdma_chan(chan);
-	unsigned long flags;
+	//unsigned long flags;
 
 	//spin_lock_irqsave(&c->vc.lock, flags);
 	spin_lock(&c->vc.lock);
