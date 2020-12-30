@@ -23,7 +23,7 @@
 #include <linux/workqueue.h>
 
 #include <mt-plat/rt-regmap.h>
-#define RT_REGMAP_VERSION	"1.1.14_G"
+#define RT_REGMAP_VERSION	"1.1.15_G"
 
 struct rt_regmap_ops {
 	int (*regmap_block_write)(struct rt_regmap_device *rd, u32 reg,
@@ -1513,10 +1513,7 @@ hiden_read:
 
 static int general_open(struct inode *inode, struct file *file)
 {
-	if (file->f_mode & FMODE_READ)
-		return single_open(file, general_read, inode->i_private);
-	file->private_data = inode->i_private;
-	return 0;
+	return single_open(file, general_read, inode->i_private);
 }
 
 
@@ -1525,7 +1522,8 @@ static int general_open(struct inode *inode, struct file *file)
 static ssize_t general_write(struct file *file, const char __user *ubuf,
 			     size_t count, loff_t *ppos)
 {
-	struct rt_debug_st *st = file->private_data;
+	struct rt_debug_st *st =
+		((struct seq_file *)file->private_data)->private;
 	struct rt_regmap_device *rd = st->info;
 	struct reg_index_offset rio;
 	long param[5] = {0};
@@ -1789,20 +1787,13 @@ static ssize_t general_write(struct file *file, const char __user *ubuf,
 	return count;
 }
 
-static int general_release(struct inode *inode, struct file *file)
-{
-	if (file->f_mode & FMODE_READ)
-		return single_release(inode, file);
-	return 0;
-}
-
 static const struct file_operations general_ops = {
 	.owner = THIS_MODULE,
 	.open = general_open,
 	.write = general_write,
 	.read = seq_read,
 	.llseek = seq_lseek,
-	.release = general_release,
+	.release = single_release,
 };
 
 #define RT_CREATE_GENERAL_FILE(_id, _name, _mode)			\
@@ -2254,6 +2245,8 @@ MODULE_AUTHOR("Jeff Chang <jeff_chang@richtek.com>");
 MODULE_VERSION(RT_REGMAP_VERSION);
 MODULE_LICENSE("GPL");
 /* Version Note
+ * 1.1.15
+ *	Fix potential NULL pointer dereference in general_write()
  * 1.1.14
  *	Fix Coverity by Mandatory's
  */
