@@ -65,7 +65,7 @@
 #define RESERVED_DATA                  4
 #define VOW_RECOVERY_WAIT              100
 
-#ifdef IS_ENABLED(CONFIG_MTK_VOW_DUAL_MIC_SUPPORT)
+#if IS_ENABLED(CONFIG_MTK_VOW_DUAL_MIC_SUPPORT)
 #define VOW_MAX_MIC_NUM	(2)
 #else
 #define VOW_MAX_MIC_NUM	(1)
