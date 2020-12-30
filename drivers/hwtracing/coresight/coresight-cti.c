@@ -1535,6 +1535,9 @@ static int cti_probe(struct amba_device *adev, const struct amba_id *id)
 	struct coresight_desc desc = { 0 };
 	struct device_node *cpu_node;
 
+	if (coresight_fuse_access_disabled())
+		return -EPERM;
+
 	desc.name = coresight_alloc_device_name(&cti_devs, dev);
 	if (!desc.name)
 		return -ENOMEM;
