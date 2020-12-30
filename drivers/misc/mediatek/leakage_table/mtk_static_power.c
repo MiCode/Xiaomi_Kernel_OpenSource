@@ -17,6 +17,7 @@
 #include <linux/of_platform.h>
 
 #define SP_TAG "[Power/spower] "
+#define SPOWERTABLE 0
 #define SPOWER_LOG_NONE 0
 #define SPOWER_LOG_WITH_PRINTK 1
 #define SPOWER_LOG_PRINT SPOWER_LOG_NONE
@@ -497,12 +498,15 @@ static int mt_spower_init(struct platform_device *pdev)
 	char *p_buf_precise = static_power_buf_precise;
 	int n_domain = 0;
 	struct device_node *node = pdev->dev.of_node;
-	struct sptab_list **tab;
-	const char *domain, *spower;
+	const char *domain;
 	u32 value[6];
-	int *spower_value_0, *spower_value_1, *spower_value_2;
 	int ret;
+#if SPOWERTABLE
+	int *spower_value_0, *spower_value_1, *spower_value_2;
+	struct sptab_list **tab;
+	const char *spower;
 	char cell_name[25];
+#endif
 
 	nvmem_dev = nvmem_device_get(&pdev->dev, "mtk_efuse");
 	ret = IS_ERR(nvmem_dev);
