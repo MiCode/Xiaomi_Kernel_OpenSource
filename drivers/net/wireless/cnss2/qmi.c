@@ -1725,8 +1725,6 @@ out:
 
 unsigned int cnss_get_qmi_timeout(struct cnss_plat_data *plat_priv)
 {
-	cnss_pr_dbg("QMI timeout is %u ms\n", QMI_WLFW_TIMEOUT_MS);
-
 	return QMI_WLFW_TIMEOUT_MS;
 }
 

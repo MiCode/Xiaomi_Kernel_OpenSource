@@ -386,6 +386,14 @@ struct cnss_dms_data {
 	u8 mac[QMI_WLFW_MAC_ADDR_SIZE_V01];
 };
 
+enum cnss_timeout_type {
+	CNSS_TIMEOUT_QMI,
+	CNSS_TIMEOUT_POWER_UP,
+	CNSS_TIMEOUT_IDLE_RESTART,
+	CNSS_TIMEOUT_CALIBRATION,
+	CNSS_TIMEOUT_WLAN_WATCHDOG,
+};
+
 struct cnss_plat_data {
 	struct platform_device *plat_dev;
 	void *bus_priv;
@@ -532,5 +540,7 @@ int cnss_minidump_remove_region(struct cnss_plat_data *plat_priv,
 				void *va, phys_addr_t pa, size_t size);
 int cnss_enable_int_pow_amp_vreg(struct cnss_plat_data *plat_priv);
 int cnss_get_tcs_info(struct cnss_plat_data *plat_priv);
+unsigned int cnss_get_timeout(struct cnss_plat_data *plat_priv,
+			      enum cnss_timeout_type);
 
 #endif /* _CNSS_MAIN_H */
