@@ -11,18 +11,18 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _MSDC_CUST_MT6853_H_
-#define _MSDC_CUST_MT6853_H_
+#ifndef _MSDC_CUST_MT6877_H_
+#define _MSDC_CUST_MT6877_H_
 #ifdef CONFIG_FPGA_EARLY_PORTING
 #define FPGA_PLATFORM
 #else
 /* #define MTK_MSDC_BRINGUP_DEBUG */
 #endif
 
-#include <dt-bindings/mmc/mt6853-msdc.h>
+#include <dt-bindings/mmc/mt6877-msdc.h>
 //#define CONFIG_MTK_MSDC_BRING_UP_BYPASS
 #if !defined(FPGA_PLATFORM)
-#include <dt-bindings/clock/mt6853-clk.h>
+#include <dt-bindings/clock/mt6877-clk.h>
 #endif
 /**************************************************************/
 /* Section 1: Device Tree                                     */
@@ -584,4 +584,4 @@
 #define MSDC_PB2_DEFAULT_RESPSTENSEL    0x1
 #define MSDC_PB2_DEFAULT_CRCSTSENSEL    0x1
 
-#endif /* _MSDC_CUST_MT6873_H_ */
+#endif /* _MSDC_CUST_MT6877_H_ */
