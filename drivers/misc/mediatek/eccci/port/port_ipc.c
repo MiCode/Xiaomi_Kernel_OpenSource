@@ -384,7 +384,9 @@ retry:
 			switch (id_map->task_id) {
 			case AP_IPC_WMT:
 #ifdef CONFIG_MTK_CONN_MD
+#ifndef CCCI_PLATFORM_MT6877
 				mtk_conn_md_bridge_send_msg(&out_ilm);
+#endif
 #endif
 				break;
 			case AP_IPC_PKTTRC:

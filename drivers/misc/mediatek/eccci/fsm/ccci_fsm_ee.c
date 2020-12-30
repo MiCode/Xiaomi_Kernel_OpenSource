@@ -57,11 +57,7 @@ void fsm_md_bootup_timeout_handler(struct ccci_fsm_ee *ee_ctl)
 			"invalid  mem_layout\n");
 		return;
 	}
-	CCCI_NORMAL_LOG(ee_ctl->md_id, FSM,
-		"Dump MD image memory\n");
-	ccci_mem_dump(ee_ctl->md_id,
-		(void *)mem_layout->md_bank0.base_ap_view_vir,
-		MD_IMG_DUMP_SIZE);
+
 	CCCI_NORMAL_LOG(ee_ctl->md_id, FSM,
 		"Dump MD layout struct\n");
 	ccci_mem_dump(ee_ctl->md_id, mem_layout,
@@ -166,11 +162,6 @@ void fsm_md_exception_stage(struct ccci_fsm_ee *ee_ctl, int stage)
 			+ CCCI_EE_OFFSET_CCIF_SRAM,
 			CCCI_EE_SIZE_CCIF_SRAM);
 
-		/* Dump MD image memory */
-		CCCI_MEM_LOG_TAG(md_id, FSM, "Dump MD image memory\n");
-		ccci_util_mem_dump(md_id, CCCI_DUMP_MEM_DUMP,
-			(void *)mem_layout->md_bank0.base_ap_view_vir,
-			MD_IMG_DUMP_SIZE);
 		/* Dump MD memory layout */
 		CCCI_MEM_LOG_TAG(md_id, FSM, "Dump MD layout struct\n");
 		ccci_util_mem_dump(md_id, CCCI_DUMP_MEM_DUMP, mem_layout,

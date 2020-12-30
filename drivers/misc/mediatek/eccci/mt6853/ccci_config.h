@@ -17,7 +17,11 @@
 /* platform info */
 #define MD_GENERATION       (6297)
 #define MD_PLATFORM_INFO    "6297"
+#ifdef CCCI_PLATFORM_MT6877
+#define AP_PLATFORM_INFO    "MT6877"
+#else
 #define AP_PLATFORM_INFO    "MT6853"
+#endif
 #define CCCI_DRIVER_VER     0x20110118
 #define MT6297
 #define _97_REORDER_BAT_PAGE_TABLE_

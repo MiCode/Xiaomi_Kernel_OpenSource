@@ -12,14 +12,16 @@
 #
 
 # mt6893&mt6885 co-platform config
-ifeq (y, $(filter y, $(CONFIG_MACH_MT6893)))
+
+ifeq (y, $(filter y, $(CONFIG_MACH_MT6877)))
+MTK_PLATFORM := mt6853
+subdir-ccflags-y += -DCCCI_PLATFORM_MT6877
+else ifeq (y, $(filter y, $(CONFIG_MACH_MT6893)))
 MTK_PLATFORM := mt6885
-else
-ifeq (y, $(filter y, $(CONFIG_MACH_MT6833)))
+else ifeq (y, $(filter y, $(CONFIG_MACH_MT6833)))
 MTK_PLATFORM := mt6833
 else
 MTK_PLATFORM := $(CONFIG_MTK_PLATFORM)
-endif
 endif
 
 ifeq ($(CONFIG_MTK_ECCCI_DRIVER), y)
