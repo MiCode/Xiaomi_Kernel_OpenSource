@@ -42,7 +42,9 @@ void tpd_get_dts_info(void)
 {
 	struct device_node *node1 = NULL;
 	int key_dim_local[16], i;
+#if defined(CONFIG_LCM_WIDTH) && defined(CONFIG_LCM_HEIGHT)
 	int convert_err = -EINVAL;
+#endif
 
 	node1 = of_find_matching_node(node1, touch_of_match);
 
