@@ -10,7 +10,13 @@ obj-$(CONFIG_SCSI_UFS_DWC_TC_PCI) += tc-dwc-g210-pci.o ufshcd-dwc.o tc-dwc-g210.
 obj-$(CONFIG_SCSI_UFS_DWC_TC_PLATFORM) += tc-dwc-g210-pltfrm.o ufshcd-dwc.o tc-dwc-g210.o
 
 ifeq ($(CONFIG_MTK_UFS_SUPPORT),y)
+ifeq (y, $(filter y, $(CONFIG_MACH_MT6893)))
+MTK_PLATFORM := mt6893
+else ifeq (y, $(filter y, $(CONFIG_MACH_MT6877)))
+MTK_PLATFORM := mt6877
+else
 MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
+endif
 MTK_MISC_INC := drivers/misc/mediatek/include
 ccflags-y += -I$(srctree)/$(MTK_MISC_INC)/mt-plat/$(MTK_PLATFORM)/include
 ccflags-y += -I$(srctree)/$(MTK_MISC_INC)/mt-plat

@@ -140,14 +140,6 @@ enum {
 	UFSHCD_CAN_QUEUE	= 32,
 };
 
-/* UFSHCD states */
-enum {
-	UFSHCD_STATE_RESET,
-	UFSHCD_STATE_ERROR,
-	UFSHCD_STATE_OPERATIONAL,
-	UFSHCD_STATE_EH_SCHEDULED,
-};
-
 /* UFSHCD error handling flags */
 enum {
 	UFSHCD_EH_IN_PROGRESS = (1 << 0),
@@ -241,8 +233,10 @@ static struct ufs_dev_fix ufs_fixups[] = {
 		UFS_DEVICE_QUIRK_PA_TACTIVATE),
 	UFS_FIX(UFS_VENDOR_TOSHIBA, "THGLF2G9D8KBADG",
 		UFS_DEVICE_QUIRK_PA_TACTIVATE),
+#ifndef UFS_HOST_TACITVATE_NOT_CHANGE_FOR_SAMSUNG
 	UFS_FIX(UFS_VENDOR_SAMSUNG, UFS_ANY_MODEL,
 		UFS_DEVICE_QUIRK_PA_TACTIVATE),
+#endif
 	UFS_FIX(UFS_VENDOR_SKHYNIX, UFS_ANY_MODEL, UFS_DEVICE_NO_VCCQ),
 	UFS_FIX(UFS_VENDOR_SKHYNIX, UFS_ANY_MODEL,
 		UFS_DEVICE_QUIRK_HOST_PA_SAVECONFIGTIME),
@@ -251,6 +245,28 @@ static struct ufs_dev_fix ufs_fixups[] = {
 	UFS_FIX(UFS_VENDOR_SKHYNIX, UFS_ANY_MODEL,
 		UFS_DEVICE_QUIRK_LIMITED_RPMB_MAX_RW_SIZE),
 	UFS_FIX(UFS_VENDOR_MICRON, UFS_ANY_MODEL,
+		UFS_DEVICE_QUIRK_VCC_OFF_DELAY),
+	UFS_FIX(UFS_VENDOR_SKHYNIX, "H28S8D301DMR",
+		UFS_DEVICE_QUIRK_VCC_OFF_DELAY),
+	UFS_FIX(UFS_VENDOR_SKHYNIX, "H28S9Q301CMR",
+		UFS_DEVICE_QUIRK_VCC_OFF_DELAY),
+	UFS_FIX(UFS_VENDOR_SKHYNIX, "H28SAO301MMR",
+		UFS_DEVICE_QUIRK_VCC_OFF_DELAY),
+	UFS_FIX(UFS_VENDOR_SKHYNIX, "H28S8Y401DMR",
+		UFS_DEVICE_QUIRK_VCC_OFF_DELAY),
+	UFS_FIX(UFS_VENDOR_SKHYNIX, "H28S9X401CMR",
+		UFS_DEVICE_QUIRK_VCC_OFF_DELAY),
+	UFS_FIX(UFS_VENDOR_SKHYNIX, "H28SAW401MMR",
+		UFS_DEVICE_QUIRK_VCC_OFF_DELAY),
+	UFS_FIX(UFS_VENDOR_SKHYNIX, "H9HQ21AFAMZDAR",
+		UFS_DEVICE_QUIRK_VCC_OFF_DELAY),
+	UFS_FIX(UFS_VENDOR_SKHYNIX, "H9HQ21AECMZDAR",
+		UFS_DEVICE_QUIRK_VCC_OFF_DELAY),
+	UFS_FIX(UFS_VENDOR_SKHYNIX, "H9HQ15AFAMADAR",
+		UFS_DEVICE_QUIRK_VCC_OFF_DELAY),
+	UFS_FIX(UFS_VENDOR_SKHYNIX, "H9HQ15AECMADAR",
+		UFS_DEVICE_QUIRK_VCC_OFF_DELAY),
+	UFS_FIX(UFS_VENDOR_SKHYNIX, "H9HQ15ACPMADAR",
 		UFS_DEVICE_QUIRK_VCC_OFF_DELAY),
 
 	/* MTK PATCH */
@@ -2857,9 +2873,26 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 		goto out;
 	}
 
+
+	/* MTK Patch: Check if performance heuristic is applied */
+	spin_lock_irqsave(hba->host->host_lock, flags);
+	err = ufs_mtk_perf_heurisic_if_allow_cmd(hba, cmd);
+
+	if (err) {
+		err = SCSI_MLQUEUE_HOST_BUSY;
+		clear_bit_unlock(tag, &hba->lrb_in_use);
+		spin_unlock_irqrestore(hba->host->host_lock, flags);
+		ufshcd_release(hba);
+		goto out;
+	}
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
+
 #if defined(CONFIG_UFSFEATURE) && defined(CONFIG_UFSHPB)
 	/* Micron version 2.0 not support write buffer id 2 */
 	if (hba->card->wmanufacturerid != UFS_VENDOR_SAMSUNG)
+		goto send_orig_cmd;
+
+	if ((hba->quirks & UFSHCD_QUIRK_UFS_HCI_PERF_HEURISTIC))
 		goto send_orig_cmd;
 
 	add_tag = ufsf_hpb_prepare_pre_req(&hba->ufsf, cmd, lun);
@@ -5381,7 +5414,14 @@ static int ufshcd_is_resp_upiu_valid(struct ufs_hba *hba,
 	val = (word & 0x00ff0000) >> 16;
 	if (val) {
 		dev_info(hba->dev, "inv. flag: 0x%x\n", val);
-		err = true;
+		#ifdef CONFIG_MTK_AEE_FEATURE
+		ufs_mtk_dbg_stop_trace(hba);
+		aee_kernel_warning_api(file, line, DB_OPT_FS_IO_LOG,
+			"ufshcd_is_resp_upiu_valid",
+			"inv. flag: %d", val);
+		#endif
+
+		return DID_REQUEUE << 16;
 	}
 
 	val = (word & 0x0000ff00) >> 8;
@@ -5560,6 +5600,8 @@ static int __ufshcd_transfer_req_compl(struct ufs_hba *hba,
 		lrbp = &hba->lrb[index];
 		cmd = lrbp->cmd;
 		if (cmd) {
+			/* MTK Patch: handler of performance heuristic */
+			ufs_mtk_perf_heurisic_req_done(hba, cmd);
 			/* MTK PATCH */
 			ufshcd_cond_add_cmd_trace(hba, index,
 				UFS_TRACE_COMPLETED);
@@ -8848,6 +8890,14 @@ out:
 static void ufshcd_vreg_set_lpm(struct ufs_hba *hba)
 {
 	/*
+	 * Some device need VCC off delay but host cannot provide this delay
+	 * VCC always on to save these kind of device.
+	 */
+	if ((hba->quirks & UFSHCD_QUIRK_UFS_VCC_ALWAYS_ON) &&
+	    (hba->dev_quirks & UFS_DEVICE_QUIRK_VCC_OFF_DELAY))
+		return;
+
+	/*
 	 * It seems some UFS devices may keep drawing more than sleep current
 	 * (atleast for 500us) from UFS rails (especially from VCCQ rail).
 	 * To avoid this situation, add 2ms delay before putting these UFS
@@ -8884,6 +8934,14 @@ static void ufshcd_vreg_set_lpm(struct ufs_hba *hba)
 static int ufshcd_vreg_set_hpm(struct ufs_hba *hba)
 {
 	int ret = 0;
+
+	/*
+	 * Some device need VCC off delay but host cannot provide this delay
+	 * VCC always on to save these kind of device.
+	 */
+	if ((hba->quirks & UFSHCD_QUIRK_UFS_VCC_ALWAYS_ON) &&
+	    (hba->dev_quirks & UFS_DEVICE_QUIRK_VCC_OFF_DELAY))
+		goto out;
 
 	if (ufshcd_is_ufs_dev_poweroff(hba) && ufshcd_is_link_off(hba) &&
 	    !hba->dev_info.is_lu_power_on_wp) {
@@ -9081,7 +9139,11 @@ static int ufshcd_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	ufshcd_set_reg_state(hba, UFS_REG_SUSPEND_SET_LPM); /* MTK PATCH */
 	ufshcd_vreg_set_lpm(hba);
 
-	if (hba->dev_quirks & UFS_DEVICE_QUIRK_VCC_OFF_DELAY)
+	/*
+	 * Some device need VCC off delay and host can provide this delay
+	 */
+	if (!(hba->quirks & UFSHCD_QUIRK_UFS_VCC_ALWAYS_ON) &&
+	    (hba->dev_quirks & UFS_DEVICE_QUIRK_VCC_OFF_DELAY))
 		mdelay(5);
 
 disable_clks:

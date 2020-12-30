@@ -566,6 +566,14 @@ struct ufs_stats {
 	struct ufs_err_reg_hist perf_warn;
 };
 
+/* UFSHCD states */
+enum {
+	UFSHCD_STATE_RESET,
+	UFSHCD_STATE_ERROR,
+	UFSHCD_STATE_OPERATIONAL,
+	UFSHCD_STATE_EH_SCHEDULED,
+};
+
 /* MTK PATCH UFS Host Controller debug print bitmask */
 #define UFSHCD_DBG_PRINT_CLK_FREQ_EN		UFS_BIT(0)
 #define UFSHCD_DBG_PRINT_UIC_ERR_HIST_EN	UFS_BIT(1)
@@ -752,6 +760,12 @@ struct ufs_hba {
 	#define UFSHCD_QUIRK_BROKEN_UFS_HCI_VERSION		UFS_BIT(5)
 
 	/*
+	 * This quirk needs to be enabled if we apply performance heuristic
+	 * to UFS host.
+	 */
+	#define UFSHCD_QUIRK_UFS_HCI_PERF_HEURISTIC		UFS_BIT(6)
+
+	/*
 	 * This quirk needs to be enabled if the host contoller regards
 	 * resolution of the values of PRDTO and PRDTL in UTRD as byte.
 	 */
@@ -778,11 +792,16 @@ struct ufs_hba {
 	 */
 	#define UFSHCD_QUIRK_UFS_HCI_DISABLE_AH8_BEFORE_RDB	UFS_BIT(10)
 
-    /*
+	/*
 	 * This quirk needs to be enabled if the host controller advertises
 	 * inline encryption support but it doesn't work correctly.
 	 */
 	#define UFSHCD_QUIRK_BROKEN_CRYPTO			UFS_BIT(11)
+
+	/*
+	 * This quirk needs to be enabled if VCC drop slow
+	 */
+	#define UFSHCD_QUIRK_UFS_VCC_ALWAYS_ON			UFS_BIT(12)
 
 	unsigned int quirks;	/* Deviations from standard UFSHCI spec. */
 
