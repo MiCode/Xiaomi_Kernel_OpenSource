@@ -18,10 +18,10 @@
 #include <linux/clk.h>
 #include "mtk_ram_console.h"
 
-#define MT_GPUFREQ_BRINGUP                      0
-#define MT_GPUFREQ_KICKER_PBM_READY             1
-#define MT_GPUFREQ_STATIC_PWR_READY2USE         1
-#define MT_GPUFREQ_DYNAMIC_POWER_TABLE_UPDATE   1
+#define MT_GPUFREQ_BRINGUP                      1
+#define MT_GPUFREQ_KICKER_PBM_READY             0
+#define MT_GPUFREQ_STATIC_PWR_READY2USE         0
+#define MT_GPUFREQ_DYNAMIC_POWER_TABLE_UPDATE   0
 
 #define GPUFERQ_TAG	"[GPU/DVFS] "
 #define gpufreq_pr_info(fmt, args...)	pr_info(GPUFERQ_TAG fmt, ##args)
@@ -65,7 +65,9 @@ do {							\
 
 #define MFG2_SHADER_STACK0         (T0C0)
 #define MFG3_SHADER_STACK2         (T2C0)
-#define MT_GPU_SHADER_PRESENT_2    (T0C0 | T2C0)
+#define MFG4_SHADER_STACK4         (T4C0)
+#define MFG5_SHADER_STACK6         (T6C0)
+#define MT_GPU_SHADER_PRESENT_4    (T0C0 | T2C0 | T4C0 | T6C0)
 
 struct mt_gpufreq_power_table_info {
 	unsigned int gpufreq_khz;
