@@ -45,6 +45,11 @@
 #define DISABLE_DLPT_FEATURE
 #endif /* defined(CONFIG_MTK_DISABLE_GAUGE) */
 
+#if !defined(DISABLE_LOW_BATTERY_PROTECT)
+//TODO: enable for new PT operation
+//#define LOW_BATTERY_PT_SETTING_V2
+#endif
+
 #define POWER_UVLO_VOLT_LEVEL 2600
 #define IMAX_MAX_VALUE 5500
 

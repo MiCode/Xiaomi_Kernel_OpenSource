@@ -23,9 +23,13 @@ static void md_pt_low_battery_cb(enum LOW_BATTERY_LEVEL_TAG level)
 	unsigned int md_throttle_cmd = 0;
 	int ret = 0, intensity = 0;
 
+#ifdef LOW_BATTERY_PT_SETTING_V2
+	if (level <= LOW_BATTERY_LEVEL_3 &&
+		level >= LOW_BATTERY_LEVEL_0) {
+#else
 	if (level <= LOW_BATTERY_LEVEL_2 &&
 		level >= LOW_BATTERY_LEVEL_0) {
-
+#endif
 		if (level != LOW_BATTERY_LEVEL_0)
 			intensity = LBAT_REDUCE_TX_POWER;
 
