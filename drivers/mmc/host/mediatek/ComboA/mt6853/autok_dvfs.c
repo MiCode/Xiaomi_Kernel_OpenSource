@@ -934,11 +934,12 @@ int sd_runtime_autok_merge(struct msdc_host *host)
 #ifdef EMMC_RUNTIME_AUTOK_MERGE
 int emmc_runtime_autok_merge(u32 opcode)
 {
+	int ret = 0;
 #if !defined(FPGA_PLATFORM)
 	struct msdc_host *host = mtk_msdc_host[0];
 	void __iomem *base;
 	int merge_result, merge_mode, merge_window;
-	int i, ret = 0;
+	int i;
 
 	if (!(host->mmc->caps2 & MMC_CAP2_HS400_1_8V)
 	 && !(host->mmc->caps2 & MMC_CAP2_HS200_1_8V_SDR)) {
