@@ -932,7 +932,7 @@ int cnss_pci_prevent_l1(struct device *dev)
 	}
 
 	ret = msm_pcie_prevent_l1(pci_dev);
-	if (ret) {
+	if (ret == -EIO) {
 		cnss_pr_err("Failed to prevent PCIe L1, considered as link down\n");
 		cnss_pci_link_down(dev);
 	}
