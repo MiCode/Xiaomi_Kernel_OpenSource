@@ -1477,7 +1477,7 @@ static unsigned int eemg_vmin_init(void)
 {
 	int vmin_idx = (get_devinfo_with_index(209) >> 9) & 3;
 
-	return vmin_idx == 0x2 ? 0x20 : 0x1C;
+	return vmin_idx == 0x2 ? 0x20 : vmin_idx == 0x1 ? 0x24 : 0x1C;
 }
 
 static void eemg_init_det(struct eemg_det *det, struct eemg_devinfo *devinfo)
