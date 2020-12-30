@@ -189,8 +189,8 @@ static int dbg_repo_proc_show(struct seq_file *m, void *v)
 			ch = ':';	/* timestamp */
 		else
 			ch = '.';
-			seq_printf(m, "%4d%c%08x%c",
-				i, ch, repo[i], i % 4 == 3 ? '\n' : ' ');
+		seq_printf(m, "%4d%c%08x%c",
+			i, ch, repo[i], i % 4 == 3 ? '\n' : ' ');
 	}
 
 	return 0;
