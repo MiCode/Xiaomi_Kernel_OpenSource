@@ -552,6 +552,9 @@ static const struct of_device_id pmif_match_table[] = {
 		.compatible = "mediatek,mt6853-pmif-p",
 		.data = &mt6xxx_pmif_p_arb,
 	}, {
+		.compatible = "mediatek,mt6877-pmif-m",
+		.data = &mt6xxx_pmif_m_arb_v2,
+	}, {
 		.compatible = "mediatek,mt6885-pmif",
 		.data = &mt6xxx_pmif_arb,
 	}, {

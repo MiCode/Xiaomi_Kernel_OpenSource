@@ -1969,6 +1969,10 @@ int spmi_pmif_dbg_init(struct spmi_controller *ctrl)
 				    "mediatek,mt6853-pmif-p")) {
 		arb->dbgregs = mt6853_pmif_dbg_regs;
 		arb->dbgver = 2;
+	} else if (of_device_is_compatible(ctrl->dev.parent->of_node,
+				    "mediatek,mt6877-pmif-m")) {
+		arb->dbgregs = mt6833_pmif_dbg_regs;
+		arb->dbgver = 2;
 	} else {
 		arb->dbgregs = mt6xxx_pmif_dbg_regs;
 		arb->dbgver = 1;
