@@ -121,7 +121,7 @@ static struct eemg_det *id_to_eemg_det(enum eemg_det_id id)
 
 static int get_devinfo(struct platform_device *pdev)
 {
-	int ret = 1, i = 0, j = 0;
+	int ret = 1, i = 0;
 	int *val;
 	unsigned int safeEfuse = 0;
 	struct nvmem_device *nvmem_dev;
@@ -321,6 +321,9 @@ int tscpu_get_temp_by_bank(enum thermal_bank_name ts_bank)
 			total += temperature;
 		}
 		total /= 2;
+		break;
+	default:
+		/* un-handled cases */
 		break;
 	}
 	return total;
@@ -1412,11 +1415,12 @@ static void eemg_init_det(struct eemg_det *det, struct eemg_devinfo *devinfo,
 		det->ops->get_freq_table_gpu(det, h_det->max_freq_khz, l_det->max_freq_khz);
 	}
 
-	if (gpu_2line && det_id == EEMG_DET_GPU_HI)
+	if (gpu_2line && det_id == EEMG_DET_GPU_HI) {
 		if (det->turn_pt != 0)
 			gpu_final_init02_flag |= BIT(det_id);
 		else
 			det->features = 0;
+	}
 
 	eemg_debug("END init_det %s, turn_pt:%d\n",
 		det->name, det->turn_pt);
@@ -1786,7 +1790,7 @@ static inline void handle_init02_isr(struct eemg_det *det)
 static inline void handle_init_err_isr(struct eemg_det *det)
 {
 	int i;
-	int *val = (int *)&eemg_devinfo;
+	/* int *val = (int *)&eemg_devinfo; */
 
 	FUNC_ENTER(FUNC_LV_LOCAL);
 	eemg_error("====================================================\n");
@@ -2391,8 +2395,6 @@ void mt_eemg_opp_status(enum eemg_det_id id, unsigned int *temp,
 {
 	struct eemg_det *det = id_to_eemg_det(id);
 	int i = 0;
-	struct thermal_zone_device *zone_0, *zone_1;
-	int temperature_1 = 0, temperature_0 = 0, ret_0 = 0, ret_1 = 0;
 
 	FUNC_ENTER(FUNC_LV_API);
 
