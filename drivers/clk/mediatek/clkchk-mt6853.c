@@ -649,7 +649,15 @@ static u32 get_vf_num(void)
 
 static int get_vcore_opp(void)
 {
-	return get_sw_req_vcore_opp();
+	int opp;
+
+	opp = get_sw_req_vcore_opp();
+#if defined(CONFIG_MTK_DVFSRC_MT6877_PRETEST)
+	if (opp >= 1)
+		opp = opp - 1;
+#endif
+
+	return opp;
 }
 
 /*
