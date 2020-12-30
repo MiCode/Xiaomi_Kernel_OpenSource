@@ -155,7 +155,6 @@ static void LC898212XD_init(void)
 
 	unsigned short HallMinCheck = 0;
 	unsigned short HallMaxCheck = 0;
-	unsigned short HallCheck = 0;
 
 	g_SelectEEPROM = 1;
 
