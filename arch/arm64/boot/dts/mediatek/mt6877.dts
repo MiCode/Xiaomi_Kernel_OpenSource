@@ -16,6 +16,9 @@
 #include <generated/autoconf.h>
 /dts-v1/;
 #include <dt-bindings/clock/mt6877-clk.h>
+#include <dt-bindings/iio/mt635x-auxadc.h>
+#include <dt-bindings/mfd/mt6315-irq.h>
+#include <dt-bindings/mfd/mt6359-irq.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/memory/mt6877-larb-port.h>
@@ -369,6 +372,17 @@
 	pwrap@1000d000 {
 		compatible = "mediatek,pwrap";
 		reg = <0 0x1000d000 0 0x1000>;
+
+		main_pmic: mt6359-pmic {
+			compatible = "mediatek,mt6359-pmic";
+			interrupt-parent = <&pio>;
+			interrupts = <122 IRQ_TYPE_LEVEL_HIGH 122 0>;
+			status = "okay";
+
+			pmic_oc_debug: pmic-oc-debug {
+				compatible = "mediatek,pmic-oc-debug";
+			};
+		};
 	};
 
 	devapc_ao_infra_peri@1000e000 {
@@ -2594,5 +2608,6 @@
 	};
 };
 
+#include "mediatek/mt6359p.dtsi"
 #include "mediatek/cust_mt6877_msdc.dtsi"
 #include "mediatek/mt6877-clkitg.dtsi"
