@@ -6039,7 +6039,7 @@ int msm_pcie_prevent_l1(struct pci_dev *pci_dev)
 			 "RC%d: PCIE Link is already disabled\n",
 			 pcie_dev->rc_idx);
 		mutex_unlock(&pcie_dev->setup_lock);
-		return -EIO;
+		return -EACCES;
 	}
 
 	if (pcie_dev->prevent_l1++) {
