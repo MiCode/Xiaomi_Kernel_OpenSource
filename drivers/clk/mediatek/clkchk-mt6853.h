@@ -11,10 +11,10 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __DRV_CLKDBG_MT6758_H
-#define __DRV_CLKDBG_MT6758_H
+#ifndef __DRV_CLKCHK_MT6853_H
+#define __DRV_CLKCHK_MT6853_H
 
-enum dbg_sys_id {
+enum chk_sys_id {
 	topckgen,
 	infracfg_ao,
 	scpsys,
@@ -46,19 +46,20 @@ enum dbg_sys_id {
 	vdecsys,
 	infracfg_dbg,
 	infrapdn_dbg,
-	dbg_sys_num,
+	chk_sys_num,
 };
 
-extern void subsys_if_on(void);
+extern const char * const *get_mt6853_all_clk_names(void);
+extern struct regbase *get_mt6853_all_reg_bases(void);
+extern struct regname *get_mt6853_all_reg_names(void);
 
 /*ram console api*/
 #ifdef CONFIG_MTK_RAM_CONSOLE
 extern void aee_rr_rec_clk(int id, u32 val);
 #endif
 
-extern const char * const *get_mt6853_all_clk_names(void);
 extern void print_enabled_clks_once(void);
-extern void print_subsys_reg(enum dbg_sys_id id);
+extern void print_subsys_reg(enum chk_sys_id id);
 extern int get_sw_req_vcore_opp(void);
 
-#endif	/* __DRV_CLKDBG_MT6758_H */
+#endif	/* __DRV_CLKCHK_MT6853_H */

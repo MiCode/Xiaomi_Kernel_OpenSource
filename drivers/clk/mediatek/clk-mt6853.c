@@ -24,7 +24,6 @@
 #include "clk-mtk.h"
 #include "clk-mux.h"
 #include "clk-gate.h"
-#include "clkdbg-mt6853.h"
 
 #include <dt-bindings/clock/mt6853-clk.h>
 

@@ -32,6 +32,7 @@
 #include <linux/version.h>
 
 #include "clkdbg.h"
+#include "clkchk.h"
 
 #if defined(CONFIG_PM_DEBUG)
 #define CLKDBG_PM_DOMAIN	1
@@ -230,16 +231,6 @@ static void setup_provider_clk(struct provider_clk *pvdck)
 		return;
 
 	clkdbg_ops->setup_provider_clk(pvdck);
-}
-
-static bool is_valid_reg(void __iomem *addr)
-{
-#ifdef CONFIG_64BIT
-	return ((u64)addr & 0xf0000000) != 0UL ||
-			(((u64)addr >> 32U) & 0xf0000000) != 0UL;
-#else
-	return ((u32)addr & 0xf0000000) != 0U;
-#endif
 }
 
 enum clkdbg_opt {

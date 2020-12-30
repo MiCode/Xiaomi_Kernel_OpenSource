@@ -34,22 +34,6 @@ struct fmeter_clk {
 	u32 pdn;
 };
 
-struct regbase {
-	u32 phys;
-	void __iomem *virt;
-	const char *name;
-	const char *pg;
-};
-
-struct regname {
-	struct regbase *base;
-	u32 ofs;
-	const char *name;
-};
-
-#define ADDR(rn)	(rn->base->virt + rn->ofs)
-#define PHYSADDR(rn)	(rn->base->phys + rn->ofs)
-
 struct cmd_fn {
 	const char	*cmd;
 	int (*fn)(struct seq_file *s, void *v);

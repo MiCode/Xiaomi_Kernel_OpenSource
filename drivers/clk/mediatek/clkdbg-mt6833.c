@@ -23,6 +23,7 @@
 #include <clk-mux.h>
 #include "clkdbg.h"
 #include "clkdbg-mt6833.h"
+#include "clkchk.h"
 #include "clk-fmeter.h"
 
 #define DUMP_INIT_STATE		0
@@ -57,16 +58,16 @@ static struct regbase rb[] = {
 	[apuc]    = REGBASE_V(0x19020000, apuc, "PG_VPU"),
 	[audio]    = REGBASE_V(0x11210000, audio, "PG_AUDIO"),
 	[mfgsys]   = REGBASE_V(0x13fbf000, mfgsys, "PG_MFG5"),
-	[mmsys]    = REGBASE_V(0x14116000, mmsys, "PG_DIS"),
+	[mmsys]    = REGBASE_V(0x14000000, mmsys, "PG_DIS"),
 	[mdpsys]    = REGBASE_V(0x1F000000, mdpsys, "PG_DIS"),
 	[img1sys]   = REGBASE_V(0x15020000, img1sys, "PG_ISP"),
 	[img2sys]   = REGBASE_V(0x15820000, img2sys, "PG_ISP2"),
 	[i2c_c] = REGBASE_V(0x11007000, i2c_c, "i2c_sel"),
-	[i2c_e] = REGBASE_V(0x11cb1000, i2c_e, NULL),
-	[i2c_n] = REGBASE_V(0x11f01000, i2c_n, NULL),
-	[i2c_s] = REGBASE_V(0x11d04000, i2c_s, NULL),
-	[i2c_w] = REGBASE_V(0x11e01000, i2c_w, NULL),
-	[i2c_ws] = REGBASE_V(0x11d23000, i2c_ws, NULL),
+	[i2c_e] = REGBASE_V(0x11cb1000, i2c_e, "i2c_sel"),
+	[i2c_n] = REGBASE_V(0x11f01000, i2c_n, "i2c_sel"),
+	[i2c_s] = REGBASE_V(0x11d04000, i2c_s, "i2c_sel"),
+	[i2c_w] = REGBASE_V(0x11e01000, i2c_w, "i2c_sel"),
+	[i2c_ws] = REGBASE_V(0x11d23000, i2c_ws, "i2c_sel"),
 	[infracfg] = REGBASE_V(0x1020E000, infracfg, NULL),
 	[ipesys]   = REGBASE_V(0x1b000000, ipesys, "PG_IPE"),
 	[camsys]   = REGBASE_V(0x1a000000, camsys, "PG_CAM"),
@@ -663,16 +664,6 @@ subsys_initcall(clkdbg_mt6833_init);
 /*
  * MT6833: for mtcmos debug
  */
-static bool is_valid_reg(void __iomem *addr)
-{
-#ifdef CONFIG_64BIT
-	return ((u64)addr & 0xf0000000) != 0UL ||
-			(((u64)addr >> 32U) & 0xf0000000) != 0UL;
-#else
-	return ((u32)addr & 0xf0000000) != 0U;
-#endif
-}
-
 void print_subsys_reg(enum dbg_sys_id id)
 {
 	struct regbase *rb_dump;

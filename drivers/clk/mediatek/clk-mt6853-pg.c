@@ -28,7 +28,8 @@
 
 #include "clk-mtk-v1.h"
 #include "clk-mt6853-pg.h"
-#include "clkdbg-mt6853.h"
+#include "clkchk.h"
+#include "clkchk-mt6853.h"
 
 #include <dt-bindings/clock/mt6853-clk.h>
 
@@ -778,7 +779,7 @@ static void ram_console_update(void)
 
 		log_dump = true;
 
-		print_enabled_clks_once();
+		dump_enabled_clks_once();
 
 		for (i = 0; i < ARRAY_SIZE(data); i++)
 			pr_notice("%s: data[%i]=%08x\n", __func__, i, data[i]);
@@ -4420,7 +4421,6 @@ static int disable_subsys(enum subsys_id id, enum mtcmos_op action)
 		 * to be off. (Could do nothing here for early porting)
 		 */
 		mtk_check_subsys_swcg(id);
-
 		r = sys->ops->disable(sys);
 	}
 
