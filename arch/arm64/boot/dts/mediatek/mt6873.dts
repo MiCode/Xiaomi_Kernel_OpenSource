@@ -581,6 +581,11 @@
 		};
 	};
 
+	charger_cooler: charger-cooler {
+		compatible = "mediatek,mt6360-charger-cooler";
+		#cooling-cells = <2>;
+	};
+
 	thermal_zones: thermal-zones {
 		ap_ntc: ap_ntc {
 			polling-delay = <1000>; /* milliseconds */
@@ -588,10 +593,22 @@
 			thermal-sensors = <&tboard_thermistor1>;
 
 			trips {
+				ap_ntc_target: ap_ntc_trip@0 {
+					temperature = <50000>;
+					hysteresis = <2000>;
+					type = "passive";
+				};
 				ap_ntc_crit: ap_ntc_crit@0 {
 					temperature = <100000>;
 					hysteresis = <2000>;
 					type = "critical";
+				};
+			};
+			cooling-maps {
+				map0 {
+					trip = <&ap_ntc_target>;
+					cooling-device = <&charger_cooler
+						THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
 				};
 			};
 		};
