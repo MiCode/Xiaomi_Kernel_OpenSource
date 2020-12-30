@@ -38,7 +38,7 @@
 LIST_HEAD(hmp_domains);
 
 #define SCHED_FEAT(name, enabled)	\
-	__SCHED_FEAT_##name,
+	[__SCHED_FEAT_##name] = {0},
 
 struct static_key sched_feat_keys[__SCHED_FEAT_NR] = {
 #include "features.h"
@@ -458,7 +458,6 @@ int idle_cpu(int cpu)
 static void rwsem_stop_turbo_inherit(struct rw_semaphore *sem)
 {
 	unsigned long flags;
-	struct task_struct *ts;
 
 	raw_spin_lock_irqsave(&sem->wait_lock, flags);
 	if ((struct task_struct *)&(sem)->android_vendor_data1 == current) {
