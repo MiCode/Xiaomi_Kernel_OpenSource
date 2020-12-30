@@ -256,7 +256,6 @@ static void enable_all_sensing_points(struct lvts_data *lvts_data)
 
 static void set_polling_speed(struct lvts_data *lvts_data, int tc_id)
 {
-	struct device *dev = lvts_data->dev;
 	struct tc_settings *tc = lvts_data->tc;
 	unsigned int lvtsMonCtl1, lvtsMonCtl2;
 	void __iomem *base;
@@ -298,7 +297,6 @@ static void set_polling_speed(struct lvts_data *lvts_data, int tc_id)
 
 static void set_hw_filter(struct lvts_data *lvts_data, int tc_id)
 {
-	struct device *dev = lvts_data->dev;
 	struct tc_settings *tc = lvts_data->tc;
 	unsigned int option;
 	void __iomem *base;
@@ -388,7 +386,6 @@ static void enable_hw_reboot_interrupt(struct lvts_data *lvts_data, int tc_id)
 static void set_tc_hw_reboot_threshold(struct lvts_data *lvts_data,
 	int trip_point, int tc_id)
 {
-	struct device *dev = lvts_data->dev;
 	struct tc_settings *tc = lvts_data->tc;
 	unsigned int msr_raw, temp, config, ts_name, d_index;
 	void __iomem *base;
@@ -986,7 +983,6 @@ static void set_calibration_data_v4(struct lvts_data *lvts_data)
 
 static void init_controller_v4(struct lvts_data *lvts_data)
 {
-	struct device *dev = lvts_data->dev;
 	unsigned int i;
 	void __iomem *base;
 
