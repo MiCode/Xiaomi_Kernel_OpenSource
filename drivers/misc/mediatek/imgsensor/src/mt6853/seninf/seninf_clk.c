@@ -347,7 +347,6 @@ int seninf_clk_set(struct SENINF_CLK *pclk,
 void seninf_clk_open(struct SENINF_CLK *pclk)
 {
 	MINT32 i = 0;
-	MINT32 j = 0;
 
 	PK_DBG("open\n");
 	if (atomic_inc_return(&pclk->wakelock_cnt) == 1) {
