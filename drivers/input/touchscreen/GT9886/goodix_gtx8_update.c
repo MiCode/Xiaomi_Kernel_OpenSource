@@ -1509,9 +1509,3 @@ int goodix_fwu_module_init(void *data)
 	ts_info("run goodix_fwu_module\n");
 	return goodix_register_ext_module(&goodix_fwu_module);
 }
-
-static void goodix_fwu_module_exit(void)
-{
-	;
-}
-

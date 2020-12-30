@@ -1915,7 +1915,7 @@ static int goodix_touch_handler(struct goodix_ts_device *dev,
 	struct goodix_touch_data *touch_data = &ts_event->event_data.touch_data;
 	struct goodix_ts_coords *coords = &(touch_data->coords[0]);
 	int max_touch_num = dev->board_data->panel_max_id;
-	unsigned char buffer[4 + BYTES_PER_COORD * max_touch_num];
+	unsigned char buffer[4 + BYTES_PER_COORD * GOODIX_MAX_TOUCH];
 	unsigned char coord_sta;
 	int touch_num = 0, i;
 	int r = 0;
