@@ -18,6 +18,8 @@ ifeq ($(CONFIG_MACH_MT6833),y)
     platform = mt6833
 else ifeq ($(CONFIG_MACH_MT6893),y)
     platform = mt6893
+else ifeq ($(CONFIG_MACH_MT6877),y)
+    platform = mt6877
 else
     platform = $(subst ",,$(CONFIG_MTK_PLATFORM))
 endif
