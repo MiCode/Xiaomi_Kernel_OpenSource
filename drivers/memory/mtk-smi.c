@@ -212,9 +212,10 @@ static void mtk_smi_clk_disable(const struct mtk_smi *smi)
 int mtk_smi_larb_get(struct device *larbdev)
 {
 	struct mtk_smi_larb *larb = dev_get_drvdata(larbdev);
+	int ret;
 
 	larb->larb_ref_count[larb->larbid]++;
-	int ret = pm_runtime_get_sync(larbdev);
+	ret = pm_runtime_get_sync(larbdev);
 	if (ret < 0)
 		larb->larb_ref_count[larb->larbid]--;
 
