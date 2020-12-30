@@ -1821,7 +1821,7 @@ struct reclaim_param reclaim_task_nomap(struct task_struct *task,
 		goto out;
 	down_read(&mm->mmap_sem);
 
-	proc_reclaim_notify(task_tgid_nr(task), (void *)&rp);
+	proc_reclaim_notify((unsigned long)task_pid(task), (void *)&rp);
 
 	up_read(&mm->mmap_sem);
 	mmput(mm);
