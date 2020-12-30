@@ -25,6 +25,10 @@
 #define INV_OFS			-1
 #define INV_BIT			-1
 
+/* get spm power status struct to register inside clk_data */
+static struct pwr_status mdp_pwr_stat = GATE_PWR_STAT(0xEF0,
+		0xEF4, INV_OFS, BIT(18), BIT(18));
+
 static const struct mtk_gate_regs mdp0_cg_regs = {
 	.set_ofs = 0x104,
 	.clr_ofs = 0x108,
@@ -44,6 +48,7 @@ static const struct mtk_gate_regs mdp1_cg_regs = {
 		.regs = &mdp0_cg_regs,			\
 		.shift = _shift,			\
 		.ops = &mtk_clk_gate_ops_setclr,	\
+		.pwr_stat = &mdp_pwr_stat,			\
 	}
 
 #define GATE_MDP1(_id, _name, _parent, _shift) {	\
@@ -53,6 +58,7 @@ static const struct mtk_gate_regs mdp1_cg_regs = {
 		.regs = &mdp1_cg_regs,			\
 		.shift = _shift,			\
 		.ops = &mtk_clk_gate_ops_setclr,	\
+		.pwr_stat = &mdp_pwr_stat,			\
 	}
 
 static const struct mtk_gate mdp_clks[] = {
@@ -129,7 +135,7 @@ static int clk_mt6877_mdp_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id of_match_clk_mt6877_mdp[] = {
-	{ .compatible = "mediatek,mt6877-mdpsys_config", },
+	{ .compatible = "mediatek,mt6877-mdpsys", },
 	{}
 };
 

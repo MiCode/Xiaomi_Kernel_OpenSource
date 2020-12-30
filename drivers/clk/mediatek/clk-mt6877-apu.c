@@ -436,6 +436,9 @@ static const struct of_device_id of_match_clk_mt6877_apu[] = {
 		.compatible = "mediatek,mt6877-apu1",
 		.data = clk_mt6877_apu1_probe,
 	}, {
+		.compatible = "mediatek,mt6877-apusys_vcore",
+		.data = clk_mt6877_apuv_probe,
+	}, {
 		.compatible = "mediatek,mt6877-apu_conn1",
 		.data = clk_mt6877_apu_conn1_probe,
 	}, {

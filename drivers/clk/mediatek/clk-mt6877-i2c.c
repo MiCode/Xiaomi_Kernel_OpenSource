@@ -26,6 +26,10 @@
 #define INV_OFS			-1
 #define INV_BIT			-1
 
+/* get spm power status struct to register inside clk_data */
+static struct pwr_status pwr_stat = GATE_PWR_STAT(INV_OFS, INV_OFS,
+		0x00b0, BIT(15), 0);
+
 static const struct mtk_gate_regs impc_cg_regs = {
 	.set_ofs = 0xe08,
 	.clr_ofs = 0xe04,
@@ -39,6 +43,7 @@ static const struct mtk_gate_regs impc_cg_regs = {
 		.regs = &impc_cg_regs,			\
 		.shift = _shift,			\
 		.ops = &mtk_clk_gate_ops_setclr,	\
+		.pwr_stat = &pwr_stat,			\
 	}
 
 static const struct mtk_gate impc_clks[] = {
@@ -61,6 +66,7 @@ static const struct mtk_gate_regs impe_cg_regs = {
 		.regs = &impe_cg_regs,			\
 		.shift = _shift,			\
 		.ops = &mtk_clk_gate_ops_setclr,	\
+		.pwr_stat = &pwr_stat,			\
 	}
 
 static const struct mtk_gate impe_clks[] = {
@@ -81,6 +87,7 @@ static const struct mtk_gate_regs impn_cg_regs = {
 		.regs = &impn_cg_regs,			\
 		.shift = _shift,			\
 		.ops = &mtk_clk_gate_ops_setclr,	\
+		.pwr_stat = &pwr_stat,			\
 	}
 
 static const struct mtk_gate impn_clks[] = {
@@ -101,6 +108,7 @@ static const struct mtk_gate_regs imps_cg_regs = {
 		.regs = &imps_cg_regs,			\
 		.shift = _shift,			\
 		.ops = &mtk_clk_gate_ops_setclr,	\
+		.pwr_stat = &pwr_stat,			\
 	}
 
 static const struct mtk_gate imps_clks[] = {
@@ -127,6 +135,7 @@ static const struct mtk_gate_regs impw_cg_regs = {
 		.regs = &impw_cg_regs,			\
 		.shift = _shift,			\
 		.ops = &mtk_clk_gate_ops_setclr,	\
+		.pwr_stat = &pwr_stat,			\
 	}
 
 static const struct mtk_gate impw_clks[] = {
@@ -147,6 +156,7 @@ static const struct mtk_gate_regs impws_cg_regs = {
 		.regs = &impws_cg_regs,			\
 		.shift = _shift,			\
 		.ops = &mtk_clk_gate_ops_setclr,	\
+		.pwr_stat = &pwr_stat,			\
 	}
 
 static const struct mtk_gate impws_clks[] = {

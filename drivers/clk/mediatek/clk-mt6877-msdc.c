@@ -172,6 +172,9 @@ static int clk_mt6877_msdc1_top_probe(struct platform_device *pdev)
 
 static const struct of_device_id of_match_clk_mt6877_msdc[] = {
 	{
+		.compatible = "mediatek,mt6877-msdc0",
+		.data = clk_mt6877_msdc0_probe,
+	}, {
 		.compatible = "mediatek,mt6877-msdc0_top",
 		.data = clk_mt6877_msdc0_top_probe,
 	}, {

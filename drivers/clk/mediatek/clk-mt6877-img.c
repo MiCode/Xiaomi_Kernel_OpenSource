@@ -26,6 +26,10 @@
 #define INV_OFS			-1
 #define INV_BIT			-1
 
+/* get spm power status struct to register inside clk_data */
+static struct pwr_status imgsys1_pwr_stat = GATE_PWR_STAT(0xEF0,
+		0xEF4, INV_OFS, BIT(9), BIT(9));
+
 static const struct mtk_gate_regs imgsys1_cg_regs = {
 	.set_ofs = 0x4,
 	.clr_ofs = 0x8,
@@ -39,6 +43,7 @@ static const struct mtk_gate_regs imgsys1_cg_regs = {
 		.regs = &imgsys1_cg_regs,			\
 		.shift = _shift,			\
 		.ops = &mtk_clk_gate_ops_setclr,	\
+		.pwr_stat = &imgsys1_pwr_stat,			\
 	}
 
 static const struct mtk_gate imgsys1_clks[] = {
@@ -51,6 +56,10 @@ static const struct mtk_gate imgsys1_clks[] = {
 	GATE_IMGSYS1(CLK_IMGSYS1_GALS, "imgsys1_gals",
 			"img1_ck"/* parent */, 12),
 };
+
+/* get spm power status struct to register inside clk_data */
+static struct pwr_status imgsys2_pwr_stat = GATE_PWR_STAT(0xEF0,
+		0xEF4, INV_OFS, BIT(10), BIT(10));
 
 static const struct mtk_gate_regs imgsys2_cg_regs = {
 	.set_ofs = 0x4,
@@ -65,6 +74,7 @@ static const struct mtk_gate_regs imgsys2_cg_regs = {
 		.regs = &imgsys2_cg_regs,			\
 		.shift = _shift,			\
 		.ops = &mtk_clk_gate_ops_setclr,	\
+		.pwr_stat = &imgsys2_pwr_stat,			\
 	}
 
 static const struct mtk_gate imgsys2_clks[] = {

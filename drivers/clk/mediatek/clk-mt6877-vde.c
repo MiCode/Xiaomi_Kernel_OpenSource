@@ -26,6 +26,10 @@
 #define INV_OFS			-1
 #define INV_BIT			-1
 
+/* get spm power status struct to register inside clk_data */
+static struct pwr_status vde2_pwr_stat = GATE_PWR_STAT(0xEF0,
+		0xEF4, INV_OFS, BIT(12), BIT(12));
+
 static const struct mtk_gate_regs vde20_cg_regs = {
 	.set_ofs = 0x0,
 	.clr_ofs = 0x4,
@@ -51,6 +55,7 @@ static const struct mtk_gate_regs vde22_cg_regs = {
 		.regs = &vde20_cg_regs,			\
 		.shift = _shift,			\
 		.ops = &mtk_clk_gate_ops_setclr_inv,	\
+		.pwr_stat = &vde2_pwr_stat,			\
 	}
 
 #define GATE_VDE21(_id, _name, _parent, _shift) {	\
@@ -60,6 +65,7 @@ static const struct mtk_gate_regs vde22_cg_regs = {
 		.regs = &vde21_cg_regs,			\
 		.shift = _shift,			\
 		.ops = &mtk_clk_gate_ops_setclr_inv,	\
+		.pwr_stat = &vde2_pwr_stat,			\
 	}
 
 #define GATE_VDE22(_id, _name, _parent, _shift) {	\
@@ -69,6 +75,7 @@ static const struct mtk_gate_regs vde22_cg_regs = {
 		.regs = &vde22_cg_regs,			\
 		.shift = _shift,			\
 		.ops = &mtk_clk_gate_ops_setclr_inv,	\
+		.pwr_stat = &vde2_pwr_stat,			\
 	}
 
 static const struct mtk_gate vde2_clks[] = {
