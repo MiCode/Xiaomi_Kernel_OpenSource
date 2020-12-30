@@ -157,7 +157,31 @@ struct ulposc_cali_t ulposc_cfg[MAX_ULPOSC_CALI_NUM] = {
 		.fmeter_id = FREQ_METER_ABIST_AD_OSC_CK_2,
 	},
 };
-#else /* CONFIG_MACH_MT6833 */
+#elif defined(CONFIG_MACH_MT6877)
+struct ulposc_cali_t ulposc_cfg[MAX_ULPOSC_CALI_NUM] = {
+	{
+		.freq = CLK_OPP0,
+		.ulposc_rg0 = 0x48a940,
+		.ulposc_rg1 = 0x2900,
+		.ulposc_rg2 = 0x41,
+		.fmeter_id = FREQ_METER_ABIST_AD_OSC_CK_2,
+	},
+	{
+		.freq = CLK_OPP1,
+		.ulposc_rg0 = 0x56a940,
+		.ulposc_rg1 = 0x2900,
+		.ulposc_rg2 = 0x41,
+		.fmeter_id = FREQ_METER_ABIST_AD_OSC_CK_2,
+	},
+	{
+		.freq = CLK_OPP2,
+		.ulposc_rg0 = 0x5ea940,
+		.ulposc_rg1 = 0x2900,
+		.ulposc_rg2 = 0x41,
+		.fmeter_id = FREQ_METER_ABIST_AD_OSC_CK_2,
+	},
+};
+#else /* !defined(CONFIG_MACH_MT6833) && !defined(CONFIG_MACH_MT6877) */
 struct ulposc_cali_t ulposc_cfg[MAX_ULPOSC_CALI_NUM] = {
 	{
 		.freq = CLK_OPP0,

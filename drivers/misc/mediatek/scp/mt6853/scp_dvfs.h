@@ -41,8 +41,13 @@ enum scp_state_enum {
 
 enum clk_opp_enum {
 	CLK_26M	 = 26,
+#if defined(CONFIG_MACH_MT6877)
+	CLK_OPP0 = 310,
+	CLK_OPP1 = 360,
+#else /* !defined(CONFIG_MACH_MT6877) */
 	CLK_OPP0 = 250,
 	CLK_OPP1 = 330,
+#endif /* defined(CONFIG_MACH_MT6877) */
 	CLK_OPP2 = 400,
 	CLK_OPP3 = 624,
 	CLK_UNINIT = 0xffff,
