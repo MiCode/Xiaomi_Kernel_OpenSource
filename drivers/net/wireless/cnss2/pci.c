@@ -31,8 +31,9 @@
 
 #define PCI_BAR_NUM			0
 
-#define PCI_DMA_MASK_32_BIT		32
-#define PCI_DMA_MASK_64_BIT		64
+#define PCI_DMA_MASK_32_BIT		DMA_BIT_MASK(32)
+#define PCI_DMA_MASK_36_BIT		DMA_BIT_MASK(36)
+#define PCI_DMA_MASK_64_BIT		DMA_BIT_MASK(64)
 
 #define MHI_NODE_NAME			"qcom,mhi"
 #define MHI_MSI_NAME			"MHI"
@@ -694,6 +695,7 @@ static int cnss_pci_get_link_status(struct cnss_pci_data *pci_priv)
 	pci_priv->def_link_speed = link_status & PCI_EXP_LNKSTA_CLS;
 	pci_priv->def_link_width =
 		(link_status & PCI_EXP_LNKSTA_NLW) >> PCI_EXP_LNKSTA_NLW_SHIFT;
+	pci_priv->cur_link_speed = pci_priv->def_link_speed;
 
 	cnss_pr_dbg("Default PCI link speed is 0x%x, link width is 0x%x\n",
 		    pci_priv->def_link_speed, pci_priv->def_link_width);
@@ -705,6 +707,7 @@ static int cnss_set_pci_link_status(struct cnss_pci_data *pci_priv,
 				    enum pci_link_status status)
 {
 	u16 link_speed, link_width;
+	int ret;
 
 	cnss_pr_vdbg("Set PCI link status to: %u\n", status);
 
@@ -730,8 +733,12 @@ static int cnss_set_pci_link_status(struct cnss_pci_data *pci_priv,
 		return -EINVAL;
 	}
 
-	return msm_pcie_set_link_bandwidth(pci_priv->pci_dev,
-					   link_speed, link_width);
+	ret = msm_pcie_set_link_bandwidth(pci_priv->pci_dev,
+					  link_speed, link_width);
+	if (!ret)
+		pci_priv->cur_link_speed = link_speed;
+
+	return ret;
 }
 
 static int cnss_set_pci_link(struct cnss_pci_data *pci_priv, bool link_up)
@@ -750,9 +757,12 @@ static int cnss_set_pci_link(struct cnss_pci_data *pci_priv, bool link_up)
 		if (pci_priv->drv_connected_last) {
 			cnss_pr_vdbg("Use PCIe DRV suspend\n");
 			pm_ops = MSM_PCIE_DRV_SUSPEND;
-			if (pci_priv->device_id != QCA6390_DEVICE_ID &&
-			    pci_priv->device_id != QCA6490_DEVICE_ID)
-				cnss_set_pci_link_status(pci_priv, PCI_GEN1);
+			/* Since DRV suspend cannot be done in Gen 3, set it to
+			 * Gen 2 if current link speed is larger than Gen 2.
+			 */
+			if (pci_priv->cur_link_speed >
+			    PCI_EXP_LNKSTA_CLS_5_0GB)
+				cnss_set_pci_link_status(pci_priv, PCI_GEN2);
 		} else {
 			pm_ops = MSM_PCIE_SUSPEND;
 		}
@@ -4059,7 +4069,6 @@ static int cnss_pci_enable_bus(struct cnss_pci_data *pci_priv)
 	int ret = 0;
 	struct pci_dev *pci_dev = pci_priv->pci_dev;
 	u16 device_id;
-	u32 pci_dma_mask = PCI_DMA_MASK_64_BIT;
 
 	pci_read_config_word(pci_dev, PCI_DEVICE_ID, &device_id);
 	if (device_id != pci_priv->pci_device_id->device)  {
@@ -4087,20 +4096,31 @@ static int cnss_pci_enable_bus(struct cnss_pci_data *pci_priv)
 		goto disable_device;
 	}
 
-	if (device_id == QCA6174_DEVICE_ID)
-		pci_dma_mask = PCI_DMA_MASK_32_BIT;
+	switch (device_id) {
+	case QCA6174_DEVICE_ID:
+		pci_priv->dma_bit_mask = PCI_DMA_MASK_32_BIT;
+		break;
+	case QCA6390_DEVICE_ID:
+	case QCA6490_DEVICE_ID:
+		pci_priv->dma_bit_mask = PCI_DMA_MASK_36_BIT;
+		break;
+	default:
+		pci_priv->dma_bit_mask = PCI_DMA_MASK_64_BIT;
+		break;
+	}
 
-	ret = pci_set_dma_mask(pci_dev, DMA_BIT_MASK(pci_dma_mask));
+	cnss_pr_dbg("Set PCI DMA MASK (0x%llx)\n", pci_priv->dma_bit_mask);
+
+	ret = pci_set_dma_mask(pci_dev, pci_priv->dma_bit_mask);
 	if (ret) {
-		cnss_pr_err("Failed to set PCI DMA mask (%d), err = %d\n",
-			    ret, pci_dma_mask);
+		cnss_pr_err("Failed to set PCI DMA mask, err = %d\n", ret);
 		goto release_region;
 	}
 
-	ret = pci_set_consistent_dma_mask(pci_dev, DMA_BIT_MASK(pci_dma_mask));
+	ret = pci_set_consistent_dma_mask(pci_dev, pci_priv->dma_bit_mask);
 	if (ret) {
-		cnss_pr_err("Failed to set PCI consistent DMA mask (%d), err = %d\n",
-			    ret, pci_dma_mask);
+		cnss_pr_err("Failed to set PCI consistent DMA mask, err = %d\n",
+			    ret);
 		goto release_region;
 	}
 
@@ -4867,7 +4887,7 @@ static int cnss_pci_register_mhi(struct cnss_pci_data *pci_priv)
 					pci_priv->smmu_iova_len;
 	} else {
 		mhi_ctrl->iova_start = 0;
-		mhi_ctrl->iova_stop = UINT_MAX;
+		mhi_ctrl->iova_stop = pci_priv->dma_bit_mask;
 	}
 
 	mhi_ctrl->link_status = cnss_mhi_link_status;
