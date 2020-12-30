@@ -1011,6 +1011,11 @@ int xhci_suspend(struct xhci_hcd *xhci, bool do_wakeup)
 			xhci->shared_hcd->state != HC_STATE_SUSPENDED)
 		return -EINVAL;
 
+	/* If XHCI is already suspended , then return */
+	if ((!test_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags) ||
+			!test_bit(HCD_FLAG_HW_ACCESSIBLE, &xhci->shared_hcd->flags)))
+		return 0;
+
 	xhci_dbc_suspend(xhci);
 
 	/* Clear root port wake on bits if wakeup not allowed. */
