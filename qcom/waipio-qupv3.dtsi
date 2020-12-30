@@ -38,6 +38,7 @@
 		qcom,iommu-dma-addr-pool = <0x40000000 0x10000000>;
 		qcom,iommu-geometry = <0x40000000 0x10000000>;
 		qcom,iommu-dma = "fastmap";
+		dma-coherent;
 		status = "ok";
 	};
 
@@ -391,6 +392,7 @@
 		qcom,iommu-dma-addr-pool = <0x40000000 0x10000000>;
 		qcom,iommu-geometry = <0x40000000 0x10000000>;
 		qcom,iommu-dma = "fastmap";
+		dma-coherent;
 		status = "ok";
 	};
 
@@ -727,6 +729,7 @@
 		qcom,iommu-dma-addr-pool = <0x40000000 0x10000000>;
 		qcom,iommu-geometry = <0x40000000 0x10000000>;
 		qcom,iommu-dma = "fastmap";
+		dma-coherent;
 		status = "ok";
 	};
 
