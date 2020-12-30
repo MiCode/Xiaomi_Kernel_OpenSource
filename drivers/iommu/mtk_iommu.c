@@ -584,7 +584,6 @@ static void mtk_iommu_iotlb_sync(struct iommu_domain *domain,
 static void mtk_iommu_sync_map(struct iommu_domain *domain, unsigned long iova,
 			       size_t size)
 {
-	struct mtk_iommu_domain *dom = to_mtk_domain(domain);
 	struct mtk_iommu_data *data = mtk_iommu_get_m4u_data();
 
 	mtk_iommu_tlb_flush_range_sync(iova, size, size, data);
