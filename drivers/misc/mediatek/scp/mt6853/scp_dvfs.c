@@ -302,9 +302,64 @@ uint32_t scp_get_freq(void)
 	return return_freq;
 }
 
+#if defined(CONFIG_MACH_MT6877) && !defined(CONFIG_FPGA_EARLY_PORTING)
+static int scp_set_pmic_vcore(unsigned int clk_freq)
+{
+	int ret = 0;
+	unsigned int ret_vc = 0;
+	int get_vcore_val = 0;
+
+	if (clk_freq == CLK_OPP0) {
+		get_vcore_val = get_vcore_uv_table(VCORE_OPP_4);
+	} else if (clk_freq == CLK_OPP1) {
+		get_vcore_val = get_vcore_uv_table(VCORE_OPP_3);
+	} else if (clk_freq == CLK_OPP2) {
+		get_vcore_val = get_vcore_uv_table(VCORE_OPP_2);
+	} else if (clk_freq == CLK_OPP3) {
+		get_vcore_val = get_vcore_uv_table(VCORE_OPP_1);
+	} else {
+		return = -ENODEV;
+		pr_err("ERROR: %s: clk_freq=%d is not supported\n",
+			__func__, clk_freq);
+	}
+
+	if (get_vcore_val != 0) {
+		pr_debug("get_vcore_val = %d\n", get_vcore_val);
+		ret_vc = pmic_scp_set_vcore(get_vcore_val);
+	} else {
+		pr_err("ERROR: %s: get_vcore_uv_table(%d) fail\n",
+			__func__, clk_freq);
+		WARN_ON(1);
+	}
+
+	if (ret_vc) {
+		ret = -1;
+		pr_err("ERROR: %s: scp vcore setting error, (%d)\n",
+					__func__, ret_vc);
+		WARN_ON(1);
+	}
+
+#if SCP_VOW_LOW_POWER_MODE
+	if (clk_freq == CLK_OPP0 || clk_freq == CLK_OPP1) {
+		/* enable VOW low power mode */
+		pmic_buck_vgpu11_lp(SRCLKEN11, 0, 1, HW_LP);
+	} else {
+		/* disable VOW low power mode */
+		pmic_buck_vgpu11_lp(SRCLKEN11, 0, 1, HW_OFF);
+	}
+#endif /* SCP_VOW_LOW_POWER_MODE */
+
+	return ret;
+}
+#endif /* defined(CONFIG_MACH_MT6877) && !defined(CONFIG_FPGA_EARLY_PORTING) */
+
 void scp_vcore_request(unsigned int clk_opp)
 {
 	pr_debug("%s(%d)\n", __func__, clk_opp);
+
+#if defined(CONFIG_MACH_MT6877) && !defined(CONFIG_FPGA_EARLY_PORTING)
+	scp_set_pmic_vcore(clk_opp);
+#endif /* defined(CONFIG_MACH_MT6877) && !defined(CONFIG_FPGA_EARLY_PORTING) */
 
 #if SCP_VCORE_REQ_TO_DVFSRC
 	/* DVFSRC_VCORE_REQUEST [31:30]
@@ -321,22 +376,27 @@ void scp_vcore_request(unsigned int clk_opp)
 		pm_qos_update_request(&dvfsrc_scp_vcore_req, 0x2);
 	else
 		pm_qos_update_request(&dvfsrc_scp_vcore_req, 0x3);
-#endif
+#endif /* SCP_VCORE_REQ_TO_DVFSRC */
 
-	/* SCP to SPM voltage level
-	 * 2'b0000_0000_1000: scp request 0.55v
-	 * 2'b0001_0000_0100: scp request 0.6v
-	 * 2'b0010_0000_0010: scp request 0.65v
-	 * 2'b0011_0000_0001: scp request 0.725v
-	 */
+#if !defined(CONFIG_MACH_MT6877) && !defined(CONFIG_MTK_DVFSRC_MT6877_PRETEST)
 	if (clk_opp == CLK_OPP0)
-		DRV_WriteReg32(SCP_SCP2SPM_VOL_LV, 0x8);
+		DRV_WriteReg32(SCP_SCP2SPM_VOL_LV, 0x008);
 	else if (clk_opp == CLK_OPP1)
 		DRV_WriteReg32(SCP_SCP2SPM_VOL_LV, 0x104);
 	else if (clk_opp == CLK_OPP2)
 		DRV_WriteReg32(SCP_SCP2SPM_VOL_LV, 0x202);
 	else
 		DRV_WriteReg32(SCP_SCP2SPM_VOL_LV, 0x301);
+#else
+	if (clk_opp == CLK_OPP0)
+		DRV_WriteReg32(SCP_SCP2SPM_VOL_LV, 0x010);
+	else if (clk_opp == CLK_OPP1)
+		DRV_WriteReg32(SCP_SCP2SPM_VOL_LV, 0x108);
+	else if (clk_opp == CLK_OPP2)
+		DRV_WriteReg32(SCP_SCP2SPM_VOL_LV, 0x204);
+	else
+		DRV_WriteReg32(SCP_SCP2SPM_VOL_LV, 0x302);
+#endif
 }
 
 /* scp_request_freq
@@ -1345,12 +1405,34 @@ static struct platform_driver mt_scp_dvfs_pdrv = {
  ***********************************/
 void mt_pmic_sshub_init(void)
 {
+#if !defined(CONFIG_FPGA_EARLY_PORTING)
+#if !defined(CONFIG_MACH_MT6877)
 	pmic_buck_vcore_lp(SRCLKEN11, 0, 1, HW_OFF);
 
 	pr_debug("BUCK_VCORE_HW11_OP: MODE=0x%x, CFG=0x%x, EN=0x%x\n",
 		(int)pmic_get_register_value(PMIC_RG_BUCK_VCORE_HW11_OP_MODE),
 		(int)pmic_get_register_value(PMIC_RG_BUCK_VCORE_HW11_OP_CFG),
 		(int)pmic_get_register_value(PMIC_RG_BUCK_VCORE_HW11_OP_EN));
+#else /* defined(CONFIG_MACH_MT6877) */
+	/* set SCP VCORE voltage */
+	if (pmic_scp_set_vcore(550000) != 0)
+		pr_notice("Set wrong vcore voltage\n");
+
+#if SCP_VOW_LOW_POWER_MODE
+	/* enable VOW low power mode */
+	pmic_buck_vgpu11_lp(SRCLKEN11, 0, 1, HW_LP);
+#else /* !SCP_VOW_LOW_POWER_MODE */
+	/* disable VOW low power mode */
+	pmic_buck_vgpu11_lp(SRCLKEN11, 0, 1, HW_OFF);
+#endif /* SCP_VOW_LOW_POWER_MODE */
+
+	/* BUCK_VCORE_SSHUB_EN: ON */
+	/* LDO_VSRAM_OTHERS_SSHUB_EN: OFF */
+	/* pmrc_mode: OFF */
+	pmic_scp_ctrl_enable(true, false, false);
+
+#endif /* !defined(CONFIG_MACH_MT6877) */
+#endif /* !defined(CONFIG_FPGA_EARLY_PORTING) */
 }
 
 #ifdef CONFIG_PM
