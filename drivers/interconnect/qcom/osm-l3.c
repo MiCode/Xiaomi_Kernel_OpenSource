@@ -90,25 +90,22 @@ const static struct qcom_icc_desc sdm845_icc_osm_l3 = {
 	.num_nodes = ARRAY_SIZE(sdm845_osm_l3_nodes),
 };
 
-DEFINE_QNODE(sm8150_osm_apps_l3, OSM_MASTER_L3_APPS, 1,
-		OSM_SLAVE_L3, OSM_SLAVE_L3_CLUSTER0,
-		OSM_SLAVE_L3_CLUSTER1, OSM_SLAVE_L3_CLUSTER2,
-		OSM_SLAVE_L3_MISC, OSM_SLAVE_L3_GPU);
-DEFINE_QNODE(sm8150_osm_l3, OSM_SLAVE_L3, 1);
-DEFINE_QNODE(sm8150_osm_l3_cluster0, OSM_SLAVE_L3_CLUSTER0, 1);
-DEFINE_QNODE(sm8150_osm_l3_cluster1, OSM_SLAVE_L3_CLUSTER1, 1);
-DEFINE_QNODE(sm8150_osm_l3_cluster2, OSM_SLAVE_L3_CLUSTER2, 1);
-DEFINE_QNODE(sm8150_osm_l3_misc, OSM_SLAVE_L3_MISC, 1);
-DEFINE_QNODE(sm8150_osm_l3_gpu, OSM_SLAVE_L3_GPU, 1);
+DEFINE_QNODE(mas_osm_l3_apps, OSM_MASTER_L3_APPS, 1,
+		OSM_SLAVE_L3_CLUSTER0, OSM_SLAVE_L3_CLUSTER1,
+		OSM_SLAVE_L3_CLUSTER2, OSM_SLAVE_L3_MISC, OSM_SLAVE_L3_GPU);
+DEFINE_QNODE(slv_osm_l3_cluster0, OSM_SLAVE_L3_CLUSTER0, 1);
+DEFINE_QNODE(slv_osm_l3_cluster1, OSM_SLAVE_L3_CLUSTER1, 1);
+DEFINE_QNODE(slv_osm_l3_cluster2, OSM_SLAVE_L3_CLUSTER2, 1);
+DEFINE_QNODE(slv_osm_l3_misc, OSM_SLAVE_L3_MISC, 1);
+DEFINE_QNODE(slv_osm_l3_gpu, OSM_SLAVE_L3_GPU, 1);
 
 static struct qcom_icc_node *sm8150_osm_l3_nodes[] = {
-	[MASTER_OSM_L3_APPS] = &sm8150_osm_apps_l3,
-	[SLAVE_OSM_L3] = &sm8150_osm_l3,
-	[SLAVE_OSM_L3_CLUSTER0] = &sm8150_osm_l3_cluster0,
-	[SLAVE_OSM_L3_CLUSTER1] = &sm8150_osm_l3_cluster1,
-	[SLAVE_OSM_L3_CLUSTER2] = &sm8150_osm_l3_cluster2,
-	[SLAVE_OSM_L3_MISC] = &sm8150_osm_l3_misc,
-	[SLAVE_OSM_L3_GPU] = &sm8150_osm_l3_gpu,
+	[MASTER_OSM_L3_APPS] = &mas_osm_l3_apps,
+	[SLAVE_OSM_L3_CLUSTER0] = &slv_osm_l3_cluster0,
+	[SLAVE_OSM_L3_CLUSTER1] = &slv_osm_l3_cluster1,
+	[SLAVE_OSM_L3_CLUSTER2] = &slv_osm_l3_cluster2,
+	[SLAVE_OSM_L3_MISC] = &slv_osm_l3_misc,
+	[SLAVE_OSM_L3_GPU] = &slv_osm_l3_gpu,
 };
 
 static const struct qcom_icc_desc sm8150_icc_osm_l3 = {
@@ -116,6 +113,23 @@ static const struct qcom_icc_desc sm8150_icc_osm_l3 = {
 	.num_nodes = ARRAY_SIZE(sm8150_osm_l3_nodes),
 };
 
+
+DEFINE_QNODE(mas_osm_l3_apps_scshrike, OSM_MASTER_L3_APPS, 1,
+		OSM_SLAVE_L3_CLUSTER0, OSM_SLAVE_L3_CLUSTER1,
+		OSM_SLAVE_L3_MISC, OSM_SLAVE_L3_GPU);
+
+static struct qcom_icc_node *scshrike_osm_l3_nodes[] = {
+	[MASTER_OSM_L3_APPS] = &mas_osm_l3_apps_scshrike,
+	[SLAVE_OSM_L3_CLUSTER0] = &slv_osm_l3_cluster0,
+	[SLAVE_OSM_L3_CLUSTER1] = &slv_osm_l3_cluster1,
+	[SLAVE_OSM_L3_MISC] = &slv_osm_l3_misc,
+	[SLAVE_OSM_L3_GPU] = &slv_osm_l3_gpu,
+};
+
+static const struct qcom_icc_desc scshrike_icc_osm_l3 = {
+	.nodes = scshrike_osm_l3_nodes,
+	.num_nodes = ARRAY_SIZE(scshrike_osm_l3_nodes),
+};
 static int qcom_icc_aggregate(struct icc_node *node, u32 tag, u32 avg_bw,
 		u32 peak_bw, u32 *agg_avg, u32 *agg_peak)
 {
@@ -256,6 +270,9 @@ static int qcom_osm_l3_probe(struct platform_device *pdev)
 	for (i = 0; i < num_nodes; i++) {
 		size_t j;
 
+		if (!qnodes[i])
+			continue;
+
 		node = icc_node_create(qnodes[i]->id);
 		if (IS_ERR(node)) {
 			ret = PTR_ERR(node);
@@ -285,6 +302,7 @@ err:
 static const struct of_device_id osm_l3_of_match[] = {
 	{ .compatible = "qcom,sdm845-osm-l3", .data = &sdm845_icc_osm_l3 },
 	{ .compatible = "qcom,sm8150-osm-l3", .data = &sm8150_icc_osm_l3 },
+	{ .compatible = "qcom,scshrike-osm-l3", .data = &scshrike_icc_osm_l3 },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, osm_l3_of_match);
