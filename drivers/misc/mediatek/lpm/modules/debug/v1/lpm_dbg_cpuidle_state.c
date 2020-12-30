@@ -204,7 +204,8 @@ static void idle_proc_state_uasge_print(char **ToUserBuf, size_t *size,
 
 	while (topology[i]->id != ALL_CPU_ID) {
 		mtk_dbg_cpuidle_log("\t         %3d -> all cluster%d CPU\n",
-					topology[i]->id, i++);
+					topology[i]->id, i);
+		i++;
 	}
 	mtk_dbg_cpuidle_log("\t         %3d -> all CPU\n",
 					topology[i]->id);
