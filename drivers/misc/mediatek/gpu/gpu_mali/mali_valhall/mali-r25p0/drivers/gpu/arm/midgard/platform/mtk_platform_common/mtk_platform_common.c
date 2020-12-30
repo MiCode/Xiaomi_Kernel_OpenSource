@@ -524,6 +524,26 @@ int mtk_set_mt_gpufreq_target(int freq_id)
 	return 0;
 }
 
+#ifdef SHADER_PWR_CTL_WA
+int mtk_set_mt_gpufreq_clock_parking(int clksrc)
+{
+	/*
+	 * This function will be called under the Interrupt-Handler,
+	 * so can't implement any mutex-lock behaviors
+	 * (that will result the sleep/schedule operations).
+	 */
+
+	int ret = 0;
+
+	if (mtk_get_vgpu_power_on_flag() == MTK_VGPU_POWER_ON)
+		ret = mt_gpufreq_clock_parking(clksrc);
+	else
+		pr_info("MALI: set clock parking at power off\n");
+
+	return ret;
+}
+#endif
+
 unsigned long mtk_get_ged_dvfs_last_commit_idx(void)
 {
 	return ged_dvfs_get_last_commit_idx();

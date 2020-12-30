@@ -45,4 +45,6 @@ ifneq (, $(findstring $(CONFIG_MTK_PLATFORM), "mt6885" "mt6873" "mt6853"))
 ccflags-y += -DGED_ENABLE_DVFS_LOADING_MODE
 endif
 
+# Enable by specific platform
+ccflags-${CONFIG_MACH_MT6853} += -DSHADER_PWR_CTL_WA
 

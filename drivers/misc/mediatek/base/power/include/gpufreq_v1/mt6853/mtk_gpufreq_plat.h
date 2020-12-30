@@ -22,6 +22,7 @@
 #define MT_GPUFREQ_KICKER_PBM_READY             1
 #define MT_GPUFREQ_STATIC_PWR_READY2USE         1
 #define MT_GPUFREQ_DYNAMIC_POWER_TABLE_UPDATE   1
+#define MT_GPUFREQ_SHADER_PWR_CTL_WA            1
 
 #define GPUFERQ_TAG	"[GPU/DVFS] "
 #define gpufreq_pr_info(fmt, args...)	pr_info(GPUFERQ_TAG fmt, ##args)
@@ -127,6 +128,9 @@ extern unsigned int mt_gpufreq_get_dvfs_table_num(void);
 extern unsigned int mt_gpufreq_get_real_dvfs_table_num(void);
 extern unsigned int mt_gpufreq_target(unsigned int request_idx,
 		enum mt_gpufreq_kicker);
+#if MT_GPUFREQ_SHADER_PWR_CTL_WA
+extern unsigned int mt_gpufreq_clock_parking(int clksrc);
+#endif
 extern unsigned int mt_gpufreq_update_volt(unsigned int pmic_volt[],
 		unsigned int array_size);
 extern unsigned int mt_gpufreq_get_freq_by_real_idx(unsigned int idx);

@@ -219,6 +219,7 @@ enum g_posdiv_power_enum  {
 enum g_clock_source_enum  {
 	CLOCK_MAIN = 0,
 	CLOCK_SUB,
+	CLOCK_SUB2,
 };
 
 enum g_limit_enable_enum  {

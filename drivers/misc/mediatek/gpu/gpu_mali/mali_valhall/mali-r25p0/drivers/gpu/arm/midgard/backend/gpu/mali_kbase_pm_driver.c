@@ -48,6 +48,10 @@
 
 #include <linux/of.h>
 
+#ifdef SHADER_PWR_CTL_WA
+#include <platform/mtk_platform_common.h>
+#endif
+
 #ifdef CONFIG_MALI_CORESTACK
 bool corestack_driver_control = true;
 #else
@@ -262,6 +266,10 @@ static void kbase_pm_invoke(struct kbase_device *kbdev,
 	u32 lo = cores & 0xFFFFFFFF;
 	u32 hi = (cores >> 32) & 0xFFFFFFFF;
 
+#ifdef SHADER_PWR_CTL_WA
+	int clksrc = 0;
+#endif
+
 	lockdep_assert_held(&kbdev->hwaccess_lock);
 
 	reg = core_type_to_reg(core_type, action);
@@ -312,6 +320,21 @@ static void kbase_pm_invoke(struct kbase_device *kbdev,
 			}
 	}
 
+#ifdef SHADER_PWR_CTL_WA
+	/*	enum g_clock_source_enum  {
+	 *	CLOCK_MAIN = 0,
+	 *	CLOCK_SUB,
+	 *	CLOCK_SUB2,
+	 *};
+	 */
+	if (core_type == KBASE_PM_CORE_SHADER &&
+		(action == ACTION_PWRON || action == ACTION_PWROFF)) {
+		//clksrc = 1;  /* CLOCK_SUB: 218.4MHz */
+		clksrc = 2;  /* CLOCK_SUB2: 26MHz */
+		mtk_set_mt_gpufreq_clock_parking(clksrc);
+	}
+#endif
+
 	if (kbase_dummy_job_wa_enabled(kbdev) &&
 	    action == ACTION_PWRON &&
 	    core_type == KBASE_PM_CORE_SHADER &&
@@ -324,6 +347,15 @@ static void kbase_pm_invoke(struct kbase_device *kbdev,
 		if (hi != 0)
 			kbase_reg_write(kbdev, GPU_CONTROL_REG(reg + 4), hi);
 	}
+
+#ifdef SHADER_PWR_CTL_WA
+	if (core_type == KBASE_PM_CORE_SHADER &&
+		(action == ACTION_PWRON || action == ACTION_PWROFF)) {
+		clksrc = 0;  /* CLOCK_MAIN: 1150MHz */
+		mtk_set_mt_gpufreq_clock_parking(clksrc);
+	}
+#endif
+
 }
 
 /**

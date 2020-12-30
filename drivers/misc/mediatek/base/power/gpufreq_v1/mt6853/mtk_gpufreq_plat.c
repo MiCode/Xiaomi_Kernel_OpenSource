@@ -36,6 +36,10 @@
 #include "mtk_gpufreq_internal.h"
 #include "mtk_gpufreq_common.h"
 
+#if MT_GPUFREQ_SHADER_PWR_CTL_WA
+#include <linux/atomic.h>
+#endif
+
 #include "clk-fmeter.h"
 
 #include "mtk_pmic_wrap.h"
@@ -204,6 +208,11 @@ static bool g_cg_on;
 static bool g_mtcmos_on;
 static bool g_buck_on;
 static bool g_fixed_freq_volt_state;
+#if MT_GPUFREQ_SHADER_PWR_CTL_WA
+static atomic_t g_under_clock_switch_state;
+static atomic_t g_under_clksrc_parking_state;
+static atomic_t g_lower_clksrc;
+#endif
 static bool g_probe_done;
 static int g_power_count;
 static unsigned int g_opp_stress_test_state;
@@ -236,6 +245,9 @@ static DEFINE_MUTEX(mt_gpufreq_lock);
 static DEFINE_MUTEX(mt_gpufreq_power_lock);
 static DEFINE_MUTEX(mt_gpufreq_limit_table_lock);
 
+#if MT_GPUFREQ_SHADER_PWR_CTL_WA
+static spinlock_t mt_gpufreq_clksrc_parking_lock;
+#endif
 static void __iomem *g_apmixed_base;
 static void __iomem *g_mfg_base;
 static void __iomem *g_infracfg_base;
@@ -249,6 +261,9 @@ static void __iomem *g_infracfg_ao;
 static void __iomem *g_dbgtop;
 static void __iomem *g_sleep;
 static void __iomem *g_toprgu;
+#if MT_GPUFREQ_SHADER_PWR_CTL_WA
+static void __iomem *g_topckgen;
+#endif
 
 unsigned int mt_gpufreq_get_shader_present(void)
 {
@@ -481,6 +496,12 @@ static unsigned int mt_gpufreq_return_by_condition(
 			g_cur_opp_vgpu == g_opp_table[limit_idx].gpufreq_vgpu)
 		ret |= (1 << 4);
 
+#if MT_GPUFREQ_SHADER_PWR_CTL_WA
+	if (atomic_read(&g_under_clksrc_parking_state) == 1 ||
+		atomic_read(&g_lower_clksrc) == 1)
+		ret |= (1 << 5);
+#endif
+
 	gpufreq_pr_logbuf("return_by_condition: 0x%x\n", ret);
 
 	return ret;
@@ -656,6 +677,85 @@ unsigned int mt_gpufreq_target(unsigned int request_idx,
 	mutex_unlock(&mt_gpufreq_lock);
 	return 0;
 }
+
+#if MT_GPUFREQ_SHADER_PWR_CTL_WA
+#define MAX_RETRY_COUNT 30
+unsigned int mt_gpufreq_clock_parking(int clksrc)
+{
+	/*
+	 * This function will be called under the Interrupt-Handler,
+	 * so can't implement any mutex-lock behaviors
+	 * (that will result the sleep/schedule operations).
+	 */
+
+	int retry_count = 0;
+
+	gpufreq_pr_logbuf("%s, clksrc: %d\n", __func__, clksrc);
+
+	spin_lock(&mt_gpufreq_clksrc_parking_lock);
+
+	while (atomic_read(&g_under_clock_switch_state) == 1 &&
+		retry_count <= MAX_RETRY_COUNT) {
+		retry_count++;
+		gpufreq_pr_logbuf("%s: retry: %d times ...\n", __func__, retry_count);
+		udelay(20);
+	}
+
+	atomic_set(&g_under_clksrc_parking_state, 1);
+
+	if (clksrc == CLOCK_MAIN) {
+		/* Switch to <&topckgen TOP_MFGPLL_CK> */
+
+		/* select mux [18] to choose mfgpll */
+		/* 0. set reg bit [18] */
+		writel(0x00040000, g_topckgen + 0x54);
+
+		atomic_set(&g_lower_clksrc, 0);
+	} else if (clksrc == CLOCK_SUB) {
+		/* Switch to <&topckgen TOP_MAINPLL_D5_D2>: 218MHz */
+
+		/* select mux [18] to choose mfg_ref */
+		/* 0. clr reg bit [18] */
+		writel(0x00040000, g_topckgen + 0x58);
+
+		/* 1. clr reg [17:16] */
+		writel(0x00030000, g_topckgen + 0x58);
+
+		/* 2. set reg [17:16] */
+		writel(0x00030000, g_topckgen + 0x54);
+
+		/* 3. update reg [18] */
+		writel(0x00040000, g_topckgen + 0x04);
+
+		atomic_set(&g_lower_clksrc, 1);
+	} else if (clksrc == CLOCK_SUB2) {
+		/* Switch to <&clk26m>: 26MHz */
+
+		/* select mux [18] to choose mfg_ref */
+		/* 0. clr reg bit [18] */
+		writel(0x00040000, g_topckgen + 0x58);
+
+		/* 1. clr reg [17:16] */
+		writel(0x00030000, g_topckgen + 0x58);
+
+		/* 2. set reg [17:16] */
+		//writel(0x00000000, g_topckgen + 0x54);
+
+		/* 3. update reg [18] */
+		writel(0x00040000, g_topckgen + 0x04);
+
+		atomic_set(&g_lower_clksrc, 1);
+	}
+
+	atomic_set(&g_under_clksrc_parking_state, 0);
+
+	spin_unlock(&mt_gpufreq_clksrc_parking_lock);
+
+	gpufreq_pr_debug("%s, clksrc: %d ... [Done]\n", __func__, clksrc);
+
+	return 0;
+}
+#endif
 
 void mt_gpufreq_set_timestamp(void)
 {
@@ -2549,6 +2649,10 @@ static void __mt_gpufreq_clock_switch(unsigned int freq_new)
 	bool parking = false;
 	int hopping = -1;
 
+#if MT_GPUFREQ_SHADER_PWR_CTL_WA
+	int retry_count = 0;
+#endif
+
 	real_posdiv_power = __mt_gpufreq_get_curr_posdiv_power();
 	posdiv_power = __mt_gpufreq_get_posdiv_power(freq_new);
 	dds = __mt_gpufreq_calculate_dds(freq_new, posdiv_power);
@@ -2562,6 +2666,18 @@ static void __mt_gpufreq_clock_switch(unsigned int freq_new)
 		parking = true;
 	else
 		parking = false;
+#endif
+
+#if MT_GPUFREQ_SHADER_PWR_CTL_WA
+	while ((atomic_read(&g_under_clksrc_parking_state) == 1 ||
+		atomic_read(&g_lower_clksrc) == 1) &&
+		retry_count <= MAX_RETRY_COUNT) {
+		retry_count++;
+		gpufreq_pr_logbuf("%s: retry: %d times ...\n", __func__, retry_count);
+		udelay(20);
+	}
+
+	atomic_set(&g_under_clock_switch_state, 1);
 #endif
 
 	if (parking) {
@@ -2585,6 +2701,10 @@ static void __mt_gpufreq_clock_switch(unsigned int freq_new)
 			gpufreq_pr_info("hopping failing: %d\n", hopping);
 #endif
 	}
+
+#if MT_GPUFREQ_SHADER_PWR_CTL_WA
+	atomic_set(&g_under_clock_switch_state, 0);
+#endif
 
 	gpufreq_pr_logbuf(
 	"posdiv: %d, real_posdiv: %d, dds: 0x%x, pll: 0x%08x, parking: %d\n",
@@ -3287,6 +3407,10 @@ static int __mt_gpufreq_init_clk(struct platform_device *pdev)
 		return PTR_ERR(g_clk->mtcmos_mfg5);
 	}
 
+#if MT_GPUFREQ_SHADER_PWR_CTL_WA
+	spin_lock_init(&mt_gpufreq_clksrc_parking_lock);
+#endif
+
 	// 0x1020E000
 	g_infracfg_base = __mt_gpufreq_of_ioremap(
 		"mediatek,infracfg", 0);
@@ -3326,6 +3450,15 @@ static int __mt_gpufreq_init_clk(struct platform_device *pdev)
 			__func__);
 		return -ENOENT;
 	}
+
+#if MT_GPUFREQ_SHADER_PWR_CTL_WA
+	// 0x10000000
+	g_topckgen = __mt_gpufreq_of_ioremap("mediatek,topckgen", 0);
+	if (!g_topckgen) {
+		gpufreq_pr_info("@%s: ioremap failed at topckgen\n", __func__);
+		return -ENOENT;
+	}
+#endif
 
 	return 0;
 }
