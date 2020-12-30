@@ -707,6 +707,8 @@ static int cnss_show_quirks_state(struct seq_file *s,
 			continue;
 		case IGNORE_PCI_LINK_FAILURE:
 			seq_puts(s, "IGNORE_PCI_LINK_FAILURE");
+		case DISABLE_TIME_SYNC:
+			seq_puts(s, "DISABLE_TIME_SYNC");
 			continue;
 		}
 

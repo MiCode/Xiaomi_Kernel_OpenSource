@@ -324,6 +324,7 @@ enum cnss_debug_quirks {
 	DISABLE_DRV,
 	DISABLE_IO_COHERENCY,
 	IGNORE_PCI_LINK_FAILURE,
+	DISABLE_TIME_SYNC,
 };
 
 enum cnss_bdf_type {

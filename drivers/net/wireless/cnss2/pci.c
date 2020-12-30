@@ -1711,6 +1711,16 @@ static void cnss_pci_time_sync_work_hdlr(struct work_struct *work)
 	unsigned int time_sync_period_ms =
 		plat_priv->ctrl_params.time_sync_period;
 
+	if (test_bit(DISABLE_TIME_SYNC, &plat_priv->ctrl_params.quirks)) {
+		cnss_pr_dbg("Time sync is disabled\n");
+		return;
+	}
+
+	if (!time_sync_period_ms) {
+		cnss_pr_dbg("Skip time sync as time period is 0\n");
+		return;
+	}
+
 	if (cnss_pci_is_device_down(&pci_priv->pci_dev->dev))
 		return;
 
