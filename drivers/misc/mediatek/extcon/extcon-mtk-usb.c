@@ -298,8 +298,6 @@ static int mtk_usb_extcon_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct mtk_extcon_info *extcon;
-	struct platform_device *conn_pdev;
-	struct device_node *conn_np;
 	int ret;
 
 	extcon = devm_kzalloc(&pdev->dev, sizeof(*extcon), GFP_KERNEL);
