@@ -84,8 +84,7 @@ static void dma_buf_release(struct dentry *dentry)
 	int dtor_ret = 0;
 
 	dmabuf = dentry->d_fsdata;
-
-	if (!dmabuf)
+	if (unlikely(!dmabuf))
 		return;
 
 	msm_dma_buf = to_msm_dma_buf(dmabuf);
