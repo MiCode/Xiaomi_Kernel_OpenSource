@@ -96,6 +96,9 @@ static int scp_dvfs_debug_flag = -1;
  */
 static int scp_resrc_req_cmd = -1;
 static int scp_resrc_current_req = -1;
+static u32 scp_slp_cnt;
+
+#define LOG_BUF_SIZE			256
 
 static int pre_pll_sel = -1;
 static struct mt_scp_pll_t *mt_scp_pll;
@@ -874,6 +877,89 @@ static ssize_t mt_scp_sleep_cnt0_proc_write(
 	return count;
 }
 
+static int __mt_scp_res_cnt0_show(struct seq_file *m)
+{
+	int ret;
+	u32 ipi_data[2];
+
+	if (!slp_ipi_init_done)
+		scp_slp_ipi_init();
+
+	ipi_data[0] = SLP_DBG_CMD_RES_ON_CNT_GET;
+	ipi_data[1] = 0;
+
+	ret = mtk_ipi_send_compl(&scp_ipidev, IPI_OUT_C_SLEEP_0,
+		IPI_SEND_WAIT, &ipi_data, PIN_OUT_C_SIZE_SLEEP_0, 500);
+	if (ret != IPI_ACTION_DONE)
+		seq_printf(m, "scp ipi fail, ret = %d\n", ret);
+
+	seq_printf(m, "scp_apsrc_on_cnt = %u\n",
+		(slp_ipi_ackdata0 >> APSRC_CNT_SHIFT) & APSRC_CNT_MASK);
+	seq_printf(m, "scp_apsrc_cur_on_sta = %u\n",
+		(slp_ipi_ackdata0 >> APSRC_ON_SHIFT) & APSRC_ON_MASK);
+	seq_printf(m, "scp_infra_on_cnt = %u\n",
+		(slp_ipi_ackdata0 >> INFRA_CNT_SHIFT) & INFRA_CNT_MASK);
+	seq_printf(m, "scp_infra_cur_on_sta = %u\n",
+		(slp_ipi_ackdata0 >> INFRA_ON_SHIFT) & INFRA_ON_MASK);
+
+	return 0;
+}
+
+static int __mt_scp_res_apsrc_on_max_time_show(struct seq_file *m)
+{
+	int ret;
+	u32 ipi_data[2];
+
+	if (!slp_ipi_init_done)
+		scp_slp_ipi_init();
+
+	ipi_data[0] = SLP_DBG_CMD_APSRC_MAX_TIME_GET;
+	ipi_data[1] = 0;
+
+	ret = mtk_ipi_send_compl(&scp_ipidev, IPI_OUT_C_SLEEP_0,
+		IPI_SEND_WAIT, &ipi_data, PIN_OUT_C_SIZE_SLEEP_0, 500);
+	if (ret != IPI_ACTION_DONE)
+		seq_printf(m, "scp ipi fail, ret = %d\n", ret);
+
+	seq_printf(m, "scp apsrc on time between polling = %ums\n",
+		slp_ipi_ackdata0);
+
+	return 0;
+}
+
+static int __mt_scp_res_infra_on_max_time_show(struct seq_file *m)
+{
+	int ret;
+	u32 ipi_data[2];
+
+	if (!slp_ipi_init_done)
+		scp_slp_ipi_init();
+
+	ipi_data[0] = SLP_DBG_CMD_INFRA_MAX_TIME_GET;
+	ipi_data[1] = 1;
+
+	ret = mtk_ipi_send_compl(&scp_ipidev, IPI_OUT_C_SLEEP_0,
+		IPI_SEND_WAIT, &ipi_data, PIN_OUT_C_SIZE_SLEEP_0, 500);
+	if (ret != IPI_ACTION_DONE)
+		seq_printf(m, "scp ipi fail, ret = %d\n", ret);
+	seq_printf(m, "scp infra on time between polling = %ums\n",
+		slp_ipi_ackdata0);
+
+	return 0;
+}
+
+/****************************
+ * show scp resource request cnt0
+ *****************************/
+static int mt_scp_res_req_cnt0_proc_show(struct seq_file *m, void *v)
+{
+	__mt_scp_res_cnt0_show(m);
+	__mt_scp_res_apsrc_on_max_time_show(m);
+	__mt_scp_res_infra_on_max_time_show(m);
+
+	return 0;
+}
+
 /****************************
  * show scp sleep block reason
  *****************************/
@@ -1023,6 +1109,7 @@ PROC_FOPS_RW(scp_sleep_ctrl0);
 PROC_FOPS_RW(scp_sleep_cnt0);
 PROC_FOPS_RO(scp_sleep_block);
 PROC_FOPS_RW(scp_resrc_req);
+PROC_FOPS_RO(scp_res_req_cnt0);
 
 static int mt_scp_dvfs_create_procfs(void)
 {
@@ -1041,6 +1128,7 @@ static int mt_scp_dvfs_create_procfs(void)
 		PROC_ENTRY(scp_sleep_cnt0),
 		PROC_ENTRY(scp_sleep_block),
 		PROC_ENTRY(scp_resrc_req),
+		PROC_ENTRY(scp_res_req_cnt0),
 	};
 
 	dir = proc_mkdir("scp_dvfs", NULL);
@@ -1474,14 +1562,44 @@ static int mt_scp_dump_sleep_count(void)
 		IPI_SEND_WAIT, &ipi_data, PIN_OUT_C_SIZE_SLEEP_0, 500);
 	if (ret != IPI_ACTION_DONE)
 		printk_deferred("[name:scp&][%s:%d] - scp ipi fail, ret = %d\\n",
-		__func__, __LINE__, ret);
-	else
-		printk_deferred("[name:scp&][%s:%d] - scp_sleep_cnt_0 = %d\n",
-		__func__, __LINE__, slp_ipi_ackdata0);
+			__func__, __LINE__, ret);
 
+	scp_slp_cnt = slp_ipi_ackdata0;
 	return 0;
 }
 
+static int mt_scp_dump_res_on_count(void)
+{
+	char log_buf[LOG_BUF_SIZE] = { 0 };
+	u32 apsrc_on_cnt;
+	u32 infra_on_cnt;
+	u32 ipi_data[2];
+	int log_size = 0;
+	int ret;
+
+	if (!slp_ipi_init_done)
+		scp_slp_ipi_init();
+
+	ipi_data[0] = SLP_DBG_CMD_RES_ON_CNT_GET;
+	ipi_data[1] = 0;
+
+	ret = mtk_ipi_send_compl(&scp_ipidev, IPI_OUT_C_SLEEP_0,
+		IPI_SEND_WAIT, &ipi_data, PIN_OUT_C_SIZE_SLEEP_0, 500);
+	if (ret != IPI_ACTION_DONE)
+		log_size += scnprintf(log_buf + log_size,
+			LOG_BUF_SIZE - log_size, " scp_src_cnt fail");
+
+	apsrc_on_cnt = ((slp_ipi_ackdata0 >> APSRC_CNT_SHIFT) & APSRC_CNT_MASK);
+	infra_on_cnt = ((slp_ipi_ackdata0 >> INFRA_CNT_SHIFT) & INFRA_CNT_MASK);
+
+	log_size += scnprintf(log_buf + log_size, LOG_BUF_SIZE - log_size,
+		"scp0 sleep state: %u,%u,%u\n",
+		scp_slp_cnt, apsrc_on_cnt, infra_on_cnt);
+
+	WARN_ON(strlen(log_buf) >= LOG_BUF_SIZE);
+	pr_info("[name:spm&][SPM] %s", log_buf);
+	return 0;
+}
 
 static int mt6873_scp_pm_event(struct notifier_block *notifier,
 			unsigned long pm_event, void *unused)
@@ -1497,6 +1615,7 @@ static int mt6873_scp_pm_event(struct notifier_block *notifier,
 	case PM_POST_SUSPEND:
 		/* show scp sleep count */
 		mt_scp_dump_sleep_count();
+		mt_scp_dump_res_on_count();
 		return NOTIFY_DONE;
 	}
 	return NOTIFY_OK;
