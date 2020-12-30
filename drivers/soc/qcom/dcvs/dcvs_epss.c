@@ -69,6 +69,8 @@ int populate_l3_table(struct device *dev, u32 **freq_table)
 	}
 
 	tmp_l3_table = kcalloc(MAX_L3_ENTRIES, sizeof(*tmp_l3_table), GFP_KERNEL);
+	if (!tmp_l3_table)
+		return -ENOMEM;
 	for (idx = 0; idx < MAX_L3_ENTRIES; idx++) {
 		data = readl_relaxed(ftbl_base + idx * ftbl_row_size);
 		src = ((data & SRC_MASK) >> SRC_SHIFT);
@@ -102,7 +104,7 @@ static int commit_epss_l3(struct dcvs_path *path, struct dcvs_freq *freqs,
 {
 	struct dcvs_hw *hw = path->hw;
 	struct epss_dev_data *d = path->data;
-	int cpu = smp_processor_id();
+	int cpu;
 	u32 idx, offset;
 
 	for (idx = 0; idx < hw->table_len; idx++)
@@ -112,8 +114,10 @@ static int commit_epss_l3(struct dcvs_path *path, struct dcvs_freq *freqs,
 	if (hw->type == DCVS_L3) {
 		if (shared)
 			offset = d->l3_shared_offset;
-		else
+		else {
+			cpu = smp_processor_id();
 			offset = d->l3_percpu_offsets[cpu];
+		}
 		writel_relaxed(idx, d->l3_base + offset);
 	}
 
@@ -142,6 +146,8 @@ static int init_epss_data(struct device *dev)
 	struct resource res;
 
 	epss_data = devm_kzalloc(dev, sizeof(*epss_data), GFP_KERNEL);
+	if (!epss_data)
+		return -ENOMEM;
 
 	idx = of_property_match_string(dev->parent->of_node, "reg-names",
 								"l3-base");
