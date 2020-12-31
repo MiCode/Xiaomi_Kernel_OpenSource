@@ -103,6 +103,8 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"gcc_usb3_pipe_clk",
 	"gcc_usb_phy_cfg_ahb_clk",
 	"gcc_xo_div4_clk",
+	"gcc_mss_q6_bimc_axi_clk",
+	"gcc_mss_cfg_ahb_clk",
 	"measure_only_bimc_clk",
 	"measure_only_ce_clk",
 	"measure_only_ipa_clk",
@@ -156,6 +158,8 @@ static int gcc_debug_mux_sels[] = {
 	0x234,		/* gcc_usb3_pipe_clk */
 	0x233,		/* gcc_usb_phy_cfg_ahb_clk */
 	0x14A,		/* gcc_xo_div4_clk */
+	0x31,		/* gcc_mss_q6_bimc_axi_clk */
+	0x30,		/* gcc_mss_cfg_ahb_clk */
 	0x155,		/* measure_only_bimc_clk */
 	0x138,		/* measure_only_ce_clk */
 	0x218,		/* measure_only_ipa_clk */
