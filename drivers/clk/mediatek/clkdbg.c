@@ -1875,10 +1875,12 @@ static int clkdbg_suspend_set_ops(struct seq_file *s, void *v)
 
 static void seq_print_reg(const struct regname *rn, void *data)
 {
-	struct generic_pm_domain *pd;
 	struct seq_file *s = data;
-	int pg = rn->base->pg;
 	bool is_pwr_on = true;
+#if CLKDBG_PM_DOMAIN
+	struct generic_pm_domain *pd;
+	int pg = rn->base->pg;
+#endif
 
 	if (!is_valid_reg(ADDR(rn)))
 		return;
