@@ -1047,13 +1047,13 @@ static int aie_config_y2r(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg, 
 	u32 img_addr;
 	u32 img_addr_UV;
 	u32 img_off;
-	u32 *yuv2rgb_cfg;
-	u32 srcbuf, srcbuf_UV;
-	u16 xmag_0, ymag_0;
-	u16 pym0_out_w;
-	u16 pym0_out_h;
-	u16 src_crop_w;
-	u16 src_crop_h;
+	u32 *yuv2rgb_cfg = 0;
+	u32 srcbuf, srcbuf_UV = 0;
+	u16 xmag_0 = 0, ymag_0 = 0;
+	u16 pym0_out_w = 0;
+	u16 pym0_out_h = 0;
+	u16 src_crop_w = 0;
+	u16 src_crop_h = 0;
 
 	if (aie_cfg->en_roi == false) {
 		img_off = 0;
@@ -1248,8 +1248,8 @@ static int aie_config_rs(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 	u16 pym_out_w[3];
 	u16 pym_out_h[3];
 	u16 round_w;
-	u16 src_crop_w;
-	u16 src_crop_h;
+	u16 src_crop_w = 0;
+	u16 src_crop_h = 0;
 	int i;
 
 	if (aie_cfg->sel_mode == 0) {
@@ -1338,8 +1338,8 @@ static int aie_config_network(struct mtk_aie_dev *fd, struct aie_enq_info *aie_c
 	u16 out_height = 0;
 	u16 out_ysize_plus_1;
 	u16 out_ysize_plus_1_stride2;
-	u32 src_crop_w;
-	u32 src_crop_h;
+	u32 src_crop_w = 0;
+	u32 src_crop_h = 0;
 	struct aie_static_info *pstv;
 
 	pstv = &fd->st_info;
