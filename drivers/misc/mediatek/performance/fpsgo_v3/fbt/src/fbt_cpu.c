@@ -2546,16 +2546,21 @@ void fpsgo_base2fbt_cancel_jerk(struct render_info *thr)
 	}
 }
 
+#ifdef CONFIG_MTK_OPP_CAP_INFO
 static int cmp_uint(const void *a, const void *b)
 {
 	return *(unsigned int *)b - *(unsigned int *)a;
 }
+#endif
 
 static void fbt_update_pwd_tbl(void)
 {
-	int cpu, cluster = 0, opp;
 	unsigned long long max_cap = 0ULL;
+	int cluster = 0;
+#ifdef CONFIG_MTK_OPP_CAP_INFO
+	int cpu, opp;
 	struct cpufreq_policy *policy;
+#endif
 
 
 #ifdef CONFIG_MTK_OPP_CAP_INFO
