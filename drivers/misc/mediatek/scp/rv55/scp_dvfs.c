@@ -831,7 +831,7 @@ static ssize_t mt_scp_dvfs_sleep_proc_write(
 	}
 	if (!strcmp(cmd, "sleep")) {
 		if (slp_cmd < SCP_SLEEP_OFF
-				&& slp_cmd > SCP_SLEEP_NO_CONDITION) {
+				|| slp_cmd > SCP_SLEEP_NO_CONDITION) {
 			pr_info("[%s]: invalid slp cmd: %d\n",
 				__func__, slp_cmd);
 			return -ESCP_DVFS_DBG_INVALID_CMD;
