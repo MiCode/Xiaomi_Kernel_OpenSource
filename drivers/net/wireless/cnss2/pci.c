@@ -2462,6 +2462,12 @@ int cnss_wlan_register_driver(struct cnss_wlan_driver *driver_ops)
 		return -EEXIST;
 	}
 
+	if (!driver_ops->id_table || !pci_dev_present(driver_ops->id_table)) {
+		cnss_pr_err("PCIe device id is %x, not supported by platform\n",
+			    pci_priv->device_id);
+		return -ENODEV;
+	}
+
 	if (!plat_priv->cbc_enabled ||
 	    test_bit(CNSS_COLD_BOOT_CAL_DONE, &plat_priv->driver_state))
 		goto register_driver;
