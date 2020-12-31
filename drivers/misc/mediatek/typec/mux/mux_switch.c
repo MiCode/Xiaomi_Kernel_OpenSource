@@ -130,6 +130,7 @@ static ssize_t mux_store(struct device *dev,
 	struct typec_mux_switch *mux_sw =
 		(struct typec_mux_switch *)dev->driver_data;
 	u32 tmp;
+	struct typec_mux_state state = { 0 };
 
 	if (kstrtouint(buf, 0, &tmp))
 		return -EINVAL;
@@ -140,7 +141,8 @@ static ssize_t mux_store(struct device *dev,
 		return count;
 	}
 
-	mtk_typec_mux_set(mux_sw->mux, tmp);
+	state.mode = tmp;
+	mtk_typec_mux_set(mux_sw->mux, &state);
 
 	return count;
 }
