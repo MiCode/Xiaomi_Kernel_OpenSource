@@ -99,7 +99,9 @@ static void apu_mdla_restore_default_opp(struct work_struct *work)
 		container_of(work, struct apu_regulator, deffer_work);
 	struct apu_dev *ad = dev_get_drvdata(dst->dev);
 	struct apu_clk_ops *clk_ops = ad->aclk->ops;
+#ifdef CONFIG_DEBUG_LOCK_ALLOC
 	struct apu_gov_data *pgov_data = ad->df->data;
+#endif
 	ulong rate = 0, volt = 0;
 
 	/* try to restore default voltage for MDLA */
