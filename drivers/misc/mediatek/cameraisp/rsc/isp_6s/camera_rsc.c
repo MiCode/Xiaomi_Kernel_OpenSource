@@ -1845,8 +1845,6 @@ static signed int RSC_WaitIrq(struct RSC_WAIT_IRQ_STRUCT *WaitIrq)
 	unsigned int irqStatus;
 	/*int cnt = 0;*/
 	struct timespec64 time_getrequest;
-	unsigned long long sec = 0;
-	unsigned long usec = 0;
 
 	ktime_get_ts64(&time_getrequest);
 
