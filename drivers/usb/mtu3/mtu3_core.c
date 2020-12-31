@@ -376,6 +376,8 @@ void mtu3_start(struct mtu3 *mtu)
 
 	mtu3_clrbits(mtu->ippc_base, U3D_SSUSB_IP_PW_CTRL2, SSUSB_IP_DEV_PDN);
 
+	if (0)
+		mtu3_csr_init(mtu);
 	/* Initialize the device capability */
 	mtu3_regs_init(mtu);
 
