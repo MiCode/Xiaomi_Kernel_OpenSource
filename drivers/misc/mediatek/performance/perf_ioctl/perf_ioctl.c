@@ -269,6 +269,7 @@ unlock_and_return:
 }
 
 static const struct proc_ops eara_Fops = {
+	.proc_ioctl = eara_ioctl,
 	.proc_compat_ioctl = eara_compat_ioctl,
 	.proc_open = eara_open,
 	.proc_read = seq_read,
