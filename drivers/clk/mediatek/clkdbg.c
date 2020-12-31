@@ -1791,14 +1791,11 @@ static int clkdbg_dump_suspend_clks_3(struct seq_file *s, void *v)
 
 static int clkdbg_dump_suspend_clks(struct seq_file *s, void *v)
 {
-	if (has_clkdbg_flag(CLKDBG_EN_SUSPEND_SAVE_3) &&
-			save_point_3.spm_pwr_status != 0U)
+	if (has_clkdbg_flag(CLKDBG_EN_SUSPEND_SAVE_3))
 		return clkdbg_dump_suspend_clks_3(s, v);
-	else if (has_clkdbg_flag(CLKDBG_EN_SUSPEND_SAVE_2) &&
-			save_point_2.spm_pwr_status != 0U)
+	else if (has_clkdbg_flag(CLKDBG_EN_SUSPEND_SAVE_2))
 		return clkdbg_dump_suspend_clks_2(s, v);
-	else if (has_clkdbg_flag(CLKDBG_EN_SUSPEND_SAVE_1) &&
-			save_point_1.spm_pwr_status != 0U)
+	else if (has_clkdbg_flag(CLKDBG_EN_SUSPEND_SAVE_1))
 		return clkdbg_dump_suspend_clks_1(s, v);
 
 	return 0;
