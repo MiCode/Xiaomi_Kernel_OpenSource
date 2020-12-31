@@ -182,6 +182,27 @@ const char *ccf_state(struct clk_hw *hw)
 	return "disabled";
 }
 
+static bool clk_chk_pwr_is_on(int *pwr_status,
+		struct provider_clk *pvdck)
+{
+	if (!pvdck || !pvdck->pwr_mask)
+		return false;
+
+	if (pvdck->sta_type == PWR_STA) {
+		if ((pwr_status[PWR_STA] & pvdck->pwr_mask) != pvdck->pwr_mask ||
+				(pwr_status[PWR_STA2] & pvdck->pwr_mask) != pvdck->pwr_mask)
+			return false;
+		else if ((pwr_status[PWR_STA] & pvdck->pwr_mask) == pvdck->pwr_mask &&
+				(pwr_status[PWR_STA2] & pvdck->pwr_mask) == pvdck->pwr_mask)
+			return true;
+	} else if (pvdck->sta_type == OTHER_STA) {
+		if ((pwr_status[OTHER_STA] & pvdck->pwr_mask) == pvdck->pwr_mask)
+			return true;
+	}
+
+	return false;
+}
+
 static void dump_enabled_clks(struct clk_hw *c_hw)
 {
 	const char * const *pll_names;
@@ -292,14 +313,6 @@ static bool is_pll_chk_bug_on(void)
  * clkchk vf table checking
  */
 
-static struct mtk_vf *clkchk_get_vf_table(void)
-{
-	if (clkchk_ops == NULL || clkchk_ops->get_vf_table == NULL)
-		return NULL;
-
-	return clkchk_ops->get_vf_table();
-}
-
 static int get_vcore_opp(void)
 {
 	if (clkchk_ops == NULL || clkchk_ops->get_vcore_opp == NULL)
@@ -308,20 +321,19 @@ static int get_vcore_opp(void)
 	return clkchk_ops->get_vcore_opp();
 }
 
-void warn_vcore(int opp, const char *clk_name, int rate, int id)
+static void warn_vcore(int opp, const char *clk_name, int rate, int id)
 {
-	struct mtk_vf *vf_table;
-	int freq;
+	int vf_opp;
 
-	vf_table = clkchk_get_vf_table();
-	if (!vf_table)
+	if (!clkchk_ops || !clkchk_ops->get_vf_opp)
 		return;
 
-	freq = vf_table->freq_table[id];
-
-	if ((opp >= 0) && (id >= 0) && (freq > 0) && ((rate/1000) > freq)) {
+	vf_opp = clkchk_ops->get_vf_opp(id, opp);
+	if ((opp >= 0) && (id >= 0) && (vf_opp > 0) &&
+			((rate/1000) > vf_opp)) {
 		pr_notice("%s Choose %d FAIL!!!![MAX(%d/%d): %d]\r\n",
-				clk_name, rate/1000, id, opp, freq);
+				clk_name, rate/1000, id, opp,
+				vf_opp);
 
 		BUG_ON(1);
 	}
@@ -329,19 +341,14 @@ void warn_vcore(int opp, const char *clk_name, int rate, int id)
 
 static int mtk_mux2id(const char **mux_name)
 {
-	struct mtk_vf *vf_table = clkchk_get_vf_table();
 	int i = 0;
 
-	if (!vf_table)
+	if (!clkchk_ops || !clkchk_ops->get_vf_name
+			|| !clkchk_ops->get_vf_num)
 		return -EINVAL;
 
-	for (; vf_table->name != NULL; vf_table++, i++) {
-		const char *name = vf_table->name;
-
-		if (!name)
-			continue;
-
-		if (strcmp(*mux_name, name) == 0)
+	for (i = 0; clkchk_ops->get_vf_num(); i++) {
+		if (strcmp(*mux_name, clkchk_ops->get_vf_name(i)) == 0)
 			return i;
 	}
 
@@ -372,31 +379,25 @@ static struct notifier_block mtk_clk_notifier = {
 	.notifier_call = mtk_clk_rate_change,
 };
 
-int mtk_clk_check_muxes(void)
+static void mtk_clk_check_muxes(void)
 {
-	struct mtk_vf *vf_table;
 	struct clk *clk;
+	int i;
 
-	if (clkchk_ops == NULL || clkchk_ops->get_vf_table == NULL
-			|| clkchk_ops->get_vcore_opp == NULL)
-		return -EINVAL;
+	if (!clkchk_ops || !clkchk_ops->get_vf_name
+			|| !clkchk_ops->get_vf_num)
+		return;
 
-	vf_table = clkchk_ops->get_vf_table();
-	if (vf_table == NULL)
-		return -EINVAL;
-
-	for (; vf_table->name != NULL; vf_table++) {
-		const char *name = vf_table->name;
+	for (i = 0; i < clkchk_ops->get_vf_num(); i++) {
+		const char *name = clkchk_ops->get_vf_name(i);
 
 		if (!name)
 			continue;
-		pr_notice("name: %s\n", name);
 
+		pr_notice("name: %s\n", name);
 		clk = __clk_chk_lookup(name);
 		clk_notifier_register(clk, &mtk_clk_notifier);
 	}
-
-	return 0;
 }
 
 static int clk_chk_probe(struct platform_device *pdev)
@@ -410,12 +411,21 @@ static int clk_chk_probe(struct platform_device *pdev)
 static int clk_chk_dev_pm_suspend(struct device *dev)
 {
 	struct provider_clk *pvdck = get_all_provider_clks();
+	int *pwr_stat;
+
+	if (!clkchk_ops || !clkchk_ops->get_pwr_stat)
+		return 0;
+
+	pwr_stat = clkchk_ops->get_pwr_stat();
+	if (IS_ERR_OR_NULL(pwr_stat))
+		return 0;
 
 	if (check_pll_off()) {
 		for (; pvdck->ck != NULL; pvdck++) {
 			struct clk_hw *c_hw = __clk_get_hw(pvdck->ck);
 
-			dump_enabled_clks(c_hw);
+			if (clk_chk_pwr_is_on(pwr_stat, pvdck))
+				dump_enabled_clks(c_hw);
 		}
 
 		if (is_pll_chk_bug_on())

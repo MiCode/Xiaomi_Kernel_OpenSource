@@ -12,8 +12,8 @@
 
 #include <dt-bindings/power/mt6853-power.h>
 
-#ifdef CONFIG_MTK_DEVAPC
-#include <mt-plat/devapc_public.h>
+#if IS_ENABLED(CONFIG_MTK_DEVAPC)
+#include <linux/soc/mediatek/devapc_public.h>
 #endif
 
 #include "clkchk.h"
@@ -313,6 +313,15 @@ static struct pvd_msk *get_pvd_pwr_mask(void)
  * clkchk vf table
  */
 
+#define MTK_VF_TABLE(_n, _freq0, _freq1, _freq2, _freq3) {		\
+		.name = _n,		\
+		.freq_table = {_freq0, _freq1, _freq2, _freq3},	\
+	}
+
+struct mtk_vf {
+	const char *name;
+	int freq_table[4];
+};
 /*
  * Opp0 : 0p725v
  * Opp1 : 0p65v
@@ -379,16 +388,22 @@ static struct mtk_vf vf_table[] = {
 	{},
 };
 
-static struct mtk_vf *get_vf_table(void)
+static const char *get_vf_name(int id)
 {
-#if CHECK_VCORE_FREQ
-	return vf_table;
-#else
-	return NULL;
-#endif
+	return vf_table[id].name;
 }
 
-#ifdef CONFIG_MTK_DEVAPC
+static int get_vf_opp(int id, int opp)
+{
+	return vf_table[id].freq_table[opp];
+}
+
+static u32 get_vf_num(void)
+{
+	return ARRAY_SIZE(vf_table) - 1;
+}
+
+#if IS_ENABLED(CONFIG_MTK_DEVAPC)
 /*
  * MT6853: for devapc debug
  */
@@ -411,7 +426,7 @@ void print_subsys_reg(enum chk_sys_id id)
 	if (rns == NULL)
 		return;
 
-	if (id >= dbg_sys_num || id < 0) {
+	if (id >= chk_sys_num || id < 0) {
 		pr_info("wrong id:%d\n", id);
 		return;
 	}
@@ -487,11 +502,31 @@ static bool is_pll_chk_bug_on(void)
 
 static int get_vcore_opp(void)
 {
-#ifdef CONFIG_MTK_DVFSRC_HELPER
+#if IS_ENABLED(CONFIG_MTK_DVFSRC_HELPER)
 	return get_sw_req_vcore_opp();
 #else
 	return VCORE_NULL;
 #endif
+}
+
+static int pwr_stat[STA_NUM];
+
+static int *get_pwr_status(void)
+{
+	const struct regname *rn = get_all_mt6853_regnames();
+
+	for (; rn->base != NULL; rn++) {
+		if (!strncmp("PWR_STATUS", rn->name, sizeof("PWR_STATUS")))
+			pwr_stat[PWR_STA] = clk_readl(ADDR(rn));
+		else if (!strncmp("PWR_STATUS_2ND", rn->name, sizeof("PWR_STATUS_2ND")))
+			pwr_stat[PWR_STA2] = clk_readl(ADDR(rn));
+		else if (!strncmp("OTHER_PWR_STATUS", rn->name, sizeof("OTHER_PWR_STATUS")))
+			pwr_stat[PWR_STA2] = clk_readl(ADDR(rn));
+		else
+			return ERR_PTR(-EINVAL);
+	}
+
+	return pwr_stat;
 }
 
 /*
@@ -504,8 +539,11 @@ static struct clkchk_ops clkchk_mt6853_ops = {
 	.get_off_pll_names = get_off_pll_names,
 	.get_notice_pll_names = get_notice_pll_names,
 	.is_pll_chk_bug_on = is_pll_chk_bug_on,
-	.get_vf_table = get_vf_table,
+	.get_vf_name = get_vf_name,
+	.get_vf_opp = get_vf_opp,
+	.get_vf_num = get_vf_num,
 	.get_vcore_opp = get_vcore_opp,
+	.get_pwr_stat = get_pwr_status,
 };
 
 void clkchk_set_cfg(void)
@@ -514,7 +552,7 @@ void clkchk_set_cfg(void)
 
 	set_clkchk_ops(&clkchk_mt6853_ops);
 
-#ifdef CONFIG_MTK_DEVAPC
+#if IS_ENABLED(CONFIG_MTK_DEVAPC)
 	register_devapc_vio_callback(&devapc_vio_handle);
 #endif
 }

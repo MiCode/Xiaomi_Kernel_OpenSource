@@ -4,8 +4,8 @@
  * Author: Owen Chen <owen.chen@mediatek.com>
  */
 
-#ifndef __DRV_CLKDBG_MT6853_H
-#define __DRV_CLKDBG_MT6853_H
+#ifndef __DRV_CLKCHK_MT6853_H
+#define __DRV_CLKCHK_MT6853_H
 
 enum chk_sys_id {
 	top,
@@ -36,10 +36,10 @@ enum chk_sys_id {
 	cam_rb,
 	ipe,
 	mdp,
-	dbg_sys_num,
+	chk_sys_num,
 };
 
-#ifdef CONFIG_MTK_DVFSRC_HELPER
+#if IS_ENABLED(CONFIG_MTK_DVFSRC_HELPER)
 extern int get_sw_req_vcore_opp(void);
 #endif
 #endif	/* __DRV_CLKDBG_MT6853_H */

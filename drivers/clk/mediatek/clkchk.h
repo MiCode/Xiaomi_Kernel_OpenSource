@@ -73,19 +73,17 @@ struct regname {
 	const char *name;
 };
 
-struct mtk_vf {
-	const char *name;
-	int freq_table[4];
-};
-
 struct clkchk_ops {
 	const struct regname *(*get_all_regnames)(void);
 	struct pvd_msk *(*get_pvd_pwr_mask)(void);
 	const char * const *(*get_off_pll_names)(void);
 	const char * const *(*get_notice_pll_names)(void);
 	bool (*is_pll_chk_bug_on)(void);
-	struct mtk_vf *(*get_vf_table)(void);
+	const char *(*get_vf_name)(int id);
+	int (*get_vf_opp)(int id, int opp);
+	u32 (*get_vf_num)(void);
 	int (*get_vcore_opp)(void);
+	int *(*get_pwr_stat)(void);
 };
 
 void set_clkchk_ops(const struct clkchk_ops *ops);
