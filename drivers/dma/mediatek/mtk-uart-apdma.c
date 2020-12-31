@@ -509,7 +509,6 @@ static int mtk_uart_apdma_probe(struct platform_device *pdev)
 	struct device_node *np = pdev->dev.of_node;
 	struct mtk_uart_apdmadev *mtkd;
 	int rc;
-	struct resource *res;
 	struct mtk_chan *c;
 	unsigned int i;
 	const struct mtk_uart_apdmacomp *comp;
