@@ -4260,7 +4260,11 @@ int __handle_speculative_fault(struct mm_struct *mm, unsigned long address,
 	 * because vm_next and vm_prev must be safe. This can't be guaranteed
 	 * in the speculative path.
 	 */
-	if (unlikely(vma_is_anonymous(vmf.vma) && !vmf.vma->anon_vma))
+	if (unlikely((vma_is_anonymous(vmf.vma) && !vmf.vma->anon_vma) ||
+		(!vma_is_anonymous(vmf.vma) &&
+			!(vmf.vma->vm_flags & VM_SHARED) &&
+			(vmf.flags & FAULT_FLAG_WRITE) &&
+			!vmf.vma->anon_vma)))
 		return VM_FAULT_RETRY;
 
 	vmf.vma_flags = READ_ONCE(vmf.vma->vm_flags);
