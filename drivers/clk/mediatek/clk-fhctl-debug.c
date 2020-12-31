@@ -112,7 +112,7 @@ static ssize_t fh_ctrl_proc_write(struct file *file,
 	n = sscanf(kbuf, "%x %x %x", &cmd, &pll_id, &p1);
 	pr_info("pll:0x%x cmd:%x p1:%x", pll_id, cmd, p1);
 
-	if ((cmd < FH_DBG_CMD_ID) && (cmd > FH_DBG_CMD_MAX)) {
+	if ((cmd < FH_DBG_CMD_ID) || (cmd > FH_DBG_CMD_MAX)) {
 		pr_info("cmd not support:%x", cmd);
 		return -EINVAL;
 	}
