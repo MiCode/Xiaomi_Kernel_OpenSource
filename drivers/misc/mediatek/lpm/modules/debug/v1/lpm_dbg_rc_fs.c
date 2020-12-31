@@ -550,8 +550,7 @@ int spm_cond_init(void)
 						&cond_info);
 			of_node_put(np);
 
-			if (ret != 0 || rc_handle == NULL || rc_id == -1 ||
-				rc_name == NULL) {
+			if (ret != 0 || rc_id == -1 || rc_name == NULL) {
 				pr_info("[%s:%d] - abnormal rc\n",
 					__func__, __LINE__);
 				continue;
