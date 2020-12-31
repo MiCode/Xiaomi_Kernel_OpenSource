@@ -1937,7 +1937,7 @@
 
 			pmic = <&pmic>;
 
-			gpio = <&pio>;
+			gpio-base = <&pio>;
 			gpio-vreq-mode = <1>;
 			gpio-vreq = <0x420 0x7 4>;
 
