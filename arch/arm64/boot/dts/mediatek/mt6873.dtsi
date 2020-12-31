@@ -2059,7 +2059,7 @@
 			pmic = <&pmic>;
 			pmic-sshub-support;
 
-			gpio = <&pio>;
+			gpio-base = <&pio>;
 			gpio-vreq-mode = <1>;
 			gpio-vreq = <0x410 0x7 24>;
 
