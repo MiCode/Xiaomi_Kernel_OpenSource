@@ -159,7 +159,7 @@ static void mmstat_trace_meminfo(void)
 	meminfo[num_entries++] =
 		B2K(global_node_page_state(NR_SLAB_UNRECLAIMABLE_B) +
 				global_node_page_state(NR_SLAB_RECLAIMABLE_B));
-		meminfo[num_entries++] = global_zone_page_state(NR_KERNEL_STACK_KB);
+		meminfo[num_entries++] = global_node_page_state_pages(NR_KERNEL_STACK_KB);
 		meminfo[num_entries++] = P2K(global_zone_page_state(NR_PAGETABLE));
 
 #if IS_ENABLED(CONFIG_MTK_GPU_SUPPORT)
