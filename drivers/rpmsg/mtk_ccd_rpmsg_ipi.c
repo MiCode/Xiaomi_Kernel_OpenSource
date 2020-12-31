@@ -12,6 +12,7 @@
 #include <linux/rpmsg/mtk_ccd_rpmsg.h>
 
 #include "mtk_ccd_rpmsg_internal.h"
+#define MTK_CCD_ALLOC_ADDITIONAL_BUF 0
 
 int ccd_ipi_register(struct platform_device *pdev,
 		     enum ccd_ipi_id id,
