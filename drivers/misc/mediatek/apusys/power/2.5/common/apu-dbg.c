@@ -132,7 +132,9 @@ INVALID:
 
 static void _apupw_set_freq_range(struct apu_dev *ad, ulong min, ulong max)
 {
+#ifdef CONFIG_DEBUG_LOCK_ALLOC
 	struct apu_gov_data *gov_data = (struct apu_gov_data *)ad->df->data;
+#endif
 
 	pr_info("[%s] [%s] max/min %dMhz/%dMhz\n",
 		apu_dev_name(ad->dev), __func__, TOMHZ(max), TOMHZ(min));
@@ -144,7 +146,9 @@ static void _apupw_set_freq_range(struct apu_dev *ad, ulong min, ulong max)
 
 static void _apupw_default_freq_range(struct apu_dev *ad)
 {
+#ifdef CONFIG_DEBUG_LOCK_ALLOC
 	struct apu_gov_data *gov_data = (struct apu_gov_data *)ad->df->data;
+#endif
 
 	pr_info("[%s] [%s]\n", apu_dev_name(ad->dev), __func__);
 	mutex_lock_nested(&ad->df->lock, gov_data->depth);
