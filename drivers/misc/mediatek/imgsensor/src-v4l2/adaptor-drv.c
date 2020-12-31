@@ -595,7 +595,7 @@ static int imgsensor_runtime_suspend(struct device *dev)
 static int imgsensor_set_power(struct v4l2_subdev *sd, int on)
 {
 	struct adaptor_ctx *ctx = to_ctx(sd);
-	int ret;
+	int ret = 0;
 
 	mutex_lock(&ctx->mutex);
 	if (on)
