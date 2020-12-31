@@ -154,7 +154,8 @@ int of_apu_clk_get(struct device *dev, const char *id, struct apu_clk **dst)
 
 void of_apu_clk_put(struct apu_clk **dst)
 {
-	_apu_buck_clk_put(dst);
+	if (!IS_ERR_OR_NULL(*dst))
+		_apu_buck_clk_put(dst);
 }
 
 int of_apu_cg_get(struct device *dev,	struct apu_cgs **dst)
@@ -281,7 +282,7 @@ int of_apu_link(struct device *dev, struct device_node *con_np, struct device_no
 	struct platform_device *pdev;
 
 	if (!sup_np || !con_np) {
-		aprobe_err(dev, "Not linking %pOFP - %pOFP\n", con_np, sup_np);
+		dev_info(dev, "Not linking %pOFP - %pOFP\n", con_np, sup_np);
 		return 0;
 	}
 

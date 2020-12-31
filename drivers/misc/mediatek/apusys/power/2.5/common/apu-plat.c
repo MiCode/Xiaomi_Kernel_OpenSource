@@ -28,7 +28,7 @@ static int apu_opp_init(struct apu_dev *ad)
 	ad->oppt = dev_pm_opp_get_opp_table(ad->dev);
 	if (IS_ERR_OR_NULL(ad->oppt)) {
 		ret = PTR_ERR(ad->oppt);
-		aprobe_err(ad->dev, "[%s] get opp table fail, ret = %d\n", ret);
+		aprobe_err(ad->dev, "[%s] get opp table fail, ret = %d\n", __func__, ret);
 		goto out;
 	}
 

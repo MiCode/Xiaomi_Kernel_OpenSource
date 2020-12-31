@@ -120,7 +120,7 @@ static int apu_cb_probe(struct platform_device *pdev)
 	mutex_init(&power_device_list_mtx);
 	apu_data = of_device_get_match_data(&pdev->dev);
 	if (!apu_data) {
-		aprobe_err(dev, " has no platform data, ret %d\n", err);
+		dev_info(dev, " has no platform data, ret %d\n", err);
 		return -ENODEV;
 	}
 
@@ -130,14 +130,15 @@ static int apu_cb_probe(struct platform_device *pdev)
 	ad->dev = dev;
 	ad->user = apu_data->user;
 	ad->name = apu_dev_string(apu_data->user);
+	/* save apu_dev to dev->driver_data */
+	platform_set_drvdata(pdev, ad);
+
 	err = apu_add_devfreq(ad);
 	if (err)
 		goto free_ad;
 
 	/* initial run time power management */
 	pm_runtime_enable(dev);
-	/* save apu_dev to dev->driver_data */
-	platform_set_drvdata(pdev, ad);
 	return err;
 free_ad:
 	devm_kfree(dev, ad);

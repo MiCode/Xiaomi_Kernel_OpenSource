@@ -22,7 +22,6 @@
 void __iomem *rpc_reg;
 void __iomem *spm_reg;
 void __iomem *tclk_reg;
-
 struct mutex rpc_lock;
 
 const int _apu_rpc_engid(enum DVFS_USER user)
