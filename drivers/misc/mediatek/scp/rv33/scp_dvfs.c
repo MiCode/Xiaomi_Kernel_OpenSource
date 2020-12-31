@@ -63,7 +63,7 @@
 #endif
 
 #define PMIC_PHANDLE_NAME		"pmic"
-#define GPIO_PHANDLE_NAME		"gpio"
+#define GPIO_PHANDLE_NAME		"gpio-base"
 #define SCP_CLK_CTRL_PHANDLE_NAME	"scp_clk_ctrl"
 #define TOPCK_PHANDLE_NAME		"topckgen"
 #define APMIX_PHANDLE_NAME		"apmixedsys"
