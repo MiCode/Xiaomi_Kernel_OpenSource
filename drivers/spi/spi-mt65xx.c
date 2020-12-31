@@ -695,13 +695,13 @@ static int mtk_spi_probe(struct platform_device *pdev)
 	master->setup = mtk_spi_setup;
 
 	of_id = of_match_node(mtk_spi_of_match, pdev->dev.of_node);
+	mdata = spi_master_get_devdata(master);
 	if (!of_id) {
 		dev_err(&pdev->dev, "failed to probe of_node\n");
 		ret = -EINVAL;
 		goto err_put_master;
 	}
 
-	mdata = spi_master_get_devdata(master);
 	mdata->dev_comp = of_id->data;
 
 	if (mdata->dev_comp->enhance_timing)
