@@ -152,19 +152,19 @@ static int core_devfreq_probe(struct platform_device *pdev)
 	ad->dev = dev;
 	ad->user = apu_data->user;
 	ad->name = apu_dev_string(apu_data->user);
+	/* save apu_dev to dev->driver_data */
+	platform_set_drvdata(pdev, ad);
 	ad->plat_ops = apu_plat_get_ops(ad, apu_data->plat_ops_name);
 	if (IS_ERR_OR_NULL(ad->plat_ops)) {
 		err = PTR_ERR(ad->plat_ops);
-		goto out;
+		goto free_ad;
 	}
 	ad->aclk = clk_apu_get_clkgp(ad, apu_data->clkgp_name);
 	ad->argul = regulator_apu_gp_get(ad, apu_data->rgulgp_name);
-	/* save apu_dev to dev->driver_data */
-	platform_set_drvdata(pdev, ad);
 
 	err = ad->plat_ops->init_opps(ad);
 	if (err)
-		goto uninit_regs;
+		goto free_ad;
 	err = ad->plat_ops->init_clks(ad);
 	if (err)
 		goto uninit_opps;
@@ -208,8 +208,8 @@ uninit_clks:
 	ad->plat_ops->uninit_clks(ad);
 uninit_opps:
 	ad->plat_ops->uninit_opps(ad);
-uninit_regs:
-	ad->plat_ops->uninit_regs(ad);
+free_ad:
+	devm_kfree(dev, ad);
 out:
 	return err;
 }

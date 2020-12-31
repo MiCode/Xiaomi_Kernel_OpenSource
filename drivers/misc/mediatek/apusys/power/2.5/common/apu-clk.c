@@ -344,7 +344,7 @@ static int clk_apu_set_rate(struct apu_clk_gp *aclk, unsigned long rate)
 
 	if (ret)
 		aclk_err(aclk->dev,
-			 "[%s] %s has no pll/sys_mux to set %luMhz\n",
+			 "[%s] has no pll/sys_mux to set %luMhz\n",
 			 __func__, TOMHZ(rate));
 	apu_get_power_info(0);
 	return ret;
@@ -792,7 +792,7 @@ struct apu_clk_gp *clk_apu_get_clkgp(struct apu_dev *ad, const char *name)
 			return apu_clk_gps[i].aclk_gp;
 	}
 
-	aprobe_err(ad->dev, "%s cannot find \"%s\" clock\n", __func__, name);
+	aprobe_err(ad->dev, "[%s] cannot find \"%s\" clock\n", __func__, name);
 out:
 	return ERR_PTR(-ENOENT);
 }
