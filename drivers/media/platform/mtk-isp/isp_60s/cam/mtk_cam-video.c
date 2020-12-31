@@ -400,7 +400,6 @@ int mtk_cam_fill_img_buf(struct mtkcam_ipi_img_output *img_out,
 						struct v4l2_format *f, dma_addr_t daddr)
 {
 	u32 pixelformat = f->fmt.pix_mp.pixelformat;
-	u32 width = f->fmt.pix_mp.width;
 	u32 height = f->fmt.pix_mp.height;
 	struct v4l2_plane_pix_format *plane = &f->fmt.pix_mp.plane_fmt[0];
 	u32 stride = plane->bytesperline;
