@@ -416,11 +416,7 @@ static enum hrtimer_restart sensor_deadline_timer_handler(struct hrtimer *t)
 	struct mtk_camsys_sensor_ctrl *sensor_ctrl =
 		container_of(t, struct mtk_camsys_sensor_ctrl,
 			     sensor_deadline_timer);
-	struct mtk_cam_ctx *ctx = sensor_ctrl->ctx;
-	struct mtk_cam_device *cam = ctx->cam;
 	ktime_t m_kt;
-	int time_after_sof = ktime_get_boottime_ns() / 1000000 -
-			   sensor_ctrl->sof_time;
 
 	sensor_ctrl->sensor_deadline_timer.function = sensor_set_handler;
 	m_kt = ktime_set(0, sensor_ctrl->timer_req_sensor * 1000000);

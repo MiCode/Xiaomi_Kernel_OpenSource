@@ -37,6 +37,7 @@
 #endif
 
 #define MTK_RAW_STOP_HW_TIMEOUT			(33)
+#define MTK_CAM_DUMP_WORK_INT_CONTEXT 0
 
 #define META_STATS_CFG_MAX_SIZE (48 * SZ_1K)
 /* meta out max size include 1k meta info and dma buffer size */
@@ -863,7 +864,6 @@ bool mtk_raw_dev_is_slave(struct mtk_raw_device *raw_dev)
 	struct device *dev_slave2;
 	struct mtk_raw_device *raw_dev_slave2;
 	unsigned int i;
-	bool res = false;
 
 	if (raw_dev->pipeline->res_config.raw_num_used == 2) {
 		for (i = 0; i < raw_dev->cam->num_mtkcam_sub_drivers - 1; i++) {
@@ -1313,11 +1313,12 @@ static int mtk_raw_sd_subscribe_event(struct v4l2_subdev *subdev,
 static int mtk_raw_available_resource(struct mtk_raw *raw)
 {
 	int res_status = 0;
+	int i, j;
 
-	for (int i = 0; i < RAW_PIPELINE_NUM; i++) {
+	for (i = 0; i < RAW_PIPELINE_NUM; i++) {
 		struct mtk_raw_pipeline *pipe = raw->pipelines + i;
 
-		for (int j = 0; j < ARRAY_SIZE(raw->devs); j++) {
+		for (j = 0; j < ARRAY_SIZE(raw->devs); j++) {
 			if (pipe->enabled_raw & 1 << j)
 				res_status |= 1 << j;
 		}
@@ -1337,6 +1338,7 @@ int mtk_cam_raw_select(struct mtk_raw_pipeline *pipe,
 	int raw_status = 0;
 	int mask = 0x0;
 	bool selected = false;
+	int m;
 
 	raw_status = mtk_raw_available_resource(pipe->raw);
 	if (pipe->res_config.raw_num_used == 3) {
@@ -1347,7 +1349,7 @@ int mtk_cam_raw_select(struct mtk_raw_pipeline *pipe,
 			selected = true;
 		}
 	} else if (pipe->res_config.raw_num_used == 2) {
-		for (int m = MTKCAM_SUBDEV_RAW_1; m >= MTKCAM_SUBDEV_RAW_0; m--) {
+		for (m = MTKCAM_SUBDEV_RAW_1; m >= MTKCAM_SUBDEV_RAW_0; m--) {
 			mask = (1 << m) | (1 << (m + 1));
 			if (!(raw_status & mask)) {
 				pipe->enabled_raw |= mask;
@@ -1356,7 +1358,7 @@ int mtk_cam_raw_select(struct mtk_raw_pipeline *pipe,
 			}
 		}
 	} else {
-		for (int m = MTKCAM_SUBDEV_RAW_0; m < ARRAY_SIZE(pipe->raw->devs); m++) {
+		for (m = MTKCAM_SUBDEV_RAW_0; m < ARRAY_SIZE(pipe->raw->devs); m++) {
 			mask = 1 << m;
 			if (!(raw_status & mask)) {
 				pipe->enabled_raw |= mask;
