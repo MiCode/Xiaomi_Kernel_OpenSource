@@ -54,6 +54,7 @@ extern struct platform_driver vpu_devfreq_driver;
 extern struct platform_driver mdla_devfreq_driver;
 extern struct platform_driver apu_rpc_driver;
 extern struct platform_driver apu_cb_driver;
+extern struct platform_driver iommu_devfreq_driver;
 
 extern int fix_opp;
 extern int bringup;
