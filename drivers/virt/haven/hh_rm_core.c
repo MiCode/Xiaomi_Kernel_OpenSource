@@ -24,7 +24,6 @@
 #include <linux/haven/hh_errno.h>
 #include <linux/haven/hh_common.h>
 #include <linux/haven/hh_rm_drv.h>
-#include <linux/haven/hh_virtio_backend.h>
 
 #include "hh_rm_drv_private.h"
 
@@ -733,14 +732,13 @@ err:
  * The function encodes the error codes via ERR_PTR. Hence, the caller is
  * responsible to check it with IS_ERR_OR_NULL().
  */
-int hh_rm_populate_hyp_res(hh_vmid_t vmid, const char *vm_name)
+int hh_rm_populate_hyp_res(hh_vmid_t vmid)
 {
 	struct hh_vm_get_hyp_res_resp_entry *res_entries = NULL;
 	int linux_irq, ret = 0;
 	hh_capid_t cap_id;
 	hh_label_t label;
 	u32 n_res, i;
-	u64 base = 0, size = 0;
 
 	res_entries = hh_rm_vm_get_hyp_res(vmid, &n_res);
 	if (IS_ERR_OR_NULL(res_entries))
@@ -750,7 +748,7 @@ int hh_rm_populate_hyp_res(hh_vmid_t vmid, const char *vm_name)
 		 __func__, n_res, vmid);
 
 	for (i = 0; i < n_res; i++) {
-		pr_debug("%s: idx:%d res_entries.res_type = 0x%x, res_entries.partner_vmid = 0x%x, res_entries.resource_handle = 0x%x, res_entries.resource_label = 0x%x, res_entries.cap_id_low = 0x%x, res_entries.cap_id_high = 0x%x, res_entries.virq_handle = 0x%x, res_entries.virq = 0x%x res_entries.base_high = 0x%x, res_entries.base_low = 0x%x, res_entries.size_high = 0x%x, res_entries.size_low = 0x%x\n",
+		pr_debug("%s: idx:%d res_entries.res_type = 0x%x, res_entries.partner_vmid = 0x%x, res_entries.resource_handle = 0x%x, res_entries.resource_label = 0x%x, res_entries.cap_id_low = 0x%x, res_entries.cap_id_high = 0x%x, res_entries.virq_handle = 0x%x, res_entries.virq = 0x%x\n",
 			__func__, i,
 			res_entries[i].res_type,
 			res_entries[i].partner_vmid,
@@ -759,11 +757,7 @@ int hh_rm_populate_hyp_res(hh_vmid_t vmid, const char *vm_name)
 			res_entries[i].cap_id_low,
 			res_entries[i].cap_id_high,
 			res_entries[i].virq_handle,
-			res_entries[i].virq,
-			res_entries[i].base_high,
-			res_entries[i].base_low,
-			res_entries[i].size_high,
-			res_entries[i].size_low);
+			res_entries[i].virq);
 
 		ret = linux_irq = hh_rm_get_irq(&res_entries[i]);
 		if (ret < 0)
@@ -771,10 +765,6 @@ int hh_rm_populate_hyp_res(hh_vmid_t vmid, const char *vm_name)
 
 		cap_id = (u64) res_entries[i].cap_id_high << 32 |
 				res_entries[i].cap_id_low;
-		base = (u64) res_entries[i].base_high << 32 |
-				res_entries[i].base_low;
-		size = (u64) res_entries[i].size_high << 32 |
-				res_entries[i].size_low;
 		label = res_entries[i].resource_label;
 
 		/* Populate MessageQ & DBL's cap tables */
@@ -797,10 +787,6 @@ int hh_rm_populate_hyp_res(hh_vmid_t vmid, const char *vm_name)
 		case HH_RM_RES_TYPE_DB_RX:
 			ret = hh_dbl_populate_cap_info(label, cap_id,
 					HH_MSGQ_DIRECTION_RX, linux_irq);
-			break;
-		case HH_RM_RES_TYPE_VIRTIO_MMIO:
-			ret = hh_virtio_mmio_init(vm_name, label,
-					cap_id, linux_irq, base, size);
 			break;
 		default:
 			pr_err("%s: Unknown resource type: %u\n",
@@ -828,7 +814,7 @@ static void hh_rm_get_svm_res_work_fn(struct work_struct *work)
 		pr_err("%s: Unable to get VMID for VM label %d\n",
 						__func__, HH_PRIMARY_VM);
 	else
-		hh_rm_populate_hyp_res(vmid, NULL);
+		hh_rm_populate_hyp_res(vmid);
 }
 
 static int hh_vm_probe(struct device *dev, struct device_node *hyp_root)

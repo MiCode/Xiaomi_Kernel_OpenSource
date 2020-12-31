@@ -128,12 +128,11 @@ struct hh_vm_console_write_req_payload {
 
 /* Message ID headers */
 /* Call: VM_GET_HYP_RESOURCES */
-#define HH_RM_RES_TYPE_DB_TX		0
-#define HH_RM_RES_TYPE_DB_RX		1
-#define HH_RM_RES_TYPE_MQ_TX		2
-#define HH_RM_RES_TYPE_MQ_RX		3
-#define HH_RM_RES_TYPE_VCPU		4
-#define HH_RM_RES_TYPE_VIRTIO_MMIO	6
+#define HH_RM_RES_TYPE_DB_TX	0
+#define HH_RM_RES_TYPE_DB_RX	1
+#define HH_RM_RES_TYPE_MQ_TX	2
+#define HH_RM_RES_TYPE_MQ_RX	3
+#define HH_RM_RES_TYPE_VCPU	4
 
 struct hh_vm_get_hyp_res_req_payload {
 	hh_vmid_t vmid;
@@ -150,10 +149,6 @@ struct hh_vm_get_hyp_res_resp_entry {
 	u32 cap_id_high;
 	u32 virq_handle;
 	u32 virq;
-	u32 base_low;
-	u32 base_high;
-	u32 size_low;
-	u32 size_high;
 } __packed;
 
 struct hh_vm_get_hyp_res_resp_payload {
