@@ -5437,6 +5437,7 @@
 		      <0xb2e5510 0x690>;
 		reg-names = "smmu_iova_ipa", "tcs_cmd";
 		wlan-en-gpio = <&tlmm 64 0>;
+		qcom,bt-en-gpio = <&tlmm 65 0>;
 		pinctrl-names = "wlan_en_active", "wlan_en_sleep";
 		pinctrl-0 = <&cnss_wlan_en_active>;
 		pinctrl-1 = <&cnss_wlan_en_sleep>;
