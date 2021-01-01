@@ -1211,5 +1211,14 @@ config REGULATOR_STUB
 	  Consumers can use stub regulator device with proper constraint
 	  checking while the real regulator driver is being developed.
 
+config VIRTIO_REGULATOR
+	tristate "Virtio regulator driver"
+	depends on VIRTIO
+	help
+	  This is the virtual regulator driver for virtio. It can be used on
+	  Qualcomm Technologies Inc. virtual machine. Virtio regulator can vote
+	  regulator for pass through peripheral devices via regulator backend in
+	  host.
+
 endif
 
