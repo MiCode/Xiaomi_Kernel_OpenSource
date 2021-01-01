@@ -666,3 +666,12 @@ config SM_CAMCC_YUPIK
 	  capturing pictures.
 
 endif
+
+config VIRTIO_CLK
+	tristate "Virtio clock driver"
+	depends on VIRTIO
+	help
+	  This is the virtual clock driver for virtio. It can be used on
+	  Qualcomm Technologies, Inc automotive virtual machine.
+	  Say Y if you want to use pass through peripheral devices such as UART,
+	  SPI, I2C, USB etc.
