@@ -2580,7 +2580,11 @@ static void gsi_suspend(struct usb_function *f)
 		return;
 	}
 
-	if (!gsi->data_interface_up) {
+	/*
+	 * GPS doesn't use any data interface, hence bail out as there is no
+	 * GSI specific handling needed.
+	 */
+	if (gsi->prot_id == IPA_USB_GPS) {
 		log_event_dbg("%s: suspend done\n", __func__);
 		return;
 	}
@@ -2614,7 +2618,7 @@ static void gsi_resume(struct usb_function *f)
 	/* Check any pending cpkt, and queue immediately on resume */
 	gsi_ctrl_send_notification(gsi);
 
-	if (!gsi->data_interface_up) {
+	if (gsi->prot_id == IPA_USB_GPS) {
 		log_event_dbg("%s: resume done\n", __func__);
 		return;
 	}
