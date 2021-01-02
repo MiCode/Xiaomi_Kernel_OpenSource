@@ -244,12 +244,13 @@ static const struct apu_plat_data mt6853_core_data = {
 	.clkgp_name = "mt68x3_core",
 	.rgulgp_name = "mt6873_core",
 	.plat_ops_name = "mt68xx_platops",
-	.child_volt_limit = 600000, /* max volte child can raise */
+	.child_volt_limit = 600000, /* max voltage(mv) child can raise */
 };
 
 static const struct of_device_id core_devfreq_of_match[] = {
 	{ .compatible = "mtk6873,apucore", .data = &mt6873_core_data },
 	{ .compatible = "mtk6853,apucore", .data = &mt6853_core_data },
+	{ .compatible = "mtk688x,apucore", .data = &mt6853_core_data },
 	{ },
 };
 
@@ -259,7 +260,7 @@ struct platform_driver core_devfreq_driver = {
 	.probe	= core_devfreq_probe,
 	.remove	= core_devfreq_remove,
 	.driver = {
-		.name = "mtk6873,apucore",
+		.name = "mtk68xx,apucore",
 		.pm = CORE_PM_OPS,
 		.of_match_table = core_devfreq_of_match,
 	},
