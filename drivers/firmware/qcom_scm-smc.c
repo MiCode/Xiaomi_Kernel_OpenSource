@@ -1207,7 +1207,7 @@ int __qcom_scm_mem_protect_region_id(struct device *dev, phys_addr_t paddr,
 
 	desc.args[0] = paddr;
 	desc.args[1] = size;
-	desc.arginfo = QCOM_SCM_ARGS(2);
+	desc.arginfo = QCOM_SCM_ARGS(2, QCOM_SCM_RO, QCOM_SCM_VAL);
 
 	ret = qcom_scm_call(dev, &desc);
 
