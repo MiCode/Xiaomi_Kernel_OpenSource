@@ -24,6 +24,7 @@
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
 #include <linux/qcom_dma_heap.h>
+#include <linux/msm_dma_iommu_mapping.h>
 
 #include "qcom_sg_ops.h"
 
@@ -105,7 +106,7 @@ static struct sg_table *qcom_sg_map_dma_buf(struct dma_buf_attachment *attachmen
 	struct sg_table *table = a->table;
 	struct qcom_sg_buffer *buffer;
 	struct mem_buf_vmperm *vmperm;
-	unsigned long attrs = 0;
+	unsigned long attrs = attachment->dma_map_attrs;
 	int ret;
 
 	buffer = attachment->dmabuf->priv;
@@ -119,7 +120,12 @@ static struct sg_table *qcom_sg_map_dma_buf(struct dma_buf_attachment *attachmen
 	if (buffer->uncached || !mem_buf_vmperm_can_cmo(vmperm))
 		attrs |= DMA_ATTR_SKIP_CPU_SYNC;
 
-	ret = dma_map_sgtable(attachment->dev, table, direction, attrs);
+	if (attrs & DMA_ATTR_DELAYED_UNMAP)
+		ret = msm_dma_map_sgtable(attachment->dev, table, direction,
+					  attachment->dmabuf, attrs);
+	else
+		ret = dma_map_sgtable(attachment->dev, table, direction, attrs);
+
 	if (ret) {
 		table = ERR_PTR(-ENOMEM);
 		goto err_map_sgtable;
@@ -142,7 +148,7 @@ static void qcom_sg_unmap_dma_buf(struct dma_buf_attachment *attachment,
 	struct dma_heap_attachment *a = attachment->priv;
 	struct qcom_sg_buffer *buffer;
 	struct mem_buf_vmperm *vmperm;
-	unsigned long attrs = 0;
+	unsigned long attrs = attachment->dma_map_attrs;
 
 	buffer = attachment->dmabuf->priv;
 	vmperm = buffer->vmperm;
@@ -154,7 +160,11 @@ static void qcom_sg_unmap_dma_buf(struct dma_buf_attachment *attachment,
 		attrs |= DMA_ATTR_SKIP_CPU_SYNC;
 
 	a->mapped = false;
-	dma_unmap_sgtable(attachment->dev, table, direction, attrs);
+	if (attrs & DMA_ATTR_DELAYED_UNMAP)
+		msm_dma_unmap_sgtable(attachment->dev, table, direction,
+				      attachment->dmabuf, attrs);
+	else
+		dma_unmap_sgtable(attachment->dev, table, direction, attrs);
 	mem_buf_vmperm_unpin(vmperm);
 	mutex_unlock(&buffer->lock);
 }
@@ -353,6 +363,7 @@ static void qcom_sg_release(struct dma_buf *dmabuf)
 	if (mem_buf_vmperm_release(buffer->vmperm))
 		return;
 
+	msm_dma_buf_freed(buffer);
 	buffer->free(buffer);
 }
 

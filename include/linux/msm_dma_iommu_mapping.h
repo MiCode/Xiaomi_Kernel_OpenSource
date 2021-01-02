@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2015-2016, 2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, 2018, 2021 The Linux Foundation. All rights reserved.
  */
 
 #ifndef _LINUX_MSM_DMA_IOMMU_MAPPING_H
@@ -58,6 +58,27 @@ void msm_dma_unmap_sg_attrs(struct device *dev, struct scatterlist *sgl,
 			    int nents, enum dma_data_direction dir,
 			    struct dma_buf *dma_buf, unsigned long attrs);
 
+static inline int msm_dma_map_sgtable(struct device *dev, struct sg_table *sgt,
+				      enum dma_data_direction dir,
+				      struct dma_buf *dma_buf, unsigned long attrs)
+{
+	int nents;
+
+	nents = msm_dma_map_sg_attrs(dev, sgt->sgl, sgt->orig_nents, dir, dma_buf, attrs);
+	if (nents <= 0)
+		return -EINVAL;
+
+	sgt->nents = nents;
+	return 0;
+}
+
+static inline void msm_dma_unmap_sgtable(struct device *dev, struct sg_table *sgt,
+					 enum dma_data_direction dir,
+					 struct dma_buf *dma_buf, unsigned long attrs)
+{
+	msm_dma_unmap_sg_attrs(dev, sgt->sgl, sgt->nents, dir, dma_buf, attrs);
+}
+
 int msm_dma_unmap_all_for_dev(struct device *dev);
 
 /*
@@ -96,6 +117,19 @@ static inline int msm_dma_map_sg(struct device *dev, struct scatterlist *sg,
 				  struct dma_buf *dma_buf)
 {
 	return -EINVAL;
+}
+
+static inline int msm_dma_map_sgtable(struct device *dev, struct sg_table *sgt,
+				      enum dma_data_direction dir,
+				      struct dma_buf *dma_buf, unsigned long attrs)
+{
+	return -EINVAL;
+}
+
+static inline void msm_dma_unmap_sgtable(struct device *dev, struct sg_table *sgt,
+					 enum dma_data_direction dir,
+					 struct dma_buf *dma_buf, unsigned long attrs)
+{
 }
 
 static inline int msm_dma_unmap_all_for_dev(struct device *dev)
