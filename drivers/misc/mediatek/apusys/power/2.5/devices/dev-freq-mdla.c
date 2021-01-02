@@ -293,12 +293,35 @@ static const struct apu_plat_data mt6873_mdla0_data = {
 	.plat_ops_name = "mt68xx_platops",
 };
 
+static const struct apu_plat_data mt688x_mdla_data = {
+	.user = MDLA,
+	.clkgp_name = "mt688x_mdla",
+	.rgulgp_name = "mt688x_mdla",
+	.plat_ops_name = "mt68xx_platops",
+};
+
+static const struct apu_plat_data mt688x_mdla0_data = {
+	.user = MDLA0,
+	.bypass_target = 1,
+	.clkgp_name = "mt688x_mdla0",
+	.plat_ops_name = "mt68xx_platops",
+};
+
+static const struct apu_plat_data mt688x_mdla1_data = {
+	.user = MDLA1,
+	.bypass_target = 1,
+	.clkgp_name = "mt688x_mdla1",
+	.plat_ops_name = "mt68xx_platops",
+};
+
 static const struct of_device_id mdla_devfreq_of_match[] = {
 	{ .compatible = "mtk6873,apumdla", .data = &mt6873_mdla_data },
 	{ .compatible = "mtk6873,apumdla0", .data = &mt6873_mdla0_data },
+	{ .compatible = "mtk688x,apumdla", .data = &mt688x_mdla_data },
+	{ .compatible = "mtk688x,apumdla0", .data = &mt688x_mdla0_data },
+	{ .compatible = "mtk688x,apumdla1", .data = &mt688x_mdla1_data },
 	{ },
 };
-
 
 MODULE_DEVICE_TABLE(of, mdla_devfreq_of_match);
 
@@ -306,7 +329,7 @@ struct platform_driver mdla_devfreq_driver = {
 	.probe	= mdla_devfreq_probe,
 	.remove	= mdla_devfreq_remove,
 	.driver = {
-		.name = "mtk6873,apumdla",
+		.name = "mtk68xx,apumdla",
 		.pm = MDLA_PM_OPS,
 		.of_match_table = mdla_devfreq_of_match,
 	},

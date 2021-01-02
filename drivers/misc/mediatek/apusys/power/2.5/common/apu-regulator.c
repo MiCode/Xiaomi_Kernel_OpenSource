@@ -456,6 +456,20 @@ static struct apu_regulator mt6853vsram = {
 	.supply_trans_next_uV = 800000,
 };
 
+static struct apu_regulator mt688xvsram = {
+	.name = "vsram",
+	.cstr = {
+		.settling_time = 8,
+		.settling_time_up = 10000,
+		.settling_time_down = 5000,
+		.always_on = 1,
+	},
+	.def_volt = 750000,
+	.shut_volt = 750000,
+	.supply_trans_uV = 750000,
+	.supply_trans_next_uV = 825000,
+};
+
 static struct apu_regulator mt6873vvpu = {
 	.name = "vvpu",
 	.cstr = {
@@ -477,6 +491,16 @@ static struct apu_regulator mt6853vvpu = {
 	.shut_volt = 550000,
 };
 
+static struct apu_regulator mt688xvvpu = {
+	.name = "vvpu",
+	.cstr = {
+		.settling_time = 8,
+		.settling_time_up = 10000,
+		.settling_time_down = 5000,
+		.always_on = 1,
+	},
+};
+
 static struct apu_regulator mt6873vmdla = {
 	.name = "vmdla",
 	.cstr = {
@@ -486,6 +510,19 @@ static struct apu_regulator mt6873vmdla = {
 		.always_on = 0
 	},
 	.notify_reg = &mt6873vsram,
+	.notify_func = apu_vsram_mdla_constrain,
+	.constrain_band = (800000 - 575000), /* gard band */
+	.deffer_func = apu_mdla_restore_default_opp,
+};
+
+static struct apu_regulator mt688xvmdla = {
+	.name = "vmdla",
+	.cstr = {
+		.settling_time = 8,
+		.settling_time_up = 10000,
+		.settling_time_down = 5000,
+	},
+	.notify_reg = &mt688xvsram,
 	.notify_func = apu_vsram_mdla_constrain,
 	.constrain_band = (800000 - 575000), /* gard band */
 	.deffer_func = apu_mdla_restore_default_opp,
@@ -509,8 +546,19 @@ static struct apu_regulator_gp mt6853_conn_rgul_gp = {
 	.ops = &apu_rgul_gp_ops,
 };
 
+static struct apu_regulator_gp mt688x_conn_rgul_gp = {
+	.rgul_sup = &mt688xvsram,
+	.rgul = &mt688xvvpu,
+	.ops = &apu_rgul_gp_ops,
+};
+
 static struct apu_regulator_gp mt6873_mdla_rgul_gp = {
 	.rgul = &mt6873vmdla,
+	.ops = &apu_rgul_gp_ops,
+};
+
+static struct apu_regulator_gp mt688x_mdla_rgul_gp = {
+	.rgul = &mt688xvmdla,
 	.ops = &apu_rgul_gp_ops,
 };
 
@@ -518,7 +566,9 @@ static const struct apu_regulator_array apu_rgul_gps[] = {
 	{ .name = "mt6873_core", .argul_gp = &mt6873_core_rgul_gp },
 	{ .name = "mt6873_conn", .argul_gp = &mt6873_conn_rgul_gp },
 	{ .name = "mt6853_conn", .argul_gp = &mt6853_conn_rgul_gp },
+	{ .name = "mt688x_conn", .argul_gp = &mt688x_conn_rgul_gp },
 	{ .name = "mt6873_mdla", .argul_gp = &mt6873_mdla_rgul_gp },
+	{ .name = "mt688x_mdla", .argul_gp = &mt688x_mdla_rgul_gp },
 };
 
 struct apu_regulator_gp *regulator_apu_gp_get(struct apu_dev *ad, const char *name)

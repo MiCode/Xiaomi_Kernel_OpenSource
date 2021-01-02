@@ -656,6 +656,18 @@ static struct apu_cgs mt68xx_mdla0_cgs = {
 	.clk_num = ARRAY_SIZE(mt68xx_mdla0_cg),
 };
 
+static struct apu_cg mt68xx_mdla1_cg[] = {
+	{
+		.phyaddr = 0x19038000,
+		.cg_ctl = {0, 4, 8},
+	},
+};
+
+static struct apu_cgs mt68xx_mdla1_cgs = {
+	.cgs = &mt68xx_mdla1_cg[0],
+	.clk_num = ARRAY_SIZE(mt68xx_mdla1_cg),
+};
+
 static struct apu_cg mt68xx_vpu0_cg[] = {
 	{
 		.phyaddr = 0x19030000,
@@ -678,6 +690,18 @@ static struct apu_cg mt68xx_vpu1_cg[] = {
 static struct apu_cgs mt68xx_vpu1_cgs = {
 	.cgs = &mt68xx_vpu1_cg[0],
 	.clk_num = ARRAY_SIZE(mt68xx_vpu1_cg),
+};
+
+static struct apu_cg mt68xx_vpu2_cg[] = {
+	{
+		.phyaddr = 0x19032000,
+		.cg_ctl = {0x100, 0x104, 0x108},
+	},
+};
+
+static struct apu_cgs mt68xx_vpu2_cgs = {
+	.cgs = &mt68xx_vpu2_cg[0],
+	.clk_num = ARRAY_SIZE(mt68xx_vpu2_cg),
 };
 
 struct apmixpll mt68xx_npu_mixpll_info = {
@@ -728,6 +752,11 @@ struct apu_clk mt68xx_mdla0_topmux = {
 	.fix_rate = 1,
 };
 
+struct apu_clk mt688x_mdla1_topmux = {
+	.always_on = 1,
+	.fix_rate = 1,
+};
+
 static struct apu_clk_gp mt68x3_core_clk_gp = {
 	.sys_mux = &mt68xx_vcore_sysmux,
 	.ops = &mt68xx_clk_ops,
@@ -735,6 +764,10 @@ static struct apu_clk_gp mt68x3_core_clk_gp = {
 
 static struct apu_clk_gp mt68x3_conn_clk_gp = {
 	.cg = &mt68xx_conn_cgs,
+	.ops = &mt68xx_clk_ops,
+};
+
+static struct apu_clk_gp mt688x_iommu_clk_gp = {
 	.ops = &mt68xx_clk_ops,
 };
 
@@ -757,6 +790,21 @@ static struct apu_clk_gp mt68x3_vpu1_clk_gp = {
 	.ops = &mt68xx_clk_ops,
 };
 
+static struct apu_clk_gp mt688x_vpu0_clk_gp = {
+	.cg = &mt68xx_vpu0_cgs,
+	.ops = &mt68xx_clk_ops,
+};
+
+static struct apu_clk_gp mt688x_vpu1_clk_gp = {
+	.cg = &mt68xx_vpu1_cgs,
+	.ops = &mt68xx_clk_ops,
+};
+
+static struct apu_clk_gp mt688x_vpu2_clk_gp = {
+	.cg = &mt68xx_vpu2_cgs,
+	.ops = &mt68xx_clk_ops,
+};
+
 static struct apu_clk_gp mt6873_mdla_clk_gp = {
 	.sys_mux = &mt68xx_mdla_sysmux,
 	.apmix_pll = &mt68xx_apu_mixpll,
@@ -770,14 +818,39 @@ static struct apu_clk_gp mt6873_mdla0_clk_gp = {
 	.ops = &mt68xx_clk_ops,
 };
 
+static struct apu_clk_gp mt688x_mdla_clk_gp = {
+	.sys_mux = &mt68xx_mdla_sysmux,
+	.ops = &mt68xx_clk_ops,
+	.fhctl = 0,
+};
+
+static struct apu_clk_gp mt688x_mdla0_clk_gp = {
+	.top_mux = &mt68xx_mdla0_topmux,
+	.cg = &mt68xx_mdla0_cgs,
+	.ops = &mt68xx_clk_ops,
+};
+
+static struct apu_clk_gp mt688x_mdla1_clk_gp = {
+	.top_mux = &mt688x_mdla1_topmux,
+	.cg = &mt68xx_mdla1_cgs,
+	.ops = &mt68xx_clk_ops,
+};
+
 static const struct apu_clk_array apu_clk_gps[] = {
 	{ .name = "mt68x3_core", .aclk_gp = &mt68x3_core_clk_gp },
 	{ .name = "mt68x3_conn", .aclk_gp = &mt68x3_conn_clk_gp },
+	{ .name = "mt688x_iommu", .aclk_gp = &mt688x_iommu_clk_gp },
 	{ .name = "mt6873_mdla", .aclk_gp = &mt6873_mdla_clk_gp },
 	{ .name = "mt6873_mdla0", .aclk_gp = &mt6873_mdla0_clk_gp },
 	{ .name = "mt68x3_vpu", .aclk_gp = &mt68x3_vpu_clk_gp },
 	{ .name = "mt68x3_vpu0", .aclk_gp = &mt68x3_vpu0_clk_gp },
 	{ .name = "mt68x3_vpu1", .aclk_gp = &mt68x3_vpu1_clk_gp },
+	{ .name = "mt688x_mdla", .aclk_gp = &mt688x_mdla_clk_gp },
+	{ .name = "mt688x_mdla0", .aclk_gp = &mt688x_mdla0_clk_gp },
+	{ .name = "mt688x_mdla1", .aclk_gp = &mt688x_mdla1_clk_gp },
+	{ .name = "mt688x_vpu0", .aclk_gp = &mt688x_vpu0_clk_gp },
+	{ .name = "mt688x_vpu1", .aclk_gp = &mt688x_vpu1_clk_gp },
+	{ .name = "mt688x_vpu2", .aclk_gp = &mt688x_vpu2_clk_gp },
 };
 
 struct apu_clk_gp *clk_apu_get_clkgp(struct apu_dev *ad, const char *name)

@@ -301,10 +301,31 @@ static const struct apu_plat_data mt68x3_vpu1_data = {
 	.plat_ops_name = "mt68xx_platops",
 };
 
+static const struct apu_plat_data mt688x_vpu0_data = {
+	.user = VPU0,
+	.clkgp_name = "mt688x_vpu0",
+	.plat_ops_name = "mt68xx_platops",
+};
+
+static const struct apu_plat_data mt688x_vpu1_data = {
+	.user = VPU1,
+	.clkgp_name = "mt688x_vpu1",
+	.plat_ops_name = "mt68xx_platops",
+};
+
+static const struct apu_plat_data mt688x_vpu2_data = {
+	.user = VPU2,
+	.clkgp_name = "mt688x_vpu2",
+	.plat_ops_name = "mt68xx_platops",
+};
+
 static const struct of_device_id vpu_devfreq_of_match[] = {
 	{ .compatible = "mtk68x3,apuvpu", .data = &mt68x3_vpu_data },
 	{ .compatible = "mtk68x3,apuvpu0", .data = &mt68x3_vpu0_data },
 	{ .compatible = "mtk68x3,apuvpu1", .data = &mt68x3_vpu1_data },
+	{ .compatible = "mtk688x,apuvpu0", .data = &mt688x_vpu0_data },
+	{ .compatible = "mtk688x,apuvpu1", .data = &mt688x_vpu1_data },
+	{ .compatible = "mtk688x,apuvpu2", .data = &mt688x_vpu2_data },
 	{ },
 };
 
@@ -314,7 +335,7 @@ struct platform_driver vpu_devfreq_driver = {
 	.probe	= vpu_devfreq_probe,
 	.remove	= vpu_devfreq_remove,
 	.driver = {
-		.name = "mtk6873,apuvpu",
+		.name = "mtk68xx,apuvpu",
 		.pm = VPU_PM_OPS,
 		.of_match_table = vpu_devfreq_of_match,
 	},
