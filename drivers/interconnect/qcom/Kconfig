@@ -74,6 +74,10 @@ config INTERCONNECT_QCOM_SHIMA
 config INTERCONNECT_QCOM_YUPIK
 	tristate "YUPIK interconnect driver"
 	depends on INTERCONNECT_QCOM
+	depends on QCOM_RPMH && QCOM_COMMAND_DB && OF
+	select INTERCONNECT_QCOM_BCM_VOTER
+	select INTERCONNECT_QCOM_RPMH
+	select INTERCONNECT_QCOM_QOS
 	help
 	  This is a driver for the Qualcomm Technologies, Inc. Network-on-Chip
 	  on yupik-based platforms. The interconnect provider collects and
@@ -97,6 +101,15 @@ config INTERCONNECT_QCOM_CPUCP_L3
 	  L3 control found on Holi-based platforms. The CPUCP L3 provider
 	  collects and aggregates consumer requests to satisfy constraints
 	  placed on L3 performance states.
+
+config INTERCONNECT_QCOM_OSM_L3
+	tristate "QTI OSM L3 interconnect driver"
+	depends on INTERCONNECT_QCOM || COMPILE_TEST
+	help
+	  This is a driver for the Qualcomm Technologies, Inc. Network-on-Chip
+	  on osm-based platforms.
+	  Say y here to support the Operating State Manager (OSM) interconnect
+	  driver which controls the scaling of L3 caches on QTI SoCs.
 
 config INTERCONNECT_QCOM_SMD_RPM
 	tristate

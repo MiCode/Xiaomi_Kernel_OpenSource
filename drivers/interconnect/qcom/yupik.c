@@ -24,6 +24,8 @@
 static LIST_HEAD(qnoc_probe_list);
 static DEFINE_MUTEX(probe_list_lock);
 
+static int probe_count;
+
 static struct qcom_icc_qosbox qhm_qspi_qos = {
 	.regs = icc_qnoc_qos_regs[ICC_QNOC_QOSGEN_TYPE_RPMH],
 	.num_ports = 1,
@@ -2515,21 +2517,6 @@ qcom_icc_map(struct platform_device *pdev, const struct qcom_icc_desc *desc)
 	return devm_regmap_init_mmio(dev, base, &icc_regmap_config);
 }
 
-static void qcom_icc_stub_pre_aggregate(struct icc_node *node)
-{
-}
-
-static int qcom_icc_stub_aggregate(struct icc_node *node, u32 tag, u32 avg_bw,
-			u32 peak_bw, u32 *agg_avg, u32 *agg_peak)
-{
-	return 0;
-}
-
-static int qcom_icc_stub_set(struct icc_node *src, struct icc_node *dst)
-{
-	return 0;
-}
-
 static int qnoc_probe(struct platform_device *pdev)
 {
 	const struct qcom_icc_desc *desc;
@@ -2558,9 +2545,9 @@ static int qnoc_probe(struct platform_device *pdev)
 
 	provider = &qp->provider;
 	provider->dev = &pdev->dev;
-	provider->set = qcom_icc_stub_set;
-	provider->pre_aggregate = qcom_icc_stub_pre_aggregate;
-	provider->aggregate = qcom_icc_stub_aggregate;
+	provider->set = qcom_icc_set;
+	provider->pre_aggregate = qcom_icc_pre_aggregate;
+	provider->aggregate = qcom_icc_aggregate;
 	provider->xlate = of_icc_xlate_onecell;
 	INIT_LIST_HEAD(&provider->nodes);
 	provider->data = data;
@@ -2574,6 +2561,12 @@ static int qnoc_probe(struct platform_device *pdev)
 				  sizeof(*qp->voters), GFP_KERNEL);
 	if (!qp->voters)
 		return -ENOMEM;
+
+	for (i = 0; i < qp->num_voters; i++) {
+		qp->voters[i] = of_bcm_voter_get(qp->dev, desc->voters[i]);
+		if (IS_ERR(qp->voters[i]))
+			return PTR_ERR(qp->voters[i]);
+	}
 
 	qp->regmap = qcom_icc_map(pdev, desc);
 	if (IS_ERR(qp->regmap))
@@ -2594,6 +2587,9 @@ static int qnoc_probe(struct platform_device *pdev)
 
 		if (!qnodes[i])
 			continue;
+
+		if (qnodes[i]->qosbox)
+			qnodes[i]->qosbox = NULL;
 
 		qnodes[i]->regmap = dev_get_regmap(qp->dev, NULL);
 
@@ -2617,6 +2613,9 @@ static int qnoc_probe(struct platform_device *pdev)
 		data->nodes[i] = node;
 	}
 	data->num_nodes = num_nodes;
+
+	for (i = 0; i < qp->num_bcms; i++)
+		qcom_icc_bcm_init(qp->bcms[i], &pdev->dev);
 
 	platform_set_drvdata(pdev, qp);
 
@@ -2684,12 +2683,50 @@ static const struct of_device_id qnoc_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, qnoc_of_match);
 
+static void qnoc_sync_state(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct qcom_icc_provider *qp = platform_get_drvdata(pdev);
+	struct qcom_icc_bcm *bcm;
+	struct bcm_voter *voter;
+
+	mutex_lock(&probe_list_lock);
+	probe_count++;
+
+	if (probe_count < ARRAY_SIZE(qnoc_of_match) - 1) {
+		mutex_unlock(&probe_list_lock);
+		return;
+	}
+
+	list_for_each_entry(qp, &qnoc_probe_list, probe_list) {
+		int i;
+
+		for (i = 0; i < qp->num_voters; i++)
+			qcom_icc_bcm_voter_clear_init(qp->voters[i]);
+
+		for (i = 0; i < qp->num_bcms; i++) {
+			bcm = qp->bcms[i];
+			if (!bcm->keepalive)
+				continue;
+
+			voter = qp->voters[bcm->voter_idx];
+			qcom_icc_bcm_voter_add(voter, bcm);
+			qcom_icc_bcm_voter_commit(voter);
+		}
+	}
+
+	mutex_unlock(&probe_list_lock);
+
+	pr_err("ICC interconnect state synced\n");
+}
+
 static struct platform_driver qnoc_driver = {
 	.probe = qnoc_probe,
 	.remove = qnoc_remove,
 	.driver = {
 		.name = "qnoc-yupik",
 		.of_match_table = qnoc_of_match,
+		.sync_state = qnoc_sync_state,
 	},
 };
 

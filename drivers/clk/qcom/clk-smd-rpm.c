@@ -878,6 +878,69 @@ static const struct rpm_smd_clk_desc rpm_clk_holi = {
 	.num_clks = ARRAY_SIZE(holi_clks),
 };
 
+DEFINE_CLK_SMD_RPM(sdxnightjar, snoc_clk, snoc_a_clk, QCOM_SMD_RPM_BUS_CLK, 1);
+DEFINE_CLK_SMD_RPM(sdxnightjar, pcnoc_clk, pcnoc_a_clk, QCOM_SMD_RPM_BUS_CLK, 0);
+
+/* SMD_XO_BUFFER */
+DEFINE_CLK_SMD_RPM_XO_BUFFER(sdxnightjar, ln_bb_clk, ln_bb_clk_a,
+					QCOM_SMD_RPM_CLK_BUF_A, 8);
+DEFINE_CLK_SMD_RPM_XO_BUFFER(sdxnightjar, div_clk1, div_clk1_a,
+					QCOM_SMD_RPM_CLK_BUF_A, 0xb);
+DEFINE_CLK_SMD_RPM_XO_BUFFER(sdxnightjar, rf_clk1, rf_clk1_a,
+					QCOM_SMD_RPM_CLK_BUF_A, 4);
+DEFINE_CLK_SMD_RPM_XO_BUFFER(sdxnightjar, rf_clk2, rf_clk2_a,
+					QCOM_SMD_RPM_CLK_BUF_A, 5);
+DEFINE_CLK_SMD_RPM_XO_BUFFER(sdxnightjar, rf_clk3, rf_clk3_a,
+					QCOM_SMD_RPM_CLK_BUF_A, 6);
+
+DEFINE_CLK_SMD_RPM_XO_BUFFER_PINCTRL(sdxnightjar, rf_clk1_pin, rf_clk1_a_pin,
+						QCOM_SMD_RPM_CLK_BUF_A, 4);
+DEFINE_CLK_SMD_RPM_XO_BUFFER_PINCTRL(sdxnightjar, rf_clk2_pin, rf_clk2_a_pin,
+						QCOM_SMD_RPM_CLK_BUF_A, 5);
+DEFINE_CLK_SMD_RPM_XO_BUFFER_PINCTRL(sdxnightjar, rf_clk3_pin, rf_clk3_a_pin,
+						QCOM_SMD_RPM_CLK_BUF_A, 6);
+
+/* SDXNIGHTJAR */
+static struct clk_hw *sdxnightjar_clks[] = {
+	[RPM_SMD_XO_CLK_SRC] = &holi_bi_tcxo.hw,
+	[RPM_SMD_XO_A_CLK_SRC] = &holi_bi_tcxo_ao.hw,
+	[RPM_SMD_SNOC_CLK] = &sdxnightjar_snoc_clk.hw,
+	[RPM_SMD_SNOC_A_CLK] = &sdxnightjar_snoc_a_clk.hw,
+	[RPM_SMD_BIMC_CLK] = &holi_bimc_clk.hw,
+	[RPM_SMD_BIMC_A_CLK] = &holi_bimc_a_clk.hw,
+	[RPM_SMD_QDSS_CLK] = &msm8916_qdss_clk.hw,
+	[RPM_SMD_QDSS_A_CLK] = &msm8916_qdss_a_clk.hw,
+	[RPM_SMD_IPA_CLK] = &holi_ipa_clk.hw,
+	[RPM_SMD_IPA_A_CLK] = &holi_ipa_a_clk.hw,
+	[RPM_SMD_CE1_CLK] = &holi_ce1_clk.hw,
+	[RPM_SMD_CE1_A_CLK] = &holi_ce1_a_clk.hw,
+	[RPM_SMD_QPIC_CLK] = &qcs404_qpic_clk.hw,
+	[RPM_SMD_QPIC_A_CLK] = &qcs404_qpic_a_clk.hw,
+	[RPM_SMD_PCNOC_CLK] = &sdxnightjar_pcnoc_clk.hw,
+	[RPM_SMD_PCNOC_A_CLK] = &sdxnightjar_pcnoc_a_clk.hw,
+	[RPM_SMD_LN_BB_CLK] = &sdxnightjar_ln_bb_clk.hw,
+	[RPM_SMD_LN_BB_CLK_A] = &sdxnightjar_ln_bb_clk_a.hw,
+	[RPM_SMD_DIV_CLK1] = &sdxnightjar_div_clk1.hw,
+	[RPM_SMD_DIV_A_CLK1] = &sdxnightjar_div_clk1_a.hw,
+	[RPM_SMD_RF_CLK1] = &sdxnightjar_rf_clk1.hw,
+	[RPM_SMD_RF_CLK1_A] = &sdxnightjar_rf_clk1_a.hw,
+	[RPM_SMD_RF_CLK2] = &sdxnightjar_rf_clk2.hw,
+	[RPM_SMD_RF_CLK2_A] = &sdxnightjar_rf_clk2_a.hw,
+	[RPM_SMD_RF_CLK3] = &sdxnightjar_rf_clk3.hw,
+	[RPM_SMD_RF_CLK3_A] = &sdxnightjar_rf_clk3_a.hw,
+	[RPM_SMD_RF_CLK1_PIN] =  &sdxnightjar_rf_clk1_pin.hw,
+	[RPM_SMD_RF_CLK1_A_PIN] =  &sdxnightjar_rf_clk1_a_pin.hw,
+	[RPM_SMD_RF_CLK2_PIN] =  &sdxnightjar_rf_clk2_pin.hw,
+	[RPM_SMD_RF_CLK2_A_PIN] =  &sdxnightjar_rf_clk2_a_pin.hw,
+	[RPM_SMD_RF_CLK3_PIN] =  &sdxnightjar_rf_clk3_pin.hw,
+	[RPM_SMD_RF_CLK3_A_PIN] =  &sdxnightjar_rf_clk3_a_pin.hw,
+};
+
+static const struct rpm_smd_clk_desc rpm_clk_sdxnightjar = {
+	.clks = sdxnightjar_clks,
+	.num_clks = ARRAY_SIZE(sdxnightjar_clks),
+};
+
 static const struct of_device_id rpm_smd_clk_match_table[] = {
 	{ .compatible = "qcom,rpmcc-msm8916", .data = &rpm_clk_msm8916 },
 	{ .compatible = "qcom,rpmcc-msm8974", .data = &rpm_clk_msm8974 },
@@ -885,6 +948,7 @@ static const struct of_device_id rpm_smd_clk_match_table[] = {
 	{ .compatible = "qcom,rpmcc-msm8998", .data = &rpm_clk_msm8998 },
 	{ .compatible = "qcom,rpmcc-qcs404",  .data = &rpm_clk_qcs404  },
 	{ .compatible = "qcom,rpmcc-holi", .data = &rpm_clk_holi},
+	{ .compatible = "qcom,rpmcc-sdxnightjar", .data = &rpm_clk_sdxnightjar},
 	{ }
 };
 MODULE_DEVICE_TABLE(of, rpm_smd_clk_match_table);
@@ -943,7 +1007,7 @@ static int rpm_smd_clk_probe(struct platform_device *pdev)
 {
 	struct clk_hw **hw_clks;
 	const struct rpm_smd_clk_desc *desc;
-	int ret, i, is_holi, hw_clk_handoff = false;
+	int ret, i, is_holi, hw_clk_handoff = false, is_sdxnightjar;
 
 	desc = of_device_get_match_data(&pdev->dev);
 	if (!desc)
@@ -951,7 +1015,9 @@ static int rpm_smd_clk_probe(struct platform_device *pdev)
 
 	is_holi = of_device_is_compatible(pdev->dev.of_node,
 						"qcom,rpmcc-holi");
-	if (is_holi) {
+	is_sdxnightjar = of_device_is_compatible(pdev->dev.of_node,
+						"qcom,rpmcc-sdxnightjar");
+	if (is_holi || is_sdxnightjar) {
 		ret = clk_vote_bimc(&holi_bimc_clk.hw, INT_MAX);
 		if (ret < 0)
 			return ret;
@@ -1009,6 +1075,22 @@ static int rpm_smd_clk_probe(struct platform_device *pdev)
 		/* Hold an active set vote for the snoc_keepalive_a_clk */
 		clk_prepare_enable(holi_snoc_a_clk.hw.clk);
 		clk_set_rate(holi_snoc_a_clk.hw.clk, 19200000);
+	}
+
+	if (is_sdxnightjar) {
+		/*
+		 * Keep an active vote on CXO in case no other driver
+		 * votes for it.
+		 */
+		clk_prepare_enable(holi_bi_tcxo_ao.hw.clk);
+
+		/* Hold an active set vote for the pcnoc_keepalive_a_clk */
+		clk_prepare_enable(sdxnightjar_pcnoc_a_clk.hw.clk);
+		clk_set_rate(sdxnightjar_pcnoc_a_clk.hw.clk, 19200000);
+
+		/* Hold an active set vote for the snoc_keepalive_a_clk */
+		clk_prepare_enable(sdxnightjar_snoc_a_clk.hw.clk);
+		clk_set_rate(sdxnightjar_snoc_a_clk.hw.clk, 19200000);
 	}
 
 	if (of_property_read_bool(pdev->dev.of_node, "qcom,bimc-log-stop"))

@@ -586,11 +586,29 @@ config SM_GCC_YUPIK
 
 config SM_GPUCC_YUPIK
 	tristate "YUPIK Graphics Clock Controller"
-	depends on SM_GCC_YUPIK
+	select SM_GCC_YUPIK
 	help
 	  Support for the graphics clock controller on Qualcomm Technologies, Inc.
 	  YUPIK devices.
 	  Say Y if you want to support graphics controller devices and
 	  functionality such as 3D graphics.
+
+config SDX_GCC_NIGHTJAR
+	tristate "SDXNIGHTJAR Global Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the global clock controller on Qualcomm Technologies, Inc.
+	  SDXNIGHTJAR devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI, I2C,
+	  USB, SD/eMMC, PCIe, etc.
+
+config SDX_DEBUGCC_NIGHTJAR
+	tristate "SDXNIGHTJAR Debug Clock Controller"
+	select SDX_GCC_NIGHTJAR
+	help
+	  Support for the debug clock controller on Qualcomm Technologies, Inc.
+	  sdxnightjar devices.
+	  Say Y if you want to support the debug clocks such as
+	  clock measurement functionality.
 
 endif

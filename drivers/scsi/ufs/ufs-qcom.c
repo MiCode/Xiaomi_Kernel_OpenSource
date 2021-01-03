@@ -2403,13 +2403,13 @@ ufs_qcom_ioctl(struct scsi_device *dev, unsigned int cmd, void __user *buffer)
 	int err = 0;
 
 	BUG_ON(!hba);
-	if (!buffer) {
-		dev_err(hba->dev, "%s: User buffer is NULL!\n", __func__);
-		return -EINVAL;
-	}
 
 	switch (cmd) {
 	case UFS_IOCTL_QUERY:
+		if (!buffer) {
+			dev_err(hba->dev, "%s: User buffer is NULL!\n", __func__);
+			return -EINVAL;
+		}
 		pm_runtime_get_sync(hba->dev);
 		err = ufs_qcom_query_ioctl(hba,
 					   ufshcd_scsi_to_upiu_lun(dev->lun),
@@ -2768,12 +2768,10 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 	}
 
 	/* update phy revision information before calling phy_init() */
-	/*
-	 * FIXME:
-	 * ufs_qcom_phy_save_controller_version(host->generic_phy,
-	 *	host->hw_ver.major, host->hw_ver.minor, host->hw_ver.step);
-	 */
-	err = ufs_qcom_parse_reg_info(host, "qcom,vddp-ref-clk",
+	ufs_qcom_phy_save_controller_version(host->generic_phy,
+			host->hw_ver.major, host->hw_ver.minor, host->hw_ver.step);
+
+	 err = ufs_qcom_parse_reg_info(host, "qcom,vddp-ref-clk",
 				      &host->vddp_ref_clk);
 
 	err = phy_init(host->generic_phy);

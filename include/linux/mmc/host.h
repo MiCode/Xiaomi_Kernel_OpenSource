@@ -479,6 +479,7 @@ struct mmc_host {
 #define MMC_CAP2_CRYPTO		(1 << 27)	/* Host supports inline encryption */
 #if defined(CONFIG_SDC_QTI)
 #define MMC_CAP2_CLK_SCALE      (1 << 28)       /* Allow dynamic clk scaling */
+#define MMC_CAP2_SLEEP_AWAKE	(1 << 29)	/* Use Sleep/Awake (CMD5) */
 #endif
 
 	int			fixed_drv_type;	/* fixed driver type for non-removable media */
@@ -498,6 +499,9 @@ struct mmc_host {
 	spinlock_t		lock;		/* lock for claim and bus ops */
 
 	struct mmc_ios		ios;		/* current io bus settings */
+#if defined(CONFIG_SDC_QTI)
+	struct mmc_ios		cached_ios;
+#endif
 
 	/* group bitfields together to minimize padding */
 	unsigned int		use_spi_crc:1;

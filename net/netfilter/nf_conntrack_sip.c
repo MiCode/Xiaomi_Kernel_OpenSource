@@ -1877,14 +1877,14 @@ static int process_sip_msg(struct sk_buff *skb, struct nf_conn *ct,
 }
 
 static void sip_tcp_skip_process(int ret, struct nf_conn *ct, struct sk_buff *skb,
-				 unsigned int protoff, s16 *tdiff)
+				 unsigned int protoff, s16 tdiff)
 {
 	if (ret == NF_ACCEPT && ct && ct->status & IPS_NAT_MASK) {
 		const struct nf_nat_sip_hooks *hooks;
 
 		hooks = rcu_dereference(nf_nat_sip_hooks);
 		if (hooks)
-			hooks->seq_adjust(skb, protoff, tdiff);
+			hooks->seq_adjust(skb, protoff, *tdiff);
 	}
 }
 
@@ -1989,6 +1989,11 @@ static int sip_help_tcp(struct sk_buff *skb, unsigned int protoff,
 	datalen = skb->len - dataoff;
 	if (datalen < strlen("SIP/2.0 200"))
 		return NF_ACCEPT;
+
+	/* Check if the header contains SIP version */
+	if (!strnstr(dptr, "SIP/2.0", datalen))
+		return NF_ACCEPT;
+
 #ifdef CONFIG_NF_CONNTRACK_SIP_SEGMENTATION
 	/* here we save the original datalength and data offset of the skb, this
 	 * is needed later to split combined skbs
@@ -2099,7 +2104,7 @@ destination:
 
 here:
 #endif
-	sip_tcp_skip_process(ret, ct, skb, protoff, tdiff);
+	sip_tcp_skip_process(ret, ct, skb, protoff, &tdiff);
 
 	return ret;
 }
@@ -2123,6 +2128,10 @@ static int sip_help_udp(struct sk_buff *skb, unsigned int protoff,
 	dptr = skb->data + dataoff;
 	datalen = skb->len - dataoff;
 	if (datalen < strlen("SIP/2.0 200"))
+		return NF_ACCEPT;
+
+	/* Check if the header contains SIP version */
+	if (!strnstr(dptr, "SIP/2.0", datalen))
 		return NF_ACCEPT;
 
 	return process_sip_msg(skb, ct, protoff, dataoff, &dptr, &datalen);

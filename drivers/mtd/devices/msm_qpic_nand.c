@@ -734,6 +734,7 @@ static int msm_nand_flash_onfi_probe(struct msm_nand_info *info)
 	struct flash_identification *flash = &info->flash_dev;
 	uint32_t crc_chk_count = 0, page_address = 0;
 	int ret = 0, i = 0, submitted_num_desc = 1;
+	uint32_t manid, devid;
 
 	/* SPS parameters */
 	struct msm_nand_sps_cmd *cmd, *curr_cmd;
@@ -945,6 +946,14 @@ static int msm_nand_flash_onfi_probe(struct msm_nand_info *info)
 
 	pr_info("Found an ONFI compliant device %s\n",
 			onfi_param_page_ptr->device_model);
+
+	manid  = flash->flash_id & 0xFF;
+	devid  = (flash->flash_id >> 8) & 0xFF;
+
+	/* hack for 8 x 8 JSC MCP part */
+	if (manid == 0xAD && devid == 0xA3)
+		flash->density = flash->density * 2;
+
 	/*
 	 * Temporary hack for MT29F4G08ABC device.
 	 * Since the device is not properly adhering

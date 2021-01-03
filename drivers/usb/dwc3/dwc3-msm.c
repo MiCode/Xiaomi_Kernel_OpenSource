@@ -1238,7 +1238,7 @@ static int gsi_startxfer_for_ep(struct usb_ep *ep, struct usb_gsi_request *req)
 	memset(&params, 0, sizeof(params));
 	params.param0 = GSI_TRB_ADDR_BIT_53_MASK | GSI_TRB_ADDR_BIT_55_MASK;
 	params.param0 |= upper_32_bits(dwc3_trb_dma_offset(dep,
-						&dep->trb_pool[0]) & 0xffff);
+						&dep->trb_pool[0])) & 0xffff;
 	params.param0 |= (req->ep_intr_num << 16);
 	params.param1 = lower_32_bits(dwc3_trb_dma_offset(dep,
 						&dep->trb_pool[0]));
@@ -1486,7 +1486,7 @@ static int gsi_prepare_trbs(struct usb_ep *ep, struct usb_gsi_request *req)
 
 		/* Set up the Link TRB at the end */
 		trb->bpl = lower_32_bits(trb0_dma);
-		trb->bph = upper_32_bits(trb0_dma & 0xffff);
+		trb->bph = upper_32_bits(trb0_dma) & 0xffff;
 		trb->bph |= (1 << 23) | (1 << 21) | (req->ep_intr_num << 16);
 		trb->ctrl = DWC3_TRBCTL_LINK_TRB | DWC3_TRB_CTRL_HWO;
 	} else { /* OUT direction */
@@ -1508,7 +1508,7 @@ static int gsi_prepare_trbs(struct usb_ep *ep, struct usb_gsi_request *req)
 
 		/* Set up the Link TRB at the end */
 		trb->bpl = lower_32_bits(trb0_dma);
-		trb->bph = upper_32_bits(trb0_dma & 0xffff);
+		trb->bph = upper_32_bits(trb0_dma) & 0xffff;
 		trb->bph |= (1 << 23) | (1 << 21) | (req->ep_intr_num << 16);
 		trb->ctrl = DWC3_TRBCTL_LINK_TRB | DWC3_TRB_CTRL_HWO;
 	}
@@ -1837,6 +1837,21 @@ int usb_gsi_ep_op(struct usb_ep *ep, void *op_data, enum gsi_ep_op op)
 	return ret;
 }
 EXPORT_SYMBOL(usb_gsi_ep_op);
+
+/* Return true if host is supporting remote wakeup functionality. */
+bool usb_get_remote_wakeup_status(struct usb_gadget *gadget)
+{
+	struct dwc3 *dwc = gadget_to_dwc(gadget);
+	unsigned long flags;
+	bool rw = false;
+
+	spin_lock_irqsave(&dwc->lock, flags);
+	rw = dwc->is_remote_wakeup_enabled ? true : false;
+	spin_unlock_irqrestore(&dwc->lock, flags);
+
+	return rw;
+}
+EXPORT_SYMBOL(usb_get_remote_wakeup_status);
 
 /**
  * Configure a USB DBM ep to work in BAM mode.
@@ -2965,11 +2980,11 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc, bool force_power_collapse)
 	atomic_set(&dwc->in_lpm, 1);
 
 	/*
-	 * with DCP or during cable disconnect, we dont require wakeup
+	 * with the core in power collapse, we dont require wakeup
 	 * using HS_PHY_IRQ or SS_PHY_IRQ. Hence enable wakeup only in
 	 * case of host bus suspend and device bus suspend.
 	 */
-	if (mdwc->in_device_mode || mdwc->in_host_mode) {
+	if (!(mdwc->lpm_flags & MDWC3_POWER_COLLAPSE)) {
 		if (mdwc->use_pdc_interrupts) {
 			enable_usb_pdc_interrupt(mdwc, true);
 		} else {

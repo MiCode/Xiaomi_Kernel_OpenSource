@@ -154,9 +154,7 @@ static void cqhci_dumpregs(struct cqhci_host *cq_host)
 	CQHCI_DUMP("Vendor cfg 0x%08x\n",
 		   cqhci_readl(cq_host, CQHCI_VENDOR_CFG + offset));
 
-#if defined(CONFIG_MMC_CQHCI_CRYPTO)
 	cqhci_crypto_debug(cq_host);
-#endif
 
 	if (cq_host->ops->dumpregs)
 		cq_host->ops->dumpregs(mmc);
@@ -278,10 +276,8 @@ static void __cqhci_enable(struct cqhci_host *cq_host)
 	if (cq_host->caps & CQHCI_TASK_DESC_SZ_128)
 		cqcfg |= CQHCI_TASK_DESC_SZ;
 
-#if defined(CONFIG_MMC_CQHCI_CRYPTO)
 	if (cqhci_host_is_crypto_supported(cq_host))
 		cqcfg |= CQHCI_ICE_ENABLE;
-#endif
 
 	cqhci_writel(cq_host, cqcfg, CQHCI_CFG);
 
@@ -330,9 +326,7 @@ int cqhci_deactivate(struct mmc_host *mmc)
 {
 	struct cqhci_host *cq_host = mmc->cqe_private;
 
-#if defined(CONFIG_MMC_CQHCI_CRYPTO)
 	cqhci_crypto_suspend(cq_host);
-#endif
 	if (cq_host->enabled && cq_host->activated)
 		__cqhci_disable(cq_host);
 
@@ -367,10 +361,8 @@ static int cqhci_enable(struct mmc_host *mmc, struct mmc_card *card)
 		return err;
 	}
 
-#if defined(CONFIG_MMC_CQHCI_CRYPTO)
 	if (cqhci_host_is_crypto_supported(cq_host))
 		cqhci_crypto_enable(cq_host);
-#endif
 
 	__cqhci_enable(cq_host);
 
@@ -425,10 +417,8 @@ static void cqhci_disable(struct mmc_host *mmc)
 
 	cqhci_off(mmc);
 
-#if defined(CONFIG_MMC_CQHCI_CRYPTO)
 	if (cqhci_host_is_crypto_supported(cq_host))
 		cqhci_crypto_disable(cq_host);
-#endif
 
 	__cqhci_disable(cq_host);
 
@@ -660,14 +650,12 @@ static int cqhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	}
 
 	if (mrq->data) {
-#if defined(CONFIG_MMC_CQHCI_CRYPTO)
 		err = cqhci_crypto_get_ctx(cq_host, mrq, &ice_ctx);
 		if (err) {
 			pr_err("%s: failed to retrieve crypto ctx for tag %d\n",
 				mmc_hostname(mmc), tag);
 			return err;
 		}
-#endif
 		task_desc = (__le64 __force *)get_desc(cq_host, tag);
 		cqhci_prep_task_desc(mrq, &data, 1);
 		*task_desc = cpu_to_le64(data);
@@ -707,14 +695,12 @@ out_unlock:
 	if (err)
 		cqhci_post_req(mmc, mrq);
 
-#if defined(CONFIG_MMC_CQHCI_CRYPTO)
 	if (mrq->data)
 		cqhci_complete_crypto_desc(cq_host, mrq, NULL);
-#endif
 	return err;
 }
 
-#if defined(CONFIG_SDC_QTI) && defined(CONFIG_MMC_CQHCI_CRYPTO)
+#if defined(CONFIG_SDC_QTI)
 static void cqhci_crypto_update_queue(struct mmc_host *mmc,
 					struct request_queue *queue)
 {
@@ -852,9 +838,7 @@ static void cqhci_finish_mrq(struct mmc_host *mmc, unsigned int tag)
 
 	data = mrq->data;
 	if (data) {
-#if defined(CONFIG_MMC_CQHCI_CRYPTO)
 		cqhci_complete_crypto_desc(cq_host, mrq, NULL);
-#endif
 		if (data->error)
 			data->bytes_xfered = 0;
 		else
@@ -1062,9 +1046,7 @@ static void cqhci_recovery_start(struct mmc_host *mmc)
 
 	pr_debug("%s: cqhci: %s\n", mmc_hostname(mmc), __func__);
 
-#if defined(CONFIG_MMC_CQHCI_CRYPTO)
 	cqhci_crypto_reset(cq_host);
-#endif
 
 	WARN_ON(!cq_host->recovery_halt);
 
@@ -1186,9 +1168,7 @@ static void cqhci_recovery_finish(struct mmc_host *mmc)
 
 	cqhci_set_irqs(cq_host, CQHCI_IS_MASK);
 
-#if defined(CONFIG_MMC_CQHCI_CRYPTO)
 	cqhci_crypto_recovery_finish(cq_host);
-#endif
 	pr_debug("%s: cqhci: recovery done\n", mmc_hostname(mmc));
 	mmc_log_string(mmc, "recovery done\n");
 }
@@ -1203,7 +1183,7 @@ static const struct mmc_cqe_ops cqhci_cqe_ops = {
 	.cqe_timeout = cqhci_timeout,
 	.cqe_recovery_start = cqhci_recovery_start,
 	.cqe_recovery_finish = cqhci_recovery_finish,
-#if defined(CONFIG_SDC_QTI) && defined(CONFIG_MMC_CQHCI_CRYPTO)
+#if defined(CONFIG_SDC_QTI)
 	.cqe_crypto_update_queue = cqhci_crypto_update_queue,
 #endif
 };
@@ -1279,14 +1259,12 @@ int cqhci_init(struct cqhci_host *cq_host, struct mmc_host *mmc,
 
 	spin_lock_init(&cq_host->lock);
 
-#if defined(CONFIG_MMC_CQHCI_CRYPTO)
 	err = cqhci_host_init_crypto(cq_host);
 	if (err) {
 		pr_err("%s: CQHCI version %u.%02u Crypto init failed err %d\n",
 		       mmc_hostname(mmc), cqhci_ver_major(cq_host),
 		       cqhci_ver_minor(cq_host), err);
 	}
-#endif
 
 	init_completion(&cq_host->halt_comp);
 	init_waitqueue_head(&cq_host->wait_queue);

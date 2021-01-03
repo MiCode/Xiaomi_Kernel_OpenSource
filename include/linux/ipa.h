@@ -6,10 +6,12 @@
 #ifndef _IPA_H_
 #define _IPA_H_
 
+#include <linux/if_ether.h>
+#include <linux/ip.h>
+#include <linux/ipv6.h>
 #include <linux/msm_ipa.h>
 #include <linux/skbuff.h>
 #include <linux/types.h>
-#include <linux/if_ether.h>
 #include <linux/ipa_qmi_service_v01.h>
 #include <linux/msm_gsi.h>
 
@@ -17,6 +19,23 @@
 #define IPA_BW_THRESHOLD_MAX 3
 
 #define IPA_MAX_CH_STATS_SUPPORTED 5
+
+/**
+ * the attributes of the socksv5 options
+ */
+#define IPA_SOCKSv5_ENTRY_VALID	(1ul << 0)
+#define IPA_SOCKSv5_IPV4	(1ul << 1)
+#define IPA_SOCKSv5_IPV6	(1ul << 2)
+#define IPA_SOCKSv5_OPT_TS	(1ul << 3)
+#define IPA_SOCKSv5_OPT_SACK	(1ul << 4)
+#define IPA_SOCKSv5_OPT_WS_STC	(1ul << 5)
+#define IPA_SOCKSv5_OPT_WS_DMC	(1ul << 6)
+
+#define IPA_SOCKsv5_ADD_COM_ID		15
+#define IPA_SOCKsv5_ADD_V6_V4_COM_PM	1
+#define IPA_SOCKsv5_ADD_V4_V6_COM_PM	2
+#define IPA_SOCKsv5_ADD_V6_V6_COM_PM	3
+
 /**
  * enum ipa_transport_type
  * transport type: either GSI or SPS
@@ -1240,6 +1259,102 @@ struct ipa_smmu_out_params {
 	bool shared_cb;
 };
 
+struct iphdr_rsv {
+	struct iphdr ipv4_temp;  /* 20 bytes */
+	uint32_t rsv1;
+	uint32_t rsv2;
+	uint32_t rsv3;
+	uint32_t rsv4;
+	uint32_t rsv5;
+} __packed;
+
+union ip_hdr_temp {
+	struct iphdr_rsv ipv4_rsv;	/* 40 bytes */
+	struct ipv6hdr ipv6_temp;	/* 40 bytes */
+} __packed;
+
+struct ipa_socksv5_uc_tmpl {
+	uint16_t cmd_id;
+	uint16_t rsv;
+	uint32_t cmd_param;
+	uint16_t pkt_count;
+	uint16_t rsv2;
+	uint32_t byte_count;
+	union ip_hdr_temp ip_hdr;
+	/* 2B src/dst port */
+	uint16_t src_port;
+	uint16_t dst_port;
+
+	/* attribute mask */
+	uint32_t ipa_sockv5_mask;
+
+	/* reqquired update 4B/4B Seq/Ack/SACK */
+	uint32_t out_irs;
+	uint32_t out_iss;
+	uint32_t in_irs;
+	uint32_t in_iss;
+
+	/* option 10B: time-stamp */
+	uint32_t out_ircv_tsval;
+	uint32_t in_ircv_tsecr;
+	uint32_t out_ircv_tsecr;
+	uint32_t in_ircv_tsval;
+
+	/* option 2B: window-scaling/dynamic */
+	uint16_t in_isnd_wscale:4;
+	uint16_t out_isnd_wscale:4;
+	uint16_t in_ircv_wscale:4;
+	uint16_t out_ircv_wscale:4;
+	uint16_t MAX_WINDOW_SIZE;
+	/* 11*4 + 40 bytes = 84 bytes */
+	uint32_t rsv3;
+	uint32_t rsv4;
+	uint32_t rsv5;
+	uint32_t rsv6;
+	uint32_t rsv7;
+	uint32_t rsv8;
+	uint32_t rsv9;
+} __packed;
+/*reserve 16 bytes : 16 bytes+ 40 bytes + 44 bytes = 100 bytes (28 bytes left)*/
+
+struct ipa_socksv5_info {
+	/* ipa-uc info */
+	struct ipa_socksv5_uc_tmpl ul_out;
+	struct ipa_socksv5_uc_tmpl dl_out;
+
+	/* ipacm info */
+	struct ipacm_socksv5_info ul_in;
+	struct ipacm_socksv5_info dl_in;
+
+	/* output: handle (index) */
+	uint16_t handle;
+};
+
+struct ipa_ipv6_nat_uc_tmpl {
+	uint16_t cmd_id;
+	uint16_t rsv;
+	uint32_t cmd_param;
+	uint16_t pkt_count;
+	uint16_t rsv2;
+	uint32_t byte_count;
+	uint64_t private_address_lsb;
+	uint64_t private_address_msb;
+	uint64_t public_address_lsb;
+	uint64_t public_address_msb;
+	uint16_t private_port;
+	uint16_t public_port;
+	uint32_t rsv3;
+	uint64_t rsv4;
+	uint64_t rsv5;
+	uint64_t rsv6;
+	uint64_t rsv7;
+	uint64_t rsv8;
+	uint64_t rsv9;
+	uint64_t rsv10;
+	uint64_t rsv11;
+	uint64_t rsv12;
+} __packed;
+
 #if IS_ENABLED(CONFIG_IPA3)
 /*
  * Configuration
@@ -1674,6 +1789,15 @@ int ipa_is_vlan_mode(enum ipa_vlan_ifaces iface, bool *res);
  * ipa_get_lan_rx_napi - returns true if NAPI is enabled in the LAN RX dp
  */
 bool ipa_get_lan_rx_napi(void);
+/*
+ * ipa_add_socksv5_conn - add socksv5 info to ipa driver
+ */
+int ipa_add_socksv5_conn(struct ipa_socksv5_info *info);
+
+/*
+ * ipa_del_socksv5_conn - del socksv5 info to ipa driver
+ */
+int ipa_del_socksv5_conn(uint32_t handle);
 
 int ipa_mhi_handle_ipa_config_req(struct ipa_config_req_msg_v01 *config_req);
 int ipa_wigig_save_regs(void);
@@ -1928,6 +2052,16 @@ static inline int ipa_is_vlan_mode(enum ipa_vlan_ifaces iface, bool *res)
 static inline bool ipa_get_lan_rx_napi(void)
 {
 	return false;
+}
+
+static inline int ipa_add_socksv5_conn(struct ipa_socksv5_info *info)
+{
+	return -EPERM;
+}
+
+static inline int ipa_del_socksv5_conn(uint32_t handle)
+{
+	return -EPERM;
 }
 
 static inline const struct ipa_gsi_ep_config *ipa_get_gsi_ep_info(
@@ -2209,3 +2343,4 @@ static inline int ipa_uc_dereg_rdyCB(void)
 }
 
 #endif /* _IPA_H_ */
+

@@ -8426,7 +8426,9 @@ static int qseecom_release(struct inode *inode, struct file *file)
 static const struct file_operations qseecom_fops = {
 	.owner = THIS_MODULE,
 	.unlocked_ioctl = qseecom_ioctl,
+#ifdef CONFIG_COMPAT
 	.compat_ioctl = compat_qseecom_ioctl,
+#endif
 	.open = qseecom_open,
 	.release = qseecom_release
 };
