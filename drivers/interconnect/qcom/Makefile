@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0
 
 qnoc-holi-objs			:= holi.o
+qnoc-monaco-objs			:= monaco.o
 qnoc-qcs404-objs			:= qcs404.o
 qnoc-scshrike-objs			:= scshrike.o
 qnoc-sdm845-objs			:= sdm845.o
@@ -18,6 +19,7 @@ qnoc-qos-obj			:= qnoc-qos.o
 
 obj-$(CONFIG_INTERCONNECT_QCOM_HOLI) += qnoc-holi.o
 obj-$(CONFIG_INTERCONNECT_QCOM_OSM_L3) += osm-l3.o
+obj-$(CONFIG_INTERCONNECT_QCOM_MONACO) += qnoc-monaco.o
 obj-$(CONFIG_INTERCONNECT_QCOM_QCS404) += qnoc-qcs404.o
 obj-$(CONFIG_INTERCONNECT_QCOM_SCSHRIKE) += qnoc-scshrike.o
 obj-$(CONFIG_INTERCONNECT_QCOM_SDM845) += qnoc-sdm845.o
