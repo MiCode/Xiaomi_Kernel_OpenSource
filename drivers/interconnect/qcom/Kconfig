@@ -138,7 +138,7 @@ config INTERCONNECT_QCOM_CPUCP_L3
 
 config INTERCONNECT_QCOM_OSM_L3
 	tristate "QTI OSM L3 interconnect driver"
-	depends on INTERCONNECT_QCOM || COMPILE_TEST
+	depends on INTERCONNECT_QCOM
 	help
 	  This is a driver for the Qualcomm Technologies, Inc. Network-on-Chip
 	  on osm-based platforms.
