@@ -39,9 +39,6 @@ struct apu_dev {
 	struct list_head node;
 	enum DVFS_USER	user;
 
-	/* apu device register iomapping */
-	void __iomem	*regs;
-
 	/* clk info */
 	struct apu_clk_gp *aclk;
 
