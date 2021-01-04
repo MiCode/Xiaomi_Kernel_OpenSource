@@ -106,10 +106,4 @@ void apupw_dbg_set_loglvl(enum LOG_LEVEL lvl);
 int apupw_dbg_get_fixopp(void);
 void apupw_dbg_set_fixopp(int fix);
 struct apupwr_tag *apupw_get_tag(void);
-void apupw_dbg_pwr_tag_update(struct apu_dev *ad, ulong rate, ulong volt);
-void apupw_dbg_dvfs_tag_update(char *gov_name, const char *p_name,
-			       const char *c_name, u32 opp, ulong freq);
-void apupw_dbg_rpc_tag_update(struct apu_dev *ad);
-
-
 #endif
