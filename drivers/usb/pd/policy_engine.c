@@ -408,6 +408,7 @@ struct usbpd {
 	bool			peer_pr_swap;
 	bool			peer_dr_swap;
 	bool			no_usb3dp_concurrency;
+	bool			pd20_source_only;
 
 	u32			sink_caps[7];
 	int			num_sink_caps;
@@ -2129,7 +2130,11 @@ static int usbpd_startup_common(struct usbpd *pd,
 		 * support up to PD 3.0; if peer is 2.0
 		 * phy_msg_received() will handle the downgrade.
 		 */
-		pd->spec_rev = USBPD_REV_30;
+		if ((pd->pd20_source_only) &&
+			pd->current_state == PE_SRC_STARTUP)
+			pd->spec_rev = USBPD_REV_20;
+		else
+			pd->spec_rev = USBPD_REV_30;
 
 		if (pd->pd_phy_opened) {
 			pd_phy_close();
@@ -2257,7 +2262,10 @@ static void handle_state_src_startup_wait_for_vdm_resp(struct usbpd *pd,
 	 * Emarker may have negotiated down to rev 2.0.
 	 * Reset to 3.0 to begin SOP communication with sink
 	 */
-	pd->spec_rev = USBPD_REV_30;
+	if (pd->pd20_source_only)
+		pd->spec_rev = USBPD_REV_20;
+	else
+		pd->spec_rev = USBPD_REV_30;
 
 	pd->current_state = PE_SRC_SEND_CAPABILITIES;
 	kick_sm(pd, ms);
@@ -4797,6 +4805,9 @@ struct usbpd *usbpd_create(struct device *parent)
 				sizeof(default_snk_caps));
 		pd->num_sink_caps = ARRAY_SIZE(default_snk_caps);
 	}
+
+	if (device_property_read_bool(parent, "qcom,pd-20-source-only"))
+		pd->pd20_source_only = true;
 
 	/*
 	 * Register a Type-C class instance (/sys/class/typec/portX).
