@@ -2501,7 +2501,7 @@
 
 			silver {
 				compatible = "qcom,memlat-mon";
-				qcom,cpulist = <&CPU0 &CPU2>;
+				qcom,cpulist = <&CPU0 &CPU1 &CPU2 &CPU3>;
 				qcom,cpufreq-memfreq-tbl =
 					<  300000  300000 >,
 					<  403200  403200 >,
@@ -2520,7 +2520,22 @@
 
 			gold {
 				compatible = "qcom,memlat-mon";
-				qcom,cpulist = <&CPU4 &CPU5 &CPU6 &CPU7>;
+				qcom,cpulist = <&CPU4 &CPU5 &CPU6>;
+				qcom,cpufreq-memfreq-tbl =
+					<  300000  300000 >,
+					<  787200  614400 >,
+					< 1209600  806400 >,
+					< 1497600  998400 >,
+					< 1689600 1248000 >,
+					< 1900800 1344000 >,
+					< 2188800 1440000 >,
+					< 2400000 1516800 >;
+				qcom,sampling-enabled;
+			};
+
+			prime {
+				compatible = "qcom,memlat-mon";
+				qcom,cpulist = <&CPU7>;
 				qcom,cpufreq-memfreq-tbl =
 					<  300000  300000 >,
 					<  787200  614400 >,
