@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/interrupt.h>
@@ -26,6 +26,7 @@
 #include <linux/hh_virtio_backend.h>
 #include <linux/of_irq.h>
 #include <linux/haven/hcall.h>
+#include <linux/haven/hh_rm_drv.h>
 #include <linux/pgtable.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
@@ -1119,8 +1120,8 @@ done:
 	return IRQ_HANDLED;
 }
 
-int hh_virtio_mmio_init(const char *vm_name, hh_label_t label,
-			hh_capid_t cap_id, int linux_irq, u64 base, u64 size)
+static int hh_virtio_mmio_init(hh_vmid_t vmid, const char *vm_name,
+	hh_label_t label, hh_capid_t cap_id, int linux_irq, u64 base, u64 size)
 {
 	struct virt_machine *vm;
 	struct virtio_backend_device *vb_dev;
@@ -1222,7 +1223,6 @@ int hh_virtio_mmio_init(const char *vm_name, hh_label_t label,
 
 	return 0;
 }
-EXPORT_SYMBOL(hh_virtio_mmio_init);
 
 static const struct of_device_id hh_virtio_backend_match_table[] = {
 	{ .compatible = "qcom,virtio_backend" },
@@ -1243,6 +1243,10 @@ static int __init hh_virtio_backend_init(void)
 	int ret;
 
 	ret = vb_devclass_init();
+	if (ret)
+		return ret;
+
+	ret = hh_rm_set_virtio_mmio_cb(hh_virtio_mmio_init);
 	if (ret)
 		return ret;
 
