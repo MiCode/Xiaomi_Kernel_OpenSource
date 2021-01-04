@@ -5,7 +5,8 @@
  */
 #include <dt-bindings/interconnect/mtk,mmqos.h>
 #include <linux/clk.h>
-#include <linux/interconnect-provider.h>
+//#include <linux/interconnect-provider.h>
+#include <linux/interconnect.h>
 #include <linux/kthread.h>
 #include <linux/module.h>
 #include <linux/of_platform.h>
@@ -42,7 +43,7 @@ struct mtk_mmqos {
 	struct icc_provider prov;
 	struct notifier_block nb;
 	struct list_head comm_list;
-	struct workqueue_struct *wq;
+	//struct workqueue_struct *wq;
 	u32 max_ratio;
 	bool qos_bound; /* Todo: Set qos_bound to true if necessary */
 };
@@ -104,10 +105,11 @@ static void set_chn_bw(u32 *bw_array, u8 chn_id, u32 bw)
 			bw_array[i] += bw;
 }
 
-static void set_comm_icc_bw_handler(struct work_struct *work)
+//static void set_comm_icc_bw_handler(struct work_struct *work)
+static void set_comm_icc_bw(struct common_node *comm_node)
 {
-	struct common_node *comm_node = container_of(
-				work, struct common_node, work);
+	//struct common_node *comm_node = container_of(
+	//			work, struct common_node, work);
 	struct common_port_node *comm_port_node;
 	u32 avg_bw = 0, peak_bw = 0, max_bw = 0;
 	u32 normalize_peak_bw, i;
@@ -166,7 +168,8 @@ static int mtk_mmqos_set(struct icc_node *src, struct icc_node *dst)
 		comm_node = (struct common_node *)dst->data;
 		if (!comm_node)
 			break;
-		queue_work(mmqos->wq, &comm_node->work);
+		set_comm_icc_bw(comm_node);
+		//queue_work(mmqos->wq, &comm_node->work);
 		break;
 	case MTK_MMQOS_NODE_COMMON_PORT:
 		comm_port_node = (struct common_port_node *)dst->data;
@@ -223,8 +226,8 @@ static int mtk_mmqos_aggregate(struct icc_node *node,
 	case MTK_MMQOS_NODE_COMMON_PORT:
 		base_node = ((struct common_port_node *)node->data)->base;
 		break;
-	default:
-		return 0;
+	//default:
+	//	return 0;
 	}
 	if (base_node) {
 		if (*agg_avg == 0 && *agg_peak == 0)
@@ -312,9 +315,9 @@ int mtk_mmqos_probe(struct platform_device *pdev)
 	mmqos->prov.aggregate = mtk_mmqos_aggregate;
 	mmqos->prov.xlate = mtk_mmqos_xlate;
 	mmqos->prov.dev = &pdev->dev;
-	ret = icc_provider_add(&mmqos->prov);
+	ret = mtk_icc_provider_add(&mmqos->prov);
 	if (ret) {
-		dev_notice(&pdev->dev, "icc_provider_add failed:%d\n", ret);
+		dev_notice(&pdev->dev, "mtk_icc_provider_add failed:%d\n", ret);
 		return ret;
 	}
 	mmqos_desc = (struct mtk_mmqos_desc *)
@@ -332,14 +335,14 @@ int mtk_mmqos_probe(struct platform_device *pdev)
 	}
 	for (i = 0; i < mmqos_desc->num_nodes; i++) {
 		node_desc = &mmqos_desc->nodes[i];
-		node = icc_node_create(node_desc->id);
+		node = mtk_icc_node_create(node_desc->id);
 		if (IS_ERR(node)) {
 			ret = PTR_ERR(node);
 			goto err;
 		}
-		icc_node_add(node, &mmqos->prov);
+		mtk_icc_node_add(node, &mmqos->prov);
 		if (node_desc->link != MMQOS_NO_LINK) {
-			ret = icc_link_create(node, node_desc->link);
+			ret = mtk_icc_link_create(node, node_desc->link);
 			if (ret)
 				goto err;
 		}
@@ -359,7 +362,7 @@ int mtk_mmqos_probe(struct platform_device *pdev)
 				ret = -ENOMEM;
 				goto err;
 			}
-			INIT_WORK(&comm_node->work, set_comm_icc_bw_handler);
+			//INIT_WORK(&comm_node->work, set_comm_icc_bw_handler);
 			comm_node->clk = devm_clk_get(&pdev->dev,
 				mmqos_desc->comm_muxes[MASK_8(node->id)]);
 			if (IS_ERR(comm_node->clk)) {
@@ -492,12 +495,14 @@ int mtk_mmqos_probe(struct platform_device *pdev)
 	data->num_nodes = mmqos_desc->num_nodes;
 	mmqos->prov.data = data;
 	mmqos->max_ratio = mmqos_desc->max_ratio;
+	/*
 	mmqos->wq = create_singlethread_workqueue("mmqos_work_queue");
 	if (!mmqos->wq) {
 		dev_notice(&pdev->dev, "work queue create fail\n");
 		ret = -ENOMEM;
 		goto err;
 	}
+	*/
 	hrt = devm_kzalloc(&pdev->dev, sizeof(*hrt), GFP_KERNEL);
 	if (!hrt) {
 		ret = -ENOMEM;
@@ -515,10 +520,10 @@ int mtk_mmqos_probe(struct platform_device *pdev)
 	return 0;
 err:
 	list_for_each_entry_safe(node, temp, &mmqos->prov.nodes, node_list) {
-		icc_node_del(node);
-		icc_node_destroy(node->id);
+		mtk_icc_node_del(node);
+		mtk_icc_node_destroy(node->id);
 	}
-	icc_provider_del(&mmqos->prov);
+	mtk_icc_provider_del(&mmqos->prov);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(mtk_mmqos_probe);
@@ -529,12 +534,12 @@ int mtk_mmqos_remove(struct platform_device *pdev)
 	struct icc_node *node, *temp;
 
 	list_for_each_entry_safe(node, temp, &mmqos->prov.nodes, node_list) {
-		icc_node_del(node);
-		icc_node_destroy(node->id);
+		mtk_icc_node_del(node);
+		mtk_icc_node_destroy(node->id);
 	}
-	icc_provider_del(&mmqos->prov);
+	mtk_icc_provider_del(&mmqos->prov);
 	unregister_mmdvfs_notifier(&mmqos->nb);
-	destroy_workqueue(mmqos->wq);
+	//destroy_workqueue(mmqos->wq);
 	mtk_mmqos_unregister_hrt_sysfs(&pdev->dev);
 	return 0;
 }

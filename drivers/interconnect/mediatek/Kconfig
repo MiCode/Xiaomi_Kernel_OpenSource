@@ -14,6 +14,7 @@ config INTERCONNECT_MTK_EMI
 
 config INTERCONNECT_MTK_MMQOS_COMMON
 	tristate "Mediatek MMQoS support"
+	select INTERCONNECT_MTK_EXTENSION
 	help
 	  Support for multimedia QoS in Mediatek's SoCs.
 	  The Mediatek MMQoS(Multimedia Quality of Service) Interconnect

@@ -5,7 +5,8 @@
  */
 #ifndef MMQOS_MTK_H
 #define MMQOS_MTK_H
-#include <linux/interconnect-provider.h>
+//#include <linux/interconnect-provider.h>
+#include "mtk-interconnect-provider.h"
 #include <linux/notifier.h>
 #include <linux/platform_device.h>
 #include <linux/workqueue.h>
