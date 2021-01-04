@@ -3260,15 +3260,15 @@ static int mtk_disp_ovl_bind(struct device *dev, struct device *master,
 #ifdef MTK_DISP_MMQOS_SUPPORT
 	mtk_disp_pmqos_get_icc_path_name(buf, sizeof(buf),
 					&priv->ddp_comp, "qos");
-	priv->ddp_comp.qos_req = of_icc_get(dev, buf);
+	priv->ddp_comp.qos_req = of_mtk_icc_get(dev, buf);
 
 	mtk_disp_pmqos_get_icc_path_name(buf, sizeof(buf),
 					&priv->ddp_comp, "fbdc_qos");
-	priv->ddp_comp.fbdc_qos_req = of_icc_get(dev, buf);
+	priv->ddp_comp.fbdc_qos_req = of_mtk_icc_get(dev, buf);
 
 	mtk_disp_pmqos_get_icc_path_name(buf, sizeof(buf),
 					&priv->ddp_comp, "hrt_qos");
-	priv->ddp_comp.hrt_qos_req = of_icc_get(dev, buf);
+	priv->ddp_comp.hrt_qos_req = of_mtk_icc_get(dev, buf);
 #endif
 
 	baddr = priv->ddp_comp.regs;

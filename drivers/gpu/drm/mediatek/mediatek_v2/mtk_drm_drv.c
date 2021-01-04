@@ -2776,7 +2776,7 @@ static int mtk_drm_probe(struct platform_device *pdev)
 	mtk_drm_get_top_clk(private);
 
 #ifdef MTK_DISP_MMQOS_SUPPORT
-	private->hrt_bw_request = of_icc_get(dev, "disp_hrt_qos");
+	private->hrt_bw_request = of_mtk_icc_get(dev, "disp_hrt_qos");
 #endif
 
 	/* Iterate over sibling DISP function blocks */

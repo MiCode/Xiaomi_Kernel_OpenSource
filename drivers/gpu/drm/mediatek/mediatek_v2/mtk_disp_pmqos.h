@@ -6,7 +6,8 @@
 #ifndef _MTK_DRM_PMQOS_H_
 #define _MTK_DRM_PMQOS_H_
 
-#include <linux/interconnect-provider.h>
+//#include <linux/interconnect-provider.h>
+#include "mtk-interconnect-provider.h"
 #include <linux/pm_qos.h>
 
 enum DISP_QOS_BW_MODE {
