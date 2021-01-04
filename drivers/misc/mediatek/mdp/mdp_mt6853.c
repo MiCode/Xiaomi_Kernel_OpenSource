@@ -22,7 +22,8 @@
 #endif
 
 #include <dt-bindings/memory/mt6853-larb-port.h>
-#include <linux/interconnect-provider.h>
+//#include <linux/interconnect-provider.h>
+#include "mtk-interconnect.h"
 #include <soc/mediatek/smi.h>
 
 #include "mdp_engine_mt6853.h"
@@ -1777,7 +1778,7 @@ static u32 cmdq_mdp_qos_translate_port(u32 engine_id)
 }
 
 #define MDP_ICC_GET(port) do { \
-	path_##port[thread_id] = of_icc_get(dev, #port);		\
+	path_##port[thread_id] = of_mtk_icc_get(dev, #port);		\
 	if (!path_##port[thread_id])					\
 		CMDQ_ERR("%s port:%s icc fail\n", __func__, #port);	\
 } while (0)
@@ -1952,55 +1953,55 @@ static void *mdp_qos_get_path(u32 thread_id, u32 port)
 
 static void mdp_qos_clear_all(u32 thread_id)
 {
-	icc_set_bw(path_mdp_rdma0[thread_id], 0, 0);
-	icc_set_bw(path_mdp_rdma1[thread_id], 0, 0);
-	icc_set_bw(path_mdp_wrot0[thread_id], 0, 0);
-	icc_set_bw(path_mdp_wrot1[thread_id], 0, 0);
+	mtk_icc_set_bw(path_mdp_rdma0[thread_id], 0, 0);
+	mtk_icc_set_bw(path_mdp_rdma1[thread_id], 0, 0);
+	mtk_icc_set_bw(path_mdp_wrot0[thread_id], 0, 0);
+	mtk_icc_set_bw(path_mdp_wrot1[thread_id], 0, 0);
 }
 
 static void mdp_qos_clear_all_isp(u32 thread_id)
 {
-	icc_set_bw(path_l9_img_imgi_d1[thread_id], 0, 0);
-	icc_set_bw(path_l9_img_imgbi_d1[thread_id], 0, 0);
-	icc_set_bw(path_l9_img_dmgi_d1[thread_id], 0, 0);
-	icc_set_bw(path_l9_img_depi_d1[thread_id], 0, 0);
-	icc_set_bw(path_l9_img_ice_d1[thread_id], 0, 0);
-	icc_set_bw(path_l9_img_smti_d1[thread_id], 0, 0);
-	icc_set_bw(path_l9_img_smto_d2[thread_id], 0, 0);
-	icc_set_bw(path_l9_img_smto_d1[thread_id], 0, 0);
-	icc_set_bw(path_l9_img_crzo_d1[thread_id], 0, 0);
-	icc_set_bw(path_l9_img_img3o_d1[thread_id], 0, 0);
-	icc_set_bw(path_l9_img_vipi_d1[thread_id], 0, 0);
-	icc_set_bw(path_l9_img_smti_d5[thread_id], 0, 0);
-	icc_set_bw(path_l9_img_timgo_d1[thread_id], 0, 0);
-	icc_set_bw(path_l9_img_ufbc_w0[thread_id], 0, 0);
-	icc_set_bw(path_l9_img_ufbc_r0[thread_id], 0, 0);
-	icc_set_bw(path_l11_img_imgi_d1[thread_id], 0, 0);
-	icc_set_bw(path_l11_img_imgbi_d1[thread_id], 0, 0);
-	icc_set_bw(path_l11_img_dmgi_d1[thread_id], 0, 0);
-	icc_set_bw(path_l11_img_depi_d1[thread_id], 0, 0);
-	icc_set_bw(path_l11_img_ice_d1[thread_id], 0, 0);
-	icc_set_bw(path_l11_img_smti_d1[thread_id], 0, 0);
-	icc_set_bw(path_l11_img_smto_d2[thread_id], 0, 0);
-	icc_set_bw(path_l11_img_smto_d1[thread_id], 0, 0);
-	icc_set_bw(path_l11_img_crzo_d1[thread_id], 0, 0);
-	icc_set_bw(path_l11_img_img3o_d1[thread_id], 0, 0);
-	icc_set_bw(path_l11_img_vipi_d1[thread_id], 0, 0);
-	icc_set_bw(path_l11_img_smti_d5[thread_id], 0, 0);
-	icc_set_bw(path_l11_img_timgo_d1[thread_id], 0, 0);
-	icc_set_bw(path_l11_img_ufbc_w0[thread_id], 0, 0);
-	icc_set_bw(path_l11_img_ufbc_r0[thread_id], 0, 0);
-	icc_set_bw(path_l11_img_wpe_rdma1[thread_id], 0, 0);
-	icc_set_bw(path_l11_img_wpe_rdma0[thread_id], 0, 0);
-	icc_set_bw(path_l11_img_wpe_wdma[thread_id], 0, 0);
-	icc_set_bw(path_l11_img_mfb_rdma0[thread_id], 0, 0);
-	icc_set_bw(path_l11_img_mfb_rdma1[thread_id], 0, 0);
-	icc_set_bw(path_l11_img_mfb_rdma2[thread_id], 0, 0);
-	icc_set_bw(path_l11_img_mfb_rdma3[thread_id], 0, 0);
-	icc_set_bw(path_l11_img_mfb_rdma4[thread_id], 0, 0);
-	icc_set_bw(path_l11_img_mfb_rdma5[thread_id], 0, 0);
-	icc_set_bw(path_l11_img_mfb_wdma0[thread_id], 0, 0);
-	icc_set_bw(path_l11_img_mfb_wdma1[thread_id], 0, 0);
+	mtk_icc_set_bw(path_l9_img_imgi_d1[thread_id], 0, 0);
+	mtk_icc_set_bw(path_l9_img_imgbi_d1[thread_id], 0, 0);
+	mtk_icc_set_bw(path_l9_img_dmgi_d1[thread_id], 0, 0);
+	mtk_icc_set_bw(path_l9_img_depi_d1[thread_id], 0, 0);
+	mtk_icc_set_bw(path_l9_img_ice_d1[thread_id], 0, 0);
+	mtk_icc_set_bw(path_l9_img_smti_d1[thread_id], 0, 0);
+	mtk_icc_set_bw(path_l9_img_smto_d2[thread_id], 0, 0);
+	mtk_icc_set_bw(path_l9_img_smto_d1[thread_id], 0, 0);
+	mtk_icc_set_bw(path_l9_img_crzo_d1[thread_id], 0, 0);
+	mtk_icc_set_bw(path_l9_img_img3o_d1[thread_id], 0, 0);
+	mtk_icc_set_bw(path_l9_img_vipi_d1[thread_id], 0, 0);
+	mtk_icc_set_bw(path_l9_img_smti_d5[thread_id], 0, 0);
+	mtk_icc_set_bw(path_l9_img_timgo_d1[thread_id], 0, 0);
+	mtk_icc_set_bw(path_l9_img_ufbc_w0[thread_id], 0, 0);
+	mtk_icc_set_bw(path_l9_img_ufbc_r0[thread_id], 0, 0);
+	mtk_icc_set_bw(path_l11_img_imgi_d1[thread_id], 0, 0);
+	mtk_icc_set_bw(path_l11_img_imgbi_d1[thread_id], 0, 0);
+	mtk_icc_set_bw(path_l11_img_dmgi_d1[thread_id], 0, 0);
+	mtk_icc_set_bw(path_l11_img_depi_d1[thread_id], 0, 0);
+	mtk_icc_set_bw(path_l11_img_ice_d1[thread_id], 0, 0);
+	mtk_icc_set_bw(path_l11_img_smti_d1[thread_id], 0, 0);
+	mtk_icc_set_bw(path_l11_img_smto_d2[thread_id], 0, 0);
+	mtk_icc_set_bw(path_l11_img_smto_d1[thread_id], 0, 0);
+	mtk_icc_set_bw(path_l11_img_crzo_d1[thread_id], 0, 0);
+	mtk_icc_set_bw(path_l11_img_img3o_d1[thread_id], 0, 0);
+	mtk_icc_set_bw(path_l11_img_vipi_d1[thread_id], 0, 0);
+	mtk_icc_set_bw(path_l11_img_smti_d5[thread_id], 0, 0);
+	mtk_icc_set_bw(path_l11_img_timgo_d1[thread_id], 0, 0);
+	mtk_icc_set_bw(path_l11_img_ufbc_w0[thread_id], 0, 0);
+	mtk_icc_set_bw(path_l11_img_ufbc_r0[thread_id], 0, 0);
+	mtk_icc_set_bw(path_l11_img_wpe_rdma1[thread_id], 0, 0);
+	mtk_icc_set_bw(path_l11_img_wpe_rdma0[thread_id], 0, 0);
+	mtk_icc_set_bw(path_l11_img_wpe_wdma[thread_id], 0, 0);
+	mtk_icc_set_bw(path_l11_img_mfb_rdma0[thread_id], 0, 0);
+	mtk_icc_set_bw(path_l11_img_mfb_rdma1[thread_id], 0, 0);
+	mtk_icc_set_bw(path_l11_img_mfb_rdma2[thread_id], 0, 0);
+	mtk_icc_set_bw(path_l11_img_mfb_rdma3[thread_id], 0, 0);
+	mtk_icc_set_bw(path_l11_img_mfb_rdma4[thread_id], 0, 0);
+	mtk_icc_set_bw(path_l11_img_mfb_rdma5[thread_id], 0, 0);
+	mtk_icc_set_bw(path_l11_img_mfb_wdma0[thread_id], 0, 0);
+	mtk_icc_set_bw(path_l11_img_mfb_wdma1[thread_id], 0, 0);
 }
 
 static u32 mdp_get_group_max(void)
