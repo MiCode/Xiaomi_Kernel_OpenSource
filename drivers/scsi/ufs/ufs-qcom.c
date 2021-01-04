@@ -1808,19 +1808,18 @@ static void ufshcd_parse_pm_levels(struct ufs_hba *hba)
 static void ufs_qcom_override_pa_h8time(struct ufs_hba *hba)
 {
 	int ret;
-	u32 loc_tx_h8time_cap = 0;
+	u32 pa_h8time = 0;
 
-	ret = ufshcd_dme_get(hba, UIC_ARG_MIB_SEL(TX_HIBERN8TIME_CAPABILITY,
-				UIC_ARG_MPHY_TX_GEN_SEL_INDEX(0)),
-				&loc_tx_h8time_cap);
+	ret = ufshcd_dme_get(hba, UIC_ARG_MIB(PA_HIBERN8TIME),
+				&pa_h8time);
 	if (ret) {
-		dev_err(hba->dev, "Failed getting max h8 time: %d\n", ret);
+		dev_err(hba->dev, "Failed getting PA_HIBERN8TIME time: %d\n", ret);
 		return;
 	}
 
 	/* 1 implies 100 us */
 	ret = ufshcd_dme_set(hba, UIC_ARG_MIB(PA_HIBERN8TIME),
-				loc_tx_h8time_cap + 1);
+				pa_h8time + 1);
 	if (ret)
 		dev_err(hba->dev, "Failed updating PA_HIBERN8TIME: %d\n", ret);
 
