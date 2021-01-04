@@ -41,6 +41,9 @@ void apupw_dbg_pwr_tag_update(struct apu_dev *ad, ulong rate, ulong volt)
 		pwr->vsram = ad->argul->rgul_sup->cur_volt;
 		pwr->dsp_freq = rate;
 		break;
+	case APUIOMMU:
+		pwr->dsp7_freq = rate;
+		break;
 	case MDLA: /* mdla in 6885/6873/6853/6889 are share same pll */
 		pwr->vmdla = volt;
 		pwr->dsp5_freq = rate;
