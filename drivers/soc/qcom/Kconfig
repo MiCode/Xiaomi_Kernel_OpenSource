@@ -1202,5 +1202,13 @@ config QCOM_ADSP_MANUAL_VOTE
           This driver sends message over QMI to the service which is running on
           ADSP.
 
+config MSM_SLATECOM
+	bool "Provide APIs to communicate with Slate chipset"
+	help
+		SLATECOM is a thin layer above SPI. It is used whithin a SoC for
+		communication between G-Link/slate_com_dev and Slate processor over SPI.
+		This handle the interrupts raised by BG and notify the G-link with
+		interrupt event and event data.
+
 source "drivers/soc/qcom/icnss2/Kconfig"
 endmenu
