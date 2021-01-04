@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/dma-mapping.h>
@@ -84,7 +84,7 @@ static dma_addr_t __fast_smmu_alloc_iova(struct dma_fast_smmu_mapping *mapping,
 				bool skip_sync = (attrs &
 						  DMA_ATTR_SKIP_CPU_SYNC);
 
-				iommu_flush_tlb_all(domain);
+				iommu_flush_iotlb_all(domain);
 				bitmap_copy(mapping->clean_bitmap,
 					    mapping->bitmap,
 					    mapping->num_4k_pages);
@@ -291,8 +291,6 @@ static int fast_smmu_map_sg(struct device *dev, struct scatterlist *sg,
 	if ((attrs & DMA_ATTR_SKIP_CPU_SYNC) == 0)
 		fast_smmu_sync_sg_for_device(dev, sg, nents, dir);
 
-	trace_map_sg(to_msm_iommu_domain(mapping->domain), iova, iova_len,
-		     prot);
 	return ret;
 fail:
 	qcom_iommu_dma_invalidate_sg(sg, nents);
@@ -332,7 +330,6 @@ static void fast_smmu_unmap_sg(struct device *dev,
 	spin_lock_irqsave(&mapping->lock, flags);
 	__fast_smmu_free_iova(mapping, start, len);
 	spin_unlock_irqrestore(&mapping->lock, flags);
-	trace_unmap(to_msm_iommu_domain(mapping->domain), start, len, len);
 }
 
 static void __fast_smmu_free_pages(struct page **pages, int count)
