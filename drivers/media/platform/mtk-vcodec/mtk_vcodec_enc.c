@@ -517,6 +517,7 @@ static int vidioc_enum_fmt(struct v4l2_fmtdesc *f, bool output_queue)
 			fmt = &mtk_video_formats[i];
 			f->pixelformat = fmt->fourcc;
 			memset(f->reserved, 0, sizeof(f->reserved));
+			v4l_fill_mtk_fmtdesc(f);
 			return 0;
 		}
 		++j;
@@ -1398,15 +1399,15 @@ static int vidioc_venc_qbuf(struct file *file, void *priv,
 		mtkbuf->flags |= NO_CAHCE_INVALIDATE;
 	}
 
-	if (buf->flags & V4L2_BUF_FLAG_ROI && buf->reserved2 != 0) {
+	if (buf->flags & V4L2_BUF_FLAG_ROI && buf->reserved != 0) {
 		mtk_v4l2_debug(1, "[%d] Have ROI info map 1, buf->index:%d. mtkbuf:%p, pa:0x%x",
-			ctx->id, buf->index, mtkbuf, buf->reserved2);
-		mtkbuf->roimap = buf->reserved2;
-		mtkbuf->frm_buf.roimap = buf->reserved2;
+			ctx->id, buf->index, mtkbuf, buf->reserved);
+		mtkbuf->roimap = buf->reserved;
+		mtkbuf->frm_buf.roimap = buf->reserved;
 	}
-	if (buf->flags & V4L2_BUF_FLAG_HDR_META && buf->reserved2 != 0) {
+	if (buf->flags & V4L2_BUF_FLAG_HDR_META && buf->reserved != 0) {
 		mtkbuf->frm_buf.has_meta = 1;
-		mtkbuf->frm_buf.meta_dma = dma_buf_get(buf->reserved2);
+		mtkbuf->frm_buf.meta_dma = dma_buf_get(buf->reserved);
 
 		if (IS_ERR(mtkbuf->frm_buf.meta_dma)) {
 			mtk_v4l2_err("%s meta_dma is err 0x%p.\n", __func__,
@@ -1423,7 +1424,7 @@ static int vidioc_venc_qbuf(struct file *file, void *priv,
 		mtkbuf->frm_buf.meta_addr = sg_dma_address(mtkbuf->frm_buf.sgt->sgl);
 
 		mtk_v4l2_debug(1, "[%d] Have HDR info meta fd, buf->index:%d. mtkbuf:%p, fd:%u",
-			ctx->id, buf->index, mtkbuf, buf->reserved2);
+			ctx->id, buf->index, mtkbuf, buf->reserved);
 	}
 
 	return v4l2_m2m_qbuf(file, ctx->m2m_ctx, buf);
@@ -2478,32 +2479,30 @@ void mtk_vcodec_enc_set_default_params(struct mtk_vcodec_ctx *ctx)
 
 }
 
-static const struct v4l2_ctrl_config mtk_enc_color_desc_ctrl = {
-	.ops = &mtk_vcodec_enc_ctrl_ops,
-	.id = V4L2_CID_MPEG_MTK_COLOR_DESC,
-	.name = "Video encode color description for HDR",
-	.type = V4L2_CTRL_TYPE_U32,
-	.flags = V4L2_CTRL_FLAG_WRITE_ONLY,
-	.min = 0x00000000,
-	.max = 0xffffffff,
-	.step = 1,
-	.def = 0,
-	.dims = { sizeof(struct mtk_color_desc)/sizeof(u32) }
-};
+void mtk_vcodec_enc_custom_ctrls_check(struct v4l2_ctrl_handler *hdl,
+			const struct v4l2_ctrl_config *cfg, void *priv)
+{
+	v4l2_ctrl_new_custom(hdl, cfg, NULL);
+
+	if (hdl->error) {
+		mtk_v4l2_debug(0, "Adding control failed %s %x %d",
+			cfg->name, cfg->id, hdl->error);
+	} else {
+		mtk_v4l2_debug(4, "Adding control %s %x %d",
+			cfg->name, cfg->id, hdl->error);
+	}
+}
 
 int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 {
 	const struct v4l2_ctrl_ops *ops = &mtk_vcodec_enc_ctrl_ops;
 	struct v4l2_ctrl_handler *handler = &ctx->ctrl_hdl;
 	struct v4l2_ctrl_config cfg;
-	struct v4l2_ctrl *ctrl;
 
 	v4l2_ctrl_handler_init(handler, MTK_MAX_CTRLS_HINT);
 
 	v4l2_ctrl_new_std(handler, ops, V4L2_CID_MPEG_VIDEO_BITRATE,
 			  0, 400000000, 1, 20000000);
-	v4l2_ctrl_new_std(handler, ops, V4L2_CID_MPEG_MTK_SEC_ENCODE,
-			  0, 2, 1, 0);
 	v4l2_ctrl_new_std(handler, ops, V4L2_CID_MPEG_VIDEO_B_FRAMES,
 			  0, 3, 1, 0);
 	v4l2_ctrl_new_std(handler, ops, V4L2_CID_MPEG_VIDEO_FRAME_RC_ENABLE,
@@ -2518,12 +2517,6 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 			  0, 1, 1, 0);
 	v4l2_ctrl_new_std(handler, ops, V4L2_CID_MPEG_VIDEO_FORCE_KEY_FRAME,
 			  0, 1, 1, 0);
-	v4l2_ctrl_new_std(handler, ops, V4L2_CID_MPEG_MTK_ENCODE_RC_I_FRAME_QP,
-			  0, 51, 1, 51);
-	v4l2_ctrl_new_std(handler, ops, V4L2_CID_MPEG_MTK_ENCODE_RC_P_FRAME_QP,
-			  0, 51, 1, 51);
-	v4l2_ctrl_new_std(handler, ops, V4L2_CID_MPEG_MTK_ENCODE_RC_B_FRAME_QP,
-			  0, 51, 1, 51);
 	v4l2_ctrl_new_std_menu(handler, ops,
 		V4L2_CID_MPEG_VIDEO_HEADER_MODE,
 		V4L2_MPEG_VIDEO_HEADER_MODE_JOINED_WITH_1ST_FRAME,
@@ -2551,9 +2544,16 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	v4l2_ctrl_new_std_menu(handler, ops, V4L2_CID_MPEG_VIDEO_MPEG4_LEVEL,
 		V4L2_MPEG_VIDEO_MPEG4_LEVEL_5,
 		0, V4L2_MPEG_VIDEO_MPEG4_LEVEL_0);
+	if (handler->error)
+		mtk_v4l2_debug(0, "Adding control failed V4L2_CID_MPEG_VIDEO_MPEG4_LEVEL %x %d",
+			 V4L2_CID_MPEG_VIDEO_MPEG4_LEVEL, handler->error);
+
 	v4l2_ctrl_new_std_menu(handler, ops, V4L2_CID_MPEG_VIDEO_BITRATE_MODE,
 		V4L2_MPEG_VIDEO_BITRATE_MODE_CQ,
 		0, V4L2_MPEG_VIDEO_BITRATE_MODE_VBR);
+	if (handler->error)
+		mtk_v4l2_debug(0, "Adding control failed V4L2_CID_MPEG_VIDEO_BITRATE_MODE %x %d",
+			 V4L2_CID_MPEG_VIDEO_BITRATE_MODE, handler->error);
 
 	memset(&cfg, 0, sizeof(cfg));
 	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_SCENARIO;
@@ -2565,7 +2565,7 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.step = 1;
 	cfg.def = 0;
 	cfg.ops = ops;
-	ctrl = v4l2_ctrl_new_custom(handler, &cfg, NULL);
+	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
 
 	memset(&cfg, 0, sizeof(cfg));
 	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_NONREFP;
@@ -2577,7 +2577,7 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.step = 1;
 	cfg.def = 0;
 	cfg.ops = ops;
-	ctrl = v4l2_ctrl_new_custom(handler, &cfg, NULL);
+	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
 
 	memset(&cfg, 0, sizeof(cfg));
 	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_NONREFP_FREQ;
@@ -2589,7 +2589,7 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.step = 1;
 	cfg.def = 0;
 	cfg.ops = ops;
-	ctrl = v4l2_ctrl_new_custom(handler, &cfg, NULL);
+	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
 
 	memset(&cfg, 0, sizeof(cfg));
 	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_DETECTED_FRAMERATE;
@@ -2601,7 +2601,7 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.step = 1;
 	cfg.def = 0;
 	cfg.ops = ops;
-	ctrl = v4l2_ctrl_new_custom(handler, &cfg, NULL);
+	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
 
 	memset(&cfg, 0, sizeof(cfg));
 	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_RFS_ON;
@@ -2613,7 +2613,7 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.step = 1;
 	cfg.def = 0;
 	cfg.ops = ops;
-	ctrl = v4l2_ctrl_new_custom(handler, &cfg, NULL);
+	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
 
 	memset(&cfg, 0, sizeof(cfg));
 	cfg.id = V4L2_CID_MPEG_VIDEO_PREPEND_SPSPPS_TO_IDR;
@@ -2625,7 +2625,7 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.step = 1;
 	cfg.def = 0;
 	cfg.ops = ops;
-	ctrl = v4l2_ctrl_new_custom(handler, &cfg, NULL);
+	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
 
 	memset(&cfg, 0, sizeof(cfg));
 	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_OPERATION_RATE;
@@ -2637,7 +2637,7 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.step = 1;
 	cfg.def = 0;
 	cfg.ops = ops;
-	ctrl = v4l2_ctrl_new_custom(handler, &cfg, NULL);
+	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
 
 	memset(&cfg, 0, sizeof(cfg));
 	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_ROI_ON;
@@ -2649,7 +2649,7 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.step = 1;
 	cfg.def = 0;
 	cfg.ops = ops;
-	ctrl = v4l2_ctrl_new_custom(handler, &cfg, NULL);
+	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
 
 	memset(&cfg, 0, sizeof(cfg));
 	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_GRID_SIZE;
@@ -2661,10 +2661,20 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.step = 16;
 	cfg.def = 0;
 	cfg.ops = ops;
-	ctrl = v4l2_ctrl_new_custom(handler, &cfg, NULL);
+	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
 
-	ctrl = v4l2_ctrl_new_custom(&ctx->ctrl_hdl,
-		&mtk_enc_color_desc_ctrl, NULL);
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_COLOR_DESC;
+	cfg.type = V4L2_CTRL_TYPE_U32;
+	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
+	cfg.name = "Video encode color description for HDR";
+	cfg.min = 0x00000000;
+	cfg.max = 0xffffffff;
+	cfg.step = 1;
+	cfg.def = 0;
+	cfg.ops = ops;
+	cfg.dims[0] = (sizeof(struct mtk_color_desc)/sizeof(u32));
+	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
 
 	memset(&cfg, 0, sizeof(cfg));
 	cfg.id = V4L2_CID_MPEG_MTK_MAX_WIDTH;
@@ -2676,7 +2686,7 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.step = 16;
 	cfg.def = 0;
 	cfg.ops = ops;
-	ctrl = v4l2_ctrl_new_custom(handler, &cfg, NULL);
+	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
 
 	memset(&cfg, 0, sizeof(cfg));
 	cfg.id = V4L2_CID_MPEG_MTK_MAX_HEIGHT;
@@ -2688,7 +2698,55 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.step = 16;
 	cfg.def = 0;
 	cfg.ops = ops;
-	ctrl = v4l2_ctrl_new_custom(handler, &cfg, NULL);
+	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
+
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_RC_I_FRAME_QP;
+	cfg.type = V4L2_CTRL_TYPE_INTEGER;
+	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
+	cfg.name = "I-Frame QP Value";
+	cfg.min = 0;
+	cfg.max = 51;
+	cfg.step = 1;
+	cfg.def = 51;
+	cfg.ops = ops;
+	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
+
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_RC_P_FRAME_QP;
+	cfg.type = V4L2_CTRL_TYPE_INTEGER;
+	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
+	cfg.name = "P-Frame QP Value";
+	cfg.min = 0;
+	cfg.max = 51;
+	cfg.step = 1;
+	cfg.def = 51;
+	cfg.ops = ops;
+	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
+
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_RC_B_FRAME_QP;
+	cfg.type = V4L2_CTRL_TYPE_INTEGER;
+	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
+	cfg.name = "B-Frame QP Value";
+	cfg.min = 0;
+	cfg.max = 51;
+	cfg.step = 1;
+	cfg.def = 51;
+	cfg.ops = ops;
+	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
+
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_SEC_ENCODE;
+	cfg.type = V4L2_CTRL_TYPE_INTEGER;
+	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
+	cfg.name = "Video Sec Encode path";
+	cfg.min = 0;
+	cfg.max = 2;
+	cfg.step = 1;
+	cfg.def = 0;
+	cfg.ops = ops;
+	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
 
 	/* g_volatile_ctrl */
 	memset(&cfg, 0, sizeof(cfg));
@@ -2702,7 +2760,7 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.step = 1;
 	cfg.def = 0;
 	cfg.ops = ops;
-	ctrl = v4l2_ctrl_new_custom(handler, &cfg, NULL);
+	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
 
 	memset(&cfg, 0, sizeof(cfg));
 	cfg.id = V4L2_CID_MPEG_MTK_RESOLUTION_CHANGE;
@@ -2716,7 +2774,7 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.def = 0;
 	cfg.ops = ops;
 	cfg.dims[0] = sizeof(struct venc_resolution_change)/sizeof(u32);
-	ctrl = v4l2_ctrl_new_custom(handler, &cfg, NULL);
+	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
 
 	memset(&cfg, 0, sizeof(cfg));
 	cfg.id = V4L2_CID_MPEG_VIDEO_ENABLE_TSVC;
@@ -2728,7 +2786,8 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.step = 1;
 	cfg.def = 0;
 	cfg.ops = ops;
-	ctrl = v4l2_ctrl_new_custom(handler, &cfg, NULL);
+	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
+
 	if (handler->error) {
 		mtk_v4l2_err("Init control handler fail %d",
 			     handler->error);

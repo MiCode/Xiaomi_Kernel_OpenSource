@@ -155,5 +155,6 @@ int mtk_vdec_put_fb(struct mtk_vcodec_ctx *ctx, int type);
 void mtk_enc_put_buf(struct mtk_vcodec_ctx *ctx);
 void v4l2_m2m_buf_queue_check(struct v4l2_m2m_ctx *m2m_ctx,
 		void *vbuf);
+void v4l_fill_mtk_fmtdesc(struct v4l2_fmtdesc *fmt);
 
 #endif /* _MTK_VCODEC_UTIL_H_ */

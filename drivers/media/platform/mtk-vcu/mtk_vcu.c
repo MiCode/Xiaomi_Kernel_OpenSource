@@ -426,9 +426,8 @@ int vcu_ipi_send(struct platform_device *pdev,
 	if (vcu_ptr->abort || ret == 0) {
 		dev_info(&pdev->dev, "vcu ipi %d ack time out !%d", id, ret);
 		if (!vcu_ptr->abort) {
-			task_lock(vcud_task);
 			send_sig(SIGTERM, vcud_task, 0);
-			task_unlock(vcud_task);
+			send_sig(SIGKILL, vcud_task, 0);
 		}
 		if (vcu_ptr->open_cnt > 0) {
 			dev_info(vcu->dev, "wait for vpud killed %d\n",

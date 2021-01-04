@@ -226,5 +226,85 @@ void v4l2_m2m_buf_queue_check(struct v4l2_m2m_ctx *m2m_ctx,
 }
 EXPORT_SYMBOL_GPL(v4l2_m2m_buf_queue_check);
 
+void v4l_fill_mtk_fmtdesc(struct v4l2_fmtdesc *fmt)
+{
+	const char *descr = NULL;
+	const unsigned int sz = sizeof(fmt->description);
+
+	switch (fmt->pixelformat) {
+	case V4L2_PIX_FMT_H265:
+	    descr = "H.265"; break;
+	case V4L2_PIX_FMT_HEIF:
+	    descr = "HEIF"; break;
+	case V4L2_PIX_FMT_S263:
+	    descr = "S.263"; break;
+	case V4L2_PIX_FMT_WMV1:
+	    descr = "WMV1"; break;
+	case V4L2_PIX_FMT_WMV2:
+	    descr = "WMV2"; break;
+	case V4L2_PIX_FMT_WMV3:
+	    descr = "WMV3"; break;
+	case V4L2_PIX_FMT_WVC1:
+	    descr = "WVC1"; break;
+	case V4L2_PIX_FMT_WMVA:
+	    descr = "WMVA"; break;
+	case V4L2_PIX_FMT_RV30:
+	    descr = "RealVideo 8"; break;
+	case V4L2_PIX_FMT_RV40:
+	    descr = "RealVideo 9/10"; break;
+	case V4L2_PIX_FMT_AV1:
+	    descr = "AV1"; break;
+	case V4L2_PIX_FMT_MT10S:
+	    descr = "MTK 10-bit compressed single"; break;
+	case V4L2_PIX_FMT_MT10:
+	    descr = "MTK 10-bit compressed"; break;
+	case V4L2_PIX_FMT_P010S:
+	    descr = "10-bit P010 LSB 6-bit single"; break;
+	case V4L2_PIX_FMT_P010M:
+	    descr = "10-bit P010 LSB 6-bit"; break;
+	case V4L2_PIX_FMT_NV12_AFBC:
+	    descr = "AFBC NV12"; break;
+	case V4L2_PIX_FMT_NV12_10B_AFBC:
+	    descr = "10-bit AFBC NV12"; break;
+	case V4L2_PIX_FMT_RGB32_AFBC:
+	    descr = "32-bit AFBC A/XRGB 8-8-8-8"; break;
+	case V4L2_PIX_FMT_BGR32_AFBC:
+	    descr = "32-bit AFBC A/XBGR 8-8-8-8"; break;
+	case V4L2_PIX_FMT_RGBA1010102_AFBC:
+	    descr = "10-bit AFBC RGB 2-bit for A"; break;
+	case V4L2_PIX_FMT_BGRA1010102_AFBC:
+	    descr = "10-bit AFBC BGR 2-bit for A"; break;
+	case V4L2_PIX_FMT_ARGB1010102:
+	case V4L2_PIX_FMT_ABGR1010102:
+	case V4L2_PIX_FMT_RGBA1010102:
+	case V4L2_PIX_FMT_BGRA1010102:
+	    descr = "10-bit for RGB, 2-bit for A"; break;
+	case V4L2_PIX_FMT_MT21:
+	case V4L2_PIX_FMT_MT2110T:
+	case V4L2_PIX_FMT_MT2110R:
+	case V4L2_PIX_FMT_MT21C10T:
+	case V4L2_PIX_FMT_MT21C10R:
+	case V4L2_PIX_FMT_MT21CS:
+	case V4L2_PIX_FMT_MT21S:
+	case V4L2_PIX_FMT_MT21S10T:
+	case V4L2_PIX_FMT_MT21S10R:
+	case V4L2_PIX_FMT_MT21CS10T:
+	case V4L2_PIX_FMT_MT21CS10R:
+	case V4L2_PIX_FMT_MT21CSA:
+	case V4L2_PIX_FMT_MT21S10TJ:
+	case V4L2_PIX_FMT_MT21S10RJ:
+	case V4L2_PIX_FMT_MT21CS10TJ:
+	case V4L2_PIX_FMT_MT21CS10RJ:
+	    descr = "Mediatek Video Block Format"; break;
+	default:
+	    mtk_v4l2_debug(0, "MTK Unknown pixelformat 0x%08x\n", fmt->pixelformat);
+	}
+
+	if (descr)
+		strscpy(fmt->description, descr, sz);
+
+}
+EXPORT_SYMBOL_GPL(v4l_fill_mtk_fmtdesc);
+
 MODULE_LICENSE("GPL v2");
 

@@ -1217,14 +1217,14 @@ static int vidioc_vdec_qbuf(struct file *file, void *priv,
 				ctx->input_max_ts);
 		}
 	} else {
-		if (buf->reserved2 == 0xFFFFFFFF)
+		if (buf->reserved == 0xFFFFFFFF)
 			mtkbuf->general_user_fd = -1;
 		else
-			mtkbuf->general_user_fd = (int)buf->reserved2;
+			mtkbuf->general_user_fd = (int)buf->reserved;
 		mtk_v4l2_debug(1, "[%d] id=%d FB (%d) vb=%p, general_buf_fd=%d, mtkbuf->general_buf_fd = %d",
 				ctx->id, buf->index,
 				buf->length, mtkbuf,
-				buf->reserved2, mtkbuf->general_user_fd);
+				buf->reserved, mtkbuf->general_user_fd);
 	}
 
 	if (buf->flags & V4L2_BUF_FLAG_NO_CACHE_CLEAN) {
@@ -1259,7 +1259,8 @@ static int vidioc_vdec_dqbuf(struct file *file, void *priv,
 	}
 
 	ret = v4l2_m2m_dqbuf(file, ctx->m2m_ctx, buf);
-	buf->reserved = ctx->errormap_info[buf->index % VB2_MAX_FRAME];
+	if (ctx->errormap_info[buf->index % VB2_MAX_FRAME])
+		buf->flags |= V4L2_BUF_FLAG_ERROR;
 
 	if (buf->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE &&
 		ret == 0) {
@@ -1278,9 +1279,9 @@ static int vidioc_vdec_dqbuf(struct file *file, void *priv,
 		if (mtkbuf->flags & REF_FREED)
 			buf->flags |= V4L2_BUF_FLAG_REF_FREED;
 		if (mtkbuf->general_user_fd < 0)
-			buf->reserved2 = 0xFFFFFFFF;
+			buf->reserved = 0xFFFFFFFF;
 		else
-			buf->reserved2 = mtkbuf->general_user_fd;
+			buf->reserved = mtkbuf->general_user_fd;
 		mtk_v4l2_debug(2,
 			"dqbuf mtkbuf->general_buf_fd = %d",
 			mtkbuf->general_user_fd);
@@ -1699,6 +1700,8 @@ static int vidioc_enum_fmt(struct mtk_vcodec_ctx *ctx, struct v4l2_fmtdesc *f,
 
 	if (mtk_video_formats[i].type != MTK_FMT_DEC)
 		f->flags |= V4L2_FMT_FLAG_COMPRESSED;
+
+	v4l_fill_mtk_fmtdesc(f);
 
 	return 0;
 }
@@ -2637,43 +2640,27 @@ static const struct v4l2_ctrl_ops mtk_vcodec_dec_ctrl_ops = {
 	.s_ctrl = mtk_vdec_s_ctrl,
 };
 
-static const struct v4l2_ctrl_config mtk_color_desc_ctrl = {
-	.ops = &mtk_vcodec_dec_ctrl_ops,
-	.id = V4L2_CID_MPEG_MTK_COLOR_DESC,
-	.name = "MTK Color Description for HDR",
-	.type = V4L2_CTRL_TYPE_U32,
-	.min = 0x00000000,
-	.max = 0x00ffffff,
-	.step = 1,
-	.def = 0,
-	.dims = { sizeof(struct mtk_color_desc)/sizeof(u32) },
-};
 
-static const struct v4l2_ctrl_config mtk_interlacing_ctrl = {
-	.ops = &mtk_vcodec_dec_ctrl_ops,
-	.id = V4L2_CID_MPEG_MTK_INTERLACING,
-	.name = "MTK Query Interlacing",
-	.type = V4L2_CTRL_TYPE_BOOLEAN,
-	.min = 0,
-	.max = 1,
-	.step = 1,
-	.def = 0,
-};
+void mtk_vcodec_dec_custom_ctrls_check(struct v4l2_ctrl_handler *hdl,
+			const struct v4l2_ctrl_config *cfg, void *priv)
+{
+	v4l2_ctrl_new_custom(hdl, cfg, NULL);
 
-static const struct v4l2_ctrl_config mtk_codec_type_ctrl = {
-	.ops = &mtk_vcodec_dec_ctrl_ops,
-	.id = V4L2_CID_MPEG_MTK_CODEC_TYPE,
-	.name = "MTK Query HW/SW Codec Type",
-	.type = V4L2_CTRL_TYPE_U32,
-	.min = 0,
-	.max = 10,
-	.step = 1,
-	.def = 0,
-};
+	if (hdl->error) {
+		mtk_v4l2_debug(0, "Adding control failed %s %x %d",
+			cfg->name, cfg->id, hdl->error);
+	} else {
+		mtk_v4l2_debug(4, "Adding control %s %x %d",
+			cfg->name, cfg->id, hdl->error);
+	}
+}
 
 int mtk_vcodec_dec_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 {
 	struct v4l2_ctrl *ctrl;
+	const struct v4l2_ctrl_ops *ops = &mtk_vcodec_dec_ctrl_ops;
+	struct v4l2_ctrl_handler *handler = &ctx->ctrl_hdl;
+	struct v4l2_ctrl_config cfg;
 
 	v4l2_ctrl_handler_init(&ctx->ctrl_hdl, MTK_MAX_CTRLS_HINT);
 
@@ -2685,92 +2672,199 @@ int mtk_vcodec_dec_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	if (ctrl)
 		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE;
 
-	ctrl = v4l2_ctrl_new_std(&ctx->ctrl_hdl,
-		&mtk_vcodec_dec_ctrl_ops,
-		V4L2_CID_MPEG_MTK_FRAME_INTERVAL,
-		16666, 41719, 1, 33333);
-	if (ctrl)
-		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE;
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_FRAME_INTERVAL;
+	cfg.type = V4L2_CTRL_TYPE_INTEGER;
+	cfg.flags = V4L2_CTRL_FLAG_READ_ONLY | V4L2_CTRL_FLAG_VOLATILE;
+	cfg.name = "Video frame interval";
+	cfg.min = 16666;
+	cfg.max = 41719;
+	cfg.step = 1;
+	cfg.def = 33333;
+	cfg.ops = ops;
+	mtk_vcodec_dec_custom_ctrls_check(handler, &cfg, NULL);
 
-	ctrl = v4l2_ctrl_new_std(&ctx->ctrl_hdl,
-				&mtk_vcodec_dec_ctrl_ops,
-				V4L2_CID_MPEG_MTK_ASPECT_RATIO,
-				0, 0xF000F, 1, 0x10001);
-	if (ctrl)
-		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE;
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_ASPECT_RATIO;
+	cfg.type = V4L2_CTRL_TYPE_INTEGER;
+	cfg.flags = V4L2_CTRL_FLAG_READ_ONLY | V4L2_CTRL_FLAG_VOLATILE;
+	cfg.name = "Video aspect ratio";
+	cfg.min = 0;
+	cfg.max = 0xF000F;
+	cfg.step = 1;
+	cfg.def = 0x10001;
+	cfg.ops = ops;
+	mtk_vcodec_dec_custom_ctrls_check(handler, &cfg, NULL);
 
-	ctrl = v4l2_ctrl_new_std(&ctx->ctrl_hdl,
-				&mtk_vcodec_dec_ctrl_ops,
-				V4L2_CID_MPEG_MTK_FIX_BUFFERS,
-				0, 0xF, 1, 0);
-	if (ctrl)
-		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE;
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_FIX_BUFFERS;
+	cfg.type = V4L2_CTRL_TYPE_INTEGER;
+	cfg.flags = V4L2_CTRL_FLAG_READ_ONLY | V4L2_CTRL_FLAG_VOLATILE;
+	cfg.name = "Video fix buffers";
+	cfg.min = 0;
+	cfg.max = 0xF;
+	cfg.step = 1;
+	cfg.def = 0;
+	cfg.ops = ops;
+	mtk_vcodec_dec_custom_ctrls_check(handler, &cfg, NULL);
 
-	ctrl = v4l2_ctrl_new_std(&ctx->ctrl_hdl,
-				&mtk_vcodec_dec_ctrl_ops,
-				V4L2_CID_MPEG_MTK_FIX_BUFFERS_SVP,
-				0, 0xF, 1, 0);
-	if (ctrl)
-		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE;
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_FIX_BUFFERS_SVP;
+	cfg.type = V4L2_CTRL_TYPE_INTEGER;
+	cfg.flags = V4L2_CTRL_FLAG_READ_ONLY | V4L2_CTRL_FLAG_VOLATILE;
+	cfg.name = "Video fix buffers for svp";
+	cfg.min = 0;
+	cfg.max = 0xF;
+	cfg.step = 1;
+	cfg.def = 0;
+	cfg.ops = ops;
+	mtk_vcodec_dec_custom_ctrls_check(handler, &cfg, NULL);
 
-	ctrl = v4l2_ctrl_new_custom(&ctx->ctrl_hdl,
-				&mtk_interlacing_ctrl, NULL);
-	if (ctrl)
-		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE;
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_INTERLACING;
+	cfg.type = V4L2_CTRL_TYPE_BOOLEAN;
+	cfg.flags = V4L2_CTRL_FLAG_READ_ONLY | V4L2_CTRL_FLAG_VOLATILE;
+	cfg.name = "MTK Query Interlacing";
+	cfg.min = 0;
+	cfg.max = 1;
+	cfg.step = 1;
+	cfg.def = 0;
+	cfg.ops = ops;
+	mtk_vcodec_dec_custom_ctrls_check(handler, &cfg, NULL);
 
-	ctrl = v4l2_ctrl_new_custom(&ctx->ctrl_hdl,
-				&mtk_codec_type_ctrl, NULL);
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_CODEC_TYPE;
+	cfg.type = V4L2_CTRL_TYPE_U32;
+	cfg.flags = V4L2_CTRL_FLAG_READ_ONLY | V4L2_CTRL_FLAG_VOLATILE;
+	cfg.name = "MTK Query HW/SW Codec Type";
+	cfg.min = 0;
+	cfg.max = 10;
+	cfg.step = 1;
+	cfg.def = 0;
+	cfg.ops = ops;
+	mtk_vcodec_dec_custom_ctrls_check(handler, &cfg, NULL);
 
-	ctrl = v4l2_ctrl_new_custom(&ctx->ctrl_hdl, &mtk_color_desc_ctrl, NULL);
-	if (ctrl)
-		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE;
-
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_COLOR_DESC;
+	cfg.type = V4L2_CTRL_TYPE_U32;
+	cfg.flags = V4L2_CTRL_FLAG_READ_ONLY | V4L2_CTRL_FLAG_VOLATILE;
+	cfg.name = "MTK vdec Color Description for HDR";
+	cfg.min = 0;
+	cfg.max = 0xffffffff;
+	cfg.step = 1;
+	cfg.def = 0;
+	cfg.ops = ops;
+	cfg.dims[0] = (sizeof(struct mtk_color_desc)/sizeof(u32));
+	mtk_vcodec_dec_custom_ctrls_check(handler, &cfg, NULL);
 
 	/* s_ctrl */
-	ctrl = v4l2_ctrl_new_std(&ctx->ctrl_hdl,
-		&mtk_vcodec_dec_ctrl_ops,
-		V4L2_CID_MPEG_MTK_DECODE_MODE,
-		0, 32, 1, 0);
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_DECODE_MODE;
+	cfg.type = V4L2_CTRL_TYPE_INTEGER;
+	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
+	cfg.name = "Video decode mode";
+	cfg.min = 0;
+	cfg.max = 32;
+	cfg.step = 1;
+	cfg.def = 0;
+	cfg.ops = ops;
+	mtk_vcodec_dec_custom_ctrls_check(handler, &cfg, NULL);
 
-	ctrl = v4l2_ctrl_new_std(&ctx->ctrl_hdl,
-		&mtk_vcodec_dec_ctrl_ops,
-		V4L2_CID_MPEG_MTK_SEC_DECODE,
-		0, 32, 1, 0);
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_SEC_DECODE;
+	cfg.type = V4L2_CTRL_TYPE_INTEGER;
+	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
+	cfg.name = "Video Sec Decode path";
+	cfg.min = 0;
+	cfg.max = 32;
+	cfg.step = 1;
+	cfg.def = 0;
+	cfg.ops = ops;
+	mtk_vcodec_dec_custom_ctrls_check(handler, &cfg, NULL);
 
-	ctrl = v4l2_ctrl_new_std(&ctx->ctrl_hdl,
-		&mtk_vcodec_dec_ctrl_ops,
-		V4L2_CID_MPEG_MTK_FRAME_SIZE,
-		0, 65535, 1, 0);
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_FRAME_SIZE;
+	cfg.type = V4L2_CTRL_TYPE_INTEGER;
+	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
+	cfg.name = "Video frame size";
+	cfg.min = 0;
+	cfg.max = 65535;
+	cfg.step = 1;
+	cfg.def = 0;
+	cfg.ops = ops;
+	mtk_vcodec_dec_custom_ctrls_check(handler, &cfg, NULL);
 
-	ctrl = v4l2_ctrl_new_std(&ctx->ctrl_hdl,
-		&mtk_vcodec_dec_ctrl_ops,
-		V4L2_CID_MPEG_MTK_FIXED_MAX_FRAME_BUFFER,
-		0, 65535, 1, 0);
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_FIXED_MAX_FRAME_BUFFER;
+	cfg.type = V4L2_CTRL_TYPE_INTEGER;
+	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
+	cfg.name = "Video fixed maximum frame size";
+	cfg.min = 0;
+	cfg.max = 65535;
+	cfg.step = 1;
+	cfg.def = 0;
+	cfg.ops = ops;
+	mtk_vcodec_dec_custom_ctrls_check(handler, &cfg, NULL);
 
-	ctrl = v4l2_ctrl_new_std(&ctx->ctrl_hdl,
-		&mtk_vcodec_dec_ctrl_ops,
-		V4L2_CID_MPEG_MTK_CRC_PATH,
-		0, 255, 1, 0);
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_CRC_PATH;
+	cfg.type = V4L2_CTRL_TYPE_STRING;
+	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
+	cfg.name = "Video crc path";
+	cfg.min = 0;
+	cfg.max = 255;
+	cfg.step = 1;
+	cfg.def = 0;
+	cfg.ops = ops;
+	mtk_vcodec_dec_custom_ctrls_check(handler, &cfg, NULL);
 
-	ctrl = v4l2_ctrl_new_std(&ctx->ctrl_hdl,
-		&mtk_vcodec_dec_ctrl_ops,
-		V4L2_CID_MPEG_MTK_GOLDEN_PATH,
-		0, 255, 1, 0);
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_GOLDEN_PATH;
+	cfg.type = V4L2_CTRL_TYPE_STRING;
+	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
+	cfg.name = "Video golden path";
+	cfg.min = 0;
+	cfg.max = 255;
+	cfg.step = 1;
+	cfg.def = 0;
+	cfg.ops = ops;
+	mtk_vcodec_dec_custom_ctrls_check(handler, &cfg, NULL);
 
-	ctrl = v4l2_ctrl_new_std(&ctx->ctrl_hdl,
-				&mtk_vcodec_dec_ctrl_ops,
-				V4L2_CID_MPEG_MTK_SET_WAIT_KEY_FRAME,
-				0, 255, 1, 0);
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_SET_WAIT_KEY_FRAME;
+	cfg.type = V4L2_CTRL_TYPE_INTEGER;
+	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
+	cfg.name = "Wait key frame";
+	cfg.min = 0;
+	cfg.max = 255;
+	cfg.step = 1;
+	cfg.def = 0;
+	cfg.ops = ops;
+	mtk_vcodec_dec_custom_ctrls_check(handler, &cfg, NULL);
 
-	ctrl = v4l2_ctrl_new_std(&ctx->ctrl_hdl,
-				&mtk_vcodec_dec_ctrl_ops,
-				V4L2_CID_MPEG_MTK_OPERATING_RATE,
-				0, 4096, 1, 0);
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_OPERATING_RATE;
+	cfg.type = V4L2_CTRL_TYPE_INTEGER;
+	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
+	cfg.name = "Vdec Operating Rate";
+	cfg.min = 0;
+	cfg.max = 4096;
+	cfg.step = 1;
+	cfg.def = 0;
+	cfg.ops = ops;
+	mtk_vcodec_dec_custom_ctrls_check(handler, &cfg, NULL);
 
-	ctrl = v4l2_ctrl_new_std(&ctx->ctrl_hdl,
-				&mtk_vcodec_dec_ctrl_ops,
-				V4L2_CID_MPEG_MTK_QUEUED_FRAMEBUF_COUNT,
-				0, 64, 1, 0);
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_QUEUED_FRAMEBUF_COUNT;
+	cfg.type = V4L2_CTRL_TYPE_INTEGER;
+	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
+	cfg.name = "Video queued frame buf count";
+	cfg.min = 0;
+	cfg.max = 64;
+	cfg.step = 1;
+	cfg.def = 0;
+	cfg.ops = ops;
+	mtk_vcodec_dec_custom_ctrls_check(handler, &cfg, NULL);
 
 	if (ctx->ctrl_hdl.error) {
 		mtk_v4l2_err("Adding control failed %d",
