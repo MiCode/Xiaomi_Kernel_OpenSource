@@ -352,6 +352,8 @@
 
 		mt6359prtc: mt6359prtc {
 			compatible = "mediatek,mt6359p-rtc";
+			#address-cells = <1>;
+			#size-cells = <1>;
 
 			fg_init: fg_init {
 				reg = <0 0x1>;
