@@ -78,6 +78,8 @@
 #define USB30_MOCK_UTMI_CLK_SRC					68
 #define USB3_AUX_CLK_SRC					69
 #define APSS_AHB_CLK_SRC					70
+#define GCC_MSS_Q6_BIMC_AXI_CLK					71
+#define GCC_MSS_CFG_AHB_CLK					72
 
 /* GCC resets */
 #define GCC_PCIEPHY_PHY_BCR					0
