@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -11,6 +11,7 @@
 #include <linux/of_device.h>
 #include <linux/of.h>
 #include <linux/regmap.h>
+#include <linux/pm_runtime.h>
 
 #include <dt-bindings/clock/qcom,videocc-waipio.h>
 
@@ -358,26 +359,6 @@ static struct clk_regmap_div video_cc_mvs1c_div2_div_clk_src = {
 	},
 };
 
-static struct clk_branch video_cc_ahb_clk = {
-	.halt_reg = 0x80e4,
-	.halt_check = BRANCH_HALT_VOTED,
-	.hwcg_reg = 0x80e4,
-	.hwcg_bit = 1,
-	.clkr = {
-		.enable_reg = 0x80e4,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "video_cc_ahb_clk",
-			.parent_data = &(const struct clk_parent_data){
-				.hw = &video_cc_ahb_clk_src.clkr.hw,
-			},
-			.num_parents = 1,
-			.flags = CLK_IS_CRITICAL | CLK_SET_RATE_PARENT,
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
 static struct clk_branch video_cc_mvs0_clk = {
 	.halt_reg = 0x80b0,
 	.halt_check = BRANCH_HALT_VOTED,
@@ -472,26 +453,7 @@ static struct clk_branch video_cc_sleep_clk = {
 	},
 };
 
-static struct clk_branch video_cc_xo_clk = {
-	.halt_reg = 0x8114,
-	.halt_check = BRANCH_HALT,
-	.clkr = {
-		.enable_reg = 0x8114,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "video_cc_xo_clk",
-			.parent_data = &(const struct clk_parent_data){
-				.hw = &video_cc_xo_clk_src.clkr.hw,
-			},
-			.num_parents = 1,
-			.flags = CLK_IS_CRITICAL | CLK_SET_RATE_PARENT,
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
 static struct clk_regmap *video_cc_waipio_clocks[] = {
-	[VIDEO_CC_AHB_CLK] = &video_cc_ahb_clk.clkr,
 	[VIDEO_CC_AHB_CLK_SRC] = &video_cc_ahb_clk_src.clkr,
 	[VIDEO_CC_MVS0_CLK] = &video_cc_mvs0_clk.clkr,
 	[VIDEO_CC_MVS0_CLK_SRC] = &video_cc_mvs0_clk_src.clkr,
@@ -509,7 +471,6 @@ static struct clk_regmap *video_cc_waipio_clocks[] = {
 	[VIDEO_CC_PLL1] = &video_cc_pll1.clkr,
 	[VIDEO_CC_SLEEP_CLK] = &video_cc_sleep_clk.clkr,
 	[VIDEO_CC_SLEEP_CLK_SRC] = &video_cc_sleep_clk_src.clkr,
-	[VIDEO_CC_XO_CLK] = &video_cc_xo_clk.clkr,
 	[VIDEO_CC_XO_CLK_SRC] = &video_cc_xo_clk_src.clkr,
 };
 
@@ -531,7 +492,7 @@ static const struct regmap_config video_cc_waipio_regmap_config = {
 	.fast_io = true,
 };
 
-static const struct qcom_cc_desc video_cc_waipio_desc = {
+static struct qcom_cc_desc video_cc_waipio_desc = {
 	.config = &video_cc_waipio_regmap_config,
 	.clks = video_cc_waipio_clocks,
 	.num_clks = ARRAY_SIZE(video_cc_waipio_clocks),
@@ -550,25 +511,32 @@ MODULE_DEVICE_TABLE(of, video_cc_waipio_match_table);
 static int video_cc_waipio_probe(struct platform_device *pdev)
 {
 	struct regmap *regmap;
-	struct clk *clk;
 	int ret;
 
 	regmap = qcom_cc_map(pdev, &video_cc_waipio_desc);
 	if (IS_ERR(regmap))
 		return PTR_ERR(regmap);
 
-	clk = clk_get(&pdev->dev, "cfg_ahb_clk");
-	if (IS_ERR(clk)) {
-		if (PTR_ERR(clk) != -EPROBE_DEFER)
-			dev_err(&pdev->dev, "Unable to get ahb clock handle\n");
-		return PTR_ERR(clk);
-	}
-	clk_put(clk);
+	ret = qcom_cc_runtime_init(pdev, &video_cc_waipio_desc);
+	if (ret)
+		return ret;
+
+	ret = pm_runtime_get_sync(&pdev->dev);
+	if (ret)
+		return ret;
 
 	clk_lucid_evo_pll_configure(&video_cc_pll0, regmap,
 		&video_cc_pll0_config);
 	clk_lucid_evo_pll_configure(&video_cc_pll1, regmap,
 		&video_cc_pll1_config);
+
+	/*
+	 * Keep clocks always enabled:
+	 *	video_cc_ahb_clk
+	 *	video_cc_xo_clk
+	 */
+	regmap_update_bits(regmap, 0x80e4, BIT(0), BIT(0));
+	regmap_update_bits(regmap, 0x8114, BIT(0), BIT(0));
 
 	ret = qcom_cc_really_probe(pdev, &video_cc_waipio_desc, regmap);
 	if (ret) {
@@ -576,6 +544,7 @@ static int video_cc_waipio_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	pm_runtime_put_sync(&pdev->dev);
 	dev_info(&pdev->dev, "Registered VIDEO CC clocks\n");
 
 	return ret;
@@ -586,12 +555,19 @@ static void video_cc_waipio_sync_state(struct device *dev)
 	qcom_cc_sync_state(dev, &video_cc_waipio_desc);
 }
 
+static const struct dev_pm_ops video_cc_waipio_pm_ops = {
+	SET_RUNTIME_PM_OPS(qcom_cc_runtime_suspend, qcom_cc_runtime_resume, NULL)
+	SET_LATE_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend,
+				     pm_runtime_force_resume)
+};
+
 static struct platform_driver video_cc_waipio_driver = {
 	.probe = video_cc_waipio_probe,
 	.driver = {
 		.name = "video_cc-waipio",
 		.of_match_table = video_cc_waipio_match_table,
 		.sync_state = video_cc_waipio_sync_state,
+		.pm = &video_cc_waipio_pm_ops,
 	},
 };
 
