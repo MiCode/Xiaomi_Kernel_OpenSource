@@ -405,6 +405,12 @@ loop_back:
 			vb_dev->vdev_event &= ~EVENT_NEW_BUFFER;
 			if (vb_dev->vdev_event_data && vb_dev->ack_driver_ok)
 				signal_vqs(vb_dev);
+			if (vb_dev->vdev_event) {
+				vb_dev->cur_event = vb_dev->vdev_event;
+				vb_dev->vdev_event = 0;
+				vb_dev->cur_event_data = 0;
+				vb_dev->vdev_event_data = 0;
+			}
 		} else if (vb_dev->vdev_event & EVENT_INTERRUPT_ACK) {
 			vb_dev->vdev_event &= ~EVENT_INTERRUPT_ACK;
 			vb_dev->cur_event = EVENT_INTERRUPT_ACK;
