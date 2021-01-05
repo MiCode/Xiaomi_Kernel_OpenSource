@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 #ifndef __QCOM_QCOM_IO_PGTABLE_H
 #define __QCOM_QCOM_IO_PGTABLE_H
@@ -9,7 +9,12 @@
 
 struct qcom_io_pgtable_info {
 	struct io_pgtable_cfg cfg;
+	dma_addr_t iova_base;
+	dma_addr_t iova_end;
 };
+
+#define to_qcom_io_pgtable_info(x)\
+container_of((x), struct qcom_io_pgtable_info, cfg)
 
 #define IO_PGTABLE_QUIRK_QCOM_USE_UPSTREAM_HINT BIT(31)
 #define IO_PGTABLE_QUIRK_QCOM_USE_LLC_NWA       BIT(30)

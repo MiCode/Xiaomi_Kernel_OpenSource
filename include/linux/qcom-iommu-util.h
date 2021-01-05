@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __QCOM_IOMMU_UTIL_H
@@ -20,6 +20,9 @@ int qcom_iommu_generate_dma_regions(struct device *dev,
 				    struct list_head *head);
 void qcom_iommu_generate_resv_regions(struct device *dev,
 				      struct list_head *list);
+int qcom_iommu_get_fast_iova_range(struct device *dev,
+				   dma_addr_t *ret_iova_base,
+				   dma_addr_t *ret_iova_end);
 
 /* Remove once these functions are exported by upstream kernel */
 void qcom_iommu_get_resv_regions(struct device *dev, struct list_head *list);

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"io-pgtable-fast: " fmt
@@ -450,9 +450,9 @@ av8l_fast_prepopulate_pgtables(struct av8l_fast_io_pgtable *data,
 {
 	int i, j, pg = 0;
 	struct page **pages, *page;
+	struct qcom_io_pgtable_info *pgtbl_info = to_qcom_io_pgtable_info(cfg);
 	dma_addr_t pud, pmd;
 	int pmd_pg_index;
-	struct msm_io_pgtable_info *pgtbl_info = to_msm_io_pgtable_info(cfg);
 	dma_addr_t base = pgtbl_info->iova_base;
 	dma_addr_t end = pgtbl_info->iova_end;
 
@@ -701,7 +701,7 @@ static int __init av8l_fast_positive_testing(void)
 	int failed = 0;
 	u64 iova;
 	struct io_pgtable_ops *ops;
-	struct msm_io_pgtable_info pgtable_info;
+	struct qcom_io_pgtable_info pgtable_info;
 	struct av8l_fast_io_pgtable *data;
 	av8l_fast_iopte *pmds;
 	u64 max = SZ_1G * 4ULL - 1;
@@ -709,7 +709,7 @@ static int __init av8l_fast_positive_testing(void)
 
 	pgtable_info.iova_base = base;
 	pgtable_info.iova_end = max;
-	pgtable_info.pgtbl_cfg = (struct io_pgtable_cfg) {
+	pgtable_info.cfg = (struct io_pgtable_cfg) {
 		.quirks = 0,
 		.tlb = &dummy_tlb_ops,
 		.ias = 32,
