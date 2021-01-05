@@ -3,6 +3,7 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
+#include <dbgtop.h>
 #include <linux/device.h>
 #include <linux/kernel.h>
 #include <linux/io.h>
@@ -13,18 +14,106 @@
 #include <linux/platform_device.h>
 #include <linux/printk.h>
 
-struct dbgtop_drm {
-	void __iomem *base;
-
-	unsigned int mode_offset;
-};
-
-#define DRMDRM_MODE_OFFSET			(0x0000)
-#define DRMDRM_MODE_KEY				(0x22000000)
-#define DRMDRM_MODE_DDR_RESERVE			(0x00000001)
-
 /* global pointer for exported functions */
 static struct dbgtop_drm *global_dbgtop_drm;
+
+/* For GPU DFD */
+int mtk_dbgtop_mfg_pwr_on(int value)
+{
+	struct dbgtop_drm *drm;
+	unsigned int tmp;
+
+	if (!global_dbgtop_drm)
+		return -1;
+
+	drm = global_dbgtop_drm;
+
+	if (value == 1) {
+		/* set mfg pwr on */
+		tmp = readl(drm->base + MTK_DBGTOP_MFG_REG);
+		tmp |= MTK_DBGTOP_MFG_PWR_ON;
+		tmp |= MTK_DBGTOP_MFG_REG_KEY;
+		writel(tmp, drm->base + MTK_DBGTOP_MFG_REG);
+	} else if (value == 0) {
+		tmp = readl(drm->base + MTK_DBGTOP_MFG_REG);
+		tmp &= ~MTK_DBGTOP_MFG_PWR_ON;
+		tmp |= MTK_DBGTOP_MFG_REG_KEY;
+		writel(tmp, drm->base + MTK_DBGTOP_MFG_REG);
+	} else
+		return -1;
+
+	pr_info("%s: MTK_DBGTOP_MFG_REG(0x%x)\n", __func__,
+			readl(drm->base + MTK_DBGTOP_MFG_REG));
+	return 0;
+}
+EXPORT_SYMBOL(mtk_dbgtop_mfg_pwr_on);
+
+/* For GPU DFD */
+int mtk_dbgtop_mfg_pwr_en(int value)
+{
+	struct dbgtop_drm *drm;
+	unsigned int tmp;
+
+	if (!global_dbgtop_drm)
+		return -1;
+
+	drm = global_dbgtop_drm;
+
+	if (value == 1) {
+		/* set mfg pwr en */
+		tmp = readl(drm->base + MTK_DBGTOP_MFG_REG);
+		tmp |= MTK_DBGTOP_MFG_PWR_EN;
+		tmp |= MTK_DBGTOP_MFG_REG_KEY;
+		writel(tmp, drm->base + MTK_DBGTOP_MFG_REG);
+	} else if (value == 0) {
+		tmp = readl(drm->base + MTK_DBGTOP_MFG_REG);
+		tmp &= ~MTK_DBGTOP_MFG_PWR_EN;
+		tmp |= MTK_DBGTOP_MFG_REG_KEY;
+		writel(tmp, drm->base + MTK_DBGTOP_MFG_REG);
+	} else
+		return -1;
+
+	pr_info("%s: MTK_DBGTOP_MFG_REG(0x%x)\n", __func__,
+		readl(drm->base + MTK_DBGTOP_MFG_REG));
+	return 0;
+}
+EXPORT_SYMBOL(mtk_dbgtop_mfg_pwr_en);
+
+/*
+ * Set the required timeout value of each caller before RGU reset,
+ * and take the maximum as timeout value.
+ * Note: caller needs to set normal timeout value to 0 by default
+ */
+int mtk_dbgtop_dfd_timeout(int value_abnormal, int value_normal)
+{
+	struct dbgtop_drm *drm;
+	unsigned int tmp;
+
+	if (!global_dbgtop_drm)
+		return -1;
+
+	drm = global_dbgtop_drm;
+
+	value_abnormal <<= MTK_DBGTOP_DFD_TIMEOUT_SHIFT;
+	value_abnormal &= MTK_DBGTOP_DFD_TIMEOUT_MASK;
+
+	/* break if dfd timeout >= target value_abnormal */
+	tmp = readl(drm->base + MTK_DBGTOP_LATCH_CTL2);
+	if ((tmp & MTK_DBGTOP_DFD_TIMEOUT_MASK) >=
+		(unsigned int)value_abnormal)
+		return 0;
+
+	/* set dfd timeout */
+	tmp &= ~MTK_DBGTOP_DFD_TIMEOUT_MASK;
+	tmp |= value_abnormal | MTK_DBGTOP_LATCH_CTL2_KEY;
+	writel(tmp, drm->base + MTK_DBGTOP_LATCH_CTL2);
+
+	pr_debug("%s: MTK_DBGTOP_LATCH_CTL2(0x%x)\n", __func__,
+		readl(drm->base + MTK_DBGTOP_LATCH_CTL2));
+
+	return 0;
+}
+EXPORT_SYMBOL(mtk_dbgtop_dfd_timeout);
 
 int mtk_dbgtop_dram_reserved(int enable)
 {
