@@ -28,6 +28,7 @@
 #include <linux/haven/hcall.h>
 #include <linux/haven/hh_rm_drv.h>
 #include <linux/pgtable.h>
+#include <soc/qcom/secure_buffer.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
 #define MAX_DEVICE_NAME		32
@@ -53,6 +54,11 @@ static LIST_HEAD(vm_list);
 static struct class *vb_dev_class;
 static dev_t vbe_dev;
 
+struct shared_memory {
+	struct resource r;
+	u32 haven_label, shm_memparcel;
+};
+
 struct virt_machine {
 	struct list_head list;
 	char vm_name[MAX_VM_NAME];
@@ -60,8 +66,11 @@ struct virt_machine {
 	int minor;
 	int open_count;
 	int remove;
+	int hyp_assign_done;
 	struct cdev cdev;
 	struct device *class_dev;
+	struct shared_memory *shmem;
+	int shmem_entries;
 	spinlock_t vb_dev_lock;
 	struct mutex mutex;
 	struct list_head vb_dev_list;
@@ -860,6 +869,65 @@ fail_device_create:
 	return ret;
 }
 
+static int
+note_shared_buffers(struct device_node *np, struct virt_machine *vm)
+{
+	int idx = 0;
+	u32 len, nr_entries = 0;
+
+	if (of_find_property(np, "shared-buffers", &len))
+		nr_entries = len / 4;
+
+	if (!nr_entries) {
+		pr_err("%s: No shared-buffers specified for vm %s\n",
+			__func__, vm->vm_name);
+		return -EINVAL;
+	}
+
+	vm->shmem = kzalloc(nr_entries * sizeof(struct shared_memory),
+					GFP_KERNEL);
+	if (!vm->shmem)
+		return -ENOMEM;
+
+	for (idx = 0; idx < nr_entries; ++idx) {
+		struct device_node *snp;
+		int ret;
+
+		snp = of_parse_phandle(np, "shared-buffers", idx);
+		if (!snp) {
+			kfree(vm->shmem);
+			pr_err("%s: Can't parse shared-buffer property %d\n",
+					__func__, idx);
+			return -EINVAL;
+		}
+
+		ret = of_address_to_resource(snp, 0, &vm->shmem[idx].r);
+		if (ret) {
+			of_node_put(snp);
+			kfree(vm->shmem);
+			pr_err("%s: Invalid address at index %d\n",
+						__func__, idx);
+			return -EINVAL;
+		}
+
+		ret = of_property_read_u32(snp, "haven-label",
+					&vm->shmem[idx].haven_label);
+		if (ret) {
+			of_node_put(snp);
+			kfree(vm->shmem);
+			pr_err("%s: haven-label property absent at index %d\n",
+					 __func__, idx);
+			return -EINVAL;
+		}
+
+		of_node_put(snp);
+	}
+
+	vm->shmem_entries = nr_entries;
+
+	return 0;
+}
+
 static struct virt_machine *
 new_vm(const char *vm_name, struct device_node *np)
 {
@@ -879,6 +947,12 @@ new_vm(const char *vm_name, struct device_node *np)
 		return NULL;
 
 	strlcpy(vm->vm_name, vm_name, sizeof(vm->vm_name));
+
+	ret = note_shared_buffers(np, vm);
+	if (ret) {
+		kfree(vm);
+		return NULL;
+	}
 
 	vm->shmem_addr = r.start;
 	vm->shmem_size = resource_size(&r);
@@ -1128,8 +1202,104 @@ done:
 	return IRQ_HANDLED;
 }
 
-static int hh_virtio_mmio_init(hh_vmid_t vmid, const char *vm_name,
-	hh_label_t label, hh_capid_t cap_id, int linux_irq, u64 base, u64 size)
+static int
+unshare_a_vm_buffer(hh_vmid_t self, hh_vmid_t peer, struct resource *r)
+{
+	u32 src_vmlist[2] = {self, peer};
+	int dst_vmlist[1] = {self};
+	int dst_perms[1] = {PERM_READ | PERM_WRITE | PERM_EXEC};
+	int ret;
+
+	ret = hyp_assign_phys(r->start, resource_size(r), src_vmlist, 2,
+				      dst_vmlist, dst_perms, 1);
+	if (ret)
+		pr_err("%s: hyp_assign_phys failed for addr=%llx size=%lld err=%d\n",
+		       __func__, r->start, resource_size(r), ret);
+
+	return ret;
+}
+
+static int share_a_vm_buffer(hh_vmid_t self, hh_vmid_t peer, int haven_label,
+				struct resource *r, u32 *shm_memparcel)
+{
+	u32 src_vmlist[1] = {self};
+	int dst_vmlist[2] = {self, peer};
+	int dst_perms[2] = {PERM_READ | PERM_WRITE, PERM_READ | PERM_WRITE};
+	struct hh_acl_desc *acl;
+	struct hh_sgl_desc *sgl;
+	int ret;
+
+	acl = kzalloc(offsetof(struct hh_acl_desc, acl_entries[2]), GFP_KERNEL);
+	if (!acl)
+		return -ENOMEM;
+	sgl = kzalloc(offsetof(struct hh_sgl_desc, sgl_entries[1]), GFP_KERNEL);
+	if (!sgl) {
+		kfree(acl);
+		return -ENOMEM;
+	}
+
+	ret = hyp_assign_phys(r->start, resource_size(r), src_vmlist, 1,
+				      dst_vmlist, dst_perms, 2);
+	if (ret) {
+		pr_err("%s: hyp_assign_phys failed for addr=%llx size=%lld err=%d\n",
+		       __func__, r->start, resource_size(r), ret);
+		kfree(acl);
+		kfree(sgl);
+		return ret;
+	}
+
+	acl->n_acl_entries = 2;
+	acl->acl_entries[0].vmid = (u16)self;
+	acl->acl_entries[0].perms = HH_RM_ACL_R | HH_RM_ACL_W;
+	acl->acl_entries[1].vmid = (u16)peer;
+	acl->acl_entries[1].perms = HH_RM_ACL_R | HH_RM_ACL_W;
+
+	sgl->n_sgl_entries = 1;
+	sgl->sgl_entries[0].ipa_base = r->start;
+	sgl->sgl_entries[0].size = resource_size(r);
+	ret = hh_rm_mem_qcom_lookup_sgl(HH_RM_MEM_TYPE_NORMAL,
+			haven_label, acl, sgl, NULL, shm_memparcel);
+	if (ret) {
+		pr_err("%s: lookup_sgl failed %d\n", __func__, ret);
+		unshare_a_vm_buffer(self, peer, r);
+	}
+
+	kfree(acl);
+	kfree(sgl);
+
+	return ret;
+}
+
+static int share_vm_buffers(struct virt_machine *vm, hh_vmid_t peer)
+{
+	int i, ret;
+	hh_vmid_t self_vmid;
+
+	ret = hh_rm_get_vmid(HH_PRIMARY_VM, &self_vmid);
+	if (ret)
+		return ret;
+
+	for (i = 0; i < vm->shmem_entries; ++i) {
+		ret = share_a_vm_buffer(self_vmid, peer, vm->shmem[i].haven_label,
+				&vm->shmem[i].r, &vm->shmem[i].shm_memparcel);
+		if (ret) {
+			i--;
+			goto unshare;
+		}
+	}
+
+	vm->hyp_assign_done = 1;
+	return 0;
+
+unshare:
+	for (; i >= 0; --i)
+		unshare_a_vm_buffer(self_vmid, peer, &vm->shmem[i].r);
+
+	return ret;
+}
+
+static int hh_virtio_mmio_init(hh_vmid_t vmid, const char *vm_name, hh_label_t label,
+			hh_capid_t cap_id, int linux_irq, u64 base, u64 size)
 {
 	struct virt_machine *vm;
 	struct virtio_backend_device *vb_dev;
@@ -1163,6 +1333,15 @@ static int hh_virtio_mmio_init(hh_vmid_t vmid, const char *vm_name,
 	}
 
 	mutex_lock(&vb_dev->mutex);
+
+	if (!vm->hyp_assign_done) {
+		ret = share_vm_buffers(vm, vmid);
+		if (ret) {
+			mutex_unlock(&vb_dev->mutex);
+			vb_dev_put(vb_dev);
+			return ret;
+		}
+	}
 
 	if (!vb_dev->config_data || size < vb_dev->config_size) {
 		mutex_unlock(&vb_dev->mutex);
