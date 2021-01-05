@@ -103,7 +103,7 @@ config QTI_CPU_VOLTAGE_COOLING_DEVICE
 
 config QTI_POLICY_ENGINE_SENSOR
 	tristate "QTI Policy Engine Sensor device"
-	depends on THERMAL_OF && QTI_THERMAL
+	depends on THERMAL
 	help
 	    This enables the QTI Policy Engine sensor device. This driver will
 	    register the policy engine recommendation with thermal framework as
