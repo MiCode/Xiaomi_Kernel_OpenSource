@@ -328,7 +328,7 @@ int cnss_set_pcie_gen_speed(struct device *dev, u8 pcie_gen_speed)
 
 	if (plat_priv->device_id != QCA6490_DEVICE_ID ||
 	    !plat_priv->fw_pcie_gen_switch)
-		return -ENOTSUPP;
+		return -EOPNOTSUPP;
 
 	if (pcie_gen_speed < QMI_PCIE_GEN_SPEED_1_V01 ||
 	    pcie_gen_speed > QMI_PCIE_GEN_SPEED_3_V01)
@@ -1044,6 +1044,8 @@ static void cnss_recovery_work_handler(struct work_struct *work)
 #else
 static void cnss_recovery_work_handler(struct work_struct *work)
 {
+	int ret;
+
 	struct cnss_plat_data *plat_priv =
 		container_of(work, struct cnss_plat_data, recovery_work);
 
@@ -1057,6 +1059,7 @@ static void cnss_recovery_work_handler(struct work_struct *work)
 	ret = cnss_bus_dev_powerup(plat_priv);
 	if (ret)
 		__pm_relax(plat_priv->recovery_ws);
+
 	return;
 }
 

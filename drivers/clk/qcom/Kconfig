@@ -586,11 +586,74 @@ config SM_GCC_YUPIK
 
 config SM_GPUCC_YUPIK
 	tristate "YUPIK Graphics Clock Controller"
-	depends on SM_GCC_YUPIK
+	select SM_GCC_YUPIK
 	help
 	  Support for the graphics clock controller on Qualcomm Technologies, Inc.
 	  YUPIK devices.
 	  Say Y if you want to support graphics controller devices and
 	  functionality such as 3D graphics.
+
+config SDX_GCC_NIGHTJAR
+	tristate "SDXNIGHTJAR Global Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the global clock controller on Qualcomm Technologies, Inc.
+	  SDXNIGHTJAR devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI, I2C,
+	  USB, SD/eMMC, PCIe, etc.
+
+config SDX_DEBUGCC_NIGHTJAR
+	tristate "SDXNIGHTJAR Debug Clock Controller"
+	select SDX_GCC_NIGHTJAR
+	help
+	  Support for the debug clock controller on Qualcomm Technologies, Inc.
+	  sdxnightjar devices.
+	  Say Y if you want to support the debug clocks such as
+	  clock measurement functionality.
+
+config SC_GCC_SHRIKE
+	tristate "SCSHRIKE Global Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the global clock controller on Qualcomm Technologies, Inc.
+	  SCSHRIKE devices.
+	  Say Y if you want to use peripheral devices such as UART,
+	  SPI, I2C, USB, SD/UFS, PCIe etc.
+
+config SC_CAMCC_SHRIKE
+	tristate "SCSHRIKE Camera Clock Controller"
+	select SC_GCC_SHRIKE
+	help
+	  Support for the camera clock controller on Qualcomm Technologies, Inc
+	  SCSHRIKE devices.
+	  Say Y if you want to support camera devices and functionality such as
+	  capturing pictures.
+
+config SC_DISPCC_SHRIKE
+	tristate "SDMSHRIKE Display Clock Controller"
+	select SM_GCC_SHRIKE
+	help
+	  Support for the display clock controller on Qualcomm Technologies, Inc
+	  SDMSHRIKE devices.
+	  Say Y if you want to support display devices and functionality such as
+	  splash pictures.
+
+config SC_DEBUGCC_SHRIKE
+	tristate "SCSHRIKE Debug Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the debug clock controller on Qualcomm Technologies, Inc
+	  SCSHRIKE devices.
+	  Say Y if you want to support the debug clocks such as
+	  clock measurement functionality.
+
+config SM_VIDEOCC_YUPIK
+	tristate "YUPIK Video Clock Controller"
+	select SM_GCC_YUPIK
+	help
+	  Support for the video clock controller on Qualcomm Technologies, Inc.
+	  YUPIK devices.
+	  Say Y if you want to support video devices and functionality such as
+	  video encode/decode.
 
 endif

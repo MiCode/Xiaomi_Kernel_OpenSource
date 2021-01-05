@@ -538,7 +538,7 @@ static struct kgsl_process_private *kgsl_iommu_get_process(u64 ptbase)
 	struct kgsl_process_private *p;
 	struct kgsl_iommu_pt *iommu_pt;
 
-	spin_lock(&kgsl_driver.proclist_lock);
+	read_lock(&kgsl_driver.proclist_lock);
 
 	list_for_each_entry(p, &kgsl_driver.process_list, list) {
 		iommu_pt = p->pagetable->priv;
@@ -546,12 +546,12 @@ static struct kgsl_process_private *kgsl_iommu_get_process(u64 ptbase)
 			if (!kgsl_process_private_get(p))
 				p = NULL;
 
-			spin_unlock(&kgsl_driver.proclist_lock);
+			read_unlock(&kgsl_driver.proclist_lock);
 			return p;
 		}
 	}
 
-	spin_unlock(&kgsl_driver.proclist_lock);
+	read_unlock(&kgsl_driver.proclist_lock);
 
 	return NULL;
 }
@@ -2227,6 +2227,11 @@ static int kgsl_iommu_get_gpuaddr(struct kgsl_pagetable *pagetable,
 		goto out;
 	}
 
+	/*
+	 * This path is only called in a non-SVM path with locks so we can be
+	 * sure we aren't racing with anybody so we don't need to worry about
+	 * taking the lock
+	 */
 	ret = _insert_gpuaddr(pagetable, addr, size);
 	if (ret == 0) {
 		memdesc->gpuaddr = addr;

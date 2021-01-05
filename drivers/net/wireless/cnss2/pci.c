@@ -393,15 +393,25 @@ int cnss_pci_check_link_status(struct cnss_pci_data *pci_priv)
 static void cnss_pci_select_window(struct cnss_pci_data *pci_priv, u32 offset)
 {
 	u32 window = (offset >> WINDOW_SHIFT) & WINDOW_VALUE_MASK;
+	u32 window_enable = WINDOW_ENABLE_BIT | window;
+	u32 val;
 
-	writel_relaxed(WINDOW_ENABLE_BIT | window,
-		       QCA6390_PCIE_REMAP_BAR_CTRL_OFFSET +
-		       pci_priv->bar);
+	writel_relaxed(window_enable, pci_priv->bar +
+		       QCA6390_PCIE_REMAP_BAR_CTRL_OFFSET);
 
 	if (window != pci_priv->remap_window) {
 		pci_priv->remap_window = window;
 		cnss_pr_dbg("Config PCIe remap window register to 0x%x\n",
-			    WINDOW_ENABLE_BIT | window);
+			    window_enable);
+	}
+
+	/* Read it back to make sure the write has taken effect */
+	val = readl_relaxed(pci_priv->bar + QCA6390_PCIE_REMAP_BAR_CTRL_OFFSET);
+	if (val != window_enable) {
+		cnss_pr_err("Failed to config window register to 0x%x, current value: 0x%x\n",
+			    window_enable, val);
+		if (!cnss_pci_check_link_status(pci_priv))
+			CNSS_ASSERT(0);
 	}
 }
 
@@ -528,7 +538,7 @@ static int cnss_setup_bus_bandwidth(struct cnss_plat_data *plat_priv,
 	struct cnss_bus_bw_info *bus_bw_info;
 
 	if (!plat_priv->icc.path_count)
-		return -ENOTSUPP;
+		return -EOPNOTSUPP;
 
 	if (bw >= plat_priv->icc.bus_bw_cfg_count) {
 		cnss_pr_err("Invalid bus bandwidth Type: %d", bw);
@@ -1652,7 +1662,8 @@ static int cnss_pci_update_timestamp(struct cnss_pci_data *pci_priv)
 		goto force_wake_put;
 
 	if (host_time_us < device_time_us) {
-		cnss_pr_err("Host time (%llu us) is smaller than device time (%llu us), stop\n");
+		cnss_pr_err("Host time (%llu us) is smaller than device time (%llu us), stop\n",
+			    host_time_us, device_time_us);
 		ret = -EINVAL;
 		goto force_wake_put;
 	}
@@ -3898,6 +3909,9 @@ static int cnss_pci_enable_msi(struct cnss_pci_data *pci_priv)
 	struct cnss_msi_config *msi_config;
 	struct msi_desc *msi_desc;
 
+	if (pci_priv->device_id == QCA6174_DEVICE_ID)
+		return 0;
+
 	ret = cnss_pci_get_msi_assignment(pci_priv);
 	if (ret) {
 		cnss_pr_err("Failed to get MSI assignment, err = %d\n", ret);
@@ -3945,6 +3959,9 @@ out:
 
 static void cnss_pci_disable_msi(struct cnss_pci_data *pci_priv)
 {
+	if (pci_priv->device_id == QCA6174_DEVICE_ID)
+		return;
+
 	pci_free_irq_vectors(pci_priv->pci_dev);
 }
 
@@ -4581,6 +4598,69 @@ void cnss_pci_add_fw_prefix_name(struct cnss_pci_data *pci_priv,
 	cnss_pr_dbg("FW name added with prefix: %s\n", prefix_name);
 }
 
+static int cnss_pci_update_fw_name(struct cnss_pci_data *pci_priv)
+{
+	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
+	struct mhi_controller *mhi_ctrl = pci_priv->mhi_ctrl;
+
+	plat_priv->device_version.family_number = mhi_ctrl->family_number;
+	plat_priv->device_version.device_number = mhi_ctrl->device_number;
+	plat_priv->device_version.major_version = mhi_ctrl->major_version;
+	plat_priv->device_version.minor_version = mhi_ctrl->minor_version;
+
+	cnss_pr_dbg("Get device version info, family number: 0x%x, device number: 0x%x, major version: 0x%x, minor version: 0x%x\n",
+		    plat_priv->device_version.family_number,
+		    plat_priv->device_version.device_number,
+		    plat_priv->device_version.major_version,
+		    plat_priv->device_version.minor_version);
+
+	switch (pci_priv->device_id) {
+	case QCA6390_DEVICE_ID:
+		if (plat_priv->device_version.major_version < FW_V2_NUMBER) {
+			cnss_pr_dbg("Device ID:version (0x%lx:%d) is not supported\n",
+				    pci_priv->device_id,
+				    plat_priv->device_version.major_version);
+			return -EINVAL;
+		}
+		cnss_pci_add_fw_prefix_name(pci_priv, plat_priv->firmware_name,
+					    FW_V2_FILE_NAME);
+		snprintf(plat_priv->fw_fallback_name, MAX_FIRMWARE_NAME_LEN,
+			 FW_V2_FILE_NAME);
+		break;
+	case QCA6490_DEVICE_ID:
+		switch (plat_priv->device_version.major_version) {
+		case FW_V2_NUMBER:
+			cnss_pci_add_fw_prefix_name(pci_priv,
+						    plat_priv->firmware_name,
+						    FW_V2_FILE_NAME);
+			snprintf(plat_priv->fw_fallback_name,
+				 MAX_FIRMWARE_NAME_LEN,
+				 FW_V2_FILE_NAME);
+			break;
+		default:
+			cnss_pci_add_fw_prefix_name(pci_priv,
+						    plat_priv->firmware_name,
+						    DEFAULT_FW_FILE_NAME);
+			snprintf(plat_priv->fw_fallback_name,
+				 MAX_FIRMWARE_NAME_LEN,
+				 DEFAULT_FW_FILE_NAME);
+			break;
+		}
+		break;
+	default:
+		cnss_pci_add_fw_prefix_name(pci_priv, plat_priv->firmware_name,
+					    DEFAULT_FW_FILE_NAME);
+		snprintf(plat_priv->fw_fallback_name, MAX_FIRMWARE_NAME_LEN,
+			 DEFAULT_FW_FILE_NAME);
+		break;
+	}
+
+	cnss_pr_dbg("FW name is %s, FW fallback name is %s\n",
+		    mhi_ctrl->fw_image, mhi_ctrl->fw_image_fallback);
+
+	return 0;
+}
+
 static char *cnss_mhi_notify_status_to_str(enum MHI_CB status)
 {
 	switch (status) {
@@ -4594,6 +4674,8 @@ static char *cnss_mhi_notify_status_to_str(enum MHI_CB status)
 		return "FATAL_ERROR";
 	case MHI_CB_EE_MISSION_MODE:
 		return "MISSION_MODE";
+	case MHI_CB_FW_FALLBACK_IMG:
+		return "FW_FALLBACK";
 	default:
 		return "UNKNOWN";
 	}
@@ -4674,6 +4756,10 @@ static void cnss_mhi_notify_status(struct mhi_controller *mhi_ctrl, void *priv,
 		cnss_pci_update_status(pci_priv, CNSS_FW_DOWN);
 		cnss_reason = CNSS_REASON_RDDM;
 		break;
+	case MHI_CB_FW_FALLBACK_IMG:
+		plat_priv->use_fw_path_with_prefix = false;
+		cnss_pci_update_fw_name(pci_priv);
+		return;
 	default:
 		cnss_pr_err("Unsupported MHI status cb reason: %d\n", reason);
 		return;
@@ -4711,58 +4797,6 @@ static int cnss_pci_get_mhi_msi(struct cnss_pci_data *pci_priv)
 	return 0;
 }
 
-static int cnss_pci_update_fw_name(struct cnss_pci_data *pci_priv)
-{
-	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
-	struct mhi_controller *mhi_ctrl = pci_priv->mhi_ctrl;
-
-	plat_priv->device_version.family_number = mhi_ctrl->family_number;
-	plat_priv->device_version.device_number = mhi_ctrl->device_number;
-	plat_priv->device_version.major_version = mhi_ctrl->major_version;
-	plat_priv->device_version.minor_version = mhi_ctrl->minor_version;
-
-	cnss_pr_dbg("Get device version info, family number: 0x%x, device number: 0x%x, major version: 0x%x, minor version: 0x%x\n",
-		    plat_priv->device_version.family_number,
-		    plat_priv->device_version.device_number,
-		    plat_priv->device_version.major_version,
-		    plat_priv->device_version.minor_version);
-
-	switch (pci_priv->device_id) {
-	case QCA6390_DEVICE_ID:
-		if (plat_priv->device_version.major_version < FW_V2_NUMBER) {
-			cnss_pr_dbg("Device ID:version (0x%lx:%d) is not supported\n",
-				    pci_priv->device_id,
-				    plat_priv->device_version.major_version);
-			return -EINVAL;
-		}
-		cnss_pci_add_fw_prefix_name(pci_priv, plat_priv->firmware_name,
-					    FW_V2_FILE_NAME);
-		break;
-	case QCA6490_DEVICE_ID:
-		switch (plat_priv->device_version.major_version) {
-		case FW_V2_NUMBER:
-			cnss_pci_add_fw_prefix_name(pci_priv,
-						    plat_priv->firmware_name,
-						    FW_V2_FILE_NAME);
-			break;
-		default:
-			cnss_pci_add_fw_prefix_name(pci_priv,
-						    plat_priv->firmware_name,
-						    DEFAULT_FW_FILE_NAME);
-			break;
-		}
-		break;
-	default:
-		cnss_pci_add_fw_prefix_name(pci_priv, plat_priv->firmware_name,
-					    DEFAULT_FW_FILE_NAME);
-		break;
-	}
-
-	cnss_pr_dbg("Firmware name is %s\n", mhi_ctrl->fw_image);
-
-	return 0;
-}
-
 static int cnss_mhi_bw_scale(struct mhi_controller *mhi_ctrl,
 			     struct mhi_link_info *link_info)
 {
@@ -4793,6 +4827,9 @@ static int cnss_pci_register_mhi(struct cnss_pci_data *pci_priv)
 	struct pci_dev *pci_dev = pci_priv->pci_dev;
 	struct mhi_controller *mhi_ctrl;
 
+	if (pci_priv->device_id == QCA6174_DEVICE_ID)
+		return 0;
+
 	mhi_ctrl = mhi_alloc_controller(0);
 	if (!mhi_ctrl) {
 		cnss_pr_err("Invalid MHI controller context\n");
@@ -4810,6 +4847,7 @@ static int cnss_pci_register_mhi(struct cnss_pci_data *pci_priv)
 	mhi_ctrl->slot = PCI_SLOT(pci_dev->devfn);
 
 	mhi_ctrl->fw_image = plat_priv->firmware_name;
+	mhi_ctrl->fw_image_fallback = plat_priv->fw_fallback_name;
 
 	mhi_ctrl->regs = pci_priv->bar;
 	mhi_ctrl->len = pci_resource_len(pci_priv->pci_dev, PCI_BAR_NUM);
@@ -4883,6 +4921,9 @@ free_mhi_ctrl:
 static void cnss_pci_unregister_mhi(struct cnss_pci_data *pci_priv)
 {
 	struct mhi_controller *mhi_ctrl = pci_priv->mhi_ctrl;
+
+	if (pci_priv->device_id == QCA6174_DEVICE_ID)
+		return;
 
 	mhi_unregister_mhi_controller(mhi_ctrl);
 	if (mhi_ctrl->log_buf)
@@ -4995,15 +5036,18 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 	if (ret)
 		goto dereg_pci_event;
 
+	ret = cnss_pci_enable_msi(pci_priv);
+	if (ret)
+		goto disable_bus;
+
+	ret = cnss_pci_register_mhi(pci_priv);
+	if (ret)
+		goto disable_msi;
+
 	switch (pci_dev->device) {
 	case QCA6174_DEVICE_ID:
 		pci_read_config_word(pci_dev, QCA6174_REV_ID_OFFSET,
 				     &pci_priv->revision_id);
-		ret = cnss_suspend_pci_link(pci_priv);
-		if (ret)
-			cnss_pr_err("Failed to suspend PCI link, err = %d\n",
-				    ret);
-		cnss_power_off_device(plat_priv);
 		break;
 	case QCA6290_DEVICE_ID:
 	case QCA6390_DEVICE_ID:
@@ -5014,35 +5058,30 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 		init_completion(&pci_priv->wake_event);
 		INIT_DELAYED_WORK(&pci_priv->time_sync_work,
 				  cnss_pci_time_sync_work_hdlr);
-
-		ret = cnss_pci_enable_msi(pci_priv);
-		if (ret)
-			goto disable_bus;
-		ret = cnss_pci_register_mhi(pci_priv);
-		if (ret) {
-			cnss_pci_disable_msi(pci_priv);
-			goto disable_bus;
-		}
 		cnss_pci_get_link_status(pci_priv);
-		cnss_pci_config_regs(pci_priv);
-		if (EMULATION_HW)
-			break;
 		cnss_pci_set_wlaon_pwr_ctrl(pci_priv, false, true, false);
-		ret = cnss_suspend_pci_link(pci_priv);
-		if (ret)
-			cnss_pr_err("Failed to suspend PCI link, err = %d\n",
-				    ret);
-		cnss_power_off_device(plat_priv);
 		break;
 	default:
 		cnss_pr_err("Unknown PCI device found: 0x%x\n",
 			    pci_dev->device);
 		ret = -ENODEV;
-		goto disable_bus;
+		goto unreg_mhi;
 	}
+
+	cnss_pci_config_regs(pci_priv);
+	if (EMULATION_HW)
+		goto out;
+	ret = cnss_suspend_pci_link(pci_priv);
+	if (ret)
+		cnss_pr_err("Failed to suspend PCI link, err = %d\n", ret);
+	cnss_power_off_device(plat_priv);
 
 	return 0;
 
+unreg_mhi:
+	cnss_pci_unregister_mhi(pci_priv);
+disable_msi:
+	cnss_pci_disable_msi(pci_priv);
 disable_bus:
 	cnss_pci_disable_bus(pci_priv);
 dereg_pci_event:
@@ -5073,8 +5112,6 @@ static void cnss_pci_remove(struct pci_dev *pci_dev)
 	case QCA6290_DEVICE_ID:
 	case QCA6390_DEVICE_ID:
 	case QCA6490_DEVICE_ID:
-		cnss_pci_unregister_mhi(pci_priv);
-		cnss_pci_disable_msi(pci_priv);
 		complete_all(&pci_priv->wake_event);
 		del_timer(&pci_priv->dev_rddm_timer);
 		break;
@@ -5082,6 +5119,8 @@ static void cnss_pci_remove(struct pci_dev *pci_dev)
 		break;
 	}
 
+	cnss_pci_unregister_mhi(pci_priv);
+	cnss_pci_disable_msi(pci_priv);
 	cnss_pci_disable_bus(pci_priv);
 	cnss_dereg_pci_event(pci_priv);
 	cnss_pci_deinit_smmu(pci_priv);

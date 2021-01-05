@@ -30,6 +30,8 @@
 static void __dwc3_ep0_do_control_status(struct dwc3 *dwc, struct dwc3_ep *dep);
 static void __dwc3_ep0_do_control_data(struct dwc3 *dwc,
 		struct dwc3_ep *dep, struct dwc3_request *req);
+static int dwc3_ep0_delegate_req(struct dwc3 *dwc,
+		struct usb_ctrlrequest *ctrl);
 
 static void dwc3_ep0_prepare_one_trb(struct dwc3_ep *dep,
 		dma_addr_t buf_dma, u32 len, u32 type, bool chain)
@@ -340,6 +342,9 @@ static int dwc3_ep0_handle_status(struct dwc3 *dwc,
 				usb_status |= 1 << USB_DEV_STAT_U1_ENABLED;
 			if (reg & DWC3_DCTL_INITU2ENA)
 				usb_status |= 1 << USB_DEV_STAT_U2_ENABLED;
+		} else {
+			usb_status |= dwc->is_remote_wakeup_enabled <<
+						USB_DEVICE_REMOTE_WAKEUP;
 		}
 
 		break;
@@ -349,7 +354,7 @@ static int dwc3_ep0_handle_status(struct dwc3 *dwc,
 		 * Function Remote Wake Capable	D0
 		 * Function Remote Wakeup	D1
 		 */
-		break;
+		return dwc3_ep0_delegate_req(dwc, ctrl);
 
 	case USB_RECIP_ENDPOINT:
 		dep = dwc3_wIndex_to_dep(dwc, ctrl->wIndex);
@@ -460,6 +465,9 @@ static int dwc3_ep0_handle_device(struct dwc3 *dwc,
 
 	switch (wValue) {
 	case USB_DEVICE_REMOTE_WAKEUP:
+		dbg_log_string("remote wakeup :%s",
+				(set ? "enabled" : "disabled"));
+		dwc->is_remote_wakeup_enabled = set;
 		break;
 	/*
 	 * 9.4.1 says only only for SS, in AddressState only for
@@ -501,6 +509,9 @@ static int dwc3_ep0_handle_intf(struct dwc3 *dwc,
 		 * For now, we're not doing anything, just making sure we return
 		 * 0 so USB Command Verifier tests pass without any errors.
 		 */
+		ret = dwc3_ep0_delegate_req(dwc, ctrl);
+		if (ret)
+			return ret;
 		break;
 	default:
 		ret = -EINVAL;

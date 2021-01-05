@@ -202,12 +202,9 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"gcc_qupv3_wrap1_s1_clk",
 	"gcc_qupv3_wrap1_s2_clk",
 	"gcc_qupv3_wrap1_s3_clk",
-	"gcc_qupv3_wrap1_s4_clk",
 	"gcc_qupv3_wrap1_s5_clk",
 	"gcc_qupv3_wrap_0_m_ahb_clk",
 	"gcc_qupv3_wrap_0_s_ahb_clk",
-	"gcc_qupv3_wrap_1_m_ahb_clk",
-	"gcc_qupv3_wrap_1_s_ahb_clk",
 	"gcc_sdcc1_ahb_clk",
 	"gcc_sdcc1_apps_clk",
 	"gcc_sdcc1_ice_core_clk",
@@ -331,12 +328,9 @@ static int gcc_debug_mux_sels[] = {
 	0x76,		/* gcc_qupv3_wrap1_s1_clk */
 	0x77,		/* gcc_qupv3_wrap1_s2_clk */
 	0x78,		/* gcc_qupv3_wrap1_s3_clk */
-	0x79,		/* gcc_qupv3_wrap1_s4_clk */
 	0x7A,		/* gcc_qupv3_wrap1_s5_clk */
 	0x67,		/* gcc_qupv3_wrap_0_m_ahb_clk */
 	0x68,		/* gcc_qupv3_wrap_0_s_ahb_clk */
-	0x71,		/* gcc_qupv3_wrap_1_m_ahb_clk */
-	0x72,		/* gcc_qupv3_wrap_1_s_ahb_clk */
 	0x103,		/* gcc_sdcc1_ahb_clk */
 	0x102,		/* gcc_sdcc1_apps_clk */
 	0x104,		/* gcc_sdcc1_ice_core_clk */

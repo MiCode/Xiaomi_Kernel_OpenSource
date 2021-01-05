@@ -24,6 +24,8 @@
 #define THERMAL_NAME_LENGTH 20
 #define ICNSS_SMEM_VALUE_MASK 0xFFFFFFFF
 #define ICNSS_SMEM_SEQ_NO_POS 16
+#define QCA6750_PATH_PREFIX    "qca6750/"
+#define ICNSS_MAX_FILE_NAME      20
 
 extern uint64_t dynamic_feature_mask;
 
@@ -54,6 +56,7 @@ enum icnss_driver_event_type {
 	ICNSS_DRIVER_EVENT_QDSS_TRACE_REQ_MEM,
 	ICNSS_DRIVER_EVENT_QDSS_TRACE_SAVE,
 	ICNSS_DRIVER_EVENT_QDSS_TRACE_FREE,
+	ICNSS_DRIVER_EVENT_M3_DUMP_UPLOAD_REQ,
 	ICNSS_DRIVER_EVENT_MAX,
 };
 
@@ -335,6 +338,7 @@ struct icnss_priv {
 	u32 msi_base_data;
 	struct icnss_control_params ctrl_params;
 	u8 cal_done;
+	u8 use_prefix_path;
 	u32 ce_irqs[ICNSS_MAX_IRQ_REGISTRATIONS];
 	u32 srng_irqs[IWCN_MAX_IRQ_REGISTRATIONS];
 	phys_addr_t mem_base_pa;
@@ -389,6 +393,11 @@ struct icnss_priv {
 	uint8_t *diag_reg_read_buf;
 	atomic_t pm_count;
 	struct ramdump_device *msa0_dump_dev;
+	struct ramdump_device *m3_dump_dev_seg1;
+	struct ramdump_device *m3_dump_dev_seg2;
+	struct ramdump_device *m3_dump_dev_seg3;
+	struct ramdump_device *m3_dump_dev_seg4;
+	struct ramdump_device *m3_dump_dev_seg5;
 	bool force_err_fatal;
 	bool allow_recursive_recovery;
 	bool early_crash_ind;
@@ -447,5 +456,7 @@ int icnss_get_iova(struct icnss_priv *priv, u64 *addr, u64 *size);
 int icnss_get_iova_ipa(struct icnss_priv *priv, u64 *addr, u64 *size);
 int icnss_get_cpr_info(struct icnss_priv *priv);
 int icnss_update_cpr_info(struct icnss_priv *priv);
+void icnss_add_fw_prefix_name(struct icnss_priv *priv, char *prefix_name,
+			      char *name);
 #endif
 

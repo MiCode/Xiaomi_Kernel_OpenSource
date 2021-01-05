@@ -39,6 +39,9 @@ static inline bool usb_gsi_remote_wakeup_allowed(struct usb_function *f)
 
 	if (f->config->cdev->gadget->speed >= USB_SPEED_SUPER)
 		remote_wakeup_allowed = gsi->func_wakeup_allowed;
+	else
+		remote_wakeup_allowed =
+			usb_get_remote_wakeup_status(f->config->cdev->gadget);
 
 	log_event_dbg("%s: remote_wakeup_allowed:%s", __func__,
 			(remote_wakeup_allowed ? "true" : "false"));
@@ -697,10 +700,10 @@ static void ipa_data_path_enable(struct gsi_data_port *d_port)
 		usb_gsi_ep_op(gsi->d_port.out_ep,
 				&gsi->d_port.out_request,
 				GSI_EP_OP_STORE_DBL_INFO);
-
-		usb_gsi_ep_op(gsi->d_port.out_ep, &gsi->d_port.out_request,
-				GSI_EP_OP_ENABLE_GSI);
 	}
+
+	usb_gsi_ep_op(gsi->d_port.in_ep, &gsi->d_port.in_request,
+				GSI_EP_OP_ENABLE_GSI);
 
 	/* Unblock doorbell to GSI */
 	usb_gsi_ep_op(d_port->in_ep, (void *)&block_db,
@@ -1562,26 +1565,35 @@ static long gsi_ctrl_dev_ioctl(struct file *fp, unsigned int cmd,
 			break;
 		}
 
-		if (gsi->d_port.in_channel_handle == -EINVAL &&
-			gsi->d_port.out_channel_handle == -EINVAL) {
-			ret = -EAGAIN;
-			break;
+		if (gsi->prot_id != IPA_USB_GPS) {
+			if (gsi->d_port.in_channel_handle == -EINVAL &&
+				gsi->d_port.out_channel_handle == -EINVAL) {
+				ret = -EAGAIN;
+				break;
+			}
+			info.ph_ep_info.ep_type = GSI_MBIM_DATA_EP_TYPE_HSUSB;
+			info.ph_ep_info.peripheral_iface_id = gsi->data_id;
+		} else {
+			info.ph_ep_info.ep_type = GSI_MBIM_DATA_EP_TYPE_HSUSB;
+			info.ph_ep_info.peripheral_iface_id = gsi->ctrl_id;
 		}
-
-		info.ph_ep_info.ep_type = GSI_MBIM_DATA_EP_TYPE_HSUSB;
-		info.ph_ep_info.peripheral_iface_id = gsi->data_id;
-		info.ipa_ep_pair.cons_pipe_num =
-		(gsi->prot_id == IPA_USB_DIAG) ? -1 :
-				gsi->d_port.out_channel_handle;
-		info.ipa_ep_pair.prod_pipe_num = gsi->d_port.in_channel_handle;
 
 		log_event_dbg("%s: prot id :%d ep_type:%d intf:%d",
 				__func__, gsi->prot_id, info.ph_ep_info.ep_type,
 				info.ph_ep_info.peripheral_iface_id);
+		if (gsi->prot_id != IPA_USB_GPS) {
+			info.ipa_ep_pair.cons_pipe_num =
+			(gsi->prot_id == IPA_USB_DIAG) ? -1 :
+					gsi->d_port.out_channel_handle;
+			info.ipa_ep_pair.prod_pipe_num =
+					gsi->d_port.in_channel_handle;
 
-		log_event_dbg("%s: ipa_cons_idx:%d ipa_prod_idx:%d",
-				__func__, info.ipa_ep_pair.cons_pipe_num,
-				info.ipa_ep_pair.prod_pipe_num);
+
+			log_event_dbg("%s: ipa_cons_idx:%d ipa_prod_idx:%d",
+					__func__,
+					info.ipa_ep_pair.cons_pipe_num,
+					info.ipa_ep_pair.prod_pipe_num);
+		}
 
 		ret = copy_to_user((void __user *)arg, &info,
 			sizeof(info));
@@ -2558,8 +2570,12 @@ static void gsi_suspend(struct usb_function *f)
 	bool block_db;
 	struct f_gsi *gsi = func_to_gsi(f);
 
-	/* Check if function is already suspended in gsi_func_suspend() */
-	if (gsi->func_is_suspended) {
+	/* Check if function is already suspended in gsi_func_suspend()
+	 * Or func_suspend would have bailed out earlier if func_remote_wakeup
+	 * wasn't enabled.
+	 */
+	if (gsi->func_is_suspended && (gsi->d_port.sm_state == STATE_SUSPENDED ||
+			gsi->d_port.sm_state == STATE_SUSPEND_IN_PROGRESS)) {
 		log_event_dbg("%s: func already suspended, return\n", __func__);
 		return;
 	}

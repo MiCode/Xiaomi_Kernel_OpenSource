@@ -3320,7 +3320,8 @@ static int fastrpc_internal_invoke2(struct fastrpc_file *fl,
 						(void *)inv2->invparam, fl);
 		break;
 	case FASTRPC_INVOKE2_KERNEL_OPTIMIZATIONS:
-		if (inv2->size != sizeof(uint32_t)) {
+		size = sizeof(uint32_t);
+		if (inv2->size != size) {
 			err = -EBADE;
 			goto bail;
 		}

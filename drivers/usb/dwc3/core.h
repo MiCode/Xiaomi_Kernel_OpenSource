@@ -1150,6 +1150,9 @@ struct dwc3_scratchpad_array {
  * @bh_handled_evt_cnt: no. of events handled by tasklet per interrupt
  * @bh_dbg_index: index for capturing bh_completion_time and bh_handled_evt_cnt
  * @last_run_stop: timestamp denoting the last run_stop update
+ * @is_remote_wakeup_enabled: remote wakeup status from host perspective
+ * @wait_linkstate: waitqueue for waiting LINK to move into required state
+ * @remote_wakeup_work: use to perform remote wakeup from this context
  */
 struct dwc3 {
 	struct work_struct	drd_work;
@@ -1395,6 +1398,9 @@ struct dwc3 {
 	u32			gen2_tx_de_emph2;
 	u32			gen2_tx_de_emph3;
 	ktime_t			last_run_stop;
+	bool			is_remote_wakeup_enabled;
+	wait_queue_head_t	wait_linkstate;
+	struct work_struct	remote_wakeup_work;
 };
 
 #define INCRX_BURST_MODE 0

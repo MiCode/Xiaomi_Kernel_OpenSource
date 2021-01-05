@@ -294,7 +294,7 @@ static const struct parent_map gcc_parent_map_6[] = {
 };
 
 static const struct clk_parent_data gcc_parent_data_6[] = {
-	{ .fw_name = "pcie_0_pipe_clk", .name = "pcie_0_pipe_clk" },
+	{ .fw_name = "pcie_0_pipe_clk" },
 	{ .fw_name = "bi_tcxo" },
 };
 
@@ -304,7 +304,7 @@ static const struct parent_map gcc_parent_map_7[] = {
 };
 
 static const struct clk_parent_data gcc_parent_data_7[] = {
-	{ .fw_name = "pcie_1_pipe_clk", .name = "pcie_1_pipe_clk" },
+	{ .fw_name = "pcie_1_pipe_clk" },
 	{ .fw_name = "bi_tcxo" },
 };
 
@@ -348,8 +348,7 @@ static const struct parent_map gcc_parent_map_10[] = {
 };
 
 static const struct clk_parent_data gcc_parent_data_10[] = {
-	{ .fw_name = "ufs_phy_rx_symbol_0_clk", .name =
-		"ufs_phy_rx_symbol_0_clk"},
+	{ .fw_name = "ufs_phy_rx_symbol_0_clk" },
 	{ .fw_name = "bi_tcxo" },
 };
 
@@ -359,8 +358,7 @@ static const struct parent_map gcc_parent_map_11[] = {
 };
 
 static const struct clk_parent_data gcc_parent_data_11[] = {
-	{ .fw_name = "ufs_phy_rx_symbol_1_clk", .name =
-		"ufs_phy_rx_symbol_1_clk" },
+	{ .fw_name = "ufs_phy_rx_symbol_1_clk" },
 	{ .fw_name = "bi_tcxo" },
 };
 
@@ -370,8 +368,7 @@ static const struct parent_map gcc_parent_map_12[] = {
 };
 
 static const struct clk_parent_data gcc_parent_data_12[] = {
-	{ .fw_name = "ufs_phy_tx_symbol_0_clk", .name =
-		"ufs_phy_tx_symbol_0_clk" },
+	{ .fw_name = "ufs_phy_tx_symbol_0_clk" },
 	{ .fw_name = "bi_tcxo" },
 };
 
@@ -381,8 +378,7 @@ static const struct parent_map gcc_parent_map_13[] = {
 };
 
 static const struct clk_parent_data gcc_parent_data_13[] = {
-	{ .fw_name = "usb3_phy_wrapper_gcc_usb30_pipe_clk", .name =
-		"usb3_phy_wrapper_gcc_usb30_pipe_clk" },
+	{ .fw_name = "usb3_phy_wrapper_gcc_usb30_pipe_clk" },
 	{ .fw_name = "bi_tcxo" },
 };
 
@@ -392,8 +388,7 @@ static const struct parent_map gcc_parent_map_14[] = {
 };
 
 static const struct clk_parent_data gcc_parent_data_14[] = {
-	{ .fw_name = "usb3_phy_wrapper_gcc_usb30_pipe_clk", .name =
-		"usb3_phy_wrapper_gcc_usb30_pipe_clk" },
+	{ .fw_name = "usb3_phy_wrapper_gcc_usb30_pipe_clk" },
 	{ .fw_name = "bi_tcxo" },
 };
 

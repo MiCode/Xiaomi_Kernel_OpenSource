@@ -5307,8 +5307,10 @@ int qseecom_send_command(struct qseecom_handle *handle, void *send_buf,
 		}
 		perf_enabled = true;
 	}
-	if (!strcmp(data->client.app_name, "securemm"))
+	if (!strcmp(data->client.app_name, "securemm") ||
+	    !strcmp(data->client.app_name, "slateapp")) {
 		data->use_legacy_cmd = true;
+	}
 
 	ret = __qseecom_send_cmd(data, &req, false);
 
@@ -8426,7 +8428,9 @@ static int qseecom_release(struct inode *inode, struct file *file)
 static const struct file_operations qseecom_fops = {
 	.owner = THIS_MODULE,
 	.unlocked_ioctl = qseecom_ioctl,
+#ifdef CONFIG_COMPAT
 	.compat_ioctl = compat_qseecom_ioctl,
+#endif
 	.open = qseecom_open,
 	.release = qseecom_release
 };

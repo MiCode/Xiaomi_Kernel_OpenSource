@@ -951,6 +951,20 @@ static void __set_registers(struct iris_hfi_device *device)
 					reg_set->reg_tbl[i].reg,
 					reg_set->reg_tbl[i].value);
 	}
+
+	/* CVP NOC QoS Settings */
+	__write_register(device,
+			CVP_NOC_QOSGENERATOR_MAINCTL_LOW, 0x48);
+	__write_register(device,
+			CVP_NOC_DMA_MAIN_PRIORITYLUT_LOW, 0x22222222);
+	__write_register(device,
+			CVP_NOC_DMA_MAIN_PRIORITYLUT_HIGH, 0x33332222);
+	__write_register(device,
+			CVP_NOC_DMA_MAIN_URGENCY_LOW, 0x1022);
+	__write_register(device,
+			CVP_NOC_DMA_MAIN_DANGERLUT_LOW, 0x5500);
+	__write_register(device,
+			CVP_NOC_DMA_MAIN_SAFELUT_LOW, 0xffff);
 }
 
 /*

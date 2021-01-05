@@ -612,6 +612,12 @@ static int mmc_devfreq_create_freq_table(struct mmc_host *host)
 		break;
 	}
 
+	if (mmc_card_sd(host->card) && (clk_scaling->freq_table_sz < 2)) {
+		clk_scaling->freq_table[clk_scaling->freq_table_sz] =
+				host->card->clk_scaling_highest;
+		clk_scaling->freq_table_sz++;
+	}
+
 out:
 	/**
 	 * devfreq requires unsigned long type freq_table while the

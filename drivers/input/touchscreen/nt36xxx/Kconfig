@@ -3,7 +3,7 @@
 # Novatek NT36xxx touchscreen driver configuration
 #
 config TOUCHSCREEN_NT36XXX
-	bool "Novatek NT36xxx"
+	tristate "Novatek NT36xxx"
 	help
 	  Say Y here if you have a Novatek NT36xxx touchscreen connected
 	  to your system.
