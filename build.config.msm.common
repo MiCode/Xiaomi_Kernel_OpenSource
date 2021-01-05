@@ -20,9 +20,8 @@ function compile_external_dtc() {
   (
     OUT_DIR=${COMMON_OUT_DIR}/external/dtc
     cd ${ROOT_DIR}/external/dtc
-    NO_PYTHON=1 CC=cc make
+    NO_PYTHON=1 CC=cc make all install PREFIX=${COMMON_OUT_DIR}/host
   )
-  export PATH=${COMMON_OUT_DIR}/external/dtc:${PATH}
 }
 append_cmd PRE_DEFCONFIG_CMDS 'compile_external_dtc'
 
