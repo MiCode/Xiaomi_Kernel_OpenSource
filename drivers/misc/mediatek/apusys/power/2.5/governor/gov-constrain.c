@@ -36,9 +36,19 @@ static int update_parent(struct apu_gov_data *gov_data)
 	/* Lock parent's mutex, update child's opp and get max of them */
 	mutex_lock_nested(&parent_gov->this->lock, parent_gov->depth);
 
-	/* the fastst opp that child can vote is child_opp_limit */
+	/*
+	 * The fastst opp that child can vote is child_opp_limit
+	 * and if child's opp not faster than the threshold, put child's
+	 * voting as parent's slowest opp.
+	 * That means there are only 2 possibilities for voting parent
+	 *  1. vote to parent as parent->child_opp_limit
+	 *  2. vote to parent ad parent->max_opp
+	 */
 	if (req->value <= gov_data->threshold_opp)
 		req->value = parent_gov->child_opp_limit;
+	else
+		req->value = parent_gov->max_opp;
+
 	gov_data->req_parent.value = req->value;
 	list_sort(NULL, &parent_gov->head, apu_cmp);
 	req_parent = list_first_entry(&parent_gov->head, struct apu_req, list);
