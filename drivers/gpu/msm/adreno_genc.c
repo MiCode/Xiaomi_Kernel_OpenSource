@@ -1295,6 +1295,7 @@ const struct genc_gpudev adreno_genc_hwsched_gpudev = {
 		.power_stats = genc_power_stats,
 		.setproperty = genc_setproperty,
 		.gpu_model = genc_gpu_model,
+		.hw_isidle = genc_hw_isidle,
 	},
 	.hfi_probe = genc_hwsched_hfi_probe,
 	.handle_watchdog = genc_hwsched_handle_watchdog,

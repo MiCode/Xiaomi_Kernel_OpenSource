@@ -914,16 +914,6 @@ static int genc_hwsched_pm_suspend(struct adreno_device *adreno_dev)
 	/* Halt any new submissions */
 	reinit_completion(&device->halt_gate);
 
-	mutex_unlock(&device->mutex);
-
-	/* Flush any currently running instances of the dispatcher */
-	adreno_hwsched_flush(adreno_dev);
-
-	mutex_lock(&device->mutex);
-
-	/* This ensures that dispatcher doesn't submit any new work */
-	adreno_get_gpu_halt(adreno_dev);
-
 	/**
 	 * Wait for the dispatcher to retire everything by waiting
 	 * for the active count to go to zero.
@@ -934,23 +924,13 @@ static int genc_hwsched_pm_suspend(struct adreno_device *adreno_dev)
 		goto err;
 	}
 
-	if (test_bit(GMU_PRIV_GPU_STARTED, &gmu->flags)) {
-		unsigned long wait = jiffies +
-			msecs_to_jiffies(ADRENO_IDLE_TIMEOUT);
+	ret = adreno_hwsched_idle(adreno_dev);
+	if (ret)
+		goto err;
 
-		do {
-			if (genc_hw_isidle(adreno_dev))
-				break;
-		} while (time_before(jiffies, wait));
+	genc_hwsched_power_off(adreno_dev);
 
-		if (!genc_hw_isidle(adreno_dev)) {
-			dev_err(device->dev, "Timed out idling the gpu\n");
-			ret = -ETIMEDOUT;
-			goto err;
-		}
-
-		genc_hwsched_power_off(adreno_dev);
-	}
+	adreno_get_gpu_halt(adreno_dev);
 
 	set_bit(GMU_PRIV_PM_SUSPEND, &gmu->flags);
 
@@ -959,7 +939,6 @@ static int genc_hwsched_pm_suspend(struct adreno_device *adreno_dev)
 	return 0;
 
 err:
-	adreno_put_gpu_halt(adreno_dev);
 	adreno_hwsched_start(adreno_dev);
 
 	return ret;

@@ -47,11 +47,14 @@ struct adreno_hwsched {
 	const struct adreno_hwsched_ops *hwsched_ops;
 	/** @ctxt_bad: Container for the context bad hfi packet */
 	void *ctxt_bad;
+	/** @idle_gate: Gate to wait on for hwscheduler to idle */
+	struct completion idle_gate;
 };
 
 enum adreno_hwsched_flags {
 	ADRENO_HWSCHED_POWER = 0,
 	ADRENO_HWSCHED_FAULT_RESTART,
+	ADRENO_HWSCHED_ACTIVE,
 };
 
 /**
@@ -107,4 +110,12 @@ void adreno_hwsched_flush(struct adreno_device *adreno_dev);
  * contexts
  */
 void adreno_hwsched_unregister_contexts(struct adreno_device *adreno_dev);
+
+/**
+ * adreno_hwsched_idle - Wait for dispatcher and hardware to become idle
+ * @adreno_dev: A handle to adreno device
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int adreno_hwsched_idle(struct adreno_device *adreno_dev);
 #endif

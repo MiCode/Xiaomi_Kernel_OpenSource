@@ -407,6 +407,8 @@ struct adreno_dispatch_ops {
 	void (*setup_context)(struct adreno_device *adreno_dev,
 			struct adreno_context *drawctxt);
 	void (*fault)(struct adreno_device *adreno_dev, u32 fault);
+	/* @idle: Wait for dipatcher to become idle */
+	int (*idle)(struct adreno_device *adreno_dev);
 };
 
 /**

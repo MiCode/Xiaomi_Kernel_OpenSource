@@ -357,6 +357,10 @@ static int hwsched_sendcmd(struct adreno_device *adreno_dev,
 		return ret;
 	}
 
+	if ((hwsched->inflight == 1) &&
+		!test_and_set_bit(ADRENO_HWSCHED_ACTIVE, &hwsched->flags))
+		reinit_completion(&hwsched->idle_gate);
+
 	drawctxt->internal_timestamp = drawobj->timestamp;
 
 	obj->cmdobj = cmdobj;
@@ -978,6 +982,9 @@ static void hwsched_power_down(struct adreno_device *adreno_dev)
 
 	mutex_lock(&device->mutex);
 
+	if (test_and_clear_bit(ADRENO_HWSCHED_ACTIVE, &hwsched->flags))
+		complete_all(&hwsched->idle_gate);
+
 	if (test_bit(ADRENO_HWSCHED_POWER, &hwsched->flags)) {
 		adreno_active_count_put(adreno_dev);
 		clear_bit(ADRENO_HWSCHED_POWER, &hwsched->flags);
@@ -1349,6 +1356,7 @@ static const struct adreno_dispatch_ops hwsched_ops = {
 	.queue_cmds = adreno_hwsched_queue_cmds,
 	.queue_context = adreno_hwsched_queue_context,
 	.fault = adreno_hwsched_fault,
+	.idle = adreno_hwsched_idle,
 };
 
 int adreno_hwsched_init(struct adreno_device *adreno_dev,
@@ -1389,6 +1397,8 @@ int adreno_hwsched_init(struct adreno_device *adreno_dev,
 	sysfs_create_files(&device->dev->kobj, _hwsched_attr_list);
 	adreno_set_dispatch_ops(adreno_dev, &hwsched_ops);
 	hwsched->hwsched_ops = target_hwsched_ops;
+	init_completion(&hwsched->idle_gate);
+	complete_all(&hwsched->idle_gate);
 	return 0;
 }
 
@@ -1436,4 +1446,89 @@ void adreno_hwsched_unregister_contexts(struct adreno_device *adreno_dev)
 	read_lock(&device->context_lock);
 	idr_for_each(&device->context_idr, unregister_context, NULL);
 	read_unlock(&device->context_lock);
+}
+
+static int hwsched_idle(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct adreno_hwsched *hwsched = &adreno_dev->hwsched;
+	int ret;
+
+	/* Block any new submissions from being submitted */
+	adreno_get_gpu_halt(adreno_dev);
+
+	mutex_unlock(&device->mutex);
+
+	/*
+	 * Flush the worker to make sure all executing
+	 * or pending dispatcher works on worker are
+	 * finished
+	 */
+	adreno_hwsched_flush(adreno_dev);
+
+	ret = wait_for_completion_timeout(&hwsched->idle_gate,
+			msecs_to_jiffies(ADRENO_IDLE_TIMEOUT));
+	if (ret == 0) {
+		ret = -ETIMEDOUT;
+		WARN(1, "hwsched halt timeout\n");
+	} else if (ret < 0) {
+		dev_err(device->dev, "hwsched halt failed %d\n", ret);
+	} else {
+		ret = 0;
+	}
+
+	mutex_lock(&device->mutex);
+
+	/*
+	 * This will allow the dispatcher to start submitting to
+	 * hardware once device mutex is released
+	 */
+	adreno_put_gpu_halt(adreno_dev);
+
+	/*
+	 * Requeue dispatcher work to resubmit pending commands
+	 * that may have been blocked due to this idling request
+	 */
+	adreno_hwsched_trigger(adreno_dev);
+	return ret;
+}
+
+int adreno_hwsched_idle(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct adreno_hwsched *hwsched = &adreno_dev->hwsched;
+	unsigned long wait = jiffies + msecs_to_jiffies(ADRENO_IDLE_TIMEOUT);
+	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	int ret;
+
+	if (WARN_ON(!mutex_is_locked(&device->mutex)))
+		return -EDEADLK;
+
+	if (!kgsl_state_is_awake(device))
+		return 0;
+
+	ret = hwsched_idle(adreno_dev);
+	if (ret)
+		return ret;
+
+	do {
+		if (hwsched_in_fault(hwsched))
+			return -EDEADLK;
+
+		if (gpudev->hw_isidle(adreno_dev))
+			return 0;
+	} while (time_before(jiffies, wait));
+
+	/*
+	 * Under rare conditions, preemption can cause the while loop to exit
+	 * without checking if the gpu is idle. check one last time before we
+	 * return failure.
+	 */
+	if (hwsched_in_fault(hwsched))
+		return -EDEADLK;
+
+	if (gpudev->hw_isidle(adreno_dev))
+		return 0;
+
+	return -ETIMEDOUT;
 }
