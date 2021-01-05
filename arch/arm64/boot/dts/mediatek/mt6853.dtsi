@@ -4930,28 +4930,18 @@
 				<&gce 2 0 CMDQ_THR_PRIO_4>,
 				<&gce 3 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_2>,
 				<&gce 1 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_6>,
-#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
-				<&gce 4 0 CMDQ_THR_PRIO_4>,
-				<&gce 6 0 CMDQ_THR_PRIO_3>,
-				<&gce_sec 8 0 CMDQ_THR_PRIO_3>;
-#else
+
 				<&gce 4 0 CMDQ_THR_PRIO_4>,
 				<&gce 6 0 CMDQ_THR_PRIO_3>;
-#endif
 
 			gce-client-names = "CLIENT_CFG0",
 				"CLIENT_CFG1",
 				"CLIENT_CFG2",
 				"CLIENT_TRIG_LOOP0",
 				"CLIENT_SODI_LOOP0",
-#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
-				"CLIENT_SUB_CFG0",
-				"CLIENT_DSI_CFG0",
-				"CLIENT_SEC_CFG0";
-#else
+
 				"CLIENT_SUB_CFG0",
 				"CLIENT_DSI_CFG0";
-#endif
 
 			/* define subsys, see mt6853-gce.h */
 			gce-subsys = <&gce 0x14000000 SUBSYS_1400XXXX>,
