@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2016-2021, The Linux Foundation. All rights reserved. */
 
 #include <linux/cma.h>
 #include <linux/firmware.h>
@@ -2837,7 +2837,8 @@ static int cnss_pci_suspend(struct device *dev)
 	if (!cnss_is_device_powered_on(plat_priv))
 		goto out;
 
-	if (!test_bit(DISABLE_DRV, &plat_priv->ctrl_params.quirks)) {
+	if (!test_bit(DISABLE_DRV, &plat_priv->ctrl_params.quirks) &&
+	    cnss_pci_get_drv_connected(pci_priv)) {
 		pci_priv->drv_connected_last =
 			cnss_pci_get_drv_connected(pci_priv);
 		if (!pci_priv->drv_connected_last) {
@@ -2979,7 +2980,8 @@ static int cnss_pci_runtime_suspend(struct device *dev)
 		return -EAGAIN;
 	}
 
-	if (!test_bit(DISABLE_DRV, &plat_priv->ctrl_params.quirks)) {
+	if (!test_bit(DISABLE_DRV, &plat_priv->ctrl_params.quirks) &&
+	    cnss_pci_get_drv_connected(pci_priv)) {
 		pci_priv->drv_connected_last =
 			cnss_pci_get_drv_connected(pci_priv);
 		if (!pci_priv->drv_connected_last) {
