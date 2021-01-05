@@ -83,7 +83,7 @@ config QTI_CPU_ISOLATE_COOLING_DEVICE
 
 config QTI_THERMAL_LIMITS_DCVS
 	tristate "QTI LMH DCVS Driver"
-	depends on THERMAL_OF && QTI_THERMAL && CPU_THERMAL
+	depends on THERMAL && CPU_THERMAL
 	help
 	  This enables the driver for Limits Management Hardware - DCVS block
 	  for the application processors. The h/w block that is available for

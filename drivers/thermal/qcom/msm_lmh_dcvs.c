@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "%s:%s " fmt, KBUILD_MODNAME, __func__
@@ -23,8 +23,6 @@
 
 #include <asm/smp_plat.h>
 #include <asm/cacheflush.h>
-
-#include "../thermal_core.h"
 
 #define LIMITS_DCVSH			0x10
 #define LIMITS_NODE_DCVS		0x44435653
