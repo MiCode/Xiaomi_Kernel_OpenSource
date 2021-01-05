@@ -274,8 +274,10 @@ static void signal_vqs(struct virtio_backend_device *vb_dev)
 
 	for (i = 0; i < MAX_IO_CONTEXTS; ++i) {
 		flags = 1 << i;
-		if ((vb_dev->vdev_event_data & flags) && vb_dev->ioctx[i].ctx)
+		if ((vb_dev->vdev_event_data & flags) && vb_dev->ioctx[i].ctx) {
 			eventfd_signal(vb_dev->ioctx[i].ctx, 1);
+			vb_dev->vdev_event_data &= ~flags;
+		}
 	}
 }
 
