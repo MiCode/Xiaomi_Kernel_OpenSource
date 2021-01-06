@@ -23,7 +23,6 @@
 #include <linux/interrupt.h>
 #include <linux/of.h>
 #include <linux/reset.h>
-#include <linux/bitops.h>
 
 
 #include "sdhci-pltfm.h"
@@ -421,20 +420,6 @@ enum constraint {
 	QOS_MAX,
 };
 
-enum errors {
-	INT_TIMEOUT,
-	INT_CRC,
-	INT_END_BIT,
-	INT_INDEX,
-	INT_DATA_TIMEOUT,
-	INT_DATA_CRC,
-	INT_DATA_END_BIT,
-	INT_BUS_POWER,
-	INT_AUTO_CMD_ERR,
-	INT_ADMA_ERROR,
-	ERR_MAX,
-};
-
 struct sdhci_msm_host {
 	struct platform_device *pdev;
 	void __iomem *core_mem;	/* MSM SDCC mapped address */
@@ -496,7 +481,6 @@ struct sdhci_msm_host {
 	u32 dll_config;
 	u32 ddr_config;
 	bool vqmmc_enabled;
-	u32 err_stats[ERR_MAX];
 };
 
 static struct sdhci_msm_host *sdhci_slot[2];
@@ -2595,175 +2579,6 @@ out:
 	__sdhci_msm_set_clock(host, clock);
 }
 
-/***************************************************************************** \
- *                                                                           *
- * SDHCI MSM Sysfs                                                           *
- *                                                                           *
-\*****************************************************************************/
-
-static void sdhci_msm_update_err_stats(struct sdhci_host *host, u32 intmask)
-{
-	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
-	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
-	unsigned int pos = 0;
-
-	/* errors start at bit 16 */
-	intmask = (intmask & SDHCI_INT_ERROR_MASK) >> 16;
-	while (intmask) {
-		pos = ffs(intmask) - 1;
-		msm_host->err_stats[pos]++;
-		intmask &= ~(1 << pos);
-	};
-}
-
-static ssize_t sdhci_msm_err_stats_show(struct device *dev,
-					struct device_attribute *attr,
-					char *buf)
-{
-	struct sdhci_host *host = dev_get_drvdata(dev);
-	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
-	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
-	char tmp[128];
-	unsigned long flags;
-
-	if (!host->mmc)
-		return -EINVAL;
-
-	spin_lock_irqsave(&host->lock, flags);
-	scnprintf(tmp, sizeof(tmp), "# Command Timeout Error: %d\n",
-		  msm_host->err_stats[INT_TIMEOUT]);
-	strlcpy(buf, tmp, PAGE_SIZE);
-
-	scnprintf(tmp, sizeof(tmp), "# Command CRC Error: %d\n",
-		  msm_host->err_stats[INT_CRC]);
-	strlcat(buf, tmp, PAGE_SIZE);
-
-	scnprintf(tmp, sizeof(tmp), "# End bit Error: %d\n",
-		  msm_host->err_stats[INT_END_BIT]);
-	strlcat(buf, tmp, PAGE_SIZE);
-
-	scnprintf(tmp, sizeof(tmp), "# Index Error: %d\n",
-		  msm_host->err_stats[INT_INDEX]);
-	strlcat(buf, tmp, PAGE_SIZE);
-
-	scnprintf(tmp, sizeof(tmp), "# Data timeout Error: %d\n",
-		  msm_host->err_stats[INT_DATA_TIMEOUT]);
-	strlcat(buf, tmp, PAGE_SIZE);
-
-	scnprintf(tmp, sizeof(tmp), "# Data CRC Error: %d\n",
-		  msm_host->err_stats[INT_DATA_CRC]);
-	strlcat(buf, tmp, PAGE_SIZE);
-
-	scnprintf(tmp, sizeof(tmp), "# Data end bit Error: %d\n",
-		  msm_host->err_stats[INT_DATA_END_BIT]);
-	strlcat(buf, tmp, PAGE_SIZE);
-
-	scnprintf(tmp, sizeof(tmp), "# Bus power Error: %d\n",
-		  msm_host->err_stats[INT_BUS_POWER]);
-	strlcat(buf, tmp, PAGE_SIZE);
-
-	scnprintf(tmp, sizeof(tmp), "# Auto-cmd Error: %d\n",
-		  msm_host->err_stats[INT_AUTO_CMD_ERR]);
-	strlcat(buf, tmp, PAGE_SIZE);
-
-	scnprintf(tmp, sizeof(tmp), "# Adma Error: %d\n",
-		  msm_host->err_stats[INT_ADMA_ERROR]);
-	spin_unlock_irqrestore(&host->lock, flags);
-
-	strlcat(buf, tmp, PAGE_SIZE);
-
-	return strlen(buf);
-}
-
-static ssize_t sdhci_msm_clk_gate_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
-{
-	struct sdhci_host *host = dev_get_drvdata(dev);
-	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
-	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
-
-	return scnprintf(buf, PAGE_SIZE, "%u\n", msm_host->clk_gating_delay);
-}
-
-static ssize_t sdhci_msm_clk_gate_store(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t count)
-{
-	struct sdhci_host *host = dev_get_drvdata(dev);
-	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
-	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
-	uint32_t value;
-
-	if (!kstrtou32(buf, 0, &value))
-		msm_host->clk_gating_delay = value;
-
-	return count;
-}
-
-static ssize_t sdhci_msm_qos_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
-{
-	struct sdhci_host *host = dev_get_drvdata(dev);
-	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
-	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
-
-	return scnprintf(buf, PAGE_SIZE, "%u\n", msm_host->pm_qos_delay);
-}
-
-static ssize_t sdhci_msm_qos_store(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t count)
-{
-	struct sdhci_host *host = dev_get_drvdata(dev);
-	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
-	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
-	uint32_t value;
-
-	if (!kstrtou32(buf, 0, &value))
-		msm_host->pm_qos_delay = value;
-
-	return count;
-}
-
-static ssize_t sdhci_msm_dbg_state_show(struct device *dev, struct device_attribute *attr,
-			      char *buf)
-{
-	int dbg_en = 0;
-
-#if defined(CONFIG_MMC_IPC_LOGGING)
-	dbg_en = 1;
-#endif
-
-	return scnprintf(buf, PAGE_SIZE, "%d\n", dbg_en);
-}
-
-static DEVICE_ATTR_RO(sdhci_msm_err_stats);
-static DEVICE_ATTR_RW(sdhci_msm_qos);
-static DEVICE_ATTR_RW(sdhci_msm_clk_gate);
-static DEVICE_ATTR_RO(sdhci_msm_dbg_state);
-
-static struct attribute *sdhci_msm_sysfs_attrs[] = {
-	&dev_attr_sdhci_msm_err_stats.attr,
-	&dev_attr_sdhci_msm_qos.attr,
-	&dev_attr_sdhci_msm_clk_gate.attr,
-	&dev_attr_sdhci_msm_dbg_state.attr,
-	NULL
-};
-
-static const struct attribute_group sdhci_msm_sysfs_group = {
-	.name = "qcom",
-	.attrs = sdhci_msm_sysfs_attrs,
-};
-
-static int sdhci_msm_init_sysfs(struct platform_device *pdev)
-{
-	int ret;
-
-	ret = sysfs_create_group(&pdev->dev.kobj, &sdhci_msm_sysfs_group);
-	if (ret)
-		dev_err(&pdev->dev, "%s: Failed sdhci_msm sysfs group err=%d\n",
-			__func__, ret);
-	return ret;
-}
-
 /*****************************************************************************\
  *                                                                           *
  * MSM Command Queue Engine (CQE)                                            *
@@ -2774,9 +2589,6 @@ static u32 sdhci_msm_cqe_irq(struct sdhci_host *host, u32 intmask)
 {
 	int cmd_error = 0;
 	int data_error = 0;
-
-	if (intmask & SDHCI_INT_ERROR_MASK)
-		sdhci_msm_update_err_stats(host, intmask);
 
 	if (!sdhci_cqe_irq(host, intmask, &cmd_error, &data_error))
 		return intmask;
@@ -4172,6 +3984,88 @@ out_vote_err:
 	msm_host->sdhci_qos = NULL;
 }
 
+static ssize_t show_sdhci_msm_clk_gating(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
+
+	return scnprintf(buf, PAGE_SIZE, "%u\n", msm_host->clk_gating_delay);
+}
+
+static ssize_t store_sdhci_msm_clk_gating(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
+	uint32_t value;
+
+	if (!kstrtou32(buf, 0, &value)) {
+		msm_host->clk_gating_delay = value;
+		dev_info(dev, "set clk scaling work delay (%u)\n", value);
+	}
+
+	return count;
+}
+
+static ssize_t show_sdhci_msm_pm_qos(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
+
+	return scnprintf(buf, PAGE_SIZE, "%u\n", msm_host->pm_qos_delay);
+}
+
+static ssize_t store_sdhci_msm_pm_qos(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
+	uint32_t value;
+
+	if (!kstrtou32(buf, 0, &value)) {
+		msm_host->pm_qos_delay = value;
+		dev_info(dev, "set pm qos work delay (%u)\n", value);
+	}
+
+	return count;
+}
+
+static void sdhci_msm_init_sysfs_gating_qos(struct device *dev)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
+	int ret;
+
+	msm_host->clk_gating.show = show_sdhci_msm_clk_gating;
+	msm_host->clk_gating.store = store_sdhci_msm_clk_gating;
+	sysfs_attr_init(&msm_host->clk_gating.attr);
+	msm_host->clk_gating.attr.name = "clk_gating";
+	msm_host->clk_gating.attr.mode = 0644;
+	ret = device_create_file(dev, &msm_host->clk_gating);
+	if (ret) {
+		pr_err("%s: %s: failed creating clk gating attr: %d\n",
+				mmc_hostname(host->mmc), __func__, ret);
+	}
+
+	msm_host->pm_qos.show = show_sdhci_msm_pm_qos;
+	msm_host->pm_qos.store = store_sdhci_msm_pm_qos;
+	sysfs_attr_init(&msm_host->pm_qos.attr);
+	msm_host->pm_qos.attr.name = "pm_qos";
+	msm_host->pm_qos.attr.mode = 0644;
+	ret = device_create_file(dev, &msm_host->pm_qos);
+	if (ret) {
+		pr_err("%s: %s: failed creating pm qos attr: %d\n",
+				mmc_hostname(host->mmc), __func__, ret);
+	}
+}
+
 static void sdhci_msm_setup_pm(struct platform_device *pdev,
 			struct sdhci_msm_host *msm_host)
 {
@@ -4503,6 +4397,8 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	msm_host->pm_qos_delay = MSM_PMQOS_UNVOTING_DELAY_MS;
 	/* Initialize pmqos */
 	sdhci_msm_qos_init(msm_host);
+	/* Initialize sysfs entries */
+	sdhci_msm_init_sysfs_gating_qos(dev);
 
 	if (of_property_read_bool(node, "supports-cqe"))
 		ret = sdhci_msm_cqe_add_host(host, pdev);
@@ -4532,7 +4428,6 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	 */
 	msm_host->pltfm_init_done = true;
 
-	sdhci_msm_init_sysfs(pdev);
 	pm_runtime_mark_last_busy(&pdev->dev);
 	pm_runtime_put_autosuspend(&pdev->dev);
 
