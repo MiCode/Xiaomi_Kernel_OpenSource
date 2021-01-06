@@ -722,7 +722,6 @@ static void nvt_ts_trusted_touch_abort_pvm(struct nvt_ts_data *ts)
 	case PVM_I2C_RESOURCE_ACQUIRED:
 	case PVM_INTERRUPT_ENABLED:
 		nvt_ts_bus_put(ts);
-		complete(&ts->trusted_touch_powerdown);
 	case TRUSTED_TOUCH_PVM_INIT:
 	case PVM_I2C_RESOURCE_RELEASED:
 		atomic_set(&ts->trusted_touch_enabled, 0);
@@ -761,6 +760,7 @@ static int nvt_ts_bus_get(struct nvt_ts_data *ts)
 {
 	int rc = 0;
 
+	reinit_completion(&ts->trusted_touch_powerdown);
 	mutex_lock(&ts->nvt_clk_io_ctrl_mutex);
 	rc = pm_runtime_get_sync(ts->client->adapter->dev.parent);
 	if (rc >= 0 &&  ts->core_clk != NULL &&
@@ -781,6 +781,7 @@ static void nvt_ts_bus_put(struct nvt_ts_data *ts)
 		nvt_ts_clk_disable_unprepare(ts);
 	pm_runtime_put_sync(ts->client->adapter->dev.parent);
 	mutex_unlock(&ts->nvt_clk_io_ctrl_mutex);
+	complete(&ts->trusted_touch_powerdown);
 }
 
 static struct hh_notify_vmid_desc *nvt_ts_vm_get_vmid(hh_vmid_t vmid)
@@ -831,7 +832,6 @@ static void nvt_trusted_touch_pvm_vm_mode_disable(struct nvt_ts_data *ts)
 	nvt_ts_bus_put(ts);
 	nvt_ts_trusted_touch_set_pvm_driver_state(ts,
 						PVM_I2C_RESOURCE_RELEASED);
-	complete(&ts->trusted_touch_powerdown);
 	nvt_ts_trusted_touch_set_pvm_driver_state(ts,
 						TRUSTED_TOUCH_PVM_INIT);
 	atomic_set(&ts->trusted_touch_enabled, 0);
@@ -1007,7 +1007,6 @@ static int nvt_ts_trusted_touch_pvm_vm_mode_enable(struct nvt_ts_data *ts)
 	}
 	nvt_ts_trusted_touch_set_pvm_driver_state(ts, PVM_IRQ_LENT_NOTIFIED);
 
-	reinit_completion(&ts->trusted_touch_powerdown);
 	atomic_set(&ts->trusted_touch_enabled, 1);
 	pr_info("trusted touch enabled\n");
 	return rc;
@@ -3049,6 +3048,11 @@ static int32_t nvt_ts_resume(struct device *dev)
 		return 0;
 	}
 
+#ifdef CONFIG_ST_TRUSTED_TOUCH
+	if (atomic_read(&ts->trusted_touch_enabled))
+		wait_for_completion_interruptible(
+			&ts->trusted_touch_powerdown);
+#endif
 	mutex_lock(&ts->lock);
 
 	// make sure display reset(RESX) sequence and dsi cmds sent before this
