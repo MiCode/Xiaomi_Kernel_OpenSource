@@ -314,7 +314,7 @@ out_disable_clk:
 	return ret;
 }
 
-static int __exit funnel_remove(struct device *dev)
+static int funnel_remove(struct device *dev)
 {
 	struct funnel_drvdata *drvdata = dev_get_drvdata(dev);
 
@@ -368,7 +368,7 @@ static int static_funnel_probe(struct platform_device *pdev)
 	return ret;
 }
 
-static int __exit static_funnel_remove(struct platform_device *pdev)
+static int static_funnel_remove(struct platform_device *pdev)
 {
 	funnel_remove(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
@@ -410,7 +410,7 @@ static int dynamic_funnel_probe(struct amba_device *adev,
 	return funnel_probe(&adev->dev, &adev->res);
 }
 
-static int __exit dynamic_funnel_remove(struct amba_device *adev)
+static int dynamic_funnel_remove(struct amba_device *adev)
 {
 	return funnel_remove(&adev->dev);
 }
