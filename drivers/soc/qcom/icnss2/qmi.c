@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "icnss2_qmi: " fmt
@@ -44,6 +44,7 @@
 #define DUMMY_BDF_FILE_NAME		"bdwlan.dmy"
 
 #define DEVICE_BAR_SIZE			0x200000
+#define M3_SEGMENT_ADDR_MASK		0xFFFFFFFF
 
 #ifdef CONFIG_ICNSS2_DEBUG
 bool ignore_fw_timeout;
@@ -341,11 +342,11 @@ out:
 	return ret;
 }
 
-int wlfw_exit_power_save_send_msg(struct icnss_priv *priv)
+int wlfw_power_save_send_msg(struct icnss_priv *priv,
+			     enum wlfw_power_save_mode_v01 mode)
 {
 	int ret;
-	struct wlfw_exit_power_save_req_msg_v01 *req;
-	struct wlfw_exit_power_save_resp_msg_v01 *resp;
+	struct wlfw_power_save_req_msg_v01 *req;
 	struct qmi_txn txn;
 
 	if (!priv)
@@ -354,23 +355,27 @@ int wlfw_exit_power_save_send_msg(struct icnss_priv *priv)
 	if (test_bit(ICNSS_FW_DOWN, &priv->state))
 		return -EINVAL;
 
-	icnss_pr_dbg("Sending exit power save, state: 0x%lx\n",
-		     priv->state);
+	if (test_bit(ICNSS_PD_RESTART, &priv->state) ||
+	    !test_bit(ICNSS_MODE_ON, &priv->state))
+		return 0;
+
+	icnss_pr_dbg("Sending power save mode: %d, state: 0x%lx\n",
+		     mode, priv->state);
 
 	req = kzalloc(sizeof(*req), GFP_KERNEL);
 	if (!req)
 		return -ENOMEM;
 
-	resp = kzalloc(sizeof(*resp), GFP_KERNEL);
-	if (!resp) {
-		kfree(req);
-		return -ENOMEM;
-	}
+	req->power_save_mode_valid = 1;
+	req->power_save_mode = mode;
 
-	priv->stats.exit_power_save_req++;
+	if (mode == WLFW_POWER_SAVE_EXIT_V01)
+		priv->stats.exit_power_save_req++;
+	else
+		priv->stats.enter_power_save_req++;
 
 	ret = qmi_txn_init(&priv->qmi, &txn,
-			   wlfw_exit_power_save_resp_msg_v01_ei, resp);
+			   NULL, NULL);
 	if (ret < 0) {
 		icnss_qmi_fatal_err("Fail to init txn for exit power save%d\n",
 				    ret);
@@ -378,9 +383,9 @@ int wlfw_exit_power_save_send_msg(struct icnss_priv *priv)
 	}
 
 	ret = qmi_send_request(&priv->qmi, NULL, &txn,
-			       QMI_WLFW_EXIT_POWER_SAVE_REQ_V01,
-			       WLFW_EXIT_POWER_SAVE_REQ_MSG_V01_MAX_MSG_LEN,
-			       wlfw_exit_power_save_req_msg_v01_ei, req);
+			       QMI_WLFW_POWER_SAVE_REQ_V01,
+			       WLFW_POWER_SAVE_REQ_MSG_V01_MAX_MSG_LEN,
+			       wlfw_power_save_req_msg_v01_ei, req);
 	if (ret < 0) {
 		qmi_txn_cancel(&txn);
 		icnss_qmi_fatal_err("Fail to send exit power save req %d\n",
@@ -388,29 +393,23 @@ int wlfw_exit_power_save_send_msg(struct icnss_priv *priv)
 		goto out;
 	}
 
-	ret = qmi_txn_wait(&txn, priv->ctrl_params.qmi_timeout);
-	if (ret < 0) {
-		icnss_qmi_fatal_err("Exit power save wait failed with ret %d\n",
-				    ret);
-		goto out;
-	} else if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
-		icnss_qmi_fatal_err(
-		    "QMI exit power save request rejected,result:%d error:%d\n",
-				    resp->resp.result, resp->resp.error);
-		ret = -resp->resp.result;
-		goto out;
-	}
+	qmi_txn_cancel(&txn);
 
-	priv->stats.exit_power_save_resp++;
+	if (mode == WLFW_POWER_SAVE_EXIT_V01)
+		priv->stats.exit_power_save_resp++;
+	else
+		priv->stats.enter_power_save_resp++;
 
-	kfree(resp);
 	kfree(req);
 	return 0;
 
 out:
-	kfree(resp);
 	kfree(req);
-	priv->stats.exit_power_save_err++;
+
+	if (mode == WLFW_POWER_SAVE_EXIT_V01)
+		priv->stats.exit_power_save_err++;
+	else
+		priv->stats.enter_power_save_err++;
 	return ret;
 }
 
@@ -541,6 +540,8 @@ int wlfw_ind_register_send_sync_msg(struct icnss_priv *priv)
 		req->qdss_trace_free_enable = 1;
 		req->respond_get_info_enable_valid = 1;
 		req->respond_get_info_enable = 1;
+		req->m3_dump_upload_segments_req_enable_valid = 1;
+		req->m3_dump_upload_segments_req_enable = 1;
 	}
 
 	priv->stats.ind_register_req++;
@@ -676,9 +677,21 @@ int wlfw_cap_send_sync_msg(struct icnss_priv *priv)
 				resp->fw_version_info.fw_build_timestamp,
 				WLFW_MAX_TIMESTAMP_LEN + 1);
 	}
+
+	if (resp->voltage_mv_valid) {
+		priv->cpr_info.voltage = resp->voltage_mv;
+		icnss_pr_dbg("Voltage for CPR: %dmV\n",
+			    priv->cpr_info.voltage);
+		icnss_update_cpr_info(priv);
+	}
+
 	if (resp->fw_build_id_valid)
 		strlcpy(priv->fw_build_id, resp->fw_build_id,
 			QMI_WLFW_MAX_BUILD_ID_LEN_V01 + 1);
+
+	if (resp->rd_card_chain_cap_valid &&
+	    resp->rd_card_chain_cap == WLFW_RD_CARD_CHAIN_CAP_1x1_V01)
+		priv->is_chain1_supported = false;
 
 	icnss_pr_dbg("Capability, chip_id: 0x%x, chip_family: 0x%x, board_id: 0x%x, soc_id: 0x%x, fw_version: 0x%x, fw_build_timestamp: %s, fw_build_id: %s",
 		     priv->chip_info.chip_id, priv->chip_info.chip_family,
@@ -1041,6 +1054,9 @@ int wlfw_send_modem_shutdown_msg(struct icnss_priv *priv)
 
 	if (!priv)
 		return -ENODEV;
+
+	if (test_bit(ICNSS_FW_DOWN, &priv->state))
+		return -EINVAL;
 
 	icnss_pr_dbg("Sending modem shutdown request, state: 0x%lx\n",
 		     priv->state);
@@ -1487,6 +1503,9 @@ int wlfw_qdss_trace_mem_info_send_sync(struct icnss_priv *priv)
 	int ret = 0;
 	int i;
 
+	if (test_bit(ICNSS_FW_DOWN, &priv->state))
+		return -EINVAL;
+
 	icnss_pr_dbg("Sending QDSS trace mem info, state: 0x%lx\n",
 		     priv->state);
 
@@ -1547,6 +1566,67 @@ int wlfw_qdss_trace_mem_info_send_sync(struct icnss_priv *priv)
 	kfree(req);
 	kfree(resp);
 	return 0;
+
+out:
+	kfree(req);
+	kfree(resp);
+	return ret;
+}
+
+int icnss_wlfw_m3_dump_upload_done_send_sync(struct icnss_priv *priv,
+					     u32 pdev_id, int status)
+{
+	struct wlfw_m3_dump_upload_done_req_msg_v01 *req;
+	struct wlfw_m3_dump_upload_done_resp_msg_v01 *resp;
+	struct qmi_txn txn;
+	int ret = 0;
+
+	req = kzalloc(sizeof(*req), GFP_KERNEL);
+	if (!req)
+		return -ENOMEM;
+
+	resp = kzalloc(sizeof(*resp), GFP_KERNEL);
+	if (!resp) {
+		kfree(req);
+		return -ENOMEM;
+	}
+
+	icnss_pr_dbg("Sending M3 Upload done req, pdev %d, status %d\n",
+		     pdev_id, status);
+
+	req->pdev_id = pdev_id;
+	req->status = status;
+
+	ret = qmi_txn_init(&priv->qmi, &txn,
+			   wlfw_m3_dump_upload_done_resp_msg_v01_ei, resp);
+	if (ret < 0) {
+		icnss_pr_err("Fail to initialize txn for M3 dump upload done req: err %d\n",
+			     ret);
+		goto out;
+	}
+
+	ret = qmi_send_request(&priv->qmi, NULL, &txn,
+			       QMI_WLFW_M3_DUMP_UPLOAD_DONE_REQ_V01,
+			       WLFW_M3_DUMP_UPLOAD_DONE_REQ_MSG_V01_MAX_MSG_LEN,
+			       wlfw_m3_dump_upload_done_req_msg_v01_ei, req);
+	if (ret < 0) {
+		qmi_txn_cancel(&txn);
+		icnss_pr_err("Fail to send M3 dump upload done request: err %d\n",
+			     ret);
+		goto out;
+	}
+
+	ret = qmi_txn_wait(&txn, priv->ctrl_params.qmi_timeout);
+	if (ret < 0) {
+		icnss_pr_err("Fail to wait for response of M3 dump upload done request, err %d\n",
+			     ret);
+		goto out;
+	} else if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
+		icnss_pr_err("M3 Dump Upload Done Req failed, result: %d, err: 0x%X\n",
+			     resp->resp.result, resp->resp.error);
+		ret = -resp->resp.result;
+		goto out;
+	}
 
 out:
 	kfree(req);
@@ -1718,12 +1798,17 @@ static void rejuvenate_ind_cb(struct qmi_handle *qmi, struct sockaddr_qrtr *sq,
 static void cal_done_ind_cb(struct qmi_handle *qmi, struct sockaddr_qrtr *sq,
 			    struct qmi_txn *txn, const void *data)
 {
+	struct icnss_priv *priv = container_of(qmi, struct icnss_priv, qmi);
+
 	icnss_pr_dbg("Received QMI WLFW calibration done indication\n");
 
 	if (!txn) {
 		icnss_pr_err("Spurious indication\n");
 		return;
 	}
+
+	priv->cal_done = true;
+	clear_bit(ICNSS_COLD_BOOT_CAL, &priv->state);
 }
 
 static void fw_init_done_ind_cb(struct qmi_handle *qmi,
@@ -1731,6 +1816,10 @@ static void fw_init_done_ind_cb(struct qmi_handle *qmi,
 				struct qmi_txn *txn, const void *data)
 {
 	struct icnss_priv *priv = container_of(qmi, struct icnss_priv, qmi);
+	struct device *dev = &priv->pdev->dev;
+	const struct wlfw_fw_init_done_ind_msg_v01 *ind_msg = data;
+	uint64_t msa_base_addr = priv->msa_pa;
+	phys_addr_t hang_data_phy_addr;
 
 	icnss_pr_dbg("Received QMI WLFW FW initialization done indication\n");
 
@@ -1739,8 +1828,63 @@ static void fw_init_done_ind_cb(struct qmi_handle *qmi,
 		return;
 	}
 
+	/* Check if the length is valid &
+	 * the length should not be 0 and
+	 * should be <=  WLFW_MAX_HANG_EVENT_DATA_SIZE(400)
+	 */
+
+	if (ind_msg->hang_data_length_valid &&
+	ind_msg->hang_data_length &&
+	ind_msg->hang_data_length <= WLFW_MAX_HANG_EVENT_DATA_SIZE)
+		priv->hang_event_data_len = ind_msg->hang_data_length;
+	else
+		goto out;
+
+	/* Check if the offset is valid &
+	 * the offset should be in range of 0 to msa_mem_size-hang_data_length
+	 */
+
+	if (ind_msg->hang_data_addr_offset_valid &&
+	    (ind_msg->hang_data_addr_offset <= (priv->msa_mem_size -
+					ind_msg->hang_data_length)))
+		hang_data_phy_addr = msa_base_addr +
+					ind_msg->hang_data_addr_offset;
+	else
+		goto out;
+
+	if (priv->hang_event_data_pa == hang_data_phy_addr)
+		goto exit;
+
+	priv->hang_event_data_pa = hang_data_phy_addr;
+	priv->hang_event_data_va = devm_ioremap(dev, priv->hang_event_data_pa,
+					ind_msg->hang_data_length);
+
+	if (!priv->hang_event_data_va) {
+		icnss_pr_err("Hang Data ioremap failed: phy addr: %pa\n",
+		&priv->hang_event_data_pa);
+		goto fail;
+	}
+
+exit:
+	icnss_pr_dbg("Hang Event Data details,Offset:0x%x, Length:0x%x,va_addr: 0x%pK\n",
+		     ind_msg->hang_data_addr_offset,
+		     ind_msg->hang_data_length,
+		     priv->hang_event_data_va);
+
+	goto post;
+
+out:
+	icnss_pr_err("Invalid Hang Data details, Offset:0x%x, Length:0x%x",
+		     ind_msg->hang_data_addr_offset,
+		     ind_msg->hang_data_length);
+fail:
+	priv->hang_event_data_va = NULL;
+	priv->hang_event_data_pa = 0;
+	priv->hang_event_data_len = 0;
+post:
 	icnss_driver_event_post(priv, ICNSS_DRIVER_EVENT_FW_INIT_DONE_IND,
 				0, NULL);
+
 }
 
 static void wlfw_qdss_trace_req_mem_ind_cb(struct qmi_handle *qmi,
@@ -1881,6 +2025,78 @@ static void icnss_wlfw_respond_get_info_ind_cb(struct qmi_handle *qmi,
 				       ind_msg->data_len);
 }
 
+static void icnss_wlfw_m3_dump_upload_segs_req_ind_cb(struct qmi_handle *qmi,
+						      struct sockaddr_qrtr *sq,
+						      struct qmi_txn *txn,
+						      const void *d)
+{
+	struct icnss_priv *priv = container_of(qmi, struct icnss_priv, qmi);
+	const struct wlfw_m3_dump_upload_segments_req_ind_msg_v01 *ind_msg = d;
+	struct icnss_m3_upload_segments_req_data *event_data = NULL;
+	u64 max_mapped_addr = 0;
+	u64 segment_addr = 0;
+	int i = 0;
+
+	icnss_pr_dbg("Received QMI WLFW M3 dump upload sigments indication\n");
+
+	if (!txn) {
+		icnss_pr_err("Spurious indication\n");
+		return;
+	}
+
+	icnss_pr_dbg("M3 Dump upload info: pdev_id: %d no_of_segments: %d\n",
+		     ind_msg->pdev_id, ind_msg->no_of_valid_segments);
+
+	if (ind_msg->no_of_valid_segments > QMI_WLFW_MAX_M3_SEGMENTS_SIZE_V01)
+		return;
+
+	event_data = kzalloc(sizeof(*event_data), GFP_KERNEL);
+	if (!event_data)
+		return;
+
+	event_data->pdev_id = ind_msg->pdev_id;
+	event_data->no_of_valid_segments = ind_msg->no_of_valid_segments;
+	max_mapped_addr = priv->msa_pa + priv->msa_mem_size;
+
+	for (i = 0; i < ind_msg->no_of_valid_segments; i++) {
+		segment_addr = ind_msg->m3_segment[i].addr &
+				M3_SEGMENT_ADDR_MASK;
+
+		if (ind_msg->m3_segment[i].size > priv->msa_mem_size ||
+		    segment_addr >= max_mapped_addr ||
+		    segment_addr < priv->msa_pa ||
+		    ind_msg->m3_segment[i].size +
+		    segment_addr > max_mapped_addr) {
+			icnss_pr_dbg("Received out of range Segment %d Addr: 0x%llx Size: 0x%x, Name: %s, type: %d\n",
+				     (i + 1), segment_addr,
+				     ind_msg->m3_segment[i].size,
+				     ind_msg->m3_segment[i].name,
+				     ind_msg->m3_segment[i].type);
+			goto out;
+		}
+
+		event_data->m3_segment[i].addr = segment_addr;
+		event_data->m3_segment[i].size = ind_msg->m3_segment[i].size;
+		event_data->m3_segment[i].type = ind_msg->m3_segment[i].type;
+		strlcpy(event_data->m3_segment[i].name,
+			ind_msg->m3_segment[i].name,
+			WLFW_MAX_STR_LEN + 1);
+
+		icnss_pr_dbg("Received Segment %d Addr: 0x%llx Size: 0x%x, Name: %s, type: %d\n",
+			     (i + 1), segment_addr,
+			     ind_msg->m3_segment[i].size,
+			     ind_msg->m3_segment[i].name,
+			     ind_msg->m3_segment[i].type);
+	}
+
+	icnss_driver_event_post(priv, ICNSS_DRIVER_EVENT_M3_DUMP_UPLOAD_REQ,
+				0, event_data);
+
+	return;
+out:
+	kfree(event_data);
+}
+
 static struct qmi_msg_handler wlfw_msg_handlers[] = {
 	{
 		.type = QMI_INDICATION,
@@ -1956,6 +2172,14 @@ static struct qmi_msg_handler wlfw_msg_handlers[] = {
 		.decoded_size =
 		sizeof(struct wlfw_respond_get_info_ind_msg_v01),
 		.fn = icnss_wlfw_respond_get_info_ind_cb
+	},
+	{
+		.type = QMI_INDICATION,
+		.msg_id = QMI_WLFW_M3_DUMP_UPLOAD_SEGMENTS_REQ_IND_V01,
+		.ei = wlfw_m3_dump_upload_segments_req_ind_msg_v01_ei,
+		.decoded_size =
+		sizeof(struct wlfw_m3_dump_upload_segments_req_ind_msg_v01),
+		.fn = icnss_wlfw_m3_dump_upload_segs_req_ind_cb
 	},
 	{}
 };
@@ -2194,6 +2418,77 @@ int icnss_send_wlan_disable_to_fw(struct icnss_priv *priv)
 	return wlfw_wlan_mode_send_sync_msg(priv, mode);
 }
 
+int icnss_send_vbatt_update(struct icnss_priv *priv, uint64_t voltage_uv)
+{
+	int ret;
+	struct wlfw_vbatt_req_msg_v01 *req;
+	struct wlfw_vbatt_resp_msg_v01 *resp;
+	struct qmi_txn txn;
+
+	if (!priv)
+		return -ENODEV;
+
+	if (test_bit(ICNSS_FW_DOWN, &priv->state))
+		return -EINVAL;
+
+	icnss_pr_dbg("Sending Vbatt message, state: 0x%lx\n", priv->state);
+
+	req = kzalloc(sizeof(*req), GFP_KERNEL);
+	if (!req)
+		return -ENOMEM;
+
+	resp = kzalloc(sizeof(*resp), GFP_KERNEL);
+	if (!resp) {
+		kfree(req);
+		return -ENOMEM;
+	}
+
+	priv->stats.vbatt_req++;
+
+	req->voltage_uv = voltage_uv;
+
+	ret = qmi_txn_init(&priv->qmi, &txn, wlfw_vbatt_resp_msg_v01_ei, resp);
+	if (ret < 0) {
+		icnss_pr_err("Fail to init txn for Vbatt message resp %d\n",
+			     ret);
+		goto out;
+	}
+
+	ret = qmi_send_request(&priv->qmi, NULL, &txn,
+			       QMI_WLFW_VBATT_REQ_V01,
+			       WLFW_VBATT_REQ_MSG_V01_MAX_MSG_LEN,
+			       wlfw_vbatt_req_msg_v01_ei, req);
+	if (ret < 0) {
+		qmi_txn_cancel(&txn);
+		icnss_pr_err("Fail to send Vbatt message req %d\n", ret);
+		goto out;
+	}
+
+	ret = qmi_txn_wait(&txn, priv->ctrl_params.qmi_timeout);
+	if (ret < 0) {
+		icnss_pr_err("VBATT message resp wait failed with ret %d\n",
+				    ret);
+		goto out;
+	} else if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
+		icnss_pr_err("QMI Vbatt message request rejected, result:%d error:%d\n",
+				    resp->resp.result, resp->resp.error);
+		ret = -resp->resp.result;
+		goto out;
+	}
+
+	priv->stats.vbatt_resp++;
+
+	kfree(resp);
+	kfree(req);
+	return 0;
+
+out:
+	kfree(resp);
+	kfree(req);
+	priv->stats.vbatt_req_err++;
+	return ret;
+}
+
 #ifdef CONFIG_ICNSS2_DEBUG
 static inline u32 icnss_get_host_build_type(void)
 {
@@ -2250,8 +2545,12 @@ int wlfw_host_cap_send_sync(struct icnss_priv *priv)
 		req->ddr_range_valid = 1;
 		req->ddr_range[0].start = iova_start;
 		req->ddr_range[0].size = iova_size + iova_ipa_size;
+		req->ddr_range[1].start = priv->msa_pa;
+		req->ddr_range[1].size = priv->msa_mem_size;
 		icnss_pr_dbg("Sending iova starting 0x%llx with size 0x%llx\n",
 			    req->ddr_range[0].start, req->ddr_range[0].size);
+		icnss_pr_dbg("Sending msa starting 0x%llx with size 0x%llx\n",
+			    req->ddr_range[1].start, req->ddr_range[1].size);
 	}
 
 	req->host_build_type_valid = 1;

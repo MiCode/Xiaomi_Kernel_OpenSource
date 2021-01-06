@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2015-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2015-2021, The Linux Foundation. All rights reserved. */
 
 #ifndef _CNSS_QMI_H
 #define _CNSS_QMI_H
@@ -13,24 +13,23 @@ struct cnss_qmi_event_server_arrive_data {
 	unsigned int port;
 };
 
-#define QDSS_TRACE_SEG_LEN_MAX 32
-#define QDSS_TRACE_FILE_NAME_MAX 16
-
 struct cnss_mem_seg {
 	u64 addr;
 	u32 size;
 };
 
-struct cnss_qmi_event_qdss_trace_save_data {
+struct cnss_qmi_event_fw_mem_file_save_data {
 	u32 total_size;
 	u32 mem_seg_len;
-	struct cnss_mem_seg mem_seg[QDSS_TRACE_SEG_LEN_MAX];
-	char file_name[QDSS_TRACE_FILE_NAME_MAX + 1];
+	enum wlfw_mem_type_enum_v01 mem_type;
+	struct cnss_mem_seg mem_seg[QMI_WLFW_MAX_NUM_MEM_SEG_V01];
+	char file_name[QMI_WLFW_MAX_STR_LEN_V01 + 1];
 };
 
 #ifdef CONFIG_CNSS2_QMI
 #include "coexistence_service_v01.h"
 #include "ip_multimedia_subsystem_private_service_v01.h"
+#include "device_management_service_v01.h"
 
 int cnss_qmi_init(struct cnss_plat_data *plat_priv);
 void cnss_qmi_deinit(struct cnss_plat_data *plat_priv);
@@ -60,6 +59,10 @@ int cnss_wlfw_antenna_grant_send_sync(struct cnss_plat_data *plat_priv);
 int cnss_wlfw_dynamic_feature_mask_send_sync(struct cnss_plat_data *plat_priv);
 int cnss_wlfw_get_info_send_sync(struct cnss_plat_data *plat_priv, int type,
 				 void *cmd, int cmd_len);
+int cnss_process_wfc_call_ind_event(struct cnss_plat_data *plat_priv,
+				    void *data);
+int cnss_process_twt_cfg_ind_event(struct cnss_plat_data *plat_priv,
+				   void *data);
 int cnss_register_coex_service(struct cnss_plat_data *plat_priv);
 void cnss_unregister_coex_service(struct cnss_plat_data *plat_priv);
 int coex_antenna_switch_to_wlan_send_sync_msg(struct cnss_plat_data *plat_priv);
@@ -68,6 +71,12 @@ int cnss_wlfw_qdss_trace_mem_info_send_sync(struct cnss_plat_data *plat_priv);
 int cnss_register_ims_service(struct cnss_plat_data *plat_priv);
 void cnss_unregister_ims_service(struct cnss_plat_data *plat_priv);
 int cnss_wlfw_send_pcie_gen_speed_sync(struct cnss_plat_data *plat_priv);
+void cnss_ignore_qmi_failure(bool ignore);
+int cnss_qmi_get_dms_mac(struct cnss_plat_data *plat_priv);
+int cnss_wlfw_wlan_mac_req_send_sync(struct cnss_plat_data *plat_priv,
+				     u8 *mac, u32 mac_len);
+int cnss_dms_init(struct cnss_plat_data *plat_priv);
+void cnss_dms_deinit(struct cnss_plat_data *plat_priv);
 #else
 #define QMI_WLFW_TIMEOUT_MS		10000
 
@@ -183,6 +192,20 @@ int cnss_wlfw_get_info_send_sync(struct cnss_plat_data *plat_priv, int type,
 }
 
 static inline
+int cnss_process_wfc_call_ind_event(struct cnss_plat_data *plat_priv,
+				    void *data)
+{
+	return 0;
+}
+
+static inline
+int cnss_process_twt_cfg_ind_event(struct cnss_plat_data *plat_priv,
+				   void *data)
+{
+	return 0;
+}
+
+static inline
 int cnss_register_coex_service(struct cnss_plat_data *plat_priv)
 {
 	return 0;
@@ -220,7 +243,36 @@ void cnss_unregister_ims_service(struct cnss_plat_data *plat_priv) {}
 
 static inline
 int cnss_wlfw_send_pcie_gen_speed_sync(struct cnss_plat_data *plat_priv) {}
+void cnss_ignore_qmi_failure(bool ignore) {};
+static inline int cnss_qmi_get_dms_mac(struct cnss_plat_data *plat_priv)
+{
+	return 0;
+}
 
+int cnss_wlfw_wlan_mac_req_send_sync(struct cnss_plat_data *plat_priv,
+				     u8 *mac, u32 mac_len)
+{
+	return 0;
+}
+
+static inline int cnss_dms_init(struct cnss_plat_data *plat_priv)
+{
+	return 0;
+}
+
+static inline void cnss_dms_deinit(struct cnss_plat_data *plat_priv) {}
 #endif /* CONFIG_CNSS2_QMI */
+
+#ifdef CONFIG_CNSS2_DEBUG
+static inline u32 cnss_get_host_build_type(void)
+{
+	return QMI_HOST_BUILD_TYPE_PRIMARY_V01;
+}
+#else
+static inline u32 cnss_get_host_build_type(void)
+{
+	return QMI_HOST_BUILD_TYPE_SECONDARY_V01;
+}
+#endif
 
 #endif /* _CNSS_QMI_H */
