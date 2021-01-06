@@ -95,6 +95,12 @@ qcom_hwspinlock.ko
 qcom_q6v5_pas.ko
 qcom_pil_info.ko
 qcom_sysmon.ko
+pmic_glink.ko
+qti_battery_charger.ko
+ucsi_glink.ko
+altmode-glink.ko
+qti_battery_debug.ko
+spmi-glink-debug.ko
 coresight-tgu.ko
 coresight-dummy.ko
 coresight.ko
