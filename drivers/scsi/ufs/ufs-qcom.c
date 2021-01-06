@@ -2573,12 +2573,54 @@ static int ufs_qcom_get_cur_therm_state(struct thermal_cooling_device *tcd,
 	return 0;
 }
 
+/* Convert microseconds to Auto-Hibernate Idle Timer register value */
+static u32 ufs_qcom_us_to_ahit(unsigned int timer)
+{
+	unsigned int scale;
+
+	for (scale = 0; timer > UFSHCI_AHIBERN8_TIMER_MASK; ++scale)
+		timer /= UFSHCI_AHIBERN8_SCALE_FACTOR;
+
+	return FIELD_PREP(UFSHCI_AHIBERN8_TIMER_MASK, timer) |
+	       FIELD_PREP(UFSHCI_AHIBERN8_SCALE_MASK, scale);
+}
+
 /* Sets the mitigation level to requested level */
 static int ufs_qcom_set_cur_therm_state(struct thermal_cooling_device *tcd,
 				  unsigned long data)
 {
-	dev_err(tcd->devdata, "Trying to set UFS thermal state (%d)\n", data);
-	return -EOPNOTSUPP;
+	struct ufs_hba *hba = dev_get_drvdata(tcd->devdata);
+	struct scsi_device *sdev;
+	int ret = 0;
+
+	switch (data) {
+	case UFS_QCOM_LVL_NO_THERM:
+		dev_warn(tcd->devdata, "UFS host thermal mitigation stops\n");
+		/* Set the default auto-hiberate idle timer to 5 ms */
+		ufshcd_auto_hibern8_update(hba, ufs_qcom_us_to_ahit(5000));
+
+		/* Set the default auto suspend delay to 3000 ms */
+		shost_for_each_device(sdev, hba->host)
+			pm_runtime_set_autosuspend_delay(&sdev->sdev_gendev,
+						UFS_QCOM_AUTO_SUSPEND_DELAY);
+		break;
+	case UFS_QCOM_LVL_AGGR_THERM:
+	case UFS_QCOM_LVL_MAX_THERM:
+		dev_warn(tcd->devdata, "Going into UFS host thermal mitigation state, performance may be impacted before UFS host thermal mitigation stops\n");
+		/* Set the default auto-hiberate idle timer to 1 ms */
+		ufshcd_auto_hibern8_update(hba, ufs_qcom_us_to_ahit(1000));
+
+		/* Set the default auto suspend delay to 100 ms */
+		shost_for_each_device(sdev, hba->host)
+			pm_runtime_set_autosuspend_delay(&sdev->sdev_gendev,
+							 100);
+		break;
+	default:
+		dev_err(tcd->devdata, "Invalid UFS thermal state (%d)\n", data);
+		ret = -EINVAL;
+	}
+
+	return ret;
 }
 
 struct thermal_cooling_device_ops ufs_thermal_ops = {
