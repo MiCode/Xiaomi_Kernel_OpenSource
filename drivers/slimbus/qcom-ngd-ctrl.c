@@ -90,7 +90,7 @@
 
 /* Per spec.max 40 bytes per received message */
 #define SLIM_MSGQ_BUF_LEN	40
-#define QCOM_SLIM_NGD_DESC_NUM	32
+#define QCOM_SLIM_NGD_DESC_NUM	30
 
 #define SLIM_MSG_ASM_FIRST_WORD(l, mt, mc, dt, ad) \
 		((l) | ((mt) << 5) | ((mc) << 8) | ((dt) << 15) | ((ad) << 16))
@@ -146,6 +146,23 @@ struct qcom_slim_ngd {
 	int id;
 };
 
+/*
+ * structure to store remote memory information
+ * @r_res:     stores remote memory resource structre parsed from devicetree
+ * @r_vbase:   stores latest virtual base address of remote memory region
+ * @r_vsbase:  stores virtual base address of remote memory region
+ *	parsed from devicetree
+ * @r_pbase:   stores physical base address of remote memory region
+ * @is_r_mem:  boolean to indicate if remote memory is used or not
+ */
+struct remote_mem {
+	struct resource *r_res;
+	void __iomem *r_vbase;
+	void __iomem *r_vsbase;
+	u32 r_pbase;
+	bool is_r_mem;
+};
+
 struct qcom_slim_ngd_ctrl {
 	struct slim_framer framer;
 	struct slim_controller ctrl;
@@ -176,6 +193,7 @@ struct qcom_slim_ngd_ctrl {
 	int tx_tail;
 	int tx_head;
 	u32 ver;
+	struct remote_mem r_mem;
 };
 
 enum slimbus_mode_enum_type_v01 {
@@ -676,6 +694,7 @@ static int qcom_slim_ngd_init_rx_msgq(struct qcom_slim_ngd_ctrl *ctrl)
 {
 	struct device *dev = ctrl->dev;
 	int ret, size;
+	dma_addr_t phys;
 
 	ctrl->dma_rx_channel = dma_request_chan(dev, "rx");
 	if (IS_ERR(ctrl->dma_rx_channel)) {
@@ -686,11 +705,19 @@ static int qcom_slim_ngd_init_rx_msgq(struct qcom_slim_ngd_ctrl *ctrl)
 	}
 
 	size = QCOM_SLIM_NGD_DESC_NUM * SLIM_MSGQ_BUF_LEN;
-	ctrl->rx_base = dma_alloc_coherent(dev, size, &ctrl->rx_phys_base,
-					   GFP_KERNEL);
+	ctrl->rx_base = ctrl->r_mem.is_r_mem ? ctrl->r_mem.r_vbase :
+			dma_alloc_coherent(dev, size, &phys, GFP_KERNEL);
 	if (!ctrl->rx_base) {
 		ret = -ENOMEM;
 		goto rel_rx;
+	}
+
+	ctrl->rx_phys_base = ctrl->r_mem.is_r_mem ?
+		(unsigned long long)ctrl->r_mem.r_res->start : phys;
+	if (ctrl->r_mem.is_r_mem) {
+		memset_io(ctrl->rx_base, 0x00, size);
+		ctrl->r_mem.r_vbase = ctrl->r_mem.r_vbase + size;
+		ctrl->r_mem.r_res->start = ctrl->r_mem.r_res->start + size;
 	}
 
 	ret = qcom_slim_ngd_post_rx_msgq(ctrl);
@@ -702,7 +729,8 @@ static int qcom_slim_ngd_init_rx_msgq(struct qcom_slim_ngd_ctrl *ctrl)
 	return 0;
 
 rx_post_err:
-	dma_free_coherent(dev, size, ctrl->rx_base, ctrl->rx_phys_base);
+	if (!ctrl->r_mem.is_r_mem)
+		dma_free_coherent(dev, size, ctrl->rx_base, ctrl->rx_phys_base);
 rel_rx:
 	dma_release_channel(ctrl->dma_rx_channel);
 	return ret;
@@ -714,6 +742,7 @@ static int qcom_slim_ngd_init_tx_msgq(struct qcom_slim_ngd_ctrl *ctrl)
 	unsigned long flags;
 	int ret = 0;
 	int size;
+	dma_addr_t phys;
 
 	ctrl->dma_tx_channel = dma_request_chan(dev, "tx");
 	if (IS_ERR(ctrl->dma_tx_channel)) {
@@ -724,11 +753,19 @@ static int qcom_slim_ngd_init_tx_msgq(struct qcom_slim_ngd_ctrl *ctrl)
 	}
 
 	size = ((QCOM_SLIM_NGD_DESC_NUM + 1) * SLIM_MSGQ_BUF_LEN);
-	ctrl->tx_base = dma_alloc_coherent(dev, size, &ctrl->tx_phys_base,
-					   GFP_KERNEL);
+	ctrl->tx_base = ctrl->r_mem.is_r_mem ? ctrl->r_mem.r_vbase :
+			dma_alloc_coherent(dev, size, &phys, GFP_KERNEL);
 	if (!ctrl->tx_base) {
 		ret = -EINVAL;
 		goto rel_tx;
+	}
+
+	ctrl->tx_phys_base = ctrl->r_mem.is_r_mem ?
+		(unsigned long long)ctrl->r_mem.r_res->start : phys;
+	if (ctrl->r_mem.is_r_mem) {
+		memset_io(ctrl->tx_base, 0x00, size);
+		ctrl->r_mem.r_vbase = ctrl->r_mem.r_vbase + size;
+		ctrl->r_mem.r_res->start = ctrl->r_mem.r_res->start + size;
 	}
 
 	spin_lock_irqsave(&ctrl->tx_buf_lock, flags);
@@ -874,8 +911,12 @@ static int qcom_slim_ngd_xfer_msg(struct slim_controller *sctrl,
 		*(puc++) = (txn->ec >> 8) & 0xFF;
 	}
 
-	if (txn->msg && txn->msg->wbuf)
-		memcpy(puc, txn->msg->wbuf, txn->msg->num_bytes);
+	if (txn->msg && txn->msg->wbuf) {
+		if (ctrl->r_mem.is_r_mem)
+			memcpy_toio(puc, txn->msg->wbuf, txn->msg->num_bytes);
+		else
+			memcpy(puc, txn->msg->wbuf, txn->msg->num_bytes);
+	}
 
 	mutex_lock(&ctrl->tx_lock);
 	ret = qcom_slim_ngd_tx_msg_post(ctrl, pbuf, txn->rl);
@@ -1183,6 +1224,9 @@ static int qcom_slim_ngd_get_laddr(struct slim_controller *ctrl,
 
 static int qcom_slim_ngd_exit_dma(struct qcom_slim_ngd_ctrl *ctrl)
 {
+	struct device *dev = ctrl->dev;
+	int size;
+
 	if (ctrl->dma_rx_channel) {
 		dmaengine_terminate_sync(ctrl->dma_rx_channel);
 		dma_release_channel(ctrl->dma_rx_channel);
@@ -1191,6 +1235,16 @@ static int qcom_slim_ngd_exit_dma(struct qcom_slim_ngd_ctrl *ctrl)
 	if (ctrl->dma_tx_channel) {
 		dmaengine_terminate_sync(ctrl->dma_tx_channel);
 		dma_release_channel(ctrl->dma_tx_channel);
+	}
+
+	if (!ctrl->r_mem.is_r_mem) {
+		size = QCOM_SLIM_NGD_DESC_NUM * SLIM_MSGQ_BUF_LEN;
+		dma_free_coherent(dev, size, ctrl->rx_base, ctrl->rx_phys_base);
+		size = ((QCOM_SLIM_NGD_DESC_NUM + 1) * SLIM_MSGQ_BUF_LEN);
+		dma_free_coherent(dev, size, ctrl->tx_base, ctrl->tx_phys_base);
+	} else {
+		ctrl->r_mem.r_vbase = ctrl->r_mem.r_vsbase;
+		ctrl->r_mem.r_res->start = ctrl->r_mem.r_pbase;
 	}
 
 	ctrl->dma_tx_channel = ctrl->dma_rx_channel = NULL;
@@ -1531,6 +1585,11 @@ static int qcom_slim_ngd_ssr_pdr_notify(struct qcom_slim_ngd_ctrl *ctrl,
 		break;
 	case QCOM_SSR_AFTER_POWERUP:
 	case SERVREG_SERVICE_STATE_UP:
+		if (ctrl->r_mem.is_r_mem) {
+			ctrl->r_mem.r_vbase = ctrl->r_mem.r_vsbase;
+			ctrl->r_mem.r_res->start = ctrl->r_mem.r_pbase;
+		}
+
 		schedule_work(&ctrl->ngd_up_work);
 		break;
 	default:
@@ -1641,7 +1700,7 @@ static int qcom_slim_ngd_ctrl_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct qcom_slim_ngd_ctrl *ctrl;
-	struct resource *res;
+	struct resource *res, *remote_res;
 	int ret;
 	struct pdr_service *pds;
 
@@ -1660,6 +1719,32 @@ static int qcom_slim_ngd_ctrl_probe(struct platform_device *pdev)
 	if (!res) {
 		dev_err(&pdev->dev, "no slimbus IRQ resource\n");
 		return -ENODEV;
+	}
+
+	ctrl->r_mem.is_r_mem = false;
+	remote_res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+				"slimbus_remote_mem");
+
+	ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
+	if (ret) {
+		dev_err(&pdev->dev, "could not set 32 bit mask\n");
+		return -ENODEV;
+	}
+
+	if (remote_res) {
+		ctrl->r_mem.is_r_mem = true;
+		ctrl->r_mem.r_pbase = (unsigned long long)remote_res->start;
+		ctrl->r_mem.r_vbase = devm_ioremap(&pdev->dev,
+				remote_res->start, resource_size(remote_res));
+		if (!ctrl->r_mem.r_vbase) {
+			dev_err(&pdev->dev, "Remote mem ioremap failed\n");
+			return -ENOMEM;
+		}
+
+		ctrl->r_mem.r_vsbase = ctrl->r_mem.r_vbase;
+		ctrl->r_mem.r_res = remote_res;
+	} else {
+		dev_err(&pdev->dev, "no Remote mem\n");
 	}
 
 	ret = devm_request_irq(dev, res->start, qcom_slim_ngd_interrupt,
