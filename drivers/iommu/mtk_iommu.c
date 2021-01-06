@@ -255,7 +255,7 @@ static void mtk_iommu_tlb_flush_range_sync(unsigned long iova, size_t size,
 		tmp = lower_32_bits(iova) | upper_32_bits(iova);
 		writel_relaxed(tmp, data->base + REG_MMU_INVLD_START_A);
 		end = iova + size - 1;
-		tmp = lower_32_bits(end) | upper_32_bits(end);
+		tmp = (end & GENMASK(31, 12)) | upper_32_bits(end);
 		writel_relaxed(tmp, data->base + REG_MMU_INVLD_END_A);
 		writel_relaxed(F_MMU_INV_RANGE,
 			       data->base + REG_MMU_INVALIDATE);
