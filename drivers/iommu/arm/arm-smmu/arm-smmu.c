@@ -52,6 +52,7 @@
 #include "arm-smmu.h"
 #include "../../iommu-logger.h"
 #include "../../qcom-dma-iommu-generic.h"
+#include "../../qcom-io-pgtable.h"
 #include <linux/qcom-iommu-util.h>
 
 #define CREATE_TRACE_POINTS
@@ -1520,18 +1521,32 @@ static void arm_smmu_free_asid(struct iommu_domain *domain)
 static int arm_smmu_get_dma_cookie(struct device *dev,
 				    struct arm_smmu_domain *smmu_domain)
 {
+	bool is_fast = test_bit(DOMAIN_ATTR_FAST, smmu_domain->attributes);
 	struct iommu_domain *domain = &smmu_domain->domain;
+	struct io_pgtable_ops *pgtbl_ops = smmu_domain->pgtbl_ops;
+	int ret;
 
 	if (domain->type == IOMMU_DOMAIN_DMA)
 		return iommu_get_dma_cookie(domain);
+	else if (is_fast) {
+		ret = fast_smmu_init_mapping(dev, domain, pgtbl_ops);
+		if (ret)
+			return ret;
+		dev->dma_ops = fast_smmu_get_dma_ops();
+	}
 
 	return 0;
 }
 
 static void arm_smmu_put_dma_cookie(struct iommu_domain *domain)
 {
+	int is_fast = 0;
+
+	iommu_domain_get_attr(domain, DOMAIN_ATTR_FAST, &is_fast);
 	if (domain->type == IOMMU_DOMAIN_DMA)
 		iommu_put_dma_cookie(domain);
+	else if (is_fast)
+		fast_smmu_put_dma_cookie(domain);
 }
 
 static void arm_smmu_domain_get_qcom_quirks(struct arm_smmu_domain *smmu_domain,
@@ -1732,6 +1747,15 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	default:
 		ret = -EINVAL;
 		goto out_unlock;
+	}
+
+	if (test_bit(DOMAIN_ATTR_FAST, smmu_domain->attributes)) {
+		fmt = ARM_V8L_FAST;
+		ret = qcom_iommu_get_fast_iova_range(dev,
+					&smmu_domain->pgtbl_info.iova_base,
+					&smmu_domain->pgtbl_info.iova_end);
+		if (ret < 0)
+			goto out_unlock;
 	}
 
 	if (smmu_domain->non_strict)
@@ -2357,12 +2381,18 @@ static int arm_smmu_setup_default_domain(struct device *dev,
 	if (!strcmp(str, "bypass")) {
 		__arm_smmu_domain_set_attr(
 			domain, DOMAIN_ATTR_S1_BYPASS, &attr);
+	/*
+	 * Fallback to the upstream dma-allocator if fastmap is not enabled.
+	 * "fastmap" implies "atomic" due to it not calling arm_smmu_rpm_get()
+	 * in its map/unmap functions. Its clients may or may not actually
+	 * use iommu apis from atomic context.
+	 */
 	} else if (!strcmp(str, "fastmap")) {
-		/* Ensure DOMAIN_ATTR_ATOMIC is set for GKI */
 		__arm_smmu_domain_set_attr(
 			domain, DOMAIN_ATTR_ATOMIC, &attr);
-		__arm_smmu_domain_set_attr(
-			domain, DOMAIN_ATTR_FAST, &attr);
+		if (IS_ENABLED(CONFIG_IOMMU_IO_PGTABLE_FAST))
+			__arm_smmu_domain_set_attr(
+				domain, DOMAIN_ATTR_FAST, &attr);
 	} else if (!strcmp(str, "atomic")) {
 		__arm_smmu_domain_set_attr(
 			domain, DOMAIN_ATTR_ATOMIC, &attr);
