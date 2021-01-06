@@ -910,6 +910,7 @@ config QCOM_SMCINVOKE
 
 config QCOM_GUESTVM
 	tristate "Enable Guest VM to be loaded by PIL"
+	select QCOM_MDT_LOADER
 	help
 	   This driver invokes Peripheral Image Loader to load images of
 	   any guest Virtual Machine (VM). It also communicates with the
