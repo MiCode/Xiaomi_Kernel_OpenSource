@@ -10,7 +10,7 @@
  * These ops were base of the ops in drivers/dma-buf/heaps/system-heap.c from
  * https://lore.kernel.org/lkml/20201017013255.43568-2-john.stultz@linaro.org/
  *
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/dma-buf.h>
@@ -112,7 +112,7 @@ static struct sg_table *qcom_sg_map_dma_buf(struct dma_buf_attachment *attachmen
 		attrs |= DMA_ATTR_SKIP_CPU_SYNC;
 
 	ret = dma_map_sgtable(attachment->dev, table, direction, attrs);
-	if (ret == 0)
+	if (ret)
 		return ERR_PTR(-ENOMEM);
 
 	a->mapped = true;
