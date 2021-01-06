@@ -40,6 +40,8 @@
 #define MAX_QUEUES		4
 #define MAX_IO_CONTEXTS		MAX_QUEUES
 
+#define VIRTIO_PRINT_MARKER	"virtio_backend"
+
 #define assert_virq		hh_hcall_virtio_mmio_backend_assert_virq
 #define set_dev_features	hh_hcall_virtio_mmio_backend_set_dev_features
 #define set_queue_num_max	hh_hcall_virtio_mmio_backend_set_queue_num_max
@@ -185,8 +187,11 @@ static int vb_dev_irqfd_wakeup(wait_queue_entry_t *wait, unsigned int mode,
 
 	vb_dev = container_of(irq, struct virtio_backend_device, irq);
 
-	if (flags & EPOLLIN)
-		assert_virq(vb_dev->cap_id, 1);
+	if (flags & EPOLLIN) {
+		int rc = assert_virq(vb_dev->cap_id, 1);
+
+		pr_debug("%s: Inject IRQ ret %d\n", VIRTIO_PRINT_MARKER, rc);
+	}
 
 	if (flags & EPOLLHUP)
 		queue_work(system_wq, &irq->shutdown_work);
@@ -237,7 +242,7 @@ static int vb_dev_irqfd(struct virtio_backend_device *vb_dev,
 	init_poll_funcptr(&vb_dev->irq.pt, vb_dev_irqfd_ptable_queue_proc);
 	events = vfs_poll(f.file, &vb_dev->irq.pt);
 	if (events & EPOLLIN)
-		pr_err("%s: Premature injection of interrupt\n", __func__);
+		pr_err("%s: Premature injection of interrupt\n", VIRTIO_PRINT_MARKER);
 
 	return 0;
 
@@ -294,6 +299,7 @@ static void signal_vqs(struct virtio_backend_device *vb_dev)
 		if ((vb_dev->vdev_event_data & flags) && vb_dev->ioctx[i].ctx) {
 			eventfd_signal(vb_dev->ioctx[i].ctx, 1);
 			vb_dev->vdev_event_data &= ~flags;
+			pr_debug("%s: Queue_notify on %d\n", VIRTIO_PRINT_MARKER, i);
 		}
 	}
 }
@@ -316,8 +322,10 @@ static long virtio_backend_ioctl(struct file *file, unsigned int cmd,
 	struct virtio_event ve;
 	u64 features;
 	u32 label;
-	int ret = 0;
+	int ret = 0, i;
 	unsigned long flags;
+	u64 org_event, org_data;
+	u32 *p;
 
 	if (!vm)
 		return -EINVAL;
@@ -329,6 +337,7 @@ static long virtio_backend_ioctl(struct file *file, unsigned int cmd,
 		if (vm->waiting_for_app_ready)
 			wake_up_interruptible(&vm->app_ready_queue);
 		spin_unlock(&vm->vb_dev_lock);
+		pr_debug("%s: App is ready!!\n", VIRTIO_PRINT_MARKER);
 		break;
 
 	case HH_GET_SHARED_MEMORY_SIZE:
@@ -404,6 +413,9 @@ loop_back:
 		vb_dev->cur_event_data = 0;
 		vb_dev->evt_avail = 0;
 
+		org_event = vb_dev->vdev_event;
+		org_data = vb_dev->vdev_event_data;
+
 		if (vb_dev->vdev_event & EVENT_MODULE_EXIT)
 			vb_dev->cur_event = EVENT_APP_EXIT;
 		else if (vb_dev->vdev_event & EVENT_RESET_RQST) {
@@ -436,6 +448,9 @@ loop_back:
 
 		spin_unlock_irqrestore(&vb_dev->lock, flags);
 
+		pr_debug("%s: cur/org_evt %x/%x cur/org_evt_data %x/%x\n",
+			VIRTIO_PRINT_MARKER, vb_dev->cur_event, org_event,
+			vb_dev->cur_event_data, org_data);
 		if (!vb_dev->cur_event)
 			goto loop_back;
 
@@ -469,6 +484,8 @@ loop_back:
 
 		vb_dev_put(vb_dev);
 
+		pr_debug("%s: get_drv_feat %d/%x ret %d\n",
+				VIRTIO_PRINT_MARKER, df.features_sel, features, ret);
 		if (ret)
 			return ret;
 
@@ -496,6 +513,13 @@ loop_back:
 
 		ret = get_queue_info(vb_dev->cap_id, qi.queue_sel, &qinfo);
 		vb_dev_put(vb_dev);
+
+		pr_debug("%s: get_queue_info %d: que_num %d que_ready %d que_desc %llx\n",
+			VIRTIO_PRINT_MARKER, qi.queue_sel, qinfo.queue_num,
+			qinfo.queue_ready, qinfo.queue_desc);
+		pr_debug("%s: que_driver %llx que_device %llx ret %d\n",
+			VIRTIO_PRINT_MARKER, qinfo.queue_driver, qinfo.queue_device, ret);
+
 		if (ret)
 			return ret;
 
@@ -522,6 +546,7 @@ loop_back:
 
 		vb_dev->ack_driver_ok = 1;
 		vb_dev_put(vb_dev);
+		pr_debug("%s: ack_driver_ok for label %x!\n", VIRTIO_PRINT_MARKER, label);
 
 		break;
 
@@ -539,6 +564,7 @@ loop_back:
 		ack_reset(vb_dev->cap_id);
 		vb_dev_put(vb_dev);
 
+		pr_debug("%s: ack_reset for label %x!\n", VIRTIO_PRINT_MARKER, r.label);
 		break;
 
 	case HH_SET_DEVICE_FEATURES:
@@ -555,6 +581,8 @@ loop_back:
 		vb_dev->features[f.features_sel] = f.features;
 		vb_dev_put(vb_dev);
 
+		pr_debug("%s: label %d features %d %x\n", VIRTIO_PRINT_MARKER,
+				f.label, f.features_sel, f.features);
 		break;
 
 	case HH_SET_QUEUE_NUM_MAX:
@@ -571,6 +599,9 @@ loop_back:
 		vb_dev->queue_num_max[q.queue_sel] = q.queue_num_max;
 
 		vb_dev_put(vb_dev);
+
+		pr_debug("%s: label %d queue_max %d %x\n", VIRTIO_PRINT_MARKER,
+				q.label, q.queue_sel, q.queue_num_max);
 
 		break;
 
@@ -635,10 +666,13 @@ loop_back:
 		vb_dev->config_size = d.config_size;
 		mutex_unlock(&vb_dev->mutex);
 		vb_dev_put(vb_dev);
+		p = (u32 *)vb_dev->config_data;
+		for (i = 0; i < 4; ++i)
+			pr_debug("%s: %x: %x\n", VIRTIO_PRINT_MARKER, i*4, p[i]);
 		break;
 
 	default:
-		pr_err("%s: cmd %x not supported\n", __func__, cmd);
+		pr_err("%s: cmd %x not supported\n", VIRTIO_PRINT_MARKER, cmd);
 		return -EINVAL;
 	}
 
@@ -663,7 +697,7 @@ static int virtio_backend_mmap(struct file *file,
 	if (io_remap_pfn_range(vma, vma->vm_start,
 			__phys_to_pfn(vm->shmem_addr),
 			vm->shmem_size, vma->vm_page_prot)) {
-		pr_err("%s: ioremap_pfn_range failed\n");
+		pr_err("%s: ioremap_pfn_range failed\n", VIRTIO_PRINT_MARKER);
 		return -EAGAIN;
 	}
 
@@ -707,7 +741,7 @@ static int virtio_backend_open(struct inode *inode, struct file *filp)
 
 	if (!vm) {
 		pr_err("%s: VM with minor id %d not found\n",
-				__func__, minor);
+				VIRTIO_PRINT_MARKER, minor);
 		return -EINVAL;
 	}
 
@@ -819,7 +853,8 @@ static int vb_devclass_init(void)
 
 	ret = alloc_chrdev_region(&vbe_dev, 0, MAX_VM_DEVICES, VIRTIO_BE_CLASS);
 	if (ret < 0) {
-		pr_err("%s: unable to allocate major number\n", __func__);
+		pr_err("%s: unable to allocate major number\n",
+						VIRTIO_PRINT_MARKER);
 		class_destroy(vb_dev_class);
 		return ret;
 	}
@@ -845,8 +880,8 @@ static int vm_devnode_init(struct virt_machine *vm)
 
 	vm->minor = ida_simple_get(&vm_minor_id, 0, MAX_VM_DEVICES, GFP_KERNEL);
 	if (vm->minor < 0) {
-		pr_err("%s: No more minor numbers left. err:%d\n", __func__,
-				vm->minor);
+		pr_err("%s: No more minor numbers left err %d\n",
+				VIRTIO_PRINT_MARKER, vm->minor);
 		return -ENODEV;
 	}
 
@@ -854,8 +889,8 @@ static int vm_devnode_init(struct virt_machine *vm)
 			MKDEV(MAJOR(vbe_dev), vm->minor), NULL, vm->cdev_name);
 	if (IS_ERR(vm->class_dev)) {
 		ret = PTR_ERR(vm->class_dev);
-		pr_err("%s: device_create failed for %s (%d)\n", __func__,
-				vm->cdev_name, ret);
+		pr_err("%s: device_create failed for %s ret %d\n",
+			VIRTIO_PRINT_MARKER, vm->cdev_name, ret);
 		goto fail_device_create;
 	}
 
@@ -863,7 +898,7 @@ static int vm_devnode_init(struct virt_machine *vm)
 
 	ret = cdev_add(&vm->cdev, MKDEV(MAJOR(vbe_dev), vm->minor), 1);
 	if (ret < 0) {
-		pr_err("%s: cdev_add failed for %s (%d)\n", __func__,
+		pr_err("%s: cdev_add failed for %s ret %d\n", VIRTIO_PRINT_MARKER,
 				vm->cdev_name, ret);
 		goto fail_cdev_add;
 	}
@@ -888,7 +923,7 @@ note_shared_buffers(struct device_node *np, struct virt_machine *vm)
 
 	if (!nr_entries) {
 		pr_err("%s: No shared-buffers specified for vm %s\n",
-			__func__, vm->vm_name);
+			VIRTIO_PRINT_MARKER, vm->vm_name);
 		return -EINVAL;
 	}
 
@@ -905,7 +940,7 @@ note_shared_buffers(struct device_node *np, struct virt_machine *vm)
 		if (!snp) {
 			kfree(vm->shmem);
 			pr_err("%s: Can't parse shared-buffer property %d\n",
-					__func__, idx);
+					VIRTIO_PRINT_MARKER, idx);
 			return -EINVAL;
 		}
 
@@ -914,7 +949,7 @@ note_shared_buffers(struct device_node *np, struct virt_machine *vm)
 			of_node_put(snp);
 			kfree(vm->shmem);
 			pr_err("%s: Invalid address at index %d\n",
-						__func__, idx);
+						VIRTIO_PRINT_MARKER, idx);
 			return -EINVAL;
 		}
 
@@ -924,7 +959,7 @@ note_shared_buffers(struct device_node *np, struct virt_machine *vm)
 			of_node_put(snp);
 			kfree(vm->shmem);
 			pr_err("%s: haven-label property absent at index %d\n",
-					 __func__, idx);
+					 VIRTIO_PRINT_MARKER, idx);
 			return -EINVAL;
 		}
 
@@ -946,7 +981,7 @@ new_vm(const char *vm_name, struct device_node *np)
 	ret = of_address_to_resource(np, 0, &r);
 	if (ret || !r.start || !resource_size(&r)) {
 		pr_err("%s: Invalid shared memory for VM %s\n",
-					__func__, vm_name);
+					VIRTIO_PRINT_MARKER, vm_name);
 		return NULL;
 	}
 
@@ -973,8 +1008,8 @@ new_vm(const char *vm_name, struct device_node *np)
 
 	ret = vm_devnode_init(vm);
 	if (ret) {
-		pr_err("vm '%s' backend dev node create failed. err: %d\n",
-							vm->vm_name, ret);
+		pr_err("%s: vm '%s' backend dev node create failed err %d\n",
+				VIRTIO_PRINT_MARKER, vm->vm_name, ret);
 		goto vm_devnode_fail;
 	}
 
@@ -983,8 +1018,8 @@ new_vm(const char *vm_name, struct device_node *np)
 	list_add(&vm->list, &vm_list);
 	spin_unlock(&vm_list_lock);
 
-	pr_info("Recognized VM '%s' major/minor %d/%d shmem_addr %pK shmem_size %llx\n",
-			vm->vm_name, MAJOR(vbe_dev), vm->minor,
+	pr_info("%s: Recognized VM '%s' major/minor %d/%d shmem_addr %pK shmem_size %llx\n",
+			VIRTIO_PRINT_MARKER, vm->vm_name, MAJOR(vbe_dev), vm->minor,
 			(void *)vm->shmem_addr, vm->shmem_size);
 
 	return vm;
@@ -1024,7 +1059,8 @@ static int hh_virtio_backend_probe(struct platform_device *pdev)
 
 	vm_np = of_parse_phandle(np, "qcom,vm", 0);
 	if (!vm_np) {
-		pr_err("%s: 'qcom,vm' property not present\n", __func__);
+		pr_err("%s: 'qcom,vm' property not present\n",
+					VIRTIO_PRINT_MARKER);
 		return -EINVAL;
 	}
 
@@ -1033,19 +1069,20 @@ static int hh_virtio_backend_probe(struct platform_device *pdev)
 	if (ret) {
 		of_node_put(vm_np);
 		pr_err("%s: 'vm_name' property not present in VM node\n",
-				__func__);
+				VIRTIO_PRINT_MARKER);
 		return ret;
 	}
 
 	if (strnlen(str, MAX_VM_NAME) == MAX_VM_NAME) {
-		pr_err("%s: VM name %s too long\n", __func__, str);
+		pr_err("%s: VM name %s too long\n", VIRTIO_PRINT_MARKER, str);
 		of_node_put(vm_np);
 		return -EINVAL;
 	}
 
 	ret = of_property_read_u32(np, "qcom,label", &label);
 	if (ret || !label) {
-		pr_err("%s: Invalid qcom,label property\n", __func__);
+		pr_err("%s: Invalid qcom,label property\n",
+						VIRTIO_PRINT_MARKER);
 		of_node_put(vm_np);
 		return -EINVAL;
 	}
@@ -1066,7 +1103,8 @@ static int hh_virtio_backend_probe(struct platform_device *pdev)
 		vb_dev_put(vb_dev);
 		of_node_put(vm_np);
 		mutex_unlock(&vm_mutex);
-		pr_err("%s: Duplicate qcom,label %d\n", __func__, label);
+		pr_err("%s: Duplicate qcom,label %d\n",
+				VIRTIO_PRINT_MARKER, label);
 		return -EINVAL;
 	}
 
@@ -1098,8 +1136,8 @@ static int hh_virtio_backend_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, vb_dev);
 	mutex_unlock(&vm_mutex);
 
-	pr_info("Recognized virtio backend device with label %x\n",
-					vb_dev->label);
+	pr_info("%s: Recognized virtio backend device with label %x\n",
+			VIRTIO_PRINT_MARKER, vb_dev->label);
 	return 0;
 }
 
@@ -1194,6 +1232,7 @@ static irqreturn_t vdev_interrupt(int irq, void *data)
 	if (ret)
 		return IRQ_HANDLED;
 
+	pr_debug("%s: event %d event_data %x\n", VIRTIO_PRINT_MARKER, event, event_data);
 	spin_lock_irqsave(&vb_dev->lock, flags);
 	if (event == EVENT_NEW_BUFFER && vb_dev->ack_driver_ok) {
 		vb_dev->vdev_event_data = event_data;
@@ -1222,7 +1261,7 @@ unshare_a_vm_buffer(hh_vmid_t self, hh_vmid_t peer, struct resource *r)
 				      dst_vmlist, dst_perms, 1);
 	if (ret)
 		pr_err("%s: hyp_assign_phys failed for addr=%llx size=%lld err=%d\n",
-		       __func__, r->start, resource_size(r), ret);
+			VIRTIO_PRINT_MARKER, r->start, resource_size(r), ret);
 
 	return ret;
 }
@@ -1250,7 +1289,7 @@ static int share_a_vm_buffer(hh_vmid_t self, hh_vmid_t peer, int haven_label,
 				      dst_vmlist, dst_perms, 2);
 	if (ret) {
 		pr_err("%s: hyp_assign_phys failed for addr=%llx size=%lld err=%d\n",
-		       __func__, r->start, resource_size(r), ret);
+		       VIRTIO_PRINT_MARKER, r->start, resource_size(r), ret);
 		kfree(acl);
 		kfree(sgl);
 		return ret;
@@ -1268,7 +1307,7 @@ static int share_a_vm_buffer(hh_vmid_t self, hh_vmid_t peer, int haven_label,
 	ret = hh_rm_mem_qcom_lookup_sgl(HH_RM_MEM_TYPE_NORMAL,
 			haven_label, acl, sgl, NULL, shm_memparcel);
 	if (ret) {
-		pr_err("%s: lookup_sgl failed %d\n", __func__, ret);
+		pr_err("%s: lookup_sgl failed %d\n", VIRTIO_PRINT_MARKER, ret);
 		unshare_a_vm_buffer(self, peer, r);
 	}
 
@@ -1314,14 +1353,17 @@ static int hh_virtio_mmio_init(hh_vmid_t vmid, const char *vm_name, hh_label_t l
 	int i, ret, nr_words;
 	u32 *p, *q;
 
+	pr_debug("%s: vmid %d vm_name %s label %x cap_id %x irq %d base %pK size %d\n",
+		VIRTIO_PRINT_MARKER, vmid, vm_name, label, cap_id, linux_irq, (void *)base, size);
+
 	if (strnlen(vm_name, MAX_VM_NAME) == MAX_VM_NAME) {
-		pr_err("%s: VM name %s too long\n", __func__, vm_name);
+		pr_err("%s: VM name %s too long\n", VIRTIO_PRINT_MARKER, vm_name);
 		return -EINVAL;
 	}
 
 	vm = find_vm_by_name(vm_name);
 	if (!vm) {
-		pr_err("%s: VM name %s not found\n", __func__, vm_name);
+		pr_err("%s: VM name %s not found\n", VIRTIO_PRINT_MARKER, vm_name);
 		return -ENODEV;
 	}
 
@@ -1332,12 +1374,15 @@ static int hh_virtio_mmio_init(hh_vmid_t vmid, const char *vm_name, hh_label_t l
 
 	ret = wait_event_interruptible_timeout(vm->app_ready_queue,
 				vm->app_ready, 60*HZ);
-	if (!ret || ret < 0)
+	if (!ret || ret < 0) {
+		pr_err("%s: Timing out for app to become ready\n", VIRTIO_PRINT_MARKER);
 		return -ETIMEDOUT;
+	}
 
 	vb_dev = vb_dev_get(vm, label);
 	if (!vb_dev) {
-		pr_err("%s: Device with label %x not found\n", __func__, label);
+		pr_err("%s: Device with label %x not found\n",
+VIRTIO_PRINT_MARKER, label);
 		return -ENODEV;
 	}
 
@@ -1362,7 +1407,7 @@ static int hh_virtio_mmio_init(hh_vmid_t vmid, const char *vm_name, hh_label_t l
 			vb_dev->int_name, vb_dev);
 	if (ret) {
 		pr_err("%s: Unable to register interrupt handler for %d\n",
-				__func__, linux_irq);
+				VIRTIO_PRINT_MARKER, linux_irq);
 		mutex_unlock(&vb_dev->mutex);
 		vb_dev_put(vb_dev);
 		return ret;
@@ -1370,7 +1415,7 @@ static int hh_virtio_mmio_init(hh_vmid_t vmid, const char *vm_name, hh_label_t l
 
 	vb_dev->config_shared_buf = ioremap(base, size);
 	if (!vb_dev->config_shared_buf) {
-		pr_err("%s: Unable to map config page\n", __func__);
+		pr_err("%s: Unable to map config page\n", VIRTIO_PRINT_MARKER);
 		free_irq(linux_irq, vb_dev);
 		mutex_unlock(&vb_dev->mutex);
 		vb_dev_put(vb_dev);
@@ -1384,6 +1429,10 @@ static int hh_virtio_mmio_init(hh_vmid_t vmid, const char *vm_name, hh_label_t l
 	for (i = 0; i < nr_words; ++i)
 		writel_relaxed(*q++, p++);
 
+	p = (u32 *)vb_dev->config_shared_buf;
+	for (i = 0; i < nr_words; ++i)
+		pr_debug("%s: config_word %d %x\n", VIRTIO_PRINT_MARKER, i, readl_relaxed(p++));
+
 	/* Read lower and higher 32 bit feature bits */
 	for (i = 0; i < 2; ++i) {
 		if (!vb_dev->features[i])
@@ -1396,6 +1445,8 @@ static int hh_virtio_mmio_init(hh_vmid_t vmid, const char *vm_name, hh_label_t l
 			vb_dev->config_shared_buf = NULL;
 			mutex_unlock(&vb_dev->mutex);
 			vb_dev_put(vb_dev);
+			pr_err("%s: set_features %d/%x failed ret %d\n",
+				VIRTIO_PRINT_MARKER, i, vb_dev->features[i], ret);
 			return ret;
 		}
 	}
@@ -1411,6 +1462,8 @@ static int hh_virtio_mmio_init(hh_vmid_t vmid, const char *vm_name, hh_label_t l
 			vb_dev->config_shared_buf = NULL;
 			mutex_unlock(&vb_dev->mutex);
 			vb_dev_put(vb_dev);
+			pr_err("%s: set_queue_num_max %d/%x failed ret %d\n",
+				VIRTIO_PRINT_MARKER, i, vb_dev->queue_num_max[i], ret);
 			return ret;
 		}
 	}
