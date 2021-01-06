@@ -923,7 +923,7 @@ static void qsmmuv500_init_cb(struct arm_smmu_domain *smmu_domain,
 	if (!iommudata->has_actlr)
 		return;
 
-	tlb = smmu_domain->pgtbl_cfg.tlb;
+	tlb = smmu_domain->pgtbl_info.cfg.tlb;
 
 	arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_ACTLR, iommudata->actlr);
 

@@ -7,6 +7,7 @@
 #include <linux/slab.h>
 #include <linux/qcom-iommu-util.h>
 #include  "qcom-dma-iommu-generic.h"
+#include "qcom-io-pgtable.h"
 
 struct device_node *qcom_iommu_group_parse_phandle(struct device *dev)
 {
@@ -219,6 +220,64 @@ void qcom_iommu_put_resv_regions(struct device *dev, struct list_head *list)
 		ops->put_resv_regions(dev, list);
 }
 EXPORT_SYMBOL(qcom_iommu_put_resv_regions);
+
+struct io_pgtable_ops *qcom_alloc_io_pgtable_ops(enum io_pgtable_fmt fmt,
+				struct qcom_io_pgtable_info *pgtbl_info,
+				void *cookie)
+{
+	struct io_pgtable *iop;
+	const struct io_pgtable_init_fns *fns;
+	struct io_pgtable_cfg *cfg = &pgtbl_info->cfg;
+
+	if (fmt < IO_PGTABLE_NUM_FMTS)
+		return alloc_io_pgtable_ops(fmt, cfg, cookie);
+#ifdef CONFIG_IOMMU_IO_PGTABLE_FAST
+	else if (fmt == ARM_V8L_FAST)
+		fns = &io_pgtable_av8l_fast_init_fns;
+#endif
+	else {
+		pr_err("Invalid io-pgtable fmt %u\n", fmt);
+		return NULL;
+	}
+
+	iop = fns->alloc(cfg, cookie);
+	if (!iop)
+		return NULL;
+
+	iop->fmt	= fmt;
+	iop->cookie	= cookie;
+	iop->cfg	= *cfg;
+
+	return &iop->ops;
+}
+EXPORT_SYMBOL(qcom_alloc_io_pgtable_ops);
+
+void qcom_free_io_pgtable_ops(struct io_pgtable_ops *ops)
+{
+	struct io_pgtable *iop;
+	enum io_pgtable_fmt fmt;
+	const struct io_pgtable_init_fns *fns;
+
+	if (!ops)
+		return;
+
+	iop = io_pgtable_ops_to_pgtable(ops);
+	fmt = iop->fmt;
+	if (fmt < IO_PGTABLE_NUM_FMTS)
+		return free_io_pgtable_ops(ops);
+#ifdef CONFIG_IOMMU_IO_PGTABLE_FAST
+	else if (fmt == ARM_V8L_FAST)
+		fns = &io_pgtable_av8l_fast_init_fns;
+#endif
+	else {
+		pr_err("Invalid io-pgtable fmt %u\n", fmt);
+		return;
+	}
+
+	io_pgtable_tlb_flush_all(iop);
+	fns->free(iop);
+}
+EXPORT_SYMBOL(qcom_free_io_pgtable_ops);
 
 /*
  * These tables must have the same length.

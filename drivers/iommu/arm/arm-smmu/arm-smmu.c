@@ -51,6 +51,7 @@
 
 #include "arm-smmu.h"
 #include "../../iommu-logger.h"
+#include "../../qcom-dma-iommu-generic.h"
 #include <linux/qcom-iommu-util.h>
 
 #define CREATE_TRACE_POINTS
@@ -1092,7 +1093,7 @@ static phys_addr_t arm_smmu_verify_fault(struct iommu_domain *domain,
 						       IOMMU_TRANS_PRIV);
 
 	/* Now replicate the faulty transaction post tlbiall */
-	smmu_domain->pgtbl_cfg.tlb->tlb_flush_all(smmu_domain);
+	smmu_domain->pgtbl_info.cfg.tlb->tlb_flush_all(smmu_domain);
 	phys_stimu_post_tlbiall = arm_smmu_iova_to_phys_hard(domain, iova,
 							     flags);
 
@@ -1550,7 +1551,7 @@ static int arm_smmu_setup_context_bank(struct arm_smmu_domain *smmu_domain,
 {
 	struct iommu_domain *domain = &smmu_domain->domain;
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
-	struct io_pgtable_cfg *pgtbl_cfg = &smmu_domain->pgtbl_cfg;
+	struct io_pgtable_cfg *pgtbl_cfg = &smmu_domain->pgtbl_info.cfg;
 	bool dynamic = is_dynamic_domain(domain);
 	int irq, ret = 0;
 	irqreturn_t (*context_fault)(int irq, void *dev);
@@ -1746,7 +1747,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 
 	cfg->cbndx = ret;
 
-	smmu_domain->pgtbl_cfg = (struct io_pgtable_cfg) {
+	smmu_domain->pgtbl_info.cfg = (struct io_pgtable_cfg) {
 		.quirks		= quirks,
 		.pgsize_bitmap	= smmu->pgsize_bitmap,
 		.ias		= ias,
@@ -1758,14 +1759,15 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 
 	if (smmu->impl && smmu->impl->init_context) {
 		ret = smmu->impl->init_context(smmu_domain,
-					       &smmu_domain->pgtbl_cfg, dev);
+					       &smmu_domain->pgtbl_info.cfg,
+					       dev);
 		if (ret)
 			goto out_clear_smmu;
 	}
 
 	smmu_domain->dev = dev;
-	smmu_domain->pgtbl_ops = alloc_io_pgtable_ops(fmt,
-						      &smmu_domain->pgtbl_cfg,
+	smmu_domain->pgtbl_ops = qcom_alloc_io_pgtable_ops(fmt,
+						      &smmu_domain->pgtbl_info,
 						      smmu_domain);
 	if (!smmu_domain->pgtbl_ops) {
 		ret = -ENOMEM;
@@ -1787,8 +1789,8 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	arm_smmu_secure_domain_unlock(smmu_domain);
 
 	/* Update the domain's page sizes to reflect the page table format */
-	domain->pgsize_bitmap = smmu_domain->pgtbl_cfg.pgsize_bitmap;
-	if (smmu_domain->pgtbl_cfg.quirks & IO_PGTABLE_QUIRK_ARM_TTBR1) {
+	domain->pgsize_bitmap = smmu_domain->pgtbl_info.cfg.pgsize_bitmap;
+	if (smmu_domain->pgtbl_info.cfg.quirks & IO_PGTABLE_QUIRK_ARM_TTBR1) {
 		domain->geometry.aperture_start = ~0UL << ias;
 		domain->geometry.aperture_end = ~0UL;
 	} else {
@@ -1859,7 +1861,7 @@ static void arm_smmu_destroy_domain_context(struct iommu_domain *domain)
 	dynamic = is_dynamic_domain(domain);
 	if (dynamic) {
 		arm_smmu_free_asid(domain);
-		free_io_pgtable_ops(smmu_domain->pgtbl_ops);
+		qcom_free_io_pgtable_ops(smmu_domain->pgtbl_ops);
 		arm_smmu_power_off(smmu, smmu->pwr);
 		arm_smmu_rpm_put(smmu);
 		arm_smmu_secure_domain_lock(smmu_domain);
@@ -1881,7 +1883,7 @@ static void arm_smmu_destroy_domain_context(struct iommu_domain *domain)
 		devm_free_irq(smmu->dev, irq, domain);
 	}
 
-	free_io_pgtable_ops(smmu_domain->pgtbl_ops);
+	qcom_free_io_pgtable_ops(smmu_domain->pgtbl_ops);
 	arm_smmu_secure_domain_lock(smmu_domain);
 	arm_smmu_unassign_table(smmu_domain);
 	arm_smmu_secure_domain_unlock(smmu_domain);
@@ -2143,7 +2145,7 @@ static void arm_smmu_domain_remove_master(struct arm_smmu_domain *smmu_domain,
 	int i, idx;
 	const struct iommu_flush_ops *tlb;
 
-	tlb = smmu_domain->pgtbl_cfg.tlb;
+	tlb = smmu_domain->pgtbl_info.cfg.tlb;
 
 	mutex_lock(&smmu->stream_map_mutex);
 	for_each_cfg_sme(cfg, fwspec, i, idx) {
@@ -2989,7 +2991,7 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 				    enum iommu_attr attr, void *data)
 {
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	struct io_pgtable_cfg *pgtbl_cfg = &smmu_domain->pgtbl_cfg;
+	struct io_pgtable_cfg *pgtbl_cfg = &smmu_domain->pgtbl_info.cfg;
 	int ret = 0;
 	unsigned long iommu_attr = (unsigned long)attr;
 
@@ -4154,6 +4156,10 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	int num_irqs, i, err;
 	bool legacy_binding;
 	irqreturn_t (*global_fault)(int irq, void *dev);
+
+	/* We depend on this device for fastmap */
+	if (!qcom_dma_iommu_is_ready())
+		return -EPROBE_DEFER;
 
 	legacy_binding = of_find_property(dev->of_node, "mmu-masters", NULL);
 	if (legacy_binding && !using_generic_binding) {
