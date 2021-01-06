@@ -94,9 +94,6 @@ static void a6xx_receive_ack_async(struct adreno_device *adreno_dev, void *rcvd)
 	u32 req_hdr = ack[1];
 	u32 size_bytes = MSG_HDR_GET_SIZE(hdr) << 2;
 
-	trace_kgsl_hfi_receive(MSG_HDR_GET_ID(req_hdr),
-		MSG_HDR_GET_SIZE(req_hdr), MSG_HDR_GET_SEQNUM(req_hdr));
-
 	if (size_bytes > sizeof(cmd->results))
 		dev_err_ratelimited(&gmu->pdev->dev,
 			"Ack result too big: %d Truncating to: %ld\n",
@@ -764,6 +761,7 @@ static int mem_alloc_reply(struct adreno_device *adreno_dev, void *rcvd)
 {
 	struct hfi_mem_alloc_cmd *in = (struct hfi_mem_alloc_cmd *)rcvd;
 	struct hfi_mem_alloc_reply_cmd out = {0};
+	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
 	int ret;
 
 	ret = process_mem_alloc(adreno_dev, &in->desc);
@@ -773,6 +771,8 @@ static int mem_alloc_reply(struct adreno_device *adreno_dev, void *rcvd)
 	memcpy(&out.desc, &in->desc, sizeof(out.desc));
 
 	out.hdr = ACK_MSG_HDR(F2H_MSG_MEM_ALLOC, sizeof(out));
+	out.hdr = MSG_HDR_SET_SEQNUM(out.hdr,
+			atomic_inc_return(&gmu->hfi.seqnum));
 	out.req_hdr = in->hdr;
 
 	return a6xx_hfi_cmdq_write(adreno_dev, (u32 *)&out);

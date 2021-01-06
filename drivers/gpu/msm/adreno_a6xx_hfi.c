@@ -79,6 +79,15 @@ int a6xx_hfi_queue_read(struct a6xx_gmu_device *gmu, uint32_t queue_idx,
 	if (GMU_VER_MAJOR(gmu->ver.hfi) >= 2)
 		read = ALIGN(read, SZ_4) % hdr->queue_size;
 
+	/* For acks, trace the packet for which this ack was sent */
+	if (MSG_HDR_GET_TYPE(msg_hdr) == HFI_MSG_ACK)
+		trace_kgsl_hfi_receive(MSG_HDR_GET_ID(output[1]),
+			MSG_HDR_GET_SIZE(output[1]),
+			MSG_HDR_GET_SEQNUM(output[1]));
+	else
+		trace_kgsl_hfi_receive(MSG_HDR_GET_ID(msg_hdr),
+			MSG_HDR_GET_SIZE(msg_hdr), MSG_HDR_GET_SEQNUM(msg_hdr));
+
 	hdr->read_index = read;
 
 done:
@@ -230,10 +239,6 @@ int a6xx_receive_ack_cmd(struct a6xx_gmu_device *gmu, void *rcvd,
 
 	if (ret_cmd == NULL)
 		return -EINVAL;
-
-	trace_kgsl_hfi_receive(MSG_HDR_GET_ID(req_hdr),
-		MSG_HDR_GET_SIZE(req_hdr),
-		MSG_HDR_GET_SEQNUM(req_hdr));
 
 	if (HDR_CMP_SEQNUM(ret_cmd->sent_hdr, req_hdr)) {
 		memcpy(&ret_cmd->results, ack, MSG_HDR_GET_SIZE(hdr) << 2);
