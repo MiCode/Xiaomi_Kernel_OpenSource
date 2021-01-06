@@ -13,6 +13,7 @@
 #include <linux/notifier.h>
 #include <linux/irqdomain.h>
 #include <linux/workqueue.h>
+#include <linux/delay.h>
 #include <linux/completion.h>
 #include <linux/mod_devicetable.h>
 #include <linux/platform_device.h>
@@ -24,6 +25,7 @@
 #include <linux/haven/hh_errno.h>
 #include <linux/haven/hh_common.h>
 #include <linux/haven/hh_rm_drv.h>
+#include <linux/haven/hh_virtio_backend.h>
 
 #include "hh_rm_drv_private.h"
 
@@ -213,6 +215,15 @@ static int hh_rm_process_notif(void *recv_buff, size_t recv_buff_size)
 		if (recv_buff_size != sizeof(*hdr) +
 			sizeof(struct hh_rm_notif_vm_irq_released_payload)) {
 			pr_err("%s: Invalid size for VM_IRQ_REL notif: %u\n",
+				__func__, recv_buff_size - sizeof(*hdr));
+			ret = -EINVAL;
+			goto err;
+		}
+		break;
+	case HH_RM_NOTIF_VM_IRQ_ACCEPTED:
+		if (recv_buff_size != sizeof(*hdr) +
+			sizeof(struct hh_rm_notif_vm_irq_accepted_payload)) {
+			pr_err("%s: Invalid size for VM_IRQ_ACCEPTED notif: %u\n",
 				__func__, recv_buff_size - sizeof(*hdr));
 			ret = -EINVAL;
 			goto err;
@@ -530,6 +541,11 @@ static int hh_rm_send_request(u32 message_id,
 		 */
 		tx_flags = (i == num_fragments) ? HH_MSGQ_TX_PUSH : 0;
 
+		/* delay sending console characters to RM */
+		if (message_id == HH_RM_RPC_MSG_ID_CALL_VM_CONSOLE_WRITE ||
+		    message_id == HH_RM_RPC_MSG_ID_CALL_VM_CONSOLE_FLUSH)
+			udelay(800);
+
 		ret = hh_msgq_send(hh_rm_msgq_desc, send_buff,
 					sizeof(*hdr) + payload_size, tx_flags);
 
@@ -732,13 +748,14 @@ err:
  * The function encodes the error codes via ERR_PTR. Hence, the caller is
  * responsible to check it with IS_ERR_OR_NULL().
  */
-int hh_rm_populate_hyp_res(hh_vmid_t vmid)
+int hh_rm_populate_hyp_res(hh_vmid_t vmid, const char *vm_name)
 {
 	struct hh_vm_get_hyp_res_resp_entry *res_entries = NULL;
 	int linux_irq, ret = 0;
 	hh_capid_t cap_id;
 	hh_label_t label;
 	u32 n_res, i;
+	u64 base = 0, size = 0;
 
 	res_entries = hh_rm_vm_get_hyp_res(vmid, &n_res);
 	if (IS_ERR_OR_NULL(res_entries))
@@ -748,7 +765,7 @@ int hh_rm_populate_hyp_res(hh_vmid_t vmid)
 		 __func__, n_res, vmid);
 
 	for (i = 0; i < n_res; i++) {
-		pr_debug("%s: idx:%d res_entries.res_type = 0x%x, res_entries.partner_vmid = 0x%x, res_entries.resource_handle = 0x%x, res_entries.resource_label = 0x%x, res_entries.cap_id_low = 0x%x, res_entries.cap_id_high = 0x%x, res_entries.virq_handle = 0x%x, res_entries.virq = 0x%x\n",
+		pr_debug("%s: idx:%d res_entries.res_type = 0x%x, res_entries.partner_vmid = 0x%x, res_entries.resource_handle = 0x%x, res_entries.resource_label = 0x%x, res_entries.cap_id_low = 0x%x, res_entries.cap_id_high = 0x%x, res_entries.virq_handle = 0x%x, res_entries.virq = 0x%x res_entries.base_high = 0x%x, res_entries.base_low = 0x%x, res_entries.size_high = 0x%x, res_entries.size_low = 0x%x\n",
 			__func__, i,
 			res_entries[i].res_type,
 			res_entries[i].partner_vmid,
@@ -757,7 +774,11 @@ int hh_rm_populate_hyp_res(hh_vmid_t vmid)
 			res_entries[i].cap_id_low,
 			res_entries[i].cap_id_high,
 			res_entries[i].virq_handle,
-			res_entries[i].virq);
+			res_entries[i].virq,
+			res_entries[i].base_high,
+			res_entries[i].base_low,
+			res_entries[i].size_high,
+			res_entries[i].size_low);
 
 		ret = linux_irq = hh_rm_get_irq(&res_entries[i]);
 		if (ret < 0)
@@ -765,34 +786,47 @@ int hh_rm_populate_hyp_res(hh_vmid_t vmid)
 
 		cap_id = (u64) res_entries[i].cap_id_high << 32 |
 				res_entries[i].cap_id_low;
+		base = (u64) res_entries[i].base_high << 32 |
+				res_entries[i].base_low;
+		size = (u64) res_entries[i].size_high << 32 |
+				res_entries[i].size_low;
 		label = res_entries[i].resource_label;
 
-		/* Populate MessageQ & DBL's cap tables */
-		switch (res_entries[i].res_type) {
-		case HH_RM_RES_TYPE_MQ_TX:
-			ret = hh_msgq_populate_cap_info(label, cap_id,
+		/* Populate MessageQ, DBL and vCPUs cap tables */
+		do {
+			switch (res_entries[i].res_type) {
+			case HH_RM_RES_TYPE_MQ_TX:
+				ret = hh_msgq_populate_cap_info(label, cap_id,
 					HH_MSGQ_DIRECTION_TX, linux_irq);
-			break;
-		case HH_RM_RES_TYPE_MQ_RX:
-			ret = hh_msgq_populate_cap_info(label, cap_id,
+				break;
+			case HH_RM_RES_TYPE_MQ_RX:
+				ret = hh_msgq_populate_cap_info(label, cap_id,
 					HH_MSGQ_DIRECTION_RX, linux_irq);
-			break;
-		case HH_RM_RES_TYPE_VCPU:
-			ret = hh_vcpu_populate_affinity_info(label, cap_id);
-			break;
-		case HH_RM_RES_TYPE_DB_TX:
-			ret = hh_dbl_populate_cap_info(label, cap_id,
+				break;
+			case HH_RM_RES_TYPE_VCPU:
+				ret = hh_vcpu_populate_affinity_info(label,
+									cap_id);
+				break;
+			case HH_RM_RES_TYPE_DB_TX:
+				ret = hh_dbl_populate_cap_info(label, cap_id,
 					HH_MSGQ_DIRECTION_TX, linux_irq);
-			break;
-		case HH_RM_RES_TYPE_DB_RX:
-			ret = hh_dbl_populate_cap_info(label, cap_id,
+				break;
+			case HH_RM_RES_TYPE_DB_RX:
+				ret = hh_dbl_populate_cap_info(label, cap_id,
 					HH_MSGQ_DIRECTION_RX, linux_irq);
-			break;
-		default:
-			pr_err("%s: Unknown resource type: %u\n",
-				__func__, res_entries[i].res_type);
-			ret = -EINVAL;
-		}
+				break;
+			case HH_RM_RES_TYPE_VPMGRP:
+				break;
+			case HH_RM_RES_TYPE_VIRTIO_MMIO:
+				ret = hh_virtio_mmio_init(vm_name, label,
+						cap_id, linux_irq, base, size);
+				break;
+			default:
+				pr_err("%s: Unknown resource type: %u\n",
+					__func__, res_entries[i].res_type);
+				ret = -EINVAL;
+			}
+		} while (ret == -EAGAIN);
 
 		if (ret < 0)
 			goto out;
@@ -814,7 +848,7 @@ static void hh_rm_get_svm_res_work_fn(struct work_struct *work)
 		pr_err("%s: Unable to get VMID for VM label %d\n",
 						__func__, HH_PRIMARY_VM);
 	else
-		hh_rm_populate_hyp_res(vmid);
+		hh_rm_populate_hyp_res(vmid, NULL);
 }
 
 static int hh_vm_probe(struct device *dev, struct device_node *hyp_root)

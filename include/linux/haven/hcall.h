@@ -283,6 +283,20 @@ static inline int hh_hcall_vcpu_affinity_set(hh_capid_t vcpu_capid,
 	return ret;
 }
 
+static inline int hh_hcall_vpm_group_get_state(u64 vpmg_capid,
+		uint64_t *vpmg_state)
+{
+	int ret;
+	struct hh_hcall_resp _resp = {0};
+
+	ret = _hh_hcall(0x6045,
+			(struct hh_hcall_args){ vpmg_capid, 0 },
+			&_resp);
+	*vpmg_state = _resp.resp1;
+
+	return ret;
+}
+
 static inline int hh_hcall_trace_update_class_flags(
 		uint64_t set_flags, uint64_t clear_flags,
 		uint64_t *new_flags)

@@ -17,22 +17,20 @@
 struct hh_irq_entry {
 	hh_vmid_t vmid;
 	enum hh_vm_names vm_name;
+	hh_irq_handle_fn_v2 v2_handle;
 	hh_irq_handle_fn handle;
 	void *data;
 
 	enum {
-		/* start state */
 		HH_IRQ_STATE_NONE,
-		/* NONE -> WAIT_RELEASE by hh_irq_lend */
-		HH_IRQ_STATE_WAIT_RELEASE,
-		/* NONE -> WAIT_LEND by hh_irq_wait_lend */
+
+		HH_IRQ_STATE_WAIT_RELEASE_OR_ACCEPT,
 		HH_IRQ_STATE_WAIT_LEND,
-		/* WAIT_RELEASE -> RELEASED by notifier */
-		/* RELEASED -> NONE by hh_irq_reclaim */
-		HH_IRQ_STATE_RELEASED,
-		/* WAIT_LEND -> LENT by notifier */
-		/* LENT -> NONE by hh_irq_release */
-		HH_IRQ_STATE_LENT,
+
+		/* notification states */
+		HH_IRQ_STATE_RELEASED, /* svm -> pvm */
+		HH_IRQ_STATE_ACCEPTED, /* svm -> pvm */
+		HH_IRQ_STATE_LENT, /* pvm -> svm */
 	} state;
 	hh_virq_handle_t virq_handle;
 };
@@ -40,31 +38,50 @@ struct hh_irq_entry {
 static struct hh_irq_entry hh_irq_entries[HH_IRQ_LABEL_MAX];
 static DEFINE_SPINLOCK(hh_irq_lend_lock);
 
-static int hh_irq_released_nb_handler(struct notifier_block *this,
+static int hh_irq_released_accepted_nb_handler(struct notifier_block *this,
 				      unsigned long cmd, void *data)
 {
 	unsigned long flags;
 	enum hh_irq_label label;
 	struct hh_irq_entry *entry;
-	struct hh_rm_notif_vm_irq_released_payload *released = data;
+	struct hh_rm_notif_vm_irq_released_payload *released;
+	struct hh_rm_notif_vm_irq_accepted_payload *accepted;
 
-	if (cmd != HH_RM_NOTIF_VM_IRQ_RELEASED)
+	if (cmd != HH_RM_NOTIF_VM_IRQ_RELEASED &&
+			cmd != HH_RM_NOTIF_VM_IRQ_ACCEPTED)
 		return NOTIFY_DONE;
 
 	spin_lock_irqsave(&hh_irq_lend_lock, flags);
 	for (label = 0; label < HH_IRQ_LABEL_MAX; label++) {
 		entry = &hh_irq_entries[label];
-		if (entry->state != HH_IRQ_STATE_WAIT_RELEASE)
+
+		if (entry->state != HH_IRQ_STATE_WAIT_RELEASE_OR_ACCEPT &&
+					entry->state != HH_IRQ_STATE_ACCEPTED)
 			continue;
 
-		if (released->virq_handle == entry->virq_handle) {
-			entry->state = HH_IRQ_STATE_RELEASED;
-			spin_unlock_irqrestore(&hh_irq_lend_lock,
-				flags);
+		switch (cmd) {
+		case HH_RM_NOTIF_VM_IRQ_RELEASED:
+			released = data;
+			if (released->virq_handle == entry->virq_handle) {
+				entry->state = HH_IRQ_STATE_RELEASED;
+				spin_unlock_irqrestore(&hh_irq_lend_lock,
+									flags);
+				entry->v2_handle(entry->data, cmd, label);
+				return NOTIFY_OK;
+			}
 
-			entry->handle(entry->data, label);
+			break;
+		case HH_RM_NOTIF_VM_IRQ_ACCEPTED:
+			accepted = data;
+			if (accepted->virq_handle == entry->virq_handle) {
+				entry->state = HH_IRQ_STATE_ACCEPTED;
+				spin_unlock_irqrestore(&hh_irq_lend_lock,
+									flags);
+				entry->v2_handle(entry->data, cmd, label);
+				return NOTIFY_OK;
+			}
 
-			return NOTIFY_OK;
+			break;
 		}
 	}
 	spin_unlock_irqrestore(&hh_irq_lend_lock, flags);
@@ -72,8 +89,8 @@ static int hh_irq_released_nb_handler(struct notifier_block *this,
 	return NOTIFY_DONE;
 }
 
-static struct notifier_block hh_irq_released_nb = {
-	.notifier_call = hh_irq_released_nb_handler,
+static struct notifier_block hh_irq_released_accepted_nb = {
+	.notifier_call = hh_irq_released_accepted_nb_handler,
 };
 
 static int hh_irq_lent_nb_handler(struct notifier_block *this,
@@ -99,7 +116,8 @@ static int hh_irq_lent_nb_handler(struct notifier_block *this,
 	spin_lock_irqsave(&hh_irq_lend_lock, flags);
 	for (label = 0; label < HH_IRQ_LABEL_MAX; label++) {
 		entry = &hh_irq_entries[label];
-		if (entry->state != HH_IRQ_STATE_WAIT_LEND)
+		if (entry->state != HH_IRQ_STATE_WAIT_LEND &&
+				entry->state != HH_IRQ_STATE_LENT)
 			continue;
 
 		if (label == lent->virq_label &&
@@ -112,7 +130,7 @@ static int hh_irq_lent_nb_handler(struct notifier_block *this,
 			spin_unlock_irqrestore(&hh_irq_lend_lock,
 					       flags);
 
-			entry->handle(entry->data, label);
+			entry->v2_handle(entry->data, cmd, label);
 
 			return NOTIFY_OK;
 		}
@@ -127,22 +145,24 @@ static struct notifier_block hh_irq_lent_nb = {
 };
 
 /**
- * hh_irq_lend: Lend a hardware interrupt to another VM
+ * hh_irq_lend_v2: Lend a hardware interrupt to another VM
  * @label: vIRQ high-level label
  * @name: VM name to send interrupt to
  * @irq: Linux IRQ number to lend
- * @on_release: callback to invoke when other VM returns the
- *              interrupt
- * @data: Argument to pass to on_release
+ * @cb_handle: callback to invoke when other VM release or accept the interrupt
+ * @data: Argument to pass to cb_handle
+ *
+ * Returns 0 on success also the handle corresponding to Linux IRQ#.
+ * Returns < 0 on error
  */
-int hh_irq_lend(enum hh_irq_label label, enum hh_vm_names name,
-		int irq, hh_irq_handle_fn on_release, void *data)
+int hh_irq_lend_v2(enum hh_irq_label label, enum hh_vm_names name,
+		int irq, hh_irq_handle_fn_v2 cb_handle, void *data)
 {
 	int ret, virq;
 	unsigned long flags;
 	struct hh_irq_entry *entry;
 
-	if (label >= HH_IRQ_LABEL_MAX || !on_release)
+	if (label >= HH_IRQ_LABEL_MAX || !cb_handle)
 		return -EINVAL;
 
 	entry = &hh_irq_entries[label];
@@ -163,15 +183,61 @@ int hh_irq_lend(enum hh_irq_label label, enum hh_vm_names name,
 		return ret;
 	}
 
-	entry->handle = on_release;
+	entry->v2_handle = cb_handle;
 	entry->data = data;
-	entry->state = HH_IRQ_STATE_WAIT_RELEASE;
+	entry->state = HH_IRQ_STATE_WAIT_RELEASE_OR_ACCEPT;
 	spin_unlock_irqrestore(&hh_irq_lend_lock, flags);
 
-	return hh_rm_vm_irq_lend_notify(entry->vmid, virq, label,
-		&entry->virq_handle);
+	return hh_rm_vm_irq_lend(entry->vmid, virq, label, &entry->virq_handle);
+}
+EXPORT_SYMBOL(hh_irq_lend_v2);
+
+/**
+ * hh_irq_lend: Lend a hardware interrupt to another VM
+ * @label: vIRQ high-level label
+ * @name: VM name to send interrupt to
+ * @irq: Linux IRQ number to lend
+ * @cb_handle: callback to invoke when other VM release or accept the interrupt
+ * @data: Argument to pass to cb_handle
+ *
+ * Returns 0 on success also the handle corresponding to Linux IRQ#.
+ * Returns < 0 on error
+ */
+int hh_irq_lend(enum hh_irq_label label, enum hh_vm_names name,
+		int irq, hh_irq_handle_fn cb_handle, void *data)
+{
+	struct hh_irq_entry *entry;
+
+	if (label >= HH_IRQ_LABEL_MAX || !cb_handle)
+		return -EINVAL;
+
+	entry = &hh_irq_entries[label];
+	entry->handle = cb_handle;
+
+	return 0;
 }
 EXPORT_SYMBOL(hh_irq_lend);
+
+/**
+ * hh_irq_lend_notify: Pass the irq handle to other VM for accept
+ * @label: vIRQ high-level label
+ *
+ * Returns 0 on success, < 0 on error
+ */
+int hh_irq_lend_notify(enum hh_irq_label label)
+{
+	struct hh_irq_entry *entry;
+
+	if (label >= HH_IRQ_LABEL_MAX)
+		return -EINVAL;
+
+	entry = &hh_irq_entries[label];
+	if (entry->state == HH_IRQ_STATE_NONE)
+		return -EINVAL;
+
+	return hh_rm_vm_irq_lend_notify(entry->vmid, entry->virq_handle);
+}
+EXPORT_SYMBOL(hh_irq_lend_notify);
 
 /**
  * hh_irq_reclaim: Reclaim a hardware interrupt after other VM
@@ -193,7 +259,8 @@ int hh_irq_reclaim(enum hh_irq_label label)
 
 	entry = &hh_irq_entries[label];
 
-	if (entry->state != HH_IRQ_STATE_RELEASED)
+	if (entry->state != HH_IRQ_STATE_WAIT_RELEASE_OR_ACCEPT &&
+			(entry->state != HH_IRQ_STATE_RELEASED))
 		return -EINVAL;
 
 	ret = hh_rm_vm_irq_reclaim(entry->virq_handle);
@@ -204,15 +271,14 @@ int hh_irq_reclaim(enum hh_irq_label label)
 EXPORT_SYMBOL(hh_irq_reclaim);
 
 /**
- * hh_irq_wait_lend: Register to claim a lent interrupt from another
- * VM
+ * hh_irq_wait_for_lend_v2: Register to claim a lent interrupt from another VM
  * @label: vIRQ high-level label
  * @name: Lender's VM name. If don't care, then use HH_VM_MAX
  * @on_lend: callback to invoke when other VM lends the interrupt
  * @data: Argument to pass to on_lend
  */
-int hh_irq_wait_for_lend(enum hh_irq_label label, enum hh_vm_names name,
-			 hh_irq_handle_fn on_lend, void *data)
+int hh_irq_wait_for_lend_v2(enum hh_irq_label label, enum hh_vm_names name,
+			 hh_irq_handle_fn_v2 on_lend, void *data)
 {
 	unsigned long flags;
 	struct hh_irq_entry *entry;
@@ -229,11 +295,25 @@ int hh_irq_wait_for_lend(enum hh_irq_label label, enum hh_vm_names name,
 	}
 
 	entry->vm_name = name;
-	entry->handle = on_lend;
+	entry->v2_handle = on_lend;
 	entry->data = data;
 	entry->state = HH_IRQ_STATE_WAIT_LEND;
 	spin_unlock_irqrestore(&hh_irq_lend_lock, flags);
 
+	return 0;
+}
+EXPORT_SYMBOL(hh_irq_wait_for_lend_v2);
+
+/**
+ * hh_irq_wait_lend: Register to claim a lent interrupt from another VM
+ * @label: vIRQ high-level label
+ * @name: Lender's VM name. If don't care, then use HH_VM_MAX
+ * @on_lend: callback to invoke when other VM lends the interrupt
+ * @data: Argument to pass to on_lend
+ */
+int hh_irq_wait_for_lend(enum hh_irq_label label, enum hh_vm_names name,
+			 hh_irq_handle_fn on_lend, void *data)
+{
 	return 0;
 }
 EXPORT_SYMBOL(hh_irq_wait_for_lend);
@@ -276,9 +356,37 @@ int hh_irq_accept(enum hh_irq_label label, int irq, int type)
 	if (irq == -1)
 		irq = hh_rm_virq_to_irq(virq, type);
 
+	entry->state = HH_IRQ_STATE_ACCEPTED;
 	return irq;
 }
 EXPORT_SYMBOL(hh_irq_accept);
+
+/**
+ * hh_irq_accept_notify: Notify the lend vm (pvm) that IRQ is accepted
+ * @label: vIRQ high-level label
+ * @irq: Linux IRQ# to associate vIRQ with. If don't care, use -1
+ *
+ * Returns the Linux IRQ# that vIRQ was registered to on success.
+ * Returns <0 on error
+ * This function is not thread-safe w.r.t. IRQ lend state. Do not race with
+ * hh_irq_release or another hh_irq_accept with same label.
+ */
+int hh_irq_accept_notify(enum hh_irq_label label)
+{
+	struct hh_irq_entry *entry;
+
+	if (label >= HH_IRQ_LABEL_MAX)
+		return -EINVAL;
+
+	entry = &hh_irq_entries[label];
+
+	if (entry->state != HH_IRQ_STATE_ACCEPTED)
+		return -EINVAL;
+
+	return hh_rm_vm_irq_accept_notify(entry->vmid,
+					  entry->virq_handle);
+}
+EXPORT_SYMBOL(hh_irq_accept_notify);
 
 /**
  * hh_irq_release: Release a lent interrupt
@@ -296,16 +404,33 @@ int hh_irq_release(enum hh_irq_label label)
 
 	entry = &hh_irq_entries[label];
 
-	if (entry->state != HH_IRQ_STATE_LENT)
+	if (entry->state != HH_IRQ_STATE_ACCEPTED)
 		return -EINVAL;
 
-	ret = hh_rm_vm_irq_release_notify(entry->vmid,
-					  entry->virq_handle);
+	ret = hh_rm_vm_irq_release(entry->virq_handle);
 	if (!ret)
 		entry->state = HH_IRQ_STATE_WAIT_LEND;
 	return ret;
 }
 EXPORT_SYMBOL(hh_irq_release);
+
+int hh_irq_release_notify(enum hh_irq_label label)
+{
+	struct hh_irq_entry *entry;
+
+	if (label >= HH_IRQ_LABEL_MAX)
+		return -EINVAL;
+
+	entry = &hh_irq_entries[label];
+
+	if (entry->state != HH_IRQ_STATE_ACCEPTED &&
+			entry->state != HH_IRQ_STATE_WAIT_LEND)
+		return -EINVAL;
+
+	return hh_rm_vm_irq_release_notify(entry->vmid,
+					  entry->virq_handle);
+}
+EXPORT_SYMBOL(hh_irq_release_notify);
 
 static int __init hh_irq_lend_init(void)
 {
@@ -314,14 +439,15 @@ static int __init hh_irq_lend_init(void)
 	ret = hh_rm_register_notifier(&hh_irq_lent_nb);
 	if (ret)
 		return ret;
-	return hh_rm_register_notifier(&hh_irq_released_nb);
+
+	return hh_rm_register_notifier(&hh_irq_released_accepted_nb);
 }
 module_init(hh_irq_lend_init);
 
 static void hh_irq_lend_exit(void)
 {
 	hh_rm_unregister_notifier(&hh_irq_lent_nb);
-	hh_rm_unregister_notifier(&hh_irq_released_nb);
+	hh_rm_unregister_notifier(&hh_irq_released_accepted_nb);
 }
 module_exit(hh_irq_lend_exit);
 
