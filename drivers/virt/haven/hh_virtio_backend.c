@@ -20,6 +20,7 @@
 #include <linux/wait.h>
 #include <linux/poll.h>
 #include <linux/file.h>
+#include <linux/workqueue.h>
 #include <linux/eventfd.h>
 #include <linux/platform_device.h>
 #include <linux/uaccess.h>
@@ -91,6 +92,7 @@ struct irq_context {
 	wait_queue_entry_t wait;
 	poll_table pt;
 	struct fd fd;
+	struct work_struct shutdown_work;
 };
 
 struct virtio_backend_device {
@@ -154,35 +156,40 @@ static void vb_dev_put(struct virtio_backend_device *vb_dev)
 	spin_unlock(&vm->vb_dev_lock);
 }
 
+static void
+irqfd_shutdown(struct work_struct *work)
+{
+	struct irq_context *irq = container_of(work,
+				struct irq_context, shutdown_work);
+	struct virtio_backend_device *vb_dev;
+	unsigned long iflags;
+	u64 isr;
+
+	vb_dev = container_of(irq, struct virtio_backend_device, irq);
+
+	spin_lock_irqsave(&vb_dev->lock, iflags);
+	eventfd_ctx_remove_wait_queue(irq->ctx, &irq->wait, &isr);
+	eventfd_ctx_put(irq->ctx);
+	fdput(irq->fd);
+	irq->ctx = NULL;
+	irq->fd.file = NULL;
+	spin_unlock_irqrestore(&vb_dev->lock, iflags);
+}
+
 static int vb_dev_irqfd_wakeup(wait_queue_entry_t *wait, unsigned int mode,
 							int sync, void *key)
 {
 	struct irq_context *irq = container_of(wait, struct irq_context, wait);
 	struct virtio_backend_device *vb_dev;
 	__poll_t flags = key_to_poll(key);
-	ssize_t ret;
-	u64 isr;
-	unsigned long iflags;
 
 	vb_dev = container_of(irq, struct virtio_backend_device, irq);
 
-	if (flags & EPOLLIN) {
-		ret = kernel_read(irq->fd.file, &isr, sizeof(isr), NULL);
-		if (ret != sizeof(isr))
-			return 0;
+	if (flags & EPOLLIN)
+		assert_virq(vb_dev->cap_id, 1);
 
-		assert_virq(vb_dev->cap_id, isr);
-	}
-
-	if (flags & EPOLLHUP) {
-		spin_lock_irqsave(&vb_dev->lock, iflags);
-		eventfd_ctx_remove_wait_queue(irq->ctx, &irq->wait, &isr);
-		eventfd_ctx_put(irq->ctx);
-		fdput(irq->fd);
-		irq->ctx = NULL;
-		irq->fd.file = NULL;
-		spin_unlock_irqrestore(&vb_dev->lock, iflags);
-	}
+	if (flags & EPOLLHUP)
+		queue_work(system_wq, &irq->shutdown_work);
 
 	return 0;
 }
@@ -226,6 +233,7 @@ static int vb_dev_irqfd(struct virtio_backend_device *vb_dev,
 	spin_unlock_irqrestore(&vb_dev->lock, flags);
 
 	init_waitqueue_func_entry(&vb_dev->irq.wait, vb_dev_irqfd_wakeup);
+	INIT_WORK(&vb_dev->irq.shutdown_work, irqfd_shutdown);
 	init_poll_funcptr(&vb_dev->irq.pt, vb_dev_irqfd_ptable_queue_proc);
 	events = vfs_poll(f.file, &vb_dev->irq.pt);
 	if (events & EPOLLIN)
