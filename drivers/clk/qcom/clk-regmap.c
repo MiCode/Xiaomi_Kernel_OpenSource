@@ -10,6 +10,7 @@
 #include <linux/pm_runtime.h>
 
 #include "clk-regmap.h"
+#include "clk-debug.h"
 
 static LIST_HEAD(clk_regmap_list);
 
@@ -279,8 +280,10 @@ int devm_clk_register_regmap(struct device *dev, struct clk_regmap *rclk)
 		rclk->regmap = dev_get_regmap(dev->parent, NULL);
 
 	ret = devm_clk_hw_register(dev, &rclk->hw);
-	if (!ret)
+	if (!ret) {
 		list_add(&rclk->list_node, &clk_regmap_list);
+		ret = clk_hw_debug_register(dev, &rclk->hw);
+	}
 
 	return ret;
 }
