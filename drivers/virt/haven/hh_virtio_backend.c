@@ -1311,7 +1311,8 @@ static int hh_virtio_mmio_init(hh_vmid_t vmid, const char *vm_name, hh_label_t l
 {
 	struct virt_machine *vm;
 	struct virtio_backend_device *vb_dev;
-	int i, ret;
+	int i, ret, nr_words;
+	u32 *p, *q;
 
 	if (strnlen(vm_name, MAX_VM_NAME) == MAX_VM_NAME) {
 		pr_err("%s: VM name %s too long\n", __func__, vm_name);
@@ -1376,8 +1377,12 @@ static int hh_virtio_mmio_init(hh_vmid_t vmid, const char *vm_name, hh_label_t l
 		return -ENOMEM;
 	}
 
-	memcpy(vb_dev->config_shared_buf, vb_dev->config_data,
-				vb_dev->config_size);
+	p = (u32 *)vb_dev->config_shared_buf;
+	q = (u32 *)vb_dev->config_data;
+	nr_words = vb_dev->config_size / 4;
+
+	for (i = 0; i < nr_words; ++i)
+		writel_relaxed(*q++, p++);
 
 	/* Read lower and higher 32 bit feature bits */
 	for (i = 0; i < 2; ++i) {
