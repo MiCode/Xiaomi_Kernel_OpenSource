@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021 The Linux Foundation. All rights reserved.
  */
 #define pr_fmt(fmt) "SMB358 %s: " fmt, __func__
 #include <linux/i2c.h>
@@ -22,7 +22,7 @@
 #include <linux/iio/iio.h>
 #include <linux/iio/consumer.h>
 #include <dt-bindings/iio/qcom,spmi-vadc.h>
-#include <linux/extcon.h>
+#include <linux/extcon-provider.h>
 
 #define _SMB358_MASK(BITS, POS) \
 	((unsigned char)(((1 << (BITS)) - 1) << (POS)))
@@ -914,7 +914,7 @@ static int smb358_hw_init(struct smb358_charger *chip)
 static enum power_supply_property smb358_battery_properties[] = {
 	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_PRESENT,
-	POWER_SUPPLY_PROP_CHARGING_ENABLED,
+	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT,
 	POWER_SUPPLY_PROP_CHARGE_TYPE,
 	POWER_SUPPLY_PROP_CAPACITY,
 	POWER_SUPPLY_PROP_HEALTH,
@@ -990,7 +990,7 @@ static int smb358_get_prop_charge_type(struct smb358_charger *chip)
 	if (reg == STATUS_C_FAST_CHARGING)
 		return POWER_SUPPLY_CHARGE_TYPE_FAST;
 	else if (reg == STATUS_C_TAPER_CHARGING)
-		return POWER_SUPPLY_CHARGE_TYPE_TAPER;
+		return POWER_SUPPLY_CHARGE_TYPE_ADAPTIVE;
 	else if (reg == STATUS_C_PRE_CHARGING)
 		return POWER_SUPPLY_CHARGE_TYPE_TRICKLE;
 	else
@@ -1147,7 +1147,7 @@ smb358_batt_property_is_writeable(struct power_supply *psy,
 					enum power_supply_property psp)
 {
 	switch (psp) {
-	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
 	case POWER_SUPPLY_PROP_CAPACITY:
 		return 1;
 	default:
@@ -1210,7 +1210,7 @@ static int smb358_battery_set_property(struct power_supply *psy,
 			return -EINVAL;
 		}
 		break;
-	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
 		smb358_charging_disable(chip, USER, !val->intval);
 		smb358_path_suspend(chip, USER, !val->intval);
 		break;
@@ -1241,7 +1241,7 @@ static int smb358_battery_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CAPACITY:
 		val->intval = smb358_get_prop_batt_capacity(chip);
 		break;
-	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
 		val->intval = !(chip->charging_disabled_status & USER);
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_TYPE:
@@ -1283,6 +1283,21 @@ static void smb358_set_cable_id(struct smb358_charger *chip,
 		extcon_set_state_sync(chip->extcon, EXTCON_USB, state);
 
 	chip->cable_id = id;
+}
+
+static void smb358_update_desc_type(struct smb358_charger *chip)
+{
+	switch (chip->charger_type) {
+	case POWER_SUPPLY_TYPE_USB_CDP:
+	case POWER_SUPPLY_TYPE_USB_DCP:
+	case POWER_SUPPLY_TYPE_USB:
+	case POWER_SUPPLY_TYPE_USB_ACA:
+		chip->usb_psy_d.type = chip->charger_type;
+		break;
+	default:
+		chip->usb_psy_d.type = POWER_SUPPLY_TYPE_USB;
+		break;
+	}
 }
 
 static int apsd_complete(struct smb358_charger *chip, u8 status)
@@ -1360,6 +1375,7 @@ static int apsd_complete(struct smb358_charger *chip, u8 status)
 		dev_dbg(chip->dev, "Failed to set USB current rc=%d\n", rc);
 
 	smb358_set_cable_id(chip, id, true);
+	smb358_update_desc_type(chip);
 
 	return 0;
 }
@@ -2264,14 +2280,43 @@ static char *smb358_usb_supplicants[] = {
 	"bms",
 };
 
+static enum power_supply_usb_type smb358_usb_psy_supported_types[] = {
+	POWER_SUPPLY_USB_TYPE_UNKNOWN,
+	POWER_SUPPLY_USB_TYPE_SDP,
+	POWER_SUPPLY_USB_TYPE_CDP,
+	POWER_SUPPLY_USB_TYPE_DCP,
+	POWER_SUPPLY_USB_TYPE_ACA,
+};
+
 static enum power_supply_property smb358_usb_properties[] = {
 	POWER_SUPPLY_PROP_PRESENT,
 	POWER_SUPPLY_PROP_ONLINE,
 	POWER_SUPPLY_PROP_CURRENT_MAX,
-	POWER_SUPPLY_PROP_SDP_CURRENT_MAX,
-	POWER_SUPPLY_PROP_TYPE,
-	POWER_SUPPLY_PROP_REAL_TYPE,
+	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT,
+	POWER_SUPPLY_PROP_USB_TYPE,
 };
+
+static void smb358_get_usb_type(struct smb358_charger *chip,
+					union power_supply_propval *val)
+{
+	switch (chip->charger_type) {
+	case POWER_SUPPLY_TYPE_USB_CDP:
+		val->intval = POWER_SUPPLY_USB_TYPE_CDP;
+		break;
+	case POWER_SUPPLY_TYPE_USB_DCP:
+		val->intval = POWER_SUPPLY_USB_TYPE_DCP;
+		break;
+	case POWER_SUPPLY_TYPE_USB:
+		val->intval = POWER_SUPPLY_USB_TYPE_SDP;
+		break;
+	case POWER_SUPPLY_TYPE_USB_ACA:
+		val->intval = POWER_SUPPLY_USB_TYPE_ACA;
+		break;
+	default:
+		val->intval = POWER_SUPPLY_USB_TYPE_UNKNOWN;
+		break;
+	}
+}
 
 static int smb358_usb_get_property(struct power_supply *psy,
 				enum power_supply_property psp,
@@ -2281,7 +2326,7 @@ static int smb358_usb_get_property(struct power_supply *psy,
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
-	case POWER_SUPPLY_PROP_SDP_CURRENT_MAX:
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
 		val->intval = chip->usb_psy_ma * 1000;
 		break;
 	case POWER_SUPPLY_PROP_PRESENT:
@@ -2290,14 +2335,8 @@ static int smb358_usb_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_ONLINE:
 		val->intval = chip->chg_present && !chip->usb_suspended;
 		break;
-	case POWER_SUPPLY_PROP_TYPE:
-		val->intval = chip->charger_type;
-		break;
-	case POWER_SUPPLY_PROP_REAL_TYPE:
-		if (chip->charger_type == POWER_SUPPLY_TYPE_UNKNOWN)
-			val->intval = POWER_SUPPLY_TYPE_USB;
-		else
-			val->intval = chip->charger_type;
+	case POWER_SUPPLY_PROP_USB_TYPE:
+		smb358_get_usb_type(chip, val);
 		break;
 	default:
 		return -EINVAL;
@@ -2313,7 +2352,7 @@ static int smb358_usb_set_property(struct power_supply *psy,
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
-	case POWER_SUPPLY_PROP_SDP_CURRENT_MAX:
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
 		chip->usb_psy_ma = val->intval / 1000;
 		smb358_enable_volatile_writes(chip);
 		smb358_set_usb_chg_current(chip, chip->usb_psy_ma);
@@ -2414,6 +2453,8 @@ static int smb358_charger_probe(struct i2c_client *client,
 	chip->usb_psy_d.get_property = smb358_usb_get_property;
 	chip->usb_psy_d.set_property = smb358_usb_set_property;
 	chip->usb_psy_d.properties = smb358_usb_properties;
+	chip->usb_psy_d.usb_types  = smb358_usb_psy_supported_types,
+	chip->usb_psy_d.num_usb_types = ARRAY_SIZE(smb358_usb_psy_supported_types);
 	chip->usb_psy_d.num_properties = ARRAY_SIZE(smb358_usb_properties);
 	chip->usb_psy_d.property_is_writeable = smb358_usb_is_writeable;
 
