@@ -26,6 +26,7 @@ mem-offline.ko
 phy-qcom-emu.ko
 arm_smmu.ko
 qcom_iommu_util.ko
+iommu-logger.ko
 pinctrl-msm.ko
 pinctrl-waipio.ko
 qcom-scm.ko

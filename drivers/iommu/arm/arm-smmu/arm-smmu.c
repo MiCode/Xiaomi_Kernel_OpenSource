@@ -1628,8 +1628,10 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	iop = container_of(pgtbl_ops, struct io_pgtable, ops);
 	ret = iommu_logger_register(&smmu_domain->logger, domain,
 				    smmu_domain->dev, iop);
-	if (ret)
+	if (ret) {
+		dev_err(dev, "Log registration failed\n");
 		goto out_clear_smmu;
+	}
 
 	ret = arm_smmu_get_dma_cookie(dev, smmu_domain, pgtbl_ops);
 	if (ret)
