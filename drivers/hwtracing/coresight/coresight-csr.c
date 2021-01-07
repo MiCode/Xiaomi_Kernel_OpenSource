@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2013, 2015-2017, 2019-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, 2015-2017, 2019-2021 The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -71,6 +71,13 @@ do {									\
 #define BLKSIZE_2048		3
 
 #define FLUSHPERIOD_2048	0x800
+
+#define CSR_ATID_REG_OFFSET(atid, atid_offset) \
+		((atid / 32) * 4 + atid_offset)
+
+#define CSR_ATID_REG_BIT(atid)	(atid % 32)
+#define CSR_MAX_ATID	128
+#define CSR_ATID_REG_SIZE	0xc
 
 struct csr_drvdata {
 	void __iomem		*base;
@@ -281,6 +288,52 @@ void coresight_csr_set_byte_cntr(struct coresight_csr *csr, uint32_t count)
 	spin_unlock_irqrestore(&drvdata->spin_lock, flags);
 }
 EXPORT_SYMBOL(coresight_csr_set_byte_cntr);
+
+int coresight_csr_set_etr_atid(struct coresight_csr *csr,
+			uint32_t atid_offset, uint32_t atid,
+			bool enable)
+{
+	struct csr_drvdata *drvdata;
+	unsigned long flags;
+	uint32_t reg_offset;
+	int bit;
+	uint32_t val;
+
+	if (csr == NULL)
+		return -EINVAL;
+
+	drvdata = to_csr_drvdata(csr);
+	if (IS_ERR_OR_NULL(drvdata))
+		return -EINVAL;
+
+	if (atid < 0 || atid_offset <= 0)
+		return -EINVAL;
+
+	spin_lock_irqsave(&drvdata->spin_lock, flags);
+	CSR_UNLOCK(drvdata);
+
+	reg_offset = CSR_ATID_REG_OFFSET(atid, atid_offset);
+	bit = CSR_ATID_REG_BIT(atid);
+	if (reg_offset - atid_offset > CSR_ATID_REG_SIZE
+		|| bit >= CSR_MAX_ATID) {
+		CSR_LOCK(drvdata);
+		spin_unlock_irqrestore(&drvdata->spin_lock, flags);
+		return -EINVAL;
+	}
+
+	val = csr_readl(drvdata, reg_offset);
+	if (enable)
+		val = val | BIT(bit);
+	else
+		val = val & ~BIT(bit);
+	csr_writel(drvdata, val, reg_offset);
+
+	CSR_LOCK(drvdata);
+	spin_unlock_irqrestore(&drvdata->spin_lock, flags);
+
+	return 0;
+}
+EXPORT_SYMBOL(coresight_csr_set_etr_atid);
 
 struct coresight_csr *coresight_csr_get(const char *name)
 {
