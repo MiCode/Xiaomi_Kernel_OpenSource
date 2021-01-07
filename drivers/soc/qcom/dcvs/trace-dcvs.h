@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #if !defined(_TRACE_DCVS_H) || defined(TRACE_HEADER_MULTI_READ)
@@ -11,6 +11,47 @@
 
 #include <linux/tracepoint.h>
 #include <soc/qcom/dcvs.h>
+
+TRACE_EVENT(qcom_dcvs_update,
+
+	TP_PROTO(const char *name, int hw, int path, unsigned long ib,
+		 unsigned long path_ib, unsigned long ab, unsigned long path_ab,
+		 unsigned long boost_freq),
+
+	TP_ARGS(name, hw, path, ib, path_ib, ab, path_ab, boost_freq),
+
+	TP_STRUCT__entry(
+		__string(name, name)
+		__field(int, hw)
+		__field(int, path)
+		__field(unsigned long, ib)
+		__field(unsigned long, path_ib)
+		__field(unsigned long, ab)
+		__field(unsigned long, path_ab)
+		__field(unsigned long, boost_freq)
+	),
+
+	TP_fast_assign(
+		__assign_str(name, name);
+		__entry->hw = hw;
+		__entry->path = path;
+		__entry->ib = ib;
+		__entry->path_ib = path_ib;
+		__entry->ab = ab;
+		__entry->path_ab = path_ab;
+		__entry->boost_freq = boost_freq;
+	),
+
+	TP_printk("name=%s hw=%d path=%d ib=%lu path_ib=%lu ab=%lu path_ab=%lu boost=%lu",
+		__get_str(name),
+		__entry->hw,
+		__entry->path,
+		__entry->ib,
+		__entry->path_ib,
+		__entry->ab,
+		__entry->path_ab,
+		__entry->boost_freq)
+);
 
 TRACE_EVENT(memlat_dev_meas,
 
