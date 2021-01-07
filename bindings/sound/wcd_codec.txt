@@ -229,6 +229,52 @@ Example:
 	};
 };
 
+WSA2 macro in LPASS codec
+
+Required properties:
+ - compatible = "qcom,lpass-cdc-wsa2-macro";
+ - reg: Specifies the WSA2 macro base address for LPASS codec
+	soundwire core registers.
+ - clock-names : clock names defined for WSA2 macro
+ - clocks : clock handles defined for WSA2  macro
+ - qcom,default-clk-id: Default clk ID used for WSA2 macro
+ - qcom,wsa-swr-gpios: phandle for SWR data and clock GPIOs of WSA2 macro
+ - qcom,wsa-bcl-pmic-params: u8 array of PMIC ID, SID and PPID in same order
+			 required to be configured to receive interrupts
+			 in BCL block of WSA2 macro
+
+WSA2 slave device as child of LPASS codec
+
+Required properties:
+ - compatible = "qcom,wsa881x";
+ - reg: Specifies the WSA2 slave device base address.
+ - qcom,spkr-sd-n-gpio: speaker reset gpio
+
+Optional properties:
+ - qcom,lpass-cdc-handle: phandle to LPASS codec
+
+Example:
+
+&lpass_cdc {
+	wsa2_macro: wsa2-macro {
+		compatible = "qcom,lpass-cdc-wsa2-macro";
+		reg = <0x0C2C0000 0x0>;
+		qcom,wsa-swr-gpios = <&wsa2_swr_gpios>;
+		qcom,wsa-bcl-pmic-params = /bits/ 8 <0x00 0x03 0x48>;
+		qcom,default-clk-id = <TX_CORE_CLK>;
+		qcom,thermal-max-state = <11>;
+		swr_3: wsa_swr_master {
+			compatible = "qcom,swr-mstr";
+			wsa881x_1: wsa881x@20170212 {
+				compatible = "qcom,wsa881x";
+				reg = <0x00 0x20170212>;
+				qcom,spkr-sd-n-gpio = <&tlmm 80 0>;
+				qcom,lpass-cdc-handle = <&lpass_cdc>;
+			};
+		};
+	};
+};
+
 VA macro in LPASS codec
 
 Required properties:

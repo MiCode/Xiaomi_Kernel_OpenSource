@@ -16,6 +16,7 @@
 		iommus = <&apps_smmu 0x1801 0x0>;
 		qcom,iommu-dma-addr-pool = <0x10000000 0x10000000>;
 		qcom,smmu-sid-mask = /bits/ 64 <0xf>;
+		dma-coherent;
 	};
 
 	lpass_core_hw_vote: vote_lpass_core_hw {
@@ -91,6 +92,11 @@
 
 		wsa_macro: wsa-macro@3240000 {
 			swr0: wsa_swr_master {
+			};
+		};
+
+		wsa2_macro: wsa2-macro@31E0000 {
+			swr3: wsa2_swr_master {
 			};
 		};
 	};
