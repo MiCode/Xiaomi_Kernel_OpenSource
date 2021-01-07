@@ -356,7 +356,7 @@
 		"Digital Mic0", "VA MIC BIAS3",
 		"Digital Mic1", "VA MIC BIAS1",
 		"Digital Mic2", "VA MIC BIAS1",
-		"Digital Mic3", "VA MIC BIAS3",;
+		"Digital Mic3", "VA MIC BIAS3";
 	qcom,msm-mbhc-usbc-audio-supported = <0>;
 	qcom,msm-mbhc-hphl-swh = <1>;
 	qcom,msm-mbhc-gnd-swh = <1>;
@@ -482,14 +482,14 @@
 		pinctrl-1 = <&spkr_2_sd_n_sleep>;
 	};
 
-	wsa2_spkr_en1: wsa_spkr_en1_pinctrl {
+	wsa2_spkr_en1: wsa2_spkr_en1_pinctrl {
 		compatible = "qcom,msm-cdc-pinctrl";
 		pinctrl-names = "aud_active", "aud_sleep";
 		pinctrl-0 = <&spkr2_1_sd_n_active>;
 		pinctrl-1 = <&spkr2_1_sd_n_sleep>;
 	};
 
-	wsa2_spkr_en2: wsa_spkr_en2_pinctrl {
+	wsa2_spkr_en2: wsa2_spkr_en2_pinctrl {
 		compatible = "qcom,msm-cdc-pinctrl";
 		pinctrl-names = "aud_active", "aud_sleep";
 		pinctrl-0 = <&spkr2_2_sd_n_active>;
