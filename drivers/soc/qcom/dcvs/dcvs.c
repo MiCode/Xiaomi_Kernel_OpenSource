@@ -145,6 +145,9 @@ static ssize_t store_boost_freq(struct kobject *kobj,
 	}
 	mutex_unlock(&path->voter_lock);
 
+	trace_qcom_dcvs_boost(hw->type, path->type, hw->boost_freq,
+				new_freq.ib, new_freq.ab);
+
 	return count;
 }
 
