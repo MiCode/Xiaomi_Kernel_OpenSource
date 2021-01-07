@@ -5,8 +5,3 @@
 
 obj-$(CONFIG_NFC_QTI_I2C)	+= nfc_i2c.o
 nfc_i2c-objs:= ese_cold_reset.o nfc_common.o nfc_i2c_drv.o
-
-obj-$(CONFIG_NFC_QTI_I3C)	+= nfc_i3c.o
-nfc_i3c-objs:= ese_cold_reset.o nfc_common.o nfc_i3c_drv.o
-
-obj-$(CONFIG_NFC_QTI_I3C_GPIO)	+= nfc_i3c_gpio_cfg.o

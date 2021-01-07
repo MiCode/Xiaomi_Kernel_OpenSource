@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/of_gpio.h>
@@ -400,9 +400,6 @@ static int nfc_ioctl_power_states(struct nfc_dev *nfc_dev, unsigned long arg)
 		gpio_set_ven(nfc_dev, 1);
 		nfc_dev->nfc_ven_enabled = true;
 
-		if (nfc_dev->interface == PLATFORM_IF_I3C)
-			nfc_dev->i3c_dev.read_hdr = NCI_HDR_LEN;
-
 	} else if (arg == NFC_FW_DWL_VEN_TOGGLE) {
 		/*
 		 * We are switching to download Mode, toggle the enable pin
@@ -434,9 +431,6 @@ static int nfc_ioctl_power_states(struct nfc_dev *nfc_dev, unsigned long arg)
 
 	} else if (arg == NFC_VEN_FORCED_HARD_RESET
 		   && nfc_dev->interface == PLATFORM_IF_I2C) {
-		/*
-		 * TODO: Enable Ven reset for I3C, after hot join integration
-		 */
 
 		gpio_set_value(nfc_dev->gpio.ven, 0);
 		usleep_range(10000, 10100);
@@ -453,12 +447,6 @@ static int nfc_ioctl_power_states(struct nfc_dev *nfc_dev, unsigned long arg)
 		gpio_set_value(nfc_dev->gpio.dwl_req, 0);
 		usleep_range(10000, 10100);
 
-		if (nfc_dev->interface == PLATFORM_IF_I3C)
-			nfc_dev->i3c_dev.read_hdr = NCI_HDR_LEN;
-
-	} else if (arg == NFC_FW_HDR_LEN) {
-		if (nfc_dev->interface == PLATFORM_IF_I3C)
-			nfc_dev->i3c_dev.read_hdr = FW_HDR_LEN;
 	} else if (arg == NFC_ENABLE) {
 		/*
 		 * Setting flag true when NFC is enabled
@@ -655,14 +643,10 @@ int nfcc_hw_check(struct nfc_dev *nfc_dev)
 		goto done;
 	}
 
-	if (nfc_dev->interface == PLATFORM_IF_I3C)
-		nfc_dev->nfc_enable_intr(nfc_dev);
-	else {
-		/* making sure that the NFCC starts in a clean state. */
-		gpio_set_ven(nfc_dev, 1);/* HPD : Enable*/
-		gpio_set_ven(nfc_dev, 0);/* ULPM: Disable */
-		gpio_set_ven(nfc_dev, 1);/* HPD : Enable*/
-	}
+	/* making sure that the NFCC starts in a clean state. */
+	gpio_set_ven(nfc_dev, 1);/* HPD : Enable*/
+	gpio_set_ven(nfc_dev, 0);/* ULPM: Disable */
+	gpio_set_ven(nfc_dev, 1);/* HPD : Enable*/
 
 	nci_reset_cmd[0] = 0x20;
 	nci_reset_cmd[1] = 0x00;
@@ -806,7 +790,7 @@ err_nfcc_reset_failed:
 	ret = 0;
 	nfc_dev->nfc_ven_enabled = true;
 
-	goto disable_i3c_intr;
+	goto done;
 
 err_nfcc_hw_check:
 	if (nfc_dev->interface == PLATFORM_IF_I2C)
@@ -817,9 +801,6 @@ err_nfcc_hw_check:
 	ret = -ENXIO;
 	pr_debug("%s: - NFCC HW not available\n", __func__);
 
-disable_i3c_intr:
-	if (nfc_dev->interface == PLATFORM_IF_I3C)
-		nfc_dev->nfc_disable_intr(nfc_dev);
 done:
 	kfree(nci_reset_rsp);
 	kfree(nci_reset_ntf);

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _NFC_COMMON_H_
@@ -26,7 +26,6 @@
 #include <linux/regulator/consumer.h>
 #include <linux/ipc_logging.h>
 #include "nfc_i2c_drv.h"
-#include "nfc_i3c_drv.h"
 #include "ese_cold_reset.h"
 
 // Max device count for this driver
@@ -150,8 +149,6 @@ enum nfcc_ioctl_request {
 enum interface_flags {
 	/*I2C physical IF for NFCC */
 	PLATFORM_IF_I2C = 0,
-	/*I3C physical IF for NFCC */
-	PLATFORM_IF_I3C,
 };
 
 /*
@@ -211,10 +208,7 @@ struct nfc_dev {
 	bool nfc_ven_enabled;
 	bool is_vreg_enabled;
 	bool is_ese_session_active;
-	union {
-		struct i2c_dev i2c_dev;
-		struct i3c_dev i3c_dev;
-	};
+	struct i2c_dev i2c_dev;
 	struct platform_gpio gpio;
 	struct platform_ldo ldo;
 	struct cold_reset cold_reset;
