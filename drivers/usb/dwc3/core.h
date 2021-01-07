@@ -1008,7 +1008,6 @@ struct dwc3_scratchpad_array {
  * @current_otg_role: current role of operation while using the OTG block
  * @desired_otg_role: desired role of operation while using the OTG block
  * @otg_restart_host: flag that OTG controller needs to restart host
- * @reg_phys: physical base address of dwc3 core register address space
  * @nr_scratch: number of scratch buffers
  * @u1u2: only used on revisions <1.83a for workaround
  * @maximum_speed: maximum speed to operate as requested by sw
@@ -1168,7 +1167,6 @@ struct dwc3 {
 
 	void __iomem		*regs;
 	size_t			regs_size;
-	phys_addr_t		reg_phys;
 
 	enum usb_dr_mode	dr_mode;
 	u32			current_dr_role;

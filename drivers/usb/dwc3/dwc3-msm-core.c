@@ -423,6 +423,7 @@ struct dwc3_msm {
 	struct device *dev;
 	void __iomem *base;
 	void __iomem *ahb2phy_base;
+	phys_addr_t reg_phys;
 	struct platform_device	*dwc3;
 	struct dma_iommu_mapping *iommu_map;
 	const struct usb_ep_ops *original_ep_ops[DWC3_ENDPOINTS_NUM];
@@ -1381,9 +1382,10 @@ static void gsi_get_channel_info(struct usb_ep *ep,
 	int last_trb_index = 0;
 	struct dwc3	*dwc = dep->dwc;
 	struct usb_gsi_request *request = ch_info->ch_req;
+	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
 
 	/* Provide physical USB addresses for DEPCMD and GEVENTCNT registers */
-	ch_info->depcmd_low_addr = (u32)(dwc->reg_phys +
+	ch_info->depcmd_low_addr = (u32)(mdwc->reg_phys +
 				DWC3_DEP_BASE(dep->number) + DWC3_DEPCMD);
 
 	ch_info->depcmd_hi_addr = 0;
@@ -1415,7 +1417,7 @@ static void gsi_get_channel_info(struct usb_ep *ep,
 	/* Store last 16 bits of LINK TRB address as per GSI hw requirement */
 	ch_info->last_trb_addr = (dwc3_trb_dma_offset(dep,
 			&dep->trb_pool[last_trb_index - 1]) & 0x0000FFFF);
-	ch_info->gevntcount_low_addr = (u32)(dwc->reg_phys +
+	ch_info->gevntcount_low_addr = (u32)(mdwc->reg_phys +
 			DWC3_GEVNTCOUNT(request->ep_intr_num));
 	ch_info->gevntcount_hi_addr = 0;
 
@@ -4442,6 +4444,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		goto err;
 	}
 
+	mdwc->reg_phys = res->start;
 	mdwc->base = devm_ioremap(&pdev->dev, res->start,
 			resource_size(res));
 	if (!mdwc->base) {
