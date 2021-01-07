@@ -1525,6 +1525,14 @@
 		#mbox-cells = <1>;
 	};
 
+	qcom,tmecom-qmp-client {
+		compatible = "qcom,tmecom-qmp-client";
+		mboxes = <&qmp_tme 0>;
+		mbox-names = "tmecom";
+		label = "tmecom";
+		depends-on-supply = <&qmp_tme>;
+	};
+
 	qcom,glinkpkt {
 		compatible = "qcom,glinkpkt";
 
