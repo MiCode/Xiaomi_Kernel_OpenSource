@@ -3915,6 +3915,7 @@ static void sdhci_msm_qos_init(struct sdhci_msm_host *msm_host)
 	struct qos_cpu_group *qcg;
 	int i, err, mask = 0;
 
+	return;
 	qr = kzalloc(sizeof(*qr), GFP_KERNEL);
 	if (!qr)
 		return;
