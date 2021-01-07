@@ -50,9 +50,6 @@ struct a2d_s6s_v2 {
 	unsigned int rank0_size_MB, rank0_bg_16bank_mode;
 	unsigned int rank1_row_width, rank1_bank_width, rank1_col_width;
 	unsigned int rank1_size_MB, rank1_bg_16bank_mode;
-
-	unsigned long chab_rk0_sz, chab_rk1_sz;
-	unsigned long chcd_rk0_sz, chcd_rk1_sz;
 };
 
 struct emi_cen {
@@ -639,6 +636,8 @@ static inline void prepare_a2d_v2(struct emi_cen *cen)
 	int chn_4bank_mode, chn_bg_16bank_mode, chn_bg_16bank_mode_2nd;
 	int b11s, b12s, b13s, b14s, b15s, b16s;
 	int b8s, b11s_ext, b12s_ext, b13s_ext, b14s_ext, b15s_ext, b16s_ext;
+	unsigned long ch0_rk0_sz, ch0_rk1_sz;
+	unsigned long ch1_rk0_sz, ch1_rk1_sz;
 
 	if (!cen)
 		return;
@@ -758,65 +757,31 @@ static inline void prepare_a2d_v2(struct emi_cen *cen)
 		s6s->rank1_size_MB = 2 << (tmp - 20);
 	}
 
-	tmp = (emi_conh >> EMI_CONH_CHNAB_RANK0_SIZE) & mask_4b;
-	tmp += ((emi_conk >> EMI_CONK_CHNAB_RANK0_SIZE_EXT) & mask_4b) << 4;
-	if (tmp)
-		s6s->chab_rk0_sz = tmp << 8;
+	if (s6s->rank0_size_MB)
+		ch0_rk0_sz = s6s->rank0_size_MB;
 	else {
-		tmp = (emi_cona >> EMI_CONA_COL) & mask_2b;
-		tmp += (emi_cona >> EMI_CONA_ROW) & mask_2b;
-		tmp += test_bit(EMI_CONA_ROW_EXT0, &emi_cona) ? 4 : 0;
-		tmp += s6s->dw32_en;
-		tmp += 7;
-		s6s->chab_rk0_sz = 1 << tmp;
+		tmp = s6s->rank0_row_width + s6s->rank0_bank_width;
+		tmp += s6s->rank0_col_width + s6s->dw32_en ? 2 : 1;
+		tmp -= 20;
+		ch0_rk0_sz = 1 << tmp;
 	}
-
-	tmp = (emi_conh >> EMI_CONH_CHNAB_RANK1_SIZE) & mask_4b;
-	tmp += ((emi_conk >> EMI_CONK_CHNAB_RANK1_SIZE_EXT) & mask_4b) << 4;
-	if (tmp)
-		s6s->chab_rk1_sz = tmp << 8;
-	else if (!test_bit(EMI_CONA_DUAL_RANK_EN, &emi_cona))
-		s6s->chab_rk1_sz = 0;
+	ch1_rk0_sz = ch0_rk0_sz;
+	if (s6s->rank1_size_MB)
+		ch0_rk1_sz = s6s->rank1_size_MB;
 	else {
-		tmp = (emi_cona >> EMI_CONA_COL2ND) & mask_2b;
-		tmp += (emi_cona >> EMI_CONA_ROW2ND) & mask_2b;
-		tmp += test_bit(EMI_CONA_ROW2ND_EXT0, &emi_cona) ? 4 : 0;
-		tmp += s6s->dw32_en;
-		tmp += 7;
-		s6s->chab_rk1_sz = 1 << tmp;
+		tmp = s6s->rank1_row_width + s6s->rank1_bank_width;
+		tmp += s6s->rank1_col_width + s6s->dw32_en ? 2 : 1;
+		tmp -= 20;
+		ch0_rk1_sz = 1 << tmp;
 	}
+	ch1_rk1_sz = ch0_rk1_sz;
 
-	tmp = (emi_conh >> EMI_CONH_CHNCD_RANK0_SIZE) & mask_4b;
-	tmp += ((emi_conk >> EMI_CONK_CHNCD_RANK0_SIZE_EXT) & mask_4b) << 4;
-	if (tmp)
-		s6s->chcd_rk0_sz = tmp << 8;
-	else {
-		tmp = (emi_cona >> EMI_CONA_CHN1_COL) & mask_2b;
-		tmp += (emi_cona >> EMI_CONA_CHN1_ROW) & mask_2b;
-		tmp += test_bit(EMI_CONH_CHN1_ROW_EXT0, &emi_conh) ? 4 : 0;
-		tmp += s6s->dw32_en;
-		tmp += 7;
-		s6s->chcd_rk0_sz = 1 << tmp;
-	}
-
-	tmp = (emi_conh >> EMI_CONH_CHNCD_RANK1_SIZE) & mask_4b;
-	tmp += ((emi_conk >> EMI_CONK_CHNCD_RANK1_SIZE_EXT) & mask_4b) << 4;
-	if (tmp)
-		s6s->chcd_rk1_sz = tmp << 8;
-	else if (!test_bit(EMI_CONA_DUAL_RANK_EN_CHN1, &emi_cona))
-		s6s->chcd_rk1_sz = 0;
-	else {
-		tmp = (emi_cona >> EMI_CONA_CHN1_COL2ND) & mask_2b;
-		tmp += (emi_cona >> EMI_CONA_CHN1_ROW2ND) & mask_2b;
-		tmp += test_bit(EMI_CONH_CHN1_ROW2ND_EXT0, &emi_conh) ? 4 : 0;
-		tmp += s6s->dw32_en;
-		tmp += 7;
-		s6s->chcd_rk1_sz = 1 << tmp;
-	}
-
-	cen->max = s6s->chab_rk0_sz + s6s->chab_rk1_sz;
-	cen->max += s6s->chcd_rk0_sz + s6s->chcd_rk0_sz;
-	if ((s6s->chn_en > 1) || (cen->disph > 0))
+	cen->max = ch0_rk0_sz;
+	if (s6s->dual_rank_en)
+		cen->max += ch0_rk1_sz;
+	if (s6s->chn_en)
+		cen->max += ch1_rk0_sz + ((s6s->dual_rank_en) ? ch1_rk1_sz : 0);
+	if (cen->disph)
 		cen->max *= 2;
 	cen->max = cen->max << 20;
 }
