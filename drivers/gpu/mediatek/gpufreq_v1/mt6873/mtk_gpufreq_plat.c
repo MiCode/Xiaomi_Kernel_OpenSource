@@ -376,13 +376,10 @@ static void __iomem *g_infra_peri_debug5;
 #if MT_GPUFREQ_DFD_ENABLE
 static void __iomem *g_infracfg_ao;
 static void __iomem *g_dbgtop;
+static void __iomem *g_toprgu;
 #endif
 
 static void __iomem *g_sleep;
-
-#if MT_GPUFREQ_DFD_DEBUG
-static void __iomem *g_toprgu;
-#endif
 
 unsigned int mt_gpufreq_get_shader_present(void)
 {
@@ -3481,6 +3478,7 @@ static int __mt_gpufreq_init_clk(struct platform_device *pdev)
 			__func__);
 		return -ENOENT;
 	}
+#endif
 
 	// 0x10006000
 	g_sleep = __mt_gpufreq_of_ioremap("mediatek,sleep", 0);
@@ -3491,7 +3489,7 @@ static int __mt_gpufreq_init_clk(struct platform_device *pdev)
 	}
 
 	// 0x10001000
-	g_infracfg_ao = __mt_gpufreq_of_ioremap("mediatek,infracfg_ao", 0);
+	g_infracfg_ao = __mt_gpufreq_of_ioremap("mediatek,mt8192-infracfg", 0);
 	if (!g_infracfg_ao) {
 		gpufreq_pr_info("@%s: ioremap failed at infracfg_ao",
 			__func__);
@@ -3499,25 +3497,24 @@ static int __mt_gpufreq_init_clk(struct platform_device *pdev)
 	}
 
 	// 0x1000d000
-	g_dbgtop = __mt_gpufreq_of_ioremap("mediatek,dbgtop", 0);
+	g_dbgtop = __mt_gpufreq_of_ioremap("mediatek,dbgtop-drm", 0);
 	if (!g_dbgtop) {
 		gpufreq_pr_info("@%s: ioremap failed at dbgtop",
 			__func__);
 		return -ENOENT;
 	}
 
-	g_toprgu = __mt_gpufreq_of_ioremap("mediatek,toprgu", 0);
+	// 0x10007000
+	g_toprgu = __mt_gpufreq_of_ioremap("mediatek,mt6873-wdt", 0);
 	if (!g_toprgu) {
 		gpufreq_pr_info("@%s: ioremap failed at toprgu",
 			__func__);
 		return -ENOENT;
 	}
-#endif
 
 	return 0;
 }
 
-#ifdef TODO
 static void __mt_gpufreq_init_acp(void)
 {
 	unsigned int val;
@@ -3526,7 +3523,6 @@ static void __mt_gpufreq_init_acp(void)
 	val = readl(g_infracfg_ao + 0x290) | (0x1 << 9);
 	writel(val, g_infracfg_ao + 0x290);
 }
-#endif
 
 static void __mt_gpufreq_init_power(void)
 {
@@ -3585,7 +3581,7 @@ static void __mt_gpufreq_gpu_dfd_trigger_simulate(void)
 }
 #endif
 
-#if MT_GPUFREQ_DFD_DEBUG
+#if MT_GPUFREQ_DFD_ENABLE
 static void __mt_gpufreq_gpu_hard_reset(void)
 {
 	/*
@@ -3693,9 +3689,7 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-#ifdef TODO
 	__mt_gpufreq_init_acp();
-#endif
 
 	/* init opp table */
 	__mt_gpufreq_init_table();
