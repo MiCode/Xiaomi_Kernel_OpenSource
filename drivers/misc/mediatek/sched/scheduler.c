@@ -239,7 +239,7 @@ static void clear_opp_cap_info(void)
 }
 
 #if defined(CONFIG_NONLINEAR_FREQ_CTL)
-static void mtk_arch_set_freq_scale(void *data, struct cpumask *cpus,
+static void mtk_arch_set_freq_scale(void *data, const struct cpumask *cpus,
 		unsigned long freq, unsigned long max, unsigned long *scale)
 {
 	int cpu = cpumask_first(cpus);
