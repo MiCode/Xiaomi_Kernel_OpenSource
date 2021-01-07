@@ -1056,7 +1056,8 @@ static int mtk_emicen_addr2dram_v2(unsigned long addr,
 	}
 
 	if (!s6s->rank_pos) {
-		noraddr = saddr - (s6s->rank0_size_MB << 20);
+		noraddr = (map->rank) ?
+			saddr - (s6s->rank0_size_MB << 20) : saddr;
 	} else {
 		tmp = 1 + s6s->dw32_en;
 		tmp += (map->rank) ?
