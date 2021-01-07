@@ -53,6 +53,37 @@ TRACE_EVENT(qcom_dcvs_update,
 		__entry->boost_freq)
 );
 
+TRACE_EVENT(qcom_dcvs_boost,
+
+	TP_PROTO(int hw, int path, unsigned long boost, unsigned long path_ib,
+		 unsigned long path_ab),
+
+	TP_ARGS(hw, path, boost, path_ib, path_ab),
+
+	TP_STRUCT__entry(
+		__field(int, hw)
+		__field(int, path)
+		__field(unsigned long, boost)
+		__field(unsigned long, path_ib)
+		__field(unsigned long, path_ab)
+	),
+
+	TP_fast_assign(
+		__entry->hw = hw;
+		__entry->path = path;
+		__entry->boost = boost;
+		__entry->path_ib = path_ib;
+		__entry->path_ab = path_ab;
+	),
+
+	TP_printk("hw=%d path=%d boost=%lu path_ib=%lu path_ab=%lu",
+		__entry->hw,
+		__entry->path,
+		__entry->boost,
+		__entry->path_ib,
+		__entry->path_ab)
+);
+
 TRACE_EVENT(memlat_dev_meas,
 
 	TP_PROTO(const char *name, unsigned int dev_id, unsigned long inst,

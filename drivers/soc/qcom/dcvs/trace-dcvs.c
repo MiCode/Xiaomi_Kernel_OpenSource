@@ -9,6 +9,7 @@
 #include "trace-dcvs.h"
 
 EXPORT_TRACEPOINT_SYMBOL(qcom_dcvs_update);
+EXPORT_TRACEPOINT_SYMBOL(qcom_dcvs_boost);
 EXPORT_TRACEPOINT_SYMBOL(memlat_dev_meas);
 EXPORT_TRACEPOINT_SYMBOL(memlat_dev_update);
 EXPORT_TRACEPOINT_SYMBOL(bw_hwmon_meas);
