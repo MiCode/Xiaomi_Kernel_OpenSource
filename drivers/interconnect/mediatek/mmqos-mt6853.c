@@ -368,16 +368,12 @@ MASTER_LARB_PORT(M4U_PORT_L20_IPE_RSC_WDMA), 8, SLAVE_LARB(20)),
 static const char * const comm_muxes_mt6853[] = { "mm" };
 static const char * const comm_icc_path_names_mt6853[] = { "icc-bw" };
 static const char * const comm_icc_hrt_path_names_mt6853[] = { "icc-hrt-bw" };
-static const char * const larb_icc_path_names_mt6853[] = { "larb0", "larb1", "larb2", NULL,
-	"larb4", NULL, NULL, "larb7", NULL, "larb9", NULL, "larb11", NULL, "larb13", "larb14",
-	NULL, "larb16", "larb17", NULL, "larb19", "larb20", NULL, NULL, NULL };
 static const struct mtk_mmqos_desc mmqos_desc_mt6853 = {
 .nodes = node_descs_mt6853,
 .num_nodes = ARRAY_SIZE(node_descs_mt6853),
 .comm_muxes = comm_muxes_mt6853,
 .comm_icc_path_names = comm_icc_path_names_mt6853,
 .comm_icc_hrt_path_names = comm_icc_hrt_path_names_mt6853,
-.larb_icc_path_names = larb_icc_path_names_mt6853,
 .max_ratio = 40,
 .hrt = {
 .hrt_bw = {3344, 0, 0},
