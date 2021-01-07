@@ -83,6 +83,7 @@ qmi_helpers.ko
 qcom_aoss.ko
 qcom_glink.ko
 qcom_glink_smem.ko
+qcom_glink_spss.ko
 qcom_hwspinlock.ko
 qcom_q6v5_pas.ko
 qcom_pil_info.ko
