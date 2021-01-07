@@ -136,3 +136,12 @@ config QTI_RPM_SMD_COOLING_DEVICE
 	  level to RPM hardware via SMD protocol. This mitigation device
 	  will be used by temperature reliability rules to restrict a
 	  railway at predefined voltage corner using RPM hardware.
+
+config QTI_LIMITS_ISENSE_CDSP
+        tristate "QTI CDSP Limits Isense Driver"
+        depends on QCOM_SMEM
+        help
+          This enables driver to read cdsp isense calibration data from
+          shared memory and enable sysfs file support to access this data. This
+          driver is required for the chipsets where isense hardware is present
+          as part of cdsp subsystem.
