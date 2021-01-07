@@ -170,6 +170,8 @@ static int mtk_mmqos_set(struct icc_node *src, struct icc_node *dst)
 		break;
 	case MTK_MMQOS_NODE_COMMON_PORT:
 		comm_port_node = (struct common_port_node *)dst->data;
+		if (!comm_port_node)
+			break;
 		mutex_lock(&comm_port_node->bw_lock);
 		comm_port_node->latest_mix_bw = comm_port_node->base->mix_bw;
 		comm_port_node->latest_peak_bw = dst->peak_bw;
