@@ -1,0 +1,9 @@
+/dts-v1/;
+
+#include "waipio-vm.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Waipio SVM QRD";
+	compatible = "qcom,waipio-qrd", "qcom,waipio", "qcom,qrd";
+	qcom,board-id = <0x1000B 0>;
+};
