@@ -742,12 +742,18 @@ dma_addr_t swiotlb_map(struct device *dev, phys_addr_t paddr, size_t size,
 }
 #ifdef CONFIG_SWIOTLB_NONLINEAR
 EXPORT_SYMBOL(swiotlb_map);
-#endif
+
+size_t swiotlb_max_mapping_size(struct device *dev)
+{
+	return 4096;
+}
+#else
 
 size_t swiotlb_max_mapping_size(struct device *dev)
 {
 	return ((size_t)1 << IO_TLB_SHIFT) * IO_TLB_SEGSIZE;
 }
+#endif
 
 bool is_swiotlb_active(void)
 {
