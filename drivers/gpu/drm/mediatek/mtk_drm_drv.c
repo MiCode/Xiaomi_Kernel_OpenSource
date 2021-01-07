@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  * Author: YT SHEN <yt.shen@mediatek.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -68,6 +69,9 @@ atomic_t _mtk_fence_idx = ATOMIC_INIT(-1);
 atomic_t _mtk_fence_update_event = ATOMIC_INIT(0);
 wait_queue_head_t _mtk_fence_wq;
 #endif
+
+atomic_t resume_pending;
+wait_queue_head_t resume_wait_q;
 
 static atomic_t top_isr_ref; /* irq power status protection */
 static atomic_t top_clk_ref; /* top clk status protection*/
@@ -197,11 +201,14 @@ static void mtk_atomic_disp_rsz_roi(struct drm_device *dev,
 	struct drm_crtc_state *old_crtc_state;
 	int i;
 	struct mtk_rect dst_layer_roi = {0};
-	struct mtk_rect dst_total_roi[MAX_CRTC] = {0};
+	struct mtk_rect dst_total_roi[MAX_CRTC];
 	struct mtk_rect src_layer_roi = {0};
-	struct mtk_rect src_total_roi[MAX_CRTC] = {0};
+	struct mtk_rect src_total_roi[MAX_CRTC];
 	bool rsz_enable[MAX_CRTC] = {false};
 	struct mtk_plane_comp_state comp_state[MAX_CRTC][OVL_LAYER_NR];
+
+	memset(dst_total_roi, 0, sizeof(dst_total_roi));
+	memset(src_total_roi, 0, sizeof(src_total_roi));
 
 	for_each_crtc_in_state(old_state, crtc, old_crtc_state, i) {
 		struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
@@ -1590,7 +1597,7 @@ void drm_trigger_repaint(enum DRM_REPAINT_TYPE type, struct drm_device *drm_dev)
 			list_del_init(&repaint_job->link);
 		} else { /* create repaint_job_t if pool is empty */
 			repaint_job = kzalloc(sizeof(struct repaint_job_t),
-					      GFP_KERNEL);
+					      GFP_ATOMIC);
 			if (IS_ERR_OR_NULL(repaint_job)) {
 				DDPPR_ERR("allocate repaint_job_t fail\n");
 				spin_unlock(&pvd->repaint_data.wq.lock);
@@ -1881,7 +1888,7 @@ int mtk_drm_get_display_caps_ioctl(struct drm_device *dev, void *data,
 	caps_info->lcm_degree = 180;
 #endif
 
-	caps_info->lcm_color_mode = MTK_DRM_COLOR_MODE_NATIVE;
+	caps_info->lcm_color_mode = MTK_DRM_COLOR_MODE_DISPLAY_P3;
 	if (mtk_drm_helper_get_opt(private->helper_opt, MTK_DRM_OPT_OVL_WCG)) {
 		if (params)
 			caps_info->lcm_color_mode = params->lcm_color_mode;
@@ -2907,6 +2914,20 @@ static int mtk_drm_remove(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_PM_SLEEP
+
+static int mtk_drm_sys_prepare(struct device *dev)
+{
+	atomic_inc(&resume_pending);
+	return 0;
+}
+
+static void mtk_drm_sys_complete(struct device *dev)
+{
+	atomic_set(&resume_pending, 0);
+	wake_up_all(&resume_wait_q);
+	return;
+}
+
 static int mtk_drm_sys_suspend(struct device *dev)
 {
 	struct mtk_drm_private *private = dev_get_drvdata(dev);
@@ -2949,8 +2970,12 @@ static int mtk_drm_sys_resume(struct device *dev)
 }
 #endif
 
-static SIMPLE_DEV_PM_OPS(mtk_drm_pm_ops, mtk_drm_sys_suspend,
-			 mtk_drm_sys_resume);
+static const struct dev_pm_ops mtk_drm_pm_ops = {
+	.prepare = mtk_drm_sys_prepare,
+	.complete = mtk_drm_sys_complete,
+	.suspend = mtk_drm_sys_suspend,
+	.resume = mtk_drm_sys_resume,
+};
 
 static const struct of_device_id mtk_drm_of_ids[] = {
 	{.compatible = "mediatek,mt2701-mmsys",

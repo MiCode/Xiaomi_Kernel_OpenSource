@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -145,7 +146,7 @@
 #define VIR_OLDOCV_DIFF_EMB_TMP	5
 
 #define TNEW_TOLD_PON_DIFF	5
-#define TNEW_TOLD_PON_DIFF2	15
+#define TNEW_TOLD_PON_DIFF2	100
 #define PMIC_SHUTDOWN_TIME	30
 #define BAT_PLUG_OUT_TIME	32
 #define EXT_HWOCV_SWOCV		300
@@ -211,7 +212,7 @@
 
 #define MULTI_TEMP_GAUGE0 1	/* different temp using different gauge 0% */
 
-#define OVER_DISCHARGE_LEVEL -1500
+#define OVER_DISCHARGE_LEVEL -2000
 
 #define UISOC_UPDATE_TYPE 0
 /*
@@ -223,28 +224,28 @@
 
 /* using current to limit uisoc in 100% case*/
 /* UI_FULL_LIMIT_ITH0 3000 means 300ma */
-#define UI_FULL_LIMIT_EN 0
-#define UI_FULL_LIMIT_SOC0 9900
-#define UI_FULL_LIMIT_ITH0 2200
+#define UI_FULL_LIMIT_EN 1
+#define UI_FULL_LIMIT_SOC0 9800
+#define UI_FULL_LIMIT_ITH0 7000
 
-#define UI_FULL_LIMIT_SOC1 9900
-#define UI_FULL_LIMIT_ITH1 2200
+#define UI_FULL_LIMIT_SOC1 9800
+#define UI_FULL_LIMIT_ITH1 7000
 
 #define UI_FULL_LIMIT_SOC2 9900
-#define UI_FULL_LIMIT_ITH2 2200
+#define UI_FULL_LIMIT_ITH2 4800
 
 #define UI_FULL_LIMIT_SOC3 9900
-#define UI_FULL_LIMIT_ITH3 2200
+#define UI_FULL_LIMIT_ITH3 4800
 
 #define UI_FULL_LIMIT_SOC4 9900
-#define UI_FULL_LIMIT_ITH4 2200
+#define UI_FULL_LIMIT_ITH4 4800
 
 #define UI_FULL_LIMIT_TIME 99999
 
 
 /* using voltage to limit uisoc in 1% case */
 /* UI_LOW_LIMIT_VTH0=36000 means 3.6v */
-#define UI_LOW_LIMIT_EN 0
+#define UI_LOW_LIMIT_EN 1
 
 #define UI_LOW_LIMIT_SOC0 200
 #define UI_LOW_LIMIT_VTH0 34500

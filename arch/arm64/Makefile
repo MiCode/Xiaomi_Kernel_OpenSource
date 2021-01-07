@@ -63,7 +63,11 @@ ifeq ($(cc-name),clang)
 # TODO: revert when this is fixed in LLVM.
 KBUILD_CFLAGS	+= -mno-implicit-float
 else
+# This is a workaround for avoid kasan build error
+# Add by xiaomi libin16
+ifneq ($(CONFIG_KASAN),y)
 KBUILD_CFLAGS	+= -mgeneral-regs-only
+endif
 endif
 KBUILD_CFLAGS	+= $(lseinstr) $(brokengasinst)
 KBUILD_CFLAGS	+= -fno-asynchronous-unwind-tables

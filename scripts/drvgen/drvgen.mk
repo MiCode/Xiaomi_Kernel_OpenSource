@@ -57,7 +57,6 @@ $(DRVGEN_FILE_LIST): $(DRVGEN_TOOL) $(DRVGEN_FIG) $(PROJ_DTS_FILES)
 			$(python) $(DRVGEN_TOOL) $$dws_path $$prj_path $$prj_path cust_dtsi;\
 		else\
 			echo "Error: Cannot find $$dws_path!!";\
-			exit 1;\
 		fi \
 	done
 

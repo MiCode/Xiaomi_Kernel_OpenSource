@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -14,8 +15,12 @@
 #ifndef __MTK_CHARGER_INIT_H__
 #define __MTK_CHARGER_INIT_H__
 
+#define MI_CYCLE_COUNT_MAX 3999
+#define BATTERY_CV_MAX 4390000
+#define BATTERY_CV_MIN 4330000
+
 #define BATTERY_CV 4350000
-#define V_CHARGER_MAX 6500000 /* 6.5 V */
+#define V_CHARGER_MAX 10500000 /* 10.5 V */
 #define V_CHARGER_MIN 4600000 /* 4.6 V */
 
 #define USB_CHARGER_CURRENT_SUSPEND		0 /* def CONFIG_USB_IF */
@@ -23,12 +28,13 @@
 #define USB_CHARGER_CURRENT_CONFIGURED		500000 /* 500mA */
 #define USB_CHARGER_CURRENT			500000 /* 500mA */
 #define AC_CHARGER_CURRENT			2050000
-#define AC_CHARGER_INPUT_CURRENT		3200000
+#define AC_CHARGER_INPUT_CURRENT		2000000
 #define NON_STD_AC_CHARGER_CURRENT		500000
 #define CHARGING_HOST_CHARGER_CURRENT		650000
 #define APPLE_1_0A_CHARGER_CURRENT		650000
 #define APPLE_2_1A_CHARGER_CURRENT		800000
 #define TA_AC_CHARGING_CURRENT	3000000
+#define PD_CHARGER_CURRENT		3000000
 
 /* dynamic mivr */
 #define V_CHARGER_MIN_1 4400000 /* 4.4 V */
@@ -102,7 +108,7 @@
 #define BATTERY_NOTIFY_CASE_0002_VBATTEMP
 
 /* pe4 */
-#define PE40_MAX_VBUS 11000
+#define PE40_MAX_VBUS 9000
 #define PE40_MAX_IBUS 3000
 #define HIGH_TEMP_TO_LEAVE_PE40 46
 #define HIGH_TEMP_TO_ENTER_PE40 39
@@ -117,5 +123,6 @@
 
 #define VSYS_WATT 5000000
 #define IBUS_ERR 14
+#define SET_CAP_DELAY 0
 
 #endif /*__MTK_CHARGER_INIT_H__*/

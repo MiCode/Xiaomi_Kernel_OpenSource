@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (C) 2019 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  * Author: Argus Lin <argus.lin@mediatek.com>
  */
 #define DEBUG
@@ -1314,12 +1315,12 @@ void spmi_dump_pmif_all_reg(void)
 				    offset, tmp_dat);
 		i++;
 		if (i % 64 == 0) {
-			pr_notice("\n[PMIF] %s", wp);
+			pr_err("\n[PMIF] %s", wp);
 			log_size = 0;
 		} else if (i % 8 == 0)
 			log_size += sprintf(wp + log_size, "\n[PMIF] ");
 	}
-	pr_notice("\n[PMIF] %s", wp);
+	pr_err("\n[PMIF] %s", wp);
 }
 
 static void spmi_dump_pmif_all_reg_d(struct seq_file *m)
@@ -1410,7 +1411,7 @@ static void spmi_dump_pmif_record_reg_d(struct seq_file *m)
 
 void spmi_dump_spmimst_all_reg(void)
 {
-	pr_notice("%s", get_spmimst_all_reg_dump());
+	pr_err("%s", get_spmimst_all_reg_dump());
 }
 
 static void spmi_dump_spmimst_all_reg_d(struct seq_file *m)

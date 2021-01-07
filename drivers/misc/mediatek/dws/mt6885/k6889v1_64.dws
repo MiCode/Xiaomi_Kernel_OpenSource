@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!--dct_version="2.5" buid_sn="161102" dws_modification_time="09.09.2019.15:04:07"-->
+<!--dct_version="2.5" buid_sn="161102" dws_modification_time="04.16.2020.18:03:16"-->
 <dct_cfg>
     <general chip="MT6885">
         <proj>Internal phone</proj>
@@ -123,11 +123,11 @@
                 <eint_mode>true</eint_mode>
                 <def_mode>0</def_mode>
                 <inpull_en>true</inpull_en>
-                <inpull_selhigh>false</inpull_selhigh>
+                <inpull_selhigh>true</inpull_selhigh>
                 <def_dir>IN</def_dir>
                 <out_high>false</out_high>
-                <varName0>GPIO_GYRO_EINT_PIN</varName0>
-                <smt>true</smt>
+                <varName0>GPIO_BQ2597X_INT_PIN</varName0>
+                <smt>false</smt>
                 <ies>true</ies>
             </gpio3>
             <gpio4>
@@ -372,7 +372,7 @@
                 <inpull_en>true</inpull_en>
                 <inpull_selhigh>false</inpull_selhigh>
                 <def_dir>OUT</def_dir>
-                <out_high>true</out_high>
+                <out_high>false</out_high>
                 <varName0>GPIO_LCM_BL_EN</varName0>
                 <smt>true</smt>
                 <ies>true</ies>
@@ -467,9 +467,9 @@
             </gpio35>
             <gpio36>
                 <eint_mode>false</eint_mode>
-                <def_mode>4</def_mode>
-                <inpull_en>true</inpull_en>
-                <inpull_selhigh>true</inpull_selhigh>
+                <def_mode>1</def_mode>
+                <inpull_en>false</inpull_en>
+                <inpull_selhigh>false</inpull_selhigh>
                 <def_dir>IN</def_dir>
                 <out_high>false</out_high>
                 <smt>false</smt>
@@ -477,7 +477,7 @@
             </gpio36>
             <gpio37>
                 <eint_mode>false</eint_mode>
-                <def_mode>4</def_mode>
+                <def_mode>1</def_mode>
                 <inpull_en>false</inpull_en>
                 <inpull_selhigh>false</inpull_selhigh>
                 <def_dir>IN</def_dir>
@@ -487,7 +487,7 @@
             </gpio37>
             <gpio38>
                 <eint_mode>false</eint_mode>
-                <def_mode>4</def_mode>
+                <def_mode>1</def_mode>
                 <inpull_en>true</inpull_en>
                 <inpull_selhigh>true</inpull_selhigh>
                 <def_dir>IN</def_dir>
@@ -497,7 +497,7 @@
             </gpio38>
             <gpio39>
                 <eint_mode>false</eint_mode>
-                <def_mode>4</def_mode>
+                <def_mode>1</def_mode>
                 <inpull_en>false</inpull_en>
                 <inpull_selhigh>false</inpull_selhigh>
                 <def_dir>IN</def_dir>
@@ -757,7 +757,7 @@
             </gpio63>
             <gpio64>
                 <eint_mode>false</eint_mode>
-                <def_mode>0</def_mode>
+                <def_mode>1</def_mode>
                 <inpull_en>true</inpull_en>
                 <inpull_selhigh>false</inpull_selhigh>
                 <def_dir>IN</def_dir>
@@ -768,7 +768,7 @@
             </gpio64>
             <gpio65>
                 <eint_mode>false</eint_mode>
-                <def_mode>0</def_mode>
+                <def_mode>1</def_mode>
                 <inpull_en>true</inpull_en>
                 <inpull_selhigh>false</inpull_selhigh>
                 <def_dir>IN</def_dir>
@@ -1231,13 +1231,13 @@
                 <ies>true</ies>
             </gpio109>
             <gpio110>
-                <eint_mode>false</eint_mode>
+                <eint_mode>true</eint_mode>
                 <def_mode>0</def_mode>
                 <inpull_en>true</inpull_en>
-                <inpull_selhigh>false</inpull_selhigh>
-                <def_dir>OUT</def_dir>
+                <inpull_selhigh>true</inpull_selhigh>
+                <def_dir>IN</def_dir>
                 <out_high>false</out_high>
-                <varName0>GPIO_U3_PD_PWR_EN_PIN</varName0>
+                <varName0>GPIO_XMUSB350_INT_PIN</varName0>
                 <smt>false</smt>
                 <ies>true</ies>
             </gpio110>
@@ -1382,23 +1382,47 @@
                 <smt>true</smt>
                 <ies>true</ies>
             </gpio123>
-            <gpio126>
+            <gpio124>
                 <eint_mode>false</eint_mode>
-                <def_mode>4</def_mode>
+                <def_mode>1</def_mode>
                 <inpull_en>true</inpull_en>
-                <inpull_selhigh>false</inpull_selhigh>
+                <inpull_selhigh>true</inpull_selhigh>
                 <def_dir>IN</def_dir>
                 <out_high>false</out_high>
+                <varName0>GPIO_I2C7_SCA_PIN</varName0>
+                <smt>true</smt>
+                <ies>true</ies>
+            </gpio124>
+            <gpio125>
+                <eint_mode>false</eint_mode>
+                <def_mode>1</def_mode>
+                <inpull_en>true</inpull_en>
+                <inpull_selhigh>true</inpull_selhigh>
+                <def_dir>IN</def_dir>
+                <out_high>false</out_high>
+                <varName0>GPIO_I2C7_SDA_PIN</varName0>
+                <smt>true</smt>
+                <ies>true</ies>
+            </gpio125>
+            <gpio126>
+                <eint_mode>false</eint_mode>
+                <def_mode>0</def_mode>
+                <inpull_en>true</inpull_en>
+                <inpull_selhigh>false</inpull_selhigh>
+                <def_dir>OUT</def_dir>
+                <out_high>false</out_high>
+                <varName0>GPIO_XMUSB350_RST_PIN</varName0>
                 <smt>false</smt>
                 <ies>true</ies>
             </gpio126>
             <gpio127>
                 <eint_mode>false</eint_mode>
-                <def_mode>4</def_mode>
+                <def_mode>0</def_mode>
                 <inpull_en>true</inpull_en>
                 <inpull_selhigh>false</inpull_selhigh>
-                <def_dir>IN</def_dir>
+                <def_dir>OUT</def_dir>
                 <out_high>false</out_high>
+                <varName0>GPIO_VBUS_NTC_CTRL_PIN</varName0>
                 <smt>false</smt>
                 <ies>true</ies>
             </gpio127>
@@ -1681,11 +1705,12 @@
             </gpio154>
             <gpio155>
                 <eint_mode>false</eint_mode>
-                <def_mode>0</def_mode>
-                <inpull_en>false</inpull_en>
-                <inpull_selhigh>false</inpull_selhigh>
+                <def_mode>1</def_mode>
+                <inpull_en>true</inpull_en>
+                <inpull_selhigh>true</inpull_selhigh>
                 <def_dir>IN</def_dir>
                 <out_high>false</out_high>
+                <varName0>GPIO_KPD_KCOL1_PIN</varName0>
                 <smt>false</smt>
                 <ies>true</ies>
             </gpio155>
@@ -1731,7 +1756,7 @@
             </gpio159>
             <gpio160>
                 <eint_mode>false</eint_mode>
-                <def_mode>1</def_mode>
+                <def_mode>3</def_mode>
                 <inpull_en>true</inpull_en>
                 <inpull_selhigh>true</inpull_selhigh>
                 <def_dir>IN</def_dir>
@@ -1742,7 +1767,7 @@
             </gpio160>
             <gpio161>
                 <eint_mode>false</eint_mode>
-                <def_mode>1</def_mode>
+                <def_mode>3</def_mode>
                 <inpull_en>true</inpull_en>
                 <inpull_selhigh>true</inpull_selhigh>
                 <def_dir>IN</def_dir>
@@ -2399,13 +2424,13 @@
             </i2c_bus9>
             <device5>
                 <varName>CAMERA_MAIN_TWO</varName>
-                <channel>I2C_CHANNEL_2</channel>
-                <address>0x10</address>
+                <channel>I2C_CHANNEL_8</channel>
+                <address>0x78</address>
             </device5>
             <device6>
-                <varName>CAMERA_MAIN_TWO_EEPROM</varName>
-                <channel>I2C_CHANNEL_2</channel>
-                <address>0x51</address>
+                <varName>CAMERA_SUB_TWO</varName>
+                <channel>I2C_CHANNEL_8</channel>
+                <address>0x5A</address>
             </device6>
             <device10>
                 <varName>NFC</varName>
@@ -2415,12 +2440,12 @@
             <device11>
                 <varName>CAMERA_SUB</varName>
                 <channel>I2C_CHANNEL_4</channel>
-                <address>0x1A</address>
+                <address>0xAC</address>
             </device11>
             <device12>
                 <varName>CAMERA_SUB_EEPROM</varName>
                 <channel>I2C_CHANNEL_4</channel>
-                <address>0x51</address>
+                <address>0xA8</address>
             </device12>
             <device14>
                 <varName>SUBPMIC</varName>
@@ -2464,46 +2489,46 @@
             </device21>
             <device24>
                 <varName>CAMERA_MAIN</varName>
-                <channel>I2C_CHANNEL_8</channel>
-                <address>0x1A</address>
+                <channel>I2C_CHANNEL_2</channel>
+                <address>0x34</address>
             </device24>
             <device25>
                 <varName>CAMERA_MAIN_EEPROM</varName>
-                <channel>I2C_CHANNEL_8</channel>
-                <address>0x50</address>
+                <channel>I2C_CHANNEL_2</channel>
+                <address>0xA0</address>
             </device25>
             <device26>
                 <varName>CAMERA_MAIN_AF</varName>
-                <channel>I2C_CHANNEL_8</channel>
-                <address>0x72</address>
+                <channel>I2C_CHANNEL_2</channel>
+                <address>0x18</address>
             </device26>
             <device27>
-                <varName>CAMERA_MAIN_TWO_AF</varName>
-                <channel>I2C_CHANNEL_2</channel>
-                <address>0x0C</address>
+                <varName>CAMERA_SUB_TWO_EEPROM</varName>
+                <channel>I2C_CHANNEL_8</channel>
+                <address>0xA4</address>
             </device27>
             <device29>
                 <varName>CAMERA_MAIN_THREE</varName>
-                <channel>I2C_CHANNEL_9</channel>
-                <address>0x10</address>
+                <channel>I2C_CHANNEL_4</channel>
+                <address>0x40</address>
             </device29>
             <device30>
                 <varName>CAMERA_MAIN_THREE_EEPROM</varName>
-                <channel>I2C_CHANNEL_9</channel>
-                <address>0x51</address>
+                <channel>I2C_CHANNEL_4</channel>
+                <address>0xA2</address>
             </device30>
             <device31>
-                <varName>CAMERA_MAIN_THREE_AF</varName>
-                <channel>I2C_CHANNEL_9</channel>
-                <address>0x0C</address>
+                <varName>CAMERA_SUB_TWO_AF</varName>
+                <channel>I2C_CHANNEL_8</channel>
+                <address>0x18</address>
             </device31>
         </module>
         <module name="md1_eint">
             <count>3</count>
             <eint0>
                 <varName>MD1_SIM1_HOT_PLUG_EINT</varName>
-                <debounce_time>10</debounce_time>
-                <polarity>High</polarity>
+                <debounce_time>50</debounce_time>
+                <polarity>Low</polarity>
                 <sensitive_level>Level</sensitive_level>
                 <debounce_en>Enable</debounce_en>
                 <dedicated_en>Disable</dedicated_en>
@@ -2532,7 +2557,7 @@
         <module name="kpd">
             <row>8</row>
             <column>9</column>
-            <keyMatrix>VOLUMEDOWN NC NC NC NC NC NC NC NC
+            <keyMatrix>VOLUMEUP VOLUMEDOWN NC NC NC NC NC NC NC
 				NC NC NC NC NC NC NC NC NC
 				NC NC NC NC NC NC NC NC NC
 				NC NC NC NC NC NC NC NC NC
@@ -2543,11 +2568,11 @@
             <keyMatrix_ext>NC NC NC NC
 				NC NC NC NC
 				NC NC NC NC</keyMatrix_ext>
-            <downloadKey>VOLUMEUP VOLUMEDOWN POWER</downloadKey>
-            <modeKey>NC VOLUMEUP VOLUMEDOWN</modeKey>
+            <downloadKey>NC NC NC</downloadKey>
+            <modeKey>NC NC NC</modeKey>
             <pwrKeyEint_gpioNum>0</pwrKeyEint_gpioNum>
             <pwrKeyUtility>POWER</pwrKeyUtility>
-            <home_key>VOLUMEUP</home_key>
+            <home_key></home_key>
             <bPwrKeyUseEint>false</bPwrKeyUseEint>
             <bPwrKeyGpioDinHigh>false</bPwrKeyGpioDinHigh>
             <pressPeriod>1024</pressPeriod>

@@ -2,6 +2,7 @@
  * core.c  --  Voltage/Current Regulator framework.
  *
  * Copyright 2007, 2008 Wolfson Microelectronics PLC.
+ * Copyright (C) 2020 XiaoMi, Inc.
  * Copyright 2008 SlimLogic Ltd.
  *
  * Author: Liam Girdwood <lrg@slimlogic.co.uk>
@@ -1628,9 +1629,15 @@ struct regulator *_regulator_get(struct device *dev, const char *id,
 			 * enabled, even if it isn't hooked up, and just
 			 * provide a dummy.
 			 */
+#ifdef _XIAOMI_
 			dev_warn(dev,
 				 "%s supply %s not found, using dummy regulator\n",
 				 devname, id);
+#else
+			dev_dbg(dev,
+				 "%s supply %s not found, using dummy regulator\n",
+				 devname, id);
+#endif
 			rdev = dummy_regulator_rdev;
 			get_device(&rdev->dev);
 			break;

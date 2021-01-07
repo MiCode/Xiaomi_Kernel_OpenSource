@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2019, MICROTRUST Incorporated
+ * Copyright (C) 2020 XiaoMi, Inc.
  * All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -67,5 +68,7 @@ extern uint32_t tzdriver_dynamical_debug_flag;
 #define REE_DYNAMICAL_START 1
 #define REE_DYNAMICAL_STOP  2
 #endif
+
+extern unsigned long teei_capi_ready;
 
 #endif

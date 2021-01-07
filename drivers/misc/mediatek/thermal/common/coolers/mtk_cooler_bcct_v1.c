@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -351,6 +352,7 @@ int clbcct_get_input_curr_limit(void)
 
 static void chrlmt_set_limit_handler(struct work_struct *work)
 {
+#if 0	//use mi_thermal
 	if (bat_info_charging_type == 3) {
 		mtk_cooler_bcct_dprintk_always("%s %d\n", __func__
 				, chrlmt_pep30_input_curr_limit);
@@ -394,6 +396,7 @@ static void chrlmt_set_limit_handler(struct work_struct *work)
 		set_bat_charging_current_limit(chrlmt_bat_chr_curr_limit);
 #endif
 	}
+#endif
 }
 
 static int chrlmt_set_limit(

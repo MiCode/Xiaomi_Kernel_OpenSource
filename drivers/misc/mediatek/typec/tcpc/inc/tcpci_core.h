@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -486,6 +487,9 @@ struct tcpc_device {
 	uint8_t charging_status;
 	int bat_soc;
 #endif /* CONFIG_USB_PD_REV30 */
+#ifdef CONFIG_MTK_WAIT_BC12
+	uint8_t wait_bc12_cnt;
+#endif /* CONFIG_MTK_WAIT_BC12 */
 #endif /* CONFIG_USB_POWER_DELIVERY */
 	u8 vbus_level:2;
 	bool vbus_safe0v;

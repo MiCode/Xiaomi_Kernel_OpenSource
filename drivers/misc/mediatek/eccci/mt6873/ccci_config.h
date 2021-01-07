@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -85,6 +86,7 @@
 #define ENABLE_CPU_AFFINITY
 #define REFINE_BAT_OFFSET_REMOVE
 #define PIT_USING_CACHE_MEM
+#define USING_TX_DONE_KERNEL_THREAD
 
 #define CCCI_USE_DFD_OFFSET_0
 

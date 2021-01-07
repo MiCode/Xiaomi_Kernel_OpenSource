@@ -2,6 +2,7 @@
  * mtk_pwm.c PWM Drvier
  *
  * Copyright (c) 2016, Media Teck.inc
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public Licence,
@@ -152,7 +153,7 @@ static s32 mt_set_pwm_enable(u32 pwm_no)
 }
 
 
-static s32 mt_set_pwm_disable(u32 pwm_no)
+s32 mt_set_pwm_disable(u32 pwm_no)
 {
 	unsigned long flags;
 	struct pwm_device *dev = pwm_dev;

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -115,7 +116,7 @@ static struct DISP_DRE30_HIST g_aal_dre30_hist_db;
 
 static atomic_t g_aal_change_to_dre30 = ATOMIC_INIT(0);
 
-static static atomic_t g_aal_dre_config = ATOMIC_INIT(0);
+static atomic_t g_aal_dre_config = ATOMIC_INIT(0);
 #define AAL_SRAM_SOF 1
 #define AAL_SRAM_EOF 0
 static u32 aal_sram_method = AAL_SRAM_SOF;
@@ -205,7 +206,7 @@ static void mtk_aal_write_mask(void __iomem *address, u32 data, u32 mask)
 
 #define AALERR(fmt, arg...) pr_notice("[ERR]%s:" fmt, __func__, ##arg)
 
-static bool debug_flow_log;
+static bool debug_flow_log = 0;
 #define AALFLOW_LOG(fmt, arg...) do { \
 	if (debug_flow_log) \
 		pr_notice("[FLOW]%s:" fmt, __func__, ##arg); \
@@ -423,13 +424,13 @@ void disp_aal_notify_backlight_changed(int bl_1024)
 	int max_backlight = 0;
 	unsigned int service_flags;
 
-	AALAPI_LOG("%d/1023\n", bl_1024);
+	AALAPI_LOG("%d/2047\n", bl_1024);
 	disp_aal_notify_backlight_log(bl_1024);
 	//disp_aal_exit_idle(__func__, 1);
 
 	// FIXME
 	//max_backlight = disp_pwm_get_max_backlight(DISP_PWM0);
-	max_backlight = 1024;
+	max_backlight = 2047;
 	if (bl_1024 > max_backlight)
 		bl_1024 = max_backlight;
 
@@ -558,7 +559,7 @@ void disp_aal_flip_sram(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	const char *caller)
 {
 #ifdef CONFIG_MTK_DRE30_SUPPORT
-	u32 hist_apb, hist_int, sram_cfg;
+	u32 hist_apb = 0, hist_int = 0, sram_cfg;
 	phys_addr_t dre3_pa = mtk_aal_dre3_pa(comp);
 
 	if (aal_sram_method != AAL_SRAM_SOF)
@@ -1088,10 +1089,10 @@ static int disp_aal_write_dre_to_reg(struct mtk_ddp_comp *comp,
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + DISP_AAL_DRE_FLT_FORCE(11),
 	    DRE_REG_2(gain[27], 0, gain[28], 9), ~0);
+#endif
 
 	return 0;
 }
-#endif /* CONFIG_MTK_DRE30_SUPPORT */
 #if defined(CONFIG_MTK_DRE30_SUPPORT) || !defined(NOT_SUPPORT_CABC_HW)
 static int disp_aal_write_cabc_to_reg(struct mtk_ddp_comp *comp,
 	struct cmdq_pkt *handle, const struct DISP_AAL_PARAM *param)
@@ -1119,6 +1120,9 @@ static int disp_aal_write_cabc_to_reg(struct mtk_ddp_comp *comp,
 }
 #endif				/* not define NOT_SUPPORT_CABC_HW */
 
+static bool debug_dump_reg = false;
+bool dump_reg(struct mtk_ddp_comp *comp, bool locked);
+
 static int disp_aal_write_param_to_reg(struct mtk_ddp_comp *comp,
 	struct cmdq_pkt *handle, const struct DISP_AAL_PARAM *param)
 {
@@ -1134,6 +1138,9 @@ static int disp_aal_write_param_to_reg(struct mtk_ddp_comp *comp,
 	disp_aal_write_cabc_to_reg(comp, handle, param);
 #endif
 #endif
+
+	if (debug_dump_reg)
+		dump_reg(comp, true);
 
 	return 0;
 }
@@ -1248,6 +1255,10 @@ bool dump_reg(struct mtk_ddp_comp *comp, bool locked)
 			PRINT_AAL_REG(0x0, 0x8, 0x10, 0x20);
 			PRINT_AAL_REG(0x30, 0xFC, 0x160, 0x200);
 			PRINT_AAL_REG(0x204, 0x20C, 0x3B4, 0x45C);
+			PRINT_AAL_REG(0x358, 0x35C, 0x360, 0x364);
+			PRINT_AAL_REG(0x368, 0x36C, 0x370, 0x374);
+			PRINT_AAL_REG(0x378, 0x37C, 0x380, 0x384);
+			PRINT_AAL_REG(0x368, 0x36C, 0x370, 0x374);
 			PRINT_AAL_REG(0x460, 0x464, 0x468, 0x4D8);
 			PRINT_AAL_REG(0x4DC, 0x500, 0x224, 0x504);
 #if defined(CONFIG_MTK_DRE30_SUPPORT)
@@ -2247,7 +2258,7 @@ void disp_aal_on_start_of_frame(void)
 	if (aal_sram_method != AAL_SRAM_SOF)
 		return;
 
-	AALIRQ_LOG("[SRAM] g_aal_dre_config(%d) in SOF", g_aal_dre_config);
+	AALIRQ_LOG("[SRAM] g_aal_dre_config(%d) in SOF", atomic_read(&g_aal_dre_config));
 	if (spin_trylock_irqsave(&g_aal_clock_lock, flags)) {
 		if (atomic_read(&aal_data->is_clock_on) != 1)
 			AALIRQ_LOG("clock is off\n");
@@ -2545,6 +2556,12 @@ void disp_aal_debug(const char *opt)
 		debug_dump_reg_irq = true;
 		pr_notice("[debug] debug_dump_reg_irq=%d\n",
 			debug_dump_reg_irq);
+	} else if (strncmp(opt, "dumpreg:", 8) == 0) {
+		if (strncmp(opt + 8, "yes", 3) == 0)
+			debug_dump_reg = true;
+		else
+			debug_dump_reg = false;
+		pr_notice("[debug] debug_dump_reg=%d\n", debug_dump_reg);
 	} else if (strncmp(opt, "dumpdre3hist:", 13) == 0) {
 		if (sscanf(opt + 13, "%d %d",
 			&dump_blk_x, &dump_blk_y) == 2)

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2015 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -244,11 +245,13 @@ struct cust_mt65xx_led *get_cust_led_dtsi(void)
 
 		switch (pled_dtsi[i].mode) {
 		case MT65XX_LED_MODE_CUST_LCM:
+			DDPDSIINFO("%s:%d, backlight func\n", __func__, __LINE__);
 #if defined(CONFIG_BACKLIGHT_SUPPORT_LM3697)
 			pled_dtsi[i].data =
 			   (long)chargepump_set_backlight_level;
 			LEDS_DEBUG("BL set by chargepump\n");
 #else
+			DDPDSIINFO("%s:%d, backlight func\n", __func__, __LINE__);
 			pled_dtsi[i].data = (long)mtkfb_set_backlight_level;
 #endif
 			LEDS_DEBUG("kernel:the BL hw mode is LCM.\n");
@@ -768,6 +771,7 @@ int mt_mt65xx_led_set_cust(struct cust_mt65xx_led *cust, int level)
 	unsigned int BacklightLevelSupport =
 	    Cust_GetBacklightLevelSupport_byPWM();
 #endif
+	DDPDSIINFO("%s:%d, backlight level= %d, mode = %d\n", __func__, __LINE__, level, cust->mode);
 	static bool button_flag;
 
 	switch (cust->mode) {
@@ -834,6 +838,7 @@ int mt_mt65xx_led_set_cust(struct cust_mt65xx_led *cust, int level)
 		if (strcmp(cust->name, "lcd-backlight") == 0)
 			bl_brightness_hal = level;
 		LEDS_DEBUG("%s backlight control by LCM\n", __func__);
+		DDPDSIINFO("%s:%d, backlight level= %d\n", __func__, __LINE__, level);
 		/* warning for this API revork */
 		return ((cust_brightness_set) (cust->data)) (level, bl_div_hal);
 

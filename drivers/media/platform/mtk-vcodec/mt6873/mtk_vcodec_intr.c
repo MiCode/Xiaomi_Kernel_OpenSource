@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  * Author: Tiffany Lin <tiffany.lin@mediatek.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -371,6 +372,16 @@ void mtk_vcodec_dec_timeout_dump(void *ctx)
 		0x120, 0x124, 0x128, 0x12C, 0x130, 0x134, 0x138, 0x13C};
 	unsigned int core_vld_reg[CORE_VLD_REG_COUNT] = {
 		0x120, 0x124, 0x128, 0x12C, 0x96C}; // input, cycle
+
+	if (ctx == NULL) {
+		mtk_v4l2_debug(0, "can't dump vdec for NULL ctx");
+		return;
+	}
+
+	dev = curr_ctx->dev;
+
+	mtk_v4l2_debug(0, "ctx: %p, is_codec_suspending: %d",
+	    ctx, dev->is_codec_suspending);
 
 	if (ctx == NULL) {
 		mtk_v4l2_debug(0, "can't dump vdec for NULL ctx");

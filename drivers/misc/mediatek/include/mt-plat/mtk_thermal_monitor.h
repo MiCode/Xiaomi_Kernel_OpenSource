@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -114,7 +115,7 @@ extern int mtk_thermal_get_temp(enum mtk_thermal_sensor_id id);
 extern struct proc_dir_entry *mtk_thermal_get_proc_drv_therm_dir_entry(void);
 
 /* This API function is implemented in mediatek/kernel/drivers/leds/leds.c */
-extern int setMaxbrightness(char *name, int percent, bool enable);
+extern int setMaxBrightness(char *name, int percent, bool enable);
 
 
 extern void machine_power_off(void);

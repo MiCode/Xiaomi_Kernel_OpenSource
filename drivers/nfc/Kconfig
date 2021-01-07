@@ -17,6 +17,15 @@ config NFC_TRF7970A
 	  say M  to compile it as a module. The module will be called
 	  trf7970a.ko.
 
+config NFC_PN553_DEVICES
+	bool "Nxp pn553 NCI protocol driver (I2C) devices"
+	default y
+	help
+	  You'll have to say Y if your computer contains an I2C device that
+	  you want to use under Linux.
+
+	  You can say N here if you don't have any SPI connected to your computer.
+
 config NFC_MEI_PHY
 	tristate "MEI bus NFC device support"
 	depends on INTEL_MEI && NFC_HCI

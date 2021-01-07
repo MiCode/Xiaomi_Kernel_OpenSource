@@ -744,6 +744,9 @@ config HW_PERF_EVENTS
 	def_bool y
 	depends on ARM_PMU
 
+config BOOT_INFO
+	def_bool y
+
 config SYS_SUPPORTS_HUGETLBFS
 	def_bool y
 

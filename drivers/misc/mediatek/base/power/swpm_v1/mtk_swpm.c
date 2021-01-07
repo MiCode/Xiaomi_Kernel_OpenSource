@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -422,69 +423,6 @@ static ssize_t log_mask_proc_write(struct file *file,
 	return count;
 }
 
-#ifdef IDD_TBL_DBG
-static int idd_tbl_proc_show(struct seq_file *m, void *v)
-{
-	int i;
-
-	if (!swpm_info_ref)
-		return 0;
-
-	for (i = 0; i < NR_DRAM_PWR_TYPE; i++) {
-#if 0
-		seq_puts(m, "==========================\n");
-		seq_printf(m, "idx %d i_dd0 = %d\n", i,
-			swpm_info_ref->dram_conf[i].i_dd0);
-		seq_printf(m, "idx %d i_dd2p = %d\n", i,
-			swpm_info_ref->dram_conf[i].i_dd2p);
-		seq_printf(m, "idx %d i_dd2n = %d\n", i,
-			swpm_info_ref->dram_conf[i].i_dd2n);
-		seq_printf(m, "idx %d i_dd4r = %d\n", i,
-			swpm_info_ref->dram_conf[i].i_dd4r);
-		seq_printf(m, "idx %d i_dd4w = %d\n", i,
-			swpm_info_ref->dram_conf[i].i_dd4w);
-		seq_printf(m, "idx %d i_dd5 = %d\n", i,
-			swpm_info_ref->dram_conf[i].i_dd5);
-		seq_printf(m, "idx %d i_dd6 = %d\n", i,
-			swpm_info_ref->dram_conf[i].i_dd6);
-#endif
-	}
-
-	seq_puts(m, "==========================\n");
-
-	return 0;
-}
-
-static ssize_t idd_tbl_proc_write(struct file *file,
-	const char __user *buffer, size_t count, loff_t *pos)
-{
-	unsigned int type, idd_idx, val;
-
-	char *buf = _copy_from_user_for_proc(buffer, count);
-
-	if (!buf)
-		return -EINVAL;
-
-	if (!swpm_info_ref)
-		goto end;
-
-	if (sscanf(buf, "%d %d %d", &type, &idd_idx, &val) == 3) {
-#if 0
-		if (type >= NR_DRAM_PWR_TYPE || idd_idx > 6)
-			goto end;
-		swpm_lock(&swpm_mutex);
-		*(&swpm_info_ref->dram_conf[type].i_dd0 + idd_idx) = val;
-		swpm_unlock(&swpm_mutex);
-#endif
-	} else {
-		swpm_err("echo <type> <idx> <val> > /proc/swpm/idd_tbl\n");
-	}
-
-end:
-	return count;
-}
-#endif
-
 PROC_FOPS_RO(dump_power);
 PROC_FOPS_RO(dump_lkg_power);
 #ifdef CONFIG_MTK_GPU_SWPM_SUPPORT
@@ -497,9 +435,6 @@ PROC_FOPS_RW(profile);
 PROC_FOPS_RW(avg_window);
 PROC_FOPS_RW(log_interval);
 PROC_FOPS_RW(log_mask);
-#ifdef IDD_TBL_DBG
-PROC_FOPS_RW(idd_tbl);
-#endif
 
 /***************************************************************************
  *  API
@@ -540,9 +475,6 @@ int swpm_create_procfs(void)
 		PROC_ENTRY(log_mask),
 #ifdef CONFIG_MTK_GPU_SWPM_SUPPORT
 		PROC_ENTRY(gpu_debug),
-#endif
-#ifdef IDD_TBL_DBG
-		PROC_ENTRY(idd_tbl),
 #endif
 	};
 

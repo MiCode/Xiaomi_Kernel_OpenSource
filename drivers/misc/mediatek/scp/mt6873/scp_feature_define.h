@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -19,9 +20,15 @@
 #define SCP_BOOT_TIME_OUT_MONITOR        (1)
 #define SCP_RESERVED_MEM                 (1)
 #define SCP_LOGGER_ENABLE                (1)
+#ifndef CONFIG_FACTORY_BUILD
+#define SCP_LOGGER_OVERWRITE             (1)
+#endif
 #define SCP_DVFS_INIT_ENABLE             (1)
 #define SCP_VOW_LOW_POWER_MODE           (1)
 
+#ifdef SCP_LOGGER_OVERWRITE
+#define HW_SEM_LOGGER                    (1)
+#endif
 
 /* scp rescovery feature option*/
 #define SCP_RECOVERY_SUPPORT             (1)

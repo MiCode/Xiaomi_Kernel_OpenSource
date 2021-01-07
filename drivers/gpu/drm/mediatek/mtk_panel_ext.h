@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2019 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -229,6 +230,12 @@ struct mtk_panel_params {
 		lane_swap[MIPITX_PHY_PORT_NUM][MIPITX_PHY_LANE_NUM];
 	struct mtk_panel_dsc_params dsc_params;
 	unsigned int output_mode;
+	unsigned int hbm_en_pre_time;
+	unsigned int hbm_en_post_time;
+	unsigned int hbm_dis_pre_time;
+	unsigned int hbm_dis_post_time;
+	unsigned int icon_en_time;
+	unsigned int icon_dis_time;
 	unsigned int hbm_en_time;
 	unsigned int hbm_dis_time;
 	unsigned int lcm_index;
@@ -320,10 +327,22 @@ struct mtk_panel_funcs {
 	int (*hbm_set_cmdq)(struct drm_panel *panel, void *dsi_drv,
 			    dcs_write_gce cb, void *handle, bool en);
 	void (*hbm_get_state)(struct drm_panel *panel, bool *state);
+	void (*hbm_set_state)(struct drm_panel *panel, bool *state);
 	void (*hbm_get_wait_state)(struct drm_panel *panel, bool *wait);
 	bool (*hbm_set_wait_state)(struct drm_panel *panel, bool wait);
+        int (*hbm_fod_control)(struct drm_panel *panel, bool en);
+        int (*setbacklight_control)(struct drm_panel *panel, unsigned int level, bool fod_cal_flag);
+	void (*panel_id_get)(struct drm_panel *panel);
+	void (*panel_set_crc_srgb)(struct drm_panel *panel);
+	void (*panel_set_crc_p3)(struct drm_panel *panel);
+	void (*panel_set_crc_off)(struct drm_panel *panel);
+	int (*panel_whitepoint_get)(struct drm_panel *panel);
 };
 
+int mtk_fod_backlight_flag(struct drm_connector *c);
+int mtk_ddic_dsi_read_cmd(struct mtk_ddic_dsi_msg *cmd_msg);
+int mtk_ddic_dsi_send_cmd(struct mtk_ddic_dsi_msg *cmd_msg,
+			bool blocking);
 void mtk_panel_init(struct mtk_panel_ctx *ctx);
 void mtk_panel_add(struct mtk_panel_ctx *ctx);
 void mtk_panel_remove(struct mtk_panel_ctx *ctx);

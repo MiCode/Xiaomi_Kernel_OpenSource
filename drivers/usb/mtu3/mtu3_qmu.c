@@ -2,6 +2,7 @@
  * mtu3_qmu.c - Queue Management Unit driver for device controller
  *
  * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * Author: Chunfeng Yun <chunfeng.yun@mediatek.com>
  *
@@ -454,6 +455,11 @@ static void qmu_done_tx(struct mtu3 *mtu, u8 epnum)
 		mtu3_req_complete(mep, request, 0);
 
 		gpd = advance_deq_gpd(ring);
+
+		if (!gpd) {
+			pr_err("[TX][ERROR] EP%d, Next GPD is null!!\n", epnum);
+			return;
+		}
 	}
 
 	dev_dbg(mtu->dev, "%s EP%d, deq=%p, enq=%p, complete\n",
@@ -492,6 +498,11 @@ static void qmu_done_rx(struct mtu3 *mtu, u8 epnum)
 		mtu3_req_complete(mep, req, 0);
 
 		gpd = advance_deq_gpd(ring);
+
+		if (!gpd) {
+			pr_err("[RX][ERROR] EP%d, Next GPD is null!!\n", epnum);
+			return;
+		}
 	}
 
 	dev_dbg(mtu->dev, "%s EP%d, deq=%p, enq=%p, complete\n",

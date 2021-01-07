@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -73,6 +74,15 @@ enum {
 	SENSOR_TYPE_SAR,
 	SENSOR_TYPE_OIS,
 	SENSOR_TYPE_GYRO_SECONDARY,
+	SENSOR_TYPE_PS_FACTORY_STRM,
+	SENSOR_TYPE_ALS_FACTORY_STRM,
+	SENSOR_TYPE_ELEVATOR_DETECT,
+	SENSOR_TYPE_FOD,
+	SENSOR_TYPE_AOD,
+	SENSOR_TYPE_NONUI,
+	SENSOR_TYPE_SAR_ALGO,
+	SENSOR_TYPE_ELLIPTIC_FUSION,
+	SENSOR_TYPE_SAR_ALGO_1,
 	SENSOR_TYPE_SENSOR_MAX,
 };
 
@@ -137,6 +147,15 @@ enum {
 	ID_SAR,
 	ID_OIS,
 	ID_GYRO_SECONDARY,
+	ID_PS_FACTORY_STRM,
+	ID_ALS_FACTORY_STRM,
+	ID_ELEVATOR_DETECT,
+	ID_FOD,
+	ID_AOD,
+	ID_NONUI,
+	ID_SAR_ALGO,
+	ID_ELLIPTIC_FUSION,//add by mtk for elliptic
+	ID_SAR_ALGO_1,
 	ID_SENSOR_MAX,
 };
 

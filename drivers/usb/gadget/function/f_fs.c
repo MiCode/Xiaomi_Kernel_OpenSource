@@ -2,6 +2,7 @@
  * f_fs.c -- user mode file system API for USB composite function controllers
  *
  * Copyright (C) 2010 Samsung Electronics
+ * Copyright (C) 2020 XiaoMi, Inc.
  * Author: Michal Nazarewicz <mina86@mina86.com>
  *
  * Based on inode.c (GadgetFS) which was:
@@ -1389,6 +1390,11 @@ static long ffs_epfile_ioctl(struct file *file, unsigned code,
 	ENTER();
 
 	if (WARN_ON(epfile->ffs->state != FFS_ACTIVE))
+		return -ENODEV;
+
+	/* barrier */
+	smp_mb__before_atomic();
+	if (atomic_read(&epfile->error))
 		return -ENODEV;
 
 	/* Wait for endpoint to be enabled */

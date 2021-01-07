@@ -2,6 +2,7 @@
  * Mediatek's mt6853 SoC device tree source
  *
  * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -368,7 +369,7 @@
 	#address-cells = <1>;
 	#size-cells = <0>;
 	panel@0 {
-		compatible = "truly,td4330,vdo";
+		compatible = "xinli,ft8719,vdo";
 		reg = <0>;
 		pm-enable-gpios = <&pio 41 0>;
 		reset-gpios = <&pio 86 0>;

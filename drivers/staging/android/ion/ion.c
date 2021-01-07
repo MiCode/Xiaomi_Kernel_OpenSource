@@ -3,6 +3,7 @@
  * drivers/staging/android/ion/ion.c
  *
  * Copyright (C) 2011 Google, Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -1390,7 +1391,42 @@ retry:
 					      buffer,
 					      &addr,
 					      &len);
+	{ /* for debug sg_table not continue */
+		dma_addr_t expected, dma_addr;
+		unsigned long s_pa = 0;
+		struct scatterlist *s;
+		unsigned long long ts_start, ts_end; /* for performance */
+		int i, flag = 0;
 
+		ts_start = sched_clock();
+		dma_addr = sg_dma_address(buffer->sg_table->sgl);
+		expected = sg_dma_address(buffer->sg_table->sgl);
+		s_pa = (unsigned long)sg_phys(buffer->sg_table->sgl);
+		for_each_sg(buffer->sg_table->sgl, s, buffer->sg_table->nents, i) {
+			if (sg_dma_address(s) != expected) {
+				flag = 1;
+				IONMSG("hc3 %s warning 1, sz:0x%zx, i:%d--%u, dma_addr:0x%pa--0x%pa, 0x%lx+0x%lx, pa:0x%lx(0x%lx), sg_table:0x%p--0x%p\n",
+				       __func__, buffer->size,
+				       i, buffer->sg_table->nents,
+				       &dma_addr, &expected,
+				       (unsigned long)sg_dma_address(s),
+				       (unsigned long)sg_dma_len(s),
+				       (unsigned long)sg_phys(s),
+				       s_pa,
+				       buffer->sg_table, buffer->sg_table->sgl);
+			}
+
+			if (flag && i > 20)
+				break;
+
+			expected = sg_dma_address(s) + sg_dma_len(s);
+		}
+
+		ts_end = sched_clock();
+		if (ts_end - ts_start > 1000000) //1ms
+			pr_info("hc3 %s check 1 sg_table time:%llu, nents:%u\n",
+				__func__, (ts_end - ts_start), buffer->sg_table->nents);
+	}
 		if (ret) {
 			mutex_unlock(&buffer->lock);
 			IONMSG("%s, failed at get phys, ret:%d\n",

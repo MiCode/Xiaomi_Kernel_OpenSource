@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2015 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -25,6 +26,7 @@ enum IMGSENSOR_SENSOR_IDX {
 	IMGSENSOR_SENSOR_IDX_MAIN2,
 	IMGSENSOR_SENSOR_IDX_SUB2,
 	IMGSENSOR_SENSOR_IDX_MAIN3,
+#if 0//XIAOMI:libin16 comment it
 	IMGSENSOR_SENSOR_IDX_SUB3,
 	IMGSENSOR_SENSOR_IDX_MAIN4,
 	IMGSENSOR_SENSOR_IDX_SUB4,
@@ -32,6 +34,7 @@ enum IMGSENSOR_SENSOR_IDX {
 	IMGSENSOR_SENSOR_IDX_SUB5,
 	IMGSENSOR_SENSOR_IDX_MAIN6,
 	IMGSENSOR_SENSOR_IDX_SUB6,
+#endif//XIAOMI:libin16 comment it
 	IMGSENSOR_SENSOR_IDX_MAX_NUM,
 	IMGSENSOR_SENSOR_IDX_NONE,
 };

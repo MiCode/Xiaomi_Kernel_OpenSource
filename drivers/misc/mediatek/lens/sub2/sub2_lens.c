@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2015 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -88,6 +89,8 @@ static struct stAF_DrvList g_stAF_DrvList[MAX_NUM_OF_LENS] = {
 	{1, AFDRV_AK7371AF, AK7371AF_SetI2Cclient, AK7371AF_Ioctl,
 	 AK7371AF_Release, AK7371AF_GetFileName, NULL},
 #endif
+	{1, AFDRV_DW9714AF, DW9714AF_SetI2Cclient, DW9714AF_Ioctl,
+	 DW9714AF_Release, DW9714AF_GetFileName, NULL},
 };
 
 static struct stAF_DrvList *g_pstAF_CurDrv;
@@ -388,6 +391,7 @@ static long AF_Ioctl_Compat(struct file *a_pstFile, unsigned int a_u4Command,
 static int AF_Open(struct inode *a_pstInode, struct file *a_pstFile)
 {
 	LOG_INF("Start\n");
+	printk("jianlong AF_Open\n");
 
 	if (g_s4AF_Opened) {
 		LOG_INF("The device is opened\n");
@@ -580,6 +584,7 @@ static int AF_i2c_probe(struct i2c_client *client,
 	int i4RetValue = 0;
 
 	LOG_INF("Start\n");
+	printk("jianlong AF_i2c_probe start\n");
 
 	/* Kirby: add new-style driver { */
 	g_pstAF_I2Cclient = client;

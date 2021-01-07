@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -334,6 +335,8 @@ enum MTK_CRTC_PROP {
 	CRTC_PROP_HBM_ENABLE,
 	CRTC_PROP_COLOR_TRANSFORM,
 	CRTC_PROP_USER_SCEN,
+	CRTC_PROP_ICON_ENABLE,
+	CRTC_PROP_ENROLL_ENABLE,
 	CRTC_PROP_HDR_ENABLE,
 	CRTC_PROP_MAX,
 };

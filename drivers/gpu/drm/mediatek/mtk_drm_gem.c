@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -663,6 +664,11 @@ mtk_gem_prime_import_sg_table(struct drm_device *dev,
 		last_len = sg_dma_len(s);
 		expected = sg_dma_address(s) + sg_dma_len(s);
 	}
+	if (error_cnt) {
+		ret = -EINVAL;
+		goto err_gem_free;
+	}
+
 	if (error_cnt) {
 		ret = -EINVAL;
 		goto err_gem_free;

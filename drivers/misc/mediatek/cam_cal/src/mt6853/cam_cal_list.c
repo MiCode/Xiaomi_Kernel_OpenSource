@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2018 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -18,37 +19,76 @@
 
 #define MAX_EEPROM_SIZE_16K 0x4000
 
+#if defined(OV02B10OFILM_MIPI_RAW)
+extern unsigned int ov02b10ofilm_read_otp_info(struct i2c_client *client,
+                                  unsigned int addr,
+                                  unsigned char *data,
+                                  unsigned int size);
+#endif
+
+#if defined(OV02B10AAC_MIPI_RAW)
+extern unsigned int ov02b10aac_read_otp_info(struct i2c_client *client,
+                                  unsigned int addr,
+                                  unsigned char *data,
+                                  unsigned int size);
+#endif
+
+#if defined(OV02B10OFILMQTECH_MIPI_RAW)
+extern unsigned int ov02b10ofilmqtech_read_otp_info(struct i2c_client *client,
+                                  unsigned int addr,
+                                  unsigned char *data,
+                                  unsigned int size);
+#endif
+
+#if defined(OV02B10AACOFILM_MIPI_RAW)
+extern unsigned int ov02b10aacofilm_read_otp_info(struct i2c_client *client,
+                                  unsigned int addr,
+                                  unsigned char *data,
+                                  unsigned int size);
+#endif
+
 struct stCAM_CAL_LIST_STRUCT g_camCalList[] = {
-	/*Below is commom sensor */
-	{IMX586_SENSOR_ID, 0xA0, Common_read_region, MAX_EEPROM_SIZE_16K},
-	{IMX576_SENSOR_ID, 0xA2, Common_read_region},
-	{IMX519_SENSOR_ID, 0xA0, Common_read_region},
-	{IMX319_SENSOR_ID, 0xA2, Common_read_region, MAX_EEPROM_SIZE_16K},
-	{S5K3M5SX_SENSOR_ID, 0xA0, Common_read_region, MAX_EEPROM_SIZE_16K},
-	{IMX686_SENSOR_ID, 0xA0, Common_read_region, MAX_EEPROM_SIZE_16K},
-	{HI846_SENSOR_ID, 0xA0, Common_read_region, MAX_EEPROM_SIZE_16K},
-	{S5KGD1SP_SENSOR_ID, 0xA8, Common_read_region, MAX_EEPROM_SIZE_16K},
-	{OV16A10_SENSOR_ID, 0xA0, Common_read_region, MAX_EEPROM_SIZE_16K},
-	{S5K3P9SP_SENSOR_ID, 0xA8, Common_read_region},
-	{S5K2T7SP_SENSOR_ID, 0xA4, Common_read_region},
-	{IMX386_SENSOR_ID, 0xA0, Common_read_region},
-	{S5K2L7_SENSOR_ID, 0xA0, Common_read_region},
-	{IMX398_SENSOR_ID, 0xA0, Common_read_region},
-	{IMX350_SENSOR_ID, 0xA0, Common_read_region},
-	{IMX386_MONO_SENSOR_ID, 0xA0, Common_read_region},
-	{IMX499_SENSOR_ID, 0xA0, Common_read_region},
-	/*  ADD before this line */
-	{0, 0, 0}       /*end of list */
+        /*Below is commom sensor */
+        {IMX586_SENSOR_ID, 0xA0, Common_read_region, MAX_EEPROM_SIZE_16K},
+        {IMX576_SENSOR_ID, 0xA2, Common_read_region},
+        {IMX519_SENSOR_ID, 0xA0, Common_read_region},
+        {IMX319_SENSOR_ID, 0xA2, Common_read_region, MAX_EEPROM_SIZE_16K},
+        {S5K3M5SX_SENSOR_ID, 0xA0, Common_read_region, MAX_EEPROM_SIZE_16K},
+        {IMX686_SENSOR_ID, 0xA0, Common_read_region, MAX_EEPROM_SIZE_16K},
+        {HI846_SENSOR_ID, 0xA0, Common_read_region, MAX_EEPROM_SIZE_16K},
+        {S5KGD1SP_SENSOR_ID, 0xA8, Common_read_region, MAX_EEPROM_SIZE_16K},
+        {OV16A10_SENSOR_ID, 0xA0, Common_read_region, MAX_EEPROM_SIZE_16K},
+        {S5K3P9SP_SENSOR_ID, 0xA8, Common_read_region},
+        {S5K2T7SP_SENSOR_ID, 0xA4, Common_read_region},
+        {IMX386_SENSOR_ID, 0xA0, Common_read_region},
+        {S5K2L7_SENSOR_ID, 0xA0, Common_read_region},
+        {IMX398_SENSOR_ID, 0xA0, Common_read_region},
+        {IMX350_SENSOR_ID, 0xA0, Common_read_region},
+        {IMX386_MONO_SENSOR_ID, 0xA0, Common_read_region},
+        {IMX499_SENSOR_ID, 0xA0, Common_read_region},
+        {S5KGM1STOFILM_SENSOR_ID, 0xA0, Common_read_region},
+        {S5KGM1STQTECH_SENSOR_ID, 0xA2, Common_read_region},
+        {S5K3L6OFILM_SENSOR_ID, 0xA2, Common_read_region},
+        {S5K3L6QTECH_SENSOR_ID, 0xA2, Common_read_region},
+        {HI259OFILM_SENSOR_ID, 0xA2, Common_read_region},
+        {HI259AAC_SENSOR_ID, 0xA2, Common_read_region},
+        {OV8856OFILM_SENSOR_ID, 0xA0, Common_read_region},
+        {OV02B10OFILM_SENSOR_ID, 0x78, ov02b10ofilm_read_otp_info},
+        {OV02B10AAC_SENSOR_ID, 0x78, ov02b10aac_read_otp_info},
+        {OV02B10OFILMQTECH_SENSOR_ID, 0x78, ov02b10ofilmqtech_read_otp_info},
+        {OV02B10AACOFILM_SENSOR_ID, 0x78, ov02b10aacofilm_read_otp_info},
+        /*  ADD before this line */
+        {0, 0, 0}       /*end of list */
 };
 
 unsigned int cam_cal_get_sensor_list(
-	struct stCAM_CAL_LIST_STRUCT **ppCamcalList)
+        struct stCAM_CAL_LIST_STRUCT **ppCamcalList)
 {
-	if (ppCamcalList == NULL)
-		return 1;
+        if (ppCamcalList == NULL)
+                return 1;
 
-	*ppCamcalList = &g_camCalList[0];
-	return 0;
+        *ppCamcalList = &g_camCalList[0];
+        return 0;
 }
 
 

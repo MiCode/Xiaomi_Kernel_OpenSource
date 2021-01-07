@@ -2,6 +2,7 @@
  * Mediatek's MT6873 SoC device tree source
  *
  * Copyright (C) 2019 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -210,16 +211,6 @@ page_owner=on loop.max_part=7";
 		};
 	};
 
-	disp_leds {
-		compatible = "mediatek,disp-leds";
-
-		backlight {
-			label = "lcd-backlight";
-			max-brightness = <255>;
-			led-bits = <8>;
-			default-state = "on";
-		};
-	};
 
 	psci {
 		compatible = "arm,psci-1.0";
@@ -236,6 +227,19 @@ page_owner=on loop.max_part=7";
 			pwm-names = "lcd-backlight";
 		};
 	};
+
+	disp_leds {
+		compatible = "mediatek,disp-leds";
+
+		backlight {
+			label = "lcd-backlight";
+			max-brightness = <2047>;
+			led-bits = <11>;
+			trans-bits = <11>;
+			default-state = "on";
+		};
+	};
+
 
 	mtk_lpm: mtk_lpm {
 		compatible = "mediatek,mtk-lpm";
@@ -405,10 +409,10 @@ page_owner=on loop.max_part=7";
 			no-map;
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
 	defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
-			size = <0 0x800000>;
+			size = <0 0xC00000>;
 			alignment = <0 0x1000000>;
 #else
-			size = <0 0x200000>;
+			size = <0 0x600000>;
 			alignment = <0 0x200000>;
 #endif
 			alloc-ranges = <0 0x40000000 0 0x50000000>;
@@ -1193,6 +1197,22 @@ page_owner=on loop.max_part=7";
 		#ifndef CONFIG_FPGA_EARLY_PORTING
 		vcc-supply = <&mt_pmic_vemc_ldo_reg>;
 		vcc-fixed-regulator;
+		/*
+		 * vcc-voltage can only set 2700000/2800000/2900000/3000000/
+		 * 3300000/3400000/3500000 due to pmic limitation.
+		 * Other value will not work, and voltage will be default
+		 * 3000000. By the way, only 3000000 is mtk guarantee.
+		 * The other voltage is not.
+		 */
+		vcc-voltage = <3000000>; /* uv */
+		/*
+		 * vcc-vcc-voltage-plus can only set 0/10000/20000/30000/40000/
+		 * 50000/60000/70000/80000/90000/100000 due to pmic limitation.
+		 * Other value will not work, and voltage plus will be default
+		 * 0. By the way, only 0 is mtk guarantee.
+		 * The other voltage plus is not.
+		 */
+		vcc-voltage-plus = <0>; /* uv */
 		#endif
 
 		/* Number of lanes available per direction - either 1 or 2 */
@@ -2350,14 +2370,20 @@ page_owner=on loop.max_part=7";
 
 	tboard_thermistor2: thermal-sensor2 {
 		compatible = "mediatek,mtboard-thermistor2";
-		io-channels = <&auxadc 1>;
+		io-channels = <&auxadc 2>;
 		io-channel-names = "thermistor-ch1";
 	};
 
 	tboard_thermistor3: thermal-sensor3 {
 		compatible = "mediatek,mtboard-thermistor3";
-		io-channels = <&auxadc 2>;
+		io-channels = <&auxadc 1>;
 		io-channel-names = "thermistor-ch2";
+	};
+
+	tboard_thermistor6: thermal-sensor6 {
+		compatible = "mediatek,mtboard-thermistor6";
+		io-channels = <&auxadc 6>;
+		io-channel-names = "thermistor-ch6";
 	};
 
 	mali: mali@13000000 {
@@ -2764,19 +2790,19 @@ page_owner=on loop.max_part=7";
 	snd_audio_dsp: snd_audio_dsp {
 		compatible = "mediatek,snd_audio_dsp";
 		mtk_dsp_voip = <0x1f 0x1 0xffffffff 0xffffffff 0x30000>;
-		mtk_dsp_primary = <0x1f 0x0 0xffffffff 0xffffffff 0x30000>;
+		mtk_dsp_primary = <0x0 0x0 0xffffffff 0xffffffff 0x30000>;
 		mtk_dsp_offload = <0x1d 0x6 0xffffffff 0xffffffff 0x400000>;
-		mtk_dsp_deep = <0x5 0x3 0xffffffff 0xffffffff 0x30000>;
+		mtk_dsp_deep = <0x0 0x3 0xffffffff 0xffffffff 0x30000>;
 		mtk_dsp_playback = <0x1 0x4 0x10 0x14 0x30000>;
 		mtk_dsp_music = <0x1 0xffffffff 0xffffffff 0xffffffff 0x0>;
 		mtk_dsp_capture1 = <0x1 0xffffffff 0xd 0x13 0x20000>;
 		mtk_dsp_a2dp = <0x0 0xffffffff 0xffffffff 0xffffffff 0x40000>;
 		mtk_dsp_dataprovider = <0x0 0xffffffff 0xf 0xffffffff 0x30000>;
 		mtk_dsp_call_final = <0x1 0x4 0x10 0x14 0x18000>;
-		mtk_dsp_fast = <0x5 0x2 0xffffffff 0xffffffff 0x5000>;
+		mtk_dsp_fast = <0x0 0x2 0xffffffff 0xffffffff 0x5000>;
 		mtk_dsp_ktv = <0x1 0x8 0x12 0xffffffff 0x10000>;
 		mtk_dsp_ver = <0x1>;
-		swdsp_smartpa_process_enable = <0x1>;
+		swdsp_smartpa_process_enable = <0x0>;
 		mtk_dsp_mem_afe = <0x1 0x40000>; /* always enable */
 	};
 
@@ -3792,7 +3818,7 @@ page_owner=on loop.max_part=7";
 			<0>, /*MTK_DRM_OPT_MET_LOG*/
 			<1>, /*MTK_DRM_OPT_USE_PQ*/
 			<1>, /*MTK_DRM_OPT_ESD_CHECK_RECOVERY*/
-			<1>, /*MTK_DRM_OPT_ESD_CHECK_SWITCH*/
+			<0>, /*MTK_DRM_OPT_ESD_CHECK_SWITCH*/
 			<1>, /*MTK_DRM_OPT_PRESENT_FENCE*/
 			<0>, /*MTK_DRM_OPT_RDMA_UNDERFLOW_AEE*/
 			<1>, /*MTK_DRM_OPT_DSI_UNDERRUN_AEE*/
@@ -3804,7 +3830,7 @@ page_owner=on loop.max_part=7";
 			<1>, /*MTK_DRM_OPT_RPO*/
 			<0>, /*MTK_DRM_OPT_DUAL_PIPE*/
 			<0>, /*MTK_DRM_OPT_DC_BY_HRT*/
-			<1>, /*MTK_DRM_OPT_OVL_WCG*/
+			<0>, /*MTK_DRM_OPT_OVL_WCG*/
 			<0>, /*MTK_DRM_OPT_OVL_SBCH*/
 			<1>, /*MTK_DRM_OPT_COMMIT_NO_WAIT_VBLANK*/
 			<0>, /*MTK_DRM_OPT_MET*/
@@ -3812,7 +3838,7 @@ page_owner=on loop.max_part=7";
 			<0>, /*MTK_DRM_OPT_VP_PQ*/
 			<0>, /*MTK_DRM_OPT_GAME_PQ*/
 			<0>, /*MTK_DRM_OPT_MMPATH*/
-			<0>, /*MTK_DRM_OPT_HBM*/
+			<1>, /*MTK_DRM_OPT_HBM*/
 			<0>, /*MTK_DRM_OPT_LAYER_REC*/
 			<1>; /*MTK_DRM_OPT_CLEAR_LAYER*/
 	};
@@ -5836,6 +5862,8 @@ page_owner=on loop.max_part=7";
 		pu_cfg = <0xb0>;
 		rsel_cfg = <0xe0>;
 		aed = <0x1a>;
+
+		#include "fan53870.dtsi"
 	};
 
 	i2c8: i2c8@11d01000 {
@@ -6006,7 +6034,7 @@ page_owner=on loop.max_part=7";
 		/* charging current */
 		usb_charger_current = <500000>;
 		ac_charger_current = <2050000>;
-		ac_charger_input_current = <3200000>;
+		ac_charger_input_current = <1500000>;
 		non_std_ac_charger_current = <500000>;
 		charging_host_charger_current = <1500000>;
 		ta_ac_charger_current = <3000000>;
@@ -6031,7 +6059,7 @@ page_owner=on loop.max_part=7";
 		enable_dynamic_mivr;
 
 		/* common */
-		battery_cv = <4350000>;
+		battery_cv = <4450000>;
 		max_charger_voltage = <6500000>;
 		min_charger_voltage = <4600000>;
 
@@ -6046,7 +6074,7 @@ page_owner=on loop.max_part=7";
 		usb_charger_current_configured = <500000>;
 		usb_charger_current = <500000>;
 		ac_charger_current = <2050000>;
-		ac_charger_input_current = <3200000>;
+		ac_charger_input_current = <1500000>;
 		non_std_ac_charger_current = <500000>;
 		charging_host_charger_current = <1500000>;
 		apple_1_0a_charger_current = <650000>;
@@ -6176,6 +6204,9 @@ page_owner=on loop.max_part=7";
 	touch: touch {
 	};
 
+	xiaomi_touch: xiaomi_touch {
+	};
+
 	nfc:nfc {
 		compatible = "mediatek,nfc-gpio-v2";
 		gpio-rst = <10>;
@@ -6272,6 +6303,17 @@ page_owner=on loop.max_part=7";
 		credit_didt_doe_vx_low_freq_enable = <2>;
 	};
 
+	cp_qc30: cp_qc30 {
+	};
+
+	usbpd_pm: usbpd_pm {
+	};
+
+	onewire_gpio: onewire_gpio {
+	};
+
+	maxim_ds28e16: maxim_ds28e16 {
+	};
 	drcc: drcc {
 		compatible = "mediatek,drcc";
 		state = <0>;
@@ -6621,6 +6663,25 @@ page_owner=on loop.max_part=7";
 	};
 	md1_sim2_hot_plug_eint:md1_sim2_hot_plug_eint {
 	};
+	thermal_message: thermal-message {
+	};
+};
+
+&pio {
+	pm_reset_active: reset_active@gpio134 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO134__FUNC_GPIO134>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+};
+
+&fan53870_pm {
+	status = "okay";
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pm_reset_active>;
 };
 
 #ifndef CONFIG_FPGA_EARLY_PORTING

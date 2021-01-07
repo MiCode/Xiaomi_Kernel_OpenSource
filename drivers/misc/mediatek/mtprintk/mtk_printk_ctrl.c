@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2015 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -25,7 +26,7 @@
 /* --------------------------------------------------- */
 MT_DEBUG_ENTRY(printk_ctrl);
 /* always enable uart printk */
-int mt_need_uart_console;
+int mt_need_uart_console = 1;
 
 static int mt_printk_ctrl_show(struct seq_file *m, void *v)
 {

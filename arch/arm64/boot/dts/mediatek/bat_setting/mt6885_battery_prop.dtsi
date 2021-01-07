@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2018 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -12,6 +13,8 @@
  */
 bat_gm30: battery{
 	compatible = "mediatek,bat_gm30";
+	io-channels = <&auxadc 4>;
+	io-channel-names = "batteryID-channel";
 	DIFFERENCE_FULLOCV_ITH = <(200)>;
 /*	Charging termination current*/
 	SHUTDOWN_1_TIME = <(5)>;
@@ -44,15 +47,15 @@ bat_gm30: battery{
 /*	Battery temperature T3*/
 	TEMPERATURE_T4 = <(-10)>;
 /*	Battery temperature T4*/
-	g_FG_PSEUDO100_T0 = <(100)>;
+	g_FG_PSEUDO100_T0 = <(98)>;
 /*	Pseudo 100% percentage at T0*/
-	g_FG_PSEUDO100_T1 = <(100)>;
+	g_FG_PSEUDO100_T1 = <(98)>;
 /*	Pseudo 100% percentage at T1*/
-	g_FG_PSEUDO100_T2 = <(100)>;
+	g_FG_PSEUDO100_T2 = <(98)>;
 /*	Pseudo 100% percentage at T2*/
-	g_FG_PSEUDO100_T3 = <(100)>;
+	g_FG_PSEUDO100_T3 = <(98)>;
 /*	Pseudo 100% percentage at T3*/
-	g_FG_PSEUDO100_T4 = <(100)>;
+	g_FG_PSEUDO100_T4 = <(98)>;
 /*	Pseudo 100% percentage at T4*/
 	Q_MAX_SYS_VOLTAGE_BAT0 = <(3350)>;
 /*	Pseudo1 for hide percentage*/
@@ -72,6 +75,9 @@ bat_gm30: battery{
 /* Table numbers per battery*/
 	MULTI_TEMP_GAUGE0 = <(1)>;
 /* Multi gauge0 enable*/
-#include "mt6885_battery_table.dtsi"
+
+/* we use customized battery model */
+/*	#include "mt6885_battery_table.dtsi" */
+
 #include "mt6885_battery_prop_dim2_ext.dtsi"
 };

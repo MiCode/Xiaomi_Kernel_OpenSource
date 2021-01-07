@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2019 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -287,6 +288,7 @@ static unsigned int get_pack_idx(const struct apusys_subcmd *sc)
 
 	switch (sc->type) {
 	case APUSYS_DEVICE_VPU:
+	case APUSYS_DEVICE_VPU + APUSYS_DEVICE_RT:
 		pack_idx = sc->c_hdr->vpu.pack_idx;
 		break;
 	case APUSYS_DEVICE_SAMPLE:
@@ -296,6 +298,7 @@ static unsigned int get_pack_idx(const struct apusys_subcmd *sc)
 		mdw_flw_debug("dev type(%d) not support pack id\n", sc->type);
 		return VALUE_SUBGRAPH_PACK_ID_NONE;
 	}
+	mdw_flw_debug("packid(%d)\n", pack_idx);
 
 	return pack_idx;
 }

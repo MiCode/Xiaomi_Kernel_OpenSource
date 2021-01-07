@@ -3,6 +3,7 @@
  *
  * This code is based on drivers/scsi/ufs/ufshcd.c
  * Copyright (C) 2011-2013 Samsung India Software Operations
+ * Copyright (C) 2020 XiaoMi, Inc.
  * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * Authors:
@@ -50,6 +51,7 @@
 #include <asm/unaligned.h>
 #include <linux/rpmb.h>
 #include <scsi/ufs/ufs-mtk-ioctl.h>
+#include <mt-plat/upmu_common.h>
 #include "ufs-mtk.h"
 #include "ufs-mtk-dbg.h"
 #include "ufs-mtk-block.h"
@@ -248,7 +250,7 @@ static struct ufs_dev_fix ufs_fixups[] = {
 	UFS_FIX(UFS_VENDOR_SKHYNIX, UFS_ANY_MODEL,
 		UFS_DEVICE_QUIRK_LIMITED_RPMB_MAX_RW_SIZE),
 	UFS_FIX(UFS_VENDOR_MICRON, UFS_ANY_MODEL,
-		UFS_DEVICE_QUIRK_RESUME_CLOCK_ON_DELAY),
+		UFS_DEVICE_QUIRK_VCC_OFF_DELAY),
 
 	/* MTK PATCH */
 	UFS_FIX(UFS_VENDOR_TOSHIBA, "THGJFCT0T44BAKLA",
@@ -6586,6 +6588,7 @@ static int ufshcd_issue_tm_cmd(struct ufs_hba *hba, int lun_id, int task_id,
 	task_req_upiup->input_param2 = cpu_to_be32(task_id);
 
 	ufshcd_vops_res_ctrl(hba, UFS_RESCTL_CMD_SEND);
+	ufs_mtk_auto_hiber8_quirk_handler(hba, false);
 	ufshcd_vops_setup_task_mgmt(hba, free_slot, tm_function);
 
 	/* send command to the controller */
@@ -6819,7 +6822,6 @@ static int ufshcd_abort(struct scsi_cmnd *cmd)
 		ufs_mtk_dbg_dump_scsi_cmd(hba, cmd,
 			UFSHCD_DBG_PRINT_ABORT_CMD_EN);
 		ufs_mtk_pltfrm_gpio_trigger_and_debugInfo_dump(hba);
-		ufshcd_vops_abort_handler(hba, tag, __FILE__, __LINE__);
 	} else {
 		ufshcd_print_trs(hba, 1 << tag, false);
 	}
@@ -7221,8 +7223,7 @@ retry:
 				     NULL);
 
 	if (ret && scsi_sense_valid(&sshdr) &&
-	    sshdr.sense_key == UNIT_ATTENTION &&
-	    sshdr.asc == 0x29 && sshdr.ascq == 0x00)
+	    sshdr.sense_key == UNIT_ATTENTION)
 		/*
 		 * Device reset might occur several times,
 		 * give it one more chance
@@ -7270,8 +7271,7 @@ retry:
 				     NULL);
 
 	if (ret && scsi_sense_valid(&sshdr) &&
-	    sshdr.sense_key == UNIT_ATTENTION &&
-	    sshdr.asc == 0x29 && sshdr.ascq == 0x00)
+	    sshdr.sense_key == UNIT_ATTENTION)
 		/*
 		 * Device reset might occur several times,
 		 * give it one more chance
@@ -8203,7 +8203,7 @@ static int ufshcd_config_vreg(struct device *dev,
 	int ret = 0;
 	struct regulator *reg;
 	const char *name;
-	int min_uV, uA_load;
+	int val, uA_load;
 
 	BUG_ON(!vreg);
 
@@ -8211,6 +8211,7 @@ static int ufshcd_config_vreg(struct device *dev,
 	name = vreg->name;
 
 	if (regulator_count_voltages(reg) > 0) {
+		#if 0
 		if (vreg->min_uV && vreg->max_uV) {
 			min_uV = on ? vreg->min_uV : 0;
 			ret = regulator_set_voltage(reg, min_uV, vreg->max_uV);
@@ -8221,6 +8222,109 @@ static int ufshcd_config_vreg(struct device *dev,
 				goto out;
 			}
 		}
+		#else
+		dev_info(dev, "%s: count:%d fixed:%d plus:%d\n", __func__,
+			regulator_count_voltages(reg),
+			vreg->fixed_uV, vreg->plus_uV);
+		/*
+		 * 4'b1000: 2.7V
+		 * 4'b1001: 2.8V
+		 * 4'b1010: 2.9V
+		 * 4'b1011: 3.0V
+		 * 4'b1101: 3.3V
+		 * 4'b1110: 3.4V
+		 * 4'b1111: 3.5V
+		 */
+		switch (vreg->fixed_uV) {
+		case 2700000:
+			val = 0x8;
+			break;
+		case 2800000:
+			val = 0x9;
+			break;
+		case 2900000:
+			val = 0xa;
+			break;
+		case 3000000:
+			val = 0xb;
+			break;
+		case 3300000:
+			val = 0xd;
+			break;
+		case 3400000:
+			val = 0xe;
+			break;
+		case 3500000:
+			val = 0xf;
+			break;
+		default:
+			dev_err(dev, "%s: unsupport voltage, set to default",
+				__func__);
+			val = 0xb;
+			break;
+		}
+		pmic_config_interface(PMIC_RG_VEMC_VOSEL_0_ADDR,
+			val, PMIC_RG_VEMC_VOSEL_0_MASK,
+			PMIC_RG_VEMC_VOSEL_0_SHIFT);
+
+		/*
+		 * 4'b0000: +00mV
+		 * 4'b0001: +10mV
+		 * 4'b0010: +20mV
+		 * 4'b0011: +30mV
+		 * 4'b0100: +40mV
+		 * 4'b0101: +50mV
+		 * 4'b0110: +60mV
+		 * 4'b0111: +70mV
+		 * 4'b1000: +80mV
+		 * 4'b1001: +90mV
+		 * 4'b1010: +100mV
+		 */
+		switch (vreg->plus_uV) {
+		case 0:
+			val = 0x0;
+			break;
+		case 10000:
+			val = 0x1;
+			break;
+		case 20000:
+			val = 0x2;
+			break;
+		case 30000:
+			val = 0x3;
+			break;
+		case 40000:
+			val = 0x4;
+			break;
+		case 50000:
+			val = 0x5;
+			break;
+		case 60000:
+			val = 0x6;
+			break;
+		case 70000:
+			val = 0x7;
+			break;
+		case 80000:
+			val = 0x8;
+			break;
+		case 90000:
+			val = 0x9;
+			break;
+		case 100000:
+			val = 0xa;
+			break;
+		default:
+			dev_err(dev,
+				"%s: unsupport voltage plus, set to default",
+				__func__);
+			val = 0;
+			break;
+		}
+		pmic_config_interface(PMIC_RG_VEMC_VOCAL_0_ADDR,
+			val, PMIC_RG_VEMC_VOCAL_0_MASK,
+			PMIC_RG_VEMC_VOCAL_0_SHIFT);
+		#endif
 
 		uA_load = on ? vreg->max_uA : 0;
 		ret = ufshcd_config_vreg_load(dev, vreg, uA_load);
@@ -9014,6 +9118,9 @@ static int ufshcd_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	ufshcd_set_reg_state(hba, UFS_REG_SUSPEND_SET_LPM); /* MTK PATCH */
 	ufshcd_vreg_set_lpm(hba);
 
+	if (hba->dev_quirks & UFS_DEVICE_QUIRK_VCC_OFF_DELAY)
+		mdelay(5);
+
 disable_clks:
 	/*
 	 * Call vendor specific suspend callback. As these callbacks may access
@@ -9106,9 +9213,6 @@ static int ufshcd_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	ret = ufshcd_setup_clocks(hba, true);
 	if (ret)
 		goto out;
-
-	if (hba->dev_quirks & UFS_DEVICE_QUIRK_RESUME_CLOCK_ON_DELAY)
-		mdelay(1);
 
 	/* enable the host irq as host controller would be active soon */
 	ufshcd_enable_irq(hba);

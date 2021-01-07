@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -678,6 +679,8 @@ static struct mtk_panel_params ext_params = {
 		.count = 1,
 		.para_list[0] = 0x1c,
 	},
+	.ssc_range = 4,
+	.ssc_disable = 0,
 };
 
 static struct mtk_panel_funcs ext_funcs = {

@@ -2,6 +2,7 @@
  * mtk_pwm.h PWM Drvier
  *
  * Copyright (c) 2016, Media Teck.inc
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public Licence,
@@ -111,6 +112,8 @@ s32 pwm_set_spec_config(struct pwm_spec_config *conf);
 
 void mt_pwm_dump_regs(void);
 void mt_pwm_disable(u32 pwm_no, u8 pmic_pad);
+s32 mt_set_pwm_disable(u32 pwm_no);
+
 
 /*----------3dLCM support-----------*/
 void mt_set_pwm_3dlcm_enable(u8 enable);

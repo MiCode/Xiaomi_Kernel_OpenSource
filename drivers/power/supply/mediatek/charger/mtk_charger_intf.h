@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -22,6 +23,8 @@
 #include <linux/timer.h>
 #include <linux/wait.h>
 #include <linux/alarmtimer.h>
+#include <linux/kthread.h>
+#include <linux/power_supply.h>
 #include <mt-plat/charger_type.h>
 #include <mt-plat/mtk_charger.h>
 #include <mt-plat/mtk_battery.h>
@@ -93,6 +96,19 @@ do {								\
 #define CHG_BAT_LT_STATUS	(1 << 5)
 #define CHG_TYPEC_WD_STATUS	(1 << 6)
 
+#define MAX_STEP_CHG_ENTRIES	4
+
+/* quick charge type */
+enum quick_charge_type {
+	QUICK_CHARGE_NORMAL = 0,
+	QUICK_CHARGE_FAST,
+};
+
+struct quick_charge {
+	enum power_supply_type adap_type;
+	enum quick_charge_type adap_cap;
+};
+
 /* charger_algorithm notify charger_dev */
 enum {
 	EVENT_EOC,
@@ -131,11 +147,26 @@ enum sw_jeita_state_enum {
 	TEMP_T3_TO_T4,
 	TEMP_ABOVE_T4
 };
+struct range_data {
+	u32 low_threshold;
+	u32 high_threshold;
+	u32 value;
+};
+
+enum thermal_status_levels {
+	TEMP_SHUT_DOWN = 0,
+	TEMP_SHUT_DOWN_SMB,
+	TEMP_ALERT_LEVEL,
+	TEMP_ABOVE_RANGE,
+	TEMP_WITHIN_RANGE,
+	TEMP_BELOW_RANGE,
+};
 
 struct sw_jeita_data {
 	int sm;
 	int pre_sm;
 	int cv;
+	int pre_cv;
 	bool charging;
 	bool error_recovery_flag;
 };
@@ -272,6 +303,7 @@ struct charger_custom_data {
 
 	int vsys_watt;
 	int ibus_err;
+	int set_cap_delay;
 };
 
 struct charger_data {
@@ -419,6 +451,87 @@ struct charger_manager {
 
 	/* dynamic mivr */
 	bool enable_dynamic_mivr;
+
+	/* input suspend*/
+	bool is_input_suspend;
+
+	struct power_supply	*usb_psy;
+	struct power_supply	*battery_psy;
+
+	/*delay work*/
+	struct delayed_work	pd_hard_reset_work;
+
+	/* check init boot */
+	struct delayed_work	check_init_boot;
+
+	/*check connector thermal */
+	struct delayed_work	conn_therm_work;
+
+	/* float retry */
+	struct delayed_work	float_retry_work;
+
+	/* plug in time*/
+	struct timespec plugintime;
+
+	/*thermal level*/
+	int system_temp_level;
+	int system_temp_level_max;
+	int			connector_temp;
+	int		entry_time;
+	unsigned int		connect_therm_gpio;
+	bool		vbus_disable;
+	enum thermal_status_levels 		thermal_status;
+	int	 *thermal_mitigation_dcp;
+	int	 *thermal_mitigation_pd_base;
+
+	/*cycle count cv*/
+	struct range_data	cycle_count_cv_cfg[MAX_STEP_CHG_ENTRIES];
+};
+
+
+struct chg_type_info {
+	struct device *dev;
+	struct charger_consumer *chg_consumer;
+	struct tcpc_device *tcpc_dev;
+	struct notifier_block pd_nb;
+	struct notifier_block otg_nb;
+	bool tcpc_kpoc;
+	/* Charger Detection */
+	struct mutex chgdet_lock;
+	bool chgdet_en;
+	atomic_t chgdet_cnt;
+	wait_queue_head_t waitq;
+	struct kthread_work chgdet_task_threadfn;
+	struct task_struct *chgdet_task;
+	struct workqueue_struct *pwr_off_wq;
+	struct work_struct pwr_off_work;
+    struct workqueue_struct *chg_in_wq;
+    struct work_struct chg_in_work;
+	bool ignore_usb;
+	bool plugin;
+	int cc_orientation;
+	int typec_mode;
+};
+
+/* Power Supply */
+struct mt_charger {
+	struct device *dev;
+	struct power_supply_desc chg_desc;
+	struct power_supply_config chg_cfg;
+	struct power_supply *chg_psy;
+	struct power_supply_desc ac_desc;
+	struct power_supply_config ac_cfg;
+	struct power_supply *ac_psy;
+	struct power_supply_desc usb_desc;
+	struct power_supply_config usb_cfg;
+	struct power_supply *usb_psy;
+	struct power_supply_desc main_desc;
+	struct power_supply_config main_cfg;
+	struct power_supply *main_psy;
+	struct chg_type_info *cti;
+	bool chg_online; /* Has charger in or not */
+	enum charger_type chg_type;
+	struct charger_device *chg1_dev;
 };
 
 /* charger related module interface */
@@ -432,6 +545,7 @@ extern int mtk_get_dynamic_cv(struct charger_manager *info, unsigned int *cv);
 extern bool is_dual_charger_supported(struct charger_manager *info);
 extern int charger_enable_vbus_ovp(struct charger_manager *pinfo, bool enable);
 extern bool is_typec_adapter(struct charger_manager *info);
+extern int charger_manager_get_quick_charge_type(void);
 
 /* pmic API */
 extern unsigned int upmu_get_rgs_chrdet(void);
@@ -443,10 +557,10 @@ extern int pmic_is_bif_exist(void);
 extern int pmic_enable_hw_vbus_ovp(bool enable);
 extern bool pmic_is_battery_exist(void);
 
+extern int mtk_chg_get_ts_temp(void);
 
 extern void notify_adapter_event(enum adapter_type type, enum adapter_event evt,
 	void *val);
-
 
 /* FIXME */
 enum usb_state_enum {

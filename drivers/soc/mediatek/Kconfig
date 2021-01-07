@@ -63,9 +63,14 @@ config MTK_MBOX
 
 config MTK_LPM
 	bool "MediaTek Low Power Manager"
-	help
+        help
 	  Say yes here to add support for the MediaTek Low Power Manager
 	  driver. The mtk-lpm will handle the mtk low power module then
 	  platform could enter deeper sleep mode when cpu preparing to
 	  power down if it have sufficient time between warmboot.
 
+config XIAOMI_HWID
+        bool "Xiaomi HWID interface"
+        default y
+        help
+          Say yes to add support for Xiaomi HWID function interfaces.

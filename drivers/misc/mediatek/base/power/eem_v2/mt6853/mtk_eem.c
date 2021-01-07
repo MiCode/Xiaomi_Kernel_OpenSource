@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -143,9 +144,9 @@ static unsigned int record_tbl_locked[NR_FREQ];
 #if SUPPORT_PICACHU
 #define PICACHU_SIG					(0xA5)
 #define PICACHU_SIGNATURE_SHIFT_BIT	(24)
-#define EEM_PHY_TEMPSPARE0		0x112788F0
-#define EEM_PHY_TEMPSPARE1		0x112788F4
-#define EEM_PHY_TEMPSPARE2		0x112788F8
+#define EEM_PHY_TEMPSPARE0		0x11278F20
+#define EEM_PHY_TEMPSPARE1		0x11278F24
+#define EEM_PHY_TEMPSPARE2		0x11278F28
 
 #endif
 /******************************************
@@ -2990,9 +2991,9 @@ struct eemsn_det *det;
 		eem_error("@%s: AGING flavor name: %s\n",
 			__func__, CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES);
 		ctrl_agingload_enable = 1;
-		eemsn_log->ctrl_aging_Enable = ctrl_agingload_enable;
 	}
 #endif
+	eemsn_log->ctrl_aging_Enable = ctrl_agingload_enable;
 
 	eem_to_cpueb(IPI_EEMSN_SHARERAM_INIT, &eem_data);
 #else

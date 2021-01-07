@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * Power Delivery Policy Engine for SNK
  *
@@ -17,7 +18,6 @@
 #include "inc/pd_dpm_core.h"
 #include "inc/tcpci.h"
 #include "inc/pd_policy_engine.h"
-#include <mt-plat/charger_type.h>
 
 /*
  * [PD2.0] Figure 8-39 Sink Port state diagram
@@ -60,20 +60,7 @@ void pe_snk_startup_entry(struct pd_port *pd_port)
 
 void pe_snk_discovery_entry(struct pd_port *pd_port)
 {
-	unsigned long timeout;
-	enum charger_type chg_type;
-
 	pd_enable_vbus_valid_detection(pd_port, true);
-
-	timeout = jiffies + msecs_to_jiffies(1000);
-#if CONFIG_MTK_GAUGE_VERSION == 30
-	do {
-		chg_type = mt_get_charger_type();
-		msleep(50);
-	} while (chg_type == CHARGER_UNKNOWN && time_before(jiffies, timeout));
-#endif
-	if (chg_type == CHARGER_UNKNOWN)
-		PE_INFO("BC1.2 TIMEOUT\r\n");
 }
 
 void pe_snk_wait_for_capabilities_entry(

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2015 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -190,6 +191,7 @@ static int mt65xx_led_set_cust(struct cust_mt65xx_led *cust, int level)
 			/ ((1 << cust->led_bits) - 1));
 	}
 #endif
+	DDPDSIINFO("%s:%d, backlight level= %d\n", __func__, __LINE__, level);
 	mt_mt65xx_led_set_cust(cust, level);
 	return -1;
 }
@@ -357,7 +359,9 @@ EXPORT_SYMBOL(mt65xx_leds_brightness_set);
 int backlight_brightness_set(int level)
 {
 	struct cust_mt65xx_led *cust_led_list = mt_get_cust_led_list();
+	DDPDSIINFO("%s:%d, backlight level= %d\n", __func__, __LINE__, level);
 	level = min((int)level, (1 << MT_LED_LEVEL_BIT) - 1);
+	DDPDSIINFO("%s:%d, backlight level= %d\n", __func__, __LINE__, level);
 	if (level < 0)
 		level = 0;
 

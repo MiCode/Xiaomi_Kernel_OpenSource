@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -92,5 +93,18 @@ int iBurstWriteReg_multi(u8 *pData, u32 bytes, u16 i2cId,
 			i2cId,
 			timing);
 }
+
+/* XIAOMI: libin16 add for common sensor --start */
+kal_uint16 read_eeprom_module_id(kal_uint8 saddr, kal_uint32 addr)
+{
+	kal_uint16 get_byte = 0;
+
+	char pu_send_cmd[2] = { (char)(addr >> 8), (char)(addr & 0xFF) };
+
+	iReadRegI2C(pu_send_cmd, 2, (u8 *) &get_byte, 1, saddr);
+
+	return get_byte;
+}
+/* XIAOMI: libin16 add for common sensor --end */
 
 #endif

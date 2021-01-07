@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -14,6 +15,7 @@
 #include <linux/errno.h>
 #include <linux/mutex.h>
 #include <linux/delay.h>
+#include <linux/power_supply.h>
 #include "mtk_charger_intf.h"
 
 #define PD_VBUS_IR_DROP_THRESHOLD 1200
@@ -122,14 +124,18 @@ end:
 
 static bool mtk_is_pdc_ready(struct charger_manager *info)
 {
-	if (info->pd_type == MTK_PD_CONNECT_PE_READY_SNK ||
-		info->pd_type == MTK_PD_CONNECT_PE_READY_SNK_PD30)
-		return true;
+	struct mt_charger	*mt_chg = power_supply_get_drvdata(info->usb_psy);
 
-	if (info->pd_type == MTK_PD_CONNECT_PE_READY_SNK_APDO &&
-		info->enable_pe_4 == false &&
-		info->enable_pe_5 == false)
+	if (info->pd_type == MTK_PD_CONNECT_PE_READY_SNK ||
+		info->pd_type == MTK_PD_CONNECT_PE_READY_SNK_PD30) {
+		mt_chg->usb_desc.type = POWER_SUPPLY_TYPE_USB_PD;
 		return true;
+	}
+	if (info->pd_type == MTK_PD_CONNECT_PE_READY_SNK_APDO &&
+		info->enable_pe_4 == false) {
+		mt_chg->usb_desc.type = POWER_SUPPLY_TYPE_USB_PD;
+		return true;
+	}
 
 	return false;
 }
@@ -352,6 +358,8 @@ int mtk_pdc_setup(struct charger_manager *info, int idx)
 		}
 
 		mtk_pdc_get_idx(info, idx, &pd->pd_boost_idx, &pd->pd_buck_idx);
+
+		msleep(info->data.set_cap_delay);
 	}
 
 	chr_err("[%s]idx:%d:%d:%d:%d vbus:%d cur:%d ret:%d\n", __func__,
@@ -505,7 +513,7 @@ int mtk_pdc_get_setting(struct charger_manager *info, int *newvbus, int *newcur,
 	idx = selected_idx;
 
 	if (idx < 0 || idx >= ADAPTER_CAP_MAX_NR)
-		idx = selected_idx = 0;
+		idx = 0;
 
 	pd_max_watt = cap->max_mv[idx] * (cap->ma[idx]
 			/ 100 * (100 - info->data.ibus_err) - 100);

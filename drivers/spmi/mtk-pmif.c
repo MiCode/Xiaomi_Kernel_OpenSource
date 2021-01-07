@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (C) 2019 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  * Author: Argus Lin <argus.lin@mediatek.com>
  */
 /* #define DEBUG */
@@ -574,15 +575,20 @@ static int pmif_wait_for_state(struct spmi_controller *ctrl,
 			if (fp(arb)) {
 				return 0;
 			} else if (fp(arb) == 0) {
-				dev_notice(&ctrl->dev, "[PMIF] FSM Timeout\n");
+				dev_err(&ctrl->dev, "[PMIF] FSM Timeout\n");
+				dev_err(&ctrl->dev, "[PMIF] WDT_RST2:0x%x INF_RST2:0x%x CLK:0x%x\n",
+					readl(arb->toprgu_base + arb->toprgu_regs[WDT_SWSYSRST2]),
+					readl(arb->infra_base + arb->infra_regs[INFRA_GLOBALCON_RST2]),
+					readl(arb->topckgen_base + arb->topckgen_regs[CLK_CFG_8]));
 				spmi_dump_pmif_swinf_reg();
 				spmi_dump_pmif_all_reg();
 				spmi_dump_spmimst_all_reg();
 				return -ETIMEDOUT;
 			}
 		}
-		if (fp(arb))
+		if (fp(arb)) {
 			return 0;
+		}
 	} while (1);
 }
 

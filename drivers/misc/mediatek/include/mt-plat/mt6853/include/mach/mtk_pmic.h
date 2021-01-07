@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2019 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -18,7 +19,7 @@
 
 #define LOW_POWER_LIMIT_LEVEL_1 15
 
-#define PT_DLPT_BRINGUP 0
+#define PT_DLPT_BRINGUP 1
 
 #if defined(CONFIG_FPGA_EARLY_PORTING) || PT_DLPT_BRINGUP
 /* Define for disable low battery protect feature,

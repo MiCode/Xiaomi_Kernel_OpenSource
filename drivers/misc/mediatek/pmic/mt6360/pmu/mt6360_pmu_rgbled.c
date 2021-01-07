@@ -137,7 +137,7 @@ struct rgbled_reg_val {
 	}
 
 static const struct rgbled_reg_val rgbled_init_data[] = {
-	RGBLED_REG_VAL(0x00,  MT6360_PMU_RGB_EN),
+	RGBLED_REG_VAL(0x8,  MT6360_PMU_RGB_EN),
 	RGBLED_REG_VAL(0xca,  MT6360_PMU_RGB1_ISNK),
 	RGBLED_REG_VAL(0xca,  MT6360_PMU_RGB2_ISNK),
 	RGBLED_REG_VAL(0xca,  MT6360_PMU_RGB3_ISNK),
@@ -932,6 +932,7 @@ static void mt6360_led_bright_set(
 				dev_get_drvdata(led->dev->parent);
 	int led_index = mt6360_led_get_index(led);
 	uint8_t reg_addr = 0, reg_mask = 0xf, reg_shift = 0, en_mask = 0;
+	uint8_t cur_level = 0;
 	int ret = 0;
 
 	switch (led_index) {
@@ -953,9 +954,13 @@ static void mt6360_led_bright_set(
 		reg_mask = 0x1f;
 		break;
 	}
+	if (bright && led_index == MT6360_LED_1)
+		cur_level = (bright & reg_mask)- 1;
+	else
+		cur_level = (bright & reg_mask);
 
 	ret = mt6360_pmu_reg_update_bits(rgbled_info->mpi, reg_addr,
-			reg_mask, (bright & reg_mask) << reg_shift);
+			reg_mask, cur_level << reg_shift);
 	if (ret < 0) {
 		dev_err(led->dev, "update brightness fail\n");
 		return;
@@ -1115,7 +1120,7 @@ static struct mt6360_pmu_rgbled_info mt6360_led_info[MT6360_LED_MAX] = {
 	{
 		.l_info = {
 			.led = {
-				.max_brightness = 12,
+				.max_brightness = 13,
 				.brightness_set = mt6360_led_bright_set,
 				.brightness_get = mt6360_led_bright_get,
 				.blink_set = mt6360_led_blink_set,

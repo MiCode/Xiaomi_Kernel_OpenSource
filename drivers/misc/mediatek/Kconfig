@@ -234,6 +234,7 @@ config MTK_SENSOR_SUPPORT
 	  If unsure, say N.
 
 source "drivers/misc/mediatek/sensor/Kconfig"
+source "drivers/misc/mediatek/elliptic/Kconfig"
 
 endmenu  # Sensors
 
@@ -295,6 +296,7 @@ source "drivers/misc/mediatek/flashlight/richtek/Kconfig"
 source "drivers/misc/mediatek/scp/Kconfig"
 source "drivers/misc/mediatek/leds/Kconfig"
 source "drivers/misc/mediatek/irtx/Kconfig"
+source "drivers/misc/mediatek/aw8622_haptic/Kconfig"
 source "drivers/misc/mediatek/pwm/Kconfig"
 source "drivers/misc/mediatek/systracker/Kconfig"
 source "drivers/misc/mediatek/boot/Kconfig"

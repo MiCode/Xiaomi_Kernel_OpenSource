@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2018 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -45,9 +46,11 @@
 			pd,charging_policy= <0x21>;
 
 			pd,source-pdo-size = <1>;
-			pd,source-pdo-data = <0x00019032>; /* 5V, 500 mA */
+			//pd,source-pdo-data = <0x00019032>;  /* 5V, 500 mA */
+			pd,source-pdo-data = <0x00019096>; /* 5V, 1500 mA */
 			pd,sink-pdo-size = <2>;
-			pd,sink-pdo-data = <0x000190c8 0x000190c8> ;
+			pd,sink-pdo-data = <0x000190c8 0x000190c8> ; /* 5V2A */
+			//pd,sink-pdo-data = <0x0001912c 0x000190c8>; /* 5V3A */
 			/* 0x0002d0c8 : 9V, 2A<0x04019032 0x04019064> */
 
 			/*

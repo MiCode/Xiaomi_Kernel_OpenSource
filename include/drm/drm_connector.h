@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016 Intel Corporation
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -918,6 +919,14 @@ struct drm_connector {
 	uint8_t num_h_tile, num_v_tile;
 	uint8_t tile_h_loc, tile_v_loc;
 	uint16_t tile_h_size, tile_v_size;
+
+	uint fod_ui_ready;
+	uint brightness_clone;
+	uint8_t panel_id;
+	int panel_event;
+	int read_flag;
+
+	u8 panel_read_data[256];
 };
 
 #define obj_to_connector(x) container_of(x, struct drm_connector, base)

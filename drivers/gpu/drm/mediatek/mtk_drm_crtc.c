@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -73,6 +74,8 @@ static struct mtk_drm_property mtk_crtc_property[CRTC_PROP_MAX] = {
 	{DRM_MODE_PROP_ATOMIC, "HBM_ENABLE", 0, UINT_MAX, 0},
 	{DRM_MODE_PROP_ATOMIC, "COLOR_TRANSFORM", 0, UINT_MAX, 0},
 	{DRM_MODE_PROP_ATOMIC, "USER_SCEN", 0, UINT_MAX, 0},
+	{DRM_MODE_PROP_ATOMIC, "ICON_ENABLE", 0, UINT_MAX, 0},
+	{DRM_MODE_PROP_ATOMIC, "ENROLL_ENABLE", 0, UINT_MAX, 0},
 	{DRM_MODE_PROP_ATOMIC, "HDR_ENABLE", 0, UINT_MAX, 0},
 };
 
@@ -549,29 +552,41 @@ static void bl_cmdq_cb(struct cmdq_cb_data data)
 	kfree(cb_data);
 }
 
+extern struct drm_connector *dsi_to_connector(void *dsi);
+
 int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	struct cmdq_pkt *cmdq_handle;
+	struct cmdq_pkt *cmdq_handle = NULL;
 	struct mtk_ddp_comp *comp = mtk_ddp_comp_request_output(mtk_crtc);
 	struct mtk_cmdq_cb_data *cb_data;
+	//struct drm_connector *connector = dsi_to_connector((void *)comp);
 	static unsigned int bl_cnt;
 	struct cmdq_pkt_buffer *cmdq_buf;
 	bool is_frame_mode;
 	int index = drm_crtc_index(crtc);
-
+	DDPINFO("%s:%d, backlight level= %d\n", __func__, __LINE__, level);
 	CRTC_MMP_EVENT_START(index, backlight, (unsigned long)crtc,
 			level);
 
-	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
-
 	if (!(mtk_crtc->enabled)) {
 		DDPINFO("Sleep State set backlight stop --crtc not ebable\n");
-		mutex_unlock(&mtk_crtc->lock);
+		//mutex_unlock(&mtk_crtc->lock);
 		CRTC_MMP_EVENT_END(index, backlight, 0, 0);
 
 		return -EINVAL;
 	}
+
+	/* set backlight */
+	if (comp->funcs && comp->funcs->io_cmd_dispparam) {
+		comp->funcs->io_cmd_dispparam(comp, cmdq_handle, DISPPARAM_BACKLIGHT_SET | level , &level);
+		//DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+		//connector->brightness_clone = level;
+		//sysfs_notify(&connector->kdev->kobj, NULL, "brightness_clone");
+		return 0;
+	}
+
+	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 
 	if (!comp) {
 		DDPINFO("%s no output comp\n", __func__);
@@ -865,25 +880,28 @@ static int mtk_drm_crtc_set_panel_hbm(struct drm_crtc *crtc, bool en)
 	return 0;
 }
 
-static int mtk_drm_crtc_hbm_wait(struct drm_crtc *crtc, bool en)
+static int mtk_drm_crtc_hbm_wait(struct drm_crtc *crtc, bool en, bool pre, bool icon)
 {
 	struct mtk_panel_params *panel_ext = mtk_drm_get_lcm_ext_params(crtc);
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_ddp_comp *comp = mtk_ddp_comp_request_output(mtk_crtc);
-	bool wait = false;
 	unsigned int wait_count = 0;
 
 	if (!(comp && comp->funcs && comp->funcs->io_cmd))
 		return -EINVAL;
 
-	comp->funcs->io_cmd(comp, NULL, DSI_HBM_GET_WAIT_STATE, &wait);
-	if (wait != true)
-		return 0;
-
 	if (!panel_ext)
 		return -EINVAL;
 
-	wait_count = en ? panel_ext->hbm_en_time : panel_ext->hbm_dis_time;
+	if (icon) {
+		wait_count = en ? panel_ext->icon_en_time : panel_ext->icon_dis_time;
+	} else {
+		if (en) {
+			wait_count = pre ? panel_ext->hbm_en_pre_time : panel_ext->hbm_en_post_time;
+		} else {
+			wait_count = pre ? panel_ext->hbm_dis_pre_time : panel_ext->hbm_dis_post_time;
+		}
+	}
 
 	DDPINFO("LCM hbm %s wait %u-TE\n", en ? "enable" : "disable",
 		wait_count);
@@ -893,9 +911,6 @@ static int mtk_drm_crtc_hbm_wait(struct drm_crtc *crtc, bool en)
 		wait_count--;
 		comp->funcs->io_cmd(comp, NULL, DSI_HBM_WAIT, NULL);
 	}
-
-	wait = false;
-	comp->funcs->io_cmd(comp, NULL, DSI_HBM_SET_WAIT_STATE, &wait);
 
 	return 0;
 }
@@ -3709,6 +3724,7 @@ static void mtk_drm_crtc_init_para(struct drm_crtc *crtc)
 
 	crtc->mode.hdisplay = timing->hdisplay;
 	crtc->mode.vdisplay = timing->vdisplay;
+	/*
 	crtc->state->adjusted_mode.clock        = timing->clock;
 	crtc->state->adjusted_mode.hdisplay     = timing->hdisplay;
 	crtc->state->adjusted_mode.hsync_start  = timing->hsync_start;
@@ -3721,6 +3737,11 @@ static void mtk_drm_crtc_init_para(struct drm_crtc *crtc)
 	crtc->state->adjusted_mode.vtotal       = timing->vtotal;
 	crtc->state->adjusted_mode.vscan        = timing->vscan;
 	crtc->state->adjusted_mode.vrefresh     = timing->vrefresh;
+	*/
+	crtc->state->adjusted_mode.hdisplay = timing->hdisplay;
+	crtc->state->adjusted_mode.vdisplay = timing->vdisplay;
+	crtc->state->adjusted_mode.vrefresh = timing->vrefresh;
+	crtc->state->adjusted_mode.htotal = timing->htotal;
 
 	drm_invoke_fps_chg_callbacks(timing->vrefresh);
 	mtk_crtc_attach_ddp_comp(crtc, mtk_crtc->ddp_mode, true);
@@ -4642,6 +4663,144 @@ static void mtk_drm_crtc_disable_fake_layer(struct drm_crtc *crtc,
 	}
 }
 
+static void mtk_drm_crtc_notify(struct drm_crtc *crtc,
+				struct mtk_crtc_state *state, struct mtk_drm_private *priv)
+{
+	struct drm_connector *connector = NULL;
+	enum mtk_ddp_comp_type type;
+	struct mtk_ddp_comp *comp_output;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	unsigned int fod_flag_last_state;
+	bool factory_version = 0;
+	bool hbm_en = false;
+	bool icon_en = false;
+	bool enroll_en = false;
+	unsigned int fence = 0;
+
+	comp_output = mtk_ddp_comp_request_output(mtk_crtc);
+
+	type = mtk_ddp_comp_get_type(comp_output->id);
+	if (type == MTK_DSI) {
+		connector = dsi_to_connector((void *)comp_output);
+	} else {
+		DDPPR_ERR("comp_output is NOT MTK_DSI\n");
+		return;
+	}
+
+#ifdef CONFIG_FACTORY_BUILD
+	factory_version = 1;
+#endif
+
+	fence = state->prop_val[CRTC_PROP_PRES_FENCE_IDX];
+	if ((!factory_version) && connector && (fence != 0)) {
+		fod_flag_last_state = connector->fod_ui_ready;
+
+		hbm_en = (bool)state->prop_val[CRTC_PROP_HBM_ENABLE];
+		icon_en = (bool)state->prop_val[CRTC_PROP_ICON_ENABLE];
+		enroll_en = (bool)state->prop_val[CRTC_PROP_ENROLL_ENABLE];
+
+		if (hbm_en || enroll_en) {
+			connector->fod_ui_ready |= 1;
+		} else {
+			connector->fod_ui_ready &= (~1);
+		}
+
+		if (icon_en) {
+			connector->fod_ui_ready |= 1 << 1;
+		} else {
+			connector->fod_ui_ready &= (~(1 << 1));
+		}
+
+		if (connector->fod_ui_ready != fod_flag_last_state) {
+			//pr_info("panel sysfs_notify fod_ui_ready=%d", connector->fod_ui_ready);
+			//sysfs_notify(&connector->kdev->kobj, NULL, "fod_ui_ready");
+		}
+	}
+}
+
+static void mtk_drm_crtc_hbm_fence(struct drm_crtc *crtc,
+				struct mtk_crtc_state *state, struct mtk_drm_private *priv, bool post_flush)
+{
+	bool hbm_en = false;
+	bool icon_en = false;
+	bool enroll_en = false;
+	bool factory_version = 0;
+	unsigned int fence = 0;
+	struct drm_connector *connector = NULL;
+	enum mtk_ddp_comp_type type;
+	struct mtk_ddp_comp *comp_output;
+	bool hbm_state = false;
+	static bool last_icon_en = false;
+	static bool last_hbm_en = false;
+	bool hbm_en_wait = false;
+
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	comp_output = mtk_ddp_comp_request_output(mtk_crtc);
+
+	if (!(comp_output && comp_output->funcs && comp_output->funcs->io_cmd)) {
+		DDPPR_ERR("invalid comp_output\n");
+		return;
+	}
+
+	type = mtk_ddp_comp_get_type(comp_output->id);
+	if (type == MTK_DSI) {
+		connector = dsi_to_connector((void *)comp_output);
+	} else {
+		DDPPR_ERR("comp_output is NOT MTK_DSI\n");
+		return;
+	}
+
+#ifdef CONFIG_FACTORY_BUILD
+	factory_version = 1;
+#endif
+
+	fence = state->prop_val[CRTC_PROP_PRES_FENCE_IDX];
+	if ((!factory_version)
+		&& mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_HBM)
+		&& connector && (fence != 0)) {
+
+		hbm_en = (bool)state->prop_val[CRTC_PROP_HBM_ENABLE];
+		icon_en = (bool)state->prop_val[CRTC_PROP_ICON_ENABLE];
+		enroll_en = (bool)state->prop_val[CRTC_PROP_ENROLL_ENABLE];
+
+		pr_debug("prop_val: hbm_en=%d,icon_en=%d,enroll_en=%d",
+			hbm_en, icon_en, enroll_en);
+
+		if (hbm_en || enroll_en) {
+			hbm_en = 1;
+		} else {
+			hbm_en = 0;
+		}
+
+		comp_output->funcs->io_cmd(comp_output, NULL, DSI_HBM_GET_STATE, &hbm_state);
+
+		if (!post_flush) {
+			if (hbm_en != hbm_state) {
+				pr_info("panel hbm_en=%d post_flush=%d", hbm_en, post_flush);
+				mtk_drm_crtc_set_panel_hbm(crtc, hbm_en);
+			}
+		}
+
+		if (post_flush) {
+			if (hbm_en != last_hbm_en) {
+				pr_info("panel wait hbm_en=%d", hbm_en);
+				mtk_drm_crtc_hbm_wait(crtc, hbm_en, false, false);
+				if (hbm_en)
+					hbm_en_wait = true;
+			}
+			last_hbm_en = hbm_en;
+
+			if ((icon_en != last_icon_en) && (!hbm_en_wait)) {
+				pr_info("panel wait icon_en=%d", icon_en);
+				mtk_drm_crtc_hbm_wait(crtc, icon_en, false, true);
+			}
+			last_icon_en = icon_en;
+		}
+	}
+
+	return;
+}
+
 static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 				      struct drm_crtc_state *old_crtc_state)
 {
@@ -4688,14 +4847,6 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 
 	if (pending_planes)
 		mtk_crtc->pending_planes = true;
-
-	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_HBM)) {
-		bool hbm_en = false;
-
-		hbm_en = (bool)state->prop_val[CRTC_PROP_HBM_ENABLE];
-		mtk_drm_crtc_set_panel_hbm(crtc, hbm_en);
-		mtk_drm_crtc_hbm_wait(crtc, hbm_en);
-	}
 
 	hdr_en = (bool)state->prop_val[CRTC_PROP_HDR_ENABLE];
 
@@ -4748,6 +4899,8 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	cb_data->cmdq_handle = cmdq_handle;
 	cb_data->misc = mtk_crtc->ddp_mode;
 
+	mtk_drm_crtc_hbm_fence(crtc, state, priv, false);
+
 	/* This refcnt would be release in ddp_cmdq_cb */
 	mtk_atomic_state_get(old_crtc_state->state);
 #ifdef MTK_DRM_CMDQ_ASYNC
@@ -4771,6 +4924,9 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	if (state->prop_val[CRTC_PROP_PRES_FENCE_IDX] != (unsigned int)-1)
 		mtk_drm_fence_update(state->prop_val[CRTC_PROP_PRES_FENCE_IDX]);
 #endif
+
+	mtk_drm_crtc_hbm_fence(crtc, state, priv, true);
+	mtk_drm_crtc_notify(crtc, state, priv);
 
 end:
 	CRTC_MMP_EVENT_END(index, atomic_flush, (unsigned long)crtc_state,
@@ -5158,7 +5314,7 @@ static int dc_main_path_commit_thread(void *data)
 
 	return 0;
 }
-
+struct mtk_drm_crtc *g_mtk_crtc;
 int mtk_drm_crtc_create(struct drm_device *drm_dev,
 			const struct mtk_crtc_path_data *path_data)
 {
@@ -5200,7 +5356,7 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 	mtk_crtc = devm_kzalloc(dev, sizeof(*mtk_crtc), GFP_KERNEL);
 	if (!mtk_crtc)
 		return -ENOMEM;
-
+	g_mtk_crtc = mtk_crtc;
 	// TODO: It should use platform_driverdata or device tree to define it.
 	// It's just for P90 temp workaround, will be modifyed later.
 	if (pipe == 0)

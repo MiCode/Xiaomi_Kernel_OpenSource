@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2015 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -333,6 +334,7 @@ extern struct LCM_DRIVER td4330_fhdp_dsi_cmd_auo_rt5081_lcm_drv;
 extern struct LCM_DRIVER td4330_fhdp_dsi_vdo_auo_rt5081_lcm_drv;
 extern struct LCM_DRIVER ams641rw01_lcm_drv;
 extern struct LCM_DRIVER r66451_fhdp_dsi_cmd_tianma_lcm_drv;
+extern struct LCM_DRIVER ft8719_fhdp_dsi_vdo_xinli_lcm_drv;
 #ifdef BUILD_LK
 extern void mdelay(unsigned long msec);
 #endif

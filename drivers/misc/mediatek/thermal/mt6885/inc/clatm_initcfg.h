@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2018 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -62,4 +63,19 @@
 #define CLATM_INIT_HRTIMER_POLLING_DELAY	(50)
 
 #define CLATM_USE_MIN_CPU_OPP			(1)
+
+#define CLATM_USE_MIN_CPU_OPP			(1)
+
+#define CLCTM_TARGET_TJ				(90000)
+#define CLCTM_TPCB_1				(47000)
+#define CLCTM_TPCB_2				(51000)
+#define CLCTM_EXIT_TJ				(CLCTM_TARGET_TJ - 10000)
+#define CLCTM_AE				(CLCTM_TARGET_TJ)
+#define CLCTM_BE				(0)
+#define CLCTM_AX				(CLCTM_EXIT_TJ)
+#define CLCTM_BX				(0)
+#define CLCTM_TT_HIGH				(500)
+#define CLCTM_TT_LOW				(500)
+#define CLCTM_STEADY_TTJ_DELTA			(13500)
+
 #endif	/* __CLATM_INITCFG_H__ */

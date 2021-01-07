@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2015 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -36,6 +37,7 @@
 /* ------------------------- */
 
 #include <archcounter_timesync.h>
+#include <linux/regulator/consumer.h>
 
 #include "lens_info.h"
 #include "lens_list.h"
@@ -85,6 +87,10 @@ static struct stAF_OisPosInfo OisPosInfo;
 /* ------------------------- */
 
 static struct stAF_DrvList g_stAF_DrvList[MAX_NUM_OF_LENS] = {
+	//{1, AFDRV_AK7377AF, BU63169AF_SetI2Cclient, AK7377AF_Ioctl,
+	 //AK7377AF_Release, AK7377AF_GetFileName, NULL},
+	{1,AFDRV_BU63169AF, BU63169AF_SetI2Cclient, BU63169AF_Ioctl,
+	 BU63169AF_Release, BU63169AF_GetFileName, NULL},
 	{1, AFDRV_DW9718TAF, DW9718TAF_SetI2Cclient, DW9718TAF_Ioctl,
 	 DW9718TAF_Release, DW9718TAF_GetFileName, NULL},
 	{1, AFDRV_LC898212XDAF_F, LC898212XDAF_F_SetI2Cclient,
@@ -126,6 +132,7 @@ static struct device *lens_device;
 static int DrvPwrDn1 = 1;
 #endif
 
+void OISRegulatorCtrl(int Stage);
 
 void MAIN2AF_PowerDown(void)
 {
@@ -303,6 +310,7 @@ static long AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
 	__user struct stAF_MotorName *pstMotorName =
 			(__user struct stAF_MotorName *)a_u4Param;
 
+	printk("jianlong AFIOC_G_GETDRVNAME\n");
 	if (copy_from_user(&stMotorName, pstMotorName,
 			   sizeof(struct stAF_MotorName)))
 		LOG_INF("copy to user failed when getting motor information\n");
@@ -343,6 +351,7 @@ static long AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
 		break;
 
 	case AFIOC_S_SETDRVINIT:
+		printk("jianlong AFIOC_S_SETDRVINIT\n");
 		spin_lock(&g_AF_SpinLock);
 		g_s4AF_Opened = 1;
 		spin_unlock(&g_AF_SpinLock);
@@ -350,10 +359,14 @@ static long AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
 
 #if !defined(CONFIG_MTK_LEGACY)
 	case AFIOC_S_SETPOWERCTRL:
+		printk("jianlong AFIOC_S_SETPOWERCTRL\n");
 		AFRegulatorCtrl(0);
+		OISRegulatorCtrl(0);
 
-		if (a_u4Param > 0)
+		if (a_u4Param > 0) {
 			AFRegulatorCtrl(1);
+			OISRegulatorCtrl(1);
+		}
 		break;
 #endif
 
@@ -388,6 +401,7 @@ static long AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
 		break;
 
 	case AFIOC_X_CTRLPARA:
+		printk("jianlong AFIOC_X_CTRLPARA\n");
 		if (AF_ControlParam(a_u4Param) <= 0) {
 			if (g_pstAF_CurDrv)
 				i4RetValue = g_pstAF_CurDrv->pAF_Ioctl(
@@ -418,6 +432,104 @@ static long AF_Ioctl_Compat(struct file *a_pstFile, unsigned int a_u4Command,
 }
 #endif
 
+#if !defined(CONFIG_MTK_LEGACY)
+static struct regulator *regVCAMOIS;
+static int g_regVCAMOISEn;
+
+void OISRegulatorCtrl(int Stage)
+{
+	LOG_INF("AFIOC_S_SETPOWERCTRL regulator_put %p\n", regVCAMOIS);
+
+	if (Stage == 0) {
+		if (regVCAMOIS == NULL) {
+			struct device_node *node, *kd_node;
+
+			/* check if customer camera node defined */
+			node = of_find_compatible_node(
+				NULL, NULL, "mediatek, camera_af_lens");
+
+			if (node) {
+				kd_node = lens_device->of_node;
+				lens_device->of_node = node;
+
+				#if defined(CONFIG_MACH_MT6765)
+				regVCAMOIS =
+					regulator_get(lens_device, "vldo28");
+				#elif defined(CONFIG_MACH_MT6873)
+				/*jianlong add for getting vcamaf from fan53870 L6*/
+				regVCAMOIS =
+					regulator_get(lens_device, "vcamois");
+				#elif defined(CONFIG_MACH_MT6885)
+				if (strncmp(CONFIG_ARCH_MTK_PROJECT,
+					"k6885v1_64_alpha", 16) == 0) {
+					regVCAMOIS =
+					regulator_get(lens_device, "vmc");
+				} else {
+					regVCAMOIS =
+					regulator_get(lens_device, "vcamio");
+				}
+				#else
+				regVCAMOIS =
+					regulator_get(lens_device, "vcamaf");
+				#endif
+
+				LOG_INF("[Init] regulator_get %p\n", regVCAMOIS);
+
+				lens_device->of_node = kd_node;
+			}
+		}
+	} else if (Stage == 1) {
+		if (regVCAMOIS != NULL && g_regVCAMOISEn == 0) {
+			//int Status = regulator_is_enabled(regVCAMOIS);
+			int Status = 0;
+
+			LOG_INF("regulator_is_enabled %d\n", Status);
+
+			if (!Status) {
+				Status = regulator_set_voltage(
+					regVCAMOIS, 2800000, 2800000);
+
+				LOG_INF("regulator_set_voltage %d\n", Status);
+
+				if (Status != 0)
+					LOG_INF("regulator_set_voltage fail\n");
+
+				Status = regulator_enable(regVCAMOIS);
+				LOG_INF("regulator_enable %d\n", Status);
+
+				if (Status != 0)
+					LOG_INF("regulator_enable fail\n");
+
+				g_regVCAMOISEn = 1;
+				usleep_range(5000, 5500);
+			} else {
+				LOG_INF("AF Power on\n");
+			}
+		}
+	} else {
+		if (regVCAMOIS != NULL && g_regVCAMOISEn == 1) {
+			int Status = regulator_is_enabled(regVCAMOIS);
+
+			LOG_INF("regulator_is_enabled %d\n", Status);
+
+			if (Status) {
+				LOG_INF("Camera Power enable\n");
+
+				Status = regulator_disable(regVCAMOIS);
+				LOG_INF("regulator_disable %d\n", Status);
+				if (Status != 0)
+					LOG_INF("Fail to regulator_disable\n");
+			}
+			/* regulator_put(regVCAMOIS); */
+			LOG_INF("AFIOC_S_SETPOWERCTRL regulator_put %p\n",
+				regVCAMOIS);
+			/* regVCAMOIS = NULL; */
+			g_regVCAMOISEn = 0;
+		}
+	}
+}
+#endif
+
 /* Main jobs: */
 /* 1.check for device-specified errors, device not ready. */
 /* 2.Initialize the device if it is opened for the first time. */
@@ -440,6 +552,9 @@ static int AF_Open(struct inode *a_pstInode, struct file *a_pstFile)
 #if !defined(CONFIG_MTK_LEGACY)
 	AFRegulatorCtrl(0);
 	AFRegulatorCtrl(1);
+
+	OISRegulatorCtrl(0);
+	OISRegulatorCtrl(1);
 #endif
 
 	/* OIS/EIS Timer & Workqueue */
@@ -483,6 +598,8 @@ static int AF_Release(struct inode *a_pstInode, struct file *a_pstFile)
 
 #if !defined(CONFIG_MTK_LEGACY)
 	AFRegulatorCtrl(2);
+	OISRegulatorCtrl(2);
+
 #endif
 
 	/* OIS/EIS Timer & Workqueue */

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -392,9 +393,12 @@ reg_done:
 
 #define VAL_MAX_WIDTH_2	0x3
 #define VAL_MAX_WIDTH_3	0x7
+#define VAL_MAX_WIDTH_4	0xF
+#define VAL_MAX_WIDTH_5	0x1F
 static void usb_phy_tuning(struct mtk_phy_instance *instance)
 {
 	s32 u2_vrt_ref, u2_term_ref, u2_enhance;
+	s32 u2_intr_cal, u2_discth;
 	struct device_node *of_node;
 
 	if (!instance->phy_tuning.inited) {
@@ -411,12 +415,24 @@ static void usb_phy_tuning(struct mtk_phy_instance *instance)
 				(u32 *) &instance->phy_tuning.u2_term_ref);
 			of_property_read_u32(of_node, "u2_enhance",
 				(u32 *) &instance->phy_tuning.u2_enhance);
+			phy_printk(K_INFO, "%s u2_vrt_ref:%d, u2_term_ref:%d, u2_enhance:%d\n",
+					__func__, instance->phy_tuning.u2_vrt_ref,
+					instance->phy_tuning.u2_term_ref, instance->phy_tuning.u2_enhance);
+			of_property_read_u32(of_node, "u2_intr_cal",
+				(u32 *) &instance->phy_tuning.u2_intr_cal);
+			of_property_read_u32(of_node, "u2_discth",
+				(u32 *) &instance->phy_tuning.u2_discth);
+			phy_printk(K_INFO, "%s u2_intr_cal:%d, u2_discth:%d\n",
+					__func__, instance->phy_tuning.u2_intr_cal,
+					instance->phy_tuning.u2_discth);
 		}
 		instance->phy_tuning.inited = true;
 	}
 	u2_vrt_ref = instance->phy_tuning.u2_vrt_ref;
 	u2_term_ref = instance->phy_tuning.u2_term_ref;
 	u2_enhance = instance->phy_tuning.u2_enhance;
+	u2_intr_cal = instance->phy_tuning.u2_intr_cal;
+	u2_discth = instance->phy_tuning.u2_discth;
 
 	if (u2_vrt_ref != -1) {
 		if (u2_vrt_ref <= VAL_MAX_WIDTH_3) {
@@ -437,6 +453,20 @@ static void usb_phy_tuning(struct mtk_phy_instance *instance)
 			u3phywrite32(U3D_USBPHYACR6,
 				RG_USB20_PHY_REV_6_OFST,
 				RG_USB20_PHY_REV_6, u2_enhance);
+		}
+	}
+	if (u2_intr_cal != -1) {
+		if (u2_intr_cal <= VAL_MAX_WIDTH_5) {
+			u3phywrite32(U3D_USBPHYACR1,
+				RG_USB20_INTR_CAL_OFST,
+				RG_USB20_INTR_CAL, u2_intr_cal);
+		}
+	}
+	if (u2_discth != -1) {
+		if (u2_discth <= VAL_MAX_WIDTH_4) {
+			u3phywrite32(U3D_USBPHYACR6,
+				RG_USB20_DISCTH_OFST,
+				RG_USB20_DISCTH, u2_discth);
 		}
 	}
 

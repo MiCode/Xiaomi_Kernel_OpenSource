@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  * Author: Andrew-CT Chen <andrew-ct.chen@mediatek.com>
  *
  * This program is free software; you can redistribute it and/or modify

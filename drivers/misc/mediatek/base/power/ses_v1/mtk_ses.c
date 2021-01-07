@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -289,7 +290,7 @@ static int ses_reserve_memory_dump(char *buf, unsigned int log_offset)
 	return 0;
 }
 
-#define EEM_TEMPSPARE0		0x112788F0
+#define EEM_TEMPSPARE0		0x11278F20
 
 static void ses_reserve_memory_init(unsigned int log_offset)
 {

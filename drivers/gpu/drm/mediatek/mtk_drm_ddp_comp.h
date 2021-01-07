@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -20,6 +21,7 @@
 #include "mtk_rect.h"
 #include "mtk_disp_pmqos.h"
 #include "mtk_drm_ddp_addon.h"
+#include "dsi_panel_mi.h"
 
 struct device;
 struct device_node;
@@ -179,59 +181,59 @@ enum mtk_ddp_comp_trigger_flag {
 };
 
 enum mtk_ddp_io_cmd {
-	REQ_PANEL_EXT,
-	MTK_IO_CMD_RDMA_GOLDEN_SETTING,
-	MTK_IO_CMD_OVL_GOLDEN_SETTING,
-	DSI_START_VDO_MODE,
-	DSI_STOP_VDO_MODE,
-	ESD_CHECK_READ,
-	ESD_CHECK_CMP,
-	REQ_ESD_EINT_COMPAT,
-	COMP_REG_START,
-	CONNECTOR_ENABLE,
-	CONNECTOR_DISABLE,
-	CONNECTOR_RESET,
-	CONNECTOR_READ_EPILOG,
-	CONNECTOR_IS_ENABLE,
-	CONNECTOR_PANEL_ENABLE,
-	CONNECTOR_PANEL_DISABLE,
-	OVL_ALL_LAYER_OFF,
-	IRQ_LEVEL_ALL,
-	IRQ_LEVEL_IDLE,
-	DSI_VFP_IDLE_MODE,
-	DSI_VFP_DEFAULT_MODE,
-	DSI_GET_TIMING,
-	DSI_GET_MODE_BY_MAX_VREFRESH,
-	PMQOS_SET_BW,
-	PMQOS_SET_HRT_BW,
-	PMQOS_UPDATE_BW,
-	OVL_REPLACE_BOOTUP_MVA,
-	BACKUP_INFO_CMP,
-	LCM_RESET,
-	DSI_SET_BL,
-	DSI_SET_BL_AOD,
-	DSI_SET_BL_GRP,
-	DSI_HBM_SET,
-	DSI_HBM_GET_STATE,
-	DSI_HBM_GET_WAIT_STATE,
-	DSI_HBM_SET_WAIT_STATE,
-	DSI_HBM_WAIT,
-	LCM_ATA_CHECK,
-	DSI_SET_CRTC_AVAIL_MODES,
-	DSI_TIMING_CHANGE,
-	GET_PANEL_NAME,
-	DSI_CHANGE_MODE,
-	BACKUP_OVL_STATUS,
-	MIPI_HOPPING,
-	PANEL_OSC_HOPPING,
-	DYN_FPS_INDEX,
-	SET_MMCLK_BY_DATARATE,
-	GET_FRAME_HRT_BW_BY_DATARATE,
-	DSI_SEND_DDIC_CMD,
-	DSI_READ_DDIC_CMD,
-	DSI_GET_VIRTUAL_HEIGH,
-	DSI_GET_VIRTUAL_WIDTH,
-	FRAME_DIRTY,
+	REQ_PANEL_EXT = 0,
+	MTK_IO_CMD_RDMA_GOLDEN_SETTING = 1,
+	MTK_IO_CMD_OVL_GOLDEN_SETTING = 2,
+	DSI_START_VDO_MODE = 3,
+	DSI_STOP_VDO_MODE = 4,
+	ESD_CHECK_READ = 5,
+	ESD_CHECK_CMP = 6,
+	REQ_ESD_EINT_COMPAT = 7,
+	COMP_REG_START = 8,
+	CONNECTOR_ENABLE = 9,
+	CONNECTOR_DISABLE = 10,
+	CONNECTOR_RESET = 11,
+	CONNECTOR_READ_EPILOG = 12,
+	CONNECTOR_IS_ENABLE = 13,
+	CONNECTOR_PANEL_ENABLE = 14,
+	CONNECTOR_PANEL_DISABLE = 15,
+	OVL_ALL_LAYER_OFF = 16,
+	IRQ_LEVEL_ALL = 17,
+	IRQ_LEVEL_IDLE = 18,
+	DSI_VFP_IDLE_MODE = 19,
+	DSI_VFP_DEFAULT_MODE = 20,
+	DSI_GET_TIMING = 21,
+	DSI_GET_MODE_BY_MAX_VREFRESH = 22,
+	PMQOS_SET_BW = 23,
+	PMQOS_SET_HRT_BW = 24,
+	PMQOS_UPDATE_BW = 25,
+	OVL_REPLACE_BOOTUP_MVA = 26,
+	BACKUP_INFO_CMP = 27,
+	LCM_RESET = 28,
+	DSI_SET_BL = 29,
+	DSI_SET_BL_AOD = 30,
+	DSI_SET_BL_GRP = 31,
+	DSI_HBM_SET = 32,
+	DSI_HBM_GET_STATE = 33,
+	DSI_HBM_GET_WAIT_STATE = 34,
+	DSI_HBM_SET_WAIT_STATE = 35,
+	DSI_HBM_WAIT = 36,
+	LCM_ATA_CHECK = 37,
+	DSI_SET_CRTC_AVAIL_MODES = 38,
+	DSI_TIMING_CHANGE = 39,
+	GET_PANEL_NAME = 40,
+	DSI_CHANGE_MODE = 41,
+	BACKUP_OVL_STATUS = 42,
+	MIPI_HOPPING = 43,
+	PANEL_OSC_HOPPING = 44,
+	DYN_FPS_INDEX = 45,
+	SET_MMCLK_BY_DATARATE = 46,
+	GET_FRAME_HRT_BW_BY_DATARATE = 47,
+	DSI_SEND_DDIC_CMD = 48,
+	DSI_READ_DDIC_CMD = 49,
+	DSI_GET_VIRTUAL_HEIGH = 50,
+	DSI_GET_VIRTUAL_WIDTH = 51,
+	FRAME_DIRTY = 52,
 };
 
 struct golden_setting_context {
@@ -294,6 +296,8 @@ struct mtk_ddp_comp_funcs {
 			     struct cmdq_pkt *handle);
 	int (*io_cmd)(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		      enum mtk_ddp_io_cmd cmd, void *params);
+	int (*io_cmd_dispparam)(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
+		      enum DISPPARAM_MODE cmd, void *params);
 	int (*user_cmd)(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		      unsigned int cmd, void *params);
 	void (*connect)(struct mtk_ddp_comp *comp, enum mtk_ddp_comp_id prev,
@@ -325,6 +329,8 @@ struct mtk_ddp_comp {
 	u32 qos_bw;
 	u32 fbdc_bw;
 	u32 hrt_bw;
+
+	struct mutex panel_lock;
 };
 
 static inline void mtk_ddp_comp_config(struct mtk_ddp_comp *comp,
@@ -458,6 +464,18 @@ static inline int mtk_ddp_comp_io_cmd(struct mtk_ddp_comp *comp,
 
 	if (comp && comp->funcs && comp->funcs->io_cmd)
 		ret = comp->funcs->io_cmd(comp, handle, io_cmd, params);
+
+	return ret;
+}
+
+static inline int mtk_ddp_comp_io_cmd_dispparam(struct mtk_ddp_comp *comp,
+				      struct cmdq_pkt *handle,
+				      enum DISPPARAM_MODE io_cmd, void *params)
+{
+	int ret = -EINVAL;
+
+	if (comp && comp->funcs && comp->funcs->io_cmd)
+		ret = comp->funcs->io_cmd_dispparam(comp, handle, io_cmd, params);
 
 	return ret;
 }

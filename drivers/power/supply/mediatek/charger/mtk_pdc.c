@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -18,7 +19,7 @@
 #include <linux/slab.h>
 #include "mtk_intf.h"
 
-#define PD_MIN_WATT 5000000
+#define PD_MIN_WATT 1000000
 #define PD_VBUS_IR_DROP_THRESHOLD 1200
 
 static struct pdc *pd;

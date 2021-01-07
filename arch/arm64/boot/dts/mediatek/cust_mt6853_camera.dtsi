@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -358,14 +359,14 @@
 	};
 	camera_pins_cam_mipi_switch_en_1: mipi_en@1 {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO131__FUNC_GPIO131>;
+			//pinmux = <PINMUX_GPIO131__FUNC_GPIO131>;
 			slew-rate = <1>;
 			output-high;
 		};
 	};
 	camera_pins_cam_mipi_switch_en_0: mipi_en@0 {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO131__FUNC_GPIO131>;
+			//pinmux = <PINMUX_GPIO131__FUNC_GPIO131>;
 			slew-rate = <1>;
 			output-low;
 		};
@@ -438,8 +439,6 @@
 	pinctrl-16 = <&camera_pins_cam4_pnd_1>;
 	pinctrl-17 = <&camera_pins_cam0_vcamd_0>;
 	pinctrl-18 = <&camera_pins_cam0_vcamd_1>;
-	pinctrl-19 = <&camera_pins_cam0_vcama_0>;
-	pinctrl-20 = <&camera_pins_cam0_vcama_1>;
 	pinctrl-21 = <&camera_pins_cam1_vcamd_0>;
 	pinctrl-22 = <&camera_pins_cam1_vcamd_1>;
 	pinctrl-23 = <&camera_pins_cam1_vcama_0>;

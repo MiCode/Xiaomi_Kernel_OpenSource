@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -34,6 +35,7 @@
 #include "tzbatt_initcfg.h"
 #if (CONFIG_MTK_GAUGE_VERSION == 30)
 #include <mtk_battery.h>
+#include <linux/power_supply.h>
 #else
 #include <tmp_battery.h>
 #endif
@@ -198,6 +200,9 @@ static int get_hw_battery_temp(void)
  *    return got_value;
  */
 	int ret = 0;
+	union power_supply_propval prop;
+	struct power_supply *psy;
+
 #if defined(CONFIG_POWER_EXT)
 	/* EVB */
 	ret = -1270;
@@ -206,11 +211,24 @@ static int get_hw_battery_temp(void)
 
 #if (CONFIG_MTK_GAUGE_VERSION == 30)
 	ret = battery_get_bat_temperature();
+
+	if (ret == -127)
+		return -1270;
+
+	prop.intval = -1270;
+	psy = power_supply_get_by_name("battery");
+	if (psy == NULL) {
+		pr_notice("%s can't get battery node\n", __func__);
+		return -ENODEV;
+	}
+	power_supply_get_property(psy, POWER_SUPPLY_PROP_TEMP, &prop);
+	ret = prop.intval;
+
 #else
 	/* MTK_GAUGE_VERSION = 10 or 20 */
 	ret = read_tbat_value();
 #endif
-	ret = ret * 10;
+	//ret = ret * 10;
 #endif
 
 	return ret;
@@ -467,7 +485,11 @@ struct thermal_cooling_device *cdev, unsigned long state)
 		/* To trigger data abort to reset the system
 		 * for thermal protection.
 		 */
+
+		pr_debug("Need to power off insted of KE !!!");
+#if 0
 		BUG();
+#endif
 	}
 	return 0;
 }

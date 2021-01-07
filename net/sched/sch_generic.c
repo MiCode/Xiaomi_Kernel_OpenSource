@@ -855,7 +855,8 @@ static void dev_deactivate_queue(struct net_device *dev,
 	qdisc = rtnl_dereference(dev_queue->qdisc);
 	if (qdisc) {
 		spin_lock_bh(qdisc_lock(qdisc));
-
+		if (0 == strncmp(current->comm, "RfxSender", 9))
+			pr_info("[mtk_net][dev_lock]++ %s[%d] qdisc:%p\n",__func__,__LINE__,qdisc);
 		if (!(qdisc->flags & TCQ_F_BUILTIN))
 			set_bit(__QDISC_STATE_DEACTIVATED, &qdisc->state);
 
@@ -863,6 +864,8 @@ static void dev_deactivate_queue(struct net_device *dev,
 		qdisc_reset(qdisc);
 
 		spin_unlock_bh(qdisc_lock(qdisc));
+		if (0 == strncmp(current->comm, "RfxSender", 9))
+			pr_info("[mtk_net][dev_lock]-- %s[%d] qdisc:%p\n",__func__,__LINE__,qdisc);
 	}
 }
 
@@ -879,7 +882,8 @@ static bool some_qdisc_is_busy(struct net_device *dev)
 		dev_queue = netdev_get_tx_queue(dev, i);
 		q = dev_queue->qdisc_sleeping;
 		root_lock = qdisc_lock(q);
-
+		if (0 == strncmp(current->comm, "RfxSender", 9))
+			pr_info("[mtk_net][dev_lock] %s[%d] qdisc:%p,state:%d,dev:%s,tx_queues_num:%d\n",__func__,__LINE__,q,q->state,dev->name,dev->num_tx_queues);
 		spin_lock_bh(root_lock);
 
 		val = (qdisc_is_running(q) ||
@@ -932,8 +936,13 @@ void dev_deactivate_many(struct list_head *head)
 
 	/* Wait for outstanding qdisc_run calls. */
 	list_for_each_entry(dev, head, close_list) {
-		while (some_qdisc_is_busy(dev))
-			yield();
+		while (some_qdisc_is_busy(dev)) {
+			/* wait_event() would avoid this sleep-loop but would
+			 * require expensive checks in the fast paths of packet
+			 * processing which isn't worth it.
+			 */
+			schedule_timeout_uninterruptible(1);
+		}
 		/* The new qdisc is assigned at this point so we can safely
 		 * unwind stale skb lists and qdisc statistics
 		 */

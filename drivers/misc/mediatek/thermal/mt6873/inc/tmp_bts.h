@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2018 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -19,6 +20,7 @@
 #define AUX_IN0_NTC (0)
 #define AUX_IN1_NTC (1)
 #define AUX_IN2_NTC (2)
+#define AUX_IN6_NTC (6)
 
 #define BTS_RAP_PULL_UP_R		100000 /* 100K, pull up resister */
 
@@ -54,6 +56,17 @@
 #define BTSNRPA_RAP_NTC_TABLE		7
 
 #define BTSNRPA_RAP_ADC_CHANNEL		AUX_IN2_NTC
+
+
+#define BACKLIGHT_RAP_PULL_UP_R		100000	/* 100K,pull up resister */
+#define BACKLIGHT_TAP_OVER_CRITICAL_LOW	4397119	/* base on 100K NTC temp
+						 *default value -40 deg
+						 */
+
+#define BACKLIGHT_RAP_PULL_UP_VOLTAGE	1800	/* 1.8V ,pull up voltage */
+#define BACKLIGHT_RAP_NTC_TABLE		7
+
+#define BACKLIGHT_RAP_ADC_CHANNEL		AUX_IN6_NTC
 
 
 

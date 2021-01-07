@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -640,11 +641,13 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 	int seg = val & 0x3; /* segment cod[1:0] */
 
 	if (!val) {
+		if (cpulv1 <= 1 && !cpulv2) {
 #ifndef CONFIG_MT6360_PMIC
-		lv = CPU_LEVEL_1;
+			lv = CPU_LEVEL_1;
 #else
-		lv = CPU_LEVEL_2;
+			lv = CPU_LEVEL_2;
 #endif
+		}
 	} else {
 		if (seg) {
 #ifndef CONFIG_MT6360_PMIC

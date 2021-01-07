@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2015 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -14,6 +15,34 @@
 #ifndef _LENS_LIST_H
 
 #define _LENS_LIST_H
+
+#define AK7377AF_SetI2Cclient AK7377AF_SetI2Cclient_Main2
+#define AK7377AF_Ioctl AK7377AF_Ioctl_Main2
+#define AK7377AF_Release AK7377AF_Release_Main2
+#define AK7377AF_PowerDown AK7377AF_PowerDown_Main2
+#define AK7377AF_GetFileName AK7377AF_GetFileName_Main2
+extern int AK7377AF_SetI2Cclient(struct i2c_client *pstAF_I2Cclient,
+				 spinlock_t *pAF_SpinLock, int *pAF_Opened);
+extern long AK7377AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
+			   unsigned long a_u4Param);
+extern int AK7377AF_Release(struct inode *a_pstInode, struct file *a_pstFile);
+extern int AK7377AF_PowerDown(struct i2c_client *pstAF_I2Cclient,
+				int *pAF_Opened);
+extern int AK7377AF_GetFileName(unsigned char *pFileName);
+
+#define BU63169AF_SetI2Cclient BU63169AF_SetI2Cclient_Main2
+#define BU63169AF_Ioctl BU63169AF_Ioctl_Main2
+#define BU63169AF_Release BU63169AF_Release_Main2
+#define BU63169AF_PowerDown BU63169AF_PowerDown_Main2
+#define BU63169AF_GetFileName BU63169AF_GetFileName_Main2
+extern int BU63169AF_SetI2Cclient(struct i2c_client *pstAF_I2Cclient,
+				 spinlock_t *pAF_SpinLock, int *pAF_Opened);
+extern long BU63169AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
+			   unsigned long a_u4Param);
+extern int BU63169AF_Release(struct inode *a_pstInode, struct file *a_pstFile);
+extern int BU63169AF_PowerDown(struct i2c_client *pstAF_I2Cclient,
+				int *pAF_Opened);
+extern int BU63169AF_GetFileName(unsigned char *pFileName);
 
 #define AK7371AF_SetI2Cclient AK7371AF_SetI2Cclient_Main2
 #define AK7371AF_Ioctl AK7371AF_Ioctl_Main2

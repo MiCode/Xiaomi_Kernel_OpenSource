@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!--dct_version="2.5" buid_sn="161102" dws_modification_time="09.10.2019.11:01:07"-->
+<!--dct_version="2.5" buid_sn="161102" dws_modification_time="12.13.2019.13:02:08"-->
 <dct_cfg>
     <general chip="MT6885">
         <proj>Internal phone</proj>
@@ -1382,6 +1382,28 @@
                 <smt>true</smt>
                 <ies>true</ies>
             </gpio123>
+            <gpio124>
+                <eint_mode>false</eint_mode>
+                <def_mode>1</def_mode>
+                <inpull_en>true</inpull_en>
+                <inpull_selhigh>true</inpull_selhigh>
+                <def_dir>IN</def_dir>
+                <out_high>false</out_high>
+                <varName0>GPIO_I2C7_SCA_PIN</varName0>
+                <smt>true</smt>
+                <ies>true</ies>
+            </gpio124>
+            <gpio125>
+                <eint_mode>false</eint_mode>
+                <def_mode>1</def_mode>
+                <inpull_en>true</inpull_en>
+                <inpull_selhigh>true</inpull_selhigh>
+                <def_dir>IN</def_dir>
+                <out_high>false</out_high>
+                <varName0>GPIO_I2C7_SDA_PIN</varName0>
+                <smt>true</smt>
+                <ies>true</ies>
+            </gpio125>
             <gpio126>
                 <eint_mode>false</eint_mode>
                 <def_mode>4</def_mode>
@@ -2399,14 +2421,19 @@
             </i2c_bus9>
             <device5>
                 <varName>CAMERA_MAIN_TWO</varName>
-                <channel>I2C_CHANNEL_2</channel>
-                <address>0x10</address>
+                <channel>I2C_CHANNEL_8</channel>
+                <address>0x6E</address>
             </device5>
             <device6>
                 <varName>CAMERA_MAIN_TWO_EEPROM</varName>
-                <channel>I2C_CHANNEL_2</channel>
+                <channel>I2C_CHANNEL_8</channel>
                 <address>0x51</address>
             </device6>
+            <device7>
+                <varName>CAMERA_SUB_TWO</varName>
+                <channel>I2C_CHANNEL_4</channel>
+                <address>0x34</address>
+            </device7>
             <device10>
                 <varName>NFC</varName>
                 <channel>I2C_CHANNEL_3</channel>
@@ -2445,7 +2472,7 @@
             <device18>
                 <varName>SPEAKER_AMP</varName>
                 <channel>I2C_CHANNEL_6</channel>
-                <address>0x34</address>
+                <address>0x40</address>
             </device18>
             <device19>
                 <varName>I2C_LCD_BIAS</varName>
@@ -2462,19 +2489,24 @@
                 <channel>I2C_CHANNEL_6</channel>
                 <address>0x51</address>
             </device21>
+            <device22>
+                <varName>AW8624_HAPTIC</varName>
+                <channel>I2C_CHANNEL_6</channel>
+                <address>0x5A</address>
+            </device22>
             <device24>
                 <varName>CAMERA_MAIN</varName>
-                <channel>I2C_CHANNEL_8</channel>
-                <address>0x1A</address>
+                <channel>I2C_CHANNEL_2</channel>
+                <address>0x5A</address>
             </device24>
             <device25>
                 <varName>CAMERA_MAIN_EEPROM</varName>
-                <channel>I2C_CHANNEL_8</channel>
+                <channel>I2C_CHANNEL_2</channel>
                 <address>0x50</address>
             </device25>
             <device26>
                 <varName>CAMERA_MAIN_AF</varName>
-                <channel>I2C_CHANNEL_8</channel>
+                <channel>I2C_CHANNEL_2</channel>
                 <address>0x72</address>
             </device26>
             <device27>

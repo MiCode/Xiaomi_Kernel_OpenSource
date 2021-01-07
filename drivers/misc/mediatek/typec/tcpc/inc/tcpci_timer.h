@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -99,6 +100,9 @@ enum {
 
 #ifdef CONFIG_USB_POWER_DELIVERY
 	TYPEC_RT_TIMER_PE_IDLE,
+#ifdef CONFIG_MTK_WAIT_BC12
+	TYPEC_RT_TIMER_SINK_WAIT_BC12,
+#endif /* CONFIG_MTK_WAIT_BC12 */
 #endif	/* CONFIG_USB_POWER_DELIVERY */
 	TYPEC_TIMER_ERROR_RECOVERY,
 /* TYPEC-TRY-TIMER */

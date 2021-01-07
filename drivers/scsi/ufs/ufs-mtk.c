@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2018 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -678,9 +679,8 @@ static void ufs_mtk_advertise_hci_quirks(struct ufs_hba *hba)
 	hba->quirks |= UFSHCD_QUIRK_UFS_HCI_VENDOR_HOST_RST;
 #endif
 
-#if defined(UFS_MTK_PLATFORM_UFS_HCI_MANUALLY_DISABLE_AH8_BEFORE_RING_DOORBELL)
+	/* Always enable "Disable AH8 before RDB" */
 	hba->quirks |= UFSHCD_QUIRK_UFS_HCI_DISABLE_AH8_BEFORE_RDB;
-#endif
 
 	dev_info(hba->dev, "hci quirks: %#x\n", hba->quirks);
 }

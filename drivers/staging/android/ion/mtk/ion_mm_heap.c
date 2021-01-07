@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2015 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -1078,6 +1079,45 @@ static int ion_mm_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 
 #if (defined(CONFIG_MTK_M4U) || defined(CONFIG_MTK_PSEUDO_M4U))
 		ret = m4u_alloc_mva_sg(&port_info, buffer->sg_table);
+
+{ /* alloc new iova */
+	dma_addr_t expected, dma_addr;
+	unsigned long s_pa = 0;
+	struct scatterlist *s;
+	unsigned long long ts_start, ts_end; /* for performance */
+	int i, flag = 0;
+
+	ts_start = sched_clock();
+	dma_addr = sg_dma_address(buffer->sg_table->sgl);
+	expected = sg_dma_address(buffer->sg_table->sgl);
+	s_pa = (unsigned long)sg_phys(buffer->sg_table->sgl);
+	for_each_sg(buffer->sg_table->sgl, s, buffer->sg_table->nents, i) {
+		if (sg_dma_address(s) != expected) {
+			flag = 1;
+			IONMSG("hc3 %s new warning, sz:0x%zx,%u, i:%d--%u, dma_addr:0x%pa -- 0x%pa, 0x%lx+0x%lx, pa:0x%lx(0x%lx), 0x%p--0x%p\n",
+			       __func__, buffer->size,
+			       buffer->heap->id,
+			       i, buffer->sg_table->nents,
+			       &dma_addr, &expected,
+			       (unsigned long)sg_dma_address(s),
+			       (unsigned long)sg_dma_len(s),
+			       (unsigned long)sg_phys(s),
+			       s_pa,
+			       buffer->sg_table,
+			       buffer_info->table_orig);
+		}
+		if (flag && i > 10)
+			break;
+
+		expected = sg_dma_address(s) + sg_dma_len(s);
+	}
+
+	ts_end = sched_clock();
+	if (ts_end - ts_start > 1000000) //1ms
+		pr_info("hc3 %s new check sg_table time:%llu, nents:%u\n",
+			__func__, (ts_end - ts_start), buffer->sg_table->nents);
+}
+
 #endif
 		if (ret < 0) {
 			IONMSG("[%s]Error: p:%d MVA:0x%x dom:%d ret:%d",
@@ -1137,6 +1177,44 @@ static int ion_mm_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 #if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
 	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
 		buffer->sg_table = &buffer_info->table[domain_idx];
+
+	{ /* reuse iova */
+		dma_addr_t expected, dma_addr;
+		unsigned long s_pa = 0;
+		struct scatterlist *s;
+		unsigned long long ts_start, ts_end; /* for performance */
+		int i, flag = 0;
+
+		ts_start = sched_clock();
+		dma_addr = sg_dma_address(buffer->sg_table->sgl);
+		expected = sg_dma_address(buffer->sg_table->sgl);
+		s_pa = (unsigned long)sg_phys(buffer->sg_table->sgl);
+		for_each_sg(buffer->sg_table->sgl, s, buffer->sg_table->nents, i) {
+			if (sg_dma_address(s) != expected) {
+				flag = 1;
+				IONMSG("hc3 reuse %s warning, sz:0x%zx, i:%d--%u, dma_addr:0x%pa -- 0x%pa, 0x%lx+0x%lx, pa:0x%lx(0x%lx), 0x%p--0x%p\n",
+				       __func__, buffer->size,
+				       i, buffer->sg_table->nents,
+				       &dma_addr, &expected,
+				       (unsigned long)sg_dma_address(s),
+				       (unsigned long)sg_dma_len(s),
+				       (unsigned long)sg_phys(s),
+				       s_pa,
+				       buffer->sg_table,
+				       buffer_info->table_orig);
+			}
+			if (flag && i > 10)
+				break;
+
+			expected = sg_dma_address(s) + sg_dma_len(s);
+		}
+
+		ts_end = sched_clock();
+		if (ts_end - ts_start > 1000000) //1ms
+			pr_info("hc3 %s reuse check sg_table time:%llu, nents:%u\n",
+				__func__, (ts_end - ts_start), buffer->sg_table->nents);
+	}
+
 		IONDBG(
 		       "%d, iova reuse done, module:%d, buffer:0x%p, port:%d, mva:0x%lx, fix:0x%lx, return:0x%lx, cnt=%d, domain%d\n",
 		       __LINE__, buffer, buffer_info->module_id,
@@ -1407,6 +1485,8 @@ static int ion_mm_heap_debug_show(struct ion_heap *heap, struct seq_file *s,
 	int i;
 	bool has_orphaned = false;
 	struct ion_mm_buffer_info *bug_info;
+	unsigned long uncached_total = 0;
+	unsigned long cached_total = 0;
 	unsigned long long current_ts;
 
 	current_ts = sched_clock();
@@ -1426,6 +1506,12 @@ static int ion_mm_heap_debug_show(struct ion_heap *heap, struct seq_file *s,
 			 pool->low_count, pool->order,
 			 (1 << pool->order) * PAGE_SIZE *
 			 pool->low_count);
+
+		uncached_total += (1 << pool->order) * PAGE_SIZE *
+			pool->high_count;
+		uncached_total += (1 << pool->order) * PAGE_SIZE *
+			pool->low_count;
+
 		pool = sys_heap->cached_pools[i];
 		ION_DUMP(s,
 			 "%d order %u highmem pages in cached_pool = %lu total\n",
@@ -1437,7 +1523,20 @@ static int ion_mm_heap_debug_show(struct ion_heap *heap, struct seq_file *s,
 			 pool->low_count, pool->order,
 			 (1 << pool->order) * PAGE_SIZE *
 			 pool->low_count);
+
+		cached_total += (1 << pool->order) * PAGE_SIZE *
+			 pool->high_count;
+		cached_total += (1 << pool->order) * PAGE_SIZE *
+			 pool->low_count;
 	}
+
+	ION_DUMP(s,
+		"uncached pool = %lu cached pool = %lu\n",
+		uncached_total, cached_total);
+	ION_DUMP(s,
+		"pool total (uncached + cached) = %lu\n",
+		uncached_total + cached_total);
+
 	if (heap->flags & ION_HEAP_FLAG_DEFER_FREE)
 		ION_DUMP(s, "mm_heap_freelist total_size=%zu\n",
 			 ion_heap_freelist_size(heap));

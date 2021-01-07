@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -451,19 +452,6 @@ static void ssusb_ip_sw_reset(struct ssusb_mtk *ssusb)
 }
 #endif
 
-/* ignore the error if the clock does not exist */
-static struct clk *get_optional_clk(struct device *dev, const char *id)
-{
-	struct clk *opt_clk;
-
-	opt_clk = devm_clk_get(dev, id);
-	/* ignore error number except EPROBE_DEFER */
-	if (IS_ERR(opt_clk) && (PTR_ERR(opt_clk) != -EPROBE_DEFER))
-		opt_clk = NULL;
-
-	return opt_clk;
-}
-
 static int get_ssusb_rscs(struct platform_device *pdev, struct ssusb_mtk *ssusb)
 {
 	struct device_node *node = pdev->dev.of_node;
@@ -471,41 +459,20 @@ static int get_ssusb_rscs(struct platform_device *pdev, struct ssusb_mtk *ssusb)
 	struct device *dev = &pdev->dev;
 	struct resource *res;
 	int i;
-
 	ssusb->vusb33 = devm_regulator_get(&pdev->dev, "vusb");
 	if (IS_ERR(ssusb->vusb33)) {
 		dev_info(dev, "failed to get vusb33\n");
 		return PTR_ERR(ssusb->vusb33);
 	}
-
-	ssusb->sys_clk = get_optional_clk(dev, "sys_ck");
+	ssusb->sys_clk = devm_clk_get(dev, "sys_ck");
 	if (IS_ERR(ssusb->sys_clk)) {
 		dev_info(dev, "failed to get sys clock\n");
 		return PTR_ERR(ssusb->sys_clk);
 	}
-
-	ssusb->ref_clk = get_optional_clk(dev, "rel_clk");
+	ssusb->ref_clk = devm_clk_get(dev, "rel_clk");
 	if (IS_ERR(ssusb->ref_clk)) {
 		dev_info(dev, "failed to get ref clock\n");
 		return PTR_ERR(ssusb->ref_clk);
-	}
-
-	ssusb->mcu_clk = get_optional_clk(dev, "mcu_ck");
-	if (IS_ERR(ssusb->mcu_clk)) {
-		dev_info(dev, "failed to get mcu clock\n");
-		return PTR_ERR(ssusb->mcu_clk);
-	}
-
-	ssusb->dma_clk = get_optional_clk(dev, "dma_ck");
-	if (IS_ERR(ssusb->dma_clk)) {
-		dev_info(dev, "failed to get dma clock\n");
-		return PTR_ERR(ssusb->dma_clk);
-	}
-
-	ssusb->host_clk = get_optional_clk(dev, "host_ck");
-	if (IS_ERR(ssusb->host_clk)) {
-		dev_info(dev, "failed to get host clock\n");
-		return PTR_ERR(ssusb->host_clk);
 	}
 
 	ssusb->num_phys = of_count_phandle_with_args(node,
@@ -569,7 +536,10 @@ static int get_ssusb_rscs(struct platform_device *pdev, struct ssusb_mtk *ssusb)
 			return -EPROBE_DEFER;
 		}
 	}
-
+	ssusb->host_clk = devm_clk_get(dev, "host_ck");
+	if (IS_ERR(ssusb->host_clk)) {
+		dev_info(dev, "failed to get host clock\n");
+	}
 	dev_info(dev, "dr_mode: %d, is_u3_dr: %d, is_u3h_dr: %d\n",
 		ssusb->dr_mode, otg_sx->is_u3_drd, otg_sx->is_u3h_drd);
 
@@ -593,7 +563,6 @@ static int mtu3_probe(struct platform_device *pdev)
 		dev_info(dev, "No suitable DMA config available\n");
 		return -ENOTSUPP;
 	}
-
 	platform_set_drvdata(pdev, ssusb);
 	ssusb->dev = dev;
 

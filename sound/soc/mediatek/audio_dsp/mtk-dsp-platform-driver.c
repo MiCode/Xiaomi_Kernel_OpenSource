@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 //
 // Copyright (c) 2018 MediaTek Inc.
+// Copyright (C) 2020 XiaoMi, Inc.
 
 #include <linux/dma-mapping.h>
 #include <linux/module.h>
@@ -750,6 +751,16 @@ SYNC_READINDEX:
 		&dsp_mem->ring_buf);
 #endif
 	spin_lock_irqsave(&dsp_ringbuf_lock, flags);
+
+	/* handle for underflow */
+	if (dsp_mem->underflowed) {
+		pr_info("%s id = %d return -1 because underflowed[%d]\n",
+			__func__, id, dsp_mem->underflowed);
+			dsp_mem->underflowed = 0;
+			spin_unlock_irqrestore(&dsp_ringbuf_lock, flags);
+		return -1;
+	}
+
 	pcm_ptr_bytes = (int)(dsp_mem->ring_buf.pRead -
 			      dsp_mem->ring_buf.pBufBase);
 	spin_unlock_irqrestore(&dsp_ringbuf_lock, flags);
@@ -812,6 +823,21 @@ static void mtk_dsp_dl_consume_handler(struct mtk_base_dsp *dsp,
 		return;
 	}
 
+	if (ipi_msg && ipi_msg->param2 == ADSP_DL_CONSUME_RESET) {
+		pr_info("%s adsp resert id = %d\n", __func__, id);
+		RingBuf_Reset(&dsp->dsp_mem[id].ring_buf);
+		/* notify subsream */
+		return snd_pcm_period_elapsed(dsp->dsp_mem[id].substream);
+	}
+
+	/* adsp underflow message */
+	if (ipi_msg && ipi_msg->param2 == ADSP_DL_CONSUME_UNDERFLOW) {
+		pr_info("%s adsp underflowed id = %d\n", __func__, id);
+		dsp->dsp_mem[id].underflowed = true;
+		/* notify subsream */
+		return snd_pcm_period_elapsed(dsp->dsp_mem[id].substream);
+	}
+
 	spin_lock_irqsave(&dsp_ringbuf_lock, flags);
 	/* upadte for write index*/
 	ipi_audio_buf = (void *)dsp_mem->msg_dtoa_share_buf.va_addr;
@@ -829,11 +855,6 @@ static void mtk_dsp_dl_consume_handler(struct mtk_base_dsp *dsp,
 	sync_ringbuf_readidx(
 		&dsp->dsp_mem[id].ring_buf,
 		&dsp->dsp_mem[id].adsp_buf.aud_buffer.buf_bridge);
-
-	if (ipi_msg && ipi_msg->param2) {
-		pr_info("%s adsp resert id = %d\n", __func__, id);
-		RingBuf_Reset(&dsp->dsp_mem[id].ring_buf);
-	}
 
 	spin_unlock_irqrestore(&dsp_ringbuf_lock, flags);
 

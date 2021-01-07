@@ -2,6 +2,7 @@
  * Mediatek's MT6885 SoC device tree source
  *
  * Copyright (C) 2019 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -215,8 +216,9 @@ page_owner=on loop.max_part=7";
 
 		backlight {
 			label = "lcd-backlight";
-			max-brightness = <255>;
-			led-bits = <8>;
+			max-brightness = <2047>;
+			led-bits = <11>;
+			trans-bits = <11>;
 			default-state = "on";
 		};
 	};
@@ -2085,6 +2087,22 @@ page_owner=on loop.max_part=7";
 		#ifndef CONFIG_FPGA_EARLY_PORTING
 		vcc-supply = <&mt_pmic_vemc_ldo_reg>;
 		vcc-fixed-regulator;
+		/*
+		 * vcc-voltage can only set 2700000/2800000/2900000/3000000/
+		 * 3300000/3400000/3500000 due to pmic limitation.
+		 * Other value will not work, and voltage will be default
+		 * 3000000. By the way, only 3000000 is mtk guarantee.
+		 * The other voltage is not.
+		 */
+		vcc-voltage = <3000000>; /* uv */
+		/*
+		 * vcc-vcc-voltage-plus can only set 0/10000/20000/30000/40000/
+		 * 50000/60000/70000/80000/90000/100000 due to pmic limitation.
+		 * Other value will not work, and voltage plus will be default
+		 * 0. By the way, only 0 is mtk guarantee.
+		 * The other voltage plus is not.
+		 */
+		vcc-voltage-plus = <0>; /* uv */
 		#endif
 
 		/* Number of lanes available per direction - either 1 or 2 */
@@ -6059,6 +6077,8 @@ page_owner=on loop.max_part=7";
 		pu_cfg = <0xB0>;
 		rsel_cfg = <0xE0>;
 		aed = <0x1a>;
+
+		#include "fan53870.dtsi"
 	};
 
 	i2c8: i2c8@11D04000 {
@@ -6103,6 +6123,16 @@ page_owner=on loop.max_part=7";
 		aed = <0x1a>;
 		ch_offset_default = <0x100>;
 		ch_offset_ccu = <0x200>;
+
+		akm09970: akm09970@d {
+			status = "okay";
+			compatible = "akm,akm09970";
+			reg = <0xd>;
+
+			akm,gpio-reset = <&pio 27 0x00>;
+			akm,gpio-irq = <&pio 0 0x2002>;/* IRQF_ONESHOT | IRQF_TRIGGER_FALLING */
+			akm,measure-freq-hz = <100>;
+		};
 	};
 
 	i2c10: i2c10@11017000 {
@@ -7422,6 +7452,8 @@ page_owner=on loop.max_part=7";
 	touch: touch {
 		compatible = "mediatek,touch";
 	};
+	xiaomi_touch: xiaomi_touch {
+	};
 
 	tcpc_pd: tcpc_pd {
 	};
@@ -7433,6 +7465,21 @@ page_owner=on loop.max_part=7";
 	};
 
 	md1_sim2_hot_plug_eint: md1_sim2_hot_plug_eint {
+	};
+
+	thermal_message: thermal-message {
+	};
+
+	cp_qc30: cp_qc30 {
+	};
+
+	usbpd_pm: usbpd_pm {
+	};
+
+	onewire_gpio: onewire_gpio {
+	};
+
+	maxim_ds28e16: maxim_ds28e16 {
 	};
 
 	drcc: drcc {
@@ -7850,6 +7897,38 @@ page_owner=on loop.max_part=7";
 	};
 	aud_gpio_i2s9_on: aud_gpio_i2s9_on {
 	};
+};
+
+&pio {
+	pm_reset_active: reset_active@gpio134 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO134__FUNC_GPIO134>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	akm_reset_active: reset_akm09970@gpio27 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO27__FUNC_GPIO27>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+};
+
+&fan53870_pm {
+	status = "okay";
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pm_reset_active>;
+};
+
+&akm09970 {
+	status = "ok";
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&akm_reset_active>;
 };
 
 #include "mt6315_s6.dtsi"

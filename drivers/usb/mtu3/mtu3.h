@@ -2,6 +2,7 @@
  * mtu3.h - MediaTek USB3 DRD header
  *
  * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * Author: Chunfeng Yun <chunfeng.yun@mediatek.com>
  *
@@ -149,6 +150,12 @@ enum mtu3_g_ep0_state {
 	MU3D_EP0_STATE_STALL,
 };
 
+enum usb_state_enum {
+	USB_SUSPEND = 0,
+	USB_UNCONFIGURED,
+	USB_CONFIGURED
+};
+
 /**
  * @base: the base address of fifo
  * @limit: the bitmap size in bits
@@ -250,10 +257,6 @@ struct otg_switch_mtk {
  * @ippc_base: register base address of IP Power and Clock interface (IPPC)
  * @vusb33: usb3.3V shared by device/host IP
  * @sys_clk: system clock of mtu3, shared by device/host IP
- * @ref_clk: reference clock
- * @mcu_clk: mcu_bus_ck clock for AHB bus etc
- * @dma_clk: dma_bus_ck clock for AXI bus etc
- * @host_clk: host_clk clock for host
  * @dr_mode: works in which mode:
  *		host only, device only or dual-role mode
  * @u2_ports: number of usb2.0 host ports
@@ -274,8 +277,6 @@ struct ssusb_mtk {
 	struct regulator *vusb33;
 	struct clk *sys_clk;
 	struct clk *ref_clk;
-	struct clk *mcu_clk;
-	struct clk *dma_clk;
 	struct clk *host_clk;
 	/* otg */
 	struct otg_switch_mtk otg_switch;
@@ -458,7 +459,6 @@ void mtu3_ep0_setup(struct mtu3 *mtu);
 void mtu3_start(struct mtu3 *mtu);
 void mtu3_stop(struct mtu3 *mtu);
 void mtu3_dev_on_off(struct mtu3 *mtu, int is_on);
-void mtu3_nuke_all_ep(struct mtu3 *mtu);
 
 int mtu3_gadget_setup(struct mtu3 *mtu);
 void mtu3_gadget_cleanup(struct mtu3 *mtu);
@@ -470,6 +470,7 @@ void mtu3_gadget_disconnect(struct mtu3 *mtu);
 irqreturn_t mtu3_ep0_isr(struct mtu3 *mtu);
 extern const struct usb_ep_ops mtu3_ep0_ops;
 extern void mtu3_check_ltssm_work(struct work_struct *data);
+extern void BATTERY_SetUSBState(int usb_state_value);
 extern bool mtu3_hal_is_vbus_exist(void);
 extern void disconnect_check(struct mtu3 *mtu);
 extern bool is_saving_mode(void);

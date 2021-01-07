@@ -17,6 +17,9 @@ CAM_CAL_SRC_PATH := $(MTK_CUSTOM_PATH)/cam_cal/src
 CAM_CAL_PLATFORM_SRC_PATH := $(CAM_CAL_SRC_PATH)/$(MTK_PLATFORM)
 ARCH_MTK_PROJECT := $(subst ",,$(CONFIG_ARCH_MTK_PROJECT))
 COMMON_VERSION := v2
+CUSTOM_KERNEL_FLAGS := $(addprefix -D, $(shell echo \
+	             $(CONFIG_CUSTOM_KERNEL_IMGSENSOR) | tr a-z A-Z))
+subdir-ccflags-y += $(CUSTOM_KERNEL_FLAGS)
 
 subdir-ccflags-y += -I$(MTK_CUSTOM_PATH)/imgsensor/inc \
                     -I$(MTK_CUSTOM_PATH)/imgsensor/src/$(CONFIG_MTK_PLATFORM)/camera_hw \

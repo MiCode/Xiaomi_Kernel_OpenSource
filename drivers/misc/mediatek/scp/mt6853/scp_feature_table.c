@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -103,6 +104,14 @@ struct scp_feature_tb feature_table[NUM_FEATURE_ID] = {
 		.enable         = 0,
 		.sys_id         = SCPSYS_CORE1,
 	},
+#ifdef CONFIG_MTK_ULTRASND_PROXIMITY
+	{
+		.feature        = ULTRA_FEATURE_ID,
+		.freq           = 200,
+		.enable         = 0,
+		.sys_id         = SCPSYS_CORE0,
+	},
+#endif
 };
 
 /*scp sensor type list*/

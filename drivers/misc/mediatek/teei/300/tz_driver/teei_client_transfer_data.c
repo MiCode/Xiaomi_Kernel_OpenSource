@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2019, MICROTRUST Incorporated
+ * Copyright (C) 2020 XiaoMi, Inc.
  * All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -82,9 +83,9 @@ int ut_pf_gp_transfer_data(struct TEEC_Context *context, struct TEEC_UUID *uuid,
 	}
 
 release_3:
-		TEEC_ReleaseSharedMemory(&sharedmem);
+	TEEC_ReleaseSharedMemory(&sharedmem);
 release_2:
-		TEEC_CloseSession(&session);
+	TEEC_CloseSession(&session);
 release_1:
 	return result;
 }

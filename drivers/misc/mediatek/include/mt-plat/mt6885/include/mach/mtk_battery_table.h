@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -31,7 +32,7 @@
 #define Q_MAX_H_CURRENT 10000
 
 /* multiple battery profile compile options */
-/*#define MTK_GET_BATTERY_ID_BY_AUXADC*/
+#define MTK_GET_BATTERY_ID_BY_AUXADC
 
 
 /* if ACTIVE_TABLE == 0 && MULTI_BATTERY == 0
@@ -196,8 +197,9 @@ int g_temperature[MAX_TABLE] = {
 };
 
 
-#define BAT_NTC_10 1
+#define BAT_NTC_10 0
 #define BAT_NTC_47 0
+#define BAT_NTC_100 1	/* we use 100K Rp and 100K NTC */
 
 #if (BAT_NTC_10 == 1)
 #define RBAT_PULL_UP_R             24000
@@ -207,9 +209,39 @@ int g_temperature[MAX_TABLE] = {
 #define RBAT_PULL_UP_R             61900
 #endif
 
+#if (BAT_NTC_100 == 1)
+#define RBAT_PULL_UP_R             100000
+#endif
+
 #define RBAT_PULL_UP_VOLT          2800
 
 #define BIF_NTC_R 16000
+
+#if (BAT_NTC_100 == 1)
+struct FUELGAUGE_TEMPERATURE Fg_Temperature_Table[21] = {
+		{-40, 4251000},
+		{-35, 3005000},
+		{-30, 2149000},
+		{-25, 1554000},
+		{-20, 1135000},
+		{-15, 837800},
+		{-10, 624100},
+		{-5, 469100},
+		{0, 355600},
+		{5, 271800},
+		{10, 209400},
+		{15, 162500},
+		{20, 127000},
+		{25, 100000},
+		{30, 79230},
+		{35, 63180},
+		{40, 50680},
+		{45, 40900},
+		{50, 33190},
+		{55, 27090},
+		{60, 22220}
+};
+#endif
 
 #if (BAT_NTC_10 == 1)
 struct FUELGAUGE_TEMPERATURE Fg_Temperature_Table[21] = {

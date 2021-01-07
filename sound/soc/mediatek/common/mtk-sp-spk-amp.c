@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 //
 // Copyright (C) 2018 MediaTek Inc.
+// Copyright (C) 2020 XiaoMi, Inc.
 
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -28,6 +29,10 @@
 
 #ifdef CONFIG_SND_SOC_TFA9874
 #include "../../codecs/tfa98xx/inc/tfa98xx_ext.h"
+#endif
+
+#ifdef CONFIG_SND_SOC_CS35L41
+#include "../../codecs/cs35l41/cs35l41_ext.h"
 #endif
 
 #ifdef CONFIG_SND_SOC_AW87339
@@ -69,6 +74,15 @@ static struct mtk_spk_i2c_ctrl mtk_spk_list[MTK_SPK_TYPE_NUM] = {
 		.codec_name = "tfa98xx",
 	},
 #endif /* CONFIG_SND_SOC_MT6660 */
+
+#ifdef CONFIG_SND_SOC_CS35L41
+	[MTK_SPK_CS_CS35L41] = {
+		.i2c_probe = cs35l41_i2c_probe,
+		.i2c_remove = cs35l41_i2c_remove,
+		.codec_dai_name = "cs35l41-pcm",
+		.codec_name = "cs35l41",
+	},
+#endif
 };
 
 static int mtk_spk_i2c_probe(struct i2c_client *client,
@@ -88,6 +102,7 @@ static int mtk_spk_i2c_probe(struct i2c_client *client,
 			continue;
 
 		mtk_spk_type = i;
+		dev_info(&client->dev, "mtk_spk_type is %d\n", mtk_spk_type);
 		break;
 	}
 
@@ -397,7 +412,6 @@ int mtk_spk_update_dai_link(struct snd_soc_card *card,
 		 dai_link->codec_name,
 		 dai_link->cpu_dai_name);
 
-
 	return 0;
 }
 EXPORT_SYMBOL(mtk_spk_update_dai_link);
@@ -444,7 +458,8 @@ int mtk_spk_recv_ipi_buf_from_dsp(int8_t *buffer,
 EXPORT_SYMBOL(mtk_spk_recv_ipi_buf_from_dsp);
 
 static const struct i2c_device_id mtk_spk_i2c_id[] = {
-	{ "tfa98xx", 0},
+	/*{ "tfa98xx", 0},*/
+	{ "cs35l41", 0},
 	{ "speaker_amp", 0},
 	{}
 };
@@ -452,7 +467,8 @@ MODULE_DEVICE_TABLE(i2c, mtk_spk_i2c_id);
 
 #ifdef CONFIG_OF
 static const struct of_device_id mtk_spk_match_table[] = {
-	{.compatible = "nxp,tfa98xx",},
+	/*{.compatible = "nxp,tfa98xx",},*/
+	{.compatible = "cirrus,cs35l41",},
 	{.compatible = "mediatek,speaker_amp",},
 	{},
 };

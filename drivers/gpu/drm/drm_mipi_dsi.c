@@ -2,6 +2,7 @@
  * MIPI DSI Bus
  *
  * Copyright (C) 2012-2013, Samsung Electronics, Co., Ltd.
+ * Copyright (C) 2020 XiaoMi, Inc.
  * Andrzej Hajda <a.hajda@samsung.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -52,7 +53,6 @@ static int mipi_dsi_device_match(struct device *dev, struct device_driver *drv)
 	/* attempt OF style match */
 	if (of_driver_match_device(dev, drv))
 		return 1;
-
 	/* compare DSI device and driver names */
 	if (!strcmp(dsi->name, drv->name))
 		return 1;

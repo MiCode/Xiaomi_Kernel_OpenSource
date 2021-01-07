@@ -430,6 +430,7 @@ obj-$(CONFIG_THERMAL) += mtk_ts_battery.o
 obj-$(CONFIG_THERMAL) += mtk_ts_bts.o
 obj-$(CONFIG_THERMAL) += mtk_ts_btsmdpa.o
 obj-$(CONFIG_THERMAL) += mtk_ts_btsnrpa.o
+obj-$(CONFIG_THERMAL) += mtk_xm_charge.o
 
 obj-$(CONFIG_THERMAL) += mtk_ts_cpu_noBank.o
 obj-$(CONFIG_THERMAL) += mtk_ts_pa.o
@@ -461,6 +462,11 @@ obj-$(CONFIG_THERMAL) += mtk_ts_pmic.o
 obj-$(CONFIG_THERMAL) += mtk_ts_charger.o
 #obj-$(CONFIG_THERMAL) += mtk_ts_charger2.o
 
+#MI ADD START
+obj-$(CONFIG_THERMAL) += mtk_xm_charger.o
+obj-$(CONFIG_THERMAL) += mtk_xm_LCD.o
+obj-$(CONFIG_THERMAL) += mtk_xm_quite.o
+#END
 
 ifneq ($(CONFIG_MTK_COMBO_WIFI),)
     obj-$(CONFIG_THERMAL) += mtk_ts_wmt.o

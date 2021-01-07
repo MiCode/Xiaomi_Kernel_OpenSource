@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2014 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  * Author: Xudong.chen <xudong.chen@mediatek.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -49,7 +50,7 @@
 static struct i2c_dma_info g_dma_regs[I2C_MAX_CHANNEL];
 static struct mt_i2c *g_mt_i2c[I2C_MAX_CHANNEL];
 static struct mtk_i2c_compatible i2c_common_compat;
-
+extern void i2c_status_for_touch(bool on);
 
 static inline void _i2c_writew(u16 value, struct mt_i2c *i2c, u16 offset)
 {
@@ -934,11 +935,12 @@ static int mt_i2c_do_transfer(struct mt_i2c *i2c)
 	/* If use i2c pin from PMIC mt6397 side, need set PATH_DIR first */
 	if (i2c->have_pmic)
 		i2c_writew(I2C_CONTROL_WRAPPER, i2c, OFFSET_PATH_DIR);
-	if (speed_hz > 400000)
+	//if (speed_hz > 400000)
+	if (!i2c->i2c_m_ignore_nak)
 		control_reg = I2C_CONTROL_ACKERR_DET_EN;
-	else
-		control_reg = I2C_CONTROL_ACKERR_DET_EN |
-			I2C_CONTROL_CLK_EXT_EN;
+	//else
+		//control_reg = I2C_CONTROL_ACKERR_DET_EN |
+			//I2C_CONTROL_CLK_EXT_EN;
 	if (isDMA == true) /* DMA */
 		control_reg |=
 			I2C_CONTROL_DMA_EN |
@@ -947,6 +949,8 @@ static int mt_i2c_do_transfer(struct mt_i2c *i2c)
 
 	if (speed_hz > 400000)
 		control_reg |= I2C_CONTROL_RS;
+	else
+		control_reg |= I2C_CONTROL_CLK_EXT_EN;
 	if (i2c->op == I2C_MASTER_WRRD)
 		control_reg |= I2C_CONTROL_DIR_CHANGE | I2C_CONTROL_RS;
 	if (i2c->dev_comp->control_irq_sel == 1)
@@ -1345,6 +1349,12 @@ static int __mt_i2c_transfer(struct mt_i2c *i2c,
 		i2c->addr = msgs->addr;
 		i2c->msg_len = msgs->len;
 		i2c->msg_aux_len = 0;
+
+		if (msgs->flags & I2C_M_IGNORE_NAK) {
+			i2c->i2c_m_ignore_nak = true;
+		} else {
+			i2c->i2c_m_ignore_nak = false;
+		}
 
 		if ((left_num + 1 == num) ||
 			!mt_i2c_should_batch(msgs - 1, msgs)) {
@@ -1967,6 +1977,7 @@ static int mt_i2c_remove(struct platform_device *pdev)
 MODULE_DEVICE_TABLE(of, mt_i2c_match);
 
 #ifdef CONFIG_PM_SLEEP
+
 static int mt_i2c_suspend_noirq(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);

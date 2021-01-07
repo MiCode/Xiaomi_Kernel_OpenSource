@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * TCPC Interface for timer handler
  *
@@ -213,6 +214,9 @@ static const char *const tcpc_timer_name[] = {
 	"TYPEC_RT_TIMER_LOW_POWER_MODE",
 #ifdef CONFIG_USB_POWER_DELIVERY
 	"TYPEC_RT_TIMER_PE_IDLE",
+#ifdef CONFIG_MTK_WAIT_BC12
+	"TYPEC_RT_TIMER_SINK_WAIT_BC12",
+#endif /* CONFIG_MTK_WAIT_BC12 */
 #endif	/* CONFIG_USB_POWER_DELIVERY */
 	"TYPEC_TIMER_ERROR_RECOVERY",
 /* TYPEC-TRY-TIMER */
@@ -350,6 +354,9 @@ DECL_TCPC_TIMEOUT(TYPEC_RT_TIMER_LOW_POWER_MODE, 500),
 
 #ifdef CONFIG_USB_POWER_DELIVERY
 DECL_TCPC_TIMEOUT(TYPEC_RT_TIMER_PE_IDLE, 1),
+#ifdef CONFIG_MTK_WAIT_BC12
+DECL_TCPC_TIMEOUT(TYPEC_RT_TIMER_SINK_WAIT_BC12, 50),
+#endif /* CONFIG_MTK_WAIT_BC12 */
 #endif	/* CONFIG_USB_POWER_DELIVERY */
 DECL_TCPC_TIMEOUT_RANGE(TYPEC_TIMER_ERROR_RECOVERY, 25, 25),
 
@@ -960,6 +967,18 @@ static enum hrtimer_restart tcpc_timer_rt_pe_idle(struct hrtimer *timer)
 	TCPC_TIMER_TRIGGER();
 	return HRTIMER_NORESTART;
 }
+
+#ifdef CONFIG_MTK_WAIT_BC12
+static enum hrtimer_restart tcpc_timer_rt_sink_wait_bc12(struct hrtimer *timer)
+{
+	int index = TYPEC_RT_TIMER_SINK_WAIT_BC12;
+	struct tcpc_device *tcpc_dev =
+		container_of(timer, struct tcpc_device, tcpc_timer[index]);
+
+	TCPC_TIMER_TRIGGER();
+	return HRTIMER_NORESTART;
+}
+#endif /* CONFIG_MTK_WAIT_BC12 */
 #endif	/* CONFIG_USB_POWER_DELIVERY */
 
 /* TYPEC-TRY-TIMER */
@@ -1168,6 +1187,9 @@ static tcpc_hrtimer_call tcpc_timer_call[PD_TIMER_NR] = {
 	tcpc_timer_rt_low_power_mode,
 #ifdef CONFIG_USB_POWER_DELIVERY
 	tcpc_timer_rt_pe_idle,
+#ifdef CONFIG_MTK_WAIT_BC12
+	tcpc_timer_rt_sink_wait_bc12,
+#endif /* CONFIG_MTK_WAIT_BC12 */
 #endif	/* CONFIG_USB_POWER_DELIVERY */
 	tcpc_timer_error_recovery,
 /* TYPEC-TRY-TIMER */

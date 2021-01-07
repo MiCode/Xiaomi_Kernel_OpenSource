@@ -3604,6 +3604,8 @@ static inline void netif_tx_lock(struct net_device *dev)
 	int cpu;
 
 	spin_lock(&dev->tx_global_lock);
+	if (0 == strncmp(current->comm, "RfxSender", 9))
+		pr_info("[mtk_net][dev_lock]++ %s[%d] dev->name:%s tx_queue_num:%d\n",__func__,__LINE__,dev->name,dev->num_tx_queues);
 	cpu = smp_processor_id();
 	for (i = 0; i < dev->num_tx_queues; i++) {
 		struct netdev_queue *txq = netdev_get_tx_queue(dev, i);
@@ -3614,6 +3616,8 @@ static inline void netif_tx_lock(struct net_device *dev)
 		 * the ->hard_start_xmit() handler and already
 		 * checked the frozen bit.
 		 */
+		if (0 == strncmp(current->comm, "RfxSender", 9))
+			pr_info("[mtk_net][dev_lock] %s[%d] %d_tx_queues dev->name:%s,\n",__func__,__LINE__,i,dev->name);
 		__netif_tx_lock(txq, cpu);
 		set_bit(__QUEUE_STATE_FROZEN, &txq->state);
 		__netif_tx_unlock(txq);
@@ -3641,6 +3645,8 @@ static inline void netif_tx_unlock(struct net_device *dev)
 		netif_schedule_queue(txq);
 	}
 	spin_unlock(&dev->tx_global_lock);
+	if (0 == strncmp(current->comm, "RfxSender", 9))
+		pr_info("[mtk_net][dev_lock]-- %s[%d] dev->name:%s\n",__func__,__LINE__,dev->name);
 }
 
 static inline void netif_tx_unlock_bh(struct net_device *dev)

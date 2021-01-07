@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2019, MICROTRUST Incorporated
+ * Copyright (C) 2020 XiaoMi, Inc.
  * All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -28,9 +29,9 @@ unsigned long create_fp_fdrv(int buff_size)
 		IMSG_ERROR("Wrong buffer size %d:", buff_size);
 		return 0;
 	}
-	addr = (unsigned long) vmalloc(buff_size);
+	addr = (unsigned long)vmalloc(buff_size);
 	if (addr == 0) {
-		IMSG_ERROR("kmalloc buffer failed");
+		IMSG_ERROR("vmalloc buffer failed");
 		return 0;
 	}
 	memset((void *)addr, 0, buff_size);

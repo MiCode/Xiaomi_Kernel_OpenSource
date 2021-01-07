@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2015 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -65,6 +66,10 @@ struct LCM_DRIVER *lcm_driver_list[] = {
 
 #if defined(VVX10F008B00_WUXGA_DSI_VDO)
 	&vvx10f008b00_wuxga_dsi_vdo_lcm_drv,
+#endif
+
+#if defined(FT8719_FHDP_DSI_VDO_XINLI)
+    &ft8719_fhdp_dsi_vdo_xinli_lcm_drv,
 #endif
 
 #if defined(KD070D5450NHA6_RGB_DPI)

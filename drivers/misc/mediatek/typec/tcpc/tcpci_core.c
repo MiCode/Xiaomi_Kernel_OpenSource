@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * Richtek TypeC Port Control Interface Core Driver
  *
@@ -453,7 +454,7 @@ static int tcpc_device_irq_enable(struct tcpc_device *tcpc)
 		tcpci_init_alert_mask(tcpc);
 
 	schedule_delayed_work(
-		&tcpc->event_init_work, msecs_to_jiffies(10*1000));
+		&tcpc->event_init_work, msecs_to_jiffies(4*1000));
 
 	pr_info("%s : tcpc irq enable OK!\n", __func__);
 	return 0;

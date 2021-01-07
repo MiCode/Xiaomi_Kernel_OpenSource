@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2014 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  * Author: Xudong.chen <xudong.chen@mediatek.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -403,6 +404,7 @@ struct mt_i2c {
 	spinlock_t cg_lock;
 	int cg_cnt;
 	bool trans_stop;/* i2c transfer stop */
+	bool i2c_m_ignore_nak;/* i2c master ignore no ack*/
 	enum mt_trans_op op;
 	u16 total_len;
 	u16 msg_len;

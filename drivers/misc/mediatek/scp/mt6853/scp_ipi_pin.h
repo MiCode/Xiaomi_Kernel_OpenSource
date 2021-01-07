@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2019 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -43,32 +44,34 @@ enum {
 	IPI_OUT_DVFS_SET_FREQ_0	  =  4,
 	IPI_OUT_C_SLEEP_0         =  5,
 	IPI_OUT_TEST_0            =  6,
-	IPI_IN_APCCCI_0           =  7,
-	IPI_IN_SCP_ERROR_INFO_0   =  8,
-	IPI_IN_SCP_READY_0        =  9,
-	IPI_IN_SCP_RAM_DUMP_0     = 10,
+	IPI_OUT_AUDIO_USND_0      =  7,
+	IPI_OUT_AUDIO_ULTRA_SND_0 =  8,
+	IPI_IN_APCCCI_0           =  9,
+	IPI_IN_SCP_ERROR_INFO_0   =  10,
+	IPI_IN_SCP_READY_0        =  11,
+	IPI_IN_SCP_RAM_DUMP_0     =  12,
+	IPI_IN_AUDIO_USND_0       =  13,
+	IPI_IN_AUDIO_ULTRA_SND_0  =  14,
 
 	/* the following will use mbox2 */
-	IPI_OUT_SCP_MPOOL_0       = 11,
-	IPI_IN_SCP_MPOOL_0        = 12,
+	IPI_OUT_SCP_MPOOL_0       = 15,
+	IPI_IN_SCP_MPOOL_0        = 16,
 
 /* core1 */
 	/* the following will use mbox3 */
-	IPI_OUT_AUDIO_ULTRA_SND_1 = 13,
-	IPI_OUT_DVFS_SET_FREQ_1   = 14,
-	IPI_OUT_C_SLEEP_1         = 15,
-	IPI_OUT_TEST_1            = 16,
-	IPI_OUT_LOGGER_CTRL       = 17,
-	IPI_OUT_SCPCTL_1          = 18,
-	IPI_IN_AUDIO_ULTRA_SND_1  = 19,
-	IPI_IN_SCP_ERROR_INFO_1   = 20,
-	IPI_IN_LOGGER_CTRL        = 21,
-	IPI_IN_SCP_READY_1        = 22,
-	IPI_IN_SCP_RAM_DUMP_1     = 23,
+	IPI_OUT_DVFS_SET_FREQ_1   = 17,
+	IPI_OUT_C_SLEEP_1         = 18,
+	IPI_OUT_TEST_1            = 19,
+	IPI_OUT_LOGGER_CTRL       = 20,
+	IPI_OUT_SCPCTL_1          = 21,
+	IPI_IN_SCP_ERROR_INFO_1   = 22,
+	IPI_IN_LOGGER_CTRL        = 23,
+	IPI_IN_SCP_READY_1        = 24,
+	IPI_IN_SCP_RAM_DUMP_1     = 25,
 
 	/* the following will use mbox4 */
-	IPI_OUT_SCP_MPOOL_1       = 24,
-	IPI_IN_SCP_MPOOL_1        = 25,
+	IPI_OUT_SCP_MPOOL_1       = 27,
+	IPI_IN_SCP_MPOOL_1        = 28,
 	SCP_IPI_COUNT
 };
 

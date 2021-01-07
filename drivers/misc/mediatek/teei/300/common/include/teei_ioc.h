@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2019, MICROTRUST Incorporated
+ * Copyright (C) 2020 XiaoMi, Inc.
  * All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -52,6 +53,7 @@ struct init_param {
 #define CMD_FP_MEM_CLEAR	_IO(TEEI_IOC_MAGIC, 0x1)
 #define CMD_FP_CMD		_IO(TEEI_IOC_MAGIC, 0x2)
 #define CMD_FP_LOAD_TEE		_IO(TEEI_IOC_MAGIC, 0x4)
+#define CMD_TEEI_SET_PRI	_IO(TEEI_IOC_MAGIC, 0x5)
 
 #define TEEI_VFS_NOTIFY_DRM	_IOWR(TEEI_CONFIG_IOC_MAGIC, 0x75, int)
 #define TEEI_VFS_GET_FP_UUID 0x50

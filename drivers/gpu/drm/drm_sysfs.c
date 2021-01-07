@@ -5,6 +5,7 @@
  *               does not allow adding attributes.
  *
  * Copyright (c) 2004 Jon Smirl <jonsmirl@gmail.com>
+ * Copyright (C) 2020 XiaoMi, Inc.
  * Copyright (c) 2003-2004 Greg Kroah-Hartman <greg@kroah.com>
  * Copyright (c) 2003-2004 IBM Corp.
  *
@@ -21,9 +22,13 @@
 #include <drm/drm_sysfs.h>
 #include <drm/drmP.h>
 #include "drm_internal.h"
-
+//#include "mediatek/mtk_drm_ddp_comp.h"
+//struct mtk_dsi;
 #define to_drm_minor(d) dev_get_drvdata(d)
 #define to_drm_connector(d) dev_get_drvdata(d)
+//#define to_mtk_dsi(x)  container_of(x, struct mtk_dsi, conn)
+
+#define PANEL_MAX_LUMINANCE_READ_OFFSET 12
 
 /**
  * DOC: overview
@@ -229,16 +234,146 @@ static ssize_t modes_show(struct device *device,
 	return written;
 }
 
+static ssize_t panel_info_show(struct device *device,
+			   struct device_attribute *attr,
+			   char *buf)
+{
+	int ret = 0;
+	const char *panel_name_prefix = "panel_name=dsi_";
+	struct drm_connector *connector = to_drm_connector(device);
+	if (!connector) {
+		pr_info("%s-%d connector is NULL \r\n",__func__, __LINE__);
+		return ret;
+	}
+
+	return snprintf(buf, PAGE_SIZE, "%s%s\n", panel_name_prefix, connector->display_info.name);
+}
+
+extern ssize_t panel_disp_param_send_lock(struct drm_connector* connector, int32_t param);
+static ssize_t disp_param_store(struct device *device,
+			   struct device_attribute *attr,
+			   const char *buf, size_t count)
+{
+	ssize_t ret = 0;
+	int32_t param;
+	struct drm_connector *connector = to_drm_connector(device);
+	if (!connector) {
+		pr_info("%s-%d connector is NULL \r\n",__func__, __LINE__);
+		return ret;
+	}
+
+	sscanf(buf, "0x%x", &param);
+	ret = panel_disp_param_send_lock(connector, param);
+	return count;
+}
+
+static ssize_t disp_param_show(struct device *device,
+			   struct device_attribute *attr,
+			   char *buf)
+{
+	ssize_t ret = 0;
+	unsigned char* p_temp;
+	struct drm_connector *connector = to_drm_connector(device);
+	if (!connector) {
+		pr_info("%s-%d connector is NULL\r\n",__func__, __LINE__);
+		return ret;
+	}
+
+	p_temp =  connector->panel_read_data;
+
+	if (connector->read_flag == 0x1) {
+		ret = scnprintf(buf, 13, "%s", p_temp);
+		pr_info("dsi panel read data flag: 0x1, buf: %s\n", buf);
+	} else if (connector->read_flag == 0x2) {
+		ret = scnprintf(buf, 7, "%s", p_temp + PANEL_MAX_LUMINANCE_READ_OFFSET );
+		pr_info("dsi panel read data flag: 0x2, buf: %s\n", buf);
+	} else {
+		pr_info("dai panel read data flag 0x%x can't use !\n", connector->read_flag);
+	}
+
+	return ret;
+}
+
+static ssize_t fod_ui_ready_show(struct device *device,
+			   struct device_attribute *attr,
+			   char *buf)
+{
+	struct drm_connector *connector = to_drm_connector(device);
+	return snprintf(buf, PAGE_SIZE, "%d\n", connector->fod_ui_ready);
+}
+
+static ssize_t panel_id_show(struct device *device,
+			   struct device_attribute *attr,
+			   char *buf)
+{
+	ssize_t ret = 0;
+	struct drm_connector *connector = to_drm_connector(device);
+	if (!connector) {
+		pr_info("%s-%d connector is NULL \r\n",__func__, __LINE__);
+		return ret;
+	}
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", connector->panel_id);
+}
+
+extern ssize_t lcm_mipi_reg_write(char *buf, size_t count);
+extern ssize_t lcm_mipi_reg_read(char *buf);
+
+static ssize_t mipi_reg_show(struct device *device,
+			    struct device_attribute *attr,
+			   char *buf)
+{
+	struct drm_connector *connector = to_drm_connector(device);
+	return lcm_mipi_reg_read(buf);
+}
+
+static ssize_t mipi_reg_store(struct device *device,
+			   struct device_attribute *attr,
+			   const char *buf, size_t count)
+{
+	int rc = 0;
+	struct drm_connector *connector = to_drm_connector(device);
+	rc = lcm_mipi_reg_write((char *)buf, count);
+	return rc;
+}
+
+static ssize_t panel_event_show(struct device *device,
+                           struct device_attribute *attr,
+                           char *buf)
+{
+        ssize_t ret = 0;
+        struct drm_connector *connector = to_drm_connector(device);
+        if (!connector) {
+                pr_info("%s-%d connector is NULL \r\n",__func__, __LINE__);
+                return ret;
+        }
+
+        return snprintf(buf, PAGE_SIZE, "%d\n", connector->panel_event);
+}
+
+
 static DEVICE_ATTR_RW(status);
 static DEVICE_ATTR_RO(enabled);
 static DEVICE_ATTR_RO(dpms);
 static DEVICE_ATTR_RO(modes);
+static DEVICE_ATTR_RW(disp_param);
+static DEVICE_ATTR_RO(panel_info);
+static DEVICE_ATTR_RO(fod_ui_ready);
+static DEVICE_ATTR_RO(panel_id);
+static DEVICE_ATTR_RW(mipi_reg);
+static DEVICE_ATTR_RO(panel_event);
 
 static struct attribute *connector_dev_attrs[] = {
 	&dev_attr_status.attr,
 	&dev_attr_enabled.attr,
 	&dev_attr_dpms.attr,
 	&dev_attr_modes.attr,
+	&dev_attr_disp_param.attr,
+	&dev_attr_panel_info.attr,
+	&dev_attr_fod_ui_ready.attr,
+	&dev_attr_panel_id.attr,
+	&dev_attr_mipi_reg.attr,
+	&dev_attr_panel_event.attr,
 	NULL
 };
 

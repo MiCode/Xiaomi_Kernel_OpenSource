@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -92,7 +93,6 @@ struct hf_device {
 	int (*rawdata)(struct hf_device *hfdev, int sensor_type, int en);
 	int (*custom_cmd)(struct hf_device *hfdev, int sensor_type,
 		struct custom_cmd *cust_cmd);
-
 	char *dev_name;
 	unsigned char device_poll;
 	unsigned char device_bus;

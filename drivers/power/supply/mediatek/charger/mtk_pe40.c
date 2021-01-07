@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -734,14 +735,14 @@ int pe40_cc_state(void)
 		oldavbus = pe4->avbus;
 
 		if (mivr_loop && vbus <= 5000) {
-			pe4->avbus = pe4->avbus + 50;
-			new_watt = (pe4->avbus + 50) * icl;
+			pe4->avbus = pe4->avbus + 20;
+			new_watt = (pe4->avbus + 20) * icl;
 		} else if (ibus >= (max_icl - icl_threshold)) {
-			pe4->avbus = pe4->avbus + 50;
-			new_watt = (pe4->avbus + 50) * ibus;
+			pe4->avbus = pe4->avbus + 20;
+			new_watt = (pe4->avbus + 20) * ibus;
 		} else if (ibus <= (max_icl - icl_threshold * 2)) {
 			new_watt = pe4->avbus * pe4->ibus - 500000;
-			pe4->avbus = pe4->avbus - 50;
+			pe4->avbus = pe4->avbus - 20;
 		}
 
 		ret = pe40_get_setting_by_watt(&pe4->avbus,
@@ -751,7 +752,7 @@ int pe40_cc_state(void)
 		if (pe4->avbus <= 5000)
 			pe4->avbus = 5000;
 
-		if (abs(pe4->avbus - oldavbus) >= 50) {
+		if (abs(pe4->avbus - oldavbus) >= 20) {
 			ret = pe40_pd_request(&pe4->avbus,
 					&adapter_ibus, input_current);
 			if (ret != 0 && ret != ADAPTER_REJECT &&

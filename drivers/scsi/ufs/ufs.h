@@ -3,6 +3,7 @@
  *
  * This code is based on drivers/scsi/ufs/ufs.h
  * Copyright (C) 2011-2013 Samsung India Software Operations
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * Authors:
  *	Santosh Yaraganavi <santosh.sy@samsung.com>
@@ -169,7 +170,7 @@ enum attr_idn {
 	QUERY_ATTR_IDN_TW_FLUSH_STATUS		= 0x1C,
 	QUERY_ATTR_IDN_TW_BUF_SIZE		= 0x1D,
 	QUERY_ATTR_IDN_TW_BUF_LIFETIME_EST	= 0x1E,
-	QUERY_ATTR_CUR_TW_BUF_SIZE		= 0x1F,
+	QUERY_ATTR_CURRENT_TW_BUF_SIZE		= 0x1F,
 #endif
 #if defined(CONFIG_UFSFEATURE)
 	QUERY_ATTR_IDN_SUP_VENDOR_OPTIONS	= 0xFF,
@@ -293,6 +294,7 @@ enum device_desc_param {
 	DEVICE_DESC_PARAM_EX_FEAT_SUP		= 0x4F,
 #endif
 #if defined(CONFIG_UFSTW)
+	DEVICE_DESC_PARAM_TW_VER			= 0x4D,	/* Sasmung version */
 	DEVICE_DESC_PARAM_TW_RETURN_TO_USER	= 0x53,
 	DEVICE_DESC_PARAM_TW_BUF_TYPE		= 0x54,
 	DEVICE_DESC_PARAM_NUM_SHARED_WB_BUF_AU	= 0x55, /* JEDEC version */
@@ -611,6 +613,8 @@ struct ufs_vreg {
 	int max_uV;
 	int min_uA;
 	int max_uA;
+	int fixed_uV;
+	int plus_uV;
 };
 
 /* MTK PATCH */

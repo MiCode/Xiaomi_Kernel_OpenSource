@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 //
 // Copyright (C) 2019 MediaTek Inc.
+// Copyright (C) 2020 XiaoMi, Inc.
 
 #include "mtk-scp-vow-platform.h"
 #include "mt6853-afe-common.h"

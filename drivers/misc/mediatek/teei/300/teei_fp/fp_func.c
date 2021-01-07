@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2019, MICROTRUST Incorporated
+ * Copyright (C) 2020 XiaoMi, Inc.
  * All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -31,7 +32,6 @@
 #include "fp_func.h"
 #include "../tz_driver/include/teei_fp.h"
 #include "../tz_driver/include/teei_id.h"
-#include "../tz_driver/include/tz_service.h"
 #include "../tz_driver/include/nt_smc_call.h"
 #include "../tz_driver/include/utdriver_macro.h"
 #include "../tz_driver/include/teei_client_main.h"
@@ -146,7 +146,14 @@ static long fp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			return -EFAULT;
 		}
 
+		teei_cpus_mutex_lock();
+		teei_set_chan_mode(TEEI_SINGAL_CHANNEL_MODE);
+
 		ret  = send_fp_command((void *)fp_buff_addr, args_len + 16);
+
+		teei_set_chan_mode(TEEI_MUTIL_CHANNEL_MODE);
+		teei_cpus_mutex_unlock();
+
 		if (ret) {
 			IMSG_ERROR("transfer data to ta failed.\n");
 			up(&fp_api_lock);
@@ -164,6 +171,11 @@ static long fp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		IMSG_DEBUG("case CMD_FP_LOAD_TEE\n");
 #endif
 		complete(&boot_decryto_lock);
+		break;
+	case CMD_TEEI_SET_PRI:
+		ret = teei_set_switch_pri(arg);
+		if (ret != 0)
+			IMSG_ERROR("Failed to teei_set_switch_pri %d\n", ret);
 		break;
 	default:
 		up(&fp_api_lock);

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -50,23 +51,23 @@ static void mtk_cl_backlight_set_max_brightness_limit(void)
 		switch (g_backlight_level) {
 		case 0:
 			setMaxbrightness("lcd-backlight",
-				100, 0);	/* 100% */
+				2047, 0);	/* 100% */
 			break;
 		case 1:
 			setMaxbrightness("lcd-backlight",
-				70, 1);	/* 70% */
+				1432, 1);	/* 70% */
 			break;
 		case 2:
 			setMaxbrightness("lcd-backlight",
-				40, 1);	/* 40% */
+				818, 1);	/* 40% */
 			break;
 		case 3:
 			setMaxbrightness("lcd-backlight",
-				10, 1);	/* 10% */
+				204, 1);	/* 10% */
 			break;
 		default:
 			setMaxbrightness("lcd-backlight",
-				100, 0);
+				2047, 0);
 			break;
 		}
 	}

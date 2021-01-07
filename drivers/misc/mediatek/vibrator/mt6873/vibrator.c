@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -42,7 +43,7 @@ static int debug_enable_vib_hal = 1;
 void vibr_Enable_HW(void)
 {
 #ifdef CONFIG_MTK_PMIC_NEW_ARCH
-	pmic_set_register_value(PMIC_RG_LDO_VIBR_EN, 1);
+	//pmic_set_register_value(PMIC_RG_LDO_VIBR_EN, 1);
 	mdelay(OC_INTR_INIT_DELAY);
 	pmic_enable_interrupt(INT_VIBR_OC, 1, "vibr");
 #endif
@@ -52,7 +53,7 @@ void vibr_Disable_HW(void)
 {
 #ifdef CONFIG_MTK_PMIC_NEW_ARCH
 	pmic_enable_interrupt(INT_VIBR_OC, 0, "vibr");
-	pmic_set_register_value(PMIC_RG_LDO_VIBR_EN, 0);
+	//pmic_set_register_value(PMIC_RG_LDO_VIBR_EN, 0);
 #endif
 }
 
@@ -131,7 +132,7 @@ void vibr_power_set(void)
 	if (hw != NULL) {
 		pr_info("vibrator set voltage = %d\n", hw->vib_vol);
 #ifdef CONFIG_MTK_PMIC_NEW_ARCH
-		pmic_set_register_value(PMIC_RG_VIBR_VOSEL, hw->vib_vol);
+		//pmic_set_register_value(PMIC_RG_VIBR_VOSEL, hw->vib_vol);
 #endif
 	} else {
 		pr_info("can not get vibrator settings from dtsi!\n");

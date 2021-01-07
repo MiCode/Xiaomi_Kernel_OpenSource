@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -225,6 +226,9 @@ extern struct platform_driver mtk_lvds_driver;
 extern struct platform_driver mtk_lvds_tx_driver;
 extern struct platform_driver mtk_disp_dsc_driver;
 extern struct lcm_fps_ctx_t lcm_fps_ctx[MAX_CRTC];
+
+extern atomic_t resume_pending;
+extern wait_queue_head_t resume_wait_q;
 
 void mtk_atomic_state_get(struct drm_atomic_state *state);
 void mtk_atomic_state_put(struct drm_atomic_state *state);

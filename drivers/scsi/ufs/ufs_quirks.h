@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -134,10 +135,11 @@ struct ufs_dev_fix {
 
 /*
  * MTK PATCH
- * Micron UFS device need 1ms delay in resume flow.
- * This is a workaround before root cause figure out.
+ * Some UFS device need 5ms delay in VCC off. In order to wait VCC discharged
+ * to 0V. Some device may have issue when VCC is not discharged to 0V
+ * and power up.
  */
-#define UFS_DEVICE_QUIRK_RESUME_CLOCK_ON_DELAY	(1 << 29)
+#define UFS_DEVICE_QUIRK_VCC_OFF_DELAY	(1 << 29)
 
 /*
  * MTK PATCH

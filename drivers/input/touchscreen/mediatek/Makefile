@@ -20,3 +20,5 @@ obj-$(CONFIG_TOUCHSCREEN_MTK_GT9XX_LM)	+=  GT9XX_LM/
 obj-$(CONFIG_TOUCHSCREEN_FT5X26)	+=  FT5X26/
 obj-$(CONFIG_TOUCHSCREEN_MTK_GT5688)	+=  GT5688/
 obj-$(CONFIG_TOUCHSCREEN_HIMAX_I2C)	+=  hxchipset/
+obj-y	+=  focaltech_touch/
+obj-y	+=  NT36xxx_HOSTDL_SPI/

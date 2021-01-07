@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 //
 // Copyright (C) 2019 MediaTek Inc.
+// Copyright (C) 2020 XiaoMi, Inc.
 
 #ifndef _MTK_SCP_VOW_PLATFORM_H
 #define _MTK_SCP_VOW_PLATFORM_H

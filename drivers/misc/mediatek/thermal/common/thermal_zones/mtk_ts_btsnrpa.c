@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -71,10 +72,10 @@ static int mtkts_btsnrpa_debug_log;
 static int kernelmode;
 static int g_THERMAL_TRIP[10] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
-static int num_trip;
-static char g_bind0[20] = {"mtk-cl-shutdown03"};
-static char g_bind1[20] = { 0 };
-static char g_bind2[20] = { 0 };
+static int num_trip = 3;
+static char g_bind0[20] = "mtk-cl-kshutdown01";
+static char g_bind1[20] = "mtk-cl-mdoff-nr";
+static char g_bind2[20] = "mtk-cl-noIMS-nr";
 static char g_bind3[20] = { 0 };
 static char g_bind4[20] = { 0 };
 static char g_bind5[20] = { 0 };
@@ -502,16 +503,16 @@ static __s16 mtkts_btsnrpa_thermistor_conver_temp(__s32 Res)
 	int i = 0;
 	int asize = 0;
 	__s32 RES1 = 0, RES2 = 0;
-	__s32 TAP_Value = -200, TMP1 = 0, TMP2 = 0;
+	__s32 TAP_Value = -2000, TMP1 = 0, TMP2 = 0;
 
 	asize = (ntc_tbl_size / sizeof(struct BTSNRPA_TEMPERATURE));
 	/* mtkts_btsnrpa_dprintk("%s() :
 	 * asize = %d, Res = %d\n", __func__,asize,Res);
 	 */
 	if (Res >= BTSNRPA_Temperature_Table[0].TemperatureR) {
-		TAP_Value = -40;	/* min */
+		TAP_Value = -400;	/* min */
 	} else if (Res <= BTSNRPA_Temperature_Table[asize - 1].TemperatureR) {
-		TAP_Value = 125;	/* max */
+		TAP_Value = 1250;	/* max */
 	} else {
 		RES1 = BTSNRPA_Temperature_Table[0].TemperatureR;
 		TMP1 = BTSNRPA_Temperature_Table[0].BTSNRPA_Temp;
@@ -538,7 +539,7 @@ static __s16 mtkts_btsnrpa_thermistor_conver_temp(__s32 Res)
 			 */
 		}
 
-		TAP_Value = (((Res - RES2) * TMP1) + ((RES1 - Res) * TMP2))
+		TAP_Value = (((Res - RES2) * TMP1) + ((RES1 - Res) * TMP2)) * 10
 								/ (RES1 - RES2);
 	}
 
@@ -718,7 +719,7 @@ int mtkts_btsnrpa_get_hw_temp(void)
 	/* get HW AP temp (TSAP) */
 	/* cat /sys/class/power_supply/AP/AP_temp */
 	t_ret = get_hw_btsnrpa_temp();
-	t_ret = t_ret * 1000;
+	t_ret = t_ret * 100;
 
 #if MTKTS_BTSNRPA_SW_FILTER
 	if ((t_ret > 100000) || (t_ret < -30000)) {

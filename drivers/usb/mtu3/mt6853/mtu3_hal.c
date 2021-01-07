@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -57,11 +58,16 @@ int get_ssusb_ext_rscs(struct ssusb_mtk *ssusb)
 
 static int ssusb_host_clk_on(struct ssusb_mtk *ssusb)
 {
-	return 0;
+	int ret;
+	ret = clk_prepare_enable(ssusb->host_clk);
+	if (ret)
+		dev_info(ssusb->dev, "failed to enable sys_clk\n");
+	return ret;
 }
 
 static int ssusb_host_clk_off(struct ssusb_mtk *ssusb)
 {
+	clk_disable_unprepare(ssusb->host_clk);
 	return 0;
 }
 
@@ -73,46 +79,30 @@ static int ssusb_sysclk_on(struct ssusb_mtk *ssusb)
 	if (ret)
 		dev_info(ssusb->dev, "failed to enable sys_clk\n");
 
-	ret = clk_prepare_enable(ssusb->host_clk);
-	if (ret)
-		dev_info(ssusb->dev, "failed to enable host_clk\n");
-
 	ret = clk_prepare_enable(ssusb->ref_clk);
 	if (ret)
 		dev_info(ssusb->dev, "failed to enable ref_clk\n");
 
 	ssusb_switch_usbpll_div13(ssusb, true);
 
-	ret = clk_prepare_enable(ssusb->mcu_clk);
-	if (ret)
-		dev_info(ssusb->dev, "failed to enable mcu_clk\n");
-
-	ret = clk_prepare_enable(ssusb->dma_clk);
-	if (ret)
-		dev_info(ssusb->dev, "failed to enable dma_clk\n");
-
 	return ret;
 }
 
 static void ssusb_sysclk_off(struct ssusb_mtk *ssusb)
 {
-	clk_disable_unprepare(ssusb->dma_clk);
-	clk_disable_unprepare(ssusb->mcu_clk);
-	clk_disable_unprepare(ssusb->ref_clk);
-
 	ssusb_switch_usbpll_div13(ssusb, false);
 
-	clk_disable_unprepare(ssusb->host_clk);
 	clk_disable_unprepare(ssusb->sys_clk);
+	clk_disable_unprepare(ssusb->ref_clk);
 }
 
 int ssusb_clk_on(struct ssusb_mtk *ssusb, int host_mode)
 {
 	if (host_mode) {
 		ssusb_sysclk_on(ssusb);
-		ssusb_host_clk_on(ssusb);
 	} else {
 		ssusb_sysclk_on(ssusb);
+		ssusb_host_clk_on(ssusb);
 	}
 	return 0;
 }
@@ -120,10 +110,10 @@ int ssusb_clk_on(struct ssusb_mtk *ssusb, int host_mode)
 int ssusb_clk_off(struct ssusb_mtk *ssusb, int host_mode)
 {
 	if (host_mode) {
-		ssusb_host_clk_off(ssusb);
 		ssusb_sysclk_off(ssusb);
 	} else {
 		ssusb_sysclk_off(ssusb);
+		ssusb_host_clk_off(ssusb);
 	}
 	return 0;
 }

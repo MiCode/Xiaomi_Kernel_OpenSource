@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2015 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -139,6 +140,10 @@ struct charger_ops {
 
 	/* charger type detection */
 	int (*enable_chg_type_det)(struct charger_device *dev, bool en);
+	int (*rerun_apsd)(struct charger_device *dev, bool en);
+
+	/* hvdcp detection control */
+	int (*enable_hvdcp_det)(struct charger_device *dev, bool en);
 
 	/* run AICL */
 	int (*run_aicl)(struct charger_device *dev, u32 *uA);
@@ -256,6 +261,10 @@ extern int charger_dev_enable_powerpath(
 extern int charger_dev_enable_safety_timer(
 	struct charger_device *charger_dev, bool en);
 extern int charger_dev_enable_chg_type_det(
+	struct charger_device *charger_dev, bool en);
+extern int charger_dev_rerun_apsd(
+	struct charger_device *charger_dev, bool en);
+extern int charger_dev_enable_hvdcp_det(
 	struct charger_device *charger_dev, bool en);
 extern int charger_dev_enable_otg(
 	struct charger_device *charger_dev, bool en);

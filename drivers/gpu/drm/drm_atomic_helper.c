@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2014 Red Hat
+ * Copyright (C) 2020 XiaoMi, Inc.
  * Copyright (C) 2014 Intel Corp.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -1093,6 +1094,8 @@ void drm_atomic_helper_commit_modeset_enables(struct drm_device *dev,
 	struct drm_connector *connector;
 	struct drm_connector_state *new_conn_state;
 	int i;
+	int index;
+	pr_debug("%s +\n", __func__);
 
 	for_each_oldnew_crtc_in_state(old_state, crtc, old_crtc_state, new_crtc_state, i) {
 		const struct drm_crtc_helper_funcs *funcs;
@@ -1138,18 +1141,20 @@ void drm_atomic_helper_commit_modeset_enables(struct drm_device *dev,
 		 * Each encoder has at most one connector (since we always steal
 		 * it away), so we won't call enable hooks twice.
 		 */
+		pr_debug("drm_bridge_pre_enable begin");
 		drm_bridge_pre_enable(encoder->bridge);
-
+		pr_debug("drm_bridge_pre_enable end");
 		if (funcs) {
-			if (funcs->enable)
+			if (funcs->enable) {
 				funcs->enable(encoder);
+			}
 			else if (funcs->commit)
 				funcs->commit(encoder);
 		}
 
 		drm_bridge_enable(encoder->bridge);
 	}
-
+	pr_debug("%s -\n", __func__);
 	drm_atomic_helper_commit_writebacks(dev, old_state);
 }
 EXPORT_SYMBOL(drm_atomic_helper_commit_modeset_enables);

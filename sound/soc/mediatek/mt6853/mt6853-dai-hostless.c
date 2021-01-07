@@ -124,6 +124,8 @@ static const struct snd_soc_dapm_route mtk_dai_hostless_routes[] = {
 	{"Hostless FM UL", NULL, "HW Gain 1 Out"},
 
 	{"ADDA_DL_CH1", "GAIN1_OUT_CH1", "Hostless FM DL"},
+	{"ADDA_DL_CH1", "GAIN1_OUT_CH2", "Hostless FM DL"},
+	{"ADDA_DL_CH2", "GAIN1_OUT_CH1", "Hostless FM DL"},
 	{"ADDA_DL_CH2", "GAIN1_OUT_CH2", "Hostless FM DL"},
 	{"ADDA_DL_CH3", "GAIN1_OUT_CH1", "Hostless FM DL"},
 	{"ADDA_DL_CH4", "GAIN1_OUT_CH2", "Hostless FM DL"},
@@ -145,6 +147,8 @@ static const struct snd_soc_dapm_route mtk_dai_hostless_routes[] = {
 
 	/* Hostless_SRC */
 	{"ADDA_DL_CH1", "SRC_1_OUT_CH1", "Hostless_SRC_1_DL"},
+	{"ADDA_DL_CH1", "SRC_1_OUT_CH2", "Hostless_SRC_1_DL"},
+	{"ADDA_DL_CH2", "SRC_1_OUT_CH1", "Hostless_SRC_1_DL"},
 	{"ADDA_DL_CH2", "SRC_1_OUT_CH2", "Hostless_SRC_1_DL"},
 	{"Hostless_SRC_1_UL", NULL, "HW_SRC_1_Out"},
 

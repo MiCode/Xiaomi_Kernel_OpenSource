@@ -2,6 +2,7 @@
  * Universal Flash Storage Host Performance Booster
  *
  * Copyright (C) 2017-2018 Samsung Electronics Co., Ltd.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * Authors:
  *	Yongmyung Lee <ymhungry.lee@samsung.com>
@@ -37,6 +38,7 @@
 
 #include "ufshcd.h"
 #include "ufshpb.h"
+#include "ufs_quirks.h"
 
 #define UFSHCD_REQ_SENSE_SIZE	18
 
@@ -2703,6 +2705,11 @@ static inline int ufshpb_version_check(struct ufshpb_dev_info *hpb_dev_info)
 void ufshpb_get_dev_info(struct ufshpb_dev_info *hpb_dev_info, u8 *desc_buf)
 {
 	int ret;
+	struct ufsf_feature *ufsf;
+	struct ufs_hba *hba;
+
+	ufsf = container_of(hpb_dev_info, struct ufsf_feature, hpb_dev_info);
+	hba = ufsf->hba;
 
 	hpb_dev_info->hpb_device = false;
 
@@ -2714,10 +2721,14 @@ void ufshpb_get_dev_info(struct ufshpb_dev_info *hpb_dev_info, u8 *desc_buf)
 	}
 
 	hpb_dev_info->hpb_ver = LI_EN_16(desc_buf + DEVICE_DESC_PARAM_HPB_VER);
-
-	ret = ufshpb_version_check(hpb_dev_info);
-	if (!ret)
-		hpb_dev_info->hpb_device = true;
+	if (hba->card->wmanufacturerid == UFS_VENDOR_SAMSUNG) {
+		ret = ufshpb_version_check(hpb_dev_info);
+		if (!ret)
+			hpb_dev_info->hpb_device = true;
+	} else {
+		INIT_INFO("driver not support samsung");
+		hpb_dev_info->hpb_device = false;
+	}
 }
 
 void ufshpb_get_geo_info(struct ufshpb_dev_info *hpb_dev_info, u8 *geo_buf)

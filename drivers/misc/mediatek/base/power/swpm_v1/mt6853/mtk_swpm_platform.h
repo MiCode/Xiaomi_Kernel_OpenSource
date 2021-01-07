@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2020 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -155,6 +156,15 @@ enum mcusys_power_state {
 	NR_MCUSYS_POWER_STATE
 };
 
+enum cpu_pwr_type {
+	CPU_PWR_TYPE_L,
+	CPU_PWR_TYPE_B,
+	CPU_PWR_TYPE_DSU,
+	CPU_PWR_TYPE_MCUSYS,
+
+	NR_CPU_PWR_TYPE
+};
+
 /* cpu voltage/freq index */
 struct cpu_swpm_vf_index {
 	unsigned int cpu_volt_mv[NR_CPU_TYPE];
@@ -175,6 +185,8 @@ struct cpu_swpm_index {
 	unsigned int l3_bw;
 	unsigned int cpu_emi_bw;
 	struct cpu_swpm_vf_index vf;
+	unsigned int cpu_lkg[NR_CPU_LKG_TYPE];
+	unsigned int cpu_pwr[NR_CPU_PWR_TYPE];
 };
 
 /* TODO: infra power state for core power */
@@ -254,6 +266,7 @@ struct share_index {
 	struct mem_swpm_index mem_idx;
 	struct gpu_swpm_index gpu_idx;
 	struct isp_swpm_index isp_idx;
+	struct me_swpm_index me_idx;
 	unsigned int window_cnt;
 };
 

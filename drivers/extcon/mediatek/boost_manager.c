@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -113,7 +114,7 @@ int usb_otg_set_vbus(int is_on)
 	if (is_on) {
 		charger_dev_enable_otg(g_info->primary_charger, true);
 		charger_dev_set_boost_current_limit(g_info->primary_charger,
-			1500000);
+			1800000);
 		charger_dev_kick_wdt(g_info->primary_charger);
 		enable_boost_polling(true);
 	} else {

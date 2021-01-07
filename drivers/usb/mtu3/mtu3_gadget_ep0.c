@@ -2,6 +2,7 @@
  * mtu3_gadget_ep0.c - MediaTek USB3 DRD peripheral driver ep0 handling
  *
  * Copyright (c) 2016 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * Author:  Chunfeng.Yun <chunfeng.yun@mediatek.com>
  *
@@ -15,6 +16,8 @@
  * GNU General Public License for more details.
  *
  */
+
+#include <linux/usb/composite.h>
 
 #include "mtu3.h"
 
@@ -63,13 +66,22 @@ static void ep0_req_giveback(struct mtu3 *mtu, struct usb_request *req)
 	mtu3_req_complete(mtu->ep0, req, 0);
 }
 
+static void musb_sync_with_chg(struct mtu3 *mtu, int usb_state)
+{
+	dev_dbg(mtu->dev, "%s.\n", __func__);
+
+	/*chargr get usb_state*/
+	BATTERY_SetUSBState(usb_state);
+}
+
+
 static int
 forward_to_driver(struct mtu3 *mtu, const struct usb_ctrlrequest *setup)
 __releases(mtu->lock)
 __acquires(mtu->lock)
 {
 	int ret;
-
+	int usb_state;
 	if (!mtu->gadget_driver || !mtu->softconnect) {
 		pr_info("%s !softconnect\n", __func__);
 		return -EOPNOTSUPP;
@@ -77,6 +89,13 @@ __acquires(mtu->lock)
 
 	spin_unlock(&mtu->lock);
 	ret = mtu->gadget_driver->setup(&mtu->g, setup);
+	if (setup->bRequest == USB_REQ_SET_CONFIGURATION) {
+		if (setup->wValue & 0xff)
+			usb_state = USB_CONFIGURED;
+		else
+			usb_state = USB_UNCONFIGURED;
+		musb_sync_with_chg(mtu, usb_state);
+	}
 	spin_lock(&mtu->lock);
 
 	dev_dbg(mtu->dev, "%s ret %d\n", __func__, ret);

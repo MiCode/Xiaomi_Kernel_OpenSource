@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -21,6 +22,8 @@ struct mtk_phy_tuning {
 	s32 u2_vrt_ref;
 	s32 u2_term_ref;
 	s32 u2_enhance;
+	s32 u2_intr_cal;
+	s32 u2_discth;
 	bool inited;
 };
 
@@ -95,6 +98,12 @@ struct mtk_phy_drv {
 	struct clk *clk;
 	struct regulator *vusb33;
 	struct regulator *vusb10;
+	struct dentry *debug_root;
+	int u2_vrt_ref;
+	int u2_term_ref;
+	int u2_enhance;
+	int u2_intr_cal;
+	int u2_discth;
 };
 
 /*Set the debug level for phy driver*/

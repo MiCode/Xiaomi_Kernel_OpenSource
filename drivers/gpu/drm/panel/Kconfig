@@ -86,6 +86,12 @@ config DRM_PANEL_SAMSUNG_S6E8AA0
 	select DRM_MIPI_DSI
 	select VIDEOMODE_HELPERS
 
+config DRM_PANEL_SAMSUNG_S6E8FC01
+	tristate "Samsung S6E8FC01 DSI video mode panel"
+	depends on OF
+	select DRM_MIPI_DSI
+	select VIDEOMODE_HELPERS
+
 config DRM_PANEL_SHARP_LQ101R1SX01
 	tristate "Sharp LQ101R1SX01 panel"
 	depends on OF
@@ -238,6 +244,28 @@ config DRM_PANEL_TRULY_TD4330_VDO
 	  mode Full HD Plus panel. The panel has a 1080x2280 resolution
 	  and uses 24-bits RGB per pixel. It provides a MIPI DSI interface
 	  to host.
+
+config DRM_PANEL_J22_42_02_0A_VDO
+	tristate "J22 42 02 0A video mode panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for  J22 42 02 0A VDO
+	  mode Full HD Plus panel. The panel has a 1080x2340 resolution
+	  and uses 24-bits RGB per pixel. It provides a MIPI DSI interface
+	  to host.
+
+config DRM_PANEL_J22_43_03_0B_VDO
+        tristate "J22 43 03 0B video mode panel"
+        depends on OF
+        depends on DRM_MIPI_DSI
+        depends on BACKLIGHT_CLASS_DEVICE
+        help
+          Say Y here if you want to enable support for  J22 43 03 0B VDO
+          mode Full HD Plus panel. The panel has a 1080x2340 resolution
+          and uses 24-bits RGB per pixel. It provides a MIPI DSI interface
+          to host.
 
 config DRM_PANEL_TRULY_TD4330_VDO_FAKE_WCG
 	tristate "TRULY  FHD+ video mode fake wcg panel"
@@ -493,6 +521,17 @@ config DRM_PANEL_TIANMA_NT36672C_VDO_120HZ
 	  vdo mode Full HD Plus 120HZ panel. The panel has a 1080x2340
 	  resolution and uses 24-bits RGB per pixel. It provides a
 	  MIPI DSI interface to host.
+
+config DRM_PANEL_J10_38_08_0A_DSC_CMD
+	tristate "Samsung EA8079 DSI cmd mode DSC panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+          Say Y here if you want to enable support for Samsung ea8079
+          FHD+ cmd mode panel. The panel has a 1080x2400 resolution and uses
+          24-bits RGB per pixel. It provides a MIPI DSI interface
+          to host.
 
 config DRM_PANEL_TIANMA_NT36672C_VDO_144HZ
 	tristate "TIANMA FHD+ vdo mode 144 HZ panel"

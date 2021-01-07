@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2018 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -1617,7 +1618,7 @@ void clk_buf_post_init(void)
 #endif
 #endif
 
-#ifndef CONFIG_MTK_NFC_CLKBUF_ENABLE
+#ifndef CONFIG_XIAOMI_NFC_CLKBUF_ENABLE
 	/* no need to use XO_NFC if no NFC */
 	clk_buf_ctrl_internal(CLK_BUF_NFC, CLK_BUF_FORCE_OFF);
 	CLK_BUF3_STATUS = CLOCK_BUFFER_DISABLE;

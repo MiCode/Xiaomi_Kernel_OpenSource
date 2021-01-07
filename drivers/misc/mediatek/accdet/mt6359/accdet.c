@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (C) 2019 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  * Author: Argus Lin <argus.lin@mediatek.com>
  */
 
@@ -73,6 +74,11 @@
 #define EINT_PIN_PLUG_IN        (1)
 #define EINT_PIN_PLUG_OUT       (0)
 #define EINT_PIN_MOISTURE_DETECTED (2)
+
+/*Audio Start*/
+#define MEDIA_PREVIOUS_SCAN_CODE 257
+#define MEDIA_NEXT_SCAN_CODE 258
+/*Audio End*/
 
 #ifdef CONFIG_ACCDET_EINT_IRQ
 enum pmic_eint_ID {
@@ -1005,19 +1011,19 @@ static void send_key_event(u32 keycode, u32 flag)
 {
 	switch (keycode) {
 	case DW_KEY:
-		input_report_key(accdet_input_dev, KEY_VOLUMEDOWN, flag);
+		input_report_key(accdet_input_dev, MEDIA_NEXT_SCAN_CODE, flag);
 		input_sync(accdet_input_dev);
-		pr_debug("accdet KEY_VOLUMEDOWN %d\n", flag);
+		pr_debug("accdet MEDIA_NEXT_SCAN_CODE %d\n", flag);
 		break;
 	case UP_KEY:
-		input_report_key(accdet_input_dev, KEY_VOLUMEUP, flag);
+		input_report_key(accdet_input_dev, MEDIA_PREVIOUS_SCAN_CODE, flag);
 		input_sync(accdet_input_dev);
-		pr_debug("accdet KEY_VOLUMEUP %d\n", flag);
+		pr_debug("accdet MEDIA_PREVIOUS_SCAN_CODE %d\n", flag);
 		break;
 	case MD_KEY:
-		input_report_key(accdet_input_dev, KEY_PLAYPAUSE, flag);
+		input_report_key(accdet_input_dev, KEY_MEDIA, flag);
 		input_sync(accdet_input_dev);
-		pr_debug("accdet KEY_PLAYPAUSE %d\n", flag);
+		pr_debug("accdet KEY_MEDIA %d\n", flag);
 		break;
 	case AS_KEY:
 		input_report_key(accdet_input_dev, KEY_VOICECOMMAND, flag);
@@ -3270,9 +3276,9 @@ int mt_accdet_probe(struct platform_device *dev)
 	}
 
 	__set_bit(EV_KEY, accdet_input_dev->evbit);
-	__set_bit(KEY_PLAYPAUSE, accdet_input_dev->keybit);
-	__set_bit(KEY_VOLUMEDOWN, accdet_input_dev->keybit);
-	__set_bit(KEY_VOLUMEUP, accdet_input_dev->keybit);
+	__set_bit(KEY_MEDIA, accdet_input_dev->keybit);
+	__set_bit(MEDIA_NEXT_SCAN_CODE, accdet_input_dev->keybit);
+	__set_bit(MEDIA_PREVIOUS_SCAN_CODE, accdet_input_dev->keybit);
 	__set_bit(KEY_VOICECOMMAND, accdet_input_dev->keybit);
 
 	__set_bit(EV_SW, accdet_input_dev->evbit);

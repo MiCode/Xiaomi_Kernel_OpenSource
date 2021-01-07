@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (C) 2018 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #ifndef _MTK_SP_SPK_AMP_H
@@ -20,6 +21,7 @@ struct mtk_spk_i2c_ctrl {
 #define MTK_SPK_RICHTEK_RT5509_STR "MTK_SPK_RICHTEK_RT5509"
 #define MTK_SPK_MEDIATEK_MT6660_STR "MTK_SPK_MEDIATEK_MT6660"
 #define MTK_SPK_NXP_TFA98XX_STR "MTK_SPK_NXP_TFAXXXX"
+#define MTK_SPK_CS_CS35L41_STR "MTK_SPK_CS_CS35L41"
 
 #define MTK_SPK_I2S_0_STR "MTK_SPK_I2S_0"
 #define MTK_SPK_I2S_1_STR "MTK_SPK_I2S_1"
@@ -37,6 +39,7 @@ enum mtk_spk_type {
 	MTK_SPK_RICHTEK_RT5509,
 	MTK_SPK_MEDIATEK_MT6660,
 	MTK_SPK_NXP_TFA98XX,
+	MTK_SPK_CS_CS35L41,
 	MTK_SPK_TYPE_NUM
 };
 

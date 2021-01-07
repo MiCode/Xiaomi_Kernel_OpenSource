@@ -1,0 +1,6 @@
+config XIAOMI_SPI_TOUCH
+	bool
+	default y if TOUCHSCREEN_NT36xxx_HOSTDL_SPI
+	default y if TOUCHSCREEN_FTS
+	help
+	  Say Y if want use xiaomi touch panel.

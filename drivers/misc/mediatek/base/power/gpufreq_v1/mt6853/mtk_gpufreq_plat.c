@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2019 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -1742,10 +1743,17 @@ static unsigned int __mt_gpufreq_get_segment_id(void)
 	unsigned int efuse_id;
 	static int segment_id = -1;
 
+	int CPUSeg, CPULV, CPULv1, CPULv2;
+
 	if (segment_id != -1)
 		return segment_id;
 
 	efuse_id = (get_devinfo_with_index(30) & 0xFF);
+
+	CPUSeg = get_devinfo_with_index(7) & 0xFF;
+	CPULV = get_devinfo_with_index(62);
+	CPULv1 = CPULV & 0xFF;
+	CPULv2 = CPULV & 0x300;
 
 	switch (efuse_id) {
 	case 0x1:
@@ -1764,6 +1772,13 @@ static unsigned int __mt_gpufreq_get_segment_id(void)
 	default:
 		segment_id = MT6853_SEGMENT;
 		gpufreq_pr_info("invalid efuse id: 0x%x\n", efuse_id);
+	}
+
+	// Workaround: Use CPU level instead of segment code
+	if (!CPUSeg && (CPULv1 > 1)) {
+		segment_id = MT6853T_SEGMENT;
+		gpufreq_pr_info("@%s: CPUSeg: %d, CPULv1: %d, CPULv2: %d\n",
+						__func__, CPUSeg, CPULv1, CPULv2);
 	}
 
 	gpufreq_pr_info("@%s: efuse_id: 0x%x, segment_id: %d\n",
@@ -1787,7 +1802,7 @@ static struct opp_table_info *__mt_gpufreq_get_segment_table(void)
 		return g_opp_table_segment_3;
 	default:
 		gpufreq_pr_info("invalid efuse id: 0x%x\n", efuse_id);
-		return g_opp_table_segment_1;
+		return g_opp_table_segment_3;
 	}
 #endif
 }

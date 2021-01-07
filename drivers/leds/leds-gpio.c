@@ -2,6 +2,7 @@
  * LEDs driver for GPIOs
  *
  * Copyright (C) 2007 8D Technologies inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  * Raphael Assenat <raph@8d.com>
  * Copyright (C) 2008 Freescale Semiconductor, Inc.
  *
@@ -109,7 +110,6 @@ static int create_gpio_led(const struct gpio_led *template,
 		if (!led_dat->gpiod)
 			return -EINVAL;
 	}
-
 	led_dat->cdev.name = template->name;
 	led_dat->cdev.default_trigger = template->default_trigger;
 	led_dat->can_sleep = gpiod_cansleep(led_dat->gpiod);

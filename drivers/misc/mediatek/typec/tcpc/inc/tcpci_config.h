@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -384,6 +385,8 @@
 #define CONFIG_USB_PD_PPS_REQUEST_INTERVAL	7000
 #endif	/* CONFIG_USB_PD_PPS_REQUEST_INTERVAL */
 
+/* MTK Wait BC12 */
+/* #define CONFIG_MTK_WAIT_BC12 */
 #endif /* CONFIG_USB_POWER_DELIVERY */
 
 /* debug config */

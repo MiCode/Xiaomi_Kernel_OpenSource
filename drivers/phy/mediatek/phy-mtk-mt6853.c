@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -53,6 +54,30 @@ enum mt_phy_version {
 	MT_PHY_V1 = 1,
 	MT_PHY_V2,
 };
+
+enum {
+	HW_VERSION_CN,
+	HW_VERSION_GL,
+	HW_VERSION_JP,
+};
+
+static int hw_version = HW_VERSION_CN;
+
+static int __init early_parse_hw_version(char *p)
+{
+	if (p) {
+		if (!strncmp(p, "CN", 2))
+			hw_version = HW_VERSION_CN;
+		else if (!strncmp(p, "GL", 2))
+			hw_version = HW_VERSION_GL;
+		else if (!strncmp(p, "JP", 2))
+			hw_version = HW_VERSION_JP;
+	}
+
+	return 0;
+}
+
+__setup("androidboot.hwc=", early_parse_hw_version);
 
 static bool usb_enable_clock(struct mtk_phy_drv *u3phy, bool enable)
 {
@@ -405,31 +430,68 @@ reg_done:
 
 #define VAL_MAX_WIDTH_2	0x3
 #define VAL_MAX_WIDTH_3	0x7
+#define VAL_MAX_WIDTH_4	0xF
+#define VAL_MAX_WIDTH_5	0x1F
 static void usb_phy_tuning(struct mtk_phy_instance *instance)
 {
 	s32 u2_vrt_ref, u2_term_ref, u2_enhance;
+	s32 u2_intr_cal, u2_discth;
 	struct device_node *of_node;
 
 	if (!instance->phy_tuning.inited) {
-		instance->phy_tuning.u2_vrt_ref = 6;
-		instance->phy_tuning.u2_term_ref = 6;
-		instance->phy_tuning.u2_enhance = 1;
+		instance->phy_tuning.u2_vrt_ref = 5;
+		instance->phy_tuning.u2_term_ref = 5;
+		instance->phy_tuning.u2_enhance = 2;
+		instance->phy_tuning.u2_intr_cal = 18;
+		instance->phy_tuning.u2_discth = 7;
 		of_node = of_find_compatible_node(NULL, NULL,
 			instance->phycfg->tuning_node_name);
 		if (of_node) {
 			/* value won't be updated if property not being found */
-			of_property_read_u32(of_node, "u2_vrt_ref",
-				(u32 *) &instance->phy_tuning.u2_vrt_ref);
-			of_property_read_u32(of_node, "u2_term_ref",
-				(u32 *) &instance->phy_tuning.u2_term_ref);
-			of_property_read_u32(of_node, "u2_enhance",
-				(u32 *) &instance->phy_tuning.u2_enhance);
+			phy_printk(K_INFO, "%s: hw_version=%d.\n", __func__, hw_version);
+			if (hw_version == HW_VERSION_CN) {
+				of_property_read_u32(of_node, "u2_vrt_ref_cn",
+					(u32 *) &instance->phy_tuning.u2_vrt_ref);
+				of_property_read_u32(of_node, "u2_term_ref_cn",
+					(u32 *) &instance->phy_tuning.u2_term_ref);
+				of_property_read_u32(of_node, "u2_enhance_cn",
+					(u32 *) &instance->phy_tuning.u2_enhance);
+				phy_printk(K_INFO, "%s: u2_vrt_ref_cn:%d, u2_term_ref_cn:%d, u2_enhance_cn:%d\n",
+						__func__, instance->phy_tuning.u2_vrt_ref,
+						instance->phy_tuning.u2_term_ref, instance->phy_tuning.u2_enhance);
+				of_property_read_u32(of_node, "u2_intr_cal_cn",
+					(u32 *) &instance->phy_tuning.u2_intr_cal);
+				of_property_read_u32(of_node, "u2_discth_cn",
+					(u32 *) &instance->phy_tuning.u2_discth);
+				phy_printk(K_INFO, "%s: u2_intr_cal_cn:%d, u2_discth_cn:%d\n",
+						__func__, instance->phy_tuning.u2_intr_cal,
+						instance->phy_tuning.u2_discth);
+			} else if (hw_version == HW_VERSION_GL || hw_version == HW_VERSION_JP) {
+				of_property_read_u32(of_node, "u2_vrt_ref_gl_jp",
+					(u32 *) &instance->phy_tuning.u2_vrt_ref);
+				of_property_read_u32(of_node, "u2_term_ref_gl_jp",
+					(u32 *) &instance->phy_tuning.u2_term_ref);
+				of_property_read_u32(of_node, "u2_enhance_gl_jp",
+					(u32 *) &instance->phy_tuning.u2_enhance);
+				phy_printk(K_INFO, "%s: u2_vrt_ref_gl_jp:%d, u2_term_ref_gl_jp:%d, u2_enhance_gl_jp:%d\n",
+						__func__, instance->phy_tuning.u2_vrt_ref,
+						instance->phy_tuning.u2_term_ref, instance->phy_tuning.u2_enhance);
+				of_property_read_u32(of_node, "u2_intr_cal_gl_jp",
+					(u32 *) &instance->phy_tuning.u2_intr_cal);
+				of_property_read_u32(of_node, "u2_discth_gl_jp",
+					(u32 *) &instance->phy_tuning.u2_discth);
+				phy_printk(K_INFO, "%s: u2_intr_cal_gl_jp:%d, u2_discth_gl_jp:%d\n",
+						__func__, instance->phy_tuning.u2_intr_cal,
+						instance->phy_tuning.u2_discth);
+			}
 		}
 		instance->phy_tuning.inited = true;
 	}
 	u2_vrt_ref = instance->phy_tuning.u2_vrt_ref;
 	u2_term_ref = instance->phy_tuning.u2_term_ref;
 	u2_enhance = instance->phy_tuning.u2_enhance;
+	u2_intr_cal = instance->phy_tuning.u2_intr_cal;
+	u2_discth = instance->phy_tuning.u2_discth;
 
 	if (u2_vrt_ref != -1) {
 		if (u2_vrt_ref <= VAL_MAX_WIDTH_3) {
@@ -450,6 +512,20 @@ static void usb_phy_tuning(struct mtk_phy_instance *instance)
 			u3phywrite32(U3D_USBPHYACR6,
 				RG_USB20_PHY_REV_6_OFST,
 				RG_USB20_PHY_REV_6, u2_enhance);
+		}
+	}
+	if (u2_intr_cal != -1) {
+		if (u2_intr_cal <= VAL_MAX_WIDTH_5) {
+			u3phywrite32(U3D_USBPHYACR1,
+				RG_USB20_INTR_CAL_OFST,
+				RG_USB20_INTR_CAL, u2_intr_cal);
+		}
+	}
+	if (u2_discth != -1) {
+		if (u2_discth <= VAL_MAX_WIDTH_4) {
+			u3phywrite32(U3D_USBPHYACR6,
+				RG_USB20_DISCTH_OFST,
+				RG_USB20_DISCTH, u2_discth);
 		}
 	}
 

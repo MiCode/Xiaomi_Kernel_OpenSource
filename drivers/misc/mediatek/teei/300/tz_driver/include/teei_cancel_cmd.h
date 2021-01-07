@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2019, MICROTRUST Incorporated
+ * Copyright (C) 2020 XiaoMi, Inc.
  * All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -20,6 +21,5 @@ extern struct semaphore fp_lock;
 
 unsigned long create_cancel_fdrv(int buff_size);
 int send_cancel_command(unsigned long share_memory_size);
-int __send_cancel_command(unsigned long share_memory_size);
 
 #endif /* end of TEEI_CANCEL_CMD_H */

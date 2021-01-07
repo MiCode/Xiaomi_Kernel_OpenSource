@@ -10,8 +10,12 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
+
+ccflags-y += -I$(srctree)/drivers/gpu/drm/mediatek/
+
 ifdef CONFIG_LEDS_MTK_DISP
 obj-$(CONFIG_LEDS_MTK_DISP)		+= leds-mtk-disp.o
+obj-$(CONFIG_BACKLIGHT_SUPPORT_LM36273) += leds-lm36273.o
 else ifdef CONFIG_LEDS_MTK_PWM
 obj-$(CONFIG_LEDS_MTK_PWM)		+= leds-mtk-pwm.o
 else

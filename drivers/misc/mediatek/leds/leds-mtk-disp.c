@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (C) 2018 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  */
 
@@ -18,6 +19,11 @@
 
 #include "leds-mtk-disp.h"
 
+#ifdef CONFIG_BACKLIGHT_SUPPORT_LM36273
+extern int lm36273_brightness_set(int level);
+#endif
+
+extern void cabc_backlight_value_notification(int backlight_value);
 
 #ifdef CONFIG_DRM_MEDIATEK
 extern int mtkfb_set_backlight_level(unsigned int level);
@@ -128,7 +134,7 @@ static void led_debug_log(struct mtk_led_data *s_led,
 
 	if (level == 0 || s_led->debug.count >= 5 ||
 		(s_led->debug.current_t - s_led->debug.last_t) > 1000000000) {
-		pr_info("%s", s_led->debug.buffer);
+		pr_debug("%s", s_led->debug.buffer);
 		s_led->debug.count = 0;
 		s_led->debug.buffer[strlen("[Light] Set directly ") +
 			strlen(s_led->conf.cdev.name)] = '\0';
@@ -166,8 +172,16 @@ static int led_level_disp_set(struct mtk_led_data *s_led,
 	if (enable_met_backlight_tag())
 		output_met_backlight_tag(brightness);
 #endif
+
+// lm36273 set backlight
+#ifdef CONFIG_BACKLIGHT_SUPPORT_LM36273
+	pr_debug("%s lm36273 set brightness: %d\n", __func__, brightness);
+	lm36273_brightness_set(brightness);
+#endif
+	//we report backlight value to als sensor here for cabc feature is changing backlight value
+	cabc_backlight_value_notification(brightness);
 #ifdef CONFIG_DRM_MEDIATEK
-	mtkfb_set_backlight_level(brightness);
+//	mtkfb_set_backlight_level(brightness);
 	s_led->conf.level = brightness;
 #endif
 	return 0;
@@ -249,17 +263,20 @@ static int led_level_set(struct led_classdev *led_cdev,
 		container_of(led_cdev, struct led_conf_info, cdev);
 	struct mtk_led_data *led_dat =
 		container_of(led_conf, struct mtk_led_data, conf);
-
+	pr_debug("backlight = %d, last backlight = %d", brightness, led_dat->brightness);
 	if (led_dat->brightness == brightness)
 		return 0;
+
+	sysfs_notify(&led_cdev->dev->kobj, NULL, "brightness");
 
 	trans_level = (
 		(((1 << led_dat->conf.trans_bits) - 1) * brightness
 		+ (((1 << led_dat->conf.led_bits) - 1) / 2))
 		/ ((1 << led_dat->conf.led_bits) - 1));
-
+	pr_debug("backlight = %d, trans_level backlight = %d", brightness, trans_level);
 	led_debug_log(led_dat, brightness, trans_level);
 
+#if 1
 #ifdef MET_USER_EVENT_SUPPORT
 	if (enable_met_backlight_tag())
 		output_met_backlight_tag(brightness);
@@ -275,8 +292,12 @@ led_dat->brightness = brightness;
 	led_level_disp_set(led_dat, brightness);
 	led_dat->last_level = brightness;
 #endif
-	return 0;
 
+	return 0;
+#else
+	led_dat->brightness = brightness;
+	return mtkfb_set_backlight_level(trans_level);
+#endif
 }
 
 static int led_data_init(struct device *dev, struct mtk_led_data *s_led)
@@ -355,6 +376,8 @@ static int mtk_leds_parse_dt(struct device *dev,
 				level = s_led->conf.cdev.max_brightness;
 			else
 				level = 0;
+		} else {
+			level = 500;
 		};
 		pr_info("parse %d leds dt: %s, %d, %d",
 			num, s_led->conf.cdev.name,

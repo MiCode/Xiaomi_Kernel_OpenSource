@@ -61,3 +61,11 @@ config CONTROL_BL_TEMPERATURE
 	  Set y to support.
 	  Set n to not support.
 	  This option enables means thermal can set brightness by the api of led driver.
+
+config BACKLIGHT_SUPPORT_LM36273
+	bool "LM36273 Support"
+	default n
+	---help---
+	  LED/bias driver for lm36273 support.
+	  Set y to support.
+	  Set n to disable.

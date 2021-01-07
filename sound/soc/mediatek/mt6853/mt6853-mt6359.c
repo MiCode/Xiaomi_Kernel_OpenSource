@@ -27,6 +27,17 @@
  * mt6853_mt6359_spk_amp_event()
  */
 #define EXT_SPK_AMP_W_NAME "Ext_Speaker_Amp"
+#define EXT_RCV_AMP_W_NAME "Ext_Receiver_Amp"
+
+extern unsigned char aw87359_audio_dspk(void);
+extern unsigned char aw87359_audio_abrcv(void);
+extern unsigned char aw87359_audio_off(void);
+
+extern unsigned char aw87519_audio_kspk(void);
+extern unsigned char aw87519_audio_drcv(void);
+extern unsigned char aw87519_audio_hvload(void);
+extern unsigned char aw87519_audio_off(void);
+
 
 static const char *const mt6853_spk_type_str[] = {MTK_SPK_NOT_SMARTPA_STR,
 						  MTK_SPK_RICHTEK_RT5509_STR,
@@ -83,6 +94,32 @@ static int mt6853_spk_i2s_in_type_get(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int rcv_amp_mode;
+static const char *rcv_amp_type_str[] = {"SPEAKER_MODE", "RECEIVER_MODE"};
+static const struct soc_enum rcv_amp_type_enum =
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(rcv_amp_type_str), rcv_amp_type_str);
+
+static int mt6853_rcv_amp_mode_get(struct snd_kcontrol *kcontrol,
+				   struct snd_ctl_elem_value *ucontrol)
+{
+	pr_info("%s() = %d\n", __func__, rcv_amp_mode);
+	ucontrol->value.integer.value[0] = rcv_amp_mode;
+	return 0;
+}
+
+static int mt6853_rcv_amp_mode_set(struct snd_kcontrol *kcontrol,
+				   struct snd_ctl_elem_value *ucontrol)
+{
+	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
+
+	if (ucontrol->value.enumerated.item[0] >= e->items)
+		return -EINVAL;
+
+	rcv_amp_mode = ucontrol->value.integer.value[0];
+	pr_info("%s() = %d\n", __func__, rcv_amp_mode);
+	return 0;
+}
+
 static int mt6853_mt6359_spk_amp_event(struct snd_soc_dapm_widget *w,
 				       struct snd_kcontrol *kcontrol,
 				       int event)
@@ -98,12 +135,14 @@ static int mt6853_mt6359_spk_amp_event(struct snd_soc_dapm_widget *w,
 #ifdef CONFIG_SND_SOC_AW87339
 		aw87339_spk_enable_set(true);
 #endif
+		aw87519_audio_kspk();
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
 		/* spk amp off control */
 #ifdef CONFIG_SND_SOC_AW87339
 		aw87339_spk_enable_set(false);
 #endif
+		aw87519_audio_off();
 		break;
 	default:
 		break;
@@ -112,18 +151,58 @@ static int mt6853_mt6359_spk_amp_event(struct snd_soc_dapm_widget *w,
 	return 0;
 };
 
+static int mt6853_mt6359_rcv_amp_event(struct snd_soc_dapm_widget *w,
+				       struct snd_kcontrol *kcontrol,
+				       int event)
+{
+	struct snd_soc_dapm_context *dapm = w->dapm;
+	struct snd_soc_card *card = dapm->card;
+
+	dev_info(card->dev, "%s(), event %d\n", __func__, event);
+
+	switch (event) {
+	case SND_SOC_DAPM_POST_PMU:
+		/* rcv amp on control */
+		if (rcv_amp_mode) {
+			pr_info("%s(), aw87359_audio_abrcv()\n", __func__);
+			aw87359_audio_abrcv();
+		} else {
+			pr_info("%s(), aw87359_audio_dspk()\n", __func__);
+			aw87359_audio_dspk();
+		}
+		break;
+	case SND_SOC_DAPM_PRE_PMD:
+		/* rcv amp off control */
+		aw87359_audio_off();
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+};
+
+
 static const struct snd_soc_dapm_widget mt6853_mt6359_widgets[] = {
 	SND_SOC_DAPM_SPK(EXT_SPK_AMP_W_NAME, mt6853_mt6359_spk_amp_event),
+	SND_SOC_DAPM_SPK(EXT_RCV_AMP_W_NAME, mt6853_mt6359_rcv_amp_event),
 };
+
 
 static const struct snd_soc_dapm_route mt6853_mt6359_routes[] = {
 	{EXT_SPK_AMP_W_NAME, NULL, "LINEOUT L"},
+	//{EXT_SPK_AMP_W_NAME, NULL, "Headphone L Ext Spk Amp"},
+	//{EXT_SPK_AMP_W_NAME, NULL, "Headphone R Ext Spk Amp"},
+	{EXT_RCV_AMP_W_NAME, NULL, "Receiver"},
 	{EXT_SPK_AMP_W_NAME, NULL, "Headphone L Ext Spk Amp"},
-	{EXT_SPK_AMP_W_NAME, NULL, "Headphone R Ext Spk Amp"},
+	{EXT_RCV_AMP_W_NAME, NULL, "Headphone R Ext Spk Amp"},
 };
 
 static const struct snd_kcontrol_new mt6853_mt6359_controls[] = {
 	SOC_DAPM_PIN_SWITCH(EXT_SPK_AMP_W_NAME),
+	SOC_DAPM_PIN_SWITCH(EXT_RCV_AMP_W_NAME),
+	SOC_ENUM_EXT("RCV_AMP_MODE", rcv_amp_type_enum,
+		     mt6853_rcv_amp_mode_get, mt6853_rcv_amp_mode_set),
 	SOC_ENUM_EXT("MTK_SPK_TYPE_GET", mt6853_spk_type_enum[0],
 		     mt6853_spk_type_get, NULL),
 	SOC_ENUM_EXT("MTK_SPK_I2S_OUT_TYPE_GET", mt6853_spk_type_enum[1],
@@ -318,6 +397,7 @@ static int mt6853_mt6359_init(struct snd_soc_pcm_runtime *rtd)
 
 	/* disable ext amp connection */
 	snd_soc_dapm_disable_pin(dapm, EXT_SPK_AMP_W_NAME);
+	snd_soc_dapm_disable_pin(dapm, EXT_RCV_AMP_W_NAME);
 
 	return 0;
 }
@@ -1083,6 +1163,16 @@ static struct snd_soc_dai_link mt6853_mt6359_dai_links[] = {
 		.stream_name = "SCP_SPK_Playback",
 		.cpu_dai_name = "snd-soc-dummy-dai",
 		.platform_name = "snd_scp_spk",
+		.codec_name = "snd-soc-dummy",
+		.codec_dai_name = "snd-soc-dummy-dai",
+	},
+#endif
+#if defined(CONFIG_MTK_ULTRASND_PROXIMITY)
+	{
+		.name = "SCP_ULTRA_Playback",
+		.stream_name = "SCP_ULTRA_Playback",
+		.cpu_dai_name = "snd-soc-dummy-dai",
+		.platform_name = "snd_scp_ultra",
 		.codec_name = "snd-soc-dummy",
 		.codec_dai_name = "snd-soc-dummy-dai",
 	},

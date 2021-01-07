@@ -3,6 +3,7 @@
 // mtk-dsp-common_define.h --  Mediatek ADSP common define
 //
 // Copyright (c) 2018 MediaTek Inc.
+// Copyright (C) 2020 XiaoMi, Inc.
 // Author: Chipeng <Chipeng.chang@mediatek.com>
 
 
@@ -59,6 +60,13 @@ enum {
 	ADSP_TASK_ATTR_FEATUREID,
 	ADSP_TASK_ATTR_SMARTPA,
 	ADSP_TASK_ATTR_NUM
+};
+
+/* dl consume param2 status */
+enum {
+	ADSP_DL_CONSUME_OK,
+	ADSP_DL_CONSUME_RESET,
+	ADSP_DL_CONSUME_UNDERFLOW,
 };
 
 #endif

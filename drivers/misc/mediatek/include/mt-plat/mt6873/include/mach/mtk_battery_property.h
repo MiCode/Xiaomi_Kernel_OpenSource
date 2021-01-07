@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -15,11 +16,11 @@
 #define _MTK_BATTERY_PROPERTY_H
 
 /* customize */
-#define DIFFERENCE_FULLOCV_ITH	200	/* mA */
+#define DIFFERENCE_FULLOCV_ITH	250	/* mA */
 #define MTK_CHR_EXIST 1
 #define KEEP_100_PERCENT 1
 #define R_FG_VALUE	5				/* mOhm */
-#define EMBEDDED_SEL 0
+#define EMBEDDED_SEL 1
 #define PMIC_SHUTDOWN_CURRENT 20	/* 0.01 mA */
 #define FG_METER_RESISTANCE	100
 #define CAR_TUNE_VALUE	100 /*1.00 */
@@ -76,7 +77,7 @@
 #define DIFFERENCE_FULL_CV 1000 /*0.01%*/
 #define PSEUDO1_EN 1
 #define PSEUDO100_EN 1
-#define PSEUDO100_EN_DIS 1
+#define PSEUDO100_EN_DIS 0
 
 #define DIFF_SOC_SETTING 50	/* 0.01% */
 #define DIFF_BAT_TEMP_SETTING 1
@@ -91,9 +92,9 @@
 #define FG_PRE_TRACKING_EN 1
 #define VBAT2_DET_TIME 5
 #define VBAT2_DET_COUNTER 6
-#define VBAT2_DET_VOLTAGE1	34500
-#define VBAT2_DET_VOLTAGE2	32000
-#define VBAT2_DET_VOLTAGE3	35000
+#define VBAT2_DET_VOLTAGE1	34000
+#define VBAT2_DET_VOLTAGE2	33500
+#define VBAT2_DET_VOLTAGE3	34500
 
 /* PCB setting */
 #define CALIBRATE_CAR_TUNE_VALUE_BY_META_TOOL
@@ -244,7 +245,7 @@
 
 /* using voltage to limit uisoc in 1% case */
 /* UI_LOW_LIMIT_VTH0=36000 means 3.6v */
-#define UI_LOW_LIMIT_EN 0
+#define UI_LOW_LIMIT_EN 1
 
 #define UI_LOW_LIMIT_SOC0 200
 #define UI_LOW_LIMIT_VTH0 34500

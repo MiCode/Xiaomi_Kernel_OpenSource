@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2020 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -393,22 +394,22 @@ static struct dram_pwr_conf dram_def_pwr_conf[] = {
 		.i_dd6 = 475,
 	},
 	[DRAM_VDD2_1P1V] = {
-		.i_dd0 = 50000,
-		.i_dd2p = 8000,
-		.i_dd2n = 13500,
-		.i_dd4r = 147000,
-		.i_dd4w = 180000,
-		.i_dd5 = 25000,
+		.i_dd0 = 46000,
+		.i_dd2p = 625,
+		.i_dd2n = 9500,
+		.i_dd4r = 143000,
+		.i_dd4w = 176000,
+		.i_dd5 = 21000,
 		.i_dd6 = 625,
 	},
 	[DRAM_VDDQ_0P6V] = {
-		.i_dd0 = 4800,
-		.i_dd2p = 6000,
-		.i_dd2n = 4000,
-		.i_dd4r = 20267,
-		.i_dd4w = 5334,
-		.i_dd5 = 4267,
-		.i_dd6 = 475,
+		.i_dd0 = 5000,
+		.i_dd2p = 2100,
+		.i_dd2n = 3500,
+		.i_dd4r = 34000,
+		.i_dd4w = 6000,
+		.i_dd5 = 4000,
+		.i_dd6 = 65,
 	},
 };
 
@@ -741,8 +742,9 @@ static void swpm_idx_snap(void)
 {
 	if (share_idx_ref) {
 		swpm_lock(&swpm_snap_lock);
-		memcpy(&mem_idx_snap, &(share_idx_ref->mem_idx),
-		       sizeof(struct mem_swpm_index));
+		/* directly copy due to 8 bytes alignment problem */
+		mem_idx_snap.read_bw[0] = share_idx_ref->mem_idx.read_bw[0];
+		mem_idx_snap.write_bw[0] = share_idx_ref->mem_idx.write_bw[0];
 		swpm_unlock(&swpm_snap_lock);
 	}
 }
@@ -1025,6 +1027,66 @@ static int dram_bw_proc_show(struct seq_file *m, void *v)
 	return 0;
 }
 
+static int idd_tbl_proc_show(struct seq_file *m, void *v)
+{
+	int i;
+
+	if (!mem_ptr)
+		return 0;
+
+	for (i = 0; i < NR_DRAM_PWR_TYPE; i++) {
+		seq_puts(m, "==========================\n");
+		seq_printf(m, "idx %d i_dd0 = %d\n", i,
+			mem_ptr->dram_conf[i].i_dd0);
+		seq_printf(m, "idx %d i_dd2p = %d\n", i,
+			mem_ptr->dram_conf[i].i_dd2p);
+		seq_printf(m, "idx %d i_dd2n = %d\n", i,
+			mem_ptr->dram_conf[i].i_dd2n);
+		seq_printf(m, "idx %d i_dd4r = %d\n", i,
+			mem_ptr->dram_conf[i].i_dd4r);
+		seq_printf(m, "idx %d i_dd4w = %d\n", i,
+			mem_ptr->dram_conf[i].i_dd4w);
+		seq_printf(m, "idx %d i_dd5 = %d\n", i,
+			mem_ptr->dram_conf[i].i_dd5);
+		seq_printf(m, "idx %d i_dd6 = %d\n", i,
+			mem_ptr->dram_conf[i].i_dd6);
+	}
+	seq_puts(m, "==========================\n");
+
+	return 0;
+}
+static ssize_t idd_tbl_proc_write(struct file *file,
+	const char __user *buffer, size_t count, loff_t *pos)
+{
+	unsigned int type, idd_idx, val;
+
+	char *buf = _copy_from_user_for_proc(buffer, count);
+
+	if (!buf)
+		return -EINVAL;
+
+	if (!mem_ptr)
+		goto end;
+
+	if (swpm_status) {
+		swpm_err("disable swpm for data change, need to restart manually\n");
+		swpm_set_enable(ALL_METER_TYPE, 0);
+	}
+
+	if (sscanf(buf, "%d %d %d", &type, &idd_idx, &val) == 3) {
+		if (type >= NR_DRAM_PWR_TYPE ||
+		    idd_idx > (sizeof(struct dram_pwr_conf)
+			       / sizeof(unsigned int)))
+			goto end;
+		*(&mem_ptr->dram_conf[type].i_dd0 + idd_idx) = val;
+	} else {
+		swpm_err("echo <type> <idx> <val> > /proc/swpm/idd_tbl\n");
+	}
+
+end:
+	return count;
+}
+
 static unsigned int pmu_ms_mode;
 static int pmu_ms_mode_proc_show(struct seq_file *m, void *v)
 {
@@ -1079,6 +1141,7 @@ static ssize_t core_static_replace_proc_write(struct file *file,
 }
 
 
+PROC_FOPS_RW(idd_tbl);
 PROC_FOPS_RO(dram_bw);
 PROC_FOPS_RW(pmu_ms_mode);
 PROC_FOPS_RW(core_static_replace);
@@ -1184,10 +1247,12 @@ void swpm_set_update_cnt(unsigned int type, unsigned int cnt)
 
 static void swpm_platform_procfs(void)
 {
+	struct swpm_entry idd_tbl = PROC_ENTRY(idd_tbl);
 	struct swpm_entry dram_bw = PROC_ENTRY(dram_bw);
 	struct swpm_entry pmu_mode = PROC_ENTRY(pmu_ms_mode);
 	struct swpm_entry core_lkg_rp = PROC_ENTRY(core_static_replace);
 
+	swpm_append_procfs(&idd_tbl);
 	swpm_append_procfs(&dram_bw);
 	swpm_append_procfs(&pmu_mode);
 	swpm_append_procfs(&core_lkg_rp);

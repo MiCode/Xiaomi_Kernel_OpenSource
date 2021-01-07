@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -151,7 +152,14 @@
 #define RG_DSI_PLL_EN BIT(4)
 
 #define MIPITX_PLL_CON2 (0x0034UL)
+#define FLD_RG_DSI_PLL_SDM_SSC_PH_INIT	(0x1 << 0)
+#define FLD_RG_DSI_PLL_SDM_SSC_EN	(0x1 << 1)
+#define FLD_RG_DSI_PLL_SDM_SSC_PRD	(0xffff << 16)
+
 #define MIPITX_PLL_CON3 (0x0038UL)
+#define FLD_RG_DSI_PLL_SDM_SSC_DELTA1	(0xffff << 0)
+#define FLD_RG_DSI_PLL_SDM_SSC_DELTA	(0xffff << 16)
+
 #define MIPITX_PLL_CON4 (0x003CUL)
 #define MIPITX_D2_SW_CTL_EN (0x0144UL)
 #define DSI_D2_SW_CTL_EN BIT(0)
@@ -942,7 +950,7 @@ static int mtk_mipi_tx_pll_prepare_mt6873(struct clk_hw *hw)
 {
 	struct mtk_mipi_tx *mipi_tx = mtk_mipi_tx_from_clk_hw(hw);
 	unsigned int txdiv, txdiv0, txdiv1, tmp;
-	u32 rate;
+	u32 rate,vol_reg_val;
 
 	DDPDBG("%s+\n", __func__);
 
@@ -979,6 +987,12 @@ static int mtk_mipi_tx_pll_prepare_mt6873(struct clk_hw *hw)
 	} else {
 		return -EINVAL;
 	}
+	vol_reg_val = readl(mipi_tx->regs + MIPITX_VOLTAGE_SEL);
+	pr_info("%s][%d]mipitx voltage sel default is 0x%x\r\n", __func__, __LINE__, vol_reg_val);
+	vol_reg_val = ((vol_reg_val & 0xFFFFFC3F) | 0x240);
+	pr_info("%s][%d]mipitx voltage sel is 0x%x\r\n", __func__, __LINE__, vol_reg_val);
+	/*set volate to 0.42v*/
+	writel(vol_reg_val, mipi_tx->regs + MIPITX_VOLTAGE_SEL);
 
 	writel(0x0, mipi_tx->regs + MIPITX_PRESERVED);
 	writel(0x00FF12E0, mipi_tx->regs + MIPITX_PLL_CON4);
@@ -1439,6 +1453,79 @@ void mtk_mipi_tx_pll_rate_switch_gce(struct phy *phy,
 
 	return;
 }
+
+int mtk_mipi_tx_ssc_enable(struct phy *phy,
+		struct mtk_panel_ext *mtk_panel)
+{
+	struct mtk_mipi_tx *mipi_tx = phy_get_drvdata(phy);
+	struct mtk_panel_params *params = mtk_panel->params;
+	unsigned int txdiv, txdiv0, txdiv1, tmp;
+	unsigned int rate = 0;
+	unsigned int delta = 2; /* Delta is SSC range, default is 0%~-5% */
+	unsigned int pdelta = 0;
+
+	if (params->ssc_disable == 1) {
+		return -1;
+	}
+
+	rate = (mipi_tx->data_rate_adpt) ?
+		mipi_tx->data_rate_adpt : mipi_tx->data_rate / 1000000;
+
+	if (rate >= 2000) {
+		txdiv = 1;
+		txdiv0 = 0;
+		txdiv1 = 0;
+	} else if (rate >= 1000) {
+		txdiv = 2;
+		txdiv0 = 1;
+		txdiv1 = 0;
+	} else if (rate >= 500) {
+		txdiv = 4;
+		txdiv0 = 2;
+		txdiv1 = 0;
+	} else if (rate > 250) {
+		txdiv = 8;
+		txdiv0 = 3;
+		txdiv1 = 0;
+	} else if (rate >= 125) {
+		txdiv = 16;
+		txdiv0 = 4;
+		txdiv1 = 0;
+	} else {
+		return -EINVAL;
+	}
+
+	tmp = _dsi_get_pcw(rate, txdiv);
+
+	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_CON2,
+		FLD_RG_DSI_PLL_SDM_SSC_PH_INIT, 1);
+	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_CON2,
+		FLD_RG_DSI_PLL_SDM_SSC_PRD, 0x1B1 << 16);
+
+	delta = (params->ssc_range == 0) ?
+			delta : params->ssc_range;
+	if (delta > 8 || rate == 0)
+		return -1;
+	pdelta = (delta * (mipi_tx->data_rate / 2) * txdiv *
+			262144 + 281664) / 563329;
+	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_CON3,
+		FLD_RG_DSI_PLL_SDM_SSC_DELTA, pdelta << 16);
+	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_CON3,
+		FLD_RG_DSI_PLL_SDM_SSC_DELTA1, pdelta);
+	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_CON3,
+		FLD_RG_DSI_PLL_SDM_SSC_EN, 1 << 1);
+
+	return 0;
+}
+
+void mtk_mipi_tx_ssc_disable(struct phy *phy)
+{
+	struct mtk_mipi_tx *mipi_tx = phy_get_drvdata(phy);
+
+	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_CON2,
+			FLD_RG_DSI_PLL_SDM_SSC_EN, 0 << 1);
+}
+
 
 static long mtk_mipi_tx_pll_round_rate(struct clk_hw *hw, unsigned long rate,
 				       unsigned long *prate)

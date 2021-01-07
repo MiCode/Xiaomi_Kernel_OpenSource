@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2019, MICROTRUST Incorporated
+ * Copyright (C) 2020 XiaoMi, Inc.
  * All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -27,6 +28,7 @@
 #include <linux/semaphore.h>
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
+#include <linux/sched/types.h>
 #include <teei_ioc.h>
 #include "TEEI.h"
 #include "teei_id.h"
@@ -68,8 +70,31 @@ DECLARE_COMPLETION(VFS_wr_comp);
 
 struct vfs_dev *vfs_devp;
 
-int tz_vfs_open(struct inode *inode, struct file *filp)
+int wait_for_vfs_done(void)
 {
+#ifdef VFS_RDWR_SEM
+	down_interruptible(&VFS_wr_sem);
+#else
+	wait_for_completion_interruptible(&VFS_wr_comp);
+#endif
+	return 0;
+}
+
+int notify_vfs_handle(void)
+{
+#ifdef VFS_RDWR_SEM
+	up(&VFS_rd_sem);
+#else
+	complete(&VFS_rd_comp);
+#endif
+	return 0;
+}
+
+
+static int tz_vfs_open(struct inode *inode, struct file *filp)
+{
+	struct sched_param param = {.sched_priority = 51 };
+
 	if (vfs_devp == NULL)
 		return -EINVAL;
 
@@ -79,11 +104,12 @@ int tz_vfs_open(struct inode *inode, struct file *filp)
 	if (strcmp("teei_daemon", current->comm) != 0)
 		return -EINVAL;
 
+	sched_setscheduler_nocheck(current, SCHED_FIFO, &param);
 	filp->private_data = vfs_devp;
 	return 0;
 }
 
-int tz_vfs_release(struct inode *inode, struct file *filp)
+static int tz_vfs_release(struct inode *inode, struct file *filp)
 {
 	filp->private_data = NULL;
 	return 0;
@@ -131,9 +157,8 @@ static ssize_t tz_vfs_read(struct file *filp, char __user *buf,
 	ret = wait_for_completion_interruptible(&VFS_rd_comp);
 
 	if (ret == -ERESTARTSYS) {
-		IMSG_DEBUG("[%s][%d] wait_for_completion was interrupt\n",
+		IMSG_ERROR("[%s][%d] wait_for_completion was interrupt\n",
 				__func__, __LINE__);
-		complete(&global_down_lock);
 		return ret;
 	}
 #endif
@@ -253,10 +278,7 @@ static void vfs_setup_cdev(struct vfs_dev *dev, int index)
 		IMSG_ERROR("Error %d adding socket %d.\n", err, index);
 }
 
-
-
-
-int vfs_init(void)
+static int vfs_init(void)
 {
 	int result = 0;
 	struct device *class_dev = NULL;
@@ -312,7 +334,7 @@ return_fn:
 	return result;
 }
 
-void vfs_exit(void)
+static void vfs_exit(void)
 {
 	device_destroy(driver_class, devno);
 	class_destroy(driver_class);

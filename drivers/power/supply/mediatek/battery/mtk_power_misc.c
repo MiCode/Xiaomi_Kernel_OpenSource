@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -355,10 +356,8 @@ static int shutdown_event_handler(struct shutdown_controller *sdd)
 		duraction = timespec_sub(now, sdd->pre_time[DLPT_SHUTDOWN]);
 		polling++;
 		if (duraction.tv_sec >= SHUTDOWN_TIME) {
-			bm_err("dlpt shutdown\n");
-			mutex_lock(&pm_mutex);
-			kernel_power_off();
-			mutex_unlock(&pm_mutex);
+			bm_err("dlpt shutdown count, %ld\n",
+				(long int)duraction.tv_sec);
 			return next_waketime(polling);
 		}
 	}

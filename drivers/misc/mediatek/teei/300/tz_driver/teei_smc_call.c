@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2019, MICROTRUST Incorporated
+ * Copyright (C) 2020 XiaoMi, Inc.
  * All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -14,6 +15,7 @@
 
 #include <linux/kernel.h>
 #include <linux/types.h>
+#include <linux/slab.h>
 #include <linux/sched.h>
 #include <linux/io.h>
 #include <linux/delay.h>
@@ -30,303 +32,130 @@
 #include "teei_client_main.h"
 #include "teei_smc_struct.h"
 #include "sched_status.h"
-#include "teei_capi.h"
 #include <teei_secure_api.h>
+#include <linux/sched/clock.h>
+#include <linux/vmalloc.h>
 
 #define IMSG_TAG "[tz_driver]"
 #include <imsg_log.h>
 
-struct semaphore capi_mutex;
+struct comp_link_struct {
+	struct list_head c_link;
+	unsigned long long lock_p;
+	int pid;
+};
 
-void set_sch_nq_cmd(void)
+DEFINE_MUTEX(g_comp_link_lock);
+
+static int teei_smc(void)
 {
-	struct message_head msg_head;
-
-	memset((void *)(&msg_head), 0, sizeof(struct message_head));
-
-	msg_head.invalid_flag = VALID_TYPE;
-	msg_head.message_type = STANDARD_CALL_TYPE;
-	msg_head.child_type = N_INVOKE_T_NQ_CMD;
-
-	memcpy((void *)message_buff,
-		(void *)(&msg_head), sizeof(struct message_head));
-
-	Flush_Dcache_By_Area((unsigned long)message_buff,
-			(unsigned long)message_buff + MESSAGE_SIZE);
-}
-
-/**
- * @brief
- *
- * @param cmd_addr phys address
- *
- * @return
- */
-
-static u32 teei_smc(u32 cmd, unsigned long cmd_addr, int size, int valid_flag)
-{
-	unsigned long smc_type = 2;
-
-	add_nq_entry(cmd, cmd_addr, size, valid_flag);
-	set_sch_nq_cmd();
+	unsigned long long smc_type = 2;
 
 	smc_type = teei_secure_call(N_INVOKE_T_NQ, 0, 0, 0);
 	while (smc_type == SMC_CALL_INTERRUPTED_IRQ)
 		smc_type = teei_secure_call(NT_SCHED_T, 0, 0, 0);
+
 	return 0;
 }
 
-static struct completion wait_completion;
-
-struct new_api_call_param {
-	u32 cmd;
-	unsigned long cmd_addr;
-	int size;
-};
-
-void notify_smc_completed(void)
+void teei_handle_nq_call(struct NQ_entry *entry)
 {
-	complete(&wait_completion);
+
+	struct completion *bp = NULL;
+
+	bp = (struct completion *)(entry->block_p);
+	if (bp == NULL) {
+		IMSG_ERROR("NO block pointer in the NQ_entry!\n");
+		return;
+	}
+
+	complete(bp);
 }
 
-int handle_new_capi_call(void *args)
+int handle_notify_queue_call(void)
 {
-	struct new_api_call_param *params = args;
-
-	forward_call_flag = GLSCH_LOW;
-	return teei_smc(params->cmd, params->cmd_addr, params->size, NQ_VALID);
+	return teei_smc();
 }
 
-int teei_forward_call(u32 cmd, unsigned long cmd_addr, int size)
+int add_comp_to_link(struct completion *comp, int pid)
 {
-	int ret;
-	struct new_api_call_param params = {
-		.cmd = cmd,
-		.cmd_addr = cmd_addr,
-		.size = size,
-	};
+	struct comp_link_struct *entry  = NULL;
+
+	list_for_each_entry(entry, &(g_block_link), c_link) {
+		if (entry->pid == pid) {
+			entry->lock_p = (unsigned long long)comp;
+			return 0;
+		}
+	}
+
+	entry = vmalloc(sizeof(struct comp_link_struct));
+	if (entry == NULL) {
+		IMSG_ERROR("TEEI: NO memory for struct comp_link_struct!\n");
+		return -ENOMEM;
+	}
+
+	memset(entry, 0, sizeof(struct comp_link_struct));
+
+	entry->pid = pid;
+	entry->lock_p = (unsigned long long)comp;
+
+	INIT_LIST_HEAD(&(entry->c_link));
+
+	list_add(&(entry->c_link), &(g_block_link));
+
+	return 0;
+}
+
+int teei_forward_call(unsigned long long cmd, unsigned long long cmd_addr,
+			unsigned long long size)
+{
+	struct completion *wait_completion = NULL;
+	int retVal = 0;
+	int local_chan_mode = 0;
 
 	KATRACE_BEGIN("teei_forward_call");
 
-	lock_system_sleep();
+	wait_completion = kmalloc(sizeof(struct completion), GFP_KERNEL);
 
-	down(&capi_mutex);
+	init_completion(wait_completion);
 
-	down(&smc_lock);
+#ifdef TEEI_MUTIL_TA_DEBUG
+	mutex_lock(&g_comp_link_lock);
+	retVal = add_comp_to_link(wait_completion, current->pid);
+	mutex_unlock(&g_comp_link_lock);
+#endif
 
-	init_completion(&wait_completion);
+	local_chan_mode = teei_get_chan_mode();
 
-	ret = add_work_entry(NEW_CAPI_CALL, (unsigned long)&params);
-	if (ret) {
-		up(&smc_lock);
-		up(&capi_mutex);
-		unlock_system_sleep();
+	teei_cpus_read_lock(local_chan_mode);
+
+	retVal = add_nq_entry(NEW_CAPI_CALL, cmd,
+				(unsigned long long)(wait_completion),
+				cmd_addr, size, 0);
+	if (retVal != 0) {
+		IMSG_ERROR("TEEI: Failed to add one nq to n_t_buffer\n");
+		teei_cpus_read_unlock(local_chan_mode);
+		kfree(wait_completion);
 		KATRACE_END("teei_forward_call");
-		return ret;
+		return retVal;
 	}
 
-	wait_for_completion(&wait_completion);
+	retVal = add_work_entry(INVOKE_NQ_CALL, 0);
+	if (retVal != 0) {
+		IMSG_ERROR("TEEI: Failed to add_work_entry[%s]\n", __func__);
+		teei_cpus_read_unlock(local_chan_mode);
+		kfree(wait_completion);
+		KATRACE_END("teei_forward_call");
+		return retVal;
+	}
 
-	up(&capi_mutex);
+	wait_for_completion(wait_completion);
 
-	unlock_system_sleep();
+	teei_cpus_read_unlock(local_chan_mode);
 
+	kfree(wait_completion);
 	KATRACE_END("teei_forward_call");
 
 	return 0;
 }
 EXPORT_SYMBOL(teei_forward_call);
-
-int teei_forward_call_without_lock(u32 cmd, unsigned long cmd_addr, int size)
-{
-	int ret;
-	struct new_api_call_param params = {
-		.cmd = cmd,
-		.cmd_addr = cmd_addr,
-		.size = size,
-	};
-
-	lock_system_sleep();
-
-	down(&smc_lock);
-
-	init_completion(&wait_completion);
-
-	ret = add_work_entry(NEW_CAPI_CALL, (unsigned long)&params);
-	if (ret) {
-		up(&smc_lock);
-		up(&capi_mutex);
-		unlock_system_sleep();
-		return ret;
-	}
-
-	wait_for_completion(&wait_completion);
-
-	unlock_system_sleep();
-
-	return 0;
-}
-EXPORT_SYMBOL(teei_forward_call_without_lock);
-
-/**
- * @brief
- *      call smc
- * @param svc_id  - service identifier
- * @param cmd_id  - command identifier
- * @param context - session context
- * @param enc_id - encoder identifier
- * @param cmd_buf - command buffer
- * @param cmd_len - command buffer length
- * @param resp_buf - response buffer
- * @param resp_len - response buffer length
- * @param meta_data
- * @param ret_resp_len
- *
- * @return
- */
-int __teei_smc_call(unsigned long local_smc_cmd,
-		u32 teei_cmd_type,
-		u32 dev_file_id,
-		u32 svc_id,
-		u32 cmd_id,
-		u32 context,
-		u32 enc_id,
-		const void *cmd_buf,
-		size_t cmd_len,
-		void *resp_buf,
-		size_t resp_len,
-		const void *meta_data,
-		const void *info_data,
-		size_t info_len,
-		int *ret_resp_len,
-		int *error_code,
-		struct semaphore *psema)
-{
-	int ret = 50;
-	void *smc_cmd_phys = 0;
-	struct teei_smc_cmd *smc_cmd = NULL;
-
-	struct teei_shared_mem *temp_shared_mem = NULL;
-	struct teei_context *temp_cont = NULL;
-
-	smc_cmd = (struct teei_smc_cmd *)local_smc_cmd;
-
-	if (ret_resp_len)
-		*ret_resp_len = 0;
-
-	smc_cmd->teei_cmd_type = teei_cmd_type;
-	smc_cmd->dev_file_id = dev_file_id;
-	smc_cmd->src_id = svc_id;
-	smc_cmd->src_context = task_tgid_vnr(current);
-
-	smc_cmd->id = cmd_id;
-	smc_cmd->context = context;
-	smc_cmd->enc_id = enc_id;
-	smc_cmd->src_context = task_tgid_vnr(current);
-
-	smc_cmd->req_buf_len = cmd_len;
-	smc_cmd->resp_buf_len = resp_len;
-	smc_cmd->info_buf_len = info_len;
-	smc_cmd->ret_resp_buf_len = 0;
-
-	if (psema == NULL)
-		return -EINVAL;
-
-	smc_cmd->teei_sema = (u64)psema;
-
-	if (cmd_buf != NULL) {
-		smc_cmd->req_buf_phys = virt_to_phys((void *)cmd_buf);
-
-		Flush_Dcache_By_Area((unsigned long)cmd_buf,
-					(unsigned long)cmd_buf + cmd_len);
-
-		Flush_Dcache_By_Area((unsigned long)&cmd_buf,
-				(unsigned long)&cmd_buf + sizeof(int));
-
-	} else
-		smc_cmd->req_buf_phys = 0;
-
-	if (resp_buf) {
-		smc_cmd->resp_buf_phys = virt_to_phys((void *)resp_buf);
-
-		Flush_Dcache_By_Area((unsigned long)resp_buf,
-				(unsigned long)resp_buf + resp_len);
-
-	} else
-		smc_cmd->resp_buf_phys = 0;
-
-	if (meta_data) {
-		smc_cmd->meta_data_phys = virt_to_phys(meta_data);
-
-		Flush_Dcache_By_Area((unsigned long)meta_data,
-				(unsigned long)meta_data +
-				sizeof(struct teei_encode_meta) *
-				(TEEI_MAX_RES_PARAMS + TEEI_MAX_REQ_PARAMS));
-
-	} else
-		smc_cmd->meta_data_phys = 0;
-
-	if (info_data) {
-		smc_cmd->info_buf_phys = virt_to_phys(info_data);
-
-		Flush_Dcache_By_Area((unsigned long)info_data,
-					(unsigned long)info_data + info_len);
-
-	} else
-		smc_cmd->info_buf_phys = 0;
-
-	smc_cmd_phys = (void *)virt_to_phys((void *)smc_cmd);
-
-	smc_cmd->error_code = 0;
-
-	Flush_Dcache_By_Area((unsigned long)smc_cmd,
-			(unsigned long)smc_cmd + sizeof(struct teei_smc_cmd));
-
-	Flush_Dcache_By_Area((unsigned long)&smc_cmd,
-			(unsigned long)&smc_cmd + sizeof(int));
-
-	/* down(&smc_lock); */
-
-	list_for_each_entry(temp_cont,
-		&teei_contexts_head.context_list, link) {
-
-		if (temp_cont->cont_id == dev_file_id) {
-			list_for_each_entry(temp_shared_mem,
-				&temp_cont->shared_mem_list, head)
-
-				Flush_Dcache_By_Area(
-					(unsigned long)temp_shared_mem->k_addr,
-					(unsigned long)temp_shared_mem->k_addr
-					+ temp_shared_mem->len);
-		}
-	}
-
-	forward_call_flag = GLSCH_LOW;
-	ret = teei_smc(0, (unsigned long)smc_cmd_phys,
-				sizeof(struct teei_smc_cmd), NQ_VALID);
-
-	/* down(psema); */
-	return 0;
-}
-
-int teei_smc_call(u32 teei_cmd_type,
-		u32 dev_file_id,
-		u32 svc_id,
-		u32 cmd_id,
-		u32 context,
-		u32 enc_id,
-		void *cmd_buf,
-		size_t cmd_len,
-		void *resp_buf,
-		size_t resp_len,
-		void *meta_data,
-		void *info_data,
-		size_t info_len,
-		int *ret_resp_len,
-		int *error_code,
-		struct semaphore *psema)
-{
-	IMSG_ERROR("[%s][%d] NOT Support! Please use new client api\n",
-						__func__, __LINE__);
-	return -1;
-}

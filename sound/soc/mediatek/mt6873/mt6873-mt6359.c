@@ -28,7 +28,8 @@ static const char * const ext_spk_mode_str[] = {"Disable", "Enable"};
 static const char *const mt6873_spk_type_str[] = {MTK_SPK_NOT_SMARTPA_STR,
 						  MTK_SPK_RICHTEK_RT5509_STR,
 						  MTK_SPK_MEDIATEK_MT6660_STR,
-						  MTK_SPK_NXP_TFA98XX_STR
+						  MTK_SPK_NXP_TFA98XX_STR,
+						  MTK_SPK_CS_CS35L41_STR
 						  };
 static const char *const
 	mt6873_spk_i2s_type_str[] = {MTK_SPK_I2S_0_STR,
@@ -307,10 +308,10 @@ static int mt6873_mt6359_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 	pm_runtime_put(afe->dev);
 
 	dev_info(afe->dev, "%s(), mtkaif_chosen_phase[0/1/2]:%d/%d/%d\n",
-		 __func__,
-		 afe_priv->mtkaif_chosen_phase[0],
-		 afe_priv->mtkaif_chosen_phase[1],
-		 afe_priv->mtkaif_chosen_phase[2]);
+		__func__,
+		afe_priv->mtkaif_chosen_phase[0],
+		afe_priv->mtkaif_chosen_phase[1],
+		afe_priv->mtkaif_chosen_phase[2]);
 
 	return 0;
 }

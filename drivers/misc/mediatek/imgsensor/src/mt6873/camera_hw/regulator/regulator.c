@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -101,6 +102,9 @@ static enum IMGSENSOR_RETURN regulator_set(
 	enum IMGSENSOR_HW_PIN_STATE pin_state)
 {
 	struct regulator     *pregulator;
+#ifndef _XIAOMI_BOMB_
+	struct regulator     *pregulator_main2 = NULL;
+#endif
 	struct REGULATOR     *preg = (struct REGULATOR *)pinstance;
 	int reg_type_offset;
 	atomic_t             *enable_cnt;
@@ -117,6 +121,13 @@ static enum IMGSENSOR_RETURN regulator_set(
 	pregulator =
 		preg->pregulator[sensor_idx][
 			reg_type_offset + pin - IMGSENSOR_HW_PIN_AVDD];
+#ifndef _XIAOMI_BOMB_
+	if (sensor_idx != IMGSENSOR_SENSOR_IDX_MAIN2) {
+		pregulator_main2 =
+			preg->pregulator[IMGSENSOR_SENSOR_IDX_MAIN2][
+				reg_type_offset + pin - IMGSENSOR_HW_PIN_AVDD];
+	}
+#endif
 
 	enable_cnt =
 		&preg->enable_cnt[sensor_idx][
@@ -144,8 +155,41 @@ static enum IMGSENSOR_RETURN regulator_set(
 				  pin_state - IMGSENSOR_HW_PIN_STATE_LEVEL_0]);
 				return IMGSENSOR_RETURN_ERROR;
 			}
+#ifndef _XIAOMI_BOMB_
+			if (IMGSENSOR_HW_PIN_AVDD == pin && pregulator_main2) {
+				if (regulator_set_voltage(pregulator_main2,
+					regulator_voltage[
+					pin_state - IMGSENSOR_HW_PIN_STATE_LEVEL_0],
+					regulator_voltage[
+					pin_state - IMGSENSOR_HW_PIN_STATE_LEVEL_0])) {
+
+					PK_PR_ERR(
+					  "[regulator]fail to regulator_set_voltage, main2 powertype:%d powerId:%d\n",
+					  pin,
+					  regulator_voltage[
+					  pin_state - IMGSENSOR_HW_PIN_STATE_LEVEL_0]);
+				}
+				if (regulator_enable(pregulator_main2)) {
+					PK_PR_ERR(
+					"[regulator]fail to regulator_enable, main2 powertype:%d powerId:%d\n",
+					pin,
+					regulator_voltage[
+					  pin_state - IMGSENSOR_HW_PIN_STATE_LEVEL_0]);
+					//return IMGSENSOR_RETURN_ERROR;
+				}
+			}
+#endif
 			atomic_inc(enable_cnt);
 		} else {
+#ifndef _XIAOMI_BOMB_
+			if (pregulator_main2 && regulator_disable(pregulator_main2)) {
+				PK_PR_ERR(
+					"[regulator]fail to regulator_disable, main2 powertype: %d\n",
+					pin);
+				//return IMGSENSOR_RETURN_ERROR;
+			}
+#endif
+
 			if (regulator_is_enabled(pregulator))
 				PK_DBG("[regulator]%d is enabled\n", pin);
 

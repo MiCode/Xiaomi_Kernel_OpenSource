@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * TCPC Type-C Driver for Richtek
  *
@@ -22,6 +23,9 @@
 
 /* MTK only */
 #include <mt-plat/mtk_boot.h>
+#ifdef CONFIG_MTK_WAIT_BC12
+#include <mt-plat/charger_type.h>
+#endif /* CONFIG_MTK_WAIT_BC12 */
 
 #ifdef CONFIG_TYPEC_CAP_TRY_SOURCE
 #define CONFIG_TYPEC_CAP_TRY_STATE
@@ -1435,7 +1439,11 @@ static inline bool typec_attached_snk_cc_change(struct tcpc_device *tcpc_dev)
 		tcpci_sink_vbus(tcpc_dev,
 				TCP_VBUS_CTRL_TYPEC, TCPC_VBUS_SINK_5V, -1);
 	}
-
+#ifdef CONFIG_USB_POWER_DELIVERY
+#ifdef CONFIG_MTK_WAIT_BC12
+	tcpc_dev->wait_bc12_cnt = 0;
+#endif /* CONFIG_MTK_WAIT_BC12 */
+#endif	/* CONFIG_USB_POWER_DELIVERY */
 	return true;
 }
 
@@ -2146,6 +2154,28 @@ static inline int typec_handle_pe_idle(struct tcpc_device *tcpc_dev)
 
 	return 0;
 }
+
+int typec_pd_start_entry(struct tcpc_device *tcpc_dev)
+{
+	return pd_put_cc_attached_event(tcpc_dev, tcpc_dev->typec_attach_new);
+}
+
+#ifdef CONFIG_MTK_WAIT_BC12
+static void tcpc_handle_sink_wait_bc12_timeout(struct tcpc_device *tcpc_dev)
+{
+	enum charger_type chg_type;
+
+	chg_type = mt_get_charger_type();
+	TYPEC_INFO("%s: chg_type = %d\r\n", __func__, chg_type);
+
+	if (chg_type != CHARGER_UNKNOWN || tcpc_dev->wait_bc12_cnt >= 20)
+		typec_pd_start_entry(tcpc_dev);
+	else if (tcpc_dev->typec_attach_new == TYPEC_ATTACHED_SNK) {
+		tcpc_enable_timer(tcpc_dev, TYPEC_RT_TIMER_SINK_WAIT_BC12);
+		tcpc_dev->wait_bc12_cnt++;
+	}
+}
+#endif /* CONFIG_MTK_WAIT_BC12 */
 #endif /* CONFIG_USB_POWER_DELIVERY */
 
 static inline int typec_handle_src_reach_vsafe0v(struct tcpc_device *tcpc_dev)
@@ -2267,6 +2297,11 @@ int tcpc_typec_handle_timeout(struct tcpc_device *tcpc_dev, uint32_t timer_id)
 	case TYPEC_RT_TIMER_PE_IDLE:
 		ret = typec_handle_pe_idle(tcpc_dev);
 		break;
+#ifdef CONFIG_MTK_WAIT_BC12
+	case TYPEC_RT_TIMER_SINK_WAIT_BC12:
+		tcpc_handle_sink_wait_bc12_timeout(tcpc_dev);
+		break;
+#endif /* CONFIG_MTK_WAIT_BC12 */
 #endif /* CONFIG_USB_POWER_DELIVERY */
 
 #ifdef CONFIG_TYPEC_ATTACHED_SRC_SAFE0V_DELAY

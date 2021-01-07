@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2015 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -77,6 +78,8 @@ static struct i2c_board_info kd_lens_dev __initdata = {
 #define LOG_INF(format, args...)
 #endif
 
+extern int camera_power;
+
 /* OIS/EIS Timer & Workqueue */
 static struct workqueue_struct *ois_workqueue;
 static struct work_struct ois_work;
@@ -90,6 +93,8 @@ static struct stAF_OisPosInfo OisPosInfo;
 /* ------------------------- */
 
 static struct stAF_DrvList g_stAF_DrvList[MAX_NUM_OF_LENS] = {
+	{1, AFDRV_DW9800AF, DW9800AF_SetI2Cclient, DW9800AF_Ioctl,
+	 DW9800AF_Release, DW9800AF_GetFileName, NULL},
 	{1, AFDRV_DW9718TAF, DW9718TAF_SetI2Cclient, DW9718TAF_Ioctl,
 	 DW9718TAF_Release, DW9718TAF_GetFileName, NULL},
 	{1, AFDRV_AK7371AF, AK7371AF_SetI2Cclient, AK7371AF_Ioctl,
@@ -106,9 +111,6 @@ static struct stAF_DrvList g_stAF_DrvList[MAX_NUM_OF_LENS] = {
 #ifdef CONFIG_MTK_LENS_BU63165AF_SUPPORT
 	 AFDRV_BU63165AF, BU63165AF_SetI2Cclient, BU63165AF_Ioctl,
 	 BU63165AF_Release, BU63165AF_GetFileName, NULL
-#else
-	 AFDRV_BU63169AF, BU63169AF_SetI2Cclient, BU63169AF_Ioctl,
-	 BU63169AF_Release, BU63169AF_GetFileName, NULL
 #endif
 	},
 	{1, AFDRV_DW9714AF, DW9714AF_SetI2Cclient, DW9714AF_Ioctl,
@@ -257,7 +259,8 @@ void AFRegulatorCtrl(int Stage)
 
 			/* check if customer camera node defined */
 			node = of_find_compatible_node(
-				NULL, NULL, "mediatek,CAMERA_MAIN_AF");
+				NULL, NULL, "mediatek, camera_af_lens");
+
 
 			if (node) {
 				kd_node = lens_device->of_node;
@@ -273,7 +276,11 @@ void AFRegulatorCtrl(int Stage)
 					regulator_get(lens_device, "vmch");
 				} else {
 					regVCAMAF =
-					regulator_get(lens_device, "vcamio");
+						regulator_get(lens_device, "cam0_vcamaf");
+					if(camera_power == 2){
+					regVCAMAF =
+						regulator_get(lens_device, "cam0_vcamafp");
+					}
 				}
 				#elif defined(CONFIG_MACH_MT6873)
 				if (strncmp(CONFIG_ARCH_MTK_PROJECT,
@@ -284,6 +291,10 @@ void AFRegulatorCtrl(int Stage)
 					regVCAMAF =
 					regulator_get(lens_device, "vcamio");
 				}
+				/*XIAOMI: add for getting vcamaf from fan53870_L7 --start*/
+				regVCAMAF =
+					regulator_get(lens_device, "vcamaf");
+				/*XIAOMI: add for getting vcamaf from fan53870_L7 --end*/
 				#elif defined(CONFIG_MACH_MT6885)
 				if (strncmp(CONFIG_ARCH_MTK_PROJECT,
 					"k6885v1_64_alpha", 16) == 0) {
@@ -305,7 +316,8 @@ void AFRegulatorCtrl(int Stage)
 		}
 	} else if (Stage == 1) {
 		if (regVCAMAF != NULL && g_regVCAMAFEn == 0) {
-			int Status = regulator_is_enabled(regVCAMAF);
+			//int Status = regulator_is_enabled(regVCAMAF);
+			int Status = 0;
 
 			LOG_INF("regulator_is_enabled %d\n", Status);
 
@@ -325,7 +337,11 @@ void AFRegulatorCtrl(int Stage)
 					LOG_INF("regulator_enable fail\n");
 
 				g_regVCAMAFEn = 1;
+#ifdef FACTORY_BUILD
+				usleep_range(15000, 15500);
+#else
 				usleep_range(5000, 5500);
+#endif
 			} else {
 				LOG_INF("AF Power on\n");
 			}

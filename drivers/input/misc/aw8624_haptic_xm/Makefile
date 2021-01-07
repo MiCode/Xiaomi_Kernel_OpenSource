@@ -1,0 +1,1 @@
+obj-$(CONFIG_AW8624_XM_HAPTIC)	+= aw8624.o

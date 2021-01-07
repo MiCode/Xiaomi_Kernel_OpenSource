@@ -68,6 +68,24 @@ static unsigned int get_i2s_wlen(snd_pcm_format_t format)
 #define MTK_AFE_I2S8_KCONTROL_NAME "I2S8_HD_Mux"
 #define MTK_AFE_I2S9_KCONTROL_NAME "I2S9_HD_Mux"
 
+/*Audio-add Begin*/
+#define MTK_I2S0_GPIO_KCONTROL_NAME "I2S0_GPIO"
+#define MTK_I2S1_GPIO_KCONTROL_NAME "I2S1_GPIO"
+#define MTK_I2S2_GPIO_KCONTROL_NAME "I2S2_GPIO"
+#define MTK_I2S3_GPIO_KCONTROL_NAME "I2S3_GPIO"
+#define MTK_I2S5_GPIO_KCONTROL_NAME "I2S5_GPIO"
+#define MTK_I2S6_GPIO_KCONTROL_NAME "I2S6_GPIO"
+#define MTK_I2S7_GPIO_KCONTROL_NAME "I2S7_GPIO"
+#define MTK_I2S8_GPIO_KCONTROL_NAME "I2S8_GPIO"
+#define MTK_I2S9_GPIO_KCONTROL_NAME "I2S9_GPIO"
+/*End*/
+
+#ifdef CONFIG_CS35L41_I2S0_RESET
+//Audio add special for cs35l41 I2S0/I2S3 Clk resync
+#define MTK_AFE_RESET_I2S0_KCONTROL_NAME "I2S0RESET"
+//End
+#endif
+
 #define I2S0_HD_EN_W_NAME "I2S0_HD_EN"
 #define I2S1_HD_EN_W_NAME "I2S1_HD_EN"
 #define I2S2_HD_EN_W_NAME "I2S2_HD_EN"
@@ -135,6 +153,17 @@ static const struct soc_enum mt6873_i2s_enum[] = {
 			    mt6873_i2s_hd_str),
 };
 
+/*Audio-add Begin*/
+static const char * const mt6873_i2s_gpio_str[] = {
+	"Off", "On"
+};
+
+static const struct soc_enum mt6873_i2s_gpio_enum[] = {
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(mt6873_i2s_gpio_str),
+			    mt6873_i2s_gpio_str),
+};
+/*End*/
+
 static int mt6873_i2s_hd_get(struct snd_kcontrol *kcontrol,
 			     struct snd_ctl_elem_value *ucontrol)
 {
@@ -183,6 +212,73 @@ static int mt6873_i2s_hd_set(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+/*Audio-add Begin*/
+static int mt6873_i2s_gpio_get(struct snd_kcontrol *kcontrol,
+			     struct snd_ctl_elem_value *ucontrol)
+{
+	return 0;
+}
+
+static int mt6873_i2s_gpio_Set(struct snd_kcontrol *kcontrol,
+			     struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+	struct mtk_afe_i2s_priv *i2s_priv;
+	int I2S3_gpio_en;
+
+	I2S3_gpio_en = ucontrol->value.integer.value[0];
+
+	i2s_priv = get_i2s_priv_by_name(afe, kcontrol->id.name);
+	//TO-DO, currently only support I2S3 GPIO enable
+	if ((I2S3_gpio_en) && (i2s_priv->id == MT6873_DAI_I2S_3))
+		mt6873_afe_gpio_request(afe, true, i2s_priv->id, 0);
+
+	dev_info(afe->dev, "%s(), kcontrol name %s, gpio enable %d\n",
+		 __func__, kcontrol->id.name, I2S3_gpio_en);
+
+	return 0;
+}
+/*End*/
+
+#ifdef CONFIG_CS35L41_I2S0_RESET
+//Audio add special for cs35l41 I2S0/I2S3 Clk resync
+static int mt6873_i2s_reset_get(struct snd_kcontrol *kcontrol,
+			     struct snd_ctl_elem_value *ucontrol)
+{
+	return 0;
+}
+
+static int mt6873_i2s_reset_set(struct snd_kcontrol *kcontrol,
+			     struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+
+	dev_info(afe->dev, "%s(), kcontrol name %s\n",
+		 __func__, kcontrol->id.name);
+
+	regmap_update_bits(afe->regmap, AUDIO_TOP_CON1, 0x6,
+				   0x3 << 1);
+	udelay(200);
+	regmap_update_bits(afe->regmap, AFE_I2S_CON, 0x1,
+				   0x0);
+	regmap_update_bits(afe->regmap, AFE_I2S_CON3, 0x1,
+				   0x0);
+	udelay(200);
+	regmap_update_bits(afe->regmap, AFE_I2S_CON, 0x1,
+				   0x1);
+	regmap_update_bits(afe->regmap, AFE_I2S_CON3, 0x1,
+				   0x1);
+	udelay(200);
+	regmap_update_bits(afe->regmap, AUDIO_TOP_CON1, 0x6,
+				   0x0 << 1);
+
+	return 0;
+}
+//End
+#endif
+
 static const struct snd_kcontrol_new mtk_dai_i2s_controls[] = {
 	SOC_ENUM_EXT(MTK_AFE_I2S0_KCONTROL_NAME, mt6873_i2s_enum[0],
 		     mt6873_i2s_hd_get, mt6873_i2s_hd_set),
@@ -202,6 +298,33 @@ static const struct snd_kcontrol_new mtk_dai_i2s_controls[] = {
 		     mt6873_i2s_hd_get, mt6873_i2s_hd_set),
 	SOC_ENUM_EXT(MTK_AFE_I2S9_KCONTROL_NAME, mt6873_i2s_enum[0],
 		     mt6873_i2s_hd_get, mt6873_i2s_hd_set),
+
+	/*Audio-add Begin*/
+	SOC_ENUM_EXT(MTK_I2S0_GPIO_KCONTROL_NAME, mt6873_i2s_gpio_enum[0],
+		     mt6873_i2s_gpio_get, mt6873_i2s_gpio_Set),
+	SOC_ENUM_EXT(MTK_I2S1_GPIO_KCONTROL_NAME, mt6873_i2s_gpio_enum[0],
+		     mt6873_i2s_gpio_get, mt6873_i2s_gpio_Set),
+	SOC_ENUM_EXT(MTK_I2S2_GPIO_KCONTROL_NAME, mt6873_i2s_gpio_enum[0],
+		     mt6873_i2s_gpio_get, mt6873_i2s_gpio_Set),
+	SOC_ENUM_EXT(MTK_I2S3_GPIO_KCONTROL_NAME, mt6873_i2s_gpio_enum[0],
+		     mt6873_i2s_gpio_get, mt6873_i2s_gpio_Set),
+	SOC_ENUM_EXT(MTK_I2S5_GPIO_KCONTROL_NAME, mt6873_i2s_gpio_enum[0],
+		     mt6873_i2s_gpio_get, mt6873_i2s_gpio_Set),
+	SOC_ENUM_EXT(MTK_I2S6_GPIO_KCONTROL_NAME, mt6873_i2s_gpio_enum[0],
+		     mt6873_i2s_gpio_get, mt6873_i2s_gpio_Set),
+	SOC_ENUM_EXT(MTK_I2S7_GPIO_KCONTROL_NAME, mt6873_i2s_gpio_enum[0],
+		     mt6873_i2s_gpio_get, mt6873_i2s_gpio_Set),
+	SOC_ENUM_EXT(MTK_I2S8_GPIO_KCONTROL_NAME, mt6873_i2s_gpio_enum[0],
+		     mt6873_i2s_gpio_get, mt6873_i2s_gpio_Set),
+	SOC_ENUM_EXT(MTK_I2S9_GPIO_KCONTROL_NAME, mt6873_i2s_gpio_enum[0],
+		     mt6873_i2s_gpio_get, mt6873_i2s_gpio_Set),
+	/*End*/
+	#ifdef CONFIG_CS35L41_I2S0_RESET
+	//Audio add special for cs35l41 I2S0/I2S3 Clk resync
+	SOC_ENUM_EXT(MTK_AFE_RESET_I2S0_KCONTROL_NAME, mt6873_i2s_enum[0],
+		     mt6873_i2s_reset_get, mt6873_i2s_reset_set),
+	//End
+	#endif
 };
 
 /* dai component */
@@ -597,7 +720,10 @@ static int mtk_i2s_en_event(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		mt6873_afe_gpio_request(afe, true, i2s_priv->id, 0);
+		/*Audio-Add bypass I2S3 GPIO enable when DAPM power up*/
+		if (i2s_priv->id != MT6873_DAI_I2S_3)
+			mt6873_afe_gpio_request(afe, true, i2s_priv->id, 0);
+		/*End*/
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		mt6873_afe_gpio_request(afe, false, i2s_priv->id, 0);

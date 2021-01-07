@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2019 MediaTek Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -55,6 +56,7 @@ bool g_mobile_log;
 bool g_fence_log;
 bool g_irq_log;
 bool g_detail_log;
+bool g_dsi_log = 1;
 bool g_trace_log;
 unsigned int mipi_volt;
 unsigned int disp_met_en;
@@ -321,7 +323,7 @@ extern int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level);
 int mtkfb_set_backlight_level(unsigned int level)
 {
 	struct drm_crtc *crtc;
-
+	DDPINFO("%s:%d, backlight level= %d\n", __func__, __LINE__, level);
 	/* this debug cmd only for crtc0 */
 	crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
 				typeof(*crtc), head);
@@ -1211,6 +1213,11 @@ static void process_dbg_opt(const char *opt)
 			g_detail_log = 1;
 		else if (strncmp(opt + 7, "off", 3) == 0)
 			g_detail_log = 0;
+	} else if (strncmp(opt, "dsi:", 4) == 0) {
+		if (strncmp(opt + 4, "on", 2) == 0)
+			g_dsi_log = 1;
+		else if (strncmp(opt + 4, "off", 3) == 0)
+			g_dsi_log = 0;
 	} else if (strncmp(opt, "trace:", 6) == 0) {
 		if (strncmp(opt + 6, "on", 2) == 0)
 			g_trace_log = 1;
@@ -1543,9 +1550,9 @@ static void process_dbg_opt(const char *opt)
 		}
 		gCaptureOVLEn = dump_en;
 
-		if (!downSampleX)
+		if (downSampleX)
 			gCapturePriLayerDownX = downSampleX;
-		if (!downSampleY)
+		if (downSampleY)
 			gCapturePriLayerDownY = downSampleY;
 	} else if (strncmp(opt, "idlemgr_kick", 12) == 0) {
 		mtk_drm_idlemgr_kick_ext(__func__);
