@@ -209,6 +209,8 @@ int icnss_wlfw_bdf_dnld_send_sync(struct icnss_priv *priv, u32 bdf_type);
 int icnss_wlfw_qdss_dnld_send_sync(struct icnss_priv *priv);
 int icnss_wlfw_qdss_data_send_sync(struct icnss_priv *priv, char *file_name,
 				   u32 total_size);
+int wlfw_qdss_trace_start(struct icnss_priv *priv);
+int wlfw_qdss_trace_stop(struct icnss_priv *priv, unsigned long long option);
 int wlfw_qdss_trace_mem_info_send_sync(struct icnss_priv *priv);
 int wlfw_power_save_send_msg(struct icnss_priv *priv,
 			     enum wlfw_power_save_mode_v01 mode);

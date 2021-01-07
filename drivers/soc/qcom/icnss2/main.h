@@ -428,6 +428,7 @@ struct icnss_priv {
 	void *hang_event_data;
 	struct list_head icnss_tcdev_list;
 	struct mutex tcdev_lock;
+	u32 hw_trc_override;
 };
 
 struct icnss_reg_info {
