@@ -953,25 +953,11 @@ static void dwc3_set_incr_burst_type(struct dwc3 *dwc)
  *
  * Returns 0 on success otherwise negative errno.
  */
-int dwc3_core_init(struct dwc3 *dwc)
+static int dwc3_core_init(struct dwc3 *dwc)
 {
 	unsigned int		hw_mode;
 	u32			reg;
 	int			ret;
-
-	if (!dwc3_core_is_valid(dwc)) {
-		dev_err(dwc->dev, "this is not a DesignWare USB3 DRD Core\n");
-		ret = -ENODEV;
-		goto err0;
-	}
-
-	dwc3_cache_hwparams(dwc);
-	dwc3_check_params(dwc);
-	ret = dwc3_get_dr_mode(dwc);
-	if (ret) {
-		ret = -EINVAL;
-		goto err0;
-	}
 
 	hw_mode = DWC3_GHWPARAMS0_MODE(dwc->hwparams.hwparams0);
 
@@ -1031,9 +1017,7 @@ int dwc3_core_init(struct dwc3 *dwc)
 	dwc3_set_incr_burst_type(dwc);
 
 	usb_phy_set_suspend(dwc->usb2_phy, 0);
-	if (dwc->maximum_speed >= USB_SPEED_SUPER)
-		usb_phy_set_suspend(dwc->usb3_phy, 0);
-
+	usb_phy_set_suspend(dwc->usb3_phy, 0);
 	ret = phy_power_on(dwc->usb2_generic_phy);
 	if (ret < 0)
 		goto err2;
@@ -1041,6 +1025,12 @@ int dwc3_core_init(struct dwc3 *dwc)
 	ret = phy_power_on(dwc->usb3_generic_phy);
 	if (ret < 0)
 		goto err3;
+
+	ret = dwc3_event_buffers_setup(dwc);
+	if (ret) {
+		dev_err(dwc->dev, "failed to setup event buffers\n");
+		goto err4;
+	}
 
 	/*
 	 * ENDXFER polling is available on version 3.10a and later of
@@ -1068,17 +1058,6 @@ int dwc3_core_init(struct dwc3 *dwc)
 
 		if (dwc->parkmode_disable_ss_quirk)
 			reg |= DWC3_GUCTL1_PARKMODE_DISABLE_SS;
-
-		/*
-		 * STAR: 9001415732: Host failure when Park mode is enabled:
-		 * Disable parkmode for Gen1 controllers to fix the stall
-		 * seen during host mode transfers on multiple endpoints.
-		 */
-		if (DWC3_IP_IS(DWC3)) {
-			reg |= DWC3_GUCTL1_PARKMODE_DISABLE_SS;
-			reg |= DWC3_GUCTL1_PARKMODE_DISABLE_HS;
-			reg |= DWC3_GUCTL1_PARKMODE_DISABLE_FSLS;
-		}
 
 		dwc3_writel(dwc->regs, DWC3_GUCTL1, reg);
 	}
@@ -1136,27 +1115,10 @@ int dwc3_core_init(struct dwc3 *dwc)
 		}
 	}
 
-	if (dwc->gen2_tx_de_emph != -1)
-		dwc3_writel(dwc->regs, DWC31_LCSR_TX_DEEMPH(0),
-			dwc->gen2_tx_de_emph & DWC31_TX_DEEMPH_MASK);
-	if (dwc->gen2_tx_de_emph1 != -1)
-		dwc3_writel(dwc->regs, DWC31_LCSR_TX_DEEMPH_1(0),
-			dwc->gen2_tx_de_emph1 & DWC31_TX_DEEMPH_MASK);
-	if (dwc->gen2_tx_de_emph2 != -1)
-		dwc3_writel(dwc->regs, DWC31_LCSR_TX_DEEMPH_2(0),
-			dwc->gen2_tx_de_emph2 & DWC31_TX_DEEMPH_MASK);
-	if (dwc->gen2_tx_de_emph3 != -1)
-		dwc3_writel(dwc->regs, DWC31_LCSR_TX_DEEMPH_3(0),
-			dwc->gen2_tx_de_emph3 & DWC31_TX_DEEMPH_MASK);
-
-	/* set inter-packet gap 199.794ns to improve EL_23 margin */
-	if (!DWC3_VER_IS_PRIOR(DWC31, 170A)) {
-		reg = dwc3_readl(dwc->regs, DWC3_GUCTL1);
-		reg |= DWC3_GUCTL1_IP_GAP_ADD_ON(1);
-		dwc3_writel(dwc->regs, DWC3_GUCTL1, reg);
-	}
-
 	return 0;
+
+err4:
+	phy_power_off(dwc->usb3_generic_phy);
 
 err3:
 	phy_power_off(dwc->usb2_generic_phy);
@@ -1164,7 +1126,6 @@ err3:
 err2:
 	usb_phy_set_suspend(dwc->usb2_phy, 1);
 	usb_phy_set_suspend(dwc->usb3_phy, 1);
-	dwc3_free_scratch_buffers(dwc);
 
 err1:
 	usb_phy_shutdown(dwc->usb2_phy);
@@ -1178,7 +1139,6 @@ err0a:
 err0:
 	return ret;
 }
-EXPORT_SYMBOL(dwc3_core_init);
 
 static int dwc3_core_get_phy(struct dwc3 *dwc)
 {
@@ -1557,13 +1517,6 @@ static int dwc3_probe(struct platform_device *pdev)
 
 	void __iomem		*regs;
 
-	if (count >= DWC_CTRL_COUNT) {
-		dev_err(dev, "Err dwc instance %d >= %d available\n",
-					count, DWC_CTRL_COUNT);
-		ret = -EINVAL;
-		return ret;
-	}
-
 	dwc = devm_kzalloc(dev, sizeof(*dwc), GFP_KERNEL);
 	if (!dwc)
 		return -ENOMEM;
@@ -1605,7 +1558,7 @@ static int dwc3_probe(struct platform_device *pdev)
 	if (dev->of_node) {
 		ret = devm_clk_bulk_get_all(dev, &dwc->clks);
 		if (ret == -EPROBE_DEFER)
-			goto err0;
+			return ret;
 		/*
 		 * Clocks are optional, but new DT platforms should support all
 		 * clocks as required by the DT-binding.
@@ -1619,74 +1572,99 @@ static int dwc3_probe(struct platform_device *pdev)
 
 	ret = reset_control_deassert(dwc->reset);
 	if (ret)
-		goto err0;
+		return ret;
 
 	ret = clk_bulk_prepare_enable(dwc->num_clks, dwc->clks);
 	if (ret)
 		goto assert_reset;
 
+	if (!dwc3_core_is_valid(dwc)) {
+		dev_err(dwc->dev, "this is not a DesignWare USB3 DRD Core\n");
+		ret = -ENODEV;
+		goto disable_clks;
+	}
+
 	platform_set_drvdata(pdev, dwc);
+	dwc3_cache_hwparams(dwc);
 
 	spin_lock_init(&dwc->lock);
 
 	pm_runtime_set_active(dev);
-	pm_runtime_set_autosuspend_delay(dev,
-		DWC3_DEFAULT_AUTOSUSPEND_DELAY);
 	pm_runtime_use_autosuspend(dev);
+	pm_runtime_set_autosuspend_delay(dev, DWC3_DEFAULT_AUTOSUSPEND_DELAY);
 	pm_runtime_enable(dev);
+	ret = pm_runtime_get_sync(dev);
+	if (ret < 0)
+		goto err1;
+
 	pm_runtime_forbid(dev);
 
 	ret = dwc3_alloc_event_buffers(dwc, DWC3_EVENT_BUFFERS_SIZE);
 	if (ret) {
 		dev_err(dwc->dev, "failed to allocate event buffers\n");
 		ret = -ENOMEM;
-		goto err1;
+		goto err2;
 	}
+
+	ret = dwc3_get_dr_mode(dwc);
+	if (ret)
+		goto err3;
 
 	ret = dwc3_alloc_scratch_buffers(dwc);
 	if (ret)
-		goto err2;
+		goto err3;
 
 	ret = dwc3_core_init(dwc);
 	if (ret) {
 		if (ret != -EPROBE_DEFER)
-			dev_err(dev, "failed to initialize core: %d\n",
-					ret);
-		goto err3;
+			dev_err(dev, "failed to initialize core: %d\n", ret);
+		goto err4;
 	}
 
-	ret = dwc3_event_buffers_setup(dwc);
-	if (ret) {
-		dev_err(dwc->dev, "failed to setup event buffers\n");
-		goto err3;
-	}
+	dwc3_check_params(dwc);
 
 	ret = dwc3_core_init_mode(dwc);
-	if (ret) {
-		dwc3_event_buffers_cleanup(dwc);
-		goto err3;
-	}
+	if (ret)
+		goto err5;
 
-	dwc3_instance[count] = dwc;
-	dwc->index = count;
-	count++;
-
-	pm_runtime_allow(dev);
 	dwc3_debugfs_init(dwc);
+	pm_runtime_put(dev);
+
 	return 0;
 
-err3:
+err5:
+	dwc3_event_buffers_cleanup(dwc);
+
+	usb_phy_shutdown(dwc->usb2_phy);
+	usb_phy_shutdown(dwc->usb3_phy);
+	phy_exit(dwc->usb2_generic_phy);
+	phy_exit(dwc->usb3_generic_phy);
+
+	usb_phy_set_suspend(dwc->usb2_phy, 1);
+	usb_phy_set_suspend(dwc->usb3_phy, 1);
+	phy_power_off(dwc->usb2_generic_phy);
+	phy_power_off(dwc->usb3_generic_phy);
+
+	dwc3_ulpi_exit(dwc);
+
+err4:
 	dwc3_free_scratch_buffers(dwc);
-err2:
+
+err3:
 	dwc3_free_event_buffers(dwc);
-err1:
+
+err2:
 	pm_runtime_allow(&pdev->dev);
+
+err1:
+	pm_runtime_put_sync(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
 
+disable_clks:
 	clk_bulk_disable_unprepare(dwc->num_clks, dwc->clks);
 assert_reset:
 	reset_control_assert(dwc->reset);
-err0:
+
 	return ret;
 }
 

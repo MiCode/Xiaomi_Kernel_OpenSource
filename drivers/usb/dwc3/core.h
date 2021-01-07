@@ -1564,7 +1564,6 @@ int dwc3_send_gadget_ep_cmd(struct dwc3_ep *dep, unsigned int cmd,
 int dwc3_send_gadget_generic_command(struct dwc3 *dwc, unsigned int cmd,
 		u32 param);
 int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc, struct dwc3_ep *dep);
-int dwc3_core_init(struct dwc3 *dwc);
 int dwc3_event_buffers_setup(struct dwc3 *dwc);
 #else
 static inline int dwc3_gadget_init(struct dwc3 *dwc)
@@ -1589,8 +1588,6 @@ static inline int dwc3_send_gadget_generic_command(struct dwc3 *dwc,
 { return 0; }
 static inline int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc,
 		struct dwc3_ep *dep)
-{ return 0; }
-static int dwc3_core_init(struct dwc3 *dwc)
 { return 0; }
 static int dwc3_event_buffers_setup(struct dwc3 *dwc)
 { return 0; }
