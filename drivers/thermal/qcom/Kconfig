@@ -52,7 +52,7 @@ config QTI_BCL_PMIC5
 
 config QTI_BCL_SOC_DRIVER
 	tristate "QTI Battery state of charge sensor driver"
-	depends on THERMAL_OF && POWER_SUPPLY && QTI_THERMAL
+	depends on THERMAL && POWER_SUPPLY
 	help
 	  This driver registers battery state of charge as a sensor with
 	  thermal framework. This sensor can monitor for state of charge
@@ -93,7 +93,7 @@ config QTI_THERMAL_LIMITS_DCVS
 
 config QTI_CPU_VOLTAGE_COOLING_DEVICE
 	tristate "QTI CPU VOLTAGE cooling devices"
-	depends on CPU_FREQ && THERMAL_OF && QTI_THERMAL
+	depends on CPU_FREQ && THERMAL
 	help
 	    This enables the QTI CPU Voltage cooling devices. This cooling
 	    device will allow the CPUs with different frequency plan in a

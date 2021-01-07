@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 #define pr_fmt(fmt) "%s:%s " fmt, KBUILD_MODNAME, __func__
 
@@ -362,17 +362,6 @@ static struct platform_driver cc_cooling_driver = {
 	},
 };
 
-static void cc_cooling_exit(void)
-{
-	platform_driver_unregister(&cc_cooling_driver);
-}
-
-static int cc_cooling_init(void)
-{
-	return platform_driver_register(&cc_cooling_driver);
-}
-
-module_init(cc_cooling_init);
-module_exit(cc_cooling_exit);
+module_platform_driver(cc_cooling_driver);
 MODULE_DESCRIPTION("CPU Voltage cooling device driver");
 MODULE_LICENSE("GPL v2");

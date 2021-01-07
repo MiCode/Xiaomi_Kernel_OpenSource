@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "%s:%s " fmt, KBUILD_MODNAME, __func__
@@ -15,8 +15,6 @@
 #include <linux/mutex.h>
 #include <linux/power_supply.h>
 #include <linux/thermal.h>
-
-#include "../thermal_core.h"
 
 #define BCL_DRIVER_NAME       "bcl_soc_peripheral"
 
@@ -96,8 +94,8 @@ static void bcl_evaluate_soc(struct work_struct *work)
 
 	bcl_perph->trip_val = battery_depletion;
 	mutex_unlock(&bcl_perph->state_trans_lock);
-	of_thermal_handle_trip_temp(bcl_perph->dev,
-			bcl_perph->tz_dev, bcl_perph->trip_val);
+	thermal_zone_device_update(bcl_perph->tz_dev,
+				THERMAL_TRIP_VIOLATED);
 
 	return;
 eval_exit:
