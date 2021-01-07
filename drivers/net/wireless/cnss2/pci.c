@@ -2740,7 +2740,7 @@ int cnss_pci_unregister_driver_hdlr(struct cnss_pci_data *pci_priv)
 
 static bool cnss_pci_is_drv_supported(struct cnss_pci_data *pci_priv)
 {
-	struct pci_dev *root_port = pci_find_pcie_root_port(pci_priv->pci_dev);
+	struct pci_dev *root_port = pcie_find_root_port(pci_priv->pci_dev);
 	struct device_node *root_of_node;
 	bool drv_supported = false;
 
@@ -3975,7 +3975,7 @@ int cnss_smmu_map(struct device *dev,
 
 	if (!test_bit(DISABLE_IO_COHERENCY,
 		      &plat_priv->ctrl_params.quirks)) {
-		root_port = pci_find_pcie_root_port(pci_priv->pci_dev);
+		root_port = pcie_find_root_port(pci_priv->pci_dev);
 		if (!root_port) {
 			cnss_pr_err("Root port is null, so dma_coherent is disabled\n");
 		} else {
