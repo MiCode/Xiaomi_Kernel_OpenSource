@@ -455,7 +455,25 @@
 
 	trust_ui_vm_mem: trust_ui_vm_region@e0b00000 {
 		no-map;
-		reg = <0x0 0xe0b00000 0x0 0x7d00000>;
+		reg = <0x0 0xe0b00000 0x0 0x7afc000>;
+	};
+
+	trust_ui_vm_vblk0_ring: trust_ui_vm_vblk0_ring@e85fc000 {
+		no-map;
+		reg = <0x0 0xe85fc000 0x0 0x4000>;
+		haven-label = <0x10>;
+	};
+
+	trust_ui_vm_vblk1_ring: trust_ui_vm_vblk1_ring@e8600000 {
+		no-map;
+		reg = <0x0 0xe8600000 0x0 0x4000>;
+		haven-label = <0x11>;
+	};
+
+	trust_ui_vm_swiotlb: trust_ui_vm_swiotlb@e8604000 {
+		no-map;
+		reg = <0x0 0xe8604000 0x0 0x1fc000>;
+		haven-label = <0x12>;
 	};
 
 	tz_stat_mem: tz_stat_region@e8800000 {
@@ -2715,6 +2733,24 @@
 		qcom,hw-timer-hz = <19200000>;
 		qcom,count-unit = <0x10000>;
 		qcom,target-dev = <&qcom_ddr_dcvs_hw>;
+	};
+
+	trust_ui_vm: qcom,trust_ui_vm@e85fc000 {
+		reg = <0xe85fc000 0x204000>;
+		vm_name = "trustedvm";
+		shared-buffers = <&trust_ui_vm_vblk0_ring &trust_ui_vm_vblk1_ring &trust_ui_vm_swiotlb>;
+	};
+
+	qcom,virtio_backend@0 {
+		compatible = "qcom,virtio_backend";
+		qcom,vm = <&trust_ui_vm>;
+		qcom,label = <0x10>;
+	};
+
+	qcom,virtio_backend@1 {
+		compatible = "qcom,virtio_backend";
+		qcom,vm = <&trust_ui_vm>;
+		qcom,label = <0x11>;
 	};
 };
 
