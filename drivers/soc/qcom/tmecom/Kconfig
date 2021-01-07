@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# Shared Heap for external processors
+#
+config MSM_TMECOM_QMP
+	tristate "TMECom QMP interface for HWKM master"
+	select MSM_QMP
+	help
+        Set to enable TMECom interface over QTI Mailbox
+        Protocol (QMP) for HWKM master on MSM platform.

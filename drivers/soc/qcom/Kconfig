@@ -1037,4 +1037,5 @@ config QCOM_PANEL_EVENT_NOTIFIER
 
 source "drivers/soc/qcom/icnss2/Kconfig"
 source "drivers/soc/qcom/sync_fence/Kconfig"
+source "drivers/soc/qcom/tmecom/Kconfig"
 endmenu
