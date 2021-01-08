@@ -49,7 +49,7 @@
 	qcom,vdd-io-current-level = <200 22000>;
 
 	cap-sd-highspeed;
-	max-frequency = <50000000>;
+	max-frequency = <100000000>;
 
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&sdc2_on>;
