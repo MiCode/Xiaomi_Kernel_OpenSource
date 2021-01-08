@@ -24,6 +24,8 @@ allowed_warnings = set([
     "mprotect.c:42",
     "signal.c:95",
     "signal.c:51",
+    "bcache.h:354",
+    "bcache.h:355",
  ])
 
 # Capture the name of the object file, can find it.
