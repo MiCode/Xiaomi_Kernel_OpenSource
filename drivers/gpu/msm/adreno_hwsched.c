@@ -1191,25 +1191,45 @@ static struct cmd_list_obj *get_active_cmdobj(
 	struct adreno_device *adreno_dev)
 {
 	struct adreno_hwsched *hwsched = &adreno_dev->hwsched;
-	struct cmd_list_obj *obj, *tmp;
+	struct cmd_list_obj *obj, *tmp, *active_obj = NULL;
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	u32 consumed, retired;
+	u32 consumed = 0, retired = 0, prio = UINT_MAX;
+	struct kgsl_drawobj *drawobj = NULL;
 
 	list_for_each_entry_safe(obj, tmp, &hwsched->cmd_list, node) {
-		struct kgsl_drawobj *drawobj = DRAWOBJ(obj->cmdobj);
+		drawobj = DRAWOBJ(obj->cmdobj);
 
 		kgsl_readtimestamp(device, drawobj->context,
 			KGSL_TIMESTAMP_CONSUMED, &consumed);
 		kgsl_readtimestamp(device, drawobj->context,
 			KGSL_TIMESTAMP_RETIRED, &retired);
 
+		if (!consumed)
+			continue;
+
+		if (consumed == retired)
+			continue;
+
 		/* Find the first submission that started but didn't finish */
-		if (consumed && (consumed != retired) &&
-			(drawobj->timestamp == consumed)) {
-			if (kref_get_unless_zero(&drawobj->refcount)) {
-				set_bit(CMDOBJ_FAULT, &obj->cmdobj->priv);
-				return obj;
-			}
+		if (!active_obj) {
+			active_obj = obj;
+			prio = adreno_get_level(drawobj->context->priority);
+			continue;
+		}
+
+		/* Find the highest priority active submission */
+		if (adreno_get_level(drawobj->context->priority) < prio) {
+			active_obj = obj;
+			prio = adreno_get_level(drawobj->context->priority);
+		}
+	}
+
+	if (active_obj) {
+		drawobj = DRAWOBJ(active_obj->cmdobj);
+
+		if (kref_get_unless_zero(&drawobj->refcount)) {
+			set_bit(CMDOBJ_FAULT, &active_obj->cmdobj->priv);
+			return active_obj;
 		}
 	}
 
@@ -1380,8 +1400,9 @@ void adreno_hwsched_fault(struct adreno_device *adreno_dev,
 		u32 fault)
 {
 	struct adreno_hwsched *hwsched = &adreno_dev->hwsched;
+	u32 curr = atomic_read(&hwsched->fault);
 
-	atomic_set(&hwsched->fault, fault);
+	atomic_set(&hwsched->fault, curr | fault);
 
 	/* make sure fault is written before triggering dispatcher */
 	smp_wmb();
