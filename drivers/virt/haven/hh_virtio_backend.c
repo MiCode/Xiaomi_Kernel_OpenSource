@@ -171,11 +171,13 @@ irqfd_shutdown(struct work_struct *work)
 	vb_dev = container_of(irq, struct virtio_backend_device, irq);
 
 	spin_lock_irqsave(&vb_dev->lock, iflags);
-	eventfd_ctx_remove_wait_queue(irq->ctx, &irq->wait, &isr);
-	eventfd_ctx_put(irq->ctx);
-	fdput(irq->fd);
-	irq->ctx = NULL;
-	irq->fd.file = NULL;
+	if (irq->ctx) {
+		eventfd_ctx_remove_wait_queue(irq->ctx, &irq->wait, &isr);
+		eventfd_ctx_put(irq->ctx);
+		fdput(irq->fd);
+		irq->ctx = NULL;
+		irq->fd.file = NULL;
+	}
 	spin_unlock_irqrestore(&vb_dev->lock, iflags);
 }
 
