@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/of.h>
 #include <linux/slab.h>
 #include <linux/utsname.h>
+#include <soc/qcom/minidump.h>
 
 #include "adreno_cp_parser.h"
 #include "kgsl_device.h"
@@ -28,6 +29,23 @@ struct snapshot_obj_itr {
 	size_t remain;  /* Bytes remaining in buffer */
 	size_t write;   /* Bytes written so far */
 };
+
+static void add_to_minidump(struct kgsl_device *device)
+{
+	struct md_region md_entry;
+	int ret;
+
+	if (!msm_minidump_enabled())
+		return;
+
+	scnprintf(md_entry.name, sizeof(md_entry.name), "GPU_SNAPSHOT");
+	md_entry.virt_addr = (u64)(device->snapshot_memory.ptr);
+	md_entry.phys_addr = __pa(device->snapshot_memory.ptr);
+	md_entry.size = device->snapshot->size;
+	ret = msm_minidump_add_region(&md_entry);
+	if (ret < 0)
+		dev_err(device->dev, "Failed to register snapshot with minidump: %d\n", ret);
+}
 
 static void obj_itr_init(struct snapshot_obj_itr *itr, u8 *buf,
 	loff_t offset, size_t remain)
@@ -766,6 +784,8 @@ void kgsl_device_snapshot(struct kgsl_device *device,
 	pa = __pa(device->snapshot_memory.ptr);
 	dev_err(device->dev, "%s snapshot created at pa %pa++0x%zx\n",
 			gmu_fault ? "GMU" : "GPU", &pa, snapshot->size);
+
+	add_to_minidump(device);
 
 	if (device->skip_ib_capture)
 		BUG_ON(device->force_panic);
