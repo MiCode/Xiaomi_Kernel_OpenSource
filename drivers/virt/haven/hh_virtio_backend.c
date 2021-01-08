@@ -26,6 +26,7 @@
 #include <linux/uaccess.h>
 #include <linux/hh_virtio_backend.h>
 #include <linux/of_irq.h>
+#include <uapi/linux/virtio_mmio.h>
 #include <linux/haven/hcall.h>
 #include <linux/haven/hh_rm_drv.h>
 #include <linux/pgtable.h>
@@ -325,7 +326,7 @@ static long virtio_backend_ioctl(struct file *file, unsigned int cmd,
 	int ret = 0, i;
 	unsigned long flags;
 	u64 org_event, org_data;
-	u32 *p;
+	u32 *p, *ack_reg;
 
 	if (!vm)
 		return -EINVAL;
@@ -412,6 +413,7 @@ loop_back:
 		vb_dev->cur_event = 0;
 		vb_dev->cur_event_data = 0;
 		vb_dev->evt_avail = 0;
+		ack_reg = (u32 *)(vb_dev->config_shared_buf + VIRTIO_MMIO_INTERRUPT_ACK);
 
 		org_event = vb_dev->vdev_event;
 		org_data = vb_dev->vdev_event_data;
@@ -437,13 +439,16 @@ loop_back:
 			if (vb_dev->vdev_event) {
 				vb_dev->cur_event = vb_dev->vdev_event;
 				vb_dev->vdev_event = 0;
-				vb_dev->cur_event_data = 0;
+				vb_dev->cur_event_data = vb_dev->vdev_event_data;
 				vb_dev->vdev_event_data = 0;
+				if (vb_dev->cur_event & EVENT_INTERRUPT_ACK)
+					vb_dev->cur_event_data = readl_relaxed(ack_reg);
 			}
 		} else if (vb_dev->vdev_event & EVENT_INTERRUPT_ACK) {
 			vb_dev->vdev_event &= ~EVENT_INTERRUPT_ACK;
+			vb_dev->vdev_event_data = 0;
 			vb_dev->cur_event = EVENT_INTERRUPT_ACK;
-			vb_dev->cur_event_data = vb_dev->vdev_event_data;
+			vb_dev->cur_event_data = readl_relaxed(ack_reg);
 		}
 
 		spin_unlock_irqrestore(&vb_dev->lock, flags);
