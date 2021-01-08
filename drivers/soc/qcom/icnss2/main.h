@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, 2021, The Linux Foundation.
+ * All rights reserved.
  */
 
 #ifndef __MAIN_H__
@@ -419,6 +420,7 @@ struct icnss_priv {
 	bool is_ssr;
 	bool smmu_s1_enable;
 	struct kobject *icnss_kobject;
+	void *subsys;
 	atomic_t is_shutdown;
 	u32 qdss_mem_seg_len;
 	struct icnss_fw_mem qdss_mem[QMI_WLFW_MAX_NUM_MEM_SEG];

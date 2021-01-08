@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, 2021, The Linux Foundation.
+ * All rights reserved.
  */
 
 #define pr_fmt(fmt) "icnss2: " fmt
@@ -74,7 +75,7 @@
 #define WLFW_TIMEOUT			msecs_to_jiffies(3000)
 
 static struct icnss_priv *penv;
-
+static struct work_struct wpss_loader;
 uint64_t dynamic_feature_mask = ICNSS_DEFAULT_FEATURE_MASK;
 
 #define ICNSS_EVENT_PENDING			2989
@@ -3004,7 +3005,7 @@ static int icnss_create_shutdown_sysfs(struct icnss_priv *priv)
 
 	icnss_kobject = kobject_create_and_add("shutdown_wlan", kernel_kobj);
 	if (!icnss_kobject) {
-		icnss_pr_err("Unable to create kernel object");
+		icnss_pr_err("Unable to create shutdown_wlan kernel object");
 		return -EINVAL;
 	}
 
@@ -3080,16 +3081,60 @@ static ssize_t hw_trc_override_store(struct device *dev,
 	return count;
 }
 
+static void icnss_wpss_load(struct work_struct *wpss_load_work)
+{
+	struct icnss_priv *priv = icnss_get_plat_priv();
+
+	priv->subsys = subsystem_get("wpss");
+	if (IS_ERR(priv->subsys))
+		icnss_pr_err("Failed to load wpss subsys");
+}
+
+static inline void icnss_wpss_unload(struct icnss_priv *priv)
+{
+	if (priv->subsys) {
+		subsystem_put(priv->subsys);
+		priv->subsys = NULL;
+	}
+}
+
+static ssize_t wpss_boot_store(struct device *dev,
+			       struct device_attribute *attr,
+			       const char *buf, size_t count)
+{
+	struct icnss_priv *priv = dev_get_drvdata(dev);
+	int wpss_subsys = 0;
+
+	if (priv->device_id != WCN6750_DEVICE_ID)
+		return count;
+
+	if (sscanf(buf, "%du", &wpss_subsys) != 1) {
+		icnss_pr_err("Failed to read wpss_subsys info");
+		return -EINVAL;
+	}
+
+	icnss_pr_dbg("WPSS Subsystem: %s", wpss_subsys ? "GET" : "PUT");
+
+	if (wpss_subsys == 1)
+		schedule_work(&wpss_loader);
+	else if (wpss_subsys == 0)
+		icnss_wpss_unload(priv);
+
+	return count;
+}
+
 static DEVICE_ATTR_WO(qdss_tr_start);
 static DEVICE_ATTR_WO(qdss_tr_stop);
 static DEVICE_ATTR_WO(qdss_conf_download);
 static DEVICE_ATTR_WO(hw_trc_override);
+static DEVICE_ATTR_WO(wpss_boot);
 
 static struct attribute *icnss_attrs[] = {
 	&dev_attr_qdss_tr_start.attr,
 	&dev_attr_qdss_tr_stop.attr,
 	&dev_attr_qdss_conf_download.attr,
 	&dev_attr_hw_trc_override.attr,
+	&dev_attr_wpss_boot.attr,
 	NULL,
 };
 
@@ -3642,6 +3687,7 @@ static int icnss_probe(struct platform_device *pdev)
 		icnss_get_cpr_info(priv);
 		icnss_get_smp2p_info(priv);
 		set_bit(ICNSS_COLD_BOOT_CAL, &priv->state);
+		INIT_WORK(&wpss_loader, icnss_wpss_load);
 	}
 
 	INIT_LIST_HEAD(&priv->icnss_tcdev_list);
