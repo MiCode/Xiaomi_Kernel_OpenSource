@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2011-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/debugfs.h>
@@ -39,6 +39,7 @@ struct subsystem_data {
 
 static struct subsystem_data subsystems[] = {
 	{ "modem", 605, 1 },
+	{ "wpss", 605, 13 },
 	{ "adsp", 606, 2 },
 	{ "adsp_island", 613, 2 },
 	{ "cdsp", 607, 5 },
