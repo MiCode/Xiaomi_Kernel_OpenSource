@@ -2132,51 +2132,6 @@ static int dbm_ep_config(struct dwc3_msm *mdwc, u8 usb_ep, u8 bam_pipe,
 }
 
 /**
- * usb_ep_autoconfig_by_name - Used to pick the endpoint by name. eg gsi-epin1
- * @gadget: The device to which the endpoint must belong.
- * @desc: Endpoint descriptor, with endpoint direction and transfer mode
- *	initialized.
- * @ep_name: EP name that is to be searched.
- *
- */
-struct usb_ep *usb_ep_autoconfig_by_name(
-			struct usb_gadget		*gadget,
-			struct usb_endpoint_descriptor	*desc,
-			const char			*ep_name
-)
-{
-	struct usb_ep *ep;
-	struct dwc3_ep *dep;
-	bool ep_found = false;
-
-	if (!ep_name || !strlen(ep_name))
-		goto err;
-
-	list_for_each_entry(ep, &gadget->ep_list, ep_list)
-		if (strncmp(ep->name, ep_name, strlen(ep_name)) == 0 &&
-				!ep->driver_data) {
-			ep_found = true;
-			break;
-		}
-
-	if (ep_found) {
-		dep = to_dwc3_ep(ep);
-		desc->bEndpointAddress &= USB_DIR_IN;
-		desc->bEndpointAddress |= dep->number >> 1;
-		ep->address = desc->bEndpointAddress;
-		pr_debug("Allocating ep address:%x\n", ep->address);
-		ep->desc = NULL;
-		ep->comp_desc = NULL;
-		return ep;
-	}
-
-err:
-	pr_err("%s:error finding ep %s\n", __func__, ep_name);
-	return NULL;
-}
-EXPORT_SYMBOL(usb_ep_autoconfig_by_name);
-
-/**
  * Configure MSM endpoint.
  * This function do specific configurations
  * to an endpoint which need specific implementaion

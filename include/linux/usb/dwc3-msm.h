@@ -117,8 +117,6 @@ struct gsi_channel_info {
 };
 
 #if IS_ENABLED(CONFIG_USB_DWC3_MSM)
-struct usb_ep *usb_ep_autoconfig_by_name(struct usb_gadget *gadget,
-		struct usb_endpoint_descriptor *desc, const char *ep_name);
 int usb_gsi_ep_op(struct usb_ep *ep, void *op_data, enum gsi_ep_op op);
 int msm_ep_config(struct usb_ep *ep, struct usb_request *request, u32 bam_opts);
 int msm_ep_unconfig(struct usb_ep *ep);
@@ -133,10 +131,6 @@ int msm_ep_set_mode(struct usb_ep *ep, enum usb_hw_ep_mode mode);
 int dwc3_msm_kretprobe_init(void);
 void dwc3_msm_kretprobe_exit(void);
 #else
-static inline struct usb_ep *usb_ep_autoconfig_by_name(
-		struct usb_gadget *gadget, struct usb_endpoint_descriptor *desc,
-		const char *ep_name)
-{ return NULL; }
 static inline int usb_gsi_ep_op(struct usb_ep *ep, void *op_data,
 		enum gsi_ep_op op)
 { return 0; }
