@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _DT_BINDINGS_CLK_QCOM_CAM_CC_WAIPIO_H
@@ -117,18 +117,21 @@
 #define CAM_CC_PLL7_OUT_EVEN					107
 #define CAM_CC_PLL8						108
 #define CAM_CC_PLL8_OUT_EVEN					109
-#define CAM_CC_SBI_AHB_CLK					110
-#define CAM_CC_SBI_CLK						111
-#define CAM_CC_SFE_0_CLK					112
-#define CAM_CC_SFE_0_CLK_SRC					113
-#define CAM_CC_SFE_0_FAST_AHB_CLK				114
-#define CAM_CC_SFE_1_CLK					115
-#define CAM_CC_SFE_1_CLK_SRC					116
-#define CAM_CC_SFE_1_FAST_AHB_CLK				117
-#define CAM_CC_SLEEP_CLK					118
-#define CAM_CC_SLEEP_CLK_SRC					119
-#define CAM_CC_SLOW_AHB_CLK_SRC					120
-#define CAM_CC_XO_CLK_SRC					121
+#define CAM_CC_QDSS_DEBUG_CLK					110
+#define CAM_CC_QDSS_DEBUG_CLK_SRC				111
+#define CAM_CC_QDSS_DEBUG_XO_CLK				112
+#define CAM_CC_SBI_AHB_CLK					113
+#define CAM_CC_SBI_CLK						114
+#define CAM_CC_SFE_0_CLK					115
+#define CAM_CC_SFE_0_CLK_SRC					116
+#define CAM_CC_SFE_0_FAST_AHB_CLK				117
+#define CAM_CC_SFE_1_CLK					118
+#define CAM_CC_SFE_1_CLK_SRC					119
+#define CAM_CC_SFE_1_FAST_AHB_CLK				120
+#define CAM_CC_SLEEP_CLK					121
+#define CAM_CC_SLEEP_CLK_SRC					122
+#define CAM_CC_SLOW_AHB_CLK_SRC					123
+#define CAM_CC_XO_CLK_SRC					124
 
 /* CAM_CC resets */
 #define CAM_CC_BPS_BCR						0
@@ -137,8 +140,9 @@
 #define CAM_CC_IFE_1_BCR					3
 #define CAM_CC_IFE_2_BCR					4
 #define CAM_CC_IPE_0_BCR					5
-#define CAM_CC_SBI_BCR						6
-#define CAM_CC_SFE_0_BCR					7
-#define CAM_CC_SFE_1_BCR					8
+#define CAM_CC_QDSS_DEBUG_BCR					6
+#define CAM_CC_SBI_BCR						7
+#define CAM_CC_SFE_0_BCR					8
+#define CAM_CC_SFE_1_BCR					9
 
 #endif
