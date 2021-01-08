@@ -1469,7 +1469,7 @@
 			 <&clock_gcc GCC_VIDEO_AHB_CLK>;
 		clock-names = "bi_tcxo",
 			      "sleep_clk",
-			      "cfg_ahb_clk";
+			      "iface";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -1486,7 +1486,7 @@
 			 <&clock_gcc GCC_CAMERA_AHB_CLK>;
 		clock-names = "bi_tcxo",
 			      "sleep_clk",
-			      "cfg_ahb_clk";
+			      "iface";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -1502,7 +1502,7 @@
 			 <&clock_gcc GCC_VIDEO_AHB_CLK>;
 		clock-names = "bi_tcxo",
 			      "sleep_clk",
-			      "cfg_ahb_clk";
+			      "iface";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
