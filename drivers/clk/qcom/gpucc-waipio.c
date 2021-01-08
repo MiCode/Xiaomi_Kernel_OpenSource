@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -53,12 +53,12 @@ static struct pll_vco lucid_evo_vco[] = {
 };
 
 static const struct alpha_pll_config gpu_cc_pll0_config = {
-	.l = 0x24,
+	.l = 0x1E,
 	.cal_l = 0x44,
-	.alpha = 0x7555,
+	.alpha = 0xF000,
 	.config_ctl_val = 0x20485699,
-	.config_ctl_hi_val = 0x00002261,
-	.config_ctl_hi1_val = 0x02AA699C,
+	.config_ctl_hi_val = 0x00182261,
+	.config_ctl_hi1_val = 0x32AA299C,
 	.user_ctl_val = 0x00000000,
 	.user_ctl_hi_val = 0x00000805,
 };
@@ -73,7 +73,6 @@ static struct clk_alpha_pll gpu_cc_pll0 = {
 			.name = "gpu_cc_pll0",
 			.parent_data = &(const struct clk_parent_data){
 				.fw_name = "bi_tcxo",
-				.name = "bi_tcxo",
 			},
 			.num_parents = 1,
 			.ops = &clk_alpha_pll_lucid_evo_ops,
@@ -82,6 +81,7 @@ static struct clk_alpha_pll gpu_cc_pll0 = {
 			.vdd_class = &vdd_mxc,
 			.num_rate_max = VDD_NUM,
 			.rate_max = (unsigned long[VDD_NUM]) {
+				[VDD_LOWER_D1] = 500000000,
 				[VDD_LOWER] = 615000000,
 				[VDD_LOW] = 1066000000,
 				[VDD_LOW_L1] = 1500000000,
@@ -92,12 +92,12 @@ static struct clk_alpha_pll gpu_cc_pll0 = {
 };
 
 static const struct alpha_pll_config gpu_cc_pll1_config = {
-	.l = 0x1A,
+	.l = 0x34,
 	.cal_l = 0x44,
-	.alpha = 0xAAA,
+	.alpha = 0x1555,
 	.config_ctl_val = 0x20485699,
-	.config_ctl_hi_val = 0x00002261,
-	.config_ctl_hi1_val = 0x02AA699C,
+	.config_ctl_hi_val = 0x00182261,
+	.config_ctl_hi1_val = 0x32AA299C,
 	.user_ctl_val = 0x00000000,
 	.user_ctl_hi_val = 0x00000805,
 };
@@ -112,7 +112,6 @@ static struct clk_alpha_pll gpu_cc_pll1 = {
 			.name = "gpu_cc_pll1",
 			.parent_data = &(const struct clk_parent_data){
 				.fw_name = "bi_tcxo",
-				.name = "bi_tcxo",
 			},
 			.num_parents = 1,
 			.ops = &clk_alpha_pll_lucid_evo_ops,
@@ -121,6 +120,7 @@ static struct clk_alpha_pll gpu_cc_pll1 = {
 			.vdd_class = &vdd_mx,
 			.num_rate_max = VDD_NUM,
 			.rate_max = (unsigned long[VDD_NUM]) {
+				[VDD_LOWER_D1] = 500000000,
 				[VDD_LOWER] = 615000000,
 				[VDD_LOW] = 1066000000,
 				[VDD_LOW_L1] = 1500000000,
@@ -137,9 +137,9 @@ static const struct parent_map gpu_cc_parent_map_0[] = {
 };
 
 static const struct clk_parent_data gpu_cc_parent_data_0[] = {
-	{ .fw_name = "bi_tcxo"},
-	{ .fw_name = "gpll0_out_main"},
-	{ .fw_name = "gpll0_out_main_div"},
+	{ .fw_name = "bi_tcxo" },
+	{ .fw_name = "gpll0_out_main" },
+	{ .fw_name = "gpll0_out_main_div" },
 };
 
 static const struct parent_map gpu_cc_parent_map_1[] = {
@@ -151,11 +151,11 @@ static const struct parent_map gpu_cc_parent_map_1[] = {
 };
 
 static const struct clk_parent_data gpu_cc_parent_data_1[] = {
-	{ .fw_name = "bi_tcxo"},
+	{ .fw_name = "bi_tcxo" },
 	{ .hw = &gpu_cc_pll0.clkr.hw },
 	{ .hw = &gpu_cc_pll1.clkr.hw },
-	{ .fw_name = "gpll0_out_main"},
-	{ .fw_name = "gpll0_out_main_div"},
+	{ .fw_name = "gpll0_out_main" },
+	{ .fw_name = "gpll0_out_main_div" },
 };
 
 static const struct parent_map gpu_cc_parent_map_2[] = {
@@ -166,10 +166,10 @@ static const struct parent_map gpu_cc_parent_map_2[] = {
 };
 
 static const struct clk_parent_data gpu_cc_parent_data_2[] = {
-	{ .fw_name = "bi_tcxo"},
+	{ .fw_name = "bi_tcxo" },
 	{ .hw = &gpu_cc_pll1.clkr.hw },
-	{ .fw_name = "gpll0_out_main"},
-	{ .fw_name = "gpll0_out_main_div"},
+	{ .fw_name = "gpll0_out_main" },
+	{ .fw_name = "gpll0_out_main_div" },
 };
 
 static const struct parent_map gpu_cc_parent_map_3[] = {
@@ -177,7 +177,7 @@ static const struct parent_map gpu_cc_parent_map_3[] = {
 };
 
 static const struct clk_parent_data gpu_cc_parent_data_3[] = {
-	{ .fw_name = "bi_tcxo"},
+	{ .fw_name = "bi_tcxo" },
 };
 
 static const struct freq_tbl ftbl_gpu_cc_ff_clk_src[] = {
@@ -204,14 +204,14 @@ static struct clk_rcg2 gpu_cc_ff_clk_src = {
 		.vdd_class = &vdd_cx,
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_LOWER] = 200000000},
+			[VDD_LOWER_D1] = 200000000},
 	},
 };
 
 static const struct freq_tbl ftbl_gpu_cc_gmu_clk_src[] = {
 	F(19200000, P_BI_TCXO, 1, 0, 0),
 	F(200000000, P_GPLL0_OUT_MAIN_DIV, 1.5, 0, 0),
-	F(500000000, P_GPU_CC_PLL1_OUT_MAIN, 1, 0, 0),
+	F(500000000, P_GPU_CC_PLL1_OUT_MAIN, 2, 0, 0),
 	{ }
 };
 
@@ -235,7 +235,7 @@ static struct clk_rcg2 gpu_cc_gmu_clk_src = {
 		.num_vdd_classes = ARRAY_SIZE(gpu_cc_waipio_regulators_1),
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_LOWER] = 200000000,
+			[VDD_LOWER_D1] = 200000000,
 			[VDD_LOW] = 500000000},
 	},
 };
@@ -266,7 +266,7 @@ static struct clk_rcg2 gpu_cc_hub_clk_src = {
 		.vdd_class = &vdd_cx,
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_LOWER] = 150000000,
+			[VDD_LOWER_D1] = 150000000,
 			[VDD_LOW] = 240000000,
 			[VDD_NOMINAL] = 300000000},
 	},
@@ -291,7 +291,7 @@ static struct clk_rcg2 gpu_cc_xo_clk_src = {
 		.vdd_class = &vdd_cx,
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_LOWER] = 19200000},
+			[VDD_LOWER_D1] = 19200000},
 	},
 };
 

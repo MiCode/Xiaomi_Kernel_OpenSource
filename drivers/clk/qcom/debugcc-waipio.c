@@ -40,8 +40,8 @@ static int apss_cc_debug_mux_sels[] = {
 };
 
 static int apss_cc_debug_mux_pre_divs[] = {
-	0x4,		/* measure_only_apcs_gold_post_acd_clk */
-	0x4,		/* measure_only_apcs_goldplus_post_acd_clk */
+	0x8,		/* measure_only_apcs_gold_post_acd_clk */
+	0x8,		/* measure_only_apcs_goldplus_post_acd_clk */
 	0x4,		/* measure_only_apcs_l3_post_acd_clk */
 	0x4,		/* measure_only_apcs_silver_post_acd_clk */
 };
@@ -374,8 +374,6 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"gcc_camera_xo_clk",
 	"gcc_cfg_noc_pcie_anoc_ahb_clk",
 	"gcc_cfg_noc_usb3_prim_axi_clk",
-	"gcc_cpuss_ahb_clk",
-	"gcc_cpuss_config_noc_sf_clk",
 	"gcc_ddrss_gpu_axi_clk",
 	"gcc_ddrss_pcie_sf_tbu_clk",
 	"gcc_disp_ahb_clk",
@@ -457,7 +455,6 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"gcc_sdcc4_ahb_clk",
 	"gcc_sdcc4_apps_clk",
 	"gcc_sdcc4_at_clk",
-	"gcc_sys_noc_cpuss_ahb_clk",
 	"gcc_ufs_phy_ahb_clk",
 	"gcc_ufs_phy_axi_clk",
 	"gcc_ufs_phy_ice_core_clk",
@@ -506,8 +503,6 @@ static int gcc_debug_mux_sels[] = {
 	0x6A,		/* gcc_camera_xo_clk */
 	0x2D,		/* gcc_cfg_noc_pcie_anoc_ahb_clk */
 	0x20,		/* gcc_cfg_noc_usb3_prim_axi_clk */
-	0x111,		/* gcc_cpuss_ahb_clk */
-	0x114,		/* gcc_cpuss_config_noc_sf_clk */
 	0xF5,		/* gcc_ddrss_gpu_axi_clk */
 	0xF6,		/* gcc_ddrss_pcie_sf_tbu_clk */
 	0x6C,		/* gcc_disp_ahb_clk */
@@ -589,7 +584,6 @@ static int gcc_debug_mux_sels[] = {
 	0xA5,		/* gcc_sdcc4_ahb_clk */
 	0xA4,		/* gcc_sdcc4_apps_clk */
 	0xA6,		/* gcc_sdcc4_at_clk */
-	0x8,		/* gcc_sys_noc_cpuss_ahb_clk */
 	0x13B,		/* gcc_ufs_phy_ahb_clk */
 	0x13A,		/* gcc_ufs_phy_axi_clk */
 	0x141,		/* gcc_ufs_phy_ice_core_clk */

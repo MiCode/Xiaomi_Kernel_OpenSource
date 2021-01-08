@@ -65,8 +65,8 @@ static const struct alpha_pll_config disp_cc_pll0_config = {
 	.cal_l = 0x44,
 	.alpha = 0x6492,
 	.config_ctl_val = 0x20485699,
-	.config_ctl_hi_val = 0x00002261,
-	.config_ctl_hi1_val = 0x02AA699C,
+	.config_ctl_hi_val = 0x00182261,
+	.config_ctl_hi1_val = 0x32AA299C,
 	.user_ctl_val = 0x00000000,
 	.user_ctl_hi_val = 0x00000805,
 };
@@ -90,6 +90,7 @@ static struct clk_alpha_pll disp_cc_pll0 = {
 			.vdd_class = &vdd_mm,
 			.num_rate_max = VDD_NUM,
 			.rate_max = (unsigned long[VDD_NUM]) {
+				[VDD_LOWER_D1] = 500000000,
 				[VDD_LOWER] = 615000000,
 				[VDD_LOW] = 1066000000,
 				[VDD_LOW_L1] = 1500000000,
@@ -104,8 +105,8 @@ static const struct alpha_pll_config disp_cc_pll1_config = {
 	.cal_l = 0x44,
 	.alpha = 0x4000,
 	.config_ctl_val = 0x20485699,
-	.config_ctl_hi_val = 0x00002261,
-	.config_ctl_hi1_val = 0x02AA699C,
+	.config_ctl_hi_val = 0x00182261,
+	.config_ctl_hi1_val = 0x32AA299C,
 	.user_ctl_val = 0x00000000,
 	.user_ctl_hi_val = 0x00000805,
 };
@@ -129,6 +130,7 @@ static struct clk_alpha_pll disp_cc_pll1 = {
 			.vdd_class = &vdd_mm,
 			.num_rate_max = VDD_NUM,
 			.rate_max = (unsigned long[VDD_NUM]) {
+				[VDD_LOWER_D1] = 500000000,
 				[VDD_LOWER] = 615000000,
 				[VDD_LOW] = 1066000000,
 				[VDD_LOW_L1] = 1500000000,
@@ -150,14 +152,10 @@ static const struct parent_map disp_cc_parent_map_0[] = {
 static const struct clk_parent_data disp_cc_parent_data_0[] = {
 	{ .fw_name = "bi_tcxo", .name = "bi_tcxo" },
 	{ .fw_name = "dp0_phy_pll_link_clk", .name = "dp0_phy_pll_link_clk" },
-	{ .fw_name = "dp0_phy_pll_vco_div_clk", .name =
-		"dp0_phy_pll_vco_div_clk" },
-	{ .fw_name = "dp3_phy_pll_vco_div_clk", .name =
-		"dp3_phy_pll_vco_div_clk" },
-	{ .fw_name = "dp1_phy_pll_vco_div_clk", .name =
-		"dp1_phy_pll_vco_div_clk" },
-	{ .fw_name = "dp2_phy_pll_vco_div_clk", .name =
-		"dp2_phy_pll_vco_div_clk" },
+	{ .fw_name = "dp0_phy_pll_vco_div_clk", .name = "dp0_phy_pll_vco_div_clk" },
+	{ .fw_name = "dp3_phy_pll_vco_div_clk", .name = "dp3_phy_pll_vco_div_clk" },
+	{ .fw_name = "dp1_phy_pll_vco_div_clk", .name = "dp1_phy_pll_vco_div_clk" },
+	{ .fw_name = "dp2_phy_pll_vco_div_clk", .name = "dp2_phy_pll_vco_div_clk" },
 };
 
 static const struct parent_map disp_cc_parent_map_1[] = {
@@ -182,14 +180,10 @@ static const struct parent_map disp_cc_parent_map_2[] = {
 
 static const struct clk_parent_data disp_cc_parent_data_2[] = {
 	{ .fw_name = "bi_tcxo", .name = "bi_tcxo" },
-	{ .fw_name = "dsi0_phy_pll_out_dsiclk", .name =
-		"dsi0_phy_pll_out_dsiclk" },
-	{ .fw_name = "dsi0_phy_pll_out_byteclk", .name =
-		"dsi0_phy_pll_out_byteclk" },
-	{ .fw_name = "dsi1_phy_pll_out_dsiclk", .name =
-		"dsi1_phy_pll_out_dsiclk" },
-	{ .fw_name = "dsi1_phy_pll_out_byteclk", .name =
-		"dsi1_phy_pll_out_byteclk" },
+	{ .fw_name = "dsi0_phy_pll_out_dsiclk", .name = "dsi0_phy_pll_out_dsiclk" },
+	{ .fw_name = "dsi0_phy_pll_out_byteclk", .name = "dsi0_phy_pll_out_byteclk" },
+	{ .fw_name = "dsi1_phy_pll_out_dsiclk", .name = "dsi1_phy_pll_out_dsiclk" },
+	{ .fw_name = "dsi1_phy_pll_out_byteclk", .name = "dsi1_phy_pll_out_byteclk" },
 };
 
 static const struct parent_map disp_cc_parent_map_3[] = {
@@ -216,10 +210,8 @@ static const struct parent_map disp_cc_parent_map_4[] = {
 
 static const struct clk_parent_data disp_cc_parent_data_4[] = {
 	{ .fw_name = "bi_tcxo", .name = "bi_tcxo" },
-	{ .fw_name = "dsi0_phy_pll_out_byteclk", .name =
-		"dsi0_phy_pll_out_byteclk" },
-	{ .fw_name = "dsi1_phy_pll_out_byteclk", .name =
-		"dsi1_phy_pll_out_byteclk" },
+	{ .fw_name = "dsi0_phy_pll_out_byteclk", .name = "dsi0_phy_pll_out_byteclk" },
+	{ .fw_name = "dsi1_phy_pll_out_byteclk", .name = "dsi1_phy_pll_out_byteclk" },
 };
 
 static const struct parent_map disp_cc_parent_map_5[] = {
@@ -387,7 +379,7 @@ static struct clk_rcg2 disp_cc_mdss_dptx0_link_clk_src = {
 		.vdd_class = &vdd_mm,
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_LOWER_D1] = 192000,
+			[VDD_LOWER_D1] = 19200,
 			[VDD_LOWER] = 270000,
 			[VDD_LOW_L1] = 540000,
 			[VDD_NOMINAL] = 810000},
@@ -480,7 +472,7 @@ static struct clk_rcg2 disp_cc_mdss_dptx1_link_clk_src = {
 		.vdd_class = &vdd_mm,
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_LOWER_D1] = 192000,
+			[VDD_LOWER_D1] = 19200,
 			[VDD_LOWER] = 270000,
 			[VDD_LOW_L1] = 540000,
 			[VDD_NOMINAL] = 810000},
@@ -666,7 +658,7 @@ static struct clk_rcg2 disp_cc_mdss_dptx3_link_clk_src = {
 		.vdd_class = &vdd_mm,
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_LOWER_D1] = 192000,
+			[VDD_LOWER_D1] = 19200,
 			[VDD_LOWER] = 270000,
 			[VDD_LOW] = 594000,
 			[VDD_NOMINAL] = 810000},
@@ -744,6 +736,7 @@ static const struct freq_tbl ftbl_disp_cc_mdss_mdp_clk_src[] = {
 	F(85714286, P_DISP_CC_PLL0_OUT_MAIN, 3, 0, 0),
 	F(100000000, P_DISP_CC_PLL0_OUT_MAIN, 3, 0, 0),
 	F(150000000, P_DISP_CC_PLL0_OUT_MAIN, 3, 0, 0),
+	F(172000000, P_DISP_CC_PLL0_OUT_MAIN, 3, 0, 0),
 	F(200000000, P_DISP_CC_PLL0_OUT_MAIN, 3, 0, 0),
 	F(325000000, P_DISP_CC_PLL0_OUT_MAIN, 3, 0, 0),
 	F(375000000, P_DISP_CC_PLL0_OUT_MAIN, 3, 0, 0),
@@ -829,6 +822,7 @@ static struct clk_rcg2 disp_cc_mdss_pclk1_clk_src = {
 
 static const struct freq_tbl ftbl_disp_cc_mdss_rot_clk_src[] = {
 	F(19200000, P_BI_TCXO, 1, 0, 0),
+	F(150000000, P_DISP_CC_PLL1_OUT_MAIN, 4, 0, 0),
 	F(200000000, P_DISP_CC_PLL1_OUT_MAIN, 3, 0, 0),
 	F(300000000, P_DISP_CC_PLL1_OUT_MAIN, 2, 0, 0),
 	{ }
@@ -854,7 +848,7 @@ static struct clk_rcg2 disp_cc_mdss_rot_clk_src = {
 		.num_vdd_classes = ARRAY_SIZE(disp_cc_waipio_regulators),
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_LOWER_D1] = 171428571,
+			[VDD_LOWER_D1] = 150000000,
 			[VDD_LOWER] = 200000000,
 			[VDD_LOW] = 300000000},
 	},
@@ -1024,7 +1018,7 @@ static struct clk_branch disp_cc_mdss_ahb1_clk = {
 				.hw = &disp_cc_mdss_ahb_clk_src.clkr.hw,
 			},
 			.num_parents = 1,
-			.flags = CLK_SET_RATE_PARENT | CLK_DONT_HOLD_STATE,
+			.flags = CLK_DONT_HOLD_STATE | CLK_SET_RATE_PARENT,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -1042,7 +1036,7 @@ static struct clk_branch disp_cc_mdss_ahb_clk = {
 				.hw = &disp_cc_mdss_ahb_clk_src.clkr.hw,
 			},
 			.num_parents = 1,
-			.flags = CLK_SET_RATE_PARENT | CLK_DONT_HOLD_STATE,
+			.flags = CLK_DONT_HOLD_STATE | CLK_SET_RATE_PARENT,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -1183,8 +1177,7 @@ static struct clk_branch disp_cc_mdss_dptx0_link_intf_clk = {
 		.hw.init = &(struct clk_init_data){
 			.name = "disp_cc_mdss_dptx0_link_intf_clk",
 			.parent_data = &(const struct clk_parent_data){
-				.hw =
-					&disp_cc_mdss_dptx0_link_div_clk_src.clkr.hw,
+				.hw = &disp_cc_mdss_dptx0_link_div_clk_src.clkr.hw,
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
@@ -1202,8 +1195,7 @@ static struct clk_branch disp_cc_mdss_dptx0_pixel0_clk = {
 		.hw.init = &(struct clk_init_data){
 			.name = "disp_cc_mdss_dptx0_pixel0_clk",
 			.parent_data = &(const struct clk_parent_data){
-				.hw =
-				&disp_cc_mdss_dptx0_pixel0_clk_src.clkr.hw,
+				.hw = &disp_cc_mdss_dptx0_pixel0_clk_src.clkr.hw,
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
@@ -1221,8 +1213,7 @@ static struct clk_branch disp_cc_mdss_dptx0_pixel1_clk = {
 		.hw.init = &(struct clk_init_data){
 			.name = "disp_cc_mdss_dptx0_pixel1_clk",
 			.parent_data = &(const struct clk_parent_data){
-				.hw =
-				&disp_cc_mdss_dptx0_pixel1_clk_src.clkr.hw,
+				.hw = &disp_cc_mdss_dptx0_pixel1_clk_src.clkr.hw,
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
@@ -1240,8 +1231,7 @@ static struct clk_branch disp_cc_mdss_dptx0_usb_router_link_intf_clk = {
 		.hw.init = &(struct clk_init_data){
 			.name = "disp_cc_mdss_dptx0_usb_router_link_intf_clk",
 			.parent_data = &(const struct clk_parent_data){
-				.hw =
-					&disp_cc_mdss_dptx0_link_div_clk_src.clkr.hw,
+				.hw = &disp_cc_mdss_dptx0_link_div_clk_src.clkr.hw,
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
@@ -1313,8 +1303,7 @@ static struct clk_branch disp_cc_mdss_dptx1_link_intf_clk = {
 		.hw.init = &(struct clk_init_data){
 			.name = "disp_cc_mdss_dptx1_link_intf_clk",
 			.parent_data = &(const struct clk_parent_data){
-				.hw =
-					&disp_cc_mdss_dptx1_link_div_clk_src.clkr.hw,
+				.hw = &disp_cc_mdss_dptx1_link_div_clk_src.clkr.hw,
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
@@ -1332,8 +1321,7 @@ static struct clk_branch disp_cc_mdss_dptx1_pixel0_clk = {
 		.hw.init = &(struct clk_init_data){
 			.name = "disp_cc_mdss_dptx1_pixel0_clk",
 			.parent_data = &(const struct clk_parent_data){
-				.hw =
-				&disp_cc_mdss_dptx1_pixel0_clk_src.clkr.hw,
+				.hw = &disp_cc_mdss_dptx1_pixel0_clk_src.clkr.hw,
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
@@ -1351,8 +1339,7 @@ static struct clk_branch disp_cc_mdss_dptx1_pixel1_clk = {
 		.hw.init = &(struct clk_init_data){
 			.name = "disp_cc_mdss_dptx1_pixel1_clk",
 			.parent_data = &(const struct clk_parent_data){
-				.hw =
-				&disp_cc_mdss_dptx1_pixel1_clk_src.clkr.hw,
+				.hw = &disp_cc_mdss_dptx1_pixel1_clk_src.clkr.hw,
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
@@ -1370,8 +1357,7 @@ static struct clk_branch disp_cc_mdss_dptx1_usb_router_link_intf_clk = {
 		.hw.init = &(struct clk_init_data){
 			.name = "disp_cc_mdss_dptx1_usb_router_link_intf_clk",
 			.parent_data = &(const struct clk_parent_data){
-				.hw =
-					&disp_cc_mdss_dptx0_link_div_clk_src.clkr.hw,
+				.hw = &disp_cc_mdss_dptx0_link_div_clk_src.clkr.hw,
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
@@ -1443,8 +1429,7 @@ static struct clk_branch disp_cc_mdss_dptx2_link_intf_clk = {
 		.hw.init = &(struct clk_init_data){
 			.name = "disp_cc_mdss_dptx2_link_intf_clk",
 			.parent_data = &(const struct clk_parent_data){
-				.hw =
-					&disp_cc_mdss_dptx2_link_div_clk_src.clkr.hw,
+				.hw = &disp_cc_mdss_dptx2_link_div_clk_src.clkr.hw,
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
@@ -1462,8 +1447,7 @@ static struct clk_branch disp_cc_mdss_dptx2_pixel0_clk = {
 		.hw.init = &(struct clk_init_data){
 			.name = "disp_cc_mdss_dptx2_pixel0_clk",
 			.parent_data = &(const struct clk_parent_data){
-				.hw =
-				&disp_cc_mdss_dptx2_pixel0_clk_src.clkr.hw,
+				.hw = &disp_cc_mdss_dptx2_pixel0_clk_src.clkr.hw,
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
@@ -1481,8 +1465,7 @@ static struct clk_branch disp_cc_mdss_dptx2_pixel1_clk = {
 		.hw.init = &(struct clk_init_data){
 			.name = "disp_cc_mdss_dptx2_pixel1_clk",
 			.parent_data = &(const struct clk_parent_data){
-				.hw =
-				&disp_cc_mdss_dptx2_pixel1_clk_src.clkr.hw,
+				.hw = &disp_cc_mdss_dptx2_pixel1_clk_src.clkr.hw,
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
@@ -1554,8 +1537,7 @@ static struct clk_branch disp_cc_mdss_dptx3_link_intf_clk = {
 		.hw.init = &(struct clk_init_data){
 			.name = "disp_cc_mdss_dptx3_link_intf_clk",
 			.parent_data = &(const struct clk_parent_data){
-				.hw =
-					&disp_cc_mdss_dptx3_link_div_clk_src.clkr.hw,
+				.hw = &disp_cc_mdss_dptx3_link_div_clk_src.clkr.hw,
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
@@ -1573,8 +1555,7 @@ static struct clk_branch disp_cc_mdss_dptx3_pixel0_clk = {
 		.hw.init = &(struct clk_init_data){
 			.name = "disp_cc_mdss_dptx3_pixel0_clk",
 			.parent_data = &(const struct clk_parent_data){
-				.hw =
-				&disp_cc_mdss_dptx3_pixel0_clk_src.clkr.hw,
+				.hw = &disp_cc_mdss_dptx3_pixel0_clk_src.clkr.hw,
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
@@ -1887,67 +1868,48 @@ static struct clk_regmap *disp_cc_waipio_clocks[] = {
 	[DISP_CC_MDSS_DPTX0_AUX_CLK_SRC] = &disp_cc_mdss_dptx0_aux_clk_src.clkr,
 	[DISP_CC_MDSS_DPTX0_CRYPTO_CLK] = &disp_cc_mdss_dptx0_crypto_clk.clkr,
 	[DISP_CC_MDSS_DPTX0_LINK_CLK] = &disp_cc_mdss_dptx0_link_clk.clkr,
-	[DISP_CC_MDSS_DPTX0_LINK_CLK_SRC] =
-		&disp_cc_mdss_dptx0_link_clk_src.clkr,
-	[DISP_CC_MDSS_DPTX0_LINK_DIV_CLK_SRC] =
-		&disp_cc_mdss_dptx0_link_div_clk_src.clkr,
-	[DISP_CC_MDSS_DPTX0_LINK_INTF_CLK] =
-		&disp_cc_mdss_dptx0_link_intf_clk.clkr,
+	[DISP_CC_MDSS_DPTX0_LINK_CLK_SRC] = &disp_cc_mdss_dptx0_link_clk_src.clkr,
+	[DISP_CC_MDSS_DPTX0_LINK_DIV_CLK_SRC] = &disp_cc_mdss_dptx0_link_div_clk_src.clkr,
+	[DISP_CC_MDSS_DPTX0_LINK_INTF_CLK] = &disp_cc_mdss_dptx0_link_intf_clk.clkr,
 	[DISP_CC_MDSS_DPTX0_PIXEL0_CLK] = &disp_cc_mdss_dptx0_pixel0_clk.clkr,
-	[DISP_CC_MDSS_DPTX0_PIXEL0_CLK_SRC] =
-		&disp_cc_mdss_dptx0_pixel0_clk_src.clkr,
+	[DISP_CC_MDSS_DPTX0_PIXEL0_CLK_SRC] = &disp_cc_mdss_dptx0_pixel0_clk_src.clkr,
 	[DISP_CC_MDSS_DPTX0_PIXEL1_CLK] = &disp_cc_mdss_dptx0_pixel1_clk.clkr,
-	[DISP_CC_MDSS_DPTX0_PIXEL1_CLK_SRC] =
-		&disp_cc_mdss_dptx0_pixel1_clk_src.clkr,
+	[DISP_CC_MDSS_DPTX0_PIXEL1_CLK_SRC] = &disp_cc_mdss_dptx0_pixel1_clk_src.clkr,
 	[DISP_CC_MDSS_DPTX0_USB_ROUTER_LINK_INTF_CLK] =
 		&disp_cc_mdss_dptx0_usb_router_link_intf_clk.clkr,
 	[DISP_CC_MDSS_DPTX1_AUX_CLK] = &disp_cc_mdss_dptx1_aux_clk.clkr,
 	[DISP_CC_MDSS_DPTX1_AUX_CLK_SRC] = &disp_cc_mdss_dptx1_aux_clk_src.clkr,
 	[DISP_CC_MDSS_DPTX1_CRYPTO_CLK] = &disp_cc_mdss_dptx1_crypto_clk.clkr,
 	[DISP_CC_MDSS_DPTX1_LINK_CLK] = &disp_cc_mdss_dptx1_link_clk.clkr,
-	[DISP_CC_MDSS_DPTX1_LINK_CLK_SRC] =
-		&disp_cc_mdss_dptx1_link_clk_src.clkr,
-	[DISP_CC_MDSS_DPTX1_LINK_DIV_CLK_SRC] =
-		&disp_cc_mdss_dptx1_link_div_clk_src.clkr,
-	[DISP_CC_MDSS_DPTX1_LINK_INTF_CLK] =
-		&disp_cc_mdss_dptx1_link_intf_clk.clkr,
+	[DISP_CC_MDSS_DPTX1_LINK_CLK_SRC] = &disp_cc_mdss_dptx1_link_clk_src.clkr,
+	[DISP_CC_MDSS_DPTX1_LINK_DIV_CLK_SRC] = &disp_cc_mdss_dptx1_link_div_clk_src.clkr,
+	[DISP_CC_MDSS_DPTX1_LINK_INTF_CLK] = &disp_cc_mdss_dptx1_link_intf_clk.clkr,
 	[DISP_CC_MDSS_DPTX1_PIXEL0_CLK] = &disp_cc_mdss_dptx1_pixel0_clk.clkr,
-	[DISP_CC_MDSS_DPTX1_PIXEL0_CLK_SRC] =
-		&disp_cc_mdss_dptx1_pixel0_clk_src.clkr,
+	[DISP_CC_MDSS_DPTX1_PIXEL0_CLK_SRC] = &disp_cc_mdss_dptx1_pixel0_clk_src.clkr,
 	[DISP_CC_MDSS_DPTX1_PIXEL1_CLK] = &disp_cc_mdss_dptx1_pixel1_clk.clkr,
-	[DISP_CC_MDSS_DPTX1_PIXEL1_CLK_SRC] =
-		&disp_cc_mdss_dptx1_pixel1_clk_src.clkr,
+	[DISP_CC_MDSS_DPTX1_PIXEL1_CLK_SRC] = &disp_cc_mdss_dptx1_pixel1_clk_src.clkr,
 	[DISP_CC_MDSS_DPTX1_USB_ROUTER_LINK_INTF_CLK] =
 		&disp_cc_mdss_dptx1_usb_router_link_intf_clk.clkr,
 	[DISP_CC_MDSS_DPTX2_AUX_CLK] = &disp_cc_mdss_dptx2_aux_clk.clkr,
 	[DISP_CC_MDSS_DPTX2_AUX_CLK_SRC] = &disp_cc_mdss_dptx2_aux_clk_src.clkr,
 	[DISP_CC_MDSS_DPTX2_CRYPTO_CLK] = &disp_cc_mdss_dptx2_crypto_clk.clkr,
 	[DISP_CC_MDSS_DPTX2_LINK_CLK] = &disp_cc_mdss_dptx2_link_clk.clkr,
-	[DISP_CC_MDSS_DPTX2_LINK_CLK_SRC] =
-		&disp_cc_mdss_dptx2_link_clk_src.clkr,
-	[DISP_CC_MDSS_DPTX2_LINK_DIV_CLK_SRC] =
-		&disp_cc_mdss_dptx2_link_div_clk_src.clkr,
-	[DISP_CC_MDSS_DPTX2_LINK_INTF_CLK] =
-		&disp_cc_mdss_dptx2_link_intf_clk.clkr,
+	[DISP_CC_MDSS_DPTX2_LINK_CLK_SRC] = &disp_cc_mdss_dptx2_link_clk_src.clkr,
+	[DISP_CC_MDSS_DPTX2_LINK_DIV_CLK_SRC] = &disp_cc_mdss_dptx2_link_div_clk_src.clkr,
+	[DISP_CC_MDSS_DPTX2_LINK_INTF_CLK] = &disp_cc_mdss_dptx2_link_intf_clk.clkr,
 	[DISP_CC_MDSS_DPTX2_PIXEL0_CLK] = &disp_cc_mdss_dptx2_pixel0_clk.clkr,
-	[DISP_CC_MDSS_DPTX2_PIXEL0_CLK_SRC] =
-		&disp_cc_mdss_dptx2_pixel0_clk_src.clkr,
+	[DISP_CC_MDSS_DPTX2_PIXEL0_CLK_SRC] = &disp_cc_mdss_dptx2_pixel0_clk_src.clkr,
 	[DISP_CC_MDSS_DPTX2_PIXEL1_CLK] = &disp_cc_mdss_dptx2_pixel1_clk.clkr,
-	[DISP_CC_MDSS_DPTX2_PIXEL1_CLK_SRC] =
-		&disp_cc_mdss_dptx2_pixel1_clk_src.clkr,
+	[DISP_CC_MDSS_DPTX2_PIXEL1_CLK_SRC] = &disp_cc_mdss_dptx2_pixel1_clk_src.clkr,
 	[DISP_CC_MDSS_DPTX3_AUX_CLK] = &disp_cc_mdss_dptx3_aux_clk.clkr,
 	[DISP_CC_MDSS_DPTX3_AUX_CLK_SRC] = &disp_cc_mdss_dptx3_aux_clk_src.clkr,
 	[DISP_CC_MDSS_DPTX3_CRYPTO_CLK] = &disp_cc_mdss_dptx3_crypto_clk.clkr,
 	[DISP_CC_MDSS_DPTX3_LINK_CLK] = &disp_cc_mdss_dptx3_link_clk.clkr,
-	[DISP_CC_MDSS_DPTX3_LINK_CLK_SRC] =
-		&disp_cc_mdss_dptx3_link_clk_src.clkr,
-	[DISP_CC_MDSS_DPTX3_LINK_DIV_CLK_SRC] =
-		&disp_cc_mdss_dptx3_link_div_clk_src.clkr,
-	[DISP_CC_MDSS_DPTX3_LINK_INTF_CLK] =
-		&disp_cc_mdss_dptx3_link_intf_clk.clkr,
+	[DISP_CC_MDSS_DPTX3_LINK_CLK_SRC] = &disp_cc_mdss_dptx3_link_clk_src.clkr,
+	[DISP_CC_MDSS_DPTX3_LINK_DIV_CLK_SRC] = &disp_cc_mdss_dptx3_link_div_clk_src.clkr,
+	[DISP_CC_MDSS_DPTX3_LINK_INTF_CLK] = &disp_cc_mdss_dptx3_link_intf_clk.clkr,
 	[DISP_CC_MDSS_DPTX3_PIXEL0_CLK] = &disp_cc_mdss_dptx3_pixel0_clk.clkr,
-	[DISP_CC_MDSS_DPTX3_PIXEL0_CLK_SRC] =
-		&disp_cc_mdss_dptx3_pixel0_clk_src.clkr,
+	[DISP_CC_MDSS_DPTX3_PIXEL0_CLK_SRC] = &disp_cc_mdss_dptx3_pixel0_clk_src.clkr,
 	[DISP_CC_MDSS_ESC0_CLK] = &disp_cc_mdss_esc0_clk.clkr,
 	[DISP_CC_MDSS_ESC0_CLK_SRC] = &disp_cc_mdss_esc0_clk_src.clkr,
 	[DISP_CC_MDSS_ESC1_CLK] = &disp_cc_mdss_esc1_clk.clkr,
@@ -2024,10 +1986,8 @@ static int disp_cc_waipio_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	clk_lucid_evo_pll_configure(&disp_cc_pll0, regmap,
-		&disp_cc_pll0_config);
-	clk_lucid_evo_pll_configure(&disp_cc_pll1, regmap,
-		&disp_cc_pll1_config);
+	clk_lucid_evo_pll_configure(&disp_cc_pll0, regmap, &disp_cc_pll0_config);
+	clk_lucid_evo_pll_configure(&disp_cc_pll1, regmap, &disp_cc_pll1_config);
 
 	/* Enable clock gating for MDP clocks */
 	regmap_update_bits(regmap, DISP_CC_MISC_CMD, 0x10, 0x10);
