@@ -120,14 +120,6 @@ int __dwc3_gadget_ep_set_halt(struct dwc3_ep *dep, int value, int protocol);
 void dwc3_ep0_send_delayed_status(struct dwc3 *dwc);
 void dwc3_stop_active_transfer(struct dwc3_ep *dep, bool force, bool interrupt);
 
-static inline dma_addr_t dwc3_trb_dma_offset(struct dwc3_ep *dep,
-		struct dwc3_trb *trb)
-{
-	u32 offset = (char *) trb - (char *) dep->trb_pool;
-
-	return dep->trb_pool_dma + offset;
-}
-
 /**
  * dwc3_gadget_ep_get_transfer_index - Gets transfer index from HW
  * @dep: dwc3 endpoint

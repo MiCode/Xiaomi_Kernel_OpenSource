@@ -540,6 +540,58 @@ static void dwc3_pwr_event_handler(struct dwc3_msm *mdwc);
 static int dwc3_msm_gadget_vbus_draw(struct dwc3_msm *mdwc, unsigned int mA);
 static int dwc3_msm_core_init(struct dwc3_msm *mdwc);
 
+static inline dma_addr_t dwc3_trb_dma_offset(struct dwc3_ep *dep,
+		struct dwc3_trb *trb)
+{
+	u32 offset = (char *) trb - (char *) dep->trb_pool;
+
+	return dep->trb_pool_dma + offset;
+}
+
+static int dwc3_alloc_trb_pool(struct dwc3_ep *dep)
+{
+	struct dwc3		*dwc = dep->dwc;
+
+	if (dep->trb_pool)
+		return 0;
+
+	dep->trb_pool = dma_alloc_coherent(dwc->sysdev,
+			sizeof(struct dwc3_trb) * DWC3_TRB_NUM,
+			&dep->trb_pool_dma, GFP_KERNEL);
+	if (!dep->trb_pool) {
+		dev_err(dep->dwc->dev, "failed to allocate trb pool for %s\n",
+				dep->name);
+		return -ENOMEM;
+	}
+	dep->num_trbs = DWC3_TRB_NUM;
+
+	return 0;
+}
+
+static void dwc3_free_trb_pool(struct dwc3_ep *dep)
+{
+	struct dwc3		*dwc = dep->dwc;
+	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
+
+	/*
+	 * Clean up ep ring to avoid getting xferInProgress due to stale trbs
+	 * with HWO bit set from previous composition when update transfer cmd
+	 * is issued.
+	 */
+	if (dep->number > 1 && dep->trb_pool && dep->trb_pool_dma) {
+		memset(&dep->trb_pool[0], 0,
+			sizeof(struct dwc3_trb) * dep->num_trbs);
+		dbg_event(dep->number, "Clr_TRB", 0);
+		dev_info(dwc->dev, "Clr_TRB ring of %s\n", dep->name);
+
+		dma_free_coherent(dwc->sysdev,
+				sizeof(struct dwc3_trb) * DWC3_TRB_NUM,
+				dep->trb_pool, dep->trb_pool_dma);
+		dep->trb_pool = NULL;
+		dep->trb_pool_dma = 0;
+	}
+}
+
 static enum usb_device_speed dwc3_msm_get_max_speed(struct dwc3_msm *mdwc)
 {
 	struct dwc3 *dwc;
@@ -1930,12 +1982,15 @@ int usb_gsi_ep_op(struct usb_ep *ep, void *op_data, enum gsi_ep_op op)
 			return -ESHUTDOWN;
 		}
 
+		dwc3_free_trb_pool(dep);
 		request = (struct usb_gsi_request *)op_data;
 		ret = gsi_prepare_trbs(ep, request);
 		break;
 	case GSI_EP_OP_FREE_TRBS:
 		request = (struct usb_gsi_request *)op_data;
 		gsi_free_trbs(ep, request);
+		dep->gsi = false;
+		dwc3_alloc_trb_pool(dep);
 		break;
 	case GSI_EP_OP_CONFIG:
 		if (!dwc->pullups_connected) {
@@ -1943,6 +1998,7 @@ int usb_gsi_ep_op(struct usb_ep *ep, void *op_data, enum gsi_ep_op op)
 			return -ESHUTDOWN;
 		}
 
+		dep->gsi = true;
 		request = (struct usb_gsi_request *)op_data;
 		spin_lock_irqsave(&dwc->lock, flags);
 		gsi_configure_ep(ep, request);

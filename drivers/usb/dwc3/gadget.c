@@ -508,6 +508,14 @@ static int dwc3_send_clear_stall_ep_cmd(struct dwc3_ep *dep)
 	return dwc3_send_gadget_ep_cmd(dep, cmd, &params);
 }
 
+static dma_addr_t dwc3_trb_dma_offset(struct dwc3_ep *dep,
+		struct dwc3_trb *trb)
+{
+	u32		offset = (char *) trb - (char *) dep->trb_pool;
+
+	return dep->trb_pool_dma + offset;
+}
+
 static int dwc3_alloc_trb_pool(struct dwc3_ep *dep)
 {
 	struct dwc3		*dwc = dep->dwc;
@@ -532,26 +540,10 @@ static void dwc3_free_trb_pool(struct dwc3_ep *dep)
 {
 	struct dwc3		*dwc = dep->dwc;
 
-	/* Freeing of GSI EP TRBs are handled by GSI EP ops. */
-	if (dep->gsi)
-		return;
-
-	/*
-	 * Clean up ep ring to avoid getting xferInProgress due to stale trbs
-	 * with HWO bit set from previous composition when update transfer cmd
-	 * is issued.
-	 */
-	if (dep->number > 1 && dep->trb_pool && dep->trb_pool_dma) {
-		memset(&dep->trb_pool[0], 0,
-			sizeof(struct dwc3_trb) * dep->num_trbs);
-		dev_dbg(dwc->dev, "Clr_TRB ring of %s\n", dep->name);
-
-		dma_free_coherent(dwc->sysdev,
-				sizeof(struct dwc3_trb) * DWC3_TRB_NUM,
-				dep->trb_pool, dep->trb_pool_dma);
-		dep->trb_pool = NULL;
-		dep->trb_pool_dma = 0;
-	}
+	dma_free_coherent(dwc->sysdev, sizeof(struct dwc3_trb) * DWC3_TRB_NUM,
+			dep->trb_pool, dep->trb_pool_dma);
+	dep->trb_pool = NULL;
+	dep->trb_pool_dma = 0;
 }
 
 static int dwc3_gadget_set_xfer_resource(struct dwc3_ep *dep)
