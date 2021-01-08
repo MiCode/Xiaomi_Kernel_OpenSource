@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -2711,8 +2711,7 @@ static int gsi_update_function_bind_params(struct f_gsi *gsi,
 
 	/* allocate instance-specific endpoints */
 	if (info->fs_in_desc) {
-		ep = usb_ep_autoconfig_by_name(cdev->gadget,
-				info->fs_in_desc, info->in_epname);
+		ep = usb_ep_autoconfig(cdev->gadget, info->fs_in_desc);
 		if (!ep)
 			goto fail;
 		gsi->d_port.in_ep = ep;
@@ -2720,8 +2719,7 @@ static int gsi_update_function_bind_params(struct f_gsi *gsi,
 	}
 
 	if (info->fs_out_desc) {
-		ep = usb_ep_autoconfig_by_name(cdev->gadget,
-				info->fs_out_desc, info->out_epname);
+		ep = usb_ep_autoconfig(cdev->gadget, info->fs_out_desc);
 		if (!ep)
 			goto fail;
 		gsi->d_port.out_ep = ep;
