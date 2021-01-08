@@ -96,6 +96,15 @@ _kgsl_pool_add_page(struct kgsl_page_pool *pool, struct page *p)
 	if (!p)
 		return;
 
+	/*
+	 * Sanity check to make sure we don't re-pool a page that
+	 * somebody else has a reference to.
+	 */
+	if (WARN_ON(unlikely(page_count(p) > 1))) {
+		__free_pages(p, pool->pool_order);
+		return;
+	}
+
 	spin_lock(&pool->list_lock);
 	list_add_tail(&p->lru, &pool->page_list);
 	pool->page_count++;

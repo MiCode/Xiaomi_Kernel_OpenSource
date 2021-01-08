@@ -204,10 +204,13 @@ static int a6xx_hwsched_gmu_first_boot(struct adreno_device *adreno_dev)
 	return 0;
 
 err:
-	if (device->gmu_fault)
+	if (device->gmu_fault) {
 		a6xx_gmu_suspend(adreno_dev);
 
-	return ret;
+		return ret;
+	}
+
+	a6xx_gmu_irq_disable(adreno_dev);
 
 clks_gdsc_off:
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
@@ -262,10 +265,13 @@ static int a6xx_hwsched_gmu_boot(struct adreno_device *adreno_dev)
 
 	return 0;
 err:
-	if (device->gmu_fault)
+	if (device->gmu_fault) {
 		a6xx_gmu_suspend(adreno_dev);
 
-	return ret;
+		return ret;
+	}
+
+	a6xx_gmu_irq_disable(adreno_dev);
 
 clks_gdsc_off:
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
@@ -511,6 +517,8 @@ static int a6xx_hwsched_boot(struct adreno_device *adreno_dev)
 
 	trace_kgsl_pwr_request_state(device, KGSL_STATE_ACTIVE);
 
+	adreno_hwsched_start(adreno_dev);
+
 	ret = a6xx_hwsched_gmu_boot(adreno_dev);
 	if (ret)
 		return ret;
@@ -518,8 +526,6 @@ static int a6xx_hwsched_boot(struct adreno_device *adreno_dev)
 	ret = a6xx_hwsched_gpu_boot(adreno_dev);
 	if (ret)
 		return ret;
-
-	adreno_hwsched_start(adreno_dev);
 
 	mod_timer(&device->idle_timer, jiffies +
 			device->pwrctrl.interval_timeout);
@@ -543,6 +549,8 @@ static int a6xx_hwsched_first_boot(struct adreno_device *adreno_dev)
 	if (test_bit(GMU_PRIV_FIRST_BOOT_DONE, &gmu->flags))
 		return a6xx_hwsched_boot(adreno_dev);
 
+	adreno_hwsched_start(adreno_dev);
+
 	ret = a6xx_microcode_read(adreno_dev);
 	if (ret)
 		return ret;
@@ -564,10 +572,6 @@ static int a6xx_hwsched_first_boot(struct adreno_device *adreno_dev)
 	ret = a6xx_hwsched_gpu_boot(adreno_dev);
 	if (ret)
 		return ret;
-
-	adreno_hwsched_init(adreno_dev);
-
-	adreno_hwsched_start(adreno_dev);
 
 	adreno_get_bus_counters(adreno_dev);
 
@@ -980,6 +984,8 @@ int a6xx_hwsched_probe(struct platform_device *pdev,
 
 	adreno_dev->irq_mask = A6XX_HWSCHED_INT_MASK;
 
+	adreno_hwsched_init(adreno_dev);
+
 	return 0;
 }
 
@@ -987,18 +993,23 @@ static int a6xx_hwsched_bind(struct device *dev, struct device *master,
 	void *data)
 {
 	struct kgsl_device *device = dev_get_drvdata(master);
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	int ret;
 
 	ret = a6xx_gmu_probe(device, to_platform_device(dev));
 	if (ret)
 		goto error;
 
-	ret = a6xx_hwsched_hfi_probe(ADRENO_DEVICE(device));
+	ret = a6xx_hwsched_hfi_probe(adreno_dev);
+	if (ret)
+		goto error;
 
-	if (!ret) {
-		set_bit(GMU_DISPATCH, &device->gmu_core.flags);
-		return 0;
-	}
+	set_bit(GMU_DISPATCH, &device->gmu_core.flags);
+
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION))
+		set_bit(ADRENO_DEVICE_PREEMPTION, &adreno_dev->priv);
+
+	return 0;
 
 error:
 	a6xx_gmu_remove(device);
@@ -1012,6 +1023,8 @@ static void a6xx_hwsched_unbind(struct device *dev, struct device *master,
 	struct kgsl_device *device = dev_get_drvdata(master);
 
 	a6xx_gmu_remove(device);
+
+	adreno_hwsched_dispatcher_close(ADRENO_DEVICE(device));
 }
 
 static const struct component_ops a6xx_hwsched_component_ops = {
