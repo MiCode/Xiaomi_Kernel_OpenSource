@@ -176,6 +176,15 @@ conditions.
 		  that interconnect votes will be maintained irrespective of
 		  the CPUSS' state (awake or asleep).
 
+- qcom,num-context-banks-override:
+		  Optional integer. Should be set if the hypervisor virtualization
+		  is disabled for debugging purposes. When this is done, some
+		  context banks managed by hypervisor become visible to HLOS, but should
+		  not be accessed.
+
+- qcom,num-smr-override:
+		  Optional integer. See qcom,num-context-banks-override.
+
 ** Deprecated properties:
 
 - mmu-masters (deprecated in favour of the generic "iommus" binding) :
