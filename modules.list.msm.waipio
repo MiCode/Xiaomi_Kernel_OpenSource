@@ -60,6 +60,7 @@ proxy-consumer.ko
 qti-fixed-regulator.ko
 qcom_pm8008-regulator.ko
 pdr_interface.ko
+msm_sharedmem.ko
 phy-qcom-ufs.ko
 phy-qcom-ufs-qrbtc-sdm845.ko
 ufs_qcom.ko
