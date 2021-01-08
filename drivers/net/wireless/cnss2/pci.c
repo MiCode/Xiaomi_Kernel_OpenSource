@@ -78,6 +78,9 @@ static DEFINE_SPINLOCK(time_sync_lock);
 #define LINK_TRAINING_RETRY_MAX_TIMES		3
 #define LINK_TRAINING_RETRY_DELAY_MS		500
 
+#define MHI_SUSPEND_RETRY_MAX_TIMES		3
+#define MHI_SUSPEND_RETRY_DELAY_US		5000
+
 #define BOOT_DEBUG_TIMEOUT_MS			7000
 
 #define HANG_DATA_LENGTH		384
@@ -1821,7 +1824,7 @@ static void cnss_pci_set_mhi_state_bit(struct cnss_pci_data *pci_priv,
 static int cnss_pci_set_mhi_state(struct cnss_pci_data *pci_priv,
 				  enum cnss_mhi_state mhi_state)
 {
-	int ret = 0;
+	int ret = 0, retry = 0;
 
 	if (pci_priv->device_id == QCA6174_DEVICE_ID)
 		return 0;
@@ -1865,12 +1868,19 @@ static int cnss_pci_set_mhi_state(struct cnss_pci_data *pci_priv,
 		ret = 0;
 		break;
 	case CNSS_MHI_SUSPEND:
+retry_mhi_suspend:
 		mutex_lock(&pci_priv->mhi_ctrl->pm_mutex);
 		if (pci_priv->drv_connected_last)
 			ret = cnss_mhi_pm_fast_suspend(pci_priv, true);
 		else
 			ret = mhi_pm_suspend(pci_priv->mhi_ctrl);
 		mutex_unlock(&pci_priv->mhi_ctrl->pm_mutex);
+		if (ret == -EBUSY && retry++ < MHI_SUSPEND_RETRY_MAX_TIMES) {
+			cnss_pr_dbg("Retry MHI suspend #%d\n", retry);
+			usleep_range(MHI_SUSPEND_RETRY_DELAY_US,
+				     MHI_SUSPEND_RETRY_DELAY_US + 1000);
+			goto retry_mhi_suspend;
+		}
 		break;
 	case CNSS_MHI_RESUME:
 		mutex_lock(&pci_priv->mhi_ctrl->pm_mutex);
@@ -1901,8 +1911,8 @@ static int cnss_pci_set_mhi_state(struct cnss_pci_data *pci_priv,
 	return 0;
 
 out:
-	cnss_pr_err("Failed to set MHI state: %s(%d)\n",
-		    cnss_mhi_state_to_str(mhi_state), mhi_state);
+	cnss_pr_err("Failed to set MHI state: %s(%d), err = %d\n",
+		    cnss_mhi_state_to_str(mhi_state), mhi_state, ret);
 	return ret;
 }
 
