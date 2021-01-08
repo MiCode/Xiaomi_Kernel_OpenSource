@@ -436,7 +436,7 @@ config BATTERY_TWL4030_MADC
 
 config QTI_BATTERY_CHARGER
 	tristate "QTI Glink battery charger"
-	depends on QTI_PMIC_GLINK
+	depends on QTI_PMIC_GLINK && EXTCON
 	help
 	  Say Y here to enable Qualcomm Technologies, Inc. battery charger
 	  driver which interfaces with the charger firmware running on the
