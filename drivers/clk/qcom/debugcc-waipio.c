@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "clk: %s: " fmt, __func__
@@ -131,6 +131,8 @@ static const char *const cam_cc_debug_mux_parent_names[] = {
 	"cam_cc_mclk5_clk",
 	"cam_cc_mclk6_clk",
 	"cam_cc_mclk7_clk",
+	"cam_cc_qdss_debug_clk",
+	"cam_cc_qdss_debug_xo_clk",
 	"cam_cc_sbi_ahb_clk",
 	"cam_cc_sbi_clk",
 	"cam_cc_sfe_0_clk",
@@ -204,6 +206,8 @@ static int cam_cc_debug_mux_sels[] = {
 	0x6,		/* cam_cc_mclk5_clk */
 	0x7,		/* cam_cc_mclk6_clk */
 	0x8,		/* cam_cc_mclk7_clk */
+	0x4B,		/* cam_cc_qdss_debug_clk */
+	0x4C,		/* cam_cc_qdss_debug_xo_clk */
 	0x23,		/* cam_cc_sbi_ahb_clk */
 	0x21,		/* cam_cc_sbi_clk */
 	0x38,		/* cam_cc_sfe_0_clk */
