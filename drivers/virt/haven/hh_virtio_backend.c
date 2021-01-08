@@ -782,6 +782,7 @@ static void close_vb_dev(struct virtio_backend_device *vb_dev)
 		if (vb_dev->ioctx[i].ctx) {
 			eventfd_ctx_put(vb_dev->ioctx[i].ctx);
 			vb_dev->ioctx[i].ctx = NULL;
+			vb_dev->ioctx[i].fd = 0;
 		}
 	}
 
