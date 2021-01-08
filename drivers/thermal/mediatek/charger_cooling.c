@@ -83,7 +83,6 @@ static int mt6360_cooling_state_to_charger_limit(struct charger_cooling_device *
 	union power_supply_propval prop_vbus;
 	union power_supply_propval prop_s_bat_chr;
 	int ret = -1;
-	int bat_chr = -1;
 
 	if (chg->target_state < 0) {
 		pr_info("wrong cooling state\n");
