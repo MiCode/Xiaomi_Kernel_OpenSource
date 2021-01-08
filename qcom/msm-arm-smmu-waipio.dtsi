@@ -260,4 +260,9 @@
 			qcom,stream-id-range = <0x2c00 0x400>;
 		};
 	};
+
+	dma_dev@0x0 {
+		compatible = "qcom,iommu-dma";
+		memory-region = <&system_cma>;
+	};
 };
