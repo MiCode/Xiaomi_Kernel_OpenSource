@@ -110,7 +110,7 @@ struct virtio_backend_device {
 	int evt_avail;
 	u64 cur_event_data, vdev_event_data;
 	u64 cur_event, vdev_event;
-	int linux_irq;
+	int linux_irq, irq_enabled;
 	u32 label;
 	struct device *dev;
 	struct virt_machine *vm;
@@ -722,6 +722,10 @@ static void init_vb_dev_open(struct virtio_backend_device *vb_dev)
 	vb_dev->vdev_event_data = 0;
 	vb_dev->cur_event = 0;
 	vb_dev->vdev_event = 0;
+	if (!vb_dev->irq_enabled) {
+		enable_irq(vb_dev->linux_irq);
+		vb_dev->irq_enabled = 1;
+	}
 	spin_unlock_irqrestore(&vb_dev->lock, flags);
 }
 
@@ -789,6 +793,8 @@ static void close_vb_dev(struct virtio_backend_device *vb_dev)
 	vb_dev->evt_avail = 0;
 	vb_dev->vdev_event = 0;
 	vb_dev->vdev_event_data = 0;
+	disable_irq(vb_dev->linux_irq);
+	vb_dev->irq_enabled = 0;
 	spin_unlock_irqrestore(&vb_dev->lock, flags);
 
 	mutex_lock(&vb_dev->mutex);
@@ -1477,6 +1483,7 @@ VIRTIO_PRINT_MARKER, label);
 	}
 
 	vb_dev->linux_irq = linux_irq;
+	vb_dev->irq_enabled = 1;
 	vb_dev->cap_id = cap_id;
 	vb_dev->config_shared_size = size;
 	mutex_unlock(&vb_dev->mutex);
