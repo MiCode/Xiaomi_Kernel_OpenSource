@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -11,6 +11,7 @@
 #include <linux/of_device.h>
 #include <linux/of.h>
 #include <linux/regmap.h>
+#include <linux/pm_runtime.h>
 
 #include <dt-bindings/clock/qcom,dispcc-waipio.h>
 
@@ -1870,24 +1871,6 @@ static struct clk_branch disp_cc_sleep_clk = {
 	},
 };
 
-static struct clk_branch disp_cc_xo_clk = {
-	.halt_reg = 0xe05c,
-	.halt_check = BRANCH_HALT,
-	.clkr = {
-		.enable_reg = 0xe05c,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "disp_cc_xo_clk",
-			.parent_data = &(const struct clk_parent_data){
-				.hw = &disp_cc_xo_clk_src.clkr.hw,
-			},
-			.num_parents = 1,
-			.flags = CLK_IS_CRITICAL | CLK_SET_RATE_PARENT,
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
 static struct clk_regmap *disp_cc_waipio_clocks[] = {
 	[DISP_CC_MDSS_AHB1_CLK] = &disp_cc_mdss_ahb1_clk.clkr,
 	[DISP_CC_MDSS_AHB_CLK] = &disp_cc_mdss_ahb_clk.clkr,
@@ -1991,7 +1974,6 @@ static struct clk_regmap *disp_cc_waipio_clocks[] = {
 	[DISP_CC_PLL1] = &disp_cc_pll1.clkr,
 	[DISP_CC_SLEEP_CLK] = &disp_cc_sleep_clk.clkr,
 	[DISP_CC_SLEEP_CLK_SRC] = &disp_cc_sleep_clk_src.clkr,
-	[DISP_CC_XO_CLK] = &disp_cc_xo_clk.clkr,
 	[DISP_CC_XO_CLK_SRC] = &disp_cc_xo_clk_src.clkr,
 };
 
@@ -2009,7 +1991,7 @@ static const struct regmap_config disp_cc_waipio_regmap_config = {
 	.fast_io = true,
 };
 
-static const struct qcom_cc_desc disp_cc_waipio_desc = {
+static struct qcom_cc_desc disp_cc_waipio_desc = {
 	.config = &disp_cc_waipio_regmap_config,
 	.clks = disp_cc_waipio_clocks,
 	.num_clks = ARRAY_SIZE(disp_cc_waipio_clocks),
@@ -2028,20 +2010,19 @@ MODULE_DEVICE_TABLE(of, disp_cc_waipio_match_table);
 static int disp_cc_waipio_probe(struct platform_device *pdev)
 {
 	struct regmap *regmap;
-	struct clk *clk;
 	int ret;
 
 	regmap = qcom_cc_map(pdev, &disp_cc_waipio_desc);
 	if (IS_ERR(regmap))
 		return PTR_ERR(regmap);
 
-	clk = clk_get(&pdev->dev, "cfg_ahb_clk");
-	if (IS_ERR(clk)) {
-		if (PTR_ERR(clk) != -EPROBE_DEFER)
-			dev_err(&pdev->dev, "Unable to get ahb clock handle\n");
-		return PTR_ERR(clk);
-	}
-	clk_put(clk);
+	ret = qcom_cc_runtime_init(pdev, &disp_cc_waipio_desc);
+	if (ret)
+		return ret;
+
+	ret = pm_runtime_get_sync(&pdev->dev);
+	if (ret)
+		return ret;
 
 	clk_lucid_evo_pll_configure(&disp_cc_pll0, regmap,
 		&disp_cc_pll0_config);
@@ -2051,12 +2032,19 @@ static int disp_cc_waipio_probe(struct platform_device *pdev)
 	/* Enable clock gating for MDP clocks */
 	regmap_update_bits(regmap, DISP_CC_MISC_CMD, 0x10, 0x10);
 
+	/*
+	 * Keep clocks always enabled:
+	 *	disp_cc_xo_clk
+	 */
+	regmap_update_bits(regmap, 0xe05c, BIT(0), BIT(0));
+
 	ret = qcom_cc_really_probe(pdev, &disp_cc_waipio_desc, regmap);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to register DISP CC clocks\n");
 		return ret;
 	}
 
+	pm_runtime_put_sync(&pdev->dev);
 	dev_info(&pdev->dev, "Registered DISP CC clocks\n");
 
 	return ret;
@@ -2067,12 +2055,19 @@ static void disp_cc_waipio_sync_state(struct device *dev)
 	qcom_cc_sync_state(dev, &disp_cc_waipio_desc);
 }
 
+static const struct dev_pm_ops disp_cc_waipio_pm_ops = {
+	SET_RUNTIME_PM_OPS(qcom_cc_runtime_suspend, qcom_cc_runtime_resume, NULL)
+	SET_LATE_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend,
+				     pm_runtime_force_resume)
+};
+
 static struct platform_driver disp_cc_waipio_driver = {
 	.probe = disp_cc_waipio_probe,
 	.driver = {
 		.name = "disp_cc-waipio",
 		.of_match_table = disp_cc_waipio_match_table,
 		.sync_state = disp_cc_waipio_sync_state,
+		.pm = &disp_cc_waipio_pm_ops,
 	},
 };
 
