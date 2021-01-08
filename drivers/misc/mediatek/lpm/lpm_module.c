@@ -322,6 +322,8 @@ static int lpm_cpuidle_prepare(struct cpuidle_driver *drv, int index)
 	nb_data.model = lpm;
 	nb_data.issuer = lpm_system.issuer;
 
+	rcu_idle_exit();
+
 	spin_lock_irqsave(&lpm_mod_locker, flags);
 
 	if (lpm && lpm->op.prompt)
@@ -333,6 +335,8 @@ static int lpm_cpuidle_prepare(struct cpuidle_driver *drv, int index)
 	}
 
 	spin_unlock_irqrestore(&lpm_mod_locker, flags);
+
+	rcu_idle_enter();
 
 	if (lpm && lpm->op.prepare_enter)
 		lpm->op.prepare_enter(prompt, cpuid, nb_data.issuer);
@@ -372,6 +376,8 @@ static void lpm_cpuidle_resume(struct cpuidle_driver *drv, int index, int ret)
 	if (lpm && lpm->op.prepare_resume)
 		lpm->op.prepare_resume(cpuid, nb_data.issuer);
 
+	rcu_idle_exit();
+
 	spin_lock_irqsave(&lpm_mod_locker, flags);
 
 	if (!unlikely(flags & LPM_REQ_NOBROADCAST))
@@ -381,6 +387,8 @@ static void lpm_cpuidle_resume(struct cpuidle_driver *drv, int index, int ret)
 		lpm->op.reflect(cpuid, nb_data.issuer);
 
 	spin_unlock_irqrestore(&lpm_mod_locker, flags);
+
+	rcu_idle_enter();
 }
 
 static int lpm_state_enter(int type, struct cpuidle_device *dev,
