@@ -176,6 +176,8 @@ struct kgsl_memdesc_ops {
 #define KGSL_MEMDESC_UCODE BIT(7)
 /* For global buffers, randomly assign an address from the region */
 #define KGSL_MEMDESC_RANDOM BIT(8)
+/* Allocate memory from the system instead of the pools */
+#define KGSL_MEMDESC_SYSMEM BIT(9)
 
 /**
  * struct kgsl_memdesc - GPU memory object descriptor
