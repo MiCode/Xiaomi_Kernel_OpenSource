@@ -132,11 +132,13 @@ enum mhi_dev_state {
  * target_link_speed - as defined by TLS bits in LinkControl reg
  * target_link_width - as defined by NLW bits in LinkStatus reg
  * sequence_num - used by device to track bw requests sent to host
+ * last_response - used by host to cache response to the last bw switch request
  */
 struct mhi_link_info {
 	unsigned int target_link_speed;
 	unsigned int target_link_width;
 	int sequence_num;
+	u32 last_response;
 };
 
 /**
