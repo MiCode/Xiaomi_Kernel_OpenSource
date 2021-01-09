@@ -1210,5 +1210,14 @@ config MSM_SLATECOM
 		This handle the interrupts raised by BG and notify the G-link with
 		interrupt event and event data.
 
+config MSM_SLATECOM_INTERFACE
+	tristate "Driver support for Slate Communication"
+	depends on MSM_SLATECOM
+	help
+		Create a slate_com_dev device node for user space communication.
+		Single user space client can open device node for communication
+		from hardware. Hardware will provide access to read
+		registers and read/write AHB memory in the device.
+
 source "drivers/soc/qcom/icnss2/Kconfig"
 endmenu
