@@ -363,7 +363,6 @@ struct arm_smmu_device {
 	struct device			*dev;
 
 	void __iomem			*base;
-	phys_addr_t			phys_addr;
 	unsigned int			numpage;
 	unsigned int			pgshift;
 
@@ -383,7 +382,6 @@ struct arm_smmu_device {
 	u32				features;
 
 #define ARM_SMMU_OPT_FATAL_ASF		(1 << 0)
-#define ARM_SMMU_OPT_SKIP_INIT		(1 << 1)
 #define ARM_SMMU_OPT_3LVL_TABLES	(1 << 2)
 #define ARM_SMMU_OPT_NO_ASID_RETENTION	(1 << 3)
 #define ARM_SMMU_OPT_DISABLE_ATOS	(1 << 4)
@@ -432,6 +430,9 @@ struct arm_smmu_device {
 	/* protects idr */
 	struct mutex			idr_mutex;
 	struct idr			asid_idr;
+
+	/* used for qsmmuv500 scm_io_readl */
+	phys_addr_t                     phys_addr;
 
 	unsigned long			sync_timed_out;
 };
