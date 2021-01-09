@@ -52,8 +52,8 @@ static u32 clkreq_irq;
 struct ep_pcie_dev_t ep_pcie_dev = {0};
 
 static struct ep_pcie_vreg_info_t ep_pcie_vreg_info[EP_PCIE_MAX_VREG] = {
-	{NULL, "vreg-1.8", 1800000, 1800000, 14000, true},
-	{NULL, "vreg-0.9", 1000000, 1000000, 40000, true},
+	{NULL, "vreg-1p8", 1200000, 1200000, 3000, true},
+	{NULL, "vreg-0p9", 912000, 912000, 132000, true},
 	{NULL, "vreg-cx", 0, 0, 0, false}
 };
 
@@ -75,6 +75,7 @@ static struct ep_pcie_clk_info_t
 	{NULL, "pcie_slv_q2a_axi_clk", 0, false},
 	{NULL, "pcie_pipe_clk_mux", 0, false},
 	{NULL, "pcie_pipe_clk_ext_src", 0, false},
+	{NULL, "pcie_0_ref_clk_src", 0, false},
 };
 
 static struct ep_pcie_clk_info_t
@@ -455,23 +456,8 @@ static int ep_pcie_pipe_clk_init(struct ep_pcie_dev_t *dev)
 {
 	int i, rc = 0;
 	struct ep_pcie_clk_info_t *info;
-	char ref_clk_src[MAX_PROP_SIZE];
 
 	EP_PCIE_DBG(dev, "PCIe V%d\n", dev->rev);
-
-	dev->pipe_clk_mux = devm_clk_get(&dev->pdev->dev, "pcie_pipe_clk_mux");
-	if (IS_ERR(dev->pipe_clk_mux))
-		dev->pipe_clk_mux = NULL;
-
-	dev->pipe_clk_ext_src = devm_clk_get(&dev->pdev->dev,
-					"pcie_pipe_clk_ext_src");
-	if (IS_ERR(dev->pipe_clk_ext_src))
-		dev->pipe_clk_ext_src = NULL;
-
-	scnprintf(ref_clk_src, MAX_PROP_SIZE, "pcie_0_ref_clk_src");
-	dev->ref_clk_src = devm_clk_get(&dev->pdev->dev, ref_clk_src);
-	if (IS_ERR(dev->ref_clk_src))
-		dev->ref_clk_src = NULL;
 
 	for (i = 0; i < EP_PCIE_MAX_PIPE_CLK; i++) {
 		info = &dev->pipeclk[i];
@@ -1058,6 +1044,7 @@ static int ep_pcie_get_resources(struct ep_pcie_dev_t *dev,
 	const __be32 *prop;
 	u32 *clkfreq = NULL;
 	bool map;
+	char ref_clk_src[MAX_PROP_SIZE];
 
 	EP_PCIE_DBG(dev, "PCIe V%d\n", dev->rev);
 
@@ -1175,6 +1162,25 @@ static int ep_pcie_get_resources(struct ep_pcie_dev_t *dev,
 		}
 	}
 
+	dev->pipe_clk_mux = devm_clk_get(&dev->pdev->dev, "pcie_pipe_clk_mux");
+	if (IS_ERR(dev->pipe_clk_mux)) {
+		EP_PCIE_ERR(dev, "PCIe V%d: Failed to get pcie_pipe_clk_mux\n", dev->rev);
+		dev->pipe_clk_mux = NULL;
+	}
+
+	dev->pipe_clk_ext_src = devm_clk_get(&dev->pdev->dev, "pcie_pipe_clk_ext_src");
+	if (IS_ERR(dev->pipe_clk_ext_src)) {
+		EP_PCIE_ERR(dev, "PCIe V%d: Failed to get pipe_ext_src\n", dev->rev);
+		dev->pipe_clk_ext_src = NULL;
+	}
+
+	scnprintf(ref_clk_src, MAX_PROP_SIZE, "pcie_0_ref_clk_src");
+	dev->ref_clk_src = devm_clk_get(&dev->pdev->dev, ref_clk_src);
+	if (IS_ERR(dev->ref_clk_src)) {
+		EP_PCIE_ERR(dev, "PCIe V%d: Failed to get ref_clk_src\n", dev->rev);
+		dev->ref_clk_src = NULL;
+	}
+
 	for (i = 0; i < EP_PCIE_MAX_CLK; i++) {
 		clk_info = &dev->clk[i];
 
@@ -1273,7 +1279,7 @@ static int ep_pcie_get_resources(struct ep_pcie_dev_t *dev,
 				"PCIe V%d: can't get resource for %s\n",
 					dev->rev, res_info->name);
 			if (!strcmp(res_info->name, "tcsr_pcie_perst_en") ||
-				(!strcmp(res_info->name, "aoss_reset_perst_raw"))) {
+				(!strcmp(res_info->name, "aoss_cc_reset"))) {
 				if (!dev->tcsr_not_supported && !dev->aoss_rst_clear) {
 					ret = -ENOMEM;
 					goto out;
