@@ -384,6 +384,47 @@ unlock_out:
 	mutex_unlock(&cpu_grp->mons_lock);
 }
 
+static int memlat_idle_read_events(unsigned int cpu)
+{
+	struct memlat_mon *mon;
+	struct memlat_cpu_grp *cpu_grp = per_cpu(per_cpu_grp, cpu);
+	int i, ret = 0;
+	unsigned int idx;
+	struct event_data *common_evs;
+	unsigned long flags;
+
+	if (!cpu_grp)
+		return 0;
+
+	spin_lock_irqsave(&cpu_grp->mon_active_lock, flags);
+	if (!cpu_grp->num_active_mons)
+		goto exit;
+
+	common_evs = to_common_evs(cpu_grp, cpu);
+	for (i = 0; i < NUM_COMMON_EVS; i++) {
+		if (common_evs[i].pevent)
+			ret = perf_event_read_local(common_evs[i].pevent,
+				&common_evs[i].cached_total_count, NULL, NULL);
+	}
+
+	for (i = 0; i < cpu_grp->num_mons; i++) {
+		mon = &cpu_grp->mons[i];
+		if (!mon->is_active || !mon->miss_ev ||
+				!cpumask_test_cpu(cpu, &mon->cpus)) {
+			continue;
+		}
+
+		idx = cpu - cpumask_first(&mon->cpus);
+		if (mon->miss_ev[idx].pevent)
+			ret = perf_event_read_local(mon->miss_ev[idx].pevent,
+			&mon->miss_ev[idx].cached_total_count, NULL, NULL);
+	}
+exit:
+	spin_unlock_irqrestore(&cpu_grp->mon_active_lock, flags);
+	return ret;
+}
+
+#ifdef CONFIG_HOTPLUG_CPU
 static int memlat_hp_restart_events(unsigned int cpu, bool cpu_up)
 {
 	struct perf_event_attr *attr = alloc_attr();
@@ -439,47 +480,6 @@ exit:
 	return ret;
 }
 
-static int memlat_idle_read_events(unsigned int cpu)
-{
-	struct memlat_mon *mon;
-	struct memlat_cpu_grp *cpu_grp = per_cpu(per_cpu_grp, cpu);
-	int i, ret = 0;
-	unsigned int idx;
-	struct event_data *common_evs;
-	unsigned long flags;
-
-	if (!cpu_grp)
-		return 0;
-
-	spin_lock_irqsave(&cpu_grp->mon_active_lock, flags);
-	if (!cpu_grp->num_active_mons)
-		goto exit;
-
-	common_evs = to_common_evs(cpu_grp, cpu);
-	for (i = 0; i < NUM_COMMON_EVS; i++) {
-		if (common_evs[i].pevent)
-			ret = perf_event_read_local(common_evs[i].pevent,
-				&common_evs[i].cached_total_count, NULL, NULL);
-	}
-
-	for (i = 0; i < cpu_grp->num_mons; i++) {
-		mon = &cpu_grp->mons[i];
-		if (!mon->is_active || !mon->miss_ev ||
-				!cpumask_test_cpu(cpu, &mon->cpus)) {
-			continue;
-		}
-
-		idx = cpu - cpumask_first(&mon->cpus);
-		if (mon->miss_ev[idx].pevent)
-			ret = perf_event_read_local(mon->miss_ev[idx].pevent,
-			&mon->miss_ev[idx].cached_total_count, NULL, NULL);
-	}
-exit:
-	spin_unlock_irqrestore(&cpu_grp->mon_active_lock, flags);
-	return ret;
-}
-
-#ifdef CONFIG_HOTPLUG_CPU
 static int memlat_event_hotplug_coming_up(unsigned int cpu)
 {
 	int ret = 0;

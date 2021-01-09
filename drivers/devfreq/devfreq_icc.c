@@ -27,10 +27,11 @@
 #include <linux/interconnect.h>
 #include <soc/qcom/devfreq_icc.h>
 
-/* Has to be ULL to prevent overflow where this macro is used. */
-#define MBYTE (1ULL << 20)
+/* Has to be UL to avoid errors in 32 bit. Use cautiously to avoid overflows.*/
+#define MBYTE (1UL << 20)
 #define HZ_TO_MBPS(hz, w)	(mult_frac(w, hz, MBYTE))
 #define MBPS_TO_HZ(mbps, w)	(mult_frac(mbps, MBYTE, w))
+#define MBPS_TO_ICC(mbps)	(mult_frac(mbps, MBYTE, 1000))
 
 enum dev_type {
 	STD_MBPS_DEV,
@@ -72,8 +73,8 @@ static int set_bw(struct device *dev, u32 new_ib, u32 new_ab)
 		icc_ib = MBPS_TO_HZ(new_ib, d->width);
 		icc_ab = MBPS_TO_HZ(new_ab, d->width);
 	} else if (d->spec->type == STD_MBPS_DEV) {
-		icc_ib = Bps_to_icc(new_ib * MBYTE);
-		icc_ab = Bps_to_icc(new_ab * MBYTE);
+		icc_ib = MBPS_TO_ICC(new_ib);
+		icc_ab = MBPS_TO_ICC(new_ab);
 	}
 
 	dev_dbg(dev, "ICC BW: AB: %u IB: %u\n", icc_ab, icc_ib);
