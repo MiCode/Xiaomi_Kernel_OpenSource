@@ -9,6 +9,8 @@
 		#iommu-cells = <2>;
 		qcom,skip-init;
 		qcom,use-3-lvl-tables;
+		qcom,num-context-banks-override = <0x4e>;
+		qcom,num-smr-override = <0x78>;
 		#global-interrupts = <1>;
 		#size-cells = <1>;
 		#address-cells = <1>;
