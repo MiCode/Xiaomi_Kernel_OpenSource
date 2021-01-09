@@ -225,6 +225,7 @@
   gpiochip_line_is_irq
   gpiod_direction_input
   gpiod_direction_output_raw
+  gpiod_get
   gpiod_get_raw_value
   gpiod_set_raw_value
   gpiod_set_raw_value_cansleep
@@ -2026,6 +2027,7 @@
   sg_nents_for_len
 
 # required by wcn_bsp.ko
+  gpiod_set_value
   memdup_user
   pci_disable_device
   pci_disable_msi
