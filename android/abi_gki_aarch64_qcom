@@ -1792,7 +1792,8 @@
   __tracepoint_android_rvh_set_gfp_zone_flags
   __tracepoint_android_rvh_set_readahead_gfp_mask
   __tracepoint_android_rvh_set_skip_swapcache_flags
-  __tracepoint_android_vh_cpu_idle
+  __tracepoint_android_vh_cpu_idle_enter
+  __tracepoint_android_vh_cpu_idle_exit
   __tracepoint_android_vh_jiffies_update
   __tracepoint_android_vh_scheduler_tick
   tracepoint_probe_register

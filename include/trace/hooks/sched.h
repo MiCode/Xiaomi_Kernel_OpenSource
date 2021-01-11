@@ -30,12 +30,12 @@ DECLARE_HOOK(android_vh_scheduler_tick,
 	TP_ARGS(rq));
 
 DECLARE_RESTRICTED_HOOK(android_rvh_enqueue_task,
-	TP_PROTO(struct rq *rq, struct task_struct *p),
-	TP_ARGS(rq, p), 1);
+	TP_PROTO(struct rq *rq, struct task_struct *p, int flags),
+	TP_ARGS(rq, p, flags), 1);
 
 DECLARE_RESTRICTED_HOOK(android_rvh_dequeue_task,
-	TP_PROTO(struct rq *rq, struct task_struct *p),
-	TP_ARGS(rq, p), 1);
+	TP_PROTO(struct rq *rq, struct task_struct *p, int flags),
+	TP_ARGS(rq, p, flags), 1);
 
 DECLARE_RESTRICTED_HOOK(android_rvh_can_migrate_task,
 	TP_PROTO(struct task_struct *p, int dst_cpu, int *can_migrate),
@@ -182,6 +182,10 @@ DECLARE_RESTRICTED_HOOK(android_rvh_place_entity,
 	TP_PROTO(struct sched_entity *se, u64 *vruntime),
 	TP_ARGS(se, vruntime), 1);
 
+DECLARE_RESTRICTED_HOOK(android_rvh_build_perf_domains,
+	TP_PROTO(bool *eas_check),
+	TP_ARGS(eas_check), 1);
+
 DECLARE_RESTRICTED_HOOK(android_rvh_update_cpu_capacity,
 	TP_PROTO(int cpu, unsigned long *capacity),
 	TP_ARGS(cpu, capacity), 1);
@@ -198,13 +202,29 @@ DECLARE_RESTRICTED_HOOK(android_rvh_cpu_cgroup_attach,
 DECLARE_RESTRICTED_HOOK(android_rvh_cpu_cgroup_can_attach,
 	TP_PROTO(struct cgroup_taskset *tset, int *retval),
 	TP_ARGS(tset, retval), 1);
+
+DECLARE_RESTRICTED_HOOK(android_rvh_sched_fork_init,
+	TP_PROTO(struct task_struct *p),
+	TP_ARGS(p), 1);
+
+DECLARE_RESTRICTED_HOOK(android_rvh_ttwu_cond,
+	TP_PROTO(bool *cond),
+	TP_ARGS(cond), 1);
+
+DECLARE_RESTRICTED_HOOK(android_rvh_schedule_bug,
+	TP_PROTO(void *unused),
+	TP_ARGS(unused), 1);
+
+DECLARE_RESTRICTED_HOOK(android_rvh_sched_exec,
+	TP_PROTO(bool *cond),
+	TP_ARGS(cond), 1);
 #else
 #define trace_android_rvh_select_task_rq_fair(p, prev_cpu, sd_flag, wake_flags, new_cpu)
 #define trace_android_rvh_select_task_rq_rt(p, prev_cpu, sd_flag, wake_flags, new_cpu)
 #define trace_android_rvh_select_fallback_rq(cpu, p, dest_cpu)
 #define trace_android_vh_scheduler_tick(rq)
-#define trace_android_rvh_enqueue_task(rq, p)
-#define trace_android_rvh_dequeue_task(rq, p)
+#define trace_android_rvh_enqueue_task(rq, p, flags)
+#define trace_android_rvh_dequeue_task(rq, p, flags)
 #define trace_android_rvh_can_migrate_task(p, dst_cpu, can_migrate)
 #define trace_android_rvh_find_lowest_rq(p, local_cpu_mask, ret, lowest_cpu)
 #define trace_android_rvh_prepare_prio_fork(p)
@@ -239,10 +259,15 @@ DECLARE_RESTRICTED_HOOK(android_rvh_cpu_cgroup_can_attach,
 #define trace_android_rvh_sched_cpu_dying(cpu)
 #define trace_android_rvh_account_irq(curr, cpu, delta)
 #define trace_android_rvh_place_entity(se, vruntime)
+#define trace_android_rvh_build_perf_domains(eas_check)
 #define trace_android_rvh_update_cpu_capacity(cpu, capacity)
 #define trace_android_rvh_update_misfit_status(p, rq, need_update)
 #define trace_android_rvh_cpu_cgroup_attach(tset)
 #define trace_android_rvh_cpu_cgroup_can_attach(tset, retval)
+#define trace_android_rvh_sched_fork_init(p)
+#define trace_android_rvh_ttwu_cond(cond)
+#define trace_android_rvh_schedule_bug(unused)
+#define trace_android_rvh_sched_exec(cond)
 #endif
 #endif /* _TRACE_HOOK_SCHED_H */
 /* This part must be outside protection */
