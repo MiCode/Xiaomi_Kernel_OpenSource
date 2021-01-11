@@ -1232,7 +1232,7 @@ struct mm_struct *mm_access(struct task_struct *task, unsigned int mode)
 	struct mm_struct *mm;
 	int err;
 
-	err =  down_read_killable(&task->signal->exec_update_lock);
+	err =  mutex_lock_killable(&task->signal->exec_update_mutex);
 	if (err)
 		return ERR_PTR(err);
 
@@ -1242,7 +1242,7 @@ struct mm_struct *mm_access(struct task_struct *task, unsigned int mode)
 		mmput(mm);
 		mm = ERR_PTR(-EACCES);
 	}
-	up_read(&task->signal->exec_update_lock);
+	mutex_unlock(&task->signal->exec_update_mutex);
 
 	return mm;
 }
@@ -1597,7 +1597,7 @@ static int copy_signal(unsigned long clone_flags, struct task_struct *tsk)
 	sig->oom_score_adj_min = current->signal->oom_score_adj_min;
 
 	mutex_init(&sig->cred_guard_mutex);
-	init_rwsem(&sig->exec_update_lock);
+	mutex_init(&sig->exec_update_mutex);
 
 	return 0;
 }
