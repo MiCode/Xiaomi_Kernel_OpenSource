@@ -520,3 +520,24 @@ config I2C_RTC6226_QCA
 	  module will be called radio-i2c-RTC6226_QCA.
 
 endif # RADIO_ADAPTERS
+
+config RADIO_IRIS
+        tristate "QTI IRIS FM support"
+        depends on VIDEO_V4L2
+	help
+          Say Y here if you want to use the QTI FM chip (IRIS).
+          This FM chip uses SMD interface
+
+          To compile this driver as a module, choose M here: the
+          module will be called radio-iris.
+
+
+config RADIO_IRIS_TRANSPORT
+        tristate "QTI IRIS Transport"
+        depends on RADIO_IRIS
+	help
+          Say Y here if you want to use the QTI FM chip (IRIS).
+          with SMD as transport.
+
+          To compile this driver as a module, choose M here: the
+          module will be called radio-iris-transport.
