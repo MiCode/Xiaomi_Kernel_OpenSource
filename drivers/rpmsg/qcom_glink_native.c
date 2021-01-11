@@ -2176,10 +2176,6 @@ struct qcom_glink *qcom_glink_native_probe(struct device *dev,
 
 	glink->ilc = ipc_log_context_create(GLINK_LOG_PAGE_CNT, glink->name, 0);
 
-	ret = qcom_glink_create_chrdev(glink);
-	if (ret)
-		dev_err(glink->dev, "failed to register chrdev\n");
-
 	return glink;
 
 unregister:
