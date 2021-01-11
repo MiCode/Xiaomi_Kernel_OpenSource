@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
  */
 
 /* Uncomment this block to log an error on every VERIFY failure */
@@ -854,7 +854,7 @@ static inline void fastrpc_update_rxmsg_buf(struct fastrpc_channel_ctx *chan,
 static void fastrpc_buf_free(struct fastrpc_buf *buf, int cache)
 {
 	struct fastrpc_file *fl = buf == NULL ? NULL : buf->fl;
-	int vmid;
+	int vmid, err = 0;
 
 	if (!fl)
 		return;
@@ -888,6 +888,9 @@ skip_buf_cache:
 		int destVM[1] = {VMID_HLOS};
 		int destVMperm[1] = {PERM_READ | PERM_WRITE | PERM_EXEC};
 
+		VERIFY(err, fl->sctx != NULL);
+		if (err)
+			goto bail;
 		if (fl->sctx->smmu.cb)
 			buf->phys &= ~((uint64_t)fl->sctx->smmu.cb << 32);
 		vmid = fl->apps->channel[fl->cid].vmid;
@@ -908,6 +911,7 @@ skip_buf_cache:
 		dma_free_attrs(fl->sctx->smmu.dev, buf->size, buf->virt,
 					buf->phys, buf->dma_attr);
 	}
+bail:
 	kfree(buf);
 }
 
@@ -1580,6 +1584,12 @@ static int fastrpc_buf_alloc(struct fastrpc_file *fl, size_t size,
 	buf->raddr = 0;
 	buf->type = buf_type;
 	ktime_get_real_ts64(&buf->buf_start_time);
+
+	VERIFY(err, fl && fl->sctx != NULL);
+	if (err) {
+		err = -EBADR;
+		goto bail;
+	}
 	buf->virt = dma_alloc_attrs(fl->sctx->smmu.dev, buf->size,
 						(dma_addr_t *)&buf->phys,
 						GFP_KERNEL, buf->dma_attr);
@@ -2472,7 +2482,7 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 			continue;
 		if (map && map->uncached)
 			continue;
-		if (ctx->fl->sctx->smmu.coherent)
+		if (ctx->fl->sctx && ctx->fl->sctx->smmu.coherent)
 			continue;
 		if (map && (map->attr & FASTRPC_ATTR_FORCE_NOFLUSH))
 			continue;
@@ -2636,7 +2646,7 @@ static void inv_args(struct smq_invoke_ctx *ctx)
 			continue;
 		if (!rpra[over].buf.len)
 			continue;
-		if (ctx->fl->sctx->smmu.coherent)
+		if (ctx->fl && ctx->fl->sctx && ctx->fl->sctx->smmu.coherent)
 			continue;
 		if (map && (map->attr & FASTRPC_ATTR_FORCE_NOINVALIDATE))
 			continue;
