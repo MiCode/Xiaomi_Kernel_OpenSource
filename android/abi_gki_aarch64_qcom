@@ -6,6 +6,7 @@
   add_taint
   add_timer
   add_uevent_var
+  add_wait_queue
   adjust_managed_page_count
   alloc_chrdev_region
   __alloc_disk_node
@@ -174,6 +175,7 @@
   cpu_latency_qos_request_active
   cpu_latency_qos_update_request
   cpumask_next
+  cpumask_next_and
   cpu_number
   __cpu_online_mask
   cpu_pm_register_notifier
@@ -659,6 +661,11 @@
   enable_irq
   enable_percpu_irq
   event_triggers_call
+  eventfd_ctx_fdget
+  eventfd_ctx_fileget
+  eventfd_ctx_put
+  eventfd_ctx_remove_wait_queue
+  eventfd_signal
   extcon_find_edev_by_node
   extcon_get_edev_by_phandle
   extcon_get_edev_name
@@ -670,6 +677,7 @@
   extcon_unregister_notifier
   fasync_helper
   fd_install
+  __fdget
   fget
   find_last_bit
   find_next_bit
@@ -934,6 +942,7 @@
   kernel_getsockname
   kernel_kobj
   kernel_power_off
+  kernel_read
   kernel_recvmsg
   kernel_sendmsg
   kernfs_find_and_get_ns
@@ -966,6 +975,7 @@
   kobject_init_and_add
   kobject_put
   kobject_set_name
+  kobj_sysfs_ops
   kobject_uevent
   kobject_uevent_env
   krealloc
