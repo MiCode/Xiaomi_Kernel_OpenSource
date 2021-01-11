@@ -1994,12 +1994,12 @@ static void msm_geni_serial_handle_isr(struct uart_port *uport,
 						TX_GENI_CANCEL_IRQ))
 				m_cmd_done = true;
 
-			if (m_irq_status & (M_CMD_CANCEL_EN | M_CMD_ABORT_EN))
-				m_cmd_done = true;
-
 			if ((dma_tx_status & TX_DMA_DONE) && !m_cmd_done)
 				msm_geni_serial_handle_dma_tx(uport);
 		}
+
+		if (m_irq_status & (M_CMD_CANCEL_EN | M_CMD_ABORT_EN))
+			m_cmd_done = true;
 
 		if (dma_rx_status) {
 			geni_write_reg_nolog(dma_rx_status, uport->membase,
@@ -2053,10 +2053,10 @@ static void msm_geni_serial_handle_isr(struct uart_port *uport,
 			if (dma_rx_status & (RX_EOT | RX_GENI_CANCEL_IRQ |
 								RX_DMA_DONE))
 				s_cmd_done = true;
-
-			if (s_irq_status & (S_CMD_CANCEL_EN | S_CMD_ABORT_EN))
-				s_cmd_done = true;
 		}
+
+		if (s_irq_status & (S_CMD_CANCEL_EN | S_CMD_ABORT_EN))
+			s_cmd_done = true;
 	}
 
 exit_geni_serial_isr:
