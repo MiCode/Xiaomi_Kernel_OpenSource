@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2016-2017, Linaro Ltd
- * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/idr.h>
@@ -2158,10 +2158,6 @@ struct qcom_glink *qcom_glink_native_probe(struct device *dev,
 		dev_err(glink->dev, "failed to register chrdev\n");
 
 	glink->ilc = ipc_log_context_create(GLINK_LOG_PAGE_CNT, glink->name, 0);
-
-	ret = qcom_glink_create_chrdev(glink);
-	if (ret)
-		dev_err(glink->dev, "failed to register chrdev\n");
 
 	return glink;
 
