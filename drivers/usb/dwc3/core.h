@@ -1326,9 +1326,6 @@ struct dwc3 {
 	u16			imod_interval;
 	u32			xhci_imod_value;
 
-	struct workqueue_struct *dwc_wq;
-	struct work_struct      bh_work;
-
 	unsigned long		ep_cmd_timeout_cnt;
 
 	unsigned int		index;

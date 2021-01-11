@@ -31,7 +31,6 @@
 #include <linux/usb/gadget.h>
 #include <linux/usb/of.h>
 #include <linux/usb/otg.h>
-#include <linux/irq.h>
 
 #include "core.h"
 #include "gadget.h"
@@ -1557,7 +1556,6 @@ static int dwc3_probe(struct platform_device *pdev)
 	int			ret;
 
 	void __iomem		*regs;
-	int			irq;
 
 	if (count >= DWC_CTRL_COUNT) {
 		dev_err(dev, "Err dwc instance %d >= %d available\n",
@@ -1584,17 +1582,6 @@ static int dwc3_probe(struct platform_device *pdev)
 	dwc->xhci_resources[0].flags = res->flags;
 	dwc->xhci_resources[0].name = res->name;
 
-	irq = platform_get_irq(to_platform_device(dwc->dev), 0);
-
-	ret = devm_request_irq(dev, irq, dwc3_interrupt, IRQF_SHARED, "dwc3",
-			dwc);
-	if (ret) {
-		dev_err(dwc->dev, "failed to request irq #%d --> %d\n",
-				irq, ret);
-		return -ENODEV;
-	}
-
-	dwc->irq = irq;
 	/*
 	 * Request memory region but exclude xHCI regs,
 	 * since it will be requested by the xhci-plat driver.
@@ -1606,14 +1593,6 @@ static int dwc3_probe(struct platform_device *pdev)
 	if (IS_ERR(regs))
 		return PTR_ERR(regs);
 
-	dwc->dwc_wq = alloc_ordered_workqueue("dwc_wq", WQ_HIGHPRI);
-	if (!dwc->dwc_wq) {
-		dev_err(dev,
-			"%s: Unable to create workqueue dwc_wq\n", __func__);
-		goto err0;
-	}
-
-	INIT_WORK(&dwc->bh_work, dwc3_bh_work);
 	dwc->regs	= regs;
 	dwc->regs_size	= resource_size(&dwc_res);
 
@@ -1707,7 +1686,6 @@ err1:
 	clk_bulk_disable_unprepare(dwc->num_clks, dwc->clks);
 assert_reset:
 	reset_control_assert(dwc->reset);
-	destroy_workqueue(dwc->dwc_wq);
 err0:
 	return ret;
 }

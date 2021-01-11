@@ -2361,9 +2361,6 @@ static int dwc3_gadget_pullup(struct usb_gadget *g, int is_on)
 
 	disable_irq(dwc->irq);
 
-	/* prevent pending bh to run later */
-	flush_work(&dwc->bh_work);
-
 	/*
 	 * Synchronize any pending event handling before executing the controller
 	 * halt routine.
@@ -2585,6 +2582,16 @@ static int dwc3_gadget_start(struct usb_gadget *g,
 	struct dwc3		*dwc = gadget_to_dwc(g);
 	unsigned long		flags;
 	int			ret = 0;
+	int			irq;
+
+	irq = dwc->irq_gadget;
+	ret = request_threaded_irq(irq, dwc3_interrupt, dwc3_thread_interrupt,
+			IRQF_SHARED, "dwc3", dwc->ev_buf);
+	if (ret) {
+		dev_err(dwc->dev, "failed to request irq #%d --> %d\n",
+				irq, ret);
+		goto err0;
+	}
 
 	spin_lock_irqsave(&dwc->lock, flags);
 	if (dwc->gadget_driver) {
@@ -2592,10 +2599,13 @@ static int dwc3_gadget_start(struct usb_gadget *g,
 				dwc->gadget->name,
 				dwc->gadget_driver->driver.name);
 		ret = -EBUSY;
-		goto err0;
+		goto err1;
 	}
 
 	dwc->gadget_driver	= driver;
+
+	if (pm_runtime_active(dwc->dev))
+		__dwc3_gadget_start(dwc);
 
 	/*
 	 * For DRD, this might get called by gadget driver during bootup
@@ -2607,8 +2617,11 @@ static int dwc3_gadget_start(struct usb_gadget *g,
 
 	return 0;
 
-err0:
+err1:
 	spin_unlock_irqrestore(&dwc->lock, flags);
+	free_irq(irq, dwc);
+
+err0:
 	return ret;
 }
 
@@ -2625,10 +2638,17 @@ static int dwc3_gadget_stop(struct usb_gadget *g)
 	unsigned long		flags;
 
 	spin_lock_irqsave(&dwc->lock, flags);
+
+	if (pm_runtime_suspended(dwc->dev))
+		goto out;
+
+	__dwc3_gadget_stop(dwc);
+
+out:
 	dwc->gadget_driver	= NULL;
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
-	flush_workqueue(dwc->dwc_wq);
+	free_irq(dwc->irq_gadget, dwc->ev_buf);
 
 	return 0;
 }
@@ -3966,15 +3986,6 @@ static irqreturn_t dwc3_process_event_buf(struct dwc3_event_buffer *evt)
 	return ret;
 }
 
-void dwc3_bh_work(struct work_struct *w)
-{
-	struct dwc3 *dwc = container_of(w, struct dwc3, bh_work);
-
-	pm_runtime_get_sync(dwc->dev);
-	dwc3_thread_interrupt(dwc->irq, dwc->ev_buf);
-	pm_runtime_put(dwc->dev);
-}
-
 static irqreturn_t dwc3_thread_interrupt(int irq, void *_evt)
 {
 	struct dwc3_event_buffer *evt = _evt;
@@ -4045,20 +4056,11 @@ static irqreturn_t dwc3_check_event_buf(struct dwc3_event_buffer *evt)
 	return IRQ_WAKE_THREAD;
 }
 
-irqreturn_t dwc3_interrupt(int irq, void *_dwc)
+irqreturn_t dwc3_interrupt(int irq, void *_evt)
 {
-	struct dwc3     *dwc = _dwc;
-	irqreturn_t     ret = IRQ_NONE;
-	irqreturn_t     status;
+	struct dwc3_event_buffer	*evt = _evt;
 
-	status = dwc3_check_event_buf(dwc->ev_buf);
-	if (status == IRQ_WAKE_THREAD)
-		ret = status;
-
-	if (ret == IRQ_WAKE_THREAD)
-		queue_work(dwc->dwc_wq, &dwc->bh_work);
-
-	return IRQ_HANDLED;
+	return dwc3_check_event_buf(evt);
 }
 
 static int dwc3_gadget_get_irq(struct dwc3 *dwc)

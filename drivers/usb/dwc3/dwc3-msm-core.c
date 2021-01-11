@@ -3047,9 +3047,6 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc, bool force_power_collapse)
 	if (dwc->irq)
 		disable_irq(dwc->irq);
 
-	if (work_busy(&dwc->bh_work))
-		dbg_event(0xFF, "pend evt", 0);
-
 	/* disable power event irq, hs and ss phy irq is used as wake up src */
 	disable_irq(mdwc->wakeup_irq[PWR_EVNT_IRQ].irq);
 

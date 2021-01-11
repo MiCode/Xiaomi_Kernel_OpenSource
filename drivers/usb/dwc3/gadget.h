@@ -60,8 +60,7 @@ struct dwc3;
 
 #define to_dwc3_request(r)	(container_of(r, struct dwc3_request, request))
 
-irqreturn_t dwc3_interrupt(int irq, void *_dwc);
-void dwc3_bh_work(struct work_struct *w);
+irqreturn_t dwc3_interrupt(int irq, void *_evt);
 
 /**
  * next_request - gets the next request on the given list
