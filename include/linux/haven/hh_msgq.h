@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  *
  */
 
@@ -47,7 +47,7 @@ static inline void *hh_msgq_register(enum hh_msgq_label label)
 
 static inline int hh_msgq_unregister(void *msgq_client_desc)
 {
-	return ERR_PTR(-ENODEV);
+	return -EINVAL;
 }
 
 static inline int hh_msgq_send(void *msgq_client_desc,

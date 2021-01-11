@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  *
  */
 
@@ -54,12 +54,12 @@ static inline void *hh_dbl_rx_register(enum hh_dbl_label label,
 
 static inline int hh_dbl_tx_unregister(void *dbl_client_desc)
 {
-	return ERR_PTR(-ENODEV);
+	return -EINVAL;
 }
 
 static inline int hh_dbl_rx_unregister(void *dbl_client_desc)
 {
-	return ERR_PTR(-ENODEV);
+	return -EINVAL;
 }
 
 static inline int hh_dbl_send(void *dbl_client_desc, uint64_t *newflags,
