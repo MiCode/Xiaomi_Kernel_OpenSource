@@ -195,9 +195,6 @@ static bool is_iommu_pt_coherent(struct arm_smmu_domain *smmu_domain)
 	if (test_bit(DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT,
 		     smmu_domain->attributes))
 		return true;
-	else if (test_bit(DOMAIN_ATTR_PAGE_TABLE_FORCE_NON_COHERENT,
-			  smmu_domain->attributes))
-		return false;
 	else if (smmu_domain->smmu && smmu_domain->smmu->dev)
 		return dev_is_dma_coherent(smmu_domain->smmu->dev);
 	else
@@ -1457,13 +1454,15 @@ void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx,
 		reg |= FIELD_PREP(ARM_SMMU_SCTLR_SHCFG, ARM_SMMU_SCTLR_SHCFG_NSH);
 	}
 
-	if (attributes && test_bit(DOMAIN_ATTR_CB_STALL_DISABLE, attributes)) {
-		reg &= ~ARM_SMMU_SCTLR_CFCFG;
-		reg |= ARM_SMMU_SCTLR_HUPCF;
-	}
-
-	if (attributes && test_bit(DOMAIN_ATTR_NO_CFRE, attributes))
+	if (attributes && test_bit(DOMAIN_ATTR_FAULT_MODEL_NO_CFRE, attributes))
 		reg &= ~ARM_SMMU_SCTLR_CFRE;
+
+	if (attributes && test_bit(DOMAIN_ATTR_FAULT_MODEL_NO_STALL,
+				   attributes))
+		reg &= ~ARM_SMMU_SCTLR_CFCFG;
+
+	if (attributes && test_bit(DOMAIN_ATTR_FAULT_MODEL_HUPCF, attributes))
+		reg |= ARM_SMMU_SCTLR_HUPCF;
 
 	if (!attributes || (!test_bit(DOMAIN_ATTR_S1_BYPASS, attributes) &&
 	     !test_bit(DOMAIN_ATTR_EARLY_MAP, attributes)) || !stage1)
@@ -2423,15 +2422,20 @@ static int arm_smmu_setup_default_domain(struct device *dev,
 	if (of_property_match_string(np, "qcom,iommu-faults",
 				     "stall-disable") >= 0)
 		__arm_smmu_domain_set_attr(domain,
-			DOMAIN_ATTR_CB_STALL_DISABLE, &attr);
+			DOMAIN_ATTR_FAULT_MODEL_NO_STALL, &attr);
+
+	if (of_property_match_string(np, "qcom,iommu-faults", "no-CFRE") >= 0)
+		__arm_smmu_domain_set_attr(
+			domain, DOMAIN_ATTR_FAULT_MODEL_NO_CFRE, &attr);
+
+	if (of_property_match_string(np, "qcom,iommu-faults", "HUPCF") >= 0)
+		__arm_smmu_domain_set_attr(domain,
+					   DOMAIN_ATTR_FAULT_MODEL_HUPCF,
+					   &attr);
 
 	if (of_property_match_string(np, "qcom,iommu-faults", "non-fatal") >= 0)
 		__arm_smmu_domain_set_attr(domain,
 			DOMAIN_ATTR_NON_FATAL_FAULTS, &attr);
-
-	if (of_property_match_string(np, "qcom,iommu-faults", "no-CFRE") >= 0)
-		__arm_smmu_domain_set_attr(
-			domain, DOMAIN_ATTR_NO_CFRE, &attr);
 
 	/* Default value: disabled */
 	ret = of_property_read_u32(np, "qcom,iommu-vmid", &val);
@@ -2447,9 +2451,6 @@ static int arm_smmu_setup_default_domain(struct device *dev,
 	if (!strcmp(str, "coherent"))
 		__arm_smmu_domain_set_attr(domain,
 			DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT, &attr);
-	else if (!strcmp(str, "non-coherent"))
-		__arm_smmu_domain_set_attr(domain,
-			DOMAIN_ATTR_PAGE_TABLE_FORCE_NON_COHERENT, &attr);
 	else if (!strcmp(str, "LLC"))
 		__arm_smmu_domain_set_attr(domain,
 			DOMAIN_ATTR_USE_UPSTREAM_HINT, &attr);
@@ -3145,20 +3146,10 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 					  smmu_domain->attributes);
 		ret = 0;
 		break;
-	case DOMAIN_ATTR_PAGE_TABLE_FORCE_NON_COHERENT:
-		*((int *)data) =
-			test_bit(DOMAIN_ATTR_PAGE_TABLE_FORCE_NON_COHERENT,
-				 smmu_domain->attributes);
-		ret = 0;
-		break;
-	case DOMAIN_ATTR_CB_STALL_DISABLE:
-		*((int *)data) = test_bit(DOMAIN_ATTR_CB_STALL_DISABLE,
-					  smmu_domain->attributes);
-		ret = 0;
-		break;
-	case DOMAIN_ATTR_NO_CFRE:
-		*((int *)data) = test_bit(DOMAIN_ATTR_NO_CFRE,
-					  smmu_domain->attributes);
+	case DOMAIN_ATTR_FAULT_MODEL_NO_CFRE:
+	case DOMAIN_ATTR_FAULT_MODEL_NO_STALL:
+	case DOMAIN_ATTR_FAULT_MODEL_HUPCF:
+		*((int *)data) = test_bit(attr, smmu_domain->attributes);
 		ret = 0;
 		break;
 	default:
@@ -3367,8 +3358,9 @@ static int __arm_smmu_domain_set_attr2(struct iommu_domain *domain,
 		}
 		break;
 	}
-	case DOMAIN_ATTR_CB_STALL_DISABLE:
-	case DOMAIN_ATTR_NO_CFRE:
+	case DOMAIN_ATTR_FAULT_MODEL_NO_CFRE:
+	case DOMAIN_ATTR_FAULT_MODEL_NO_STALL:
+	case DOMAIN_ATTR_FAULT_MODEL_HUPCF:
 		if (*((int *)data))
 			set_bit(attr, smmu_domain->attributes);
 		ret = 0;
@@ -3386,24 +3378,6 @@ static int __arm_smmu_domain_set_attr2(struct iommu_domain *domain,
 			ret = 0;
 		} else {
 			clear_bit(DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT,
-				  smmu_domain->attributes);
-			ret = 0;
-		}
-		break;
-	}
-	case DOMAIN_ATTR_PAGE_TABLE_FORCE_NON_COHERENT: {
-		int force_non_coherent = *((int *)data);
-
-		if (smmu_domain->smmu != NULL) {
-			dev_err(smmu_domain->smmu->dev,
-				"cannot change force non-coherent attribute while attached\n");
-			ret = -EBUSY;
-		} else if (force_non_coherent) {
-			set_bit(DOMAIN_ATTR_PAGE_TABLE_FORCE_NON_COHERENT,
-				smmu_domain->attributes);
-			ret = 0;
-		} else {
-			clear_bit(DOMAIN_ATTR_PAGE_TABLE_FORCE_NON_COHERENT,
 				  smmu_domain->attributes);
 			ret = 0;
 		}
