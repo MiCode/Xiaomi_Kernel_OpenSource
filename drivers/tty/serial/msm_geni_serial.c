@@ -202,6 +202,7 @@ struct msm_geni_serial_port {
 	bool s_cmd;
 	struct completion m_cmd_timeout;
 	struct completion s_cmd_timeout;
+	spinlock_t rx_lock;
 };
 
 static const struct uart_ops msm_geni_serial_pops;
@@ -226,6 +227,7 @@ static void msm_geni_serial_stop_rx(struct uart_port *uport);
 static int msm_geni_serial_runtime_resume(struct device *dev);
 static int msm_geni_serial_runtime_suspend(struct device *dev);
 static int msm_geni_serial_get_ver_info(struct uart_port *uport);
+static bool handle_rx_dma_xfer(u32 s_irq_status, struct uart_port *uport);
 static int uart_line_id;
 
 #define GET_DEV_PORT(uport) \
@@ -1420,6 +1422,7 @@ static int stop_rx_sequencer(struct uart_port *uport)
 	unsigned long flags = 0;
 	bool is_rx_active;
 	unsigned int stale_delay;
+	u32 dma_rx_status, s_irq_status;
 
 	IPC_LOG_MSG(port->ipc_log_misc, "%s\n", __func__);
 
@@ -1444,6 +1447,25 @@ static int stop_rx_sequencer(struct uart_port *uport)
 		stale_delay = (STALE_COUNT * SEC_TO_USEC) / port->cur_baud;
 		stale_delay = (2 * stale_delay) + SYSTEM_DELAY;
 		udelay(stale_delay);
+
+		dma_rx_status = geni_read_reg_nolog(uport->membase,
+						SE_DMA_RX_IRQ_STAT);
+		/* The transfer is completed at HW level and the completion
+		 * interrupt is delayed. So process the transfer completion
+		 * before issuing the cancel command to resolve the race
+		 * btw cancel RX and completion interrupt.
+		 */
+		if (dma_rx_status) {
+			s_irq_status = geni_read_reg_nolog(uport->membase,
+							SE_GENI_S_IRQ_STATUS);
+			geni_write_reg_nolog(s_irq_status, uport->membase,
+							SE_GENI_S_IRQ_CLEAR);
+			geni_se_dump_dbg_regs(&port->serial_rsc,
+				uport->membase, port->ipc_log_misc);
+			IPC_LOG_MSG(port->ipc_log_misc, "%s: Interrupt delay\n",
+					__func__);
+			handle_rx_dma_xfer(s_irq_status, uport);
+		}
 	}
 
 	IPC_LOG_MSG(port->ipc_log_misc, "%s: Start 0x%x\n",
@@ -1930,7 +1952,10 @@ static bool handle_rx_dma_xfer(u32 s_irq_status, struct uart_port *uport)
 	bool ret = false;
 	bool drop_rx = false;
 	struct msm_geni_serial_port *msm_port = GET_DEV_PORT(uport);
-	u32 dma_rx_status = geni_read_reg_nolog(uport->membase,
+	u32 dma_rx_status;
+
+	spin_lock(&msm_port->rx_lock);
+	dma_rx_status = geni_read_reg_nolog(uport->membase,
 						SE_DMA_RX_IRQ_STAT);
 
 	if (dma_rx_status) {
@@ -1941,7 +1966,7 @@ static bool handle_rx_dma_xfer(u32 s_irq_status, struct uart_port *uport)
 			IPC_LOG_MSG(msm_port->ipc_log_misc,
 			"%s.Reset done.  0x%x.\n", __func__, dma_rx_status);
 			ret = true;
-			return ret;
+			goto exit;
 		}
 
 		if (dma_rx_status & UART_DMA_RX_ERRS) {
@@ -1987,6 +2012,8 @@ static bool handle_rx_dma_xfer(u32 s_irq_status, struct uart_port *uport)
 	if (s_irq_status & (S_CMD_CANCEL_EN | S_CMD_ABORT_EN))
 		ret = true;
 
+exit:
+	spin_unlock(&msm_port->rx_lock);
 	return ret;
 }
 
@@ -3204,6 +3231,8 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 	 */
 	if (uart_console(uport))
 		geni_se_remove_earlycon_icc_vote(dev_port->wrapper_dev);
+	else
+		spin_lock_init(&dev_port->rx_lock);
 
 exit_geni_serial_probe:
 	IPC_LOG_MSG(dev_port->ipc_log_misc, "%s: ret:%d\n",
