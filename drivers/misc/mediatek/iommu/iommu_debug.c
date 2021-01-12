@@ -1041,6 +1041,7 @@ static const struct of_device_id mtk_m4u_dbg_of_ids[] = {
 	{ .compatible = "mediatek,mt6779-iommu-debug", .data = &mt6779_data},
 	{ .compatible = "mediatek,mt6873-iommu-debug", .data = &mt6873_data},
 	{ .compatible = "mediatek,mt6853-iommu-debug", .data = &mt6853_data},
+	{ },
 };
 
 static struct platform_driver mtk_m4u_dbg_drv = {
