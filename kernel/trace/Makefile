@@ -101,5 +101,3 @@ obj-$(CONFIG_IPC_LOGGING) += qcom_ipc_logging.o
 qcom_ipc_logging-y := ipc_logging.o  ipc_logging_debug.o
 
 libftrace-y := ftrace.o
-
-obj-$(CONFIG_PREEMPTIRQ_TRACEPOINTS) += preemptirq_long.o
