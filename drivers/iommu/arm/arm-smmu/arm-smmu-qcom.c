@@ -1008,12 +1008,9 @@ static void qsmmuv500_init_cb(struct arm_smmu_domain *smmu_domain,
 	struct qsmmuv500_group_iommudata *iommudata =
 		to_qsmmuv500_group_iommudata(dev->iommu_group);
 	int idx = smmu_domain->cfg.cbndx;
-	const struct iommu_flush_ops *tlb;
 
 	if (!iommudata->has_actlr)
 		return;
-
-	tlb = smmu_domain->pgtbl_info.cfg.tlb;
 
 	arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_ACTLR, iommudata->actlr);
 
@@ -1021,7 +1018,7 @@ static void qsmmuv500_init_cb(struct arm_smmu_domain *smmu_domain,
 	 * Flush the context bank after modifying ACTLR to ensure there
 	 * are no cache entries with stale state
 	 */
-	tlb->tlb_flush_all(smmu_domain);
+	iommu_flush_iotlb_all(&smmu_domain->domain);
 }
 
 static int qsmmuv500_tbu_register(struct device *dev, void *cookie)

@@ -498,7 +498,11 @@ struct arm_smmu_domain {
 	struct mutex			init_mutex; /* Protects smmu pointer */
 	spinlock_t			cb_lock; /* Serialises ATS1* ops */
 	spinlock_t			sync_lock; /* Serialises TLB syncs */
-	struct qcom_io_pgtable_info	pgtbl_info;
+	/*
+	 * This field is required for retrieving ttbr for dynamic domains
+	 * and will be removed soon.
+	 */
+	struct io_pgtable_cfg		pgtbl_cfg;
 	DECLARE_BITMAP(attributes, DOMAIN_ATTR_EXTENDED_MAX);
 	u32				secure_vmid;
 	struct list_head		pte_info_list;
@@ -509,6 +513,11 @@ struct arm_smmu_domain {
 	struct list_head		nonsecure_pool;
 	struct iommu_debug_attachment	*logger;
 	struct iommu_domain		domain;
+	/*
+	 * test_bit(DOMAIN_ATTR_ATOMIC, aattributes) indicates that
+	 * runtime power management should be disabled.
+	 */
+	bool				rpm_always_on;
 };
 
 struct arm_smmu_master_cfg {
@@ -607,7 +616,7 @@ static inline int __arm_smmu_alloc_bitmap(unsigned long *map, int start, int end
 }
 
 int __arm_smmu_alloc_cb(unsigned long *map, int start, int end,
-			struct device *dev);
+			struct device *dev, struct arm_smmu_domain *smmu_domain);
 
 static inline void __iomem *arm_smmu_page(struct arm_smmu_device *smmu, int n)
 {
@@ -683,6 +692,9 @@ int arm_mmu500_reset(struct arm_smmu_device *smmu);
 int arm_smmu_power_on(struct arm_smmu_power_resources *pwr);
 void arm_smmu_power_off(struct arm_smmu_device *smmu,
 			struct arm_smmu_power_resources *pwr);
+struct arm_smmu_power_resources *arm_smmu_init_power_resources(
+			struct platform_device *pdev);
+void arm_smmu_exit_power_resources(struct arm_smmu_power_resources *pwr);
 
 /* Misc. constants */
 #define TBUID_SHIFT                     10
