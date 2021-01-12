@@ -158,10 +158,14 @@
   contig_page_data
   _copy_from_iter_full
   cpu_bit_bitmap
+  cpu_scale
+  cpufreq_cpu_get
   cpufreq_cpu_get_raw
+  cpufreq_cpu_put
   cpufreq_freq_attr_scaling_available_freqs
   cpufreq_freq_attr_scaling_boost_freqs
   cpufreq_generic_frequency_table_verify
+  cpufreq_get_policy
   cpufreq_register_driver
   cpufreq_unregister_driver
   __cpuhp_remove_state
@@ -698,6 +702,9 @@
   free_pages_exact
   free_percpu
   free_percpu_irq
+  freq_qos_add_request
+  freq_qos_remove_request
+  freq_qos_update_request
   ftrace_dump
   fwnode_find_reference
   fwnode_get_next_child_node
@@ -979,6 +986,7 @@
   kobject_uevent
   kobject_uevent_env
   krealloc
+  kset_create_and_add
   kstrdup
   kstrdup_const
   kstrndup
@@ -1236,6 +1244,7 @@
   perf_aux_output_flag
   perf_event_addr_filters_sync
   perf_event_create_kernel_counter
+  perf_event_disable
   perf_event_enable
   perf_event_read_local
   perf_event_read_value
@@ -1805,6 +1814,7 @@
   __tracepoint_android_vh_cpu_idle
   __tracepoint_android_vh_jiffies_update
   __tracepoint_android_vh_scheduler_tick
+  __tracepoint_cpu_idle
   tracepoint_probe_register
   tracepoint_probe_unregister
   __tracepoint_suspend_resume
