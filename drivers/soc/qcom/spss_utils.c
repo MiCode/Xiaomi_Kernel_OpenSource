@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 
 /*
@@ -1199,6 +1199,9 @@ static int spss_probe(struct platform_device *pdev)
 		return -EINVAL;
 
 	rproc = rproc_get_by_phandle(be32_to_cpup(prop->value));
+	if (!rproc)
+		return -EPROBE_DEFER;
+
 	ret = qcom_spss_set_fw_name(rproc, firmware_name);
 	if (ret < 0) {
 		if (ret != -EINVAL)
@@ -1305,3 +1308,4 @@ module_exit(spss_exit)
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("Secure Processor Utilities");
+MODULE_SOFTDEP("post: qcom_spss");
