@@ -51,9 +51,11 @@ struct lpm_cpu {
 	uint32_t history_invalid;
 	bool htmr_wkup;
 	struct hrtimer histtimer;
+	struct hrtimer biastimer;
 	struct history_lpm lpm_history;
 	struct history_ipi ipi_history;
 	ktime_t now;
+	uint64_t bias;
 	int64_t next_pred_time;
 	bool ipi_pending;
 };
