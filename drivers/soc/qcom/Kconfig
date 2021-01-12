@@ -878,7 +878,7 @@ config QCOM_WATCHDOG_USERSPACE_PET
 	  The feature is supported through device sysfs files.
 
 config MSM_SPCOM
-         depends on QCOM_GLINK
+         depends on QCOM_SPSS
          tristate "Secure Processor Communication over RPMSG"
          help
 	   SPCOM driver allows loading Secure Processor Applications and sending
