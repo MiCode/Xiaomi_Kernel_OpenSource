@@ -3207,17 +3207,12 @@ static int __arm_smmu_domain_set_attr2(struct iommu_domain *domain,
 	switch (iommu_attr) {
 	case DOMAIN_ATTR_USE_UPSTREAM_HINT:
 	case DOMAIN_ATTR_USE_LLC_NWA:
-		if (IS_ENABLED(CONFIG_QCOM_IOMMU_IO_PGTABLE_QUIRKS)) {
-
-			/* can't be changed while attached */
-			if (smmu_domain->smmu != NULL) {
-				ret = -EBUSY;
-			} else if (*((int *)data)) {
-				set_bit(attr, smmu_domain->attributes);
-				ret = 0;
-			}
-		} else {
-			ret = -ENOTSUPP;
+		/* can't be changed while attached */
+		if (smmu_domain->smmu != NULL) {
+			ret = -EBUSY;
+		} else if (*((int *)data)) {
+			set_bit(attr, smmu_domain->attributes);
+			ret = 0;
 		}
 		break;
 	case DOMAIN_ATTR_EARLY_MAP: {
