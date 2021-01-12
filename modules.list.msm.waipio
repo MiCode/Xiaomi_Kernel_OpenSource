@@ -139,3 +139,4 @@ memlat.ko
 bwmon.ko
 qcom-dload-mode.ko
 qcom-reboot-reason.ko
+memory_dump_v2.ko

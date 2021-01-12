@@ -76,3 +76,4 @@ qcom_ipc_logging.ko
 qcom_ipcc.ko
 cqhci.ko
 sdhci-msm.ko
+memory_dump_v2.ko
