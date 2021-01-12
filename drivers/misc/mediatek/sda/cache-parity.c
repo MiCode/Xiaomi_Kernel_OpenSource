@@ -545,7 +545,7 @@ static int cache_parity_probe(struct platform_device *pdev)
 
 	dev_info(&pdev->dev, "driver probed\n");
 
-	cache_parity.ver = (int)of_device_get_match_data(&pdev->dev);
+	cache_parity.ver = (int)(uintptr_t)of_device_get_match_data(&pdev->dev);
 
 	atomic_set(&cache_parity.nr_err, 0);
 
