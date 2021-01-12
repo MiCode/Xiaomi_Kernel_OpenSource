@@ -1322,7 +1322,6 @@
 		qcom,retain-regs;
 		qcom,no-status-check-on-disable;
 		qcom,collapse-vote = <&gcc_apcs_gdsc_vote_ctrl 1>;
-		regulator-always-on;
 	};
 
 	gcc_ufs_phy_gdsc: qcom,gdsc@187004 {
@@ -1343,7 +1342,6 @@
 		parent-supply = <&VDD_CX_LEVEL>;
 		vdd_parent-supply = <&VDD_CX_LEVEL>;
 		qcom,retain-regs;
-		regulator-always-on;
 	};
 
 	/* GPU_CC GDSCs */
