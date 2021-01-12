@@ -15,9 +15,6 @@
 
 	chosen {
 		bootargs = "nokaslr log_buf_len=256K root=/dev/ram rw init=/init console=hvc0 loglevel=8";
-		linux,initrd-start = <0x2a900000>;
-		linux,initrd-end = <0x2b100000>; /* 8 MB */
-		kaslr-seed = <0xfeedbeef 0xc0def00d>;
 	};
 
 	cpus {
@@ -93,8 +90,8 @@
 		memory {
 			#address-cells = <0x2>;
 			#size-cells = <0x0>;
-			base-address = <0x0 0xD0800000>;
-			size-min = <0x0 0x76f7000>;    /* 118 MB */
+			base-address = <0x0 0xe0b00000>;
+			size-min = <0x0 0x7a00000>;    /* 122 MB */
 		};
 
 		segments {
