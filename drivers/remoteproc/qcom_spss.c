@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  * Qualcomm Technologies, Inc. SPSS Peripheral Image Loader
  *
  */
@@ -18,6 +18,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/remoteproc.h>
 #include <linux/remoteproc/qcom_spss.h>
+#include <linux/rpmsg/qcom_glink.h>
 #include <linux/soc/qcom/mdt_loader.h>
 
 #include "qcom_common.h"
@@ -27,6 +28,8 @@
 #define PBL_DONE	1
 #define SPSS_WDOG_ERR	0x44554d50
 #define SPSS_TIMEOUT	5000
+
+#define to_glink_subdev(d) container_of(d, struct qcom_rproc_glink, subdev)
 
 struct spss_data {
 	const char *firmware_name;
@@ -63,6 +66,74 @@ struct qcom_spss {
 	void __iomem *err_status_spare;
 	u32 bits_arr[2];
 };
+
+static int glink_spss_subdev_start(struct rproc_subdev *subdev)
+{
+	struct qcom_rproc_glink *glink = to_glink_subdev(subdev);
+
+	glink->edge = qcom_glink_spss_register(glink->dev, glink->node);
+
+	return PTR_ERR_OR_ZERO(glink->edge);
+}
+
+static void glink_spss_subdev_stop(struct rproc_subdev *subdev, bool crashed)
+{
+	struct qcom_rproc_glink *glink = to_glink_subdev(subdev);
+
+	qcom_glink_spss_unregister(glink->edge);
+	glink->edge = NULL;
+}
+
+static void glink_spss_subdev_unprepare(struct rproc_subdev *subdev)
+{
+	struct qcom_rproc_glink *glink = to_glink_subdev(subdev);
+
+	qcom_glink_ssr_notify(glink->ssr_name);
+}
+
+/**
+ * qcom_add_glink_spss_subdev() - try to add a GLINK SPSS subdevice to rproc
+ * @rproc:	rproc handle to parent the subdevice
+ * @glink:	reference to a GLINK subdev context
+ * @ssr_name:	identifier of the associated remoteproc for ssr notifications
+ */
+static void qcom_add_glink_spss_subdev(struct rproc *rproc,
+				       struct qcom_rproc_glink *glink,
+				       const char *ssr_name)
+{
+	struct device *dev = &rproc->dev;
+
+	glink->node = of_get_child_by_name(dev->parent->of_node, "glink-edge");
+	if (!glink->node)
+		return;
+
+	glink->ssr_name = kstrdup_const(ssr_name, GFP_KERNEL);
+	if (!glink->ssr_name)
+		return;
+
+	glink->dev = dev;
+	glink->subdev.start = glink_spss_subdev_start;
+	glink->subdev.stop = glink_spss_subdev_stop;
+	glink->subdev.unprepare = glink_spss_subdev_unprepare;
+
+	rproc_add_subdev(rproc, &glink->subdev);
+}
+
+/**
+ * qcom_remove_glink_spss_subdev() - remove a GLINK SPSS subdevice from rproc
+ * @rproc:	rproc handle
+ * @glink:	reference to a GLINK subdev context
+ */
+static void qcom_remove_glink_spss_subdev(struct rproc *rproc,
+					  struct qcom_rproc_glink *glink)
+{
+	if (!glink->node)
+		return;
+
+	rproc_remove_subdev(rproc, &glink->subdev);
+	kfree_const(glink->ssr_name);
+	of_node_put(glink->node);
+}
 
 static void clear_pbl_done(struct qcom_spss *spss)
 {
@@ -459,7 +530,7 @@ static int qcom_spss_probe(struct platform_device *pdev)
 	if (ret)
 		goto free_rproc;
 
-	qcom_add_glink_subdev(rproc, &spss->glink_subdev, "spss");
+	qcom_add_glink_spss_subdev(rproc, &spss->glink_subdev, "spss");
 	qcom_add_ssr_subdev(rproc, &spss->ssr_subdev, desc->ssr_name);
 
 	ret = rproc_add(rproc);
@@ -488,7 +559,7 @@ static int qcom_spss_remove(struct platform_device *pdev)
 	struct qcom_spss *spss = platform_get_drvdata(pdev);
 
 	rproc_del(spss->rproc);
-	qcom_remove_glink_subdev(spss->rproc, &spss->glink_subdev);
+	qcom_remove_glink_spss_subdev(spss->rproc, &spss->glink_subdev);
 	qcom_remove_ssr_subdev(spss->rproc, &spss->ssr_subdev);
 	rproc_free(spss->rproc);
 
