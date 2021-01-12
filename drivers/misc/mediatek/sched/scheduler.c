@@ -288,6 +288,47 @@ static void mtk_arch_set_freq_scale(void *data, const struct cpumask *cpus,
 
 	*scale = SCHED_CAPACITY_SCALE * cap / max_cap;
 }
+
+static void mtk_map_util_freq(void *data, unsigned long util, unsigned long freq,
+				unsigned long cap, unsigned long *next_freq)
+{
+	int i, j;
+	int cpu;
+	int first_freq, last_freq;
+	unsigned long cur_cap;
+	struct pd_capacity_info *info;
+	struct em_perf_domain *pd;
+	unsigned long temp_util;
+
+	temp_util = util;
+	util = util + (util >> 2);
+
+	for (i = 0; i < pd_count; i++) {
+		info = &pd_capacity_tbl[i];
+		if (cap != info->caps[0])
+			continue;
+
+		cpu = cpumask_first(&info->cpus);
+		for (j = info->nr_caps - 1; j >= 0; j--) {
+			cur_cap = info->caps[j];
+			if (cur_cap >= util) {
+				int opp;
+
+				pd = em_cpu_get(cpu);
+				first_freq = pd->table[0].frequency;
+				last_freq = pd->table[pd->nr_cap_states - 1].frequency;
+
+				if (first_freq > last_freq)
+					opp = j;
+				else
+					opp = pd->nr_cap_states - j - 1;
+
+				*next_freq = pd->table[opp].frequency;
+				return;
+			}
+		}
+	}
+}
 #endif
 #else
 
@@ -415,6 +456,11 @@ static int __init mtk_scheduler_init(void)
 			mtk_arch_set_freq_scale, NULL);
 	if (ret)
 		pr_info("register android_vh_arch_set_freq_scale failed\n");
+
+	ret = register_trace_android_vh_map_util_freq(
+			mtk_map_util_freq, NULL);
+	if (ret)
+		pr_info("register android_vh_map_util_freq failed\n");
 #endif
 
 	return ret;
