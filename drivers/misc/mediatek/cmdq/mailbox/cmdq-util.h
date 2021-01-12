@@ -7,7 +7,7 @@
 #define __CMDQ_UTIL_H__
 
 #include <linux/kernel.h>
-#include <linux/soc/mediatek/mtk-cmdq-legacy.h>
+#include <linux/soc/mediatek/mtk-cmdq-ext.h>
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #include <mt-plat/aee.h>
 #endif
@@ -111,4 +111,5 @@ const char *cmdq_event_module_dispatch(phys_addr_t gce_pa, const u16 event,
 u32 cmdq_util_hw_id(u32 pa);
 const char *cmdq_util_hw_name(void *chan);
 bool cmdq_thread_ddr_module(const s32 thread);
+int cmdq_util_init(void);
 #endif

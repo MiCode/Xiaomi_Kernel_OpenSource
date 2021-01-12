@@ -141,8 +141,8 @@ struct cmdq_pkt {
 	u64			rec_wait;
 	u64			rec_irq;
 
-#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
-	defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+#if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
+	IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 	void			*sec_data;
 #endif
 #endif	/* end of CONFIG_MTK_CMDQ_MBOX_EXT */
@@ -280,13 +280,14 @@ void cmdq_event_verify(void *chan, u16 event_id);
 unsigned long cmdq_get_tracing_mark(void);
 u32 cmdq_thread_timeout_backup(struct cmdq_thread *thread, const u32 ms);
 void cmdq_thread_timeout_restore(struct cmdq_thread *thread, const u32 ms);
+s32 cmdq_mbox_set_hw_id(void *cmdq);
 
 #if IS_ENABLED(CONFIG_MMPROFILE)
 void cmdq_mmp_wait(struct mbox_chan *chan, void *pkt);
 #endif
 
-#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
-	defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+#if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
+	IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 s32 cmdq_sec_insert_backup_cookie(struct cmdq_pkt *pkt);
 #endif
 

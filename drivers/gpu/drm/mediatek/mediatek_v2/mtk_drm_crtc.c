@@ -11,7 +11,7 @@
 #include <drm/drm_plane_helper.h>
 #include <linux/clk.h>
 #include <linux/pm_runtime.h>
-#include <linux/soc/mediatek/mtk-cmdq-legacy.h>
+#include <linux/soc/mediatek/mtk-cmdq-ext.h>
 #include <linux/mailbox_controller.h>
 #include <soc/mediatek/smi.h>
 #include <linux/kthread.h>

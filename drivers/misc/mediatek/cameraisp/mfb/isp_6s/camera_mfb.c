@@ -28,7 +28,7 @@
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 
-#include <linux/soc/mediatek/mtk-cmdq-legacy.h>
+#include <linux/soc/mediatek/mtk-cmdq-ext.h>
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 #include <cmdq-util.h>
 #endif

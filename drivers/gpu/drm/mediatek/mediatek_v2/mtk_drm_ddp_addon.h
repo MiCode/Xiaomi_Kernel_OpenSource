@@ -7,7 +7,7 @@
 #define MTK_DRM_DDP_ADDON_H
 
 #include <drm/drm_crtc.h>
-#include <linux/soc/mediatek/mtk-cmdq-legacy.h>
+#include <linux/soc/mediatek/mtk-cmdq-ext.h>
 #include "mtk_rect.h"
 #include "mtk_layering_rule.h"
 

@@ -13,14 +13,16 @@
 #include <linux/iopoll.h>
 #include <linux/kernel.h>
 #include <linux/mailbox_controller.h>
-#include <linux/mailbox/mtk-cmdq-mailbox-legacy.h>
-#include <linux/soc/mediatek/mtk-cmdq-legacy.h>
+#include <linux/mailbox/mtk-cmdq-mailbox-ext.h>
+#include <linux/soc/mediatek/mtk-cmdq-ext.h>
 #include <linux/timer.h>
 #include <linux/workqueue.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
 #include <linux/atomic.h>
 #include <linux/sched/clock.h>
+
+#include "cmdq-util.h"
 
 #ifndef cmdq_util_msg
 #define cmdq_util_msg(f, args...) cmdq_msg(f, ##args)
@@ -31,7 +33,7 @@
 #endif
 
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
-struct cmdq_util_controller_fp *cmdq_util;
+struct cmdq_util_controller_fp *cmdq_util_controller;
 #endif
 
 /* ddp main/sub, mdp path 0/1/2/3, general(misc) */
@@ -455,7 +457,7 @@ static void cmdq_thread_disable(struct cmdq *cmdq, struct cmdq_thread *thread)
 	cmdq_thread_reset(cmdq, thread);
 	writel(CMDQ_THR_DISABLED, thread->base + CMDQ_THR_ENABLE_TASK);
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
-	if (cmdq->sw_ddr_en && cmdq_util->thread_ddr_module(thread->idx)) {
+	if (cmdq->sw_ddr_en && cmdq_util_controller->thread_ddr_module(thread->idx)) {
 		unsigned long flags;
 
 		spin_lock_irqsave(&cmdq->lock, flags);
@@ -667,7 +669,7 @@ static void cmdq_task_exec(struct cmdq_pkt *pkt, struct cmdq_thread *thread)
 
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 		if (cmdq->sw_ddr_en &&
-			cmdq_util->thread_ddr_module(thread->idx)) {
+			cmdq_util_controller->thread_ddr_module(thread->idx)) {
 			unsigned long flags;
 
 			spin_lock_irqsave(&cmdq->lock, flags);
@@ -1150,7 +1152,7 @@ void cmdq_dump_core(struct mbox_chan *chan)
 		"irq:%#x loaded:%#x cycle:%#x thd timer:%#x mask:%#x en:%#x",
 		irq, loaded, cycle, thd_timer, tpr_mask, tpr_en);
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
-	cmdq_util->dump_dbg_reg(chan);
+	cmdq_util_controller->dump_dbg_reg(chan);
 #endif
 }
 EXPORT_SYMBOL(cmdq_dump_core);
@@ -1283,7 +1285,7 @@ void cmdq_thread_dump(struct mbox_chan *chan, struct cmdq_pkt *cl_pkt,
 
 /* if pc match end and irq flag on, dump irq status */
 	if (curr_pa == end_pa && irq)
-#ifdef CONFIG_MTK_GIC_V3_EXT
+#if IS_ENABLED(CONFIG_MTK_GIC_V3_EXT)
 		mt_irq_dump_status(cmdq->irq);
 #else
 		cmdq_util_msg("gic dump not support irq id:%u\n",
@@ -1857,8 +1859,8 @@ static int cmdq_probe(struct platform_device *pdev)
 
 	cmdq_mmp_init();
 
-#ifdef CONFIG_MTK_CMDQ_MBOX_EXT
-	cmdq->hwid = cmdq_util->track_ctrl(cmdq, cmdq->base_pa, false);
+#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
+	cmdq->hwid = cmdq_util_controller->track_ctrl(cmdq, cmdq->base_pa, false);
 #endif
 	return 0;
 }
@@ -1896,11 +1898,13 @@ static __init int cmdq_drv_init(void)
 
 	cmdq_msg("%s enter", __func__);
 
+	cmdq_util_init();
 	err = platform_driver_register(&cmdq_drv);
 	if (err) {
 		cmdq_err("platform driver register failed:%d", err);
 		return err;
 	}
+	cmdq_helper_init();
 
 	return 0;
 }
@@ -1957,6 +1961,16 @@ struct device *cmdq_mbox_get_dev(void *chan)
 		typeof(*cmdq), mbox);
 
 	return cmdq->mbox.dev;
+}
+
+s32 cmdq_mbox_set_hw_id(void *cmdq_mbox)
+{
+	struct cmdq *cmdq = cmdq_mbox;
+
+	if (!cmdq)
+		return -EINVAL;
+	cmdq->hwid = (u8)cmdq_util_get_hw_id(cmdq->base_pa);
+	return 0;
 }
 
 s32 cmdq_mbox_thread_reset(void *chan)
@@ -2262,7 +2276,7 @@ EXPORT_SYMBOL(cmdq_mmp_wait);
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 void cmdq_controller_set_fp(struct cmdq_util_controller_fp *cust_cmdq_util)
 {
-	cmdq_util = cust_cmdq_util;
+	cmdq_util_controller = cust_cmdq_util;
 }
 EXPORT_SYMBOL(cmdq_controller_set_fp);
 #endif

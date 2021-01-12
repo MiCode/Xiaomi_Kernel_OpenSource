@@ -7,7 +7,7 @@
 #define __MTK_CMDQ_H__
 
 #include <linux/mailbox_client.h>
-#include <linux/mailbox/mtk-cmdq-mailbox-legacy.h>
+#include <linux/mailbox/mtk-cmdq-mailbox-ext.h>
 
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 typedef bool (*util_is_feature_en)(u8 feature);
@@ -435,6 +435,8 @@ int cmdq_dump_pkt(struct cmdq_pkt *pkt, dma_addr_t pc, bool dump_inst);
 
 void cmdq_pkt_set_err_cb(struct cmdq_pkt *pkt,
 	cmdq_async_flush_cb cb, void *data);
+
+int cmdq_helper_init(void);
 
 struct cmdq_thread_task_info {
 	dma_addr_t		pa_base;

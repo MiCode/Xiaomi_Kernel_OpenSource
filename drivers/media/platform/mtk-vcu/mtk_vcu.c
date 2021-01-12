@@ -30,9 +30,8 @@
 #include <linux/freezer.h>
 #include <linux/pm_runtime.h>
 #include <linux/pm_wakeup.h>
-#include <linux/soc/mediatek/mtk-cmdq-legacy.h>
-//#include <linux/soc/mediatek/mtk-cmdq.h>
-#include <linux/mailbox/mtk-cmdq-mailbox.h>
+#include <linux/soc/mediatek/mtk-cmdq-ext.h>
+#include <linux/mailbox/mtk-cmdq-mailbox-ext.h>
 #include <linux/mailbox_controller.h>
 #include <linux/signal.h>
 #include <trace/events/signal.h>

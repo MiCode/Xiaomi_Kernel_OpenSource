@@ -7,7 +7,7 @@
 #define __MDP_DEF_H__
 
 #include <linux/kernel.h>
-#include <linux/soc/mediatek/mtk-cmdq-legacy.h>
+#include <linux/soc/mediatek/mtk-cmdq-ext.h>
 
 #include "cmdq_subsys_common.h"
 #include "mdp_event_common.h"

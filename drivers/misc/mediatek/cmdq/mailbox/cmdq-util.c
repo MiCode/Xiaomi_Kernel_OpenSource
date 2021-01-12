@@ -7,7 +7,7 @@
 #include <linux/io.h>
 #include <linux/debugfs.h>
 #include <linux/sched/clock.h>
-#include <linux/soc/mediatek/mtk-cmdq-legacy.h>
+#include <linux/soc/mediatek/mtk-cmdq-ext.h>
 #include <linux/arm-smccc.h>
 
 #include "cmdq-util.h"
@@ -122,6 +122,7 @@ struct cmdq_util_platform_fp *cmdq_platform;
 
 void cmdq_util_set_fp(struct cmdq_util_platform_fp *cust_cmdq_platform)
 {
+	s32 i;
 	if (!cust_cmdq_platform) {
 		cmdq_err("%s cmdq_util_platform_fp is NULL ", __func__);
 		return;
@@ -131,6 +132,8 @@ void cmdq_util_set_fp(struct cmdq_util_platform_fp *cust_cmdq_platform)
 	helper_fp.hw_name = cmdq_platform->util_hw_name;
 	helper_fp.event_module_dispatch = cmdq_platform->event_module_dispatch;
 	helper_fp.thread_module_dispatch = cmdq_platform->thread_module_dispatch;
+	for (i = 0; i < util.mbox_cnt; i++)
+		cmdq_mbox_set_hw_id(util.cmdq_mbox[i]);
 }
 EXPORT_SYMBOL(cmdq_util_set_fp);
 
@@ -149,8 +152,8 @@ EXPORT_SYMBOL(cmdq_util_event_module_dispatch);
 
 u32 cmdq_util_get_hw_id(u32 pa)
 {
-	if (!cmdq_platform->util_hw_id) {
-		cmdq_err("%s util_hw_id is NULL ", __func__);
+	if (!cmdq_platform || !cmdq_platform->util_hw_id) {
+		cmdq_msg("%s cmdq_platform->util_hw_id is NULL ", __func__);
 		return -EINVAL;
 	}
 	return cmdq_platform->util_hw_id(pa);
@@ -553,13 +556,12 @@ const char *cmdq_util_get_first_err_mod(void *chan)
 }
 EXPORT_SYMBOL(cmdq_util_get_first_err_mod);
 
-static int __init cmdq_util_init(void)
+int cmdq_util_init(void)
 {
 #if IS_ENABLED(CMDQ_DEBUGFS_SUPPORT)
 	struct dentry	*dir;
 	bool exists = false;
 #endif
-
 	cmdq_msg("%s begin", __func__);
 
 	cmdq_controller_set_fp(&controller_fp);
@@ -617,6 +619,6 @@ static int __init cmdq_util_init(void)
 
 	return 0;
 }
-late_initcall(cmdq_util_init);
+EXPORT_SYMBOL(cmdq_util_init);
 
 MODULE_LICENSE("GPL v2");

@@ -27,7 +27,11 @@ obj-$(CONFIG_MTK_CMDQ_MBOX_EXT) += cmdq-sec-mailbox.o
 
 endif # $(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) or $(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 
+obj-$(CONFIG_MTK_CMDQ_MBOX_EXT) += mtk-cmdq-drv-ext.o
+mtk-cmdq-drv-ext-y := mtk-cmdq-mailbox-ext.o \
+					mtk-cmdq-helper-ext.o \
+					cmdq-util.o
+
 obj-$(CONFIG_MTK_CMDQ_MBOX_EXT) += cmdq-test.o
-obj-$(CONFIG_MTK_CMDQ_MBOX_EXT) += cmdq-util.o
 obj-$(CONFIG_MTK_CMDQ_MBOX_EXT) += cmdq-platform-mt6873.o
 obj-$(CONFIG_MTK_CMDQ_MBOX_EXT) += cmdq-platform-mt6853.o

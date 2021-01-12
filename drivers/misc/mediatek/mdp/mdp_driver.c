@@ -35,7 +35,7 @@
 #include <linux/sched.h>
 #include <linux/pm.h>
 #include <linux/suspend.h>
-#include <linux/soc/mediatek/mtk-cmdq-legacy.h>
+#include <linux/soc/mediatek/mtk-cmdq-ext.h>
 #include <linux/sched/clock.h>
 #ifdef CMDQ_USE_LEGACY
 #include <mach/mt_boot.h>

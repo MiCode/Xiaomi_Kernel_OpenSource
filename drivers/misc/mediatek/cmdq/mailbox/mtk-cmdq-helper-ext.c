@@ -6,14 +6,15 @@
 #include <linux/completion.h>
 #include <linux/errno.h>
 #include <linux/of_address.h>
-#include <linux/soc/mediatek/mtk-cmdq-legacy.h>
+#include <linux/soc/mediatek/mtk-cmdq-ext.h>
 #include <linux/mailbox_controller.h>
 #include <linux/dma-mapping.h>
 #include <linux/dmapool.h>
 #include <linux/sched/clock.h>
 
+
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
-struct cmdq_util_helper_fp *cmdq_util;
+struct cmdq_util_helper_fp *cmdq_util_helper;
 
 #if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
 	IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
@@ -1495,8 +1496,8 @@ static void cmdq_pkt_err_irq_dump(struct cmdq_pkt *pkt)
 
 	cmdq_msg("%s pkt:%p", __func__, pkt);
 
-	cmdq_util->dump_lock();
-	cmdq_util->error_enable();
+	cmdq_util_helper->dump_lock();
+	cmdq_util_helper->error_enable();
 
 	cmdq_util_err("begin of error irq %u", err_num++);
 
@@ -1533,17 +1534,17 @@ static void cmdq_pkt_err_irq_dump(struct cmdq_pkt *pkt)
 		/* not sync case, print raw */
 		cmdq_util_aee(mod,
 			"%s(%s) inst:%#018llx thread:%d",
-			mod, cmdq_util->hw_name(client->chan),
+			mod, cmdq_util_helper->hw_name(client->chan),
 			*(u64 *)inst, thread_id);
 	} else {
 		/* no inst available */
 		cmdq_util_aee(mod,
 			"%s(%s) instruction not available pc:%#llx thread:%d",
-			mod, cmdq_util->hw_name(client->chan), pc, thread_id);
+			mod, cmdq_util_helper->hw_name(client->chan), pc, thread_id);
 	}
 
-	cmdq_util->error_disable();
-	cmdq_util->dump_unlock();
+	cmdq_util_helper->error_disable();
+	cmdq_util_helper->dump_unlock();
 }
 
 static void cmdq_flush_async_cb(struct cmdq_cb_data data)
@@ -1607,13 +1608,13 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 	const char *mod = NULL;
 	s32 thread_id = cmdq_mbox_chan_id(client->chan);
 
-	cmdq_util->dump_lock();
+	cmdq_util_helper->dump_lock();
 
 	/* assign error during dump cb */
 	item->err = data.err;
 
 	if (err_num == 0)
-		cmdq_util->error_enable();
+		cmdq_util_helper->error_enable();
 
 	cmdq_util_err("Begin of Error %u", err_num);
 
@@ -1660,27 +1661,27 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 #if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
 	IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 	if (!pkt->sec_data)
-		cmdq_util->dump_smi();
+		cmdq_util_helper->dump_smi();
 #else
-	cmdq_util->dump_smi();
+	cmdq_util_helper->dump_smi();
 #endif
 
 	if (inst && inst->op == CMDQ_CODE_WFE) {
-		mod = cmdq_util->event_module_dispatch(gce_pa, inst->arg_a,
+		mod = cmdq_util_helper->event_module_dispatch(gce_pa, inst->arg_a,
 			thread_id);
 		cmdq_util_aee(mod,
 			"DISPATCH:%s(%s) inst:%#018llx OP:WAIT EVENT:%hu thread:%d",
-			mod, cmdq_util->hw_name(client->chan),
+			mod, cmdq_util_helper->hw_name(client->chan),
 			*(u64 *)inst, inst->arg_a, thread_id);
 	} else if (inst) {
 		if (!mod)
-			mod = cmdq_util->thread_module_dispatch(gce_pa,
+			mod = cmdq_util_helper->thread_module_dispatch(gce_pa,
 								thread_id);
 
 		/* not sync case, print raw */
 		cmdq_util_aee(mod,
 			"DISPATCH:%s(%s) inst:%#018llx OP:%#04hhx thread:%d",
-			mod, cmdq_util->hw_name(client->chan),
+			mod, cmdq_util_helper->hw_name(client->chan),
 			*(u64 *)inst, inst->op, thread_id);
 	} else {
 		if (!mod)
@@ -1689,7 +1690,7 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 		/* no inst available */
 		cmdq_util_aee(mod,
 			"DISPATCH:%s(%s) unknown instruction thread:%d",
-			mod, cmdq_util->hw_name(client->chan), thread_id);
+			mod, cmdq_util_helper->hw_name(client->chan), thread_id);
 	}
 #if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
 	IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
@@ -1697,12 +1698,12 @@ done:
 #endif
 	cmdq_util_err("End of Error %u", err_num);
 	if (err_num == 0) {
-		cmdq_util->error_disable();
-		cmdq_util->set_first_err_mod(client->chan, mod);
+		cmdq_util_helper->error_disable();
+		cmdq_util_helper->set_first_err_mod(client->chan, mod);
 	}
 	err_num++;
 
-	cmdq_util->dump_unlock();
+	cmdq_util_helper->dump_unlock();
 
 #else
 	cmdq_err("cmdq error:%d", data.err);
@@ -1813,10 +1814,10 @@ static int cmdq_pkt_wait_complete_loop(struct cmdq_pkt *pkt)
 		if (ret)
 			break;
 
-		cmdq_util->dump_lock();
+		cmdq_util_helper->dump_lock();
 		cmdq_msg("===== SW timeout Pre-dump %u =====", cnt++);
 		cmdq_dump_summary(client, pkt);
-		cmdq_util->dump_unlock();
+		cmdq_util_helper->dump_unlock();
 	}
 
 	pkt->task_alloc = false;
@@ -1852,7 +1853,7 @@ int cmdq_pkt_wait_complete(struct cmdq_pkt *pkt)
 #endif
 
 	cmdq_trace_end();
-	cmdq_util->track(pkt);
+	cmdq_util_helper->track(pkt);
 
 	return item->err;
 }
@@ -2346,17 +2347,17 @@ EXPORT_SYMBOL(cmdq_pkt_set_err_cb);
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 void cmdq_helper_set_fp(struct cmdq_util_helper_fp *cust_cmdq_util)
 {
-	cmdq_util = cust_cmdq_util;
+	cmdq_util_helper = cust_cmdq_util;
 }
 EXPORT_SYMBOL(cmdq_helper_set_fp);
 #endif
 
-static __init int cmdq_helper_init(void)
+int cmdq_helper_init(void)
 {
 	cmdq_msg("%s enter", __func__);
 	return 0;
 }
-module_init(cmdq_helper_init);
+EXPORT_SYMBOL(cmdq_helper_init);
 
 MODULE_LICENSE("GPL v2");
 

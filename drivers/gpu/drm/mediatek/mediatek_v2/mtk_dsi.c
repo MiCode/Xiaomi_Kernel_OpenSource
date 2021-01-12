@@ -24,7 +24,7 @@
 #include <linux/platform_device.h>
 #include <video/mipi_display.h>
 #include <video/videomode.h>
-#include <linux/soc/mediatek/mtk-cmdq-legacy.h>
+#include <linux/soc/mediatek/mtk-cmdq-ext.h>
 #include <linux/ratelimit.h>
 
 #include "mtk_drm_ddp_comp.h"
