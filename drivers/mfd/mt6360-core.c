@@ -384,8 +384,8 @@ static int mt6360_pmu_probe(struct i2c_client *client)
 		}
 		i2c_set_clientdata(mpd->i2c[i], mpd);
 	}
-
-	ret = devm_mfd_add_devices(&client->dev, PLATFORM_DEVID_AUTO,
+	/* mfd cell register */
+	ret = devm_mfd_add_devices(&client->dev, PLATFORM_DEVID_NONE,
 				   mt6360_devs, ARRAY_SIZE(mt6360_devs), NULL,
 				   0, regmap_irq_get_domain(mpd->irq_data));
 	if (ret) {
