@@ -1081,6 +1081,11 @@
 						0x2000 3
 						0x4400 2>;
 			};
+
+			qcom,modem_ds {
+				qcom,glink-channels = "DS";
+				qcom,intents = <0x4000 0x2>;
+			};
 		};
 	};
 
