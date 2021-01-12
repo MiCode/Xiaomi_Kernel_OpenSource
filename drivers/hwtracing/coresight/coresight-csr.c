@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2013, 2015-2017, 2019-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, 2015-2017, 2019-2021 The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -70,7 +70,16 @@ do {									\
 #define BLKSIZE_1024		2
 #define BLKSIZE_2048		3
 
+#define FLUSHPERIOD_1	    0x1
 #define FLUSHPERIOD_2048	0x800
+#define PERFLSHEOT_BIT		BIT(18)
+
+#define CSR_ATID_REG_OFFSET(atid, atid_offset) \
+		((atid / 32) * 4 + atid_offset)
+
+#define CSR_ATID_REG_BIT(atid)	(atid % 32)
+#define CSR_MAX_ATID	128
+#define CSR_ATID_REG_SIZE	0xc
 
 struct csr_drvdata {
 	void __iomem		*base;
@@ -87,6 +96,7 @@ struct csr_drvdata {
 	struct clk		*clk;
 	spinlock_t		spin_lock;
 	bool			usb_bam_support;
+	bool			perflsheot_set_support;
 	bool			hwctrl_set_support;
 	bool			set_byte_cntr_support;
 	bool			timestamp_support;
@@ -163,6 +173,8 @@ void msm_qdss_csr_enable_flush(struct coresight_csr *csr)
 
 	usbflshctrl = csr_readl(drvdata, CSR_USBFLSHCTRL);
 	usbflshctrl |= 0x2;
+	if (drvdata->perflsheot_set_support)
+		usbflshctrl |= PERFLSHEOT_BIT;
 	csr_writel(drvdata, usbflshctrl, CSR_USBFLSHCTRL);
 
 	CSR_LOCK(drvdata);
@@ -215,6 +227,8 @@ void msm_qdss_csr_disable_flush(struct coresight_csr *csr)
 
 	usbflshctrl = csr_readl(drvdata, CSR_USBFLSHCTRL);
 	usbflshctrl &= ~0x2;
+	if (drvdata->perflsheot_set_support)
+		usbflshctrl &= ~PERFLSHEOT_BIT;
 	csr_writel(drvdata, usbflshctrl, CSR_USBFLSHCTRL);
 
 	CSR_LOCK(drvdata);
@@ -257,7 +271,7 @@ int coresight_csr_hwctrl_set(struct coresight_csr *csr, uint64_t addr,
 }
 EXPORT_SYMBOL(coresight_csr_hwctrl_set);
 
-void coresight_csr_set_byte_cntr(struct coresight_csr *csr, uint32_t count)
+void coresight_csr_set_byte_cntr(struct coresight_csr *csr, int irqctrl_offset, uint32_t count)
 {
 	struct csr_drvdata *drvdata;
 	unsigned long flags;
@@ -272,7 +286,7 @@ void coresight_csr_set_byte_cntr(struct coresight_csr *csr, uint32_t count)
 	spin_lock_irqsave(&drvdata->spin_lock, flags);
 	CSR_UNLOCK(drvdata);
 
-	csr_writel(drvdata, count, CSR_BYTECNTVAL);
+	csr_writel(drvdata, count, irqctrl_offset);
 
 	/* make sure byte count value is written */
 	mb();
@@ -281,6 +295,52 @@ void coresight_csr_set_byte_cntr(struct coresight_csr *csr, uint32_t count)
 	spin_unlock_irqrestore(&drvdata->spin_lock, flags);
 }
 EXPORT_SYMBOL(coresight_csr_set_byte_cntr);
+
+int coresight_csr_set_etr_atid(struct coresight_csr *csr,
+			uint32_t atid_offset, uint32_t atid,
+			bool enable)
+{
+	struct csr_drvdata *drvdata;
+	unsigned long flags;
+	uint32_t reg_offset;
+	int bit;
+	uint32_t val;
+
+	if (csr == NULL)
+		return -EINVAL;
+
+	drvdata = to_csr_drvdata(csr);
+	if (IS_ERR_OR_NULL(drvdata))
+		return -EINVAL;
+
+	if (atid < 0 || atid_offset <= 0)
+		return -EINVAL;
+
+	spin_lock_irqsave(&drvdata->spin_lock, flags);
+	CSR_UNLOCK(drvdata);
+
+	reg_offset = CSR_ATID_REG_OFFSET(atid, atid_offset);
+	bit = CSR_ATID_REG_BIT(atid);
+	if (reg_offset - atid_offset > CSR_ATID_REG_SIZE
+		|| bit >= CSR_MAX_ATID) {
+		CSR_LOCK(drvdata);
+		spin_unlock_irqrestore(&drvdata->spin_lock, flags);
+		return -EINVAL;
+	}
+
+	val = csr_readl(drvdata, reg_offset);
+	if (enable)
+		val = val | BIT(bit);
+	else
+		val = val & ~BIT(bit);
+	csr_writel(drvdata, val, reg_offset);
+
+	CSR_LOCK(drvdata);
+	spin_unlock_irqrestore(&drvdata->spin_lock, flags);
+
+	return 0;
+}
+EXPORT_SYMBOL(coresight_csr_set_etr_atid);
 
 struct coresight_csr *coresight_csr_get(const char *name)
 {
@@ -589,7 +649,16 @@ static int csr_probe(struct platform_device *pdev)
 	else
 		dev_dbg(dev, "timestamp_support operation supported\n");
 
-	if (drvdata->usb_bam_support)
+	drvdata->perflsheot_set_support = of_property_read_bool(
+			pdev->dev.of_node, "qcom,perflsheot-set-support");
+	if (!drvdata->perflsheot_set_support)
+		dev_dbg(dev, "perflsheot_set_support handled by other subsystem\n");
+	else
+		dev_dbg(dev, "perflsheot_set_support operation supported\n");
+
+	if (drvdata->perflsheot_set_support)
+		drvdata->flushperiod = FLUSHPERIOD_1;
+	else if (drvdata->usb_bam_support)
 		drvdata->flushperiod = FLUSHPERIOD_2048;
 	drvdata->msr_support = of_property_read_bool(pdev->dev.of_node,
 						"qcom,msr-support");

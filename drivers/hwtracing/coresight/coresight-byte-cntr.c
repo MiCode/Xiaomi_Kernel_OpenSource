@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  *
  * Description: CoreSight Trace Memory Controller driver
  */
@@ -10,25 +10,19 @@
 #include <linux/moduleparam.h>
 #include <linux/delay.h>
 #include <linux/uaccess.h>
-#include <linux/usb/usb_qdss.h>
-#include <linux/time.h>
-#include <linux/slab.h>
+#include <linux/property.h>
 
-#include "coresight-byte-cntr.h"
 #include "coresight-priv.h"
-#include "coresight-tmc.h"
+#include "coresight-byte-cntr.h"
+#include "coresight-common.h"
 
-#define USB_BLK_SIZE 65536
-#define USB_SG_NUM (USB_BLK_SIZE / PAGE_SIZE)
-#define USB_BUF_NUM 255
-#define USB_TIME_OUT (5 * HZ)
-
-static struct tmc_drvdata *tmcdrvdata;
+#define CSR_BYTECNTVAL		(0x06C)
 
 static void tmc_etr_read_bytes(struct byte_cntr *byte_cntr_data, loff_t *ppos,
 			       size_t bytes, size_t *len, char **bufp)
 {
-	struct etr_buf *etr_buf = tmcdrvdata->etr_buf;
+	struct tmc_drvdata *tmcdrvdata = byte_cntr_data->tmcdrvdata;
+	struct etr_buf *etr_buf = tmcdrvdata->sysfs_buf;
 	size_t actual;
 
 	if (*len >= bytes)
@@ -47,22 +41,19 @@ static irqreturn_t etr_handler(int irq, void *data)
 {
 	struct byte_cntr *byte_cntr_data = data;
 
-	if (tmcdrvdata->out_mode == TMC_ETR_OUT_MODE_USB
-	    && byte_cntr_data->sw_usb) {
-		atomic_inc(&byte_cntr_data->irq_cnt);
-		wake_up(&byte_cntr_data->usb_wait_wq);
-	} else if (tmcdrvdata->out_mode == TMC_ETR_OUT_MODE_MEM) {
-		atomic_inc(&byte_cntr_data->irq_cnt);
-		wake_up(&byte_cntr_data->wq);
-	}
-	return IRQ_HANDLED;
+	atomic_inc(&byte_cntr_data->irq_cnt);
 
+	wake_up(&byte_cntr_data->wq);
+
+	return IRQ_HANDLED;
 }
 
-static void tmc_etr_flush_bytes(loff_t *ppos, size_t bytes, size_t *len)
+static void tmc_etr_flush_bytes(struct byte_cntr *byte_cntr_data, loff_t *ppos,
+			size_t bytes, size_t *len)
 {
 	uint32_t rwp = 0;
-	dma_addr_t paddr = tmcdrvdata->etr_buf->hwaddr;
+	struct tmc_drvdata *tmcdrvdata = byte_cntr_data->tmcdrvdata;
+	dma_addr_t paddr = tmcdrvdata->sysfs_buf->hwaddr;
 
 	rwp = readl_relaxed(tmcdrvdata->base + TMC_RWP);
 
@@ -76,6 +67,7 @@ static ssize_t tmc_etr_byte_cntr_read(struct file *fp, char __user *data,
 			       size_t len, loff_t *ppos)
 {
 	struct byte_cntr *byte_cntr_data = fp->private_data;
+	struct tmc_drvdata *tmcdrvdata = byte_cntr_data->tmcdrvdata;
 	char *bufp;
 	int ret = 0;
 	if (!data)
@@ -107,7 +99,7 @@ static ssize_t tmc_etr_byte_cntr_read(struct file *fp, char __user *data,
 
 	} else {
 		if (!atomic_read(&byte_cntr_data->irq_cnt)) {
-			tmc_etr_flush_bytes(ppos, byte_cntr_data->block_size,
+			tmc_etr_flush_bytes(byte_cntr_data, ppos, byte_cntr_data->block_size,
 						  &len);
 			if (!len) {
 				ret = -EINVAL;
@@ -169,8 +161,10 @@ void tmc_etr_byte_cntr_stop(struct byte_cntr *byte_cntr_data)
 	mutex_lock(&byte_cntr_data->byte_cntr_lock);
 	byte_cntr_data->enable = false;
 	byte_cntr_data->read_active = false;
+	atomic_set(&byte_cntr_data->irq_cnt, 0);
 	wake_up(&byte_cntr_data->wq);
-	coresight_csr_set_byte_cntr(byte_cntr_data->csr, 0);
+	coresight_csr_set_byte_cntr(byte_cntr_data->csr,
+				byte_cntr_data->irqctrl_offset, 0);
 	mutex_unlock(&byte_cntr_data->byte_cntr_lock);
 
 }
@@ -184,70 +178,24 @@ static int tmc_etr_byte_cntr_release(struct inode *in, struct file *fp)
 	mutex_lock(&byte_cntr_data->byte_cntr_lock);
 	byte_cntr_data->read_active = false;
 
-	coresight_csr_set_byte_cntr(byte_cntr_data->csr, 0);
+	atomic_set(&byte_cntr_data->irq_cnt, 0);
+	coresight_csr_set_byte_cntr(byte_cntr_data->csr,
+				byte_cntr_data->irqctrl_offset, 0);
 	mutex_unlock(&byte_cntr_data->byte_cntr_lock);
 
 	return 0;
 }
 
-static int usb_bypass_start(struct byte_cntr *byte_cntr_data)
-{
-	if (!byte_cntr_data)
-		return -ENOMEM;
-
-	mutex_lock(&byte_cntr_data->usb_bypass_lock);
-
-
-	dev_info(&tmcdrvdata->csdev->dev,
-			"%s: Start usb bypass\n", __func__);
-	if (!tmcdrvdata->enable) {
-		mutex_unlock(&byte_cntr_data->usb_bypass_lock);
-		return -EINVAL;
-	}
-
-	atomic_set(&byte_cntr_data->usb_free_buf, USB_BUF_NUM);
-	byte_cntr_data->offset = tmcdrvdata->etr_buf->offset;
-	byte_cntr_data->read_active = true;
-	/*
-	 * IRQ is a '8- byte' counter and to observe interrupt at
-	 * 'block_size' bytes of data
-	 */
-	coresight_csr_set_byte_cntr(byte_cntr_data->csr, USB_BLK_SIZE / 8);
-
-	atomic_set(&byte_cntr_data->irq_cnt, 0);
-	mutex_unlock(&byte_cntr_data->usb_bypass_lock);
-
-	return 0;
-}
-
-void usb_bypass_stop(struct byte_cntr *byte_cntr_data)
-{
-	if (!byte_cntr_data)
-		return;
-
-	mutex_lock(&byte_cntr_data->usb_bypass_lock);
-	if (byte_cntr_data->read_active)
-		byte_cntr_data->read_active = false;
-	else {
-		mutex_unlock(&byte_cntr_data->usb_bypass_lock);
-		return;
-	}
-	wake_up(&byte_cntr_data->usb_wait_wq);
-	pr_info("coresight: stop usb bypass\n");
-	coresight_csr_set_byte_cntr(byte_cntr_data->csr, 0);
-	mutex_unlock(&byte_cntr_data->usb_bypass_lock);
-
-}
-EXPORT_SYMBOL(usb_bypass_stop);
-
 static int tmc_etr_byte_cntr_open(struct inode *in, struct file *fp)
 {
 	struct byte_cntr *byte_cntr_data =
 			container_of(in->i_cdev, struct byte_cntr, dev);
+	struct tmc_drvdata *tmcdrvdata = byte_cntr_data->tmcdrvdata;
 
 	mutex_lock(&byte_cntr_data->byte_cntr_lock);
 
-	if (!tmcdrvdata->enable || !byte_cntr_data->block_size) {
+	if (tmcdrvdata->mode != CS_MODE_SYSFS ||
+			!byte_cntr_data->block_size) {
 		mutex_unlock(&byte_cntr_data->byte_cntr_lock);
 		return -EINVAL;
 	}
@@ -255,7 +203,8 @@ static int tmc_etr_byte_cntr_open(struct inode *in, struct file *fp)
 	/* IRQ is a '8- byte' counter and to observe interrupt at
 	 * 'block_size' bytes of data
 	 */
-	coresight_csr_set_byte_cntr(byte_cntr_data->csr,
+
+	coresight_csr_set_byte_cntr(byte_cntr_data->csr, byte_cntr_data->irqctrl_offset,
 				(byte_cntr_data->block_size) / 8);
 
 	fp->private_data = byte_cntr_data;
@@ -282,7 +231,7 @@ static int byte_cntr_register_chardev(struct byte_cntr *byte_cntr_data)
 	struct device *device;
 	dev_t dev;
 
-	ret = alloc_chrdev_region(&dev, baseminor, count, "byte-cntr");
+	ret = alloc_chrdev_region(&dev, baseminor, count, byte_cntr_data->name);
 	if (ret < 0) {
 		pr_err("alloc_chrdev_region failed %d\n", ret);
 		return ret;
@@ -297,7 +246,7 @@ static int byte_cntr_register_chardev(struct byte_cntr *byte_cntr_data)
 		goto exit_unreg_chrdev_region;
 
 	byte_cntr_data->driver_class = class_create(THIS_MODULE,
-						   "coresight-tmc-etr-stream");
+						   byte_cntr_data->class_name);
 	if (IS_ERR(byte_cntr_data->driver_class)) {
 		ret = -ENOMEM;
 		pr_err("class_create failed %d\n", ret);
@@ -306,7 +255,7 @@ static int byte_cntr_register_chardev(struct byte_cntr *byte_cntr_data)
 
 	device = device_create(byte_cntr_data->driver_class, NULL,
 			       byte_cntr_data->dev.dev, byte_cntr_data,
-			       "byte-cntr");
+			       byte_cntr_data->name);
 
 	if (IS_ERR(device)) {
 		pr_err("class_device_create failed %d\n", ret);
@@ -321,237 +270,6 @@ exit_destroy_class:
 exit_unreg_chrdev_region:
 	unregister_chrdev_region(byte_cntr_data->dev.dev, 1);
 	return ret;
-}
-
-static int usb_transfer_small_packet(struct qdss_request *usb_req,
-			struct byte_cntr *drvdata, size_t *small_size)
-{
-	int ret = 0;
-	struct etr_buf *etr_buf = tmcdrvdata->etr_buf;
-	size_t req_size, actual;
-	long w_offset;
-
-	w_offset = tmc_sg_get_rwp_offset(tmcdrvdata);
-	req_size = ((w_offset < drvdata->offset) ? etr_buf->size : 0) +
-				w_offset - drvdata->offset;
-	req_size = ((req_size + *small_size) < USB_BLK_SIZE) ? req_size :
-		(USB_BLK_SIZE - *small_size);
-
-	while (req_size > 0) {
-
-		usb_req = kzalloc(sizeof(*usb_req), GFP_KERNEL);
-		if (!usb_req) {
-			ret = -EFAULT;
-			goto out;
-		}
-
-		actual = tmc_etr_buf_get_data(etr_buf, drvdata->offset,
-					req_size, &usb_req->buf);
-		usb_req->length = actual;
-		drvdata->usb_req = usb_req;
-		req_size -= actual;
-
-		if ((drvdata->offset + actual) >= tmcdrvdata->size)
-			drvdata->offset = 0;
-		else
-			drvdata->offset += actual;
-
-		*small_size += actual;
-
-		if (atomic_read(&drvdata->usb_free_buf) > 0) {
-			ret = usb_qdss_write(tmcdrvdata->usbch, usb_req);
-
-			if (ret) {
-				kfree(usb_req);
-				usb_req = NULL;
-				drvdata->usb_req = NULL;
-				dev_err(&tmcdrvdata->csdev->dev,
-					"Write data failed:%d\n", ret);
-				goto out;
-			}
-
-			atomic_dec(&drvdata->usb_free_buf);
-		} else {
-			dev_dbg(&tmcdrvdata->csdev->dev,
-			"Drop data, offset = %d, len = %d\n",
-				drvdata->offset, req_size);
-			kfree(usb_req);
-			drvdata->usb_req = NULL;
-		}
-	}
-
-out:
-	return ret;
-}
-
-static void usb_read_work_fn(struct work_struct *work)
-{
-	int ret, i, seq = 0;
-	struct qdss_request *usb_req = NULL;
-	struct etr_buf *etr_buf = tmcdrvdata->etr_buf;
-	size_t actual, req_size, req_sg_num, small_size = 0;
-	char *buf;
-	struct byte_cntr *drvdata =
-		container_of(work, struct byte_cntr, read_work);
-
-
-	while (tmcdrvdata->enable
-		&& tmcdrvdata->out_mode == TMC_ETR_OUT_MODE_USB) {
-		if (!atomic_read(&drvdata->irq_cnt)) {
-			ret =  wait_event_interruptible_timeout(
-				drvdata->usb_wait_wq,
-				atomic_read(&drvdata->irq_cnt) > 0
-				|| !tmcdrvdata->enable || tmcdrvdata->out_mode
-				!= TMC_ETR_OUT_MODE_USB
-				|| !drvdata->read_active, USB_TIME_OUT);
-			if (ret == -ERESTARTSYS || !tmcdrvdata->enable
-			|| tmcdrvdata->out_mode != TMC_ETR_OUT_MODE_USB
-			|| !drvdata->read_active)
-				break;
-
-			if (ret == 0) {
-				ret = usb_transfer_small_packet(usb_req,
-						drvdata, &small_size);
-				if (ret && ret != -EAGAIN)
-					return;
-				continue;
-			}
-		}
-
-		req_size = USB_BLK_SIZE - small_size;
-		small_size = 0;
-
-		if (req_size > 0) {
-			seq++;
-			req_sg_num = (req_size - 1) / PAGE_SIZE + 1;
-			usb_req = kzalloc(sizeof(*usb_req), GFP_KERNEL);
-			if (!usb_req)
-				return;
-			usb_req->sg = kcalloc(req_sg_num,
-				sizeof(*(usb_req->sg)), GFP_KERNEL);
-			if (!usb_req->sg) {
-				kfree(usb_req);
-				usb_req = NULL;
-				return;
-			}
-
-			for (i = 0; i < req_sg_num; i++) {
-				actual = tmc_etr_buf_get_data(etr_buf,
-							drvdata->offset,
-							PAGE_SIZE, &buf);
-
-				if (actual <= 0) {
-					kfree(usb_req->sg);
-					kfree(usb_req);
-					usb_req = NULL;
-					dev_err(&tmcdrvdata->csdev->dev, "No data in ETR\n");
-					return;
-				}
-
-				sg_set_buf(&usb_req->sg[i], buf, actual);
-
-				if (i == 0)
-					usb_req->buf = buf;
-				if (i == req_sg_num - 1)
-					sg_mark_end(&usb_req->sg[i]);
-
-				if ((drvdata->offset + actual) >=
-					tmcdrvdata->size)
-					drvdata->offset = 0;
-				else
-					drvdata->offset += actual;
-			}
-
-			usb_req->length = req_size;
-			drvdata->usb_req = usb_req;
-			usb_req->num_sgs = i;
-
-			if (atomic_read(&drvdata->usb_free_buf) > 0) {
-				ret = usb_qdss_write(tmcdrvdata->usbch,
-						drvdata->usb_req);
-				if (ret) {
-					kfree(usb_req->sg);
-					kfree(usb_req);
-					usb_req = NULL;
-					drvdata->usb_req = NULL;
-					dev_err(&tmcdrvdata->csdev->dev,
-						"Write data failed:%d\n", ret);
-					if (ret == -EAGAIN)
-						continue;
-					return;
-				}
-				atomic_dec(&drvdata->usb_free_buf);
-
-			} else {
-				dev_dbg(&tmcdrvdata->csdev->dev,
-				"Drop data, offset = %d, seq = %d, irq = %d\n",
-					drvdata->offset, seq,
-					atomic_read(&drvdata->irq_cnt));
-				kfree(usb_req->sg);
-				kfree(usb_req);
-				drvdata->usb_req = NULL;
-			}
-		}
-
-		if (atomic_read(&drvdata->irq_cnt) > 0)
-			atomic_dec(&drvdata->irq_cnt);
-	}
-	dev_err(&tmcdrvdata->csdev->dev, "TMC has been stopped.\n");
-}
-
-static void usb_write_done(struct byte_cntr *drvdata,
-				   struct qdss_request *d_req)
-{
-	atomic_inc(&drvdata->usb_free_buf);
-	if (d_req->status)
-		pr_err_ratelimited("USB write failed err:%d\n", d_req->status);
-	kfree(d_req->sg);
-	kfree(d_req);
-}
-
-void usb_bypass_notifier(void *priv, unsigned int event,
-			struct qdss_request *d_req, struct usb_qdss_ch *ch)
-{
-	struct byte_cntr *drvdata = priv;
-
-	if (!drvdata)
-		return;
-
-	switch (event) {
-	case USB_QDSS_CONNECT:
-		usb_qdss_alloc_req(ch, USB_BUF_NUM);
-		usb_bypass_start(drvdata);
-		queue_work(drvdata->usb_wq, &(drvdata->read_work));
-		break;
-
-	case USB_QDSS_DISCONNECT:
-		usb_bypass_stop(drvdata);
-		break;
-
-	case USB_QDSS_DATA_WRITE_DONE:
-		usb_write_done(drvdata, d_req);
-		break;
-
-	default:
-		break;
-	}
-}
-EXPORT_SYMBOL(usb_bypass_notifier);
-
-
-static int usb_bypass_init(struct byte_cntr *byte_cntr_data)
-{
-	byte_cntr_data->usb_wq = create_singlethread_workqueue("byte-cntr");
-	if (!byte_cntr_data->usb_wq)
-		return -ENOMEM;
-
-	byte_cntr_data->offset = 0;
-	mutex_init(&byte_cntr_data->usb_bypass_lock);
-	init_waitqueue_head(&byte_cntr_data->usb_wait_wq);
-	atomic_set(&byte_cntr_data->usb_free_buf, USB_BUF_NUM);
-	INIT_WORK(&(byte_cntr_data->read_work), usb_read_work_fn);
-
-	return 0;
 }
 
 struct byte_cntr *byte_cntr_init(struct amba_device *adev,
@@ -571,37 +289,55 @@ struct byte_cntr *byte_cntr_init(struct amba_device *adev,
 	if (!byte_cntr_data)
 		return NULL;
 
-	byte_cntr_data->sw_usb = of_property_read_bool(np, "qcom,sw-usb");
-	if (byte_cntr_data->sw_usb) {
-		ret = usb_bypass_init(byte_cntr_data);
-		if (ret)
-			return NULL;
-	}
-
 	ret = devm_request_irq(dev, byte_cntr_irq, etr_handler,
 			       IRQF_TRIGGER_RISING | IRQF_SHARED,
-			       "tmc-etr", byte_cntr_data);
+			       dev_name(dev), byte_cntr_data);
 	if (ret) {
-		devm_kfree(dev, byte_cntr_data);
 		dev_err(dev, "Byte_cntr interrupt registration failed\n");
 		return NULL;
 	}
 
+	ret = of_property_read_u32(dev->of_node, "csr-irqctrl-offset",
+				&byte_cntr_data->irqctrl_offset);
+
+	if (ret) {
+		dev_dbg(dev, "Get byte cntr csr irqctrl offset failed\n");
+		byte_cntr_data->irqctrl_offset = CSR_BYTECNTVAL;
+	}
+
+	ret = device_property_read_string(dev, "byte-cntr-name", &byte_cntr_data->name);
+	if (ret) {
+		dev_dbg(dev, "Get byte cntr name failed\n");
+		byte_cntr_data->name = "byte-cntr";
+	}
+
+	ret = device_property_read_string(dev, "byte-cntr-class-name",
+				&byte_cntr_data->class_name);
+	if (ret) {
+		dev_dbg(dev, "Get byte cntr class name failed\n");
+		byte_cntr_data->class_name = "coresight-tmc-etr-stream";
+	}
+
 	ret = byte_cntr_register_chardev(byte_cntr_data);
 	if (ret) {
-		devm_free_irq(dev, byte_cntr_irq, byte_cntr_data);
-		devm_kfree(dev, byte_cntr_data);
 		dev_err(dev, "Byte_cntr char dev registration failed\n");
 		return NULL;
 	}
 
-	tmcdrvdata = drvdata;
 	byte_cntr_data->byte_cntr_irq = byte_cntr_irq;
 	byte_cntr_data->csr = drvdata->csr;
+	byte_cntr_data->tmcdrvdata = drvdata;
 	atomic_set(&byte_cntr_data->irq_cnt, 0);
 	init_waitqueue_head(&byte_cntr_data->wq);
 	mutex_init(&byte_cntr_data->byte_cntr_lock);
 
 	return byte_cntr_data;
 }
-EXPORT_SYMBOL(byte_cntr_init);
+
+void byte_cntr_remove(struct byte_cntr *byte_cntr_data)
+{
+	device_destroy(byte_cntr_data->driver_class,
+				byte_cntr_data->dev.dev);
+	class_destroy(byte_cntr_data->driver_class);
+	unregister_chrdev_region(byte_cntr_data->dev.dev, 1);
+}
