@@ -31,6 +31,7 @@
 struct event_data {
 	u32			event_id;
 	struct perf_event	*pevent;
+	int			cpu;
 	u64			cached_count;
 	u32			ref_cnt;
 	atomic_t		read_cnt;
@@ -88,6 +89,7 @@ static int set_event(struct event_data *ev, int cpu,
 
 	perf_event_enable(pevent);
 	ev->pevent = pevent;
+	ev->cpu = cpu;
 	ev->active = true;
 
 	return 0;
@@ -107,7 +109,7 @@ static inline void delete_event(struct event_data *event)
 static inline u64 read_event(struct event_data *event, bool local, bool force)
 {
 	u64 enabled, running, total = 0;
-	int cpu = event->pevent->cpu;
+	int cpu = event->cpu;
 	struct cpu_data *cpudata = per_cpu(cpu_ev_data, cpu);
 
 	spin_lock(&event->lock);
