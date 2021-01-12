@@ -14,6 +14,8 @@
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/energy_model.h>
+#include <linux/arch_topology.h>
+#include <linux/topology.h>
 #include <trace/hooks/topology.h>
 #include <trace/events/sched.h>
 #include <trace/hooks/sched.h>
@@ -328,6 +330,94 @@ static void mtk_map_util_freq(void *data, unsigned long util, unsigned long freq
 			}
 		}
 	}
+}
+
+void mtk_em_pd_energy(void *data, struct em_perf_domain *pd,
+				unsigned long max_util, unsigned long sum_util,
+				unsigned long *energy)
+{
+	unsigned long freq = 0, scale_cpu = 0;
+	struct em_cap_state *cs;
+	int i, cpu;
+	struct pd_capacity_info *pd_info = NULL;
+
+	/*
+	 * In order to predict the capacity state, map the utilization of the
+	 * most utilized CPU of the performance domain to a requested frequency,
+	 * like schedutil.
+	 */
+	cpu = cpumask_first(to_cpumask(pd->cpus));
+	for (i = 0; i < pd_count; i++) {
+		pd_info = &pd_capacity_tbl[i];
+
+		if (!cpumask_test_cpu(cpu, &pd_info->cpus))
+			continue;
+
+		scale_cpu = pd_info->caps[0];
+	}
+
+	if (!scale_cpu)
+		return;
+
+
+	cs = &pd->table[pd->nr_cap_states - 1];
+	mtk_map_util_freq(NULL, max_util, cs->frequency, scale_cpu, &freq);
+	if (!freq)
+		return;
+
+	/*
+	 * Find the lowest capacity state of the Energy Model above the
+	 * requested frequency.
+	 */
+	for (i = 0; i < pd->nr_cap_states; i++) {
+		cs = &pd->table[i];
+		if (cs->frequency >= freq)
+			break;
+	}
+
+	/*
+	 * The capacity of a CPU in the domain at that capacity state (cs)
+	 * can be computed as:
+	 *
+	 *             cs->freq * scale_cpu
+	 *   cs->cap = --------------------                          (1)
+	 *                 cpu_max_freq
+	 *
+	 * So, ignoring the costs of idle states (which are not available in
+	 * the EM), the energy consumed by this CPU at that capacity state is
+	 * estimated as:
+	 *
+	 *             cs->power * cpu_util
+	 *   cpu_nrg = --------------------                          (2)
+	 *                   cs->cap
+	 *
+	 * since 'cpu_util / cs->cap' represents its percentage of busy time.
+	 *
+	 *   NOTE: Although the result of this computation actually is in
+	 *         units of power, it can be manipulated as an energy value
+	 *         over a scheduling period, since it is assumed to be
+	 *         constant during that interval.
+	 *
+	 * By injecting (1) in (2), 'cpu_nrg' can be re-expressed as a product
+	 * of two terms:
+	 *
+	 *             cs->power * cpu_max_freq   cpu_util
+	 *   cpu_nrg = ------------------------ * ---------          (3)
+	 *                    cs->freq            scale_cpu
+	 *
+	 * The first term is static, and is stored in the em_cap_state struct
+	 * as 'cs->cost'.
+	 *
+	 * Since all CPUs of the domain have the same micro-architecture, they
+	 * share the same 'cs->cost', and the same CPU capacity. Hence, the
+	 * total energy of the domain (which is the simple sum of the energy of
+	 * all of its CPUs) can be factorized as:
+	 *
+	 *            cs->cost * \Sum cpu_util
+	 *   pd_nrg = ------------------------                       (4)
+	 *                  scale_cpu
+	 */
+	*energy = cs->cost * sum_util / scale_cpu;
 }
 #endif
 #else
