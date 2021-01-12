@@ -26,15 +26,40 @@ static struct pd_capacity_info *pd_capacity_tbl;
 static int pd_count;
 static int entry_count;
 
+/*
+ * Calculate the opp for power table
+ * The power table opp is descending order.
+ * So the returned opp need to be transferred due to pd's frequency order.
+ * order 0 is descending, order 1 is ascending.
+ */
 int pd_freq_to_opp(int cpu, unsigned long freq)
 {
 	int idx;
+	int order;
+	unsigned long first_freq, last_freq;
 	struct em_perf_domain *pd;
 
 	pd = em_cpu_get(cpu);
-	for (idx = 0; idx < pd->nr_perf_states; idx++) {
-		if (pd->table[idx].frequency == freq)
-			return idx;
+
+	if (!pd)
+		return -1;
+
+	first_freq = pd->table[0].frequency;
+	last_freq = pd->table[pd->nr_cap_states - 1].frequency;
+
+	if (first_freq > last_freq)
+		order = 0;
+	else
+		order = 1;
+
+
+	for (idx = 0; idx < pd->nr_cap_states; idx++) {
+		if (pd->table[idx].frequency == freq) {
+			if (order == 0)
+				return idx;
+			else
+				return pd->nr_cap_states - idx - 1;
+		}
 	}
 
 	return -1;
