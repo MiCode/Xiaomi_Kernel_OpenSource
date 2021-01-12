@@ -119,3 +119,4 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_cpu_cgroup_attach);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_cgroup_set_task);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_sys_set_task);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_nice_check);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_map_util_freq);

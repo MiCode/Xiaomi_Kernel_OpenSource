@@ -7,4 +7,5 @@ bypass_arr=( \
 "function long long unsigned int memblock_end_of_DRAM" \
 "tracepoint __tracepoint_android_vh_cgroup_set_task" \
 "tracepoint __tracepoint_android_vh_nice_check" \
-"tracepoint __tracepoint_android_vh_sys_set_task")
+"tracepoint __tracepoint_android_vh_sys_set_task" \
+"tracepoint __tracepoint_android_vh_map_util_freq")

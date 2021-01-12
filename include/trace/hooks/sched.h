@@ -197,6 +197,11 @@ DECLARE_RESTRICTED_HOOK(android_rvh_cpu_cgroup_attach,
 DECLARE_RESTRICTED_HOOK(android_vh_nice_check,
 	TP_PROTO(long *nice, bool *allowed),
 		TP_ARGS(nice, allowed), 1);
+
+DECLARE_HOOK(android_vh_map_util_freq,
+	TP_PROTO(unsigned long util, unsigned long freq,
+		unsigned long cap, unsigned long *next_freq),
+	TP_ARGS(util, freq, cap, next_freq));
 #else
 #define trace_android_rvh_select_task_rq_fair(p, prev_cpu, sd_flag, wake_flags, new_cpu)
 #define trace_android_rvh_select_task_rq_rt(p, prev_cpu, sd_flag, wake_flags, new_cpu)
@@ -242,6 +247,7 @@ DECLARE_RESTRICTED_HOOK(android_vh_nice_check,
 #define trace_android_rvh_update_misfit_status(p, rq, need_update)
 #define trace_android_rvh_cpu_cgroup_attach(tset)
 #define trace_android_vh_nice_check(nice, allowed)
+#define trace_android_vh_map_util_freq(util, freq, cap, next_freq)
 #endif
 #endif /* _TRACE_HOOK_SCHED_H */
 /* This part must be outside protection */
