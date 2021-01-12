@@ -202,6 +202,13 @@ DECLARE_HOOK(android_vh_map_util_freq,
 	TP_PROTO(unsigned long util, unsigned long freq,
 		unsigned long cap, unsigned long *next_freq),
 	TP_ARGS(util, freq, cap, next_freq));
+
+struct em_perf_domain;
+DECLARE_HOOK(android_vh_em_pd_energy,
+	TP_PROTO(struct em_perf_domain *pd,
+		unsigned long max_util, unsigned long sum_util,
+		unsigned long *energy),
+	TP_ARGS(pd, max_util, sum_util, energy));
 #else
 #define trace_android_rvh_select_task_rq_fair(p, prev_cpu, sd_flag, wake_flags, new_cpu)
 #define trace_android_rvh_select_task_rq_rt(p, prev_cpu, sd_flag, wake_flags, new_cpu)
@@ -248,6 +255,7 @@ DECLARE_HOOK(android_vh_map_util_freq,
 #define trace_android_rvh_cpu_cgroup_attach(tset)
 #define trace_android_vh_nice_check(nice, allowed)
 #define trace_android_vh_map_util_freq(util, freq, cap, next_freq)
+#define trace_android_vh_em_pd_energy(pd, max_util, sum_util, energy)
 #endif
 #endif /* _TRACE_HOOK_SCHED_H */
 /* This part must be outside protection */
