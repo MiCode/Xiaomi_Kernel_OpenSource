@@ -39,45 +39,65 @@
 };
 
 &cpufreq_hw {
-	qcom,cpu-isolation {
-		compatible = "qcom,cpu-isolate";
-		cpu0_isolate: cpu0-isolate {
-			qcom,cpu = <&CPU0>;
+	qcom,thermal-pause {
+		compatible = "qcom,thermal-pause";
+		thermal_pause01: thermal-pause01 {
+			qcom,mask = <0x01>;
 			#cooling-cells = <2>;
 		};
 
-		cpu1_isolate: cpu1-isolate {
-			qcom,cpu = <&CPU1>;
+		thermal_pause02: thermal-pause02 {
+			qcom,mask = <0x02>;
 			#cooling-cells = <2>;
 		};
 
-		cpu2_isolate: cpu2-isolate {
-			qcom,cpu = <&CPU2>;
+		thermal_pause04: thermal-pause04 {
+			qcom,mask = <0x04>;
 			#cooling-cells = <2>;
 		};
 
-		cpu3_isolate: cpu3-isolate {
-			qcom,cpu = <&CPU3>;
+		thermal_pause08: thermal-pause08 {
+			qcom,mask = <0x08>;
 			#cooling-cells = <2>;
 		};
 
-		cpu4_isolate: cpu4-isolate {
-			qcom,cpu = <&CPU4>;
+		thermal_pause10: thermal-pause10 {
+			qcom,mask = <0x10>;
 			#cooling-cells = <2>;
 		};
 
-		cpu5_isolate: cpu5-isolate {
-			qcom,cpu = <&CPU5>;
+		thermal_pause20: thermal-pause20 {
+			qcom,mask = <0x20>;
 			#cooling-cells = <2>;
 		};
 
-		cpu6_isolate: cpu6-isolate {
-			qcom,cpu = <&CPU6>;
+		thermal_pause40: thermal-pause40 {
+			qcom,mask = <0x40>;
 			#cooling-cells = <2>;
 		};
 
-		cpu7_isolate: cpu7-isolate {
-			qcom,cpu = <&CPU7>;
+		thermal_pause80: thermal-pause80 {
+			qcom,mask = <0x80>;
+			#cooling-cells = <2>;
+		};
+
+		thermal_pause30: thermal-pause30 {
+			qcom,mask = <0x30>;
+			#cooling-cells = <2>;
+		};
+
+		thermal_pauseC0: thermal-pauseC0 {
+			qcom,mask = <0xC0>;
+			#cooling-cells = <2>;
+		};
+
+		thermal_pauseF0: thermal-pauseF0 {
+			qcom,mask = <0xF0>;
+			#cooling-cells = <2>;
+		};
+
+		thermal_pauseFE: thermal-pauseFE {
+			qcom,mask = <0xFE>;
 			#cooling-cells = <2>;
 		};
 	};
@@ -723,7 +743,7 @@
 		cooling-maps {
 			cpu00_cdev {
 				trip = <&cpu00_config>;
-				cooling-device = <&cpu0_isolate 1 1>;
+				cooling-device = <&thermal_pause01 1 1>;
 			};
 		};
 	};
@@ -744,7 +764,7 @@
 		cooling-maps {
 			cpu01_cdev {
 				trip = <&cpu01_config>;
-				cooling-device = <&cpu1_isolate 1 1>;
+				cooling-device = <&thermal_pause02 1 1>;
 			};
 		};
 	};
@@ -765,7 +785,7 @@
 		cooling-maps {
 			cpu02_cdev {
 				trip = <&cpu02_config>;
-				cooling-device = <&cpu2_isolate 1 1>;
+				cooling-device = <&thermal_pause04 1 1>;
 			};
 		};
 	};
@@ -786,7 +806,7 @@
 		cooling-maps {
 			cpu03_cdev {
 				trip = <&cpu03_config>;
-				cooling-device = <&cpu3_isolate 1 1>;
+				cooling-device = <&thermal_pause08 1 1>;
 			};
 		};
 	};
@@ -807,7 +827,7 @@
 		cooling-maps {
 			cpu10_cdev {
 				trip = <&cpu10_config>;
-				cooling-device = <&cpu4_isolate 1 1>;
+				cooling-device = <&thermal_pause10 1 1>;
 			};
 
 			cpu10_cdev1 {
@@ -834,7 +854,7 @@
 		cooling-maps {
 			cpu11_cdev {
 				trip = <&cpu11_config>;
-				cooling-device = <&cpu4_isolate 1 1>;
+				cooling-device = <&thermal_pause10 1 1>;
 			};
 
 			cpu11_cdev1 {
@@ -861,7 +881,7 @@
 		cooling-maps {
 			cpu12_cdev {
 				trip = <&cpu12_config>;
-				cooling-device = <&cpu5_isolate 1 1>;
+				cooling-device = <&thermal_pause20 1 1>;
 			};
 
 			cpu12_cdev1 {
@@ -888,7 +908,7 @@
 		cooling-maps {
 			cpu13_cdev {
 				trip = <&cpu13_config>;
-				cooling-device = <&cpu5_isolate 1 1>;
+				cooling-device = <&thermal_pause20 1 1>;
 			};
 
 			cpu13_cdev1 {
@@ -915,7 +935,7 @@
 		cooling-maps {
 			cpu14_cdev {
 				trip = <&cpu14_config>;
-				cooling-device = <&cpu6_isolate 1 1>;
+				cooling-device = <&thermal_pause40 1 1>;
 			};
 
 			cpu14_cdev1 {
@@ -942,7 +962,7 @@
 		cooling-maps {
 			cpu15_cdev {
 				trip = <&cpu15_config>;
-				cooling-device = <&cpu6_isolate 1 1>;
+				cooling-device = <&thermal_pause40 1 1>;
 			};
 
 			cpu15_cdev1 {
@@ -969,7 +989,7 @@
 		cooling-maps {
 			cpu16_cdev {
 				trip = <&cpu16_config>;
-				cooling-device = <&cpu7_isolate 1 1>;
+				cooling-device = <&thermal_pause80 1 1>;
 			};
 		};
 	};
@@ -990,7 +1010,7 @@
 		cooling-maps {
 			cpu17_cdev {
 				trip = <&cpu17_config>;
-				cooling-device = <&cpu7_isolate 1 1>;
+				cooling-device = <&thermal_pause80 1 1>;
 			};
 		};
 	};
