@@ -7,8 +7,14 @@
 
 #include <linux/io-pgtable.h>
 
+struct qcom_iommu_pgtable_ops {
+	void *(*alloc)(void *cookie, gfp_t gfp_mask, int order);
+	void (*free)(void *cookie, void *virt, int order);
+};
+
 struct qcom_io_pgtable_info {
 	struct io_pgtable_cfg cfg;
+	const struct qcom_iommu_pgtable_ops *iommu_pgtbl_ops;
 	dma_addr_t iova_base;
 	dma_addr_t iova_end;
 };
@@ -26,6 +32,11 @@ struct io_pgtable_ops *qcom_alloc_io_pgtable_ops(enum io_pgtable_fmt fmt,
 				struct qcom_io_pgtable_info *pgtbl_info,
 				void *cookie);
 void qcom_free_io_pgtable_ops(struct io_pgtable_ops *ops);
+void *qcom_io_pgtable_alloc_pages(const struct qcom_iommu_pgtable_ops *ops,
+				  struct io_pgtable_cfg *cfg,
+				  void *cookie, gfp_t gfp, int order);
+void qcom_io_pgtable_free_pages(const struct qcom_iommu_pgtable_ops *ops,
+				void *cookie, void *virt, int order);
 
 #ifdef CONFIG_IOMMU_IO_PGTABLE_FAST
 extern struct io_pgtable_init_fns io_pgtable_av8l_fast_init_fns;
