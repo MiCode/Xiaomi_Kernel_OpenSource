@@ -184,6 +184,7 @@
 		qcom,wsa-bcl-pmic-params = /bits/ 8 <0x00 0x03 0x48>;
 		qcom,default-clk-id = <WSA2_TX_CORE_CLK>;
 		qcom,thermal-max-state = <11>;
+		status = "disabled";
 		swr3: wsa2_swr_master {
 			compatible = "qcom,swr-mstr";
 			#address-cells = <2>;
