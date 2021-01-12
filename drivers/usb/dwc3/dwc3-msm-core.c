@@ -3520,6 +3520,7 @@ static void dwc3_pwr_event_handler(struct dwc3_msm *mdwc)
 
 	if (!mdwc->dwc3)
 		return;
+	dwc = platform_get_drvdata(mdwc->dwc3);
 
 	irq_stat = dwc3_msm_read_reg(mdwc->base, PWR_EVNT_IRQ_STAT_REG);
 	dev_dbg(mdwc->dev, "%s irq_stat=%X\n", __func__, irq_stat);
@@ -3558,9 +3559,11 @@ static void dwc3_pwr_event_handler(struct dwc3_msm *mdwc)
 	if (irq_stat & PWR_EVNT_LPM_OUT_L1_MASK) {
 		dev_dbg(mdwc->dev, "%s: handling PWR_EVNT_LPM_OUT_L1_MASK\n",
 				__func__);
-		if (usb_gadget_wakeup(dwc->gadget))
-			dev_err(mdwc->dev, "%s failed to take dwc out of L1\n",
+		if (!mdwc->in_host_mode) {
+			if (usb_gadget_wakeup(dwc->gadget))
+				dev_err(mdwc->dev, "%s failed to take dwc out of L1\n",
 					__func__);
+		}
 		irq_stat &= ~PWR_EVNT_LPM_OUT_L1_MASK;
 		irq_clear |= PWR_EVNT_LPM_OUT_L1_MASK;
 	}
@@ -4952,25 +4955,10 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		mdwc->host_nb.notifier_call = dwc3_msm_host_notifier;
 		usb_register_notify(&mdwc->host_nb);
 
-		dwc3_set_prtcap(dwc, DWC3_GCTL_PRTCAP_HOST);
 		if (!dwc->dis_enblslpm_quirk)
 			dwc3_en_sleep_mode(mdwc);
-		ret = dwc3_host_init(dwc);
-		if (ret) {
-			dev_err(mdwc->dev,
-				"%s: failed to add XHCI pdev ret=%d\n",
-				__func__, ret);
-			if (!IS_ERR_OR_NULL(mdwc->vbus_reg))
-				regulator_disable(mdwc->vbus_reg);
 
-			mdwc->hs_phy->flags &= ~PHY_HOST_MODE;
-			mdwc->ss_phy->flags &= ~PHY_HOST_MODE;
-			pm_runtime_put_sync(mdwc->dev);
-			dbg_event(0xFF, "pdeverr psync",
-				atomic_read(&mdwc->dev->power.usage_count));
-			usb_unregister_notify(&mdwc->host_nb);
-			return ret;
-		}
+		usb_role_switch_set_role(mdwc->dwc3_drd_sw, USB_ROLE_HOST);
 
 		mdwc->in_host_mode = true;
 		dwc3_msm_write_reg_field(mdwc->base, DWC3_GUSB3PIPECTL(0),
@@ -5019,6 +5007,10 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		pm_runtime_get_sync(mdwc->dev);
 		dbg_event(0xFF, "StopHost gsync",
 			atomic_read(&mdwc->dev->power.usage_count));
+
+		usb_role_switch_set_role(mdwc->dwc3_drd_sw, USB_ROLE_DEVICE);
+		flush_work(&dwc->drd_work);
+
 		usb_phy_notify_disconnect(mdwc->hs_phy, USB_SPEED_HIGH);
 		if (mdwc->ss_phy->flags & PHY_HOST_MODE) {
 			usb_phy_notify_disconnect(mdwc->ss_phy,
@@ -5027,10 +5019,8 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		}
 
 		mdwc->hs_phy->flags &= ~PHY_HOST_MODE;
-		dwc3_host_exit(dwc);
 		usb_unregister_notify(&mdwc->host_nb);
 
-		dwc3_set_prtcap(dwc, DWC3_GCTL_PRTCAP_DEVICE);
 		dwc3_msm_write_reg_field(mdwc->base, DWC3_GUSB3PIPECTL(0),
 				DWC3_GUSB3PIPECTL_SUSPHY, 0);
 		mdwc->in_host_mode = false;
