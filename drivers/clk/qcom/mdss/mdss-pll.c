@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2013-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2013-2021, The Linux Foundation. All rights reserved. */
 
 #define pr_fmt(fmt)	"%s: " fmt, __func__
 
@@ -128,7 +128,9 @@ static int mdss_pll_resource_parse(struct platform_device *pdev,
 		pll_res->pll_interface_type = MDSS_DP_PLL_14NM;
 		pll_res->target_id = MDSS_PLL_TARGET_SDM660;
 		pll_res->revision = 2;
-	} else
+	} else if (!strcmp(compatible_stream, "qcom,mdss_dsi_pll_28lpm"))
+		pll_res->pll_interface_type = MDSS_DSI_PLL_28LPM;
+	else
 		goto err;
 
 	return rc;
@@ -155,6 +157,9 @@ static int mdss_pll_clock_register(struct platform_device *pdev,
 		break;
 	case MDSS_DP_PLL_14NM:
 		rc = dp_pll_clock_register_14nm(pdev, pll_res);
+		break;
+	case MDSS_DSI_PLL_28LPM:
+		rc = dsi_pll_clock_register_28lpm(pdev, pll_res);
 		break;
 	case MDSS_UNKNOWN_PLL:
 	default:
