@@ -1206,6 +1206,19 @@
 		};
 	};
 
+	qcom,qsee_ipc_irq_bridge {
+		compatible = "qcom,qsee-ipc-irq-bridge";
+
+		qcom,qsee-ipc-irq-spss {
+			qcom,dev-name = "qsee_ipc_irq_spss";
+			interrupt-parent = <&ipcc_mproc>;
+			interrupts = <IPCC_CLIENT_SPSS
+				      IPCC_MPROC_SIGNAL_TZ
+				      IRQ_TYPE_EDGE_RISING>;
+			label = "spss";
+		};
+	};
+
 	/* CAM_CC GDSCs */
 	cam_cc_bps_gdsc: qcom,gdsc@adf0004 {
 		compatible = "qcom,gdsc";
