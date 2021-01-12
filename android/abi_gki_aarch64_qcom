@@ -1497,8 +1497,11 @@
   rndis_signal_connect
   rndis_uninit
   round_jiffies_relative
+  rpmsg_get_signals
+  rpmsg_poll
   rpmsg_register_device
   rpmsg_send
+  rpmsg_set_signals
   rpmsg_trysend
   rpmsg_unregister_device
   rproc_add
