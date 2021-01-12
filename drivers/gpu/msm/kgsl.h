@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2008-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2021, The Linux Foundation. All rights reserved.
  */
 #ifndef __KGSL_H
 #define __KGSL_H
@@ -227,10 +227,6 @@ struct kgsl_memdesc {
 	unsigned int page_count;
 	unsigned int cur_bindings;
 	struct file *shmem_filp;
-	/**
-	 * @vma: Pointer to the vm_area_struct this memdesc is mapped to
-	 */
-	struct vm_area_struct *vma;
 	/**
 	 * @lock: Spinlock to protect the pages array
 	 */
