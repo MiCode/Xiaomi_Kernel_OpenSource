@@ -1022,6 +1022,13 @@
 		memory-region = <&trust_ui_vm_mem>;
 	};
 
+	ssc_sensors: qcom,msm-ssc-sensors {
+		compatible = "qcom,msm-ssc-sensors";
+		status = "ok";
+		qcom,firmware-name = "slpi";
+		qcom,rproc-handle = <&slpi_pas>;
+	};
+
 	modem_pas: remoteproc-mss@04080000 {
 		compatible = "qcom,waipio-modem-pas";
 		reg = <0x4080000 0x10000>;
