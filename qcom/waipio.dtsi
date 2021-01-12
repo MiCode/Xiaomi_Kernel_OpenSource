@@ -1169,7 +1169,7 @@
 		qcom,gds-timeout = <500>;
 		clock-names = "ahb_clk";
 		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
-		parent-supply = <&VDD_MM_LEVEL>;
+		parent-supply = <&VDD_MM_MXC_VOTER_LEVEL>;
 		qcom,support-hw-trigger;
 		qcom,retain-regs;
 	};
@@ -1181,7 +1181,7 @@
 		qcom,gds-timeout = <500>;
 		clock-names = "ahb_clk";
 		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
-		parent-supply = <&VDD_MM_LEVEL>;
+		parent-supply = <&VDD_MM_MXC_VOTER_LEVEL>;
 		qcom,retain-regs;
 	};
 
@@ -1192,7 +1192,7 @@
 		qcom,gds-timeout = <500>;
 		clock-names = "ahb_clk";
 		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
-		parent-supply = <&VDD_MM_LEVEL>;
+		parent-supply = <&VDD_MM_MXC_VOTER_LEVEL>;
 		qcom,retain-regs;
 	};
 
@@ -1203,7 +1203,7 @@
 		qcom,gds-timeout = <500>;
 		clock-names = "ahb_clk";
 		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
-		parent-supply = <&VDD_MM_LEVEL>;
+		parent-supply = <&VDD_MM_MXC_VOTER_LEVEL>;
 		qcom,retain-regs;
 	};
 
@@ -1214,7 +1214,7 @@
 		qcom,gds-timeout = <500>;
 		clock-names = "ahb_clk";
 		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
-		parent-supply = <&VDD_MM_LEVEL>;
+		parent-supply = <&VDD_MM_MXC_VOTER_LEVEL>;
 		qcom,support-hw-trigger;
 		qcom,retain-regs;
 	};
@@ -1226,7 +1226,7 @@
 		qcom,gds-timeout = <500>;
 		clock-names = "ahb_clk";
 		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
-		parent-supply = <&VDD_MM_LEVEL>;
+		parent-supply = <&VDD_MM_MXC_VOTER_LEVEL>;
 		qcom,retain-regs;
 	};
 
@@ -1237,7 +1237,7 @@
 		qcom,gds-timeout = <500>;
 		clock-names = "ahb_clk";
 		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
-		parent-supply = <&VDD_MM_LEVEL>;
+		parent-supply = <&VDD_MM_MXC_VOTER_LEVEL>;
 		qcom,retain-regs;
 	};
 
@@ -1248,7 +1248,7 @@
 		qcom,gds-timeout = <500>;
 		clock-names = "ahb_clk";
 		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
-		parent-supply = <&VDD_MM_LEVEL>;
+		parent-supply = <&VDD_MM_MXC_VOTER_LEVEL>;
 		qcom,retain-regs;
 	};
 
@@ -1259,7 +1259,7 @@
 		qcom,gds-timeout = <500>;
 		clock-names = "ahb_clk";
 		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
-		parent-supply = <&VDD_MM_LEVEL>;
+		parent-supply = <&VDD_MM_MXC_VOTER_LEVEL>;
 		qcom,retain-regs;
 	};
 
@@ -1384,7 +1384,7 @@
 		qcom,gds-timeout = <500>;
 		clock-names = "ahb_clk";
 		clocks = <&clock_gcc GCC_VIDEO_AHB_CLK>;
-		parent-supply = <&VDD_MM_LEVEL>;
+		parent-supply = <&VDD_MM_MXC_VOTER_LEVEL>;
 		qcom,support-hw-trigger;
 		qcom,retain-regs;
 	};
@@ -1396,7 +1396,7 @@
 		qcom,gds-timeout = <500>;
 		clock-names = "ahb_clk";
 		clocks = <&clock_gcc GCC_VIDEO_AHB_CLK>;
-		parent-supply = <&VDD_MM_LEVEL>;
+		parent-supply = <&VDD_MM_MXC_VOTER_LEVEL>;
 		qcom,retain-regs;
 	};
 
@@ -1407,7 +1407,7 @@
 		qcom,gds-timeout = <500>;
 		clock-names = "ahb_clk";
 		clocks = <&clock_gcc GCC_VIDEO_AHB_CLK>;
-		parent-supply = <&VDD_MM_LEVEL>;
+		parent-supply = <&VDD_MM_MXC_VOTER_LEVEL>;
 		qcom,support-hw-trigger;
 		qcom,retain-regs;
 	};
@@ -1419,7 +1419,7 @@
 		qcom,gds-timeout = <500>;
 		clock-names = "ahb_clk";
 		clocks = <&clock_gcc GCC_VIDEO_AHB_CLK>;
-		parent-supply = <&VDD_MM_LEVEL>;
+		parent-supply = <&VDD_MM_MXC_VOTER_LEVEL>;
 		qcom,retain-regs;
 	};
 
