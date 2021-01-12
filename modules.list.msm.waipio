@@ -7,6 +7,7 @@ qcom_rpmh.ko
 cmd-db.ko
 qnoc-qos.ko
 qnoc-waipio.ko
+icc-debug.ko
 icc-rpmh.ko
 icc-test.ko
 icc-bcm-voter.ko
