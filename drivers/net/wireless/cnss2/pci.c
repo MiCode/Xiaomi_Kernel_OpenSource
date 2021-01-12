@@ -1409,10 +1409,13 @@ static int cnss_pci_set_mhi_state(struct cnss_pci_data *pci_priv,
 		break;
 	case CNSS_MHI_RESUME:
 		mutex_lock(&pci_priv->mhi_ctrl->pm_mutex);
-		if (pci_priv->drv_connected_last)
+		if (pci_priv->drv_connected_last) {
+			cnss_pci_prevent_l1(&pci_priv->pci_dev->dev);
 			ret = mhi_pm_fast_resume(pci_priv->mhi_ctrl, true);
-		else
+			cnss_pci_allow_l1(&pci_priv->pci_dev->dev);
+		} else {
 			ret = mhi_pm_resume(pci_priv->mhi_ctrl);
+		}
 		mutex_unlock(&pci_priv->mhi_ctrl->pm_mutex);
 		break;
 	case CNSS_MHI_TRIGGER_RDDM:
