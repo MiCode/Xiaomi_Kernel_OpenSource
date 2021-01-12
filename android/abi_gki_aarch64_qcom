@@ -131,6 +131,7 @@
   clk_unprepare
   cma_alloc
   cma_release
+  cma_get_name
   compat_alloc_user_space
   compat_ptr_ioctl
   complete
@@ -254,6 +255,7 @@
   device_wakeup_enable
   _dev_info
   devm_add_action
+  devm_device_add_group
   devm_clk_bulk_get
   devm_clk_bulk_get_all
   devm_clk_get
@@ -291,6 +293,7 @@
   __devm_of_phy_provider_register
   devm_of_platform_populate
   devm_of_pwm_get
+  devm_pci_alloc_host_bridge
   devm_phy_create
   devm_phy_get
   devm_pinctrl_get
@@ -312,6 +315,7 @@
   devm_regulator_put
   devm_regulator_register
   devm_regulator_register_notifier
+  devm_device_remove_group
   devm_request_any_context_irq
   devm_request_threaded_irq
   devm_reset_control_array_get
@@ -721,6 +725,7 @@
   generic_iommu_put_resv_regions
   genl_register_family
   genl_unregister_family
+  genlmsg_put
   gen_pool_add_owner
   gen_pool_alloc_algo_owner
   gen_pool_avail
@@ -916,6 +921,7 @@
   irq_domain_alloc_irqs_parent
   irq_domain_create_hierarchy
   irq_domain_free_irqs_common
+  irq_domain_free_irqs_parent
   irq_domain_get_irq_data
   irq_domain_remove
   irq_domain_set_hwirq_and_chip
@@ -1096,7 +1102,9 @@
   mutex_trylock
   mutex_unlock
   netlink_capable
+  netlink_broadcast
   __nla_parse
+  nla_put
   no_llseek
   nonseekable_open
   nr_cpu_ids
@@ -1169,6 +1177,7 @@
   of_irq_find_parent
   of_irq_get
   of_irq_get_byname
+  of_irq_parse_one
   of_match_device
   of_match_node
   of_modalias_node
@@ -1234,6 +1243,29 @@
   pci_set_mwi
   pci_set_power_state
   pci_unregister_driver
+  pci_assign_resource
+  pci_clear_master
+  pci_disable_device
+  pci_enable_device
+  pci_find_ext_capability
+  pci_get_device
+  pci_host_probe
+  pci_iomap
+  pci_load_and_free_saved_state
+  pci_load_saved_state
+  pci_msi_create_irq_domain
+  pci_msi_mask_irq
+  pci_msi_unmask_irq
+  pci_read_config_dword
+  pci_read_config_word
+  pci_release_region
+  pci_request_region
+  pci_restore_state
+  pci_save_state
+  pci_store_saved_state
+  pci_walk_bus
+  pci_write_config_dword
+  pcie_capability_read_word
   __percpu_down_read
   percpu_down_write
   __percpu_init_rwsem
@@ -2059,6 +2091,7 @@
   wait_for_completion_interruptible
   wait_for_completion_interruptible_timeout
   wait_for_completion_timeout
+  wait_for_completion_killable
   __wait_rcu_gp
   __wake_up
   __wake_up_locked
