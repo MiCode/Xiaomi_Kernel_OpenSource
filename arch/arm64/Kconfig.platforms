@@ -664,6 +664,7 @@ config MACH_MT6877
 	select F2FS_FS_SECURITY
 	select F2FS_FS_XATTR
 	select DM_BOW
+	select MTK_CPU_MSSV
 	select HW_RANDOM
 	select HW_RANDOM_MT67XX
 	select PM_DEVFREQ

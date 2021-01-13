@@ -38,7 +38,10 @@
 #include <linux/uaccess.h>
 
 #include <mt-plat/mtk_secure_api.h>
+
+#ifdef CONFIG_MTK_UNIFIED_DEBUG_INTERFACE
 #include <mtk_udi_internal.h>
+#endif
 
 #ifdef CONFIG_OF
 	#include <linux/cpu.h>
@@ -93,13 +96,15 @@ enum {
 #ifdef CONFIG_OF
 static unsigned int mssv_state;
 #endif
+#ifdef CONFIG_MTK_UNIFIED_DEBUG_INTERFACE
+static int cur_clock_source = 1;
+#endif
 static int mssv_test;
 static int mssv_loop_count = 30000;
 static int mssv_log_count = 100;
 static int mssv_current_loop_count;
 static int mssv_low_freq_us = 90;
 static int mssv_high_freq_us = 10;
-static int cur_clock_source = 1;
 static int mssv_high_opp = -1;
 static int mssv_low_opp = -1;
 static int mssv_cur_opp;
@@ -131,6 +136,7 @@ unsigned int cpumssv_get_state(void)
  * static function
  *=============================================================
  */
+#ifdef CONFIG_MTK_UNIFIED_DEBUG_INTERFACE
 static void switch_pll(unsigned int pll, unsigned int reg)
 {
 	unsigned int val;
@@ -210,6 +216,7 @@ static void test_26Mhz_to_max(int type)
 
 	mssv_test = 1;	/* test pass */
 }
+#endif
 
 static int mssv_test_proc_show(struct seq_file *m, void *v)
 {
@@ -250,6 +257,7 @@ static ssize_t mssv_test_proc_write(struct file *file,
 		goto out;
 	}
 
+#ifdef CONFIG_MTK_UNIFIED_DEBUG_INTERFACE
 	switch (test >> 4) {
 	case 0:
 	case 1:
@@ -258,6 +266,9 @@ static ssize_t mssv_test_proc_write(struct file *file,
 	default:
 		mssv_info("wrong test %d\n", test);
 	}
+#else
+	mssv_info("No UDI support for mssv_test write!\n");
+#endif
 
 out:
 	free_page((unsigned long)buf);
@@ -424,20 +435,24 @@ out:
 
 static int mssv_clock_source_proc_show(struct seq_file *m, void *v)
 {
+#ifdef CONFIG_MTK_UNIFIED_DEBUG_INTERFACE
 	unsigned int value;
 
 	seq_printf(m, "clock source = %s\n",
 		((cur_clock_source == 0) ? "26mhz" : "armpll"));
 
 	value = udi_reg_read(LCPU_PLL_DIVIDER_CFG);
-	seq_printf(m, "4L reg [%x] = 0x%x\n", LCPU_PLL_DIVIDER_CFG, value);
+	seq_printf(m, "6L reg [%x] = 0x%x\n", LCPU_PLL_DIVIDER_CFG, value);
 
 	value = udi_reg_read(BCPU_PLL_DIVIDER_CFG);
-	seq_printf(m, "4B reg [%x] = 0x%x\n", BCPU_PLL_DIVIDER_CFG, value);
+	seq_printf(m, "2B reg [%x] = 0x%x\n", BCPU_PLL_DIVIDER_CFG, value);
 
-//	seq_printf(m, "4L freq(armpll) = %d khz.\n", mt_get_abist_freq(22));
-//	seq_printf(m, "4B freq(armpll) = %d khz.\n", mt_get_abist_freq(20));
+//	seq_printf(m, "6L freq(armpll) = %d khz.\n", mt_get_abist_freq(22));
+//	seq_printf(m, "2B freq(armpll) = %d khz.\n", mt_get_abist_freq(20));
 //	seq_printf(m, "DSU freq(armpll) = %d khz.\n", mt_get_abist_freq(49));
+#else
+	seq_puts(m, "No UDI support for PLL_DIVIDER_CFG show!\n");
+#endif
 
 	return 0;
 }
@@ -465,7 +480,11 @@ static ssize_t mssv_clock_source_proc_write(struct file *file,
 		goto out;
 	}
 
+#ifdef CONFIG_MTK_UNIFIED_DEBUG_INTERFACE
 	switch_clock_source_v2(clock_switch_mask, source);
+#else
+	mssv_info("No UDI support for mssv_clock_source write!\n");
+#endif
 
 out:
 	free_page((unsigned long)buf);
