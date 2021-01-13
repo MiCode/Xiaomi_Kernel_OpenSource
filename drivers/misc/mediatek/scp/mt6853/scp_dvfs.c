@@ -106,8 +106,14 @@ static struct wakeup_source scp_suspend_lock;
 static int g_scp_dvfs_init_flag = -1;
 
 static void __iomem *gpio_base;
+
+#if defined(CONFIG_MACH_MT6877)
+#define ADR_GPIO_MODE_OF_SCP_VREQ	(gpio_base + 0x350)
+#define BIT_GPIO_MODE_OF_SCP_VREQ	24
+#else /* !defined(CONFIG_MACH_MT6877) */
 #define ADR_GPIO_MODE_OF_SCP_VREQ	(gpio_base + 0x420)
 #define BIT_GPIO_MODE_OF_SCP_VREQ	4
+#endif /* defined(CONFIG_MACH_MT6877) */
 #define MSK_GPIO_MODE_OF_SCP_VREQ	0x7
 
 #if SCP_VCORE_REQ_TO_DVFSRC
