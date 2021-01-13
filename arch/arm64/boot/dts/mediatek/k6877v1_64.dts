@@ -44,10 +44,6 @@
 	mt6360pd,intr_gpio = <&pio 5 0x0>;
 };
 
-&timer {
-	clock-frequency = <150000000>;
-};
-
 &pio {
 	mtkfb_pins_lcm_led_en1: lcm_led_en1_gpio {
 		pins_cmd_dat {
