@@ -30,6 +30,8 @@
 #include "mt6885/mtk_srclken_rc_hw.h"
 #elif defined(CONFIG_MACH_MT6853) || defined(CONFIG_MACH_MT6833)
 #include "mt6853/mtk_srclken_rc_hw.h"
+#elif defined(CONFIG_MACH_MT6877)
+#include "mt6853/mtk_srclken_rc_hw.h"
 #endif
 
 enum srclken_config {
