@@ -3536,6 +3536,12 @@
 		boost_period = <30>;
 	};
 
+	mrdump_ext_rst: mrdump_ext_rst {
+		compatible = "mediatek, mrdump_ext_rst-eint";
+		mode = "IRQ";
+		status = "okay";
+	};
+
 	bt@18000000 {
 		compatible = "mediatek,bt";
 			/* conn_infra_rgu */
