@@ -3314,7 +3314,9 @@ skip_regmap:
 static int mt6877_afe_runtime_resume(struct device *dev)
 {
 	struct mtk_base_afe *afe = dev_get_drvdata(dev);
+#if !defined(CONFIG_FPGA_EARLY_PORTING)
 	struct mt6877_afe_private *afe_priv = afe->platform_priv;
+#endif
 	int ret;
 
 	dev_info(afe->dev, "%s()\n", __func__);
