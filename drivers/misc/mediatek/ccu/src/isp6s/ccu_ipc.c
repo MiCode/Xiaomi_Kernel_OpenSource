@@ -166,9 +166,11 @@ bool _resolveCmdIOBuf(struct CcuIOBufInfo *inDataBufInfo,
 	struct CcuIOBufInfo *outDataBufInfo,
 	uint32_t inDataSize, uint32_t outDataSize)
 {
-	ccu_ipc_getIObuffer((void **)&inDataBufInfo->addr_ap,
+	if (!ccu_ipc_getIObuffer((void **)&inDataBufInfo->addr_ap,
 		(void **)&outDataBufInfo->addr_ap,
-		&inDataBufInfo->addr_ccu, &outDataBufInfo->addr_ccu);
+		&inDataBufInfo->addr_ccu, &outDataBufInfo->addr_ccu)) {
+		return false;
+	}
 	LOG_DBG("inDataSize(%d), sramInBufCapacity(%d)",
 		inDataSize, CCU_IPC_IBUF_CAPACITY);
 	LOG_DBG("outDataSize(%d), sramOutBufCapacity(%d)",
