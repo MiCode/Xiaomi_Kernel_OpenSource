@@ -448,6 +448,23 @@ static int mtk_adda_pad_top_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static bool is_adda_mtkaif_need_phase_delay(struct mt6877_afe_private *afe_priv)
+{
+	if (mt6877_afe_gpio_is_prepared(MT6877_AFE_GPIO_DAT_MISO0_ON) &&
+	    afe_priv->mtkaif_chosen_phase[0] < 0) {
+		AUDIO_AEE("adda mtkaif miso0 calib fail");
+		return false;
+	}
+
+	if (mt6877_afe_gpio_is_prepared(MT6877_AFE_GPIO_DAT_MISO1_ON) &&
+	    afe_priv->mtkaif_chosen_phase[1] < 0) {
+		AUDIO_AEE("adda mtkaif miso1 calib fail");
+		return false;
+	}
+
+	return true;
+}
+
 static int mtk_adda_mtkaif_cfg_event(struct snd_soc_dapm_widget *w,
 				     struct snd_kcontrol *kcontrol,
 				     int event)
@@ -467,26 +484,6 @@ static int mtk_adda_mtkaif_cfg_event(struct snd_soc_dapm_widget *w,
 			regmap_write(afe->regmap, AFE_ADDA6_MTKAIF_CFG0,
 				     0x00010000);
 
-			if (strcmp(w->name, "ADDA_MTKAIF_CFG") == 0 &&
-			    (afe_priv->mtkaif_chosen_phase[0] < 0 ||
-			     afe_priv->mtkaif_chosen_phase[1] < 0)) {
-				AUDIO_AEE("adda mtkaif calib fail");
-				dev_warn(afe->dev,
-					 "%s(), mtkaif_chosen_phase[0/1]:%d/%d\n",
-					 __func__,
-					 afe_priv->mtkaif_chosen_phase[0],
-					 afe_priv->mtkaif_chosen_phase[1]);
-				break;
-			} else if (strcmp(w->name, "ADDA6_MTKAIF_CFG") == 0 &&
-				   afe_priv->mtkaif_chosen_phase[2] < 0) {
-				AUDIO_AEE("adda6 mtkaif calib fail");
-				dev_warn(afe->dev,
-					 "%s(), mtkaif_chosen_phase[2]:%d\n",
-					 __func__,
-					 afe_priv->mtkaif_chosen_phase[2]);
-				break;
-			}
-
 			/* mtkaif_rxif_clkinv_adc inverse for calibration */
 			regmap_update_bits(afe->regmap, AFE_ADDA_MTKAIF_CFG0,
 					   MTKAIF_RXIF_CLKINV_ADC_MASK_SFT,
@@ -495,7 +492,27 @@ static int mtk_adda_mtkaif_cfg_event(struct snd_soc_dapm_widget *w,
 					   MTKAIF_RXIF_CLKINV_ADC_MASK_SFT,
 					   0x1 << MTKAIF_RXIF_CLKINV_ADC_SFT);
 
-			/* set delay for ch12 */
+			/* This event align the phase of every miso pin */
+			/* If only 1 miso is used, there is no need to do phase delay. */
+			if (strcmp(w->name, "ADDA_MTKAIF_CFG") == 0 &&
+			    !is_adda_mtkaif_need_phase_delay(afe_priv)) {
+				dev_warn(afe->dev,
+					 "%s(), check adda mtkaif_chosen_phase[0/1]:%d/%d\n",
+					 __func__,
+					 afe_priv->mtkaif_chosen_phase[0],
+					 afe_priv->mtkaif_chosen_phase[1]);
+				break;
+			} else if (strcmp(w->name, "ADDA6_MTKAIF_CFG") == 0 &&
+				   afe_priv->mtkaif_chosen_phase[2] < 0) {
+				AUDIO_AEE("adda6 mtkaif calib fail");
+				dev_warn(afe->dev,
+					 "%s(), check adda6 mtkaif_chosen_phase[2]:%d\n",
+					 __func__,
+					 afe_priv->mtkaif_chosen_phase[2]);
+				break;
+			}
+
+			/* set delay for ch12 to align phase of miso0 and miso1 */
 			if (afe_priv->mtkaif_phase_cycle[0] >=
 			    afe_priv->mtkaif_phase_cycle[1]) {
 				delay_data = DELAY_DATA_MISO1;

@@ -31,7 +31,8 @@
 static const char *const mt6877_spk_type_str[] = {MTK_SPK_NOT_SMARTPA_STR,
 						  MTK_SPK_RICHTEK_RT5509_STR,
 						  MTK_SPK_MEDIATEK_MT6660_STR,
-						  MTK_SPK_NXP_TFA98XX_STR
+						  MTK_SPK_NXP_TFA98XX_STR,
+						  MTK_SPK_MEDIATEK_RT5512_STR
 						  };
 static const char *const
 	mt6877_spk_i2s_type_str[] = {MTK_SPK_I2S_0_STR,
@@ -160,6 +161,7 @@ static int mt6877_mt6359_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 	int phase;
 	unsigned int monitor;
 	int test_done_1, test_done_2, test_done_3;
+	int miso0_need_calib, miso1_need_calib, miso2_need_calib;
 	int cycle_1, cycle_2, cycle_3;
 	int prev_cycle_1, prev_cycle_2, prev_cycle_3;
 	int counter;
@@ -168,6 +170,11 @@ static int mt6877_mt6359_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 	dev_info(afe->dev, "%s(), start\n", __func__);
 
 	pm_runtime_get_sync(afe->dev);
+
+	miso0_need_calib = mt6877_afe_gpio_is_prepared(MT6877_AFE_GPIO_DAT_MISO0_ON);
+	miso1_need_calib = mt6877_afe_gpio_is_prepared(MT6877_AFE_GPIO_DAT_MISO1_ON);
+	miso2_need_calib = mt6877_afe_gpio_is_prepared(MT6877_AFE_GPIO_DAT_MISO2_ON);
+
 	mt6877_afe_gpio_request(afe, true, MT6877_DAI_ADDA, 1);
 	mt6877_afe_gpio_request(afe, true, MT6877_DAI_ADDA, 0);
 	mt6877_afe_gpio_request(afe, true, MT6877_DAI_ADDA_CH34, 1);
@@ -199,9 +206,9 @@ static int mt6877_mt6359_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 		regmap_update_bits(afe_priv->topckgen,
 				   CKSYS_AUD_TOP_CFG, 0x1, 0x1);
 
-		test_done_1 = 0;
-		test_done_2 = 0;
-		test_done_3 = 0;
+		test_done_1 = miso0_need_calib ? 0 : -1;
+		test_done_2 = miso1_need_calib ? 0 : -1;
+		test_done_3 = miso2_need_calib ? 0 : -1;
 		cycle_1 = -1;
 		cycle_2 = -1;
 		cycle_3 = -1;
@@ -212,9 +219,15 @@ static int mt6877_mt6359_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 			regmap_read(afe_priv->topckgen,
 				    CKSYS_AUD_TOP_MON, &monitor);
 
-			test_done_1 = (monitor >> 28) & 0x1;
-			test_done_2 = (monitor >> 29) & 0x1;
-			test_done_3 = (monitor >> 30) & 0x1;
+			/* get test status */
+			if (test_done_1 == 0)
+				test_done_1 = (monitor >> 28) & 0x1;
+			if (test_done_2 == 0)
+				test_done_2 = (monitor >> 29) & 0x1;
+			if (test_done_3 == 0)
+				test_done_3 = (monitor >> 30) & 0x1;
+
+			/* get delay cycle */
 			if (test_done_1 == 1)
 				cycle_1 = monitor & 0xf;
 
@@ -240,19 +253,19 @@ static int mt6877_mt6359_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 			prev_cycle_3 = cycle_3;
 		}
 
-		if (cycle_1 != prev_cycle_1 &&
+		if (miso0_need_calib && cycle_1 != prev_cycle_1 &&
 		    afe_priv->mtkaif_chosen_phase[0] < 0) {
 			afe_priv->mtkaif_chosen_phase[0] = phase - 1;
 			afe_priv->mtkaif_phase_cycle[0] = prev_cycle_1;
 		}
 
-		if (cycle_2 != prev_cycle_2 &&
+		if (miso1_need_calib && cycle_2 != prev_cycle_2 &&
 		    afe_priv->mtkaif_chosen_phase[1] < 0) {
 			afe_priv->mtkaif_chosen_phase[1] = phase - 1;
 			afe_priv->mtkaif_phase_cycle[1] = prev_cycle_2;
 		}
 
-		if (cycle_3 != prev_cycle_3 &&
+		if (miso2_need_calib && cycle_3 != prev_cycle_3 &&
 		    afe_priv->mtkaif_chosen_phase[2] < 0) {
 			afe_priv->mtkaif_chosen_phase[2] = phase - 1;
 			afe_priv->mtkaif_phase_cycle[2] = prev_cycle_3;
@@ -260,11 +273,6 @@ static int mt6877_mt6359_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 
 		regmap_update_bits(afe_priv->topckgen,
 				   CKSYS_AUD_TOP_CFG, 0x1, 0x0);
-
-		if (afe_priv->mtkaif_chosen_phase[0] >= 0 &&
-		    afe_priv->mtkaif_chosen_phase[1] >= 0 &&
-		    afe_priv->mtkaif_chosen_phase[2] >= 0)
-			break;
 	}
 
 	mt6359_set_mtkaif_calibration_phase(&rtd->codec->component,
@@ -284,13 +292,30 @@ static int mt6877_mt6359_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 	mt6877_afe_gpio_request(afe, false, MT6877_DAI_ADDA, 0);
 	mt6877_afe_gpio_request(afe, false, MT6877_DAI_ADDA_CH34, 1);
 	mt6877_afe_gpio_request(afe, false, MT6877_DAI_ADDA_CH34, 0);
+
+	/* disable syncword if miso pin not prepared */
+	if (!miso0_need_calib)
+		regmap_update_bits(afe->regmap, AFE_ADDA_MTKAIF_SYNCWORD_CFG,
+				   RG_ADDA_MTKAIF_RX_SYNC_WORD1_DISABLE_MASK_SFT,
+				   0x1 << RG_ADDA_MTKAIF_RX_SYNC_WORD1_DISABLE_SFT);
+	if (!miso1_need_calib)
+		regmap_update_bits(afe->regmap, AFE_ADDA_MTKAIF_SYNCWORD_CFG,
+				   RG_ADDA_MTKAIF_RX_SYNC_WORD2_DISABLE_MASK_SFT,
+				   0x1 << RG_ADDA_MTKAIF_RX_SYNC_WORD2_DISABLE_SFT);
+	/* miso2 need to sync word with miso1 */
+	/* if only use miso2, disable syncword of miso1 */
+	if (miso2_need_calib && !miso0_need_calib && !miso1_need_calib)
+		regmap_update_bits(afe->regmap, AFE_ADDA_MTKAIF_SYNCWORD_CFG,
+				   RG_ADDA6_MTKAIF_RX_SYNC_WORD2_DISABLE_MASK_SFT,
+				   0x1 << RG_ADDA6_MTKAIF_RX_SYNC_WORD2_DISABLE_SFT);
 	pm_runtime_put(afe->dev);
 
-	dev_info(afe->dev, "%s(), mtkaif_chosen_phase[0/1/2]:%d/%d/%d\n",
+	dev_info(afe->dev, "%s(), mtkaif_chosen_phase[0/1/2]:%d/%d/%d, miso_need_calib[%d/%d/%d]\n",
 		 __func__,
 		 afe_priv->mtkaif_chosen_phase[0],
 		 afe_priv->mtkaif_chosen_phase[1],
-		 afe_priv->mtkaif_chosen_phase[2]);
+		 afe_priv->mtkaif_chosen_phase[2],
+		 miso0_need_calib, miso1_need_calib, miso2_need_calib);
 #endif
 	return 0;
 }
@@ -809,6 +834,46 @@ static struct snd_soc_dai_link mt6877_mt6359_dai_links[] = {
 	{
 		.name = "I2S5",
 		.cpu_dai_name = "I2S5",
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.ignore_suspend = 1,
+		.be_hw_params_fixup = mt6877_i2s_hw_params_fixup,
+	},
+	{
+		.name = "I2S6",
+		.cpu_dai_name = "I2S6",
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.no_pcm = 1,
+		.dpcm_capture = 1,
+		.ignore_suspend = 1,
+		.be_hw_params_fixup = mt6877_i2s_hw_params_fixup,
+	},
+	{
+		.name = "I2S7",
+		.cpu_dai_name = "I2S7",
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.ignore_suspend = 1,
+		.be_hw_params_fixup = mt6877_i2s_hw_params_fixup,
+	},
+	{
+		.name = "I2S8",
+		.cpu_dai_name = "I2S8",
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.no_pcm = 1,
+		.dpcm_capture = 1,
+		.ignore_suspend = 1,
+		.be_hw_params_fixup = mt6877_i2s_hw_params_fixup,
+	},
+	{
+		.name = "I2S9",
+		.cpu_dai_name = "I2S9",
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.codec_name = "snd-soc-dummy",
 		.no_pcm = 1,
