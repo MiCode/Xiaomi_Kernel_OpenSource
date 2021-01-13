@@ -898,6 +898,11 @@
 		reg = <0 0x10227000 0 0x1000>;
 	};
 
+	cpumssv: cpumssv {
+		compatible = "mediatek,cpumssv";
+		state = <0>;
+	};
+
 	gce_mbox: gce_mbox@10228000 {
 		compatible = "mediatek,mt6877-gce";
 		reg = <0 0x10228000 0 0x4000>;
