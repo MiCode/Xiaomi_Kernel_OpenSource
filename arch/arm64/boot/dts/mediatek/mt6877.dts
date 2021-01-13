@@ -2818,6 +2818,34 @@
 	};
 };
 
+&spmi_bus {
+	grpid = <11>;
+	mt6315_6: mt6315@6 {
+		compatible = "mediatek,mt6315", "mtk,spmi-pmic";
+		reg = <0x6 SPMI_USID 0xb SPMI_GSID>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		mt6315_6_regulator: mt6315_6_regulator {
+			compatible = "mediatek,mt6315_6-regulator";
+			interrupt-parent = <&pio>;
+			interrupts = <194 IRQ_TYPE_LEVEL_HIGH 194 0>;
+		};
+	};
+	mt6315_3: mt6315@3 {
+		compatible = "mediatek,mt6315", "mtk,spmi-pmic";
+		reg = <0x3 SPMI_USID 0xb SPMI_GSID>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		mt6315_3_regulator: mt6315_3_regulator {
+			compatible = "mediatek,mt6315_3-regulator";
+			interrupt-parent = <&pio>;
+			interrupts = <193 IRQ_TYPE_LEVEL_HIGH 193 0>;
+		};
+	};
+};
+
+#include "mediatek/mt6315_s6.dtsi"
+#include "mediatek/mt6315_s3.dtsi"
 #include "mediatek/mt6359p.dtsi"
 #include "mediatek/cust_mt6877_msdc.dtsi"
 #include "mediatek/mt6877-clkitg.dtsi"
