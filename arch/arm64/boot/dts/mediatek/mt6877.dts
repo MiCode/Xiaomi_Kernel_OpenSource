@@ -3633,6 +3633,18 @@
 		dr_mode = "otg";
 	};
 
+	xhci0: usb_xhci@11200000 {
+		compatible = "mediatek,mt67xx-xhci";
+		reg = <0 0x11200000 0 0x1000>;
+		reg-names = "mac";
+		interrupts = <GIC_SPI 129 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "xhci";
+		clocks = <&infracfg_ao_clk CLK_IFRAO_SSUSB_XHCI>;
+		clock-names = "sys_ck";
+		phys = <&usb0phy 0>;
+		phy-names = "port0_phy";
+	};
+
 	u3fpgaphy: usb-phy {
 		compatible = "mediatek,fpga-u3phy";
 		mediatek,ippc = <0x11203e00>;
