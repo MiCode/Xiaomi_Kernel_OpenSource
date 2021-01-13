@@ -39,12 +39,6 @@ void slog(const char *fmt, ...)
 	va_end(args);
 }
 
-static void probe_signal_devliver(void *data, int sig,
-	struct siginfo *info, struct k_sigaction *ka)
-{
-	slog("#$#%s#@#%s#sig:%d", "signal", "devliver", sig);
-}
-
 static void probe_ufs_mtk_event(void *data, unsigned int type,
 				unsigned int val)
 {
@@ -58,7 +52,6 @@ static void __nocfi probe_ccci_event(void *data, char *string, char *sub_string,
 }
 
 static struct tracepoints_table interests[] = {
-	{.name = "signal_deliver", .func = probe_signal_devliver},
 	{.name = "ufs_mtk_event", .func = probe_ufs_mtk_event},
 	{.name = "ccci_event", .func = probe_ccci_event},
 };
