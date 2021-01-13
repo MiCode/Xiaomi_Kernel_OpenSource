@@ -46,5 +46,7 @@ ccflags-y += -DGED_ENABLE_DVFS_LOADING_MODE
 endif
 
 # Enable by specific platform
-# ccflags-${CONFIG_MACH_MT6853} += -DSHADER_PWR_CTL_WA
+ifeq ($(findstring k6893v1_64_for_6877,$(PROJECT_DTB_NAMES)),k6893v1_64_for_6877)
+	ccflags-y += -DSHADER_PWR_CTL_WA
+endif
 
