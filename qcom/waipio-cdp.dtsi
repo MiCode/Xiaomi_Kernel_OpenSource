@@ -49,6 +49,22 @@
 	status = "ok";
 };
 
+&swr_dmic_01 {
+	status = "ok";
+};
+
+&swr_dmic_02 {
+	status = "ok";
+};
+
+&swr_dmic_03 {
+	status = "ok";
+};
+
+&swr_dmic_04 {
+	status = "ok";
+};
+
 &waipio_snd {
 	qcom,audio-routing =
 		"AMIC1", "Analog Mic1",
