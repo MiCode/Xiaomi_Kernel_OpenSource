@@ -46,5 +46,5 @@ ccflags-y += -DGED_ENABLE_DVFS_LOADING_MODE
 endif
 
 # Enable by specific platform
-ccflags-${CONFIG_MACH_MT6853} += -DSHADER_PWR_CTL_WA
+# ccflags-${CONFIG_MACH_MT6853} += -DSHADER_PWR_CTL_WA
 
