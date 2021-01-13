@@ -1318,7 +1318,7 @@ void *mem_buf_alloc(struct mem_buf_allocation_data *alloc_data)
 	struct hh_sgl_desc *sgl_desc;
 
 	if (!(mem_buf_capability & MEM_BUF_CAP_CONSUMER))
-		return ERR_PTR(-ENOTSUPP);
+		return ERR_PTR(-EOPNOTSUPP);
 
 	if (!alloc_data || !alloc_data->size || !alloc_data->nr_acl_entries ||
 	    !alloc_data->acl_list ||
@@ -1839,7 +1839,7 @@ static long mem_buf_dev_ioctl(struct file *filp, unsigned int cmd,
 			&ioctl_arg.allocation;
 
 		if (!(mem_buf_capability & MEM_BUF_CAP_CONSUMER))
-			return -ENOTSUPP;
+			return -EOPNOTSUPP;
 
 		fd = mem_buf_alloc_fd(allocation);
 
@@ -1855,7 +1855,7 @@ static long mem_buf_dev_ioctl(struct file *filp, unsigned int cmd,
 		int ret;
 
 		if (!(mem_buf_capability & MEM_BUF_CAP_SUPPLIER))
-			return -ENOTSUPP;
+			return -EOPNOTSUPP;
 
 		ret = mem_buf_lend_user(export);
 		if (ret)
@@ -1869,7 +1869,7 @@ static long mem_buf_dev_ioctl(struct file *filp, unsigned int cmd,
 		int ret;
 
 		if (!(mem_buf_capability & MEM_BUF_CAP_CONSUMER))
-			return -ENOTSUPP;
+			return -EOPNOTSUPP;
 
 		ret = mem_buf_retrieve_user(import);
 		if (ret)
