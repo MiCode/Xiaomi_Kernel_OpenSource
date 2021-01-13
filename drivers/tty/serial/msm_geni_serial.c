@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/bitmap.h>
@@ -1943,6 +1943,7 @@ static bool handle_rx_dma_xfer(u32 s_irq_status, struct uart_port *uport)
 		if (dma_rx_status & RX_RESET_DONE) {
 			IPC_LOG_MSG(msm_port->ipc_log_misc,
 			"%s.Reset done.  0x%x.\n", __func__, dma_rx_status);
+			ret = true;
 			return ret;
 		}
 
