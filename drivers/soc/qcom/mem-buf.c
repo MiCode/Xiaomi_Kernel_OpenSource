@@ -1545,6 +1545,15 @@ static int mem_buf_alloc_fd(struct mem_buf_alloc_ioctl_arg *allocation_args)
 	struct mem_buf_allocation_data alloc_data;
 	int ret;
 
+	if (!allocation_args->size || !allocation_args->nr_acl_entries ||
+	    !allocation_args->acl_list ||
+	    (allocation_args->nr_acl_entries > MEM_BUF_MAX_NR_ACL_ENTS) ||
+	    !is_valid_mem_type(allocation_args->src_mem_type) ||
+	    !is_valid_mem_type(allocation_args->dst_mem_type) ||
+	    allocation_args->reserved0 || allocation_args->reserved1 ||
+	    allocation_args->reserved2)
+		return -EINVAL;
+
 	ret = mem_buf_prep_alloc_data(&alloc_data, allocation_args);
 	if (ret < 0)
 		return ret;
@@ -1569,50 +1578,6 @@ union mem_buf_ioctl_arg {
 	struct mem_buf_export_ioctl_arg export;
 	struct mem_buf_import_ioctl_arg import;
 };
-
-static int validate_ioctl_arg(union mem_buf_ioctl_arg *arg, unsigned int cmd)
-{
-	switch (cmd) {
-	case MEM_BUF_IOC_ALLOC:
-	{
-		struct mem_buf_alloc_ioctl_arg *allocation = &arg->allocation;
-
-		if (!allocation->size || !allocation->nr_acl_entries ||
-		    !allocation->acl_list ||
-		    (allocation->nr_acl_entries > MEM_BUF_MAX_NR_ACL_ENTS) ||
-		    !is_valid_mem_type(allocation->src_mem_type) ||
-		    !is_valid_mem_type(allocation->dst_mem_type) ||
-		    allocation->reserved0 || allocation->reserved1 ||
-		    allocation->reserved2)
-			return -EINVAL;
-		break;
-	}
-	case MEM_BUF_IOC_EXPORT:
-	{
-		struct mem_buf_export_ioctl_arg *export = &arg->export;
-
-		if (!export->nr_acl_entries || !export->acl_list ||
-		    export->nr_acl_entries > MEM_BUF_MAX_NR_ACL_ENTS ||
-		    export->reserved0 || export->reserved1 || export->reserved2)
-			return -EINVAL;
-		break;
-	}
-	case MEM_BUF_IOC_IMPORT:
-	{
-		struct mem_buf_import_ioctl_arg *import = &arg->import;
-
-		if (!import->nr_acl_entries || !import->acl_list ||
-		    import->nr_acl_entries > MEM_BUF_MAX_NR_ACL_ENTS ||
-		    import->reserved0 || import->reserved1 || import->reserved2)
-			return -EINVAL;
-		break;
-	}
-	default:
-		return -EINVAL;
-	}
-
-	return 0;
-}
 
 static int mem_buf_acl_to_vmid_perms_list(unsigned int nr_acl_entries,
 					  const void __user *acl_entries,
@@ -1728,6 +1693,11 @@ static int mem_buf_lend_user(struct mem_buf_export_ioctl_arg *uarg)
 	struct mem_buf_lend_kernel_arg karg;
 	int fd;
 
+	if (!uarg->nr_acl_entries || !uarg->acl_list ||
+	    uarg->nr_acl_entries > MEM_BUF_MAX_NR_ACL_ENTS ||
+	    uarg->reserved0 || uarg->reserved1 || uarg->reserved2)
+		return -EINVAL;
+
 	dmabuf = dma_buf_get(uarg->dma_buf_fd);
 	if (IS_ERR(dmabuf))
 		return PTR_ERR(dmabuf);
@@ -1778,6 +1748,11 @@ static int mem_buf_retrieve_user(struct mem_buf_import_ioctl_arg *uarg)
 	struct dma_buf *dmabuf;
 	struct mem_buf_retrieve_kernel_arg karg;
 
+	if (!uarg->nr_acl_entries || !uarg->acl_list ||
+	    uarg->nr_acl_entries > MEM_BUF_MAX_NR_ACL_ENTS ||
+	    uarg->reserved0 || uarg->reserved1 || uarg->reserved2)
+		return -EINVAL;
+
 	ret = mem_buf_acl_to_vmid_perms_list(uarg->nr_acl_entries,
 			(void *)uarg->acl_list, &vmids, &perms);
 	if (ret)
@@ -1825,9 +1800,6 @@ static long mem_buf_dev_ioctl(struct file *filp, unsigned int cmd,
 
 	if (copy_from_user(&ioctl_arg, (void __user *)arg, _IOC_SIZE(cmd)))
 		return -EFAULT;
-
-	if (validate_ioctl_arg(&ioctl_arg, cmd) < 0)
-		return -EINVAL;
 
 	if (!(dir & _IOC_WRITE))
 		memset(&ioctl_arg, 0, sizeof(ioctl_arg));
