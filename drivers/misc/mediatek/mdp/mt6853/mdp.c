@@ -790,6 +790,61 @@ int32_t cmdq_mdp_reset_with_mmsys(const uint64_t engineToResetAgain)
 		-1,			/* bit 46 : empty46 */
 		-1,			/* bit 47 : empty47 */
 	};
+	int engineResetBitChange[48] = {
+		CMDQ_ENG_MDP_RDMA0,     /* bit  0 : MDP_RDMA0 */
+		CMDQ_ENG_MDP_TDSHP0,    /* bit  1 : MDP_TDSHP0 */
+		CMDQ_ENG_MDP_CAMIN,     /* bit  2 : img_dl_async0  */
+		CMDQ_ENG_MDP_CAMIN2,    /* bit  3 : img_dl_async1  */
+		CMDQ_ENG_MDP_RDMA1,     /* bit  4 : MDP_RDMA1 */
+		CMDQ_ENG_MDP_TDSHP1,    /* bit  5 : MDP_TDSHP1 */
+		-1,     /* bit  6 : smi0 */
+		-1,     /* bit  7 : apb_bus */
+		CMDQ_ENG_MDP_WROT0,     /* bit  8 : MDP_WROT0 */
+		CMDQ_ENG_MDP_RSZ0,      /* bit  9 : MDP_RSZ0  */
+		CMDQ_ENG_MDP_HDR0,      /* bit 10 : MDP_HDR0 */
+		-1,     /* bit 11 : mdp_mutex0 */
+		CMDQ_ENG_MDP_WROT1,     /* bit 12 : MDP_WROT1 */
+		CMDQ_ENG_MDP_COLOR0,    /* bit 13 : MDP_COLOR0 */
+		-1,                     /* bit 14 : mdp_fake_eng0*/
+		CMDQ_ENG_MDP_AAL0,      /* bit 15 : MDP_AAL0 */
+		CMDQ_ENG_MDP_AAL1,      /* bit 16 : MDP_AAL1 */
+		CMDQ_ENG_MDP_RSZ1,      /* bit 17 : MDP_RSZ1  */
+		-1,     /* bit 18 : MDP_COLOR1  */
+		-1,                     /* bit 19 : empty19 */
+		-1,                     /* bit 20 : empty20 */
+		-1,                     /* bit 21 : empty21 */
+		-1,                     /* bit 22 : empty22 */
+		-1,                     /* bit 23 : empty23 */
+		-1,                     /* bit 24 : empty24 */
+		-1,                     /* bit 25 : empty25  */
+		-1,                     /* bit 26 : empty26 */
+		-1,                     /* bit 27 : empty27 */
+		-1,                     /* bit 28 : empty28 */
+		-1,                     /* bit 29 : empty29 */
+		-1,                     /* bit 30 : empty30 */
+		-1,                     /* bit 31 : empty31 */
+		-1,                     /* bit 32 : empty32 */
+		-1,                     /* bit 33 : empty33 */
+		-1,                     /* bit 34 : empty34 */
+		-1,                     /* bit 35 : empty35 */
+		-1,                     /* bit 36 : empty36 */
+		-1,                     /* bit 37 : empty37 */
+		-1,                     /* bit 38 : empty38 */
+		-1,                     /* bit 39 : empty39 */
+		-1,                     /* bit 40 : empty40 */
+		-1,                     /* bit 41 : empty41 */
+		-1,                     /* bit 42 : empty42 */
+		-1,                     /* bit 43 : empty43 */
+		-1,                     /* bit 44 : empty44 */
+		-1,                     /* bit 45 : empty45 */
+		-1,                     /* bit 46 : empty46 */
+		-1,                     /* bit 47 : empty47 */
+	};
+
+	if (cmdq_dev_get_resetbit_change()) {
+		for (i = 0; i < 48; i++)
+			engineResetBit[i] = engineResetBitChange[i];
+	}
 
 	for (i = 0; i < 32; ++i) {
 		if (engineResetBit[i] < 0)

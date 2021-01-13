@@ -72,6 +72,7 @@ void cmdq_dev_deinit(void);
 /* dma_set_mask result, to show in status */
 s32 cmdq_dev_get_dma_mask_result(void);
 u32 cmdq_dev_get_thread_count(void);
+u32 cmdq_dev_get_resetbit_change(void);
 
 /* callback when read resource from device tree */
 typedef void(*CMDQ_DEV_INIT_RESOURCE_CB) (u32 engineFlag,

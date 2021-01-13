@@ -52,6 +52,7 @@ struct CmdqDeviceStruct {
 static struct CmdqDeviceStruct gCmdqDev;
 static u32 gThreadCount;
 static u32 gMMSYSDummyRegOffset;
+static u32 gResetBitChange;
 
 struct device *cmdq_dev_get(void)
 {
@@ -103,6 +104,11 @@ u32 cmdq_dev_get_thread_count(void)
 u32 cmdq_dev_get_mmsys_dummy_reg_offset(void)
 {
 	return gMMSYSDummyRegOffset;
+}
+
+u32 cmdq_dev_get_resetbit_change(void)
+{
+	return gResetBitChange;
 }
 
 void cmdq_dev_init_module_base_VA(void)
@@ -464,13 +470,19 @@ void cmdq_dev_init_device_tree(struct device_node *node)
 	int status;
 	u32 mmsys_dummy_reg_offset_value = 0;
 	u32 thread_count = 16;
+	u32 resetbit_change = 0;
 
 	gThreadCount = 16;
 	gMMSYSDummyRegOffset = 0;
+	gResetBitChange = 0;
 	cmdq_core_init_dts_data();
 	status = of_property_read_u32(node, "thread_count", &thread_count);
 	if (status >= 0)
 		gThreadCount = thread_count;
+	status = of_property_read_u32(node, "resetbit_change", &resetbit_change);
+	if (status >= 0)
+		gResetBitChange = resetbit_change;
+
 	/* init GCE subsys */
 	cmdq_dev_init_subsys(node);
 	/* init event table */
