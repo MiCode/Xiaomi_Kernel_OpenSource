@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2015, Sony Mobile Communications AB.
- * Copyright (c) 2012-2013, 2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, 2019-2020 The Linux Foundation. All rights reserved.
  */
 
 #include <linux/hwspinlock.h>
@@ -980,7 +980,7 @@ static int qcom_smem_probe(struct platform_device *pdev)
 		num_regions++;
 
 	array_size = num_regions * sizeof(struct smem_region);
-	smem = devm_kzalloc(&pdev->dev, sizeof(*smem) + array_size, GFP_KERNEL);
+	smem = kzalloc(sizeof(*smem) + array_size, GFP_KERNEL);
 	if (!smem)
 		return -ENOMEM;
 
@@ -989,17 +989,18 @@ static int qcom_smem_probe(struct platform_device *pdev)
 
 	ret = qcom_smem_map_memory(smem, &pdev->dev, "memory-region", 0);
 	if (ret)
-		return ret;
+		goto release;
 
 	if (num_regions > 1 && (ret = qcom_smem_map_memory(smem, &pdev->dev,
 					"qcom,rpm-msg-ram", 1)))
-		return ret;
+		goto release;
 
 	header = smem->regions[0].virt_base;
 	if (le32_to_cpu(header->initialized) != 1 ||
 	    le32_to_cpu(header->reserved)) {
 		dev_err(&pdev->dev, "SMEM is not initialized by SBL\n");
-		return -EINVAL;
+		ret = -EINVAL;
+		goto release;
 	}
 
 	version = qcom_smem_get_sbl_version(smem);
@@ -1007,7 +1008,7 @@ static int qcom_smem_probe(struct platform_device *pdev)
 	case SMEM_GLOBAL_PART_VERSION:
 		ret = qcom_smem_set_global_partition(smem);
 		if (ret < 0)
-			return ret;
+			goto release;
 		smem->item_count = qcom_smem_get_item_count(smem);
 		break;
 	case SMEM_GLOBAL_HEAP_VERSION:
@@ -1015,24 +1016,28 @@ static int qcom_smem_probe(struct platform_device *pdev)
 		break;
 	default:
 		dev_err(&pdev->dev, "Unsupported SMEM version 0x%x\n", version);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto release;
 	}
 
 	BUILD_BUG_ON(SMEM_HOST_APPS >= SMEM_HOST_COUNT);
 	ret = qcom_smem_enumerate_partitions(smem, SMEM_HOST_APPS);
 	if (ret < 0 && ret != -ENOENT)
-		return ret;
+		goto release;
 
 	hwlock_id = of_hwspin_lock_get_id(pdev->dev.of_node, 0);
 	if (hwlock_id < 0) {
 		if (hwlock_id != -EPROBE_DEFER)
 			dev_err(&pdev->dev, "failed to retrieve hwlock\n");
-		return hwlock_id;
+		ret = hwlock_id;
+		goto release;
 	}
 
 	smem->hwlock = hwspin_lock_request_specific(hwlock_id);
-	if (!smem->hwlock)
-		return -ENXIO;
+	if (!smem->hwlock) {
+		ret = -ENXIO;
+		goto release;
+	}
 
 	__smem = smem;
 
@@ -1043,6 +1048,10 @@ static int qcom_smem_probe(struct platform_device *pdev)
 		dev_dbg(&pdev->dev, "failed to register socinfo device\n");
 
 	return 0;
+
+release:
+	kfree(smem);
+	return ret;
 }
 
 static int qcom_smem_remove(struct platform_device *pdev)
@@ -1050,10 +1059,51 @@ static int qcom_smem_remove(struct platform_device *pdev)
 	platform_device_unregister(__smem->socinfo);
 
 	hwspin_lock_free(__smem->hwlock);
+	/*
+	 * In case of Hibernation Restore __smem object is still valid
+	 * and we call probe again so same object get allocated again
+	 * that result into possible memory leak, hence explicitly freeing
+	 * it here.
+	 */
+	kfree(__smem);
 	__smem = NULL;
 
 	return 0;
 }
+
+static int qcom_smem_freeze(struct device *dev)
+{
+	struct platform_device *pdev = container_of(dev, struct
+					platform_device, dev);
+	dev_dbg(dev, "%s\n", __func__);
+
+	qcom_smem_remove(pdev);
+
+	return 0;
+}
+
+static int qcom_smem_restore(struct device *dev)
+{
+	int ret = 0;
+	struct platform_device *pdev = container_of(dev, struct
+					platform_device, dev);
+	dev_dbg(dev, "%s\n", __func__);
+
+	/*
+	 * SMEM related information has to fetched again
+	 * during resuming from Hibernation, Hence call probe.
+	 */
+	ret = qcom_smem_probe(pdev);
+	if (ret)
+		dev_err(dev, "Error getting SMEM information\n");
+	return ret;
+}
+
+static const struct dev_pm_ops qcom_smem_pm_ops = {
+	.freeze_late = qcom_smem_freeze,
+	.restore_early = qcom_smem_restore,
+	.thaw_early = qcom_smem_restore,
+};
 
 static const struct of_device_id qcom_smem_of_match[] = {
 	{ .compatible = "qcom,smem" },
@@ -1068,6 +1118,7 @@ static struct platform_driver qcom_smem_driver = {
 		.name = "qcom-smem",
 		.of_match_table = qcom_smem_of_match,
 		.suppress_bind_attrs = true,
+		.pm = &qcom_smem_pm_ops,
 	},
 };
 

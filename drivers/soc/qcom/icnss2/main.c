@@ -1198,6 +1198,15 @@ static int icnss_driver_event_pd_service_down(struct icnss_priv *priv,
 	if (priv->force_err_fatal)
 		ICNSS_ASSERT(0);
 
+	if (priv->device_id == WCN6750_DEVICE_ID) {
+		priv->smp2p_info.seq = 0;
+		if (qcom_smem_state_update_bits(
+				priv->smp2p_info.smem_state,
+				ICNSS_SMEM_VALUE_MASK,
+				0))
+			icnss_pr_dbg("Error in SMP2P sent ret: %d\n");
+	}
+
 	icnss_send_hang_event_data(priv);
 
 	if (priv->early_crash_ind) {
@@ -3207,6 +3216,8 @@ static int icnss_msa_dt_parse(struct icnss_priv *priv)
 	icnss_pr_dbg("MSA pa: %pa, MSA va: 0x%pK MSA Memory Size: 0x%x\n",
 		     &priv->msa_pa, (void *)priv->msa_va, priv->msa_mem_size);
 
+	priv->use_prefix_path = of_property_read_bool(priv->pdev->dev.of_node,
+						      "qcom,fw-prefix");
 	return 0;
 
 out:
@@ -3290,6 +3301,23 @@ int icnss_get_iova_ipa(struct icnss_priv *priv, u64 *addr, u64 *size)
 	*size = priv->smmu_iova_ipa_len;
 
 	return 0;
+}
+
+void icnss_add_fw_prefix_name(struct icnss_priv *priv, char *prefix_name,
+			      char *name)
+{
+	if (!priv)
+		return;
+
+	if (!priv->use_prefix_path) {
+		scnprintf(prefix_name, ICNSS_MAX_FILE_NAME, "%s", name);
+		return;
+	}
+
+	scnprintf(prefix_name, ICNSS_MAX_FILE_NAME,
+		  QCA6750_PATH_PREFIX "%s", name);
+
+	icnss_pr_dbg("File added with prefix: %s\n", prefix_name);
 }
 
 static const struct platform_device_id icnss_platform_id_table[] = {

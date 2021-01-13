@@ -316,6 +316,9 @@ static int qcom_dload_probe(struct platform_device *pdev)
 	struct qcom_dload *poweroff;
 	int ret;
 
+	if (!qcom_scm_is_available())
+		return -EPROBE_DEFER;
+
 	poweroff = devm_kzalloc(&pdev->dev, sizeof(*poweroff), GFP_KERNEL);
 	if (!poweroff)
 		return -ENOMEM;

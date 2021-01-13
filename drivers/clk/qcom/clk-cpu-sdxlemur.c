@@ -28,15 +28,11 @@
 #include "clk-regmap.h"
 #include "reset.h"
 
-#define XO_RATE         19200000
-
 #define to_clk_regmap_mux_div(_hw) \
 	container_of(to_clk_regmap(_hw), struct clk_regmap_mux_div, clkr)
 
-static DEFINE_VDD_REGULATORS(vdd_lucid_pll, VDD_NUM, 1, vdd_corner);
+static DEFINE_VDD_REGULATORS(vdd_pll, VDD_NUM, 1, vdd_corner);
 static DEFINE_VDD_REGS_INIT(vdd_cpu, 1);
-
-static unsigned int cpucc_clk_init_rate;
 
 enum apcs_mux_clk_parent {
 	P_BI_TCXO,
@@ -72,6 +68,24 @@ static int cpucc_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 	 * Here just configure new div.
 	 */
 	return mux_div_set_src_div(cpuclk, cpuclk->src, cpuclk->div);
+}
+
+static unsigned long
+cpucc_calc_rate(unsigned long rate, u32 m, u32 n, u32 mode, u32 hid_div)
+{
+	u64 tmp = rate;
+
+	if (hid_div) {
+		tmp *= 2;
+		do_div(tmp, hid_div + 1);
+	}
+
+	if (mode) {
+		tmp *= m;
+		do_div(tmp, n);
+	}
+
+	return tmp;
 }
 
 static int cpucc_clk_determine_rate(struct clk_hw *hw,
@@ -128,24 +142,6 @@ static void clk_cpu_init(struct clk_hw *hw)
 		rclk->ops = &clk_rcg2_regmap_ops;
 }
 
-static unsigned long
-calc_rate(unsigned long rate, u32 m, u32 n, u32 mode, u32 hid_div)
-{
-	u64 tmp = rate;
-
-	if (hid_div) {
-		tmp *= 2;
-		do_div(tmp, hid_div + 1);
-	}
-
-	if (mode) {
-		tmp *= m;
-		do_div(tmp, n);
-	}
-
-	return tmp;
-}
-
 static unsigned long cpucc_clk_recalc_rate(struct clk_hw *hw,
 					unsigned long prate)
 {
@@ -168,7 +164,7 @@ static unsigned long cpucc_clk_recalc_rate(struct clk_hw *hw,
 		if (src == cpuclk->parent_map[i].cfg) {
 			parent = clk_hw_get_parent_by_index(hw, i);
 			parent_rate = clk_hw_get_rate(parent);
-			return calc_rate(parent_rate, 0, 0, 0, div);
+			return cpucc_calc_rate(parent_rate, 0, 0, 0, div);
 		}
 	}
 	pr_err("%s: Can't find parent %d\n", name, src);
@@ -200,7 +196,7 @@ static const struct clk_ops cpucc_clk_ops = {
 	.set_rate_and_parent = cpucc_clk_set_rate_and_parent,
 	.determine_rate = cpucc_clk_determine_rate,
 	.recalc_rate = cpucc_clk_recalc_rate,
-	.debug_init = clk_debug_measure_add,
+	.debug_init = clk_common_debug_init,
 	.init = clk_cpu_init,
 };
 
@@ -239,7 +235,7 @@ static struct clk_alpha_pll apcs_cpu_pll = {
 			.ops = &clk_alpha_pll_lucid_5lpe_ops,
 		},
 		.vdd_data = {
-			.vdd_class = &vdd_lucid_pll,
+			.vdd_class = &vdd_pll,
 			.num_rate_max = VDD_NUM,
 			.rate_max = (unsigned long[VDD_NUM]) {
 				[VDD_MIN] = 615000000,
@@ -491,34 +487,46 @@ static void cpucc_clk_populate_opp_table(struct platform_device *pdev)
 	cpucc_clk_print_opp_table(final_cpu);
 }
 
-static int cpucc_driver_probe(struct platform_device *pdev)
+static int cpucc_get_and_parse_dt_resource(struct platform_device *pdev,
+						unsigned long *xo_rate)
 {
 	struct resource *res;
-	struct clk_hw_onecell_data *data;
 	struct device *dev = &pdev->dev;
-	struct device_node *of = pdev->dev.of_node;
 	struct clk *clk;
-	u32 rate = 0;
-	int i, ret, speed_bin, version, cpu;
+	int ret, speed_bin, version;
 	char prop_name[] = "qcom,speedX-bin-vX";
 	void __iomem *base;
 
 	/* Require the RPM-XO clock to be registered before */
-	clk = devm_clk_get(dev, "bi_tcxo_ao");
+	clk = clk_get(dev, "bi_tcxo_ao");
 	if (IS_ERR(clk)) {
 		if (PTR_ERR(clk) != -EPROBE_DEFER)
 			dev_err(dev, "Unable to get xo clock\n");
 		return PTR_ERR(clk);
 	}
 
+	*xo_rate = clk_get_rate(clk);
+	if (!*xo_rate)
+		*xo_rate = 19200000;
+
+	clk_put(clk);
+
+	/* Require the GPLL0_OUT_EVEN clock to be registered before */
+	clk = clk_get(dev, "gpll0_out_even");
+	if (IS_ERR(clk)) {
+		if (PTR_ERR(clk) != -EPROBE_DEFER)
+			dev_err(dev, "Unable to get GPLL0 clock\n");
+			return PTR_ERR(clk);
+	}
+	clk_put(clk);
+
 	/* Rail Regulator for apcs_cpu_pll & cpuss mux*/
-	vdd_lucid_pll.regulator[0] = devm_regulator_get(&pdev->dev,
-							"vdd-lucid-pll");
-	if (IS_ERR(vdd_lucid_pll.regulator[0])) {
-		if (!(PTR_ERR(vdd_lucid_pll.regulator[0]) == -EPROBE_DEFER))
+	vdd_pll.regulator[0] = devm_regulator_get(&pdev->dev, "vdd-pll");
+	if (IS_ERR(vdd_pll.regulator[0])) {
+		if (!(PTR_ERR(vdd_pll.regulator[0]) == -EPROBE_DEFER))
 			dev_err(&pdev->dev,
-				"Unable to get vdd_lucid_pll regulator\n");
-		return PTR_ERR(vdd_lucid_pll.regulator[0]);
+				"Unable to get vdd_pll regulator\n");
+		return PTR_ERR(vdd_pll.regulator[0]);
 	}
 
 	vdd_cpu.regulator[0] = devm_regulator_get(&pdev->dev, "cpu-vdd");
@@ -543,9 +551,7 @@ static int cpucc_driver_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Couldn't get regmap for apcs_cpu_pll\n");
 		return PTR_ERR(apcs_cpu_pll.clkr.regmap);
 	}
-
-	clk_lucid_5lpe_pll_configure(&apcs_cpu_pll, apcs_cpu_pll.clkr.regmap,
-							&apcs_cpu_pll_config);
+	apcs_cpu_pll.clkr.dev = &pdev->dev;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "apcs_cmd");
 	base = devm_ioremap_resource(dev, res);
@@ -561,6 +567,7 @@ static int cpucc_driver_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Couldn't get regmap for apcs_cmd\n");
 		return PTR_ERR(apcs_mux_clk.clkr.regmap);
 	}
+	apcs_mux_clk.clkr.dev = &pdev->dev;
 
 	/* Get speed bin information */
 	cpucc_clk_get_speed_bin(pdev, &speed_bin, &version);
@@ -574,8 +581,7 @@ static int cpucc_driver_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev,
 		"Can't get speed bin for apcs_mux_clk. Falling back to zero\n");
 		ret = cpucc_clk_get_fmax_vdd_class(pdev,
-				&apcs_mux_clk.clkr.vdd_data,
-					"qcom,speed0-bin-v0");
+				&apcs_mux_clk.clkr.vdd_data, "qcom,speed0-bin-v0");
 		if (ret) {
 			dev_err(&pdev->dev,
 			"Unable to get speed bin for apcs_mux_clk freq-corner mapping info\n");
@@ -583,11 +589,24 @@ static int cpucc_driver_probe(struct platform_device *pdev)
 		}
 	}
 
-	ret = of_property_read_u32(of, "qcom,cpucc-init-rate", &rate);
-	if (ret || !rate)
-		dev_dbg(&pdev->dev, "Init rate for clock not defined\n");
+	return 0;
+}
 
-	cpucc_clk_init_rate = max(apcs_cpu_pll_config.l * XO_RATE, rate);
+static int cpucc_driver_probe(struct platform_device *pdev)
+{
+	struct clk_hw_onecell_data *data;
+	struct device *dev = &pdev->dev;
+	int i, ret, cpu;
+	unsigned long xo_rate;
+	u32 l_val;
+
+	ret = cpucc_get_and_parse_dt_resource(pdev, &xo_rate);
+	if (ret < 0)
+		return ret;
+
+	l_val = apcs_cpu_pll_config.l;
+	clk_lucid_5lpe_pll_configure(&apcs_cpu_pll, apcs_cpu_pll.clkr.regmap,
+							&apcs_cpu_pll_config);
 
 	data = devm_kzalloc(dev, sizeof(*data), GFP_KERNEL);
 	if (!data)
@@ -603,6 +622,7 @@ static int cpucc_driver_probe(struct platform_device *pdev)
 			return ret;
 		}
 		data->hws[i] = cpu_clks_hws[i];
+		devm_clk_regmap_list_node(dev, to_clk_regmap(cpu_clks_hws[i]));
 	}
 
 	ret = of_clk_add_hw_provider(dev->of_node, of_clk_hw_onecell_get, data);
@@ -612,9 +632,11 @@ static int cpucc_driver_probe(struct platform_device *pdev)
 	}
 
 	/* Set to boot frequency */
-	ret = clk_set_rate(apcs_mux_clk.clkr.hw.clk, cpucc_clk_init_rate);
-	if (ret)
+	ret = clk_set_rate(apcs_mux_clk.clkr.hw.clk, l_val * xo_rate);
+	if (ret) {
 		dev_err(&pdev->dev, "Unable to set init rate on apcs_mux_clk\n");
+		return ret;
+	}
 
 	/*
 	 * We don't want the CPU clocks to be turned off at late init
@@ -633,7 +655,7 @@ static int cpucc_driver_probe(struct platform_device *pdev)
 
 	dev_info(dev, "CPU clock Driver probed successfully\n");
 
-	return ret;
+	return 0;
 }
 
 static struct platform_driver cpu_clk_driver = {

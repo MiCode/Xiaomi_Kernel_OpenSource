@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/cdev.h>
@@ -580,3 +580,4 @@ static void __exit qsee_ipc_irq_bridge_exit(void)
 module_exit(qsee_ipc_irq_bridge_exit);
 MODULE_DESCRIPTION("QSEE IPC interrupt bridge");
 MODULE_LICENSE("GPL v2");
+MODULE_SOFTDEP("pre: qcom_ipcc");

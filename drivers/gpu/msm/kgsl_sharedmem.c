@@ -609,6 +609,8 @@ void kgsl_memdesc_init(struct kgsl_device *device,
 		(memdesc->flags & KGSL_MEMALIGN_MASK) >> KGSL_MEMALIGN_SHIFT,
 		ilog2(PAGE_SIZE));
 	kgsl_memdesc_set_align(memdesc, align);
+
+	spin_lock_init(&memdesc->lock);
 }
 
 void kgsl_sharedmem_free(struct kgsl_memdesc *memdesc)

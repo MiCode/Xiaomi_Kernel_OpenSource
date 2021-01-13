@@ -168,6 +168,7 @@
   drm_atomic_helper_plane_destroy_state
   drm_atomic_helper_plane_duplicate_state
   drm_atomic_helper_plane_reset
+  drm_atomic_helper_setup_commit
   drm_compat_ioctl
   drm_dbg
   drm_dev_alloc
@@ -1049,6 +1050,7 @@
 
 # required by mmc_hsq.ko
   mmc_cqe_request_done
+  mmc_send_tuning
 
 # required by musb_hdrc.ko
   device_wakeup_enable
@@ -2493,11 +2495,13 @@
   __arm_smccc_smc
 
 # required by mali_gondul.ko
+  __arch_clear_user
   bpf_trace_run5
   ktime_get_raw
   of_machine_is_compatible
   _totalram_pages
   trace_output_call
+  __tracepoint_gpu_mem_total
   trace_print_array_seq
   trace_print_flags_seq
   vmf_insert_pfn_prot

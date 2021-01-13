@@ -91,7 +91,7 @@ static u32 a6xx_ifpc_pwrup_reglist[] = {
 	A6XX_CP_AHB_CNTL,
 };
 
-/* Applicable to a620, a650 and a660 */
+/* Applicable to a620, a635, a650 and a660 */
 static u32 a650_pwrup_reglist[] = {
 	A6XX_CP_PROTECT_REG + 47,          /* Programmed for infinite span */
 	A6XX_TPL1_BICUBIC_WEIGHTS_TABLE_0,
@@ -138,7 +138,8 @@ int a6xx_init(struct adreno_device *adreno_dev)
 
 	/* If the memory type is DDR 4, override the existing configuration */
 	if (of_fdt_get_ddrtype() == 0x7) {
-		if (adreno_is_a660_shima(adreno_dev))
+		if (adreno_is_a660_shima(adreno_dev) ||
+			adreno_is_a635(adreno_dev))
 			adreno_dev->highest_bank_bit = 14;
 		else if ((adreno_is_a650(adreno_dev) ||
 				adreno_is_a660(adreno_dev)))
@@ -281,6 +282,18 @@ bool a6xx_cx_regulator_disable_wait(struct regulator *reg,
 	}
 }
 
+static void set_holi_sptprac_clock(struct adreno_device *adreno_dev, bool enable)
+{
+	u32 val = 0;
+
+	adreno_read_gmu_wrapper(adreno_dev,
+			A6XX_GPU_GMU_GX_SPTPRAC_CLOCK_CONTROL, &val);
+	val &= ~1;
+	adreno_write_gmu_wrapper(adreno_dev,
+			A6XX_GPU_GMU_GX_SPTPRAC_CLOCK_CONTROL,
+			val | (enable ? 1 : 0));
+}
+
 static void a6xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -320,6 +333,8 @@ static void a6xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
 		!adreno_is_a610(adreno_dev))
 		gmu_core_regrmw(device,
 			A6XX_GPU_GMU_GX_SPTPRAC_CLOCK_CONTROL, 1, 0);
+	else if (adreno_is_a619_holi(adreno_dev))
+		set_holi_sptprac_clock(adreno_dev, false);
 
 	for (i = 0; i < a6xx_core->hwcg_count; i++)
 		kgsl_regwrite(device, a6xx_core->hwcg[i].offset,
@@ -334,6 +349,8 @@ static void a6xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
 		!adreno_is_a610(adreno_dev))
 		gmu_core_regrmw(device,
 			A6XX_GPU_GMU_GX_SPTPRAC_CLOCK_CONTROL, 0, 1);
+	else if (adreno_is_a619_holi(adreno_dev))
+		set_holi_sptprac_clock(adreno_dev, true);
 
 	/* enable top level HWCG */
 	kgsl_regwrite(device, A6XX_RBBM_CLOCK_CNTL,
@@ -696,7 +713,10 @@ void a6xx_start(struct adreno_device *adreno_dev)
 	if (adreno_is_a660(adreno_dev)) {
 		kgsl_regwrite(device, A6XX_CP_CHICKEN_DBG, 0x1);
 		kgsl_regwrite(device, A6XX_RBBM_GBIF_CLIENT_QOS_CNTL, 0x0);
-		kgsl_regwrite(device, A6XX_UCHE_CMDQ_CONFIG, 0x66906);
+
+		/* Set dualQ + disable afull for A660 GPU but not for A635 */
+		if (!adreno_is_a635(adreno_dev))
+			kgsl_regwrite(device, A6XX_UCHE_CMDQ_CONFIG, 0x66906);
 	}
 
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_APRIV))

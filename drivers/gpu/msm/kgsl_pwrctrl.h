@@ -17,7 +17,7 @@
 
 #define KGSL_PWR_ON	0xFFFF
 
-#define KGSL_MAX_CLKS 17
+#define KGSL_MAX_CLKS 18
 
 #define KGSL_MAX_PWRLEVELS 16
 

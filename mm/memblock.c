@@ -1630,6 +1630,7 @@ phys_addr_t __init_memblock memblock_end_of_DRAM(void)
 
 	return (memblock.memory.regions[idx].base + memblock.memory.regions[idx].size);
 }
+EXPORT_SYMBOL_GPL(memblock_end_of_DRAM);
 
 static phys_addr_t __init_memblock __find_max_addr(phys_addr_t limit)
 {

@@ -3296,7 +3296,7 @@ static int fastrpc_internal_invoke2(struct fastrpc_file *fl,
 			if (err)
 				goto bail;
 			memcpy(&p.inv, &p.inv3, sizeof(struct fastrpc_ioctl_invoke_crc));
-			memcpy(&p.inv.job, &p.inv3.job, sizeof(struct fastrpc_async_job));
+			memcpy(&p.inv.job, &p.inv3.job, sizeof(p.inv.job));
 		} else {
 			K_COPY_FROM_USER(err, 0, &p.inv, (void *)inv2->invparam, size);
 			if (err)
@@ -3318,7 +3318,8 @@ static int fastrpc_internal_invoke2(struct fastrpc_file *fl,
 						(void *)inv2->invparam, fl);
 		break;
 	case FASTRPC_INVOKE2_KERNEL_OPTIMIZATIONS:
-		if (inv2->size != sizeof(uint32_t)) {
+		size = sizeof(uint32_t);
+		if (inv2->size != size) {
 			err = -EBADE;
 			goto bail;
 		}

@@ -392,8 +392,11 @@ int usb_function_deactivate(struct usb_function *function)
 
 	spin_lock_irqsave(&cdev->lock, flags);
 
-	if (cdev->deactivations == 0)
+	if (cdev->deactivations == 0) {
+		spin_unlock_irqrestore(&cdev->lock, flags);
 		status = usb_gadget_deactivate(cdev->gadget);
+		spin_lock_irqsave(&cdev->lock, flags);
+	}
 	if (status == 0)
 		cdev->deactivations++;
 
@@ -424,8 +427,11 @@ int usb_function_activate(struct usb_function *function)
 		status = -EINVAL;
 	else {
 		cdev->deactivations--;
-		if (cdev->deactivations == 0)
+		if (cdev->deactivations == 0) {
+			spin_unlock_irqrestore(&cdev->lock, flags);
 			status = usb_gadget_activate(cdev->gadget);
+			spin_lock_irqsave(&cdev->lock, flags);
+		}
 	}
 
 	spin_unlock_irqrestore(&cdev->lock, flags);
@@ -1573,6 +1579,9 @@ static int count_ext_prop(struct usb_configuration *c, int interface)
 	struct usb_function *f;
 	int j;
 
+	if (interface >= c->next_interface_id)
+		return -EINVAL;
+
 	f = c->interface[interface];
 	for (j = 0; j < f->os_desc_n; ++j) {
 		struct usb_os_desc *d;
@@ -1591,6 +1600,9 @@ static int len_ext_prop(struct usb_configuration *c, int interface)
 	struct usb_function *f;
 	struct usb_os_desc *d;
 	int j, res;
+
+	if (interface >= c->next_interface_id)
+		return -EINVAL;
 
 	res = 10; /* header length */
 	f = c->interface[interface];
@@ -1745,8 +1757,10 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 				value = min(w_length, (u16) value);
 			break;
 		case USB_DT_STRING:
+			spin_lock(&cdev->lock);
 			value = get_string(cdev, req->buf,
 					w_index, w_value & 0xff);
+			spin_unlock(&cdev->lock);
 			if (value >= 0)
 				value = min(w_length, (u16) value);
 			break;
@@ -1972,6 +1986,8 @@ unknown:
 				buf[6] = w_index;
 				count = count_ext_prop(os_desc_cfg,
 					interface);
+				if (count < 0)
+					return count;
 				put_unaligned_le16(count, buf + 8);
 				count = len_ext_prop(os_desc_cfg,
 					interface);

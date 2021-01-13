@@ -164,6 +164,7 @@ struct qmp_mbox {
 	struct completion ch_complete;
 	struct delayed_work dwork;
 	struct qmp_device *mdev;
+	bool suspend_flag;
 };
 
 /**
@@ -207,6 +208,7 @@ struct qmp_device {
 	struct mbox_chan *mbox_chan;
 
 	void *ilc;
+	bool early_boot;
 };
 
 /**
@@ -388,7 +390,7 @@ static int qmp_send_data(struct mbox_chan *chan, void *data)
 	u32 size;
 	int i;
 
-	if (!mbox || !data || mbox->local_state != CHANNEL_CONNECTED)
+	if (!mbox || !data || !completion_done(&mbox->ch_complete))
 		return -EINVAL;
 
 	mdev = mbox->mdev;
@@ -567,9 +569,8 @@ static void __qmp_rx_worker(struct qmp_mbox *mbox)
 		}
 		init_mcore_state(mbox);
 		mbox->local_state = LINK_NEGOTIATION;
-		mbox->rx_pkt.data = devm_kzalloc(mdev->dev,
-						 desc.ucore.mailbox_size,
-						 GFP_KERNEL);
+		mbox->rx_pkt.data = kzalloc(desc.ucore.mailbox_size,
+					    GFP_KERNEL);
 		if (!mbox->rx_pkt.data) {
 			QMP_ERR(mdev->ilc, "Failed to allocate rx pkt\n");
 			break;
@@ -586,6 +587,16 @@ static void __qmp_rx_worker(struct qmp_mbox *mbox)
 		mbox->local_state = LINK_CONNECTED;
 		complete_all(&mbox->link_complete);
 		QMP_INFO(mdev->ilc, "Set to link connected\n");
+		/*
+		 * If link connection happened after hibernation
+		 * manualy trigger the channel open procedure since client
+		 * won't try to re-open the channel
+		 */
+		if (mbox->suspend_flag) {
+			set_mcore_ch(mbox, QMP_MBOX_CH_CONNECTED);
+			mbox->local_state = LOCAL_CONNECTING;
+			send_irq(mbox->mdev);
+		}
 		break;
 	case LINK_CONNECTED:
 		if (desc.ucore.ch_state == desc.ucore.ch_state_ack) {
@@ -729,6 +740,7 @@ static int qmp_mbox_remove(struct platform_device *pdev)
 
 	list_for_each_entry(mbox, &mdev->mboxes, list) {
 		mbox_controller_unregister(&mbox->ctrl);
+		kfree(mbox->rx_pkt.data);
 	}
 	return 0;
 }
@@ -870,6 +882,7 @@ static int qmp_mbox_init(struct device_node *n, struct qmp_device *mdev)
 	mbox->tx_sent = false;
 	mbox->num_assigned = 0;
 	INIT_DELAYED_WORK(&mbox->dwork, qmp_notify_timeout);
+	mbox->suspend_flag = false;
 
 	mdev_add_mbox(mdev, mbox);
 	return 0;
@@ -983,6 +996,8 @@ static int qmp_mbox_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	dev_set_drvdata(&pdev->dev, mdev);
+
 	mdev->ilc = ipc_log_context_create(QMP_IPC_LOG_PAGE_CNT, mdev->name, 0);
 
 	kthread_init_work(&mdev->kwork, rx_worker);
@@ -1005,11 +1020,48 @@ static int qmp_mbox_probe(struct platform_device *pdev)
 			mdev->rx_irq_line, ret);
 
 	/* Trigger fake RX in case of missed interrupt */
-	if (of_property_read_bool(edge_node, "qcom,early-boot"))
+	if (of_property_read_bool(edge_node, "qcom,early-boot")) {
+		mdev->early_boot = true;
+		qmp_irq_handler(0, mdev);
+	}
+
+	return 0;
+}
+
+static int qmp_mbox_freeze(struct device *dev)
+{
+	return 0;
+}
+
+static int qmp_mbox_restore(struct device *dev)
+{
+	struct qmp_device *mdev = dev_get_drvdata(dev);
+	struct qmp_mbox *mbox;
+
+	list_for_each_entry(mbox, &mdev->mboxes, list) {
+		mbox->local_state = LINK_DISCONNECTED;
+		init_completion(&mbox->link_complete);
+		init_completion(&mbox->ch_complete);
+		mbox->tx_sent = false;
+		/*
+		 * set suspend flag to indicate self channel open is required
+		 * after restore operation
+		 */
+		mbox->suspend_flag = true;
+		/* Release rx packet buffer */
+		kfree(mbox->rx_pkt.data);
+		mbox->rx_pkt.data = NULL;
+	}
+	if (mdev->early_boot)
 		qmp_irq_handler(0, mdev);
 
 	return 0;
 }
+
+static const struct dev_pm_ops qmp_mbox_pm_ops = {
+	.freeze_late = qmp_mbox_freeze,
+	.restore_early = qmp_mbox_restore,
+};
 
 static struct platform_driver qmp_mbox_driver = {
 	.probe = qmp_mbox_probe,
@@ -1017,6 +1069,7 @@ static struct platform_driver qmp_mbox_driver = {
 	.driver = {
 		.name = "qmp_mbox",
 		.of_match_table = qmp_mbox_match_table,
+		.pm = &qmp_mbox_pm_ops,
 	},
 };
 

@@ -20,4 +20,3 @@ config FTS_TRUSTED_TOUCH
 	  Say Y here to enable Focaltech Trusted Touch.
 	  If unsure, say N.
 
-#endif

@@ -2005,7 +2005,8 @@ static int dwc3_resume(struct device *dev)
 		 * state as active to reflect actual state of device which
 		 * is now out of LPM. This allows runtime_suspend later.
 		 */
-		if (dwc->current_dr_role == DWC3_GCTL_PRTCAP_HOST)
+		if (dwc->current_dr_role == DWC3_GCTL_PRTCAP_HOST &&
+					pm_runtime_status_suspended(dev))
 			pm_runtime_resume(dev);
 
 		return 0;

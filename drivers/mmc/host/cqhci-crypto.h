@@ -60,7 +60,7 @@ void cqhci_crypto_destroy_rq_keyslot_manager_spec(struct cqhci_host *host,
 void cqhci_crypto_set_vops(struct cqhci_host *host,
 			   struct cqhci_host_crypto_variant_ops *crypto_vops);
 #else
-void cqhci_crypto_set_vops(struct cqhci_host *host,
+static inline void cqhci_crypto_set_vops(struct cqhci_host *host,
 			   struct cqhci_host_crypto_variant_ops *crypto_vops)
 {}
 #endif /* CONFIG_MMC_CQHCI_CRYPTO */
@@ -93,50 +93,50 @@ int cqhci_crypto_recovery_finish(struct cqhci_host *host);
 void cqhci_crypto_setup_rq_keyslot_manager(struct cqhci_host *host,
 					   struct request_queue *q);
 #else
-void cqhci_crypto_enable(struct cqhci_host *host)
+static inline void cqhci_crypto_enable(struct cqhci_host *host)
 {}
 
-void cqhci_crypto_disable(struct cqhci_host *host)
+static inline void cqhci_crypto_disable(struct cqhci_host *host)
 {}
 
-int cqhci_host_init_crypto(struct cqhci_host *host)
+static inline int cqhci_host_init_crypto(struct cqhci_host *host)
 {
 	return 0;
 }
 
-int cqhci_crypto_get_ctx(struct cqhci_host *host,
+static inline int cqhci_crypto_get_ctx(struct cqhci_host *host,
 			 struct mmc_request *mrq,
 			 u64 *ice_ctx)
 {
 	return 0;
 }
 
-int cqhci_complete_crypto_desc(struct cqhci_host *host,
+static inline int cqhci_complete_crypto_desc(struct cqhci_host *host,
 			       struct mmc_request *mrq,
 			       u64 *ice_ctx)
 {
 	return 0;
 }
 
-void cqhci_crypto_debug(struct cqhci_host *host)
+static inline void cqhci_crypto_debug(struct cqhci_host *host)
 {}
 
-int cqhci_crypto_suspend(struct cqhci_host *host)
+static inline int cqhci_crypto_suspend(struct cqhci_host *host)
 {
 	return 0;
 }
 
-int cqhci_crypto_reset(struct cqhci_host *host)
+static inline int cqhci_crypto_reset(struct cqhci_host *host)
 {
 	return 0;
 }
 
-int cqhci_crypto_recovery_finish(struct cqhci_host *host)
+static inline int cqhci_crypto_recovery_finish(struct cqhci_host *host)
 {
 	return 0;
 }
 
-void cqhci_crypto_setup_rq_keyslot_manager(struct cqhci_host *host,
+static inline void cqhci_crypto_setup_rq_keyslot_manager(struct cqhci_host *host,
 					   struct request_queue *q)
 {}
 #endif /* CONFIG_MMC_CQHCI_CRYPTO */
