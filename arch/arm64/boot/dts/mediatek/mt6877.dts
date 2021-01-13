@@ -684,6 +684,10 @@
 		interrupts = <GIC_SPI 238 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
+	accdet: accdet {
+		compatible = "mediatek,pmic-accdet";
+	};
+
 	md_ccif0@1020a000 {
 		compatible = "mediatek,md_ccif0";
 		reg = <0 0x1020a000 0 0x1000>;
