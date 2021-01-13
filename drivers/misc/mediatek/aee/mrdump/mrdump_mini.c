@@ -369,18 +369,6 @@ static void fill_elf_note_phdr(struct elf_phdr *phdr, int sz, loff_t offset)
 	phdr->p_align = 0;
 }
 
-static void fill_elf_load_phdr(struct elf_phdr *phdr, int sz,
-			       unsigned long vaddr, unsigned long paddr)
-{
-	phdr->p_type = PT_LOAD;
-	phdr->p_vaddr = vaddr;
-	phdr->p_paddr = paddr;
-	phdr->p_filesz = sz;
-	phdr->p_memsz = 0;
-	phdr->p_flags = 0;
-	phdr->p_align = 0;
-}
-
 static noinline void fill_note(struct elf_note *note, const char *name,
 		int type, unsigned int sz, unsigned int namesz)
 {
@@ -437,7 +425,7 @@ static int fill_psinfo(struct elf_prpsinfo *psinfo)
 #define __pa_nodebug __pa
 #endif
 #endif
-void mrdump_mini_add_misc_pa(unsigned long va, unsigned long pa,
+static void mrdump_mini_add_misc_pa(unsigned long va, unsigned long pa,
 		unsigned long size, unsigned long start, char *name)
 {
 	int i;
@@ -446,6 +434,8 @@ void mrdump_mini_add_misc_pa(unsigned long va, unsigned long pa,
 	for (i = 0; i < MRDUMP_MINI_NR_MISC; i++) {
 		note = &mrdump_mini_ehdr->misc[i].note;
 		if (note->n_type == NT_IPANIC_MISC) {
+			if (strncmp(name, MRDUMP_MINI_MISC_LOAD, 4) == 0)
+				continue;
 			if (strncmp(mrdump_mini_ehdr->misc[i].name, name, 16)
 					!= 0)
 				continue;
@@ -476,88 +466,6 @@ int kernel_addr_valid(unsigned long addr)
 		return 0;
 
 	return pfn_valid(virt_2_pfn(addr));
-}
-
-static void mrdump_mini_add_entry_ext(unsigned long start, unsigned long end,
-		unsigned long pa)
-{
-	unsigned long laddr, haddr;
-	struct elf_phdr *phdr;
-	int i;
-
-	for (i = 0; i < MRDUMP_MINI_NR_SECTION; i++) {
-		phdr = &mrdump_mini_ehdr->phdrs[i];
-		if (phdr->p_type == PT_NULL)
-			break;
-		if (phdr->p_type != PT_LOAD)
-			continue;
-		laddr = phdr->p_vaddr;
-		haddr = laddr + phdr->p_filesz;
-		if (start >= laddr && end <= haddr)
-			return;
-		if (start >= haddr || end <= laddr)
-			continue;
-		if (laddr < start) {
-			start = laddr;
-			pa = phdr->p_paddr;
-		}
-		if (haddr > end)
-			end = haddr;
-		break;
-	}
-	if (i < MRDUMP_MINI_NR_SECTION)
-		fill_elf_load_phdr(phdr, end - start, start, pa);
-	else
-		pr_notice("mrdump: MINI_NR_SECTION overflow!\n");
-}
-
-void mrdump_mini_add_entry(unsigned long addr, unsigned long size)
-{
-	unsigned long start = 0, __end, _pfn;
-	unsigned long laddr;
-
-	if (!pfn_valid(virt_2_pfn(addr)))
-		return;
-
-	if (size > PAGE_SIZE) {
-		__end = ALIGN(addr + size / 2, PAGE_SIZE);
-		laddr = __end - ALIGN(size, PAGE_SIZE);
-
-		start = addr & PAGE_MASK;
-		while (start >= laddr) {
-			_pfn = virt_2_pfn(start - PAGE_SIZE);
-			if (!pfn_valid(_pfn)) {
-				laddr = start;
-				break;
-			}
-			start -= PAGE_SIZE;
-		}
-
-		start = addr & PAGE_MASK;
-		while (start < __end) {
-			start += PAGE_SIZE;
-			_pfn = virt_2_pfn(start);
-			if (!pfn_valid(_pfn)) {
-				__end = start;
-				break;
-			}
-		}
-
-		if (pfn_valid(virt_2_pfn(laddr))
-			&& __end > laddr) {
-			mrdump_mini_add_entry_ext(laddr, __end,
-					__pfn_to_phys(virt_2_pfn(laddr)));
-		} else {
-			/* should never be here just in case and 1 page safe*/
-			start = addr & PAGE_MASK;
-			mrdump_mini_add_entry_ext(start, start + PAGE_SIZE,
-					__pfn_to_phys(virt_2_pfn(addr)));
-		}
-	} else {
-		start = addr & PAGE_MASK;
-		mrdump_mini_add_entry_ext(start, start + PAGE_SIZE,
-				__pfn_to_phys(virt_2_pfn(addr)));
-	}
 }
 
 static void mrdump_mini_build_task_info(struct pt_regs *regs)
@@ -923,7 +831,7 @@ static void __init mrdump_mini_elf_header_init(void)
 int __init mrdump_mini_init(const struct mrdump_params *mparams)
 {
 	int i, cpu;
-	unsigned long size, offset;
+	unsigned long size, offset, vaddr;
 	struct pt_regs regs;
 
 	mrdump_mini_elf_header_init();
@@ -957,26 +865,29 @@ int __init mrdump_mini_init(const struct mrdump_params *mparams)
 			offsetof(struct mrdump_mini_elf_header, misc));
 
 	if (mrdump_cblock) {
-		mrdump_mini_add_entry_ext(
-		  (unsigned long)mrdump_cblock,
-		  (unsigned long)mrdump_cblock + mparams->cb_size,
-		  mparams->cb_addr);
+		mrdump_mini_add_misc_pa((unsigned long)mrdump_cblock,
+				mparams->cb_addr, mparams->cb_size,
+				0, MRDUMP_MINI_MISC_LOAD);
 
-		mrdump_mini_add_entry(
-		  (unsigned long)mrdump_cblock,
-		  sizeof(struct mrdump_control_block) + 2 * PAGE_SIZE
-		);
-
-		mrdump_mini_add_entry(
-		  (aee_get_kallsyms_addresses() +
-		  (mrdump_cblock->machdesc.kallsyms.size / 2 - PAGE_SIZE)),
-		  mrdump_cblock->machdesc.kallsyms.size + 2 * PAGE_SIZE);
+		vaddr = aee_get_kallsyms_addresses();
+		vaddr = round_down(vaddr, PAGE_SIZE);
+		size = aee_get_kti_addresses() - vaddr;
+		size = round_up(size, PAGE_SIZE);
+		if (vaddr)
+			mrdump_mini_add_misc_pa(vaddr, __pa_nodebug(vaddr),
+					size, 0, MRDUMP_MINI_MISC_LOAD);
 	}
-	mrdump_mini_add_entry((unsigned long)__per_cpu_offset,
-			MRDUMP_MINI_SECTION_SIZE);
-	for (cpu = 0; cpu < nr_cpu_ids; cpu++)
-		mrdump_mini_add_entry((unsigned long)aee_cpu_rq(cpu),
-				MRDUMP_MINI_SECTION_SIZE);
+
+	vaddr = round_down((unsigned long)__per_cpu_offset, PAGE_SIZE);
+	mrdump_mini_add_misc_pa(vaddr, __pa_nodebug(vaddr),
+			PAGE_SIZE * 2, 0, MRDUMP_MINI_MISC_LOAD);
+
+	for (cpu = 0; cpu < nr_cpu_ids; cpu++) {
+		vaddr = (unsigned long)cpu_rq(cpu);
+		vaddr = round_down(vaddr, PAGE_SIZE);
+		mrdump_mini_add_misc(vaddr, MRDUMP_MINI_SECTION_SIZE,
+				0, MRDUMP_MINI_MISC_LOAD);
+	}
 
 	return 0;
 }

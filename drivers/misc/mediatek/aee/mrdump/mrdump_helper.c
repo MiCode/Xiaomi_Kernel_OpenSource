@@ -20,6 +20,7 @@
 #include <asm/system_misc.h>
 
 #include <mt-plat/aee.h>
+#include "mrdump_private.h"
 
 #ifdef MODULE
 
@@ -613,7 +614,14 @@ struct task_struct *aee_cpu_curr(int cpu)
 
 unsigned long aee_get_kallsyms_addresses(void)
 {
-	return (unsigned long)mrdump_ka;
+	if (!IS_ENABLED(CONFIG_KALLSYMS_BASE_RELATIVE))
+		return (unsigned long)mrdump_ka;
+	return (unsigned long)mrdump_ko;
+}
+
+unsigned long aee_get_kti_addresses(void)
+{
+	return (unsigned long)mrdump_kti;
 }
 
 raw_spinlock_t *p_logbuf_lock;
@@ -889,10 +897,16 @@ struct task_struct *aee_cpu_curr(int cpu)
 	return (struct task_struct *)cpu_curr(cpu);
 }
 
-extern const unsigned long kallsyms_addresses[] __weak;
 unsigned long aee_get_kallsyms_addresses(void)
 {
-	return (unsigned long)kallsyms_addresses;
+	if (!IS_ENABLED(CONFIG_KALLSYMS_BASE_RELATIVE))
+		return (unsigned long)kallsyms_addresses;
+	return (unsigned long)kallsyms_offsets;
+}
+
+unsigned long aee_get_kti_addresses(void)
+{
+	return (unsigned long)kallsyms_token_index;
 }
 
 raw_spinlock_t *p_logbuf_lock;

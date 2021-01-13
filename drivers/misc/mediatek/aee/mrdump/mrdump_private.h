@@ -35,6 +35,7 @@ struct mrdump_params {
 
 extern struct mrdump_control_block *mrdump_cblock;
 extern const unsigned long kallsyms_addresses[] __weak;
+extern const int kallsyms_offsets[] __weak;
 extern const u8 kallsyms_names[] __weak;
 extern const u8 kallsyms_token_table[] __weak;
 extern const u16 kallsyms_token_index[] __weak;
@@ -52,8 +53,6 @@ int mrdump_mini_init(const struct mrdump_params *mparams);
 
 uint64_t mrdump_get_mpt(void);
 void mrdump_save_control_register(void *creg);
-
-extern void mrdump_mini_add_entry(unsigned long addr, unsigned long size);
 
 extern void mrdump_mini_ke_cpu_regs(struct pt_regs *regs);
 

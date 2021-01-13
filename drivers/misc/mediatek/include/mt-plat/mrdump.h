@@ -159,7 +159,8 @@ struct mrdump_mini_header {
 #define MRDUMP_MINI_NR_SECTION 60
 #define MRDUMP_MINI_SECTION_SIZE (32 * 1024)
 #define NT_IPANIC_MISC 4095
-#define MRDUMP_MINI_NR_MISC 20
+#define MRDUMP_MINI_NR_MISC 40
+#define MRDUMP_MINI_MISC_LOAD "load"
 
 struct mrdump_mini_elf_misc {
 	unsigned long vaddr;
@@ -172,21 +173,21 @@ struct mrdump_mini_elf_misc {
 #define NOTE_NAME_LONG  20
 
 struct mrdump_mini_elf_psinfo {
-		struct elf_note note;
-		char name[NOTE_NAME_SHORT];
-		struct elf_prpsinfo data;
+	struct elf_note note;
+	char name[NOTE_NAME_SHORT];
+	struct elf_prpsinfo data;
 };
 
 struct mrdump_mini_elf_prstatus {
-		struct elf_note note;
-		char name[NOTE_NAME_SHORT];
-		struct elf_prstatus data;
+	struct elf_note note;
+	char name[NOTE_NAME_SHORT];
+	struct elf_prstatus data;
 };
 
 struct mrdump_mini_elf_note {
-		struct elf_note note;
-		char name[NOTE_NAME_LONG];
-		struct mrdump_mini_elf_misc data;
+	struct elf_note note;
+	char name[NOTE_NAME_LONG];
+	struct mrdump_mini_elf_misc data;
 };
 
 struct mrdump_mini_elf_header {
