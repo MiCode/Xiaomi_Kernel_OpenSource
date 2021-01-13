@@ -409,10 +409,17 @@ void kgsl_mmu_put_gpuaddr(struct kgsl_memdesc *memdesc)
 	if (PT_OP_VALID(pagetable, put_gpuaddr) && (unmap_fail == 0))
 		pagetable->pt_ops->put_gpuaddr(memdesc);
 
+	memdesc->pagetable = NULL;
+
+
+	/*
+	 * If SVM tries to take a GPU address it will lose the race until the
+	 * gpuaddr returns to zero so we shouldn't need to worry about taking a
+	 * lock here
+	 */
 	if (!kgsl_memdesc_is_global(memdesc))
 		memdesc->gpuaddr = 0;
 
-	memdesc->pagetable = NULL;
 }
 
 /**
@@ -463,12 +470,12 @@ kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
 }
 
 void kgsl_mmu_map_global(struct kgsl_device *device,
-		struct kgsl_memdesc *memdesc)
+		struct kgsl_memdesc *memdesc, u32 padding)
 {
 	struct kgsl_mmu *mmu = &(device->mmu);
 
 	if (MMU_OP_VALID(mmu, mmu_map_global))
-		mmu->mmu_ops->mmu_map_global(mmu, memdesc);
+		mmu->mmu_ops->mmu_map_global(mmu, memdesc, padding);
 }
 
 void kgsl_mmu_close(struct kgsl_device *device)
@@ -530,7 +537,7 @@ static int nommu_get_gpuaddr(struct kgsl_pagetable *pagetable,
 	return -ENOMEM;
 }
 
-static struct kgsl_mmu_pt_ops nommu_pt_ops = {
+static const struct kgsl_mmu_pt_ops nommu_pt_ops = {
 	.get_gpuaddr = nommu_get_gpuaddr,
 	.addr_in_range = nommu_gpuaddr_in_range,
 };

@@ -67,15 +67,9 @@ enum gmu_pwrctrl_mode {
 	INVALID_POWER_CTRL
 };
 
-enum gpu_idle_level {
-	GPU_HW_ACTIVE = 0x0,
-	GPU_HW_SPTP_PC = 0x2,
-	GPU_HW_IFPC = 0x3,
-	GPU_HW_NAP = 0x4,
-	GPU_HW_MIN_VOLT = 0x5,
-	GPU_HW_MIN_DDR = 0x6,
-	GPU_HW_SLUMBER = 0xF
-};
+#define GPU_HW_ACTIVE	0x00
+#define GPU_HW_IFPC	0x03
+#define GPU_HW_SLUMBER	0x0f
 
 /*
  * Wait time before trying to write the register again.
@@ -130,7 +124,7 @@ struct gmu_core_device {
 	unsigned int gmu2gpu_offset;
 	unsigned int reg_len;
 	void __iomem *reg_virt;
-	struct gmu_dev_ops *dev_ops;
+	const struct gmu_dev_ops *dev_ops;
 	unsigned long flags;
 };
 

@@ -41,7 +41,7 @@
 #define IDR1_NUMPAGENDXB GENMASK(30, 28)
 #define IDR1_PAGESIZE BIT(31)
 
-static struct kgsl_mmu_pt_ops iommu_pt_ops;
+static const struct kgsl_mmu_pt_ops iommu_pt_ops;
 
 /*
  * struct kgsl_iommu_addr_entry - entry in the kgsl_iommu_pt rbtree.
@@ -261,7 +261,7 @@ static void kgsl_iommu_map_global_to_pt(struct kgsl_mmu *mmu,
 }
 
 static void kgsl_iommu_map_global(struct kgsl_mmu *mmu,
-		struct kgsl_memdesc *memdesc)
+		struct kgsl_memdesc *memdesc, u32 padding)
 {
 	struct kgsl_device *device = KGSL_MMU_DEVICE(mmu);
 	struct kgsl_iommu *iommu = _IOMMU_PRIV(mmu);
@@ -275,7 +275,8 @@ static void kgsl_iommu_map_global(struct kgsl_mmu *mmu,
 		u64 offset;
 		u64 base;
 
-		offset = global_get_offset(device, memdesc->size,
+		/* Find room for the memdesc plus any padding */
+		offset = global_get_offset(device, memdesc->size + padding,
 			memdesc->priv);
 
 		if (IS_ERR_VALUE(offset))
@@ -466,7 +467,7 @@ static void _get_entries(struct kgsl_process_private *private,
 		prev->flags = p->memdesc.flags;
 		prev->priv = p->memdesc.priv;
 		prev->pending_free = p->pending_free;
-		prev->pid = private->pid;
+		prev->pid = pid_nr(private->pid);
 		kgsl_get_memory_usage(prev->name, sizeof(prev->name),
 			prev->flags);
 	}
@@ -477,7 +478,7 @@ static void _get_entries(struct kgsl_process_private *private,
 		next->flags = n->memdesc.flags;
 		next->priv = n->memdesc.priv;
 		next->pending_free = n->pending_free;
-		next->pid = private->pid;
+		next->pid = pid_nr(private->pid);
 		kgsl_get_memory_usage(next->name, sizeof(next->name),
 			next->flags);
 	}
@@ -537,7 +538,7 @@ static struct kgsl_process_private *kgsl_iommu_get_process(u64 ptbase)
 	struct kgsl_process_private *p;
 	struct kgsl_iommu_pt *iommu_pt;
 
-	spin_lock(&kgsl_driver.proclist_lock);
+	read_lock(&kgsl_driver.proclist_lock);
 
 	list_for_each_entry(p, &kgsl_driver.process_list, list) {
 		iommu_pt = p->pagetable->priv;
@@ -545,12 +546,12 @@ static struct kgsl_process_private *kgsl_iommu_get_process(u64 ptbase)
 			if (!kgsl_process_private_get(p))
 				p = NULL;
 
-			spin_unlock(&kgsl_driver.proclist_lock);
+			read_unlock(&kgsl_driver.proclist_lock);
 			return p;
 		}
 	}
 
-	spin_unlock(&kgsl_driver.proclist_lock);
+	read_unlock(&kgsl_driver.proclist_lock);
 
 	return NULL;
 }
@@ -599,7 +600,7 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 	int write;
 	struct kgsl_device *device;
 	struct adreno_device *adreno_dev;
-	struct adreno_gpudev *gpudev;
+	const struct adreno_gpudev *gpudev;
 	unsigned int no_page_fault_log = 0;
 	char *fault_type = "unknown";
 	char *comm = "unknown";
@@ -633,7 +634,7 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 	private = kgsl_iommu_get_process(ptbase);
 
 	if (private) {
-		pid = private->pid;
+		pid = pid_nr(private->pid);
 		comm = private->comm;
 	}
 
@@ -1746,6 +1747,26 @@ static void kgsl_iommu_pagefault_resume(struct kgsl_mmu *mmu)
 	struct kgsl_iommu_context *ctx = &iommu->user_context;
 
 	if (ctx->default_pt != NULL && ctx->stalled_on_fault) {
+		u32 sctlr_val = KGSL_IOMMU_GET_CTX_REG(ctx,
+						KGSL_IOMMU_CTX_SCTLR);
+
+		/*
+		 * As part of recovery, GBIF halt sequence should be performed.
+		 * In a worst case scenario, if any GPU block is generating a
+		 * stream of un-ending faulting transactions, SMMU would enter
+		 * stall-on-fault mode again after resuming and not let GBIF
+		 * halt succeed. In order to avoid that situation and terminate
+		 * those faulty transactions, set CFCFG and HUPCF to 0.
+		 */
+		sctlr_val &= ~(0x1 << KGSL_IOMMU_SCTLR_CFCFG_SHIFT);
+		sctlr_val &= ~(0x1 << KGSL_IOMMU_SCTLR_HUPCF_SHIFT);
+		KGSL_IOMMU_SET_CTX_REG(ctx, KGSL_IOMMU_CTX_SCTLR, sctlr_val);
+		/*
+		 * Make sure the above register write is not reordered across
+		 * the barrier as we use writel_relaxed to write it.
+		 */
+		wmb();
+
 		/*
 		 * This will only clear fault bits in FSR. FSR.SS will still
 		 * be set. Writing to RESUME (below) is the only way to clear
@@ -2206,6 +2227,11 @@ static int kgsl_iommu_get_gpuaddr(struct kgsl_pagetable *pagetable,
 		goto out;
 	}
 
+	/*
+	 * This path is only called in a non-SVM path with locks so we can be
+	 * sure we aren't racing with anybody so we don't need to worry about
+	 * taking the lock
+	 */
 	ret = _insert_gpuaddr(pagetable, addr, size);
 	if (ret == 0) {
 		memdesc->gpuaddr = addr;
@@ -2367,7 +2393,7 @@ static const char * const kgsl_iommu_clocks[] = {
 	"gcc_gpu_axi_clk",
 };
 
-static struct kgsl_mmu_ops kgsl_iommu_ops;
+static const struct kgsl_mmu_ops kgsl_iommu_ops;
 
 int kgsl_iommu_probe(struct kgsl_device *device)
 {
@@ -2497,7 +2523,7 @@ err:
 	return ret;
 }
 
-static struct kgsl_mmu_ops kgsl_iommu_ops = {
+static const struct kgsl_mmu_ops kgsl_iommu_ops = {
 	.mmu_close = kgsl_iommu_close,
 	.mmu_start = kgsl_iommu_start,
 	.mmu_set_pt = kgsl_iommu_set_pt,
@@ -2513,7 +2539,7 @@ static struct kgsl_mmu_ops kgsl_iommu_ops = {
 	.mmu_map_global = kgsl_iommu_map_global,
 };
 
-static struct kgsl_mmu_pt_ops iommu_pt_ops = {
+static const struct kgsl_mmu_pt_ops iommu_pt_ops = {
 	.mmu_map = kgsl_iommu_map,
 	.mmu_unmap = kgsl_iommu_unmap,
 	.mmu_destroy_pagetable = kgsl_iommu_destroy_pagetable,

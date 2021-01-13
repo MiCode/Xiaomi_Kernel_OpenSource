@@ -155,12 +155,12 @@ static int a5xx_critical_packet_construct(struct adreno_device *adreno_dev)
 	uint64_t gpuaddrs[4];
 
 	adreno_dev->critpkts = kgsl_allocate_global(device,
-		PAGE_SIZE * 4, 0, 0, "crit_pkts");
+		PAGE_SIZE * 4, 0, 0, 0, "crit_pkts");
 	if (IS_ERR(adreno_dev->critpkts))
 		return PTR_ERR(adreno_dev->critpkts);
 
 	adreno_dev->critpkts_secure = kgsl_allocate_global(device,
-		PAGE_SIZE, KGSL_MEMFLAGS_SECURE, 0, "crit_pkts_secure");
+		PAGE_SIZE, 0, KGSL_MEMFLAGS_SECURE, 0, "crit_pkts_secure");
 	if (IS_ERR(adreno_dev->critpkts_secure))
 		return PTR_ERR(adreno_dev->critpkts_secure);
 
@@ -2056,10 +2056,6 @@ static unsigned int a5xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 				A5XX_RBBM_PERFCTR_LOAD_VALUE_LO),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_LOAD_VALUE_HI,
 				A5XX_RBBM_PERFCTR_LOAD_VALUE_HI),
-	ADRENO_REG_DEFINE(ADRENO_REG_VBIF_XIN_HALT_CTRL0,
-				A5XX_VBIF_XIN_HALT_CTRL0),
-	ADRENO_REG_DEFINE(ADRENO_REG_VBIF_XIN_HALT_CTRL1,
-				A5XX_VBIF_XIN_HALT_CTRL1),
 	ADRENO_REG_DEFINE(ADRENO_REG_VBIF_VERSION,
 				A5XX_VBIF_VERSION),
 	ADRENO_REG_DEFINE(ADRENO_REG_GPMU_POWER_COUNTER_ENABLE,
@@ -2347,7 +2343,7 @@ u64 a5xx_read_alwayson(struct adreno_device *adreno_dev)
 }
 
 
-static struct adreno_irq_funcs a5xx_irq_funcs[32] = {
+static const struct adreno_irq_funcs a5xx_irq_funcs[32] = {
 	ADRENO_IRQ_CALLBACK(NULL),              /* 0 - RBBM_GPU_IDLE */
 	ADRENO_IRQ_CALLBACK(a5xx_err_callback), /* 1 - RBBM_AHB_ERROR */
 	ADRENO_IRQ_CALLBACK(a5xx_err_callback), /* 2 - RBBM_TRANSFER_TIMEOUT */
@@ -2440,6 +2436,20 @@ static bool a5xx_hw_isidle(struct adreno_device *adreno_dev)
 
 	return adreno_irq_pending(adreno_dev) ? false : true;
 }
+
+static int a5xx_clear_pending_transactions(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	u32 mask = A5XX_VBIF_XIN_HALT_CTRL0_MASK;
+	int ret;
+
+	kgsl_regwrite(device, A5XX_VBIF_XIN_HALT_CTRL0, mask);
+	ret = adreno_wait_for_halt_ack(device, A5XX_VBIF_XIN_HALT_CTRL1, mask);
+	kgsl_regwrite(device, A5XX_VBIF_XIN_HALT_CTRL0, 0);
+
+	return ret;
+}
+
 
 #ifdef CONFIG_QCOM_KGSL_CORESIGHT
 static struct adreno_coresight_register a5xx_coresight_registers[] = {
@@ -2636,7 +2646,7 @@ static struct adreno_coresight a5xx_coresight = {
 };
 #endif
 
-struct adreno_gpudev adreno_a5xx_gpudev = {
+const struct adreno_gpudev adreno_a5xx_gpudev = {
 	.reg_offsets = a5xx_register_offsets,
 #ifdef CONFIG_QCOM_KGSL_CORESIGHT
 	.coresight = {&a5xx_coresight},
@@ -2648,7 +2658,6 @@ struct adreno_gpudev adreno_a5xx_gpudev = {
 	.irq_handler = a5xx_irq_handler,
 	.rb_start = a5xx_rb_start,
 	.microcode_read = a5xx_microcode_read,
-	.vbif_xin_halt_ctrl0_mask = A5XX_VBIF_XIN_HALT_CTRL0_MASK,
 	.is_sptp_idle = a5xx_is_sptp_idle,
 	.regulator_enable = a5xx_regulator_enable,
 	.regulator_disable = a5xx_regulator_disable,
@@ -2668,4 +2677,5 @@ struct adreno_gpudev adreno_a5xx_gpudev = {
 	.read_alwayson = a5xx_read_alwayson,
 	.hw_isidle = a5xx_hw_isidle,
 	.power_ops = &adreno_power_operations,
+	.clear_pending_transactions = a5xx_clear_pending_transactions,
 };

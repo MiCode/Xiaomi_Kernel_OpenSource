@@ -78,6 +78,7 @@
 #define HFI_VALUE_LOG_EVENT_OFF		113
 #define HFI_VALUE_DCVS_OBJ		114
 #define HFI_VALUE_LM_CS0		115
+#define HFI_VALUE_LOG_STREAM_ENABLE	119
 #define HFI_VALUE_PREEMPT_COUNT         120
 
 #define HFI_VALUE_GLOBAL_TOKEN		0xFFFFFFFF
@@ -663,6 +664,18 @@ int a6xx_receive_ack_cmd(struct a6xx_gmu_device *gmu, void *rcvd,
  */
 int a6xx_hfi_send_feature_ctrl(struct adreno_device *adreno_dev,
 	u32 feature, u32 enable, u32 data);
+
+/**
+ * a6xx_hfi_send_set_value - Send gmu set_values via hfi
+ * @adreno_dev: Pointer to the adreno device
+ * @type: GMU set_value type
+ * @subtype: GMU set_value subtype
+ * @data: Value to set
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int a6xx_hfi_send_set_value(struct adreno_device *adreno_dev,
+		u32 type, u32 subtype, u32 data);
 
 /**
  * a6xx_hfi_send_core_fw_start - Send the core fw start hfi

@@ -17,9 +17,9 @@
 
 #define KGSL_PWR_ON	0xFFFF
 
-#define KGSL_MAX_CLKS 17
+#define KGSL_MAX_CLKS 18
 
-#define KGSL_MAX_PWRLEVELS 10
+#define KGSL_MAX_PWRLEVELS 16
 
 #define KGSL_PWRFLAGS_POWER_ON 0
 #define KGSL_PWRFLAGS_CLK_ON   1
@@ -96,7 +96,7 @@ struct kgsl_pwrlevel {
  * @min_pwrlevel - minimum allowable powerlevel per the user
  * @num_pwrlevels - number of available power levels
  * @throttle_mask - LM throttle mask
- * @interval_timeout - timeout in jiffies to be idle before a power event
+ * @interval_timeout - timeout to be idle before a power event
  * @clock_times - Each GPU frequency's accumulated active time in us
  * @clk_stats - structure of clock statistics
  * @input_disable - To disable GPU wakeup on touch input event
@@ -120,6 +120,10 @@ struct kgsl_pwrctrl {
 	struct regulator *cx_gdsc;
 	/** @gx_gdsc: Pointer to the GX domain regulator if applicable */
 	struct regulator *gx_gdsc;
+	/** @gx_gdsc: Pointer to the GX domain parent supply */
+	struct regulator *gx_gdsc_parent;
+	/** @gx_gdsc_parent_min_corner: Minimum supply voltage for GX parent */
+	u32 gx_gdsc_parent_min_corner;
 	int isense_clk_indx;
 	int isense_clk_on_level;
 	unsigned long power_flags;

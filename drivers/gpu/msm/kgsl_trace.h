@@ -440,7 +440,7 @@ TRACE_EVENT(kgsl_mem_alloc,
 	TP_fast_assign(
 		__entry->gpuaddr = mem_entry->memdesc.gpuaddr;
 		__entry->size = mem_entry->memdesc.size;
-		__entry->tgid = mem_entry->priv->pid;
+		__entry->tgid = pid_nr(mem_entry->priv->pid);
 		kgsl_get_memory_usage(__entry->usage, sizeof(__entry->usage),
 				     mem_entry->memdesc.flags);
 		__entry->id = mem_entry->id;
@@ -456,9 +456,9 @@ TRACE_EVENT(kgsl_mem_alloc,
 
 TRACE_EVENT(kgsl_mem_mmap,
 
-	TP_PROTO(struct kgsl_mem_entry *mem_entry),
+	TP_PROTO(struct kgsl_mem_entry *mem_entry, unsigned long useraddr),
 
-	TP_ARGS(mem_entry),
+	TP_ARGS(mem_entry, useraddr),
 
 	TP_STRUCT__entry(
 		__field(unsigned long, useraddr)
@@ -470,7 +470,7 @@ TRACE_EVENT(kgsl_mem_mmap,
 	),
 
 	TP_fast_assign(
-		__entry->useraddr = mem_entry->memdesc.useraddr;
+		__entry->useraddr = useraddr;
 		__entry->gpuaddr = mem_entry->memdesc.gpuaddr;
 		__entry->size = mem_entry->memdesc.size;
 		kgsl_get_memory_usage(__entry->usage, sizeof(__entry->usage),
@@ -533,7 +533,7 @@ TRACE_EVENT(kgsl_mem_map,
 		__entry->size = mem_entry->memdesc.size;
 		__entry->fd = fd;
 		__entry->type = kgsl_memdesc_usermem_type(&mem_entry->memdesc);
-		__entry->tgid = mem_entry->priv->pid;
+		__entry->tgid = pid_nr(mem_entry->priv->pid);
 		kgsl_get_memory_usage(__entry->usage, sizeof(__entry->usage),
 				     mem_entry->memdesc.flags);
 		__entry->id = mem_entry->id;
@@ -568,7 +568,7 @@ TRACE_EVENT(kgsl_mem_free,
 		__entry->gpuaddr = mem_entry->memdesc.gpuaddr;
 		__entry->size = mem_entry->memdesc.size;
 		__entry->type = kgsl_memdesc_usermem_type(&mem_entry->memdesc);
-		__entry->tgid = mem_entry->priv->pid;
+		__entry->tgid = pid_nr(mem_entry->priv->pid);
 		kgsl_get_memory_usage(__entry->usage, sizeof(__entry->usage),
 				     mem_entry->memdesc.flags);
 		__entry->id = mem_entry->id;
@@ -603,7 +603,7 @@ TRACE_EVENT(kgsl_mem_sync_cache,
 		__entry->gpuaddr = mem_entry->memdesc.gpuaddr;
 		kgsl_get_memory_usage(__entry->usage, sizeof(__entry->usage),
 				     mem_entry->memdesc.flags);
-		__entry->tgid = mem_entry->priv->pid;
+		__entry->tgid = pid_nr(mem_entry->priv->pid);
 		__entry->id = mem_entry->id;
 		__entry->op = op;
 		__entry->offset = offset;

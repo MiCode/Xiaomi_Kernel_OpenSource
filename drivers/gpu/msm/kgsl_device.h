@@ -148,7 +148,7 @@ struct kgsl_functable {
 		struct kgsl_context *context);
 	void (*resume)(struct kgsl_device *device);
 	int (*regulator_enable)(struct kgsl_device *device);
-	bool (*is_hw_collapsible)(struct kgsl_device *device);
+	bool (*prepare_for_power_off)(struct kgsl_device *device);
 	void (*regulator_disable)(struct kgsl_device *device);
 	void (*pwrlevel_change_settings)(struct kgsl_device *device,
 		unsigned int prelevel, unsigned int postlevel, bool post);
@@ -157,7 +157,6 @@ struct kgsl_functable {
 		const char *name, struct clk *clk, bool on);
 	void (*gpu_model)(struct kgsl_device *device, char *str,
 		size_t bufsz);
-	void (*stop_fault_timer)(struct kgsl_device *device);
 	/**
 	 * @query_property_list: query the list of properties
 	 * supported by the device. If 'list' is NULL just return the total
@@ -171,6 +170,7 @@ struct kgsl_functable {
 	int (*gpu_clock_set)(struct kgsl_device *device, u32 pwrlevel);
 	/** @gpu_bus_set: Target specific function to set gpu bandwidth */
 	int (*gpu_bus_set)(struct kgsl_device *device, int bus_level, u32 ab);
+	void (*deassert_gbif_halt)(struct kgsl_device *device);
 };
 
 struct kgsl_ioctl {
@@ -403,13 +403,13 @@ struct kgsl_context {
 #define pr_context(_d, _c, fmt, args...) \
 		dev_err((_d)->dev, "%s[%d]: " fmt, \
 		_context_comm((_c)), \
-		(_c)->proc_priv->pid, ##args)
+		pid_nr((_c)->proc_priv->pid), ##args)
 
 /**
  * struct kgsl_process_private -  Private structure for a KGSL process (across
  * all devices)
  * @priv: Internal flags, use KGSL_PROCESS_* values
- * @pid: ID for the task owner of the process
+ * @pid: Identification structure for the task owner of the process
  * @comm: task name of the process
  * @mem_lock: Spinlock to protect the process memory lists
  * @refcount: kref object for reference counting the process
@@ -427,7 +427,7 @@ struct kgsl_context {
  */
 struct kgsl_process_private {
 	unsigned long priv;
-	pid_t pid;
+	struct pid *pid;
 	char comm[TASK_COMM_LEN];
 	spinlock_t mem_lock;
 	struct kref refcount;
@@ -600,6 +600,18 @@ static inline bool kgsl_state_is_nap_or_minbw(struct kgsl_device *device)
 		return true;
 
 	return false;
+}
+
+/**
+ * kgsl_start_idle_timer - Start the idle timer
+ * @device: A KGSL device handle
+ *
+ * Start the idle timer to expire in 'interval_timeout' milliseconds
+ */
+static inline void kgsl_start_idle_timer(struct kgsl_device *device)
+{
+	mod_timer(&device->idle_timer,
+			jiffies + msecs_to_jiffies(device->pwrctrl.interval_timeout));
 }
 
 int kgsl_readtimestamp(struct kgsl_device *device, void *priv,
