@@ -49,6 +49,9 @@
 
 #include "mtk_spm_resource_req.h"
 
+#define CREATE_TRACE_POINTS
+#include "ufs-mtk-trace.h"
+
 /* Query request retries */
 #define QUERY_REQ_RETRIES 10
 #define MAX_WRITE_BUFFER_SIZE (512 * 1024)
@@ -2693,6 +2696,23 @@ void ufs_mtk_perf_heurisic_req_done(struct ufs_hba *hba, struct scsi_cmnd *cmd)
 	}
 }
 
+static void ufs_mtk_event_notify(struct ufs_hba *hba,
+				 enum ufs_event_type evt, void *data)
+{
+	static bool skip_first_dev_reset = true;
+	unsigned int val = *(u32 *)data;
+
+	/* Ignore the first device reset during initialization */
+	if ((hba->lanes_per_direction == 2) &&
+	    (evt == UFS_EVT_DEV_RESET) &&
+	    skip_first_dev_reset) {
+		skip_first_dev_reset = false;
+		return;
+	}
+
+	trace_ufs_mtk_event(evt, val);
+}
+
 /**
  * struct ufs_hba_mtk_vops - UFS MTK specific variant operations
  *
@@ -2724,7 +2744,8 @@ static struct ufs_hba_variant_ops ufs_hba_mtk_vops = {
 	ufs_mtk_pltfrm_deepidle_lock, /* deepidle_lock */
 	ufs_mtk_scsi_dev_cfg,         /* scsi_dev_cfg */
 	NULL,                         /* program_key */
-	ufs_mtk_abort_handler         /* abort_handler */
+	ufs_mtk_abort_handler,        /* abort_handler */
+	ufs_mtk_event_notify          /* event_notify */
 };
 
 /**
