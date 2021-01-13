@@ -316,6 +316,7 @@
 			<&gpi_dma0 1 5 3 64 0>;
 		dma-names = "tx", "rx";
 		qcom,wrapper-core = <&qupv3_0>;
+		qcom,shared;
 		status = "disabled";
 	};
 
