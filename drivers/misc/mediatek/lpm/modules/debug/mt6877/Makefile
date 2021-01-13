@@ -23,3 +23,10 @@ mt6877_cpupm_dbg-y += mtk_idle_procfs_state.o
 mt6877_cpupm_dbg-y += mtk_idle_procfs_cpc.o
 mt6877_cpupm_dbg-y += mtk_idle_procfs_profile.o
 mt6877_cpupm_dbg-y += mtk_idle_procfs_control.o
+
+obj-$(CONFIG_MTK_LPM_GS_DUMP_SUPPORT) += mt6877_power_gs_compare.o
+obj-$(CONFIG_MTK_LPM_GS_DUMP_SUPPORT) += mtk_power_gs_6315_1_array.o
+obj-$(CONFIG_MTK_LPM_GS_DUMP_SUPPORT) += mtk_power_gs_6315_2_array.o
+obj-$(CONFIG_MTK_LPM_GS_DUMP_SUPPORT) += mtk_power_gs_6365_array.o
+obj-$(CONFIG_MTK_LPM_GS_DUMP_SUPPORT) += mtk_dcm_array.o
+obj-$(CONFIG_MTK_LPM_GS_DUMP_SUPPORT) += mtk_cg_array.o

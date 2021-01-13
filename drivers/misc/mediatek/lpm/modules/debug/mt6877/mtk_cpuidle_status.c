@@ -23,6 +23,7 @@
 
 #define DUMP_INTERVAL       sec_to_ns(5)
 static u64 last_dump_ns;
+static unsigned long long mtk_lpm_last_cpuidle_dis;
 
 /* stress test */
 static unsigned int timer_interval = 10 * 1000;
@@ -304,6 +305,7 @@ void mtk_cpuidle_state_enable(bool en)
 {
 	struct cpuidle_driver *drv;
 	int i, cpu;
+	int suspend_type = mtk_lpm_suspend_type_get();
 
 	mtk_cpupm_block();
 
@@ -314,11 +316,24 @@ void mtk_cpuidle_state_enable(bool en)
 		if (!drv)
 			continue;
 
-		for (i = drv->state_count - 1; i > 0; i--)
+		for (i = drv->state_count - 1; i > 0; i--) {
+			if ((suspend_type == MTK_LPM_SUSPEND_S2IDLE) &&
+			    !strcmp(drv->states[i].name, S2IDLE_STATE_NAME))
+				continue;
+
 			mtk_cpuidle_set_param(drv, i, IDLE_PARAM_EN, en);
+		}
 	}
 
+	if (!en)
+		mtk_lpm_last_cpuidle_dis = sched_clock();
+
 	mtk_cpupm_allow();
+}
+
+unsigned long long mtk_cpuidle_state_last_dis_ms(void)
+{
+	return (mtk_lpm_last_cpuidle_dis / 1000000);
 }
 
 static bool mtk_cpuidle_need_dump(unsigned int idx)

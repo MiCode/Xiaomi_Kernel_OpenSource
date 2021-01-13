@@ -25,14 +25,33 @@
 #include <mt6877_pcm_def.h>
 #include <mtk_dbg_common_v1.h>
 #include <mt-plat/mtk_ccci_common.h>
+#include <mtk_lpm_call.h>
+#include <mtk_lpm_call_type.h>
 #include <mtk_lpm_timer.h>
 #include <mtk_lpm_sysfs.h>
+#include <gs/v1/mtk_power_gs.h>
 
 #define MT6877_LOG_MONITOR_STATE_NAME	"mcusysoff"
 #define MT6877_LOG_DEFAULT_MS		5000
 
 #define PCM_32K_TICKS_PER_SEC		(32768)
 #define PCM_TICK_TO_SEC(TICK)	(TICK / PCM_32K_TICKS_PER_SEC)
+
+#ifdef CONFIG_MTK_LPM_GS_DUMP_SUPPORT
+struct MT6886_LOGGER_NODE mt6877_log_gs_idle;
+struct MTK_LPM_GS_IDLE_INFO {
+	unsigned short limit;
+	unsigned short limit_set;
+	unsigned int dump_type;
+};
+struct MTK_LPM_GS_IDLE_INFO mt6877_log_gs_info;
+struct cpumask mtk_lpm_gs_idle_cpumask;
+
+#define IS_MTK_LPM_GS_UPDATE(x)	\
+	((cpumask_weight(&mtk_lpm_gs_idle_cpumask)\
+	== num_online_cpus()) &&\
+	(x.limit != x.limit_set))
+#endif
 
 static struct mt6877_spm_wake_status mt6877_wake;
 void __iomem *mt6877_spm_base;
@@ -63,21 +82,21 @@ static char *mt6877_spm_cond_cg_str[PLAT_SPM_COND_MAX] = {
 
 const char *mt6877_wakesrc_str[32] = {
 	[0] = " R12_PCM_TIMER",
-	[1] = " R12_RESERVED_DEBUG_B",
+	[1] = " R12_SPM_DEBUG_B",
 	[2] = " R12_KP_IRQ_B",
 	[3] = " R12_APWDT_EVENT_B",
-	[4] = " R12_APXGPT1_EVENT_B",
-	[5] = " R12_CONN2AP_SPM_WAKEUP_B",
+	[4] = " R12_APXGPT_EVENT_B",
+	[5] = " R12_CONN2AP_WAKEUP_B",
 	[6] = " R12_EINT_EVENT_B",
 	[7] = " R12_CONN_WDT_IRQ_B",
 	[8] = " R12_CCIF0_EVENT_B",
 	[9] = " R12_LOWBATTERY_IRQ_B",
-	[10] = " R12_SC_SSPM2SPM_WAKEUP_B",
-	[11] = " R12_SC_SCP2SPM_WAKEUP_B",
-	[12] = " R12_SC_ADSP2SPM_WAKEUP_B",
+	[10] = " R12_SSPM2SPM_WAKEUP_B",
+	[11] = " R12_SCP2SPM_WAKEUP_B",
+	[12] = " R12_ADSP2SPM_WAKEUP_B",
 	[13] = " R12_PCM_WDT_WAKEUP_B",
-	[14] = " R12_USB_CDSC_B",
-	[15] = " R12_USB_POWERDWN_B",
+	[14] = " R12_USB0_CDSC_B",
+	[15] = " R12_USB0_POWERDWN_B",
 	[16] = " R12_SYS_TIMER_EVENT_B",
 	[17] = " R12_EINT_EVENT_SECURE_B",
 	[18] = " R12_CCIF1_EVENT_B",
@@ -88,12 +107,12 @@ const char *mt6877_wakesrc_str[32] = {
 	[23] = " R12_MD2AP_PEER_EVENT_B",
 	[24] = " R12_CSYSPWREQ_B",
 	[25] = " R12_MD1_WDT_B",
-	[26] = " R12_AP2AP_PEER_WAKEUPEVENT_B",
+	[26] = " R12_AP2AP_PEER_WAKEUP_B",
 	[27] = " R12_SEJ_EVENT_B",
-	[28] = " R12_SPM_CPU_WAKEUPEVENT_B",
+	[28] = " R12_CPU_WAKEUPEVENT_B",
 	[29] = " R12_APUSYS",
-	[30] = " R12_PCIE_BRIDGE_IRQ",
-	[31] = " R12_PCIE_IRQ",
+	[30] = " R12_CPU_IRQOUT_B",
+	[31] = " R12_MCUSYS_IDLE_B",
 };
 
 struct spm_wakesrc_irq_list mt6877_spm_wakesrc_irqs[] = {
@@ -206,16 +225,17 @@ int mt6877_get_wakeup_status(struct mt6877_log_helper *help)
 	help->wakesrc->timer_out = plat_mmio_read(SPM_BK_PCM_TIMER);
 
 	/* get other SYS and co-clock status */
-	help->wakesrc->r13 = plat_mmio_read(PCM_REG13_DATA);
+	help->wakesrc->r13 = plat_mmio_read(MD32PCM_STA);
 	help->wakesrc->idle_sta = plat_mmio_read(SUBSYS_IDLE_STA);
-	help->wakesrc->req_sta0 = plat_mmio_read(SRC_REQ_STA_0);
-	help->wakesrc->req_sta1 = plat_mmio_read(SRC_REQ_STA_1);
-	help->wakesrc->req_sta2 = plat_mmio_read(SRC_REQ_STA_2);
-	help->wakesrc->req_sta3 = plat_mmio_read(SRC_REQ_STA_3);
-	help->wakesrc->req_sta4 = plat_mmio_read(SRC_REQ_STA_4);
+	help->wakesrc->req_sta0 = plat_mmio_read(SPM_REQ_STA_0);
+	help->wakesrc->req_sta1 = plat_mmio_read(SPM_REQ_STA_1);
+	help->wakesrc->req_sta2 = plat_mmio_read(SPM_REQ_STA_2);
+	help->wakesrc->req_sta3 = plat_mmio_read(SPM_REQ_STA_3);
+	help->wakesrc->req_sta4 = plat_mmio_read(SPM_REQ_STA_4);
+	help->wakesrc->req_sta5 = plat_mmio_read(SPM_REQ_STA_5);
 
 	/* get HW CG check status */
-	help->wakesrc->cg_check_sta = plat_mmio_read(SPM_CG_CHECK_STA);
+	help->wakesrc->cg_check_sta = (plat_mmio_read(SPM_REQ_STA_2) & 0x1F);
 
 	/* get debug flag for PCM execution check */
 	help->wakesrc->debug_flag = plat_mmio_read(PCM_WDT_LATCH_SPARE_0);
@@ -287,7 +307,7 @@ static void mt6877_save_sleep_info(void)
 	if (spm_26M_off_count >= AVOID_OVERFLOW)
 		spm_26M_off_count = 0;
 	else
-		spm_26M_off_count = (plat_mmio_read(SPM_VTCXO_EVENT_COUNT_STA)
+		spm_26M_off_count = (plat_mmio_read(SPM_SRCCLKENA_EVENT_COUNT_STA)
 					& 0xffff)
 			+ spm_26M_off_count;
 }
@@ -306,7 +326,7 @@ static void mt6877_suspend_show_detailed_wakeup_reason
 #endif
 
 #ifdef CONFIG_MTK_ECCCI_DRIVER
-	if (wakesta->r12 & R12_CLDMA_EVENT_B)
+	if (wakesta->r12 & R12_AP2AP_PEER_WAKEUP_B)
 		exec_ccci_kern_func_by_md_id(0, ID_GET_MD_WAKEUP_SRC,
 		NULL, 0);
 	if (wakesta->r12 & R12_MD2AP_PEER_EVENT_B)
@@ -335,16 +355,16 @@ static void mt6877_suspend_show_detailed_wakeup_reason
 
 static void dump_lp_cond(void)
 {
-#define mt6877_DBG_SMC(_id, _act, _rc, _param) ({\
+#define MT6877_DBG_SMC(_id, _act, _rc, _param) ({\
 	(u32) mtk_lpm_smc_spm_dbg(_id, _act, _rc, _param); })
 
 	int i;
 	u32 blkcg;
 
 	for (i = 1 ; i < PLAT_SPM_COND_MAX ; i++) {
-		blkcg = mt6877_DBG_SMC(MT_SPM_DBG_SMC_UID_BLOCK_DETAIL, MT_LPM_SMC_ACT_GET, 0, i);
+		blkcg = MT6877_DBG_SMC(MT_SPM_DBG_SMC_UID_BLOCK_DETAIL, MT_LPM_SMC_ACT_GET, 0, i);
 		if (blkcg != 0)
-			pr_info("suspend warning: CG: %6s = 0x%08lx\n"
+			printk_deferred("suspend warning: CG: %6s = 0x%08lx\n"
 				, mt6877_spm_cond_cg_str[i], blkcg);
 
 	}
@@ -361,7 +381,7 @@ static u32 is_blocked_cnt;
 	char log_buf[LOG_BUF_SIZE] = { 0 };
 	int log_size = 0;
 	u32 is_no_blocked = 0;
-	u32 req_sta_0, req_sta_1, req_sta_4;
+	u32 req_sta_0, req_sta_1, req_sta_2, req_sta_3, req_sta_4, req_sta_5;
 	u32 src_req;
 
 	if (is_blocked_cnt >= AVOID_OVERFLOW)
@@ -384,58 +404,71 @@ static u32 is_blocked_cnt;
 		LOG_BUF_SIZE - log_size,
 		"suspend warning:(OneShot) System LPM is blocked by ");
 
-	req_sta_0 = plat_mmio_read(SRC_REQ_STA_0);
-	if (req_sta_0 & 0xFFF)
-		log_size += scnprintf(log_buf + log_size,
-			LOG_BUF_SIZE - log_size, "md ");
+	req_sta_0 = plat_mmio_read(SPM_REQ_STA_0);
+	req_sta_1 = plat_mmio_read(SPM_REQ_STA_1);
+	req_sta_2 = plat_mmio_read(SPM_REQ_STA_2);
+	req_sta_1 = plat_mmio_read(SPM_REQ_STA_3);
+	req_sta_4 = plat_mmio_read(SPM_REQ_STA_4);
+	req_sta_5 = plat_mmio_read(SPM_REQ_STA_5);
 
-	if (req_sta_0 & (0x3F << 12))
-		log_size += scnprintf(log_buf + log_size,
-			LOG_BUF_SIZE - log_size, "conn ");
-
-	if (req_sta_0 & (0x7 << 18))
-		log_size += scnprintf(log_buf + log_size,
-			LOG_BUF_SIZE - log_size, "nfc ");
-
-	if (req_sta_0 & (0xF << 26))
-		log_size += scnprintf(log_buf + log_size,
-			LOG_BUF_SIZE - log_size, "disp ");
-
-	req_sta_1 = plat_mmio_read(SRC_REQ_STA_1);
-	if (req_sta_1 & 0x1F)
-		log_size += scnprintf(log_buf + log_size,
-			LOG_BUF_SIZE - log_size, "scp ");
-
-	if (req_sta_1 & (0x1F << 5))
-		log_size += scnprintf(log_buf + log_size,
-			LOG_BUF_SIZE - log_size, "adsp ");
-
-	if (req_sta_1 & (0x1F << 10))
-		log_size += scnprintf(log_buf + log_size,
-			LOG_BUF_SIZE - log_size, "ufs ");
-
-	if (req_sta_1 & (0xF << 15))
-		log_size += scnprintf(log_buf + log_size,
-			LOG_BUF_SIZE - log_size, "gce ");
-
-	if (req_sta_1 & (0x3FF << 21))
-		log_size += scnprintf(log_buf + log_size,
-			LOG_BUF_SIZE - log_size, "msdc ");
-
-	req_sta_4 = plat_mmio_read(SRC_REQ_STA_4);
-	if (req_sta_4 & 0x1F)
+	if (req_sta_0 & (0x1F << 5))
 		log_size += scnprintf(log_buf + log_size,
 			LOG_BUF_SIZE - log_size, "apu ");
 
+	if (req_sta_0 & (0x1F << 10))
+		log_size += scnprintf(log_buf + log_size,
+			LOG_BUF_SIZE - log_size, "adsp ");
+
+	if ((req_sta_0 & (0x1 << 15)) || (req_sta_1 & (0xFFFF)))
+		log_size += scnprintf(log_buf + log_size,
+			LOG_BUF_SIZE - log_size, "ccif ");
+
+	if (req_sta_2 & (0x3F << 5))
+		log_size += scnprintf(log_buf + log_size,
+			LOG_BUF_SIZE - log_size, "conn ");
+
+	if (req_sta_2 & (0xF << 11))
+		log_size += scnprintf(log_buf + log_size,
+			LOG_BUF_SIZE - log_size, "disp ");
+
+	if (req_sta_2 & (0x1F << 15))
+		log_size += scnprintf(log_buf + log_size,
+			LOG_BUF_SIZE - log_size, "dpmaif ");
+
+	if (req_sta_2 & (0x3F << 20))
+		log_size += scnprintf(log_buf + log_size,
+			LOG_BUF_SIZE - log_size, "dram ");
+
+	if (req_sta_2 & (0xF << 27))
+		log_size += scnprintf(log_buf + log_size,
+			LOG_BUF_SIZE - log_size, "gce ");
+
+	if ((req_sta_3 & (0x1 << 31)) || (req_sta_4 & 0x1F))
+		log_size += scnprintf(log_buf + log_size,
+			LOG_BUF_SIZE - log_size, "md ");
+
+	if (req_sta_4 & (0x7FFF << 8))
+		log_size += scnprintf(log_buf + log_size,
+			LOG_BUF_SIZE - log_size, "msdc ");
+
+	if ((req_sta_4 & (0xF << 28)) || (req_sta_5 & 0x1))
+		log_size += scnprintf(log_buf + log_size,
+			LOG_BUF_SIZE - log_size, "scp ");
+
+	if (req_sta_5 & (0x3 << 18))
+		log_size += scnprintf(log_buf + log_size,
+			LOG_BUF_SIZE - log_size, "ufs ");
+
 	src_req = plat_mmio_read(SPM_SRC_REQ);
-	if (src_req & 0x9B) {
+	if (src_req & 0x436) {
 		dump_lp_cond();
 		log_size += scnprintf(log_buf + log_size,
 			LOG_BUF_SIZE - log_size, "spm ");
 	}
+
 	WARN_ON(strlen(log_buf) >= LOG_BUF_SIZE);
 
-	pr_info("[name:spm&][SPM] %s", log_buf);
+	printk_deferred("[name:spm&][SPM] %s", log_buf);
 }
 
 static int mt6877_show_message(struct mt6877_spm_wake_status *wakesrc, int type,
@@ -493,7 +526,7 @@ static int mt6877_show_message(struct mt6877_spm_wake_status *wakesrc, int type,
 
 		wr =  WR_ABORT;
 	} else {
-		if (wakesrc->r12 & R12_PCM_TIMER) {
+		if (wakesrc->r12 & R12_PCM_TIMER_B) {
 			if (wakesrc->wake_misc & WAKE_MISC_PCM_TIMER_EVENT) {
 				local_ptr = " PCM_TIMER";
 				if (IS_LOGBUF(buf, local_ptr))
@@ -503,7 +536,7 @@ static int mt6877_show_message(struct mt6877_spm_wake_status *wakesrc, int type,
 			}
 		}
 
-		if (wakesrc->r12 & R12_TWAM_IRQ_B) {
+		if (wakesrc->r12 & R12_SPM_DEBUG_B) {
 			if (IS_WAKE_MISC(WAKE_MISC_DVFSRC_IRQ)) {
 				local_ptr = " DVFSRC";
 				if (IS_LOGBUF(buf, local_ptr))
@@ -596,10 +629,10 @@ static int mt6877_show_message(struct mt6877_spm_wake_status *wakesrc, int type,
 
 		log_size += scnprintf(log_buf + log_size,
 			  LOG_BUF_OUT_SZ - log_size,
-			  "req_sta =  0x%x 0x%x 0x%x 0x%x 0x%x, cg_check_sta =0x%x, isr = 0x%x, rt_req_sta0 = 0x%x rt_req_sta1 = 0x%x rt_req_sta2 = 0x%x rt_req_sta3 = 0x%x dram_sw_con_3 = 0x%x, ",
+			  "req_sta =  0x%x 0x%x 0x%x 0x%x 0x%x 0x%x, cg_check_sta =0x%x, isr = 0x%x, rt_req_sta0 = 0x%x rt_req_sta1 = 0x%x rt_req_sta2 = 0x%x rt_req_sta3 = 0x%x dram_sw_con_3 = 0x%x, ",
 			  wakesrc->req_sta0, wakesrc->req_sta1,
 			  wakesrc->req_sta2, wakesrc->req_sta3,
-			  wakesrc->req_sta4, wakesrc->cg_check_sta,
+			  wakesrc->req_sta4, wakesrc->req_sta5, wakesrc->cg_check_sta,
 			  wakesrc->isr, wakesrc->rt_req_sta0,
 			  wakesrc->rt_req_sta1, wakesrc->rt_req_sta2,
 			  wakesrc->rt_req_sta3, wakesrc->rt_req_sta4);
@@ -636,11 +669,11 @@ static int mt6877_show_message(struct mt6877_spm_wake_status *wakesrc, int type,
 	WARN_ON(log_size >= LOG_BUF_OUT_SZ);
 
 	if (type == MT_LPM_ISSUER_SUSPEND) {
-		pr_info("[name:spm&][SPM] %s", log_buf);
+		printk_deferred("[name:spm&][SPM] %s", log_buf);
 		mt6877_suspend_show_detailed_wakeup_reason(wakesrc);
 		mt6877_suspend_spm_rsc_req_check(wakesrc);
 
-		pr_info("[name:spm&][SPM] Suspended for %d.%03d seconds",
+		printk_deferred("[name:spm&][SPM] Suspended for %d.%03d seconds",
 			PCM_TICK_TO_SEC(wakesrc->timer_out),
 			PCM_TICK_TO_SEC((wakesrc->timer_out %
 				PCM_32K_TICKS_PER_SEC)
@@ -711,6 +744,12 @@ static int mt6877_log_timer_func(unsigned long long dur, void *priv)
 	return 0;
 }
 
+#ifdef CONFIG_MTK_LPM_GS_DUMP_SUPPORT
+struct mtk_lpm_gs_idleinfo {
+	unsigned int type[2];
+};
+#endif
+
 static int mt6877_logger_nb_func(struct notifier_block *nb,
 			unsigned long action, void *data)
 {
@@ -718,9 +757,31 @@ static int mt6877_logger_nb_func(struct notifier_block *nb,
 	struct mt6877_logger_fired_info *info = &mt6877_logger_fired;
 
 	if (nb_data && (action == MTK_LPM_NB_BEFORE_REFLECT)
-	    && (nb_data->index == info->state_index))
+	    && (nb_data->index == info->state_index)) {
 		info->fired++;
+#ifdef CONFIG_MTK_LPM_GS_DUMP_SUPPORT
+		cpumask_clear_cpu(nb_data->cpu, &mtk_lpm_gs_idle_cpumask);
+#endif
+	}
 
+#ifdef CONFIG_MTK_LPM_GS_DUMP_SUPPORT
+	if (nb_data && (action == MTK_LPM_NB_AFTER_PROMPT)
+	    && (nb_data->index == info->state_index)) {
+		cpumask_set_cpu(nb_data->cpu, &mtk_lpm_gs_idle_cpumask);
+
+		if (IS_MTK_LPM_GS_UPDATE(mt6877_log_gs_info)) {
+			struct mtk_lpm_callee_simple *callee = NULL;
+			struct mtk_lpm_data val;
+
+			val.d.v_u32 = mt6877_log_gs_info.dump_type;
+			if (!mtk_lpm_callee_get(MTK_LPM_CALLEE_PWR_GS, &callee))
+				callee->set(MTK_LPM_PWR_GS_TYPE_VCORELP_26M, &val);
+
+			mt6877_log_gs_info.limit =
+				mt6877_log_gs_info.limit_set;
+		}
+	}
+#endif
 	return NOTIFY_OK;
 }
 
@@ -739,7 +800,12 @@ static ssize_t mt6877_logger_debugfs_read(char *ToUserBuf,
 			mtk_lpm_timer_interval(&mt6877_log_timer.tm));
 		p += len;
 	}
-
+#ifdef CONFIG_MTK_LPM_GS_DUMP_SUPPORT
+	else if (priv == ((void *)&mt6833_log_gs_info)) {
+		len = scnprintf(p, sz, "golden_type:u\n",
+				mt6833_log_gs_info.dump_type);
+	}
+#endif
 	return (p - ToUserBuf);
 }
 
@@ -757,6 +823,21 @@ static ssize_t mt6877_logger_debugfs_write(char *FromUserBuf,
 						&mt6877_log_timer.tm, val);
 		}
 	}
+#ifdef CONFIG_MTK_LPM_GS_DUMP_SUPPORT
+	else if (priv == ((void *)&mt6877_log_gs_info)) {
+		char cmd[64];
+		unsigned int param;
+
+		memset(cmd, 0, sizeof(cmd));
+		if (sscanf(FromUserBuf, "%127s %u", cmd, &param) == 2) {
+			if (!strcmp(cmd, "golden_dump")) {
+				if (param)
+					mt6833_log_gs_info.limit_set += 1;
+			} else if (!strcmp(cmd, "golden_type"))
+				mt6833_log_gs_info.dump_type = param;
+		}
+	}
+#endif
 	return sz;
 }
 

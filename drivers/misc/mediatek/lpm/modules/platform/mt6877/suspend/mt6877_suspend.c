@@ -37,15 +37,15 @@ struct mtk_lpm_model mt6877_model_suspend;
 
 void __attribute__((weak)) subsys_if_on(void)
 {
-	pr_info("[name:spm&]NO %s !!!\n", __func__);
+	printk_deferred("[name:spm&]NO %s !!!\n", __func__);
 }
 void __attribute__((weak)) pll_if_on(void)
 {
-	pr_info("[name:spm&]NO %s !!!\n", __func__);
+	printk_deferred("[name:spm&]NO %s !!!\n", __func__);
 }
 void __attribute__((weak)) gpio_dump_regs(void)
 {
-	pr_info("[name:spm&]NO %s !!!\n", __func__);
+	printk_deferred("[name:spm&]NO %s !!!\n", __func__);
 }
 
 void mtk_suspend_gpio_dbg(void)
@@ -72,7 +72,7 @@ static void get_md_sleep_time(struct md_sleep_status *md_data)
 	share_mem = (u32 *)get_smem_start_addr(MD_SYS1,
 		SMEM_USER_LOW_POWER, NULL);
 	if (share_mem == NULL) {
-		pr_info("[name:spm&][%s:%d] - No MD share mem\n",
+		printk_deferred("[name:spm&][%s:%d] - No MD share mem\n",
 			 __func__, __LINE__);
 		return;
 	}
@@ -91,7 +91,7 @@ static void log_md_sleep_info(void)
 	int log_size = 0;
 
 	if (after_md_sleep_status.sleep_time >= before_md_sleep_status.sleep_time) {
-		pr_info("[name:spm&][SPM] md_slp_duration = %llu (32k)\n",
+		printk_deferred("[name:spm&][SPM] md_slp_duration = %llu (32k)\n",
 			after_md_sleep_status.sleep_time - before_md_sleep_status.sleep_time);
 
 		log_size += scnprintf(log_buf + log_size,
@@ -122,7 +122,7 @@ static void log_md_sleep_info(void)
 				before_md_sleep_status.nr_sleep_time) % 10000000 / 1000);
 
 		WARN_ON(strlen(log_buf) >= LOG_BUF_SIZE);
-		pr_info("[name:spm&][SPM] %s", log_buf);
+		printk_deferred("[name:spm&][SPM] %s", log_buf);
 	}
 }
 
@@ -154,7 +154,7 @@ static int __mt6877_suspend_prompt(int type, int cpu,
 
 	mt6877_suspend_status = 0;
 
-	pr_info("[name:spm&][%s:%d] - prepare suspend enter\n",
+	printk_deferred("[name:spm&][%s:%d] - prepare suspend enter\n",
 			__func__, __LINE__);
 
 	ret = mt6877_suspend_common_enter(&mt6877_suspend_status);
@@ -165,7 +165,7 @@ static int __mt6877_suspend_prompt(int type, int cpu,
 	/* Legacy SSPM flow, spm sw resource request flow */
 	mt6877_do_mcusys_prepare_pdn(mt6877_suspend_status, &spm_res);
 
-	pr_info("[name:spm&][%s:%d] - suspend enter\n",
+	printk_deferred("[name:spm&][%s:%d] - suspend enter\n",
 			__func__, __LINE__);
 
 	/* Record md sleep time */
@@ -179,13 +179,13 @@ PLAT_LEAVE_SUSPEND:
 static void __mt6877_suspend_reflect(int type, int cpu,
 					const struct mtk_lpm_issuer *issuer)
 {
-	pr_info("[name:spm&][%s:%d] - prepare suspend resume\n",
+	printk_deferred("[name:spm&][%s:%d] - prepare suspend resume\n",
 			__func__, __LINE__);
 
 	mt6877_suspend_common_resume(mt6877_suspend_status);
 	mt6877_do_mcusys_prepare_on();
 
-	pr_info("[name:spm&][%s:%d] - resume\n",
+	printk_deferred("[name:spm&][%s:%d] - resume\n",
 			__func__, __LINE__);
 
 	/* do not call issuer when prepare fail */
@@ -313,14 +313,14 @@ static int mt6877_spm_suspend_pm_event(struct notifier_block *notifier,
 	case PM_POST_HIBERNATION:
 		return NOTIFY_DONE;
 	case PM_SUSPEND_PREPARE:
-		pr_info(
+		printk_deferred(
 		"[name:spm&][SPM] PM: suspend entry %d-%02d-%02d %02d:%02d:%02d.%09lu UTC\n",
 			tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
 			tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec);
 
 		return NOTIFY_DONE;
 	case PM_POST_SUSPEND:
-		pr_info(
+		printk_deferred(
 		"[name:spm&][SPM] PM: suspend exit %d-%02d-%02d %02d:%02d:%02d.%09lu UTC\n",
 			tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
 			tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec);
