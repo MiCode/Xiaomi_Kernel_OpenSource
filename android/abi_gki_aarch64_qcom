@@ -1318,6 +1318,7 @@
   of_translate_address
   of_usb_get_phy_mode
   of_usb_host_tpl_support
+  on_each_cpu
   oops_in_progress
   panic
   panic_notifier_list
