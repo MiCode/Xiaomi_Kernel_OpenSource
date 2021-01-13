@@ -5,6 +5,8 @@
 
 ifeq ($(CONFIG_MACH_MT6833),y)
 CMDQ_PLATFORM := mt6833
+else ifeq ($(CONFIG_MACH_MT6877),y)
+CMDQ_PLATFORM := mt6877
 else
 CMDQ_PLATFORM := $(MTK_PLATFORM)
 endif
