@@ -250,6 +250,16 @@
 		reg = <0 0x10005000 0 0x1000>;
 	};
 
+	udi: udi@10005000 {
+		compatible = "mediatek,udi";
+		reg = <0 0x10005000 0 0x1000>;
+		udi_offset1 = <0x440>;
+		udi_value1 = <0x40440000>;
+		udi_offset2 = <0x450>;
+		udi_value2 = <0x00000044>;
+		ecc_debug = <0>;
+	};
+
 	pio: pinctrl {
 		compatible = "mediatek,mt6877-pinctrl";
 		reg_bases = <&gpio>,
