@@ -180,10 +180,11 @@ static void filter_by_yuv_layers(struct drm_mtk_layering_info *disp_info)
 
 static void filter_2nd_display(struct drm_mtk_layering_info *disp_info)
 {
-	unsigned int i, j, layer_cnt = 0;
+	unsigned int i = 0, j = 0;
 
 	for (i = HRT_SECONDARY; i < HRT_TYPE_NUM; i++) {
 		unsigned int max_layer_cnt = SECONDARY_OVL_LAYER_NUM;
+		unsigned int layer_cnt = 0;
 
 		if (is_triple_disp(disp_info) && i == HRT_SECONDARY)
 			max_layer_cnt = 1;
@@ -192,7 +193,8 @@ static void filter_2nd_display(struct drm_mtk_layering_info *disp_info)
 				continue;
 
 			layer_cnt++;
-			if (layer_cnt > max_layer_cnt)
+			if (layer_cnt > max_layer_cnt ||
+				(layer_cnt == max_layer_cnt && layer_cnt < disp_info->layer_num[i]))
 				mtk_rollback_layer_to_GPU(disp_info, i, j);
 		}
 	}
