@@ -6,8 +6,8 @@
  * Author: Chipeng <Chipeng.chang@mediatek.com>
  */
 
-#ifndef MT6853_DSP_MEM_CONTROL_H
-#define MT6853_DSP_MEM_CONTROL_H
+#ifndef MT6877_DSP_MEM_CONTROL_H
+#define MT6877_DSP_MEM_CONTROL_H
 
 #include <linux/genalloc.h>
 #include <linux/kernel.h>
@@ -17,10 +17,10 @@
 #include "../mtk-base-dsp.h"
 
 /* clk relate */
-#include "../../mt6853/mt6853-afe-clk.h"
-#include "../../mt6853/mt6853-afe-common.h"
+#include "../../mt6877/mt6877-afe-clk.h"
+#include "../../mt6877/mt6877-afe-common.h"
 
-#define MEMIF_NUM_MAX MT6853_MEMIF_NUM
+#define MEMIF_NUM_MAX MT6877_MEMIF_NUM
 
 /* get struct of sharemem_block */
 struct audio_dsp_dram *mtk_get_adsp_sharemem_block(int audio_task_id);

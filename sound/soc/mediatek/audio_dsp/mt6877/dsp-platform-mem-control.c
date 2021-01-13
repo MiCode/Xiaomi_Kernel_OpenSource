@@ -20,7 +20,7 @@
 
 #include "dsp-platform-mem-control.h"
 #include "../mtk-dsp-mem-control.h"
-#include "mt6853-afe-common.h"
+#include "mt6877-afe-common.h"
 #include "../mtk-base-dsp.h"
 #include "../mtk-dsp-common.h"
 #include "audio_ipi_platform.h"
@@ -31,40 +31,40 @@
  * mapping dl ==> task
  */
 static struct mtk_adsp_task_attr adsp_task_attr[AUDIO_TASK_DAI_NUM] = {
-	[AUDIO_TASK_VOIP_ID] = {true, MT6853_MEMIF_DL12, -1, -1,
+	[AUDIO_TASK_VOIP_ID] = {true, MT6877_MEMIF_DL12, -1, -1,
 				VOIP_FEATURE_ID, false},
-	[AUDIO_TASK_PRIMARY_ID] = {true, MT6853_MEMIF_DL1, -1, -1,
+	[AUDIO_TASK_PRIMARY_ID] = {true, MT6877_MEMIF_DL1, -1, -1,
 				   PRIMARY_FEATURE_ID, false},
-	[AUDIO_TASK_OFFLOAD_ID] = {true, MT6853_MEMIF_DL3, -1, -1,
+	[AUDIO_TASK_OFFLOAD_ID] = {true, MT6877_MEMIF_DL3, -1, -1,
 				   OFFLOAD_FEATURE_ID, false},
 	[AUDIO_TASK_DEEPBUFFER_ID] = {false, -1, -1, -1,
 				      DEEPBUF_FEATURE_ID, false},
-	[AUDIO_TASK_PLAYBACK_ID] = {false, MT6853_MEMIF_DL4,
-				    MT6853_MEMIF_VUL4,
-				    MT6853_MEMIF_AWB2,
+	[AUDIO_TASK_PLAYBACK_ID] = {false, MT6877_MEMIF_DL4,
+				    MT6877_MEMIF_VUL4,
+				    MT6877_MEMIF_AWB2,
 				    AUDIO_PLAYBACK_FEATURE_ID, false},
 	[AUDIO_TASK_MUSIC_ID] = {false, -1, -1, -1,
 				 AUDIO_MUSIC_FEATURE_ID, false},
 	[AUDIO_TASK_CAPTURE_UL1_ID] = {true, -1,
-				       MT6853_MEMIF_VUL12,
-				       MT6853_MEMIF_AWB2,
+				       MT6877_MEMIF_VUL12,
+				       MT6877_MEMIF_AWB2,
 				       CAPTURE_UL1_FEATURE_ID, false},
 	[AUDIO_TASK_A2DP_ID] = {true, -1,
 				       -1,
 				       -1,
 				       A2DP_PLAYBACK_FEATURE_ID, false},
 	[AUDIO_TASK_DATAPROVIDER_ID] = {true, -1,
-				       MT6853_MEMIF_VUL4,
+				       MT6877_MEMIF_VUL4,
 				       -1,
 				       AUDIO_DATAPROVIDER_FEATURE_ID, false},
-	[AUDIO_TASK_CALL_FINAL_ID] = {true, MT6853_MEMIF_DL4,
-				      MT6853_MEMIF_VUL4,
-				      MT6853_MEMIF_AWB2,
+	[AUDIO_TASK_CALL_FINAL_ID] = {true, MT6877_MEMIF_DL4,
+				      MT6877_MEMIF_VUL4,
+				      MT6877_MEMIF_AWB2,
 				      CALL_FINAL_FEATURE_ID, false},
 	[AUDIO_TASK_FAST_ID] = {false, -1, -1, -1,
 				FAST_FEATURE_ID, false},
-	[AUDIO_TASK_KTV_ID] = {true, MT6853_MEMIF_DL8,
-				      MT6853_MEMIF_VUL6,
+	[AUDIO_TASK_KTV_ID] = {true, MT6877_MEMIF_DL8,
+				      MT6877_MEMIF_VUL6,
 				      -1,
 				      KTV_FEATURE_ID, false},
 	[AUDIO_TASK_CAPTURE_RAW_ID] = {false, -1, -1, -1,
@@ -294,29 +294,29 @@ struct mtk_adsp_task_attr *mtk_get_adsp_task_attr(int adsp_id)
 bool mtk_adsp_dai_id_support_share_mem(int dai_id)
 {
 	switch (dai_id) {
-	case MT6853_MEMIF_DL1:
-	case MT6853_MEMIF_DL12:
-	case MT6853_MEMIF_DL2:
-	case MT6853_MEMIF_DL3:
-	case MT6853_MEMIF_DL4:
-	case MT6853_MEMIF_DL5:
-	case MT6853_MEMIF_DL6:
-	case MT6853_MEMIF_DL7:
-	case MT6853_MEMIF_DL8:
-	case MT6853_MEMIF_VUL12:
-	case MT6853_MEMIF_VUL2:
-	case MT6853_MEMIF_VUL3:
-	case MT6853_MEMIF_VUL4:
-	case MT6853_MEMIF_VUL5:
-	case MT6853_MEMIF_VUL6:
-	case MT6853_MEMIF_AWB:
-	case MT6853_MEMIF_AWB2:
-	case MT6853_MEMIF_NUM:
+	case MT6877_MEMIF_DL1:
+	case MT6877_MEMIF_DL12:
+	case MT6877_MEMIF_DL2:
+	case MT6877_MEMIF_DL3:
+	case MT6877_MEMIF_DL4:
+	case MT6877_MEMIF_DL5:
+	case MT6877_MEMIF_DL6:
+	case MT6877_MEMIF_DL7:
+	case MT6877_MEMIF_DL8:
+	case MT6877_MEMIF_VUL12:
+	case MT6877_MEMIF_VUL2:
+	case MT6877_MEMIF_VUL3:
+	case MT6877_MEMIF_VUL4:
+	case MT6877_MEMIF_VUL5:
+	case MT6877_MEMIF_VUL6:
+	case MT6877_MEMIF_AWB:
+	case MT6877_MEMIF_AWB2:
+	case MT6877_MEMIF_NUM:
 		return true;
-	case MT6853_MEMIF_DAI:
-	case MT6853_MEMIF_DAI2:
-	case MT6853_MEMIF_MOD_DAI:
-	case MT6853_MEMIF_HDMI:
+	case MT6877_MEMIF_DAI:
+	case MT6877_MEMIF_DAI2:
+	case MT6877_MEMIF_MOD_DAI:
+	case MT6877_MEMIF_HDMI:
 		return false;
 	default:
 		return false;
