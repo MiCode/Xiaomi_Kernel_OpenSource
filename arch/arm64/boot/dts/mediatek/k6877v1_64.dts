@@ -279,5 +279,7 @@
 	eint_use_ext_res = <0>;
 	status = "okay";
 };
+
+#include "mediatek/cust_mt6877_touch_1080x2300.dtsi"
 /*End of this file, DO NOT ADD ANYTHING HERE*/
 
