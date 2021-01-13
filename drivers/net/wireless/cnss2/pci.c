@@ -2582,13 +2582,45 @@ int cnss_pci_is_drv_connected(struct device *dev)
 }
 EXPORT_SYMBOL(cnss_pci_is_drv_connected);
 
+static void cnss_wlan_reg_driver_work(struct work_struct *work)
+{
+	struct cnss_plat_data *plat_priv =
+	container_of(work, struct cnss_plat_data, wlan_reg_driver_work.work);
+	struct cnss_pci_data *pci_priv = plat_priv->bus_priv;
+	struct cnss_cal_info *cal_info;
+
+	if (test_bit(CNSS_COLD_BOOT_CAL_DONE, &plat_priv->driver_state)) {
+		goto reg_driver;
+	} else {
+		cnss_pr_err("Calibration still not done\n");
+		cal_info = kzalloc(sizeof(*cal_info), GFP_KERNEL);
+		if (!cal_info)
+			return;
+		cal_info->cal_status = CNSS_CAL_TIMEOUT;
+		cnss_driver_event_post(plat_priv,
+				       CNSS_DRIVER_EVENT_COLD_BOOT_CAL_DONE,
+				       0, cal_info);
+		/* Temporarily return for bringup. CBC will not be triggered */
+		return;
+	}
+reg_driver:
+	if (test_bit(CNSS_IN_REBOOT, &plat_priv->driver_state)) {
+		cnss_pr_dbg("Reboot/Shutdown is in progress, ignore register driver\n");
+		return;
+	}
+	reinit_completion(&plat_priv->power_up_complete);
+	cnss_driver_event_post(plat_priv,
+			       CNSS_DRIVER_EVENT_REGISTER_DRIVER,
+			       CNSS_EVENT_SYNC_UNKILLABLE,
+			       pci_priv->driver_ops);
+}
+
 int cnss_wlan_register_driver(struct cnss_wlan_driver *driver_ops)
 {
 	int ret = 0;
 	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(NULL);
 	struct cnss_pci_data *pci_priv;
 	unsigned int timeout;
-	struct cnss_cal_info *cal_info;
 
 	if (!plat_priv) {
 		cnss_pr_err("plat_priv is NULL\n");
@@ -2606,46 +2638,28 @@ int cnss_wlan_register_driver(struct cnss_wlan_driver *driver_ops)
 		return -EEXIST;
 	}
 
+	if (test_bit(CNSS_IN_REBOOT, &plat_priv->driver_state)) {
+		cnss_pr_dbg("Reboot/Shutdown is in progress, ignore register driver\n");
+		return -EINVAL;
+	}
+
 	if (!plat_priv->cbc_enabled ||
 	    test_bit(CNSS_COLD_BOOT_CAL_DONE, &plat_priv->driver_state))
 		goto register_driver;
 
-	/* If enabled Cold Boot Calibration is the 1st step in init sequence.
-	 * CBC is done on file system_ready trigger. Qcacld should be loaded
-	 * from init.target.rc after that. Reject qcacld load from
-	 * vendor_modprobe.sh at early boot to satisfy this requirement.
+	/* If Cold Boot Calibration is enabled, it is the 1st step in init
+	 * sequence.CBC is done on file system_ready trigger. Qcacld will be
+	 * loaded from vendor_modprobe.sh at early boot and must be deferred
+	 * until CBC is complete
 	 */
-	if (test_bit(CNSS_IN_COLD_BOOT_CAL, &plat_priv->driver_state)) {
-		cnss_pr_dbg("Start to wait for calibration to complete\n");
-	} else {
-		cnss_pr_err("Reject WLAN Driver insmod before CBC\n");
-		return -EPERM;
-	}
-
 	timeout = cnss_get_timeout(plat_priv, CNSS_TIMEOUT_CALIBRATION);
-	ret = wait_for_completion_timeout(&plat_priv->cal_complete,
-					  msecs_to_jiffies(timeout));
-	if (!ret) {
-		cnss_pr_err("Timeout (%ums) waiting for calibration to complete\n",
-			    timeout);
-		if (!test_bit(CNSS_IN_REBOOT, &plat_priv->driver_state))
-			CNSS_ASSERT(0);
-
-		cal_info = kzalloc(sizeof(*cal_info), GFP_KERNEL);
-		if (!cal_info)
-			return -ENOMEM;
-
-		cal_info->cal_status = CNSS_CAL_TIMEOUT;
-		cnss_driver_event_post(plat_priv,
-				       CNSS_DRIVER_EVENT_COLD_BOOT_CAL_DONE,
-				       0, cal_info);
-	}
-
+	INIT_DELAYED_WORK(&plat_priv->wlan_reg_driver_work,
+			  cnss_wlan_reg_driver_work);
+	schedule_delayed_work(&plat_priv->wlan_reg_driver_work,
+			      msecs_to_jiffies(timeout));
+	cnss_pr_info("WLAN register driver deferred for Calibration\n");
+	return 0;
 register_driver:
-	if (test_bit(CNSS_IN_REBOOT, &plat_priv->driver_state)) {
-		cnss_pr_dbg("Reboot or shutdown is in progress, ignore register driver\n");
-		return -EINVAL;
-	}
 	reinit_completion(&plat_priv->power_up_complete);
 	ret = cnss_driver_event_post(plat_priv,
 				     CNSS_DRIVER_EVENT_REGISTER_DRIVER,
