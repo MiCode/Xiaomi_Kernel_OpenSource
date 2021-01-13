@@ -989,16 +989,15 @@ static void kgsl_process_private_close(struct kgsl_device_private *dev_priv,
 	list_del(&private->list);
 	write_unlock(&kgsl_driver.proclist_lock);
 
+	debugfs_remove_recursive(private->debug_root);
+
 	/*
-	 * Unlock the mutex before releasing the memory and the debugfs
-	 * nodes - this prevents deadlocks with the IOMMU and debugfs
-	 * locks.
+	 * Unlock the mutex before releasing the memory - this prevents a
+	 * deadlock with the IOMMU mutex if a page fault occurs.
 	 */
 	mutex_unlock(&kgsl_driver.process_mutex);
 
 	process_release_memory(private);
-	debugfs_remove_recursive(private->debug_root);
-
 	kgsl_process_private_put(private);
 }
 
