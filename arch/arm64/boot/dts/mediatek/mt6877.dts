@@ -917,6 +917,16 @@
 		compatible = "mediatek,pmic-accdet";
 	};
 
+	mt6359_gauge {
+		compatible = "mediatek,mt6359_gauge";
+		gauge_name = "gauge";
+		alias_name = "MT6359";
+	};
+
+#if (CONFIG_MTK_GAUGE_VERSION == 30)
+	#include "mediatek/bat_setting/mt6877_battery_prop.dtsi"
+#endif
+
 	pmic_clock_buffer_ctrl:pmic_clock_buffer_ctrl {
 		compatible = "mediatek,pmic_clock_buffer";
 		mediatek,clkbuf-quantity = <7>;
