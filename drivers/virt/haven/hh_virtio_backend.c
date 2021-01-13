@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/interrupt.h>
@@ -20,13 +20,16 @@
 #include <linux/wait.h>
 #include <linux/poll.h>
 #include <linux/file.h>
+#include <linux/workqueue.h>
 #include <linux/eventfd.h>
 #include <linux/platform_device.h>
 #include <linux/uaccess.h>
 #include <linux/hh_virtio_backend.h>
 #include <linux/of_irq.h>
 #include <linux/haven/hcall.h>
+#include <linux/haven/hh_rm_drv.h>
 #include <linux/pgtable.h>
+#include <soc/qcom/secure_buffer.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
 #define MAX_DEVICE_NAME		32
@@ -52,6 +55,11 @@ static LIST_HEAD(vm_list);
 static struct class *vb_dev_class;
 static dev_t vbe_dev;
 
+struct shared_memory {
+	struct resource r;
+	u32 haven_label, shm_memparcel;
+};
+
 struct virt_machine {
 	struct list_head list;
 	char vm_name[MAX_VM_NAME];
@@ -59,8 +67,11 @@ struct virt_machine {
 	int minor;
 	int open_count;
 	int remove;
+	int hyp_assign_done;
 	struct cdev cdev;
 	struct device *class_dev;
+	struct shared_memory *shmem;
+	int shmem_entries;
 	spinlock_t vb_dev_lock;
 	struct mutex mutex;
 	struct list_head vb_dev_list;
@@ -81,6 +92,7 @@ struct irq_context {
 	wait_queue_entry_t wait;
 	poll_table pt;
 	struct fd fd;
+	struct work_struct shutdown_work;
 };
 
 struct virtio_backend_device {
@@ -144,35 +156,40 @@ static void vb_dev_put(struct virtio_backend_device *vb_dev)
 	spin_unlock(&vm->vb_dev_lock);
 }
 
+static void
+irqfd_shutdown(struct work_struct *work)
+{
+	struct irq_context *irq = container_of(work,
+				struct irq_context, shutdown_work);
+	struct virtio_backend_device *vb_dev;
+	unsigned long iflags;
+	u64 isr;
+
+	vb_dev = container_of(irq, struct virtio_backend_device, irq);
+
+	spin_lock_irqsave(&vb_dev->lock, iflags);
+	eventfd_ctx_remove_wait_queue(irq->ctx, &irq->wait, &isr);
+	eventfd_ctx_put(irq->ctx);
+	fdput(irq->fd);
+	irq->ctx = NULL;
+	irq->fd.file = NULL;
+	spin_unlock_irqrestore(&vb_dev->lock, iflags);
+}
+
 static int vb_dev_irqfd_wakeup(wait_queue_entry_t *wait, unsigned int mode,
 							int sync, void *key)
 {
 	struct irq_context *irq = container_of(wait, struct irq_context, wait);
 	struct virtio_backend_device *vb_dev;
 	__poll_t flags = key_to_poll(key);
-	ssize_t ret;
-	u64 isr;
-	unsigned long iflags;
 
 	vb_dev = container_of(irq, struct virtio_backend_device, irq);
 
-	if (flags & EPOLLIN) {
-		ret = kernel_read(irq->fd.file, &isr, sizeof(isr), NULL);
-		if (ret != sizeof(isr))
-			return 0;
+	if (flags & EPOLLIN)
+		assert_virq(vb_dev->cap_id, 1);
 
-		assert_virq(vb_dev->cap_id, isr);
-	}
-
-	if (flags & EPOLLHUP) {
-		spin_lock_irqsave(&vb_dev->lock, iflags);
-		eventfd_ctx_remove_wait_queue(irq->ctx, &irq->wait, &isr);
-		eventfd_ctx_put(irq->ctx);
-		fdput(irq->fd);
-		irq->ctx = NULL;
-		irq->fd.file = NULL;
-		spin_unlock_irqrestore(&vb_dev->lock, iflags);
-	}
+	if (flags & EPOLLHUP)
+		queue_work(system_wq, &irq->shutdown_work);
 
 	return 0;
 }
@@ -216,6 +233,7 @@ static int vb_dev_irqfd(struct virtio_backend_device *vb_dev,
 	spin_unlock_irqrestore(&vb_dev->lock, flags);
 
 	init_waitqueue_func_entry(&vb_dev->irq.wait, vb_dev_irqfd_wakeup);
+	INIT_WORK(&vb_dev->irq.shutdown_work, irqfd_shutdown);
 	init_poll_funcptr(&vb_dev->irq.pt, vb_dev_irqfd_ptable_queue_proc);
 	events = vfs_poll(f.file, &vb_dev->irq.pt);
 	if (events & EPOLLIN)
@@ -273,8 +291,10 @@ static void signal_vqs(struct virtio_backend_device *vb_dev)
 
 	for (i = 0; i < MAX_IO_CONTEXTS; ++i) {
 		flags = 1 << i;
-		if ((vb_dev->vdev_event_data & flags) && vb_dev->ioctx[i].ctx)
+		if ((vb_dev->vdev_event_data & flags) && vb_dev->ioctx[i].ctx) {
 			eventfd_signal(vb_dev->ioctx[i].ctx, 1);
+			vb_dev->vdev_event_data &= ~flags;
+		}
 	}
 }
 
@@ -402,6 +422,12 @@ loop_back:
 			vb_dev->vdev_event &= ~EVENT_NEW_BUFFER;
 			if (vb_dev->vdev_event_data && vb_dev->ack_driver_ok)
 				signal_vqs(vb_dev);
+			if (vb_dev->vdev_event) {
+				vb_dev->cur_event = vb_dev->vdev_event;
+				vb_dev->vdev_event = 0;
+				vb_dev->cur_event_data = 0;
+				vb_dev->vdev_event_data = 0;
+			}
 		} else if (vb_dev->vdev_event & EVENT_INTERRUPT_ACK) {
 			vb_dev->vdev_event &= ~EVENT_INTERRUPT_ACK;
 			vb_dev->cur_event = EVENT_INTERRUPT_ACK;
@@ -851,6 +877,65 @@ fail_device_create:
 	return ret;
 }
 
+static int
+note_shared_buffers(struct device_node *np, struct virt_machine *vm)
+{
+	int idx = 0;
+	u32 len, nr_entries = 0;
+
+	if (of_find_property(np, "shared-buffers", &len))
+		nr_entries = len / 4;
+
+	if (!nr_entries) {
+		pr_err("%s: No shared-buffers specified for vm %s\n",
+			__func__, vm->vm_name);
+		return -EINVAL;
+	}
+
+	vm->shmem = kzalloc(nr_entries * sizeof(struct shared_memory),
+					GFP_KERNEL);
+	if (!vm->shmem)
+		return -ENOMEM;
+
+	for (idx = 0; idx < nr_entries; ++idx) {
+		struct device_node *snp;
+		int ret;
+
+		snp = of_parse_phandle(np, "shared-buffers", idx);
+		if (!snp) {
+			kfree(vm->shmem);
+			pr_err("%s: Can't parse shared-buffer property %d\n",
+					__func__, idx);
+			return -EINVAL;
+		}
+
+		ret = of_address_to_resource(snp, 0, &vm->shmem[idx].r);
+		if (ret) {
+			of_node_put(snp);
+			kfree(vm->shmem);
+			pr_err("%s: Invalid address at index %d\n",
+						__func__, idx);
+			return -EINVAL;
+		}
+
+		ret = of_property_read_u32(snp, "haven-label",
+					&vm->shmem[idx].haven_label);
+		if (ret) {
+			of_node_put(snp);
+			kfree(vm->shmem);
+			pr_err("%s: haven-label property absent at index %d\n",
+					 __func__, idx);
+			return -EINVAL;
+		}
+
+		of_node_put(snp);
+	}
+
+	vm->shmem_entries = nr_entries;
+
+	return 0;
+}
+
 static struct virt_machine *
 new_vm(const char *vm_name, struct device_node *np)
 {
@@ -870,6 +955,12 @@ new_vm(const char *vm_name, struct device_node *np)
 		return NULL;
 
 	strlcpy(vm->vm_name, vm_name, sizeof(vm->vm_name));
+
+	ret = note_shared_buffers(np, vm);
+	if (ret) {
+		kfree(vm);
+		return NULL;
+	}
 
 	vm->shmem_addr = r.start;
 	vm->shmem_size = resource_size(&r);
@@ -1119,7 +1210,103 @@ done:
 	return IRQ_HANDLED;
 }
 
-int hh_virtio_mmio_init(const char *vm_name, hh_label_t label,
+static int
+unshare_a_vm_buffer(hh_vmid_t self, hh_vmid_t peer, struct resource *r)
+{
+	u32 src_vmlist[2] = {self, peer};
+	int dst_vmlist[1] = {self};
+	int dst_perms[1] = {PERM_READ | PERM_WRITE | PERM_EXEC};
+	int ret;
+
+	ret = hyp_assign_phys(r->start, resource_size(r), src_vmlist, 2,
+				      dst_vmlist, dst_perms, 1);
+	if (ret)
+		pr_err("%s: hyp_assign_phys failed for addr=%llx size=%lld err=%d\n",
+		       __func__, r->start, resource_size(r), ret);
+
+	return ret;
+}
+
+static int share_a_vm_buffer(hh_vmid_t self, hh_vmid_t peer, int haven_label,
+				struct resource *r, u32 *shm_memparcel)
+{
+	u32 src_vmlist[1] = {self};
+	int dst_vmlist[2] = {self, peer};
+	int dst_perms[2] = {PERM_READ | PERM_WRITE, PERM_READ | PERM_WRITE};
+	struct hh_acl_desc *acl;
+	struct hh_sgl_desc *sgl;
+	int ret;
+
+	acl = kzalloc(offsetof(struct hh_acl_desc, acl_entries[2]), GFP_KERNEL);
+	if (!acl)
+		return -ENOMEM;
+	sgl = kzalloc(offsetof(struct hh_sgl_desc, sgl_entries[1]), GFP_KERNEL);
+	if (!sgl) {
+		kfree(acl);
+		return -ENOMEM;
+	}
+
+	ret = hyp_assign_phys(r->start, resource_size(r), src_vmlist, 1,
+				      dst_vmlist, dst_perms, 2);
+	if (ret) {
+		pr_err("%s: hyp_assign_phys failed for addr=%llx size=%lld err=%d\n",
+		       __func__, r->start, resource_size(r), ret);
+		kfree(acl);
+		kfree(sgl);
+		return ret;
+	}
+
+	acl->n_acl_entries = 2;
+	acl->acl_entries[0].vmid = (u16)self;
+	acl->acl_entries[0].perms = HH_RM_ACL_R | HH_RM_ACL_W;
+	acl->acl_entries[1].vmid = (u16)peer;
+	acl->acl_entries[1].perms = HH_RM_ACL_R | HH_RM_ACL_W;
+
+	sgl->n_sgl_entries = 1;
+	sgl->sgl_entries[0].ipa_base = r->start;
+	sgl->sgl_entries[0].size = resource_size(r);
+	ret = hh_rm_mem_qcom_lookup_sgl(HH_RM_MEM_TYPE_NORMAL,
+			haven_label, acl, sgl, NULL, shm_memparcel);
+	if (ret) {
+		pr_err("%s: lookup_sgl failed %d\n", __func__, ret);
+		unshare_a_vm_buffer(self, peer, r);
+	}
+
+	kfree(acl);
+	kfree(sgl);
+
+	return ret;
+}
+
+static int share_vm_buffers(struct virt_machine *vm, hh_vmid_t peer)
+{
+	int i, ret;
+	hh_vmid_t self_vmid;
+
+	ret = hh_rm_get_vmid(HH_PRIMARY_VM, &self_vmid);
+	if (ret)
+		return ret;
+
+	for (i = 0; i < vm->shmem_entries; ++i) {
+		ret = share_a_vm_buffer(self_vmid, peer, vm->shmem[i].haven_label,
+				&vm->shmem[i].r, &vm->shmem[i].shm_memparcel);
+		if (ret) {
+			i--;
+			goto unshare;
+		}
+	}
+
+	vm->hyp_assign_done = 1;
+	return 0;
+
+unshare:
+	for (; i >= 0; --i)
+		unshare_a_vm_buffer(self_vmid, peer, &vm->shmem[i].r);
+
+	return ret;
+}
+
+static int hh_virtio_mmio_init(hh_vmid_t vmid, const char *vm_name, hh_label_t label,
 			hh_capid_t cap_id, int linux_irq, u64 base, u64 size)
 {
 	struct virt_machine *vm;
@@ -1154,6 +1341,15 @@ int hh_virtio_mmio_init(const char *vm_name, hh_label_t label,
 	}
 
 	mutex_lock(&vb_dev->mutex);
+
+	if (!vm->hyp_assign_done) {
+		ret = share_vm_buffers(vm, vmid);
+		if (ret) {
+			mutex_unlock(&vb_dev->mutex);
+			vb_dev_put(vb_dev);
+			return ret;
+		}
+	}
 
 	if (!vb_dev->config_data || size < vb_dev->config_size) {
 		mutex_unlock(&vb_dev->mutex);
@@ -1222,7 +1418,6 @@ int hh_virtio_mmio_init(const char *vm_name, hh_label_t label,
 
 	return 0;
 }
-EXPORT_SYMBOL(hh_virtio_mmio_init);
 
 static const struct of_device_id hh_virtio_backend_match_table[] = {
 	{ .compatible = "qcom,virtio_backend" },
@@ -1243,6 +1438,10 @@ static int __init hh_virtio_backend_init(void)
 	int ret;
 
 	ret = vb_devclass_init();
+	if (ret)
+		return ret;
+
+	ret = hh_rm_set_virtio_mmio_cb(hh_virtio_mmio_init);
 	if (ret)
 		return ret;
 
