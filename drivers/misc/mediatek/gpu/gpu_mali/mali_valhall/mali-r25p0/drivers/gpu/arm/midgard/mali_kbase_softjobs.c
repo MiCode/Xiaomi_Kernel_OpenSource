@@ -829,9 +829,10 @@ int kbase_mem_copy_from_extres(struct kbase_context *kctx,
 				dma_buf_kunmap(dma_buf, i, extres_page);
 #endif
 				if (ret)
-					goto out_unlock;
+					goto no_kmap;
 			}
 		}
+no_kmap:
 		dma_buf_end_cpu_access(dma_buf,
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 6, 0) && !defined(CONFIG_CHROMEOS)
 				0, dma_to_copy,
