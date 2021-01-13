@@ -867,12 +867,12 @@ static void mtk_ovl_layer_off(struct mtk_ddp_comp *comp, unsigned int idx,
 }
 
 static unsigned int ovl_fmt_convert(struct mtk_disp_ovl *ovl, unsigned int fmt,
-				    uint64_t modifier)
+				    uint64_t modifier, unsigned int compress)
 {
 	switch (fmt) {
 	default:
 	case DRM_FORMAT_RGB565:
-		return OVL_CON_CLRFMT_RGB565(ovl);
+		return OVL_CON_CLRFMT_RGB565(ovl) | (compress ? OVL_CON_BYTE_SWAP : 0UL);
 	case DRM_FORMAT_BGR565:
 		return (unsigned int)OVL_CON_CLRFMT_RGB565(ovl) |
 		       OVL_CON_BYTE_SWAP;
@@ -1473,7 +1473,8 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 	     fmt == DRM_FORMAT_XRGB8888 || fmt == DRM_FORMAT_XBGR8888))
 		alpha_con = 0;
 
-	con = ovl_fmt_convert(ovl, fmt, state->pending.modifier);
+	con = ovl_fmt_convert(ovl, fmt, state->pending.modifier,
+			pending->prop_val[PLANE_PROP_COMPRESS]);
 	con |= (alpha_con << 8) | alpha;
 
 	if (fmt == DRM_FORMAT_UYVY || fmt == DRM_FORMAT_YUYV) {
@@ -1999,8 +2000,12 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 	lx_hdr_pitch = pitch / tile_w / Bpp *
 	    AFBC_V1_2_HEADER_SIZE_PER_TILE_BYTES;
 
-	/* 5. calculate OVL_LX_SRC_SIZE */
-	lx_src_size = (src_h_half_align << 16) | src_w_align;
+	/* 5. calculate OVL_LX_SRC_SIZE, RGB565 use layout 4, src_h needs align to tile_h*/
+	if (fmt != DRM_FORMAT_RGB565 && fmt != DRM_FORMAT_BGR565) {
+		src_h_align = src_h_half_align;
+		src_y_align = src_y_half_align;
+	}
+	lx_src_size = (src_h_align << 16) | src_w_align;
 
 	/* 6. calculate OVL_LX_CLIP */
 	lx_clip = 0;
@@ -2011,12 +2016,12 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 		if (src_x + src_w < src_x_align + src_w_align)
 			lx_clip |= REG_FLD_VAL(OVL_L_CLIP_FLD_LEFT,
 				src_x_align + src_w_align - src_x - src_w);
-		if (src_y > src_y_half_align)
+		if (src_y > src_y_align)
 			lx_clip |= REG_FLD_VAL(OVL_L_CLIP_FLD_BOTTOM,
-				src_y - src_y_half_align);
-		if (src_y + src_h < src_y_half_align + src_h_half_align)
+				src_y - src_y_align);
+		if (src_y + src_h < src_y_align + src_h_align)
 			lx_clip |= REG_FLD_VAL(OVL_L_CLIP_FLD_TOP,
-				src_y_half_align + src_h_half_align -
+				src_y_align + src_h_align -
 				src_y - src_h);
 	} else {
 		if (src_x > src_x_align)
@@ -2025,12 +2030,12 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 		if (src_x + src_w < src_x_align + src_w_align)
 			lx_clip |= REG_FLD_VAL(OVL_L_CLIP_FLD_RIGHT,
 				src_x_align + src_w_align - src_x - src_w);
-		if (src_y > src_y_half_align)
+		if (src_y > src_y_align)
 			lx_clip |= REG_FLD_VAL(OVL_L_CLIP_FLD_TOP,
-				src_y - src_y_half_align);
-		if (src_y + src_h < src_y_half_align + src_h_half_align)
+				src_y - src_y_align);
+		if (src_y + src_h < src_y_align + src_h_align)
 			lx_clip |= REG_FLD_VAL(OVL_L_CLIP_FLD_BOTTOM,
-				src_y_half_align + src_h_half_align -
+				src_y_align + src_h_align -
 				src_y - src_h);
 	}
 
