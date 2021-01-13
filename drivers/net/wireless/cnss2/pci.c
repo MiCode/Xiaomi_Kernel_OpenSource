@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2016-2021, The Linux Foundation. All rights reserved. */
 
 #include <linux/cma.h>
 #include <linux/firmware.h>
@@ -891,6 +891,8 @@ int cnss_pci_recover_link_down(struct cnss_pci_data *pci_priv)
 	 */
 	msleep(WAKE_EVENT_TIMEOUT);
 
+	/* Always do PCIe L2 suspend/resume during link down recovery */
+	pci_priv->drv_connected_last = 0;
 	ret = cnss_suspend_pci_link(pci_priv);
 	if (ret)
 		cnss_pr_err("Failed to suspend PCI link, err = %d\n", ret);
