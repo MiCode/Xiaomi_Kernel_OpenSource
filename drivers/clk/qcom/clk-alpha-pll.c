@@ -3097,6 +3097,10 @@ static void alpha_pll_lucid_evo_disable(struct clk_hw *hw)
 	/* Place the PLL mode in STANDBY */
 	regmap_write(pll->clkr.regmap, PLL_OPMODE(pll),
 			PLL_STANDBY);
+
+	if (pll->flags & DISABLE_TO_OFF)
+		regmap_update_bits(pll->clkr.regmap, PLL_MODE(pll),
+				   PLL_RESET_N, 0);
 }
 
 /*
