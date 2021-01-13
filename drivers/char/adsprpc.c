@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2021 The Linux Foundation. All rights reserved.
  */
 
 /* Uncomment this block to log an error on every VERIFY failure */
@@ -4354,6 +4354,8 @@ static int fastrpc_mmap_remove_ssr(struct fastrpc_file *fl)
 				if (ramdump_segments_rh) {
 					ramdump_segments_rh->address =
 					match->phys;
+					ramdump_segments_rh->v_address =
+					(void __iomem *)match->va;
 					ramdump_segments_rh->size = match->size;
 					ret = do_elf_ramdump(
 						 me->ramdump_handle,
