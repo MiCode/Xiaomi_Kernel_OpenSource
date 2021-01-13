@@ -3621,11 +3621,11 @@
 		reg-names = "mac", "ippc";
 		interrupts = <GIC_SPI 128 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "ssusb_mac";
-		/* clocks = <&infracfg_ao_clk CLK_IFRAO_SSUSB>, */
-		/* <&apmixed_clk CLK_APMIXED_USBPLL>, */
-		/* <&infracfg_ao_clk CLK_IFRAO_AP_DMA>, */
-		/* <&infracfg_ao_clk CLK_IFRAO_SSUSB_XHCI>; */
-		/* clock-names = "sys_ck", "rel_clk", "dma_ck", "host_ck"; */
+		clocks = <&infracfg_ao_clk CLK_IFRAO_SSUSB>,
+		<&apmixedsys_clk CLK_APMIXED_USBPLL>,
+		<&infracfg_ao_clk CLK_IFRAO_APDMA>,
+		<&infracfg_ao_clk CLK_IFRAO_SSUSB_XHCI>;
+		clock-names = "sys_ck", "rel_clk", "dma_ck", "host_ck";
 		phy-cells = <1>;
 		phys = <&usb0phy 0>;
 		phy-names = "port0_phy";
