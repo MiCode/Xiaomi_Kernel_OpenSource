@@ -454,6 +454,7 @@ enum{
 #define CAM_REG_RRZ_IN_IMG(module)              (isp_devs[module].regs + 0x1104)
 #define CAM_REG_RRZ_OUT_IMG(module)             (isp_devs[module].regs + 0x1108)
 
+#define CAM_REG_DMA_CQ_COUNTER(module)          (isp_devs[module].regs + 0x40AC)
 #define CAM_REG_DMA_FRAME_HEADER_EN1(module)    (isp_devs[module].regs + 0x40BC)
 #define CAM_REG_IMGO_BASE_ADDR(module)          (isp_devs[module].regs + 0x4820)
 #define CAM_REG_IMGO_XSIZE(module)              (isp_devs[module].regs + 0x482C)

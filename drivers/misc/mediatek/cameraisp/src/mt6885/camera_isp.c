@@ -388,6 +388,7 @@ static unsigned int sec_on;
 struct wakeup_source isp_wake_lock;
 #endif
 static int g_WaitLockCt;
+static int irq3a_wait_cnt = 1;
 
 /*prevent isp race condition in vulunerbility test*/
 static struct mutex open_isp_mutex;
@@ -709,6 +710,8 @@ struct ISP_INFO_STRUCT {
 
 static struct ISP_INFO_STRUCT IspInfo;
 static bool SuspnedRecord[ISP_DEV_NODE_NUM] = {0};
+//Drop frame check
+static unsigned int g_virtual_cq_cnt[ISP_IRQ_TYPE_INT_CAM_C_ST-ISP_IRQ_TYPE_INT_CAM_A_ST+1] = {0};
 
 enum eLOG_TYPE {
 	/* currently, only used at ipl_buf_ctrl. to protect critical section */
@@ -3498,6 +3501,9 @@ static int ISP_FLUSH_IRQ(struct ISP_WAIT_IRQ_STRUCT *irqinfo)
 			irqinfo->Type, irqinfo->EventInfo.UserKey,
 			irqinfo->EventInfo.St_type, irqinfo->EventInfo.Status);
 
+	if (irqinfo->EventInfo.UserKey == 1)
+		LOG_NOTICE("++FLUSH 3a waitirq cnt = %d\n", irq3a_wait_cnt);
+
 	if (irqinfo->Type >= ISP_IRQ_TYPE_AMOUNT ||
 	    irqinfo->Type < 0) {
 		LOG_NOTICE("FLUSH_IRQ: type error(%d)", irqinfo->Type);
@@ -3566,6 +3572,9 @@ static int ISP_FLUSH_IRQ(struct ISP_WAIT_IRQ_STRUCT *irqinfo)
 	} else {
 		wake_up_interruptible(&IspInfo.WaitQueueHead[irqinfo->Type]);
 	}
+
+	if (irqinfo->EventInfo.UserKey == 1)
+		LOG_NOTICE("--FLUSH 3a waitirq cnt = %d\n", irq3a_wait_cnt);
 
 	return 0;
 }
@@ -3772,6 +3781,9 @@ static int ISP_WaitIrq(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 		WaitIrq->EventInfo.UserKey);
 #endif
 
+	if (WaitIrq->EventInfo.UserKey == 1)
+		irq3a_wait_cnt++;
+
 	/* 2. start to wait signal */
 	if (ISP_CheckUseCamWaitQ(WaitIrq->Type, WaitIrq->EventInfo.St_type,
 				 WaitIrq->EventInfo.Status)) {
@@ -3809,6 +3821,9 @@ static int ISP_WaitIrq(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 					WaitIrq->EventInfo.Status),
 			ISP_MsToJiffies(WaitIrq->EventInfo.Timeout));
 	}
+
+	if (WaitIrq->EventInfo.UserKey == 1)
+		irq3a_wait_cnt--;
 
 	/* check if user is interrupted by system signal */
 	if ((Timeout != 0) &&
@@ -5632,6 +5647,26 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			Ret = -EFAULT;
 		}
 		break;
+	case ISP_SET_VIR_CQCNT: {
+		unsigned int _cq_cnt[2] = {0};
+
+		if (copy_from_user(&_cq_cnt, (void *)Param,
+			sizeof(unsigned int) * 2) == 0) {
+			LOG_DBG("hw_module:%d VirCQ count from user: %d\n",
+				_cq_cnt[0], _cq_cnt[1]);
+
+			if (_cq_cnt[0] <= (ISP_IRQ_TYPE_INT_CAM_C_ST -
+				ISP_IRQ_TYPE_INT_CAM_A_ST))
+				g_virtual_cq_cnt[_cq_cnt[0]] = _cq_cnt[1];
+			else
+				LOG_NOTICE("invalid HW module(%d)\n",
+					_cq_cnt[0]);
+		} else {
+			LOG_NOTICE(
+				"Virtual CQ count copy_from_user failed\n");
+			Ret = -EFAULT;
+		}
+	} break;
 	default: {
 		LOG_NOTICE("Unknown Cmd(%d)\n", Cmd);
 		Ret = -EPERM;
@@ -5965,6 +6000,7 @@ static long ISP_ioctl_compat(struct file *filp, unsigned int cmd,
 	case ISP_SET_SEC_DAPC_REG:
 	case ISP_NOTE_CQTHR0_BASE:
 	case ISP_GET_CUR_HWP1DONE:
+	case ISP_SET_VIR_CQCNT:
 		return filp->f_op->unlocked_ioctl(filp, cmd, arg);
 	default:
 		return -ENOIOCTLCMD;
@@ -11474,7 +11510,16 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 				       'A' + cardinalNum, sof_count[module],
 				       cur_v_cnt);
 		}
-
+		if ((ISP_RD32(CAM_REG_DMA_CQ_COUNTER(reg_module)))
+			!= g_virtual_cq_cnt[module]){
+			IrqStatus &= ~SOF_INT_ST;
+			IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_INF,
+				"CAM%c PHY cqcnt:%d != VIR cqcnt:%d, IrqStatus:0x%x\n",
+				'A'+cardinalNum,
+				ISP_RD32(CAM_REG_DMA_CQ_COUNTER(reg_module)),
+				g_virtual_cq_cnt[module],
+				IrqStatus);
+		}
 		/* During SOF, re-enable that err/warn irq had been marked and
 		 * reset IrqCntInfo
 		 */

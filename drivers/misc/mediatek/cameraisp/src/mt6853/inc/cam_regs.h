@@ -454,6 +454,7 @@ enum{
 #define CAM_REG_RRZ_IN_IMG(module)              (isp_devs[module].regs + 0x1104)
 #define CAM_REG_RRZ_OUT_IMG(module)             (isp_devs[module].regs + 0x1108)
 
+#define CAM_REG_DMA_CQ_COUNTER(module)          (isp_devs[module].regs + 0x40AC)
 #define CAM_REG_DMA_FRAME_HEADER_EN1(module)    (isp_devs[module].regs + 0x40BC)
 #define CAM_REG_IMGO_BASE_ADDR(module)          (isp_devs[module].regs + 0x4820)
 #define CAM_REG_IMGO_XSIZE(module)              (isp_devs[module].regs + 0x482C)
@@ -623,6 +624,12 @@ enum{
 #define CAM_REG_BPCI_R2_CON2(module)            (isp_devs[module].regs + 0x431C)
 #define CAM_REG_BPCI_R2_CON3(module)            (isp_devs[module].regs + 0x4320)
 #define CAM_REG_BPCI_R2_CON4(module)            (isp_devs[module].regs + 0x4328)
+
+#define CAM_REG_BPCI_R3_DRS(module)             (isp_devs[module].regs + 0x4338)
+#define CAM_REG_BPCI_R3_CON(module)             (isp_devs[module].regs + 0x4348)
+#define CAM_REG_BPCI_R3_CON2(module)            (isp_devs[module].regs + 0x434C)
+#define CAM_REG_BPCI_R3_CON3(module)            (isp_devs[module].regs + 0x4350)
+#define CAM_REG_BPCI_R3_CON4(module)            (isp_devs[module].regs + 0x4358)
 
 #define CAM_REG_LSCI_DRS(module)                (isp_devs[module].regs + 0x4398)
 #define CAM_REG_LSCI_CON(module)                (isp_devs[module].regs + 0x43A8)

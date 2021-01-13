@@ -51,6 +51,8 @@
 #include <clk-mt6853-pg.h>
 #elif defined CONFIG_MACH_MT6833
 #include <clk-mt6833-pg.h>
+#elif defined CONFIG_MACH_MT6877
+#include <clk-mt6877-pg.h>
 #endif
 
 /* MET: define to enable MET*/
@@ -733,6 +735,8 @@ struct ISP_INFO_STRUCT {
 
 static struct ISP_INFO_STRUCT IspInfo;
 static bool SuspnedRecord[ISP_DEV_NODE_NUM] = {0};
+//Drop frame check
+static unsigned int g_virtual_cq_cnt[ISP_IRQ_TYPE_INT_CAM_C_ST-ISP_IRQ_TYPE_INT_CAM_A_ST+1] = {0};
 
 enum eLOG_TYPE {
 	/* currently, only used at ipl_buf_ctrl. to protect critical section */
@@ -2325,7 +2329,7 @@ static void ISP_ConfigDMAControl(void)
 		ISP_WR32(CAM_REG_FLKO_CON3(module), 0x00080004);//1/4~1/8
 		ISP_WR32(CAM_REG_FLKO_DRS(module), 0x800C0011);//2/3~13/24
 
-		ISP_WR32(CAM_REG_LTMSO_CON(module), 0x80000040);//LTMSO 128
+		ISP_WR32(CAM_REG_LTMSO_CON(module), 0x80000080);//LTMSO 128
 		ISP_WR32(CAM_REG_LTMSO_CON2(module), 0x00400030);
 		ISP_WR32(CAM_REG_LTMSO_CON3(module), 0x00200010);
 		ISP_WR32(CAM_REG_LTMSO_DRS(module), 0x80550045);
@@ -2385,7 +2389,7 @@ static void ISP_ConfigDMAControl(void)
 		ISP_WR32(CAM_REG_CRZBO_CON3(module), 0x00080004);
 		ISP_WR32(CAM_REG_CRZBO_DRS(module), 0x800C0011);
 
-		ISP_WR32(CAM_REG_CRZO_R2_CON(module), 0x80000040);//CRZO_R2 128
+		ISP_WR32(CAM_REG_CRZO_R2_CON(module), 0x80000080);//CRZO_R2 128
 		ISP_WR32(CAM_REG_CRZO_R2_CON2(module), 0x00400030);
 		ISP_WR32(CAM_REG_CRZO_R2_CON3(module), 0x00200010);
 		ISP_WR32(CAM_REG_CRZO_R2_DRS(module), 0x80550045);
@@ -2426,7 +2430,12 @@ static void ISP_ConfigDMAControl(void)
 		ISP_WR32(CAM_REG_BPCI_R2_CON3(module), 0x0018000C);
 		ISP_WR32(CAM_REG_BPCI_R2_DRS(module), 0x80400034);
 
-		ISP_WR32(CAM_REG_LSCI_CON(module), 0x80000040);//LCSI 128
+		ISP_WR32(CAM_REG_BPCI_R3_CON(module), 0x80000060);//BPCI_R3 96
+		ISP_WR32(CAM_REG_BPCI_R3_CON2(module), 0x00300024);
+		ISP_WR32(CAM_REG_BPCI_R3_CON3(module), 0x0018000C);
+		ISP_WR32(CAM_REG_BPCI_R3_DRS(module), 0x80400034);
+
+		ISP_WR32(CAM_REG_LSCI_CON(module), 0x80000080);//LCSI 128
 		ISP_WR32(CAM_REG_LSCI_CON2(module), 0x00400030);
 		ISP_WR32(CAM_REG_LSCI_CON3(module), 0x00200010);
 		ISP_WR32(CAM_REG_LSCI_DRS(module), 0x80550045);
@@ -5397,6 +5406,26 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			Ret = -EFAULT;
 		}
 		break;
+	case ISP_SET_VIR_CQCNT: {
+		unsigned int _cq_cnt[2] = {0};
+
+		if (copy_from_user(&_cq_cnt, (void *)Param,
+			sizeof(unsigned int) * 2) == 0) {
+			LOG_DBG("hw_module:%d VirCQ count from user: %d\n",
+				_cq_cnt[0], _cq_cnt[1]);
+
+			if (_cq_cnt[0] <= (ISP_IRQ_TYPE_INT_CAM_C_ST -
+				ISP_IRQ_TYPE_INT_CAM_A_ST))
+				g_virtual_cq_cnt[_cq_cnt[0]] = _cq_cnt[1];
+			else
+				LOG_NOTICE("invalid HW module(%d)\n",
+					_cq_cnt[0]);
+		} else {
+			LOG_NOTICE(
+				"Virtual CQ count copy_from_user failed\n");
+			Ret = -EFAULT;
+		}
+	} break;
 	default: {
 		LOG_NOTICE("Unknown Cmd(%d)\n", Cmd);
 		Ret = -EPERM;
@@ -5730,6 +5759,7 @@ static long ISP_ioctl_compat(struct file *filp, unsigned int cmd,
 	case ISP_SET_SEC_DAPC_REG:
 	case ISP_NOTE_CQTHR0_BASE:
 	case ISP_GET_CUR_HWP1DONE:
+	case ISP_SET_VIR_CQCNT:
 		return filp->f_op->unlocked_ioctl(filp, cmd, arg);
 	default:
 		return -ENOIOCTLCMD;
@@ -11130,7 +11160,16 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 			 *	       cur_v_cnt);
 			 */
 		}
-
+		if ((ISP_RD32(CAM_REG_DMA_CQ_COUNTER(reg_module)))
+			!= g_virtual_cq_cnt[module]){
+			IrqStatus &= ~SOF_INT_ST;
+			IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_INF,
+				"CAM%c PHY cqcnt:%d != VIR cqcnt:%d, IrqStatus:0x%x\n",
+				'A'+cardinalNum,
+				ISP_RD32(CAM_REG_DMA_CQ_COUNTER(reg_module)),
+				g_virtual_cq_cnt[module],
+				IrqStatus);
+		}
 		/* During SOF, re-enable that err/warn irq had been marked and
 		 * reset IrqCntInfo
 		 */
