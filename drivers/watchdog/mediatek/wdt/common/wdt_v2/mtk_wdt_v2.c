@@ -80,6 +80,10 @@ __weak int mtk_dbgtop_dram_reserved(int enable)
 
 __weak void dfd_workaround(void) {};
 
+__weak void pwrap_disable(void) {};
+
+__weak void mtk_koro_disable(void) {};
+
 /**---------------------------------------------------------------------
  * Sub feature switch region
  *----------------------------------------------------------------------
