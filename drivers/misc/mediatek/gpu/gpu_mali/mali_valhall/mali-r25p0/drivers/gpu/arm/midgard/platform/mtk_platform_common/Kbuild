@@ -19,6 +19,10 @@ ifeq ($(CONFIG_MACH_MT6833),y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/mt6833
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/qos/mt6833
 endif
+ifeq ($(CONFIG_MACH_MT6877),y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/mt6877
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/qos/mt6877
+endif
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(CONFIG_MTK_PLATFORM)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/qos/$(CONFIG_MTK_PLATFORM)
 endif

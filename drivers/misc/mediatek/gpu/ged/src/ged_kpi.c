@@ -261,7 +261,12 @@ static unsigned int gx_frc_mode; /* variable to fix FRC mode*/
 static unsigned int enable_cpu_boost = 1;
 #endif /* GED_KPI_CPU_BOOST */
 static unsigned int enable_gpu_boost = 1;
+#if defined(CONFIG_MACH_MT6877)
+/* Disable for bring-up stage unexpected exception */
+static unsigned int is_GED_KPI_enabled;
+#else
 static unsigned int is_GED_KPI_enabled = 1;
+#endif
 static unsigned int ap_self_frc_detection_rate = 20;
 #ifdef GED_ENABLE_FB_DVFS
 static unsigned int g_force_gpu_dvfs_fallback;

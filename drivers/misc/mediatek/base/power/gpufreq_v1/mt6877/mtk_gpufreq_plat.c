@@ -31,6 +31,7 @@
 #include <linux/of_address.h>
 #include <linux/uaccess.h>
 #include <linux/random.h>
+#include <linux/seq_file.h>
 
 #include "mtk_gpufreq.h"
 #include "mtk_gpufreq_internal.h"
@@ -174,6 +175,8 @@ static void mt_gpufreq_cal_sb_opp_index(void);
 static unsigned int __calculate_vgpu_settletime(bool mode, int deltaV);
 static unsigned int __calculate_vsram_settletime(bool mode, int deltaV);
 
+static void __mt_gpufreq_switch_to_clksrc(enum g_clock_source_enum clksrc);
+
 /**
  * ===============================================
  * SECTION : Local variables definition
@@ -306,9 +309,7 @@ void mt_gpufreq_dump_infra_status(void)
 	unsigned int start, offset, val;
 
 	gpufreq_pr_info("[GPU_DFD] ====\n");
-	gpufreq_pr_info("[GPU_DFD] mfgpll_ref=%d mfgpll=%d freq=%d vgpu=%d vsram_gpu=%d\n",
-			mt_get_ckgen_freq(FM_MFG_CK),
-			mt_get_abist_freq(FM_MGPLL_CK),
+	gpufreq_pr_info("[GPU_DFD] freq=%d vgpu=%d vsram_gpu=%d\n",
 			g_cur_opp_freq,
 			g_cur_opp_vgpu,
 			g_cur_opp_vsram_gpu);
@@ -1826,7 +1827,7 @@ static struct opp_table_info *__mt_gpufreq_get_segment_table(void)
 	efuse_id = ((get_devinfo_with_index(209) >> 9) & 0x3);
 	switch (efuse_id) {
 	case 0x2: // EFUSE 0x11C105E8[10:9] = 2'b10
-		return g_opp_table_segment_2;
+		return g_opp_table_segment_1;
 	default:
 		gpufreq_pr_debug("@%s: invalid efuse_id(0x%x)\n",
 				__func__, efuse_id);
@@ -1959,8 +1960,7 @@ static int mt_gpufreq_var_dump_proc_show(struct seq_file *m, void *v)
 			g_cur_opp_freq,
 			g_cur_opp_vgpu,
 			g_cur_opp_vsram_gpu);
-	seq_printf(m, "(real) freq: %d, freq: %d, vgpu: %d, vsram_gpu: %d\n",
-			mt_get_abist_freq(FM_MGPLL_CK),
+	seq_printf(m, "freq: %d, vgpu: %d, vsram_gpu: %d\n",
 			__mt_gpufreq_get_cur_freq(),
 			__mt_gpufreq_get_cur_vgpu(),
 			__mt_gpufreq_get_cur_vsram_gpu());
@@ -2496,10 +2496,8 @@ static void __mt_gpufreq_set(
 	gpu_dvfs_oppidx_footprint(idx_new);
 
 	gpufreq_pr_logbuf(
-		"end idx: %d -> %d, clk: %d, ref_clk: %d, freq: %d, vgpu: %d, vsram_gpu: %d\n",
+		"end idx: %d -> %d, freq: %d, vgpu: %d, vsram_gpu: %d\n",
 		idx_old, idx_new,
-		mt_get_abist_freq(FM_MGPLL_CK),
-		mt_get_ckgen_freq(FM_MFG_CK),
 		__mt_gpufreq_get_cur_freq(),
 		__mt_gpufreq_get_cur_vgpu(),
 		__mt_gpufreq_get_cur_vsram_gpu());
@@ -2616,7 +2614,7 @@ static void __mt_gpufreq_clock_switch(unsigned int freq_new)
 	 * MFGPLL1_CON1[26:24] = MFGPLL_POSDIV
 	 * MFGPLL1_CON1[21:0]  = MFGPLL_SDM_PCW (dds)
 	 */
-//	pll = (0x80000000) | (posdiv_power << POSDIV_SHIFT) | pcw;
+	pll = (0x80000000) | (posdiv_power << POSDIV_SHIFT) | pcw;
 
 #ifndef CONFIG_MTK_FREQ_HOPPING
 	/* force parking if FHCTL not ready */
@@ -2629,6 +2627,21 @@ static void __mt_gpufreq_clock_switch(unsigned int freq_new)
 #endif
 
 	if (parking) {
+#ifndef GLITCH_FREE
+		__mt_gpufreq_switch_to_clksrc(CLOCK_SUB);
+
+		/*
+		 * MFGPLL1_CON1[31:31] = MFGPLL_SDM_PCW_CHG
+		 * MFGPLL1_CON1[26:24] = MFGPLL_POSDIV
+		 * MFGPLL1_CON1[21:0]  = MFGPLL_SDM_PCW (dds)
+		 */
+		DRV_WriteReg32(MFGPLL1_CON1, pll);
+
+		/* PLL spec */
+		udelay(20);
+
+		__mt_gpufreq_switch_to_clksrc(CLOCK_MAIN);
+#else
 		/*
 		 * MFGPLL1_CON0[0] = RG_MFGPLL_EN
 		 * MFGPLL1_CON0[4] = RG_MFGPLL_GLITCH_FREE_EN
@@ -2658,6 +2671,7 @@ static void __mt_gpufreq_clock_switch(unsigned int freq_new)
 				gpufreq_pr_info("@%s: hopping failing: %d\n",
 						__func__, hopping);
 		}
+#endif
 	} else {
 #ifdef CONFIG_MTK_FREQ_HOPPING
 		/* change PCW (by hopping) */
@@ -3546,7 +3560,7 @@ static void __mt_gpufreq_dump_bringup_status(void)
 				"mediatek,mt6877-gpu_pll_ctrl", 0);
 	if (!g_gpu_pll_ctrl) {
 		gpufreq_pr_info("@%s: ioremap failed at GPU_PLL_CTRL\n", __func__);
-		return -ENOENT;
+		return;
 	}
 
 	// 0x10006000
@@ -3562,9 +3576,8 @@ static void __mt_gpufreq_dump_bringup_status(void)
 			__func__,
 			readl(g_sleep + 0xEF0),
 			readl(g_sleep + 0xEF4));
-	gpufreq_pr_info("@%s: [MFGPLL] FMETER=%d FREQ=%d\n",
+	gpufreq_pr_info("@%s: [MFGPLL] FREQ=%d\n",
 			__func__,
-			mt_get_abist_freq(FM_MGPLL_CK),
 			__mt_gpufreq_get_cur_freq());
 }
 
