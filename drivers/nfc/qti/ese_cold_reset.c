@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -60,7 +60,6 @@ int read_cold_reset_rsp(struct nfc_dev *nfc_dev, char *header)
 	/*
 	 * read header if NFC is disabled
 	 * for enable case, header is read by nfc read thread(for i2c)
-	 * or worker function(for i3c)
 	 */
 	if ((!cold_rst->is_nfc_enabled) &&
 			(nfc_dev->interface == PLATFORM_IF_I2C)) {
@@ -104,10 +103,6 @@ int read_cold_reset_rsp(struct nfc_dev *nfc_dev, char *header)
 
 	if (nfc_dev->interface == PLATFORM_IF_I2C)
 		ret = nfc_dev->nfc_read(nfc_dev,
-			     &rsp_buf[NCI_PAYLOAD_IDX],
-			     rsp_buf[NCI_PAYLOAD_LEN_IDX]);
-	else
-		ret = nfc_dev->i3c_dev.nfc_read_direct(nfc_dev,
 			     &rsp_buf[NCI_PAYLOAD_IDX],
 			     rsp_buf[NCI_PAYLOAD_LEN_IDX]);
 
@@ -286,8 +281,6 @@ int ese_cold_reset_ioctl(struct nfc_dev *nfc_dev, unsigned long arg)
 
 		/*
 		 * Read data as NFC read thread is not active
-		 * For I3C driver response is already read by worker
-		 * function
 		 */
 
 		if (nfc_dev->interface == PLATFORM_IF_I2C) {
