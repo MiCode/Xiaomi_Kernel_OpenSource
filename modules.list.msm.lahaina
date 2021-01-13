@@ -76,3 +76,6 @@ qcom_ipcc.ko
 cqhci.ko
 sdhci-msm.ko
 memory_dump_v2.ko
+llcc-qcom.ko
+qcom_edac.ko
+kryo_arm64_edac.ko
