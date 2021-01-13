@@ -1600,13 +1600,6 @@ int lock_device_hotplug_sysfs(void)
 	return restart_syscall();
 }
 
-#ifdef CONFIG_SCHED_WALT
-void lock_device_hotplug_assert(void)
-{
-	lockdep_assert_held(&device_hotplug_lock);
-}
-#endif
-
 #ifdef CONFIG_BLOCK
 static inline int device_is_not_partition(struct device *dev)
 {

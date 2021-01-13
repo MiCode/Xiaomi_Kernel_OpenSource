@@ -29,9 +29,6 @@
 #include <linux/suspend.h>
 #include <linux/syscore_ops.h>
 #include <linux/tick.h>
-#ifdef CONFIG_SCHED_WALT
-#include <linux/sched/sysctl.h>
-#endif
 #include <trace/events/power.h>
 #include <trace/hooks/cpufreq.h>
 
@@ -707,32 +704,6 @@ show_one(cpuinfo_transition_latency, cpuinfo.transition_latency);
 show_one(scaling_min_freq, min);
 show_one(scaling_max_freq, max);
 
-#ifdef CONFIG_SCHED_WALT
-unsigned int cpuinfo_max_freq_cached;
-
-static bool should_use_cached_freq(int cpu)
-{
-	if (!cpuinfo_max_freq_cached)
-		return false;
-
-	if (!(BIT(cpu) & sched_lib_mask_force))
-		return false;
-
-	return is_sched_lib_based_app(current->pid);
-}
-
-static ssize_t show_cpuinfo_max_freq(struct cpufreq_policy *policy, char *buf)
-{
-	unsigned int freq = policy->cpuinfo.max_freq;
-
-	if (should_use_cached_freq(policy->cpu))
-		freq = cpuinfo_max_freq_cached << 1;
-	else
-		freq = policy->cpuinfo.max_freq;
-
-	return scnprintf(buf, PAGE_SIZE, "%u\n", freq);
-}
-#endif
 __weak unsigned int arch_freq_get_on_cpu(int cpu)
 {
 	return 0;
@@ -1162,12 +1133,7 @@ static int cpufreq_add_policy_cpu(struct cpufreq_policy *policy, unsigned int cp
 	if (has_target()) {
 		ret = cpufreq_start_governor(policy);
 		if (ret)
-#ifndef CONFIG_SCHED_WALT
 			pr_err("%s: Failed to start governor\n", __func__);
-#else
-			pr_err("%s: Failed to start governor for CPU%u, policy CPU%u\n",
-			       __func__, cpu, policy->cpu);
-#endif
 	}
 	up_write(&policy->rwsem);
 	return ret;
@@ -2238,7 +2204,6 @@ int __cpufreq_driver_target(struct cpufreq_policy *policy,
 	pr_debug("target for CPU %u: %u kHz, relation %u, requested %u kHz\n",
 		 policy->cpu, target_freq, relation, old_target_freq);
 
-#ifndef CONFIG_SCHED_WALT
 	/*
 	 * This might look like a redundant call as we are checking it again
 	 * after finding index. But it is left intentionally for cases where
@@ -2248,7 +2213,6 @@ int __cpufreq_driver_target(struct cpufreq_policy *policy,
 	if (target_freq == policy->cur &&
 	    !(cpufreq_driver->flags & CPUFREQ_NEED_UPDATE_LIMITS))
 		return 0;
-#endif
 
 	/* Save last value to restore later on errors */
 	policy->restore_freq = policy->cur;
@@ -2556,9 +2520,6 @@ static int cpufreq_set_policy(struct cpufreq_policy *policy,
 		ret = cpufreq_start_governor(policy);
 		if (!ret) {
 			pr_debug("governor change\n");
-#ifdef CONFIG_SCHED_WALT
-			sched_cpufreq_governor_change(policy, old_gov);
-#endif
 			return 0;
 		}
 		cpufreq_exit_governor(policy);

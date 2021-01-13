@@ -17,9 +17,6 @@
  */
 #include "sched.h"
 #include "pelt.h"
-#ifdef CONFIG_SCHED_WALT
-#include "walt.h"
-#endif
 
 struct dl_bandwidth def_dl_bandwidth;
 
@@ -1443,9 +1440,6 @@ void inc_dl_tasks(struct sched_dl_entity *dl_se, struct dl_rq *dl_rq)
 	WARN_ON(!dl_prio(prio));
 	dl_rq->dl_nr_running++;
 	add_nr_running(rq_of_dl_rq(dl_rq), 1);
-#ifdef CONFIG_SCHED_WALT
-	walt_inc_cumulative_runnable_avg(rq_of_dl_rq(dl_rq), dl_task_of(dl_se));
-#endif
 
 	inc_dl_deadline(dl_rq, deadline);
 	inc_dl_migration(dl_se, dl_rq);
@@ -1460,10 +1454,6 @@ void dec_dl_tasks(struct sched_dl_entity *dl_se, struct dl_rq *dl_rq)
 	WARN_ON(!dl_rq->dl_nr_running);
 	dl_rq->dl_nr_running--;
 	sub_nr_running(rq_of_dl_rq(dl_rq), 1);
-
-#ifdef CONFIG_SCHED_WALT
-	walt_dec_cumulative_runnable_avg(rq_of_dl_rq(dl_rq), dl_task_of(dl_se));
-#endif
 
 	dec_dl_deadline(dl_rq, dl_se->deadline);
 	dec_dl_migration(dl_se, dl_rq);
@@ -1680,12 +1670,7 @@ static void yield_task_dl(struct rq *rq)
 static int find_later_rq(struct task_struct *task);
 
 static int
-#ifdef CONFIG_SCHED_WALT
-select_task_rq_dl(struct task_struct *p, int cpu, int sd_flag, int flags,
-		  int sibling_count_hint)
-#else
 select_task_rq_dl(struct task_struct *p, int cpu, int sd_flag, int flags)
-#endif
 {
 	struct task_struct *curr;
 	bool select_rq;
@@ -2197,13 +2182,7 @@ retry:
 	}
 
 	deactivate_task(rq, next_task, 0);
-#ifdef CONFIG_SCHED_WALT
-	next_task->on_rq = TASK_ON_RQ_MIGRATING;
-#endif
 	set_task_cpu(next_task, later_rq->cpu);
-#ifdef CONFIG_SCHED_WALT
-	next_task->on_rq = TASK_ON_RQ_QUEUED;
-#endif
 
 	/*
 	 * Update the later_rq clock here, because the clock is used
@@ -2297,13 +2276,7 @@ static void pull_dl_task(struct rq *this_rq)
 			resched = true;
 
 			deactivate_task(src_rq, p, 0);
-#ifdef CONFIG_SCHED_WALT
-			p->on_rq = TASK_ON_RQ_MIGRATING;
-#endif
 			set_task_cpu(p, this_cpu);
-#ifdef CONFIG_SCHED_WALT
-			p->on_rq = TASK_ON_RQ_QUEUED;
-#endif
 			activate_task(this_rq, p, 0);
 			dmin = p->dl.deadline;
 

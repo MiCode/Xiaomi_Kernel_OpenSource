@@ -508,15 +508,6 @@ config HAVE_SCHED_AVG_IRQ
 	depends on IRQ_TIME_ACCOUNTING || PARAVIRT_TIME_ACCOUNTING
 	depends on SMP
 
-config SCHED_WALT
-	bool "Support window based load tracking"
-	depends on SMP
-	help
-	This feature will allow the scheduler to maintain a tunable window
-	based set of metrics for tasks and runqueues. These metrics can be
-	used to guide task placement as well as task frequency requirements
-	for cpufreq governors.
-
 config SCHED_THERMAL_PRESSURE
 	bool
 	default y if ARM && ARM_CPU_TOPOLOGY
@@ -976,7 +967,7 @@ config FAIR_GROUP_SCHED
 
 config CFS_BANDWIDTH
 	bool "CPU bandwidth provisioning for FAIR_GROUP_SCHED"
-	depends on FAIR_GROUP_SCHED && !SCHED_WALT
+	depends on FAIR_GROUP_SCHED
 	default n
 	help
 	  This option allows users to define CPU bandwidth rates (limits) for

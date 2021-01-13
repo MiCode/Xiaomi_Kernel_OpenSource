@@ -227,11 +227,7 @@ int cpuidle_enter_state(struct cpuidle_device *dev, struct cpuidle_driver *drv,
 		leave_mm(dev->cpu);
 
 	/* Take note of the planned idle state. */
-#ifndef CONFIG_SCHED_WALT
 	sched_idle_set_state(target_state);
-#else
-	sched_idle_set_state(target_state, index);
-#endif
 
 	trace_android_vh_cpu_idle_enter(&index, dev);
 	trace_cpu_idle(index, dev->cpu);
@@ -251,11 +247,7 @@ int cpuidle_enter_state(struct cpuidle_device *dev, struct cpuidle_driver *drv,
 	trace_android_vh_cpu_idle_exit(entered_state, dev);
 
 	/* The cpu is no longer idle or about to enter idle. */
-#ifndef CONFIG_SCHED_WALT
 	sched_idle_set_state(NULL);
-#else
-	sched_idle_set_state(NULL, -1);
-#endif
 
 	if (broadcast) {
 		if (WARN_ON_ONCE(!irqs_disabled()))

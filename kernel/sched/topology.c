@@ -210,7 +210,7 @@ sd_parent_degenerate(struct sched_domain *sd, struct sched_domain *parent)
 	return 1;
 }
 
-#if defined(CONFIG_ENERGY_MODEL) && (defined(CONFIG_CPU_FREQ_GOV_SCHEDUTIL) || defined(CONFIG_SCHED_WALT))
+#if defined(CONFIG_ENERGY_MODEL) && defined(CONFIG_CPU_FREQ_GOV_SCHEDUTIL)
 DEFINE_STATIC_KEY_FALSE(sched_energy_present);
 unsigned int sysctl_sched_energy_aware = 1;
 DEFINE_MUTEX(sched_energy_mutex);
@@ -346,6 +346,7 @@ static void sched_energy_set(bool has_eas)
  * with per-CPU DVFS and less than 8 performance states each, for example.
  */
 #define EM_MAX_COMPLEXITY 2048
+
 static bool build_perf_domains(const struct cpumask *cpu_map)
 {
 	int i, nr_pd = 0, nr_ps = 0, nr_cpus = cpumask_weight(cpu_map);
@@ -425,7 +426,7 @@ free:
 }
 #else
 static void free_pd(struct perf_domain *pd) { }
-#endif /* CONFIG_ENERGY_MODEL && (CONFIG_CPU_FREQ_GOV_SCHEDUTIL||CONFIG_SCHED_WALT)*/
+#endif /* CONFIG_ENERGY_MODEL && CONFIG_CPU_FREQ_GOV_SCHEDUTIL*/
 
 static void free_rootdomain(struct rcu_head *rcu)
 {
@@ -514,11 +515,6 @@ static int init_rootdomain(struct root_domain *rd)
 
 	if (cpupri_init(&rd->cpupri) != 0)
 		goto free_cpudl;
-#ifdef CONFIG_SCHED_WALT
-	rd->wrd.max_cap_orig_cpu = rd->wrd.min_cap_orig_cpu = -1;
-	rd->wrd.mid_cap_orig_cpu = -1;
-#endif
-
 	return 0;
 
 free_cpudl:
@@ -1153,29 +1149,16 @@ build_sched_groups(struct sched_domain *sd, int cpu)
  * group having more cpu_capacity will pickup more load compared to the
  * group having less cpu_capacity.
  */
-#ifndef CONFIG_SCHED_WALT
 static void init_sched_groups_capacity(int cpu, struct sched_domain *sd)
-#else
-void init_sched_groups_capacity(int cpu, struct sched_domain *sd)
-#endif
 {
 	struct sched_group *sg = sd->groups;
-#ifdef CONFIG_SCHED_WALT
-	cpumask_t avail_mask;
-#endif
 
 	WARN_ON(!sg);
 
 	do {
 		int cpu, max_cpu = -1;
 
-#ifdef CONFIG_SCHED_WALT
-		cpumask_andnot(&avail_mask, sched_group_span(sg),
-							cpu_isolated_mask);
-		sg->group_weight = cpumask_weight(&avail_mask);
-#else
 		sg->group_weight = cpumask_weight(sched_group_span(sg));
-#endif
 
 		if (!(sd->flags & SD_ASYM_PACKING))
 			goto next;
@@ -1421,7 +1404,6 @@ sd_init(struct sched_domain_topology_level *tl,
 		sd->cache_nice_tries = 1;
 	}
 
-#ifndef CONFIG_SCHED_WALT
 	/*
 	 * For all levels sharing cache; connect a sched_domain_shared
 	 * instance.
@@ -1431,13 +1413,6 @@ sd_init(struct sched_domain_topology_level *tl,
 		atomic_inc(&sd->shared->ref);
 		atomic_set(&sd->shared->nr_busy_cpus, sd_weight);
 	}
-#else
-	sd->shared = *per_cpu_ptr(sdd->sds, sd_id);
-	atomic_inc(&sd->shared->ref);
-
-	if (sd->flags & SD_SHARE_PKG_RESOURCES)
-		atomic_set(&sd->shared->nr_busy_cpus, sd_weight);
-#endif /* CONFIG_SCHED_WALT */
 
 	sd->private = sdd;
 
@@ -2070,10 +2045,6 @@ build_sched_domains(const struct cpumask *cpu_map, struct sched_domain_attr *att
 	/* Attach the domains */
 	rcu_read_lock();
 	for_each_cpu(i, cpu_map) {
-#ifdef CONFIG_SCHED_WALT
-		int max_cpu = READ_ONCE(d.rd->wrd.max_cap_orig_cpu);
-		int min_cpu = READ_ONCE(d.rd->wrd.min_cap_orig_cpu);
-#endif
 		rq = cpu_rq(i);
 		sd = *per_cpu_ptr(d.sd, i);
 
@@ -2081,46 +2052,8 @@ build_sched_domains(const struct cpumask *cpu_map, struct sched_domain_attr *att
 		if (rq->cpu_capacity_orig > READ_ONCE(d.rd->max_cpu_capacity))
 			WRITE_ONCE(d.rd->max_cpu_capacity, rq->cpu_capacity_orig);
 
-#ifdef CONFIG_SCHED_WALT
-		if ((max_cpu < 0) || (arch_scale_cpu_capacity(i) >
-				arch_scale_cpu_capacity(max_cpu)))
-			WRITE_ONCE(d.rd->wrd.max_cap_orig_cpu, i);
-
-		if ((min_cpu < 0) || (arch_scale_cpu_capacity(i) <
-				arch_scale_cpu_capacity(min_cpu)))
-			WRITE_ONCE(d.rd->wrd.min_cap_orig_cpu, i);
-#endif
-
 		cpu_attach_domain(sd, d.rd, i);
 	}
-
-#ifdef CONFIG_SCHED_WALT
-	/* set the mid capacity cpu (assumes only 3 capacities) */
-	for_each_cpu(i, cpu_map) {
-		int max_cpu = READ_ONCE(d.rd->wrd.max_cap_orig_cpu);
-		int min_cpu = READ_ONCE(d.rd->wrd.min_cap_orig_cpu);
-
-		if ((arch_scale_cpu_capacity(i)
-				!= arch_scale_cpu_capacity(min_cpu)) &&
-				(arch_scale_cpu_capacity(i)
-				!= arch_scale_cpu_capacity(max_cpu))) {
-			WRITE_ONCE(d.rd->wrd.mid_cap_orig_cpu, i);
-			break;
-		}
-	}
-
-	/*
-	 * The max_cpu_capacity reflect the original capacity which does not
-	 * change dynamically. So update the max cap CPU and its capacity
-	 * here.
-	 */
-	if (d.rd->wrd.max_cap_orig_cpu != -1) {
-		d.rd->max_cpu_capacity.cpu = d.rd->wrd.max_cap_orig_cpu;
-		d.rd->max_cpu_capacity.val = arch_scale_cpu_capacity(
-						d.rd->wrd.max_cap_orig_cpu);
-	}
-#endif
-
 	rcu_read_unlock();
 
 	if (has_asym)
@@ -2347,14 +2280,10 @@ match2:
 		;
 	}
 
-#if defined(CONFIG_ENERGY_MODEL) && (defined(CONFIG_CPU_FREQ_GOV_SCHEDUTIL) || defined(CONFIG_SCHED_WALT))
+#if defined(CONFIG_ENERGY_MODEL) && defined(CONFIG_CPU_FREQ_GOV_SCHEDUTIL)
 	/* Build perf. domains: */
 	for (i = 0; i < ndoms_new; i++) {
-#ifndef CONFIG_SCHED_WALT
 		for (j = 0; j < n && !sched_energy_update; j++) {
-#else
-		for (j = 0; j < n; j++) {
-#endif
 			if (cpumask_equal(doms_new[i], doms_cur[j]) &&
 			    cpu_rq(cpumask_first(doms_cur[j]))->rd->pd) {
 				has_eas = true;

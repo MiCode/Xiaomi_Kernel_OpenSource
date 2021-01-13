@@ -21,43 +21,6 @@ extern bool single_task_running(void);
 extern unsigned long nr_iowait(void);
 extern unsigned long nr_iowait_cpu(int cpu);
 
-#ifdef CONFIG_SCHED_WALT
-extern void sched_update_nr_prod(int cpu, long delta, bool inc);
-extern unsigned int sched_get_cpu_util(int cpu);
-extern void sched_update_hyst_times(void);
-extern u64 sched_lpm_disallowed_time(int cpu);
-
-extern int sched_wake_up_idle_show(struct seq_file *m, void *v);
-extern ssize_t sched_wake_up_idle_write(struct file *file,
-		const char __user *buf, size_t count, loff_t *offset);
-extern int sched_wake_up_idle_open(struct inode *inode,
-						struct file *filp);
-
-extern int sched_init_task_load_show(struct seq_file *m, void *v);
-extern ssize_t
-sched_init_task_load_write(struct file *file, const char __user *buf,
-					size_t count, loff_t *offset);
-extern int
-sched_init_task_load_open(struct inode *inode, struct file *filp);
-
-extern int sched_group_id_show(struct seq_file *m, void *v);
-extern ssize_t
-sched_group_id_write(struct file *file, const char __user *buf,
-					size_t count, loff_t *offset);
-extern int sched_group_id_open(struct inode *inode, struct file *filp);
-#else
-static inline void sched_update_nr_prod(int cpu, long delta, bool inc) {}
-static inline unsigned int sched_get_cpu_util(int cpu)
-{
-	return 0;
-}
-static inline void sched_update_hyst_times(void) {}
-static inline u64 sched_lpm_disallowed_time(int cpu)
-{
-	return 0;
-}
-#endif
-
 static inline int sched_info_on(void)
 {
 #ifdef CONFIG_SCHEDSTATS

@@ -11,7 +11,7 @@
 #include <linux/ftrace.h>
 #include <linux/kprobes.h>
 #include "trace.h"
-#include <trace/hooks/restricted_preemptirq.h>
+
 #define CREATE_TRACE_POINTS
 #include <trace/events/preemptirq.h>
 #undef CREATE_TRACE_POINTS

@@ -106,13 +106,6 @@ static inline int __cpupri_find(struct cpupri *cp, struct task_struct *p,
 			drop_nopreempt_cpus(lowest_mask);
 #endif
 
-#ifdef CONFIG_SCHED_WALT
-		if (drop_nopreempts)
-			drop_nopreempt_cpus(lowest_mask);
-
-		cpumask_andnot(lowest_mask, lowest_mask,
-			       cpu_isolated_mask);
-#endif
 		/*
 		 * We have to ensure that we have at least one bit
 		 * still set in the array, since the map could have

@@ -6,10 +6,6 @@
 #include "sched.h"
 #include <trace/hooks/sched.h>
 
-#ifdef CONFIG_SCHED_WALT
-#include "walt.h"
-#endif
-
 #ifdef CONFIG_IRQ_TIME_ACCOUNTING
 
 /*

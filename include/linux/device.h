@@ -801,9 +801,6 @@ static inline bool device_supports_offline(struct device *dev)
 void lock_device_hotplug(void);
 void unlock_device_hotplug(void);
 int lock_device_hotplug_sysfs(void);
-#ifdef CONFIG_SCHED_WALT
-extern void lock_device_hotplug_assert(void);
-#endif
 int device_offline(struct device *dev);
 int device_online(struct device *dev);
 void set_primary_fwnode(struct device *dev, struct fwnode_handle *fwnode);

@@ -38,7 +38,6 @@
 #include <trace/events/power.h>
 #define CREATE_TRACE_POINTS
 #include <trace/events/cpuhp.h>
-#include <linux/sched/clock.h>
 
 #undef CREATE_TRACE_POINTS
 #include <trace/hooks/sched.h>
@@ -1011,11 +1010,6 @@ static int __ref _cpu_down(unsigned int cpu, int tasks_frozen,
 	if (!cpu_present(cpu))
 		return -EINVAL;
 
-#ifdef CONFIG_SCHED_WALT
-	if (!tasks_frozen && !cpu_isolated(cpu) && num_online_uniso_cpus() == 1)
-		return -EBUSY;
-#endif
-
 	cpus_write_lock();
 
 	cpuhp_tasks_frozen = tasks_frozen;
@@ -1075,20 +1069,6 @@ static int cpu_down_maps_locked(unsigned int cpu, enum cpuhp_state target)
 static int cpu_down(unsigned int cpu, enum cpuhp_state target)
 {
 	int err;
-
-#ifdef CONFIG_SCHED_WALT
-	/*
-	 * When cpusets are enabled, the rebuilding of the scheduling
-	 * domains is deferred to a workqueue context. Make sure
-	 * that the work is completed before proceeding to the next
-	 * hotplug. Otherwise scheduler observes an inconsistent
-	 * view of online and offline CPUs in the root domain. If
-	 * the online CPUs are still stuck in the offline (default)
-	 * domain, those CPUs would not be visible when scheduling
-	 * happens on from other CPUs in the root domain.
-	 */
-	cpuset_wait_for_hotplug();
-#endif
 
 	cpu_maps_update_begin();
 	err = cpu_down_maps_locked(cpu, target);
@@ -1518,8 +1498,6 @@ static int cpu_up(unsigned int cpu, enum cpuhp_state target)
 #endif
 		return -EINVAL;
 	}
-
-	cpuset_wait_for_hotplug();
 
 	/*
 	 * CPU hotplug operations consists of many steps and each step
@@ -2731,11 +2709,6 @@ EXPORT_SYMBOL(__cpu_present_mask);
 struct cpumask __cpu_active_mask __read_mostly;
 EXPORT_SYMBOL(__cpu_active_mask);
 
-#ifdef CONFIG_SCHED_WALT
-struct cpumask __cpu_isolated_mask __read_mostly;
-EXPORT_SYMBOL(__cpu_isolated_mask);
-#endif
-
 atomic_t __num_online_cpus __read_mostly;
 EXPORT_SYMBOL(__num_online_cpus);
 
@@ -2753,13 +2726,6 @@ void init_cpu_online(const struct cpumask *src)
 {
 	cpumask_copy(&__cpu_online_mask, src);
 }
-
-#ifdef CONFIG_SCHED_WALT
-void init_cpu_isolated(const struct cpumask *src)
-{
-	cpumask_copy(&__cpu_isolated_mask, src);
-}
-#endif
 
 void set_cpu_online(unsigned int cpu, bool online)
 {
