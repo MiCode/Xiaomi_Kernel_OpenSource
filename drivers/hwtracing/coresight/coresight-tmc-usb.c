@@ -6,6 +6,7 @@
 
 #include <linux/of_address.h>
 #include <linux/delay.h>
+#include <linux/qcom-iommu-util.h>
 #include "coresight-tmc-usb.h"
 #include "coresight-priv.h"
 #include "coresight-common.h"
