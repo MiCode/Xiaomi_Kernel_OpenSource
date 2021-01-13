@@ -23,7 +23,11 @@
 #else
 #define SCP_LOGGER_ENABLE                (0)
 #endif
+#if defined(CONFIG_MACH_MT6877)
+#define SCP_DVFS_INIT_ENABLE             (0)
+#else /* !defined(CONFIG_MACH_MT6877) */
 #define SCP_DVFS_INIT_ENABLE             (1)
+#endif /* defined(CONFIG_MACH_MT6877) */
 #define SCP_VOW_LOW_POWER_MODE           (1)
 
 
