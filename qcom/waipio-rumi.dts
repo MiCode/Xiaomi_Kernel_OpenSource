@@ -9,8 +9,3 @@
 	compatible = "qcom,waipio-rumi", "qcom,waipio", "qcom,rumi";
 	qcom,board-id = <15 0>;
 };
-
-&usb0 {
-	/delete-property/usb-role-switch;
-};
-
