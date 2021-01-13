@@ -2422,6 +2422,7 @@ Example:
 
 Required properties:
 - compatible : "qcom,waipio-asoc-snd".
+- compatible : "qcom,waipio-asoc-snd-stub" for waipio rumi target.
 - qcom,model : The user-visible name of this sound card.
 - qcom,audio-routing : A list of the connections between audio components.
 - asoc-platform: This is phandle list containing the references to platform device
