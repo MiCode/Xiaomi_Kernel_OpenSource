@@ -119,4 +119,5 @@
 			   "wcd938x_codec", "swr-haptics",
 			   "wsa-codec1", "wsa-codec2",
 			   "wsa-codec3", "wsa-codec4";
+	qcom,wsa-max-devs = <4>;
 };

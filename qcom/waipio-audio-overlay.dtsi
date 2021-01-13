@@ -180,8 +180,8 @@
 	wsa2_macro: wsa2-macro@31E0000 {
 		compatible = "qcom,lpass-cdc-wsa2-macro";
 		reg = <0x31E0000 0x0>;
-		qcom,wsa-swr-gpios = <&wsa2_swr_gpios>;
-		qcom,wsa-bcl-pmic-params = /bits/ 8 <0x00 0x03 0x48>;
+		qcom,wsa2-swr-gpios = <&wsa2_swr_gpios>;
+		qcom,wsa2-bcl-pmic-params = /bits/ 8 <0x00 0x03 0x48>;
 		qcom,default-clk-id = <WSA2_TX_CORE_CLK>;
 		qcom,thermal-max-state = <11>;
 		status = "disabled";
