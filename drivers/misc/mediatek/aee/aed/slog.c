@@ -45,6 +45,12 @@ static void probe_signal_devliver(void *data, int sig,
 	slog("#$#%s#@#%s#sig:%d", "signal", "devliver", sig);
 }
 
+static void probe_ufs_mtk_event(void *data, unsigned int type,
+				unsigned int val)
+{
+	slog("#$#ufs#@#event#%lu:%lu(0x%x)", type, val, val);
+}
+
 static void __nocfi probe_ccci_event(void *data, char *string, char *sub_string,
 	unsigned int sub_type, unsigned int resv)
 {
@@ -53,6 +59,7 @@ static void __nocfi probe_ccci_event(void *data, char *string, char *sub_string,
 
 static struct tracepoints_table interests[] = {
 	{.name = "signal_deliver", .func = probe_signal_devliver},
+	{.name = "ufs_mtk_event", .func = probe_ufs_mtk_event},
 	{.name = "ccci_event", .func = probe_ccci_event},
 };
 
