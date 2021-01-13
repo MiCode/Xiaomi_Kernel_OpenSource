@@ -9037,7 +9037,8 @@ static int ufshcd_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 #endif
 
 #if defined(CONFIG_SCSI_SKHPB)
-	if (hba->card->wmanufacturerid == UFS_VENDOR_SKHYNIX)
+	if (hba->card &&
+		hba->card->wmanufacturerid == UFS_VENDOR_SKHYNIX)
 		skhpb_suspend(hba);
 #endif
 	ret = ufshcd_crypto_suspend(hba, pm_op);
