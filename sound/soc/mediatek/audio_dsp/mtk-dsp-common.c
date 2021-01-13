@@ -505,6 +505,7 @@ static int mtk_audio_dsp_event_receive(
 {
 	switch (event) {
 	case ADSP_EVENT_STOP:
+		mtk_audio_set_adsp_reset_status(true);
 		break;
 	case ADSP_EVENT_READY:
 		mtk_reinit_adsp();
@@ -527,5 +528,47 @@ int mtk_audio_register_notify(void)
 	adsp_register_notify(&mtk_audio_dsp_notifier);
 #endif
 	return 0;
+}
+
+int mtk_audio_set_adsp_reset_status(int status)
+{
+	struct mtk_base_dsp *dsp = NULL;
+
+	dsp = get_dsp_base();
+
+	if (dsp == NULL) {
+		pr_info("%s dsp == NULL\n", __func__);
+		return -1;
+	}
+
+	dsp->adsp_reset = status;
+	pr_info("%s adsp_reset[%d]\n", __func__, dsp->adsp_reset);
+
+	return 0;
+}
+
+/* read and clear*/
+bool mtk_audio_get_adsp_reset_status(void)
+{
+	struct mtk_base_dsp *dsp = NULL;
+	bool ret = false;
+
+	dsp = get_dsp_base();
+
+	if (dsp == NULL) {
+		pr_info("%s dsp == NULL\n", __func__);
+		return -1;
+	}
+
+	if (dsp->adsp_reset)
+		ret = true;
+	else
+		ret = false;
+
+	dsp->adsp_reset = false;
+
+	pr_info("%s ret[%d] dsp->adsp_reset[%d]\n", __func__, ret, dsp->adsp_reset);
+
+	return ret;
 }
 

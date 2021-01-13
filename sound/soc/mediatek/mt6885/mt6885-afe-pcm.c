@@ -34,7 +34,9 @@
 
 #if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 #include "../audio_dsp/mtk-dsp-common.h"
+#include <adsp_core.h>
 #endif
+
 #if defined(CONFIG_SND_SOC_MTK_SCP_SMARTPA)
 #include "../scp_spk/mtk-scp-spk-common.h"
 #endif
@@ -134,9 +136,10 @@ int mt6885_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 	unsigned int rate = runtime->rate;
 	int fs;
 	int ret;
+	bool dsp_reset = false;
 
-	dev_info(afe->dev, "%s(), %s cmd %d, irq_id %d\n",
-		 __func__, memif->data->name, cmd, irq_id);
+	dev_info(afe->dev, "%s(), %s cmd %d, irq_id %d dsp_reset %d\n",
+		 __func__, memif->data->name, cmd, irq_id, dsp_reset);
 
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
@@ -217,15 +220,19 @@ int mt6885_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 				}
 			}
 		}
-#if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP) ||\
-	defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
+#if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP) || defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
+#if defined(CONFIG_MTK_AUDIODSP_SUPPORT)
+	/* only when adsp enable using hw semaphore to set memif */
+		dsp_reset = mtk_audio_get_adsp_reset_status();
+		if (runtime->stop_threshold == ~(0U) && is_adsp_system_running() &&
+		    !dsp_reset)
+			ret = 0;
+		else
+			ret = mtk_dsp_memif_set_disable(afe, id);
+#elif defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
 		if (runtime->stop_threshold == ~(0U))
 			ret = 0;
 		else
-/* only when adsp enable using hw semaphore to set memif */
-#if defined(CONFIG_MTK_AUDIODSP_SUPPORT)
-			ret = mtk_dsp_memif_set_disable(afe, id);
-#else
 			ret = mtk_memif_set_disable(afe, id);
 #endif
 #else
@@ -237,9 +244,9 @@ int mt6885_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 		}
 
 		/* disable interrupt */
-#if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP) ||\
-	defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
-		if (runtime->stop_threshold != ~(0U))
+#if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP)
+		if (runtime->stop_threshold != ~(0U) || (!is_adsp_system_running()) ||
+		    dsp_reset)
 			mtk_dsp_irq_set_disable(afe, irq_data);
 #else
 		if (runtime->stop_threshold != ~(0U))
@@ -249,9 +256,8 @@ int mt6885_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 					       0 << irq_data->irq_en_shift);
 
 #endif
-		/* and clear pending IRQ */
-#if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP) ||\
-	defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
+		/* clear pending IRQ */
+#if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP) || defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
 		if (runtime->stop_threshold != ~(0U))
 #endif
 			regmap_write(afe->regmap, irq_data->irq_clr_reg,
