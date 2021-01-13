@@ -120,6 +120,7 @@ struct pg_callbacks md1_subsys_handle = {
 	.debug_dump = md1_subsys_debug_dump,
 };
 
+#ifndef CCCI_DISABLE_DEVAPC_VIO_CALLBACK
 /*devapc_violation_triggered*/
 static enum devapc_cb_status devapc_dump_adv_cb(uint32_t vio_addr)
 {
@@ -152,11 +153,14 @@ static struct devapc_vio_callbacks devapc_test_handle = {
 	.id = INFRA_SUBSYS_MD,
 	.debug_dump_adv = devapc_dump_adv_cb,
 };
+#endif
 
 void ccci_md_devapc_register_cb(void)
 {
 	/*register handle function*/
+#ifndef CCCI_DISABLE_DEVAPC_VIO_CALLBACK
 	register_devapc_vio_callback(&devapc_test_handle);
+#endif
 }
 
 void ccci_md_dump_in_interrupt(char *user_info)
@@ -815,7 +819,11 @@ static int mtk_ccci_cfg_srclken_o1_on(struct ccci_modem *md)
 
 		val = ccci_read32(hw_info->spm_sleep_base, 8);
 		CCCI_INIT_LOG(-1, TAG, "spm_sleep_base+8: val:0x%x +\n", val);
+#ifdef CCCI_PLATFORM_MT6877
+		val |= 0x1<<15;
+#else
 		val |= 0x1<<21;
+#endif
 		ccci_write32(hw_info->spm_sleep_base, 8, val);
 		val = ccci_read32(hw_info->spm_sleep_base, 8);
 		CCCI_INIT_LOG(-1, TAG, "spm_sleep_base+8: val:0x%x -\n", val);
