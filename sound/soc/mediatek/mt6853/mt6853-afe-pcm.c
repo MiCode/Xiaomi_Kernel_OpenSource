@@ -194,8 +194,7 @@ int mt6853_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 				       << irq_data->irq_fs_shift,
 				       fs << irq_data->irq_fs_shift);
 		/* enable interrupt */
-#if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP) ||\
-	defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
+#if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 		if (runtime->stop_threshold != ~(0U))
 			mtk_dsp_irq_set_enable(afe, irq_data);
 #else
