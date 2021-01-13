@@ -428,7 +428,7 @@
 		reg = <0 0x1000ce00 0 0x200>;
 	};
 
-	pwrap@1000d000 {
+	pwrap: pwrap@1000d000 {
 		compatible = "mediatek,pwrap";
 		reg = <0 0x1000d000 0 0x1000>;
 
@@ -3058,6 +3058,62 @@
 		interrupts = <GIC_SPI 432 IRQ_TYPE_LEVEL_HIGH>,
 			/* Assert & FW log interrupt */
 			<GIC_SPI 447 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	afe: mt6877-afe-pcm@11210000 {
+		compatible = "mediatek,mt6877-sound";
+		reg = <0 0x11210000 0 0x2000>;
+		interrupts = <GIC_SPI 246 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	mt6359_snd: mt6359_snd {
+		compatible = "mediatek,mt6359-sound";
+		mediatek,pwrap-regmap = <&pwrap>;
+	};
+
+	sound: sound {
+		compatible = "mediatek,mt6877-mt6359-sound";
+		mediatek,audio-codec = <&mt6359_snd>;
+		mediatek,platform = <&afe>;
+		mediatek,snd_audio_dsp = <&snd_audio_dsp>;
+		mtk_spk_i2s_out = <3>;
+		mtk_spk_i2s_in = <0>;
+		/* mtk_spk_i2s_mck = <3>; */
+		/* mediatek,speaker-codec {
+		 *	sound-dai = <&speaker_amp>;
+		 * };
+		 */
+	};
+
+	/* feature : $enable $dl_mem $ul_mem $ref_mem $size */
+	snd_audio_dsp: snd_audio_dsp {
+		compatible = "mediatek,snd_audio_dsp";
+		mtk_dsp_voip = <0x0 0xffffffff 0xffffffff 0xffffffff 0x30000>;
+		mtk_dsp_primary = <0x0 0xffffffff 0xffffffff \
+				   0xffffffff 0x30000>;
+		mtk_dsp_offload = <0x0 0xffffffff 0xffffffff \
+				   0xffffffff 0x400000>;
+		mtk_dsp_deep = <0x0 0xffffffff 0xffffffff 0xffffffff 0x30000>;
+		mtk_dsp_playback = <0x0 0x4 0xffffffff 0x14 0x30000>;
+		mtk_dsp_music = <0x0 0xffffffff 0xffffffff 0xffffffff 0x0>;
+		mtk_dsp_capture1 = <0x0 0xffffffff 0xd 0x13 0x20000>;
+		mtk_dsp_a2dp = <0x0 0xffffffff 0xffffffff 0xffffffff 0x40000>;
+		mtk_dsp_dataprovider = <0x0 0xffffffff 0xf 0xffffffff 0x30000>;
+		mtk_dsp_call_final = <0x0 0x0 0x10 0x14 0x18000>;
+		mtk_dsp_fast = <0x0 0xffffffff 0xffffffff 0xffffffff 0x5000>;
+		mtk_dsp_ktv = <0x0 0x8 0x12 0xffffffff 0x10000>;
+		mtk_dsp_capture_raw = <0x0 0xffffffff 0xffffffff 0xffffffff 0x20000>;
+		mtk_dsp_ver = <0x1>;
+		swdsp_smartpa_process_enable = <0x0>;
+		mtk_dsp_mem_afe = <0x0 0x40000>; /* always enable */
+	};
+
+	audio_sram@11212000 {
+		compatible = "mediatek,audio_sram";
+		reg = <0 0x11212000 0 0x18000>;
+		prefer_mode = <0>;
+		mode_size = <0x12000 0x18000>;
+		block_size = <0x1000>;
 	};
 
 	gpufreq {
