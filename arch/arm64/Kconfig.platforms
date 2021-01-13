@@ -627,6 +627,7 @@ config MACH_MT6833
 	select MTK_DBGTOP
 	select MTK_PID_MAP
 	select MTK_CM_MGR
+	select MTK_CPU_KORO
 	help
 	  This enables support for MediaTek MT6833
 	  Support for aarch64 Architecture
