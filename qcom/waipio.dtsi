@@ -63,6 +63,7 @@
 			reg = <0x0 0x0>;
 			enable-method = "psci";
 			next-level-cache = <&L2_0>;
+			cpu-idle-states = <&SILVER_OFF>;
 			power-domains = <&CPU_PD0>;
 			power-domain-names = "psci";
 			qcom,freq-domain = <&cpufreq_hw 0 4>;
@@ -86,6 +87,7 @@
 			reg = <0x0 0x100>;
 			enable-method = "psci";
 			next-level-cache = <&L2_0>;
+			cpu-idle-states = <&SILVER_OFF>;
 			power-domains = <&CPU_PD1>;
 			power-domain-names = "psci";
 			qcom,freq-domain = <&cpufreq_hw 0 4>;
@@ -99,6 +101,7 @@
 			reg = <0x0 0x200>;
 			enable-method = "psci";
 			next-level-cache = <&L2_2>;
+			cpu-idle-states = <&SILVER_OFF>;
 			power-domains = <&CPU_PD2>;
 			power-domain-names = "psci";
 			qcom,freq-domain = <&cpufreq_hw 0 4>;
@@ -117,6 +120,7 @@
 			reg = <0x0 0x300>;
 			enable-method = "psci";
 			next-level-cache = <&L2_2>;
+			cpu-idle-states = <&SILVER_OFF>;
 			power-domains = <&CPU_PD3>;
 			power-domain-names = "psci";
 			qcom,freq-domain = <&cpufreq_hw 0 4>;
@@ -130,6 +134,7 @@
 			reg = <0x0 0x400>;
 			enable-method = "psci";
 			next-level-cache = <&L2_4>;
+			cpu-idle-states = <&GOLD_OFF>;
 			power-domains = <&CPU_PD4>;
 			power-domain-names = "psci";
 			qcom,freq-domain = <&cpufreq_hw 1 4>;
@@ -149,6 +154,7 @@
 			reg = <0x0 0x500>;
 			enable-method = "psci";
 			next-level-cache = <&L2_5>;
+			cpu-idle-states = <&GOLD_OFF>;
 			power-domains = <&CPU_PD5>;
 			power-domain-names = "psci";
 			qcom,freq-domain = <&cpufreq_hw 1 4>;
@@ -167,6 +173,7 @@
 			reg = <0x0 0x600>;
 			enable-method = "psci";
 			next-level-cache = <&L2_6>;
+			cpu-idle-states = <&GOLD_OFF>;
 			power-domains = <&CPU_PD6>;
 			qcom,freq-domain = <&cpufreq_hw 1 4>;
 			power-domain-names = "psci";
@@ -185,6 +192,7 @@
 			reg = <0x0 0x700>;
 			enable-method = "psci";
 			next-level-cache = <&L2_7>;
+			cpu-idle-states = <&GOLD_OFF>;
 			power-domains = <&CPU_PD7>;
 			power-domain-names = "psci";
 			qcom,freq-domain = <&cpufreq_hw 2 4>;
@@ -261,14 +269,21 @@
 
 		CLUSTER_PWR_DN: cluster-d4 { /* D4 */
 			compatible = "domain-idle-state";
-			idle-state-name = "llcc-off";
-			entry-latency-us = <1000>;
-			exit-latency-us = <1000>;
-			min-residency-us = <2000>;
-			arm,psci-suspend-param = <0x4100C244>;
+			idle-state-name = "l3-off";
+			entry-latency-us = <2752>;
+			exit-latency-us = <3048>;
+			min-residency-us = <6118>;
+			arm,psci-suspend-param = <0x41000044>;
 		};
 
-		/* AOSS sleep not supported currently */
+		APSS_OFF: cluster-e3 { /* E3 */
+			compatible = "domain-idle-state";
+			idle-state-name = "llcc-off";
+			entry-latency-us = <3263>;
+			exit-latency-us = <6562>;
+			min-residency-us = <9987>;
+			arm,psci-suspend-param = <0x4100c344>;
+		};
 	};
 
 	soc: soc { };
@@ -659,7 +674,7 @@
 
 		CLUSTER_PD: cluster-pd {
 			#power-domain-cells = <0>;
-			domain-idle-states = <&CLUSTER_PWR_DN>;
+			domain-idle-states = <&CLUSTER_PWR_DN &APSS_OFF>;
 		};
 	};
 
