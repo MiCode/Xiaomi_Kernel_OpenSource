@@ -674,12 +674,6 @@ static inline void wil_skb_set_cid(struct sk_buff *skb, u8 cid)
 	skb_rx_info->rx_info.cid = cid;
 }
 
-static inline
-void wil_tx_desc_set_nr_frags(struct vring_tx_desc *d, int nr_frags)
-{
-	d->mac.d[2] |= (nr_frags << MAC_CFG_DESC_TX_2_NUM_OF_DESCRIPTORS_POS);
-}
-
 void wil_netif_rx_any(struct sk_buff *skb, struct net_device *ndev);
 void wil_netif_rx(struct sk_buff *skb, struct net_device *ndev, int cid,
 		  struct wil_net_stats *stats, bool gro);
@@ -690,12 +684,9 @@ struct wil_tid_ampdu_rx *wil_tid_ampdu_rx_alloc(struct wil6210_priv *wil,
 						int size, u16 ssn);
 void wil_tid_ampdu_rx_free(struct wil6210_priv *wil,
 			   struct wil_tid_ampdu_rx *r);
-void wil_tx_data_init(const struct wil6210_priv *wil,
-		      struct wil_ring_tx_data *txdata);
+void wil_tx_data_init(struct wil_ring_tx_data *txdata);
 void wil_init_txrx_ops_legacy_dma(struct wil6210_priv *wil);
 void wil_tx_latency_calc(struct wil6210_priv *wil, struct sk_buff *skb,
 			 struct wil_sta_info *sta);
-int wil_get_cid_by_ring(struct wil6210_priv *wil, struct wil_ring *ring);
-bool wil_is_special_packet(const struct sk_buff *skb);
 
 #endif /* WIL6210_TXRX_H */

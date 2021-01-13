@@ -373,10 +373,6 @@ $(obj)/%.dt.yaml: $(src)/%.dts $(DTC) $(DT_TMP_SCHEMA) FORCE
 
 dtc-tmp = $(subst $(comma),_,$(dot-target).dts.tmp)
 
-# Concatentate multiple files together
-quiet_cmd_cat = CAT $@
-cmd_cat = (cat $(filter-out FORCE,$^) > $@) || (rm -f $@; false)
-
 # Bzip2
 # ---------------------------------------------------------------------------
 
