@@ -13,6 +13,9 @@
 enum {
 	MT6315_ID_6_VBUCK1 = 0,
 	MT6315_ID_6_VBUCK3,
+#if defined(CONFIG_MACH_MT6877)
+	MT6315_ID_6_VBUCK4,
+#endif
 	MT6315_ID_6_MAX,
 };
 
