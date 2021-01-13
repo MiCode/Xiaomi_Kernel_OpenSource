@@ -30,6 +30,20 @@
 		"td4330_fhdp_dsi_cmd_auo_rt4831_drv";
 };
 
+&mt6360_pmu {
+	mt6360,intr_gpio_num = <4>; /* direct defined GPIO num */
+	mt6360,intr_gpio = <&pio 4 0x0>;
+};
+
+&mt6360_pmic {
+	pwr_off_seq = [04 00 00 02];
+};
+
+&mt6360_typec {
+	mt6360pd,intr_gpio_num = <5>; /* direct defined GPIO num */
+	mt6360pd,intr_gpio = <&pio 5 0x0>;
+};
+
 &timer {
 	clock-frequency = <150000000>;
 };
