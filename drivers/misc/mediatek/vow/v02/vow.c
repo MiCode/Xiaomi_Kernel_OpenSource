@@ -1027,24 +1027,37 @@ static bool vow_service_SetModelStatus(bool enable, unsigned long arg)
 	return ret;
 }
 
-static bool vow_service_SetVBufAddr(unsigned long arg)
+static bool vow_service_SetApAddr(unsigned long arg)
 {
-	vow_service_GetParameter(arg);
+	unsigned long vow_info[MAX_VOW_INFO_LEN];
 
-	VOWDRV_DEBUG("vow SetVBufAddr:addr_%x, size_%x\n",
-		 (unsigned int)vowserv.vow_info_apuser[2],
-		 (unsigned int)vowserv.vow_info_apuser[3]);
+	if (copy_from_user((void *)(&vow_info[0]), (const void __user *)(arg),
+			   sizeof(vowserv.vow_info_apuser))) {
+		VOWDRV_DEBUG("vow check parameter fail\n");
+		return false;
+	}
 
 	/* add return condition */
-	if ((vowserv.vow_info_apuser[2] == 0) ||
-	    (vowserv.vow_info_apuser[3] != VOW_VBUF_LENGTH) ||
-	    (vowserv.vow_info_apuser[4] == 0))
+	if ((vow_info[2] == 0) || (vow_info[3] != VOW_VBUF_LENGTH) ||
+	    (vow_info[4] == 0)) {
+		VOWDRV_DEBUG("vow SetVBufAddr:addr_%x, size_%x, addr_%x\n",
+		 (unsigned int)vow_info[2],
+		 (unsigned int)vow_info[3],
+		 (unsigned int)vow_info[4]);
 		return false;
+	}
 
-	vowserv.voicedata_user_addr = vowserv.vow_info_apuser[2];
-	vowserv.voicedata_user_size = vowserv.vow_info_apuser[3];
-	vowserv.voicedata_user_return_size_addr = vowserv.vow_info_apuser[4];
+	vowserv.voicedata_user_addr = vow_info[2];
+	vowserv.voicedata_user_size = vow_info[3];
+	vowserv.voicedata_user_return_size_addr = vow_info[4];
 
+	return true;
+}
+
+static bool vow_service_SetVBufAddr(unsigned long arg)
+{
+	if (!(vow_service_SetApAddr(arg)))
+		return false;
 
 	mutex_lock(&vow_vmalloc_lock);
 	if (vowserv.voicedata_kernel_ptr != NULL) {
@@ -2872,14 +2885,6 @@ static long VowDrv_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 			VOWDRV_DEBUG("VOW_SET_CONTROL Reset");
 			vow_service_reset();
 			break;
-		case VOWControlCmd_ReadVoiceData:
-			if ((vowserv.recording_flag == true)
-			 && (vowserv.firstRead == true)) {
-				vowserv.firstRead = false;
-				VowDrv_SetFlag(VOW_FLAG_DEBUG, true);
-			}
-			vow_service_ReadVoiceData();
-			break;
 		case VOWControlCmd_EnableDebug:
 			VOWDRV_DEBUG("VOW_SET_CONTROL EnableDebug");
 			vowserv.voicedata_idx = 0;
@@ -2926,6 +2931,16 @@ static long VowDrv_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 				     arg);
 			break;
 		}
+		break;
+	case VOW_READ_VOICE_DATA:
+		if (!vow_service_SetApAddr(arg))
+			ret = -EFAULT;
+		if ((vowserv.recording_flag == true)
+		    && (vowserv.firstRead == true)) {
+			vowserv.firstRead = false;
+			VowDrv_SetFlag(VOW_FLAG_DEBUG, true);
+		}
+		vow_service_ReadVoiceData();
 		break;
 	case VOW_SET_SPEAKER_MODEL:
 		VOWDRV_DEBUG("VOW_SET_SPEAKER_MODEL(%lu)", arg);
@@ -3110,6 +3125,7 @@ static long VowDrv_compat_ioctl(struct file *fp,
 		ret = fp->f_op->unlocked_ioctl(fp, cmd, (unsigned long)data);
 	}
 		break;
+	case VOW_READ_VOICE_DATA:
 	case VOW_SET_SPEAKER_MODEL:
 	case VOW_SET_APREG_INFO: {
 		struct vow_model_info_kernel_t __user *data32;
