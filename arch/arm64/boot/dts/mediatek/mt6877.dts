@@ -39,7 +39,6 @@
 	chosen: chosen {
 		bootargs = "console=tty0 console=ttyS0,921600n1 root=/dev/ram \
 			vmalloc=400M slub_debug=OFZPU swiotlb=noforce \
-			earlycon=mtk8250,mmio32,0x11002000 \
 			initcall_debug=1 \
 			firmware_class.path=/vendor/firmware \
 			memblock=debug \
@@ -706,7 +705,7 @@
 			     <GIC_SPI 183 IRQ_TYPE_LEVEL_HIGH>,
 			     <GIC_SPI 184 IRQ_TYPE_LEVEL_HIGH>,
 			     <GIC_SPI 185 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&uart_clk>;
+		clocks = <&infracfg_ao_clk CLK_IFRAO_APDMA>;
 		clock-names = "apdma";
 		#dma-cells = <1>;
 		dma-bits = <34>;
@@ -716,7 +715,7 @@
 		compatible = "mediatek,mt6577-uart";
 		reg = <0 0x11002000 0 0x1000>;
 		interrupts = <GIC_SPI 141 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&uart_clk>, <&uart_clk>;
+		clocks = <&uart_clk>, <&infracfg_ao_clk CLK_IFRAO_UART0>;
 		clock-names = "baud", "bus";
 		dmas = <&apdma 0
 				&apdma 1>;
@@ -727,7 +726,7 @@
 		compatible = "mediatek,mt6577-uart";
 		reg = <0 0x11003000 0 0x1000>;
 		interrupts = <GIC_SPI 142 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&uart_clk>, <&uart_clk>;
+		clocks = <&uart_clk>, <&infracfg_ao_clk CLK_IFRAO_UART1>;
 		clock-names = "baud", "bus";
 		dmas = <&apdma 2
 				&apdma 3>;
