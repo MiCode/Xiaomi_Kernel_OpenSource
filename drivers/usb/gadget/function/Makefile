@@ -67,3 +67,4 @@ ifeq ($(CONFIG_USB_F_RNDIS),)
 usb_f_gsi-y			+= rndis.o
 endif
 obj-$(CONFIG_USB_F_GSI)		+= usb_f_gsi.o
+obj-$(CONFIG_USB_F_FS_IPC_LOGGING)	+= f_fs_ipc_log.o
