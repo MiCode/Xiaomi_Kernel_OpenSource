@@ -134,6 +134,7 @@ EXPORT_SYMBOL_GPL(xhci_mtk_set_sleep);
 
 int xhci_mtk_init_sram(struct xhci_hcd *xhci)
 {
+#ifdef CONFIG_SND_USB_AUDIO
 	int i;
 	int offset = 0;
 	unsigned int xhci_sram_size = 0;
@@ -173,6 +174,9 @@ int xhci_mtk_init_sram(struct xhci_hcd *xhci)
 				 xhci_sram[i].mlength);
 	}
 	return 0;
+#else
+	return -ENOMEM;
+#endif
 }
 EXPORT_SYMBOL_GPL(xhci_mtk_init_sram);
 
