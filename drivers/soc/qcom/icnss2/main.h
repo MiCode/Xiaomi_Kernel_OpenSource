@@ -25,7 +25,7 @@
 #define ICNSS_SMEM_VALUE_MASK 0xFFFFFFFF
 #define ICNSS_SMEM_SEQ_NO_POS 16
 #define QCA6750_PATH_PREFIX    "qca6750/"
-#define ICNSS_MAX_FILE_NAME      20
+#define ICNSS_MAX_FILE_NAME      35
 
 extern uint64_t dynamic_feature_mask;
 
