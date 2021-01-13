@@ -11,6 +11,25 @@
 };
 
 &soc {
+	pcie0: qcom,pcie@1c00000 {
+		reg = <0x01c00000 0x3000>,
+			<0x01c06000 0x2000>,
+			<0x60000000 0xf1d>,
+			<0x60000f20 0xa8>,
+			<0x60001000 0x1000>,
+			<0x60100000 0x100000>,
+			<0x01c05000 0x1000>;
+			reg-names = "parf", "phy", "dm_core", "elbi", "iatu", "conf",
+				"rumi";
+			qcom,target-link-speed = <0x1>;
+			qcom,link-check-max-count = <200>; /* 1 sec */
+			qcom,no-l1-supported;
+			qcom,no-l1ss-supported;
+			qcom,no-aux-clk-sync;
+
+			status = "ok";
+	};
+
 	usb_nop_phy: usb_nop_phy {
 		compatible = "usb-nop-xceiv";
 	};
