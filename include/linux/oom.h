@@ -49,6 +49,8 @@ struct oom_control {
 	unsigned long totalpages;
 	struct task_struct *chosen;
 	long chosen_points;
+	struct task_struct *chosen_non_negative_adj;
+	long chosen_non_negative_adj_points;
 
 	/* Used to print the constraint info. */
 	enum oom_constraint constraint;
@@ -127,4 +129,7 @@ extern struct task_struct *find_lock_task_mm(struct task_struct *p);
 extern int sysctl_oom_dump_tasks;
 extern int sysctl_oom_kill_allocating_task;
 extern int sysctl_panic_on_oom;
+
+/* calls for LMK reaper */
+extern void add_to_oom_reaper(struct task_struct *p);
 #endif /* _INCLUDE_LINUX_OOM_H */

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "qcom-pmu: " fmt
@@ -21,6 +21,7 @@
 #include <linux/cpu.h>
 #include <linux/spinlock.h>
 #include <linux/perf_event.h>
+#include <linux/cpuidle.h>
 #include <trace/events/power.h>
 #include <trace/hooks/cpuidle.h>
 #include <soc/qcom/pmu_lib.h>
@@ -340,18 +341,15 @@ int qcom_pmu_idle_unregister(struct qcom_pmu_notif_node *idle_node)
 }
 EXPORT_SYMBOL(qcom_pmu_idle_unregister);
 
-static void qcom_pmu_idle_notif(void *unused, int event, int state, int cpu)
+static void qcom_pmu_idle_enter_notif(void *unused, int *state,
+				      struct cpuidle_device *dev)
 {
-	struct cpu_data *cpu_data = per_cpu(cpu_ev_data, cpu);
+	struct cpu_data *cpu_data = per_cpu(cpu_ev_data, dev->cpu);
 	struct qcom_pmu_data pmu_data;
 	struct event_data *ev;
 	struct qcom_pmu_notif_node *idle_node;
 	int i, cnt = 0;
 
-	if (event == PWR_EVENT_EXIT) {
-		cpu_data->is_idle = false;
-		return;
-	}
 	if (cpu_data->is_idle || cpu_data->is_hp)
 		return;
 	cpu_data->is_idle = true;
@@ -368,7 +366,15 @@ static void qcom_pmu_idle_notif(void *unused, int event, int state, int cpu)
 
 	/* send snapshot of pmu data to all registered idle clients */
 	list_for_each_entry(idle_node, &idle_notif_list, node)
-		idle_node->idle_cb(&pmu_data, cpu, state);
+		idle_node->idle_cb(&pmu_data, dev->cpu, *state);
+}
+
+static void qcom_pmu_idle_exit_notif(void *unused, int state,
+				     struct cpuidle_device *dev)
+{
+	struct cpu_data *cpu_data = per_cpu(cpu_ev_data, dev->cpu);
+
+	cpu_data->is_idle = false;
 }
 
 #if IS_ENABLED(CONFIG_HOTPLUG_CPU)
@@ -471,7 +477,8 @@ static int qcom_pmu_driver_probe(struct platform_device *pdev)
 		dev_err(dev, "qcom pmu driver failed to probe: %d\n", ret);
 		goto out;
 	}
-	register_trace_android_vh_cpu_idle(qcom_pmu_idle_notif, NULL);
+	register_trace_android_vh_cpu_idle_enter(qcom_pmu_idle_enter_notif, NULL);
+	register_trace_android_vh_cpu_idle_exit(qcom_pmu_idle_exit_notif, NULL);
 	qcom_pmu_inited = true;
 
 out:
@@ -487,7 +494,8 @@ static int qcom_pmu_driver_remove(struct platform_device *pdev)
 
 	qcom_pmu_inited = false;
 	cpuhp_remove_state_nocalls(CPUHP_AP_ONLINE_DYN);
-	unregister_trace_android_vh_cpu_idle(qcom_pmu_idle_notif, NULL);
+	unregister_trace_android_vh_cpu_idle_enter(qcom_pmu_idle_enter_notif, NULL);
+	unregister_trace_android_vh_cpu_idle_exit(qcom_pmu_idle_exit_notif, NULL);
 	for_each_possible_cpu(cpu) {
 		cpu_data = per_cpu(cpu_ev_data, cpu);
 		cpu_data->is_hp = true;

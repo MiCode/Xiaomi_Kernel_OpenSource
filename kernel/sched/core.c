@@ -659,6 +659,7 @@ void resched_curr(struct rq *rq)
 	else
 		trace_sched_wake_idle_without_ipi(cpu);
 }
+EXPORT_SYMBOL_GPL(resched_curr);
 
 void resched_cpu(int cpu)
 {
@@ -1616,7 +1617,7 @@ static inline void enqueue_task(struct rq *rq, struct task_struct *p, int flags)
 	trace_sched_enq_deq_task(p, 1, cpumask_bits(&p->cpus_mask)[0]);
 #endif
 
-	trace_android_rvh_enqueue_task(rq, p);
+	trace_android_rvh_enqueue_task(rq, p, flags);
 }
 
 static inline void dequeue_task(struct rq *rq, struct task_struct *p, int flags)
@@ -1637,7 +1638,7 @@ static inline void dequeue_task(struct rq *rq, struct task_struct *p, int flags)
 	trace_sched_enq_deq_task(p, 0, cpumask_bits(&p->cpus_mask)[0]);
 #endif
 
-	trace_android_rvh_dequeue_task(rq, p);
+	trace_android_rvh_dequeue_task(rq, p, flags);
 }
 
 void activate_task(struct rq *rq, struct task_struct *p, int flags)
@@ -2854,8 +2855,12 @@ static inline bool ttwu_queue_cond(int cpu, int wake_flags)
 
 static bool ttwu_queue_wakelist(struct task_struct *p, int cpu, int wake_flags)
 {
+	bool cond = false;
+
+	trace_android_rvh_ttwu_cond(&cond);
+
 	if ((sched_feat(TTWU_QUEUE) && ttwu_queue_cond(cpu, wake_flags)) ||
-	     walt_want_remote_wakeup()) {
+			cond) {
 		if (WARN_ON_ONCE(cpu == smp_processor_id()))
 			return false;
 
@@ -3310,6 +3315,8 @@ static void __sched_fork(unsigned long clone_flags, struct task_struct *p)
 #ifdef CONFIG_FAIR_GROUP_SCHED
 	p->se.cfs_rq			= NULL;
 #endif
+
+	trace_android_rvh_sched_fork_init(p);
 
 #ifdef CONFIG_SCHEDSTATS
 	/* Even if schedstat is disabled, there should not be garbage */
@@ -4148,6 +4155,11 @@ void sched_exec(void)
 	struct task_struct *p = current;
 	unsigned long flags;
 	int dest_cpu;
+	bool cond = false;
+
+	trace_android_rvh_sched_exec(&cond);
+	if (cond)
+		return;
 
 #ifdef CONFIG_SCHED_WALT
 	if (sched_energy_enabled())
@@ -4580,6 +4592,9 @@ static noinline void __schedule_bug(struct task_struct *prev)
 #if defined(CONFIG_PANIC_ON_SCHED_BUG) && defined(CONFIG_SCHED_WALT)
 	BUG();
 #endif
+
+	trace_android_rvh_schedule_bug(NULL);
+
 	dump_stack();
 	add_taint(TAINT_WARN, LOCKDEP_STILL_OK);
 }
@@ -7632,6 +7647,7 @@ void __init sched_init_smp(void)
 #ifdef CONFIG_SCHED_WALT
 	cpumask_copy(&current->wts.cpus_requested, cpu_possible_mask);
 #endif
+
 	sched_init_granularity();
 
 	init_sched_rt_class();
@@ -7932,6 +7948,9 @@ void ___might_sleep(const char *file, int line, int preempt_offset)
 #ifdef CONFIG_PANIC_ON_SCHED_BUG
 	BUG();
 #endif
+
+	trace_android_rvh_schedule_bug(NULL);
+
 	dump_stack();
 	add_taint(TAINT_WARN, LOCKDEP_STILL_OK);
 }
