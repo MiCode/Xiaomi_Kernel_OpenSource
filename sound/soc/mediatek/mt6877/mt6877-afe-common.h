@@ -142,6 +142,10 @@ enum {
 	MT6877_I2S4_MCK,
 	MT6877_I2S4_BCK,
 	MT6877_I2S5_MCK,
+	MT6877_I2S6_MCK,
+	MT6877_I2S7_MCK,
+	MT6877_I2S8_MCK,
+	MT6877_I2S9_MCK,
 	MT6877_MCK_NUM,
 };
 
@@ -164,7 +168,6 @@ struct clk;
 struct mt6877_afe_private {
 	struct clk **clk;
 	struct regmap *topckgen;
-	struct regmap *apmixed;
 	struct regmap *infracfg_ao;
 	int irq_cnt[MT6877_MEMIF_NUM];
 	int stf_positive_gain_db;

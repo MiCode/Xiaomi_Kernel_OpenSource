@@ -37,19 +37,15 @@ static DEFINE_MUTEX(mutex_request_dram);
 
 static const char *aud_clks[CLK_NUM] = {
 	[CLK_AFE] = "aud_afe_clk",
-	/*[CLK_DAC] = "aud_dac_clk",*/
-	/*[CLK_DAC_PREDIS] = "aud_dac_predis_clk",*/
-	/*[CLK_ADC] = "aud_adc_clk",*/
-	[CLK_TML] = "aud_tml_clk",
-	[CLK_APLL22M] = "aud_apll22m_clk",
-	[CLK_APLL24M] = "aud_apll24m_clk",
+	[CLK_APLL22M] = "aud_22m_clk",
+	[CLK_APLL24M] = "aud_24m_clk",
 	[CLK_APLL1_TUNER] = "aud_apll1_tuner_clk",
 	[CLK_APLL2_TUNER] = "aud_apll2_tuner_clk",
-	[CLK_NLE] = "aud_nle",
-	[CLK_SCP_SYS_AUD] = "scp_sys_audio",
 	[CLK_INFRA_SYS_AUDIO] = "aud_infra_clk",
 	[CLK_INFRA_AUDIO_26M] = "aud_infra_26m_clk",
+	[CLK_SCP_SYS_AUD] = "scp_sys_audio",
 	[CLK_MUX_AUDIO] = "top_mux_audio",
+	[CLK_MUX_AUDIO_H] = "top_mux_audio_h",
 	[CLK_MUX_AUDIOINTBUS] = "top_mux_audio_int",
 	[CLK_TOP_MAINPLL_D4_D4] = "top_mainpll_d4_d4",
 	[CLK_TOP_MUX_AUD_1] = "top_mux_aud_1",
@@ -60,7 +56,6 @@ static const char *aud_clks[CLK_NUM] = {
 	[CLK_TOP_APLL1_D4] = "top_apll1_d4",
 	[CLK_TOP_MUX_AUD_ENG2] = "top_mux_aud_eng2",
 	[CLK_TOP_APLL2_D4] = "top_apll2_d4",
-	[CLK_TOP_MUX_AUDIO_H] = "top_mux_audio_h",
 	[CLK_TOP_I2S0_M_SEL] = "top_i2s0_m_sel",
 	[CLK_TOP_I2S1_M_SEL] = "top_i2s1_m_sel",
 	[CLK_TOP_I2S2_M_SEL] = "top_i2s2_m_sel",
@@ -239,21 +234,18 @@ int mt6877_afe_enable_clock(struct mtk_base_afe *afe)
 			__func__, aud_clks[CLK_SCP_SYS_AUD], ret);
 		goto CLK_SCP_SYS_AUD_ERR;
 	}
-
 	ret = clk_prepare_enable(afe_priv->clk[CLK_INFRA_SYS_AUDIO]);
 	if (ret) {
 		dev_err(afe->dev, "%s clk_prepare_enable %s fail %d\n",
 			__func__, aud_clks[CLK_INFRA_SYS_AUDIO], ret);
 		goto CLK_INFRA_SYS_AUDIO_ERR;
 	}
-
 	ret = clk_prepare_enable(afe_priv->clk[CLK_INFRA_AUDIO_26M]);
 	if (ret) {
 		dev_err(afe->dev, "%s clk_prepare_enable %s fail %d\n",
 			__func__, aud_clks[CLK_INFRA_AUDIO_26M], ret);
 		goto CLK_INFRA_AUDIO_26M_ERR;
 	}
-
 	ret = clk_prepare_enable(afe_priv->clk[CLK_MUX_AUDIO]);
 	if (ret) {
 		dev_err(afe->dev, "%s clk_prepare_enable %s fail %d\n",
@@ -268,24 +260,13 @@ int mt6877_afe_enable_clock(struct mtk_base_afe *afe)
 			aud_clks[CLK_CLK26M], ret);
 		goto CLK_MUX_AUDIO_ERR;
 	}
-
 	ret = clk_prepare_enable(afe_priv->clk[CLK_MUX_AUDIOINTBUS]);
 	if (ret) {
 		dev_err(afe->dev, "%s clk_prepare_enable %s fail %d\n",
 			__func__, aud_clks[CLK_MUX_AUDIOINTBUS], ret);
 		goto CLK_MUX_AUDIO_INTBUS_ERR;
 	}
-	ret = mt6877_set_audio_int_bus_parent(afe,
-					      CLK_CLK26M);
-
-	ret = clk_set_parent(afe_priv->clk[CLK_TOP_MUX_AUDIO_H],
-			     afe_priv->clk[CLK_TOP_APLL2_CK]);
-	if (ret) {
-		dev_err(afe->dev, "%s clk_set_parent %s-%s fail %d\n",
-			__func__, aud_clks[CLK_TOP_MUX_AUDIO_H],
-			aud_clks[CLK_TOP_APLL2_CK], ret);
-		goto CLK_MUX_AUDIO_H_PARENT_ERR;
-	}
+	ret = mt6877_set_audio_int_bus_parent(afe, CLK_CLK26M);
 
 	ret = clk_prepare_enable(afe_priv->clk[CLK_AFE]);
 	if (ret) {
@@ -298,7 +279,6 @@ int mt6877_afe_enable_clock(struct mtk_base_afe *afe)
 
 CLK_AFE_ERR:
 	clk_disable_unprepare(afe_priv->clk[CLK_AFE]);
-CLK_MUX_AUDIO_H_PARENT_ERR:
 CLK_MUX_AUDIO_INTBUS_ERR:
 	clk_disable_unprepare(afe_priv->clk[CLK_MUX_AUDIOINTBUS]);
 CLK_MUX_AUDIO_ERR:
@@ -514,106 +494,52 @@ int mt6877_get_apll_by_name(struct mtk_base_afe *afe, const char *name)
 struct mt6877_mck_div {
 	int m_sel_id;
 	int div_clk_id;
-	/* below will be deprecated */
-	int div_pdn_reg;
-	int div_pdn_mask_sft;
-	int div_reg;
-	int div_mask_sft;
-	int div_mask;
-	int div_sft;
-	int div_apll_sel_reg;
-	int div_apll_sel_mask_sft;
-	int div_apll_sel_sft;
 };
 
 static const struct mt6877_mck_div mck_div[MT6877_MCK_NUM] = {
 	[MT6877_I2S0_MCK] = {
 		.m_sel_id = CLK_TOP_I2S0_M_SEL,
 		.div_clk_id = CLK_TOP_APLL12_DIV0,
-		.div_pdn_reg = CLK_AUDDIV_0,
-		.div_pdn_mask_sft = APLL12_DIV0_PDN_MASK_SFT,
-		.div_reg = CLK_AUDDIV_2,
-		.div_mask_sft = APLL12_CK_DIV0_MASK_SFT,
-		.div_mask = APLL12_CK_DIV0_MASK,
-		.div_sft = APLL12_CK_DIV0_SFT,
-		.div_apll_sel_reg = CLK_AUDDIV_0,
-		.div_apll_sel_mask_sft = APLL_I2S0_MCK_SEL_MASK_SFT,
-		.div_apll_sel_sft = APLL_I2S0_MCK_SEL_SFT,
 	},
 	[MT6877_I2S1_MCK] = {
 		.m_sel_id = CLK_TOP_I2S1_M_SEL,
 		.div_clk_id = CLK_TOP_APLL12_DIV1,
-		.div_pdn_reg = CLK_AUDDIV_0,
-		.div_pdn_mask_sft = APLL12_DIV1_PDN_MASK_SFT,
-		.div_reg = CLK_AUDDIV_2,
-		.div_mask_sft = APLL12_CK_DIV1_MASK_SFT,
-		.div_mask = APLL12_CK_DIV1_MASK,
-		.div_sft = APLL12_CK_DIV1_SFT,
-		.div_apll_sel_reg = CLK_AUDDIV_0,
-		.div_apll_sel_mask_sft = APLL_I2S1_MCK_SEL_MASK_SFT,
-		.div_apll_sel_sft = APLL_I2S1_MCK_SEL_SFT,
 	},
 	[MT6877_I2S2_MCK] = {
 		.m_sel_id = CLK_TOP_I2S2_M_SEL,
 		.div_clk_id = CLK_TOP_APLL12_DIV2,
-		.div_pdn_reg = CLK_AUDDIV_0,
-		.div_pdn_mask_sft = APLL12_DIV2_PDN_MASK_SFT,
-		.div_reg = CLK_AUDDIV_2,
-		.div_mask_sft = APLL12_CK_DIV2_MASK_SFT,
-		.div_mask = APLL12_CK_DIV2_MASK,
-		.div_sft = APLL12_CK_DIV2_SFT,
-		.div_apll_sel_reg = CLK_AUDDIV_0,
-		.div_apll_sel_mask_sft = APLL_I2S2_MCK_SEL_MASK_SFT,
-		.div_apll_sel_sft = APLL_I2S2_MCK_SEL_SFT,
 	},
 	[MT6877_I2S3_MCK] = {
 		.m_sel_id = CLK_TOP_I2S3_M_SEL,
 		.div_clk_id = CLK_TOP_APLL12_DIV3,
-		.div_pdn_reg = CLK_AUDDIV_0,
-		.div_pdn_mask_sft = APLL12_DIV3_PDN_MASK_SFT,
-		.div_reg = CLK_AUDDIV_2,
-		.div_mask_sft = APLL12_CK_DIV3_MASK_SFT,
-		.div_mask = APLL12_CK_DIV3_MASK,
-		.div_sft = APLL12_CK_DIV3_SFT,
-		.div_apll_sel_reg = CLK_AUDDIV_0,
-		.div_apll_sel_mask_sft = APLL_I2S3_MCK_SEL_MASK_SFT,
-		.div_apll_sel_sft = APLL_I2S3_MCK_SEL_SFT,
 	},
 	[MT6877_I2S4_MCK] = {
 		.m_sel_id = CLK_TOP_I2S4_M_SEL,
 		.div_clk_id = CLK_TOP_APLL12_DIV4,
-		.div_pdn_reg = CLK_AUDDIV_0,
-		.div_pdn_mask_sft = APLL12_DIV4_PDN_MASK_SFT,
-		.div_reg = CLK_AUDDIV_3,
-		.div_mask_sft = APLL12_CK_DIV4_MASK_SFT,
-		.div_mask = APLL12_CK_DIV4_MASK,
-		.div_sft = APLL12_CK_DIV4_SFT,
-		.div_apll_sel_reg = CLK_AUDDIV_0,
-		.div_apll_sel_mask_sft = APLL_I2S4_MCK_SEL_MASK_SFT,
-		.div_apll_sel_sft = APLL_I2S4_MCK_SEL_SFT,
 	},
 	[MT6877_I2S4_BCK] = {
 		.m_sel_id = -1,
 		.div_clk_id = CLK_TOP_APLL12_DIVB,
-		.div_pdn_reg = CLK_AUDDIV_0,
-		.div_pdn_mask_sft = APLL12_DIVB_PDN_MASK_SFT,
-		.div_reg = CLK_AUDDIV_2,
-		.div_mask_sft = APLL12_CK_DIVB_MASK_SFT,
-		.div_mask = APLL12_CK_DIVB_MASK,
-		.div_sft = APLL12_CK_DIVB_SFT,
 	},
 	[MT6877_I2S5_MCK] = {
 		.m_sel_id = CLK_TOP_I2S5_M_SEL,
 		.div_clk_id = CLK_TOP_APLL12_DIV5,
-		.div_pdn_reg = CLK_AUDDIV_0,
-		.div_pdn_mask_sft = APLL12_DIV5_PDN_MASK_SFT,
-		.div_reg = CLK_AUDDIV_3,
-		.div_mask_sft = APLL12_CK_DIV5_MASK_SFT,
-		.div_mask = APLL12_CK_DIV5_MASK,
-		.div_sft = APLL12_CK_DIV5_SFT,
-		.div_apll_sel_reg = CLK_AUDDIV_0,
-		.div_apll_sel_mask_sft = APLL_I2S5_MCK_SEL_MASK_SFT,
-		.div_apll_sel_sft = APLL_I2S5_MCK_SEL_SFT,
+	},
+	[MT6877_I2S6_MCK] = {
+		.m_sel_id = CLK_TOP_I2S6_M_SEL,
+		.div_clk_id = CLK_TOP_APLL12_DIV6,
+	},
+	[MT6877_I2S7_MCK] = {
+		.m_sel_id = CLK_TOP_I2S7_M_SEL,
+		.div_clk_id = CLK_TOP_APLL12_DIV7,
+	},
+	[MT6877_I2S8_MCK] = {
+		.m_sel_id = CLK_TOP_I2S8_M_SEL,
+		.div_clk_id = CLK_TOP_APLL12_DIV8,
+	},
+	[MT6877_I2S9_MCK] = {
+		.m_sel_id = CLK_TOP_I2S9_M_SEL,
+		.div_clk_id = CLK_TOP_APLL12_DIV9,
 	},
 };
 
@@ -693,14 +619,6 @@ int mt6877_init_clock(struct mtk_base_afe *afe)
 			/*return PTR_ERR(clks[i]);*/
 			afe_priv->clk[i] = NULL;
 		}
-	}
-
-	afe_priv->apmixed = syscon_regmap_lookup_by_phandle(afe->dev->of_node,
-							    "apmixed");
-	if (IS_ERR(afe_priv->apmixed)) {
-		dev_err(afe->dev, "%s() Cannot find apmixed controller: %ld\n",
-			__func__, PTR_ERR(afe_priv->apmixed));
-		return PTR_ERR(afe_priv->apmixed);
 	}
 
 	afe_priv->topckgen = syscon_regmap_lookup_by_phandle(afe->dev->of_node,
