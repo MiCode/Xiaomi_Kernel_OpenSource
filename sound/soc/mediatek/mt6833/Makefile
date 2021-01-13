@@ -32,3 +32,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(AUDIO_PLATFORM
 ifeq ($(CONFIG_SND_SOC_AW87339),y)
 subdir-ccflags-y += -I$(srctree)/sound/soc/codecs/aw87339/$(MTK_PROJECT)/
 endif
+
+ifeq ($(CONFIG_SND_SOC_SIA8109),y)
+subdir-ccflags-y += -I$(srctree)/sound/soc/codecs/sia81xx/$(MTK_PROJECT)/
+endif

@@ -22,7 +22,7 @@
 #endif
 
 #ifdef CONFIG_SND_SOC_SIA8109
-#include "../../codecs/sia81xx/sia81xx_common.h"
+#include "sia81xx_common.h"
 #endif
 
 /*
