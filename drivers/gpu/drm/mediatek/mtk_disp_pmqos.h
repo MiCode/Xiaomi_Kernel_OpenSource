@@ -31,7 +31,7 @@
 #include "dt-bindings/memory/mt6833-larb-port.h"
 #elif defined(CONFIG_MACH_MT6877)
 //#include  "helio-dvfsrc-opp-mt6877.h"
-//#include "dt-bindings/memory/mt6877-larb-port.h"
+#include "dt-bindings/memory/mt6877-larb-port.h"
 #endif
 #include <linux/pm_qos.h>
 
