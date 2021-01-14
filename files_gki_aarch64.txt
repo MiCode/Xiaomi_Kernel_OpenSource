@@ -1,3 +1,4 @@
+arch/arm64/crypto/aes-ce-core.S
 arch/arm64/crypto/aes-ce-glue.c
 arch/arm64/crypto/aes-ce.S
 arch/arm64/crypto/aes-ce-setkey.h
@@ -7,9 +8,7 @@ arch/arm64/crypto/aes-glue.c
 arch/arm64/crypto/aes-modes.S
 arch/arm64/crypto/chacha-neon-core.S
 arch/arm64/crypto/chacha-neon-glue.c
-arch/arm64/crypto/poly1305-core.S
 arch/arm64/crypto/poly1305-glue.c
-arch/arm64/crypto/sha256-core.S
 arch/arm64/crypto/sha256-glue.c
 arch/arm64/crypto/sha2-ce-core.S
 arch/arm64/crypto/sha2-ce-glue.c
@@ -431,8 +430,6 @@ crypto/ansi_cprng.c
 crypto/api.c
 crypto/asymmetric_keys/asymmetric_keys.h
 crypto/asymmetric_keys/asymmetric_type.c
-crypto/asymmetric_keys/pkcs7.asn1.c
-crypto/asymmetric_keys/pkcs7.asn1.h
 crypto/asymmetric_keys/pkcs7_parser.c
 crypto/asymmetric_keys/pkcs7_parser.h
 crypto/asymmetric_keys/pkcs7_trust.c
@@ -440,10 +437,6 @@ crypto/asymmetric_keys/pkcs7_verify.c
 crypto/asymmetric_keys/public_key.c
 crypto/asymmetric_keys/restrict.c
 crypto/asymmetric_keys/signature.c
-crypto/asymmetric_keys/x509_akid.asn1.c
-crypto/asymmetric_keys/x509_akid.asn1.h
-crypto/asymmetric_keys/x509.asn1.c
-crypto/asymmetric_keys/x509.asn1.h
 crypto/asymmetric_keys/x509_cert_parser.c
 crypto/asymmetric_keys/x509_parser.h
 crypto/asymmetric_keys/x509_public_key.c
@@ -494,10 +487,6 @@ crypto/rng.c
 crypto/rsa.c
 crypto/rsa_helper.c
 crypto/rsa-pkcs1pad.c
-crypto/rsaprivkey.asn1.c
-crypto/rsaprivkey.asn1.h
-crypto/rsapubkey.asn1.c
-crypto/rsapubkey.asn1.h
 crypto/scatterwalk.c
 crypto/scompress.c
 crypto/seqiv.c
@@ -1350,7 +1339,6 @@ drivers/scsi/scsi_common.c
 drivers/scsi/scsi_debugfs.c
 drivers/scsi/scsi_debugfs.h
 drivers/scsi/scsi_devinfo.c
-drivers/scsi/scsi_devinfo_tbl.c
 drivers/scsi/scsi_error.c
 drivers/scsi/scsi_ioctl.c
 drivers/scsi/scsi_lib.c
@@ -1947,7 +1935,6 @@ fs/sysfs/sysfs.h
 fs/timerfd.c
 fs/tracefs/inode.c
 fs/unicode/utf8-core.c
-fs/unicode/utf8data.h
 fs/unicode/utf8n.h
 fs/unicode/utf8-norm.c
 fs/utimes.c
@@ -2716,6 +2703,7 @@ include/linux/lockdep_types.h
 include/linux/lockref.h
 include/linux/log2.h
 include/linux/logic_pio.h
+include/linux/log_mmiorw.h
 include/linux/lsm_audit.h
 include/linux/lsm_hook_defs.h
 include/linux/lsm_hooks.h
@@ -3692,6 +3680,7 @@ include/trace/events/rcu.h
 include/trace/events/regulator.h
 include/trace/events/rpm.h
 include/trace/events/rtc.h
+include/trace/events/rwmmio.h
 include/trace/events/sched.h
 include/trace/events/scmi.h
 include/trace/events/scsi.h
@@ -3725,11 +3714,13 @@ include/trace/hooks/debug.h
 include/trace/hooks/dtask.h
 include/trace/hooks/epoch.h
 include/trace/hooks/fpsimd.h
+include/trace/hooks/ftrace_dump.h
 include/trace/hooks/futex.h
 include/trace/hooks/gic.h
 include/trace/hooks/gic_v3.h
 include/trace/hooks/mm.h
 include/trace/hooks/mpam.h
+include/trace/hooks/pm_domain.h
 include/trace/hooks/preemptirq.h
 include/trace/hooks/printk.h
 include/trace/hooks/rwsem.h
@@ -4489,6 +4480,7 @@ kernel/trace/trace_printk.c
 kernel/trace/trace_probe.c
 kernel/trace/trace_probe.h
 kernel/trace/trace_probe_tmpl.h
+kernel/trace/trace_readwrite.c
 kernel/trace/trace_sched_switch.c
 kernel/trace/trace_seq.c
 kernel/trace/trace_stat.c
@@ -4526,7 +4518,6 @@ lib/cpu_rmap.c
 lib/crc16.c
 lib/crc32.c
 lib/crc32defs.h
-lib/crc32table.h
 lib/crc8.c
 lib/crc-ccitt.c
 lib/crypto/aes.c
@@ -4589,6 +4580,15 @@ lib/kobject.c
 lib/kobject_uevent.c
 lib/kstrtox.c
 lib/kstrtox.h
+lib/kunit/assert.c
+lib/kunit/debugfs.c
+lib/kunit/debugfs.h
+lib/kunit/executor.c
+lib/kunit/string-stream.c
+lib/kunit/string-stream.h
+lib/kunit/test.c
+lib/kunit/try-catch.c
+lib/kunit/try-catch-impl.h
 lib/libcrc32c.c
 lib/linear_ranges.c
 lib/list_debug.c
@@ -4642,7 +4642,6 @@ lib/nlattr.c
 lib/nmi_backtrace.c
 lib/nodemask.c
 lib/oid_registry.c
-lib/oid_registry_data.c
 lib/once.c
 lib/parser.c
 lib/pci_iomap.c
@@ -5334,7 +5333,6 @@ net/wireless/rdev-ops.h
 net/wireless/reg.c
 net/wireless/reg.h
 net/wireless/scan.c
-net/wireless/shipped-certs.c
 net/wireless/sme.c
 net/wireless/sysfs.c
 net/wireless/sysfs.h
@@ -5375,9 +5373,6 @@ scripts/dtc/checks.c
 scripts/dtc/data.c
 scripts/dtc/dtc.c
 scripts/dtc/dtc.h
-scripts/dtc/dtc-lexer.lex.c
-scripts/dtc/dtc-parser.tab.c
-scripts/dtc/dtc-parser.tab.h
 scripts/dtc/flattree.c
 scripts/dtc/fstree.c
 scripts/dtc/libfdt/fdt_addresses.c
@@ -5404,27 +5399,19 @@ scripts/extract-cert.c
 scripts/genksyms/genksyms.c
 scripts/genksyms/genksyms.h
 scripts/genksyms/keywords.c
-scripts/genksyms/lex.lex.c
-scripts/genksyms/parse.tab.c
-scripts/genksyms/parse.tab.h
 scripts/kallsyms.c
 scripts/kconfig/conf.c
 scripts/kconfig/confdata.c
 scripts/kconfig/expr.c
 scripts/kconfig/expr.h
-scripts/kconfig/lexer.lex.c
 scripts/kconfig/list.h
 scripts/kconfig/lkc.h
 scripts/kconfig/lkc_proto.h
 scripts/kconfig/menu.c
-scripts/kconfig/parser.tab.c
-scripts/kconfig/parser.tab.h
 scripts/kconfig/preprocess.c
 scripts/kconfig/symbol.c
 scripts/kconfig/util.c
 scripts/mod/devicetable-offsets.c
-scripts/mod/devicetable-offsets.h
-scripts/mod/elfconfig.h
 scripts/mod/empty.c
 scripts/mod/file2alias.c
 scripts/mod/mk_elfconfig.c
@@ -5461,8 +5448,6 @@ security/lsm_audit.c
 security/min_addr.c
 security/security.c
 security/selinux/avc.c
-security/selinux/av_permissions.h
-security/selinux/flask.h
 security/selinux/hooks.c
 security/selinux/include/audit.h
 security/selinux/include/avc.h
