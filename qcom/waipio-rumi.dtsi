@@ -38,6 +38,14 @@
 	};
 };
 
+&usb2_phy0 {
+	status = "disabled";
+};
+
+&usb_qmp_dp_phy {
+	status = "disabled";
+};
+
 &sdhc_2 {
 	status = "ok";
 	vdd-supply = <&pm8350c_l9>;
