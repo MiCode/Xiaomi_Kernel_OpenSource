@@ -281,9 +281,6 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"apss_cc_debug_mux",
 	"cam_cc_debug_mux",
 	"disp_cc_debug_mux",
-	"gcc_aggre_noc_pcie_0_axi_clk",
-	"gcc_aggre_noc_pcie_1_axi_clk",
-	"gcc_aggre_noc_pcie_center_sf_axi_clk",
 	"gcc_aggre_ufs_phy_axi_clk",
 	"gcc_aggre_usb3_prim_axi_clk",
 	"gcc_aggre_usb3_sec_axi_clk",
@@ -292,7 +289,6 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"gcc_cfg_noc_usb3_prim_axi_clk",
 	"gcc_cfg_noc_usb3_sec_axi_clk",
 	"gcc_ddrss_gpu_axi_clk",
-	"gcc_ddrss_pcie_sf_clk",
 	"gcc_disp_gpll0_clk_src",
 	"gcc_disp_hf_axi_clk",
 	"gcc_disp_sf_axi_clk",
@@ -303,21 +299,6 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"gcc_gpu_gpll0_div_clk_src",
 	"gcc_gpu_memnoc_gfx_clk",
 	"gcc_gpu_snoc_dvm_gfx_clk",
-	"gcc_pcie0_phy_rchng_clk",
-	"gcc_pcie1_phy_rchng_clk",
-	"gcc_pcie_0_aux_clk",
-	"gcc_pcie_0_cfg_ahb_clk",
-	"gcc_pcie_0_mstr_axi_clk",
-	"gcc_pcie_0_pipe_clk",
-	"gcc_pcie_0_slv_axi_clk",
-	"gcc_pcie_0_slv_q2a_axi_clk",
-	"gcc_pcie_1_aux_clk",
-	"gcc_pcie_1_cfg_ahb_clk",
-	"gcc_pcie_1_mstr_axi_clk",
-	"gcc_pcie_1_pipe_clk",
-	"gcc_pcie_1_slv_axi_clk",
-	"gcc_pcie_1_slv_q2a_axi_clk",
-	"gcc_pcie_throttle_core_clk",
 	"gcc_pdm2_clk",
 	"gcc_pdm_ahb_clk",
 	"gcc_pdm_xo4_clk",
@@ -356,7 +337,6 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"gcc_sdcc2_apps_clk",
 	"gcc_sdcc4_ahb_clk",
 	"gcc_sdcc4_apps_clk",
-	"gcc_throttle_pcie_ahb_clk",
 	"gcc_titan_nrt_throttle_core_clk",
 	"gcc_titan_rt_throttle_core_clk",
 	"gcc_ufs_phy_ahb_clk",
@@ -384,11 +364,31 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"gpu_cc_debug_mux",
 	"mc_cc_debug_mux",
 	"measure_only_cnoc_clk",
+	"measure_only_gcc_aggre_noc_pcie_0_axi_clk",
+	"measure_only_gcc_aggre_noc_pcie_1_axi_clk",
+	"measure_only_gcc_aggre_noc_pcie_center_sf_axi_clk",
 	"measure_only_gcc_camera_ahb_clk",
 	"measure_only_gcc_camera_xo_clk",
+	"measure_only_gcc_ddrss_pcie_sf_clk",
 	"measure_only_gcc_disp_ahb_clk",
 	"measure_only_gcc_disp_xo_clk",
 	"measure_only_gcc_gpu_cfg_ahb_clk",
+	"measure_only_gcc_pcie0_phy_rchng_clk",
+	"measure_only_gcc_pcie1_phy_rchng_clk",
+	"measure_only_gcc_pcie_0_aux_clk",
+	"measure_only_gcc_pcie_0_cfg_ahb_clk",
+	"measure_only_gcc_pcie_0_mstr_axi_clk",
+	"measure_only_gcc_pcie_0_pipe_clk",
+	"measure_only_gcc_pcie_0_slv_axi_clk",
+	"measure_only_gcc_pcie_0_slv_q2a_axi_clk",
+	"measure_only_gcc_pcie_1_aux_clk",
+	"measure_only_gcc_pcie_1_cfg_ahb_clk",
+	"measure_only_gcc_pcie_1_mstr_axi_clk",
+	"measure_only_gcc_pcie_1_pipe_clk",
+	"measure_only_gcc_pcie_1_slv_axi_clk",
+	"measure_only_gcc_pcie_1_slv_q2a_axi_clk",
+	"measure_only_gcc_pcie_throttle_core_clk",
+	"measure_only_gcc_throttle_pcie_ahb_clk",
 	"measure_only_gcc_video_ahb_clk",
 	"measure_only_gcc_video_xo_clk",
 	"measure_only_ipa_2x_clk",
@@ -407,9 +407,6 @@ static int gcc_debug_mux_sels[] = {
 	0xED,		/* apss_cc_debug_mux */
 	0x4E,		/* cam_cc_debug_mux */
 	0x54,		/* disp_cc_debug_mux */
-	0x12C,		/* gcc_aggre_noc_pcie_0_axi_clk */
-	0x12D,		/* gcc_aggre_noc_pcie_1_axi_clk */
-	0x172,		/* gcc_aggre_noc_pcie_center_sf_axi_clk */
 	0x12F,		/* gcc_aggre_ufs_phy_axi_clk */
 	0x12E,		/* gcc_aggre_usb3_prim_axi_clk */
 	0x170,		/* gcc_aggre_usb3_sec_axi_clk */
@@ -418,7 +415,6 @@ static int gcc_debug_mux_sels[] = {
 	0x1B,		/* gcc_cfg_noc_usb3_prim_axi_clk */
 	0x1C,		/* gcc_cfg_noc_usb3_sec_axi_clk */
 	0xCD,		/* gcc_ddrss_gpu_axi_clk */
-	0xCE,		/* gcc_ddrss_pcie_sf_clk */
 	0x45,		/* gcc_disp_gpll0_clk_src */
 	0x51,		/* gcc_disp_hf_axi_clk */
 	0x52,		/* gcc_disp_sf_axi_clk */
@@ -429,21 +425,6 @@ static int gcc_debug_mux_sels[] = {
 	0x14C,		/* gcc_gpu_gpll0_div_clk_src */
 	0x147,		/* gcc_gpu_memnoc_gfx_clk */
 	0x14A,		/* gcc_gpu_snoc_dvm_gfx_clk */
-	0x101,		/* gcc_pcie0_phy_rchng_clk */
-	0x10A,		/* gcc_pcie1_phy_rchng_clk */
-	0xFF,		/* gcc_pcie_0_aux_clk */
-	0xFE,		/* gcc_pcie_0_cfg_ahb_clk */
-	0xFD,		/* gcc_pcie_0_mstr_axi_clk */
-	0x100,		/* gcc_pcie_0_pipe_clk */
-	0xFC,		/* gcc_pcie_0_slv_axi_clk */
-	0xFB,		/* gcc_pcie_0_slv_q2a_axi_clk */
-	0x108,		/* gcc_pcie_1_aux_clk */
-	0x107,		/* gcc_pcie_1_cfg_ahb_clk */
-	0x106,		/* gcc_pcie_1_mstr_axi_clk */
-	0x109,		/* gcc_pcie_1_pipe_clk */
-	0x105,		/* gcc_pcie_1_slv_axi_clk */
-	0x104,		/* gcc_pcie_1_slv_q2a_axi_clk */
-	0x30,		/* gcc_pcie_throttle_core_clk */
 	0xA4,		/* gcc_pdm2_clk */
 	0xA2,		/* gcc_pdm_ahb_clk */
 	0xA3,		/* gcc_pdm_xo4_clk */
@@ -482,7 +463,6 @@ static int gcc_debug_mux_sels[] = {
 	0x86,		/* gcc_sdcc2_apps_clk */
 	0x89,		/* gcc_sdcc4_ahb_clk */
 	0x88,		/* gcc_sdcc4_apps_clk */
-	0x3A,		/* gcc_throttle_pcie_ahb_clk */
 	0x4C,		/* gcc_titan_nrt_throttle_core_clk */
 	0x4A,		/* gcc_titan_rt_throttle_core_clk */
 	0x10E,		/* gcc_ufs_phy_ahb_clk */
@@ -510,11 +490,31 @@ static int gcc_debug_mux_sels[] = {
 	0x146,		/* gpu_cc_debug_mux */
 	0xD7,		/* mc_cc_debug_mux or ddrss_gcc_debug_clk */
 	0x17,		/* measure_only_cnoc_clk */
+	0x12C,		/* measure_only_gcc_aggre_noc_pcie_0_axi_clk */
+	0x12D,		/* measure_only_gcc_aggre_noc_pcie_1_axi_clk */
+	0x172,		/* measure_only_gcc_aggre_noc_pcie_center_sf_axi_clk */
 	0x46,		/* measure_only_gcc_camera_ahb_clk */
 	0x4D,		/* measure_only_gcc_camera_xo_clk */
+	0xCE,		/* measure_only_gcc_ddrss_pcie_sf_clk */
 	0x4F,		/* measure_only_gcc_disp_ahb_clk */
 	0x53,		/* measure_only_gcc_disp_xo_clk */
 	0x144,		/* measure_only_gcc_gpu_cfg_ahb_clk */
+	0x101,		/* measure_only_gcc_pcie0_phy_rchng_clk */
+	0x10A,		/* measure_only_gcc_pcie1_phy_rchng_clk */
+	0xFF,		/* measure_only_gcc_pcie_0_aux_clk */
+	0xFE,		/* measure_only_gcc_pcie_0_cfg_ahb_clk */
+	0xFD,		/* measure_only_gcc_pcie_0_mstr_axi_clk */
+	0x100,		/* measure_only_gcc_pcie_0_pipe_clk */
+	0xFC,		/* measure_only_gcc_pcie_0_slv_axi_clk */
+	0xFB,		/* measure_only_gcc_pcie_0_slv_q2a_axi_clk */
+	0x108,		/* measure_only_gcc_pcie_1_aux_clk */
+	0x107,		/* measure_only_gcc_pcie_1_cfg_ahb_clk */
+	0x106,		/* measure_only_gcc_pcie_1_mstr_axi_clk */
+	0x109,		/* measure_only_gcc_pcie_1_pipe_clk */
+	0x105,		/* measure_only_gcc_pcie_1_slv_axi_clk */
+	0x104,		/* measure_only_gcc_pcie_1_slv_q2a_axi_clk */
+	0x30,		/* measure_only_gcc_pcie_throttle_core_clk */
+	0x3A,		/* measure_only_gcc_throttle_pcie_ahb_clk */
 	0x55,		/* measure_only_gcc_video_ahb_clk */
 	0x5C,		/* measure_only_gcc_video_xo_clk */
 	0x132,		/* measure_only_ipa_2x_clk */
@@ -722,6 +722,30 @@ static struct clk_dummy measure_only_disp_cc_xo_clk = {
 	},
 };
 
+static struct clk_dummy measure_only_gcc_aggre_noc_pcie_0_axi_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_aggre_noc_pcie_0_axi_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_aggre_noc_pcie_1_axi_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_aggre_noc_pcie_1_axi_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_aggre_noc_pcie_center_sf_axi_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_aggre_noc_pcie_center_sf_axi_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
 static struct clk_dummy measure_only_gcc_camera_ahb_clk = {
 	.rrate = 1000,
 	.hw.init = &(struct clk_init_data){
@@ -734,6 +758,14 @@ static struct clk_dummy measure_only_gcc_camera_xo_clk = {
 	.rrate = 1000,
 	.hw.init = &(struct clk_init_data){
 		.name = "measure_only_gcc_camera_xo_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_ddrss_pcie_sf_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_ddrss_pcie_sf_clk",
 		.ops = &clk_dummy_ops,
 	},
 };
@@ -758,6 +790,134 @@ static struct clk_dummy measure_only_gcc_gpu_cfg_ahb_clk = {
 	.rrate = 1000,
 	.hw.init = &(struct clk_init_data){
 		.name = "measure_only_gcc_gpu_cfg_ahb_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_pcie0_phy_rchng_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_pcie0_phy_rchng_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_pcie1_phy_rchng_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_pcie1_phy_rchng_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_pcie_0_aux_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_pcie_0_aux_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_pcie_0_cfg_ahb_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_pcie_0_cfg_ahb_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_pcie_0_mstr_axi_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_pcie_0_mstr_axi_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_pcie_0_pipe_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_pcie_0_pipe_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_pcie_0_slv_axi_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_pcie_0_slv_axi_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_pcie_0_slv_q2a_axi_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_pcie_0_slv_q2a_axi_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_pcie_1_aux_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_pcie_1_aux_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_pcie_1_cfg_ahb_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_pcie_1_cfg_ahb_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_pcie_1_mstr_axi_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_pcie_1_mstr_axi_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_pcie_1_pipe_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_pcie_1_pipe_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_pcie_1_slv_axi_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_pcie_1_slv_axi_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_pcie_1_slv_q2a_axi_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_pcie_1_slv_q2a_axi_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_pcie_throttle_core_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_pcie_throttle_core_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_gcc_throttle_pcie_ahb_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_gcc_throttle_pcie_ahb_clk",
 		.ops = &clk_dummy_ops,
 	},
 };
@@ -897,11 +1057,31 @@ static struct clk_hw *debugcc_yupik_hws[] = {
 	&measure_only_apcs_silver_post_acd_clk.hw,
 	&measure_only_cnoc_clk.hw,
 	&measure_only_disp_cc_xo_clk.hw,
+	&measure_only_gcc_aggre_noc_pcie_0_axi_clk.hw,
+	&measure_only_gcc_aggre_noc_pcie_1_axi_clk.hw,
+	&measure_only_gcc_aggre_noc_pcie_center_sf_axi_clk.hw,
 	&measure_only_gcc_camera_ahb_clk.hw,
 	&measure_only_gcc_camera_xo_clk.hw,
+	&measure_only_gcc_ddrss_pcie_sf_clk.hw,
 	&measure_only_gcc_disp_ahb_clk.hw,
 	&measure_only_gcc_disp_xo_clk.hw,
 	&measure_only_gcc_gpu_cfg_ahb_clk.hw,
+	&measure_only_gcc_pcie0_phy_rchng_clk.hw,
+	&measure_only_gcc_pcie1_phy_rchng_clk.hw,
+	&measure_only_gcc_pcie_0_aux_clk.hw,
+	&measure_only_gcc_pcie_0_cfg_ahb_clk.hw,
+	&measure_only_gcc_pcie_0_mstr_axi_clk.hw,
+	&measure_only_gcc_pcie_0_pipe_clk.hw,
+	&measure_only_gcc_pcie_0_slv_axi_clk.hw,
+	&measure_only_gcc_pcie_0_slv_q2a_axi_clk.hw,
+	&measure_only_gcc_pcie_1_aux_clk.hw,
+	&measure_only_gcc_pcie_1_cfg_ahb_clk.hw,
+	&measure_only_gcc_pcie_1_mstr_axi_clk.hw,
+	&measure_only_gcc_pcie_1_pipe_clk.hw,
+	&measure_only_gcc_pcie_1_slv_axi_clk.hw,
+	&measure_only_gcc_pcie_1_slv_q2a_axi_clk.hw,
+	&measure_only_gcc_pcie_throttle_core_clk.hw,
+	&measure_only_gcc_throttle_pcie_ahb_clk.hw,
 	&measure_only_gcc_video_ahb_clk.hw,
 	&measure_only_gcc_video_xo_clk.hw,
 	&measure_only_gpu_cc_cb_clk.hw,
