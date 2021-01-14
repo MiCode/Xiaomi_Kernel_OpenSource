@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -21,10 +21,13 @@ static int qcom_dma_heap_probe(struct platform_device *pdev)
 	struct platform_data *heaps;
 
 	dynamic_page_pool_init_shrinker();
+	qcom_system_heap_create("system", false, 0);
 	qcom_system_heap_create("qcom,system", false, 0);
 #ifdef CONFIG_QCOM_DMABUF_HEAPS_SYSTEM_UNCACHED
 	qcom_system_heap_create("qcom,system-uncached", true, 0);
 #endif
+	qcom_system_heap_create("system-secure", true,
+				QCOM_DMA_HEAP_FLAG_CP_PIXEL);
 	qcom_system_heap_create("qcom,secure-pixel", true,
 				QCOM_DMA_HEAP_FLAG_CP_PIXEL);
 	qcom_system_heap_create("qcom,secure-non-pixel", true,
