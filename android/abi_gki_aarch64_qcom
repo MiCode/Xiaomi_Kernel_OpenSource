@@ -1600,6 +1600,7 @@
   register_inet6addr_notifier
   register_inetaddr_notifier
   register_kprobe
+  register_kretprobe
   register_memory_notifier
   register_netdev
   register_netdevice
@@ -2089,6 +2090,7 @@
   unregister_inet6addr_notifier
   unregister_inetaddr_notifier
   unregister_kprobe
+  unregister_kretprobe
   unregister_netdev
   unregister_netdevice_notifier
   unregister_netdevice_queue
