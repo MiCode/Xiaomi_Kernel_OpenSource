@@ -2222,6 +2222,8 @@
   v4l2_event_subscribe
   v4l2_event_unsubscribe
   v4l2_fh_add
+  v4l2_fh_del
+  v4l2_fh_exit
   v4l2_fh_init
   v4l2_fh_open
   v4l2_fh_release
@@ -2233,6 +2235,7 @@
   vb2_dqbuf
   vb2_qbuf
   vb2_queue_init
+  vb2_queue_release
   vb2_reqbufs
   vb2_streamoff
   vb2_streamon
