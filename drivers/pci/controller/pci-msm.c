@@ -1857,10 +1857,42 @@ static ssize_t l23_rdy_poll_timeout_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(l23_rdy_poll_timeout);
 
+static ssize_t boot_option_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct msm_pcie_dev_t *pcie_dev = dev_get_drvdata(dev);
+
+	return scnprintf(buf, PAGE_SIZE, "%x\n", pcie_dev->boot_option);
+}
+
+static ssize_t boot_option_store(struct device *dev,
+				 struct device_attribute *attr,
+				 const char *buf, size_t count)
+{
+	u32 boot_option;
+	struct msm_pcie_dev_t *pcie_dev = dev_get_drvdata(dev);
+
+	if (kstrtou32(buf, 0, &boot_option))
+		return -EINVAL;
+
+	if (boot_option <= (BIT(0) | BIT(1))) {
+		pcie_dev->boot_option = boot_option;
+		PCIE_DBG(pcie_dev, "PCIe: RC%d: boot_option is now 0x%x\n",
+			 pcie_dev->rc_idx, pcie_dev->boot_option);
+	} else {
+		pr_err("PCIe: Invalid input for boot_option: 0x%x.\n",
+		       boot_option);
+	}
+
+	return count;
+}
+static DEVICE_ATTR_RW(boot_option);
+
 static struct attribute *msm_pcie_debug_attrs[] = {
 	&dev_attr_link_check_max_count.attr,
 	&dev_attr_enumerate.attr,
 	&dev_attr_l23_rdy_poll_timeout.attr,
+	&dev_attr_boot_option.attr,
 	NULL,
 };
 
