@@ -1597,6 +1597,63 @@ static void icnss_update_state_send_modem_shutdown(struct icnss_priv *priv,
 	}
 }
 
+static int icnss_wpss_notifier_nb(struct notifier_block *nb,
+				  unsigned long code,
+				  void *data)
+{
+	struct icnss_event_pd_service_down_data *event_data;
+	struct notif_data *notif = data;
+	struct icnss_priv *priv = container_of(nb, struct icnss_priv,
+					       wpss_ssr_nb);
+	struct icnss_uevent_fw_down_data fw_down_data = {0};
+
+	icnss_pr_vdbg("WPSS-Notify: event %lu\n", code);
+
+	if (code == SUBSYS_AFTER_SHUTDOWN) {
+		icnss_pr_info("Collecting msa0 segment dump\n");
+		icnss_msa0_ramdump(priv);
+		goto out;
+	}
+
+	if (code != SUBSYS_BEFORE_SHUTDOWN)
+		goto out;
+
+	priv->is_ssr = true;
+
+	icnss_pr_info("WPSS went down, state: 0x%lx, crashed: %d\n",
+		      priv->state, notif->crashed);
+
+	set_bit(ICNSS_FW_DOWN, &priv->state);
+
+	if (notif->crashed)
+		priv->stats.recovery.root_pd_crash++;
+	else
+		priv->stats.recovery.root_pd_shutdown++;
+
+	icnss_ignore_fw_timeout(true);
+
+	event_data = kzalloc(sizeof(*event_data), GFP_KERNEL);
+
+	if (event_data == NULL)
+		return notifier_from_errno(-ENOMEM);
+
+	event_data->crashed = notif->crashed;
+
+	fw_down_data.crashed = !!notif->crashed;
+	if (test_bit(ICNSS_FW_READY, &priv->state)) {
+		clear_bit(ICNSS_FW_READY, &priv->state);
+		fw_down_data.crashed = !!notif->crashed;
+		icnss_call_driver_uevent(priv,
+					 ICNSS_UEVENT_FW_DOWN,
+					 &fw_down_data);
+	}
+	icnss_driver_event_post(priv, ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN,
+				ICNSS_EVENT_SYNC, event_data);
+out:
+	icnss_pr_vdbg("Exit %s,state: 0x%lx\n", __func__, priv->state);
+	return NOTIFY_OK;
+}
+
 static int icnss_modem_notifier_nb(struct notifier_block *nb,
 				  unsigned long code,
 				  void *data)
@@ -1670,6 +1727,30 @@ out:
 	return NOTIFY_OK;
 }
 
+static int icnss_wpss_ssr_register_notifier(struct icnss_priv *priv)
+{
+	int ret = 0;
+
+	priv->wpss_ssr_nb.notifier_call = icnss_wpss_notifier_nb;
+	/*
+	 * Assign priority of icnss wpss notifier callback over IPA
+	 * modem notifier callback which is 0
+	 */
+	priv->wpss_ssr_nb.priority = 1;
+
+	priv->wpss_notify_handler =
+		subsys_notif_register_notifier("wpss", &priv->wpss_ssr_nb);
+
+	if (IS_ERR(priv->wpss_notify_handler)) {
+		ret = PTR_ERR(priv->wpss_notify_handler);
+		icnss_pr_err("WPSS register notifier failed: %d\n", ret);
+	}
+
+	set_bit(ICNSS_SSR_REGISTERED, &priv->state);
+
+	return ret;
+}
+
 static int icnss_modem_ssr_register_notifier(struct icnss_priv *priv)
 {
 	int ret = 0;
@@ -1692,6 +1773,18 @@ static int icnss_modem_ssr_register_notifier(struct icnss_priv *priv)
 	set_bit(ICNSS_SSR_REGISTERED, &priv->state);
 
 	return ret;
+}
+
+static int icnss_wpss_ssr_unregister_notifier(struct icnss_priv *priv)
+{
+	if (!test_and_clear_bit(ICNSS_SSR_REGISTERED, &priv->state))
+		return 0;
+
+	subsys_notif_unregister_notifier(priv->wpss_notify_handler,
+					 &priv->wpss_ssr_nb);
+	priv->wpss_notify_handler = NULL;
+
+	return 0;
 }
 
 static int icnss_modem_ssr_unregister_notifier(struct icnss_priv *priv)
@@ -1993,6 +2086,11 @@ static int icnss_enable_recovery(struct icnss_priv *priv)
 	ret = icnss_create_ramdump_devices(priv);
 	if (ret)
 		return ret;
+
+	if (priv->device_id == WCN6750_DEVICE_ID) {
+		icnss_wpss_ssr_register_notifier(priv);
+		return 0;
+	}
 
 	icnss_modem_ssr_register_notifier(priv);
 	if (test_bit(SSR_ONLY, &priv->ctrl_params.quirks)) {
@@ -3728,19 +3826,19 @@ static int icnss_remove(struct platform_device *pdev)
 
 	complete_all(&priv->unblock_shutdown);
 
-	icnss_modem_ssr_unregister_notifier(priv);
-
 	destroy_ramdump_device(priv->msa0_dump_dev);
 
 	if (priv->device_id == WCN6750_DEVICE_ID) {
+		icnss_wpss_ssr_unregister_notifier(priv);
 		destroy_ramdump_device(priv->m3_dump_dev_seg1);
 		destroy_ramdump_device(priv->m3_dump_dev_seg2);
 		destroy_ramdump_device(priv->m3_dump_dev_seg3);
 		destroy_ramdump_device(priv->m3_dump_dev_seg4);
 		destroy_ramdump_device(priv->m3_dump_dev_seg5);
+	} else {
+		icnss_modem_ssr_unregister_notifier(priv);
+		icnss_pdr_unregister_notifier(priv);
 	}
-
-	icnss_pdr_unregister_notifier(priv);
 
 	icnss_unregister_fw_service(priv);
 	if (priv->event_wq)
