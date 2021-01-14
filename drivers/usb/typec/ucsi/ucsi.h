@@ -298,8 +298,6 @@ struct ucsi {
 #define COMMAND_PENDING	1
 #define ACK_PENDING	2
 #define EVENT_PROCESSING	3
-
-	struct usb_role_switch *usb_role_sw;
 };
 
 #define UCSI_MAX_SVID		5
