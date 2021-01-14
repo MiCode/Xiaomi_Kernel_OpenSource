@@ -9,6 +9,8 @@
 
 #include <linux/tracepoint.h>
 
+#if defined(CONFIG_TRACEPOINTS) && defined(CONFIG_ANDROID_VENDOR_HOOKS)
+
 #define DECLARE_HOOK DECLARE_TRACE
 
 #ifdef TRACE_HEADER_MULTI_READ
@@ -70,7 +72,7 @@
 	extern int __traceiter_##name(data_proto);			\
 	DECLARE_STATIC_CALL(tp_func_##name, __traceiter_##name);	\
 	extern struct tracepoint __tracepoint_##name;			\
-	static inline void trace_##name(proto)				\
+	static inline void __nocfi trace_##name(proto)			\
 	{								\
 		if (static_key_false(&__tracepoint_##name.key))		\
 			DO_HOOK(name,					\
@@ -102,3 +104,10 @@
 			PARAMS(__data, args))
 
 #endif /* TRACE_HEADER_MULTI_READ */
+
+#else /* !CONFIG_TRACEPOINTS || !CONFIG_ANDROID_VENDOR_HOOKS */
+/* suppress trace hooks */
+#define DECLARE_HOOK DECLARE_EVENT_NOP
+#define DECLARE_RESTRICTED_HOOK(name, proto, args, cond)		\
+	DECLARE_EVENT_NOP(name, PARAMS(proto), PARAMS(args))
+#endif

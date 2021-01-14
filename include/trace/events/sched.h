@@ -198,6 +198,7 @@ TRACE_EVENT(sched_migrate_task,
 		__field(	int,	prio			)
 		__field(	int,	orig_cpu		)
 		__field(	int,	dest_cpu		)
+		__field(	int,	running			)
 	),
 
 	TP_fast_assign(
@@ -206,11 +207,13 @@ TRACE_EVENT(sched_migrate_task,
 		__entry->prio		= p->prio; /* XXX SCHED_DEADLINE */
 		__entry->orig_cpu	= task_cpu(p);
 		__entry->dest_cpu	= dest_cpu;
+		__entry->running	= (p->state == TASK_RUNNING);
 	),
 
-	TP_printk("comm=%s pid=%d prio=%d orig_cpu=%d dest_cpu=%d",
+	TP_printk("comm=%s pid=%d prio=%d orig_cpu=%d dest_cpu=%d running=%d",
 		  __entry->comm, __entry->pid, __entry->prio,
-		  __entry->orig_cpu, __entry->dest_cpu)
+		  __entry->orig_cpu, __entry->dest_cpu,
+		  __entry->running)
 );
 
 DECLARE_EVENT_CLASS(sched_process_template,
@@ -673,6 +676,14 @@ DECLARE_TRACE(sched_util_est_se_tp,
 DECLARE_TRACE(sched_update_nr_running_tp,
 	TP_PROTO(struct rq *rq, int change),
 	TP_ARGS(rq, change));
+
+DECLARE_TRACE(sugov_util_update_tp,
+	TP_PROTO(unsigned int cpu, unsigned long util, unsigned long max_cap, unsigned int flags),
+	TP_ARGS(cpu, util, max_cap, flags));
+
+DECLARE_TRACE(sugov_next_freq_tp,
+	TP_PROTO(unsigned int cpu, unsigned long util, unsigned long max, unsigned int freq),
+	TP_ARGS(cpu, util, max, freq));
 
 #endif /* _TRACE_SCHED_H */
 
