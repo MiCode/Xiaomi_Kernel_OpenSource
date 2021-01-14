@@ -3980,7 +3980,6 @@ static irqreturn_t dwc3_check_event_buf(struct dwc3_event_buffer *evt)
 		return IRQ_NONE;
 
 	dwc = evt->dwc;
-	dwc->irq_cnt++;
 
 	/* controller reset is still pending */
 	if (dwc->err_evt_seen)

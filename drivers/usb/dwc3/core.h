@@ -1114,13 +1114,11 @@ struct dwc3_scratchpad_array {
  *			increments or 0 to disable.
  * @err_evt_seen: previous event in queue was erratic error
  * @irq: irq number
- * @irq_cnt: total irq count
  * @vbus_draw: current to be drawn from USB
  * @xhci_imod_value: imod value to use with xhci
  * @index: dwc3's instance number
  * @tx_fifo_size: Available RAM size for TX fifo allocation
  * @last_fifo_depth: total TXFIFO depth of all enabled USB IN/INT endpoints
- * @irq_cnt: total irq count
  */
 struct dwc3 {
 	struct work_struct	drd_work;
@@ -1334,7 +1332,6 @@ struct dwc3 {
 
 	/* IRQ timing statistics */
 	int			irq;
-	unsigned long		irq_cnt;
 
 	/* Indicate if software connect was issued by the usb_gadget_driver */
 	unsigned int		softconnect:1;

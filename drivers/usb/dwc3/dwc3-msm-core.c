@@ -28,6 +28,7 @@
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
 #include <linux/usb/of.h>
+#include <linux/of_irq.h>
 #include <linux/regulator/consumer.h>
 #include <linux/regulator/driver.h>
 #include <linux/pm_wakeup.h>
@@ -455,6 +456,8 @@ struct dwc3_msm {
 	bool			resume_pending;
 	atomic_t                pm_suspended;
 	struct usb_irq		wakeup_irq[USB_MAX_IRQ];
+	int			core_irq;
+	int			irq_cnt;
 	struct work_struct	resume_work;
 	struct work_struct	restart_usb_work;
 	bool			in_restart;
@@ -620,6 +623,14 @@ static unsigned int dwc3_msm_set_max_speed(struct dwc3_msm *mdwc, enum usb_devic
 	dwc->maximum_speed = spd;
 
 	return 0;
+}
+
+static irqreturn_t dwc3_msm_core_irq(int irq, void *data)
+{
+	struct dwc3_msm *mdwc = data;
+
+	mdwc->irq_cnt++;
+	return IRQ_NONE;
 }
 
 /**
@@ -2551,7 +2562,7 @@ void dwc3_msm_notify_event(struct dwc3 *dwc,
 	case DWC3_CONTROLLER_ERROR_EVENT:
 		dev_info(mdwc->dev,
 			"DWC3_CONTROLLER_ERROR_EVENT received, irq cnt %lu\n",
-			dwc->irq_cnt);
+			mdwc->irq_cnt);
 
 		dwc3_msm_write_reg(mdwc->base, DWC3_DEVTEN, 0x00);
 
@@ -4356,6 +4367,16 @@ static int dwc3_msm_parse_core_params(struct dwc3_msm *mdwc, struct device_node 
 		ret = match_string(usb_dr_modes, ARRAY_SIZE(usb_dr_modes), prop_string);
 	mdwc->dr_mode = (ret < 0) ? USB_DR_MODE_UNKNOWN : ret;
 
+	mdwc->core_irq = of_irq_get(dwc3_node, 0);
+	if (mdwc->core_irq > 0) {
+		irq_set_status_flags(mdwc->core_irq, IRQ_NOAUTOEN);
+		ret = devm_request_irq(mdwc->dev, mdwc->core_irq, dwc3_msm_core_irq,
+					IRQF_SHARED, "dwc3-msm", mdwc);
+		if (ret)
+			dev_err(mdwc->dev, "failed to request irq #%d --> %d\n",
+					mdwc->core_irq, ret);
+	}
+
 	return ret;
 }
 
@@ -4876,17 +4897,16 @@ static void msm_dwc3_perf_vote_work(struct work_struct *w)
 {
 	struct dwc3_msm *mdwc = container_of(w, struct dwc3_msm,
 						perf_vote_work.work);
-	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 	static unsigned long	last_irq_cnt;
 	bool in_perf_mode = false;
 
-	if (dwc->irq_cnt - last_irq_cnt >= PM_QOS_THRESHOLD)
+	if (mdwc->irq_cnt - last_irq_cnt >= PM_QOS_THRESHOLD)
 		in_perf_mode = true;
 
 	pr_debug("%s: in_perf_mode:%u, interrupts in last sample:%lu\n",
-		 __func__, in_perf_mode, (dwc->irq_cnt - last_irq_cnt));
+		 __func__, in_perf_mode, (mdwc->irq_cnt - last_irq_cnt));
 
-	last_irq_cnt = dwc->irq_cnt;
+	last_irq_cnt = mdwc->irq_cnt;
 	msm_dwc3_perf_vote_update(mdwc, in_perf_mode);
 	schedule_delayed_work(&mdwc->perf_vote_work,
 			msecs_to_jiffies(1000 * PM_QOS_SAMPLE_SEC));
