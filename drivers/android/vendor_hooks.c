@@ -27,6 +27,8 @@
 #include <trace/hooks/cpufreq.h>
 #include <trace/hooks/mm.h>
 #include <trace/hooks/preemptirq.h>
+#include <trace/hooks/ftrace_dump.h>
+#include <trace/hooks/pm_domain.h>
 
 /*
  * Export tracepoints that act as a bare tracehook (ie: have no trace event
@@ -120,3 +122,9 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_sched_fork_init);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_ttwu_cond);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_schedule_bug);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_sched_exec);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_ftrace_oops_enter);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_ftrace_oops_exit);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_ftrace_size_check);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_ftrace_format_check);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_ftrace_dump_buffer);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_allow_domain_state);
