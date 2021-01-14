@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/cdev.h>
@@ -11,6 +11,7 @@
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
 #include <linux/poll.h>
+#include <linux/remoteproc/qcom_rproc.h>
 #include <linux/slab.h>
 #include <soc/qcom/subsystem_notif.h>
 #include <soc/qcom/subsystem_restart.h>
@@ -385,7 +386,7 @@ static int qiib_init_notifs(struct device_node *node, struct qiib_dev *devp)
 	QIIB_DBG("%s: irqtype = %d\n", __func__, irqtype);
 
 	devp->nb.notifier_call = qiib_restart_notifier_cb;
-	devp->notifier_handle = subsys_notif_register_notifier(devp->ssr_name,
+	devp->notifier_handle = qcom_register_ssr_notifier(devp->ssr_name,
 								&devp->nb);
 	if (IS_ERR_OR_NULL(devp->notifier_handle)) {
 		QIIB_ERR("%s: Could not register SSR notifier cb\n", __func__);
@@ -404,7 +405,7 @@ static int qiib_init_notifs(struct device_node *node, struct qiib_dev *devp)
 	return ret;
 
 req_irq_fail:
-	subsys_notif_unregister_notifier(devp->notifier_handle,	&devp->nb);
+	qcom_unregister_ssr_notifier(devp->notifier_handle,	&devp->nb);
 missing_key:
 	return ret;
 }
@@ -427,7 +428,7 @@ static void qiib_cleanup(void)
 		device_destroy(qiib_info->classp,
 			       MKDEV(MAJOR(qiib_info->dev_num), devp->i));
 		if (devp->notifier_handle)
-			subsys_notif_unregister_notifier(devp->notifier_handle,
+			qcom_unregister_ssr_notifier(devp->notifier_handle,
 								&devp->nb);
 		kfree(devp);
 	}
@@ -578,5 +579,6 @@ static void __exit qsee_ipc_irq_bridge_exit(void)
 	qiib_driver_data_deinit();
 }
 module_exit(qsee_ipc_irq_bridge_exit);
+MODULE_SOFTDEP("pre: qcom_ipcc");
 MODULE_DESCRIPTION("QSEE IPC interrupt bridge");
 MODULE_LICENSE("GPL v2");

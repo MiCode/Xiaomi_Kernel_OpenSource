@@ -139,3 +139,5 @@ bwmon.ko
 qcom-dload-mode.ko
 qcom-reboot-reason.ko
 memory_dump_v2.ko
+glink_pkt.ko
+qsee_ipc_irq_bridge.ko
