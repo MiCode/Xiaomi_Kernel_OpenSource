@@ -106,6 +106,12 @@ struct arm_smmu_pte_info {
 	struct list_head entry;
 };
 
+struct arm_smmu_secure_pool_chunk {
+	void *addr;
+	size_t size;
+	struct list_head list;
+};
+
 static bool using_legacy_binding, using_generic_binding;
 
 struct arm_smmu_option_prop {
@@ -1230,6 +1236,153 @@ static unsigned long arm_smmu_domain_get_qcom_quirks(
 	return 0;
 }
 
+static int arm_smmu_secure_pool_add(struct arm_smmu_domain *smmu_domain,
+				     void *addr, size_t size)
+{
+	struct arm_smmu_secure_pool_chunk *chunk;
+
+	chunk = kmalloc(sizeof(*chunk), GFP_ATOMIC);
+	if (!chunk)
+		return -ENOMEM;
+
+	chunk->addr = addr;
+	chunk->size = size;
+	memset(addr, 0, size);
+	list_add(&chunk->list, &smmu_domain->secure_pool_list);
+
+	return 0;
+}
+
+static void arm_smmu_unprepare_pgtable(void *cookie, void *addr, size_t size)
+{
+	struct arm_smmu_domain *smmu_domain = cookie;
+	struct arm_smmu_pte_info *pte_info;
+
+	if (!arm_smmu_has_secure_vmid(smmu_domain)) {
+		WARN(1, "Invalid VMID is set !!\n");
+		return;
+	}
+
+	pte_info = kzalloc(sizeof(struct arm_smmu_pte_info), GFP_ATOMIC);
+	if (!pte_info)
+		return;
+
+	pte_info->virt_addr = addr;
+	pte_info->size = size;
+	list_add_tail(&pte_info->entry, &smmu_domain->unassign_list);
+}
+
+static int arm_smmu_prepare_pgtable(void *addr, void *cookie)
+{
+	struct arm_smmu_domain *smmu_domain = cookie;
+	struct arm_smmu_pte_info *pte_info;
+
+	if (!arm_smmu_has_secure_vmid(smmu_domain)) {
+		WARN(1, "Invalid VMID is set !!\n");
+		return -EINVAL;
+	}
+
+	pte_info = kzalloc(sizeof(struct arm_smmu_pte_info), GFP_ATOMIC);
+	if (!pte_info)
+		return -ENOMEM;
+	pte_info->virt_addr = addr;
+	list_add_tail(&pte_info->entry, &smmu_domain->pte_info_list);
+	return 0;
+}
+
+static void arm_smmu_secure_pool_destroy(struct arm_smmu_domain *smmu_domain)
+{
+	struct arm_smmu_secure_pool_chunk *it, *i;
+
+	list_for_each_entry_safe(it, i, &smmu_domain->secure_pool_list, list) {
+		arm_smmu_unprepare_pgtable(smmu_domain, it->addr, it->size);
+		/* pages will be freed later (after being unassigned) */
+		list_del(&it->list);
+		kfree(it);
+	}
+}
+
+static void *arm_smmu_secure_pool_remove(struct arm_smmu_domain *smmu_domain,
+					size_t size)
+{
+	struct arm_smmu_secure_pool_chunk *it;
+
+	list_for_each_entry(it, &smmu_domain->secure_pool_list, list) {
+		if (it->size == size) {
+			void *addr = it->addr;
+
+			list_del(&it->list);
+			kfree(it);
+			return addr;
+		}
+	}
+
+	return NULL;
+}
+
+static void *arm_smmu_alloc_pgtable(void *cookie, gfp_t gfp_mask, int order)
+{
+	int ret;
+	struct page *page;
+	void *page_addr;
+	size_t size = (1UL << order) * PAGE_SIZE;
+	struct arm_smmu_domain *smmu_domain = cookie;
+
+	if (!arm_smmu_has_secure_vmid(smmu_domain)) {
+		/* size is expected to be 4K with current configuration */
+		if (size == PAGE_SIZE) {
+			page = list_first_entry_or_null(
+				&smmu_domain->nonsecure_pool, struct page, lru);
+			if (page) {
+				list_del_init(&page->lru);
+				return page_address(page);
+			}
+		}
+
+		page = alloc_pages(gfp_mask, order);
+		if (!page)
+			return NULL;
+
+		return page_address(page);
+	}
+
+	page_addr = arm_smmu_secure_pool_remove(smmu_domain, size);
+	if (page_addr)
+		return page_addr;
+
+	page = alloc_pages(gfp_mask, order);
+	if (!page)
+		return NULL;
+
+	page_addr = page_address(page);
+	ret = arm_smmu_prepare_pgtable(page_addr, cookie);
+	if (ret) {
+		free_pages((unsigned long)page_addr, order);
+		return NULL;
+	}
+
+	return page_addr;
+}
+
+static void arm_smmu_free_pgtable(void *cookie, void *virt, int order)
+{
+	struct arm_smmu_domain *smmu_domain = cookie;
+	size_t size = (1UL << order) * PAGE_SIZE;
+
+	if (!arm_smmu_has_secure_vmid(smmu_domain)) {
+		free_pages((unsigned long)virt, order);
+		return;
+	}
+
+	if (arm_smmu_secure_pool_add(smmu_domain, virt, size))
+		arm_smmu_unprepare_pgtable(smmu_domain, virt, size);
+}
+
+static const struct qcom_iommu_pgtable_ops arm_smmu_pgtable_ops = {
+	.alloc = arm_smmu_alloc_pgtable,
+	.free = arm_smmu_free_pgtable,
+};
+
 static int arm_smmu_init_dynamic_domain(struct iommu_domain *domain,
 					struct arm_smmu_device *smmu,
 					struct device *dev)
@@ -1445,7 +1598,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		ias = smmu->va_size;
 		oas = smmu->ipa_size;
 		if (cfg->fmt == ARM_SMMU_CTX_FMT_AARCH64) {
-			fmt = ARM_64_LPAE_S1;
+			fmt = QCOM_ARM_64_LPAE_S1;
 			if (smmu->options & ARM_SMMU_OPT_3LVL_TABLES)
 				ias = min(ias, 39UL);
 		} else if (cfg->fmt == ARM_SMMU_CTX_FMT_AARCH32_L) {
@@ -1515,6 +1668,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	else
 		cfg->asid = cfg->cbndx;
 
+	pgtbl_info.iommu_pgtbl_ops = &arm_smmu_pgtable_ops;
 	pgtbl_info.cfg = (struct io_pgtable_cfg) {
 		.pgsize_bitmap	= smmu->pgsize_bitmap,
 		.ias		= ias,
@@ -1661,6 +1815,7 @@ static void arm_smmu_destroy_domain_context(struct iommu_domain *domain)
 		qcom_free_io_pgtable_ops(smmu_domain->pgtbl_ops);
 		arm_smmu_rpm_put(smmu);
 		arm_smmu_secure_domain_lock(smmu_domain);
+		arm_smmu_secure_pool_destroy(smmu_domain);
 		arm_smmu_unassign_table(smmu_domain);
 		arm_smmu_secure_domain_unlock(smmu_domain);
 		arm_smmu_domain_reinit(smmu_domain);
@@ -1681,6 +1836,7 @@ static void arm_smmu_destroy_domain_context(struct iommu_domain *domain)
 
 	qcom_free_io_pgtable_ops(smmu_domain->pgtbl_ops);
 	arm_smmu_secure_domain_lock(smmu_domain);
+	arm_smmu_secure_pool_destroy(smmu_domain);
 	arm_smmu_unassign_table(smmu_domain);
 	arm_smmu_secure_domain_unlock(smmu_domain);
 	__arm_smmu_free_bitmap(smmu->context_map, cfg->cbndx);
@@ -2066,7 +2222,8 @@ static void arm_smmu_unassign_table(struct arm_smmu_domain *smmu_domain)
 				      &dest_vmids, &dest_perms, 1);
 		if (WARN_ON(ret))
 			break;
-		free_pages_exact(pte_info->virt_addr, pte_info->size);
+		free_pages((unsigned long)pte_info->virt_addr,
+			   get_order(pte_info->size));
 	}
 
 	list_for_each_entry_safe(pte_info, temp, &smmu_domain->unassign_list,
@@ -3050,17 +3207,12 @@ static int __arm_smmu_domain_set_attr2(struct iommu_domain *domain,
 	switch (iommu_attr) {
 	case DOMAIN_ATTR_USE_UPSTREAM_HINT:
 	case DOMAIN_ATTR_USE_LLC_NWA:
-		if (IS_ENABLED(CONFIG_QCOM_IOMMU_IO_PGTABLE_QUIRKS)) {
-
-			/* can't be changed while attached */
-			if (smmu_domain->smmu != NULL) {
-				ret = -EBUSY;
-			} else if (*((int *)data)) {
-				set_bit(attr, smmu_domain->attributes);
-				ret = 0;
-			}
-		} else {
-			ret = -ENOTSUPP;
+		/* can't be changed while attached */
+		if (smmu_domain->smmu != NULL) {
+			ret = -EBUSY;
+		} else if (*((int *)data)) {
+			set_bit(attr, smmu_domain->attributes);
+			ret = 0;
 		}
 		break;
 	case DOMAIN_ATTR_EARLY_MAP: {

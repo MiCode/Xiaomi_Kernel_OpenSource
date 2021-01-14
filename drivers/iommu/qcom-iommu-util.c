@@ -343,6 +343,10 @@ struct io_pgtable_ops *qcom_alloc_io_pgtable_ops(enum io_pgtable_fmt fmt,
 	else if (fmt == ARM_V8L_FAST)
 		fns = &io_pgtable_av8l_fast_init_fns;
 #endif
+#ifdef CONFIG_IOMMU_IO_PGTABLE_LPAE
+	else if (fmt == QCOM_ARM_64_LPAE_S1)
+		fns = &qcom_io_pgtable_arm_64_lpae_s1_init_fns;
+#endif
 	else {
 		pr_err("Invalid io-pgtable fmt %u\n", fmt);
 		return NULL;
@@ -377,6 +381,10 @@ void qcom_free_io_pgtable_ops(struct io_pgtable_ops *ops)
 	else if (fmt == ARM_V8L_FAST)
 		fns = &io_pgtable_av8l_fast_init_fns;
 #endif
+#ifdef CONFIG_IOMMU_IO_PGTABLE_LPAE
+	else if (fmt == QCOM_ARM_64_LPAE_S1)
+		fns = &qcom_io_pgtable_arm_64_lpae_s1_init_fns;
+#endif
 	else {
 		pr_err("Invalid io-pgtable fmt %u\n", fmt);
 		return;
@@ -387,17 +395,44 @@ void qcom_free_io_pgtable_ops(struct io_pgtable_ops *ops)
 }
 EXPORT_SYMBOL(qcom_free_io_pgtable_ops);
 
+void *qcom_io_pgtable_alloc_pages(const struct qcom_iommu_pgtable_ops *ops,
+				  struct io_pgtable_cfg *cfg,
+				  void *cookie, gfp_t gfp, int order)
+{
+	struct device *dev;
+	struct page *p;
+
+	if (ops)
+		return ops->alloc(cookie, gfp, order);
+
+	dev = cfg->iommu_dev;
+	p = alloc_pages_node(dev ? dev_to_node(dev) : NUMA_NO_NODE, gfp, order);
+
+	return p ? page_address(p) : NULL;
+}
+
+void qcom_io_pgtable_free_pages(const struct qcom_iommu_pgtable_ops *ops,
+				void *cookie, void *virt, int order)
+{
+	if (ops)
+		ops->free(cookie, virt, order);
+	else
+		free_pages((unsigned long)virt, order);
+}
+
 /*
  * These tables must have the same length.
  * It is allowed to have a NULL exitcall corresponding to a non-NULL initcall.
  */
 static initcall_t init_table[] __initdata = {
 	qcom_dma_iommu_generic_driver_init,
+	qcom_arm_lpae_do_selftests,
 	NULL
 };
 
 static exitcall_t exit_table[] = {
 	qcom_dma_iommu_generic_driver_exit,
+	NULL,
 	NULL
 };
 
