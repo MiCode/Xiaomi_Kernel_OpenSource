@@ -79,41 +79,6 @@ const char *ipa_eth_pm_notifier_event_name(unsigned long event)
 	return name;
 }
 
-static void __ipa_eth_free_msg(void *buff, u32 len, u32 type) {}
-
-static int ipa_eth_send_ecm_msg(struct net_device *net_dev,
-		enum ipa_ecm_event ecm_event)
-{
-	struct ipa_msg_meta msg_meta;
-	struct ipa_ecm_msg ecm_msg;
-
-	if (!net_dev)
-		return -EFAULT;
-
-	memset(&msg_meta, 0, sizeof(msg_meta));
-	memset(&ecm_msg, 0, sizeof(ecm_msg));
-
-	ecm_msg.ifindex = net_dev->ifindex;
-	strlcpy(ecm_msg.name, net_dev->name, IPA_RESOURCE_NAME_MAX);
-
-	msg_meta.msg_type = ecm_event;
-	msg_meta.msg_len = sizeof(struct ipa_ecm_msg);
-
-	return ipa_send_msg(&msg_meta, &ecm_msg, __ipa_eth_free_msg);
-}
-
-int ipa_eth_send_msg_connect(struct net_device *net_dev)
-{
-	ipa_eth_log("Sending ECM_CONNECT for %s", net_dev->name);
-	return ipa_eth_send_ecm_msg(net_dev, ECM_CONNECT);
-}
-
-int ipa_eth_send_msg_disconnect(struct net_device *net_dev)
-{
-	ipa_eth_log("Sending ECM_DISCONNECT for %s", net_dev->name);
-	return ipa_eth_send_ecm_msg(net_dev, ECM_DISCONNECT);
-}
-
 /* IPC Logging */
 module_param(ipa_eth_ipc_logdbg, bool, 0444);
 MODULE_PARM_DESC(ipa_eth_ipc_logdbg, "Log debug IPC messages");
