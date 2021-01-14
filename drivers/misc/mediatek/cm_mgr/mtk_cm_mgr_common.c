@@ -30,7 +30,8 @@
 #include <linux/topology.h>
 #include <linux/math64.h>
 
-#include <linux/fb.h>
+#include <linux/of.h>
+#include "mtk_disp_notify.h"
 #include <linux/notifier.h>
 #include <linux/interconnect.h>
 
@@ -105,32 +106,25 @@ int cm_mgr_cpu_map_dram_enable = 1;
 int cm_mgr_cpu_map_emi_opp = 1;
 int cm_mgr_cpu_map_skip_cpu_opp = 2;
 
-static int cm_mgr_fb_notifier_callback(struct notifier_block *self,
-		unsigned long event, void *data)
+static int cm_mgr_fb_notifier_callback(struct notifier_block *nb,
+		unsigned long value, void *v)
 {
-	struct fb_event *evdata = data;
-	int blank;
+	int *data = (int *)v;
 
-	if (event != FB_EVENT_BLANK)
-		return 0;
-
-	blank = *(int *)evdata->data;
-
-	switch (blank) {
-	case FB_BLANK_UNBLANK:
-		pr_info("#@# %s(%d) SCREEN ON\n", __func__, __LINE__);
-		cm_mgr_blank_status = 0;
-		cm_mgr_to_sspm_command(IPI_CM_MGR_BLANK, 0);
-		break;
-	case FB_BLANK_POWERDOWN:
-		pr_info("#@# %s(%d) SCREEN OFF\n", __func__, __LINE__);
-		cm_mgr_blank_status = 1;
-		cm_mgr_dram_opp_base = -1;
-		cm_mgr_perf_platform_set_status(0);
-		cm_mgr_to_sspm_command(IPI_CM_MGR_BLANK, 1);
-		break;
-	default:
-		break;
+	if (value == MTK_DISP_EVENT_BLANK) {
+		pr_info("%s+\n", __func__);
+		if (*data == MTK_DISP_BLANK_UNBLANK) {
+			pr_info("#@# %s(%d) SCREEN ON\n", __func__, __LINE__);
+			cm_mgr_blank_status = 0;
+			cm_mgr_to_sspm_command(IPI_CM_MGR_BLANK, 0);
+		} else if (*data == MTK_DISP_BLANK_POWERDOWN) {
+			pr_info("#@# %s(%d) SCREEN OFF\n", __func__, __LINE__);
+			cm_mgr_blank_status = 1;
+			cm_mgr_dram_opp_base = -1;
+			cm_mgr_perf_platform_set_status(0);
+			cm_mgr_to_sspm_command(IPI_CM_MGR_BLANK, 1);
+		}
+		pr_info("%s-\n", __func__);
 	}
 
 	return 0;
@@ -652,7 +646,7 @@ int cm_mgr_common_init(void)
 		return ret;
 	}
 
-	ret = fb_register_client(&cm_mgr_fb_notifier);
+	ret = mtk_disp_notifier_register("cm_mgr", &cm_mgr_fb_notifier);
 	if (ret) {
 		pr_info("[CM_MGR] FAILED TO REGISTER FB CLIENT (%d)\n", ret);
 		return ret;
@@ -710,7 +704,7 @@ void cm_mgr_common_exit(void)
 
 	kobject_put(cm_mgr_kobj);
 
-	ret = fb_unregister_client(&cm_mgr_fb_notifier);
+	ret = mtk_disp_notifier_unregister(&cm_mgr_fb_notifier);
 	if (ret)
 		pr_info("[CM_MGR] FAILED TO UNREGISTER FB CLIENT (%d)\n", ret);
 }
