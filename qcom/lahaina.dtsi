@@ -66,6 +66,7 @@
 			cpu-release-addr = <0x0 0x90000000>;
 			cpu-idle-states = <&SILVER_OFF>;
 			power-domains = <&CPU_PD0>;
+			power-domain-names = "psci";
 			qcom,freq-domain = <&cpufreq_hw 0 4>;
 			capacity-dmips-mhz = <1024>;
 			dynamic-power-coefficient = <100>;
@@ -91,6 +92,7 @@
 			cpu-release-addr = <0x0 0x90000000>;
 			cpu-idle-states = <&SILVER_OFF>;
 			power-domains = <&CPU_PD1>;
+			power-domain-names = "psci";
 			qcom,freq-domain = <&cpufreq_hw 0 4>;
 			capacity-dmips-mhz = <1024>;
 			dynamic-power-coefficient = <100>;
@@ -111,6 +113,7 @@
 			cpu-release-addr = <0x0 0x90000000>;
 			cpu-idle-states = <&SILVER_OFF>;
 			power-domains = <&CPU_PD2>;
+			power-domain-names = "psci";
 			qcom,freq-domain = <&cpufreq_hw 0 4>;
 			capacity-dmips-mhz = <1024>;
 			dynamic-power-coefficient = <100>;
@@ -131,6 +134,7 @@
 			cpu-release-addr = <0x0 0x90000000>;
 			cpu-idle-states = <&SILVER_OFF>;
 			power-domains = <&CPU_PD3>;
+			power-domain-names = "psci";
 			qcom,freq-domain = <&cpufreq_hw 0 4>;
 			capacity-dmips-mhz = <1024>;
 			dynamic-power-coefficient = <100>;
@@ -151,6 +155,7 @@
 			cpu-release-addr = <0x0 0x90000000>;
 			cpu-idle-states = <&GOLD_OFF>;
 			power-domains = <&CPU_PD4>;
+			power-domain-names = "psci";
 			qcom,freq-domain = <&cpufreq_hw 1 4>;
 			capacity-dmips-mhz = <1946>;
 			dynamic-power-coefficient = <515>;
@@ -171,6 +176,7 @@
 			cpu-release-addr = <0x0 0x90000000>;
 			cpu-idle-states = <&GOLD_OFF>;
 			power-domains = <&CPU_PD5>;
+			power-domain-names = "psci";
 			qcom,freq-domain = <&cpufreq_hw 1 4>;
 			capacity-dmips-mhz = <1946>;
 			dynamic-power-coefficient = <515>;
@@ -191,6 +197,7 @@
 			cpu-release-addr = <0x0 0x90000000>;
 			cpu-idle-states = <&GOLD_OFF>;
 			power-domains = <&CPU_PD6>;
+			power-domain-names = "psci";
 			qcom,freq-domain = <&cpufreq_hw 1 4>;
 			capacity-dmips-mhz = <1946>;
 			dynamic-power-coefficient = <515>;
@@ -211,6 +218,7 @@
 			cpu-release-addr = <0x0 0x90000000>;
 			cpu-idle-states = <&GOLD_OFF>;
 			power-domains = <&CPU_PD7>;
+			power-domain-names = "psci";
 			qcom,freq-domain = <&cpufreq_hw 2 4>;
 			capacity-dmips-mhz = <2048>;
 			dynamic-power-coefficient = <845>;
