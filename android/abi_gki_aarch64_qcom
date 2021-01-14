@@ -1122,6 +1122,9 @@
   list_sort
   __local_bh_enable_ip
   lock_sock_nested
+  __log_post_read_mmio
+  __log_read_mmio
+  __log_write_mmio
   mac_pton
   mbox_chan_received_data
   mbox_chan_txdone
@@ -2021,6 +2024,9 @@
   __tracepoint_cpu_idle
   tracepoint_probe_register
   tracepoint_probe_unregister
+  __tracepoint_rwmmio_post_read
+  __tracepoint_rwmmio_read
+  __tracepoint_rwmmio_write
   __tracepoint_suspend_resume
   trace_print_array_seq
   trace_print_symbols_seq

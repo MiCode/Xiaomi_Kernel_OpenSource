@@ -2132,7 +2132,7 @@ ufs_qcom_query_ioctl(struct ufs_hba *hba, u8 lun, void __user *buffer)
 			index = 0;
 			break;
 		case QUERY_DESC_IDN_UNIT:
-			if (!ufs_is_valid_unit_desc_lun(&hba->dev_info, lun)) {
+			if (!ufs_is_valid_unit_desc_lun(&hba->dev_info, lun, 0)) {
 				dev_err(hba->dev,
 					"%s: No unit descriptor for lun 0x%x\n",
 					__func__, lun);
