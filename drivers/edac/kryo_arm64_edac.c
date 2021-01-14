@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -25,7 +25,6 @@
 #define ARM64_ERP_PANIC_ON_UE 0
 #endif
 
-#define ARM64_ERP_PANIC_ON_CE 1
 #define L1_SILVER_BIT 0x0
 #define L2_SILVER_BIT 0x1
 #define L3_BIT 0x2
@@ -415,9 +414,6 @@ static int kryo_cpu_panic_notify(struct notifier_block *this,
 	struct edac_device_ctl_info *edev_ctl =
 				panic_handler_drvdata->edev_ctl;
 
-#ifdef CONFIG_EDAC_KRYO_ARM64_PANIC_ON_CE
-	edev_ctl->panic_on_ce = 0;
-#endif
 	edev_ctl->panic_on_ue = 0;
 
 	kryo_check_l3_scu_error(edev_ctl);
