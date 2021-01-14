@@ -17,6 +17,7 @@
 #include <linux/qcom_scm.h>
 #include <linux/regulator/consumer.h>
 #include <linux/remoteproc.h>
+#include <linux/remoteproc/qcom_spss.h>
 #include <linux/soc/qcom/mdt_loader.h>
 
 #include "qcom_common.h"

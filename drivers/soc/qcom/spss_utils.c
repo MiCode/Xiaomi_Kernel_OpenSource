@@ -38,6 +38,7 @@
 
 #include <linux/remoteproc.h>
 #include <linux/remoteproc/qcom_rproc.h>
+#include <linux/remoteproc/qcom_spss.h>
 #include <soc/qcom/secure_buffer.h>     /* VMID_HLOS */
 
 #include <uapi/linux/ioctl.h>       /* ioctl() */
@@ -52,8 +53,6 @@ enum spss_firmware_type {
 	SPSS_FW_TYPE_PROD = 'p',
 	SPSS_FW_TYPE_NONE = 'z',
 };
-
-extern int qcom_spss_set_fw_name(struct rproc *rproc, const char *fw_name)
 
 static enum spss_firmware_type firmware_type = SPSS_FW_TYPE_TEST;
 static const char *dev_firmware_name;
