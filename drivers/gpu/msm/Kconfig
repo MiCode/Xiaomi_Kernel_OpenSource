@@ -3,7 +3,7 @@ config QCOM_KGSL
 	tristate "Qualcomm Technologies, Inc. 3D Graphics driver"
 	depends on ARCH_QCOM
 	depends on QCOM_QFPROM
-	select MSM_SUBSYSTEM_RESTART
+	select QCOM_MDT_LOADER
 	help
 	  3D graphics driver for the Adreno family of GPUs from QTI.
 	  Required to use hardware accelerated OpenGL, compute and Vulkan

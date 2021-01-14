@@ -665,7 +665,7 @@ void kgsl_device_snapshot(struct kgsl_device *device,
 {
 	struct kgsl_snapshot_header *header = device->snapshot_memory.ptr;
 	struct kgsl_snapshot *snapshot;
-	struct timespec boot;
+	struct timespec64 boot;
 	phys_addr_t pa;
 
 	set_isdb_breakpoint_registers(device);
@@ -755,7 +755,7 @@ void kgsl_device_snapshot(struct kgsl_device *device,
 	 * the kernel log
 	 */
 
-	getboottime(&boot);
+	getboottime64(&boot);
 	snapshot->timestamp = get_seconds() - boot.tv_sec;
 
 	/* Store the instance in the device until it gets dumped */
