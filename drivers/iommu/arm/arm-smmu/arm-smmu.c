@@ -178,13 +178,6 @@ static void parse_driver_options(struct arm_smmu_device *smmu)
 	} while (arm_smmu_options[++i].opt);
 }
 
-static bool is_dynamic_domain(struct iommu_domain *domain)
-{
-	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-
-	return test_bit(DOMAIN_ATTR_DYNAMIC, smmu_domain->attributes);
-}
-
 static bool is_iommu_pt_coherent(struct arm_smmu_domain *smmu_domain)
 {
 	if (test_bit(DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT,
@@ -1196,21 +1189,6 @@ void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx)
 	arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_SCTLR, cb->sctlr);
 }
 
-static void arm_smmu_free_asid(struct iommu_domain *domain)
-{
-	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	struct arm_smmu_device *smmu = smmu_domain->smmu;
-	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
-	bool dynamic = is_dynamic_domain(domain);
-
-	if (cfg->asid == INVALID_ASID || !dynamic)
-		return;
-
-	mutex_lock(&smmu->idr_mutex);
-	idr_remove(&smmu->asid_idr, cfg->asid);
-	mutex_unlock(&smmu->idr_mutex);
-}
-
 /* This function assumes that the domain's init mutex is held */
 static int arm_smmu_get_dma_cookie(struct device *dev,
 				    struct arm_smmu_domain *smmu_domain,
@@ -1405,116 +1383,6 @@ static const struct qcom_iommu_pgtable_ops arm_smmu_pgtable_ops = {
 	.free = arm_smmu_free_pgtable,
 };
 
-static int arm_smmu_init_dynamic_domain(struct iommu_domain *domain,
-					struct arm_smmu_device *smmu,
-					struct device *dev)
-{
-	unsigned long ias, oas;
-	struct io_pgtable_ops *pgtbl_ops;
-	struct qcom_io_pgtable_info pgtbl_info;
-	struct io_pgtable_cfg *pgtbl_cfg = &pgtbl_info.cfg;
-	enum io_pgtable_fmt fmt;
-	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
-	int ret;
-
-	smmu_domain->stage = ARM_SMMU_DOMAIN_S1;
-	cfg->fmt = ARM_SMMU_CTX_FMT_AARCH64;
-	cfg->cbar = CBAR_TYPE_S1_TRANS_S2_BYPASS;
-	ias = smmu->va_size;
-	oas = smmu->ipa_size;
-	fmt = ARM_64_LPAE_S1;
-	if (smmu->options & ARM_SMMU_OPT_3LVL_TABLES)
-		ias = min(ias, 39UL);
-	smmu_domain->flush_ops = &arm_smmu_s1_tlb_ops;
-
-	/*
-	 * Dynamic domains have already set cbndx through domain attribute.
-	 * Verify that they picked a valid value.
-	 */
-	ret = smmu_domain->cfg.cbndx;
-	if (ret >= smmu->num_context_banks)
-		return -EINVAL;
-	cfg->cbndx = ret;
-
-	mutex_lock(&smmu->idr_mutex);
-	ret = idr_alloc_cyclic(&smmu->asid_idr, domain,
-				smmu->num_context_banks + 2,
-				MAX_ASID + 1, GFP_KERNEL);
-	mutex_unlock(&smmu->idr_mutex);
-	if (ret < 0) {
-		dev_err(smmu->dev, "dynamic ASID allocation failed: %d\n",
-			ret);
-		return ret;
-	}
-	cfg->asid = ret;
-
-	smmu_domain->smmu = smmu;
-	/*
-	 * Dynamic domain don't need to program actlr, so skip calling
-	 * impl->init_context
-	 */
-
-	pgtbl_info.cfg = (struct io_pgtable_cfg) {
-		.pgsize_bitmap	= smmu->pgsize_bitmap,
-		.ias		= ias,
-		.oas		= oas,
-		.coherent_walk	= is_iommu_pt_coherent(smmu_domain),
-		.tlb		= smmu_domain->flush_ops,
-		.iommu_dev	= smmu->dev,
-	};
-
-	pgtbl_cfg->quirks |= arm_smmu_domain_get_qcom_quirks(smmu_domain, smmu);
-
-	pgtbl_ops = qcom_alloc_io_pgtable_ops(fmt, &pgtbl_info, smmu_domain);
-	if (!pgtbl_ops) {
-		ret = -ENOMEM;
-		goto out_clear_smmu;
-	}
-
-	/* Dynamic domains don't write to context bank registers */
-
-	/* Update the domain's page sizes to reflect the page table format */
-	domain->pgsize_bitmap = pgtbl_cfg->pgsize_bitmap;
-
-	if (pgtbl_cfg->quirks & IO_PGTABLE_QUIRK_ARM_TTBR1) {
-		domain->geometry.aperture_start = ~0UL << ias;
-		domain->geometry.aperture_end = ~0UL;
-	} else {
-		domain->geometry.aperture_end = (1UL << ias) - 1;
-	}
-
-	domain->geometry.force_aperture = true;
-
-	/* Dynamic domains don't use interrupts */
-	cfg->irptndx = ARM_SMMU_INVALID_IRPTNDX;
-
-	/*
-	 * assign any page table memory that might have been allocated
-	 * during alloc_io_pgtable_ops
-	 */
-	arm_smmu_secure_domain_lock(smmu_domain);
-	arm_smmu_assign_table(smmu_domain);
-	arm_smmu_secure_domain_unlock(smmu_domain);
-
-	/*
-	 * Dynamic domains don't use the dma layer, so skip
-	 * getting a dma cookie.
-	 */
-
-	/* Save pagetable_cfg for gpu */
-	smmu_domain->pgtbl_cfg = *pgtbl_cfg;
-
-	/* Publish page table ops for map/unmap */
-	smmu_domain->pgtbl_ops = pgtbl_ops;
-	return 0;
-
-out_clear_smmu:
-	arm_smmu_destroy_domain_context(domain);
-	smmu_domain->smmu = NULL;
-	return ret;
-}
-
 static int arm_smmu_alloc_context_bank(struct arm_smmu_domain *smmu_domain,
 				       struct arm_smmu_device *smmu,
 				       struct device *dev, unsigned int start)
@@ -1550,11 +1418,6 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	if (ret) {
 		dev_err(dev, "%s: default domain setup failed\n",
 			__func__);
-		goto out_unlock;
-	}
-
-	if (is_dynamic_domain(domain)) {
-		ret = arm_smmu_init_dynamic_domain(domain, smmu, dev);
 		goto out_unlock;
 	}
 
@@ -1772,9 +1635,6 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	if (ret)
 		goto out_logger;
 
-	/* Save pagetable_cfg for gpu */
-	smmu_domain->pgtbl_cfg = *pgtbl_cfg;
-
 	/*
 	 * Matches with call to arm_smmu_rpm_put in
 	 * arm_smmu_destroy_domain_context.
@@ -1814,7 +1674,6 @@ static void arm_smmu_destroy_domain_context(struct iommu_domain *domain)
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	int irq;
-	bool dynamic;
 	int ret;
 
 	if (!smmu || domain->type == IOMMU_DOMAIN_IDENTITY)
@@ -1830,19 +1689,6 @@ static void arm_smmu_destroy_domain_context(struct iommu_domain *domain)
 	 */
 	if (smmu_domain->rpm_always_on)
 		arm_smmu_rpm_put(smmu);
-
-	dynamic = is_dynamic_domain(domain);
-	if (dynamic) {
-		arm_smmu_free_asid(domain);
-		qcom_free_io_pgtable_ops(smmu_domain->pgtbl_ops);
-		arm_smmu_rpm_put(smmu);
-		arm_smmu_secure_domain_lock(smmu_domain);
-		arm_smmu_secure_pool_destroy(smmu_domain);
-		arm_smmu_unassign_table(smmu_domain);
-		arm_smmu_secure_domain_unlock(smmu_domain);
-		arm_smmu_domain_reinit(smmu_domain);
-		return;
-	}
 
 	/*
 	 * Disable the context bank and free the page tables before freeing
@@ -2292,22 +2138,6 @@ static int arm_smmu_setup_default_domain(struct device *dev,
 		__arm_smmu_domain_set_attr(
 			domain, DOMAIN_ATTR_ATOMIC, &attr);
 	} else if (!strcmp(str, "disabled")) {
-		/*
-		 * This is required for testing on lahaina, which
-		 * uses the dynamic domains feature.
-		 *
-		 * Don't touch hw, and don't allocate irqs or other resources.
-		 * Ensure the context bank is set to a valid value per dynamic
-		 * attr requirement.
-		 */
-		if (domain->type == IOMMU_DOMAIN_IDENTITY) {
-			__arm_smmu_domain_set_attr(
-				domain, DOMAIN_ATTR_DYNAMIC, &attr);
-			val = 0;
-			__arm_smmu_domain_set_attr(
-				domain, DOMAIN_ATTR_CONTEXT_BANK, &val);
-		}
-
 		/* DT properties only intended for use by default-domains */
 		return 0;
 	}
@@ -2457,12 +2287,6 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	ret = arm_smmu_init_domain_context(domain, smmu, dev);
 	if (ret < 0)
 		goto out_power_off;
-
-	/* Do not modify the SIDs, HW is still running */
-	if (is_dynamic_domain(domain)) {
-		ret = 0;
-		goto out_power_off;
-	}
 
 	/*
 	 * Sanity check the domain. We don't support domains across
@@ -2880,7 +2704,6 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 				    enum iommu_attr attr, void *data)
 {
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	struct io_pgtable_cfg *pgtbl_cfg = &smmu_domain->pgtbl_cfg;
 	int ret = 0;
 	unsigned long iommu_attr = (unsigned long)attr;
 
@@ -2894,10 +2717,6 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 		*(int *)data = smmu_domain->non_strict;
 		ret = 0;
 		break;
-	case DOMAIN_ATTR_PT_BASE_ADDR:
-		*((phys_addr_t *)data) = pgtbl_cfg->arm_lpae_s1_cfg.ttbr;
-		ret = 0;
-		break;
 	case DOMAIN_ATTR_CONTEXT_BANK:
 		/* context bank index isn't valid until we are attached */
 		if (smmu_domain->smmu == NULL) {
@@ -2905,41 +2724,6 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 			break;
 		}
 		*((unsigned int *) data) = smmu_domain->cfg.cbndx;
-		ret = 0;
-		break;
-	case DOMAIN_ATTR_TTBR0: {
-		u64 val;
-		struct arm_smmu_device *smmu = smmu_domain->smmu;
-		/* not valid until we are attached */
-		if (smmu == NULL) {
-			ret = -ENODEV;
-			break;
-		}
-		val = pgtbl_cfg->arm_lpae_s1_cfg.ttbr;
-		if (smmu_domain->cfg.cbar != CBAR_TYPE_S2_TRANS)
-			val |= FIELD_PREP(ARM_SMMU_TTBRn_ASID,
-					  ARM_SMMU_CB_ASID(smmu,
-							   &smmu_domain->cfg));
-		*((u64 *)data) = val;
-		ret = 0;
-		break;
-	}
-	case DOMAIN_ATTR_CONTEXTIDR:
-		/* not valid until attached */
-		if (smmu_domain->smmu == NULL) {
-			ret = -ENODEV;
-			break;
-		}
-		*((u32 *)data) = smmu_domain->cfg.procid;
-		ret = 0;
-		break;
-	case DOMAIN_ATTR_PROCID:
-		*((u32 *)data) = smmu_domain->cfg.procid;
-		ret = 0;
-		break;
-	case DOMAIN_ATTR_DYNAMIC:
-		*((int *)data) = test_bit(DOMAIN_ATTR_DYNAMIC,
-					  smmu_domain->attributes);
 		ret = 0;
 		break;
 	case DOMAIN_ATTR_NON_FATAL_FAULTS:
@@ -3038,49 +2822,6 @@ static int __arm_smmu_domain_set_attr(struct iommu_domain *domain,
 		break;
 	case DOMAIN_ATTR_DMA_USE_FLUSH_QUEUE:
 		smmu_domain->non_strict = *(int *)data;
-		break;
-	case DOMAIN_ATTR_PROCID:
-		if (smmu_domain->smmu != NULL) {
-			dev_err(smmu_domain->smmu->dev,
-			  "cannot change procid attribute while attached\n");
-			ret = -EBUSY;
-			break;
-		}
-		smmu_domain->cfg.procid = *((u32 *)data);
-		ret = 0;
-		break;
-	case DOMAIN_ATTR_DYNAMIC: {
-		int dynamic = *((int *)data);
-
-		if (smmu_domain->smmu != NULL) {
-			dev_err(smmu_domain->smmu->dev,
-			  "cannot change dynamic attribute while attached\n");
-			ret = -EBUSY;
-			break;
-		}
-
-		if (dynamic)
-			set_bit(DOMAIN_ATTR_DYNAMIC, smmu_domain->attributes);
-		else
-			clear_bit(DOMAIN_ATTR_DYNAMIC, smmu_domain->attributes);
-		ret = 0;
-		break;
-	}
-	case DOMAIN_ATTR_CONTEXT_BANK:
-		/* context bank can't be set while attached */
-		if (smmu_domain->smmu != NULL) {
-			ret = -EBUSY;
-			break;
-		}
-		/* ... and it can only be set for dynamic contexts. */
-		if (!test_bit(DOMAIN_ATTR_DYNAMIC, smmu_domain->attributes)) {
-			ret = -EINVAL;
-			break;
-		}
-
-		/* this will be validated during attach */
-		smmu_domain->cfg.cbndx = *((unsigned int *)data);
-		ret = 0;
 		break;
 	case DOMAIN_ATTR_NON_FATAL_FAULTS: {
 		u32 non_fatal_faults = *((int *)data);
@@ -4093,8 +3834,6 @@ static int arm_smmu_device_probe(struct platform_device *pdev)
 	}
 
 	/* QCOM Additions */
-	idr_init(&smmu->asid_idr);
-	mutex_init(&smmu->idr_mutex);
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	smmu->phys_addr = res->start;
 	parse_driver_options(smmu);
@@ -4173,8 +3912,6 @@ static int arm_smmu_device_remove(struct platform_device *pdev)
 
 	if (smmu->impl && smmu->impl->device_remove)
 		smmu->impl->device_remove(smmu);
-
-	idr_destroy(&smmu->asid_idr);
 
 	arm_smmu_rpm_get(smmu);
 	/* Turn the thing off */
