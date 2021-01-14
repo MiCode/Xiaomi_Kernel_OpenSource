@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2019, 2021, The Linux Foundation. All rights reserved.
  */
 /* Bus-Access-Manager (BAM) Hardware manager. */
 
@@ -776,12 +776,13 @@ static inline u32 bam_read_reg_field(void *base, enum bam_regs reg, u32 param,
 {
 	u32 val, shift, offset = 0;
 	struct sps_bam *dev = to_sps_bam_dev(base);
+	unsigned long lmask = mask;
 
 	if ((dev == NULL) || (&dev->base != base)) {
 		SPS_ERR(sps, "Failed to get dev for base addr 0x%pK\n", base);
 		return SPS_ERROR;
 	}
-	shift = find_first_bit((void *)&mask, 32);
+	shift = find_first_bit(&lmask, 32);
 	offset = bam_get_register_offset(base, reg, param);
 	if (offset == BAM_INVALID_OFFSET) {
 		SPS_ERR(dev, "Failed to get the register offset for %d\n", reg);
@@ -838,12 +839,13 @@ static inline void bam_write_reg_field(void *base, enum bam_regs reg,
 {
 	u32 tmp, shift, offset = 0;
 	struct sps_bam *dev = to_sps_bam_dev(base);
+	unsigned long lmask = mask;
 
 	if ((dev == NULL) || (&dev->base != base)) {
 		SPS_ERR(sps, "Failed to get dev for base addr 0x%pK\n", base);
 		return;
 	}
-	shift = find_first_bit((void *)&mask, 32);
+	shift = find_first_bit(&lmask, 32);
 	offset = bam_get_register_offset(base, reg, param);
 	if (offset == BAM_INVALID_OFFSET) {
 		SPS_ERR(dev, "Failed to get the register offset for %d\n", reg);
