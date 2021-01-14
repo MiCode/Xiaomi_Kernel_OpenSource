@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "%s: " fmt, __func__
@@ -553,7 +553,7 @@ static int virtio_clk_probe(struct virtio_device *vdev)
 		}
 	}
 
-	ret = of_clk_add_hw_provider(vdev->dev.parent->of_node,
+	ret = devm_of_clk_add_hw_provider(vdev->dev.parent,
 			of_clk_hw_virtio_get, vclk);
 	if (ret) {
 		dev_err(&vdev->dev, "failed to add clock provider\n");
@@ -577,7 +577,6 @@ static int virtio_clk_probe(struct virtio_device *vdev)
 	return 0;
 
 err_rst_register:
-	of_clk_del_provider(vdev->dev.parent->of_node);
 err_clk_register:
 err_kcalloc:
 err_find_desc:
