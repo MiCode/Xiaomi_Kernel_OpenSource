@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1775,7 +1775,7 @@ static ssize_t iommu_debug_dma_map_write(struct file *file,
 	else if (attr == 2)
 		dma_attrs = DMA_ATTR_FORCE_NON_COHERENT;
 	else if (attr == 3)
-		dma_attrs = DMA_ATTR_IOMMU_USE_UPSTREAM_HINT;
+		dma_attrs = DMA_ATTR_SYS_CACHE_ONLY;
 	else
 		goto invalid_format;
 
@@ -1972,7 +1972,7 @@ static ssize_t iommu_debug_dma_unmap_write(struct file *file,
 	else if (attr == 2)
 		dma_attrs = DMA_ATTR_FORCE_NON_COHERENT;
 	else if (attr == 3)
-		dma_attrs = DMA_ATTR_IOMMU_USE_UPSTREAM_HINT;
+		dma_attrs = DMA_ATTR_SYS_CACHE_ONLY;
 	else
 		goto invalid_format;
 
