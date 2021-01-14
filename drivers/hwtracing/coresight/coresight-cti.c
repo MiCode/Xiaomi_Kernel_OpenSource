@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -87,8 +87,6 @@ struct cti_drvdata {
 	struct coresight_cti		cti;
 	int				refcnt;
 	int				cpu;
-	unsigned int			trig_num_max;
-	unsigned int			ch_num_max;
 	bool				cti_save;
 	bool				cti_hwclk;
 	bool				l2_off;
@@ -1361,9 +1359,18 @@ static ssize_t show_info_show(struct device *dev, struct device_attribute *attr,
 {
 	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
 	ssize_t size = 0;
+	unsigned int ctidevid, trig_num_max, ch_num_max;
+
+	pm_runtime_get_sync(drvdata->dev);
+
+	ctidevid = cti_readl(drvdata, DEVID);
+	trig_num_max = (ctidevid & GENMASK(15, 8)) >> 8;
+	ch_num_max = (ctidevid & GENMASK(21, 16)) >> 16;
+
+	pm_runtime_put(drvdata->dev);
 
 	size = scnprintf(&buf[size], PAGE_SIZE, "%d %d\n",
-			drvdata->trig_num_max, drvdata->ch_num_max);
+			trig_num_max, ch_num_max);
 
 	return size;
 }
@@ -1485,7 +1492,6 @@ static int cti_init_save(struct cti_drvdata *drvdata,
 static int cti_probe(struct amba_device *adev, const struct amba_id *id)
 {
 	int ret;
-	unsigned int ctidevid;
 	struct device *dev = &adev->dev;
 	struct coresight_platform_data *pdata;
 	struct cti_drvdata *drvdata;
@@ -1556,9 +1562,6 @@ static int cti_probe(struct amba_device *adev, const struct amba_id *id)
 			cpu_pm_register_notifier(&cti_cpu_pm_notifier);
 		registered++;
 	}
-	ctidevid = cti_readl(drvdata, DEVID);
-	drvdata->trig_num_max = (ctidevid & GENMASK(15, 8)) >> 8;
-	drvdata->ch_num_max = (ctidevid & GENMASK(21, 16)) >> 16;
 	pm_runtime_put(&adev->dev);
 	dev_dbg(dev, "CTI initialized\n");
 	return 0;
