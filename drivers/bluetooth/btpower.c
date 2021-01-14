@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 
 /*
@@ -68,6 +68,16 @@ enum power_src_pos {
 	BT_VDD_RFACMN_CURRENT
 };
 
+// Regulator structure for QCA6174/QCA9377/QCA9379 BT SoC series
+static struct bt_power_vreg_data bt_vregs_info_qca61x4_937x[] = {
+	{NULL, "qcom,bt-vdd-aon", 928000, 928000, 0, false, false,
+		{BT_VDD_AON_LDO, BT_VDD_AON_LDO_CURRENT}},
+	{NULL, "qcom,bt-vdd-io", 1710000, 3460000, 0, false, false,
+		{BT_VDD_IO_LDO, BT_VDD_IO_LDO_CURRENT}},
+	{NULL, "qcom,bt-vdd-core", 3135000, 3465000, 0, false, false,
+		{BT_VDD_CORE_LDO, BT_VDD_CORE_LDO_CURRENT}},
+};
+
 // Regulator structure for QCA6390 and QCA6490 BT SoC series
 static struct bt_power_vreg_data bt_vregs_info_qca6x9x[] = {
 	{NULL, "qcom,bt-vdd-io",      1800000, 1800000, 0, false, true,
@@ -105,6 +115,12 @@ static struct bt_power bt_vreg_info_wcn399x = {
 	.num_vregs = 4,
 };
 
+static struct bt_power bt_vreg_info_qca6174 = {
+	.compatible = "qcom,qca6174",
+	.vregs = bt_vregs_info_qca61x4_937x,
+	.num_vregs = ARRAY_SIZE(bt_vregs_info_qca61x4_937x),
+};
+
 static struct bt_power bt_vreg_info_qca6390 = {
 	.compatible = "qcom,qca6390",
 	.vregs = bt_vregs_info_qca6x9x,
@@ -118,7 +134,7 @@ static struct bt_power bt_vreg_info_qca6490 = {
 };
 
 static const struct of_device_id bt_power_match_table[] = {
-	{	.compatible = "qcom,qca6174" },
+	{	.compatible = "qcom,qca6174", .data = &bt_vreg_info_qca6174},
 	{	.compatible = "qcom,wcn3990", .data = &bt_vreg_info_wcn399x},
 	{	.compatible = "qcom,qca6390", .data = &bt_vreg_info_qca6390},
 	{	.compatible = "qcom,qca6490", .data = &bt_vreg_info_qca6490},
