@@ -616,9 +616,9 @@ static int entry_ffs_func_bind(struct kretprobe_instance *ri,
 {
 	struct kprobe_data *data = (struct kprobe_data *)ri->data;
 	struct usb_function *f = (struct usb_function *)regs->regs[1];
-	struct ffs_function *func = container_of(f, struct ffs_function, function);
 	struct f_fs_opts *ffs_opts =
 		container_of(f->fi, struct f_fs_opts, func_inst);
+	/* func->ffs not set yet; get ffs_data via ffs_opts instead */
 	struct ffs_data *ffs = ffs_opts->dev->ffs_data;
 	void *context = get_ipc_context(ffs);
 
