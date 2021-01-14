@@ -106,6 +106,14 @@ config IPC_LOG_MINIDUMP_BUFFERS
           This option is used to configure maximum number of ipc log
           buffers that can be dumped by minidump.
 
+config TRACE_MMIO_ACCESS
+	bool "Register read/write tracing"
+	depends on TRACING
+	depends on ARM64
+	help
+	  Create tracepoints for IO read/write operations. These trace events
+	  can be used for logging all MMIO read/write operations.
+
 config PREEMPTIRQ_TRACEPOINTS
 	bool
 	depends on TRACE_PREEMPT_TOGGLE || TRACE_IRQFLAGS

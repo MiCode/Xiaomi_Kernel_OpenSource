@@ -221,6 +221,7 @@ retry:
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(cpupri_find_fitness);
 
 /**
  * cpupri_set - update the CPU priority setting
