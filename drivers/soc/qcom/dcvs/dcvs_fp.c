@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "qcom-dcvs-fp: " fmt
@@ -194,6 +194,20 @@ static int qcom_dcvs_fp_probe(struct platform_device *pdev)
 	ret = rpmh_init_fast_path(dev, fp_data->tcs_cmds, NUM_FP_CMDS);
 	if (ret < 0) {
 		dev_err(dev, "Error initializing rpmh fast path: %d\n", ret);
+		goto out;
+	}
+	ret = rpmh_write_async(dev, RPMH_SLEEP_STATE, fp_data->tcs_cmds,
+								NUM_FP_CMDS);
+	if (ret < 0) {
+		dev_err(dev, "Error initing dcvs_fp sleep vote: %d\n", ret);
+		goto out;
+	}
+	for (i = 0; i < NUM_FP_CMDS; i++)
+		fp_data->tcs_cmds[i].data = BCM_TCS_CMD(1, 1, 0, 1);
+	ret = rpmh_write_async(dev, RPMH_WAKE_ONLY_STATE, fp_data->tcs_cmds,
+								NUM_FP_CMDS);
+	if (ret < 0) {
+		dev_err(dev, "Error initing dcvs_fp wake vote: %d\n", ret);
 		goto out;
 	}
 	ddrllcc_data = fp_data;
