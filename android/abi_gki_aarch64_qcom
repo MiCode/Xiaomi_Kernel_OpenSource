@@ -153,6 +153,8 @@
   clk_hw_unregister
   __clk_is_enabled
   __clk_mux_determine_rate_closest
+  clk_notifier_register
+  clk_notifier_unregister
   clk_prepare
   clk_put
   clk_register
@@ -194,7 +196,9 @@
   _copy_from_iter_full
   cpu_bit_bitmap
   cpufreq_cpu_get
+  cpufreq_cpu_get
   cpufreq_cpu_get_raw
+  cpufreq_cpu_put
   cpufreq_cpu_put
   cpufreq_freq_attr_scaling_available_freqs
   cpufreq_freq_attr_scaling_boost_freqs
@@ -202,7 +206,9 @@
   cpufreq_get_policy
   cpufreq_quick_get_max
   cpufreq_register_driver
+  cpufreq_register_notifier
   cpufreq_unregister_driver
+  cpufreq_unregister_notifier
   __cpuhp_remove_state
   __cpuhp_setup_state
   __cpuhp_setup_state_cpuslocked
@@ -396,6 +402,7 @@
   dev_pm_genpd_set_performance_state
   dev_pm_opp_add
   dev_pm_opp_find_freq_ceil
+  dev_pm_opp_find_freq_floor
   dev_pm_opp_get_level
   dev_pm_opp_get_opp_count
   dev_pm_opp_get_voltage
@@ -403,6 +410,7 @@
   dev_pm_opp_of_find_icc_paths
   dev_pm_opp_of_register_em
   dev_pm_opp_of_remove_table
+  dev_pm_opp_put
   dev_pm_opp_put_clkname
   dev_pm_opp_remove_all_dynamic
   dev_pm_opp_set_clkname
@@ -774,7 +782,10 @@
   free_percpu
   free_percpu_irq
   freq_qos_add_request
+  freq_qos_add_request
   freq_qos_remove_request
+  freq_qos_remove_request
+  freq_qos_update_request
   freq_qos_update_request
   ftrace_dump
   fwnode_find_reference
@@ -1495,10 +1506,13 @@
   pm_wakeup_ws_event
   power_supply_get_by_name
   power_supply_get_drvdata
+  power_supply_get_property
   power_supply_put
   power_supply_register
+  power_supply_reg_notifier
   power_supply_set_property
   power_supply_unregister
+  power_supply_unreg_notifier
   prandom_u32
   preempt_schedule
   preempt_schedule_notrace
@@ -2002,7 +2016,10 @@
   __task_pid_nr_ns
   thermal_cooling_device_unregister
   thermal_of_cooling_device_register
+  thermal_zone_device_register
   thermal_zone_device_update
+  thermal_zone_of_sensor_register
+  thermal_zone_of_sensor_unregister
   time64_to_tm
   _totalram_pages
   __trace_bprintk
