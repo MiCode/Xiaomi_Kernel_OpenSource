@@ -227,6 +227,61 @@ struct gce_ctx_info {
 	/* gce not callbacked cnt */
 };
 
+struct vcodec_gce_event {
+	enum gce_event_id id;
+	const char *name;
+};
+
+static const struct vcodec_gce_event vcodec_gce_event_mapping_table[] = {
+	{.id = VDEC_EVENT_0, .name = "vdec_pic_start"},
+	{.id = VDEC_EVENT_1, .name = "vdec_decode_done"},
+	{.id = VDEC_EVENT_2, .name = "vdec_pause"},
+	{.id = VDEC_EVENT_3, .name = "vdec_dec_error"},
+	{.id = VDEC_EVENT_4, .name = "vdec_mc_busy_overflow_timeout"},
+	{.id = VDEC_EVENT_5, .name = "vdec_all_dram_req_done"},
+	{.id = VDEC_EVENT_6, .name = "vdec_ini_fetch_rdy"},
+	{.id = VDEC_EVENT_7, .name = "vdec_process_flag"},
+	{.id = VDEC_EVENT_8, .name = "vdec_search_start_code_done"},
+	{.id = VDEC_EVENT_9, .name = "vdec_ref_reorder_done"},
+	{.id = VDEC_EVENT_10, .name = "vdec_wp_tble_done"},
+	{.id = VDEC_EVENT_11, .name = "vdec_count_sram_clr_done"},
+	{.id = VDEC_EVENT_15, .name = "vdec_gce_cnt_op_threshold"},
+	{.id = VDEC_LAT_EVENT_0, .name = "vdec_lat_pic_start"},
+	{.id = VDEC_LAT_EVENT_1, .name = "vdec_lat_decode_done"},
+	{.id = VDEC_LAT_EVENT_2, .name = "vdec_lat_pause"},
+	{.id = VDEC_LAT_EVENT_3, .name = "vdec_lat_dec_error"},
+	{.id = VDEC_LAT_EVENT_4, .name = "vdec_lat_mc_busy_overflow_timeout"},
+	{.id = VDEC_LAT_EVENT_5, .name = "vdec_lat_all_dram_req_done"},
+	{.id = VDEC_LAT_EVENT_6, .name = "vdec_lat_ini_fetch_rdy"},
+	{.id = VDEC_LAT_EVENT_7, .name = "vdec_lat_process_flag"},
+	{.id = VDEC_LAT_EVENT_8, .name = "vdec_lat_search_start_code_done"},
+	{.id = VDEC_LAT_EVENT_9, .name = "vdec_lat_ref_reorder_done"},
+	{.id = VDEC_LAT_EVENT_10, .name = "vdec_lat_wp_tble_done"},
+	{.id = VDEC_LAT_EVENT_11, .name = "vdec_lat_count_sram_clr_done"},
+	{.id = VDEC_LAT_EVENT_15, .name = "vdec_lat_gce_cnt_op_threshold"},
+	{.id = VENC_EOF, .name = "venc_eof"},
+	{.id = VENC_CMDQ_PAUSE_DONE, .name = "venc_cmdq_pause_done"},
+	{.id = VENC_MB_DONE, .name = "venc_mb_done"},
+	{.id = VENC_128BYTE_CNT_DONE, .name = "venc_128B_cnt_done"},
+	{.id = VENC_EOF_C1, .name = "venc_eof_c1"},
+	{.id = VENC_WP_2ND_DONE, .name = "venc_wp_2nd_done"},
+	{.id = VENC_WP_3ND_DONE, .name = "venc_wp_3nd_done"},
+	{.id = VENC_SPS_DONE, .name = "venc_sps_done"},
+	{.id = VENC_PPS_DONE, .name = "venc_pps_done"},
+};
+
+static int find_gce_event_id(const char *gce_event_name)
+{
+	int i;
+	int total_count =
+		sizeof(vcodec_gce_event_mapping_table) / sizeof(struct vcodec_gce_event);
+	for (i = 0; i < total_count; i++) {
+		if (!strcmp(vcodec_gce_event_mapping_table[i].name, gce_event_name))
+			return vcodec_gce_event_mapping_table[i].id;
+	}
+	return -1;
+}
+
 /**
  * struct mtk_vcu - vcu driver data
  * @extmem:             VCU extended memory information
@@ -2126,6 +2181,8 @@ static int mtk_vcu_probe(struct platform_device *pdev)
 	struct resource *res;
 	int i, ret = 0;
 	unsigned int vcuid;
+	const char *gce_event_name;
+	int gce_event_id;
 
 	dev_dbg(&pdev->dev, "[VCU] initialization\n");
 
@@ -2303,9 +2360,11 @@ static int mtk_vcu_probe(struct platform_device *pdev)
 		vcu->clt_venc[i] =
 			cmdq_mbox_create(dev, i + vcu->gce_th_num[VCU_VDEC]);
 
+#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 	vcu->clt_venc_sec[0] =
 		cmdq_mbox_create(dev,
 		vcu->gce_th_num[VCU_VDEC] + vcu->gce_th_num[VCU_VENC]);
+#endif
 
 	if (IS_ERR_OR_NULL(vcu->clt_vdec[0]))
 		goto err_device;
@@ -2318,77 +2377,22 @@ static int mtk_vcu_probe(struct platform_device *pdev)
 
 	for (i = 0; i < GCE_EVENT_MAX; i++)
 		vcu->gce_codec_eid[i] = -1;
-	vcu->gce_codec_eid[VDEC_EVENT_0] =
-		cmdq_dev_get_event(dev, "vdec_pic_start");
-	vcu->gce_codec_eid[VDEC_EVENT_1] =
-		cmdq_dev_get_event(dev, "vdec_decode_done");
-	vcu->gce_codec_eid[VDEC_EVENT_2] =
-		cmdq_dev_get_event(dev, "vdec_pause");
-	vcu->gce_codec_eid[VDEC_EVENT_3] =
-		cmdq_dev_get_event(dev, "vdec_dec_error");
-	vcu->gce_codec_eid[VDEC_EVENT_4] =
-		cmdq_dev_get_event(dev, "vdec_mc_busy_overflow_timeout");
-	vcu->gce_codec_eid[VDEC_EVENT_5] =
-		cmdq_dev_get_event(dev, "vdec_all_dram_req_done");
-	vcu->gce_codec_eid[VDEC_EVENT_6] =
-		cmdq_dev_get_event(dev, "vdec_ini_fetch_rdy");
-	vcu->gce_codec_eid[VDEC_EVENT_7] =
-		cmdq_dev_get_event(dev, "vdec_process_flag");
-	vcu->gce_codec_eid[VDEC_EVENT_8] =
-		cmdq_dev_get_event(dev, "vdec_search_start_code_done");
-	vcu->gce_codec_eid[VDEC_EVENT_9] =
-		cmdq_dev_get_event(dev, "vdec_ref_reorder_done");
-	vcu->gce_codec_eid[VDEC_EVENT_10] =
-		cmdq_dev_get_event(dev, "vdec_wp_tble_done");
-	vcu->gce_codec_eid[VDEC_EVENT_11] =
-		cmdq_dev_get_event(dev, "vdec_count_sram_clr_done");
-	vcu->gce_codec_eid[VDEC_EVENT_15] =
-		cmdq_dev_get_event(dev, "vdec_gce_cnt_op_threshold");
-	vcu->gce_codec_eid[VDEC_LAT_EVENT_0] =
-		cmdq_dev_get_event(dev, "vdec_lat_pic_start");
-	vcu->gce_codec_eid[VDEC_LAT_EVENT_1] =
-		cmdq_dev_get_event(dev, "vdec_lat_decode_done");
-	vcu->gce_codec_eid[VDEC_LAT_EVENT_2] =
-		cmdq_dev_get_event(dev, "vdec_lat_pause");
-	vcu->gce_codec_eid[VDEC_LAT_EVENT_3] =
-		cmdq_dev_get_event(dev, "vdec_lat_dec_error");
-	vcu->gce_codec_eid[VDEC_LAT_EVENT_4] =
-		cmdq_dev_get_event(dev, "vdec_lat_mc_busy_overflow_timeout");
-	vcu->gce_codec_eid[VDEC_LAT_EVENT_5] =
-		cmdq_dev_get_event(dev, "vdec_lat_all_dram_req_done");
-	vcu->gce_codec_eid[VDEC_LAT_EVENT_6] =
-		cmdq_dev_get_event(dev, "vdec_lat_ini_fetch_rdy");
-	vcu->gce_codec_eid[VDEC_LAT_EVENT_7] =
-		cmdq_dev_get_event(dev, "vdec_lat_process_flag");
-	vcu->gce_codec_eid[VDEC_LAT_EVENT_8] =
-		cmdq_dev_get_event(dev, "vdec_lat_search_start_code_done");
-	vcu->gce_codec_eid[VDEC_LAT_EVENT_9] =
-		cmdq_dev_get_event(dev, "vdec_lat_ref_reorder_done");
-	vcu->gce_codec_eid[VDEC_LAT_EVENT_10] =
-		cmdq_dev_get_event(dev, "vdec_lat_wp_tble_done");
-	vcu->gce_codec_eid[VDEC_LAT_EVENT_11] =
-		cmdq_dev_get_event(dev, "vdec_lat_count_sram_clr_done");
-	vcu->gce_codec_eid[VDEC_LAT_EVENT_15] =
-		cmdq_dev_get_event(dev, "vdec_lat_gce_cnt_op_threshold");
 
-	vcu->gce_codec_eid[VENC_EOF] =
-		cmdq_dev_get_event(dev, "venc_eof");
-	vcu->gce_codec_eid[VENC_CMDQ_PAUSE_DONE] =
-		cmdq_dev_get_event(dev, "venc_cmdq_pause_done");
-	vcu->gce_codec_eid[VENC_MB_DONE] =
-		cmdq_dev_get_event(dev, "venc_mb_done");
-	vcu->gce_codec_eid[VENC_128BYTE_CNT_DONE] =
-		cmdq_dev_get_event(dev, "venc_128B_cnt_done");
-	vcu->gce_codec_eid[VENC_EOF_C1] =
-		cmdq_dev_get_event(dev, "venc_eof_c1");
-	vcu->gce_codec_eid[VENC_WP_2ND_DONE] =
-		cmdq_dev_get_event(dev, "venc_wp_2nd_done");
-	vcu->gce_codec_eid[VENC_WP_3ND_DONE] =
-		cmdq_dev_get_event(dev, "venc_wp_3nd_done");
-	vcu->gce_codec_eid[VENC_SPS_DONE] =
-		cmdq_dev_get_event(dev, "venc_sps_done");
-	vcu->gce_codec_eid[VENC_PPS_DONE] =
-		cmdq_dev_get_event(dev, "venc_pps_done");
+	i = 0;
+	while (!of_property_read_string_index(
+			dev->of_node, "gce-event-names", i, &gce_event_name)) {
+		gce_event_id = find_gce_event_id(gce_event_name);
+		if (gce_event_id != -1) {
+			vcu->gce_codec_eid[gce_event_id] =
+				cmdq_dev_get_event(dev, gce_event_name);
+			dev_dbg(dev, "gce event id: %d, name: %s", gce_event_id, gce_event_name);
+		} else {
+			dev_info(dev, "cannot find gce event id by name: %s, need check dts settings",
+				gce_event_name);
+			return -EINVAL;
+		}
+		i++;
+	}
 
 	for (i = 0; i < (int)VCU_CODEC_MAX; i++) {
 		vcu->gce_cmds[i] = devm_kzalloc(dev,
