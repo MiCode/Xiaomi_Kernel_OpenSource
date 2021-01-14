@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2015, Sony Mobile Communications Inc.
- * Copyright (c) 2013, 2018-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013, 2018-2021 The Linux Foundation. All rights reserved.
  */
 #include <linux/kthread.h>
 #include <linux/module.h>
@@ -637,8 +637,12 @@ static int qrtr_node_enqueue(struct qrtr_node *node, struct sk_buff *skb,
 	 * confirm_rx flag if we dropped this one */
 	if (rc && confirm_rx)
 		qrtr_tx_flow_failed(node, to->sq_node, to->sq_port);
-	if (!rc && type == QRTR_TYPE_HELLO)
-		atomic_inc(&node->hello_sent);
+	if (type == QRTR_TYPE_HELLO) {
+		if (!rc)
+			atomic_inc(&node->hello_sent);
+		else
+			kthread_queue_work(&node->kworker, &node->say_hello);
+	}
 
 	return rc;
 }
