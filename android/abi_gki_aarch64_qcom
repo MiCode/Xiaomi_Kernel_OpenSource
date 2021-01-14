@@ -1033,6 +1033,7 @@
   kernel_power_off
   kernel_read
   kernel_recvmsg
+  kernel_restart
   kernel_sendmsg
   kernfs_find_and_get_ns
   kernfs_notify
@@ -1702,6 +1703,7 @@
   rproc_free
   rproc_get_by_child
   rproc_get_by_phandle
+  rproc_put
   rproc_remove_subdev
   rproc_report_crash
   rproc_shutdown
