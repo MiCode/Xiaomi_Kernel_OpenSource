@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.*/
+/* Copyright (c) 2014-2021, The Linux Foundation. All rights reserved.*/
 
 #include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
 #include <linux/bitops.h>
@@ -73,8 +73,12 @@
 #define PCIE20_PARF_DEVICE_TYPE (0x1000)
 #define PCIE20_PARF_BDF_TO_SID_TABLE_N (0x2000)
 #define PCIE20_PARF_BDF_TO_SID_CFG (0x2C00)
+
 #define PCIE20_PARF_L1SUB_AHB_CLK_MAX_TIMER (0x180)
+#define PCIE20_PARF_L1SUB_AHB_CLK_MAX_TIMER_RESET (BIT(31))
+
 #define PCIE20_PARF_DEBUG_INT_EN (0x190)
+#define PCIE20_PARF_DEBUG_INT_EN_L1SUB_TIMEOUT_BIT (BIT(0))
 
 #define PCIE20_PARF_CLKREQ_OVERRIDE (0x2b0)
 #define PCIE20_PARF_CLKREQ_IN_VALUE (BIT(3))
@@ -189,8 +193,8 @@
 #define ICC_AVG_BW (500)
 #define ICC_PEAK_BW (800)
 
-/* Each tick is 19.2 MHz */
-#define L1SS_TIMEOUT_US_TO_TICKS(x) (x * 192 / 10)
+/* Each tick is aux clk freq in MHz */
+#define L1SS_TIMEOUT_US_TO_TICKS(x, freq) (x * freq)
 #define L1SS_TIMEOUT_US (100000)
 
 #define L23_READY_POLL_TIMEOUT (100000)
@@ -3351,6 +3355,9 @@ static void msm_pcie_config_controller(struct msm_pcie_dev_t *dev)
 	/* configure AUX clock frequency register for PCIe core */
 	if (dev->aux_clk_freq)
 		msm_pcie_write_reg(dev->dm_core, PCIE20_AUX_CLK_FREQ_REG, dev->aux_clk_freq);
+
+	dev->aux_clk_freq = readl_relaxed(dev->dm_core +
+					  PCIE20_AUX_CLK_FREQ_REG);
 
 	/* configure the completion timeout value for PCIe core */
 	if (dev->cpl_timeout && dev->bridge_found)
@@ -6572,35 +6579,31 @@ DECLARE_PCI_FIXUP_EARLY(PCIE_VENDOR_ID_QCOM, PCI_ANY_ID,
 
 static void __msm_pcie_l1ss_timeout_disable(struct msm_pcie_dev_t *pcie_dev)
 {
-	msm_pcie_write_mask(pcie_dev->parf + PCIE20_PARF_DEBUG_INT_EN, BIT(0),
-				0);
+	msm_pcie_write_mask(pcie_dev->parf + PCIE20_PARF_DEBUG_INT_EN,
+			    PCIE20_PARF_DEBUG_INT_EN_L1SUB_TIMEOUT_BIT, 0);
 	msm_pcie_write_reg(pcie_dev->parf, PCIE20_PARF_L1SUB_AHB_CLK_MAX_TIMER,
 				0);
 }
 
 static void __msm_pcie_l1ss_timeout_enable(struct msm_pcie_dev_t *pcie_dev)
 {
-	u32 val = BIT(31);
+	u32 val = 0;
 
 	msm_pcie_write_reg(pcie_dev->parf, PCIE20_PARF_L1SUB_AHB_CLK_MAX_TIMER,
-				val);
+			   PCIE20_PARF_L1SUB_AHB_CLK_MAX_TIMER_RESET);
 
-	/* 3 AUX clock cycles so that RESET will sync with timer logic */
-	usleep_range(3, 4);
+	msm_pcie_write_mask(pcie_dev->parf + PCIE20_PARF_INT_ALL_CLEAR, 0,
+			    BIT(MSM_PCIE_INT_EVT_L1SUB_TIMEOUT));
 
-	val |= L1SS_TIMEOUT_US_TO_TICKS(L1SS_TIMEOUT_US);
+	msm_pcie_write_mask(pcie_dev->parf + PCIE20_PARF_DEBUG_INT_EN, 0,
+			    PCIE20_PARF_DEBUG_INT_EN_L1SUB_TIMEOUT_BIT);
+
+	val = PCIE20_PARF_L1SUB_AHB_CLK_MAX_TIMER_RESET |
+	      L1SS_TIMEOUT_US_TO_TICKS(L1SS_TIMEOUT_US,
+				       pcie_dev->aux_clk_freq);
+
 	msm_pcie_write_reg(pcie_dev->parf, PCIE20_PARF_L1SUB_AHB_CLK_MAX_TIMER,
-				val);
-
-	/* 1 AUX clock cycle so that CNT_MAX will sync with timer logic */
-	usleep_range(1, 2);
-
-	val &= ~BIT(31);
-	msm_pcie_write_reg(pcie_dev->parf, PCIE20_PARF_L1SUB_AHB_CLK_MAX_TIMER,
-				val);
-
-	msm_pcie_write_mask(pcie_dev->parf +
-			PCIE20_PARF_DEBUG_INT_EN, 0, BIT(0));
+			   val);
 }
 
 /* Suspend the PCIe link */
