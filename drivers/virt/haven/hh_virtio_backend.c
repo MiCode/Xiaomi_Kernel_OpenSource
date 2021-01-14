@@ -26,6 +26,7 @@
 #include <linux/uaccess.h>
 #include <linux/hh_virtio_backend.h>
 #include <linux/of_irq.h>
+#include <uapi/linux/virtio_mmio.h>
 #include <linux/haven/hcall.h>
 #include <linux/haven/hh_rm_drv.h>
 #include <linux/pgtable.h>
@@ -109,7 +110,7 @@ struct virtio_backend_device {
 	int evt_avail;
 	u64 cur_event_data, vdev_event_data;
 	u64 cur_event, vdev_event;
-	int linux_irq;
+	int linux_irq, irq_enabled;
 	u32 label;
 	struct device *dev;
 	struct virt_machine *vm;
@@ -170,11 +171,13 @@ irqfd_shutdown(struct work_struct *work)
 	vb_dev = container_of(irq, struct virtio_backend_device, irq);
 
 	spin_lock_irqsave(&vb_dev->lock, iflags);
-	eventfd_ctx_remove_wait_queue(irq->ctx, &irq->wait, &isr);
-	eventfd_ctx_put(irq->ctx);
-	fdput(irq->fd);
-	irq->ctx = NULL;
-	irq->fd.file = NULL;
+	if (irq->ctx) {
+		eventfd_ctx_remove_wait_queue(irq->ctx, &irq->wait, &isr);
+		eventfd_ctx_put(irq->ctx);
+		fdput(irq->fd);
+		irq->ctx = NULL;
+		irq->fd.file = NULL;
+	}
 	spin_unlock_irqrestore(&vb_dev->lock, iflags);
 }
 
@@ -325,7 +328,7 @@ static long virtio_backend_ioctl(struct file *file, unsigned int cmd,
 	int ret = 0, i;
 	unsigned long flags;
 	u64 org_event, org_data;
-	u32 *p;
+	u32 *p, *ack_reg;
 
 	if (!vm)
 		return -EINVAL;
@@ -412,6 +415,7 @@ loop_back:
 		vb_dev->cur_event = 0;
 		vb_dev->cur_event_data = 0;
 		vb_dev->evt_avail = 0;
+		ack_reg = (u32 *)(vb_dev->config_shared_buf + VIRTIO_MMIO_INTERRUPT_ACK);
 
 		org_event = vb_dev->vdev_event;
 		org_data = vb_dev->vdev_event_data;
@@ -437,13 +441,16 @@ loop_back:
 			if (vb_dev->vdev_event) {
 				vb_dev->cur_event = vb_dev->vdev_event;
 				vb_dev->vdev_event = 0;
-				vb_dev->cur_event_data = 0;
+				vb_dev->cur_event_data = vb_dev->vdev_event_data;
 				vb_dev->vdev_event_data = 0;
+				if (vb_dev->cur_event & EVENT_INTERRUPT_ACK)
+					vb_dev->cur_event_data = readl_relaxed(ack_reg);
 			}
 		} else if (vb_dev->vdev_event & EVENT_INTERRUPT_ACK) {
 			vb_dev->vdev_event &= ~EVENT_INTERRUPT_ACK;
+			vb_dev->vdev_event_data = 0;
 			vb_dev->cur_event = EVENT_INTERRUPT_ACK;
-			vb_dev->cur_event_data = vb_dev->vdev_event_data;
+			vb_dev->cur_event_data = readl_relaxed(ack_reg);
 		}
 
 		spin_unlock_irqrestore(&vb_dev->lock, flags);
@@ -715,6 +722,10 @@ static void init_vb_dev_open(struct virtio_backend_device *vb_dev)
 	vb_dev->vdev_event_data = 0;
 	vb_dev->cur_event = 0;
 	vb_dev->vdev_event = 0;
+	if (!vb_dev->irq_enabled) {
+		enable_irq(vb_dev->linux_irq);
+		vb_dev->irq_enabled = 1;
+	}
 	spin_unlock_irqrestore(&vb_dev->lock, flags);
 }
 
@@ -775,12 +786,15 @@ static void close_vb_dev(struct virtio_backend_device *vb_dev)
 		if (vb_dev->ioctx[i].ctx) {
 			eventfd_ctx_put(vb_dev->ioctx[i].ctx);
 			vb_dev->ioctx[i].ctx = NULL;
+			vb_dev->ioctx[i].fd = 0;
 		}
 	}
 
 	vb_dev->evt_avail = 0;
 	vb_dev->vdev_event = 0;
 	vb_dev->vdev_event_data = 0;
+	disable_irq(vb_dev->linux_irq);
+	vb_dev->irq_enabled = 0;
 	spin_unlock_irqrestore(&vb_dev->lock, flags);
 
 	mutex_lock(&vb_dev->mutex);
@@ -1469,6 +1483,7 @@ VIRTIO_PRINT_MARKER, label);
 	}
 
 	vb_dev->linux_irq = linux_irq;
+	vb_dev->irq_enabled = 1;
 	vb_dev->cap_id = cap_id;
 	vb_dev->config_shared_size = size;
 	mutex_unlock(&vb_dev->mutex);
