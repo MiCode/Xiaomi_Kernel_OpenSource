@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _IPA_H_
@@ -1242,6 +1242,9 @@ enum ipa_smmu_client_type {
 	IPA_SMMU_WLAN_CLIENT,
 	IPA_SMMU_AP_CLIENT,
 	IPA_SMMU_WIGIG_CLIENT,
+	IPA_SMMU_WLAN1_CLIENT,
+	IPA_SMMU_ETH_CLIENT,
+	IPA_SMMU_ETH1_CLIENT,
 	IPA_SMMU_CLIENT_MAX
 };
 
