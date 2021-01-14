@@ -3918,13 +3918,11 @@
 				<&topckgen CLK_TOP_VDEC_SEL>,
 				<&topckgen CLK_TOP_UNIVPLL_D4_D2>;
 			clock-names =
-				"CORE_MT_CG_SOC",
-				"CORE_MT_CG_VDEC0",
-				"LAT_MT_CG_VDEC1",
-				"MAIN_MT_CG_VDEC_SEL",
-				"MAIN_MT_VDEC_TOP";
-			//parent: MAIN_MT_VDEC_TOP child: MAIN_MT_CG_VDEC_SEL
-			mediatek,clock-parents = <4 3>;
+				"MT_CG_SOC",
+				"MT_CG_VDEC0",
+				"MT_CG_VDEC1",
+				"MT_CG_VDEC_SEL",
+				"MT_VDEC_TOP";
 			operating-points-v2 = <&opp_table_vdec>;
 			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 			interconnects =
