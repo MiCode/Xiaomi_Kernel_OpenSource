@@ -955,6 +955,7 @@
   iommu_fwspec_free
   iommu_get_dma_cookie
   iommu_get_domain_for_dev
+  iommu_group_for_each_dev
   iommu_group_get
   iommu_group_get_iommudata
   iommu_group_put

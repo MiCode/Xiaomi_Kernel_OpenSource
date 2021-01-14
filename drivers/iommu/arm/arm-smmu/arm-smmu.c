@@ -130,7 +130,7 @@ static struct arm_smmu_option_prop arm_smmu_options[] = {
 static phys_addr_t arm_smmu_iova_to_phys(struct iommu_domain *domain,
 					dma_addr_t iova);
 static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
-				    dma_addr_t iova, unsigned long trans_flags);
+				struct qcom_iommu_atos_txn *txn);
 static void arm_smmu_destroy_domain_context(struct iommu_domain *domain);
 
 static int arm_smmu_assign_table(struct arm_smmu_domain *smmu_domain);
@@ -162,11 +162,6 @@ static inline void arm_smmu_rpm_put(struct arm_smmu_device *smmu)
 static struct arm_smmu_domain *to_smmu_domain(struct iommu_domain *dom)
 {
 	return container_of(dom, struct arm_smmu_domain, domain);
-}
-
-static struct arm_smmu_domain *cb_cfg_to_smmu_domain(struct arm_smmu_cfg *cfg)
-{
-	return container_of(cfg, struct arm_smmu_domain, cfg);
 }
 
 static void parse_driver_options(struct arm_smmu_device *smmu)
@@ -298,14 +293,15 @@ static void arm_smmu_interrupt_selftest(struct arm_smmu_device *smmu)
 		irq_cnt = irq_count;
 
 		reg_orig = arm_smmu_cb_read(smmu, cb, ARM_SMMU_CB_SCTLR);
-		reg = reg_orig | SCTLR_CFIE | SCTLR_CFRE;
+		reg = reg_orig | ARM_SMMU_SCTLR_CFIE | ARM_SMMU_SCTLR_CFRE;
 
 		arm_smmu_cb_write(smmu, cb, ARM_SMMU_CB_SCTLR, reg);
 		dev_info(smmu->dev, "Testing cntx %d irq %d\n", cb, irq);
 
 		/* Make sure ARM_SMMU_CB_SCTLR is configured */
 		wmb();
-		arm_smmu_cb_write(smmu, cb, ARM_SMMU_CB_FSRRESTORE, FSR_TF);
+		arm_smmu_cb_write(smmu, cb, ARM_SMMU_CB_FSRRESTORE,
+				ARM_SMMU_FSR_TF);
 
 		wait_event_timeout(wait_int, (irq_count > irq_cnt),
 			msecs_to_jiffies(1000));
@@ -332,7 +328,7 @@ static void arm_smmu_interrupt_selftest(struct arm_smmu_device *smmu)
 #endif
 
 static struct platform_driver arm_smmu_driver;
-static struct iommu_ops arm_smmu_ops;
+static struct qcom_iommu_ops arm_smmu_ops;
 
 #ifdef CONFIG_ARM_SMMU_LEGACY_DT_BINDINGS
 static int arm_smmu_bus_init(struct iommu_ops *ops);
@@ -409,7 +405,7 @@ static int arm_smmu_register_legacy_master(struct device *dev,
 	}
 
 	err = iommu_fwspec_init(dev, &smmu_dev->of_node->fwnode,
-				&arm_smmu_ops);
+				&arm_smmu_ops.iommu_ops);
 	if (err)
 		return err;
 
@@ -433,7 +429,7 @@ static int arm_smmu_register_legacy_master(struct device *dev,
 static int arm_smmu_legacy_bus_init(void)
 {
 	if (using_legacy_binding)
-		return arm_smmu_bus_init(&arm_smmu_ops);
+		return arm_smmu_bus_init(&arm_smmu_ops.iommu_ops);
 	return 0;
 }
 device_initcall_sync(arm_smmu_legacy_bus_init);
@@ -791,15 +787,17 @@ static void print_fault_regs(struct arm_smmu_domain *smmu_domain,
 static void arm_smmu_verify_fault(struct arm_smmu_domain *smmu_domain,
 	struct arm_smmu_device *smmu, int idx)
 {
-	u32 fsynr;
+	u32 fsynr, cbfrsynra;
 	unsigned long iova;
 	struct iommu_domain *domain = &smmu_domain->domain;
 	phys_addr_t phys_soft;
 	phys_addr_t phys_stimu, phys_hard_priv, phys_stimu_post_tlbiall;
 	unsigned long flags = 0;
+	struct qcom_iommu_atos_txn txn = {0};
 
 	fsynr = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSYNR0);
 	iova = arm_smmu_cb_readq(smmu, idx, ARM_SMMU_CB_FAR);
+	cbfrsynra = arm_smmu_gr1_read(smmu, ARM_SMMU_GR1_CBFRSYNRA(idx));
 
 	phys_soft = arm_smmu_iova_to_phys(domain, iova);
 	dev_err(smmu->dev, "soft iova-to-phys=%pa\n", &phys_soft);
@@ -812,8 +810,12 @@ static void arm_smmu_verify_fault(struct arm_smmu_domain *smmu_domain,
 	if (fsynr & ARM_SMMU_FSYNR0_IND)
 		flags |= IOMMU_TRANS_INST;
 
+	txn.addr = iova;
+	txn.flags = flags;
+	txn.id = cbfrsynra & CBFRSYNRA_SID_MASK;
+
 	/* Now replicate the faulty transaction */
-	phys_stimu = arm_smmu_iova_to_phys_hard(domain, iova, flags);
+	phys_stimu = arm_smmu_iova_to_phys_hard(domain, &txn);
 
 	/*
 	 * If the replicated transaction fails, it could be due to legitimate
@@ -821,15 +823,16 @@ static void arm_smmu_verify_fault(struct arm_smmu_domain *smmu_domain,
 	 * privileges (permission fault). Try ATOS operation with full access
 	 * privileges to rule out stale entry with insufficient privileges case.
 	 */
-	if (!phys_stimu)
-		phys_hard_priv = arm_smmu_iova_to_phys_hard(domain, iova,
-						       IOMMU_TRANS_DEFAULT |
-						       IOMMU_TRANS_PRIV);
+	if (!phys_stimu) {
+		txn.flags = QCOM_IOMMU_ATOS_TRANS_DEFAULT |
+				QCOM_IOMMU_ATOS_TRANS_PRIV;
+		phys_hard_priv = arm_smmu_iova_to_phys_hard(domain, &txn);
+	}
 
 	/* Now replicate the faulty transaction post tlbiall */
 	iommu_flush_iotlb_all(domain);
-	phys_stimu_post_tlbiall = arm_smmu_iova_to_phys_hard(domain, iova,
-							     flags);
+	txn.flags = flags;
+	phys_stimu_post_tlbiall = arm_smmu_iova_to_phys_hard(domain, &txn);
 
 	if (!phys_stimu && phys_hard_priv) {
 		dev_err(smmu->dev,
@@ -893,6 +896,42 @@ static int report_iommu_fault_helper(struct arm_smmu_domain *smmu_domain,
 		return IRQ_HANDLED;
 
 	return IRQ_NONE;
+}
+
+static int arm_smmu_get_fault_ids(struct iommu_domain *domain,
+			struct qcom_iommu_fault_ids *f_ids)
+{
+	struct arm_smmu_domain *smmu_domain;
+	struct arm_smmu_device *smmu;
+	u32 fsr, fsynr1;
+	int idx, ret;
+
+	if (!domain || !f_ids)
+		return -EINVAL;
+
+	smmu_domain = to_smmu_domain(domain);
+	smmu = smmu_domain->smmu;
+	idx = smmu_domain->cfg.cbndx;
+
+	ret = arm_smmu_rpm_get(smmu);
+	if (ret < 0)
+		return ret;
+
+	fsr = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSR);
+
+	if (!(fsr & ARM_SMMU_FSR_FAULT)) {
+		arm_smmu_power_off(smmu, smmu->pwr);
+		return -EINVAL;
+	}
+
+	fsynr1 = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSYNR1);
+	arm_smmu_rpm_put(smmu);
+
+	f_ids->bid = FIELD_GET(ARM_SMMU_FSYNR1_BID, fsynr1);
+	f_ids->pid = FIELD_GET(ARM_SMMU_FSYNR1_PID, fsynr1);
+	f_ids->mid = FIELD_GET(ARM_SMMU_FSYNR1_MID, fsynr1);
+
+	return 0;
 }
 
 static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
@@ -999,6 +1038,7 @@ static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain,
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	struct arm_smmu_cb *cb = &smmu_domain->smmu->cbs[cfg->cbndx];
 	bool stage1 = cfg->cbar != CBAR_TYPE_S2_TRANS;
+	unsigned long *attributes = smmu_domain->attributes;
 
 	cb->cfg = cfg;
 
@@ -1048,16 +1088,41 @@ static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain,
 			cb->mair[1] = pgtbl_cfg->arm_lpae_s1_cfg.mair >> 32;
 		}
 	}
+
+	memset(&cfg->sctlr, 0, sizeof(cfg->sctlr));
+	/*
+	 * Override cacheability, shareability, r/w allocation for
+	 * clients who are io-coherent. Otherwise set NSH to force io-coherency
+	 * to be disabled.
+	 * These settings only take effect during bypass mode, when sctlr.M = 0
+	 */
+	if (of_dma_is_coherent(smmu_domain->dev->of_node)) {
+		cfg->sctlr.wacfg = ARM_SMMU_SCTLR_WACFG_WA;
+		cfg->sctlr.racfg = ARM_SMMU_SCTLR_RACFG_RA;
+		cfg->sctlr.shcfg = ARM_SMMU_SCTLR_SHCFG_OSH;
+		cfg->sctlr.mtcfg = 1;
+		cfg->sctlr.memattr = ARM_SMMU_SCTLR_MEM_ATTR_OISH_WB_CACHE;
+	} else {
+		cfg->sctlr.shcfg = ARM_SMMU_SCTLR_SHCFG_NSH;
+	}
+
+	cfg->sctlr.cfre = !(test_bit(DOMAIN_ATTR_FAULT_MODEL_NO_CFRE, attributes));
+	cfg->sctlr.cfcfg = !(test_bit(DOMAIN_ATTR_FAULT_MODEL_NO_STALL, attributes));
+	cfg->sctlr.hupcf = test_bit(DOMAIN_ATTR_FAULT_MODEL_HUPCF, attributes);
+
+	if ((!test_bit(DOMAIN_ATTR_S1_BYPASS, attributes) &&
+	     !test_bit(DOMAIN_ATTR_EARLY_MAP, attributes)) || !stage1)
+		cfg->sctlr.m = 1;
+
+	cb->sctlr = arm_smmu_lpae_sctlr(cfg);
 }
 
-void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx,
-					unsigned long *attributes)
+void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx)
 {
 	u32 reg;
 	bool stage1;
 	struct arm_smmu_cb *cb = &smmu->cbs[idx];
 	struct arm_smmu_cfg *cfg = cb->cfg;
-	struct arm_smmu_domain *smmu_domain = NULL;
 
 	/* Unassigned context banks only need disabling */
 	if (!cfg) {
@@ -1128,50 +1193,7 @@ void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx,
 	}
 
 	/* SCTLR */
-	reg = ARM_SMMU_SCTLR_CFIE | ARM_SMMU_SCTLR_CFRE | ARM_SMMU_SCTLR_AFE |
-	      ARM_SMMU_SCTLR_TRE;
-	if (stage1)
-		reg |= ARM_SMMU_SCTLR_S1_ASIDPNE;
-	if (IS_ENABLED(CONFIG_CPU_BIG_ENDIAN))
-		reg |= ARM_SMMU_SCTLR_E;
-
-	/*
-	 * Ensure bypass transactions are Non-shareable only for clients
-	 * who are not io-coherent.
-	 */
-	smmu_domain = cb_cfg_to_smmu_domain(cfg);
-
-	/*
-	 * Override cacheability, shareability, r/w allocation for
-	 * clients who are io-coherent
-	 */
-	if (of_dma_is_coherent(smmu_domain->dev->of_node)) {
-
-		reg |= FIELD_PREP(ARM_SMMU_SCTLR_WACFG, ARM_SMMU_SCTLR_WACFG_WA) |
-		       FIELD_PREP(ARM_SMMU_SCTLR_RACFG, ARM_SMMU_SCTLR_RACFG_RA) |
-		       FIELD_PREP(ARM_SMMU_SCTLR_SHCFG, ARM_SMMU_SCTLR_SHCFG_OSH) |
-		       ARM_SMMU_SCTLR_MTCFG |
-		       FIELD_PREP(ARM_SMMU_SCTLR_MEM_ATTR,
-				  ARM_SMMU_SCTLR_MEM_ATTR_OISH_WB_CACHE);
-	} else {
-		reg |= FIELD_PREP(ARM_SMMU_SCTLR_SHCFG, ARM_SMMU_SCTLR_SHCFG_NSH);
-	}
-
-	if (attributes && test_bit(DOMAIN_ATTR_FAULT_MODEL_NO_CFRE, attributes))
-		reg &= ~ARM_SMMU_SCTLR_CFRE;
-
-	if (attributes && test_bit(DOMAIN_ATTR_FAULT_MODEL_NO_STALL,
-				   attributes))
-		reg &= ~ARM_SMMU_SCTLR_CFCFG;
-
-	if (attributes && test_bit(DOMAIN_ATTR_FAULT_MODEL_HUPCF, attributes))
-		reg |= ARM_SMMU_SCTLR_HUPCF;
-
-	if (!attributes || (!test_bit(DOMAIN_ATTR_S1_BYPASS, attributes) &&
-	     !test_bit(DOMAIN_ATTR_EARLY_MAP, attributes)) || !stage1)
-		reg |= ARM_SMMU_SCTLR_M;
-
-	arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_SCTLR, reg);
+	arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_SCTLR, cb->sctlr);
 }
 
 static void arm_smmu_free_asid(struct iommu_domain *domain)
@@ -1710,7 +1732,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 
 	/* Initialise the context bank with our page table cfg */
 	arm_smmu_init_context_bank(smmu_domain, pgtbl_cfg);
-	arm_smmu_write_context_bank(smmu, cfg->cbndx, smmu_domain->attributes);
+	arm_smmu_write_context_bank(smmu, cfg->cbndx);
 
 	/*
 	 * Request context fault interrupt. Do this last to avoid the
@@ -1827,7 +1849,7 @@ static void arm_smmu_destroy_domain_context(struct iommu_domain *domain)
 	 * it.
 	 */
 	smmu->cbs[cfg->cbndx].cfg = NULL;
-	arm_smmu_write_context_bank(smmu, cfg->cbndx, 0);
+	arm_smmu_write_context_bank(smmu, cfg->cbndx);
 
 	if (cfg->irptndx != ARM_SMMU_INVALID_IRPTNDX) {
 		irq = smmu->irqs[smmu->num_global_irqs + cfg->irptndx];
@@ -2066,6 +2088,10 @@ static int arm_smmu_master_alloc_smes(struct device *dev)
 	mutex_unlock(&smmu->stream_map_mutex);
 
 	/* It worked! Now, poke the actual hardware */
+	for_each_cfg_sme(cfg, fwspec, i, idx) {
+		arm_smmu_write_sme(smmu, idx);
+	}
+
 	mutex_unlock(&smmu->iommu_group_mutex);
 	return 0;
 
@@ -2094,34 +2120,6 @@ static void arm_smmu_master_free_smes(struct arm_smmu_master_cfg *cfg,
 	mutex_unlock(&smmu->stream_map_mutex);
 }
 
-static void arm_smmu_domain_remove_master(struct arm_smmu_domain *smmu_domain,
-					  struct arm_smmu_master_cfg *cfg,
-					  struct iommu_fwspec *fwspec)
-{
-	struct arm_smmu_device *smmu = smmu_domain->smmu;
-	struct arm_smmu_s2cr *s2cr = smmu->s2crs;
-	int i, idx;
-
-	mutex_lock(&smmu->stream_map_mutex);
-	for_each_cfg_sme(cfg, fwspec, i, idx) {
-		if (WARN_ON(s2cr[idx].attach_count == 0)) {
-			mutex_unlock(&smmu->stream_map_mutex);
-			return;
-		}
-		s2cr[idx].attach_count -= 1;
-
-		if (s2cr[idx].attach_count > 0)
-			continue;
-
-		arm_smmu_gr0_write(smmu, ARM_SMMU_GR0_SMR(idx), 0);
-		arm_smmu_gr0_write(smmu, ARM_SMMU_GR0_S2CR(idx), 0);
-	}
-	mutex_unlock(&smmu->stream_map_mutex);
-
-	/* Ensure there are no stale mappings for this context bank */
-	iommu_flush_iotlb_all(&smmu_domain->domain);
-}
-
 static int arm_smmu_domain_add_master(struct arm_smmu_domain *smmu_domain,
 				      struct arm_smmu_master_cfg *cfg,
 				      struct iommu_fwspec *fwspec)
@@ -2139,7 +2137,7 @@ static int arm_smmu_domain_add_master(struct arm_smmu_domain *smmu_domain,
 
 	mutex_lock(&smmu->stream_map_mutex);
 	for_each_cfg_sme(cfg, fwspec, i, idx) {
-		if (s2cr[idx].attach_count++ > 0)
+		if (type == s2cr[idx].type && cbndx == s2cr[idx].cbndx)
 			continue;
 
 		/* Don't bypasss pinned streams; leave them as they are */
@@ -2149,33 +2147,11 @@ static int arm_smmu_domain_add_master(struct arm_smmu_domain *smmu_domain,
 		s2cr[idx].type = type;
 		s2cr[idx].privcfg = S2CR_PRIVCFG_DEFAULT;
 		s2cr[idx].cbndx = cbndx;
-		arm_smmu_write_sme(smmu, idx);
+		arm_smmu_write_s2cr(smmu, idx);
 	}
 	mutex_unlock(&smmu->stream_map_mutex);
 
 	return 0;
-}
-
-static void arm_smmu_detach_dev(struct iommu_domain *domain,
-				struct device *dev)
-{
-	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	struct arm_smmu_device *smmu = smmu_domain->smmu;
-	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
-	bool dynamic = is_dynamic_domain(domain);
-	struct arm_smmu_master_cfg *cfg = dev_iommu_priv_get(dev);
-
-	if (dynamic)
-		return;
-
-	if (!smmu) {
-		dev_err(dev, "Domain not attached; cannot detach!\n");
-		return;
-	}
-
-	arm_smmu_rpm_get(smmu);
-	arm_smmu_domain_remove_master(smmu_domain, cfg, fwspec);
-	arm_smmu_rpm_put(smmu);
 }
 
 static int arm_smmu_assign_table(struct arm_smmu_domain *smmu_domain)
@@ -2455,7 +2431,7 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	struct arm_smmu_device *smmu;
 	int ret;
 
-	if (!fwspec || fwspec->ops != &arm_smmu_ops) {
+	if (!fwspec || fwspec->ops != &arm_smmu_ops.iommu_ops) {
 		dev_err(dev, "cannot attach to SMMU, is it on the same bus?\n");
 		return -ENXIO;
 	}
@@ -2698,7 +2674,7 @@ static phys_addr_t arm_smmu_iova_to_phys(struct iommu_domain *domain,
  * original iova_to_phys() op.
  */
 static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
-				    dma_addr_t iova, unsigned long trans_flags)
+				    struct qcom_iommu_atos_txn *txn)
 {
 	phys_addr_t ret = 0;
 	unsigned long flags;
@@ -2712,15 +2688,14 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 		return 0;
 
 	if (smmu->impl && smmu->impl->iova_to_phys_hard) {
-		ret = smmu->impl->iova_to_phys_hard(smmu_domain, iova,
-						    trans_flags);
+		ret = smmu->impl->iova_to_phys_hard(smmu_domain, txn);
 		goto out;
 	}
 
 	spin_lock_irqsave(&smmu_domain->cb_lock, flags);
 	if (smmu_domain->smmu->features & ARM_SMMU_FEAT_TRANS_OPS &&
 			smmu_domain->stage == ARM_SMMU_DOMAIN_S1)
-		ret = __arm_smmu_iova_to_phys_hard(domain, iova);
+		ret = __arm_smmu_iova_to_phys_hard(domain, txn->addr);
 
 	spin_unlock_irqrestore(&smmu_domain->cb_lock, flags);
 
@@ -2773,7 +2748,7 @@ static struct iommu_device * arm_smmu_probe_device(struct device *dev)
 		fwspec = dev_iommu_fwspec_get(dev);
 		if (ret)
 			goto out_free;
-	} else if (fwspec && fwspec->ops == &arm_smmu_ops) {
+	} else if (fwspec && fwspec->ops == &arm_smmu_ops.iommu_ops) {
 		smmu = arm_smmu_get_by_fwnode(fwspec->iommu_fwnode);
 		if (!smmu)
 			return ERR_PTR(-ENODEV);
@@ -2838,7 +2813,7 @@ static void arm_smmu_release_device(struct device *dev)
 	struct arm_smmu_device *smmu;
 	int ret;
 
-	if (!fwspec || fwspec->ops != &arm_smmu_ops)
+	if (!fwspec || fwspec->ops != &arm_smmu_ops.iommu_ops)
 		return;
 
 	cfg  = dev_iommu_priv_get(dev);
@@ -3325,42 +3300,87 @@ static int arm_smmu_enable_s1_translations(struct arm_smmu_domain *smmu_domain)
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	int idx = cfg->cbndx;
-	u32 reg;
+	struct arm_smmu_cb *cb = &smmu->cbs[idx];
 	int ret;
 
 	ret = arm_smmu_rpm_get(smmu);
 	if (ret < 0)
 		return ret;
 
-	reg = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_SCTLR);
-	reg |= ARM_SMMU_SCTLR_M;
+	cfg->sctlr.m = 1;
+	cb->sctlr = arm_smmu_lpae_sctlr(cfg);
 
-	arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_SCTLR, reg);
+	arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_SCTLR, cb->sctlr);
 	arm_smmu_rpm_put(smmu);
 	return ret;
 }
 
-static struct iommu_ops arm_smmu_ops = {
-	.capable		= arm_smmu_capable,
-	.domain_alloc		= arm_smmu_domain_alloc,
-	.domain_free		= arm_smmu_domain_free,
-	.attach_dev		= arm_smmu_attach_dev,
-	.detach_dev		= arm_smmu_detach_dev,
-	.map			= arm_smmu_map,
-	.unmap			= arm_smmu_unmap,
-	.flush_iotlb_all	= arm_smmu_flush_iotlb_all,
-	.iotlb_sync		= arm_smmu_iotlb_sync,
-	.iova_to_phys		= arm_smmu_iova_to_phys,
-	.probe_device		= arm_smmu_probe_device,
-	.release_device		= arm_smmu_release_device,
-	.device_group		= arm_smmu_device_group,
-	.domain_get_attr	= arm_smmu_domain_get_attr,
-	.domain_set_attr	= arm_smmu_domain_set_attr,
-	.of_xlate		= arm_smmu_of_xlate,
-	.get_resv_regions	= arm_smmu_get_resv_regions,
-	.put_resv_regions	= generic_iommu_put_resv_regions,
-	.def_domain_type	= arm_smmu_def_domain_type,
-	.pgsize_bitmap		= -1UL, /* Restricted during device attach */
+static int __arm_smmu_sid_switch(struct device *dev, void *data)
+{
+	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
+	struct arm_smmu_master_cfg *cfg = dev_iommu_priv_get(dev);
+	struct arm_smmu_device *smmu = cfg->smmu;
+	enum sid_switch_direction dir = (typeof(dir))data;
+	int i, idx;
+
+	for_each_cfg_sme(cfg, fwspec, i, idx) {
+		if (dir == SID_SWITCH_HLOS_TO_SECURE) {
+			arm_smmu_gr0_write(smmu, ARM_SMMU_GR0_SMR(idx), 0);
+			arm_smmu_gr0_write(smmu, ARM_SMMU_GR0_S2CR(idx), 0);
+		} else {
+			arm_smmu_write_sme(smmu, idx);
+		}
+	}
+	return 0;
+}
+
+/*
+ * Some devices support operation with different levels of security. In some
+ * modes, HLOS is no longer responsible for managing the S1 translations for
+ * a device. Unfortunately, the device may still use the same set of SIDS, so
+ * to prevent a potential stream-match conflict fault, HLOS needs to remove
+ * the SIDs fromits SMRs. Enforcement of this policy is implemented through
+ * virtualization of the SMR/S2CR regigisters.
+ */
+static int arm_smmu_sid_switch(struct device *dev,
+			       enum sid_switch_direction dir)
+{
+	struct iommu_group *group;
+	int ret;
+
+	group = iommu_group_get(dev);
+	ret = iommu_group_for_each_dev(group, (void *)dir,
+			__arm_smmu_sid_switch);
+	iommu_group_put(group);
+
+	return ret;
+}
+
+static struct qcom_iommu_ops arm_smmu_ops = {
+	.iova_to_phys_hard = arm_smmu_iova_to_phys_hard,
+	.sid_switch		= arm_smmu_sid_switch,
+	.get_fault_ids		= arm_smmu_get_fault_ids,
+	.iommu_ops = {
+		.capable		= arm_smmu_capable,
+		.domain_alloc		= arm_smmu_domain_alloc,
+		.domain_free		= arm_smmu_domain_free,
+		.attach_dev		= arm_smmu_attach_dev,
+		.map			= arm_smmu_map,
+		.unmap			= arm_smmu_unmap,
+		.flush_iotlb_all	= arm_smmu_flush_iotlb_all,
+		.iotlb_sync		= arm_smmu_iotlb_sync,
+		.iova_to_phys		= arm_smmu_iova_to_phys,
+		.probe_device		= arm_smmu_probe_device,
+		.release_device		= arm_smmu_release_device,
+		.device_group		= arm_smmu_device_group,
+		.domain_get_attr	= arm_smmu_domain_get_attr,
+		.domain_set_attr	= arm_smmu_domain_set_attr,
+		.of_xlate		= arm_smmu_of_xlate,
+		.get_resv_regions	= arm_smmu_get_resv_regions,
+		.put_resv_regions	= generic_iommu_put_resv_regions,
+		.def_domain_type	= arm_smmu_def_domain_type,
+		.pgsize_bitmap		= -1UL, /* Restricted during device attach */
+	}
 };
 
 static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
@@ -3381,7 +3401,7 @@ static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
 
 	/* Make sure all context banks are disabled and clear CB_FSR  */
 	for (i = 0; i < smmu->num_context_banks; ++i) {
-		arm_smmu_write_context_bank(smmu, i, 0);
+		arm_smmu_write_context_bank(smmu, i);
 		arm_smmu_cb_write(smmu, i, ARM_SMMU_CB_FSR, ARM_SMMU_FSR_FAULT);
 	}
 
@@ -3748,10 +3768,10 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 	if (smmu->features & ARM_SMMU_FEAT_FMT_AARCH64_64K)
 		smmu->pgsize_bitmap |= SZ_64K | SZ_512M;
 
-	if (arm_smmu_ops.pgsize_bitmap == -1UL)
-		arm_smmu_ops.pgsize_bitmap = smmu->pgsize_bitmap;
+	if (arm_smmu_ops.iommu_ops.pgsize_bitmap == -1UL)
+		arm_smmu_ops.iommu_ops.pgsize_bitmap = smmu->pgsize_bitmap;
 	else
-		arm_smmu_ops.pgsize_bitmap |= smmu->pgsize_bitmap;
+		arm_smmu_ops.iommu_ops.pgsize_bitmap |= smmu->pgsize_bitmap;
 	dev_dbg(smmu->dev, "\tSupported page sizes: 0x%08lx\n",
 		   smmu->pgsize_bitmap);
 
@@ -4089,7 +4109,7 @@ static int arm_smmu_device_probe(struct platform_device *pdev)
 		goto out_power_off;
 	}
 
-	iommu_device_set_ops(&smmu->iommu, &arm_smmu_ops);
+	iommu_device_set_ops(&smmu->iommu, &arm_smmu_ops.iommu_ops);
 	iommu_device_set_fwnode(&smmu->iommu, dev->fwnode);
 
 	err = iommu_device_register(&smmu->iommu);
@@ -4124,7 +4144,7 @@ static int arm_smmu_device_probe(struct platform_device *pdev)
 	 * ready to handle default domain setup as soon as any SMMU exists.
 	 */
 	if (!using_legacy_binding)
-		return arm_smmu_bus_init(&arm_smmu_ops);
+		return arm_smmu_bus_init(&arm_smmu_ops.iommu_ops);
 
 	return 0;
 

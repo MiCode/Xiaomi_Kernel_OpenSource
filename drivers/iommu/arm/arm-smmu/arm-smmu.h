@@ -22,6 +22,7 @@
 #include <linux/mutex.h>
 #include <linux/spinlock.h>
 #include <linux/types.h>
+#include <linux/qcom-iommu-util.h>
 
 #include "../../qcom-io-pgtable.h"
 
@@ -335,17 +336,9 @@ struct arm_smmu_power_resources {
 	int				regulator_defer;
 };
 
-/*
- * attach_count
- *	The SMR and S2CR registers are only programmed when the number of
- *	devices attached to the iommu using these registers is > 0. This
- *	is required for the "SID switch" use case for secure display.
- *	Protected by stream_map_mutex.
- */
 struct arm_smmu_s2cr {
 	struct iommu_group		*group;
 	int				count;
-	int				attach_count;
 	enum arm_smmu_s2cr_type		type;
 	enum arm_smmu_s2cr_privcfg	privcfg;
 	u8				cbndx;
@@ -468,6 +461,18 @@ struct arm_smmu_cfg {
 		u16			vmid;
 	};
 	u32				procid;
+	struct {
+		u32     wacfg:2;
+		u32     racfg:2;
+		u32     shcfg:2;
+		u32     mtcfg:1;
+		u32     memattr:4;
+		u32     hupcf:1;
+		u32     cfcfg:1;
+		u32     cfre:1;
+		u32     m:1;
+	}       sctlr;
+
 	enum arm_smmu_cbar_type		cbar;
 	enum arm_smmu_context_fmt	fmt;
 };
@@ -477,6 +482,7 @@ struct arm_smmu_cb {
 	u64				ttbr[2];
 	u32				tcr[2];
 	u32				mair[2];
+	u32 sctlr;
 	struct arm_smmu_cfg		*cfg;
 };
 
@@ -564,6 +570,26 @@ static inline u32 arm_smmu_lpae_vtcr(const struct io_pgtable_cfg *cfg)
 	       FIELD_PREP(ARM_SMMU_VTCR_T0SZ, cfg->arm_lpae_s2_cfg.vtcr.tsz);
 }
 
+static inline u32 arm_smmu_lpae_sctlr(struct arm_smmu_cfg *cfg)
+{
+	bool stage1 = cfg->cbar != CBAR_TYPE_S2_TRANS;
+
+	return FIELD_PREP(ARM_SMMU_SCTLR_WACFG, cfg->sctlr.wacfg) |
+	FIELD_PREP(ARM_SMMU_SCTLR_RACFG, cfg->sctlr.racfg) |
+	FIELD_PREP(ARM_SMMU_SCTLR_SHCFG, cfg->sctlr.shcfg) |
+	FIELD_PREP(ARM_SMMU_SCTLR_MTCFG, cfg->sctlr.mtcfg) |
+	FIELD_PREP(ARM_SMMU_SCTLR_MEM_ATTR, cfg->sctlr.memattr) |
+	FIELD_PREP(ARM_SMMU_SCTLR_S1_ASIDPNE, stage1) |
+	FIELD_PREP(ARM_SMMU_SCTLR_HUPCF, cfg->sctlr.hupcf) |
+	FIELD_PREP(ARM_SMMU_SCTLR_CFCFG, cfg->sctlr.cfcfg) |
+	ARM_SMMU_SCTLR_CFIE |
+	FIELD_PREP(ARM_SMMU_SCTLR_CFRE, cfg->sctlr.cfre) |
+	FIELD_PREP(ARM_SMMU_SCTLR_E, IS_ENABLED(CONFIG_CPU_BIG_ENDIAN)) |
+	ARM_SMMU_SCTLR_AFE |
+	ARM_SMMU_SCTLR_TRE |
+	FIELD_PREP(ARM_SMMU_SCTLR_M, cfg->sctlr.m);
+}
+
 /* Implementation details, yay! */
 
 struct arm_smmu_impl {
@@ -580,8 +606,7 @@ struct arm_smmu_impl {
 	void (*init_context_bank)(struct arm_smmu_domain *smmu_domain,
 				  struct device *dev);
 	phys_addr_t (*iova_to_phys_hard)(struct arm_smmu_domain *smmu_domain,
-					 dma_addr_t iova,
-					 unsigned long trans_flags);
+					 struct qcom_iommu_atos_txn *txn);
 	void (*tlb_sync_timeout)(struct arm_smmu_device *smmu);
 	void (*device_remove)(struct arm_smmu_device *smmu);
 	int (*device_group)(struct device *dev, struct iommu_group *group);
@@ -685,8 +710,7 @@ struct arm_smmu_device *qcom_smmu_impl_init(struct arm_smmu_device *smmu);
 struct arm_smmu_device *qsmmuv500_impl_init(struct arm_smmu_device *smmu);
 struct arm_smmu_device *qcom_adreno_smmu_impl_init(struct arm_smmu_device *smmu);
 
-void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx,
-				 unsigned long *attributes);
+void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx);
 int arm_mmu500_reset(struct arm_smmu_device *smmu);
 
 int arm_smmu_power_on(struct arm_smmu_power_resources *pwr);
