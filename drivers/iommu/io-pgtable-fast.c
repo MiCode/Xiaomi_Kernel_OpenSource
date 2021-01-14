@@ -233,7 +233,7 @@ av8l_fast_prot_to_pte(struct av8l_fast_io_pgtable *data, int prot)
 	else if (prot & IOMMU_CACHE)
 		pte |= (AV8L_FAST_MAIR_ATTR_IDX_CACHE
 			<< AV8L_FAST_PTE_ATTRINDX_SHIFT);
-	else if (prot & IOMMU_USE_UPSTREAM_HINT)
+	else if (prot & IOMMU_SYS_CACHE_ONLY)
 		pte |= (AV8L_FAST_MAIR_ATTR_IDX_UPSTREAM
 			<< AV8L_FAST_PTE_ATTRINDX_SHIFT);
 

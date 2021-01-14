@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2011-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/bitfield.h>
@@ -33,8 +33,8 @@
  * Flag to set SMMU memory attributes required to
  * enable system cache for GPU transactions.
  */
-#ifndef IOMMU_USE_UPSTREAM_HINT
-#define IOMMU_USE_UPSTREAM_HINT 0
+#ifndef IOMMU_SYS_CACHE_ONLY
+#define IOMMU_SYS_CACHE_ONLY 0
 #endif
 
 #define KGSL_IOMMU_IDR1_OFFSET 0x24
@@ -1652,13 +1652,13 @@ static unsigned int _get_protection_flags(struct kgsl_pagetable *pt,
 				DOMAIN_ATTR_USE_UPSTREAM_HINT, &upstream_hint);
 
 	if (!ret && upstream_hint)
-		flags |= IOMMU_USE_UPSTREAM_HINT;
+		flags |= IOMMU_SYS_CACHE_ONLY;
 
 	ret = iommu_domain_get_attr(iommu_pt->domain,
 				DOMAIN_ATTR_USE_LLC_NWA, &llc_nwa);
 
 	if (!ret && llc_nwa)
-		flags |= IOMMU_USE_LLC_NWA;
+		flags |= IOMMU_SYS_CACHE_ONLY_NWA;
 
 	if (memdesc->flags & KGSL_MEMFLAGS_GPUREADONLY)
 		flags &= ~IOMMU_WRITE;
