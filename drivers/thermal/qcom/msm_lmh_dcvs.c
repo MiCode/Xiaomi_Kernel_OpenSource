@@ -417,3 +417,4 @@ static struct platform_driver limits_dcvs_driver = {
 	},
 };
 builtin_platform_driver(limits_dcvs_driver);
+MODULE_LICENSE("GPL v2");
