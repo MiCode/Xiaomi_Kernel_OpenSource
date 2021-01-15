@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
  */
 
 /* Uncomment this block to log an error on every VERIFY failure */
@@ -41,6 +41,7 @@
 #include <linux/msm_dma_iommu_mapping.h>
 #include "adsprpc_compat.h"
 #include "adsprpc_shared.h"
+#include <linux/fastrpc.h>
 #include <soc/qcom/ramdump.h>
 #include <soc/qcom/qcom_ramdump.h>
 #include <linux/delay.h>
@@ -60,6 +61,8 @@
 #define TZ_PIL_AUTH_QDSP6_PROC 1
 
 #define FASTRPC_DMAHANDLE_NOMAP (16)
+/* Flag to map DMA buffer on DSP */
+#define FASTRPC_DMABUF_MAP      (32)
 
 #define FASTRPC_ENOSUCH 39
 #define DEBUGFS_SIZE 3072
@@ -479,6 +482,8 @@ struct fastrpc_apps {
 	struct device *dev;
 	unsigned int latency;
 	int rpmsg_register;
+	/* Flag to determine fastrpc bus registration */
+	int fastrpc_bus_register;
 	bool legacy_remote_heap;
 	/* Unique job id for each message */
 	uint64_t jobid[NUM_CHANNELS];
@@ -492,6 +497,8 @@ struct fastrpc_apps {
 	uint32_t duplicate_rsp_err_cnt;
 	struct qos_cores silvercores;
 	uint32_t max_size_limit;
+	struct hlist_head frpc_devices;
+	struct hlist_head frpc_drivers;
 };
 
 struct fastrpc_mmap {
@@ -594,6 +601,7 @@ struct fastrpc_file {
 	spinlock_t aqlock;
 	uint32_t ws_timeout;
 	bool untrusted_process;
+	struct fastrpc_device *device;
 };
 
 static struct fastrpc_apps gfa;
@@ -672,6 +680,13 @@ static inline void fastrpc_pm_awake(struct fastrpc_file *fl, int channel_type);
 static int fastrpc_mem_map_to_dsp(struct fastrpc_file *fl, int fd, int offset,
 				uint32_t flags, uintptr_t va, uint64_t phys,
 				size_t size, uintptr_t *raddr);
+
+/**
+ * fastrpc_device_create - Create device for the fastrpc process file
+ * @fl    : Fastrpc process file
+ * Returns: 0 on Success
+ */
+static int fastrpc_device_create(struct fastrpc_file *fl);
 
 static inline int64_t getnstimediff(struct timespec64 *start)
 {
@@ -972,7 +987,7 @@ static void fastrpc_mmap_add(struct fastrpc_mmap *map)
 }
 
 static int fastrpc_mmap_find(struct fastrpc_file *fl, int fd,
-		uintptr_t va, size_t len, int mflags, int refs,
+		struct dma_buf *buf, uintptr_t va, size_t len, int mflags, int refs,
 		struct fastrpc_mmap **ppmap)
 {
 	struct fastrpc_apps *me = &gfa;
@@ -1000,6 +1015,18 @@ static int fastrpc_mmap_find(struct fastrpc_file *fl, int fd,
 			}
 		}
 		spin_unlock(&me->hlock);
+	} else if (mflags == FASTRPC_DMABUF_MAP) {
+		hlist_for_each_entry_safe(map, n, &fl->maps, hn) {
+			if (map->buf == buf) {
+				if (refs) {
+					if (map->refs + 1 == INT_MAX)
+						return -ETOOMANYREFS;
+					map->refs++;
+				}
+				match = map;
+				break;
+			}
+		}
 	} else {
 		hlist_for_each_entry_safe(map, n, &fl->maps, hn) {
 			if (va >= map->va &&
@@ -1196,7 +1223,31 @@ static void fastrpc_mmap_free(struct fastrpc_mmap *map, uint32_t flags)
 static int fastrpc_session_alloc(struct fastrpc_channel_ctx *chan, int secure,
 					struct fastrpc_session_ctx **session);
 
-static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
+static int fastrpc_mmap_create_remote_heap(struct fastrpc_file *fl,
+		struct fastrpc_mmap *map, size_t len, int mflags)
+{
+	int err = 0;
+	struct fastrpc_apps *me = &gfa;
+	dma_addr_t region_phys = 0;
+	void *region_vaddr = NULL;
+
+	map->apps = me;
+	map->fl = NULL;
+	map->attr |= DMA_ATTR_SKIP_ZEROING | DMA_ATTR_NO_KERNEL_MAPPING;
+	err = fastrpc_alloc_cma_memory(&region_phys, &region_vaddr,
+				len, (unsigned long) map->attr);
+	if (err)
+		goto bail;
+	trace_fastrpc_dma_alloc(fl->cid, (uint64_t)region_phys, len,
+		(unsigned long)map->attr, mflags);
+	map->phys = (uintptr_t)region_phys;
+	map->size = len;
+	map->va = (uintptr_t)region_vaddr;
+bail:
+	return err;
+}
+
+static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd, struct dma_buf *buf,
 	unsigned int attr, uintptr_t va, size_t len, int mflags,
 	struct fastrpc_mmap **ppmap)
 {
@@ -1206,8 +1257,6 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 	int cid = fl->cid;
 	struct fastrpc_channel_ctx *chan = NULL;
 	struct fastrpc_mmap *map = NULL;
-	dma_addr_t region_phys = 0;
-	void *region_vaddr = NULL;
 	unsigned long flags;
 	int err = 0, vmid, sgl_index = 0;
 	struct scatterlist *sgl = NULL;
@@ -1219,7 +1268,7 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 	}
 	chan = &apps->channel[cid];
 
-	if (!fastrpc_mmap_find(fl, fd, va, len, mflags, 1, ppmap))
+	if (!fastrpc_mmap_find(fl, fd, NULL, va, len, mflags, 1, ppmap))
 		return 0;
 	map = kzalloc(sizeof(*map), GFP_KERNEL);
 	VERIFY(err, !IS_ERR_OR_NULL(map));
@@ -1233,20 +1282,13 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 	map->fl = fl;
 	map->fd = fd;
 	map->attr = attr;
+	map->buf = buf;
 	if (mflags == ADSP_MMAP_HEAP_ADDR ||
 				mflags == ADSP_MMAP_REMOTE_HEAP_ADDR) {
-		map->apps = me;
-		map->fl = NULL;
-		map->attr |= DMA_ATTR_SKIP_ZEROING | DMA_ATTR_NO_KERNEL_MAPPING;
-		err = fastrpc_alloc_cma_memory(&region_phys, &region_vaddr,
-					len, (unsigned long) map->attr);
+		VERIFY(err, 0 == (err = fastrpc_mmap_create_remote_heap(fl, map,
+							len, mflags)));
 		if (err)
 			goto bail;
-		trace_fastrpc_dma_alloc(fl->cid, (uint64_t)region_phys, len,
-			(unsigned long)map->attr, mflags);
-		map->phys = (uintptr_t)region_phys;
-		map->size = len;
-		map->va = (uintptr_t)region_vaddr;
 	} else if (mflags == FASTRPC_DMAHANDLE_NOMAP) {
 		VERIFY(err, !IS_ERR_OR_NULL(map->buf = dma_buf_get(fd)));
 		if (err) {
@@ -1307,12 +1349,19 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 				(unsigned int)map->attr);
 			map->refs = 2;
 		}
-		VERIFY(err, !IS_ERR_OR_NULL(map->buf = dma_buf_get(fd)));
-		if (err) {
-			ADSPRPC_ERR("dma_buf_get failed for fd %d ret %ld\n",
-				fd, PTR_ERR(map->buf));
-			err = -EBADFD;
-			goto bail;
+		if (mflags == FASTRPC_DMABUF_MAP) {
+			/* Increment DMA buffer ref count,
+			 * so that client cannot unmap DMA buffer, before freeing buffer
+			 */
+			get_dma_buf(map->buf);
+		} else {
+			VERIFY(err, !IS_ERR_OR_NULL(map->buf = dma_buf_get(fd)));
+			if (err) {
+				ADSPRPC_ERR("dma_buf_get failed for fd %d ret %ld\n",
+					fd, PTR_ERR(map->buf));
+				err = -EBADFD;
+				goto bail;
+			}
 		}
 		err = dma_buf_get_flags(map->buf, &flags);
 		if (err) {
@@ -2199,7 +2248,7 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 
 		mutex_lock(&ctx->fl->map_mutex);
 		if (ctx->fds && (ctx->fds[i] != -1))
-			err = fastrpc_mmap_create(ctx->fl, ctx->fds[i],
+			err = fastrpc_mmap_create(ctx->fl, ctx->fds[i], NULL,
 					ctx->attrs[i], buf, len,
 					mflags, &ctx->maps[i]);
 		mutex_unlock(&ctx->fl->map_mutex);
@@ -2216,7 +2265,7 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 		if (ctx->attrs && (ctx->attrs[i] & FASTRPC_ATTR_NOMAP))
 			dmaflags = FASTRPC_DMAHANDLE_NOMAP;
 		if (ctx->fds && (ctx->fds[i] != -1))
-			err = fastrpc_mmap_create(ctx->fl, ctx->fds[i],
+			err = fastrpc_mmap_create(ctx->fl, ctx->fds[i], NULL,
 					FASTRPC_ATTR_NOVA, 0, 0, dmaflags,
 					&ctx->maps[i]);
 		if (err) {
@@ -2554,7 +2603,7 @@ static int put_args(uint32_t kernel, struct smq_invoke_ctx *ctx,
 	for (i = 0; i < M_FDLIST; i++) {
 		if (!fdlist[i])
 			break;
-		if (!fastrpc_mmap_find(ctx->fl, (int)fdlist[i], 0, 0,
+		if (!fastrpc_mmap_find(ctx->fl, (int)fdlist[i], NULL, 0, 0,
 					0, 0, &mmap))
 			fastrpc_mmap_free(mmap, 0);
 	}
@@ -3370,7 +3419,7 @@ static int fastrpc_init_create_dynamic_process(struct fastrpc_file *fl,
 	if (init->filelen) {
 		/* Map the shell file buffer to remote subsystem */
 		mutex_lock(&fl->map_mutex);
-		err = fastrpc_mmap_create(fl, init->filefd, 0,
+		err = fastrpc_mmap_create(fl, init->filefd, NULL, 0,
 			init->file, init->filelen, mflags, &file);
 		mutex_unlock(&fl->map_mutex);
 		if (err)
@@ -3580,7 +3629,7 @@ static int fastrpc_init_create_static_process(struct fastrpc_file *fl,
 	if (!me->staticpd_flags && !me->legacy_remote_heap) {
 		inbuf.pageslen = 1;
 		mutex_lock(&fl->map_mutex);
-		err = fastrpc_mmap_create(fl, -1, 0, init->mem,
+		err = fastrpc_mmap_create(fl, -1, NULL, 0, init->mem,
 			 init->memlen, ADSP_MMAP_REMOTE_HEAP_ADDR, &mem);
 		mutex_unlock(&fl->map_mutex);
 		if (err)
@@ -3700,6 +3749,9 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 	if (err)
 		goto bail;
 	fl->dsp_proc_init = 1;
+	VERIFY(err, 0 == (err = fastrpc_device_create(fl)));
+	if (err)
+		goto bail;
 bail:
 	return err;
 }
@@ -4389,7 +4441,7 @@ static int fastrpc_internal_munmap_fd(struct fastrpc_file *fl,
 	}
 	mutex_lock(&fl->internal_map_mutex);
 	mutex_lock(&fl->map_mutex);
-	err = fastrpc_mmap_find(fl, ud->fd, ud->va, ud->len, 0, 0, &map);
+	err = fastrpc_mmap_find(fl, ud->fd, NULL, ud->va, ud->len, 0, 0, &map);
 	if (err) {
 		ADSPRPC_ERR(
 			"mapping not found to unmap fd 0x%x, va 0x%llx, len 0x%x, err %d\n",
@@ -4424,7 +4476,7 @@ static int fastrpc_internal_mem_map(struct fastrpc_file *fl,
 
 	/* create SMMU mapping */
 	mutex_lock(&fl->map_mutex);
-	VERIFY(err, !fastrpc_mmap_create(fl, ud->m.fd, ud->m.attrs,
+	VERIFY(err, !fastrpc_mmap_create(fl, ud->m.fd, NULL, ud->m.attrs,
 			ud->m.vaddrin, ud->m.length,
 			 ud->m.flags, &map));
 	mutex_unlock(&fl->map_mutex);
@@ -4553,7 +4605,7 @@ static int fastrpc_internal_mmap(struct fastrpc_file *fl,
 		uintptr_t va_to_dsp;
 
 		mutex_lock(&fl->map_mutex);
-		VERIFY(err, !(err = fastrpc_mmap_create(fl, ud->fd, 0,
+		VERIFY(err, !(err = fastrpc_mmap_create(fl, ud->fd, NULL, 0,
 				(uintptr_t)ud->vaddrin, ud->size,
 				 ud->flags, &map)));
 		mutex_unlock(&fl->map_mutex);
@@ -4818,6 +4870,8 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 	struct fastrpc_perf *perf = NULL, *fperf = NULL;
 	unsigned long flags;
 	int cid;
+	struct fastrpc_apps *me = &gfa;
+	bool is_driver_closed = false;
 
 	if (!fl)
 		return 0;
@@ -4835,6 +4889,17 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 		kfree(fl);
 		return 0;
 	}
+
+	spin_lock(&me->hlock);
+	if (fl->device) {
+		fl->device->dev_close = true;
+		if (fl->device->refs == 0) {
+			is_driver_closed = true;
+			hlist_del_init(&fl->device->hn);
+		}
+	}
+	spin_unlock(&me->hlock);
+
 	spin_lock(&fl->hlock);
 	fl->file_close = 1;
 	spin_unlock(&fl->hlock);
@@ -4862,6 +4927,11 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 		fastrpc_mmap_free(lmap, 1);
 	} while (lmap);
 	mutex_unlock(&fl->map_mutex);
+
+	if (fl->device && is_driver_closed) {
+		device_unregister(&fl->device->dev);
+		fl->device->fl = NULL;
+	}
 
 	if (fl->sctx)
 		fastrpc_session_free(&fl->apps->channel[cid], fl->sctx);
@@ -6386,6 +6456,255 @@ static struct rpmsg_driver fastrpc_rpmsg_client = {
 	},
 };
 
+union fastrpc_dev_param {
+	struct fastrpc_dev_map_dma *map;
+	struct fastrpc_dev_unmap_dma *unmap;
+};
+
+long fastrpc_driver_invoke(struct fastrpc_device *dev, unsigned int invoke_num,
+								unsigned long invoke_param)
+{
+	int err = 0;
+	union fastrpc_dev_param p;
+	struct fastrpc_file *fl = NULL;
+	struct fastrpc_mmap *map = NULL;
+	struct fastrpc_apps *me = &gfa;
+	uintptr_t raddr = 0;
+
+	switch (invoke_num) {
+	case FASTRPC_DEV_MAP_DMA:
+		p.map = (struct fastrpc_dev_map_dma *)invoke_param;
+		spin_lock(&me->hlock);
+		/* Verify if fastrpc device is closed*/
+		VERIFY(err, dev && !dev->dev_close);
+		if (err) {
+			err = -ESRCH;
+			spin_unlock(&me->hlock);
+			break;
+		}
+		fl = dev->fl;
+		spin_lock(&fl->hlock);
+		/* Verify if fastrpc file is being closed, holding device lock*/
+		if (fl->file_close) {
+			err = -ESRCH;
+			spin_unlock(&fl->hlock);
+			spin_unlock(&me->hlock);
+			break;
+		}
+		spin_unlock(&fl->hlock);
+		spin_unlock(&me->hlock);
+		mutex_lock(&fl->internal_map_mutex);
+		mutex_lock(&fl->map_mutex);
+		/* Map DMA buffer on SMMU device*/
+		err = fastrpc_mmap_create(fl, -1, p.map->buf,
+					p.map->attrs, 0, p.map->size,
+					FASTRPC_DMABUF_MAP, &map);
+		mutex_unlock(&fl->map_mutex);
+		if (err)
+			break;
+		/* Map DMA buffer on DSP*/
+		VERIFY(err, 0 == (err = fastrpc_mmap_on_dsp(fl, 0,
+			0, map->phys, map->size, &raddr)));
+		if (err)
+			break;
+		map->raddr = raddr;
+		mutex_unlock(&fl->internal_map_mutex);
+		p.map->v_dsp_addr = raddr;
+		break;
+	case FASTRPC_DEV_UNMAP_DMA:
+		p.unmap = (struct fastrpc_dev_unmap_dma *)invoke_param;
+		spin_lock(&me->hlock);
+		/* Verify if fastrpc device is closed*/
+		VERIFY(err, dev && !dev->dev_close);
+		if (err) {
+			err = -ESRCH;
+			spin_unlock(&me->hlock);
+			break;
+		}
+		fl = dev->fl;
+		spin_lock(&fl->hlock);
+		/* Verify if fastrpc file is being closed, holding device lock*/
+		if (fl->file_close) {
+			err = -ESRCH;
+			spin_unlock(&fl->hlock);
+			spin_unlock(&me->hlock);
+			break;
+		}
+		spin_unlock(&fl->hlock);
+		spin_unlock(&me->hlock);
+		mutex_lock(&fl->internal_map_mutex);
+
+		if (!fastrpc_mmap_find(fl, -1, p.unmap->buf, 0, 0, FASTRPC_DMABUF_MAP, 0, &map)) {
+			/* Un-map DMA buffer on DSP*/
+			VERIFY(err, !(err = fastrpc_munmap_on_dsp(fl, map->raddr,
+				map->phys, map->size, map->flags)));
+			if (err) {
+				mutex_unlock(&fl->internal_map_mutex);
+				break;
+			}
+			fastrpc_mmap_free(map, 0);
+		}
+		mutex_unlock(&fl->internal_map_mutex);
+		break;
+	default:
+		err = -ENOTTY;
+		break;
+	}
+	return err;
+}
+EXPORT_SYMBOL(fastrpc_driver_invoke);
+
+static struct device fastrpc_bus = {
+	.init_name	= "fastrpc"
+};
+
+static int fastrpc_bus_match(struct device *dev, struct device_driver *driver)
+{
+	struct fastrpc_driver *frpc_driver = to_fastrpc_driver(driver);
+	struct fastrpc_device *frpc_device = to_fastrpc_device(dev);
+
+	if (frpc_device->handle == frpc_driver->handle)
+		return 1;
+	return 0;
+}
+
+static int fastrpc_bus_probe(struct device *dev)
+{
+	struct fastrpc_apps *me = &gfa;
+	struct fastrpc_device *frpc_dev = to_fastrpc_device(dev);
+	struct fastrpc_driver *frpc_drv = to_fastrpc_driver(dev->driver);
+
+	if (frpc_drv && frpc_drv->probe) {
+		spin_lock(&me->hlock);
+		if (frpc_dev->dev_close) {
+			spin_unlock(&me->hlock);
+			return 0;
+		}
+		frpc_dev->refs++;
+		frpc_drv->device = dev;
+		spin_unlock(&me->hlock);
+		return frpc_drv->probe(frpc_dev);
+	}
+
+	return 0;
+}
+
+static int fastrpc_bus_remove(struct device *dev)
+{
+	struct fastrpc_driver *frpc_drv = to_fastrpc_driver(dev->driver);
+
+	if (frpc_drv && frpc_drv->callback)
+		return frpc_drv->callback(to_fastrpc_device(dev), FASTRPC_PROC_DOWN);
+
+	return 0;
+}
+
+static struct bus_type fastrpc_bus_type = {
+	.name		= "fastrpc",
+	.match		= fastrpc_bus_match,
+	.probe		= fastrpc_bus_probe,
+	.remove		= fastrpc_bus_remove,
+};
+
+static void fastrpc_dev_release(struct device *dev)
+{
+	kfree(to_fastrpc_device(dev));
+}
+
+static int fastrpc_device_create(struct fastrpc_file *fl)
+{
+	int err = 0;
+	struct fastrpc_device *frpc_dev;
+	struct fastrpc_apps *me = &gfa;
+
+	frpc_dev = kzalloc(sizeof(*frpc_dev), GFP_KERNEL);
+	if (!frpc_dev) {
+		err = -ENOMEM;
+		goto bail;
+	}
+
+	frpc_dev->dev.parent = &fastrpc_bus;
+	frpc_dev->dev.bus = &fastrpc_bus_type;
+
+	dev_set_name(&frpc_dev->dev, "%s-%d",
+			dev_name(frpc_dev->dev.parent), fl->tgid);
+	frpc_dev->dev.release = fastrpc_dev_release;
+	frpc_dev->fl = fl;
+	frpc_dev->handle = fl->tgid;
+	fl->device = frpc_dev;
+
+	err = device_register(&frpc_dev->dev);
+	if (err) {
+		put_device(&frpc_dev->dev);
+		ADSPRPC_ERR("fastrpc device register failed for process %d with error %d\n",
+			fl->tgid, err);
+		goto bail;
+	}
+	spin_lock(&me->hlock);
+	hlist_add_head(&frpc_dev->hn, &me->frpc_devices);
+	spin_unlock(&me->hlock);
+bail:
+	return err;
+}
+
+void fastrpc_driver_unregister(struct fastrpc_driver *frpc_driver)
+{
+	struct fastrpc_apps *me = &gfa;
+	struct device *dev = NULL;
+	struct fastrpc_device *frpc_dev = NULL;
+	bool is_device_closed = false;
+
+	spin_lock(&me->hlock);
+	dev = frpc_driver->device;
+	if (dev) {
+		frpc_dev = to_fastrpc_device(dev);
+		if (frpc_dev->refs > 0)
+			frpc_dev->refs--;
+		else
+			ADSPRPC_ERR("Fastrpc device for driver %s is already freed\n",
+								frpc_driver->driver.name);
+		if (frpc_dev->dev_close) {
+			hlist_del_init(&frpc_dev->hn);
+			is_device_closed = true;
+		}
+	}
+	hlist_del_init(&frpc_driver->hn);
+	spin_unlock(&me->hlock);
+	if (is_device_closed) {
+		ADSPRPC_INFO("un-registering fastrpc device with handle %d\n",
+									frpc_dev->handle);
+		device_unregister(dev);
+	}
+	driver_unregister(&frpc_driver->driver);
+	ADSPRPC_INFO("Un-registering fastrpc driver %s with handle %d\n",
+						frpc_driver->driver.name, frpc_driver->handle);
+}
+EXPORT_SYMBOL(fastrpc_driver_unregister);
+
+int fastrpc_driver_register(struct fastrpc_driver *frpc_driver)
+{
+	int err = 0;
+	struct fastrpc_apps *me = &gfa;
+
+	frpc_driver->driver.bus	= &fastrpc_bus_type;
+	frpc_driver->driver.owner = THIS_MODULE;
+	err = driver_register(&frpc_driver->driver);
+	if (err) {
+		ADSPRPC_ERR("fastrpc driver %s failed to register with error %d\n",
+			frpc_driver->driver.name, err);
+		goto bail;
+	}
+	ADSPRPC_INFO("fastrpc driver %s registered with handle %d\n",
+						frpc_driver->driver.name, frpc_driver->handle);
+	spin_lock(&me->hlock);
+	hlist_add_head(&frpc_driver->hn, &me->frpc_drivers);
+	spin_unlock(&me->hlock);
+
+bail:
+	return err;
+}
+EXPORT_SYMBOL(fastrpc_driver_register);
+
 static int __init fastrpc_device_init(void)
 {
 	struct fastrpc_apps *me = &gfa;
@@ -6402,6 +6721,19 @@ static int __init fastrpc_device_init(void)
 	fastrpc_init(me);
 	me->dev = NULL;
 	me->legacy_remote_heap = false;
+	err = bus_register(&fastrpc_bus_type);
+	if (err) {
+		ADSPRPC_ERR("fastrpc bus register failed with err %d\n",
+			err);
+		goto bus_register_bail;
+	}
+	err = device_register(&fastrpc_bus);
+	if (err) {
+		ADSPRPC_ERR("fastrpc bus device register failed with err %d\n",
+			err);
+		goto bus_device_register_bail;
+	}
+	me->fastrpc_bus_register = true;
 	VERIFY(err, 0 == platform_driver_register(&fastrpc_driver));
 	if (err)
 		goto register_bail;
@@ -6499,7 +6831,12 @@ class_create_bail:
 cdev_init_bail:
 	unregister_chrdev_region(me->dev_no, NUM_CHANNELS);
 alloc_chrdev_bail:
+	platform_driver_unregister(&fastrpc_driver);
 register_bail:
+	device_unregister(&fastrpc_bus);
+bus_device_register_bail:
+	bus_unregister(&fastrpc_bus_type);
+bus_register_bail:
 	fastrpc_deinit();
 	return err;
 }
@@ -6531,6 +6868,10 @@ static void __exit fastrpc_device_exit(void)
 	unregister_chrdev_region(me->dev_no, NUM_CHANNELS);
 	if (me->rpmsg_register == 1)
 		unregister_rpmsg_driver(&fastrpc_rpmsg_client);
+	if (me->fastrpc_bus_register) {
+		bus_unregister(&fastrpc_bus_type);
+		device_unregister(&fastrpc_bus);
+	}
 	kfree(me->gidlist.gids);
 	debugfs_remove_recursive(debugfs_root);
 }
