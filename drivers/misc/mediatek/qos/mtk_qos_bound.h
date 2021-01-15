@@ -88,5 +88,5 @@ extern int is_qos_bound_log_enabled(void);
 extern void qos_bound_log_enable(int enable);
 extern unsigned int get_qos_bound_count(void);
 extern unsigned int *get_qos_bound_buf(void);
-
+extern unsigned short get_qos_bound_smibw_mon(int idx, int smi_id);
 #endif

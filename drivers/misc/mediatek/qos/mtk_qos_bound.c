@@ -98,6 +98,26 @@ struct qos_bound *get_qos_bound(void)
 }
 EXPORT_SYMBOL(get_qos_bound);
 
+unsigned short get_qos_bound_smibw_mon(int idx, int smi_id)
+{
+	unsigned short val = 0;
+
+	if (!is_qos_bound_enabled())
+		return 0;
+
+	if (idx < 0 || idx >= QOS_BOUND_BUF_SIZE)
+		idx = bound->idx;
+
+	if (smi_id < 0 || smi_id >= NR_QOS_SMIBM_TYPE)
+		smi_id = 0;
+
+	val = bound->stats[idx].smibw_mon[smi_id];
+
+	return val;
+}
+EXPORT_SYMBOL(get_qos_bound_smibw_mon);
+
+
 int get_qos_bound_bw_threshold(int state)
 {
 	int val = 0;
