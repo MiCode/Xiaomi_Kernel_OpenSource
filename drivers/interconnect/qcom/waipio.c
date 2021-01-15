@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  *
  */
 
@@ -17,6 +17,7 @@
 #include <linux/platform_device.h>
 #include <linux/sort.h>
 
+#include "icc-debug.h"
 #include "icc-rpmh.h"
 #include "bcm-voter.h"
 #include "qnoc-qos.h"
@@ -2686,6 +2687,8 @@ static int qnoc_probe(struct platform_device *pdev)
 	provider->set = qcom_icc_set;
 	provider->aggregate = qcom_icc_aggregate;
 
+	qcom_icc_debug_register(provider);
+
 	dev_dbg(&pdev->dev, "Registered WAIPIO ICC\n");
 
 	mutex_lock(&probe_list_lock);
@@ -2710,6 +2713,8 @@ static int qnoc_remove(struct platform_device *pdev)
 	struct qcom_icc_provider *qp = platform_get_drvdata(pdev);
 	struct icc_provider *provider = &qp->provider;
 	struct icc_node *n;
+
+	qcom_icc_debug_unregister(provider);
 
 	list_for_each_entry(n, &provider->nodes, node_list) {
 		icc_node_del(n);
