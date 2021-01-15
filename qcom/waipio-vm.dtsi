@@ -279,6 +279,7 @@
 		qcom,gpii-mask = <0x80>;
 		qcom,ev-factor = <2>;
 		qcom,gpi-ee-offset = <0x10000>;
+		qcom,le-vm;
 		status = "ok";
 	};
 
