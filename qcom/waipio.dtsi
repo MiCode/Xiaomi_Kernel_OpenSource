@@ -2749,6 +2749,7 @@
 #include "waipio-eva.dtsi"
 #include "waipio-audio.dtsi"
 #include "waipio-pcie.dtsi"
+#include "msm-rdbg.dtsi"
 
 &qupv3_se7_2uart {
 	status = "ok";
