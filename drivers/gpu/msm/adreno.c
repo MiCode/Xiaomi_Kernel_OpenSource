@@ -1782,19 +1782,6 @@ void adreno_get_bus_counters(struct adreno_device *adreno_dev)
 			"Unable to get perf counters for bus DCVS\n");
 }
 
-void adreno_clear_dcvs_counters(struct adreno_device *adreno_dev)
-{
-	/* Clear the busy_data stats - we're starting over from scratch */
-	adreno_dev->busy_data.gpu_busy = 0;
-	adreno_dev->busy_data.bif_ram_cycles = 0;
-	adreno_dev->busy_data.bif_ram_cycles_read_ch1 = 0;
-	adreno_dev->busy_data.bif_ram_cycles_write_ch0 = 0;
-	adreno_dev->busy_data.bif_ram_cycles_write_ch1 = 0;
-	adreno_dev->busy_data.bif_starved_ram = 0;
-	adreno_dev->busy_data.bif_starved_ram_ch1 = 0;
-	adreno_dev->busy_data.num_ifpc = 0;
-}
-
 /**
  * _adreno_start - Power up the GPU and prepare to accept commands
  * @adreno_dev: Pointer to an adreno_device structure
@@ -1830,7 +1817,9 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	set_bit(ADRENO_DEVICE_PWRON, &adreno_dev->priv);
 
 	adreno_ringbuffer_set_global(adreno_dev, 0);
-	adreno_clear_dcvs_counters(adreno_dev);
+
+	/* Clear the busy_data stats - we're starting over from scratch */
+	memset(&adreno_dev->busy_data, 0, sizeof(adreno_dev->busy_data));
 
 	/* Soft reset the GPU if a regulator is stuck on*/
 	if (regulator_left_on)

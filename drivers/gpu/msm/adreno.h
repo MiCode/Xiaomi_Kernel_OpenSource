@@ -1766,15 +1766,6 @@ void adreno_set_active_ctxs_null(struct adreno_device *adreno_dev);
 void adreno_get_bus_counters(struct adreno_device *adreno_dev);
 
 /**
- * adreno_clear_dcvs_counters - Clear the dcvs measurements
- * @adreno_dev: Adreno GPU device handle
- *
- * The various dcvs statistics need to be cleared everytime we
- * power up the gpu
- */
-void adreno_clear_dcvs_counters(struct adreno_device *adreno_dev);
-
-/**
  * gmu_fault_snapshot - Set gmu fault and trigger snapshot
  * @device: Pointer to the kgsl device
  *
