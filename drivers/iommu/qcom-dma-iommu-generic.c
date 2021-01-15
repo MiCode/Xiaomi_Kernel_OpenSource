@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014, 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014, 2020-2021, The Linux Foundation. All rights reserved.
  * Contiguous Memory Allocator for DMA mapping framework
  * Copyright (c) 2010-2011 by Samsung Electronics.
  * Written by:
@@ -438,10 +438,10 @@ int qcom_dma_info_to_prot(enum dma_data_direction dir, bool coherent,
 		prot |= IOMMU_NOEXEC;
 
 	if (attrs & DMA_ATTR_IOMMU_USE_UPSTREAM_HINT)
-		prot |= IOMMU_USE_UPSTREAM_HINT;
+		prot |= IOMMU_SYS_CACHE_ONLY;
 
 	if (attrs & DMA_ATTR_IOMMU_USE_LLC_NWA)
-		prot |= IOMMU_USE_LLC_NWA;
+		prot |= IOMMU_SYS_CACHE_ONLY_NWA;
 
 	switch (dir) {
 	case DMA_BIDIRECTIONAL:
