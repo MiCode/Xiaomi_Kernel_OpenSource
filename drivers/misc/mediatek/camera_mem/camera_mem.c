@@ -79,9 +79,10 @@ struct ION_BUFFER_LIST {
 	struct dma_buf        *dmaBuf;
 	struct dma_buf_attachment *attach;
 	struct sg_table *sgt;
-	dma_addr_t dmaAddr; /* physical addr */
-	int memID; /* ion fd */
+	dma_addr_t dmaAddr; /* physical addr / iova / secure handle */
+	int memID; /* ion buffer fd */
 	unsigned int refCnt; /* map count */
+	unsigned long long timestamp; /* timestamp after mapping iova in ns */
 	char username[64]; /* userspace user name */
 };
 
@@ -423,14 +424,21 @@ static long cam_mem_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Pa
 				bMapped = true;
 
 				if (unlikely((size_remain <= 0) || (c_num >= WARNING_STR_SIZE))) {
-					LOG_NOTICE("warningStr buf size is not enough\n");
+					LOG_NOTICE("m: warningStr size is not enough: (%d,%d)\n",
+						size_remain, c_num);
+					break;
 				} else {
 					int tmp = 0;
+					unsigned long long second;
+					unsigned long long nano_second;
+
+					second = entry->timestamp;
+					nano_second = do_div(second, 1000000000);
 
 					tmp = snprintf(warningStr + c_num, size_remain,
-						"pa(0x%lx);dmabuf(0x%lx);user(%s); ",
+						"pa(0x%lx);dmabuf(0x%lx);user(%s);ts(%llu.%llu) ",
 						entry->dmaAddr, entry->dmaBuf,
-						entry->username);
+						entry->username, second, nano_second);
 
 					if (unlikely(tmp < 0))
 						LOG_NOTICE("snprintf failed\n");
@@ -443,7 +451,7 @@ static long cam_mem_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Pa
 			mutex_unlock(&cam_mem_ion_mutex[bucketID]);
 
 			if (refCnt > 1)
-				LOG_DBG("Warning:map:memID(%d)refCnt(%d)>1: %s",
+				LOG_DBG("Warning:map:memID(%d)refCnt(%d)>1: %s\n",
 					IonNode.memID, refCnt, warningStr);
 
 			/* Map iova. */
@@ -452,13 +460,13 @@ static long cam_mem_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Pa
 				LOG_NOTICE(
 					"CAM_MEM_ION_MAP_PA: map pa failed, memID(%d)\n",
 					IonNode.memID);
-				Ret = -EFAULT;
+				Ret = -ENOMEM;
 				break;
 			}
 			/* get iova. */
 			dmaPa = sg_dma_address(mmu.sgt->sgl);
 			if (unlikely(!dmaPa)) {
-				Ret = -EFAULT;
+				Ret = -ENOMEM;
 				LOG_NOTICE(
 					"CAM_MEM_ION_MAP_PA: sg_dma_address fail, memID(%d)\n",
 					IonNode.memID);
@@ -479,6 +487,7 @@ static long cam_mem_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Pa
 			tmp->sgt = mmu.sgt;
 			tmp->dmaAddr = IonNode.dma_pa;
 			tmp->memID = IonNode.memID;
+			tmp->timestamp = ktime_get();
 			if (!bMapped)
 				tmp->refCnt = 1;
 			else
@@ -598,7 +607,8 @@ static long cam_mem_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Pa
 					if (unlikely(
 						(size_remain <= 0) ||
 						(c_num >= WARNING_STR_SIZE))) {
-						LOG_NOTICE("warningStr buf size is not enough\n");
+						LOG_NOTICE("um: Strbuf sz is not enough: (%d,%d)\n",
+							size_remain, c_num);
 						break;
 					}
 
@@ -616,7 +626,7 @@ static long cam_mem_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Pa
 				}
 				mutex_unlock(&cam_mem_ion_mutex[bucketID]);
 
-				LOG_DBG("Warning:unamp:memID(%d)refCnt(%d) still > 0: %s",
+				LOG_DBG("Warning:unamp:memID(%d)refCnt(%d) still > 0: %s\n",
 					IonNode.memID, refCnt, warningStr);
 			}
 #ifdef CAM_MEM_DEBUG
@@ -848,7 +858,7 @@ static int cam_mem_buf_list_read(struct seq_file *m, void *v)
 	struct list_head *pos;
 	int i = 0, j = 0;
 
-	seq_puts(m, " idx memID        pa     aligned-size   refCnt     user\n");
+	seq_puts(m, " idx memID        pa     aligned-size   refCnt     user     timestamp\n");
 	seq_puts(m, "===================================================================\n");
 
 	for (j = 0; j < HASH_BUCKET_NUM; j++) {
@@ -861,12 +871,18 @@ static int cam_mem_buf_list_read(struct seq_file *m, void *v)
 		}
 
 		list_for_each(pos, &g_ion_buf_list[j].list) {
+			unsigned long long second;
+			unsigned long long nano_second;
+
 			entry = list_entry(pos, struct ION_BUFFER_LIST, list);
 
-			seq_printf(m, "#%03d   %3d   0x%09lx  0x%06x      %2d   %s\n", i,
+			second = entry->timestamp;
+			nano_second = do_div(second, 1000000000);
+
+			seq_printf(m, "#%03d   %3d   0x%09lx  0x%06x      %2d   %s %llu.%llu\n", i,
 				entry->memID,
 				entry->dmaAddr, entry->dmaBuf->size,
-				entry->refCnt, entry->username);
+				entry->refCnt, entry->username, second, nano_second);
 				i++;
 		}
 		mutex_unlock(&cam_mem_ion_mutex[j]);
