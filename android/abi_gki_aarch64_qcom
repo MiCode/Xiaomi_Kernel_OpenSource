@@ -5,6 +5,7 @@
   add_memory
   add_taint
   add_timer
+  add_timer_on
   add_uevent_var
   add_wait_queue
   adjust_managed_page_count
@@ -868,6 +869,8 @@
   hex2bin
   hex_dump_to_buffer
   hex_to_bin
+  hrtimer_cancel
+  hrtimer_forward
   hrtimer_init
   hrtimer_start_range_ns
   hvc_alloc
@@ -1465,6 +1468,7 @@
   platform_device_alloc
   platform_device_del
   platform_device_put
+  platform_device_register
   platform_device_register_full
   platform_device_unregister
   __platform_driver_register
