@@ -49,6 +49,7 @@
 		swr1 = &swr1;
 		swr2 = &swr2;
 		swr3 = &swr3;
+		pci-domain0 = &pcie0; /* PCIe0 domain */
 	};
 
 	firmware: firmware { };
@@ -2747,6 +2748,7 @@
 #include "lahaina-ion.dtsi"
 #include "waipio-eva.dtsi"
 #include "waipio-audio.dtsi"
+#include "waipio-pcie.dtsi"
 
 &qupv3_se7_2uart {
 	status = "ok";
