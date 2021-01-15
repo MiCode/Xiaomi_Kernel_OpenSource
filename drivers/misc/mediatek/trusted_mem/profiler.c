@@ -42,8 +42,16 @@ struct profile_entry_string profile_entry_str[] = {
 	{PROFILE_ENTRY_INVOKE_COMMAND, STR(INVOKE_COMMAND)},
 };
 
-#define GET_START_TIME() do_gettimeofday(&start_time)
-#define GET_END_TIME() do_gettimeofday(&end_time)
+#define GET_START_TIME() tmem_do_gettimeofday(&start_time)
+#define GET_END_TIME() tmem_do_gettimeofday(&end_time)
+static void tmem_do_gettimeofday(struct timeval *tv)
+{
+	struct timespec64 now;
+
+	ktime_get_real_ts64(&now);
+	tv->tv_sec = now.tv_sec;
+	tv->tv_usec = now.tv_nsec / NSEC_PER_USEC;
+}
 
 #define SEC_TO_US(s) (s * 1000000)
 
