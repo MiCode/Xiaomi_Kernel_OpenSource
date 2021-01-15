@@ -491,6 +491,11 @@
 		haven-label = <0x12>;
 	};
 
+	trust_ui_vm_qrtr: trust_ui_vm_qrtr@e8500000 {
+		no-map;
+		reg = <0x0 0xe8500000 0x0 0x9000>;
+	};
+
 	tz_stat_mem: tz_stat_region@e8800000 {
 		no-map;
 		reg = <0x0 0xe8800000 0x0 0x100000>;
@@ -1242,6 +1247,14 @@
 				      IRQ_TYPE_EDGE_RISING>;
 			label = "spss";
 		};
+	};
+
+	qrtr-haven {
+		compatible = "qcom,qrtr-haven";
+		qcom,master;
+		haven-label = <3>;
+		peer-name = <2>;
+		shared-buffer = <&trust_ui_vm_qrtr>;
 	};
 
 	/* CAM_CC GDSCs */
