@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2010-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/of_device.h>
@@ -550,7 +550,7 @@ static ssize_t idle_timer_show(struct device *dev,
 	struct kgsl_device *device = dev_get_drvdata(dev);
 
 	/* Show the idle_timeout converted to msec */
-	return scnprintf(buf, PAGE_SIZE, "%u\n", device->pwrctrl.interval_timeout);
+	return scnprintf(buf, PAGE_SIZE, "%lu\n", device->pwrctrl.interval_timeout);
 }
 
 static ssize_t minbw_timer_store(struct device *dev,
@@ -1586,7 +1586,7 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 				"vdd-parent");
 		if (IS_ERR(pwr->gx_gdsc_parent)) {
 			dev_err(device->dev,
-				"Failed to get vdd-parent regulator:%d\n",
+				"Failed to get vdd-parent regulator:%ld\n",
 				PTR_ERR(pwr->gx_gdsc_parent));
 			return -ENODEV;
 		}

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2002,2008-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2002,2008-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/debugfs.h>
@@ -151,7 +151,7 @@ static void sync_event_print(struct seq_file *s,
 		struct event_timeline_info *info = sync_event->priv;
 
 		for (j = 0; info && info[j].timeline; j++)
-			seq_printf(s, "timeline: %d seqno: %d",
+			seq_printf(s, "timeline: %d seqno: %lld",
 				info[j].timeline, info[j].seqno);
 		break;
 	}

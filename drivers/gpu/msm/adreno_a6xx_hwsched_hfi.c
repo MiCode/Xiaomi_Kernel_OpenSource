@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/iommu.h>
@@ -117,7 +117,7 @@ static void a6xx_receive_ack_async(struct adreno_device *adreno_dev, void *rcvd)
 
 	if (size_bytes > sizeof(cmd->results))
 		dev_err_ratelimited(&gmu->pdev->dev,
-			"Ack result too big: %d Truncating to: %d\n",
+			"Ack result too big: %d Truncating to: %ld\n",
 			size_bytes, sizeof(cmd->results));
 
 	read_lock(&hfi->msglock);
@@ -192,7 +192,7 @@ static void add_f2h_packet(struct adreno_device *adreno_dev, u32 *msg)
 
 	if (size > sizeof(pkt->rcvd))
 		dev_err_ratelimited(&gmu->pdev->dev,
-			"f2h packet too big: %d allowed: %d\n",
+			"f2h packet too big: %d allowed: %ld\n",
 			size, sizeof(pkt->rcvd));
 
 	memcpy(pkt->rcvd, msg, min_t(u32, size, sizeof(pkt->rcvd)));
@@ -312,7 +312,7 @@ static irqreturn_t a6xx_hwsched_hfi_handler(int irq, void *data)
 
 	if (status & ~hfi->irq_mask)
 		dev_err_ratelimited(&gmu->pdev->dev,
-			"Unhandled HFI interrupts 0x%lx\n",
+			"Unhandled HFI interrupts 0x%x\n",
 			status & ~hfi->irq_mask);
 
 	return IRQ_HANDLED;
@@ -493,7 +493,7 @@ static int gmu_import_buffer(struct adreno_device *adreno_dev,
 	mapped = iommu_map_sg(gmu->domain,
 			desc->gmu_addr, sgt->sgl, sgt->nents, attrs);
 	if (mapped == 0)
-		dev_err(&gmu->pdev->dev, "gmu map sg err: 0x%08x, %d, %x, %zd\n",
+		dev_err(&gmu->pdev->dev, "gmu map sg err: 0x%08x, %d, %x, %d\n",
 			desc->gmu_addr, sgt->nents, attrs, mapped);
 	else
 		vma->next_va += desc->size;
@@ -578,7 +578,7 @@ static struct mem_alloc_entry *get_mem_alloc_entry(
 	ret = gmu_import_buffer(adreno_dev, entry, desc->flags);
 	if (ret) {
 		dev_err(&gmu->pdev->dev,
-			"gpuaddr: 0x%llx size: %zd bytes lost\n",
+			"gpuaddr: 0x%llx size: %lld bytes lost\n",
 			entry->gpu_md->gpuaddr, entry->gpu_md->size);
 		memset(entry, 0, sizeof(*entry));
 		return ERR_PTR(ret);
