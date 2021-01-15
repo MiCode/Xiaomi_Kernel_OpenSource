@@ -50,6 +50,14 @@
 	};
 };
 
+/*
+ * Each QUP device that's a parent to PMIC must be listed as a critical device
+ * to GCC.
+ */
+&clock_gcc {
+	qcom,critical-devices = <&qupv3_se5_i2c>;
+};
+
 &qupv3_se5_i2c {
 	#address-cells = <1>;
 	#size-cells = <0>;
