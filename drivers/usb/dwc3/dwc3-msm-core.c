@@ -543,6 +543,27 @@ static void dwc3_pwr_event_handler(struct dwc3_msm *mdwc);
 static int dwc3_msm_gadget_vbus_draw(struct dwc3_msm *mdwc, unsigned int mA);
 static int dwc3_msm_core_init(struct dwc3_msm *mdwc);
 
+static inline void dwc3_msm_ep_writel(void __iomem *base, u32 offset, u32 value)
+{
+	writel_relaxed(value, base + offset - DWC3_GLOBALS_REGS_START);
+
+	/* Ensure writes to DWC3 ep registers are completed */
+	mb();
+}
+
+static inline u32 dwc3_msm_ep_readl(void __iomem *base, u32 offset)
+{
+	u32 value;
+
+	/*
+	 * We requested the mem region starting from the Globals address
+	 * space, see dwc3_probe in core.c.
+	 * However, the offsets are given starting from xHCI address space.
+	 */
+	value = readl_relaxed(base + offset - DWC3_GLOBALS_REGS_START);
+	return value;
+}
+
 static inline dma_addr_t dwc3_trb_dma_offset(struct dwc3_ep *dep,
 		struct dwc3_trb *trb)
 {
@@ -864,6 +885,193 @@ static int dwc3_msm_dbm_disable_updxfer(struct dwc3 *dwc, u8 usb_ep)
 	return 0;
 }
 
+static int dwc3_core_send_gadget_ep_cmd(struct dwc3_ep *dep, unsigned int cmd,
+		struct dwc3_gadget_ep_cmd_params *params)
+{
+	const struct usb_endpoint_descriptor *desc = dep->endpoint.desc;
+	struct dwc3		*dwc = dep->dwc;
+	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
+	u32			timeout = 5000;
+	u32			saved_config = 0;
+	u32			reg;
+
+	int			cmd_status = 0;
+	int			ret = -EINVAL;
+
+	/*
+	 * When operating in USB 2.0 speeds (HS/FS), if GUSB2PHYCFG.ENBLSLPM or
+	 * GUSB2PHYCFG.SUSPHY is set, it must be cleared before issuing an
+	 * endpoint command.
+	 *
+	 * Save and clear both GUSB2PHYCFG.ENBLSLPM and GUSB2PHYCFG.SUSPHY
+	 * settings. Restore them after the command is completed.
+	 *
+	 * DWC_usb3 3.30a and DWC_usb31 1.90a programming guide section 3.2.2
+	 */
+	if (dwc->gadget->speed <= USB_SPEED_HIGH) {
+		reg = dwc3_msm_read_reg(mdwc->base, DWC3_GUSB2PHYCFG(0));
+		if (unlikely(reg & DWC3_GUSB2PHYCFG_SUSPHY)) {
+			saved_config |= DWC3_GUSB2PHYCFG_SUSPHY;
+			reg &= ~DWC3_GUSB2PHYCFG_SUSPHY;
+		}
+
+		if (reg & DWC3_GUSB2PHYCFG_ENBLSLPM) {
+			saved_config |= DWC3_GUSB2PHYCFG_ENBLSLPM;
+			reg &= ~DWC3_GUSB2PHYCFG_ENBLSLPM;
+		}
+
+		if (saved_config)
+			dwc3_msm_write_reg(mdwc->base, DWC3_GUSB2PHYCFG(0), reg);
+	}
+
+	dwc3_msm_ep_writel(dep->regs, DWC3_DEPCMDPAR0, params->param0);
+	dwc3_msm_ep_writel(dep->regs, DWC3_DEPCMDPAR1, params->param1);
+	dwc3_msm_ep_writel(dep->regs, DWC3_DEPCMDPAR2, params->param2);
+
+	/*
+	 * Synopsys Databook 2.60a states in section 6.3.2.5.6 of that if we're
+	 * not relying on XferNotReady, we can make use of a special "No
+	 * Response Update Transfer" command where we should clear both CmdAct
+	 * and CmdIOC bits.
+	 *
+	 * With this, we don't need to wait for command completion and can
+	 * straight away issue further commands to the endpoint.
+	 *
+	 * NOTICE: We're making an assumption that control endpoints will never
+	 * make use of Update Transfer command. This is a safe assumption
+	 * because we can never have more than one request at a time with
+	 * Control Endpoints. If anybody changes that assumption, this chunk
+	 * needs to be updated accordingly.
+	 */
+	if (DWC3_DEPCMD_CMD(cmd) == DWC3_DEPCMD_UPDATETRANSFER &&
+			!usb_endpoint_xfer_isoc(desc))
+		cmd &= ~(DWC3_DEPCMD_CMDIOC | DWC3_DEPCMD_CMDACT);
+	else
+		cmd |= DWC3_DEPCMD_CMDACT;
+
+	dwc3_msm_ep_writel(dep->regs, DWC3_DEPCMD, cmd);
+	do {
+		reg = dwc3_msm_ep_readl(dep->regs, DWC3_DEPCMD);
+		if (!(reg & DWC3_DEPCMD_CMDACT)) {
+			cmd_status = DWC3_DEPCMD_STATUS(reg);
+
+			switch (cmd_status) {
+			case 0:
+				ret = 0;
+				break;
+			case DEPEVT_TRANSFER_NO_RESOURCE:
+				dev_WARN(dwc->dev, "No resource for %s\n",
+					 dep->name);
+				ret = -EINVAL;
+				break;
+			case DEPEVT_TRANSFER_BUS_EXPIRY:
+				/*
+				 * SW issues START TRANSFER command to
+				 * isochronous ep with future frame interval. If
+				 * future interval time has already passed when
+				 * core receives the command, it will respond
+				 * with an error status of 'Bus Expiry'.
+				 *
+				 * Instead of always returning -EINVAL, let's
+				 * give a hint to the gadget driver that this is
+				 * the case by returning -EAGAIN.
+				 */
+				ret = -EAGAIN;
+				break;
+			default:
+				dev_WARN(dwc->dev, "UNKNOWN cmd status\n");
+			}
+
+			break;
+		}
+	} while (--timeout);
+
+	if (timeout == 0) {
+		ret = -ETIMEDOUT;
+		cmd_status = -ETIMEDOUT;
+	}
+
+	if (DWC3_DEPCMD_CMD(cmd) == DWC3_DEPCMD_STARTTRANSFER) {
+		if (ret == 0)
+			dep->flags |= DWC3_EP_TRANSFER_STARTED;
+
+		if (ret != -ETIMEDOUT) {
+			u32 res_id;
+
+			res_id = dwc3_msm_ep_readl(dep->regs, DWC3_DEPCMD);
+			dep->resource_index = DWC3_DEPCMD_GET_RSC_IDX(res_id);
+		}
+	}
+
+	if (saved_config) {
+		reg = dwc3_msm_read_reg(mdwc->base, DWC3_GUSB2PHYCFG(0));
+		reg |= saved_config;
+		dwc3_msm_write_reg(mdwc->base, DWC3_GUSB2PHYCFG(0), reg);
+	}
+
+	return ret;
+}
+
+static void dwc3_core_stop_active_transfer(struct dwc3_ep *dep, bool force)
+{
+	struct dwc3 *dwc = dep->dwc;
+	struct dwc3_gadget_ep_cmd_params params;
+	u32 cmd;
+	int ret;
+
+	if (!(dep->flags & DWC3_EP_TRANSFER_STARTED) ||
+	    (dep->flags & DWC3_EP_END_TRANSFER_PENDING))
+		return;
+
+	dwc3_msm_notify_event(dwc, DWC3_CONTROLLER_NOTIFY_DISABLE_UPDXFER,
+			dep->number);
+
+	/*
+	 * NOTICE: We are violating what the Databook says about the
+	 * EndTransfer command. Ideally we would _always_ wait for the
+	 * EndTransfer Command Completion IRQ, but that's causing too
+	 * much trouble synchronizing between us and gadget driver.
+	 *
+	 * We have discussed this with the IP Provider and it was
+	 * suggested to giveback all requests here.
+	 *
+	 * Note also that a similar handling was tested by Synopsys
+	 * (thanks a lot Paul) and nothing bad has come out of it.
+	 * In short, what we're doing is issuing EndTransfer with
+	 * CMDIOC bit set and delay kicking transfer until the
+	 * EndTransfer command had completed.
+	 *
+	 * As of IP version 3.10a of the DWC_usb3 IP, the controller
+	 * supports a mode to work around the above limitation. The
+	 * software can poll the CMDACT bit in the DEPCMD register
+	 * after issuing a EndTransfer command. This mode is enabled
+	 * by writing GUCTL2[14]. This polling is already done in the
+	 * dwc3_core_send_gadget_ep_cmd() function so if the mode is
+	 * enabled, the EndTransfer command will have completed upon
+	 * returning from this function.
+	 *
+	 * This mode is NOT available on the DWC_usb31 IP.
+	 */
+
+	cmd = DWC3_DEPCMD_ENDTRANSFER;
+	cmd |= force ? DWC3_DEPCMD_HIPRI_FORCERM : 0;
+	cmd |= DWC3_DEPCMD_PARAM(dep->resource_index);
+	memset(&params, 0, sizeof(params));
+	ret = dwc3_core_send_gadget_ep_cmd(dep, cmd, &params);
+	WARN_ON_ONCE(ret);
+	dep->resource_index = 0;
+
+	/*
+	 * The END_TRANSFER command will cause the controller to generate a
+	 * NoStream Event, and it's not due to the host DP NoStream rejection.
+	 * Ignore the next NoStream event.
+	 */
+	if (dep->stream_capable)
+		dep->flags |= DWC3_EP_IGNORE_NEXT_NOSTREAM;
+
+	dep->flags &= ~DWC3_EP_TRANSFER_STARTED;
+}
+
 #if IS_ENABLED(CONFIG_USB_DWC3_GADGET) || IS_ENABLED(CONFIG_USB_DWC3_DUAL_ROLE)
 /**
  * Configure the DBM with the BAM's data fifo.
@@ -1111,7 +1319,7 @@ static int __dwc3_msm_ep_queue(struct dwc3_ep *dep, struct dwc3_request *req)
 
 	/* DBM requires IOC to be set */
 	cmd = DWC3_DEPCMD_STARTTRANSFER | DWC3_DEPCMD_CMDIOC;
-	ret = dwc3_send_gadget_ep_cmd(dep, cmd, &params);
+	ret = dwc3_core_send_gadget_ep_cmd(dep, cmd, &params);
 	if (ret < 0) {
 		dev_dbg(dep->dwc->dev,
 			"%s: failed to send STARTTRANSFER command\n",
@@ -1322,7 +1530,7 @@ static int dwc3_msm_set_ep_config(struct dwc3_ep *dep, unsigned int action)
 	memset(&params, 0x00, sizeof(params));
 	dwc3_msm_depcfg_params(ep, &params);
 
-	return dwc3_send_gadget_ep_cmd(dep, DWC3_DEPCMD_SETEPCONFIG, &params);
+	return dwc3_core_send_gadget_ep_cmd(dep, DWC3_DEPCMD_SETEPCONFIG, &params);
 }
 
 static int __dwc3_msm_ep_enable(struct dwc3_ep *dep, unsigned int action)
@@ -1512,7 +1720,7 @@ static int gsi_startxfer_for_ep(struct usb_ep *ep, struct usb_gsi_request *req)
 						&dep->trb_pool[0]));
 	cmd = DWC3_DEPCMD_STARTTRANSFER;
 	cmd |= DWC3_DEPCMD_PARAM(0);
-	ret = dwc3_send_gadget_ep_cmd(dep, cmd, &params);
+	ret = dwc3_core_send_gadget_ep_cmd(dep, cmd, &params);
 
 	if (ret < 0)
 		dev_dbg(dwc->dev, "Fail StrtXfr on GSI EP#%d\n", dep->number);
@@ -1648,7 +1856,7 @@ static int gsi_updatexfer_for_ep(struct usb_ep *ep,
 	memset(&params, 0, sizeof(params));
 	cmd = DWC3_DEPCMD_UPDATETRANSFER;
 	cmd |= DWC3_DEPCMD_PARAM(dep->resource_index);
-	ret = dwc3_send_gadget_ep_cmd(dep, cmd, &params);
+	ret = dwc3_core_send_gadget_ep_cmd(dep, cmd, &params);
 	if (ret < 0)
 		dev_dbg(dwc->dev, "UpdateXfr fail on GSI EP#%d\n", dep->number);
 	return ret;
@@ -1874,7 +2082,7 @@ static void gsi_configure_ep(struct usb_ep *ep, struct usb_gsi_request *request)
 	dev_dbg(mdwc->dev, "Set EP config to params = %x %x %x, for %s\n",
 	params.param0, params.param1, params.param2, dep->name);
 
-	dwc3_send_gadget_ep_cmd(dep, DWC3_DEPCMD_SETEPCONFIG, &params);
+	dwc3_core_send_gadget_ep_cmd(dep, DWC3_DEPCMD_SETEPCONFIG, &params);
 
 	if (!(dep->flags & DWC3_EP_ENABLED)) {
 		ret = dwc3_gadget_resize_tx_fifos(dwc, dep);
@@ -2062,7 +2270,7 @@ int usb_gsi_ep_op(struct usb_ep *ep, void *op_data, enum gsi_ep_op op)
 		break;
 	case GSI_EP_OP_ENDXFER:
 		spin_lock_irqsave(&dwc->lock, flags);
-		dwc3_stop_active_transfer(dep, true, false);
+		dwc3_core_stop_active_transfer(dep, true);
 		spin_unlock_irqrestore(&dwc->lock, flags);
 		break;
 	case GSI_EP_OP_SET_CLR_BLOCK_DBL:
@@ -2791,7 +2999,9 @@ static void dwc3_msm_power_collapse_por(struct dwc3_msm *mdwc)
 
 	/* Set the core in host mode if it was in host mode during pm_suspend */
 	if (mdwc->in_host_mode) {
-		dwc3_set_prtcap(dwc, DWC3_GCTL_PRTCAP_HOST);
+		dwc3_msm_write_reg_field(mdwc->base, DWC3_GCTL,
+				DWC3_GCTL_PRTCAPDIR(DWC3_GCTL_PRTCAP_OTG),
+				DWC3_GCTL_PRTCAPDIR(DWC3_GCTL_PRTCAP_HOST));
 		if (!dwc->dis_enblslpm_quirk)
 			dwc3_en_sleep_mode(mdwc);
 	}
@@ -5103,7 +5313,6 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 		 * DBM reset is required, hence perform only DBM reset here.
 		 */
 		dwc3_msm_block_reset(mdwc, false);
-		dwc3_set_prtcap(dwc, DWC3_GCTL_PRTCAP_DEVICE);
 		dwc3_dis_sleep_mode(mdwc);
 		mdwc->in_device_mode = true;
 

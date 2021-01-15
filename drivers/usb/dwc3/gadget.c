@@ -482,7 +482,6 @@ int dwc3_send_gadget_ep_cmd(struct dwc3_ep *dep, unsigned int cmd,
 
 	return ret;
 }
-EXPORT_SYMBOL(dwc3_send_gadget_ep_cmd);
 
 static int dwc3_send_clear_stall_ep_cmd(struct dwc3_ep *dep)
 {
@@ -3389,7 +3388,6 @@ void dwc3_stop_active_transfer(struct dwc3_ep *dep, bool force, bool interrupt)
 	else
 		dep->flags |= DWC3_EP_END_TRANSFER_PENDING;
 }
-EXPORT_SYMBOL(dwc3_stop_active_transfer);
 
 static void dwc3_clear_stall_all_ep(struct dwc3 *dwc)
 {

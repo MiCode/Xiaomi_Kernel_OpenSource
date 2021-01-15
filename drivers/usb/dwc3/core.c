@@ -118,7 +118,6 @@ void dwc3_set_prtcap(struct dwc3 *dwc, u32 mode)
 
 	dwc->current_dr_role = mode;
 }
-EXPORT_SYMBOL(dwc3_set_prtcap);
 
 static void __dwc3_set_mode(struct work_struct *work)
 {
