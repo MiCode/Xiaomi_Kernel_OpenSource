@@ -36,6 +36,7 @@ smp2p.ko
 qrtr.ko
 ns.ko
 qrtr-smd.ko
+mhi.ko
 msm_qmp.ko
 socinfo.ko
 spmi-pmic-arb.ko
