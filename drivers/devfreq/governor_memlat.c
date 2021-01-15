@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "mem_lat: " fmt
@@ -421,7 +421,7 @@ static int devfreq_memlat_ev_handler(struct devfreq *df,
 		dev_dbg(df->dev.parent, "Resumed memlat governor\n");
 		break;
 
-	case DEVFREQ_GOV_INTERVAL:
+	case DEVFREQ_GOV_UPDATE_INTERVAL:
 		node = df->data;
 		hw = node->hw;
 		sample_ms = *(unsigned int *)data;
@@ -430,7 +430,7 @@ static int devfreq_memlat_ev_handler(struct devfreq *df,
 		if (hw->request_update_ms)
 			hw->request_update_ms(hw, sample_ms);
 		if (!hw->should_ignore_df_monitor)
-			devfreq_interval_update(df, &sample_ms);
+			devfreq_update_interval(df, &sample_ms);
 		break;
 	}
 
