@@ -10,8 +10,8 @@
 #include <linux/firmware.h>
 #include <linux/interconnect.h>
 #include <linux/io.h>
-#include <linux/iommu.h>
 #include <linux/of_platform.h>
+#include <linux/qcom-iommu-util.h>
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
 #include <linux/soc/qcom/llcc-qcom.h>
