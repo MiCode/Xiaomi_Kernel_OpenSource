@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2008-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2021, The Linux Foundation. All rights reserved.
  */
 #ifndef __ADRENO_H
 #define __ADRENO_H
@@ -376,6 +376,8 @@ struct adreno_power_ops {
  */
 struct adreno_gpu_core {
 	enum adreno_gpurev gpurev;
+	/** @chipid: Unique GPU chipid for external identification */
+	u32 chipid;
 	unsigned int core, major, minor, patchid;
 	/**
 	 * @compatible: If specified, use the compatible string to match the

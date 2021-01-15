@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2002,2007-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2002,2007-2021, The Linux Foundation. All rights reserved.
  */
 #include <linux/component.h>
 #include <linux/delay.h>
@@ -508,6 +508,7 @@ irqreturn_t adreno_irq_callbacks(struct adreno_device *adreno_dev,
 	return ret;
 }
 
+static int adreno_get_chipid(struct platform_device *pdev, u32 *chipid);
 
 static inline bool _rev_match(unsigned int id, unsigned int entry)
 {
@@ -515,31 +516,51 @@ static inline bool _rev_match(unsigned int id, unsigned int entry)
 }
 
 static const struct adreno_gpu_core *
-_get_gpu_core(struct platform_device *pdev, unsigned int chipid)
+_get_gpu_core(struct platform_device *pdev, u32 *chipid)
 {
-	unsigned int core = ADRENO_CHIPID_CORE(chipid);
-	unsigned int major = ADRENO_CHIPID_MAJOR(chipid);
-	unsigned int minor = ADRENO_CHIPID_MINOR(chipid);
-	unsigned int patchid = ADRENO_CHIPID_PATCH(chipid);
 	int i;
+
+	*chipid = 0;
 
 	/* Check to see if any of the entries match on a compatible string */
 	for (i = 0; i < ARRAY_SIZE(adreno_gpulist); i++) {
 		if (adreno_gpulist[i]->compatible &&
-			of_device_is_compatible(pdev->dev.of_node,
-				adreno_gpulist[i]->compatible))
-			return adreno_gpulist[i];
+				of_device_is_compatible(pdev->dev.of_node,
+					adreno_gpulist[i]->compatible)) {
+			/*
+			 * We matched compat string, set chipid based on
+			 * dtsi, then gpulist, else fail.
+			 */
+			if (adreno_get_chipid(pdev, chipid))
+				*chipid = adreno_gpulist[i]->chipid;
+
+			if (*chipid)
+				return adreno_gpulist[i];
+
+			dev_crit(&pdev->dev,
+					"No chipid associated with %s\n",
+					adreno_gpulist[i]->compatible);
+			return NULL;
+		}
 	}
 
+	/* No compatible string so try and match on chipid */
+	if (!adreno_get_chipid(pdev, chipid)) {
+		unsigned int core = ADRENO_CHIPID_CORE(*chipid);
+		unsigned int major = ADRENO_CHIPID_MAJOR(*chipid);
+		unsigned int minor = ADRENO_CHIPID_MINOR(*chipid);
+		unsigned int patchid = ADRENO_CHIPID_PATCH(*chipid);
 
-	for (i = 0; i < ARRAY_SIZE(adreno_gpulist); i++) {
-		if (core == adreno_gpulist[i]->core &&
-		    _rev_match(major, adreno_gpulist[i]->major) &&
-		    _rev_match(minor, adreno_gpulist[i]->minor) &&
-		    _rev_match(patchid, adreno_gpulist[i]->patchid))
-			return adreno_gpulist[i];
+		for (i = 0; i < ARRAY_SIZE(adreno_gpulist); i++) {
+			if (core == adreno_gpulist[i]->core &&
+				_rev_match(major, adreno_gpulist[i]->major) &&
+				_rev_match(minor, adreno_gpulist[i]->minor) &&
+				_rev_match(patchid, adreno_gpulist[i]->patchid))
+				return adreno_gpulist[i];
+		}
 	}
 
+	dev_crit(&pdev->dev, "Unknown GPU chip ID %8.8x\n", *chipid);
 	return NULL;
 }
 
@@ -668,28 +689,24 @@ adreno_identify_gpu(struct platform_device *pdev, u32 *chipid)
 {
 	const struct adreno_gpu_core *gpucore;
 
-	if (adreno_get_chipid(pdev, chipid)) {
-		dev_crit(&pdev->dev, "Unable to get the GPU chip ID\n");
+	gpucore = _get_gpu_core(pdev, chipid);
+	if (!gpucore)
 		return ERR_PTR(-ENODEV);
-	}
-
-	gpucore = _get_gpu_core(pdev, *chipid);
-	if (!gpucore) {
-		dev_crit(&pdev->dev, "Unknown GPU chip ID %8.8x\n", *chipid);
-		return ERR_PTR(-ENODEV);
-	}
 
 	/*
 	 * Identify non-longer supported targets and spins and print a helpful
 	 * message
 	 */
 	if (gpucore->features & ADRENO_DEPRECATED) {
-		dev_err(&pdev->dev,
-			"Support for GPU %d.%d.%d.%d has been deprecated\n",
-			gpucore->core,
-			gpucore->major,
-			gpucore->minor,
-			gpucore->patchid);
+		if (gpucore->compatible)
+			dev_err(&pdev->dev,
+				"Support for GPU %s has been deprecated\n",
+				gpucore->compatible);
+		else
+			dev_err(&pdev->dev,
+				"Support for GPU %x.%d.%x.%d has been deprecated\n",
+				gpucore->core, gpucore->major,
+				gpucore->minor, gpucore->patchid);
 		return ERR_PTR(-ENODEV);
 	}
 
