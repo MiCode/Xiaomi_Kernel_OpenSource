@@ -6,9 +6,9 @@
 #include <linux/bitfield.h>
 #include <linux/compat.h>
 #include <linux/io.h>
-#include <linux/iommu.h>
 #include <linux/iopoll.h>
 #include <linux/of_platform.h>
+#include <linux/qcom-iommu-util.h>
 #include <linux/seq_file.h>
 #include <linux/delay.h>
 #include <linux/qcom_scm.h>
