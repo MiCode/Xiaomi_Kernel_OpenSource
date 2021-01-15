@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/dma-buf.h>
@@ -66,7 +66,7 @@ static int msm_dma_get_device_address(struct dma_buf *dbuf, u32 align,
 		attach->dma_map_attrs |= DMA_ATTR_SKIP_CPU_SYNC;
 		if (res->sys_cache_present)
 			attach->dma_map_attrs |=
-				DMA_ATTR_IOMMU_USE_UPSTREAM_HINT;
+				DMA_ATTR_SYS_CACHE_ONLY;
 
 		table = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
 		if (IS_ERR_OR_NULL(table)) {

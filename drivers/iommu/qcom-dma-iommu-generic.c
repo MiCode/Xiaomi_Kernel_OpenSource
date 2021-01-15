@@ -437,10 +437,10 @@ int qcom_dma_info_to_prot(enum dma_data_direction dir, bool coherent,
 	if (!(attrs & DMA_ATTR_EXEC_MAPPING))
 		prot |= IOMMU_NOEXEC;
 
-	if (attrs & DMA_ATTR_IOMMU_USE_UPSTREAM_HINT)
+	if (attrs & DMA_ATTR_SYS_CACHE_ONLY)
 		prot |= IOMMU_SYS_CACHE_ONLY;
 
-	if (attrs & DMA_ATTR_IOMMU_USE_LLC_NWA)
+	if (attrs & DMA_ATTR_SYS_CACHE_ONLY_NWA)
 		prot |= IOMMU_SYS_CACHE_ONLY_NWA;
 
 	switch (dir) {
