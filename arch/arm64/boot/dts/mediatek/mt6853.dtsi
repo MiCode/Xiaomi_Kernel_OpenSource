@@ -1014,8 +1014,8 @@
 					<&dvfsrc_freq_opp4>,
 					<&dvfsrc_freq_opp5>,
 					<&dvfsrc_freq_opp6>;
-			cm_mgr,cp_down = <140 100 140 100 140>;
-			cm_mgr,cp_up = <100 100 100 100 100>;
+			cm_mgr,cp_down = <100 100 100 100 100>;
+			cm_mgr,cp_up = <140 100 140 100 140>;
 			cm_mgr,dt_down = <3 0 0 0 0>;
 			cm_mgr,dt_up = <0 0 0 0 0>;
 			cm_mgr,vp_down = <100 100 100 100 100>;
