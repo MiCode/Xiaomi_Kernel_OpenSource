@@ -533,7 +533,7 @@ static int qrtr_haven_map_memory(struct qrtr_haven_dev *qdev)
 	}
 	size = resource_size(&qdev->res);
 
-	qdev->base = devm_ioremap_nocache(dev, qdev->res.start, size);
+	qdev->base = devm_ioremap_resource(dev, &qdev->res);
 	if (!qdev->base) {
 		dev_err(dev, "ioremap failed!\n");
 		return -ENXIO;
