@@ -786,11 +786,6 @@ static void ucsi_handle_connector_change(struct work_struct *work)
 		else
 			ucsi_unregister_partner(con);
 
-		ret = usb_role_switch_set_role(ucsi->usb_role_sw, u_role);
-		if (ret)
-			dev_err(ucsi->dev, "%s(): failed to set role(%d):%d\n",
-							__func__, u_role, ret);
-
 		ucsi_port_psy_changed(con);
 
 		/* Only notify USB controller if partner supports USB data */
@@ -1203,13 +1198,6 @@ static int ucsi_init(struct ucsi *ucsi)
 	if (!ucsi->connector) {
 		ret = -ENOMEM;
 		goto err_reset;
-	}
-
-	ucsi->usb_role_sw = fwnode_usb_role_switch_get(dev_fwnode(ucsi->dev));
-	if (IS_ERR_OR_NULL(ucsi->usb_role_sw)) {
-		dev_err(ucsi->dev, "%s(): Unable to find usb role switch\n",
-								__func__);
-		ucsi->usb_role_sw = NULL;
 	}
 
 	/* Register all connectors */

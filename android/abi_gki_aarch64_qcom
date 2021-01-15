@@ -370,6 +370,7 @@
   devm_platform_get_and_ioremap_resource
   devm_platform_ioremap_resource
   devm_platform_ioremap_resource_byname
+  devm_power_supply_register
   devm_pwm_put
   devm_regmap_add_irq_chip
   devm_regmap_del_irq_chip
@@ -1163,6 +1164,7 @@
   memdup_user
   memmove
   memory_block_size_bytes
+  memory_read_from_buffer
   memparse
   memremap
   memset
@@ -1507,6 +1509,7 @@
   pm_system_wakeup
   pm_wakeup_dev_event
   pm_wakeup_ws_event
+  power_supply_changed
   power_supply_get_by_name
   power_supply_get_drvdata
   power_supply_get_property
@@ -1552,6 +1555,9 @@
   radix_tree_next_chunk
   ___ratelimit
   rational_best_approximation
+  raw_notifier_call_chain
+  raw_notifier_chain_register
+  raw_notifier_chain_unregister
   _raw_read_lock
   _raw_read_lock_bh
   _raw_read_lock_irq
@@ -2085,6 +2091,13 @@
   uart_unregister_driver
   uart_update_timeout
   uart_write_wakeup
+  ucsi_connector_change
+  ucsi_create
+  ucsi_destroy
+  ucsi_get_drvdata
+  ucsi_register
+  ucsi_set_drvdata
+  ucsi_unregister
   __udelay
   ufshcd_auto_hibern8_update
   ufshcd_dme_get_attr
