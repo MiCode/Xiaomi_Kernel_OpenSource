@@ -1302,6 +1302,7 @@
   of_irq_get
   of_irq_get_byname
   of_irq_parse_one
+  of_machine_is_compatible
   of_match_device
   of_match_node
   of_modalias_node
@@ -1849,6 +1850,7 @@
   skb_trim
   sk_free
   skip_spaces
+  smp_call_function
   smp_call_function_single
   snd_card_free
   snd_card_new
@@ -2002,12 +2004,14 @@
   sysfs_create_file_ns
   sysfs_create_files
   sysfs_create_group
+  sysfs_create_groups
   sysfs_create_link
   sysfs_notify
   sysfs_remove_file_from_group
   sysfs_remove_file_ns
   sysfs_remove_files
   sysfs_remove_group
+  sysfs_remove_groups
   sysfs_remove_link
   sysfs_remove_link_from_group
   sysfs_streq
@@ -2034,6 +2038,7 @@
   thermal_zone_of_sensor_register
   thermal_zone_of_sensor_unregister
   time64_to_tm
+  timer_unstable_counter_workaround
   _totalram_pages
   __trace_bprintk
   trace_clock_local
