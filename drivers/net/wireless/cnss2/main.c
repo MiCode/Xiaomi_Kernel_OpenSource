@@ -2726,7 +2726,7 @@ static void cnss_init_control_params(struct cnss_plat_data *plat_priv)
 				  "cnss-daemon-support"))
 		plat_priv->ctrl_params.quirks |= BIT(ENABLE_DAEMON_SUPPORT);
 
-	plat_priv->cbc_enabled =
+	plat_priv->cbc_enabled = !IS_ENABLED(CONFIG_CNSS_EMULATION) &&
 		of_property_read_bool(plat_priv->plat_dev->dev.of_node,
 				      "qcom,wlan-cbc-enabled");
 
