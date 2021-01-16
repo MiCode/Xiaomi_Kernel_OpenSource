@@ -65,7 +65,9 @@ enum power_src_pos {
 	BT_VDD_IO_LDO_CURRENT,
 	BT_VDD_LDO_CURRENT,
 	BT_VDD_RFA_0p8_CURRENT,
-	BT_VDD_RFACMN_CURRENT
+	BT_VDD_RFACMN_CURRENT,
+	BT_VDD_IPA_2p2,
+	BT_VDD_IPA_2p2_CURRENT
 };
 
 // Regulator structure for QCA6174/QCA9377/QCA9379 BT SoC series
@@ -78,8 +80,8 @@ static struct bt_power_vreg_data bt_vregs_info_qca61x4_937x[] = {
 		{BT_VDD_CORE_LDO, BT_VDD_CORE_LDO_CURRENT}},
 };
 
-// Regulator structure for QCA6390 and QCA6490 BT SoC series
-static struct bt_power_vreg_data bt_vregs_info_qca6x9x[] = {
+// Regulator structure for QCA6390,QCA6490 and WCN6750 BT SoC series
+static struct bt_power_vreg_data bt_vregs_info_qca6xx0[] = {
 	{NULL, "qcom,bt-vdd-io",      1800000, 1800000, 0, false, true,
 		{BT_VDD_IO_LDO, BT_VDD_IO_LDO_CURRENT}},
 	{NULL, "qcom,bt-vdd-aon",     950000,  950000,  0, false, true,
@@ -97,6 +99,8 @@ static struct bt_power_vreg_data bt_vregs_info_qca6x9x[] = {
 		{BT_VDD_RFA2_LDO, BT_VDD_RFA2_LDO_CURRENT}},
 	{NULL, "qcom,bt-vdd-asd",      2800000, 2800000, 0, false, true,
 		{BT_VDD_ASD_LDO, BT_VDD_ASD_LDO_CURRENT}},
+	{NULL, "qcom,bt-vdd-ipa-2p2",  2200000, 2210000, 0, false, true,
+		{BT_VDD_IPA_2p2, BT_VDD_IPA_2p2_CURRENT}},
 };
 
 // Regulator structure for WCN399x BT SoC series
@@ -123,14 +127,20 @@ static struct bt_power bt_vreg_info_qca6174 = {
 
 static struct bt_power bt_vreg_info_qca6390 = {
 	.compatible = "qcom,qca6390",
-	.vregs = bt_vregs_info_qca6x9x,
-	.num_vregs = ARRAY_SIZE(bt_vregs_info_qca6x9x),
+	.vregs = bt_vregs_info_qca6xx0,
+	.num_vregs = ARRAY_SIZE(bt_vregs_info_qca6xx0),
 };
 
 static struct bt_power bt_vreg_info_qca6490 = {
 	.compatible = "qcom,qca6490",
-	.vregs = bt_vregs_info_qca6x9x,
-	.num_vregs = ARRAY_SIZE(bt_vregs_info_qca6x9x),
+	.vregs = bt_vregs_info_qca6xx0,
+	.num_vregs = ARRAY_SIZE(bt_vregs_info_qca6xx0),
+};
+
+static struct bt_power bt_vreg_info_wcn6750 = {
+	.compatible = "qcom,wcn6750",
+	.vregs = bt_vregs_info_qca6xx0,
+	.num_vregs = ARRAY_SIZE(bt_vregs_info_qca6xx0),
 };
 
 static const struct of_device_id bt_power_match_table[] = {
@@ -138,6 +148,7 @@ static const struct of_device_id bt_power_match_table[] = {
 	{	.compatible = "qcom,wcn3990", .data = &bt_vreg_info_wcn399x},
 	{	.compatible = "qcom,qca6390", .data = &bt_vreg_info_qca6390},
 	{	.compatible = "qcom,qca6490", .data = &bt_vreg_info_qca6490},
+	{	.compatible = "qcom,wcn6750", .data = &bt_vreg_info_wcn6750},
 	{},
 };
 
