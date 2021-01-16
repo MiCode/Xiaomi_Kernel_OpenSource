@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 #include <linux/module.h>
+#include <linux/platform_device.h>
 #include <linux/thermal.h>
 #include <linux/err.h>
 #include <linux/slab.h>
 #include <linux/cpu.h>
-#include <linux/of_device.h>
+#include <linux/device.h>
 
 #define CPU_HOTPLUG_LEVEL 1
 
@@ -64,7 +65,6 @@ static int cpu_hot_set_cur_state(struct thermal_cooling_device *cdev,
 				 unsigned long state)
 {
 	struct cpu_hot_cdev *cpu_hot_cdev = cdev->devdata;
-	struct device *cpu_dev;
 	int ret = 0;
 	int cpu = 0;
 
@@ -84,17 +84,12 @@ static int cpu_hot_set_cur_state(struct thermal_cooling_device *cdev,
 	cpu = cpu_hot_cdev->cpu_id;
 	cpu_hot_cdev->cpu_hot_state = state;
 	mutex_unlock(&cpu_hot_lock);
-	cpu_dev = get_cpu_device(cpu);
-	if (!cpu_dev) {
-		pr_err("CPU:%d cpu dev error\n", cpu);
-		return ret;
-	}
 	if (state == CPU_HOTPLUG_LEVEL) {
-		ret = device_offline(cpu_dev);
+		ret = remove_cpu(cpu);
 		if (ret < 0)
 			pr_err("CPU:%d offline error:%d\n", cpu, ret);
 	} else {
-		ret = device_online(cpu_dev);
+		ret = add_cpu(cpu);
 		if (ret)
 			pr_err("CPU:%d online error:%d\n", cpu, ret);
 	}
@@ -228,7 +223,6 @@ static int cpu_hot_probe(struct platform_device *pdev)
 static int cpu_hot_remove(struct platform_device *pdev)
 {
 	struct cpu_hot_cdev *cpu_hot_cdev = NULL, *next = NULL;
-	struct device *cpu_dev = NULL;
 	int ret = 0;
 
 	if (cpu_hp_online) {
@@ -243,13 +237,7 @@ static int cpu_hot_remove(struct platform_device *pdev)
 		thermal_cooling_device_unregister(cpu_hot_cdev->cdev);
 		if (cpu_hot_cdev->cpu_hot_state) {
 			cpu_hot_cdev->cpu_hot_state = false;
-			cpu_dev = get_cpu_device(cpu_hot_cdev->cpu_id);
-			if (!cpu_dev) {
-				pr_err("CPU:%d cpu dev error\n",
-						cpu_hot_cdev->cpu_id);
-				goto loop_skip;
-			}
-			ret = device_online(cpu_dev);
+			ret = add_cpu(cpu_hot_cdev->cpu_id);
 			if (ret)
 				pr_err("CPU:%d online error:%d\n",
 						cpu_hot_cdev->cpu_id, ret);
@@ -276,4 +264,5 @@ static struct platform_driver cpu_hot_driver = {
 	},
 };
 module_platform_driver(cpu_hot_driver);
+MODULE_DESCRIPTION("CPU Hotplug cooling device driver");
 MODULE_LICENSE("GPL v2");
