@@ -344,6 +344,11 @@
 		};
 	};
 
+	dma_dev@0x0 {
+		compatible = "qcom,iommu-dma";
+		memory-region = <&system_cma>;
+	};
+
 	kgsl_iommu_test_device {
 		compatible = "iommu-debug-test";
 		iommus = <&kgsl_smmu 0x7 0>;
