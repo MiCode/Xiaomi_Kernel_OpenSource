@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2015, 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, 2019-2021, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "cache-hwmon: " fmt
@@ -362,11 +362,11 @@ static int devfreq_cache_hwmon_ev_handler(struct devfreq *df,
 		stop_monitoring(df);
 		dev_dbg(df->dev.parent, "Disabled Cache HW monitor governor\n");
 		break;
-	case DEVFREQ_GOV_INTERVAL:
+	case DEVFREQ_GOV_UPDATE_INTERVAL:
 		sample_ms = *(unsigned int *)data;
 		sample_ms = max(MIN_MS, sample_ms);
 		sample_ms = min(MAX_MS, sample_ms);
-		devfreq_interval_update(df, &sample_ms);
+		devfreq_update_interval(df, &sample_ms);
 		break;
 	}
 

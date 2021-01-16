@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2021, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "bw-hwmon: " fmt
@@ -879,7 +879,7 @@ static int devfreq_bw_hwmon_ev_handler(struct devfreq *df,
 		dev_dbg(df->dev.parent,
 			"Disabled dev BW HW monitor governor\n");
 		break;
-	case DEVFREQ_GOV_INTERVAL:
+	case DEVFREQ_GOV_UPDATE_INTERVAL:
 		node = df->data;
 		sample_ms = *(unsigned int *)data;
 		if (sample_ms < node->sample_ms) {
@@ -897,7 +897,7 @@ static int devfreq_bw_hwmon_ev_handler(struct devfreq *df,
 		 */
 		hw = node->hw;
 		hw->suspend_hwmon(hw);
-		devfreq_interval_update(df, &sample_ms);
+		devfreq_update_interval(df, &sample_ms);
 		ret = hw->resume_hwmon(hw);
 		if (ret < 0) {
 			dev_err(df->dev.parent,
