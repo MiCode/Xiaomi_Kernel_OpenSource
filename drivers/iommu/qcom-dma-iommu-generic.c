@@ -700,11 +700,11 @@ out_iova_cache:
 	return ret;
 }
 
-int qcom_dma_iommu_is_ready(void)
+bool qcom_dma_iommu_is_ready(void)
 {
 	if (!probe_finished)
-		return -EPROBE_DEFER;
-	return 0;
+		return false;
+	return true;
 }
 EXPORT_SYMBOL(qcom_dma_iommu_is_ready);
 

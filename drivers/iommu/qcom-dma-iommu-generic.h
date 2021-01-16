@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __QCOM_DMA_IOMMU_GENERIC_H
@@ -10,7 +10,7 @@
 #include <linux/dma-direction.h>
 #include <linux/pci.h>
 
-int qcom_dma_iommu_is_ready(void);
+bool qcom_dma_iommu_is_ready(void);
 
 struct pci_host_bridge *qcom_pci_find_host_bridge(struct pci_bus *bus);
 
