@@ -14,6 +14,7 @@
 #include <dt-bindings/soc/qcom,rpmh-rsc.h>
 #include <dt-bindings/soc/qcom,ipcc.h>
 #include <dt-bindings/spmi/spmi.h>
+#include <dt-bindings/gpio/gpio.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. Waipio";
@@ -1900,6 +1901,10 @@
 		"HS_RB_G1_L1", "HS_RB_G2_L1", "HS_RB_G3_L1", "HS_RB_G4_L1",
 		"HS_RB_G1_L2", "HS_RB_G2_L2", "HS_RB_G3_L2", "HS_RB_G4_L2",
 		"MAX";
+
+		reset-gpios = <&tlmm 210 GPIO_ACTIVE_LOW>;
+		resets = <&clock_gcc GCC_UFS_PHY_BCR>;
+		reset-names = "rst";
 
 		iommus = <&apps_smmu 0xE0 0x0>;
 		dma-coherent;
