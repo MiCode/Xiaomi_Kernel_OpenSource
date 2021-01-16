@@ -11,13 +11,12 @@
 # GNU General Public License for more details.
 #
 
+#
+# Makefile for misc devices that really don't fit anywhere else.
+#
 
-obj-$(CONFIG_MTK_CAMERA_ISP_DIP_SUPPORT) += dip/
-obj-$(CONFIG_MTK_CAMERA_ISP_RAW_SUPPORT) += src/
-#obj-y += owe/
-obj-y += rsc/
-obj-$(CONFIG_MTK_CAMERA_ISP_WPE_SUPPORT) += wpe/
-obj-$(CONFIG_MTK_CAMERA_ISP_DPE_SUPPORT) += dpe/
-#obj-y += tsf/
-obj-$(CONFIG_MTK_CAMERA_ISP_MFB_SUPPORT) += mfb/
-obj-y += fdvt/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/m4u/$(MTK_PLATFORM)/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/
+
+obj-y += camera_fdvt.o
+
