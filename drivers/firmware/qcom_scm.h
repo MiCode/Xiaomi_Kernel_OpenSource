@@ -16,6 +16,7 @@
 #define QCOM_SCM_BOOT_SWITCH_MODE		0x0f
 #define QCOM_SCM_BOOT_SET_DLOAD_MODE		0x10
 #define QCOM_SCM_BOOT_CONFIG_CPU_ERRATA		0x12
+#define QCOM_SCM_QUSB2PHY_LVL_SHIFTER_CMD_ID	0x1B
 extern int __qcom_scm_set_cold_boot_addr(struct device *dev, void *entry,
 		const cpumask_t *cpus);
 extern int __qcom_scm_set_warm_boot_addr(struct device *dev, void *entry,
@@ -29,6 +30,7 @@ extern int __qcom_scm_spin_cpu(struct device *dev);
 extern int __qcom_scm_set_dload_mode(struct device *dev,
 				     enum qcom_download_mode mode);
 extern int __qcom_scm_config_cpu_errata(struct device *dev);
+extern void __qcom_scm_phy_update_scm_level_shifter(struct device *dev, u32 val);
 #define QCOM_SCM_FLUSH_FLAG_MASK	0x3
 
 #define QCOM_SCM_SVC_PIL			0x02

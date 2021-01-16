@@ -816,6 +816,23 @@ int __qcom_scm_config_cpu_errata(struct device *dev)
 	return qcom_scm_call(dev, &desc);
 }
 
+void __qcom_scm_phy_update_scm_level_shifter(struct device *dev, u32 val)
+{
+	int ret;
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_BOOT,
+		.cmd = QCOM_SCM_QUSB2PHY_LVL_SHIFTER_CMD_ID,
+		.owner = ARM_SMCCC_OWNER_SIP
+	};
+
+	desc.args[0] = val;
+	desc.arginfo = QCOM_SCM_ARGS(1);
+
+	ret = qcom_scm_call(dev, &desc);
+	if (ret)
+		pr_err("Failed to update scm level shifter=0x%x\n", ret);
+}
+
 bool __qcom_scm_pas_supported(struct device *dev, u32 peripheral)
 {
 	int ret;
