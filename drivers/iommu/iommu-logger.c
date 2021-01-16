@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/bitfield.h>
 #include <linux/module.h>
 #include <linux/iommu.h>
 #include <linux/slab.h>
+#include "qcom-io-pgtable.h"
 
 #include "iommu-logger.h"
 
@@ -18,12 +19,13 @@ static unsigned int iommu_logger_pgtable_levels(struct io_pgtable *iop)
 	unsigned int va_bits, pte_size, bits_per_level, pg_shift;
 	unsigned long ias = iop->cfg.ias;
 
-	switch (iop->fmt) {
+	switch ((u32)iop->fmt) {
 	case ARM_32_LPAE_S1:
 	case ARM_64_LPAE_S1:
 #ifdef CONFIG_IOMMU_IO_PGTABLE_FAST
 	case ARM_V8L_FAST:
 #endif
+	case QCOM_ARM_64_LPAE_S1:
 		pte_size = sizeof(u64);
 		break;
 	default:
@@ -39,13 +41,14 @@ static unsigned int iommu_logger_pgtable_levels(struct io_pgtable *iop)
 static enum iommu_logger_pgtable_fmt iommu_logger_pgtable_fmt_lut(
 							enum io_pgtable_fmt fmt)
 {
-	switch (fmt) {
+	switch ((u32)fmt) {
 	case ARM_32_LPAE_S1:
 		return IOMMU_LOGGER_ARM_32_LPAE_S1;
 	case ARM_64_LPAE_S1:
 #ifdef CONFIG_IOMMU_IO_PGTABLE_FAST
 	case ARM_V8L_FAST:
 #endif
+	case QCOM_ARM_64_LPAE_S1:
 		return IOMMU_LOGGER_ARM_64_LPAE_S1;
 	default:
 		return IOMMU_LOGGER_MAX_PGTABLE_FMTS;
@@ -56,16 +59,16 @@ static int iommu_logger_domain_ttbrs(struct io_pgtable *iop, void **ttbr0_ptr,
 				     void **ttbr1_ptr)
 {
 	int ret;
-	u64 ttbr0, ttbr1;
+	u64 ttbr0;
 
-	switch (iop->fmt) {
+	switch ((u32)iop->fmt) {
 	case ARM_32_LPAE_S1:
 	case ARM_64_LPAE_S1:
 #ifdef CONFIG_IOMMU_IO_PGTABLE_FAST
 	case ARM_V8L_FAST:
 #endif
-		ttbr0 = iop->cfg.arm_lpae_s1_cfg.ttbr[0];
-		ttbr1 = iop->cfg.arm_lpae_s1_cfg.ttbr[1];
+	case QCOM_ARM_64_LPAE_S1:
+		ttbr0 = iop->cfg.arm_lpae_s1_cfg.ttbr;
 		ret = 0;
 		break;
 	default:
@@ -74,7 +77,11 @@ static int iommu_logger_domain_ttbrs(struct io_pgtable *iop, void **ttbr0_ptr,
 
 	if (!ret) {
 		*ttbr0_ptr = phys_to_virt(ttbr0);
-		*ttbr1_ptr = ttbr1 ? phys_to_virt(ttbr1) : NULL;
+		/*
+		 * FIXME - fix ttbr1 retrieval later. In this kernel version
+		 * struct io_pgtable no longer contains this information.
+		 */
+		*ttbr1_ptr = NULL;
 	}
 
 	return ret;
@@ -111,7 +118,7 @@ static struct iommu_debug_attachment *iommu_logger_init(
 		return ERR_PTR(-ENOMEM);
 	}
 
-	group = iommu_group_get_for_dev(dev);
+	group = iommu_group_get(dev);
 	iommu_group_put(group);
 
 	INIT_LIST_HEAD(&logger->list);
@@ -132,8 +139,7 @@ int iommu_logger_register(struct iommu_debug_attachment **logger_out,
 {
 	struct iommu_debug_attachment *logger;
 
-	if (!logger_out || !dev || !iop ||
-	    iop->fmt >= IO_PGTABLE_NUM_FMTS)
+	if (!logger_out || !dev || !iop)
 		return -EINVAL;
 
 	logger = iommu_logger_init(domain, dev, iop);
