@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/anon_inodes.h>
@@ -1007,7 +1007,7 @@ static int mem_buf_map_mem_s1(struct hh_sgl_desc *sgl_desc)
 	int i, ret;
 	unsigned int nid;
 	u64 base, size;
-	struct mhp_restrictions restrictions = {};
+	struct mhp_params params = { .pgprot = PAGE_KERNEL };
 
 	if (!sgl_desc || !sgl_desc->n_sgl_entries)
 		return -EINVAL;
@@ -1027,7 +1027,7 @@ static int mem_buf_map_mem_s1(struct hh_sgl_desc *sgl_desc)
 		}
 		nid = memory_add_physaddr_to_nid(base);
 		memblock_add_node(base, size, nid);
-		ret = arch_add_memory(nid, base, size, &restrictions);
+		ret = arch_add_memory(nid, base, size, &params);
 		if (ret) {
 			pr_err("%s failed to map memory in stage 1 rc: %d\n",
 			       __func__, ret);
@@ -2184,9 +2184,15 @@ static int mem_buf_probe(struct platform_device *pdev)
 		goto err_dev_create;
 	}
 
+	ret = mem_buf_vm_init(dev);
+	if (ret)
+		goto err_vm_init;
+
 	wake_up_process(mem_buf_msgq_recv_thr);
 	return 0;
 
+err_vm_init:
+	put_device(class_dev);
 err_dev_create:
 	mem_buf_dev = NULL;
 	cdev_del(&mem_buf_char_dev);
@@ -2274,6 +2280,7 @@ module_init(mem_buf_init);
 
 static void __exit mem_buf_exit(void)
 {
+	mem_buf_vm_exit();
 	platform_driver_unregister(&mem_buf_driver);
 	class_destroy(mem_buf_class);
 	unregister_chrdev_region(mem_buf_dev_no, MEM_BUF_MAX_DEVS);
