@@ -1535,12 +1535,6 @@
 		qcom,retain-regs;
 	};
 
-	clock_aop: qcom,aopclk {
-		compatible = "qcom,dummycc";
-		clock-output-names = "qdss_clocks";
-		#clock-cells = <1>;
-	};
-
 	clock_gcc: qcom,gcc@100000 {
 		compatible = "qcom,waipio-gcc", "syscon";
 		reg = <0x100000 0x1f4200>;
@@ -2344,7 +2338,7 @@
 		compatible = "qcom,spmi-pmic-arb-debug";
 		reg = <0x10b14000 0x60>, <0x221c8784 0x4>;
 		reg-names = "core", "fuse";
-		clocks = <&clock_aop QDSS_CLK>;
+		clocks = <&aoss_qmp>;
 		clock-names = "core_clk";
 		qcom,fuse-enable-bit = <18>;
 		#address-cells = <2>;
