@@ -14,6 +14,9 @@ IPA node:
 - reg-names: "ipa-base" - string to identify the IPA CORE base registers.
 	     "bam-base" - string to identify the IPA BAM base registers.
 	     "a2-bam-base" - string to identify the A2 BAM base registers.
+- pas-ids: specify the image ids of the FW images that needs to be loaded.
+- firmware-names:- String name of the FW images that need to be loaded.
+- memory-regions:- Carved memory regions of the FW images.
 - interrupts: Specifies the interrupt associated with IPA.
 - interrupt-names: "ipa-irq" - string to identify the IPA core interrupt.
                    "bam-irq" - string to identify the IPA BAM interrupt.
