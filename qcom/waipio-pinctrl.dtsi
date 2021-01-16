@@ -2199,6 +2199,34 @@
 		};
 	};
 
+	pm8008i_active: pm8008i_active {
+		mux {
+			pins = "gpio7";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio7";
+			bias-disable;
+			output-high;
+			drive-strength = <2>;
+		};
+	};
+
+	pm8008j_active: pm8008j_active {
+		mux {
+			pins = "gpio11";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio11";
+			bias-disable;
+			output-high;
+			drive-strength = <2>;
+		};
+	};
+
 	/* WSA speaker reset pins */
 	spkr_1_sd_n {
 		spkr_1_sd_n_sleep: spkr_1_sd_n_sleep {
