@@ -2157,11 +2157,6 @@ static void dwc3_stop_active_transfers(struct dwc3 *dwc, bool block_db)
 		if (!dep)
 			continue;
 
-		if (dep->gsi && dep->direction && block_db) {
-			dwc3_notify_event(dwc,
-				DWC3_CONTROLLER_NOTIFY_CLEAR_DB, 0);
-		}
-
 		dwc3_remove_requests(dwc, dep);
 	}
 }
@@ -2301,12 +2296,6 @@ static int dwc3_gadget_run_stop(struct dwc3 *dwc, int is_on, int suspend)
 
 	dwc3_gadget_dctl_write_safe(dwc, reg);
 
-	/* Controller is not halted until the events are acknowledged */
-	if (!is_on) {
-		dwc3_notify_event(dwc, DWC3_GSI_EVT_BUF_CLEAR, 0);
-		dwc3_notify_event(dwc, DWC3_CONTROLLER_NOTIFY_CLEAR_DB, 0);
-	}
-
 	do {
 		reg = dwc3_readl(dwc->regs, DWC3_DSTS);
 		reg &= DWC3_DSTS_DEVCTRLHLT;
@@ -2362,14 +2351,6 @@ static int dwc3_gadget_pullup(struct usb_gadget *g, int is_on)
 	}
 
 	spin_lock_irqsave(&dwc->lock, flags);
-
-	/*
-	 * If we are here after bus suspend notify otg state machine to
-	 * increment pm usage count of dwc to prevent pm_runtime_suspend
-	 * during enumeration.
-	 */
-	dwc->b_suspend = false;
-	dwc3_notify_event(dwc, DWC3_CONTROLLER_NOTIFY_OTG_EVENT, 0);
 
 	if (!is_on) {
 		u32 count;
@@ -3327,7 +3308,6 @@ static void dwc3_reset_gadget(struct dwc3 *dwc)
 
 void dwc3_stop_active_transfer(struct dwc3_ep *dep, bool force, bool interrupt)
 {
-	struct dwc3 *dwc = dep->dwc;
 	struct dwc3_gadget_ep_cmd_params params;
 	u32 cmd;
 	int ret;
@@ -3335,9 +3315,6 @@ void dwc3_stop_active_transfer(struct dwc3_ep *dep, bool force, bool interrupt)
 	if (!(dep->flags & DWC3_EP_TRANSFER_STARTED) ||
 	    (dep->flags & DWC3_EP_END_TRANSFER_PENDING))
 		return;
-
-	dwc3_notify_event(dwc, DWC3_CONTROLLER_NOTIFY_DISABLE_UPDXFER,
-			dep->number);
 
 	/*
 	 * NOTICE: We are violating what the Databook says about the
@@ -3415,10 +3392,6 @@ static void dwc3_gadget_disconnect_interrupt(struct dwc3 *dwc)
 {
 	int			reg;
 
-	dev_dbg(dwc->dev, "Notify OTG from %s\n", __func__);
-	dwc->b_suspend = false;
-	dwc3_notify_event(dwc, DWC3_CONTROLLER_NOTIFY_OTG_EVENT, 0);
-
 	dwc3_gadget_set_link_state(dwc, DWC3_LINK_STATE_RX_DET);
 
 	reg = dwc3_readl(dwc->regs, DWC3_DCTL);
@@ -3472,10 +3445,6 @@ static void dwc3_gadget_reset_interrupt(struct dwc3 *dwc)
 		if (dwc->setup_packet_pending)
 			dwc3_gadget_disconnect_interrupt(dwc);
 	}
-
-	dev_dbg(dwc->dev, "Notify OTG from %s\n", __func__);
-	dwc->b_suspend = false;
-	dwc3_notify_event(dwc, DWC3_CONTROLLER_NOTIFY_OTG_EVENT, 0);
 
 	usb_gadget_vbus_draw(dwc->gadget, 100);
 
@@ -3642,8 +3611,6 @@ static void dwc3_gadget_conndone_interrupt(struct dwc3 *dwc)
 		return;
 	}
 
-	dwc3_notify_event(dwc, DWC3_CONTROLLER_CONNDONE_EVENT, 0);
-
 	/*
 	 * Configure PHY via GUSB3PIPECTLn if required.
 	 *
@@ -3663,9 +3630,6 @@ static void dwc3_gadget_wakeup_interrupt(struct dwc3 *dwc)
 	if (link_state != DWC3_LINK_STATE_U3)
 		return;
 
-	/* Handle bus resume case */
-	dwc->b_suspend = false;
-	dwc3_notify_event(dwc, DWC3_CONTROLLER_NOTIFY_OTG_EVENT, 0);
 	dwc3_resume_gadget(dwc);
 }
 
@@ -3792,8 +3756,6 @@ static void dwc3_gadget_suspend_interrupt(struct dwc3 *dwc,
 		dwc3_suspend_gadget(dwc);
 
 		dev_dbg(dwc->dev, "Notify OTG from %s\n", __func__);
-		dwc->b_suspend = true;
-		dwc3_notify_event(dwc, DWC3_CONTROLLER_NOTIFY_OTG_EVENT, 0);
 	}
 
 	dwc->link_state = next;
@@ -3916,9 +3878,6 @@ static irqreturn_t dwc3_process_event_buf(struct dwc3_event_buffer *evt)
 			 */
 			evt->lpos = (evt->lpos + left) %
 					DWC3_EVENT_BUFFERS_SIZE;
-			if (dwc3_notify_event(dwc,
-						DWC3_CONTROLLER_ERROR_EVENT, 0))
-				dwc->err_evt_seen = 0;
 			dwc->retries_on_error++;
 			break;
 		}

@@ -1642,32 +1642,4 @@ static inline int dwc3_ulpi_init(struct dwc3 *dwc)
 static inline void dwc3_ulpi_exit(struct dwc3 *dwc)
 { }
 #endif
-
-enum dwc3_notify_event {
-	DWC3_CONTROLLER_ERROR_EVENT,
-	DWC3_CONTROLLER_RESET_EVENT,
-	DWC3_CONTROLLER_POST_RESET_EVENT,
-	DWC3_CORE_PM_SUSPEND_EVENT,
-	DWC3_CORE_PM_RESUME_EVENT,
-	DWC3_CONTROLLER_CONNDONE_EVENT,
-	DWC3_CONTROLLER_NOTIFY_OTG_EVENT,
-	DWC3_CONTROLLER_SET_CURRENT_DRAW_EVENT,
-	DWC3_CONTROLLER_NOTIFY_DISABLE_UPDXFER,
-
-	/* USB GSI event buffer related notification */
-	DWC3_GSI_EVT_BUF_ALLOC,
-	DWC3_GSI_EVT_BUF_SETUP,
-	DWC3_GSI_EVT_BUF_CLEANUP,
-	DWC3_GSI_EVT_BUF_CLEAR,
-	DWC3_GSI_EVT_BUF_FREE,
-	DWC3_CONTROLLER_NOTIFY_CLEAR_DB,
-};
-
-extern void dwc3_msm_notify_event(struct dwc3 *dwc,
-		enum dwc3_notify_event event, unsigned int value);
-extern void dwc3_set_notifier(void (*notify)(struct dwc3 *dwc3,
-						enum dwc3_notify_event event,
-						unsigned int value));
-extern int dwc3_notify_event(struct dwc3 *dwc3, enum dwc3_notify_event event,
-						unsigned int value);
 #endif /* __DRIVERS_USB_DWC3_CORE_H */

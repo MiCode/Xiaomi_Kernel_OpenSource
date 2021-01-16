@@ -6,6 +6,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/kprobes.h>
+#include <linux/usb/dwc3-msm.h>
 #include "core.h"
 
 struct kprobe_data {

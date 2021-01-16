@@ -57,6 +57,27 @@ enum usb_hw_ep_mode {
 	USB_EP_BAM,
 };
 
+enum dwc3_notify_event {
+	DWC3_CONTROLLER_ERROR_EVENT,
+	DWC3_CONTROLLER_RESET_EVENT,
+	DWC3_CONTROLLER_POST_RESET_EVENT,
+	DWC3_CORE_PM_SUSPEND_EVENT,
+	DWC3_CORE_PM_RESUME_EVENT,
+	DWC3_CONTROLLER_CONNDONE_EVENT,
+	DWC3_CONTROLLER_NOTIFY_OTG_EVENT,
+	DWC3_CONTROLLER_SET_CURRENT_DRAW_EVENT,
+	DWC3_CONTROLLER_NOTIFY_DISABLE_UPDXFER,
+	DWC3_CONTROLLER_PULLUP,
+
+	/* USB GSI event buffer related notification */
+	DWC3_GSI_EVT_BUF_ALLOC,
+	DWC3_GSI_EVT_BUF_SETUP,
+	DWC3_GSI_EVT_BUF_CLEANUP,
+	DWC3_GSI_EVT_BUF_CLEAR,
+	DWC3_GSI_EVT_BUF_FREE,
+	DWC3_CONTROLLER_NOTIFY_CLEAR_DB,
+};
+
 /*
  * @buf_base_addr: Base pointer to buffer allocated for each GSI enabled EP.
  *	TRBs point to buffers that are split from this pool. The size of the
@@ -116,7 +137,11 @@ struct gsi_channel_info {
 	struct usb_gsi_request *ch_req;
 };
 
+struct dwc3;
+
 #if IS_ENABLED(CONFIG_USB_DWC3_MSM)
+void dwc3_msm_notify_event(struct dwc3 *dwc,
+		enum dwc3_notify_event event, unsigned int value);
 int usb_gsi_ep_op(struct usb_ep *ep, void *op_data, enum gsi_ep_op op);
 int msm_ep_config(struct usb_ep *ep, struct usb_request *request, u32 bam_opts);
 int msm_ep_unconfig(struct usb_ep *ep);
@@ -131,6 +156,9 @@ int msm_ep_set_mode(struct usb_ep *ep, enum usb_hw_ep_mode mode);
 int dwc3_msm_kretprobe_init(void);
 void dwc3_msm_kretprobe_exit(void);
 #else
+void dwc3_msm_notify_event(struct dwc3 *dwc,
+		enum dwc3_notify_event event, unsigned int value)
+{ }
 static inline int usb_gsi_ep_op(struct usb_ep *ep, void *op_data,
 		enum gsi_ep_op op)
 { return 0; }

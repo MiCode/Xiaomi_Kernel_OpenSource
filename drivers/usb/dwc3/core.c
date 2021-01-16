@@ -1260,29 +1260,6 @@ static void __maybe_unused dwc3_core_exit_mode(struct dwc3 *dwc)
 	dwc3_set_prtcap(dwc, DWC3_GCTL_PRTCAP_DEVICE);
 }
 
-static void (*notify_event)(struct dwc3 *,
-		enum dwc3_notify_event, unsigned int);
-void dwc3_set_notifier(void (*notify)(struct dwc3 *, enum dwc3_notify_event,
-							unsigned int))
-{
-	notify_event = notify;
-}
-EXPORT_SYMBOL(dwc3_set_notifier);
-
-int dwc3_notify_event(struct dwc3 *dwc, enum dwc3_notify_event event,
-					unsigned int value)
-{
-	int ret = 0;
-
-	if (notify_event)
-		notify_event(dwc, event, value);
-	else
-		ret = -ENODEV;
-
-	return ret;
-}
-EXPORT_SYMBOL(dwc3_notify_event);
-
 static void dwc3_get_properties(struct dwc3 *dwc)
 {
 	struct device		*dev = dwc->dev;
