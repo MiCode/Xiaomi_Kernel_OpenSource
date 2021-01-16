@@ -1388,7 +1388,6 @@ static struct qsmmuv500_tbu_device *qsmmuv500_find_tbu(
 static int qsmmuv500_ecats_lock(struct arm_smmu_domain *smmu_domain,
 				struct qsmmuv500_tbu_device *tbu,
 				unsigned long *flags)
-	__acquires(&smmu->atos_lock)
 {
 	struct arm_smmu_device *smmu = tbu->smmu;
 	struct qsmmuv500_archdata *data = to_qsmmuv500_archdata(smmu);
@@ -1413,7 +1412,6 @@ static int qsmmuv500_ecats_lock(struct arm_smmu_domain *smmu_domain,
 static void qsmmuv500_ecats_unlock(struct arm_smmu_domain *smmu_domain,
 					struct qsmmuv500_tbu_device *tbu,
 					unsigned long *flags)
-	__releases(&smmu->atos_lock)
 {
 	struct arm_smmu_device *smmu = tbu->smmu;
 	struct qsmmuv500_archdata *data = to_qsmmuv500_archdata(smmu);
@@ -1448,12 +1446,6 @@ static phys_addr_t qsmmuv500_iova_to_phys(
 
 	if (iova_ext_bits && split_tables)
 		iova_ext_bits = ~iova_ext_bits;
-
-	if (iova_ext_bits) {
-		dev_err_ratelimited(smmu->dev, "ECATS: address out of bounds: %pad\n",
-					&iova);
-		return 0;
-	}
 
 	tbu = qsmmuv500_find_tbu(smmu, sid);
 	if (!tbu)
@@ -1493,6 +1485,15 @@ static phys_addr_t qsmmuv500_iova_to_phys(
 			arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_RESUME,
 					  RESUME_TERMINATE);
 	}
+
+	/* checking out of bound fault after resuming stalled transactions */
+	if (iova_ext_bits) {
+		dev_err_ratelimited(smmu->dev,
+				    "ECATS: address out of bounds: %pad\n",
+				    &iova);
+		goto out_resume;
+	}
+
 
 	/* Only one concurrent atos operation */
 	ret = qsmmuv500_ecats_lock(smmu_domain, tbu, &flags);
@@ -1587,10 +1588,10 @@ redo:
 	if (!phys && needs_redo++ < 2)
 		goto redo;
 
-	arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_SCTLR, sctlr_orig);
 	qsmmuv500_ecats_unlock(smmu_domain, tbu, &flags);
 
 out_resume:
+	arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_SCTLR, sctlr_orig);
 	qsmmuv500_tbu_resume(tbu);
 
 out_power_off:
