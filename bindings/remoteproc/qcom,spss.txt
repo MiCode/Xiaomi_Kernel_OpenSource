@@ -1,0 +1,59 @@
+Qualcomm Technologies, Inc. SPSS Peripheral Image Loader
+
+This document defines the binding for a component that loads and boots firmware
+on the QTI Secure Processor.
+
+- compatible:
+	Usage: required
+	Value type: <string>
+	Definition: must be one of:
+		    "qcom,waipio-spss-pas"
+
+- reg:
+        Usage: required
+        Value type: <prop-encoded>
+        Definition: pairs of physical base addresses and region sizes of memory
+                    mapped registers
+
+- reg-names:
+        Usage: required
+        Value type: <stringlist>
+        Definition: names of the registers defined by the 'reg' property above
+
+- interrupts:
+	Usage: required
+	Value type: <prop-encoded>
+	Definition: generic interrupt
+
+- clocks:
+	Usage: required
+	Value type: <prop-encoded-array>
+	Definition: reference to the xo clock and optionally aggre2 clock to be
+		    held on behalf of the booting Hexagon core
+
+- clock-names:
+	Usage: required
+	Value type: <stringlist>
+	Definition: must be "xo" and optionally include "aggre2"
+
+- cx-supply:
+	Usage: required
+	Value type: <phandle>
+	Definition: reference to the regulator to be held on behalf of the
+		    booting Hexagon core
+
+- px-supply:
+	Usage: required
+	Value type: <phandle>
+	Definition: reference to the px regulator to be held on behalf of the
+		    booting Hexagon core
+
+- memory-region:
+	Usage: required
+	Value type: <phandle>
+	Definition: reference to the reserved-memory for the ADSP
+
+
+= SUBNODES
+The adsp node may have an subnode named "glink-edge" that describes the
+communication edge, channels and devices related to the SPSS.
