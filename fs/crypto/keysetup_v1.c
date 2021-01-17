@@ -302,7 +302,7 @@ static int setup_v1_file_key_direct(struct fscrypt_info *ci,
 static int setup_v1_file_key_derived(struct fscrypt_info *ci,
 				     const u8 *raw_master_key)
 {
-	u8 *derived_key;
+	u8 *derived_key = NULL;
 	int err;
 	int i;
 	union {
@@ -334,7 +334,21 @@ static int setup_v1_file_key_derived(struct fscrypt_info *ci,
 			ci->ci_hashed_ino = siphash_1u64(ci->ci_inode->i_ino,
 							 &ino_hash_key.k);
 		}
+
+#if IS_ENABLED(CONFIG_ENABLE_LEGACY_PFK)
+		derived_key = kmalloc(ci->ci_mode->keysize, GFP_NOFS);
+		if (!derived_key)
+			return -ENOMEM;
+
+		err = derive_key_aes(raw_master_key, ci->ci_nonce,
+				     derived_key, ci->ci_mode->keysize);
+		if (err)
+			goto out;
+
+		memcpy(key_new.bytes, derived_key, ci->ci_mode->keysize);
+#else
 		memcpy(key_new.bytes, raw_master_key, ci->ci_mode->keysize);
+#endif
 
 		for (i = 0; i < ARRAY_SIZE(key_new.words); i++)
 			__cpu_to_be32s(&key_new.words[i]);
@@ -344,6 +358,9 @@ static int setup_v1_file_key_derived(struct fscrypt_info *ci,
 						       ci->ci_mode->keysize,
 						       false,
 						       ci);
+		if (derived_key)
+			kzfree(derived_key);
+
 		return err;
 	}
 	/*
@@ -361,7 +378,9 @@ static int setup_v1_file_key_derived(struct fscrypt_info *ci,
 
 	err = fscrypt_set_per_file_enc_key(ci, derived_key);
 out:
-	kzfree(derived_key);
+	if (derived_key)
+		kzfree(derived_key);
+
 	return err;
 }
 
