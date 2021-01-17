@@ -1010,6 +1010,7 @@
   irq_chip_set_wake_parent
   irq_chip_unmask_parent
   irq_create_fwspec_mapping
+  irq_create_mapping_affinity
   irq_dispose_mapping
   __irq_domain_add
   irq_domain_alloc_irqs_parent
