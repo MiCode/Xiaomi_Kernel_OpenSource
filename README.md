@@ -55,7 +55,6 @@
 | lmi-q-oss | Redmi K30 Pro| Android Q | LA.UM.8.12.r1-06000-sm8250.0 | [lmi-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/lmi-q-oss) |
 | lotus-o-oss | Mi Play | Android O | MTK | [lotus-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/lotus-o-oss) |
 | lime-q-oss | Redmi Note 9 4G,Redmi POCO M3 | Android Q | LA.UM.8.15.r1-06600-KAMORTA.0 | [lime-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/lime-q-oss) |
-| lancelot-q-oss | Redmi 10X 4G,Redmi 9,Redmi POCO M2 | Android Q | MTK | [lancelot-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/lancelot-q-oss) |
 | markw-m-oss | Redmi 4 Premium | Android M | LA.UM.5.3-03710-89xx.0 | [markw-m-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/markw-m-oss) |
 | mi1_kernel | Mi 1 | Android ICS | M8260AAABQNLZA313065 | [mi1_kernel](https://github.com/MiCode/mi1_kernel) |
 | mi2_kernel | Mi 2, Mi 2A, Mi 2S | Android KK | A8064AAAAANLYA103051 | [mi2_kernel](https://github.com/MiCode/mi2_kernel) |
