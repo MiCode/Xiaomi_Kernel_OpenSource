@@ -5,7 +5,6 @@
 
 #include <asm/memory.h>
 #include <linux/init.h>
-#include <linux/kobject.h>
 #include <linux/mm.h>
 #include <linux/module.h>
 #include <linux/proc_fs.h>
@@ -51,75 +50,3 @@ void aee_rr_proc_done(struct proc_dir_entry *aed_proc_dir)
 	remove_proc_entry(RR_PROC_NAME, aed_proc_dir);
 }
 EXPORT_SYMBOL(aee_rr_proc_done);
-
-/* define /sys/bootinfo/powerup_reason */
-static ssize_t powerup_reason_show(struct kobject *kobj,
-		struct kobj_attribute *attr, char *buf)
-{
-	char boot_reason[64];
-	char *br_ptr;
-	char *br_ptr_e;
-
-	memset(boot_reason, 0x0, 64);
-	br_ptr = strstr(mrdump_get_cmd(), "androidboot.bootreason=");
-	if (br_ptr) {
-		br_ptr_e = strstr(br_ptr, " ");
-		/* get boot reason */
-		if (br_ptr_e) {
-			strncpy(boot_reason, br_ptr + 23,
-					br_ptr_e - br_ptr - 23);
-			boot_reason[br_ptr_e - br_ptr - 23] = '\0';
-		}
-#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
-		if (aee_rr_last_fiq_step())
-			strncpy(boot_reason, "kpanic", 7);
-#endif
-		if (!strncmp(boot_reason, "2sec_reboot",
-					strlen("2sec_reboot"))) {
-			br_ptr = strstr(mrdump_get_cmd(),
-					"has_battery_removed=1");
-			if (!br_ptr)
-				return snprintf(buf, sizeof(boot_reason),
-						"%s_abnormal\n", boot_reason);
-		}
-		return snprintf(buf, sizeof(boot_reason), "%s\n", boot_reason);
-	} else {
-		return 0;
-	}
-}
-
-static struct kobj_attribute powerup_reason_attr = __ATTR_RO(powerup_reason);
-
-struct kobject *bootinfo_kobj;
-EXPORT_SYMBOL(bootinfo_kobj);
-
-static struct attribute *bootinfo_attrs[] = {
-	&powerup_reason_attr.attr,
-	NULL
-};
-
-static struct attribute_group bootinfo_attr_group = {
-	.attrs = bootinfo_attrs,
-};
-
-int ksysfs_bootinfo_init(void)
-{
-	int error;
-
-	bootinfo_kobj = kobject_create_and_add("bootinfo", NULL);
-	if (!bootinfo_kobj)
-		return -ENOMEM;
-
-	error = sysfs_create_group(bootinfo_kobj, &bootinfo_attr_group);
-	if (error)
-		kobject_put(bootinfo_kobj);
-
-	return error;
-}
-
-void ksysfs_bootinfo_exit(void)
-{
-	kobject_put(bootinfo_kobj);
-}
-
-/* end sysfs bootinfo */

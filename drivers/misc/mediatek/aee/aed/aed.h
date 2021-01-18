@@ -284,8 +284,6 @@ void aee_rr_proc_init(struct proc_dir_entry *aed_proc_dir);
 void aee_rr_proc_done(struct proc_dir_entry *aed_proc_dir);
 
 extern struct atomic_notifier_head panic_notifier_list;
-extern int ksysfs_bootinfo_init(void);
-extern void ksysfs_bootinfo_exit(void);
 extern int aee_dump_ccci_debug_info(int md_id, void **addr, int *size);
 extern int aee_get_mode(void);
 void aee_register_api(struct aee_kernel_api *aee_api);

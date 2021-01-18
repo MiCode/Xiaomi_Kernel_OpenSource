@@ -510,50 +510,6 @@ char *aee_log_buf_addr_get(void)
 }
 EXPORT_SYMBOL(aee_log_buf_addr_get);
 
-#ifdef __aarch64__
-static unsigned long *p_irq_stack_ptr;
-static unsigned long *aee_irq_stack_ptr(void)
-{
-	if (p_irq_stack_ptr)
-		return p_irq_stack_ptr;
-
-	p_irq_stack_ptr = (void *)(aee_addr_find("irq_stack_ptr"));
-
-	if (!p_irq_stack_ptr) {
-		pr_info("%s failed", __func__);
-		return NULL;
-	}
-	return p_irq_stack_ptr;
-}
-
-/* NOTICE: this function should be the same with on_irq_stack() */
-bool aee_on_irq_stack(unsigned long sp, struct stack_info *info)
-{
-	unsigned long *isp = aee_irq_stack_ptr();
-	unsigned long low, high;
-
-	if (!isp)
-		return false;
-
-	low = (unsigned long)raw_cpu_read(*isp);
-	high = low + IRQ_STACK_SIZE;
-
-	if (!low)
-		return false;
-
-	if (sp < low || sp >= high)
-		return false;
-
-	if (info) {
-		info->low = low;
-		info->high = high;
-		info->type = STACK_TYPE_IRQ;
-	}
-
-	return true;
-}
-#endif
-
 static struct mm_struct *p_init_mm;
 static struct mm_struct *aee_init_mm(void)
 {
@@ -577,39 +533,6 @@ pgd_t *aee_pgd_offset_k(unsigned long addr)
 	if (!pim)
 		return NULL;
 	return (pgd_t *)pgd_offset(pim, addr);
-}
-
-static struct rq *p_runqueues;
-static struct rq *aee_runqueues(void)
-{
-	if (p_runqueues)
-		return p_runqueues;
-
-	p_runqueues = (void *)(aee_addr_find("runqueues"));
-
-	if (!p_runqueues) {
-		pr_info("%s failed", __func__);
-		return NULL;
-	}
-	return p_runqueues;
-}
-
-unsigned long aee_cpu_rq(int cpu)
-{
-	struct rq *p_runqueues = aee_runqueues();
-
-	if (p_runqueues)
-		return (unsigned long)(&per_cpu(*p_runqueues, (cpu)));
-	return 0;
-}
-
-struct task_struct *aee_cpu_curr(int cpu)
-{
-	struct rq *rq = (struct rq *)aee_cpu_rq(cpu);
-
-	if (rq)
-		return (struct task_struct *)(rq->curr);
-	return NULL;
 }
 
 unsigned long aee_get_kallsyms_addresses(void)
@@ -715,7 +638,7 @@ static void aee_base_addrs_init(void)
 	char strbuf[NAME_LEN];
 	unsigned long i;
 	unsigned int off;
-	unsigned int search_num = 9;
+	unsigned int search_num = 8;
 
 #ifndef CONFIG_SYSFS
 	search_num--;
@@ -775,12 +698,6 @@ static void aee_base_addrs_init(void)
 
 		if (!p__log_buf && strcmp(strbuf, "__log_buf") == 0) {
 			p__log_buf = (void *)mrdump_idx2addr(i);
-			search_num--;
-			continue;
-		}
-
-		if (!p_runqueues && strcmp(strbuf, "runqueues") == 0) {
-			p_runqueues = (void *)mrdump_idx2addr(i);
 			search_num--;
 			continue;
 		}
@@ -875,26 +792,9 @@ char *aee_log_buf_addr_get(void)
 	return log_buf_addr_get();
 }
 
-#ifdef __aarch64__
-bool aee_on_irq_stack(unsigned long sp, struct stack_info *info)
-{
-	return on_irq_stack(sp, info);
-}
-#endif
-
 pgd_t *aee_pgd_offset_k(unsigned long addr)
 {
 	return (pgd_t *)pgd_offset_k(addr);
-}
-
-unsigned long aee_cpu_rq(int cpu)
-{
-	return (unsigned long)cpu_rq(cpu);
-}
-
-struct task_struct *aee_cpu_curr(int cpu)
-{
-	return (struct task_struct *)cpu_curr(cpu);
 }
 
 unsigned long aee_get_kallsyms_addresses(void)

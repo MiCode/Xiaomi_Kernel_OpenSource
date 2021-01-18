@@ -208,7 +208,6 @@ struct mrdump_mini_elf_header {
 int mrdump_init(void);
 void mrdump_save_ctrlreg(int cpu);
 void mrdump_save_per_cpu_reg(int cpu, struct pt_regs *regs);
-extern const char *mrdump_get_cmd(void);
 
 int mrdump_common_die(int reboot_reason, const char *msg, struct pt_regs *regs);
 void mrdump_mini_add_hang_raw(unsigned long vaddr, unsigned long size);
