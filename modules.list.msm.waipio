@@ -87,6 +87,7 @@ msm_geni_serial.ko
 msm_dma_iommu_mapping.ko
 system_heap.ko
 qcom_dma_heaps.ko
+mem_buf.ko
 qcom_smem.ko
 qcom_smd.ko
 mdt_loader.ko
@@ -153,6 +154,15 @@ dcvs_fp.ko
 qcom-dcvs.ko
 memlat.ko
 bwmon.ko
+hh_ctrl.ko
+hh_msgq.ko
+hh_rm_drv.ko
+hh_dbl.ko
+hh_irq_lend.ko
+hh_mem_notifier.ko
+hh_virt_wdt.ko
+hh_virtio_backend.ko
+qcom_wdt_core.ko
 qcom-dload-mode.ko
 qcom-reboot-reason.ko
 memory_dump_v2.ko

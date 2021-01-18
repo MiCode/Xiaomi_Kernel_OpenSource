@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- *  Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ *  Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _MEM_BUF_H
@@ -130,6 +130,31 @@ struct mem_buf_allocation_data {
 	enum mem_buf_mem_type dst_mem_type;
 	void *dst_data;
 };
+
+struct mem_buf_lend_kernel_arg {
+	unsigned int nr_acl_entries;
+	int *vmids;
+	int *perms;
+	hh_memparcel_handle_t memparcel_hdl;
+};
+
+int mem_buf_lend(struct dma_buf *dmabuf,
+		struct mem_buf_lend_kernel_arg *arg);
+int mem_buf_share(struct dma_buf *dmabuf,
+		struct mem_buf_lend_kernel_arg *arg);
+
+
+#define MEM_BUF_VALID_FD_FLAGS (O_CLOEXEC | O_ACCMODE)
+struct mem_buf_retrieve_kernel_arg {
+	u32 sender_vmid;
+	unsigned int nr_acl_entries;
+	int *vmids;
+	int *perms;
+	hh_memparcel_handle_t memparcel_hdl;
+	int fd_flags;
+};
+struct dma_buf *mem_buf_retrieve(struct mem_buf_retrieve_kernel_arg *arg);
+int mem_buf_reclaim(struct dma_buf *dmabuf);
 
 #if IS_ENABLED(CONFIG_QCOM_MEM_BUF)
 
