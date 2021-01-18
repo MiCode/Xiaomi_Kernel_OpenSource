@@ -348,7 +348,7 @@ static int _set_ctxt_gpu(struct adreno_ringbuffer *rb,
 
 	cmds = &link[0];
 	cmds += __add_curr_ctxt_cmds(rb, cmds, drawctxt);
-	result = adreno_ringbuffer_issue_internal_cmds(rb, 0, link,
+	result = adreno_ringbuffer_issue_internal_cmds(rb, link,
 			(unsigned int)(cmds - link));
 	return result;
 }
@@ -385,8 +385,7 @@ static int _set_pagetable_gpu(struct adreno_ringbuffer *rb,
 	 * This returns the per context timestamp but we need to
 	 * use the global timestamp for iommu clock disablement
 	 */
-	result = adreno_ringbuffer_issue_internal_cmds(rb,
-			KGSL_CMD_FLAGS_PMODE, link, count);
+	result = adreno_ringbuffer_issue_internal_cmds(rb, link, count);
 
 	kfree(link);
 	return result;

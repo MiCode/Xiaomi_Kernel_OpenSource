@@ -320,16 +320,18 @@ void a5xx_preemption_schedule(struct adreno_device *adreno_dev)
 	mutex_unlock(&device->mutex);
 }
 
-unsigned int a5xx_preemption_pre_ibsubmit(
-			struct adreno_device *adreno_dev,
+u32 a5xx_preemption_pre_ibsubmit(struct adreno_device *adreno_dev,
 			struct adreno_ringbuffer *rb,
-			unsigned int *cmds, struct kgsl_context *context)
+			struct adreno_context *drawctxt, u32 *cmds)
 {
 	unsigned int *cmds_orig = cmds;
 	uint64_t gpuaddr = rb->preemption_desc->gpuaddr;
 	unsigned int preempt_style = 0;
 
-	if (context) {
+	if (!adreno_is_preemption_enabled(adreno_dev))
+		return 0;
+
+	if (drawctxt) {
 		/*
 		 * Preemption from secure to unsecure needs Zap shader to be
 		 * run to clear all secure content. CP does not know during
@@ -337,10 +339,11 @@ unsigned int a5xx_preemption_pre_ibsubmit(
 		 * contexts so restrict Secure contexts to be preempted at
 		 * ringbuffer level.
 		 */
-		if (context->flags & KGSL_CONTEXT_SECURE)
+		if (drawctxt->base.flags & KGSL_CONTEXT_SECURE)
 			preempt_style = KGSL_CONTEXT_PREEMPT_STYLE_RINGBUFFER;
 		else
-			preempt_style = ADRENO_PREEMPT_STYLE(context->flags);
+			preempt_style =
+				ADRENO_PREEMPT_STYLE(drawctxt->base.flags);
 	}
 
 	/*
@@ -392,32 +395,13 @@ unsigned int a5xx_preemption_pre_ibsubmit(
 	return (unsigned int) (cmds - cmds_orig);
 }
 
-int a5xx_preemption_yield_enable(unsigned int *cmds)
-{
-	/*
-	 * SRM -- set render mode (ex binning, direct render etc)
-	 * SRM is set by UMD usually at start of IB to tell CP the type of
-	 * preemption.
-	 * KMD needs to set SRM to NULL to indicate CP that rendering is
-	 * done by IB.
-	 */
-	*cmds++ = cp_type7_packet(CP_SET_RENDER_MODE, 5);
-	*cmds++ = 0;
-	*cmds++ = 0;
-	*cmds++ = 0;
-	*cmds++ = 0;
-	*cmds++ = 0;
-
-	*cmds++ = cp_type7_packet(CP_YIELD_ENABLE, 1);
-	*cmds++ = 1;
-
-	return 8;
-}
-
 unsigned int a5xx_preemption_post_ibsubmit(struct adreno_device *adreno_dev,
 	unsigned int *cmds)
 {
 	int dwords = 0;
+
+	if (!adreno_is_preemption_enabled(adreno_dev))
+		return 0;
 
 	cmds[dwords++] = cp_type7_packet(CP_CONTEXT_SWITCH_YIELD, 4);
 	/* Write NULL to the address to skip the data write */

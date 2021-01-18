@@ -157,6 +157,9 @@
 #define CP_LOADSTATE_STATETYPE_SHIFT 0x00000000
 #define CP_LOADSTATE_EXTSRCADDR_SHIFT 0x00000002
 
+/* This is a commonly used CP_EVENT_WRITE */
+#define CACHE_FLUSH_TS 4
+
 static inline uint pm4_calc_odd_parity_bit(uint val)
 {
 	return (0x9669 >> (0xf & ((val) ^

@@ -10,6 +10,7 @@
 #include "adreno.h"
 #include "adreno_profile.h"
 #include "adreno_pm4types.h"
+#include "adreno_ringbuffer.h"
 
 #define ASSIGNS_STR_FORMAT "%.8s:%u "
 
@@ -90,23 +91,11 @@ static inline uint _ib_cmd_reg_to_mem(struct adreno_device *adreno_dev,
 	return cmds - start;
 }
 
-static inline int _create_ib_ref(struct adreno_device *adreno_dev,
-		struct kgsl_memdesc *memdesc, unsigned int *cmd,
-		unsigned int cnt, unsigned int off)
-{
-	unsigned int *start = cmd;
-
-	*cmd++ = cp_mem_packet(adreno_dev, CP_INDIRECT_BUFFER_PFE, 2, 1);
-	cmd += cp_gpuaddr(adreno_dev, cmd, (memdesc->gpuaddr + off));
-	*cmd++ = cnt;
-
-	return cmd - start;
-}
-
-static int _build_pre_ib_cmds(struct adreno_device *adreno_dev,
+static u64 _build_pre_ib_cmds(struct adreno_device *adreno_dev,
 		struct adreno_profile *profile,
-		unsigned int *rbcmds, unsigned int head,
-		unsigned int timestamp, struct adreno_context *drawctxt)
+		unsigned int head, unsigned int timestamp,
+		struct adreno_context *drawctxt,
+		u32 *dwords)
 {
 	struct adreno_profile_assigns_list *entry;
 	unsigned int *start, *ibcmds;
@@ -156,13 +145,13 @@ static int _build_pre_ib_cmds(struct adreno_device *adreno_dev,
 
 	ibcmds += cp_identifier(adreno_dev, ibcmds, END_PROFILE_IDENTIFIER);
 
-	return _create_ib_ref(adreno_dev, profile->shared_buffer, rbcmds,
-			ibcmds - start, ib_offset * sizeof(unsigned int));
+	*dwords = (ibcmds - start);
+	return profile->shared_buffer->gpuaddr + (ib_offset * sizeof(u32));
 }
 
-static int _build_post_ib_cmds(struct adreno_device *adreno_dev,
-		struct adreno_profile *profile,
-		unsigned int *rbcmds, unsigned int head)
+static u64 _build_post_ib_cmds(struct adreno_device *adreno_dev,
+		struct adreno_profile *profile, unsigned int head,
+		u32 *dwords)
 {
 	struct adreno_profile_assigns_list *entry;
 	unsigned int *start, *ibcmds;
@@ -195,8 +184,8 @@ static int _build_post_ib_cmds(struct adreno_device *adreno_dev,
 	/* end of profile identifier */
 	ibcmds += cp_identifier(adreno_dev, ibcmds, END_PROFILE_IDENTIFIER);
 
-	return _create_ib_ref(adreno_dev, profile->shared_buffer, rbcmds,
-			ibcmds - start, ib_offset * sizeof(unsigned int));
+	*dwords = (ibcmds - start);
+	return profile->shared_buffer->gpuaddr + (ib_offset * sizeof(u32));
 }
 
 static bool shared_buf_empty(struct adreno_profile *profile)
@@ -1086,23 +1075,17 @@ int adreno_profile_process_results(struct adreno_device *adreno_dev)
 	return 1;
 }
 
-void adreno_profile_preib_processing(struct adreno_device *adreno_dev,
-		struct adreno_context *drawctxt, unsigned int *cmd_flags,
-		unsigned int **rbptr)
+u64 adreno_profile_preib_processing(struct adreno_device *adreno_dev,
+		struct adreno_context *drawctxt, u32 *dwords)
 {
 	struct adreno_profile *profile = &adreno_dev->profile;
 	int count = profile->assignment_count;
 	unsigned int entry_head = profile->shared_head;
 	unsigned int *shared_ptr;
 	struct adreno_ringbuffer *rb = ADRENO_CURRENT_RINGBUFFER(adreno_dev);
-	unsigned int rbcmds[4];
-	unsigned int *ptr = *rbptr;
-	unsigned int i, ret = 0;
-
-	*cmd_flags &= ~KGSL_CMD_FLAGS_PROFILE;
 
 	if (!adreno_profile_assignments_ready(profile))
-		goto done;
+		return 0;
 
 	/*
 	 * check if space available, include the post_ib in space available
@@ -1110,7 +1093,7 @@ void adreno_profile_preib_processing(struct adreno_device *adreno_dev,
 	 * ringbuffer in the case where only the post_ib fails enough space
 	 */
 	if (SIZE_SHARED_ENTRY(count) >= shared_buf_available(profile))
-		goto done;
+		return 0;
 
 	if (entry_head + SIZE_SHARED_ENTRY(count) >= profile->shared_size) {
 		/* entry_head would wrap, start entry_head at 0 in buffer */
@@ -1120,7 +1103,7 @@ void adreno_profile_preib_processing(struct adreno_device *adreno_dev,
 
 		/* recheck space available */
 		if (SIZE_SHARED_ENTRY(count) >= shared_buf_available(profile))
-			goto done;
+			return 0;
 	}
 
 	/* zero out the counter area of shared_buffer entry_head */
@@ -1133,48 +1116,21 @@ void adreno_profile_preib_processing(struct adreno_device *adreno_dev,
 			SIZE_SHARED_ENTRY(count));
 
 	/* create the shared ibdesc */
-	ret = _build_pre_ib_cmds(adreno_dev, profile, rbcmds, entry_head,
-			rb->timestamp + 1, drawctxt);
-
-	/* set flag to sync with post ib commands */
-	*cmd_flags |= KGSL_CMD_FLAGS_PROFILE;
-
-done:
-	/* write the ibdesc to the ringbuffer */
-	for (i = 0; i < ret; i++)
-		*ptr++ = rbcmds[i];
-
-	*rbptr = ptr;
+	return _build_pre_ib_cmds(adreno_dev, profile, entry_head,
+			rb->timestamp + 1, drawctxt, dwords);
 }
 
-void adreno_profile_postib_processing(struct adreno_device *adreno_dev,
-		unsigned int *cmd_flags, unsigned int **rbptr)
+u64 adreno_profile_postib_processing(struct adreno_device *adreno_dev,
+		u32 *dwords)
 {
 	struct adreno_profile *profile = &adreno_dev->profile;
 	int count = profile->assignment_count;
 	unsigned int entry_head = profile->shared_head -
 		SIZE_SHARED_ENTRY(count);
-	unsigned int *ptr = *rbptr;
-	unsigned int rbcmds[4];
-	int ret = 0, i;
 
 	if (!adreno_profile_assignments_ready(profile))
-		goto done;
-
-	if (!(*cmd_flags & KGSL_CMD_FLAGS_PROFILE))
-		goto done;
+		return 0;
 
 	/* create the shared ibdesc */
-	ret = _build_post_ib_cmds(adreno_dev, profile, rbcmds, entry_head);
-
-done:
-	/* write the ibdesc to the ringbuffer */
-	for (i = 0; i < ret; i++)
-		*ptr++ = rbcmds[i];
-
-	*rbptr = ptr;
-
-	/* reset the sync flag */
-	*cmd_flags &= ~KGSL_CMD_FLAGS_PROFILE;
+	return _build_post_ib_cmds(adreno_dev, profile, entry_head, dwords);
 }
-

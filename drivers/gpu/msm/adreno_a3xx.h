@@ -46,4 +46,46 @@ void a3xx_snapshot(struct adreno_device *adreno_dev,
 
 extern const struct adreno_perfcounters adreno_a3xx_perfcounters;
 
+/**
+ * a3xx_ringbuffer_init - Initialize the ringbuffer
+ * @adreno_dev: An Adreno GPU handle
+ *
+ * Initialize the ringbuffer for a3xx.
+ * Return: 0 on success or negative on failure
+ */
+int a3xx_ringbuffer_init(struct adreno_device *adreno_dev);
+
+/**
+ * a3xx_ringbuffer_addcmds - Submit a command to the ringbuffer
+ * @adreno_dev: An Adreno GPU handle
+ * @rb: Pointer to the ringbuffer to submit on
+ * @drawctxt: Pointer to the draw context for the submission, or NULL for
+ * internal submissions
+ * @flags: Flags for the submission
+ * @in: Commands to write to the ringbuffer
+ * @dwords: Size of @in (in dwords)
+ * @timestamp: Timestamp for the submission
+ * @time: Optional pointer to a submit time structure
+ *
+ * Submit a command to the ringbuffer.
+ * Return: 0 on success or negative on failure
+ */
+int a3xx_ringbuffer_addcmds(struct adreno_device *adreno_dev,
+		struct adreno_ringbuffer *rb, struct adreno_context *drawctxt,
+		u32 flags, u32 *in, u32 dwords, u32 timestamp,
+		struct adreno_submit_time *time);
+
+/**
+ * a3xx_ringbuffer_submitcmd - Submit a user command to the ringbuffer
+ * @adreno_dev: An Adreno GPU handle
+ * @cmdobj: Pointer to a user command object
+ * @flags: Internal submit flags
+ * @time: Optional pointer to a adreno_submit_time container
+ *
+ * Return: 0 on success or negative on failure
+ */
+int a3xx_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
+		struct kgsl_drawobj_cmd *cmdobj, u32 flags,
+		struct adreno_submit_time *time);
+
 #endif /*__A3XX_H */

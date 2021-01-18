@@ -2976,7 +2976,7 @@ static int a6xx_first_boot(struct adreno_device *adreno_dev)
 	if (ret)
 		return ret;
 
-	ret = adreno_ringbuffer_init(adreno_dev);
+	ret = a6xx_ringbuffer_init(adreno_dev);
 	if (ret)
 		return ret;
 

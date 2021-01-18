@@ -140,14 +140,6 @@
 /* Do explicit mode control of cx gdsc */
 #define ADRENO_QUIRK_CX_GDSC BIT(9)
 
-/* Flags to control command packet settings */
-#define KGSL_CMD_FLAGS_NONE             0
-#define KGSL_CMD_FLAGS_PMODE		BIT(0)
-#define KGSL_CMD_FLAGS_INTERNAL_ISSUE   BIT(1)
-#define KGSL_CMD_FLAGS_WFI              BIT(2)
-#define KGSL_CMD_FLAGS_PROFILE		BIT(3)
-#define KGSL_CMD_FLAGS_PWRON_FIXUP      BIT(4)
-
 /* Command identifiers */
 #define CONTEXT_TO_MEM_IDENTIFIER	0x2EADBEEF
 #define CMD_IDENTIFIER			0x2EEDFACE
@@ -766,7 +758,6 @@ struct adreno_gpudev {
 	int (*init)(struct adreno_device *adreno_dev);
 	void (*remove)(struct adreno_device *adreno_dev);
 	int (*rb_start)(struct adreno_device *adreno_dev);
-	int (*microcode_read)(struct adreno_device *adreno_dev);
 	void (*start)(struct adreno_device *adreno_dev);
 	bool (*is_sptp_idle)(struct adreno_device *adreno_dev);
 	int (*regulator_enable)(struct adreno_device *adreno_dev);
@@ -777,18 +768,6 @@ struct adreno_gpudev {
 	int64_t (*read_throttling_counters)(struct adreno_device *adreno_dev);
 	void (*count_throttles)(struct adreno_device *adreno_dev,
 					uint64_t adj);
-	unsigned int (*preemption_pre_ibsubmit)(
-				struct adreno_device *adreno_dev,
-				struct adreno_ringbuffer *rb,
-				unsigned int *cmds,
-				struct kgsl_context *context);
-	int (*preemption_yield_enable)(unsigned int *cmds);
-	unsigned int (*set_marker)(unsigned int *cmds,
-				enum adreno_cp_marker_type type);
-	unsigned int (*preemption_post_ibsubmit)(
-				struct adreno_device *adreno_dev,
-				unsigned int *cmds);
-	int (*preemption_init)(struct adreno_device *adreno_dev);
 	void (*preemption_schedule)(struct adreno_device *adreno_dev);
 	int (*preemption_context_init)(struct kgsl_context *context);
 	void (*context_detach)(struct adreno_context *drawctxt);
@@ -802,8 +781,6 @@ struct adreno_gpudev {
 				unsigned int fsynr1);
 	int (*reset)(struct kgsl_device *device);
 	bool (*sptprac_is_on)(struct adreno_device *adreno_dev);
-	unsigned int (*ccu_invalidate)(struct adreno_device *adreno_dev,
-				unsigned int *cmds);
 	/** @read_alwayson: Return the current value of the alwayson counter */
 	u64 (*read_alwayson)(struct adreno_device *adreno_dev);
 	/**
@@ -814,6 +791,14 @@ struct adreno_gpudev {
 	int (*clear_pending_transactions)(struct adreno_device *adreno_dev);
 	void (*deassert_gbif_halt)(struct adreno_device *adreno_dev);
 	void (*regulator_disable_poll)(struct kgsl_device *device);
+	/** @ringbuffer_addcmds: Add a command to the ringbuffer */
+	int (*ringbuffer_addcmds)(struct adreno_device *adreno_dev,
+		struct adreno_ringbuffer *rb, struct adreno_context *drawctxt,
+		u32 flags, u32 *cmds, u32 sizedwords, u32 timestamp,
+		struct adreno_submit_time *time);
+	int (*ringbuffer_submitcmd)(struct adreno_device *adreno_dev,
+			struct kgsl_drawobj_cmd *cmdobj, u32 flags,
+			struct adreno_submit_time *time);
 };
 
 /**
@@ -1743,9 +1728,6 @@ static inline u32 adreno_get_level(u32 priority)
 	return min_t(u32, level, KGSL_PRIORITY_MAX_RB_LEVELS - 1);
 }
 
-int adreno_gmu_fenced_write(struct adreno_device *adreno_dev,
-	enum adreno_regs offset, unsigned int val,
-	unsigned int fence_mask);
 
 /**
  * adreno_get_firwmare - Load firmware into a adreno_firmware struct
@@ -1909,4 +1891,6 @@ void adreno_profile_submit_time(struct adreno_submit_time *time);
  * Mark the given (or all) context(s) as guilty (failed recovery)
  */
 void adreno_mark_guilty_context(struct kgsl_device *device, unsigned int id);
+
+void adreno_preemption_timer(struct timer_list *t);
 #endif /*__ADRENO_H */

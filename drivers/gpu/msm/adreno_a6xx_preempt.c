@@ -38,8 +38,8 @@ static void _update_wptr(struct adreno_device *adreno_dev, bool reset_timer)
 		 */
 		if (rb->skip_inline_wptr) {
 
-			ret = adreno_gmu_fenced_write(adreno_dev,
-				ADRENO_REG_CP_RB_WPTR, rb->wptr,
+			ret = a6xx_fenced_write(adreno_dev,
+				A6XX_CP_RB_WPTR, rb->wptr,
 				FENCE_STATUS_WRITEDROPPED0_MASK);
 
 			reset_timer = true;
@@ -328,8 +328,8 @@ void a6xx_preemption_trigger(struct adreno_device *adreno_dev)
 	 * Fenced writes on this path will make sure the GPU is woken up
 	 * in case it was power collapsed by the GMU.
 	 */
-	if (adreno_gmu_fenced_write(adreno_dev,
-		ADRENO_REG_CP_CONTEXT_SWITCH_PRIV_NON_SECURE_RESTORE_ADDR_LO,
+	if (a6xx_fenced_write(adreno_dev,
+		A6XX_CP_CONTEXT_SWITCH_PRIV_NON_SECURE_RESTORE_ADDR_LO,
 		lower_32_bits(next->preemption_desc->gpuaddr),
 		FENCE_STATUS_WRITEDROPPED1_MASK))
 		goto err;
@@ -346,32 +346,32 @@ void a6xx_preemption_trigger(struct adreno_device *adreno_dev)
 	if (gmu_core_dev_wait_for_active_transition(device))
 		goto err;
 
-	if (adreno_gmu_fenced_write(adreno_dev,
-		ADRENO_REG_CP_CONTEXT_SWITCH_PRIV_NON_SECURE_RESTORE_ADDR_HI,
+	if (a6xx_fenced_write(adreno_dev,
+		A6XX_CP_CONTEXT_SWITCH_PRIV_NON_SECURE_RESTORE_ADDR_HI,
 		upper_32_bits(next->preemption_desc->gpuaddr),
 		FENCE_STATUS_WRITEDROPPED1_MASK))
 		goto err;
 
-	if (adreno_gmu_fenced_write(adreno_dev,
-		ADRENO_REG_CP_CONTEXT_SWITCH_PRIV_SECURE_RESTORE_ADDR_LO,
+	if (a6xx_fenced_write(adreno_dev,
+		A6XX_CP_CONTEXT_SWITCH_PRIV_SECURE_RESTORE_ADDR_LO,
 		lower_32_bits(next->secure_preemption_desc->gpuaddr),
 		FENCE_STATUS_WRITEDROPPED1_MASK))
 		goto err;
 
-	if (adreno_gmu_fenced_write(adreno_dev,
-		ADRENO_REG_CP_CONTEXT_SWITCH_PRIV_SECURE_RESTORE_ADDR_HI,
+	if (a6xx_fenced_write(adreno_dev,
+		A6XX_CP_CONTEXT_SWITCH_PRIV_SECURE_RESTORE_ADDR_HI,
 		upper_32_bits(next->secure_preemption_desc->gpuaddr),
 		FENCE_STATUS_WRITEDROPPED1_MASK))
 		goto err;
 
-	if (adreno_gmu_fenced_write(adreno_dev,
-		ADRENO_REG_CP_CONTEXT_SWITCH_NON_PRIV_RESTORE_ADDR_LO,
+	if (a6xx_fenced_write(adreno_dev,
+		A6XX_CP_CONTEXT_SWITCH_NON_PRIV_RESTORE_ADDR_LO,
 		lower_32_bits(gpuaddr),
 		FENCE_STATUS_WRITEDROPPED1_MASK))
 		goto err;
 
-	if (adreno_gmu_fenced_write(adreno_dev,
-		ADRENO_REG_CP_CONTEXT_SWITCH_NON_PRIV_RESTORE_ADDR_HI,
+	if (a6xx_fenced_write(adreno_dev,
+		A6XX_CP_CONTEXT_SWITCH_NON_PRIV_RESTORE_ADDR_HI,
 		upper_32_bits(gpuaddr),
 		FENCE_STATUS_WRITEDROPPED1_MASK))
 		goto err;
@@ -398,7 +398,7 @@ void a6xx_preemption_trigger(struct adreno_device *adreno_dev)
 	adreno_set_preempt_state(adreno_dev, ADRENO_PREEMPT_TRIGGERED);
 
 	/* Trigger the preemption */
-	if (adreno_gmu_fenced_write(adreno_dev, ADRENO_REG_CP_PREEMPT, cntl,
+	if (a6xx_fenced_write(adreno_dev, A6XX_CP_CONTEXT_SWITCH_CNTL, cntl,
 					FENCE_STATUS_WRITEDROPPED1_MASK)) {
 		adreno_dev->next_rb = NULL;
 		del_timer(&adreno_dev->preempt.timer);
@@ -497,16 +497,18 @@ void a6xx_preemption_schedule(struct adreno_device *adreno_dev)
 	mutex_unlock(&device->mutex);
 }
 
-unsigned int a6xx_preemption_pre_ibsubmit(
-		struct adreno_device *adreno_dev,
-		struct adreno_ringbuffer *rb,
-		unsigned int *cmds, struct kgsl_context *context)
+u32 a6xx_preemption_pre_ibsubmit(struct adreno_device *adreno_dev,
+		struct adreno_ringbuffer *rb, struct adreno_context *drawctxt,
+		u32 *cmds)
 {
 	unsigned int *cmds_orig = cmds;
 	uint64_t gpuaddr = 0;
 
-	if (context) {
-		gpuaddr = context->user_ctxt_record->memdesc.gpuaddr;
+	if (!adreno_is_preemption_enabled(adreno_dev))
+		return 0;
+
+	if (drawctxt) {
+		gpuaddr = drawctxt->base.user_ctxt_record->memdesc.gpuaddr;
 		*cmds++ = cp_type7_packet(CP_SET_PSEUDO_REGISTER, 15);
 	} else {
 		*cmds++ = cp_type7_packet(CP_SET_PSEUDO_REGISTER, 12);
@@ -523,8 +525,7 @@ unsigned int a6xx_preemption_pre_ibsubmit(
 	cmds += cp_gpuaddr(adreno_dev, cmds,
 			rb->secure_preemption_desc->gpuaddr);
 
-	if (context) {
-
+	if (drawctxt) {
 		*cmds++ = SET_PSEUDO_REGISTER_SAVE_REGISTER_NON_PRIV_SAVE_ADDR;
 		cmds += cp_gpuaddr(adreno_dev, cmds, gpuaddr);
 	}
@@ -540,8 +541,7 @@ unsigned int a6xx_preemption_pre_ibsubmit(
 	cmds += cp_gpuaddr(adreno_dev, cmds,
 			rb->perfcounter_save_restore_desc->gpuaddr);
 
-	if (context) {
-		struct adreno_context *drawctxt = ADRENO_CONTEXT(context);
+	if (drawctxt) {
 		struct adreno_ringbuffer *rb = drawctxt->rb;
 		uint64_t dest = adreno_dev->preempt.scratch->gpuaddr
 			+ (rb->id * sizeof(u64));
@@ -555,28 +555,32 @@ unsigned int a6xx_preemption_pre_ibsubmit(
 	return (unsigned int) (cmds - cmds_orig);
 }
 
-unsigned int a6xx_preemption_post_ibsubmit(struct adreno_device *adreno_dev,
-	unsigned int *cmds)
+u32 a6xx_preemption_post_ibsubmit(struct adreno_device *adreno_dev,
+		u32 *cmds)
 {
-	unsigned int *cmds_orig = cmds;
-	struct adreno_ringbuffer *rb = adreno_dev->cur_rb;
+	u32 index = 0;
 
-	if (rb) {
-		uint64_t dest = adreno_dev->preempt.scratch->gpuaddr
-			+ (rb->id * sizeof(u64));
+	if (!adreno_is_preemption_enabled(adreno_dev))
+		return 0;
 
-		*cmds++ = cp_mem_packet(adreno_dev, CP_MEM_WRITE, 2, 2);
-		cmds += cp_gpuaddr(adreno_dev, cmds, dest);
-		*cmds++ = 0;
-		*cmds++ = 0;
+	if (adreno_dev->cur_rb) {
+		u64 dest = adreno_dev->preempt.scratch->gpuaddr
+			+ (adreno_dev->cur_rb->id * sizeof(u64));
+
+		cmds[index++] = cp_type7_packet(CP_MEM_WRITE, 4);
+		cmds[index++] = lower_32_bits(dest);
+		cmds[index++] = upper_32_bits(dest);
+		cmds[index++] = 0;
+		cmds[index++] = 0;
 	}
 
-	*cmds++ = cp_type7_packet(CP_CONTEXT_SWITCH_YIELD, 4);
-	cmds += cp_gpuaddr(adreno_dev, cmds, 0x0);
-	*cmds++ = 1;
-	*cmds++ = 0;
+	cmds[index++] = cp_type7_packet(CP_CONTEXT_SWITCH_YIELD, 4);
+	cmds[index++] = 0;
+	cmds[index++] = 0;
+	cmds[index++] = 1;
+	cmds[index++] = 0;
 
-	return (unsigned int) (cmds - cmds_orig);
+	return index;
 }
 
 void a6xx_preemption_start(struct adreno_device *adreno_dev)
