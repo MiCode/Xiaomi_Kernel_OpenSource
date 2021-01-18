@@ -1414,7 +1414,7 @@ VIRTIO_PRINT_MARKER, label);
 	if (!vb_dev->config_data || size < vb_dev->config_size) {
 		mutex_unlock(&vb_dev->mutex);
 		vb_dev_put(vb_dev);
-		return -EINVAL;
+		return 0;
 	}
 
 	ret = request_irq(linux_irq, vdev_interrupt, 0,
