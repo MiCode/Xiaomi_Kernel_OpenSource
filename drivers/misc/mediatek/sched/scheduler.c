@@ -45,7 +45,7 @@ int pd_freq_to_opp(int cpu, unsigned long freq)
 		return -1;
 
 	first_freq = pd->table[0].frequency;
-	last_freq = pd->table[pd->nr_cap_states - 1].frequency;
+	last_freq = pd->table[pd->nr_perf_states - 1].frequency;
 
 	if (first_freq > last_freq)
 		order = 0;
@@ -53,12 +53,12 @@ int pd_freq_to_opp(int cpu, unsigned long freq)
 		order = 1;
 
 
-	for (idx = 0; idx < pd->nr_cap_states; idx++) {
+	for (idx = 0; idx < pd->nr_perf_states; idx++) {
 		if (pd->table[idx].frequency == freq) {
 			if (order == 0)
 				return idx;
 			else
-				return pd->nr_cap_states - idx - 1;
+				return pd->nr_perf_states - idx - 1;
 		}
 	}
 
