@@ -4458,3 +4458,4 @@ const struct clk_ops clk_alpha_pll_slew_ops = {
 	.list_rate_vdd_level = clk_list_rate_vdd_level,
 #endif
 };
+EXPORT_SYMBOL(clk_alpha_pll_slew_ops);
