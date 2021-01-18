@@ -62,7 +62,7 @@ static unsigned int is_gpu_pmu_worked;
 static unsigned int gpu_pmu_period = 8000000; //8ms
 #endif
 
-#define OFFS_CUR_FREQ_S	0x0354
+#define OFFS_CUR_FREQ_S	0x544
 unsigned int cpudvfs_get_cur_dvfs_freq_idx(int cluster_id)
 {
 	int idx = 0;
