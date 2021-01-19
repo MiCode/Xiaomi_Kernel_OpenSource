@@ -1160,15 +1160,17 @@ static int haptics_enable_play(struct haptics_chip *chip, bool en)
 		if (((val & CAL_RC_CLK_MASK) ==
 				CAL_RC_CLK_AUTO_VAL << CAL_RC_CLK_SHIFT)
 				&& is_boost_vreg_enabled_in_open_loop(chip)) {
+			val = CAL_RC_CLK_DISABLED_VAL << CAL_RC_CLK_SHIFT;
 			rc = haptics_masked_write(chip, chip->cfg_addr_base,
 					HAP_CFG_CAL_EN_REG, CAL_RC_CLK_MASK,
-					CAL_RC_CLK_DISABLED_VAL);
+					val);
 			if (rc < 0)
 				return rc;
 
+			val = CAL_RC_CLK_AUTO_VAL << CAL_RC_CLK_SHIFT;
 			rc = haptics_masked_write(chip, chip->cfg_addr_base,
 					HAP_CFG_CAL_EN_REG, CAL_RC_CLK_MASK,
-					CAL_RC_CLK_AUTO_VAL);
+					val);
 			if (rc < 0)
 				return rc;
 
@@ -2282,8 +2284,19 @@ static irqreturn_t fifo_empty_irq_handler(int irq, void *data)
 		if (num < 0)
 			return IRQ_HANDLED;
 
+		/*
+		 * With HAPTICS_PATTERN module revision 2.0 and above, if use
+		 * 1-byte write before 4-byte write, the hardware would insert
+		 * zeros in between to keep the FIFO samples 4-byte aligned, and
+		 * the inserted 0 values would cause HW stop driving hence spurs
+		 * will be seen on the haptics output. So only use 1-byte write
+		 * at the end of FIFO streaming.
+		 */
 		if (samples_left <= num)
 			num = samples_left;
+		else if ((chip->ptn_revision >= HAP_PTN_V2) &&
+				(num % HAP_PTN_V2_FIFO_DIN_NUM))
+			num -= (num % HAP_PTN_V2_FIFO_DIN_NUM);
 
 		samples = fifo->samples + status->samples_written;
 
