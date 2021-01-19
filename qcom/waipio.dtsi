@@ -771,6 +771,10 @@
 		interrupts = <GIC_PPI 7 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
+	vendor_hooks: qcom,cpu-vendor-hooks {
+		compatible = "qcom,cpu-vendor-hooks";
+	};
+
 	dcc: dcc_v2@100ff000 {
 		compatible = "qcom,dcc-v2";
 		reg = <0x100ff000 0x1000>,
