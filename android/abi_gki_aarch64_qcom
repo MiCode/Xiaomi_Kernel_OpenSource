@@ -12,6 +12,7 @@
   alloc_chrdev_region
   __alloc_disk_node
   alloc_io_pgtable_ops
+  alloc_etherdev_mqs
   alloc_netdev_mqs
   __alloc_pages_nodemask
   __alloc_percpu
@@ -481,6 +482,7 @@
   dma_heap_get_dev
   dma_heap_get_drvdata
   dmam_alloc_attrs
+  dma_mmap_attrs
   dma_map_page_attrs
   dma_map_resource
   dma_map_sg_attrs
@@ -744,6 +746,7 @@
   enable_irq
   enable_percpu_irq
   ether_setup
+  eth_mac_addr
   eth_type_trans
   eventfd_ctx_fdget
   eventfd_ctx_fileget
@@ -875,6 +878,7 @@
   hrtimer_forward
   hrtimer_init
   hrtimer_start_range_ns
+  hrtimer_try_to_cancel
   hvc_alloc
   hvc_kick
   hvc_poll
@@ -1095,8 +1099,10 @@
   kstrndup
   kstrtobool
   kstrtoint
+  kstrtoint_from_user
   kstrtoll
   kstrtos8
+  kstrtos8_from_user
   kstrtou16
   kstrtou16_from_user
   kstrtou8
@@ -1215,6 +1221,8 @@
   netdev_update_features
   netif_carrier_off
   netif_carrier_on
+  netif_device_attach
+  netif_device_detach
   netif_napi_add
   __netif_napi_del
   netif_receive_skb
@@ -1235,6 +1243,7 @@
   no_llseek
   nonseekable_open
   nr_cpu_ids
+  ns_capable
   nsecs_to_jiffies
   ns_to_timespec64
   __num_online_cpus
@@ -1689,6 +1698,7 @@
   remap_pfn_range
   remove_cpu
   remove_proc_entry
+  remove_wait_queue
   report_iommu_fault
   request_any_context_irq
   request_firmware
@@ -1838,6 +1848,7 @@
   skb_coalesce_rx_frag
   skb_copy
   skb_copy_bits
+  skb_copy_expand
   skb_copy_datagram_iter
   skb_dequeue
   skb_free_datagram
@@ -1846,6 +1857,7 @@
   skb_push
   skb_put
   skb_queue_purge
+  skb_queue_head
   skb_queue_tail
   skb_recv_datagram
   skb_set_owner_w
@@ -2329,6 +2341,7 @@
   wait_for_completion_killable
   wait_for_completion_killable
   wait_for_completion_timeout
+  wait_woken
   __wait_rcu_gp
   __wake_up
   __wake_up_locked
@@ -2341,6 +2354,7 @@
   wiphy_register
   wiphy_unregister
   wireless_send_event
+  woken_wake_function
   work_busy
   ww_mutex_lock
   ww_mutex_unlock
