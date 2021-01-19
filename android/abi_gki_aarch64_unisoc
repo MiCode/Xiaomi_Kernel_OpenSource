@@ -30,6 +30,7 @@
   bpf_trace_run4
   __breadahead
   bus_register
+  bus_set_iommu
   bus_unregister
   call_rcu
   cancel_delayed_work
@@ -110,6 +111,7 @@
   device_destroy
   device_initialize
   device_init_wakeup
+  device_link_add
   device_match_fwnode
   device_match_name
   device_property_present
@@ -180,6 +182,10 @@
   drm_dev_register
   drm_err
   drm_ioctl
+  drm_mm_init
+  drm_mm_insert_node_in_range
+  drm_mm_remove_node
+  drm_mm_takedown
   drm_mode_config_cleanup
   drm_mode_config_init
   drm_open
@@ -281,7 +287,11 @@
   iommu_alloc_resv_region
   iommu_attach_device
   iommu_detach_device
+  iommu_device_link
   iommu_device_register
+  iommu_device_sysfs_add
+  iommu_device_sysfs_remove
+  iommu_device_unlink
   iommu_device_unregister
   iommu_dma_get_resv_regions
   iommu_domain_alloc
@@ -292,6 +302,7 @@
   iommu_fwspec_free
   iommu_get_dma_cookie
   iommu_get_domain_for_dev
+  iommu_group_alloc
   iommu_group_get
   iommu_group_get_for_dev
   iommu_group_get_iommudata
@@ -995,6 +1006,7 @@
   skb_checksum_help
   strim
   xfrm_lookup
+  completion_done
 
 # required by kfifo_buf.ko
   devres_add
@@ -1144,6 +1156,7 @@
 
 # required by pvrsrvkm.ko
   autoremove_wake_function
+  bpf_trace_run6
   bpf_trace_run7
   bpf_trace_run8
   cache_line_size
@@ -1196,6 +1209,7 @@
   get_unused_fd_flags
   idr_preload
   idr_replace
+  ion_query_heaps_kernel
   kill_pid
   ksize
   kthread_freezable_should_stop
@@ -1207,6 +1221,7 @@
   of_modalias_node
   on_each_cpu
   prepare_to_wait
+  proc_remove
   put_unused_fd
   _raw_read_lock_bh
   _raw_read_unlock_bh
@@ -1222,6 +1237,7 @@
   strsep
   sync_file_create
   sync_file_get_fence
+  __task_pid_nr_ns
   trace_print_symbols_seq
   trace_set_clr_event
   unmap_mapping_range
@@ -1993,6 +2009,7 @@
 # required by usb_f_mtp.ko
   usb_os_desc_prepare_interf_dir
   usb_string_id
+  config_group_init_type_name
 
 # required by usbserial.ko
   device_del
@@ -2549,3 +2566,7 @@
   kobject_init_and_add
   sched_setscheduler_nocheck
   strpbrk
+
+# required by sprd_wdf.ko
+  kstrtoull_from_user
+  smpboot_register_percpu_thread
