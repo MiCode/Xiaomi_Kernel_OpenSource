@@ -196,6 +196,7 @@ enum mtk_ddp_io_cmd {
 	DSI_VFP_DEFAULT_MODE,
 	DSI_GET_TIMING,
 	DSI_GET_MODE_BY_MAX_VREFRESH,
+	DSI_FILL_MODE_BY_CONNETOR,
 	PMQOS_SET_BW,
 	PMQOS_SET_HRT_BW,
 	PMQOS_UPDATE_BW,
@@ -248,9 +249,12 @@ struct mtk_ddp_config {
 };
 
 struct mtk_ddp_fb_info {
+	unsigned int width;
+	unsigned int height;
+	unsigned int pitch;
+	size_t size;
 	unsigned int fb_pa;
-	unsigned int fb_mva;
-	unsigned int fb_size;
+	struct mtk_drm_gem_obj *fb_gem;
 };
 
 struct mtk_ddp_comp_funcs {

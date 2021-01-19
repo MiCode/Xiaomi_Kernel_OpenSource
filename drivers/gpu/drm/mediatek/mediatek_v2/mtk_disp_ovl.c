@@ -28,6 +28,7 @@
 #include "cmdq-sec.h"
 #include "mtk_layer_layout_trace.h"
 #include "mtk_drm_mmp.h"
+#include "mtk_drm_gem.h"
 
 int mtk_dprec_mmp_dump_ovl_layer(struct mtk_plane_state *plane_state);
 
@@ -2389,7 +2390,7 @@ static int mtk_ovl_replace_bootup_mva(struct mtk_ddp_comp *comp,
 
 	if (src_on & 0x1) {
 		layer_addr = readl(comp->regs + DISP_REG_OVL_ADDR(ovl, 0));
-		layer_mva = layer_addr - fb_info->fb_pa + fb_info->fb_mva;
+		layer_mva = layer_addr - fb_info->fb_pa + fb_info->fb_gem->dma_addr;
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_OVL_ADDR(ovl, 0),
 			       layer_mva, ~0);
@@ -2397,7 +2398,7 @@ static int mtk_ovl_replace_bootup_mva(struct mtk_ddp_comp *comp,
 
 	if (src_on & 0x2) {
 		layer_addr = readl(comp->regs + DISP_REG_OVL_ADDR(ovl, 1));
-		layer_mva = layer_addr - fb_info->fb_pa + fb_info->fb_mva;
+		layer_mva = layer_addr - fb_info->fb_pa + fb_info->fb_gem->dma_addr;
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_OVL_ADDR(ovl, 1),
 			       layer_mva, ~0);
@@ -2405,7 +2406,7 @@ static int mtk_ovl_replace_bootup_mva(struct mtk_ddp_comp *comp,
 
 	if (src_on & 0x4) {
 		layer_addr = readl(comp->regs + DISP_REG_OVL_ADDR(ovl, 2));
-		layer_mva = layer_addr - fb_info->fb_pa + fb_info->fb_mva;
+		layer_mva = layer_addr - fb_info->fb_pa + fb_info->fb_gem->dma_addr;
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_OVL_ADDR(ovl, 2),
 			       layer_mva, ~0);
@@ -2413,7 +2414,7 @@ static int mtk_ovl_replace_bootup_mva(struct mtk_ddp_comp *comp,
 
 	if (src_on & 0x8) {
 		layer_addr = readl(comp->regs + DISP_REG_OVL_ADDR(ovl, 3));
-		layer_mva = layer_addr - fb_info->fb_pa + fb_info->fb_mva;
+		layer_mva = layer_addr - fb_info->fb_pa + fb_info->fb_gem->dma_addr;
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_OVL_ADDR(ovl, 3),
 			       layer_mva, ~0);

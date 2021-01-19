@@ -120,8 +120,7 @@ struct mtk_drm_private {
 	/* property */
 	struct drm_property *crtc_property[MAX_CRTC][CRTC_PROP_MAX];
 
-	struct drm_fb_helper fb_helper;
-	struct drm_gem_object *fbdev_bo;
+	struct mtk_ddp_fb_info fb_info;
 	struct list_head lyeblob_head;
 	struct mutex lyeblob_list_mutex;
 	struct task_struct *fence_release_thread;
@@ -186,6 +185,14 @@ struct disp_iommu_device {
 	unsigned int inited;
 };
 
+struct tag_videolfb {
+	u64 fb_base;
+	u32 islcmfound;
+	u32 fps;
+	u32 vram;
+	char lcmname[1]; /* this is the minimum size */
+};
+
 struct disp_iommu_device *disp_get_iommu_dev(void);
 
 extern struct platform_driver mtk_ddp_driver;
@@ -227,5 +234,8 @@ int lcm_fps_ctx_init(struct drm_crtc *crtc);
 int lcm_fps_ctx_reset(struct drm_crtc *crtc);
 int lcm_fps_ctx_update(unsigned long long cur_ns,
 		unsigned int crtc_id, unsigned int mode);
+bool mtk_drm_lcm_is_connect(void);
+int _parse_tag_videolfb(unsigned int *vramsize, phys_addr_t *fb_base,
+	unsigned int *fps);
 
 #endif /* MTK_DRM_DRV_H */

@@ -31,7 +31,6 @@
 #include "mtk_drm_assert.h"
 #include "mtk_log.h"
 #include "mtk_drm_mmp.h"
-#include "mtk_drm_fbdev.h"
 #define CREATE_TRACE_POINTS
 #include "mtk_layer_layout_trace.h"
 #include "mtk_drm_gem.h"
@@ -2899,6 +2898,44 @@ bool already_free;
 bool second_query;
 
 /**** UT Program end ****/
+
+static int free_reserved_buf(phys_addr_t start_phys, phys_addr_t end_phys)
+{
+	phys_addr_t pos;
+
+	BUG_ON(start_phys & ~PAGE_MASK);
+	BUG_ON(end_phys & ~PAGE_MASK);
+
+	if (end_phys <= start_phys) {
+		DDPPR_ERR("%s end_phys:0x%lx is smaller than start_phys:0x%lx\n",
+				__func__, (unsigned long)end_phys,
+				(unsigned long)start_phys);
+		return -1;
+	}
+
+	for (pos = start_phys; pos < end_phys; pos += PAGE_SIZE)
+		free_reserved_page(phys_to_page(pos));
+
+	return 0;
+}
+
+int free_fb_buf(void)
+{
+	phys_addr_t fb_base;
+	unsigned int vramsize, fps;
+
+	_parse_tag_videolfb(&vramsize, &fb_base, &fps);
+
+	if (fb_base)
+		free_reserved_buf(fb_base, fb_base + vramsize);
+	else {
+		DDPINFO("%s:get fb pa error\n", __func__);
+		return -1;
+	}
+
+	return 0;
+}
+
 int mtk_layering_rule_ioctl(struct drm_device *dev, void *data,
 			    struct drm_file *file_priv)
 {

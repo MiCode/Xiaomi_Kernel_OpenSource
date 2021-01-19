@@ -21,6 +21,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/delay.h>
 #include <drm/drm_crtc.h>
+#include <linux/kmemleak.h>
 
 #include "mtk_drm_drv.h"
 #include "mtk_drm_crtc.h"
@@ -38,7 +39,6 @@
 #include "mtk_drm_ddp_addon.h"
 #include "mtk_drm_helper.h"
 #include "mtk_drm_lowpower.h"
-#include "mtk_drm_fbdev.h"
 #include "mtk_drm_assert.h"
 #include "mtk_drm_mmp.h"
 #include "mtk_disp_recovery.h"
@@ -73,6 +73,8 @@ static struct mtk_drm_property mtk_crtc_property[CRTC_PROP_MAX] = {
 
 static const char * const crtc_gce_client_str[] = {
 	DECLARE_GCE_CLIENT(DECLARE_STR)};
+
+#define ALIGN_TO_32(x) ALIGN_TO(x, 32)
 
 struct drm_crtc *_get_context(void)
 {
@@ -2068,6 +2070,35 @@ static void mtk_crtc_update_hrt_qos(struct drm_crtc *crtc,
 	}
 }
 
+int mtk_crtc_fill_fb_para(struct mtk_drm_crtc *mtk_crtc)
+{
+	unsigned int vramsize = 0, fps = 0;
+	phys_addr_t fb_base = 0;
+	struct mtk_drm_gem_obj *mtk_gem;
+	struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
+	struct mtk_ddp_fb_info *fb_info = &priv->fb_info;
+
+	if (_parse_tag_videolfb(&vramsize, &fb_base, &fps) < 0) {
+		DDPPR_ERR("Can't access buffer info from dts\n");
+	} else {
+		fb_info->fb_pa = fb_base;
+		fb_info->width = ALIGN_TO_32(mtk_crtc->base.mode.hdisplay);
+		fb_info->height = ALIGN_TO_32(mtk_crtc->base.mode.vdisplay) * 3;
+		fb_info->pitch = fb_info->width * 4;
+		fb_info->size = fb_info->pitch * fb_info->height;
+
+		mtk_gem = mtk_drm_fb_gem_insert(mtk_crtc->base.dev,
+					fb_info->size, fb_base, vramsize);
+
+		if (IS_ERR(mtk_gem))
+			return PTR_ERR(mtk_gem);
+		kmemleak_ignore(mtk_gem);
+		fb_info->fb_gem = mtk_gem;
+	}
+
+	return 0;
+}
+
 static void mtk_crtc_enable_iommu(struct mtk_drm_crtc *mtk_crtc,
 			   struct cmdq_pkt *handle)
 {
@@ -2083,22 +2114,18 @@ void mtk_crtc_enable_iommu_runtime(struct mtk_drm_crtc *mtk_crtc,
 {
 	int i, j;
 	struct mtk_ddp_comp *comp;
-	struct mtk_ddp_fb_info fb_info;
 	struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
-	struct mtk_drm_gem_obj *mtk_gem = to_mtk_gem_obj(priv->fbdev_bo);
-	unsigned int vramsize, fps;
-	phys_addr_t fb_base;
+
+	if (drm_crtc_index(&mtk_crtc->base) == 0)
+		mtk_crtc_fill_fb_para(mtk_crtc);
 
 	mtk_crtc_enable_iommu(mtk_crtc, handle);
 
-	_parse_tag_videolfb(&vramsize, &fb_base, &fps);
-	fb_info.fb_mva = mtk_gem->dma_addr;
-	fb_info.fb_size =
-		priv->fb_helper.fb->width * priv->fb_helper.fb->height / 3;
-	fb_info.fb_pa = fb_base;
-	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
-		mtk_ddp_comp_io_cmd(comp, handle, OVL_REPLACE_BOOTUP_MVA,
-				    &fb_info);
+	if (priv->fb_info.fb_gem) {
+		for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
+			mtk_ddp_comp_io_cmd(comp, handle, OVL_REPLACE_BOOTUP_MVA,
+					&priv->fb_info);
+	}
 }
 
 #ifdef MTK_DRM_CMDQ_ASYNC
@@ -2611,14 +2638,9 @@ bool mtk_crtc_set_status(struct drm_crtc *crtc, bool status)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	bool old_status = mtk_crtc->enabled;
-	struct drm_device *dev = crtc->dev;
-	struct mtk_drm_private *private = dev->dev_private;
 
 	mtk_crtc->enabled = status;
 	wake_up(&mtk_crtc->crtc_status_wq);
-
-	if (drm_crtc_index(crtc) == 0 && private->fb_helper.fb && status)
-		drm_mode_object_get(&private->fb_helper.fb->base);
 
 	return old_status;
 }
@@ -3544,6 +3566,7 @@ static void mtk_drm_crtc_init_para(struct drm_crtc *crtc)
 	if (comp == NULL)
 		return;
 
+	mtk_ddp_comp_io_cmd(comp, NULL, DSI_FILL_MODE_BY_CONNETOR, NULL);
 	mtk_ddp_comp_io_cmd(comp, NULL, DSI_GET_TIMING, &timing);
 	if (timing == NULL)
 		return;

@@ -209,7 +209,7 @@ struct mtk_drm_gem_obj *mtk_drm_fb_gem_insert(struct drm_device *dev,
 void mtk_drm_fb_gem_release(struct drm_device *dev)
 {
 	struct mtk_drm_private *priv = dev->dev_private;
-	struct mtk_drm_gem_obj *mtk_gem = to_mtk_gem_obj(priv->fbdev_bo);
+	struct mtk_drm_gem_obj *mtk_gem = priv->fb_info.fb_gem;
 
 	sg_free_table(mtk_gem->sg);
 	drm_gem_object_release(&mtk_gem->base);

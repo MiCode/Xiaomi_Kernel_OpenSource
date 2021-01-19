@@ -28,7 +28,6 @@
 #include "mtk_drm_debugfs.h"
 #include "mtk_drm_drv.h"
 #include "mtk_drm_fb.h"
-#include "mtk_drm_fbdev.h"
 #include "mtk_drm_gem.h"
 #include "mtk_drm_session.h"
 #include "mtk_fence.h"
@@ -586,6 +585,30 @@ static bool mtk_atomic_skip_plane_update(struct mtk_drm_private *private,
 
 	return true;
 #endif
+}
+
+bool mtk_drm_lcm_is_connect(void)
+{
+	struct device_node *chosen_node;
+
+	chosen_node = of_find_node_by_path("/chosen");
+	if (chosen_node) {
+		struct tag_videolfb *videolfb_tag = NULL;
+		unsigned long size = 0;
+
+		videolfb_tag = (struct tag_videolfb *)of_get_property(
+			chosen_node,
+			"atag,videolfb",
+			(int *)&size);
+		if (videolfb_tag)
+			return videolfb_tag->islcmfound;
+
+		DDPINFO("[DT][videolfb] videolfb_tag not found\n");
+	} else {
+		DDPINFO("[DT][videolfb] of_chosen not found\n");
+	}
+
+	return false;
 }
 
 #ifdef MTK_DRM_ESD_SUPPORT
@@ -2093,6 +2116,44 @@ unsigned int lcm_fps_ctx_get(unsigned int crtc_id)
 	return (unsigned int)fps;
 }
 
+int _parse_tag_videolfb(unsigned int *vramsize, phys_addr_t *fb_base,
+			unsigned int *fps)
+{	struct device_node *chosen_node;
+
+	*fps = 6000;
+	chosen_node = of_find_node_by_path("/chosen");
+
+	if (chosen_node) {
+		struct tag_videolfb *videolfb_tag = NULL;
+		unsigned long size = 0;
+
+		videolfb_tag = (struct tag_videolfb *)of_get_property(
+			chosen_node, "atag,videolfb",
+			(int *)&size);
+		if (videolfb_tag) {
+			*vramsize = videolfb_tag->vram;
+			*fb_base = videolfb_tag->fb_base;
+			*fps = videolfb_tag->fps;
+			if (*fps == 0)
+				*fps = 6000;
+			return 0;
+		}
+
+		DDPINFO("[DT][videolfb] videolfb_tag not found\n");
+		goto found;
+	} else {
+		DDPINFO("[DT][videolfb] of_chosen not found\n");
+	}
+	return -1;
+found:
+	DDPINFO("[DT][videolfb] fb_base    = 0x%lx\n", (unsigned long)*fb_base);
+	DDPINFO("[DT][videolfb] vram       = 0x%x (%d)\n", *vramsize,
+		*vramsize);
+	DDPINFO("[DT][videolfb] fps	   = %d\n", *fps);
+
+return 0;
+}
+
 int mtk_drm_primary_get_info(struct drm_device *dev,
 			     struct drm_mtk_session_info *info)
 {
@@ -2295,10 +2356,6 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 #endif
 	DDPINFO("%s-\n", __func__);
 
-	ret = mtk_fbdev_init(drm);
-	if (ret)
-		goto err_kms_helper_poll_fini;
-
 	mtk_drm_first_enable(drm);
 
 	return 0;
@@ -2314,7 +2371,6 @@ err_config_cleanup:
 
 static void mtk_drm_kms_deinit(struct drm_device *drm)
 {
-	mtk_fbdev_fini(drm);
 	drm_kms_helper_poll_fini(drm);
 
 	//drm_vblank_cleanup(drm);
@@ -2445,7 +2501,6 @@ static int mtk_drm_bind(struct device *dev)
 {
 	struct mtk_drm_private *private = dev_get_drvdata(dev);
 	struct drm_device *drm;
-	struct drm_crtc *crtc;
 	int ret;
 
 	DDPINFO("%s+\n", __func__);
@@ -2465,9 +2520,9 @@ static int mtk_drm_bind(struct device *dev)
 		goto err_deinit;
 
 	mtk_layering_rule_init(drm);
-	crtc = list_first_entry(&(drm)->mode_config.crtc_list, typeof(*crtc),
-				head);
-	mtk_drm_assert_layer_init(crtc);
+
+	mtk_drm_assert_init(drm);
+
 #ifdef CONFIG_FPGA_EARLY_PORTING
 	pan_display_test(1, 32);
 #endif
