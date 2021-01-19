@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -212,12 +212,14 @@ out:
 	return ret;
 }
 
-int hyp_assign_from_flags(u64 base, u64 size, unsigned long flags)
+int get_vmperm_from_ion_flags(unsigned long flags, int **_vmids,
+			int **_perms, u32 *_nr)
 {
-	u32 *vmids, *modes;
+	int *vmids, *modes;
 	u32 nr, i;
-	int ret;
-	u32 src_vm = VMID_HLOS;
+
+	if (!_vmids || !_perms || !_nr)
+		return -EINVAL;
 
 	nr = count_set_bits(flags);
 	vmids = kcalloc(nr, sizeof(*vmids), GFP_KERNEL);
@@ -232,21 +234,38 @@ int hyp_assign_from_flags(u64 base, u64 size, unsigned long flags)
 
 	if ((flags & ~QCOM_DMA_HEAP_FLAGS_CP_MASK) ||
 	    populate_vm_list(flags, vmids, nr)) {
-		ret = -EINVAL;
 		pr_err("%s: Failed to parse secure flags 0x%lx\n", __func__,
 		       flags);
-		goto out;
+		kfree(modes);
+		kfree(vmids);
+		return -EINVAL;
 	}
 
 	for (i = 0; i < nr; i++)
 		modes[i] = msm_secure_get_vmid_perms(vmids[i]);
+
+	*_vmids = vmids;
+	*_perms = modes;
+	*_nr = nr;
+	return 0;
+}
+
+int hyp_assign_from_flags(u64 base, u64 size, unsigned long flags)
+{
+	int *vmids, *modes;
+	u32 nr;
+	u32 src_vm = VMID_HLOS;
+	int ret;
+
+	ret = get_vmperm_from_ion_flags(flags, &vmids, &modes, &nr);
+	if (ret)
+		return ret;
 
 	ret = hyp_assign_phys(base, size, &src_vm, 1, vmids, modes, nr);
 	if (ret)
 		pr_err("%s: Assign call failed, flags 0x%lx\n", __func__,
 		       flags);
 
-out:
 	kfree(modes);
 	kfree(vmids);
 	return ret;

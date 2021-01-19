@@ -7,7 +7,7 @@
  * Copyright (C) 2019 Texas Instruments Incorporated - http://www.ti.com/
  *	Andrew F. Davis <afd@ti.com>
  *
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _QCOM_SG_OPS_H
@@ -16,6 +16,7 @@
 #include <linux/scatterlist.h>
 #include <linux/dma-heap.h>
 #include <linux/device.h>
+#include <linux/mem-buf-exporter.h>
 
 struct qcom_sg_buffer {
 	struct dma_heap *heap;
@@ -25,9 +26,8 @@ struct qcom_sg_buffer {
 	struct sg_table sg_table;
 	int vmap_cnt;
 	void *vaddr;
-	bool secure;
 	bool uncached;
-	unsigned long vmids;
+	struct mem_buf_vmperm *vmperm;
 	void (*free)(struct qcom_sg_buffer *buffer);
 };
 
@@ -38,6 +38,6 @@ struct dma_heap_attachment {
 	bool mapped;
 };
 
-extern const struct dma_buf_ops qcom_sg_buf_ops;
+extern const struct mem_buf_dma_buf_ops qcom_sg_buf_ops;
 
 #endif /* _QCOM_SG_OPS_H */

@@ -1577,11 +1577,15 @@ union mem_buf_ioctl_arg {
 	struct mem_buf_alloc_ioctl_arg allocation;
 	struct mem_buf_export_ioctl_arg export;
 	struct mem_buf_import_ioctl_arg import;
+	struct mem_buf_lend_ioctl_arg2 lend;
+	struct mem_buf_retrieve_ioctl_arg2 retrieve;
+	struct mem_buf_reclaim_ioctl_arg2 reclaim;
 };
 
 static int mem_buf_acl_to_vmid_perms_list(unsigned int nr_acl_entries,
 					  const void __user *acl_entries,
-					  int **dst_vmids, int **dst_perms)
+					  int **dst_vmids, int **dst_perms,
+					  bool lookup_fd)
 {
 	int ret, i, *vmids, *perms;
 	struct acl_entry entry;
@@ -1606,7 +1610,10 @@ static int mem_buf_acl_to_vmid_perms_list(unsigned int nr_acl_entries,
 		if (ret < 0)
 			goto out;
 
-		vmids[i] = mem_buf_vmid_to_vmid(entry.vmid);
+		if (lookup_fd)
+			vmids[i] = mem_buf_fd_to_vmid(entry.vmid);
+		else
+			vmids[i] = mem_buf_vmid_to_vmid(entry.vmid);
 		perms[i] = mem_buf_perms_to_perms(entry.perms);
 		if (vmids[i] < 0 || perms[i] < 0) {
 			ret = -EINVAL;
@@ -1703,7 +1710,7 @@ static int mem_buf_lend_user(struct mem_buf_export_ioctl_arg *uarg)
 		return PTR_ERR(dmabuf);
 
 	ret = mem_buf_acl_to_vmid_perms_list(uarg->nr_acl_entries,
-			(void *)uarg->acl_list, &vmids, &perms);
+			(void *)uarg->acl_list, &vmids, &perms, false);
 	if (ret)
 		goto err_acl;
 
@@ -1741,6 +1748,48 @@ err_acl:
 	return ret;
 }
 
+static int mem_buf_lend_user2(struct mem_buf_lend_ioctl_arg2 *uarg)
+{
+	int *vmids, *perms;
+	int ret;
+	struct dma_buf *dmabuf;
+	struct mem_buf_lend_kernel_arg karg;
+
+	if (!uarg->nr_acl_entries || !uarg->acl_list ||
+	    uarg->nr_acl_entries > MEM_BUF_MAX_NR_ACL_ENTS ||
+	    uarg->reserved0 || uarg->reserved1 || uarg->reserved2)
+		return -EINVAL;
+
+	dmabuf = dma_buf_get(uarg->dma_buf_fd);
+	if (IS_ERR(dmabuf))
+		return PTR_ERR(dmabuf);
+
+	ret = mem_buf_acl_to_vmid_perms_list(uarg->nr_acl_entries,
+			(void *)uarg->acl_list, &vmids, &perms, true);
+	if (ret)
+		goto err_acl;
+
+	karg.nr_acl_entries = uarg->nr_acl_entries;
+	karg.vmids = vmids;
+	karg.perms = perms;
+
+	ret = mem_buf_lend(dmabuf, &karg);
+	if (ret)
+		goto err_lend;
+
+	uarg->memparcel_hdl = karg.memparcel_hdl;
+	kfree(perms);
+	kfree(vmids);
+	return 0;
+
+err_lend:
+	kfree(perms);
+	kfree(vmids);
+err_acl:
+	dma_buf_put(dmabuf);
+	return ret;
+}
+
 static int mem_buf_retrieve_user(struct mem_buf_import_ioctl_arg *uarg)
 {
 	int ret, fd;
@@ -1754,7 +1803,7 @@ static int mem_buf_retrieve_user(struct mem_buf_import_ioctl_arg *uarg)
 		return -EINVAL;
 
 	ret = mem_buf_acl_to_vmid_perms_list(uarg->nr_acl_entries,
-			(void *)uarg->acl_list, &vmids, &perms);
+			(void *)uarg->acl_list, &vmids, &perms, false);
 	if (ret)
 		return ret;
 
@@ -1785,6 +1834,71 @@ err_fd:
 err_retrieve:
 	kfree(vmids);
 	kfree(perms);
+	return ret;
+}
+
+static int mem_buf_retrieve_user2(struct mem_buf_retrieve_ioctl_arg2 *uarg)
+{
+	int ret, fd;
+	int *vmids, *perms;
+	struct dma_buf *dmabuf;
+	struct mem_buf_retrieve_kernel_arg karg;
+
+	if (!uarg->nr_acl_entries || !uarg->acl_list ||
+	    uarg->nr_acl_entries > MEM_BUF_MAX_NR_ACL_ENTS ||
+	    uarg->reserved0 || uarg->reserved1 ||
+	    uarg->reserved2 ||
+	    uarg->fd_flags & ~MEM_BUF_VALID_FD_FLAGS)
+		return -EINVAL;
+
+	ret = mem_buf_acl_to_vmid_perms_list(uarg->nr_acl_entries,
+			(void *)uarg->acl_list, &vmids, &perms, true);
+	if (ret)
+		return ret;
+
+	karg.nr_acl_entries = uarg->nr_acl_entries;
+	karg.vmids = vmids;
+	karg.perms = perms;
+	karg.memparcel_hdl = uarg->memparcel_hdl;
+	karg.fd_flags = uarg->fd_flags;
+	dmabuf = mem_buf_retrieve(&karg);
+	if (IS_ERR(dmabuf)) {
+		ret = PTR_ERR(dmabuf);
+		goto err_retrieve;
+	}
+
+	fd = dma_buf_fd(dmabuf, karg.fd_flags);
+	if (fd < 0) {
+		ret = fd;
+		goto err_fd;
+	}
+
+	uarg->dma_buf_import_fd = fd;
+	kfree(vmids);
+	kfree(perms);
+	return 0;
+err_fd:
+	dma_buf_put(dmabuf);
+err_retrieve:
+	kfree(vmids);
+	kfree(perms);
+	return ret;
+}
+
+static int mem_buf_reclaim_user2(struct mem_buf_reclaim_ioctl_arg2 *uarg)
+{
+	struct dma_buf *dmabuf;
+	int ret;
+
+	if (uarg->reserved0 || uarg->reserved1 || uarg->reserved2)
+		return -EINVAL;
+
+	dmabuf = dma_buf_get(uarg->dma_buf_fd);
+	if (IS_ERR(dmabuf))
+		return PTR_ERR(dmabuf);
+
+	ret = mem_buf_reclaim(dmabuf);
+	dma_buf_put(dmabuf);
 	return ret;
 }
 
@@ -1844,6 +1958,45 @@ static long mem_buf_dev_ioctl(struct file *filp, unsigned int cmd,
 			return -EOPNOTSUPP;
 
 		ret = mem_buf_retrieve_user(import);
+		if (ret)
+			return ret;
+		break;
+	}
+	case MEM_BUF_IOC_LEND2:
+	{
+		struct mem_buf_lend_ioctl_arg2 *lend = &ioctl_arg.lend;
+		int ret;
+
+		if (!(mem_buf_capability & MEM_BUF_CAP_SUPPLIER))
+			return -EOPNOTSUPP;
+
+		ret = mem_buf_lend_user2(lend);
+		if (ret)
+			return ret;
+
+		break;
+	}
+	case MEM_BUF_IOC_RETRIEVE2:
+	{
+		struct mem_buf_retrieve_ioctl_arg2 *retrieve =
+			&ioctl_arg.retrieve;
+		int ret;
+
+		if (!(mem_buf_capability & MEM_BUF_CAP_CONSUMER))
+			return -EOPNOTSUPP;
+
+		ret = mem_buf_retrieve_user2(retrieve);
+		if (ret)
+			return ret;
+		break;
+	}
+	case MEM_BUF_IOC_RECLAIM2:
+	{
+		struct mem_buf_reclaim_ioctl_arg2 *reclaim =
+			&ioctl_arg.reclaim;
+		int ret;
+
+		ret = mem_buf_reclaim_user2(reclaim);
 		if (ret)
 			return ret;
 		break;

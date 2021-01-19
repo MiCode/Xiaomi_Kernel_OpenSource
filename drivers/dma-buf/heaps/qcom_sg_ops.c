@@ -104,18 +104,34 @@ static struct sg_table *qcom_sg_map_dma_buf(struct dma_buf_attachment *attachmen
 	struct dma_heap_attachment *a = attachment->priv;
 	struct sg_table *table = a->table;
 	struct qcom_sg_buffer *buffer;
+	struct mem_buf_vmperm *vmperm;
 	unsigned long attrs = 0;
 	int ret;
 
 	buffer = attachment->dmabuf->priv;
-	if (buffer->secure || buffer->uncached)
+	vmperm = buffer->vmperm;
+
+	/* Prevent map/unmap during begin/end_cpu_access */
+	mutex_lock(&buffer->lock);
+
+	/* Ensure VM permissions are constant while the buffer is mapped */
+	mem_buf_vmperm_pin(vmperm);
+	if (buffer->uncached || !mem_buf_vmperm_can_cmo(vmperm))
 		attrs |= DMA_ATTR_SKIP_CPU_SYNC;
 
 	ret = dma_map_sgtable(attachment->dev, table, direction, attrs);
-	if (ret)
-		return ERR_PTR(-ENOMEM);
+	if (ret) {
+		table = ERR_PTR(-ENOMEM);
+		goto err_map_sgtable;
+	}
 
 	a->mapped = true;
+	mutex_unlock(&buffer->lock);
+	return table;
+
+err_map_sgtable:
+	mem_buf_vmperm_unpin(vmperm);
+	mutex_unlock(&buffer->lock);
 	return table;
 }
 
@@ -125,14 +141,22 @@ static void qcom_sg_unmap_dma_buf(struct dma_buf_attachment *attachment,
 {
 	struct dma_heap_attachment *a = attachment->priv;
 	struct qcom_sg_buffer *buffer;
+	struct mem_buf_vmperm *vmperm;
 	unsigned long attrs = 0;
 
 	buffer = attachment->dmabuf->priv;
-	if (buffer->secure || buffer->uncached)
+	vmperm = buffer->vmperm;
+
+	/* Prevent map/unmap during begin/end_cpu_access */
+	mutex_lock(&buffer->lock);
+
+	if (buffer->uncached || !mem_buf_vmperm_can_cmo(vmperm))
 		attrs |= DMA_ATTR_SKIP_CPU_SYNC;
 
 	a->mapped = false;
 	dma_unmap_sgtable(attachment->dev, table, direction, attrs);
+	mem_buf_vmperm_unpin(vmperm);
+	mutex_unlock(&buffer->lock);
 }
 
 static int qcom_sg_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
@@ -141,10 +165,13 @@ static int qcom_sg_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
 	struct qcom_sg_buffer *buffer = dmabuf->priv;
 	struct dma_heap_attachment *a;
 
-	if (buffer->secure)
-		return -EINVAL;
-
 	mutex_lock(&buffer->lock);
+
+	/* Keep the same behavior as ion by returning 0 instead of -EPERM */
+	if (!mem_buf_vmperm_can_cmo(buffer->vmperm)) {
+		mutex_unlock(&buffer->lock);
+		return 0;
+	}
 
 	if (buffer->vmap_cnt)
 		invalidate_kernel_vmap_range(buffer->vaddr, buffer->len);
@@ -167,10 +194,13 @@ static int qcom_sg_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
 	struct qcom_sg_buffer *buffer = dmabuf->priv;
 	struct dma_heap_attachment *a;
 
-	if (buffer->secure)
-		return -EINVAL;
-
 	mutex_lock(&buffer->lock);
+
+	/* Keep the same behavior as ion by returning 0 instead of -EPERM */
+	if (!mem_buf_vmperm_can_cmo(buffer->vmperm)) {
+		mutex_unlock(&buffer->lock);
+		return 0;
+	}
 
 	if (buffer->vmap_cnt)
 		flush_kernel_vmap_range(buffer->vaddr, buffer->len);
@@ -187,6 +217,25 @@ static int qcom_sg_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
 	return 0;
 }
 
+static void qcom_sg_vm_ops_open(struct vm_area_struct *vma)
+{
+	struct mem_buf_vmperm *vmperm = vma->vm_private_data;
+
+	mem_buf_vmperm_pin(vmperm);
+}
+
+static void qcom_sg_vm_ops_close(struct vm_area_struct *vma)
+{
+	struct mem_buf_vmperm *vmperm = vma->vm_private_data;
+
+	mem_buf_vmperm_unpin(vmperm);
+}
+
+static const struct vm_operations_struct qcom_sg_vm_ops = {
+	.open = qcom_sg_vm_ops_open,
+	.close = qcom_sg_vm_ops_close,
+};
+
 static int qcom_sg_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 {
 	struct qcom_sg_buffer *buffer = dmabuf->priv;
@@ -195,9 +244,14 @@ static int qcom_sg_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 	struct sg_page_iter piter;
 	int ret;
 
-	if (buffer->secure)
-		return -EINVAL;
+	mem_buf_vmperm_pin(buffer->vmperm);
+	if (!mem_buf_vmperm_can_mmap(buffer->vmperm, vma)) {
+		mem_buf_vmperm_unpin(buffer->vmperm);
+		return -EPERM;
+	}
 
+	vma->vm_ops = &qcom_sg_vm_ops;
+	vma->vm_private_data = buffer->vmperm;
 	if (buffer->uncached)
 		vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
 
@@ -206,8 +260,10 @@ static int qcom_sg_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 
 		ret = remap_pfn_range(vma, addr, page_to_pfn(page), PAGE_SIZE,
 				      vma->vm_page_prot);
-		if (ret)
+		if (ret) {
+			mem_buf_vmperm_unpin(buffer->vmperm);
 			return ret;
+		}
 		addr += PAGE_SIZE;
 		if (addr >= vma->vm_end)
 			return 0;
@@ -250,8 +306,11 @@ static void *qcom_sg_vmap(struct dma_buf *dmabuf)
 	struct qcom_sg_buffer *buffer = dmabuf->priv;
 	void *vaddr;
 
-	if (buffer->secure)
-		return ERR_PTR(-EINVAL);
+	mem_buf_vmperm_pin(buffer->vmperm);
+	if (!mem_buf_vmperm_can_vmap(buffer->vmperm)) {
+		mem_buf_vmperm_unpin(buffer->vmperm);
+		return ERR_PTR(-EPERM);
+	}
 
 	mutex_lock(&buffer->lock);
 	if (buffer->vmap_cnt) {
@@ -261,8 +320,10 @@ static void *qcom_sg_vmap(struct dma_buf *dmabuf)
 	}
 
 	vaddr = qcom_sg_do_vmap(buffer);
-	if (IS_ERR(vaddr))
+	if (IS_ERR(vaddr)) {
+		mem_buf_vmperm_unpin(buffer->vmperm);
 		goto out;
+	}
 
 	buffer->vaddr = vaddr;
 	buffer->vmap_cnt++;
@@ -276,14 +337,12 @@ static void qcom_sg_vunmap(struct dma_buf *dmabuf, void *vaddr)
 {
 	struct qcom_sg_buffer *buffer = dmabuf->priv;
 
-	if (buffer->secure)
-		return;
-
 	mutex_lock(&buffer->lock);
 	if (!--buffer->vmap_cnt) {
 		vunmap(buffer->vaddr);
 		buffer->vaddr = NULL;
 	}
+	mem_buf_vmperm_unpin(buffer->vmperm);
 	mutex_unlock(&buffer->lock);
 }
 
@@ -291,28 +350,32 @@ static void qcom_sg_release(struct dma_buf *dmabuf)
 {
 	struct qcom_sg_buffer *buffer = dmabuf->priv;
 
+	if (mem_buf_vmperm_release(buffer->vmperm))
+		return;
+
 	buffer->free(buffer);
 }
 
-static int qcom_sg_get_flags(struct dma_buf *dmabuf,
-				 unsigned long *flags)
+static struct mem_buf_vmperm *qcom_sg_lookup_vmperm(struct dma_buf *dmabuf)
 {
 	struct qcom_sg_buffer *buffer = dmabuf->priv;
-	*flags = buffer->vmids;
 
-	return 0;
+	return buffer->vmperm;
 }
 
-const struct dma_buf_ops qcom_sg_buf_ops = {
+const struct mem_buf_dma_buf_ops qcom_sg_buf_ops = {
 	.attach = qcom_sg_attach,
-	.detach = qcom_sg_detach,
-	.map_dma_buf = qcom_sg_map_dma_buf,
-	.unmap_dma_buf = qcom_sg_unmap_dma_buf,
-	.begin_cpu_access = qcom_sg_dma_buf_begin_cpu_access,
-	.end_cpu_access = qcom_sg_dma_buf_end_cpu_access,
-	.mmap = qcom_sg_mmap,
-	.vmap = qcom_sg_vmap,
-	.vunmap = qcom_sg_vunmap,
-	.release = qcom_sg_release,
-	.get_flags = qcom_sg_get_flags,
+	.lookup = qcom_sg_lookup_vmperm,
+	.dma_ops = {
+		.attach = mem_buf_dma_buf_attach,
+		.detach = qcom_sg_detach,
+		.map_dma_buf = qcom_sg_map_dma_buf,
+		.unmap_dma_buf = qcom_sg_unmap_dma_buf,
+		.begin_cpu_access = qcom_sg_dma_buf_begin_cpu_access,
+		.end_cpu_access = qcom_sg_dma_buf_end_cpu_access,
+		.mmap = qcom_sg_mmap,
+		.vmap = qcom_sg_vmap,
+		.vunmap = qcom_sg_vunmap,
+		.release = qcom_sg_release,
+	}
 };

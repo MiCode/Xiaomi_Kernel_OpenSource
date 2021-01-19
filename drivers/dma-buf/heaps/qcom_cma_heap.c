@@ -6,7 +6,7 @@
  *
  * Copyright (C) 2012, 2019 Linaro Ltd.
  * Author: <benjamin.gaignard@linaro.org> for ST-Ericsson.
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/cma.h>
@@ -25,6 +25,7 @@
 
 #include "qcom_dma_heap_priv.h"
 #include "qcom_cma_heap.h"
+#include "qcom_sg_ops.h"
 
 struct cma_heap {
 	struct dma_heap *heap;
@@ -34,11 +35,11 @@ struct cma_heap {
 
 LIST_HEAD(cma_heaps);
 
-static void cma_heap_free(struct heap_helper_buffer *buffer)
+static void cma_heap_free(struct qcom_sg_buffer *buffer)
 {
 	struct cma_heap *cma_heap;
-	unsigned long nr_pages = buffer->pagecount;
-	struct page *cma_pages = buffer->priv_virt;
+	unsigned long nr_pages = buffer->len >> PAGE_SHIFT;
+	struct page *cma_pages = sg_page(buffer->sg_table.sgl);
 	struct list_head *list_pos;
 
 	/*
@@ -55,7 +56,7 @@ static void cma_heap_free(struct heap_helper_buffer *buffer)
 	}
 
 	/* free page list */
-	kfree(buffer->pages);
+	sg_free_table(&buffer->sg_table);
 	/* release memory */
 	cma_release(cma_heap->cma, cma_pages, nr_pages);
 	kfree(buffer);
@@ -68,14 +69,14 @@ struct dma_buf *cma_heap_allocate(struct dma_heap *heap,
 				  unsigned long heap_flags)
 {
 	struct cma_heap *cma_heap;
-	struct heap_helper_buffer *helper_buffer;
+	struct qcom_sg_buffer *helper_buffer;
+	DEFINE_DMA_BUF_EXPORT_INFO(exp_info);
 	struct page *cma_pages;
 	size_t size = PAGE_ALIGN(len);
 	unsigned long nr_pages = size >> PAGE_SHIFT;
 	unsigned long align = get_order(size);
 	struct dma_buf *dmabuf;
 	int ret = -ENOMEM;
-	pgoff_t pg;
 	struct list_head *list_pos;
 
 	/*
@@ -99,9 +100,11 @@ struct dma_buf *cma_heap_allocate(struct dma_heap *heap,
 	if (!helper_buffer)
 		return ERR_PTR(-ENOMEM);
 
-	qcom_init_heap_helper_buffer(helper_buffer, cma_heap_free);
 	helper_buffer->heap = heap;
-	helper_buffer->size = len;
+	INIT_LIST_HEAD(&helper_buffer->attachments);
+	mutex_init(&helper_buffer->lock);
+	helper_buffer->len = size;
+	helper_buffer->free = cma_heap_free;
 
 	cma_pages = cma_alloc(cma_heap->cma, nr_pages, align, false);
 	if (!cma_pages)
@@ -130,32 +133,33 @@ struct dma_buf *cma_heap_allocate(struct dma_heap *heap,
 		memset(page_address(cma_pages), 0, size);
 	}
 
-	helper_buffer->pagecount = nr_pages;
-	helper_buffer->pages = kmalloc_array(helper_buffer->pagecount,
-					     sizeof(*helper_buffer->pages),
-					     GFP_KERNEL);
-	if (!helper_buffer->pages) {
-		ret = -ENOMEM;
+	ret = sg_alloc_table(&helper_buffer->sg_table, 1, GFP_KERNEL);
+	if (ret)
 		goto free_cma;
-	}
 
-	for (pg = 0; pg < helper_buffer->pagecount; pg++)
-		helper_buffer->pages[pg] = &cma_pages[pg];
+	sg_set_page(helper_buffer->sg_table.sgl, cma_pages, size, 0);
+
+	helper_buffer->vmperm = mem_buf_vmperm_alloc(&helper_buffer->sg_table);
+	if (IS_ERR(helper_buffer->vmperm))
+		goto free_sgtable;
 
 	/* create the dmabuf */
-	dmabuf = qcom_heap_helper_export_dmabuf(helper_buffer, fd_flags);
+	exp_info.ops = &qcom_sg_buf_ops.dma_ops;
+	exp_info.size = helper_buffer->len;
+	exp_info.flags = fd_flags;
+	exp_info.priv = helper_buffer;
+	dmabuf = mem_buf_dma_buf_export(&exp_info);
 	if (IS_ERR(dmabuf)) {
 		ret = PTR_ERR(dmabuf);
-		goto free_pages;
+		goto vmperm_release;
 	}
-
-	helper_buffer->dmabuf = dmabuf;
-	helper_buffer->priv_virt = cma_pages;
 
 	return dmabuf;
 
-free_pages:
-	kfree(helper_buffer->pages);
+vmperm_release:
+	mem_buf_vmperm_release(helper_buffer->vmperm);
+free_sgtable:
+	sg_free_table(&helper_buffer->sg_table);
 free_cma:
 	cma_release(cma_heap->cma, cma_pages, nr_pages);
 free_buf:
