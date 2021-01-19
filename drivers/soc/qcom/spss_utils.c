@@ -791,22 +791,20 @@ static int spss_parse_dt(struct device_node *node)
 		(int) spss_fuse2_addr, (int) spss_fuse2_bit);
 
 	spss_fuse1_reg = ioremap(spss_fuse1_addr, sizeof(u32));
-
 	if (!spss_fuse1_reg) {
 		pr_err("can't map fuse1 addr\n");
 		return -EINVAL;
 	}
+	val1 = readl_relaxed(spss_fuse1_reg);
+	iounmap(spss_fuse1_reg);
 
 	spss_fuse2_reg = ioremap(spss_fuse2_addr, sizeof(u32));
-
 	if (!spss_fuse2_reg) {
-		iounmap(spss_fuse1_reg);
 		pr_err("can't map fuse2 addr\n");
 		return -EINVAL;
 	}
-
-	val1 = readl_relaxed(spss_fuse1_reg);
 	val2 = readl_relaxed(spss_fuse2_reg);
+	iounmap(spss_fuse2_reg);
 
 	pr_debug("spss fuse1 value [0x%08x]\n", (int) val1);
 	pr_debug("spss fuse2 value [0x%08x]\n", (int) val2);
@@ -827,8 +825,6 @@ static int spss_parse_dt(struct device_node *node)
 	else
 		firmware_type = SPSS_FW_TYPE_PROD;
 
-	iounmap(spss_fuse1_reg);
-	iounmap(spss_fuse2_reg);
 
 	pr_debug("firmware_type value [%c]\n", firmware_type);
 
