@@ -18,6 +18,25 @@
 /* offset of clear register from the enable register */
 #define VBIF2_PERF_PWR_CLR_REG_EN_OFF 8
 
+static void a3xx_counter_load(struct adreno_device *adreno_dev,
+		struct adreno_perfcount_register *reg)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	int index = reg->load_bit / 32;
+	u32 enable = BIT(reg->load_bit & 31);
+
+	kgsl_regwrite(device, A3XX_RBBM_PERFCTR_LOAD_VALUE_LO,
+		lower_32_bits(reg->value));
+
+	kgsl_regwrite(device, A3XX_RBBM_PERFCTR_LOAD_VALUE_HI,
+		upper_32_bits(reg->value));
+
+	if (index == 0)
+		kgsl_regwrite(device, A3XX_RBBM_PERFCTR_LOAD_CMD0, enable);
+	else
+		kgsl_regwrite(device, A3XX_RBBM_PERFCTR_LOAD_CMD1, enable);
+}
+
 static int a3xx_counter_enable(struct adreno_device *adreno_dev,
 		const struct adreno_perfcount_group *group,
 		unsigned int counter, unsigned int countable)
@@ -350,46 +369,39 @@ static struct adreno_perfcount_register a3xx_perfcounters_vbif2_pwr[] = {
 		A3XX_VBIF2_PERF_PWR_CNT_EN2 },
 };
 
-#define A3XX_PERFCOUNTER_GROUP(offset, name, enable, read) \
-	ADRENO_PERFCOUNTER_GROUP(a3xx, offset, name, enable, read)
+#define A3XX_PERFCOUNTER_GROUP(offset, name, enable, read, load) \
+	ADRENO_PERFCOUNTER_GROUP(a3xx, offset, name, enable, read, load)
 
-#define A3XX_PERFCOUNTER_GROUP_FLAGS(offset, name, flags, enable, read) \
-	ADRENO_PERFCOUNTER_GROUP_FLAGS(a3xx, offset, name, flags, enable, read)
+#define A3XX_PERFCOUNTER_GROUP_FLAGS(offset, name, flags, enable, read, load) \
+	ADRENO_PERFCOUNTER_GROUP_FLAGS(a3xx, offset, name, flags, enable, read, load)
+
+#define A3XX_REGULAR_PERFCOUNTER_GROUP(offset, name) \
+	A3XX_PERFCOUNTER_GROUP(offset, name, a3xx_counter_enable,\
+		a3xx_counter_read, a3xx_counter_load)
 
 static const struct adreno_perfcount_group
 a3xx_perfcounter_groups[KGSL_PERFCOUNTER_GROUP_MAX] = {
-	A3XX_PERFCOUNTER_GROUP(CP, cp,
-		a3xx_counter_enable, a3xx_counter_read),
-	A3XX_PERFCOUNTER_GROUP(RBBM, rbbm,
-		a3xx_counter_enable, a3xx_counter_read),
-	A3XX_PERFCOUNTER_GROUP(PC, pc,
-		a3xx_counter_enable, a3xx_counter_read),
-	A3XX_PERFCOUNTER_GROUP(VFD, vfd,
-		a3xx_counter_enable, a3xx_counter_read),
-	A3XX_PERFCOUNTER_GROUP(HLSQ, hlsq,
-		a3xx_counter_enable, a3xx_counter_read),
-	A3XX_PERFCOUNTER_GROUP(VPC, vpc,
-		a3xx_counter_enable, a3xx_counter_read),
-	A3XX_PERFCOUNTER_GROUP(TSE, tse,
-		a3xx_counter_enable, a3xx_counter_read),
-	A3XX_PERFCOUNTER_GROUP(RAS, ras,
-		a3xx_counter_enable, a3xx_counter_read),
-	A3XX_PERFCOUNTER_GROUP(UCHE, uche,
-		a3xx_counter_enable, a3xx_counter_read),
-	A3XX_PERFCOUNTER_GROUP(TP, tp,
-		a3xx_counter_enable, a3xx_counter_read),
-	A3XX_PERFCOUNTER_GROUP(SP, sp,
-		a3xx_counter_enable, a3xx_counter_read),
-	A3XX_PERFCOUNTER_GROUP(RB, rb,
-		a3xx_counter_enable, a3xx_counter_read),
+	A3XX_REGULAR_PERFCOUNTER_GROUP(CP, cp),
+	A3XX_REGULAR_PERFCOUNTER_GROUP(RBBM, rbbm),
+	A3XX_REGULAR_PERFCOUNTER_GROUP(PC, pc),
+	A3XX_REGULAR_PERFCOUNTER_GROUP(VFD, vfd),
+	A3XX_REGULAR_PERFCOUNTER_GROUP(HLSQ, hlsq),
+	A3XX_REGULAR_PERFCOUNTER_GROUP(VPC, vpc),
+	A3XX_REGULAR_PERFCOUNTER_GROUP(TSE, tse),
+	A3XX_REGULAR_PERFCOUNTER_GROUP(RAS, ras),
+	A3XX_REGULAR_PERFCOUNTER_GROUP(UCHE, uche),
+	A3XX_REGULAR_PERFCOUNTER_GROUP(TP, tp),
+	A3XX_REGULAR_PERFCOUNTER_GROUP(SP, sp),
+	A3XX_REGULAR_PERFCOUNTER_GROUP(RB, rb),
 	A3XX_PERFCOUNTER_GROUP_FLAGS(PWR, pwr,
 		ADRENO_PERFCOUNTER_GROUP_FIXED,
-		a3xx_counter_pwr_enable, a3xx_counter_pwr_read),
+		a3xx_counter_pwr_enable, a3xx_counter_pwr_read, NULL),
 	A3XX_PERFCOUNTER_GROUP(VBIF, vbif2,
-		a3xx_counter_vbif_enable, a3xx_counter_vbif_read),
+		a3xx_counter_vbif_enable, a3xx_counter_vbif_read, NULL),
 	A3XX_PERFCOUNTER_GROUP_FLAGS(VBIF_PWR, vbif2_pwr,
 		ADRENO_PERFCOUNTER_GROUP_FIXED,
-		a3xx_counter_vbif_pwr_enable, a3xx_counter_vbif_pwr_read),
+		a3xx_counter_vbif_pwr_enable, a3xx_counter_vbif_pwr_read,
+		NULL),
 
 };
 

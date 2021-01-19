@@ -218,7 +218,7 @@ static struct a6xx_non_ctx_dbgahb_registers {
 		ARRAY_SIZE(a6xx_tp_non_ctx_registers) / 2 },
 };
 
-static const unsigned int a6xx_vbif_ver_20xxxxxx_registers[] = {
+static const unsigned int a6xx_vbif_registers[] = {
 	/* VBIF */
 	0x3000, 0x3007, 0x300C, 0x3014, 0x3018, 0x302D, 0x3030, 0x3031,
 	0x3034, 0x3036, 0x303C, 0x303D, 0x3040, 0x3040, 0x3042, 0x3042,
@@ -246,12 +246,6 @@ static const unsigned int a6xx_rb_rac_registers[] = {
 static const unsigned int a6xx_rb_rbp_registers[] = {
 	0x8E01, 0x8E01, 0x8E0C, 0x8E0C, 0x8E3B, 0x8E3E, 0x8E40, 0x8E43,
 	0x8E53, 0x8E5F, 0x8E70, 0x8E77,
-};
-
-static const struct adreno_vbif_snapshot_registers
-a6xx_vbif_snapshot_registers[] = {
-	{ 0x20040000, 0xFF000000, a6xx_vbif_ver_20xxxxxx_registers,
-				ARRAY_SIZE(a6xx_vbif_ver_20xxxxxx_registers)/2},
 };
 
 /*
@@ -1734,6 +1728,31 @@ static size_t snapshot_preemption_record(struct kgsl_device *device,
 	return A6XX_SNAPSHOT_CP_CTXRECORD_SIZE_IN_BYTES + sizeof(*header);
 }
 
+static size_t a6xx_snapshot_cp_roq(struct kgsl_device *device, u8 *buf,
+		size_t remain, void *priv)
+{
+	struct kgsl_snapshot_debug *header = (struct kgsl_snapshot_debug *) buf;
+	u32 size, *data = (u32 *) (buf + sizeof(*header));
+	int i;
+
+	kgsl_regread(device, A6XX_CP_ROQ_THRESHOLDS_2, &size);
+	size >>= 14;
+
+	if (remain < DEBUG_SECTION_SZ(size)) {
+		SNAPSHOT_ERR_NOMEM(device, "CP ROQ DEBUG");
+		return 0;
+	}
+
+	header->type = SNAPSHOT_DEBUG_CP_ROQ;
+	header->size = size;
+
+	kgsl_regwrite(device, A6XX_CP_ROQ_DBG_ADDR, 0x0);
+	for (i = 0; i < size; i++)
+		kgsl_regread(device, A6XX_CP_ROQ_DBG_DATA, &data[i]);
+
+	return DEBUG_SECTION_SZ(size);
+}
+
 /*
  * a6xx_snapshot() - A6XX GPU snapshot function
  * @adreno_dev: Device being snapshotted
@@ -1746,10 +1765,9 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 		struct kgsl_snapshot *snapshot)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct adreno_ringbuffer *rb;
-	bool sptprac_on = true;
-	unsigned int i, roq_size;
+	bool sptprac_on;
+	unsigned int i;
 	u32 hi, lo;
 
 	/*
@@ -1786,8 +1804,7 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 				ARRAY_SIZE(a6xx_gmu_wrapper_registers) / 2);
 	}
 
-	if (gpudev->sptprac_is_on)
-		sptprac_on = gpudev->sptprac_is_on(adreno_dev);
+	sptprac_on = a6xx_gmu_sptprac_is_on(adreno_dev);
 
 	if (!gmu_core_dev_gx_is_on(device))
 		return;
@@ -1815,9 +1832,7 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 
 	/* Dump vbif registers as well which get affected by crash dumper */
 	if (!adreno_has_gbif(adreno_dev))
-		adreno_snapshot_vbif_registers(device, snapshot,
-			a6xx_vbif_snapshot_registers,
-			ARRAY_SIZE(a6xx_vbif_snapshot_registers));
+		SNAPSHOT_REGISTERS(device, snapshot, a6xx_vbif_registers);
 	else
 		adreno_snapshot_registers(device, snapshot,
 			a6xx_gbif_registers,
@@ -1853,6 +1868,8 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 
 	/* CP LPAC indexed registers */
 	if (adreno_is_a660(adreno_dev)) {
+		u32 roq_size;
+
 		kgsl_snapshot_indexed_registers(device, snapshot,
 			 A6XX_CP_SQE_AC_STAT_ADDR, A6XX_CP_SQE_AC_STAT_DATA,
 				0, 0x33);
@@ -1878,10 +1895,8 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 	 * in CP_ROQ_THRESHOLDS_2[31:16]. Read the value and convert to
 	 * dword units.
 	 */
-	kgsl_regread(device, A6XX_CP_ROQ_THRESHOLDS_2, &roq_size);
-	roq_size = roq_size >> 14;
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_DEBUG,
-		snapshot, adreno_snapshot_cp_roq, &roq_size);
+		snapshot, a6xx_snapshot_cp_roq, NULL);
 
 	/* SQE Firmware */
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_DEBUG,

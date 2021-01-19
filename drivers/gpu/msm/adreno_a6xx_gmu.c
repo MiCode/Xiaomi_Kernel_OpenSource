@@ -917,6 +917,10 @@ int a6xx_gmu_sptprac_enable(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
 
+	/* Only certain targets have sptprac */
+	if (!adreno_is_a630(adreno_dev) && !adreno_is_a615_family(adreno_dev))
+		return 0;
+
 	if (adreno_is_a619_holi(adreno_dev)) {
 		u32 val;
 		void __iomem *addr = adreno_dev->gmu_wrapper_virt +
@@ -943,10 +947,7 @@ int a6xx_gmu_sptprac_enable(struct adreno_device *adreno_dev)
 		return 0;
 	}
 
-	if (!gmu_core_gpmu_isenabled(device) ||
-			!adreno_has_sptprac_gdsc(adreno_dev))
-		return 0;
-
+	/* GMU enabled a630 and a615 targets */
 	gmu_core_regwrite(device, A6XX_GMU_GX_SPTPRAC_POWER_CONTROL,
 			SPTPRAC_POWERON_CTRL_MASK);
 
@@ -971,6 +972,10 @@ void a6xx_gmu_sptprac_disable(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
+
+	/* Only certain targets have sptprac */
+	if (!adreno_is_a630(adreno_dev) && !adreno_is_a615_family(adreno_dev))
+		return;
 
 	if (adreno_is_a619_holi(adreno_dev)) {
 		u32 val;
@@ -1001,9 +1006,7 @@ void a6xx_gmu_sptprac_disable(struct adreno_device *adreno_dev)
 		return;
 	}
 
-	if (!gmu_core_gpmu_isenabled(device) ||
-			!adreno_has_sptprac_gdsc(adreno_dev))
-		return;
+	/* GMU enabled a630 and a615 targets */
 
 	/* Ensure that retention is on */
 	gmu_core_regrmw(device, A6XX_GPU_CC_GX_GDSCR, 0,
@@ -1045,14 +1048,15 @@ bool a6xx_gmu_sptprac_is_on(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned int val;
 
-	if (gmu_core_isenabled(device))
-		gmu_core_regread(device, A6XX_GMU_SPTPRAC_PWR_CLK_STATUS,
-			&val);
-	else if (adreno_is_a619_holi(adreno_dev))
+	if (!adreno_is_a630(adreno_dev) && !adreno_is_a615_family(adreno_dev))
+		return true;
+
+	if (adreno_is_a619_holi(adreno_dev))
 		adreno_read_gmu_wrapper(adreno_dev,
 			A6XX_GMU_SPTPRAC_PWR_CLK_STATUS, &val);
 	else
-		return true;
+		gmu_core_regread(device, A6XX_GMU_SPTPRAC_PWR_CLK_STATUS,
+			&val);
 
 	return !(val & (SPTPRAC_POWER_OFF | SP_CLK_OFF));
 }
@@ -2877,7 +2881,8 @@ static int a6xx_gpu_boot(struct adreno_device *adreno_dev)
 	if (ret)
 		goto oob_clear;
 
-	adreno_clear_dcvs_counters(adreno_dev);
+	/* Clear the busy_data stats - we're starting over from scratch */
+	memset(&adreno_dev->busy_data, 0, sizeof(adreno_dev->busy_data));
 
 	/* Restore performance counter registers with saved values */
 	adreno_perfcounter_restore(adreno_dev);
@@ -2967,7 +2972,6 @@ static int a6xx_first_boot(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
 	int ret;
-	unsigned long priv = 0;
 
 	if (test_bit(GMU_PRIV_FIRST_BOOT_DONE, &gmu->flags))
 		return a6xx_boot(adreno_dev);
@@ -3007,16 +3011,7 @@ static int a6xx_first_boot(struct adreno_device *adreno_dev)
 	adreno_dev->cooperative_reset = ADRENO_FEATURE(adreno_dev,
 						 ADRENO_COOP_RESET);
 
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_APRIV))
-		priv |= KGSL_MEMDESC_PRIVILEGED;
-
-	adreno_dev->profile_buffer = kgsl_allocate_global(device, PAGE_SIZE, 0,
-			0, priv, "alwayson");
-
-	adreno_dev->profile_index = 0;
-
-	if (!IS_ERR(adreno_dev->profile_buffer))
-		set_bit(ADRENO_DEVICE_DRAWOBJ_PROFILE, &adreno_dev->priv);
+	adreno_create_profile_buffer(adreno_dev);
 
 	set_bit(GMU_PRIV_FIRST_BOOT_DONE, &gmu->flags);
 	set_bit(GMU_PRIV_GPU_STARTED, &gmu->flags);

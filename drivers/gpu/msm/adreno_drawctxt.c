@@ -6,7 +6,6 @@
 #include <linux/debugfs.h>
 
 #include "adreno.h"
-#include "adreno_iommu.h"
 #include "adreno_trace.h"
 
 static void wait_callback(struct kgsl_device *device,
@@ -567,66 +566,14 @@ static void _drawctxt_switch_wait_callback(struct kgsl_device *device,
 	kgsl_context_put(&drawctxt->base);
 }
 
-/**
- * adreno_drawctxt_switch - switch the current draw context in a given RB
- * @adreno_dev - The 3D device that owns the context
- * @rb: The ringubffer pointer on which the current context is being changed
- * @drawctxt - the 3D context to switch to
- *
- * Switch the current draw context in given RB
- */
-
-int adreno_drawctxt_switch(struct adreno_device *adreno_dev,
-				struct adreno_ringbuffer *rb,
-				struct adreno_context *drawctxt)
+void adreno_put_drawctxt_on_timestamp(struct kgsl_device *device,
+		struct adreno_context *drawctxt,
+		struct adreno_ringbuffer *rb, u32 timestamp)
 {
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct kgsl_pagetable *new_pt;
-	int ret = 0;
+	if (!drawctxt)
+		return;
 
-	/* We always expect a valid rb */
-	if (!rb)
-		return -EINVAL;
-
-	/* already current? */
-	if (rb->drawctxt_active == drawctxt)
-		return ret;
-
-	/*
-	 * Submitting pt switch commands from a detached context can
-	 * lead to a race condition where the pt is destroyed before
-	 * the pt switch commands get executed by the GPU, leading to
-	 * pagefaults.
-	 */
-	if (drawctxt != NULL && kgsl_context_detached(&drawctxt->base))
-		return -ENOENT;
-
-	trace_adreno_drawctxt_switch(rb, drawctxt);
-
-	/* Get a refcount to the new instance */
-	if (drawctxt) {
-		if (!_kgsl_context_get(&drawctxt->base))
-			return -ENOENT;
-
-		new_pt = drawctxt->base.proc_priv->pagetable;
-	} else {
-		 /* No context - set the default pagetable and thats it. */
-		new_pt = device->mmu.defaultpagetable;
-	}
-
-	ret = adreno_iommu_set_pt_ctx(rb, new_pt, drawctxt);
-	if (ret)
-		return ret;
-
-	if (rb->drawctxt_active) {
-		/* Wait for the timestamp to expire */
-		if (kgsl_add_event(device, &rb->events, rb->timestamp,
-			_drawctxt_switch_wait_callback,
-			rb->drawctxt_active)) {
-			kgsl_context_put(&rb->drawctxt_active->base);
-		}
-	}
-
-	rb->drawctxt_active = drawctxt;
-	return 0;
+	if (kgsl_add_event(device, &rb->events, timestamp,
+		_drawctxt_switch_wait_callback, drawctxt))
+		kgsl_context_put(&drawctxt->base);
 }

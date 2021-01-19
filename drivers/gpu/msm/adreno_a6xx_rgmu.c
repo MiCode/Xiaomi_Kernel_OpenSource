@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/clk-provider.h>
@@ -753,7 +753,8 @@ static int a6xx_gpu_boot(struct adreno_device *adreno_dev)
 	if (ret)
 		goto err_oob_clear;
 
-	adreno_clear_dcvs_counters(adreno_dev);
+	/* Clear the busy_data stats - we're starting over from scratch */
+	memset(&adreno_dev->busy_data, 0, sizeof(adreno_dev->busy_data));
 
 	/* Restore performance counter registers with saved values */
 	adreno_perfcounter_restore(adreno_dev);
@@ -990,13 +991,7 @@ static int a6xx_first_boot(struct adreno_device *adreno_dev)
 
 	adreno_get_bus_counters(adreno_dev);
 
-	adreno_dev->profile_buffer = kgsl_allocate_global(device, PAGE_SIZE, 0,
-				0, 0, "alwayson");
-
-	adreno_dev->profile_index = 0;
-
-	if (!IS_ERR(adreno_dev->profile_buffer))
-		set_bit(ADRENO_DEVICE_DRAWOBJ_PROFILE, &adreno_dev->priv);
+	adreno_create_profile_buffer(adreno_dev);
 
 	set_bit(RGMU_PRIV_FIRST_BOOT_DONE, &rgmu->flags);
 	set_bit(RGMU_PRIV_GPU_STARTED, &rgmu->flags);

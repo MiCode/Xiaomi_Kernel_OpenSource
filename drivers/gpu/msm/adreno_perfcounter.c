@@ -15,50 +15,6 @@ static inline int active_countable(unsigned int countable)
 }
 
 /**
- * adreno_perfcounter_write() - Write the physical performance
- * counter values.
- * @adreno_dev -  Adreno device whose registers are to be written to.
- * @reg - register address of the physical counter to which the value is
- *		written to.
- *
- * This function loads the 64 bit saved value into the particular physical
- * counter by enabling the corresponding bit in A3XX_RBBM_PERFCTR_LOAD_CMD*
- * register.
- */
-static void adreno_perfcounter_write(struct adreno_device *adreno_dev,
-		struct adreno_perfcount_register *reg)
-{
-	unsigned int val, i;
-	int cmd[] = { ADRENO_REG_RBBM_PERFCTR_LOAD_CMD0,
-		ADRENO_REG_RBBM_PERFCTR_LOAD_CMD1,
-		ADRENO_REG_RBBM_PERFCTR_LOAD_CMD2,
-		ADRENO_REG_RBBM_PERFCTR_LOAD_CMD3 };
-
-	/* If not loadable then return quickly */
-	if (reg->load_bit < 0)
-		return;
-
-	/* Get the offset/cmd for loading */
-	i = reg->load_bit / 32;
-
-	/* Get the register bit offset for loading */
-	val = BIT(reg->load_bit & 31);
-
-	/* Write the saved value to PERFCTR_LOAD_VALUE* registers. */
-	adreno_writereg64(adreno_dev, ADRENO_REG_RBBM_PERFCTR_LOAD_VALUE_LO,
-			  ADRENO_REG_RBBM_PERFCTR_LOAD_VALUE_HI, reg->value);
-
-	/*
-	 * Set the load bit in PERFCTR_LOAD_CMD for the physical counter
-	 * we want to restore. The value in PERFCTR_LOAD_VALUE* is loaded
-	 * into the corresponding physical counter. The value for the select
-	 * register gets cleared once RBBM reads it so no need to clear the
-	 * select register afterwards.
-	 */
-	adreno_writereg(adreno_dev, cmd[i], val);
-}
-
-/**
  * adreno_perfcounter_restore() - Restore performance counters
  * @adreno_dev: adreno device to configure
  *
@@ -78,14 +34,16 @@ void adreno_perfcounter_restore(struct adreno_device *adreno_dev)
 	for (groupid = 0; groupid < counters->group_count; groupid++) {
 		group = &(counters->groups[groupid]);
 
+		if (!group->load)
+			continue;
+
 		/* Restore the counters for the group */
 		for (counter = 0; counter < group->reg_count; counter++) {
 			/* If not active or broken, skip this counter */
 			if (!active_countable(group->regs[counter].countable))
 				continue;
 
-			adreno_perfcounter_write(adreno_dev,
-					&group->regs[counter]);
+			group->load(adreno_dev, &group->regs[counter]);
 		}
 	}
 }

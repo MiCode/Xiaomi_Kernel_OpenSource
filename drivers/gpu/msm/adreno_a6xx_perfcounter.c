@@ -29,6 +29,29 @@
 #define GBIF_PWR_SEL_RMW_MASK    0xFF
 #define GBIF_PWR_EN_CLR_RMW_MASK 0x10000
 
+static void a6xx_counter_load(struct adreno_device *adreno_dev,
+		struct adreno_perfcount_register *reg)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	int index = reg->load_bit / 32;
+	u32 enable = BIT(reg->load_bit & 31);
+
+	/*
+	 * a650 and a660 currently have the perfcounter values saved via
+	 * retention in the GMU.
+	 */
+	if (adreno_is_a650(adreno_dev) || adreno_is_a660(adreno_dev))
+		return;
+
+	kgsl_regwrite(device, A6XX_RBBM_PERFCTR_LOAD_VALUE_LO,
+		lower_32_bits(reg->value));
+
+	kgsl_regwrite(device, A6XX_RBBM_PERFCTR_LOAD_VALUE_HI,
+		upper_32_bits(reg->value));
+
+	kgsl_regwrite(device, A6XX_RBBM_PERFCTR_LOAD_CMD0 + index, enable);
+}
+
 /*
  * For registers that do not get restored on power cycle, read the value and add
  * the stored shadow value
@@ -89,7 +112,8 @@ static int a6xx_counter_inline_enable(struct adreno_device *adreno_dev,
 	cmds[2] = countable;
 
 	/* submit to highest priority RB always */
-	ret = adreno_ringbuffer_issue_internal_cmds(rb, cmds, 3);
+	ret = a6xx_ringbuffer_addcmds(adreno_dev, rb, NULL,
+		F_NOTPROTECTED, cmds, 3, 0, NULL);
 	if (ret)
 		return ret;
 
@@ -782,149 +806,121 @@ static struct adreno_perfcount_register a6xx_perfcounters_alwayson[] = {
  * not restored as part of preemption and IFPC should be defined
  * using A6XX_PERFCOUNTER_GROUP_FLAGS macro
  */
-#define A6XX_PERFCOUNTER_GROUP(offset, name, enable, read) \
+#define A6XX_PERFCOUNTER_GROUP(offset, name, enable, read, load) \
 	ADRENO_PERFCOUNTER_GROUP_FLAGS(a6xx, offset, name, \
-	ADRENO_PERFCOUNTER_GROUP_RESTORE, enable, read)
+	ADRENO_PERFCOUNTER_GROUP_RESTORE, enable, read, load)
 
-#define A6XX_PERFCOUNTER_GROUP_FLAGS(offset, name, flags, enable, read) \
-	ADRENO_PERFCOUNTER_GROUP_FLAGS(a6xx, offset, name, flags, enable, read)
+#define A6XX_PERFCOUNTER_GROUP_FLAGS(offset, name, flags, enable, read, load) \
+	ADRENO_PERFCOUNTER_GROUP_FLAGS(a6xx, offset, name, flags, enable, \
+			read, load)
+
+#define A6XX_REGULAR_PERFCOUNTER_GROUP(offset, name) \
+	A6XX_PERFCOUNTER_GROUP(offset, name, \
+		a6xx_counter_enable, a6xx_counter_read, a6xx_counter_load)
 
 static const struct adreno_perfcount_group a630_perfcounter_groups
 				[KGSL_PERFCOUNTER_GROUP_MAX] = {
-	A6XX_PERFCOUNTER_GROUP(CP, cp,
-		a6xx_counter_enable, a6xx_counter_read),
+	A6XX_REGULAR_PERFCOUNTER_GROUP(CP, cp),
 	A6XX_PERFCOUNTER_GROUP_FLAGS(RBBM, rbbm, 0,
-		a6xx_counter_enable, a6xx_counter_read),
-	A6XX_PERFCOUNTER_GROUP(PC, pc,
-		a6xx_counter_enable, a6xx_counter_read),
-	A6XX_PERFCOUNTER_GROUP(VFD, vfd,
-		a6xx_counter_enable, a6xx_counter_read),
-	A6XX_PERFCOUNTER_GROUP(HLSQ, hlsq,
-		a6xx_counter_inline_enable, a6xx_counter_read),
-	A6XX_PERFCOUNTER_GROUP(VPC, vpc,
-		a6xx_counter_enable, a6xx_counter_read),
-	A6XX_PERFCOUNTER_GROUP(CCU, ccu,
-		a6xx_counter_enable, a6xx_counter_read),
-	A6XX_PERFCOUNTER_GROUP(CMP, cmp,
-		a6xx_counter_enable, a6xx_counter_read),
-	A6XX_PERFCOUNTER_GROUP(TSE, tse,
-		a6xx_counter_enable, a6xx_counter_read),
-	A6XX_PERFCOUNTER_GROUP(RAS, ras,
-		a6xx_counter_enable, a6xx_counter_read),
-	A6XX_PERFCOUNTER_GROUP(LRZ, lrz,
-		a6xx_counter_enable, a6xx_counter_read),
-	A6XX_PERFCOUNTER_GROUP(UCHE, uche,
-		a6xx_counter_enable, a6xx_counter_read),
-	A6XX_PERFCOUNTER_GROUP(TP, tp,
-		a6xx_counter_inline_enable, a6xx_counter_read),
-	A6XX_PERFCOUNTER_GROUP(SP, sp,
-		a6xx_counter_inline_enable, a6xx_counter_read),
-	A6XX_PERFCOUNTER_GROUP(RB, rb,
-		a6xx_counter_enable, a6xx_counter_read),
-	A6XX_PERFCOUNTER_GROUP(VSC, vsc,
-		a6xx_counter_enable, a6xx_counter_read),
+		a6xx_counter_enable, a6xx_counter_read, a6xx_counter_load),
+	A6XX_REGULAR_PERFCOUNTER_GROUP(PC, pc),
+	A6XX_REGULAR_PERFCOUNTER_GROUP(VFD, vfd),
+	A6XX_PERFCOUNTER_GROUP(HLSQ, hlsq, a6xx_counter_inline_enable,
+			a6xx_counter_read, a6xx_counter_load),
+	A6XX_REGULAR_PERFCOUNTER_GROUP(VPC, vpc),
+	A6XX_REGULAR_PERFCOUNTER_GROUP(CCU, ccu),
+	A6XX_REGULAR_PERFCOUNTER_GROUP(CMP, cmp),
+	A6XX_REGULAR_PERFCOUNTER_GROUP(TSE, tse),
+	A6XX_REGULAR_PERFCOUNTER_GROUP(RAS, ras),
+	A6XX_REGULAR_PERFCOUNTER_GROUP(LRZ, lrz),
+	A6XX_REGULAR_PERFCOUNTER_GROUP(UCHE, uche),
+	A6XX_PERFCOUNTER_GROUP(TP, tp, a6xx_counter_inline_enable,
+			a6xx_counter_read, a6xx_counter_load),
+	A6XX_PERFCOUNTER_GROUP(SP, sp, a6xx_counter_inline_enable,
+			a6xx_counter_read, a6xx_counter_load),
+	A6XX_REGULAR_PERFCOUNTER_GROUP(RB, rb),
+	A6XX_REGULAR_PERFCOUNTER_GROUP(VSC, vsc),
 	A6XX_PERFCOUNTER_GROUP_FLAGS(VBIF, vbif, 0,
-		a630_counter_vbif_enable, a6xx_counter_read_norestore),
+		a630_counter_vbif_enable, a6xx_counter_read_norestore, NULL),
 	A6XX_PERFCOUNTER_GROUP_FLAGS(VBIF_PWR, vbif_pwr,
-		ADRENO_PERFCOUNTER_GROUP_FIXED,
-		a630_counter_vbif_pwr_enable, a6xx_counter_read_norestore),
+		ADRENO_PERFCOUNTER_GROUP_FIXED, a630_counter_vbif_pwr_enable,
+		a6xx_counter_read_norestore, NULL),
 	A6XX_PERFCOUNTER_GROUP_FLAGS(ALWAYSON, alwayson,
 		ADRENO_PERFCOUNTER_GROUP_FIXED,
-		a6xx_counter_alwayson_enable, a6xx_counter_alwayson_read),
+		a6xx_counter_alwayson_enable, a6xx_counter_alwayson_read, NULL),
 };
 
 static const struct adreno_perfcount_group
 a6xx_legacy_perfcounter_groups [KGSL_PERFCOUNTER_GROUP_MAX] = {
-	A6XX_PERFCOUNTER_GROUP(CP, cp,
-		a6xx_counter_enable, a6xx_counter_read),
+	A6XX_REGULAR_PERFCOUNTER_GROUP(CP, cp),
 	A6XX_PERFCOUNTER_GROUP_FLAGS(RBBM, rbbm, 0,
-		a6xx_counter_enable, a6xx_counter_read),
-	A6XX_PERFCOUNTER_GROUP(PC, pc,
-		a6xx_counter_enable, a6xx_counter_read),
-	A6XX_PERFCOUNTER_GROUP(VFD, vfd,
-		a6xx_counter_enable, a6xx_counter_read),
-	A6XX_PERFCOUNTER_GROUP(HLSQ, hlsq,
-		a6xx_counter_inline_enable, a6xx_counter_read),
-	A6XX_PERFCOUNTER_GROUP(VPC, vpc,
-		a6xx_counter_enable, a6xx_counter_read),
-	A6XX_PERFCOUNTER_GROUP(CCU, ccu,
-		a6xx_counter_enable, a6xx_counter_read),
-	A6XX_PERFCOUNTER_GROUP(CMP, cmp,
-		a6xx_counter_enable, a6xx_counter_read),
-	A6XX_PERFCOUNTER_GROUP(TSE, tse,
-		a6xx_counter_enable, a6xx_counter_read),
-	A6XX_PERFCOUNTER_GROUP(RAS, ras,
-		a6xx_counter_enable, a6xx_counter_read),
-	A6XX_PERFCOUNTER_GROUP(LRZ, lrz,
-		a6xx_counter_enable, a6xx_counter_read),
-	A6XX_PERFCOUNTER_GROUP(UCHE, uche,
-		a6xx_counter_enable, a6xx_counter_read),
-	A6XX_PERFCOUNTER_GROUP(TP, tp,
-		a6xx_counter_inline_enable, a6xx_counter_read),
-	A6XX_PERFCOUNTER_GROUP(SP, sp,
-		a6xx_counter_inline_enable, a6xx_counter_read),
-	A6XX_PERFCOUNTER_GROUP(RB, rb,
-		a6xx_counter_enable, a6xx_counter_read),
-	A6XX_PERFCOUNTER_GROUP(VSC, vsc,
-		a6xx_counter_enable, a6xx_counter_read),
+		a6xx_counter_enable, a6xx_counter_read, a6xx_counter_load),
+	A6XX_REGULAR_PERFCOUNTER_GROUP(PC, pc),
+	A6XX_REGULAR_PERFCOUNTER_GROUP(VFD, vfd),
+	A6XX_PERFCOUNTER_GROUP(HLSQ, hlsq, a6xx_counter_inline_enable,
+			a6xx_counter_read, a6xx_counter_load),
+	A6XX_REGULAR_PERFCOUNTER_GROUP(VPC, vpc),
+	A6XX_REGULAR_PERFCOUNTER_GROUP(CCU, ccu),
+	A6XX_REGULAR_PERFCOUNTER_GROUP(CMP, cmp),
+	A6XX_REGULAR_PERFCOUNTER_GROUP(TSE, tse),
+	A6XX_REGULAR_PERFCOUNTER_GROUP(RAS, ras),
+	A6XX_REGULAR_PERFCOUNTER_GROUP(LRZ, lrz),
+	A6XX_REGULAR_PERFCOUNTER_GROUP(UCHE, uche),
+	A6XX_PERFCOUNTER_GROUP(TP, tp, a6xx_counter_inline_enable,
+			a6xx_counter_read, a6xx_counter_load),
+	A6XX_PERFCOUNTER_GROUP(SP, sp, a6xx_counter_inline_enable,
+			a6xx_counter_read, a6xx_counter_load),
+	A6XX_REGULAR_PERFCOUNTER_GROUP(RB, rb),
+	A6XX_REGULAR_PERFCOUNTER_GROUP(VSC, vsc),
 	A6XX_PERFCOUNTER_GROUP_FLAGS(VBIF, gbif, 0,
-		a6xx_counter_gbif_enable, a6xx_counter_read_norestore),
+		a6xx_counter_gbif_enable, a6xx_counter_read_norestore, NULL),
 	A6XX_PERFCOUNTER_GROUP_FLAGS(VBIF_PWR, gbif_pwr,
-		ADRENO_PERFCOUNTER_GROUP_FIXED,
-		a6xx_counter_gbif_pwr_enable, a6xx_counter_read_norestore),
+		ADRENO_PERFCOUNTER_GROUP_FIXED, a6xx_counter_gbif_pwr_enable,
+		a6xx_counter_read_norestore, NULL),
 	A6XX_PERFCOUNTER_GROUP_FLAGS(ALWAYSON, alwayson,
 		ADRENO_PERFCOUNTER_GROUP_FIXED,
-		a6xx_counter_alwayson_enable, a6xx_counter_alwayson_read),
+		a6xx_counter_alwayson_enable, a6xx_counter_alwayson_read, NULL),
 };
 
 static const struct adreno_perfcount_group a6xx_perfcounter_groups
 				[KGSL_PERFCOUNTER_GROUP_MAX] = {
-	A6XX_PERFCOUNTER_GROUP(CP, cp,
-		a6xx_counter_enable, a6xx_counter_read),
+	A6XX_REGULAR_PERFCOUNTER_GROUP(CP, cp),
 	A6XX_PERFCOUNTER_GROUP_FLAGS(RBBM, rbbm, 0,
-		a6xx_counter_enable, a6xx_counter_read),
-	A6XX_PERFCOUNTER_GROUP(PC, pc,
-		a6xx_counter_enable, a6xx_counter_read),
-	A6XX_PERFCOUNTER_GROUP(VFD, vfd,
-		a6xx_counter_enable, a6xx_counter_read),
-	A6XX_PERFCOUNTER_GROUP(HLSQ, hlsq,
-		a6xx_counter_inline_enable, a6xx_counter_read),
-	A6XX_PERFCOUNTER_GROUP(VPC, vpc,
-		a6xx_counter_enable, a6xx_counter_read),
-	A6XX_PERFCOUNTER_GROUP(CCU, ccu,
-		a6xx_counter_enable, a6xx_counter_read),
-	A6XX_PERFCOUNTER_GROUP(CMP, cmp,
-		a6xx_counter_enable, a6xx_counter_read),
-	A6XX_PERFCOUNTER_GROUP(TSE, tse,
-		a6xx_counter_enable, a6xx_counter_read),
-	A6XX_PERFCOUNTER_GROUP(RAS, ras,
-		a6xx_counter_enable, a6xx_counter_read),
-	A6XX_PERFCOUNTER_GROUP(LRZ, lrz,
-		a6xx_counter_enable, a6xx_counter_read),
-	A6XX_PERFCOUNTER_GROUP(UCHE, uche,
-		a6xx_counter_enable, a6xx_counter_read),
-	A6XX_PERFCOUNTER_GROUP(TP, tp,
-		a6xx_counter_inline_enable, a6xx_counter_read),
-	A6XX_PERFCOUNTER_GROUP(SP, sp,
-		a6xx_counter_inline_enable, a6xx_counter_read),
-	A6XX_PERFCOUNTER_GROUP(RB, rb,
-		a6xx_counter_enable, a6xx_counter_read),
-	A6XX_PERFCOUNTER_GROUP(VSC, vsc,
-		a6xx_counter_enable, a6xx_counter_read),
+		a6xx_counter_enable, a6xx_counter_read, a6xx_counter_load),
+	A6XX_REGULAR_PERFCOUNTER_GROUP(PC, pc),
+	A6XX_REGULAR_PERFCOUNTER_GROUP(VFD, vfd),
+	A6XX_PERFCOUNTER_GROUP(HLSQ, hlsq, a6xx_counter_inline_enable,
+			a6xx_counter_read, a6xx_counter_load),
+	A6XX_REGULAR_PERFCOUNTER_GROUP(VPC, vpc),
+	A6XX_REGULAR_PERFCOUNTER_GROUP(CCU, ccu),
+	A6XX_REGULAR_PERFCOUNTER_GROUP(CMP, cmp),
+	A6XX_REGULAR_PERFCOUNTER_GROUP(TSE, tse),
+	A6XX_REGULAR_PERFCOUNTER_GROUP(RAS, ras),
+	A6XX_REGULAR_PERFCOUNTER_GROUP(LRZ, lrz),
+	A6XX_REGULAR_PERFCOUNTER_GROUP(UCHE, uche),
+	A6XX_PERFCOUNTER_GROUP(TP, tp, a6xx_counter_inline_enable,
+			a6xx_counter_read, a6xx_counter_load),
+	A6XX_PERFCOUNTER_GROUP(SP, sp, a6xx_counter_inline_enable,
+			a6xx_counter_read, a6xx_counter_load),
+	A6XX_REGULAR_PERFCOUNTER_GROUP(RB, rb),
+	A6XX_REGULAR_PERFCOUNTER_GROUP(VSC, vsc),
 	A6XX_PERFCOUNTER_GROUP_FLAGS(VBIF, gbif, 0,
-		a6xx_counter_gbif_enable, a6xx_counter_read_norestore),
+		a6xx_counter_gbif_enable, a6xx_counter_read_norestore, NULL),
 	A6XX_PERFCOUNTER_GROUP_FLAGS(VBIF_PWR, gbif_pwr,
-		ADRENO_PERFCOUNTER_GROUP_FIXED,
-		a6xx_counter_gbif_pwr_enable, a6xx_counter_read_norestore),
+		ADRENO_PERFCOUNTER_GROUP_FIXED, a6xx_counter_gbif_pwr_enable,
+		a6xx_counter_read_norestore, NULL),
 	A6XX_PERFCOUNTER_GROUP_FLAGS(ALWAYSON, alwayson,
 		ADRENO_PERFCOUNTER_GROUP_FIXED,
-		a6xx_counter_alwayson_enable, a6xx_counter_alwayson_read),
+		a6xx_counter_alwayson_enable, a6xx_counter_alwayson_read, NULL),
 	A6XX_PERFCOUNTER_GROUP_FLAGS(GMU_XOCLK, gmu_xoclk, 0,
-		a6xx_counter_gmu_xoclk_enable, a6xx_counter_read_norestore),
+		a6xx_counter_gmu_xoclk_enable, a6xx_counter_read_norestore,
+		NULL),
 	A6XX_PERFCOUNTER_GROUP_FLAGS(GMU_GMUCLK, gmu_gmuclk, 0,
-		a6xx_counter_gmu_gmuclk_enable, a6xx_counter_read_norestore),
+		a6xx_counter_gmu_gmuclk_enable, a6xx_counter_read_norestore,
+		NULL),
 	A6XX_PERFCOUNTER_GROUP_FLAGS(GMU_PERF, gmu_perf, 0,
-		a6xx_counter_gmu_perf_enable, a6xx_counter_read_norestore),
+		a6xx_counter_gmu_perf_enable, a6xx_counter_read_norestore,
+		NULL),
 };
 
 /* a610, a612, a616, a618 and a619 do not have the GMU registers.

@@ -154,6 +154,7 @@ _drawqueue_inflight(struct adreno_dispatcher_drawqueue *drawqueue)
 
 static void fault_detect_read(struct adreno_device *adreno_dev)
 {
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	int i;
 
 	if (!test_bit(ADRENO_DEVICE_SOFT_FAULT_DETECT, &adreno_dev->priv))
@@ -166,97 +167,33 @@ static void fault_detect_read(struct adreno_device *adreno_dev)
 			KGSL_TIMESTAMP_RETIRED, &(rb->fault_detect_ts));
 	}
 
-	for (i = 0; i < adreno_ft_regs_num; i++) {
-		if (adreno_ft_regs[i] != 0)
-			kgsl_regread(KGSL_DEVICE(adreno_dev), adreno_ft_regs[i],
-				&adreno_ft_regs_val[i]);
+	for (i = 0; i < adreno_dev->soft_ft_count; i++) {
+		if (adreno_dev->soft_ft_regs[i])
+			kgsl_regread(device, adreno_dev->soft_ft_regs[i],
+				&adreno_dev->soft_ft_vals[i]);
 	}
 }
 
-/*
- * Check to see if the device is idle
- */
-static inline bool _isidle(struct adreno_device *adreno_dev)
-{
-	unsigned int reg_rbbm_status;
-	u32 mask;
-
-	if (!kgsl_state_is_awake(KGSL_DEVICE(adreno_dev)))
-		goto ret;
-
-	if (!adreno_rb_empty(adreno_dev->cur_rb))
-		return false;
-
-	/* only check rbbm status to determine if GPU is idle */
-	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_STATUS, &reg_rbbm_status);
-
-	if (adreno_is_a3xx(adreno_dev))
-		mask = 0x7ffffffe;
-	else
-		mask = 0xfffffffe;
-
-	if (reg_rbbm_status & mask)
-		return false;
-
-ret:
-	/* Clear the existing register values */
-	memset(adreno_ft_regs_val, 0,
-		adreno_ft_regs_num * sizeof(unsigned int));
-
-	return true;
-}
-
-/**
- * fault_detect_read_compare() - Read the fault detect registers and compare
- * them to the current value
- * @device: Pointer to the KGSL device struct
- *
- * Read the set of fault detect registers and compare them to the current set
- * of registers.  Return 1 if any of the register values changed. Also, compare
- * if the current RB's timstamp has changed or not.
- */
-static int fault_detect_read_compare(struct adreno_device *adreno_dev)
-{
-	struct adreno_ringbuffer *rb = ADRENO_CURRENT_RINGBUFFER(adreno_dev);
-	int i, ret = 0;
-	unsigned int ts;
-
-	if (!test_bit(ADRENO_DEVICE_SOFT_FAULT_DETECT, &adreno_dev->priv))
-		return 1;
-
-	/* Check to see if the device is idle - if so report no hang */
-	if (_isidle(adreno_dev))
-		ret = 1;
-
-	for (i = 0; i < adreno_ft_regs_num; i++) {
-		unsigned int val;
-
-		if (adreno_ft_regs[i] == 0)
-			continue;
-		kgsl_regread(KGSL_DEVICE(adreno_dev), adreno_ft_regs[i], &val);
-		if (val != adreno_ft_regs_val[i])
-			ret = 1;
-		adreno_ft_regs_val[i] = val;
-	}
-
-	if (!adreno_rb_readtimestamp(adreno_dev, adreno_dev->cur_rb,
-				KGSL_TIMESTAMP_RETIRED, &ts)) {
-		if (ts != rb->fault_detect_ts)
-			ret = 1;
-
-		rb->fault_detect_ts = ts;
-	}
-
-	return ret;
-}
-
-static void start_fault_timer(struct adreno_device *adreno_dev)
+void adreno_dispatcher_start_fault_timer(struct adreno_device *adreno_dev)
 {
 	struct adreno_dispatcher *dispatcher = &adreno_dev->dispatcher;
 
 	if (adreno_soft_fault_detect(adreno_dev))
 		mod_timer(&dispatcher->fault_timer,
 			jiffies + msecs_to_jiffies(_fault_timer_interval));
+}
+
+/*
+ * This takes a kgsl_device pointer so that it can be used for the function
+ * hook in adreno.c too
+ */
+void adreno_dispatcher_stop_fault_timer(struct kgsl_device *device)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_dispatcher *dispatcher = &adreno_dev->dispatcher;
+
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_SOFT_FAULT_DETECT))
+		del_timer_sync(&dispatcher->fault_timer);
 }
 
 /**
@@ -626,12 +563,12 @@ static int sendcmd(struct adreno_device *adreno_dev,
 		if (ret == 0) {
 
 			/* Stop fault timer before reading fault registers */
-			del_timer_sync(&dispatcher->fault_timer);
+			adreno_dispatcher_stop_fault_timer(device);
 
 			fault_detect_read(adreno_dev);
 
 			/* Start the fault timer on first submission */
-			start_fault_timer(adreno_dev);
+			adreno_dispatcher_start_fault_timer(adreno_dev);
 
 			if (!test_and_set_bit(ADRENO_DISPATCHER_ACTIVE,
 				&dispatcher->priv))
@@ -2099,11 +2036,6 @@ static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 	 */
 	if (!kgsl_state_is_awake(device)) {
 		mutex_unlock(&device->mutex);
-		if (fault & ADRENO_SOFT_FAULT) {
-			/* Clear the existing register values */
-			memset(adreno_ft_regs_val, 0,
-				adreno_ft_regs_num * sizeof(unsigned int));
-		}
 		return 0;
 	}
 
@@ -2142,7 +2074,9 @@ static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 
 	/* Turn off all the timers */
 	del_timer_sync(&dispatcher->timer);
-	del_timer_sync(&dispatcher->fault_timer);
+
+	adreno_dispatcher_stop_fault_timer(device);
+
 	/*
 	 * Deleting uninitialized timer will block for ever on kernel debug
 	 * disable build. Hence skip del timer if it is not initialized.
@@ -2497,7 +2431,7 @@ static void _dispatcher_power_down(struct adreno_device *adreno_dev)
 	if (test_and_clear_bit(ADRENO_DISPATCHER_ACTIVE, &dispatcher->priv))
 		complete_all(&dispatcher->idle_gate);
 
-	del_timer_sync(&dispatcher->fault_timer);
+	adreno_dispatcher_stop_fault_timer(device);
 
 	if (test_bit(ADRENO_DISPATCHER_POWER, &dispatcher->priv)) {
 		adreno_active_count_put(adreno_dev);
@@ -2589,43 +2523,6 @@ void adreno_dispatcher_queue_context(struct kgsl_device *device,
 }
 
 /*
- * This is called on a regular basis while cmdobj's are inflight.  Fault
- * detection registers are read and compared to the existing values - if they
- * changed then the GPU is still running.  If they are the same between
- * subsequent calls then the GPU may have faulted
- */
-
-static void adreno_dispatcher_fault_timer(struct timer_list *t)
-{
-	struct adreno_dispatcher *dispatcher = from_timer(dispatcher,
-							t, fault_timer);
-	struct adreno_device *adreno_dev = container_of(dispatcher,
-					struct adreno_device, dispatcher);
-
-	/* Leave if the user decided to turn off fast hang detection */
-	if (!adreno_soft_fault_detect(adreno_dev))
-		return;
-
-	if (adreno_gpu_fault(adreno_dev)) {
-		adreno_dispatcher_schedule(KGSL_DEVICE(adreno_dev));
-		return;
-	}
-
-	/*
-	 * Read the fault registers - if it returns 0 then they haven't changed
-	 * so mark the dispatcher as faulted and schedule the work loop.
-	 */
-
-	if (!fault_detect_read_compare(adreno_dev)) {
-		adreno_set_gpu_fault(adreno_dev, ADRENO_SOFT_FAULT);
-		adreno_dispatcher_schedule(KGSL_DEVICE(adreno_dev));
-	} else if (dispatcher->inflight > 0) {
-		mod_timer(&dispatcher->fault_timer,
-			jiffies + msecs_to_jiffies(_fault_timer_interval));
-	}
-}
-
-/*
  * This is called when the timer expires - it either means the GPU is hung or
  * the IB is taking too long to execute
  */
@@ -2662,21 +2559,8 @@ void adreno_dispatcher_stop(struct adreno_device *adreno_dev)
 	struct adreno_dispatcher *dispatcher = &adreno_dev->dispatcher;
 
 	del_timer_sync(&dispatcher->timer);
-	del_timer_sync(&dispatcher->fault_timer);
-}
 
-/**
- * adreno_dispatcher_stop_fault_timer() - stop the dispatcher fault timer
- * @device: pointer to the KGSL device structure
- *
- * Stop the dispatcher fault timer
- */
-void adreno_dispatcher_stop_fault_timer(struct kgsl_device *device)
-{
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct adreno_dispatcher *dispatcher = &adreno_dev->dispatcher;
-
-	del_timer_sync(&dispatcher->fault_timer);
+	adreno_dispatcher_stop_fault_timer(KGSL_DEVICE(adreno_dev));
 }
 
 static int _skipsaverestore_store(struct adreno_device *adreno_dev, bool val)
@@ -2804,7 +2688,8 @@ void adreno_dispatcher_close(struct adreno_device *adreno_dev)
 
 	mutex_lock(&dispatcher->mutex);
 	del_timer_sync(&dispatcher->timer);
-	del_timer_sync(&dispatcher->fault_timer);
+
+	adreno_dispatcher_stop_fault_timer(KGSL_DEVICE(adreno_dev));
 
 	FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
 		struct adreno_dispatcher_drawqueue *dispatch_q =
@@ -2966,8 +2851,6 @@ int adreno_dispatcher_init(struct adreno_device *adreno_dev)
 	if (test_bit(ADRENO_DISPATCHER_INIT, &dispatcher->priv))
 		return 0;
 
-	memset(dispatcher, 0, sizeof(*dispatcher));
-
 	ret = kobject_init_and_add(&dispatcher->kobj, &ktype_dispatcher,
 		&device->dev->kobj, "dispatch");
 	if (ret)
@@ -2979,7 +2862,6 @@ int adreno_dispatcher_init(struct adreno_device *adreno_dev)
 
 	timer_setup(&dispatcher->timer, adreno_dispatcher_timer, 0);
 
-	timer_setup(&dispatcher->fault_timer, adreno_dispatcher_fault_timer, 0);
 
 	kthread_init_work(&dispatcher->work, adreno_dispatcher_work);
 

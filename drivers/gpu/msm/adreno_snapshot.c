@@ -941,89 +941,6 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 
 }
 
-/*
- * adreno_snapshot_cp_roq - Dump ROQ data in snapshot
- * @device: Device being snapshotted
- * @remain: Bytes remaining in snapshot memory
- * @priv: Size of ROQ data in Dwords
- */
-size_t adreno_snapshot_cp_roq(struct kgsl_device *device, u8 *buf,
-		size_t remain, void *priv)
-{
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct kgsl_snapshot_debug *header = (struct kgsl_snapshot_debug *)buf;
-	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
-	int i, size = *((int *)priv);
-
-	if (remain < DEBUG_SECTION_SZ(size)) {
-		SNAPSHOT_ERR_NOMEM(device, "CP ROQ DEBUG");
-		return 0;
-	}
-
-	header->type = SNAPSHOT_DEBUG_CP_ROQ;
-	header->size = size;
-
-	adreno_writereg(adreno_dev, ADRENO_REG_CP_ROQ_ADDR, 0x0);
-	for (i = 0; i < size; i++)
-		adreno_readreg(adreno_dev, ADRENO_REG_CP_ROQ_DATA, &data[i]);
-
-	return DEBUG_SECTION_SZ(size);
-}
-
-/*
- * adreno_snapshot_cp_meq() - Save CP MEQ data in snapshot
- * @device: Device being snapshotted
- * @buf: Snapshot memory
- * @remain: Number of bytes left in snapshot memory
- * @priv: Contains the size of MEQ data
- */
-size_t adreno_snapshot_cp_meq(struct kgsl_device *device, u8 *buf,
-		size_t remain, void *priv)
-{
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct kgsl_snapshot_debug *header = (struct kgsl_snapshot_debug *)buf;
-	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
-	int i;
-	int cp_meq_sz = *((int *)priv);
-
-	if (remain < DEBUG_SECTION_SZ(cp_meq_sz)) {
-		SNAPSHOT_ERR_NOMEM(device, "CP MEQ DEBUG");
-		return 0;
-	}
-
-	header->type = SNAPSHOT_DEBUG_CP_MEQ;
-	header->size = cp_meq_sz;
-
-	adreno_writereg(adreno_dev, ADRENO_REG_CP_MEQ_ADDR, 0x0);
-	for (i = 0; i < cp_meq_sz; i++)
-		adreno_readreg(adreno_dev, ADRENO_REG_CP_MEQ_DATA, &data[i]);
-
-	return DEBUG_SECTION_SZ(cp_meq_sz);
-}
-
-static const struct adreno_vbif_snapshot_registers *vbif_registers(
-		struct adreno_device *adreno_dev,
-		const struct adreno_vbif_snapshot_registers *list,
-		unsigned int count)
-{
-	unsigned int version;
-	unsigned int i;
-
-	adreno_readreg(adreno_dev, ADRENO_REG_VBIF_VERSION, &version);
-
-	for (i = 0; i < count; i++) {
-		if ((list[i].version & list[i].mask) ==
-				(version & list[i].mask))
-			return &list[i];
-	}
-
-	dev_err(KGSL_DEVICE(adreno_dev)->dev,
-		"snapshot: Registers for VBIF version %X register were not dumped\n",
-		version);
-
-	return NULL;
-}
-
 void adreno_snapshot_registers(struct kgsl_device *device,
 		struct kgsl_snapshot *snapshot,
 		const unsigned int *regs, unsigned int count)
@@ -1035,24 +952,4 @@ void adreno_snapshot_registers(struct kgsl_device *device,
 
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS, snapshot,
 		kgsl_snapshot_dump_registers, &r);
-}
-
-void adreno_snapshot_vbif_registers(struct kgsl_device *device,
-		struct kgsl_snapshot *snapshot,
-		const struct adreno_vbif_snapshot_registers *list,
-		unsigned int count)
-{
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct kgsl_snapshot_registers regs;
-	const struct adreno_vbif_snapshot_registers *vbif;
-
-	vbif = vbif_registers(adreno_dev, list, count);
-
-	if (vbif != NULL) {
-		regs.regs = vbif->registers;
-		regs.count = vbif->count;
-
-		kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS,
-			snapshot, kgsl_snapshot_dump_registers, &regs);
-	}
 }

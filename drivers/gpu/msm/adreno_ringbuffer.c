@@ -180,45 +180,6 @@ void adreno_preemption_timer(struct timer_list *t)
 	queue_work(system_unbound_wq, &adreno_dev->preempt.work);
 }
 
-int adreno_ringbuffer_addcmds(struct adreno_device *adreno_dev,
-		struct adreno_ringbuffer *rb, struct adreno_context *drawctxt,
-		u32 flags, u32 *cmds, u32 sizedwords, u32 timestamp,
-		struct adreno_submit_time *time)
-{
-	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-
-	if (drawctxt && kgsl_context_detached(&drawctxt->base))
-		return -ENOENT;
-
-	/* On fault return error so that we don't keep submitting */
-	if (adreno_gpu_fault(adreno_dev) != 0)
-		return -EPROTO;
-
-	rb->timestamp++;
-
-	/*
-	 * Note that we cannot safely take drawctxt->mutex here without
-	 * potential mutex inversion with device->mutex which is held
-	 * here. As a result, any other code that accesses this variable
-	 * must also use device->mutex.
-	 */
-	if (drawctxt)
-		drawctxt->internal_timestamp = rb->timestamp;
-
-	return gpudev->ringbuffer_addcmds(adreno_dev, rb, drawctxt,
-		flags, cmds, sizedwords, timestamp, time);
-}
-
-int adreno_ringbuffer_issue_internal_cmds(struct adreno_ringbuffer *rb,
-		u32 *cmds, u32 sizedwords)
-{
-	struct adreno_device *adreno_dev = ADRENO_RB_DEVICE(rb);
-
-	/* All internal commands run with protected mode off by default */
-	return adreno_ringbuffer_addcmds(adreno_dev, rb, NULL, F_NOTPROTECTED,
-		cmds, sizedwords, 0, NULL);
-}
-
 void adreno_ringbuffer_set_constraint(struct kgsl_device *device,
 			struct kgsl_drawobj *drawobj)
 {

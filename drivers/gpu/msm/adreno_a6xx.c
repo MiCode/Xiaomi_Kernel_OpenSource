@@ -210,6 +210,8 @@ int a6xx_init(struct adreno_device *adreno_dev)
 			return PTR_ERR(adreno_dev->pwrup_reglist);
 	}
 
+	adreno_create_profile_buffer(adreno_dev);
+
 	return a6xx_get_cp_init_cmds(adreno_dev);
 }
 
@@ -880,6 +882,33 @@ void a6xx_unhalt_sqe(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A6XX_CP_SQE_CNTL, 1);
 }
 
+/* This is the start point for non GMU/RGMU targets */
+static int a6xx_nogmu_start(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	int ret;
+
+	/*
+	 * During adreno_stop() GBIF halt is asserted to ensure that
+	 * no further transactions go through the GPU before the
+	 * GPU headswitch is turned off.
+	 *
+	 * The halt is supposed to be deasserted when the headswitch goes off
+	 * but clear it again during start to be sure
+	 */
+	kgsl_regwrite(device, A6XX_GBIF_HALT, 0x0);
+	kgsl_regwrite(device, A6XX_RBBM_GBIF_HALT, 0x0);
+
+	ret = kgsl_mmu_start(device);
+	if (ret)
+		return ret;
+
+	adreno_get_bus_counters(adreno_dev);
+	adreno_perfcounter_restore(adreno_dev);
+
+	a6xx_start(adreno_dev);
+	return 0;
+}
 
 /*
  * CP_INIT_MAX_CONTEXT bit tells if the multiple hardware contexts can
@@ -1209,20 +1238,6 @@ static void a6xx_sptprac_disable(struct adreno_device *adreno_dev)
 }
 
 /*
- * a6xx_sptprac_is_on() - Check if SPTP is on using pwr status register
- * @adreno_dev - Pointer to adreno_device
- * This check should only be performed if the keepalive bit is set or it
- * can be guaranteed that the power state of the GPU will remain unchanged
- */
-static bool a6xx_sptprac_is_on(struct adreno_device *adreno_dev)
-{
-	if (!adreno_has_sptprac_gdsc(adreno_dev))
-		return true;
-
-	return a6xx_gmu_sptprac_is_on(adreno_dev);
-}
-
-/*
  * a6xx_gpu_keepalive() - GMU reg write to request GPU stays on
  * @adreno_dev: Pointer to the adreno device that has the GMU
  * @state: State to set: true is ON, false is OFF
@@ -1238,6 +1253,18 @@ static void a6xx_gpu_keepalive(struct adreno_device *adreno_dev,
 	gmu_core_regwrite(device, A6XX_GMU_GMU_PWR_COL_KEEPALIVE, state);
 }
 
+static bool a6xx_irq_pending(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	u32 status;
+
+	kgsl_regread(device, A6XX_RBBM_INT_0_STATUS, &status);
+
+	/* Return busy if a interrupt is pending */
+	return ((status & adreno_dev->irq_mask) ||
+		atomic_read(&adreno_dev->pending_irq_refcnt));
+}
+
 static bool a619_holi_hw_isidle(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -1247,7 +1274,7 @@ static bool a619_holi_hw_isidle(struct adreno_device *adreno_dev)
 	if (reg & 0xfffffffe)
 		return false;
 
-	return adreno_irq_pending(adreno_dev) ? false : true;
+	return a6xx_irq_pending(adreno_dev) ? false : true;
 }
 
 bool a6xx_hw_isidle(struct adreno_device *adreno_dev)
@@ -1261,7 +1288,7 @@ bool a6xx_hw_isidle(struct adreno_device *adreno_dev)
 		if (reg & 0xfffffffe)
 			return false;
 
-		return adreno_irq_pending(adreno_dev) ? false : true;
+		return a6xx_irq_pending(adreno_dev) ? false : true;
 	}
 
 	gmu_core_regread(device, A6XX_GPU_GMU_AO_GPU_CX_BUSY_STATUS, &reg);
@@ -2290,14 +2317,6 @@ int a6xx_probe_common(struct platform_device *pdev,
 	adreno_dev->preempt.skipsaverestore = true;
 	adreno_dev->preempt.usesgmem = true;
 
-	/* Set the GPU busy counter for frequency scaling */
-	adreno_dev->perfctr_pwr_lo = A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_0_L;
-
-	/* Set the counter for IFPC */
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_IFPC))
-		adreno_dev->perfctr_ifpc_lo =
-			A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_4_L;
-
 	return adreno_device_probe(pdev, adreno_dev);
 }
 
@@ -2347,8 +2366,6 @@ static unsigned int a6xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_IB2_BASE, A6XX_CP_IB2_BASE),
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_IB2_BASE_HI, A6XX_CP_IB2_BASE_HI),
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_IB2_BUFSZ, A6XX_CP_IB2_REM_SIZE),
-	ADRENO_REG_DEFINE(ADRENO_REG_CP_ROQ_ADDR, A6XX_CP_ROQ_DBG_ADDR),
-	ADRENO_REG_DEFINE(ADRENO_REG_CP_ROQ_DATA, A6XX_CP_ROQ_DBG_DATA),
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_PREEMPT, A6XX_CP_CONTEXT_SWITCH_CNTL),
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_CONTEXT_SWITCH_SMMU_INFO_LO,
 			A6XX_CP_CONTEXT_SWITCH_SMMU_INFO_LO),
@@ -2374,24 +2391,9 @@ static unsigned int a6xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 			A6XX_CP_CONTEXT_SWITCH_LEVEL_STATUS),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_STATUS, A6XX_RBBM_STATUS),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_STATUS3, A6XX_RBBM_STATUS3),
-	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_LOAD_CMD0,
-					A6XX_RBBM_PERFCTR_LOAD_CMD0),
-	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_LOAD_CMD1,
-					A6XX_RBBM_PERFCTR_LOAD_CMD1),
-	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_LOAD_CMD2,
-					A6XX_RBBM_PERFCTR_LOAD_CMD2),
-	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_LOAD_CMD3,
-					A6XX_RBBM_PERFCTR_LOAD_CMD3),
-
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_INT_0_MASK, A6XX_RBBM_INT_0_MASK),
-	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_INT_0_STATUS, A6XX_RBBM_INT_0_STATUS),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_CLOCK_CTL, A6XX_RBBM_CLOCK_CNTL),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_SW_RESET_CMD, A6XX_RBBM_SW_RESET_CMD),
-	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_LOAD_VALUE_LO,
-				A6XX_RBBM_PERFCTR_LOAD_VALUE_LO),
-	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_LOAD_VALUE_HI,
-				A6XX_RBBM_PERFCTR_LOAD_VALUE_HI),
-	ADRENO_REG_DEFINE(ADRENO_REG_VBIF_VERSION, A6XX_VBIF_VERSION),
 	ADRENO_REG_DEFINE(ADRENO_REG_GMU_AO_HOST_INTERRUPT_MASK,
 				A6XX_GMU_AO_HOST_INTERRUPT_MASK),
 	ADRENO_REG_DEFINE(ADRENO_REG_GMU_AHB_FENCE_STATUS,
@@ -2567,24 +2569,161 @@ static void a6xx_remove(struct adreno_device *adreno_dev)
 		del_timer(&adreno_dev->preempt.timer);
 }
 
+static void a6xx_read_bus_stats(struct kgsl_device *device,
+		struct kgsl_power_stats *stats,
+		struct adreno_busy_data *busy)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	u64 ram_cycles, starved_ram;
+
+	ram_cycles = counter_delta(device, adreno_dev->ram_cycles_lo,
+		&busy->bif_ram_cycles);
+
+	starved_ram = counter_delta(device, adreno_dev->starved_ram_lo,
+		&busy->bif_starved_ram);
+
+	if (!adreno_is_a630(adreno_dev)) {
+		ram_cycles += counter_delta(device,
+			adreno_dev->ram_cycles_lo_ch1_read,
+			&busy->bif_ram_cycles_read_ch1);
+
+		ram_cycles += counter_delta(device,
+			adreno_dev->ram_cycles_lo_ch0_write,
+			&busy->bif_ram_cycles_write_ch0);
+
+		ram_cycles += counter_delta(device,
+			adreno_dev->ram_cycles_lo_ch1_write,
+			&busy->bif_ram_cycles_write_ch1);
+
+		starved_ram += counter_delta(device,
+			adreno_dev->starved_ram_lo_ch1,
+			&busy->bif_starved_ram_ch1);
+	}
+
+	stats->ram_time = ram_cycles;
+	stats->ram_wait = starved_ram;
+}
+
+static void a619_holi_power_stats(struct adreno_device *adreno_dev,
+		struct kgsl_power_stats *stats)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct adreno_busy_data *busy = &adreno_dev->busy_data;
+	u64 gpu_busy = 0;
+	u32 lo;
+
+	adreno_read_gmu_wrapper(adreno_dev,
+		A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_0_L, &lo);
+
+	if (busy->gpu_busy) {
+		if (lo > busy->gpu_busy)
+			gpu_busy = lo - busy->gpu_busy;
+		else
+			gpu_busy = (UINT_MAX - busy->gpu_busy) + lo;
+	}
+
+	busy->gpu_busy = lo;
+
+	stats->busy_time = gpu_busy * 10;
+	do_div(stats->busy_time, 192);
+
+	if (device->pwrctrl.bus_control)
+		a6xx_read_bus_stats(device, stats, busy);
+}
+
+static void a6xx_power_stats(struct adreno_device *adreno_dev,
+		struct kgsl_power_stats *stats)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct adreno_busy_data *busy = &adreno_dev->busy_data;
+	u64 gpu_busy;
+	s64 adj;
+
+	/* Set the GPU busy counter for frequency scaling */
+	gpu_busy = counter_delta(device, A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_0_L,
+		&busy->gpu_busy);
+
+	adj = a6xx_read_throttling_counters(adreno_dev);
+	if (adj < 0 || -adj > gpu_busy)
+		gpu_busy += adj;
+
+	stats->busy_time = gpu_busy * 10;
+	do_div(stats->busy_time, 192);
+
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_IFPC)) {
+		u32 ifpc = counter_delta(device,
+			A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_4_L,
+			&busy->num_ifpc);
+
+		adreno_dev->ifpc_count += ifpc;
+		if (ifpc > 0)
+			trace_adreno_ifpc_count(adreno_dev->ifpc_count);
+	}
+
+	if (device->pwrctrl.bus_control)
+		a6xx_read_bus_stats(device, stats, busy);
+}
+
+static int a6xx_setproperty(struct kgsl_device_private *dev_priv,
+		u32 type, void __user *value, u32 sizebytes)
+{
+	struct kgsl_device *device = dev_priv->device;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	u32 enable;
+
+	if (type != KGSL_PROP_PWRCTRL)
+		return -ENODEV;
+
+	if (sizebytes != sizeof(enable))
+		return -EINVAL;
+
+	if (copy_from_user(&enable, value, sizeof(enable)))
+		return -EFAULT;
+
+	mutex_lock(&device->mutex);
+
+	if (enable) {
+		if (gmu_core_isenabled(device))
+			clear_bit(GMU_DISABLE_SLUMBER, &device->gmu_core.flags);
+		else
+			device->pwrctrl.ctrl_flags = 0;
+
+		kgsl_pwrscale_enable(device);
+	} else {
+		if (gmu_core_isenabled(device)) {
+			set_bit(GMU_DISABLE_SLUMBER, &device->gmu_core.flags);
+
+			if (!adreno_active_count_get(adreno_dev))
+				adreno_active_count_put(adreno_dev);
+		} else {
+			kgsl_pwrctrl_change_state(device, KGSL_STATE_ACTIVE);
+			device->pwrctrl.ctrl_flags = KGSL_PWR_ON;
+		}
+		kgsl_pwrscale_disable(device, true);
+	}
+
+	mutex_unlock(&device->mutex);
+
+	return 0;
+}
+
+/* This is a non GMU/RGMU part */
 const struct adreno_gpudev adreno_a6xx_gpudev = {
 	.reg_offsets = a6xx_register_offsets,
 	.probe = a6xx_probe,
-	.start = a6xx_start,
+	.start = a6xx_nogmu_start,
 	.snapshot = a6xx_snapshot,
 	.init = a6xx_nogmu_init,
 	.irq_handler = a6xx_irq_handler,
 	.rb_start = a6xx_rb_start,
 	.regulator_enable = a6xx_sptprac_enable,
 	.regulator_disable = a6xx_sptprac_disable,
-	.read_throttling_counters = a6xx_read_throttling_counters,
 	.gpu_keepalive = a6xx_gpu_keepalive,
 	.hw_isidle = a6xx_hw_isidle,
 	.iommu_fault_block = a6xx_iommu_fault_block,
 	.reset = a6xx_reset,
 	.preemption_schedule = a6xx_preemption_schedule,
 	.preemption_context_init = a6xx_preemption_context_init,
-	.sptprac_is_on = a6xx_sptprac_is_on,
 #ifdef CONFIG_QCOM_KGSL_CORESIGHT
 	.coresight = {&a6xx_coresight, &a6xx_coresight_cx},
 #endif
@@ -2596,8 +2735,10 @@ const struct adreno_gpudev adreno_a6xx_gpudev = {
 	.clear_pending_transactions = a6xx_clear_pending_transactions,
 	.deassert_gbif_halt = a6xx_deassert_gbif_halt,
 	.remove = a6xx_remove,
-	.ringbuffer_addcmds = a6xx_ringbuffer_addcmds,
 	.ringbuffer_submitcmd = a6xx_ringbuffer_submitcmd,
+	.is_hw_collapsible = adreno_isidle,
+	.power_stats = a6xx_power_stats,
+	.setproperty = a6xx_setproperty,
 };
 
 const struct adreno_gpudev adreno_a6xx_hwsched_gpudev = {
@@ -2605,7 +2746,6 @@ const struct adreno_gpudev adreno_a6xx_hwsched_gpudev = {
 	.probe = a6xx_hwsched_probe,
 	.snapshot = a6xx_hwsched_snapshot,
 	.irq_handler = a6xx_irq_handler,
-	.read_throttling_counters = a6xx_read_throttling_counters,
 	.iommu_fault_block = a6xx_iommu_fault_block,
 	.preemption_context_init = a6xx_preemption_context_init,
 	.context_detach = a6xx_hwsched_context_detach,
@@ -2614,80 +2754,77 @@ const struct adreno_gpudev adreno_a6xx_hwsched_gpudev = {
 #endif
 	.read_alwayson = a6xx_read_alwayson,
 	.power_ops = &a6xx_hwsched_power_ops,
+	.power_stats = a6xx_power_stats,
+	.setproperty = a6xx_setproperty,
 };
 
 const struct adreno_gpudev adreno_a6xx_gmu_gpudev = {
 	.reg_offsets = a6xx_register_offsets,
 	.probe = a6xx_gmu_device_probe,
-	.start = a6xx_start,
 	.snapshot = a6xx_gmu_snapshot,
 	.irq_handler = a6xx_irq_handler,
 	.rb_start = a6xx_rb_start,
 	.regulator_enable = a6xx_sptprac_enable,
 	.regulator_disable = a6xx_sptprac_disable,
-	.read_throttling_counters = a6xx_read_throttling_counters,
 	.gpu_keepalive = a6xx_gpu_keepalive,
 	.hw_isidle = a6xx_hw_isidle,
 	.iommu_fault_block = a6xx_iommu_fault_block,
 	.reset = a6xx_gmu_restart,
 	.preemption_schedule = a6xx_preemption_schedule,
 	.preemption_context_init = a6xx_preemption_context_init,
-	.sptprac_is_on = a6xx_sptprac_is_on,
 #ifdef CONFIG_QCOM_KGSL_CORESIGHT
 	.coresight = {&a6xx_coresight, &a6xx_coresight_cx},
 #endif
 	.read_alwayson = a6xx_read_alwayson,
 	.power_ops = &a6xx_gmu_power_ops,
 	.remove = a6xx_remove,
-	.ringbuffer_addcmds = a6xx_ringbuffer_addcmds,
 	.ringbuffer_submitcmd = a6xx_ringbuffer_submitcmd,
+	.power_stats = a6xx_power_stats,
+	.setproperty = a6xx_setproperty,
 };
 
 const struct adreno_gpudev adreno_a6xx_rgmu_gpudev = {
 	.reg_offsets = a6xx_register_offsets,
 	.probe = a6xx_rgmu_device_probe,
-	.start = a6xx_start,
 	.snapshot = a6xx_rgmu_snapshot,
 	.irq_handler = a6xx_irq_handler,
 	.rb_start = a6xx_rb_start,
 	.regulator_enable = a6xx_sptprac_enable,
 	.regulator_disable = a6xx_sptprac_disable,
-	.read_throttling_counters = a6xx_read_throttling_counters,
 	.gpu_keepalive = a6xx_gpu_keepalive,
 	.hw_isidle = a6xx_hw_isidle,
 	.iommu_fault_block = a6xx_iommu_fault_block,
 	.reset = a6xx_rgmu_restart,
 	.preemption_schedule = a6xx_preemption_schedule,
 	.preemption_context_init = a6xx_preemption_context_init,
-	.sptprac_is_on = a6xx_sptprac_is_on,
 #ifdef CONFIG_QCOM_KGSL_CORESIGHT
 	.coresight = {&a6xx_coresight, &a6xx_coresight_cx},
 #endif
 	.read_alwayson = a6xx_read_alwayson,
 	.power_ops = &a6xx_rgmu_power_ops,
 	.remove = a6xx_remove,
-	.ringbuffer_addcmds = a6xx_ringbuffer_addcmds,
 	.ringbuffer_submitcmd = a6xx_ringbuffer_submitcmd,
+	.power_stats = a6xx_power_stats,
+	.setproperty = a6xx_setproperty,
 };
 
+/* This is a non GMU/RGMU part */
 const struct adreno_gpudev adreno_a619_holi_gpudev = {
 	.reg_offsets = a6xx_register_offsets,
 	.probe = a6xx_probe,
-	.start = a6xx_start,
+	.start = a6xx_nogmu_start,
 	.snapshot = a6xx_snapshot,
 	.init = a6xx_nogmu_init,
 	.irq_handler = a6xx_irq_handler,
 	.rb_start = a6xx_rb_start,
 	.regulator_enable = a6xx_sptprac_enable,
 	.regulator_disable = a6xx_sptprac_disable,
-	.read_throttling_counters = a6xx_read_throttling_counters,
 	.gpu_keepalive = a6xx_gpu_keepalive,
 	.hw_isidle = a619_holi_hw_isidle,
 	.iommu_fault_block = a6xx_iommu_fault_block,
 	.reset = a6xx_reset,
 	.preemption_schedule = a6xx_preemption_schedule,
 	.preemption_context_init = a6xx_preemption_context_init,
-	.sptprac_is_on = a6xx_sptprac_is_on,
 #ifdef CONFIG_QCOM_KGSL_CORESIGHT
 	.coresight = {&a6xx_coresight, &a6xx_coresight_cx},
 #endif
@@ -2700,33 +2837,33 @@ const struct adreno_gpudev adreno_a619_holi_gpudev = {
 	.deassert_gbif_halt = a6xx_deassert_gbif_halt,
 	.regulator_disable_poll = a619_holi_regulator_disable_poll,
 	.remove = a6xx_remove,
-	.ringbuffer_addcmds = a6xx_ringbuffer_addcmds,
 	.ringbuffer_submitcmd = a6xx_ringbuffer_submitcmd,
+	.is_hw_collapsible = adreno_isidle,
+	.power_stats = a619_holi_power_stats,
+	.setproperty = a6xx_setproperty,
 };
 
 const struct adreno_gpudev adreno_a630_gpudev = {
 	.reg_offsets = a6xx_register_offsets,
 	.probe = a6xx_gmu_device_probe,
-	.start = a6xx_start,
 	.snapshot = a6xx_gmu_snapshot,
 	.irq_handler = a6xx_irq_handler,
 	.rb_start = a6xx_rb_start,
 	.regulator_enable = a6xx_sptprac_enable,
 	.regulator_disable = a6xx_sptprac_disable,
-	.read_throttling_counters = a6xx_read_throttling_counters,
 	.gpu_keepalive = a6xx_gpu_keepalive,
 	.hw_isidle = a6xx_hw_isidle,
 	.iommu_fault_block = a6xx_iommu_fault_block,
 	.reset = a6xx_gmu_restart,
 	.preemption_schedule = a6xx_preemption_schedule,
 	.preemption_context_init = a6xx_preemption_context_init,
-	.sptprac_is_on = a6xx_sptprac_is_on,
 #ifdef CONFIG_QCOM_KGSL_CORESIGHT
 	.coresight = {&a6xx_coresight, &a6xx_coresight_cx},
 #endif
 	.read_alwayson = a6xx_read_alwayson,
 	.power_ops = &a630_gmu_power_ops,
 	.remove = a6xx_remove,
-	.ringbuffer_addcmds = a6xx_ringbuffer_addcmds,
 	.ringbuffer_submitcmd = a6xx_ringbuffer_submitcmd,
+	.power_stats = a6xx_power_stats,
+	.setproperty = a6xx_setproperty,
 };

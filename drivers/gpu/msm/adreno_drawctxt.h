@@ -111,9 +111,6 @@ void adreno_drawctxt_detach(struct kgsl_context *context);
 void adreno_drawctxt_destroy(struct kgsl_context *context);
 
 struct adreno_ringbuffer;
-int adreno_drawctxt_switch(struct adreno_device *adreno_dev,
-				struct adreno_ringbuffer *rb,
-				struct adreno_context *drawctxt);
 
 int adreno_drawctxt_wait(struct adreno_device *adreno_dev,
 		struct kgsl_context *context,
@@ -124,5 +121,49 @@ void adreno_drawctxt_invalidate(struct kgsl_device *device,
 
 void adreno_drawctxt_dump(struct kgsl_device *device,
 		struct kgsl_context *context);
+
+/**
+ * adreno_drawctxt_detached - Helper function to check if a context is detached
+ * @drawctxt: Adreno drawctxt to check
+ *
+ * Return: True if the context isn't null and it has been detached
+ */
+static inline bool adreno_drawctxt_detached(struct adreno_context *drawctxt)
+{
+	return (drawctxt && kgsl_context_detached(&drawctxt->base));
+}
+
+/**
+ * adreno_put_drawctxt_on_timestamp - Put the refcount on the drawctxt when the
+ * timestamp expires
+ * @device: A KGSL device handle
+ * @drawctxt: The draw context to put away
+ * @rb: The ringbuffer that will trigger the timestamp event
+ * @timestamp: The timestamp on @rb that will trigger the event
+ *
+ * Add an event to put the refcount on @drawctxt after @timestamp expires on
+ * @rb. This is used by the context switch to safely put away the context after
+ * a new context is switched in.
+ */
+void adreno_put_drawctxt_on_timestamp(struct kgsl_device *device,
+		struct adreno_context *drawctxt,
+		struct adreno_ringbuffer *rb, u32 timestamp);
+
+/**
+ * adreno_drawctxt_get_pagetable - Helper function to return the pagetable for a
+ * context
+ * @drawctxt: The adreno draw context to query
+ *
+ * Return: A pointer to the pagetable for the process that owns the context or
+ * NULL
+ */
+static inline struct kgsl_pagetable *
+adreno_drawctxt_get_pagetable(struct adreno_context *drawctxt)
+{
+	if (drawctxt)
+		return drawctxt->base.proc_priv->pagetable;
+
+	return NULL;
+}
 
 #endif  /* __ADRENO_DRAWCTXT_H */

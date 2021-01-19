@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2008-2015,2017,2019-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2015,2017,2019-2021 The Linux Foundation. All rights reserved.
  */
 #ifndef __ADRENO_PERFCOUNTER_H
 #define __ADRENO_PERFCOUNTER_H
@@ -53,6 +53,8 @@ struct adreno_perfcount_group {
 	u64 (*read)(struct adreno_device *adreno_dev,
 		const struct adreno_perfcount_group *group,
 		unsigned int counter);
+	void (*load)(struct adreno_device *adreno_dev,
+		struct adreno_perfcount_register *reg);
 };
 
 /*
@@ -83,13 +85,14 @@ struct adreno_perfcounters {
 };
 
 #define ADRENO_PERFCOUNTER_GROUP_FLAGS(core, offset, name, flags, \
-		enable, read) \
+		enable, read, load) \
 	[KGSL_PERFCOUNTER_GROUP_##offset] = { core##_perfcounters_##name, \
 	ARRAY_SIZE(core##_perfcounters_##name), __stringify(name), flags, \
-	enable, read }
+	enable, read, load }
 
-#define ADRENO_PERFCOUNTER_GROUP(core, offset, name, enable, read) \
-	ADRENO_PERFCOUNTER_GROUP_FLAGS(core, offset, name, 0, enable, read)
+#define ADRENO_PERFCOUNTER_GROUP(core, offset, name, enable, read, load) \
+	ADRENO_PERFCOUNTER_GROUP_FLAGS(core, offset, name, 0, enable, read, \
+			load)
 
 int adreno_perfcounter_query_group(struct adreno_device *adreno_dev,
 	unsigned int groupid, unsigned int __user *countables,
@@ -119,5 +122,16 @@ int adreno_perfcounter_get(struct adreno_device *adreno_dev,
 
 int adreno_perfcounter_put(struct adreno_device *adreno_dev,
 	unsigned int groupid, unsigned int countable, unsigned int flags);
+
+static inline int adreno_perfcounter_kernel_get(
+		struct adreno_device *adreno_dev,
+		int group, int countable, u32 *lo, u32 *hi)
+{
+	if (*lo)
+		return 0;
+
+	return adreno_perfcounter_get(adreno_dev, group, countable, lo, hi,
+		PERFCOUNTER_FLAG_KERNEL);
+}
 
 #endif /* __ADRENO_PERFCOUNTER_H */
