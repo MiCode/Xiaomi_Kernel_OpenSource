@@ -1116,6 +1116,17 @@ static int remove_group_qos(struct qos_cpu_group *qcg)
 	return 0;
 }
 
+static void ufs_qcom_device_reset_ctrl(struct ufs_hba *hba, bool asserted)
+{
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+
+	/* reset gpio is optional */
+	if (!host->device_reset)
+		return;
+
+	gpiod_set_value_cansleep(host->device_reset, asserted);
+}
+
 static int ufs_qcom_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 {
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
@@ -1136,6 +1147,9 @@ static int ufs_qcom_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 		if (!err)
 			err = ufs_qcom_unvote_qos_all(hba);
 	}
+
+	if (!err && ufs_qcom_is_link_off(hba) && host->device_reset)
+		ufs_qcom_device_reset_ctrl(hba, true);
 
 	return err;
 }
@@ -3408,10 +3422,10 @@ static int ufs_qcom_device_reset(struct ufs_hba *hba)
 	 * The UFS device shall detect reset pulses of 1us, sleep for 10us to
 	 * be on the safe side.
 	 */
-	gpiod_set_value_cansleep(host->device_reset, 1);
+	ufs_qcom_device_reset_ctrl(hba, true);
 	usleep_range(10, 15);
 
-	gpiod_set_value_cansleep(host->device_reset, 0);
+	ufs_qcom_device_reset_ctrl(hba, false);
 	usleep_range(10, 15);
 
 	return 0;
