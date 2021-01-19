@@ -288,6 +288,8 @@ struct kgsl_device {
 	struct idr timelines;
 	/** @timelines_lock: Spinlock to protect the timelines idr */
 	spinlock_t timelines_lock;
+	/** @fence_trace_array: A local trace array for fence debugging */
+	struct trace_array *fence_trace_array;
 };
 
 #define KGSL_MMU_DEVICE(_mmu) \
