@@ -707,28 +707,39 @@ static void spss_utils_destroy_chardev(void)
 static int spss_parse_dt(struct device_node *node)
 {
 	int ret;
-	u32 spss_fuse1_addr = 0;
-	u32 spss_fuse1_bit = 0;
-	u32 spss_fuse1_mask = 0;
-	void __iomem *spss_fuse1_reg = NULL;
-	u32 spss_fuse2_addr = 0;
-	u32 spss_fuse2_bit = 0;
-	u32 spss_fuse2_mask = 0;
-	void __iomem *spss_fuse2_reg = NULL;
-	/* IAR_FEATURE_ENABLED soc fuse */
-	u32 spss_fuse3_addr = 0;
-	u32 spss_fuse3_bit = 0;
-	u32 spss_fuse3_mask = 0;
-	void __iomem *spss_fuse3_reg = NULL;
-	/* IAR_STATE soc fuses */
-	u32 spss_fuse4_addr = 0;
-	u32 spss_fuse4_bit = 0;
-	u32 spss_fuse4_mask = 0;
-	void __iomem *spss_fuse4_reg = NULL;
+
+/**
+ *	TODO: Fuse access is temporarily disabled due to access fault
+ *	Uncomment when access issue is fixed
+ *
+ *	u32 spss_fuse1_addr = 0;
+ *	u32 spss_fuse1_bit = 0;
+ *	u32 spss_fuse1_mask = 0;
+ *	void __iomem *spss_fuse1_reg = NULL;
+ *	u32 spss_fuse2_addr = 0;
+ *	u32 spss_fuse2_bit = 0;
+ *	u32 spss_fuse2_mask = 0;
+ *	void __iomem *spss_fuse2_reg = NULL;
+ *
+ *	* IAR_FEATURE_ENABLED soc fuse
+ *
+ *	u32 spss_fuse3_addr = 0;
+ *	u32 spss_fuse3_bit = 0;
+ *	u32 spss_fuse3_mask = 0;
+ *	void __iomem *spss_fuse3_reg = NULL;
+ *
+ *	* IAR_STATE soc fuses
+ *
+ *	u32 spss_fuse4_addr = 0;
+ *	u32 spss_fuse4_bit = 0;
+ *	u32 spss_fuse4_mask = 0;
+ *	void __iomem *spss_fuse4_reg = NULL;
+ *	u32 val1 = 0;
+ *	u32 val2 = 0;
+ */
 	struct device_node *np;
 	struct resource r;
-	u32 val1 = 0;
-	u32 val2 = 0;
+
 	void __iomem *spss_emul_type_reg = NULL;
 	u32 spss_emul_type_val = 0;
 
@@ -753,78 +764,87 @@ static int spss_parse_dt(struct device_node *node)
 		return -EINVAL;
 	}
 
-	ret = of_property_read_u32(node, "qcom,spss-fuse1-addr",
-		&spss_fuse1_addr);
-	if (ret < 0) {
-		pr_err("can't get fuse1 addr\n");
-		return -EINVAL;
-	}
+/**
+ *	TODO: Fuse access is temporarily disabled due to access fault
+ *	Uncomment when access issue is fixed
+ *
+ *	ret = of_property_read_u32(node, "qcom,spss-fuse1-addr",
+ *		&spss_fuse1_addr);
+ *	if (ret < 0) {
+ *		pr_err("can't get fuse1 addr\n");
+ *		return -EINVAL;
+ *	}
+ *
+ *	ret = of_property_read_u32(node, "qcom,spss-fuse2-addr",
+ *		&spss_fuse2_addr);
+ *	if (ret < 0) {
+ *		pr_err("can't get fuse2 addr\n");
+ *		return -EINVAL;
+ *	}
+ *
+ *	ret = of_property_read_u32(node, "qcom,spss-fuse1-bit",
+ *		&spss_fuse1_bit);
+ *	if (ret < 0) {
+ *		pr_err("can't get fuse1 bit\n");
+ *		return -EINVAL;
+ *	}
+ *
+ *	ret = of_property_read_u32(node, "qcom,spss-fuse2-bit",
+ *		&spss_fuse2_bit);
+ *	if (ret < 0) {
+ *		pr_err("can't get fuse2 bit\n");
+ *		return -EINVAL;
+ *	}
+ *
+ *
+ *	spss_fuse1_mask = BIT(spss_fuse1_bit);
+ *	spss_fuse2_mask = BIT(spss_fuse2_bit);
+ *
+ *	pr_debug("spss fuse1 addr [0x%x] bit [%d]\n",
+ *		(int) spss_fuse1_addr, (int) spss_fuse1_bit);
+ *	pr_debug("spss fuse2 addr [0x%x] bit [%d]\n",
+ *		(int) spss_fuse2_addr, (int) spss_fuse2_bit);
+ *
+ *	spss_fuse1_reg = ioremap(spss_fuse1_addr, sizeof(u32));
+ *	if (!spss_fuse1_reg) {
+ *		pr_err("can't map fuse1 addr\n");
+ *		return -EINVAL;
+ *	}
+ *
+ *	spss_fuse2_reg = ioremap(spss_fuse2_addr, sizeof(u32));
+ *	if (!spss_fuse2_reg) {
+ *		iounmap(spss_fuse1_reg);
+ *		pr_err("can't map fuse2 addr\n");
+ *		return -EINVAL;
+ *	}
+ *
+ *	val1 = readl_relaxed(spss_fuse1_reg);
+ *	val2 = readl_relaxed(spss_fuse2_reg);
+ *
+ *	pr_debug("spss fuse1 value [0x%08x]\n", (int) val1);
+ *	pr_debug("spss fuse2 value [0x%08x]\n", (int) val2);
+ *
+ *	pr_debug("spss fuse1 mask [0x%08x]\n", (int) spss_fuse1_mask);
+ *	pr_debug("spss fuse2 mask [0x%08x]\n", (int) spss_fuse2_mask);
+ *
+ *	 * Set firmware_type based on fuses:
+ *	 *	SPSS_CONFIG_MODE 11:        dev
+ *	 *	SPSS_CONFIG_MODE 01 or 10:  test
+ *	 *	SPSS_CONFIG_MODE 00:        prod
+ *
+ *	if ((val1 & spss_fuse1_mask) && (val2 & spss_fuse2_mask))
+ *		firmware_type = SPSS_FW_TYPE_DEV;
+ *	else if ((val1 & spss_fuse1_mask) || (val2 & spss_fuse2_mask))
+ *		firmware_type = SPSS_FW_TYPE_TEST;
+ *	else
+ *		firmware_type = SPSS_FW_TYPE_PROD;
+ *
+ *	iounmap(spss_fuse1_reg);
+ *	iounmap(spss_fuse2_reg);
+ */
 
-	ret = of_property_read_u32(node, "qcom,spss-fuse2-addr",
-		&spss_fuse2_addr);
-	if (ret < 0) {
-		pr_err("can't get fuse2 addr\n");
-		return -EINVAL;
-	}
-
-	ret = of_property_read_u32(node, "qcom,spss-fuse1-bit",
-		&spss_fuse1_bit);
-	if (ret < 0) {
-		pr_err("can't get fuse1 bit\n");
-		return -EINVAL;
-	}
-
-	ret = of_property_read_u32(node, "qcom,spss-fuse2-bit",
-		&spss_fuse2_bit);
-	if (ret < 0) {
-		pr_err("can't get fuse2 bit\n");
-		return -EINVAL;
-	}
-
-
-	spss_fuse1_mask = BIT(spss_fuse1_bit);
-	spss_fuse2_mask = BIT(spss_fuse2_bit);
-
-	pr_debug("spss fuse1 addr [0x%x] bit [%d]\n",
-		(int) spss_fuse1_addr, (int) spss_fuse1_bit);
-	pr_debug("spss fuse2 addr [0x%x] bit [%d]\n",
-		(int) spss_fuse2_addr, (int) spss_fuse2_bit);
-
-	spss_fuse1_reg = ioremap(spss_fuse1_addr, sizeof(u32));
-	if (!spss_fuse1_reg) {
-		pr_err("can't map fuse1 addr\n");
-		return -EINVAL;
-	}
-	val1 = readl_relaxed(spss_fuse1_reg);
-	iounmap(spss_fuse1_reg);
-
-	spss_fuse2_reg = ioremap(spss_fuse2_addr, sizeof(u32));
-	if (!spss_fuse2_reg) {
-		pr_err("can't map fuse2 addr\n");
-		return -EINVAL;
-	}
-	val2 = readl_relaxed(spss_fuse2_reg);
-	iounmap(spss_fuse2_reg);
-
-	pr_debug("spss fuse1 value [0x%08x]\n", (int) val1);
-	pr_debug("spss fuse2 value [0x%08x]\n", (int) val2);
-
-	pr_debug("spss fuse1 mask [0x%08x]\n", (int) spss_fuse1_mask);
-	pr_debug("spss fuse2 mask [0x%08x]\n", (int) spss_fuse2_mask);
-
-	/**
-	 * Set firmware_type based on fuses:
-	 *	SPSS_CONFIG_MODE 11:        dev
-	 *	SPSS_CONFIG_MODE 01 or 10:  test
-	 *	SPSS_CONFIG_MODE 00:        prod
-	 */
-	if ((val1 & spss_fuse1_mask) && (val2 & spss_fuse2_mask))
-		firmware_type = SPSS_FW_TYPE_DEV;
-	else if ((val1 & spss_fuse1_mask) || (val2 & spss_fuse2_mask))
-		firmware_type = SPSS_FW_TYPE_TEST;
-	else
-		firmware_type = SPSS_FW_TYPE_PROD;
-
+	/* Force test firmware type. Remove when fuse assess issue is resolved.*/
+	firmware_type = SPSS_FW_TYPE_TEST;
 
 	pr_debug("firmware_type value [%c]\n", firmware_type);
 
@@ -895,69 +915,82 @@ static int spss_parse_dt(struct device_node *node)
 	cmac_mem_addr = pil_addr + pil_size;
 	pr_info("iar_buf_addr [0x%08x].\n", cmac_mem_addr);
 
-	ret = of_property_read_u32(node, "qcom,spss-fuse3-addr",
-		&spss_fuse3_addr);
-	if (ret < 0) {
-		pr_err("can't get fuse3 addr.\n");
-		return -EFAULT;
-	}
+/**
+ *	TODO: Fuse access is temporarily disabled due to access fault
+ *	Uncomment when access issue is fixed
+ *
+ *	ret = of_property_read_u32(node, "qcom,spss-fuse3-addr",
+ *		&spss_fuse3_addr);
+ *	if (ret < 0) {
+ *		pr_err("can't get fuse3 addr.\n");
+ *		return -EFAULT;
+ *	}
+ *
+ *	ret = of_property_read_u32(node, "qcom,spss-fuse3-bit",
+ *		&spss_fuse3_bit);
+ *	if (ret < 0) {
+ *		pr_err("can't get fuse3 bit.\n");
+ *		return -EFAULT;
+ *	}
+ *
+ *	spss_fuse3_reg = ioremap(spss_fuse3_addr, sizeof(u32));
+ *
+ *	if (!spss_fuse3_reg) {
+ *		pr_err("can't map fuse3 addr.\n");
+ *		return -EFAULT;
+ *	}
+ *
+ *	read IAR_FEATURE_ENABLED from soc fuse
+ *
+ *	val1 = readl_relaxed(spss_fuse3_reg);
+ *	iounmap(spss_fuse3_reg);
+ *	spss_fuse3_mask = (1<<spss_fuse3_bit);
+ *	pr_debug("iar_enabled fuse, addr [0x%x] val [0x%x] mask [0x%x].\n",
+ *		spss_fuse3_addr, val1, spss_fuse3_mask);
+ *	if (val1 & spss_fuse3_mask)
+ *		is_iar_enabled = true;
+ *	else
+ */
 
-	ret = of_property_read_u32(node, "qcom,spss-fuse3-bit",
-		&spss_fuse3_bit);
-	if (ret < 0) {
-		pr_err("can't get fuse3 bit.\n");
-		return -EFAULT;
-	}
-
-	spss_fuse3_reg = ioremap(spss_fuse3_addr, sizeof(u32));
-
-	if (!spss_fuse3_reg) {
-		pr_err("can't map fuse3 addr.\n");
-		return -EFAULT;
-	}
-
-	/* read IAR_FEATURE_ENABLED from soc fuse */
-	val1 = readl_relaxed(spss_fuse3_reg);
-	iounmap(spss_fuse3_reg);
-	spss_fuse3_mask = (1<<spss_fuse3_bit);
-	pr_debug("iar_enabled fuse, addr [0x%x] val [0x%x] mask [0x%x].\n",
-		spss_fuse3_addr, val1, spss_fuse3_mask);
-	if (val1 & spss_fuse3_mask)
-		is_iar_enabled = true;
-	else
-		is_iar_enabled = false;
+	is_iar_enabled = false;
 
 	memset(cmac_buf, 0xA5, sizeof(cmac_buf));
 
-	ret = of_property_read_u32(node, "qcom,spss-fuse4-addr",
-		&spss_fuse4_addr);
-	if (ret < 0) {
-		pr_err("can't get fuse4 addr.\n");
-		return -EFAULT;
-	}
-
-	ret = of_property_read_u32(node, "qcom,spss-fuse4-bit",
-		&spss_fuse4_bit);
-	if (ret < 0) {
-		pr_err("can't get fuse4 bit.\n");
-		return -EFAULT;
-	}
-
-	spss_fuse4_reg = ioremap(spss_fuse4_addr, sizeof(u32));
-
-	if (!spss_fuse4_reg) {
-		pr_err("can't map fuse4 addr.\n");
-		return -EFAULT;
-	}
-
-	val1 = readl_relaxed(spss_fuse4_reg);
-	iounmap(spss_fuse4_reg);
-	spss_fuse4_mask = (0x07 << spss_fuse4_bit); /* 3 bits */
-	pr_debug("IAR_STATE fuse, addr [0x%x] val [0x%x] mask [0x%x].\n",
-	spss_fuse4_addr, val1, spss_fuse4_mask);
-	val1 = ((val1 & spss_fuse4_mask) >> spss_fuse4_bit) & 0x07;
-
-	iar_state = val1;
+/**
+ *	TODO: Fuse access is temporarily disabled due to access fault
+ *	Uncomment when access issue is fixed
+ *
+ *	ret = of_property_read_u32(node, "qcom,spss-fuse4-addr",
+ *		&spss_fuse4_addr);
+ *	if (ret < 0) {
+ *		pr_err("can't get fuse4 addr.\n");
+ *		return -EFAULT;
+ *	}
+ *
+ *	ret = of_property_read_u32(node, "qcom,spss-fuse4-bit",
+ *		&spss_fuse4_bit);
+ *	if (ret < 0) {
+ *		pr_err("can't get fuse4 bit.\n");
+ *		return -EFAULT;
+ *	}
+ *
+ *	spss_fuse4_reg = ioremap(spss_fuse4_addr, sizeof(u32));
+ *
+ *	if (!spss_fuse4_reg) {
+ *		pr_err("can't map fuse4 addr.\n");
+ *		return -EFAULT;
+ *	}
+ *
+ *	val1 = readl_relaxed(spss_fuse4_reg);
+ *	iounmap(spss_fuse4_reg);
+ *	spss_fuse4_mask = (0x07 << spss_fuse4_bit);   * 3 bits
+ *	pr_debug("IAR_STATE fuse, addr [0x%x] val [0x%x] mask [0x%x].\n",
+ *	spss_fuse4_addr, val1, spss_fuse4_mask);
+ *	val1 = ((val1 & spss_fuse4_mask) >> spss_fuse4_bit) & 0x07;
+ *
+ *	iar_state = val1;
+ */
+	iar_state = 0;
 
 	pr_debug("iar_state [%d]\n", iar_state);
 
