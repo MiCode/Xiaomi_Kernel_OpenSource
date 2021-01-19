@@ -426,7 +426,7 @@ static void qos_work_func(struct work_struct *work)
 		return;
 	}
 
-	current_idx = qos_info->idx;
+	current_idx = get_qos_bound_idx();
 
 	for (i = 0; i < NR_APU_QOS_ENGINE; i++)	{
 		peak_bw = 0;
@@ -441,11 +441,11 @@ static void qos_work_func(struct work_struct *work)
 			continue;
 		do {
 			idx = (idx + 1) % MTK_QOS_BUF_SIZE;
-			bw = qos_info->stats[idx].smibw_mon[qos_smi_idx];
+			bw = get_qos_bound_smibw_mon(idx, qos_smi_idx);
 			total_bw += bw;
 			cnt++;
 			peak_bw = peak_bw > bw ? peak_bw : bw;
-		} while (idx != qos_info->idx);
+		} while (idx != ((get_qos_bound_idx() + 1) % MTK_QOS_BUF_SIZE));
 
 		LOG_DETAIL("idx[%d](%d ~ %d)\n", i, counter->last_idx, idx);
 
