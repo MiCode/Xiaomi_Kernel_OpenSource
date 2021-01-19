@@ -97,6 +97,11 @@ def main(**args):
       file_handle = open(build_config, 'r')
       for line in file_handle.readlines():
           line_strip = line.strip()
+          pattern_cc = re.compile('^CC\s*=\s*(.+)$')
+          result = pattern_cc.match(line_strip)
+          if result:
+              line_strip = 'CC=\"${CC_WRAPPER} %s\"' % (result.group(1).strip())
+          line_strip = line_strip.replace("$$","$")
           file_text.append(line_strip)
           pattern_kernel_dir = re.compile('^KERENL_DIR\s*=\s*(.+)$')
           result = pattern_kernel_dir.match(line_strip)
@@ -107,7 +112,7 @@ def main(**args):
       print 'Please check whether ' + project_defconfig + ' defined CONFIG_BUILD_CONFIG_FILE.'
       sys.exit(2)
 
-    file_text.append("PATH=/usr/bin:/bin:$$PATH")
+    file_text.append("PATH=${ROOT_DIR}/prebuilts/perl/linux-x86/bin:/usr/bin:/bin:$PATH")
 
     all_defconfig = ''
     pre_defconfig_cmds = ''
