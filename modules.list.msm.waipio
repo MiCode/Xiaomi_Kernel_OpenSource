@@ -60,6 +60,7 @@ nvmem_qcom-spmi-sdam.ko
 pwm-qti-lpg.ko
 leds-qti-tri-led.ko
 leds-qti-flash.ko
+qpnp-pbs.ko
 qcom-hv-haptics.ko
 hwmon.ko
 qti_amoled_ecm.ko
