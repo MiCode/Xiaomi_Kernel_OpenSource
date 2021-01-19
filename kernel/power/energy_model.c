@@ -159,10 +159,6 @@ static int em_create_perf_table(struct device *dev, struct em_perf_domain *pd,
 	for (i = 0; i < nr_states; i++) {
 		table[i].cost = div64_u64(fmax * table[i].power,
 					  table[i].frequency);
-		if (i > 0 && (table[i].cost < table[i - 1].cost) &&
-				(table[i].power > table[i - 1].power)) {
-			table[i].cost = table[i - 1].cost;
-		}
 	}
 
 	pd->table = table;

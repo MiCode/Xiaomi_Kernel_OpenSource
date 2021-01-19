@@ -8,18 +8,10 @@
  * See kernel/stop_machine.c
  */
 #include "sched.h"
-#ifdef CONFIG_SCHED_WALT
-#include "walt.h"
-#endif
 
 #ifdef CONFIG_SMP
 static int
-#ifdef CONFIG_SCHED_WALT
-select_task_rq_stop(struct task_struct *p, int cpu, int sd_flag, int flags,
-		    int sibling_count_hint)
-#else
 select_task_rq_stop(struct task_struct *p, int cpu, int sd_flag, int flags)
-#endif
 {
 	return task_cpu(p); /* stop tasks as never migrate */
 }
@@ -55,18 +47,12 @@ static void
 enqueue_task_stop(struct rq *rq, struct task_struct *p, int flags)
 {
 	add_nr_running(rq, 1);
-#ifdef CONFIG_SCHED_WALT
-	walt_inc_cumulative_runnable_avg(rq, p);
-#endif
 }
 
 static void
 dequeue_task_stop(struct rq *rq, struct task_struct *p, int flags)
 {
 	sub_nr_running(rq, 1);
-#ifdef CONFIG_SCHED_WALT
-	walt_dec_cumulative_runnable_avg(rq, p);
-#endif
 }
 
 static void yield_task_stop(struct rq *rq)

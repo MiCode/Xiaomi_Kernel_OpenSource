@@ -64,14 +64,7 @@ int proc_doulongvec_ms_jiffies_minmax(struct ctl_table *table, int, void *,
 int proc_do_large_bitmap(struct ctl_table *, int, void *, size_t *, loff_t *);
 int proc_do_static_key(struct ctl_table *table, int write, void *buffer,
 		size_t *lenp, loff_t *ppos);
-#ifdef CONFIG_SCHED_WALT
-extern int proc_douintvec_capacity(struct ctl_table *table, int write,
-			      void *buffer, size_t *lenp,
-			      loff_t *ppos);
-extern int proc_douintvec_ravg_window(struct ctl_table *table, int write,
-			      void *buffer, size_t *lenp,
-			      loff_t *ppos);
-#endif
+
 /*
  * Register a set of sysctl names by calling register_sysctl_table
  * with an initialised array of struct ctl_table's.  An entry with 

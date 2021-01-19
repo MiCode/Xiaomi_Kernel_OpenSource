@@ -27,71 +27,10 @@ int proc_dohung_task_timeout_secs(struct ctl_table *table, int write,
 enum { sysctl_hung_task_timeout_secs = 0 };
 #endif
 
-#ifdef CONFIG_SCHED_WALT
-#define MAX_CLUSTERS 3
-/* MAX_MARGIN_LEVELS should be one less than MAX_CLUSTERS */
-#define MAX_MARGIN_LEVELS (MAX_CLUSTERS - 1)
-#endif
-
 extern unsigned int sysctl_sched_latency;
 extern unsigned int sysctl_sched_min_granularity;
 extern unsigned int sysctl_sched_wakeup_granularity;
 extern unsigned int sysctl_sched_child_runs_first;
-extern unsigned int sysctl_sched_force_lb_enable;
-#ifdef CONFIG_SCHED_WALT
-extern unsigned int __weak sysctl_sched_capacity_margin_up[MAX_MARGIN_LEVELS];
-extern unsigned int __weak sysctl_sched_capacity_margin_down[MAX_MARGIN_LEVELS];
-extern unsigned int __weak sysctl_sched_user_hint;
-extern const int __weak sched_user_hint_max;
-extern unsigned int __weak sysctl_sched_boost;
-extern unsigned int __weak sysctl_sched_group_upmigrate_pct;
-extern unsigned int __weak sysctl_sched_group_downmigrate_pct;
-extern unsigned int __weak sysctl_sched_conservative_pl;
-extern unsigned int __weak sysctl_sched_walt_rotate_big_tasks;
-extern unsigned int __weak sysctl_sched_min_task_util_for_boost;
-extern unsigned int __weak sysctl_sched_min_task_util_for_colocation;
-extern unsigned int __weak sysctl_sched_asym_cap_sibling_freq_match_pct;
-extern unsigned int __weak sysctl_sched_coloc_downmigrate_ns;
-extern unsigned int __weak sysctl_sched_task_unfilter_period;
-extern unsigned int __weak sysctl_sched_busy_hyst_enable_cpus;
-extern unsigned int __weak sysctl_sched_busy_hyst;
-extern unsigned int __weak sysctl_sched_coloc_busy_hyst_enable_cpus;
-extern unsigned int __weak sysctl_sched_coloc_busy_hyst_cpu[NR_CPUS];
-extern unsigned int __weak sysctl_sched_coloc_busy_hyst_max_ms;
-extern unsigned int __weak sysctl_sched_coloc_busy_hyst_cpu_busy_pct[NR_CPUS];
-extern unsigned int __weak sysctl_sched_window_stats_policy;
-extern unsigned int __weak sysctl_sched_ravg_window_nr_ticks;
-extern unsigned int __weak sysctl_sched_many_wakeup_threshold;
-extern unsigned int __weak sysctl_sched_dynamic_ravg_window_enable;
-extern unsigned int sysctl_sched_prefer_spread;
-extern unsigned int sysctl_walt_rtg_cfs_boost_prio;
-extern unsigned int sysctl_walt_low_latency_task_threshold;
-
-extern int
-walt_proc_group_thresholds_handler(struct ctl_table *table, int write,
-			void __user *buffer, size_t *lenp,
-			loff_t *ppos);
-extern int
-walt_proc_user_hint_handler(struct ctl_table *table, int write,
-			void __user *buffer, size_t *lenp,
-			loff_t *ppos);
-
-extern int
-sched_updown_migrate_handler(struct ctl_table *table, int write,
-			void __user *buffer, size_t *lenp,
-			loff_t *ppos);
-
-extern int
-sched_ravg_window_handler(struct ctl_table *table, int write,
-			void __user *buffer, size_t *lenp,
-			loff_t *ppos);
-
-extern int sched_boost_handler(struct ctl_table *table, int write,
-			void __user *buffer, size_t *lenp, loff_t *ppos);
-
-extern int sched_busy_hyst_handler(struct ctl_table *table, int write,
-			void __user *buffer, size_t *lenp, loff_t *ppos);
-#endif /* CONFIG_SCHED_WALT */
 
 enum sched_tunable_scaling {
 	SCHED_TUNABLESCALING_NONE,
@@ -158,13 +97,6 @@ int sysctl_schedstats(struct ctl_table *table, int write, void *buffer,
 extern unsigned int sysctl_sched_energy_aware;
 int sched_energy_aware_handler(struct ctl_table *table, int write,
 		void *buffer, size_t *lenp, loff_t *ppos);
-#endif
-
-#ifdef CONFIG_SCHED_WALT
-#define LIB_PATH_LENGTH 512
-extern char sched_lib_name[LIB_PATH_LENGTH];
-extern unsigned int sched_lib_mask_force;
-extern bool is_sched_lib_based_app(pid_t pid);
 #endif
 
 #endif /* _LINUX_SCHED_SYSCTL_H */
