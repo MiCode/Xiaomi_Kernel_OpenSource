@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/completion.h>
@@ -472,6 +472,7 @@ struct usbpd {
 	u8			src_cap_ext_db[PD_SRC_CAP_EXT_DB_LEN];
 	bool			send_get_pps_status;
 	u32			pps_status_db;
+	bool			pps_disabled;
 	bool			send_get_status;
 	u8			status_db[PD_STATUS_DB_LEN];
 	bool			send_get_battery_cap;
@@ -2669,6 +2670,7 @@ static void handle_state_snk_wait_for_capabilities(struct usbpd *pd,
 	struct rx_msg *rx_msg)
 {
 	union power_supply_propval val = {0};
+	int i;
 
 	pd->in_pr_swap = false;
 	val.intval = 0;
@@ -2687,6 +2689,14 @@ static void handle_state_snk_wait_for_capabilities(struct usbpd *pd,
 		memcpy(&pd->received_pdos, rx_msg->payload,
 				min_t(size_t, rx_msg->data_len,
 					sizeof(pd->received_pdos)));
+		/* if pps is disabled clear all the received pdos */
+		if (pd->pps_disabled) {
+			for (i = 0; i < ARRAY_SIZE(pd->received_pdos); i++)
+				if ((PD_SRC_PDO_TYPE(pd->received_pdos[i]) ==
+						PD_SRC_PDO_TYPE_AUGMENTED))
+					pd->received_pdos[i] = 0x00;
+		}
+
 		pd->src_cap_id++;
 
 		usbpd_set_state(pd, PE_SNK_EVALUATE_CAPABILITY);
@@ -2921,6 +2931,7 @@ static bool handle_ctrl_snk_ready(struct usbpd *pd, struct rx_msg *rx_msg)
 static bool handle_data_snk_ready(struct usbpd *pd, struct rx_msg *rx_msg)
 {
 	u32 ado;
+	int i;
 
 	switch (PD_MSG_HDR_TYPE(rx_msg->hdr)) {
 	case MSG_SOURCE_CAPABILITIES:
@@ -2930,6 +2941,14 @@ static bool handle_data_snk_ready(struct usbpd *pd, struct rx_msg *rx_msg)
 		memcpy(&pd->received_pdos, rx_msg->payload,
 				min_t(size_t, rx_msg->data_len,
 					sizeof(pd->received_pdos)));
+		/* if pps is disabled clear all the received pdos */
+		if (pd->pps_disabled) {
+			for (i = 0; i < ARRAY_SIZE(pd->received_pdos); i++)
+				if ((PD_SRC_PDO_TYPE(pd->received_pdos[i]) ==
+						PD_SRC_PDO_TYPE_AUGMENTED))
+					pd->received_pdos[i] = 0x00;
+		}
+
 		pd->src_cap_id++;
 
 		usbpd_set_state(pd, PE_SNK_EVALUATE_CAPABILITY);
@@ -4797,6 +4816,8 @@ struct usbpd *usbpd_create(struct device *parent)
 		}
 	}
 
+	pd->pps_disabled = device_property_read_bool(parent,
+				"qcom,pps-disabled");
 	pd->current_pr = PR_NONE;
 	pd->current_dr = DR_NONE;
 	list_add_tail(&pd->instance, &_usbpd);
