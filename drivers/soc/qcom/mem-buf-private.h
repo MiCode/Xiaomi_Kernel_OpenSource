@@ -64,19 +64,22 @@ struct dma_heap_attachment {
 	bool mapped;
 };
 
+
+#define MEM_BUF_API_HYP_ASSIGN BIT(0)
+#define MEM_BUF_API_HAVEN BIT(1)
+
 /*
  * @vmid - id assigned by hypervisor to uniquely identify a VM
  * @hh_id - id used to request the real vmid from the kernel
  * haven driver. This is a legacy field which should eventually be
  * removed once a better design is present.
- * @peripheral - certain operations, such as retrieveing a hh_handle,
- * are not supported for peripheral vms (yet).
+ * @allowed_api - Some vms may use a different hypervisor interface.
  */
 struct mem_buf_vm {
 	const char *name;
 	u16 vmid;
 	enum hh_vm_names hh_id;
-	bool peripheral;
+	u32 allowed_api;
 	struct cdev cdev;
 	struct device dev;
 };
@@ -85,13 +88,10 @@ extern int current_vmid;
 int mem_buf_vm_init(struct device *dev);
 void mem_buf_vm_exit(void);
 /*
- * Handles are only supported for CPU VMs & for physically contiguous memory
- * regions.
- * Returns a negative number for invalid arguments, 0 for handle not supported
- * and a positive number for handle supported.
+ * Returns a negative number for invalid arguments, otherwise a MEM_BUF_API
+ * which is supported by all vmids in the array.
  */
-int mem_buf_vm_supports_handle(struct sg_table *sgt, int *vmids,
-		unsigned int nr_acl_entries);
+int mem_buf_vm_get_backend_api(int *vmids, unsigned int nr_acl_entries);
 /* @Return: A negative number on failure, or vmid on success */
 int mem_buf_fd_to_vmid(int fd);
 #endif

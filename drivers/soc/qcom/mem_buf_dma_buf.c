@@ -682,7 +682,9 @@ int mem_buf_lend(struct dma_buf *dmabuf,
 			struct mem_buf_lend_kernel_arg *arg)
 {
 	struct mem_buf_vmperm *vmperm;
+	struct sg_table *sgt;
 	int ret;
+	int api;
 
 	if (!(mem_buf_capability & MEM_BUF_CAP_SUPPLIER))
 		return -EOPNOTSUPP;
@@ -695,6 +697,26 @@ int mem_buf_lend(struct dma_buf *dmabuf,
 		pr_err_ratelimited("dmabuf ops %ps are not a mem_buf_dma_buf_ops\n",
 				dmabuf->ops);
 		return -EINVAL;
+	}
+	sgt = vmperm->sgt;
+
+	api = mem_buf_vm_get_backend_api(arg->vmids, arg->nr_acl_entries);
+	if (api < 0)
+		return -EINVAL;
+
+	if (api == MEM_BUF_API_HAVEN) {
+		/* Due to hyp-assign batching */
+		if (sgt->nents > 1) {
+			pr_err_ratelimited("Operation requires physically contiguous memory\n");
+			return -EINVAL;
+		}
+
+		/* Due to memory-hotplug */
+		if ((sg_virt(sgt->sgl) && (SUBSECTION_SIZE - 1)) ||
+				(sgt->sgl->length % SUBSECTION_SIZE)) {
+			pr_err_ratelimited("Operation requires SUBSECTION_SIZE alignemnt\n");
+			return -EINVAL;
+		}
 	}
 
 	mutex_lock(&vmperm->lock);
@@ -742,16 +764,12 @@ int mem_buf_lend(struct dma_buf *dmabuf,
 		goto err_assign;
 	}
 
-	ret = mem_buf_vm_supports_handle(vmperm->sgt, arg->vmids,
-					arg->nr_acl_entries);
-	if (ret > 0) {
+	if (api == MEM_BUF_API_HAVEN) {
 		ret = mem_buf_retrieve_memparcel_hdl(vmperm->sgt, arg->vmids,
 				arg->perms, arg->nr_acl_entries,
 				&arg->memparcel_hdl);
 		if (ret)
 			goto err_retrieve_hdl;
-	} else if (ret < 0) {
-		goto err_retrieve_hdl;
 	} else {
 		arg->memparcel_hdl = 0;
 	}

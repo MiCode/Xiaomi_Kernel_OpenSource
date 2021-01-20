@@ -28,10 +28,9 @@ static struct mem_buf_vm vm_ ## _lname = {	\
 	.name = "qcom," #_lname,		\
 	.vmid = VMID_ ## _uname,		\
 	.hh_id = HH_VM_MAX,			\
-	.peripheral = true,			\
+	.allowed_api = MEM_BUF_API_HYP_ASSIGN,	\
 }
 
-PERIPHERAL_VM(HLOS, hlos);
 PERIPHERAL_VM(CP_TOUCH, cp_touch);
 PERIPHERAL_VM(CP_BITSTREAM, cp_bitstream);
 PERIPHERAL_VM(CP_PIXEL, cp_pixel);
@@ -48,7 +47,14 @@ static struct mem_buf_vm vm_trusted_vm = {
 	.name = "qcom,trusted_vm",
 	/* Vmid via dynamic lookup */
 	.hh_id = HH_TRUSTED_VM,
-	.peripheral = false,
+	.allowed_api = MEM_BUF_API_HAVEN,
+};
+
+static struct mem_buf_vm vm_hlos = {
+	.name = "qcom,hlos",
+	.vmid = VMID_HLOS,
+	.hh_id = HH_VM_MAX,
+	.allowed_api = MEM_BUF_API_HYP_ASSIGN | MEM_BUF_API_HAVEN,
 };
 
 struct mem_buf_vm *pdata_array[] = {
@@ -121,31 +127,32 @@ static struct mem_buf_vm *find_vm_by_vmid(int vmid)
 	return ERR_PTR(-EINVAL);
 }
 
-int mem_buf_vm_supports_handle(struct sg_table *sgt, int *vmids,
-		unsigned int nr_acl_entries)
+int mem_buf_vm_get_backend_api(int *vmids, unsigned int nr_acl_entries)
 {
-	int i;
 	struct mem_buf_vm *vm;
-	bool peripheral = false;
+	u32 allowed_api = U32_MAX;
+	int i;
 
 	for (i = 0; i < nr_acl_entries; i++) {
 		vm = find_vm_by_vmid(vmids[i]);
-		if (IS_ERR(vm))
+		if (IS_ERR(vm)) {
+			pr_err_ratelimited("No vm with vmid=0x%x\n", vmids[i]);
 			return PTR_ERR(vm);
-
-		if (i && peripheral != vm->peripheral) {
-			pr_err_ratelimited("Mixed peripheral and cpu vms\n");
-			return -EINVAL;
 		}
-		peripheral = vm->peripheral;
+
+		allowed_api &= vm->allowed_api;
 	}
-	if (peripheral)
-		return false;
-	if (sgt->orig_nents != 1) {
-		pr_err_ratelimited("cpu vms require nents=1\n");
+
+	if (!allowed_api) {
+		pr_err_ratelimited("Vms have no common backend API\n");
 		return -EINVAL;
 	}
-	return true;
+
+	/* Prefer hyp assign since it has fewer limitations */
+	if (allowed_api & MEM_BUF_API_HYP_ASSIGN)
+		return MEM_BUF_API_HYP_ASSIGN;
+	else
+		return MEM_BUF_API_HAVEN;
 }
 
 int mem_buf_fd_to_vmid(int fd)
