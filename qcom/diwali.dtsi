@@ -189,6 +189,16 @@
 		interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_LOW>;
 	};
 
+	tlmm: pinctrl@f000000 {
+		compatible = "qcom,diwali-pinctrl";
+		reg = <0x0F000000 0x1000000>;
+		interrupts = <GIC_SPI 208 IRQ_TYPE_LEVEL_HIGH>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+	};
+
 	wdog: qcom,wdt@17410000 {
 		compatible = "qcom,msm-watchdog";
 		reg = <0x17410000 0x1000>;
@@ -264,3 +274,5 @@
 		};
 	};
 };
+
+#include "diwali-pinctrl.dtsi"
