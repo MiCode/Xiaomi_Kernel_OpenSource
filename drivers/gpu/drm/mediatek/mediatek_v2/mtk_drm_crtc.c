@@ -3428,7 +3428,7 @@ unsigned int mtk_drm_dump_wk_lock(
 }
 
 void mtk_drm_crtc_atomic_resume(struct drm_crtc *crtc,
-				struct drm_crtc_state *old_crtc_state)
+				struct drm_atomic_state *atomic_state)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	int index = drm_crtc_index(crtc);
@@ -3911,9 +3911,11 @@ struct cmdq_pkt *mtk_crtc_gce_commit_begin(struct drm_crtc *crtc)
 }
 
 static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
-				      struct drm_crtc_state *old_crtc_state)
+				      struct drm_atomic_state *atomic_state)
 {
 	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc->state);
+	struct drm_crtc_state *old_crtc_state =
+		drm_atomic_get_old_crtc_state(atomic_state, crtc);
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	int index = drm_crtc_index(crtc);
 	struct mtk_ddp_comp *comp;
@@ -4544,9 +4546,11 @@ static void mtk_drm_crtc_disable_fake_layer(struct drm_crtc *crtc,
 }
 
 static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
-				      struct drm_crtc_state *old_crtc_state)
+				      struct drm_atomic_state *atomic_state)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct drm_crtc_state *old_crtc_state =
+		drm_atomic_get_old_crtc_state(atomic_state, crtc);
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	int index = drm_crtc_index(crtc);
 	unsigned int pending_planes = 0;
