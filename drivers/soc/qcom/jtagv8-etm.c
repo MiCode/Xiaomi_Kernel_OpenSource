@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2021, The Linux Foundation. All rights reserved.
  *
  */
 
@@ -26,6 +26,7 @@
 #include <linux/spinlock.h>
 #include <linux/mutex.h>
 #include <linux/qcom_scm.h>
+#include <linux/msm_rtb.h>
 #include <soc/qcom/jtag.h>
 #include <asm/smp_plat.h>
 #include <asm/etmv4x.h>
