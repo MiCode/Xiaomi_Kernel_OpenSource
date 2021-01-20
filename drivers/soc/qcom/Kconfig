@@ -610,6 +610,8 @@ config QCOM_GLINK_PKT
 	  This enable the userspace clients to read and write to
 	  some glink packets channel.
 
+source "drivers/soc/qcom/hab/Kconfig"
+
 config MSM_PERFORMANCE
         tristate "msm performance driver to support userspace fmin/fmax request"
         help
