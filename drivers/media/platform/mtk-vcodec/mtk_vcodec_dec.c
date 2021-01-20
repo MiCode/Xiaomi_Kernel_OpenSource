@@ -887,6 +887,13 @@ static int vidioc_decoder_cmd(struct file *file, void *priv,
 		ctx->dec_flush_buf->vb.vb2_buf.planes[0].bytesused = 0;
 		v4l2_m2m_buf_queue_check(ctx->m2m_ctx, &ctx->dec_flush_buf->vb);
 		v4l2_m2m_try_schedule(ctx->m2m_ctx);
+
+		// error handle for error bitstream
+		// notify error if received stop cmd in init state to avoid decode hang
+		if (ctx->state == MTK_STATE_INIT) {
+			mtk_v4l2_err("[%d]Error!! cannot stop in init state", ctx->id);
+			mtk_vdec_queue_error_event(ctx);
+		}
 		break;
 
 	case V4L2_DEC_CMD_START:
