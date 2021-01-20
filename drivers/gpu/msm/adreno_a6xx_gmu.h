@@ -80,8 +80,11 @@ struct a6xx_gmu_device {
 	void __iomem *rdpm_cx_virt;
 	/** @rdpm_mx_virt: Pointer where the RDPM MX block is mapped */
 	void __iomem *rdpm_mx_virt;
-	/** @log_stream_enable: GMU log streaming enable */
+	/** @log_stream_enable: GMU log streaming enable. Disabled by default */
 	bool log_stream_enable;
+	/** @log_group_mask: Allows overriding default GMU log group mask */
+	u32 log_group_mask;
+	struct kobject log_kobj;
 };
 
 /* Helper function to get to a6xx gmu device from adreno device */

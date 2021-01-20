@@ -75,6 +75,11 @@ struct genc_gmu_device {
 	void __iomem *rscc_virt;
 	/** @domain: IOMMU domain for the kernel context */
 	struct iommu_domain *domain;
+	/** @log_stream_enable: GMU log streaming enable. Disabled by default */
+	bool log_stream_enable;
+	/** @log_group_mask: Allows overriding default GMU log group mask */
+	u32 log_group_mask;
+	struct kobject log_kobj;
 };
 
 /* Helper function to get to genc gmu device from adreno device */

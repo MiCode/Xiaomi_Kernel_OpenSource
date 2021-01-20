@@ -10,11 +10,13 @@
 #include <linux/firmware.h>
 #include <linux/interconnect.h>
 #include <linux/io.h>
+#include <linux/kobject.h>
 #include <linux/of_platform.h>
 #include <linux/qcom-iommu-util.h>
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
 #include <linux/soc/qcom/llcc-qcom.h>
+#include <linux/sysfs.h>
 #include <linux/mailbox/qmp.h>
 #include <soc/qcom/cmd-db.h>
 
@@ -83,6 +85,68 @@ static struct gmu_vma_entry a6xx_gmu_vma[] = {
 			.size = SZ_512M,
 			.next_va = 0x60000000
 		},
+};
+
+static ssize_t log_stream_enable_store(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	struct a6xx_gmu_device *gmu = container_of(kobj, struct a6xx_gmu_device, log_kobj);
+	bool val;
+	int ret;
+
+	ret = kstrtobool(buf, &val);
+	if (ret)
+		return ret;
+
+	gmu->log_stream_enable = val;
+	return count;
+}
+
+static ssize_t log_stream_enable_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+{
+	struct a6xx_gmu_device *gmu = container_of(kobj, struct a6xx_gmu_device, log_kobj);
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n", gmu->log_stream_enable);
+}
+
+static ssize_t log_group_mask_store(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	struct a6xx_gmu_device *gmu = container_of(kobj, struct a6xx_gmu_device, log_kobj);
+	u32 val;
+	int ret;
+
+	ret = kstrtou32(buf, 0, &val);
+	if (ret)
+		return ret;
+
+	gmu->log_group_mask = val;
+	return count;
+}
+
+static ssize_t log_group_mask_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+{
+	struct a6xx_gmu_device *gmu = container_of(kobj, struct a6xx_gmu_device, log_kobj);
+
+	return scnprintf(buf, PAGE_SIZE, "%x\n", gmu->log_group_mask);
+}
+
+static struct kobj_attribute log_stream_enable_attr =
+	__ATTR(log_stream_enable, 0644, log_stream_enable_show, log_stream_enable_store);
+
+static struct kobj_attribute log_group_mask_attr =
+	__ATTR(log_group_mask, 0644, log_group_mask_show, log_group_mask_store);
+
+static struct attribute *log_attrs[] = {
+	&log_stream_enable_attr.attr,
+	&log_group_mask_attr.attr,
+	NULL,
+};
+ATTRIBUTE_GROUPS(log);
+
+static struct kobj_type log_kobj_type = {
+	.sysfs_ops = &kobj_sysfs_ops,
+	.default_groups = log_groups,
 };
 
 static int timed_poll_check_rscc(struct kgsl_device *device,
@@ -2537,6 +2601,8 @@ void a6xx_gmu_remove(struct kgsl_device *device)
 	a6xx_free_gmu_globals(gmu);
 
 	vfree(gmu->itcm_shadow);
+
+	kobject_put(&gmu->log_kobj);
 }
 
 static int a6xx_gmu_iommu_fault_handler(struct iommu_domain *domain,
@@ -2600,6 +2666,7 @@ int a6xx_gmu_probe(struct kgsl_device *device,
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
+	struct device *dev = &pdev->dev;
 	struct resource *res;
 	int ret;
 
@@ -2665,6 +2732,13 @@ int a6xx_gmu_probe(struct kgsl_device *device,
 	set_bit(GMU_ENABLED, &device->gmu_core.flags);
 
 	device->gmu_core.dev_ops = &a6xx_gmudev;
+
+	/* Set default GMU attributes */
+	gmu->log_stream_enable = false;
+	gmu->log_group_mask = 0x3;
+
+	/* GMU sysfs nodes setup */
+	kobject_init_and_add(&gmu->log_kobj, &log_kobj_type, &dev->kobj, "log");
 
 	gmu->irq = kgsl_request_irq(gmu->pdev, "kgsl_gmu_irq",
 		a6xx_gmu_irq_handler, device);
