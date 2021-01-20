@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  *
  */
 
@@ -155,5 +155,26 @@ int mhi_device_get_sync_atomic(struct mhi_device *mhi_dev, int timeout_us,
 void mhi_controller_set_bw_scale_cb(struct mhi_controller *mhi_cntrl,
 				int (*cb_func)(struct mhi_controller *mhi_cntrl,
 					      struct mhi_link_info *link_info));
+/**
+ * mhi_controller_set_base - Set the controller base / resource start address
+ * @mhi_cntrl: MHI controller
+ * @base: Physical address to be set for future reference
+ */
+void mhi_controller_set_base(struct mhi_controller *mhi_cntrl,
+			     phys_addr_t base);
+
+/**
+ * mhi_get_channel_db_base - retrieve the channel doorbell base address
+ * @mhi_dev: Device associated with the channels
+ * @value: Pointer to an address value which will be populated
+ */
+int mhi_get_channel_db_base(struct mhi_device *mhi_dev, phys_addr_t *value);
+
+/**
+ * mhi_get_event_ring_db_base - retrieve the event ring doorbell base address
+ * @mhi_dev: Device associated with the channels
+ * @value: Pointer to an address value which will be populated
+ */
+int mhi_get_event_ring_db_base(struct mhi_device *mhi_dev, phys_addr_t *value);
 
 #endif /* _MHI_MISC_H_ */

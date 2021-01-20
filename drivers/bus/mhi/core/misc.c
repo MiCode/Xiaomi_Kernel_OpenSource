@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  *
  */
 
@@ -913,3 +913,58 @@ void mhi_controller_set_bw_scale_cb(struct mhi_controller *mhi_cntrl,
 	mhi_priv->bw_scale = cb_func;
 }
 EXPORT_SYMBOL(mhi_controller_set_bw_scale_cb);
+
+void mhi_controller_set_base(struct mhi_controller *mhi_cntrl, phys_addr_t base)
+{
+	struct device *dev = &mhi_cntrl->mhi_dev->dev;
+	struct mhi_private *mhi_priv = dev_get_drvdata(dev);
+
+	mhi_priv->base_addr = base;
+}
+EXPORT_SYMBOL(mhi_controller_set_base);
+
+int mhi_get_channel_db_base(struct mhi_device *mhi_dev, phys_addr_t *value)
+{
+	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
+	struct device *dev = &mhi_cntrl->mhi_dev->dev;
+	struct mhi_private *mhi_priv = dev_get_drvdata(dev);
+	u32 offset;
+	int ret;
+
+	if (!MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state))
+		return -EIO;
+
+	ret = mhi_read_reg_field(mhi_cntrl, mhi_cntrl->regs, CHDBOFF,
+				 CHDBOFF_CHDBOFF_MASK, CHDBOFF_CHDBOFF_SHIFT,
+				 &offset);
+	if (ret)
+		return -EIO;
+
+	*value = mhi_priv->base_addr + offset;
+
+	return ret;
+}
+EXPORT_SYMBOL(mhi_get_channel_db_base);
+
+int mhi_get_event_ring_db_base(struct mhi_device *mhi_dev, phys_addr_t *value)
+{
+	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
+	struct device *dev = &mhi_cntrl->mhi_dev->dev;
+	struct mhi_private *mhi_priv = dev_get_drvdata(dev);
+	u32 offset;
+	int ret;
+
+	if (!MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state))
+		return -EIO;
+
+	ret = mhi_read_reg_field(mhi_cntrl, mhi_cntrl->regs, ERDBOFF,
+				 ERDBOFF_ERDBOFF_MASK, ERDBOFF_ERDBOFF_SHIFT,
+				 &offset);
+	if (ret)
+		return -EIO;
+
+	*value = mhi_priv->base_addr + offset;
+
+	return ret;
+}
+EXPORT_SYMBOL(mhi_get_event_ring_db_base);
