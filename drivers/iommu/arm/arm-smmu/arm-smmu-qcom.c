@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/adreno-smmu-priv.h>
@@ -1143,7 +1143,20 @@ static const struct arm_smmu_impl qsmmuv500_impl = {
 	.def_domain_type = qsmmuv500_def_domain_type,
 };
 
-struct arm_smmu_device *qsmmuv500_impl_init(struct arm_smmu_device *smmu)
+static const struct arm_smmu_impl qsmmuv500_adreno_impl = {
+	.init_context = qcom_adreno_smmu_init_context,
+	.alloc_context_bank = qcom_adreno_smmu_alloc_context_bank,
+	.cfg_probe = qsmmuv500_cfg_probe,
+	.init_context_bank = qsmmuv500_init_cb,
+	.iova_to_phys_hard = qsmmuv500_iova_to_phys_hard,
+	.tlb_sync_timeout = qsmmuv500_tlb_sync_timeout,
+	.device_remove = qsmmuv500_device_remove,
+	.device_group = qsmmuv500_device_group,
+	.def_domain_type = qsmmuv500_def_domain_type,
+};
+
+struct arm_smmu_device *qsmmuv500_create(struct arm_smmu_device *smmu,
+		const struct arm_smmu_impl *impl)
 {
 	struct resource *res;
 	struct device *dev = smmu->dev;
@@ -1156,6 +1169,13 @@ struct arm_smmu_device *qsmmuv500_impl_init(struct arm_smmu_device *smmu)
 		return ERR_PTR(-ENOMEM);
 
 	INIT_LIST_HEAD(&data->tbus);
+	spin_lock_init(&data->atos_lock);
+	INIT_WORK(&data->outstanding_tnx_work,
+		  qsmmuv500_log_outstanding_transactions);
+
+	data->smmu = *smmu;
+	data->smmu.impl = impl;
+	devm_kfree(smmu->dev, smmu);
 
 	pdev = to_platform_device(dev);
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "tcu-base");
@@ -1167,16 +1187,9 @@ struct arm_smmu_device *qsmmuv500_impl_init(struct arm_smmu_device *smmu)
 	if (IS_ERR(data->tcu_base))
 		return ERR_CAST(data->tcu_base);
 
-	spin_lock_init(&data->atos_lock);
-	data->smmu = *smmu;
-	data->smmu.impl = &qsmmuv500_impl;
-
 	ret = qsmmuv500_read_actlr_tbl(data);
 	if (ret)
 		return ERR_PTR(ret);
-
-	INIT_WORK(&data->outstanding_tnx_work,
-		  qsmmuv500_log_outstanding_transactions);
 
 	ret = of_platform_populate(dev->of_node, NULL, NULL, dev);
 	if (ret)
@@ -1187,8 +1200,15 @@ struct arm_smmu_device *qsmmuv500_impl_init(struct arm_smmu_device *smmu)
 	if (ret)
 		return ERR_PTR(-EPROBE_DEFER);
 
-	devm_kfree(smmu->dev, smmu);
 	return &data->smmu;
+}
+
+struct arm_smmu_device *qsmmuv500_impl_init(struct arm_smmu_device *smmu)
+{
+	if (of_device_is_compatible(smmu->dev->of_node, "qcom,adreno-smmu"))
+		return qsmmuv500_create(smmu, &qsmmuv500_adreno_impl);
+
+	return qsmmuv500_create(smmu, &qsmmuv500_impl);
 }
 
 static const struct arm_smmu_impl qcom_adreno_smmu_impl = {
