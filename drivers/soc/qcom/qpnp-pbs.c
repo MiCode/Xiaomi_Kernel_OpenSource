@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, 2020, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"PBS: %s: " fmt, __func__
@@ -144,6 +144,45 @@ static int qpnp_pbs_wait_for_ack(struct qpnp_pbs *pbs, u8 bit_pos)
 
 	return 0;
 }
+
+/**
+ * qpnp_pbs_trigger_single_event - trigger PBS sequence which is connected
+ * directly to SW_TRIGGER bit without using bitmap.
+ *
+ * Returns = 0 enable SW_TRIGGER in PBS client successfully.
+ *
+ * Returns < 0 for errors.
+ *
+ * This function is used to trigger the PBS that is hooked on the
+ * SW_TRIGGER directly in PBS client.
+ */
+int qpnp_pbs_trigger_single_event(struct device_node *dev_node)
+{
+	struct qpnp_pbs *pbs_dev;
+	int rc;
+
+	if (!dev_node)
+		return -EINVAL;
+
+	pbs_dev = get_pbs_client_node(dev_node);
+	if (IS_ERR(pbs_dev)) {
+		rc = PTR_ERR(pbs_dev);
+		pr_err("Unable to find the PBS dev_node, rc=%d\n", rc);
+		return rc;
+	}
+
+	mutex_lock(&pbs_dev->pbs_lock);
+	rc = qpnp_pbs_masked_write(pbs_dev, pbs_dev->base +
+				PBS_CLIENT_TRIG_CTL, PBS_CLIENT_SW_TRIG_BIT,
+				PBS_CLIENT_SW_TRIG_BIT);
+	if (rc < 0)
+		pr_err("Failed to write register %x rc=%d\n",
+				PBS_CLIENT_TRIG_CTL, rc);
+	mutex_unlock(&pbs_dev->pbs_lock);
+
+	return rc;
+}
+EXPORT_SYMBOL(qpnp_pbs_trigger_single_event);
 
 /**
  * qpnp_pbs_trigger_event - Trigger the PBS RAM sequence
