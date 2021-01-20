@@ -2914,6 +2914,7 @@
 #include "waipio-usb.dtsi"
 #include "waipio-dma-heaps.dtsi"
 #include "lahaina-ion.dtsi"
+#include "waipio-debug.dtsi"
 #include "waipio-eva.dtsi"
 #include "waipio-audio.dtsi"
 #include "waipio-pcie.dtsi"
