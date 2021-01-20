@@ -1,0 +1,11 @@
+/dts-v1/;
+/memreserve/ 0x90000000 0x00010000;
+
+#include "diwali.dtsi"
+#include "diwali-rumi.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Diwali RUMI";
+	compatible = "qcom,diwali-rumi", "qcom,diwali", "qcom,rumi";
+	qcom,board-id = <0x1000F 0>;
+};

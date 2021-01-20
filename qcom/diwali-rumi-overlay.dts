@@ -1,0 +1,11 @@
+/dts-v1/;
+/plugin/;
+
+#include "diwali-rumi.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Diwali RUMI";
+	compatible = "qcom,diwali-rumi", "qcom,diwali", "qcom,rumi";
+	qcom,msm-id = <506 0x10000>;
+	qcom,board-id = <0x1000F 0>;
+};
