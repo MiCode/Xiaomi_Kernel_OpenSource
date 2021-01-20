@@ -784,6 +784,7 @@
   __fdget
   fd_install
   fget
+  find_get_pid
   find_last_bit
   find_next_bit
   find_next_zero_bit
