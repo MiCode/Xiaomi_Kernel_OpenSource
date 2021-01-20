@@ -585,21 +585,6 @@
 		};
 	};
 
-
-	dfd_mcu: dfd_mcu@0c600000 {
-		compatible = "mediatek,mt6873-dfd";
-		enabled = <1>;
-		chain_length = <0x9c40>;
-		rg_dfd_timeout = <0xa0>;
-		check_dfd_support = <1>;
-	};
-
-	dfd_cache: dfd_cache {
-		compatible = "mediatek,mt6873-dfd_cache";
-		enabled = <0>;
-		rg_dfd_timeout = <0x5dc0>;
-	};
-
 	dcm: dcm@10001000 {
 		compatible = "mediatek,mt6873-dcm";
 		reg = <0 0x10001000 0 0x1000>,
@@ -1222,6 +1207,20 @@
 					  "mbox5",
 					  "mbox6",
 					  "mbox7";
+		};
+
+		dfd_mcu: dfd_mcu@0c600000 {
+			compatible = "mediatek,mt6873-dfd";
+			enabled = <1>;
+			chain_length = <0x9c40>;
+			rg_dfd_timeout = <0xa0>;
+			check_dfd_support = <1>;
+		};
+
+		dfd_cache: dfd_cache {
+			compatible = "mediatek,mt6873-dfd_cache";
+			enabled = <0>;
+			rg_dfd_timeout = <0x5dc0>;
 		};
 
 		topckgen: topckgen@10000000 {
