@@ -16,6 +16,9 @@ static const struct of_device_id qcom_proxy_of_consumer_match[] = {
 #if !IS_ENABLED(CONFIG_SERIAL_MSM_GENI_CONSOLE)
 	{ .compatible = "qcom,msm-geni-console"},
 #endif
+#if !IS_ENABLED(CONFIG_MSM_JTAGV8)
+	{ .compatible = "qcom,jtagv8-mm"},
+#endif
 	{}
 };
 
