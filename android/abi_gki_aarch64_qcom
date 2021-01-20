@@ -224,6 +224,7 @@
   cpufreq_register_notifier
   cpufreq_unregister_driver
   cpufreq_unregister_notifier
+  __cpu_active_mask
   __cpuhp_remove_state
   __cpuhp_setup_state
   __cpuhp_setup_state_cpuslocked
@@ -248,6 +249,8 @@
   cpus_read_unlock
   cpu_subsys
   cpu_topology
+  cpuidle_register_governor
+  cpuidle_governor_latency_req
   crc8
   crc8_populate_msb
   crypto_aead_encrypt
@@ -307,6 +310,7 @@
   dev_fwnode
   dev_get_by_name
   dev_get_regmap
+  dev_pm_genpd_set_next_wakeup
   device_add
   device_add_groups
   device_create
@@ -890,6 +894,7 @@
   hex2bin
   hex_dump_to_buffer
   hex_to_bin
+  hrtimer_active
   hrtimer_cancel
   hrtimer_forward
   hrtimer_init
@@ -903,6 +908,7 @@
   hwrng_unregister
   hwspin_lock_free
   hwspin_lock_request_specific
+  __hrtimer_get_remaining
   __hwspin_lock_timeout
   __hwspin_unlock
   hypervisor_kobj
@@ -973,6 +979,7 @@
   input_unregister_device
   input_unregister_handle
   input_unregister_handler
+  int_sqrt
   invalidate_mapping_pages
   iomem_resource
   iommu_alloc_resv_region
@@ -2083,6 +2090,7 @@
   thermal_zone_device_update
   thermal_zone_of_sensor_register
   thermal_zone_of_sensor_unregister
+  tick_nohz_get_sleep_length
   time64_to_tm
   timer_unstable_counter_workaround
   topology_set_thermal_pressure
@@ -2136,6 +2144,7 @@
   __tracepoint_android_rvh_update_misfit_status
   __tracepoint_android_rvh_wake_up_new_task
   __tracepoint_android_vh_binder_wakeup_ilocked
+  __tracepoint_android_vh_allow_domain_state
   __tracepoint_android_vh_cpu_idle_enter
   __tracepoint_android_vh_cpu_idle_exit
   __tracepoint_android_vh_dump_throttled_rt_tasks
@@ -2148,6 +2157,8 @@
   __tracepoint_binder_transaction_received
   __tracepoint_cpu_frequency
   __tracepoint_cpu_idle
+  __tracepoint_ipi_raise
+  __tracepoint_ipi_entry
   tracepoint_probe_register
   tracepoint_probe_unregister
   __tracepoint_rwmmio_post_read
@@ -2423,6 +2434,7 @@
   __wake_up
   wake_up_if_idle
   __wake_up_locked
+  wake_up_if_idle
   wake_up_process
   wakeup_source_register
   wakeup_source_unregister
