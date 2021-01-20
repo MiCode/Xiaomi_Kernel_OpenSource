@@ -545,6 +545,45 @@ static int vpu_iova_dts(struct device *dev,
 	return 0;
 }
 
+void *vpu_vmap(phys_addr_t start, size_t size)
+{
+	struct page **pages = NULL;
+	phys_addr_t page_start = 0;
+	unsigned int page_count = 0;
+	pgprot_t prot;
+	unsigned int i;
+	void *vaddr = NULL;
+
+	if (!size) {
+		pr_info("%s: input size should not be zero\n", __func__);
+		return NULL;
+	}
+
+	page_start = start - offset_in_page(start);
+	page_count = DIV_ROUND_UP(size + offset_in_page(start), PAGE_SIZE);
+
+	prot = pgprot_writecombine(PAGE_KERNEL);
+
+	pages = kmalloc_array(page_count, sizeof(struct page *), GFP_KERNEL);
+	if (!pages)
+		return NULL;
+
+	for (i = 0; i < page_count; i++) {
+		phys_addr_t addr = page_start + i * PAGE_SIZE;
+
+		pages[i] = pfn_to_page(addr >> PAGE_SHIFT);
+	}
+
+	vaddr = vmap(pages, page_count, VM_MAP, prot);
+	kfree(pages);
+	if (!vaddr) {
+		pr_info("%s: failed to get vaddr from vmap\n", __func__);
+		return NULL;
+	}
+
+	return vaddr + offset_in_page(start);
+}
+
 /* v1: Uses mtk_iommu's iova allocator
  * AOSP: The iova address must be aligned to its size
  */
