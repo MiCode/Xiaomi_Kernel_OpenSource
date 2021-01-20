@@ -1,9 +1,12 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2013, Sony Mobile Communications AB.
+ * Copyright (c) 2021, The Linux Foundation. All rights reserved.
  */
 #ifndef __PINCTRL_MSM_H__
 #define __PINCTRL_MSM_H__
+
+#include <linux/pinctrl/qcom-pinctrl.h>
 
 struct pinctrl_pin_desc;
 
@@ -108,6 +111,16 @@ struct msm_gpio_wakeirq_map {
 	unsigned int wakeirq;
 };
 
+/*
+ * struct pinctrl_qup - Qup mode configuration
+ * @mode:	Qup i3c mode
+ * @offset:	Offset of the register
+ */
+struct pinctrl_qup {
+	u32 mode;
+	u32 offset;
+};
+
 /**
  * struct msm_pinctrl_soc_data - Qualcomm pin controller driver configuration
  * @pins:	    An array describing all pins the pin controller affects.
@@ -139,6 +152,8 @@ struct msm_pinctrl_soc_data {
 	const struct msm_gpio_wakeirq_map *wakeirq_map;
 	unsigned int nwakeirq_map;
 	bool wakeirq_dual_edge_errata;
+	struct pinctrl_qup *qup_regs;
+	unsigned int nqup_regs;
 };
 
 extern const struct dev_pm_ops msm_pinctrl_dev_pm_ops;

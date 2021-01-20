@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2013, Sony Mobile Communications AB.
- * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/delay.h>
@@ -23,8 +23,8 @@
 #include <linux/pm.h>
 #include <linux/log2.h>
 #include <linux/qcom_scm.h>
-
 #include <linux/soc/qcom/irq.h>
+#include <linux/bitmap.h>
 
 #include "../core.h"
 #include "../pinconf.h"
@@ -34,6 +34,7 @@
 #define MAX_NR_GPIO 300
 #define MAX_NR_TILES 4
 #define PS_HOLD_OFFSET 0x820
+#define QUP_MASK       GENMASK(5, 0)
 
 /**
  * struct msm_pinctrl - state for a pinctrl-msm device
@@ -1459,6 +1460,42 @@ int msm_gpio_mpm_wake_set(unsigned int gpio, bool enable)
 	return 0;
 }
 EXPORT_SYMBOL(msm_gpio_mpm_wake_set);
+
+int msm_qup_write(u32 mode, u32 val)
+{
+	int i;
+	struct pinctrl_qup *regs = msm_pinctrl_data->soc->qup_regs;
+	int num_regs =  msm_pinctrl_data->soc->nqup_regs;
+
+	/*Iterate over modes*/
+	for (i = 0; i < num_regs; i++) {
+		if (regs[i].mode == mode) {
+			writel_relaxed(val & QUP_MASK,
+				 msm_pinctrl_data->regs[0] + regs[i].offset);
+			return 0;
+		}
+	}
+
+	return -ENOENT;
+}
+
+int msm_qup_read(unsigned int mode)
+{
+	int i, val;
+	struct pinctrl_qup *regs = msm_pinctrl_data->soc->qup_regs;
+	int num_regs =  msm_pinctrl_data->soc->nqup_regs;
+
+	/*Iterate over modes*/
+	for (i = 0; i < num_regs; i++) {
+		if (regs[i].mode == mode) {
+			val = readl_relaxed(msm_pinctrl_data->regs[0] +
+								regs[i].offset);
+			return val & QUP_MASK;
+		}
+	}
+
+	return -ENOENT;
+}
 
 int msm_pinctrl_probe(struct platform_device *pdev,
 		      const struct msm_pinctrl_soc_data *soc_data)
