@@ -31,3 +31,4 @@ config MHI_BUS_DEBUG
 	  for debug and test purposes.
 
 source "drivers/bus/mhi/devices/Kconfig"
+source "drivers/bus/mhi/controllers/Kconfig"
