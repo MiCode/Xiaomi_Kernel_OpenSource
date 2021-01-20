@@ -1081,7 +1081,6 @@
   kernel_getsockname
   kernel_kobj
   kernel_power_off
-  kernel_read
   kernel_recvmsg
   kernel_restart
   kernel_sendmsg
