@@ -2314,6 +2314,7 @@ include/linux/cacheinfo.h
 include/linux/capability.h
 include/linux/cdev.h
 include/linux/cdrom.h
+include/linux/cfi.h
 include/linux/cgroup-defs.h
 include/linux/cgroup.h
 include/linux/cgroup_rdma.h
