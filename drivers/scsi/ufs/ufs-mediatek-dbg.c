@@ -36,23 +36,29 @@ static struct cmd_hist_struct *cmd_hist;
 static struct ufs_hba *ufshba;
 static char *ufs_aee_buffer;
 
-static void ufs_mtk_dbg_print_err_hist(char **buff, unsigned long *size,
+static void ufs_mtk_dbg_print_evt(char **buff, unsigned long *size,
 				  struct seq_file *m,
-				  struct ufs_err_reg_hist *err_hist,
+				  struct ufs_hba *hba, u32 id,
 				  char *err_name)
 {
 	int i;
 	bool found = false;
+	struct ufs_event_hist *e;
 
-	for (i = 0; i < UFS_ERR_REG_HIST_LENGTH; i++) {
-		int p = (i + err_hist->pos) % UFS_ERR_REG_HIST_LENGTH;
+	if (id >= UFS_EVT_CNT)
+		return;
 
-		if (err_hist->tstamp[p] == 0)
+	e = &hba->ufs_stats.event[id];
+
+
+	for (i = 0; i < UFS_EVENT_HIST_LENGTH; i++) {
+		int p = (i + e->pos) % UFS_EVENT_HIST_LENGTH;
+
+		if (e->tstamp[p] == 0)
 			continue;
 		SPREAD_PRINTF(buff, size, m,
 			      "%s[%d] = 0x%x at %lld us\n", err_name, p,
-			      err_hist->reg[p],
-			      ktime_to_us(err_hist->tstamp[p]));
+			      e->val[p], ktime_to_us(e->tstamp[p]));
 		found = true;
 	}
 
@@ -140,35 +146,32 @@ void ufs_mtk_dbg_print_info(char **buff, unsigned long *size,
 		      hba->dev_info.model);
 
 	/* Error history */
-	ufs_mtk_dbg_print_err_hist(buff, size, m,
-			      &hba->ufs_stats.pa_err, "pa_err");
-	ufs_mtk_dbg_print_err_hist(buff, size, m,
-			      &hba->ufs_stats.dl_err, "dl_err");
-	ufs_mtk_dbg_print_err_hist(buff, size, m,
-			      &hba->ufs_stats.nl_err, "nl_err");
-	ufs_mtk_dbg_print_err_hist(buff, size, m,
-			      &hba->ufs_stats.tl_err, "tl_err");
-	ufs_mtk_dbg_print_err_hist(buff, size, m,
-			      &hba->ufs_stats.dme_err, "dme_err");
-	ufs_mtk_dbg_print_err_hist(buff, size, m,
-			      &hba->ufs_stats.auto_hibern8_err,
-			      "auto_hibern8_err");
-	ufs_mtk_dbg_print_err_hist(buff, size, m,
-			      &hba->ufs_stats.fatal_err, "fatal_err");
-	ufs_mtk_dbg_print_err_hist(buff, size, m,
-			      &hba->ufs_stats.link_startup_err,
-			      "link_startup_fail");
-	ufs_mtk_dbg_print_err_hist(buff, size, m,
-			      &hba->ufs_stats.resume_err, "resume_fail");
-	ufs_mtk_dbg_print_err_hist(buff, size, m,
-			      &hba->ufs_stats.suspend_err,
-			      "suspend_fail");
-	ufs_mtk_dbg_print_err_hist(buff, size, m,
-			      &hba->ufs_stats.dev_reset, "dev_reset");
-	ufs_mtk_dbg_print_err_hist(buff, size, m,
-			      &hba->ufs_stats.host_reset, "host_reset");
-	ufs_mtk_dbg_print_err_hist(buff, size, m,
-			      &hba->ufs_stats.task_abort, "task_abort");
+	ufs_mtk_dbg_print_evt(buff, size, m, hba,
+			UFS_EVT_PA_ERR, "pa_err");
+	ufs_mtk_dbg_print_evt(buff, size, m, hba,
+			UFS_EVT_DL_ERR, "dl_err");
+	ufs_mtk_dbg_print_evt(buff, size, m, hba,
+			UFS_EVT_NL_ERR, "nl_err");
+	ufs_mtk_dbg_print_evt(buff, size, m, hba,
+			UFS_EVT_TL_ERR, "tl_err");
+	ufs_mtk_dbg_print_evt(buff, size, m, hba,
+			UFS_EVT_DME_ERR, "dme_err");
+	ufs_mtk_dbg_print_evt(buff, size, m, hba,
+			UFS_EVT_AUTO_HIBERN8_ERR, "auto_hibern8_err");
+	ufs_mtk_dbg_print_evt(buff, size, m, hba,
+			UFS_EVT_FATAL_ERR, "fatal_err");
+	ufs_mtk_dbg_print_evt(buff, size, m, hba,
+			UFS_EVT_LINK_STARTUP_FAIL, "link_startup_fail");
+	ufs_mtk_dbg_print_evt(buff, size, m, hba,
+			UFS_EVT_RESUME_ERR, "resume_fail");
+	ufs_mtk_dbg_print_evt(buff, size, m, hba,
+			UFS_EVT_SUSPEND_ERR, "suspend_fail");
+	ufs_mtk_dbg_print_evt(buff, size, m, hba,
+			UFS_EVT_DEV_RESET, "dev_reset");
+	ufs_mtk_dbg_print_evt(buff, size, m, hba,
+			UFS_EVT_HOST_RESET, "host_reset");
+	ufs_mtk_dbg_print_evt(buff, size, m, hba,
+			UFS_EVT_ABORT, "task_abort");
 }
 
 static int cmd_hist_advance_ptr(void)
