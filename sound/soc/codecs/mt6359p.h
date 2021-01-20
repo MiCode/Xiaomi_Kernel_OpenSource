@@ -5228,7 +5228,7 @@ struct mt6359_priv {
 
 int mt6359_set_codec_ops(struct snd_soc_component *cmpnt,
 			 struct mt6359_codec_ops *ops);
-int mt6359_set_mtkaif_protocol(struct snd_soc_component *cmpnt,
+void mt6359_set_mtkaif_protocol(struct snd_soc_component *cmpnt,
 			       int mtkaif_protocol);
 void mt6359_mtkaif_calibration_enable(struct snd_soc_component *cmpnt);
 void mt6359_mtkaif_calibration_disable(struct snd_soc_component *cmpnt);
