@@ -247,6 +247,26 @@ enum adreno_preempt_states {
 };
 
 /**
+ * struct adreno_protected_regs - container for a protect register span
+ */
+struct adreno_protected_regs {
+	/** @reg: Physical protected mode register to write to */
+	u32 reg;
+	/** @start: Dword offset of the starting register in the range */
+	u32 start;
+	/**
+	 * @end: Dword offset of the ending register in the range
+	 * (inclusive)
+	 */
+	u32 end;
+	/**
+	 * @noaccess: 1 if the register should not be accessible from
+	 * userspace, 0 if it can be read (but not written)
+	 */
+	u32 noaccess;
+};
+
+/**
  * struct adreno_preemption
  * @state: The current state of preemption
  * @scratch: Per-target scratch memory for implementation specific functionality

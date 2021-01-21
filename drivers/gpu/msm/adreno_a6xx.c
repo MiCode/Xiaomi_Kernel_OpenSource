@@ -240,7 +240,7 @@ static void a6xx_protect_init(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	const struct adreno_a6xx_core *a6xx_core = to_a6xx_core(adreno_dev);
-	const struct a6xx_protected_regs *regs = a6xx_core->protected_regs;
+	const struct adreno_protected_regs *regs = a6xx_core->protected_regs;
 	int i;
 
 	/*

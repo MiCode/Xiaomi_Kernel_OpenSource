@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2002,2007-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2002,2007-2021, The Linux Foundation. All rights reserved.
  */
 
 #define ANY_ID (~0)
@@ -751,7 +751,7 @@ static const struct adreno_reglist a630_vbif_regs[] = {
 
 
 /* For a615, a616, a618, A619, a630, a640 and a680 */
-static const struct a6xx_protected_regs a630_protected_regs[] = {
+static const struct adreno_protected_regs a630_protected_regs[] = {
 	{ A6XX_CP_PROTECT_REG + 0, 0x00000, 0x004ff, 0 },
 	{ A6XX_CP_PROTECT_REG + 1, 0x00501, 0x00506, 0 },
 	{ A6XX_CP_PROTECT_REG + 2, 0x0050b, 0x007ff, 0 },
@@ -1058,7 +1058,7 @@ static const struct adreno_reglist a650_gbif_regs[] = {
 };
 
 /* These are for a620 and a650 */
-static const struct a6xx_protected_regs a620_protected_regs[] = {
+static const struct adreno_protected_regs a620_protected_regs[] = {
 	{ A6XX_CP_PROTECT_REG + 0, 0x00000, 0x004ff, 0 },
 	{ A6XX_CP_PROTECT_REG + 1, 0x00501, 0x00506, 0 },
 	{ A6XX_CP_PROTECT_REG + 2, 0x0050b, 0x007ff, 0 },
@@ -1539,7 +1539,7 @@ static const struct adreno_reglist a660_hwcg_regs[] = {
 };
 
 /* A660 protected register list */
-static const struct a6xx_protected_regs a660_protected_regs[] = {
+static const struct adreno_protected_regs a660_protected_regs[] = {
 	{ A6XX_CP_PROTECT_REG + 0, 0x00000, 0x004ff, 0 },
 	{ A6XX_CP_PROTECT_REG + 1, 0x00501, 0x00506, 0 },
 	{ A6XX_CP_PROTECT_REG + 2, 0x0050b, 0x007ff, 0 },
