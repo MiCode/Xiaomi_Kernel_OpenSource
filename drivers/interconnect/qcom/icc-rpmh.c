@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
  *
  */
 
@@ -130,6 +130,10 @@ int qcom_icc_bcm_init(struct qcom_icc_bcm *bcm, struct device *dev)
 	const struct bcm_db *data;
 	size_t data_count;
 	int i;
+
+	/* BCM is already initialised*/
+	if (bcm->addr)
+		return 0;
 
 	bcm->addr = cmd_db_read_addr(bcm->name);
 	if (!bcm->addr) {
