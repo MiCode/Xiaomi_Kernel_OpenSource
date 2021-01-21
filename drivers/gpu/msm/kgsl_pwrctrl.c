@@ -1749,7 +1749,11 @@ static int kgsl_pwrctrl_enable(struct kgsl_device *device)
 		return status;
 	kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_ON, KGSL_STATE_ACTIVE);
 	kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_ON);
-	return device->ftbl->regulator_enable(device);
+
+	if (device->ftbl->regulator_enable)
+		return device->ftbl->regulator_enable(device);
+
+	return 0;
 }
 
 static void kgsl_pwrctrl_disable(struct kgsl_device *device)
