@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/delay.h>
@@ -357,8 +357,11 @@ static int a6xx_hfi_send_gmu_init(struct adreno_device *adreno_dev)
 		.dbg_buffer_size = (unsigned int) gmu->dump_mem->size,
 		.boot_state = 0x1,
 	};
+	int ret;
 
-	CMD_MSG_HDR(cmd, H2F_MSG_INIT);
+	ret = CMD_MSG_HDR(cmd, H2F_MSG_INIT);
+	if (ret)
+		return ret;
 
 	return a6xx_hfi_send_generic_req(adreno_dev, &cmd);
 }
@@ -373,7 +376,9 @@ static int a6xx_hfi_get_fw_version(struct adreno_device *adreno_dev,
 	int rc;
 	struct pending_cmd ret_cmd;
 
-	CMD_MSG_HDR(cmd, H2F_MSG_FW_VER);
+	rc = CMD_MSG_HDR(cmd, H2F_MSG_FW_VER);
+	if (rc)
+		return rc;
 
 	memset(&ret_cmd, 0, sizeof(ret_cmd));
 
@@ -396,8 +401,11 @@ int a6xx_hfi_send_core_fw_start(struct adreno_device *adreno_dev)
 	struct hfi_core_fw_start_cmd cmd = {
 		.handle = 0x0,
 	};
+	int ret;
 
-	CMD_MSG_HDR(cmd, H2F_MSG_CORE_FW_START);
+	ret = CMD_MSG_HDR(cmd, H2F_MSG_CORE_FW_START);
+	if (ret)
+		return ret;
 
 	return a6xx_hfi_send_generic_req(adreno_dev, &cmd);
 }
@@ -427,7 +435,9 @@ int a6xx_hfi_send_feature_ctrl(struct adreno_device *adreno_dev,
 	};
 	int ret;
 
-	CMD_MSG_HDR(cmd, H2F_MSG_FEATURE_CTRL);
+	ret = CMD_MSG_HDR(cmd, H2F_MSG_FEATURE_CTRL);
+	if (ret)
+		return ret;
 
 	ret = a6xx_hfi_send_generic_req(adreno_dev, &cmd);
 	if (ret)
@@ -450,7 +460,9 @@ int a6xx_hfi_send_set_value(struct adreno_device *adreno_dev,
 	};
 	int ret;
 
-	CMD_MSG_HDR(cmd, H2F_MSG_SET_VALUE);
+	ret = CMD_MSG_HDR(cmd, H2F_MSG_SET_VALUE);
+	if (ret)
+		return ret;
 
 	ret = a6xx_hfi_send_generic_req(adreno_dev, &cmd);
 	if (ret)
@@ -468,9 +480,11 @@ static int a6xx_hfi_send_dcvstbl_v1(struct adreno_device *adreno_dev)
 		.gpu_level_num = table->gpu_level_num,
 		.gmu_level_num = table->gmu_level_num,
 	};
-	int i;
+	int i, ret;
 
-	CMD_MSG_HDR(cmd, H2F_MSG_PERF_TBL);
+	ret = CMD_MSG_HDR(cmd, H2F_MSG_PERF_TBL);
+	if (ret)
+		return ret;
 
 	for (i = 0; i < table->gpu_level_num; i++) {
 		cmd.gx_votes[i].vote = table->gx_votes[i].vote;
@@ -488,8 +502,12 @@ static int a6xx_hfi_send_dcvstbl_v1(struct adreno_device *adreno_dev)
 static int a6xx_hfi_send_test(struct adreno_device *adreno_dev)
 {
 	struct hfi_test_cmd cmd;
+	int ret;
 
-	CMD_MSG_HDR(cmd, H2F_MSG_TEST);
+	ret = CMD_MSG_HDR(cmd, H2F_MSG_TEST);
+	if (ret)
+		return ret;
+
 	cmd.data = 0;
 
 	return a6xx_hfi_send_generic_req(adreno_dev, &cmd);
@@ -643,7 +661,9 @@ int a6xx_hfi_send_lm_feature_ctrl(struct adreno_device *adreno_dev)
 
 	nvmem_cell_read_u32(&device->pdev->dev, "isense_slope", &slope);
 
-	CMD_MSG_HDR(req, H2F_MSG_SET_VALUE);
+	ret = CMD_MSG_HDR(req, H2F_MSG_SET_VALUE);
+	if (ret)
+		return ret;
 
 	req.type = HFI_VALUE_LM_CS0;
 	req.subtype = 0;

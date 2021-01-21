@@ -841,7 +841,11 @@ static int a6xx_gmu_hfi_start_msg(struct adreno_device *adreno_dev)
 	 * legacy firmware.
 	 */
 	if (!ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG)) {
-		CMD_MSG_HDR(req, H2F_MSG_START);
+		int ret;
+
+		ret = CMD_MSG_HDR(req, H2F_MSG_START);
+		if (ret)
+			return ret;
 
 		return a6xx_hfi_send_generic_req(adreno_dev, &req);
 	}
@@ -1720,9 +1724,10 @@ static int a6xx_gmu_notify_slumber(struct adreno_device *adreno_dev)
 			.bw = bus_level,
 		};
 
-		CMD_MSG_HDR(req, H2F_MSG_PREPARE_SLUMBER);
+		ret = CMD_MSG_HDR(req, H2F_MSG_PREPARE_SLUMBER);
+		if (!ret)
+			ret = a6xx_hfi_send_generic_req(adreno_dev, &req);
 
-		ret = a6xx_hfi_send_generic_req(adreno_dev, &req);
 		goto out;
 	}
 
@@ -1812,7 +1817,9 @@ static int a6xx_gmu_dcvs_set(struct adreno_device *adreno_dev,
 		return 0;
 	}
 
-	CMD_MSG_HDR(req, H2F_MSG_GX_BW_PERF_VOTE);
+	ret = CMD_MSG_HDR(req, H2F_MSG_GX_BW_PERF_VOTE);
+	if (ret)
+		return ret;
 
 	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG))
 		ret = a6xx_gmu_dcvs_nohfi(device, req.freq, req.bw);

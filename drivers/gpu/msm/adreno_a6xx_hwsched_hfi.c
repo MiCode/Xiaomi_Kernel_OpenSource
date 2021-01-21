@@ -9,6 +9,7 @@
 #include "adreno.h"
 #include "adreno_a6xx.h"
 #include "adreno_a6xx_hwsched.h"
+#include "adreno_hfi.h"
 #include "adreno_hwsched.h"
 #include "adreno_pm4types.h"
 #include "adreno_trace.h"
@@ -49,25 +50,6 @@ static struct dq_info {
 	{ 4, 4, }, /* RB1 */
 	{ 3, 8, }, /* RB2 */
 	{ 3, 11, }, /* RB3 */
-};
-
-static const char * const memkind_strings[] = {
-	[MEMKIND_GENERIC] = "GMU GENERIC",
-	[MEMKIND_RB] =  "GMU RB",
-	[MEMKIND_SCRATCH] = "GMU SCRATCH",
-	[MEMKIND_CSW_SMMU_INFO] = "GMU SMMU INFO",
-	[MEMKIND_CSW_PRIV_NON_SECURE] = "GMU CSW PRIV NON SECURE",
-	[MEMKIND_CSW_PRIV_SECURE] = "GMU CSW PRIV SECURE",
-	[MEMKIND_CSW_NON_PRIV] = "GMU CSW NON PRIV",
-	[MEMKIND_CSW_COUNTER] = "GMU CSW COUNTER",
-	[MEMKIND_CTXTREC_PREEMPT_CNTR] = "GMU PREEMPT CNTR",
-	[MEMKIND_SYS_LOG] = "GMU SYS LOG",
-	[MEMKIND_CRASH_DUMP] = "GMU CRASHDUMP",
-	[MEMKIND_MMIO_DPU] =  "GMU MMIO DPU",
-	[MEMKIND_MMIO_TCSR] = "GMU MMIO TCSR",
-	[MEMKIND_MMIO_QDSS_STM] = "GMU MMIO QDSS STM",
-	[MEMKIND_PROFILE] = "GMU KERNEL PROFILING",
-	[MEMKIND_USER_PROFILE_IBS] = "GMU USER PROFILING",
 };
 
 struct a6xx_hwsched_hfi *to_a6xx_hwsched_hfi(
@@ -449,17 +431,17 @@ static int get_attrs(u32 flags)
 {
 	int attrs = IOMMU_READ;
 
-	if (flags & MEMFLAG_GMU_PRIV)
+	if (flags & HFI_MEMFLAG_GMU_PRIV)
 		attrs |= IOMMU_PRIV;
 
-	if (flags & MEMFLAG_GMU_WRITEABLE)
+	if (flags & HFI_MEMFLAG_GMU_WRITEABLE)
 		attrs |= IOMMU_WRITE;
 
 	return attrs;
 }
 
 static int gmu_import_buffer(struct adreno_device *adreno_dev,
-	struct mem_alloc_entry *entry, u32 flags)
+	struct hfi_mem_alloc_entry *entry, u32 flags)
 {
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
 	int attrs = get_attrs(flags);
@@ -469,7 +451,7 @@ static int gmu_import_buffer(struct adreno_device *adreno_dev,
 	struct gmu_vma_entry *vma = &gmu->vma[GMU_NONCACHED_KERNEL];
 	struct hfi_mem_alloc_desc *desc = &entry->desc;
 
-	if (flags & MEMFLAG_GMU_CACHEABLE)
+	if (flags & HFI_MEMFLAG_GMU_CACHEABLE)
 		vma = &gmu->vma[GMU_CACHE];
 
 	if ((vma->next_va + desc->size) > (vma->start + vma->size)) {
@@ -504,14 +486,14 @@ static int gmu_import_buffer(struct adreno_device *adreno_dev,
 	return ((mapped == 0) ? -ENOMEM : 0);
 }
 
-static struct mem_alloc_entry *lookup_mem_alloc_table(
+static struct hfi_mem_alloc_entry *lookup_mem_alloc_table(
 	struct adreno_device *adreno_dev, struct hfi_mem_alloc_desc *desc)
 {
 	struct a6xx_hwsched_hfi *hw_hfi = to_a6xx_hwsched_hfi(adreno_dev);
 	int i;
 
 	for (i = 0; i < hw_hfi->mem_alloc_entries; i++) {
-		struct mem_alloc_entry *entry = &hw_hfi->mem_alloc_table[i];
+		struct hfi_mem_alloc_entry *entry = &hw_hfi->mem_alloc_table[i];
 
 		if ((entry->desc.mem_kind == desc->mem_kind) &&
 		(entry->desc.gmu_mem_handle == desc->gmu_mem_handle) &&
@@ -522,19 +504,19 @@ static struct mem_alloc_entry *lookup_mem_alloc_table(
 	return NULL;
 }
 
-static struct mem_alloc_entry *get_mem_alloc_entry(
+static struct hfi_mem_alloc_entry *get_mem_alloc_entry(
 	struct adreno_device *adreno_dev, struct hfi_mem_alloc_desc *desc)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct a6xx_hwsched_hfi *hfi = to_a6xx_hwsched_hfi(adreno_dev);
-	struct mem_alloc_entry *entry =
+	struct hfi_mem_alloc_entry *entry =
 		lookup_mem_alloc_table(adreno_dev, desc);
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
 	u64 flags = 0;
 	u32 priv = 0;
 	int ret;
-	const char *memkind_string = desc->mem_kind < NUM_HFI_MEMKINDS ?
-			memkind_strings[desc->mem_kind] : "UNKNOWN";
+	const char *memkind_string = desc->mem_kind < HFI_MEMKIND_MAX ?
+			hfi_memkind_strings[desc->mem_kind] : "UNKNOWN";
 
 	if (entry)
 		return entry;
@@ -551,13 +533,13 @@ static struct mem_alloc_entry *get_mem_alloc_entry(
 
 	entry->desc.host_mem_handle = desc->gmu_mem_handle;
 
-	if (desc->flags & MEMFLAG_GFX_PRIV)
+	if (desc->flags & HFI_MEMFLAG_GFX_PRIV)
 		priv |= KGSL_MEMDESC_PRIVILEGED;
 
-	if (!(desc->flags & MEMFLAG_GFX_WRITEABLE))
+	if (!(desc->flags & HFI_MEMFLAG_GFX_WRITEABLE))
 		flags |= KGSL_MEMFLAGS_GPUREADONLY;
 
-	if (desc->flags & MEMFLAG_GFX_SECURE)
+	if (desc->flags & HFI_MEMFLAG_GFX_SECURE)
 		flags |= KGSL_MEMFLAGS_SECURE;
 
 	entry->gpu_md = kgsl_allocate_global(device, desc->size, 0, flags, priv,
@@ -592,7 +574,7 @@ static struct mem_alloc_entry *get_mem_alloc_entry(
 static int process_mem_alloc(struct adreno_device *adreno_dev,
 	struct hfi_mem_alloc_desc *mad)
 {
-	struct mem_alloc_entry *entry;
+	struct hfi_mem_alloc_entry *entry;
 
 	entry = get_mem_alloc_entry(adreno_dev, mad);
 	if (IS_ERR(entry))
@@ -633,12 +615,14 @@ static int send_start_msg(struct adreno_device *adreno_dev)
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned int seqnum = atomic_inc_return(&gmu->hfi.seqnum);
-	int rc = 0;
+	int rc;
 	struct hfi_start_cmd cmd;
 	u32 rcvd[MAX_RCVD_SIZE];
 	struct pending_cmd pending_ack = {0};
 
-	CMD_MSG_HDR(cmd, H2F_MSG_START);
+	rc = CMD_MSG_HDR(cmd, H2F_MSG_START);
+	if (rc)
+		return rc;
 
 	cmd.hdr = MSG_HDR_SET_SEQNUM(cmd.hdr, seqnum);
 
@@ -1062,30 +1046,6 @@ static void add_profile_events(struct adreno_device *adreno_dev,
 		(unsigned long) time_in_s, time_in_ns / 1000, 0);
 }
 
-#define CTXT_FLAG_PMODE                 0x00000001
-#define CTXT_FLAG_SWITCH_INTERNAL       0x00000002
-#define CTXT_FLAG_SWITCH                0x00000008
-#define CTXT_FLAG_NOTIFY                0x00000020
-#define CTXT_FLAG_NO_FAULT_TOLERANCE    0x00000200
-#define CTXT_FLAG_PWR_RULE              0x00000800
-#define CTXT_FLAG_PRIORITY_MASK         0x0000f000
-#define CTXT_FLAG_IFH_NOP               0x00010000
-#define CTXT_FLAG_SECURE                0x00020000
-#define CTXT_FLAG_TYPE_MASK             0x01f00000
-#define CTXT_FLAG_TYPE_SHIFT            20
-#define CTXT_FLAG_TYPE_ANY              0
-#define CTXT_FLAG_TYPE_GL               1
-#define CTXT_FLAG_TYPE_CL               2
-#define CTXT_FLAG_TYPE_C2D              3
-#define CTXT_FLAG_TYPE_RS               4
-#define CTXT_FLAG_TYPE_VK               5
-#define CTXT_FLAG_TYPE_UNKNOWN          0x1e
-#define CTXT_FLAG_PREEMPT_STYLE_MASK    0x0e000000
-#define CTXT_FLAG_PREEMPT_STYLE_SHIFT   25
-#define CTXT_FLAG_PREEMPT_STYLE_ANY     0
-#define CTXT_FLAG_PREEMPT_STYLE_RB      1
-#define CTXT_FLAG_PREEMPT_STYLE_FG      2
-
 static u32 get_next_dq(u32 priority)
 {
 	struct dq_info *info = &a6xx_hfi_dqs[priority];
@@ -1108,11 +1068,14 @@ static int send_context_register(struct adreno_device *adreno_dev,
 {
 	struct hfi_register_ctxt_cmd cmd;
 	struct kgsl_pagetable *pt = context->proc_priv->pagetable;
+	int ret;
 
-	CMD_MSG_HDR(cmd, H2F_MSG_REGISTER_CONTEXT);
+	ret = CMD_MSG_HDR(cmd, H2F_MSG_REGISTER_CONTEXT);
+	if (ret)
+		return ret;
 
 	cmd.ctxt_id = context->id;
-	cmd.flags = CTXT_FLAG_NOTIFY | context->flags;
+	cmd.flags = HFI_CTXT_FLAG_NOTIFY | context->flags;
 	cmd.pt_addr = kgsl_mmu_pagetable_get_ttbr0(pt);
 	cmd.ctxt_idr = kgsl_mmu_pagetable_get_contextidr(pt);
 	cmd.ctxt_bank = kgsl_mmu_pagetable_get_context_bank(pt);
@@ -1125,8 +1088,12 @@ static int send_context_pointers(struct adreno_device *adreno_dev,
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct hfi_context_pointers_cmd cmd;
+	int ret;
 
-	CMD_MSG_HDR(cmd, H2F_MSG_CONTEXT_POINTERS);
+	ret = CMD_MSG_HDR(cmd, H2F_MSG_CONTEXT_POINTERS);
+	if (ret)
+		return ret;
+
 	cmd.ctxt_id = context->id;
 	cmd.sop_addr = MEMSTORE_ID_GPU_ADDR(device, context->id, soptimestamp);
 	cmd.eop_addr = MEMSTORE_ID_GPU_ADDR(device, context->id, eoptimestamp);
@@ -1214,7 +1181,7 @@ int a6xx_hwsched_submit_cmdobj(struct adreno_device *adreno_dev,
 			atomic_inc_return(&hfi->seqnum));
 
 	cmd->ctxt_id = drawobj->context->id;
-	cmd->flags = CTXT_FLAG_NOTIFY;
+	cmd->flags = HFI_CTXT_FLAG_NOTIFY;
 	cmd->ts = drawobj->timestamp;
 	cmd->numibs = numibs;
 
@@ -1284,7 +1251,10 @@ static int send_context_unregister_hfi(struct adreno_device *adreno_dev,
 	u32 seqnum;
 	int rc;
 
-	CMD_MSG_HDR(cmd, H2F_MSG_UNREGISTER_CONTEXT);
+	rc = CMD_MSG_HDR(cmd, H2F_MSG_UNREGISTER_CONTEXT);
+	if (rc)
+		return rc;
+
 	cmd.ctxt_id = context->id,
 	cmd.ts = ts,
 
@@ -1383,7 +1353,9 @@ int a6xx_hwsched_preempt_count_get(struct adreno_device *adreno_dev)
 	if (device->state != KGSL_STATE_ACTIVE)
 		return 0;
 
-	CMD_MSG_HDR(cmd, H2F_MSG_GET_VALUE);
+	rc = CMD_MSG_HDR(cmd, H2F_MSG_GET_VALUE);
+	if (rc)
+		return rc;
 
 	cmd.hdr = MSG_HDR_SET_SEQNUM(cmd.hdr, seqnum);
 	cmd.type = HFI_VALUE_PREEMPT_COUNT;

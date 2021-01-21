@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -11,6 +11,7 @@
 #include "adreno.h"
 #include "adreno_a6xx.h"
 #include "adreno_a6xx_hwsched.h"
+#include "adreno_hfi.h"
 #include "adreno_snapshot.h"
 #include "kgsl_device.h"
 #include "kgsl_trace.h"
@@ -106,33 +107,33 @@ void a6xx_hwsched_snapshot(struct adreno_device *adreno_dev,
 	a6xx_gmu_snapshot(adreno_dev, snapshot);
 
 	for (i = 0; i < hw_hfi->mem_alloc_entries; i++) {
-		struct mem_alloc_entry *entry = &hw_hfi->mem_alloc_table[i];
+		struct hfi_mem_alloc_entry *entry = &hw_hfi->mem_alloc_table[i];
 
-		if (entry->desc.mem_kind == MEMKIND_RB)
+		if (entry->desc.mem_kind == HFI_MEMKIND_RB)
 			kgsl_snapshot_add_section(device,
 				KGSL_SNAPSHOT_SECTION_RB_V2,
 				snapshot, adreno_hwsched_snapshot_rb,
 				entry->gpu_md);
 
-		if (entry->desc.mem_kind == MEMKIND_SCRATCH)
+		if (entry->desc.mem_kind == HFI_MEMKIND_SCRATCH)
 			kgsl_snapshot_add_section(device,
 				KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
 				snapshot, adreno_snapshot_global,
 				entry->gpu_md);
 
-		if (entry->desc.mem_kind == MEMKIND_PROFILE)
+		if (entry->desc.mem_kind == HFI_MEMKIND_PROFILE)
 			kgsl_snapshot_add_section(device,
 				KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
 				snapshot, adreno_snapshot_global,
 				entry->gpu_md);
 
-		if (entry->desc.mem_kind == MEMKIND_CSW_SMMU_INFO)
+		if (entry->desc.mem_kind == HFI_MEMKIND_CSW_SMMU_INFO)
 			kgsl_snapshot_add_section(device,
 				KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
 				snapshot, adreno_snapshot_global,
 				entry->gpu_md);
 
-		if (entry->desc.mem_kind == MEMKIND_CSW_PRIV_NON_SECURE)
+		if (entry->desc.mem_kind == HFI_MEMKIND_CSW_PRIV_NON_SECURE)
 			snapshot_preemption_records(device, snapshot,
 				entry->gpu_md);
 	}
@@ -332,8 +333,11 @@ static int a6xx_hwsched_notify_slumber(struct adreno_device *adreno_dev)
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
 	struct hfi_prep_slumber_cmd req;
+	int ret;
 
-	CMD_MSG_HDR(req, H2F_MSG_PREPARE_SLUMBER);
+	ret = CMD_MSG_HDR(req, H2F_MSG_PREPARE_SLUMBER);
+	if (ret)
+		return ret;
 
 	req.freq = gmu->hfi.dcvs_table.gpu_level_num -
 			pwr->default_pwrlevel - 1;
@@ -742,7 +746,7 @@ static int a6xx_hwsched_dcvs_set(struct adreno_device *adreno_dev,
 		.freq = INVALID_DCVS_IDX,
 		.bw = INVALID_DCVS_IDX,
 	};
-	int ret = 0;
+	int ret;
 
 	if (!test_bit(GMU_PRIV_HFI_STARTED, &gmu->flags))
 		return 0;
@@ -765,7 +769,9 @@ static int a6xx_hwsched_dcvs_set(struct adreno_device *adreno_dev,
 	if ((req.freq == INVALID_DCVS_IDX) && (req.bw == INVALID_DCVS_IDX))
 		return 0;
 
-	CMD_MSG_HDR(req, H2F_MSG_GX_BW_PERF_VOTE);
+	ret = CMD_MSG_HDR(req, H2F_MSG_GX_BW_PERF_VOTE);
+	if (ret)
+		return ret;
 
 	ret = a6xx_hfi_send_cmd_async(adreno_dev, &req);
 
