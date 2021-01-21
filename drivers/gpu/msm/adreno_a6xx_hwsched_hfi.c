@@ -316,7 +316,7 @@ static int wait_ack_completion(struct adreno_device *adreno_dev,
 			"Ack timeout for id:%d sequence=%d\n",
 			MSG_HDR_GET_ID(ack->sent_hdr),
 			MSG_HDR_GET_SEQNUM(ack->sent_hdr));
-		gmu_fault_snapshot(KGSL_DEVICE(adreno_dev));
+		gmu_core_fault_snapshot(KGSL_DEVICE(adreno_dev));
 		return -ETIMEDOUT;
 	}
 
@@ -633,14 +633,14 @@ static int send_start_msg(struct adreno_device *adreno_dev)
 		return rc;
 
 poll:
-	rc = timed_poll_check(device, A6XX_GMU_GMU2HOST_INTR_INFO,
+	rc = gmu_core_timed_poll_check(device, A6XX_GMU_GMU2HOST_INTR_INFO,
 		HFI_IRQ_MSGQ_MASK, HFI_RSP_TIMEOUT, HFI_IRQ_MSGQ_MASK);
 
 	if (rc) {
 		dev_err(&gmu->pdev->dev,
 			"Timed out processing MSG_START seqnum: %d\n",
 			seqnum);
-		gmu_fault_snapshot(device);
+		gmu_core_fault_snapshot(device);
 		return rc;
 	}
 
@@ -650,7 +650,7 @@ poll:
 
 	if (a6xx_hfi_queue_read(gmu, HFI_MSG_ID, rcvd, sizeof(rcvd)) <= 0) {
 		dev_err(&gmu->pdev->dev, "MSG_START: no payload\n");
-		gmu_fault_snapshot(device);
+		gmu_core_fault_snapshot(device);
 		return -EINVAL;
 	}
 
@@ -675,7 +675,7 @@ poll:
 		MSG_HDR_GET_ID(rcvd[0]),
 		MSG_HDR_GET_TYPE(rcvd[0]));
 
-	gmu_fault_snapshot(device);
+	gmu_core_fault_snapshot(device);
 
 	return rc;
 }
@@ -699,7 +699,7 @@ static void reset_hfi_queues(struct adreno_device *adreno_dev)
 				i, hdr->read_index, hdr->write_index);
 			hdr->read_index = hdr->write_index;
 
-			gmu_fault_snapshot(KGSL_DEVICE(adreno_dev));
+			gmu_core_fault_snapshot(KGSL_DEVICE(adreno_dev));
 		}
 	}
 }
@@ -831,7 +831,7 @@ static int submit_raw_cmds(struct adreno_device *adreno_dev, void *cmds,
 	if (ret)
 		return ret;
 
-	ret = timed_poll_check(KGSL_DEVICE(adreno_dev),
+	ret = gmu_core_timed_poll_check(KGSL_DEVICE(adreno_dev),
 			A6XX_GPU_GMU_AO_GPU_CX_BUSY_STATUS, 0, 200, BIT(23));
 	if (ret)
 		a6xx_spin_idle_debug(adreno_dev, str);
@@ -1280,7 +1280,7 @@ static int send_context_unregister_hfi(struct adreno_device *adreno_dev,
 
 		mutex_lock(&device->mutex);
 
-		gmu_fault_snapshot(device);
+		gmu_core_fault_snapshot(device);
 
 		/*
 		 * Trigger dispatcher based reset and recovery. Invalidate the

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  */
 #ifndef __KGSL_GMU_CORE_H
 #define __KGSL_GMU_CORE_H
@@ -171,5 +171,29 @@ int gmu_core_dev_ifpc_show(struct kgsl_device *device);
 int gmu_core_dev_ifpc_store(struct kgsl_device *device, unsigned int val);
 int gmu_core_dev_wait_for_active_transition(struct kgsl_device *device);
 void gmu_core_dev_cooperative_reset(struct kgsl_device *device);
+
+/**
+ * gmu_core_fault_snapshot - Set gmu fault and trigger snapshot
+ * @device: Pointer to the kgsl device
+ *
+ * Set the gmu fault and take snapshot when we hit a gmu fault
+ */
+void gmu_core_fault_snapshot(struct kgsl_device *device);
+
+/**
+ * gmu_core_timed_poll_check() - polling *gmu* register at given offset until
+ * its value changed to match expected value. The function times
+ * out and returns after given duration if register is not updated
+ * as expected.
+ *
+ * @device: Pointer to KGSL device
+ * @offset: Register offset in dwords
+ * @expected_ret: expected register value that stops polling
+ * @timeout_ms: time in milliseconds to poll the register
+ * @mask: bitmask to filter register value to match expected_ret
+ */
+int gmu_core_timed_poll_check(struct kgsl_device *device,
+		unsigned int offset, unsigned int expected_ret,
+		unsigned int timeout_ms, unsigned int mask);
 
 #endif /* __KGSL_GMU_CORE_H */

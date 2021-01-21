@@ -1772,14 +1772,6 @@ void adreno_set_active_ctxs_null(struct adreno_device *adreno_dev);
 void adreno_get_bus_counters(struct adreno_device *adreno_dev);
 
 /**
- * gmu_fault_snapshot - Set gmu fault and trigger snapshot
- * @device: Pointer to the kgsl device
- *
- * Set the gmu fault and take snapshot when we hit a gmu fault
- */
-void gmu_fault_snapshot(struct kgsl_device *device);
-
-/**
  * adreno_suspend_context - Make sure device is idle
  * @device: Pointer to the kgsl device
  *

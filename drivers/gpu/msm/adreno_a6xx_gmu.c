@@ -94,17 +94,12 @@ static int timed_poll_check_rscc(struct kgsl_device *device,
 	u32 value;
 
 	if (!adreno_is_a650_family(adreno_dev))
-		return timed_poll_check(device, offset + RSCC_OFFSET_LEGACY,
+		return gmu_core_timed_poll_check(device,
+				offset + RSCC_OFFSET_LEGACY,
 				expected_ret, timeout, mask);
 
 	return readl_poll_timeout(gmu->rscc_virt + (offset << 2), value,
 		(value & mask) == expected_ret, 100, timeout * 1000);
-}
-
-void gmu_fault_snapshot(struct kgsl_device *device)
-{
-	device->gmu_fault = true;
-	kgsl_device_snapshot(device, NULL, true);
 }
 
 struct a6xx_gmu_device *to_a6xx_gmu(struct adreno_device *adreno_dev)
@@ -440,12 +435,12 @@ int a6xx_gmu_device_start(struct adreno_device *adreno_dev)
 	/* Make sure the write is posted before moving ahead */
 	wmb();
 
-	if (timed_poll_check(device,
+	if (gmu_core_timed_poll_check(device,
 			A6XX_GMU_CM3_FW_INIT_RESULT,
 			val, GMU_START_TIMEOUT, mask)) {
 
 		dev_err(&gmu->pdev->dev, "GMU doesn't boot\n");
-		gmu_fault_snapshot(device);
+		gmu_core_fault_snapshot(device);
 		return -ETIMEDOUT;
 	}
 
@@ -463,13 +458,13 @@ int a6xx_gmu_hfi_start(struct adreno_device *adreno_dev)
 
 	gmu_core_regwrite(device, A6XX_GMU_HFI_CTRL_INIT, 1);
 
-	if (timed_poll_check(device,
+	if (gmu_core_timed_poll_check(device,
 			A6XX_GMU_HFI_CTRL_STATUS,
 			BIT(0),
 			GMU_START_TIMEOUT,
 			BIT(0))) {
 		dev_err(&gmu->pdev->dev, "GMU HFI init failed\n");
-		gmu_fault_snapshot(device);
+		gmu_core_fault_snapshot(device);
 		return -ETIMEDOUT;
 	}
 
@@ -502,7 +497,7 @@ int a6xx_rscc_wakeup_sequence(struct adreno_device *adreno_dev)
 	/* Write request before polling */
 	wmb();
 
-	if (timed_poll_check(device,
+	if (gmu_core_timed_poll_check(device,
 			A6XX_GMU_RSCC_CONTROL_ACK,
 			BIT(1),
 			GPU_START_TIMEOUT,
@@ -755,9 +750,9 @@ int a6xx_gmu_oob_set(struct kgsl_device *device,
 
 	gmu_core_regwrite(device, A6XX_GMU_HOST2GMU_INTR_SET, set);
 
-	if (timed_poll_check(device, A6XX_GMU_GMU2HOST_INTR_INFO, check,
-		GPU_START_TIMEOUT, check)) {
-		gmu_fault_snapshot(device);
+	if (gmu_core_timed_poll_check(device, A6XX_GMU_GMU2HOST_INTR_INFO,
+				check, GPU_START_TIMEOUT, check)) {
+		gmu_core_fault_snapshot(device);
 		ret = -ETIMEDOUT;
 		WARN(1, "OOB request %s timed out\n", oob_to_str(req));
 		trigger_reset_recovery(adreno_dev, req);
@@ -955,13 +950,13 @@ int a6xx_gmu_sptprac_enable(struct adreno_device *adreno_dev)
 	gmu_core_regwrite(device, A6XX_GMU_GX_SPTPRAC_POWER_CONTROL,
 			SPTPRAC_POWERON_CTRL_MASK);
 
-	if (timed_poll_check(device,
+	if (gmu_core_timed_poll_check(device,
 			A6XX_GMU_SPTPRAC_PWR_CLK_STATUS,
 			SPTPRAC_POWERON_STATUS_MASK,
 			SPTPRAC_CTRL_TIMEOUT,
 			SPTPRAC_POWERON_STATUS_MASK)) {
 		dev_err(&gmu->pdev->dev, "power on SPTPRAC fail\n");
-		gmu_fault_snapshot(device);
+		gmu_core_fault_snapshot(device);
 		return -ETIMEDOUT;
 	}
 
@@ -1019,7 +1014,7 @@ void a6xx_gmu_sptprac_disable(struct adreno_device *adreno_dev)
 	gmu_core_regwrite(device, A6XX_GMU_GX_SPTPRAC_POWER_CONTROL,
 			SPTPRAC_POWEROFF_CTRL_MASK);
 
-	if (timed_poll_check(device,
+	if (gmu_core_timed_poll_check(device,
 			A6XX_GMU_SPTPRAC_PWR_CLK_STATUS,
 			SPTPRAC_POWEROFF_STATUS_MASK,
 			SPTPRAC_CTRL_TIMEOUT,
@@ -1193,7 +1188,7 @@ int a6xx_gmu_wait_for_lowest_idle(struct adreno_device *adreno_dev)
 	}
 
 	WARN_ON(1);
-	gmu_fault_snapshot(device);
+	gmu_core_fault_snapshot(device);
 	return -ETIMEDOUT;
 }
 
@@ -1207,7 +1202,7 @@ int a6xx_gmu_wait_for_idle(struct adreno_device *adreno_dev)
 	uint64_t ts1;
 
 	ts1 = a6xx_read_alwayson(adreno_dev);
-	if (timed_poll_check(device, A6XX_GPU_GMU_AO_GPU_CX_BUSY_STATUS,
+	if (gmu_core_timed_poll_check(device, A6XX_GPU_GMU_AO_GPU_CX_BUSY_STATUS,
 			0, GMU_START_TIMEOUT, CXGXCPUBUSYIGNAHB)) {
 		gmu_core_regread(device,
 				A6XX_GPU_GMU_AO_GPU_CX_BUSY_STATUS2, &status2);
@@ -1215,7 +1210,7 @@ int a6xx_gmu_wait_for_idle(struct adreno_device *adreno_dev)
 				"GMU not idling: status2=0x%x %llx %llx\n",
 				status2, ts1,
 				a6xx_read_alwayson(ADRENO_DEVICE(device)));
-		gmu_fault_snapshot(device);
+		gmu_core_fault_snapshot(device);
 		return -ETIMEDOUT;
 	}
 
@@ -1927,7 +1922,7 @@ static void a6xx_gmu_cooperative_reset(struct kgsl_device *device)
 	 * After triggering graceful death wait for snapshot ready
 	 * indication from GMU.
 	 */
-	if (!timed_poll_check(device, A6XX_GMU_CM3_FW_INIT_RESULT,
+	if (!gmu_core_timed_poll_check(device, A6XX_GMU_CM3_FW_INIT_RESULT,
 				0x800, 2, 0x800))
 		return;
 

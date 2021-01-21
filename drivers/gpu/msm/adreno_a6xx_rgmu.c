@@ -151,7 +151,7 @@ static int a6xx_rgmu_oob_set(struct kgsl_device *device,
 
 	gmu_core_regwrite(device, A6XX_GMU_HOST2GMU_INTR_SET, set);
 
-	ret = timed_poll_check(device,
+	ret = gmu_core_timed_poll_check(device,
 			A6XX_GMU_GMU2HOST_INTR_INFO,
 			check,
 			GPU_START_TIMEOUT,
@@ -164,7 +164,7 @@ static int a6xx_rgmu_oob_set(struct kgsl_device *device,
 		dev_err(&rgmu->pdev->dev,
 				"Timed out while setting OOB req:%s status:0x%x\n",
 				oob_to_str(req), status);
-		gmu_fault_snapshot(device);
+		gmu_core_fault_snapshot(device);
 		return ret;
 	}
 
@@ -199,7 +199,7 @@ static void a6xx_rgmu_bcl_config(struct kgsl_device *device, bool on)
 				A6XX_GMU_AO_RGMU_GLM_HW_CRC_DISABLE, 1);
 
 		/* Wait for HW CRC disable ACK */
-		if (timed_poll_check(device,
+		if (gmu_core_timed_poll_check(device,
 				A6XX_GMU_AO_RGMU_GLM_SLEEP_STATUS,
 				BIT(1), GLM_SLEEP_TIMEOUT, BIT(1)))
 			dev_err_ratelimited(&rgmu->pdev->dev,
@@ -365,7 +365,7 @@ static int a6xx_rgmu_wait_for_lowest_idle(struct adreno_device *adreno_dev)
 			reg[7], reg[8], reg[9]);
 
 	WARN_ON(1);
-	gmu_fault_snapshot(device);
+	gmu_core_fault_snapshot(device);
 	return -ETIMEDOUT;
 }
 
@@ -444,12 +444,12 @@ static int a6xx_rgmu_fw_start(struct adreno_device *adreno_dev,
 	/* Bring rgmu out of reset */
 	gmu_core_regwrite(device, A6XX_RGMU_CX_PCC_CTRL, 1);
 
-	if (timed_poll_check(device, A6XX_RGMU_CX_PCC_INIT_RESULT,
+	if (gmu_core_timed_poll_check(device, A6XX_RGMU_CX_PCC_INIT_RESULT,
 			BIT(0), RGMU_START_TIMEOUT, BIT(0))) {
 		gmu_core_regread(device, A6XX_RGMU_CX_PCC_DEBUG, &status);
 		dev_err(&rgmu->pdev->dev,
 				"rgmu boot Failed. status:%08x\n", status);
-		gmu_fault_snapshot(device);
+		gmu_core_fault_snapshot(device);
 		return -ETIMEDOUT;
 	}
 

@@ -7,7 +7,6 @@
 #define _ADRENO_A6XX_H_
 
 #include <linux/delay.h>
-#include <linux/iopoll.h>
 
 #include "a6xx_reg.h"
 #include "adreno_a6xx_gmu.h"
@@ -209,37 +208,6 @@ to_a6xx_core(struct adreno_device *adreno_dev)
 	const struct adreno_gpu_core *core = adreno_dev->gpucore;
 
 	return container_of(core, struct adreno_a6xx_core, base);
-}
-
-/**
- * timed_poll_check() - polling *gmu* register at given offset until
- * its value changed to match expected value. The function times
- * out and returns after given duration if register is not updated
- * as expected.
- *
- * @device: Pointer to KGSL device
- * @offset: Register offset in dwords
- * @expected_ret: expected register value that stops polling
- * @timeout_ms: time in milliseconds to poll the register
- * @mask: bitmask to filter register value to match expected_ret
- */
-static inline int timed_poll_check(struct kgsl_device *device,
-		unsigned int offset, unsigned int expected_ret,
-		unsigned int timeout_ms, unsigned int mask)
-{
-	u32 val;
-	void __iomem *addr = device->gmu_core.reg_virt +
-		((offset - device->gmu_core.gmu2gpu_offset) << 2);
-
-	if (WARN(!gmu_core_is_register_offset(device, offset),
-		"Out of bounds register read: 0x%x\n", offset))
-		return -EINVAL;
-
-	if (readl_poll_timeout(addr, val, (val & mask) == expected_ret, 100,
-		timeout_ms * 1000))
-		return -ETIMEDOUT;
-
-	return 0;
 }
 
 /**
