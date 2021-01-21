@@ -987,5 +987,7 @@ config QCOM_PANEL_EVENT_NOTIFIER
 	  panel events such as panel on , panel off, fps change etc.  Clients
 	  can use these notifications for power saving or align its operations
 	  with display panel power state.
+
 source "drivers/soc/qcom/icnss2/Kconfig"
+source "drivers/soc/qcom/sync_fence/Kconfig"
 endmenu
