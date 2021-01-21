@@ -2129,6 +2129,7 @@
   thermal_pressure
   thermal_zone_device_register
   thermal_zone_device_update
+  thermal_zone_get_slope
   thermal_zone_of_sensor_register
   thermal_zone_of_sensor_unregister
   tick_nohz_get_sleep_length
