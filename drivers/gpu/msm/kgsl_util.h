@@ -78,6 +78,18 @@ int kgsl_regulator_set_voltage(struct device *dev,
 		struct regulator *reg, u32 voltage);
 
 /**
+ * kgsl_clk_set_rate - Set a clock to a given rate
+ * @clks: Pointer to an array of bulk clk data
+ * @count: Number of entries in the array
+ * @id: Name of the clock to search for
+ * @rate: Rate to st the clock to
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int kgsl_clk_set_rate(struct clk_bulk_data *clks, int num_clks,
+		const char *id, unsigned long rate);
+
+/**
  * kgsl_zap_shader_load - Load a zap shader
  * @dev: Pointer to the struct device for the GPU platform device
  * @name: Basename of the zap shader to load (without the postfix)

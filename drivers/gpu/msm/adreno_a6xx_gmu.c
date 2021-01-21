@@ -2136,18 +2136,6 @@ int a6xx_gmu_enable_gdsc(struct adreno_device *adreno_dev)
 	return ret;
 }
 
-static int a6xx_gmu_clk_set_rate(struct a6xx_gmu_device *gmu, const char *id,
-	unsigned long rate)
-{
-	struct clk *clk;
-
-	clk = kgsl_of_clk_by_name(gmu->clks, gmu->num_clks, id);
-	if (!clk)
-		return -ENODEV;
-
-	return clk_set_rate(clk, rate);
-}
-
 int a6xx_gmu_enable_clks(struct adreno_device *adreno_dev)
 {
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
@@ -2156,13 +2144,15 @@ int a6xx_gmu_enable_clks(struct adreno_device *adreno_dev)
 
 	a6xx_rdpm_cx_freq_update(gmu, GMU_FREQUENCY / 1000);
 
-	ret = a6xx_gmu_clk_set_rate(gmu, "gmu_clk", GMU_FREQUENCY);
+	ret = kgsl_clk_set_rate(gmu->clks, gmu->num_clks, "gmu_clk",
+			GMU_FREQUENCY);
 	if (ret) {
 		dev_err(&gmu->pdev->dev, "Unable to set the GMU clock\n");
 		return ret;
 	}
 
-	ret = a6xx_gmu_clk_set_rate(gmu, "hub_clk", 150000000);
+	ret = kgsl_clk_set_rate(gmu->clks, gmu->num_clks, "hub_clk",
+			150000000);
 	if (ret && ret != -ENODEV) {
 		dev_err(&gmu->pdev->dev, "Unable to set the HUB clock\n");
 		return ret;

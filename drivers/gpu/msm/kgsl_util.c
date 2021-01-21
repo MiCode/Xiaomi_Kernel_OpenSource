@@ -66,6 +66,18 @@ int kgsl_regulator_set_voltage(struct device *dev,
 	return ret;
 }
 
+int kgsl_clk_set_rate(struct clk_bulk_data *clks, int num_clks,
+		const char *id, unsigned long rate)
+{
+	struct clk *clk;
+
+	clk = kgsl_of_clk_by_name(clks, num_clks, id);
+	if (!clk)
+		return -ENODEV;
+
+	return clk_set_rate(clk, rate);
+}
+
 /*
  * The PASID has stayed consistent across all targets thus far so we are
  * cautiously optimistic that we can hard code it
