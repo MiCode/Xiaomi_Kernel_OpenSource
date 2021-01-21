@@ -10,6 +10,9 @@
   add_uevent_var
   add_wait_queue
   adjust_managed_page_count
+  alarm_cancel
+  alarm_init
+  alarm_start_relative
   alloc_chrdev_region
   __alloc_disk_node
   alloc_io_pgtable_ops
@@ -73,6 +76,7 @@
   bpf_trace_run7
   bpf_trace_run8
   bpf_trace_run9
+  build_skb
   bus_find_device
   bus_for_each_dev
   bus_register
@@ -272,6 +276,8 @@
   crypto_skcipher_setkey
   crypto_unregister_rngs
   css_next_child
+  csum_ipv6_magic
+  csum_partial
   csum_tcpudp_nofold
   _ctype
   datagram_poll
@@ -308,9 +314,11 @@
   _dev_emerg
   _dev_err
   dev_fwnode
+  __dev_get_by_index
   dev_get_by_name
   dev_get_regmap
   dev_pm_genpd_set_next_wakeup
+  dev_queue_xmit
   device_add
   device_add_groups
   device_create
@@ -882,6 +890,9 @@
   gpio_request
   gpio_request_one
   gpio_to_desc
+  gro_cells_destroy
+  gro_cells_init
+  gro_cells_receive
   handle_bad_irq
   handle_edge_irq
   handle_fasteoi_ack_irq
@@ -1023,7 +1034,10 @@
   __ioremap
   iounmap
   __iowrite32_copy
+  ip_compute_csum
   __ipv6_addr_type
+  ipv6_ext_hdr
+  ipv6_skip_exthdr
   irq_chip_ack_parent
   irq_chip_disable_parent
   irq_chip_enable_parent
@@ -1261,13 +1275,17 @@
   netif_receive_skb
   netif_receive_skb_list
   netif_rx
+  netdev_rx_handler_unregister
+  netdev_rx_handler_register
   netif_rx_ni
+  netif_schedule_queue
   netif_tx_stop_all_queues
   netif_tx_wake_queue
   netlink_broadcast
   netlink_capable
   __netlink_kernel_create
   netlink_kernel_release
+  netlink_unicast
   nla_memcpy
   __nla_parse
   nla_put
@@ -1564,9 +1582,11 @@
   proto_unregister
   pskb_expand_head
   __pskb_pull_tail
+  ___pskb_trim
   put_device
   put_disk
   put_iova_domain
+  __put_page
   put_sg_io_hdr
   __put_task_struct
   put_unused_fd
@@ -1577,6 +1597,7 @@
   qcom_smem_state_register
   qcom_smem_state_unregister
   qcom_smem_state_update_bits
+  qdisc_reset
   queue_delayed_work_on
   queue_work_on
   radix_tree_delete
@@ -1777,6 +1798,8 @@
   rt_mutex_lock
   rt_mutex_unlock
   rtnl_is_locked
+  rtnl_link_register
+  rtnl_link_unregister
   rtnl_lock
   rtnl_register_module
   rtnl_trylock
@@ -1870,6 +1893,8 @@
   single_release
   sk_alloc
   skb_add_rx_frag
+  skb_append_pagefrags
+  skb_checksum
   skb_clone
   skb_coalesce_rx_frag
   skb_copy
@@ -2165,6 +2190,7 @@
   __tracepoint_rwmmio_write
   __tracepoint_suspend_resume
   trace_print_array_seq
+  trace_print_hex_seq
   trace_print_symbols_seq
   trace_raw_output_prep
   trace_seq_printf
@@ -2245,6 +2271,7 @@
   unregister_kprobe
   unregister_kretprobe
   unregister_netdev
+  unregister_netdevice_many
   unregister_netdevice_notifier
   unregister_netdevice_queue
   unregister_netevent_notifier
