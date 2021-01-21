@@ -1783,7 +1783,6 @@ static int vow_pcm_dump_kthread(void *data)
 	uint8_t current_idx = 0;
 	struct pcm_dump_t *pcm_dump = NULL;
 	struct dump_package_t *dump_package = NULL;
-	mm_segment_t old_fs;
 
 	struct sched_param param = {.sched_priority = 85 };
 
@@ -1847,13 +1846,10 @@ static int vow_pcm_dump_kthread(void *data)
 			while (size > 0) {
 				if (file_bargein_pcm_input_open &&
 				    !IS_ERR(file_bargein_pcm_input)) {
-					old_fs = get_fs();
-					set_fs(KERNEL_DS);
 					ret = kernel_write(file_bargein_pcm_input,
 					    (char __user *)out_buf,
 					    writedata,
 					    &file_bargein_pcm_input->f_pos);
-					set_fs(old_fs);
 					if (ret < 0) {
 						VOWDRV_DEBUG(
 						"[Bargein]vfs write failed\n");
@@ -1874,13 +1870,10 @@ static int vow_pcm_dump_kthread(void *data)
 			while (size > 0) {
 				if (file_bargein_pcm_input_open &&
 				    !IS_ERR(file_bargein_pcm_input)) {
-					old_fs = get_fs();
-					set_fs(KERNEL_DS);
 					ret = kernel_write(file_bargein_pcm_input,
 					    (char __user *)pcm_dump->decode_pcm,
 					    writedata,
 					    &file_bargein_pcm_input->f_pos);
-					set_fs(old_fs);
 					if (ret < 0) {
 						VOWDRV_DEBUG(
 						"[Bargein]vfs write failed\n");
@@ -1905,13 +1898,10 @@ static int vow_pcm_dump_kthread(void *data)
 			while (size > 0) {
 				if (file_bargein_echo_ref_open &&
 				    !IS_ERR(file_bargein_echo_ref)) {
-					old_fs = get_fs();
-					set_fs(KERNEL_DS);
 					ret = kernel_write(file_bargein_echo_ref,
 					    (char __user *)pcm_dump->decode_pcm,
 					    writedata,
 					    &file_bargein_echo_ref->f_pos);
-					set_fs(old_fs);
 					if (ret < 0) {
 						VOWDRV_DEBUG(
 						"[Bargein]vfs write failed\n");
@@ -1926,8 +1916,6 @@ static int vow_pcm_dump_kthread(void *data)
 			    !IS_ERR(file_bargein_delay_info)) {
 				uint32_t *ptr32;
 
-				old_fs = get_fs();
-				set_fs(KERNEL_DS);
 				ptr32 = &vowserv.dump_frm_cnt;
 				ret = kernel_write(file_bargein_delay_info,
 					    (char __user *)ptr32,
@@ -1942,7 +1930,6 @@ static int vow_pcm_dump_kthread(void *data)
 					    &file_bargein_delay_info->f_pos);
 				if (ret < 0)
 					VOWDRV_DEBUG("vfs write failed\n");
-				set_fs(old_fs);
 				bargein_dump_info_flag = false;
 			}
 		}
@@ -1969,13 +1956,10 @@ static int vow_pcm_dump_kthread(void *data)
 			while (size > 0) {
 				if (file_recog_data_open &&
 				    !IS_ERR(file_recog_data)) {
-					old_fs = get_fs();
-					set_fs(KERNEL_DS);
 					ret = kernel_write(file_recog_data,
 					    (char __user *)out_buf,
 					    writedata,
 					    &file_recog_data->f_pos);
-					set_fs(old_fs);
 					if (ret < 0) {
 						VOWDRV_DEBUG(
 						"[Recog]vfs write failed\n");
@@ -1996,13 +1980,10 @@ static int vow_pcm_dump_kthread(void *data)
 			while (size > 0) {
 				if (file_recog_data_open &&
 				    !IS_ERR(file_recog_data)) {
-					old_fs = get_fs();
-					set_fs(KERNEL_DS);
 					ret = kernel_write(file_recog_data,
 					    (char __user *)pcm_dump->decode_pcm,
 					    writedata,
 					    &file_recog_data->f_pos);
-					set_fs(old_fs);
 					if (ret < 0) {
 						VOWDRV_DEBUG(
 						"[Recog]vfs write failed\n");
@@ -2026,13 +2007,10 @@ static int vow_pcm_dump_kthread(void *data)
 			while (size > 0) {
 				if (file_vffp_data_open &&
 				    !IS_ERR(file_vffp_data)) {
-					old_fs = get_fs();
-					set_fs(KERNEL_DS);
 					ret = kernel_write(file_vffp_data,
 					    (char __user *)pcm_dump->decode_pcm,
 					    writedata,
 					    &file_vffp_data->f_pos);
-					set_fs(old_fs);
 					if (ret < 0) {
 						VOWDRV_DEBUG(
 						"[vffp]vfs write failed\n");
