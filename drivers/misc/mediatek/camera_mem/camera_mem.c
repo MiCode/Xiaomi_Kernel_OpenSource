@@ -98,6 +98,7 @@ static struct cam_mem_device cam_mem_dev;
 
 /* prevent cam_mem race condition in vulunerbility test */
 static struct mutex open_cam_mem_mutex;
+static struct mutex cam_mem_pwr_ctrl_mutex;
 
 #define HASH_BUCKET_NUM (512)
 
@@ -174,7 +175,6 @@ static void CamMem_EnableLarb(bool En)
 		spin_unlock(&(CamMemInfo.SpinLock_Larb));
 		/* !!cannot be used in spinlock!! */
 		smi_larbs_put();
-
 	}
 }
 
@@ -224,9 +224,6 @@ static int cam_mem_open(struct inode *pInode, struct file *pFile)
 			current->comm, current->pid, current->tgid);
 	}
 
-	if (likely(Ret == 0))
-		CamMem_EnableLarb(true);
-
 	LOG_DBG("-: Ret: %d. UserCount: %d\n", Ret, CamMemInfo.UserCount);
 
 	mutex_unlock(&open_cam_mem_mutex);
@@ -248,6 +245,42 @@ static void cam_mem_mmu_put_dma_buffer(struct ION_BUFFER *mmu)
 		LOG_NOTICE("mmu->dmaBuf is NULL\n");
 }
 
+static void cam_mem_unmap_all(void)
+{
+	int i = 0;
+	struct ION_BUFFER_LIST *tmp; /* for delete the mapped node */
+	struct list_head *pos, *q;
+	struct ION_BUFFER pIonBuf = {NULL, NULL, NULL, 0};
+
+	LOG_NOTICE("+\n");
+
+	for (i = 0; i < HASH_BUCKET_NUM; i++) {
+		mutex_lock(&cam_mem_ion_mutex[i]);
+		if (list_empty(&g_ion_buf_list[i].list)) {
+			mutex_unlock(&cam_mem_ion_mutex[i]);
+			continue;
+		}
+
+		/* unmap iova and delete the node. */
+		list_for_each_safe(pos, q,
+			&g_ion_buf_list[i].list) {
+			tmp = list_entry(pos, struct ION_BUFFER_LIST, list);
+
+			/* unmap iova */
+			pIonBuf.dmaBuf = tmp->dmaBuf;
+			pIonBuf.attach = tmp->attach;
+			pIonBuf.sgt = tmp->sgt;
+			cam_mem_mmu_put_dma_buffer(&pIonBuf);
+
+			/* delete a mapped node in the list. */
+			list_del(pos);
+			kfree(tmp);
+		}
+		mutex_unlock(&cam_mem_ion_mutex[i]);
+	}
+	LOG_NOTICE("-\n");
+}
+
 /*******************************************************************************
  *
  ******************************************************************************/
@@ -257,7 +290,7 @@ static int cam_mem_release(struct inode *pInode, struct file *pFile)
 
 	mutex_lock(&open_cam_mem_mutex);
 
-	LOG_DBG("+. UserCount: %d.\n", CamMemInfo.UserCount);
+	LOG_NOTICE("+. UserCount: %d.\n", CamMemInfo.UserCount);
 
 	if (likely(pFile->private_data != NULL)) {
 		kfree(pFile->private_data);
@@ -269,7 +302,7 @@ static int cam_mem_release(struct inode *pInode, struct file *pFile)
 	if (CamMemInfo.UserCount > 0) {
 		spin_unlock(&(CamMemInfo.SpinLock_CamMemRef));
 
-		LOG_DBG(
+		LOG_NOTICE(
 			"Curr UserCount(%d), (process, pid, tgid) = (%s, %d, %d),users exist\n",
 			CamMemInfo.UserCount, current->comm, current->pid,
 			current->tgid);
@@ -281,13 +314,18 @@ static int cam_mem_release(struct inode *pInode, struct file *pFile)
 	spin_lock(&(CamMemInfo.SpinLock_Larb));
 	i = G_u4EnableLarbCount;
 	spin_unlock(&(CamMemInfo.SpinLock_Larb));
+
+	/* clear all mapped iova */
+	cam_mem_unmap_all();
+
+	LOG_NOTICE("Disable all larbs, total count:%d.\n", i);
 	while (i > 0) {
 		CamMem_EnableLarb(false);
 		i--;
 	}
 
 EXIT:
-	LOG_DBG("-. UserCount: %d. G_u4EnableLarbCount:%d\n",
+	LOG_NOTICE("-. UserCount: %d. G_u4EnableLarbCount:%d\n",
 		CamMemInfo.UserCount, G_u4EnableLarbCount);
 
 	mutex_unlock(&open_cam_mem_mutex);
@@ -374,7 +412,7 @@ static long cam_mem_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Pa
 
 	struct CAM_MEM_USER_INFO_STRUCT *pUserInfo;
 	struct CAM_MEM_DEV_ION_NODE_STRUCT IonNode;
-
+	int power_on;
 
 	if (unlikely(pFile->private_data == NULL)) {
 		LOG_NOTICE(
@@ -696,6 +734,24 @@ static long cam_mem_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Pa
 		} else {
 			LOG_NOTICE(
 				"[CAM_MEM_ION_GET_PA]copy_from_user failed\n");
+			Ret = -EFAULT;
+		}
+		break;
+
+	case CAM_MEM_POWER_CTRL:
+		if (likely(copy_from_user(&power_on, (void *)Param,
+			sizeof(int)) == 0)) {
+			mutex_lock(&cam_mem_pwr_ctrl_mutex);
+			if (power_on == 1) {
+				LOG_DBG("power on\n");
+				CamMem_EnableLarb(true);
+			} else {
+				LOG_DBG("power off\n");
+				CamMem_EnableLarb(false);
+			}
+			mutex_unlock(&cam_mem_pwr_ctrl_mutex);
+		} else {
+			LOG_NOTICE("CAM_MEM_POWER_CTRL: copy_from_user failed\n");
 			Ret = -EFAULT;
 		}
 		break;
@@ -1103,6 +1159,7 @@ static int __init cam_mem_Init(void)
 	LOG_NOTICE("+\n");
 
 	mutex_init(&open_cam_mem_mutex);
+	mutex_init(&cam_mem_pwr_ctrl_mutex);
 
 	atomic_set(&G_u4DevNodeCt, 0);
 
