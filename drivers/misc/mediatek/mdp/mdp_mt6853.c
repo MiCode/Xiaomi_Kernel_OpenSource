@@ -518,7 +518,7 @@ int32_t cmdq_mdp_reset_with_mmsys(const uint64_t engineToResetAgain)
 
 #if IS_ENABLED(CONFIG_MTK_IOMMU)
 int cmdq_TranslationFault_callback(
-	int port, unsigned long mva, void *data)
+	int port, dma_addr_t mva, void *data)
 {
 	char dispatchModel[MDP_DISPATCH_KEY_STR_LEN] = "MDP";
 
