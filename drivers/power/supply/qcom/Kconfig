@@ -83,7 +83,7 @@ config SMB1390_CHARGE_PUMP_PSY
 
 config SMB1351_USB_CHARGER
 	tristate "smb1351 usb charger (with VBUS detection)"
-	depends on MFD_I2C_PMIC
+	depends on I2C
 	help
 	  Say Y to enable support for the SMB1351 switching mode based charger.
 	  The driver supports charging control (enable/disable) and
