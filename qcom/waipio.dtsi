@@ -826,6 +826,11 @@
 		};
 	};
 
+	qcom,msm-rtb {
+		compatible = "qcom,msm-rtb";
+		qcom,rtb-size = <0x100000>;
+	};
+
 	tlmm: pinctrl@f000000 {
 		compatible = "qcom,waipio-pinctrl";
 		reg = <0x0F000000 0x1000000>;
