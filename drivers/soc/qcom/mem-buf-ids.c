@@ -245,6 +245,7 @@ err_cdev_add:
 	xa_erase(&mem_buf_vms, new_vm->vmid);
 err_xa_store:
 	xa_erase(&mem_buf_vm_minors, minor);
+	put_device(dev);
 err_devt:
 err_duplicate:
 	return ret;
@@ -301,7 +302,9 @@ static char *mem_buf_vm_devnode(struct device *dev, umode_t *mode)
 
 static int mem_buf_vm_put_class_device_cb(struct device *dev, void *data)
 {
-	put_device(dev);
+	struct mem_buf_vm *vm = container_of(dev, struct mem_buf_vm, dev);
+
+	cdev_device_del(&vm->cdev, dev);
 	return 0;
 }
 
