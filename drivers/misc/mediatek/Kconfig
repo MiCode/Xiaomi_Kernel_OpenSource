@@ -61,6 +61,20 @@ config MTK_ATF_LOGGER
 	  user space. We can obtain live TF-A log through
 	  atf logger driver
 
+config MTK_MET
+	tristate "MET FEATURE ENABLE"
+	help
+	  This selects the MET profile function for MET device.
+	  If you want MET feature, say m here.
+	  This is needed if support for MET devices is required.
+	  If unsure, say N.
+
+config MTK_MET_PLF
+	string "MET PLATFORM"
+	help
+	  This config is set as platform name which met driver
+	  used for.
+
 source "drivers/misc/mediatek/blocktag/Kconfig"
 source "drivers/misc/mediatek/mtprof/Kconfig"
 source "drivers/misc/mediatek/locking/Kconfig"
