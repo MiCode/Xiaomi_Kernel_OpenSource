@@ -1686,7 +1686,7 @@ static void proc_reclaim_notify(unsigned long pid, void *rp)
 }
 
 int reclaim_address_space(struct address_space *mapping,
-			struct reclaim_param *rp, struct vm_area_struct *vma)
+			struct reclaim_param *rp)
 {
 	struct radix_tree_iter iter;
 	void __rcu **slot;
@@ -1727,7 +1727,7 @@ int reclaim_address_space(struct address_space *mapping,
 		}
 	}
 	rcu_read_unlock();
-	reclaimed = reclaim_pages_from_list(&page_list, vma);
+	reclaimed = reclaim_pages_from_list(&page_list, NULL);
 	rp->nr_reclaimed += reclaimed;
 
 	if (rp->nr_scanned >= rp->nr_to_reclaim)
@@ -1821,7 +1821,7 @@ struct reclaim_param reclaim_task_nomap(struct task_struct *task,
 		goto out;
 	down_read(&mm->mmap_sem);
 
-	proc_reclaim_notify(task_tgid_nr(task), (void *)&rp);
+	proc_reclaim_notify((unsigned long)task_pid(task), (void *)&rp);
 
 	up_read(&mm->mmap_sem);
 	mmput(mm);

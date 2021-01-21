@@ -81,7 +81,7 @@ static inline struct kgsl_pagetable *_get_memdesc_pagetable(
 
 static void kgsl_mem_entry_detach_process(struct kgsl_mem_entry *entry);
 
-static const struct file_operations kgsl_fops;
+static const struct vm_operations_struct kgsl_gpumem_vm_ops;
 
 /*
  * The memfree list contains the last N blocks of memory that have been freed.
@@ -2437,7 +2437,7 @@ static int check_vma(unsigned long hostptr, u64 size)
 			return false;
 
 		/* Don't remap memory that we already own */
-		if (vma->vm_file && vma->vm_file->f_op == &kgsl_fops)
+		if (vma->vm_file && vma->vm_ops == &kgsl_gpumem_vm_ops)
 			return false;
 
 		cur = vma->vm_end;
@@ -2594,7 +2594,7 @@ static int kgsl_setup_dmabuf_useraddr(struct kgsl_device *device,
 		 * Check to see that this isn't our own memory that we have
 		 * already mapped
 		 */
-		if (vma->vm_file->f_op == &kgsl_fops) {
+		if (vma->vm_ops == &kgsl_gpumem_vm_ops) {
 			up_read(&current->mm->mmap_sem);
 			return -EFAULT;
 		}
@@ -4973,9 +4973,10 @@ static int kgsl_mmap(struct file *file, struct vm_area_struct *vma)
 		}
 	}
 
-	vma->vm_file = file;
-
-	entry->memdesc.vma = vma;
+	if (entry->memdesc.shmem_filp) {
+		fput(vma->vm_file);
+		vma->vm_file = get_file(entry->memdesc.shmem_filp);
+	}
 
 	/*
 	 * kgsl gets the entry id or the gpu address through vm_pgoff.
