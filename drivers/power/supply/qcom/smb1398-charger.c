@@ -2284,7 +2284,7 @@ static int smb1398_pre_regulator_iout_vote_cb(struct votable *votable,
 		return -EINVAL;
 
 	iout_ua = min(iout_ua, MAX_IOUT_UA);
-	rc = smb1398_set_ichg_ma(chip, do_div(iout_ua, 1000));
+	rc = smb1398_set_ichg_ma(chip, (iout_ua / 1000));
 	if (rc < 0)
 		return rc;
 
