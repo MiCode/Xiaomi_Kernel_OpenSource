@@ -189,54 +189,6 @@ int devfreq_get_cur_freq(struct device *dev, unsigned long *freq)
 	return 0;
 }
 
-static unsigned long apusys_static_power(struct devfreq *devfreq,
-					unsigned long voltage_mv)
-{
-#if LOCAL_DBG
-	// FIXME: need static power ?
-	pr_info("%s volt=%lu\n", __func__, voltage_mv);
-#endif
-	return 0;
-}
-
-static unsigned long apusys_dynamic_power(struct devfreq *devfreq,
-			unsigned long freqHz, unsigned long voltage_mv)
-{
-	int opp;
-	unsigned long power;
-	unsigned long normalize_freq = freqHz / 1000;
-	int dvfs_user;
-	struct apu_dev_power_data *dev_pdata;
-
-	dev_pdata = (struct apu_dev_power_data *)dev_get_drvdata(
-						devfreq->dev.parent);
-
-	dvfs_user = dev_pdata->dev_type;
-
-#if LOCAL_DBG
-	pr_info("%s usr:%d\n", __func__, dvfs_user);
-#endif
-
-	if (dvfs_user < 0 || dvfs_user >= APUSYS_DVFS_USER_NUM)
-		return -1;
-
-	opp = apusys_freq_to_opp(
-		apusys_user_to_buck_domain[dvfs_user], normalize_freq);
-
-	// need to div core number since power table is total power cross cores
-	if (dvfs_user >= VPU0 && dvfs_user <= VPU1)
-		power = ((unsigned int)vpu_power_table[
-				(enum APU_OPP_INDEX)opp].power) / VPU_DEV_UNIT;
-	else
-		power = ((unsigned int)mdla_power_table[
-				(enum APU_OPP_INDEX)opp].power) / MDLA_DEV_UNIT;
-#if LOCAL_DBG
-	pr_info("%s freq=%lu, volt=%lu, power=%lu\n",
-			__func__, freqHz, voltage_mv, power);
-#endif
-	return power;
-}
-
 static int apusys_real_power(struct devfreq *devfreq, unsigned int *power,
 			unsigned long freqHz, unsigned long voltage_mv)
 {
@@ -330,10 +282,6 @@ int register_devfreq_cooling(struct platform_device *pdev, enum DVFS_USER user)
 	apu_pwr_devfreq_ptr->profile.target = devfreq_set_target;
 	apu_pwr_devfreq_ptr->profile.get_dev_status = devfreq_get_status;
 	apu_pwr_devfreq_ptr->profile.get_cur_freq = devfreq_get_cur_freq;
-	apu_pwr_devfreq_ptr->cooling_power_ops.get_static_power =
-						apusys_static_power;
-	apu_pwr_devfreq_ptr->cooling_power_ops.get_dynamic_power =
-						apusys_dynamic_power;
 	apu_pwr_devfreq_ptr->cooling_power_ops.get_real_power =
 						apusys_real_power;
 
