@@ -481,7 +481,7 @@ static int mtk_rtc_set_spare(struct device *dev)
 		}
 	}
 
-	ret = rtc_nvmem_register(rtc->rtc_dev, &nvmem_cfg);
+	ret = devm_rtc_nvmem_register(rtc->rtc_dev, &nvmem_cfg);
 	if (ret)
 		dev_err(rtc->rtc_dev->dev.parent, "nvmem register failed\n");
 
