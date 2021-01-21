@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "haven: " fmt
@@ -222,14 +222,16 @@ static int __init hh_ctrl_init(void)
 
 	hyp = of_find_node_by_path("/hypervisor");
 
-	if (!hyp || !of_device_is_compatible(hyp, "qcom,haven-hypervisor"))
-		return -ENODEV;
+	if (!hyp || !of_device_is_compatible(hyp, "qcom,haven-hypervisor")) {
+		pr_err("haven-hypervisor node not present\n");
+		return 0;
+	}
 
 	(void)hh_hcall_hyp_identify(&haven_api);
 
 	if (HH_API_INFO_API_VERSION(haven_api.api_info) != 1) {
 		pr_err("unknown version\n");
-		return -ENODEV;
+		return 0;
 	}
 
 	/* Check for ARM SMCCC VENDOR_HYP service calls by UID. */
