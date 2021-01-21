@@ -267,6 +267,33 @@ static int mem_buf_vm_add_pdata(struct mem_buf_vm *pdata)
 	return 0;
 }
 
+static int mem_buf_vm_add_self(void)
+{
+	struct mem_buf_vm *vm, *self;
+	int ret;
+
+	vm = find_vm_by_vmid(current_vmid);
+	if (IS_ERR(vm))
+		return PTR_ERR(vm);
+
+	self = kzalloc(sizeof(*self), GFP_KERNEL);
+	if (!self)
+		return -ENOMEM;
+
+	/* Create an aliased name */
+	self->name = "qcom,self";
+	self->vmid = vm->vmid;
+	self->hh_id = vm->hh_id;
+	self->allowed_api = vm->allowed_api;
+
+	ret = mem_buf_vm_add(self);
+	if (ret) {
+		kfree(self);
+		return ret;
+	}
+	return 0;
+}
+
 static char *mem_buf_vm_devnode(struct device *dev, umode_t *mode)
 {
 	return kasprintf(GFP_KERNEL, "mem_buf_vm/%s", dev_name(dev));
@@ -308,8 +335,13 @@ int mem_buf_vm_init(struct device *dev)
 			goto err_pdata;
 	}
 
+	ret = mem_buf_vm_add_self();
+	if (ret)
+		goto err_self;
+
 	return 0;
 
+err_self:
 err_pdata:
 	xa_destroy(&mem_buf_vms);
 	xa_destroy(&mem_buf_vm_minors);
