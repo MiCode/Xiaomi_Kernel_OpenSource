@@ -89,7 +89,6 @@ void store_log_to_emmc_enable(bool value)
 void set_boot_phase(u32 step)
 {
 	struct file *filp;
-	mm_segment_t fs;
 	int file_size = 0;
 	struct log_emmc_header pEmmc;
 
@@ -108,19 +107,14 @@ void set_boot_phase(u32 step)
 		return;
 	}
 
-	fs = get_fs();
-	set_fs(KERNEL_DS);
-
 	filp = filp_open(EXPDB_PATH, O_RDWR, 0);
 	if (IS_ERR(filp)) {
 		pr_notice("log_store can't open expdb file: %s.\n", EXPDB_PATH);
-		set_fs(fs);
 		return;
 	}
 
 	if (!filp->f_op) {
 		pr_notice("log_store File Operation Method Error!!\n");
-		set_fs(fs);
 		return;
 	}
 
@@ -145,7 +139,6 @@ void set_boot_phase(u32 step)
 	filp->f_op->llseek(filp, file_size - sram_header->reserve[1], SEEK_SET);
 	filp->f_op->write(filp, (char *)&pEmmc, sizeof(struct log_emmc_header), &filp->f_pos);
 	filp_close(filp, NULL);
-	set_fs(fs);
 	pr_notice("log_store: set boot phase, last boot phase is %d.\n",
 		last_boot_phase);
 }
