@@ -83,6 +83,7 @@ struct static_key sched_feat_keys[__SCHED_FEAT_NR] = {
 #include "features.h"
 };
 EXPORT_SYMBOL_GPL(sched_feat_keys);
+
 #undef SCHED_FEAT
 
 static void sched_feat_disable(int i)

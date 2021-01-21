@@ -71,13 +71,14 @@ config QTI_QMI_COOLING_DEVICE
 	   The QMI cooling device will interface with remote subsystem
 	   using QTI QMI interface.
 
-config QTI_CPU_ISOLATE_COOLING_DEVICE
-	tristate "QTI CPU Isolate cooling devices"
-	depends on THERMAL_OF && QTI_THERMAL
+config QTI_CPU_PAUSE_COOLING_DEVICE
+	tristate "QTI CPU Pause cooling devices"
+	depends on THERMAL_OF && HOTPLUG_CPU
+	depends on ARCH_QCOM || COMPILE_TEST
 	help
-	   This enables the QTI CPU Isolation cooling devices. These cooling
-	   devices will be used by QTI chipset to isolate a CPU from being
-	   scheduled and hence will let the CPU to power collapse. Isolating
+	   This enables the QTI CPU Pause cooling device. These cooling
+	   devices will be used by QTI chipset to pause a CPU from being
+	   scheduled and hence will let the CPU to power collapse.  Pausing
 	   a CPU will be used when the CPU frequency mitigation
 	   is not good enough to achieve the necessary cooling.
 

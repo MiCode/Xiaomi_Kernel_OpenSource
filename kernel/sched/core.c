@@ -4333,10 +4333,6 @@ static noinline void __schedule_bug(struct task_struct *prev)
 	if (panic_on_warn)
 		panic("scheduling while atomic\n");
 
-#if defined(CONFIG_PANIC_ON_SCHED_BUG) && defined(CONFIG_SCHED_WALT)
-	BUG();
-#endif
-
 	trace_android_rvh_schedule_bug(NULL);
 
 	dump_stack();
@@ -7199,9 +7195,6 @@ void __init sched_init_smp(void)
 	/* Move init over to a non-isolated CPU */
 	if (set_cpus_allowed_ptr(current, housekeeping_cpumask(HK_FLAG_DOMAIN)) < 0)
 		BUG();
-#ifdef CONFIG_SCHED_WALT
-	cpumask_copy(&current->wts.cpus_requested, cpu_possible_mask);
-#endif
 
 	sched_init_granularity();
 
@@ -7490,9 +7483,6 @@ void ___might_sleep(const char *file, int line, int preempt_offset)
 		pr_err("Preemption disabled at:");
 		print_ip_sym(KERN_ERR, preempt_disable_ip);
 	}
-#ifdef CONFIG_PANIC_ON_SCHED_BUG
-	BUG();
-#endif
 
 	trace_android_rvh_schedule_bug(NULL);
 
@@ -8648,7 +8638,7 @@ static struct cftype cpu_files[] = {
 		.read_u64 = cpu_uclamp_ls_read_u64,
 		.write_u64 = cpu_uclamp_ls_write_u64,
 	},
-#endif /* CONFIG_UCLAMP_TASK_GROUP */
+#endif
 	{ }	/* terminate */
 };
 
