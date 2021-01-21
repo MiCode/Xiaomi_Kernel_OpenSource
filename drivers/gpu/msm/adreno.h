@@ -35,10 +35,16 @@
  */
 #define ADRENO_POWER_OPS(_a) ((_a)->gpucore->gpudev->power_ops)
 
-#define ADRENO_CHIPID_CORE(_id) (((_id) >> 24) & 0xFF)
-#define ADRENO_CHIPID_MAJOR(_id) (((_id) >> 16) & 0xFF)
-#define ADRENO_CHIPID_MINOR(_id) (((_id) >> 8) & 0xFF)
-#define ADRENO_CHIPID_PATCH(_id) ((_id) & 0xFF)
+#define ADRENO_CHIPID_CORE(_id) FIELD_GET(GENMASK(31, 24), _id)
+#define ADRENO_CHIPID_MAJOR(_id) FIELD_GET(GENMASK(23, 16), _id)
+#define ADRENO_CHIPID_MINOR(_id) FIELD_GET(GENMASK(15, 8), _id)
+#define ADRENO_CHIPID_PATCH(_id) FIELD_GET(GENMASK(7, 0), _id)
+
+#define ADRENO_GMU_CHIPID(_id) \
+	(FIELD_PREP(GENMASK(31, 24), ADRENO_CHIPID_CORE(_id)) | \
+	 FIELD_PREP(GENMASK(23, 16), ADRENO_CHIPID_MAJOR(_id)) | \
+	 FIELD_PREP(GENMASK(15, 12), ADRENO_CHIPID_MINOR(_id)) | \
+	 FIELD_PREP(GENMASK(11, 8), ADRENO_CHIPID_PATCH(_id)))
 
 /* ADRENO_GPUREV - Return the GPU ID for the given adreno_device */
 #define ADRENO_GPUREV(_a) ((_a)->gpucore->gpurev)

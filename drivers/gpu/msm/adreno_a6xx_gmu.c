@@ -1349,17 +1349,7 @@ void a6xx_gmu_register_config(struct adreno_device *adreno_dev)
 			gmu->log_wptr_retention);
 
 	/* Pass chipid to GMU FW, must happen before starting GMU */
-
-	/* Keep Core and Major bitfields unchanged */
-	chipid = adreno_dev->chipid & 0xFFFF0000;
-
-	/*
-	 * Compress minor and patch version into 8 bits
-	 * Bit 15-12: minor version
-	 * Bit 11-8: patch version
-	 */
-	chipid = chipid | (ADRENO_CHIPID_MINOR(adreno_dev->chipid) << 12)
-			| ((ADRENO_CHIPID_PATCH(adreno_dev->chipid) & 0xf) << 8);
+	chipid = ADRENO_GMU_CHIPID(adreno_dev->chipid);
 
 	/*
 	 * For A660 GPU variant, GMU firmware expects chipid as per below
