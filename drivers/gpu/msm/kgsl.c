@@ -24,6 +24,7 @@
 #include "kgsl_compat.h"
 #include "kgsl_debugfs.h"
 #include "kgsl_device.h"
+#include "kgsl_eventlog.h"
 #include "kgsl_mmu.h"
 #include "kgsl_pool.h"
 #include "kgsl_sync.h"
@@ -4474,7 +4475,7 @@ void kgsl_device_platform_remove(struct kgsl_device *device)
 void kgsl_core_exit(void)
 {
 	kgsl_exit_page_pools();
-
+	kgsl_eventlog_exit();
 	kgsl_events_exit();
 	kgsl_core_debugfs_close();
 
@@ -4573,6 +4574,8 @@ int __init kgsl_core_init(void)
 
 	kgsl_driver.mem_workqueue = alloc_workqueue("kgsl-mementry",
 		WQ_UNBOUND | WQ_MEM_RECLAIM, 0);
+
+	kgsl_eventlog_init();
 
 	kgsl_events_init();
 

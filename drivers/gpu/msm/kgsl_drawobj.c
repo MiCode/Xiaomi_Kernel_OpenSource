@@ -25,6 +25,7 @@
 #include "kgsl_compat.h"
 #include "kgsl_device.h"
 #include "kgsl_drawobj.h"
+#include "kgsl_eventlog.h"
 #include "kgsl_sync.h"
 #include "kgsl_timeline.h"
 #include "kgsl_trace.h"
@@ -286,10 +287,15 @@ static void trace_syncpoint_timeline_fence(struct kgsl_drawobj_sync *syncobj,
 		snprintf(fence_name, sizeof(fence_name), "%s:%llu",
 			fences[i]->ops->get_timeline_name(fences[i]),
 			fences[i]->seqno);
-		if (expire)
+		if (expire) {
 			trace_syncpoint_fence_expire(syncobj, fence_name);
-		else
+			log_kgsl_syncpoint_fence_expire_event(
+			syncobj->base.context->id, fence_name);
+		} else {
 			trace_syncpoint_fence(syncobj, fence_name);
+			log_kgsl_syncpoint_fence_event(
+			syncobj->base.context->id, fence_name);
+		}
 	}
 }
 
@@ -435,9 +441,12 @@ static bool drawobj_sync_fence_func(void *priv)
 	struct event_fence_info *info = event->priv;
 	int i;
 
-	for (i = 0; info && i < info->num_fences; i++)
+	for (i = 0; info && i < info->num_fences; i++) {
 		trace_syncpoint_fence_expire(event->syncobj,
 			info->fences[i].name);
+		log_kgsl_syncpoint_fence_expire_event(
+		event->syncobj->base.context->id, info->fences[i].name);
+	}
 
 	/*
 	 * Only call kgsl_drawobj_put() if it's not marked for cancellation
@@ -528,6 +537,8 @@ static int drawobj_add_sync_timeline(struct kgsl_device *device,
 
 		if (dma_fence_is_signaled(event->fence)) {
 			trace_syncpoint_fence_expire(syncobj, "signaled");
+			log_kgsl_syncpoint_fence_expire_event(
+			syncobj->base.context->id, "signaled");
 			dma_fence_put(event->fence);
 			ret = 0;
 		}
@@ -586,14 +597,20 @@ static int drawobj_add_sync_fence(struct kgsl_device *device,
 		 * If ret == 0 the fence was already signaled - print a trace
 		 * message so we can track that
 		 */
-		if (ret == 0)
+		if (ret == 0) {
 			trace_syncpoint_fence_expire(syncobj, "signaled");
+			log_kgsl_syncpoint_fence_expire_event(
+				syncobj->base.context->id, "signaled");
+		}
 
 		return ret;
 	}
 
-	for (i = 0; priv && i < priv->num_fences; i++)
+	for (i = 0; priv && i < priv->num_fences; i++) {
 		trace_syncpoint_fence(syncobj, priv->fences[i].name);
+		log_kgsl_syncpoint_fence_event(syncobj->base.context->id,
+			priv->fences[i].name);
+	}
 
 	return 0;
 }

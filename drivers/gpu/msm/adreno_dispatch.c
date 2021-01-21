@@ -9,6 +9,7 @@
 #include "adreno.h"
 #include "adreno_sysfs.h"
 #include "adreno_trace.h"
+#include "kgsl_eventlog.h"
 #include "kgsl_gmu_core.h"
 #include "kgsl_timeline.h"
 
@@ -260,6 +261,9 @@ static void _retire_timestamp(struct kgsl_drawobj *drawobj)
 		trace_adreno_cmdbatch_retired(context, &info,
 			drawobj->flags, rb->dispatch_q.inflight, 0);
 	}
+
+	log_kgsl_cmdbatch_retired_event(context->id, drawobj->timestamp,
+		context->priority, drawobj->flags, 0, 0);
 
 	kgsl_drawobj_destroy(drawobj);
 }
@@ -675,6 +679,9 @@ static int sendcmd(struct adreno_device *adreno_dev,
 	trace_adreno_cmdbatch_submitted(drawobj, &info,
 			time.ticks, (unsigned long) secs, nsecs / 1000,
 			dispatch_q->inflight);
+
+	log_kgsl_cmdbatch_submitted_event(context->id, drawobj->timestamp,
+		context->priority, drawobj->flags);
 
 	mutex_unlock(&device->mutex);
 
@@ -2261,6 +2268,9 @@ static void retire_cmdobj(struct adreno_device *adreno_dev,
 			drawobj->flags, rb->dispatch_q.inflight,
 			cmdobj->fault_recovery);
 	}
+
+	log_kgsl_cmdbatch_retired_event(context->id, drawobj->timestamp,
+		context->priority, drawobj->flags, start, end);
 
 	drawctxt->submit_retire_ticks[drawctxt->ticks_index] =
 		end - cmdobj->submit_ticks;
