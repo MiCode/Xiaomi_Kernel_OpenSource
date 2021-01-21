@@ -1065,6 +1065,16 @@ config REGULATOR_MEM_ACC
 	  controls delays applied for memory accesses.  This driver
 	  configures the power-mode(corner) for the memory accelerator.
 
+config REGULATOR_CPR
+	bool "RBCPR regulator driver for APC"
+	depends on OF
+	help
+	  Compile in RBCPR (RapidBridge Core Power Reduction) driver to support
+	  corner vote for APC power rail. The driver takes PTE process voltage
+	  suggestions in efuse as initial settings. It converts corner vote
+	  to voltage value before writing to a voltage regulator API, such as
+	  that provided by spm-regulator driver.
+
 config REGULATOR_CPR3
 	bool "CPR3 regulator core support"
 	help
