@@ -810,9 +810,10 @@ static struct kgsl_process_private *kgsl_iommu_get_process(u64 ptbase)
 }
 
 static void kgsl_iommu_print_fault(struct kgsl_mmu *mmu,
-		struct kgsl_iommu_context *context, unsigned long addr,
+		struct kgsl_iommu_context *ctxt, unsigned long addr,
 		u64 ptbase, u32 contextid,
-		int flags, struct kgsl_process_private *private)
+		int flags, struct kgsl_process_private *private,
+		struct kgsl_context *context)
 {
 	struct kgsl_device *device = KGSL_MMU_DEVICE(mmu);
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
@@ -845,19 +846,20 @@ static void kgsl_iommu_print_fault(struct kgsl_mmu *mmu,
 		if (!kgsl_mmu_log_fault_addr(mmu, ptbase, addr))
 			return;
 
-	if (!__ratelimit(&context->ratelimit))
+	if (!__ratelimit(&ctxt->ratelimit))
 		return;
 
 	dev_crit(device->dev,
-		"GPU PAGE FAULT: addr = %lX pid= %d name=%s drawctxt=%d\n", addr,
-		ptname, comm, contextid);
+		"GPU PAGE FAULT: addr = %lX pid= %d name=%s drawctxt=%d context pid = %d\n", addr,
+		ptname, comm, contextid, context ? context->tid : 0);
+
 	dev_crit(device->dev,
 		"context=%s TTBR0=0x%llx (%s %s fault)\n",
-		context->name, ptbase,
+		ctxt->name, ptbase,
 		(flags & IOMMU_WRITE) ? "write" : "read", fault_type);
 
 	if (gpudev->iommu_fault_block) {
-		u32 fsynr1 = KGSL_IOMMU_GET_CTX_REG(context,
+		u32 fsynr1 = KGSL_IOMMU_GET_CTX_REG(ctxt,
 			KGSL_IOMMU_CTX_FSYNR1);
 
 		dev_crit(device->dev,
@@ -869,7 +871,7 @@ static void kgsl_iommu_print_fault(struct kgsl_mmu *mmu,
 	if ((flags & IOMMU_FAULT_PERMISSION))
 		return;
 
-	kgsl_iommu_check_if_freed(device->dev, context, addr, ptname);
+	kgsl_iommu_check_if_freed(device->dev, ctxt, addr, ptname);
 
 	/*
 	 * Don't print any debug information if the address is
@@ -945,15 +947,18 @@ static int kgsl_iommu_fault_handler(struct kgsl_mmu *mmu,
 	u32 contextidr;
 	bool stall;
 	struct kgsl_process_private *private;
+	struct kgsl_context *context;
 
 	ptbase = KGSL_IOMMU_GET_CTX_REG_Q(ctx, KGSL_IOMMU_CTX_TTBR0);
 	contextidr = KGSL_IOMMU_GET_CTX_REG(ctx, KGSL_IOMMU_CTX_CONTEXTIDR);
 
 	private = kgsl_iommu_get_process(ptbase);
+	context = kgsl_context_get(device, contextidr);
 
 	stall = kgsl_iommu_check_stall_on_fault(mmu, flags);
 
-	kgsl_iommu_print_fault(mmu, ctx, addr, ptbase, contextidr, flags, private);
+	kgsl_iommu_print_fault(mmu, ctx, addr, ptbase, contextidr, flags, private,
+		context);
 
 	if (stall) {
 		struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
@@ -975,6 +980,7 @@ static int kgsl_iommu_fault_handler(struct kgsl_mmu *mmu,
 		adreno_dispatcher_schedule(device);
 	}
 
+	kgsl_context_put(context);
 	kgsl_process_private_put(private);
 
 	/* Return -EBUSY to keep the IOMMU driver from resuming on a stall */
