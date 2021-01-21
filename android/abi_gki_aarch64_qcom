@@ -2483,3 +2483,4 @@
   xa_find_after
   xa_load
   xa_store
+  static_key_disable
