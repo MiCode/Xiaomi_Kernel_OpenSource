@@ -1345,11 +1345,26 @@ int diagfwd_channel_open(struct diagfwd_info *fwd_info)
 
 int diagfwd_channel_close(struct diagfwd_info *fwd_info)
 {
+	struct diag_rpmsg_info *rpmsg_info = NULL;
+	struct diag_socket_info *socket_info = NULL;
+
 	if (!fwd_info)
 		return -EIO;
 
 	mutex_lock(&driver->diagfwd_channel_mutex[fwd_info->peripheral]);
 	fwd_info->ch_open = 0;
+	rpmsg_info = diag_get_rpmsg_info_ptr(fwd_info->type,
+						fwd_info->peripheral);
+	socket_info = diag_get_socket_info_ptr(fwd_info->type,
+						fwd_info->peripheral);
+
+	if (rpmsg_info && socket_info && rpmsg_info->probed
+					&& socket_info->reset_flag) {
+		mutex_unlock(
+			&driver->diagfwd_channel_mutex[fwd_info->peripheral]);
+		return 0;
+	}
+
 	if (fwd_info && fwd_info->c_ops && fwd_info->c_ops->close)
 		fwd_info->c_ops->close(fwd_info);
 
