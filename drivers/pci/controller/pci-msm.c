@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.*/
+/* Copyright (c) 2014-2021, The Linux Foundation. All rights reserved.*/
 
 #include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
 #include <linux/bitops.h>
@@ -7494,6 +7494,7 @@ static int msm_pcie_drv_resume(struct msm_pcie_dev_t *pcie_dev)
 	struct msm_pcie_clk_info_t *clk_info;
 	u32 current_link_speed;
 	int ret, i;
+	u32 val;
 
 	mutex_lock(&pcie_dev->recovery_lock);
 	mutex_lock(&pcie_dev->setup_lock);
@@ -7570,6 +7571,10 @@ static int msm_pcie_drv_resume(struct msm_pcie_dev_t *pcie_dev)
 
 	enable_irq(pcie_dev->irq[MSM_PCIE_INT_GLOBAL_INT].num);
 
+	val = readl_relaxed(pcie_dev->parf + PCIE20_PARF_LTSSM);
+	PCIE_DBG(pcie_dev, "PCIe RC%d: LTSSM_STATE: %s\n",
+		pcie_dev->rc_idx, TO_LTSSM_STR(val & 0x3f));
+
 	mutex_unlock(&pcie_dev->setup_lock);
 	mutex_unlock(&pcie_dev->recovery_lock);
 
@@ -7585,6 +7590,7 @@ static int msm_pcie_drv_suspend(struct msm_pcie_dev_t *pcie_dev,
 	struct msm_pcie_drv_tre *pkt = &drv_enable->pkt;
 	struct msm_pcie_clk_info_t *clk_info;
 	int ret, i;
+	u32 val;
 
 	if (!rpdev) {
 		PCIE_ERR(pcie_dev, "PCIe: RC%d: DRV: no rpmsg device\n",
@@ -7615,6 +7621,10 @@ static int msm_pcie_drv_suspend(struct msm_pcie_dev_t *pcie_dev,
 
 	if (unlikely(drv_info->seq == MSM_PCIE_DRV_SEQ_RESV))
 		drv_info->seq = 0;
+
+	val = readl_relaxed(pcie_dev->parf + PCIE20_PARF_LTSSM);
+	PCIE_DBG(pcie_dev, "PCIe RC%d: LTSSM_STATE: %s\n",
+		pcie_dev->rc_idx, TO_LTSSM_STR(val & 0x3f));
 
 	ret = rpmsg_trysend(rpdev->ept, drv_enable, sizeof(*drv_enable));
 	if (ret) {
