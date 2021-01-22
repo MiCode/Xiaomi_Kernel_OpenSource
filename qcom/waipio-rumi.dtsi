@@ -125,3 +125,10 @@
 &qupv3_se5_i2c {
 	status = "disabled";
 };
+
+&waipio_snd {
+		compatible = "qcom,waipio-asoc-snd-stub";
+		asoc-codec = <&stub_codec>;
+		asoc-codec-names = "msm-stub-codec.1";
+};
+
