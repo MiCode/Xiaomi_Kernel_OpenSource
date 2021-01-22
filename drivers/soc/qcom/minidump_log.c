@@ -27,6 +27,11 @@
 #include <linux/suspend.h>
 #include <linux/vmalloc.h>
 #include <linux/android_debug_symbols.h>
+#ifdef CONFIG_QCOM_MINIDUMP_PSTORE
+#include <linux/math64.h>
+#include <linux/of_address.h>
+#include <linux/of.h>
+#endif
 
 #ifdef CONFIG_QCOM_MINIDUMP_PANIC_DUMP
 #include <linux/bits.h>
@@ -129,6 +134,20 @@ static struct seq_buf *md_mod_info_seq_buf;
 static int mod_curr_count;
 static DEFINE_SPINLOCK(md_modules_lock);
 #endif	/* CONFIG_MODULES */
+#endif
+
+#ifdef CONFIG_QCOM_MINIDUMP_PSTORE
+struct minidump_pstore {
+	phys_addr_t paddr;
+	unsigned long size;
+	unsigned long record_size;
+	unsigned long ftrace_size;
+	unsigned long console_size;
+	unsigned long pmsg_size;
+	unsigned int  record_cnt;
+};
+
+static struct minidump_pstore pstore_data;
 #endif
 
 static void register_log_buf(void)
@@ -1180,6 +1199,59 @@ static void md_register_module_data(void)
 #endif	/* CONFIG_MODULES */
 #endif	/* CONFIG_QCOM_MINIDUMP_PANIC_DUMP */
 
+#ifdef CONFIG_QCOM_MINIDUMP_PSTORE
+static void register_pstore_info(void)
+{
+	struct device_node *node;
+	struct resource resource;
+	unsigned int value;
+	unsigned long dump_sz;
+	int ret;
+	struct md_region md_entry;
+	struct minidump_pstore *pstore = &pstore_data;
+
+	for_each_compatible_node(node, NULL, "ramoops") {
+		ret = of_property_read_u32(node, "record-size", &value);
+		if (!ret)
+			pstore->record_size = value;
+
+		ret = of_property_read_u32(node, "ftrace-size", &value);
+		if (!ret)
+			pstore->ftrace_size = value;
+
+		ret = of_property_read_u32(node, "console-size", &value);
+		if (!ret)
+			pstore->console_size = value;
+
+		ret = of_property_read_u32(node, "pmsg-size", &value);
+		if (!ret)
+			pstore->pmsg_size = value;
+
+		ret = of_address_to_resource(node, 0, &resource);
+		if (!ret) {
+			pstore->paddr = resource.start;
+			pstore->size = resource_size(&resource);
+		} else {
+			pr_err("Failed to get pstore resource %d\n", ret);
+			return;
+		}
+	}
+
+	dump_sz = pstore->size - pstore->pmsg_size
+		  - pstore->console_size - pstore->ftrace_size;
+
+	pstore->record_cnt = div_u64(dump_sz, pstore->record_size);
+
+	strlcpy(md_entry.name, "KPSTORE", sizeof(md_entry.name));
+	md_entry.virt_addr = (uintptr_t)phys_to_virt(pstore->paddr);
+	md_entry.phys_addr = pstore->paddr;
+	md_entry.size = pstore->size;
+
+	if (msm_minidump_add_region(&md_entry) < 0)
+		pr_err("Failed to add pstore data in Minidump\n");
+}
+#endif
+
 int msm_minidump_log_init(void)
 {
 	register_kernel_sections();
@@ -1190,6 +1262,9 @@ int msm_minidump_log_init(void)
 	register_suspend_context();
 #endif
 	register_log_buf();
+#ifdef CONFIG_QCOM_MINIDUMP_PSTORE
+	register_pstore_info();
+#endif
 #ifdef CONFIG_QCOM_MINIDUMP_FTRACE
 	md_register_trace_buf();
 #endif

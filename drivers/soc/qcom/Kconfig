@@ -540,6 +540,16 @@ config QCOM_MINIDUMP_PANIC_CPU_CONTEXT
 	  This enables cpu context collection in minidump table,
 	  on panic.
 
+config QCOM_MINIDUMP_PSTORE
+	bool "QCOM Minidump Pstore dumps Support"
+	depends on ARM64 && QCOM_MINIDUMP
+	help
+	  This enables pstore registration in minidump table.
+	  Here, pstore framework dump logs like pmsg, dmesg,
+	  console ftrace etc. in the given carve-out memory
+	  (non-volatile memory) and during warm reboot these
+	  dump will be copied outside the system on panic.
+
 config MINIDUMP_MAX_ENTRIES
 	int "Minidump Maximum num of entries"
 	default 200
