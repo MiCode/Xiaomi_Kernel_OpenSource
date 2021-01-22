@@ -1,0 +1,24 @@
+* Low Power Management Levels
+
+The application processor can do a variety of cluster level low power modes.
+It does so by predicting the low power mode based on latency and residency
+information of various CPUs and clusters.
+
+To make cluster low power mode decision, cluster device use the different prediction
+algorithms so that chosen the particular low power mode more efficiently.
+
+- compatible:
+	Usage: required
+	Value type: <string>
+	Definition: must be "qcom,lpm-cluster-dev"
+
+- power-domains:
+	Usage: required
+	Value type: <phandle>
+	Definition: must be parent domain phandle
+
+[Example dts]
+	cluster-device {
+		compatible =  "qcom,lpm-cluster-dev";
+		power-domains = <&CLUSTER_PD>;
+	};
