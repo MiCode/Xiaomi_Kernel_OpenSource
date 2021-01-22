@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -182,6 +182,12 @@ enum dbm_reg {
 	DBM_DATA_FIFO_MSB,
 	DBM_DATA_FIFO_ADDR_EN,
 	DBM_DATA_FIFO_SIZE_EN,
+};
+
+enum charger_detection_type {
+	REMOTE_PROC,
+	IIO,
+	PSY,
 };
 
 struct dbm_reg_data {
@@ -478,6 +484,7 @@ struct dwc3_msm {
 	struct mutex suspend_resume_mutex;
 
 	enum usb_device_speed override_usb_speed;
+	enum charger_detection_type apsd_source;
 	u32			*gsi_reg;
 	int			gsi_reg_offset_cnt;
 
@@ -4496,6 +4503,14 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		}
 	}
 
+	/* Check charger detection type to obtain charger type */
+	if (of_get_property(mdwc->dev->of_node, "io-channel-names", NULL))
+		mdwc->apsd_source = IIO;
+	else if (of_get_property(mdwc->dev->of_node, "usb-role-switch", NULL))
+		mdwc->apsd_source = REMOTE_PROC;
+	else
+		mdwc->apsd_source = PSY;
+
 	if (of_property_read_bool(node, "extcon")) {
 		ret = dwc3_msm_extcon_register(mdwc);
 		if (ret)
@@ -5010,21 +5025,43 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 
 static int get_chg_type(struct dwc3_msm *mdwc)
 {
-	int ret, value;
+	int ret, value = 0;
+	union power_supply_propval pval = {0};
 
-	if (!mdwc->chg_type) {
-		mdwc->chg_type = devm_iio_channel_get(mdwc->dev, "chg_type");
-		if (IS_ERR_OR_NULL(mdwc->chg_type)) {
-			dev_dbg(mdwc->dev, "unable to get iio channel\n");
-			mdwc->chg_type = NULL;
-			return -ENODEV;
+	switch (mdwc->apsd_source) {
+	case IIO:
+		if (!mdwc->chg_type) {
+			mdwc->chg_type = devm_iio_channel_get(mdwc->dev,
+						"chg_type");
+			if (IS_ERR_OR_NULL(mdwc->chg_type)) {
+				dev_dbg(mdwc->dev,
+					"unable to get iio channel\n");
+				mdwc->chg_type = NULL;
+				return -ENODEV;
+			}
 		}
-	}
 
-	ret = iio_read_channel_processed(mdwc->chg_type, &value);
-	if (ret < 0) {
-		dev_err(mdwc->dev, "failed to get charger type\n");
-		return ret;
+		ret = iio_read_channel_processed(mdwc->chg_type, &value);
+		if (ret < 0) {
+			dev_err(mdwc->dev, "failed to get charger type\n");
+			return ret;
+		}
+		break;
+	case PSY:
+		if (!mdwc->usb_psy) {
+			mdwc->usb_psy = power_supply_get_by_name("usb");
+			if (!mdwc->usb_psy) {
+				dev_err(mdwc->dev, "Could not get usb psy\n");
+				return -ENODEV;
+			}
+		}
+
+		power_supply_get_property(mdwc->usb_psy,
+				POWER_SUPPLY_PROP_USB_TYPE, &pval);
+		value = pval.intval;
+		break;
+	default:
+		return -EINVAL;
 	}
 
 	return value;
@@ -5064,12 +5101,23 @@ static int dwc3_msm_gadget_vbus_draw(struct dwc3_msm *mdwc, unsigned int mA)
 		goto set_prop;
 	}
 
+	/* Do not set current multiple times */
+	if (mdwc->max_power == mA)
+		return 0;
+
 	/*
 	 * Set the valid current only when the device
 	 * is connected to a Standard Downstream Port.
+	 * For ADSP based charger detection set current
+	 * for all charger types. For psy based charger
+	 * detection power_supply_usb_type enum is
+	 * returned from pmic while for iio based charger
+	 * detection power_supply_type enum is returned.
 	 */
-	if (mdwc->max_power == mA || (chg_type != -ENODEV
-				&& chg_type != POWER_SUPPLY_TYPE_USB))
+	if (mdwc->apsd_source == PSY && chg_type != POWER_SUPPLY_USB_TYPE_SDP)
+		return 0;
+
+	if (mdwc->apsd_source == IIO && chg_type != POWER_SUPPLY_TYPE_USB)
 		return 0;
 
 	/* Set max current limit in uA */
