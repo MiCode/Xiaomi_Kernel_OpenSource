@@ -1712,7 +1712,6 @@ static int qrtr_recvmsg(struct socket *sock, struct msghdr *msg,
 				flags & MSG_DONTWAIT, &rc);
 	if (!skb) {
 		release_sock(sk);
-		pr_err("%s: Failed to get skb rc[%d]\n", __func__, rc);
 		return rc;
 	}
 	cb = (struct qrtr_cb *)skb->cb;
