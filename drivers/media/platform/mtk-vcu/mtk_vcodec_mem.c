@@ -345,7 +345,16 @@ void vcu_io_buffer_cache_sync(struct device *dev,
 	struct sg_table *sgt;
 
 	buf_att = dma_buf_attach(dbuf, dev);
+	if (IS_ERR(buf_att)) {
+		pr_info("failed to attach dmabuf\n");
+		return;
+	}
 	sgt = dma_buf_map_attachment(buf_att, op);
+	if (IS_ERR(sgt)) {
+		dma_buf_detach(dbuf, buf_att);
+		pr_info("Error getting dmabuf scatterlist\n");
+		return;
+	}
 	dma_sync_sg_for_device(dev, sgt->sgl, sgt->orig_nents, op);
 	dma_buf_unmap_attachment(buf_att, sgt, op);
 	dma_buf_detach(dbuf, buf_att);
