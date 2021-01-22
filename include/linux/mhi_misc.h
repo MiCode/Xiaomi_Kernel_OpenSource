@@ -188,4 +188,14 @@ int mhi_get_event_ring_db_base(struct mhi_device *mhi_dev, phys_addr_t *value);
 struct mhi_device *mhi_get_device_for_channel(struct mhi_controller *mhi_cntrl,
 					      u32 channel);
 
+/**
+ * mhi_device_ioctl - user space IOCTL support for MHI channels
+ * Native support for setting TIOCM
+ * @mhi_dev: Device associated with the channels
+ * @cmd: IOCTL cmd
+ * @arg: Optional parameter, iotcl cmd specific
+ */
+long mhi_device_ioctl(struct mhi_device *mhi_dev, unsigned int cmd,
+		      unsigned long arg);
+
 #endif /* _MHI_MISC_H_ */
