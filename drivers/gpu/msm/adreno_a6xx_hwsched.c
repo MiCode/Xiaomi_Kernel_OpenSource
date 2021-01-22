@@ -654,6 +654,8 @@ no_gx_power:
 
 	kgsl_pwrscale_sleep(device);
 
+	kgsl_pwrctrl_clear_l3_vote(device);
+
 	trace_kgsl_pwr_set_state(device, KGSL_STATE_SLUMBER);
 
 	return ret;

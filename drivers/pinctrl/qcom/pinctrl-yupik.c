@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -1806,6 +1806,10 @@ static const struct msm_pingroup yupik_groups[] = {
 	[181] = SDC_QDSD_PINGROUP(sdc2_cmd, 0x1b4000, 11, 3),
 	[182] = SDC_QDSD_PINGROUP(sdc2_data, 0x1b4000, 9, 0),
 };
+
+static const int yupik_reserved_gpios[] = {
+	32, 33, 48, 49, 50, 51, -1
+};
 static struct pinctrl_qup yupik_qup_regs[] = {
 	QUP_I3C(0, QUP_I3C_0_MODE_OFFSET),
 	QUP_I3C(1, QUP_I3C_1_MODE_OFFSET),
@@ -1820,11 +1824,11 @@ static const struct msm_gpio_wakeirq_map yupik_pdc_map[] = {
 	{ 25, 95 }, { 27, 158 }, { 28, 159 }, { 31, 90 }, { 32, 144 },
 	{ 34, 77 }, { 35, 92 }, { 36, 157 }, { 39, 73 }, { 40, 97 },
 	{ 41, 98 }, { 43, 85 }, { 44, 100 }, { 45, 101 }, { 47, 102 },
-	{ 48, 75 }, { 51, 112 }, { 52, 156 }, { 54, 117 }, { 55, 84 },
+	{ 48, 74 }, { 51, 112 }, { 52, 156 }, { 54, 117 }, { 55, 84 },
 	{ 56, 108 }, { 59, 110 }, { 60, 111 }, { 61, 123 }, { 63, 104 },
 	{ 68, 127 }, { 72, 150 }, { 75, 133 }, { 77, 125 }, { 78, 105 },
 	{ 79, 106 }, { 80, 118 }, { 81, 119 }, { 82, 162 }, { 83, 122 },
-	{ 86, 74 }, { 88, 154 }, { 89, 124 }, { 90, 149 }, { 91, 76 },
+	{ 86, 75 }, { 88, 154 }, { 89, 124 }, { 90, 149 }, { 91, 76 },
 	{ 93, 128 }, { 95, 160 }, { 101, 126 }, { 102, 96 }, { 103, 116 },
 	{ 104, 114 }, { 112, 72 }, { 116, 135 }, { 117, 163 }, { 119, 137 },
 	{ 121, 138 }, { 123, 139 }, { 125, 140 }, { 127, 141 }, { 128, 165 },
@@ -1842,6 +1846,7 @@ static const struct msm_pinctrl_soc_data yupik_pinctrl = {
 	.nfunctions = ARRAY_SIZE(yupik_functions),
 	.groups = yupik_groups,
 	.ngroups = ARRAY_SIZE(yupik_groups),
+	.reserved_gpios = yupik_reserved_gpios,
 	.ngpios = 176,
 	.qup_regs = yupik_qup_regs,
 	.nqup_regs = ARRAY_SIZE(yupik_qup_regs),

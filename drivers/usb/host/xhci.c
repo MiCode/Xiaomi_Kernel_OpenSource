@@ -136,7 +136,7 @@ int xhci_halt(struct xhci_hcd *xhci)
 	xhci_quiesce(xhci);
 
 	ret = xhci_handshake(&xhci->op_regs->status,
-			STS_HALT, STS_HALT, 2 * XHCI_MAX_HALT_USEC);
+			STS_HALT, STS_HALT, 3 * XHCI_MAX_HALT_USEC);
 	if (ret) {
 		xhci_warn(xhci, "Host halt failed, %d\n", ret);
 		return ret;
@@ -1010,6 +1010,11 @@ int xhci_suspend(struct xhci_hcd *xhci, bool do_wakeup)
 	if (hcd->state != HC_STATE_SUSPENDED ||
 			xhci->shared_hcd->state != HC_STATE_SUSPENDED)
 		return -EINVAL;
+
+	/* If XHCI is already suspended , then return */
+	if ((!test_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags) ||
+			!test_bit(HCD_FLAG_HW_ACCESSIBLE, &xhci->shared_hcd->flags)))
+		return 0;
 
 	xhci_dbc_suspend(xhci);
 

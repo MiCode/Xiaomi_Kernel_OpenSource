@@ -5,7 +5,9 @@
 
 #include <linux/interconnect.h>
 #include <linux/of.h>
+#include <linux/devfreq.h>
 
+#include "../../devfreq/governor.h"
 #include "kgsl_bus.h"
 #include "kgsl_device.h"
 #include "kgsl_trace.h"
@@ -30,6 +32,36 @@ static u32 _ab_buslevel_update(struct kgsl_pwrctrl *pwr,
 	return (pwr->bus_percent_ab * pwr->bus_max) / 100;
 }
 
+static void set_ddr_qos(struct kgsl_device *device, int buslevel)
+{
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	struct devfreq *dev = pwr->ddr_qos_devfreq;
+	static unsigned long cur_min_freq;
+	unsigned long new_min_freq = DEVFREQ_MIN_FREQ;
+	int ret;
+
+	if (!dev)
+		return;
+
+	/*
+	 * Instead of creating a new dummy governor, we are using powersave
+	 * governor for this devfreq device. Therefore, modify the minimum
+	 * frequency to point to the desired QOS level.
+	 */
+	if (buslevel == pwr->pwrlevels[0].bus_max)
+		new_min_freq = DEVFREQ_MAX_FREQ;
+
+	if (new_min_freq == cur_min_freq)
+		return;
+
+	mutex_lock(&dev->lock);
+	dev->min_freq = new_min_freq;
+	ret = update_devfreq(dev);
+	mutex_unlock(&dev->lock);
+
+	if (!ret)
+		cur_min_freq = new_min_freq;
+}
 
 int kgsl_bus_update(struct kgsl_device *device,
 			 enum kgsl_bus_vote vote_state)
@@ -37,7 +69,7 @@ int kgsl_bus_update(struct kgsl_device *device,
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	/* FIXME: this might be wrong? */
 	int cur = pwr->pwrlevels[pwr->active_pwrlevel].bus_freq;
-	int buslevel = 0;
+	int ret, buslevel = 0;
 	u32 ab;
 
 	/* the bus should be ON to update the active frequency */
@@ -68,7 +100,13 @@ int kgsl_bus_update(struct kgsl_device *device,
 	/* buslevel is the IB vote, update the AB */
 	ab = _ab_buslevel_update(pwr, pwr->ddr_table[buslevel]);
 
-	return device->ftbl->gpu_bus_set(device, buslevel, ab);
+	ret = device->ftbl->gpu_bus_set(device, buslevel, ab);
+	if (ret)
+		return ret;
+
+	set_ddr_qos(device, buslevel);
+
+	return 0;
 }
 
 static void validate_pwrlevels(struct kgsl_device *device, u32 *ibs,
@@ -158,7 +196,7 @@ done:
 
 	validate_pwrlevels(device, pwr->ddr_table, pwr->ddr_table_count);
 
-	pwr->icc_path = of_icc_get(&pdev->dev, NULL);
+	pwr->icc_path = of_icc_get(&pdev->dev, "gpu_icc_path");
 	if (IS_ERR(pwr->icc_path) && !gmu_core_scales_bandwidth(device)) {
 		WARN(1, "The CPU has no way to set the GPU bus levels\n");
 
@@ -175,4 +213,6 @@ void kgsl_bus_close(struct kgsl_device *device)
 	kfree(device->pwrctrl.ddr_table);
 	device->pwrctrl.ddr_table = NULL;
 	icc_put(device->pwrctrl.icc_path);
+	if (device->pwrctrl.ddr_qos_devfreq)
+		put_device(&device->pwrctrl.ddr_qos_devfreq->dev);
 }

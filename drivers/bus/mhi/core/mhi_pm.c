@@ -376,6 +376,9 @@ int mhi_pm_m0_transition(struct mhi_controller *mhi_cntrl)
 		if (mhi_cmd->ring.rp != mhi_cmd->ring.wp)
 			mhi_ring_cmd_db(mhi_cntrl, mhi_cmd);
 		spin_unlock_irq(&mhi_cmd->lock);
+
+		/* ring special doorbells for controllers in legacy mode */
+		mhi_special_dbs_pending(mhi_cntrl);
 	}
 
 	/* ring channel db registers */

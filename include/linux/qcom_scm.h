@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2010-2015, 2018-2020 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2015, 2018-2021 The Linux Foundation. All rights reserved.
  * Copyright (C) 2015 Linaro Ltd.
  */
 #ifndef __QCOM_SCM_H
@@ -95,6 +95,7 @@ extern int qcom_scm_pas_init_image(u32 peripheral, const void *metadata,
 				   size_t size);
 extern int qcom_scm_pas_mem_setup(u32 peripheral, phys_addr_t addr,
 				  phys_addr_t size);
+extern int qcom_scm_pas_mss_reset(bool reset);
 extern int qcom_scm_pas_auth_and_reset(u32 peripheral);
 extern int qcom_scm_pas_shutdown(u32 peripheral);
 extern int qcom_scm_get_sec_dump_state(u32 *dump_state);
@@ -223,6 +224,7 @@ static inline int qcom_scm_pas_init_image(u32 peripheral, const void *metadata,
 					  size_t size) { return -ENODEV; }
 static inline int qcom_scm_pas_mem_setup(u32 peripheral, phys_addr_t addr,
 					 phys_addr_t size) { return -ENODEV; }
+static inline int qcom_scm_pas_mss_reset(bool reset) { return -ENODEV; }
 static inline int qcom_scm_pas_auth_and_reset(u32 peripheral)
 		{ return -ENODEV; }
 static inline int qcom_scm_pas_shutdown(u32 peripheral) { return -ENODEV; }

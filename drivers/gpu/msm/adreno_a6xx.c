@@ -129,6 +129,36 @@ static void a6xx_gmu_wrapper_init(struct adreno_device *adreno_dev)
 		dev_warn(device->dev, "gmu_wrapper ioremap failed\n");
 }
 
+static int match_name(struct device *dev, void *data)
+{
+	struct device *parent = data;
+
+	return (!strcmp(dev_name(dev), dev_name(parent)));
+}
+
+static void find_ddr_qos_device(struct adreno_device *adreno_dev)
+{
+	struct device *devfreq_dev, *ddr_qos_dev;
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+
+	if (device->pwrctrl.ddr_qos_devfreq)
+		return;
+
+	ddr_qos_dev = bus_find_device_by_name(&platform_bus_type, NULL,
+			"soc:qcom,kgsl-ddr-qos");
+
+	if (!ddr_qos_dev)
+		return;
+
+	/* Devfreq device has the same name as its parent device */
+	devfreq_dev = device_find_child(ddr_qos_dev, ddr_qos_dev, match_name);
+	if (!devfreq_dev)
+		return;
+
+	device->pwrctrl.ddr_qos_devfreq = container_of(devfreq_dev,
+					struct devfreq, dev);
+}
+
 int a6xx_init(struct adreno_device *adreno_dev)
 {
 	const struct adreno_a6xx_core *a6xx_core = to_a6xx_core(adreno_dev);
@@ -156,6 +186,8 @@ int a6xx_init(struct adreno_device *adreno_dev)
 		if (IS_ERR(adreno_dev->pwrup_reglist))
 			return PTR_ERR(adreno_dev->pwrup_reglist);
 	}
+
+	find_ddr_qos_device(adreno_dev);
 
 	return a6xx_get_cp_init_cmds(adreno_dev);
 }

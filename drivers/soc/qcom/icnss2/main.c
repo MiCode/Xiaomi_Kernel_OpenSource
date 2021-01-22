@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, 2021, The Linux Foundation.
+ * All rights reserved.
  */
 
 #define pr_fmt(fmt) "icnss2: " fmt
@@ -74,7 +75,7 @@
 #define WLFW_TIMEOUT			msecs_to_jiffies(3000)
 
 static struct icnss_priv *penv;
-
+static struct work_struct wpss_loader;
 uint64_t dynamic_feature_mask = ICNSS_DEFAULT_FEATURE_MASK;
 
 #define ICNSS_EVENT_PENDING			2989
@@ -183,6 +184,8 @@ char *icnss_driver_event_to_str(enum icnss_driver_event_type type)
 		return "QDSS_TRACE_FREE";
 	case ICNSS_DRIVER_EVENT_M3_DUMP_UPLOAD_REQ:
 		return "M3_DUMP_UPLOAD";
+	case ICNSS_DRIVER_EVENT_QDSS_TRACE_REQ_DATA:
+		return "QDSS_TRACE_REQ_DATA";
 	case ICNSS_DRIVER_EVENT_MAX:
 		return "EVENT_MAX";
 	}
@@ -833,6 +836,9 @@ static int icnss_driver_event_fw_init_done(struct icnss_priv *priv, void *data)
 
 	icnss_pr_info("WLAN FW Initialization done: 0x%lx\n", priv->state);
 
+	if (icnss_wlfw_qdss_dnld_send_sync(priv))
+		icnss_pr_info("Failed to download qdss configuration file");
+
 	if (test_bit(ICNSS_COLD_BOOT_CAL, &priv->state))
 		ret = wlfw_wlan_mode_send_sync_msg(priv,
 			(enum wlfw_driver_mode_enum_v01)ICNSS_CALIBRATION);
@@ -1006,6 +1012,25 @@ static inline int icnss_atomic_dec_if_greater_one(atomic_t *v)
 	} while (!atomic_try_cmpxchg(v, &c, dec));
 
 	return dec;
+}
+
+static int icnss_qdss_trace_req_data_hdlr(struct icnss_priv *priv,
+					  void *data)
+{
+	int ret = 0;
+	struct icnss_qmi_event_qdss_trace_save_data *event_data = data;
+
+	if (!priv)
+		return -ENODEV;
+
+	if (!data)
+		return -EINVAL;
+
+	ret = icnss_wlfw_qdss_data_send_sync(priv, event_data->file_name,
+					     event_data->total_size);
+
+	kfree(data);
+	return ret;
 }
 
 static int icnss_event_soc_wake_request(struct icnss_priv *priv, void *data)
@@ -1197,6 +1222,15 @@ static int icnss_driver_event_pd_service_down(struct icnss_priv *priv,
 
 	if (priv->force_err_fatal)
 		ICNSS_ASSERT(0);
+
+	if (priv->device_id == WCN6750_DEVICE_ID) {
+		priv->smp2p_info.seq = 0;
+		if (qcom_smem_state_update_bits(
+				priv->smp2p_info.smem_state,
+				ICNSS_SMEM_VALUE_MASK,
+				0))
+			icnss_pr_dbg("Error in SMP2P sent ret: %d\n");
+	}
 
 	icnss_send_hang_event_data(priv);
 
@@ -1423,6 +1457,9 @@ static void icnss_driver_event_work(struct work_struct *work)
 			break;
 		case ICNSS_DRIVER_EVENT_M3_DUMP_UPLOAD_REQ:
 			ret = icnss_m3_dump_upload_req_hdlr(priv, event->data);
+		case ICNSS_DRIVER_EVENT_QDSS_TRACE_REQ_DATA:
+			ret = icnss_qdss_trace_req_data_hdlr(priv,
+							     event->data);
 			break;
 		default:
 			icnss_pr_err("Invalid Event type: %d", event->type);
@@ -1560,6 +1597,63 @@ static void icnss_update_state_send_modem_shutdown(struct icnss_priv *priv,
 	}
 }
 
+static int icnss_wpss_notifier_nb(struct notifier_block *nb,
+				  unsigned long code,
+				  void *data)
+{
+	struct icnss_event_pd_service_down_data *event_data;
+	struct notif_data *notif = data;
+	struct icnss_priv *priv = container_of(nb, struct icnss_priv,
+					       wpss_ssr_nb);
+	struct icnss_uevent_fw_down_data fw_down_data = {0};
+
+	icnss_pr_vdbg("WPSS-Notify: event %lu\n", code);
+
+	if (code == SUBSYS_AFTER_SHUTDOWN) {
+		icnss_pr_info("Collecting msa0 segment dump\n");
+		icnss_msa0_ramdump(priv);
+		goto out;
+	}
+
+	if (code != SUBSYS_BEFORE_SHUTDOWN)
+		goto out;
+
+	priv->is_ssr = true;
+
+	icnss_pr_info("WPSS went down, state: 0x%lx, crashed: %d\n",
+		      priv->state, notif->crashed);
+
+	set_bit(ICNSS_FW_DOWN, &priv->state);
+
+	if (notif->crashed)
+		priv->stats.recovery.root_pd_crash++;
+	else
+		priv->stats.recovery.root_pd_shutdown++;
+
+	icnss_ignore_fw_timeout(true);
+
+	event_data = kzalloc(sizeof(*event_data), GFP_KERNEL);
+
+	if (event_data == NULL)
+		return notifier_from_errno(-ENOMEM);
+
+	event_data->crashed = notif->crashed;
+
+	fw_down_data.crashed = !!notif->crashed;
+	if (test_bit(ICNSS_FW_READY, &priv->state)) {
+		clear_bit(ICNSS_FW_READY, &priv->state);
+		fw_down_data.crashed = !!notif->crashed;
+		icnss_call_driver_uevent(priv,
+					 ICNSS_UEVENT_FW_DOWN,
+					 &fw_down_data);
+	}
+	icnss_driver_event_post(priv, ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN,
+				ICNSS_EVENT_SYNC, event_data);
+out:
+	icnss_pr_vdbg("Exit %s,state: 0x%lx\n", __func__, priv->state);
+	return NOTIFY_OK;
+}
+
 static int icnss_modem_notifier_nb(struct notifier_block *nb,
 				  unsigned long code,
 				  void *data)
@@ -1633,6 +1727,30 @@ out:
 	return NOTIFY_OK;
 }
 
+static int icnss_wpss_ssr_register_notifier(struct icnss_priv *priv)
+{
+	int ret = 0;
+
+	priv->wpss_ssr_nb.notifier_call = icnss_wpss_notifier_nb;
+	/*
+	 * Assign priority of icnss wpss notifier callback over IPA
+	 * modem notifier callback which is 0
+	 */
+	priv->wpss_ssr_nb.priority = 1;
+
+	priv->wpss_notify_handler =
+		subsys_notif_register_notifier("wpss", &priv->wpss_ssr_nb);
+
+	if (IS_ERR(priv->wpss_notify_handler)) {
+		ret = PTR_ERR(priv->wpss_notify_handler);
+		icnss_pr_err("WPSS register notifier failed: %d\n", ret);
+	}
+
+	set_bit(ICNSS_SSR_REGISTERED, &priv->state);
+
+	return ret;
+}
+
 static int icnss_modem_ssr_register_notifier(struct icnss_priv *priv)
 {
 	int ret = 0;
@@ -1655,6 +1773,18 @@ static int icnss_modem_ssr_register_notifier(struct icnss_priv *priv)
 	set_bit(ICNSS_SSR_REGISTERED, &priv->state);
 
 	return ret;
+}
+
+static int icnss_wpss_ssr_unregister_notifier(struct icnss_priv *priv)
+{
+	if (!test_and_clear_bit(ICNSS_SSR_REGISTERED, &priv->state))
+		return 0;
+
+	subsys_notif_unregister_notifier(priv->wpss_notify_handler,
+					 &priv->wpss_ssr_nb);
+	priv->wpss_notify_handler = NULL;
+
+	return 0;
 }
 
 static int icnss_modem_ssr_unregister_notifier(struct icnss_priv *priv)
@@ -1956,6 +2086,11 @@ static int icnss_enable_recovery(struct icnss_priv *priv)
 	ret = icnss_create_ramdump_devices(priv);
 	if (ret)
 		return ret;
+
+	if (priv->device_id == WCN6750_DEVICE_ID) {
+		icnss_wpss_ssr_register_notifier(priv);
+		return 0;
+	}
 
 	icnss_modem_ssr_register_notifier(priv);
 	if (test_bit(SSR_ONLY, &priv->ctrl_params.quirks)) {
@@ -2959,33 +3094,204 @@ void icnss_disallow_recursive_recovery(struct device *dev)
 	icnss_pr_info("Recursive recovery disallowed for WLAN\n");
 }
 
-static void icnss_sysfs_create(struct icnss_priv *priv)
+static int icnss_create_shutdown_sysfs(struct icnss_priv *priv)
 {
 	struct kobject *icnss_kobject;
-	int error = 0;
+	int ret = 0;
 
 	atomic_set(&priv->is_shutdown, false);
 
 	icnss_kobject = kobject_create_and_add("shutdown_wlan", kernel_kobj);
 	if (!icnss_kobject) {
-		icnss_pr_err("Unable to create kernel object");
-		return;
+		icnss_pr_err("Unable to create shutdown_wlan kernel object");
+		return -EINVAL;
 	}
 
 	priv->icnss_kobject = icnss_kobject;
 
-	error = sysfs_create_file(icnss_kobject, &icnss_sysfs_attribute.attr);
-	if (error)
-		icnss_pr_err("Unable to create icnss sysfs file");
+	ret = sysfs_create_file(icnss_kobject, &icnss_sysfs_attribute.attr);
+	if (ret) {
+		icnss_pr_err("Unable to create icnss sysfs file err:%d", ret);
+		return ret;
+	}
+
+	return ret;
 }
 
-static void icnss_sysfs_destroy(struct icnss_priv *priv)
+static void icnss_destroy_shutdown_sysfs(struct icnss_priv *priv)
 {
 	struct kobject *icnss_kobject;
 
 	icnss_kobject = priv->icnss_kobject;
 	if (icnss_kobject)
 		kobject_put(icnss_kobject);
+}
+
+static ssize_t qdss_tr_start_store(struct device *dev,
+				   struct device_attribute *attr,
+				   const char *buf, size_t count)
+{
+	struct icnss_priv *priv = dev_get_drvdata(dev);
+
+	wlfw_qdss_trace_start(priv);
+	icnss_pr_dbg("Received QDSS start command\n");
+	return count;
+}
+
+static ssize_t qdss_tr_stop_store(struct device *dev,
+				  struct device_attribute *attr,
+				  const char *user_buf, size_t count)
+{
+	struct icnss_priv *priv = dev_get_drvdata(dev);
+	u32 option = 0;
+
+	if (sscanf(user_buf, "%du", &option) != 1)
+		return -EINVAL;
+
+	wlfw_qdss_trace_stop(priv, option);
+	icnss_pr_dbg("Received QDSS stop command\n");
+	return count;
+}
+
+static ssize_t qdss_conf_download_store(struct device *dev,
+					struct device_attribute *attr,
+					const char *buf, size_t count)
+{
+	struct icnss_priv *priv = dev_get_drvdata(dev);
+
+	icnss_wlfw_qdss_dnld_send_sync(priv);
+	icnss_pr_dbg("Received QDSS download config command\n");
+	return count;
+}
+
+static ssize_t hw_trc_override_store(struct device *dev,
+				     struct device_attribute *attr,
+				     const char *buf, size_t count)
+{
+	struct icnss_priv *priv = dev_get_drvdata(dev);
+	int tmp = 0;
+
+	if (sscanf(buf, "%du", &tmp) != 1)
+		return -EINVAL;
+
+	priv->hw_trc_override = tmp;
+	icnss_pr_dbg("Received QDSS hw_trc_override indication\n");
+	return count;
+}
+
+static void icnss_wpss_load(struct work_struct *wpss_load_work)
+{
+	struct icnss_priv *priv = icnss_get_plat_priv();
+
+	priv->subsys = subsystem_get("wpss");
+	if (IS_ERR(priv->subsys))
+		icnss_pr_err("Failed to load wpss subsys");
+}
+
+static inline void icnss_wpss_unload(struct icnss_priv *priv)
+{
+	if (priv->subsys) {
+		subsystem_put(priv->subsys);
+		priv->subsys = NULL;
+	}
+}
+
+static ssize_t wpss_boot_store(struct device *dev,
+			       struct device_attribute *attr,
+			       const char *buf, size_t count)
+{
+	struct icnss_priv *priv = dev_get_drvdata(dev);
+	int wpss_subsys = 0;
+
+	if (priv->device_id != WCN6750_DEVICE_ID)
+		return count;
+
+	if (sscanf(buf, "%du", &wpss_subsys) != 1) {
+		icnss_pr_err("Failed to read wpss_subsys info");
+		return -EINVAL;
+	}
+
+	icnss_pr_dbg("WPSS Subsystem: %s", wpss_subsys ? "GET" : "PUT");
+
+	if (wpss_subsys == 1)
+		schedule_work(&wpss_loader);
+	else if (wpss_subsys == 0)
+		icnss_wpss_unload(priv);
+
+	return count;
+}
+
+static DEVICE_ATTR_WO(qdss_tr_start);
+static DEVICE_ATTR_WO(qdss_tr_stop);
+static DEVICE_ATTR_WO(qdss_conf_download);
+static DEVICE_ATTR_WO(hw_trc_override);
+static DEVICE_ATTR_WO(wpss_boot);
+
+static struct attribute *icnss_attrs[] = {
+	&dev_attr_qdss_tr_start.attr,
+	&dev_attr_qdss_tr_stop.attr,
+	&dev_attr_qdss_conf_download.attr,
+	&dev_attr_hw_trc_override.attr,
+	&dev_attr_wpss_boot.attr,
+	NULL,
+};
+
+static struct attribute_group icnss_attr_group = {
+	.attrs = icnss_attrs,
+};
+
+static int icnss_create_sysfs_link(struct icnss_priv *priv)
+{
+	struct device *dev = &priv->pdev->dev;
+	int ret;
+
+	ret = sysfs_create_link(kernel_kobj, &dev->kobj, "icnss");
+	if (ret) {
+		icnss_pr_err("Failed to create icnss link, err = %d\n",
+			     ret);
+		goto out;
+	}
+
+	return 0;
+out:
+	return ret;
+}
+
+static void icnss_remove_sysfs_link(struct icnss_priv *priv)
+{
+	sysfs_remove_link(kernel_kobj, "icnss");
+}
+
+static int icnss_sysfs_create(struct icnss_priv *priv)
+{
+	int ret = 0;
+
+	ret = devm_device_add_group(&priv->pdev->dev,
+				    &icnss_attr_group);
+	if (ret) {
+		icnss_pr_err("Failed to create icnss device group, err = %d\n",
+			     ret);
+		goto out;
+	}
+
+	icnss_create_sysfs_link(priv);
+
+	ret = icnss_create_shutdown_sysfs(priv);
+	if (ret)
+		goto remove_icnss_group;
+
+	return 0;
+remove_icnss_group:
+	devm_device_remove_group(&priv->pdev->dev, &icnss_attr_group);
+out:
+	return ret;
+}
+
+static void icnss_sysfs_destroy(struct icnss_priv *priv)
+{
+	icnss_destroy_shutdown_sysfs(priv);
+	icnss_remove_sysfs_link(priv);
+	devm_device_remove_group(&priv->pdev->dev, &icnss_attr_group);
 }
 
 static int icnss_get_vbatt_info(struct icnss_priv *priv)
@@ -3479,6 +3785,7 @@ static int icnss_probe(struct platform_device *pdev)
 		icnss_get_cpr_info(priv);
 		icnss_get_smp2p_info(priv);
 		set_bit(ICNSS_COLD_BOOT_CAL, &priv->state);
+		INIT_WORK(&wpss_loader, icnss_wpss_load);
 	}
 
 	INIT_LIST_HEAD(&priv->icnss_tcdev_list);
@@ -3519,19 +3826,19 @@ static int icnss_remove(struct platform_device *pdev)
 
 	complete_all(&priv->unblock_shutdown);
 
-	icnss_modem_ssr_unregister_notifier(priv);
-
 	destroy_ramdump_device(priv->msa0_dump_dev);
 
 	if (priv->device_id == WCN6750_DEVICE_ID) {
+		icnss_wpss_ssr_unregister_notifier(priv);
 		destroy_ramdump_device(priv->m3_dump_dev_seg1);
 		destroy_ramdump_device(priv->m3_dump_dev_seg2);
 		destroy_ramdump_device(priv->m3_dump_dev_seg3);
 		destroy_ramdump_device(priv->m3_dump_dev_seg4);
 		destroy_ramdump_device(priv->m3_dump_dev_seg5);
+	} else {
+		icnss_modem_ssr_unregister_notifier(priv);
+		icnss_pdr_unregister_notifier(priv);
 	}
-
-	icnss_pdr_unregister_notifier(priv);
 
 	icnss_unregister_fw_service(priv);
 	if (priv->event_wq)

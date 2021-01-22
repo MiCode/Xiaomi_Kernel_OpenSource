@@ -28,15 +28,11 @@
 #include "clk-regmap.h"
 #include "reset.h"
 
-#define XO_RATE         19200000
-
 #define to_clk_regmap_mux_div(_hw) \
 	container_of(to_clk_regmap(_hw), struct clk_regmap_mux_div, clkr)
 
-static DEFINE_VDD_REGULATORS(vdd_lucid_pll, VDD_NUM, 1, vdd_corner);
+static DEFINE_VDD_REGULATORS(vdd_pll, VDD_NUM, 1, vdd_corner);
 static DEFINE_VDD_REGS_INIT(vdd_cpu, 1);
-
-static unsigned int cpucc_clk_init_rate;
 
 enum apcs_mux_clk_parent {
 	P_BI_TCXO,
@@ -74,26 +70,68 @@ static int cpucc_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 	return mux_div_set_src_div(cpuclk, cpuclk->src, cpuclk->div);
 }
 
-static int cpucc_clk_determine_rate(struct clk_hw *hw,
-					struct clk_rate_request *req)
+static unsigned long
+cpucc_calc_rate(unsigned long rate, u32 m, u32 n, u32 mode, u32 hid_div)
 {
-	struct clk_hw *apcs_cpu_pll_hw;
+	u64 tmp = rate;
+
+	if (hid_div) {
+		tmp *= 2;
+		do_div(tmp, hid_div + 1);
+	}
+
+	if (mode) {
+		tmp *= m;
+		do_div(tmp, n);
+	}
+
+	return tmp;
+}
+
+static int cpucc_clk_determine_rate(struct clk_hw *hw, struct clk_rate_request *req)
+{
+	struct clk_hw  *xo_hw, *gpll0_hw;
 	struct clk_rate_request parent_req = { };
 	struct clk_regmap_mux_div *cpuclk = to_clk_regmap_mux_div(hw);
+	unsigned long rate = req->rate, rrate;
+	u32 div;
 	int ret;
 
-	apcs_cpu_pll_hw = clk_hw_get_parent_by_index(hw,
-						       P_APCS_CPU_PLL);
-	parent_req.rate = req->rate;
-	parent_req.best_parent_hw = apcs_cpu_pll_hw;
-	req->best_parent_hw = apcs_cpu_pll_hw;
-	ret = __clk_determine_rate(req->best_parent_hw, &parent_req);
-	if (ret)
-		return ret;
+	xo_hw = clk_hw_get_parent_by_index(hw, P_BI_TCXO);
+	if (rate == clk_hw_get_rate(xo_hw)) {
+		req->best_parent_hw = xo_hw;
+		req->best_parent_rate = rate;
+		cpuclk->div = 1;
+		cpuclk->src = cpuclk->parent_map[P_BI_TCXO].cfg;
+		return 0;
+	}
 
-	req->best_parent_rate = parent_req.rate;
-	cpuclk->src = cpuclk->parent_map[P_APCS_CPU_PLL].cfg;
-	cpuclk->div = 1;
+	gpll0_hw = clk_hw_get_parent_by_index(hw, P_GPLL0);
+	div = DIV_ROUND_UP((2 * (clk_hw_get_rate(gpll0_hw))), rate) - 1;
+
+	rrate = cpucc_calc_rate(clk_hw_get_rate(gpll0_hw), 0, 0, 0, div);
+	/* Use the GPLL0 source */
+	if (rate <= rrate) {
+		parent_req.best_parent_hw = gpll0_hw;
+		req->best_parent_hw = gpll0_hw;
+		req->best_parent_rate = clk_hw_get_rate(gpll0_hw);
+		req->rate = rrate;
+		cpuclk->src = cpuclk->parent_map[P_GPLL0].cfg;
+	} else { /* Use the APCS PLL source */
+		parent_req.rate = req->rate;
+		parent_req.best_parent_hw = clk_hw_get_parent_by_index(hw,
+								       P_APCS_CPU_PLL);
+		req->best_parent_hw = parent_req.best_parent_hw;
+		ret = __clk_determine_rate(req->best_parent_hw, &parent_req);
+		if (ret)
+			return ret;
+
+		req->best_parent_rate = parent_req.rate;
+		cpuclk->src = cpuclk->parent_map[P_APCS_CPU_PLL].cfg;
+		div = 1;
+	}
+
+	cpuclk->div = div;
 
 	return 0;
 }
@@ -128,24 +166,6 @@ static void clk_cpu_init(struct clk_hw *hw)
 		rclk->ops = &clk_rcg2_regmap_ops;
 }
 
-static unsigned long
-calc_rate(unsigned long rate, u32 m, u32 n, u32 mode, u32 hid_div)
-{
-	u64 tmp = rate;
-
-	if (hid_div) {
-		tmp *= 2;
-		do_div(tmp, hid_div + 1);
-	}
-
-	if (mode) {
-		tmp *= m;
-		do_div(tmp, n);
-	}
-
-	return tmp;
-}
-
 static unsigned long cpucc_clk_recalc_rate(struct clk_hw *hw,
 					unsigned long prate)
 {
@@ -168,7 +188,7 @@ static unsigned long cpucc_clk_recalc_rate(struct clk_hw *hw,
 		if (src == cpuclk->parent_map[i].cfg) {
 			parent = clk_hw_get_parent_by_index(hw, i);
 			parent_rate = clk_hw_get_rate(parent);
-			return calc_rate(parent_rate, 0, 0, 0, div);
+			return cpucc_calc_rate(parent_rate, 0, 0, 0, div);
 		}
 	}
 	pr_err("%s: Can't find parent %d\n", name, src);
@@ -191,6 +211,28 @@ static u8 cpucc_clk_get_parent(struct clk_hw *hw)
 	return clk_regmap_mux_div_ops.get_parent(hw);
 }
 
+/*
+ * We use the notifier function for switching to a temporary safe configuration
+ * (mux and divider), while the APSS pll is reconfigured.
+ */
+
+static int cpucc_notifier_cb(struct notifier_block *nb, unsigned long event,
+								void *data)
+{
+	struct clk_regmap_mux_div *cpuclk = container_of(nb,
+					struct clk_regmap_mux_div, clk_nb);
+	int ret = 0;
+
+	if (event == PRE_RATE_CHANGE)
+		/* set the mux to safe source(gpll0) & div */
+		ret = mux_div_set_src_div(cpuclk,  cpuclk->safe_src, 1);
+
+	if (event == ABORT_RATE_CHANGE)
+		pr_err("Error in configuring PLL - stay at safe src only\n");
+
+	return notifier_from_errno(ret);
+}
+
 static const struct clk_ops cpucc_clk_ops = {
 	.enable = cpucc_clk_enable,
 	.disable = cpucc_clk_disable,
@@ -200,12 +242,17 @@ static const struct clk_ops cpucc_clk_ops = {
 	.set_rate_and_parent = cpucc_clk_set_rate_and_parent,
 	.determine_rate = cpucc_clk_determine_rate,
 	.recalc_rate = cpucc_clk_recalc_rate,
-	.debug_init = clk_debug_measure_add,
+	.debug_init = clk_common_debug_init,
 	.init = clk_cpu_init,
 };
 
 static struct pll_vco lucid_5lpe_vco[] = {
 	{ 249600000, 2000000000, 0 },
+};
+
+static struct pll_vco alpha_pll_vco[] = {
+	{ 250000000,  500000000, 3 },
+	{ 750000000, 1500000000, 1 },
 };
 
 /* Initial configuration for 1094.4 */
@@ -224,6 +271,25 @@ static const struct alpha_pll_config apcs_cpu_pll_config = {
 	.user_ctl_hi1_val = 0x00000000,
 };
 
+/* Initial configuration for 1190.4 MHz */
+static struct alpha_pll_config apcs_cpu_alpha_pll_config = {
+	.l = 0x3E,
+	.config_ctl_val = 0x4001055b,
+	.test_ctl_hi_val = 0x0,
+	.vco_val = BIT(20),
+	.vco_mask = 0x3 << 20,
+	.main_output_mask = BIT(0),
+};
+
+static struct clk_init_data apcs_cpu_pll_sdxnightjar = {
+	.name = "apcs_cpu_pll",
+	.parent_data = &(const struct clk_parent_data){
+		.fw_name = "bi_tcxo_ao",
+	},
+	.num_parents = 1,
+	.ops = &clk_alpha_pll_ops,
+};
+
 static struct clk_alpha_pll apcs_cpu_pll = {
 	.offset = 0x0,
 	.vco_table = lucid_5lpe_vco,
@@ -239,7 +305,7 @@ static struct clk_alpha_pll apcs_cpu_pll = {
 			.ops = &clk_alpha_pll_lucid_5lpe_ops,
 		},
 		.vdd_data = {
-			.vdd_class = &vdd_lucid_pll,
+			.vdd_class = &vdd_pll,
 			.num_rate_max = VDD_NUM,
 			.rate_max = (unsigned long[VDD_NUM]) {
 				[VDD_MIN] = 615000000,
@@ -283,6 +349,7 @@ static struct clk_regmap_mux_div apcs_mux_clk = {
 
 static const struct of_device_id match_table[] = {
 	{ .compatible = "qcom,sdxlemur-apsscc" },
+	{ .compatible = "qcom,sdxnightjar-apsscc" },
 	{}
 };
 
@@ -491,34 +558,68 @@ static void cpucc_clk_populate_opp_table(struct platform_device *pdev)
 	cpucc_clk_print_opp_table(final_cpu);
 }
 
-static int cpucc_driver_probe(struct platform_device *pdev)
+static void cpucc_sdxnightjar_fixup(void)
+{
+	apcs_cpu_pll.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_DEFAULT];
+	apcs_cpu_pll.vco_table = alpha_pll_vco;
+	apcs_cpu_pll.num_vco = sizeof(alpha_pll_vco);
+
+	apcs_cpu_pll.clkr.hw.init = &apcs_cpu_pll_sdxnightjar;
+	apcs_cpu_pll.clkr.vdd_data.rate_max[VDD_MIN] = 0;
+	apcs_cpu_pll.clkr.vdd_data.rate_max[VDD_LOW] = 1000000000;
+	apcs_cpu_pll.clkr.vdd_data.rate_max[VDD_LOW_L1] = 0;
+	apcs_cpu_pll.clkr.vdd_data.rate_max[VDD_NOMINAL] = 2000000000;
+
+	/* GPLL0 as safe source Index */
+	apcs_mux_clk.safe_src = 1;
+	apcs_mux_clk.safe_div = 1;
+
+	apcs_mux_clk.clk_nb.notifier_call = cpucc_notifier_cb;
+
+	clk_alpha_pll_configure(&apcs_cpu_pll, apcs_cpu_pll.clkr.regmap,
+				&apcs_cpu_alpha_pll_config);
+}
+
+static int cpucc_get_and_parse_dt_resource(struct platform_device *pdev,
+						unsigned long *xo_rate)
 {
 	struct resource *res;
-	struct clk_hw_onecell_data *data;
 	struct device *dev = &pdev->dev;
-	struct device_node *of = pdev->dev.of_node;
 	struct clk *clk;
-	u32 rate = 0;
-	int i, ret, speed_bin, version, cpu;
+	int ret, speed_bin, version;
 	char prop_name[] = "qcom,speedX-bin-vX";
 	void __iomem *base;
 
 	/* Require the RPM-XO clock to be registered before */
-	clk = devm_clk_get(dev, "bi_tcxo_ao");
+	clk = clk_get(dev, "bi_tcxo_ao");
 	if (IS_ERR(clk)) {
 		if (PTR_ERR(clk) != -EPROBE_DEFER)
 			dev_err(dev, "Unable to get xo clock\n");
 		return PTR_ERR(clk);
 	}
 
+	*xo_rate = clk_get_rate(clk);
+	if (!*xo_rate)
+		*xo_rate = 19200000;
+
+	clk_put(clk);
+
+	/* Require the GPLL0_OUT_EVEN clock to be registered before */
+	clk = clk_get(dev, "gpll0_out_even");
+	if (IS_ERR(clk)) {
+		if (PTR_ERR(clk) != -EPROBE_DEFER)
+			dev_err(dev, "Unable to get GPLL0 clock\n");
+			return PTR_ERR(clk);
+	}
+	clk_put(clk);
+
 	/* Rail Regulator for apcs_cpu_pll & cpuss mux*/
-	vdd_lucid_pll.regulator[0] = devm_regulator_get(&pdev->dev,
-							"vdd-lucid-pll");
-	if (IS_ERR(vdd_lucid_pll.regulator[0])) {
-		if (!(PTR_ERR(vdd_lucid_pll.regulator[0]) == -EPROBE_DEFER))
+	vdd_pll.regulator[0] = devm_regulator_get(&pdev->dev, "vdd-pll");
+	if (IS_ERR(vdd_pll.regulator[0])) {
+		if (!(PTR_ERR(vdd_pll.regulator[0]) == -EPROBE_DEFER))
 			dev_err(&pdev->dev,
-				"Unable to get vdd_lucid_pll regulator\n");
-		return PTR_ERR(vdd_lucid_pll.regulator[0]);
+				"Unable to get vdd_pll regulator\n");
+		return PTR_ERR(vdd_pll.regulator[0]);
 	}
 
 	vdd_cpu.regulator[0] = devm_regulator_get(&pdev->dev, "cpu-vdd");
@@ -543,9 +644,7 @@ static int cpucc_driver_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Couldn't get regmap for apcs_cpu_pll\n");
 		return PTR_ERR(apcs_cpu_pll.clkr.regmap);
 	}
-
-	clk_lucid_5lpe_pll_configure(&apcs_cpu_pll, apcs_cpu_pll.clkr.regmap,
-							&apcs_cpu_pll_config);
+	apcs_cpu_pll.clkr.dev = &pdev->dev;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "apcs_cmd");
 	base = devm_ioremap_resource(dev, res);
@@ -561,6 +660,7 @@ static int cpucc_driver_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Couldn't get regmap for apcs_cmd\n");
 		return PTR_ERR(apcs_mux_clk.clkr.regmap);
 	}
+	apcs_mux_clk.clkr.dev = &pdev->dev;
 
 	/* Get speed bin information */
 	cpucc_clk_get_speed_bin(pdev, &speed_bin, &version);
@@ -574,8 +674,7 @@ static int cpucc_driver_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev,
 		"Can't get speed bin for apcs_mux_clk. Falling back to zero\n");
 		ret = cpucc_clk_get_fmax_vdd_class(pdev,
-				&apcs_mux_clk.clkr.vdd_data,
-					"qcom,speed0-bin-v0");
+				&apcs_mux_clk.clkr.vdd_data, "qcom,speed0-bin-v0");
 		if (ret) {
 			dev_err(&pdev->dev,
 			"Unable to get speed bin for apcs_mux_clk freq-corner mapping info\n");
@@ -583,11 +682,33 @@ static int cpucc_driver_probe(struct platform_device *pdev)
 		}
 	}
 
-	ret = of_property_read_u32(of, "qcom,cpucc-init-rate", &rate);
-	if (ret || !rate)
-		dev_dbg(&pdev->dev, "Init rate for clock not defined\n");
+	return 0;
+}
 
-	cpucc_clk_init_rate = max(apcs_cpu_pll_config.l * XO_RATE, rate);
+static int cpucc_driver_probe(struct platform_device *pdev)
+{
+	struct clk_hw_onecell_data *data;
+	struct device *dev = &pdev->dev;
+	int i, ret, cpu;
+	bool is_sdxnightjar;
+	unsigned long xo_rate;
+	u32 l_val;
+
+	ret = cpucc_get_and_parse_dt_resource(pdev, &xo_rate);
+	if (ret < 0)
+		return ret;
+
+	is_sdxnightjar = of_device_is_compatible(pdev->dev.of_node,
+						 "qcom,sdxnightjar-apsscc");
+
+	if (is_sdxnightjar) {
+		l_val = apcs_cpu_alpha_pll_config.l;
+		cpucc_sdxnightjar_fixup();
+	} else {
+		l_val = apcs_cpu_pll_config.l;
+		clk_lucid_5lpe_pll_configure(&apcs_cpu_pll, apcs_cpu_pll.clkr.regmap,
+								&apcs_cpu_pll_config);
+	}
 
 	data = devm_kzalloc(dev, sizeof(*data), GFP_KERNEL);
 	if (!data)
@@ -603,6 +724,7 @@ static int cpucc_driver_probe(struct platform_device *pdev)
 			return ret;
 		}
 		data->hws[i] = cpu_clks_hws[i];
+		devm_clk_regmap_list_node(dev, to_clk_regmap(cpu_clks_hws[i]));
 	}
 
 	ret = of_clk_add_hw_provider(dev->of_node, of_clk_hw_onecell_get, data);
@@ -611,10 +733,22 @@ static int cpucc_driver_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	if (is_sdxnightjar) {
+		ret = clk_notifier_register(apcs_mux_clk.clkr.hw.clk,
+							&apcs_mux_clk.clk_nb);
+		if (ret) {
+			dev_err(&pdev->dev,
+				"failed to register clock notifier: %d\n", ret);
+			return ret;
+		}
+	}
+
 	/* Set to boot frequency */
-	ret = clk_set_rate(apcs_mux_clk.clkr.hw.clk, cpucc_clk_init_rate);
-	if (ret)
+	ret = clk_set_rate(apcs_mux_clk.clkr.hw.clk, l_val * xo_rate);
+	if (ret) {
 		dev_err(&pdev->dev, "Unable to set init rate on apcs_mux_clk\n");
+		return ret;
+	}
 
 	/*
 	 * We don't want the CPU clocks to be turned off at late init
@@ -633,7 +767,7 @@ static int cpucc_driver_probe(struct platform_device *pdev)
 
 	dev_info(dev, "CPU clock Driver probed successfully\n");
 
-	return ret;
+	return 0;
 }
 
 static struct platform_driver cpu_clk_driver = {

@@ -4152,6 +4152,9 @@ static int tpdm_probe(struct amba_device *adev, const struct amba_id *id)
 	uint32_t version;
 	u32 dump_state = 0;
 
+	if (coresight_fuse_access_disabled())
+		return -EPERM;
+
 	desc.name = coresight_alloc_device_name(&tpdm_devs, dev);
 	if (!desc.name)
 		return -ENOMEM;

@@ -40,10 +40,9 @@
  *           6    - Added ipa_eth_ep_deinit()
  *           7    - ipa_eth_net_ops.receive_skb() now accepts in_napi parameter
  *           8    - Added IPA rx/tx intf properties to ipa_eth_device
- *           9    - Support for skipping IPA API call from offload sub-system
  */
 
-#define IPA_ETH_API_VER 9
+#define IPA_ETH_API_VER 8
 
 /**
  * enum ipa_eth_dev_features - Features supported by an ethernet device or
@@ -57,7 +56,6 @@
  * @IPA_ETH_DEV_F_VLAN_BIT: VLAN Offload
  * @IPA_ETH_DEV_F_MODC_BIT: Counter based event moderation
  * @IPA_ETH_DEV_F_MODT_BIT: Timer based event moderation
- * @IPA_ETH_DEV_F_IPA_API: Driver supports direct IPA API calls
  *
  * Ethernet hardware features represented as bit numbers below are used in
  * IPA_ETH_DEV_F_* feature flags that are to be used in offload APIs.
@@ -72,7 +70,6 @@ enum ipa_eth_dev_features {
 	IPA_ETH_DEV_F_VLAN_BIT,
 	IPA_ETH_DEV_F_MODC_BIT,
 	IPA_ETH_DEV_F_MODT_BIT,
-	IPA_ETH_DEV_F_IPA_API_BIT,
 };
 
 #define ipa_eth_dev_f(f) BIT(IPA_ETH_DEV_F_##f##_BIT)
@@ -86,7 +83,6 @@ enum ipa_eth_dev_features {
 #define IPA_ETH_DEV_F_VLAN     ipa_eth_dev_f(VLAN)
 #define IPA_ETH_DEV_F_MODC     ipa_eth_dev_f(MODC)
 #define IPA_ETH_DEV_F_MODT     ipa_eth_dev_f(MODT)
-#define IPA_ETH_DEV_F_IPA_API  ipa_eth_dev_f(IPA_API)
 
 /**
  * enum ipa_eth_dev_events - Events supported by an ethernet device that may be
@@ -455,7 +451,6 @@ struct ipa_eth_channel {
  * @bus_priv: Private field for use by offload subsystem bus layer
  * @ipa_priv: Private field for use by offload subsystem
  * @debugfs: Debugfs root for the device
- * @skip_ipa: Skip IPA API calls from the sub-system
  * @refresh: Work struct used to perform device refresh
  */
 struct ipa_eth_device {
@@ -503,8 +498,6 @@ struct ipa_eth_device {
 	void *ipa_priv;
 	struct dentry *debugfs;
 
-	bool skip_ipa;
-
 	struct work_struct refresh;
 };
 
@@ -527,8 +520,6 @@ enum ipa_eth_device_event {
 
 int ipa_eth_device_notify(struct ipa_eth_device *eth_dev,
 	enum ipa_eth_device_event event, void *data);
-
-#ifdef IPA_ETH_NET_DRIVER
 
 /**
  * struct ipa_eth_net_ops - Network device operations required for IPA offload
@@ -567,177 +558,6 @@ struct ipa_eth_net_ops {
 	 * Return: 0 on success, negative errno otherwise
 	 */
 	void (*close_device)(struct ipa_eth_device *eth_dev);
-
-	/**
-	 * .request_channel() - Request a channel/ring for IPA offload data
-	 *                      path to use
-	 * @eth_dev: Device from which to allocate channel
-	 * @dir: Requested channel direction
-	 * @events: Device events requested for the channel. Value is zero or
-	 *            more IPA_ETH_DEV_EV_* flags.
-	 * @features: Device featured requested for the channel. Value is zero
-	 *            or more IPA_ETH_DEV_F_* feature flags.
-	 * @mem_params: Channel memory parameters. Values to be passed in is
-	 *              specific to the network driver. This info is typically
-	 *              passed on to ipa_eth_net_alloc_channel() which will
-	 *              memcpy() the contents to mem_params inside the
-	 *              ipa_eth_channel that is returned back.
-	 *
-	 * Arguments @dir, @features and @events are used to inform the network
-	 * driver about the capabilities of the offload subsystem/driver. The
-	 * API implementation may choose to allocate a channel with only a
-	 * subset of capablities enabled. Caller of this API need to check the
-	 * corresponding values in returned the channel and proceed only if the
-	 * allocated capability set is acceptable for data path operation.
-	 *
-	 * The allocated channel is expected to be in disabled state with no
-	 * events allocated or enabled. It is recommended to use the offload
-	 * sub-system API ipa_eth_net_alloc_channel() for allocating the
-	 * ipa_eth_channel object.
-	 *
-	 * Return: Channel object pointer, or NULL if the channel allocation
-	 *         failed
-	 */
-	struct ipa_eth_channel * (*request_channel)(
-		struct ipa_eth_device *eth_dev, enum ipa_eth_channel_dir dir,
-		unsigned long events, unsigned long features,
-		const struct ipa_eth_channel_mem_params *mem_params);
-
-	/**
-	 * .release_channel() - Free a channel/ring previously allocated using
-	 *                      .request_channel()
-	 * @ch: Channel to be freed
-	 */
-	void (*release_channel)(struct ipa_eth_channel *ch);
-
-	/**
-	 * .enable_channel() - Enable a channel, allowing data to flow
-	 *
-	 * @ch: Channel to be enabled
-	 *
-	 * Return: 0 on success, negative errno otherwise
-	 */
-	int (*enable_channel)(struct ipa_eth_channel *ch);
-
-	/**
-	 * .disable_channel() - Disable a channel, stopping the data flow
-	 *
-	 * @ch: Channel to be disabled
-	 *
-	 * Return: 0 on success, negative errno otherwise
-	 */
-	int (*disable_channel)(struct ipa_eth_channel *ch);
-
-	/**
-	 * .request_event() - Allocate an event for a channel
-	 *
-	 * @ch: Channel for which event need to be allocated
-	 * @event: Event to be allocated
-	 * @addr: Address to which the event need to be reported
-	 * @data: Data value to be associated with the event
-	 *
-	 * The allocated event is expected to be unmoderated.
-	 *
-	 * Return: 0 on success, negative errno otherwise
-	 */
-	int (*request_event)(struct ipa_eth_channel *ch, unsigned long event,
-		phys_addr_t addr, u64 data);
-
-	/**
-	 * .release_event() - Deallocate a channel event
-	 *
-	 * @ch: Channel for which event need to be deallocated
-	 * @event: Event to be deallocated
-	 *
-	 * Return: 0 on success, negative errno otherwise
-	 */
-	void (*release_event)(struct ipa_eth_channel *ch, unsigned long event);
-
-	/**
-	 * .enable_event() - Enable a channel event
-	 *
-	 * @ch: Channel for which event need to be enabled
-	 * @event: Event to be enabled
-	 *
-	 * This API is called when IPA or GIC is ready to receive events from
-	 * the network device.
-	 *
-	 * Return: 0 on success, negative errno otherwise
-	 */
-	int (*enable_event)(struct ipa_eth_channel *ch, unsigned long event);
-
-	/**
-	 * .disable_event() - Disable a channel event
-	 *
-	 * @ch: Channel for which event need to be disabled
-	 * @event: Event to be disabled
-	 *
-	 * Once this API is called, events may no more be reported to IPA/GIC
-	 * although they may still be queued in the device for later delivery.
-	 *
-	 * Return: 0 on success, negative errno otherwise
-	 */
-	int (*disable_event)(struct ipa_eth_channel *ch, unsigned long event);
-
-	/**
-	 * .moderate_event() - Moderate a channel event
-	 *
-	 * @ch: Channel for which event need to be disabled
-	 * @event: Event to be disabled
-	 * @min_count: Min threshold for counter based moderation
-	 * @max_count: Max threshold for counter based moderation
-	 * @min_usecs: Min microseconds for timer based moderation
-	 * @max_usecs: Max microseconds for timer based moderation
-	 *
-	 * This API enables event moderation when supported by the device. A
-	 * value of 0 in either of the @max_* arguments would disable moderation
-	 * of that specific type. If both types of moderation are enabled, the
-	 * event is triggered with either of them expires.
-	 *
-	 * It is expected from the device/driver to make sure there is always a
-	 * default min_X value for each moderation type such that there would
-	 * be no data stalls or queue overflow when a moderation target is not
-	 * reached.
-	 *
-	 * Return: 0 on success, negative errno otherwise
-	 */
-	int (*moderate_event)(struct ipa_eth_channel *ch, unsigned long event,
-		u64 min_count, u64 max_count,
-		u64 min_usecs, u64 max_usecs);
-
-	/**
-	 * .receive_skb() - Receive an skb from IPA and push it to Linux network
-	 *                  stack
-	 * @eth_dev: Device to which the skb need to belong
-	 * @skb: Skb to be provided to Linux network stack
-	 * @in_napi: IPA LAN Rx is executing in NAPI poll
-	 *
-	 * When a network packet received by the IPA connected device queue can
-	 * not be routed within IPA, it will be sent to Linux as an exception
-	 * skb. Offload subsystem receives such packets and forwards to this API
-	 * to be provided to Linux network stack to perform the necessary packet
-	 * routing/filtering in the software path.
-	 *
-	 * Network packets received by this API is expected to emerge from the
-	 * device's Linux network interface as it would have, had the packet
-	 * arrived directly to the Linux connected queues.
-	 *
-	 * Return: 0 on success, negative errno otherwise. On error, skb is NOT
-	 * expected to have been freed.
-	 */
-	int (*receive_skb)(struct ipa_eth_device *eth_dev,
-		struct sk_buff *skb, bool in_napi);
-
-	/**
-	 * .transmit_skb() - Transmit an skb given IPA
-	 * @eth_dev: Device through which the packet need to be transmitted
-	 * @skb: Skb to be transmitted
-	 *
-	 * Return: 0 on success, negative errno otherwise. On error, skb is NOT
-	 * expected to have been freed.
-	 */
-	int (*transmit_skb)(struct ipa_eth_device *eth_dev,
-		struct sk_buff *skb);
 
 	/**
 	 * .save_regs() - Save registers for debugging
@@ -791,16 +611,6 @@ struct ipa_eth_net_driver {
 
 int ipa_eth_register_net_driver(struct ipa_eth_net_driver *nd);
 void ipa_eth_unregister_net_driver(struct ipa_eth_net_driver *nd);
-
-struct ipa_eth_channel *ipa_eth_net_alloc_channel(
-	struct ipa_eth_device *eth_dev, enum ipa_eth_channel_dir dir,
-	unsigned long events, unsigned long features,
-	const struct ipa_eth_channel_mem_params *mem_params);
-void ipa_eth_net_free_channel(struct ipa_eth_channel *channel);
-
-#endif /* IPA_ETH_NET_DRIVER */
-
-#ifdef IPA_ETH_OFFLOAD_DRIVER
 
 /**
  * struct ipa_eth_offload_link_stats - Stats for each link within an
@@ -1003,86 +813,6 @@ struct ipa_eth_offload_driver {
 
 int ipa_eth_register_offload_driver(struct ipa_eth_offload_driver *od);
 void ipa_eth_unregister_offload_driver(struct ipa_eth_offload_driver *od);
-
-struct ipa_eth_channel *ipa_eth_net_request_channel(
-	struct ipa_eth_device *eth_dev, enum ipa_client_type ipa_client,
-	unsigned long events, unsigned long features,
-	const struct ipa_eth_channel_mem_params *mem_params);
-void ipa_eth_net_release_channel(struct ipa_eth_channel *ch);
-int ipa_eth_net_enable_channel(struct ipa_eth_channel *ch);
-int ipa_eth_net_disable_channel(struct ipa_eth_channel *ch);
-
-int ipa_eth_net_request_event(struct ipa_eth_channel *ch, unsigned long event,
-	phys_addr_t addr, u64 data);
-void ipa_eth_net_release_event(struct ipa_eth_channel *ch, unsigned long event);
-int ipa_eth_net_enable_event(struct ipa_eth_channel *ch, unsigned long event);
-int ipa_eth_net_disable_event(struct ipa_eth_channel *ch, unsigned long event);
-int ipa_eth_net_moderate_event(struct ipa_eth_channel *ch, unsigned long event,
-	u64 min_count, u64 max_count,
-	u64 min_usecs, u64 max_usecs);
-
-int ipa_eth_net_receive_skb(struct ipa_eth_device *eth_dev,
-	struct sk_buff *skb);
-int ipa_eth_net_transmit_skb(struct ipa_eth_device *eth_dev,
-	struct sk_buff *skb);
-
-struct ipa_eth_resource *ipa_eth_net_ch_to_cb_mem(
-	struct ipa_eth_channel *ch,
-	struct ipa_eth_channel_mem *ch_mem,
-	enum ipa_eth_hw_type hw_type);
-
-int ipa_eth_ep_init(struct ipa_eth_channel *ch);
-int ipa_eth_ep_deinit(struct ipa_eth_channel *ch);
-int ipa_eth_ep_start(struct ipa_eth_channel *ch);
-int ipa_eth_ep_stop(struct ipa_eth_channel *ch);
-
-int ipa_eth_gsi_alloc(struct ipa_eth_channel *ch,
-	struct gsi_evt_ring_props *gsi_ev_props,
-	union gsi_evt_scratch *gsi_ev_scratch,
-	phys_addr_t *gsi_ev_db,
-	struct gsi_chan_props *gsi_ch_props,
-	union gsi_channel_scratch *gsi_ch_scratch,
-	phys_addr_t *gsi_ch_db);
-int ipa_eth_gsi_dealloc(struct ipa_eth_channel *ch);
-int ipa_eth_gsi_ring_evtring(struct ipa_eth_channel *ch, u64 value);
-int ipa_eth_gsi_ring_channel(struct ipa_eth_channel *ch, u64 value);
-int ipa_eth_gsi_start(struct ipa_eth_channel *ch);
-int ipa_eth_gsi_stop(struct ipa_eth_channel *ch);
-#endif /* IPA_ETH_OFFLOAD_DRIVER */
-
-/* IPA uC interface for ethernet devices */
-
-enum ipa_eth_uc_op {
-	IPA_ETH_UC_OP_NOP         = 0,
-	IPA_ETH_UC_OP_CH_SETUP    = 1,
-	IPA_ETH_UC_OP_CH_TEARDOWN = 2,
-	IPA_ETH_UC_OP_PER_INIT    = 3,
-	IPA_ETH_UC_OP_PER_DEINIT  = 4,
-	IPA_ETH_UC_OP_MAX,
-};
-
-enum ipa_eth_uc_resp {
-	IPA_ETH_UC_RSP_SUCCESS                     = 0,
-	IPA_ETH_UC_RSP_MAX_TX_CHANNELS             = 1,
-	IPA_ETH_UC_RSP_TX_RING_OVERRUN_POSSIBILITY = 2,
-	IPA_ETH_UC_RSP_TX_RING_SET_UP_FAILURE      = 3,
-	IPA_ETH_UC_RSP_TX_RING_PARAMS_UNALIGNED    = 4,
-	IPA_ETH_UC_RSP_UNKNOWN_TX_CHANNEL          = 5,
-	IPA_ETH_UC_RSP_TX_INVALID_FSM_TRANSITION   = 6,
-	IPA_ETH_UC_RSP_TX_FSM_TRANSITION_ERROR     = 7,
-	IPA_ETH_UC_RSP_MAX_RX_CHANNELS             = 8,
-	IPA_ETH_UC_RSP_RX_RING_PARAMS_UNALIGNED    = 9,
-	IPA_ETH_UC_RSP_RX_RING_SET_UP_FAILURE      = 10,
-	IPA_ETH_UC_RSP_UNKNOWN_RX_CHANNEL          = 11,
-	IPA_ETH_UC_RSP_RX_INVALID_FSM_TRANSITION   = 12,
-	IPA_ETH_UC_RSP_RX_FSM_TRANSITION_ERROR     = 13,
-	IPA_ETH_UC_RSP_RX_RING_OVERRUN_POSSIBILITY = 14,
-};
-
-int ipa_eth_uc_send_cmd(enum ipa_eth_uc_op op, u32 protocol,
-	const void *prot_data, size_t datasz);
-
-
 
 /* IPC logging interface */
 

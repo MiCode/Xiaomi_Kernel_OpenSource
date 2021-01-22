@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2010,2015,2020 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010,2015,2020-2021 The Linux Foundation. All rights reserved.
  * Copyright (C) 2015 Linaro Ltd.
  */
 #include <linux/platform_device.h>
@@ -265,6 +265,24 @@ int qcom_scm_pas_mem_setup(u32 peripheral, phys_addr_t addr, phys_addr_t size)
 EXPORT_SYMBOL(qcom_scm_pas_mem_setup);
 
 /**
+ * qcom_scm_pas_mss_reset() - MSS restart
+ */
+int qcom_scm_pas_mss_reset(bool reset)
+{
+	int ret;
+
+	ret = qcom_scm_clk_enable();
+	if (ret)
+		return ret;
+
+	ret = __qcom_scm_pas_mss_reset(__scm->dev, reset);
+	qcom_scm_clk_disable();
+
+	return ret;
+}
+EXPORT_SYMBOL(qcom_scm_pas_mss_reset);
+
+/**
  * qcom_scm_pas_auth_and_reset() - Authenticate the given peripheral firmware
  *				   and reset the remote processor
  * @peripheral:	peripheral id
@@ -452,7 +470,8 @@ EXPORT_SYMBOL(qcom_scm_mem_protect_video);
 
 int qcom_scm_mem_protect_region_id(phys_addr_t paddr, size_t size)
 {
-	return __qcom_scm_mem_protect_region_id(__scm->dev, paddr, size);
+	return __qcom_scm_mem_protect_region_id(__scm ? __scm->dev : NULL,
+								paddr, size);
 }
 EXPORT_SYMBOL(qcom_scm_mem_protect_region_id);
 

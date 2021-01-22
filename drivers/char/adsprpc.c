@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
  */
 
 /* Uncomment this block to log an error on every VERIFY failure */
@@ -426,6 +426,9 @@ struct smq_invoke_ctx {
 	struct fastrpc_async_job asyncjob;
 	/* Async early flag to check the state of context */
 	bool is_early_wakeup;
+	uint32_t sc_interrupted;
+	struct fastrpc_file *fl_interrupted;
+	uint32_t handle_interrupted;
 };
 
 struct fastrpc_ctx_lst {
@@ -854,7 +857,7 @@ static inline void fastrpc_update_rxmsg_buf(struct fastrpc_channel_ctx *chan,
 static void fastrpc_buf_free(struct fastrpc_buf *buf, int cache)
 {
 	struct fastrpc_file *fl = buf == NULL ? NULL : buf->fl;
-	int vmid;
+	int vmid, err = 0;
 
 	if (!fl)
 		return;
@@ -888,6 +891,9 @@ skip_buf_cache:
 		int destVM[1] = {VMID_HLOS};
 		int destVMperm[1] = {PERM_READ | PERM_WRITE | PERM_EXEC};
 
+		VERIFY(err, fl->sctx != NULL);
+		if (err)
+			goto bail;
 		if (fl->sctx->smmu.cb)
 			buf->phys &= ~((uint64_t)fl->sctx->smmu.cb << 32);
 		vmid = fl->apps->channel[fl->cid].vmid;
@@ -908,6 +914,7 @@ skip_buf_cache:
 		dma_free_attrs(fl->sctx->smmu.dev, buf->size, buf->virt,
 					buf->phys, buf->dma_attr);
 	}
+bail:
 	kfree(buf);
 }
 
@@ -1580,6 +1587,12 @@ static int fastrpc_buf_alloc(struct fastrpc_file *fl, size_t size,
 	buf->raddr = 0;
 	buf->type = buf_type;
 	ktime_get_real_ts64(&buf->buf_start_time);
+
+	VERIFY(err, fl && fl->sctx != NULL);
+	if (err) {
+		err = -EBADR;
+		goto bail;
+	}
 	buf->virt = dma_alloc_attrs(fl->sctx->smmu.dev, buf->size,
 						(dma_addr_t *)&buf->phys,
 						GFP_KERNEL, buf->dma_attr);
@@ -1651,6 +1664,9 @@ static int context_restore_interrupted(struct fastrpc_file *fl,
 		if (ictx->pid == current->pid) {
 			if (invoke->sc != ictx->sc || ictx->fl != fl) {
 				err = -EINVAL;
+				ictx->sc_interrupted = invoke->sc;
+				ictx->fl_interrupted = fl;
+				ictx->handle_interrupted = invoke->handle;
 				ADSPRPC_ERR(
 					"interrupted sc (0x%x) or fl (%pK) does not match with invoke sc (0x%x) or fl (%pK)\n",
 					ictx->sc, ictx->fl, invoke->sc, fl);
@@ -2472,7 +2488,7 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 			continue;
 		if (map && map->uncached)
 			continue;
-		if (ctx->fl->sctx->smmu.coherent)
+		if (ctx->fl->sctx && ctx->fl->sctx->smmu.coherent)
 			continue;
 		if (map && (map->attr & FASTRPC_ATTR_FORCE_NOFLUSH))
 			continue;
@@ -2636,7 +2652,7 @@ static void inv_args(struct smq_invoke_ctx *ctx)
 			continue;
 		if (!rpra[over].buf.len)
 			continue;
-		if (ctx->fl->sctx->smmu.coherent)
+		if (ctx->fl && ctx->fl->sctx && ctx->fl->sctx->smmu.coherent)
 			continue;
 		if (map && (map->attr & FASTRPC_ATTR_FORCE_NOINVALIDATE))
 			continue;
@@ -3298,7 +3314,7 @@ static int fastrpc_internal_invoke2(struct fastrpc_file *fl,
 			if (err)
 				goto bail;
 			memcpy(&p.inv, &p.inv3, sizeof(struct fastrpc_ioctl_invoke_crc));
-			memcpy(&p.inv.job, &p.inv3.job, sizeof(struct fastrpc_async_job));
+			memcpy(&p.inv.job, &p.inv3.job, sizeof(p.inv.job));
 		} else {
 			K_COPY_FROM_USER(err, 0, &p.inv, (void *)inv2->invparam, size);
 			if (err)
@@ -4354,6 +4370,8 @@ static int fastrpc_mmap_remove_ssr(struct fastrpc_file *fl)
 				if (ramdump_segments_rh) {
 					ramdump_segments_rh->address =
 					match->phys;
+					ramdump_segments_rh->v_address =
+					(void __iomem *)match->va;
 					ramdump_segments_rh->size = match->size;
 					ret = do_elf_ramdump(
 						 me->ramdump_handle,

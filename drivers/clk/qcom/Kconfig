@@ -656,4 +656,40 @@ config SM_VIDEOCC_YUPIK
 	  Say Y if you want to support video devices and functionality such as
 	  video encode/decode.
 
+config SM_CAMCC_YUPIK
+	tristate "YUPIK Camera Clock Controller"
+	select SM_GCC_YUPIK
+	help
+	  Support for the camera clock controller on Qualcomm Technologies, Inc.
+	  YUPIK devices.
+	  Say Y if you want to support camera devices and functionality such as
+	  capturing pictures.
+
+config SM_DISPCC_YUPIK
+	tristate "YUPIK Display Clock Controller"
+	select SM_GCC_YUPIK
+	help
+	  Support for the display clock controller on Qualcomm Technologies, Inc.
+	  YUPIK devices.
+	  Say Y if you want to support display devices and functionality such as
+	  splash screen.
+
+config SM_DEBUGCC_YUPIK
+	tristate "YUPIK Debug Clock Controller"
+	depends on SM_GCC_YUPIK
+	help
+	  Support for the debug clock controller on Qualcomm Technologies, Inc.
+	  YUPIK devices.
+	  Say Y if you want to support the debug clocks such as clock measurement
+	  functionality.
+
 endif
+
+config VIRTIO_CLK
+	tristate "Virtio clock driver"
+	depends on VIRTIO
+	help
+	  This is the virtual clock driver for virtio. It can be used on
+	  Qualcomm Technologies, Inc automotive virtual machine.
+	  Say Y if you want to use pass through peripheral devices such as UART,
+	  SPI, I2C, USB etc.

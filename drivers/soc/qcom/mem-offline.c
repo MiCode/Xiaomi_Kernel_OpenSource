@@ -22,6 +22,7 @@
 #include <linux/vmstat.h>
 #include <linux/mailbox_client.h>
 #include <linux/mailbox/qmp.h>
+#include <linux/page-isolation.h>
 #include <asm/tlbflush.h>
 #include <asm/cacheflush.h>
 #include <soc/qcom/rpm-smd.h>
@@ -457,6 +458,12 @@ static void isolate_free_pages(struct movable_zone_fill_control *fc)
 
 			skip = (1 << compound_order(head)) - (page - head);
 			start_pfn += skip - 1;
+			continue;
+		}
+
+		if (!(start_pfn % pageblock_nr_pages) &&
+			is_migrate_isolate_page(page)) {
+			start_pfn += pageblock_nr_pages - 1;
 			continue;
 		}
 

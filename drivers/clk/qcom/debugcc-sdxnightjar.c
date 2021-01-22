@@ -26,28 +26,27 @@ static struct measure_clk_data debug_mux_priv = {
 };
 
 static const char *const apss_cc_debug_mux_parent_names[] = {
-	"measure_only_cpu_clk",
+	"measure_only_apcs_clk",
 };
 
 static int apss_cc_debug_mux_sels[] = {
-	0x3,		/* measure_only_cpu_clk */
+	0x3,		/* measure_only_apcs_clk */
 };
 
 static int apss_cc_debug_mux_pre_divs[] = {
-	0x1,		/* measure_only_cpu_clk */
+	0x1,		/* measure_only_apcs_clk */
 };
 
 static struct clk_debug_mux apss_cc_debug_mux = {
 	.priv = &debug_mux_priv,
-	.debug_offset = 0x74000,
+	.debug_offset = 0x0,
 	.post_div_offset = 0x0,
-	.en_mask = BIT(16),
-	.cbcr_offset = 0x74000,
-	.src_sel_mask = 0x3FF,
-	.src_sel_shift = 0,
+	.cbcr_offset = U32_MAX,
+	.src_sel_mask = 0x38,
+	.src_sel_shift = 0x3,
 	.post_div_mask = 0x0,
 	.post_div_shift = 0x0,
-	.post_div_val = 0x0,
+	.post_div_val = 0x1,
 	.mux_sels = apss_cc_debug_mux_sels,
 	.pre_div_vals = apss_cc_debug_mux_pre_divs,
 	.hw.init = &(struct clk_init_data){
@@ -104,6 +103,8 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"gcc_usb3_pipe_clk",
 	"gcc_usb_phy_cfg_ahb_clk",
 	"gcc_xo_div4_clk",
+	"gcc_mss_q6_bimc_axi_clk",
+	"gcc_mss_cfg_ahb_clk",
 	"measure_only_bimc_clk",
 	"measure_only_ce_clk",
 	"measure_only_ipa_clk",
@@ -157,6 +158,8 @@ static int gcc_debug_mux_sels[] = {
 	0x234,		/* gcc_usb3_pipe_clk */
 	0x233,		/* gcc_usb_phy_cfg_ahb_clk */
 	0x14A,		/* gcc_xo_div4_clk */
+	0x31,		/* gcc_mss_q6_bimc_axi_clk */
+	0x30,		/* gcc_mss_cfg_ahb_clk */
 	0x155,		/* measure_only_bimc_clk */
 	0x138,		/* measure_only_ce_clk */
 	0x218,		/* measure_only_ipa_clk */
@@ -169,14 +172,14 @@ static int gcc_debug_mux_sels[] = {
 static struct clk_debug_mux gcc_debug_mux = {
 	.priv = &debug_mux_priv,
 	.debug_offset = 0x74000,
-	.post_div_offset = 0x0,
+	.post_div_offset = 0x74000,
 	.cbcr_offset = 0x74000,
 	.en_mask = BIT(16),
 	.src_sel_mask = 0x3FF,
-	.src_sel_shift = 0,
-	.post_div_mask = 0x1,
-	.post_div_shift = 0,
-	.post_div_val = 1,
+	.src_sel_shift = 0x0,
+	.post_div_mask = 0xF000,
+	.post_div_shift = 12,
+	.post_div_val = 0x4,		/*post_dev_val 0x3: DIV4*/
 	.mux_sels = gcc_debug_mux_sels,
 	.hw.init = &(struct clk_init_data){
 		.name = "gcc_debug_mux",
@@ -188,7 +191,7 @@ static struct clk_debug_mux gcc_debug_mux = {
 };
 
 static struct mux_regmap_names mux_list[] = {
-	{ .mux = &apss_cc_debug_mux, .regmap_name = "qcom,apsscc" },
+	{ .mux = &apss_cc_debug_mux, .regmap_name = "qcom,cpucc" },
 	{ .mux = &gcc_debug_mux, .regmap_name = "qcom,gcc" },
 };
 
@@ -248,6 +251,14 @@ static struct clk_dummy measure_only_snoc_clk = {
 	},
 };
 
+static struct clk_dummy measure_only_apcs_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_apcs_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
 static struct clk_hw *debugcc_sdxnightjar_hws[] = {
 	&measure_only_bimc_clk.hw,
 	&measure_only_ce_clk.hw,
@@ -256,6 +267,7 @@ static struct clk_hw *debugcc_sdxnightjar_hws[] = {
 	&measure_only_qdss_clk.hw,
 	&measure_only_qpic_clk.hw,
 	&measure_only_snoc_clk.hw,
+	&measure_only_apcs_clk.hw,
 };
 
 static const struct of_device_id clk_debug_match_table[] = {
@@ -268,6 +280,8 @@ static int clk_debug_sdxnightjar_probe(struct platform_device *pdev)
 	struct clk *clk;
 	int ret, i;
 
+	BUILD_BUG_ON(ARRAY_SIZE(apss_cc_debug_mux_parent_names) !=
+		ARRAY_SIZE(apss_cc_debug_mux_sels));
 	BUILD_BUG_ON(ARRAY_SIZE(gcc_debug_mux_parent_names) !=
 		ARRAY_SIZE(gcc_debug_mux_sels));
 

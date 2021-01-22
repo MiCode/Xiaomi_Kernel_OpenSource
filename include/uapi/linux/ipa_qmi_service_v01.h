@@ -480,6 +480,19 @@ struct ipa_indication_reg_req_msg_v01 {
 	 * message makes sense only when the  QMI_IPA_INDICATION_REGISTER_REQ
 	 * is being originated from the master driver.
 	 */
+
+	/* Optional */
+	/* BW CHANGE Indication */
+	__u8 bw_change_ind_valid;
+	/* Must be set to true if bw_change_ind is being passed */
+	__u8 bw_change_ind;
+	/*
+	 * If set to TRUE, this field indicates that the client wants to
+	 * receive indications for BW change information via
+	 * QMI_IPA_BW_CHANGE_INDICATION. Setting this field in the request
+	 * message makes sense only when the QMI_IPA_INDICATION_REGISTER_REQ
+	 * is being originated from the master driver.
+	 */
 };  /* Message */
 
 
@@ -1316,6 +1329,19 @@ struct ipa_enable_force_clear_datapath_req_msg_v01 {
 	 *	data present in the IPA that were pulled from these pipes
 	 *	The server is expected to put all the source pipes in the
 	 *	source_pipe_bitmask in the same state
+	 */
+
+	/* Optional */
+	/* Pipe Mask Ext State */
+	__u8 source_pipe_bitmask_ext_valid;
+	/*  Pipe Mask Ext */
+	__u32 source_pipe_bitmask_ext[4];
+	/* Set of consumer (source) pipes that must be clear of
+	 * active data transfers.
+	 * The extended mask supports up to 128 endpoints to accommodate newer
+	 * architectures, which use more than 32 endpoints.
+	 * If this new field is used, the old field source_pipe_bitmask
+	 * shall be ignored.
 	 */
 };  /* Message */
 
@@ -2649,6 +2675,19 @@ struct ipa_remove_offload_connection_resp_msg_v01 {
 }; /* Message */
 #define IPA_REMOVE_OFFLOAD_CONNECTION_RESP_MSG_V01_MAX_MSG_LEN 7
 
+struct ipa_bw_change_ind_msg_v01 {
+	/* optional */
+	/* Must be set to true if peak_bw_ul is being passed*/
+	__u8 peak_bw_ul_valid;
+	/* Must be set to true if peak_bw_dl is being passed*/
+	__u8 peak_bw_dl_valid;
+	/* Kbps */
+	__u32 peak_bw_ul;
+	/* Kbps */
+	__u32 peak_bw_dl;
+}; /* Message */
+#define IPA_BW_CHANGE_IND_MSG_V01_MAX_MSG_LEN 14
+
 /*Service Message Definition*/
 #define QMI_IPA_INDICATION_REGISTER_REQ_V01 0x0020
 #define QMI_IPA_INDICATION_REGISTER_RESP_V01 0x0020
@@ -2703,7 +2742,7 @@ struct ipa_remove_offload_connection_resp_msg_v01 {
 #define QMI_IPA_ADD_OFFLOAD_CONNECTION_RESP_V01 0x0041
 #define QMI_IPA_REMOVE_OFFLOAD_CONNECTION_REQ_V01 0x0042
 #define QMI_IPA_REMOVE_OFFLOAD_CONNECTION_RESP_V01 0x0042
-
+#define QMI_IPA_BW_CHANGE_INDICATION_V01 0x0044
 
 /* add for max length*/
 #define QMI_IPA_INIT_MODEM_DRIVER_REQ_MAX_MSG_LEN_V01 162
@@ -2718,7 +2757,7 @@ struct ipa_remove_offload_connection_resp_msg_v01 {
 #define QMI_IPA_DATA_USAGE_QUOTA_REACHED_IND_MAX_MSG_LEN_V01 15
 
 
-#define QMI_IPA_ENABLE_FORCE_CLEAR_DATAPATH_REQ_MAX_MSG_LEN_V01 18
+#define QMI_IPA_ENABLE_FORCE_CLEAR_DATAPATH_REQ_MAX_MSG_LEN_V01 37
 #define QMI_IPA_DISABLE_FORCE_CLEAR_DATAPATH_REQ_MAX_MSG_LEN_V01 7
 #define QMI_IPA_ENABLE_FORCE_CLEAR_DATAPATH_RESP_MAX_MSG_LEN_V01 7
 #define QMI_IPA_DISABLE_FORCE_CLEAR_DATAPATH_RESP_MAX_MSG_LEN_V01 7

@@ -1034,13 +1034,11 @@ l3_pwrlevel_probe(struct kgsl_device *device, struct device_node *node)
 				&device->l3_freq[index]);
 	}
 
-	device->l3_clk = devm_clk_get(&device->pdev->dev, "l3_vote");
+	device->l3_icc = of_icc_get(&device->pdev->dev, "l3_path");
 
-	if (IS_ERR_OR_NULL(device->l3_clk)) {
+	if (IS_ERR(device->l3_icc))
 		dev_err(&device->pdev->dev,
-			"Unable to get the l3_vote clock\n");
-		device->l3_clk = NULL;
-	}
+			"Unable to get the l3 icc path\n");
 }
 
 static int adreno_of_get_power(struct adreno_device *adreno_dev,

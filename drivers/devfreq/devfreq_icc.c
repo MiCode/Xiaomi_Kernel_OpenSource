@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2014, 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, 2018-2021, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "devfreq-icc: " fmt
@@ -27,10 +27,11 @@
 #include <linux/interconnect.h>
 #include <soc/qcom/devfreq_icc.h>
 
-/* Has to be ULL to prevent overflow where this macro is used. */
-#define MBYTE (1ULL << 20)
+/* Has to be UL to avoid errors in 32 bit. Use cautiously to avoid overflows.*/
+#define MBYTE (1UL << 20)
 #define HZ_TO_MBPS(hz, w)	(mult_frac(w, hz, MBYTE))
 #define MBPS_TO_HZ(mbps, w)	(mult_frac(mbps, MBYTE, w))
+#define MBPS_TO_ICC(mbps)	(mult_frac(mbps, MBYTE, 1000))
 
 enum dev_type {
 	STD_MBPS_DEV,
@@ -59,24 +60,34 @@ static unsigned long	l3_freqs[MAX_L3_ENTRIES];
 static			DEFINE_MUTEX(l3_freqs_lock);
 static bool		use_cached_l3_freqs;
 
+static u64 mbps_to_hz_icc(u32 in, uint width)
+{
+	u64 result;
+	u32 quot = in / width;
+	u32 rem = in % width;
+
+	result = quot * MBYTE + div_u64(rem * MBYTE, width);
+	return result;
+}
+
 static int set_bw(struct device *dev, u32 new_ib, u32 new_ab)
 {
 	struct dev_data *d = dev_get_drvdata(dev);
 	int ret;
-	u32 icc_ib = new_ib, icc_ab = new_ab;
+	u64 icc_ib = new_ib, icc_ab = new_ab;
 
 	if (d->cur_ib == new_ib && d->cur_ab == new_ab)
 		return 0;
 
 	if (d->spec->type == L3_MBPS_DEV) {
-		icc_ib = MBPS_TO_HZ(new_ib, d->width);
-		icc_ab = MBPS_TO_HZ(new_ab, d->width);
+		icc_ib = mbps_to_hz_icc(new_ib, d->width);
+		icc_ab = mbps_to_hz_icc(new_ab, d->width);
 	} else if (d->spec->type == STD_MBPS_DEV) {
-		icc_ib = Bps_to_icc(new_ib * MBYTE);
-		icc_ab = Bps_to_icc(new_ab * MBYTE);
+		icc_ib = mbps_to_hz_icc(new_ib, 1000);
+		icc_ab = mbps_to_hz_icc(new_ab, 1000);
 	}
 
-	dev_dbg(dev, "ICC BW: AB: %u IB: %u\n", icc_ab, icc_ib);
+	dev_dbg(dev, "ICC BW: AB: %llu IB: %llu\n", icc_ab, icc_ib);
 
 	ret = icc_set_bw(d->icc_path, icc_ab, icc_ib);
 	if (ret < 0) {
