@@ -361,6 +361,7 @@
   devm_device_remove_group
   devm_extcon_dev_allocate
   devm_extcon_dev_register
+  devm_extcon_dev_unregister
   devm_extcon_register_notifier
   devm_free_irq
   devm_gpiod_get_optional
