@@ -935,6 +935,17 @@
 				qcom,glink-channels = "fastrpcglink-apps-dsp";
 				qcom,intents = <0x64 64>;
 			};
+
+			qcom,pmic_glink_rpmsg {
+				qcom,glink-channels = "PMIC_RTR_ADSP_APPS";
+			};
+
+			qcom,pmic_glink_log_rpmsg {
+				qcom,glink-channels = "PMIC_LOGS_ADSP_APPS";
+				qcom,intents = <0x800 5
+						0xc00 3>;
+			};
+
 		};
 	};
 
@@ -1239,6 +1250,33 @@
 		pil-mem = <&spss_region_mem>;
 		qcom,pil-size = <0x0F0000>; // padding to 960KB
 		status = "ok";
+	};
+
+	qcom,pmic_glink {
+		compatible = "qcom,pmic-glink";
+		qcom,pmic-glink-channel = "PMIC_RTR_ADSP_APPS";
+
+		battery_charger: qcom,battery_charger {
+			compatible = "qcom,battery-charger";
+		};
+
+		qcom,ucsi {
+			compatible = "qcom,ucsi-glink";
+		};
+
+		altmode: qcom,altmode {
+			compatible = "qcom,altmode-glink";
+			#altmode-cells = <1>;
+		};
+	};
+
+	qcom,pmic_glink_log {
+		compatible = "qcom,pmic-glink";
+		qcom,pmic-glink-channel = "PMIC_LOGS_ADSP_APPS";
+
+		qcom,battery_debug {
+			compatible = "qcom,battery-debug";
+		};
 	};
 
 	cache-controller@19200000 {
