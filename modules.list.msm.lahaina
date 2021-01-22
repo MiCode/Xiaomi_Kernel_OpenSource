@@ -84,3 +84,8 @@ kryo_arm64_edac.ko
 qcom-cpufreq-hw.ko
 sched-walt.ko
 msm_performance.ko
+msm_rtb.ko
+qcom-dload-mode.ko
+qcom-reboot-reason.ko
+hh_virt_wdt.ko
+qcom_wdt_core.ko
