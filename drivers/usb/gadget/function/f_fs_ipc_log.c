@@ -112,15 +112,12 @@ static void *get_ipc_context(struct ffs_data *ffs)
 {
 	int i = 0;
 
-	while (ipc_log_s[i].ffs != ffs) {
-		if (i < num_devices)
-			i++;
-		else {
-			kprobe_log(ipc_log_s[0].context, "ffs_sb_fill", "error");
-			return NULL;
-		}
-	}
-	return ipc_log_s[i].context;
+	for (i = 0; i < num_devices; i++)
+		if (ipc_log_s[i].ffs == ffs)
+			return ipc_log_s[i].context;
+
+	pr_err("Unable to locate ffs kprobe context\n");
+	return NULL;
 }
 
 static int entry_ffs_user_copy_worker(struct kretprobe_instance *ri,
@@ -620,8 +617,12 @@ static int entry_ffs_func_bind(struct kretprobe_instance *ri,
 		container_of(f->fi, struct f_fs_opts, func_inst);
 	/* func->ffs not set yet; get ffs_data via ffs_opts instead */
 	struct ffs_data *ffs = ffs_opts->dev->ffs_data;
-	void *context = get_ipc_context(ffs);
+	void *context;
 
+	if (!ffs)
+		return 0;
+
+	context = get_ipc_context(ffs);
 	data->x0 = ffs;
 	kprobe_log(context, ri->rp->kp.symbol_name, "enter");
 	kprobe_log(context, "_ffs_func_bind",
@@ -636,8 +637,12 @@ static int exit_ffs_func_bind(struct kretprobe_instance *ri,
 	struct kprobe_data *data = (struct kprobe_data *)ri->data;
 	int ret = (int)regs_return_value(regs);
 	struct ffs_data *ffs = data->x0;
-	void *context = get_ipc_context(ffs);
+	void *context;
 
+	if (!ffs)
+		return 0;
+
+	context = get_ipc_context(ffs);
 	if (ret < 0)
 		kprobe_log(context, ri->rp->kp.symbol_name, "exit: ret %d", ret);
 	return 0;
