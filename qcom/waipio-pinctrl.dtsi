@@ -1435,6 +1435,66 @@
 			};
 		};
 	};
+
+	nfc {
+		nfc_int_active: nfc_int_active {
+			/* active state */
+			mux {
+				/* NFC Read Interrupt */
+				pins = "gpio46";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio46";
+				drive-strength = <2>; /* 2 MA */
+				bias-pull-down;
+			};
+		};
+
+		nfc_int_suspend: nfc_int_suspend {
+			/* sleep state */
+			mux {
+				/* NFC Read Interrupt */
+				pins = "gpio46";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio46";
+				drive-strength = <2>; /* 2 MA */
+				bias-pull-down;
+			};
+		};
+
+		nfc_enable_active: nfc_enable_active {
+			mux {
+				/* Enable, Firmware and Clock request gpios */
+				pins = "gpio34", "gpio45", "gpio35";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio34", "gpio45", "gpio35";
+				drive-strength = <2>; /* 2 MA */
+				bias-disable;
+			};
+		};
+
+		nfc_enable_suspend: nfc_enable_suspend {
+			mux {
+				pins = "gpio34", "gpio45", "gpio35";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio34", "gpio45", "gpio35";
+				drive-strength = <2>; /* 2 MA */
+				bias-disable;
+			};
+		};
+	};
+
 	pri_aux_pcm_clk {
 		pri_aux_pcm_clk_sleep: pri_aux_pcm_clk_sleep {
 			mux {
