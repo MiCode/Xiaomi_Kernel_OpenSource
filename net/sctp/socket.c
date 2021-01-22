@@ -1319,7 +1319,7 @@ static int __sctp_setsockopt_connectx(struct sock *sk,
 
 	kaddrs = memdup_user(addrs, addrs_size);
 	if (IS_ERR(kaddrs))
-		return PTR_ERR(kaddrs);
+		return PTR_ERR(kaddrs) == -EFAULT ? -EINVAL : PTR_ERR(kaddrs);
 
 	/* Allow security module to validate connectx addresses. */
 	err = security_sctp_bind_connect(sk, SCTP_SOCKOPT_CONNECTX,
