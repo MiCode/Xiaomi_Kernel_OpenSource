@@ -1907,7 +1907,7 @@ static void ISP_DumpDmaDeepDbg(enum ISP_IRQ_TYPE_ENUM module)
 			 (0x00040101 + (i * 0x100)));
 #elif defined(CAMERA_ISP_MT6853)
 		ISP_WR32(CAM_REG_DBG_SET(regModule),
-			 (0x00800100 + (i * 0x100)));
+			 (0x00040100 + (i * 0x100)));
 #endif
 		moduleReqStatus[i] =
 			ISP_RD32(CAM_REG_DBG_PORT(inner_regModule));
@@ -1919,7 +1919,7 @@ static void ISP_DumpDmaDeepDbg(enum ISP_IRQ_TYPE_ENUM module)
 			 (0x00041101 + (i * 0x100)));
 #elif defined(CAMERA_ISP_MT6853)
 		ISP_WR32(CAM_REG_DBG_SET(regModule),
-			 (0x00801100 + (i * 0x100)));
+			 (0x00041100 + (i * 0x100)));
 #endif
 		moduleRdyStatus[i] =
 			ISP_RD32(CAM_REG_DBG_PORT(inner_regModule));
@@ -4043,11 +4043,10 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 					ISP_WR32(
 						CAM_REG_TG_VF_CON(DebugFlag[1]),
 						(vf + 0x1));
-#ifdef CAMERA_ISP_MT6873
+
 					ISP_WR32(CAM_REG_DBG_SET(ISP_CAM_A_IDX), 0x00040000);
 					ISP_WR32(CAM_REG_DBG_SET(ISP_CAM_B_IDX), 0x00040000);
 					ISP_WR32(CAM_REG_DBG_SET(ISP_CAM_C_IDX), 0x00040000);
-#endif
 				}
 
 #if (TIMESTAMP_QUEUE_EN == 1)
@@ -7321,14 +7320,14 @@ void IRQ_INT_ERR_CHECK_CAM(unsigned int WarnStatus, unsigned int ErrStatus,
 				module, m_CurrentPPB, _LOG_ERR,
 				"CAM_A:raw_int_err:0x%x, raw_int5_wrn:0x%x,lsci_wrn:0x%x\n",
 				ErrStatus, WarnStatus, warnTwo);
-#ifdef CAMERA_ISP_MT6873
+
 			/* TG ERR print */
 			if (ErrStatus & TG_ERR_ST) {
 				ISP_DumpDmaDeepDbg(ISP_IRQ_TYPE_INT_CAM_A_ST);
 				ISP_DumpDmaDeepDbg(ISP_IRQ_TYPE_INT_CAM_B_ST);
 				ISP_DumpDmaDeepDbg(ISP_IRQ_TYPE_INT_CAM_C_ST);
 			}
-#endif
+
 			/* DMA ERR print */
 			if (ErrStatus & DMA_ERR_ST)
 				ISP_DumpDmaDeepDbg(module);
@@ -7357,7 +7356,7 @@ void IRQ_INT_ERR_CHECK_CAM(unsigned int WarnStatus, unsigned int ErrStatus,
 				ErrStatus, WarnStatus, warnTwo);
 
 			/* DMA ERR print */
-			if (ErrStatus & DMA_ERR_ST)
+			if (ErrStatus & (DMA_ERR_ST | TG_ERR_ST))
 				ISP_DumpDmaDeepDbg(module);
 
 			break;
@@ -7384,7 +7383,7 @@ void IRQ_INT_ERR_CHECK_CAM(unsigned int WarnStatus, unsigned int ErrStatus,
 				ErrStatus, WarnStatus, warnTwo);
 
 			/* DMA ERR print */
-			if (ErrStatus & DMA_ERR_ST)
+			if (ErrStatus & (DMA_ERR_ST | TG_ERR_ST))
 				ISP_DumpDmaDeepDbg(module);
 
 			break;

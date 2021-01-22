@@ -874,7 +874,7 @@ int ISP_SetPMQOS(
 			ptr = (struct ISP_BW *)pvalue;
 			mtk_pmqos_set(module, i, ptr[i]);
 		}
-		LOG_DBG(
+		LOG_INF(
 			"PM_QoS: module[%d]-bw_update, bw(peak avg)(%d %d) MB/s\n",
 			module, ptr[_rrzo_].peak, ptr[_rrzo_].avg);
 	}
