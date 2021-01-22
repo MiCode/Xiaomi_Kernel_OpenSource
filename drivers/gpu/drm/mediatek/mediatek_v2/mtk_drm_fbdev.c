@@ -285,28 +285,39 @@ found:
 	return 0;
 }
 
+static int free_reserved_buf(phys_addr_t start_phys, phys_addr_t end_phys)
+{
+	phys_addr_t pos;
+
+	BUG_ON(start_phys & ~PAGE_MASK);
+	BUG_ON(end_phys & ~PAGE_MASK);
+
+	if (end_phys <= start_phys) {
+		DDPPR_ERR("%s end_phys:0x%lx is smaller than start_phys:0x%lx\n",
+			__func__, (unsigned long)end_phys, (unsigned long)start_phys);
+
+		return -1;
+	}
+
+	for (pos = start_phys; pos < end_phys; pos += PAGE_SIZE)
+		free_reserved_page(phys_to_page(pos));
+
+	return 0;
+}
+
 int free_fb_buf(void)
 {
-	unsigned long va_start = 0;
-	unsigned long va_end = 0;
 	phys_addr_t fb_base;
 	unsigned int vramsize, fps;
 
 	_parse_tag_videolfb(&vramsize, &fb_base, &fps);
 
-	if (!fb_base) {
+	if (fb_base)
+		free_reserved_buf(fb_base, fb_base + vramsize);
+	else {
 		DDPINFO("%s:get fb pa error\n", __func__);
 		return -1;
 	}
-
-	va_start = (unsigned long)__va(fb_base);
-	va_end = (unsigned long)__va(fb_base + (unsigned long)vramsize);
-	if (va_start)
-		//free_reserved_area((void *)va_start,
-		//		   (void *)va_end, 0xff, "fbmem");
-		;
-	else
-		DDPINFO("%s:va invalid\n", __func__);
 
 	return 0;
 }
