@@ -2200,11 +2200,14 @@
   __tracepoint_cpu_idle
   __tracepoint_ipi_entry
   __tracepoint_ipi_raise
+  __tracepoint_irq_handler_entry
   tracepoint_probe_register
+  tracepoint_probe_register_prio
   tracepoint_probe_unregister
   __tracepoint_rwmmio_post_read
   __tracepoint_rwmmio_read
   __tracepoint_rwmmio_write
+  __tracepoint_sched_switch
   __tracepoint_suspend_resume
   trace_print_array_seq
   trace_print_hex_seq
