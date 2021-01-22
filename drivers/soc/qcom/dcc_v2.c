@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -236,7 +236,10 @@ static int dcc_read_status(struct dcc_drvdata *drvdata)
 				curr_list, bus_status);
 
 			ll_cfg = dcc_readl(drvdata, DCC_LL_CFG(curr_list));
-			tmp_ll_cfg = ll_cfg & ~BIT(9);
+			if (drvdata->mem_map_ver == DCC_MEM_MAP_VER3)
+				tmp_ll_cfg = ll_cfg & ~BIT(8);
+			else
+				tmp_ll_cfg = ll_cfg & ~BIT(9);
 			dcc_writel(drvdata, tmp_ll_cfg, DCC_LL_CFG(curr_list));
 			dcc_writel(drvdata, 0x3,
 				   DCC_LL_BUS_ACCESS_STATUS(curr_list));
@@ -261,7 +264,10 @@ static int dcc_sw_trigger(struct dcc_drvdata *drvdata)
 		if (!drvdata->enable[curr_list])
 			continue;
 		ll_cfg = dcc_readl(drvdata, DCC_LL_CFG(curr_list));
-		tmp_ll_cfg = ll_cfg & ~BIT(9);
+		if (drvdata->mem_map_ver == DCC_MEM_MAP_VER3)
+			tmp_ll_cfg = ll_cfg & ~BIT(8);
+		else
+			tmp_ll_cfg = ll_cfg & ~BIT(9);
 		dcc_writel(drvdata, tmp_ll_cfg, DCC_LL_CFG(curr_list));
 		dcc_writel(drvdata, 1, DCC_LL_SW_TRIGGER(curr_list));
 		dcc_writel(drvdata, ll_cfg, DCC_LL_CFG(curr_list));
@@ -714,9 +720,13 @@ static int dcc_enable(struct dcc_drvdata *drvdata)
 		}
 
 		/* 5. Configure trigger */
-		dcc_writel(drvdata, BIT(9) | ((drvdata->cti_trig << 8) |
-			   (drvdata->data_sink[list] << 4) |
-			   (drvdata->func_type[list])), DCC_LL_CFG(list));
+		if (drvdata->mem_map_ver == DCC_MEM_MAP_VER3)
+			dcc_writel(drvdata, BIT(8) | ((drvdata->data_sink[list] << 4) |
+				   (drvdata->func_type[list])), DCC_LL_CFG(list));
+		else
+			dcc_writel(drvdata, BIT(9) | ((drvdata->cti_trig << 8) |
+				   (drvdata->data_sink[list] << 4) |
+				   (drvdata->func_type[list])), DCC_LL_CFG(list));
 	}
 
 err:
@@ -1468,6 +1478,11 @@ static ssize_t cti_trig_show(struct device *dev,
 {
 	struct dcc_drvdata *drvdata = dev_get_drvdata(dev);
 
+	if (drvdata->mem_map_ver == DCC_MEM_MAP_VER3) {
+		dev_err(dev, "cti trig is not supported\n");
+		return -EINVAL;
+	}
+
 	return scnprintf(buf, PAGE_SIZE, "%d\n", drvdata->cti_trig);
 }
 
@@ -1478,6 +1493,11 @@ static ssize_t cti_trig_store(struct device *dev,
 	unsigned long val;
 	int ret = 0;
 	struct dcc_drvdata *drvdata = dev_get_drvdata(dev);
+
+	if (drvdata->mem_map_ver == DCC_MEM_MAP_VER3) {
+		dev_err(dev, "cti trig is not supported\n");
+		return -EINVAL;
+	}
 
 	if (kstrtoul(buf, 16, &val))
 		return -EINVAL;
