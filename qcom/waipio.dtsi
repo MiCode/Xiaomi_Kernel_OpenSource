@@ -2439,6 +2439,7 @@
 		qcom,channel = <0>;
 		qcom,ee = <0>;
 		qcom,bus-id = <1>;
+		depends-on-supply = <&spmi0_bus>;
 	};
 
 	spmi0_debug_bus: qcom,spmi-debug@10b14000 {
@@ -2450,6 +2451,7 @@
 		qcom,fuse-enable-bit = <18>;
 		#address-cells = <2>;
 		#size-cells = <0>;
+		depends-on-supply = <&spmi1_bus>;
 
 		qcom,pmk8350-debug@0 {
 			compatible = "qcom,spmi-pmic";
