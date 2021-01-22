@@ -102,7 +102,7 @@ static int fts_i2c_read(u8 *cmd, u32 cmdlen, u8 *data, u32 datalen)
 	for (i = 0; i < I2C_RETRY_NUMBER; i++) {
 		ret = i2c_transfer(ts_data->client->adapter, msg, msg_num);
 		if (ret < 0) {
-#ifdef CONFIG_ST_TRUSTED_TOUCH
+#ifdef CONFIG_FTS_TRUSTED_TOUCH
 #ifdef CONFIG_ARCH_QTI_VM
 			if (atomic_read(&ts_data->trusted_touch_enabled) &&
 					ret == -ECONNRESET) {
@@ -122,7 +122,7 @@ static int fts_i2c_read(u8 *cmd, u32 cmdlen, u8 *data, u32 datalen)
 	}
 
 	if (ret < 0) {
-#ifdef CONFIG_ST_TRUSTED_TOUCH
+#ifdef CONFIG_FTS_TRUSTED_TOUCH
 #ifdef CONFIG_ARCH_QTI_VM
 		pr_err("initiating abort due to i2c xfer failure\n");
 		fts_ts_trusted_touch_tvm_i2c_failure_report(ts_data);
@@ -156,7 +156,7 @@ static int fts_i2c_write(u8 *writebuf, u32 writelen)
 	for (i = 0; i < I2C_RETRY_NUMBER; i++) {
 		ret = i2c_transfer(ts_data->client->adapter, &msgs, 1);
 		if (ret < 0) {
-#ifdef CONFIG_ST_TRUSTED_TOUCH
+#ifdef CONFIG_FTS_TRUSTED_TOUCH
 #ifdef CONFIG_ARCH_QTI_VM
 			if (atomic_read(&ts_data->trusted_touch_enabled) &&
 				ret == -ECONNRESET){
@@ -175,7 +175,7 @@ static int fts_i2c_write(u8 *writebuf, u32 writelen)
 	}
 
 	if (ret < 0) {
-#ifdef CONFIG_ST_TRUSTED_TOUCH
+#ifdef CONFIG_FTS_TRUSTED_TOUCH
 #ifdef CONFIG_ARCH_QTI_VM
 		pr_err("initiating abort due to i2c xfer failure\n");
 		fts_ts_trusted_touch_tvm_i2c_failure_report(ts_data);
