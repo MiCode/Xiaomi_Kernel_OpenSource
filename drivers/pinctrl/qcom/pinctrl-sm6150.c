@@ -242,14 +242,14 @@ static const struct pinctrl_pin_desc sm6150_pins[] = {
 	PINCTRL_PIN(120, "GPIO_120"),
 	PINCTRL_PIN(121, "GPIO_121"),
 	PINCTRL_PIN(122, "GPIO_122"),
-	PINCTRL_PIN(123, "SDC1_RCLK"),
-	PINCTRL_PIN(124, "SDC1_CLK"),
-	PINCTRL_PIN(125, "SDC1_CMD"),
-	PINCTRL_PIN(126, "SDC1_DATA"),
-	PINCTRL_PIN(127, "SDC2_CLK"),
-	PINCTRL_PIN(128, "SDC2_CMD"),
-	PINCTRL_PIN(129, "SDC2_DATA"),
-	PINCTRL_PIN(130, "UFS_RESET"),
+	PINCTRL_PIN(123, "UFS_RESET"),
+	PINCTRL_PIN(124, "SDC1_RCLK"),
+	PINCTRL_PIN(125, "SDC1_CLK"),
+	PINCTRL_PIN(126, "SDC1_CMD"),
+	PINCTRL_PIN(127, "SDC1_DATA"),
+	PINCTRL_PIN(128, "SDC2_CLK"),
+	PINCTRL_PIN(129, "SDC2_CMD"),
+	PINCTRL_PIN(130, "SDC2_DATA"),
 };
 
 #define DECLARE_MSM_GPIO_PINS(pin) \
@@ -378,14 +378,14 @@ DECLARE_MSM_GPIO_PINS(120);
 DECLARE_MSM_GPIO_PINS(121);
 DECLARE_MSM_GPIO_PINS(122);
 
-static const unsigned int sdc1_rclk_pins[] = { 123 };
-static const unsigned int sdc1_clk_pins[] = { 124 };
-static const unsigned int sdc1_cmd_pins[] = { 125 };
-static const unsigned int sdc1_data_pins[] = { 126 };
-static const unsigned int sdc2_clk_pins[] = { 127 };
-static const unsigned int sdc2_cmd_pins[] = { 128 };
-static const unsigned int sdc2_data_pins[] = { 129 };
-static const unsigned int ufs_reset_pins[] = { 130 };
+static const unsigned int sdc1_rclk_pins[] = { 124 };
+static const unsigned int sdc1_clk_pins[] = { 125 };
+static const unsigned int sdc1_cmd_pins[] = { 126 };
+static const unsigned int sdc1_data_pins[] = { 127 };
+static const unsigned int sdc2_clk_pins[] = { 128 };
+static const unsigned int sdc2_cmd_pins[] = { 129 };
+static const unsigned int sdc2_data_pins[] = { 130 };
+static const unsigned int ufs_reset_pins[] = { 123 };
 
 enum sm6150_functions {
 	msm_mux_qup02,
@@ -1559,84 +1559,34 @@ static const struct msm_pingroup sm6150_groups[] = {
 			 NA, NA, NA, NA),
 	[121] = PINGROUP(121, SOUTH, mclk1, NA, NA, NA, NA, NA, NA, NA, NA),
 	[122] = PINGROUP(122, SOUTH, mclk2, NA, NA, NA, NA, NA, NA, NA, NA),
-	[123] = SDC_QDSD_PINGROUP(sdc1_rclk, 0x59a000, 15, 0),
-	[124] = SDC_QDSD_PINGROUP(sdc1_clk, 0x59a000, 13, 6),
-	[125] = SDC_QDSD_PINGROUP(sdc1_cmd, 0x59a000, 11, 3),
-	[126] = SDC_QDSD_PINGROUP(sdc1_data, 0x59a000, 9, 0),
-	[127] = SDC_QDSD_PINGROUP(sdc2_clk, 0xd98000, 14, 6),
-	[128] = SDC_QDSD_PINGROUP(sdc2_cmd, 0xd98000, 11, 3),
-	[129] = SDC_QDSD_PINGROUP(sdc2_data, 0xd98000, 9, 0),
-	[130] = UFS_RESET(ufs_reset, 0x59f000),
+	[123] = UFS_RESET(ufs_reset, 0x59f000),
+	[124] = SDC_QDSD_PINGROUP(sdc1_rclk, 0x59a000, 15, 0),
+	[125] = SDC_QDSD_PINGROUP(sdc1_clk, 0x59a000, 13, 6),
+	[126] = SDC_QDSD_PINGROUP(sdc1_cmd, 0x59a000, 11, 3),
+	[127] = SDC_QDSD_PINGROUP(sdc1_data, 0x59a000, 9, 0),
+	[128] = SDC_QDSD_PINGROUP(sdc2_clk, 0xd98000, 14, 6),
+	[129] = SDC_QDSD_PINGROUP(sdc2_cmd, 0xd98000, 11, 3),
+	[130] = SDC_QDSD_PINGROUP(sdc2_data, 0xd98000, 9, 0),
+};
+
+static const struct msm_gpio_wakeirq_map sm6150_pdc_map[] = {
+	{ 1, 45 }, { 3, 31 }, { 7, 55 }, { 9, 110 }, { 11, 34 },
+	{ 13, 33 }, { 14, 35 }, { 17, 46 }, { 19, 48 }, { 21, 83 },
+	{ 22, 36 }, { 26, 38 }, { 35, 37 }, { 39, 118 }, { 41, 47 },
+	{ 47, 49 }, { 48, 51 }, { 50, 52 }, { 51, 116 }, { 55, 56 },
+	{ 56, 57 }, { 57, 58 }, { 60, 60 }, { 71, 54 }, { 80, 73 },
+	{ 81, 64 }, { 82, 50 }, { 83, 65 }, { 84, 92 }, { 85, 99 },
+	{ 86, 67 }, { 87, 84 }, { 88, 117 }, { 89, 115 }, { 90, 69 },
+	{ 92, 88}, { 93, 75 }, { 94, 91 }, { 95, 72 }, { 96, 82 },
+	{ 97, 74 }, { 98, 95 }, { 99, 94 }, { 100, 100 }, { 101, 40 },
+	{ 102, 93 }, { 103, 77 }, { 104, 78 }, { 105, 96 }, { 107, 97 },
+	{ 108, 111 }, { 112, 112 }, { 113, 113 }, { 117, 85 }, { 118, 102},
+	{ 119, 87 }, { 120, 114}, { 121, 89 }, { 122, 90},
 };
 
 static struct msm_dir_conn sm6150_dir_conn[] = {
-	{1, 525},
-	{3, 511},
-	{7, 535},
-	{9, 625},
-	{11, 514},
-	{13, 513},
-	{14, 515},
-	{17, 526},
-	{19, 528},
-	{21, 563},
-	{22, 516},
-	{26, 518},
-	{35, 517},
-	{39, 633}, /* GPIO 39 mapped to SPI 640 as well */
-	{41, 527},
-	{47, 529},
-	{48, 531},
-	{50, 532},
-	{51, 631}, /* GPIO 51 mapped to SPI 638 as well */
-	{55, 536},
-	{56, 537},
-	{57, 538},
-	{60, 540},
-	{71, 534},
-	{80, 553},
-	{81, 544},
-	{82, 530},
-	{83, 545},
-	{84, 572},
-	{85, 614},
-	{86, 547},
-	{87, 564},
-	{88, 632}, /* GPIO 88 mapped to SPI 639 as well */
-	{89, 630}, /* GPIO 89 mapped to SPI 637 as well */
-	{90, 549},
-	{92, 568},
-	{93, 555},
-	{94, 571},
-	{95, 552},
-	{96, 562},
-	{97, 554},
-	{98, 610},
-	{99, 609},
-	{100, 615},
-	{101, 520},
-	{102, 573},
-	{103, 557},
-	{104, 558},
-	{105, 611},
-	{107, 612},
-	{108, 626},
-	{112, 627},
-	{113, 628},
-	{117, 565},
-	{118, 617},
-	{119, 567},
-	{120, 629},
-	{121, 569},
-	{122, 570},
-	{-1, 216},
-	{-1, 215},
-	{-1, 214},
-	{-1, 213},
-	{-1, 212},
-	{-1, 211},
-	{-1, 210},
-	{-1, 209},
+	  {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0},
+	  {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}
 };
 
 #ifdef CONFIG_HIBERNATION
@@ -1654,7 +1604,9 @@ static struct msm_pinctrl_soc_data sm6150_pinctrl = {
 	.nfunctions = ARRAY_SIZE(sm6150_functions),
 	.groups = sm6150_groups,
 	.ngroups = ARRAY_SIZE(sm6150_groups),
-	.ngpios = 123,
+	.ngpios = 124,
+	.wakeirq_map = sm6150_pdc_map,
+	.nwakeirq_map = ARRAY_SIZE(sm6150_pdc_map),
 	.dir_conn = sm6150_dir_conn,
 #ifdef CONFIG_HIBERNATION
 	.dir_conn_addr = tile_dir_conn_addr,
