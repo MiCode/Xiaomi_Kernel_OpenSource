@@ -149,6 +149,7 @@ void register_dlpt_notify(dlpt_callback dlpt_cb,
 			dlpt_cb(dlpt.imix);
 	}
 }
+EXPORT_SYMBOL(register_dlpt_notify);
 
 static void exec_dlpt_callback(int dlpt_val)
 {
