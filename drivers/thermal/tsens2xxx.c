@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -12,6 +12,7 @@
 #include "tsens.h"
 #include "thermal_core.h"
 #include <linux/qcom_scm.h>
+#include <linux/msm_rtb.h>
 
 #define TSENS_TM_INT_EN(n)			((n) + 0x4)
 #define TSENS_TM_CRITICAL_INT_STATUS(n)		((n) + 0x14)

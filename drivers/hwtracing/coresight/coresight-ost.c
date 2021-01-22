@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2017, 2021 The Linux Foundation. All rights reserved.
  */
 
 #include <linux/device.h>
 #include <linux/bitmap.h>
 #include <linux/io.h>
 #include <linux/coresight.h>
+#include <linux/msm_rtb.h>
 #include "coresight-ost.h"
 #include <linux/sched/clock.h>
 
