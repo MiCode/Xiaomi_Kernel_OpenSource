@@ -4,7 +4,7 @@
  *
  * Copyright (C) 2016 Linaro Ltd
  * Copyright (C) 2014 Sony Mobile Communications AB
- * Copyright (c) 2012-2013, 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -37,6 +37,7 @@
 static struct icc_path *scm_perf_client;
 static int scm_pas_bw_count;
 static DEFINE_MUTEX(scm_pas_bw_mutex);
+bool timeout_disabled;
 
 struct adsp_data {
 	int crash_reason_smem;
@@ -271,11 +272,13 @@ static int adsp_start(struct rproc *rproc)
 	}
 	scm_pas_disable_bw();
 
-	ret = qcom_q6v5_wait_for_start(&adsp->q6v5, msecs_to_jiffies(5000));
-	if (ret == -ETIMEDOUT) {
-		dev_err(adsp->dev, "start timed out\n");
-		qcom_scm_pas_shutdown(adsp->pas_id);
-		goto disable_regs;
+	if (!timeout_disabled) {
+		ret = qcom_q6v5_wait_for_start(&adsp->q6v5, msecs_to_jiffies(5000));
+		if (ret == -ETIMEDOUT) {
+			dev_err(adsp->dev, "start timed out\n");
+			qcom_scm_pas_shutdown(adsp->pas_id);
+			goto disable_regs;
+		}
 	}
 
 	return 0;
@@ -608,6 +611,7 @@ static int adsp_probe(struct platform_device *pdev)
 	if (ret)
 		goto detach_proxy_pds;
 
+	timeout_disabled = qcom_pil_timeouts_disabled();
 	qcom_add_glink_subdev(rproc, &adsp->glink_subdev, desc->ssr_name);
 	qcom_add_smd_subdev(rproc, &adsp->smd_subdev);
 	qcom_add_ssr_subdev(rproc, &adsp->ssr_subdev, desc->ssr_name);
