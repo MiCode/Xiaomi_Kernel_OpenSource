@@ -504,7 +504,7 @@
 
 	trust_ui_vm_mem: trust_ui_vm_region@e0b00000 {
 		no-map;
-		reg = <0x0 0xe0b00000 0x0 0x7afc000>;
+		reg = <0x0 0xe0b00000 0x0 0x7a00000>;
 	};
 
 	trust_ui_vm_vblk0_ring: trust_ui_vm_vblk0_ring@e85fc000 {
