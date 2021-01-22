@@ -13,7 +13,7 @@ config MHI_NETDEV
 
 config MHI_UCI
 	tristate "MHI UCI"
-	depends on MHI_BUS
+	depends on MHI_BUS && MHI_BUS_MISC
 	help
 	  MHI based uci driver is for transferring data between host and
 	  modem using standard file operations from user space. Open, read,
