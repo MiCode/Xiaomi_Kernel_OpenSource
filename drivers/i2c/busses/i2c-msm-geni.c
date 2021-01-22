@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -132,6 +132,7 @@ struct geni_i2c_dev {
 	bool req_chan;
 	bool first_resume;
 	bool gpi_reset;
+	bool disable_dma_mode;
 };
 
 static struct geni_i2c_dev *gi2c_dev_dbg[MAX_SE];
@@ -1030,6 +1031,14 @@ static int geni_i2c_xfer(struct i2c_adapter *adap,
 		qcom_geni_i2c_calc_timeout(gi2c);
 		mode = msgs[i].len > 32 ? SE_DMA : FIFO_MODE;
 
+		/* Complete the transfer in FIFO mode if DMA mode
+		 * is not supported for some Automotive platform.
+		 */
+		if (gi2c->disable_dma_mode) {
+			GENI_SE_DBG(gi2c->ipcl, false, gi2c->dev,
+					"Disable DMA mode\n");
+			mode = FIFO_MODE;
+		}
 		ret = geni_se_select_mode(gi2c->base, mode);
 		if (ret) {
 			dev_err(gi2c->dev, "%s: Error mode init %d:%d:%d\n",
@@ -1282,6 +1291,9 @@ static int geni_i2c_probe(struct platform_device *pdev)
 			ret = PTR_ERR(gi2c->i2c_rsc.geni_gpio_sleep);
 			return ret;
 		}
+
+		gi2c->disable_dma_mode = of_property_read_bool(pdev->dev.of_node,
+						"qcom,disable-dma");
 
 		gi2c->irq = platform_get_irq(pdev, 0);
 		if (gi2c->irq < 0)
