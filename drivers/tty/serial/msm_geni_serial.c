@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/bitmap.h>
@@ -3023,11 +3023,18 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 
 	is_console = (drv->cons ? true : false);
 	dev_port = get_port_from_line(line, is_console);
+	dev_port->is_console = is_console;
 	if (IS_ERR_OR_NULL(dev_port)) {
 		ret = PTR_ERR(dev_port);
 		dev_err(&pdev->dev, "Invalid line %d(%d)\n",
 					line, ret);
 		goto exit_geni_serial_probe;
+	}
+
+	if (drv->cons && !con_enabled) {
+		dev_err(&pdev->dev, "%s, Console Disabled\n", __func__);
+		platform_set_drvdata(pdev, dev_port);
+		return 0;
 	}
 
 	uport = &dev_port->uport;
@@ -3039,7 +3046,6 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 	}
 
 	uport->dev = &pdev->dev;
-	dev_port->is_console = is_console;
 
 	ret = msm_geni_serial_read_dtsi(pdev, dev_port);
 	if (ret)
