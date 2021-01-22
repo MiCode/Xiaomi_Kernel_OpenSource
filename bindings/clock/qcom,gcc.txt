@@ -47,6 +47,10 @@ For more details on the TSENS properties please refer
 Documentation/devicetree/bindings/thermal/qcom-tsens.txt
 - protected-clocks : Protected clock specifier list as per common clock
  binding.
+- qcom,critical-clocks : List of clock specifiers that should be enabled during
+  probe and not registered with the clock framework.
+- qcom,critical-devices : List of device phandles whose associated clocks
+  should be enabled during probe and not registered with the clock framework.
 
 Example:
 	clock-controller@900000 {
@@ -80,4 +84,24 @@ Example of GCC with protected-clocks properties:
 				   <GCC_QSPI_CNOC_PERIPH_AHB_CLK>,
 				   <GCC_LPASS_Q6_AXI_CLK>,
 				   <GCC_LPASS_SWAY_CLK>;
+	};
+
+Example of GCC with qcom,critical-clocks properties:
+	clock-controller@100000 {
+		compatible = "qcom,waipio-gcc", "syscon";
+		reg = <0x100000 0x1f4200>;
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+		qcom,critical-clocks = <GCC_QUPV3_WRAP0_S5_CLK>,
+				       <GCC_QUPV3_WRAP_0_M_AHB_CLK>,
+				       <GCC_QUPV3_WRAP_0_S_AHB_CLK>;
+	};
+
+Example of GCC with qcom,critical-devices properties:
+	clock-controller@100000 {
+		compatible = "qcom,waipio-gcc", "syscon";
+		reg = <0x100000 0x1f4200>;
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+		qcom,critical-devices = <&qupv3_se5_i2c>;
 	};
