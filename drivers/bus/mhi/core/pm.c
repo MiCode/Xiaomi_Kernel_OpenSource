@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  *
  */
 
@@ -389,7 +389,7 @@ int mhi_pm_m3_transition(struct mhi_controller *mhi_cntrl)
 static int mhi_pm_mission_mode_transition(struct mhi_controller *mhi_cntrl)
 {
 	struct device *dev = &mhi_cntrl->mhi_dev->dev;
-	enum mhi_ee_type ee = MHI_EE_MAX;
+	enum mhi_ee_type ee = MHI_EE_MAX, current_ee = mhi_cntrl->ee;
 	int ret;
 
 	MHI_VERB("Processing Mission Mode transition\n");
@@ -409,6 +409,8 @@ static int mhi_pm_mission_mode_transition(struct mhi_controller *mhi_cntrl)
 
 	wake_up_all(&mhi_cntrl->state_event);
 
+	device_for_each_child(&mhi_cntrl->mhi_dev->dev, &current_ee,
+			      mhi_destroy_device);
 	mhi_cntrl->status_cb(mhi_cntrl, MHI_CB_EE_MISSION_MODE);
 
 	/* Force MHI to be in M0 state before continuing */
@@ -762,13 +764,11 @@ void mhi_pm_st_worker(struct work_struct *work)
 			/*
 			 * The MHI devices are only created when the client
 			 * device switches its Execution Environment (EE) to
-			 * either SBL or AMSS states. If FBC download is
-			 * expected, we do not create devices in SBL.
+			 * either SBL or AMSS states
 			 */
+			mhi_create_devices(mhi_cntrl);
 			if (mhi_cntrl->fbc_download)
 				mhi_download_amss_image(mhi_cntrl);
-			else
-				mhi_create_devices(mhi_cntrl);
 			break;
 		case DEV_ST_TRANSITION_MISSION_MODE:
 			mhi_pm_mission_mode_transition(mhi_cntrl);

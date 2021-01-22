@@ -241,6 +241,5 @@ config DA8XX_MSTPRI
 
 source "drivers/bus/fsl-mc/Kconfig"
 source "drivers/bus/mhi/Kconfig"
-source "drivers/bus/mhi/devices/Kconfig"
 
 endmenu

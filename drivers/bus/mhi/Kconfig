@@ -14,7 +14,7 @@ config MHI_BUS
 	  bus or shared memory.
 
 config MHI_BUS_MISC
-	bool "Modem Host Interface (MHI) bus support for miscellaneous features"
+	bool "Support for miscellaneous MHI features"
 	depends on MHI_BUS
 	help
 	  Miscellaneous features support for MHI Bus driver includes IPC logs,
@@ -29,3 +29,5 @@ config MHI_BUS_DEBUG
 	  Enable debugfs support for use with the MHI transport. Allows
 	  reading and/or modifying some values within the MHI controller
 	  for debug and test purposes.
+
+source "drivers/bus/mhi/devices/Kconfig"
