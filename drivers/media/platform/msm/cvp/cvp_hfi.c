@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <asm/memory.h>
@@ -80,10 +80,24 @@ const struct msm_cvp_hfi_defs cvp_hfi_defs[] = {
 	},
 	{
 		.size = 0xffffffff,
+		.type = HFI_CMD_SESSION_CVP_SET_FD_CHROMA_BUFFER,
+		.buf_offset = 0,
+		.buf_num = 0,
+		.resp = HAL_SESSION_CHROMA_SET_DONE,
+	},
+	{
+		.size = 0xffffffff,
 		.type = HFI_CMD_SESSION_CVP_RELEASE_PERSIST_BUFFERS,
 		.buf_offset = 0,
 		.buf_num = 0,
 		.resp = HAL_SESSION_PERSIST_REL_DONE,
+	},
+	{
+		.size = 0xffffffff,
+		.type = HFI_CMD_SESSION_CVP_RELEASE_FD_CHROMA_BUFFER,
+		.buf_offset = 0,
+		.buf_num = 0,
+		.resp = HAL_SESSION_CHROMA_REL_DONE,
 	},
 	{
 		.size = HFI_DS_CMD_SIZE,
@@ -2934,6 +2948,8 @@ static void **get_session_id(struct msm_cvp_cb_info *info)
 	case HAL_SESSION_FD_FRAME_CMD_DONE:
 	case HAL_SESSION_PERSIST_SET_DONE:
 	case HAL_SESSION_PERSIST_REL_DONE:
+	case HAL_SESSION_CHROMA_SET_DONE:
+	case HAL_SESSION_CHROMA_REL_DONE:
 	case HAL_SESSION_FD_CONFIG_CMD_DONE:
 	case HAL_SESSION_MODEL_BUF_CMD_DONE:
 	case HAL_SESSION_PROPERTY_INFO:
