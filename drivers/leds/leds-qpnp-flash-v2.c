@@ -30,6 +30,7 @@
 
 #define	FLASH_LED_REG_LED_STATUS2(base)		(base + 0x09)
 #define	FLASH_LED_VPH_DROOP_FAULT_MASK		BIT(4)
+#define	FLASH_LED_THERMAL_OTST_MASK		GENMASK(2, 0)
 
 #define	FLASH_LED_REG_INT_RT_STS(base)		(base + 0x10)
 
@@ -1201,6 +1202,7 @@ static int qpnp_flash_led_calc_thermal_current_lim(struct qpnp_flash_led *led,
 	if (rc < 0)
 		return rc;
 
+	otst_status &= FLASH_LED_THERMAL_OTST_MASK;
 	/* Look up current limit based on THERMAL_OTST status */
 	if (otst_status)
 		*thermal_current_lim =

@@ -708,8 +708,8 @@ void wil_tid_ampdu_rx_free(struct wil6210_priv *wil,
 void wil_tx_data_init(const struct wil6210_priv *wil,
 		      struct wil_ring_tx_data *txdata);
 void wil_init_txrx_ops_legacy_dma(struct wil6210_priv *wil);
-void wil_tx_latency_calc(struct wil6210_priv *wil, struct sk_buff *skb,
-			 struct wil_sta_info *sta);
+int wil_tx_latency_calc_common(struct wil6210_priv *wil, struct sk_buff *skb,
+			       struct wil_sta_info *sta);
 int wil_get_cid_by_ring(struct wil6210_priv *wil, struct wil_ring *ring);
 bool wil_is_special_packet(const struct sk_buff *skb);
 

@@ -46,6 +46,7 @@ config ARCH_BCM_IPROC
 config ARCH_BERLIN
 	bool "Marvell Berlin SoC Family"
 	select DW_APB_ICTL
+	select DW_APB_TIMER_OF
 	select GPIOLIB
 	select PINCTRL
 	help
@@ -190,6 +191,27 @@ config ARCH_SCUBA
 	  This enables support for the SCUBA chipset. If you do not
 	  wish to build a kernel that runs on this chipset, say 'N' here.
 
+config ARCH_QM215
+	bool "Enable Support for Qualcomm Technologies Inc. QM215"
+	depends on ARCH_QCOM
+	select CPU_FREQ_QCOM
+	select COMMON_CLK
+	select COMMON_CLK_QCOM
+	help
+	  This enables support for the QM215 chipset. If you do not
+	  wish to build a kernel that runs on this chipset, say 'N' here.
+
+config ARCH_MSM8937
+	bool "Enable Support for Qualcomm Technologies Inc. MSM8937"
+	depends on ARCH_QCOM
+	select CPU_FREQ_QCOM
+	select COMMON_CLK
+	select COMMON_CLK_QCOM
+	help
+	  This enables support for the MSM8937 chipset. If you do not
+	  wish to build a kernel that runs on this chipset, say 'N' here.
+
+
 config ARCH_SDM660
 	bool "Enable Support for Qualcomm Technologies, Inc. SDM660"
 	depends on ARCH_QCOM
@@ -205,6 +227,26 @@ config ARCH_REALTEK
 	help
 	  This enables support for the ARMv8 based Realtek chipsets,
 	  like the RTD1295.
+
+config ARCH_SDM429
+	bool "Enable Support for Qualcomm Technologies Inc. SDM429"
+	depends on ARCH_QCOM
+	select CPU_FREQ_QCOM
+	select COMMON_CLK
+	select COMMON_CLK_QCOM
+	help
+	  This enables support for the sdm429 chipset. If you do not
+	  wish to build a kernel that runs on this chipset, say 'N' here.
+
+config ARCH_SDM439
+	bool "Enable Support for Qualcomm Technologies Inc. SDM439"
+	depends on ARCH_QCOM
+	select CPU_FREQ_QCOM
+	select COMMON_CLK
+	select COMMON_CLK_QCOM
+	help
+	  This enables support for the sdm439 chipset. If you do not
+	  wish to build a kernel that runs on this chipset, say 'N' here.
 
 config ARCH_ROCKCHIP
 	bool "Rockchip Platforms"

@@ -886,8 +886,11 @@ static void process_diagid(uint8_t *buf, uint32_t len,
 		diag_id++;
 		new_request = 1;
 		pd_val = diag_query_pd(process_name);
-		if (pd_val < 0)
+		if (pd_val < 0) {
+			pr_err("diag: diagid request string: %s does not exist in the database\n",
+			process_name);
 			return;
+		}
 		diag_add_diag_id_to_list(diag_id, process_name,
 			pd_val, peripheral);
 		if (diagid_v2_feature_mask) {
