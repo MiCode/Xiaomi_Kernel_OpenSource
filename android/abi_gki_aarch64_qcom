@@ -1315,6 +1315,7 @@
   of_find_device_by_node
   of_find_i2c_device_by_node
   of_find_node_by_name
+  of_find_node_by_phandle
   of_find_node_opts_by_path
   of_find_node_with_property
   of_find_property
