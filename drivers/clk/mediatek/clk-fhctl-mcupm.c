@@ -43,12 +43,12 @@ struct fhctl_ipi_data {
 	} u;
 };
 
+static unsigned int ack_data;
 
 static int fhctl_to_tinysys_command(unsigned int cmd,
 				struct fhctl_ipi_data *ipi_data)
 {
 	int ret = 0;
-	unsigned int ack_data = 0;
 
 	pr_debug("send ipi command %x", cmd);
 
@@ -86,7 +86,6 @@ static int clk_mt_fh_mcupm_hal_init(void)
 {
 	/* Register MCUPM ipi device*/
 	int ret = 0;
-	unsigned int ack_data = 0;
 
 	ret = mtk_ipi_register(get_mcupm_ipidev(), CH_S_FHCTL, NULL,
 			NULL, (void *)&ack_data);
