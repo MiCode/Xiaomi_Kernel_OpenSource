@@ -3996,12 +3996,16 @@ out:
 	return ret;
 }
 
-#ifdef CONFIG_CNSS_QCA6750
 static int icnss_pm_runtime_suspend(struct device *dev)
 {
 	struct icnss_priv *priv = dev_get_drvdata(dev);
 	unsigned int value = 0;
 	int ret = 0;
+
+	if (priv->device_id != WCN6750_DEVICE_ID) {
+		icnss_pr_err("Ignore runtime suspend:\n");
+		goto out;
+	}
 
 	if (priv->magic != ICNSS_MAGIC) {
 		icnss_pr_err("Invalid drvdata for runtime suspend: dev %pK, data %pK, magic 0x%x\n",
@@ -4042,6 +4046,11 @@ static int icnss_pm_runtime_resume(struct device *dev)
 	struct icnss_priv *priv = dev_get_drvdata(dev);
 	int ret = 0;
 
+	if (priv->device_id != WCN6750_DEVICE_ID) {
+		icnss_pr_err("Ignore runtime resume:\n");
+		goto out;
+	}
+
 	if (priv->magic != ICNSS_MAGIC) {
 		icnss_pr_err("Invalid drvdata for runtime resume: dev %pK, data %pK, magic 0x%x\n",
 			     dev, priv, priv->magic);
@@ -4062,16 +4071,22 @@ out:
 
 static int icnss_pm_runtime_idle(struct device *dev)
 {
+	struct icnss_priv *priv = dev_get_drvdata(dev);
+
+	if (priv->device_id != WCN6750_DEVICE_ID) {
+		icnss_pr_err("Ignore runtime idle:\n");
+		goto out;
+	}
+
 	icnss_pr_vdbg("Runtime idle\n");
 
 	pm_request_autosuspend(dev);
 
+out:
 	return -EBUSY;
 }
 #endif
-#endif
 
-#ifdef CONFIG_CNSS_QCA6750
 static const struct dev_pm_ops icnss_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(icnss_pm_suspend,
 				icnss_pm_resume)
@@ -4080,14 +4095,6 @@ static const struct dev_pm_ops icnss_pm_ops = {
 	SET_RUNTIME_PM_OPS(icnss_pm_runtime_suspend, icnss_pm_runtime_resume,
 			   icnss_pm_runtime_idle)
 };
-#else
-static const struct dev_pm_ops icnss_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(icnss_pm_suspend,
-				icnss_pm_resume)
-	SET_NOIRQ_SYSTEM_SLEEP_PM_OPS(icnss_pm_suspend_noirq,
-				      icnss_pm_resume_noirq)
-};
-#endif
 
 static struct platform_driver icnss_driver = {
 	.probe  = icnss_probe,
