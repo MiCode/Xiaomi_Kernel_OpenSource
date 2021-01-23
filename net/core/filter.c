@@ -1475,7 +1475,7 @@ struct bpf_prog *__get_filter(struct sock_fprog *fprog, struct sock *sk)
 
 	if (copy_from_user(prog->insns, fprog->filter, fsize)) {
 		__bpf_prog_free(prog);
-		return ERR_PTR(-EFAULT);
+		return ERR_PTR(-EINVAL);
 	}
 
 	prog->len = fprog->len;
