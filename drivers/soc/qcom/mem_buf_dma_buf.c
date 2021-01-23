@@ -674,12 +674,32 @@ const struct mem_buf_dma_buf_ops mem_buf_dma_buf_ops = {
 };
 EXPORT_SYMBOL(mem_buf_dma_buf_ops);
 
-/*
- * Kernel API for Sharing, Lending, Recieving or Reclaiming
- * a dma-buf from a remote Virtual Machine.
- */
-int mem_buf_lend(struct dma_buf *dmabuf,
-			struct mem_buf_lend_kernel_arg *arg)
+static int validate_lend_vmids(struct mem_buf_lend_kernel_arg *arg,
+				bool is_lend)
+{
+	int i;
+	bool found = false;
+
+	for (i = 0; i < arg->nr_acl_entries; i++) {
+		if (arg->vmids[i] == current_vmid) {
+			found = true;
+			break;
+		}
+	}
+
+	if (found && is_lend) {
+		pr_err_ratelimited("Lend cannot target the current VM\n");
+		return -EINVAL;
+	} else if (!found && !is_lend) {
+		pr_err_ratelimited("Share must target the current VM\n");
+		return -EINVAL;
+	}
+	return 0;
+}
+
+int mem_buf_lend_internal(struct dma_buf *dmabuf,
+			struct mem_buf_lend_kernel_arg *arg,
+			bool is_lend)
 {
 	struct mem_buf_vmperm *vmperm;
 	struct sg_table *sgt;
@@ -718,6 +738,10 @@ int mem_buf_lend(struct dma_buf *dmabuf,
 			return -EINVAL;
 		}
 	}
+
+	ret = validate_lend_vmids(arg, is_lend);
+	if (ret)
+		return ret;
 
 	mutex_lock(&vmperm->lock);
 	if (vmperm->flags & MEM_BUF_WRAPPER_FLAG_STATIC_VM) {
@@ -790,10 +814,20 @@ err_resize:
 	return ret;
 }
 
+/*
+ * Kernel API for Sharing, Lending, Recieving or Reclaiming
+ * a dma-buf from a remote Virtual Machine.
+ */
+int mem_buf_lend(struct dma_buf *dmabuf,
+			struct mem_buf_lend_kernel_arg *arg)
+{
+	return mem_buf_lend_internal(dmabuf, arg, true);
+}
+
 int mem_buf_share(struct dma_buf *dmabuf,
 			struct mem_buf_lend_kernel_arg *arg)
 {
-	return mem_buf_lend(dmabuf, arg);
+	return mem_buf_lend_internal(dmabuf, arg, false);
 }
 
 void mem_buf_retrieve_release(struct qcom_sg_buffer *buffer)

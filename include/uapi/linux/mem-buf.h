@@ -104,7 +104,7 @@ struct mem_buf_alloc_ioctl_arg {
  * @nr_acl_entries: The number of ACL entries in @acl_list.
  * @acl_list: An array of structures, where each structure specifies a VMID
  * and the access permissions that the VMID will have to the memory to be
- * exported.
+ * exported. Must not include the local VMID.
  * @memparcel_hdl: The handle associated with the memparcel that was created by
  * granting access to the dma-buf for the VMIDs specified in @acl_list.
  *
@@ -179,6 +179,33 @@ struct mem_buf_reclaim_ioctl_arg {
 
 #define MEM_BUF_IOC_RECLAIM		_IOWR(MEM_BUF_IOC_MAGIC, 3,\
 					      struct mem_buf_reclaim_ioctl_arg)
+
+/**
+ * struct mem_buf_share_ioctl_arg: An request to share memory between the
+ * local VM and one or more remote VMs.
+ * @dma_buf_fd: The fd of the dma-buf that will be exported to another VM.
+ * @nr_acl_entries: The number of ACL entries in @acl_list.
+ * @acl_list: An array of structures, where each structure specifies a VMID
+ * and the access permissions that the VMID will have to the memory to be
+ * exported. Must include the local VMID.
+ * @memparcel_hdl: The handle associated with the memparcel that was created by
+ * granting access to the dma-buf for the VMIDs specified in @acl_list.
+ *
+ * All reserved fields must be zeroed out by the caller prior to invoking the
+ * import IOCTL command with this argument.
+ */
+struct mem_buf_share_ioctl_arg {
+	__u32 dma_buf_fd;
+	__u32 nr_acl_entries;
+	__u64 acl_list;
+	__u64 memparcel_hdl;
+	__u64 reserved0;
+	__u64 reserved1;
+	__u64 reserved2;
+};
+
+#define MEM_BUF_IOC_SHARE		_IOWR(MEM_BUF_IOC_MAGIC, 6,\
+					      struct mem_buf_share_ioctl_arg)
 
 
 #endif /* _UAPI_LINUX_MEM_BUF_H */

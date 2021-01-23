@@ -1578,6 +1578,7 @@ union mem_buf_ioctl_arg {
 	struct mem_buf_lend_ioctl_arg lend;
 	struct mem_buf_retrieve_ioctl_arg retrieve;
 	struct mem_buf_reclaim_ioctl_arg reclaim;
+	struct mem_buf_share_ioctl_arg share;
 };
 
 static int mem_buf_acl_to_vmid_perms_list(unsigned int nr_acl_entries,
@@ -1690,7 +1691,7 @@ struct hh_sgl_desc *dup_sgt_to_hh_sgl_desc(struct sg_table *sgt)
 	return hh_sgl;
 }
 
-static int mem_buf_lend_user(struct mem_buf_lend_ioctl_arg *uarg)
+static int mem_buf_lend_user(struct mem_buf_lend_ioctl_arg *uarg, bool is_lend)
 {
 	int *vmids, *perms;
 	int ret;
@@ -1715,7 +1716,7 @@ static int mem_buf_lend_user(struct mem_buf_lend_ioctl_arg *uarg)
 	karg.vmids = vmids;
 	karg.perms = perms;
 
-	ret = mem_buf_lend(dmabuf, &karg);
+	ret = mem_buf_lend_internal(dmabuf, &karg, is_lend);
 	if (ret)
 		goto err_lend;
 
@@ -1838,7 +1839,7 @@ static long mem_buf_dev_ioctl(struct file *filp, unsigned int cmd,
 		if (!(mem_buf_capability & MEM_BUF_CAP_SUPPLIER))
 			return -EOPNOTSUPP;
 
-		ret = mem_buf_lend_user(lend);
+		ret = mem_buf_lend_user(lend, true);
 		if (ret)
 			return ret;
 
@@ -1869,6 +1870,23 @@ static long mem_buf_dev_ioctl(struct file *filp, unsigned int cmd,
 			return ret;
 		break;
 	}
+	case MEM_BUF_IOC_SHARE:
+	{
+		struct mem_buf_share_ioctl_arg *share = &ioctl_arg.share;
+		int ret;
+
+		if (!(mem_buf_capability & MEM_BUF_CAP_SUPPLIER))
+			return -EOPNOTSUPP;
+
+		/* The two formats are currently identical */
+		ret = mem_buf_lend_user((struct mem_buf_lend_ioctl_arg *)share,
+					 false);
+		if (ret)
+			return ret;
+
+		break;
+	}
+
 	default:
 		return -ENOTTY;
 	}

@@ -94,5 +94,10 @@ void mem_buf_vm_exit(void);
 int mem_buf_vm_get_backend_api(int *vmids, unsigned int nr_acl_entries);
 /* @Return: A negative number on failure, or vmid on success */
 int mem_buf_fd_to_vmid(int fd);
+
+/* Functions from mem_buf_dma_buf.c */
+int mem_buf_lend_internal(struct dma_buf *dmabuf,
+			struct mem_buf_lend_kernel_arg *arg,
+			bool is_lend);
 #endif
 
