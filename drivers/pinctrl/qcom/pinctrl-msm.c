@@ -209,6 +209,10 @@ static int msm_pinmux_set_mux(struct pinctrl_dev *pctldev,
 	val = msm_readl_ctl(pctrl, g);
 	val &= ~mask;
 	val |= i << g->mux_bit;
+	/* Check if egpio present and enable that feature */
+	if (val & BIT(g->egpio_present))
+		val |= BIT(g->egpio_enable);
+
 	msm_writel_ctl(val, pctrl, g);
 
 	raw_spin_unlock_irqrestore(&pctrl->lock, flags);
