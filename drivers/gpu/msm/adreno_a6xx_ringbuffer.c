@@ -144,7 +144,7 @@ int a6xx_ringbuffer_submit(struct adreno_ringbuffer *rb,
 		 * If WPTR update fails, take inline snapshot and trigger
 		 * recovery.
 		 */
-		gmu_fault_snapshot(device);
+		gmu_core_fault_snapshot(device);
 		adreno_set_gpu_fault(adreno_dev,
 			ADRENO_GMU_FAULT_SKIP_SNAPSHOT);
 		adreno_dispatcher_schedule(device);

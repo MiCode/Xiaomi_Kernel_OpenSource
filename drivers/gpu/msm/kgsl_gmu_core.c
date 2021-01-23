@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  */
 
+#include <linux/iopoll.h>
 #include <linux/of.h>
 
 #include "adreno.h"
@@ -219,6 +220,31 @@ int gmu_core_dev_wait_for_active_transition(struct kgsl_device *device)
 
 	if (ops && ops->wait_for_active_transition)
 		return ops->wait_for_active_transition(device);
+
+	return 0;
+}
+
+void gmu_core_fault_snapshot(struct kgsl_device *device)
+{
+	device->gmu_fault = true;
+	kgsl_device_snapshot(device, NULL, true);
+}
+
+int gmu_core_timed_poll_check(struct kgsl_device *device,
+		unsigned int offset, unsigned int expected_ret,
+		unsigned int timeout_ms, unsigned int mask)
+{
+	u32 val;
+	void __iomem *addr = device->gmu_core.reg_virt +
+		((offset - device->gmu_core.gmu2gpu_offset) << 2);
+
+	if (WARN(!gmu_core_is_register_offset(device, offset),
+		"Out of bounds register read: 0x%x\n", offset))
+		return -EINVAL;
+
+	if (readl_poll_timeout(addr, val, (val & mask) == expected_ret, 100,
+		timeout_ms * 1000))
+		return -ETIMEDOUT;
 
 	return 0;
 }

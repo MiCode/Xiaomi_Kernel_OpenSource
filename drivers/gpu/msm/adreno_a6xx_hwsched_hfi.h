@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _ADRENO_A6XX_HWSCHED_HFI_H_
@@ -11,109 +11,8 @@
 	((HFI_MAX_MSG_SIZE - offsetof(struct hfi_issue_cmd_cmd, ibs)) \
 		/ sizeof(struct hfi_issue_ib))
 
-enum mem_kind {
-	/** @MEMKIND_GENERIC: Used for requesting generic memory */
-	MEMKIND_GENERIC = 0,
-	/** @MEMKIND_RB: Used for requesting ringbuffer memory */
-	MEMKIND_RB,
-	/** @MEMKIND_SCRATCH: Used for requesting scratch memory */
-	MEMKIND_SCRATCH,
-	/**
-	 * @MEMKIND_CSW_SMMU_INFO: Used for requesting SMMU record for
-	 * preemption context switching
-	 */
-	MEMKIND_CSW_SMMU_INFO,
-	/**
-	 * @MEMKIND_CSW_PRIV_NON_SECURE: Used for requesting privileged non
-	 * secure preemption records
-	 */
-	MEMKIND_CSW_PRIV_NON_SECURE,
-	/**
-	 * @MEMKIND_CSW_PRIV_SECURE: Used for requesting privileged secure
-	 * preemption records
-	 */
-	MEMKIND_CSW_PRIV_SECURE,
-	/**
-	 * @MEMKIND_CSW_NON_PRIV: Used for requesting non privileged per context
-	 * preemption buffer
-	 */
-	MEMKIND_CSW_NON_PRIV,
-	/**
-	 * @MEMKIND_CSW_COUNTER: Used for requesting preemption performance
-	 * counter save/restore buffer
-	 */
-	MEMKIND_CSW_COUNTER,
-	/**
-	 * @MEMKIND_CTXTREC_PREEMPT_CNTR: Used for requesting preemption
-	 * counter buffer
-	 */
-	MEMKIND_CTXTREC_PREEMPT_CNTR,
-	/** @MEMKIND_SYSLOG: Used for requesting system log memory */
-	MEMKIND_SYS_LOG,
-	/** @MEMKIND_CRASH_DUMP: Used for requesting carsh dumper memory */
-	MEMKIND_CRASH_DUMP,
-	/**
-	 * @MEMKIND_MMIO_DPU: Used for requesting Display processing unit's
-	 * register space
-	 */
-	MEMKIND_MMIO_DPU,
-	/**
-	 * @MEMKIND_MMIO_TCSR: Used for requesting Top CSR(contains SoC
-	 * doorbells) register space
-	 */
-	MEMKIND_MMIO_TCSR,
-	/**
-	 * @MEMKIND_MMIO_QDSS_STM: Used for requesting QDSS STM register space
-	 */
-	MEMKIND_MMIO_QDSS_STM,
-	/** @MEMKIND_PROFILE: Used for kernel profiling */
-	MEMKIND_PROFILE,
-	/** @MEMKIND_USER_PROFILING_IBS: Used for user profiling */
-	MEMKIND_USER_PROFILE_IBS,
-	NUM_HFI_MEMKINDS,
-	MEMKIND_NONE = 0x7fffffff,
-};
-
-/* CP/GFX pipeline can access */
-#define MEMFLAG_GFX_ACC         BIT(0)
-
-/* Buffer has APRIV protection in GFX PTEs */
-#define MEMFLAG_GFX_PRIV        BIT(1)
-
-/* Buffer is read-write for GFX PTEs. A 0 indicates read-only */
-#define MEMFLAG_GFX_WRITEABLE   BIT(2)
-
-/* GMU can access */
-#define MEMFLAG_GMU_ACC         BIT(3)
-
-/* Buffer has APRIV protection in GMU PTEs */
-#define MEMFLAG_GMU_PRIV        BIT(4)
-
-/* Buffer is read-write for GMU PTEs. A 0 indicates read-only */
-#define MEMFLAG_GMU_WRITEABLE   BIT(5)
-
-/* Buffer is located in GMU's non-cached bufferable VA range */
-#define MEMFLAG_GMU_BUFFERABLE  BIT(6)
-
-/* Buffer is located in GMU's cacheable VA range */
-#define MEMFLAG_GMU_CACHEABLE   BIT(7)
-
-/* Host can access */
-#define MEMFLAG_HOST_ACC        BIT(8)
-
-/* Host initializes the buffer */
-#define MEMFLAG_HOST_INIT       BIT(9)
-
-/* Gfx buffer needs to be secure */
-#define MEMFLAG_GFX_SECURE      BIT(12)
-
-struct mem_alloc_entry {
-	struct hfi_mem_alloc_desc desc;
-	struct kgsl_memdesc *gpu_md;
-};
-
 struct a6xx_hwsched_hfi {
-	struct mem_alloc_entry mem_alloc_table[32];
+	struct hfi_mem_alloc_entry mem_alloc_table[32];
 	u32 mem_alloc_entries;
 	/** @irq_mask: Store the hfi interrupt mask */
 	u32 irq_mask;

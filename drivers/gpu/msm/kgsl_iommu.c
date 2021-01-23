@@ -1565,7 +1565,9 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 	if (status)
 		return status;
 
-	_setup_lpac_context(mmu);
+	status = _setup_lpac_context(mmu);
+	if (status)
+		return status;
 
 	status = _setup_secure_context(mmu);
 	if (status)

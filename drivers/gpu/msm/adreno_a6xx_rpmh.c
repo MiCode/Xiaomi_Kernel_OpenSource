@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
@@ -10,6 +10,7 @@
 
 #include "adreno.h"
 #include "adreno_a6xx.h"
+#include "adreno_hfi.h"
 #include "kgsl_bus.h"
 #include "kgsl_device.h"
 
@@ -346,7 +347,9 @@ static int build_dcvs_table(struct adreno_device *adreno_dev)
 	struct rpmh_arc_vals gx_arc, cx_arc, mx_arc;
 	int ret;
 
-	CMD_MSG_HDR(hfi->dcvs_table, H2F_MSG_PERF_TBL);
+	ret = CMD_MSG_HDR(hfi->dcvs_table, H2F_MSG_PERF_TBL);
+	if (ret)
+		return ret;
 
 	ret = rpmh_arc_cmds(&gx_arc, "gfx.lvl");
 	if (ret)
@@ -420,6 +423,7 @@ static int build_bw_table(struct adreno_device *adreno_dev)
 	struct rpmh_bw_votes *ddr, *cnoc = NULL;
 	u32 *cnoc_table;
 	u32 count;
+	int ret;
 
 	ddr = build_rpmh_bw_votes(a660_ddr_bcms, ARRAY_SIZE(a660_ddr_bcms),
 		pwr->ddr_table, pwr->ddr_table_count);
@@ -440,7 +444,9 @@ static int build_bw_table(struct adreno_device *adreno_dev)
 		return PTR_ERR(cnoc);
 	}
 
-	CMD_MSG_HDR(gmu->hfi.bw_table, H2F_MSG_BW_VOTE_TBL);
+	ret = CMD_MSG_HDR(gmu->hfi.bw_table, H2F_MSG_BW_VOTE_TBL);
+	if (ret)
+		return ret;
 
 	build_bw_table_cmd(&gmu->hfi.bw_table, ddr, cnoc);
 

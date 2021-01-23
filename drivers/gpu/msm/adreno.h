@@ -35,10 +35,16 @@
  */
 #define ADRENO_POWER_OPS(_a) ((_a)->gpucore->gpudev->power_ops)
 
-#define ADRENO_CHIPID_CORE(_id) (((_id) >> 24) & 0xFF)
-#define ADRENO_CHIPID_MAJOR(_id) (((_id) >> 16) & 0xFF)
-#define ADRENO_CHIPID_MINOR(_id) (((_id) >> 8) & 0xFF)
-#define ADRENO_CHIPID_PATCH(_id) ((_id) & 0xFF)
+#define ADRENO_CHIPID_CORE(_id) FIELD_GET(GENMASK(31, 24), _id)
+#define ADRENO_CHIPID_MAJOR(_id) FIELD_GET(GENMASK(23, 16), _id)
+#define ADRENO_CHIPID_MINOR(_id) FIELD_GET(GENMASK(15, 8), _id)
+#define ADRENO_CHIPID_PATCH(_id) FIELD_GET(GENMASK(7, 0), _id)
+
+#define ADRENO_GMU_CHIPID(_id) \
+	(FIELD_PREP(GENMASK(31, 24), ADRENO_CHIPID_CORE(_id)) | \
+	 FIELD_PREP(GENMASK(23, 16), ADRENO_CHIPID_MAJOR(_id)) | \
+	 FIELD_PREP(GENMASK(15, 12), ADRENO_CHIPID_MINOR(_id)) | \
+	 FIELD_PREP(GENMASK(11, 8), ADRENO_CHIPID_PATCH(_id)))
 
 /* ADRENO_GPUREV - Return the GPU ID for the given adreno_device */
 #define ADRENO_GPUREV(_a) ((_a)->gpucore->gpurev)
@@ -238,6 +244,26 @@ enum adreno_preempt_states {
 	ADRENO_PREEMPT_FAULTED,
 	ADRENO_PREEMPT_PENDING,
 	ADRENO_PREEMPT_COMPLETE,
+};
+
+/**
+ * struct adreno_protected_regs - container for a protect register span
+ */
+struct adreno_protected_regs {
+	/** @reg: Physical protected mode register to write to */
+	u32 reg;
+	/** @start: Dword offset of the starting register in the range */
+	u32 start;
+	/**
+	 * @end: Dword offset of the ending register in the range
+	 * (inclusive)
+	 */
+	u32 end;
+	/**
+	 * @noaccess: 1 if the register should not be accessible from
+	 * userspace, 0 if it can be read (but not written)
+	 */
+	u32 noaccess;
 };
 
 /**
@@ -1764,14 +1790,6 @@ void adreno_set_active_ctxs_null(struct adreno_device *adreno_dev);
  * gpu bus usage for bus dcvs
  */
 void adreno_get_bus_counters(struct adreno_device *adreno_dev);
-
-/**
- * gmu_fault_snapshot - Set gmu fault and trigger snapshot
- * @device: Pointer to the kgsl device
- *
- * Set the gmu fault and take snapshot when we hit a gmu fault
- */
-void gmu_fault_snapshot(struct kgsl_device *device);
 
 /**
  * adreno_suspend_context - Make sure device is idle

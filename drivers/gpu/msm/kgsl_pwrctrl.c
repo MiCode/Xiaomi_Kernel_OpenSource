@@ -1749,7 +1749,11 @@ static int kgsl_pwrctrl_enable(struct kgsl_device *device)
 		return status;
 	kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_ON, KGSL_STATE_ACTIVE);
 	kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_ON);
-	return device->ftbl->regulator_enable(device);
+
+	if (device->ftbl->regulator_enable)
+		return device->ftbl->regulator_enable(device);
+
+	return 0;
 }
 
 static void kgsl_pwrctrl_disable(struct kgsl_device *device)
@@ -1796,22 +1800,23 @@ static int _init(struct kgsl_device *device)
 
 	switch (device->state) {
 	case KGSL_STATE_MINBW:
-		/* fall through */
+		fallthrough;
 	case KGSL_STATE_NAP:
 		del_timer_sync(&device->pwrctrl.minbw_timer);
 		/* Force power on to do the stop */
 		status = kgsl_pwrctrl_enable(device);
-		/* fall through */
+		fallthrough;
 	case KGSL_STATE_ACTIVE:
 		kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
 		del_timer_sync(&device->idle_timer);
 		kgsl_pwrscale_midframe_timer_cancel(device);
 		device->ftbl->stop(device);
-		/* fall through */
+		fallthrough;
 	case KGSL_STATE_AWARE:
 		kgsl_pwrctrl_disable(device);
-		/* fall through */
+		fallthrough;
 	case KGSL_STATE_SLUMBER:
+		fallthrough;
 	case KGSL_STATE_NONE:
 		kgsl_pwrctrl_set_state(device, KGSL_STATE_INIT);
 	}
@@ -1835,7 +1840,7 @@ static int _wake(struct kgsl_device *device)
 		complete_all(&device->hwaccess_gate);
 		/* Call the GPU specific resume function */
 		device->ftbl->resume(device);
-		/* fall through */
+		fallthrough;
 	case KGSL_STATE_SLUMBER:
 		kgsl_pwrctrl_clk_set_options(device, true);
 		status = device->ftbl->start(device,
@@ -1852,10 +1857,10 @@ static int _wake(struct kgsl_device *device)
 		kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_ON);
 		trace_gpu_frequency(
 			pwr->pwrlevels[pwr->active_pwrlevel].gpu_freq/1000, 0);
-		/* fall through */
+		fallthrough;
 	case KGSL_STATE_MINBW:
 		kgsl_bus_update(device, KGSL_BUS_VOTE_ON);
-		/* fall through */
+		fallthrough;
 	case KGSL_STATE_NAP:
 		/* Turn on the core clocks */
 		kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_ON, KGSL_STATE_ACTIVE);
@@ -1918,10 +1923,10 @@ _aware(struct kgsl_device *device)
 		break;
 	/* The following 4 cases shouldn't occur, but don't panic. */
 	case KGSL_STATE_MINBW:
-		/* Fall through */
+		fallthrough;
 	case KGSL_STATE_NAP:
 		status = _wake(device);
-		/* Fall through */
+		fallthrough;
 	case KGSL_STATE_ACTIVE:
 		kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
 		del_timer_sync(&device->idle_timer);
@@ -1966,13 +1971,13 @@ _nap(struct kgsl_device *device)
 
 		kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_OFF, KGSL_STATE_NAP);
 		kgsl_pwrctrl_set_state(device, KGSL_STATE_NAP);
-		/* fallthrough */
+		fallthrough;
 	case KGSL_STATE_SLUMBER:
 		break;
 	case KGSL_STATE_AWARE:
 		dev_warn(device->dev,
 			"transition AWARE -> NAP is not permitted\n");
-		/* fallthrough */
+		fallthrough;
 	default:
 		kgsl_pwrctrl_request_state(device, KGSL_STATE_NONE);
 		break;
@@ -2011,9 +2016,9 @@ _slumber(struct kgsl_device *device)
 			kgsl_pwrctrl_request_state(device, KGSL_STATE_NONE);
 			return -EBUSY;
 		}
-		/* fall through */
+		fallthrough;
 	case KGSL_STATE_NAP:
-		/* fall through */
+		fallthrough;
 	case KGSL_STATE_MINBW:
 		del_timer_sync(&device->pwrctrl.minbw_timer);
 		del_timer_sync(&device->idle_timer);

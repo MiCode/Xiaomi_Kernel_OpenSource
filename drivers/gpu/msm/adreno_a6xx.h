@@ -1,13 +1,12 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _ADRENO_A6XX_H_
 #define _ADRENO_A6XX_H_
 
 #include <linux/delay.h>
-#include <linux/iopoll.h>
 
 #include "a6xx_reg.h"
 #include "adreno_a6xx_gmu.h"
@@ -31,26 +30,6 @@ struct a6xx_device {
 	struct a6xx_rgmu_device rgmu;
 	/** @adreno_dev: Container for the generic adreno device */
 	struct adreno_device adreno_dev;
-};
-
-/**
- * struct a6xx_protected_regs - container for a protect register span
- */
-struct a6xx_protected_regs {
-	/** @reg: Physical protected mode register to write to */
-	u32 reg;
-	/** @start: Dword offset of the starting register in the range */
-	u32 start;
-	/**
-	 * @end: Dword offset of the ending register in the range
-	 * (inclusive)
-	 */
-	u32 end;
-	/**
-	 * @noaccess: 1 if the register should not be accessible from
-	 * userspace, 0 if it can be read (but not written)
-	 */
-	u32 noaccess;
 };
 
 /**
@@ -86,7 +65,7 @@ struct adreno_a6xx_core {
 	/** @hang_detect_cycles: Hang detect counter timeout value */
 	u32 hang_detect_cycles;
 	/** @protected_regs: Array of protected registers for the target */
-	const struct a6xx_protected_regs *protected_regs;
+	const struct adreno_protected_regs *protected_regs;
 	/** @disable_tseskip: True if TSESkip logic is disabled */
 	bool disable_tseskip;
 	/** @gx_cpr_toggle: True to toggle GX CPR FSM to avoid CPR stalls */
@@ -157,24 +136,6 @@ struct a6xx_cp_smmu_info {
 
 #define A6XX_CP_SMMU_INFO_MAGIC_REF     0x241350D5UL
 
-/**
- * struct cpu_gpu_spinlock - CP spinlock structure for power up list
- * @flag_ucode: flag value set by CP
- * @flag_kmd: flag value set by KMD
- * @turn: turn variable set by both CP and KMD
- * @list_length: this tells CP the last dword in the list:
- * 16 + (4 * (List_Length - 1))
- * @list_offset: this tells CP the start of preemption only list:
- * 16 + (4 * List_Offset)
- */
-struct cpu_gpu_lock {
-	uint32_t flag_ucode;
-	uint32_t flag_kmd;
-	uint32_t turn;
-	uint16_t list_length;
-	uint16_t list_offset;
-};
-
 #define A6XX_CP_CTXRECORD_MAGIC_REF     0xAE399D6EUL
 /* Size of each CP preemption record */
 #define A6XX_CP_CTXRECORD_SIZE_IN_BYTES     (2112 * 1024)
@@ -227,37 +188,6 @@ to_a6xx_core(struct adreno_device *adreno_dev)
 	const struct adreno_gpu_core *core = adreno_dev->gpucore;
 
 	return container_of(core, struct adreno_a6xx_core, base);
-}
-
-/**
- * timed_poll_check() - polling *gmu* register at given offset until
- * its value changed to match expected value. The function times
- * out and returns after given duration if register is not updated
- * as expected.
- *
- * @device: Pointer to KGSL device
- * @offset: Register offset in dwords
- * @expected_ret: expected register value that stops polling
- * @timeout_ms: time in milliseconds to poll the register
- * @mask: bitmask to filter register value to match expected_ret
- */
-static inline int timed_poll_check(struct kgsl_device *device,
-		unsigned int offset, unsigned int expected_ret,
-		unsigned int timeout_ms, unsigned int mask)
-{
-	u32 val;
-	void __iomem *addr = device->gmu_core.reg_virt +
-		((offset - device->gmu_core.gmu2gpu_offset) << 2);
-
-	if (WARN(!gmu_core_is_register_offset(device, offset),
-		"Out of bounds register read: 0x%x\n", offset))
-		return -EINVAL;
-
-	if (readl_poll_timeout(addr, val, (val & mask) == expected_ret, 100,
-		timeout_ms * 1000))
-		return -ETIMEDOUT;
-
-	return 0;
 }
 
 /**

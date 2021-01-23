@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/clk/qcom.h>
@@ -240,7 +240,7 @@ static void a6xx_protect_init(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	const struct adreno_a6xx_core *a6xx_core = to_a6xx_core(adreno_dev);
-	const struct a6xx_protected_regs *regs = a6xx_core->protected_regs;
+	const struct adreno_protected_regs *regs = a6xx_core->protected_regs;
 	int i;
 
 	/*
@@ -2402,49 +2402,6 @@ static unsigned int a6xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 				A6XX_GMU_GMU2HOST_INTR_MASK),
 };
 
-static int cpu_gpu_lock(struct cpu_gpu_lock *lock)
-{
-	unsigned long timeout = jiffies + msecs_to_jiffies(1000);
-
-	/* Indicate that the CPU wants the lock */
-	lock->flag_kmd = 1;
-
-	/* post the request */
-	wmb();
-
-	/* Wait for our turn */
-	lock->turn = 0;
-
-	/* Finish all memory transactions before moving on */
-	mb();
-
-	/*
-	 * Spin here while GPU ucode holds the lock, lock->flag_ucode will
-	 * be set to 0 after GPU ucode releases the lock. Minimum wait time
-	 * is 1 second and this should be enough for GPU to release the lock
-	 */
-	while (lock->flag_ucode == 1 && lock->turn == 0) {
-		cpu_relax();
-		/* Get the latest updates from GPU */
-		rmb();
-
-		if (time_after(jiffies, timeout))
-			break;
-	}
-
-	if (lock->flag_ucode == 1 && lock->turn == 0)
-		return -EBUSY;
-
-	return 0;
-}
-
-static void cpu_gpu_unlock(struct cpu_gpu_lock *lock)
-{
-	/* Make sure all writes are done before releasing the lock */
-	wmb();
-	lock->flag_kmd = 0;
-}
-
 int a6xx_perfcounter_update(struct adreno_device *adreno_dev,
 	struct adreno_perfcount_register *reg, bool update_reg)
 {
@@ -2453,8 +2410,8 @@ int a6xx_perfcounter_update(struct adreno_device *adreno_dev,
 	u32 *data = ptr + sizeof(*lock);
 	int i, offset = 0;
 
-	if (cpu_gpu_lock(lock)) {
-		cpu_gpu_unlock(lock);
+	if (kgsl_hwlock(lock)) {
+		kgsl_hwunlock(lock);
 		return -EBUSY;
 	}
 
@@ -2493,7 +2450,7 @@ update:
 		kgsl_regwrite(KGSL_DEVICE(adreno_dev), reg->select,
 			reg->countable);
 
-	cpu_gpu_unlock(lock);
+	kgsl_hwunlock(lock);
 	return 0;
 }
 

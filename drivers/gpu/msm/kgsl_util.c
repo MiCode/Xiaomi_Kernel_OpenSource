@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 
@@ -64,6 +64,18 @@ int kgsl_regulator_set_voltage(struct device *dev,
 		dev_err(dev, "Regulator set voltage:%d failed:%d\n", voltage, ret);
 
 	return ret;
+}
+
+int kgsl_clk_set_rate(struct clk_bulk_data *clks, int num_clks,
+		const char *id, unsigned long rate)
+{
+	struct clk *clk;
+
+	clk = kgsl_of_clk_by_name(clks, num_clks, id);
+	if (!clk)
+		return -ENODEV;
+
+	return clk_set_rate(clk, rate);
 }
 
 /*
@@ -152,4 +164,47 @@ out:
 	release_firmware(fw);
 	kfree(fwname);
 	return ret;
+}
+
+int kgsl_hwlock(struct cpu_gpu_lock *lock)
+{
+	unsigned long timeout = jiffies + msecs_to_jiffies(1000);
+
+	/* Indicate that the CPU wants the lock */
+	lock->cpu_req = 1;
+
+	/* post the request */
+	wmb();
+
+	/* Wait for our turn */
+	lock->turn = 0;
+
+	/* Finish all memory transactions before moving on */
+	mb();
+
+	/*
+	 * Spin here while GPU ucode holds the lock, lock->gpu_req will
+	 * be set to 0 after GPU ucode releases the lock. Maximum wait time
+	 * is 1 second and this should be enough for GPU to release the lock.
+	 */
+	while (lock->gpu_req && lock->turn == 0) {
+		cpu_relax();
+		/* Get the latest updates from GPU */
+		rmb();
+
+		if (time_after(jiffies, timeout))
+			break;
+	}
+
+	if (lock->gpu_req && lock->turn == 0)
+		return -EBUSY;
+
+	return 0;
+}
+
+void kgsl_hwunlock(struct cpu_gpu_lock *lock)
+{
+	/* Make sure all writes are done before releasing the lock */
+	wmb();
+	lock->cpu_req = 0;
 }
