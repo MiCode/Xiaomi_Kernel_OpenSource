@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  */
 
 #include "msm_cvp.h"
@@ -211,9 +211,11 @@ static int msm_cvp_session_process_hfi(
 	}
 	pkt_type = in_pkt->pkt_data[1];
 	if (pkt_type == HFI_CMD_SESSION_CVP_SET_PERSIST_BUFFERS ||
-		pkt_type == HFI_CMD_SESSION_CVP_SET_MODEL_BUFFERS)
+		pkt_type == HFI_CMD_SESSION_CVP_SET_MODEL_BUFFERS ||
+		pkt_type == HFI_CMD_SESSION_CVP_SET_FD_CHROMA_BUFFER)
 		rc = msm_cvp_map_user_persist(inst, in_pkt, offset, buf_num);
-	else if (pkt_type == HFI_CMD_SESSION_CVP_RELEASE_PERSIST_BUFFERS)
+	else if (pkt_type == HFI_CMD_SESSION_CVP_RELEASE_PERSIST_BUFFERS ||
+		pkt_type == HFI_CMD_SESSION_CVP_RELEASE_FD_CHROMA_BUFFER)
 		rc = msm_cvp_mark_user_persist(inst, in_pkt, offset, buf_num);
 	else
 		rc = msm_cvp_map_frame(inst, in_pkt, offset, buf_num);
@@ -240,7 +242,8 @@ static int msm_cvp_session_process_hfi(
 				signal);
 			goto exit;
 		}
-		if (pkt_type == HFI_CMD_SESSION_CVP_RELEASE_PERSIST_BUFFERS)
+		if (pkt_type == HFI_CMD_SESSION_CVP_RELEASE_PERSIST_BUFFERS ||
+		pkt_type == HFI_CMD_SESSION_CVP_RELEASE_FD_CHROMA_BUFFER)
 			rc = msm_cvp_unmap_user_persist(inst, in_pkt,
 					offset, buf_num);
 
