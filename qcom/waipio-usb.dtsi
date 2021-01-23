@@ -22,9 +22,10 @@
 			<&clock_gcc GCC_CFG_NOC_USB3_PRIM_AXI_CLK>,
 			<&clock_gcc GCC_AGGRE_USB3_PRIM_AXI_CLK>,
 			<&clock_gcc GCC_USB30_PRIM_MOCK_UTMI_CLK>,
-			<&clock_gcc GCC_USB30_PRIM_SLEEP_CLK>;
+			<&clock_gcc GCC_USB30_PRIM_SLEEP_CLK>,
+			<&clock_gcc GCC_USB3_0_CLKREF_EN>;
 		clock-names = "core_clk", "iface_clk", "bus_aggr_clk",
-					"utmi_clk", "sleep_clk";
+					"utmi_clk", "sleep_clk", "xo";
 
 		resets = <&clock_gcc GCC_USB30_PRIM_BCR>;
 		reset-names = "core_reset";
