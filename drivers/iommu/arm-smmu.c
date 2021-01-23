@@ -4422,7 +4422,7 @@ static int arm_smmu_handoff_cbs(struct arm_smmu_device *smmu)
 		if (!(raw_smr & SMR_VALID))
 			continue;
 
-		smr.mask = FIELD_GET(SMR_MASK, raw_smr);
+		smr.mask = FIELD_GET(SMR_MASK, raw_smr & ~SMR_VALID);
 		smr.id = FIELD_GET(SMR_ID, raw_smr);
 		smr.valid = true;
 
