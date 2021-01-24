@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _LINUX_MSM_GENI_SE
@@ -67,6 +67,7 @@ struct se_geni_rsc {
 	unsigned long ib;
 	unsigned long ib_noc;
 	struct pinctrl *geni_pinctrl;
+	struct pinctrl_state *geni_gpio_shutdown;
 	struct pinctrl_state *geni_gpio_active;
 	struct pinctrl_state *geni_gpio_sleep;
 	int	clk_freq_out;
@@ -77,6 +78,7 @@ struct se_geni_rsc {
 #define PINCTRL_DEFAULT	"default"
 #define PINCTRL_ACTIVE	"active"
 #define PINCTRL_SLEEP	"sleep"
+#define PINCTRL_SHUTDOWN	"shutdown"
 
 #define KHz(freq) (1000 * (freq))
 

@@ -38,7 +38,8 @@ static inline bool usb_gsi_remote_wakeup_allowed(struct usb_function *f)
 	struct f_gsi *gsi = func_to_gsi(f);
 
 	if (f->config->cdev->gadget->speed >= USB_SPEED_SUPER)
-		remote_wakeup_allowed = gsi->func_wakeup_allowed;
+		remote_wakeup_allowed =
+			 gsi->func_is_suspended ? gsi->func_wakeup_allowed : false;
 	else
 		remote_wakeup_allowed =
 			usb_get_remote_wakeup_status(f->config->cdev->gadget);
@@ -783,6 +784,13 @@ static int ipa_suspend_work_handler(struct gsi_data_port *d_port)
 			GSI_EP_OP_SET_CLR_BLOCK_DBL);
 		goto done;
 	}
+
+	/*
+	 * Ensure that the DBL is blocked before suspend.
+	 */
+	block_db = true;
+	usb_gsi_ep_op(gsi->d_port.in_ep, (void *)&block_db,
+					GSI_EP_OP_SET_CLR_BLOCK_DBL);
 
 	log_event_dbg("%s: Calling xdci_suspend", __func__);
 	ret = ipa_usb_xdci_suspend(gsi->d_port.out_channel_handle,

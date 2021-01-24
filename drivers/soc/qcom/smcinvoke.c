@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "smcinvoke: %s: " fmt, __func__
@@ -1114,7 +1114,7 @@ out:
 	if (ret == 0) {
 		pr_err("CBObj timed out! No more retries\n");
 		cb_req->result = OBJECT_ERROR_ABORT;
-	} else if (ret < 0) {
+	} else if (ret == -ERESTARTSYS) {
 		pr_err("wait event interruped, ret: %d\n", ret);
 		cb_req->result = OBJECT_ERROR_ABORT;
 	} else {
@@ -1128,7 +1128,7 @@ out:
 			cb_req->result = OBJECT_ERROR_DEFUNCT;
 			pr_err("server invalid, res: %d\n", cb_req->result);
 		} else {
-			pr_err("%s: unexpected event happened\n", __func__);
+			pr_err("%s: unexpected event happened, ret:%d\n", __func__, ret);
 			cb_req->result = OBJECT_ERROR_ABORT;
 		}
 	}

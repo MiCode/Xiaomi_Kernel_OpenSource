@@ -58,6 +58,7 @@ struct bluetooth_power_platform_data {
 	int wl_gpio_sys_rst;                   /* Wlan reset gpio */
 	int bt_gpio_sw_ctrl;                   /* Bluetooth sw_ctrl gpio */
 	int bt_gpio_debug;                     /* Bluetooth debug gpio */
+	int xo_gpio_sys_rst;                    /* XO reset gpio*/
 	struct device *slim_dev;
 	struct bt_power_vreg_data *vreg_info;  /* VDDIO voltage regulator */
 	struct bt_power_clk_data *bt_chip_clk; /* bluetooth reference clock */
@@ -81,6 +82,6 @@ int btpower_get_chipset_version(void);
 #define TCS_CMD_IO_ADDR_OFFSET 0x4
 
 /* total number of power src */
-#define BT_POWER_SRC_SIZE           28
+#define BT_POWER_SRC_SIZE           30
 
 #endif /* __LINUX_BLUETOOTH_POWER_H */

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013, 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013, 2016-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -394,6 +394,39 @@ static int clk_rcg2_determine_floor_rate(struct clk_hw *hw,
 	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
 
 	return _freq_tbl_determine_rate(hw, rcg->freq_tbl, req, FLOOR);
+}
+
+static bool clk_rcg2_current_config(struct clk_rcg2 *rcg,
+				    const struct freq_tbl *f)
+{
+	struct clk_hw *hw = &rcg->clkr.hw;
+	u32 cfg, mask, new_cfg;
+	int index;
+
+	if (rcg->mnd_width) {
+		mask = BIT(rcg->mnd_width) - 1;
+		regmap_read(rcg->clkr.regmap, rcg->cmd_rcgr + M_REG, &cfg);
+		if ((cfg & mask) != (f->m & mask))
+			return false;
+
+		regmap_read(rcg->clkr.regmap, rcg->cmd_rcgr + N_REG, &cfg);
+		if ((cfg & mask) != (~(f->n - f->m) & mask))
+			return false;
+	}
+
+	mask = (BIT(rcg->hid_width) - 1) | CFG_SRC_SEL_MASK;
+
+	index = qcom_find_src_index(hw, rcg->parent_map, f->src);
+
+	new_cfg = ((f->pre_div << CFG_SRC_DIV_SHIFT) |
+		(rcg->parent_map[index].cfg << CFG_SRC_SEL_SHIFT)) & mask;
+
+	regmap_read(rcg->clkr.regmap, rcg->cmd_rcgr + CFG_REG, &cfg);
+
+	if (new_cfg != (cfg & mask))
+		return false;
+
+	return true;
 }
 
 static int __clk_rcg2_configure(struct clk_rcg2 *rcg, const struct freq_tbl *f)
@@ -1004,6 +1037,8 @@ static int clk_byte2_set_rate(struct clk_hw *hw, unsigned long rate,
 	for (i = 0; i < num_parents; i++) {
 		if (cfg == rcg->parent_map[i].cfg) {
 			f.src = rcg->parent_map[i].src;
+			if (clk_rcg2_current_config(rcg, &f))
+				return 0;
 			return clk_rcg2_configure(rcg, &f);
 		}
 	}
@@ -1106,6 +1141,8 @@ static int clk_pixel_set_rate(struct clk_hw *hw, unsigned long rate,
 		f.m = frac->num;
 		f.n = frac->den;
 
+		if (clk_rcg2_current_config(rcg, &f))
+			return 0;
 		return clk_rcg2_configure(rcg, &f);
 	}
 	return -EINVAL;

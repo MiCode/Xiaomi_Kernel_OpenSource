@@ -275,7 +275,8 @@ static int xhci_plat_probe(struct platform_device *pdev)
 			*priv = *priv_match;
 	}
 
-	device_wakeup_enable(hcd->self.controller);
+	if (device_may_wakeup(sysdev))
+		device_wakeup_enable(hcd->self.controller);
 
 	xhci->main_hcd = hcd;
 	xhci->shared_hcd = __usb_create_hcd(driver, sysdev, &pdev->dev,
@@ -330,8 +331,10 @@ static int xhci_plat_probe(struct platform_device *pdev)
 		goto dealloc_usb2_hcd;
 
 	device_enable_async_suspend(&pdev->dev);
-	device_wakeup_enable(&xhci->shared_hcd->self.root_hub->dev);
-	device_wakeup_enable(&hcd->self.root_hub->dev);
+	if (device_may_wakeup(sysdev)) {
+		device_wakeup_enable(&xhci->shared_hcd->self.root_hub->dev);
+		device_wakeup_enable(&hcd->self.root_hub->dev);
+	}
 
 	pm_runtime_mark_last_busy(&pdev->dev);
 	pm_runtime_put_autosuspend(&pdev->dev);
@@ -402,7 +405,7 @@ static int xhci_plat_suspend(struct device *dev)
 	dev_dbg(dev, "xhci-plat PM suspend\n");
 
 	/* Disable wakeup capability */
-	return xhci_suspend(xhci, false);
+	return xhci_suspend(xhci, device_may_wakeup(dev));
 }
 
 static int xhci_plat_resume(struct device *dev)

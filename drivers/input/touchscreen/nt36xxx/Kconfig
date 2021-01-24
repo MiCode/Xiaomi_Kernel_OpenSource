@@ -9,3 +9,10 @@ config TOUCHSCREEN_NT36XXX
 	  to your system.
 
 	  If unsure, say N.
+
+config NOVATEK_TRUSTED_TOUCH
+	bool "Novatek Trusted Touch"
+	depends on TOUCHSCREEN_NT36XXX
+	help
+	  Say Y here to enable Novatek Trusted Touch.
+	  If unsure, say N.

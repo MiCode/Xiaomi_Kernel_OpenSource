@@ -476,6 +476,9 @@ static int vm_find_vqs(struct virtio_device *vdev, unsigned nvqs,
 	if (err)
 		return err;
 
+	if (of_property_read_bool(vm_dev->pdev->dev.of_node, "virtio,wakeup"))
+		enable_irq_wake(irq);
+
 	for (i = 0; i < nvqs; ++i) {
 		if (!names[i]) {
 			vqs[i] = NULL;

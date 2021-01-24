@@ -761,6 +761,14 @@ int cnss_idle_restart(struct device *dev)
 	timeout = cnss_get_timeout(plat_priv, CNSS_TIMEOUT_IDLE_RESTART);
 	ret = wait_for_completion_timeout(&plat_priv->power_up_complete,
 					  msecs_to_jiffies(timeout));
+	if (plat_priv->power_up_error) {
+		ret = plat_priv->power_up_error;
+		clear_bit(CNSS_DRIVER_IDLE_RESTART, &plat_priv->driver_state);
+		cnss_pr_dbg("Power up error:%d, exiting\n",
+			    plat_priv->power_up_error);
+		goto out;
+	}
+
 	if (!ret) {
 		/* This exception occurs after attempting retry of FW recovery.
 		 * Thus we can safely power off the device.
@@ -2533,6 +2541,7 @@ static ssize_t fs_ready_store(struct device *dev,
 	case QCA6290_DEVICE_ID:
 	case QCA6390_DEVICE_ID:
 	case QCA6490_DEVICE_ID:
+	case WCN7850_DEVICE_ID:
 		break;
 	default:
 		cnss_pr_err("Not supported for device ID 0x%lx\n",
@@ -2718,7 +2727,7 @@ static void cnss_init_control_params(struct cnss_plat_data *plat_priv)
 				  "cnss-daemon-support"))
 		plat_priv->ctrl_params.quirks |= BIT(ENABLE_DAEMON_SUPPORT);
 
-	plat_priv->cbc_enabled =
+	plat_priv->cbc_enabled = !IS_ENABLED(CONFIG_CNSS_EMULATION) &&
 		of_property_read_bool(plat_priv->plat_dev->dev.of_node,
 				      "qcom,wlan-cbc-enabled");
 

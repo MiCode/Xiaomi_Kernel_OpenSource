@@ -203,6 +203,15 @@ config QCOM_YUPIK_LLCC
 	  can start using the LLCC slices.
 	  If unsure, say n.
 
+config QCOM_SM8150_LLCC
+	tristate "Qualcomm Technologies, Inc. SM8150 LLCC driver"
+	depends on QCOM_LLCC
+	help
+	 Say y or m here to enable the LLCC driver for SM8150 platform.
+	 This provides data required to configure LLCC so that clients
+	 can start using the LLCC slices.
+	 If unsure, say n.
+
 config QCOM_SDM845_LLCC
 	tristate "Qualcomm Technologies, Inc. SDM845 LLCC driver"
 	depends on QCOM_LLCC
@@ -320,6 +329,15 @@ config MSM_PIL_SSR_GENERIC
 	  interrupt for the subsystem and restarts it on a watchdog bite
 	  or a fatal error. Subsystems include LPASS, Venus, VPU, WCNSS and
 	  BCSS.
+
+config MSM_PIL_MSS_QDSP6V5
+	tristate "MSS QDSP6v5 (Hexagon) Boot Support"
+	depends on MSM_PIL && MSM_SUBSYSTEM_RESTART
+	help
+	 Support for booting and shutting down QDSP6v5 (Hexagon) processors
+	 in modem subsystems. If you would like to make or receive phone
+	 calls then say Y here.
+	 If unsure, say N.
 
 config MSM_SERVICE_LOCATOR
 	tristate "Service Locator"
@@ -600,6 +618,8 @@ config QCOM_GLINK_PKT
 	  clients to communicate over G-Link via device nodes.
 	  This enable the userspace clients to read and write to
 	  some glink packets channel.
+
+source "drivers/soc/qcom/hab/Kconfig"
 
 config MSM_PERFORMANCE
         tristate "msm performance driver to support userspace fmin/fmax request"

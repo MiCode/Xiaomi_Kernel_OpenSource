@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -1806,6 +1806,10 @@ static const struct msm_pingroup yupik_groups[] = {
 	[181] = SDC_QDSD_PINGROUP(sdc2_cmd, 0x1b4000, 11, 3),
 	[182] = SDC_QDSD_PINGROUP(sdc2_data, 0x1b4000, 9, 0),
 };
+
+static const int yupik_reserved_gpios[] = {
+	32, 33, 48, 49, 50, 51, -1
+};
 static struct pinctrl_qup yupik_qup_regs[] = {
 	QUP_I3C(0, QUP_I3C_0_MODE_OFFSET),
 	QUP_I3C(1, QUP_I3C_1_MODE_OFFSET),
@@ -1842,6 +1846,7 @@ static const struct msm_pinctrl_soc_data yupik_pinctrl = {
 	.nfunctions = ARRAY_SIZE(yupik_functions),
 	.groups = yupik_groups,
 	.ngroups = ARRAY_SIZE(yupik_groups),
+	.reserved_gpios = yupik_reserved_gpios,
 	.ngpios = 176,
 	.qup_regs = yupik_qup_regs,
 	.nqup_regs = ARRAY_SIZE(yupik_qup_regs),

@@ -12,6 +12,7 @@ obj-$(CONFIG_MSM_SUBSYSTEM_RESTART) += subsystem_restart.o
 obj-$(CONFIG_MSM_CDSP_LOADER) += qdsp6v2/
 subsystem_restart-y := msm_subsystem_restart.o subsystem_notif.o ramdump.o sysmon-qmi.o
 obj-$(CONFIG_MSM_PIL_SSR_GENERIC) += subsys-pil-tz.o
+obj-$(CONFIG_MSM_PIL_MSS_QDSP6V5) += pil-q6v5.o pil-msa.o pil-q6v5-mss.o
 obj-$(CONFIG_MSM_SERVICE_NOTIFIER) += service-notifier.o
 obj-$(CONFIG_MSM_SERVICE_LOCATOR) += service-locator.o
 obj-$(CONFIG_QCOM_QMI_HELPERS)	+= qmi_helpers.o
@@ -43,6 +44,7 @@ obj-$(CONFIG_QCOM_LAHAINA_LLCC) += llcc-lahaina.o
 obj-$(CONFIG_QCOM_SDXLEMUR_LLCC) += llcc-sdxlemur.o
 obj-$(CONFIG_QCOM_SHIMA_LLCC) += llcc-shima.o
 obj-$(CONFIG_QCOM_YUPIK_LLCC) += llcc-yupik.o
+obj-$(CONFIG_QCOM_SM8150_LLCC) += llcc-sm8150.o
 obj-$(CONFIG_QCOM_MINIDUMP) += msm_minidump.o minidump_log.o
 obj-$(CONFIG_QCOM_MEM_OFFLINE) += mem-offline.o
 obj-$(CONFIG_QCOM_MEM_BUF) += mem-buf.o mem_buf_dma_buf.o
@@ -90,6 +92,7 @@ obj-$(CONFIG_QTI_CRYPTO_TZ) += crypto-qti-tz.o
 obj-$(CONFIG_QTI_HW_KEY_MANAGER) += hwkm.o crypto-qti-hwkm.o
 obj-$(CONFIG_QCOM_WDT_CORE) += qcom_wdt_core.o
 obj-$(CONFIG_QCOM_SOC_WATCHDOG) += qcom_soc_wdt.o
+obj-$(CONFIG_MSM_HAB) += hab/
 ifdef CONFIG_DEBUG_FS
 obj-$(CONFIG_MSM_RPM_SMD)   +=  rpm-smd-debug.o
 endif

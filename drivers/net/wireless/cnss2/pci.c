@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2016-2021, The Linux Foundation. All rights reserved. */
 
 #include <linux/cma.h>
 #include <linux/firmware.h>
@@ -78,6 +78,7 @@ static DEFINE_SPINLOCK(time_sync_lock);
 #define POWER_ON_RETRY_DELAY_MS			200
 
 #define LINK_TRAINING_RETRY_MAX_TIMES		3
+#define LINK_TRAINING_RETRY_DELAY_MS		500
 
 #define HANG_DATA_LENGTH		384
 #define HST_HANG_DATA_OFFSET		((3 * 1024 * 1024) - HANG_DATA_LENGTH)
@@ -777,6 +778,8 @@ retry:
 			    link_up ? "resume" : "suspend", ret);
 		if (link_up && retry++ < LINK_TRAINING_RETRY_MAX_TIMES) {
 			cnss_pr_dbg("Retry PCI link training #%d\n", retry);
+			if (pci_priv->pci_link_down_ind)
+				msleep(LINK_TRAINING_RETRY_DELAY_MS * retry);
 			goto retry;
 		}
 	}
@@ -891,6 +894,8 @@ int cnss_pci_recover_link_down(struct cnss_pci_data *pci_priv)
 	 */
 	msleep(WAKE_EVENT_TIMEOUT);
 
+	/* Always do PCIe L2 suspend/resume during link down recovery */
+	pci_priv->drv_connected_last = 0;
 	ret = cnss_suspend_pci_link(pci_priv);
 	if (ret)
 		cnss_pr_err("Failed to suspend PCI link, err = %d\n", ret);
@@ -1409,10 +1414,13 @@ static int cnss_pci_set_mhi_state(struct cnss_pci_data *pci_priv,
 		break;
 	case CNSS_MHI_RESUME:
 		mutex_lock(&pci_priv->mhi_ctrl->pm_mutex);
-		if (pci_priv->drv_connected_last)
+		if (pci_priv->drv_connected_last) {
+			cnss_pci_prevent_l1(&pci_priv->pci_dev->dev);
 			ret = mhi_pm_fast_resume(pci_priv->mhi_ctrl, true);
-		else
+			cnss_pci_allow_l1(&pci_priv->pci_dev->dev);
+		} else {
 			ret = mhi_pm_resume(pci_priv->mhi_ctrl);
+		}
 		mutex_unlock(&pci_priv->mhi_ctrl->pm_mutex);
 		break;
 	case CNSS_MHI_TRIGGER_RDDM:
@@ -1825,6 +1833,8 @@ int cnss_pci_call_driver_probe(struct cnss_pci_data *pci_priv)
 		if (ret) {
 			cnss_pr_err("Failed to idle restart host driver, err = %d\n",
 				    ret);
+			plat_priv->power_up_error = ret;
+			complete_all(&plat_priv->power_up_complete);
 			goto out;
 		}
 		clear_bit(CNSS_DRIVER_IDLE_RESTART, &plat_priv->driver_state);
@@ -2043,18 +2053,6 @@ force_wake_put:
 		cnss_pci_force_wake_put(pci_priv);
 }
 
-#ifdef CONFIG_CNSS2_DEBUG
-static void cnss_pci_collect_dump(struct cnss_pci_data *pci_priv)
-{
-	cnss_pci_collect_dump_info(pci_priv, false);
-	CNSS_ASSERT(0);
-}
-#else
-static void cnss_pci_collect_dump(struct cnss_pci_data *pci_priv)
-{
-}
-#endif
-
 static int cnss_qca6174_powerup(struct cnss_pci_data *pci_priv)
 {
 	int ret = 0;
@@ -2147,6 +2145,7 @@ static int cnss_qca6290_powerup(struct cnss_pci_data *pci_priv)
 	/* Clear QMI send usage count during every power up */
 	pci_priv->qmi_send_usage_count = 0;
 
+	plat_priv->power_up_error = 0;
 retry:
 	ret = cnss_power_on_device(plat_priv);
 	if (ret) {
@@ -2247,7 +2246,8 @@ static int cnss_qca6290_shutdown(struct cnss_pci_data *pci_priv)
 	     test_bit(CNSS_IN_COLD_BOOT_CAL, &plat_priv->driver_state)) &&
 	    test_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state)) {
 		del_timer(&pci_priv->dev_rddm_timer);
-		cnss_pci_collect_dump(pci_priv);
+		cnss_pci_collect_dump_info(pci_priv, false);
+		CNSS_ASSERT(0);
 	}
 
 	if (!cnss_is_device_powered_on(plat_priv)) {
@@ -2837,7 +2837,8 @@ static int cnss_pci_suspend(struct device *dev)
 	if (!cnss_is_device_powered_on(plat_priv))
 		goto out;
 
-	if (!test_bit(DISABLE_DRV, &plat_priv->ctrl_params.quirks)) {
+	if (!test_bit(DISABLE_DRV, &plat_priv->ctrl_params.quirks) &&
+	    cnss_pci_get_drv_connected(pci_priv)) {
 		pci_priv->drv_connected_last =
 			cnss_pci_get_drv_connected(pci_priv);
 		if (!pci_priv->drv_connected_last) {
@@ -2979,7 +2980,8 @@ static int cnss_pci_runtime_suspend(struct device *dev)
 		return -EAGAIN;
 	}
 
-	if (!test_bit(DISABLE_DRV, &plat_priv->ctrl_params.quirks)) {
+	if (!test_bit(DISABLE_DRV, &plat_priv->ctrl_params.quirks) &&
+	    cnss_pci_get_drv_connected(pci_priv)) {
 		pci_priv->drv_connected_last =
 			cnss_pci_get_drv_connected(pci_priv);
 		if (!pci_priv->drv_connected_last) {

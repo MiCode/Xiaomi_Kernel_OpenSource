@@ -18,6 +18,8 @@
 #include "atl_macsec.h"
 #include "atl_ptp.h"
 
+#include "atl_ipa.h"
+
 const char atl_driver_name[] = "atlantic-fwd";
 
 unsigned int atl_max_queues = ATL_MAX_QUEUES;
@@ -1030,6 +1032,13 @@ static int __init atl_module_init(void)
 		return -ENOMEM;
 	}
 
+	ret = atl_ipa_register(&atl_pci_ops);
+	if (ret) {
+		pr_err("%s: Failed to register driver with platform\n",
+		       atl_driver_name);
+		goto err_ipa_reg;
+	}
+
 	ret = pci_register_driver(&atl_pci_ops);
 	if (ret)
 		goto err_pci_reg;
@@ -1047,6 +1056,8 @@ err_fwd_netlink:
 #endif
 	pci_unregister_driver(&atl_pci_ops);
 err_pci_reg:
+	atl_ipa_unregister(&atl_pci_ops);
+err_ipa_reg:
 	destroy_workqueue(atl_wq);
 	return ret;
 }
@@ -1059,6 +1070,8 @@ static void __exit atl_module_exit(void)
 #endif
 
 	pci_unregister_driver(&atl_pci_ops);
+
+	atl_ipa_unregister(&atl_pci_ops);
 
 	if (atl_wq) {
 		destroy_workqueue(atl_wq);

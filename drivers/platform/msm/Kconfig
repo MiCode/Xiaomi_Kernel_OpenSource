@@ -143,6 +143,15 @@ config R8125
 	  To compile this driver as a module, choose M here: the module
 	  will be called r8125.
 
+config R8125_IPA_OFFLOAD
+	bool "Enable IPA offload on Realtek R8125 driver"
+	depends on IPA3
+	help
+	  Enables IPA Ethernet Offload path on Realtek R8125 driver. It is
+	  designed to support generic HW processing of UL/DL IP packets for
+	  various use cases independent of radio technology. When this is
+	  disabled Realtek R8125 driver switches to embedded software path.
+
 config IPA_ETH
 	bool "IPA Ethernet Offload Sub-system support"
 	depends on IPA3

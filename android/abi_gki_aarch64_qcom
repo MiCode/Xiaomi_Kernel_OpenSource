@@ -1042,6 +1042,7 @@
   __hwspin_unlock
   hypervisor_kobj
   i2c_add_adapter
+  i2c_add_numbered_adapter
   i2c_del_adapter
   i2c_del_driver
   i2c_get_dma_safe_msg_buf

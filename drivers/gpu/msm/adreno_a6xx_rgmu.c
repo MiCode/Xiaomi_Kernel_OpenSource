@@ -711,6 +711,7 @@ static void a6xx_rgmu_power_off(struct adreno_device *adreno_dev)
 	a6xx_rgmu_disable_clks(adreno_dev);
 	a6xx_rgmu_disable_gdsc(adreno_dev);
 
+	kgsl_pwrctrl_clear_l3_vote(device);
 }
 
 static int a6xx_rgmu_clock_set(struct adreno_device *adreno_dev,
