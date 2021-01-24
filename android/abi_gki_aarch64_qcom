@@ -442,6 +442,7 @@
   devm_thermal_of_cooling_device_register
   devm_thermal_zone_of_sensor_register
   devm_usb_get_phy
+  devm_usb_get_phy_by_node
   devm_usb_get_phy_by_phandle
   _dev_notice
   dev_pm_domain_attach
@@ -2485,6 +2486,7 @@
   usb_register_notify
   usb_remove_hcd
   usb_remove_phy
+  usb_role_switch_find_by_fwnode
   usb_role_switch_get_drvdata
   usb_role_switch_register
   usb_role_switch_set_role
