@@ -188,5 +188,6 @@ ddr_cdev.ko
 msm_lmh_dcvs.ko
 cpu_hotplug.ko
 tz_log.ko
+qseecom-mod.ko
 bcl_soc.ko
 bcl_pmic5.ko
