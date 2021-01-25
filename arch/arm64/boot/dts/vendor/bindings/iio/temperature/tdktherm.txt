@@ -1,0 +1,21 @@
+TDK/InvenSense temperature sensor
+
+
+Required properties:
+ - compatible : "tdktherm"
+ - reg : chip select ID
+ - spi-max-frequency: support up to 24Mhz.
+ - rtc_rst-gpios: rtc reset
+ - spi-cpol: SPI mode
+ - spi-cpha: SPI mode
+
+
+Example:
+        temp_sensor@0 {
+                compatible = "tdktherm";
+                reg = <0>; // Chip select ID
+                spi-max-frequency = <10000000>; // Can support up to 24 MHz
+                spi-cpol;
+                spi-cpha;
+                status = "okay";
+        };
