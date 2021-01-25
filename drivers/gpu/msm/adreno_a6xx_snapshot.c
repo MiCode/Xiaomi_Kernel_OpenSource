@@ -387,12 +387,6 @@ static const unsigned int a6xx_gmu_wrapper_registers[] = {
 	0x1f840, 0x1f840, 0x1f844, 0x1f845, 0x1f887, 0x1f889,
 	/* GMU AO*/
 	0x23b0C, 0x23b0E, 0x23b15, 0x23b15,
-	/* GPU CC */
-	0x24000, 0x24012, 0x24040, 0x24052, 0x24400, 0x24404, 0x24407, 0x2440B,
-	0x24415, 0x2441C, 0x2441E, 0x2442D, 0x2443C, 0x2443D, 0x2443F, 0x24440,
-	0x24442, 0x24449, 0x24458, 0x2445A, 0x24540, 0x2455E, 0x24800, 0x24802,
-	0x24C00, 0x24C02, 0x25400, 0x25402, 0x25800, 0x25802, 0x25C00, 0x25C02,
-	0x26000, 0x26002,
 };
 
 enum a6xx_debugbus_id {
@@ -1880,12 +1874,11 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 		adreno_snapshot_registers(device, snapshot,
 			a6xx_rscc_snapshot_registers,
 			ARRAY_SIZE(a6xx_rscc_snapshot_registers) / 2);
-	}
-
-	if (!gmu_core_isenabled(device))
+	} else if (adreno_is_a610(adreno_dev) || adreno_is_a702(adreno_dev)) {
 		adreno_snapshot_registers(device, snapshot,
 			a6xx_gmu_wrapper_registers,
 			ARRAY_SIZE(a6xx_gmu_wrapper_registers) / 2);
+	}
 
 	sptprac_on = gpudev->sptprac_is_on(adreno_dev);
 

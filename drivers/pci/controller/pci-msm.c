@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.*/
+/* Copyright (c) 2014-2021, The Linux Foundation. All rights reserved.*/
 
 #include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
 #include <linux/bitops.h>
@@ -58,10 +58,19 @@
 #define PCIE20_PARF_TEST_BUS (0xe4)
 #define PCIE20_PARF_MHI_CLOCK_RESET_CTRL (0x174)
 #define PCIE20_PARF_AXI_MSTR_WR_ADDR_HALT (0x1a8)
-#define PCIE20_PARF_LTSSM (0x1b0)
+
+#define PCIE20_PARF_LTSSM	(0x1b0)
+#define LTSSM_EN		BIT(8)
+#define SW_CLR_FLUSH_MODE	BIT(10)
+#define FLUSH_MODE		BIT(11)
+
 #define PCIE20_PARF_INT_ALL_STATUS (0x224)
 #define PCIE20_PARF_INT_ALL_CLEAR (0x228)
 #define PCIE20_PARF_INT_ALL_MASK (0x22c)
+
+#define PCIE20_PARF_STATUS	(0x230)
+#define FLUSH_COMPLETED		BIT(8)
+
 #define PCIE20_PARF_DEVICE_TYPE (0x1000)
 #define PCIE20_PARF_BDF_TO_SID_TABLE_N (0x2000)
 #define PCIE20_PARF_L1SUB_AHB_CLK_MAX_TIMER (0x180)
@@ -194,6 +203,7 @@
 
 #define MSM_PCIE_MAX_RESET (5)
 #define MSM_PCIE_MAX_PIPE_RESET (1)
+#define MSM_PCIE_MAX_LINKDOWN_RESET (2)
 
 /* PCIE PHY status registers offset */
 #define QSERDES_COM_SYSCLK_DET_COMP_STATUS (0x68)
@@ -703,6 +713,7 @@ struct msm_pcie_dev_t {
 	struct msm_pcie_irq_info_t irq[MSM_PCIE_MAX_IRQ];
 	struct msm_pcie_reset_info_t reset[MSM_PCIE_MAX_RESET];
 	struct msm_pcie_reset_info_t pipe_reset[MSM_PCIE_MAX_PIPE_RESET];
+	struct msm_pcie_reset_info_t linkdown_reset[MSM_PCIE_MAX_LINKDOWN_RESET];
 
 	void __iomem *parf;
 	void __iomem *phy;
@@ -778,12 +789,14 @@ struct msm_pcie_dev_t {
 	uint32_t tlp_rd_size;
 	bool linkdown_panic;
 	uint32_t boot_option;
+	bool linkdown_recovery_enable;
 
 	uint32_t rc_idx;
 	uint32_t phy_ver;
 	bool drv_ready;
 	bool enumerated;
 	struct work_struct handle_wake_work;
+	struct work_struct handle_sbr_work;
 	struct mutex recovery_lock;
 	spinlock_t wakeup_lock;
 	spinlock_t irq_lock;
@@ -822,6 +835,8 @@ struct msm_pcie_dev_t {
 	struct pinctrl_state *pins_default;
 	struct pinctrl_state *pins_sleep;
 	struct msm_pcie_device_info pcidev_table[MAX_DEVICE_NUM];
+	bool config_recovery;
+	struct work_struct link_recover_wq;
 
 	struct msm_pcie_drv_info *drv_info;
 
@@ -963,6 +978,23 @@ msm_pcie_pipe_reset_info[MAX_RC_NUM][MSM_PCIE_MAX_PIPE_RESET] = {
 	},
 	{
 		{NULL, "pcie_2_phy_pipe_reset", false}
+	}
+};
+
+/* linkdown recovery resets  */
+static struct msm_pcie_reset_info_t
+msm_pcie_linkdown_reset_info[MAX_RC_NUM][MSM_PCIE_MAX_LINKDOWN_RESET] = {
+	{
+		{NULL, "pcie_0_link_down_reset", false},
+		{NULL, "pcie_0_phy_nocsr_com_phy_reset", false},
+	},
+	{
+		{NULL, "pcie_1_link_down_reset", false},
+		{NULL, "pcie_1_phy_nocsr_com_phy_reset", false},
+	},
+	{
+		{NULL, "pcie_2_link_down_reset", false},
+		{NULL, "pcie_2_phy_nocsr_com_phy_reset", false},
 	}
 };
 
@@ -3187,14 +3219,22 @@ static inline int msm_pcie_oper_conf(struct pci_bus *bus, u32 devfn, int oper,
 
 		if (dev->shadow_en) {
 			if (rd_val == PCIE_LINK_DOWN &&
-				(readl_relaxed(config_base) == PCIE_LINK_DOWN))
+			   (readl_relaxed(config_base) == PCIE_LINK_DOWN)) {
 				PCIE_ERR(dev,
 					"Read of RC%d %d:0x%02x + 0x%04x[%d] is all FFs\n",
 					rc_idx, bus->number, devfn,
 					where, size);
-			else
+				if (dev->config_recovery) {
+					PCIE_ERR(dev,
+						"RC%d link recovery schedule\n",
+						rc_idx);
+					dev->cfg_access = false;
+					schedule_work(&dev->link_recover_wq);
+				}
+			} else {
 				msm_pcie_save_shadow(dev, word_offset, wr_val,
 					bdf, rc);
+			}
 		}
 
 		PCIE_DBG3(dev,
@@ -3987,6 +4027,29 @@ static int msm_pcie_get_reset(struct msm_pcie_dev_t *pcie_dev)
 		}
 	}
 
+	for (i = 0; i < MSM_PCIE_MAX_LINKDOWN_RESET; i++) {
+		reset_info = &pcie_dev->linkdown_reset[i];
+		reset_info->hdl = devm_reset_control_get(&pcie_dev->pdev->dev,
+							reset_info->name);
+		if (IS_ERR(reset_info->hdl)) {
+			if (reset_info->required) {
+				PCIE_DBG(pcie_dev,
+					"Linkdown Reset %s isn't available:%ld\n",
+					reset_info->name,
+					PTR_ERR(reset_info->hdl));
+				return PTR_ERR(reset_info->hdl);
+			}
+
+			PCIE_DBG(pcie_dev, "Ignoring Linkdown Reset %s\n",
+				reset_info->name);
+			reset_info->hdl = NULL;
+		} else {
+			/* Enable link-recovery if resets are specified */
+			pcie_dev->linkdown_recovery_enable = true;
+			PCIE_DBG(pcie_dev, "Enable Linkdown recovery\n");
+		}
+	}
+
 	return 0;
 }
 
@@ -4475,6 +4538,7 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev)
 				BIT(MSM_PCIE_INT_EVT_L1SUB_TIMEOUT) |
 				BIT(MSM_PCIE_INT_EVT_AER_LEGACY) |
 				BIT(MSM_PCIE_INT_EVT_AER_ERR) |
+				BIT(MSM_PCIE_INT_EVT_BRIDGE_FLUSH_N) |
 				BIT(MSM_PCIE_INT_EVT_MSI_0) |
 				BIT(MSM_PCIE_INT_EVT_MSI_1) |
 				BIT(MSM_PCIE_INT_EVT_MSI_2) |
@@ -5027,6 +5091,88 @@ static void msm_pcie_notify_client(struct msm_pcie_dev_t *dev,
 	}
 }
 
+static void handle_sbr_func(struct work_struct *work)
+{
+	int rc, i;
+	u32 val, link_check_count = 0;
+	struct msm_pcie_reset_info_t *reset_info;
+	struct msm_pcie_dev_t *dev = container_of(work, struct msm_pcie_dev_t,
+					handle_sbr_work);
+
+	PCIE_DBG(dev, "PCIe: SBR work for RC%d\n", dev->rc_idx);
+
+	for (i = 0; i < MSM_PCIE_MAX_LINKDOWN_RESET; i++) {
+		reset_info = &dev->linkdown_reset[i];
+		if (!reset_info->hdl)
+			continue;
+
+		rc = reset_control_assert(reset_info->hdl);
+		if (rc)
+			PCIE_ERR(dev,
+				"PCIe: RC%d failed to assert reset for %s.\n",
+				dev->rc_idx, reset_info->name);
+		else
+			PCIE_DBG2(dev,
+				"PCIe: RC%d successfully asserted reset for %s.\n",
+				dev->rc_idx, reset_info->name);
+	}
+
+	/* add a 1ms delay to ensure the reset is asserted */
+	usleep_range(1000, 1005);
+
+	for (i = MSM_PCIE_MAX_LINKDOWN_RESET - 1; i >= 0; i--) {
+		reset_info = &dev->linkdown_reset[i];
+		if (!reset_info->hdl)
+			continue;
+
+		rc = reset_control_deassert(reset_info->hdl);
+		if (rc)
+			PCIE_ERR(dev,
+				"PCIe: RC%d failed to deassert reset for %s.\n",
+				dev->rc_idx, reset_info->name);
+		else
+			PCIE_DBG2(dev,
+				"PCIe: RC%d successfully deasserted reset for %s.\n",
+				dev->rc_idx, reset_info->name);
+	}
+
+	PCIE_DBG(dev, "post reset ltssm:%x\n",
+		 readl_relaxed(dev->parf + PCIE20_PARF_LTSSM));
+
+	/* enable link training */
+	msm_pcie_write_mask(dev->parf + PCIE20_PARF_LTSSM, 0, LTSSM_EN);
+
+	/* Wait for up to 100ms for the link to come up */
+	do {
+		val =  readl_relaxed(dev->elbi + PCIE20_ELBI_SYS_STTS);
+		PCIE_DBG(dev, "PCIe RC%d: LTSSM_STATE: %x %s\n",
+			dev->rc_idx, val, TO_LTSSM_STR((val >> 12) & 0x3f));
+		usleep_range(10000, 11000);
+	} while ((!(val & XMLH_LINK_UP) ||
+		!msm_pcie_confirm_linkup(dev, false, false, NULL))
+		&& (link_check_count++ < 10));
+
+	if ((val & XMLH_LINK_UP) &&
+	     msm_pcie_confirm_linkup(dev, false, false, NULL)) {
+		dev->link_status = MSM_PCIE_LINK_ENABLED;
+		PCIE_DBG(dev, "Link is up after %d checkings\n",
+			link_check_count);
+		PCIE_INFO(dev, "PCIe RC%d link initialized\n", dev->rc_idx);
+	} else {
+		PCIE_ERR(dev, "PCIe RC%d link initialization failed\n",
+			dev->rc_idx);
+	}
+}
+
+static irqreturn_t handle_flush_irq(int irq, void *data)
+{
+	struct msm_pcie_dev_t *dev = data;
+
+	schedule_work(&dev->handle_sbr_work);
+
+	return IRQ_HANDLED;
+}
+
 static void handle_wake_func(struct work_struct *work)
 {
 	int i, ret;
@@ -5098,6 +5244,16 @@ static void handle_wake_func(struct work_struct *work)
 
 out:
 	mutex_unlock(&dev->recovery_lock);
+}
+
+static void handle_link_recover(struct work_struct *work)
+{
+	struct msm_pcie_dev_t *dev = container_of(work, struct msm_pcie_dev_t,
+					link_recover_wq);
+
+	PCIE_DBG(dev, "PCIe: link recover start for RC%d\n", dev->rc_idx);
+
+	msm_pcie_notify_client(dev, MSM_PCIE_EVENT_LINK_RECOVER);
 }
 
 static irqreturn_t handle_aer_irq(int irq, void *data)
@@ -5275,9 +5431,57 @@ static irqreturn_t handle_wake_irq(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+/* Attempt to recover link, return 0 if success */
+static int msm_pcie_linkdown_recovery(struct msm_pcie_dev_t *dev)
+{
+	u32 status = 0;
+	u32 cnt = 100; /* 1msec timeout */
+
+	PCIE_DUMP(dev, "PCIe:Linkdown IRQ for RC%d attempt recovery\n",
+		dev->rc_idx);
+
+	while (cnt--) {
+		status = readl_relaxed(dev->parf + PCIE20_PARF_STATUS);
+		if (status & FLUSH_COMPLETED) {
+			PCIE_DBG(dev,
+			       "flush complete (%d), status:%x\n", cnt, status);
+			break;
+		}
+		udelay(10);
+	}
+
+	if (!cnt) {
+		PCIE_DBG(dev, "flush timeout, status:%x\n", status);
+		return -ETIMEDOUT;
+	}
+
+	/* Clear flush and move core to reset mode */
+	msm_pcie_write_mask(dev->parf + PCIE20_PARF_LTSSM,
+			    0, SW_CLR_FLUSH_MODE);
+
+	/* wait for flush mode to clear */
+	cnt = 100; /* 1msec timeout */
+	while (cnt--) {
+		status = readl_relaxed(dev->parf + PCIE20_PARF_LTSSM);
+		if (!(status & FLUSH_MODE)) {
+			PCIE_DBG(dev, "flush mode clear:%d, %x\n", cnt, status);
+			break;
+		}
+
+		udelay(10);
+	}
+
+	if (!cnt) {
+		PCIE_DBG(dev, "flush-mode timeout, status:%x\n", status);
+		return -ETIMEDOUT;
+	}
+
+	return 0;
+}
+
 static void msm_pcie_handle_linkdown(struct msm_pcie_dev_t *dev)
 {
-	int i;
+	int i, ret;
 
 	if (dev->link_status == MSM_PCIE_LINK_DOWN)
 		return;
@@ -5291,6 +5495,14 @@ static void msm_pcie_handle_linkdown(struct msm_pcie_dev_t *dev)
 	pcie_phy_dump(dev);
 	pcie_parf_dump(dev);
 	pcie_dm_core_dump(dev);
+
+	/* Attempt link-down recovery instead of PERST if supported */
+	if (dev->linkdown_recovery_enable) {
+		ret = msm_pcie_linkdown_recovery(dev);
+		/* Return without PERST assertion if success */
+		if (!ret)
+			return;
+	}
 
 	/* assert PERST */
 	if (!(msm_pcie_keep_resources_on & BIT(dev->rc_idx)))
@@ -5388,6 +5600,12 @@ static irqreturn_t handle_global_irq(int irq, void *data)
 					dev->rc_idx);
 				handle_aer_irq(irq, data);
 				break;
+			case MSM_PCIE_INT_EVT_BRIDGE_FLUSH_N:
+				PCIE_DBG(dev,
+					"PCIe: RC%d: FLUSH event.\n",
+					dev->rc_idx);
+				handle_flush_irq(irq, data);
+				break;
 			default:
 				PCIE_DUMP(dev,
 					"PCIe: RC%d: Unexpected event %d is caught!\n",
@@ -5445,6 +5663,7 @@ static int32_t msm_pcie_irq_init(struct msm_pcie_dev_t *dev)
 		}
 
 		INIT_WORK(&dev->handle_wake_work, handle_wake_func);
+		INIT_WORK(&dev->handle_sbr_work, handle_sbr_func);
 
 		rc = enable_irq_wake(dev->wake_n);
 		if (rc) {
@@ -6176,6 +6395,8 @@ static int msm_pcie_probe(struct platform_device *pdev)
 		sizeof(msm_pcie_reset_info[rc_idx]));
 	memcpy(pcie_dev->pipe_reset, msm_pcie_pipe_reset_info[rc_idx],
 		sizeof(msm_pcie_pipe_reset_info[rc_idx]));
+	memcpy(pcie_dev->linkdown_reset, msm_pcie_linkdown_reset_info[rc_idx],
+		sizeof(msm_pcie_linkdown_reset_info[rc_idx]));
 
 	for (i = 0; i < PCIE_CONF_SPACE_DW; i++)
 		pcie_dev->rc_shadow[i] = PCIE_CLEAR;
@@ -6242,6 +6463,14 @@ static int msm_pcie_probe(struct platform_device *pdev)
 		msm_pcie_release_resources(pcie_dev);
 		msm_pcie_gpio_deinit(pcie_dev);
 		goto decrease_rc_num;
+	}
+	pcie_dev->config_recovery = of_property_read_bool(of_node,
+					"qcom,config-recovery");
+	if (pcie_dev->config_recovery) {
+		PCIE_DUMP(pcie_dev,
+			"PCIe RC%d config space recovery enabled\n",
+			pcie_dev->rc_idx);
+		INIT_WORK(&pcie_dev->link_recover_wq, handle_link_recover);
 	}
 
 	drv_supported = of_property_read_bool(of_node, "qcom,drv-supported");
@@ -7040,6 +7269,15 @@ static int msm_pcie_pm_suspend(struct pci_dev *dev,
 	pcie_dev->suspending = true;
 	spin_unlock_irqrestore(&pcie_dev->irq_lock, irqsave_flags);
 
+	if (pcie_dev->config_recovery) {
+		if (work_pending(&pcie_dev->link_recover_wq)) {
+			PCIE_DBG(pcie_dev,
+				"RC%d: cancel link_recover_wq at pm suspend\n",
+				pcie_dev->rc_idx);
+			cancel_work_sync(&pcie_dev->link_recover_wq);
+		}
+	}
+
 	if (!pcie_dev->power_on) {
 		PCIE_DBG(pcie_dev,
 			"PCIe: power of RC%d has been turned off.\n",
@@ -7256,6 +7494,7 @@ static int msm_pcie_drv_resume(struct msm_pcie_dev_t *pcie_dev)
 	struct msm_pcie_clk_info_t *clk_info;
 	u32 current_link_speed;
 	int ret, i;
+	u32 val;
 
 	mutex_lock(&pcie_dev->recovery_lock);
 	mutex_lock(&pcie_dev->setup_lock);
@@ -7332,6 +7571,10 @@ static int msm_pcie_drv_resume(struct msm_pcie_dev_t *pcie_dev)
 
 	enable_irq(pcie_dev->irq[MSM_PCIE_INT_GLOBAL_INT].num);
 
+	val = readl_relaxed(pcie_dev->parf + PCIE20_PARF_LTSSM);
+	PCIE_DBG(pcie_dev, "PCIe RC%d: LTSSM_STATE: %s\n",
+		pcie_dev->rc_idx, TO_LTSSM_STR(val & 0x3f));
+
 	mutex_unlock(&pcie_dev->setup_lock);
 	mutex_unlock(&pcie_dev->recovery_lock);
 
@@ -7347,6 +7590,7 @@ static int msm_pcie_drv_suspend(struct msm_pcie_dev_t *pcie_dev,
 	struct msm_pcie_drv_tre *pkt = &drv_enable->pkt;
 	struct msm_pcie_clk_info_t *clk_info;
 	int ret, i;
+	u32 val;
 
 	if (!rpdev) {
 		PCIE_ERR(pcie_dev, "PCIe: RC%d: DRV: no rpmsg device\n",
@@ -7377,6 +7621,10 @@ static int msm_pcie_drv_suspend(struct msm_pcie_dev_t *pcie_dev,
 
 	if (unlikely(drv_info->seq == MSM_PCIE_DRV_SEQ_RESV))
 		drv_info->seq = 0;
+
+	val = readl_relaxed(pcie_dev->parf + PCIE20_PARF_LTSSM);
+	PCIE_DBG(pcie_dev, "PCIe RC%d: LTSSM_STATE: %s\n",
+		pcie_dev->rc_idx, TO_LTSSM_STR(val & 0x3f));
 
 	ret = rpmsg_trysend(rpdev->ept, drv_enable, sizeof(*drv_enable));
 	if (ret) {

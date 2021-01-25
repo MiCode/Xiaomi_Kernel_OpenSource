@@ -42,6 +42,20 @@ config ARCH_MDM9615
 	select CLKSRC_OF
 	select COMMON_CLK
 
+config ARCH_QM215
+	bool "Enable support for QM215"
+	select CPU_V7
+	select HAVE_ARM_ARCH_TIMER
+	select PINCTRL
+	select QCOM_SCM if SMP
+	select PM_DEVFREQ
+	select CLKDEV_LOOKUP
+	select HAVE_CLK
+	select HAVE_CLK_PREPARE
+	select COMMON_CLK
+	select COMMON_CLK_QCOM
+	select ARM_GIC
+
 config ARCH_SDM660
 	bool "Enable Support for Qualcomm Technologies, Inc. SDM660"
 	select CLKDEV_LOOKUP
@@ -102,6 +116,19 @@ config ARCH_BENGAL
 	help
 	  This enables support for the BENGAL chipset. If you do not
 	  wish to build a kernel that runs on this chipset, say 'N' here.
+
+config ARCH_MSM8917
+	bool "Enable support for MSM8917"
+	select CPU_V7
+	select HAVE_ARM_ARCH_TIMER
+	select PINCTRL
+	select QCOM_SCM if SMP
+	select PM_DEVFREQ
+	select CLKDEV_LOOKUP
+	select HAVE_CLK
+	select HAVE_CLK_PREPARE
+	select COMMON_CLK
+	select COMMON_CLK_QCOM
 
 config ARCH_SCUBA
 	bool "Enable Support for Qualcomm Technologies, Inc. SCUBA"

@@ -1342,11 +1342,8 @@ void sdhci_msm_enter_dbg_mode(struct sdhci_host *host)
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
 	struct platform_device *pdev = msm_host->pdev;
 	u32 enable_dbg_feature = 0;
-	u32 minor;
 
-	minor = IPCAT_MINOR_MASK(readl_relaxed(host->ioaddr +
-				SDCC_IP_CATALOG));
-	if (minor < 2 || msm_host->debug_mode_enabled)
+	if (msm_host->minor < 2 || msm_host->debug_mode_enabled)
 		return;
 	if (!(host->quirks2 & SDHCI_QUIRK2_USE_DBG_FEATURE))
 		return;
@@ -1360,7 +1357,7 @@ void sdhci_msm_enter_dbg_mode(struct sdhci_host *host)
 			SDCC_TESTBUS_CONFIG) | TESTBUS_EN),
 			host->ioaddr + SDCC_TESTBUS_CONFIG);
 
-	if (minor >= 2)
+	if (msm_host->minor >= 2)
 		enable_dbg_feature |= FSM_HISTORY |
 			AUTO_RECOVERY_DISABLE |
 			MM_TRIGGER_DISABLE |
@@ -1387,11 +1384,8 @@ void sdhci_msm_exit_dbg_mode(struct sdhci_host *host)
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
 	struct platform_device *pdev = msm_host->pdev;
-	u32 minor;
 
-	minor = IPCAT_MINOR_MASK(readl_relaxed(host->ioaddr +
-				SDCC_IP_CATALOG));
-	if (minor < 2 || !msm_host->debug_mode_enabled)
+	if (msm_host->minor  < 2 || !msm_host->debug_mode_enabled)
 		return;
 	if (!(host->quirks2 & SDHCI_QUIRK2_USE_DBG_FEATURE))
 		return;
@@ -5293,7 +5287,6 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	void __iomem *tlmm_mem;
 	unsigned long flags;
 	bool force_probe;
-	u32 minor;
 
 	pr_debug("%s: Enter %s\n", dev_name(&pdev->dev), __func__);
 	msm_host = devm_kzalloc(&pdev->dev, sizeof(struct sdhci_msm_host),
@@ -5594,7 +5587,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	if (host->quirks2 & SDHCI_QUIRK2_ALWAYS_USE_BASE_CLOCK)
 		host->quirks2 |= SDHCI_QUIRK2_DIVIDE_TOUT_BY_4;
 
-	minor = IPCAT_MINOR_MASK(readl_relaxed(host->ioaddr +
+	msm_host->minor = IPCAT_MINOR_MASK(readl_relaxed(host->ioaddr +
 				SDCC_IP_CATALOG));
 
 	host_version = readw_relaxed((host->ioaddr + SDHCI_HOST_VERSION));
@@ -5796,7 +5789,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		device_remove_file(&pdev->dev, &msm_host->auto_cmd21_attr);
 	}
 
-	if (minor >= 2) {
+	if (msm_host->minor >= 2) {
 		msm_host->mask_and_match.show = show_mask_and_match;
 		msm_host->mask_and_match.store = store_mask_and_match;
 		sysfs_attr_init(&msm_host->mask_and_match.attr);

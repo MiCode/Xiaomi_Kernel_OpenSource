@@ -56,6 +56,7 @@ enum icnss_driver_event_type {
 	ICNSS_DRIVER_EVENT_QDSS_TRACE_SAVE,
 	ICNSS_DRIVER_EVENT_QDSS_TRACE_FREE,
 	ICNSS_DRIVER_EVENT_M3_DUMP_UPLOAD_REQ,
+	ICNSS_DRIVER_EVENT_QDSS_TRACE_REQ_DATA,
 	ICNSS_DRIVER_EVENT_MAX,
 };
 
@@ -427,6 +428,7 @@ struct icnss_priv {
 	void *hang_event_data;
 	struct list_head icnss_tcdev_list;
 	struct mutex tcdev_lock;
+	u32 hw_trc_override;
 };
 
 struct icnss_reg_info {

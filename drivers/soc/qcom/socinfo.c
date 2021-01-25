@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2009-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2021, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "%s: " fmt, __func__
@@ -356,6 +356,23 @@ static struct msm_soc_info cpu_of_id[] = {
 	/* BENGALP-IOT ID */
 	[470] = {MSM_CPU_BENGALP_IOT, "BENGALP-IOT"},
 
+	/* MSM8937 ID */
+	[294] = {MSM_CPU_8937, "MSM8937"},
+	[295] = {MSM_CPU_8937, "APQ8937"},
+
+	/* MSM8917 IDs */
+	[303] = {MSM_CPU_8917, "MSM8917"},
+	[307] = {MSM_CPU_8917, "APQ8017"},
+	[308] = {MSM_CPU_8917, "MSM8217"},
+	[309] = {MSM_CPU_8917, "MSM8617"},
+
+	/* SDM429 and SDM439 ID */
+	[353] = {MSM_CPU_SDM439, "SDM439"},
+	[354] = {MSM_CPU_SDM429, "SDM429"},
+
+
+	/* QM215 ID */
+	[386] = {MSM_CPU_QM215, "QM215"},
 	/* Uninitialized IDs are not known to run Linux.
 	 * MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are
 	 * considered as unknown CPU.
@@ -1283,6 +1300,26 @@ static void * __init setup_dummy_socinfo(void)
 		dummy_socinfo.id = 470;
 		strlcpy(dummy_socinfo.build_id, "bengalp-iot - ",
 		sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_msm8937()) {
+		dummy_socinfo.id = 294;
+		strlcpy(dummy_socinfo.build_id, "msm8937 - ",
+		sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_msm8917()) {
+		dummy_socinfo.id = 303;
+		strlcpy(dummy_socinfo.build_id, "msm8917 - ",
+			sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_sdm439()) {
+		dummy_socinfo.id = 353;
+		strlcpy(dummy_socinfo.build_id, "sdm439 - ",
+				sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_sdm429()) {
+		dummy_socinfo.id = 354;
+		strlcpy(dummy_socinfo.build_id, "sdm429 - ",
+				sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_qm215()) {
+		dummy_socinfo.id = 386;
+		strlcpy(dummy_socinfo.build_id, "qm215 - ",
+				sizeof(dummy_socinfo.build_id));
 	} else
 		strlcat(dummy_socinfo.build_id, "Dummy socinfo",
 			sizeof(dummy_socinfo.build_id));

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2016-2021, The Linux Foundation. All rights reserved. */
 
 #include <linux/cma.h>
 #include <linux/firmware.h>
@@ -73,10 +73,13 @@ static DEFINE_SPINLOCK(time_sync_lock);
 #define POWER_ON_RETRY_DELAY_MS			200
 
 #define LINK_TRAINING_RETRY_MAX_TIMES		3
+#define LINK_TRAINING_RETRY_DELAY_MS		500
 
 #define HANG_DATA_LENGTH		384
 #define HST_HANG_DATA_OFFSET		((3 * 1024 * 1024) - HANG_DATA_LENGTH)
 #define HSP_HANG_DATA_OFFSET		((2 * 1024 * 1024) - HANG_DATA_LENGTH)
+
+#define MHI_SUSPEND_RETRY_CNT		3
 
 static struct cnss_pci_reg ce_src[] = {
 	{ "SRC_RING_BASE_LSB", QCA6390_CE_SRC_RING_BASE_LSB_OFFSET },
@@ -679,6 +682,8 @@ retry:
 			    link_up ? "resume" : "suspend", ret);
 		if (link_up && retry++ < LINK_TRAINING_RETRY_MAX_TIMES) {
 			cnss_pr_dbg("Retry PCI link training #%d\n", retry);
+			if (pci_priv->pci_link_down_ind)
+				msleep(LINK_TRAINING_RETRY_DELAY_MS * retry);
 			goto retry;
 		}
 	}
@@ -1097,6 +1102,7 @@ static int cnss_pci_set_mhi_state(struct cnss_pci_data *pci_priv,
 				  enum cnss_mhi_state mhi_state)
 {
 	int ret = 0;
+	u8 retry = 0;
 
 	if (pci_priv->device_id == QCA6174_DEVICE_ID)
 		return 0;
@@ -1144,10 +1150,21 @@ static int cnss_pci_set_mhi_state(struct cnss_pci_data *pci_priv,
 		break;
 	case CNSS_MHI_SUSPEND:
 		mutex_lock(&pci_priv->mhi_ctrl->pm_mutex);
-		if (pci_priv->drv_connected_last)
+		if (pci_priv->drv_connected_last) {
 			ret = mhi_pm_fast_suspend(pci_priv->mhi_ctrl, true);
-		else
+		} else {
 			ret = mhi_pm_suspend(pci_priv->mhi_ctrl);
+			/* in some corner case, when cnss try to suspend,
+			 * there is still packets pending in mhi layer,
+			 * so retry suspend to save roll back effort.
+			 */
+			while (ret == -EBUSY && retry < MHI_SUSPEND_RETRY_CNT) {
+				usleep_range(5000, 6000);
+				retry++;
+				cnss_pr_err("mhi is busy, retry #%u", retry);
+				ret = mhi_pm_suspend(pci_priv->mhi_ctrl);
+			}
+		}
 		mutex_unlock(&pci_priv->mhi_ctrl->pm_mutex);
 		break;
 	case CNSS_MHI_RESUME:
@@ -1176,10 +1193,10 @@ static int cnss_pci_set_mhi_state(struct cnss_pci_data *pci_priv,
 	return 0;
 
 out:
-	cnss_pr_err("Failed to set MHI state: %s(%d)\n",
-		    cnss_mhi_state_to_str(mhi_state), mhi_state);
+	cnss_pr_err("Failed to set MHI state: %s(%d) ret: %d\n",
+		    cnss_mhi_state_to_str(mhi_state), mhi_state, ret);
 
-	if (mhi_state == CNSS_MHI_RESUME)
+	if (mhi_state == CNSS_MHI_RESUME && ret != -ETIMEDOUT)
 		cnss_force_fw_assert_async(&pci_priv->pci_dev->dev);
 
 	return ret;
@@ -1365,7 +1382,8 @@ static int cnss_pci_update_timestamp(struct cnss_pci_data *pci_priv)
 		goto force_wake_put;
 
 	if (host_time_us < device_time_us) {
-		cnss_pr_err("Host time (%llu us) is smaller than device time (%llu us), stop\n");
+		cnss_pr_err("Host time (%llu us) is smaller than device time (%llu us), stop\n",
+			    host_time_us, device_time_us);
 		ret = -EINVAL;
 		goto force_wake_put;
 	}
@@ -2440,6 +2458,8 @@ static void cnss_pci_event_cb(struct msm_pcie_notify *notify)
 {
 	struct pci_dev *pci_dev;
 	struct cnss_pci_data *pci_priv;
+	struct cnss_plat_data *plat_priv = NULL;
+	int ret = 0;
 
 	if (!notify)
 		return;
@@ -2453,17 +2473,40 @@ static void cnss_pci_event_cb(struct msm_pcie_notify *notify)
 		return;
 
 	switch (notify->event) {
+	case MSM_PCIE_EVENT_LINK_RECOVER:
+		cnss_pr_dbg("PCI link recover callback\n");
+
+		plat_priv = pci_priv->plat_priv;
+		if (!plat_priv) {
+			cnss_pr_err("plat_priv is NULL\n");
+			return;
+		}
+
+		plat_priv->ctrl_params.quirks |= BIT(LINK_DOWN_SELF_RECOVERY);
+
+		ret = msm_pcie_pm_control(MSM_PCIE_HANDLE_LINKDOWN,
+					  pci_dev->bus->number, pci_dev, NULL,
+					  PM_OPTIONS_DEFAULT);
+		if (ret)
+			cnss_pci_handle_linkdown(pci_priv);
+		break;
 	case MSM_PCIE_EVENT_LINKDOWN:
 		cnss_pr_dbg("PCI link down event callback\n");
 		cnss_pci_handle_linkdown(pci_priv);
 		break;
 	case MSM_PCIE_EVENT_WAKEUP:
+		cnss_pr_dbg("PCI WAKE event callback\n");
 		complete(&pci_priv->wake_event);
 		if (cnss_pci_get_monitor_wake_intr(pci_priv) &&
 		    cnss_pci_get_auto_suspended(pci_priv)) {
 			cnss_pci_set_monitor_wake_intr(pci_priv, false);
 			cnss_pci_pm_request_resume(pci_priv);
 		}
+
+		if (cnss_pci_check_link_status(pci_priv))
+			return;
+
+		mhi_debug_reg_dump(pci_priv->mhi_ctrl);
 		break;
 	case MSM_PCIE_EVENT_DRV_CONNECT:
 		cnss_pr_dbg("DRV subsystem is connected\n");
@@ -2486,8 +2529,9 @@ static int cnss_reg_pci_event(struct cnss_pci_data *pci_priv)
 	struct msm_pcie_register_event *pci_event;
 
 	pci_event = &pci_priv->msm_pci_event;
-	pci_event->events = MSM_PCIE_EVENT_LINKDOWN |
-		MSM_PCIE_EVENT_WAKEUP;
+	pci_event->events = MSM_PCIE_EVENT_LINK_RECOVER |
+			    MSM_PCIE_EVENT_LINKDOWN |
+			    MSM_PCIE_EVENT_WAKEUP;
 
 	if (cnss_pci_is_drv_supported(pci_priv))
 		pci_event->events = pci_event->events |

@@ -167,6 +167,7 @@ struct spi_geni_master {
 	u32 miso_sampling_ctrl_val;
 	int set_cs_sb_delay; /*SB PIPE Delay */
 	int set_pre_cmd_dly; /*Pre command Delay */
+	bool use_fixed_timeout;
 };
 
 static struct spi_master *get_spi_master(struct device *dev)
@@ -175,6 +176,23 @@ static struct spi_master *get_spi_master(struct device *dev)
 	struct spi_master *spi = platform_get_drvdata(pdev);
 
 	return spi;
+}
+
+static inline void spi_geni_clk_conf(struct spi_geni_master *mas,
+		int clk_div, int clk_idx)
+{
+	u32 clk_sel = 0;
+	u32 m_clk_cfg = 0;
+
+	clk_sel |= (clk_idx & CLK_SEL_MSK);
+	m_clk_cfg |= ((clk_div << CLK_DIV_SHFT) | SER_CLK_EN);
+	geni_write_reg(clk_sel, mas->base, SE_GENI_CLK_SEL);
+	geni_write_reg(m_clk_cfg, mas->base, GENI_SER_M_CLK_CFG);
+
+	/*
+	 * Ensure Clk config completes before return.
+	 */
+	mb();
 }
 
 static int get_spi_clk_cfg(u32 speed_hz, struct spi_geni_master *mas,
@@ -206,6 +224,8 @@ static int get_spi_clk_cfg(u32 speed_hz, struct spi_geni_master *mas,
 
 	dev_dbg(mas->dev, "%s: req %u resultant %lu sclk %lu, idx %d, div %d\n",
 		__func__, speed_hz, res_freq, sclk_freq, *clk_idx, *clk_div);
+
+	spi_geni_clk_conf(mas, *clk_div, *clk_idx);
 
 	ret = clk_set_rate(rsc->se_clk, sclk_freq);
 	if (ret)
@@ -249,8 +269,6 @@ static int setup_fifo_params(struct spi_device *spi_slv,
 	u32 cpha = geni_read_reg(mas->base, SE_SPI_CPHA);
 	u32 demux_sel = 0;
 	u32 demux_output_inv = 0;
-	u32 clk_sel = 0;
-	u32 m_clk_cfg = 0;
 	int ret = 0;
 	int idx;
 	int div;
@@ -300,23 +318,19 @@ static int setup_fifo_params(struct spi_device *spi_slv,
 		goto setup_fifo_params_exit;
 	}
 
-	clk_sel |= (idx & CLK_SEL_MSK);
-	m_clk_cfg |= ((div << CLK_DIV_SHFT) | SER_CLK_EN);
 	spi_setup_word_len(mas, spi_slv->mode, spi_slv->bits_per_word);
 	geni_write_reg(loopback_cfg, mas->base, SE_SPI_LOOPBACK);
 	geni_write_reg(demux_sel, mas->base, SE_SPI_DEMUX_SEL);
 	geni_write_reg(cpha, mas->base, SE_SPI_CPHA);
 	geni_write_reg(cpol, mas->base, SE_SPI_CPOL);
 	geni_write_reg(demux_output_inv, mas->base, SE_SPI_DEMUX_OUTPUT_INV);
-	geni_write_reg(clk_sel, mas->base, SE_GENI_CLK_SEL);
-	geni_write_reg(m_clk_cfg, mas->base, GENI_SER_M_CLK_CFG);
 	geni_write_reg(spi_delay_params, mas->base, SE_SPI_DELAY_COUNTERS);
 	GENI_SE_DBG(mas->ipc, false, mas->dev,
-		"%s:Loopback%d demux_sel0x%x demux_op_inv 0x%x clk_cfg 0x%x\n",
-		__func__, loopback_cfg, demux_sel, demux_output_inv, m_clk_cfg);
+		"%s:Loopback%d demux_sel0x%x demux_op_inv 0x%x\n",
+		__func__, loopback_cfg, demux_sel, demux_output_inv);
 	GENI_SE_DBG(mas->ipc, false, mas->dev,
-		"%s:clk_sel 0x%x cpol %d cpha %d delay 0x%x\n", __func__,
-					clk_sel, cpol, cpha, spi_delay_params);
+		"%s:cpol %d cpha %d delay 0x%x\n", __func__,
+					 cpol, cpha, spi_delay_params);
 	/* Ensure message level attributes are written before returning */
 	mb();
 setup_fifo_params_exit:
@@ -1069,8 +1083,6 @@ static int setup_fifo_xfer(struct spi_transfer *xfer,
 
 	/* Speed and bits per word can be overridden per transfer */
 	if (xfer->speed_hz != mas->cur_speed_hz) {
-		u32 clk_sel = 0;
-		u32 m_clk_cfg = 0;
 		int idx = 0;
 		int div = 0;
 
@@ -1081,10 +1093,6 @@ static int setup_fifo_xfer(struct spi_transfer *xfer,
 			return ret;
 		}
 		mas->cur_speed_hz = xfer->speed_hz;
-		clk_sel |= (idx & CLK_SEL_MSK);
-		m_clk_cfg |= ((div << CLK_DIV_SHFT) | SER_CLK_EN);
-		geni_write_reg(clk_sel, mas->base, SE_GENI_CLK_SEL);
-		geni_write_reg(m_clk_cfg, mas->base, GENI_SER_M_CLK_CFG);
 	}
 
 	mas->tx_rem_bytes = 0;
@@ -1258,7 +1266,7 @@ static int spi_geni_transfer_one(struct spi_master *spi,
 {
 	int ret = 0;
 	struct spi_geni_master *mas = spi_master_get_devdata(spi);
-	unsigned long timeout;
+	unsigned long timeout, xfer_timeout;
 
 	if ((xfer->tx_buf == NULL) && (xfer->rx_buf == NULL)) {
 		dev_err(mas->dev, "Invalid xfer both tx rx are NULL\n");
@@ -1271,6 +1279,15 @@ static int spi_geni_transfer_one(struct spi_master *spi,
 		return -EINVAL;
 	}
 
+	if (mas->use_fixed_timeout)
+		xfer_timeout = msecs_to_jiffies(SPI_XFER_TIMEOUT_MS);
+	else
+		xfer_timeout =
+			100 * msecs_to_jiffies(DIV_ROUND_UP(xfer->len * 8,
+				DIV_ROUND_UP(xfer->speed_hz, MSEC_PER_SEC)));
+	GENI_SE_DBG(mas->ipc, false, mas->dev,
+			"current xfer_timeout:%lu ms.\n", xfer_timeout);
+
 	if (mas->cur_xfer_mode != GSI_DMA) {
 		reinit_completion(&mas->xfer_done);
 		ret = setup_fifo_xfer(xfer, mas, slv->mode, spi);
@@ -1282,7 +1299,8 @@ static int spi_geni_transfer_one(struct spi_master *spi,
 		}
 
 		timeout = wait_for_completion_timeout(&mas->xfer_done,
-					msecs_to_jiffies(SPI_XFER_TIMEOUT_MS));
+				xfer_timeout);
+
 		if (!timeout) {
 			GENI_SE_ERR(mas->ipc, true, mas->dev,
 				"Xfer[len %d tx %pK rx %pK n %d] timed out.\n",
@@ -1322,10 +1340,8 @@ static int spi_geni_transfer_one(struct spi_master *spi,
 			int i;
 
 			for (i = 0 ; i < mas->num_tx_eot; i++) {
-				timeout =
-				wait_for_completion_timeout(
-					&mas->tx_cb,
-					msecs_to_jiffies(SPI_XFER_TIMEOUT_MS));
+				timeout = wait_for_completion_timeout(
+					&mas->tx_cb, xfer_timeout);
 				if (timeout <= 0) {
 					GENI_SE_ERR(mas->ipc, true, mas->dev,
 					"Tx[%d] timeout%lu\n", i, timeout);
@@ -1334,10 +1350,8 @@ static int spi_geni_transfer_one(struct spi_master *spi,
 				}
 			}
 			for (i = 0 ; i < mas->num_rx_eot; i++) {
-				timeout =
-				wait_for_completion_timeout(
-					&mas->rx_cb,
-					msecs_to_jiffies(SPI_XFER_TIMEOUT_MS));
+				timeout = wait_for_completion_timeout(
+					&mas->rx_cb, xfer_timeout);
 				if (timeout <= 0) {
 					GENI_SE_ERR(mas->ipc, true, mas->dev,
 					 "Rx[%d] timeout%lu\n", i, timeout);
@@ -1673,6 +1687,9 @@ static int spi_geni_probe(struct platform_device *pdev)
 		of_property_read_bool(pdev->dev.of_node,
 				"qcom,shared_ee");
 
+	geni_mas->use_fixed_timeout =
+		of_property_read_bool(pdev->dev.of_node,
+				"qcom,use-fixed-timeout");
 	geni_mas->set_miso_sampling = of_property_read_bool(pdev->dev.of_node,
 				"qcom,set-miso-sampling");
 	if (geni_mas->set_miso_sampling) {
