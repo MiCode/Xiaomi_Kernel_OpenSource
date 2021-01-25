@@ -220,6 +220,8 @@ function prepare_vendor_dlkm() {
 
     VENDOR_DLKM_MODULES_LIST="${MODULES_STAGING_DIR}/vendor_dlkm.modules.load"
   fi
+
+  SUPER_IMAGE_CONTENTS+="${DIST_DIR}/vendor_dlkm.img"
 }
 if [ "${BUILD_VENDOR_DLKM}" == "1" ]; then
   append_cmd DIST_CMDS 'prepare_vendor_dlkm'
