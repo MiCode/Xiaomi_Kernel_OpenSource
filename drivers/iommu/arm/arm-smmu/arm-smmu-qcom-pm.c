@@ -376,7 +376,7 @@ static int arm_smmu_init_interconnect(struct arm_smmu_power_resources *pwr)
 		return 0;
 	}
 
-	pwr->icc_path = of_icc_get(dev, NULL);
+	pwr->icc_path = devm_of_icc_get(dev, NULL);
 	if (IS_ERR_OR_NULL(pwr->icc_path)) {
 		if (PTR_ERR(pwr->icc_path) != -EPROBE_DEFER)
 			dev_err(dev, "Unable to read interconnect path from devicetree rc: %ld\n",
@@ -421,9 +421,4 @@ struct arm_smmu_power_resources *arm_smmu_init_power_resources(
 		return ERR_PTR(ret);
 
 	return pwr;
-}
-
-void arm_smmu_exit_power_resources(struct arm_smmu_power_resources *pwr)
-{
-	icc_put(pwr->icc_path);
 }
