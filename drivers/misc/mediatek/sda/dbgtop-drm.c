@@ -82,6 +82,8 @@ EXPORT_SYMBOL(mtk_dbgtop_mfg_pwr_en);
 /*
  * Set the required timeout value of each caller before RGU reset,
  * and take the maximum as timeout value.
+ * @value_abnormal: timeout value for exception reboot
+ * @value_normal: timeout value for normal reboot
  * Note: caller needs to set normal timeout value to 0 by default
  */
 int mtk_dbgtop_dfd_timeout(int value_abnormal, int value_normal)
@@ -115,39 +117,10 @@ int mtk_dbgtop_dfd_timeout(int value_abnormal, int value_normal)
 }
 EXPORT_SYMBOL(mtk_dbgtop_dfd_timeout);
 
-int mtk_dbgtop_dram_reserved(int enable)
-{
-	struct dbgtop_drm *drm;
-	unsigned int tmp;
-
-	if (!global_dbgtop_drm)
-		return -1;
-
-	drm = global_dbgtop_drm;
-
-	tmp = readl(drm->base + drm->mode_offset);
-	tmp = (enable) ? (tmp | DRMDRM_MODE_DDR_RESERVE)
-			: (tmp & ~DRMDRM_MODE_DDR_RESERVE);
-	tmp |= DRMDRM_MODE_KEY;
-	writel(tmp, drm->base + drm->mode_offset);
-
-	/*
-	 * Use the memory barrier to make sure the DDR_RSV_MODE is
-	 * enabled (by programming the register) before returnng to
-	 * the caller such that the caller will start to control
-	 * other debuggers and set some software flags.
-	 */
-	mb();
-
-	return 0;
-}
-EXPORT_SYMBOL_GPL(mtk_dbgtop_dram_reserved);
-
 static int mtk_dbgtop_drm_probe(struct platform_device *pdev)
 {
 	struct dbgtop_drm *drm;
 	struct device_node *node = pdev->dev.of_node;
-	int ret;
 
 	dev_info(&pdev->dev, "driver probed\n");
 
@@ -162,17 +135,9 @@ static int mtk_dbgtop_drm_probe(struct platform_device *pdev)
 	if (IS_ERR(drm->base))
 		return PTR_ERR(drm->base);
 
-	ret = of_property_read_u32(node, "mode_offset", &drm->mode_offset);
-	if (ret) {
-		dev_info(&pdev->dev, "No mode_offset\n");
-		drm->mode_offset = DRMDRM_MODE_OFFSET;
-	}
-
 	global_dbgtop_drm = drm;
 
-	dev_info(&pdev->dev,
-		"base %p, mode_offset 0x%x\n",
-		drm->base, drm->mode_offset);
+	dev_info(&pdev->dev, "base %p\n", drm->base);
 
 	return 0;
 }
@@ -186,7 +151,7 @@ static int mtk_dbgtop_drm_remove(struct platform_device *pdev)
 	return 0;
 }
 
-#ifdef CONFIG_OF
+#if IS_ENABLED(CONFIG_OF)
 static const struct of_device_id mtk_dbgtop_drm_of_ids[] = {
 	{.compatible = "mediatek,dbgtop-drm",},
 	{}
@@ -199,7 +164,7 @@ static struct platform_driver mtk_dbgtop_drm = {
 	.driver = {
 		.name = "mtk_dbgtop_drm",
 		.owner = THIS_MODULE,
-#ifdef CONFIG_OF
+#if IS_ENABLED(CONFIG_OF)
 		.of_match_table = mtk_dbgtop_drm_of_ids,
 #endif
 	},
@@ -213,7 +178,7 @@ static int __init mtk_dbgtop_drm_init(void)
 
 	ret = platform_driver_register(&mtk_dbgtop_drm);
 	if (ret) {
-		pr_err("mtk_dbgtop_drm: failed to register driver");
+		pr_info("mtk_dbgtop_drm: failed to register driver");
 		return ret;
 	}
 
