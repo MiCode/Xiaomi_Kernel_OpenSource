@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 
 /*
@@ -478,10 +478,11 @@ static int drawobj_add_sync_timeline(struct kgsl_device *device,
 		drawobj_get_sync_timeline_priv(u64_to_user_ptr(sync.timelines),
 			sync.timelines_size, sync.count);
 
+	/* Set pending flag before adding callback to avoid race */
+	set_bit(event->id, &syncobj->pending);
+
 	ret = dma_fence_add_callback(event->fence,
 		&event->cb, drawobj_sync_timeline_fence_callback);
-
-	set_bit(event->id, &syncobj->pending);
 
 	if (ret) {
 		clear_bit(event->id, &syncobj->pending);
