@@ -7508,8 +7508,14 @@ static void smblib_chg_termination_work(struct work_struct *work)
 	/* Get the battery float voltage */
 	rc = smblib_get_prop_from_bms(chg, POWER_SUPPLY_PROP_VOLTAGE_MAX,
 				&pval);
-	if (rc < 0)
-		goto out;
+	if (rc < 0) {
+		/* FG based targets supports only MAX_DESIGN property */
+		rc = smblib_get_prop_from_bms(chg,
+					POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN,
+					&pval);
+		if (rc < 0)
+			goto out;
+	}
 
 	max_fv_uv = pval.intval;
 
