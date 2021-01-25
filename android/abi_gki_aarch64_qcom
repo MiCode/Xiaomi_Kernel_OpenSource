@@ -228,7 +228,8 @@
   cpufreq_register_notifier
   cpufreq_unregister_driver
   cpufreq_unregister_notifier
-  __cpu_active_mask
+  cpuidle_governor_latency_req
+  cpuidle_register_governor
   __cpuhp_remove_state
   __cpuhp_setup_state
   __cpuhp_setup_state_cpuslocked
@@ -253,8 +254,6 @@
   cpus_read_unlock
   cpu_subsys
   cpu_topology
-  cpuidle_register_governor
-  cpuidle_governor_latency_req
   crc8
   crc8_populate_msb
   crypto_aead_encrypt
@@ -317,7 +316,6 @@
   __dev_get_by_index
   dev_get_by_name
   dev_get_regmap
-  dev_pm_genpd_set_next_wakeup
   dev_queue_xmit
   device_add
   device_add_groups
@@ -428,6 +426,8 @@
   dev_pm_domain_attach_by_name
   dev_pm_domain_detach
   dev_pm_genpd_add_notifier
+  dev_pm_genpd_remove_notifier
+  dev_pm_genpd_set_next_wakeup
   dev_pm_genpd_set_performance_state
   dev_pm_opp_add
   dev_pm_opp_find_freq_ceil
@@ -2169,8 +2169,8 @@
   __tracepoint_android_rvh_update_cpus_allowed
   __tracepoint_android_rvh_update_misfit_status
   __tracepoint_android_rvh_wake_up_new_task
-  __tracepoint_android_vh_binder_wakeup_ilocked
   __tracepoint_android_vh_allow_domain_state
+  __tracepoint_android_vh_binder_wakeup_ilocked
   __tracepoint_android_vh_cpu_idle_enter
   __tracepoint_android_vh_cpu_idle_exit
   __tracepoint_android_vh_dump_throttled_rt_tasks
@@ -2183,8 +2183,8 @@
   __tracepoint_binder_transaction_received
   __tracepoint_cpu_frequency
   __tracepoint_cpu_idle
-  __tracepoint_ipi_raise
   __tracepoint_ipi_entry
+  __tracepoint_ipi_raise
   tracepoint_probe_register
   tracepoint_probe_unregister
   __tracepoint_rwmmio_post_read
@@ -2462,7 +2462,6 @@
   __wake_up
   wake_up_if_idle
   __wake_up_locked
-  wake_up_if_idle
   wake_up_process
   wakeup_source_register
   wakeup_source_unregister
