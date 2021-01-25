@@ -485,12 +485,11 @@ static int msm_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
 suspend:
 	if (suspend) { /* Bus suspend */
 		if (phy->cable_connected) {
-			/* Enable auto-resume functionality only during host
-			 * mode bus suspend with some peripheral connected.
+			/* Enable auto-resume functionality during host mode
+			 * bus suspend with some FS/HS peripheral connected.
 			 */
 			if ((phy->phy.flags & PHY_HOST_MODE) &&
-				((phy->phy.flags & PHY_HSFS_MODE) ||
-				(phy->phy.flags & PHY_LS_MODE))) {
+				(phy->phy.flags & PHY_HSFS_MODE)) {
 				/* Enable auto-resume functionality by pulsing
 				 * signal
 				 */
