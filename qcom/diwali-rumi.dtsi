@@ -11,6 +11,10 @@
 	qcom,wdt@17410000 {
 		status = "disabled";
 	};
+
+	disp_rsc: rsc@af20000 {
+		status = "disabled";
+	};
 };
 
 &gcc {
