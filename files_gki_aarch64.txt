@@ -8,7 +8,9 @@ arch/arm64/crypto/aes-glue.c
 arch/arm64/crypto/aes-modes.S
 arch/arm64/crypto/chacha-neon-core.S
 arch/arm64/crypto/chacha-neon-glue.c
+arch/arm64/crypto/poly1305-core.S
 arch/arm64/crypto/poly1305-glue.c
+arch/arm64/crypto/sha256-core.S
 arch/arm64/crypto/sha256-glue.c
 arch/arm64/crypto/sha2-ce-core.S
 arch/arm64/crypto/sha2-ce-glue.c
@@ -94,7 +96,9 @@ arch/arm64/include/asm/mmu_context.h
 arch/arm64/include/asm/mmu.h
 arch/arm64/include/asm/module.h
 arch/arm64/include/asm/module.lds.h
+arch/arm64/include/asm/mte-def.h
 arch/arm64/include/asm/mte.h
+arch/arm64/include/asm/mte-kasan.h
 arch/arm64/include/asm/neon.h
 arch/arm64/include/asm/numa.h
 arch/arm64/include/asm/page-def.h
@@ -122,6 +126,7 @@ arch/arm64/include/asm/seccomp.h
 arch/arm64/include/asm/sections.h
 arch/arm64/include/asm/shmparam.h
 arch/arm64/include/asm/signal32.h
+arch/arm64/include/asm/signal.h
 arch/arm64/include/asm/simd.h
 arch/arm64/include/asm/smp.h
 arch/arm64/include/asm/smp_plat.h
@@ -216,6 +221,10 @@ arch/arm64/kernel/pci.c
 arch/arm64/kernel/perf_callchain.c
 arch/arm64/kernel/perf_event.c
 arch/arm64/kernel/perf_regs.c
+arch/arm64/kernel/perf_trace_counters.c
+arch/arm64/kernel/perf_trace_counters.h
+arch/arm64/kernel/perf_trace_user.c
+arch/arm64/kernel/perf_trace_user.h
 arch/arm64/kernel/probes/decode-insn.c
 arch/arm64/kernel/probes/decode-insn.h
 arch/arm64/kernel/probes/kprobes.c
@@ -430,6 +439,8 @@ crypto/ansi_cprng.c
 crypto/api.c
 crypto/asymmetric_keys/asymmetric_keys.h
 crypto/asymmetric_keys/asymmetric_type.c
+crypto/asymmetric_keys/pkcs7.asn1.c
+crypto/asymmetric_keys/pkcs7.asn1.h
 crypto/asymmetric_keys/pkcs7_parser.c
 crypto/asymmetric_keys/pkcs7_parser.h
 crypto/asymmetric_keys/pkcs7_trust.c
@@ -437,6 +448,10 @@ crypto/asymmetric_keys/pkcs7_verify.c
 crypto/asymmetric_keys/public_key.c
 crypto/asymmetric_keys/restrict.c
 crypto/asymmetric_keys/signature.c
+crypto/asymmetric_keys/x509_akid.asn1.c
+crypto/asymmetric_keys/x509_akid.asn1.h
+crypto/asymmetric_keys/x509.asn1.c
+crypto/asymmetric_keys/x509.asn1.h
 crypto/asymmetric_keys/x509_cert_parser.c
 crypto/asymmetric_keys/x509_parser.h
 crypto/asymmetric_keys/x509_public_key.c
@@ -487,6 +502,10 @@ crypto/rng.c
 crypto/rsa.c
 crypto/rsa_helper.c
 crypto/rsa-pkcs1pad.c
+crypto/rsaprivkey.asn1.c
+crypto/rsaprivkey.asn1.h
+crypto/rsapubkey.asn1.c
+crypto/rsapubkey.asn1.h
 crypto/scatterwalk.c
 crypto/scompress.c
 crypto/seqiv.c
@@ -1339,6 +1358,7 @@ drivers/scsi/scsi_common.c
 drivers/scsi/scsi_debugfs.c
 drivers/scsi/scsi_debugfs.h
 drivers/scsi/scsi_devinfo.c
+drivers/scsi/scsi_devinfo_tbl.c
 drivers/scsi/scsi_error.c
 drivers/scsi/scsi_ioctl.c
 drivers/scsi/scsi_lib.c
@@ -1384,6 +1404,8 @@ drivers/spi/spi.c
 drivers/spmi/spmi.c
 drivers/staging/android/ashmem.c
 drivers/staging/android/ashmem.h
+drivers/staging/android/debug_kinfo.c
+drivers/staging/android/debug_kinfo.h
 drivers/staging/android/ion/heaps/ion_page_pool.c
 drivers/staging/android/ion/heaps/ion_page_pool.h
 drivers/staging/android/ion/heaps/ion_system_heap.c
@@ -1935,6 +1957,7 @@ fs/sysfs/sysfs.h
 fs/timerfd.c
 fs/tracefs/inode.c
 fs/unicode/utf8-core.c
+fs/unicode/utf8data.h
 fs/unicode/utf8n.h
 fs/unicode/utf8-norm.c
 fs/utimes.c
@@ -3669,6 +3692,7 @@ include/trace/events/neigh.h
 include/trace/events/net.h
 include/trace/events/net_probe_common.h
 include/trace/events/oom.h
+include/trace/events/pagefault.h
 include/trace/events/page_isolation.h
 include/trace/events/pagemap.h
 include/trace/events/percpu.h
@@ -3709,6 +3733,7 @@ include/trace/events/workqueue.h
 include/trace/events/writeback.h
 include/trace/events/xdp.h
 include/trace/hooks/binder.h
+include/trace/hooks/bug.h
 include/trace/hooks/cpufreq.h
 include/trace/hooks/cpuidle.h
 include/trace/hooks/debug.h
@@ -4519,6 +4544,7 @@ lib/cpu_rmap.c
 lib/crc16.c
 lib/crc32.c
 lib/crc32defs.h
+lib/crc32table.h
 lib/crc8.c
 lib/crc-ccitt.c
 lib/crypto/aes.c
@@ -4643,6 +4669,7 @@ lib/nlattr.c
 lib/nmi_backtrace.c
 lib/nodemask.c
 lib/oid_registry.c
+lib/oid_registry_data.c
 lib/once.c
 lib/parser.c
 lib/pci_iomap.c
@@ -5334,6 +5361,7 @@ net/wireless/rdev-ops.h
 net/wireless/reg.c
 net/wireless/reg.h
 net/wireless/scan.c
+net/wireless/shipped-certs.c
 net/wireless/sme.c
 net/wireless/sysfs.c
 net/wireless/sysfs.h
@@ -5374,6 +5402,9 @@ scripts/dtc/checks.c
 scripts/dtc/data.c
 scripts/dtc/dtc.c
 scripts/dtc/dtc.h
+scripts/dtc/dtc-lexer.lex.c
+scripts/dtc/dtc-parser.tab.c
+scripts/dtc/dtc-parser.tab.h
 scripts/dtc/flattree.c
 scripts/dtc/fstree.c
 scripts/dtc/libfdt/fdt_addresses.c
@@ -5395,24 +5426,31 @@ scripts/dtc/treesource.c
 scripts/dtc/util.c
 scripts/dtc/util.h
 scripts/dtc/version_gen.h
-scripts/dtc/yamltree.c
 scripts/extract-cert.c
 scripts/genksyms/genksyms.c
 scripts/genksyms/genksyms.h
 scripts/genksyms/keywords.c
+scripts/genksyms/lex.lex.c
+scripts/genksyms/parse.tab.c
+scripts/genksyms/parse.tab.h
 scripts/kallsyms.c
 scripts/kconfig/conf.c
 scripts/kconfig/confdata.c
 scripts/kconfig/expr.c
 scripts/kconfig/expr.h
+scripts/kconfig/lexer.lex.c
 scripts/kconfig/list.h
 scripts/kconfig/lkc.h
 scripts/kconfig/lkc_proto.h
 scripts/kconfig/menu.c
+scripts/kconfig/parser.tab.c
+scripts/kconfig/parser.tab.h
 scripts/kconfig/preprocess.c
 scripts/kconfig/symbol.c
 scripts/kconfig/util.c
 scripts/mod/devicetable-offsets.c
+scripts/mod/devicetable-offsets.h
+scripts/mod/elfconfig.h
 scripts/mod/empty.c
 scripts/mod/file2alias.c
 scripts/mod/mk_elfconfig.c
@@ -5449,6 +5487,8 @@ security/lsm_audit.c
 security/min_addr.c
 security/security.c
 security/selinux/avc.c
+security/selinux/av_permissions.h
+security/selinux/flask.h
 security/selinux/hooks.c
 security/selinux/include/audit.h
 security/selinux/include/avc.h
@@ -5582,6 +5622,7 @@ sound/usb/stream.c
 sound/usb/stream.h
 sound/usb/usbaudio.h
 sound/usb/validate.c
+techpack/stub/stub.c
 tools/include/tools/be_byteshift.h
 tools/include/tools/le_byteshift.h
 usr/gen_init_cpio.c

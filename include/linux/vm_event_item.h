@@ -125,6 +125,9 @@ enum vm_event_item { PGPGIN, PGPGOUT,
 		SWAP_RA,
 		SWAP_RA_HIT,
 #endif
+#ifdef CONFIG_SPECULATIVE_PAGE_FAULT
+		SPECULATIVE_PGFAULT,
+#endif
 		NR_VM_EVENT_ITEMS
 };
 
