@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -1902,8 +1902,7 @@ static const struct msm_pinctrl_soc_data shima_pinctrl = {
 /* By default, all the gpios that are mpm wake capable are enabled.
  * The following list disables the gpios explicitly
  */
-static const unsigned int config_mpm_wake_disable_gpios[] = {
-};
+static const unsigned int config_mpm_wake_disable_gpios[] = { 151, 202 };
 
 static void shima_pinctrl_config_mpm_wake_disable_gpios(void)
 {
