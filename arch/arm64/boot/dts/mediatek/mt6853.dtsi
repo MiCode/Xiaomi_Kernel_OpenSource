@@ -1474,7 +1474,7 @@
 				<0 0x1022e000 0 0x1000>; /*SRAM*/
 			interrupts = <GIC_SPI 209 IRQ_TYPE_LEVEL_HIGH 0>;
 			mediatek,dpmaif_capability = <6>;
-			clocks = <&topckgen_clk CLK_TOP_DPMAIF_MAIN_SEL>,
+			clocks = <&infracfg_ao_clk CLK_IFRAO_DPMAIF_MAIN>,
 				<&infracfg_ao_clk CLK_IFRAO_CLDMA_BCLK>;
 			clock-names = "infra-dpmaif-clk",
 					"infra-dpmaif-blk-clk";
