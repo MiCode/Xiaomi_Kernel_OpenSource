@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __SYNX_PRIVATE_H__
@@ -10,16 +10,19 @@
 #include <linux/cdev.h>
 #include <linux/dma-fence.h>
 #include <linux/dma-fence-array.h>
+#include <linux/hashtable.h>
 #include <linux/workqueue.h>
 
 #define SYNX_NAME                   "synx"
 #define SYNX_WORKQUEUE_NAME         "hiprio_synx_work_queue"
-#define SYNX_WORKQUEUE_THREADS      1
+#define SYNX_WORKQUEUE_THREADS      4
 #define SYNX_MAX_NUM_BINDINGS       8
 #define SYNX_DEVICE_NAME            "synx_device"
 
 #define SYNX_CLIENT_HANDLE_SHIFT    8
-#define SYNX_OBJ_HANDLE_SHIFT       10
+#define SYNX_OBJ_HANDLE_SHIFT       8
+#define SYNX_CLIENT_ENCODE_SHIFT    16
+#define SYNX_OBJ_ENCODE_SHIFT       16
 
 #define MAX_TIMESTAMP_SIZE          32
 #define SYNX_OBJ_NAME_LEN           64
@@ -30,6 +33,12 @@
 
 #define SYNX_CLIENT_HANDLE_MASK     (SYNX_MAX_CLIENTS-1)
 #define SYNX_OBJ_HANDLE_MASK        (SYNX_MAX_OBJS-1)
+#define SYNX_CLIENT_ENCODE_MASK     ((1UL<<SYNX_CLIENT_ENCODE_SHIFT)-1)
+#define SYNX_CLIENT_IDX_OBJ_MASK    ((1UL<<(SYNX_CLIENT_HANDLE_SHIFT+SYNX_OBJ_ENCODE_SHIFT))-1)
+
+/* external sync table to be same enum as type */
+#define SYNX_CAMERA_ID_TBL          0
+#define SYNX_GLOBAL_KEY_TBL         1
 
 /**
  * struct synx_external_data - data passed over to external sync objects
@@ -69,6 +78,19 @@ struct error_node {
 	s32 h_synx;
 	s32 error_code;
 	struct list_head node;
+};
+
+/**
+ * struct hash_key_data - Single node of entry in hash table
+ *
+ * @key  : Unique key used to hash to table
+ * @data : Data to be saved
+ * @node : Hash list member used to append this node to table
+ */
+struct hash_key_data {
+	u32 key;
+	void *data;
+	struct hlist_node node;
 };
 
 /**
@@ -142,6 +164,40 @@ struct synx_registered_ops {
 };
 
 /**
+ * struct synx_cleanup_cb - Data for worker to cleanup client session
+ *
+ * @data        : Client session data
+ * @cb_dispatch : Work representing the call dispatch
+ */
+struct synx_cleanup_cb {
+	void *data;
+	struct work_struct cb_dispatch;
+};
+
+/**
+ * struct synx_ipc_cb - Data exchanged between signaling cores through
+ * IPC Lite framework
+ *
+ * @global_key : Unique key representing the synx object
+ * @status     : Signaling status
+ */
+struct synx_ipc_msg {
+	u32 global_key;
+	u32 status;
+};
+
+/**
+ * struct synx_ipc_cb - Data for worker to handle IPC send/callback
+ *
+ * @msg         : IPC Lite message
+ * @cb_dispatch : Work representing the call dispatch
+ */
+struct synx_ipc_cb {
+	struct synx_ipc_msg msg;
+	struct work_struct cb_dispatch;
+};
+
+/**
  * struct synx_coredata - Synx object, used for internal book keeping
  * of all metadata associated with each individual synx object
  *
@@ -154,6 +210,7 @@ struct synx_registered_ops {
  * @num_bound_synxs   : Number of external bound synx objects
  * @bound_synxs       : Array of bound external sync objects
  * @reg_cbs_list      : List of all registered callbacks
+ * @global_key        : Global key for synchronization
  */
 struct synx_coredata {
 	char name[SYNX_OBJ_NAME_LEN];
@@ -165,6 +222,7 @@ struct synx_coredata {
 	u32 num_bound_synxs;
 	struct synx_bind_desc bound_synxs[SYNX_MAX_NUM_BINDINGS];
 	struct list_head reg_cbs_list;
+	u32 global_key;
 };
 
 struct synx_client;
@@ -264,6 +322,7 @@ struct synx_device {
 	struct dentry *debugfs_root;
 	struct list_head error_list;
 	struct mutex error_lock;
+	struct workqueue_struct *ipc_work_queue;
 };
 
 /**
@@ -281,15 +340,31 @@ int synx_signal_core(struct synx_coredata *synx_obj,
 	bool cb_signal,
 	s32 ext_sync_id);
 
+
+/**
+ * @brief: Callback registered with ipc framework
+ *
+ * @param client_id   : Client core id
+ * @param data        : Message received
+ * @param priv        : Private data passed back
+ *                      (Provided during callback registration)
+ *
+ * @return Status of operation. Negative in case of error. Zero otherwise.
+ */
+int synx_ipc_callback(uint32_t client_id,
+	uint64_t data, void *priv);
+
 /**
  * @brief: Internal function to signal the synx fence
  *
  * @param synx_obj : Pointer to the synx object to signal
  * @param status   : Signaling status
+ * @param internal : Flag to separate signal originating
+ *                   within the core (TRUE) and external to core (FALSE)
  *
  * @return Status of operation. Negative in case of error. Zero otherwise.
  */
 int synx_signal_fence(struct synx_coredata *synx_obj,
-	u32 status);
+	u32 status, bool internal);
 
 #endif /* __SYNX_PRIVATE_H__ */
