@@ -28,7 +28,7 @@ struct kgsl_page_pool {
 	struct list_head page_list;
 };
 
-static struct kgsl_page_pool kgsl_pools[4];
+static struct kgsl_page_pool kgsl_pools[6];
 static int kgsl_num_pools;
 static int kgsl_pool_max_pages;
 
@@ -308,15 +308,12 @@ static bool kgsl_pool_available(unsigned int page_size)
 
 static int kgsl_get_page_size(size_t size, unsigned int align)
 {
-	if (align >= ilog2(SZ_1M) && size >= SZ_1M &&
-		kgsl_pool_available(SZ_1M))
-		return SZ_1M;
-	else if (align >= ilog2(SZ_64K) && size >= SZ_64K &&
-		kgsl_pool_available(SZ_64K))
-		return SZ_64K;
-	else if (align >= ilog2(SZ_8K) && size >= SZ_8K &&
-		kgsl_pool_available(SZ_8K))
-		return SZ_8K;
+	size_t pool;
+
+	for (pool = SZ_1M; pool > PAGE_SIZE; pool >>= 1)
+		if ((align >= ilog2(pool)) && (size >= pool) &&
+			kgsl_pool_available(pool))
+			return pool;
 
 	return PAGE_SIZE;
 }
