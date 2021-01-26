@@ -1464,6 +1464,7 @@ static int mtk_vcu_open(struct inode *inode, struct file *file)
 	if (vcu_queue == NULL)
 		return -ENOMEM;
 	vcu_queue->vcu = vcu_mtkdev[vcuid];
+	vcu_queue->enable_vcu_dbg_log = vcu_ptr->enable_vcu_dbg_log;
 	file->private_data = vcu_queue;
 	vcu_ptr->vpud_killed.count = 0;
 	vcu_ptr->open_cnt++;

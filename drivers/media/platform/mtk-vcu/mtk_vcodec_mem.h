@@ -79,6 +79,7 @@ struct mtk_vcu_queue {
 	struct mtk_vcu_mem bufs[CODEC_MAX_BUFFER];
 	uint64_t map_buf_pa;
 	struct vcu_pa_pages pa_pages;
+	int enable_vcu_dbg_log;
 };
 
 /**

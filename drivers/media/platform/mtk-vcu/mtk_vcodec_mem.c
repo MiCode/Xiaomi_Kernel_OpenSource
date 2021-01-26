@@ -6,17 +6,19 @@
 
 #include "mtk_vcodec_mem.h"
 
-/*
- * #undef pr_debug
- * #define pr_debug pr_info
- */
+#define vcu_mem_dbg_log(fmt, arg...) do { \
+		if (vcu_queue->enable_vcu_dbg_log) \
+			pr_info(fmt, ##arg); \
+	} while (0)
+
+#undef pr_debug
+#define pr_debug vcu_mem_dbg_log
 
 struct mtk_vcu_queue *mtk_vcu_mem_init(struct device *dev,
 	struct device *cmdq_dev)
 {
 	struct mtk_vcu_queue *vcu_queue;
 
-	pr_debug("Allocate new vcu queue !\n");
 	vcu_queue = kzalloc(sizeof(struct mtk_vcu_queue), GFP_KERNEL);
 	if (vcu_queue == NULL) {
 		pr_info("Allocate new vcu queue fail!\n");
@@ -377,6 +379,7 @@ int vcu_buffer_flush_all(struct device *dev, struct mtk_vcu_queue *vcu_queue)
 			buffer, (unsigned int long)vcu_buffer->iova,
 			(unsigned int)vcu_buffer->size, num_buffers);
 
+<<<<<<< HEAD
 		if (vcu_buffer->dbuf == NULL) {
 			cook = vcu_queue->mem_ops->vaddr(
 				vcu_buffer->mem_priv);
@@ -385,6 +388,17 @@ int vcu_buffer_flush_all(struct device *dev, struct mtk_vcu_queue *vcu_queue)
 		} else
 			vcu_io_buffer_cache_sync(dev,
 				vcu_buffer->dbuf, DMA_TO_DEVICE);
+=======
+		if (vcu_buffer->dbuf == NULL)
+			dbuf = vcu_queue->mem_ops->get_dmabuf(vcu_buffer->mem_priv, flags);
+		else
+			dbuf = vcu_buffer->dbuf;
+
+		vcu_io_buffer_cache_sync(dev, dbuf, DMA_TO_DEVICE);
+
+		if (vcu_buffer->dbuf == NULL)
+			dma_buf_put(dbuf);
+>>>>>>> vcu: cache sync dma leak fixed
 	}
 
 	return 0;
@@ -430,6 +444,9 @@ int vcu_buffer_cache_sync(struct device *dev, struct mtk_vcu_queue *vcu_queue,
 			} else
 				vcu_io_buffer_cache_sync(dev,
 					vcu_buffer->dbuf, op);
+
+			if (vcu_buffer->dbuf == NULL)
+				dma_buf_put(dbuf);
 			return 0;
 		}
 	}
