@@ -2116,20 +2116,40 @@ GED_ERROR ged_kpi_dequeue_buffer_ts(int pid, u64 ullWdnd, int i32FrameID,
 {
 #ifdef MTK_GED_KPI
 	int ret;
-	/* For kernel 5.4, pre_fence_sync_cb will cause deadlock
-	 * due to refcount = 0 after calling dma_fence_put().
-	 * We remove this fence callback usage since linux community
-	 * claimed the clients need to main fence_fd lifecyle
-	 * themselves, while shouldn't be implemented in our kernel module
-	 * Regarding the feature, "ged_kpi_timeP" refer to the feature
-	 * "pre_fence_delay" and could be replaced by
-	 * "wait for HWC release" in systrace provides by AOSP
-	 */
-	/* psSyncFence = sync_file_get_fence(fence_fd); */
+	struct GED_KPI_GPU_TS *psMonitor;
+	struct dma_fence *psSyncFence;
+
+	psSyncFence = sync_file_get_fence(fence_fd);
+
+	psMonitor =
+	(struct GED_KPI_GPU_TS *)ged_alloc(sizeof(struct GED_KPI_GPU_TS));
+
+	if (!psMonitor) {
+		pr_info("[GED_KPI]: GED_ERROR_OOM in %s\n",
+			__func__);
+		return GED_ERROR_OOM;
+	}
 
 	ged_kpi_timeD(pid, ullWdnd, i32FrameID, isSF);
-	ret = ged_kpi_timeP(pid, ullWdnd, i32FrameID);
 
+	psMonitor->psSyncFence = psSyncFence;
+	psMonitor->pid = pid;
+	psMonitor->ullWdnd = ullWdnd;
+	psMonitor->i32FrameID = i32FrameID;
+
+	if (psMonitor->psSyncFence == NULL) {
+		ged_free(psMonitor, sizeof(struct GED_KPI_GPU_TS));
+		ret = ged_kpi_timeP(pid, ullWdnd, i32FrameID);
+	} else {
+		ret = dma_fence_add_callback(psMonitor->psSyncFence,
+			&psMonitor->sSyncWaiter, ged_kpi_pre_fence_sync_cb);
+
+		if (ret < 0) {
+			dma_fence_put(psMonitor->psSyncFence);
+			ged_free(psMonitor, sizeof(struct GED_KPI_GPU_TS));
+			ret = ged_kpi_timeP(pid, ullWdnd, i32FrameID);
+		}
+	}
 	return ret;
 #else
 	return GED_OK;
