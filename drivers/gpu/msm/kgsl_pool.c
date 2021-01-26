@@ -22,6 +22,94 @@
 
 static bool mem_noretry_flag;
 
+#ifdef CONFIG_QCOM_KGSL_SORT_POOL
+
+struct kgsl_pool_page_entry {
+	phys_addr_t physaddr;
+	struct page *page;
+	struct rb_node node;
+};
+
+static struct kmem_cache *addr_page_cache;
+
+/**
+ * struct kgsl_page_pool - Structure to hold information for the pool
+ * @pool_order: Page order describing the size of the page
+ * @page_count: Number of pages currently present in the pool
+ * @reserved_pages: Number of pages reserved at init for the pool
+ * @list_lock: Spinlock for page list in the pool
+ * @pool_rbtree: RB tree with all pages held/reserved in this pool
+ */
+struct kgsl_page_pool {
+	unsigned int pool_order;
+	int page_count;
+	unsigned int reserved_pages;
+	spinlock_t list_lock;
+	struct rb_root pool_rbtree;
+};
+
+static int
+__kgsl_pool_add_page(struct kgsl_page_pool *pool, struct page *p)
+{
+	struct rb_node **node, *parent;
+	struct kgsl_pool_page_entry *new_page, *entry;
+
+	new_page = kmem_cache_alloc(addr_page_cache, GFP_KERNEL);
+	if (new_page == NULL)
+		return -ENOMEM;
+
+	spin_lock(&pool->list_lock);
+	node = &pool->pool_rbtree.rb_node;
+	new_page->physaddr = page_to_phys(p);
+	new_page->page = p;
+
+	while (*node != NULL) {
+		parent = *node;
+		entry = rb_entry(parent, struct kgsl_pool_page_entry, node);
+
+		if (new_page->physaddr < entry->physaddr)
+			node = &parent->rb_left;
+		else
+			node = &parent->rb_right;
+	}
+
+	rb_link_node(&new_page->node, parent, node);
+	rb_insert_color(&new_page->node, &pool->pool_rbtree);
+	pool->page_count++;
+	spin_unlock(&pool->list_lock);
+
+	return 0;
+}
+
+static struct page *
+__kgsl_pool_get_page(struct kgsl_page_pool *pool)
+{
+	struct rb_node *node;
+	struct kgsl_pool_page_entry *entry;
+	struct page *p;
+
+	node = rb_first(&pool->pool_rbtree);
+	if (!node)
+		return NULL;
+
+	entry = rb_entry(node, struct kgsl_pool_page_entry, node);
+	p = entry->page;
+	rb_erase(&entry->node, &pool->pool_rbtree);
+	kmem_cache_free(addr_page_cache, entry);
+	pool->page_count--;
+	return p;
+}
+
+static void kgsl_pool_list_init(struct kgsl_page_pool *pool)
+{
+	pool->pool_rbtree = RB_ROOT;
+}
+
+static void kgsl_pool_cache_init(void)
+{
+	addr_page_cache =  KMEM_CACHE(kgsl_pool_page_entry, 0);
+}
+#else
 /**
  * struct kgsl_page_pool - Structure to hold information for the pool
  * @pool_order: Page order describing the size of the page
@@ -37,6 +125,41 @@ struct kgsl_page_pool {
 	spinlock_t list_lock;
 	struct list_head page_list;
 };
+
+static int
+__kgsl_pool_add_page(struct kgsl_page_pool *pool, struct page *p)
+{
+	spin_lock(&pool->list_lock);
+	list_add_tail(&p->lru, &pool->page_list);
+	pool->page_count++;
+	spin_unlock(&pool->list_lock);
+
+	return 0;
+}
+
+static struct page *
+__kgsl_pool_get_page(struct kgsl_page_pool *pool)
+{
+	struct page *p;
+
+	p = list_first_entry_or_null(&pool->page_list, struct page, lru);
+	if (p) {
+		pool->page_count--;
+		list_del(&p->lru);
+	}
+
+	return p;
+}
+
+static void kgsl_pool_list_init(struct kgsl_page_pool *pool)
+{
+	INIT_LIST_HEAD(&pool->page_list);
+}
+
+static void kgsl_pool_cache_init(void)
+{
+}
+#endif
 
 static struct kgsl_page_pool kgsl_pools[6];
 static int kgsl_num_pools;
@@ -114,10 +237,11 @@ _kgsl_pool_add_page(struct kgsl_page_pool *pool, struct page *p)
 		return;
 	}
 
-	spin_lock(&pool->list_lock);
-	list_add_tail(&p->lru, &pool->page_list);
-	pool->page_count++;
-	spin_unlock(&pool->list_lock);
+	if (__kgsl_pool_add_page(pool, p)) {
+		__free_pages(p, pool->pool_order);
+		return;
+	}
+
 	mod_node_page_state(page_pgdat(p),  NR_KERNEL_MISC_RECLAIMABLE,
 				(1 << pool->pool_order));
 }
@@ -129,16 +253,10 @@ _kgsl_pool_get_page(struct kgsl_page_pool *pool)
 	struct page *p = NULL;
 
 	spin_lock(&pool->list_lock);
-
-	p = list_first_entry_or_null(&pool->page_list, struct page, lru);
-	if (p == NULL) {
-		spin_unlock(&pool->list_lock);
-		return NULL;
-	}
-	pool->page_count--;
-	list_del(&p->lru);
+	p = __kgsl_pool_get_page(pool);
 	spin_unlock(&pool->list_lock);
-	mod_node_page_state(page_pgdat(p), NR_KERNEL_MISC_RECLAIMABLE,
+	if (p != NULL)
+		mod_node_page_state(page_pgdat(p), NR_KERNEL_MISC_RECLAIMABLE,
 				-(1 << pool->pool_order));
 	return p;
 }
@@ -566,7 +684,7 @@ static int kgsl_of_parse_mempool(struct kgsl_page_pool *pool,
 	pool->pool_order = order;
 
 	spin_lock_init(&pool->list_lock);
-	INIT_LIST_HEAD(&pool->page_list);
+	kgsl_pool_list_init(pool);
 
 	kgsl_pool_reserve_pages(pool, node);
 
@@ -585,6 +703,8 @@ void kgsl_probe_page_pools(void)
 	/* Get Max pages limit for mempool */
 	of_property_read_u32(node, "qcom,mempool-max-pages",
 			&kgsl_pool_max_pages);
+
+	kgsl_pool_cache_init();
 
 	for_each_child_of_node(node, child) {
 		if (!kgsl_of_parse_mempool(&kgsl_pools[index], child))
