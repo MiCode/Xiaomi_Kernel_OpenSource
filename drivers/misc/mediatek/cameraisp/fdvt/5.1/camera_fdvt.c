@@ -29,6 +29,11 @@
 #include <linux/vmalloc.h>
 #include <linux/seq_file.h>
 
+#include <linux/pm_runtime.h>
+#include <linux/dma-buf.h>
+#include <soc/mediatek/smi.h>
+#include "linux/soc/mediatek/mtk-cmdq-ext.h"
+
 /*#include <linux/xlog.h>		 For xlog_printk(). */
 /*  */
 /*#include <mach/hardware.h>*/
@@ -40,31 +45,35 @@
 /* For clock mgr APIS. enable_clock()/disable_clock(). */
 /* #include <mach/mt_clkmgr.h> */
 /* #endif */
+#define CHECK_SERVICE_IF_0	0
+#define CHECK_SERVICE_IF_1	1
+
+#if CHECK_SERVICE_IF_0
 #include <mt-plat/sync_write.h>	/* For mt65xx_reg_sync_writel(). */
+#endif
 /* For spm_enable_sodi()/spm_disable_sodi(). */
 /* #include <mach/mt_spm_idle.h> */
 #include <linux/of_platform.h>
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 
+
 #if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
 #include <mach/mt_iommu.h>
 #else /* CONFIG_MTK_IOMMU_V2 */
+#if CHECK_SERVICE_IF_0
 #include <m4u.h>
+#endif
 #endif /* CONFIG_MTK_IOMMU_V2 */
 #define CMDQ_MAIL_BOX
-#ifdef CMDQ_MAIL_BOX
-#include <linux/soc/mediatek/mtk-cmdq.h>
-#else /* CMDQ_MAIL_BOX */
-#include <cmdq_core.h>
-#include <cmdq_record.h>
-#endif /* CMDQ_MAIL_BOX */
+
+#if CHECK_SERVICE_IF_0
 #include <smi_public.h>
-#include <linux/dma-mapping.h>
 #include "mach/pseudo_m4u.h"
 #include <cmdq-sec.h>
-#define CHECK_SERVICE_IF_0	0
-#define CHECK_SERVICE_IF_1	1
+#endif
+#include <linux/dma-mapping.h>
+
 /* Measure the kernel performance
  * #define __FDVT_KERNEL_PERFORMANCE_MEASURE__
  */
@@ -152,6 +161,7 @@ struct FDVT_CLK_STRUCT {
 	struct clk *CG_SCP_SYS_ISP;
 	struct clk *CG_IPESYS_LARB;
 #endif /* SMI_CLK */
+	struct clk *CG_IPESYS_LARB20;
 	struct clk *CG_IPESYS_FD;
 };
 
@@ -205,8 +215,12 @@ pr_debug(FDTAG "[%s] " format, __func__, ##args)
 // For other projects.
 // #define FDVT_WR32(addr, data)    iowrite32(data, addr)
 // For 89 Only.   // NEED_TUNING_BY_PROJECT
-#define FDVT_WR32(addr, data)    mt_reg_sync_writel(data, addr)
-#define FDVT_RD32(addr)          ioread32(addr)
+
+#define FDVT_WR32(addr, data)    writel(data, addr)
+#define FDVT_RD32(addr)          readl(addr)
+
+//#define FDVT_WR32(addr, data)    mt_reg_sync_writel(data, addr)
+//#define FDVT_RD32(addr)          ioread32(addr)
 /*****************************************************************************
  *
  *****************************************************************************/
@@ -249,9 +263,9 @@ struct ISR_TABLE {
 	char device_name[16];
 };
 
-#ifndef CONFIG_OF
+#if !IS_ENABLED(CONFIG_OF)
 const struct ISR_TABLE FDVT_IRQ_CB_TBL[FDVT_IRQ_TYPE_AMOUNT] = {
-	{isp_irq_fdvt, FDVT_IRQ_BIT_ID, "fdvt"},
+	{isp_irq_fdvt, FDVT_IRQ_BIT_ID, "aie"},
 };
 
 #else /* CONFIG_OF */
@@ -260,7 +274,7 @@ const struct ISR_TABLE FDVT_IRQ_CB_TBL[FDVT_IRQ_TYPE_AMOUNT] = {
 #if DUMMY_FDVT
 	{isp_irq_fdvt, 0, "fdvt-dummy"},
 #else /* DUMMY_FDVT */
-	{isp_irq_fdvt, 0, "fdvt"},
+	{isp_irq_fdvt, 0, "aie"},
 #endif /* DUMMY_FDVT */
 };
 #endif /* CONFIG_OF */
@@ -295,6 +309,7 @@ struct fdvt_device {
 	void __iomem *regs;
 	struct device *dev;
 	int irq;
+	struct device *larb;
 };
 
 static struct fdvt_device *fdvt_devs;
@@ -374,7 +389,7 @@ static struct FDVT_REQUEST_RING_STRUCT fdvt_req_ring;
 static struct FDVT_CONFIG_STRUCT fdvt_enq_req;
 static struct FDVT_CONFIG_STRUCT fdvt_deq_req;
 static struct cmdq_client *fdvt_clt;
-static struct cmdq_client *fdvt_secure_clt;
+//static struct cmdq_client *fdvt_secure_clt;
 static s32 fdvt_event_id;
 
 /*****************************************************************************
@@ -2163,8 +2178,16 @@ static inline void fdvt_prepare_enable_ccf_clock(void)
 	if (ret)
 		log_err("cannot prepare and enable CG_IMGSYS_LARB clock\n");
 #else
-	smi_bus_prepare_enable(SMI_LARB20, "camera-fdvt");
+	//smi_bus_prepare_enable(SMI_LARB20, "camera-fdvt"); GKI
 #endif
+	pm_runtime_get_sync(fdvt_devs->dev);
+	ret = mtk_smi_larb_get(fdvt_devs->larb);
+	if (ret)
+		log_err("mtk_smi_larb_get larbvdec fail %d\n", ret);
+	ret = clk_prepare_enable(fdvt_clk.CG_IPESYS_LARB20);
+	if (ret)
+		log_err("cannot prepare and enable CG_IPESYS_LARB20 clock\n");
+
 	ret = clk_prepare_enable(fdvt_clk.CG_IPESYS_FD);
 	if (ret)
 		log_err("cannot prepare and enable CG_IPESYS_FD clock\n");
@@ -2191,7 +2214,11 @@ static inline void fdvt_disable_unprepare_ccf_clock(void)
 	clk_disable_unprepare(fdvt_clk.CG_MM_SMI_COMMON);
 	clk_disable_unprepare(fdvt_clk.CG_SCP_SYS_MM0);
 #else
-	smi_bus_disable_unprepare(SMI_LARB20, "camera-fdvt");
+	clk_disable_unprepare(fdvt_clk.CG_IPESYS_LARB20);
+	mtk_smi_larb_put(fdvt_devs->larb);
+	pm_runtime_put_sync(fdvt_devs->dev);
+
+	//smi_bus_disable_unprepare(SMI_LARB20, "camera-fdvt"); GKI
 #endif
 }
 #endif
@@ -3629,6 +3656,7 @@ static const struct file_operations FDVTFileOper = {
 /**************************************************************
  *
  **************************************************************/
+#if CHECK_SERVICE_IF_0
 #if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
 enum mtk_iommu_callback_ret_t
 	FDVT_M4U_TranslationFault_callback(int port,
@@ -3671,7 +3699,7 @@ enum m4u_callback_ret_t FDVT_M4U_TranslationFault_callback(int port,
 	return M4U_CALLBACK_HANDLED;
 #endif
 }
-
+#endif
 /*****************************************************************************
  *
  *****************************************************************************/
@@ -3742,6 +3770,9 @@ static signed int FDVT_probe(struct platform_device *pDev)
 	unsigned int irq_info[3]; /* Record interrupts info from device tree */
 	struct device *dev = NULL;
 	struct fdvt_device *_fdvt_dev;
+	struct device_node *node;
+	struct platform_device *pdev;
+
 #if IS_ENABLED(CONFIG_OF)
 	struct fdvt_device *FDVT_dev;
 #endif
@@ -3767,7 +3798,7 @@ static signed int FDVT_probe(struct platform_device *pDev)
 
 	FDVT_dev = &fdvt_devs[nr_fdvt_devs - 1];
 	FDVT_dev->dev = &pDev->dev;
-
+	dma_set_mask_and_coherent(FDVT_dev->dev, DMA_BIT_MASK(34));
 	/* iomap registers */
 	FDVT_dev->regs = of_iomap(pDev->dev.of_node, 0);
 	/* gISPSYS_Reg[nr_fdvt_devs - 1] = FDVT_dev->regs; */
@@ -3778,6 +3809,19 @@ static signed int FDVT_probe(struct platform_device *pDev)
 			nr_fdvt_devs, pDev->dev.of_node->name);
 		return -ENOMEM;
 	}
+
+	/*temperate: power for larb20*/
+	node = of_parse_phandle(FDVT_dev->dev->of_node, "mediatek,larb", 0);
+	if (!node)
+		return -EINVAL;
+	pdev = of_find_device_by_node(node);
+	if (WARN_ON(!pdev)) {
+		of_node_put(node);
+		return -EINVAL;
+	}
+
+	of_node_put(node);
+	fdvt_devs->larb = &pdev->dev;
 
 #if IS_ENABLED(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
 	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
@@ -3814,7 +3858,8 @@ static signed int FDVT_probe(struct platform_device *pDev)
 						  NULL);
 				if (ret) {
 					dev_dbg(&pDev->dev,
-						"Unable to request IRQ, request_irq fail, nr_fdvt_devs=%d, devnode(%s), irq=%d, ISR: %s\n",
+						"Unable to request IRQ, request_irq fail,
+						nr_fdvt_devs=%d, devnode(%s), irq=%d, ISR: %s\n",
 						nr_fdvt_devs,
 						pDev->dev.of_node->name,
 						FDVT_dev->irq,
@@ -3849,13 +3894,13 @@ static signed int FDVT_probe(struct platform_device *pDev)
 		log_err("cmdq mbox create fail\n");
 	else
 		log_inf("cmdq mbox create done\n");
-
+/*
 	fdvt_secure_clt = cmdq_mbox_create(FDVT_dev->dev, 1);
 	if (!fdvt_secure_clt)
 		log_err("cmdq mbox create fail\n");
 	else
 		log_inf("cmdq mbox create done\n");
-
+*/
 	of_property_read_u32(pDev->dev.of_node, "fdvt_frame_done",
 			     &fdvt_event_id);
 	log_inf("fdvt event id is %d\n", fdvt_event_id);
@@ -3898,8 +3943,20 @@ static signed int FDVT_probe(struct platform_device *pDev)
 		fdvt_clk.CG_IMGSYS_LARB =
 			devm_clk_get(&pDev->dev, "FDVT_CLK_IMG_LARB");
 #endif
-		fdvt_clk.CG_IPESYS_FD =
-			devm_clk_get(&pDev->dev, "FD_CLK_IPE_FD");
+		fdvt_clk.CG_IPESYS_LARB20 =
+			devm_clk_get(&pDev->dev, "FDVT_CLK_IPE_LARB20");
+
+		if (IS_ERR(fdvt_clk.CG_IPESYS_LARB20)) {
+			log_err("cannot get CG_IPESYS_LARB20 clock\n");
+			return PTR_ERR(fdvt_clk.CG_IPESYS_LARB20);
+		}
+
+		fdvt_clk.CG_IPESYS_FD = devm_clk_get(&pDev->dev, "aie");
+		if (IS_ERR(fdvt_clk.CG_IPESYS_FD)) {
+			log_err("cannot get CG_IPESYS_FD clock\n");
+			return PTR_ERR(fdvt_clk.CG_IPESYS_FD);
+		}
+
 
 #ifndef SMI_CLK
 		if (IS_ERR(fdvt_clk.CG_SCP_SYS_MM0)) {
@@ -3951,10 +4008,7 @@ static signed int FDVT_probe(struct platform_device *pDev)
 			return PTR_ERR(fdvt_clk.CG_IMGSYS_LARB);
 		}
 #endif
-		if (IS_ERR(fdvt_clk.CG_IPESYS_FD)) {
-			log_err("cannot get CG_IPESYS_FD clock\n");
-			return PTR_ERR(fdvt_clk.CG_IPESYS_FD);
-		}
+
 #endif	/* !IS_ENABLED(CONFIG_MTK_LEGACY) && IS_ENABLED(CONFIG_COMMON_CLK) */
 #endif
 
@@ -3975,6 +4029,8 @@ static signed int FDVT_probe(struct platform_device *pDev)
 			goto EXIT;
 		}
 
+		pm_runtime_enable(fdvt_devs->dev);
+
 		/* Init spinlocks */
 		spin_lock_init(&fdvt_info.spinlock_fdvt_ref);
 		spin_lock_init(&fdvt_info.spinlock_fdvt);
@@ -3986,7 +4042,9 @@ static signed int FDVT_probe(struct platform_device *pDev)
 		INIT_WORK(&fdvt_info.schedule_fdvt_work, fdvt_schedule_work);
 
 #if IS_ENABLED(CONFIG_PM_SLEEP)
+#if CHECK_SERVICE_IF_0
 		wakeup_source_init(&fdvt_wake_lock, "fdvt_lock_wakelock");
+#endif
 #endif
 		// wake_lock_init(
 		// &fdvt_wake_lock, WAKE_LOCK_SUSPEND, "fdvt_lock_wakelock");
@@ -4002,6 +4060,8 @@ static signed int FDVT_probe(struct platform_device *pDev)
 		/*  */
 		fdvt_info.irq_info.mask
 			[FDVT_IRQ_TYPE_INT_FDVT_ST] = INT_ST_MASK_FDVT;
+		//cmdq_base = NULL;
+		//cmdq_base = cmdq_register_device(&pDev->dev);
 	}
 
 EXIT:
@@ -4168,7 +4228,7 @@ int FDVT_pm_restore_noirq(struct device *device)
  */
 static const struct of_device_id FDVT_of_ids[] = {
 /*	{.compatible = "mediatek,ipesyscq",},*/
-	{.compatible = "mediatek,fdvt",},
+	{.compatible = "mediatek,aie-hw2.0",},
 	{}
 };
 #endif
