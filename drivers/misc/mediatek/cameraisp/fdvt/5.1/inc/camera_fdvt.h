@@ -111,6 +111,19 @@ struct FDVT_PADDING {
 	unsigned int up;
 };
 
+enum FDVTFORMAT {
+	FMT_NA = 0,
+	FMT_YUV_2P = 1,
+	FMT_YVU_2P = 2,
+	FMT_YUYV = 3, //1plane
+	FMT_YVYU = 4, //1plane
+	FMT_UYVY = 5, //1plane
+	FMT_VYUY = 6, //1plane
+	FMT_MONO = 7  //AIE2.0
+};
+
+#define FDVTFORMAT enum FDVTFORMAT
+
 struct FDVT_MetaDataToGCE {
 	unsigned int ImgSrcY_Handler;
 	unsigned int ImgSrcUV_Handler;
@@ -171,6 +184,17 @@ struct fdvt_config {
 	unsigned int FDVT_LOOPS_OF_FDMODE;
 	unsigned int FDVT_NUMBERS_OF_PYRAMID;
 	FDVT_MetaDataToGCE FDVT_METADATA_TO_GCE;
+	unsigned int *FDVT_IMG_Y_VA;
+	unsigned int *FDVT_IMG_UV_VA;
+	unsigned int FDVT_IMG_Y_FD;
+	unsigned int FDVT_IMG_UV_FD;
+	unsigned int FDVT_IMG_Y_OFFSET;
+	unsigned int FDVT_IMG_UV_OFFSET;
+	unsigned int SRC_IMG_STRIDE;
+	struct FDVT_ROI src_roi;
+	FDVTFORMAT SRC_IMG_FMT;
+	unsigned int enROI;
+	unsigned int IS_LEGACY;
 };
 #define FDVT_Config struct fdvt_config
 

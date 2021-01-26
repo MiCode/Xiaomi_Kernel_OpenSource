@@ -167,6 +167,14 @@ struct FDVT_CLK_STRUCT {
 
 struct FDVT_CLK_STRUCT fdvt_clk;
 #endif
+
+/* tee_mmu */struct tee_mmu {
+	/* ION case only */
+	struct dma_buf *dma_buf;
+	struct dma_buf_attachment *attach;
+	struct sg_table *sgt;
+};
+
 /* !IS_ENABLED(CONFIG_MTK_LEGACY) && IS_ENABLED(CONFIG_COMMON_CLK) */
 
 #ifndef MTRUE
@@ -1426,6 +1434,54 @@ static bool update_fdvt(pid_t *process_id)
 #endif /* FDVT_USE_GCE */
 }
 
+static bool mmu_get_dma_buffer(struct tee_mmu *mmu, int va)
+{
+	struct dma_buf *buf;
+
+	buf = dma_buf_get(va);
+	log_inf("FDVT_mmu_get_buffer:%x /BUF:%x\n", va, buf);
+	if (IS_ERR(buf)) {
+		log_inf("[error buf]");
+		return false;
+	}
+
+	mmu->dma_buf = buf;
+	mmu->attach = dma_buf_attach(mmu->dma_buf, fdvt_devs->dev);
+
+	if (IS_ERR(mmu->attach))
+		goto err_attach;
+
+	mmu->sgt = dma_buf_map_attachment(mmu->attach, DMA_BIDIRECTIONAL);
+	if (IS_ERR(mmu->sgt))
+		goto err_map;
+	return true;
+
+err_map:
+	dma_buf_detach(mmu->dma_buf, mmu->attach);
+	log_inf("[error MAP]");
+err_attach:
+	dma_buf_put(mmu->dma_buf);
+	log_inf("[error Attach]");
+	return false;
+}
+
+static void mmu_release(struct tee_mmu *mmu)
+{
+	if (mmu->dma_buf) {
+		dma_buf_unmap_attachment(mmu->attach, mmu->sgt, DMA_BIDIRECTIONAL);
+		dma_buf_detach(mmu->dma_buf, mmu->attach);
+		dma_buf_put(mmu->dma_buf);
+	}
+}
+void rsc_cmdq_cb_destroy(struct cmdq_cb_data data)
+{
+	if (data.data) {
+		mmu_release((struct tee_mmu *)(data.data));
+		mmu_release(((struct tee_mmu *)(data.data))+1);
+		kfree((struct tee_mmu *)data.data);
+	}
+}
+
 static signed int config_fdvt_hw(struct fdvt_config *basic_config)
 #if !BYPASS_REG
 {
@@ -1437,6 +1493,13 @@ static signed int config_fdvt_hw(struct fdvt_config *basic_config)
 	int64_t engineFlag = (uint64_t)(1LL << CMDQ_ENG_FDVT);
 #endif /* CMDQ_MAIL_BOX */
 #endif /* FDVT_USE_GCE */
+	unsigned int success = 0;
+	struct tee_mmu mmu;
+	struct tee_mmu *records = NULL;
+	unsigned long *image_buffer_Y = NULL;
+	unsigned long *image_buffer_UV = NULL;
+	dma_addr_t dma_addr;
+
 	if (FDVT_DBG_DBGLOG == (FDVT_DBG_DBGLOG & fdvt_info.debug_mask)) {
 		log_dbg("config_fdvt_hw Start!\n");
 		log_dbg("FDVT_YUV2RGB:0x%x!\n",
@@ -1487,6 +1550,92 @@ static signed int config_fdvt_hw(struct fdvt_config *basic_config)
 
 #ifdef CMDQ_MAIL_BOX
 	log_dbg("fdvt use cmdq mail box api\n");
+	if (basic_config->IS_LEGACY == 0) {
+
+		records = kzalloc(sizeof(struct tee_mmu) * 2, GFP_KERNEL);
+		success = mmu_get_dma_buffer(&mmu, basic_config->FDVT_IMG_Y_FD);
+
+		if (success) {
+
+			dma_addr = sg_dma_address(mmu.sgt->sgl);
+
+			if (basic_config->enROI == false) {
+				image_buffer_Y = (unsigned long *)(dma_addr +
+				basic_config->FDVT_IMG_Y_OFFSET);
+			} else {
+				if (basic_config->SRC_IMG_FMT == FMT_MONO) {
+
+					image_buffer_Y = (unsigned long *)((unsigned char *)
+				(dma_addr + basic_config->FDVT_IMG_Y_OFFSET) +
+				(basic_config->SRC_IMG_STRIDE * (basic_config->src_roi).y1) +
+				(basic_config->src_roi).x1);
+
+				} else if (basic_config->SRC_IMG_FMT == FMT_YUV_2P ||
+						basic_config->SRC_IMG_FMT == FMT_YVU_2P) {
+					image_buffer_Y = (unsigned long *)((unsigned char *)
+				(dma_addr + basic_config->FDVT_IMG_Y_OFFSET) +
+				(basic_config->SRC_IMG_STRIDE * (basic_config->src_roi).y1) +
+				(basic_config->src_roi).x1);
+
+				} else if (basic_config->SRC_IMG_FMT == FMT_YUYV ||
+						 basic_config->SRC_IMG_FMT == FMT_YVYU ||
+						 basic_config->SRC_IMG_FMT == FMT_UYVY ||
+						 basic_config->SRC_IMG_FMT == FMT_VYUY) {
+					image_buffer_Y = (unsigned long *)((unsigned char *)
+				(dma_addr + basic_config->FDVT_IMG_Y_OFFSET) +
+				(basic_config->SRC_IMG_STRIDE * (basic_config->src_roi).y1) +
+				(basic_config->src_roi).x1 * 2);
+
+				} else {
+					log_err("Unsupport input format %d",
+						basic_config->SRC_IMG_FMT);
+				}
+			}
+		}
+		memcpy(&records[0], &mmu, sizeof(struct tee_mmu));
+		FDVT_WR32(basic_config->FDVT_IMG_Y_VA, image_buffer_Y);
+
+		success = mmu_get_dma_buffer(&mmu, basic_config->FDVT_IMG_UV_FD);
+
+		if (success) {
+			dma_addr = sg_dma_address(mmu.sgt->sgl);
+
+			if (basic_config->enROI == false) {
+				image_buffer_UV = (unsigned long *)(dma_addr +
+							basic_config->FDVT_IMG_UV_OFFSET);
+			} else {
+				if (basic_config->SRC_IMG_FMT == FMT_MONO) {
+					image_buffer_UV = (unsigned long *)((unsigned char *)
+				(dma_addr + basic_config->FDVT_IMG_UV_OFFSET)  +
+				(basic_config->SRC_IMG_STRIDE * (basic_config->src_roi).y1) +
+				(basic_config->src_roi).x1);
+
+				} else if (basic_config->SRC_IMG_FMT == FMT_YUV_2P ||
+						 basic_config->SRC_IMG_FMT == FMT_YVU_2P) {
+					image_buffer_UV = (unsigned long *)((unsigned char *)
+				(dma_addr + basic_config->FDVT_IMG_UV_OFFSET) +
+				(basic_config->SRC_IMG_STRIDE * (basic_config->src_roi).y1) +
+				(basic_config->src_roi).x1);
+
+				} else if (basic_config->SRC_IMG_FMT == FMT_YUYV ||
+						 basic_config->SRC_IMG_FMT == FMT_YVYU ||
+						basic_config->SRC_IMG_FMT == FMT_UYVY ||
+						basic_config->SRC_IMG_FMT == FMT_VYUY) {
+					image_buffer_UV = (unsigned long *)((unsigned char *)
+				(dma_addr + basic_config->FDVT_IMG_UV_OFFSET) +
+				(basic_config->SRC_IMG_STRIDE * (basic_config->src_roi).y1) +
+				(basic_config->src_roi).x1 * 2);
+
+				} else {
+					log_err("Unsupport input format %d",
+						basic_config->SRC_IMG_FMT);
+				}
+			}
+			memcpy(&records[1], &mmu, sizeof(struct tee_mmu));
+			FDVT_WR32(basic_config->FDVT_IMG_UV_VA, image_buffer_UV);
+		}
+	}
+
 	if (basic_config->FD_MODE == 0) {
 		cmdq_pkt_write(pkt, NULL, FDVT_ENABLE_HW, 0x00000111,
 			       CMDQ_REG_MASK);
@@ -1586,9 +1735,15 @@ static signed int config_fdvt_hw(struct fdvt_config *basic_config)
 	/* non-blocking API, Please use cmdqRecFlushAsync() */
 	log_dbg("FDVT CMDQ Task flush\n");
 
-	cmdq_pkt_flush(pkt);
+	//cmdq_pkt_flush(pkt);
 	/* release resource */
-	cmdq_pkt_destroy(pkt);
+	//cmdq_pkt_destroy(pkt);
+	if (basic_config->IS_LEGACY == 0) {
+		cmdq_pkt_flush_threaded(pkt, rsc_cmdq_cb_destroy, (void *)records);
+	} else {
+		cmdq_pkt_flush(pkt);
+		cmdq_pkt_destroy(pkt);
+	}
 #else /* CMDQ_MAIL_BOX */
 	if (basic_config->FD_MODE == 0) {
 		cmdqRecWrite(handle, FDVT_ENABLE_HW, 0x00000111,
@@ -3606,10 +3761,10 @@ static signed int FDVT_mmap(struct file *pFile, struct vm_area_struct *pVma)
 	pVma->vm_page_prot = pgprot_noncached(pVma->vm_page_prot);
 	pfn = pVma->vm_pgoff << PAGE_SHIFT;
 
-	log_inf("[%s] mmap:vm_pgoff(0x%lx) pfn(0x%lx) phy(0x%lx)
-		vm_start(0x%lx) vm_end(0x%lx) length(0x%lx)",
-		__func__, pVma->vm_pgoff, pfn, pVma->vm_pgoff << PAGE_SHIFT,
-		pVma->vm_start, pVma->vm_end, length);
+	log_inf("[%s] mmap:vm_pgoff(0x%lx) pfn(0x%lx) phy(0x%lx)", __func__, pVma->vm_pgoff,
+		pfn, pVma->vm_pgoff << PAGE_SHIFT);
+	log_inf("vm_start(0x%lx) vm_end(0x%lx) length(0x%lx)", pVma->vm_start,
+		pVma->vm_end, length);
 
 	switch (pfn) {
 	case FDVT_BASE_HW:
@@ -3805,8 +3960,8 @@ static signed int FDVT_probe(struct platform_device *pDev)
 
 	if (!FDVT_dev->regs) {
 		dev_dbg(&pDev->dev,
-			"Unable to ioremap registers, of_iomap fail, nr_fdvt_devs=%d, devnode(%s).\n",
-			nr_fdvt_devs, pDev->dev.of_node->name);
+		"Unable to ioremap registers, of_iomap fail, nr_fdvt_devs=%d, devnode(%s).\n",
+		nr_fdvt_devs, pDev->dev.of_node->name);
 		return -ENOMEM;
 	}
 
