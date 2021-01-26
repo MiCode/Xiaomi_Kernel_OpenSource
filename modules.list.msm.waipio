@@ -24,6 +24,8 @@ dwc3-msm.ko
 phy-generic.ko
 mem-offline.ko
 phy-qcom-emu.ko
+phy-msm-ssusb-qmp.ko
+phy-msm-snps-hs.ko
 arm_smmu.ko
 qcom_iommu_util.ko
 iommu-logger.ko
