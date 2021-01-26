@@ -176,7 +176,6 @@ static struct ipa_eth_device *ipa_eth_pci_alloc_device(
 
 static void ipa_eth_pci_free_device(struct ipa_eth_device *eth_dev)
 {
-	struct device *dev = eth_dev->dev;
 	struct ipa_eth_pci_device *eth_pdev = eth_dev->bus_priv;
 
 	if (eth_pdev) {
