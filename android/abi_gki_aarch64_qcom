@@ -289,6 +289,7 @@
   debugfs_create_file
   debugfs_create_file_unsafe
   debugfs_create_regset32
+  debugfs_create_symlink
   debugfs_create_u16
   debugfs_create_u32
   debugfs_create_u64
@@ -348,6 +349,7 @@
   _dev_info
   __dev_kfree_skb_any
   devm_add_action
+  devm_backlight_device_register
   devm_clk_bulk_get
   devm_clk_bulk_get_all
   devm_clk_get
@@ -658,6 +660,7 @@
   drm_dp_update_payload_part1
   drm_dp_update_payload_part2
   drm_edid_duplicate
+  drm_edid_is_valid
   drm_encoder_cleanup
   drm_encoder_init
   __drm_err
@@ -697,6 +700,7 @@
   drm_ioctl
   drm_irq_install
   drm_irq_uninstall
+  drm_kms_helper_hotplug_event
   drm_kms_helper_poll_disable
   drm_kms_helper_poll_enable
   drm_kms_helper_poll_fini
