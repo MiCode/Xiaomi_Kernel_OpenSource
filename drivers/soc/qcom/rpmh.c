@@ -95,18 +95,12 @@ static int check_ctrlr_state(struct rpmh_ctrlr *ctrlr, enum rpmh_state state)
 	return ret;
 }
 
-void rpmh_tx_done(const struct tcs_request *msg, int r)
+void rpmh_tx_done(const struct tcs_request *msg)
 {
 	struct rpmh_request *rpm_msg = container_of(msg, struct rpmh_request,
 						    msg);
 	struct completion *compl = rpm_msg->completion;
 	bool free = rpm_msg->needs_free;
-
-	rpm_msg->err = r;
-
-	if (r)
-		dev_err(rpm_msg->dev, "RPMH TX fail in msg addr=%#x, err=%d\n",
-			rpm_msg->msg.cmds[0].addr, r);
 
 	if (!compl)
 		goto exit;
@@ -213,7 +207,7 @@ static int __rpmh_write(const struct device *dev, enum rpmh_state state,
 	} else {
 		/* Clean up our call by spoofing tx_done */
 		ret = 0;
-		rpmh_tx_done(&rpm_msg->msg, ret);
+		rpmh_tx_done(&rpm_msg->msg);
 	}
 
 	return ret;
