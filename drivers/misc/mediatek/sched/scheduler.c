@@ -483,7 +483,8 @@ static void sched_task_uclamp_hook(void *data, struct sched_entity *se)
 
 static int enqueue;
 static int dequeue;
-static void sched_queue_task_hook(void *data, struct rq *rq, struct task_struct *p)
+static void sched_queue_task_hook(void *data, struct rq *rq, struct task_struct
+		*p, int flag)
 {
 	if (trace_sched_queue_task_enabled()) {
 		int cpu = rq->cpu;
