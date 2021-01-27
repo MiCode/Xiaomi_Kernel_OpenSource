@@ -7591,8 +7591,10 @@ static void smblib_chg_termination_work(struct work_struct *work)
 	int val;
 	struct smb_charger *chg = container_of(work, struct smb_charger,
 						chg_termination_work);
+	union power_supply_propval pval = {0, };
 	int rc, input_present, delay = CHG_TERM_WA_ENTRY_DELAY_MS;
 	int vbat_now_uv, max_fv_uv;
+	u8 stat = 0;
 
 	/*
 	 * Hold awake votable to prevent pm_relax being called prior to
@@ -7610,6 +7612,21 @@ static void smblib_chg_termination_work(struct work_struct *work)
 		vote(chg->dc_suspend_votable, CHG_TERMINATION_VOTER, false, 0);
 		smblib_err(chg, "Couldn't read SOC value, rc=%d\n", rc);
 		goto out;
+	}
+
+	if ((rc < 0) || (pval.intval < 100)) {
+		rc = smblib_read(chg, BATTERY_CHARGER_STATUS_1_REG, &stat);
+		if (rc < 0)
+			goto out;
+
+		/* check we are not in termination to exit the WA */
+		if ((stat & BATTERY_CHARGER_STATUS_MASK) != TERMINATE_CHARGE) {
+			vote(chg->usb_icl_votable, CHG_TERMINATION_VOTER,
+				false, 0);
+			vote(chg->dc_suspend_votable, CHG_TERMINATION_VOTER,
+				false, 0);
+			goto out;
+		}
 	}
 
 	/* Get the battery float voltage */
