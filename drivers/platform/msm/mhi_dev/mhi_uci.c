@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2015,2017-2020, The Linux Foundation. All rights reserved.*/
+/* Copyright (c) 2015,2017-2021, The Linux Foundation. All rights reserved.*/
 
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -943,8 +943,9 @@ static int mhi_uci_client_open(struct inode *mhi_inode,
 		"Client opened struct device node 0x%x, ref count 0x%x\n",
 		iminor(mhi_inode), atomic_read(&uci_handle->ref_count));
 	if (atomic_add_return(1, &uci_handle->ref_count) == 1) {
-		if (uci_handle != NULL) {
+		if (!uci_handle) {
 			atomic_dec(&uci_handle->ref_count);
+			uci_log(UCI_DBG_DBG, "No memory, returning failure\n");
 			return -ENOMEM;
 		}
 		uci_handle->uci_ctxt = &uci_ctxt;
