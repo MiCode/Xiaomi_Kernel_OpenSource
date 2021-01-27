@@ -1353,10 +1353,13 @@ static void btag_trace_block_rq_insert(void *data,
 				struct request_queue *q,
 				struct request *rq)
 {
-	struct bio *bio = rq->bio;
+	struct bio *bio = NULL;
 	struct bvec_iter iter;
 	struct bio_vec bvec;
 
+	return;
+
+	bio = rq->bio;
 	if (unlikely(!mtk_btag_pagelogger) || !bio)
 		return;
 
@@ -1377,10 +1380,12 @@ static void btag_trace_block_rq_issue(void *data,
 				struct request_queue *q,
 				struct request *rq)
 {
-	struct bio *bio = rq->bio;
+	struct bio *bio = NULL;
 	struct bvec_iter iter;
 	struct bio_vec bvec;
 
+	return;
+	bio = rq->bio;
 	if (unlikely(!mtk_btag_pagelogger) || !bio)
 		return;
 
@@ -1404,6 +1409,7 @@ static void btag_trace_writeback_dirty_page(void *data,
 	 * To get real requester of this page, we shall keep it
 	 * before writeback takes over.
 	 */
+	return;
 	mtk_btag_pidlog_set_pid(page);
 }
 
