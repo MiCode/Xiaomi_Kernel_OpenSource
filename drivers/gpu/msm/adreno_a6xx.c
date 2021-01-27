@@ -49,6 +49,7 @@ static u32 a6xx_pwrup_reglist[] = {
 	A6XX_SP_NC_MODE_CNTL,
 	A6XX_PC_DBG_ECO_CNTL,
 	A6XX_RB_CONTEXT_SWITCH_GMEM_SAVE_RESTORE,
+	A6XX_UCHE_GBIF_GX_CONFIG,
 };
 
 /* IFPC only static powerup restore list */
@@ -371,6 +372,9 @@ static void a6xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
 	for (i = 0; i < a6xx_core->hwcg_count; i++)
 		kgsl_regwrite(device, a6xx_core->hwcg[i].offset,
 			on ? a6xx_core->hwcg[i].value : 0);
+
+	/* GBIF L2 CGC control is not part of the UCHE */
+	kgsl_regrmw(device, A6XX_UCHE_GBIF_GX_CONFIG, 0x70000, on ? 2 : 0);
 
 	/*
 	 * Enable SP clock after programming HWCG registers.
