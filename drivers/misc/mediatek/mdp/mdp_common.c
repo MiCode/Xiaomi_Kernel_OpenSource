@@ -2801,27 +2801,7 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 		cmdq_mdp_get_func()->qosClearAllIsp(thread_id);
 	}
 
-	if (mdp_curr_pmqos->mdp_total_datasize) {
-		u32 mdp_throughput = mdp_t((unsigned long long)(max_throughput));
-
-		for (i = 0; i < PMQOS_MDP_PORT_NUM
-			&& mdp_curr_pmqos->qos2_mdp_count > i
-			&& mdp_curr_pmqos->qos2_mdp_port[i] != 0; i++) {
-			u32 port = cmdq_mdp_get_func()->qosTransPort(
-				mdp_curr_pmqos->qos2_mdp_port[i]);
-			struct icc_path *port_path =
-				cmdq_mdp_get_func()->qosGetPath(
-				thread_id, port);
-
-			DP_BANDWIDTH(mdp_curr_pmqos->qos2_mdp_bandwidth[i],
-				mdp_curr_pmqos->mdp_total_pixel,
-				mdp_throughput,
-				mdp_curr_bandwidth);
-
-			mtk_icc_set_bw(port_path,
-				MBps_to_icc(mdp_curr_bandwidth), 0);
-		}
-	} else if (target_pmqos && target_pmqos->mdp_total_datasize) {
+	if (target_pmqos && target_pmqos->mdp_total_datasize) {
 		u32 mdp_throughput = mdp_t((unsigned long long)(max_throughput));
 
 		for (i = 0; i < PMQOS_MDP_PORT_NUM &&
@@ -2844,6 +2824,9 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 			mtk_icc_set_bw(port_path,
 				MBps_to_icc(mdp_curr_bandwidth), 0);
 		}
+	} else if (mdp_curr_pmqos->mdp_total_datasize) {
+		/* update bandwidth */
+		cmdq_mdp_get_func()->qosClearAll(thread_id);
 	}
 
 	/* update clock */
