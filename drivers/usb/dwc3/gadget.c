@@ -530,7 +530,6 @@ static int dwc3_alloc_trb_pool(struct dwc3_ep *dep)
 				dep->name);
 		return -ENOMEM;
 	}
-	dep->num_trbs = DWC3_TRB_NUM;
 
 	return 0;
 }

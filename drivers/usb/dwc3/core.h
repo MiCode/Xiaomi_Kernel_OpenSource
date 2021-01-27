@@ -705,7 +705,6 @@ struct dwc3_event_buffer {
  * @trb_dma_pool: dma pool used to get aligned trb memory pool
  * @trb_pool: array of transaction buffers
  * @trb_pool_dma: dma address of @trb_pool
- * @num_trbs: num of trbs in the trb dma pool
  * @trb_enqueue: enqueue 'pointer' into TRB array
  * @trb_dequeue: dequeue 'pointer' into TRB array
  * @desc: usb_endpoint_descriptor pointer
@@ -737,7 +736,6 @@ struct dwc3_ep {
 	struct dma_pool		*trb_dma_pool;
 	struct dwc3_trb		*trb_pool;
 	dma_addr_t		trb_pool_dma;
-	u32			num_trbs;
 	struct dwc3		*dwc;
 
 	u32			saved_state;

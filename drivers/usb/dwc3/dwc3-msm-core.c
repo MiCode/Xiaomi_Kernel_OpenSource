@@ -253,6 +253,7 @@ enum usb_gsi_reg {
 struct dwc3_hw_ep {
 	enum usb_hw_ep_mode	mode;
 	u8 dbm_ep_num;
+	int num_trbs;
 };
 
 struct dwc3_msm_req_complete {
@@ -587,7 +588,6 @@ static int dwc3_alloc_trb_pool(struct dwc3_ep *dep)
 				dep->name);
 		return -ENOMEM;
 	}
-	dep->num_trbs = DWC3_TRB_NUM;
 
 	return 0;
 }
@@ -604,7 +604,7 @@ static void dwc3_free_trb_pool(struct dwc3_ep *dep)
 	 */
 	if (dep->number > 1 && dep->trb_pool && dep->trb_pool_dma) {
 		memset(&dep->trb_pool[0], 0,
-			sizeof(struct dwc3_trb) * dep->num_trbs);
+			sizeof(struct dwc3_trb) * DWC3_TRB_NUM);
 		dbg_event(dep->number, "Clr_TRB", 0);
 		dev_info(dwc->dev, "Clr_TRB ring of %s\n", dep->name);
 
@@ -1483,6 +1483,7 @@ static void dwc3_msm_depcfg_params(struct usb_ep *ep, struct dwc3_gadget_ep_cmd_
 {
 	struct dwc3_ep *dep = to_dwc3_ep(ep);
 	struct dwc3 *dwc = dep->dwc;
+	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
 	const struct usb_endpoint_descriptor *desc = ep->desc;
 	const struct usb_ss_ep_comp_descriptor *comp_desc = ep->comp_desc;
 
@@ -1509,7 +1510,7 @@ static void dwc3_msm_depcfg_params(struct usb_ep *ep, struct dwc3_gadget_ep_cmd_
 
 	params->param0 |= DWC3_DEPCFG_ACTION_INIT;
 
-	if (dep->gsi) {
+	if (mdwc->hw_eps[dep->number].mode == USB_EP_GSI) {
 		/* Enable XferInProgress and XferComplete Interrupts */
 		params->param1 |= DWC3_DEPCFG_XFER_COMPLETE_EN;
 		params->param1 |= DWC3_DEPCFG_XFER_IN_PROGRESS_EN;
@@ -1877,6 +1878,7 @@ static int gsi_prepare_trbs(struct usb_ep *ep, struct usb_gsi_request *req)
 	dma_addr_t buffer_addr;
 	struct dwc3_ep *dep = to_dwc3_ep(ep);
 	struct dwc3		*dwc = dep->dwc;
+	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
 	struct dwc3_trb *trb;
 	int num_trbs = (dep->direction) ? (2 * (req->num_bufs) + 2)
 					: (req->num_bufs + 2);
@@ -1911,7 +1913,7 @@ static int gsi_prepare_trbs(struct usb_ep *ep, struct usb_gsi_request *req)
 		goto free_trb_buffer;
 	}
 
-	dep->num_trbs = num_trbs;
+	mdwc->hw_eps[dep->number].num_trbs = num_trbs;
 	dma_get_sgtable(dwc->sysdev, &req->sgt_trb_xfer_ring, dep->trb_pool,
 		dep->trb_pool_dma, num_trbs * sizeof(struct dwc3_trb));
 
@@ -2023,14 +2025,15 @@ static void gsi_free_trbs(struct usb_ep *ep, struct usb_gsi_request *req)
 {
 	struct dwc3_ep *dep = to_dwc3_ep(ep);
 	struct dwc3 *dwc = dep->dwc;
+	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
 
-	if (!dep->gsi)
+	if (mdwc->hw_eps[dep->number].mode != USB_EP_GSI)
 		return;
 
 	/*  Free TRBs and TRB pool for EP */
 	if (dep->trb_pool_dma) {
 		dma_free_coherent(dwc->sysdev,
-			dep->num_trbs * sizeof(struct dwc3_trb),
+			mdwc->hw_eps[dep->number].num_trbs * sizeof(struct dwc3_trb),
 			dep->trb_pool,
 			dep->trb_pool_dma);
 		dep->trb_pool = NULL;
@@ -2208,7 +2211,6 @@ int usb_gsi_ep_op(struct usb_ep *ep, void *op_data, enum gsi_ep_op op)
 	case GSI_EP_OP_FREE_TRBS:
 		request = (struct usb_gsi_request *)op_data;
 		gsi_free_trbs(ep, request);
-		dep->gsi = false;
 		dwc3_alloc_trb_pool(dep);
 		break;
 	case GSI_EP_OP_CONFIG:
@@ -2217,7 +2219,6 @@ int usb_gsi_ep_op(struct usb_ep *ep, void *op_data, enum gsi_ep_op op)
 			return -ESHUTDOWN;
 		}
 
-		dep->gsi = true;
 		request = (struct usb_gsi_request *)op_data;
 		spin_lock_irqsave(&dwc->lock, flags);
 		gsi_configure_ep(ep, request);
