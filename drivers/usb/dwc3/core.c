@@ -38,12 +38,7 @@
 
 #include "debug.h"
 
-#define DWC3_DEFAULT_AUTOSUSPEND_DELAY	500 /* ms */
-
-static int count;
-static struct dwc3 *dwc3_instance[DWC_CTRL_COUNT];
-
-static void dwc3_check_params(struct dwc3 *dwc);
+#define DWC3_DEFAULT_AUTOSUSPEND_DELAY	5000 /* ms */
 
 /**
  * dwc3_get_dr_mode - Validates and sets dr_mode
@@ -245,28 +240,8 @@ static int dwc3_core_soft_reset(struct dwc3 *dwc)
 	int		retries = 1000;
 	int		ret;
 
-	ret = usb_phy_init(dwc->usb2_phy);
-	if (ret) {
-		pr_err("%s: usb_phy_init(dwc->usb2_phy) returned %d\n",
-				__func__, ret);
-		return ret;
-	}
-
-	if (dwc->maximum_speed >= USB_SPEED_SUPER) {
-		ret = usb_phy_init(dwc->usb3_phy);
-		if (ret == -EBUSY) {
-			/*
-			 * Setting Max speed as high when USB3 PHY initialiation
-			 * is failing and USB superspeed can't be supported.
-			 */
-			dwc->maximum_speed = USB_SPEED_HIGH;
-		} else if (ret) {
-			pr_err("%s: usb_phy_init(dwc->usb3_phy) returned %d\n",
-					__func__, ret);
-			return ret;
-		}
-	}
-
+	usb_phy_init(dwc->usb2_phy);
+	usb_phy_init(dwc->usb3_phy);
 	ret = phy_init(dwc->usb2_generic_phy);
 	if (ret < 0)
 		return ret;
@@ -401,10 +376,8 @@ static void dwc3_free_event_buffers(struct dwc3 *dwc)
 	struct dwc3_event_buffer	*evt;
 
 	evt = dwc->ev_buf;
-	if (evt) {
+	if (evt)
 		dwc3_free_one_event_buffer(dwc, evt);
-		dwc->ev_buf = NULL;
-	}
 }
 
 /**
@@ -658,10 +631,6 @@ static int dwc3_phy_setup(struct dwc3 *dwc)
 
 	if (dwc->dis_del_phy_power_chg_quirk)
 		reg &= ~DWC3_GUSB3PIPECTL_DEPOCHANGE;
-
-	if (dwc->ssp_u3_u0_quirk)
-		reg |= (DWC3_GUSB3PIPECTL_UX_EXIT_PX |
-			DWC3_GUSB3PIPECTL_P3EXSIGP2);
 
 	dwc3_writel(dwc->regs, DWC3_GUSB3PIPECTL(0), reg);
 
@@ -1194,7 +1163,7 @@ static int dwc3_core_get_phy(struct dwc3 *dwc)
 	return 0;
 }
 
-static int __maybe_unused dwc3_core_init_mode(struct dwc3 *dwc)
+static int dwc3_core_init_mode(struct dwc3 *dwc)
 {
 	struct device *dev = dwc->dev;
 	int ret;
@@ -1211,7 +1180,6 @@ static int __maybe_unused dwc3_core_init_mode(struct dwc3 *dwc)
 		ret = dwc3_gadget_init(dwc);
 		if (ret)
 			return dev_err_probe(dev, ret, "failed to initialize gadget\n");
-
 		break;
 	case USB_DR_MODE_HOST:
 		dwc3_set_prtcap(dwc, DWC3_GCTL_PRTCAP_HOST);
@@ -1239,7 +1207,7 @@ static int __maybe_unused dwc3_core_init_mode(struct dwc3 *dwc)
 	return 0;
 }
 
-static void __maybe_unused dwc3_core_exit_mode(struct dwc3 *dwc)
+static void dwc3_core_exit_mode(struct dwc3 *dwc)
 {
 	switch (dwc->dr_mode) {
 	case USB_DR_MODE_PERIPHERAL:
@@ -1317,9 +1285,6 @@ static void dwc3_get_properties(struct dwc3 *dwc)
 	device_property_read_u8(dev, "snps,tx-max-burst-prd",
 				&tx_max_burst_prd);
 
-	dwc->needs_fifo_resize = device_property_read_bool(dev,
-				"tx-fifo-resize");
-
 	dwc->disable_scramble_quirk = device_property_read_bool(dev,
 				"snps,disable_scramble_quirk");
 	dwc->u2exit_lfps_quirk = device_property_read_bool(dev,
@@ -1365,32 +1330,9 @@ static void dwc3_get_properties(struct dwc3 *dwc)
 				    &dwc->hsphy_interface);
 	device_property_read_u32(dev, "snps,quirk-frame-length-adjustment",
 				 &dwc->fladj);
-	dwc->enable_bus_suspend = device_property_read_bool(dev,
-					"snps,bus-suspend-enable");
 
 	dwc->dis_metastability_quirk = device_property_read_bool(dev,
 				"snps,dis_metastability_quirk");
-	dwc->ssp_u3_u0_quirk = device_property_read_bool(dev,
-				"snps,ssp-u3-u0-quirk");
-
-	device_property_read_u32(dev, "snps,xhci-imod-value",
-			&dwc->xhci_imod_value);
-
-	dwc->gen2_tx_de_emph = -1;
-	device_property_read_u32(dev, "snps,gen2-tx-de-emph",
-			&dwc->gen2_tx_de_emph);
-
-	dwc->gen2_tx_de_emph1 = -1;
-	device_property_read_u32(dev, "snps,gen2-tx-de-emph1",
-			&dwc->gen2_tx_de_emph1);
-
-	dwc->gen2_tx_de_emph2 = -1;
-	device_property_read_u32(dev, "snps,gen2-tx-de-emph2",
-			&dwc->gen2_tx_de_emph2);
-
-	dwc->gen2_tx_de_emph3 = -1;
-	device_property_read_u32(dev, "snps,gen2-tx-de-emph3",
-			&dwc->gen2_tx_de_emph3);
 
 	dwc->dis_split_quirk = device_property_read_bool(dev,
 				"snps,dis-split-quirk");
@@ -1592,8 +1534,7 @@ static int dwc3_probe(struct platform_device *pdev)
 
 	ret = dwc3_core_init(dwc);
 	if (ret) {
-		if (ret != -EPROBE_DEFER)
-			dev_err(dev, "failed to initialize core: %d\n", ret);
+		dev_err_probe(dev, ret, "failed to initialize core\n");
 		goto err4;
 	}
 
@@ -1648,16 +1589,20 @@ static int dwc3_remove(struct platform_device *pdev)
 {
 	struct dwc3	*dwc = platform_get_drvdata(pdev);
 
+	pm_runtime_get_sync(&pdev->dev);
+
 	dwc3_debugfs_exit(dwc);
-	dwc3_gadget_exit(dwc);
-	pm_runtime_allow(&pdev->dev);
+	dwc3_core_exit_mode(dwc);
+
+	dwc3_core_exit(dwc);
+	dwc3_ulpi_exit(dwc);
+
 	pm_runtime_disable(&pdev->dev);
+	pm_runtime_put_noidle(&pdev->dev);
+	pm_runtime_set_suspended(&pdev->dev);
 
 	dwc3_free_event_buffers(dwc);
 	dwc3_free_scratch_buffers(dwc);
-
-	count--;
-	dwc3_instance[dwc->index] = NULL;
 
 	return 0;
 }
@@ -1902,17 +1847,9 @@ static int dwc3_suspend(struct device *dev)
 	struct dwc3	*dwc = dev_get_drvdata(dev);
 	int		ret;
 
-	/*
-	 * Avoid suspending again if DWC3 core has already run the suspend
-	 * common.  The PM layer ensures that any pending runtime PM transition
-	 * states are completed, and PM runtime is disabled before calling the
-	 * device's PM suspend callback.
-	 */
-	if (!pm_runtime_status_suspended(dev)) {
-		ret = dwc3_suspend_common(dwc, PMSG_SUSPEND);
-		if (ret)
-			return ret;
-	}
+	ret = dwc3_suspend_common(dwc, PMSG_SUSPEND);
+	if (ret)
+		return ret;
 
 	pinctrl_pm_select_sleep_state(dev);
 
@@ -1929,6 +1866,10 @@ static int dwc3_resume(struct device *dev)
 	ret = dwc3_resume_common(dwc, PMSG_RESUME);
 	if (ret)
 		return ret;
+
+	pm_runtime_disable(dev);
+	pm_runtime_set_active(dev);
+	pm_runtime_enable(dev);
 
 	return 0;
 }

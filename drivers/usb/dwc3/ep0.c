@@ -198,7 +198,7 @@ int dwc3_gadget_ep0_queue(struct usb_ep *ep, struct usb_request *request,
 
 	spin_lock_irqsave(&dwc->lock, flags);
 	if (!dep->endpoint.desc || !dwc->pullups_connected) {
-		dev_err_ratelimited(dwc->dev, "%s: can't queue to disabled endpoint\n",
+		dev_err(dwc->dev, "%s: can't queue to disabled endpoint\n",
 				dep->name);
 		ret = -ESHUTDOWN;
 		goto out;
@@ -218,7 +218,7 @@ out:
 	return ret;
 }
 
-void dwc3_ep0_stall_and_restart(struct dwc3 *dwc)
+static void dwc3_ep0_stall_and_restart(struct dwc3 *dwc)
 {
 	struct dwc3_ep		*dep;
 
@@ -273,9 +273,6 @@ void dwc3_ep0_out_start(struct dwc3 *dwc)
 	int				ret;
 
 	complete(&dwc->ep0_in_setup);
-
-	if (!dwc->softconnect)
-		return;
 
 	dep = dwc->eps[0];
 	dwc3_ep0_prepare_one_trb(dep, dwc->ep0_trb_addr, 8,
@@ -529,7 +526,7 @@ static int dwc3_ep0_handle_endpoint(struct dwc3 *dwc,
 			return -EINVAL;
 
 		/* ClearFeature(Halt) may need delayed status */
-		if (!set && (!dep->gsi && (dep->flags & DWC3_EP_END_TRANSFER_PENDING)))
+		if (!set && (dep->flags & DWC3_EP_END_TRANSFER_PENDING))
 			return USB_GADGET_DELAYED_STATUS;
 
 		break;
@@ -609,10 +606,8 @@ static int dwc3_ep0_set_config(struct dwc3 *dwc, struct usb_ctrlrequest *ctrl)
 {
 	enum usb_device_state state = dwc->gadget->state;
 	u32 cfg;
-	int ret, num;
+	int ret;
 	u32 reg;
-	struct dwc3_ep	*dep;
-	int size;
 
 	cfg = le16_to_cpu(ctrl->wValue);
 
@@ -621,41 +616,6 @@ static int dwc3_ep0_set_config(struct dwc3 *dwc, struct usb_ctrlrequest *ctrl)
 		return -EINVAL;
 
 	case USB_STATE_ADDRESS:
-		/*
-		 * If tx-fifo-resize flag is not set for the controller, then
-		 * do not clear existing allocated TXFIFO since we do not
-		 * allocate it again in dwc3_gadget_resize_tx_fifos
-		 */
-		if (dwc->needs_fifo_resize && dwc->tx_fifo_size) {
-			/* Read ep0IN related TXFIFO size */
-			dep = dwc->eps[1];
-			size = dwc3_readl(dwc->regs, DWC3_GTXFIFOSIZ(0));
-			if (!DWC3_IP_IS(DWC3))
-				dep->fifo_depth = DWC31_GTXFIFOSIZ_TXFDEP(size);
-			else
-				dep->fifo_depth = DWC3_GTXFIFOSIZ_TXFDEP(size);
-
-			dwc->last_fifo_depth = dep->fifo_depth;
-			/* Clear existing TXFIFO for all IN eps except ep0 */
-			for (num = 3; num < min_t(int, dwc->num_eps,
-						DWC3_ENDPOINTS_NUM); num += 2) {
-				dep = dwc->eps[num];
-				size = 0;
-				/* Don't change TXFRAMNUM on usb31 version */
-				if (!DWC3_IP_IS(DWC3))
-					size = dwc3_readl(dwc->regs,
-						DWC3_GTXFIFOSIZ(num >> 1)) &
-						DWC31_GTXFIFOSIZ_TXFRAMNUM;
-
-				dwc3_writel(dwc->regs,
-					DWC3_GTXFIFOSIZ(num >> 1), size);
-				dep->fifo_depth = 0;
-
-				dev_dbg(dwc->dev, "%s(): %s fifo_depth:%x\n",
-					__func__, dep->name, dep->fifo_depth);
-			}
-		}
-
 		ret = dwc3_ep0_delegate_req(dwc, ctrl);
 		/* if the cfg matches and the cfg is non zero */
 		if (cfg && (!ret || (ret == USB_GADGET_DELAYED_STATUS))) {
@@ -857,13 +817,7 @@ static void dwc3_ep0_inspect_setup(struct dwc3 *dwc,
 		dwc->delayed_status = true;
 
 out:
-	/*
-	 * Don't try to halt ep0 if ret is -ESHUTDOWN.
-	 * ret as -ESHUTDOWN suggests that setup packet related response
-	 * is available but queueing of ep0 is failed. Possibly ep0 is
-	 * already disabled.
-	 */
-	if (ret < 0 && ret != -ESHUTDOWN)
+	if (ret < 0)
 		dwc3_ep0_stall_and_restart(dwc);
 }
 
@@ -893,6 +847,10 @@ static void dwc3_ep0_complete_data(struct dwc3 *dwc,
 	status = DWC3_TRB_SIZE_TRBSTS(trb->size);
 	if (status == DWC3_TRBSTS_SETUP_PENDING) {
 		dwc->setup_packet_pending = true;
+		if (r)
+			dwc3_gadget_giveback(ep0, r, -ECONNRESET);
+
+		return;
 	}
 
 	ur = &r->request;
@@ -1108,18 +1066,13 @@ void dwc3_ep0_send_delayed_status(struct dwc3 *dwc)
 	__dwc3_ep0_do_control_status(dwc, dwc->eps[direction]);
 }
 
-void dwc3_ep0_end_control_data(struct dwc3 *dwc, struct dwc3_ep *dep)
+static void dwc3_ep0_end_control_data(struct dwc3 *dwc, struct dwc3_ep *dep)
 {
 	struct dwc3_gadget_ep_cmd_params params;
 	u32			cmd;
 	int			ret;
 
-	/*
-	 * For status/DATA OUT stage, TRB will be queued on ep0 out
-	 * endpoint for which resource index is zero. Hence allow
-	 * queuing ENDXFER command for ep0 out endpoint.
-	 */
-	if (!dep->resource_index && dep->number)
+	if (!dep->resource_index)
 		return;
 
 	cmd = DWC3_DEPCMD_ENDTRANSFER;
