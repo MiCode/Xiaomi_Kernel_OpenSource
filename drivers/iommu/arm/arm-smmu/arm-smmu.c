@@ -3800,7 +3800,7 @@ static int arm_smmu_device_probe(struct platform_device *pdev)
 	 */
 	err = arm_smmu_power_on(smmu->pwr);
 	if (err)
-		goto out_exit_power_resources;
+		return err;
 
 	err = arm_smmu_device_cfg_probe(smmu);
 	if (err)
@@ -3899,9 +3899,6 @@ static int arm_smmu_device_probe(struct platform_device *pdev)
 out_power_off:
 	arm_smmu_power_off(smmu, smmu->pwr);
 
-out_exit_power_resources:
-	arm_smmu_exit_power_resources(smmu->pwr);
-
 	return err;
 }
 
@@ -3931,8 +3928,6 @@ static int arm_smmu_device_remove(struct platform_device *pdev)
 		pm_runtime_force_suspend(smmu->dev);
 	else
 		arm_smmu_power_off(smmu, smmu->pwr);
-
-	arm_smmu_exit_power_resources(smmu->pwr);
 
 	return 0;
 }
@@ -4043,21 +4038,12 @@ static int qsmmuv500_tbu_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int qsmmuv500_tbu_remove(struct platform_device *pdev)
-{
-	struct qsmmuv500_tbu_device *tbu = dev_get_drvdata(&pdev->dev);
-
-	arm_smmu_exit_power_resources(tbu->pwr);
-	return 0;
-}
-
 static struct platform_driver qsmmuv500_tbu_driver = {
 	.driver	= {
 		.name		= "qsmmuv500-tbu",
 		.of_match_table	= of_match_ptr(qsmmuv500_tbu_of_match),
 	},
 	.probe	= qsmmuv500_tbu_probe,
-	.remove = qsmmuv500_tbu_remove,
 };
 
 static struct platform_driver arm_smmu_driver = {
