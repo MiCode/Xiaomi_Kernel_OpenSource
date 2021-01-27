@@ -539,6 +539,7 @@ static int qcom_spss_probe(struct platform_device *pdev)
 	init_completion(&spss->start_done);
 	platform_set_drvdata(pdev, spss);
 	rproc->auto_boot = desc->auto_boot;
+	rproc->recovery_disabled = true;
 	rproc_coredump_set_elf_info(rproc, ELFCLASS32, EM_NONE);
 
 	ret = qcom_spss_init_mmio(pdev, spss);
