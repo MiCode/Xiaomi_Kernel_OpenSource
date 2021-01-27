@@ -771,12 +771,14 @@ err_resize:
 	mutex_unlock(&vmperm->lock);
 	return ret;
 }
+EXPORT_SYMBOL(mem_buf_lend);
 
 int mem_buf_share(struct dma_buf *dmabuf,
 			struct mem_buf_lend_kernel_arg *arg)
 {
 	return mem_buf_lend(dmabuf, arg);
 }
+EXPORT_SYMBOL(mem_buf_share);
 
 void mem_buf_retrieve_release(struct qcom_sg_buffer *buffer)
 {
@@ -866,6 +868,7 @@ err_hh_acl:
 	kfree(buffer);
 	return ERR_PTR(ret);
 }
+EXPORT_SYMBOL(mem_buf_retrieve);
 
 int mem_buf_reclaim(struct dma_buf *dmabuf)
 {
@@ -908,6 +911,7 @@ int mem_buf_reclaim(struct dma_buf *dmabuf)
 	mutex_unlock(&vmperm->lock);
 	return ret;
 }
+EXPORT_SYMBOL(mem_buf_reclaim);
 
 bool mem_buf_dma_buf_exclusive_owner(struct dma_buf *dmabuf)
 {
@@ -923,6 +927,7 @@ bool mem_buf_dma_buf_exclusive_owner(struct dma_buf *dmabuf)
 	mutex_unlock(&vmperm->lock);
 	return ret;
 }
+EXPORT_SYMBOL(mem_buf_dma_buf_exclusive_owner);
 
 int mem_buf_dma_buf_copy_vmperm(struct dma_buf *dmabuf, int **vmids,
 		int **perms, int *nr_acl_entries)
@@ -963,4 +968,5 @@ err_vmids:
 	mutex_unlock(&vmperm->lock);
 	return ret;
 }
+EXPORT_SYMBOL(mem_buf_dma_buf_copy_vmperm);
 
