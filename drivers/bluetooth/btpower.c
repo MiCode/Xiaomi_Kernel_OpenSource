@@ -138,7 +138,7 @@ static struct bt_power bt_vreg_info_qca6490 = {
 };
 
 static struct bt_power bt_vreg_info_wcn6750 = {
-	.compatible = "qcom,wcn6750",
+	.compatible = "qcom,wcn6750-bt",
 	.vregs = bt_vregs_info_qca6xx0,
 	.num_vregs = ARRAY_SIZE(bt_vregs_info_qca6xx0),
 };
@@ -148,7 +148,7 @@ static const struct of_device_id bt_power_match_table[] = {
 	{	.compatible = "qcom,wcn3990", .data = &bt_vreg_info_wcn399x},
 	{	.compatible = "qcom,qca6390", .data = &bt_vreg_info_qca6390},
 	{	.compatible = "qcom,qca6490", .data = &bt_vreg_info_qca6490},
-	{	.compatible = "qcom,wcn6750", .data = &bt_vreg_info_wcn6750},
+	{	.compatible = "qcom,wcn6750-bt", .data = &bt_vreg_info_wcn6750},
 	{},
 };
 
