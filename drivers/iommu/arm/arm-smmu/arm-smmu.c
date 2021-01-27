@@ -3231,12 +3231,19 @@ static int arm_smmu_handoff_cbs(struct arm_smmu_device *smmu)
 		smr = arm_smmu_gr0_read(smmu, ARM_SMMU_GR0_SMR(i));
 		s2cr = arm_smmu_gr0_read(smmu, ARM_SMMU_GR0_S2CR(i));
 
-		smmu->smrs[i].mask = FIELD_GET(ARM_SMMU_SMR_MASK, smr);
 		smmu->smrs[i].id = FIELD_GET(ARM_SMMU_SMR_ID, smr);
-		if (smmu->features & ARM_SMMU_FEAT_EXIDS)
+		if (smmu->features & ARM_SMMU_FEAT_EXIDS) {
 			smmu->smrs[i].valid = FIELD_GET(ARM_SMMU_S2CR_EXIDVALID, s2cr);
-		else
+			smmu->smrs[i].mask = FIELD_GET(ARM_SMMU_SMR_MASK, smr);
+		} else {
 			smmu->smrs[i].valid = FIELD_GET(ARM_SMMU_SMR_VALID, smr);
+			/*
+			 * The SMR mask covers bits 30:16 when extended stream
+			 * matching is not enabled.
+			 */
+			smmu->smrs[i].mask = FIELD_GET(ARM_SMMU_SMR_MASK,
+						       smr & ~ARM_SMMU_SMR_VALID);
+		}
 
 		smmu->s2crs[i].group = NULL;
 		smmu->s2crs[i].count = 0;
