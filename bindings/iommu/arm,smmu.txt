@@ -259,6 +259,14 @@ conditions.
 		Defaults to <0, SZ_4G> if not present.
 		Indicates the range of addresses that the dma layer will use.
 
+- qcom,iommu-geometry:
+		Optional, tuple of <address size>.
+		Defaults to <0, SZ_4G> if not present.
+		Indicates the available IOVA space when the qcom,iommu-dma property
+		is set to "fastmap". The new space created will be a superset of
+		the IOVA range which was created through the
+		qcom,iommu-dma-addr-pool DT property.
+
 ** Examples:
 
         /* SMMU with stream matching or stream indexing */
