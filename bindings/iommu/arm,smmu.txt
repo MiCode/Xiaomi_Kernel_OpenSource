@@ -18,7 +18,7 @@ conditions.
                         "arm,mmu-500"
                         "cavium,smmu-v2"
                         "qcom,qsmmu-v500"
-                        "qcom,qsmmu-v500-adreno"
+                        "qcom,adreno-smmu"
                         "qcom,smmu-v2"
 
                   depending on the particular implementation and/or the
