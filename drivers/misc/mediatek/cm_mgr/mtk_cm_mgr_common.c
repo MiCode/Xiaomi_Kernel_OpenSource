@@ -664,7 +664,7 @@ int cm_mgr_common_init(void)
 	cm_sspm_ready = 1;
 #endif /* CONFIG_MTK_TINYSYS_SSPM_V2 && defined(USE_CM_MGR_AT_SSPM) */
 
-	cm_mgr_to_sspm_command(IPI_CM_MGR_INIT, 0);
+	cm_mgr_to_sspm_command(IPI_CM_MGR_INIT, 1);
 
 	cm_mgr_to_sspm_command(IPI_CM_MGR_ENABLE,
 			cm_mgr_enable);
