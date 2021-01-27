@@ -209,18 +209,30 @@ static void walt_find_best_target(struct sched_domain *sd,
 	int prev_cpu = task_cpu(p);
 	int active_candidate = -1;
 	int order_index = fbt_env->order_index, end_index = fbt_env->end_index;
+	int stop_index = INT_MAX;
 	int cluster;
 	unsigned int target_nr_rtg_high_prio = UINT_MAX;
 	bool rtg_high_prio_task = task_rtg_high_prio(p);
 	cpumask_t visit_cpus;
-	bool io_task_pack = (order_index > 0 && p->in_iowait);
+	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
 	struct cfs_rq *cfs_rq;
 
 	/* Find start CPU based on boost value */
 	start_cpu = fbt_env->start_cpu;
 
-	if (fbt_env->strict_max || io_task_pack)
-		target_max_spare_cap = LONG_MIN;
+	/*
+	 * For higher capacity worth I/O tasks, stop the search
+	 * at the end of higher capacity cluster(s).
+	 */
+	if (order_index > 0 && wts->iowaited) {
+		stop_index = num_sched_clusters - 2;
+		most_spare_wake_cap = LONG_MIN;
+	}
+
+	if (fbt_env->strict_max) {
+		stop_index = 0;
+		most_spare_wake_cap = LONG_MIN;
+	}
 
 	if (p->state == TASK_RUNNING)
 		most_spare_wake_cap = ULONG_MAX;
@@ -280,9 +292,8 @@ static void walt_find_best_target(struct sched_domain *sd,
 				most_spare_cap_cpu = i;
 			}
 
-			if ((per_task_boost(cpu_rq(i)->curr) ==
-					TASK_BOOST_STRICT_MAX) &&
-					!fbt_env->strict_max)
+			if (per_task_boost(cpu_rq(i)->curr) ==
+					TASK_BOOST_STRICT_MAX)
 				continue;
 
 			/* get rq's utilization with this task included */
@@ -295,8 +306,7 @@ static void walt_find_best_target(struct sched_domain *sd,
 			 * than the one required to boost the task.
 			 */
 			new_util = max(min_util, new_util);
-			if (!(fbt_env->strict_max || io_task_pack) &&
-					new_util > capacity_orig)
+			if (new_util > capacity_orig)
 				continue;
 
 			/*
@@ -384,6 +394,9 @@ static void walt_find_best_target(struct sched_domain *sd,
 
 		if ((cluster >= end_index) && (target_cpu != -1) &&
 			walt_target_ok(target_cpu, order_index))
+			break;
+
+		if (most_spare_cap_cpu != -1 && cluster >= stop_index)
 			break;
 	}
 
