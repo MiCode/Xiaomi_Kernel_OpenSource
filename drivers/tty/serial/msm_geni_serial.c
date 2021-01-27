@@ -1945,6 +1945,7 @@ static bool handle_rx_dma_xfer(u32 s_irq_status, struct uart_port *uport)
 		if (dma_rx_status & RX_RESET_DONE) {
 			IPC_LOG_MSG(msm_port->ipc_log_misc,
 			"%s.Reset done.  0x%x.\n", __func__, dma_rx_status);
+			ret = true;
 			return ret;
 		}
 
