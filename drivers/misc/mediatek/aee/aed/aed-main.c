@@ -1973,7 +1973,7 @@ static void aed_get_traces(char *msg)
 	int i;
 	int offset;
 
-	nr_entries = stack_trace_save_tsk(current, stacks, ARRAY_SIZE(stacks), 2);
+	nr_entries = stack_trace_save(stacks, ARRAY_SIZE(stacks), 2);
 	offset = strlen(msg);
 	for (i = 0; i < nr_entries; i++) {
 		offset += snprintf(msg + offset, AEE_BACKTRACE_LENGTH - offset,

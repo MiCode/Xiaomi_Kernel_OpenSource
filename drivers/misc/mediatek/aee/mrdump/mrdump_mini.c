@@ -440,7 +440,7 @@ static void mrdump_mini_build_task_info(struct pt_regs *regs)
 	int off, plen;
 	int i;
 #endif
-	struct task_struct *tsk, *cur;
+	struct task_struct *tsk;
 	struct task_struct *previous;
 	struct aee_process_info *cur_proc;
 
@@ -453,8 +453,7 @@ static void mrdump_mini_build_task_info(struct pt_regs *regs)
 		pr_notice("mrdump: current thread info invalid\n");
 		return;
 	}
-	cur = current;
-	tsk = cur;
+	tsk = current;
 
 	if (!mrdump_virt_addr_valid(tsk)) {
 		pr_notice("mrdump: tsk invalid\n");
@@ -495,7 +494,7 @@ static void mrdump_mini_build_task_info(struct pt_regs *regs)
 		cur_proc->ke_frame.lr = (__u64) regs->reg_lr;
 	}
 #ifdef CONFIG_STACKTRACE
-	nr_entries = stack_trace_save_tsk(cur, ipanic_stack_entries,
+	nr_entries = stack_trace_save(ipanic_stack_entries,
 			ARRAY_SIZE(ipanic_stack_entries), 4);
 	if (!regs) {
 		/* in case panic() is called without die */
