@@ -4013,8 +4013,9 @@ static signed int FDVT_probe(struct platform_device *pDev)
 						  NULL);
 				if (ret) {
 					dev_dbg(&pDev->dev,
-						"Unable to request IRQ, request_irq fail,
-						nr_fdvt_devs=%d, devnode(%s), irq=%d, ISR: %s\n",
+						"Unable to request IRQ, request_irq fail!\n");
+					dev_dbg(&pDev->dev,
+						"nr_fdvt_devs=%d, devnode(%s), irq=%d, ISR: %s\n",
 						nr_fdvt_devs,
 						pDev->dev.of_node->name,
 						FDVT_dev->irq,
