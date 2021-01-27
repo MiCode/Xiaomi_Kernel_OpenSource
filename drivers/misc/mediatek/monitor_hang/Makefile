@@ -18,4 +18,5 @@ ifeq ($(CONFIG_MTK_ION),y)
 subdir-ccflags-y += -I$(srctree)/drivers/staging/android/mtk_ion/
 endif
 
-obj-$(CONFIG_MTK_HANG_DETECT)	+= monitor_hang.o
+obj-$(CONFIG_MTK_HANG_DETECT) += monitor_hang.o
+monitor_hang-objs += hang_detect.o hang_unwind.o

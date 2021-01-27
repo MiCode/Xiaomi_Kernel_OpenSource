@@ -41,7 +41,8 @@
 #include <mt-plat/mrdump.h>
 
 #include "aed/aed.h"
-#include "monitor_hang.h"
+#include "hang_detect.h"
+#include "hang_unwind.h"
 #include "mrdump/mrdump_private.h"
 #include "mrdump/mrdump_mini.h"
 
@@ -391,7 +392,11 @@ static void get_kernel_bt(struct task_struct *tsk)
 	int nr_entries;
 	int i;
 
+#ifndef __aarch64__
 	nr_entries = stack_trace_save_tsk(tsk, stacks, ARRAY_SIZE(stacks), 0);
+#else
+	nr_entries = hang_kernel_trace(tsk, stacks, ARRAY_SIZE(stacks));
+#endif
 	for (i = 0; i < nr_entries; i++) {
 		log_hang_info("<%lx> %pS\n", (long)stacks[i],
 				(void *)stacks[i]);
