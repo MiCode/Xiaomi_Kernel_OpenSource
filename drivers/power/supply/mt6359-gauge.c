@@ -2061,6 +2061,26 @@ static int psy_gauge_get_property(struct power_supply *psy,
 	return 0;
 }
 
+int psy_gauge_set_property(struct power_supply *psy,
+			enum power_supply_property psp,
+			const union power_supply_propval *val)
+{
+	struct mtk_gauge *gauge;
+
+	gauge = (struct mtk_gauge *)power_supply_get_drvdata(psy);
+
+	switch (psp) {
+	case POWER_SUPPLY_PROP_ONLINE:
+		pr_notice("%s: %d %d\n", __func__, psp, val->intval);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+
+}
+
 static void fgauge_read_RTC_boot_status(struct mtk_gauge *gauge)
 {
 	unsigned int hw_id;
@@ -3288,89 +3308,89 @@ static ssize_t gauge_sysfs_show(struct device *dev,
 
 /* Must be in the same order as GAUGE_PROP_* */
 static struct mtk_gauge_sysfs_field_info mt6359_sysfs_field_tbl[] = {
-	GAUGE_SYSFS_FIELD_WO(initial_set,
+	GAUGE_SYSFS_FIELD_WO(initial,
 			GAUGE_PROP_INITIAL),
-	GAUGE_SYSFS_FIELD_RO(battery_current_get,
+	GAUGE_SYSFS_FIELD_RO(battery_current,
 		GAUGE_PROP_BATTERY_CURRENT),
-	GAUGE_SYSFS_FIELD_RO(coulomb_get,
+	GAUGE_SYSFS_FIELD_RO(coulomb,
 		GAUGE_PROP_COULOMB),
-	GAUGE_SYSFS_FIELD_WO(coulomb_interrupt_ht_set,
+	GAUGE_SYSFS_FIELD_WO(coulomb_interrupt_ht,
 		GAUGE_PROP_COULOMB_HT_INTERRUPT),
-	GAUGE_SYSFS_FIELD_WO(coulomb_interrupt_lt_set,
+	GAUGE_SYSFS_FIELD_WO(coulomb_interrupt_lt,
 		GAUGE_PROP_COULOMB_LT_INTERRUPT),
-	GAUGE_SYSFS_FIELD_RO(battery_exist_get,
+	GAUGE_SYSFS_FIELD_RO(battery_exist,
 		GAUGE_PROP_BATTERY_EXIST),
-	GAUGE_SYSFS_FIELD_RO(hw_version_get,
+	GAUGE_SYSFS_FIELD_RO(hw_version,
 		GAUGE_PROP_HW_VERSION),
-	GAUGE_SYSFS_FIELD_RO(bat_vol_get,
+	GAUGE_SYSFS_FIELD_RO(bat_vol,
 		GAUGE_PROP_BATTERY_VOLTAGE),
-	GAUGE_SYSFS_FIELD_RO(battery_temperature_adc_get,
+	GAUGE_SYSFS_FIELD_RO(battery_temperature_adc,
 		GAUGE_PROP_BATTERY_TEMPERATURE_ADC),
-	GAUGE_SYSFS_FIELD_RO(bif_voltage_get,
+	GAUGE_SYSFS_FIELD_RO(bif_voltage,
 		GAUGE_PROP_BIF_VOLTAGE),
-	GAUGE_SYSFS_FIELD_WO(en_h_vbat_set,
+	GAUGE_SYSFS_FIELD_WO(en_h_vbat,
 		GAUGE_PROP_EN_HIGH_VBAT_INTERRUPT),
-	GAUGE_SYSFS_FIELD_WO(en_l_vbat_set,
+	GAUGE_SYSFS_FIELD_WO(en_l_vbat,
 		GAUGE_PROP_EN_LOW_VBAT_INTERRUPT),
-	GAUGE_SYSFS_FIELD_WO(vbat_ht_set,
+	GAUGE_SYSFS_FIELD_WO(vbat_ht,
 		GAUGE_PROP_VBAT_HT_INTR_THRESHOLD),
-	GAUGE_SYSFS_FIELD_WO(vbat_lt_set,
+	GAUGE_SYSFS_FIELD_WO(vbat_lt,
 		GAUGE_PROP_VBAT_LT_INTR_THRESHOLD),
-	GAUGE_SYSFS_FIELD_RW(rtc_ui_soc_set, rtc_ui_soc_get,
+	GAUGE_SYSFS_FIELD_RW(rtc_ui_soc,
 		GAUGE_PROP_RTC_UI_SOC),
-	GAUGE_SYSFS_FIELD_RO(ptim_battery_voltage_get,
+	GAUGE_SYSFS_FIELD_RO(ptim_battery_voltage,
 		GAUGE_PROP_PTIM_BATTERY_VOLTAGE),
-	GAUGE_SYSFS_FIELD_RO(ptim_resist_get,
+	GAUGE_SYSFS_FIELD_RO(ptim_resist,
 		GAUGE_PROP_PTIM_RESIST),
-	GAUGE_SYSFS_FIELD_WO(reset_set,
+	GAUGE_SYSFS_FIELD_WO(reset,
 		GAUGE_PROP_RESET),
-	GAUGE_SYSFS_FIELD_RO(boot_zcv_get,
+	GAUGE_SYSFS_FIELD_RO(boot_zcv,
 		GAUGE_PROP_BOOT_ZCV),
-	GAUGE_SYSFS_FIELD_RO(zcv_get,
+	GAUGE_SYSFS_FIELD_RO(zcv,
 		GAUGE_PROP_ZCV),
-	GAUGE_SYSFS_FIELD_RO(zcv_current_get,
+	GAUGE_SYSFS_FIELD_RO(zcv_current,
 		GAUGE_PROP_ZCV_CURRENT),
-	GAUGE_SYSFS_FIELD_RO(nafg_cnt_get,
+	GAUGE_SYSFS_FIELD_RO(nafg_cnt,
 		GAUGE_PROP_NAFG_CNT),
-	GAUGE_SYSFS_FIELD_RO(nafg_dltv_get,
+	GAUGE_SYSFS_FIELD_RO(nafg_dltv,
 		GAUGE_PROP_NAFG_DLTV),
-	GAUGE_SYSFS_FIELD_RW(nafg_c_dltv_set, nafg_c_dltv_get,
+	GAUGE_SYSFS_FIELD_RW(nafg_c_dltv,
 		GAUGE_PROP_NAFG_C_DLTV),
-	GAUGE_SYSFS_FIELD_WO(nafg_en_set,
+	GAUGE_SYSFS_FIELD_WO(nafg_en,
 		GAUGE_PROP_NAFG_EN),
-	GAUGE_SYSFS_FIELD_WO(nafg_zcv_set,
+	GAUGE_SYSFS_FIELD_WO(nafg_zcv,
 		GAUGE_PROP_NAFG_ZCV),
-	GAUGE_SYSFS_FIELD_RO(nafg_vbat_get,
+	GAUGE_SYSFS_FIELD_RO(nafg_vbat,
 		GAUGE_PROP_NAFG_VBAT),
-	GAUGE_SYSFS_FIELD_WO(reset_fg_rtc_set,
+	GAUGE_SYSFS_FIELD_WO(reset_fg_rtc,
 		GAUGE_PROP_RESET_FG_RTC),
-	GAUGE_SYSFS_FIELD_RW(gauge_initialized_set, gauge_initialized_get,
+	GAUGE_SYSFS_FIELD_RW(gauge_initialized,
 		GAUGE_PROP_GAUGE_INITIALIZED),
-	GAUGE_SYSFS_FIELD_RO(average_current_get,
+	GAUGE_SYSFS_FIELD_RO(average_current,
 		GAUGE_PROP_AVERAGE_CURRENT),
-	GAUGE_SYSFS_FIELD_WO(bat_plugout_en_set,
+	GAUGE_SYSFS_FIELD_WO(bat_plugout_en,
 		GAUGE_PROP_BAT_PLUGOUT_EN),
-	GAUGE_SYSFS_FIELD_WO(zcv_intr_threshold_set,
+	GAUGE_SYSFS_FIELD_WO(zcv_intr_threshold,
 		GAUGE_PROP_ZCV_INTR_THRESHOLD),
-	GAUGE_SYSFS_FIELD_WO(zcv_intr_en_set,
+	GAUGE_SYSFS_FIELD_WO(zcv_intr_en,
 		GAUGE_PROP_ZCV_INTR_EN),
-	GAUGE_SYSFS_FIELD_WO(soff_reset_set,
+	GAUGE_SYSFS_FIELD_WO(soff_reset,
 		GAUGE_PROP_SOFF_RESET),
-	GAUGE_SYSFS_FIELD_WO(ncar_reset_set,
+	GAUGE_SYSFS_FIELD_WO(ncar_reset,
 		GAUGE_PROP_NCAR_RESET),
-	GAUGE_SYSFS_FIELD_WO(bat_cycle_intr_threshold_set,
+	GAUGE_SYSFS_FIELD_WO(bat_cycle_intr_threshold,
 		GAUGE_PROP_BAT_CYCLE_INTR_THRESHOLD),
-	GAUGE_SYSFS_FIELD_WO(hw_info_set,
+	GAUGE_SYSFS_FIELD_WO(hw_info,
 		GAUGE_PROP_HW_INFO),
-	GAUGE_SYSFS_FIELD_WO(event_set,
+	GAUGE_SYSFS_FIELD_WO(event,
 		GAUGE_PROP_EVENT),
-	GAUGE_SYSFS_FIELD_WO(en_bat_tmp_ht_set,
+	GAUGE_SYSFS_FIELD_WO(en_bat_tmp_ht,
 		GAUGE_PROP_EN_BAT_TMP_HT),
-	GAUGE_SYSFS_FIELD_WO(en_bat_tmp_lt_set,
+	GAUGE_SYSFS_FIELD_WO(en_bat_tmp_lt,
 		GAUGE_PROP_EN_BAT_TMP_LT),
-	GAUGE_SYSFS_FIELD_WO(bat_tmp_ht_threshold_set,
+	GAUGE_SYSFS_FIELD_WO(bat_tmp_ht_threshold,
 		GAUGE_PROP_BAT_TMP_HT_THRESHOLD),
-	GAUGE_SYSFS_FIELD_WO(bat_tmp_lt_threshold_set,
+	GAUGE_SYSFS_FIELD_WO(bat_tmp_lt_threshold,
 		GAUGE_PROP_BAT_TMP_LT_THRESHOLD),
 	GAUGE_SYSFS_INFO_FIELD_RW(
 		info_2sec_reboot,
@@ -3559,6 +3579,7 @@ static int mt6359_gauge_probe(struct platform_device *pdev)
 	gauge->psy_desc.properties = gauge_properties;
 	gauge->psy_desc.num_properties = ARRAY_SIZE(gauge_properties);
 	gauge->psy_desc.get_property = psy_gauge_get_property;
+	gauge->psy_desc.set_property = psy_gauge_set_property;
 	gauge->psy_cfg.drv_data = gauge;
 	gauge->psy = power_supply_register(&pdev->dev, &gauge->psy_desc,
 			&gauge->psy_cfg);

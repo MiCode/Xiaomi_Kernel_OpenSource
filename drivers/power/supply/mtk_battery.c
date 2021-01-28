@@ -50,13 +50,11 @@ int __attribute__ ((weak))
 void __attribute__ ((weak))
 	fg_sw_bat_cycle_accu(struct mtk_battery *gm)
 {
-	return;
 }
 
 void __attribute__ ((weak))
 	fg_drv_update_daemon(struct mtk_battery *gm)
 {
-	return;
 }
 
 void enable_gauge_irq(struct mtk_gauge *gauge,
@@ -205,6 +203,8 @@ static int battery_psy_get_property(struct power_supply *psy,
 		val->intval = bs_data->bat_health;
 		break;
 	case POWER_SUPPLY_PROP_PRESENT:
+		bs_data->bat_present =
+			gauge_get_int_property(GAUGE_PROP_BATTERY_EXIST);
 		val->intval = bs_data->bat_present;
 		break;
 	case POWER_SUPPLY_PROP_TECHNOLOGY:
@@ -240,6 +240,8 @@ static int battery_psy_get_property(struct power_supply *psy,
 				gm->battery_id].q_max * 1000 / 100;
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
+		gauge_get_property(GAUGE_PROP_BATTERY_VOLTAGE,
+			&bs_data->bat_batt_vol);
 		val->intval = bs_data->bat_batt_vol * 1000;
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
@@ -1597,7 +1599,8 @@ void battery_update(struct mtk_battery *gm)
 	battery_update_psd(gm);
 	bat_data->bat_technology = POWER_SUPPLY_TECHNOLOGY_LION;
 	bat_data->bat_health = POWER_SUPPLY_HEALTH_GOOD;
-	bat_data->bat_present = 1;
+	bat_data->bat_present =
+			gauge_get_int_property(GAUGE_PROP_BATTERY_EXIST);
 
 	if (battery_get_int_property(BAT_PROP_DISABLE))
 		bat_data->bat_capacity = 50;
@@ -1633,6 +1636,7 @@ bool fg_interrupt_check(struct mtk_battery *gm)
 		disable_fg(gm);
 		return false;
 	}
+
 	return true;
 }
 
@@ -1724,6 +1728,7 @@ static int temperature_get(struct mtk_battery *gm,
 {
 	gm->bs_data.bat_batt_temp = force_get_tbat(gm, true);
 	*val = gm->bs_data.bat_batt_temp;
+	bm_debug("%s %d\n", __func__, *val);
 	return 0;
 }
 
@@ -1732,6 +1737,7 @@ static int temperature_set(struct mtk_battery *gm,
 	int val)
 {
 	gm->fixed_bat_tmp = val;
+	bm_debug("%s %d\n", __func__, val);
 	return 0;
 }
 
@@ -2759,7 +2765,7 @@ int battery_init(struct platform_device *pdev)
 	gm = gauge->gm;
 	gm->fixed_bat_tmp = 0xffff;
 	gm->tmp_table = Fg_Temperature_Table;
-	gm->log_level = BMLOG_TRACE_LEVEL;
+	gm->log_level = BMLOG_ERROR_LEVEL;
 	fg_custom_init_from_header(gm);
 	fg_custom_init_from_dts(pdev, gm);
 

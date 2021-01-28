@@ -14,26 +14,26 @@
 #include <linux/sysfs.h>
 #include <linux/wait.h>
 
-#define GAUGE_SYSFS_FIELD_RW(_name_set, _name_get, _prop)	\
+#define GAUGE_SYSFS_FIELD_RW(_name, _prop)	\
 {									 \
 	.attr   = __ATTR(_name, 0644, gauge_sysfs_show, gauge_sysfs_store),\
 	.prop	= _prop,	\
-	.set	= _name_set,						\
-	.get	= _name_get,						\
+	.set	= _name##_set,						\
+	.get	= _name##_get,						\
 }
 
 #define GAUGE_SYSFS_FIELD_RO(_name, _prop)	\
 {		\
 	.attr   = __ATTR(_name, 0444, gauge_sysfs_show, gauge_sysfs_store),\
 	.prop   = _prop,				  \
-	.get	= _name,						\
+	.get	= _name##_get,						\
 }
 
 #define GAUGE_SYSFS_FIELD_WO(_name, _prop)	\
 {								   \
 	.attr	= __ATTR(_name, 0200, gauge_sysfs_show, gauge_sysfs_store),\
 	.prop	= _prop,	\
-	.set	= _name,						\
+	.set	= _name##_set,						\
 }
 
 #define GAUGE_SYSFS_INFO_FIELD_RW(_name, _prop)	\

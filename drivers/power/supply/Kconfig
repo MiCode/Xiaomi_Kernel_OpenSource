@@ -677,6 +677,12 @@ config CHARGER_MT6360
 	  Average Input Current Regulation, Battery Tempature Sensing,
 	  Over-Temperature Protection, DPDM Detection for BC1.2
 
-source "drivers/power/supply/mediatek/charger/Kconfig"
+config MTK_CHARGER_NEW
+	bool "MediaTek Charging Driver"
+	help
+	  Say yes here to enable MediaTek charging driver.
+	  This driver contains charging control flow and
+	  maintains charging status.
+	  Say no if not using MediaTek charging driver.
 
 endif # POWER_SUPPLY
