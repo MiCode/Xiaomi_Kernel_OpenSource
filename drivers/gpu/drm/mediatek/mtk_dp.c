@@ -3089,7 +3089,7 @@ int mtk_drm_dp_get_dev_info(struct drm_device *dev, void *data,
 	info->displayType = DISPLAYPORT;
 	info->isConnected = (mtk_dp->state == DPTXSTATE_NORMAL) ? true : false;
 	info->isHwVsyncAvailable = true;
-	info->vsyncFPS = mtk_dp->info.DPTX_OUTBL.FrameRate;
+	info->vsyncFPS = g_mtk_dp->info.DPTX_OUTBL.FrameRate * 100;
 	DPTXMSG("%s, %d, fake %d\n", __func__, __LINE__, fakecablein);
 
 	return 0;
@@ -3100,12 +3100,14 @@ int mtk_drm_dp_audio_enable(struct drm_device *dev, void *data,
 {
 	struct mtk_dp *mtk_dp = g_mtk_dp;
 
+	mtk_dp->audio_enable = *(bool *)data;
+	DPTXMSG("audio_enable = %d\n", mtk_dp->audio_enable);
+
 	if (!mtk_dp->dp_ready) {
 		DPTXERR("%s, DP is not ready!\n", __func__);
 		return 0;
 	}
 
-	mtk_dp->audio_enable = *(bool *)data;
 	mdrv_DPTx_I2S_Audio_Enable(mtk_dp, mtk_dp->audio_enable);
 
 	return 0;
@@ -3116,13 +3118,13 @@ int mtk_drm_dp_audio_config(struct drm_device *dev, void *data,
 {
 	struct mtk_dp *mtk_dp = g_mtk_dp;
 
+	mtk_dp->info.audio_config = *(unsigned int *)data;
+	DPTXMSG("audio_config = 0x%x\n", mtk_dp->info.audio_config);
+
 	if (!mtk_dp->dp_ready) {
 		DPTXERR("%s, DP is not ready!\n", __func__);
 		return 0;
 	}
-
-	mtk_dp->info.audio_config = *(unsigned int *)data;
-	DPTXMSG("audio_config 0x%x\n", mtk_dp->info.audio_config);
 
 	mdrv_DPTx_I2S_Audio_Config(mtk_dp);
 
@@ -3166,7 +3168,7 @@ int mtk_drm_dp_get_info(struct drm_device *dev,
 	DPTXDBG("%s, %d\n", __func__, __LINE__);
 	info->physicalWidthUm = 900;
 	info->physicalHeightUm = 1000;
-	info->vsyncFPS = g_mtk_dp->info.DPTX_OUTBL.FrameRate;
+	info->vsyncFPS = g_mtk_dp->info.DPTX_OUTBL.FrameRate * 100;
 
 	return 0;
 }
