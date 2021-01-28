@@ -50,7 +50,9 @@ static int __init sspm_init(void);
 
 struct sspm_regs sspmreg;
 struct platform_device *sspm_pdev;
+#if SSPM_PLT_SERV_SUPPORT
 int sspm_plt_ackdata;
+#endif
 static struct workqueue_struct *sspm_workqueue;
 static atomic_t sspm_inited = ATOMIC_INIT(0);
 static atomic_t sspm_dev_inited = ATOMIC_INIT(0);
@@ -196,12 +198,14 @@ static int sspm_device_probe(struct platform_device *pdev)
 		return -1;
 	}
 
+#if SSPM_PLT_SERV_SUPPORT
 	ret = mtk_ipi_register(&sspm_ipidev, IPIS_C_PLATFORM, NULL, NULL,
 				(void *) &sspm_plt_ackdata);
 	if (ret) {
 		pr_err("[SSPM] ipi_register fail, ret %d\n", ret);
 		return -1;
 	}
+#endif
 
 	pr_info("SSPM is ready to service IPI\n");
 

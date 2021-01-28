@@ -59,6 +59,46 @@ struct plt_ctrl_s {
 #endif
 };
 
+enum ipi_debug_opt {
+	IPI_TRACKING_OFF,
+	IPI_TRACKING_ON,
+	IPIMON_SHOW,
+};
+
+static ssize_t sspm_ipi_debug_help(struct device *kobj,
+	struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "SSPM ipi debug command:\n"
+		"0: Turn off the ipi tracking\n"
+		"1: Turn on the ipi tracking\n"
+		"2: Dump the ipimon\n");
+}
+
+static ssize_t sspm_ipi_debug_set(struct device *kobj,
+	struct device_attribute *attr, const char *buf, size_t n)
+{
+	unsigned int opt = 0xFFFF;
+
+	if (kstrtouint(buf, 10, &opt) != 0)
+		return -EINVAL;
+
+	switch (opt) {
+	case IPI_TRACKING_ON:
+	case IPI_TRACKING_OFF:
+		mtk_ipi_tracking(&sspm_ipidev, opt);
+		break;
+	case IPIMON_SHOW:
+		ipi_monitor_dump(&sspm_ipidev);
+		break;
+	default:
+		pr_info("cmd '%d' is not supported.\n", opt);
+		break;
+	}
+
+	return n;
+}
+DEVICE_ATTR(sspm_ipi_debug, 0644, sspm_ipi_debug_help, sspm_ipi_debug_set);
+
 static ssize_t sspm_alive_show(struct device *kobj,
 	struct device_attribute *attr, char *buf)
 {
@@ -77,7 +117,6 @@ static ssize_t sspm_alive_show(struct device *kobj,
 }
 DEVICE_ATTR(sspm_alive, 0444, sspm_alive_show, NULL);
 
-
 int __init sspm_plt_init(void)
 {
 	phys_addr_t phys_addr, virt_addr, mem_sz;
@@ -91,11 +130,13 @@ int __init sspm_plt_init(void)
 	unsigned int *mark;
 	unsigned char *b;
 
-
 	ret = sspm_sysfs_create_file(&dev_attr_sspm_alive);
-
 	if (unlikely(ret != 0))
 		goto error;
+
+	ret = sspm_sysfs_create_file(&dev_attr_sspm_ipi_debug);
+	if (unlikely(ret != 0))
+		pr_info("SSPM: Can't create file node for ipi debug !\n");
 
 	phys_addr = sspm_reserve_mem_get_phys(SSPM_MEM_ID);
 	if (phys_addr == 0) {
