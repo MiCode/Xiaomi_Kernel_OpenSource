@@ -1,0 +1,13 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright (c) 2019 MediaTek Inc.
+ *
+ */
+
+/dts-v1/;
+/plugin/;
+/ {
+
+};
+
+/*End of this file, DO NOT ADD ANYTHING HERE*/

@@ -11,5 +11,7 @@ dtb-$(CONFIG_ARCH_MEDIATEK) += mt7622-rfb1.dtb
 dtb-$(CONFIG_ARCH_MEDIATEK) += mt7622-lynx-rfb1.dtb
 dtb-$(CONFIG_ARCH_MEDIATEK) += mt7622-bananapi-bpi-r64.dtb
 dtb-$(CONFIG_ARCH_MEDIATEK) += mt8173-evb.dtb
-dtb-$(CONFIG_ARCH_MEDIATEK) += mt6761.dtb
-
+DTB_PLATFORM :=  $(subst $\",,$(CONFIG_MTK_PLATFORM))
+dtb-$(CONFIG_ARCH_MEDIATEK) += $(DTB_PLATFORM).dtb
+DTB_PROJECT := $(subst $\",,$(CONFIG_ARCH_MTK_PROJECT))
+dtb-$(CONFIG_ARCH_MEDIATEK) += $(DTB_PROJECT).dtb
