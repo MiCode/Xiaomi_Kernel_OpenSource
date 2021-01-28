@@ -428,5 +428,5 @@
 /* AUDIO end */
 
 #include <k61v1_32_bsp_1g/cust.dtsi>
-#include "cust_mt6761_project_camera.dtsi"
+#include "cust_mt6761_camera.dtsi"
 /*End of this file, DO NOT ADD ANYTHING HERE*/
