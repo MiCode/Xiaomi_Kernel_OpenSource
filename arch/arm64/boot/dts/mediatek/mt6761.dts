@@ -3015,6 +3015,52 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 		temp_t1_threshold = <0>;
 	};
 
+	pe: pe {
+		compatible = "mediatek,charger,pe";
+		gauge = <&mtk_gauge>;
+
+		ta_start_battery_soc = <0>;
+		ta_stop_battery_soc = <85>;
+		pe_ichg_level_threshold = <1000000>; /* uA */
+		min_charger_voltage = <4600000>;
+
+		ta_12v_support;
+		ta_9v_support;
+		ta_ac_12v_input_current = <3200000>;
+		ta_ac_9v_input_current = <3200000>;
+		ta_ac_7v_input_current = <3200000>;
+
+		pe_input_current = <3200000>;
+		pe_charger_current = <3000000>;
+
+		/* PE 2.0 */
+		pe2_input_current = <3200000>;
+		pe2_charger_current = <3000000>;
+
+		/* dual charger */
+		chg1_ta_ac_charger_current = <1500000>;
+		chg2_ta_ac_charger_current = <1500000>;
+		pe2_slave_mivr_diff = <100000>;
+	};
+
+	pe2: pe2 {
+		compatible = "mediatek,charger,pe2";
+		gauge = <&mtk_gauge>;
+
+		/* PE 2.0 */
+		pe20_ichg_level_threshold = <1000000>; /* uA */
+		ta_start_battery_soc = <0>;
+		ta_stop_battery_soc = <85>;
+		min_charger_voltage = <4600000>;
+		pe2_input_current = <3200000>;
+		pe2_charger_current = <3000000>;
+
+		/* dual charger */
+		chg1_ta_ac_charger_current = <1500000>;
+		chg2_ta_ac_charger_current = <1500000>;
+		pe2_slave_mivr_diff = <100000>;
+	};
+
 	charger: charger {
 		compatible = "mediatek,charger";
 		algorithm_name = "Basic";
