@@ -4517,7 +4517,7 @@ int vpu_total_algo_num(int core_s)
 	int i;
 	int total = 0;
 	struct vpu_image_header *header;
-	unsigned int core = (unsigned int)core;
+	unsigned int core = (unsigned int)core_s;
 
 	LOG_DBG("[vpu] %s +\n", __func__);
 
