@@ -315,12 +315,15 @@ static int mt6360_adc_scan_task_threadfn(void *data)
 
 static int mt6360_adc_iio_post_enable(struct iio_dev *iio_dev)
 {
+	char *p;
 	struct mt6360_pmu_adc_info *mpai = iio_priv(iio_dev);
 
 	dev_dbg(&iio_dev->dev, "%s ++\n", __func__);
-	mpai->scan_task = kthread_run(mt6360_adc_scan_task_threadfn, mpai,
-				      devm_kasprintf(mpai->dev, GFP_KERNEL,
-				      "scan_thread.%s", dev_name(mpai->dev)));
+	p = devm_kasprintf(mpai->dev, GFP_KERNEL,
+				"scan_thread.%s", dev_name(mpai->dev));
+	if (IS_ERR(p))
+		return PTR_ERR(p);
+	mpai->scan_task = kthread_run(mt6360_adc_scan_task_threadfn, mpai, p);
 	dev_dbg(&iio_dev->dev, "%s --\n", __func__);
 	return PTR_ERR_OR_ZERO(mpai->scan_task);
 }
