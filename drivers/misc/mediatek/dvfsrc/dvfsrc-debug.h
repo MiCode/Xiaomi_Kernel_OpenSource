@@ -7,9 +7,7 @@
 #define __DVFSRC_DEBUG_H
 
 #include <dvfsrc-exp.h>
-
-static struct mtk_dvfsrc *dvfsrc_drv;
-
+struct mtk_dvfsrc;
 struct dvfsrc_config {
 	u32 ip_verion;
 	const int *regs;

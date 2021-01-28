@@ -33,6 +33,20 @@ static int dvfsrc_query_debug_info(u32 id)
 
 	return ret;
 }
+
+static u32 dvfsrc_query_md_scenario(void)
+{
+	struct mtk_dvfsrc *dvfsrc = dvfsrc_drv;
+	const struct dvfsrc_config *config;
+	int ret;
+
+	config = dvfsrc_drv->dvd->config;
+	ret = config->query_request(dvfsrc, DVFSRC_MD_SCENARIO_REQ);
+
+	return ret;
+}
+
+
 static void mtk_dvfsrc_get_perf_state(struct mtk_dvfsrc *dvfsrc,
 	struct device_node *np)
 {
@@ -215,6 +229,7 @@ static int mtk_dvfsrc_debug_probe(struct platform_device *pdev)
 	dvfsrc_drv = dvfsrc;
 
 	register_dvfsrc_debug_handler(dvfsrc_query_debug_info);
+	register_dvfsrc_md_scenario_handler(dvfsrc_query_md_scenario);
 
 	platform_set_drvdata(pdev, dvfsrc);
 

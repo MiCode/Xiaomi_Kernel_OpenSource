@@ -59,3 +59,18 @@ void dvfsrc_enable_dvfs_freq_hopping(int on)
 }
 EXPORT_SYMBOL(dvfsrc_enable_dvfs_freq_hopping);
 
+u32 (*dvfsrc_md_scenario)(void);
+void register_dvfsrc_md_scenario_handler(u32 (*handler)(void))
+{
+	dvfsrc_md_scenario = handler;
+}
+EXPORT_SYMBOL(register_dvfsrc_md_scenario_handler);
+u32 dvfsrc_get_md_scenario(void)
+{
+	if (dvfsrc_md_scenario != NULL)
+		return dvfsrc_md_scenario();
+
+	return 0;
+}
+EXPORT_SYMBOL(dvfsrc_get_md_scenario);
+

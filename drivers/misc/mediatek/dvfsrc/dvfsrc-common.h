@@ -12,6 +12,8 @@
 #define DVFSRC_HIFI_DDR_REQ		3
 #define DVFSRC_HIFI_RISING_DDR_REQ	4
 #define DVFSRC_HRT_BW_DDR_REQ		6
+#define DVFSRC_MD_SCENARIO_REQ		7
+
 
 /* SIP COMMON COMMAND*/
 #define MTK_SIP_VCOREFS_INIT 0
@@ -30,6 +32,7 @@ extern void register_dvfsrc_opp_handler(int (*handler)(u32 id));
 extern void register_dvfsrc_debug_handler(int (*handler)(u32 id));
 extern void register_dvfsrc_cm_ddr_handler(void (*handler)(u32 level));
 extern void register_dvfsrc_hopping_handler(void (*handler)(int on));
+extern void register_dvfsrc_md_scenario_handler(u32 (*handler)(void));
 extern int mtk_dvfsrc_query_debug_info(u32 id);
 #else
 static inline void register_dvfsrc_opp_handler(int (*handler)(u32 id))
@@ -39,6 +42,8 @@ static inline void register_dvfsrc_debug_handler(int (*handler)(u32 id))
 static inline void register_dvfsrc_cm_ddr_handler(void (*handler)(u32 level))
 { }
 static inline void register_dvfsrc_hopping_handler(void (*handler)(int on))
+{ }
+static inline void register_dvfsrc_md_scenario_handler(u32 (*handler)(void))
 { }
 static inline int mtk_dvfsrc_query_debug_info(u32 id)
 { return 0; }

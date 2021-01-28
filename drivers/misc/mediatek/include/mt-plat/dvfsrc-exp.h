@@ -30,6 +30,8 @@ extern void dvfsrc_set_power_model_ddr_request(u32 level);
 extern void dvfsrc_enable_dvfs_freq_hopping(int on);
 extern int register_dvfsrc_vchk_notifier(struct notifier_block *nb);
 extern int unregister_dvfsrc_vchk_notifier(struct notifier_block *nb);
+extern u32 dvfsrc_get_md_scenario(void);
+
 #else
 static inline int mtk_dvfsrc_query_opp_info(u32 id)
 { return 0; }
@@ -59,6 +61,7 @@ static inline int register_dvfsrc_vchk_notifier(struct notifier_block *nb)
 { return 0; }
 static inline int unregister_dvfsrc_vchk_notifier(struct notifier_block *nb)
 { return 0; }
-
+static inline u32 dvfsrc_get_md_scenario(void)
+{ return 0; }
 #endif /* CONFIG_MTK_DVFSRC */
 #endif

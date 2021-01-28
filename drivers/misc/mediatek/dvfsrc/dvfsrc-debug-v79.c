@@ -182,13 +182,6 @@ static u32 dvfsrc_get_md_bw(struct mtk_dvfsrc *dvfsrc)
 	return val;
 }
 
-u32 dvfsrc_get_md_scenario(void)
-{
-	/* return temporary  */
-	return 0;
-}
-EXPORT_SYMBOL(dvfsrc_get_md_scenario);
-
 static u32 dvfsrc_get_md_rising_ddr_gear(struct mtk_dvfsrc *dvfsrc)
 {
 	u32 val;
@@ -461,6 +454,9 @@ static int dvfsrc_query_request_status(struct mtk_dvfsrc *dvfsrc, u32 id)
 		break;
 	case DVFSRC_HRT_BW_DDR_REQ:
 		ret = dvfsrc_get_hrt_bw_ddr_gear(dvfsrc);
+		break;
+	case DVFSRC_MD_SCENARIO_REQ:
+		ret = dvfsrc_read(dvfsrc, DVFSRC_DEBUG_STA_0, 0);
 		break;
 	}
 
