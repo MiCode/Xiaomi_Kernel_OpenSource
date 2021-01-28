@@ -6,18 +6,27 @@ bypass_arr=(\
 "function int v4l2_" \
 "function int phy_set_mode" \
 "net init_net" \
+"const vm_operations_struct drm_gem_cma_vm_ops" \
+"vm_event_state vm_event_states" \
 "struct ci_hdrc_platform_data " \
+"struct mem_cgroup " \
+"struct mem_cgroup_stat_cpu " \
+"struct mm_struct " \
 "struct musb " \
 "struct musb_io " \
 "struct musb_platform_ops " \
 "struct phy_ops " \
 "struct net " \
 "struct net_device " \
+"struct rfkill " \
 "struct ufs_dev_info " \
 "struct ufs_hba " \
 "struct ufs_stats " \
 "struct ufs_vreg " \
 "struct ufshcd_lrb " \
 "struct utp_task_req_desc " \
+"struct vm_area_struct " \
+"struct vm_event_state " \
 "struct vm_fault " \
+"struct vm_operations_struct " \
 "struct mmc_request ")
