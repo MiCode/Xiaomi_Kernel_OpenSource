@@ -49,7 +49,8 @@ int als_data_report_t(int value, int status, int64_t time_stamp)
 		event.word[0] = value;
 		event.status = status;
 		err = sensor_input_event(cxt->als_mdev.minor, &event);
-		last_als_report_data = value;
+		if (err >= 0)
+			last_als_report_data = value;
 	}
 	return err;
 }
