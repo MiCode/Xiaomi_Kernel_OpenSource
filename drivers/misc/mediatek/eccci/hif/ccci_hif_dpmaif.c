@@ -949,7 +949,7 @@ static int dpmaif_get_rx_frag(struct dpmaif_rx_queue *rxq,
 	unsigned long loop = 0;
 	unsigned long bid_cnt = 0;
 	unsigned long pkt_cnt = 0;
-	int frg_idx;
+	unsigned int frg_idx;
 
 	frg_idx = pkt_inf_t->buffer_id;
 	/*1.check btable alloc before or double release*/
