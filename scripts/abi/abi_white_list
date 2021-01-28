@@ -3,4 +3,8 @@ bypass_arr=(\
 "function long int __probe_kernel_read" \
 "struct net " \
 "struct net_device " \
+"struct musb " \
+"struct musb_io " \
+"struct musb_platform_ops " \
+"struct poll_wqueues " \
 "struct scsi_device ")
