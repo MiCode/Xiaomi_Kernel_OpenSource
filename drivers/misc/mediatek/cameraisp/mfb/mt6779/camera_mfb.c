@@ -86,7 +86,7 @@ struct MFB_CLK_STRUCT mfb_clk;
 #define BYPASS_REG         (0)
 /* #define MFB_WAITIRQ_LOG */
 #define MFB_USE_GCE
-#define MFB_DEBUG_USE
+/* #define MFB_DEBUG_USE */
 #define DUMMY_MFB	   (0)
 /* #define MFB_MULTIPROCESS_TIMING_ISSUE  */
 /*I can' test the situation in FPGA due to slow FPGA. */
@@ -1547,12 +1547,7 @@ static bool UpdateMFB(pid_t *ProcessID)
 					break;
 			}
 			}
-			IRQ_LOG_KEEPER(
-				MFB_IRQ_TYPE_INT_MFB_ST,
-				m_CurrentPPB,
-				_LOG_DBG,
-				"Update MFB idx j:%d\n",
-				j);
+			log_dbg("Update MFB idx j:%d\n", j);
 			if (j != _SUPPORT_MAX_MFB_FRAME_REQUEST_) {
 				next_idx = j + 1;
 			g_MFB_ReqRing.MFBReq_Struct[i].MfbFrameStatus[j] =
@@ -1570,23 +1565,13 @@ static bool UpdateMFB(pid_t *ProcessID)
 				g_MFB_ReqRing.HWProcessIdx =
 				(g_MFB_ReqRing.HWProcessIdx +
 				1) % _SUPPORT_MAX_MFB_REQUEST_RING_SIZE_;
-				IRQ_LOG_KEEPER(
-				MFB_IRQ_TYPE_INT_MFB_ST,
-				m_CurrentPPB,
-				_LOG_INF,
-				"Finish MFB Req i:%d, j:%d, HWProcIdx:%d\n",
-				i,
-				j,
-				g_MFB_ReqRing.HWProcessIdx);
+			log_dbg("Finish MFB Req i:%d, j:%d, HWProcIdx:%d\n",
+				i, j, g_MFB_ReqRing.HWProcessIdx);
 			} else {
-				IRQ_LOG_KEEPER(
-				MFB_IRQ_TYPE_INT_MFB_ST,
-				m_CurrentPPB,
-				_LOG_DBG,
-				"Finish MFB Frame i:%d, j:%d, HWProcIdx:%d\n",
-				i,
-				j,
-				g_MFB_ReqRing.HWProcessIdx);
+				log_dbg("Finish MFB Frame i:%d, j:%d\n",
+					i, j);
+				log_dbg("HWProcIdx:%d\n",
+					g_MFB_ReqRing.HWProcessIdx);
 			}
 			break;
 			}
@@ -1629,12 +1614,7 @@ static bool UpdateMFB(pid_t *ProcessID)
 					break;
 			}
 		}
-		IRQ_LOG_KEEPER(
-			MFB_IRQ_TYPE_INT_MFB_ST,
-			m_CurrentPPB,
-			_LOG_DBG,
-			"Update MFB idx j:%d\n",
-			j);
+		log_dbg("Update MFB idx j:%d\n", j);
 		if (j != _SUPPORT_MAX_MFB_FRAME_REQUEST_) {
 			next_idx = j + 1;
 			g_MFB_ReqRing.MFBReq_Struct[i].MfbFrameStatus[j] =
@@ -1652,23 +1632,13 @@ static bool UpdateMFB(pid_t *ProcessID)
 				g_MFB_ReqRing.HWProcessIdx =
 				(g_MFB_ReqRing.HWProcessIdx + 1) %
 					_SUPPORT_MAX_MFB_REQUEST_RING_SIZE_;
-			IRQ_LOG_KEEPER(
-			MFB_IRQ_TYPE_INT_MFB_ST,
-			m_CurrentPPB,
-			_LOG_INF,
-			"Finish MFB Request i:%d, j:%d, HWProcessIdx:%d\n",
-			i,
-			j,
-			g_MFB_ReqRing.HWProcessIdx);
+		log_dbg("Finish MFB Request i:%d, j:%d, HWProcessIdx:%d\n",
+			i, j, g_MFB_ReqRing.HWProcessIdx);
 			} else {
-				IRQ_LOG_KEEPER(
-				MFB_IRQ_TYPE_INT_MFB_ST,
-				m_CurrentPPB,
-				_LOG_DBG,
-				"Finish MFB Frame i:%d, j:%d, HWProcessIdx:%d\n",
-				i,
-				j,
-				g_MFB_ReqRing.HWProcessIdx);
+				log_dbg("Finish MFB Frame i:%d, j:%d\n",
+					i, j);
+				log_dbg("HWProcIdx:%d\n",
+					g_MFB_ReqRing.HWProcessIdx);
 			}
 			break;
 		}
@@ -2916,8 +2886,8 @@ log_inf("before wait_event:WriteReq(0x%08X), ReadReq(0x%08X), whichReq(%d)\n",
 			WaitIrq->Status,
 			whichReq,
 			WaitIrq->ProcessID))) {
-		log_dbg("interrupt by system, tout(%d)\n", Timeout);
-		log_dbg("Type/User/Sts/whichReq/Pid(0x%x/%d/0x%x/%d/%d)\n",
+		log_inf("interrupt by system, tout(%d)\n", Timeout);
+		log_inf("Type/User/Sts/whichReq/Pid(0x%x/%d/0x%x/%d/%d)\n",
 			WaitIrq->Type,
 			WaitIrq->UserKey,
 			WaitIrq->Status,
@@ -3410,7 +3380,7 @@ static long MFB_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 		spin_unlock_irqrestore(
 			&(MFBInfo.SpinLockIrq[MFB_IRQ_TYPE_INT_MFB_ST]),
 			flags);
-		log_dbg("ConfigMFB Request!!\n");
+		log_inf("ConfigMFB Request!!\n");
 		ConfigMFBRequest(MfbWriteIdx);
 
 		mutex_unlock(&gMfbMutex);
@@ -3913,7 +3883,7 @@ static signed int MFB_open(struct inode *pInode, struct file *pFile)
 	/*int q = 0, p = 0;*/
 	struct MFB_USER_INFO_STRUCT *pUserInfo;
 
-	log_dbg("- E. UserCount: %d.\n", MFBInfo.UserCount);
+	log_inf("- E. UserCount: %d.\n", MFBInfo.UserCount);
 
 
 	/*  */
@@ -3978,7 +3948,7 @@ static signed int MFB_open(struct inode *pInode, struct file *pFile)
 	/* Enable clock */
 	MFB_EnableClock(MTRUE);
 	g_u4MfbCnt = 0;
-	log_dbg("MFB open g_u4EnableClockCount: %d\n", g_u4EnableClockCount);
+	log_inf("MFB open g_u4EnableClockCount: %d\n", g_u4EnableClockCount);
 	/*  */
 
 	for (i = 0; i < MFB_IRQ_TYPE_AMOUNT; i++)
@@ -4012,7 +3982,7 @@ static signed int MFB_release(struct inode *pInode, struct file *pFile)
 	struct MFB_USER_INFO_STRUCT *pUserInfo;
 	/*unsigned int Reg;*/
 
-	log_dbg("- E. UserCount: %d.\n", MFBInfo.UserCount);
+	log_inf("- E. UserCount: %d.\n", MFBInfo.UserCount);
 
 	/*  */
 	if (pFile->private_data != NULL) {
@@ -4045,7 +4015,7 @@ static signed int MFB_release(struct inode *pInode, struct file *pFile)
 
 	/* Disable clock. */
 	MFB_EnableClock(MFALSE);
-	log_dbg("MFB release g_u4EnableClockCount: %d", g_u4EnableClockCount);
+	log_inf("MFB release g_u4EnableClockCount: %d", g_u4EnableClockCount);
 
 	/*  */
 EXIT:
@@ -4948,7 +4918,7 @@ static irqreturn_t ISP_Irq_MFB(signed int Irq, void *DeviceId)
 
 	/* dump log, use tasklet */
 	IRQ_LOG_KEEPER(MFB_IRQ_TYPE_INT_MFB_ST, m_CurrentPPB, _LOG_INF,
-	"Irq:%d,0x%x:0x%x,Result:%d,HWSta:0x%x,IrqCnt:0x%x,WRIdx:0x%x,RDIdx:0x%x\n",
+	"MFBIrq:%d,0x%x:0x%x,Result:%d,HWSta:0x%x,Cnt:0x%x,WRIdx:%x,RDIdx:%x\n",
 	Irq, MFB_MFB_INT_STATUS_HW, MfbStatus, bResulst, MfbStatus,
 	MFBInfo.IrqInfo.MfbIrqCnt,
 	MFBInfo.WriteReqIdx, MFBInfo.ReadReqIdx);
