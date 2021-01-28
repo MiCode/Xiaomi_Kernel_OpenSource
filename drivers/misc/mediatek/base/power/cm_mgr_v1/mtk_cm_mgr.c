@@ -386,8 +386,10 @@ void check_cm_mgr_status_internal(void)
 	if (cm_mgr_perf_force_enable)
 		return;
 
-	if (!cm_mgr_check_bw_status())
+	if (!cm_mgr_check_bw_status()) {
+		cm_mgr_set_dram_level(0);
 		return;
+	}
 
 	if (spin_trylock_irqsave(&cm_mgr_lock, flags)) {
 #ifdef CONFIG_MTK_CPU_FREQ
