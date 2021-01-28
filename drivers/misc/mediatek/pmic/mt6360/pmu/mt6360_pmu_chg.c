@@ -26,12 +26,17 @@
 
 #include <mt-plat/upmu_common.h>
 #include <mt-plat/mtk_boot.h>
+#include <linux/phy/phy.h>
 
 #ifdef CONFIG_TCPC_CLASS
 #include <tcpm.h>
 #endif
 
 #define MT6360_PMU_CHG_DRV_VERSION	"1.0.7_MTK"
+
+#define PHY_MODE_BC11_SET 1
+#define PHY_MODE_BC11_CLR 2
+
 
 void __attribute__ ((weak)) Charger_Detect_Init(void)
 {
@@ -457,15 +462,38 @@ static int mt6360_psy_chg_type_changed(struct mt6360_pmu_chg_info *mpci)
 
 #endif /* CONFIG_MT6360_PMU_CHARGER_TYPE_DETECT */
 
+static int DPDM_Switch_TO_CHG_upstream(struct mt6360_pmu_chg_info *mpci,
+						bool switch_to_chg)
+{
+	struct phy *phy;
+	int mode = 0;
+	int ret;
+
+	mode = switch_to_chg ? PHY_MODE_BC11_SET : PHY_MODE_BC11_CLR;
+	phy = phy_get(mpci->dev, "usb2-phy");
+	if (IS_ERR_OR_NULL(phy)) {
+		dev_info(mpci->dev, "phy_get fail\n");
+		return -EINVAL;
+	}
+
+	ret = phy_set_mode_ext(phy, PHY_MODE_USB_DEVICE, mode);
+	if (ret)
+		dev_info(mpci->dev, "phy_set_mode_ext fail\n");
+
+	phy_put(phy);
+
+	return 0;
+}
+
 static int mt6360_set_usbsw_state(struct mt6360_pmu_chg_info *mpci, int state)
 {
 	dev_info(mpci->dev, "%s: state = %d\n", __func__, state);
 
 	/* Switch D+D- to AP/MT6360 */
 	if (state == MT6360_USBSW_CHG)
-		Charger_Detect_Init();
+		DPDM_Switch_TO_CHG_upstream(mpci, true);
 	else
-		Charger_Detect_Release();
+		DPDM_Switch_TO_CHG_upstream(mpci, false);
 
 	return 0;
 }
@@ -613,6 +641,7 @@ static int mt6360_chgdet_post_process(struct mt6360_pmu_chg_info *mpci)
 	dev_info(mpci->dev, "%s: attach = %d\n", __func__, attach);
 	/* Plug out during BC12 */
 	if (!attach) {
+		dev_info(mpci->dev, "%s: Charger Type: UNKONWN\n", __func__);
 		mpci->psy_desc.type = POWER_SUPPLY_TYPE_UNKNOWN;
 		mpci->psy_usb_type = POWER_SUPPLY_USB_TYPE_UNKNOWN;
 		goto out;
@@ -627,18 +656,26 @@ static int mt6360_chgdet_post_process(struct mt6360_pmu_chg_info *mpci)
 		dev_info(mpci->dev, "%s: under going...\n", __func__);
 		return ret;
 	case MT6360_CHG_TYPE_SDP:
+		dev_info(mpci->dev,
+			  "%s: Charger Type: STANDARD_HOST\n", __func__);
 		mpci->psy_desc.type = POWER_SUPPLY_TYPE_USB;
 		mpci->psy_usb_type = POWER_SUPPLY_USB_TYPE_SDP;
 		break;
 	case MT6360_CHG_TYPE_SDPNSTD:
-		mpci->psy_desc.type = POWER_SUPPLY_TYPE_USB;
-		mpci->psy_usb_type = POWER_SUPPLY_USB_TYPE_SDP;
+		dev_info(mpci->dev,
+			  "%s: Charger Type: NONSTANDARD_CHARGER\n", __func__);
+		mpci->psy_desc.type = POWER_SUPPLY_TYPE_USB_DCP;
+		mpci->psy_usb_type = POWER_SUPPLY_USB_TYPE_DCP;
 		break;
 	case MT6360_CHG_TYPE_CDP:
+		dev_info(mpci->dev,
+			  "%s: Charger Type: CHARGING_HOST\n", __func__);
 		mpci->psy_desc.type = POWER_SUPPLY_TYPE_USB_CDP;
 		mpci->psy_usb_type = POWER_SUPPLY_USB_TYPE_CDP;
 		break;
 	case MT6360_CHG_TYPE_DCP:
+		dev_info(mpci->dev,
+			  "%s: Charger Type: STANDARD_CHARGER\n", __func__);
 		mpci->psy_desc.type = POWER_SUPPLY_TYPE_USB_DCP;
 		mpci->psy_usb_type = POWER_SUPPLY_USB_TYPE_DCP;
 		break;
@@ -2413,11 +2450,8 @@ static void mt6360_pmu_chg_irq_register(struct platform_device *pdev)
 		if (unlikely(!irq_desc->name))
 			continue;
 		ret = platform_get_irq_byname(pdev, irq_desc->name);
-		if (ret < 0) {
-			dev_info(&pdev->dev, "get dts %s failed ret : %d\n",
-					irq_desc->name, ret);
+		if (ret < 0)
 			continue;
-		}
 		irq_desc->irq = ret;
 		ret = devm_request_threaded_irq(&pdev->dev, irq_desc->irq, NULL,
 						irq_desc->irq_handler,
@@ -3028,7 +3062,7 @@ static const struct regulator_ops mt6360_chg_otg_ops = {
 	.enable = mt6360_boost_enable,
 	.disable = mt6360_boost_disable,
 	.is_enabled = mt6360_boost_is_enabled,
-	.set_voltage_sel = mt6360_boost_set_voltage_sel,	//直接将sel
+	.set_voltage_sel = mt6360_boost_set_voltage_sel,
 	.get_voltage_sel = mt6360_boost_get_voltage_sel,
 	.set_current_limit = mt6360_boost_set_current_limit,
 	.get_current_limit = mt6360_boost_get_current_limit,

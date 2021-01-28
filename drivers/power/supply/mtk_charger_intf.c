@@ -186,7 +186,8 @@ int get_vbus(struct mtk_charger *info)
 		ret = get_pmic_vbus(info, &vchr);
 		if (ret < 0)
 			chr_err("%s: get vbus failed: %d\n", __func__, ret);
-	}
+	} else
+		vchr /= 1000;
 
 	return vchr;
 }
