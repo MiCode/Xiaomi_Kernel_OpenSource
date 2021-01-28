@@ -56,6 +56,7 @@ struct cmdqSecContextStruct {
 	/* iwc information */
 	void *iwcMessage;	/* message buffer */
 	void *iwcMessageEx;	/* message buffer extra */
+	void *iwcMessageEx2;	/* message buffer extra */
 
 #if defined(CMDQ_SECURE_PATH_SUPPORT)
 	struct cmdq_sec_tee_context tee;	/* trustzone parameters */
@@ -94,7 +95,8 @@ int32_t cmdq_sec_destroy_shared_memory(
  * Return:
  *     >=0 for success;
  */
-typedef int32_t(*CmdqSecFillIwcCB) (int32_t, void *, int32_t, void *, void *);
+typedef int32_t(*CmdqSecFillIwcCB) (
+	int32_t, void *, int32_t, void *, void *, void *);
 
 
 /*
@@ -143,7 +145,8 @@ s32 cmdq_sec_init_context(struct cmdq_sec_tee_context *tee);
 s32 cmdq_sec_deinit_context(struct cmdq_sec_tee_context *tee);
 
 s32 cmdq_sec_allocate_wsm(struct cmdq_sec_tee_context *tee, void **wsm_buffer,
-	u32 size, void **wsm_buf_ex, u32 size_ex);
+	u32 size, void **wsm_buf_ex, u32 size_ex,
+	void **wsm_buf_ex2, u32 size_ex2);
 
 s32 cmdq_sec_free_wsm(struct cmdq_sec_tee_context *tee, void **wsm_buffer);
 
@@ -152,7 +155,7 @@ s32 cmdq_sec_open_session(struct cmdq_sec_tee_context *tee, void *wsm_buffer);
 s32 cmdq_sec_close_session(struct cmdq_sec_tee_context *tee);
 
 s32 cmdq_sec_execute_session(struct cmdq_sec_tee_context *tee,
-	u32 cmd, s32 timeout_ms, bool share_mem_ex);
+	u32 cmd, s32 timeout_ms, bool share_mem_ex1, bool share_mem_ex2);
 #endif	/* CMDQ_SECURE_PATH_SUPPORT */
 
 #endif				/* __DDP_CMDQ_SEC_H__ */
