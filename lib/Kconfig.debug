@@ -1252,7 +1252,7 @@ config WW_MUTEX_SELFTEST
 
 config MTK_LOCKING_AEE
 	bool "AEE warning for locking"
-	depends on MTK_AEE_FEATURE
+	depends on MTK_AEE_FEATURE && (LOCKDEP || DEBUG_SPINLOCK)
 	help
 	  This feature will trigger kernel API dump when lock warnings
 	  occur in runtime lock operations. For some specific cases,

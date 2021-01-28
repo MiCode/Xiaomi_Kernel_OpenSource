@@ -2,7 +2,7 @@
 # Any varying coverage in these files is non-deterministic
 # and is generally not a function of system call inputs.
 KCOV_INSTRUMENT		:= n
-
+UBSAN_SANITIZE_lockdep.o	:= n
 ccflags-y += -I$(srctree)/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 obj-y += mutex.o semaphore.o rwsem.o percpu-rwsem.o
@@ -14,10 +14,21 @@ CFLAGS_REMOVE_mutex-debug.o = $(CC_FLAGS_FTRACE)
 CFLAGS_REMOVE_rtmutex-debug.o = $(CC_FLAGS_FTRACE)
 endif
 
+ifeq ($(CONFIG_PROVE_LOCKING),y)
+ccflags-y += -DMTK_LOCK_DEBUG_NEW_DEPENDENCY
+ccflags-y += -DMTK_LOCK_MONITOR
+ccflags-y += -DMTK_ENHANCE_LOCKDEP_PROC
+ifeq ($(CONFIG_MACH_MT6771),y)
+ccflags-y += -DMTK_DEBUG_SPINLOCK_V2
+else
+ccflags-y += -DMTK_DEBUG_SPINLOCK_V1
+endif
+endif
+
 obj-$(CONFIG_DEBUG_MUTEXES) += mutex-debug.o
 obj-$(CONFIG_LOCKDEP) += lockdep.o
 ifeq ($(CONFIG_PROC_FS),y)
-obj-$(CONFIG_LOCKDEP) += lockdep_proc.o
+obj-$(CONFIG_LOCKDEP) += lockdep_proc.o lockdep_test.o
 endif
 obj-$(CONFIG_SMP) += spinlock.o
 obj-$(CONFIG_LOCK_SPIN_ON_OWNER) += osq_lock.o

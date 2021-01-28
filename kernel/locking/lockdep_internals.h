@@ -198,3 +198,13 @@ static bool is_critical_lock_held(void)
 }
 #endif
 #endif
+
+#ifdef CONFIG_MTK_AEE_IPANIC
+#include <mt-plat/mboot_params.h>
+#endif
+
+void lockdep_test_init(void);
+
+#ifdef MTK_LOCK_MONITOR
+void lock_monitor_init(void);
+#endif
