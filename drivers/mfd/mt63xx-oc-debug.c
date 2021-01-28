@@ -62,14 +62,14 @@ static struct reg_oc_debug_t mt6357_reg_oc_debug[] = {
 	MD_REG_OC_DEBUG(vrf18, MD_REG_OC_2),
 	MD_REG_OC_DEBUG(vrf12, MD_REG_OC_3),
 	REG_OC_DEBUG(vefuse),
-	REG_OC_DEBUG(vcn33_bt),
-	REG_OC_DEBUG(vcn33_wifi),
+	/*REG_OC_DEBUG(vcn33_bt),*/
+	/*REG_OC_DEBUG(vcn33_wifi),*/
 	REG_OC_DEBUG(vcn28),
 	REG_OC_DEBUG(vcn18),
-	REG_OC_DEBUG(vcama),
-	REG_OC_DEBUG(vcamd),
-	REG_OC_DEBUG(vcamio),
-	REG_OC_DEBUG(vldo28),
+	/*REG_OC_DEBUG(vcama),*/
+	/*REG_OC_DEBUG(vcamd),*/
+	/*REG_OC_DEBUG(vcamio),*/
+	/*REG_OC_DEBUG(vldo28),*/
 	REG_OC_DEBUG(vusb33),
 	REG_OC_DEBUG(vaux18),
 	REG_OC_DEBUG(vaud28),
@@ -77,13 +77,13 @@ static struct reg_oc_debug_t mt6357_reg_oc_debug[] = {
 	REG_OC_DEBUG(vio18),
 	REG_OC_DEBUG(vsram_proc),
 	REG_OC_DEBUG(vsram_others),
-	REG_OC_DEBUG(vibr),
+	/*REG_OC_DEBUG(vibr),*/
 	REG_OC_DEBUG(vdram),
-	REG_OC_DEBUG(vmc),
-	REG_OC_DEBUG(vmch),
+	/*REG_OC_DEBUG(vmc),*/
+	/*REG_OC_DEBUG(vmch),*/
 	REG_OC_DEBUG(vemc),
-	REG_OC_DEBUG(vsim1),
-	REG_OC_DEBUG(vsim2),
+	/*REG_OC_DEBUG(vsim1),*/
+	/*REG_OC_DEBUG(vsim2),*/
 };
 
 static int md_reg_oc_notify(struct reg_oc_debug_t *reg_oc_dbg)
