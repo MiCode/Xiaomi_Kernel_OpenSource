@@ -23,6 +23,7 @@
 #include <linux/of_device.h>
 #include <linux/of_irq.h>
 #include <linux/io.h>
+#include <linux/mfd/mt6357/registers.h>
 #include <linux/mfd/mt6358/registers.h>
 #include <linux/mfd/mt6359/registers.h>
 #include <linux/mfd/mt6397/core.h>
@@ -30,6 +31,10 @@
 
 
 #define RTC_BBPU		0x0000
+#define RTC_BBPU_KEY		0x4300
+#define RTC_BBPU_PWREN		BIT(0)
+#define RTC_BBPU_CLR		BIT(1)
+#define RTC_BBPU_RELOAD		BIT(5)
 #define RTC_BBPU_CBUSY		BIT(6)
 
 #define RTC_WRTGR_MT6358	0x3a
@@ -76,8 +81,19 @@
 #define RTC_OFFSET_COUNT	7
 
 #define RTC_AL_SEC		0x0018
+#define RTC_BBPU_AUTO_PDN_SEL	BIT(6)
+#define RTC_BBPU_2SEC_EN	BIT(8)
 #define RTC_AL_HOU		0x001c
 #define RTC_AL_MTH		0x0022
+#define RTC_AL_YEA		0x0024
+#define RTC_K_EOSC_RSV_0	BIT(8)
+#define RTC_K_EOSC_RSV_1	BIT(9)
+#define RTC_K_EOSC_RSV_2	BIT(10)
+
+#define RTC_OSC32CON	0x0026
+#define RTC_OSC32CON_UNLOCK1			0x1a57
+#define RTC_OSC32CON_UNLOCK2			0x2b68
+#define RTC_EMBCK_SRC_SEL	BIT(8)
 
 #define RTC_PDN2		0x002e
 #define RTC_PDN2_PWRON_ALARM	BIT(4)
@@ -112,10 +128,18 @@ enum cali_field_enum {
 	CALI_FILED_MAX
 };
 
+enum eosc_cali_version {
+	EOSC_CALI_NONE,
+	EOSC_CALI_MT6357_SERIES,
+	EOSC_CALI_MT6358_SERIES,
+	EOSC_CALI_MT6359_SERIES,
+};
+
 struct mtk_rtc_compatible {
 	u32			wrtgr_addr;
 	const struct reg_field *spare_reg_fields;
 	const struct reg_field *cali_reg_fields;
+	u32			eosc_cali_version;
 };
 
 struct mt6397_rtc {
@@ -129,6 +153,11 @@ struct mt6397_rtc {
 	struct regmap_field	*spare[SPARE_RG_MAX];
 	struct regmap_field	*cali[CALI_FILED_MAX];
 	bool			cali_is_supported;
+};
+
+static const struct reg_field mt6357_cali_reg_fields[CALI_FILED_MAX] = {
+	[RTC_EOSC32_CK_PDN]	= REG_FIELD(MT6357_SCK_TOP_CKPDN_CON0, 2, 2),
+	[EOSC_CALI_TD]		= REG_FIELD(MT6357_EOSC_CALI_CON0, 5, 7),
 };
 
 static const struct reg_field mt6358_cali_reg_fields[CALI_FILED_MAX] = {
@@ -151,16 +180,26 @@ static const struct mtk_rtc_compatible mt6359_rtc_compat = {
 	.wrtgr_addr		= RTC_WRTGR_MT6358,
 	.spare_reg_fields	= mtk_rtc_spare_reg_fields,
 	.cali_reg_fields	= mt6359_cali_reg_fields,
+	.eosc_cali_version	= EOSC_CALI_MT6359_SERIES,
 };
 
 static const struct mtk_rtc_compatible mt6358_rtc_compat = {
 	.wrtgr_addr		= RTC_WRTGR_MT6358,
 	.spare_reg_fields	= mtk_rtc_spare_reg_fields,
 	.cali_reg_fields	= mt6358_cali_reg_fields,
+	.eosc_cali_version	= EOSC_CALI_MT6358_SERIES,
+};
+
+static const struct mtk_rtc_compatible mt6357_rtc_compat = {
+	.wrtgr_addr		= RTC_WRTGR_MT6358,
+	.spare_reg_fields	= mtk_rtc_spare_reg_fields,
+	.cali_reg_fields	= mt6357_cali_reg_fields,
+	.eosc_cali_version	= EOSC_CALI_MT6357_SERIES,
 };
 
 static const struct mtk_rtc_compatible mt6397_rtc_compat = {
 	.wrtgr_addr = RTC_WRTGR_MT6397,
+	.eosc_cali_version	= EOSC_CALI_NONE,
 };
 
 static const struct of_device_id mt6397_rtc_of_match[] = {
@@ -168,6 +207,8 @@ static const struct of_device_id mt6397_rtc_of_match[] = {
 		.data = (void *)&mt6359_rtc_compat, },
 	{ .compatible = "mediatek,mt6358-rtc",
 		.data = (void *)&mt6358_rtc_compat, },
+	{ .compatible = "mediatek,mt6357-rtc",
+		.data = (void *)&mt6357_rtc_compat, },
 	{ .compatible = "mediatek,mt6397-rtc",
 		.data = (void *)&mt6397_rtc_compat, },
 	{}
@@ -485,10 +526,68 @@ static const struct rtc_class_ops mtk_rtc_ops = {
 	.set_alarm  = mtk_rtc_set_alarm,
 };
 
+static int mtk_rtc_reload(struct mt6397_rtc *rtc)
+{
+	int ret;
+	u32 bbpu;
+
+	ret = regmap_read(rtc->regmap, rtc->addr_base +
+		RTC_BBPU, &bbpu);
+	if (ret == 0) {
+		bbpu = bbpu | RTC_BBPU_KEY | RTC_BBPU_RELOAD;
+		ret = regmap_write(rtc->regmap, rtc->addr_base +
+			RTC_BBPU, bbpu);
+	}
+	if (ret == 0)
+		ret = mtk_rtc_write_trigger(rtc);
+
+	return ret;
+}
+
+static int rtc_xosc_write(struct mt6397_rtc *rtc, u32 reg)
+{
+	int ret;
+
+	ret = regmap_write(rtc->regmap, rtc->addr_base +
+			RTC_OSC32CON, RTC_OSC32CON_UNLOCK1);
+	if (ret == 0)
+		ret = mtk_rtc_write_trigger(rtc);
+	if (ret == 0)
+		ret = regmap_write(rtc->regmap, rtc->addr_base +
+			RTC_OSC32CON, RTC_OSC32CON_UNLOCK2);
+	if (ret == 0)
+		ret = mtk_rtc_write_trigger(rtc);
+	if (ret == 0)
+		ret = regmap_write(rtc->regmap, rtc->addr_base +
+			RTC_OSC32CON, reg);
+	if (ret == 0)
+		ret = mtk_rtc_write_trigger(rtc);
+
+	return ret;
+}
+
+static void mtk_rtc_disable_2sec_reboot(struct device *dev)
+{
+	struct mt6397_rtc *rtc = dev_get_drvdata(dev);
+	int ret;
+	u32 reg;
+
+	ret = regmap_read(rtc->regmap, rtc->addr_base + RTC_AL_SEC, &reg);
+	if (ret == 0) {
+		reg = (reg & ~RTC_BBPU_2SEC_EN) & ~RTC_BBPU_AUTO_PDN_SEL;
+		ret = regmap_write(rtc->regmap, rtc->addr_base +
+			RTC_AL_SEC, reg);
+	}
+	if (ret == 0)
+		ret = mtk_rtc_write_trigger(rtc);
+}
+
 static void mtk_rtc_enable_k_eosc(struct device *dev)
 {
 	struct mt6397_rtc *rtc = dev_get_drvdata(dev);
+	int ret;
 	u32 td;
+	u32 reg;
 
 	if (!rtc->cali_is_supported)
 		return;
@@ -518,11 +617,132 @@ static void mtk_rtc_enable_k_eosc(struct device *dev)
 		}
 		regmap_field_write(rtc->cali[EOSC_CALI_TD], td);
 	}
+
+	if (rtc->dev_comp->eosc_cali_version ==
+		EOSC_CALI_MT6357_SERIES) {
+		struct reg_field r_field_xo_en32k_man =
+			REG_FIELD(MT6357_DCXO_CW02, 0, 0);
+		struct regmap_field	*rm_field_xo_en32k_man =
+			devm_regmap_field_alloc(dev, rtc->regmap,
+			r_field_xo_en32k_man);
+		/*RTC mode will have only OFF mode and FPM */
+		ret = regmap_field_write(rm_field_xo_en32k_man, 0);
+		devm_regmap_field_free(dev, rm_field_xo_en32k_man);
+
+		if (ret == 0)
+			ret = mtk_rtc_reload(rtc);
+		/* Enable K EOSC mode for normal power
+		 * off and then plug out battery
+		 */
+		if (ret == 0)
+			ret = regmap_read(rtc->regmap, rtc->addr_base +
+				RTC_AL_YEA, &reg);
+		if (ret == 0) {
+			reg = ((reg | RTC_K_EOSC_RSV_0) &
+				(~RTC_K_EOSC_RSV_1)) | RTC_K_EOSC_RSV_2;
+		    ret = regmap_write(rtc->regmap, rtc->addr_base +
+				RTC_AL_YEA, reg);
+		}
+		if (ret == 0)
+			ret = mtk_rtc_write_trigger(rtc);
+
+		if (ret == 0)
+			ret = regmap_read(rtc->regmap, rtc->addr_base +
+				RTC_OSC32CON, &reg);
+		if (ret == 0) {
+			reg = reg | RTC_EMBCK_SRC_SEL;
+			rtc_xosc_write(rtc, reg);
+		}
+	}
+}
+
+static void mtk_rtc_spar_alarm_clear_wait(struct device *dev)
+{
+	struct mt6397_rtc *rtc = dev_get_drvdata(dev);
+	int ret;
+	u32 reg;
+	unsigned long long timeout = sched_clock() + 500000000;
+
+	do {
+		ret = regmap_read(rtc->regmap, rtc->addr_base + RTC_BBPU, &reg);
+		if (ret == 0 && (reg & RTC_BBPU_CLR) == 0)
+			break;
+		else if (sched_clock() > timeout) {
+			ret = regmap_read(rtc->regmap, rtc->addr_base +
+				RTC_BBPU, &reg);
+			pr_notice("%s, spar/alarm clear time out, %x,\n",
+				__func__, reg);
+			break;
+		}
+	} while (1);
+}
+
+static int rtc_lpsd_restore_al_mask(struct device *dev)
+{
+	struct mt6397_rtc *rtc = dev_get_drvdata(dev);
+	int ret;
+	u32 reg;
+
+	pr_notice("%s\n", __func__);
+
+	ret = mtk_rtc_reload(rtc);
+	if (ret == 0)
+		ret = regmap_read(rtc->regmap, rtc->addr_base +
+			RTC_AL_MASK, &reg);
+	if (ret == 0) {
+		pr_notice("1st RTC_AL_MASK = 0x%x\n", reg);
+		/* mask DOW */
+		ret = regmap_write(rtc->regmap, rtc->addr_base +
+			RTC_AL_MASK, RTC_AL_MASK_DOW);
+	}
+	if (ret == 0)
+		ret = mtk_rtc_write_trigger(rtc);
+	if (ret == 0)
+		ret = regmap_read(rtc->regmap, rtc->addr_base +
+			RTC_AL_MASK, &reg);
+	if (ret == 0)
+		pr_notice("2nd RTC_AL_MASK = 0x%x\n", reg);
+
+	return ret;
+}
+
+static void mtk_rtc_lpsd(struct device *dev)
+{
+	struct mt6397_rtc *rtc = dev_get_drvdata(dev);
+	int ret;
+	u32 reg;
+
+	pr_notice("clear lpsd solution\n");
+	reg = RTC_BBPU_KEY | RTC_BBPU_CLR | RTC_BBPU_PWREN;
+	ret = regmap_write(rtc->regmap, rtc->addr_base + RTC_BBPU, reg);
+	if (ret == 0)
+		ret = mtk_rtc_write_trigger(rtc);
+
+	mtk_rtc_spar_alarm_clear_wait(dev);
+
+	ret = mtk_rtc_reload(rtc);
+	if (ret == 0)
+		ret = regmap_read(rtc->regmap, rtc->addr_base +
+			RTC_AL_MASK, &reg);
+	if (ret == 0) {
+		pr_notice("RTC_AL_MASK = 0x%x\n", reg);
+		ret = regmap_read(rtc->regmap, rtc->addr_base +
+			RTC_IRQ_EN, &reg);
+	}
+	if (ret == 0)
+		pr_notice("RTC_IRQ_EN = 0x%x\n", reg);
 }
 
 static void mtk_rtc_shutdown(struct platform_device *pdev)
 {
+	struct mt6397_rtc *rtc = dev_get_drvdata(&pdev->dev);
+
+	if (rtc->dev_comp->eosc_cali_version == EOSC_CALI_MT6357_SERIES)
+		mtk_rtc_disable_2sec_reboot(&pdev->dev);
 	mtk_rtc_enable_k_eosc(&pdev->dev);
+	if (rtc->dev_comp->eosc_cali_version == EOSC_CALI_MT6357_SERIES ||
+		rtc->dev_comp->eosc_cali_version == EOSC_CALI_MT6358_SERIES)
+		mtk_rtc_lpsd(&pdev->dev);
 }
 
 static int mtk_rtc_config_eosc_cali(struct device *dev)
@@ -643,6 +863,10 @@ static int mtk_rtc_probe(struct platform_device *pdev)
 	if (rtc->dev_comp->cali_reg_fields)
 		if (mtk_rtc_config_eosc_cali(&pdev->dev))
 			dev_err(&pdev->dev, "config eosc cali failed\n");
+
+	if (rtc->dev_comp->eosc_cali_version == EOSC_CALI_MT6357_SERIES ||
+		rtc->dev_comp->eosc_cali_version == EOSC_CALI_MT6358_SERIES)
+		rtc_lpsd_restore_al_mask(&pdev->dev);
 
 	return 0;
 

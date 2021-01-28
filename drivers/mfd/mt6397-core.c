@@ -71,6 +71,19 @@ static const struct resource mt6358_rtc_resources[] = {
 	},
 };
 
+static const struct resource mt6357_rtc_resources[] = {
+	{
+		.start = MT6358_RTC_BASE,
+		.end   = MT6358_RTC_BASE + MT6358_RTC_SIZE,
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.start = MT6357_IRQ_RTC,
+		.end   = MT6357_IRQ_RTC,
+		.flags = IORESOURCE_IRQ,
+	},
+};
+
 static const struct resource mt6397_rtc_resources[] = {
 	{
 		.start = MT6397_RTC_BASE,
@@ -270,6 +283,11 @@ static const struct mfd_cell mt6357_devs[] = {
 		.num_resources = ARRAY_SIZE(mt6357_keys_resources),
 		.resources = mt6357_keys_resources,
 		.of_compatible = "mediatek,mt6357-keys"
+	}, {
+		.name = "mt6397-rtc",
+		.num_resources = ARRAY_SIZE(mt6357_rtc_resources),
+		.resources = mt6357_rtc_resources,
+		.of_compatible = "mediatek,mt6357-rtc",
 	}
 };
 
