@@ -53,6 +53,7 @@ static LIST_HEAD(power_callback_device_list);
 static struct mutex power_device_list_mtx;
 static struct mutex power_opp_mtx;
 static int apu_power_counter;
+static int power_callback_counter;
 static struct task_struct *power_task_handle;
 static uint64_t timestamp;
 
@@ -149,6 +150,33 @@ static struct power_device *find_out_device_by_user(enum DVFS_USER user)
 	return NULL;
 }
 
+static void power_callback_caller(int power_on)
+{
+	struct power_callback_device *pwr_dev = NULL;
+
+	LOG_DBG("%s begin (%d)\n", __func__, power_on);
+	mutex_lock(&power_device_list_mtx);
+
+	if (!list_empty(&power_callback_device_list)) {
+		list_for_each_entry(pwr_dev,
+			&power_callback_device_list, list) {
+
+			LOG_DBG("%s calling %d in state %d\n", __func__,
+					pwr_dev->power_callback_usr, power_on);
+
+			if (power_on) {
+				if (pwr_dev && pwr_dev->power_on_callback)
+					pwr_dev->power_on_callback(NULL);
+			} else {
+				if (pwr_dev && pwr_dev->power_off_callback)
+					pwr_dev->power_off_callback(NULL);
+			}
+		}
+	}
+
+	mutex_unlock(&power_device_list_mtx);
+	LOG_DBG("%s end (%d)\n", __func__, power_on);
+}
 
 static struct power_callback_device*
 find_out_callback_device_by_user(enum POWER_CALLBACK_USER user)
@@ -176,23 +204,6 @@ find_out_callback_device_by_user(enum POWER_CALLBACK_USER user)
 	return NULL;
 }
 
-void apu_power_off_callback(void)
-{
-	struct power_callback_device *pwr_dev = NULL;
-
-	mutex_lock(&power_device_list_mtx);
-
-	if (!list_empty(&power_callback_device_list)) {
-
-		list_for_each_entry(pwr_dev,
-				&power_callback_device_list, list) {
-			pwr_dev->power_off_callback(NULL);
-		}
-	}
-	mutex_unlock(&power_device_list_mtx);
-}
-
-
 int apu_device_power_off(enum DVFS_USER user)
 {
 	struct power_device *pwr_dev = find_out_device_by_user(user);
@@ -207,6 +218,12 @@ int apu_device_power_off(enum DVFS_USER user)
 	if (pwr_dev->is_power_on) {
 		LOG_INF("%s for user : %d, cnt : %d\n", __func__,
 						user, apu_power_counter);
+		power_callback_counter--;
+		if (power_callback_counter == 0) {
+			// call passive power off function list
+			power_callback_caller(0);
+		}
+
 		// disable clock and set regulator mode to idle (lowest volt)
 		apusys_power_off(user);
 		pwr_dev->is_power_on = 0;
@@ -221,22 +238,6 @@ int apu_device_power_off(enum DVFS_USER user)
 	return 0;
 }
 EXPORT_SYMBOL(apu_device_power_off);
-
-void apu_power_on_callback(void)
-{
-	struct power_callback_device *pwr_dev = NULL;
-
-	mutex_lock(&power_device_list_mtx);
-
-	if (!list_empty(&power_callback_device_list)) {
-
-		list_for_each_entry(pwr_dev,
-				&power_callback_device_list, list) {
-			pwr_dev->power_on_callback(NULL);
-		}
-	}
-	mutex_unlock(&power_device_list_mtx);
-}
 
 int apu_device_power_on(enum DVFS_USER user)
 {
@@ -255,6 +256,12 @@ int apu_device_power_on(enum DVFS_USER user)
 		// enable clock and set regulator mode to normal
 		apusys_power_on(user);
 		pwr_dev->is_power_on = 1;
+
+		if (power_callback_counter == 0) {
+			// call passive power on function list
+			power_callback_caller(1);
+		}
+		power_callback_counter++;
 
 	} else {
 		LOG_INF("%s user %d has already power on, bypass this time!\n",

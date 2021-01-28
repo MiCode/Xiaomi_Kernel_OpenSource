@@ -16,6 +16,7 @@ PDIR = $(MTK_PLATFORM)
 ccflags-y += -I$(srctree)/drivers/devfreq
 ccflags-y += -I$(srctree)/include
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(PDIR)/include/mach/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/power/2.0/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/power/2.0/$(PDIR)
 

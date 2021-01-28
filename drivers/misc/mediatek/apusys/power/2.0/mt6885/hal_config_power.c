@@ -12,8 +12,6 @@
  */
 
 #include <linux/delay.h>
-#include <linux/io.h>
-#include <sync_write.h>
 #include "hal_config_power.h"
 #include "apu_power_api.h"
 #include "apusys_power_cust.h"
@@ -22,7 +20,6 @@
 #include <helio-dvfsrc-opp.h>
 
 static int is_apu_power_initilized;
-
 
 /************************************
  * platform related power APIs
@@ -103,42 +100,29 @@ int hal_config_power(enum HAL_POWER_CMD cmd, enum DVFS_USER user, void *param)
  * utility function
  ************************************/
 
-// normal opp to voltage
-static int opp_to_voltage(int target_opp, enum DVFS_VOLTAGE_DOMAIN domain)
+// vcore voltage p to vcore opp
+static enum vcore_opp volt_to_vcore_opp(int target_volt)
 {
-	int voltage = 0;
+	int opp;
 
-	voltage = dvfs_table[target_opp][domain].voltage;
+	for (opp = 0 ; opp < VCORE_OPP_NUM ; opp++)
+		if (vcore_opp_mapping[opp] == target_volt)
+			break;
 
-	if (voltage >= DVFS_VOLT_MAX) {
-		LOG_ERR("%s failed, force change voltage to %d\n",
-							__func__, voltage);
-		return -1;
+	if (opp >= VCORE_OPP_NUM) {
+		LOG_ERR("%s failed, force to set default opp\n", __func__);
+		return PM_QOS_VCORE_OPP_DEFAULT_VALUE;
 	}
 
-	return voltage;
-}
-
-// normal opp to vcore opp
-static int opp_to_vcore_opp(int target_opp)
-{
-	int vcore_opp = 0;
-
-	vcore_opp = vcore_opp_mapping[target_opp];
-
-	if (vcore_opp >= VCORE_OPP_NUM) {
-		LOG_ERR("%s failed, force change vcore_opp to %d\n",
-							__func__, vcore_opp);
-		return -1;
-	}
-
-	return vcore_opp;
+	LOG_DBG("%s opp = %d\n", __func__, opp);
+	return (enum vcore_opp)opp;
 }
 
 static void prepare_apu_regulator(struct device *dev, int prepare)
 {
 	if (prepare) {
 		prepare_regulator(VCORE_BUCK, dev);
+		prepare_regulator(SRAM_BUCK, dev);
 		prepare_regulator(VPU_BUCK, dev);
 		prepare_regulator(MDLA_BUCK, dev);
 
@@ -148,6 +132,7 @@ static void prepare_apu_regulator(struct device *dev, int prepare)
 	} else {
 		unprepare_regulator(MDLA_BUCK);
 		unprepare_regulator(VPU_BUCK);
+		unprepare_regulator(SRAM_BUCK);
 		unprepare_regulator(VCORE_BUCK);
 
 		// unregister pm_qos notifier here,
@@ -158,24 +143,6 @@ static void prepare_apu_regulator(struct device *dev, int prepare)
 /******************************************
  * hal cmd corresponding platform function
  ******************************************/
-
-static void DRV_WriteReg32(void *addr, uint32_t value)
-{
-	mt_reg_sync_writel(value, addr);
-}
-
-static u32 DRV_Reg32(void *addr)
-{
-	return ioread32(addr);
-}
-
-static void DRV_SetBitReg32(void *addr, uint32_t bit_mask)
-{
-	u32 tmp = ioread32(addr);
-
-	tmp |= bit_mask;
-	mt_reg_sync_writel(tmp, addr);
-}
 
 static void hw_init_setting(void)
 {
@@ -225,47 +192,28 @@ static int init_power_resource(enum DVFS_USER user, void *param)
 	return 0;
 }
 
-// FIXME: implement this function
-#if 0
-static void vsram_check(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
-{
-/*
- *	// read vsarm_volatge
- *	if (vsarm_voltage == 0.85V) {
- *
- *	} else {
- *
- *	}
- */
-}
-#endif
-
 static int set_power_voltage(enum DVFS_USER user, void *param)
 {
-	enum DVFS_VOLTAGE_DOMAIN domain = 0;
 	enum DVFS_BUCK buck = 0;
-	int target_opp = 0;
-	int val = 0;
+	int target_volt = 0;
 	int ret = 0;
 
-	domain = ((struct hal_param_volt *)param)->target_volt_domain;
 	buck = ((struct hal_param_volt *)param)->target_buck;
-	target_opp = ((struct hal_param_volt *)param)->target_opp;
+	target_volt = ((struct hal_param_volt *)param)->target_volt;
 
-	if (buck < APUSYS_BUCK_NUM && domain < APUSYS_BUCK_DOMAIN_NUM) {
+	if (buck < APUSYS_BUCK_NUM) {
 		if (buck != VCORE_BUCK) {
-			val = opp_to_voltage(target_opp, domain);
-			LOG_DBG("%s set buck %d to %d\n", __func__, buck, val);
+			LOG_DBG("%s set buck %d to %d\n", __func__,
+							buck, target_volt);
 
-			if (val >= 0)
-				ret = config_normal_regulator(buck, val);
+			if (target_volt >= 0) {
+				ret = config_normal_regulator(
+						buck, target_volt);
+			}
 
 		} else {
-			// vcore opp range : 0 ~ 2
-			val = opp_to_vcore_opp(target_opp);
-			LOG_DBG("%s set vcore to opp %d\n", __func__, val);
-			if (val >= 0)
-				ret = config_vcore(user, val);
+			ret = config_vcore(user,
+					volt_to_vcore_opp(target_volt));
 		}
 	} else {
 		LOG_ERR("%s not support buck : %d\n", __func__, buck);
@@ -479,26 +427,28 @@ static int set_power_boot_up(enum DVFS_USER user, void *param)
 	struct hal_param_volt vpu_volt_data;
 	struct hal_param_volt mdla_volt_data;
 	struct hal_param_volt vcore_volt_data;
+	struct hal_param_volt sram_volt_data;
 	uint8_t power_bit_mask = 0;
 	int ret = 0;
 
 	power_bit_mask = ((struct hal_param_pwr_mask *)param)->power_bit_mask;
 
 	if (power_bit_mask == 0) {
-		vcore_volt_data.target_volt_domain = V_VCORE;
 		vcore_volt_data.target_buck = VCORE_BUCK;
-		vcore_volt_data.target_opp = APUSYS_DEFAULT_OPP;
+		vcore_volt_data.target_volt = VCORE_DEFAULT_VOLT;
 		ret |= set_power_voltage(user, (void *)&vcore_volt_data);
 
-		vpu_volt_data.target_volt_domain = V_VPU0;
-		vpu_volt_data.target_buck = VPU_BUCK;
-		vpu_volt_data.target_opp = APUSYS_DEFAULT_OPP;
-		ret |= set_power_voltage(VPU0, (void *)&vpu_volt_data);
+		sram_volt_data.target_buck = SRAM_BUCK;
+		sram_volt_data.target_volt = VSRAM_DEFAULT_VOLT;
+		ret |= set_power_voltage(user, (void *)&sram_volt_data);
 
-		mdla_volt_data.target_volt_domain = V_MDLA0;
+		vpu_volt_data.target_buck = VPU_BUCK;
+		vpu_volt_data.target_volt = VVPU_DEFAULT_VOLT;
+		ret |= set_power_voltage(user, (void *)&vpu_volt_data);
+
 		mdla_volt_data.target_buck = MDLA_BUCK;
-		mdla_volt_data.target_opp = APUSYS_DEFAULT_OPP;
-		ret |= set_power_voltage(MDLA0, (void *)&mdla_volt_data);
+		mdla_volt_data.target_volt = VMDLA_DEFAULT_VOLT;
+		ret |= set_power_voltage(user, (void *)&mdla_volt_data);
 	}
 
 // FIXME
@@ -531,6 +481,7 @@ static int set_power_shut_down(enum DVFS_USER user, void *param)
 	struct hal_param_volt vpu_volt_data;
 	struct hal_param_volt mdla_volt_data;
 	struct hal_param_volt vcore_volt_data;
+	struct hal_param_volt sram_volt_data;
 	uint8_t power_bit_mask = 0;
 	int ret = 0;
 
@@ -555,19 +506,35 @@ static int set_power_shut_down(enum DVFS_USER user, void *param)
 	ret |= set_power_clock(user, (void *)&clk_data);
 
 	if (power_bit_mask == 0) {
-		mdla_volt_data.target_volt_domain = V_MDLA0;
+		/*
+		 * to avoid vmdla/vvpu constraint,
+		 * adjust to transition voltage first.
+		 */
 		mdla_volt_data.target_buck = MDLA_BUCK;
-		mdla_volt_data.target_opp = APUSYS_DEFAULT_OPP;
-		ret |= set_power_voltage(MDLA0, (void *)&mdla_volt_data);
+		mdla_volt_data.target_volt = VSRAM_TRANS_VOLT;
+		ret |= set_power_voltage(user, (void *)&mdla_volt_data);
 
-		vpu_volt_data.target_volt_domain = V_VPU0;
 		vpu_volt_data.target_buck = VPU_BUCK;
-		vpu_volt_data.target_opp = APUSYS_DEFAULT_OPP;
-		ret |= set_power_voltage(VPU0, (void *)&vpu_volt_data);
+		vpu_volt_data.target_volt = VSRAM_TRANS_VOLT;
+		ret |= set_power_voltage(user, (void *)&vpu_volt_data);
 
-		vcore_volt_data.target_volt_domain = V_VCORE;
+		sram_volt_data.target_buck = SRAM_BUCK;
+		sram_volt_data.target_volt = VSRAM_DEFAULT_VOLT;
+		ret |= set_power_voltage(user, (void *)&sram_volt_data);
+
+		/*
+		 * then adjust vmdla/vvpu again to real default voltage
+		 */
+		mdla_volt_data.target_buck = MDLA_BUCK;
+		mdla_volt_data.target_volt = VMDLA_DEFAULT_VOLT;
+		ret |= set_power_voltage(user, (void *)&mdla_volt_data);
+
+		vpu_volt_data.target_buck = VPU_BUCK;
+		vpu_volt_data.target_volt = VVPU_DEFAULT_VOLT;
+		ret |= set_power_voltage(user, (void *)&vpu_volt_data);
+
 		vcore_volt_data.target_buck = VCORE_BUCK;
-		vcore_volt_data.target_opp = APUSYS_DEFAULT_OPP;
+		vcore_volt_data.target_volt = VCORE_DEFAULT_VOLT;
 		ret |= set_power_voltage(user, (void *)&vcore_volt_data);
 	}
 
