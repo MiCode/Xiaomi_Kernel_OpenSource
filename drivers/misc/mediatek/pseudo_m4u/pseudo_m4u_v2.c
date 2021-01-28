@@ -166,9 +166,9 @@ static int get_pseudo_larb(unsigned int port)
 
 struct device *pseudo_get_larbdev(int portid)
 {
-	struct pseudo_device *pseudo;
+	struct pseudo_device *pseudo = NULL;
 	unsigned int larbid, larbport, fake_nr;
-	int index;
+	int index = -1;
 
 	fake_nr = ARRAY_SIZE(pseudo_dev_larb_fake);
 	larbid = m4u_get_larbid(portid);
@@ -1355,16 +1355,15 @@ int __pseudo_alloc_mva(struct m4u_client_t *client,
 	unsigned long long current_ts = 0;
 	struct task_struct *task;
 
-	if (va && sg_table) {
-		M4U_MSG("va/sg 0x%x are valid:0x%lx, 0x%p, 0x%x, 0x%x-0x%x\n",
-			   port, va, sg_table, flags, *retmva, size);
-	}
-	if (dev == NULL) {
+	if (!dev) {
 		M4U_MSG("dev NULL!\n");
 		return -1;
 	}
 
-	if (!va && !sg_table) {
+	if (va && sg_table) {
+		M4U_MSG("va/sg 0x%x are valid:0x%lx, 0x%p, 0x%x, 0x%x-0x%x\n",
+			   port, va, sg_table, flags, *retmva, size);
+	} else if (!va && !sg_table) {
 		M4U_ERR("err va, err sg\n");
 		return -EINVAL;
 	}
@@ -1408,10 +1407,10 @@ int __pseudo_alloc_mva(struct m4u_client_t *client,
 
 	}
 
-	if (!table) {
+	if (!table && va && size) {
 		table = pseudo_get_sg(port, va, size);
 		if (!table) {
-			M4U_ERR("err sg\n");
+			M4U_ERR("err sg of va:0x%lx, size:0x%lx\n", va, size);
 			goto ERR_EXIT;
 		}
 	}
