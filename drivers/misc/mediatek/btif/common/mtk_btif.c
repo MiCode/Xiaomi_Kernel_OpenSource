@@ -1943,6 +1943,11 @@ static int _btif_state_set(struct _mtk_btif_ *p_btif,
 	int i_ret = 0;
 	int ori_state = p_btif->state;
 
+	if (ori_state < 0 || ori_state >= B_S_MAX) {
+		BTIF_INFO_FUNC("ori_state is unexpected: %d\n", ori_state);
+		return E_BTIF_INVAL_STATE;
+	}
+
 	if ((state >= B_S_OFF) && (state < B_S_MAX)) {
 		if (ori_state == state) {
 			BTIF_INFO_FUNC("already in %s state\n", g_state[state]);
