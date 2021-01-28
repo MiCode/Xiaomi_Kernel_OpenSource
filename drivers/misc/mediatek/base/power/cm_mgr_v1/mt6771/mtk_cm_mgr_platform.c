@@ -812,6 +812,8 @@ int cm_mgr_get_dram_opp(void)
 
 #ifdef CONFIG_MTK_QOS_SUPPORT
 	dram_opp_cur = get_cur_ddr_opp();
+	if (dram_opp_cur < 0 || dram_opp_cur > CM_MGR_EMI_OPP)
+		dram_opp_cur = 0;
 #endif /* CONFIG_MTK_QOS_SUPPORT */
 
 	return dram_opp_cur;
