@@ -573,7 +573,8 @@ s32 mdp_ioctl_async_exec(struct file *pf, unsigned long param)
 	if (!mapping_job)
 		return -ENOMEM;
 
-	if (copy_from_user(&user_job, (void *)param, sizeof(user_job))) {
+	if (param && copy_from_user(&user_job, (void *)param,
+		sizeof(user_job))) {
 		CMDQ_ERR("copy mdp_submit from user fail\n");
 		kfree(mapping_job);
 		return -EFAULT;
@@ -701,7 +702,8 @@ s32 mdp_ioctl_async_exec(struct file *pf, unsigned long param)
 	list_add_tail(&mapping_job->list_entry, &job_mapping_list);
 	mutex_unlock(&mdp_job_mapping_list_mutex);
 
-	if (copy_to_user((void *)param, &user_job, sizeof(user_job))) {
+	if (param && copy_to_user((void *)param, &user_job,
+		sizeof(user_job))) {
 		CMDQ_ERR("CMDQ_IOCTL_ASYNC_EXEC copy_to_user failed\n");
 		return -EFAULT;
 	}
