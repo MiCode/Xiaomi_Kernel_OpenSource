@@ -11,7 +11,7 @@
 # GNU General Public License for more details.
 #
 
-ifneq (,$(filter $(strip $(MTK_PLATFORM)), mt6885 mt6873 mt6893 mt6853))
+ifneq (,$(filter $(strip $(MTK_PLATFORM)), mt6885 mt6873 mt6893 mt6853 mt6877))
 
 ifeq (y, $(filter y, $(CONFIG_MACH_MT6893)))
 PDIR = mt6885
