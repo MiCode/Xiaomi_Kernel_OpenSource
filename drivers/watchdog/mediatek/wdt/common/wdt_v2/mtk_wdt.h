@@ -17,6 +17,7 @@
 #define MTK_WDT_BASE			toprgu_base
 
 #define MTK_WDT_MODE			(MTK_WDT_BASE+0x0000)
+#define MTK_WDT_IRQ_CLR			(MTK_WDT_MODE)
 #define MTK_WDT_LENGTH			(MTK_WDT_BASE+0x0004)
 #define MTK_WDT_RESTART			(MTK_WDT_BASE+0x0008)
 #define MTK_WDT_STATUS			(MTK_WDT_BASE+0x000C)
@@ -45,11 +46,37 @@
 
 #define MTK_WDT_MODE_DDR_RESERVE  (0x0080)
 #define MTK_WDT_MODE_DUAL_MODE  (0x0040)
-#define MTK_WDT_MODE_AUTO_RESTART	(0x0010) /* Reserved */
+#define MTK_WDT_MODE_IRQ_LEVEL_EN   (0x0020)
+/*
+ * MTK_WDT_MODE_AUTO_RESTART is replaced by MTK_WDT_NONRST2_BYPASS_PWR_KEY
+ * of NONRST_REG2 for common kernel projects and two stage timeout design
+ */
+#define MTK_WDT_MODE_EXTRA_CNT    (0x0010)
 #define MTK_WDT_MODE_IRQ		(0x0008)
 #define MTK_WDT_MODE_EXTEN		(0x0004)
 #define MTK_WDT_MODE_EXT_POL		(0x0002)
 #define MTK_WDT_MODE_ENABLE		(0x0001)
+
+/*WDT_IRQ_CLR*/
+#define MTK_WDT_IRQ_CLR_KEY        (0x23000000)
+#define MTK_WDT_IRQ_CLR_MASK       (0x1FF)
+/* clear WDT_STATUS [4~0] */
+#define MTK_WDT_IRQ_CLR_EXTB       (1 << 0)
+/* clear WDT_STATUS [17~16] */
+#define MTK_WDT_IRQ_CLR_EXT        (1 << 1)
+/* clear WDT_STATUS [28] */
+#define MTK_WDT_IRQ_CLR_SEJ        (1 << 2)
+/* clear WDT_STATUS [29] */
+#define MTK_WDT_IRQ_CLR_IRQ_STS    (1 << 3)
+/* clear WDT_STATUS [30] */
+#define MTK_WDT_IRQ_CLR_SW_WDT     (1 << 4)
+/* clear WDT_STATUS [31] */
+#define MTK_WDT_IRQ_CLR_WDT_STS    (1 << 5)
+/* clear event_b to SPM */
+#define MTK_WDT_IRQ_CLR_WAKE_UP    (1 << 6)
+/* deassert wdt irq */
+#define MTK_WDT_IRQ_CLR_DEASSERT   (1 << 7)
+#define MTK_WDT_IRQ_CLR_DEBUGSYS   (1 << 8)
 
 /*WDT_LENGTH*/
 #define MTK_WDT_LENGTH_TIME_OUT	(0xffe0)
@@ -100,17 +127,24 @@
 #define MTK_WDT_SWSYS_RST_KEY               (0x88000000)
 
 /* Reboot source */
-#define RGU_STAGE_MASK      (0x3)
+#define RGU_STAGE_MASK      (0x7)
 #define RGU_STAGE_PRELOADER (0x1)
 #define RGU_STAGE_LK        (0x2)
 #define RGU_STAGE_KERNEL    (0x3)
+#define RGU_STAGE_DA        (0x4)
 
 /* WDT_NONRST_REG2 */
 #define MTK_WDT_NONRST2_SSPM_RESET     (1 << 0)
-/* 31:30: 2-bits for current stage */
-#define MTK_WDT_NONRST2_STAGE_OFS      (30)
-/* 29:28: 2-bits for last stage */
-#define MTK_WDT_NONRST2_LAST_STAGE_OFS (28)
+#define MTK_WDT_NONRST2_BYPASS_PWR_KEY (1 << 13)
+#define MTK_WDT_NONRST2_SUSPEND_DIS    (1 << 14)
+#define MTK_WDT_NONRST2_VPROC_BEFORE   (1 << 17)
+#define MTK_WDT_NONRST2_VPROC_AFTER    (1 << 18)
+#define MTK_WDT_NONRST2_FLUSH_AFTER    (1 << 19)
+#define MTK_WDT_NONRST2_RST_LAST       (1 << 20)
+/* 31:29: 3-bits for current stage */
+#define MTK_WDT_NONRST2_STAGE_OFS      (29)
+/* 28:26: 3-bits for last stage */
+#define MTK_WDT_NONRST2_LAST_STAGE_OFS (26)
 
 /*MTK_WDT_REQ_IRQ*/
 #define MTK_WDT_REQ_IRQ_KEY		(0x44000000)

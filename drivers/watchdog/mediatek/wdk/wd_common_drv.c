@@ -38,6 +38,7 @@
 #include <linux/seq_file.h>
 #include <uapi/linux/sched/types.h>
 #include <linux/sched/clock.h>
+#include <linux/suspend.h>
 
 /*************************************************************************
  * Feature configure region
@@ -76,6 +77,10 @@ __weak void mtk_timer_clkevt_aee_dump(void)
 {
 }
 
+__weak void timer_list_aee_dump(int exclude_cpus)
+{
+}
+
 static int kwdt_thread(void *arg);
 static int start_kicker(void);
 
@@ -88,6 +93,7 @@ static DEFINE_SPINLOCK(lock);
 struct task_struct *wk_tsk[16] = { 0 };	/* max cpu 16 */
 static unsigned int wk_tsk_bind[16] = { 0 };	/* max cpu 16 */
 static unsigned long long wk_tsk_bind_time[16] = { 0 };	/* max cpu 16 */
+static unsigned long long wk_tsk_kick_time[16] = { 0 };	/* max cpu 16 */
 static char wk_tsk_buf[128] = { 0 };
 
 static unsigned long kick_bit;
@@ -105,6 +111,9 @@ static struct workqueue_struct *wdk_workqueue;
 static unsigned int lasthpg_act;
 static unsigned int lasthpg_cpu;
 static unsigned long long lasthpg_t;
+static unsigned long long lastsuspend_t;
+static unsigned long long lastresume_t;
+static struct notifier_block wdt_pm_nb;
 #ifdef KWDT_KICK_TIME_ALIGN
 static unsigned long g_nxtKickTime;
 #endif
@@ -355,10 +364,11 @@ void dump_wdk_bind_info(void)
 			 */
 			memset(wk_tsk_buf, 0, sizeof(wk_tsk_buf));
 			snprintf(wk_tsk_buf, sizeof(wk_tsk_buf),
-				"[wdk]CPU %d, %d, %lld, %lu, %d, %ld\n",
+				"[wdk]CPU %d, %d, %lld, %lu, %d, %ld, %lld\n",
 				i, wk_tsk_bind[i], wk_tsk_bind_time[i],
 				wk_tsk[i]->cpus_allowed.bits[0],
-				wk_tsk[i]->on_rq, wk_tsk[i]->state);
+				wk_tsk[i]->on_rq, wk_tsk[i]->state,
+				wk_tsk_kick_time[i]);
 #ifdef CONFIG_MTK_AEE_IPANIC
 			aee_sram_fiq_log(wk_tsk_buf);
 #endif
@@ -369,6 +379,7 @@ void dump_wdk_bind_info(void)
 #endif
 	mtk_timer_clkevt_aee_dump();
 	tick_broadcast_mtk_aee_dump();
+	timer_list_aee_dump(kick_bit);
 }
 
 void kicker_cpu_bind(int cpu)
@@ -499,10 +510,12 @@ static void kwdt_process_kick(int local_bit, int cpu,
 	 * do not print message with spinlock held to
 	 *  avoid bulk of delayed printk happens here
 	 */
+	wk_tsk_kick_time[cpu] = sched_clock();
 	snprintf(msg_buf, WK_MAX_MSG_SIZE,
-		"[wdk-c] cpu=%d,lbit=0x%x,cbit=0x%x,%d,%d,%lld,[%lld,%ld]\n",
-		cpu, local_bit, wk_check_kick_bit(), lasthpg_cpu, lasthpg_act,
-		lasthpg_t, sched_clock(), curInterval);
+	 "[wdk-c] cpu=%d,lbit=0x%x,cbit=0x%x,%d,%d,%lld,%lld,%lld,[%lld,%ld]\n",
+	 cpu, local_bit, wk_check_kick_bit(), lasthpg_cpu, lasthpg_act,
+	 lasthpg_t, lastsuspend_t, lastresume_t, wk_tsk_kick_time[cpu],
+	 curInterval);
 
 	if (local_bit == wk_check_kick_bit()) {
 		msg_buf[5] = 'k';
@@ -675,7 +688,6 @@ static int start_kicker(void)
 
 	int i;
 
-	wk_cpu_update_bit_flag(0, 1);
 	for (i = 0; i < CPU_NR; i++) {
 		wk_tsk[i] = kthread_create(kwdt_thread,
 			(void *)(unsigned long)i, "wdtk-%d", i);
@@ -908,15 +920,35 @@ static void wdk_work_callback(struct work_struct *work)
 		}
 	}
 	mtk_wdt_restart(WD_TYPE_NORMAL);	/* for KICK external wdt */
-	cpu_hotplug_enable();
 
 #ifdef __ENABLE_WDT_AT_INIT__
 	start_kicker_thread_with_default_setting();
 #endif
+	cpu_hotplug_enable();
 
 	pr_info("[wdk]init_wk done late_initcall cpus_kick_bit=0x%x -----\n",
 		cpus_kick_bit);
 
+}
+
+static int wdt_pm_notify(struct notifier_block *notify_block,
+			unsigned long mode, void *unused)
+{
+	switch (mode) {
+	case PM_HIBERNATION_PREPARE:
+	case PM_SUSPEND_PREPARE:
+	case PM_RESTORE_PREPARE:
+		lastsuspend_t = sched_clock();
+		break;
+
+	case PM_POST_SUSPEND:
+	case PM_POST_HIBERNATION:
+	case PM_POST_RESTORE:
+		lastresume_t = sched_clock();
+		break;
+	}
+
+	return 0;
 }
 
 static int __init init_wk(void)
@@ -931,11 +963,15 @@ static int __init init_wk(void)
 	if (!res)
 		pr_info("[wdk]wdk_work start return:%d!\n", res);
 
+	wdt_pm_nb.notifier_call = wdt_pm_notify;
+	register_pm_notifier(&wdt_pm_nb);
+
 	return 0;
 }
 
 static void __exit exit_wk(void)
 {
+	unregister_pm_notifier(&wdt_pm_nb);
 	wk_proc_exit();
 	kthread_stop((struct task_struct *)wk_tsk);
 }
