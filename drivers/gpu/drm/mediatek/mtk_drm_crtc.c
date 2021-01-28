@@ -4527,8 +4527,9 @@ void mtk_drm_crtc_plane_update(struct drm_crtc *crtc, struct drm_plane *plane,
 	unsigned int last_fence, cur_fence, sub;
 	dma_addr_t addr;
 
-	DDPINFO("%s+ comp_id:%d, comp_id:%d\n", __func__, comp->id,
-		plane_state->comp_state.comp_id);
+	if (comp)
+		DDPINFO("%s+ comp_id:%d, comp_id:%d\n", __func__, comp->id,
+		    plane_state->comp_state.comp_id);
 
 	if (plane_state->pending.enable) {
 		if (mtk_crtc->is_dual_pipe) {
