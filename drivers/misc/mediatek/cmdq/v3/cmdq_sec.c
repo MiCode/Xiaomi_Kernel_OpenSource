@@ -997,13 +997,13 @@ static void cmdq_sec_irq_notify_start(void)
 		return;
 	}
 
-	cmdq_pkt_cl_create(&cmdq_sec_irq_pkt, clt);
+	cmdq_sec_irq_pkt = cmdq_pkt_create(clt);
 	cmdq_pkt_wfe(cmdq_sec_irq_pkt, CMDQ_SYNC_SECURE_THR_EOF);
 	cmdq_pkt_finalize_loop(cmdq_sec_irq_pkt);
 
 	cmdqCoreClearEvent(CMDQ_SYNC_SECURE_THR_EOF);
 
-	err = cmdq_pkt_flush_async(clt, cmdq_sec_irq_pkt,
+	err = cmdq_pkt_flush_async(cmdq_sec_irq_pkt,
 		cmdq_sec_irq_notify_callback, (void *)g_cmdq);
 	if (err < 0) {
 		CMDQ_ERR("fail to start irq thread err:%d\n", err);
@@ -2080,9 +2080,9 @@ static void cmdq_sec_thread_irq_handle_by_cookie(
 	spin_unlock_irqrestore(&cmdq_sec_task_list_lock, flags);
 }
 
-static void cmdq_sec_thread_handle_timeout(unsigned long data)
+static void cmdq_sec_thread_handle_timeout(struct timer_list *t)
 {
-	struct cmdq_sec_thread *thread = (struct cmdq_sec_thread *)data;
+	struct cmdq_sec_thread *thread = from_timer(thread, t, timeout);
 	struct cmdq *cmdq = container_of(thread->chan->mbox, struct cmdq, mbox);
 
 	if (!work_pending(&thread->timeout_work))
@@ -2137,9 +2137,7 @@ static int cmdq_mbox_startup(struct mbox_chan *chan)
 	/* initialize when request channel */
 	struct cmdq_sec_thread *thread = chan->con_priv;
 
-	init_timer(&thread->timeout);
-	thread->timeout.function = cmdq_sec_thread_handle_timeout;
-	thread->timeout.data = (unsigned long)thread;
+	timer_setup(&thread->timeout, cmdq_sec_thread_handle_timeout, 0);
 	INIT_WORK(&thread->timeout_work, cmdq_sec_task_timeout_work);
 	thread->task_exec_wq = create_singlethread_workqueue("task_exec_wq");
 	thread->occupied = true;
