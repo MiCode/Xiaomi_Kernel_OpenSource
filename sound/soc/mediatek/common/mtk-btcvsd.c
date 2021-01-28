@@ -270,22 +270,6 @@ static void get_rx_time_stamp(struct mtk_btcvsd_snd *bt,
 	ts->data_count_equi_time = bt->rx->buf_data_equivalent_time;
 }
 
-static int btcvsd_frame_to_bytes(struct snd_pcm_substream *substream,
-				 snd_pcm_uframes_t count)
-{
-	unsigned long bytes = count;
-	struct snd_pcm_runtime *runtime = substream->runtime;
-
-	if (runtime->format == SNDRV_PCM_FORMAT_S32_LE ||
-	    runtime->format == SNDRV_PCM_FORMAT_U32_LE)
-		bytes = bytes << 2;
-	else
-		bytes = bytes << 1;
-
-	bytes = bytes * runtime->channels;
-	return bytes;
-}
-
 static int btcvsd_bytes_to_frame(struct snd_pcm_substream *substream,
 				 int bytes)
 {
@@ -842,7 +826,7 @@ ssize_t mtk_btcvsd_snd_write(struct mtk_btcvsd_snd *bt,
 		spin_unlock_irqrestore(&bt->tx_lock, flags);
 
 		if (!avail) {
-			int ret = wait_for_bt_irq(bt, bt->rx);
+			int ret = wait_for_bt_irq(bt, bt->tx);
 
 			if (ret)
 				return written_size;
@@ -1086,12 +1070,12 @@ static int mtk_pcm_btcvsd_copy(struct snd_pcm_substream *substream,
 	struct snd_soc_component *component = snd_soc_rtdcom_lookup(rtd,
 							BTCVSD_SND_NAME);
 	struct mtk_btcvsd_snd *bt = snd_soc_component_get_drvdata(component);
-	int count_bytes = btcvsd_frame_to_bytes(substream, count);
 
+	/* count: bytes */
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-		mtk_btcvsd_snd_write(bt, buf, count_bytes);
+		mtk_btcvsd_snd_write(bt, buf, count);
 	else
-		mtk_btcvsd_snd_read(bt, buf, count_bytes);
+		mtk_btcvsd_snd_read(bt, buf, count);
 
 	return 0;
 }
