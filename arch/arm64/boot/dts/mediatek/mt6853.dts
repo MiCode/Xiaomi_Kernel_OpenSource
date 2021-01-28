@@ -1262,6 +1262,7 @@ page_owner=on";
 		mediatek,clkbuf-config = <2 1 1 2 0 0 1>;
 		mediatek,clkbuf-output_impedance = <6 4 4 4 0 0 4>;
 		mediatek,clkbuf-controls-for-desense = <0 4 0 4 0 0 0>;
+		tcxo_support = "false";
 	};
 
 	gpio_usage_mapping:gpio_usage_mapping {
