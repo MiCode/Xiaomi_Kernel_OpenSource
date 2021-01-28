@@ -508,6 +508,10 @@ static int venc_set_param(unsigned long handle, enum venc_set_param_type type,
 		inst->vsi->config.gop_size = enc_prm->gop_size;
 		inst->vsi->config.framerate = enc_prm->frm_rate;
 		inst->vsi->config.intra_period = enc_prm->intra_period;
+		inst->vsi->config.operationrate = enc_prm->operationrate;
+		inst->vsi->config.bitratemode = enc_prm->bitratemode;
+		inst->vsi->config.scenario = enc_prm->scenario;
+		inst->vsi->config.prependheader = enc_prm->prependheader;
 
 		if (inst->vcu_inst.id == IPI_VENC_H264 ||
 		    inst->vcu_inst.id == IPI_VENC_HYBRID_H264) {

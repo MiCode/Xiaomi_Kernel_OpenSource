@@ -81,7 +81,8 @@ enum mtk_encode_param {
 	MTK_ENCODE_PARAM_RFS_ON = (1 << 8),
 	MTK_ENCODE_PARAM_PREPEND_SPSPPS_TO_IDR = (1 << 9),
 	MTK_ENCODE_PARAM_OPERATION_RATE = (1 << 10),
-	MTK_ENCODE_PARAM_SEC_ENCODE = (1 << 11),
+	MTK_ENCODE_PARAM_BITRATE_MODE = (1 << 11),
+	MTK_ENCODE_PARAM_SEC_ENCODE = (1 << 12),
 };
 
 /*
@@ -193,6 +194,7 @@ struct mtk_enc_params {
 	unsigned int    rfs;
 	unsigned int    prependheader;
 	unsigned int    operationrate;
+	unsigned int    bitratemode;
 	unsigned int    svp_mode;
 };
 
@@ -230,6 +232,7 @@ struct venc_enc_param {
 	unsigned int rfs;
 	unsigned int prependheader;
 	unsigned int operationrate;
+	unsigned int bitratemode;
 	unsigned int sizeimage[MTK_VCODEC_MAX_PLANES];
 	unsigned int svp_mode;
 };
