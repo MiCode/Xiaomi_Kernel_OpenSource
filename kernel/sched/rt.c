@@ -1731,7 +1731,9 @@ static int find_lowest_rq(struct task_struct *task)
 	int cpu      = task_cpu(task);
 	int ret;
 #ifdef CONFIG_MTK_SCHED_INTEROP
-	int i;
+	struct perf_order_domain *domain;
+	struct perf_order_domain *tmp_domain[5] = {0, 0, 0, 0, 0};
+	int i, iter_cpu, domain_cnt = 0;
 #endif
 
 	/* Make sure the mask is initialized first */
@@ -1762,15 +1764,22 @@ static int find_lowest_rq(struct task_struct *task)
 #ifdef CONFIG_MTK_SCHED_INTEROP
 	/* Choose task_cpu if it is idle and it fits lowest_mask */
 	if (cpumask_test_cpu(cpu, lowest_mask) && idle_cpu(cpu) &&
+#if defined(CONFIG_ENERGY_MODEL) && defined(CONFIG_CPU_FREQ_GOV_SCHEDUTIL)
+		cpu_is_slowest(cpu) &&
+#endif
 		!cpu_isolated(cpu))
 		return cpu;
 
-	/* Choose idle_cpu among lowest */
-	for_each_cpu(i, lowest_mask) {
-		if (cpu_isolated(i))
-			continue;
-		if (idle_cpu(i))
-			return i;
+	for_each_perf_domain_ascending(domain) {
+		tmp_domain[domain_cnt] = domain;
+		domain_cnt++;
+	}
+	for (i = 0; i < domain_cnt; i++) {
+		for_each_cpu(iter_cpu, &tmp_domain[i]->possible_cpus) {
+			if (cpumask_test_cpu(iter_cpu, lowest_mask) &&
+				idle_cpu(iter_cpu) && !cpu_isolated(iter_cpu))
+				return iter_cpu;
+		}
 	}
 #endif
 
