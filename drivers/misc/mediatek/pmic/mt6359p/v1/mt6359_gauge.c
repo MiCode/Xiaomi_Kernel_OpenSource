@@ -67,11 +67,13 @@ static bool g_fg_is_charger_exist;
 static bool gvbat2_low_en;
 static bool gvbat2_high_en;
 static int g_nag_corner;
+static int g_fg_zcv_det_iv;
 
 struct mt6359_gauge {
 	const char *gauge_dev_name;
 	struct gauge_device *gauge_dev;
 	struct gauge_properties gauge_prop;
+	struct alarm zcv_timer;
 };
 
 
@@ -2056,6 +2058,7 @@ static void fgauge_set_zcv_intr_internal(
 	fg_zcv_car_thr_l_reg = fg_zcv_car_th_reg & 0x0000ffff;
 
 	pmic_set_register_value(PMIC_FG_ZCV_DET_IV, fg_zcv_det_time);
+	g_fg_zcv_det_iv = fg_zcv_det_time;
 	pmic_set_register_value(PMIC_FG_ZCV_CAR_TH_15_00,
 				fg_zcv_car_thr_l_reg);
 	pmic_set_register_value(PMIC_FG_ZCV_CAR_TH_30_16,
@@ -2101,6 +2104,31 @@ static int fgauge_set_zcv_interrupt_threshold(
 	return 0;
 }
 
+
+void reset_zcv_int(struct gauge_device *gauge_dev)
+{
+	struct timespec time, time_now, end_time;
+	ktime_t ktime;
+	struct mt6359_gauge *gauge;
+
+	pmic_set_register_value(PMIC_RG_INT_EN_FG_ZCV, 0);
+	pmic_set_register_value(PMIC_FG_ZCV_DET_EN, 0);
+	msleep(30);
+	pmic_set_register_value(PMIC_FG_ZCV_DET_EN, 1);
+	msleep(30);
+
+	get_monotonic_boottime(&time_now);
+	time.tv_sec = (g_fg_zcv_det_iv + 1) * 3 * 60 + 60;
+	time.tv_nsec = 0;
+
+	end_time = timespec_add(time_now, time);
+	ktime = ktime_set(end_time.tv_sec, end_time.tv_nsec);
+
+	gauge = (struct mt6359_gauge *)gauge_dev->driver_data;
+	alarm_start(&gauge->zcv_timer, ktime);
+
+}
+
 static int fgauge_reset_hw(struct gauge_device *gauge_dev)
 {
 	unsigned int ret = 0, check_car = 0;
@@ -2119,6 +2147,8 @@ static int fgauge_reset_hw(struct gauge_device *gauge_dev)
 	fgauge_get_coulomb(gauge_dev, &check_car);
 
 	bm_trace("[fgauge_hw_reset]:End car=%d,ret=%d\n", check_car, ret);
+
+	reset_zcv_int(gauge_dev);
 
 	return 0;
 }
@@ -3262,6 +3292,17 @@ static int mt6359_parse_dt(struct mt6359_gauge *info, struct device *dev)
 	return 0;
 }
 
+/* ============================================================ */
+/* alarm timer handler */
+/* ============================================================ */
+static enum alarmtimer_restart zcv_timer_callback(
+	struct alarm *alarm, ktime_t now)
+{
+	bm_err("%s: enable PMIC_RG_INT_EN_FG_ZCV\n", __func__);
+	pmic_set_register_value(PMIC_RG_INT_EN_FG_ZCV, 1);
+	return ALARMTIMER_NORESTART;
+}
+
 static int mt6359_gauge_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -3284,6 +3325,11 @@ static int mt6359_gauge_probe(struct platform_device *pdev)
 		ret = PTR_ERR(info->gauge_dev);
 		goto err_register_gauge_dev;
 	}
+
+	info->gauge_dev->driver_data = info;
+
+	alarm_init(&info->zcv_timer, ALARM_BOOTTIME,
+		zcv_timer_callback);
 
 	return 0;
 err_register_gauge_dev:
