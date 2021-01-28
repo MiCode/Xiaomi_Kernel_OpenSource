@@ -270,7 +270,7 @@ static void rpc_power_status_check(int domain_idx, unsigned int enable)
 static int set_power_mtcmos(enum DVFS_USER user, void *param)
 {
 	unsigned int enable = ((struct hal_param_mtcmos *)param)->enable;
-	unsigned int domain_idx;
+	unsigned int domain_idx = 0;
 	unsigned int regValue = 0;
 
 	LOG_INF("%s , user: %d , enable: %d\n", __func__, user, enable);
