@@ -26,23 +26,11 @@
 #include <mt-plat/upmu_common.h>
 #include <mt-plat/mtk_boot.h>
 #include <linux/phy/phy.h>
+#include <mtk_charger.h>
 
 #ifdef CONFIG_TCPC_CLASS
 #include <tcpm.h>
 #endif
-
-/*
- * replace the get charger_type & enum chg_dev_notifier_events
- * by include mtk_charger.h
- */
-#ifdef FIXME
-#include <mtk_charger.h>
-#endif
-
-enum chg_dev_notifier_events {
-	EVENT_FULL,
-	EVENT_RECHARGE,
-};
 
 #define MT6360_PMU_CHG_DRV_VERSION	"1.0.7_MTK"
 
@@ -57,6 +45,13 @@ void __attribute__ ((weak)) Charger_Detect_Init(void)
 void __attribute__ ((weak)) Charger_Detect_Release(void)
 {
 }
+
+struct tag_bootmode {
+	u32 size;
+	u32 tag;
+	u32 bootmode;
+	u32 boottype;
+};
 
 enum mt6360_adc_channel {
 	MT6360_ADC_VBUSDIV5,
@@ -91,6 +86,10 @@ struct mt6360_pmu_chg_info {
 	u32 zcv;
 	u32 ichg;
 	u32 ichg_dis_chg;
+
+	/*boot_mode*/
+	u32 bootmode;
+	u32 boottype;
 
 	/* Charger type detection */
 	struct mutex chgdet_lock;
@@ -633,8 +632,7 @@ static int mt6360_chgdet_pre_process(struct mt6360_pmu_chg_info *mpci)
 #else
 	attach = mpci->pwr_rdy;
 #endif /* CONFIG_TCPC_CLASS */
-#ifdef FIXME
-	if (attach && is_meta_mode()) {
+	if (attach && (mpci->bootmode == 5)) {
 		/* Skip charger type detection to speed up meta boot.*/
 		dev_notice(mpci->dev, "%s: force Standard USB Host in meta\n",
 			   __func__);
@@ -644,7 +642,6 @@ static int mt6360_chgdet_pre_process(struct mt6360_pmu_chg_info *mpci)
 		power_supply_changed(mpci->psy_self);
 		return 0;
 	}
-#endif
 	return __mt6360_enable_usbchgen(mpci, attach);
 }
 
@@ -2266,9 +2263,7 @@ static irqreturn_t mt6360_pmu_chg_rechgi_handler(int irq, void *data)
 	struct mt6360_pmu_chg_info *mpci = data;
 
 	dev_dbg(mpci->dev, "%s\n", __func__);
-#ifdef FIXME /* TODO: wait mtk_charger_intf.h */
-	charger_dev_notify(mpci->chg_dev, CHARGER_DEV_NOTIFY_RECHG);
-#endif
+	power_supply_changed(mpci->psy);
 	return IRQ_HANDLED;
 }
 
@@ -2293,9 +2288,7 @@ static irqreturn_t mt6360_pmu_chg_ieoci_handler(int irq, void *data)
 	ieoc_stat = (ret & BIT(7));
 	if (!ieoc_stat)
 		goto out;
-#ifdef FIXME /* TODO: wait mtk_charger_intf.h */
-	charger_dev_notify(mpci->chg_dev, CHARGER_DEV_NOTIFY_EOC);
-#endif
+	power_supply_changed(mpci->psy);
 out:
 	return IRQ_HANDLED;
 }
@@ -2704,15 +2697,41 @@ static int mt6360_enable_ilim(struct mt6360_pmu_chg_info *mpci, bool en)
 		(mpci->mpi, MT6360_PMU_CHG_CTRL3, MT6360_MASK_ILIM_EN);
 }
 
+static void mt6360_get_boot_mode(struct mt6360_pmu_chg_info *mpci)
+{
+	struct device_node *boot_node = NULL;
+	struct tag_bootmode *tag = NULL;
+
+	boot_node = of_parse_phandle(mpci->dev->of_node, "bootmode", 0);
+	if (!boot_node)
+		dev_info(mpci->dev, "%s: failed to get boot mode phandle\n",
+			 __func__);
+	else {
+		tag = (struct tag_bootmode *)of_get_property(boot_node,
+							"atag,boot", NULL);
+		if (!tag)
+			dev_info(mpci->dev, "%s: failed to get atag,boot\n",
+				 __func__);
+		else {
+			dev_info(mpci->dev,
+			"%s: size:0x%x tag:0x%x bootmode:0x%x boottype:0x%x\n",
+				__func__, tag->size, tag->tag,
+				tag->bootmode, tag->boottype);
+			mpci->bootmode = tag->bootmode;
+			mpci->boottype = tag->boottype;
+		}
+	}
+}
+
+
 static int mt6360_chg_init_setting(struct mt6360_pmu_chg_info *mpci)
 {
 	struct mt6360_chg_platform_data *pdata = dev_get_platdata(mpci->dev);
 	int ret = 0;
-#ifdef FIXME
-	u32 boot_mode = get_boot_mode();
-#endif
-	dev_info(mpci->dev, "%s\n", __func__);
 
+	dev_info(mpci->dev, "%s\n", __func__);
+	/*get boot mode*/
+	mt6360_get_boot_mode(mpci);
 	ret = mt6360_pmu_reg_read(mpci->mpi, MT6360_PMU_CHRDET_STAT);
 	if (ret >= 0)
 		mpci->ctd_dischg_status = ret & 0xE3;
@@ -2731,8 +2750,8 @@ static int mt6360_chg_init_setting(struct mt6360_pmu_chg_info *mpci)
 		dev_err(mpci->dev, "%s: disable ilim fail\n", __func__);
 		return ret;
 	}
-	#ifdef FIXME
-	if (boot_mode == META_BOOT || boot_mode == ADVMETA_BOOT) {
+	if (mpci->bootmode == 1 || mpci->bootmode == 5) {
+		/*1:META_BOOT 5:ADVMETA_BOOT*/
 		ret = mt6360_pmu_reg_update_bits(mpci->mpi,
 						 MT6360_PMU_CHG_CTRL3,
 						 MT6360_MASK_AICR,
@@ -2740,7 +2759,7 @@ static int mt6360_chg_init_setting(struct mt6360_pmu_chg_info *mpci)
 		dev_info(mpci->dev, "%s: set aicr to 200mA in meta mode\n",
 			__func__);
 	}
-	#endif
+
 	/* disable wdt reduce 1mA power consumption */
 	ret = mt6360_enable_wdt(mpci, false);
 	if (ret < 0) {
@@ -3144,7 +3163,7 @@ static const struct regulator_desc mt6360_otg_rdesc = {
 };
 //====pd_notifier_start===
 #ifdef CONFIG_TCPC_CLASS
-static int get_charger_type(struct mt6360_pmu_chg_info *mpci,
+static int mt6360_get_charger_type(struct mt6360_pmu_chg_info *mpci,
 	bool attach)
 {
 	struct mt6360_chg_platform_data *pdata = dev_get_platdata(mpci->dev);
@@ -3217,7 +3236,7 @@ static int typec_attach_thread(void *data)
 			power_supply_set_property(mpci->chg_psy,
 						POWER_SUPPLY_PROP_ONLINE, &val);
 		else
-			get_charger_type(mpci, attach);
+			mt6360_get_charger_type(mpci, attach);
 		if (kthread_should_stop())
 			break;
 	}
