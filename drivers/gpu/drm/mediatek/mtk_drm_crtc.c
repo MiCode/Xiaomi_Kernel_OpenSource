@@ -2167,6 +2167,10 @@ void mtk_crtc_wait_frame_done(struct mtk_drm_crtc *mtk_crtc,
 static void mtk_crtc_cmdq_timeout_cb(struct cmdq_cb_data data)
 {
 	struct drm_crtc *crtc = data.data;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct cmdq_client *cl;
+	dma_addr_t trig_pc;
+	u64 *inst;
 
 	if (!crtc) {
 		DDPPR_ERR("%s find crtc fail\n", __func__);
@@ -2177,6 +2181,17 @@ static void mtk_crtc_cmdq_timeout_cb(struct cmdq_cb_data data)
 		  drm_crtc_index(crtc));
 	mtk_drm_crtc_analysis(crtc);
 	mtk_drm_crtc_dump(crtc);
+
+	if ((mtk_crtc->trig_loop_cmdq_handle) &&
+			(mtk_crtc->trig_loop_cmdq_handle->cl)) {
+		cl = (struct cmdq_client *)mtk_crtc->trig_loop_cmdq_handle->cl;
+		DDPMSG("++++++ Dump trigger loop ++++++\n");
+		cmdq_thread_dump(cl->chan, mtk_crtc->trig_loop_cmdq_handle,
+				&inst, &trig_pc);
+		cmdq_dump_pkt(mtk_crtc->trig_loop_cmdq_handle, trig_pc, true);
+
+		DDPMSG("------ Dump trigger loop ------\n");
+	}
 
 	/* CMDQ driver would not trigger aee when timeout. */
 	DDPAEE("%s cmdq timeout, crtc id:%d\n", __func__, drm_crtc_index(crtc));
