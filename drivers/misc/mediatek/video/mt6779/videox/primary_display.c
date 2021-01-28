@@ -3782,7 +3782,6 @@ static int update_primary_intferface_module(void)
 
 static void replace_fb_addr_to_mva(void)
 {
-#ifdef CONFIG_MTK_IOMMU_V2
 	struct ddp_fb_info fb_info;
 
 #ifdef MTKFB_M4U_SUPPORT
@@ -3799,7 +3798,6 @@ static void replace_fb_addr_to_mva(void)
 			   DISPSYS_SMI_LARB0_BASE + 0x38C, 0x1);
 	DISP_REG_SET_FIELD(pgc->cmdq_handle_config, REG_FLD(1, 0),
 			   DISPSYS_SMI_LARB1_BASE + 0x388, 0x1);
-#endif
 }
 
 int primary_display_init(char *lcm_name, unsigned int lcm_fps,
