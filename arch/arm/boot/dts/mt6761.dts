@@ -709,10 +709,41 @@
 		reg = <0 0x10011000 0 0x1000>;
 	};
 
-	dvfsrc@10012000 {
-		compatible = "mediatek,dvfsrc";
+	dvfsrc: dvfsrc@10012000 {
+		compatible = "mediatek,mt6761-dvfsrc";
 		reg = <0 0x10012000 0 0x1000>,
-		      <0 0x00110780 0 0x80>;
+			<0 0x10006000 0 0x1000>;
+		reg-names = "dvfsrc", "spm";
+		dvfsrc,mode = <0x3>;
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		dvfsrc_freq_opp2: opp2 {
+			opp-level = <2>;
+		};
+		dvfsrc_freq_opp1: opp1 {
+			opp-level = <1>;
+		};
+		dvfsrc_freq_opp0: opp0 {
+			opp-level = <0>;
+		};
+
+		dvfsrc-up {
+			compatible = "mediatek,mt6761-dvfsrc-up";
+		};
+
+		dvfsrc-debug {
+			compatible = "mediatek,mt6761-dvfsrc-debug";
+			required-opps = <&dvfsrc_freq_opp0>,
+					<&dvfsrc_freq_opp1>,
+					<&dvfsrc_freq_opp2>;
+		};
+
+		dvfsrc-met {
+			compatible = "mediatek,mt6761-dvfsrc-met";
+		};
+
 	};
 
 	mbist_ao@10013000 {
