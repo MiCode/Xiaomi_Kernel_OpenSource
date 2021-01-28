@@ -56,9 +56,7 @@ obj-$(CONFIG_MTK_DCM_COMMON) += dcm/
 endif
 obj-$(CONFIG_MTK_SMI) += smi/
 obj-$(CONFIG_MTK_LOW_POWER_MODULE) += lpm/
-ifneq ($(CONFIG_MACH_MT6765), y)
 obj-$(CONFIG_MTK_PERFORMANCE_MODULE) += performance/
-endif
 obj-y += mmdvfs/
 obj-$(CONFIG_MTK_IOMMU_MISC) += iommu/
 obj-$(CONFIG_INTERCONNECT_MTK_MMQOS_COMMON) += mmqos/
@@ -83,9 +81,7 @@ endif
 obj-$(CONFIG_PRINTK_MTK) += mtprintk/
 obj-$(CONFIG_MTK_LEDS) += leds/
 obj-$(CONFIG_MT6360_DBG) += subpmic/
-ifneq ($(CONFIG_MACH_MT6765), y)
 obj-$(CONFIG_MTK_CAMERA_ISP) += cameraisp/
-endif
 obj-$(CONFIG_MTK_IMGSENSOR) += imgsensor/src/
 ifdef CONFIG_MTK_V4L2_LENS
 obj-$(CONFIG_MTK_V4L2_LENS) += lens/
