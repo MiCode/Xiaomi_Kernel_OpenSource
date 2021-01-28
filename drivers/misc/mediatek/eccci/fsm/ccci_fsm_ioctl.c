@@ -50,7 +50,7 @@ static int fsm_md_data_ioctl(int md_id, unsigned int cmd, unsigned long arg)
 	char buffer[64];
 	unsigned int sim_slot_cfg[4];
 	char ap_platform[5];
-	int md_gen;
+	int md_gen = 0;
 	struct device_node *node = NULL;
 	struct ccci_per_md *per_md_data = ccci_get_per_md_data(md_id);
 	struct ccci_per_md *other_per_md_data

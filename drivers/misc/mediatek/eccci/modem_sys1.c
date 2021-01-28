@@ -1114,6 +1114,11 @@ static ssize_t md_cd_debug_show(struct ccci_modem *md, char *buf)
 	int curr = 0;
 
 	curr = snprintf(buf, 16, "%d\n", ccci_debug_enable);
+	if (curr < 0 || curr >= 16) {
+		CCCI_ERROR_LOG(md->index, TAG,
+			"%s-%d:snprintf fail,curr=%d\n", __func__, __LINE__, curr);
+		return -1;
+	}
 	return curr;
 }
 
@@ -1131,6 +1136,11 @@ static ssize_t md_cd_dump_show(struct ccci_modem *md, char *buf)
 
 	count = snprintf(buf, 256,
 		"support: ccif cldma register smem image layout\n");
+	if (count < 0 || count >= 256) {
+		CCCI_ERROR_LOG(md->index, TAG,
+			"%s-%d:snprintf fail,count=%d\n", __func__, __LINE__, count);
+		return -1;
+	}
 	return count;
 }
 
@@ -1184,6 +1194,11 @@ static ssize_t md_cd_control_show(struct ccci_modem *md, char *buf)
 
 	count = snprintf(buf, 256,
 		"support: cldma_reset cldma_stop ccif_assert md_type trace_sample\n");
+	if (count < 0 || count >= 256) {
+		CCCI_ERROR_LOG(md->index, TAG,
+			"%s-%d:snprintf fail,count=%d\n", __func__, __LINE__, count);
+		return -1;
+	}
 	return count;
 }
 
@@ -1259,10 +1274,23 @@ static ssize_t md_cd_control_store(struct ccci_modem *md,
 static ssize_t md_cd_parameter_show(struct ccci_modem *md, char *buf)
 {
 	int count = 0;
+	int ret = 0;
 
-	count += snprintf(buf + count, 128,
+	ret = snprintf(buf + count, 128,
 		"PACKET_HISTORY_DEPTH=%d\n", PACKET_HISTORY_DEPTH);
-	count += snprintf(buf + count, 128, "BD_NUM=%ld\n", MAX_BD_NUM);
+	if (ret < 0 || ret >= 128) {
+		CCCI_ERROR_LOG(md->index, TAG,
+			"%s-%d:snprintf fail,ret=%d\n", __func__, __LINE__, ret);
+		return -1;
+	}
+	count += ret;
+	ret = snprintf(buf + count, 128, "BD_NUM=%ld\n", MAX_BD_NUM);
+	if (ret < 0 || ret >= 128) {
+		CCCI_ERROR_LOG(md->index, TAG,
+			"%s-%d:snprintf fail,ret=%d\n", __func__, __LINE__, ret);
+		return -1;
+	}
+	count += ret;
 
 	return count;
 }

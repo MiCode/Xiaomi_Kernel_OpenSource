@@ -48,6 +48,10 @@ static int ccci_get_rtc_info(struct platform_device *pdev)
 	ssize_t len = 0;
 
 	cell = nvmem_cell_get(&pdev->dev, "external-32k");
+	if (cell == NULL) {
+		CCCI_ERROR_LOG(-1, TAG, "nvmem_cell_get fail\n");
+		goto fail;
+	}
 	if (IS_ERR(cell)) {
 		CCCI_ERROR_LOG(-1, TAG, "[%s] nvmem_cell_get fail: %zu",
 				__func__, PTR_ERR(cell));

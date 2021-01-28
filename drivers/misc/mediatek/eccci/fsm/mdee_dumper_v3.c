@@ -236,6 +236,7 @@ static void mdee_info_dump_v3(struct ccci_fsm_ee *mdee)
 	struct ccci_per_md *per_md_data =
 		ccci_get_per_md_data(mdee->md_id);
 	int md_dbg_dump_flag = per_md_data->md_dbg_dump_flag;
+	int ret = 0;
 
 	ex_info = kmalloc(AED_STR_LEN, GFP_ATOMIC);
 	if (ex_info == NULL) {
@@ -253,9 +254,15 @@ static void mdee_info_dump_v3(struct ccci_fsm_ee *mdee)
 	case MD_EE_CASE_ONLY_EX:
 	case MD_EE_CASE_ONLY_SWINT:
 		mdee_output_debug_info_to_buf(mdee, debug_info, ex_info);
-		snprintf(ex_info_temp, EE_BUF_LEN_UMOLY, "%s", ex_info);
-		snprintf(ex_info, EE_BUF_LEN_UMOLY, "%s%s", ex_info_temp,
+		ret = snprintf(ex_info_temp, EE_BUF_LEN_UMOLY, "%s", ex_info);
+		if (ret < 0 || ret >= EE_BUF_LEN_UMOLY)
+			CCCI_ERROR_LOG(md_id, FSM,
+				"%s-%d:snprintf fail,ret=%d\n", __func__, __LINE__, ret);
+		ret = snprintf(ex_info, EE_BUF_LEN_UMOLY, "%s%s", ex_info_temp,
 			mdee_more_inf_str[dumper->more_info]);
+		if (ret < 0 || ret >= EE_BUF_LEN_UMOLY)
+			CCCI_ERROR_LOG(md_id, FSM,
+				"%s-%d:snprintf fail,ret=%d\n", __func__, __LINE__, ret);
 		break;
 	case MD_EE_CASE_NO_RESPONSE:
 		/* use strncpy, otherwise if this happens after a MD EE,
@@ -273,9 +280,15 @@ static void mdee_info_dump_v3(struct ccci_fsm_ee *mdee)
 	}
 
 	if (debug_info->ELM_status != NULL) {
-		snprintf(ex_info_temp, EE_BUF_LEN_UMOLY, "%s", ex_info);
-		snprintf(ex_info, EE_BUF_LEN_UMOLY, "%s%s", ex_info_temp,
+		ret = snprintf(ex_info_temp, EE_BUF_LEN_UMOLY, "%s", ex_info);
+		if (ret < 0 || ret >= EE_BUF_LEN_UMOLY)
+			CCCI_ERROR_LOG(md_id, FSM,
+				"%s-%d:snprintf fail,ret=%d\n", __func__, __LINE__, ret);
+		ret = snprintf(ex_info, EE_BUF_LEN_UMOLY, "%s%s", ex_info_temp,
 			debug_info->ELM_status);/* ELM status */
+		if (ret < 0 || ret >= EE_BUF_LEN_UMOLY)
+			CCCI_ERROR_LOG(md_id, FSM,
+				"%s-%d:snprintf fail,ret=%d\n", __func__, __LINE__, ret);
 	}
 
 	CCCI_MEM_LOG_TAG(md_id, FSM, "Dump MD EX log, 0x%x, 0x%x\n",

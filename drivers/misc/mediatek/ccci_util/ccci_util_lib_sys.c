@@ -423,6 +423,10 @@ int ccci_sysfs_add_modem(int md_id, void *kobj, void *ktype,
 	int ret;
 	static int md_add_flag;
 
+	if (md_id < 0 || md_id >= MAX_IMG_NUM) {
+		CCCI_UTIL_ERR_MSG("invalid md_id = %d\n", md_id);
+		return -CCCI_ERR_SYSFS_NOT_READY;
+	}
 	md_add_flag = 0;
 	if (!ccci_sys_info) {
 		CCCI_UTIL_ERR_MSG("common sys not ready\n");

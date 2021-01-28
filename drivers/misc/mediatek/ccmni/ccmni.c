@@ -1210,8 +1210,13 @@ static int ccmni_init(int md_id, struct ccmni_ccci_ops *ccci_info)
 			goto alloc_netdev_fail;
 		}
 	}
-	snprintf(ctlb->wakelock_name, sizeof(ctlb->wakelock_name),
+	ret = snprintf(ctlb->wakelock_name, sizeof(ctlb->wakelock_name),
 			"ccmni_md%d", (md_id + 1));
+	if (ret < 0 || ret >= sizeof(ctlb->wakelock_name)) {
+		CCMNI_DBG_MSG(md_id, "%s-%d:snprintf fail,ret=%d\n",
+			__func__, __LINE__, ret);
+		goto alloc_netdev_fail;
+	}
 	ctlb->ccmni_wakelock = wakeup_source_register(NULL, ctlb->wakelock_name);
 	if (!ctlb->ccmni_wakelock) {
 		CCMNI_PR_DBG(md_id, "%s %d: init wakeup source fail!",
