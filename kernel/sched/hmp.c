@@ -1392,12 +1392,10 @@ static struct sched_entity *hmp_get_heaviest_task(
 	if (hmp_cpu_is_fastest(cpu_of(se->cfs_rq->rq)))
 		return max_se;
 
-#if 0
 	if (!task_prefer_little(task_of(se))) {
 		max_se = se;
 		max_ratio = se->avg.loadwop_avg;
 	}
-#endif
 
 	hmp = hmp_faster_domain(cpu_of(se->cfs_rq->rq));
 	hmp_target_mask = &hmp->cpus;
@@ -1442,12 +1440,10 @@ static struct sched_entity *hmp_get_lightest_task(
 		hmp_target_mask = &hmp->cpus;
 	}
 
-#if 0
 	if (!task_prefer_big(task_of(se))) {
 		min_se = se;
 		min_ratio = se->avg.loadwop_avg;
 	}
-#endif
 
 	/* The currently running task is not on the runqueue */
 	se = __pick_first_entity(cfs_rq_of(se));

@@ -135,11 +135,10 @@ struct energy_env {
 
 void mtk_update_new_capacity(struct energy_env *eenv);
 
-//static void select_task_prefer_cpu_fair(struct task_struct *p, int *result);
+static void select_task_prefer_cpu_fair(struct task_struct *p, int *result);
 inline int valid_cpu_prefer(int task_prefer);
 inline int hinted_cpu_prefer(int task_prefer);
 int cpu_prefer(struct task_struct *p);
-void check_for_hint_migration(struct rq *rq, struct task_struct *p);
 extern unsigned int hmp_cpu_is_fastest(int cpu);
 #if defined(CONFIG_SCHED_HMP) || defined(CONFIG_MTK_IDLE_BALANCE_ENHANCEMENT)
 int hmp_should_migrate_task(struct task_struct *p, struct rq *busiest_rq);
