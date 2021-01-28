@@ -106,8 +106,10 @@ int spm_resource_parse_req_console(struct device_node *spm_node)
 			if (spm_request)
 				spm_res_bitmask |= _RES_MASK(k);
 		}
-		of_node_put(spm_node);
 	}
+
+	of_node_put(spm_node);
+
 	if (spm_res_bitmask)
 		spm_resource_req_console(SPM_RESOURCE_CONSOLE_REQ,
 			spm_res_bitmask);
