@@ -135,17 +135,20 @@ static int nt_switch_irq_handler(void)
 	case TEEI_CREAT_FDRV:
 	case TEEI_CREAT_BDRV:
 	case TEEI_LOAD_TEE:
-		switch_output_index = (switch_output_index + 1) % 10000;
+		switch_output_index =
+			((unsigned long)switch_output_index + 1) % 10000;
 		up(&boot_sema);
 		retVal = TEEI_WORK_DONE;
 		break;
 	case TEEI_FDRV_CALL:
-		switch_output_index = (switch_output_index + 1) % 10000;
+		switch_output_index =
+			((unsigned long)switch_output_index + 1) % 10000;
 		teei_handle_fdrv_call(entry);
 		retVal = TEEI_WORK_DONE;
 		break;
 	case NEW_CAPI_CALL:
-		switch_output_index = (switch_output_index + 1) % 10000;
+		switch_output_index =
+			((unsigned long)switch_output_index + 1) % 10000;
 		teei_handle_capi_call(entry);
 		retVal = TEEI_WORK_DONE;
 		break;
@@ -216,7 +219,8 @@ static int ut_smc_handler(void)
 		retVal = nt_error_irq_handler();
 		break;
 	case BOOT_IRQ:
-		switch_output_index = (switch_output_index + 1) % 10000;
+		switch_output_index =
+			((unsigned long)switch_output_index + 1) % 10000;
 		retVal = nt_boot_irq_handler();
 		break;
 	default:

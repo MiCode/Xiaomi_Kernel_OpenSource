@@ -516,7 +516,7 @@ static void boot_stage1(unsigned long vfs_addr, unsigned long tlog_addr)
 {
 	int retVal = 0;
 
-	switch_input_index = (switch_input_index  + 1) % 10000;
+	switch_input_index = ((unsigned long)switch_input_index  + 1) % 10000;
 
 	retVal = add_work_entry(SMC_CALL_TYPE, N_INIT_T_BOOT_STAGE1,
 					vfs_addr, tlog_addr, 0);

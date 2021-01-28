@@ -60,7 +60,7 @@ static unsigned long create_notify_queue(unsigned long size)
 		goto return_fn;
 	}
 
-	switch_input_index = (switch_input_index + 1) % 10000;
+	switch_input_index = ((unsigned long)switch_input_index + 1) % 10000;
 
 	/* Call the smc_fast_call */
 	retVal = add_work_entry(SMC_CALL_TYPE, N_INIT_T_FC_BUF,
@@ -126,15 +126,15 @@ int add_nq_entry(unsigned long long cmd_ID, unsigned long long sub_cmd_ID,
 	temp_entry->param[3] = block_p;
 	temp_entry->param[4] = check_index;
 
-	check_index = (check_index + 1) % 10000;
+	check_index = ((unsigned long)check_index + 1) % 10000;
 
 	/* Call the smp_mb() to make sure setting entry before setting head */
 	smp_mb();
 
-	switch_input_index = (switch_input_index + 1) % 10000;
+	switch_input_index = ((unsigned long)switch_input_index + 1) % 10000;
 
-	temp_head->put_index = (temp_head->put_index + 1)
-					% temp_head->max_count;
+	temp_head->put_index = ((unsigned long)temp_head->put_index + 1)
+					% (unsigned long)temp_head->max_count;
 
 	/* Call the rmb() to make sure setting entry before setting head */
 	rmb();
@@ -169,13 +169,13 @@ int add_bdrv_nq_entry(unsigned long long cmd_ID, unsigned long long sub_cmd_ID,
 	temp_entry->param[3] = block_p;
 	temp_entry->param[4] = check_index;
 
-	check_index = (check_index + 1) % 10000;
+	check_index = ((unsigned long)check_index + 1) % 10000;
 
 	/* Call the smp_mb() to make sure setting entry before setting head */
 	smp_mb();
 
-	temp_head->put_index = (temp_head->put_index + 1)
-					% temp_head->max_count;
+	temp_head->put_index = ((unsigned long)temp_head->put_index + 1)
+					% (unsigned long)temp_head->max_count;
 
 	/* Call the rmb() to make sure setting entry before setting head */
 	rmb();
@@ -206,7 +206,8 @@ struct NQ_entry *get_nq_entry(void)
 		temp_entry = (struct NQ_entry *)(t_nt_buffer + NQ_BLOCK_SIZE
 				+ get * NQ_BLOCK_SIZE);
 
-		get = (get + 1)	% temp_head->max_count;
+		get = ((unsigned long)get + 1)
+				% (unsigned long)temp_head->max_count;
 
 		g_nq_stat.get = get;
 	}
