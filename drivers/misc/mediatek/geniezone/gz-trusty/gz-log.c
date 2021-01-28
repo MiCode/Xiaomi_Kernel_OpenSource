@@ -359,7 +359,7 @@ static const struct file_operations proc_gz_log_fops = {
 static int trusty_gz_log_probe(struct platform_device *pdev)
 {
 	int ret;
-	struct gz_log_state *gls;
+	struct gz_log_state *gls = NULL;
 	struct device_node *pnode = pdev->dev.parent->of_node;
 	int tee_id = 0;
 
@@ -451,7 +451,7 @@ error_std_call:
 	if (glctx.flag == STATIC)
 		iounmap(glctx.virt);
 	else
-		kfree(gls->log);
+		kfree(glctx.virt);
 error_alloc_log:
 	mutex_destroy(&gls->lock);
 	kfree(gls);
@@ -480,7 +480,7 @@ static int trusty_gz_log_remove(struct platform_device *pdev)
 	if (glctx.flag == STATIC)
 		iounmap(glctx.virt);
 	else
-		kfree(gls->log);
+		kfree(glctx.virt);
 
 	mutex_destroy(&gls->lock);
 	kfree(gls);
