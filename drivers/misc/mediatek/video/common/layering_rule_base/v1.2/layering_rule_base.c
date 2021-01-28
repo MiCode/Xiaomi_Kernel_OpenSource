@@ -160,6 +160,12 @@ bool is_yuv(enum DISP_FORMAT format)
 bool is_layer_id_valid(struct disp_layer_info *disp_info,
 	int disp_idx, int i)
 {
+	if (disp_idx < 0 || disp_idx > 1) {
+		DISPMSG("%s: error disp_idx:%d\n",
+			__func__, disp_idx);
+		return false;
+	}
+
 	if (i < 0 || i >= disp_info->layer_num[disp_idx])
 		return false;
 	else
@@ -577,13 +583,14 @@ static void print_disp_info_to_log_buffer(struct disp_layer_info *disp_info)
 void rollback_layer_to_GPU(struct disp_layer_info *disp_info, int disp_idx,
 	int i)
 {
-	if (is_layer_id_valid(disp_info, disp_idx, i) == false)
-		return;
 	if (disp_idx < 0 || disp_idx > 1) {
 		DISPMSG("%s: error disp_idx:%d\n",
 			__func__, disp_idx);
 		return;
 	}
+	if (is_layer_id_valid(disp_info, disp_idx, i) == false)
+		return;
+
 	if (disp_info->gles_head[disp_idx] == -1 ||
 	    disp_info->gles_head[disp_idx] > i)
 		disp_info->gles_head[disp_idx] = i;
@@ -597,14 +604,15 @@ void rollback_layer_to_GPU(struct disp_layer_info *disp_info, int disp_idx,
 void rollback_compress_layer_to_GPU(struct disp_layer_info *disp_info,
 	int disp_idx, int i)
 {
-	if (is_layer_id_valid(disp_info, disp_idx, i) == false)
-		return;
 
 	if (disp_idx < 0 || disp_idx > 1) {
 		DISPMSG("%s: error disp_idx:%d\n",
 			__func__, disp_idx);
 		return;
 	}
+	if (is_layer_id_valid(disp_info, disp_idx, i) == false)
+		return;
+
 	if (disp_info->input_config[disp_idx][i].compress == 0)
 		return;
 
