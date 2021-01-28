@@ -1178,6 +1178,9 @@ void pd_dpm_dfp_inform_id(struct pd_port *pd_port, bool ack)
 {
 	uint32_t *payload = pd_get_msg_vdm_data_payload(pd_port);
 
+	if (!payload)
+		return;
+
 	if (ack) {
 		DPM_DBG("InformID, 0x%02x, 0x%02x, 0x%02x, 0x%02x\r\n",
 				payload[0], payload[1], payload[2], payload[3]);
