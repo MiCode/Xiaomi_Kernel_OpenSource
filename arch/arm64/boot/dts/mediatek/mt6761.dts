@@ -521,6 +521,15 @@ firmware_class.path=/vendor/firmware";
 		interrupts = <GIC_SPI 115 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
+	regulator_vibrator {
+		compatible = "regulator-vibrator";
+		min-volt = <2300000>;
+		max-volt = <3200000>;
+		min-limit = <15>;
+		max-limit = <15000>;
+		vib-supply = <&mt_pmic_vibr_ldo_reg>;
+	};
+
 	apmixed: apmixed@1000c000 {
 		compatible = "mediatek,mt6761-apmixedsys", "syscon";
 		reg = <0 0x1000c000 0 0x1000>;
