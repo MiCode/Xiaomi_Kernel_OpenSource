@@ -271,6 +271,12 @@ void msdc_emmc_power(struct msdc_host *host, u32 on)
 #endif
 }
 
+struct reg_oc_msdc {
+	struct notifier_block nb;
+	struct work_struct work;
+};
+
+static struct reg_oc_msdc sd_oc;
 void msdc_sd_power(struct msdc_host *host, u32 on)
 {
 #if !defined(CONFIG_MTK_MSDC_BRING_UP_BYPASS)
@@ -285,19 +291,20 @@ void msdc_sd_power(struct msdc_host *host, u32 on)
 			card_on = 1;
 
 		/* Disable VMCH OC */
-		//if (!card_on)
-		//	pmic_enable_interrupt(INT_VMCH_OC, 0, "sdcard");
+		if (!card_on)
+			devm_regulator_unregister_notifier(
+				host->mmc->supply.vmmc, &sd_oc.nb);
 
 		/* VMCH VOLSEL */
 		msdc_ldo_power(card_on, host->mmc->supply.vmmc, VOL_3000,
 			&host->power_flash);
 
-
 		/* Enable VMCH OC */
-		//if (card_on) {
-		//	mdelay(3);
-		//	pmic_enable_interrupt(INT_VMCH_OC, 1, "sdcard");
-		//}
+		if (card_on) {
+			mdelay(3);
+			devm_regulator_register_notifier(host->mmc->supply.vmmc,
+				&sd_oc.nb);
+		}
 
 		msdc_ldo_power(on, host->mmc->supply.vqmmc, VOL_3000,
 			&host->power_io);
@@ -343,13 +350,18 @@ static int msdc_sd_event(struct notifier_block *nb,
 	switch (event) {
 	case REGULATOR_EVENT_OVER_CURRENT:
 	case REGULATOR_EVENT_FAIL:
-		msdc_sd_power_off();
+		schedule_work(&sd_oc.work);
 		break;
 	default:
 		break;
 	};
 #endif
 	return NOTIFY_OK;
+}
+
+static void sdcard_oc_handler(struct work_struct *work)
+{
+	msdc_sd_power_off();
 }
 
 void msdc_pmic_force_vcore_pwm(bool enable)
@@ -1168,7 +1180,6 @@ static int msdc_get_register_settings(struct msdc_host *host,
  *
  */
 
-static struct notifier_block sd_oc_nb;
 int msdc_of_parse(struct platform_device *pdev, struct mmc_host *mmc)
 {
 	struct device_node *np;
@@ -1298,9 +1309,8 @@ int msdc_of_parse(struct platform_device *pdev, struct mmc_host *mmc)
 	kfree_const(dup_name);
 
 	if (host->id == 1) {
-		sd_oc_nb.notifier_call = msdc_sd_event;
-		devm_regulator_register_notifier(mmc->supply.vmmc,
-			&sd_oc_nb);
+		sd_oc.nb.notifier_call = msdc_sd_event;
+		INIT_WORK(&sd_oc.work, sdcard_oc_handler);
 	}
 
 	return host->id;
