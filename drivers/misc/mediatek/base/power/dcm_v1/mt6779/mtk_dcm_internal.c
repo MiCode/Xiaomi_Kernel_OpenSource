@@ -9,7 +9,7 @@
 #include <linux/cpu.h>
 #include <mt-plat/mtk_io.h>
 #include <mt-plat/sync_write.h>
-#include <mt-plat/mtk_secure_api.h>
+//#include <mt-plat/mtk_secure_api.h>
 
 #include <mtk_dcm_internal.h>
 
@@ -82,6 +82,38 @@ struct DCM_BASE dcm_base_array[] = {
 #define DCM_NODE		"mediatek,mt6779-dcm"
 
 #endif /* #if defined(__KERNEL__) && defined(CONFIG_OF) */
+
+#define TOTAL_CORE_NUM  (CORE_NUM_L+CORE_NUM_B)
+#define CORE_NUM_L      (6)
+#define CORE_NUM_B      (2)
+
+static inline void arch_get_cluster_cpus(struct cpumask *cpus, int cluster_id)
+{
+	int cpu = 0;
+
+	cpumask_clear(cpus);
+
+	if (cluster_id == 0) {
+		cpu = 0;
+
+		while (cpu < CORE_NUM_L) {
+			cpumask_set_cpu(cpu, cpus);
+			cpu++;
+		}
+	} else {
+		cpu = CORE_NUM_L;
+
+		while (cpu < TOTAL_CORE_NUM) {
+			cpumask_set_cpu(cpu, cpus);
+			cpu++;
+		}
+	}
+}
+
+static inline int arch_get_cluster_id(unsigned int cpu)
+{
+		return cpu < 4 ? 0:1;
+}
 
 short is_dcm_bringup(void)
 {

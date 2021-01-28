@@ -26,7 +26,6 @@
 #define NR_CCI_TBL		2
 
 /* ARMv8.2 */
-#define SINGLE_CLUSTER 1
 
 /* EEM VBOOT */
 #define VBOOT_VOLT 80000
@@ -87,4 +86,41 @@ extern unsigned int cpufreq_get_nr_clusters(void);
 extern void cpufreq_get_cluster_cpus(struct cpumask *cpu_mask,
 	unsigned int cid);
 extern unsigned int cpufreq_get_cluster_id(unsigned int cpu_id);
+
+#define TOTAL_CORE_NUM  (CORE_NUM_L+CORE_NUM_B)
+#define CORE_NUM_L      (6)
+#define CORE_NUM_B      (2)
+
+static inline void arch_get_cluster_cpus(struct cpumask *cpus, int cluster_id)
+{
+	int cpu = 0;
+
+	cpumask_clear(cpus);
+
+	if (cluster_id == 0) {
+		cpu = 0;
+
+		while (cpu < CORE_NUM_L) {
+			cpumask_set_cpu(cpu, cpus);
+			cpu++;
+		}
+	} else {
+		cpu = CORE_NUM_L;
+
+		while (cpu < TOTAL_CORE_NUM) {
+			cpumask_set_cpu(cpu, cpus);
+			cpu++;
+		}
+	}
+}
+
+static inline int arch_get_cluster_id(unsigned int cpu)
+{
+	return cpu < 4 ? 0:1;
+}
+
+static inline int arch_get_nr_clusters(void)
+{
+	return 2;
+}
 #endif	/* __MTK_CPUFREQ_PLATFORM_H__ */

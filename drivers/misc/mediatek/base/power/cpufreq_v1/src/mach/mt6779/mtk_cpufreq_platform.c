@@ -18,6 +18,7 @@
 #include "mtk_cpufreq_platform.h"
 #include "../../mtk_cpufreq_hybrid.h"
 #include "mtk_devinfo.h"
+#include "mtk_cpufreq_config.h"
 #include <linux/of_platform.h>
 
 static struct regulator *regulator_proc1;
@@ -615,7 +616,6 @@ int mt_cpufreq_dts_map(void)
 unsigned int _mt_cpufreq_get_cpu_level(void)
 {
 	unsigned int lv = CPU_LEVEL_0;
-	int val = (get_devinfo_with_index(7) & 0xFF);
 	int val = 0;
 
 	unsigned int efuse_seg;
@@ -657,3 +657,42 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 		lv, turbo_flag, UP_SRATE, DOWN_SRATE, val);
 	return lv;
 }
+
+unsigned int cpufreq_get_nr_clusters(void)
+{
+	return (NR_MT_CPU_DVFS - 1);
+}
+
+void cpufreq_get_cluster_cpus(struct cpumask *cpu_mask, unsigned int cid)
+{
+	if (cid == 0) {
+		cpumask_setall(cpu_mask);
+		cpumask_clear_cpu(6, cpu_mask);
+		cpumask_clear_cpu(7, cpu_mask);
+	} else if (cid == 1) {
+		cpumask_clear(cpu_mask);
+		cpumask_set_cpu(6, cpu_mask);
+		cpumask_set_cpu(7, cpu_mask);
+	}
+
+	cpufreq_ver("cluster%d: cpumask = %*pbl\n",
+		    cid, cpumask_pr_args(cpu_mask));
+}
+
+unsigned int cpufreq_get_cluster_id(unsigned int cpu_id)
+{
+	struct cpumask cpu_mask;
+	int i;
+
+	for (i = 0; i < NR_MT_CPU_DVFS - 1; i++) {
+		cpufreq_get_cluster_cpus(&cpu_mask, i);
+		if (cpumask_test_cpu(cpu_id, &cpu_mask)) {
+			cpufreq_ver("cluster%d: cpumask = %*pbl\n",
+				    i, cpumask_pr_args(&cpu_mask));
+			return i;
+		}
+	}
+
+	return 0;
+}
+

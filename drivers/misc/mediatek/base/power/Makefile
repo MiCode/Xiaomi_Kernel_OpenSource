@@ -36,6 +36,7 @@ obj-$(CONFIG_MACH_MT6765) += hps_v3/
 obj-$(CONFIG_MACH_MT6761) += hps_v3/
 obj-$(CONFIG_MACH_MT6765) += cpuidle_v3/
 obj-$(CONFIG_MACH_MT6761) += cpuidle_v3/
+obj-$(CONFIG_MACH_MT6779) += cpuidle_v3/
 obj-$(CONFIG_MACH_MT6779) += cpuhotplug/
 obj-$(CONFIG_MACH_MT6765) += power_gs_v1/
 obj-$(CONFIG_MACH_MT6761) += power_gs_v1/
