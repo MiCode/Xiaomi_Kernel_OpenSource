@@ -3835,8 +3835,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 	};
 
 	dram_ctrl {
-		compatible = "mediatek,dram-ctrl";
-		power-domains = <&scpsys MT6779_POWER_DOMAIN_INFRA>;
+		compatible = "mediatek,dram-qosctrl";
 		required-opps = <&dvfsrc_freq_opp0>,
 				<&dvfsrc_freq_opp1>;
 	};
