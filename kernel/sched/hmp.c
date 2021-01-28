@@ -663,11 +663,11 @@ out:
 }
 
 #define hmp_fast_cpu_has_spare_cycles(B, cpu_load) \
-		(cpu_load * capacity_margin < (SCHED_CAPACITY_SCALE * 1024))
+		((cpu_load * capacity_margin) < (SCHED_CAPACITY_SCALE * 1024))
 
 #define hmp_task_fast_cpu_afford(B, se, cpu) \
-		(B->acap > 0 && hmp_fast_cpu_has_spare_cycles(B, \
-		se_load(se) + cfs_load(cpu)))
+		((B->acap > 0) && hmp_fast_cpu_has_spare_cycles(B, \
+		(se_load(se) + cfs_load(cpu))))
 
 #define hmp_fast_cpu_oversubscribed(caller, B, se, cpu) \
 	(hmp_caller_is_gb(caller) ? \
