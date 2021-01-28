@@ -110,6 +110,9 @@
 			mt,use_pwm;
 			mt,pwm_fsample = <2>; /* 0 1MHz, 1 4MHz, 2 or 3 24mHz */
 			mt,pwm_deglitch = <1>; /* 0 no filter, 1 100ns, 2 160ns, 3 200ns */
+			mt,pwm_hys_en = <1>; /* PWM Input Hysteresis */
+			mt,pwm_hys = <0>;	/* 0: 1 bit, 1: 2 bit */
+						/* 2: 4 bit, 3: 6 bit */
 			mt,pwm_avg_cycle = <0>; /* 0 disable avg, 1 avg 2 cycle, 2 avg 4 cycle */
 						/* 3 avg 8 cycle, 4 avg 16 cycle, 5 avg 32 cycle */
 			mt,bled_ramptime = <3>; /* 0, 500us, 750us, 1ms, 2ms, 5ms, 10ms, 20ms */
