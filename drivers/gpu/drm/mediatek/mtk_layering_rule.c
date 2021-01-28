@@ -435,9 +435,6 @@ void mtk_layering_rule_init(struct drm_device *dev)
 	mtk_set_layering_opt(LYE_OPT_EXT_LAYER,
 			     mtk_drm_helper_get_opt(private->helper_opt,
 						    MTK_DRM_OPT_OVL_EXT_LAYER));
-	mtk_set_layering_opt(LYE_OPT_CLEAR_LAYER,
-			     mtk_drm_helper_get_opt(private->helper_opt,
-						    MTK_DRM_OPT_CLEAR_LAYER));
 }
 
 static bool _rollback_all_to_GPU_for_idle(struct drm_device *dev)
@@ -511,10 +508,6 @@ static int layering_get_valid_hrt(struct drm_crtc *crtc,
 	if (output_comp)
 		mtk_ddp_comp_io_cmd(output_comp, NULL,
 			GET_FRAME_HRT_BW_BY_DATARATE, &tmp);
-	if (!tmp) {
-		DDPPR_ERR("Get frame hrt bw by datarate is zero\n");
-		return 600;
-	}
 	dvfs_bw /= tmp * 100;
 
 	/* error handling when requested BW is less than 2 layers */
@@ -543,9 +536,6 @@ void mtk_update_layering_opt_by_disp_opt(enum MTK_DRM_HELPER_OPT opt, int value)
 		break;
 	case MTK_DRM_OPT_RPO:
 		mtk_set_layering_opt(LYE_OPT_RPO, value);
-		break;
-	case MTK_DRM_OPT_CLEAR_LAYER:
-		mtk_set_layering_opt(LYE_OPT_CLEAR_LAYER, value);
 		break;
 	default:
 		break;
