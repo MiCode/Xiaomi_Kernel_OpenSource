@@ -483,8 +483,8 @@ if (pSrc->_cnt[ppb][logT] != 0) { \
 	struct SV_LOG_STR *pSrc = &gSvLog[irq]; \
 	char *ptr; \
 	unsigned int i; \
-	signed int ppb = 0; \
-	signed int logT = 0; \
+	unsigned int ppb = 0; \
+	unsigned int logT = 0; \
 	if (ppb_in > 1) { \
 		ppb = 1; \
 	} else { \
@@ -4414,7 +4414,7 @@ static ssize_t dpe_reg_write(
 	size_t count, loff_t *data)
 {
 	char desc[128];
-	int len = 0;
+	unsigned int len = 0;
 	/*char *pEnd;*/
 	char addrSzBuf[24];
 	char valSzBuf[24];
