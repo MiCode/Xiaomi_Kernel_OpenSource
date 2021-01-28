@@ -359,7 +359,7 @@ u32 teec_invoke_command(struct teec_session *session,
 	ret = client_gp_invoke_command(client, session->imp.session_id,
 				       command_id, &gp_op, &gp_ret);
 
-	if (ret || gp_ret.value != TEEC_SUCCESS) {
+	if (ret && ret != -ECHILD) {
 		mc_dev_devel("client_gp_invoke_command failed(%08x) %08x", ret,
 			     gp_ret.value);
 		if (ret)
