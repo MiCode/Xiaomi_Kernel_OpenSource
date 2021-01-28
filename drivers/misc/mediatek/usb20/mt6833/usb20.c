@@ -1079,21 +1079,20 @@ static int usb_i2c_probe(struct i2c_client *client,
 	u32 val = 0;
 	/* if i2c probe before musb prob, this would cause KE */
 	/* base = (unsigned long)((unsigned long)mtk_musb->xceiv->io_priv); */
-	base = usb_phy_base;
+	base = usb_phy_base + USB_PHY_OFFSET;
 	DBG(0, "[MUSB]%s, start, base:%p\n", __func__, base);
 
 	usb_i2c_client = client;
 
-
 	/* disable usb mac suspend */
-	val = musb_readl(base, 0x868);
-	DBG(0, "[MUSB]0x868=0x%x\n", val);
+	val = musb_readl(base, 0x68);
+	DBG(0, "[MUSB]0x68=0x%x\n", val);
 
-	musb_writel(base, 0x868, (val & ~(0x4 << 16)));
+	musb_writel(base, 0x68, (val & ~(0x4 << 16)));
 
-	DBG(0, "[MUSB]0x868=0x%x\n"
+	DBG(0, "[MUSB]0x68=0x%x\n"
 			"[MUSB]addr: 0xFF, value: %x\n",
-			musb_readl(base, 0x868),
+			musb_readl(base, 0x68),
 			USB_PHY_Read_Register8(0xFF));
 
 	USB_PHY_Write_Register8(0x20, 0xFF);
