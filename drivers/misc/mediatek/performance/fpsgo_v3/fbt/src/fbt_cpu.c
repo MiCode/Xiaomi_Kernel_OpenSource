@@ -644,7 +644,8 @@ static void fbt_set_hard_limit(int input, struct ppm_limit_data *pld)
 
 static void fbt_filter_ppm_log_locked(int filter)
 {
-	ppm_game_mode_change_cb(filter);
+	if (ppm_game_mode_change_cb)
+		ppm_game_mode_change_cb(filter);
 }
 
 static void fbt_free_bhr(void)
@@ -1891,9 +1892,11 @@ static unsigned int fbt_get_max_userlimit_freq(void)
 {
 	unsigned int max_cap = 0U;
 	unsigned int limited_cap;
-	int i;
+	int i, opp;
 	int *clus_max_idx;
 	int max_cluster = 0;
+	struct cpufreq_policy *policy;
+	struct cpumask *cpus_mask;
 
 	clus_max_idx =
 		kcalloc(cluster_num, sizeof(int), GFP_KERNEL);
@@ -1901,8 +1904,24 @@ static unsigned int fbt_get_max_userlimit_freq(void)
 	if (!clus_max_idx)
 		return 100U;
 
-	for (i = 0; i < cluster_num; i++)
-		clus_max_idx[i] = mt_ppm_userlimit_freq_limit_by_others(i);
+	for (i = 0; i < cluster_num; i++) {
+		if (mt_ppm_userlimit_freq_limit_by_others)
+			clus_max_idx[i] = mt_ppm_userlimit_freq_limit_by_others(i);
+		else {
+
+			arch_get_cluster_cpus(cpus_mask, i);
+			policy = cpufreq_cpu_get(
+				cpumask_first(cpus_mask));
+
+			for (opp = 0; opp < NR_FREQ_CPU; opp++)
+				if (policy->max ==
+					mt_cpufreq_get_freq_by_idx(i, opp)) {
+					clus_max_idx[i] = opp;
+					break;
+				}
+
+		}
+	}
 
 	mutex_lock(&fbt_mlock);
 	for (i = 0; i < cluster_num; i++) {
