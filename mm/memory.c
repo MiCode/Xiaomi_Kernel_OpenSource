@@ -3081,6 +3081,18 @@ int do_swap_page(struct vm_fault *vmf)
 		page = lookup_swap_cache(entry, vma_readahead ? vma : NULL,
 					 vmf->address);
 	if (!page) {
+		if (vmf->flags & FAULT_FLAG_SPECULATIVE) {
+			/*
+			 * Don't try readahead during a speculative page fault
+			 * as the VMA's boundaries may change in our back.
+			 * If the page is not in the swap cache and synchronous
+			 * read is disabled, fall back to the regular page
+			 * fault mechanism.
+			 */
+			delayacct_clear_flag(DELAYACCT_PF_SWAPIN);
+			ret = VM_FAULT_RETRY;
+			goto out;
+		}
 		if (vma_readahead)
 			page = do_swap_page_readahead(entry,
 				GFP_HIGHUSER_MOVABLE | __GFP_CMA, vmf,
