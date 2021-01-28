@@ -1602,10 +1602,10 @@ PVRSRV_ERROR PVRSRVRGXCtrlHWPerfCountersKM(
 
 	PVR_DPF_ENTERED;
 
+	PVR_LOG_RETURN_IF_INVALID_PARAM(psBlockIDs != NULL, "psBlockIDs");
 	PVR_ASSERT(psDeviceNode);
 	PVR_ASSERT(ui32ArrayLen>0);
 	PVR_ASSERT(ui32ArrayLen<=RGXFWIF_HWPERF_CTRL_BLKS_MAX);
-	PVR_ASSERT(psBlockIDs);
 
 	/* Fill in the command structure with the parameters needed
 	 */

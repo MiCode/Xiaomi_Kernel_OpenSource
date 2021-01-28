@@ -781,8 +781,8 @@ HTBLogKM(
 	IMG_UINT32 * pui32Message = aui32MessageBuffer;
 	IMG_UINT32 ui32MessageSize = 4 * (HTB_LOG_HEADER_SIZE+ui32NumArgs);
 
+	PVR_LOG_GOTO_IF_INVALID_PARAM(aui32Args != NULL, eError, ReturnError);
 	PVR_LOG_GOTO_IF_INVALID_PARAM(ui32NumArgs == HTB_SF_PARAMNUM(SF), eError, ReturnError);
-	PVR_LOG_GOTO_IF_INVALID_PARAM(!(ui32NumArgs != 0 && aui32Args == NULL), eError, ReturnError);
 	PVR_LOG_GOTO_IF_INVALID_PARAM(ui32NumArgs <= HTB_LOG_MAX_PARAMS, eError, ReturnError);
 
 	if ( g_hTLStream
