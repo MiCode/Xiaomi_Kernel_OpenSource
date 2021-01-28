@@ -344,7 +344,7 @@ static struct SENSOR_VC_INFO_STRUCT SENSOR_VC_INFO[7] = {
 	 /*custom1 setting*/
 	 {0x03, 0x0a, 0x00, 0x08, 0x40, 0x00,
 	 0x00, 0x2b, 0x0780, 0x0438, 0x00, 0x00, 0x00, 0x00,
-	 0x00, 0x34, 0x04D8, 0x05D0, 0x00, 0x00, 0x0000, 0x0000},
+	 0x00, 0x00, 0x0000, 0x0000, 0x00, 0x00, 0x0000, 0x0000},
 	 /*custom3 setting*/
 	 {0x03, 0x0a, 0x00, 0x08, 0x40, 0x00,
 	 0x00, 0x2b, 0x1770, 0x1f40, 0x00, 0x00, 0x00, 0x00,
@@ -352,7 +352,7 @@ static struct SENSOR_VC_INFO_STRUCT SENSOR_VC_INFO[7] = {
 	 /*custom4 setting*/
 	 {0x03, 0x0a, 0x00, 0x08, 0x40, 0x00,
 	 0x00, 0x2b, 0x0500, 0x02d0, 0x00, 0x00, 0x00, 0x00,
-	 0x00, 0x34, 0x0500, 0x05D0, 0x00, 0x00, 0x0000, 0x0000},
+	 0x00, 0x00, 0x0000, 0x0000, 0x00, 0x00, 0x0000, 0x0000},
 };
 
 
@@ -4353,12 +4353,13 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 #endif
 		case MSDK_SCENARIO_ID_VIDEO_PREVIEW:
 		case MSDK_SCENARIO_ID_SLIM_VIDEO:
-		case MSDK_SCENARIO_ID_CUSTOM1:
 		case MSDK_SCENARIO_ID_CUSTOM2:
 		case MSDK_SCENARIO_ID_CUSTOM3:
-		case MSDK_SCENARIO_ID_CUSTOM4:
 			*(MUINT32 *)(uintptr_t)(*(feature_data+1)) = 1;
 			break;
+		case MSDK_SCENARIO_ID_HIGH_SPEED_VIDEO:
+		case MSDK_SCENARIO_ID_CUSTOM1:
+		case MSDK_SCENARIO_ID_CUSTOM4:
 		default:
 			*(MUINT32 *)(uintptr_t)(*(feature_data+1)) = 0;
 			break;
@@ -4500,6 +4501,7 @@ break;
 			break;
 #endif
 		case MSDK_SCENARIO_ID_CUSTOM1:
+		case MSDK_SCENARIO_ID_HIGH_SPEED_VIDEO:
 			memcpy((void *)pvcinfo, (void *)&SENSOR_VC_INFO[4],
 				sizeof(struct SENSOR_VC_INFO_STRUCT));
 			break;
