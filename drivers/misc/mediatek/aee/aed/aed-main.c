@@ -2057,7 +2057,7 @@ static void aed_get_traces(char *msg)
 	offset = strlen(msg);
 	for (i = 0; i < trace.nr_entries; i++) {
 		offset += snprintf(msg + offset, AEE_BACKTRACE_LENGTH - offset,
-				"[<%p>] %pS\n", (void *)trace.entries[i],
+				"[<%px>] %pS\n", (void *)trace.entries[i],
 				(void *)trace.entries[i]);
 	}
 #else
