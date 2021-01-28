@@ -52,6 +52,7 @@ config TWOKEY_REBOOT_OTHER_MODE
 
 config KPD_PMIC_LPRST_TD
 	int "Long press reboot timeout period"
+	depends on ONEKEY_REBOOT_NORMAL_MODE || TWOKEY_REBOOT_NORMAL_MODE
 	range 0 3
 	default "0"
 	---help---
