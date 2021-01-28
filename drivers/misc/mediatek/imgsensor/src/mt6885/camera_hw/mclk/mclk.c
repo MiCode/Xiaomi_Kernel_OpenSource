@@ -151,16 +151,16 @@ static enum IMGSENSOR_RETURN mclk_set(
 
 		ppinctrl_state =
 			pinst->ppinctrl_state[sensor_idx][state_index];
-#if 0
-		pr_debug(
-			"%s : sensor_idx %d pinctrl, pin %d, pin_state %d, drive_current %d\n",
-			__func__,
-			sensor_idx,
-			pin,
-			pin_state,
-			pinst->drive_current[sensor_idx]);
+		/*
+		 * pr_debug(
+		 *	"%s : idx %d pin %d state %d driv_current %d\n",
+		 *	__func__,
+		 *	sensor_idx,
+		 *	pin,
+		 *	pin_state,
+		 *	pinst->drive_current[sensor_idx]);
+		 */
 
-#endif
 		mutex_lock(pinst->pmclk_mutex);
 
 		if (!IS_ERR(ppinctrl_state))
