@@ -803,9 +803,6 @@ static ssize_t ssmr_show(struct kobject *kobj, struct kobj_attribute *attr,
 		return ret;
 	}
 
-	pr_info("PAGE_OFFSET = 0x%llx, VMEMMAP_START= 0x%llx\n", PAGE_OFFSET,
-		VMEMMAP_START);
-
 	for (; i < __MAX_NR_SSMR_FEATURES; i++) {
 		unsigned long region_pa;
 
