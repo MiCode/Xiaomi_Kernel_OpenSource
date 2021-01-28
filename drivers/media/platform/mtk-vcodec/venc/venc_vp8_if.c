@@ -229,7 +229,7 @@ static unsigned int vp8_enc_wait_venc_done(struct venc_vp8_inst *inst)
 	unsigned int irq_status = 0;
 	struct mtk_vcodec_ctx *ctx = (struct mtk_vcodec_ctx *)inst->ctx;
 
-	if (!mtk_vcodec_wait_for_done_ctx(ctx, MTK_INST_IRQ_RECEIVED,
+	if (!mtk_vcodec_wait_for_done_ctx(ctx, 0, MTK_INST_IRQ_RECEIVED,
 		WAIT_INTR_TIMEOUT_MS)) {
 		irq_status = ctx->irq_status;
 		mtk_vcodec_debug(inst, "isr return %x", irq_status);

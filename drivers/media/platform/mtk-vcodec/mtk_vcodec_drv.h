@@ -331,7 +331,7 @@ struct mtk_vcodec_ctx {
 
 	int int_cond;
 	int int_type;
-	wait_queue_head_t queue;
+	wait_queue_head_t queue[MTK_VDEC_HW_NUM];
 	unsigned int irq_status;
 
 	struct v4l2_ctrl_handler ctrl_hdl;
@@ -417,7 +417,7 @@ struct mtk_vcodec_dev {
 	struct mutex dev_mutex;
 	wait_queue_head_t queue;
 
-	int dec_irq;
+	int dec_irq[MTK_VDEC_HW_NUM];
 	int enc_irq;
 	int enc_lt_irq;
 
