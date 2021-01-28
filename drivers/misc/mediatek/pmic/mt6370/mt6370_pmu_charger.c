@@ -509,7 +509,7 @@ static void diff(struct mt6370_pmu_charger_data *chg_data, int index,
 
 	temp = timespec_sub(end, start);
 	if (temp.tv_sec > 0) {
-		//BUG_ON(1);
+		/* BUG_ON(1); */
 		dev_info(chg_data->dev, "%s: duration[%d] %d %ld\n", __func__,
 			index, (int)temp.tv_sec, temp.tv_nsec);
 	}
