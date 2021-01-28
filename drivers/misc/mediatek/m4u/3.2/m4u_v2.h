@@ -38,11 +38,6 @@ int m4u_config_port_array(struct m4u_port_array *port_array);
 int m4u_monitor_start(int m4u_id);
 int m4u_monitor_stop(int m4u_id);
 
-int m4u_cache_sync(struct m4u_client_t *client, int port,
-					unsigned long va, unsigned int size,
-					unsigned int mva,
-					enum M4U_CACHE_SYNC_ENUM sync_type);
-
 struct m4u_client_t *m4u_create_client(void);
 int m4u_destroy_client(struct m4u_client_t *client);
 
@@ -79,9 +74,6 @@ extern void show_pte(struct mm_struct *mm, unsigned long addr);
 extern mmp_event M4U_MMP_Events[M4U_MMP_MAX];
 #endif
 
-#ifndef M4U_FPGAPORTING
-extern void smp_inner_dcache_flush_all(void);
-#endif
 /* m4u driver internal use ----------- */
 
 #endif

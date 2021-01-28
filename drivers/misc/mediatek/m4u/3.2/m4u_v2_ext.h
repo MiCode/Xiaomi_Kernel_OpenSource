@@ -50,29 +50,6 @@ struct M4U_PORT_STRUCT {
 	unsigned int Direction;         /* 0:- 1:+ */
 };
 
-
-enum M4U_CACHE_SYNC_ENUM {
-	M4U_CACHE_CLEAN_BY_RANGE,
-	M4U_CACHE_INVALID_BY_RANGE,
-	M4U_CACHE_FLUSH_BY_RANGE,
-
-	M4U_CACHE_CLEAN_ALL,
-	M4U_CACHE_INVALID_ALL,
-	M4U_CACHE_FLUSH_ALL,
-};
-
-enum M4U_DMA_TYPE {
-	M4U_DMA_MAP_AREA,
-	M4U_DMA_UNMAP_AREA,
-	M4U_DMA_FLUSH_BY_RANGE,
-};
-
-enum M4U_DMA_DIR {
-	M4U_DMA_FROM_DEVICE,
-	M4U_DMA_TO_DEVICE,
-	M4U_DMA_BIDIRECTIONAL,
-};
-
 struct m4u_client_t {
     /* mutex to protect mvaList */
     /* should get this mutex whenever add/delete/interate mvaList */

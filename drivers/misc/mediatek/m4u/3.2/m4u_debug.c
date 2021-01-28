@@ -658,25 +658,7 @@ static int m4u_debug_set(void *data, u64 val)
 	break;
 	case 22:
 	{
-		int i;
-		unsigned int *pSrc;
-
-		pSrc = vmalloc(128);
-		if (!pSrc) {
-			M4UMSG("vmalloc failed!\n");
-			return 0;
-		}
-		memset(pSrc, 55, 128);
-		m4u_cache_sync(NULL, 0, 0, 0, 0, M4U_CACHE_FLUSH_ALL);
-
-		for (i = 0; i < 128 / 32; i += 32) {
-			M4UMSG(
-				"+0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x\n",
-			       8 * i, pSrc[i], pSrc[i + 1],
-			       pSrc[i + 2], pSrc[i + 3], pSrc[i + 4],
-			       pSrc[i + 5], pSrc[i + 6], pSrc[i + 7]);
-		}
-		vfree(pSrc);
+		m4u_info("[%s %d]Reserved entry\n", __func__, __LINE__);
 	}
 	break;
 	case 23:

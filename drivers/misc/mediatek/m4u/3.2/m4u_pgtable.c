@@ -1206,6 +1206,12 @@ const struct file_operations m4u_debug_pgtable_fops = {
 int m4u_pgtable_init(struct m4u_device *m4u_dev,
 		struct m4u_domain_t *m4u_domain, int m4u_id)
 {
+
+	if (m4u_id < 0 || m4u_id >= TOTAL_M4U_NUM) {
+		M4UMSG("%s: ERROR m4u_id:%d\n", __func__, m4u_id);
+		return 1;
+	}
+
 	/* ======= alloc pagetable======================= */
 	m4u_domain->pgd =
 	    dma_alloc_coherent(m4u_dev->pDev[m4u_id],

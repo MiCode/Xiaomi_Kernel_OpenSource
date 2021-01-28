@@ -58,29 +58,6 @@ extern int gM4U_L2_enable;
 
 extern void show_pte(struct mm_struct *mm, unsigned long addr);
 
-#ifndef dmac_map_area
-#define dmac_map_area __dma_map_area
-#endif
-
-#ifndef dmac_unmap_area
-#define dmac_unmap_area __dma_unmap_area
-#endif
-
-#ifndef dmac_flush_range
-#define dmac_flush_range __dma_flush_range
-#endif
-
-// remove it, cache sync use ion
-#ifdef M4U_FPGAPORTING /*ION_TO_BE_IMPL*/
-#define smp_inner_dcache_flush_all(...)
-#define outer_clean_all(...)
-#define outer_flush_all(...)
-#else
-#define smp_inner_dcache_flush_all(...)
-#define outer_clean_all(...)
-#define outer_flush_all(...)
-#endif
-
 #include <linux/clk.h>
 
 struct m4u_device {
@@ -325,36 +302,16 @@ struct M4U_MOUDLE_STRUCT {
 	unsigned int flags;
 };
 
-struct M4U_CACHE_STRUCT {
-	int port;
-	enum M4U_CACHE_SYNC_ENUM eCacheSync;
-	unsigned long va;
-	unsigned int size;
-	unsigned int mva;
-};
-
-struct M4U_DMA_STRUCT {
-	int port;
-	enum M4U_DMA_TYPE eDMAType;
-	enum M4U_DMA_DIR eDMADir;
-	unsigned long va;
-	unsigned int size;
-	unsigned int mva;
-};
-
 /* IOCTL commnad */
 #define MTK_M4U_MAGICNO 'g'
 #define MTK_M4U_T_POWER_ON	    _IOW(MTK_M4U_MAGICNO, 0, int)
 #define MTK_M4U_T_POWER_OFF	   _IOW(MTK_M4U_MAGICNO, 1, int)
 #define MTK_M4U_T_DUMP_REG	    _IOW(MTK_M4U_MAGICNO, 2, int)
 #define MTK_M4U_T_DUMP_INFO	   _IOW(MTK_M4U_MAGICNO, 3, int)
-#define MTK_M4U_T_ALLOC_MVA	   _IOWR(MTK_M4U_MAGICNO, 4, int)
-#define MTK_M4U_T_DEALLOC_MVA	 _IOW(MTK_M4U_MAGICNO, 5, int)
 #define MTK_M4U_T_INSERT_TLB_RANGE    _IOW(MTK_M4U_MAGICNO, 6, int)
 #define MTK_M4U_T_INVALID_TLB_RANGE   _IOW(MTK_M4U_MAGICNO, 7, int)
 #define MTK_M4U_T_INVALID_TLB_ALL     _IOW(MTK_M4U_MAGICNO, 8, int)
 #define MTK_M4U_T_MANUAL_INSERT_ENTRY _IOW(MTK_M4U_MAGICNO, 9, int)
-#define MTK_M4U_T_CACHE_SYNC	  _IOW(MTK_M4U_MAGICNO, 10, int)
 #define MTK_M4U_T_CONFIG_PORT	 _IOW(MTK_M4U_MAGICNO, 11, int)
 #define MTK_M4U_T_CONFIG_ASSERT       _IOW(MTK_M4U_MAGICNO, 12, int)
 #define MTK_M4U_T_INSERT_WRAP_RANGE   _IOW(MTK_M4U_MAGICNO, 13, int)
@@ -367,7 +324,6 @@ struct M4U_DMA_STRUCT {
 #define MTK_M4U_T_M4UDrv_DECONSTRUCT  _IOW(MTK_M4U_MAGICNO, 20, int)
 #define MTK_M4U_T_DUMP_PAGETABLE      _IOW(MTK_M4U_MAGICNO, 21, int)
 #define MTK_M4U_T_REGISTER_BUFFER     _IOW(MTK_M4U_MAGICNO, 22, int)
-#define MTK_M4U_T_CACHE_FLUSH_ALL     _IOW(MTK_M4U_MAGICNO, 23, int)
 #define MTK_M4U_T_CONFIG_PORT_ARRAY   _IOW(MTK_M4U_MAGICNO, 26, int)
 #define MTK_M4U_T_CONFIG_MAU	  _IOW(MTK_M4U_MAGICNO, 27, int)
 #define MTK_M4U_T_CONFIG_TF	   _IOW(MTK_M4U_MAGICNO, 28, int)

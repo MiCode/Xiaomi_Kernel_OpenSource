@@ -222,7 +222,6 @@ int mau_start_monitor(int m4u_id, int mmu_id, int mau_set,
 {
 	unsigned long m4u_base = gM4UBaseAddr[m4u_id];
 	unsigned int  reg_temp;
-	int i;
 
 	if (m4u_base == 0)
 		return -1;
@@ -278,10 +277,9 @@ int mau_start_monitor(int m4u_id, int mmu_id, int mau_set,
 				F_MAU_BIT_VAL(1, mau_set),
 				F_MAU_BIT_VAL(vir, mau_set));
 
-	//dump register to check if it is wrote in.
+	//dump register to check whether it is wrote in.
 	reg_temp = M4U_ReadReg32(m4u_base,
 				 REG_MMU_MAU_START(mmu_id, mau_set));
-
 	m4u_debug("[%s %d] GM-T: addr[%x]:%x\n", __func__, __LINE__,
 		  REG_MMU_MAU_START(mmu_id, mau_set), reg_temp);
 
@@ -2488,6 +2486,11 @@ int m4u_domain_init(struct m4u_device *m4u_dev,
 {
 	M4UINFO("%s, domain=%d\n", __func__, m4u_id);
 
+	if (m4u_id < 0 || m4u_id >= TOTAL_M4U_NUM) {
+		M4UMSG("%s: ERROR m4u_id:%d\n", __func__, m4u_id);
+		return 1;
+	}
+
 	memset(&gM4uDomain[m4u_id], 0, sizeof(gM4uDomain[m4u_id]));
 		gM4uDomain[m4u_id].pgsize_bitmap = M4U_PGSIZES;
 	mutex_init(&gM4uDomain[m4u_id].pgtable_mutex);
@@ -2513,6 +2516,11 @@ int m4u_hw_init(struct m4u_device *m4u_dev, int m4u_id)
 	unsigned long pProtectVA;
 	phys_addr_t ProtectPA;
 	struct device_node *node = NULL;
+
+	if (m4u_id < 0 || m4u_id >= TOTAL_M4U_NUM) {
+		M4UMSG("%s:ERROR m4u_id:%d\n", __func__, m4u_id);
+		return -EINVAL;
+	}
 
 #ifdef M4U_4GBDRAM
 	gM4U_4G_DRAM_Mode = enable_4G();
